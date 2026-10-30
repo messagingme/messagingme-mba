@@ -479,6 +479,15 @@ export const schema = z.object({
   COCKPIT_URL: z.string().default('https://04311b18-58d2-4780-8c22-c9a77e7a806e.metrics.cockpit.nl-ams.scw.cloud'),
   COCKPIT_TOKEN: z.string().default(''),
   /**
+   * Les conversions de NOS publicités envoyées à Meta par la Conversions API (pixel, lot 2, `src/pub/`) : l'identifiant
+   * du pixel de Messaging Me (public) et un jeton de la Conversions API (SECRET, généré dans le Gestionnaire
+   * d'événements, posé par Julien dans le `.env.prod` de la machine des workers, seuls à envoyer : l'API réserve sans
+   * elles). Les deux posés : la fonction s'allume. Un seul : éteinte, et une ligne le dit au démarrage du worker.
+   * 🔴 Jamais de refus au démarrage (à l'inverse de la paire Stripe) : un traceur publicitaire n'arrête rien.
+   */
+  META_PIXEL_ID: z.string().default(''),
+  META_CAPI_TOKEN: z.string().default(''),
+  /**
    * Le coût Scaleway du mois dans `/ops` (refonte, lot 3) : la clé SECRÈTE d'une application IAM dédiée
    * (`ops-facturation`, `BillingReadOnly` au niveau de l'organisation, jamais `claude-code` ni `github-deploy`), posée par
    * Julien dans les secrets du conteneur de l'API, et l'organisation (pas un secret, son défaut ici). Clé vide : la carte

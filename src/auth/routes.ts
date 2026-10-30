@@ -17,6 +17,7 @@ import { marquerConnexion, type ComptesAuthDep } from './comptes';
 import { entrerParGoogle } from './entree-google';
 import { empreinteTentative, verifierTentative } from './tentatives';
 import { MIN_MOT_DE_PASSE } from '../../web/lib/partage/mot-de-passe';
+import { apresEntree, type DepsPubInscription } from '../pub/inscription';
 
 export interface AuthRouteDeps extends MfaDeps {
   /**
@@ -50,6 +51,11 @@ export interface AuthRouteDeps extends MfaDeps {
   appUrl?: string;
   /** Durée de validité d'un lien de reset (ms). */
   resetTtlMs?: number;
+  /**
+   * L'accord publicitaire coché à l'inscription, et l'inscription envoyée à Meta (pixel, lot 2, `src/pub/`). Absent :
+   * rien ne s'enregistre et rien ne part, ce qui est le sens sûr (aucun envoi sans accord).
+   */
+  pub?: DepsPubInscription;
 }
 
 /**
@@ -277,6 +283,10 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     }
     if (entree.statut === 'revoquee') return reply.code(403).send({ error: 'compte révoqué' });
     if (entree.statut !== 'ouverte') throw new Error('entrée Google sans création malgré une origine');
+    // Google a prouvé l'adresse ; la case cochée (`pub`) donne l'accord, et une identité neuve fait une inscription.
+    if (deps.pub) {
+      await apresEntree(deps.pub, { adresse: entree.identite.email, corps: req.body, nouvelle: entree.nouveau, prouvee: true, requete: req });
+    }
     if (!entree.nouveau) {
       const actifs = entree.comptes;
       const [existing, ...autres] = actifs;
@@ -348,6 +358,8 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
       const facteur = await deps.mfa.lireParCompte(userId);
       if (!facteur) throw new Error('inscription : le compte créé n’a pas d’identité');
       const etape: EtapeConnexion = { identityId: facteur.identityId, email, comptes: [{ userId, tenantId, role: 'admin' }] };
+      // L'adresse n'est pas prouvée ici : l'accord coché s'enregistre, mais son empreinte ne partira pas chez Meta.
+      if (deps.pub) await apresEntree(deps.pub, { adresse: email, corps: req.body, nouvelle: existant === undefined, prouvee: false, requete: req });
       return reply.code(201).send(await apresLeMotDePasse(deps, etape, { actif: facteur.secret !== null, obligatoire: facteur.obligatoire }));
     } catch (err) {
       if (err instanceof DuplicateEmailError) return reply.code(409).send({ error: 'un compte existe déjà avec cet email' });

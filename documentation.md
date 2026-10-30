@@ -2912,6 +2912,41 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   statistiques (`BOUNDS_CTE`, `STATS_TZ`) les messages WhatsApp du fil (un envoi de campagne y est écrit une fois) et
   les demandes de l'écran Performance (`TYPES_OUVERTURE`), fils de test exclus. Une semaine sans message n'écrit rien.
 
+### Les conversions de nos publicités : aucune sans accord, une par fait
+
+`src/pub/` (migration 0265, spec `docs/superpowers/specs/2026-10-30-pixel-meta-design.md`). Ce sont les conversions de NOS
+publicités Meta (l'acquisition de Messaging Me), envoyées par la Conversions API au pixel de Messaging Me, pas celles
+d'un client. Le pixel lui-même vit sur la vitrine (`site/site.js`), derrière une bannière, et n'envoie que `PageView`.
+
+- **Trois faits**, chacun une fois : `CompleteRegistration` (une identité NEUVE, par l'une des trois routes de
+  création : `/auth/signup`, `/auth/google`, `/oauth/consentement/google`), `NumeroConnecte` (le premier numéro
+  vérifié d'un espace, par l'une des trois filières : Cloud et application autour de l'offre de bienvenue, 360dialog
+  autour de `lierNumero`, par `puisSignaler` dans le câblage) et `Subscribe` (la première facture d'offre payée non
+  nulle, dans le traitement des abonnements Stripe). La personne d'un fait d'espace est l'admin actif le plus ancien.
+- **L'émetteur** (`creerEmetteurConversions`, construit dans le socle) réserve une ligne de `conversions_meta`, unique
+  sur `cle` (`inscription:<identité>`, `numero:<espace>`, `pro:<espace>`), qui est aussi l'`event_id` envoyé à Meta,
+  puis enfile un job `conversions-meta`. 🔴 Il ne lève jamais : une panne de sa table ou de sa file ne fait échouer ni
+  une inscription, ni une connexion de numéro, ni un webhook Stripe. 🔴 Il réserve TOUJOURS, fonction allumée ou non : le
+  journal note chaque fait à son heure, sinon un fait accompli pendant l'extinction resterait libre et partirait comme
+  neuf une fois l'accord donné. La migration 0265 a réservé en `ignore` (raison `anterieur`) les numéros et les offres
+  déjà là : pas de rattrapage pour les espaces d'avant.
+- **L'accord** vit sur l'identité (`identities.pub_consenti_le`, avec `pub_fbc` et `pub_fbp`, les identifiants de clic et
+  de navigateur que la vitrine a passés à la console, et `pub_navigateur`, le navigateur de la requête qui a donné
+  l'accord, que Meta exige pour un événement de site web). Il s'enregistre quand la case de la création de compte est cochée
+  (champ `pub` du corps, validé par `lireChampPub`), ou par l'interrupteur de « Mon compte »
+  (`/tenants/:tenantId/moi/partage-meta`), qui accorde comme il retire ; retirer efface l'accord et ses identifiants,
+  et abandonne dans la même transaction ce qui attendait.
+- **Le travail** (`creerTravailConversion`) relit AU MOMENT D'ENVOYER : la fonction allumée, l'accord (🔴 `cree_le`,
+  l'heure du fait, doit suivre `pub_consenti_le` : un fait antérieur à l'accord ne part jamais), l'âge du fait (Meta
+  refuse plus de sept jours). L'empreinte SHA-256 de l'adresse ne part que pour une adresse PROUVÉE
+  (`identities.adresse_prouvee_le`, posée par la première entrée Google) : une inscription par e-mail peut porter
+  l'adresse d'un tiers. 🔴 Pour la même raison, cette première preuve efface l'accord donné avant elle ; l'entrée Google
+  qui coche la case le réenregistre aussitôt. L'IP et le navigateur ne partent que pour l'inscription, et s'effacent de la ligne dès l'envoi fini. Le
+  jeton part dans le corps, jamais dans l'adresse. Un 429, un 5xx ou une panne réseau réessaient (5 min, puis 30 min) ;
+  un autre 4xx ou le troisième échec passent `echec`. Même prise à bail et même reprise (`conversions-meta-reprise`)
+  que les e-mails du produit. Seul le worker envoie, donc seul lui lit `META_PIXEL_ID` et `META_CAPI_TOKEN` : sans la
+  paire, une conversion est notée `ignore` (`eteint`).
+
 ### Les webhooks sortants : une tentative par job, comptée dans la ligne
 
 Deux files, branchées sur le bus des signaux (`creerEmetteur`, une destination de plus, qui n'enfile que les signaux
@@ -4192,6 +4227,7 @@ constantes du bloc `constantes` en fin de `src/config.ts` depuis le 2026-09-25 :
 | **Rétention** | `WEBHOOK_EVENTS_RETENTION_DAYS` | une réponse RGPD fausse |
 | **Paramètres commerciaux** | `EUR_PER_USD`, `CREDIT_OFFERT_MICRO_EUR` | ce qu'on facture, et ce qu'on offre (la commission vit dans la grille des offres, `src/offres/offres.ts`) |
 | **Provisionnement des clés client** | `VERCEL_API_TOKEN` + `VERCEL_TEAM_ID` | les deux vides = éteint ; une seule moitié = refus au boot (chaque création d'agent échouerait, donc plus aucun client ne pourrait en créer) |
+| **Conversions de nos publicités** | `META_PIXEL_ID` + `META_CAPI_TOKEN` (workers seulement) | les deux vides = éteint ; un seul = éteint et une ligne au démarrage du worker, jamais un refus ; l'API réserve sans elles |
 | **Recharge par Stripe** | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRIX_REFILL_5`, `_10`, `_50`, `_100` | vides = recharge fermée (un prix vide ferme sa seule offre) (la route rend 503, le webhook n'est pas monté) ; une clé sans préfixe `sk_`/`rk_` + `live_`/`test_`, ou la clé sans le secret du webhook (ou l'inverse) = refus au boot |
 
 🔴 **Le boot ÉCHOUE VITE plutôt que de dégrader en silence**, et c'est délibéré : `AUTH_SECRET` trop court en

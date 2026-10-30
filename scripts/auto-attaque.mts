@@ -319,6 +319,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
     paiements: { crediterPaiement: async () => 'espace_inconnu' },
     apresCredit: async () => undefined,
     paiementRefuse: async () => undefined,
+    signalerPro: async () => undefined,
     numero: {
       enregistrer: async () => ({ etat: 'doublon' as const }), majStatut: async () => null, alerter: async () => undefined,
       noterFinPrevue: async () => false, reprendreCampagnes: async () => undefined, inclusDansLOffre: async () => false,
@@ -415,6 +416,8 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
         },
       },
     },
+    // L'accord publicitaire (pixel, lot 2) : rien ne s'écrit, rien ne part.
+    pub: { enregistrerConsentement: async () => {}, marquerAdresseProuvee: async () => {}, signaler: async () => {} },
   } satisfies OauthRouteDeps,
   // Le formulaire de contact de la vitrine : public par nature, il n'a aucune autorité à tromper. Sa fausse autorité
   // est un envoi COUPÉ : une sonde qui l'atteindrait n'enverrait aucun courriel, même en visant une cible distante.

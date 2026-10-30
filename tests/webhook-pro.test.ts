@@ -41,6 +41,8 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     finsDuPro: [] as FinDuPro[],
     /** Les e-mails de paiement refusé demandés (lot 7). */
     paiementsRefuses: [] as Array<{ tenantId: string; offre: string; factureId: string }>,
+    /** Les conversions « Subscribe » de nos publicités (pixel, lot 2). */
+    pros: [] as Array<{ tenantId: string; montantCentimes: number; devise: string }>,
   };
   const connus = new Set(o.connus ?? []);
   const finis = new Set<string>();
@@ -50,6 +52,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     paiements: { crediterPaiement: async () => { cap.credits += 1; return 'credite'; } },
     apresCredit: async () => {},
     paiementRefuse: async (p) => { cap.paiementsRefuses.push({ tenantId: p.tenantId, offre: p.offre, factureId: p.factureId }); },
+    signalerPro: async (p) => { cap.pros.push(p); },
     numero: stripeNumeroInerte,
     pro: {
       enregistrer: async (a) => { if (o.panne !== undefined) throw o.panne; cap.enregistres.push(a); const neuf = !connus.has(a.abonnementId); connus.add(a.abonnementId); return o.issue ?? { etat: 'enregistre', tenantId: T1, nouveau: neuf }; },
@@ -327,6 +330,16 @@ describe('l’essai de 14 jours du Pro', () => {
     expect(cap.passages).toEqual([]);
     await envoyer(srv, evenement(facturePro({ id: 'in_pro_2', amount_paid: 4900, parent: essai }), 'invoice.paid'));
     expect(cap.passages).toEqual([{ tenantId: T1, arreter: true }]);
+  });
+
+  it('🔴 la conversion de nos publicités (pixel, lot 2) : un paiement réel seulement, jamais 0 € ni le prorata d’un siège', async () => {
+    const { srv, cap } = monter({ connus: ['sub_pro'] });
+    const essai = { type: 'subscription_details', subscription_details: { subscription: 'sub_pro', metadata: META_ESSAI } };
+    await envoyer(srv, evenement(facturePro({ amount_paid: 0, parent: essai }), 'invoice.paid'));
+    await envoyer(srv, evenement(facturePro({ id: 'in_pro_3', amount_paid: 1200, billing_reason: 'subscription_update', parent: essai }), 'invoice.paid'));
+    expect(cap.pros).toEqual([]);
+    await envoyer(srv, evenement(facturePro({ id: 'in_pro_2', amount_paid: 4900, parent: essai }), 'invoice.paid'));
+    expect(cap.pros).toEqual([{ tenantId: T1, montantCentimes: 4900, devise: 'EUR' }]);
   });
 
   it('🔴 un code promo à 100 % après l’essai : la facture de CYCLE à 0 € payée arrête aussi le numéro seul ; celle de la création, non', async () => {

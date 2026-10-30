@@ -280,6 +280,7 @@ describe('les préférences d’e-mails de la personne connectée', () => {
           desinscrire: async (_i, c) => { etat.desinscriptions.add(c); },
           reabonner: async (_i, c) => { etat.desinscriptions.delete(c); },
         },
+        partage: { consentement: async () => null, poserConsentement: async () => {} },
       },
     });
     const jeton = await signSession({ userId: 'u1', tenantId: 't1', role: 'agent' }, SECRET_SESSIONS);
@@ -293,6 +294,40 @@ describe('les préférences d’e-mails de la personne connectée', () => {
     // L'espace de l'adresse doit être celui de la session : un autre espace est refusé avant toute lecture.
     expect((await server.inject({ method: 'GET', url: '/tenants/t2/moi/emails', headers: h })).statusCode).toBe(403);
     expect(demandes.every((d) => d === 't1/u1')).toBe(true);
+    await server.close();
+  });
+});
+
+describe('l’accord publicitaire de la personne connectée (pixel, lot 2)', () => {
+  const personne: UserAuthStore = { findIdentity: async (): Promise<EmailIdentity | null> => null };
+
+  it('🔴 lire, accorder, retirer ; un corps invalide est refusé, un autre espace aussi, avant toute écriture', async () => {
+    let depuis: Date | null = null;
+    const poses: Array<{ identite: string; accord: boolean }> = [];
+    const server = buildServer({
+      queue: new FakeQueue(), auth: { users: personne, secret: SECRET_SESSIONS },
+      emailsMoi: {
+        store: {
+          identiteDuCompte: async (_t, u) => (u === 'u1' ? IDENTITE : null),
+          preferences: async () => null, poserLangue: async () => {}, desinscrire: async () => {}, reabonner: async () => {},
+        },
+        partage: {
+          consentement: async () => ({ accord: depuis !== null, depuis }),
+          poserConsentement: async (identite, accord) => { poses.push({ identite, accord }); depuis = accord ? new Date('2026-11-02T10:00:00Z') : null; },
+        },
+      },
+    });
+    const jeton = await signSession({ userId: 'u1', tenantId: 't1', role: 'agent' }, SECRET_SESSIONS);
+    const h = { authorization: `Bearer ${jeton}` };
+    const url = '/tenants/t1/moi/partage-meta';
+    expect((await server.inject({ method: 'GET', url, headers: h })).json()).toEqual({ accord: false, depuis: null });
+    expect((await server.inject({ method: 'PUT', url, headers: h, payload: { accord: true } })).json())
+      .toEqual({ accord: true, depuis: '2026-11-02T10:00:00.000Z' });
+    expect((await server.inject({ method: 'PUT', url, headers: h, payload: { accord: false } })).json()).toEqual({ accord: false, depuis: null });
+    expect((await server.inject({ method: 'PUT', url, headers: h, payload: { accord: 'oui' } })).statusCode).toBe(400);
+    expect((await server.inject({ method: 'PUT', url, headers: h, payload: { accord: true, identityId: 'autre' } })).statusCode).toBe(400);
+    expect((await server.inject({ method: 'PUT', url: '/tenants/t2/moi/partage-meta', headers: h, payload: { accord: true } })).statusCode).toBe(403);
+    expect(poses).toEqual([{ identite: IDENTITE, accord: true }, { identite: IDENTITE, accord: false }]);
     await server.close();
   });
 });

@@ -5,6 +5,7 @@ import { DuplicateEmailError } from '../src/user/store.pg';
 import type { ComptesAuthDep } from '../src/auth/comptes';
 import type { AuthRouteDeps } from '../src/auth/routes';
 import type { GoogleIdentity } from '../src/auth/google';
+import { fauxPub } from './pub-faux';
 
 const SECRET = 'test-secret';
 const j = { headers: { 'content-type': 'application/json' } };
@@ -214,6 +215,38 @@ describe('POST /auth/google', () => {
     const { server } = app({ verifyGoogle: undefined, comptes: { getByEmail: undefined } });
     const res = await server.inject({ method: 'POST', url: '/auth/google', ...j, payload: { idToken: 'GOOD' } });
     expect(res.statusCode).toBe(503);
+    await server.close();
+  });
+});
+
+describe('POST /auth/google : l’adresse prouvée et l’accord coché (pixel, lot 2)', () => {
+  it('🔴 un compte neuf avec la case : prouvée, accord, inscription ; un compte existant sans la case : prouvée seulement', async () => {
+    const p = fauxPub();
+    const { server } = app({ pub: p.deps });
+    const neuf = await server.inject({ method: 'POST', url: '/auth/google', ...j, payload: { idToken: 'NEW', pub: { accord: true } } });
+    expect(neuf.statusCode).toBe(201);
+    expect(p.notes).toEqual(['prouvee new@x.fr', 'accord new@x.fr fbc=- fbp=-', 'inscription new@x.fr ip=127.0.0.1 navigateur=lightMyRequest']);
+    p.notes.length = 0;
+    const connu = await server.inject({ method: 'POST', url: '/auth/google', ...j, payload: { idToken: 'GOOD' } });
+    expect(connu.statusCode).toBe(200);
+    expect(p.notes).toEqual(['prouvee known@x.fr']);
+    await server.close();
+  });
+
+  it('un compte existant qui coche : l’accord, sans inscription', async () => {
+    const p = fauxPub();
+    const { server } = app({ pub: p.deps });
+    await server.inject({ method: 'POST', url: '/auth/google', ...j, payload: { idToken: 'GOOD', pub: { accord: true } } });
+    expect(p.notes).toEqual(['prouvee known@x.fr', 'accord known@x.fr fbc=- fbp=-']);
+    await server.close();
+  });
+
+  it('🔴 un jeton Google non vérifié ne prouve rien et n’enregistre rien', async () => {
+    const p = fauxPub();
+    const { server } = app({ pub: p.deps });
+    const res = await server.inject({ method: 'POST', url: '/auth/google', ...j, payload: { idToken: 'UNVERIFIED', pub: { accord: true } } });
+    expect(res.statusCode).toBe(401);
+    expect(p.notes).toEqual([]);
     await server.close();
   });
 });

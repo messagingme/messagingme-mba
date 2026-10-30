@@ -57,6 +57,11 @@ export interface DepsTraitementAbonnements {
    * facture, et chaque essai raté redonne un `invoice.payment_failed`. Ne lève jamais (`creerPaiementRefuse`).
    */
   paiementRefuse(p: { tenantId: string; offre: 'pro' | 'numero'; factureId: string }): Promise<void>;
+  /**
+   * La conversion de nos publicités (pixel, lot 2, `src/pub/`) : le premier paiement RÉEL de l'offre d'un espace. Appelé à
+   * chaque facture payée non nulle, rejeux compris : la réservation en garde une par espace. Ne lève jamais.
+   */
+  signalerPro(p: { tenantId: string; montantCentimes: number; devise: string }): Promise<void>;
   now?: () => number;
 }
 
@@ -104,6 +109,8 @@ const factureSchema = z.object({
   lines: z.object({ data: z.array(z.object({ period: z.object({ end: z.number().int() }).optional() })) }).optional(),
   /** Le montant réellement payé, en centimes : 0 pour la facture qui ouvre un essai (spec offres v2). */
   amount_paid: z.number().int().optional(),
+  /** La devise de la facture, en minuscules chez Stripe (`eur`). */
+  currency: z.string().optional(),
   /** `subscription_create` (l'essai qui s'ouvre), `subscription_cycle` (une période payée, après l'essai), etc. */
   billing_reason: z.string().nullable().optional(),
 });
@@ -382,6 +389,12 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         periodicite: meta.data.periodicite ?? 'mois',
         periodeFin: finFacture,
       }, estEssai(meta.data) && !payeeNonNulle);
+    }
+    // La conversion de nos publicités : un paiement RÉEL, jamais la facture à 0 € d'un essai ou d'un code promo à 100 %, ni
+    // le prorata d'un siège. Après l'enregistrement : le fait suit le paiement qu'il raconte.
+    const montant = lu.data.amount_paid ?? 0;
+    if (montant > 0 && lu.data.billing_reason !== 'subscription_update') {
+      await deps.signalerPro({ tenantId: paye?.tenantId ?? meta.data.tenant_id, montantCentimes: montant, devise: (lu.data.currency ?? 'eur').toUpperCase() });
     }
     return ACQUITTE;
   }

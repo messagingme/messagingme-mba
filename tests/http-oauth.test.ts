@@ -151,6 +151,8 @@ function monter(o: { publicApiUrl?: string; fiches?: Record<string, ClientResolu
   // Lot 15 : les fiches d'identité connues de ce montage (aucune requête sortante), et les clients enregistrés.
   const fichesLues: string[] = [];
   const enregistres = new Map<string, ClientResolu>();
+  // L'accord publicitaire (pixel, lot 2) : ce que la route a demandé d'écrire et de signaler, dans l'ordre.
+  const pubs: string[] = [];
   const deps: OauthRouteDeps & OauthConsentementRouteDeps = {
     store: magasin,
     comptes: {
@@ -188,6 +190,11 @@ function monter(o: { publicApiUrl?: string; fiches?: Record<string, ClientResolu
           return { clientId, creeLe: new Date('2026-10-09T12:00:00.000Z') };
         },
       },
+    },
+    pub: {
+      enregistrerConsentement: async (adresse, p) => { pubs.push(`accord ${adresse} ${p.fbc ?? '-'}`); },
+      marquerAdresseProuvee: async (adresse) => { pubs.push(`prouvee ${adresse}`); },
+      signaler: async (fait) => { pubs.push(`signal ${fait.evenement}`); },
     },
   };
   const mcp: CablageMcp = {
@@ -250,7 +257,7 @@ function monter(o: { publicApiUrl?: string; fiches?: Record<string, ClientResolu
       mcp,
     },
   });
-  return { server, magasin, comptes, audits, crees, connexions, fichesLues, enregistres };
+  return { server, magasin, comptes, audits, crees, connexions, fichesLues, enregistres, pubs };
 }
 
 type Serveur = ReturnType<typeof monter>['server'];
@@ -366,6 +373,23 @@ describe('/oauth/authorize', () => {
       expect(vers.searchParams.get('iss')).toBe(BASE);
     }
     await server.close();
+  });
+});
+
+describe('l’accord publicitaire coché sur /autoriser (pixel, lot 2)', () => {
+  it('🔴 une adresse neuve avec la case : prouvée, accord enregistré, inscription signalée ; sans la case, prouvée seulement', async () => {
+    const { server, pubs } = monter();
+    const demande = await demander(server);
+    const avec = await server.inject({
+      method: 'POST', url: '/oauth/consentement/google', headers: json,
+      payload: { demande, idToken: 'G:neuve@x.fr', pub: { accord: true, fbc: 'fb.1.1793300000000.essai' } },
+    });
+    expect(avec.statusCode, avec.body).toBe(200);
+    expect(pubs).toEqual(['prouvee neuve@x.fr', 'accord neuve@x.fr fb.1.1793300000000.essai', 'signal CompleteRegistration']);
+    pubs.length = 0;
+    const sans = await parGoogle(server, demande, 'G:admin@x.fr');
+    expect(sans.statusCode).toBe(200);
+    expect(pubs).toEqual(['prouvee admin@x.fr']);
   });
 });
 

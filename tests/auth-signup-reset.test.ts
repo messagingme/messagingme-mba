@@ -8,6 +8,7 @@ import type { ComptesAuthDep } from '../src/auth/comptes';
 import type { AuthRouteDeps } from '../src/auth/routes';
 import type { AuthUser, EmailIdentity } from '../src/auth/store';
 import { MfaEnMemoire, identiteDe, passerLeSecondFacteur } from './mfa';
+import { fauxPub } from './pub-faux';
 
 const SECRET = 'test-secret';
 const KNOWN_HASH = hashPasswordSync('current-pass-123');
@@ -249,6 +250,55 @@ describe('🔴 POST /auth/signup avec une adresse DÉJÀ connue', () => {
     const res = await server.inject(inscrire('nouvelle@x.fr', 'motdepasse-longue'));
     expect(res.statusCode).toBe(503);
     expect(cap.created).toEqual([]);
+    await server.close();
+  });
+});
+
+describe('POST /auth/signup : l’accord publicitaire coché (pixel, lot 2)', () => {
+  const inscrire = (server: ReturnType<typeof app>['server'], email: string, pub?: unknown, password = 'motdepasse-longue') => server.inject({
+    method: 'POST', url: '/auth/signup',
+    headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7', 'user-agent': 'Navigateur/1.0' },
+    payload: { workspaceName: 'Mon Espace', email, password, ...(pub === undefined ? {} : { pub }) },
+  });
+
+  it('🔴 case cochée sur une identité neuve : l’accord, puis l’inscription avec l’IP et le navigateur ; jamais d’adresse prouvée', async () => {
+    const p = fauxPub();
+    const { server } = app({ pub: p.deps });
+    const res = await inscrire(server, 'neuve@x.fr', { accord: true, fbc: 'fb.1.1793300000000.essai' });
+    expect(res.statusCode).toBe(201);
+    expect(p.notes).toEqual(['accord neuve@x.fr fbc=fb.1.1793300000000.essai fbp=-', 'inscription neuve@x.fr ip=203.0.113.7 navigateur=Navigateur/1.0']);
+    await server.close();
+  });
+
+  it('🔴 sans la case, ou avec un accord qui n’est pas vrai : rien ne s’écrit, rien ne part', async () => {
+    const p = fauxPub();
+    const { server } = app({ pub: p.deps });
+    expect((await inscrire(server, 'a@x.fr')).statusCode).toBe(201);
+    expect((await inscrire(server, 'b@x.fr', { accord: 'oui' })).statusCode).toBe(201);
+    expect(p.notes).toEqual([]);
+    await server.close();
+  });
+
+  it('une identité existante (son mot de passe) qui coche : l’accord, sans inscription', async () => {
+    const p = fauxPub();
+    const { server } = app({ pub: p.deps });
+    const res = await inscrire(server, 'deja@x.fr', { accord: true }, 'current-pass-123');
+    expect(res.statusCode).toBe(201);
+    expect(p.notes).toEqual(['accord deja@x.fr fbc=- fbp=-']);
+    await server.close();
+  });
+
+  it('un fbc mal formé est omis, l’accord reste', async () => {
+    const p = fauxPub();
+    const { server } = app({ pub: p.deps });
+    await inscrire(server, 'c@x.fr', { accord: true, fbc: '<script>', fbp: 'fb.1.1793300000000.42' });
+    expect(p.notes[0]).toBe('accord c@x.fr fbc=- fbp=fb.1.1793300000000.42');
+    await server.close();
+  });
+
+  it('🔴 un accord qui ne s’écrit pas (base en panne) ne fait pas échouer l’inscription', async () => {
+    const { server } = app({ pub: fauxPub({ leve: true }).deps });
+    expect((await inscrire(server, 'd@x.fr', { accord: true })).statusCode).toBe(201);
     await server.close();
   });
 });

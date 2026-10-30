@@ -7,7 +7,7 @@
  * Les files travaillées par le worker. `analyze-conversation` et `push-analysis` ne sont enregistrées que si la
  * fonction est activée, mais la file existe côté /ops même désactivée : on les liste inconditionnellement.
  */
-export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm'] as const;
+export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta'] as const;
 
 /**
  * Le nom de la DLQ d'une file, défini une seule fois : `PgBossQueue.ensure()` l'importe pour la créer, donc le nom
@@ -61,6 +61,8 @@ export const QUEUE_POLLING_SECONDS: Record<(typeof BASE_QUEUES)[number], number>
   // Les premiers messages de la filière application (2026-10-23) : chacun attend son créneau, espacé d'au moins 30 s ;
   // quelques secondes de plus ne se ressentent pas.
   'application-premier-message': 5,
+  // Les conversions de nos publicités envoyées à Meta (pixel, lot 2) : personne n'attend, Meta accepte sept jours.
+  'conversions-meta': 60,
 };
 
 /**
@@ -91,6 +93,7 @@ export const FILES_NOTIFIEES: Record<(typeof BASE_QUEUES)[number], boolean> = {
   'shopify-oubli-modele': false, // le ménage des modèles remplacés, différé d'un quart d'heure : personne n'attend (2026-10-23)
   'shopify-preuve-utm': false, // la preuve par UTM d'une vente, relue 30 minutes après la commande : personne n'attend (2026-10-28)
   'application-premier-message': false, // un premier message part à son créneau (`startAfter`), qu'aucun réveil n'avance (2026-10-23)
+  'conversions-meta': false, // une conversion de nos publicités : Meta l'accepte pendant sept jours, personne n'attend (pixel, lot 2)
 };
 
 /**

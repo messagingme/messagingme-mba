@@ -92,6 +92,9 @@ import { creerAlerteCreditEpuise } from './repondeur/alerte-credit';
 import { creerEnvoisResend } from './support/resend';
 import { PgEmailsProduitStore } from './emails-produit/store.pg';
 import { creerEmetteurEmails, FILE_EMAILS_PRODUIT } from './emails-produit/emission';
+import { PgConversionsMetaStore } from './pub/conversions-meta.pg';
+import { FILE_CONVERSIONS_META } from './pub/conversions-meta';
+import { creerEmetteurConversions } from './pub/emission';
 import { creerAlerteCreditBas, creerPaiementRefuse, creerPrevenirEquipe } from './emails-produit/alertes';
 import { composerPassageEquipe } from './analysis/push-handoff';
 import { PgOffresStore } from './offres/offre.pg';
@@ -293,6 +296,16 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     enfiler: (job) => queue.enqueue(FILE_EMAILS_PRODUIT, job, { groupId: job.tenantId }),
   });
   const envoisResend = config.RESEND_API_KEY ? creerEnvoisResend(config.RESEND_API_KEY, config.SUPPORT_FROM) : null;
+  /**
+   * LES CONVERSIONS DE NOS PUBLICITÉS (pixel, lot 2, `src/pub/`) : l'API réserve le fait (inscription, numéro connecté,
+   * Pro payé) et enfile un job `conversions-meta`, que le worker envoie à Meta s'il a ses variables. La réservation ne
+   * dépend d'aucune configuration : le journal note chaque fait à son heure (`creerEmetteurConversions`).
+   */
+  const conversionsMeta = new PgConversionsMetaStore(pool);
+  const emetteurConversions = creerEmetteurConversions({
+    reserver: (f) => conversionsMeta.reserver(f),
+    enfiler: (job) => queue.enqueue(FILE_CONVERSIONS_META, job),
+  });
   /** Les pages de la console vers lesquelles les e-mails du produit renvoient. */
   const console_ = config.APP_URL.trim().replace(/\/+$/, '');
   const pageCredit = `${console_}/parametres/credit`;
@@ -675,6 +688,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     wabaDeLEspace, numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, numeroBloqueDeLEspace, creditWhatsappBloque, ajustementCreditWhatsapp, conditionsCreditWhatsapp, estimerCreditCampagne, esCredentialsStore, metaCredentials, metaFactory, listeDeLAgent,
     connexionsPub, connexionPub, publicites, clientPubs, clientCreationPubs, workflowRuntime, fil, alerteCredit, offres, quotaModeles,
     emailsProduit, emetteurEmails, envoisResend, paiementRefuse, prevenirEquipe, lienConversation,
+    conversionsMeta, emetteurConversions,
     comptesApplication, clientApplication, envoiApplication,
     magasinObjets,
   };

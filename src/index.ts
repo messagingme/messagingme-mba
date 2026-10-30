@@ -5,6 +5,8 @@ import { buildServer } from './server';
 import { config } from './config';
 import { adressesPubliques } from './lib/adresses-publiques';
 import { lireJetonDesinscription } from './emails-produit/desinscription';
+import type { DepsPubInscription } from './pub/inscription';
+import { puisSignaler } from './pub/declencheurs';
 import { surveillerOps } from './ops/tentatives';
 import { sendTelegram } from './ops/telegram';
 import { creerAlertesReserve } from './http/numero-fourni';
@@ -305,8 +307,26 @@ async function main(): Promise<void> {
     clientPubs, clientCreationPubs, workflowRuntime, clesGateway, fil, listeDeLAgent, offres, quotaModeles,
     emailsProduit, envoisResend, paiementRefuse, emetteurEmails, envoiApplication, comptesApplication, clientApplication,
     lienConversation,
-    magasinObjets,
+    magasinObjets, conversionsMeta, emetteurConversions,
   } = construireSocle({ pool, queue, config });
+
+  /**
+   * L'accord publicitaire coché à la création d'un compte, et les conversions de nos publicités (pixel, lot 2,
+   * `src/pub/`) : les trois routes de création (`/auth/signup`, `/auth/google`, `/oauth/consentement/google`)
+   * partagent ces dépendances. Fonction éteinte : l'accord s'enregistre quand même (il vaut pour plus tard), mais
+   * l'émetteur ne réserve rien.
+   */
+  const pubInscription: DepsPubInscription = {
+    enregistrerConsentement: (adresse, pub, navigateur) => conversionsMeta.enregistrerConsentement(adresse, pub, navigateur),
+    marquerAdresseProuvee: (adresse) => conversionsMeta.marquerAdresseProuvee(adresse),
+    signaler: (f) => emetteurConversions.signaler(f),
+  };
+  /**
+   * L'activation d'un espace, la graine de nos look-alike : son premier numéro vérifié, par l'une des trois filières
+   * (Cloud, application, 360dialog). Signalé APRÈS le geste qui existe (`puisSignaler`), qu'une offre ait été servie ou
+   * non ; la réservation fait d'un geste répété un seul fait.
+   */
+  const signalerNumero = (tenantId: string): Promise<void> => emetteurConversions.signaler({ evenement: 'NumeroConnecte', tenantId });
 
   /**
    * La clé de chiffrement est-elle utilisable ? Mesuré UNE fois, avec la vraie fonction de chiffrement et non une copie
@@ -634,7 +654,10 @@ async function main(): Promise<void> {
   const rattachement360: DepsRattachement360 = {
     config: (cle) => new Config360dialogClient(cle),
     // Un numéro relié par 360dialog n'est jamais en coexistence chez nous : le relier en sort un numéro qui y était.
-    lierNumero: (input) => esCredentialsStore.linkTenant({ ...input, coexistence: false }),
+    lierNumero: puisSignaler(
+      (input) => esCredentialsStore.linkTenant({ ...input, coexistence: false }),
+      (input) => signalerNumero(input.tenantId),
+    ),
     saveCredentials: (waba, tenant, enc, pin, fournisseur) => esCredentialsStore.saveCredentials(waba, tenant, enc, pin, fournisseur),
     chiffrer: (cle) => encryptSecret(cle, config.ENCRYPTION_KEY),
     destination: (phoneNumberId) => config.D360_WEBHOOK_SECRET ? {
@@ -785,11 +808,11 @@ async function main(): Promise<void> {
       return n ? { id: n.id, numero: n.numero } : null;
     },
     // Une panne n'empêche jamais la page de dire « relié » : l'offre encore due se sert à la lecture suivante.
-    offrirCredit: async (tenant) => {
+    offrirCredit: puisSignaler(async (tenant: string) => {
       try { await offrirCreditApplication(tenant, ''); } catch (err) {
         journaliser('error', 'credit_offert_application_non_ecrit', { err: texteDe(err), tenantId: tenant });
       }
-    },
+    }, signalerNumero),
     qrEnImage: async (texte) => `data:image/svg+xml;base64,${Buffer.from(await qrSvg(texte)).toString('base64')}`,
   };
   /** L'abonnement du numéro fourni (lot 3c, livraison B, migration 0214) : écrit par le webhook, lu par la page et Claude. */
@@ -1727,6 +1750,7 @@ async function main(): Promise<void> {
       googleClientId: config.GOOGLE_CLIENT_ID,
       verifyGoogle: (idToken) => verifyGoogleIdToken(idToken, config.GOOGLE_CLIENT_ID),
       ...(sendAuthEmail ? { sendEmail: sendAuthEmail } : {}),
+      pub: pubInscription,
       // Le second facteur : exigé des admins d'un espace qui l'exige (`facteurExigeSql`), à la connexion, à l'inscription
       // et à l'invitation ; toujours exigé de l'exploitation.
       mfa: mfaStore,
@@ -1980,6 +2004,9 @@ async function main(): Promise<void> {
         paiements: stripeStore,
         // L'e-mail aux admins d'un renouvellement refusé (lot 7), une fois par facture.
         paiementRefuse,
+        // La conversion de nos publicités (pixel, lot 2) : le premier paiement réel de l'offre, une fois par espace.
+        signalerPro: (p: { tenantId: string; montantCentimes: number; devise: string }) =>
+          emetteurConversions.signaler({ evenement: 'Subscribe', tenantId: p.tenantId, valeurCentimes: p.montantCentimes, devise: p.devise }),
         // 🔴 Le plafond de la clé de modèle suit l'achat, exactement comme après une recharge par `/ops` : sinon le
         // client paie et Vercel le coupe au plafond d'avant. La route répond sans l'attendre : l'arrêt du processus,
         // lui, l'attend (`travauxEnVol`), pour ne pas couper l'appel à Vercel en route.
@@ -2555,12 +2582,12 @@ async function main(): Promise<void> {
          * qu'il ait consommé ce crédit), EN ARRIÈRE-PLAN et suivi par l'arrêt propre : Vercel peut prendre 30 s, que
          * l'inscription n'a pas à attendre (`creerOffreDeBienvenue`).
          */
-        offrirCredit: creerOffreDeBienvenue({
+        offrirCredit: puisSignaler(creerOffreDeBienvenue({
           offrir: (tenant: string, phoneNumberId: string) => esCredentialsStore.offrirCredit(tenant, phoneNumberId),
           remonterPlafond: provisionCle ? (tenant: string) => remonterPlafondApresRecharge(provisionCle, tenant) : null,
           travaux: travauxEnVol,
           journal: (msg, err, tenant) => { journaliser('error', msg, { err, tenantId: tenant, pour: 'credit_offert' }); },
-        }),
+        }), (tenant: string) => signalerNumero(tenant)),
         // 🔴 Chiffrement au repos ici (la route ne voit jamais le stockage) : AES-GCM avec ENCRYPTION_KEY,
         // pour le token et le PIN 2FA du numéro (un secret Meta).
         saveCredentials: (waba: string, tenant: string, token: string, pin: string | null) =>
@@ -3102,7 +3129,8 @@ async function main(): Promise<void> {
       lire: (jeton) => lireJetonDesinscription(jeton, config.AUTH_SECRET),
       desinscrire: (identityId, categorie) => emailsProduit.desinscrire(identityId, categorie),
     },
-    emailsMoi: { store: emailsProduit },
+    // Les préférences d'e-mails et l'accord publicitaire (pixel, lot 2) de la personne connectée.
+    emailsMoi: { store: emailsProduit, partage: conversionsMeta },
     // La réserve de numéros fournis (lot 3a). Sans clé DIDWW ou sans trunk, la déclaration rend 503 et la lecture marche.
     opsNumeros: {
       numeros: numerosFournis,
@@ -3183,6 +3211,7 @@ async function main(): Promise<void> {
       audit: auditSink,
       // Lot 15 : les autres clients MCP, par leur fiche d'identité (requête sortante gardée) ou par l'enregistrement.
       clients: { fiches: lecteurDeFichesProduction(), enregistres: new PgOauthClientsStore(pool) },
+      pub: pubInscription,
     },
     oauthConsentement: {
       store: oauthStore, comptes: userStore, secret: config.AUTH_SECRET, audit: auditSink,

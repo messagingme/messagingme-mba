@@ -15,6 +15,7 @@ import { nomAffichable } from '../oauth/fiche-client';
 import type { PgOauthClientsStore } from '../oauth/clients.pg';
 import { journaliser } from '../lib/journal';
 import { ipIndicative } from '../ops/tentatives';
+import { apresEntree, type DepsPubInscription } from '../pub/inscription';
 import { formeDeDefi, verifierPkce } from '../oauth/pkce';
 import {
   DUREE_ACCES_S, DUREE_RENOUVELLEMENT_INACTIF_S, DUREE_RENOUVELLEMENT_MAX_S, formeDeJeton, nouveauJeton,
@@ -56,6 +57,8 @@ export interface OauthRouteDeps extends DepsAutoriser {
   appUrl: string;
   /** Lot 15 : les fiches d'identité (récupérées avec nos gardes) et les clients enregistrés. */
   clients: DepsClients & { enregistres: Pick<PgOauthClientsStore, 'lire' | 'enregistrer'> };
+  /** L'accord publicitaire coché sur `/autoriser`, et l'inscription envoyée à Meta (pixel, lot 2, `src/pub/`). */
+  pub: DepsPubInscription;
 }
 
 /** Les paramètres de `/oauth/authorize` sans lesquels on ne sait pas vers qui rediriger : refusés sans redirection. */
@@ -394,6 +397,7 @@ export function registerOauth(app: FastifyInstance, deps: OauthRouteDeps, base: 
       if (entree.statut === 'invalide') return reply.code(401).send({ error: 'jeton Google invalide' });
       if (entree.statut === 'revoquee') return reply.code(403).send({ error: 'compte révoqué' });
       if (entree.statut !== 'ouverte') throw new Error('entrée Google sans création malgré une origine');
+      await apresEntree(deps.pub, { adresse: entree.identite.email, corps: req.body, nouvelle: entree.nouveau, prouvee: true, requete: req });
       const choix = await signChoixOauth({ email: entree.identite.email, demande: sha256Hex(lu.data.demande) }, deps.secret);
       return reply.code(200).send({
         choix,

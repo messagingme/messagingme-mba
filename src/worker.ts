@@ -138,6 +138,8 @@ import { balayerAccompagnement, balayerRecap } from './emails-produit/accompagne
 import { PgOffresStore } from './offres/offre.pg';
 import { moisDeParis } from './offres/compteurs';
 import { FILE_EMAILS_PRODUIT } from './emails-produit/emission';
+import { FILE_CONVERSIONS_META } from './pub/conversions-meta';
+import { creerClientConversions, creerTravailConversion, reprendreLesConversions } from './pub/envoi';
 import { adressesPubliques } from './lib/adresses-publiques';
 import { creerPierreTombale } from './ops/espaces-supprimes.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
@@ -233,7 +235,7 @@ export async function demarrerWorker(): Promise<void> {
     journalAppels, credits, agentSources, agentRequetes, essaisStore, depotAide, metaFactory, connexionsPub, connexionPub,
     publicites, clientPubs, clientCreationPubs, workflowRuntime, clesGateway, fil, listeDeLAgent, alerteCredit, numeroBloqueDeLEspace, creditWhatsappBloque, ajustementCreditWhatsapp, estimerCreditCampagne, offres,
     emailsProduit, emetteurEmails, envoisResend, prevenirEquipe, lienConversation, quotaModeles, comptesApplication, clientApplication,
-    magasinObjets,
+    magasinObjets, conversionsMeta,
   } = construireSocle({ pool, queue, config });
   // La commission sur le crédit IA, celle de l'offre de l'espace (lot 6, C) : le cerveau des tours d'agent la lit.
   const commissionDeLEspace = commissionPour(offres);
@@ -1066,6 +1068,33 @@ export async function demarrerWorker(): Promise<void> {
     if (n > 0) console.log(`emails-produit-reprise: ${n} envoi(s) remis en file`);
     return n;
   }, { immediat: true, enEchec: echecDeBalayage('emails-produit-reprise', 'sweeper:emails-produit-reprise') });
+  /**
+   * Les conversions de nos publicités (pixel, lot 2, `src/pub/`) : un job = une tentative d'une conversion du journal,
+   * qui relit l'accord de la personne au moment d'envoyer. Même moteur de réessai que les e-mails : la reprise, toutes
+   * les cinq minutes. Le worker est SEUL à envoyer, donc seul à lire `META_PIXEL_ID` et `META_CAPI_TOKEN` : sans la
+   * paire, chaque conversion est notée `ignore` (`eteint`), et la paire incomplète le dit au démarrage, sans refus.
+   */
+  const conversionsActives = config.META_PIXEL_ID !== '' && config.META_CAPI_TOKEN !== '';
+  if (!conversionsActives && (config.META_PIXEL_ID !== '' || config.META_CAPI_TOKEN !== '')) {
+    // eslint-disable-next-line no-console
+    console.warn('conversions-meta: éteintes, META_PIXEL_ID et META_CAPI_TOKEN se posent ensemble');
+  }
+  const enfilerConversion = (job: { conversionId: string; tentative: number }) => queue.enqueue(FILE_CONVERSIONS_META, job);
+  await queue.work(FILE_CONVERSIONS_META, creerTravailConversion({
+    pourEnvoi: (id) => conversionsMeta.pourEnvoi(id),
+    prendre: (id, tentative) => conversionsMeta.prendre(id, tentative),
+    noterEnvoye: (id) => conversionsMeta.noterEnvoye(id),
+    noterEchec: (id, raison, le) => conversionsMeta.noterEchec(id, raison, le),
+    noterIgnore: (id, raison) => conversionsMeta.noterIgnore(id, raison),
+    envoyer: conversionsActives ? creerClientConversions({ pixelId: config.META_PIXEL_ID, jeton: config.META_CAPI_TOKEN, version: config.META_GRAPH_VERSION }) : null,
+    urlConsole: config.APP_URL,
+  }));
+  taches.programmer('conversions-meta-reprise', 5 * 60_000, async () => {
+    const n = await reprendreLesConversions({ aReprendre: (l) => conversionsMeta.aReprendre(l), enfiler: enfilerConversion });
+    // eslint-disable-next-line no-console
+    if (n > 0) console.log(`conversions-meta-reprise: ${n} conversion(s) remise(s) en file`);
+    return n;
+  }, { immediat: true, enEchec: echecDeBalayage('conversions-meta-reprise', 'sweeper:conversions-meta-reprise') });
   /**
    * Les limites de la Free et du Pro (lot 7, livraison B ; le Pro depuis la spec offres v2) : à 80 % puis à 100 % des
    * modèles du mois (une fois par mois, la Free seule) et des contacts (une fois par franchissement, migration 0235), un

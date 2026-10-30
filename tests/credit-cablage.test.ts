@@ -32,7 +32,8 @@ describe('le câblage du crédit dans l’API', () => {
   });
 
   it('🔴 l’offre de bienvenue remonte le plafond de la clé, en arrière-plan suivi par l’arrêt', () => {
-    expect(api).toMatch(/offrirCredit: creerOffreDeBienvenue\(\{[\s\S]*?remonterPlafond: provisionCle \? \(tenant: string\) => remonterPlafondApresRecharge\(provisionCle, tenant\) : null,\s*travaux: travauxEnVol,/);
+    // L'offre peut être enrobée par le signal de nos publicités (`puisSignaler`, pixel, lot 2) : elle reste la même.
+    expect(api).toMatch(/offrirCredit: (?:puisSignaler\()?creerOffreDeBienvenue\(\{[\s\S]*?remonterPlafond: provisionCle \? \(tenant: string\) => remonterPlafondApresRecharge\(provisionCle, tenant\) : null,\s*travaux: travauxEnVol,/);
   });
 
   it('🔴 la liaison n’offre rien : elle délègue au dépôt, sans crédit ni plafond', () => {

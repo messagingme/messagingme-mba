@@ -37,6 +37,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrement; livemode?: 
     paiements: { crediterPaiement: async () => { cap.credits += 1; return 'credite'; } },
     apresCredit: async () => {},
     paiementRefuse: async (p) => { cap.paiementsRefuses.push(p); },
+    signalerPro: async () => {},
     numero: {
       enregistrer: async (a) => {
         if (o.enregistrerLeve) throw o.enregistrerLeve;

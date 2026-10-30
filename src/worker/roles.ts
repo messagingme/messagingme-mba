@@ -52,6 +52,8 @@ export const FILES_PAR_ROLE: Record<NomDeFile, Appartenance> = {
   'evenements-envoi': 'principal',
   // Les e-mails du produit (lot 7) : une alerte de crédit ou de numéro attend derrière.
   'emails-produit': 'principal',
+  // Les conversions de nos publicités envoyées à Meta (pixel, lot 2) : à côté des e-mails, rien d'analytique.
+  'conversions-meta': 'principal',
   // Les messages reçus par la filière application (2026-10-22) : un client attend la réponse derrière.
   'application-entrant': 'principal',
   // Les premiers messages de la filière application (2026-10-23) : une commande payée, un panier, attendent derrière.
@@ -101,6 +103,7 @@ export const TACHES_PAR_ROLE: Record<string, Appartenance> = {
   'compteurs-debit': 'principal',
   'consommation-vercel': 'principal',
   'emails-produit-reprise': 'principal',
+  'conversions-meta-reprise': 'principal',
   'emails-produit-limites': 'principal',
   'emails-produit-accompagnement': 'principal',
   'files-echec': 'principal',

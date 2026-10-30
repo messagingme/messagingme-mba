@@ -13,6 +13,7 @@ import { FILE_EMAILS_PRODUIT } from '../src/emails-produit/emission';
 import { FILE_OUBLI_MODELE } from '../src/shopify/preparation';
 import { FILE_PREMIER_MESSAGE } from '../src/application/premier-message';
 import { FILE_PREUVE_UTM } from '../src/shopify/preuve-utm';
+import { FILE_CONVERSIONS_META } from '../src/pub/conversions-meta';
 
 /**
  * Garde-fou anti-drift : /ops, pg-boss et le worker doivent voir la MÊME liste de files. Si on ajoute une file
@@ -51,6 +52,7 @@ describe('queue names (source unique)', () => {
       if (name === 'FILE_OUBLI_MODELE') return FILE_OUBLI_MODELE;
       if (name === 'FILE_PREMIER_MESSAGE') return FILE_PREMIER_MESSAGE;
       if (name === 'FILE_PREUVE_UTM') return FILE_PREUVE_UTM;
+      if (name === 'FILE_CONVERSIONS_META') return FILE_CONVERSIONS_META;
       throw new Error(`constante de file inconnue du test : ${name} (ajoute sa résolution ici)`);
     });
     const worked = [...new Set([...literals, ...resolved])];
@@ -77,6 +79,7 @@ describe('queue names (source unique)', () => {
       FILE_OUBLI_MODELE,
       FILE_PREMIER_MESSAGE,
       FILE_PREUVE_UTM,
+      FILE_CONVERSIONS_META,
     };
     const resolus = new Set([...literals, ...viaConst.map((n) => RESOLUTION[n] ?? n)]);
     for (const q of BASE_QUEUES) {
