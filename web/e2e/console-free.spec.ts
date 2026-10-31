@@ -65,6 +65,8 @@ test.describe('La console d’une Free', () => {
       /^GET \/offre$/, /^(POST|PUT) \/offre\/(paiement|portail|numero|resiliation)$/, /^GET \/offre\/factures$/,
       /^GET \/abonnement-numero$/, /^GET \/me$/,
       /^GET \/espaces$/, /^POST \/changer-espace$/, /^(GET|PUT) \/moi\/emails$/, /^GET \/account-status$/, /^GET \/nom$/,
+      // L'accord publicitaire de « Mon compte » (pixel Meta, lot 3) : le même module `emailsMoi`, ouvert tout entier.
+      /^(GET|PUT) \/moi\/partage-meta$/,
       /^(GET|POST) \/embedded-signup\//, /^(GET|POST) \/numero\//, /^POST \/360dialog\//, /^(GET|POST) \/numero-fourni/,
       /^GET \/connexion-numero$/, /^(GET|POST|DELETE) \/api-keys/, /^(GET|DELETE|POST) \/oauth\/(autorisations|autoriser)/,
       /^POST \/support$/, /^POST \/credit\/paiement$/,

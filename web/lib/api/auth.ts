@@ -8,6 +8,7 @@
  * `lib/api.ts` reste le point d'entree et reexporte tout, donc AUCUN des 67 importeurs ne change.
  */
 
+import type { ChampPub } from '../pub';
 import { request, ApiError } from '../http';
 import { estCorpsCodeRefuse } from '../second-facteur';
 
@@ -56,7 +57,7 @@ export function login(email: string, password: string): Promise<LoginOutcome> {
  * (son code) ou est admin d'un autre espace qui l'exige (l'enrôlement). Une API antérieure rend toujours une étape :
  * les deux formes se lisent, ce qui laisse la console partir avant l'API.
  */
-export function signup(input: { workspaceName: string; email: string; password: string; name?: string }): Promise<EtapeSecondFacteur | SuiteConnexion> {
+export function signup(input: { workspaceName: string; email: string; password: string; name?: string; pub?: ChampPub }): Promise<EtapeSecondFacteur | SuiteConnexion> {
   return request<EtapeSecondFacteur | SuiteConnexion>('/auth/signup', { method: 'POST', body: JSON.stringify(input) });
 }
 
@@ -151,8 +152,9 @@ export interface GoogleResult extends LoginResult {
 }
 /**
  * Se connecter avec Google : envoie le jeton ID au serveur, renvoie une session (login OU nouvel espace), ou un
- * CHOIX quand l'adresse ouvre plusieurs espaces, exactement comme `login`.
+ * CHOIX quand l'adresse ouvre plusieurs espaces, exactement comme `login`. `pub` : l'accord publicitaire coché (pixel,
+ * lot 3), absent sans la case.
  */
-export function loginWithGoogle(idToken: string): Promise<GoogleResult | LoginChoice> {
-  return request<GoogleResult | LoginChoice>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) });
+export function loginWithGoogle(idToken: string, pub?: ChampPub): Promise<GoogleResult | LoginChoice> {
+  return request<GoogleResult | LoginChoice>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken, ...(pub ? { pub } : {}) }) });
 }

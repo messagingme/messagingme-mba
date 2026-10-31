@@ -903,6 +903,21 @@ export function ecrirePreferencesEmails(tenantId: string, maj: Partial<Preferenc
   return request<PreferencesEmails>(`/tenants/${tenantId}/moi/emails`, { method: 'PUT', body: JSON.stringify(maj) });
 }
 
+/** L'accord publicitaire de la personne connectée (pixel Meta, lot 3) : `depuis` en ISO, `null` sans accord. */
+export interface PartageMeta {
+  accord: boolean;
+  depuis: string | null;
+}
+
+export function lirePartageMeta(tenantId: string): Promise<PartageMeta> {
+  return request<PartageMeta>(`/tenants/${tenantId}/moi/partage-meta`);
+}
+
+/** Accorder ou retirer. Retirer efface aussitôt l'accord et ce qui attendait encore d'être envoyé. */
+export function ecrirePartageMeta(tenantId: string, accord: boolean): Promise<PartageMeta> {
+  return request<PartageMeta>(`/tenants/${tenantId}/moi/partage-meta`, { method: 'PUT', body: JSON.stringify({ accord }) });
+}
+
 /** Un texte d'e-mail : un sujet, des paragraphes séparés par une ligne vide, un bouton facultatif. */
 export interface TexteEmailOps {
   sujet: string;

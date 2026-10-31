@@ -1,3 +1,4 @@
+import type { ChampPub } from './pub';
 import { ApiError, request } from './http';
 import { lireNomEspace } from './api/compte';
 import type { Session } from './session';
@@ -56,7 +57,7 @@ export function estDemandeExpiree(err: unknown): boolean {
   return err instanceof ApiError && err.status === 400 && (err.corps as { code?: unknown } | undefined)?.code === CODE_DEMANDE_EXPIREE;
 }
 
-const poster = <T>(chemin: string, corps: Record<string, string>): Promise<T> =>
+const poster = <T>(chemin: string, corps: Record<string, string | ChampPub>): Promise<T> =>
   request<T>(chemin, { method: 'POST', body: JSON.stringify(corps) }, 'etape');
 
 export function lireDemande(demande: string): Promise<DemandeAffichee> {
@@ -64,8 +65,8 @@ export function lireDemande(demande: string): Promise<DemandeAffichee> {
 }
 
 /** Adresse inconnue : le serveur crée son espace et son admin au passage (`nouveau`). */
-export function continuerAvecGoogle(demande: string, idToken: string): Promise<ChoixOauth> {
-  return poster('/oauth/consentement/google', { demande, idToken });
+export function continuerAvecGoogle(demande: string, idToken: string, pub?: ChampPub): Promise<ChoixOauth> {
+  return poster('/oauth/consentement/google', { demande, idToken, ...(pub ? { pub } : {}) });
 }
 
 /** Le clic « Autoriser dans <espace> » après Google : rend l'adresse de retour du client, code compris. */

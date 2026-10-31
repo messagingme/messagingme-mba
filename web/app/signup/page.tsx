@@ -14,6 +14,8 @@ import { aideMotDePasse } from '@/lib/mot-de-passe';
 import { MIN_MOT_DE_PASSE } from '@/lib/partage/mot-de-passe';
 import { Bouton } from '@/components/Bouton';
 import { EtapesSecondFacteur, EtapeInterrompue } from '@/components/SecondFacteur';
+import { CasePartageMeta } from '@/components/CasePartageMeta';
+import { champPub } from '@/lib/pub';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -38,6 +40,8 @@ export default function SignupPage() {
   const [demande, setDemande] = useState<string | null>(null);
   /** Venue du choix du Pro (`?offre=pro`, la fin Pro du guide du numéro de la vitrine) : l'espace créé va le souscrire. */
   const [pro, setPro] = useState(false);
+  /** L'accord publicitaire (pixel Meta, lot 3) : NON coché par défaut, il vaut pour l'e-mail comme pour Google. */
+  const [partage, setPartage] = useState(false);
 
   // Lus ici et pas au rendu : l'adresse n'existe pas côté serveur.
   useEffect(() => {
@@ -63,7 +67,10 @@ export default function SignupPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await signup({ workspaceName: workspaceName.trim(), email: email.trim(), password, name: name.trim() || undefined });
+      const res = await signup({
+        workspaceName: workspaceName.trim(), email: email.trim(), password, name: name.trim() || undefined,
+        pub: champPub(partage, window.location.search),
+      });
       setPassword('');
       if (estEtapeSecondFacteur(res)) setEtape(res);
       else entrer(res);
@@ -100,6 +107,8 @@ export default function SignupPage() {
           <input type="password" required minLength={MIN_MOT_DE_PASSE} value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} placeholder={t(aideMotDePasse().fr, aideMotDePasse().en)} />
         </div>
 
+        <CasePartageMeta coche={partage} onChange={setPartage} />
+
         {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
 
         <Bouton enCours={loading} type="submit" disabled={loading} className="w-full">
@@ -109,7 +118,9 @@ export default function SignupPage() {
 
         {/* Venu d'une application, Google est sur la page d'autorisation : ici il ouvrirait la console et perdrait la
             demande. On y renvoie, pour une adresse qui est en fait un compte Google (l'inscription la refuse). */}
-        {demande === null ? <GoogleButton onError={setError} pro={pro} /> : <RetourGoogle demande={demande} />}
+        {demande === null
+          ? <GoogleButton onError={setError} pro={pro} pub={() => champPub(partage, window.location.search)} />
+          : <RetourGoogle demande={demande} />}
       </form>
       )}
     </CadreSansCompte>

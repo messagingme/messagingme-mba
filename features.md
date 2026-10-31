@@ -294,6 +294,23 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   l'heure de fin précède l'heure de début est signalé en rouge, et rien n'est enregistré tant qu'il n'est pas corrigé.
   Le **journal des actions** n'est plus sur cette page : il est dans **Sécurité** (« Journaux et traces »).
 
+## Le pixel Meta et l'accord publicitaire
+
+- ✅ **Les publicités de Messaging Me mesurées, avec l'accord de chacun** (2026-10-31, plan
+  `docs/superpowers/plans/2026-10-30-pixel-meta.md`). Ce sont NOS publicités, pas celles d'un client.
+  - **Sur la vitrine**, une bannière demande l'accord avant tout : « Refuser » et « Accepter » ont le même poids, Meta
+    (Facebook) est nommé, le choix est retenu six mois, et « Gérer les cookies », au pied de chaque page, le rouvre.
+    Sans accord, rien ne part chez Meta. Avec, le pixel compte les pages vues, et un clic vers la console lui passe de
+    quoi relier l'inscription à la publicité. Inerte tant que l'identifiant du pixel n'est pas posé.
+  - **À la création d'un compte** (`/signup`, par e-mail ou par Google, et `/autoriser`, le parcours du plugin), une
+    case **décochée** : « J'accepte que Messaging Me transmette à Meta (Facebook) mes étapes d'inscription… ». Sans
+    elle, rien ne part pour la personne, jamais.
+  - **Dans « Mon compte »**, l'interrupteur « Partager avec Meta » accorde comme il retire ; retirer arrête aussitôt ce
+    qui attendait d'être envoyé.
+  - **Ce qui part chez Meta**, par notre serveur, une fois chacun : l'inscription, le premier numéro connecté d'un
+    espace, le premier paiement d'une offre. Un fait antérieur à l'accord ne part jamais. L'adresse e-mail, sous une
+    forme non lisible, ne part que si Google l'a prouvée. Inerte tant que les variables de Meta ne sont pas posées.
+
 ## Comptes & authentification
 
 - ✅ **Double authentification** (2026-09-26) : un code d'application d'authentification (six chiffres, renouvelés

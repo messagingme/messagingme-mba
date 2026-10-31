@@ -7,6 +7,7 @@ import { getAuthConfig, loginWithGoogle, isLoginChoice, type LoginChoice } from 
 import { arriveeDUnNouvelEspace, saveSession, pageDArrivee } from '@/lib/session';
 import { avecDemande } from '@/lib/oauth';
 import { useT } from '@/lib/i18n';
+import type { ChampPub } from '@/lib/pub';
 
 // GIS (Google Identity Services) : typage minimal du global injecté par le script Google.
 interface GisCredentialResponse {
@@ -62,13 +63,17 @@ function loadGis(): Promise<void> {
  *
  * `pro` (inscription venue du choix du Pro, `?offre=pro`) : un espace que Google vient de créer va souscrire le Pro au
  * lieu du tunnel de la Free (`arriveeDUnNouvelEspace`) ; un compte qui existait déjà arrive comme d'habitude.
+ *
+ * `pub` (pixel Meta, lot 3) : l'accord publicitaire de la case de la page, lu AU CLIC (la page le donne à jour à chaque
+ * rendu) ; `undefined` sans la case cochée. Avec `surJeton`, c'est l'appelant qui le transmet.
  */
-export function GoogleButton({ onError, onChoix, surJeton, separateur = true, pro = false }: {
+export function GoogleButton({ onError, onChoix, surJeton, separateur = true, pro = false, pub }: {
   onError?: (msg: string) => void;
   onChoix?: (c: LoginChoice) => void;
   surJeton?: (idToken: string) => void;
   separateur?: boolean;
   pro?: boolean;
+  pub?: () => ChampPub | undefined;
 }) {
   const router = useRouter();
   const t = useT();
@@ -83,6 +88,8 @@ export function GoogleButton({ onError, onChoix, surJeton, separateur = true, pr
   // Lu par le rappel de Google, installé une fois : la page le pose après son montage, une ref le voit à jour.
   const proRef = useRef(pro);
   proRef.current = pro;
+  const pubRef = useRef(pub);
+  pubRef.current = pub;
   // null = pas encore su ; '' = Google désactivé -> pas de bouton ; sinon le client_id.
   const [clientId, setClientId] = useState<string | null>(null);
 
@@ -120,7 +127,7 @@ export function GoogleButton({ onError, onChoix, surJeton, separateur = true, pr
               surJetonRef.current(idToken);
               return;
             }
-            loginWithGoogle(idToken)
+            loginWithGoogle(idToken, pubRef.current?.())
               .then((res) => {
                 if (isLoginChoice(res)) {
                   if (onChoixRef.current) onChoixRef.current(res);

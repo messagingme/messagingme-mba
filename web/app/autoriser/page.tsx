@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { Logo } from '@/components/Logo';
 import { LocaleToggle } from '@/components/LocaleToggle';
 import { GoogleButton } from '@/components/GoogleButton';
+import { CasePartageMeta, POLITIQUE_DE_CONFIDENTIALITE } from '@/components/CasePartageMeta';
+import { champPub } from '@/lib/pub';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import { TitrePage } from '@/components/TitrePage';
 import { Squelette } from '@/components/Squelette';
@@ -15,12 +17,6 @@ import {
   adresseDeRetourSure, autoriserParGoogle, autoriserParSession, avecDemande, capacitesAnnoncees, continuerAvecGoogle, estDemandeExpiree,
   ouvrirConsentement, type ChoixOauth, type MarqueClient, type Ouverture,
 } from '@/lib/oauth';
-
-/** La politique de confidentialité de messagingme.fr, que la page cite avec la phrase sur Anthropic (spec, section 3). */
-const POLITIQUE_DE_CONFIDENTIALITE: readonly [string, string] = [
-  'https://www.messagingme.fr/politique-de-confidentialite-messaging-me/',
-  'https://www.messagingme.fr/en/politique-de-confidentialite-messaging-me/',
-];
 
 /**
  * LE CONSENTEMENT D'UN CLIENT MCP (spec `docs/superpowers/specs/2026-10-03-oauth-mcp-design.md`, section 3, et
@@ -49,6 +45,8 @@ export default function AutoriserPage() {
   const [choix, setChoix] = useState<ChoixOauth | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
+  /** L'accord publicitaire (pixel Meta, lot 3), NON coché par défaut : il part avec l'entrée par Google. */
+  const [partage, setPartage] = useState(false);
   /** L'autorisation est accordée et la page part vers Claude. */
   const [partie, setPartie] = useState(false);
   /** Relancé par « Réessayer » quand la demande n'a pas pu être lue (panne, réseau). */
@@ -111,7 +109,7 @@ export default function AutoriserPage() {
     if (demande === null) return;
     setErreur(null);
     setEnCours(true);
-    continuerAvecGoogle(demande, idToken)
+    continuerAvecGoogle(demande, idToken, champPub(partage, window.location.search))
       .then(setChoix)
       .catch((err: unknown) => {
         if (estDemandeExpiree(err)) setOuverture({ etat: 'expiree' });
@@ -219,6 +217,12 @@ export default function AutoriserPage() {
                         {t('Connecté à la console :', 'Signed in to the console:')} {session.email}
                       </p>
                     )}
+                  </div>
+                )}
+                {/* La case avant le bouton, quand Google sert à entrer : c'est là qu'un compte peut naître. */}
+                {!ouverture.espaceDirect && (
+                  <div className="mb-3">
+                    <CasePartageMeta coche={partage} onChange={setPartage} />
                   </div>
                 )}
                 <GoogleButton onError={setErreur} surJeton={parGoogle} separateur={ouverture.espaceDirect !== null} />

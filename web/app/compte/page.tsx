@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import {
   changePassword, lireSecondFacteur, enrolerMoi, activerMoi, regenererCodesSecours, desactiverSecondFacteur, estCodeRefuse,
-  lirePreferencesEmails, ecrirePreferencesEmails,
-  type EtatSecondFacteur, type CleTotp, type PreferencesEmails,
+  lirePreferencesEmails, ecrirePreferencesEmails, lirePartageMeta, ecrirePartageMeta,
+  type EtatSecondFacteur, type CleTotp, type PreferencesEmails, type PartageMeta,
 } from '@/lib/api';
 import { getSession, type Session } from '@/lib/session';
 import { useT, useLocale } from '@/lib/i18n';
@@ -75,6 +75,7 @@ function Compte({ session }: { session: Session }) {
       {/* En observation, la session n'a pas d'identité à elle : rien à montrer. */}
       {!getSession()?.observation && <DoubleAuthentification />}
       {!getSession()?.observation && <EmailsDuProduit tenantId={session.tenantId} />}
+      {!getSession()?.observation && <PartageAvecMeta tenantId={session.tenantId} />}
     </div>
   );
 }
@@ -152,6 +153,65 @@ function EmailsDuProduit({ tenantId }: { tenantId: string }) {
           'Les alertes de service (crédit IA, numéro, limites de l’offre) partent toujours aux administrateurs : elles disent quand un geste est nécessaire.',
           'Service alerts (AI credit, number, plan limits) are always sent to administrators: they say when action is needed.',
         )}
+      </p>
+      {erreur && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{erreur}</p>}
+    </section>
+  );
+}
+
+function estPartage(p: unknown): p is PartageMeta {
+  const o = p as Partial<PartageMeta> | null;
+  return o !== null && typeof o === 'object' && typeof o.accord === 'boolean' && (o.depuis === null || typeof o.depuis === 'string');
+}
+
+/**
+ * L'ACCORD PUBLICITAIRE DE LA PERSONNE CONNECTÉE (pixel Meta, lot 3) : la case cochée à l'inscription, ou non. Il
+ * s'accorde et se retire ici, aussi simplement l'un que l'autre ; retirer arrête aussitôt ce qui attendait d'être
+ * envoyé. Masqué sur une API qui n'a pas la route.
+ */
+function PartageAvecMeta({ tenantId }: { tenantId: string }) {
+  const t = useT();
+  const { locale } = useLocale();
+  const [partage, setPartage] = useState<PartageMeta | null>(null);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+
+  useEffect(() => {
+    let vivant = true;
+    lirePartageMeta(tenantId)
+      .then((p) => { if (vivant && estPartage(p)) setPartage(p); })
+      .catch(() => { /* masqué : une API plus ancienne n'a pas la route */ });
+    return () => { vivant = false; };
+  }, [tenantId]);
+
+  async function changer(accord: boolean): Promise<void> {
+    setEnCours(true);
+    setErreur(null);
+    try {
+      const p = await ecrirePartageMeta(tenantId, accord);
+      if (estPartage(p)) setPartage(p);
+    } catch (err) {
+      setErreur(err instanceof Error ? err.message : t('Enregistrement impossible.', 'Could not save.'));
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  if (partage === null) return null;
+  return (
+    <section className="mt-6 max-w-md space-y-3 rounded-carte border border-ink-200 bg-white p-6" data-testid="partage-meta-bloc">
+      <h2 className="text-sm font-semibold text-ink-900">{t('Publicités de Messaging Me', 'Messaging Me ads')}</h2>
+      <label className="flex items-start gap-2 text-sm text-ink-900">
+        <input
+          type="checkbox" className="mt-1" checked={partage.accord} disabled={enCours} data-testid="partage-meta"
+          onChange={(e) => { void changer(e.target.checked); }}
+        />
+        <span>{t('Partager avec Meta (Facebook) mes étapes d’inscription et d’activation, pour mesurer les publicités de Messaging Me, me les montrer et les montrer à des personnes au profil proche', 'Share my sign-up and activation steps with Meta (Facebook) to measure Messaging Me ads, show them to me and to people with a similar profile')}</span>
+      </label>
+      <p className="text-xs text-ink-500">
+        {partage.accord && partage.depuis
+          ? t(`Accordé le ${formatDate(partage.depuis, locale)}. Le retirer arrête aussitôt tout envoi.`, `Granted on ${formatDate(partage.depuis, locale)}. Withdrawing it stops any sending at once.`)
+          : t('Rien n’est partagé avec Meta.', 'Nothing is shared with Meta.')}
       </p>
       {erreur && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{erreur}</p>}
     </section>
