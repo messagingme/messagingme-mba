@@ -4,6 +4,19 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : le tunnel de la vitrine pose une quatrième question, celle du numéro
+
+Vitrine seule (`scripts/vitrine/tunnel-textes.ts`, pages régénérées), décision de Julien qui tranche le point « numéro
+fourni sans compte Meta Business » de `todo.md`. Sans compte Meta Business ni application, « Avez-vous un numéro pour
+votre entreprise ? » : Oui mène à « Téléchargez l'application WhatsApp Business » (inchangée), Non à une issue neuve,
+`fourni`, « Téléchargez l'application, nous vous fournissons le numéro ». Julien a choisi que le numéro fourni aille DANS
+l'application, et non directement à l'API : la personne répond à ses clients dès le premier jour, et l'envoi depuis
+Messaging Me attend quelques jours si Meta refuse d'abord le numéro tout neuf (« une affaire de qq jours pour pouvoir
+envoyer des messages sortants »), sans chiffre. Avec l'application, on la garde, sans numéro proposé : un test le tient.
+Le plus long parcours passe à quatre questions (chapeau, titre et h1 de « Démarrer », llms.txt, FAQ Shopify). La console,
+`start_whatsapp_connection` et la skill suivent avec la session « Plugin et console » ; d'ici là, le test de parité ne
+compare que les trois questions qu'elles posent.
+
 ## 2026-10-31 : l'essai réel du chiffre d'affaires attribué (lot 2), passé, et l'entrée Shopify tranchée
 
 Essai 203 (`docs/prive/ESSAIS-REELS.md`), espace « Messaging Me demo » : Claude Code (plugin 0.3.19, après une mise à

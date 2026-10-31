@@ -4,8 +4,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Get started: your WhatsApp number in three questions · Messaging Me</title>
-<meta name="description" content="Free or Pro, Meta Business account, WhatsApp Business app: three questions, then the request to paste into Claude Code or Codex.">
+<title>Get started: your WhatsApp number in four questions · Messaging Me</title>
+<meta name="description" content="Free or Pro, Meta Business account, WhatsApp Business app, number: four questions at most, then the request to paste into Claude Code or Codex.">
 <link rel="canonical" href="https://app.messagingme.fr/en/get-started/">
 <link rel="alternate" hreflang="fr" href="https://app.messagingme.fr/demarrer/">
 <link rel="alternate" hreflang="en" href="https://app.messagingme.fr/en/get-started/">
@@ -15,8 +15,8 @@
 <meta property="og:locale" content="en_US">
 <meta property="og:locale:alternate" content="fr_FR">
 <meta property="og:site_name" content="Messaging Me">
-<meta property="og:title" content="Get started: your WhatsApp number in three questions · Messaging Me">
-<meta property="og:description" content="Free or Pro, Meta Business account, WhatsApp Business app: three questions, then the request to paste into Claude Code or Codex.">
+<meta property="og:title" content="Get started: your WhatsApp number in four questions · Messaging Me">
+<meta property="og:description" content="Free or Pro, Meta Business account, WhatsApp Business app, number: four questions at most, then the request to paste into Claude Code or Codex.">
 <meta property="og:image" content="https://app.messagingme.fr/img/partage/developers-en.jpg?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -222,13 +222,13 @@
 <main>
   <section class="cadre f-une-large demarrer-une" id="numero">
     <div>
-      <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg>Get started</span> Connect your WhatsApp, <span class="sec-accent">in three questions.</span></h1>
-      <p class="chapeau">Your plan, your Meta Business account, your WhatsApp Business app: at the end, you know what to do, and you have the request to paste into Claude Code or Codex.</p>
+      <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg>Get started</span> Connect your WhatsApp, <span class="sec-accent">in four questions.</span></h1>
+      <p class="chapeau">Your plan, your Meta Business account, your WhatsApp Business app, your number: at the end, you know what to do, and you have the request to paste into Claude Code or Codex.</p>
     </div>
       <div class="bt-guide" data-guide-numero>
         <div class="bt-tunnel">
-          <div class="bt-progression" data-progression="Question {n} of 3 at most" data-max="3" data-fin="Your path" hidden>
-            <p class="bt-etape" data-etape>Question 1 of 3 at most</p>
+          <div class="bt-progression" data-progression="Question {n} of 4 at most" data-max="4" data-fin="Your path" hidden>
+            <p class="bt-etape" data-etape>Question 1 of 4 at most</p>
             <div class="bt-piste" aria-hidden="true"><span class="bt-jauge" data-jauge></span></div>
           </div>
           <div class="bt-questions" hidden>
@@ -294,7 +294,11 @@
           </fieldset>
           <fieldset class="bt-question" data-question="application" hidden>
             <legend class="bt-avec-logo"><img class="bt-logo" src="/img/logos/whatsapp-business.png" alt="" width="40" height="40">Do you already have the WhatsApp Business app?<span class="bt-precision">The app for businesses, separate from WhatsApp.</span></legend>
-            <div class="bt-reponses"><button type="button" class="bouton bouton-trait" data-vers="garder" aria-pressed="false">Yes</button><button type="button" class="bouton bouton-trait" data-vers="telecharger" aria-pressed="false">No</button></div>
+            <div class="bt-reponses"><button type="button" class="bouton bouton-trait" data-vers="garder" aria-pressed="false">Yes</button><button type="button" class="bouton bouton-trait" data-vers="numero" aria-pressed="false">No</button></div>
+          </fieldset>
+          <fieldset class="bt-question" data-question="numero" hidden>
+            <legend>Do you have a number for your business?<span class="bt-precision">The number you will put in the WhatsApp Business app.</span></legend>
+            <div class="bt-reponses"><button type="button" class="bouton bouton-trait" data-vers="telecharger" aria-pressed="false">Yes</button><button type="button" class="bouton bouton-trait" data-vers="fourni" aria-pressed="false">No</button></div>
           </fieldset>
             <button type="button" class="bt-recommencer" data-recommencer hidden>Start again</button>
           </div>
@@ -339,7 +343,7 @@
           </div>
         </article>
         <article class="bt-chemin" data-chemin="telecharger" id="numero-telecharger">
-          <p class="bt-situation">Without the WhatsApp Business app</p>
+          <p class="bt-situation">Without the WhatsApp Business app, with a number</p>
           <h3>Download the WhatsApp Business app</h3>
           <p>Install the WhatsApp Business app on a phone, with your business’s number, then connect it right away while keeping the app: your number stays on your phone and also sends from Messaging Me.</p>
           <p>No Meta Business account? Meta’s window creates it along the way, with your Facebook profile, then offers a payment method.</p>
@@ -356,6 +360,27 @@
             <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="https://console.messagingme.app/signup?offre=pro&amp;lang=en">Create my workspace</a><a class="bouton bouton-trait" href="/en/help/keep-my-whatsapp-business-app/">The step-by-step guide</a></div>
             <p class="bt-demande-titre">Or your request, to paste into Claude Code or Codex:</p>
             <div class="bt-demande"><p id="demande-telecharger-pro">Set up WhatsApp with the Messaging Me Pro plan. I just installed the WhatsApp Business app with my number and I want to keep it: connect it through Meta so it also sends from Messaging Me, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days. Then create my AI agent from my website, so it answers my customers.</p><button type="button" class="bouton bouton-trait" data-copier="demande-telecharger-pro" data-copie="Copied" hidden>Copy</button></div>
+          </div>
+        </article>
+        <article class="bt-chemin" data-chemin="fourni" id="numero-fourni">
+          <p class="bt-situation">Without the WhatsApp Business app or a number</p>
+          <h3>Download the app, we provide the number</h3>
+          <p>Install the WhatsApp Business app on your phone and create your account there with the number we provide, €3.50 excl. VAT a month with the Free plan, included in Pro: its verification code shows on the Messaging Me page.</p>
+          <p>From day one, you reply to your customers from the app. Then connect the number while keeping the app, so your confirmations, reminders and follow-ups also go out from Messaging Me.</p>
+          <p>No Meta Business account? Meta’s window creates it along the way, with your Facebook profile, then offers a payment method.</p>
+          <p>Meta often refuses a brand-new number: sending your messages from Messaging Me then waits a few days, until you come back to connect it, and you reply to your customers from the app in the meantime.</p>
+          <p class="bt-liens"><a class="bouton bouton-trait" href="https://apps.apple.com/app/whatsapp-business/id1386412985" rel="noopener">App Store (iPhone)</a><a class="bouton bouton-trait" href="https://play.google.com/store/apps/details?id=com.whatsapp.w4b" rel="noopener">Google Play (Android)</a></p>
+          <div class="bt-appels" data-offre="free">
+            <p class="bt-appels-titre">With the Free plan, from your AI assistant</p>
+            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="/en/developers/install-the-plugin/">Install the plugin</a><a class="bouton bouton-trait" href="https://github.com/messagingme/messagingme-plugin" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>The GitHub repository</a></div>
+            <p class="bt-demande-titre">Your request, to paste into Claude Code or Codex once Messaging Me is installed:</p>
+            <div class="bt-demande"><p id="demande-fourni-free">Set up WhatsApp with the Messaging Me Free plan. I have no number: provide one (€3.50 excl. VAT a month), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days. Then create my AI agent from my website, so it answers my customers.</p><button type="button" class="bouton bouton-trait" data-copier="demande-fourni-free" data-copie="Copied" hidden>Copy</button></div>
+          </div>
+          <div class="bt-appels" data-offre="pro">
+            <p class="bt-appels-titre">With the Pro plan</p>
+            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="https://console.messagingme.app/signup?offre=pro&amp;lang=en">Create my workspace</a><a class="bouton bouton-trait" href="/en/help/keep-my-whatsapp-business-app/">The step-by-step guide</a></div>
+            <p class="bt-demande-titre">Or your request, to paste into Claude Code or Codex:</p>
+            <div class="bt-demande"><p id="demande-fourni-pro">Set up WhatsApp with the Messaging Me Pro plan. I have no number: provide one (included in Pro), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days. Then create my AI agent from my website, so it answers my customers.</p><button type="button" class="bouton bouton-trait" data-copier="demande-fourni-pro" data-copie="Copied" hidden>Copy</button></div>
           </div>
         </article>
         <article class="bt-chemin" data-chemin="echange" id="numero-echange">

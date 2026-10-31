@@ -190,19 +190,19 @@ export function sectionTunnel(langue: Langue, origine: Origine, classe = 'f-bloc
  */
 export const TEXTES_DEMARRER = {
   fr: {
-    titre: 'Démarrer : votre numéro WhatsApp en trois questions · Messaging Me',
-    description: 'Free ou Pro, compte Meta Business, application WhatsApp Business : trois questions, puis la demande à coller dans Claude Code ou Codex.',
+    titre: 'Démarrer : votre numéro WhatsApp en quatre questions · Messaging Me',
+    description: 'Free ou Pro, compte Meta Business, application WhatsApp Business, numéro : quatre questions au plus, puis la demande à coller dans Claude Code ou Codex.',
     fil: 'Démarrer',
-    h1: ['Branchez votre WhatsApp,', 'en trois questions.'],
-    chapeau: 'Votre offre, votre compte Meta Business, votre application WhatsApp Business : à la fin, vous savez quoi faire, et vous avez la demande à coller dans Claude Code ou Codex.',
+    h1: ['Branchez votre WhatsApp,', 'en quatre questions.'],
+    chapeau: 'Votre offre, votre compte Meta Business, votre application WhatsApp Business, votre numéro : à la fin, vous savez quoi faire, et vous avez la demande à coller dans Claude Code ou Codex.',
     appel: { titre: 'Vous préférez qu’on en parle ?', texte: 'Une démo sur votre cas : vos clients, vos conversations, votre numéro.', bouton: 'Demander une démo', contact: '/contact/#formulaire' },
   },
   en: {
-    titre: 'Get started: your WhatsApp number in three questions · Messaging Me',
-    description: 'Free or Pro, Meta Business account, WhatsApp Business app: three questions, then the request to paste into Claude Code or Codex.',
+    titre: 'Get started: your WhatsApp number in four questions · Messaging Me',
+    description: 'Free or Pro, Meta Business account, WhatsApp Business app, number: four questions at most, then the request to paste into Claude Code or Codex.',
     fil: 'Get started',
-    h1: ['Connect your WhatsApp,', 'in three questions.'],
-    chapeau: 'Your plan, your Meta Business account, your WhatsApp Business app: at the end, you know what to do, and you have the request to paste into Claude Code or Codex.',
+    h1: ['Connect your WhatsApp,', 'in four questions.'],
+    chapeau: 'Your plan, your Meta Business account, your WhatsApp Business app, your number: at the end, you know what to do, and you have the request to paste into Claude Code or Codex.',
     appel: { titre: 'Would you rather talk it through?', texte: 'A demo on your case: your customers, your conversations, your number.', bouton: 'Request a demo', contact: '/en/contact/#formulaire' },
   },
 } as const;

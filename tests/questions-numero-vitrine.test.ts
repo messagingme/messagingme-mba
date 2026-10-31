@@ -37,7 +37,8 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(QUESTION_APPLICATION.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_APPLICATION.precision[langue]).toBe(texte(q.precision!));
       expect([QUESTION_APPLICATION.oui, QUESTION_APPLICATION.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
-      expect(q.reponses.map((r) => r.vers)).toEqual(['garder', 'telecharger']);
+      // Non mène à la question du numéro (Julien, 2026-10-31), que la console pose avec son lot.
+      expect(q.reponses.map((r) => r.vers)).toEqual(['garder', 'numero']);
     });
 
     it(`${langue} : les issues que la console reprend`, () => {

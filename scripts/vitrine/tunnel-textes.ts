@@ -1,7 +1,9 @@
 // scripts/vitrine/tunnel-textes.ts
 // Les textes du tunnel du numéro WhatsApp, en français et en anglais : l'arbre de Julien du 2026-10-30, le même sur
 // chaque page qui le porte (la page « Démarrer », Boutiques Shopify, SaaS et app builders), que `tunnel.ts` assemble.
-// Plan `docs/superpowers/plans/2026-10-30-tunnel-numero-generique.md`.
+// Plan `docs/superpowers/plans/2026-10-30-tunnel-numero-generique.md`. Le 2026-10-31, Julien y ajoute une quatrième
+// question : sans compte Meta Business ni application, « Avez-vous un numéro ? », et sans numéro, le numéro fourni va
+// dans l'application.
 //
 // 🔴 CE QUE LE TUNNEL NE DIT PLUS : le numéro relié par code, qui ne faisait que répondre (Julien, 2026-10-30 : « on
 // supprime une bonne fois pour toutes l'option QR code »). Chaque voie mène à un numéro de l'API officielle, et
@@ -131,7 +133,7 @@ const fr = (): TexteTunnel => {
   return {
     surtitre: 'Votre numéro WhatsApp',
     titre: ['Votre branchement', 'commence ici.'],
-    chapeau: 'En trois questions au plus, sur votre formule, votre compte Meta Business et votre application WhatsApp Business, vous savez quoi faire.',
+    chapeau: 'En quatre questions au plus, sur votre formule, votre compte Meta Business, votre application WhatsApp Business et votre numéro, vous savez quoi faire.',
     lexique: {
       titre: 'Les mots de ce guide, expliqués',
       termes: [
@@ -155,7 +157,8 @@ const fr = (): TexteTunnel => {
         },
       ],
     },
-    // L'arbre de Julien du 2026-10-30 : l'offre, le compte Meta Business, puis l'application WhatsApp Business.
+    // L'arbre de Julien du 2026-10-30 : l'offre, le compte Meta Business, puis l'application WhatsApp Business ; et du
+    // 2026-10-31 : sans application, le numéro, que nous fournissons à qui n'en a pas.
     questions: [
       {
         id: 'offre', texte: 'Quelle formule voulez-vous ?', precision: 'Vous pourrez en changer plus tard.',
@@ -179,7 +182,11 @@ const fr = (): TexteTunnel => {
       },
       {
         id: 'application', texte: 'Avez-vous déjà l’application WhatsApp Business ?', precision: 'L’application des professionnels, distincte de WhatsApp.', logo: LOGO_APPLICATION,
-        reponses: [{ libelle: 'Oui', vers: 'garder' }, { libelle: 'Non', vers: 'telecharger' }],
+        reponses: [{ libelle: 'Oui', vers: 'garder' }, { libelle: 'Non', vers: 'numero' }],
+      },
+      {
+        id: 'numero', texte: 'Avez-vous un numéro pour votre entreprise ?', precision: 'Le numéro que vous mettrez dans l’application WhatsApp Business.',
+        reponses: [{ libelle: 'Oui', vers: 'telecharger' }, { libelle: 'Non', vers: 'fourni' }],
       },
     ],
     issues: [
@@ -210,7 +217,7 @@ const fr = (): TexteTunnel => {
       {
         // Julien, 2026-10-30 : on branche tout de suite ; si Meta refuse un numéro trop neuf, on revient quelques jours
         // après. Meta ne publie aucun seuil : aucun nombre de jours ici.
-        id: 'telecharger', situation: 'Sans l’application WhatsApp Business', titre: 'Téléchargez l’application WhatsApp Business',
+        id: 'telecharger', situation: 'Sans l’application WhatsApp Business, avec un numéro', titre: 'Téléchargez l’application WhatsApp Business',
         textes: [
           'Installez l’application WhatsApp Business sur un téléphone, avec le numéro de votre entreprise, puis branchez-le tout de suite en gardant l’application : votre numéro reste sur votre téléphone et envoie aussi depuis Messaging Me.',
           garder,
@@ -218,6 +225,24 @@ const fr = (): TexteTunnel => {
         ],
         liens: magasins,
         numero: memes('Je viens d’installer l’application WhatsApp Business avec mon numéro et je veux la garder : relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi : je reviendrai dans quelques jours.'),
+        pasAPas: '/aide/garder-mon-application-whatsapp-business/',
+      },
+      {
+        // Julien, 2026-10-31 : sans numéro, nous en fournissons un, qui va dans l'application. On répond aux clients dès
+        // le premier jour ; Meta refusant souvent un numéro tout neuf, les messages qu'on envoie depuis Messaging Me
+        // attendent quelques jours. Aucun nombre de jours, comme pour `telecharger`.
+        id: 'fourni', situation: 'Sans l’application WhatsApp Business ni numéro', titre: 'Téléchargez l’application, nous vous fournissons le numéro',
+        textes: [
+          `Installez l’application WhatsApp Business sur votre téléphone et créez-y votre compte avec le numéro que nous vous fournissons, ${numero} HT par mois en formule Free, inclus en formule Pro : son code de vérification s’affiche sur la page de Messaging Me.`,
+          'Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.',
+          garder,
+          'Meta refuse souvent un numéro tout neuf : l’envoi de vos messages depuis Messaging Me attend alors quelques jours, le temps de revenir le brancher, et vous répondez à vos clients depuis l’application en attendant.',
+        ],
+        liens: magasins,
+        numero: {
+          free: `Je n’ai pas de numéro : fournis-m’en un (${numero} HT par mois), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification ; puis relie-le par Meta en gardant l’application, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi : je reviendrai dans quelques jours.`,
+          pro: 'Je n’ai pas de numéro : fournis-m’en un (inclus en formule Pro), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification ; puis relie-le par Meta en gardant l’application, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi : je reviendrai dans quelques jours.',
+        },
         pasAPas: '/aide/garder-mon-application-whatsapp-business/',
       },
       {
@@ -287,7 +312,7 @@ const en = (): TexteTunnel => {
   return {
     surtitre: 'Your WhatsApp number',
     titre: ['Your setup', 'starts here.'],
-    chapeau: 'In three questions at most, about your plan, your Meta Business account and your WhatsApp Business app, you know what to do.',
+    chapeau: 'In four questions at most, about your plan, your Meta Business account, your WhatsApp Business app and your number, you know what to do.',
     lexique: {
       titre: 'The words of this guide, explained',
       termes: [
@@ -334,7 +359,11 @@ const en = (): TexteTunnel => {
       },
       {
         id: 'application', texte: 'Do you already have the WhatsApp Business app?', precision: 'The app for businesses, separate from WhatsApp.', logo: LOGO_APPLICATION,
-        reponses: [{ libelle: 'Yes', vers: 'garder' }, { libelle: 'No', vers: 'telecharger' }],
+        reponses: [{ libelle: 'Yes', vers: 'garder' }, { libelle: 'No', vers: 'numero' }],
+      },
+      {
+        id: 'numero', texte: 'Do you have a number for your business?', precision: 'The number you will put in the WhatsApp Business app.',
+        reponses: [{ libelle: 'Yes', vers: 'telecharger' }, { libelle: 'No', vers: 'fourni' }],
       },
     ],
     issues: [
@@ -363,7 +392,7 @@ const en = (): TexteTunnel => {
         pasAPas: '/en/help/keep-my-whatsapp-business-app/',
       },
       {
-        id: 'telecharger', situation: 'Without the WhatsApp Business app', titre: 'Download the WhatsApp Business app',
+        id: 'telecharger', situation: 'Without the WhatsApp Business app, with a number', titre: 'Download the WhatsApp Business app',
         textes: [
           'Install the WhatsApp Business app on a phone, with your business’s number, then connect it right away while keeping the app: your number stays on your phone and also sends from Messaging Me.',
           garder,
@@ -371,6 +400,21 @@ const en = (): TexteTunnel => {
         ],
         liens: magasins,
         numero: memes('I just installed the WhatsApp Business app with my number and I want to keep it: connect it through Meta so it also sends from Messaging Me, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days.'),
+        pasAPas: '/en/help/keep-my-whatsapp-business-app/',
+      },
+      {
+        id: 'fourni', situation: 'Without the WhatsApp Business app or a number', titre: 'Download the app, we provide the number',
+        textes: [
+          `Install the WhatsApp Business app on your phone and create your account there with the number we provide, ${numero} excl. VAT a month with the Free plan, included in Pro: its verification code shows on the Messaging Me page.`,
+          'From day one, you reply to your customers from the app. Then connect the number while keeping the app, so your confirmations, reminders and follow-ups also go out from Messaging Me.',
+          garder,
+          'Meta often refuses a brand-new number: sending your messages from Messaging Me then waits a few days, until you come back to connect it, and you reply to your customers from the app in the meantime.',
+        ],
+        liens: magasins,
+        numero: {
+          free: `I have no number: provide one (${numero} excl. VAT a month), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days.`,
+          pro: 'I have no number: provide one (included in Pro), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days.',
+        },
         pasAPas: '/en/help/keep-my-whatsapp-business-app/',
       },
       {

@@ -81,11 +81,11 @@ describe('le tunnel du numéro WhatsApp', () => {
     expect(TEXTES_TUNNEL.en.issues.map((x) => `${x.id}>${x.autre?.vers ?? ''}`)).toEqual(TEXTES_TUNNEL.fr.issues.map((x) => `${x.id}>${x.autre?.vers ?? ''}`));
   });
 
-  it('🔴 suit l’arbre de Julien du 2026-10-30 : l’offre, le compte Meta Business, puis l’application WhatsApp Business', () => {
+  it('🔴 suit l’arbre de Julien : l’offre, le compte Meta Business, l’application WhatsApp Business, puis le numéro', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { questions } = TEXTES_TUNNEL[langue];
       const q = (id: string) => questions.find((x) => x.id === id)!;
-      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'compte', 'application']);
+      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'compte', 'application', 'numero']);
       // Free ou Pro, les deux vers la même question : l'offre ne change pas le chemin du numéro, seulement le bout.
       // Business et Entreprise mènent à la démo et au contact, jamais aux questions du numéro (Julien, 2026-10-30).
       expect(q('offre').reponses.filter((r) => r.vers).map((r) => `${r.offre}>${r.vers}`), langue)
@@ -94,7 +94,33 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect(q('compte').reponses.map((r) => r.vers), langue).toEqual(['api', 'application', 'application']);
       expect(q('compte').reponses[2]!.note, langue).toContain('business.facebook.com');
       expect(q('compte').reponses[2]!.note, langue).toMatch(/Facebook ou Instagram|Facebook or Instagram/);
-      expect(q('application').reponses.map((r) => r.vers), langue).toEqual(['garder', 'telecharger']);
+      // Avec l'application, on la garde, sans numéro à proposer ; sans elle, la question du numéro (Julien, 2026-10-31).
+      expect(q('application').reponses.map((r) => r.vers), langue).toEqual(['garder', 'numero']);
+      // Un numéro : l'application à télécharger ; aucun : le numéro fourni, qui va dans l'application.
+      expect(q('numero').reponses.map((r) => r.vers), langue).toEqual(['telecharger', 'fourni']);
+    }
+  });
+
+  it('🔴 avec l’application, on la garde, et le numéro fourni n’y est jamais proposé (Julien, 2026-10-31)', () => {
+    for (const langue of ['fr', 'en'] as const) {
+      const garder = TEXTES_TUNNEL[langue].issues.find((x) => x.id === 'garder')!;
+      expect([...garder.textes, ...Object.values(garder.numero ?? {})].join(' '), langue).not.toMatch(/fourni|provide|\d+[,.]\d+/i);
+    }
+  });
+
+  it('🔴 sans numéro, le numéro fourni va dans l’application : on répond dès le premier jour, l’envoi attend que Meta accepte (Julien, 2026-10-31)', () => {
+    for (const [langue, application, jour, attend] of [
+      ['fr', /créez-y votre compte avec le numéro que nous vous fournissons/, /Dès le premier jour, vous répondez à vos clients depuis l’application/, /l’envoi de vos messages depuis Messaging Me attend alors quelques jours/],
+      ['en', /create your account there with the number we provide/, /From day one, you reply to your customers from the app/, /sending your messages from Messaging Me then waits a few days/],
+    ] as const) {
+      const fourni = TEXTES_TUNNEL[langue].issues.find((x) => x.id === 'fourni')!;
+      const tout = fourni.textes.join(' ');
+      expect(tout, langue).toMatch(application);
+      expect(tout, langue).toMatch(jour);
+      expect(tout, langue).toMatch(attend);
+      expect(fourni.liens?.map((l) => l.href), langue).toEqual([MAGASINS.appStore, MAGASINS.googlePlay]);
+      // La demande à coller demande le numéro, pour l'application, et le code qui va avec.
+      for (const d of Object.values(fourni.numero ?? {})) expect(d, langue).toMatch(langue === 'fr' ? /fournis-m’en un .* l’application WhatsApp Business, et montre-moi son code/ : /provide one .* the WhatsApp Business app, and show me its verification code/);
     }
   });
 
@@ -122,10 +148,10 @@ describe('le tunnel du numéro WhatsApp', () => {
     expect(css).not.toMatch(/\.bt-question\.repondue :is\([^)]*\.bt-(voies|reponses)\b[^)]*\)\{display:none/);
   });
 
-  it('🔴 le plus long parcours fait trois questions, et le chapeau, l’étape et la page « Démarrer » le disent', () => {
-    for (const [langue, trois] of [['fr', 'trois question'], ['en', 'three question']] as const) {
+  it('🔴 le plus long parcours fait quatre questions, et le chapeau, l’étape et la page « Démarrer » le disent', () => {
+    for (const [langue, trois] of [['fr', 'quatre question'], ['en', 'four question']] as const) {
       const max = profondeurTunnel(TEXTES_TUNNEL[langue].questions);
-      expect(max).toBe(3);
+      expect(max).toBe(4);
       expect(TEXTES_TUNNEL[langue].chapeau, langue).toContain(trois);
       expect(TEXTES_DEMARRER[langue].h1.join(' '), langue).toContain(trois);
       expect(TEXTES_DEMARRER[langue].titre, langue).toContain(trois);
@@ -168,11 +194,13 @@ describe('le tunnel du numéro WhatsApp', () => {
       ['en', /No Meta Business account\? Meta’s window creates it along the way/, /Meta sometimes refuses a number that is too new/],
     ] as const) {
       const { issues } = TEXTES_TUNNEL[langue];
-      for (const id of ['garder', 'telecharger']) expect(issues.find((x) => x.id === id)!.textes.join(' '), `${langue} : ${id}`).toMatch(enChemin);
+      for (const id of ['garder', 'telecharger', 'fourni']) expect(issues.find((x) => x.id === id)!.textes.join(' '), `${langue} : ${id}`).toMatch(enChemin);
       const telecharger = issues.find((x) => x.id === 'telecharger')!;
       expect(telecharger.textes.join(' '), langue).toMatch(neuf);
       // Meta ne publie aucun seuil : jamais un nombre de jours ni d'heures.
-      expect([...telecharger.textes, ...Object.values(telecharger.numero ?? {})].join(' '), langue).not.toMatch(/\d+\s*(jours?|days?|heures?|hours?|semaines?|weeks?)/i);
+      for (const x of issues.filter((y) => y.id === 'telecharger' || y.id === 'fourni')) {
+        expect([...x.textes, ...Object.values(x.numero ?? {})].join(' '), `${langue} : ${x.id}`).not.toMatch(/\d+\s*(jours?|days?|heures?|hours?|semaines?|weeks?)/i);
+      }
       // Le numéro API rappelle qu'on peut garder son application.
       expect(issues.find((x) => x.id === 'api')!.autre?.vers, langue).toBe('garder');
     }

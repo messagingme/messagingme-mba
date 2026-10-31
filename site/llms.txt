@@ -115,7 +115,7 @@
 
 ## Démarrer
 
-- [Démarrer](https://app.messagingme.fr/demarrer/) : votre numéro WhatsApp en trois questions (Free ou Pro, compte Meta Business, application WhatsApp Business), puis la demande à coller dans Claude Code ou Codex.
+- [Démarrer](https://app.messagingme.fr/demarrer/) : votre numéro WhatsApp en quatre questions au plus (Free ou Pro, compte Meta Business, application WhatsApp Business, numéro), puis la demande à coller dans Claude Code ou Codex.
 - [Get started](https://app.messagingme.fr/en/get-started/) : the same page in English.
 
 ## Tarifs
