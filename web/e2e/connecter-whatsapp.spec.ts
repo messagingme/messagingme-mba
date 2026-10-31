@@ -284,7 +284,7 @@ test('🔴 sans compte Meta Business ni application : la télécharger, brancher
   await expect(page.getByTestId('question-application')).toContainText('Avez-vous déjà l’application WhatsApp Business ?');
   await page.getByTestId('question-application-non').click();
   // La 4e question (Julien, 2026-10-31) : avec son propre numéro, télécharger l’application et brancher tout de suite.
-  await expect(page.getByTestId('question-numero')).toContainText('Avez-vous un numéro pour votre entreprise ?');
+  await expect(page.getByTestId('question-numero')).toContainText('Avez-vous déjà un numéro que vous pourriez utiliser ?');
   await page.getByTestId('question-numero-oui').click();
   await expect(page.getByTestId('issue-telecharger')).toContainText('branchez-le tout de suite');
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();

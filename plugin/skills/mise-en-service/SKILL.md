@@ -81,8 +81,9 @@ Then ask ONE question at a time, in this order. Never pick a way on a guess, and
      probably have one), and that a missing account is created along the way. Go to question 3.
 3. **"Do you already have the WhatsApp Business app?"** Only after No or "I don't know".
    - Yes: they keep it (mode `coexistence`), and you offer no number.
-   - No: question 4.
-4. **"Do you have a number for your business?"** The number they will put in the WhatsApp Business app.
+   - No: tell them they will need to download the WhatsApp Business app (App Store on iPhone, Google Play on Android),
+     then question 4.
+4. **"Do you already have a number you could use?"** The number they will put in the WhatsApp Business app.
    - Yes: they download the WhatsApp Business app on a phone and put their number in it; then you connect it right
      away, keeping the app (mode `coexistence`). There is no waiting to do first.
    - No: we provide one, and it goes IN the WhatsApp Business app (mode `fourni_application`; 3.50 EUR excl. tax a

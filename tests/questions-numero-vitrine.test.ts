@@ -41,9 +41,13 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect([QUESTION_APPLICATION.oui, QUESTION_APPLICATION.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
       // Avec l'application, on la garde ; sans elle, la 4e question (Julien, 2026-10-31).
       expect(q.reponses.map((r) => r.vers)).toEqual(['garder', 'numero']);
+      // Avant elle, « il faudra la télécharger », avec les deux magasins : le texte au mot près, les liens à l'adresse près.
+      const note = q.reponses[1]!.note!;
+      expect(QUESTION_APPLICATION.noteNon[langue]).toBe(texte(note.replace(/<span class="bt-liens">[\s\S]*<\/span>$/, '')));
+      expect([...note.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(ISSUE_TELECHARGER.magasins.map((m) => m.href));
     });
 
-    it(`${langue} : « Avez-vous un numéro pour votre entreprise ? », Oui le met dans l’application, Non le fait fournir`, () => {
+    it(`${langue} : « Avez-vous déjà un numéro que vous pourriez utiliser ? », Oui le met dans l’application, Non le fait fournir`, () => {
       const q = question('numero');
       expect(QUESTION_NUMERO.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_NUMERO.precision[langue]).toBe(texte(q.precision!));

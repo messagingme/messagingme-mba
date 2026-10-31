@@ -178,8 +178,10 @@ describe('le tunnel du numéro WhatsApp', () => {
   it('🔴 les questions et les cartes ne parlent jamais de boutique : elles servent à tous les métiers', () => {
     for (const langue of ['fr', 'en'] as const) {
       const t = TEXTES_TUNNEL[langue];
+      // Les liens d'une note sont des noms propres (l'« App Store » d'Apple), pas une boutique : on lit le texte autour.
+      const sansLiens = (h: string) => h.replace(/<a\b[\s\S]*?<\/a>/g, '');
       const tout = [
-        t.chapeau, ...t.questions.flatMap((q) => [q.texte, q.precision ?? '', q.aide ?? '', ...q.reponses.map((r) => `${r.libelle} ${r.note ?? ''}`),
+        t.chapeau, ...t.questions.flatMap((q) => [q.texte, q.precision ?? '', q.aide ?? '', ...q.reponses.map((r) => `${r.libelle} ${sansLiens(r.note ?? '')}`),
           ...(q.voies ?? []).flatMap((v) => [v.titre, ...v.plus, ...v.moins])]),
         ...t.issues.flatMap((x) => [x.titre, x.situation, ...x.textes, ...Object.values(x.numero ?? {})]),
         ...t.lexique.termes.flatMap((x) => [x.terme, x.court, x.detail]),

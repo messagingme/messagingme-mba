@@ -8,6 +8,7 @@ import { ACCUEIL, fichierDe, fil, page } from './cas';
 import type { Langue } from './cas-textes';
 import { insecables } from './guide-meta';
 import {
+  lienHtml,
   TEXTES_TUNNEL, demandeDe, type Issue, type IssueBranchement, type Lien, type Mot, type OffreTunnel, type Origine, type Question, type Reponse, type Voie,
 } from './tunnel-textes';
 
@@ -97,7 +98,7 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     `            <div class="bt-demande"><p id="demande-${x.id}-${offre}">${demandeDe(n, x, offre, origine)}</p><button type="button" class="bouton bouton-trait" data-copier="demande-${x.id}-${offre}" data-copie="${a.copie}" hidden>${a.copier}</button></div>`,
   ];
   const liens = (l: readonly Lien[], retrait: string) =>
-    [`${retrait}<p class="bt-liens">${l.map((x) => `<a class="bouton bouton-trait" href="${x.href}" rel="noopener">${x.libelle}</a>`).join('')}</p>`];
+    [`${retrait}<p class="bt-liens">${l.map(lienHtml).join('')}</p>`];
   // Business et Entreprise : la démo et le contact, sans demande à coller (Julien, 2026-10-30) ; les autres issues, les
   // boutons de Free et de Pro.
   const fin = (x: Issue): string[] => (x.contact

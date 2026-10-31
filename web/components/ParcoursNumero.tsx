@@ -79,7 +79,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const [compte, setCompte] = useState<ReponseCompte | null>(null);
   /** La réponse à « Avez-vous déjà l'application WhatsApp Business ? » ; « non » : la carte dit d'abord de la télécharger. */
   const [appli, setAppli] = useState<'oui' | 'non' | null>(null);
-  /** La réponse à « Avez-vous un numéro pour votre entreprise ? » (après « Non » à l'application, 2026-10-31). */
+  /** La réponse à « Avez-vous déjà un numéro que vous pourriez utiliser ? » (après « Non » à l'application, 2026-10-31). */
   const [numeroPerso, setNumeroPerso] = useState<'oui' | 'non' | null>(null);
   const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); setNumeroPerso(null); };
   const repondreAppli = (r: 'oui' | 'non') => { setAppli(r); setNumeroPerso(null); };
@@ -315,6 +315,10 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
               {appli === 'oui' && carteCoexistence(false, null)}
               {appli === 'non' && (
                 <>
+                  <div data-testid="note-application">
+                    <p className="text-sm text-ink-700">{t(QUESTION_APPLICATION.noteNon.fr, QUESTION_APPLICATION.noteNon.en)}</p>
+                    {magasins}
+                  </div>
                   <Question
                     testid="question-numero"
                     texte={QUESTION_NUMERO.texte}

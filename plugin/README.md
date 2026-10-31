@@ -52,8 +52,9 @@ Then `/messagingme:demarrer` asks you, one question at a time, the same question
 2. **Do you have a Meta Business account?** Yes: your number becomes an API number, an available one of yours or a
    provided one; if it is already in the WhatsApp Business app, you can keep it. No, or not sure: the next question
    (business.facebook.com lists your portfolios, and a missing account is created along the way).
-3. **Do you already have the WhatsApp Business app?** Yes: you keep it, no number needed. No: the next question.
-4. **Do you have a number for your business?** Yes: download the app, put your number in it, and connect it right
+3. **Do you already have the WhatsApp Business app?** Yes: you keep it, no number needed. No: you will need to download
+   it (App Store or Google Play), then the next question.
+4. **Do you already have a number you could use?** Yes: download the app, put your number in it, and connect it right
    away. No: we provide one, which goes in the app, its verification code shown on the setup page; you reply to your
    customers from the app from day one. Meta often refuses a brand-new number at first: sending from Messaging Me then
    waits a few days, until you come back to connect it.

@@ -31,11 +31,13 @@ export const QUESTION_APPLICATION = {
   precision: { fr: 'L’application des professionnels, distincte de WhatsApp.', en: 'The app for businesses, separate from WhatsApp.' },
   oui: { fr: 'Oui', en: 'Yes' },
   non: { fr: 'Non', en: 'No' },
+  /** Après « Non », avant la 4e question, avec les deux magasins (Julien, 2026-10-31). */
+  noteNon: { fr: 'Vous allez devoir télécharger l’application WhatsApp Business.', en: 'You will need to download the WhatsApp Business app.' },
 } as const satisfies Record<string, Texte>;
 
 /** Sans compte Meta Business ni application (Julien, 2026-10-31) : a-t-on un numéro à mettre dans l'application ? */
 export const QUESTION_NUMERO = {
-  texte: { fr: 'Avez-vous un numéro pour votre entreprise ?', en: 'Do you have a number for your business?' },
+  texte: { fr: 'Avez-vous déjà un numéro que vous pourriez utiliser ?', en: 'Do you already have a number you could use?' },
   precision: { fr: 'Le numéro que vous mettrez dans l’application WhatsApp Business.', en: 'The number you will put in the WhatsApp Business app.' },
   oui: { fr: 'Oui', en: 'Yes' },
   non: { fr: 'Non', en: 'No' },
