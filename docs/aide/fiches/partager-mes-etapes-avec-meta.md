@@ -1,6 +1,6 @@
 ---
 source_section: Le pixel Meta et l'accord publicitaire
-source_empreinte: 98cce2
+source_empreinte: 304026
 ---
 # Que partage Messaging Me avec Meta, et comment le retirer ?
 
@@ -11,8 +11,9 @@ pouvez le retirer à tout moment.
 même poids ; votre choix est retenu six mois, et « Gérer les cookies », en bas de chaque page, le rouvre. Sans accord,
 rien ne part chez Meta.
 
-**À la création de votre compte.** Une case, décochée, vous propose de partager avec Meta (Facebook) vos étapes
-d'inscription. Si vous ne la cochez pas, rien ne part pour vous, jamais.
+**À la création de votre compte.** Une case, décochée, vous propose de partager avec Meta (Facebook) votre
+inscription, la connexion de votre premier numéro WhatsApp et votre premier paiement. Si vous ne la cochez pas, rien
+ne part pour vous, jamais.
 
 **Ce qui part, avec votre accord.** Trois étapes, une seule fois chacune : votre inscription, le premier numéro WhatsApp
 connecté à votre espace et le premier paiement d'une offre. Une étape antérieure à votre accord ne part jamais. Votre

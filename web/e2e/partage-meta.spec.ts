@@ -76,7 +76,7 @@ test.describe('L’accord publicitaire à l’inscription', () => {
     expect(corpsDe(appels, '/auth/signup')?.pub).toEqual({ accord: true, fbc: FBC, fbp: FBP });
   });
 
-  test('/signup par Google : la case cochée part avec le jeton ; décochée, rien', async ({ page }) => {
+  test('/signup par Google : la case cochée part avec le jeton (décochée : `champPub(false)`, `lib/pub.test.ts`)', async ({ page }) => {
     const appels = await monter(page, (chemin) => (chemin === '/auth/google' ? { status: 201, body: { ...SESSION, user: { email: 'a@b.co', role: 'admin', tenantId: 't1' }, isNew: true } } : undefined));
     await page.goto('/signup');
     await caseMeta(page).check();

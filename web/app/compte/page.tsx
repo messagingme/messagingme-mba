@@ -206,7 +206,7 @@ function PartageAvecMeta({ tenantId }: { tenantId: string }) {
           type="checkbox" className="mt-1" checked={partage.accord} disabled={enCours} data-testid="partage-meta"
           onChange={(e) => { void changer(e.target.checked); }}
         />
-        <span>{t('Partager avec Meta (Facebook) mes étapes d’inscription et d’activation, pour mesurer les publicités de Messaging Me, me les montrer et les montrer à des personnes au profil proche', 'Share my sign-up and activation steps with Meta (Facebook) to measure Messaging Me ads, show them to me and to people with a similar profile')}</span>
+        <span>{t('Partager avec Meta (Facebook) mon inscription, la connexion de mon premier numéro WhatsApp et mon premier paiement, avec mon adresse e-mail sous une forme non lisible, pour mesurer les publicités de Messaging Me, me les montrer et les montrer à des personnes au profil proche', 'Share with Meta (Facebook) my sign-up, the connection of my first WhatsApp number and my first payment, with my e-mail address in an unreadable form, to measure Messaging Me ads, show them to me and to people with a similar profile')}</span>
       </label>
       <p className="text-xs text-ink-500">
         {partage.accord && partage.depuis

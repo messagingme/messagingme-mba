@@ -21,8 +21,8 @@ export function CasePartageMeta({ coche, onChange }: { coche: boolean; onChange:
       <input type="checkbox" className="mt-0.5" checked={coche} onChange={(e) => onChange(e.target.checked)} />
       <span>
         {t(
-          'J’accepte que Messaging Me transmette à Meta (Facebook) mes étapes d’inscription, et mon adresse e-mail sous une forme non lisible, pour mesurer ses publicités, me les montrer et les montrer à des personnes au profil proche. Je peux le retirer à tout moment dans « Mon compte ».',
-          'I agree that Messaging Me shares my sign-up steps, and my e-mail address in an unreadable form, with Meta (Facebook) to measure its ads, show them to me and to people with a similar profile. I can withdraw this at any time in “My account”.',
+          'J’accepte que Messaging Me transmette à Meta (Facebook) mon inscription, la connexion de mon premier numéro WhatsApp et mon premier paiement, avec mon adresse e-mail sous une forme non lisible, pour mesurer ses publicités, me les montrer et les montrer à des personnes au profil proche. Je peux le retirer à tout moment dans « Mon compte ».',
+          'I agree that Messaging Me shares my sign-up, the connection of my first WhatsApp number and my first payment, with my e-mail address in an unreadable form, with Meta (Facebook) to measure its ads, show them to me and to people with a similar profile. I can withdraw this at any time in “My account”.',
         )}{' '}
         <a href={t(...POLITIQUE_DE_CONFIDENTIALITE)} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-600 underline underline-offset-2 hover:text-brand-700">
           {t('Politique de confidentialité', 'Privacy policy')}

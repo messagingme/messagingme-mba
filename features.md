@@ -303,8 +303,8 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     Sans accord, rien ne part chez Meta. Avec, le pixel compte les pages vues, et un clic vers la console lui passe de
     quoi relier l'inscription à la publicité. Inerte tant que l'identifiant du pixel n'est pas posé.
   - **À la création d'un compte** (`/signup`, par e-mail ou par Google, et `/autoriser`, le parcours du plugin), une
-    case **décochée** : « J'accepte que Messaging Me transmette à Meta (Facebook) mes étapes d'inscription… ». Sans
-    elle, rien ne part pour la personne, jamais.
+    case **décochée** : « J'accepte que Messaging Me transmette à Meta (Facebook) mon inscription, la connexion de mon
+    premier numéro WhatsApp et mon premier paiement… ». Sans elle, rien ne part pour la personne, jamais.
   - **Dans « Mon compte »**, l'interrupteur « Partager avec Meta » accorde comme il retire ; retirer arrête aussitôt ce
     qui attendait d'être envoyé.
   - **Ce qui part chez Meta**, par notre serveur, une fois chacun : l'inscription, le premier numéro connecté d'un
