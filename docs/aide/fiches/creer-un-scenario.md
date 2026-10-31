@@ -1,7 +1,7 @@
 ---
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 8f3b70
+source_empreinte: 40a676
 ---
 # Créer un scénario
 
@@ -12,11 +12,12 @@ Les blocs que vous utiliserez le plus :
 
 - **Envoi de modèle** : envoie un message approuvé par WhatsApp. C'est ce qui ouvre une conversation avec
   quelqu'un qui ne vous a pas écrit récemment. Sur la toile, le bloc montre une miniature du modèle choisi.
-  Ses variables (`{{1}}`, `{{2}}`…) ne se règlent pas dans le bloc : chacune prend le champ du contact choisi avec
-  « Variable » quand le modèle a été écrit, et le panneau du bloc affiche lequel. Une variable reliée à aucun champ
-  apparaît en rouge, et le bloc ne partira pas ; pour la relier, modifiez le modèle (il repasse alors en validation
-  chez Meta). Seule exception : le premier modèle d'un scénario lancé en campagne, dont les variables se choisissent
-  à l'étape Contenu de la campagne.
+  Dans le panneau du bloc, chaque variable (`{{1}}`, `{{2}}`…) a son sélecteur : un champ du contact, la date du
+  jour ou un texte fixe. Il part du champ choisi quand le modèle a été écrit, et vous pouvez le changer : ce choix ne
+  vaut que pour ce bloc, le modèle et sa validation chez Meta ne bougent pas. « Reprendre les champs du template »
+  annule vos choix. Une variable reliée à aucun champ apparaît en rouge, et le bloc ne partira pas. Pour le premier
+  modèle d'un scénario lancé en campagne, l'étape Contenu de la campagne reprend vos choix, et vous pouvez encore les
+  y changer.
 - **Message rapide** : un texte, avec jusqu'à trois boutons de réponse ou un bouton qui ouvre une page. Il ne
   part que dans une conversation déjà ouverte. Il peut porter une image, une vidéo MP4 ou un PDF ; la vidéo et le
   PDF ne partent qu'en WhatsApp, et le texte qui les accompagne est limité à 1 024 caractères. Une vidéo d'iPhone

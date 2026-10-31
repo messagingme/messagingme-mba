@@ -20,13 +20,15 @@ import { scenariosPourEtage } from '@/lib/campagne-scenario';
 import { CreationScenarioEnLigne } from '@/components/campagne/CreationScenarioEnLigne';
 import { modeleDeLEtage } from '@/lib/campagne-creation';
 import type { WorkflowSummary } from '@/lib/api';
-import { SYSTEM_FIELDS, customFieldsOnly, varCountOf } from '@/lib/fields';
+import { varCountOf } from '@/lib/fields';
 import { fmtNum } from '@/lib/format';
 import { firstTemplateOf } from '@/lib/campaign-eligibility';
 import { appliquerIndices, exemplesDApercu, lignesParDefaut, type VarRow } from '@/lib/variables-template';
+import { lireSourcesDuBloc, type SourceDuBloc } from '@/lib/variables-bloc-template';
 import type { TemplateSummary } from '@/lib/api';
 import type { CapacitesEspace, ContenuEtage, Devenir, EtatCampagne, ReferencesContenu } from '@/components/campagne/AssistantCampagne';
 import { TitrePage } from '@/components/TitrePage';
+import { SourceDeVariable } from '@/components/SourceDeVariable';
 import { Icone } from '@/components/Icone';
 
 /**
@@ -557,17 +559,20 @@ function CadreWhatsApp({
    * modèle choisi porte immédiatement autant de lignes que de `{{n}}`, donc un lancement qui suit le clic
    * d'une seconde part avec un `paramMapping` complet. Les indices ne font que remplacer des sources.
    */
-  const poserVariables = (n: number, nom: string, langue: string, avec: Partial<ContenuEtage> = {}): void => {
+  const poserVariables = (n: number, nom: string, langue: string, avec: Partial<ContenuEtage> = {}, duBloc: SourceDuBloc[] = []): void => {
     const mien = (tour.current += 1);
+    // `duBloc` : les champs choisis dans le bloc d'ouverture du scénario, qui priment sur ceux du modèle et
+    // restent modifiables ici, pour cette campagne seulement.
+    const avecLeBloc = (lignes: VarRow[]): VarRow[] => appliquerIndices(lignes, duBloc, references.userFields);
     // ⚠️ UN SEUL PATCH POUR LE CHOIX ET SES VARIABLES : deux appels de suite partiraient du même état de
     // rendu et le second effacerait le premier. La coquille fusionne, elle ne devine pas.
-    onChange({ ...avec, variables: lignesParDefaut(n) });
+    onChange({ ...avec, variables: avecLeBloc(lignesParDefaut(n)) });
     if (n === 0) return;
     void getTemplateHints(tenantId, nom, langue)
       .then(({ hints }) => {
         // Un autre modèle a été choisi entre-temps : sa réponse à lui n'a rien à faire ici.
         if (mien !== tour.current || hints.length === 0) return;
-        onChange({ variables: appliquerIndices(lignesParDefaut(n), hints, references.userFields) });
+        onChange({ variables: avecLeBloc(appliquerIndices(lignesParDefaut(n), hints, references.userFields)) });
       })
       .catch(() => { /* pas d'indices -> on garde le défaut, jamais une liste vide */ });
   };
@@ -612,6 +617,7 @@ function CadreWhatsApp({
           nom,
           langue,
           { modeleDuScenario: { name: nom, language: langue } },
+          lireSourcesDuBloc(entree?.data.variables),
         );
       })
       .catch(() => { /* graphe illisible -> aucun modèle connu, le récapitulatif le dira */ });
@@ -773,7 +779,6 @@ function EditeurVariables({
   onChange: (lignes: VarRow[]) => void;
 }) {
   if (nbVariables === 0) return null;
-  const perso = customFieldsOnly(champs);
   const majLigne = (i: number, patch: Partial<VarRow>): void =>
     onChange(lignes.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   return (
@@ -781,39 +786,14 @@ function EditeurVariables({
       <p className="text-sm font-medium text-ink-900">Variables ({nbVariables})</p>
       <div className="mt-1 w-full space-y-2">
         {lignes.map((l, i) => (
-          <div key={`var-${i + 1}`} className="flex w-full items-center gap-1.5">
-            <span className="w-10 shrink-0 text-xs text-ink-500">{`{{${i + 1}}}`}</span>
-            <select
-              value={l.sel}
-              onChange={(e) => majLigne(i, { sel: e.target.value })}
-              data-testid={`variable-${rang}-${i + 1}`}
-              aria-label={`Variable ${i + 1}`}
-              className="min-w-0 flex-1 rounded-controle border border-ink-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-400"
-            >
-              <optgroup label="Champs de base">
-                {SYSTEM_FIELDS.map((f) => <option key={f.key} value={`sys:${f.key}`}>{f.label[0]}</option>)}
-              </optgroup>
-              {perso.length > 0 && (
-                <optgroup label="Mes champs">
-                  {perso.map((f) => <option key={f.key} value={`field:${f.key}`}>{f.label}</option>)}
-                </optgroup>
-              )}
-              <optgroup label="Autre">
-                <option value="now">Date du jour (auto)</option>
-                <option value="literal">Texte fixe</option>
-              </optgroup>
-            </select>
-            {l.sel === 'literal' && (
-              <input
-                value={l.value}
-                onChange={(e) => majLigne(i, { value: e.target.value })}
-                data-testid={`variable-${rang}-${i + 1}-texte`}
-                aria-label={`Texte fixe de la variable ${i + 1}`}
-                placeholder="valeur"
-                className="w-28 min-w-0 shrink rounded-controle border border-ink-200 px-3 py-2 text-sm outline-none focus:border-brand-400"
-              />
-            )}
-          </div>
+          <SourceDeVariable
+            key={`var-${i + 1}`}
+            position={i + 1}
+            ligne={l}
+            champs={champs}
+            onChange={(patch) => majLigne(i, patch)}
+            testId={`variable-${rang}-${i + 1}`}
+          />
         ))}
       </div>
       <p className="mt-1.5 text-xs text-ink-500">

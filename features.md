@@ -1027,11 +1027,13 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   affiche sous le libellé « Bloc MBA (retiré) » et le moteur les traverse sans agir.
 - ✅ **Le bloc « Envoi template » montre son modèle** (2026-09-29) : une miniature compacte (en-tête, titre, début
   du texte) s'affiche dans le bloc, sur la toile du scénario. On reconnaît le message sans ouvrir le panneau.
-- ✅ **Le bloc « Envoi template » dit à quel champ chaque variable est reliée** (2026-10-30) : sous le choix du
-  template, le panneau liste `{{1}} = Prénom`, etc. Une variable reliée à aucun champ s'affiche en rouge, avec
-  l'alerte que le bloc ne partira pas (seule exception : le premier template d'un scénario lancé en campagne, dont
-  les variables se choisissent à l'étape Contenu) et le moyen de la relier : modifier le template et l'insérer avec
-  « Variable », ce qui le renvoie chez Meta pour validation. Le bloc lui-même ne règle aucune variable.
+- ✅ **Le bloc « Envoi template » choisit le champ de chaque variable** (2026-10-31) : sous le choix du template, le
+  panneau donne à chaque `{{n}}` un sélecteur (champs de base, mes champs, date du jour, texte fixe), qui part du
+  champ posé sur le template. Le choix ne vaut **que pour ce bloc** : le template, ses autres usages et sa validation
+  chez Meta ne changent pas, et « Reprendre les champs du template » l'annule. Une variable reliée à aucun champ
+  s'affiche en rouge, avec l'alerte que le bloc ne partira pas. Pour le premier template d'un scénario lancé en
+  campagne, l'étape Contenu reprend les choix du bloc et reste modifiable ; l'action HubSpot « Lancer un scénario
+  (transaction) » les applique aussi.
 - ✅ **Bloc « Action »** (2026-08-02) : un seul bloc pour agir sur la fiche du contact, avec 4 actions au choix :
   **ajouter un tag**, **retirer un tag**, **mettre à jour un champ** (valeur fixe, ou « maintenant » = la date et
   l'heure du passage du contact), **vider un champ**. Il remplace dans la palette les anciens blocs « ajout de

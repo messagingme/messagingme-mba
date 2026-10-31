@@ -5,7 +5,7 @@ import type { AgentResume } from '@/lib/api-agent';
 import { useT } from '@/lib/i18n';
 import { nodeMetaOf } from '@/lib/nodeMeta';
 import { MAX_DESTINATAIRES_EMAIL } from '@/lib/partage/blocs';
-import { emailResolvableFields } from '@/lib/fields';
+import { emailResolvableFields, varCountOf } from '@/lib/fields';
 import { carouselOutputs } from '@/lib/carousel-outputs';
 import { versBrouillonRcs, maxTexteRcs, MAX_BOUTONS_CARTE, MAX_BOUTONS_RCS } from '@/lib/rcs';
 import { boutonsDepuisNode } from '@/lib/rcs-boutons';
@@ -18,8 +18,9 @@ import { EditeurFamilles } from '@/components/ConditionBuilder';
 import { PanneauAllerA } from '@/components/PanneauAllerA';
 import { sortiesDuBloc, type EmailRecipientData, type RFNode } from '@/lib/workflow-canevas';
 import { essayerFonctionJs, getTemplateHints, type EssaiJs, type TemplateParamHint } from '@/lib/api';
-import { labelForSource } from '@/components/TemplateBodyField';
-import { variablesDuBloc } from '@/lib/variables-bloc-template';
+import { SourceDeVariable } from '@/components/SourceDeVariable';
+import { SEL_AUCUN, lignesDuBloc, lireSourcesDuBloc, versSourcesDuBloc } from '@/lib/variables-bloc-template';
+import type { VarRow } from '@/lib/variables-template';
 import { useEffect, useState } from 'react';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
@@ -385,7 +386,7 @@ export function ConfigPanel({
       {wfType === 'template' && (
         <div>
           <label className="mb-1 block text-xs font-medium text-ink-500">{t('Template à envoyer', 'Template to send')}</label>
-          <select value={(d.templateName as string) ?? ''} onChange={(e) => { const tpl = templates.find((x) => x.name === e.target.value); onPatch({ templateName: e.target.value, language: tpl?.language ?? 'fr', templateButtons: tpl?.buttons ?? [], templateCards: carouselOutputs(tpl) }); }} className={`${cls} bg-white`}>
+          <select value={(d.templateName as string) ?? ''} onChange={(e) => { const tpl = templates.find((x) => x.name === e.target.value); onPatch({ templateName: e.target.value, language: tpl?.language ?? 'fr', templateButtons: tpl?.buttons ?? [], templateCards: carouselOutputs(tpl), variables: [] }); }} className={`${cls} bg-white`}>
             <option value="">{t('Choisir…', 'Choose…')}</option>
             {templates.map((tpl) => <option key={tpl.id || tpl.name} value={tpl.name}>{tpl.name}</option>)}
           </select>
@@ -396,9 +397,12 @@ export function ConfigPanel({
           ) : null}
           {typeof d.templateName === 'string' && d.templateName !== '' && (
             <VariablesDuTemplate
+              key={`${node.id}:${d.templateName}:${String(d.language ?? '')}`}
               tenantId={tenantId}
               template={templates.find((x) => x.name === d.templateName && x.language === d.language) ?? templates.find((x) => x.name === d.templateName)}
+              variables={d.variables}
               fields={fields}
+              onPatch={onPatch}
             />
           )}
         </div>
@@ -1078,16 +1082,23 @@ export function ConfigPanel({
 }
 
 /**
- * Les variables du template choisi et le champ du contact qui remplit chacune. Composant à part pour la même
- * raison que `FonctionJs` (il porte un état). Indices illisibles : rien n'est affiché plutôt qu'une alerte fausse.
+ * Les variables du template choisi et le champ du contact qui remplit chacune, modifiable POUR CE BLOC
+ * (`data.variables`) : le template et ses autres usages ne changent pas. Le défaut est la source posée sur le
+ * template. Composant à part pour la même raison que `FonctionJs` (il porte un état). Indices illisibles : rien
+ * n'est affiché plutôt qu'une alerte fausse.
  */
-function VariablesDuTemplate({ tenantId, template, fields }: {
+function VariablesDuTemplate({ tenantId, template, variables, fields, onPatch }: {
   tenantId: string;
   template: TemplateSummary | undefined;
+  variables: unknown;
   fields: UserFieldDef[];
+  onPatch: (p: Record<string, unknown>) => void;
 }) {
   const t = useT();
   const [hints, setHints] = useState<TemplateParamHint[] | null>(null);
+  // Un texte fixe en cours de saisie, pas encore enregistrable (vide) : sans ce brouillon, la ligne recalculée
+  // depuis le bloc retomberait aussitôt sur sa valeur précédente et le champ de texte n'apparaîtrait jamais.
+  const [brouillon, setBrouillon] = useState<Record<number, VarRow>>({});
   const name = template?.name;
   const language = template?.language;
   useEffect(() => {
@@ -1100,33 +1111,51 @@ function VariablesDuTemplate({ tenantId, template, fields }: {
     return () => { alive = false; };
   }, [tenantId, name, language]);
   if (!template || template.isCarousel || hints === null) return null;
-  const lignes = variablesDuBloc(template.body, hints);
+  const n = varCountOf(template.body);
+  const duBloc = lireSourcesDuBloc(variables);
+  const base = lignesDuBloc(n, hints, [], fields);
+  const lignes = lignesDuBloc(n, hints, duBloc, fields).map((l, i) => brouillon[i] ?? l);
   if (lignes.length === 0) return null;
-  const orphelines = lignes.filter((l) => l.source === null);
+  const changer = (i: number, patch: Partial<VarRow>): void => {
+    const ligne = { ...lignes[i]!, ...patch };
+    setBrouillon((b) => {
+      const { [i]: _retiree, ...reste } = b;
+      return ligne.sel === 'literal' && ligne.value.trim() === '' ? { ...reste, [i]: ligne } : reste;
+    });
+    // Seules les positions qui diffèrent du template s'enregistrent : les autres continuent de le suivre.
+    onPatch({ variables: versSourcesDuBloc(lignes.map((l, j) => (j === i ? ligne : l)), base) });
+  };
+  const reprendre = (): void => { setBrouillon({}); onPatch({ variables: [] }); };
   return (
-    <div className="mt-2 space-y-1" data-testid="template-node-variables">
+    <div className="mt-2 space-y-1.5" data-testid="template-node-variables">
       <p className="text-xs font-medium text-ink-500">{t('Variables du template', 'Template variables')}</p>
-      <ul className="space-y-0.5 text-xs text-ink-700">
-        {lignes.map((l) => (
-          <li key={l.position}>
-            <code>{`{{${l.position}}}`}</code>{' = '}
-            {l.source
-              ? <b>{labelForSource(l.source, fields, t)}</b>
-              : <span className="text-danger">{t('aucun champ', 'no field')}</span>}
-          </li>
-        ))}
-      </ul>
-      {orphelines.length > 0 ? (
+      {lignes.map((l, i) => (
+        <SourceDeVariable
+          key={i + 1}
+          position={i + 1}
+          ligne={l}
+          champs={fields}
+          onChange={(patch) => changer(i, patch)}
+          testId={`template-node-variable-${i + 1}`}
+          avecAucun={l.sel === SEL_AUCUN}
+        />
+      ))}
+      {lignes.some((l) => l.sel === SEL_AUCUN) ? (
         <p className="text-xs text-danger">
           {t(
-            'Ce bloc ne partira pas : une variable n’est reliée à aucun champ du contact. Seule exception, le premier template d’un scénario lancé en campagne, dont les variables se choisissent à l’étape Contenu. Pour la relier, modifiez le template et insérez-la avec « Variable » (le template repasse alors en validation chez Meta).',
-            'This block will not be sent: a variable is not linked to any contact field. The only exception is the first template of a scenario launched as a campaign, whose variables are picked at the Content step. To link it, edit the template and insert it with “Variable” (the template then goes back to Meta for review).',
+            'Ce bloc ne partira pas : une variable n’est reliée à aucun champ du contact. Seule exception, le premier template d’un scénario lancé en campagne, dont les variables se choisissent à l’étape Contenu.',
+            'This block will not be sent: a variable is not linked to any contact field. The only exception is the first template of a scenario launched as a campaign, whose variables are picked at the Content step.',
           )}
         </p>
       ) : (
         <p className="text-xs text-ink-500">
-          {t('Un contact sans valeur pour l’un de ces champs ne recevra pas ce message.', 'A contact with no value for one of these fields will not receive this message.')}
+          {t('Ce choix ne vaut que pour ce bloc. Un contact sans valeur pour l’un de ces champs ne recevra pas ce message.', 'This choice only applies to this block. A contact with no value for one of these fields will not receive this message.')}
         </p>
+      )}
+      {(duBloc.length > 0 || Object.keys(brouillon).length > 0) && (
+        <button type="button" onClick={reprendre} className="text-xs text-brand-600 hover:underline" data-testid="template-node-variables-reset">
+          {t('Reprendre les champs du template', 'Use the template fields')}
+        </button>
       )}
     </div>
   );

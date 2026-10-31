@@ -28,12 +28,12 @@
   à Meta n'arrête pas l'envoi en vol) ; une devise hors EUR, USD, GBP fait perdre un `Subscribe` sur un simple `warn` ;
   rien ne borne l'attente de la réservation dans les chemins qui l'appellent (le même modèle que les e-mails).
 
-## 🟡 Relier une variable de template à un champ sans repasser par Meta (2026-10-30)
+## 🟡 Les variables du bloc « Envoi template » : ce que la relecture laisse (2026-10-31)
 
-- Les sources des variables (`template_param_hints`) sont à nous, pas à Meta, mais on ne les change qu'en éditant le
-  template (`PATCH /tenants/:tenantId/templates/:name`), qui le resoumet chez Meta et le remet en attente. Une route qui
-  ne réécrit que les sources suffirait, et le panneau du bloc « Envoi template » pourrait alors proposer de relier une
-  variable sur place (il ne fait aujourd'hui que la signaler).
+- **Aucun e2e du panneau du bloc** (`template-node-variable-<n>`, « Texte fixe » puis sa saisie, « Reprendre les champs
+  du template ») ni du pré-remplissage de l'étape Contenu par les choix du bloc : seules les fonctions pures sont testées.
+- **Un outil qui changerait le `templateName` d'un bloc** (API, MCP) sans vider `variables` appliquerait les anciens
+  choix, par position, au nouveau template. Aucun ne le fait aujourd'hui : seul le panneau change le template, et il vide.
 
 ## 🟡 La page développeurs : ce que la relecture laisse (2026-10-30)
 

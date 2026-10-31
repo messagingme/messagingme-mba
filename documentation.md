@@ -552,12 +552,14 @@ envoyé fait passer le parcours en `rcs`, un template le ramène à `whatsapp`, 
 courant. Un bloc RCS **sauté** (opt-out, agent absent) ne bascule rien : le repli « non joignable » est
 WhatsApp, et le faire partir en RCS chez un contact qu'on vient de constater injoignable n'aurait aucun sens.
 
-🔴 **Les variables d'un template envoyé par un bloc ne viennent jamais du bloc.** Le premier template d'un scénario
-lancé en campagne reçoit ses valeurs déjà résolues par contact (`paramMapping` de la campagne, `firstTemplateParams`) ;
-tout autre envoi lit les sources posées sur le template à sa création (`template_param_hints`, `resolveHintParams`,
-`src/workflow/envois-bloc.ts`), et une position sans source ou un champ vide fait refuser l'envoi. Changer une source
-passe aujourd'hui par l'édition du template, donc par une nouvelle validation de Meta. Le panneau du bloc les affiche
-(`web/lib/variables-bloc-template.ts`) et signale une position sans source.
+🔴 **Les variables d'un template envoyé par un bloc : le bloc d'abord, le template ensuite, la campagne au-dessus.**
+Le premier template d'un scénario lancé en campagne reçoit ses valeurs déjà résolues par contact (`paramMapping`,
+`firstTemplateParams`), que l'étape Contenu pré-remplit avec les choix du bloc. Tout autre envoi prend, position par
+position, la source choisie dans le bloc (`node.data.variables`, jugée une par une par `parseParamHints` dans
+`actionOf`) puis celle posée sur le template (`template_param_hints`), fusionnées par `sourcesDuBloc`
+(`src/workflow/template-send.ts`) ; une position sans source ou un champ vide fait refuser l'envoi. La route HubSpot
+« transaction » fait la même fusion (`modeleDOuverture` rend les choix du bloc). Le bloc n'enregistre que les
+positions qui diffèrent du template (`web/lib/variables-bloc-template.ts`) : les autres continuent de le suivre.
 
 🔴 **La fenêtre de 24 h de WhatsApp gouverne ce qui peut OUVRIR et ce qui peut SUIVRE, et ce sont deux règles
 distinctes.** Peuvent ouvrir à froid : un **template** WhatsApp, ou un **bloc RCS** configuré (le RCS n'a
