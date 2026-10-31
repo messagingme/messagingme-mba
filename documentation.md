@@ -3519,6 +3519,11 @@ chaque lot qui touche aux dépendances.
   passage, à retirer. `tests/audit-production.test.ts` tient la règle et vérifie que les étapes bloquantes n'ont pas
   de `continue-on-error`.
 - **Un rapport illisible** (registre de npm injoignable) bloque aussi : relancer, comme un `toomanyrequests`.
+- **Un avis paraît sans aucun commit** : le job rougit entre deux runs, sur tous les lots à la fois. Le rouge se lit par
+  l'avis qu'il cite, pas par le dernier commit. Quand une version corrigée entre dans la plage du paquet qui la tire, elle
+  se pose dans le verrou SEUL : `npm update <paquet> --package-lock-only`, dans un dossier qui ne contient que
+  `package.json` et le verrou (jamais dans une copie dont `node_modules` est partagé, que la commande réécrirait). Puis
+  `npx tsx scripts/audit-production.ts <dossier>` rend BLOQUANT sur l'ancien verrou et OK sur le nouveau.
 
 🔴 **AUCUNE SESSION D'ADMIN SANS SECOND FACTEUR DANS UN ESPACE QUI L'EXIGE, SAUF PAR GOOGLE** (plan
 `docs/superpowers/plans/2026-09-25-mfa-admins.md`, puis le réglage par espace du 2026-10-13). Après le mot de passe,
