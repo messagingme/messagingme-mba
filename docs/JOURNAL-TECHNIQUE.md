@@ -103,6 +103,10 @@ livraison).
   de `CHECK` « un agent exige son identifiant » : la remise à nul d'un agent supprimé le violerait en 23514. Des colonnes
   que le code écrit, donc `avant`, poussée seule (`109372d9`) et appliquée le 30 à 20:22 UTC par le déploiement de la
   session du tunnel (run 41120444496). Le déploiement de `e3c985ab` l'a trouvée inscrite (seule la 0264 appliquée).
+  Relue en base le 31, en lecture seule (script lancé par Julien) : les deux colonnes nullables et sans défaut, la clé
+  étrangère `campaign_etages_repondeur_agent_fk` en `ON DELETE SET NULL` (`confdeltype n`), les trois `CHECK` sous leur
+  nom et à la lettre du fichier (Postgres les réécrit en `= ANY (ARRAY[...])` et `NOT (... IS DISTINCT FROM ...)`),
+  aucune autre contrainte ; 45 étages, aucun ne porte encore de répondeur.
 - **Livraison A, le serveur** (`e3c985ab`) : une règle, `problemeDeRepondeur` (`src/campaign/etages.ts`), pour le premier
   étage, la chaîne et `prepare_campaign` ; l'agent IA lu dans l'espace et actif ; l'agent de Meta hors de l'offre refusé en
   402. À la réponse, `repondeurDeLaReponse` prend la campagne la plus récente servie au contact, à sa première réponse
@@ -124,8 +128,8 @@ livraison).
   poussée, rejoué sur la tête d'origin : suites racine et console, e2e complet (1 713 tests). Les seuls rouges locaux
   tenaient au `node_modules` du poste, en retard sur le verrou (`@aws-sdk/client-s3` absent), reproduits à l'identique
   sur une extraction d'origin.
-- **Restent** : l'essai réel 203 (SANDBOX) ; un `aide:charger` avec une image qui contient `f589b354` ; la relecture en
-  base de la 0263, point par point, lancée par Julien en lecture seule, dont la sortie reste à recopier ici.
+- **Restent** : l'essai réel 203 (SANDBOX) ; un `aide:charger` avec une image qui contient `f589b354` ; la sonde du
+  vrai code (`repondeurDeLaReponse` en lecture seule sur la production), confiée à Julien.
 
 ## 2026-10-31 (nuit) : le chiffre d'affaires attribué, lot 2 en production (outil MCP, Quantitatif > Shopify, page Shopify)
 
