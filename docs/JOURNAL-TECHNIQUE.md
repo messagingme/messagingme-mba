@@ -106,7 +106,10 @@ livraison).
   Relue en base le 31, en lecture seule (script lancé par Julien) : les deux colonnes nullables et sans défaut, la clé
   étrangère `campaign_etages_repondeur_agent_fk` en `ON DELETE SET NULL` (`confdeltype n`), les trois `CHECK` sous leur
   nom et à la lettre du fichier (Postgres les réécrit en `= ANY (ARRAY[...])` et `NOT (... IS DISTINCT FROM ...)`),
-  aucune autre contrainte ; 45 étages, aucun ne porte encore de répondeur.
+  aucune autre contrainte ; 45 étages, aucun ne porte encore de répondeur. Puis le vrai code en service (`5062b2f8`),
+  en lecture seule : `repondeurDeLaReponse` sur les cinq derniers contacts servis par une campagne rend « aucun
+  répondeur » en 3,5 à 6,6 ms chacun, aller-retour compris. La base commence par les étages qui désignent un répondeur
+  (aucun), n'exécute donc rien d'autre, et répond en 0,18 ms.
 - **Livraison A, le serveur** (`e3c985ab`) : une règle, `problemeDeRepondeur` (`src/campaign/etages.ts`), pour le premier
   étage, la chaîne et `prepare_campaign` ; l'agent IA lu dans l'espace et actif ; l'agent de Meta hors de l'offre refusé en
   402. À la réponse, `repondeurDeLaReponse` prend la campagne la plus récente servie au contact, à sa première réponse
@@ -128,8 +131,10 @@ livraison).
   poussée, rejoué sur la tête d'origin : suites racine et console, e2e complet (1 713 tests). Les seuls rouges locaux
   tenaient au `node_modules` du poste, en retard sur le verrou (`@aws-sdk/client-s3` absent), reproduits à l'identique
   sur une extraction d'origin.
-- **Restent** : l'essai réel 203 (SANDBOX) ; un `aide:charger` avec une image qui contient `f589b354` ; la sonde du
-  vrai code (`repondeurDeLaReponse` en lecture seule sur la production), confiée à Julien.
+- **`aide:charger`** lancé par Julien le 31 sur l'image `5062b2f8`, en service depuis 14:47 UTC : 184 lignes chargées, 0
+  retirées. Il charge toutes les fiches de l'image, donc aussi celles que d'autres lots laissaient en attente du
+  prochain déploiement (dont « Envoi template », `982d29a0`).
+- **Reste** : l'essai réel 203 (SANDBOX).
 
 ## 2026-10-31 (nuit) : le chiffre d'affaires attribué, lot 2 en production (outil MCP, Quantitatif > Shopify, page Shopify)
 

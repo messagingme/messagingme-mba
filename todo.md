@@ -1,5 +1,13 @@
 # todo.md : backlog
 
+## 🟡 Le répondeur par étage : le plan de sa lecture, à suivre (2026-10-31)
+
+- 🟡 **`repondeurDeLaReponse` (`src/campaign/store.pg.ts`), lue par la remise de chaque message entrant** : en
+  production le 2026-10-31, la base commence par `campaign_etages` filtré sur `repondeur is not null`, qu'elle lit en
+  entier (45 lignes, 0,02 ms), et n'exécute rien d'autre tant qu'aucun étage ne désigne de répondeur (0,18 ms en
+  tout). Quand la table comptera des milliers de lignes, relire ce plan ; si le balayage pèse, un index partiel
+  `where repondeur is not null`, au prédicat mot pour mot celui de la requête.
+
 ## Le pixel Meta : la suite (plan `docs/superpowers/plans/2026-10-30-pixel-meta.md`, lots 1 et 2 en production)
 
 - **Lot 3, la console** : la case non cochée sur `/signup` et `/autoriser` (le champ `pub` des trois routes de création),
