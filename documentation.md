@@ -3680,7 +3680,10 @@ l'activer, et d'ouvrir une recharge du crédit.
   restent lisibles par une clé, comme `get_number_subscription` (un statut et une échéance, rien qui engage). Le
   droit (`mcp:read` / `mcp:write`) et l'exigence d'une personne de chaque outil se déclarent UNE fois, dans
   `web/lib/partage/catalogue-mcp.ts`, que les handlers étalent (`ficheOutilMcp`) et que la documentation publique lit ;
-  les textes français et anglais restent dans la documentation, les handlers dans `src/mcp/`. La répartition est
+  les textes français et anglais restent dans la documentation, les handlers dans `src/mcp/`. Les familles d'outils
+  (`FAMILLES_OUTILS`, `web/lib/partage/familles-outils.ts`) vivent à côté du catalogue : la page Serveur MCP de la
+  console, le README du plugin et la page Boutiques Shopify les lisent. Cette page porte une ancre par outil, son nom,
+  dérivée du catalogue dans `PAGES_DOC` (`web/lib/doc-api-pages.ts`) : la vitrine y mène. La répartition est
   tenue par `tests/mcp-agent.test.ts` et `tests/mcp-numero.test.ts`, la correspondance entre le catalogue et les outils
   réellement chargés par `tests/mcp-doc-parite.test.ts`.
   `preview_site` est une lecture (`mcp:read`) qui exige une personne, et la seule lecture en monde ouvert : il lit un
