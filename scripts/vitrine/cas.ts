@@ -195,7 +195,7 @@ function mainCas(e: EntreeVitrine, t: TexteCas, langue: Langue): string {
     '    <div class="cadre">',
     `      <h2 class="f-titre">${t.film.titre}</h2>`,
     `      <p class="f-texte">${t.film.texte}</p>`,
-    `      <video class="f-video" src="/films/${film}${suffixe}.mp4?v=1" poster="/films/${film}${suffixe}.webp?v=1" data-vertical="/films/${film}${suffixe}-9x16.mp4?v=1" data-affiche-verticale="/films/${film}${suffixe}-9x16.webp?v=1" width="1280" height="720" controls muted playsinline preload="none" aria-label="${echapper(t.film.aria)}"></video>`,
+    `      <video class="f-video" src="/films/${film}${suffixe}.mp4?v=2" poster="/films/${film}${suffixe}.webp?v=1" data-vertical="/films/${film}${suffixe}-9x16.mp4?v=2" data-affiche-verticale="/films/${film}${suffixe}-9x16.webp?v=1" width="1280" height="720" controls muted playsinline preload="none" aria-label="${echapper(t.film.aria)}"></video>`,
     '    </div>',
     '  </section>',
     '',
@@ -382,7 +382,7 @@ export function pagesCarrefour(): Array<{ chemin: string; contenu: string }> {
     const cartes = enLigne.map((e) => {
       const p = langue === 'fr' ? e.fr : e.en;
       const t = TEXTES_CAS[e.cle]![langue];
-      return `        <li><a class="hub-carte" href="${p.adresse}"><video class="hub-mini" src="/films/${e.film}${suffixe}.mp4?v=1" poster="/films/${e.film}${suffixe}.webp?v=1" width="1280" height="720" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"></video><span class="hub-texte"><strong>${echapper(p.titre)}</strong><small>${t.resume}</small></span><svg class="ic hub-fleche" aria-hidden="true"><use href="#i-fleche"/></svg></a></li>`;
+      return `        <li><a class="hub-carte" href="${p.adresse}"><video class="hub-mini" src="/films/${e.film}${suffixe}.mp4?v=2" poster="/films/${e.film}${suffixe}.webp?v=1" width="1280" height="720" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"></video><span class="hub-texte"><strong>${echapper(p.titre)}</strong><small>${t.resume}</small></span><svg class="ic hub-fleche" aria-hidden="true"><use href="#i-fleche"/></svg></a></li>`;
     });
     const main = [
       '<main>',
@@ -410,7 +410,7 @@ export function pagesCarrefour(): Array<{ chemin: string; contenu: string }> {
       '      <div class="hub-film">',
       `        <h2 class="f-titre">${c.film.titre}</h2>`,
       `        <p class="f-texte">${c.film.texte}</p>`,
-      `        <video class="f-video" src="/films/${c.film.nom}${suffixe}.mp4?v=1" poster="/films/${c.film.nom}${suffixe}.webp?v=1" data-vertical="/films/${c.film.nom}${suffixe}-9x16.mp4?v=1" data-affiche-verticale="/films/${c.film.nom}${suffixe}-9x16.webp?v=1" width="1280" height="720" controls muted playsinline preload="none" aria-label="${echapper(c.film.aria)}"></video>`,
+      `        <video class="f-video" src="/films/${c.film.nom}${suffixe}.mp4?v=2" poster="/films/${c.film.nom}${suffixe}.webp?v=1" data-vertical="/films/${c.film.nom}${suffixe}-9x16.mp4?v=2" data-affiche-verticale="/films/${c.film.nom}${suffixe}-9x16.webp?v=1" width="1280" height="720" controls muted playsinline preload="none" aria-label="${echapper(c.film.aria)}"></video>`,
       '      </div>',
       '    </div>',
       '  </section>',
@@ -489,7 +489,7 @@ export function pagesSolutions(): Array<{ chemin: string; contenu: string }> {
     const suffixe = langue === 'fr' ? '' : '-en';
     const contact = langue === 'fr' ? '/contact/#formulaire' : '/en/contact/#formulaire';
     const fleche = '<svg class="ic hub-fleche" aria-hidden="true"><use href="#i-fleche"/></svg>';
-    const mini = (film: string) => `<video class="hub-mini" src="/films/${film}${suffixe}.mp4?v=1" poster="/films/${film}${suffixe}.webp?v=1" width="1280" height="720" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"></video>`;
+    const mini = (film: string) => `<video class="hub-mini" src="/films/${film}${suffixe}.mp4?v=2" poster="/films/${film}${suffixe}.webp?v=1" width="1280" height="720" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1"></video>`;
     const icone = (nom: string) => `<span class="hub-mini hub-mini-icone" aria-hidden="true"><svg class="ic"><use href="#${nom}"/></svg></span>`;
     const carte = (adresse: string, visuel: string, titre: string, texte: string) =>
       `          <li><a class="hub-carte" href="${adresse}">${visuel}<span class="hub-texte"><strong>${echapper(titre)}</strong><small>${texte}</small></span>${fleche}</a></li>`;
@@ -646,7 +646,7 @@ export function pagesSecteurs(): Array<{ chemin: string; contenu: string }> {
       `      <p class="f-surtitre">${t.terrain.surtitre}</p>`,
       `      <h2 class="f-titre">${deux(t.terrain.titre)}</h2>`,
       '      <div class="sec-terrain-grille">',
-      `        <div><video class="f-video" src="/films/${f.nom}${sf}.mp4?v=1" poster="/films/${f.nom}${sf}.webp?v=1" data-vertical="/films/${f.nom}${sf}-9x16.mp4?v=1" data-affiche-verticale="/films/${f.nom}${sf}-9x16.webp?v=1" width="1280" height="720" controls muted playsinline preload="none" aria-label="${echapper(f.aria)}"></video>${f.note ? `<p class="f-note">${f.note}</p>` : ''}</div>`,
+      `        <div><video class="f-video" src="/films/${f.nom}${sf}.mp4?v=2" poster="/films/${f.nom}${sf}.webp?v=1" data-vertical="/films/${f.nom}${sf}-9x16.mp4?v=2" data-affiche-verticale="/films/${f.nom}${sf}-9x16.webp?v=1" width="1280" height="720" controls muted playsinline preload="none" aria-label="${echapper(f.aria)}"></video>${f.note ? `<p class="f-note">${f.note}</p>` : ''}</div>`,
       ...(cas
         ? ['        <div class="sec-cas">', `          ${logo(cas.logo)}`, `          <h3>${cas.titre}</h3>`, `          <p>${cas.texte}</p>`, ...chiffres(t.terrain.chiffres, '          '), '        </div>']
         : chiffres(t.terrain.chiffres, '        ')),
