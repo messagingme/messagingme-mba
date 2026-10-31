@@ -4,6 +4,40 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : le pixel Meta, lots 1 et 2 (la bannière de la vitrine, les conversions par le serveur), et la migration 0265
+
+Plan `docs/superpowers/plans/2026-10-30-pixel-meta.md` (spec `docs/superpowers/specs/2026-10-30-pixel-meta-design.md`) :
+le pixel de NOS publicités Meta, pour les segments et les look-alike. Rien ne part encore chez Meta : il manque
+l'identifiant du pixel (vitrine), les deux variables des workers et le lot 3 (la case de la console).
+- **Lot 1, la vitrine** (`c01e2570`, poussé inerte avec l'accord de Julien sur captures) : la bannière (accord retenu six
+  mois, « Refuser » du même poids, Meta nommé), le pixel chargé seulement après « Accepter » et réduit à `PageView`,
+  `fbc`/`fbp` passés à la console au clic, « Gérer les cookies » au pied des 111 pages (par les gabarits). `var PIXEL`
+  est vide dans `site/site.js` : sans lui, rien ne s'affiche. Vérifié par Playwright sur la copie servie en local (20
+  cas avec un identifiant d'essai, 7 sans) ; en local Meta ne pose AUCUN cookie (pixel inventé, page en http), la pose
+  de `_fbp`/`_fbc` par Meta reste à prouver à l'essai 201.
+- **Lot 2, le serveur** (`9e31d61a`, test corrigé par `f5146af3`) : `CompleteRegistration`, `NumeroConnecte` (trois
+  filières, par `puisSignaler`) et `Subscribe` (première facture payée non nulle), réservés dans `conversions_meta` et
+  envoyés par la file `conversions-meta`. L'émetteur réserve TOUJOURS ; le worker seul lit `META_PIXEL_ID` et
+  `META_CAPI_TOKEN`. L'accord vit sur l'identité, relu à l'envoi ; un fait antérieur à l'accord ne part jamais.
+- **Relecture indépendante** (une) : un rouge, le rattrapage. `cree_le` est l'heure de la RÉSERVATION : un espace déjà
+  connecté ou abonné aurait vu sa reconnexion ou sa facture suivante partir comme un fait neuf après l'accord. Corrigé
+  par la reprise de la migration (les faits déjà accomplis réservés en `ignore`, raison `anterieur`) et par la
+  réservation inconditionnelle, tests vérifiés dans les deux sens. Deux jaunes pris : le navigateur de l'accord
+  (`pub_navigateur`, que Meta exige pour un événement de site web, sans quoi `NumeroConnecte` et `Subscribe` seraient
+  refusés) et l'accord effacé à la première preuve Google de l'adresse (il a pu être donné par un tiers).
+- **Migration 0265** (cinq colonnes de `identities`, la table `conversions_meta`, la reprise), poussée SEULE
+  (`083b13a9`) parce que l'inscription, la connexion d'un numéro et le webhook Stripe nomment ses colonnes. Appliquée par
+  le run 41144938287 (`migration=avant`, épinglé sur `083b13a9`, avec l'anti-boucle `57d27d95` par accord des deux
+  sessions et de Julien), après le contrôle de `pg_stat_activity` (aucune transaction longue, aucun verrou). Relue en
+  base en lecture seule : colonnes nullables sans défaut, CHECK sous leur nom, clés étrangères en cascade, index partiels
+  au prédicat exact et valides ; reprise de 9 numéros et 1 offre, exactement le compte attendu ; aucun accord posé.
+- **La CI du code** a rougi sur `integration` : l'abonnement fictif du test (`sub_itest_…`) violait
+  `abonnements_offre_id_chk` (`^sub_[A-Za-z0-9]+$`) ; les autres cas du journal passaient sur le Postgres de la CI.
+- **En service** le 2026-10-31 (run 41211130303, épinglé sur `5062b2f8`, `migration=aucune`) : le worker sur `5062b2f8`
+  démarre avec la file `conversions-meta`, sans erreur ; `/tenants/:id/moi/partage-meta` rend 401 sans session. Par le
+  vrai code de l'image, en lecture seule : les lectures du magasin passent, les dix requêtes d'écriture passent par
+  `EXPLAIN` sans erreur, la reprise passe par `conversions_meta_a_envoyer_idx`. Aucun fait réel n'a encore été réservé.
+
 ## 2026-10-31 : le Crédit WhatsApp, lot 1 (la garde avant chaque envoi, l'accusé, l'estimation, /ops), et la migration 0264
 
 Lot 1 du plan `docs/superpowers/plans/2026-10-30-credit-whatsapp-notre-cote.md` (spec

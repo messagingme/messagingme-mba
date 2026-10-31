@@ -1,5 +1,18 @@
 # todo.md : backlog
 
+## Le pixel Meta : la suite (plan `docs/superpowers/plans/2026-10-30-pixel-meta.md`, lots 1 et 2 en production)
+
+- **Lot 3, la console** : la case non cochée sur `/signup` et `/autoriser` (le champ `pub` des trois routes de création),
+  la lecture de `fbc`/`fbp` dans l'adresse, l'interrupteur « Partage avec Meta » de « Mon compte » (la route
+  `/tenants/:tenantId/moi/partage-meta` est en service), `features.md`. Poussé APRÈS la mise en service du lot 2 (fait).
+- **À Julien** : l'identifiant du pixel (à écrire dans `var PIXEL`, `site/site.js`), la politique de cookies et de
+  confidentialité de `www.messagingme.fr` à jour AVANT cet allumage, puis `META_PIXEL_ID` et `META_CAPI_TOKEN` dans
+  le `.env.prod` des workers (DEPLOY.md). Essai réel 201 (vitrine) puis l'essai réel du plan (inscription avec la case).
+- 🟡 **Ce que la relecture du lot 2 laisse** : un rattachement 360dialog qui finit en 502 après `linkTenant` compte
+  comme une activation ; `noterEnvoye` n'a pas de garde `statut = 'a_envoyer'` (un retrait pendant les 10 s d'un appel
+  à Meta n'arrête pas l'envoi en vol) ; une devise hors EUR, USD, GBP fait perdre un `Subscribe` sur un simple `warn` ;
+  rien ne borne l'attente de la réservation dans les chemins qui l'appellent (le même modèle que les e-mails).
+
 ## 🟡 Relier une variable de template à un champ sans repasser par Meta (2026-10-30)
 
 - Les sources des variables (`template_param_hints`) sont à nous, pas à Meta, mais on ne les change qu'en éditant le
