@@ -4,6 +4,57 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : le Crédit WhatsApp, lot 1 (la garde avant chaque envoi, l'accusé, l'estimation, /ops), et la migration 0264
+
+Lot 1 du plan `docs/superpowers/plans/2026-10-30-credit-whatsapp-notre-cote.md` (spec
+`docs/superpowers/specs/2026-10-30-credit-whatsapp-design.md`) : un numéro « sur la ligne » de crédit d'un partenaire paie
+ses messages sur un solde prépayé chez nous. Rien n'est visible d'un client tant qu'aucun de ses numéros n'est sur la
+ligne ; au lot 1, seul `/ops` en pose un, sur un numéro de test.
+- **La garde** vit dans la fabrique d'envoi, comme celles du numéro délié et suspendu : avant chaque `send*`, la provision
+  du message au prix de la grille de Meta, commission comprise (5 %, réglable dans `/ops`) ; rien ne part si le solde ne
+  la couvre pas (`CreditWhatsappRefus`, 402, ou 409 pour une ligne arrêtée), réponses comprises. Un refus net de Meta rend
+  la provision, un 5xx ou un délai la garde. L'Entreprise en open bar provisionne sans jamais refuser.
+- **Les chemins qui reçoivent le refus** : une campagne passe en pause `credit_whatsapp_epuise`, ses destinataires rendus
+  à la file ; une campagne programmée est contrôlée à son départ ; un lancement est refusé avec « il vous manque X € HT »
+  (console et `launch_campaign`, l'estimation dans `prepare_campaign`) ; un parcours reste sur son bloc ; le répondeur IA
+  ne démarre pas et la conversation passe à l'équipe avec sa propre cause ; un tour d'agent n'est pas payé ; l'Inbox, le
+  MCP et HubSpot disent le refus ; `/v1` rend 402 ou 409 avec le code par défaut (les codes publics au lot 2).
+- **L'accusé** de Meta ajuste la provision : un échec ou un message non facturable la rend, une autre catégorie la corrige
+  au prix exact, `delivered` la marque livrée ; idempotent, l'échec l'emporte.
+- **`/ops`** : la grille de Meta en euros (fichier daté), un numéro posé sur la ligne (numéro de l'espace, chez Meta, hors
+  coexistence, une grille en vigueur), le solde et les 50 dernières provisions, l'open bar et la commission négociée de
+  l'Entreprise, la commission globale.
+- **Migration 0264** (sept tables, deux colonnes de `tenants`, `campaigns_pause_reason_check` élargi sous son nom),
+  poussée seule (`aa1b6f7c`), renumérotée deux fois pendant le lot (0262 puis 0263 pris par des pairs). Appliquée par le
+  run 41132836655 (`migration=avant`, épinglé sur `e3c985ab`, la livraison A du Répondeur, lancé par sa session) :
+  `-> 0264_credit_whatsapp.sql ... ok`, seule appliquée. Avant lui, un déploiement épinglé sur une révision qui ne la
+  contenait pas (41125165353) et deux runs remplacés dans le groupe de concurrence (41132497382, 41132540483). Relue en
+  base en lecture seule par un script comparé au SQL, 101 points, vérifié dans les deux sens (trois écarts glissés exprès,
+  trois refus) : colonnes, défauts, clés étrangères en cascade, aucune vers `phone_numbers`, CHECK sous leur nom,
+  définitions exactes des index partiels, tous valides ; une ligne de réglages à 5 % ; tables vides.
+- **Relecture indépendante** (une) : aucun rouge pour le lot 1. Un rouge POUR LE LOT 2, impossible tant qu'aucun solde
+  n'est positif (aucun achat, l'open bar ne refuse rien) : un refus au milieu de la liste d'un bloc de scénario rejouerait,
+  à la reprise, ce qui était déjà parti (écart 10 du plan). Les autres constats corrigés avant le push (écart 13) ou
+  reportés (écart 14).
+- **En local**, le paquet `@aws-sdk/client-s3` de la médiathèque manquait aux `node_modules` du poste (14 fichiers de
+  tests sans chargement, typecheck rouge) : installé à part, hors de l'arbre partagé. Le test du contrat du SDK diffère
+  sur le poste par la version du convertisseur JSON Schema (huit écarts, tous sur des routes hors du lot, et le même
+  échec sur la base) ; la CI, qui installe le verrou du dépôt, le passe.
+- **La CI de `3a81999c`** : `unit`, `securite` et la console verts, `integration` rouge sur quatre attentes `toEqual` de
+  `lireEntreprise` (deux champs de plus, l'open bar et la commission des messages), dont la CI ne citait que deux, la
+  troisième fois que ce piège revient (`f38cdb4c`). Entre-temps, `securite` est passé rouge pour tout `main` : un avis
+  paru dans la nuit sur `follow-redirects` 1.16.1, tiré en production par `axios` (GHSA-mrwp-f3q8-3g9p), corrigé par la
+  1.16.2 dans le verrou seul (`247937c9`, l'audit de la CI rejoué en local dans les deux sens). Tout vert sur `247937c9`.
+- **En service** le 2026-10-31 à 15 h 20 (run 41209054170, épinglé sur `247937c9`, `migration=avant` : « à jour, rien à
+  appliquer »). Julien avait choisi un seul déploiement pour la 0265, l'anti-boucle et ce lot ; celui de la session du
+  pixel (41144938287, la 0265 et l'anti-boucle), approuvé entre-temps, est passé d'abord, et le mien a attendu en file.
+  Après : les workers sur `247937c9`, l'API sert `/ops/credit-whatsapp/ligne/…` (401 sans session, une route inconnue
+  rend 404). Par le vrai code de l'image, en lecture seule : la garde sur les 8 numéros de la production, aucune
+  provision ni blocage ; les conditions des 8 espaces à 5 % sans open bar ; aucune grille ; la lecture de la ligne et la
+  franchise passent par leurs index partiels ; 24 accusés simulés sans effet. Aucun message WhatsApp depuis la bascule
+  (dernier job des files d'accusés la veille à 19 h 29 UTC) : le chemin n'a encore tourné que par ces sondes. Essai réel
+  204.
+
 ## 2026-10-31 : « Quel répondeur ? », l'étage WhatsApp d'une campagne choisit son répondeur
 
 Demande de Julien du 30 octobre, sur l'étape Contenu de l'assistant : sous « Le répondeur automatique prend la main »,

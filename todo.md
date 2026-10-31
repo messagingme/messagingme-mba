@@ -53,6 +53,9 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
 
 ## Le Crédit WhatsApp : la suite de notre côté, puis le partenaire (plan `docs/superpowers/plans/2026-10-30-credit-whatsapp-notre-cote.md`)
 
+- Le lot 1 est en production depuis le 2026-10-31 (`247937c9`) : reste son essai réel par Julien (essai 204).
+- 🔴 Lot 2, D'ABORD et avant tout client sur la ligne : l'écart 10 du plan (un refus du crédit au milieu de la liste d'un
+  bloc de scénario rejouerait, à la reprise, ce qui était déjà parti), puis l'écart 14.
 - Lot 2 : l'achat par Stripe, l'onglet Crédit WhatsApp, `get_credit` et `buy_credit`, les alertes, la reprise des campagnes
   en pause après un crédit ; et ce que le lot 1 y a renvoyé (écarts 4, 7, 8 et 9 du plan : codes publics et refus à la
   création d'un envoi unitaire, prix en euros du récapitulatif, cartes de coût lues dans les provisions, reprise d'une

@@ -138,8 +138,8 @@ Déploiement : la migration (tâche 1) part seule, `migration=avant`, appliquée
   accent grave, le CHECK des pauses porte exactement `MOTIFS_DE_PAUSE`, aucune clé étrangère vers `phone_numbers` sur
   `lignes_credit_whatsapp`. Le voir échouer.
 - [x] Écrire la migration ; passer `tests/numero-suspendu.test.ts` sur la nouvelle migration du CHECK ; le test passe.
-- [ ] Commit seul, déploiement `migration=avant`, relecture en base point par point (colonnes, CHECK sous leur nom, index
-  partiels exacts).
+- [x] Commit seul, déploiement `migration=avant`, relecture en base point par point (colonnes, CHECK sous leur nom, index
+  partiels exacts). Fait : `aa1b6f7c`, appliquée par le run 41132836655 le 2026-10-31, relue conforme (101 points).
 
 ### Tâche 2 : la grille de Meta et le prix d'un message
 
@@ -301,7 +301,9 @@ l'Accueil et la page Campagnes.
 - [x] Tests : `parsePricing` sans `COST` rend un coût inconnu, jamais 0, et aucun écran ne lit « gratuit » ; un espace sur la
   ligne lit ses montants dans le journal des provisions (ce qu'il a payé), commission comprise, sans parler de facture Meta ;
   un espace hors ligne ne change pas d'un caractère ; `cout_estime` du MCP suit.
-- [ ] Voir échouer, implémenter, voir passer ; commit. Fin du lot 1 : relecture indépendante, puis essai réel.
+- [x] Voir échouer, implémenter, voir passer ; commit. Fin du lot 1 : relecture indépendante, puis essai réel. Fait :
+  `3a81999c` (avec `f38cdb4c` et `247937c9`), en production le 2026-10-31 (run 41209054170) ; reste l'essai réel du lot 1
+  par Julien.
 
 ### Écarts du lot 1, relevés à la livraison (2026-10-30)
 
