@@ -28,7 +28,7 @@ import { abonnementVivant, droitAuNumero as droitDansLaReserve, numerosDisponibl
  * d'office à l'abonné qui attend le sien (la réserve est à nous, comme dans /ops).
  */
 export interface NumeroFourniRouteDeps {
-  numeros: Pick<PgNumerosFournisStore, 'attribuer' | 'numeroDeLEspace' | 'codeDeLEspace' | 'remplacerNumero' | 'rendre' | 'bloquer' | 'compterLibres'>;
+  numeros: Pick<PgNumerosFournisStore, 'attribuer' | 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'remplacerNumero' | 'rendre' | 'bloquer' | 'compterLibres'>;
   /**
    * Le numéro WhatsApp connecté à l'espace, en chiffres (`''` si son affichage est inconnu), `null` s'il n'en a pas.
    * 🔴 Un espace qui a déjà un numéro n'en reçoit pas d'autre (un seul numéro par espace), et le numéro fourni ne
@@ -302,13 +302,13 @@ export function registerNumeroFourni(
     if (connecte && fourni && (connecte.chiffres === '' || connecte.chiffres === fourni.numero)) {
       return reply.code(409).send({ error: 'Le numéro de cet espace est déjà connecté.', cause: 'deja_un_numero' });
     }
-    // 🔴 Un numéro de la filière application qui porte un compte WhatsApp Business sort de l'espace sans retourner à la
-    // réserve (`numeroFourniAGarder`) : Julien est prévenu, comme pour un numéro refusé par Meta.
+    // 🔴 Un numéro qui porte peut-être un compte WhatsApp Business (un code capté depuis son attribution, ou un compte de
+    // l'application) sort de l'espace sans retourner à la réserve (`numeroFourniAGarder`) : Julien est prévenu, comme
+    // pour un numéro refusé par Meta.
     const garder = fourni !== null && numeroFourniAGarder({
-      filiereDuLien: req.auth?.filiere,
       compte: await deps.application.comptes.parEspace(tenant),
       fourni,
-      codeCapte: (await deps.numeros.codeDeLEspace(tenant)) !== null,
+      codeCapte: await deps.numeros.codeCapteDepuisLAttribution(tenant),
     });
     if (garder) {
       const garde = await deps.numeros.bloquer(tenant);

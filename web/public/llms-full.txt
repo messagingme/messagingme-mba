@@ -4976,7 +4976,7 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 
 | Outil | Droit | Ce qu’il fait |
 | --- | --- | --- |
-| start_whatsapp_connection | mcp:write connexion OAuth requise | Donner le lien qui ouvre la connexion du numéro WhatsApp, sans passer par la console, valable une heure : numéro fourni ou apporté, ou celui de l’application WhatsApp Business, en gardant l’application (les messages qui partent par Messaging Me sont facturés par Meta). Sans compte Meta Business, la fenêtre de Meta le crée en chemin. |
+| start_whatsapp_connection | mcp:write connexion OAuth requise | Donner le lien qui ouvre la connexion du numéro WhatsApp, sans passer par la console, valable une heure : numéro fourni ou apporté, ou celui de l’application WhatsApp Business, en gardant l’application (les messages qui partent par Messaging Me sont facturés par Meta), y compris un numéro fourni mis dans l’application. Sans compte Meta Business, la fenêtre de Meta le crée en chemin. |
 | watch_whatsapp_connection | mcp:write connexion OAuth requise | Suivre la connexion du numéro jusqu’au bout : numéro attribué, code de vérification à lire à la personne, numéro connecté, ou relié en gardant l’application WhatsApp Business. |
 | get_number_subscription | mcp:read | L’abonnement du numéro fourni : son statut, la fin de la période payée et le numéro. |
 | manage_number_subscription | mcp:write connexion OAuth requise | Ouvrir le portail de Stripe pour l’abonnement du numéro : carte, factures, résiliation. |

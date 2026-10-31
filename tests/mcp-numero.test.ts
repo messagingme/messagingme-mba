@@ -8,6 +8,8 @@ import type { Issue } from '../src/lib/issue';
 import { signLienNumero, verifyLienNumero, DUREE_LIEN_NUMERO_MS } from '../src/auth/token';
 import { empreinteEtat, type EtatConnexion } from '../src/otp/etat-connexion';
 import { PREREQUIS_META } from '../web/lib/partage/etapes-meta';
+import { ETAPES_COMPTE_FOURNI } from '../web/lib/partage/etapes-application';
+import { COEXISTENCE_BOUTON } from '../web/lib/fenetre-meta';
 
 /**
  * LES OUTILS DE LA CONNEXION DU NUMÉRO (lot 3c, livraison A, tâche 4). `start_whatsapp_connection` donne le lien qui
@@ -314,7 +316,7 @@ describe('les deux outils dans le catalogue', () => {
     const p = outil('watch_whatsapp_connection').entree.properties.etat_connu!;
     expect(p.maxLength).toBe(16);
     expect(p.pattern).toBe('^[0-9a-f]{16}$');
-    expect(outil('start_whatsapp_connection').entree.properties.mode!.enum).toEqual(['fourni', 'apporte', 'coexistence']);
+    expect(outil('start_whatsapp_connection').entree.properties.mode!.enum).toEqual(['fourni', 'apporte', 'coexistence', 'fourni_application']);
   });
 });
 
@@ -464,5 +466,58 @@ describe('le numéro inclus dans le Pro', () => {
 
   it('une écriture qui exige une personne : invisible avec une clé d’API', () => {
     expect(outil('return_number_at_plan_end')).toMatchObject({ scope: 'mcp:write', exigePersonne: true, fonction: null });
+  });
+});
+
+/**
+ * LE NUMÉRO FOURNI MIS DANS L'APPLICATION (plan `docs/superpowers/plans/2026-10-31-numero-fourni-dans-application.md`,
+ * décision de Julien) : le payer ou l'obtenir, créer avec lui le compte de l'application WhatsApp Business (le code
+ * s'affiche sur la page et arrive ici), puis la fenêtre de Meta en coexistence sur ce même numéro.
+ */
+describe('le mode fourni_application', () => {
+  const demarrer = (etat: EtatConnexion, args: Record<string, unknown>) =>
+    outil('start_whatsapp_connection').executer(monter(() => etat).deps, 't1', args, PERSONNE) as Promise<Record<string, string>>;
+  const attendre = (etat: EtatConnexion) =>
+    outil('watch_whatsapp_connection').executer(monter(() => etat).deps, 't1', { mode: 'fourni_application' }, PERSONNE) as Promise<{ suite: string; code: string | null }>;
+  const FOURNI: EtatConnexion = { ...VIDE, fourni: '+441235619343', abonnement: { statut: 'actif', periodeFin: null } };
+
+  it('🔴 le lien porte le mode, et la consigne dit les étapes de la page : l’application, son code, puis la garder', async () => {
+    const r = await demarrer(VIDE, { mode: 'fourni_application' });
+    expect(await verifyLienNumero(r.url!.split('#')[1]!, SECRET)).toEqual({ tenantId: 't1', userId: 'u-admin', mode: 'fourni_application' });
+    for (const e of ETAPES_COMPTE_FOURNI) expect(r.consigne).toContain(e.fr);
+    expect(r.consigne).toContain(`« ${COEXISTENCE_BOUTON.fr} »`);
+    expect(r.consigne).toMatch(/Payer 3,50 € HT par mois/);
+    // Le numéro tout neuf : répondre dès le premier jour, l'envoi attend quelques jours, sans chiffre.
+    expect(r.consigne).toMatch(/dès le premier jour/i);
+    expect(r.consigne).toMatch(/quelques jours/);
+    expect(r.consigne).not.toMatch(/\d+ jours/);
+    expect(r.consigne).not.toMatch(/QR/);
+  });
+
+  it('en Pro, le numéro est inclus : la consigne ne demande pas de payer', async () => {
+    const { consigne } = await demarrer({ ...VIDE, inclusDansLePro: true }, { mode: 'fourni_application' });
+    expect(consigne).toMatch(/inclus dans son offre/);
+    expect(consigne).not.toMatch(/Payer/);
+  });
+
+  it('🔴 refusé sur la filière application, et sur un espace déjà connecté', async () => {
+    await expect(demarrer(VIDE, { mode: 'fourni_application', filiere: 'application' })).rejects.toThrow(RefusOutil);
+    await expect(demarrer({ ...VIDE, connecte: { chiffres: '441235619343', aActiver: false } }, { mode: 'fourni_application' })).rejects.toThrow(/déjà un numéro/);
+  });
+
+  it('🔴 le code se saisit dans l’application, pas dans la fenêtre de Meta ; puis « Garder mon application »', async () => {
+    const r = await attendre({ ...FOURNI, code: { code: '345679', recuLe: '2026-10-31T10:00:00.000Z' } });
+    expect(r.code).toBe('345679');
+    expect(r.suite).toMatch(/dans l’application WhatsApp Business/);
+    expect(r.suite).toMatch(/pas dans la fenêtre de Meta/);
+    expect(r.suite).toContain(`« ${COEXISTENCE_BOUTON.fr} »`);
+    expect(r.suite).not.toMatch(/Finish/);
+  });
+
+  it('le numéro attribué sans code : les étapes de l’application ; relié : le branchement est fini', async () => {
+    const attribue = await attendre(FOURNI);
+    for (const e of ETAPES_COMPTE_FOURNI) expect(attribue.suite).toContain(e.fr);
+    const relie = await attendre({ ...FOURNI, connecte: { chiffres: '441235619343', aActiver: false, coexistence: true } });
+    expect(relie.suite).toMatch(/branchement est fini/);
   });
 });

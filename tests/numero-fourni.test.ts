@@ -47,6 +47,8 @@ function fauxVerrous() {
 function monter(o: {
   /** Les chiffres du numéro WhatsApp connecté à l'espace (aucun si absent). */
   connecte?: string; reserve?: string[]; libresApres?: number; attribue?: string | null; code?: { code: string; recuLe: Date } | null;
+  /** Un code capté depuis l'attribution, sans borne de temps (« Abandonner », 2026-10-31). */
+  codeCapte?: boolean;
   /** L'abonnement du numéro (livraison B) : `actif` par défaut, pour que les cas du 3b gardent leur sens. */
   abonnement?: StatutAbonnement | null;
   ouverture?: Issue<{ url: string }>;
@@ -91,6 +93,7 @@ function monter(o: {
       },
       numeroDeLEspace: async () => (attribue ? NUMERO(attribue) : null),
       codeDeLEspace: async () => o.code ?? null,
+      codeCapteDepuisLAttribution: async () => o.codeCapte ?? false,
       remplacerNumero: async () => {
         cap.remplaces += 1;
         const bloque = attribue;
@@ -405,6 +408,19 @@ describe('remplacer et abandonner', () => {
     // L'abonnement de la fixture court : sa fin est programmée (lot 4, livraison B).
     expect(res.json()).toEqual({ rendu: true, finProgrammee: true });
     expect(cap.rendus).toBe(1);
+    await server.close();
+  });
+
+  it('🔴 un code capté depuis l’attribution, même des jours avant : abandonner GARDE le numéro, jamais rendu à la réserve (2026-10-31)', async () => {
+    // Le numéro fourni mis dans l'application : son compte est sur le téléphone du client, sans compte de notre service et
+    // sans lien de la filière application. Rendu, il serait donné à l'espace suivant avec ce compte et ses clients.
+    const { server, cap } = monter({ attribue: '441235619343', codeCapte: true });
+    const res = await server.inject({ method: 'POST', url: `${URL}/abandonner`, ...h(adminTok), payload: '{}' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ rendu: true });
+    expect(cap.rendus).toBe(0);
+    expect(cap.gardes).toBe(1);
+    expect(cap.bloques).toEqual(['441235619343']);
     await server.close();
   });
 

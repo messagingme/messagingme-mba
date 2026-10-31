@@ -8,7 +8,7 @@ import { test, expect, type Page } from './aide/test';
 const TENANT = 'aaaaaaaa-0000-4000-8000-000000000001';
 
 /** Un jeton à la forme d'un JWT : la page lit l'espace et le mode dans sa charge, le serveur (simulé ici) le vérifie. */
-function jeton(mode: 'fourni' | 'apporte' = 'fourni'): string {
+function jeton(mode: 'fourni' | 'apporte' | 'fourni_application' = 'fourni'): string {
   const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
   return `${b64({ alg: 'HS256' })}.${b64({ kind: 'lien_numero', tenantId: TENANT, userId: 'u-1', mode, exp: 4102444800 })}.signature`;
 }
@@ -96,6 +96,22 @@ test('🟡 le lien de Claude Code n’a pas le portail de Stripe, même abonné 
   await page.goto(`/brancher#${jeton('fourni')}`);
   await expect(page.getByTestId('numero-en-preparation')).toBeVisible();
   await expect(page.getByTestId('gerer-abonnement')).toHaveCount(0);
+});
+
+test('🔴 le numéro fourni mis dans l’application (2026-10-31) : les étapes de l’application, son code, puis la garder', async ({ page }) => {
+  await simuler(page, { lecturesAvantCode: 1 });
+  await page.goto(`/brancher#${jeton('fourni_application')}`);
+  await expect(page.getByTestId('choix-fourni-ouvert')).toContainText('que vous ajouterez dans l’application WhatsApp Business');
+  await page.getByTestId('obtenir-numero').click();
+  await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
+  await expect(page.getByTestId('etapes-numero-fourni')).toContainText('créez le compte avec ce numéro');
+  await expect(page.getByTestId('code-capte')).toContainText('345679', { timeout: 12_000 });
+  // Pas la fenêtre de Meta du numéro fourni, ni le QR code : la même fenêtre qu’en coexistence.
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeEnabled();
+  await expect(page.getByTestId('ouvrir-fenetre-meta')).toHaveCount(0);
+  await expect(page.getByTestId('suite-fourni-application')).toContainText('Dès le premier jour');
+  await expect(page.getByTestId('suite-fourni-application')).toContainText('Meta refuse souvent un numéro tout neuf');
+  await expect(page.locator('main')).not.toContainText(/QR/);
 });
 
 test('le mode apporté ouvre directement la fenêtre de Meta', async ({ page }) => {

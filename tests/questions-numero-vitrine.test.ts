@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
 import { FAQ } from '../scripts/plugin/faq';
-import { ISSUE_API, ISSUE_TELECHARGER, META_BUSINESS_URL, QUESTION_APPLICATION, QUESTION_COMPTE } from '../web/lib/questions-numero';
+import {
+  ISSUE_API, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_NUMERO,
+} from '../web/lib/questions-numero';
 
 /**
  * LA CONSOLE POSE LES QUESTIONS DE LA VITRINE (2026-10-30, plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-plugin.md`).
@@ -37,8 +39,24 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(QUESTION_APPLICATION.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_APPLICATION.precision[langue]).toBe(texte(q.precision!));
       expect([QUESTION_APPLICATION.oui, QUESTION_APPLICATION.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
-      // Non mène à la question du numéro (Julien, 2026-10-31), que la console pose avec son lot.
+      // Avec l'application, on la garde ; sans elle, la 4e question (Julien, 2026-10-31).
       expect(q.reponses.map((r) => r.vers)).toEqual(['garder', 'numero']);
+    });
+
+    it(`${langue} : « Avez-vous un numéro pour votre entreprise ? », Oui le met dans l’application, Non le fait fournir`, () => {
+      const q = question('numero');
+      expect(QUESTION_NUMERO.texte[langue]).toBe(texte(q.texte));
+      expect(QUESTION_NUMERO.precision[langue]).toBe(texte(q.precision!));
+      expect([QUESTION_NUMERO.oui, QUESTION_NUMERO.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
+      expect(q.reponses.map((r) => r.vers)).toEqual(['telecharger', 'fourni']);
+    });
+
+    it(`${langue} : le numéro fourni mis dans l’application, ses phrases et ses magasins`, () => {
+      const x = issue('fourni');
+      expect(ISSUE_FOURNI.titre[langue]).toBe(texte(x.titre));
+      // Le numéro et son code, répondre dès le premier jour, puis le numéro tout neuf : la 1re, la 2e et la dernière phrase.
+      expect(ISSUE_FOURNI.textes.map((p) => p[langue])).toEqual([texte(x.textes[0]!), texte(x.textes[1]!), texte(x.textes[x.textes.length - 1]!)]);
+      expect(ISSUE_TELECHARGER.magasins.map((m) => ({ libelle: m.libelle[langue], href: m.href }))).toEqual(x.liens);
     });
 
     it(`${langue} : les issues que la console reprend`, () => {
@@ -56,7 +74,7 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
   }
 
   it('🔴 aucun chiffre de jours pour le numéro trop neuf : Meta n’en publie aucun', () => {
-    for (const x of ISSUE_TELECHARGER.textes) expect(`${x.fr} ${x.en}`).not.toMatch(/\d/);
+    for (const x of [...ISSUE_TELECHARGER.textes, ...ISSUE_FOURNI.textes.slice(1)]) expect(`${x.fr} ${x.en}`).not.toMatch(/\d/);
   });
 });
 
@@ -67,7 +85,7 @@ describe('le plugin pose les mêmes questions, sans QR code', () => {
 
   it('🔴 la skill de mise en service : l’offre, le compte Meta Business, puis l’application, dans cet ordre', () => {
     const skill = lire('plugin/skills/mise-en-service/SKILL.md');
-    const rangs = ['**The plan: Free or Pro?**', `**"${q('compte')}"**`, `**"${q('application')}"**`].map((m) => skill.indexOf(m));
+    const rangs = ['**The plan: Free or Pro?**', `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
     expect(rangs.every((r) => r > 0), rangs.join(',')).toBe(true);
     expect([...rangs].sort((a, b) => a - b)).toEqual(rangs);
     // Le numéro trop neuf se dit sans chiffre, et le QR code n'est plus nommé que pour dire qu'il n'est plus proposé.

@@ -92,21 +92,22 @@ export function phraseDuRefusDePreparation(raison: RefusPreparation): string {
 }
 
 /**
- * « Abandonner » un numéro fourni de la filière application (relecture du lot, 🔴 2) : un numéro qui porte peut-être un
+ * « Abandonner » un numéro fourni (relecture du lot, 🔴 2, élargie le 2026-10-31) : un numéro qui porte peut-être un
  * compte WhatsApp Business ne retourne JAMAIS à la réserve, sans quoi l'espace suivant qui le recevrait reprendrait ce
- * compte et ses clients. Il le porte si un compte de l'application de l'espace le tient, ou, pour un lien de la filière,
- * dès que son code de vérification a été capté (le compte de l'application peut exister avant que la page ne le
- * prépare). La filière API garde son comportement.
+ * compte et ses clients. Il le porte si un compte de l'application de l'espace le tient, ou dès qu'un code de
+ * vérification a été capté pour lui depuis son attribution, quelle que soit la voie : le numéro fourni mis dans
+ * l'application (`fourni_application`) y a son compte sur le téléphone du client, sans compte de notre service, et un
+ * numéro vu de Meta ne resservira à personne, la règle de la libération (`vuDeMeta`). `codeCapte` est sans borne de
+ * temps (`codeCapteDepuisLAttribution`) : on abandonne parfois des jours après.
  */
 export function numeroFourniAGarder(o: {
-  filiereDuLien: 'application' | undefined;
   compte: CompteApplication | null;
   fourni: { numero: string };
   codeCapte: boolean;
 }): boolean {
   const compteVivant = o.compte !== null && o.compte.statut !== 'retire';
   if (compteVivant && o.compte!.numero === o.fourni.numero) return true;
-  return (o.filiereDuLien === 'application' || compteVivant) && o.codeCapte;
+  return o.codeCapte;
 }
 
 /**

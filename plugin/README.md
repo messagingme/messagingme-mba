@@ -44,7 +44,7 @@ This is where most people get lost, so here are the four words first.
   Me. What you type in the app does not show in Messaging Me yet, and you need to open the app at least every two
   weeks.
 
-Then `/messagingme:demarrer` asks you, one question at a time, the same three questions as the
+Then `/messagingme:demarrer` asks you, one question at a time, the same questions as the
 [Get started](https://app.messagingme.fr/en/get-started/) page:
 
 1. **Which plan?** Free, driven entirely from Claude Code, or Pro, which adds the console and includes a provided
@@ -52,9 +52,11 @@ Then `/messagingme:demarrer` asks you, one question at a time, the same three qu
 2. **Do you have a Meta Business account?** Yes: your number becomes an API number, an available one of yours or a
    provided one; if it is already in the WhatsApp Business app, you can keep it. No, or not sure: the next question
    (business.facebook.com lists your portfolios, and a missing account is created along the way).
-3. **Do you already have the WhatsApp Business app?** Yes: you keep it. No: download it, put your business's number in
-   it, and connect it right away. Meta sometimes refuses a number that is too new: then use the app for a few days,
-   and come back.
+3. **Do you already have the WhatsApp Business app?** Yes: you keep it, no number needed. No: the next question.
+4. **Do you have a number for your business?** Yes: download the app, put your number in it, and connect it right
+   away. No: we provide one, which goes in the app, its verification code shown on the setup page; you reply to your
+   customers from the app from day one. Meta often refuses a brand-new number at first: sending from Messaging Me then
+   waits a few days, until you come back to connect it.
 
 The price of a provided number is under [What it costs](#what-it-costs).
 

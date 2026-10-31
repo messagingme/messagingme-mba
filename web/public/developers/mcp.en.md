@@ -128,7 +128,7 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 
 | Tool | Scope | What it does |
 | --- | --- | --- |
-| start_whatsapp_connection | mcp:write OAuth connection required | Give the link that opens the WhatsApp number connection, without the console, valid for one hour: provided or own number, or the WhatsApp Business app number, keeping the app (messages sent through Messaging Me are billed by Meta). Without a Meta Business account, Meta’s window creates it along the way. |
+| start_whatsapp_connection | mcp:write OAuth connection required | Give the link that opens the WhatsApp number connection, without the console, valid for one hour: provided or own number, or the WhatsApp Business app number, keeping the app (messages sent through Messaging Me are billed by Meta), including a provided number put in the app. Without a Meta Business account, Meta’s window creates it along the way. |
 | watch_whatsapp_connection | mcp:write OAuth connection required | Follow the number connection to the end: number assigned, verification code to read out, number connected, or linked while keeping the WhatsApp Business app. |
 | get_number_subscription | mcp:read | The provided number’s subscription: its status, the end of the paid period and the number. |
 | manage_number_subscription | mcp:write OAuth connection required | Open the Stripe portal for the number subscription: card, invoices, cancellation. |

@@ -175,6 +175,57 @@ const CONSIGNES = {
 const RAPPEL_ATTENTE = 'Rappelle watch_whatsapp_connection avec etat_connu égal à cette empreinte pour attendre la suite.';
 
 /**
+ * Ce qu'un numéro tout neuf attend (Julien, 2026-10-31) : Meta le refuse souvent en coexistence les premiers jours, mais
+ * la personne répond à ses clients depuis l'application dès le premier jour. Meta ne publie aucun seuil : aucun chiffre.
+ */
+const NUMERO_NEUF = 'dès le premier jour, elle répond à ses clients depuis l’application ; Meta refuse souvent un numéro tout '
+  + 'neuf dans sa fenêtre, et l’envoi depuis Messaging Me attend alors quelques jours, le temps de revenir le brancher. Ne '
+  + 'donne aucun nombre de jours. Pour revenir, start_whatsapp_connection en mode « coexistence » : le numéro est déjà '
+  + 'dans l’application (ce mot reste dans ton appel, jamais dans ce que tu lui dis).';
+/**
+ * La dernière étape du numéro fourni mis dans l'application : le bouton de la page, la même fenêtre qu'en coexistence.
+ * Son libellé est celui de `COEXISTENCE_BOUTON` (`web/lib/fenetre-meta.ts`), que `tests/mcp-numero.test.ts` tient égal.
+ */
+const GARDER_APRES_COMPTE = 'Une fois le compte créé dans l’application, « Garder mon application WhatsApp Business » sur la '
+  + 'page : dans la fenêtre de Meta, saisir ce numéro et confirmer dans l’application, sur le téléphone.';
+
+/**
+ * LE NUMÉRO FOURNI MIS DANS L'APPLICATION (plan 2026-10-31, décision de Julien : « Dans l'application ») : le payer ou
+ * l'obtenir, créer avec lui le compte de l'application WhatsApp Business (le pont des codes capte l'appel de
+ * vérification de l'application, mesuré le 2026-10-21), puis la fenêtre de Meta en coexistence sur ce même numéro. Les
+ * étapes sont celles de la page (`ETAPES_COMPTE_FOURNI`, puis le bouton de la coexistence).
+ */
+const consigneFourniApplication = (inclusDansLePro: boolean): string =>
+  LIEN_EN_ENTIER + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
+  + 'étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
+  + numerotees([
+    'Cliquer sur le lien.',
+    inclusDansLePro
+      ? '« Obtenir mon numéro » : il est inclus dans son offre, rien à payer ; le numéro s’affiche sur la page.'
+      : '« Payer 3,50 € HT par mois » ; une fois le paiement confirmé, le numéro s’affiche sur la page.',
+    ...ETAPES_COMPTE_FOURNI.map((e) => e.fr),
+    GARDER_APRES_COMPTE,
+  ])
+  + ` Dis-lui aussi, avant de commencer : ${NUMERO_NEUF} Pas encore de compte Meta Business ? La fenêtre le crée en chemin, `
+  + 'avec un profil Facebook. Appelle ensuite watch_whatsapp_connection avec mode égal à « fourni_application » : le code '
+  + 'de vérification de l’application arrivera aussi ici, écris-le-lui en entier dès qu’il arrive.' + SI_ELLE_REVIENT;
+
+/** Ce que Claude dit ensuite sur le numéro fourni mis dans l'application, tant qu'il n'est pas relié. `null` : la suite commune. */
+function suiteFourniApplication(e: EtatConnexion): string | null {
+  if (e.connecte) return null;
+  if (e.code) {
+    return 'Écris ce code en entier à la personne, en texte simple : elle le saisit dans l’application WhatsApp Business, '
+      + `pour y créer le compte avec ce numéro (pas dans la fenêtre de Meta). Puis : ${GARDER_APRES_COMPTE} Rappelle-lui : ${NUMERO_NEUF} `
+      + RAPPEL_ATTENTE;
+  }
+  if (e.fourni) {
+    return `Le numéro ${e.fourni} est attribué. Redonne à la personne les étapes de la page si elle ne les a plus : `
+      + `${numerotees([...ETAPES_COMPTE_FOURNI.map((x) => x.fr), GARDER_APRES_COMPTE])} Le code arrivera aussi ici. ${RAPPEL_ATTENTE}`;
+  }
+  return null;
+}
+
+/**
  * La coexistence pas encore faite (plan 2026-10-24) : un espace relié par QR code reste « connecté » par son compte de
  * l'application jusqu'à ce que Meta relie le numéro, et WhatsApp en délie l'appareil en chemin. Rien de cela n'est la fin.
  */
@@ -238,11 +289,14 @@ function suiteApplication(e: EtatConnexion): string | null {
 /**
  * Ce que Claude dit ensuite, selon l'étape. À l'essai 99, il attendait en silence pendant que la personne ne savait plus
  * où aller, et annonçait le crédit lu avant la connexion (0 €) alors que le crédit offert venait d'arriver.
- * `coexistence` : le mode demandé (plan 2026-10-24) ; tant qu'aucun numéro de Meta n'est relié, le compte de
- * l'application d'un espace relié par QR code n'est pas la fin.
+ * `mode` : le mode demandé. En coexistence (plan 2026-10-24), tant qu'aucun numéro de Meta n'est relié, le compte de
+ * l'application d'un espace relié par QR code n'est pas la fin. Le numéro fourni mis dans l'application (plan 2026-10-31)
+ * a ses propres étapes avant la fenêtre de Meta.
  */
-function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', coexistence = false): string {
-  if (coexistence && (e.connecte === null || e.application !== undefined)) return COEXISTENCE_EN_COURS;
+function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string): string {
+  if (mode === 'coexistence' && (e.connecte === null || e.application !== undefined)) return COEXISTENCE_EN_COURS;
+  const fourniApplication = mode === 'fourni_application' ? suiteFourniApplication(e) : null;
+  if (fourniApplication) return fourniApplication;
   const application = suiteApplication(e);
   if (application) return application;
   if (filiere === 'application' && e.code) {
@@ -410,6 +464,10 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       + 'person\'s own number; Meta\'s window refuses a number still used in the WhatsApp app until it is removed from '
       + 'it. `coexistence`: the person\'s own number, kept in the WhatsApp Business app on their phone; messages sent '
       + 'through Messaging Me are official templates billed by Meta, those typed in the app stay free (filiere api only). '
+      + '`fourni_application`: a number we provide (same price), which the person puts IN the WhatsApp Business app (its '
+      + 'verification code arrives here), then keeps the app and connects it through Meta\'s window, like coexistence; a '
+      + 'brand-new number is often refused by Meta at first: the person answers from the app meanwhile and comes back in a '
+      + 'few days with mode coexistence (filiere api only). '
       + 'Refused if the workspace already has a connected number, except `coexistence` for a number linked by QR code, '
       + 'which moves to the API on the same number.',
     // Il ne touche rien chez un tiers et ne crée rien : un lien signé de plus à chaque appel.
@@ -418,9 +476,10 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       type: 'object',
       properties: {
         mode: {
-          type: 'string', enum: ['fourni', 'apporte', 'coexistence'],
+          type: 'string', enum: ['fourni', 'apporte', 'coexistence', 'fourni_application'],
           description: 'fourni: a number we provide; apporte: the person\'s own number; coexistence: the person\'s own number, '
-            + 'kept in the WhatsApp Business app.',
+            + 'kept in the WhatsApp Business app; fourni_application: a number we provide, put in the WhatsApp Business app '
+            + 'and kept there.',
         },
         // 🔴 Plus aucune voie par QR code proposée (Julien, 2026-10-30) : sans compte Meta Business, le numéro de
         // l'application WhatsApp Business se garde, par la fenêtre de Meta, qui crée le compte en chemin. La valeur
@@ -444,13 +503,15 @@ export const OUTILS_NUMERO: OutilMcp[] = [
     async executer(deps: DepsMcp, tenantId, args, personne) {
       const userId = signataire(personne);
       const mode = args.mode;
-      if (mode !== 'fourni' && mode !== 'apporte' && mode !== 'coexistence') {
-        throw new RefusOutil('mode : « fourni », « apporte » ou « coexistence »');
+      if (mode !== 'fourni' && mode !== 'apporte' && mode !== 'coexistence' && mode !== 'fourni_application') {
+        throw new RefusOutil('mode : « fourni », « apporte », « coexistence » ou « fourni_application »');
       }
       const filiere = args.filiere ?? 'api';
       if (filiere !== 'api' && filiere !== 'application') throw new RefusOutil('filiere : « api » ou « application »');
       // La coexistence EST l'API officielle : le numéro de l'application WhatsApp Business passe aussi sur l'API Cloud.
-      if (mode === 'coexistence' && filiere !== 'api') throw new RefusOutil('coexistence : la filière est « api »');
+      if ((mode === 'coexistence' || mode === 'fourni_application') && filiere !== 'api') {
+        throw new RefusOutil(`${mode} : la filière est « api »`);
+      }
       const etat = await deps.numero.etat(tenantId);
       // 🔴 Le passage du QR code (plan 2026-10-24) : quand la seule chose reliée est un compte de l'application
       // (`etat.application`, présent seulement sans numéro de Meta), la coexistence le fait passer sur l'API, sur le même
@@ -474,7 +535,8 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         expire_le: new Date(deps.numero.maintenant() + DUREE_LIEN_NUMERO_MS).toISOString(),
         consigne: filiere === 'application'
           ? (mode === 'fourni' ? CONSIGNES_APPLICATION.fourni(etat.inclusDansLePro) : CONSIGNES_APPLICATION.apporte)
-          : mode === 'fourni' ? consigneFourni(etat.inclusDansLePro) : CONSIGNES[mode],
+          : mode === 'fourni' ? consigneFourni(etat.inclusDansLePro)
+            : mode === 'fourni_application' ? consigneFourniApplication(etat.inclusDansLePro) : CONSIGNES[mode],
       };
     },
   },
@@ -487,7 +549,8 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       + 'returned by the previous call (etat_connu), only something new wakes it up; without it, the state is returned '
       + 'at once. When `code` is present, it is the code the person copies into Meta\'s window. Successive calls follow '
       + 'the connection until `connecte: true`; with mode `coexistence`, until `coexistence: true`, a number linked by QR '
-      + 'code staying `connecte` until Meta links it to the API, the WhatsApp Business app kept.',
+      + 'code staying `connecte` until Meta links it to the API, the WhatsApp Business app kept. With mode '
+      + '`fourni_application`, the code is typed in the WhatsApp Business app, not in Meta\'s window.',
     // Écriture parce qu'il rend un code de vérification, pas parce qu'il modifie quoi que ce soit.
     annotations: ecriture('Follow the WhatsApp number connection', true),
     entree: {
@@ -499,8 +562,8 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         },
         filiere: { type: 'string', enum: ['api', 'application'], description: 'The filiere chosen with start_whatsapp_connection (default api).' },
         mode: {
-          type: 'string', enum: ['fourni', 'apporte', 'coexistence'],
-          description: 'The mode chosen with start_whatsapp_connection; only coexistence changes what is awaited.',
+          type: 'string', enum: ['fourni', 'apporte', 'coexistence', 'fourni_application'],
+          description: 'The mode chosen with start_whatsapp_connection; coexistence and fourni_application change what is awaited.',
         },
       },
       additionalProperties: false,
@@ -508,7 +571,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
     async executer(deps: DepsMcp, tenantId, args, personne) {
       signataire(personne);
       const filiere = args.filiere === 'application' ? 'application' : 'api';
-      const coexistence = args.mode === 'coexistence';
+      const mode = typeof args.mode === 'string' ? args.mode : undefined;
       const connu = args.etat_connu;
       if (connu !== undefined && (typeof connu !== 'string' || !EMPREINTE_RE.test(connu))) {
         throw new RefusOutil('etat_connu : l’empreinte rendue par l’appel précédent (16 caractères hexadécimaux)');
@@ -525,7 +588,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
             etat: vueEtat(e),
             code: e.code?.code ?? null,
             empreinte,
-            suite: suiteDe(e, filiere, coexistence),
+            suite: suiteDe(e, filiere, mode),
           };
         }
         await deps.numero.attendre(PAS_ATTENTE_MS);

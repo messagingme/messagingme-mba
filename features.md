@@ -2205,8 +2205,14 @@ scénario, comment importer des contacts.
   Meta Business ? ». Oui : le numéro API, « Fournissez-moi un numéro » ou « J'ai déjà un numéro », avec « Votre numéro
   est déjà dans l'application WhatsApp Business ? Vous pouvez la garder ». Non, ou « Je ne sais pas » (avec où le
   vérifier, business.facebook.com) : « Avez-vous déjà l'application WhatsApp Business ? », Oui menant à « Garder mon
-  application WhatsApp Business », Non à la même fenêtre après l'avoir téléchargée (liens App Store et Google Play),
-  avec le numéro trop neuf que Meta peut refuser (revenir quelques jours plus tard). L'offre, la première question de la
+  application WhatsApp Business », sans numéro proposé, Non à « Avez-vous un numéro pour votre entreprise ? » (2026-10-31).
+  Oui : la même fenêtre après avoir téléchargé l'application (liens App Store et Google Play), avec le numéro trop neuf
+  que Meta peut refuser (revenir quelques jours plus tard). Non : « nous vous fournissons le numéro », qui va DANS
+  l'application : la page l'attribue (payé, ou inclus en formule Pro), on y crée le compte de l'application avec ce
+  numéro (le code de vérification s'affiche sur la page), puis « Garder mon application WhatsApp Business » ; on répond
+  aux clients depuis l'application dès le premier jour, et l'envoi depuis Messaging Me attend quelques jours si Meta
+  refuse ce numéro tout neuf. Un rechargement, le retour de Stripe ou un retour plus tard dans le même navigateur reprend
+  cette variante. L'offre, la première question de la
   vitrine, est celle de l'espace. Comme sur la vitrine (2026-10-31), une question répondue reste affichée, la réponse
   choisie en évidence et les autres estompées, la suite s'affiche dessous, et cliquer une autre réponse change de chemin ;
   plus aucune voie par QR code. Claude pose les mêmes
@@ -5088,8 +5094,10 @@ console : Claude lui donne un lien, il clique, et la page de connexion de son nu
 terminal le code de vérification d'un numéro fourni, et annonce le numéro connecté.
 
 **Les questions d'abord (2026-10-30).** Avant le lien, Claude pose celles du tunnel de la vitrine, une à une : l'offre,
-le compte Meta Business (Oui : numéro libre ou fourni, ou l'application gardée), puis l'application WhatsApp Business
-(la garder, ou la télécharger et brancher tout de suite). Meta vérifie le numéro dans sa propre fenêtre, que Claude ne
+le compte Meta Business (Oui : numéro libre ou fourni, ou l'application gardée), l'application WhatsApp Business (la
+garder), puis, sans elle, le numéro (2026-10-31) : son propre numéro dans l'application téléchargée, ou un numéro
+fourni mis DANS l'application (`start_whatsapp_connection` en mode `fourni_application` : le numéro, le compte de
+l'application créé avec lui, son code relayé par Claude, puis la fenêtre de Meta en coexistence). Meta vérifie le numéro dans sa propre fenêtre, que Claude ne
 voit pas : si la personne rapporte le refus d'un numéro trop neuf, Claude le dit simplement et propose de revenir
 quelques jours plus tard, sans chiffre.
 

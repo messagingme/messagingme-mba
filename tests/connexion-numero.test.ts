@@ -130,6 +130,7 @@ describe('GET /tenants/:tenantId/connexion-numero', () => {
         attribuer: async () => null,
         numeroDeLEspace: async () => NUMERO('441235619343'),
         codeDeLEspace: async () => ({ code: '123456', recuLe: new Date('2026-10-06T08:53:01Z') }),
+        codeCapteDepuisLAttribution: async () => true,
         remplacerNumero: async () => ({ bloque: null, nouveau: null }),
         rendre: async () => null,
         bloquer: async () => null,

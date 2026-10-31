@@ -23,6 +23,10 @@ describe('lireLien', () => {
     expect(lireLien(jeton({ kind: 'lien_numero', tenantId: 't-1', userId: 'u-1', mode: 'coexistence' }))).toEqual({ tenantId: 't-1', mode: 'coexistence', filiere: 'api' });
   });
 
+  it('🔴 le mode fourni_application (plan 2026-10-31) : le numéro fourni mis dans l’application, puis la coexistence', () => {
+    expect(lireLien(jeton({ kind: 'lien_numero', tenantId: 't-1', userId: 'u-1', mode: 'fourni_application' }))).toEqual({ tenantId: 't-1', mode: 'fourni_application', filiere: 'api' });
+  });
+
   it('rend null pour tout ce qui n’est pas un jeton de lien', () => {
     for (const j of [
       '', 'pas-un-jeton', 'a.b', 'a.!!!.c',
@@ -46,7 +50,7 @@ describe('connexionFinie', () => {
   const META: EtatConnexion = { ...VIDE, connecte: { chiffres: '441555479304', aActiver: false } };
 
   it('un numéro connecté et activé finit la page, quel que soit le mode ; rien de connecté, ou à activer, non', () => {
-    for (const mode of ['fourni', 'apporte', 'coexistence'] as const) {
+    for (const mode of ['fourni', 'apporte', 'coexistence', 'fourni_application'] as const) {
       expect(connexionFinie(META, mode), mode).toBe(true);
       expect(connexionFinie(VIDE, mode), mode).toBe(false);
       expect(connexionFinie({ ...META, connecte: { chiffres: '441555479304', aActiver: true } }, mode), mode).toBe(false);
@@ -71,7 +75,7 @@ describe('repriseDuNumeroFourni', () => {
   });
 
   it('sinon, un numéro attribué reprend avec son code ; sans numéro, rien ne change', () => {
-    for (const choix of [null, 'fourni', 'apporte'] as const) {
+    for (const choix of [null, 'fourni', 'apporte', 'fourni_application'] as const) {
       expect(repriseDuNumeroFourni(choix, { numero: '+441555479304', code: '123456' }), String(choix)).toEqual({ numero: '+441555479304', code: '123456' });
       expect(repriseDuNumeroFourni(choix, { numero: null, code: null }), String(choix)).toBeNull();
     }

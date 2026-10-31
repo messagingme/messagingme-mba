@@ -167,6 +167,27 @@ describe.skipIf(!url)('la réserve de numéros fournis (0210)', () => {
       expect(await store.codeDeLEspace(tenantId)).toBeNull();
     });
 
+    it('🔴 un code capté depuis l’attribution, sans borne de temps : ce que lit « Abandonner » (2026-10-31)', async () => {
+      const { numero: n1 } = await store.declarer(N1, 'did-itest-1');
+      await store.ecrireCode(n1.id, { appelId: 'itest.40', code: '111111', transcription: 'avant' });
+      await pool.query(`update codes_verification set recu_le = now() - interval '1 minute' where appel_id = 'itest.40'`);
+      await store.attribuer(tenantId);
+      // Un code d'AVANT l'attribution, puis un appel sans code : rien n'a été vérifié pour cet espace.
+      expect(await store.codeCapteDepuisLAttribution(tenantId)).toBe(false);
+      await store.ecrireCode(n1.id, { appelId: 'itest.41', code: null, transcription: 'rien', cause: 'code_introuvable' });
+      expect(await store.codeCapteDepuisLAttribution(tenantId)).toBe(false);
+      await store.ecrireCode(n1.id, { appelId: 'itest.42', code: '863801', transcription: 'your code is 863801' });
+      expect(await store.codeCapteDepuisLAttribution(tenantId)).toBe(true);
+      expect(await store.codeCapteDepuisLAttribution(autre)).toBe(false);
+      // Des jours après : toujours vrai, quand `codeDeLEspace` (15 minutes) ne voit plus rien. L'appel d'avant recule plus
+      // loin que l'attribution, sinon il repasserait après elle et masquerait la mesure.
+      await pool.query(`update codes_verification set recu_le = now() - interval '5 days' where appel_id = 'itest.40'`);
+      await pool.query(`update numeros_fournis set attribue_le = now() - interval '4 days' where numero = $1`, [N1]);
+      await pool.query(`update codes_verification set recu_le = now() - interval '3 days' where appel_id = 'itest.42'`);
+      expect(await store.codeDeLEspace(tenantId)).toBeNull();
+      expect(await store.codeCapteDepuisLAttribution(tenantId)).toBe(true);
+    });
+
     it('remplacer : l’actuel passe en bloque, sans espace, et un autre est attribué ; rendre le remet en réserve', async () => {
       await store.declarer(N1, 'did-itest-1');
       await store.declarer(N2, 'did-itest-2');

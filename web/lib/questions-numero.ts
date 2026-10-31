@@ -33,6 +33,14 @@ export const QUESTION_APPLICATION = {
   non: { fr: 'Non', en: 'No' },
 } as const satisfies Record<string, Texte>;
 
+/** Sans compte Meta Business ni application (Julien, 2026-10-31) : a-t-on un numéro à mettre dans l'application ? */
+export const QUESTION_NUMERO = {
+  texte: { fr: 'Avez-vous un numéro pour votre entreprise ?', en: 'Do you have a number for your business?' },
+  precision: { fr: 'Le numéro que vous mettrez dans l’application WhatsApp Business.', en: 'The number you will put in the WhatsApp Business app.' },
+  oui: { fr: 'Oui', en: 'Yes' },
+  non: { fr: 'Non', en: 'No' },
+} as const satisfies Record<string, Texte>;
+
 /** Avec un compte Meta Business : le numéro API, et la ligne qui rappelle qu'on peut garder son application. */
 export const ISSUE_API = {
   titre: { fr: 'Votre numéro API', en: 'Your API number' },
@@ -60,6 +68,29 @@ export const ISSUE_TELECHARGER = {
   magasins: [
     { libelle: { fr: 'App Store (iPhone)', en: 'App Store (iPhone)' }, href: 'https://apps.apple.com/app/whatsapp-business/id1386412985' },
     { libelle: { fr: 'Google Play (Android)', en: 'Google Play (Android)' }, href: 'https://play.google.com/store/apps/details?id=com.whatsapp.w4b' },
+  ],
+} as const;
+
+/**
+ * Sans numéro (Julien, 2026-10-31) : nous le fournissons, et il va DANS l'application (« Dans l'application »), puis se
+ * branche en la gardant. Les trois phrases de la vitrine que la console reprend : le numéro et son code, répondre dès le
+ * premier jour, et le numéro tout neuf que Meta refuse souvent (aucun nombre de jours).
+ */
+export const ISSUE_FOURNI = {
+  titre: { fr: 'Téléchargez l’application, nous vous fournissons le numéro', en: 'Download the app, we provide the number' },
+  textes: [
+    {
+      fr: 'Installez l’application WhatsApp Business sur votre téléphone et créez-y votre compte avec le numéro que nous vous fournissons, 3,50 € HT par mois en formule Free, inclus en formule Pro : son code de vérification s’affiche sur la page de Messaging Me.',
+      en: 'Install the WhatsApp Business app on your phone and create your account there with the number we provide, €3.50 excl. VAT a month with the Free plan, included in Pro: its verification code shows on the Messaging Me page.',
+    },
+    {
+      fr: 'Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.',
+      en: 'From day one, you reply to your customers from the app. Then connect the number while keeping the app, so your confirmations, reminders and follow-ups also go out from Messaging Me.',
+    },
+    {
+      fr: 'Meta refuse souvent un numéro tout neuf : l’envoi de vos messages depuis Messaging Me attend alors quelques jours, le temps de revenir le brancher, et vous répondez à vos clients depuis l’application en attendant.',
+      en: 'Meta often refuses a brand-new number: sending your messages from Messaging Me then waits a few days, until you come back to connect it, and you reply to your customers from the app in the meantime.',
+    },
   ],
 } as const;
 

@@ -4,6 +4,35 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : la 4e question du numéro, le numéro fourni mis dans l'application (console, Claude, plugin 0.3.20)
+
+Aucune migration. Plan `docs/superpowers/plans/2026-10-31-numero-fourni-dans-application.md`, décision de Julien du
+jour, posée d'abord sur la vitrine : sans compte Meta Business ni application, « Avez-vous un numéro pour votre
+entreprise ? ». Oui : télécharger l'application avec son numéro. Non : un numéro fourni qui va DANS l'application, puis
+se garde en coexistence.
+- **Faisable sans rien de neuf chez Meta** : le pont des codes capte l'appel de vérification de l'application sur un
+  numéro de la réserve (mesuré le 2026-10-21), et `start_whatsapp_connection` accepte la coexistence tant qu'aucun
+  numéro n'est connecté, donc avec un numéro fourni attribué.
+- **Un mode de lien `fourni_application`** (`src/auth/token.ts`, `web/lib/lien-numero.ts`) : la page attribue le
+  numéro (payé, ou inclus en formule Pro), montre `ETAPES_COMPTE_FOURNI` et le code « de WhatsApp », puis « Garder mon
+  application WhatsApp Business » à la place de la fenêtre de Meta du numéro fourni. Les routes ne lisent pas le mode.
+  `start_whatsapp_connection` le sert (consigne : les mêmes étapes, puis répondre dès le premier jour, l'envoi qui
+  attend quelques jours si Meta refuse le numéro neuf, sans chiffre), `watch_whatsapp_connection` le suit (le code se
+  saisit dans l'application, pas dans la fenêtre de Meta).
+- **Console** : la 4e question sous « Non » à l'application, sa carte « nous vous fournissons le numéro » (les
+  phrases et les magasins de la vitrine) qui ouvre le parcours ; la variante survit au rechargement et au retour de
+  Stripe, et au retour plus tard dans le même navigateur (`mba.numero-variante.<espace>`, `localStorage`). Avec l'application, aucun numéro proposé.
+- **Plugin 0.3.20** : la skill pose la 4e question et décrit ce chemin ; FAQ et README à quatre questions ;
+  `tests/questions-numero-vitrine.test.ts` étendu à la 4e question et à l'issue `fourni`.
+- **Le rouge de la relecture** : « Abandonner » aurait rendu à la réserve un numéro fourni dont le client avait créé le
+  compte dans son application (la garde ne voyait que la filière QR code, et le code capté borné à 15 minutes). La
+  règle devient celle de la libération : un code capté depuis l'attribution, sans borne de temps
+  (`codeCapteDepuisLAttribution`, testé en intégration), fait garder le numéro quelle que soit la voie ; l'ancienne
+  exception « la filière API se rend comme avant » tombe, elle contredisait `vuDeMeta`. Test vérifié dans les deux sens.
+  Les quatre jaunes, faits : la variante gardée par le navigateur pour l'espace (`localStorage`), « Le code n'arrive
+  pas ? » sur ce chemin, la reprise de la skill (coexistence si le numéro est déjà dans l'application), et le mot
+  « coexistence » sorti de ce que Claude dit.
+
 ## 2026-10-31 : les pages API et MCP de la console, plus claires
 
 Plan `docs/superpowers/plans/2026-10-31-pages-api-mcp.md`, né d'un audit externe que Julien a tranché le même jour :

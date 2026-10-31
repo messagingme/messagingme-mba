@@ -241,6 +241,22 @@ export class PgNumerosFournisStore {
   }
 
   /**
+   * Un code a-t-il été capté pour le numéro de l'espace depuis son attribution, SANS borne de temps (2026-10-31) ? C'est ce
+   * que lit « Abandonner » : un numéro vérifié une fois porte peut-être un compte WhatsApp Business (le numéro fourni mis
+   * dans l'application, ou la fenêtre de Meta) et ne retourne jamais à la réserve, comme à la libération (`vuDeMeta`).
+   * `codeDeLEspace`, borné à 15 minutes, ne suffit pas : on abandonne parfois des jours après.
+   */
+  async codeCapteDepuisLAttribution(tenantId: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `select 1 from codes_verification c join numeros_fournis n on n.id = c.numero_id
+        where n.tenant_id = $1 and n.statut = 'attribue' and c.code is not null and c.recu_le >= n.attribue_le
+        limit 1`,
+      [tenantId],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  /**
    * Meta refuse le numéro de cet espace (déjà actif sur WhatsApp ailleurs) : il passe en `bloque`, sans espace, et un
    * autre est attribué, dans la même transaction. `bloque` = le numéro sorti (`null` si l'espace n'en avait pas),
    * `nouveau` = le suivant (`null` si la réserve est vide).

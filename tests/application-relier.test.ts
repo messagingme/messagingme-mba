@@ -173,18 +173,20 @@ describe('retirer le compte de l’application au passage en coexistence', () =>
   });
 });
 
-describe('« Abandonner » un numéro fourni de la filière application (relecture, 🔴 2)', () => {
+describe('« Abandonner » un numéro fourni (relecture, 🔴 2, élargie le 2026-10-31)', () => {
   const fourni = { numero: '441234567890' };
-  it('🔴 un numéro qui porte un compte de l’application (ou dont le code a été capté par le lien de la filière) est gardé, jamais rendu', () => {
-    expect(numeroFourniAGarder({ filiereDuLien: undefined, compte: compte('en_attente', '441234567890'), fourni, codeCapte: false })).toBe(true);
-    expect(numeroFourniAGarder({ filiereDuLien: 'application', compte: null, fourni, codeCapte: true })).toBe(true);
-    expect(numeroFourniAGarder({ filiereDuLien: undefined, compte: compte('relie', '441234567890'), fourni, codeCapte: true })).toBe(true);
+  it('🔴 un numéro qui porte un compte de l’application, ou dont un code a été capté depuis l’attribution, est gardé, jamais rendu', () => {
+    expect(numeroFourniAGarder({ compte: compte('en_attente', '441234567890'), fourni, codeCapte: false })).toBe(true);
+    expect(numeroFourniAGarder({ compte: compte('relie', '441234567890'), fourni, codeCapte: true })).toBe(true);
+    // 🔴 Le numéro fourni mis dans l'application (2026-10-31) : son compte est sur le téléphone du client, sans compte de
+    // notre service ; le code capté suffit, quelle que soit la voie (et un numéro vu de Meta ne resservira à personne).
+    expect(numeroFourniAGarder({ compte: null, fourni, codeCapte: true })).toBe(true);
+    expect(numeroFourniAGarder({ compte: compte('retire', '441234567890'), fourni, codeCapte: true })).toBe(true);
   });
 
-  it('la filière API, ou un numéro jamais vérifié, se rend comme avant', () => {
-    expect(numeroFourniAGarder({ filiereDuLien: undefined, compte: null, fourni, codeCapte: true })).toBe(false);
-    expect(numeroFourniAGarder({ filiereDuLien: 'application', compte: null, fourni, codeCapte: false })).toBe(false);
-    expect(numeroFourniAGarder({ filiereDuLien: undefined, compte: compte('retire', '441234567890'), fourni, codeCapte: true })).toBe(false);
+  it('un numéro jamais vérifié, sans compte vivant, se rend comme avant', () => {
+    expect(numeroFourniAGarder({ compte: null, fourni, codeCapte: false })).toBe(false);
+    expect(numeroFourniAGarder({ compte: compte('retire', '441234567890'), fourni, codeCapte: false })).toBe(false);
   });
 });
 

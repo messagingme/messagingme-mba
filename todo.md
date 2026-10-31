@@ -57,19 +57,6 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   Julien : réécrire ces textes et refuser la filière à un espace qui n'y est pas déjà, ou retirer la filière application
   tout entière (service `mba-application`, `src/application/`, page `/brancher` en QR code) une fois ces espaces passés
   par Meta. **Julien, 2026-10-31 : rien pour l'instant** (seuls des espaces de test sont concernés).
-- **Sans compte Meta Business, le numéro fourni n'est plus proposé** (l'arbre de Julien : il n'existe que sous « Oui »).
-  Or le lien de l'Accueil dit « Pas de numéro ? Nous vous en fournissons un », et l'encadré « Avant de commencer, chez
-  Meta » (`PREREQUIS_META[2]`, lu aussi par Claude, la FAQ et la vitrine) dit la même chose et cite « Garder mon
-  application WhatsApp Business », qui n'apparaît plus qu'après les questions. Qui répond « Non » puis « Non » sans avoir
-  de numéro ne voit que « Téléchargez l'application ». **Tranché par Julien le 2026-10-31 : une quatrième question,
-  « Avez-vous un numéro pour votre entreprise ? »** Oui : télécharger l'application avec son numéro ; Non : un numéro
-  fourni, qui va DANS l'application (son code de vérification affiché par Messaging Me), puis branché en la gardant. Il
-  répond à ses clients dès le premier jour, et l'envoi depuis Messaging Me attend quelques jours si Meta refuse d'abord
-  le numéro tout neuf (« une affaire de qq jours pour pouvoir envoyer des messages sortants »). Avec l'application, on
-  la garde, sans numéro proposé. La vitrine la pose ; restent la console (`ParcoursNumero`, `questions-numero.ts`), le
-  chemin du numéro fourni puis de la coexistence dans `start_whatsapp_connection`, la skill `mise-en-service`, la FAQ et
-  le README du plugin (« trois questions »), et le test de parité étendu à la question du numéro (session « Plugin et
-  console »).
 
 ## 🟡 Les alertes de Santé : ce que le lot 4 de la refonte de /ops laisse (relecture du 2026-10-30)
 

@@ -283,6 +283,9 @@ test('🔴 sans compte Meta Business ni application : la télécharger, brancher
   await expect(page.getByTestId('note-compte')).toContainText('la fenêtre de Meta vous le fera créer en chemin');
   await expect(page.getByTestId('question-application')).toContainText('Avez-vous déjà l’application WhatsApp Business ?');
   await page.getByTestId('question-application-non').click();
+  // La 4e question (Julien, 2026-10-31) : avec son propre numéro, télécharger l’application et brancher tout de suite.
+  await expect(page.getByTestId('question-numero')).toContainText('Avez-vous un numéro pour votre entreprise ?');
+  await page.getByTestId('question-numero-oui').click();
   await expect(page.getByTestId('issue-telecharger')).toContainText('branchez-le tout de suite');
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('numero-trop-neuf')).toContainText('revenez le brancher');
@@ -329,4 +332,44 @@ test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous
   await page.getByTestId('question-compte-non').click();
   await expect(page.getByTestId('issue-api')).toHaveCount(0);
   await expect(page.getByTestId('question-application')).toBeVisible();
+});
+
+test('🔴 sans compte, sans application, sans numéro : le numéro fourni va dans l’application, puis se garde (2026-10-31)', async ({ page }) => {
+  await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+  await simulerNumeroFourni(page, { abonnement: 'actif', lecturesAvantCode: 100 });
+  await page.goto('/connecter-whatsapp');
+  await page.getByTestId('question-compte-non').click();
+  await page.getByTestId('question-application-non').click();
+  await page.getByTestId('question-numero-non').click();
+  await expect(page.getByTestId('issue-fourni')).toContainText('nous vous fournissons le numéro');
+  await expect(page.getByTestId('issue-fourni')).toContainText('Dès le premier jour');
+  await expect(page.getByTestId('issue-fourni').getByRole('link', { name: 'App Store (iPhone)' })).toBeVisible();
+  // Avec l’application déjà là, aucun numéro n’est proposé ; sans elle et sans numéro, si.
+  await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
+  await page.getByTestId('choix-fourni-application').click();
+  await expect(page.getByTestId('choix-fourni-ouvert')).toContainText('que vous ajouterez dans l’application WhatsApp Business');
+  await page.getByTestId('obtenir-numero').click();
+  await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
+  await expect(page.getByTestId('etapes-numero-fourni')).toContainText('créez le compte avec ce numéro');
+  await expect(page.getByTestId('code-capte')).toContainText('En attente du code de WhatsApp');
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
+  await expect(page.getByTestId('ouvrir-fenetre-meta')).toHaveCount(0);
+  await expect(page.getByTestId('suite-fourni-application')).toContainText('Meta refuse souvent un numéro tout neuf');
+  await expect(page.locator('main')).not.toContainText(/QR/);
+  // 🔴 Un rechargement reprend le numéro DANS sa variante (la mémoire de l’onglet), pas celle de la fenêtre de Meta.
+  await page.reload();
+  await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
+  await expect(page.getByTestId('ouvrir-fenetre-meta')).toHaveCount(0);
+});
+
+test('🟡 avec l’application, aucune 4e question ni numéro proposé', async ({ page }) => {
+  await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+  await simulerNumeroFourni(page, { abonnement: null });
+  await page.goto('/connecter-whatsapp');
+  await page.getByTestId('question-compte-nsp').click();
+  await page.getByTestId('question-application-oui').click();
+  await expect(page.getByTestId('question-numero')).toHaveCount(0);
+  await expect(page.getByTestId('issue-fourni')).toHaveCount(0);
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
 });

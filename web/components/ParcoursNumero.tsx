@@ -11,7 +11,12 @@ import { ETAPES_NUMERO_FOURNI } from '@/lib/partage/etapes-numero-fourni';
 import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { QrApplication } from '@/components/QrApplication';
-import { ISSUE_API, ISSUE_TELECHARGER, META_BUSINESS_URL, QUESTION_APPLICATION, QUESTION_COMPTE, type ReponseCompte } from '@/lib/questions-numero';
+import {
+  ISSUE_API, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_NUMERO, type ReponseCompte,
+} from '@/lib/questions-numero';
+
+/** Les choix du parcours : le mode du lien de Claude Code, ou celui que les questions de la console ont fait. */
+type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
 
 /**
  * LE PARCOURS DE CONNEXION DU NUMÉRO (lot 3b, sorti de `/connecter-whatsapp` au lot 3c pour servir aussi `/brancher`).
@@ -45,14 +50,14 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   /** Où Stripe renvoie après le paiement : cette page-ci (`/brancher` ou `/connecter-whatsapp`). */
   retour: 'brancher' | 'console';
   /** Le choix déjà fait (le mode du lien de Claude Code), ou `null` pour poser d'abord les questions du tunnel. */
-  choixInitial: 'fourni' | 'apporte' | 'coexistence' | null;
+  choixInitial: Choix | null;
   /** Le numéro est connecté : la lecture du code s'arrête. */
   connecte: boolean;
   /** La fenêtre de Meta a relié le compte : ses avertissements, à afficher par la page. */
   surConnexion(avertissements: string[]): void;
 }) {
   const t = useT();
-  const [choix, setChoix] = useState<'fourni' | 'apporte' | 'coexistence' | null>(choixInitial);
+  const [choix, setChoix] = useState<Choix | null>(choixInitial);
   const [numero, setNumero] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
   const [copie, setCopie] = useState(false);
@@ -74,8 +79,17 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const [compte, setCompte] = useState<ReponseCompte | null>(null);
   /** La réponse à « Avez-vous déjà l'application WhatsApp Business ? » ; « non » : la carte dit d'abord de la télécharger. */
   const [appli, setAppli] = useState<'oui' | 'non' | null>(null);
-  const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); };
+  /** La réponse à « Avez-vous un numéro pour votre entreprise ? » (après « Non » à l'application, 2026-10-31). */
+  const [numeroPerso, setNumeroPerso] = useState<'oui' | 'non' | null>(null);
+  const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); setNumeroPerso(null); };
+  const repondreAppli = (r: 'oui' | 'non') => { setAppli(r); setNumeroPerso(null); };
+  /** Ouvre le numéro fourni, et garde sa variante pour le retour de Stripe et le rechargement (`varianteGardee`). */
+  const choisirFourni = (v: 'fourni' | 'fourni_application') => { garderVariante(tenantId, v); setChoix(v); };
   const application = filiere === 'application';
+  /** Le numéro fourni, saisi dans la fenêtre de Meta (`fourni`) ou mis dans l'application WhatsApp Business (plan 2026-10-31). */
+  const fourni = choix === 'fourni' || choix === 'fourni_application';
+  /** Le numéro fourni va dans l'application : relié par le QR code (filière application), ou gardé en coexistence. */
+  const dansApplication = application || choix === 'fourni_application';
   const connexion = useConnexionNumero(tenantId, api, surConnexion);
   /**
    * La course d'un geste et d'une lecture (jaune 5 de la relecture de la livraison B) : une lecture partie AVANT
@@ -90,12 +104,12 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     const recu = new URLSearchParams(window.location.search).get('abonnement') === 'recu';
     setPaiementRecu(recu);
     // Retour de Stripe : le client vient de payer le numéro fourni, il ne le rechoisit pas.
-    if (recu) setChoix((c) => c ?? 'fourni');
+    if (recu) setChoix((c) => c ?? varianteGardee(tenantId));
   }, []);
 
   // Tant qu'un numéro fourni n'est pas là, l'abonnement et le numéro se relisent : le webhook les écrit ensemble.
   useEffect(() => {
-    if (choix !== 'fourni' || numero !== null || connecte) return undefined;
+    if (!fourni || numero !== null || connecte) return undefined;
     let vivant = true;
     const lire = () => {
       const depart = generation.current;
@@ -119,7 +133,11 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     const depart = generation.current;
     api.lire().then((r) => {
       const reprise = repriseDuNumeroFourni(choixInitial, r);
-      if (reprise && fraiche(depart)) { setNumero(reprise.numero); setCode(reprise.code); setChoix('fourni'); }
+      if (reprise && fraiche(depart)) {
+        setNumero(reprise.numero); setCode(reprise.code);
+        // La variante du lien de Claude, sinon celle que la console a gardée dans l'onglet.
+        setChoix(choixInitial === 'fourni_application' ? 'fourni_application' : choixInitial === null ? varianteGardee(tenantId) : 'fourni');
+      }
     }).catch(() => {});
     // L'abonnement, même quand un numéro est déjà là : le portail et le texte après « Abandonner » en dépendent.
     api.etat().then((r) => { if (fraiche(depart)) { setAbonnement(r.etat.abonnement); setInclus(r.etat.inclusDansLePro === true); } }).catch(() => {});
@@ -129,7 +147,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
 
   // Le code se lit en boucle tant qu'un numéro fourni attend sa connexion.
   useEffect(() => {
-    if (choix !== 'fourni' || numero === null || connecte) return undefined;
+    if (!fourni || numero === null || connecte) return undefined;
     const minuterie = setInterval(() => {
       const depart = generation.current;
       api.lire().then((r) => { if (fraiche(depart)) setCode(r.code); }).catch(() => {});
@@ -175,7 +193,20 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     : null;
   // En coexistence, le numéro RESTE dans l'application : le prérequis d'un numéro hors de l'application la contredirait,
   // et le compte Meta Business, sa carte le dit elle-même, la fenêtre de Meta le crée en chemin. Reste ce qu'il est.
-  const prerequis = choix === 'coexistence' ? PREREQUIS_META.slice(0, 1) : PREREQUIS_META;
+  // Le numéro fourni mis dans l'application y reste aussi : même chose.
+  const prerequis = choix === 'coexistence' || choix === 'fourni_application' ? PREREQUIS_META.slice(0, 1) : PREREQUIS_META;
+  const boutonCoexistence = (
+    <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect({ coexistence: true }); }} data-testid="ouvrir-fenetre-coexistence">
+      {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}
+    </Bouton>
+  );
+  const magasins = (
+    <div className="mt-3 flex flex-wrap gap-2">
+      {ISSUE_TELECHARGER.magasins.map((m) => (
+        <a key={m.href} href={m.href} target="_blank" rel="noopener noreferrer" className={classesBouton('secondaire', 'petite')}>{t(m.libelle.fr, m.libelle.en)}</a>
+      ))}
+    </div>
+  );
   /**
    * La carte qui garde l'application WhatsApp Business : ouverte par un lien de Claude, par « Vous pouvez la garder », ou
    * sous la question de l'application. Après « Non », elle dit d'abord de la télécharger, avec les deux magasins.
@@ -186,22 +217,30 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
         <div data-testid="issue-telecharger" className="mb-4">
           <div className="text-base font-semibold text-ink-900">{t(ISSUE_TELECHARGER.titre.fr, ISSUE_TELECHARGER.titre.en)}</div>
           <p className="mt-1 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[0].fr, ISSUE_TELECHARGER.textes[0].en)}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {ISSUE_TELECHARGER.magasins.map((m) => (
-              <a key={m.href} href={m.href} target="_blank" rel="noopener noreferrer" className={classesBouton('secondaire', 'petite')}>{t(m.libelle.fr, m.libelle.en)}</a>
-            ))}
-          </div>
+          {magasins}
         </div>
       )}
       <div className="flex items-center gap-3">
-        <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect({ coexistence: true }); }} data-testid="ouvrir-fenetre-coexistence">
-          {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}
-        </Bouton>
+        {boutonCoexistence}
         {retour}
       </div>
       {COEXISTENCE_PHRASES.map((p) => <p key={p.fr} className="mt-3 text-sm text-ink-700">{t(p.fr, p.en)}</p>)}
       {/* Un numéro qu'on vient de mettre dans l'application peut être refusé par Meta : on le dit avant qu'il le soit. */}
       {apresTelechargement && <p data-testid="numero-trop-neuf" className="mt-3 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[1].fr, ISSUE_TELECHARGER.textes[1].en)}</p>}
+    </div>
+  );
+  /**
+   * Sans compte Meta Business, ni application, ni numéro (Julien, 2026-10-31) : nous fournissons le numéro, qui va DANS
+   * l'application, puis se garde en coexistence. Le bouton ouvre le parcours du numéro fourni dans cette variante.
+   */
+  const carteFourniApplication = (
+    <div data-testid="issue-fourni" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
+      <div className="text-base font-semibold text-ink-900">{t(ISSUE_FOURNI.titre.fr, ISSUE_FOURNI.titre.en)}</div>
+      {ISSUE_FOURNI.textes.map((p) => <p key={p.fr} className="mt-2 text-sm text-ink-700">{t(p.fr, p.en)}</p>)}
+      {magasins}
+      <Bouton type="button" className="mt-4" onClick={() => choisirFourni('fourni_application')} data-testid="choix-fourni-application">
+        {t('Fournissez-moi un numéro', 'Provide me a number')}
+      </Bouton>
     </div>
   );
 
@@ -242,7 +281,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
             <div data-testid="issue-api">
               <div className="text-sm font-semibold text-ink-900">{t(ISSUE_API.titre.fr, ISSUE_API.titre.en)}</div>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <button type="button" data-testid="choix-fourni" onClick={() => setChoix('fourni')} className="rounded-carte border border-ink-200 bg-white p-5 text-left hover:border-ink-400">
+                <button type="button" data-testid="choix-fourni" onClick={() => choisirFourni('fourni')} className="rounded-carte border border-ink-200 bg-white p-5 text-left hover:border-ink-400">
                   <div className="text-base font-semibold text-ink-900">{t('Fournissez-moi un numéro', 'Provide me a number')}</div>
                   <p className="mt-1 text-xs text-ink-500">
                     {inclus
@@ -269,10 +308,24 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                 texte={QUESTION_APPLICATION.texte}
                 precision={QUESTION_APPLICATION.precision}
                 choisie={appli}
-                reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_APPLICATION[r], choisir: () => setAppli(r) }))}
+                reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_APPLICATION[r], choisir: () => repondreAppli(r) }))}
               />
-              {/* La suite s'affiche dessous, les questions restent : on change de réponse en en cliquant une autre. */}
-              {appli !== null && carteCoexistence(appli === 'non', null)}
+              {/* La suite s'affiche dessous, les questions restent : on change de réponse en en cliquant une autre. Avec
+                  l'application, on la garde, sans proposer de numéro ; sans elle, la 4e question (Julien, 2026-10-31). */}
+              {appli === 'oui' && carteCoexistence(false, null)}
+              {appli === 'non' && (
+                <>
+                  <Question
+                    testid="question-numero"
+                    texte={QUESTION_NUMERO.texte}
+                    precision={QUESTION_NUMERO.precision}
+                    choisie={numeroPerso}
+                    reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_NUMERO[r], choisir: () => setNumeroPerso(r) }))}
+                  />
+                  {numeroPerso === 'oui' && carteCoexistence(true, null)}
+                  {numeroPerso === 'non' && carteFourniApplication}
+                </>
+              )}
             </>
           )}
         </div>
@@ -291,7 +344,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       ) : numero === null ? (
         <div data-testid="choix-fourni-ouvert" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
           <p className="text-sm text-ink-700">
-            {application
+            {dansApplication
               ? t('Nous vous attribuons un numéro britannique dédié, que vous ajouterez dans l’application WhatsApp Business.', 'We assign you a dedicated UK number, which you then add in the WhatsApp Business app.')
               : t('Nous vous attribuons un numéro britannique dédié, que vous connecterez dans la fenêtre de Meta.', 'We assign you a dedicated UK number, which you then connect in the Meta window.')}
           </p>
@@ -344,10 +397,11 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
             </div>
             {/* Les mêmes étapes que celles que Claude redit (`src/mcp/outils-numero.ts`) : une seule source. */}
             <ol data-testid="etapes-numero-fourni" className="mt-4 list-decimal space-y-1 pl-5 text-sm text-ink-700">
-              {(application ? ETAPES_COMPTE_FOURNI : ETAPES_NUMERO_FOURNI).map((e) => <li key={e.fr}>{t(e.fr, e.en)}</li>)}
+              {(dansApplication ? ETAPES_COMPTE_FOURNI : ETAPES_NUMERO_FOURNI).map((e) => <li key={e.fr}>{t(e.fr, e.en)}</li>)}
             </ol>
             <div className="mt-4">
-              {!application ? boutonFenetre : !qrDemande ? (
+              {/* Mis dans l'application (plan 2026-10-31) : une fois le compte créé, la même fenêtre qu'en coexistence. */}
+              {!dansApplication ? boutonFenetre : !application ? boutonCoexistence : !qrDemande ? (
                 <Bouton type="button" onClick={() => setQrDemande(true)} data-testid="afficher-qr-application">
                   {t('J’ai créé le compte : afficher le QR code', 'I created the account: show the QR code')}
                 </Bouton>
@@ -360,14 +414,24 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
               <div className="mt-1 font-mono text-3xl font-semibold tracking-widest text-ink-900">{code}</div>
             ) : (
               <p className="mt-1 text-sm text-ink-500">
-                {application ? t('En attente du code de WhatsApp…', 'Waiting for WhatsApp’s code…') : t('En attente du code de Meta…', 'Waiting for Meta’s code…')}
+                {dansApplication ? t('En attente du code de WhatsApp…', 'Waiting for WhatsApp’s code…') : t('En attente du code de Meta…', 'Waiting for Meta’s code…')}
               </p>
             )}
           </div>
           {application && qrDemande && <QrApplication api={api} />}
+          {/* Ce que l'application garde et perd, et ce que Julien veut dire d'un numéro tout neuf (2026-10-31). */}
+          {choix === 'fourni_application' && (
+            <div data-testid="suite-fourni-application" className="rounded-carte border border-ink-200 bg-white p-5">
+              {[ISSUE_FOURNI.textes[1], ...COEXISTENCE_PHRASES, ISSUE_FOURNI.textes[2]].map((p) => <p key={p.fr} className="mt-2 text-sm text-ink-700 first:mt-0">{t(p.fr, p.en)}</p>)}
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <Bouton type="button" variante="discret" taille="petite" disabled={enCours} onClick={() => { void remplacer(); }} data-testid="remplacer-numero">
-              {application
+              {/* Mis dans l'application, un refus de Meta se règle en attendant quelques jours (la carte le dit) : ce bouton ne
+                  sert qu'au code de l'application qui n'arrive pas, avant d'y avoir créé le compte. */}
+              {choix === 'fourni_application'
+                ? t('Le code n’arrive pas ? En obtenir un autre', 'The code does not arrive? Get another one')
+                : application
                 ? t('Ce numéro ne passe pas ? En obtenir un autre', 'This number does not go through? Get another one')
                 : t('Meta refuse ce numéro ? En obtenir un autre', 'Meta refuses this number? Get another one')}
             </Bouton>
@@ -450,3 +514,18 @@ export function BoutonPortail({ api }: { api: ApiConnexionNumero }) {
 
 /** Le délai entre deux lectures du code pendant que la fenêtre de Meta est ouverte. */
 const INTERVALLE_CODE_MS = 3_000;
+
+/**
+ * La variante du numéro fourni choisie dans la console, gardée par le navigateur pour CET espace (2026-10-31) : le retour
+ * de Stripe, un rechargement, ou le retour quelques jours plus tard dans un autre onglet (Meta refuse souvent un numéro
+ * tout neuf) reprennent le parcours sans savoir quelle question y a mené. Le lien de Claude porte la sienne. Mémoire
+ * indisponible, ou un autre appareil : la variante d'avant, la fenêtre de Meta (l'Accueil garde son bouton « Garder mon
+ * application WhatsApp Business »).
+ */
+const cleVariante = (tenantId: string) => `mba.numero-variante.${tenantId}`;
+function varianteGardee(tenantId: string): 'fourni' | 'fourni_application' {
+  try { return window.localStorage.getItem(cleVariante(tenantId)) === 'fourni_application' ? 'fourni_application' : 'fourni'; } catch { return 'fourni'; }
+}
+function garderVariante(tenantId: string, v: 'fourni' | 'fourni_application'): void {
+  try { window.localStorage.setItem(cleVariante(tenantId), v); } catch { /* mémoire indisponible : la variante d'avant au retour */ }
+}
