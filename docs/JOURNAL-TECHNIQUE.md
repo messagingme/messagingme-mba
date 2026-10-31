@@ -4,6 +4,16 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : l'essai réel du chiffre d'affaires attribué (lot 2), passé, et l'entrée Shopify tranchée
+
+Essai 203 (`docs/prive/ESSAIS-REELS.md`), espace « Messaging Me demo » : Claude Code (plugin 0.3.19, après une mise à
+jour manuelle depuis la 0.3.7) appelle `get_revenue_stats` et rend 0 € réel, 4 commandes de test à part pour 2 148,85 USD
+dont 1 548,85 prouvés, et dit lui-même que le reste n'est pas une preuve ; Performance Lab > Quantitatif > Shopify et la
+carte Shopify montrent les mêmes nombres ; la SANDBOX, sans boutique, n'a pas l'entrée. Les fiches d'aide chargées par
+Julien à `3d846db3` (la fiche Shopify et celles de « Quel répondeur ? » d'une session voisine, ensemble pour ne pas
+défaire l'une par l'autre), relues en base. Décision de Julien : l'entrée Quantitatif > Shopify reste cachée sans
+boutique branchée, même s'il reste des ventes anonymisées (`3dcce99b`).
+
 ## 2026-10-31 : les questions du numéro dans la console, sous la forme de la vitrine
 
 Console seule, aucune migration ; décision de Julien du 2026-10-31 (le point « forme » de `todo.md`). La page

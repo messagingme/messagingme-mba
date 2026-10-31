@@ -129,7 +129,8 @@ Spec `docs/superpowers/specs/2026-10-28-revenus-attribues-design.md`, section «
 ## 🟡 Le MCP face à Wax et Kanal : ce qui manque encore (2026-10-28)
 
 Comparaison complète dans `docs/prive/MARCHE-SHOPIFY-2026-10-23.md` (hors dépôt). Le chiffre d'affaires attribué, le
-premier manque, a sa spec (ci-dessus). Restent, dans l'ordre proposé :
+premier manque, est livré et essayé le 2026-10-31 (`get_revenue_stats`, Quantitatif > Shopify). Restent, dans l'ordre
+proposé :
 1. **Des segments sur les commandes, le pays et l'activité** dans `find_contacts` (« deux commandes en 90 jours », le
    pays par l'indicatif, « a répondu depuis ») ; un segment reste une étiquette.
 2. **Une automatisation créée en brouillon par l'assistant**, activée dans la console (Wax et Kanal le font ; la
