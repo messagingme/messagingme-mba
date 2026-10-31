@@ -66,6 +66,7 @@ class MagasinMemoire {
       invalider: (t) => { this.invalides.push(t); },
       gestes: {
         passageBusiness: async (t) => { this.gestesJoues.push(`passage:${t}`); if (this.echec === 'passage') throw new Error('base indisponible'); },
+        reprendreCreditWhatsapp: async (t) => { this.gestesJoues.push(`reprise-credit:${t}`); return 1; },
         completerCredit: async (t) => {
           this.gestesJoues.push(`credit:${t}`);
           if (this.echec === 'credit') throw new Error('base indisponible');
@@ -363,6 +364,17 @@ describe('le Crédit WhatsApp de l’Entreprise, posé avec l’offre', () => {
     // Absents, ils restent tels quels.
     await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: 12, note: 'plus d’utilisateurs' } });
     expect(magasin.reglages.get(T1)).toMatchObject({ openBarWhatsapp: true, commissionMessagesPct: 3 });
+    await server.close();
+  });
+
+  it('🔴 l’open bar POSÉ fait repartir les campagnes en pause faute de crédit, une fois ; ni le garder ni le retirer ne relance rien', async () => {
+    const { server, magasin } = monter();
+    const poser = (payload: Record<string, unknown>) => server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload });
+    await poser({ entreprise: true, utilisateurs: null, openBarWhatsapp: true, note: 'devis signé, messages facturés après' });
+    expect(magasin.gestesJoues.filter((g) => g.startsWith('reprise-credit'))).toEqual([`reprise-credit:${T1}`]);
+    await poser({ entreprise: true, utilisateurs: 12, note: 'plus d’utilisateurs' });
+    await poser({ entreprise: true, utilisateurs: 12, openBarWhatsapp: false, note: 'fin de l’open bar, retour au solde' });
+    expect(magasin.gestesJoues.filter((g) => g.startsWith('reprise-credit'))).toEqual([`reprise-credit:${T1}`]);
     await server.close();
   });
 

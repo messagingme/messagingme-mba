@@ -44,6 +44,8 @@ export type EtapeMiseEnService = keyof typeof OUTILS_DE_L_ETAPE;
 /** Les avertissements que l'outil peut rendre ; `lecture_manquee` porte la source après un deux-points. */
 export const AVERTISSEMENTS = [
   'numero_a_activer', 'credit_epuise', 'repondeur_gele_par_l_offre', 'carte_meta_a_regler', 'lecture_manquee',
+  // Le Crédit WhatsApp à zéro (plan du Crédit WhatsApp, tâche 11) : plus aucun message ne part du numéro, réponses comprises.
+  'credit_whatsapp_epuise',
   // La filière application (2026-10-22) : WhatsApp a coupé le numéro, ou l'appareil a été retiré depuis le téléphone ;
   // ou le compte dort faute de messages. Le développeur est prévenu par courriel, et Claude le lui dit dans sa session.
   'numero_coupe', 'numero_en_sommeil',
@@ -58,6 +60,11 @@ export interface LecturesMiseEnService {
   agents: Array<Pick<AgentResume, 'id' | 'label' | 'status'> & { nbManques: number | null }> | null;
   reglages: ReglageDuRepondeur | null;
   widgets: Array<Pick<WidgetRow, 'id' | 'nom' | 'actif'>> | null;
+  /**
+   * Le solde du Crédit WhatsApp, pour un espace dont un numéro est sur la ligne (l'onglet s'affiche) ; absent ailleurs, ou
+   * quand la lecture a échoué (elle est journalisée) : aucun avertissement n'en sort alors.
+   */
+  soldeWhatsappMicroEur?: number;
 }
 
 export interface EtatMiseEnService {
@@ -127,6 +134,7 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
   const bulles = l.widgets === null ? null : { actives: l.widgets.filter((w) => w.actif).length, total: l.widgets.length };
 
   if (l.soldeMicroEur !== null && l.soldeMicroEur <= 0) avertissements.push('credit_epuise');
+  if (l.soldeWhatsappMicroEur !== undefined && l.soldeWhatsappMicroEur <= 0) avertissements.push('credit_whatsapp_epuise');
 
   const etape = ((): EtapeMiseEnService => {
     if (numero !== null && numero.a_activer) return 'activer_numero';
@@ -167,6 +175,8 @@ export interface DepsMiseEnService {
       credits: { solde(tenantId: string): Promise<number> };
     };
     repondeur: { reglages: { get(tenantId: string): Promise<ReglageDuRepondeur> } };
+    /** Le Crédit WhatsApp (`DepsAgentMcp.creditWhatsapp`) : l'onglet visible, et son solde. */
+    creditWhatsapp: { onglet(tenantId: string): Promise<boolean>; vue: { solde(tenantId: string): Promise<number> } };
   };
   widgets: { gestion: { widgets: { lister(tenantId: string): Promise<WidgetRow[]> } } };
 }
@@ -184,18 +194,24 @@ function ou<T>(p: Promise<T>, tenantId: string, source: string): Promise<T | nul
 
 export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: string): Promise<EtatMiseEnService> {
   const g = deps.agentIa.gestion;
-  const [offre, soldeMicroEur, numero, liste, reglages, widgets] = await Promise.all([
+  const wa = deps.agentIa.creditWhatsapp;
+  const [offre, soldeMicroEur, numero, liste, reglages, widgets, soldeWhatsapp] = await Promise.all([
     ou(deps.offre.vue(tenantId), tenantId, 'offre'),
     ou(g.credits.solde(tenantId), tenantId, 'credit'),
     ou(deps.numero.etat(tenantId), tenantId, 'numero'),
     ou(g.agents.listToutes(tenantId), tenantId, 'agents'),
     ou(deps.agentIa.repondeur.reglages.get(tenantId), tenantId, 'repondeur'),
     ou(deps.widgets.gestion.widgets.lister(tenantId), tenantId, 'bulles'),
+    // Le Crédit WhatsApp ne se lit que pour un espace sur la ligne ; ailleurs, il n'en est pas question.
+    ou(wa.onglet(tenantId).then((o) => (o ? wa.vue.solde(tenantId) : null)), tenantId, 'credit_whatsapp'),
   ]);
   // Les manques, pour les brouillons seulement (la lecture de la console, `/manques`) : un espace en porte quelques-uns.
   const agents = liste === null ? null : await Promise.all(liste.map(async (a) => ({
     id: a.id, label: a.label, status: a.status,
     nbManques: a.status === 'draft' ? ((await ou(manquesDeLAgent(g, tenantId, a.id), tenantId, 'manques'))?.manques.length ?? null) : null,
   })));
-  return etatMiseEnService({ offre, soldeMicroEur, numero, agents, reglages, widgets });
+  return etatMiseEnService({
+    offre, soldeMicroEur, numero, agents, reglages, widgets,
+    ...(soldeWhatsapp !== null ? { soldeWhatsappMicroEur: soldeWhatsapp } : {}),
+  });
 }

@@ -316,8 +316,9 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
   stripeWebhook: {
     secret: SECRET_STRIPE,
     livemode: true,
-    paiements: { crediterPaiement: async () => 'espace_inconnu' },
+    paiements: { crediterPaiement: async () => 'espace_inconnu', crediterPaiementWhatsapp: async () => 'espace_inconnu' },
     apresCredit: async () => undefined,
+    apresCreditWhatsapp: async () => undefined,
     paiementRefuse: async () => undefined,
     signalerPro: async () => undefined,
     numero: {

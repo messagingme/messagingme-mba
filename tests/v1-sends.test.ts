@@ -31,6 +31,7 @@ import type { WorkflowGraph, WorkflowNode } from '../src/workflow/graph';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { MESSAGE_NUMERO_DELIE, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
+import { CreditWhatsappRefus, MESSAGE_REFUS_CREDIT } from '../src/credit-whatsapp/refus';
 import { offresToutOuvert } from './gardes';
 import { DROITS } from '../src/offres/offres';
 
@@ -197,6 +198,8 @@ function app(over: Surcharges = {}, monde: Partial<Monde> = {}) {
       estDelie: async () => false,
     },
     numerosSuspendus: { estSuspendu: async () => false },
+    // Aucun numéro sur le Crédit WhatsApp : la garde ne refuse rien (l'hypothèse des cas qui n'en parlent pas).
+    creditWhatsapp: { refusAvantEffets: async () => null },
     // Les modèles du mois sans limite (lot 6) : un espace Pro, l'hypothèse des cas qui ne parlent pas d'offre.
     modelesDuMois: { etatDuMois: async () => null },
     offres: offresToutOuvert,
@@ -1489,6 +1492,47 @@ describe('POST /v1/sends : forme, numéro, débit, droits', () => {
     expect(cap.sends).toEqual([]);
     expect(cap.resolutions).toEqual([]);
     expect(idem.has('i-suspendu')).toBe(false);
+    await server.close();
+  });
+
+  /**
+   * LE CRÉDIT WHATSAPP (lot 2, écart 4) : épuisé ou inactif sur le numéro, l'envoi est refusé à la création avec son code
+   * public, rien n'est créé et la clé est rendue. Accepté, il finirait refusé destinataire par destinataire.
+   */
+  it('🔴 Crédit WhatsApp épuisé, cible template -> 402 whatsapp_credit_exhausted, rien n’est créé, la clé est LIBÉRÉE', async () => {
+    const vus: string[] = [];
+    const { server, cap, idem } = app({
+      creditWhatsapp: { refusAvantEffets: async (t, pn) => { vus.push(`${t}/${pn}`); return new CreditWhatsappRefus('solde', 1); } },
+    });
+    const res = await envoyer(server, { ...TPL, recipients: [{ contactId: C1 }] }, 'i-credit');
+    expect(res.statusCode).toBe(402);
+    expect(res.json()).toEqual({ error: MESSAGE_REFUS_CREDIT.solde, code: 'whatsapp_credit_exhausted' });
+    expect(vus).toEqual(['t1/pn-default']);
+    expect(cap.sends).toEqual([]);
+    expect(cap.resolutions).toEqual([]);
+    expect(idem.has('i-credit')).toBe(false);
+    await server.close();
+  });
+
+  it('🔴 Crédit WhatsApp inactif sur le numéro -> 409 whatsapp_credit_line_inactive, rien n’est créé', async () => {
+    const { server, cap } = app({ creditWhatsapp: { refusAvantEffets: async () => new CreditWhatsappRefus('ligne_inactive') } });
+    const res = await envoyer(server, { ...TPL, recipients: [{ contactId: C1 }] }, 'i-credit-ligne');
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: MESSAGE_REFUS_CREDIT.ligne_inactive, code: 'whatsapp_credit_line_inactive' });
+    expect(cap.sends).toEqual([]);
+    await server.close();
+  });
+
+  it('une cible qui ouvre en RCS ne demande rien au Crédit WhatsApp', async () => {
+    const vus: string[] = [];
+    const { server, cap } = app({
+      repo: { getTenantPhoneNumberId: async () => null },
+      creditWhatsapp: { refusAvantEffets: async (t, pn) => { vus.push(`${t}/${pn}`); return new CreditWhatsappRefus('solde', 1); } },
+    });
+    const res = await envoyer(server, { target: { rcsMessage: 'relance-panier' }, category: 'utility', recipients: [{ contactId: C1, variables: { commande: '1' } }] }, 'i-credit-rcs');
+    expect(res.statusCode).toBe(201);
+    expect(vus).toEqual([]);
+    expect(cap.sends).toHaveLength(1);
     await server.close();
   });
 

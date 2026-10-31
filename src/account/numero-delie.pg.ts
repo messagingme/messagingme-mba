@@ -3,6 +3,14 @@ import { enTransaction } from '../db/transaction';
 import type { MotifBlocage } from '../meta/numero-delie';
 
 /**
+ * Le solde à partir duquel une campagne en pause `credit_whatsapp_epuise` repart : un euro, très au-dessus du prix d'un
+ * message de la grille de Meta, qui se compte en centimes. Un simple « solde positif » relançait, au balayage horaire, une
+ * campagne arrêtée sur un reste qui ne couvre plus un message (la garde exige `solde - prix >= 0`) : elle repartait, se
+ * remettait en pause, et un scénario qui ouvre par un e-mail le refaisait à un contact de plus à chaque heure.
+ */
+export const SOLDE_REPRISE_CREDIT_MICRO_EUR = 1_000_000;
+
+/**
  * Délier et relier le numéro d'un espace. Délier ne supprime rien et ne demande rien à Meta (numéro, compte et
  * jeton chiffré restent) : c'est ce qui permet de relier d'un clic.
  * Tous les numéros de l'espace, pas seulement le premier : une campagne visant un autre numéro partirait sinon
@@ -152,6 +160,41 @@ export class PgNumeroDelieStore {
       [tenantId],
     );
     return c.rowCount ?? 0;
+  }
+
+  /**
+   * Lève les pauses `credit_whatsapp_epuise` de l'espace (plan du Crédit WhatsApp, tâche 11), après un crédit, l'open bar
+   * posé dans `/ops`, ou au balayage horaire de secours. Même reprise que `leverPausesSuspension` : une campagne programmée
+   * redevient `scheduled` (son heure est passée, le balayage la fait partir aussitôt), les autres `running`, relancées par
+   * le balayage des campagnes gelées. Rend le nombre de campagnes reprises.
+   *
+   * 🔴 Deux conditions dans la MÊME instruction, pour qu'une reprise ne reparte pas aussitôt en pause ou dans le vide : le
+   * solde atteint `SOLDE_REPRISE_CREDIT_MICRO_EUR` (ou l'espace est une Entreprise en open bar, lue par la seule définition
+   * de l'offre), et l'espace a encore un numéro relié (une campagne dont le numéro a été libéré ne repart jamais : la
+   * libération change d'ailleurs sa pause en `numero_delie`). `ligne_credit_inactive` n'est pas levée ici : un crédit n'y
+   * change rien.
+   */
+  async leverPausesCreditWhatsapp(tenantId: string): Promise<number> {
+    const c = await this.pool.query(
+      `update campaigns c
+          set status = case when c.scheduled_at is not null then 'scheduled' else 'running' end,
+              pause_reason = null, paused_until = null
+        where c.tenant_id = $1 and c.status = 'paused' and c.pause_reason = 'credit_whatsapp_epuise'
+          and (coalesce((select w.solde_micro_eur from credits_whatsapp w where w.tenant_id = $1), 0) >= $2
+               or (offre_de_l_espace($1::uuid) = 'entreprise'
+                   and (select t.entreprise_open_bar_whatsapp from tenants t where t.id = $1)))
+          and exists (select 1 from phone_numbers p where p.tenant_id = $1 and p.delie_le is null)`,
+      [tenantId, SOLDE_REPRISE_CREDIT_MICRO_EUR],
+    );
+    return c.rowCount ?? 0;
+  }
+
+  /** Les espaces qui ont une campagne en pause `credit_whatsapp_epuise`, pour le balayage horaire de secours. */
+  async espacesEnPauseCredit(): Promise<string[]> {
+    const res = await this.pool.query<{ tenant_id: string }>(
+      `select distinct tenant_id from campaigns where status = 'paused' and pause_reason = 'credit_whatsapp_epuise'`,
+    );
+    return res.rows.map((r) => r.tenant_id);
   }
 
   /**

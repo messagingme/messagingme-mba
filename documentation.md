@@ -187,7 +187,7 @@ Où regarder avant de modifier quoi que ce soit.
 | **Exploitation** | vue cross-tenant, recharge de crédit, alertes, suppression d'un espace (§ 10) | `src/ops/` | `/ops` | `worker_heartbeat`, `audit_log`, `espaces_supprimes` | `dlq-sweep` |
 | **Numéros fournis** | la réserve de numéros DIDWW, et le pont qui lit le code que Meta dicte en appelant (lot 3a) | `src/otp/`, `src/didww/`, `src/http/otp-pont.ts`, `src/http/ops-numeros.ts`, `ops/otp-asterisk/` | `/ops` | `numeros_fournis`, `codes_verification` | purge du balayage de rétention |
 | **Offres** | l'offre d'un espace (Base, Pro, Entreprise), ses fonctions, ses limites, le refus 402 (§ 7), le paiement du Pro, la porte d'une Free pleine | `src/offres/`, `src/http/offre.ts`, `src/http/ops-offre.ts`, `src/http/offre-paiement.ts`, `src/stripe/pro.ts`, `src/webhooks/espace-plein.ts` | `/offre`, la barre (`web/lib/nav.ts`) | `abonnements_offre`, `tenants` (`offre_entreprise`), `contacts` (`ne_entrant`), `compteurs_debit` | aucune : une étape au montage, des compteurs |
-| **Crédit WhatsApp** | payer ses messages WhatsApp sur un solde chez nous quand un numéro est sur la ligne de crédit d'un partenaire : grille de Meta, garde avant l'envoi, ajustement à l'accusé, estimation au lancement (§ 7) | `src/credit-whatsapp/`, `src/meta/factory.ts`, `src/http/ops-credit-whatsapp.ts` | `/ops` | `credits_whatsapp`, `credit_whatsapp_provisions`, `credit_whatsapp_mouvements`, `lignes_credit_whatsapp`, `grilles_meta`, `grille_meta_tarifs`, `credit_whatsapp_reglages` | aucune : la garde dans la fabrique, l'ajustement sur `webhook` et `webhook-status`, le contrôle au départ dans le balayage des campagnes programmées |
+| **Crédit WhatsApp** | payer ses messages WhatsApp sur un solde chez nous quand un numéro est sur la ligne de crédit d'un partenaire : grille de Meta, garde avant l'envoi, ajustement à l'accusé, estimation au lancement, achat par Stripe, reprise des campagnes (§ 7) | `src/credit-whatsapp/`, `src/meta/factory.ts`, `src/http/ops-credit-whatsapp.ts`, `src/http/credit-whatsapp.ts`, `src/stripe/achat-whatsapp.ts` | Paramètres > Offre, onglet Crédit WhatsApp ; `/ops` | `credits_whatsapp`, `credit_whatsapp_provisions`, `credit_whatsapp_mouvements`, `lignes_credit_whatsapp`, `grilles_meta`, `grille_meta_tarifs`, `credit_whatsapp_reglages` | aucune : la garde dans la fabrique, l'ajustement sur `webhook` et `webhook-status`, le contrôle au départ dans le balayage des campagnes programmées |
 | **Auth et comptes** | connexion, invitations, rôles, multi-espace | `src/auth/`, `src/user/` | `/login`, `/admin` | `users`, `identities`, `auth_tokens` | |
 
 ---
@@ -4003,7 +4003,12 @@ nommé nulle part dans le dépôt. Spec : `docs/superpowers/specs/2026-10-30-cre
 l'estimation d'un lancement, les conditions d'un espace, les magasins), la fabrique d'envoi (`src/meta/factory.ts`), le
 lancement d'une campagne (`src/campaign/lancement.ts`, `schedule-sweep.ts`), les accusés (`src/webhooks/delivery.ts`),
 `/ops` (`src/http/ops-credit-whatsapp.ts` : la grille, la commission, un numéro posé sur la ligne, le solde et les dernières
-provisions d'un espace ; `src/http/ops-offre.ts` : l'open bar et la commission négociée d'une Entreprise).
+provisions d'un espace ; `src/http/ops-offre.ts` : l'open bar et la commission négociée d'une Entreprise), l'onglet de la
+console (`src/http/credit-whatsapp.ts`, module d'espace `creditWhatsapp` : la vue de l'onglet et l'ouverture d'un achat ;
+`web/components/OngletCreditWhatsapp.tsx`), l'achat par Stripe (`src/stripe/achat-whatsapp.ts`, `offres-whatsapp.ts`, le
+webhook commun `traitement-recharge.ts`), la reprise (`leverPausesCreditWhatsapp`, `src/account/numero-delie.pg.ts`), les
+e-mails (`creerAlertesCreditWhatsapp`, `src/emails-produit/alertes.ts`) et Claude (`get_credit`, `buy_credit`,
+`get_setup_state`).
 
 **Données** (migration 0264) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par envoi : `provisionne`,
 `rendu` ou `ajuste`), `credit_whatsapp_mouvements` (achats, recharges, régularisations), `lignes_credit_whatsapp` (un numéro
@@ -4029,16 +4034,39 @@ Entreprise.
 - Un solde nul ou négatif ne laisse rien partir, pas même un message de la franchise : tout s'arrête à zéro, réponses
   comprises.
 - Le refus : 402 `whatsapp_credit_exhausted` (solde), 409 `whatsapp_credit_line_inactive` (ligne arrêtée, ou aucune grille
-  en vigueur), pour la console et Claude ; sous `/v1`, le code public dédié n'est pas encore au contrat de l'API (le
-  gestionnaire commun y rend le code générique du statut). Un 5xx de Meta, un délai ou une panne réseau gardent la
+  en vigueur), partout, codes publics de `/v1` compris (`STATUT_PAR_CODE`) ; `POST /v1/sends` les rend avant de créer quoi
+  que ce soit (`refusAvantEffets`, qui ne provisionne rien). Un 5xx de Meta, un délai ou une panne réseau gardent la
   provision (le message est peut-être parti) ; un refus de Meta sous 500 la rend. Une campagne qui bute passe en pause `credit_whatsapp_epuise` ou `ligne_credit_inactive`, jamais en échec ;
   un lancement qui manquerait de crédit est refusé avec ce qui manque, une campagne programmée est mise en pause à son
   départ, sans rien envoyer.
+- 🔴 Pas de double envoi : un bloc de scénario lit `refusAvantEffets` avant tout effet (`verifierNumeroWhatsApp`), et un
+  refus du crédit au milieu d'un bloc, une fois un effet irréversible passé (envoi, e-mail, appel d'API), devient un refus
+  d'étape au lieu d'être relancé : rejoué à la reprise, le bloc renverrait ce qui est déjà parti
+  (`tests/credit-whatsapp-bloc-milieu.test.ts`). Au réveil ou à la réponse du contact, le parcours avance si un message
+  WhatsApp est parti, sinon il est clos et passe à l'équipe (il ne reprend pas après un achat). Au démarrage, sans
+  message WhatsApp parti, le refus est relevé marqué « après effets » (`CreditWhatsappRefusApresEffets`) : la campagne
+  résout ce destinataire en échec et se met en pause (un seul contact touché, `tests/campaign-engine.test.ts`),
+  l'automation garde son tir.
+- L'achat : quatre offres (`wa_50` à `wa_500`, le crédit égal au HT), sans code promo, `metadata.produit = credit_whatsapp`.
+  Le webhook aiguille sur ce produit AVANT la recharge IA, ne crédite qu'une fois par session (la table `stripe_paiements`
+  commune, donc jamais par les deux voies), refuse un montant qui ne vaut pas l'offre, et n'appelle jamais
+  `remonterPlafondApresRecharge` ; une image plus ancienne qui recevrait un produit inconnu alerte au lieu d'acquitter.
+  Ouvert à un espace hors Free dont un numéro est sur une ligne active, hors open bar (`achatPermis`).
+- La reprise : après chaque crédit, les campagnes en pause `credit_whatsapp_epuise` d'un espace dont le solde atteint un
+  euro (`SOLDE_REPRISE_CREDIT_MICRO_EUR`, très au-dessus du prix d'un message : un reste qui ne couvre plus un message ne
+  relance rien) ou d'une Entreprise passée en open bar repartent, en `scheduled` si leur départ était programmé, et seulement si leur numéro
+  est encore relié ; un balayage horaire (`credit-whatsapp-reprise`, rôle `principal`) rattrape un avis manqué.
+- Les e-mails : `credit_whatsapp_bas` quand un débit fait passer le solde sous 10 € (occasion : le dernier crédit reçu,
+  donc une fois par crédit), `credit_whatsapp_epuise` sur un refus faute de solde (une fois par jour du fuseau de
+  l'espace). Le seuil vit dans `web/lib/partage/credit-whatsapp.ts`, que l'onglet lit aussi. Une alerte ne lève jamais.
+- La ligne d'un numéro et la catégorie d'un modèle se lisent par une lecture en vol partagée ; un échec de lecture de la
+  catégorie chez Meta est gardé 30 s, pas plus.
 - Un compte qui ne reçoit AUCUN `COST` de `pricing_analytics` (un compte payé par la ligne d'un partenaire) a un résumé de
   coût inconnu, jamais « 0 € » ; un compte qui en reçoit garde la lecture point par point.
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
-poser un numéro tant que la grille n'est pas chargée. Le solde d'un espace et ses provisions récentes se lisent dans `/ops`, fenêtre de l'offre.
+poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés
+ensemble ou pas du tout, refusé au démarrage sinon), l'achat répond 503 et l'onglet dit « pas encore disponible ». Le solde d'un espace et ses provisions récentes se lisent dans `/ops`, fenêtre de l'offre.
 
 **Limites.** `todo.md`, section du Crédit WhatsApp.
 

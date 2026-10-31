@@ -191,6 +191,22 @@ L’abonnement du numéro WhatsApp fourni est impayé depuis 7 jours, ou termin�
 
 Que faire : Régler l’abonnement du numéro dans la console : les envois repartent au paiement.
 
+<a id="whatsapp_credit_exhausted"></a>
+
+### `whatsapp_credit_exhausted` 402
+
+Le Crédit WhatsApp qui paie les messages de ce numéro est épuisé : rien ne part par WhatsApp, réponses comprises, avant une recharge. Rendu par les routes qui envoient par WhatsApp, et par POST /v1/sends quand le premier message part en WhatsApp ; rien n’est créé.
+
+Que faire : Un admin recharge le Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp) : les envois repartent dès le paiement.
+
+<a id="whatsapp_credit_line_inactive"></a>
+
+### `whatsapp_credit_line_inactive` 409
+
+Le Crédit WhatsApp n’est plus actif sur ce numéro : rien ne part par WhatsApp, et une recharge n’y changerait rien. Rendu comme whatsapp_credit_exhausted.
+
+Que faire : Nous contacter depuis le Support de la console : une recharge n’y changerait rien.
+
 <a id="scenario_not_found"></a>
 
 ### `scenario_not_found` 404

@@ -1080,6 +1080,8 @@ In the order they are checked:
 | 409 | `no_whatsapp_number` | Workspace without a WhatsApp number. |
 | 409 | `number_unlinked` | Number unlinked from the Home page. |
 | 409 | `number_suspended` | Provided number subscription overdue or ended. |
+| 402 | `whatsapp_credit_exhausted` | WhatsApp credit used up: nothing goes out until a top-up. |
+| 409 | `whatsapp_credit_line_inactive` | WhatsApp credit inactive on this number. |
 | 422 | `no_phone` | Number linked by QR code: a reply outside the 24 h window to someone with no known number. |
 | 402 | `plan_limit_reached` | Number linked by QR code: the month’s messages reached. |
 | 400, 409 | `invalid_recipient` `invalid_phone` `identity_conflict` | Record keys missing, unreadable or contradictory: [Identifying a person](https://console.messagingme.app/developers/api/concepts.en.md#identification) |
@@ -1690,6 +1692,8 @@ Skip reasons: `invalid_recipient` , `invalid_phone` , `unknown_contact` , `dupli
 | 409 | `no_whatsapp_number` | No WhatsApp number on the workspace (except RCS message). |
 | 409 | `number_unlinked` | WhatsApp number unlinked from the Home page, and first message over WhatsApp. Nothing is created. A target opening with RCS goes out. |
 | 409 | `number_suspended` | Provided number subscription overdue or ended, and first message over WhatsApp. Nothing is created. |
+| 402 | `whatsapp_credit_exhausted` | WhatsApp credit used up, and first message over WhatsApp. Nothing is created. |
+| 409 | `whatsapp_credit_line_inactive` | WhatsApp credit inactive on this number, and first message over WhatsApp. Nothing is created. |
 | 404 | `template_not_found` | Template missing, not approved, or in another language. |
 | 422 | `template_category_unknown` | Template category unreadable, or neither marketing nor utility. |
 | 404 | `scenario_not_found` | Scenario not found. |
@@ -4227,6 +4231,22 @@ What to do: An admin relinks the number from the console Home page.
 The subscription of the provided WhatsApp number is 7 days overdue, or ended: nothing goes out over WhatsApp until it is renewed. Returned by POST /v1/messages/whatsapp, and by POST /v1/sends when the first message goes out over WhatsApp.
 
 What to do: Settle the number subscription in the console: sends resume on payment.
+
+<a id="whatsapp_credit_exhausted"></a>
+
+### `whatsapp_credit_exhausted` 402
+
+The WhatsApp credit that pays for this number’s messages is used up: nothing goes out over WhatsApp, replies included, until a top-up. Returned by the routes that send over WhatsApp, and by POST /v1/sends when the first message goes out over WhatsApp; nothing is created.
+
+What to do: An admin tops up the WhatsApp credit in the console (Settings > Plan, WhatsApp credit tab): sends resume as soon as it is paid.
+
+<a id="whatsapp_credit_line_inactive"></a>
+
+### `whatsapp_credit_line_inactive` 409
+
+The WhatsApp credit is no longer active on this number: nothing goes out over WhatsApp, and a top-up would not change that. Returned like whatsapp_credit_exhausted.
+
+What to do: Contact us from the console Support: a top-up would not change that.
 
 <a id="scenario_not_found"></a>
 

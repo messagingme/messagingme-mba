@@ -127,7 +127,7 @@ export function registerCreditPaiement(app: FastifyInstance, deps: CreditPaiemen
 type AvecCorpsBrut = FastifyRequest & { rawBody?: Buffer };
 
 /** Les abonnements (`traitement-abonnements.ts`) et la recharge (`traitement-recharge.ts`), plus le protocole HTTP. */
-export interface StripeWebhookRouteDeps extends DepsTraitementAbonnements, Pick<DepsTraitementRecharge, 'paiements' | 'apresCredit'> {
+export interface StripeWebhookRouteDeps extends DepsTraitementAbonnements, Pick<DepsTraitementRecharge, 'paiements' | 'apresCredit' | 'apresCreditWhatsapp'> {
   /** Le secret de signature de la destination déclarée chez Stripe (`whsec_...`). Vide : tout est refusé. */
   secret: string;
   /**
@@ -151,6 +151,7 @@ export function registerStripeWebhook(app: FastifyInstance, deps: StripeWebhookR
   const recharges = creerTraitementRecharge({
     paiements: deps.paiements,
     apresCredit: (tenantId) => deps.apresCredit(tenantId),
+    apresCreditWhatsapp: (tenantId) => deps.apresCreditWhatsapp(tenantId),
     alerter: (texte) => deps.numero.alerter(texte),
   });
 

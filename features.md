@@ -4258,6 +4258,37 @@ page Offre ; les anciennes adresses y mènent toujours, retour de paiement et li
   « Agent IA », le crédit et les plafonds).
 - ⛔ Hors périmètre : recharge automatique, montant libre, abonnement, e-mail de solde bas, remboursement en ligne.
 
+## Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
+
+Un crédit prépayé qui paie les **messages WhatsApp** d'un numéro dont Messaging Me règle les messages chez Meta, à la
+place d'une carte bancaire posée chez Meta. Chaque message envoyé (campagne, scénario, réponse de l'Inbox ou d'un agent
+IA) est débité de son prix : le tarif de Meta pour le pays du destinataire et la catégorie du message, notre commission
+comprise, jamais affichée en taux. 🔴 **À zéro, plus aucun message ne part, réponses comprises.** L'onglet n'apparaît
+qu'à un espace dont un numéro est payé ainsi, jamais en Free ni en Entreprise (gérée à la main, facturée après coup).
+Écran réservé aux admins. Un numéro passe sur ce crédit par nous, depuis `/ops`, en attendant l'option à souscrire.
+
+- ✅ **Le solde**, en euros : « c'est bas » sous 10 €, « épuisé » à zéro. Si le crédit est arrêté sur les numéros de
+  l'espace, l'écran le dit et ne propose pas de recharger : une recharge n'y changerait rien.
+- ✅ **Le prix d'un message vers la France**, par catégorie (marketing, utilitaire, authentification, réponse dans les
+  24 heures qui suivent un message du client), hors taxe et tout compris. Les 1 000 premières réponses de chaque numéro
+  sont offertes chaque mois, et un message que Meta ne facture pas ne coûte rien.
+- ✅ **Recharger 50, 100, 250 ou 500 € HT** : quatre boutons, la page de paiement hébergée par Stripe comme pour le
+  Crédit IA (TVA en sus, paiement en euros, facture de Stripe par e-mail, « Facture » dans l'historique), sans code
+  promo. Le retour ne crédite rien : seul l'avis signé de Stripe crédite, une fois par paiement, et l'écran relit
+  jusqu'à voir l'achat. Un achat ne crédite jamais le Crédit IA, et l'inverse non plus.
+- ✅ **L'historique** des quatre-vingt-dix derniers jours : les envois d'un jour en une ligne (nombre de messages et
+  montant), les achats, les régularisations.
+- ✅ **La reprise toute seule** : une campagne arrêtée faute de crédit repart dès l'avis de paiement de Stripe ; un
+  balayage horaire rattrape un avis manqué.
+- ✅ **Deux e-mails aux admins**, en français ou en anglais : le solde passé sous 10 € (une fois par crédit reçu), et un
+  message refusé faute de crédit (une fois par jour au plus, dans le fuseau de l'espace).
+- ✅ **Depuis Claude** : `get_credit` montre aussi ce crédit (solde, prix vers la France, derniers mouvements), et
+  `buy_credit` rend le lien de paiement d'une de ses quatre recharges ; `get_setup_state` signale un solde à zéro.
+- ✅ **API publique** : un envoi refusé faute de crédit rend `whatsapp_credit_exhausted` (402), un numéro dont le crédit
+  est arrêté `whatsapp_credit_line_inactive` (409) ; `POST /v1/sends` refuse ces deux cas avant de créer quoi que ce soit.
+- ⛔ À venir : l'option à souscrire (30 € HT par numéro et par mois), la recharge automatique et celle avant une
+  campagne, le prix dans le récapitulatif d'une campagne, les écrans de coût lus dans nos débits, la fiche d'aide publique.
+
 ## Offres (menu « Paramètres » > Offre)
 
 Chaque espace a une offre : **Free** (gratuite), **Pro** (abonnement mensuel ou annuel), **Business** (au mois, posée

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import { pgSsl } from '../../src/db/ssl';
-import { PgNumeroDelieStore } from '../../src/account/numero-delie.pg';
+import { PgNumeroDelieStore, SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../src/account/numero-delie.pg';
 import { PgPhoneStatusStore } from '../../src/account/store.pg';
 import { PgCampaignRepo } from '../../src/campaign/store.pg';
 import { PgChannelsMeConnectionStore } from '../../src/channels-me/connection-store.pg';
@@ -240,6 +240,47 @@ describe.skipIf(!url)('Numéro délié (Postgres réel)', () => {
     expect(await store.pauserCampagneCredit(chezLAutre, tenant, 'ligne_credit_inactive', 0)).toBe(false);
     expect((await etat(chezLAutre)).status).toBe('running');
     await pool.query(`update campaigns set status = 'completed' where tenant_id = any($1::uuid[])`, [[tenant, autre]]);
+    await pool.query('delete from credits_whatsapp where tenant_id = $1', [tenant]);
+  });
+
+  it('🔴 Crédit WhatsApp (tâche 11) : la reprise après un crédit lève SES pauses si le solde est positif, et pas sans numéro relié', async () => {
+    const solde = (micro: number) => pool.query(
+      `insert into credits_whatsapp (tenant_id, solde_micro_eur) values ($1, $2)
+       on conflict (tenant_id) do update set solde_micro_eur = excluded.solde_micro_eur`,
+      [tenant, micro],
+    );
+    const enCours = await campagne(tenant, { status: 'paused', pauseReason: 'credit_whatsapp_epuise' });
+    const programmee = await campagne(tenant, { status: 'paused', pauseReason: 'credit_whatsapp_epuise', scheduledAt: '2026-10-30T08:00:00Z' });
+    const ligneArretee = await campagne(tenant, { status: 'paused', pauseReason: 'ligne_credit_inactive' });
+    const chezLAutre = await campagne(autre, { status: 'paused', pauseReason: 'credit_whatsapp_epuise' });
+    expect((await store.espacesEnPauseCredit()).filter((t) => t === tenant || t === autre).sort()).toEqual([tenant, autre].sort());
+    // Solde nul : rien ne repart (la campagne repartirait aussitôt en pause).
+    await solde(0);
+    expect(await store.leverPausesCreditWhatsapp(tenant)).toBe(0);
+    // 🔴 Un reste positif sous le seuil de reprise non plus : il ne couvre plus un message, et le balayage horaire relançait
+    // la campagne en boucle (relecture du lot 2).
+    await solde(SOLDE_REPRISE_CREDIT_MICRO_EUR - 1);
+    expect(await store.leverPausesCreditWhatsapp(tenant)).toBe(0);
+    // Numéro délié : rien ne repart non plus, même avec du crédit.
+    await solde(5_000_000);
+    await pool.query('update phone_numbers set delie_le = now() where tenant_id = $1', [tenant]);
+    expect(await store.leverPausesCreditWhatsapp(tenant)).toBe(0);
+    await pool.query('update phone_numbers set delie_le = null where tenant_id = $1', [tenant]);
+    // Crédit et numéro relié : ses deux pauses du crédit repartent, la programmée en `scheduled` (son heure est passée).
+    expect(await store.leverPausesCreditWhatsapp(tenant)).toBe(2);
+    expect(await etat(enCours)).toMatchObject({ status: 'running', pause_reason: null });
+    expect(await etat(programmee)).toMatchObject({ status: 'scheduled', pause_reason: null });
+    // La ligne arrêtée n'est pas levée par un crédit ; la campagne d'un autre espace non plus.
+    expect(await etat(ligneArretee)).toMatchObject({ status: 'paused', pause_reason: 'ligne_credit_inactive' });
+    expect(await etat(chezLAutre)).toMatchObject({ status: 'paused', pause_reason: 'credit_whatsapp_epuise' });
+    // L'open bar d'une Entreprise lève la pause même à solde nul.
+    await solde(0);
+    const openBar = await campagne(tenant, { status: 'paused', pauseReason: 'credit_whatsapp_epuise' });
+    await pool.query(`update tenants set offre_entreprise = true, entreprise_open_bar_whatsapp = true where id = $1`, [tenant]);
+    expect(await store.leverPausesCreditWhatsapp(tenant)).toBe(1);
+    expect((await etat(openBar)).status).toBe('running');
+    await pool.query(`update tenants set offre_entreprise = false, entreprise_open_bar_whatsapp = false where id = $1`, [tenant]);
+    await pool.query(`update campaigns set status = 'completed', pause_reason = null where tenant_id = any($1::uuid[])`, [[tenant, autre]]);
     await pool.query('delete from credits_whatsapp where tenant_id = $1', [tenant]);
   });
 

@@ -81,6 +81,8 @@ function Messages() {
             ['no_whatsapp_number', t('Espace sans numéro WhatsApp.', 'Workspace without a WhatsApp number.')],
             ['number_unlinked', t('Numéro délié depuis l’Accueil.', 'Number unlinked from the Home page.')],
             ['number_suspended', t('Abonnement du numéro fourni impayé ou terminé.', 'Provided number subscription overdue or ended.')],
+            ['whatsapp_credit_exhausted', t('Crédit WhatsApp épuisé : rien ne part avant une recharge.', 'WhatsApp credit used up: nothing goes out until a top-up.')],
+            ['whatsapp_credit_line_inactive', t('Crédit WhatsApp inactif sur ce numéro.', 'WhatsApp credit inactive on this number.')],
             ['no_phone', t('Numéro relié par QR code : réponse hors des 24 h à une personne sans numéro connu.', 'Number linked by QR code: a reply outside the 24 h window to someone with no known number.')],
             ['plan_limit_reached', t('Numéro relié par QR code : messages du mois atteints.', 'Number linked by QR code: the month’s messages reached.')],
           ]}

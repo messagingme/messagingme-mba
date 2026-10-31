@@ -99,6 +99,12 @@ export interface VueOffre {
    */
   abonnement: AbonnementProVue | null;
   upgradeUrl: string;
+  /**
+   * L'onglet « Crédit WhatsApp » de la page Offre (plan du Crédit WhatsApp, tâche 11) : seulement hors formule Free, hors
+   * open bar de l'Entreprise (elle paie après coup), et pour un espace qui a un numéro sur la ligne de crédit. Partout
+   * ailleurs, l'onglet ne parlerait de rien.
+   */
+  ongletCreditWhatsapp: boolean;
 }
 
 /**
@@ -168,6 +174,8 @@ export interface DepsVueOffre {
    * s'en déduit aussi (déjà eu un Pro, fin de l'essai qui court) : une seule lecture de la table pour toute la vue.
    */
   abonnement(tenantId: string): Promise<ResumePro | null>;
+  /** L'onglet Crédit WhatsApp s'affiche-t-il (`ongletCreditWhatsapp`, `src/credit-whatsapp/achat-permis.ts`) ? */
+  ongletCreditWhatsapp(tenantId: string): Promise<boolean>;
 }
 
 /** Une copie neuve à chaque appel : la modifier ne touche pas `DROITS`. Les clés passent par `offrePublique`, elle seule. */
@@ -179,8 +187,9 @@ export function grilleDesOffres(): VueOffre['grille'] {
 
 export function creerVueOffre(d: DepsVueOffre): (tenantId: string) => Promise<VueOffre> {
   return async (tenantId) => {
-    const [{ offre, droits, pro }, usage, mois, suite, abonnement] = await Promise.all([
+    const [{ offre, droits, pro }, usage, mois, suite, abonnement, ongletCreditWhatsapp] = await Promise.all([
       d.offres.offreDe(tenantId), d.usage(tenantId), d.modelesDuMois.etatDuMois(tenantId), d.suiteDuNumero(tenantId), d.abonnement(tenantId),
+      d.ongletCreditWhatsapp(tenantId),
     ]);
     const vueAbonnement = abonnement === null ? null : abonnementProVue(abonnement, Date.now());
     return {
@@ -207,6 +216,7 @@ export function creerVueOffre(d: DepsVueOffre): (tenantId: string) => Promise<Vu
       prixSiege: d.siegesEnVente ? { moisCentimes: PRIX_SIEGE_HT_CENTIMES.mois, anCentimes: PRIX_SIEGE_HT_CENTIMES.an } : null,
       abonnement: vueAbonnement,
       upgradeUrl: adresseOffre(),
+      ongletCreditWhatsapp,
     };
   };
 }

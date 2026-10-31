@@ -219,6 +219,13 @@ export interface DemandeSession {
   urlAbandon: string;
   /** Une clé par geste : elle protège d'un rejeu du même appel, pas de deux paiements voulus. */
   idempotence: string;
+  /**
+   * Ce qui est vendu, quand ce n'est pas une recharge du crédit IA (`credit_whatsapp`, plan du Crédit WhatsApp) : recopié
+   * en métadonnée, le webhook aiguille la session sur lui AVANT la recharge. Absent : une recharge du crédit IA.
+   */
+  produit?: string;
+  /** `false` ferme le champ « code promo » (le Crédit WhatsApp : de vrais messages, payés au partenaire). Défaut : ouvert. */
+  codesPromo?: boolean;
 }
 
 /**
@@ -232,7 +239,8 @@ export interface DemandeSession {
  * montant HT de l'offre, refuserait de créditer un paiement bel et bien encaissé.
  *
  * Le champ « code promo » est ouvert à tous (décision de Julien du 2026-09-29) : un code se crée dans le tableau de
- * bord Stripe, donc par nous seuls, et il donne le crédit PLEIN de l'offre (voir le recoupement du webhook).
+ * bord Stripe, donc par nous seuls, et il donne le crédit PLEIN de l'offre (voir le recoupement du webhook). Sauf l'achat
+ * du Crédit WhatsApp (`codesPromo: false`) : un code à 100 % y offrirait de vrais messages, payés au partenaire.
  */
 export async function creerSessionCheckout(transport: TransportStripe, d: DemandeSession): Promise<{ id: string; url: string }> {
   return appeler(transport, 'session', '/checkout/sessions', {
@@ -247,9 +255,10 @@ export async function creerSessionCheckout(transport: TransportStripe, d: Demand
     'customer_update[address]': 'auto',
     billing_address_collection: 'required',
     'invoice_creation[enabled]': 'true',
-    allow_promotion_codes: 'true',
+    allow_promotion_codes: d.codesPromo === false ? 'false' : 'true',
     'metadata[tenant_id]': d.tenantId,
     'metadata[offre]': d.offre,
+    ...(d.produit !== undefined ? { 'metadata[produit]': d.produit } : {}),
     client_reference_id: d.tenantId,
     success_url: d.urlSucces,
     cancel_url: d.urlAbandon,

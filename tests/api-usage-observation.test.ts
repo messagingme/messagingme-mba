@@ -61,6 +61,7 @@ const sendsMuets: Omit<V1SendsRouteDeps, 'usage'> = {
     estDelie: async () => false,
   },
   numerosSuspendus: { estSuspendu: async () => false },
+  creditWhatsapp: { refusAvantEffets: async () => null },
   // Les modèles du mois sans limite (lot 6) : ce test ne porte pas sur l'offre.
   modelesDuMois: { etatDuMois: async () => null },
   offres: offresToutOuvert,

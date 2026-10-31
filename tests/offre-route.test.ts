@@ -33,7 +33,7 @@ const VUE_BASE: VueOffre = {
   usage: { envoisModelesMois: 250, contacts: 42, automations: 3, membres: 1 }, contactsToutesOrigines: true, contactsEnTrop: 0,
   grille: grilleDesOffres(), prixPro: { moisCentimes: 4900, anCentimes: 49000 }, prixBusiness: { moisCentimes: 34900, siegeMoisCentimes: 1000 },
   suiteDuNumero: null, essai: { jours: 14, possible: true, finLe: null }, sieges: null, prixSiege: { moisCentimes: 1500, anCentimes: 15000 },
-  abonnement: null, upgradeUrl: 'https://console.test/offre',
+  abonnement: null, upgradeUrl: 'https://console.test/offre', ongletCreditWhatsapp: false,
 };
 
 function monter() {

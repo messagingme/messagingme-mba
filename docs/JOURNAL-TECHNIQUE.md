@@ -4,6 +4,43 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : le Crédit WhatsApp, lot 2 (acheter, l'onglet, la reprise, les e-mails, Claude, les codes publics)
+
+Lot 2 du plan `docs/superpowers/plans/2026-10-30-credit-whatsapp-notre-cote.md`, sans migration. Toujours rien de visible
+d'un client tant qu'aucun de ses numéros n'est sur la ligne (au lot 2 comme au lot 1, seul `/ops` en pose un).
+- **L'achat** : 50, 100, 250 ou 500 € HT par la page de Stripe, sans code promo, le crédit égal au HT. Le webhook
+  aiguille sur `metadata.produit = credit_whatsapp` AVANT la recharge IA, crédite une fois par session (la table
+  `stripe_paiements` commune), refuse un montant qui ne vaut pas l'offre et ne remonte pas le plafond de Vercel. Une
+  image plus ancienne qui recevrait ce produit alerte au lieu d'acquitter. Tant que les quatre prix (`STRIPE_PRIX_WA_*`)
+  ne sont pas posés, l'achat rend 503 et l'onglet dit « pas encore disponible ».
+- **L'onglet** Crédit WhatsApp de Paramètres > Offre, ouvert par la vue de l'offre (`ongletCreditWhatsapp`) : solde,
+  prix d'un message vers la France par catégorie tout compris, quatre achats, historique (envois du jour, achats avec
+  facture, régularisations), retour de Stripe lu sur la ligne d'achat ; une fiche d'aide de console, non publique.
+- **La reprise** : après chaque crédit, et par un balayage horaire, les campagnes en pause `credit_whatsapp_epuise`
+  repartent (en `scheduled` si leur départ était programmé), jamais celles dont le numéro a été délié.
+- **Les e-mails** : solde sous 10 € (une fois par crédit reçu), refus faute de solde (une fois par jour du fuseau).
+- **Claude** : `get_credit` montre le Crédit WhatsApp, `buy_credit` ses quatre recharges (une fois les prix posés),
+  `get_setup_state` un solde à zéro.
+- **Les codes publics** `whatsapp_credit_exhausted` (402) et `whatsapp_credit_line_inactive` (409) au contrat de `/v1`
+  (gestionnaire commun, refus de `POST /v1/sends` avant toute campagne) ; le contrat du SDK régénéré avec les
+  dépendances exactes du verrou (zod 4.6.7 ; le `node_modules` du poste porte 4.4.3, d'où les huit écarts du lot 1).
+- **Les écarts 10 et 14 du lot 1** : plus de double envoi quand le crédit refuse au milieu d'un bloc de scénario (refus
+  d'étape dès qu'un effet irréversible est passé, `refusAvantEffets` lu avant le bloc) ; lectures en vol partagées pour
+  la ligne d'un numéro et la catégorie d'un modèle, un échec de catégorie gardé 30 s. Les écarts 7 et 8 passent au lot 5.
+- **Relecture indépendante** (une) : un rouge, corrigé avant le push. Le correctif de l'écart 10 rendait en chaîne, au
+  démarrage d'un parcours, un refus du crédit tombé après un e-mail ou un appel d'API : une campagne de scénario
+  marquait le destinataire en échec et passait au suivant, effets compris, jusqu'à la porte de qualité (vers 290
+  contacts sur 680 envois), au lieu de se mettre en pause. Le refus est désormais relevé, marqué « après effets »
+  (`CreditWhatsappRefusApresEffets`) : la campagne résout ce destinataire en échec et se met en pause, l'automation garde
+  son tir ; le test passe par le moteur et le vrai exécuteur, vérifié dans les deux sens. Avec lui, deux jaunes qui
+  décidaient du même scénario : la reprise exige un euro de solde (un reste sous le prix d'un message relançait la
+  campagne à chaque balayage horaire) et le refus préalable porte un prix d'un micro-euro. Les autres jaunes après le
+  déploiement (`todo.md`).
+- **En local**, sur l'arbre rebasé : typecheck et lint verts, la suite serveur entière (15 325 tests), la console
+  (1 176), l'auto-attaque sans trouvaille ; l'e2e de l'onglet et des pages touchées (242) avant le dernier rebase, qui n'a
+  apporté à la console que des fichiers sans rapport. Les dépendances installées depuis le verrou dans un dossier à part
+  ont fait disparaître les écarts locaux du contrat du SDK.
+
 ## 2026-10-31 : la 4e question du numéro, le numéro fourni mis dans l'application (console, Claude, plugin 0.3.20)
 
 Aucune migration. Plan `docs/superpowers/plans/2026-10-31-numero-fourni-dans-application.md`, décision de Julien du

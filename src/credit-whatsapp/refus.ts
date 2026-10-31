@@ -12,13 +12,15 @@
  *
  * Le message ne porte aucun identifiant : il s'inscrit sur le destinataire d'une campagne ou dans un journal.
  */
+import type { CodeApi } from '../api/erreurs';
+
 export type MotifRefusCredit = 'solde' | 'ligne_inactive';
 
-/** Le code de l'API publique, de Claude et de la console, une fois pour tous les chemins. */
-export const CODE_REFUS_CREDIT: Record<MotifRefusCredit, string> = {
+/** Le code de l'API publique (`STATUT_PAR_CODE`), de Claude et de la console, une fois pour tous les chemins. */
+export const CODE_REFUS_CREDIT = {
   solde: 'whatsapp_credit_exhausted',
   ligne_inactive: 'whatsapp_credit_line_inactive',
-};
+} as const satisfies Record<MotifRefusCredit, CodeApi>;
 
 export const MESSAGE_REFUS_CREDIT: Record<MotifRefusCredit, string> = {
   solde: 'Crédit WhatsApp épuisé : ce message n’est pas parti. Un administrateur peut recharger le crédit depuis Paramètres > Offre.',
@@ -38,7 +40,21 @@ export class CreditWhatsappRefus extends Error {
     this.statusCode = motif === 'solde' ? 402 : 409;
   }
 
-  get code(): string {
+  get code(): CodeApi {
     return CODE_REFUS_CREDIT[this.motif];
+  }
+}
+
+/**
+ * Le refus du crédit levé au DÉMARRAGE d'un parcours (`runFrom`) APRÈS un effet du bloc (un e-mail, un appel d'API), alors
+ * qu'aucun message WhatsApp n'est parti : il porte le refus d'origine. Une chaîne ferait croire à l'appelant que rien
+ * n'est parti (la campagne passerait au destinataire suivant, effets compris, jusqu'à la porte de qualité), et le refus
+ * ordinaire lui ferait rendre le contact à sa file, ou effacer son déclenchement, donc refaire ces effets à la reprise. La
+ * campagne résout ce destinataire en échec et se met en pause ; l'automation garde son tir.
+ */
+export class CreditWhatsappRefusApresEffets extends CreditWhatsappRefus {
+  constructor(origine: CreditWhatsappRefus) {
+    super(origine.motif, origine.manqueMicroEur, origine.prixMicroEur);
+    this.name = 'CreditWhatsappRefusApresEffets';
   }
 }

@@ -11,7 +11,11 @@ import { MetaApiError } from '../src/meta/errors';
 import { RetraitDeLaListeRefuse } from '../src/mba/liste';
 import { messageDePause, type MotifDePause } from '../src/campaign/pause';
 import { LimiteOffreError } from '../src/offres/refus';
-import { CreditWhatsappRefus } from '../src/credit-whatsapp/refus';
+import { CreditWhatsappRefus, MESSAGE_REFUS_CREDIT } from '../src/credit-whatsapp/refus';
+import { WorkflowExecutor } from '../src/workflow/executor';
+import type { WorkflowGraph } from '../src/workflow/graph';
+import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
+import { jamaisDesabonne } from './consentement';
 import { RAISON_CREDIT_RECHARGE_ENTRE_TEMPS } from '../src/campaign/engine';
 
 class FakeSender implements MessageSender {
@@ -269,6 +273,59 @@ describe('runCampaign', () => {
     }));
     expect(ecrites).toEqual([['credit_whatsapp_epuise', 74_760]]);
     expect(report).toMatchObject({ paused: false, reason: RAISON_CREDIT_RECHARGE_ENTRE_TEMPS });
+  });
+
+  /**
+   * 🔴 RELECTURE DU LOT 2 : une campagne de SCÉNARIO dont le bloc fait partir un e-mail (ou un appel d'API) avant le
+   * modèle, sur un solde positif mais sous le prix d'un message (l'état normal d'un solde usé). La vérification préalable
+   * laisse passer, l'e-mail part, le modèle est refusé. Le refus revenait en chaîne : le destinataire passait en échec et la
+   * campagne au suivant, e-mail compris, jusqu'à la porte de qualité. Avec le VRAI exécuteur : un seul contact touché.
+   */
+  it('🔴 scénario « e-mail puis modèle », solde sous le prix : un seul contact touché, la campagne en pause du crédit', async () => {
+    const effets: string[] = [];
+    const graphe: WorkflowGraph = {
+      nodes: [
+        { id: 'em', type: 'email', position: { x: 0, y: 0 }, data: { emailAccountId: 'a1', templateId: 't1', to: { kind: 'literal', value: 'client@exemple.fr' } } },
+        { id: 'tpl', type: 'template', position: { x: 0, y: 0 }, data: { templateName: 'promo' } },
+      ],
+      edges: [{ id: 'e1', source: 'em', target: 'tpl' }],
+    };
+    const executeur = new WorkflowExecutor({
+      ...depsInertes,
+      estDesabonne: jamaisDesabonne,
+      runs: avecGardesDEtatInertes({
+        closeActiveByWaId: async (): Promise<string[]> => [],
+        start: async (): Promise<{ id: string }> => ({ id: 'run-1' }),
+        findWaitingByWaId: async () => null,
+        setState: async () => {},
+      }),
+      getGraph: async () => graphe,
+      isWindowOpen: async () => true,
+      applyTag: async () => {},
+      setField: async () => {},
+      removeTag: async () => {},
+      clearField: async () => {},
+      sendQuickMessage: async () => { throw new Error('jamais : aucun message rapide'); },
+      sendFlow: async () => { throw new Error('jamais : aucun formulaire'); },
+      sendQuestion: async () => { throw new Error('jamais : aucune question'); },
+      sendEmail: async (_t, waId) => { effets.push(`e-mail ${waId}`); },
+      // La garde de la fabrique : le solde ne couvre pas le modèle.
+      sendTemplate: async () => { throw new CreditWhatsappRefus('solde', 10_000, 74_760); },
+      verifierNumeroWhatsApp: async () => {},
+    });
+    const recipients = new FakeRecipients([rec('r1', '+33611'), rec('r2', '+33622'), rec('r3', '+33633')]);
+    const campaigns = new FakeCampaigns();
+    const report = await lancerCampagne({ ...campaign, workflowId: 'wf1' }, deps({
+      recipients, campaigns,
+      startWorkflow: (t, wf, waId, contactId) => executeur.demarrer('campagne_scenario', t, wf, graphe, { waId, contactId }),
+    }));
+    expect(effets).toEqual(['e-mail 33611']);
+    expect(report).toMatchObject({ sent: 0, failed: 1, paused: true, reason: messageDePause('credit_whatsapp_epuise', null, undefined) });
+    // Jamais rendu à la file : la reprise lui renverrait l'e-mail. Résolu en échec, avec la raison du crédit.
+    expect(recipients.relaches).toEqual([]);
+    expect([...recipients.results.keys()]).toEqual(['r1']);
+    expect(recipients.results.get('r1')).toMatchObject({ status: 'failed', error: MESSAGE_REFUS_CREDIT.solde });
+    expect(campaigns.pauses).toEqual([{ raison: 'credit_whatsapp_epuise', reprise: null }]);
   });
 
   it('🔴 même sur une campagne de SCÉNARIO : le parcours ne démarre pas pour un STOP relu à la réclamation', async () => {

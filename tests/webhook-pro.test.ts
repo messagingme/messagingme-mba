@@ -49,8 +49,9 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
   const deps: StripeWebhookRouteDeps = {
     secret: SECRET_WEBHOOK,
     livemode: true,
-    paiements: { crediterPaiement: async () => { cap.credits += 1; return 'credite'; } },
+    paiements: { crediterPaiement: async () => { cap.credits += 1; return 'credite'; }, crediterPaiementWhatsapp: async () => { cap.credits += 1; return 'credite'; } },
     apresCredit: async () => {},
+    apresCreditWhatsapp: async () => {},
     paiementRefuse: async (p) => { cap.paiementsRefuses.push({ tenantId: p.tenantId, offre: p.offre, factureId: p.factureId }); },
     signalerPro: async (p) => { cap.pros.push(p); },
     numero: stripeNumeroInerte,

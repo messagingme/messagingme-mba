@@ -36,7 +36,8 @@ export interface ProvisionDemandee {
   openBar: boolean;
 }
 
-export type IssueProvision = { ok: true; provisionId: string } | { ok: false; soldeMicroEur: number };
+/** `soldeApresMicroEur` : le solde juste après CE débit, lu dans la même instruction (l'alerte du solde bas s'y compare). */
+export type IssueProvision = { ok: true; provisionId: string; soldeApresMicroEur: number } | { ok: false; soldeMicroEur: number };
 
 /**
  * Une ligne de l'historique montré au client. Les envois s'agrègent par jour de Paris (`raison: 'envois'`, `messages`
@@ -54,6 +55,8 @@ export interface LigneHistoriqueWa {
   messages: number | null;
   /** Le paiement Stripe d'un achat ou d'une recharge, `null` ailleurs. */
   reference: string | null;
+  /** Ce paiement a une facture chez Stripe : c'est ce qui offre le lien « Facture » (comme au Crédit IA). */
+  facture: boolean;
 }
 
 /** Une provision telle que `/ops` la montre (l'essai réel : chaque envoi au prix de la grille, rendu ou corrigé). */

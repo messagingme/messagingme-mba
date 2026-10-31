@@ -243,6 +243,9 @@ import { messageDe, texteDe } from './lib/erreur';
 import { PgStripeStore } from './stripe/store.pg';
 import { estCleLive, FetchTransportStripe } from './stripe/client';
 import { creerPayeurAutorise, type CreditPaiementRouteDeps } from './http/credit-stripe';
+import type { DepsAchatWhatsapp } from './stripe/achat-whatsapp';
+import type { CreditWhatsappRouteDeps } from './http/credit-whatsapp';
+import { achatPermis, ongletCreditWhatsapp, type DepsAchatPermis } from './credit-whatsapp/achat-permis';
 import type { AgentsRouteDeps } from './http/agents';
 import type { AgentTestRouteDeps } from './http/agent-test';
 import type { AgentKnowledgeRouteDeps } from './http/agent-knowledge';
@@ -302,8 +305,8 @@ async function main(): Promise<void> {
     settingsStore, flowStore, idempotencyStore, auditStore, erreursLivraison, echecsMessages, poolAttentesStore,
     httpLatencesStore, mesuresTachesStore, mesuresFilesStore, santeStore, memoireWorkersStore, seuilsStore, nodeEventStore, trackedLinkStore, webhookStore, verrousCourts, compteurDebit, phoneStatusStore, opsStore, heartbeatStore, workflowStore,
     automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog, journalAppels, credits, reglagesCreditWhatsapp,
-    lignesCreditWhatsapp, estimerCreditCampagne, creditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver, wabaDeLEspace,
-    numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, esCredentialsStore, metaCredentials, metaFactory, connexionsPub, connexionPub, publicites,
+    lignesCreditWhatsapp, estimerCreditCampagne, creditWhatsapp, conditionsCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver, wabaDeLEspace,
+    numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, gardeCreditWhatsapp, esCredentialsStore, metaCredentials, metaFactory, connexionsPub, connexionPub, publicites,
     clientPubs, clientCreationPubs, workflowRuntime, clesGateway, fil, listeDeLAgent, offres, quotaModeles,
     emailsProduit, envoisResend, paiementRefuse, emetteurEmails, envoiApplication, comptesApplication, clientApplication,
     lienConversation,
@@ -1015,6 +1018,47 @@ async function main(): Promise<void> {
     factures: stripeStore,
   };
 
+  /** Les portes du Crédit WhatsApp (l'offre, l'open bar, les lignes), lues par l'achat et par l'onglet de la page Offre. */
+  const portesCreditWhatsapp: DepsAchatPermis = {
+    offre: async (t) => (await offres.offreDe(t)).offre,
+    conditions: (t) => conditionsCreditWhatsapp.conditions(t),
+    lignes: (t) => lignesCreditWhatsapp.lignesDeLEspace(t),
+  };
+
+  /**
+   * L'achat du Crédit WhatsApp (plan du Crédit WhatsApp, tâche 10) : le MÊME Stripe, les MÊMES clients et la MÊME règle
+   * du mode test que la recharge du crédit IA, ses quatre prix (tous ou aucun, garde de la configuration), et ce que
+   * l'espace a le droit d'acheter (`achatPermis`). La console et `buy_credit` reçoivent ces mêmes objets.
+   */
+  const achatCreditWhatsapp: DepsAchatWhatsapp = {
+    stripe: paiementDeLaConsole.stripe === null ? null : {
+      cle: paiementDeLaConsole.stripe.cle,
+      livemode: paiementDeLaConsole.stripe.livemode,
+      prix: {
+        wa_50: config.STRIPE_PRIX_WA_50, wa_100: config.STRIPE_PRIX_WA_100,
+        wa_250: config.STRIPE_PRIX_WA_250, wa_500: config.STRIPE_PRIX_WA_500,
+      },
+      transport: paiementDeLaConsole.stripe.transport,
+      pageOffre: `${config.APP_URL.trim().replace(/\/+$/, '')}/offre`,
+      pageClaude: paiementDeLaConsole.stripe.pageClaude,
+    },
+    clients: paiementDeLaConsole.clients,
+    payeurAutorise: (userId) => paiementDeLaConsole.payeurAutorise(userId),
+    achatPermis: (tenant) => achatPermis(portesCreditWhatsapp, tenant),
+  };
+
+  /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */
+  const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {
+    achat: achatCreditWhatsapp,
+    vue: {
+      solde: (t) => creditWhatsapp.solde(t),
+      historique: (t) => creditWhatsapp.historique(t),
+      grille: () => reglagesCreditWhatsapp.grilleEnVigueur(),
+      conditions: (t) => conditionsCreditWhatsapp.conditions(t),
+      lignes: (t) => lignesCreditWhatsapp.lignesDeLEspace(t),
+    },
+  };
+
   /**
    * L'abonnement du numéro fourni (lot 3c) : le MÊME Stripe, les MÊMES clients et la MÊME règle du mode test que la
    * recharge, plus le prix mensuel du numéro et l'adresse de la console où Stripe renvoie.
@@ -1127,6 +1171,8 @@ async function main(): Promise<void> {
     // L'abonnement Pro dit en clair (2026-10-26) : statut, souscription, renouvellement ou fin. L'essai s'en déduit (déjà
     // consommé par un Pro, même fini ; la fin de celui qui court) : une seule lecture de la table.
     abonnement: (tenant) => abonnementsOffre.resume(tenant),
+    // L'onglet Crédit WhatsApp : hors Free, hors open bar, et un numéro sur la ligne (les mêmes portes que l'achat).
+    ongletCreditWhatsapp: (tenant) => ongletCreditWhatsapp(portesCreditWhatsapp, tenant),
   });
 
   /**
@@ -1321,6 +1367,8 @@ async function main(): Promise<void> {
     // La garde de ce process, celle dont « Délier » et « Relier » vident le cache.
     numerosDelies: gardeNumeroDelie,
     numerosSuspendus: gardeNumeroSuspendu,
+    // Le Crédit WhatsApp (lot 2) : épuisé ou inactif sur le numéro, refusé avant toute campagne. La garde de la fabrique.
+    creditWhatsapp: gardeCreditWhatsapp,
     // Les modèles du mois (lot 6) : un envoi qui ouvre par un modèle et ne tient pas dans ce qu'il reste est refusé.
     modelesDuMois: quotaModeles,
     // L'offre (lot 6, B2a) : hors `scenarios`, une cible scénario ou bloc est refusée tout de suite.
@@ -1657,6 +1705,8 @@ async function main(): Promise<void> {
       // Les gestes après la pose ou le retrait d'une offre à la main (spec Business) : aucun n'écrit chez Stripe.
       gestes: {
         passageBusiness: (tenant) => surPassageEnPro(numeroInclus, tenant, { arreterLeNumeroSeul: false }),
+        // L'open bar du Crédit WhatsApp posé : les campagnes en pause faute de crédit repartent.
+        reprendreCreditWhatsapp: (tenant) => numeroDelieStore.leverPausesCreditWhatsapp(tenant),
         // Le complément d'abord, puis le plafond de la clé de l'espace en arrière-plan, comme le crédit offert au premier
         // numéro (`creerOffreDeBienvenue`) : Vercel peut prendre 30 s, l'écran de /ops ne l'attend pas.
         completerCredit: async (tenant) => {
@@ -1987,6 +2037,7 @@ async function main(): Promise<void> {
      * sur l'API : il ne crédite rien, il fait relire le solde.
      */
     creditPaiement: paiementDeLaConsole,
+    creditWhatsapp: creditWhatsappDeLaConsole,
     // Le pont du code (lot 3a), monté seulement avec son secret : une signature sans secret ne prouverait rien.
     ...(config.OTP_PONT_SECRET ? {
       otpPont: { secret: config.OTP_PONT_SECRET, numeros: numerosFournis, transcrire: transcrireAppelOtp },
@@ -2013,6 +2064,11 @@ async function main(): Promise<void> {
         apresCredit: (tenantId: string) => travauxEnVol.suivre((async () => {
           if (!provisionCle) return;
           await remonterPlafondApresRecharge(provisionCle, tenantId);
+        })()),
+        // Après un achat du Crédit WhatsApp : les campagnes en pause faute de crédit repartent (jamais le plafond du
+        // crédit IA). Le balayage horaire du worker rattrape un échec.
+        apresCreditWhatsapp: (tenantId: string) => travauxEnVol.suivre((async () => {
+          await numeroDelieStore.leverPausesCreditWhatsapp(tenantId);
         })()),
         // L'abonnement du numéro fourni (lot 3c, livraison B) : le magasin, et Julien prévenu sur Telegram (ne lève jamais).
         numero: {
@@ -3464,6 +3520,8 @@ async function main(): Promise<void> {
           actions: new PgActionsAgent(pool),
           reglages: settingsStore,
           repondeur: repondeurDeLaConsole,
+          // Le Crédit WhatsApp de la console, plus l'onglet visible (`get_credit` n'en parle que là).
+          creditWhatsapp: { ...creditWhatsappDeLaConsole, onglet: (t) => ongletCreditWhatsapp(portesCreditWhatsapp, t) },
         },
         // La connexion du numéro depuis Claude Code (lot 3c) : le lien signé avec le secret des sessions, vers la page
         // `/brancher` de la console, et la MÊME lecture de l'état que cette page.

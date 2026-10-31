@@ -225,6 +225,8 @@ Skip reasons: `invalid_recipient` , `invalid_phone` , `unknown_contact` , `dupli
 | 409 | `no_whatsapp_number` | No WhatsApp number on the workspace (except RCS message). |
 | 409 | `number_unlinked` | WhatsApp number unlinked from the Home page, and first message over WhatsApp. Nothing is created. A target opening with RCS goes out. |
 | 409 | `number_suspended` | Provided number subscription overdue or ended, and first message over WhatsApp. Nothing is created. |
+| 402 | `whatsapp_credit_exhausted` | WhatsApp credit used up, and first message over WhatsApp. Nothing is created. |
+| 409 | `whatsapp_credit_line_inactive` | WhatsApp credit inactive on this number, and first message over WhatsApp. Nothing is created. |
 | 404 | `template_not_found` | Template missing, not approved, or in another language. |
 | 422 | `template_category_unknown` | Template category unreadable, or neither marketing nor utility. |
 | 404 | `scenario_not_found` | Scenario not found. |

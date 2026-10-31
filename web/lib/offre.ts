@@ -117,6 +117,11 @@ export interface VueOffre {
    */
   abonnement: AbonnementPro | null;
   upgradeUrl: string;
+  /**
+   * L'onglet « Crédit WhatsApp » (plan du Crédit WhatsApp, tâche 11), tel que le serveur le décide : hors Free, hors open
+   * bar, et un numéro sur la ligne de crédit. Faux sur une API plus ancienne, qui n'a pas la route de l'onglet.
+   */
+  ongletCreditWhatsapp: boolean;
 }
 
 export type StatutAbonnementPro = 'termine' | 'en_retard' | 'resiliation_programmee' | 'essai' | 'actif';
@@ -211,6 +216,7 @@ export function lireVueOffre(brut: unknown): VueOffre | null {
     prixBusiness: lirePrixBusiness(brut.prixBusiness),
     abonnement: lireAbonnement(brut.abonnement),
     upgradeUrl: brut.upgradeUrl,
+    ongletCreditWhatsapp: brut.ongletCreditWhatsapp === true,
   };
 }
 

@@ -154,7 +154,7 @@ describe('l’étape suivante', () => {
 });
 
 describe('la lecture, sur des faux', () => {
-  function deps(o: { panne?: 'numero' | 'agents' | 'credit'; lus?: string[] } = {}): DepsMiseEnService {
+  function deps(o: { panne?: 'numero' | 'agents' | 'credit'; lus?: string[]; soldeWa?: number } = {}): DepsMiseEnService {
     const casse = (quoi: string) => async () => { throw new Error(`panne ${quoi}`); };
     // Chaque source note l'espace qu'on lui demande : l'isolation se vérifie sur toutes.
     const lu = <T>(source: string, v: T) => async (t: string) => { o.lus?.push(`${source}:${t}`); return v; };
@@ -172,6 +172,8 @@ describe('la lecture, sur des faux', () => {
           etatPourLint: async (t: string) => { o.lus?.push(`manques:${t}`); return null; },
         },
         repondeur: { reglages: { get: lu('repondeur', { ...EQUIPE, repondeurDelaiScenarioS: 0 }) } },
+        // Sur la ligne seulement quand le test donne un solde du Crédit WhatsApp.
+        creditWhatsapp: { onglet: async () => o.soldeWa !== undefined, vue: { solde: async () => o.soldeWa ?? 0 } },
       },
       widgets: { gestion: { widgets: { lister: lu('bulles', []) } } },
     };
@@ -199,6 +201,13 @@ describe('la lecture, sur des faux', () => {
       expect(e.avertissements.some((a) => a.startsWith('lecture_manquee:')), panne).toBe(true);
     }
   });
+
+  it('🔴 le Crédit WhatsApp à zéro d’un espace sur la ligne est signalé ; positif, ou hors ligne, il ne l’est pas', async () => {
+    expect((await lireMiseEnService(deps({ soldeWa: 0 }), 't1')).avertissements).toContain('credit_whatsapp_epuise');
+    expect((await lireMiseEnService(deps({ soldeWa: -1 }), 't1')).avertissements).toContain('credit_whatsapp_epuise');
+    expect((await lireMiseEnService(deps({ soldeWa: 1_000_000 }), 't1')).avertissements).not.toContain('credit_whatsapp_epuise');
+    expect((await lireMiseEnService(deps(), 't1')).avertissements).not.toContain('credit_whatsapp_epuise');
+  });
 });
 
 describe('l’outil get_setup_state', () => {
@@ -221,6 +230,7 @@ describe('l’outil get_setup_state', () => {
       agentIa: {
         gestion: { agents: { listToutes: async () => [] }, credits: { solde: async () => 0 }, etatPourLint: async () => null },
         repondeur: { reglages: { get: async () => EQUIPE } },
+        creditWhatsapp: { onglet: async () => false, vue: { solde: async () => 0 } },
       },
       widgets: { gestion: { widgets: { lister: async () => [] } } },
     } satisfies DepsMiseEnService;

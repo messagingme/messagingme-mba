@@ -5,6 +5,7 @@ import { MetaCredentialsResolver, type CredentialsResolverDeps, type WabaCredent
 import type { HttpTransport, HttpResponse } from '../src/meta/http';
 import { LimiteOffreError } from '../src/offres/refus';
 import { RetraitDeLaListeRefuse } from '../src/mba/liste';
+import { NumeroDelieError } from '../src/meta/numero-delie';
 import { creerGardeCreditWhatsapp, creerLecteurCategorie, FRANCHISE_SERVICE_PAR_NUMERO, type DepsGardeCredit, type GardeCreditWhatsapp } from '../src/credit-whatsapp/garde';
 import { CreditWhatsappRefus } from '../src/credit-whatsapp/refus';
 import type { GrilleMeta } from '../src/credit-whatsapp/grille';
@@ -44,7 +45,7 @@ function creditEnMemoire(solde: number, servicesDuMois = 0) {
       etat.solde -= p.montantMicroEur;
       const id = `p${++n}`;
       etat.provisions.set(id, { ...p, wamid: null, rendue: false });
-      return { ok: true, provisionId: id };
+      return { ok: true, provisionId: id, soldeApresMicroEur: etat.solde };
     },
     rattacher: async (id, wamid) => { const p = etat.provisions.get(id); if (p && p.wamid === null) p.wamid = wamid; },
     rendre: async (id) => { const p = etat.provisions.get(id); if (p && !p.rendue) { p.rendue = true; etat.solde += p.montantMicroEur; } },
@@ -57,15 +58,20 @@ function creditEnMemoire(solde: number, servicesDuMois = 0) {
 function garde(o: { solde?: number; ligne?: LigneCredit | null; grille?: GrilleMeta | null; openBar?: boolean; services?: number; categorie?: 'utility' | 'marketing' | null } = {}) {
   const c = creditEnMemoire(o.solde ?? 1_000_000, o.services ?? 0);
   const lectures = { categorie: 0, grille: 0 };
+  const alertes: string[] = [];
   const g = creerGardeCreditWhatsapp({
     lignes: { ligneDuNumero: async () => (o.ligne === undefined ? LIGNE : o.ligne) },
     grille: async () => { lectures.grille += 1; return o.grille === undefined ? GRILLE : o.grille; },
     conditions: async () => ({ openBar: o.openBar ?? false, commissionPct: 5 }),
     categorieDuModele: async () => { lectures.categorie += 1; return o.categorie === undefined ? 'utility' : o.categorie; },
     credit: c.credit,
+    alertes: {
+      surDebit: async (t, avant, apres) => { alertes.push(`debit:${t}:${avant}:${apres}`); },
+      surEpuise: async (t) => { alertes.push(`epuise:${t}`); },
+    },
     maintenant: () => new Date('2026-10-30T12:00:00Z'),
   });
-  return { g, ...c, lectures };
+  return { g, ...c, lectures, alertes };
 }
 
 const envoi = (nature: Parameters<GardeCreditWhatsapp['avant']>[0]['nature'], destinataire = '+33612345678') =>
@@ -144,6 +150,36 @@ describe('la garde seule', () => {
     expect(await garde({ grille: null }).g.bloque('t1', 'pn1')).toBe(true);
   });
 
+  it('refusAvantEffets : le refus exact, que la vérification d’un parcours lève avant ses effets', async () => {
+    expect(await garde({ ligne: null, solde: 0 }).g.refusAvantEffets('t1', 'pn1')).toBeNull();
+    expect(await garde({ solde: 1 }).g.refusAvantEffets('t1', 'pn1')).toBeNull();
+    expect(await garde({ solde: 0, openBar: true }).g.refusAvantEffets('t1', 'pn1')).toBeNull();
+    expect(await garde({ solde: -500 }).g.refusAvantEffets('t1', 'pn1')).toMatchObject({ motif: 'solde', manqueMicroEur: 501, statusCode: 402, prixMicroEur: 1 });
+    expect(await garde({ ligne: { ...LIGNE, arreteeLe: '2026-10-30T00:00:00Z' } }).g.refusAvantEffets('t1', 'pn1')).toMatchObject({ motif: 'ligne_inactive' });
+    expect(await garde({ ligne: { ...LIGNE, tenantId: 'autre' } }).g.refusAvantEffets('t1', 'pn1')).toMatchObject({ motif: 'ligne_inactive' });
+    expect(await garde({ grille: null }).g.refusAvantEffets('t1', 'pn1')).toMatchObject({ motif: 'ligne_inactive', statusCode: 409 });
+    // `bloque` détachée de la garde lit la même chose (aucun `this`).
+    const { bloque } = garde({ solde: 0 }).g;
+    expect(await bloque('t1', 'pn1')).toBe(true);
+  });
+
+  it('🔴 les alertes : chaque débit signale son avant et son après, un refus faute de solde signale l’épuisement ; rien en open bar', async () => {
+    const m = garde({ solde: 100_000 });
+    await m.g.avant(envoi({ type: 'marketing' }));
+    expect(m.alertes).toEqual([`debit:t1:100000:${100_000 - 74_760}`]);
+    await expect(m.g.avant(envoi({ type: 'marketing' }))).rejects.toBeInstanceOf(CreditWhatsappRefus);
+    expect(m.alertes.at(-1)).toBe('epuise:t1');
+    // La vérification d'un parcours à solde nul l'annonce aussi.
+    const vide = garde({ solde: 0 });
+    expect(await vide.g.refusAvantEffets('t1', 'pn1')).not.toBeNull();
+    expect(vide.alertes).toEqual(['epuise:t1']);
+    // L'open bar ne recharge jamais : ni débit signalé, ni épuisement.
+    const ob = garde({ solde: 0, openBar: true });
+    await ob.g.avant(envoi({ type: 'marketing' }));
+    expect(await ob.g.refusAvantEffets('t1', 'pn1')).toBeNull();
+    expect(ob.alertes).toEqual([]);
+  });
+
   it('un refus « solde » porte le prix du message (la pause d’une campagne s’y compare)', async () => {
     const { g } = garde({ solde: 50_000 });
     await expect(g.avant(envoi({ type: 'marketing' }))).rejects.toMatchObject({ prixMicroEur: 74_760 });
@@ -176,6 +212,55 @@ describe('le lecteur de catégorie', () => {
     const casse = creerLecteurCategorie({ wabaDeLEspace: async () => 'w1', modeles: async () => { throw new Error('réseau'); } });
     expect(await casse('t1', 'promo', 'fr')).toBeNull();
   });
+
+  it('une rafale d’envois simultanés ne fait qu’une lecture chez Meta', async () => {
+    let lectures = 0;
+    let liberer: () => void = () => {};
+    const lire = creerLecteurCategorie({
+      wabaDeLEspace: async () => 'w1',
+      modeles: async () => ({
+        list: async () => {
+          lectures += 1;
+          await new Promise<void>((r) => { liberer = r; });
+          return [{ name: 'promo', language: 'fr', category: 'UTILITY' }];
+        },
+      }),
+    });
+    const rafale = Promise.all([lire('t1', 'promo', 'fr'), lire('t1', 'promo', 'fr'), lire('t1', 'promo', 'fr')]);
+    await new Promise((r) => setTimeout(r, 0));
+    liberer();
+    expect(await rafale).toEqual(['utility', 'utility', 'utility']);
+    expect(lectures).toBe(1);
+  });
+
+  it('🔴 une lecture ratée se garde 30 secondes, pas cinq minutes : une panne de Meta ne fait pas relire à chaque envoi', async () => {
+    let t = 0;
+    let lectures = 0;
+    let enPanne = true;
+    const lire = creerLecteurCategorie({
+      wabaDeLEspace: async () => 'w1',
+      modeles: async () => ({
+        list: async () => {
+          lectures += 1;
+          if (enPanne) throw new Error('Meta injoignable');
+          return [{ name: 'promo', language: 'fr', category: 'UTILITY' }];
+        },
+      }),
+      maintenant: () => t,
+    });
+    expect(await lire('t1', 'promo', 'fr')).toBeNull();
+    t = 29_000;
+    expect(await lire('t1', 'promo', 'fr')).toBeNull();
+    expect(lectures).toBe(1);
+    enPanne = false;
+    t = 31_000;
+    expect(await lire('t1', 'promo', 'fr')).toBe('utility');
+    expect(lectures).toBe(2);
+    // La lecture réussie, elle, vaut cinq minutes.
+    t = 31_000 + 4 * 60_000;
+    expect(await lire('t1', 'promo', 'fr')).toBe('utility');
+    expect(lectures).toBe(2);
+  });
 });
 
 // ------------------------------------------------------------------------------------------------------------------
@@ -203,10 +288,10 @@ function resolveur(fournisseur: 'meta' | '360dialog' = 'meta') {
   return new MetaCredentialsResolver(deps);
 }
 
-function fabrique(transport: HttpTransport, gardeCredit: GardeCreditWhatsapp, o: { fournisseur?: 'meta' | '360dialog'; quota?: () => Promise<{ ok: true } | { ok: false; max: number }>; lite?: boolean } = {}) {
+function fabrique(transport: HttpTransport, gardeCredit: GardeCreditWhatsapp, o: { fournisseur?: 'meta' | '360dialog'; quota?: () => Promise<{ ok: true } | { ok: false; max: number }>; lite?: boolean; delie?: boolean } = {}) {
   return new MetaClientFactory({
     resolver: resolveur(o.fournisseur), transport, version: 'v25.0', marketingViaLite: o.lite ?? false,
-    numerosDelies: { estDelie: async () => false },
+    numerosDelies: { estDelie: async () => o.delie ?? false },
     numerosSuspendus: { estSuspendu: async () => false },
     listeDeLAgent: { retirerAvantUnModele: async () => {} },
     quotaModeles: { consommer: o.quota ?? (async () => ({ ok: true as const })) },
@@ -224,7 +309,7 @@ describe('la fabrique d’envoi', () => {
   });
 
   it('🔴 à crédit refusé, AUCUNE méthode d’envoi n’appelle Meta', async () => {
-    const refuse: GardeCreditWhatsapp = { avant: async () => { throw new CreditWhatsappRefus('solde', 1); }, apres: async () => {}, surEchec: async () => {}, bloque: async () => true };
+    const refuse: GardeCreditWhatsapp = { avant: async () => { throw new CreditWhatsappRefus('solde', 1); }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => new CreditWhatsappRefus('solde', 1), bloque: async () => true };
     const t = new TransportNotant();
     const client = await fabrique(t, refuse).clientForTenant('t1', 'pn1') as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>;
     for (const m of METHODES) {
@@ -233,9 +318,25 @@ describe('la fabrique d’envoi', () => {
     expect(t.appels).toEqual([]);
   });
 
+  it('🔴 verifierAvantEffets : le numéro d’abord, puis le refus certain du crédit, sans aucun appel à Meta', async () => {
+    const t = new TransportNotant();
+    let lectures = 0;
+    const aSec: GardeCreditWhatsapp = {
+      avant: async () => ({ provisionId: null }), apres: async () => {}, surEchec: async () => {}, bloque: async () => true,
+      refusAvantEffets: async () => { lectures += 1; return new CreditWhatsappRefus('solde', 1); },
+    };
+    await expect(fabrique(t, aSec).verifierAvantEffets('t1', 'pn1')).rejects.toMatchObject({ motif: 'solde', statusCode: 402 });
+    // Le numéro délié prime : le crédit n'est même pas lu.
+    await expect(fabrique(t, aSec, { delie: true }).verifierAvantEffets('t1', 'pn1')).rejects.toBeInstanceOf(NumeroDelieError);
+    expect(lectures).toBe(1);
+    const libre: GardeCreditWhatsapp = { ...aSec, refusAvantEffets: async () => null, bloque: async () => false };
+    await expect(fabrique(t, libre).verifierAvantEffets('t1', 'pn1')).resolves.toBeUndefined();
+    expect(t.appels).toEqual([]);
+  });
+
   it('🔴 le crédit passe AVANT les modèles du mois : un crédit nul ne consomme rien', async () => {
     let consommes = 0;
-    const refuse: GardeCreditWhatsapp = { avant: async () => { throw new CreditWhatsappRefus('solde', 1); }, apres: async () => {}, surEchec: async () => {}, bloque: async () => true };
+    const refuse: GardeCreditWhatsapp = { avant: async () => { throw new CreditWhatsappRefus('solde', 1); }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => new CreditWhatsappRefus('solde', 1), bloque: async () => true };
     const client = await fabrique(new TransportNotant(), refuse, { quota: async () => { consommes += 1; return { ok: true }; } }).clientForTenant('t1', 'pn1');
     await expect(client.sendTemplate('+33612345678', { name: 'promo', language: 'fr' })).rejects.toBeInstanceOf(CreditWhatsappRefus);
     expect(consommes).toBe(0);
@@ -308,7 +409,7 @@ describe('la fabrique d’envoi', () => {
 
   it('🔴 un compte 360dialog n’est jamais gardé : sa facturation est ailleurs', async () => {
     let appels = 0;
-    const espion: GardeCreditWhatsapp = { avant: async () => { appels += 1; return { provisionId: null }; }, apres: async () => {}, surEchec: async () => {}, bloque: async () => false };
+    const espion: GardeCreditWhatsapp = { avant: async () => { appels += 1; return { provisionId: null }; }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => null, bloque: async () => false };
     const client = await fabrique(new TransportNotant(), espion, { fournisseur: '360dialog' }).clientForTenant('t1', 'pn1');
     await client.sendText('+33612345678', 'bonjour');
     expect(appels).toBe(0);

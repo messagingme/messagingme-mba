@@ -41,6 +41,8 @@ export const GESTES: Readonly<Record<NomDeCode, Bilingue>> = {
   field_exists: ['Réutiliser le champ existant (GET /v1/fields), ou choisir un autre libellé.', 'Reuse the existing field (GET /v1/fields), or pick another label.'],
   number_unlinked: ['Un admin relie le numéro depuis l’Accueil de la console.', 'An admin relinks the number from the console Home page.'],
   number_suspended: ['Régler l’abonnement du numéro dans la console : les envois repartent au paiement.', 'Settle the number subscription in the console: sends resume on payment.'],
+  whatsapp_credit_exhausted: ['Un admin recharge le Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp) : les envois repartent dès le paiement.', 'An admin tops up the WhatsApp credit in the console (Settings > Plan, WhatsApp credit tab): sends resume as soon as it is paid.'],
+  whatsapp_credit_line_inactive: ['Nous contacter depuis le Support de la console : une recharge n’y changerait rien.', 'Contact us from the console Support: a top-up would not change that.'],
   scenario_not_found: ['Lire le catalogue (GET /v1/scenarios) et utiliser un code de scénario existant.', 'Read the catalog (GET /v1/scenarios) and use an existing scenario code.'],
   node_not_found: ['Lire le catalogue (GET /v1/scenarios) : le bloc n’existe pas dans la version publiée du scénario.', 'Read the catalog (GET /v1/scenarios): the block does not exist in the scenario’s published version.'],
   template_not_found: ['Lire le catalogue (GET /v1/templates) ; un modèle en attente de Meta n’y figure qu’une fois approuvé.', 'Read the catalog (GET /v1/templates); a template pending at Meta only appears once approved.'],

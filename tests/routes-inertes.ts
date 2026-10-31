@@ -615,9 +615,31 @@ export const mcpOffreInerte: Pick<DepsMcp, 'offre' | 'offres' | 'cles'> = {
       grille: grilleDesOffres(), prixPro: { moisCentimes: 4900, anCentimes: 49000 }, prixBusiness: { moisCentimes: 34900, siegeMoisCentimes: 1000 },
       suiteDuNumero: null, essai: { jours: 14, possible: false, finLe: null }, sieges: null, prixSiege: null, abonnement: null,
       upgradeUrl: 'https://console.inerte.test/offre',
+      ongletCreditWhatsapp: false,
     }),
     pro: { ouvrir: neDevraitPasEtreAppelee('offre.pro.ouvrir') },
   },
+};
+
+/**
+ * Le Crédit WhatsApp inerte (plan du Crédit WhatsApp, tâche 11) : aucun numéro sur la ligne, aucun solde, l'achat pas en
+ * vente. L'onglet ne s'affiche pas et `get_credit` n'en parle pas.
+ */
+export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
+  achat: {
+    stripe: null,
+    clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },
+    payeurAutorise: async () => false,
+    achatPermis: async () => 'sans_ligne',
+  },
+  vue: {
+    solde: async () => 0,
+    historique: async () => [],
+    grille: async () => null,
+    conditions: async () => ({ openBar: false, commissionPct: 5 }),
+    lignes: async () => [],
+  },
+  onglet: async () => false,
 };
 
 export const mcpAgentInerte: Pick<DepsMcp, 'agentIa'> = {
@@ -673,6 +695,8 @@ export const mcpAgentInerte: Pick<DepsMcp, 'agentIa'> = {
       setTimezone: neDevraitPasEtreAppelee('setTimezone'),
     },
     repondeur: repondeurInerte,
+    // Aucun numéro sur la ligne : `get_credit` n'en parle pas, l'achat WhatsApp n'est pas en vente.
+    creditWhatsapp: creditWhatsappInerte,
   },
 };
 

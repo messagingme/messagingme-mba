@@ -51,7 +51,8 @@ export const corpsEnvoi = schemaCorps.extend({
 }).describe('One target, 1 to 50 recipients. A malformed recipient is skipped (see skipped in the response), it does not fail the send.');
 
 const RESOLUTION: readonly CodeApi[] = ['invalid_recipient', 'invalid_phone', 'unknown_contact', 'identity_conflict'];
-const NUMERO: readonly CodeApi[] = ['no_whatsapp_number', 'number_unlinked', 'number_suspended'];
+/** Le numéro d'envoi, et le Crédit WhatsApp qui paie ses messages : chaque route qui envoie par WhatsApp peut les rendre. */
+const NUMERO: readonly CodeApi[] = ['no_whatsapp_number', 'number_unlinked', 'number_suspended', 'whatsapp_credit_exhausted', 'whatsapp_credit_line_inactive'];
 const MESSAGE_WHATSAPP: readonly CodeApi[] = ['invalid_body', ...RESOLUTION, 'blocked_contact', 'window_closed', 'opted_out', ...NUMERO, 'meta_rejected', 'meta_auth_failed'];
 /** Le texte, sur un numéro relié par QR code, répond aussi hors des 24 heures à qui a écrit : numéro, messages du mois. */
 const TEXTE_WHATSAPP: readonly CodeApi[] = [...MESSAGE_WHATSAPP, 'no_phone', 'plan_limit_reached'];

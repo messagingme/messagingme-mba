@@ -385,16 +385,16 @@ describe('creerPayeurAutorise', () => {
 function fauxPaiements(o: { espaceInconnu?: boolean } = {}) {
   const sessions = new Set<string>();
   const credits: PaiementStripe[] = [];
-  return {
-    credits,
-    crediterPaiement: async (p: PaiementStripe): Promise<IssuePaiement> => {
-      if (o.espaceInconnu) return 'espace_inconnu';
-      if (sessions.has(p.sessionId)) return 'deja';
-      sessions.add(p.sessionId);
-      credits.push(p);
-      return 'credite';
-    },
+  const creditsWhatsapp: PaiementStripe[] = [];
+  // Une seule table de paiements, comme `stripe_paiements` : une session ne crédite qu'une fois, quel que soit le produit.
+  const crediter = (vers: PaiementStripe[]) => async (p: PaiementStripe): Promise<IssuePaiement> => {
+    if (o.espaceInconnu) return 'espace_inconnu';
+    if (sessions.has(p.sessionId)) return 'deja';
+    sessions.add(p.sessionId);
+    vers.push(p);
+    return 'credite';
   };
+  return { credits, creditsWhatsapp, crediterPaiement: crediter(credits), crediterPaiementWhatsapp: crediter(creditsWhatsapp) };
 }
 
 function webhook(o: { paiements?: ReturnType<typeof fauxPaiements>; apresCredit?: StripeWebhookRouteDeps['apresCredit']; livemode?: boolean } = {}) {
@@ -406,6 +406,7 @@ function webhook(o: { paiements?: ReturnType<typeof fauxPaiements>; apresCredit?
     livemode: o.livemode ?? true,
     paiements,
     apresCredit: o.apresCredit ?? (async (tenantId) => { plafonds.push(tenantId); }),
+    apresCreditWhatsapp: async () => {},
     paiementRefuse: async () => {},
     signalerPro: async () => {},
     // 🔴 Une recharge ne touche jamais l'abonnement du numéro (lot 3c) : ses dépendances lèvent si on les appelle.

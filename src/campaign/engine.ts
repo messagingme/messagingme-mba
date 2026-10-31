@@ -9,7 +9,7 @@ import type { SendResult, TemplateSpec, MarketingParams } from '../meta/types';
 import { MetaApiError, raisonDePause } from '../meta/errors';
 import { NumeroBloqueError, type MotifBlocage } from '../meta/numero-delie';
 import { LimiteOffreError } from '../offres/refus';
-import { CreditWhatsappRefus } from '../credit-whatsapp/refus';
+import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
 import { instantDeReprise, messageDePause } from './pause';
 import type { MotifDePause } from './pause';
 import { withinBusinessHours } from '../workflow/conditions';
@@ -541,7 +541,8 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
    * Arrêt sur un refus du Crédit WhatsApp (la fabrique l'a levé AVANT tout appel à Meta) : le destinataire a été rendu à
    * la file par l'appelant, la campagne passe en pause `credit_whatsapp_epuise` (levée par un crédit) ou
    * `ligne_credit_inactive` (levée quand l'option revient). Jamais `failed` ni `skipped` : le refus vise l'espace, pas ce
-   * contact, et la porte de qualité ne doit pas le compter. La pause du solde ne s'écrit que si le solde est encore sous
+   * contact, et la porte de qualité ne doit pas le compter. Seule exception, un refus APRÈS un effet du scénario
+   * (`CreditWhatsappRefusApresEffets`) : ce destinataire est résolu en échec, sinon la reprise referait l'effet. La pause du solde ne s'écrit que si le solde est encore sous
    * le prix du message (`pauserCampagneCredit`) ; sinon on sort, la campagne reste `running` et le balayage des
    * campagnes gelées la relance.
    */
@@ -865,6 +866,14 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
       if (err instanceof NumeroBloqueError) {
         await deps.recipients.relacher(r.id);
         return arreterSurNumeroDelie(err);
+      }
+      // Le crédit a refusé APRÈS un effet du scénario de ce destinataire (un e-mail, un appel d'API) : rendu à la file, il
+      // recevrait cet effet une seconde fois à la reprise. Il est résolu en échec avec la raison du crédit, et la campagne
+      // s'arrête là, comme pour tout refus du crédit (un seul contact touché, jamais toute l'audience).
+      if (err instanceof CreditWhatsappRefusApresEffets) {
+        await resoudre(r, { status: 'failed', error: err.message });
+        report.failed += 1;
+        return arreterSurCredit(err);
       }
       // Le Crédit WhatsApp a refusé, AVANT tout appel à Meta : même arrêt, le destinataire rendu à la file.
       if (err instanceof CreditWhatsappRefus) {

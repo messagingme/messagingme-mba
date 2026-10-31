@@ -100,6 +100,8 @@ export const TACHES_PAR_ROLE: Record<string, Appartenance> = {
   'campagnes-gelees': 'principal',
   'campagnes-programmees': 'principal',
   'campagnes-reprise-plafond': 'principal',
+  // Le filet de la reprise du Crédit WhatsApp (tâche 11) : une passe par heure.
+  'credit-whatsapp-reprise': 'principal',
   'compteurs-debit': 'principal',
   'consommation-vercel': 'principal',
   'emails-produit-reprise': 'principal',

@@ -26,6 +26,7 @@ import { registerHubspotWorkflow, type HubspotWorkflowDeps } from './http/hubspo
 import {
   registerCreditPaiement, registerStripeWebhook, type CreditPaiementRouteDeps, type StripeWebhookRouteDeps,
 } from './http/credit-stripe';
+import { registerCreditWhatsapp, type CreditWhatsappRouteDeps } from './http/credit-whatsapp';
 import { registerStats } from './http/stats';
 import { registerSettings } from './http/settings';
 import { registerUsers } from './http/users';
@@ -299,6 +300,11 @@ export interface ServerDeps {
    * 503, que la console lit comme « recharge pas encore disponible ».
    */
   creditPaiement?: CreditPaiementRouteDeps;
+  /**
+   * Le Crédit WhatsApp de l'espace (plan du Crédit WhatsApp, tâches 10 et 11) : l'achat par Stripe (admin) et l'onglet.
+   * Toujours monté : Stripe ou ses prix absents, l'achat rend 503.
+   */
+  creditWhatsapp?: CreditWhatsappRouteDeps;
   /**
    * Le webhook de Stripe, qui crédite un paiement. Signé par Stripe, pas authentifié par un jeton : l'appelant est
    * un service. Monté seulement quand le secret de signature est posé.
@@ -831,6 +837,7 @@ export function modulesDeRoutes(
     entree('agents', 'tenant', deps.agents, (app, d, g) => registerAgents(app, d, g.admin)),
     // Admin comme le solde qu'elle recharge, et plafond coûteux : chaque clic crée des objets chez Stripe.
     entree('creditPaiement', 'tenant', deps.creditPaiement, (app, d, g) => registerCreditPaiement(app, d, g.admin, g.limiteCouteuse ?? SANS_PLAFOND)),
+    entree('creditWhatsapp', 'tenant', deps.creditWhatsapp, (app, d, g) => registerCreditWhatsapp(app, d, g.auth, g.admin, g.limiteCouteuse ?? SANS_PLAFOND)),
     entree('agentKnowledge', 'tenant', deps.agentKnowledge, (app, d, g) => registerAgentKnowledge(app, d, g.admin, g.limiteCouteuse)),
     entree('agentTools', 'tenant', deps.agentTools, (app, d, g) => registerAgentTools(app, d, g.admin)),
     entree('agentCatalogue', 'tenant', deps.agentCatalogue, (app, d, g) => registerAgentCatalogue(app, d, g.admin)),
@@ -1140,10 +1147,9 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
       return reply.code(409).send({ error: err.message, code: (err.motif === 'numero_delie' ? 'number_unlinked' : 'number_suspended') satisfies CodeApi });
     }
     // Un refus du Crédit WhatsApp (la fabrique d'envoi, avant tout appel à Meta) : 402 pour le solde, 409 pour une ligne
-    // inactive, sur TOUTE route, jamais un 500. Sous `/v1`, les codes publics `whatsapp_credit_*` entrent au contrat avec
-    // le lot 2 (quand un client peut être sur la ligne) ; d'ici là, le statut, la phrase et le code par défaut.
+    // inactive, sur TOUTE route, jamais un 500, avec son code (`whatsapp_credit_*`, au contrat de `/v1` depuis le lot 2).
     if (err instanceof CreditWhatsappRefus) {
-      return reply.code(err.statusCode).send(surV1 ? { error: err.message, code: codeParDefautV1(err.statusCode) } : { error: err.message, code: err.code });
+      return reply.code(err.statusCode).send({ error: err.message, code: err.code });
     }
     // Une limite de l'offre atteinte (lot 6) : 402, la phrase et le lien vers l'offre, sur TOUTE route, d'où qu'elle
     // vienne (un magasin, la fabrique). Jamais un 500 : ce n'est pas une panne, et Cloudflare masquerait le corps.

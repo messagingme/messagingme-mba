@@ -95,7 +95,7 @@ import { creerEmetteurEmails, FILE_EMAILS_PRODUIT } from './emails-produit/emiss
 import { PgConversionsMetaStore } from './pub/conversions-meta.pg';
 import { FILE_CONVERSIONS_META } from './pub/conversions-meta';
 import { creerEmetteurConversions } from './pub/emission';
-import { creerAlerteCreditBas, creerPaiementRefuse, creerPrevenirEquipe } from './emails-produit/alertes';
+import { creerAlerteCreditBas, creerAlertesCreditWhatsapp, creerPaiementRefuse, creerPrevenirEquipe } from './emails-produit/alertes';
 import { composerPassageEquipe } from './analysis/push-handoff';
 import { PgOffresStore } from './offres/offre.pg';
 import { OffresEnCache } from './offres/cache';
@@ -450,12 +450,23 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
   const conditionsCreditWhatsapp = new PgConditionsCreditStore(pool, reglagesCreditWhatsapp);
   /** La catégorie d'un modèle lue chez Meta, un cache pour la garde et l'estimation du lancement. */
   const categorieDuModeleWa = creerLecteurCategorie({ wabaDeLEspace, modeles: (t) => metaFactory.templateClientForTenant(t) });
+  /**
+   * Les e-mails du Crédit WhatsApp (tâche 11) : le solde passé sous 10 € (une fois par crédit reçu) et un refus faute de
+   * solde (une fois par jour, dans le fuseau de l'espace). La garde les lance sans les attendre.
+   */
+  const alertesCreditWhatsapp = creerAlertesCreditWhatsapp({
+    emettre: (e) => emetteurEmails.emettre(e),
+    dernierCreditRecu: (t) => creditWhatsapp.dernierCreditRecu(t),
+    fuseau: async (t) => (await settingsStore.horairesEffectifs(t)).timezone,
+    pageOnglet: `${console_}/offre?tab=whatsapp`,
+  });
   const gardeCreditWhatsapp = creerGardeCreditWhatsapp({
     lignes: lignesCreditWhatsapp,
     grille: () => reglagesCreditWhatsapp.grilleEnVigueur(),
     conditions: (tenant) => conditionsCreditWhatsapp.conditions(tenant),
     categorieDuModele: (t, nom, langue) => categorieDuModeleWa(t, nom, langue),
     credit: creditWhatsapp,
+    alertes: alertesCreditWhatsapp,
   });
   /** L'ajustement à l'accusé (tâche 7), branché par le worker sur les deux files qui voient des accusés. */
   const ajustementCreditWhatsapp = creerAjustementCredit({
@@ -685,7 +696,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     poolAttentesStore, httpLatencesStore, mesuresTachesStore, mesuresFilesStore, santeStore, memoireWorkersStore, seuilsStore, nodeEventStore, trackedLinkStore, webhookStore, verrousCourts, compteurDebit, phoneStatusStore, opsStore, heartbeatStore,
     workflowStore, automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog, journalAppels,
     credits, reglagesCreditWhatsapp, creditWhatsapp, lignesCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver,
-    wabaDeLEspace, numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, numeroBloqueDeLEspace, creditWhatsappBloque, ajustementCreditWhatsapp, conditionsCreditWhatsapp, estimerCreditCampagne, esCredentialsStore, metaCredentials, metaFactory, listeDeLAgent,
+    wabaDeLEspace, numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, numeroBloqueDeLEspace, gardeCreditWhatsapp, creditWhatsappBloque, ajustementCreditWhatsapp, conditionsCreditWhatsapp, estimerCreditCampagne, esCredentialsStore, metaCredentials, metaFactory, listeDeLAgent,
     connexionsPub, connexionPub, publicites, clientPubs, clientCreationPubs, workflowRuntime, fil, alerteCredit, offres, quotaModeles,
     emailsProduit, emetteurEmails, envoisResend, paiementRefuse, prevenirEquipe, lienConversation,
     conversionsMeta, emetteurConversions,

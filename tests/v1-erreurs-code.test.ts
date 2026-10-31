@@ -8,6 +8,7 @@ import { STATUT_PAR_CODE } from '../src/api/erreurs';
 import { ROUTES_V1 } from '../src/api/openapi/registre';
 import { MetaApiError } from '../src/meta/errors';
 import { NumeroDelieError } from '../src/meta/numero-delie';
+import { CreditWhatsappRefus } from '../src/credit-whatsapp/refus';
 import type { ApiKeyLookup } from '../src/auth/api-key-store.pg';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 
@@ -47,6 +48,8 @@ function serveur(catalogues: Record<string, unknown> = {}) {
   app.get('/essai-console-meta', async () => { throw new MetaApiError(400, { code: 131009, message: 'Parameter value is not valid' }); });
   app.get('/essai-console-panne', async () => { throw new Error('panne interne'); });
   app.get('/v1/essai-numero-delie', async () => { throw new NumeroDelieError('pn-1'); });
+  app.get('/v1/essai-credit-epuise', async () => { throw new CreditWhatsappRefus('solde', 1); });
+  app.get('/v1/essai-credit-ligne', async () => { throw new CreditWhatsappRefus('ligne_inactive'); });
   app.get('/v1/essai-meta-passager', async () => { throw new MetaApiError(503, { code: 131016, message: 'Service unavailable' }); });
   app.get('/v1/essai-jeton', async () => { throw new MetaApiError(401, { code: 190, message: 'Invalid OAuth access token' }); });
   return app;
@@ -151,6 +154,15 @@ describe('🔴 toute erreur de /v1 porte un code de la table', () => {
     const app = serveur();
     const res = await app.inject({ method: 'GET', url: '/v1/essai-numero-delie', headers: auth });
     expect([res.statusCode, res.json().code]).toEqual([409, 'number_unlinked']);
+    await app.close();
+  });
+
+  it('🔴 un refus du Crédit WhatsApp qui échapperait à une route : son code public (lot 2), pas invalid_body', async () => {
+    const app = serveur();
+    const epuise = await app.inject({ method: 'GET', url: '/v1/essai-credit-epuise', headers: auth });
+    expect([epuise.statusCode, epuise.json().code]).toEqual([402, 'whatsapp_credit_exhausted']);
+    const ligne = await app.inject({ method: 'GET', url: '/v1/essai-credit-ligne', headers: auth });
+    expect([ligne.statusCode, ligne.json().code]).toEqual([409, 'whatsapp_credit_line_inactive']);
     await app.close();
   });
 });

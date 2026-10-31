@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import { enTransaction } from '../db/transaction';
 import { crediterAchat } from '../agent/credits.pg';
+import { crediterWhatsapp } from '../credit-whatsapp/credit.pg';
 
 /**
  * Ce que la recharge Stripe garde en base (migration 0191) : le client Stripe de chaque espace, par mode, et les
@@ -88,6 +89,32 @@ export class PgStripeStore {
       });
     } catch (err) {
       // 23503 : l'espace n'existe pas. Le rejouer n'y changerait rien, donc ce n'est pas une panne à rendre en 5xx.
+      if ((err as { code?: unknown } | null)?.code === '23503') return 'espace_inconnu';
+      throw err;
+    }
+  }
+
+  /**
+   * Crédite un achat du Crédit WhatsApp, UNE FOIS : la sœur de `crediterPaiement`, dans la même table de paiements (le
+   * lien de la facture se lit pareil), mais le crédit va au Crédit WhatsApp (`crediterWhatsapp`, mouvement `achat` dont la
+   * référence est la session), JAMAIS au crédit IA. Une seule transaction : un échec du crédit annule la ligne de
+   * paiement, et Stripe rejoue.
+   */
+  async crediterPaiementWhatsapp(p: PaiementStripe): Promise<IssuePaiement> {
+    try {
+      return await enTransaction(this.pool, async (client) => {
+        const ligne = await client.query(
+          `insert into stripe_paiements
+             (session_id, tenant_id, offre, credit_micro_eur, montant_ht_centimes, montant_ttc_centimes, facture_id, livemode)
+           values ($1, $2, $3, $4, $5, $6, $7, $8)
+           on conflict (session_id) do nothing`,
+          [p.sessionId, p.tenantId, p.offre, p.creditMicroEur, p.htCentimes, p.ttcCentimes, p.factureId, p.livemode],
+        );
+        if ((ligne.rowCount ?? 0) === 0) return 'deja';
+        await crediterWhatsapp(client, p.tenantId, p.creditMicroEur, 'achat', p.sessionId, `achat Stripe ${p.offre}`);
+        return 'credite';
+      });
+    } catch (err) {
       if ((err as { code?: unknown } | null)?.code === '23503') return 'espace_inconnu';
       throw err;
     }

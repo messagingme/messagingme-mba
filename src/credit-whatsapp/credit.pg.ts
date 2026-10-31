@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { CategorieMeta } from './grille';
 import { debutDuMois, type IssueProvision, type LigneHistoriqueWa, type ProvisionDemandee, type ProvisionVue, type RaisonMouvementWa } from './credit';
 
@@ -6,6 +6,37 @@ import { debutDuMois, type IssueProvision, type LigneHistoriqueWa, type Provisio
  * Le magasin du Crédit WhatsApp (migration 0264). Chaque écriture touche le solde ET sa trace dans la même instruction
  * ou la même transaction : l'invariant « solde = mouvements − provisions non rendues » ne dépend d'aucun ordre d'appel.
  */
+/**
+ * Le crédit d'un paiement, sur le pool ou sur le client d'une transaction (l'achat par Stripe l'écrit dans la même
+ * transaction que sa ligne de paiement, `PgStripeStore.crediterPaiementWhatsapp`). 🔴 Une fois par référence : la
+ * référence (session Checkout, facture) est unique par espace, et un avis rejoué ne crédite rien de plus.
+ */
+export async function crediterWhatsapp(
+  client: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
+  tenantId: string,
+  deltaMicroEur: number,
+  raison: Exclude<RaisonMouvementWa, 'regularisation'>,
+  reference: string,
+  note: string | null = null,
+): Promise<{ applique: boolean; soldeMicroEur: number }> {
+  const { rows } = await client.query<{ applique: string; solde: string | null }>(
+    `with m as (
+       insert into credit_whatsapp_mouvements (tenant_id, delta_micro_eur, raison, reference, note)
+       values ($1, $2, $3, $4, $5)
+       on conflict (tenant_id, reference) where reference is not null do nothing
+       returning delta_micro_eur
+     ), c as (
+       insert into credits_whatsapp (tenant_id, solde_micro_eur) select $1, delta_micro_eur from m
+       on conflict (tenant_id) do update set solde_micro_eur = credits_whatsapp.solde_micro_eur + excluded.solde_micro_eur, maj_le = now()
+       returning solde_micro_eur
+     )
+     select (select count(*) from m) as applique,
+            coalesce((select solde_micro_eur from c), (select solde_micro_eur from credits_whatsapp where tenant_id = $1)) as solde`,
+    [tenantId, deltaMicroEur, raison, reference, note],
+  );
+  return { applique: Number(rows[0]?.applique ?? 0) > 0, soldeMicroEur: Number(rows[0]?.solde ?? 0) };
+}
+
 export class PgCreditWhatsappStore {
   constructor(private readonly pool: Pool) {}
 
@@ -19,18 +50,20 @@ export class PgCreditWhatsappStore {
    */
   async provisionner(p: ProvisionDemandee): Promise<IssueProvision> {
     await this.pool.query('insert into credits_whatsapp (tenant_id) values ($1) on conflict (tenant_id) do nothing', [p.tenantId]);
-    const { rows } = await this.pool.query<{ id: string }>(
+    const { rows } = await this.pool.query<{ id: string; apres: string }>(
       `with debit as (
          update credits_whatsapp set solde_micro_eur = solde_micro_eur - $2, maj_le = now()
           where tenant_id = $1 and ($3::boolean or (solde_micro_eur > 0 and solde_micro_eur - $2 >= 0))
-          returning tenant_id
+          returning solde_micro_eur
+       ), prov as (
+         insert into credit_whatsapp_provisions (tenant_id, phone_number_id, pays, categorie, montant_micro_eur)
+         select $1, $4, $5, $6, $2 from debit
+         returning id
        )
-       insert into credit_whatsapp_provisions (tenant_id, phone_number_id, pays, categorie, montant_micro_eur)
-       select $1, $4, $5, $6, $2 from debit
-       returning id`,
+       select prov.id, debit.solde_micro_eur as apres from prov, debit`,
       [p.tenantId, p.montantMicroEur, p.openBar, p.phoneNumberId, p.pays, p.categorie],
     );
-    if (rows[0]) return { ok: true, provisionId: rows[0].id };
+    if (rows[0]) return { ok: true, provisionId: rows[0].id, soldeApresMicroEur: Number(rows[0].apres) };
     // Relu par une instruction À PART : sous concurrence, l'instruction refusée garde l'instantané d'avant le débit qui
     // l'a fait refuser, et dirait un solde périmé (« il vous manque » faux).
     return { ok: false, soldeMicroEur: await this.solde(p.tenantId) };
@@ -116,22 +149,7 @@ export class PgCreditWhatsappStore {
    * avis rejoué par Stripe ne crédite rien de plus.
    */
   async crediter(tenantId: string, deltaMicroEur: number, raison: Exclude<RaisonMouvementWa, 'regularisation'>, reference: string, note: string | null = null): Promise<{ applique: boolean; soldeMicroEur: number }> {
-    const { rows } = await this.pool.query<{ applique: string; solde: string | null }>(
-      `with m as (
-         insert into credit_whatsapp_mouvements (tenant_id, delta_micro_eur, raison, reference, note)
-         values ($1, $2, $3, $4, $5)
-         on conflict (tenant_id, reference) where reference is not null do nothing
-         returning delta_micro_eur
-       ), c as (
-         insert into credits_whatsapp (tenant_id, solde_micro_eur) select $1, delta_micro_eur from m
-         on conflict (tenant_id) do update set solde_micro_eur = credits_whatsapp.solde_micro_eur + excluded.solde_micro_eur, maj_le = now()
-         returning solde_micro_eur
-       )
-       select (select count(*) from m) as applique,
-              coalesce((select solde_micro_eur from c), (select solde_micro_eur from credits_whatsapp where tenant_id = $1)) as solde`,
-      [tenantId, deltaMicroEur, raison, reference, note],
-    );
-    return { applique: Number(rows[0]?.applique ?? 0) > 0, soldeMicroEur: Number(rows[0]?.solde ?? 0) };
+    return crediterWhatsapp(this.pool, tenantId, deltaMicroEur, raison, reference, note);
   }
 
   /**
@@ -186,6 +204,18 @@ export class PgCreditWhatsappStore {
     }));
   }
 
+  /**
+   * Le dernier crédit REÇU (achat, recharge) : l'occasion de l'alerte du solde bas, qu'un crédit réarme sans aucun état à
+   * tenir. `null` s'il n'y en a jamais eu.
+   */
+  async dernierCreditRecu(tenantId: string): Promise<string | null> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `select id::text from credit_whatsapp_mouvements where tenant_id = $1 and delta_micro_eur > 0 order by le desc limit 1`,
+      [tenantId],
+    );
+    return rows[0]?.id ?? null;
+  }
+
   async solde(tenantId: string): Promise<number> {
     const { rows } = await this.pool.query<{ solde: string }>('select solde_micro_eur as solde from credits_whatsapp where tenant_id = $1', [tenantId]);
     return Number(rows[0]?.solde ?? 0);
@@ -218,17 +248,19 @@ export class PgCreditWhatsappStore {
   async historique(tenantId: string, jours = 90): Promise<LigneHistoriqueWa[]> {
     const { rows } = await this.pool.query<{
       id: string; raison: string; delta: string; jour: string | null; at: Date; messages: string | null; reference: string | null;
+      facture: boolean;
     }>(
       `select 'envois:' || jour as id, 'envois' as raison, -sum(montant_micro_eur) as delta, jour, max(cree_le) as at,
-              count(*) as messages, null::text as reference
+              count(*) as messages, null::text as reference, false as facture
          from (select (cree_le at time zone 'Europe/Paris')::date::text as jour, montant_micro_eur, cree_le
                  from credit_whatsapp_provisions
                 where tenant_id = $1 and etat <> 'rendu' and cree_le >= now() - make_interval(days => $2)) e
         group by jour
        union all
-       select id::text, raison, delta_micro_eur, jour::text, le, null, reference
-         from credit_whatsapp_mouvements
-        where tenant_id = $1 and le >= now() - make_interval(days => $2)
+       select m.id::text, m.raison, m.delta_micro_eur, m.jour::text, m.le, null, m.reference, (p.facture_id is not null)
+         from credit_whatsapp_mouvements m
+         left join stripe_paiements p on m.raison = 'achat' and p.session_id = m.reference and p.tenant_id = m.tenant_id
+        where m.tenant_id = $1 and m.le >= now() - make_interval(days => $2)
         order by at desc`,
       [tenantId, jours],
     );
@@ -240,6 +272,7 @@ export class PgCreditWhatsappStore {
       at: r.at.toISOString(),
       messages: r.messages === null ? null : Number(r.messages),
       reference: r.reference,
+      facture: r.facture === true,
     }));
   }
 }

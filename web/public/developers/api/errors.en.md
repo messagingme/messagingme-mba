@@ -191,6 +191,22 @@ The subscription of the provided WhatsApp number is 7 days overdue, or ended: no
 
 What to do: Settle the number subscription in the console: sends resume on payment.
 
+<a id="whatsapp_credit_exhausted"></a>
+
+### `whatsapp_credit_exhausted` 402
+
+The WhatsApp credit that pays for this number’s messages is used up: nothing goes out over WhatsApp, replies included, until a top-up. Returned by the routes that send over WhatsApp, and by POST /v1/sends when the first message goes out over WhatsApp; nothing is created.
+
+What to do: An admin tops up the WhatsApp credit in the console (Settings > Plan, WhatsApp credit tab): sends resume as soon as it is paid.
+
+<a id="whatsapp_credit_line_inactive"></a>
+
+### `whatsapp_credit_line_inactive` 409
+
+The WhatsApp credit is no longer active on this number: nothing goes out over WhatsApp, and a top-up would not change that. Returned like whatsapp_credit_exhausted.
+
+What to do: Contact us from the console Support: a top-up would not change that.
+
 <a id="scenario_not_found"></a>
 
 ### `scenario_not_found` 404

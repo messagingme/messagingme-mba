@@ -2,6 +2,7 @@ import { journaliser } from '../lib/journal';
 import type { EmetteurEmails } from './emission';
 import { DROITS, type Offre } from '../offres/offres';
 import { jourDans } from '../repondeur/alerte-credit';
+import { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
 
 /**
  * LES ALERTES DE LA LIVRAISON B (lot 7, spec `docs/superpowers/specs/2026-10-14-emails-produit-design.md`) : ce qui
@@ -40,6 +41,55 @@ export function creerAlerteCreditBas(d: {
         });
       } catch (err) {
         journaliser('error', 'alerte_credit_bas_impossible', { err, tenantId });
+      }
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Le Crédit WhatsApp bas, puis épuisé (plan du Crédit WhatsApp, tâche 11)
+// ---------------------------------------------------------------------------------------------------------------
+
+export { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR };
+
+/**
+ * Les deux alertes du Crédit WhatsApp, branchées sur la garde (tout débit et tout refus y passent) :
+ *  - le débit qui fait passer le solde SOUS 10 € : une fois par crédit reçu (l'occasion est le dernier achat ou la dernière
+ *    recharge, comme `creerAlerteCreditBas`) ;
+ *  - un message refusé faute de solde : une fois par jour dans le fuseau de l'espace (comme `credit_epuise`), parce que tout
+ *    s'arrête à zéro, réponses comprises, et que le client ne le verrait qu'en ouvrant la console.
+ * 🔴 Le partenaire de la ligne n'y est jamais nommé. Aucune ne lève.
+ */
+export function creerAlertesCreditWhatsapp(d: {
+  emettre: Emettre;
+  dernierCreditRecu(tenantId: string): Promise<string | null>;
+  fuseau(tenantId: string): Promise<string>;
+  /** L'onglet Crédit WhatsApp de la page Offre, où l'admin recharge. */
+  pageOnglet: string;
+  now?: () => Date;
+}): { surDebit(tenantId: string, avantMicroEur: number, apresMicroEur: number): Promise<void>; surEpuise(tenantId: string): Promise<void> } {
+  return {
+    async surDebit(tenantId, avant, apres) {
+      if (!(avant >= SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR && apres < SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR)) return;
+      try {
+        const dernier = (await d.dernierCreditRecu(tenantId)) ?? 'aucun';
+        await d.emettre({
+          cle: 'credit_whatsapp_bas', tenantId, occasion: `recharge:${dernier}`, a: 'admins',
+          valeurs: { solde: String(Math.max(0, Math.round(apres))), lien_credit_whatsapp: d.pageOnglet },
+        });
+      } catch (err) {
+        journaliser('error', 'alerte_credit_whatsapp_bas_impossible', { err, tenantId });
+      }
+    },
+    async surEpuise(tenantId) {
+      try {
+        const jour = jourDans(await d.fuseau(tenantId), d.now ? d.now() : new Date());
+        await d.emettre({
+          cle: 'credit_whatsapp_epuise', tenantId, occasion: `jour:${jour}`, a: 'admins',
+          valeurs: { lien_credit_whatsapp: d.pageOnglet },
+        });
+      } catch (err) {
+        journaliser('error', 'alerte_credit_whatsapp_epuise_impossible', { err, tenantId });
       }
     },
   };

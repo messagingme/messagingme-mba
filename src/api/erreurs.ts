@@ -48,6 +48,10 @@ export const STATUT_PAR_CODE = {
   // L'abonnement du numéro fourni est impayé depuis 7 jours, ou terminé (lot 4) : rien ne part avant le paiement.
   // Distinct de `number_unlinked` : ce n'est pas un administrateur qui le rend, c'est le renouvellement.
   number_suspended: 409,
+  // Le Crédit WhatsApp (un numéro dont les messages sont payés par le crédit prépayé de l'espace) : épuisé, rien ne part
+  // avant une recharge ; inactif sur ce numéro, une recharge n'y changerait rien. Refusé avant tout appel à Meta.
+  whatsapp_credit_exhausted: 402,
+  whatsapp_credit_line_inactive: 409,
   scenario_not_found: 404,
   node_not_found: 404,
   template_not_found: 404,

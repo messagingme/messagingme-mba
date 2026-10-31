@@ -39,6 +39,11 @@ export interface OpsOffreDeps {
     completerCredit(tenantId: string): Promise<number>;
     /** La sortie de toute offre posée à la main : la fin du numéro fourni que plus rien ne couvre (`surFinDeLOffreManuelle`). */
     finOffreManuelle(tenantId: string, finiLe: Date): Promise<string>;
+    /**
+     * L'open bar du Crédit WhatsApp posé : les campagnes en pause faute de crédit repartent, rien ne les refusera plus
+     * (`leverPausesCreditWhatsapp`, plan du Crédit WhatsApp, tâche 11). Rend le nombre de campagnes reprises.
+     */
+    reprendreCreditWhatsapp(tenantId: string): Promise<number>;
   };
 }
 
@@ -46,7 +51,7 @@ export interface OpsOffreDeps {
 interface BilanGestes {
   creditOffert: number | null;
   finDuNumero: string | null;
-  echecs: Array<'passage' | 'credit' | 'fin'>;
+  echecs: Array<'passage' | 'credit' | 'fin' | 'reprise_credit_whatsapp'>;
 }
 
 /** 10 utilisateurs proposés à l'écran ; la route accepte toute limite positive, ou `null` (sans limite). */
@@ -167,5 +172,9 @@ async function jouerLesGestes(deps: OpsOffreDeps, tenantId: string, avant: Regla
     bilan.creditOffert = await tenter('credit', () => deps.gestes.completerCredit(tenantId));
   }
   if (quitteLaMain) bilan.finDuNumero = await tenter('fin', () => deps.gestes.finOffreManuelle(tenantId, new Date()));
+  // L'open bar posé (lu sur l'état relu, donc seulement sur une Entreprise) : les campagnes arrêtées faute de crédit repartent.
+  if (!avant.openBarWhatsapp && apres.openBarWhatsapp) {
+    await tenter('reprise_credit_whatsapp', () => deps.gestes.reprendreCreditWhatsapp(tenantId));
+  }
   return bilan;
 }

@@ -5,6 +5,7 @@ import { Pool } from 'pg';
 import { pgSsl } from '../../src/db/ssl';
 import { PgStripeStore, type PaiementStripe } from '../../src/stripe/store.pg';
 import { PgCreditStore } from '../../src/agent/credits.pg';
+import { PgCreditWhatsappStore } from '../../src/credit-whatsapp/credit.pg';
 
 /**
  * LA RECHARGE STRIPE EN BASE (migration 0191).
@@ -88,6 +89,43 @@ describe.skipIf(!url)('la recharge Stripe, en base', () => {
     expect(await new PgStripeStore(poolA).crediterPaiement(p)).toBe('espace_inconnu');
     const r = await poolA.query('select 1 from stripe_paiements where session_id = $1', [p.sessionId]);
     expect(r.rowCount).toBe(0);
+  });
+
+  it('🔴 un achat du Crédit WhatsApp livré DIX fois en même temps, sur deux copies : un seul crédit, au Crédit WhatsApp, jamais au crédit IA', async () => {
+    const a = new PgStripeStore(poolA);
+    const b = new PgStripeStore(poolB);
+    const credits = new PgCreditStore(poolA, null);
+    const wa = new PgCreditWhatsappStore(poolA);
+    const avantIa = await credits.solde(tenantId);
+    const avantWa = await wa.solde(tenantId);
+    const p = paiement({ offre: 'wa_50', creditMicroEur: 50_000_000, htCentimes: 5_000 });
+    const issues = await Promise.all(Array.from({ length: 10 }, (_, i) => (i % 2 === 0 ? a : b).crediterPaiementWhatsapp(p)));
+    expect(issues.filter((x) => x === 'credite')).toHaveLength(1);
+    expect(issues.filter((x) => x === 'deja')).toHaveLength(9);
+    expect(await wa.solde(tenantId)).toBe(avantWa + 50_000_000);
+    expect(await credits.solde(tenantId)).toBe(avantIa);
+    const mouvements = await poolA.query<{ raison: string; delta: string; reference: string }>(
+      `select raison, delta_micro_eur::text as delta, reference from credit_whatsapp_mouvements where tenant_id = $1 and reference = $2`,
+      [tenantId, p.sessionId],
+    );
+    expect(mouvements.rows).toEqual([{ raison: 'achat', delta: '50000000', reference: p.sessionId }]);
+    // La même table de paiements : la facture d'un achat WhatsApp se relit comme celle d'une recharge.
+    expect(await a.factureDe(tenantId, p.sessionId)).toEqual({ factureId: null });
+    // Et une session déjà créditée par une voie ne crédite rien par l'autre.
+    expect(await a.crediterPaiement(p)).toBe('deja');
+    // L'historique de l'onglet offre le lien « Facture » quand Stripe en a émis une, et seulement alors.
+    const avecFacture = paiement({ offre: 'wa_100', creditMicroEur: 100_000_000, htCentimes: 10_000, factureId: 'in_itest_wa' });
+    expect(await a.crediterPaiementWhatsapp(avecFacture)).toBe('credite');
+    const histo = await wa.historique(tenantId);
+    expect(histo.find((l) => l.reference === p.sessionId)).toMatchObject({ raison: 'achat', facture: false });
+    expect(histo.find((l) => l.reference === avecFacture.sessionId)).toMatchObject({ raison: 'achat', facture: true });
+  });
+
+  it('un achat du Crédit WhatsApp pour un espace qui n’existe pas : `espace_inconnu`, rien n’est écrit', async () => {
+    const p = paiement({ tenantId: randomUUID(), offre: 'wa_100', creditMicroEur: 100_000_000, htCentimes: 10_000 });
+    expect(await new PgStripeStore(poolA).crediterPaiementWhatsapp(p)).toBe('espace_inconnu');
+    expect((await poolA.query('select 1 from stripe_paiements where session_id = $1', [p.sessionId])).rowCount).toBe(0);
+    expect((await poolA.query('select 1 from credit_whatsapp_mouvements where reference = $1', [p.sessionId])).rowCount).toBe(0);
   });
 
   it('🔴 le client Stripe est gardé PAR MODE, et le premier écrit fait autorité', async () => {

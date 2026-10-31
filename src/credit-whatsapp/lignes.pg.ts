@@ -31,6 +31,8 @@ export interface NumeroPourLaLigne {
 
 export class PgLignesCreditStore {
   private readonly cache = new Map<string, { lue: number; valeur: LigneCredit | null }>();
+  /** Une lecture en vol par numéro : une rafale d'envois simultanés ne fait qu'une requête. */
+  private readonly enVol = new Map<string, { lecture: Promise<LigneCredit | null> }>();
 
   constructor(private readonly pool: Pool, private readonly maintenant: () => number = () => Date.now()) {}
 
@@ -39,6 +41,24 @@ export class PgLignesCreditStore {
     const t = this.maintenant();
     const c = this.cache.get(phoneNumberId);
     if (c !== undefined && t - c.lue < CACHE_MS) return c.valeur;
+    const deja = this.enVol.get(phoneNumberId);
+    if (deja !== undefined) return deja.lecture;
+    const vol: { lecture: Promise<LigneCredit | null> } = { lecture: Promise.resolve(null) };
+    vol.lecture = (async () => {
+      try {
+        const valeur = await this.lireLigne(phoneNumberId);
+        // Une écriture pendant la lecture (`poser`, `arreter`, `retirer`) l'a retirée : rendue, jamais gardée.
+        if (this.enVol.get(phoneNumberId) === vol) this.cache.set(phoneNumberId, { lue: t, valeur });
+        return valeur;
+      } finally {
+        if (this.enVol.get(phoneNumberId) === vol) this.enVol.delete(phoneNumberId);
+      }
+    })();
+    this.enVol.set(phoneNumberId, vol);
+    return vol.lecture;
+  }
+
+  private async lireLigne(phoneNumberId: string): Promise<LigneCredit | null> {
     const { rows } = await this.pool.query<{
       id: string; tenant_id: string; phone_number_id: string; waba_id: string | null; origine: 'ops' | 'option'; depuis: Date; arretee_le: Date | null;
     }>(
@@ -47,7 +67,7 @@ export class PgLignesCreditStore {
       [phoneNumberId],
     );
     const r = rows[0];
-    const valeur: LigneCredit | null = r === undefined ? null : {
+    return r === undefined ? null : {
       id: r.id,
       tenantId: r.tenant_id,
       phoneNumberId: r.phone_number_id,
@@ -56,8 +76,12 @@ export class PgLignesCreditStore {
       depuis: r.depuis.toISOString(),
       arreteeLe: r.arretee_le?.toISOString() ?? null,
     };
-    this.cache.set(phoneNumberId, { lue: t, valeur });
-    return valeur;
+  }
+
+  /** Après une écriture : la prochaine lecture repart de la base, sans rejoindre une lecture lancée avant. */
+  private oublier(phoneNumberId: string): void {
+    this.cache.delete(phoneNumberId);
+    this.enVol.delete(phoneNumberId);
   }
 
   /** Les lignes en cours d'un espace (la vue de `/ops`, l'achat permis). */
@@ -97,7 +121,7 @@ export class PgLignesCreditStore {
        on conflict (phone_number_id) where retiree_le is null do nothing`,
       [tenantId, phoneNumberId, wabaId, origine, note],
     );
-    this.cache.delete(phoneNumberId);
+    this.oublier(phoneNumberId);
     return (rowCount ?? 0) > 0;
   }
 
@@ -108,7 +132,7 @@ export class PgLignesCreditStore {
         where tenant_id = $1 and phone_number_id = $2 and retiree_le is null and arretee_le is null`,
       [tenantId, phoneNumberId],
     );
-    this.cache.delete(phoneNumberId);
+    this.oublier(phoneNumberId);
     return (rowCount ?? 0) > 0;
   }
 
@@ -119,7 +143,7 @@ export class PgLignesCreditStore {
         where tenant_id = $1 and phone_number_id = $2 and retiree_le is null`,
       [tenantId, phoneNumberId],
     );
-    this.cache.delete(phoneNumberId);
+    this.oublier(phoneNumberId);
     return (rowCount ?? 0) > 0;
   }
 }

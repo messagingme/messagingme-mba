@@ -11,6 +11,7 @@ import { Bouton, classesBouton } from '@/components/Bouton';
 import { useConfirmation } from '@/components/Confirmation';
 import { MbaTabs } from '@/components/MbaTabs';
 import { OngletCreditIA } from '@/components/OngletCreditIA';
+import { OngletCreditWhatsapp } from '@/components/OngletCreditWhatsapp';
 import { AbonnementPro } from '@/components/AbonnementPro';
 import { FacturesEspace } from '@/components/FacturesEspace';
 import type { Session } from '@/lib/session';
@@ -42,13 +43,17 @@ import {
  * l'onglet Crédit IA : la console ne lui ouvre pas cet écran, elle recharge depuis Claude (ses routes de solde sont fermées).
  * Une offre inconnue (API plus ancienne) garde les deux onglets : tout reste ouvert. Le Pro y lit son abonnement en clair
  * (`AbonnementPro`), le résilie ou annule la résiliation, et toutes les factures de l'espace s'y listent (`FacturesEspace`).
+ *
+ * Un troisième onglet, « Crédit WhatsApp » (`?tab=whatsapp`, plan du Crédit WhatsApp, tâche 11), n'apparaît que quand la
+ * vue de l'offre le dit (`ongletCreditWhatsapp` : un numéro sur la ligne de crédit, jamais en Free ni en open bar). Une API
+ * qui ne rend pas encore ce champ ne l'ouvre pas.
  */
 export default function OffrePage() {
   // `useSearchParams` impose une frontière Suspense au build (règle de Next 15).
   return <AppShell active="offre">{(session) => <Suspense fallback={null}><Offre session={session} /></Suspense>}</AppShell>;
 }
 
-type Onglet = 'offre' | 'credit';
+type Onglet = 'offre' | 'credit' | 'whatsapp';
 
 function Offre({ session }: { session: Session }) {
   const t = useT();
@@ -59,9 +64,12 @@ function Offre({ session }: { session: Session }) {
   const vue = useOffre(session.tenantId);
   // La Free n'a pas l'écran du crédit ; une offre inconnue (`null`) garde tout ouvert.
   const avecCredit = vue === null || (vue !== undefined && vue.fonctions.has('console'));
-  const onglet: Onglet = params.get('tab') === 'credit' && avecCredit ? 'credit' : 'offre';
+  // Le Crédit WhatsApp, seulement quand la vue le dit (un numéro sur la ligne de crédit).
+  const avecWhatsapp = avecCredit && vue !== undefined && vue !== null && vue.ongletCreditWhatsapp;
+  const demande = params.get('tab');
+  const onglet: Onglet = demande === 'credit' && avecCredit ? 'credit' : demande === 'whatsapp' && avecWhatsapp ? 'whatsapp' : 'offre';
   // L'onglet vit dans l'adresse : la page est partageable, et le retour de Stripe y ramène.
-  const choisir = (cle: string): void => { router.replace(cle === 'credit' ? '/offre?tab=credit' : '/offre', { scroll: false }); };
+  const choisir = (cle: string): void => { router.replace(cle === 'credit' || cle === 'whatsapp' ? `/offre?tab=${cle}` : '/offre', { scroll: false }); };
 
   return (
     <div className="mx-auto max-w-liste space-y-6">
@@ -72,7 +80,11 @@ function Offre({ session }: { session: Session }) {
         </div>
         {avecCredit ? (
           <MbaTabs
-            tabs={[{ key: 'offre', label: t('Offre', 'Plan') }, { key: 'credit', label: t('Crédit IA', 'AI credit') }]}
+            tabs={[
+              { key: 'offre', label: t('Offre', 'Plan') },
+              { key: 'credit', label: t('Crédit IA', 'AI credit') },
+              ...(avecWhatsapp ? [{ key: 'whatsapp', label: t('Crédit WhatsApp', 'WhatsApp credit') }] : []),
+            ]}
             active={onglet}
             onSelect={choisir}
           />
@@ -83,7 +95,9 @@ function Offre({ session }: { session: Session }) {
       </div>
       {vue === undefined
         ? <Squelette forme="carte" />
-        : onglet === 'credit' ? <OngletCreditIA session={session} /> : <OffreInner session={session} vue={vue} retour={retour} />}
+        : onglet === 'credit' ? <OngletCreditIA session={session} />
+          : onglet === 'whatsapp' ? <OngletCreditWhatsapp session={session} />
+            : <OffreInner session={session} vue={vue} retour={retour} />}
     </div>
   );
 }

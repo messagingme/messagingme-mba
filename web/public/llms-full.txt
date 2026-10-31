@@ -1080,6 +1080,8 @@ Dans l’ordre où elles sont vérifiées :
 | 409 | `no_whatsapp_number` | Espace sans numéro WhatsApp. |
 | 409 | `number_unlinked` | Numéro délié depuis l’Accueil. |
 | 409 | `number_suspended` | Abonnement du numéro fourni impayé ou terminé. |
+| 402 | `whatsapp_credit_exhausted` | Crédit WhatsApp épuisé : rien ne part avant une recharge. |
+| 409 | `whatsapp_credit_line_inactive` | Crédit WhatsApp inactif sur ce numéro. |
 | 422 | `no_phone` | Numéro relié par QR code : réponse hors des 24 h à une personne sans numéro connu. |
 | 402 | `plan_limit_reached` | Numéro relié par QR code : messages du mois atteints. |
 | 400, 409 | `invalid_recipient` `invalid_phone` `identity_conflict` | Clés de fiche absentes, illisibles ou contradictoires : [Désigner une personne](https://console.messagingme.app/developers/api/concepts.md#identification) |
@@ -1690,6 +1692,8 @@ Motifs d’écart : `invalid_recipient` , `invalid_phone` , `unknown_contact` , 
 | 409 | `no_whatsapp_number` | Aucun numéro WhatsApp sur l’espace (sauf message RCS). |
 | 409 | `number_unlinked` | Numéro WhatsApp délié depuis l’Accueil, et premier message en WhatsApp. Rien n’est créé. Une cible qui ouvre en RCS part. |
 | 409 | `number_suspended` | Abonnement du numéro fourni impayé ou terminé, et premier message en WhatsApp. Rien n’est créé. |
+| 402 | `whatsapp_credit_exhausted` | Crédit WhatsApp épuisé, et premier message en WhatsApp. Rien n’est créé. |
+| 409 | `whatsapp_credit_line_inactive` | Crédit WhatsApp inactif sur ce numéro, et premier message en WhatsApp. Rien n’est créé. |
 | 404 | `template_not_found` | Template absent, non approuvé, ou d’une autre langue. |
 | 422 | `template_category_unknown` | Catégorie du template illisible, ou ni marketing ni utility. |
 | 404 | `scenario_not_found` | Scénario introuvable. |
@@ -4228,6 +4232,22 @@ Que faire : Un admin relie le numéro depuis l’Accueil de la console.
 L’abonnement du numéro WhatsApp fourni est impayé depuis 7 jours, ou terminé : rien ne part par WhatsApp tant qu’il n’est pas renouvelé. Rendu par POST /v1/messages/whatsapp, et par POST /v1/sends quand le premier message part en WhatsApp.
 
 Que faire : Régler l’abonnement du numéro dans la console : les envois repartent au paiement.
+
+<a id="whatsapp_credit_exhausted"></a>
+
+### `whatsapp_credit_exhausted` 402
+
+Le Crédit WhatsApp qui paie les messages de ce numéro est épuisé : rien ne part par WhatsApp, réponses comprises, avant une recharge. Rendu par les routes qui envoient par WhatsApp, et par POST /v1/sends quand le premier message part en WhatsApp ; rien n’est créé.
+
+Que faire : Un admin recharge le Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp) : les envois repartent dès le paiement.
+
+<a id="whatsapp_credit_line_inactive"></a>
+
+### `whatsapp_credit_line_inactive` 409
+
+Le Crédit WhatsApp n’est plus actif sur ce numéro : rien ne part par WhatsApp, et une recharge n’y changerait rien. Rendu comme whatsapp_credit_exhausted.
+
+Que faire : Nous contacter depuis le Support de la console : une recharge n’y changerait rien.
 
 <a id="scenario_not_found"></a>
 

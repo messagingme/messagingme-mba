@@ -1,6 +1,7 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { BusinessHours } from '../workflow/conditions';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp, ProprieteEntree } from './outils';
+import { z } from 'zod';
 import { RefusOutil, entierBorne, limiteEntiere, texteObligatoire, valeurOuRefus } from './saisie';
 import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
 import type { AgentComplet, AgentResume } from '../agent/agent-store';
@@ -32,6 +33,10 @@ import { PLAFOND_GATEWAY_MIN_DOLLARS, eurosDepuisMicro } from '../agent/devise';
 import type { LigneHistorique } from '../agent/credits';
 import { ouvrirPaiement, type DepsPaiement } from '../stripe/paiement';
 import { OFFRES_RECHARGE, definitionOffre, type OffreRecharge } from '../stripe/offres';
+import { OFFRES_WHATSAPP, htCentimesWhatsapp, type OffreWhatsapp } from '../stripe/offres-whatsapp';
+import { ouvrirAchatCreditWhatsapp } from '../stripe/achat-whatsapp';
+import { prixMessage } from '../credit-whatsapp/grille';
+import type { CreditWhatsappRouteDeps } from '../http/credit-whatsapp';
 import { LIGNES_HISTORIQUE } from '../http/agents';
 import { estUuid } from '../http/scope';
 import { choisirRepondeur, choixDeLAncienneFormeSousLOffre, type ChoixRepondeur, type DepsReglageRepondeur } from '../repondeur/reglage';
@@ -95,6 +100,11 @@ export interface DepsAgentMcp {
   };
   /** Le répondeur de l'espace : le MÊME objet que la route de la console (`PUT .../agents/repondeur`). */
   repondeur: DepsReglageRepondeur;
+  /**
+   * Le Crédit WhatsApp (plan du Crédit WhatsApp, tâche 11) : les MÊMES objets que la route de l'onglet
+   * (`CreditWhatsappRouteDeps`), plus l'onglet visible ou non (hors Free, hors open bar, un numéro sur la ligne).
+   */
+  creditWhatsapp: CreditWhatsappRouteDeps & { onglet(tenantId: string): Promise<boolean> };
 }
 
 /**
@@ -250,19 +260,47 @@ const CLES_UPDATE_AGENT: ReadonlySet<string> = new Set(['agent_id', ...CHAMPS_FI
  * catalogue, celles dont le prix est configuré dans `tools/list` (`selonInstance`). Chaque montant hors taxe est lu
  * dans la définition de l'offre : le prix n'est écrit qu'une fois. En anglais, comme toutes les descriptions.
  */
-function descriptionBuyCredit(offres: readonly OffreRecharge[]): Pick<OutilMcp, 'description' | 'entree'> {
+/**
+ * Ce que `buy_credit` accepte, et donc ce que son schéma annonce (`tests/mcp-agent.test.ts`, les bornes) : une offre de
+ * l'une des deux familles, et le solde visé. L'ouverture de chaque famille revalide l'offre (`saisieDePaiement`,
+ * `saisieAchatWhatsapp`) : une offre de l'autre famille y est refusée.
+ */
+export const saisieBuyCredit = z.object({
+  offre: z.enum([...OFFRES_RECHARGE, ...OFFRES_WHATSAPP]),
+  credit: z.enum(['ia', 'whatsapp']).optional(),
+});
+
+/**
+ * La description de `buy_credit`. `offresWa` vide (aucun prix du Crédit WhatsApp sur l'instance) : l'outil ne parle que
+ * du crédit IA, sans le paramètre `credit`, pour ne jamais faire essayer un achat impossible (relecture du 2026-10-22).
+ */
+export function descriptionBuyCredit(offres: readonly OffreRecharge[], offresWa: readonly OffreWhatsapp[]): Pick<OutilMcp, 'description' | 'entree'> {
   const enClair = offres.map((o) => `${o} (€${definitionOffre(o).htCentimes / 100} excl. VAT)`).join(', ');
+  const enClairWa = offresWa.map((o) => `${o} (€${htCentimesWhatsapp(o) / 100} excl. VAT)`).join(', ');
+  const avecWa = offresWa.length > 0;
+  const taxe = 'The amount is stated EXCLUDING TAX (montant_ht_eur): the tax is calculated by Stripe on the payment page, '
+    + 'from the country and the VAT number the person enters there. ' + LOURDE;
   return {
-    description:
-      'Opens the payment of an AI credit top-up and returns the URL of the Stripe checkout page; the payment itself is '
-      + 'made by the person on that page, and the credit arrives once Stripe has confirmed it (get_credit). '
-      + `Offers: ${enClair}, credited in full. Offer the smallest amount that covers the need: ${offres[0]} is `
-      + 'enough for a trial. The amount is stated EXCLUDING TAX (montant_ht_eur): the tax is '
-      + 'calculated by Stripe on the payment page, from the country and the VAT number the person enters there. '
-      + LOURDE,
+    // Sans le Crédit WhatsApp, la description d'avant, mot pour mot : Claude et les tests s'y appuient.
+    description: avecWa
+      ? 'Opens the payment of a credit purchase and returns the URL of the Stripe checkout page; the payment itself is '
+        + 'made by the person on that page, and the credit arrives once Stripe has confirmed it (get_credit). '
+        + `AI credit (credit "ia", the default): ${enClair}, credited in full. Offer the smallest amount that covers the `
+        + `need: ${offres[0]} is enough for a trial. WhatsApp credit (credit "whatsapp"): ${enClairWa}, only for a `
+        + 'workspace whose number is on the WhatsApp credit line (get_credit then shows credit_whatsapp); it pays the '
+        + 'WhatsApp messages themselves, and no promotion code applies to it. ' + taxe
+      : 'Opens the payment of an AI credit top-up and returns the URL of the Stripe checkout page; the payment itself is '
+        + 'made by the person on that page, and the credit arrives once Stripe has confirmed it (get_credit). '
+        + `Offers: ${enClair}, credited in full. Offer the smallest amount that covers the need: ${offres[0]} is `
+        + 'enough for a trial. ' + taxe,
     entree: {
       type: 'object',
-      properties: { offre: { type: 'string', enum: [...offres], description: 'The top-up offer.' } },
+      properties: {
+        offre: avecWa
+          ? { type: 'string', enum: [...offres, ...offresWa], description: 'The offer: refill_* for the AI credit, wa_* for the WhatsApp credit.' }
+          : { type: 'string', enum: [...offres], description: 'The top-up offer.' },
+        ...(avecWa ? { credit: { type: 'string', enum: ['ia', 'whatsapp'], description: 'Which balance to top up; absent, the one the offer belongs to.' } } : {}),
+      },
       required: ['offre'],
     },
   };
@@ -1020,34 +1058,81 @@ export const OUTILS_AGENT: OutilMcp[] = [
       + `${LIGNES_HISTORIQUE} movements, most recent first: purchases, offered credit, top-ups, AI usage (agent turns `
       + 'and their knowledge searches, preparation of knowledge entries, transcriptions) and translations, each '
       + 'aggregated per day, at the rate of the workspace plan. After a payment opened by buy_credit, an "achat" line '
-      + 'appears once Stripe has confirmed it.',
+      + 'appears once Stripe has confirmed it. When a number of the workspace is on the WhatsApp credit line, '
+      + 'credit_whatsapp gives that other prepaid balance, which pays the WhatsApp messages themselves: its balance, '
+      + 'the price of one message in France per category (fees included), and its movements (sends aggregated per day, '
+      + 'purchases, adjustments). At zero, NOTHING is sent from that number, replies included, until a purchase '
+      + '(buy_credit, credit "whatsapp").',
     annotations: lecture('Read the AI credit'),
     entree: { type: 'object', properties: {} },
     async executer(deps, tenantId) {
       const credits = deps.agentIa.gestion.credits;
-      const [solde, mouvements] = await Promise.all([credits.solde(tenantId), credits.historique(tenantId, LIGNES_HISTORIQUE)]);
-      return {
+      const wa = deps.agentIa.creditWhatsapp;
+      const [solde, mouvements, avecWa] = await Promise.all([
+        credits.solde(tenantId), credits.historique(tenantId, LIGNES_HISTORIQUE), wa.onglet(tenantId),
+      ]);
+      const ia = {
         solde_eur: eurosDepuisMicro(solde),
         mouvements: mouvements.map((m) => ({ at: m.at, jour: m.jour, raison: m.raison, montant_eur: eurosDepuisMicro(m.deltaMicroEur) })),
+      };
+      if (!avecWa) return ia;
+      const [soldeWa, historiqueWa, grille, conditions] = await Promise.all([
+        wa.vue.solde(tenantId), wa.vue.historique(tenantId), wa.vue.grille(), wa.vue.conditions(tenantId),
+      ]);
+      // Le prix d'un message en France, commission comprise : jamais son taux.
+      let prixFrance: Record<string, ReturnType<typeof eurosDepuisMicro>> | null = null;
+      if (grille !== null) {
+        prixFrance = {};
+        for (const c of ['marketing', 'utility', 'authentication', 'service'] as const) {
+          const p = prixMessage(grille, 'FR', c, conditions.commissionPct);
+          if (p !== null) prixFrance[c] = eurosDepuisMicro(p);
+        }
+      }
+      return {
+        ...ia,
+        credit_whatsapp: {
+          solde_eur: eurosDepuisMicro(soldeWa),
+          prix_france_eur: prixFrance,
+          mouvements: historiqueWa.slice(0, LIGNES_HISTORIQUE).map((m) => ({
+            at: m.at, jour: m.jour, raison: m.raison, montant_eur: eurosDepuisMicro(m.deltaMicroEur), ...(m.messages !== null ? { messages: m.messages } : {}),
+          })),
+        },
       };
     },
   },
   {
     ...ficheOutilMcp('buy_credit'),
     fonction: null,
-    ...descriptionBuyCredit(OFFRES_RECHARGE),
+    ...descriptionBuyCredit(OFFRES_RECHARGE, OFFRES_WHATSAPP),
     // Une offre sans prix sur l'instance refuse « recharge pas encore disponible » : on ne la propose pas (relecture du
     // 2026-10-22). Aucune en vente : le catalogue tel quel, et l'appel refuse comme avant.
     selonInstance(deps) {
       const s = deps.agentIa.paiement.stripe;
       const enVente = OFFRES_RECHARGE.filter((o) => s !== null && s.prix[o] !== '');
-      return descriptionBuyCredit(enVente.length > 0 ? enVente : OFFRES_RECHARGE);
+      // Le Crédit WhatsApp, lui, ne s'annonce que s'il est en vente : sans prix, il n'en est pas question.
+      const sWa = deps.agentIa.creditWhatsapp.achat.stripe;
+      const enVenteWa = OFFRES_WHATSAPP.filter((o) => sWa !== null && sWa.prix[o] !== '');
+      return descriptionBuyCredit(enVente.length > 0 ? enVente : OFFRES_RECHARGE, enVenteWa);
     },
     // Monde ouvert : elle crée une session chez Stripe. Non idempotente : une session de plus à chaque appel.
-    annotations: ecriture('Open an AI credit top-up', false, true),
+    annotations: ecriture('Open a credit purchase', false, true),
     async executer(deps, tenantId, args, personne) {
       const payeur = signataire(personne);
+      const lu = saisieBuyCredit.safeParse(args);
+      if (!lu.success) throw new RefusOutil(`offre inconnue (${[...OFFRES_RECHARGE, ...OFFRES_WHATSAPP].join(', ')}), ou credit autre que "ia" ou "whatsapp"`);
       await plafondCouteux(deps, tenantId);
+      const offreWa = (OFFRES_WHATSAPP as readonly string[]).includes(lu.data.offre);
+      // Le solde visé : celui demandé, sinon celui de l'offre. Une offre de l'autre famille est refusée par l'ouverture.
+      if (lu.data.credit === 'whatsapp' || (lu.data.credit === undefined && offreWa)) {
+        const a = valeurOuRefus(await ouvrirAchatCreditWhatsapp(deps.agentIa.creditWhatsapp.achat, tenantId, { offre: args.offre }, payeur, 'claude'));
+        return {
+          url: a.url,
+          offre: args.offre,
+          credit: 'whatsapp',
+          montant_ht_eur: a.htCentimes / 100,
+          taxe: 'calculée par Stripe sur la page de paiement, selon le pays et le numéro de TVA saisis',
+        };
+      }
       const p = valeurOuRefus(await ouvrirPaiement(deps.agentIa.paiement, tenantId, { offre: args.offre }, payeur, 'claude'));
       return {
         url: p.url,

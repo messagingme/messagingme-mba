@@ -605,6 +605,15 @@ export const schema = z.object({
   STRIPE_PRIX_REFILL_50: z.string().default(''),
   STRIPE_PRIX_REFILL_100: z.string().default(''),
   /**
+   * Les prix des quatre offres du Crédit WhatsApp (plan du Crédit WhatsApp, tâche 10) : 50, 100, 250 et 500 € HT, taxe en
+   * sus, relus chez Stripe avant chaque achat ; le crédit de chacune vit dans le code (`src/stripe/offres-whatsapp.ts`).
+   * Posés tous les quatre ou aucun (garde plus bas) ; vides : l'achat n'est pas en vente (503).
+   */
+  STRIPE_PRIX_WA_50: z.string().default(''),
+  STRIPE_PRIX_WA_100: z.string().default(''),
+  STRIPE_PRIX_WA_250: z.string().default(''),
+  STRIPE_PRIX_WA_500: z.string().default(''),
+  /**
    * Le prix mensuel du numéro fourni (lot 3c, livraison B) : 3,50 EUR HT par mois, taxe en sus, relu chez Stripe avant
    * chaque paiement. Vide : l'abonnement n'est pas en vente (la route rend 503).
    */
@@ -801,6 +810,12 @@ export const schema = z.object({
     // ne connaît pas le mode de la clé, donc ne peut pas refuser un événement de l'autre mode.
     if ((c.STRIPE_SECRET_KEY === '') !== (c.STRIPE_WEBHOOK_SECRET === '')) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [c.STRIPE_SECRET_KEY === '' ? 'STRIPE_SECRET_KEY' : 'STRIPE_WEBHOOK_SECRET'], message: 'STRIPE_SECRET_KEY et STRIPE_WEBHOOK_SECRET se posent ensemble (ou aucun des deux)' });
+    }
+    // Les quatre prix du Crédit WhatsApp vont ensemble : l'onglet présente les quatre offres, une offre sans prix y serait
+    // un bouton en 503.
+    const prixWa = [c.STRIPE_PRIX_WA_50, c.STRIPE_PRIX_WA_100, c.STRIPE_PRIX_WA_250, c.STRIPE_PRIX_WA_500];
+    if (prixWa.some((p) => p === '') && prixWa.some((p) => p !== '')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['STRIPE_PRIX_WA_50'], message: 'STRIPE_PRIX_WA_50, _100, _250 et _500 se posent ensemble (ou aucun)' });
     }
     // Les deux prix du Pro vont ensemble : un seul ouvrirait une périodicité et laisserait l'autre en 503.
     if ((c.STRIPE_PRIX_PRO_MOIS === '') !== (c.STRIPE_PRIX_PRO_AN === '')) {

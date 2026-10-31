@@ -21,6 +21,7 @@ import { SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
 import { SORTIE_FORMULAIRE_REMPLI } from '../../web/lib/partage/sorties-formulaire';
 import type { AgentTurnJob } from '../agent/turn-job';
 import { MOTIF_DESABONNE } from '../campaign/guardrails';
+import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
 import { messageDe, texteDe } from '../lib/erreur';
 import {
   MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, fenetreLevee, grapheAFiger,
@@ -186,7 +187,9 @@ export interface WorkflowExecutorDeps {
    * donc avant `apply`, dès que la liste contient un envoi WhatsApp (`envoieParWhatsApp`) : le démarrage
    * (`runFrom`) ET les trois reprises (`resume`, `advance`, `envoyerBlocDepuisAgent`), sans quoi le bail de
    * 15 minutes ou le message suivant du contact rejouerait l'e-mail tant que dure une suspension (relecture du
-   * lot 4, `tests/numero-bloque-reprise.test.ts`). Requise (no-op en `DRY_RUN`) ; fixtures : `numeroJamaisDelie`.
+   * lot 4, `tests/numero-bloque-reprise.test.ts`). Elle lève aussi le refus certain du Crédit WhatsApp
+   * (`CreditWhatsappRefus`, `MetaClientFactory.verifierAvantEffets`). Requise (no-op en `DRY_RUN`) ; fixtures :
+   * `numeroJamaisDelie`.
    */
   verifierNumeroWhatsApp(tenantId: string): Promise<void>;
   /** Envoie un message hors template : interactif (texte + réponses rapides, ou un bouton de lien), image
@@ -606,13 +609,21 @@ export class WorkflowExecutor {
      * peut durer plusieurs minutes. Absente pour les chemins qui ne réservent pas de tour (`demarrer`, `runFrom`).
      */
     garde?: GardeDuTour,
-  ): Promise<{ refus: string | null; partis: number; canal: RunChannel }> {
+  ): Promise<{ refus: string | null; partis: number; canal: RunChannel; refusCredit: CreditWhatsappRefus | null }> {
     let canal: RunChannel = canalEntrant;
     const posedTags: string[] = [];
     // Un walk peut produire plusieurs envois (un message rapide sans bouton ne bloque pas). On retient la
     // première raison de refus et on compte ce qui est parti : un refus n'est décisif que si rien n'est parti.
     let refus: string | null = null;
     let partis = 0;
+    /** Le refus du Crédit WhatsApp converti en refus d'étape ci-dessous : `runFrom` le relève quand rien n'est parti. */
+    let refusCredit: CreditWhatsappRefus | null = null;
+    /**
+     * Les effets qu'une reprise rejouerait en double : un envoi parti (WhatsApp, RCS ou e-mail) et un appel d'API. Tant
+     * qu'il n'y en a aucun, un refus du Crédit WhatsApp remonte tel quel (le parcours reste sur son bloc et repart entier
+     * après un crédit) ; après, il devient un refus d'étape (écart 10 du plan du Crédit WhatsApp).
+     */
+    let irreversibles = 0;
     /** Réponse de la garde d'opt-out, lue au plus une fois par liste d'effets. `null` = pas encore posée. */
     let desabonne: boolean | null = null;
     for (const { nodeId, action: a } of steps) {
@@ -660,6 +671,8 @@ export class WorkflowExecutor {
           // Sans champ cible, l'appel pousse : rien à ranger, et surtout aucun `setField('')` sur une clé vide.
           const pousse = a.champCible === '';
           const r = await this.deps.appelHttp(tenantId, waId, a.requestId, pousse ? 'pousse' : 'integre');
+          // Même raté, l'appel a pu créer quelque chose chez le client : le rejouer n'est jamais sans effet.
+          irreversibles += 1;
           if (!pousse) await this.deps.setField(tenantId, waId, a.champCible, r.ok ? r.valeur : '');
         }
       }
@@ -705,6 +718,8 @@ export class WorkflowExecutor {
           if (echec !== null) {
             // eslint-disable-next-line no-console
             console.error(`workflow sendEmail: ${echec} (${waId}), on continue le parcours`);
+          } else {
+            irreversibles += 1;
           }
           // Un mail raté ne devient jamais un refus du parcours, mais il se mesure comme tout bloc de message.
           await this.mesurer(tenantId, workflowId, nodeId, waId, echec === null ? 'sent' : 'failed');
@@ -723,18 +738,36 @@ export class WorkflowExecutor {
         };
         // Jamais `refus ??= await …` : `??=` n'évalue pas sa droite quand la gauche est remplie, et l'envoi
         // serait sauté. On envoie toujours, on ne garde que la 1re raison.
-        const dit = a.kind === 'sendQuickMessage'
-          // Le canal du parcours décide, pas le type du bloc. Voir `envoyerQuickEnRcs`.
-          ? (canal === 'rcs'
-            ? await this.envoyerQuickEnRcs(tenantId, waId, a)
-            : await this.deps.sendQuickMessage(tenantId, waId, await corpsAvecVariables(a.body), a.buttons, a.mediaUrl, a.lien))
-          // Une question part toujours en WhatsApp : la liste interactive n'a aucun équivalent RCS. Pas de
-          // branche `canal === 'rcs'`, qui promettrait un repli inexistant.
-          : a.kind === 'sendQuestion'
-            ? await this.deps.sendQuestion(tenantId, waId, await corpsAvecVariables(a.body), a.buttonLabel, a.rows)
-            : a.kind === 'sendFlow'
-              ? await this.deps.sendFlow(tenantId, waId, a.flowId, a.body, a.cta)
-              : await this.deps.sendTemplate(tenantId, waId, a.templateName, a.language, a.buttons, firstTemplateParams, a.sources);
+        let issue: SendRefusal;
+        try {
+          issue = a.kind === 'sendQuickMessage'
+            // Le canal du parcours décide, pas le type du bloc. Voir `envoyerQuickEnRcs`.
+            ? (canal === 'rcs'
+              ? await this.envoyerQuickEnRcs(tenantId, waId, a)
+              : await this.deps.sendQuickMessage(tenantId, waId, await corpsAvecVariables(a.body), a.buttons, a.mediaUrl, a.lien))
+            // Une question part toujours en WhatsApp : la liste interactive n'a aucun équivalent RCS. Pas de
+            // branche `canal === 'rcs'`, qui promettrait un repli inexistant.
+            : a.kind === 'sendQuestion'
+              ? await this.deps.sendQuestion(tenantId, waId, await corpsAvecVariables(a.body), a.buttonLabel, a.rows)
+              : a.kind === 'sendFlow'
+                ? await this.deps.sendFlow(tenantId, waId, a.flowId, a.body, a.cta)
+                : await this.deps.sendTemplate(tenantId, waId, a.templateName, a.language, a.buttons, firstTemplateParams, a.sources);
+        } catch (err) {
+          /**
+           * 🔴 Le Crédit WhatsApp à sec APRÈS un effet de cette liste : l'exception laisserait le parcours sur son bloc, et la
+           * reprise renverrait (et ferait payer) ce qui est déjà parti. Il devient un refus d'étape : la liste s'arrête ici,
+           * la suite du bloc ne part pas, et l'appelant écrit l'état comme pour tout refus (le parcours avance si un message
+           * est parti, sinon il est clos et remonté à un humain ; au démarrage, `runFrom` relève le refus). Avant tout effet,
+           * il remonte tel quel : la campagne se met en pause et le bloc repart entier après un crédit.
+           */
+          if (!(err instanceof CreditWhatsappRefus) || irreversibles === 0) throw err;
+          refus ??= err.message;
+          refusCredit ??= err;
+          await this.mesurer(tenantId, workflowId, nodeId, waId, 'failed');
+          break;
+        }
+        // Une `const` : le rétrécissement par l'alias `rate` ne vaut que sur elle.
+        const dit = issue;
         const rate = typeof dit === 'string' && dit !== '';
         // Un template, un formulaire ou une question partent par WhatsApp et y ramènent le parcours (c'est ainsi
         // qu'on bascule de canal). Pour la question, l'oublier gèlerait le parcours : la réponse arriverait par
@@ -744,6 +777,7 @@ export class WorkflowExecutor {
           if (refus === null) refus = dit;
         } else {
           partis += 1;
+          irreversibles += 1;
         }
         // Mesure par bloc, après l'envoi, sur son issue réelle : compter avant gonflerait les « envoyés » de ce
         // que Meta a refusé. L'identifiant du message permettra à un accusé de lecture de retrouver ce bloc.
@@ -757,7 +791,7 @@ export class WorkflowExecutor {
         try { await this.deps.emitTagAdded(tenantId, waId, tag); } catch { /* best-effort */ }
       }
     }
-    return { refus, partis, canal };
+    return { refus, partis, canal, refusCredit };
   }
 
   /**
@@ -1331,14 +1365,20 @@ export class WorkflowExecutor {
     if (envoieParWhatsApp(actions, apresWalk)) {
       await this.deps.verifierNumeroWhatsApp(tenantId);
     }
-    const { refus, partis, canal } = await this.apply(tenantId, contact.waId, actions, opts.firstTemplateParams, politique.publieLesEtiquettes, workflowId, apresWalk);
+    const { refus, partis, canal, refusCredit } = await this.apply(tenantId, contact.waId, actions, opts.firstTemplateParams, politique.publieLesEtiquettes, workflowId, apresWalk);
     // Refus alors que rien n'est parti : on ne persiste pas de run en attente (il attendrait une réponse à un
     // message jamais reçu, et le message suivant du contact le ferait avancer au bloc suivant). La raison
     // remonte telle quelle vers la campagne. Si un message est parti, le parcours vit et le refus reste au log.
     if (refus !== null) {
       // eslint-disable-next-line no-console
       console.error(`workflow ${workflowId}: envoi refusé pour ${contact.waId} : ${refus}`);
-      if (partis === 0) return refus;
+      if (partis === 0) {
+        // 🔴 Le Crédit WhatsApp a refusé APRÈS un effet (un e-mail, un appel d'API) : rendu en chaîne, ce refus ferait
+        // passer la campagne au destinataire suivant, effets compris, au lieu de la mettre en pause. Il est relevé, marqué
+        // « après effets » (`CreditWhatsappRefusApresEffets`).
+        if (refusCredit !== null) throw new CreditWhatsappRefusApresEffets(refusCredit);
+        return refus;
+      }
     }
     /**
      * Le parcours précédent est clos ici, et nulle part ailleurs : tout démarrage remplace le parcours en cours

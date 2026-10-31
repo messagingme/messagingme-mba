@@ -25,6 +25,7 @@ import { MESSAGE_NUMERO_DELIE, MESSAGE_NUMERO_SUSPENDU } from '../meta/numero-de
 import { messageDe } from '../lib/erreur';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusFonction, corpsRefusLimite } from '../offres/refus';
 import type { SourceOffres } from '../offres/offre.pg';
+import type { CreditWhatsappRefus } from '../credit-whatsapp/refus';
 
 export interface CreationEnvoiPublic {
   tenantId: string;
@@ -79,6 +80,11 @@ export interface DepsEnvoiPublic {
   numerosDelies: { estDelie(phoneNumberId: string): Promise<boolean> };
   /** Le numéro est-il suspendu (lot 4, l'abonnement du numéro fourni) ? La garde du point d'envoi. Requise aussi. */
   numerosSuspendus: { estSuspendu(phoneNumberId: string): Promise<boolean> };
+  /**
+   * Le Crédit WhatsApp du numéro (plan du Crédit WhatsApp, lot 2) : épuisé ou inactif, aucun message ne partirait. La
+   * garde de la fabrique dit pourquoi sans rien provisionner (`refusAvantEffets`). Requise, comme les deux gardes du numéro.
+   */
+  creditWhatsapp: { refusAvantEffets(tenantId: string, phoneNumberId: string): Promise<CreditWhatsappRefus | null> };
   /**
    * Les modèles du mois de l'offre (lot 6, `QuotaModeles`) : un envoi qui ouvre par un modèle et ne tient pas dans ce
    * qu'il reste est refusé en entier (402). Une ESTIMATION pour refuser tôt : la fabrique décide à l'envoi. Requise : les
@@ -505,6 +511,19 @@ export async function lancerEnvoiPublic(
     }
     if (cible.ouverture !== 'rcs' && await deps.numerosSuspendus.estSuspendu(numero.phoneNumberId)) {
       return await libererEtRefuser({ statut: 409, code: 'number_suspended', message: MESSAGE_NUMERO_SUSPENDU });
+    }
+    /**
+     * Le Crédit WhatsApp épuisé ou inactif sur ce numéro : 402 `whatsapp_credit_exhausted` ou 409
+     * `whatsapp_credit_line_inactive`, rien n'est créé. Accepté, l'envoi finirait refusé destinataire par destinataire.
+     * Un solde positif laisse partir : la fabrique juge chaque message, et la campagne se met en pause quand le solde ne
+     * couvre plus le suivant.
+     */
+    if (cible.ouverture !== 'rcs') {
+      const credit = await deps.creditWhatsapp.refusAvantEffets(tenantId, numero.phoneNumberId);
+      if (credit !== null) {
+        await deps.idempotence.release(tenantId, idem.cle, jeton);
+        return repondre(credit.statusCode, credit.code, credit.message);
+      }
     }
     /**
      * Les modèles du mois (lot 6), lus UNE fois, seulement quand l'envoi ouvre par un modèle WhatsApp (un template, ou un

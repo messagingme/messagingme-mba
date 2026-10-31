@@ -225,6 +225,8 @@ Motifs d’écart : `invalid_recipient` , `invalid_phone` , `unknown_contact` , 
 | 409 | `no_whatsapp_number` | Aucun numéro WhatsApp sur l’espace (sauf message RCS). |
 | 409 | `number_unlinked` | Numéro WhatsApp délié depuis l’Accueil, et premier message en WhatsApp. Rien n’est créé. Une cible qui ouvre en RCS part. |
 | 409 | `number_suspended` | Abonnement du numéro fourni impayé ou terminé, et premier message en WhatsApp. Rien n’est créé. |
+| 402 | `whatsapp_credit_exhausted` | Crédit WhatsApp épuisé, et premier message en WhatsApp. Rien n’est créé. |
+| 409 | `whatsapp_credit_line_inactive` | Crédit WhatsApp inactif sur ce numéro, et premier message en WhatsApp. Rien n’est créé. |
 | 404 | `template_not_found` | Template absent, non approuvé, ou d’une autre langue. |
 | 422 | `template_category_unknown` | Catégorie du template illisible, ou ni marketing ni utility. |
 | 404 | `scenario_not_found` | Scénario introuvable. |

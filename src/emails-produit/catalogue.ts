@@ -262,6 +262,61 @@ export const CATALOGUE = [
     },
   },
   {
+    cle: 'credit_whatsapp_bas',
+    categorie: 'service',
+    nom: 'Crédit WhatsApp presque épuisé',
+    quand: 'Un message fait passer le Crédit WhatsApp sous 10 €. Une fois par achat.',
+    variables: {
+      solde: { description: 'Le Crédit WhatsApp restant', forme: 'euros', exemple: '8420000' },
+      lien_credit_whatsapp: { description: 'L’onglet Crédit WhatsApp de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
+    },
+    textes: {
+      fr: {
+        sujet: 'Crédit WhatsApp bientôt épuisé : il reste {{solde}}',
+        corps: 'Bonjour,\n\nLe Crédit WhatsApp de l’espace {{espace}} passe sous 10 € : il reste {{solde}}. Quand il sera à '
+          + 'zéro, plus aucun message WhatsApp ne partira de votre numéro, réponses à vos clients comprises, et vos campagnes '
+          + 'se mettront en pause.\n\nRechargez dès maintenant, depuis la console ou en le demandant à Claude, pour que vos '
+          + 'messages continuent de partir.',
+        bouton: { libelle: 'Recharger le Crédit WhatsApp', lien: '{{lien_credit_whatsapp}}' },
+      },
+      en: {
+        sujet: 'WhatsApp credit running low: {{solde}} left',
+        corps: 'Hello,\n\nThe WhatsApp credit of the {{espace}} workspace has dropped below €10: {{solde}} left. When it '
+          + 'reaches zero, no WhatsApp message will leave your number any more, replies to your customers included, and your '
+          + 'campaigns will pause.\n\nTop up now, from the console or by asking Claude, so your messages keep going.',
+        bouton: { libelle: 'Top up WhatsApp credit', lien: '{{lien_credit_whatsapp}}' },
+      },
+    },
+  },
+  {
+    cle: 'credit_whatsapp_epuise',
+    categorie: 'service',
+    nom: 'Crédit WhatsApp épuisé',
+    quand: 'Un message WhatsApp est refusé faute de Crédit WhatsApp. Une fois par jour au plus.',
+    variables: {
+      lien_credit_whatsapp: { description: 'L’onglet Crédit WhatsApp de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
+    },
+    textes: {
+      fr: {
+        sujet: 'Crédit WhatsApp épuisé : vos messages WhatsApp ne partent plus',
+        corps: 'Bonjour,\n\nLe Crédit WhatsApp de l’espace {{espace}} est épuisé. Plus aucun message WhatsApp ne part de '
+          + 'votre numéro, réponses à vos clients comprises : vos campagnes sont en pause, et les conversations que le '
+          + 'répondeur automatique aurait prises arrivent dans « À traiter » de l’Inbox.\n\nRechargez le crédit, depuis la '
+          + 'console ou en le demandant à Claude : vos campagnes reprennent d’elles-mêmes.\n\nCette alerte part une fois par '
+          + 'jour au plus.',
+        bouton: { libelle: 'Recharger le Crédit WhatsApp', lien: '{{lien_credit_whatsapp}}' },
+      },
+      en: {
+        sujet: 'WhatsApp credit used up: your WhatsApp messages no longer go out',
+        corps: 'Hello,\n\nThe WhatsApp credit of the {{espace}} workspace is used up. No WhatsApp message leaves your number '
+          + 'any more, replies to your customers included: your campaigns are paused, and the conversations the automatic '
+          + 'responder would have taken go to “To do” in the Inbox.\n\nTop up the credit, from the console or by asking '
+          + 'Claude: your campaigns resume on their own.\n\nThis alert is sent at most once a day.',
+        bouton: { libelle: 'Top up WhatsApp credit', lien: '{{lien_credit_whatsapp}}' },
+      },
+    },
+  },
+  {
     cle: 'paiement_refuse_numero',
     categorie: 'service',
     nom: 'Paiement refusé : numéro fourni',

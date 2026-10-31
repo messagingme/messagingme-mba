@@ -131,6 +131,18 @@ export class MetaClientFactory {
   }
 
   /**
+   * `verifierNumero`, puis le refus certain du Crédit WhatsApp (`CreditWhatsappRefus` : ligne arrêtée, aucune grille,
+   * solde nul) : un parcours qui enverra par WhatsApp l'appelle avant ses effets (`verifierNumeroWhatsApp`), pour qu'un
+   * e-mail ou un appel d'API placés avant un modèle ne partent pas à sec (écart 10 du plan du Crédit WhatsApp). Un solde
+   * positif mais sous le prix du message passe ici : l'envoi le refusera, et `apply` en fera un refus d'étape.
+   */
+  async verifierAvantEffets(tenantId: string, phoneNumberId: string): Promise<void> {
+    await this.verifierNumero(phoneNumberId);
+    const refus = await this.o.creditWhatsapp.refusAvantEffets(tenantId, phoneNumberId);
+    if (refus !== null) throw refus;
+  }
+
+  /**
    * MetaClient complet pour un tenant (envois workflow : template/interactif/flow), enveloppé de l'intercepteur et
    * de la garde de la liste de l'agent (`avantUnModele`).
    */

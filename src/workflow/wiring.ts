@@ -540,12 +540,13 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
      * branchée sur la même lecture depuis `src/worker.ts`.
      */
     estDesabonne: (tenant, waId) => contactStore.machineSeTaitParWaId(tenant, waId),
-    // Le numéro délié, vérifié avant les effets d'un parcours qui enverra par WhatsApp (cf. `runFrom`) : même
-    // garde que le point de passage des envois, sur le même numéro. DRY_RUN : rien ne part, rien à refuser.
+    // Le numéro délié et le Crédit WhatsApp à sec, vérifiés avant les effets d'un parcours qui enverra par WhatsApp
+    // (cf. `runFrom`) : mêmes gardes que le point de passage des envois, sur le même numéro. DRY_RUN : rien ne part,
+    // rien à refuser.
     verifierNumeroWhatsApp: async (tenant) => {
       if (dryRun) return;
       const pn = await numeroDeLEspace(tenant);
-      if (pn) await metaFactory.verifierNumero(pn);
+      if (pn) await metaFactory.verifierAvantEffets(tenant, pn);
     },
     // Mesure par bloc. L'exécuteur l'appelle en best-effort : une panne ici n'arrête jamais un parcours.
     recordNodeEvent: (e) => nodeEvents.record(e),

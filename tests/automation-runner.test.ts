@@ -5,6 +5,7 @@ import type { AutomationRow, AutomationEvent } from '../src/automation/match';
 import type { EvalContext } from '../src/workflow/conditions';
 import type { TypeDeLancementAutomatisme } from '../src/workflow/lancements';
 import { NumeroDelieError, NumeroSuspenduError } from '../src/meta/numero-delie';
+import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../src/credit-whatsapp/refus';
 import { offresToutOuvert, plusAnciennesJamaisLues } from './gardes';
 
 /**
@@ -418,6 +419,26 @@ describe('runAutomations', () => {
       const { deps, trace } = make([tag], { startWorkflow: async () => { throw new NumeroSuspenduError('pn1'); } });
       expect(await runAutomations('t1', { kind: 'tag_added', waId: '33611', tag: 'vip' }, deps)).toBe(0);
       expect(trace.cleared).toEqual(['a1']);
+    });
+
+    it('scénario refusé par le Crédit WhatsApp AVANT tout effet -> le tir est effacé, comme pour le numéro', async () => {
+      const tag = auto({ triggerKind: 'tag_added', triggerConfig: { tag: 'vip' } });
+      const { deps, trace } = make([tag], { startWorkflow: async () => { throw new CreditWhatsappRefus('solde', 1, 1); } });
+      expect(await runAutomations('t1', { kind: 'tag_added', waId: '33611', tag: 'vip' }, deps)).toBe(0);
+      expect(trace.cleared).toEqual(['a1']);
+    });
+
+    /**
+     * 🔴 RELECTURE DU LOT 2 : le crédit a refusé APRÈS un effet du scénario (un e-mail, un appel d'API). Effacé, le tir
+     * laisserait le prochain déclenchement refaire cet effet ; il reste, comme pour toute exception après un effet.
+     */
+    it('🔴 scénario refusé par le Crédit WhatsApp APRÈS un effet -> le tir reste', async () => {
+      const tag = auto({ triggerKind: 'tag_added', triggerConfig: { tag: 'vip' } });
+      const apres = new CreditWhatsappRefusApresEffets(new CreditWhatsappRefus('solde', 10_000, 74_760));
+      const { deps, trace } = make([tag], { startWorkflow: async () => { throw apres; } });
+      expect(await runAutomations('t1', { kind: 'tag_added', waId: '33611', tag: 'vip' }, deps)).toBe(0);
+      expect(trace.fired).toEqual(['a1']);
+      expect(trace.cleared).toEqual([]);
     });
 
     it('démarrage réussi -> le tir reste (c’est lui qui protège de la boucle)', async () => {

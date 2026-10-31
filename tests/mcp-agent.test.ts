@@ -17,7 +17,7 @@ import { OUTILS_CAMPAGNES } from '../src/mcp/outils-campagnes';
 import { OUTILS_CHAMPS } from '../src/mcp/outils-champs';
 import { OUTILS_SHOPIFY } from '../src/mcp/outils-shopify';
 import { OUTILS_SUPPRESSION } from '../src/mcp/outils-suppression';
-import type { DepsAgentMcp } from '../src/mcp/outils-agent';
+import { descriptionBuyCredit, saisieBuyCredit, type DepsAgentMcp } from '../src/mcp/outils-agent';
 import { MESSAGE_OPERATIONS_LOURDES } from '../src/auth/plafond-partage';
 import type { AgentComplet, AgentResume, PatchAgent } from '../src/agent/agent-store';
 import { ficheVide, fichePatchSchema } from '../src/agent/fiche';
@@ -31,9 +31,9 @@ import { saisieDEssai, type DepsEssai } from '../src/agent/essai';
 import { saisieDOutilsSurs } from '../src/agent/reglages';
 import { MODES_TRANSFERT, type ModeTransfert } from '../src/agent/disponibilite-equipe';
 import { MODELES_CHOISIS, MODELE_AGENT_CLAUDE_CODE } from '../src/agent/modeles';
-import { saisieDePaiement, type DepsPaiement } from '../src/stripe/paiement';
+import type { DepsPaiement } from '../src/stripe/paiement';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
-import type { OffreRecharge } from '../src/stripe/offres';
+import { OFFRES_RECHARGE, type OffreRecharge } from '../src/stripe/offres';
 import type { OutilComplet } from '../src/agent/catalog';
 import type { LigneHistorique } from '../src/reglages/historique';
 import type { ModeRepondeur } from '../src/repondeur/mode';
@@ -44,7 +44,7 @@ import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { bornesDesChamps, bornesZod, champsDe, muettes, type Borne } from './aide/bornes-zod';
 import { jamaisDesabonne } from './consentement';
-import { journalMuet, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes } from './routes-inertes';
+import { creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes } from './routes-inertes';
 import { SANS_MCP } from './outils-mcp';
 import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
@@ -328,6 +328,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
     connaissance,
     essai,
     paiement,
+    creditWhatsapp: creditWhatsappInerte,
     outils: {
       listToutes: async (_t, id) => (id === AG ? poses : []),
       ajouter: async (_t, id, x) => {
@@ -1015,13 +1016,15 @@ describe('les outils de l’agent appellent les fonctions de la console, dans l�
     expect(decrit.description).toMatch(/refill_10 is enough for a trial/);
     expect(decrit.description).not.toMatch(/refill_5[^0]/);
     await server.close();
-    // Toutes en vente, ou aucune (l'appel refuse alors comme avant) : la description du catalogue, telle quelle.
-    const catalogue = OUTILS.find((x) => x.nom === 'buy_credit')!;
+    // Toutes en vente, ou aucune (l'appel refuse alors comme avant) : toutes les recharges du catalogue. Le Crédit WhatsApp,
+    // lui, n'est pas en vente sur cette instance (aucun prix) : il n'est pas annoncé du tout, ni ses offres ni `credit`.
+    const sansWa = descriptionBuyCredit(OFFRES_RECHARGE, []);
     for (const prixVides of [[], ['refill_5', 'refill_10', 'refill_50', 'refill_100']] as OffreRecharge[][]) {
       const m = monter({ prixVides });
       const d = await decrire(m.server, JETON.brut, 'buy_credit');
-      expect(d.description).toBe(catalogue.description);
-      expect(d.inputSchema).toEqual(catalogue.entree);
+      expect(d.description).toBe(sansWa.description);
+      expect(d.inputSchema).toEqual(sansWa.entree);
+      expect(d.description).not.toMatch(/wa_\d/);
       await m.server.close();
     }
   });
@@ -1174,7 +1177,7 @@ describe('🔴 les bornes de la console sont annoncées dans les schémas des ou
     ['preview_site', bornesDesChamps({ url: site.url, portee: site.portee })],
     ['import_site', bornesDesChamps({ url: site.url, pages: site.pages })],
     ['import_document_text', bornesDesChamps(champsDe(saisieDeTexteDocument))],
-    ['buy_credit', bornesDesChamps(champsDe(saisieDePaiement))],
+    ['buy_credit', bornesDesChamps(champsDe(saisieBuyCredit))],
     // Le budget s'annonce en euros, la console le borne en micro-euros : il a son propre cas.
     ['set_agent_limits', bornesDesChamps({ max_turns: modification.maxTours, max_tool_calls: modification.maxAppelsOutils })],
   ];

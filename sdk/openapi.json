@@ -1505,6 +1505,8 @@
                                   "field_exists",
                                   "number_unlinked",
                                   "number_suspended",
+                                  "whatsapp_credit_exhausted",
+                                  "whatsapp_credit_line_inactive",
                                   "scenario_not_found",
                                   "node_not_found",
                                   "template_not_found",
@@ -3754,6 +3756,16 @@
               }
             }
           },
+          "402": {
+            "description": "Error: whatsapp_credit_exhausted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Error: missing_scope, tenant_locked.",
             "content": {
@@ -3775,7 +3787,7 @@
             }
           },
           "409": {
-            "description": "Error: identity_conflict, blocked_contact, opted_out, no_whatsapp_number, number_unlinked, number_suspended, meta_auth_failed.",
+            "description": "Error: identity_conflict, blocked_contact, opted_out, no_whatsapp_number, number_unlinked, number_suspended, whatsapp_credit_line_inactive, meta_auth_failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3993,7 +4005,7 @@
             }
           },
           "402": {
-            "description": "Error: plan_limit_reached.",
+            "description": "Error: whatsapp_credit_exhausted, plan_limit_reached.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4023,7 +4035,7 @@
             }
           },
           "409": {
-            "description": "Error: identity_conflict, blocked_contact, opted_out, no_whatsapp_number, number_unlinked, number_suspended, meta_auth_failed.",
+            "description": "Error: identity_conflict, blocked_contact, opted_out, no_whatsapp_number, number_unlinked, number_suspended, whatsapp_credit_line_inactive, meta_auth_failed.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4651,7 +4663,7 @@
             }
           },
           "402": {
-            "description": "Error: plan_feature_unavailable, plan_limit_reached.",
+            "description": "Error: whatsapp_credit_exhausted, plan_feature_unavailable, plan_limit_reached.",
             "content": {
               "application/json": {
                 "schema": {
@@ -4681,7 +4693,7 @@
             }
           },
           "409": {
-            "description": "Error: idempotency_in_progress, no_whatsapp_number, number_unlinked, number_suspended, scenario_ambiguous, rcs_not_enabled.",
+            "description": "Error: idempotency_in_progress, no_whatsapp_number, number_unlinked, number_suspended, whatsapp_credit_line_inactive, scenario_ambiguous, rcs_not_enabled.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9718,6 +9730,8 @@
               "field_exists",
               "number_unlinked",
               "number_suspended",
+              "whatsapp_credit_exhausted",
+              "whatsapp_credit_line_inactive",
               "scenario_not_found",
               "node_not_found",
               "template_not_found",

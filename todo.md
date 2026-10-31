@@ -71,14 +71,22 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
 ## Le Crédit WhatsApp : la suite de notre côté, puis le partenaire (plan `docs/superpowers/plans/2026-10-30-credit-whatsapp-notre-cote.md`)
 
 - Le lot 1 est en production depuis le 2026-10-31 (`247937c9`) : reste son essai réel par Julien (essai 204).
-- 🔴 Lot 2, D'ABORD et avant tout client sur la ligne : l'écart 10 du plan (un refus du crédit au milieu de la liste d'un
-  bloc de scénario rejouerait, à la reprise, ce qui était déjà parti), puis l'écart 14.
-- Lot 2 : l'achat par Stripe, l'onglet Crédit WhatsApp, `get_credit` et `buy_credit`, les alertes, la reprise des campagnes
-  en pause après un crédit ; et ce que le lot 1 y a renvoyé (écarts 4, 7, 8 et 9 du plan : codes publics et refus à la
-  création d'un envoi unitaire, prix en euros du récapitulatif, cartes de coût lues dans les provisions, reprise d'une
-  campagne programmée).
+- Le lot 2 (l'achat, l'onglet, la reprise, les e-mails, Claude, les codes publics, les écarts 10 et 14) se livre le
+  2026-10-31 : reste son essai réel, après que Julien a créé les quatre prix Stripe et lancé
+  `node docs/prive/credit-whatsapp/poser-prix-wa.cjs`.
+- 🟡 Les jaunes de la relecture du lot 2, à pousser après son déploiement (relus par le lot suivant) : le refus de
+  `POST /v1/sends`, `get_setup_state` et le mot « épuisé » de l'onglet comparent le solde à zéro, pas au prix d'un message ;
+  le `break` du refus d'étape saute aussi les étiquettes et les champs qui suivent ; la page `paiement-recu` ne connaît
+  pas `produit=credit_whatsapp` (elle parle du numéro) ; le webhook compare le total TTC au HT (une remise sous la TVA
+  passerait) ; la description de `get_setup_state` ne cite pas `credit_whatsapp_epuise` ; l'alerte « épuisé » relit la
+  base à chaque refus (une mémoire du jour par espace suffit) ; `dernierCreditRecu` doit ignorer les régularisations ; un
+  test de la garde de configuration des quatre prix ; `features.md` dit l'onglet « jamais en Entreprise », alors qu'une
+  Entreprise sans open bar le voit.
 - Lot 3 : la régularisation sur les volumes de Meta. Lot 4 : l'option à 30 € par numéro et la recharge automatique.
-- Lot 5, avec le partenaire : l'Embedded Signup sur sa ligne de crédit (rien ne lui est écrit sans Julien).
+- Lot 5, avec le partenaire : l'Embedded Signup sur sa ligne de crédit (rien ne lui est écrit sans Julien) ; et, à
+  l'ouverture, ce que le lot 2 lui a laissé (écarts 4 et 5 du lot 2) : le prix en euros du récapitulatif d'une campagne,
+  les cartes de coût lues dans les provisions, la fiche d'aide publique, la FAQ du plugin, la vitrine, et les fiches de
+  l'offre et des e-mails.
 
 ## 🟡 Le chiffre d'affaires attribué : ce que la v1 laisse (spec du 2026-10-28)
 

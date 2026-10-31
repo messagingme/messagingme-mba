@@ -27,6 +27,7 @@ function vue(
     suiteDuNumero: async () => suite,
     siegesEnVente: true,
     abonnement: async () => abonnement,
+    ongletCreditWhatsapp: async () => false,
   });
 }
 
@@ -69,6 +70,7 @@ describe('creerVueOffre', () => {
       modelesDuMois: { etatDuMois: async () => null },
       proEnVente: true, suiteDuNumero: async () => null, siegesEnVente: true,
       abonnement: async () => null,
+      ongletCreditWhatsapp: async () => false,
     })('t1');
     expect((await avecContacts('base', 3000)).contactsEnTrop).toBe(2900);
     expect((await avecContacts('base', 101)).contactsEnTrop).toBe(1);
@@ -170,6 +172,7 @@ describe('les sièges du Pro dans la vue (spec offres v2, livraison 7)', () => {
     suiteDuNumero: async () => null,
     siegesEnVente,
     abonnement: async () => null,
+    ongletCreditWhatsapp: async () => false,
   });
 
   it('🔴 un Pro annuel avec deux sièges : 3 inclus, 2 achetés, la limite à 5, le prix de sa formule lisible', async () => {

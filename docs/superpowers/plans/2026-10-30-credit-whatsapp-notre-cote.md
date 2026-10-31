@@ -392,6 +392,43 @@ l'appel de `leverPausesCreditWhatsapp` après chaque crédit, et un balayage de 
   du plugin à jour.
 - [ ] Voir échouer, implémenter, voir passer (suite `web/` comprise) ; commit. Fin du lot 2 : relecture, essai réel.
 
+### Écarts du lot 2, relevés à la livraison (2026-10-31)
+
+1. Les écarts 10 et 14 du lot 1 sont faits : `refusAvantEffets` (la garde sans provision) est lu par
+   `MetaClientFactory.verifierAvantEffets` aux points où `verifierNumeroWhatsApp` l'était, et `apply` convertit un refus du
+   crédit en refus d'étape dès qu'un effet irréversible du bloc est passé (HTTP, e-mail, envoi). La ligne d'un numéro et la
+   catégorie d'un modèle se lisent par une lecture en vol partagée ; l'échec de lecture d'une catégorie est gardé 30 s.
+2. L'écart 4 du lot 1 est fait : `whatsapp_credit_exhausted` (402) et `whatsapp_credit_line_inactive` (409) sont au contrat
+   (`STATUT_PAR_CODE`, le groupe `NUMERO` du registre OpenAPI, la doc des erreurs et leurs gestes), le gestionnaire commun
+   les rend sous `/v1`, et `POST /v1/sends` les refuse avant toute campagne. Le contrat du SDK se régénère avec les
+   dépendances EXACTES du verrou : le `node_modules` partagé du poste porte un zod plus ancien (4.4.3 contre 4.6.7), qui
+   réécrivait huit schémas sans rapport.
+3. L'écart 9 du lot 1 est couvert par `leverPausesCreditWhatsapp` (une campagne programmée repart en `scheduled`).
+4. 🔴 Les écarts 7 (le prix en euros de `EtapeRecap`) et 8 (les cartes de coût lues dans les provisions) passent au lot 5 :
+   ils ne servent qu'à un espace payé par la ligne d'un partenaire, et aucun ne l'est avant le lot 5 (un numéro d'essai
+   posé dans `/ops` reste facturé à notre carte, et Meta rend son `COST`). Le refus du lancement dit déjà ce qui manque.
+5. La fiche d'aide publique, la FAQ du plugin, la vitrine et les fiches existantes que l'ouverture touche (l'offre, les
+   e-mails) partent avec l'ouverture au lot 5 : une page publique annoncerait ce que personne ne peut prendre. `features.md`
+   a sa section dès ce lot, avec sa fiche de console, non publique (`recharger-le-credit-whatsapp`, chargée par
+   `aide:charger` après le déploiement) : `tests/aide-proposer.test.ts` refuse un écran client sans fiche. `npm run
+   doc:md` suit les codes publics (le catalogue MCP n'a pas bougé : `buy_credit` ne change de description qu'une fois
+   les prix posés).
+6. L'historique de l'onglet porte `facture` (jointure sur `stripe_paiements`, comme le Crédit IA) : la facture d'un achat
+   s'ouvre par la route du Crédit IA, les deux achats vivant dans la même table de paiements.
+7. Le seuil de 10 € vit dans `web/lib/partage/credit-whatsapp.ts`, lu par l'e-mail et par l'onglet : un seul chiffre.
+8. Essai réel du lot 2 : Julien crée les quatre prix Stripe (50, 100, 250 et 500 € HT, taxe en sus), puis lance
+   `node docs/prive/credit-whatsapp/poser-prix-wa.cjs` : il relit les prix chez Stripe et pose les quatre variables en
+   variables ORDINAIRES du conteneur de l'API, sans renvoyer ses secrets (deux n'existent qu'au conteneur et ne peuvent
+   pas être renvoyés). La machine des workers n'en a pas besoin : aucun de ses chemins n'ouvre un achat.
+9. Relecture indépendante : un rouge, corrigé avant le push. Le correctif de l'écart 10 rendait en chaîne, au démarrage,
+   un refus du crédit tombé après un e-mail ou un appel d'API : une campagne de scénario passait au destinataire suivant,
+   effets compris, jusqu'à la porte de qualité, au lieu de se mettre en pause. Le refus est relevé, marqué « après
+   effets » (`CreditWhatsappRefusApresEffets`) : la campagne résout ce destinataire en échec et se met en pause,
+   l'automation garde son tir. Deux jaunes qui décidaient du même scénario partent avec lui : la reprise exige un solde
+   d'un euro (un reste sous le prix d'un message relançait la campagne à chaque balayage horaire, un contact de plus à
+   chaque fois), et le refus préalable porte un prix d'un micro-euro (sa pause ne s'écrit plus après un achat). Les autres
+   jaunes partent après le déploiement, relus par le lot suivant (`todo.md`).
+
 ## Lot 3 : la régularisation sur les volumes de Meta
 
 ### Tâche 12 : lire les volumes, recalculer, régulariser

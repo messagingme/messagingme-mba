@@ -18,6 +18,7 @@ describe('les codes d’erreur de l’API publique', () => {
       unknown_contact: 404, duplicate: null, identity_conflict: 409, blocked_contact: 409, opted_out: 409, no_consent: 409,
       window_closed: 422, missing_variable: null, no_phone: 422, rcs_unreachable: 422,
       rcs_not_enabled: 409, no_whatsapp_number: 409, number_unlinked: 409, number_suspended: 409,
+      whatsapp_credit_exhausted: 402, whatsapp_credit_line_inactive: 409,
       scenario_not_found: 404, node_not_found: 404, template_not_found: 404, rcs_message_not_found: 404, send_not_found: 404,
       meta_rejected: 422, invalid_header_media: 422, template_rejected: 422, meta_auth_failed: 409,
       webhook_not_found: 404, delivery_not_found: 404, delivery_not_replayable: 409, webhooks_unavailable: 503, field_exists: 409, conversation_not_found: 404, message_not_found: 404, invalid_cursor: 400, no_media: 404, media_expired: 410, media_unavailable: 422,

@@ -1368,6 +1368,18 @@ export async function demarrerWorker(): Promise<void> {
   taches.programmer('campagnes-reprise-plafond', 60_000, plafondSweep, { immediat: true, enEchec: echecDeBalayage('reprise-sweep', 'sweeper:reprise') });
 
   /**
+   * Le filet de la reprise du Crédit WhatsApp (plan du Crédit WhatsApp, tâche 11) : les campagnes en pause
+   * `credit_whatsapp_epuise` d'un espace dont le solde est redevenu positif (ou passé en open bar) repartent, si la reprise
+   * lancée par le crédit a raté (le webhook ne l'attend pas). Une lecture par heure, puis une écriture conditionnelle par
+   * espace concerné (`leverPausesCreditWhatsapp` relit le solde et le numéro dans sa propre instruction).
+   */
+  taches.programmer('credit-whatsapp-reprise', 60 * 60_000, async () => {
+    for (const tenant of await numeroDelieStore.espacesEnPauseCredit()) {
+      await numeroDelieStore.leverPausesCreditWhatsapp(tenant);
+    }
+  }, { enEchec: echecDeBalayage('credit-whatsapp-reprise', 'sweeper:credit-whatsapp') });
+
+  /**
    * Balayage de reprise des campagnes gelées : `running`, des destinataires en attente, et aucun run qui
    * tourne. C'est ce qui arrive à chaque déploiement (worker tué en plein envoi) ; sans reprise, les rejeux
    * pg-boss s'épuisent et la campagne se fige pour toujours, sans erreur visible.

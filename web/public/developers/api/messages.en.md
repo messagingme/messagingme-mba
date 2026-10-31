@@ -97,6 +97,8 @@ In the order they are checked:
 | 409 | `no_whatsapp_number` | Workspace without a WhatsApp number. |
 | 409 | `number_unlinked` | Number unlinked from the Home page. |
 | 409 | `number_suspended` | Provided number subscription overdue or ended. |
+| 402 | `whatsapp_credit_exhausted` | WhatsApp credit used up: nothing goes out until a top-up. |
+| 409 | `whatsapp_credit_line_inactive` | WhatsApp credit inactive on this number. |
 | 422 | `no_phone` | Number linked by QR code: a reply outside the 24 h window to someone with no known number. |
 | 402 | `plan_limit_reached` | Number linked by QR code: the month’s messages reached. |
 | 400, 409 | `invalid_recipient` `invalid_phone` `identity_conflict` | Record keys missing, unreadable or contradictory: [Identifying a person](https://console.messagingme.app/developers/api/concepts.en.md#identification) |
