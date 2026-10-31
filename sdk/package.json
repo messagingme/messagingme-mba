@@ -25,7 +25,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/julienmessagingme/messagingme-sdk.git"
+    "url": "git+https://github.com/messagingme/messagingme-sdk.git"
   },
   "homepage": "https://console.messagingme.app/developers/api"
 }

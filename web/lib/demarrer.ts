@@ -14,18 +14,18 @@ export const API_PUBLIQUE = 'https://api.messagingme.app';
  * 🔴 LE PLUGIN CLAUDE CODE BRANCHE L'ESPACE (lot 10, livraison B, décision de Julien du 2026-10-12) : deux commandes,
  * sans clé, à la place de `claude mcp add` ; l'autorisation se valide ensuite par `/mcp` (le serveur s'y nomme
  * `SERVEUR_PLUGIN_MCP`), puis `COMMANDE_DEMARRAGE` lance la mise en service, qui lit d'abord où en est l'espace. Le
- * plugin vit dans `plugin/` et se publie dans `julienmessagingme/messagingme-plugin` ; `tests/plugin.test.ts` tient ces
+ * plugin vit dans `plugin/` et se publie dans `messagingme/messagingme-plugin` ; `tests/plugin.test.ts` tient ces
  * noms égaux à ses manifestes. La page finale du tunnel et la vitrine les montrent ; la doc MCP garde `claude mcp add`
  * pour qui ne veut que le serveur.
  */
 export const COMMANDES_PLUGIN = [
-  '/plugin marketplace add julienmessagingme/messagingme-plugin',
+  '/plugin marketplace add messagingme/messagingme-plugin',
   '/plugin install messagingme@messagingme',
 ] as const;
 export const COMMANDE_DEMARRAGE = '/messagingme:demarrer';
 export const SERVEUR_PLUGIN_MCP = 'plugin:messagingme:messagingme';
 /** Le dépôt public où le plugin se publie : la vitrine y renvoie (le centre d'aide, le bout du guide du numéro). */
-export const DEPOT_PLUGIN = 'https://github.com/julienmessagingme/messagingme-plugin';
+export const DEPOT_PLUGIN = 'https://github.com/messagingme/messagingme-plugin';
 
 /** La variable d'environnement où ranger la clé d'API de l'application : partagée avec le serveur (`create_api_key`). */
 export { VARIABLE_CLE } from './partage/droits-api';

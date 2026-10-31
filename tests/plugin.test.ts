@@ -11,7 +11,7 @@ import { QUOTAS_API_DEFAUT } from '../src/api/quotas';
 import { commandesPubliees } from '../scripts/plugin/generer';
 
 /**
- * LE PLUGIN CLAUDE CODE (lot 10), tel qu'il part dans `julienmessagingme/messagingme-plugin` : ce dossier est copié tel
+ * LE PLUGIN CLAUDE CODE (lot 10), tel qu'il part dans `messagingme/messagingme-plugin` : ce dossier est copié tel
  * quel par `.github/workflows/plugin.yml`. Ce que la doc de Claude Code exige (lue le 2026-10-12) et ce que nos outils
  * permettent, vérifié ici parce qu'un plugin faux ne se voit qu'à l'installation, chez quelqu'un d'autre.
  */

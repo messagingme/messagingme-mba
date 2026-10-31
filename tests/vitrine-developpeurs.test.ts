@@ -126,7 +126,7 @@ describe('le terminal montre de vrais outils et la vraie balise', () => {
       expect(texte(exemple!.contenu).trim()).toBe(EXEMPLES_SDK.premierAppel.code);
       // Le paquet n'est pas sur npm : la page dit comment l'installer, à la version que la doc fait installer.
       const [installation] = parAttribut(html, 'data-installation');
-      expect(texte(installation?.contenu ?? '').trim()).toBe(`npm install github:julienmessagingme/messagingme-sdk#v${VERSION_SDK}`);
+      expect(texte(installation?.contenu ?? '').trim()).toBe(`npm install github:messagingme/messagingme-sdk#v${VERSION_SDK}`);
     });
 
     it(`page ${langue} : l’adresse donnée aux autres clients MCP est celle de l’API publique`, () => {
@@ -181,7 +181,7 @@ describe('ce que lisent les moteurs et les modèles', () => {
   it('les deux pages portent la FAQ générée (son contenu est tenu par tests/plugin-faq.test.ts)', () => {
     for (const html of Object.values(PAGES)) expect(html).toContain(MARQUE_DEBUT);
     expect(lire('llms.txt')).toContain('https://app.messagingme.fr/developpeurs/#faq');
-    expect(lire('llms.txt')).toContain('https://github.com/julienmessagingme/messagingme-plugin');
+    expect(lire('llms.txt')).toContain('https://github.com/messagingme/messagingme-plugin');
   });
 
   it('le plan du site et `llms.txt` citent les deux pages', () => {
@@ -202,7 +202,7 @@ describe('le démarrage passe par le plugin, sans créer d’espace avant (Julie
       // Les étapes portent la bande claire de la page (2026-10-20)
       expect(html).toContain('<section class="f-bloc dev-etapes bande-claire" id="demarrer">');
       expect(html.split('href="#demarrer"').length - 1, 'le haut et le bas de la page').toBe(2);
-      expect(html).toContain('href="https://github.com/julienmessagingme/messagingme-plugin"');
+      expect(html).toContain('href="https://github.com/messagingme/messagingme-plugin"');
       // Sous les boutons du haut : aucun compte, un numéro fourni, un compte Meta Business ou l'application WhatsApp Business
       // seulement (Julien, 2026-10-19, puis 2026-10-26).
       const promesses = html.split('<ul class="dev-sans">')[1]?.split('</ul>')[0] ?? '';

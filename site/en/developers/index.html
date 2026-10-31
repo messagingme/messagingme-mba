@@ -268,8 +268,8 @@
       <ul>
         <li><a href="https://console.messagingme.app/developers/api?lang=en"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-file-text"/></svg></span><span><strong>API docs</strong><small>Quickstart, reference, webhooks, errors</small></span></a></li>
         <li><a href="https://console.messagingme.app/developers/mcp?lang=en"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-chat-circle-dots"/></svg></span><span><strong>MCP docs</strong><small>The tools, the endpoint, authorization</small></span></a></li>
-        <li><a href="https://github.com/julienmessagingme/messagingme-plugin"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-github"/></svg></span><span><strong>Claude Code plugin</strong><small>Its public GitHub repository</small></span></a></li>
-        <li><a href="https://github.com/julienmessagingme/messagingme-sdk"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-github"/></svg></span><span><strong>TypeScript SDK</strong><small>Its public GitHub repository</small></span></a></li>
+        <li><a href="https://github.com/messagingme/messagingme-plugin"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-github"/></svg></span><span><strong>Claude Code plugin</strong><small>Its public GitHub repository</small></span></a></li>
+        <li><a href="https://github.com/messagingme/messagingme-sdk"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-github"/></svg></span><span><strong>TypeScript SDK</strong><small>Its public GitHub repository</small></span></a></li>
         <li><a href="https://api.messagingme.app/openapi.json"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-code"/></svg></span><span><strong>OpenAPI contract</strong><small>To generate your own client</small></span></a></li>
       </ul>
     </nav>
@@ -283,7 +283,7 @@
           <span class="f-num">1</span>
           <h3>Install the plugin</h3>
           <p>In Claude Code, one after the other. No account to create, no key to copy.</p>
-          <pre class="code" id="dev-commande-1" data-commande="plugin-1"><code>/plugin marketplace add julienmessagingme/messagingme-plugin</code></pre>
+          <pre class="code" id="dev-commande-1" data-commande="plugin-1"><code>/plugin marketplace add messagingme/messagingme-plugin</code></pre>
           <button class="dev-copier" type="button" aria-controls="dev-commande-1" data-copie="Copied" data-echec="Copy failed">Copy</button>
           <span class="masque dev-statut" role="status"></span>
           <pre class="code" id="dev-commande-2" data-commande="plugin-2"><code>/plugin install messagingme@messagingme</code></pre>
@@ -384,7 +384,7 @@
         </ul>
       </div>
       <figure class="dev-exemple">
-        <pre class="code dev-installation" data-installation="sdk"><code>npm install github:julienmessagingme/messagingme-sdk#v0.3.1</code></pre>
+        <pre class="code dev-installation" data-installation="sdk"><code>npm install github:messagingme/messagingme-sdk#v0.3.1</code></pre>
         <figcaption>premier-appel.ts</figcaption>
         <pre class="code" data-exemple="sdk.premierAppel"><code>import { createClient } from '@messagingme/sdk';
 
@@ -468,7 +468,7 @@ const envoi = await api.POST('/v1/sends', {
       <p class="f-texte">No account to create, a number provided if you have none: all you need is <a href="/en/developers/meta-business-account/">a Meta Business account</a> or the WhatsApp Business app.</p>
       <div class="appels">
         <a class="bouton bouton-plein" href="#demarrer">Install the plugin</a>
-        <a class="bouton bouton-texte" href="https://github.com/julienmessagingme/messagingme-plugin"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>The plugin on GitHub</a>
+        <a class="bouton bouton-texte" href="https://github.com/messagingme/messagingme-plugin"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>The plugin on GitHub</a>
       </div>
     </div>
   </section>

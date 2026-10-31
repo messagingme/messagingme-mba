@@ -269,8 +269,8 @@
       <ul>
         <li><a href="https://console.messagingme.app/developers/api"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-file-text"/></svg></span><span><strong>Doc de l’API</strong><small>Démarrage, référence, webhooks, erreurs</small></span></a></li>
         <li><a href="https://console.messagingme.app/developers/mcp"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-chat-circle-dots"/></svg></span><span><strong>Doc MCP</strong><small>Les outils, l’adresse, l’autorisation</small></span></a></li>
-        <li><a href="https://github.com/julienmessagingme/messagingme-plugin"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-github"/></svg></span><span><strong>Plugin Claude Code</strong><small>Son dépôt public sur GitHub</small></span></a></li>
-        <li><a href="https://github.com/julienmessagingme/messagingme-sdk"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-github"/></svg></span><span><strong>SDK TypeScript</strong><small>Son dépôt public sur GitHub</small></span></a></li>
+        <li><a href="https://github.com/messagingme/messagingme-plugin"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-github"/></svg></span><span><strong>Plugin Claude Code</strong><small>Son dépôt public sur GitHub</small></span></a></li>
+        <li><a href="https://github.com/messagingme/messagingme-sdk"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-github"/></svg></span><span><strong>SDK TypeScript</strong><small>Son dépôt public sur GitHub</small></span></a></li>
         <li><a href="https://api.messagingme.app/openapi.json"><span class="dev-porte-ic" aria-hidden="true"><svg class="ic"><use href="#i-code"/></svg></span><span><strong>Contrat OpenAPI</strong><small>Pour générer votre propre client</small></span></a></li>
       </ul>
     </nav>
@@ -284,7 +284,7 @@
           <span class="f-num">1</span>
           <h3>Installez le plugin</h3>
           <p>Dans Claude Code, l’une après l’autre. Aucun compte à créer, aucune clé à copier.</p>
-          <pre class="code" id="dev-commande-1" data-commande="plugin-1"><code>/plugin marketplace add julienmessagingme/messagingme-plugin</code></pre>
+          <pre class="code" id="dev-commande-1" data-commande="plugin-1"><code>/plugin marketplace add messagingme/messagingme-plugin</code></pre>
           <button class="dev-copier" type="button" aria-controls="dev-commande-1" data-copie="Copié" data-echec="Copie impossible">Copier</button>
           <span class="masque dev-statut" role="status"></span>
           <pre class="code" id="dev-commande-2" data-commande="plugin-2"><code>/plugin install messagingme@messagingme</code></pre>
@@ -385,7 +385,7 @@
         </ul>
       </div>
       <figure class="dev-exemple">
-        <pre class="code dev-installation" data-installation="sdk"><code>npm install github:julienmessagingme/messagingme-sdk#v0.3.1</code></pre>
+        <pre class="code dev-installation" data-installation="sdk"><code>npm install github:messagingme/messagingme-sdk#v0.3.1</code></pre>
         <figcaption>premier-appel.ts</figcaption>
         <pre class="code" data-exemple="sdk.premierAppel"><code>import { createClient } from '@messagingme/sdk';
 
@@ -469,7 +469,7 @@ const envoi = await api.POST('/v1/sends', {
       <p class="f-texte">Aucun compte à créer, un numéro fourni si vous n’en avez pas&nbsp;: il vous faut seulement <a href="/developpeurs/compte-meta-business/">un compte Meta Business</a> ou l’application WhatsApp Business.</p>
       <div class="appels">
         <a class="bouton bouton-plein" href="#demarrer">Installer le plugin</a>
-        <a class="bouton bouton-texte" href="https://github.com/julienmessagingme/messagingme-plugin"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>Le plugin sur GitHub</a>
+        <a class="bouton bouton-texte" href="https://github.com/messagingme/messagingme-plugin"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>Le plugin sur GitHub</a>
       </div>
     </div>
   </section>

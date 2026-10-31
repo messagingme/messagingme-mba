@@ -15,7 +15,7 @@ _Prompt_
 ```
 Add WhatsApp recovery of failed payments to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/failed-payment-recovery.en.md:
-1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
 2. with the Messaging Me tools, create the failed payment template payment_failed (UTILITY, en, the first name, a
    URL button to our billing page);
 3. write lib/billing.ts wired to Stripe (signature checked) and to our users, and wire the send into our Stripe
@@ -43,7 +43,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 _.env.local_

@@ -73,7 +73,7 @@ function Recette() {
           {t('Installez le SDK, puis les variables dans ', 'Install the SDK, then the variables in ')}<C>.env.local</C>
           {t(' et dans celles de votre hébergeur.', ' and in your host’s.')}
         </p>
-        <Bloc legende={t('Commande', 'Command')}>{`npm install github:julienmessagingme/messagingme-sdk#v${VERSION_SDK}`}</Bloc>
+        <Bloc legende={t('Commande', 'Command')}>{`npm install github:messagingme/messagingme-sdk#v${VERSION_SDK}`}</Bloc>
         <Bloc legende=".env.local">{ENV_NEXTJS}</Bloc>
         <Bloc legende={cas.client.fichier}>{cas.client.code}</Bloc>
         <p>

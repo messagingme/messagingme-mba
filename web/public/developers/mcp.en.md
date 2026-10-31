@@ -11,7 +11,7 @@ The simplest way in Claude Code: the Messaging Me plugin connects this server wi
 _Command 1_
 
 ```
-/plugin marketplace add julienmessagingme/messagingme-plugin
+/plugin marketplace add messagingme/messagingme-plugin
 ```
 
 _Command 2_

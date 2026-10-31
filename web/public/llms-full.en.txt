@@ -301,7 +301,7 @@ The TypeScript client of the API: calls typed by path and method, typed errors, 
 _Installation_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 - No dependency. Node 20 or later, Deno, Bun, and runtimes that expose fetch and Web Crypto.
@@ -2822,7 +2822,7 @@ _Prompt_
 ```
 Connect Messaging Me (WhatsApp) to this Next.js project (App Router), following the recipe
 https://console.messagingme.app/developers/api/guides/nextjs.en.md:
-1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
 2. create lib/messagingme.ts (the client, server-side only);
 3. create the POST /api/confirmation route that sends the “confirmation_commande” template (two variables: the
    contact name, then the order number) with an idempotency key taken from the order number, and returns e.code and
@@ -2840,7 +2840,7 @@ Do not invent any route or field: they are in https://api.messagingme.app/openap
 _Command_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 Two variables in `.env.local`: the API key (Developers > API keys, sends:create scope) and the webhook endpoint secret, shown only once when it is created.
@@ -2971,7 +2971,7 @@ _Prompt_
 ```
 Add WhatsApp appointment reminders to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/appointment-reminders.en.md:
-1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
 2. with the Messaging Me tools, create the reminder template appointment_reminder (UTILITY, en, the first name then the
    time, two quick reply buttons) and, on the agent that answers (on and set as responder), the two actions
    “Reschedule request” (no field) and “Slot choice” (field slot);
@@ -3007,7 +3007,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 _.env.local_
@@ -3179,7 +3179,7 @@ _Prompt_
 ```
 Add WhatsApp appointment booking to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/appointment-booking.en.md:
-1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
 2. with the Messaging Me tools, turn the agent on, set it as responder, and add it the two actions
    “Appointment request” (fields reason and city, to trigger once the city is known) and “Slot choice” (field slot);
 3. write lib/calendar.ts wired to our calendar (offer three free slots, book the one chosen) and the route
@@ -3208,7 +3208,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 _.env.local_
@@ -3310,7 +3310,7 @@ _Prompt_
 ```
 Add the WhatsApp welcome for new users to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/saas-onboarding-activation.en.md:
-1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
 2. with the Messaging Me tools, create the welcome template welcome (MARKETING, en, the first name, a URL button to
    the page that gets the user started);
 3. add to the sign-up form a “Get my getting-started tips on WhatsApp” box, unticked by default, and write
@@ -3344,7 +3344,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 _.env.local_
@@ -3421,7 +3421,7 @@ _Prompt_
 ```
 Add WhatsApp recovery of failed payments to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/failed-payment-recovery.en.md:
-1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
 2. with the Messaging Me tools, create the failed payment template payment_failed (UTILITY, en, the first name, a
    URL button to our billing page);
 3. write lib/billing.ts wired to Stripe (signature checked) and to our users, and wire the send into our Stripe
@@ -3449,7 +3449,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 _.env.local_
@@ -3556,7 +3556,7 @@ _Prompt_
 ```
 Add WhatsApp order notifications to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/order-notifications.en.md:
-1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
 2. with the Messaging Me tools, create the shipping template order_shipped (UTILITY, en, the first name then the
    order number, a URL button to our tracking page);
 3. write lib/orders.ts wired to our orders (the send when an order moves to shipped) and the route
@@ -3585,7 +3585,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 _.env.local_
@@ -4829,7 +4829,7 @@ The simplest way in Claude Code: the Messaging Me plugin connects this server wi
 _Command 1_
 
 ```
-/plugin marketplace add julienmessagingme/messagingme-plugin
+/plugin marketplace add messagingme/messagingme-plugin
 ```
 
 _Command 2_

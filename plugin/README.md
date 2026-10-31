@@ -13,7 +13,7 @@ creates it along the way, and you can keep your WhatsApp Business app.**
 In Claude Code:
 
 ```
-/plugin marketplace add julienmessagingme/messagingme-plugin
+/plugin marketplace add messagingme/messagingme-plugin
 /plugin install messagingme@messagingme
 ```
 

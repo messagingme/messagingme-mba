@@ -11,7 +11,7 @@ Le plus simple dans Claude Code : le plugin Messaging Me branche ce serveur sans
 _Commande 1_
 
 ```
-/plugin marketplace add julienmessagingme/messagingme-plugin
+/plugin marketplace add messagingme/messagingme-plugin
 ```
 
 _Commande 2_

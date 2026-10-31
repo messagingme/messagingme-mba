@@ -532,7 +532,7 @@ export const PROMPT_NEXTJS: Bilingue = [
   lignes(
     'Branche Messaging Me (WhatsApp) dans ce projet Next.js (App Router), en suivant la recette',
     'https://console.messagingme.app/developers/api/guides/nextjs.md :',
-    '1. installe le SDK : npm install github:julienmessagingme/messagingme-sdk#v{VERSION} ;',
+    '1. installe le SDK : npm install github:messagingme/messagingme-sdk#v{VERSION} ;',
     '2. crée lib/messagingme.ts (le client, côté serveur seulement) ;',
     '3. crée la route POST /api/confirmation qui envoie le modèle « confirmation_commande » (deux variables : le nom',
     '   du contact, puis le numéro de commande) avec une clé d’idempotence tirée du numéro de commande, et renvoie',
@@ -545,7 +545,7 @@ export const PROMPT_NEXTJS: Bilingue = [
   lignes(
     'Connect Messaging Me (WhatsApp) to this Next.js project (App Router), following the recipe',
     'https://console.messagingme.app/developers/api/guides/nextjs.en.md:',
-    '1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v{VERSION};',
+    '1. install the SDK: npm install github:messagingme/messagingme-sdk#v{VERSION};',
     '2. create lib/messagingme.ts (the client, server-side only);',
     '3. create the POST /api/confirmation route that sends the “confirmation_commande” template (two variables: the',
     '   contact name, then the order number) with an idempotency key taken from the order number, and returns e.code and',
@@ -562,7 +562,7 @@ export const PROMPT_RAPPELS: Bilingue = [
   lignes(
     'Branche des rappels de rendez-vous WhatsApp dans ce projet, en suivant la recette',
     'https://console.messagingme.app/developers/api/guides/appointment-reminders.md :',
-    '1. installe le SDK : npm install github:julienmessagingme/messagingme-sdk#v{VERSION} ;',
+    '1. installe le SDK : npm install github:messagingme/messagingme-sdk#v{VERSION} ;',
     '2. avec les outils Messaging Me, crée le modèle de rappel appointment_reminder (UTILITY, en, le prénom puis l’heure, deux',
     '   boutons de réponse rapide) et, sur l’agent qui répond (allumé et désigné répondeur), les deux actions',
     '   « Reschedule request » (sans champ) et « Slot choice » (champ slot) ;',
@@ -575,7 +575,7 @@ export const PROMPT_RAPPELS: Bilingue = [
   lignes(
     'Add WhatsApp appointment reminders to this project, following the recipe',
     'https://console.messagingme.app/developers/api/guides/appointment-reminders.en.md:',
-    '1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v{VERSION};',
+    '1. install the SDK: npm install github:messagingme/messagingme-sdk#v{VERSION};',
     '2. with the Messaging Me tools, create the reminder template appointment_reminder (UTILITY, en, the first name then the',
     '   time, two quick reply buttons) and, on the agent that answers (on and set as responder), the two actions',
     '   “Reschedule request” (no field) and “Slot choice” (field slot);',
@@ -592,7 +592,7 @@ export const PROMPT_RENDEZ_VOUS: Bilingue = [
   lignes(
     'Branche la prise de rendez-vous par WhatsApp dans ce projet, en suivant la recette',
     'https://console.messagingme.app/developers/api/guides/appointment-booking.md :',
-    '1. installe le SDK : npm install github:julienmessagingme/messagingme-sdk#v{VERSION} ;',
+    '1. installe le SDK : npm install github:messagingme/messagingme-sdk#v{VERSION} ;',
     '2. avec les outils Messaging Me, allume l’agent qui répond (activate_agent, puis set_default_responder) et pose sur',
     '   lui les deux actions « Appointment request » (champs reason et city, à déclencher une fois la ville connue) et',
     '   « Slot choice » (champ slot) ;',
@@ -605,7 +605,7 @@ export const PROMPT_RENDEZ_VOUS: Bilingue = [
   lignes(
     'Add WhatsApp appointment booking to this project, following the recipe',
     'https://console.messagingme.app/developers/api/guides/appointment-booking.en.md:',
-    '1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v{VERSION};',
+    '1. install the SDK: npm install github:messagingme/messagingme-sdk#v{VERSION};',
     '2. with the Messaging Me tools, turn the agent on, set it as responder, and add it the two actions',
     '   “Appointment request” (fields reason and city, to trigger once the city is known) and “Slot choice” (field slot);',
     '3. write lib/calendar.ts wired to our calendar (offer three free slots, book the one chosen) and the route',
@@ -621,7 +621,7 @@ export const PROMPT_ACCUEIL: Bilingue = [
   lignes(
     'Branche le welcome message WhatsApp des nouveaux utilisateurs dans ce projet, en suivant la recette',
     'https://console.messagingme.app/developers/api/guides/saas-onboarding-activation.md :',
-    '1. installe le SDK : npm install github:julienmessagingme/messagingme-sdk#v{VERSION} ;',
+    '1. installe le SDK : npm install github:messagingme/messagingme-sdk#v{VERSION} ;',
     '2. avec les outils Messaging Me, crée le modèle du welcome message, welcome (MARKETING, en, le prénom, un bouton URL vers la',
     '   page qui lance l’utilisateur) ;',
     '3. ajoute au formulaire d’inscription une case « Recevoir mes conseils de démarrage sur WhatsApp », non cochée par',
@@ -632,7 +632,7 @@ export const PROMPT_ACCUEIL: Bilingue = [
   lignes(
     'Add the WhatsApp welcome for new users to this project, following the recipe',
     'https://console.messagingme.app/developers/api/guides/saas-onboarding-activation.en.md:',
-    '1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v{VERSION};',
+    '1. install the SDK: npm install github:messagingme/messagingme-sdk#v{VERSION};',
     '2. with the Messaging Me tools, create the welcome template welcome (MARKETING, en, the first name, a URL button to',
     '   the page that gets the user started);',
     '3. add to the sign-up form a “Get my getting-started tips on WhatsApp” box, unticked by default, and write',
@@ -647,7 +647,7 @@ export const PROMPT_RELANCE: Bilingue = [
   lignes(
     'Branche la relance WhatsApp des paiements échoués dans ce projet, en suivant la recette',
     'https://console.messagingme.app/developers/api/guides/failed-payment-recovery.md :',
-    '1. installe le SDK : npm install github:julienmessagingme/messagingme-sdk#v{VERSION} ;',
+    '1. installe le SDK : npm install github:messagingme/messagingme-sdk#v{VERSION} ;',
     '2. avec les outils Messaging Me, crée le modèle de paiement échoué payment_failed (UTILITY, en, le prénom, un bouton',
     '   URL vers notre page de facturation) ;',
     '3. écris lib/billing.ts relié à Stripe (signature vérifiée) et à nos utilisateurs, et branche l’envoi dans notre',
@@ -658,7 +658,7 @@ export const PROMPT_RELANCE: Bilingue = [
   lignes(
     'Add WhatsApp recovery of failed payments to this project, following the recipe',
     'https://console.messagingme.app/developers/api/guides/failed-payment-recovery.en.md:',
-    '1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v{VERSION};',
+    '1. install the SDK: npm install github:messagingme/messagingme-sdk#v{VERSION};',
     '2. with the Messaging Me tools, create the failed payment template payment_failed (UTILITY, en, the first name, a',
     '   URL button to our billing page);',
     '3. write lib/billing.ts wired to Stripe (signature checked) and to our users, and wire the send into our Stripe',
@@ -673,7 +673,7 @@ export const PROMPT_NOTIFICATIONS: Bilingue = [
   lignes(
     'Branche les notifications de commande WhatsApp dans ce projet, en suivant la recette',
     'https://console.messagingme.app/developers/api/guides/order-notifications.md :',
-    '1. installe le SDK : npm install github:julienmessagingme/messagingme-sdk#v{VERSION} ;',
+    '1. installe le SDK : npm install github:messagingme/messagingme-sdk#v{VERSION} ;',
     '2. avec les outils Messaging Me, crée le modèle d’expédition order_shipped (UTILITY, en, le prénom puis le numéro de',
     '   commande, un bouton URL vers notre page de suivi) ;',
     '3. écris lib/orders.ts relié à nos commandes (l’envoi quand une commande passe en expédiée) et la route',
@@ -685,7 +685,7 @@ export const PROMPT_NOTIFICATIONS: Bilingue = [
   lignes(
     'Add WhatsApp order notifications to this project, following the recipe',
     'https://console.messagingme.app/developers/api/guides/order-notifications.en.md:',
-    '1. install the SDK: npm install github:julienmessagingme/messagingme-sdk#v{VERSION};',
+    '1. install the SDK: npm install github:messagingme/messagingme-sdk#v{VERSION};',
     '2. with the Messaging Me tools, create the shipping template order_shipped (UTILITY, en, the first name then the',
     '   order number, a URL button to our tracking page);',
     '3. write lib/orders.ts wired to our orders (the send when an order moves to shipped) and the route',

@@ -979,7 +979,7 @@ Plans `docs/superpowers/plans/2026-10-14-mm-api-envoi.md` et `2026-10-14-duree-v
   README qui décrit les données échangées, trois exemples d'usage, un compte de test peuplé ; et une question à
   `mcp-review@anthropic.com` sur la règle « ni publicité ni contenu sponsorisé » face à nos envois de modèles
   marketing.
-- **L'installation en une commande** (`/plugin install messagingme --marketplace julienmessagingme/messagingme-plugin`) :
+- **L'installation en une commande** (`/plugin install messagingme --marketplace messagingme/messagingme-plugin`) :
   demande Claude Code 2.1.275 ou plus ; les pages gardent les deux commandes tant que les versions plus anciennes
   circulent.
 
@@ -1030,7 +1030,7 @@ l'écran et en Telegram, boucle de purge bornée. Restent :
 - **Node 20 au minimum, licence MIT au nom de SmartLink** : posées sans lui dans `sdk/package.json` et `sdk/LICENSE`.
 - **Réserver la portée npm `@messagingme`** (une organisation npm gratuite, rien à y publier) : un `npm i @messagingme/sdk`
   tapé par erreur ne doit jamais trouver le paquet d'un tiers. Le SDK s'installe depuis GitHub
-  (`julienmessagingme/messagingme-sdk`) ; une nouvelle version se publie à la main après le `up` de l'API (`DEPLOY.md`).
+  (`messagingme/messagingme-sdk`) ; une nouvelle version se publie à la main après le `up` de l'API (`DEPLOY.md`).
 
 ## 🟡 Lot 17, la doc pour développeurs : ce qui reste hors périmètre (2026-10-12)
 

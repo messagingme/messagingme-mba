@@ -12,7 +12,7 @@ Documentation de l'API : https://console.messagingme.app/developers/api
 ## Installation
 
 ```bash
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 ## Un premier appel

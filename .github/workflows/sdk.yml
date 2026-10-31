@@ -1,8 +1,8 @@
 name: SDK (publication)
 
 # 🔴 LE SDK SE PUBLIE DANS SON PROPRE DEPOT, PAS SUR NPM (lot 16, decision de Julien du 2026-10-09) : le paquet construit
-# part vers `julienmessagingme/messagingme-sdk`, etiquete `v<version>` de `sdk/package.json`. Un integrateur l'installe
-# par `npm install github:julienmessagingme/messagingme-sdk#v<version>`.
+# part vers `messagingme/messagingme-sdk`, etiquete `v<version>` de `sdk/package.json`. Un integrateur l'installe
+# par `npm install github:messagingme/messagingme-sdk#v<version>`.
 #
 # 🔴 A LA MAIN, APRES LE DEPLOIEMENT DE L'API : `gh workflow run sdk.yml --ref main`. Jamais sur un push : un SDK publie
 # avant le `up` de l'API qui porte son contrat donnerait aux integrateurs des types pour des routes encore en 404 (le
@@ -99,7 +99,7 @@ jobs:
           printf '%s\n' 'github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl' > ~/.ssh/hote_github
           export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/cle_sdk -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/hote_github -o StrictHostKeyChecking=yes"
           VERSION=$(node -p "require('./paquet/package.json').version")
-          git clone --quiet git@github.com:julienmessagingme/messagingme-sdk.git depot
+          git clone --quiet git@github.com:messagingme/messagingme-sdk.git depot
           cd depot
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

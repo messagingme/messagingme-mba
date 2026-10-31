@@ -15,7 +15,7 @@ _Prompt_
 ```
 Branche les notifications de commande WhatsApp dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/order-notifications.md :
-1. installe le SDK : npm install github:julienmessagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
 2. avec les outils Messaging Me, crée le modèle d’expédition order_shipped (UTILITY, en, le prénom puis le numéro de
    commande, un bouton URL vers notre page de suivi) ;
 3. écris lib/orders.ts relié à nos commandes (l’envoi quand une commande passe en expédiée) et la route
@@ -44,7 +44,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 _.env.local_

@@ -2819,8 +2819,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   génère un client. La Documentation API le présente sur son Accueil (section « Contrat OpenAPI ») et `llms.txt` le
   cite.
 - ✅ **Le SDK TypeScript** (lot 16, 2026-10-10) : `@messagingme/sdk`, publié dans son propre dépôt GitHub
-  (`julienmessagingme/messagingme-sdk`, étiquette par version) et installé par
-  `npm install github:julienmessagingme/messagingme-sdk#v<version>` (la version de `sdk/package.json`). Ses types sont générés depuis le contrat OpenAPI : un
+  (`messagingme/messagingme-sdk`, étiquette par version) et installé par
+  `npm install github:messagingme/messagingme-sdk#v<version>` (la version de `sdk/package.json`). Ses types sont générés depuis le contrat OpenAPI : un
   chemin, un corps ou une réponse qui n'existent pas ne compilent pas. Il lève une erreur typée sur toute réponse hors
   2xx (statut, code de l'API, délai à attendre) et vérifie la signature d'un webhook sortant (rotation du secret
   comprise). Aucune dépendance, Node 20 ou plus. La Documentation API lui consacre une page (Démarrer > SDK
@@ -4938,8 +4938,8 @@ compatible MCP, directement sur son espace, **sans développer d'intégration**.
 coûté un dépôt entier pour UN partenaire, le serveur MCP rend la console joignable par tout ce qui parle ce
 protocole, pour un seul travail.
 
-✅ **Le plugin Claude Code** (lot 10, publié le 2026-10-13, `julienmessagingme/messagingme-plugin`) : deux commandes
-dans Claude Code (`/plugin marketplace add julienmessagingme/messagingme-plugin`, puis `/plugin install
+✅ **Le plugin Claude Code** (lot 10, publié le 2026-10-13, `messagingme/messagingme-plugin`) : deux commandes
+dans Claude Code (`/plugin marketplace add messagingme/messagingme-plugin`, puis `/plugin install
 messagingme@messagingme`) branchent le serveur sans clé et apportent `/messagingme:demarrer`, qui mène pas à pas
 jusqu'à un agent IA qui répond sur WhatsApp et une bulle sur le site, en reprenant une session coupée là où elle
 s'était arrêtée. Il porte aussi les règles de WhatsApp et la FAQ, la même que celle de la vitrine. Côté serveur, l'outil

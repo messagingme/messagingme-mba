@@ -53,7 +53,7 @@ trap demonter EXIT
 
 if [ -n "$BASE_FICHIER" ]; then echo "== montage du banc sur $SHA (base existante, sa vraie latence)"; else echo "== montage du banc sur $SHA (base à ${DELAI_MS} ms)"; fi
 rm -rf "$D/src-banc" && mkdir -p "$D" "$R"
-git clone -q https://github.com/julienmessagingme/messagingme-mba.git "$D/src-banc"
+git clone -q https://github.com/messagingme/messagingme-mba.git "$D/src-banc"
 git -C "$D/src-banc" checkout -q "$SHA"
 if [ -n "${BANC_CA_FICHIER:-}" ]; then
   cp "$BANC_CA_FICHIER" "$D/src-banc/certs/banc-ca.crt"

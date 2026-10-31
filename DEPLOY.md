@@ -332,7 +332,7 @@ en vain. Donc, quand `plugin/` change :
 3. seulement ensuite : `gh workflow run plugin.yml --ref main`, puis lire le run.
 
 Une version déjà publiée ne bouge plus, comme pour le SDK. Le run n'a d'effet que si le secret `PLUGIN_DEPLOY_KEY`
-existe : le dépôt `julienmessagingme/messagingme-plugin` et sa clé de déploiement en écriture se créent une fois, par
+existe : le dépôt `messagingme/messagingme-plugin` et sa clé de déploiement en écriture se créent une fois, par
 Julien (commandes dans le journal, lot 10).
 
 ## ⚠️ Deux gestes qu'on oublie, et leur symptôme

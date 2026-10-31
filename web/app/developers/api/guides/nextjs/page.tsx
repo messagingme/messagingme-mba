@@ -39,7 +39,7 @@ function Recette() {
       </Section>
 
       <Section id="installation" titre={t('Installation', 'Installation')}>
-        <Bloc legende={t('Commande', 'Command')}>{`npm install github:julienmessagingme/messagingme-sdk#v${VERSION_SDK}`}</Bloc>
+        <Bloc legende={t('Commande', 'Command')}>{`npm install github:messagingme/messagingme-sdk#v${VERSION_SDK}`}</Bloc>
         <p>
           {t('Deux variables dans ', 'Two variables in ')}<C>.env.local</C>
           {t(

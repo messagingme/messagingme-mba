@@ -54,7 +54,7 @@ function skillCommande(nom: string, fichiers: readonly string[]): string {
     '## The code',
     '',
     'The files of the code folder next to this file: Next.js App Router, TypeScript, the Messaging Me SDK',
-    `(npm install github:julienmessagingme/messagingme-sdk#v${VERSION_SDK}). They compile against that version. Read them, then adapt`,
+    `(npm install github:messagingme/messagingme-sdk#v${VERSION_SDK}). They compile against that version. Read them, then adapt`,
     'them to this project rather than copying them blindly.',
     '',
     ...fichiers.map((f) => `- code/${f}`),

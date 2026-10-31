@@ -7,7 +7,7 @@ import { EXEMPLES_SDK, VERSION_SDK } from '@/lib/exemples-code';
 
 /**
  * LE SDK TYPESCRIPT (lot 16, livraison B) : l'installation, un premier appel, les erreurs et la vérification d'un
- * webhook. Le paquet vit dans son propre dépôt (`julienmessagingme/messagingme-sdk`), publié à la main après le
+ * webhook. Le paquet vit dans son propre dépôt (`messagingme/messagingme-sdk`), publié à la main après le
  * déploiement de l'API (`.github/workflows/sdk.yml`).
  *
  * Ses exemples et sa version viennent de `@/lib/exemples-code` (lot 17) : `tests/doc-exemples-compiles.test.ts` compile
@@ -17,7 +17,7 @@ export default function ApiSdkPage() {
   return <CadreDoc page="sdk">{() => <Contenu />}</CadreDoc>;
 }
 
-const INSTALLATION = `npm install github:julienmessagingme/messagingme-sdk#v${VERSION_SDK}`;
+const INSTALLATION = `npm install github:messagingme/messagingme-sdk#v${VERSION_SDK}`;
 
 function Contenu() {
   const t = useT();

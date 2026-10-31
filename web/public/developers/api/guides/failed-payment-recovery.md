@@ -15,7 +15,7 @@ _Prompt_
 ```
 Branche la relance WhatsApp des paiements échoués dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/failed-payment-recovery.md :
-1. installe le SDK : npm install github:julienmessagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
 2. avec les outils Messaging Me, crée le modèle de paiement échoué payment_failed (UTILITY, en, le prénom, un bouton
    URL vers notre page de facturation) ;
 3. écris lib/billing.ts relié à Stripe (signature vérifiée) et à nos utilisateurs, et branche l’envoi dans notre
@@ -43,7 +43,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:julienmessagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.1
 ```
 
 _.env.local_

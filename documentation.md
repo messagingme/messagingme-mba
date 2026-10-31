@@ -5391,7 +5391,7 @@ Ajouté par le lot 4 de l'API publique :
     refusé ailleurs (la « troisième couche » du plan, un outil refusé avant son étape, est hors
     du lot). La consigne d'initialisation du serveur le nomme pour toute mise en service.
 53. **Le plugin Claude Code vit dans `plugin/`, se publie à la main, et sa FAQ a une seule source** (lot 10).
-    `plugin/` est copié tel quel dans `julienmessagingme/messagingme-plugin` par `.github/workflows/plugin.yml`, sur le
+    `plugin/` est copié tel quel dans `messagingme/messagingme-plugin` par `.github/workflows/plugin.yml`, sur le
     modèle du SDK (deux jobs, seul le second voit `PLUGIN_DEPLOY_KEY` et publie `plugin/` extrait du commit lui-même,
     jamais le dossier où `npm ci` a tourné ; une version publiée ne bouge plus), APRÈS le `up`
     de l'API qui porte les outils que ses skills nomment. `tests/plugin.test.ts` tient les manifestes (même nom partout,
