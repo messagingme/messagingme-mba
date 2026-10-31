@@ -78,6 +78,14 @@ exige l'ancre déclarée par sa page et l'outil visé cité par la ligne (vérif
 change avec : il part dans la 0.3.19, déjà montée sur `main` par le lot du chiffre d'affaires attribué et pas encore
 publiée.
 
+## 2026-10-30 (soir) : le bloc « Envoi template » montre à quel champ chaque variable est reliée
+
+Julien cherchait où régler le `{{1}}` d'un template posé en premier bloc d'un scénario : nulle part dans le bloc, la
+valeur vient des sources posées sur le template, ou de l'étape Contenu pour le premier template d'une campagne. Son
+`essai_proposition_tarifaire` n'en avait aucune, et rien ne le disait avant l'envoi refusé. Console seule (`42b59f10`),
+aucune migration ni déploiement d'API : la route `param-hints` lue par le panneau était déjà en service. CI racine et
+console vertes ; le rendu n'a pas été regardé à l'écran.
+
 ## 2026-10-30 (nuit) : deux agents de Messaging Me ne se répondent plus en boucle
 
 Vers 20 h 28, la bulle de l'espace « Messaging Me demo » touchée depuis le téléphone de Julien, dont le WhatsApp est

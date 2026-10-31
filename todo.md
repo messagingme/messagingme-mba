@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 Relier une variable de template à un champ sans repasser par Meta (2026-10-30)
+
+- Les sources des variables (`template_param_hints`) sont à nous, pas à Meta, mais on ne les change qu'en éditant le
+  template (`PATCH /tenants/:tenantId/templates/:name`), qui le resoumet chez Meta et le remet en attente. Une route qui
+  ne réécrit que les sources suffirait, et le panneau du bloc « Envoi template » pourrait alors proposer de relier une
+  variable sur place (il ne fait aujourd'hui que la signaler).
+
 ## 🟡 La page développeurs : ce que la relecture laisse (2026-10-30)
 
 - **La ligne « L'agent essayé sur une conversation fictive »** ne dit pas que chaque essai (`test_agent`) est débité du
