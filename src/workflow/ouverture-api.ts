@@ -1,5 +1,6 @@
 import type { WorkflowGraph } from './graph';
 import { actionOf, scanOpening } from './engine';
+import type { ParamHint } from '../crm/template-hints.pg';
 
 /**
  * Ce qu'un envoi par l'API fait partir en premier, depuis l'entrée d'un scénario ou depuis un bloc.
@@ -63,8 +64,13 @@ export function ouvertureApi(graph: WorkflowGraph, depuis?: string): VerdictOuve
  * `whatsapp_template` : sur un scénario qui ouvre en RCS, le premier template trouvé est un repli.
  * `depuis` : le bloc de départ (cible `node`), avec le même examen que `ouvertureApi(graph, depuis)`.
  */
-export function modeleDOuverture(graph: WorkflowGraph, depuis?: string): { templateName: string; language: string } | null {
+export function modeleDOuverture(
+  graph: WorkflowGraph, depuis?: string,
+): { templateName: string; language: string; sources?: ParamHint[] } | null {
   const premier = scanOpening(graph, depuis).firstTemplate;
   const a = premier ? actionOf(premier) : null;
-  return a?.kind === 'sendTemplate' ? { templateName: a.templateName, language: a.language } : null;
+  // `sources` : les champs choisis dans le bloc, qui priment sur ceux du template (`sourcesDuBloc`).
+  return a?.kind === 'sendTemplate'
+    ? { templateName: a.templateName, language: a.language, ...(a.sources ? { sources: a.sources } : {}) }
+    : null;
 }

@@ -5,6 +5,17 @@ import type { OutboundCarouselCard } from '../meta/template-components';
 import type { WorkflowButton } from './engine';
 
 /**
+ * Les sources d'un envoi par un bloc : celles du template (`hints`), remplacées position par position par celles
+ * choisies dans le bloc. Une position que ni l'un ni l'autre ne couvre reste sans source, donc refusée à l'envoi.
+ */
+export function sourcesDuBloc(hints: ParamHint[], duBloc: ParamHint[] | undefined): ParamHint[] {
+  if (!duBloc || duBloc.length === 0) return hints;
+  const parPosition = new Map(hints.map((h) => [h.position, h]));
+  for (const s of duBloc) parPosition.set(s.position, s);
+  return [...parPosition.values()];
+}
+
+/**
  * Construit les `components` Meta d'un envoi de template dans un workflow. Pur : la lecture du contact, des
  * hints et du corps live du template reste dans worker.ts.
  *  1) Variables du corps : attributs du contact collés via `template_param_hints` (ex. {{1}} -> prenom), repli

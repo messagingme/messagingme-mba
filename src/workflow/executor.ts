@@ -5,6 +5,7 @@ import type { WorkflowAction, WalkRest, WorkflowButton, SendEmailAction, Questio
 import type { WorkflowGraph, WorkflowNode, WorkflowNodeType } from './graph';
 import { CHAMP_MAINTENANT } from '../../web/lib/partage/fonction-js';
 import { renderText } from '../crm/render';
+import type { ParamSource } from '../crm/template';
 import { besoinsDesClauses, clausesDuBloc, type BesoinsContexte, type EvalContext } from './conditions';
 import type { RunState, WorkflowRunRow, RunChannel, RunStatus } from './run-store.pg';
 import type { RcsSender } from '../rcs/sender';
@@ -160,10 +161,11 @@ export interface WorkflowExecutorDeps {
   }): Promise<void>;
   /**
    * `buttons` = boutons du template (payload contrôlé sur les quick-reply). `explicitParams` = variables du
-   * corps déjà résolues (campagne workflow, 1er template), sinon résolution via les hints. Rend `void` si
-   * parti, une chaîne portant la raison si rien n'est parti (voir `SendRefusal`).
+   * corps déjà résolues (campagne workflow, 1er template), sinon résolution via les hints. `sources` = les
+   * choix du bloc, qui priment sur les hints à leur position (ignorés quand `explicitParams` est fourni). Rend
+   * `void` si parti, une chaîne portant la raison si rien n'est parti (voir `SendRefusal`).
    */
-  sendTemplate(tenantId: string, waId: string, templateName: string, language: string, buttons: WorkflowButton[], explicitParams?: string[]): Promise<SendRefusal>;
+  sendTemplate(tenantId: string, waId: string, templateName: string, language: string, buttons: WorkflowButton[], explicitParams?: string[], sources?: Array<{ position: number; source: ParamSource }>): Promise<SendRefusal>;
   /**
    * Ce contact a-t-il demandé à ne plus être contacté ?
    *
@@ -732,7 +734,7 @@ export class WorkflowExecutor {
             ? await this.deps.sendQuestion(tenantId, waId, await corpsAvecVariables(a.body), a.buttonLabel, a.rows)
             : a.kind === 'sendFlow'
               ? await this.deps.sendFlow(tenantId, waId, a.flowId, a.body, a.cta)
-              : await this.deps.sendTemplate(tenantId, waId, a.templateName, a.language, a.buttons, firstTemplateParams);
+              : await this.deps.sendTemplate(tenantId, waId, a.templateName, a.language, a.buttons, firstTemplateParams, a.sources);
         const rate = typeof dit === 'string' && dit !== '';
         // Un template, un formulaire ou une question partent par WhatsApp et y ramènent le parcours (c'est ainsi
         // qu'on bascule de canal). Pour la question, l'oublier gèlerait le parcours : la réponse arriverait par

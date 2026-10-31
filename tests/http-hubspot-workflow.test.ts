@@ -61,6 +61,8 @@ interface Options {
   fiche?: ResolvableContact | null;
   /** Les sources posées sur chaque modèle, par nom (action transaction, décision 8). */
   sources?: Record<string, ParamHint[]>;
+  /** Les scénarios en ligne (défaut : `SCENARIOS`). */
+  scenarios?: ScenarioPublie[];
 }
 
 const noeud = (id: string, type: WorkflowNode['type'], data: Record<string, unknown> = {}): WorkflowNode => ({ id, type, position: { x: 0, y: 0 }, data });
@@ -100,7 +102,7 @@ function app(o: Options = {}) {
       return o.reponse ?? { statut: 201, corps: { sendId: 'envoi-1', recipientCount: 1, skipped: [] } };
     },
     plafonds: async (t) => { comptes.push(t); return o.plafonds ?? { accepte: true }; },
-    scenariosPublies: lire('scenarios', SCENARIOS),
+    scenariosPublies: lire('scenarios', o.scenarios ?? SCENARIOS),
     conseillerEnMain: async (t, waId) => { lus.push(['conseiller', `${t}/${waId}`]); return o.conseiller ?? false; },
     sourcesDuModele: async (t, name) => { lus.push(['sources', `${t}/${name}`]); return o.sources?.[name] ?? []; },
     ficheParNumero: async (t, waId) => { lus.push(['fiche', `${t}/${waId}`]); return o.fiche ?? null; },
@@ -552,6 +554,18 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
       champsFiche: { poser: { hubspot_prenom: 'Claire', hubspot_conseiller: 'Cédric Weiss', hubspot_lien_agenda: LIEN }, retirer: [] },
     });
     expect(comptes).toEqual([T1]);
+    await server.close();
+  });
+
+  it('🔴 le champ choisi dans le bloc d’ouverture prime sur la source du modèle', async () => {
+    const graphe: WorkflowGraph = { nodes: [noeud('t', 'template', {
+      templateName: 'suivi_devis', language: 'fr', variables: [{ position: 1, source: { type: 'field', key: 'hubspot_conseiller' } }],
+    })], edges: [] };
+    const { server, envois } = appT({ fiche: null, sources: SOURCES, scenarios: [scn('scn_relance', 'Relance devis', graphe)] });
+    expect((await server.inject(appel('transaction', LANCEMENT))).json()).toEqual({ issue: 'envoye', sendId: 'envoi-1' });
+    expect(envois[0]!.corps).toMatchObject({
+      params: [{ position: 1, source: { type: 'literal', value: 'Cédric Weiss' } }, { position: 2, source: { type: 'literal', value: 'Cédric Weiss' } }],
+    });
     await server.close();
   });
 

@@ -10,6 +10,7 @@ import { formatMaintenant } from '../agent/variables';
 // La normalisation d'une étiquette vit dans le geste de pose (`src/crm/poser-etiquette.ts`) : la copie de travail doit
 // voir la même valeur que celle que l'exécuteur écrira sur le contact.
 import { normaliserEtiquette } from '../crm/poser-etiquette';
+import { parseParamHints, type ParamSource } from '../crm/template';
 import { MAX_DESTINATAIRES_EMAIL } from '../../web/lib/partage/blocs';
 import { blocDuCode as blocDuCodePartage, cibleDuSaut as cibleDuSautPartage, entreeDuGraphe, scannerOuverture } from '../../web/lib/partage/ouverture-scenario';
 import type { AnalyseOuverture } from '../../web/lib/partage/ouverture-scenario';
@@ -59,7 +60,9 @@ export type WorkflowAction =
   | { kind: 'fonctionJs'; code: string; champSource: string; champCible: string }
   /** Consentement marketing posé par un scénario. Les deux sens, comme depuis la fiche et l'action en masse. */
   | { kind: 'optIn'; value: 'opted_in' | 'opted_out' }
-  | { kind: 'sendTemplate'; templateName: string; language: string; buttons: WorkflowButton[] }
+  /** `sources` = champ choisi dans le bloc pour certaines variables, par-dessus ceux du template. Absent = ceux du
+   *  template seuls. */
+  | { kind: 'sendTemplate'; templateName: string; language: string; buttons: WorkflowButton[]; sources?: Array<{ position: number; source: ParamSource }> }
   /** `mediaUrl` = visuel du bloc, hébergé chez nous (`/m/<code>.<ext>`), le même champ que le bloc RCS.
    *  Absent = message texte.
    *
@@ -661,7 +664,14 @@ export function actionOf(node: WorkflowNode, ctx?: EvalContext): WorkflowAction 
       type: String((b as { type?: unknown }).type ?? ''),
       text: String((b as { text?: unknown }).text ?? ''),
     }));
-    return { kind: 'sendTemplate', templateName, language: String(node.data.language ?? 'fr'), buttons };
+    // Les choix du bloc (`variables`), jugés un par un : un choix malformé est ignoré, sa position garde la source
+    // du template, et il n'emporte pas les autres.
+    const brut: unknown[] = Array.isArray(node.data.variables) ? node.data.variables : [];
+    const sources = brut.flatMap((v) => parseParamHints([v]) ?? []);
+    return {
+      kind: 'sendTemplate', templateName, language: String(node.data.language ?? 'fr'), buttons,
+      ...(sources.length > 0 ? { sources } : {}),
+    };
   }
   if (node.type === 'flow') {
     // Node « formulaire » : envoie le flow en message interactif (hors template). Sans flowId -> null, comme un

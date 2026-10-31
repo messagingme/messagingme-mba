@@ -6,6 +6,7 @@ import { e164DepuisSaisie, estUnFixe } from '../crm/phone';
 import { waIdOf } from '../crm/identity';
 import { modeleDOuverture, ouvertureApi } from '../workflow/ouverture-api';
 import { actionOf } from '../workflow/engine';
+import { sourcesDuBloc } from '../workflow/template-send';
 import type { ScenarioPublie } from '../workflow/store.pg';
 import { modeleLuDe, verdictModele } from '../api/modele-envoi';
 import type { Fonction } from '../offres/offres';
@@ -127,8 +128,9 @@ export function jugerPourWorkflow(t: TemplateSummary): { ok: true; variables: nu
   return { ok: true, variables: v.variables };
 }
 
-/** Un scénario qu'un workflow peut lancer : son code, et le modèle qui l'ouvre, jugé comme l'action modèle le juge. */
-export interface ScenarioLancable { code: string; nom: string; modele: TemplateSummary; variables: number }
+/** Un scénario qu'un workflow peut lancer : son code, et le modèle qui l'ouvre, jugé comme l'action modèle le juge.
+ *  `sourcesDuBloc` : les champs choisis dans le bloc d'ouverture, qui priment sur ceux du modèle. */
+export interface ScenarioLancable { code: string; nom: string; modele: TemplateSummary; variables: number; sourcesDuBloc?: ParamHint[] }
 
 /**
  * Un scénario pour l'action (décision 2) : désigné par un code, ouvert par un modèle WhatsApp (ni message de session, qui
@@ -160,7 +162,10 @@ export function jugerScenarioPourWorkflow(
     if (v.statut !== 'approuve') return { ok: false, issue: 'scenario_refuse' };
     if (v.categorie !== 'utility') return { ok: false, issue: 'marketing_refuse' };
   }
-  return { ok: true, scenario: { code: s.code, nom: s.name, modele: t, variables: j.variables } };
+  return {
+    ok: true,
+    scenario: { code: s.code, nom: s.name, modele: t, variables: j.variables, ...(ouvre?.sources ? { sourcesDuBloc: ouvre.sources } : {}) },
+  };
 }
 
 export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkflowDeps): void {
@@ -409,7 +414,9 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
       phone_e164: fiche?.phone_e164 ?? g.e164,
       fields: { ...Object.fromEntries(gardes), ...champsFiche.poser },
     };
-    const sources = await deps.sourcesDuModele(tenantId, g.lancable.modele.name, g.lancable.modele.language);
+    const sources = sourcesDuBloc(
+      await deps.sourcesDuModele(tenantId, g.lancable.modele.name, g.lancable.modele.language), g.lancable.sourcesDuBloc,
+    );
     const remplies = resolveHintParams(sources, g.lancable.variables, vue, { now: new Date(now()) });
     if (remplies.missing.length > 0) return reply.code(200).send({ issue: 'valeur_invalide' });
     const valeurs = valeursDuWorkflow(remplies.values);

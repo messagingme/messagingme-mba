@@ -409,6 +409,31 @@ describe('WorkflowExecutor', () => {
     expect(captured).toEqual([['Julie']]);
   });
 
+  it('🔴 les champs choisis dans le bloc arrivent au 7e argument de sendTemplate', async () => {
+    const variables = [{ position: 1, source: { type: 'field', key: 'nom' } }];
+    const g: WorkflowGraph = {
+      nodes: [n('tpl', 'template', { templateName: 'promo', language: 'fr', variables }), n('ib', 'inbox')],
+      edges: [e('e1', 'tpl', 'ib')],
+    };
+    const recus: unknown[] = [];
+    const ex = new WorkflowExecutor({
+      ...depsInertes,
+      estDesabonne: jamaisDesabonne,
+      runs: avecGardesDEtatInertes(new FakeRuns()),
+      getGraph: async () => g,
+      applyTag: async () => {},
+      setField: async () => {},
+      removeTag: async () => {},
+      clearField: async () => {},
+      sendTemplate: async (_t, _w, _name, _lang, _btns, _explicit, sources) => { recus.push(sources); },
+      sendQuickMessage: async () => {},
+      sendFlow: async () => {},
+      sendQuestion: async () => {},
+    });
+    await ex.demarrer('campagne_bloc', 't1', 'wf1', g, { waId: '33600', contactId: 'c1' }, { depuis: 'bloc', noeudId: 'tpl' });
+    expect(recus).toEqual([variables]);
+  });
+
   // `campagne_bloc` (cible node de /v1/sends, D-1) : démarre à un bloc ARBITRAIRE, SANS la garde fenêtre 24 h
   // (l'appelant a déjà écarté les contacts hors fenêtre). `campagne_scenario` garde la sienne : cf. tests plus haut.
   describe('démarrage au bloc (campagne_bloc)', () => {

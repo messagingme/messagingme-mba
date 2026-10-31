@@ -1,7 +1,7 @@
 import type { WorkflowExecutorDeps } from './executor';
 import { LimiteOffreError } from '../offres/refus';
 import { problemeLienBouton } from './engine';
-import { buildWorkflowTemplateComponents } from './template-send';
+import { buildWorkflowTemplateComponents, sourcesDuBloc } from './template-send';
 import type { MetaClient, EnTeteMedia } from '../meta/client';
 import type { FichierPrepare } from '../meta/template-media';
 import { messagingTarget, type SendResult, type TemplateSpec } from '../meta/types';
@@ -161,7 +161,7 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
   };
 
   return {
-    sendTemplate: async (tenant, waId, name, language, buttons, explicitParams) => {
+    sendTemplate: async (tenant, waId, name, language, buttons, explicitParams, sources) => {
       if (dryRun) return; // DRY_RUN : aucun appel Meta
       const client = await clientWhatsApp(tenant, 'workflow sendTemplate', `template « ${name} » non envoyé`);
       if (typeof client === 'string') return client;
@@ -239,6 +239,8 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
           hintStore.get(tenant, name, language),
           contactStore.getResolvableByPhone(tenant, waId),
         ]);
+        // Le champ choisi dans le bloc prime sur celui du template, position par position.
+        hints = sourcesDuBloc(hints, sources);
       }
       // Payload contrôlé sur chaque bouton quick-reply (`btn:<index>`) : au tap, il sélectionne la branche.
       // Carousel non envoyable (carte sans image, variable de carte) : on ne laisse pas partir un payload que Meta

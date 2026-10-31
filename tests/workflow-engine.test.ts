@@ -61,6 +61,25 @@ describe('walk : action sendTemplate porte les boutons du template', () => {
     const r = walk(g, 'tpl');
     expect(r.actions.map((e) => e.action)).toEqual([{ kind: 'sendTemplate', templateName: 'promo', language: 'fr', buttons: [{ type: 'QUICK_REPLY', text: 'Oui' }, { type: 'URL', text: 'Site' }] }]);
   });
+
+  it('les champs choisis dans le bloc voyagent dans l’action', () => {
+    const variables = [{ position: 1, source: { type: 'field', key: 'nom' } }];
+    const g: WorkflowGraph = { nodes: [n('tpl', 'template', { templateName: 'promo', language: 'fr', variables })], edges: [] };
+    expect(walk(g, 'tpl').actions[0]?.action).toEqual({ kind: 'sendTemplate', templateName: 'promo', language: 'fr', buttons: [], sources: variables });
+  });
+
+  it('des choix malformés ou vides n’en portent aucun : l’envoi garde ceux du template', () => {
+    for (const variables of [[{ position: 0, source: { type: 'field', key: 'nom' } }], 'nom', []]) {
+      const g: WorkflowGraph = { nodes: [n('tpl', 'template', { templateName: 'promo', language: 'fr', variables })], edges: [] };
+      expect(walk(g, 'tpl').actions[0]?.action).toEqual({ kind: 'sendTemplate', templateName: 'promo', language: 'fr', buttons: [] });
+    }
+  });
+
+  it('un choix malformé n’emporte pas les autres', () => {
+    const bon = { position: 2, source: { type: 'field', key: 'ville' } };
+    const g: WorkflowGraph = { nodes: [n('tpl', 'template', { templateName: 'promo', language: 'fr', variables: [{ position: 1, source: { type: 'field', key: '' } }, bon] })], edges: [] };
+    expect(walk(g, 'tpl').actions[0]?.action).toMatchObject({ sources: [bon] });
+  });
 });
 
 describe('walk : un type de bloc RETIRÉ ne casse pas un ancien scénario', () => {

@@ -339,6 +339,29 @@ describe('sendTemplate, branche « indications » (réponse du contact)', () => 
     expect(appels).toEqual([['sendTemplate', W, { name: NOM, language: LANGUE, components: [{ type: 'body', parameters: [{ type: 'text', text: 'Camille' }] }] }]]);
   });
 
+  it('🔴 le champ choisi dans le bloc prime sur celui du template, les autres positions gardent le template', async () => {
+    const { envois, appels } = monter({
+      templateVarInfo: vi.fn(async () => ({ ...LECTURE, count: 2 })),
+      hintStore: { get: vi.fn(async () => [
+        { position: 1, source: { type: 'field' as const, key: 'prenom' } },
+        { position: 2, source: { type: 'field' as const, key: 'ville' } },
+      ]) },
+      contactStore: { getResolvableByPhone: vi.fn(async () => ({ phone_e164: `+${W}`, bsuid: null, profile_name: null, fields: { prenom: 'Camille', nom: 'Martin', ville: 'Lyon' } })) },
+    });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [], undefined, [{ position: 1, source: { type: 'field', key: 'nom' } }])).toEqual({ messageId: MESSAGE_ID });
+    expect(appels).toEqual([['sendTemplate', W, { name: NOM, language: LANGUE, components: [{ type: 'body', parameters: [{ type: 'text', text: 'Martin' }, { type: 'text', text: 'Lyon' }] }] }]]);
+  });
+
+  it('une position que ni le template ni le bloc ne relient refuse, même si le bloc en relie une autre', async () => {
+    const { envois, appels } = monter({
+      templateVarInfo: vi.fn(async () => ({ ...LECTURE, count: 2 })),
+      contactStore: { getResolvableByPhone: vi.fn(async () => ({ phone_e164: `+${W}`, bsuid: null, profile_name: null, fields: { nom: 'Martin' } })) },
+    });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [], undefined, [{ position: 1, source: { type: 'field', key: 'nom' } }]))
+      .toBe(`template « ${NOM} » : ce contact n'a pas de valeur pour la ou les variables {{2}}`);
+    expect(appels).toEqual([]);
+  });
+
   it('une variable sans valeur sur la fiche refuse, sans appel', async () => {
     const { envois, appels } = monter({
       templateVarInfo: vi.fn(async () => ({ ...LECTURE, count: 1 })),
