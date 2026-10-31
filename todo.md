@@ -105,10 +105,7 @@ Spec `docs/superpowers/specs/2026-10-28-revenus-attribues-design.md`, section «
   - console : le cache de la boutique (`BOUTIQUE_PAR_ESPACE`) garde aussi « aucune », donc une boutique branchée en cours
     de session n'apparaît dans Quantitatif qu'au rechargement ; face à une API plus ancienne (retour arrière), la carte
     Shopify affirme « 0 relances parties, 0 récupérés » ; la note des paniers n'explique qu'un sens de l'écart de date ;
-    les pluriels (« 1 commandes ») ; la fiche « me repérer dans la console » ne liste ni Performance ni Shopify ;
-  - 🔵 à trancher par Julien : effacer le branchement d'une boutique cache l'entrée Quantitatif > Shopify alors que
-    l'historique anonymisé reste lisible (adresse directe, `get_revenue_stats`). La spec dit « visible seulement quand une
-    boutique est branchée ».
+    les pluriels (« 1 commandes ») ; la fiche « me repérer dans la console » ne liste ni Performance ni Shopify.
 - 🟡 **Hors lot, vu par la relecture du lot 6** : une destination de lien tracé qui porte un caractère hors latin-1 (`€`,
   un emoji) fait lever `ERR_INVALID_CHAR` sur l'en-tête `location`, donc une 500, pour un espace SANS boutique branchée
   (avec boutique, le passage par `URL` l'encode).
