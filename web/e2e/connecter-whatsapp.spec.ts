@@ -286,11 +286,16 @@ test('🔴 sans compte Meta Business ni application : la télécharger, brancher
   await expect(page.getByTestId('issue-telecharger')).toContainText('branchez-le tout de suite');
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('numero-trop-neuf')).toContainText('revenez le brancher');
+  await expect(page.getByTestId('issue-telecharger').getByRole('link', { name: 'Google Play (Android)' })).toHaveAttribute('href', /com\.whatsapp\.w4b/);
   await expect(page.locator('main')).not.toContainText(/QR/);
-  // « Retour » ramène à la question de l'application, la réponse sur le compte gardée.
-  await page.getByRole('button', { name: 'Retour' }).click();
-  await expect(page.getByTestId('question-compte-repondue')).toContainText('Non');
-  await expect(page.getByTestId('question-application')).toBeVisible();
+  // Comme sur la vitrine : les questions restent affichées, la réponse choisie en évidence, et une autre change la suite.
+  await expect(page.getByTestId('question-compte-non')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('question-compte-oui')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByTestId('question-application-non')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('question-application-oui').click();
+  await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Retour' })).toHaveCount(0);
 });
 
 test('« Je ne sais pas » : où le vérifier, puis l’application gardée, sans la télécharger', async ({ page }) => {
@@ -317,9 +322,11 @@ test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous
   await page.getByTestId('choix-coexistence').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
-  // « Modifier » rouvre la question.
+  // « Retour » ramène aux questions, la réponse gardée en évidence ; une autre réponse change la suite.
   await page.getByRole('button', { name: 'Retour' }).click();
-  await page.getByTestId('question-compte-modifier').click();
-  await expect(page.getByTestId('question-compte-oui')).toBeVisible();
+  await expect(page.getByTestId('question-compte-oui')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('issue-api')).toBeVisible();
+  await page.getByTestId('question-compte-non').click();
   await expect(page.getByTestId('issue-api')).toHaveCount(0);
+  await expect(page.getByTestId('question-application')).toBeVisible();
 });

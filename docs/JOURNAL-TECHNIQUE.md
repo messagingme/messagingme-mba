@@ -4,6 +4,18 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : les questions du numéro dans la console, sous la forme de la vitrine
+
+Console seule, aucune migration ; décision de Julien du 2026-10-31 (le point « forme » de `todo.md`). La page
+« Connecter WhatsApp » (`ParcoursNumero`) garde chaque question affichée une fois répondue, la réponse choisie en
+évidence (`aria-pressed`) et les autres estompées mais cliquables, et met la suite dessous, comme la vitrine depuis
+`2c087abe` : plus de réponse repliée ni de « Modifier ». La réponse à « Avez-vous déjà l'application WhatsApp Business ? »
+montre la carte « Garder mon application WhatsApp Business » sous la question, sans masquer les questions ; après
+« Non », avec les liens App Store et Google Play de la vitrine (`MAGASINS`), tenus égaux par
+`tests/questions-numero-vitrine.test.ts`. Capture de l'étape 2 de « Connecter mon numéro WhatsApp » refaite. Les deux
+autres décisions : la voie QR code reste en l'état pour l'instant (Julien), le numéro fourni sans compte Meta Business
+reste ouvert (`todo.md`).
+
 ## 2026-10-31 : le pixel Meta, lots 1 et 2 (la bannière de la vitrine, les conversions par le serveur), et la migration 0265
 
 Plan `docs/superpowers/plans/2026-10-30-pixel-meta.md` (spec `docs/superpowers/specs/2026-10-30-pixel-meta-design.md`) :

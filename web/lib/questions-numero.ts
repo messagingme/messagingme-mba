@@ -56,6 +56,11 @@ export const ISSUE_TELECHARGER = {
       en: 'Meta sometimes refuses a number that is too new: then use the app for a few days, and come back to connect it.',
     },
   ],
+  /** Les fiches officielles de l'application, celles de la vitrine (`MAGASINS`). */
+  magasins: [
+    { libelle: { fr: 'App Store (iPhone)', en: 'App Store (iPhone)' }, href: 'https://apps.apple.com/app/whatsapp-business/id1386412985' },
+    { libelle: { fr: 'Google Play (Android)', en: 'Google Play (Android)' }, href: 'https://play.google.com/store/apps/details?id=com.whatsapp.w4b' },
+  ],
 } as const;
 
 /** La réponse à la question du compte Meta Business. */

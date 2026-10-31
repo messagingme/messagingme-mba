@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Bouton } from '@/components/Bouton';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Bouton, classesBouton } from '@/components/Bouton';
 import { useT } from '@/lib/i18n';
 import { useConnexionNumero } from '@/lib/connexion-numero';
 import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
@@ -19,7 +19,7 @@ import { ISSUE_API, ISSUE_TELECHARGER, META_BUSINESS_URL, QUESTION_APPLICATION, 
  * Sans choix déjà fait, il pose d'abord les questions du tunnel de la vitrine (2026-10-30, `@/lib/questions-numero`) :
  * « Avez-vous un compte Meta Business ? », Oui menant aux deux choix du numéro API ; Non ou « Je ne sais pas » à
  * « Avez-vous déjà l'application WhatsApp Business ? », dont les deux réponses mènent à la garder (Non : après l'avoir
- * téléchargée). Plus aucune voie par QR code.
+ * téléchargée), la carte s'affichant sous la question. Plus aucune voie par QR code.
  *
  * Les trois choix où elles mènent. « Fournissez-moi un numéro » : un numéro de notre réserve s'affiche ; le client le
  * tape dans la fenêtre de Meta, par SMS de préférence (la ligne fixe le lit à voix haute), sinon par la voix ; notre
@@ -72,9 +72,9 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const [qrDemande, setQrDemande] = useState(false);
   /** La réponse à « Avez-vous un compte Meta Business ? » : gardée quand « Retour » ramène aux questions. */
   const [compte, setCompte] = useState<ReponseCompte | null>(null);
-  /** Venu de « Non » à la question de l'application : la carte dit d'abord de la télécharger. */
-  const [telecharger, setTelecharger] = useState(false);
-  const choisir = (c: 'fourni' | 'apporte' | 'coexistence', apresTelechargement = false) => { setTelecharger(apresTelechargement); setChoix(c); };
+  /** La réponse à « Avez-vous déjà l'application WhatsApp Business ? » ; « non » : la carte dit d'abord de la télécharger. */
+  const [appli, setAppli] = useState<'oui' | 'non' | null>(null);
+  const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); };
   const application = filiere === 'application';
   const connexion = useConnexionNumero(tenantId, api, surConnexion);
   /**
@@ -176,6 +176,34 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   // En coexistence, le numéro RESTE dans l'application : le prérequis d'un numéro hors de l'application la contredirait,
   // et le compte Meta Business, sa carte le dit elle-même, la fenêtre de Meta le crée en chemin. Reste ce qu'il est.
   const prerequis = choix === 'coexistence' ? PREREQUIS_META.slice(0, 1) : PREREQUIS_META;
+  /**
+   * La carte qui garde l'application WhatsApp Business : ouverte par un lien de Claude, par « Vous pouvez la garder », ou
+   * sous la question de l'application. Après « Non », elle dit d'abord de la télécharger, avec les deux magasins.
+   */
+  const carteCoexistence = (apresTelechargement: boolean, retour: ReactNode) => (
+    <div data-testid="choix-coexistence-ouvert" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
+      {apresTelechargement && (
+        <div data-testid="issue-telecharger" className="mb-4">
+          <div className="text-base font-semibold text-ink-900">{t(ISSUE_TELECHARGER.titre.fr, ISSUE_TELECHARGER.titre.en)}</div>
+          <p className="mt-1 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[0].fr, ISSUE_TELECHARGER.textes[0].en)}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ISSUE_TELECHARGER.magasins.map((m) => (
+              <a key={m.href} href={m.href} target="_blank" rel="noopener noreferrer" className={classesBouton('secondaire', 'petite')}>{t(m.libelle.fr, m.libelle.en)}</a>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect({ coexistence: true }); }} data-testid="ouvrir-fenetre-coexistence">
+          {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}
+        </Bouton>
+        {retour}
+      </div>
+      {COEXISTENCE_PHRASES.map((p) => <p key={p.fr} className="mt-3 text-sm text-ink-700">{t(p.fr, p.en)}</p>)}
+      {/* Un numéro qu'on vient de mettre dans l'application peut être refusé par Meta : on le dit avant qu'il le soit. */}
+      {apresTelechargement && <p data-testid="numero-trop-neuf" className="mt-3 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[1].fr, ISSUE_TELECHARGER.textes[1].en)}</p>}
+    </div>
+  );
 
   return (
     <>
@@ -191,15 +219,16 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       )}
       {choix === null ? (
         // Les questions du tunnel de la vitrine : seule la page de la console y passe, un lien de Claude Code arrivant
-        // avec son choix (donc jamais sur la filière application).
+        // avec son choix (donc jamais sur la filière application). Comme sur la vitrine (Julien, 2026-10-30 : « on garde
+        // le carré sélectionné et on passe à la question suivante plus bas »), une question répondue reste affichée, sa
+        // réponse en évidence, et une autre réponse change la suite.
         <div className="mt-6 space-y-3">
           <Question
             testid="question-compte"
             texte={QUESTION_COMPTE.texte}
             precision={QUESTION_COMPTE.precision}
-            reponse={compte === null ? null : QUESTION_COMPTE[compte]}
-            modifier={() => setCompte(null)}
-            reponses={(['oui', 'non', 'nsp'] as const).map((r) => ({ cle: r, libelle: QUESTION_COMPTE[r], choisir: () => setCompte(r) }))}
+            choisie={compte}
+            reponses={(['oui', 'non', 'nsp'] as const).map((r) => ({ cle: r, libelle: QUESTION_COMPTE[r], choisir: () => repondreCompte(r) }))}
           />
           {compte === 'non' && <p data-testid="note-compte" className="text-sm text-ink-700">{t(QUESTION_COMPTE.noteNon.fr, QUESTION_COMPTE.noteNon.en)}</p>}
           {compte === 'nsp' && (
@@ -213,7 +242,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
             <div data-testid="issue-api">
               <div className="text-sm font-semibold text-ink-900">{t(ISSUE_API.titre.fr, ISSUE_API.titre.en)}</div>
               <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <button type="button" data-testid="choix-fourni" onClick={() => choisir('fourni')} className="rounded-carte border border-ink-200 bg-white p-5 text-left hover:border-ink-400">
+                <button type="button" data-testid="choix-fourni" onClick={() => setChoix('fourni')} className="rounded-carte border border-ink-200 bg-white p-5 text-left hover:border-ink-400">
                   <div className="text-base font-semibold text-ink-900">{t('Fournissez-moi un numéro', 'Provide me a number')}</div>
                   <p className="mt-1 text-xs text-ink-500">
                     {inclus
@@ -221,48 +250,34 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                       : t('Un numéro dédié, prêt pour WhatsApp : 3,50 € HT par mois.', 'A dedicated number, ready for WhatsApp: €3.50 excl. VAT per month.')}
                   </p>
                 </button>
-                <button type="button" data-testid="choix-apporte" onClick={() => choisir('apporte')} className="rounded-carte border border-ink-200 bg-white p-5 text-left hover:border-ink-400">
+                <button type="button" data-testid="choix-apporte" onClick={() => setChoix('apporte')} className="rounded-carte border border-ink-200 bg-white p-5 text-left hover:border-ink-400">
                   <div className="text-base font-semibold text-ink-900">{t('J’ai déjà un numéro', 'I already have a number')}</div>
                   <p className="mt-1 text-xs text-ink-500">{t('Vous le saisissez dans la fenêtre de Meta et recevez son code.', 'You enter it in the Meta window and receive its code.')}</p>
                 </button>
               </div>
               <p className="mt-3 text-sm text-ink-700">
                 {t(ISSUE_API.garder.fr, ISSUE_API.garder.en)}{' '}
-                <button type="button" data-testid="choix-coexistence" onClick={() => choisir('coexistence')} className="font-semibold text-ink-900 underline">
+                <button type="button" data-testid="choix-coexistence" onClick={() => setChoix('coexistence')} className="font-semibold text-ink-900 underline">
                   {t(ISSUE_API.lien.fr, ISSUE_API.lien.en)}
                 </button>
               </p>
             </div>
           ) : compte !== null && (
-            <Question
-              testid="question-application"
-              texte={QUESTION_APPLICATION.texte}
-              precision={QUESTION_APPLICATION.precision}
-              reponses={[
-                { cle: 'oui', libelle: QUESTION_APPLICATION.oui, choisir: () => choisir('coexistence') },
-                { cle: 'non', libelle: QUESTION_APPLICATION.non, choisir: () => choisir('coexistence', true) },
-              ]}
-            />
+            <>
+              <Question
+                testid="question-application"
+                texte={QUESTION_APPLICATION.texte}
+                precision={QUESTION_APPLICATION.precision}
+                choisie={appli}
+                reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_APPLICATION[r], choisir: () => setAppli(r) }))}
+              />
+              {/* La suite s'affiche dessous, les questions restent : on change de réponse en en cliquant une autre. */}
+              {appli !== null && carteCoexistence(appli === 'non', null)}
+            </>
           )}
         </div>
       ) : choix === 'coexistence' ? (
-        <div data-testid="choix-coexistence-ouvert" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
-          {telecharger && (
-            <div data-testid="issue-telecharger" className="mb-4">
-              <div className="text-base font-semibold text-ink-900">{t(ISSUE_TELECHARGER.titre.fr, ISSUE_TELECHARGER.titre.en)}</div>
-              <p className="mt-1 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[0].fr, ISSUE_TELECHARGER.textes[0].en)}</p>
-            </div>
-          )}
-          <div className="flex items-center gap-3">
-            <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect({ coexistence: true }); }} data-testid="ouvrir-fenetre-coexistence">
-              {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}
-            </Bouton>
-            {boutonRetour}
-          </div>
-          {COEXISTENCE_PHRASES.map((p) => <p key={p.fr} className="mt-3 text-sm text-ink-700">{t(p.fr, p.en)}</p>)}
-          {/* Un numéro qu'on vient de mettre dans l'application peut être refusé par Meta : on le dit avant qu'il le soit. */}
-          {telecharger && <p data-testid="numero-trop-neuf" className="mt-3 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[1].fr, ISSUE_TELECHARGER.textes[1].en)}</p>}
-        </div>
+        carteCoexistence(false, boutonRetour)
       ) : choix === 'apporte' && application ? (
         <QrApplication api={api} />
       ) : choix === 'apporte' ? (
@@ -371,34 +386,32 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
 type Texte = { readonly fr: string; readonly en: string };
 
 /**
- * Une question du tunnel : ses boutons tant qu'on n'a pas répondu, puis la réponse repliée sur une ligne, que
- * « Modifier » rouvre (la forme de la vitrine).
+ * Une question du tunnel, comme sur la vitrine : elle reste affichée une fois répondue, la réponse choisie en évidence
+ * (`aria-pressed`) et les autres estompées mais cliquables, pour changer de chemin.
  */
-function Question({ testid, texte, precision, reponse = null, modifier, reponses }: {
+function Question({ testid, texte, precision, choisie, reponses }: {
   testid: string;
   texte: Texte;
   precision: Texte;
-  reponse?: Texte | null;
-  modifier?: () => void;
+  choisie: string | null;
   reponses: ReadonlyArray<{ cle: string; libelle: Texte; choisir(): void }>;
 }) {
   const t = useT();
-  if (reponse !== null) {
-    return (
-      <div data-testid={`${testid}-repondue`} className="flex flex-wrap items-baseline gap-x-3 text-sm text-ink-700">
-        <span>{t(texte.fr, texte.en)}</span>
-        <span className="font-semibold text-ink-900">{t(reponse.fr, reponse.en)}</span>
-        {modifier && <Bouton type="button" variante="discret" taille="petite" onClick={modifier} data-testid={`${testid}-modifier`}>{t('Modifier', 'Change')}</Bouton>}
-      </div>
-    );
-  }
   return (
     <div data-testid={testid} className="rounded-carte border border-ink-200 bg-white p-5">
       <div className="text-base font-semibold text-ink-900">{t(texte.fr, texte.en)}</div>
       <p className="mt-1 text-xs text-ink-500">{t(precision.fr, precision.en)}</p>
       <div className="mt-4 flex flex-wrap gap-2">
         {reponses.map((r) => (
-          <Bouton key={r.cle} type="button" variante="secondaire" onClick={r.choisir} data-testid={`${testid}-${r.cle}`}>
+          <Bouton
+            key={r.cle}
+            type="button"
+            variante={choisie === r.cle ? 'principal' : 'secondaire'}
+            className={choisie !== null && choisie !== r.cle ? 'opacity-60 hover:opacity-100' : ''}
+            aria-pressed={choisie === r.cle}
+            onClick={r.choisir}
+            data-testid={`${testid}-${r.cle}`}
+          >
             {t(r.libelle.fr, r.libelle.en)}
           </Bouton>
         ))}

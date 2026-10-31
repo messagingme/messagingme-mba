@@ -49,6 +49,8 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(ISSUE_TELECHARGER.titre[langue]).toBe(texte(t.titre));
       // Brancher tout de suite, puis le numéro trop neuf : la première et la dernière phrase de l'issue de la vitrine.
       expect(ISSUE_TELECHARGER.textes.map((x) => x[langue])).toEqual([texte(t.textes[0]!), texte(t.textes[t.textes.length - 1]!)]);
+      // Les deux magasins de l'application, mêmes libellés et mêmes adresses.
+      expect(ISSUE_TELECHARGER.magasins.map((m) => ({ libelle: m.libelle[langue], href: m.href }))).toEqual(t.liens);
     });
   }
 

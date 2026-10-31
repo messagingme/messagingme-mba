@@ -2183,9 +2183,11 @@ scénario, comment importer des contacts.
   Meta Business ? ». Oui : le numéro API, « Fournissez-moi un numéro » ou « J'ai déjà un numéro », avec « Votre numéro
   est déjà dans l'application WhatsApp Business ? Vous pouvez la garder ». Non, ou « Je ne sais pas » (avec où le
   vérifier, business.facebook.com) : « Avez-vous déjà l'application WhatsApp Business ? », Oui menant à « Garder mon
-  application WhatsApp Business », Non à la même fenêtre après l'avoir téléchargée, avec le numéro trop neuf que Meta
-  peut refuser (revenir quelques jours plus tard). L'offre, la première question de la vitrine, est celle de l'espace.
-  Chaque réponse se replie sur une ligne que « Modifier » rouvre ; plus aucune voie par QR code. Claude pose les mêmes
+  application WhatsApp Business », Non à la même fenêtre après l'avoir téléchargée (liens App Store et Google Play),
+  avec le numéro trop neuf que Meta peut refuser (revenir quelques jours plus tard). L'offre, la première question de la
+  vitrine, est celle de l'espace. Comme sur la vitrine (2026-10-31), une question répondue reste affichée, la réponse
+  choisie en évidence et les autres estompées, la suite s'affiche dessous, et cliquer une autre réponse change de chemin ;
+  plus aucune voie par QR code. Claude pose les mêmes
   (skill `mise-en-service`).
 - ✅ **La carte chez Meta, juste après la connexion.** Dans notre montage, Meta facture le client directement : sans
   carte valable (Visa ou Mastercard), seules les réponses dans la fenêtre de 24 heures partent, les modèles sont
