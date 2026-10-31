@@ -176,8 +176,8 @@ voies « sans l'application » portent aussi. Plus aucune voie ne fait seulement
 (« on supprime une bonne fois pour toutes l'option QR code », Julien), et jamais « coexistence » face au visiteur. Sur
 Tarifs, « Démarrer gratuitement » (Free) et « Essayer Pro 14 jours » (Pro) ouvrent le tunnel l'offre déjà choisie
 (`?offre=free`, `?offre=pro`) ; la une de l'accueil y mène aussi. L'écran « Connecter WhatsApp » de la console et la
-skill `mise-en-service` du plugin posent les mêmes questions depuis le 2026-10-30, sans QR code ; la quatrième, celle
-du numéro, n'y est pas encore (`todo.md`).
+skill `mise-en-service` du plugin posent les mêmes questions depuis le 2026-10-30, sans QR code, et la quatrième, celle
+du numéro, depuis le 2026-10-31 (la skill à partir du plugin 0.3.20).
 
 ✅ **Free et Pro, sans article, sur toute la vitrine française** (2026-10-30, Julien : « c'est Free ou Pro, ou formule
 Free ou formule Pro ») : jamais « la Free », « le Pro », « en Free » ni « passer au Pro » sur les pages, leurs
