@@ -16,7 +16,7 @@ Sans numéro branché, rien ne part : [`no_whatsapp_number`](https://console.mes
 
 ## 2. Créer une clé d’API
 
-Dans la console, Developers > Clés d’API. Cochez au moins sends:create (envoyer) et conversations:read (lire les fils). La clé (mba_…) n’est montrée qu’une fois : gardez-la côté serveur, dans une variable d’environnement.
+Dans la console, Developers > Clés d’API, quelle que soit l’offre. Cochez au moins sends:create (envoyer), conversations:read (lire les fils), webhooks:write (déclarer l’adresse de l’étape 3) et templates:write (créer un modèle à l’étape 4). La clé (mba_…) n’est montrée qu’une fois : gardez-la côté serveur, dans une variable d’environnement. Une clé créée par Claude ne porte jamais webhooks:write : pour ce guide, créez-la dans la console.
 
 _Vérifier la clé_
 
@@ -31,7 +31,7 @@ Une liste, même vide, veut dire que la clé marche. Sinon : [`unauthorized`](ht
 
 ## 3. Recevoir les événements
 
-Déclarez l’adresse de votre serveur dans la console (Developers > Webhooks sortants), ou par l’API avec une clé qui porte webhooks:write. Le secret (whsec_…) n’est montré qu’une fois : il sert à vérifier chaque signature.
+Déclarez l’adresse de votre serveur par l’API, avec la clé de l’étape 2, ou en la donnant à Claude (create_webhook_endpoint) ; en formule Pro, aussi dans la console (Developers > Webhooks sortants). Le secret (whsec_…) n’est montré qu’une fois : il sert à vérifier chaque signature.
 
 _Commande_
 
@@ -69,7 +69,7 @@ curl -X POST https://api.messagingme.app/v1/messages/whatsapp \
 }'
 ```
 
-Pour écrire en premier, il faut un modèle approuvé par Meta : créez-le dans la console (Contenu > WhatsApp > Templates) ou par [POST /v1/templates](https://console.messagingme.app/developers/api/templates.md#creer), attendez son approbation (de quelques minutes à 24 h), puis envoyez-le :
+Pour écrire en premier, il faut un modèle approuvé par Meta : créez-le par [POST /v1/templates](https://console.messagingme.app/developers/api/templates.md#creer), ou en le demandant à Claude (create_template) ; en formule Pro, aussi dans la console (Contenu > WhatsApp > Templates). Attendez son approbation (de quelques minutes à 24 h), puis envoyez-le :
 
 _Commande_
 

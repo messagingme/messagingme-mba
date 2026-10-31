@@ -21,7 +21,8 @@ type CodeMeta = (typeof ERREURS_META)[number]['code'];
  * que `tests/api-exemples.test.ts` passe aux règles de SA route ; le même test refuse un objet JSON écrit en dur
  * dans un fichier de la doc (`FICHIERS_DOC`, `@/lib/doc-api-pages`).
  *
- * 🔴 AUCUN OUTIL TIERS NOMMÉ (décision de Julien du 2026-09-24) : la doc sert à tous les intégrateurs. La suite
+ * 🔴 AUCUN OUTIL TIERS NOMMÉ (décision de Julien du 2026-09-24), au sens de la liste `tests/outils-tiers.ts` (CRM, routeurs,
+ * outils marketing ; un client ou un outil de requêtes, comme Postman, reste nommable) : la doc sert à tous les intégrateurs. La suite
  * racine le vérifie sur chaque fichier de la doc, `web/e2e/developers-api.spec.ts` sur chaque page rendue.
  */
 
@@ -401,5 +402,53 @@ export function Tableau({ entetes, lignes }: { entetes: string[]; lignes: Array<
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** Des étapes numérotées : un chemin qui se suit dans l'ordre. */
+export function Etapes({ children }: { children: React.ReactNode }) {
+  return <ol className="list-decimal space-y-3 pl-5 marker:font-semibold marker:text-ink-500">{children}</ol>;
+}
+
+/**
+ * « API ou MCP ? » (audit du 2026-10-31) : la première question d'un intégrateur, la même réponse en tête de l'accueil
+ * de l'API et de la page Serveur MCP, chacune menant à l'autre.
+ */
+export function ApiOuMcp() {
+  const t = useT();
+  return (
+    <>
+      <Tableau
+        entetes={[t('En bref', 'In short'), 'API', 'MCP']}
+        lignes={[
+          { cle: 'qui', cellules: [
+            t('Qui agit', 'Who acts'),
+            t('Votre code, à chaque événement de votre application', 'Your code, on each event of your application'),
+            t('Un assistant (Claude, ChatGPT…), quand vous le lui demandez', 'An assistant (Claude, ChatGPT…), when you ask it'),
+          ] },
+          { cle: 'branche', cellules: [
+            t('Ce qu’on branche', 'What you connect'),
+            t('Une clé d’API, dans votre serveur', 'An API key, in your server'),
+            t('Le plugin Claude Code, ou l’adresse du serveur MCP', 'The Claude Code plugin, or the MCP server endpoint'),
+          ] },
+          { cle: 'pour', cellules: [
+            t('Pour', 'For'),
+            t('Envoyer à chaque commande, inscription ou rendez-vous, et recevoir chaque message par un webhook signé', 'Sending on each order, sign-up or appointment, and receiving every message through a signed webhook'),
+            t('Mettre l’espace en service, régler l’agent IA, répondre, préparer une campagne, lire vos chiffres, en conversation', 'Setting the workspace up, tuning the AI agent, replying, preparing a campaign, reading your figures, in conversation'),
+          ] },
+          { cle: 'commencer', cellules: [
+            t('Commencer', 'Start'),
+            <LienDoc key="api" page="quickstart">{t('Démarrer avec l’API', 'API quickstart')}</LienDoc>,
+            <LienDoc key="mcp" page="mcp">{t('Serveur MCP', 'MCP server')}</LienDoc>,
+          ] },
+        ]}
+      />
+      <p className="text-sm text-ink-500">
+        {t(
+          'Les deux se complètent : Claude met l’espace en service et crée la clé de votre application, votre code envoie et reçoit.',
+          'The two work together: Claude sets the workspace up and creates your application’s key, your code sends and receives.',
+        )}
+      </p>
+    </>
   );
 }

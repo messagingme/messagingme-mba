@@ -4,6 +4,26 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : les pages API et MCP de la console, plus claires
+
+Plan `docs/superpowers/plans/2026-10-31-pages-api-mcp.md`, né d'un audit externe que Julien a tranché le même jour :
+la clarté des deux pages, un bloc « importer le contrat » au lieu d'un rendu OpenAPI dans la console, le mode
+répétition plus tard, aucune sandbox séparée. Console seule, aucune route ni migration.
+- **Accueil de l'API** : « API ou MCP ? » (un tableau partagé, `ApiOuMcp`), la clé AVANT le premier appel, avec
+  l'avertissement que les appels sont réels et ce que porte une clé créée par Claude, le premier appel, la suite, le
+  contrat à importer dans Postman, Bruno ou Insomnia, l'index des endpoints en dernier. Ancres conservées.
+- **Serveur MCP** : trois chemins (plugin, autre client par OAuth, clé à la main), chacun avec ses étapes et une
+  vérification qui ne change rien, puis « Retirer l'accès, et si ça ne marche pas », et les outils par famille.
+  `FAMILLES_OUTILS` passe de `scripts/plugin/` à `web/lib/partage/` pour que la console les lise.
+- **Démarrer** : les webhooks et les modèles ne renvoient plus Free vers des écrans de console qu'elle n'a pas ; l'API
+  ou Claude, la console seulement en formule Pro.
+- **Relecture indépendante** : un rouge, corrigé avant le push. Le guide proposait une clé demandée à Claude, qui ne
+  porte jamais `webhooks:write` (`DROITS_PAR_CLAUDE`) : l'étape 3 aurait rendu 403. Jaunes repris : une clé sans droit
+  MCP se connecte et ne voit aucun outil (ce n'est pas un 401), la liste des outils fermés à une clé, `claude mcp
+  remove mba`, les chemins titrés « Chemin 1 » pour ne pas doubler la numérotation des étapes.
+- e2e de la doc et de la page MCP sur un build de production local, suite de la console, tests racine ciblés.
+
+
 ## 2026-10-31 : le tunnel de la vitrine pose une quatrième question, celle du numéro
 
 Vitrine seule (`scripts/vitrine/tunnel-textes.ts`, pages régénérées), décision de Julien qui tranche le point « numéro

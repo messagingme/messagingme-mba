@@ -46,8 +46,8 @@ function Demarrer() {
       <Section id="cle" titre={t('2. Créer une clé d’API', '2. Create an API key')}>
         <p>
           {t(
-            'Dans la console, Developers > Clés d’API. Cochez au moins sends:create (envoyer) et conversations:read (lire les fils). La clé (mba_…) n’est montrée qu’une fois : gardez-la côté serveur, dans une variable d’environnement.',
-            'In the console, Developers > API keys. Tick at least sends:create (send) and conversations:read (read threads). The key (mba_…) is shown only once: keep it server-side, in an environment variable.',
+            'Dans la console, Developers > Clés d’API, quelle que soit l’offre. Cochez au moins sends:create (envoyer), conversations:read (lire les fils), webhooks:write (déclarer l’adresse de l’étape 3) et templates:write (créer un modèle à l’étape 4). La clé (mba_…) n’est montrée qu’une fois : gardez-la côté serveur, dans une variable d’environnement. Une clé créée par Claude ne porte jamais webhooks:write : pour ce guide, créez-la dans la console.',
+            'In the console, Developers > API keys, whatever the plan. Tick at least sends:create (send), conversations:read (read threads), webhooks:write (declare the address of step 3) and templates:write (create a template in step 4). The key (mba_…) is shown only once: keep it server-side, in an environment variable. A key created by Claude never carries webhooks:write: for this guide, create it in the console.',
           )}
         </p>
         <Bloc legende={t('Vérifier la clé', 'Check the key')}>{curlGet('/v1/templates')}</Bloc>
@@ -60,8 +60,8 @@ function Demarrer() {
       <Section id="webhook" titre={t('3. Recevoir les événements', '3. Receive events')}>
         <p>
           {t(
-            'Déclarez l’adresse de votre serveur dans la console (Developers > Webhooks sortants), ou par l’API avec une clé qui porte webhooks:write. Le secret (whsec_…) n’est montré qu’une fois : il sert à vérifier chaque signature.',
-            'Declare your server’s address in the console (Developers > Outgoing webhooks), or through the API with a key that carries webhooks:write. The secret (whsec_…) is shown only once: it is used to verify each signature.',
+            'Déclarez l’adresse de votre serveur par l’API, avec la clé de l’étape 2, ou en la donnant à Claude (create_webhook_endpoint) ; en formule Pro, aussi dans la console (Developers > Webhooks sortants). Le secret (whsec_…) n’est montré qu’une fois : il sert à vérifier chaque signature.',
+            'Declare your server’s address through the API, with the key of step 2, or by giving it to Claude (create_webhook_endpoint); on Pro, also in the console (Developers > Outgoing webhooks). The secret (whsec_…) is shown only once: it is used to verify each signature.',
           )}
         </p>
         <Bloc legende={t('Commande', 'Command')}>{curl('/v1/webhooks', EXEMPLES_CORPS.webhookCree.corps)}</Bloc>
@@ -83,11 +83,14 @@ function Demarrer() {
         <Bloc legende={t('Commande', 'Command')}>{curl('/v1/messages/whatsapp', EXEMPLES_CORPS.premiereReponse.corps)}</Bloc>
         <p>
           {t(
-            'Pour écrire en premier, il faut un modèle approuvé par Meta : créez-le dans la console (Contenu > WhatsApp > Templates) ou par ',
-            'To write first, you need a template approved by Meta: create it in the console (Content > WhatsApp > Templates) or with ',
+            'Pour écrire en premier, il faut un modèle approuvé par Meta : créez-le par ',
+            'To write first, you need a template approved by Meta: create it with ',
           )}
           <LienDoc page="templates" ancre="creer">POST /v1/templates</LienDoc>
-          {t(', attendez son approbation (de quelques minutes à 24 h), puis envoyez-le :', ', wait for its approval (from a few minutes to 24 hours), then send it:')}
+          {t(
+            ', ou en le demandant à Claude (create_template) ; en formule Pro, aussi dans la console (Contenu > WhatsApp > Templates). Attendez son approbation (de quelques minutes à 24 h), puis envoyez-le :',
+            ', or by asking Claude (create_template); on Pro, also in the console (Content > WhatsApp > Templates). Wait for its approval (from a few minutes to 24 hours), then send it:',
+          )}
         </p>
         <Bloc legende={t('Commande', 'Command')}>{curl('/v1/sends', EXEMPLES_CORPS.premierModele.corps)}</Bloc>
         <Liste>

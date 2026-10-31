@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 Le mode répétition de l'envoi (décidé le 2026-10-31, « plus tard »)
+
+- `dryRun: true` sur `POST /v1/sends` : tout vérifier (modèle approuvé, variables, consentement, fenêtre de 24 h,
+  quota) et répondre ce qui partirait, sans rien envoyer à Meta. À ouvrir APRÈS la lecture de l'usage réel de l'API
+  (clés créées, appels par jour). Une sandbox séparée et un rendu OpenAPI dans la console ont été écartés le même jour
+  (plan `docs/superpowers/plans/2026-10-31-pages-api-mcp.md`).
+
 ## 🟡 Le répondeur par étage : le plan de sa lecture, à suivre (2026-10-31)
 
 - 🟡 **`repondeurDeLaReponse` (`src/campaign/store.pg.ts`), lue par la remise de chaque message entrant** : en

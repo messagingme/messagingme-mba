@@ -16,7 +16,7 @@ With no number connected, nothing goes out: [`no_whatsapp_number`](https://conso
 
 ## 2. Create an API key
 
-In the console, Developers > API keys. Tick at least sends:create (send) and conversations:read (read threads). The key (mba_…) is shown only once: keep it server-side, in an environment variable.
+In the console, Developers > API keys, whatever the plan. Tick at least sends:create (send), conversations:read (read threads), webhooks:write (declare the address of step 3) and templates:write (create a template in step 4). The key (mba_…) is shown only once: keep it server-side, in an environment variable. A key created by Claude never carries webhooks:write: for this guide, create it in the console.
 
 _Check the key_
 
@@ -31,7 +31,7 @@ A list, even empty, means the key works. Otherwise: [`unauthorized`](https://con
 
 ## 3. Receive events
 
-Declare your server’s address in the console (Developers > Outgoing webhooks), or through the API with a key that carries webhooks:write. The secret (whsec_…) is shown only once: it is used to verify each signature.
+Declare your server’s address through the API, with the key of step 2, or by giving it to Claude (create_webhook_endpoint); on Pro, also in the console (Developers > Outgoing webhooks). The secret (whsec_…) is shown only once: it is used to verify each signature.
 
 _Command_
 
@@ -69,7 +69,7 @@ curl -X POST https://api.messagingme.app/v1/messages/whatsapp \
 }'
 ```
 
-To write first, you need a template approved by Meta: create it in the console (Content > WhatsApp > Templates) or with [POST /v1/templates](https://console.messagingme.app/developers/api/templates.en.md#creer), wait for its approval (from a few minutes to 24 hours), then send it:
+To write first, you need a template approved by Meta: create it with [POST /v1/templates](https://console.messagingme.app/developers/api/templates.en.md#creer), or by asking Claude (create_template); on Pro, also in the console (Content > WhatsApp > Templates). Wait for its approval (from a few minutes to 24 hours), then send it:
 
 _Command_
 

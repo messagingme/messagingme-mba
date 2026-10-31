@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CONSTRUIRE } from '../scripts/plugin/construire';
-import { FAMILLES_OUTILS } from '../scripts/plugin/familles-outils';
+import { FAMILLES_OUTILS } from '../web/lib/partage/familles-outils';
 import { PAGES_FAQ, blocConstruireVitrine, commandesPubliees, hrefCapacite, pageAvecConstruire, readmeAJour } from '../scripts/plugin/generer';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { PAGES_DOC } from '../web/lib/doc-api-pages';
@@ -10,7 +10,7 @@ import { ENTREES } from '../web/lib/registre-vitrine';
 
 /**
  * CE QUE VOUS POUVEZ CONSTRUIRE, ET LE README DU PLUGIN (Julien, 2026-10-21). Une source par bloc
- * (`scripts/plugin/construire.ts`, `familles-outils.ts`, les constantes de l'offre), des copies générées par
+ * (`scripts/plugin/construire.ts`, `web/lib/partage/familles-outils.ts`, les constantes de l'offre), des copies générées par
  * `npm run plugin:generer` : la page développeurs en français et en anglais, et `plugin/README.md`.
  */
 const RACINE = resolve(__dirname, '..');

@@ -23,7 +23,7 @@ import { schema } from '../../src/config';
 import { COMMANDES } from './commandes';
 import { NOMS_OFFRES, etiquetteDOffre, offreDeLaCarte } from '../vitrine/offres-outils';
 import { CONSTRUIRE, ICONES_FAMILLES, type Capacite, type LienCapacite } from './construire';
-import { FAMILLES_OUTILS } from './familles-outils';
+import { FAMILLES_OUTILS } from '../../web/lib/partage/familles-outils';
 import { FAQ } from './faq';
 
 /** Un fichier que le générateur écrit, par son chemin dans `plugin/`. */
@@ -265,7 +265,7 @@ export function readmeAJour(md: string): string {
   let sortie = remplacerBloc(md, 'construire', debut('construire', 'scripts/plugin/construire.ts'), construire);
   sortie = remplacerBloc(sortie, 'prix', debut('prix', 'src/offres/offres.ts'), prix);
   sortie = remplacerBloc(sortie, 'contenu', debut('contenu', 'scripts/plugin/commandes.ts'), contenu);
-  return remplacerBloc(sortie, 'outils', debut('outils', 'scripts/plugin/familles-outils.ts'), outils);
+  return remplacerBloc(sortie, 'outils', debut('outils', 'web/lib/partage/familles-outils.ts'), outils);
 }
 
 async function main(): Promise<void> {

@@ -8,7 +8,7 @@
 // leurs étiquettes d'offre se calculent depuis le serveur MCP (`offres-outils.ts`).
 import { OUTILS_MCP } from '../../web/lib/mcp-outils';
 import { ENTREES, type EntreeVitrine } from '../../web/lib/registre-vitrine';
-import { FAMILLES_OUTILS } from '../plugin/familles-outils';
+import { FAMILLES_OUTILS } from '../../web/lib/partage/familles-outils';
 import { ACCUEIL, fichierDe, fil, page } from './cas';
 import type { Langue } from './cas-textes';
 import { insecables } from './guide-meta';

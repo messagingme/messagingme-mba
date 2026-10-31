@@ -2,13 +2,57 @@
 
 # Messaging Me API
 
-REST API: contacts, WhatsApp and RCS messages, sends.
+REST API: contacts, WhatsApp and RCS messages, sends, and every event pushed to your server through a signed webhook.
+
+<a id="api-ou-mcp"></a>
+
+## API or MCP?
+
+| In short | API | MCP |
+| --- | --- | --- |
+| Who acts | Your code, on each event of your application | An assistant (Claude, ChatGPT…), when you ask it |
+| What you connect | An API key, in your server | The Claude Code plugin, or the MCP server endpoint |
+| For | Sending on each order, sign-up or appointment, and receiving every message through a signed webhook | Setting the workspace up, tuning the AI agent, replying, preparing a campaign, reading your figures, in conversation |
+| Start | [API quickstart](https://console.messagingme.app/developers/api/quickstart.en.md) | [MCP server](https://console.messagingme.app/developers/mcp.en.md) |
+
+The two work together: Claude sets the workspace up and creates your application’s key, your code sends and receives.
+
+<a id="authentification"></a>
+
+## Your key
+
+Every call carries an API key in the Authorization header:
+
+_Header_
+
+```
+Authorization: Bearer mba_xxxxxxxxxxxxxxxx
+```
+
+- A workspace administrator creates it in the console, Developers > API keys, whatever the plan, or asks Claude for it (`create_api_key`); a key created by Claude has limited scopes (no MCP, no webhooks, no contact deletion), which are granted in the console.
+- Tick only the scopes your code needs. The key (mba_…) is shown only once: keep it server-side, in an environment variable.
+
+> **Caution**
+>
+> Calls are real: there is no test workspace. A send really goes out on WhatsApp, and Meta may bill it to your business. To try things out, write to your own phone first.
+
+<a id="adresse"></a>
+
+### Base URL
+
+_Base URL_
+
+```
+https://api.messagingme.app/v1
+```
+
+Scopes, rate limit and errors: [Authentication, limits and errors](https://console.messagingme.app/developers/api/reference.en.md).
 
 <a id="premier-appel"></a>
 
 ## First call
 
-Create a record, or update it if it exists:
+Create a record, or update it if it exists. Nothing goes out on WhatsApp:
 
 _Command_
 
@@ -41,6 +85,33 @@ _200 response_
 ```
 
 Details: [POST /v1/contacts](https://console.messagingme.app/developers/api/contacts.en.md#creer).
+
+<a id="ensuite"></a>
+
+## Next
+
+- [Quickstart](https://console.messagingme.app/developers/api/quickstart.en.md): from the number to the first message sent, step by step.
+- [The TypeScript SDK](https://console.messagingme.app/developers/api/sdk.en.md): typed calls and errors, webhook verification.
+- [The concepts](https://console.messagingme.app/developers/api/concepts.en.md): identifying a person, consent and STOP, the 24-hour window, idempotency.
+- [The errors](https://console.messagingme.app/developers/api/errors.en.md): every code, and what to do.
+
+<a id="openapi"></a>
+
+## Use the contract in your tool
+
+The OpenAPI 3.1 contract of the API, served by the API itself and therefore always equal to the code in production: every route, its scope, its body, its response, its errors, and the outgoing webhook events.
+
+_Contract_
+
+```
+https://api.messagingme.app/openapi.json
+```
+
+Import this address, or the file, into Postman, Bruno or Insomnia: each one turns it into a collection of requests, ready to try. Add the Authorization header with your key there.
+
+[Open the contract](https://api.messagingme.app/openapi.json)
+
+In TypeScript, the client generated from this contract: [TypeScript SDK](https://console.messagingme.app/developers/api/sdk.en.md).
 
 <a id="endpoints"></a>
 
@@ -113,45 +184,3 @@ Details: [POST /v1/contacts](https://console.messagingme.app/developers/api/cont
 | GET | [/v1/templates](https://console.messagingme.app/developers/api/catalogs.en.md#templates) : Lists the approved, sendable WhatsApp templates. | `sends:create` |
 | GET | [/v1/scenarios](https://console.messagingme.app/developers/api/catalogs.en.md#scenarios) : Lists the published scenarios and their opening message. | `sends:create` |
 | GET | [/v1/rcs-messages](https://console.messagingme.app/developers/api/catalogs.en.md#messages-rcs) : Lists the RCS messages of the library. | `sends:create` |
-
-<a id="adresse"></a>
-
-## Base URL
-
-_Base URL_
-
-```
-https://api.messagingme.app/v1
-```
-
-<a id="openapi"></a>
-
-## OpenAPI contract
-
-The OpenAPI 3.1 contract of the API, served by the API itself and therefore always equal to the code in production: every route, its scope, its body, its response, its errors, and the outgoing webhook events. Import it into a request tool or a client generator.
-
-_Contract_
-
-```
-https://api.messagingme.app/openapi.json
-```
-
-[Open the contract](https://api.messagingme.app/openapi.json)
-
-In TypeScript, the client generated from this contract: [TypeScript SDK](https://console.messagingme.app/developers/api/sdk.en.md).
-
-<a id="authentification"></a>
-
-## Authentication
-
-An API key in the Authorization header of every call:
-
-_Header_
-
-```
-Authorization: Bearer mba_xxxxxxxxxxxxxxxx
-```
-
-Keys are created in the console (Developers > API keys), with an admin account.
-
-Scopes, rate limit and errors: [Authentication, limits and errors](https://console.messagingme.app/developers/api/reference.en.md).

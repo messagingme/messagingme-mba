@@ -50,7 +50,7 @@ export const PAGES_DOC = [
   {
     cle: 'accueil', href: '/developers/api', fichier: 'web/app/developers/api/page.tsx', groupe: 'demarrer',
     nav: ['Accueil', 'Overview'], titre: ['API Messaging Me', 'Messaging Me API'],
-    ancres: ['premier-appel', 'endpoints', 'adresse', 'openapi', 'authentification'],
+    ancres: ['api-ou-mcp', 'authentification', 'adresse', 'premier-appel', 'ensuite', 'openapi', 'endpoints'],
   },
   {
     // De l'inscription au premier webhook vérifié (lot 17).
@@ -182,9 +182,10 @@ export const PAGES_DOC = [
   {
     cle: 'mcp', href: '/developers/mcp', fichier: 'web/app/developers/mcp/page.tsx', groupe: 'plateforme',
     nav: ['Serveur MCP', 'MCP server'], titre: ['Serveur MCP', 'MCP server'],
-    // Une ancre par outil, son nom (Julien, 2026-10-31) : « Ce que vous pouvez construire », sur la vitrine, mène
-    // chaque capacité à son outil. Dérivée du catalogue : un outil ajouté a son ancre sans qu'on y pense.
-    ancres: Object.keys(CATALOGUE_MCP) as NomOutilMcp[],
+    // Les trois chemins et les sections (audit du 2026-10-31), puis une ancre par outil, son nom : « Ce que vous pouvez
+    // construire », sur la vitrine, mène chaque capacité à son outil. Dérivée du catalogue : un outil ajouté a son ancre
+    // sans qu'on y pense.
+    ancres: ['api-ou-mcp', 'plugin', 'oauth', 'cle', 'limites', 'acces', 'outils', ...(Object.keys(CATALOGUE_MCP) as NomOutilMcp[])],
   },
 ] as const satisfies readonly PageDoc[];
 

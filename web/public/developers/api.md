@@ -2,13 +2,57 @@
 
 # API Messaging Me
 
-API REST : contacts, messages WhatsApp et RCS, envois.
+API REST : contacts, messages WhatsApp et RCS, envois, et chaque événement poussé vers votre serveur par un webhook signé.
+
+<a id="api-ou-mcp"></a>
+
+## API ou MCP ?
+
+| En bref | API | MCP |
+| --- | --- | --- |
+| Qui agit | Votre code, à chaque événement de votre application | Un assistant (Claude, ChatGPT…), quand vous le lui demandez |
+| Ce qu’on branche | Une clé d’API, dans votre serveur | Le plugin Claude Code, ou l’adresse du serveur MCP |
+| Pour | Envoyer à chaque commande, inscription ou rendez-vous, et recevoir chaque message par un webhook signé | Mettre l’espace en service, régler l’agent IA, répondre, préparer une campagne, lire vos chiffres, en conversation |
+| Commencer | [Démarrer avec l’API](https://console.messagingme.app/developers/api/quickstart.md) | [Serveur MCP](https://console.messagingme.app/developers/mcp.md) |
+
+Les deux se complètent : Claude met l’espace en service et crée la clé de votre application, votre code envoie et reçoit.
+
+<a id="authentification"></a>
+
+## Votre clé
+
+Chaque appel porte une clé d’API dans l’en-tête Authorization :
+
+_En-tête_
+
+```
+Authorization: Bearer mba_xxxxxxxxxxxxxxxx
+```
+
+- Un administrateur de l’espace la crée dans la console, Developers > Clés d’API, quelle que soit l’offre, ou la demande à Claude (`create_api_key`) ; une clé créée par Claude a des droits limités (ni le MCP, ni les webhooks, ni la suppression de contacts), qui se donnent dans la console.
+- Cochez seulement les droits dont votre code a besoin. La clé (mba_…) n’est montrée qu’une fois : gardez-la côté serveur, dans une variable d’environnement.
+
+> **Attention**
+>
+> Les appels sont réels : il n’y a pas d’espace de test. Un envoi part vraiment sur WhatsApp, et Meta peut le facturer à votre entreprise. Pour essayer, écrivez d’abord à votre propre téléphone.
+
+<a id="adresse"></a>
+
+### Adresse de base
+
+_Adresse de base_
+
+```
+https://api.messagingme.app/v1
+```
+
+Droits, débit et erreurs : [Authentification, limites et erreurs](https://console.messagingme.app/developers/api/reference.md).
 
 <a id="premier-appel"></a>
 
 ## Premier appel
 
-Créer une fiche, ou la mettre à jour si elle existe :
+Créer une fiche, ou la mettre à jour si elle existe. Rien ne part sur WhatsApp :
 
 _Commande_
 
@@ -41,6 +85,33 @@ _Réponse 200_
 ```
 
 Détail : [POST /v1/contacts](https://console.messagingme.app/developers/api/contacts.md#creer).
+
+<a id="ensuite"></a>
+
+## Ensuite
+
+- [Démarrer](https://console.messagingme.app/developers/api/quickstart.md) : du numéro au premier message envoyé, étape par étape.
+- [Le SDK TypeScript](https://console.messagingme.app/developers/api/sdk.md) : des appels et des erreurs typés, la vérification des webhooks.
+- [Les concepts](https://console.messagingme.app/developers/api/concepts.md) : désigner une personne, le consentement et STOP, la fenêtre de 24 h, l’idempotence.
+- [Les erreurs](https://console.messagingme.app/developers/api/errors.md) : chaque code, et quoi faire.
+
+<a id="openapi"></a>
+
+## Utiliser le contrat dans votre outil
+
+Le contrat OpenAPI 3.1 de l’API, servi par l’API elle-même et donc toujours égal au code en production : chaque route, son droit, son corps, sa réponse, ses erreurs, et les événements des webhooks sortants.
+
+_Contrat_
+
+```
+https://api.messagingme.app/openapi.json
+```
+
+Importez cette adresse, ou le fichier, dans Postman, Bruno ou Insomnia : chacun en fait une collection de requêtes, prête à essayer. Ajoutez-y l’en-tête Authorization avec votre clé.
+
+[Ouvrir le contrat](https://api.messagingme.app/openapi.json)
+
+En TypeScript, le client généré depuis ce contrat : [SDK TypeScript](https://console.messagingme.app/developers/api/sdk.md).
 
 <a id="endpoints"></a>
 
@@ -113,45 +184,3 @@ Détail : [POST /v1/contacts](https://console.messagingme.app/developers/api/con
 | GET | [/v1/templates](https://console.messagingme.app/developers/api/catalogs.md#templates) : Liste les templates WhatsApp approuvés et envoyables. | `sends:create` |
 | GET | [/v1/scenarios](https://console.messagingme.app/developers/api/catalogs.md#scenarios) : Liste les scénarios publiés et leur message d’ouverture. | `sends:create` |
 | GET | [/v1/rcs-messages](https://console.messagingme.app/developers/api/catalogs.md#messages-rcs) : Liste les messages RCS de la bibliothèque. | `sends:create` |
-
-<a id="adresse"></a>
-
-## Adresse de base
-
-_Adresse de base_
-
-```
-https://api.messagingme.app/v1
-```
-
-<a id="openapi"></a>
-
-## Contrat OpenAPI
-
-Le contrat OpenAPI 3.1 de l’API, servi par l’API elle-même et donc toujours égal au code en production : chaque route, son droit, son corps, sa réponse, ses erreurs, et les événements des webhooks sortants. Il s’importe dans un outil de requêtes ou un générateur de client.
-
-_Contrat_
-
-```
-https://api.messagingme.app/openapi.json
-```
-
-[Ouvrir le contrat](https://api.messagingme.app/openapi.json)
-
-En TypeScript, le client généré depuis ce contrat : [SDK TypeScript](https://console.messagingme.app/developers/api/sdk.md).
-
-<a id="authentification"></a>
-
-## Authentification
-
-Une clé d’API dans l’en-tête Authorization de chaque appel :
-
-_En-tête_
-
-```
-Authorization: Bearer mba_xxxxxxxxxxxxxxxx
-```
-
-Les clés se créent dans la console (Developers > Clés d’API), avec un compte administrateur.
-
-Droits, débit et erreurs : [Authentification, limites et erreurs](https://console.messagingme.app/developers/api/reference.md).

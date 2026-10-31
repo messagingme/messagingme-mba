@@ -36,7 +36,7 @@ async function sansSession(page: Page) {
  * ajoutent d'elles-mêmes : chaque endpoint de l'index (`lib/api-doc-endpoints.ts`) a son titre sur SA page.
  */
 const SECTIONS: Record<CleDePage, string[]> = {
-  accueil: ['Premier appel', 'Tous les endpoints', 'Adresse de base', 'Authentification'],
+  accueil: ['API ou MCP ?', 'Votre clé', 'Adresse de base', 'Premier appel', 'Ensuite', 'Utiliser le contrat dans votre outil', 'Tous les endpoints'],
   quickstart: ['1. Créer son espace et brancher son numéro', '2. Créer une clé d’API', '3. Recevoir les événements', '4. Un premier envoi', 'Ensuite'],
   sdk: ['Installation', 'Un premier appel', 'Les erreurs', 'Vérifier un webhook'],
   contacts: [],
@@ -59,7 +59,10 @@ const SECTIONS: Record<CleDePage, string[]> = {
   webhooks: ['L’enveloppe', 'Vérifier la signature', 'Réponse et réessais', 'Les événements', 'Mon application répond'],
   reference: ['Authentification et droits', 'Débit', 'Erreurs'],
   errors: ['La forme d’une erreur', 'Les codes de l’API', 'Les erreurs de Meta'],
-  mcp: ['Adresse', 'Ce que l’assistant peut faire', 'Ce qu’il ne fait pas'],
+  mcp: [
+    'API ou MCP ?', 'Chemin 1 : Claude Code, avec le plugin (recommandé)', 'Chemin 2 : un autre client, par OAuth (ChatGPT, Cursor, VS Code, Lovable)',
+    'Chemin 3 : à la main, avec une clé d’API', 'Ce qu’il ne fait pas', 'Retirer l’accès, et si ça ne marche pas', 'Ce que l’assistant peut faire',
+  ],
 };
 const titresDe = (cle: CleDePage): string[] => [
   ...SECTIONS[cle],
@@ -201,6 +204,25 @@ test.describe('Developers : la documentation de l’API, page par page', () => {
         await expect(page.locator(`[id="${e.lien.ancre}"]`).getByRole('heading', { name: `${e.methode} ${e.chemin}`, exact: true })).toBeVisible();
       }
     }
+  });
+
+  test('🔴 « API ou MCP ? » ouvre l’accueil de l’API et la page MCP, et mène au départ de chacun (audit du 2026-10-31)', async ({ page }) => {
+    await sansSession(page);
+    for (const cle of ['accueil', 'mcp'] as const) {
+      await page.goto(pageDoc(cle).href);
+      const bloc = page.locator('#api-ou-mcp');
+      await expect(bloc.getByRole('table'), cle).toBeVisible();
+      await expect(bloc.locator(`a[href="${pageDoc('quickstart').href}"]`), cle).toHaveCount(1);
+      await expect(bloc.locator(`a[href="${pageDoc('mcp').href}"]`), cle).toHaveCount(1);
+    }
+  });
+
+  test('la page MCP se parcourt au clavier jusqu’à la commande à copier', async ({ page }) => {
+    await sansSession(page);
+    await page.goto(pageDoc('mcp').href);
+    const cible = page.getByTestId('mcp-copier');
+    for (let i = 0; i < 150 && !(await cible.evaluate((e) => e === document.activeElement)); i++) await page.keyboard.press('Tab');
+    await expect(cible).toBeFocused();
   });
 
   test('la navigation mène à l’index des endpoints', async ({ page }) => {

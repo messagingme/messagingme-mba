@@ -1,10 +1,12 @@
 /**
- * Les outils du serveur MCP, rangés par famille pour le README du plugin (Julien, 2026-10-21). `tests/plugin-readme.test.ts`
+ * Les outils du serveur MCP, rangés par famille (Julien, 2026-10-21), pour le README du plugin, la page Boutiques Shopify
+ * de la vitrine et la page Serveur MCP de la console, qui les lit d'ici (`web/lib/partage/`, comme le catalogue, depuis le
+ * 2026-10-31). `tests/plugin-readme.test.ts`
  * exige que chaque outil du catalogue figure dans une famille, et dans une seule : un outil ajouté sans y être rangé rend
  * la CI rouge, au lieu de manquer en silence au README.
- * `titre` sert au README (en anglais), `titreFr` à la liste repliée de la page Boutiques Shopify (`scripts/vitrine/boutique.ts`).
+ * `titre` sert au README et aux pages anglaises, `titreFr` aux pages françaises.
  */
-import type { NomOutilMcp } from '../../web/lib/partage/catalogue-mcp';
+import type { NomOutilMcp } from './catalogue-mcp';
 
 export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly titreFr: string; readonly outils: readonly NomOutilMcp[] }> = [
   { titre: 'Setup and plan', titreFr: 'Mise en service et offre', outils: ['get_setup_state', 'get_plan', 'subscribe_pro', 'get_credit', 'buy_credit', 'create_api_key', 'list_members'] },

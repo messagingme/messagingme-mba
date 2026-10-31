@@ -2810,7 +2810,9 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   des routes.
   ⚠️ Elle ne nomme aucun outil tiers : elle sert à tous les intégrateurs.
   🔴 **Depuis la refonte du 2026-09-25 (lots 1 et 2), elle est découpée en pages publiques** : Accueil
-  (`/developers/api` : le premier appel complet et sa réponse, puis l'index des endpoints, l'adresse et la clé),
+  (`/developers/api`, réordonné le 2026-10-31 : « API ou MCP ? », la clé et l'avertissement que les appels sont
+  réels, le premier appel et sa réponse, la suite, le contrat OpenAPI à importer dans son outil, puis l'index des
+  endpoints),
   Démarrer, SDK TypeScript, une page par ressource (Contacts, Messages, Conversations, Envois, Modèles, Gérer les
   webhooks, Catalogues), Concepts, des guides (« Un appel par contact », « Les pièges de Meta », la recette Next.js),
   Événements, Webhooks sortants, Authentification, limites et erreurs (adresse inchangée, `/developers/api/reference`),
@@ -4955,11 +4957,14 @@ La page `/demarrer`, les pages développeurs de la vitrine et l'écran Serveur M
 déjà branché à la main à la même adresse est gardé par Claude Code, qui met celui du plugin de côté (aucun outil en
 double). Le plugin ne se met pas à jour tout seul chez les gens : la FAQ dit comment.
 
-**Comment ça s'utilise.** Menu **Developers > Serveur MCP**. L'écran donne l'adresse
-(`https://api.messagingme.app/mcp`), la commande à copier, la liste des outils et ce que le serveur ne fait
-pas. L'accès passe par une **clé d'API** portant les droits `mcp:read` et/ou `mcp:write`, créée dans
-« Clés d'API », ou, pour Claude seulement, par une connexion sans clé (ci-dessous). Pour couper un assistant :
-révoquer sa clé, ou son autorisation.
+**Comment ça s'utilise.** Menu **Developers > Serveur MCP**, public comme la doc de l'API. Depuis le 2026-10-31,
+l'écran s'ouvre sur « API ou MCP ? », puis trois chemins numérotés, chacun avec ses étapes et une vérification qui
+ne change rien (« Où en est mon espace ? ») : **Claude Code avec le plugin** (recommandé) ; **un autre client par
+OAuth** (ChatGPT, Cursor, VS Code, Lovable), sans clé à copier, à l'adresse `https://api.messagingme.app/mcp` ;
+**à la main avec une clé d'API** portant les droits `mcp:read` et/ou `mcp:write`, créée dans « Clés d'API », qui
+n'ouvre pas les outils agissant au nom d'une personne. Suivent ce que le serveur ne fait pas, comment retirer
+l'accès (révoquer la clé ou l'autorisation, dans « Clés d'API ») et les pannes courantes, puis les outils rangés
+par famille, chacun à son ancre.
 
 **Ce que l'assistant peut faire.** Lire (`mcp:read`) : lister les conversations, ouvrir un fil et savoir si la
 fenêtre de 24 h est ouverte, lire les messages, chercher un contact, lister les membres, lister les widgets WhatsApp
