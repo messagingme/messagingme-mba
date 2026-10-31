@@ -335,6 +335,11 @@ Une version déjà publiée ne bouge plus, comme pour le SDK. Le run n'a d'effet
 existe : le dépôt `messagingme/messagingme-plugin` et sa clé de déploiement en écriture se créent une fois, par
 Julien (commandes dans le journal, lot 10).
 
+⚠️ **Les deux clés (`PLUGIN_DEPLOY_KEY`, `SDK_DEPLOY_KEY`) ne servent que si l'organisation `messagingme` autorise les
+clés de déploiement** (réglages de l'organisation, page « Deploy keys »). Créée le 2026-10-31 avec ce réglage éteint,
+elle a fait échouer la publication en « Permission … denied to deploy key » alors que la clé était la bonne :
+`gh api orgs/messagingme --jq .deploy_keys_enabled_for_repositories` doit rendre `true`.
+
 ## ⚠️ Deux gestes qu'on oublie, et leur symptôme
 
 **`up -d --build` OBLIGATOIRE dès que `web/next.config.mjs` bouge.** Les `rewrites` sont **gelés au build** de

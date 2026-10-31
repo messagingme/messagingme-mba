@@ -32,6 +32,10 @@ se garde en coexistence.
   Les quatre jaunes, faits : la variante gardée par le navigateur pour l'espace (`localStorage`), « Le code n'arrive
   pas ? » sur ce chemin, la reprise de la skill (coexistence si le numéro est déjà dans l'application), et le mot
   « coexistence » sorti de ce que Claude dit.
+- **Déployé, puis publié** : l'API (run 41225813505, migration `aucune`), puis le plugin 0.3.20 (run 41227400676,
+  étiquette identique au `plugin/` de `main`). Le premier essai de publication a échoué : l'organisation `messagingme`,
+  créée le jour même pour y transférer les dépôts, avait les clés de déploiement désactivées ; la clé du plugin était
+  la bonne (même empreinte, écriture permise). Julien les a autorisées, et la règle est entrée dans `DEPLOY.md`.
 
 ## 2026-10-31 : les pages API et MCP de la console, plus claires
 
