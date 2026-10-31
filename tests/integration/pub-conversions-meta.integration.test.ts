@@ -110,7 +110,8 @@ describe.skipIf(!url)('le journal des conversions de nos publicités (Postgres r
     const waba = `itest-waba-${suffixe}`;
     await pool.query('insert into waba (id, tenant_id) values ($1, $2)', [waba, espace]);
     await pool.query('insert into phone_numbers (id, waba_id, tenant_id) values ($1, $2, $3)', [`itest-pn-${suffixe}`, waba, espace]);
-    await pool.query('insert into abonnements_offre (stripe_subscription_id, tenant_id, periodicite, livemode) values ($1, $2, $3, false)', [`sub_itest_${suffixe}`, espace, 'mois']);
+    // `abonnements_offre_id_chk` : `sub_` puis des lettres et des chiffres seulement (le suffixe est hexadécimal).
+    await pool.query('insert into abonnements_offre (stripe_subscription_id, tenant_id, periodicite, livemode) values ($1, $2, $3, false)', [`sub_itest${suffixe}`, espace, 'mois']);
     // Les deux reprises de la migration, rejouées telles qu'écrites (en CI, la migration a tourné sur une base vide).
     const reprises = decouperInstructions(readFileSync(new URL('../../db/migrations/0265_conversions_meta.sql', import.meta.url), 'utf8'))
       .map((i) => i.split(/\r?\n/).filter((l) => !/^\s*--/.test(l)).join('\n').trim())
