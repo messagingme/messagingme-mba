@@ -4,6 +4,26 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 : le bloc « Envoi template » choisit le champ de chaque variable, pour lui seul
+
+Julien, devant le panneau qui affichait `{{1}} = Prénom` en lecture : « je veux pouvoir changer la variable et
+l'associer potentiellement à un autre champ ». Décisions (AskUserQuestion) : le choix vaut pour ce bloc seulement, le
+template et sa validation chez Meta ne bougent pas ; l'étape Contenu d'une campagne reprend les choix du bloc et reste
+modifiable. Plan `docs/superpowers/plans/2026-10-31-variables-du-bloc-template.md`.
+
+Livré en deux temps pour qu'aucun écran ne montre un choix que l'envoi ignorerait : le serveur `e56fd3c1` (moteur,
+envoi, route HubSpot « transaction », qui remplit elle-même le modèle d'ouverture et avait été oubliée du premier
+inventaire), déployé sans migration après approbation de Julien, puis la console `ebef526b`, CI racine et console
+vertes. Chaque test neuf a été vérifié dans les deux sens. La relecture indépendante n'a relevé aucun rouge ; deux
+jaunes corrigés avant le push de la console : « Texte fixe » inutilisable (la ligne recalculée depuis le bloc
+retombait sur sa valeur, d'où un brouillon local) et un premier changement qui figeait toutes les positions du
+template dans le bloc (seules les positions différentes s'enregistrent désormais). Restes au todo. L'essai réel
+(`{{1}}` passé sur Nom, test depuis le bloc vers le téléphone de Julien) reste à faire.
+
+En passant : un `git rebase --autostash` dans la copie à part a déposé le travail console dans la pile de stash
+COMMUNE aux copies ; la réapplication a buté sur `todo.md` et laissé l'entrée. Conflit résolu, l'entrée retirée après
+vérification de son contenu, les entrées des autres sessions intactes.
+
 ## 2026-10-31 : le Crédit WhatsApp, lot 2 (acheter, l'onglet, la reprise, les e-mails, Claude, les codes publics)
 
 Lot 2 du plan `docs/superpowers/plans/2026-10-30-credit-whatsapp-notre-cote.md`, sans migration. Toujours rien de visible
