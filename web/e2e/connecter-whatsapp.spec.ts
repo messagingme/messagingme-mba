@@ -283,6 +283,12 @@ test('🔴 sans compte Meta Business ni application : la télécharger, brancher
   await expect(page.getByTestId('note-compte')).toContainText('la fenêtre de Meta vous le fera créer en chemin');
   await expect(page.getByTestId('question-application')).toContainText('Avez-vous déjà l’application WhatsApp Business ?');
   await page.getByTestId('question-application-non').click();
+  // Avant la 4e question, « il faudra la télécharger », avec les deux magasins et leur icône (Julien, 2026-10-31).
+  const note = page.getByTestId('note-application');
+  await expect(note).toContainText('Vous allez devoir télécharger l’application WhatsApp Business.');
+  await expect(note.getByRole('link', { name: 'App Store (iPhone)' })).toHaveAttribute('href', /id1386412985/);
+  await expect(note.getByRole('link', { name: 'Google Play (Android)' })).toHaveAttribute('href', /com\.whatsapp\.w4b/);
+  await expect(note.getByRole('link').locator('svg')).toHaveCount(2);
   // La 4e question (Julien, 2026-10-31) : avec son propre numéro, télécharger l’application et brancher tout de suite.
   await expect(page.getByTestId('question-numero')).toContainText('Avez-vous déjà un numéro que vous pourriez utiliser ?');
   await page.getByTestId('question-numero-oui').click();

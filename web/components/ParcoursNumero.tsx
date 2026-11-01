@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Bouton, classesBouton } from '@/components/Bouton';
+import { Icone } from '@/components/Icone';
 import { useT } from '@/lib/i18n';
 import { useConnexionNumero } from '@/lib/connexion-numero';
 import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
@@ -203,7 +204,10 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const magasins = (
     <div className="mt-3 flex flex-wrap gap-2">
       {ISSUE_TELECHARGER.magasins.map((m) => (
-        <a key={m.href} href={m.href} target="_blank" rel="noopener noreferrer" className={classesBouton('secondaire', 'petite')}>{t(m.libelle.fr, m.libelle.en)}</a>
+        <a key={m.href} href={m.href} target="_blank" rel="noopener noreferrer" className={classesBouton('secondaire', 'petite')}>
+          <Icone nom={m.icone} taille="petite" />
+          {t(m.libelle.fr, m.libelle.en)}
+        </a>
       ))}
     </div>
   );

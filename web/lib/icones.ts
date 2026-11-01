@@ -83,6 +83,8 @@ export const NOMS_ICONES = [
   'saut',
   'copier',
   'cadenas',
+  'appstore',
+  'googleplay',
 ] as const;
 
 export type NomIcone = (typeof NOMS_ICONES)[number];

@@ -1,10 +1,10 @@
 'use client';
 
 import {
-  AddressBookIcon, ArrowBendDownRightIcon, CardsThreeIcon, GpsFixIcon, ListBulletsIcon, ArrowBendUpLeftIcon, BookOpenIcon, BuildingsIcon, CalendarBlankIcon, CaretDownIcon,
+  AddressBookIcon, AppleLogoIcon, ArrowBendDownRightIcon, CardsThreeIcon, GpsFixIcon, ListBulletsIcon, ArrowBendUpLeftIcon, BookOpenIcon, BuildingsIcon, CalendarBlankIcon, CaretDownIcon,
   CaretLeftIcon, CaretRightIcon, ChartBarIcon, ChatCircleDotsIcon, ChatCircleIcon, CheckCircleIcon,
   ClipboardTextIcon, CodeIcon, CopyIcon, CursorClickIcon, DeviceMobileIcon, EnvelopeSimpleIcon, EyeIcon, FileArrowUpIcon, FlagIcon,
-  FileTextIcon, FlowArrowIcon, FunctionIcon, GearIcon, GitBranchIcon, HeadsetIcon, HourglassMediumIcon, HouseIcon,
+  FileTextIcon, FlowArrowIcon, FunctionIcon, GearIcon, GitBranchIcon, GooglePlayLogoIcon, HeadsetIcon, HourglassMediumIcon, HouseIcon,
   ImageIcon, LightbulbIcon, LightningIcon, LinkIcon, ListIcon, LockIcon, MagicWandIcon, MagnifyingGlassIcon, MapPinIcon, MapTrifoldIcon, MegaphoneIcon,
   MicrophoneIcon, MinusIcon, PaperPlaneTiltIcon, PaperclipIcon, PencilSimpleIcon, PhoneIcon, PlayIcon, PlugIcon, PlusIcon,
   ProhibitIcon, PuzzlePieceIcon, QuestionIcon, RobotIcon, ShieldCheckIcon, SmileyIcon, SparkleIcon,
@@ -33,7 +33,8 @@ import type { NomIcone } from '@/lib/icones';
  * `titre`, ou mieux par l'`aria-label` du bouton qui l'entoure.
  *
  * ⚠️ Les emojis qui restent dans le code sont du CONTENU : le sélecteur d'emojis, et ce que le destinataire
- * verra dans un aperçu de message. Les logos de marque (WhatsApp, HubSpot, Meta) restent dans `LogosCanaux`.
+ * verra dans un aperçu de message. Les logos de marque (WhatsApp, HubSpot, Meta) restent dans `LogosCanaux`, en
+ * couleur ; les deux magasins de l'application sont des glyphes de la famille, monochromes comme le reste.
  */
 const ICONES = {
   // Navigation.
@@ -121,6 +122,9 @@ const ICONES = {
   rechercher: MagnifyingGlassIcon,
   contact: UserIcon,
   fin: FlagIcon,
+  // Les deux magasins de l'application WhatsApp Business (`ISSUE_TELECHARGER.magasins`, Julien, 2026-10-31).
+  appstore: AppleLogoIcon,
+  googleplay: GooglePlayLogoIcon,
 } satisfies Record<NomIcone, Icon>;
 
 export type { NomIcone };
