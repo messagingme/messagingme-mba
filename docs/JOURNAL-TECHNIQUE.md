@@ -4,6 +4,19 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-10-31 (soir) : « il faudra télécharger l'application », et la 4e question reformulée (plugin 0.3.21)
+
+Julien, sur la vitrine en ligne : après « Non » à « Avez-vous déjà l'application WhatsApp Business ? », dire tout de
+suite « Vous allez devoir télécharger l'application WhatsApp Business », avec les liens App Store et Google Play et
+leurs deux petites icônes, puis « Avez-vous déjà un numéro que vous pourriez utiliser ? » (« pas la peine de préciser
+pour votre entreprise »). Un seul commit, `1425896f`, parce que le test de parité tient la console et la skill égales
+à la vitrine au mot près : la note de la réponse Non (`lienHtml`, icônes Simple Icons en ligne, aussi sur les liens des
+issues et du lexique), `QUESTION_APPLICATION.noteNon` et les deux magasins dans la console avant la 4e question (sans
+icônes, la console n'en admettant qu'une famille : la session « Plugin et console » les pose à part), la skill, la FAQ
+et le README du plugin, publié en 0.3.21, la 0.3.20 étant déjà sortie. Un e2e de la console sans rapport
+(`agents-connaissance.spec.ts:127`, une suggestion d'adresse qui arrive avant la saisie) a rougi une fois puis passé à
+la relance ; il n'avait échoué sur aucun des douze runs précédents.
+
 ## 2026-10-31 : le bloc « Envoi template » choisit le champ de chaque variable, pour lui seul
 
 Julien, devant le panneau qui affichait `{{1}} = Prénom` en lecture : « je veux pouvoir changer la variable et
