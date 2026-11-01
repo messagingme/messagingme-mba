@@ -11,7 +11,7 @@ Le client TypeScript de l’API : des appels typés par chemin et par méthode, 
 _Installation_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 - Aucune dépendance. Node 20 ou plus, Deno, Bun, et les environnements qui exposent fetch et Web Crypto.

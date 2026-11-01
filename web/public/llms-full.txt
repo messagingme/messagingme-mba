@@ -330,7 +330,7 @@ Le client TypeScript de l’API : des appels typés par chemin et par méthode, 
 _Installation_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 - Aucune dépendance. Node 20 ou plus, Deno, Bun, et les environnements qui exposent fetch et Web Crypto.
@@ -2855,7 +2855,7 @@ _Prompt_
 ```
 Branche Messaging Me (WhatsApp) dans ce projet Next.js (App Router), en suivant la recette
 https://console.messagingme.app/developers/api/guides/nextjs.md :
-1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.2 ;
 2. crée lib/messagingme.ts (le client, côté serveur seulement) ;
 3. crée la route POST /api/confirmation qui envoie le modèle « confirmation_commande » (deux variables : le nom
    du contact, puis le numéro de commande) avec une clé d’idempotence tirée du numéro de commande, et renvoie
@@ -2873,7 +2873,7 @@ N’invente aucune route ni aucun champ : ils sont dans https://api.messagingme.
 _Commande_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 Deux variables dans `.env.local` : la clé d’API (Developers > Clés d’API, droit sends:create) et le secret de l’adresse de webhook, donné une seule fois à sa création.
@@ -3004,7 +3004,7 @@ _Prompt_
 ```
 Branche des rappels de rendez-vous WhatsApp dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/appointment-reminders.md :
-1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.2 ;
 2. avec les outils Messaging Me, crée le modèle de rappel appointment_reminder (UTILITY, en, le prénom puis l’heure, deux
    boutons de réponse rapide) et, sur l’agent qui répond (allumé et désigné répondeur), les deux actions
    « Reschedule request » (sans champ) et « Slot choice » (champ slot) ;
@@ -3040,7 +3040,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_
@@ -3212,7 +3212,7 @@ _Prompt_
 ```
 Branche la prise de rendez-vous par WhatsApp dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/appointment-booking.md :
-1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.2 ;
 2. avec les outils Messaging Me, allume l’agent qui répond (activate_agent, puis set_default_responder) et pose sur
    lui les deux actions « Appointment request » (champs reason et city, à déclencher une fois la ville connue) et
    « Slot choice » (champ slot) ;
@@ -3242,7 +3242,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_
@@ -3344,7 +3344,7 @@ _Prompt_
 ```
 Branche le welcome message WhatsApp des nouveaux utilisateurs dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/saas-onboarding-activation.md :
-1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.2 ;
 2. avec les outils Messaging Me, crée le modèle du welcome message, welcome (MARKETING, en, le prénom, un bouton URL vers la
    page qui lance l’utilisateur) ;
 3. ajoute au formulaire d’inscription une case « Recevoir mes conseils de démarrage sur WhatsApp », non cochée par
@@ -3378,7 +3378,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_
@@ -3455,7 +3455,7 @@ _Prompt_
 ```
 Branche la relance WhatsApp des paiements échoués dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/failed-payment-recovery.md :
-1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.2 ;
 2. avec les outils Messaging Me, crée le modèle de paiement échoué payment_failed (UTILITY, en, le prénom, un bouton
    URL vers notre page de facturation) ;
 3. écris lib/billing.ts relié à Stripe (signature vérifiée) et à nos utilisateurs, et branche l’envoi dans notre
@@ -3483,7 +3483,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_
@@ -3590,7 +3590,7 @@ _Prompt_
 ```
 Branche les notifications de commande WhatsApp dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/order-notifications.md :
-1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.2 ;
 2. avec les outils Messaging Me, crée le modèle d’expédition order_shipped (UTILITY, en, le prénom puis le numéro de
    commande, un bouton URL vers notre page de suivi) ;
 3. écris lib/orders.ts relié à nos commandes (l’envoi quand une commande passe en expédiée) et la route
@@ -3619,7 +3619,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_

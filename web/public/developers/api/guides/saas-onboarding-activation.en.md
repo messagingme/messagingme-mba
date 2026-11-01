@@ -15,7 +15,7 @@ _Prompt_
 ```
 Add the WhatsApp welcome for new users to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/saas-onboarding-activation.en.md:
-1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.2;
 2. with the Messaging Me tools, create the welcome template welcome (MARKETING, en, the first name, a URL button to
    the page that gets the user started);
 3. add to the sign-up form a “Get my getting-started tips on WhatsApp” box, unticked by default, and write
@@ -49,7 +49,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_

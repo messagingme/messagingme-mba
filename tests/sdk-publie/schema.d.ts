@@ -1449,7 +1449,7 @@ export interface components {
              * @description The stable machine-readable code, on every JSON error response of the API. A 5xx may arrive without this body (a generic error page replaced it on the way).
              * @enum {string}
              */
-            code?: "invalid_body" | "invalid_recipient" | "invalid_phone" | "unauthorized" | "missing_scope" | "tenant_locked" | "unknown_contact" | "duplicate" | "identity_conflict" | "blocked_contact" | "opted_out" | "no_consent" | "window_closed" | "missing_variable" | "no_phone" | "rcs_unreachable" | "rcs_not_enabled" | "no_whatsapp_number" | "meta_rejected" | "invalid_header_media" | "template_rejected" | "meta_auth_failed" | "webhook_not_found" | "delivery_not_found" | "delivery_not_replayable" | "webhooks_unavailable" | "field_exists" | "number_unlinked" | "number_suspended" | "scenario_not_found" | "node_not_found" | "template_not_found" | "rcs_message_not_found" | "send_not_found" | "conversation_not_found" | "message_not_found" | "invalid_cursor" | "no_media" | "media_expired" | "media_unavailable" | "scenario_ambiguous" | "unsendable_target" | "template_category_unknown" | "idempotency_key_required" | "idempotency_in_progress" | "idempotency_key_reused" | "rate_limited" | "quota_exceeded" | "plan_feature_unavailable" | "plan_limit_reached" | "route_not_found" | "internal_error";
+            code?: "invalid_body" | "invalid_recipient" | "invalid_phone" | "unauthorized" | "missing_scope" | "tenant_locked" | "unknown_contact" | "duplicate" | "identity_conflict" | "blocked_contact" | "opted_out" | "no_consent" | "window_closed" | "missing_variable" | "no_phone" | "rcs_unreachable" | "rcs_not_enabled" | "no_whatsapp_number" | "meta_rejected" | "invalid_header_media" | "template_rejected" | "meta_auth_failed" | "webhook_not_found" | "delivery_not_found" | "delivery_not_replayable" | "webhooks_unavailable" | "field_exists" | "number_unlinked" | "number_suspended" | "whatsapp_credit_exhausted" | "whatsapp_credit_line_inactive" | "scenario_not_found" | "node_not_found" | "template_not_found" | "rcs_message_not_found" | "send_not_found" | "conversation_not_found" | "message_not_found" | "invalid_cursor" | "no_media" | "media_expired" | "media_unavailable" | "scenario_ambiguous" | "unsendable_target" | "template_category_unknown" | "idempotency_key_required" | "idempotency_in_progress" | "idempotency_key_reused" | "rate_limited" | "quota_exceeded" | "plan_feature_unavailable" | "plan_limit_reached" | "route_not_found" | "internal_error";
             /** @description On meta_rejected: Meta’s own error number (131047, 132000…), null when Meta gives none. */
             metaCode?: number | null;
             /** @description On 402 (plan_feature_unavailable, plan_limit_reached): the page where the plan is upgraded. */
@@ -2093,7 +2093,7 @@ export interface operations {
                             /** @constant */
                             status: "error";
                             /** @enum {string} */
-                            code: "invalid_body" | "invalid_recipient" | "invalid_phone" | "unauthorized" | "missing_scope" | "tenant_locked" | "unknown_contact" | "duplicate" | "identity_conflict" | "blocked_contact" | "opted_out" | "no_consent" | "window_closed" | "missing_variable" | "no_phone" | "rcs_unreachable" | "rcs_not_enabled" | "no_whatsapp_number" | "meta_rejected" | "invalid_header_media" | "template_rejected" | "meta_auth_failed" | "webhook_not_found" | "delivery_not_found" | "delivery_not_replayable" | "webhooks_unavailable" | "field_exists" | "number_unlinked" | "number_suspended" | "scenario_not_found" | "node_not_found" | "template_not_found" | "rcs_message_not_found" | "send_not_found" | "conversation_not_found" | "message_not_found" | "invalid_cursor" | "no_media" | "media_expired" | "media_unavailable" | "scenario_ambiguous" | "unsendable_target" | "template_category_unknown" | "idempotency_key_required" | "idempotency_in_progress" | "idempotency_key_reused" | "rate_limited" | "quota_exceeded" | "plan_feature_unavailable" | "plan_limit_reached" | "route_not_found" | "internal_error";
+                            code: "invalid_body" | "invalid_recipient" | "invalid_phone" | "unauthorized" | "missing_scope" | "tenant_locked" | "unknown_contact" | "duplicate" | "identity_conflict" | "blocked_contact" | "opted_out" | "no_consent" | "window_closed" | "missing_variable" | "no_phone" | "rcs_unreachable" | "rcs_not_enabled" | "no_whatsapp_number" | "meta_rejected" | "invalid_header_media" | "template_rejected" | "meta_auth_failed" | "webhook_not_found" | "delivery_not_found" | "delivery_not_replayable" | "webhooks_unavailable" | "field_exists" | "number_unlinked" | "number_suspended" | "whatsapp_credit_exhausted" | "whatsapp_credit_line_inactive" | "scenario_not_found" | "node_not_found" | "template_not_found" | "rcs_message_not_found" | "send_not_found" | "conversation_not_found" | "message_not_found" | "invalid_cursor" | "no_media" | "media_expired" | "media_unavailable" | "scenario_ambiguous" | "unsendable_target" | "template_category_unknown" | "idempotency_key_required" | "idempotency_in_progress" | "idempotency_key_reused" | "rate_limited" | "quota_exceeded" | "plan_feature_unavailable" | "plan_limit_reached" | "route_not_found" | "internal_error";
                             reason: string;
                         })[];
                         created: number;
@@ -2365,7 +2365,7 @@ export interface operations {
                 "application/json": {
                     name?: string | null;
                     fields?: {
-                        [key: string]: (string | number | boolean) | null;
+                        [key: string]: string | number | boolean | null;
                     };
                     addTags?: (string | number)[];
                     removeTags?: (string | number)[];
@@ -2944,6 +2944,15 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            /** @description Error: whatsapp_credit_exhausted. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             /** @description Error: missing_scope, tenant_locked. */
             403: {
                 headers: {
@@ -2962,7 +2971,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error: identity_conflict, blocked_contact, opted_out, no_whatsapp_number, number_unlinked, number_suspended, meta_auth_failed. */
+            /** @description Error: identity_conflict, blocked_contact, opted_out, no_whatsapp_number, number_unlinked, number_suspended, whatsapp_credit_line_inactive, meta_auth_failed. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3018,6 +3027,9 @@ export interface operations {
                     phone?: string;
                     bsuid?: string;
                     text: string;
+                    /** @enum {string} */
+                    consent?: "opted_in";
+                    consentSource?: string;
                 };
             };
         };
@@ -3038,6 +3050,26 @@ export interface operations {
                     };
                 };
             };
+            /** @description Queued, nothing sent yet: on a number linked by QR code, a text outside the 24-hour window to someone who wrote to the number. It leaves spaced out and counts in the month's messages. Such a number never writes first: to someone who never wrote, the answer is 422 window_closed. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        status: "queued";
+                        /** @description The queued message id, not a WhatsApp message id. */
+                        id: string;
+                        /** @description When the message is due to leave (ISO 8601 date-time). */
+                        scheduledAt: string;
+                        /** @description The conversation of the person who wrote. */
+                        conversationId: string | null;
+                        /** @constant */
+                        channel: "whatsapp";
+                    };
+                };
+            };
             /** @description Error: invalid_body, invalid_recipient, invalid_phone. */
             400: {
                 headers: {
@@ -3049,6 +3081,15 @@ export interface operations {
             };
             /** @description Error: unauthorized. */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: whatsapp_credit_exhausted, plan_limit_reached. */
+            402: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3074,7 +3115,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error: identity_conflict, blocked_contact, opted_out, no_whatsapp_number, number_unlinked, number_suspended, meta_auth_failed. */
+            /** @description Error: identity_conflict, blocked_contact, opted_out, no_whatsapp_number, number_unlinked, number_suspended, whatsapp_credit_line_inactive, meta_auth_failed. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -3083,7 +3124,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error: window_closed, meta_rejected. */
+            /** @description Error: window_closed, meta_rejected, no_phone. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3340,7 +3381,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error: plan_feature_unavailable, plan_limit_reached. */
+            /** @description Error: whatsapp_credit_exhausted, plan_feature_unavailable, plan_limit_reached. */
             402: {
                 headers: {
                     [name: string]: unknown;
@@ -3367,7 +3408,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description Error: idempotency_in_progress, no_whatsapp_number, number_unlinked, number_suspended, scenario_ambiguous, rcs_not_enabled. */
+            /** @description Error: idempotency_in_progress, no_whatsapp_number, number_unlinked, number_suspended, whatsapp_credit_line_inactive, scenario_ambiguous, rcs_not_enabled. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -4668,7 +4709,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    /** Format: date-time */
                     since: string;
                 };
             };

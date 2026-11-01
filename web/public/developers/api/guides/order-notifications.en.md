@@ -15,7 +15,7 @@ _Prompt_
 ```
 Add WhatsApp order notifications to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/order-notifications.en.md:
-1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.2;
 2. with the Messaging Me tools, create the shipping template order_shipped (UTILITY, en, the first name then the
    order number, a URL button to our tracking page);
 3. write lib/orders.ts wired to our orders (the send when an order moves to shipped) and the route
@@ -44,7 +44,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_

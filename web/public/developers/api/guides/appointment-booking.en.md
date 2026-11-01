@@ -15,7 +15,7 @@ _Prompt_
 ```
 Add WhatsApp appointment booking to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/appointment-booking.en.md:
-1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.2;
 2. with the Messaging Me tools, turn the agent on, set it as responder, and add it the two actions
    “Appointment request” (fields reason and city, to trigger once the city is known) and “Slot choice” (field slot);
 3. write lib/calendar.ts wired to our calendar (offer three free slots, book the one chosen) and the route
@@ -44,7 +44,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_

@@ -15,7 +15,7 @@ _Prompt_
 ```
 Branche la prise de rendez-vous par WhatsApp dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/appointment-booking.md :
-1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.2 ;
 2. avec les outils Messaging Me, allume l’agent qui répond (activate_agent, puis set_default_responder) et pose sur
    lui les deux actions « Appointment request » (champs reason et city, à déclencher une fois la ville connue) et
    « Slot choice » (champ slot) ;
@@ -45,7 +45,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_

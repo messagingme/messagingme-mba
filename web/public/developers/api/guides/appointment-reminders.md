@@ -15,7 +15,7 @@ _Prompt_
 ```
 Branche des rappels de rendez-vous WhatsApp dans ce projet, en suivant la recette
 https://console.messagingme.app/developers/api/guides/appointment-reminders.md :
-1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.1 ;
+1. installe le SDK : npm install github:messagingme/messagingme-sdk#v0.3.2 ;
 2. avec les outils Messaging Me, crée le modèle de rappel appointment_reminder (UTILITY, en, le prénom puis l’heure, deux
    boutons de réponse rapide) et, sur l’agent qui répond (allumé et désigné répondeur), les deux actions
    « Reschedule request » (sans champ) et « Slot choice » (champ slot) ;
@@ -51,7 +51,7 @@ Installez le SDK, puis les variables dans `.env.local` et dans celles de votre h
 _Commande_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_

@@ -15,7 +15,7 @@ _Prompt_
 ```
 Add WhatsApp appointment reminders to this project, following the recipe
 https://console.messagingme.app/developers/api/guides/appointment-reminders.en.md:
-1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.1;
+1. install the SDK: npm install github:messagingme/messagingme-sdk#v0.3.2;
 2. with the Messaging Me tools, create the reminder template appointment_reminder (UTILITY, en, the first name then the
    time, two quick reply buttons) and, on the agent that answers (on and set as responder), the two actions
    “Reschedule request” (no field) and “Slot choice” (field slot);
@@ -51,7 +51,7 @@ Install the SDK, then the variables in `.env.local` and in your host’s.
 _Command_
 
 ```
-npm install github:messagingme/messagingme-sdk#v0.3.1
+npm install github:messagingme/messagingme-sdk#v0.3.2
 ```
 
 _.env.local_
