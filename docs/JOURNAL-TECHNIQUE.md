@@ -73,6 +73,16 @@ d'un client tant qu'aucun de ses numéros n'est sur la ligne (au lot 2 comme au 
   (1 176), l'auto-attaque sans trouvaille ; l'e2e de l'onglet et des pages touchées (242) avant le dernier rebase, qui n'a
   apporté à la console que des fichiers sans rapport. Les dépendances installées depuis le verrou dans un dossier à part
   ont fait disparaître les écarts locaux du contrat du SDK.
+- **La CI de `22a5dd9f`** : verte job par job (`unit`, `securite`, `integration`, la console en topologies proxy et
+  Vercel).
+- **En service** le 2026-11-01 à 12 h 48 (run 41234119362, épinglé sur `22a5dd9f`, `migration=aucune`, approuvé par
+  Julien) ; seul ce commit touchait l'API depuis le dernier déploiement (`0bb057c8`). Après : l'API et les deux workers
+  sur `22a5dd9f`, les deux routes de l'onglet répondent 401 sans session (une route inconnue rend 404), le contrat servi
+  porte les deux codes. Par le vrai code de l'image, en lecture seule, sur les 11 espaces : l'historique (sa jointure
+  sur les paiements) se lit partout, aucun refus de la garde, l'achat refusé partout (3 en Free, 8 sans numéro sur la
+  ligne), aucun onglet ouvert, aucune campagne en pause du crédit, et la reprise prend l'index du solde (son UPDATE
+  seulement expliqué). `aide:charger` avec l'image déployée : 187 lignes, 0 retirée, la fiche du Crédit WhatsApp en
+  base. Fumée et fiches OAuth conformes. Essai réel 207, après les quatre prix Stripe.
 
 ## 2026-10-31 : la 4e question du numéro, le numéro fourni mis dans l'application (console, Claude, plugin 0.3.20)
 

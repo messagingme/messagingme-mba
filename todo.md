@@ -71,9 +71,9 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
 ## Le Crédit WhatsApp : la suite de notre côté, puis le partenaire (plan `docs/superpowers/plans/2026-10-30-credit-whatsapp-notre-cote.md`)
 
 - Le lot 1 est en production depuis le 2026-10-31 (`247937c9`) : reste son essai réel par Julien (essai 204).
-- Le lot 2 (l'achat, l'onglet, la reprise, les e-mails, Claude, les codes publics, les écarts 10 et 14) se livre le
-  2026-10-31 : reste son essai réel, après que Julien a créé les quatre prix Stripe et lancé
-  `node docs/prive/credit-whatsapp/poser-prix-wa.cjs`.
+- Le lot 2 (l'achat, l'onglet, la reprise, les e-mails, Claude, les codes publics, les écarts 10 et 14) est en production
+  depuis le 2026-11-01 (`22a5dd9f`) : reste son essai réel (essai 207), après que Julien a créé les quatre prix Stripe et
+  lancé `node docs/prive/credit-whatsapp/poser-prix-wa.cjs`.
 - 🟡 Les jaunes de la relecture du lot 2, à pousser après son déploiement (relus par le lot suivant) : le refus de
   `POST /v1/sends`, `get_setup_state` et le mot « épuisé » de l'onglet comparent le solde à zéro, pas au prix d'un message ;
   le `break` du refus d'étape saute aussi les étiquettes et les champs qui suivent ; la page `paiement-recu` ne connaît

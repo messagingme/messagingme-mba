@@ -390,7 +390,9 @@ l'appel de `leverPausesCreditWhatsapp` après chaque crédit, et un balayage de 
   paiement lu sur la ligne d'achat ; `get_credit` et `buy_credit` ; e-mails dédoublonnés par leur occasion ; une campagne en
   pause `credit_whatsapp_epuise` repart après un crédit, et pas une campagne dont le numéro a été libéré ; doc générée et FAQ
   du plugin à jour.
-- [ ] Voir échouer, implémenter, voir passer (suite `web/` comprise) ; commit. Fin du lot 2 : relecture, essai réel.
+- [x] Voir échouer, implémenter, voir passer (suite `web/` comprise) ; commit. Fin du lot 2 : relecture, essai réel. Fait :
+  `22a5dd9f` (tâches 10 et 11, avec les écarts du lot 1), en production le 2026-11-01 (run 41234119362) ; reste l'essai
+  réel du lot 2 (essai 207), après les quatre prix Stripe.
 
 ### Écarts du lot 2, relevés à la livraison (2026-10-31)
 
