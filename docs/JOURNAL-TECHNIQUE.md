@@ -17,6 +17,11 @@ et le README du plugin, publié en 0.3.21, la 0.3.20 étant déjà sortie. Un e2
 (`agents-connaissance.spec.ts:127`, une suggestion d'adresse qui arrive avant la saisie) a rougi une fois puis passé à
 la relance ; il n'avait échoué sur aucun des douze runs précédents.
 
+Les icônes de la console ont suivi en `dcfb139f`, sur la décision de Julien (« Oui, en Phosphor ») : `AppleLogoIcon` et
+`GooglePlayLogoIcon` de la famille de la console, monochromes, déclarées dans `Icone.tsx` ; chaque magasin de
+`ISSUE_TELECHARGER` porte son icône, donc la note et les cartes qui reprennent les liens les montrent. L'e2e vérifie
+la note, ses deux liens et leurs deux icônes ; CI racine, console et CodeQL vertes.
+
 ## 2026-10-31 : le bloc « Envoi template » choisit le champ de chaque variable, pour lui seul
 
 Julien, devant le panneau qui affichait `{{1}} = Prénom` en lecture : « je veux pouvoir changer la variable et
