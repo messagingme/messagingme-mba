@@ -4,6 +4,14 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : le pixel Meta allumé sur la vitrine
+
+`var PIXEL` (`site/site.js`) porte l'identifiant du pixel de Messaging Me, `430064039366684`, public par nature. La
+bannière des cookies s'affiche sur toutes les pages de la vitrine ; le pixel ne se charge qu'après « Accepter » (lot 1
+du plan `docs/superpowers/plans/2026-10-30-pixel-meta.md`). Julien a choisi d'allumer pendant que Nawel met à jour la
+politique de cookies de `www.messagingme.fr`, vers laquelle la bannière renvoie. La Conversions API (lot 2) reste
+éteinte tant que `META_PIXEL_ID` et `META_CAPI_TOKEN` ne sont pas dans le `.env.prod` des workers.
+
 ## 2026-11-02 : l'Entreprise illimitée, lot C (le suivi des crédits) en production
 
 Fin du chantier de l'Entreprise illimitée (décision de Julien du 2026-11-02, « un endroit où suivre l'évolution du

@@ -480,7 +480,7 @@
 // stockage peut être refusé (navigation privée) : tout est dans des try, et la bannière revient alors à chaque page.
 (function () {
   // L'identifiant du pixel de Messaging Me, public par nature (la vitrine n'a aucune variable). Vide : rien ne s'affiche.
-  var PIXEL = '';
+  var PIXEL = '430064039366684';
   if (!PIXEL) return;
   var pied = document.querySelector('[data-cookies]');
   var CLE = 'mm-consentement', DUREE = 183 * 864e5, CONSOLE = 'console.messagingme.app';
