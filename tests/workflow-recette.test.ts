@@ -101,6 +101,23 @@ describe('lireRecette', () => {
     expect(refusDe({ nom: 'x', entree: t })).toMatchObject({ chemin: 'entree.template.variables.1' });
   });
 
+  it('🔴 un texte de variable que Meta refuserait à chaque envoi (132018) est refusé à l’écriture', () => {
+    for (const texte of ['ligne 1\nligne 2', 'col\tonne', 'cinq     espaces']) {
+      const t = { template: { nom: 'a', langue: 'fr', variables: { 1: { texte } } } };
+      expect(refusDe({ nom: 'x', entree: t }), JSON.stringify(texte)).toMatchObject({ chemin: 'entree.template.variables.1.texte' });
+    }
+  });
+
+  it('au plus dix fichiers distincts par recette : chacun se télécharge pour être vérifié', () => {
+    const msg = (i: number, suite?: Etape): Etape => ({ message: { texte: `m${i}`, fichier: { url: `https://exemple.fr/${i}.pdf` } }, ...(suite ? { suite } : {}) });
+    let onze: Etape = humain;
+    for (let i = 0; i < 11; i++) onze = msg(i, onze);
+    expect(refusDe({ nom: 'x', entree: onze })).toMatchObject({ code: 'invalid_body', chemin: 'entree' });
+    let dix: Etape = humain;
+    for (let i = 0; i < 10; i++) dix = msg(i, dix);
+    expect(lireRecette({ nom: 'x', entree: dix }).ok).toBe(true);
+  });
+
   it('ne lève jamais, même sur un corps qui n’est pas un objet', () => {
     for (const b of [null, 'texte', 42, [], { nom: 'x' }]) expect(lireRecette(b).ok).toBe(false);
   });

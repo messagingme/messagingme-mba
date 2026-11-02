@@ -11,7 +11,7 @@ import type { WorkflowGraph } from '../../src/workflow/graph';
 export const AGENT = '7f6b1c2e-1d2a-4b3c-8d4e-5f6a7b8c9d0e';
 export const TENANT = 't-1';
 
-const tpl = (name: string, language: string, status: string, buttons: TemplateSummary['buttons'] = []): TemplateSummary => ({
+export const tpl = (name: string, language: string, status: string, buttons: TemplateSummary['buttons'] = []): TemplateSummary => ({
   id: `${name}-${language}`, name, language, status, category: 'MARKETING', body: 'Bonjour {{1}}', headerFormat: null, buttons,
 } as TemplateSummary);
 

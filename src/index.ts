@@ -1314,8 +1314,11 @@ async function main(): Promise<void> {
     champs: async (tenant) => (await fieldStore.list(tenant)).map((f) => f.key),
     verifierFichier: (tenant, url) => verifierFichierDuBloc(
       { lireFichier: (t, code) => rcsMediaStore.lireDeLEspace(t, code), telecharger: telechargerEnteteProduction }, tenant, url),
+    places: placesDeTelechargement,
     tenantCode: (tenant) => resolveTenantCode(pool, tenant),
-    journal: (tenant, action, id, details) => auditSink(tenant, { userId: null, email: null }, action, { kind: 'workflow', id }, details),
+    journal: (tenant, action, id, details, auteur) => auditSink(
+      tenant, { userId: auteur.userId, email: null }, action, { kind: 'workflow', id }, { ...details, ...(auteur.acces ? { acces: auteur.acces } : {}) },
+    ),
   };
 
   /**

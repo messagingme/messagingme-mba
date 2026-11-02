@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { OUTILS, outilsPour, RefusOutil, type DepsMcp } from '../src/mcp/outils';
 import { creerScenario } from '../src/workflow/scenarios-api';
 import {
-  LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX, PROFONDEUR_MAX_RECETTE,
+  LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX, PROFONDEUR_MAX_RECETTE,
 } from '../src/workflow/recette';
 import { MAX_NODES } from '../src/workflow/graph';
 import {
@@ -44,7 +44,7 @@ describe('les outils MCP des scénarios', () => {
     expect(vue.empreinte).toBe(r.valeur.empreinte);
     expect(parMcp.store.creerPublieParApi.mock.calls[0]![2].nodes.map((n) => n.id))
       .toEqual(parRoute.store.creerPublieParApi.mock.calls[0]![2].nodes.map((n) => n.id));
-    expect(parMcp.journal).toHaveBeenCalledWith(TENANT, 'workflow.published', vue.id, expect.objectContaining({ origine: 'mcp' }));
+    expect(parMcp.journal).toHaveBeenCalledWith(TENANT, 'workflow.published', vue.id, expect.objectContaining({ origine: 'mcp' }), { userId: 'u1', acces: null });
   });
 
   it('un refus du service devient un refus lisible, avec son chemin', async () => {
@@ -71,7 +71,7 @@ describe('les outils MCP des scénarios', () => {
     const annonce = JSON.stringify([outil('create_scenario').entree, outil('create_scenario').description]);
     for (const borne of [
       MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE, MAX_TEXTE_BOUTON_TEMPLATE,
-      MAX_BOUTONS_TEMPLATE, PROFONDEUR_MAX_RECETTE, MAX_NODES, NOM_SCENARIO_MAX, LONGUEUR_URL_FICHIER_MAX,
+      MAX_BOUTONS_TEMPLATE, PROFONDEUR_MAX_RECETTE, MAX_NODES, NOM_SCENARIO_MAX, LONGUEUR_URL_FICHIER_MAX, MAX_FICHIERS_RECETTE,
     ]) expect(annonce, String(borne)).toMatch(new RegExp(`(^|[^0-9])${borne}([^0-9]|$)`));
     for (const mot of ['https', 'template', 'message', 'agent', 'humain', 'boutons', 'reponses', 'autre_reponse', 'suite', 'fichier']) {
       expect(annonce, mot).toContain(mot);

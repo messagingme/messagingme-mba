@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { creerScenario, lireScenario, remplacerScenario, supprimerScenario } from '../src/workflow/scenarios-api';
 import type { WorkflowGraph } from '../src/workflow/graph';
-import { AGENT, TENANT, depsScenarios as deps, recette } from './aide/scenarios-api';
+import { AGENT, TENANT, depsScenarios as deps, recette, tpl } from './aide/scenarios-api';
+import type { TemplateSummary } from '../src/meta/templates';
 
 /**
  * LE SERVICE DE LA CRÉATION DE SCÉNARIOS : ce que la route REST et l'outil MCP appellent, et rien d'autre. Ses
@@ -17,7 +18,7 @@ describe('creerScenario', () => {
     expect(r.valeur.recette.entree).toMatchObject({ template: { nom: 'relance', variables: { 1: { champ: 'prenom' } } } });
     const graphe = store.creerPublieParApi.mock.calls[0]![2];
     expect(graphe.nodes.every((n) => typeof n.data.code === 'string')).toBe(true);
-    expect(journal).toHaveBeenCalledWith(TENANT, 'workflow.published', r.valeur.id, expect.objectContaining({ origine: 'api' }));
+    expect(journal).toHaveBeenCalledWith(TENANT, 'workflow.published', r.valeur.id, expect.objectContaining({ origine: 'api' }), { userId: null, acces: null });
   });
 
   it('🔴 hors offre : 402, avant toute lecture chez Meta', async () => {
@@ -33,6 +34,39 @@ describe('creerScenario', () => {
     const en = recette({ template: { nom: 'relance', langue: 'en' }, boutons: [{ texte: 'Yes', suite: { humain: {} } }, { texte: 'No', suite: { humain: {} } }] });
     expect(await creerScenario(d, TENANT, en, 'api')).toMatchObject({ ok: false, statut: 422, code: 'template_not_approved' });
     expect((await creerScenario(d, TENANT, recette(), 'api')).ok).toBe(true);
+  });
+
+  it('🔴 un template carrousel est refusé : ses réponses rapides vivent dans ses cartes, qu’une recette ne relie pas', async () => {
+    const carrousel = { ...tpl('vitrine', 'fr', 'APPROVED'), isCarousel: true } as TemplateSummary;
+    const { d } = deps({ templates: async () => [carrousel] });
+    const r = await creerScenario(d, TENANT, recette({ template: { nom: 'vitrine', langue: 'fr' } }), 'api');
+    expect(r).toMatchObject({ ok: false, statut: 422, code: 'unsendable_target' });
+    expect(!r.ok && r.message).toMatch(/carrousel/);
+  });
+
+  it('🔴 la vérification des fichiers est bornée : une place de téléchargement par fichier, et un délai total', async () => {
+    const deuxFichiers = recette({
+      message: { texte: 'a', fichier: { url: 'https://exemple.fr/1.pdf' } },
+      suite: { message: { texte: 'b', fichier: { url: 'https://exemple.fr/2.pdf' } } },
+    });
+    // Toutes les places de la copie prises : refus lisible, aucun téléchargement.
+    let telecharges = 0;
+    const plein = deps({ verifierFichier: async () => { telecharges += 1; return null; }, places: { prendre: () => null } });
+    expect(await creerScenario(plein.d, TENANT, deuxFichiers, 'api')).toMatchObject({ ok: false, code: 'file_refused' });
+    expect(telecharges).toBe(0);
+    // Chaque place prise est rendue, même quand le fichier est refusé.
+    let prises = 0;
+    let rendues = 0;
+    const places = { prendre: () => { prises += 1; return () => { rendues += 1; }; } };
+    const refuse = deps({ verifierFichier: async () => 'HTTP 404', places });
+    await creerScenario(refuse.d, TENANT, deuxFichiers, 'api');
+    expect([prises, rendues]).toEqual([1, 1]);
+    // Au-delà du délai total, le fichier suivant n'est plus vérifié : l'appel est refusé au lieu de traîner.
+    let t = 0;
+    const lent = deps({ maintenant: () => t, verifierFichier: async () => { t += 70_000; return null; } });
+    const r = await creerScenario(lent.d, TENANT, deuxFichiers, 'api');
+    expect(r).toMatchObject({ ok: false, code: 'file_refused' });
+    expect(!r.ok && r.message).toMatch(/trop long/);
   });
 
   it('un fichier refusé : 422 `file_refused`, avec l’adresse et la raison', async () => {
@@ -142,8 +176,8 @@ describe('lireScenario et supprimerScenario', () => {
     expect(!r.ok && r.message).toContain('Bienvenue');
     store.supprimerParApi.mockResolvedValueOnce('console' as never);
     expect(await supprimerScenario(d, TENANT, c.valeur.id, 'api')).toMatchObject({ ok: false, statut: 409, code: 'scenario_managed_in_console' });
-    expect(await supprimerScenario(d, TENANT, c.valeur.code, 'mcp')).toMatchObject({ ok: true });
+    expect(await supprimerScenario(d, TENANT, c.valeur.code, 'mcp', { userId: 'u1', acces: 'oauth:o1' })).toMatchObject({ ok: true });
     expect(store.supprimerParApi).toHaveBeenLastCalledWith(c.valeur.id, TENANT);
-    expect(journal).toHaveBeenLastCalledWith(TENANT, 'workflow.deleted', c.valeur.id, { origine: 'mcp' });
+    expect(journal).toHaveBeenLastCalledWith(TENANT, 'workflow.deleted', c.valeur.id, { origine: 'mcp' }, { userId: 'u1', acces: 'oauth:o1' });
   });
 });

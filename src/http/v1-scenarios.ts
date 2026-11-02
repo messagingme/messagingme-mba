@@ -4,8 +4,9 @@ import type { Guard } from '../auth/middleware';
 import { refuser } from '../api/erreurs';
 import { compterOuRefuser, type ApiUsageGuard } from '../api/usage-guard';
 import {
-  creerScenario, lireScenario, remplacerScenario, supprimerScenario, type DepsScenariosApi, type ResultatScenario,
+  creerScenario, lireScenario, remplacerScenario, supprimerScenario, type Auteur, type DepsScenariosApi, type ResultatScenario,
 } from '../workflow/scenarios-api';
+import type { FastifyRequest } from 'fastify';
 
 /**
  * LES SCÉNARIOS PAR L'API (spec `docs/superpowers/specs/2026-11-02-scenarios-api-design.md`) : `POST /v1/scenarios`,
@@ -35,13 +36,17 @@ function empreinteDemandee(entete: unknown, corps: unknown): string | undefined 
   return typeof e === 'string' ? e : undefined;
 }
 
+/** Qui écrit : la clé (ou l'autorisation OAuth) qui a ouvert l'appel, et la personne d'un jeton. */
+const auteurDe = (req: FastifyRequest): Auteur =>
+  ({ userId: req.apiPersonne?.userId ?? null, acces: req.apiAcces ? `${req.apiAcces.type}:${req.apiAcces.id}` : null });
+
 export function registerV1Scenarios(app: FastifyInstance, deps: V1ScenariosRouteDeps, garde: Guard): void {
   const opts = { preHandler: garde };
 
   app.post('/v1/scenarios', opts, async (req, reply) => {
     if (!req.auth) return refuser(reply, 401, 'unauthorized', 'clé d’API requise');
     if (!await compterOuRefuser(deps.usage, req, reply, 'scenarios.write')) return reply;
-    return repondre(reply, await creerScenario(deps, req.auth.tenantId, req.body, 'api'), 201);
+    return repondre(reply, await creerScenario(deps, req.auth.tenantId, req.body, 'api', auteurDe(req)), 201);
   });
 
   app.get('/v1/scenarios/:scenarioId', opts, async (req, reply) => {
@@ -62,7 +67,7 @@ export function registerV1Scenarios(app: FastifyInstance, deps: V1ScenariosRoute
       ? Object.fromEntries(Object.entries(req.body as Record<string, unknown>).filter(([k]) => k !== 'empreinte'))
       : req.body;
     const empreinte = empreinteDemandee(req.headers['if-match'], req.body);
-    return repondre(reply, await remplacerScenario(deps, req.auth.tenantId, p.data.scenarioId, corps, empreinte, 'api'), 200);
+    return repondre(reply, await remplacerScenario(deps, req.auth.tenantId, p.data.scenarioId, corps, empreinte, 'api', auteurDe(req)), 200);
   });
 
   app.delete('/v1/scenarios/:scenarioId', opts, async (req, reply) => {
@@ -70,6 +75,6 @@ export function registerV1Scenarios(app: FastifyInstance, deps: V1ScenariosRoute
     if (!await compterOuRefuser(deps.usage, req, reply, 'scenarios.write')) return reply;
     const p = parametres.safeParse(req.params);
     if (!p.success) return refuser(reply, 404, 'scenario_not_found', 'scénario introuvable dans cet espace');
-    return repondre(reply, await supprimerScenario(deps, req.auth.tenantId, p.data.scenarioId, 'api'), 200);
+    return repondre(reply, await supprimerScenario(deps, req.auth.tenantId, p.data.scenarioId, 'api', auteurDe(req)), 200);
   });
 }

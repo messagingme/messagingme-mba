@@ -25,7 +25,7 @@ const VOISIN = cleApiDeTest('voisin-scenarios');
 const ENVOYEUR = cleApiDeTest('envoyeur-scenarios');
 
 function monter(over: Partial<DepsScenariosApi> = {}) {
-  const { d, store } = depsScenarios(over);
+  const { d, store, journal } = depsScenarios(over);
   const keys = new FakeApiKeys()
     .add(AUTEUR, { id: 'k1', tenantId: 't-1', scopes: ['scenarios:write'] })
     .add(VOISIN, { id: 'k2', tenantId: 't-2', scopes: ['scenarios:write'] })
@@ -41,7 +41,7 @@ function monter(over: Partial<DepsScenariosApi> = {}) {
       headers: { authorization: `Bearer ${cle}`, ...(corps === undefined ? {} : { 'content-type': 'application/json' }), ...entetes },
       ...(corps === undefined ? {} : { payload: corps as object }),
     });
-  return { server, appel, store };
+  return { server, appel, store, journal };
 }
 
 const autre = () => recette({
@@ -58,10 +58,11 @@ describe('/v1/scenarios', () => {
     await server.close();
   });
 
-  it('POST : 201, la vue du scénario publié', async () => {
-    const { appel, server } = monter();
+  it('POST : 201, la vue du scénario publié, et la clé qui l’a écrit au journal', async () => {
+    const { appel, server, journal } = monter();
     const res = await appel('POST', '/v1/scenarios', recette());
     expect(res.statusCode).toBe(201);
+    expect(journal).toHaveBeenCalledWith('t-1', 'workflow.published', res.json<{ id: string }>().id, expect.objectContaining({ origine: 'api' }), { userId: null, acces: 'cle:k1' });
     expect(res.json()).toMatchObject({ nom: 'Relance', origine: 'api', ouverture: 'whatsapp_template', empreinte: expect.any(String) });
     await server.close();
   });

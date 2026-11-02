@@ -221,23 +221,48 @@ describe('decompilerGraphe et l’empreinte', () => {
 });
 
 describe('les identifiants au remplacement', () => {
-  it('🔴 un bloc au même chemin garde son id et son code ; une branche renommée en reçoit un neuf', () => {
-    const avant = compile(complete());
-    const codes: WorkflowGraph = { ...avant, nodes: avant.nodes.map((n, i) => ({ ...n, data: { ...n.data, code: `nod_abc_${String(i).padStart(26, '0')}` } })) };
+  const avecCodes = (g: WorkflowGraph): WorkflowGraph =>
+    ({ ...g, nodes: g.nodes.map((n, i) => ({ ...n, data: { ...n.data, code: `nod_abc_${String(i).padStart(26, '0')}` } })) });
+  const bloc = (g: WorkflowGraph, pred: (n: WorkflowGraph['nodes'][number]) => boolean) => g.nodes.find(pred)!;
+
+  it('🔴 un bloc dont le chemin et les sorties n’ont pas bougé garde son id et son code ; une branche renommée en reçoit un neuf', () => {
+    const codes = avecCodes(compile(complete()));
     const modifiee = complete() as Extract<Etape, { template: unknown }>;
     const plusTard = modifiee.boutons![1]!.suite as Extract<Etape, { message: unknown }>;
     plusTard.reponses![1] = { texte: 'Rappelez-moi', suite: { message: { texte: 'Je vous rappelle.' } } };
     const apres = compile(modifiee, codes);
-    const idDe = (g: WorkflowGraph, pred: (n: WorkflowGraph['nodes'][number]) => boolean) => g.nodes.find(pred);
-    expect(apres.nodes[0]!.id).toBe(avant.nodes[0]!.id);
+    // L'entrée et l'agent n'ont pas bougé : même id, même code. Un contact qui attend leur réponse reprend là.
+    expect(apres.nodes[0]!.id).toBe(codes.nodes[0]!.id);
     expect(apres.nodes[0]!.data.code).toBe(codes.nodes[0]!.data.code);
-    const brochureAvant = idDe(codes, (n) => n.data.body === 'Voici la brochure')!;
-    const brochureApres = idDe(apres, (n) => n.data.body === 'Voici la brochure')!;
-    expect(brochureApres.id).toBe(brochureAvant.id);
+    expect(bloc(apres, (n) => n.type === 'agent').id).toBe(bloc(codes, (n) => n.type === 'agent').id);
+    // La brochure a changé de sorties : nouvel id (un clic sur l'ancienne liste ne suit pas une autre branche), même code.
+    const brochureAvant = bloc(codes, (n) => n.data.body === 'Voici la brochure');
+    const brochureApres = bloc(apres, (n) => n.data.body === 'Voici la brochure');
+    expect(brochureApres.id).not.toBe(brochureAvant.id);
     expect(brochureApres.data.code).toBe(brochureAvant.data.code);
-    const rappelAvant = idDe(codes, (n) => n.data.body === 'Je vous rappelle.')!;
-    const rappelApres = idDe(apres, (n) => n.data.body === 'Je vous rappelle.')!;
-    expect(rappelApres.id).not.toBe(rappelAvant.id);
+    // La branche renommée est un chemin neuf : nouvel id, pas de code repris.
+    const rappelApres = bloc(apres, (n) => n.data.body === 'Je vous rappelle.');
+    expect(rappelApres.id).not.toBe(bloc(codes, (n) => n.data.body === 'Je vous rappelle.').id);
     expect(rappelApres.data.code).toBeUndefined();
+  });
+
+  it('🔴 réordonner les réponses rapides change l’id du message : le clic d’un contact en attente arrive par position', () => {
+    const avant: Etape = { message: { texte: 'Un choix ?' }, reponses: [{ texte: 'Oui', suite: humain }, { texte: 'Non', suite: { message: { texte: 'Dommage' } } }] };
+    const apres: Etape = { message: { texte: 'Un choix ?' }, reponses: [{ texte: 'Non', suite: { message: { texte: 'Dommage' } } }, { texte: 'Oui', suite: humain }] };
+    const g1 = avecCodes(compile(avant));
+    const g2 = compile(apres, g1);
+    expect(g2.nodes[0]!.id).not.toBe(g1.nodes[0]!.id);
+    expect(g2.nodes[0]!.data.code).toBe(g1.nodes[0]!.data.code);
+    // Les suites, elles, gardent le leur : leur chemin passe par le texte, qui n'a pas bougé.
+    expect(bloc(g2, (n) => n.data.body === 'Dommage').id).toBe(bloc(g1, (n) => n.data.body === 'Dommage').id);
+  });
+
+  it('deux textes qui se ressemblent une fois concaténés ne fabriquent pas le même id', () => {
+    const e: Etape = {
+      message: { texte: 'Choix' },
+      reponses: [{ texte: 'a/r:b', suite: { message: { texte: 'x' }, reponses: [{ texte: 'c', suite: humain }] } }, { texte: 'a', suite: { message: { texte: 'y' }, reponses: [{ texte: 'b/r:c', suite: humain }] } }],
+    };
+    const g = compile(e);
+    expect(new Set(g.nodes.map((n) => n.id)).size).toBe(g.nodes.length);
   });
 });

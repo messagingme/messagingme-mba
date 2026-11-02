@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { CodeApi } from '../api/erreurs';
 import { MAX_NODES } from './graph';
+import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
 import {
   MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE,
 } from '../../web/lib/partage/message-rapide';
@@ -47,6 +48,8 @@ export const MAX_BOUTONS_TEMPLATE = 10;
 export const LONGUEUR_CHAMP_MAX = 64;
 export const LONGUEUR_TEXTE_VARIABLE_MAX = 1024;
 export const LONGUEUR_URL_FICHIER_MAX = 2048;
+/** Chaque fichier se télécharge une fois à l'écriture pour être vérifié : leur nombre borne la durée de l'appel. */
+export const MAX_FICHIERS_RECETTE = 10;
 /** Les attributs de la fiche qu'une variable peut citer : le nom du profil WhatsApp et le numéro. */
 export const ATTRIBUTS_RECETTE = ['name', 'phone'] as const;
 
@@ -55,7 +58,8 @@ const refus = (chemin: string, message: string, code: CodeApi = 'invalid_body'):
 
 const SOURCE = z.union([
   z.object({ champ: z.string().trim().min(1).max(LONGUEUR_CHAMP_MAX) }).strict(),
-  z.object({ texte: z.string().min(1).max(LONGUEUR_TEXTE_VARIABLE_MAX) }).strict(),
+  // Meta refuse un retour à la ligne, une tabulation ou cinq espaces de suite (132018), à CHAQUE envoi.
+  z.object({ texte: z.string().min(1).max(LONGUEUR_TEXTE_VARIABLE_MAX).regex(VALEUR_ACCEPTEE) }).strict(),
   z.object({ attribut: z.enum(ATTRIBUTS_RECETTE) }).strict(),
 ]);
 const TEMPLATE = z.object({
@@ -207,7 +211,11 @@ export function lireRecette(brut: unknown): Lu<Recette> {
   if (nom === '') return refus('nom', 'vide');
   if (nom.length > NOM_SCENARIO_MAX) return refus('nom', `${NOM_SCENARIO_MAX} caractères au plus`);
   const entree = lireEtape(objet.entree, 'entree', 1, { etapes: 0 });
-  return entree.ok ? { ok: true, valeur: { nom, entree: entree.valeur } } : entree;
+  if (!entree.ok) return entree;
+  if (referencesDe(entree.valeur).fichiers.length > MAX_FICHIERS_RECETTE) {
+    return refus('entree', `${MAX_FICHIERS_RECETTE} fichiers distincts au plus par scénario`);
+  }
+  return { ok: true, valeur: { nom, entree: entree.valeur } };
 }
 
 /**
@@ -224,7 +232,7 @@ const etapeDoc = z.union([
       langue: z.string().describe('Its language code, e.g. fr or en_US.'),
       variables: z.record(z.string(), z.union([
         z.strictObject({ champ: z.string().min(1).max(LONGUEUR_CHAMP_MAX) }),
-        z.strictObject({ texte: z.string().min(1).max(LONGUEUR_TEXTE_VARIABLE_MAX) }),
+        z.strictObject({ texte: z.string().min(1).max(LONGUEUR_TEXTE_VARIABLE_MAX).describe('No line break, no tab, at most four spaces in a row (Meta refuses them at every send).') }),
         z.strictObject({ attribut: z.enum(ATTRIBUTS_RECETTE) }),
       ])).optional().describe('Position ({{1}} is "1") to source. Absent: the field associations set in the console.'),
     }),
@@ -250,7 +258,7 @@ const etapeDoc = z.union([
 export const schemaRecetteDoc = z.strictObject({
   nom: z.string().min(1).max(NOM_SCENARIO_MAX).describe('Unique in the workspace, case-insensitive.'),
   entree: etapeDoc,
-}).describe(`A scenario recipe, at most ${PROFONDEUR_MAX_RECETTE} steps deep and ${MAX_NODES} steps. Every write publishes at once.`);
+}).describe(`A scenario recipe, at most ${PROFONDEUR_MAX_RECETTE} steps deep, ${MAX_NODES} steps and ${MAX_FICHIERS_RECETTE} distinct files. Every write publishes at once.`);
 export const schemaRemplacementDoc = schemaRecetteDoc.extend({
   empreinte: z.string().optional().describe('The fingerprint read by GET, if not sent in If-Match.'),
 });

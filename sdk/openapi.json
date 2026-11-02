@@ -5927,7 +5927,8 @@
                                         "texte": {
                                           "type": "string",
                                           "minLength": 1,
-                                          "maxLength": 1024
+                                          "maxLength": 1024,
+                                          "description": "No line break, no tab, at most four spaces in a row (Meta refuses them at every send)."
                                         }
                                       },
                                       "required": [
@@ -6132,7 +6133,7 @@
                   "entree"
                 ],
                 "additionalProperties": false,
-                "description": "A scenario recipe, at most 20 steps deep and 200 steps. Every write publishes at once."
+                "description": "A scenario recipe, at most 20 steps deep, 200 steps and 10 distinct files. Every write publishes at once."
               }
             }
           }
@@ -6758,7 +6759,8 @@
                                         "texte": {
                                           "type": "string",
                                           "minLength": 1,
-                                          "maxLength": 1024
+                                          "maxLength": 1024,
+                                          "description": "No line break, no tab, at most four spaces in a row (Meta refuses them at every send)."
                                         }
                                       },
                                       "required": [

@@ -7,7 +7,7 @@ import { RefusOutil, texteObligatoire } from './saisie';
 import { ecriture, signataire } from './outils-agent';
 import { MAX_NODES } from '../workflow/graph';
 import {
-  LONGUEUR_CHAMP_MAX, LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX,
+  LONGUEUR_CHAMP_MAX, LONGUEUR_URL_FICHIER_MAX, MAX_BOUTONS_TEMPLATE, MAX_FICHIERS_RECETTE, MAX_TEXTE_BOUTON_TEMPLATE, NOM_SCENARIO_MAX,
   PROFONDEUR_MAX_RECETTE,
 } from '../workflow/recette';
 import {
@@ -43,7 +43,8 @@ const FORME_ETAPE = 'A step is an object with EXACTLY ONE of these forms. '
   + '(1) { "template": { "nom", "langue", "variables"? }, "boutons"?, "autre_reponse"? }: sends an APPROVED template of the '
   + 'workspace (create it first with create_template and wait for get_template_status to say approved). "variables" maps a '
   + `template position ("1" for {{1}}) to { "champ": a field key (list_fields, ${LONGUEUR_CHAMP_MAX} characters) } or `
-  + '{ "texte": fixed text } or { "attribut": "name" | "phone" }; absent: the associations set in the console. "boutons": a '
+  + '{ "texte": fixed text, with no line break, no tab and at most four spaces in a row } or { "attribut": "name" | "phone" }; '
+  + 'absent: the associations set in the console. A carousel template is refused. "boutons": a '
   + `list of { "texte", "suite" }, one per QUICK_REPLY button of the template, "texte" being its exact text (${MAX_TEXTE_BOUTON_TEMPLATE} `
   + `characters, ${MAX_BOUTONS_TEMPLATE} buttons at most); EVERY quick reply needs one, if need be { "humain": {} }. A template without `
   + 'quick replies ends the scenario. "autre_reponse": the step when the contact writes instead of tapping. '
@@ -55,7 +56,7 @@ const FORME_ETAPE = 'A step is an object with EXACTLY ONE of these forms. '
   + 'the step when the contact writes. Without quick replies the message does not wait: "suite" is the next step. '
   + '(3) { "agent": { "agent_id" } }: an active AI agent of the workspace (list_agents) takes the conversation; it ends the '
   + 'scenario. (4) { "humain": {} }: the conversation goes to the team (To handle); it ends the scenario. '
-  + `At most ${PROFONDEUR_MAX_RECETTE} steps deep and ${MAX_NODES} steps.`;
+  + `At most ${PROFONDEUR_MAX_RECETTE} steps deep, ${MAX_NODES} steps and ${MAX_FICHIERS_RECETTE} distinct files.`;
 
 const RECETTE: Record<'nom' | 'entree', ProprieteEntree> = {
   nom: {
@@ -83,8 +84,8 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
     annotations: ecriture('Create a scenario', false, false),
     entree: { type: 'object', properties: RECETTE, required: ['nom', 'entree'], additionalProperties: false },
     async executer(deps, tenantId, args, personne) {
-      signataire(personne);
-      return valeurOuRefus(await creerScenario(deps.scenariosApi, tenantId, args, 'mcp'));
+      const auteur = { userId: signataire(personne), acces: null };
+      return valeurOuRefus(await creerScenario(deps.scenariosApi, tenantId, args, 'mcp', auteur));
     },
   },
   {
@@ -117,11 +118,11 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
       additionalProperties: false,
     },
     async executer(deps, tenantId, args, personne) {
-      signataire(personne);
+      const auteur = { userId: signataire(personne), acces: null };
       const ref = texteObligatoire(args, 'scenario', 100);
       const { scenario: _ref, empreinte, ...recette } = args;
       return valeurOuRefus(await remplacerScenario(
-        deps.scenariosApi, tenantId, ref, recette, typeof empreinte === 'string' ? empreinte : undefined, 'mcp',
+        deps.scenariosApi, tenantId, ref, recette, typeof empreinte === 'string' ? empreinte : undefined, 'mcp', auteur,
       ));
     },
   },
@@ -133,8 +134,8 @@ export const OUTILS_SCENARIOS: OutilMcp[] = [
     annotations: ecriture('Delete a scenario', true, false),
     entree: { type: 'object', properties: { scenario: SCENARIO }, required: ['scenario'], additionalProperties: false },
     async executer(deps, tenantId, args, personne) {
-      signataire(personne);
-      return valeurOuRefus(await supprimerScenario(deps.scenariosApi, tenantId, texteObligatoire(args, 'scenario', 100), 'mcp'));
+      const auteur = { userId: signataire(personne), acces: null };
+      return valeurOuRefus(await supprimerScenario(deps.scenariosApi, tenantId, texteObligatoire(args, 'scenario', 100), 'mcp', auteur));
     },
   },
 ];

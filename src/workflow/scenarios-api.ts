@@ -47,11 +47,24 @@ export interface DepsScenariosApi {
   champs(tenantId: string): Promise<readonly string[]>;
   /** La raison d'un refus du fichier, ou `null` : `verifierFichierDuBloc`, le chemin de l'envoi. */
   verifierFichier(tenantId: string, url: string): Promise<string | null>;
+  /**
+   * Les places de téléchargement de la copie (`placesDeTelechargement`, les mêmes que la création d'un modèle) : chaque
+   * fichier peut peser 16 Mo en mémoire. Absentes : aucune limite (tests).
+   */
+  places?: { prendre(): (() => void) | null };
+  /** L'horloge du délai total de vérification ; absente : `Date.now`. */
+  maintenant?: () => number;
   tenantCode(tenantId: string): Promise<string>;
-  journal(tenantId: string, action: 'workflow.published' | 'workflow.deleted', workflowId: string, details: Record<string, unknown>): Promise<void>;
+  journal(tenantId: string, action: 'workflow.published' | 'workflow.deleted', workflowId: string, details: Record<string, unknown>, auteur: Auteur): Promise<void>;
 }
 
 export type Origine = 'api' | 'mcp';
+/**
+ * Qui a écrit : la personne derrière un jeton OAuth (`userId`), et ce qui a ouvert l'appel (`cle:<id>` ou `oauth:<id>`,
+ * jamais le secret). Une écriture qui publie un parcours envoyant de vrais messages se signe au journal.
+ */
+export interface Auteur { userId: string | null; acces: string | null }
+const ANONYME: Auteur = { userId: null, acces: null };
 
 /** Ce que rendent la création, la lecture et le remplacement. */
 export interface VueScenario {
@@ -74,6 +87,12 @@ export type ResultatScenario<T> =
 const echec = (code: CodeApi, message: string, details?: Record<string, unknown>): ResultatScenario<never> =>
   ({ ok: false, statut: STATUT_PAR_CODE[code] ?? 400, code, message, ...(details ? { details } : {}) });
 
+/**
+ * Le délai total de la vérification des fichiers d'une recette : au-delà, l'appel est refusé au lieu de traîner jusqu'à
+ * la coupure de Cloudflare (100 s), qui laisserait l'appelant sans réponse.
+ */
+export const DELAI_FICHIERS_MS = 60_000;
+
 const introuvable = (): ResultatScenario<never> => echec('scenario_not_found', 'scénario introuvable dans cet espace');
 
 async function horsOffre(deps: DepsScenariosApi, tenantId: string): Promise<ResultatScenario<never> | null> {
@@ -86,6 +105,9 @@ async function horsOffre(deps: DepsScenariosApi, tenantId: string): Promise<Resu
 function templateResolu(t: TemplateSummary | undefined, indices: readonly IndiceDuTemplate[]): TemplateResolu {
   if (!t) return { etat: 'absent' };
   if (t.status !== 'APPROVED') return { etat: 'non_approuve', statut: t.status };
+  // Les réponses rapides d'un carrousel vivent dans ses cartes (`card:<i>:btn:<j>`), qu'une recette ne relie pas : un
+  // clic n'aurait aucune suite et la conversation partirait à l'équipe sans rien recevoir.
+  if (t.isCarousel) return { etat: 'non_envoyable', raison: 'c’est un carrousel, que les scénarios de l’API ne savent pas encore relier' };
   const v = verdictModele(modeleLuDe(t), t.language);
   if (v.statut === 'approuve') {
     const lus = indices
@@ -122,8 +144,22 @@ async function preparer(deps: DepsScenariosApi, tenantId: string, corps: unknown
   const compile = compilerRecette(recette.entree, refs, precedent);
   if (!compile.ok) return echec(compile.code, compile.message, { chemin: compile.chemin });
   // Les fichiers en dernier : un téléchargement par adresse, seulement pour une recette qui tient debout.
+  const maintenant = deps.maintenant ?? Date.now;
+  const debut = maintenant();
   for (const url of noms.fichiers) {
-    const raison = await deps.verifierFichier(tenantId, url);
+    if (maintenant() - debut > DELAI_FICHIERS_MS) {
+      return echec('file_refused', `la vérification des fichiers est trop longue : le fichier ${url} n’a pas été lu. Donnez des adresses qui répondent vite`, { url });
+    }
+    const rendre = deps.places ? deps.places.prendre() : () => {};
+    if (rendre === null) {
+      return echec('file_refused', 'toutes les places de téléchargement sont prises : réessayez dans un instant', { url });
+    }
+    let raison: string | null;
+    try {
+      raison = await deps.verifierFichier(tenantId, url);
+    } finally {
+      rendre();
+    }
     if (raison !== null) return echec('file_refused', `le fichier ${url} est refusé : ${raison}`, { url });
   }
   const graphe = parseGraph(mintNodeCodes(compile.valeur, await deps.tenantCode(tenantId)));
@@ -150,14 +186,16 @@ function vueDe(l: Pick<LigneApi, 'id' | 'code' | 'name' | 'origine' | 'graph'>):
   };
 }
 
-export async function creerScenario(deps: DepsScenariosApi, tenantId: string, corps: unknown, origine: Origine): Promise<ResultatScenario<VueScenario>> {
+export async function creerScenario(
+  deps: DepsScenariosApi, tenantId: string, corps: unknown, origine: Origine, auteur: Auteur = ANONYME,
+): Promise<ResultatScenario<VueScenario>> {
   const offre = await horsOffre(deps, tenantId);
   if (offre) return offre;
   const p = await preparer(deps, tenantId, corps, null);
   if (!p.ok) return p;
   const cree = await deps.scenarios.creerPublieParApi(tenantId, p.valeur.recette.nom, p.valeur.graphe);
   if ('nomPris' in cree) return echec('scenario_name_taken', `un scénario de l’espace s’appelle déjà « ${p.valeur.recette.nom} »`, { id: cree.nomPris });
-  await deps.journal(tenantId, 'workflow.published', cree.id, { origine, blocs: p.valeur.graphe.nodes.length });
+  await deps.journal(tenantId, 'workflow.published', cree.id, { origine, blocs: p.valeur.graphe.nodes.length }, auteur);
   return vueDe({ id: cree.id, code: cree.code, name: p.valeur.recette.nom, origine: 'api', graph: p.valeur.graphe });
 }
 
@@ -176,6 +214,7 @@ const empreinteDe = (g: WorkflowGraph): string | null => {
 
 export async function remplacerScenario(
   deps: DepsScenariosApi, tenantId: string, ref: string, corps: unknown, empreinte: string | undefined, origine: Origine,
+  auteur: Auteur = ANONYME,
 ): Promise<ResultatScenario<VueScenario>> {
   const offre = await horsOffre(deps, tenantId);
   if (offre) return offre;
@@ -207,11 +246,13 @@ export async function remplacerScenario(
   if (r === 'inconnu') return introuvable();
   if (r !== 'ok' && 'nomPris' in r) return echec('scenario_name_taken', `un autre scénario de l’espace s’appelle déjà « ${p.valeur.recette.nom} »`, { id: r.nomPris });
   if (r !== 'ok') return r.refus;
-  await deps.journal(tenantId, 'workflow.published', avant.id, { origine, blocs: p.valeur.graphe.nodes.length });
+  await deps.journal(tenantId, 'workflow.published', avant.id, { origine, blocs: p.valeur.graphe.nodes.length }, auteur);
   return vueDe({ id: avant.id, code: avant.code ?? '', name: p.valeur.recette.nom, origine: 'api', graph: p.valeur.graphe });
 }
 
-export async function supprimerScenario(deps: DepsScenariosApi, tenantId: string, ref: string, origine: Origine): Promise<ResultatScenario<{ id: string; supprime: true }>> {
+export async function supprimerScenario(
+  deps: DepsScenariosApi, tenantId: string, ref: string, origine: Origine, auteur: Auteur = ANONYME,
+): Promise<ResultatScenario<{ id: string; supprime: true }>> {
   const offre = await horsOffre(deps, tenantId);
   if (offre) return offre;
   const l = await deps.scenarios.lireParApi(tenantId, ref);
@@ -220,7 +261,7 @@ export async function supprimerScenario(deps: DepsScenariosApi, tenantId: string
   if (r === 'inconnu') return introuvable();
   if (r === 'console') return echec('scenario_managed_in_console', 'ce scénario a été créé dans la console : seule la console le supprime');
   if (r !== 'ok') return echec('scenario_in_use', `ce scénario sert encore : ${r.utilise.join(', ')}. Retirez-le d’abord de là, puis réessayez`, { utilise: r.utilise });
-  await deps.journal(tenantId, 'workflow.deleted', l.id, { origine });
+  await deps.journal(tenantId, 'workflow.deleted', l.id, { origine }, auteur);
   return { ok: true, valeur: { id: l.id, supprime: true } };
 }
 

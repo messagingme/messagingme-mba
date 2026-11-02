@@ -4038,6 +4038,7 @@ export interface operations {
                                 [key: string]: {
                                     champ: string;
                                 } | {
+                                    /** @description No line break, no tab, at most four spaces in a row (Meta refuses them at every send). */
                                     texte: string;
                                 } | {
                                     /** @enum {string} */
@@ -4346,6 +4347,7 @@ export interface operations {
                                 [key: string]: {
                                     champ: string;
                                 } | {
+                                    /** @description No line break, no tab, at most four spaces in a row (Meta refuses them at every send). */
                                     texte: string;
                                 } | {
                                     /** @enum {string} */
