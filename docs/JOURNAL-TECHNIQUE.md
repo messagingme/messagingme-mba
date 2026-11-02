@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : « Envoi marketing » dans les actions de workflow HubSpot
+
+Décision de Julien pendant la préparation de l'essai de l'action transaction : Meta a classé Marketing le modèle
+d'ouverture de l'essai, et les trois actions refusaient tout Marketing. « Le client décide d'envoyer un WhatsApp, c'est
+sa responsabilité. » Un champ facultatif « Envoi marketing » dans chaque action (une liste à la seule valeur `atteste`) :
+choisi, les listes proposent aussi les Marketing, le destinataire déclare l'accord (source `hubspot-workflow:<id>`) et
+`serviceSeulement` tombe ; le vrai `appliquerConsentement` refuse toujours d'écrire sur une fiche `opted_out`.
+
+- Relecture indépendante en fin de lot : un seul rouge, de livraison (une apostrophe droite dans une chaîne anglaise de
+  `ReglageHubspot.tsx` cassait la compilation de la console), corrigé avant le push. Les jaunes sont au `todo.md` du
+  connecteur.
+- Déployé le 2026-11-02 : mba 6f753f33 (run 41426705298, `migration=aucune`), connecteur 4aea1a5, upload HubSpot
+  build #21. La fiche d'aide « Intégrer WhatsApp à HubSpot » a changé : `aide:charger` sur la machine.
+- La suite (cadrage et plan du même jour, dans `~/mm-hubspot/docs/`) : les champs HubSpot choisis par le client, une
+  ligne « Automations HubSpot », la case d'accord des automations et la garde marketing des scénarios qu'elles lancent.
+
 ## 2026-11-02 : le Crédit WhatsApp prêt pour l'essai réel (prix Stripe, grille de Meta, jaunes du lot 2)
 
 - **Les quatre prix Stripe** (50, 100, 250 et 500 € HT, un produit par prix, taxe en sus) posés par Julien avec
