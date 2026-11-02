@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerAlertesCreditWhatsapp, SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR } from '../src/emails-produit/alertes';
+import { creerAlertesCreditWhatsapp, ESPACEMENT_ALERTE_EPUISE_MS, SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR } from '../src/emails-produit/alertes';
 import { CATALOGUE } from '../src/emails-produit/catalogue';
 
 /**
@@ -48,6 +48,29 @@ describe('les e-mails du Crédit WhatsApp', () => {
     const { a, emis } = monter();
     await a.surEpuise('t1');
     expect(emis).toEqual([{ cle: 'credit_whatsapp_epuise', occasion: 'jour:2026-11-01', valeurs: { lien_credit_whatsapp: 'https://console.exemple/offre?tab=whatsapp' } }]);
+  });
+
+  it('🔴 l’alerte « épuisé » ne relit pas la base à chaque refus : une tentative par espace et par dix minutes', async () => {
+    // RELECTURE DU LOT 2 : la garde la lance à CHAQUE refus, et chaque tentative coûtait quatre ou cinq requêtes.
+    let horloge = new Date('2026-10-31T10:00:00Z');
+    let emissions = 0;
+    let fuseaux = 0;
+    const a = creerAlertesCreditWhatsapp({
+      emettre: async () => { emissions += 1; return 'reserve' as never; },
+      dernierCreditRecu: async () => null,
+      fuseau: async () => { fuseaux += 1; return 'Europe/Paris'; },
+      pageOnglet: 'https://console.exemple/offre?tab=whatsapp',
+      now: () => horloge,
+    });
+    for (let i = 0; i < 5; i++) await a.surEpuise('t1');
+    await a.surEpuise('t2');
+    expect([emissions, fuseaux]).toEqual([2, 2]);
+    horloge = new Date(horloge.getTime() + ESPACEMENT_ALERTE_EPUISE_MS - 1);
+    await a.surEpuise('t1');
+    expect(emissions).toBe(2);
+    horloge = new Date(horloge.getTime() + 1);
+    await a.surEpuise('t1');
+    expect(emissions).toBe(3);
   });
 
   it('une alerte qui échoue ne lève jamais : l’envoi qu’elle accompagne n’en souffre pas', async () => {

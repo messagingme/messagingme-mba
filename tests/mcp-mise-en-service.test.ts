@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  OUTILS_DE_L_ETAPE, etatMiseEnService, lireMiseEnService, type DepsMiseEnService, type LecturesMiseEnService,
+  AVERTISSEMENTS, OUTILS_DE_L_ETAPE, etatMiseEnService, lireMiseEnService, type DepsMiseEnService, type LecturesMiseEnService,
 } from '../src/mcp/mise-en-service';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
@@ -205,6 +205,8 @@ describe('la lecture, sur des faux', () => {
   it('🔴 le Crédit WhatsApp à zéro d’un espace sur la ligne est signalé ; positif, ou hors ligne, il ne l’est pas', async () => {
     expect((await lireMiseEnService(deps({ soldeWa: 0 }), 't1')).avertissements).toContain('credit_whatsapp_epuise');
     expect((await lireMiseEnService(deps({ soldeWa: -1 }), 't1')).avertissements).toContain('credit_whatsapp_epuise');
+    // 🔴 Un reste positif sous un euro aussi : il ne couvre plus le prix d'un message (relecture du lot 2).
+    expect((await lireMiseEnService(deps({ soldeWa: 999_999 }), 't1')).avertissements).toContain('credit_whatsapp_epuise');
     expect((await lireMiseEnService(deps({ soldeWa: 1_000_000 }), 't1')).avertissements).not.toContain('credit_whatsapp_epuise');
     expect((await lireMiseEnService(deps(), 't1')).avertissements).not.toContain('credit_whatsapp_epuise');
   });
@@ -220,6 +222,11 @@ describe('l’outil get_setup_state', () => {
     expect(outil!.fonction).toBeNull();
     expect(outil!.entree).toEqual({ type: 'object', properties: {} });
     expect(outil!.annotations.readOnlyHint).toBe(true);
+  });
+
+  it('🔴 sa description nomme CHAQUE avertissement que l’outil peut rendre (relecture du lot 2 du Crédit WhatsApp)', () => {
+    // Un avertissement que la description tait, Claude le reçoit sans savoir quoi en faire.
+    for (const a of AVERTISSEMENTS) expect(outil!.description, a).toContain(a);
   });
 
   it('il lit l’espace du jeton, et sa description nomme chaque étape et ses outils', async () => {

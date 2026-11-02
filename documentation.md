@@ -4035,14 +4035,17 @@ Entreprise.
   comprises.
 - Le refus : 402 `whatsapp_credit_exhausted` (solde), 409 `whatsapp_credit_line_inactive` (ligne arrêtée, ou aucune grille
   en vigueur), partout, codes publics de `/v1` compris (`STATUT_PAR_CODE`) ; `POST /v1/sends` les rend avant de créer quoi
-  que ce soit (`refusAvantEffets`, qui ne provisionne rien). Un 5xx de Meta, un délai ou une panne réseau gardent la
+  que ce soit : un solde nul avant de résoudre les destinataires (`refusAvantEffets`), puis le premier message réel chiffré
+  comme sa provision, pays de son destinataire et catégorie que Meta donne au modèle d'ouverture (`refusPourMessage`, le
+  même calcul que `avant`, qui ne provisionne rien). Un 5xx de Meta, un délai ou une panne réseau gardent la
   provision (le message est peut-être parti) ; un refus de Meta sous 500 la rend. Une campagne qui bute passe en pause `credit_whatsapp_epuise` ou `ligne_credit_inactive`, jamais en échec ;
   un lancement qui manquerait de crédit est refusé avec ce qui manque, une campagne programmée est mise en pause à son
   départ, sans rien envoyer.
 - 🔴 Pas de double envoi : un bloc de scénario lit `refusAvantEffets` avant tout effet (`verifierNumeroWhatsApp`), et un
   refus du crédit au milieu d'un bloc, une fois un effet irréversible passé (envoi, e-mail, appel d'API), devient un refus
   d'étape au lieu d'être relancé : rejoué à la reprise, le bloc renverrait ce qui est déjà parti
-  (`tests/credit-whatsapp-bloc-milieu.test.ts`). Au réveil ou à la réponse du contact, le parcours avance si un message
+  (`tests/credit-whatsapp-bloc-milieu.test.ts`). Les envois, e-mails et appels qui suivent dans la liste ne partent pas ;
+  ses étiquettes et ses champs se posent encore, comme après un désabonnement. Au réveil ou à la réponse du contact, le parcours avance si un message
   WhatsApp est parti, sinon il est clos et passe à l'équipe (il ne reprend pas après un achat). Au démarrage, sans
   message WhatsApp parti, le refus est relevé marqué « après effets » (`CreditWhatsappRefusApresEffets`) : la campagne
   résout ce destinataire en échec et se met en pause (un seul contact touché, `tests/campaign-engine.test.ts`),
@@ -4056,9 +4059,11 @@ Entreprise.
   euro (`SOLDE_REPRISE_CREDIT_MICRO_EUR`, très au-dessus du prix d'un message : un reste qui ne couvre plus un message ne
   relance rien) ou d'une Entreprise passée en open bar repartent, en `scheduled` si leur départ était programmé, et seulement si leur numéro
   est encore relié ; un balayage horaire (`credit-whatsapp-reprise`, rôle `principal`) rattrape un avis manqué.
-- Les e-mails : `credit_whatsapp_bas` quand un débit fait passer le solde sous 10 € (occasion : le dernier crédit reçu,
-  donc une fois par crédit), `credit_whatsapp_epuise` sur un refus faute de solde (une fois par jour du fuseau de
-  l'espace). Le seuil vit dans `web/lib/partage/credit-whatsapp.ts`, que l'onglet lit aussi. Une alerte ne lève jamais.
+- Les e-mails : `credit_whatsapp_bas` quand un débit fait passer le solde sous 10 € (occasion : le dernier achat ou la
+  dernière recharge automatique, jamais une régularisation, donc une fois par crédit acheté), `credit_whatsapp_epuise`
+  sur un refus faute de solde (une fois par jour du fuseau de l'espace, tentée au plus une fois toutes les dix minutes par
+  espace et par processus : la garde la lance à chaque refus). Les seuils (10 €, et l'euro de la reprise, du « presque
+  épuisé » de l'onglet et de `get_setup_state`) vivent dans `web/lib/partage/credit-whatsapp.ts`. Une alerte ne lève jamais.
 - La ligne d'un numéro et la catégorie d'un modèle se lisent par une lecture en vol partagée ; un échec de lecture de la
   catégorie chez Meta est gardé 30 s, pas plus.
 - Un compte qui ne reçoit AUCUN `COST` de `pricing_analytics` (un compte payé par la ligne d'un partenaire) a un résumé de

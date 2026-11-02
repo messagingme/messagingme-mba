@@ -50,6 +50,12 @@ export interface GardeCreditWhatsapp {
    */
   refusAvantEffets(tenantId: string, phoneNumberId: string): Promise<CreditWhatsappRefus | null>;
   /**
+   * Le refus certain d'UN message, chiffré comme sa provision (pays du destinataire, catégorie, franchise de service) et
+   * comparé au solde, sans rien provisionner, `null` sinon. `POST /v1/sends` le lit avant de créer un envoi : un solde
+   * qui ne couvre même pas son premier message est refusé tout de suite, au lieu d'une campagne créée puis mise en pause.
+   */
+  refusPourMessage(tenantId: string, phoneNumberId: string, destinataire: string, categorie: CategorieMeta | null): Promise<CreditWhatsappRefus | null>;
+  /**
    * Le Crédit WhatsApp bloque-t-il ce numéro AVANT tout effet ? La même lecture que `refusAvantEffets`. Le démarreur du
    * répondeur et le tour d'un agent le demandent avant d'appeler un modèle : une réponse qui ne partirait pas ne se paie
    * pas.
@@ -112,34 +118,60 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
     // achat arrivé entre ce refus et la pause a déjà levé les pauses de l'espace, et la sienne ne serait levée par personne.
     return new CreditWhatsappRefus('solde', 1 - solde, 1);
   };
+  /**
+   * Ce que coûtera un message d'un numéro de la ligne : le refus de la ligne, de la grille ou d'un tarif absent, sinon sa
+   * catégorie, le pays de son destinataire et son prix, zéro dans la franchise de service. La catégorie n'est lue qu'après
+   * les refus de la ligne (pour un modèle, une lecture chez Meta). Partagé par `avant`, qui provisionne ce prix, et
+   * `refusPourMessage`, qui le compare au solde : deux calculs se seraient écartés au premier changement.
+   */
+  const chiffrer = async (
+    tenantId: string, phoneNumberId: string, destinataire: string, ligne: LigneCredit, categorieDe: () => Promise<CategorieMeta | null>,
+  ): Promise<{ refus: CreditWhatsappRefus } | { refus: null; openBar: boolean; categorie: CategorieMeta | null; pays: string | null; montant: number }> => {
+    if (ligne.tenantId !== tenantId) {
+      // Un numéro n'appartient qu'à un espace : une ligne d'un autre espace est une incohérence, on refuse fermé.
+      journaliser('error', 'credit_whatsapp_ligne_autre_espace', { tenantId, ligneTenantId: ligne.tenantId });
+      return { refus: new CreditWhatsappRefus('ligne_inactive') };
+    }
+    if (ligne.arreteeLe !== null) return { refus: new CreditWhatsappRefus('ligne_inactive') };
+    const grille = await d.grille();
+    if (grille === null) {
+      journaliser('error', 'credit_whatsapp_sans_grille', { tenantId });
+      return { refus: new CreditWhatsappRefus('ligne_inactive') };
+    }
+    const { openBar, commissionPct } = await d.conditions(tenantId);
+    const categorie = await categorieDe();
+    const pays = paysDuDestinataire(destinataire);
+    const dansLaFranchise = categorie === 'service'
+      && await d.credit.serviceDuMois(phoneNumberId, maintenant().toISOString().slice(0, 7), FRANCHISE_SERVICE_PAR_NUMERO) < FRANCHISE_SERVICE_PAR_NUMERO;
+    const montant = dansLaFranchise ? 0 : prixMessage(grille, pays, categorie, commissionPct);
+    if (montant === null) {
+      journaliser('error', 'credit_whatsapp_sans_tarif', { tenantId, pays, categorie });
+      return { refus: new CreditWhatsappRefus('ligne_inactive') };
+    }
+    return { refus: null, openBar, categorie, pays, montant };
+  };
   return {
     refusAvantEffets,
+    async refusPourMessage(tenantId, phoneNumberId, destinataire, categorie) {
+      const ligne = await d.lignes.ligneDuNumero(phoneNumberId);
+      if (ligne === null) return null;
+      const c = await chiffrer(tenantId, phoneNumberId, destinataire, ligne, async () => categorie);
+      if (c.refus !== null) return c.refus;
+      if (c.openBar) return null;
+      const solde = await d.credit.solde(tenantId);
+      // La condition même de la provision (`provisionner`) : un solde positif, qui couvre ce message.
+      if (solde > 0 && solde - c.montant >= 0) return null;
+      signalerEpuise(tenantId);
+      return new CreditWhatsappRefus('solde', Math.max(1, Math.max(c.montant, 1) - solde), c.montant);
+    },
     async avant(e) {
       const ligne = await d.lignes.ligneDuNumero(e.phoneNumberId);
       if (ligne === null) return { provisionId: null };
-      if (ligne.tenantId !== e.tenantId) {
-        // Un numéro n'appartient qu'à un espace : une ligne d'un autre espace est une incohérence, on refuse fermé.
-        journaliser('error', 'credit_whatsapp_ligne_autre_espace', { tenantId: e.tenantId, ligneTenantId: ligne.tenantId });
-        throw new CreditWhatsappRefus('ligne_inactive');
-      }
-      if (ligne.arreteeLe !== null) throw new CreditWhatsappRefus('ligne_inactive');
-      const grille = await d.grille();
-      if (grille === null) {
-        journaliser('error', 'credit_whatsapp_sans_grille', { tenantId: e.tenantId });
-        throw new CreditWhatsappRefus('ligne_inactive');
-      }
-      const { openBar, commissionPct } = await d.conditions(e.tenantId);
-      const categorie: CategorieMeta | null = e.nature.type === 'libre'
+      const c = await chiffrer(e.tenantId, e.phoneNumberId, e.destinataire, ligne, async () => (e.nature.type === 'libre'
         ? 'service'
-        : e.nature.type === 'marketing' ? 'marketing' : await d.categorieDuModele(e.tenantId, e.nature.name, e.nature.language);
-      const pays = paysDuDestinataire(e.destinataire);
-      const dansLaFranchise = categorie === 'service'
-        && await d.credit.serviceDuMois(e.phoneNumberId, maintenant().toISOString().slice(0, 7), FRANCHISE_SERVICE_PAR_NUMERO) < FRANCHISE_SERVICE_PAR_NUMERO;
-      const montant = dansLaFranchise ? 0 : prixMessage(grille, pays, categorie, commissionPct);
-      if (montant === null) {
-        journaliser('error', 'credit_whatsapp_sans_tarif', { tenantId: e.tenantId, pays, categorie });
-        throw new CreditWhatsappRefus('ligne_inactive');
-      }
+        : e.nature.type === 'marketing' ? 'marketing' : d.categorieDuModele(e.tenantId, e.nature.name, e.nature.language)));
+      if (c.refus !== null) throw c.refus;
+      const { openBar, categorie, pays, montant } = c;
       const issue = await d.credit.provisionner({
         tenantId: e.tenantId,
         phoneNumberId: e.phoneNumberId,

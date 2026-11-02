@@ -150,6 +150,34 @@ describe('la garde seule', () => {
     expect(await garde({ grille: null }).g.bloque('t1', 'pn1')).toBe(true);
   });
 
+  /**
+   * RELECTURE DU LOT 2 : `POST /v1/sends` refusait seulement un solde NUL ; entre zéro et le prix d'un message, l'envoi
+   * était créé puis mis en pause aussitôt. Le premier message est chiffré comme sa provision, et rien n'est provisionné.
+   */
+  it('🔴 refusPourMessage : le prix exact du message contre le solde, sans rien provisionner', async () => {
+    // 74 760 µ€ : un marketing vers la France, commission comprise.
+    const juste = garde({ solde: 74_760 });
+    expect(await juste.g.refusPourMessage('t1', 'pn1', '+33612345678', 'marketing')).toBeNull();
+    expect(juste.etat.provisions.size).toBe(0);
+    expect(juste.etat.solde).toBe(74_760);
+    const court = garde({ solde: 74_759 });
+    expect(await court.g.refusPourMessage('t1', 'pn1', '+33612345678', 'marketing'))
+      .toMatchObject({ motif: 'solde', statusCode: 402, manqueMicroEur: 1, prixMicroEur: 74_760 });
+    expect(court.alertes).toEqual(['epuise:t1']);
+    // Le même solde couvre un utilitaire (26 040 µ€) ; l'Allemagne coûte plus cher que la France.
+    expect(await court.g.refusPourMessage('t1', 'pn1', '+33612345678', 'utility')).toBeNull();
+    expect(await garde({ solde: 100_000 }).g.refusPourMessage('t1', 'pn1', '+4915112345678', 'marketing')).toMatchObject({ motif: 'solde' });
+    // Une réponse dans la franchise ne coûte rien, mais un solde nul ne laisse rien partir.
+    const franchise = { services: FRANCHISE_SERVICE_PAR_NUMERO - 1 };
+    expect(await garde({ ...franchise, solde: 1 }).g.refusPourMessage('t1', 'pn1', '+33612345678', 'service')).toBeNull();
+    expect(await garde({ ...franchise, solde: 0 }).g.refusPourMessage('t1', 'pn1', '+33612345678', 'service')).toMatchObject({ motif: 'solde' });
+    // Hors de la ligne, en open bar : rien ; une ligne arrêtée : `ligne_inactive`.
+    expect(await garde({ ligne: null, solde: 0 }).g.refusPourMessage('t1', 'pn1', '+33612345678', 'marketing')).toBeNull();
+    expect(await garde({ openBar: true, solde: 0 }).g.refusPourMessage('t1', 'pn1', '+33612345678', 'marketing')).toBeNull();
+    expect(await garde({ ligne: { ...LIGNE, arreteeLe: '2026-10-30T00:00:00Z' } }).g.refusPourMessage('t1', 'pn1', '+33612345678', 'marketing'))
+      .toMatchObject({ motif: 'ligne_inactive' });
+  });
+
   it('refusAvantEffets : le refus exact, que la vérification d’un parcours lève avant ses effets', async () => {
     expect(await garde({ ligne: null, solde: 0 }).g.refusAvantEffets('t1', 'pn1')).toBeNull();
     expect(await garde({ solde: 1 }).g.refusAvantEffets('t1', 'pn1')).toBeNull();
@@ -309,7 +337,7 @@ describe('la fabrique d’envoi', () => {
   });
 
   it('🔴 à crédit refusé, AUCUNE méthode d’envoi n’appelle Meta', async () => {
-    const refuse: GardeCreditWhatsapp = { avant: async () => { throw new CreditWhatsappRefus('solde', 1); }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => new CreditWhatsappRefus('solde', 1), bloque: async () => true };
+    const refuse: GardeCreditWhatsapp = { avant: async () => { throw new CreditWhatsappRefus('solde', 1); }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => new CreditWhatsappRefus('solde', 1), refusPourMessage: async () => new CreditWhatsappRefus('solde', 1), bloque: async () => true };
     const t = new TransportNotant();
     const client = await fabrique(t, refuse).clientForTenant('t1', 'pn1') as unknown as Record<string, (...a: unknown[]) => Promise<unknown>>;
     for (const m of METHODES) {
@@ -324,19 +352,20 @@ describe('la fabrique d’envoi', () => {
     const aSec: GardeCreditWhatsapp = {
       avant: async () => ({ provisionId: null }), apres: async () => {}, surEchec: async () => {}, bloque: async () => true,
       refusAvantEffets: async () => { lectures += 1; return new CreditWhatsappRefus('solde', 1); },
+      refusPourMessage: async () => null,
     };
     await expect(fabrique(t, aSec).verifierAvantEffets('t1', 'pn1')).rejects.toMatchObject({ motif: 'solde', statusCode: 402 });
     // Le numéro délié prime : le crédit n'est même pas lu.
     await expect(fabrique(t, aSec, { delie: true }).verifierAvantEffets('t1', 'pn1')).rejects.toBeInstanceOf(NumeroDelieError);
     expect(lectures).toBe(1);
-    const libre: GardeCreditWhatsapp = { ...aSec, refusAvantEffets: async () => null, bloque: async () => false };
+    const libre: GardeCreditWhatsapp = { ...aSec, refusAvantEffets: async () => null, refusPourMessage: async () => null, bloque: async () => false };
     await expect(fabrique(t, libre).verifierAvantEffets('t1', 'pn1')).resolves.toBeUndefined();
     expect(t.appels).toEqual([]);
   });
 
   it('🔴 le crédit passe AVANT les modèles du mois : un crédit nul ne consomme rien', async () => {
     let consommes = 0;
-    const refuse: GardeCreditWhatsapp = { avant: async () => { throw new CreditWhatsappRefus('solde', 1); }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => new CreditWhatsappRefus('solde', 1), bloque: async () => true };
+    const refuse: GardeCreditWhatsapp = { avant: async () => { throw new CreditWhatsappRefus('solde', 1); }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => new CreditWhatsappRefus('solde', 1), refusPourMessage: async () => new CreditWhatsappRefus('solde', 1), bloque: async () => true };
     const client = await fabrique(new TransportNotant(), refuse, { quota: async () => { consommes += 1; return { ok: true }; } }).clientForTenant('t1', 'pn1');
     await expect(client.sendTemplate('+33612345678', { name: 'promo', language: 'fr' })).rejects.toBeInstanceOf(CreditWhatsappRefus);
     expect(consommes).toBe(0);
@@ -409,7 +438,7 @@ describe('la fabrique d’envoi', () => {
 
   it('🔴 un compte 360dialog n’est jamais gardé : sa facturation est ailleurs', async () => {
     let appels = 0;
-    const espion: GardeCreditWhatsapp = { avant: async () => { appels += 1; return { provisionId: null }; }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => null, bloque: async () => false };
+    const espion: GardeCreditWhatsapp = { avant: async () => { appels += 1; return { provisionId: null }; }, apres: async () => {}, surEchec: async () => {}, refusAvantEffets: async () => null, refusPourMessage: async () => null, bloque: async () => false };
     const client = await fabrique(new TransportNotant(), espion, { fournisseur: '360dialog' }).clientForTenant('t1', 'pn1');
     await client.sendText('+33612345678', 'bonjour');
     expect(appels).toBe(0);

@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: 53efa2
+source_empreinte: a35294
 ---
 # Recharger le Crédit WhatsApp
 
@@ -19,7 +19,8 @@ chaque numéro sont offertes chaque mois, et un message que Meta ne facture pas 
 **À zéro, plus rien ne part.** Quand le crédit est épuisé, plus aucun message WhatsApp ne part, réponses comprises :
 ni campagne, ni scénario, ni réponse de l'Inbox ou d'un agent IA. Une campagne arrêtée faute de crédit reprend seule
 après la recharge. Sous 10 €, l'onglet vous prévient et les administrateurs reçoivent un e-mail, une fois par
-recharge ; un message refusé faute de crédit envoie aussi un e-mail, une fois par jour au plus.
+recharge ; sous un euro, il dit le crédit presque épuisé : ce reste ne couvre déjà plus certains messages. Un message
+refusé faute de crédit envoie aussi un e-mail, une fois par jour au plus.
 
 **Recharger.** Quatre boutons : 50, 100, 250 ou 500 €, hors taxe. Un clic vous emmène sur la page de paiement
 sécurisée de Stripe, où vous saisissez votre carte et vos informations de facturation. La TVA s'ajoute au paiement :

@@ -638,6 +638,15 @@ export class WorkflowExecutor {
         break;
       }
       /**
+       * Après un refus du Crédit WhatsApp (refus d'étape, ci-dessous), les envois, e-mails et appels d'API qui suivent ne
+       * partent pas : le crédit ne couvrirait pas les envois, et le reste du bloc est refusé avec eux. Les étiquettes et
+       * les champs se posent encore, comme après un désabonnement : le parcours avance, et une condition plus loin les lit.
+       */
+      if (refusCredit !== null && (EST_UN_ENVOI.has(a.kind) || a.kind === 'appelHttp')) {
+        if (EST_UN_ENVOI.has(a.kind)) await this.mesurer(tenantId, workflowId, nodeId, waId, 'failed');
+        continue;
+      }
+      /**
        * 🔴 Un contact désabonné ne reçoit aucun envoi automatique : vérifié ici, point de passage commun du
        * scénario et de l'automation. On saute l'envoi sans arrêter le parcours (`continue`, pas `break`) : un
        * tag « a dit stop » doit encore se poser, on refuse de lui parler, pas de tenir sa fiche à jour. Lu une
@@ -755,8 +764,8 @@ export class WorkflowExecutor {
         } catch (err) {
           /**
            * 🔴 Le Crédit WhatsApp à sec APRÈS un effet de cette liste : l'exception laisserait le parcours sur son bloc, et la
-           * reprise renverrait (et ferait payer) ce qui est déjà parti. Il devient un refus d'étape : la liste s'arrête ici,
-           * la suite du bloc ne part pas, et l'appelant écrit l'état comme pour tout refus (le parcours avance si un message
+           * reprise renverrait (et ferait payer) ce qui est déjà parti. Il devient un refus d'étape : les envois et les appels
+           * de la suite ne partent pas (ses étiquettes et ses champs se posent), et l'appelant écrit l'état comme pour tout refus (le parcours avance si un message
            * est parti, sinon il est clos et remonté à un humain ; au démarrage, `runFrom` relève le refus). Avant tout effet,
            * il remonte tel quel : la campagne se met en pause et le bloc repart entier après un crédit.
            */
@@ -764,7 +773,8 @@ export class WorkflowExecutor {
           refus ??= err.message;
           refusCredit ??= err;
           await this.mesurer(tenantId, workflowId, nodeId, waId, 'failed');
-          break;
+          // Pas `break` : les étiquettes et les champs qui suivent se posent encore (voir le haut de la boucle).
+          continue;
         }
         // Une `const` : le rétrécissement par l'alias `rate` ne vaut que sur elle.
         const dit = issue;

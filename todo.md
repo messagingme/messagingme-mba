@@ -74,14 +74,7 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
 - Le lot 2 (l'achat, l'onglet, la reprise, les e-mails, Claude, les codes publics, les écarts 10 et 14) est en production
   depuis le 2026-11-01 (`22a5dd9f`) : reste son essai réel (essai 207), après que Julien a créé les quatre prix Stripe et
   lancé `node docs/prive/credit-whatsapp/poser-prix-wa.cjs`.
-- 🟡 Les jaunes de la relecture du lot 2, à pousser après son déploiement (relus par le lot suivant) : le refus de
-  `POST /v1/sends`, `get_setup_state` et le mot « épuisé » de l'onglet comparent le solde à zéro, pas au prix d'un message ;
-  le `break` du refus d'étape saute aussi les étiquettes et les champs qui suivent ; la page `paiement-recu` ne connaît
-  pas `produit=credit_whatsapp` (elle parle du numéro) ; le webhook compare le total TTC au HT (une remise sous la TVA
-  passerait) ; la description de `get_setup_state` ne cite pas `credit_whatsapp_epuise` ; l'alerte « épuisé » relit la
-  base à chaque refus (une mémoire du jour par espace suffit) ; `dernierCreditRecu` doit ignorer les régularisations ; un
-  test de la garde de configuration des quatre prix ; `features.md` dit l'onglet « jamais en Entreprise », alors qu'une
-  Entreprise sans open bar le voit.
+- Les jaunes de la relecture du lot 2 sont faits (2026-11-02) : la relecture du lot 3 les couvre.
 - Lot 3 : la régularisation sur les volumes de Meta. Lot 4 : l'option à 30 € par numéro et la recharge automatique.
 - Lot 5, avec le partenaire : l'Embedded Signup sur sa ligne de crédit (rien ne lui est écrit sans Julien) ; et, à
   l'ouverture, ce que le lot 2 lui a laissé (écarts 4 et 5 du lot 2) : le prix en euros du récapitulatif d'une campagne,

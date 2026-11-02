@@ -137,6 +137,15 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-bas')).toBeVisible();
     await expect(page.getByTestId('credit-wa-epuise')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-presque-epuise')).toHaveCount(0);
+  });
+
+  test('🔴 sous un euro, presque épuisé : ce reste ne couvre déjà plus certains messages', async ({ page }) => {
+    await monter(page, { vues: [credit({ soldeMicroEur: 40_000 })] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-presque-epuise')).toContainText(/ne couvre déjà plus certains messages/);
+    await expect(page.getByTestId('credit-wa-bas')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-epuise')).toHaveCount(0);
   });
 
   test('🔴 les numéros arrêtés : on le dit, et aucun bouton d’achat', async ({ page }) => {
@@ -162,6 +171,15 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     await expect(page.getByTestId('credit-wa-facture-erreur')).toBeVisible();
     expect(m.factures).toHaveLength(1);
     expect(m.factures[0]).toContain('/tenants/t-e2e/credit/factures/cs_live_wa_ancien');
+  });
+
+  test('🔴 une recharge payée depuis Claude revient sur la page publique, qui parle du Crédit WhatsApp (pas du numéro)', async ({ page }) => {
+    // `buy_credit` renvoie ici (`?produit=credit_whatsapp`), sans session : la page tombait sur le texte du numéro.
+    await page.goto('/paiement-recu?produit=credit_whatsapp');
+    await expect(page.getByTestId('paiement-recu')).toContainText('recharge de votre Crédit WhatsApp');
+    await expect(page.getByTestId('paiement-recu')).not.toContainText('numéro');
+    await page.goto('/paiement-recu?produit=credit_whatsapp&abonnement=abandon');
+    await expect(page.getByTestId('paiement-abandonne')).toBeVisible();
   });
 
   test('🔴 un compte NON ADMIN n’y entre pas : aucun bouton d’achat ne lui est offert', async ({ page }) => {

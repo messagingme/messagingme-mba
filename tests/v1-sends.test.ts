@@ -199,7 +199,7 @@ function app(over: Surcharges = {}, monde: Partial<Monde> = {}) {
     },
     numerosSuspendus: { estSuspendu: async () => false },
     // Aucun numéro sur le Crédit WhatsApp : la garde ne refuse rien (l'hypothèse des cas qui n'en parlent pas).
-    creditWhatsapp: { refusAvantEffets: async () => null },
+    creditWhatsapp: { refusAvantEffets: async () => null, refusPourMessage: async () => null },
     // Les modèles du mois sans limite (lot 6) : un espace Pro, l'hypothèse des cas qui ne parlent pas d'offre.
     modelesDuMois: { etatDuMois: async () => null },
     offres: offresToutOuvert,
@@ -1502,7 +1502,7 @@ describe('POST /v1/sends : forme, numéro, débit, droits', () => {
   it('🔴 Crédit WhatsApp épuisé, cible template -> 402 whatsapp_credit_exhausted, rien n’est créé, la clé est LIBÉRÉE', async () => {
     const vus: string[] = [];
     const { server, cap, idem } = app({
-      creditWhatsapp: { refusAvantEffets: async (t, pn) => { vus.push(`${t}/${pn}`); return new CreditWhatsappRefus('solde', 1); } },
+      creditWhatsapp: { refusAvantEffets: async (t, pn) => { vus.push(`${t}/${pn}`); return new CreditWhatsappRefus('solde', 1); }, refusPourMessage: async () => null },
     });
     const res = await envoyer(server, { ...TPL, recipients: [{ contactId: C1 }] }, 'i-credit');
     expect(res.statusCode).toBe(402);
@@ -1514,8 +1514,26 @@ describe('POST /v1/sends : forme, numéro, débit, droits', () => {
     await server.close();
   });
 
+  it('🔴 un solde positif qui ne couvre pas le PREMIER message -> 402 avant toute campagne, chiffré sur son destinataire et la catégorie de Meta', async () => {
+    const chiffres: string[] = [];
+    const { server, cap, idem } = app({
+      creditWhatsapp: {
+        refusAvantEffets: async () => null,
+        refusPourMessage: async (t, pn, dest, categorie) => { chiffres.push(`${t}/${pn}/${dest}/${categorie}`); return new CreditWhatsappRefus('solde', 1, 74_760); },
+      },
+    });
+    const res = await envoyer(server, { ...TPL, recipients: [{ contactId: C1 }, { contactId: C2 }] }, 'i-credit-premier');
+    expect(res.statusCode).toBe(402);
+    expect(res.json()).toEqual({ error: MESSAGE_REFUS_CREDIT.solde, code: 'whatsapp_credit_exhausted' });
+    // Le premier destinataire réel, et la catégorie que Meta donne au modèle (utility ici), pas celle de la campagne.
+    expect(chiffres).toEqual([`t1/pn-default/${PHONE(1)}/utility`]);
+    expect(cap.sends).toEqual([]);
+    expect(idem.has('i-credit-premier')).toBe(false);
+    await server.close();
+  });
+
   it('🔴 Crédit WhatsApp inactif sur le numéro -> 409 whatsapp_credit_line_inactive, rien n’est créé', async () => {
-    const { server, cap } = app({ creditWhatsapp: { refusAvantEffets: async () => new CreditWhatsappRefus('ligne_inactive') } });
+    const { server, cap } = app({ creditWhatsapp: { refusAvantEffets: async () => new CreditWhatsappRefus('ligne_inactive'), refusPourMessage: async () => null } });
     const res = await envoyer(server, { ...TPL, recipients: [{ contactId: C1 }] }, 'i-credit-ligne');
     expect(res.statusCode).toBe(409);
     expect(res.json()).toEqual({ error: MESSAGE_REFUS_CREDIT.ligne_inactive, code: 'whatsapp_credit_line_inactive' });
@@ -1527,7 +1545,7 @@ describe('POST /v1/sends : forme, numéro, débit, droits', () => {
     const vus: string[] = [];
     const { server, cap } = app({
       repo: { getTenantPhoneNumberId: async () => null },
-      creditWhatsapp: { refusAvantEffets: async (t, pn) => { vus.push(`${t}/${pn}`); return new CreditWhatsappRefus('solde', 1); } },
+      creditWhatsapp: { refusAvantEffets: async (t, pn) => { vus.push(`${t}/${pn}`); return new CreditWhatsappRefus('solde', 1); }, refusPourMessage: async () => null },
     });
     const res = await envoyer(server, { target: { rcsMessage: 'relance-panier' }, category: 'utility', recipients: [{ contactId: C1, variables: { commande: '1' } }] }, 'i-credit-rcs');
     expect(res.statusCode).toBe(201);

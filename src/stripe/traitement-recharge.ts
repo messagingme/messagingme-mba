@@ -62,6 +62,8 @@ const sessionSchema = z.object({
   metadata: z.record(z.string(), z.string()).nullable().optional(),
   // Un identifiant, ou l'objet facture si l'événement l'a déplié.
   invoice: z.union([z.string(), z.object({ id: z.string() })]).nullable().optional(),
+  // La remise de la session : le total TTC ne la montre pas quand elle est plus petite que la TVA (Crédit WhatsApp).
+  total_details: z.object({ amount_discount: z.number().int() }).nullable().optional(),
 });
 
 /** NOS métadonnées. Une session qui ne les porte pas n'est pas une recharge : le compte vend peut-être autre chose. */
@@ -208,14 +210,17 @@ export function creerTraitementRecharge(deps: DepsTraitementRecharge) {
     if (session.payment_status === 'unpaid') return ACQUITTE;
     const attendu = htCentimesWhatsapp(offre);
     const reference = session.client_reference_id ?? null;
-    if (!payee || session.currency !== 'eur' || session.amount_subtotal !== attendu
+    // 🔴 Le total TTC contre le HT ne voit pas une remise plus petite que la TVA (5 € sur 50 € HT : 54 € TTC) : la remise
+    // se lit à part. Les codes promo sont fermés pour ce produit, une remise veut dire une session qui n'est pas la nôtre.
+    const remise = session.total_details?.amount_discount ?? 0;
+    if (!payee || session.currency !== 'eur' || session.amount_subtotal !== attendu || remise !== 0
       || session.amount_total === null || session.amount_total < attendu || (reference !== null && reference !== tenantId)) {
       journaliser('error', 'stripe_paiement_incoherent', {
         evenement: e.id, session: session.id, tenantId, offre, produit: PRODUIT_CREDIT_WHATSAPP, statut: session.payment_status,
-        attenduCentimes: attendu, payeCentimes: session.amount_subtotal, totalCentimes: session.amount_total, devise: session.currency,
-        referenceConcorde: reference === null || reference === tenantId,
+        attenduCentimes: attendu, payeCentimes: session.amount_subtotal, totalCentimes: session.amount_total, remiseCentimes: remise,
+        devise: session.currency, referenceConcorde: reference === null || reference === tenantId,
       });
-      await deps.alerter(`Achat du Crédit WhatsApp NON crédité, paiement incohérent avec l'offre ${offre} (statut ${session.payment_status}, ${session.amount_subtotal ?? '?'} centimes HT, total ${session.amount_total ?? '?'}, devise ${session.currency ?? '?'}) : espace ${tenantId}, session ${session.id}. Vérifier chez Stripe, puis créditer ou rembourser.${lienFacture}`);
+      await deps.alerter(`Achat du Crédit WhatsApp NON crédité, paiement incohérent avec l'offre ${offre} (statut ${session.payment_status}, ${session.amount_subtotal ?? '?'} centimes HT, remise ${remise}, total ${session.amount_total ?? '?'}, devise ${session.currency ?? '?'}) : espace ${tenantId}, session ${session.id}. Vérifier chez Stripe, puis créditer ou rembourser.${lienFacture}`);
       return NON_CREDITE;
     }
 

@@ -10,7 +10,7 @@ import {
   aUneFactureWhatsapp, getCreditWhatsapp, ouvrirAchatWhatsapp, type LigneCreditWhatsapp, type OffreWhatsapp,
   type VueCreditWhatsapp,
 } from '@/lib/api-credit-whatsapp';
-import { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR } from '@/lib/partage/credit-whatsapp';
+import { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR, SOLDE_REPRISE_CREDIT_MICRO_EUR } from '@/lib/partage/credit-whatsapp';
 import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { erreurDeChargement } from '@/lib/http';
 import { fmtCost, fmtNum } from '@/lib/format';
@@ -194,7 +194,17 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
                 )}
               </p>
             )}
-            {vue.soldeMicroEur > 0 && vue.soldeMicroEur < SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR && !vue.ligneArretee && (
+            {/* Sous un euro, et pas seulement à zéro : la garde refuse un message dès que le solde ne couvre plus son prix, et
+                une campagne arrêtée ne repart qu'au-dessus d'un euro (`SOLDE_REPRISE_CREDIT_MICRO_EUR`). */}
+            {vue.soldeMicroEur > 0 && vue.soldeMicroEur < SOLDE_REPRISE_CREDIT_MICRO_EUR && !vue.ligneArretee && (
+              <p className="mt-2 text-sm text-danger" data-testid="credit-wa-presque-epuise">
+                {t(
+                  'Presque épuisé : sous un euro, ce reste ne couvre déjà plus certains messages, et une campagne arrêtée faute de crédit attend une recharge pour repartir.',
+                  'Almost used up: below one euro, what is left already no longer covers some messages, and a campaign stopped for lack of credit waits for a top-up to resume.',
+                )}
+              </p>
+            )}
+            {vue.soldeMicroEur >= SOLDE_REPRISE_CREDIT_MICRO_EUR && vue.soldeMicroEur < SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR && !vue.ligneArretee && (
               <p className="mt-2 text-sm text-alerte" data-testid="credit-wa-bas">
                 {t('C’est bas : au bout, plus aucun message ne partira, réponses comprises.', 'That is low: once it runs out, no message will go out, replies included.')}
               </p>

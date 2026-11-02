@@ -1117,9 +1117,13 @@ export const OUTILS: OutilMcp[] = [
       + '("Activate the number"). A responder already chosen (repondeur.mode_choisi: Meta Business Agent, scenario, '
       + 'application) skips the AI agent and responder steps: it is the person\'s choice, and only their request changes '
       + 'it. avertissements: numero_a_activer, credit_epuise (an AI agent no longer answers: buy_credit), '
+      + 'credit_whatsapp_epuise (the WhatsApp credit is under one euro: some messages no longer go out, none at zero, '
+      + 'and a campaign stopped for lack of credit waits for a top-up: buy_credit with a WhatsApp offer), '
       + 'repondeur_gele_par_l_offre (the chosen responder is frozen by the current plan), carte_meta_a_regler (Meta '
-      + 'blocks the account over its card; etapes_carte_meta gives the steps to follow), lecture_manquee:<source> (this '
-      + 'part could not be read: the step it would have given is skipped). The tool only reads.',
+      + 'blocks the account over its card; etapes_carte_meta gives the steps to follow), numero_coupe (WhatsApp cut the '
+      + 'number linked by the app, or the device was removed from the phone), numero_en_sommeil (that account is asleep '
+      + 'for lack of messages), lecture_manquee:<source> (this part could not be read: the step it would have given is '
+      + 'skipped). The tool only reads.',
     annotations: lecture('Read the setup state'),
     entree: { type: 'object', properties: {} },
     async executer(deps, tenantId) {

@@ -8,6 +8,7 @@ import type { EtatConnexion } from '../otp/etat-connexion';
 import type { VueOffre } from '../offres/vue';
 import type { WidgetRow } from '../widgets/store.pg';
 import { journaliser } from '../lib/journal';
+import { SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
 
 /**
  * OÙ EN EST LA MISE EN SERVICE D'UN ESPACE (lot 10, outil `get_setup_state`). La skill de mise en service du plugin
@@ -44,7 +45,8 @@ export type EtapeMiseEnService = keyof typeof OUTILS_DE_L_ETAPE;
 /** Les avertissements que l'outil peut rendre ; `lecture_manquee` porte la source après un deux-points. */
 export const AVERTISSEMENTS = [
   'numero_a_activer', 'credit_epuise', 'repondeur_gele_par_l_offre', 'carte_meta_a_regler', 'lecture_manquee',
-  // Le Crédit WhatsApp à zéro (plan du Crédit WhatsApp, tâche 11) : plus aucun message ne part du numéro, réponses comprises.
+  // Le Crédit WhatsApp sous un euro (plan du Crédit WhatsApp, tâche 11) : il ne couvre plus le prix d'un message, et une
+  // campagne arrêtée faute de crédit ne repart pas ; à zéro, plus rien ne part du numéro, réponses comprises.
   'credit_whatsapp_epuise',
   // La filière application (2026-10-22) : WhatsApp a coupé le numéro, ou l'appareil a été retiré depuis le téléphone ;
   // ou le compte dort faute de messages. Le développeur est prévenu par courriel, et Claude le lui dit dans sa session.
@@ -134,7 +136,9 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
   const bulles = l.widgets === null ? null : { actives: l.widgets.filter((w) => w.actif).length, total: l.widgets.length };
 
   if (l.soldeMicroEur !== null && l.soldeMicroEur <= 0) avertissements.push('credit_epuise');
-  if (l.soldeWhatsappMicroEur !== undefined && l.soldeWhatsappMicroEur <= 0) avertissements.push('credit_whatsapp_epuise');
+  // Sous un euro, et pas seulement à zéro : la garde refuse un message dès que le solde ne couvre plus son prix, et une
+  // campagne arrêtée faute de crédit ne repart qu'au-dessus d'un euro (relecture du lot 2 du Crédit WhatsApp).
+  if (l.soldeWhatsappMicroEur !== undefined && l.soldeWhatsappMicroEur < SOLDE_REPRISE_CREDIT_MICRO_EUR) avertissements.push('credit_whatsapp_epuise');
 
   const etape = ((): EtapeMiseEnService => {
     if (numero !== null && numero.a_activer) return 'activer_numero';

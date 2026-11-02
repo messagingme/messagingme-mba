@@ -127,6 +127,8 @@ describe('l’achat du Crédit WhatsApp (plan du Crédit WhatsApp, tâche 10)', 
       { amount_subtotal: 10_000 }, // le prix d'une autre offre
       { currency: 'usd' },
       { amount_total: 2_500 }, // remisée : les codes promo sont fermés, ce n'est pas notre session
+      // 🔴 Remisée de MOINS que la TVA : le total (54 €) dépasse encore le HT, seule la remise le dit (relecture du lot 2).
+      { amount_total: 5_400, total_details: { amount_discount: 1_000 } },
       { payment_status: 'no_payment_required', amount_total: 0 }, // réglée à zéro par un code à 100 %
       { client_reference_id: '22222222-2222-4222-8222-222222222222' },
     ]) {

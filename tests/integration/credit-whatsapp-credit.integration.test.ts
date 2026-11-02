@@ -167,6 +167,23 @@ describe.skipIf(!url)('le Crédit WhatsApp (0264)', () => {
     expect(await store.serviceDuMois(NUMERO, '2020-01', 1000)).toBe(0);
   });
 
+  it('🔴 le dernier crédit reçu : un achat, jamais une régularisation qui crédite (relecture du lot 2)', async () => {
+    const t = await espace();
+    expect(await store.dernierCreditRecu(t)).toBeNull();
+    await store.crediter(t, 50_000_000, 'achat', 'cs_dernier', 'itest');
+    const achat = (await pool.query<{ id: string }>(
+      `select id::text from credit_whatsapp_mouvements where tenant_id = $1 and reference = 'cs_dernier'`, [t],
+    )).rows[0]!.id;
+    // Une régularisation POSITIVE, écrite après l'achat, comme la passera le lot 3 (le solde suit, l'invariant tient).
+    await pool.query(
+      `insert into credit_whatsapp_mouvements (tenant_id, delta_micro_eur, raison, jour, note) values ($1, 1200000, 'regularisation', current_date, 'itest')`,
+      [t],
+    );
+    await pool.query('update credits_whatsapp set solde_micro_eur = solde_micro_eur + 1200000 where tenant_id = $1', [t]);
+    expect(await store.dernierCreditRecu(t)).toBe(achat);
+    await invariant(t);
+  });
+
   it('l’historique : les envois en une ligne par jour, les achats à part, aucune note', async () => {
     const t = await espace();
     await store.crediter(t, 1_000_000, 'achat', 'cs_histo', 'note interne de Julien');

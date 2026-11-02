@@ -53,6 +53,14 @@ export function creerAlerteCreditBas(d: {
 export { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR };
 
 /**
+ * L'espacement, par espace et par processus, des tentatives de l'alerte « épuisé » : la garde la lance à CHAQUE refus (un
+ * message entrant du répondeur, un envoi refusé), et chaque tentative coûte quatre ou cinq requêtes (le fuseau, la
+ * réservation de l'occasion, les admins) pour un seul e-mail par jour. Dix minutes : un changement de jour dans le fuseau
+ * de l'espace se rattrape au premier refus qui suit.
+ */
+export const ESPACEMENT_ALERTE_EPUISE_MS = 10 * 60_000;
+
+/**
  * Les deux alertes du Crédit WhatsApp, branchées sur la garde (tout débit et tout refus y passent) :
  *  - le débit qui fait passer le solde SOUS 10 € : une fois par crédit reçu (l'occasion est le dernier achat ou la dernière
  *    recharge, comme `creerAlerteCreditBas`) ;
@@ -68,6 +76,8 @@ export function creerAlertesCreditWhatsapp(d: {
   pageOnglet: string;
   now?: () => Date;
 }): { surDebit(tenantId: string, avantMicroEur: number, apresMicroEur: number): Promise<void>; surEpuise(tenantId: string): Promise<void> } {
+  /** La dernière tentative de l'alerte « épuisé », par espace (une entrée par espace : la carte reste bornée). */
+  const derniereTentative = new Map<string, number>();
   return {
     async surDebit(tenantId, avant, apres) {
       if (!(avant >= SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR && apres < SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR)) return;
@@ -82,8 +92,12 @@ export function creerAlertesCreditWhatsapp(d: {
       }
     },
     async surEpuise(tenantId) {
+      const maintenant = d.now ? d.now() : new Date();
+      const avant = derniereTentative.get(tenantId);
+      if (avant !== undefined && maintenant.getTime() - avant < ESPACEMENT_ALERTE_EPUISE_MS) return;
+      derniereTentative.set(tenantId, maintenant.getTime());
       try {
-        const jour = jourDans(await d.fuseau(tenantId), d.now ? d.now() : new Date());
+        const jour = jourDans(await d.fuseau(tenantId), maintenant);
         await d.emettre({
           cle: 'credit_whatsapp_epuise', tenantId, occasion: `jour:${jour}`, a: 'admins',
           valeurs: { lien_credit_whatsapp: d.pageOnglet },

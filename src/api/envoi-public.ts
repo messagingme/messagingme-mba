@@ -26,6 +26,7 @@ import { messageDe } from '../lib/erreur';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusFonction, corpsRefusLimite } from '../offres/refus';
 import type { SourceOffres } from '../offres/offre.pg';
 import type { CreditWhatsappRefus } from '../credit-whatsapp/refus';
+import type { CategorieMeta } from '../credit-whatsapp/grille';
 
 export interface CreationEnvoiPublic {
   tenantId: string;
@@ -84,7 +85,11 @@ export interface DepsEnvoiPublic {
    * Le Crédit WhatsApp du numéro (plan du Crédit WhatsApp, lot 2) : épuisé ou inactif, aucun message ne partirait. La
    * garde de la fabrique dit pourquoi sans rien provisionner (`refusAvantEffets`). Requise, comme les deux gardes du numéro.
    */
-  creditWhatsapp: { refusAvantEffets(tenantId: string, phoneNumberId: string): Promise<CreditWhatsappRefus | null> };
+  creditWhatsapp: {
+    refusAvantEffets(tenantId: string, phoneNumberId: string): Promise<CreditWhatsappRefus | null>;
+    /** Le premier message chiffré exactement (pays du destinataire, catégorie de Meta), comparé au solde. */
+    refusPourMessage(tenantId: string, phoneNumberId: string, destinataire: string, categorie: CategorieMeta | null): Promise<CreditWhatsappRefus | null>;
+  };
   /**
    * Les modèles du mois de l'offre (lot 6, `QuotaModeles`) : un envoi qui ouvre par un modèle et ne tient pas dans ce
    * qu'il reste est refusé en entier (402). Une ESTIMATION pour refuser tôt : la fabrique décide à l'envoi. Requise : les
@@ -199,6 +204,8 @@ interface CibleResolue {
   label: string;
   templateName: string;
   templateLanguage: string;
+  /** La catégorie que Meta donne au modèle d'ouverture (une ouverture par modèle) : le prix du premier message en dépend. */
+  categorieMeta?: CampaignCategory;
   workflowId?: string;
   startNodeId?: string;
   /** Cible `rcsMessage` : l'agent qui envoie et le contenu, qui partent dans la campagne RCS. */
@@ -250,7 +257,7 @@ async function resoudreCible(deps: DepsEnvoiPublic, tenantId: string, c: CibleDe
   if (c.kind === 'template') {
     const m = await modeleEnvoyable(deps, tenantId, c.name, c.language, params, 'template');
     if ('refus' in m) return m;
-    return { ouverture: 'whatsapp_template', category: m.categorie, label: c.name, templateName: c.name, templateLanguage: c.language };
+    return { ouverture: 'whatsapp_template', category: m.categorie, categorieMeta: m.categorie, label: c.name, templateName: c.name, templateLanguage: c.language };
   }
   if (c.kind === 'rcsMessage') {
     const r = await resoudreCibleRcs(deps.rcs, tenantId, c.nom);
@@ -283,8 +290,8 @@ async function resoudreCible(deps: DepsEnvoiPublic, tenantId: string, c: CibleDe
     const m = await modeleEnvoyable(deps, tenantId, ouvre.templateName, ouvre.language, params, 'template d’ouverture du scénario');
     if ('refus' in m) return m;
     return {
-      ouverture: 'whatsapp_template', category: categoriePlusStricte(m.categorie, c.category), label: r.value.name,
-      templateName: '', templateLanguage: '', workflowId: r.value.id,
+      ouverture: 'whatsapp_template', category: categoriePlusStricte(m.categorie, c.category), categorieMeta: m.categorie,
+      label: r.value.name, templateName: '', templateLanguage: '', workflowId: r.value.id,
     };
   }
   const r = await deps.resolveNode(tenantId, c.code);
@@ -297,14 +304,19 @@ async function resoudreCible(deps: DepsEnvoiPublic, tenantId: string, c: CibleDe
    * illisible = refus.
    */
   let category = c.category;
+  let categorieMeta: CampaignCategory | undefined;
   if (v.ouverture === 'whatsapp_template') {
     const part = modeleDOuverture(r.value.graph, r.value.nodeId);
     if (!part) return { refus: { statut: 422, code: 'unsendable_target', message: 'le template qui part de ce bloc n’a pas pu être identifié' } };
     const m = await modeleEnvoyable(deps, tenantId, part.templateName, part.language, null, 'template du bloc');
     if ('refus' in m) return m;
     category = categoriePlusStricte(m.categorie, c.category);
+    categorieMeta = m.categorie;
   }
-  return { ouverture: v.ouverture, category, label: r.value.label, templateName: '', templateLanguage: '', workflowId: r.value.workflowId, startNodeId: r.value.nodeId };
+  return {
+    ouverture: v.ouverture, category, ...(categorieMeta ? { categorieMeta } : {}), label: r.value.label, templateName: '',
+    templateLanguage: '', workflowId: r.value.workflowId, startNodeId: r.value.nodeId,
+  };
 }
 
 /**
@@ -566,6 +578,21 @@ export async function lancerEnvoiPublic(
     // Le refus exact, sur les destinataires réels (doublons et écarts retirés) : refusé en entier, avant toute campagne,
     // et la clé rendue : le même appel repartira le mois prochain ou après le passage en Pro.
     if (etatDuMois !== null && recipients.length > etatDuMois.reste) return await refuserLeMois(etatDuMois, recipients.length);
+    /**
+     * Le Crédit WhatsApp, exactement, sur le PREMIER message réel (pays de son destinataire, catégorie que Meta donne au
+     * modèle d'ouverture, ou une réponse dans la fenêtre) : un solde positif qui ne le couvre pas ne ferait partir aucun
+     * message, et la campagne serait mise en pause aussitôt créée. Refusé en entier, avant toute campagne, la clé rendue.
+     * Le refus préalable, plus haut, a déjà écarté un solde nul sans créer de fiche.
+     */
+    const premier = recipients[0];
+    if (cible.ouverture !== 'rcs' && premier !== undefined) {
+      const categorie: CategorieMeta | null = cible.ouverture === 'whatsapp_session' ? 'service' : cible.categorieMeta ?? null;
+      const credit = await deps.creditWhatsapp.refusPourMessage(tenantId, numero.phoneNumberId, premier.toE164, categorie);
+      if (credit !== null) {
+        await deps.idempotence.release(tenantId, idem.cle, jeton);
+        return repondre(credit.statusCode, credit.code, credit.message);
+      }
+    }
     report = {
       sendId: '',
       opening: cible.ouverture,

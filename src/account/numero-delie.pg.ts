@@ -1,14 +1,15 @@
 import type { Pool } from 'pg';
 import { enTransaction } from '../db/transaction';
 import type { MotifBlocage } from '../meta/numero-delie';
+import { SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
 
 /**
- * Le solde à partir duquel une campagne en pause `credit_whatsapp_epuise` repart : un euro, très au-dessus du prix d'un
- * message de la grille de Meta, qui se compte en centimes. Un simple « solde positif » relançait, au balayage horaire, une
- * campagne arrêtée sur un reste qui ne couvre plus un message (la garde exige `solde - prix >= 0`) : elle repartait, se
- * remettait en pause, et un scénario qui ouvre par un e-mail le refaisait à un contact de plus à chaque heure.
+ * Le solde à partir duquel une campagne en pause `credit_whatsapp_epuise` repart : un euro, partagé avec la console
+ * (`web/lib/partage/credit-whatsapp.ts`). Un simple « solde positif » relançait, au balayage horaire, une campagne
+ * arrêtée sur un reste qui ne couvre plus un message (la garde exige `solde - prix >= 0`) : elle repartait, se remettait
+ * en pause, et un scénario qui ouvre par un e-mail le refaisait à un contact de plus à chaque heure.
  */
-export const SOLDE_REPRISE_CREDIT_MICRO_EUR = 1_000_000;
+export { SOLDE_REPRISE_CREDIT_MICRO_EUR };
 
 /**
  * Délier et relier le numéro d'un espace. Délier ne supprime rien et ne demande rien à Meta (numéro, compte et

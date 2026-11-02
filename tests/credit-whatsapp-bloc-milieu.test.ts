@@ -140,6 +140,28 @@ describe('🔴 le Crédit WhatsApp à sec au MILIEU d’un bloc ne rejoue rien',
     expect(m.etats).toEqual([]);
   });
 
+  /**
+   * RELECTURE DU LOT 2 : le refus d'étape arrêtait la liste (`break`), étiquettes et champs compris, alors que le parcours
+   * avance (un message est parti) ; une condition plus loin aurait pris la mauvaise branche. Seuls les envois, e-mails et
+   * appels qui suivent sont sautés.
+   */
+  it('🔴 après le refus, les étiquettes se posent encore, l’e-mail qui suit ne part pas', async () => {
+    const graphe: WorkflowGraph = {
+      nodes: [
+        n('w', 'wait', { delay: 1, unit: 'days' }), n('q', 'quick_message', { body: 'Bonjour' }), n('q2', 'quick_message', { body: 'Et aussi' }),
+        n('tg', 'tag', { tag: 'relance' }), n('em', 'email', EMAIL),
+      ],
+      edges: [{ id: 'e1', source: 'w', target: 'q' }, { id: 'e2', source: 'q', target: 'q2' }, { id: 'e3', source: 'q2', target: 'tg' }, { id: 'e4', source: 'tg', target: 'em' }],
+    };
+    const m = monde(graphe, { messages: 1 });
+    const etiquettes: string[] = [];
+    m.deps.applyTag = async (_t, _w, tag) => { etiquettes.push(tag); };
+    await m.executor.resume(RUN);
+    expect(m.effets).toEqual(['message 33611']);
+    expect(etiquettes).toEqual(['relance']);
+    expect(m.mesures).toEqual(['q sent', 'q2 failed', 'em failed']);
+  });
+
   it('une autre exception au milieu d’un bloc remonte toujours telle quelle', async () => {
     const m = monde(RAPIDE_PUIS_MODELE, { messages: 1 });
     m.deps.sendTemplate = async () => { throw new Error('panne réseau'); };

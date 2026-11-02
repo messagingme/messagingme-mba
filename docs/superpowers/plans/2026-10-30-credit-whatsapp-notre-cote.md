@@ -430,6 +430,13 @@ l'appel de `leverPausesCreditWhatsapp` après chaque crédit, et un balayage de 
    d'un euro (un reste sous le prix d'un message relançait la campagne à chaque balayage horaire, un contact de plus à
    chaque fois), et le refus préalable porte un prix d'un micro-euro (sa pause ne s'écrit plus après un achat). Les autres
    jaunes partent après le déploiement, relus par le lot suivant (`todo.md`).
+10. Les autres jaunes, faits le 2026-11-02, à relire avec le lot 3 : `POST /v1/sends` chiffre son premier message réel
+    (`refusPourMessage`, le calcul de la provision sans provision) ; l'onglet dit « presque épuisé » et `get_setup_state`
+    avertit sous un euro (le seuil de la reprise, désormais dans `web/lib/partage/credit-whatsapp.ts`) ; le refus d'étape ne
+    saute plus que les envois, e-mails et appels qui suivent ; la page `paiement-recu` connaît le Crédit WhatsApp ; le
+    webhook refuse toute remise ; la description de `get_setup_state` nomme chaque avertissement (test) ; l'alerte
+    « épuisé » est tentée au plus une fois par dix minutes et par espace ; `dernierCreditRecu` ignore les régularisations ;
+    la garde des quatre prix a son test ; `features.md` dit l'Entreprise en open bar, pas toute Entreprise.
 
 ## Lot 3 : la régularisation sur les volumes de Meta
 

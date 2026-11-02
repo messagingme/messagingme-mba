@@ -10,5 +10,6 @@ export const sansLigneDeCredit: GardeCreditWhatsapp = {
   apres: async () => undefined,
   surEchec: async () => undefined,
   refusAvantEffets: async () => null,
+  refusPourMessage: async () => null,
   bloque: async () => false,
 };

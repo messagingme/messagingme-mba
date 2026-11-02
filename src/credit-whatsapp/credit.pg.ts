@@ -205,12 +205,15 @@ export class PgCreditWhatsappStore {
   }
 
   /**
-   * Le dernier crédit REÇU (achat, recharge) : l'occasion de l'alerte du solde bas, qu'un crédit réarme sans aucun état à
-   * tenir. `null` s'il n'y en a jamais eu.
+   * Le dernier crédit REÇU (achat, recharge automatique) : l'occasion de l'alerte du solde bas, qu'un crédit réarme sans
+   * aucun état à tenir. `null` s'il n'y en a jamais eu. 🔴 Jamais une régularisation positive (lot 3), même si elle crédite :
+   * remplacée à chaque passe, elle réarmerait l'alerte sans que le client ait rien acheté.
    */
   async dernierCreditRecu(tenantId: string): Promise<string | null> {
     const { rows } = await this.pool.query<{ id: string }>(
-      `select id::text from credit_whatsapp_mouvements where tenant_id = $1 and delta_micro_eur > 0 order by le desc limit 1`,
+      `select id::text from credit_whatsapp_mouvements
+        where tenant_id = $1 and delta_micro_eur > 0 and raison in ('achat', 'recharge_auto')
+        order by le desc limit 1`,
       [tenantId],
     );
     return rows[0]?.id ?? null;

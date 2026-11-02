@@ -149,6 +149,18 @@ describe('gardes de config en production', () => {
     expect(schema.safeParse({ ...prodEnv, STRIPE_PRIX_SIEGE_MOIS: 'price_siege_mois', STRIPE_PRIX_SIEGE_AN: 'price_siege_an' }).success).toBe(true);
   });
 
+  it('🔴 les quatre prix du Crédit WhatsApp se posent ensemble (lot 2) : une offre sans prix serait un bouton en 503', () => {
+    asProd();
+    const quatre = { STRIPE_PRIX_WA_50: 'price_50', STRIPE_PRIX_WA_100: 'price_100', STRIPE_PRIX_WA_250: 'price_250', STRIPE_PRIX_WA_500: 'price_500' };
+    expect(schema.safeParse({ ...prodEnv, ...quatre }).success).toBe(true);
+    expect(schema.safeParse(prodEnv).success).toBe(true);
+    for (const manquant of Object.keys(quatre)) {
+      const trois = { ...quatre, [manquant]: '' };
+      expect(errPaths(schema.safeParse({ ...prodEnv, ...trois })), manquant).toContain('STRIPE_PRIX_WA_50');
+    }
+    expect(errPaths(schema.safeParse({ ...prodEnv, STRIPE_PRIX_WA_500: 'price_500' }))).toContain('STRIPE_PRIX_WA_50');
+  });
+
   it('🔴 le stockage objet des médias : les cinq variables ensemble ou aucune, et un point d’accès https sans chemin', () => {
     // Un réglage partiel ferait échouer chaque dépôt et chaque lecture d'un fichier au bucket, en plein service.
     asProd();
