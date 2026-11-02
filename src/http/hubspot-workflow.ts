@@ -78,6 +78,8 @@ export const RELANCE_META_SEC = 30;
 
 // L'espace en minuscules : la clé des plafonds est un texte, une casse différente y ouvrirait un compteur neuf.
 const UUID = z.string().uuid().transform((s) => s.toLowerCase());
+/** Le client atteste l'accord marketing de ses contacts (champ « Envoi marketing » de l'action, décision du 2026-11-02). */
+const ACCORD_MARKETING = z.literal(true).optional();
 const corpsModele = z.object({
   tenantId: UUID,
   // Vide ou illisible n'est pas une faute du corps : c'est l'issue `sans_numero`, que l'historique doit montrer.
@@ -87,8 +89,10 @@ const corpsModele = z.object({
   // La borne d'une propriété HubSpot : la règle de Meta (1 024) se juge dans `valeursDuWorkflow`, qui rend une issue.
   valeurs: z.array(z.string().max(65_536)).max(VARIABLES_WORKFLOW_MAX),
   workflowId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/),
+  accordMarketing: ACCORD_MARKETING,
 }).strict();
-const corpsModeles = z.object({ tenantId: UUID }).strict();
+// `marketing` : le client a choisi « Envoi marketing » dans l'action, la liste propose aussi les Marketing.
+const corpsModeles = z.object({ tenantId: UUID, marketing: z.boolean().optional() }).strict();
 const corpsScenario = z.object({
   tenantId: UUID,
   telephone: z.string().trim().max(1024),
@@ -96,6 +100,7 @@ const corpsScenario = z.object({
   scenario: z.string().regex(/^scn_[A-Za-z0-9_-]{1,64}$/),
   valeurs: z.array(z.string().max(65_536)).max(VARIABLES_WORKFLOW_MAX),
   workflowId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/),
+  accordMarketing: ACCORD_MARKETING,
 }).strict();
 /** Un champ de fiche reçu : vide vaut absent (le champ est alors RETIRÉ de la fiche, décision 6). */
 const texteFiche = z.preprocess(videEnAbsent, z.string().trim().max(200).optional());
@@ -111,6 +116,7 @@ const corpsTransaction = z.object({
     lienAgenda: z.preprocess(videEnAbsent, z.url({ protocol: /^https$/ }).max(2048).optional()),
   }).strict(),
   workflowId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/),
+  accordMarketing: ACCORD_MARKETING,
 }).strict();
 
 type WithRawBody = FastifyRequest & { rawBody?: Buffer };
@@ -119,12 +125,18 @@ type WithRawBody = FastifyRequest & { rawBody?: Buffer };
  * Un modèle pour l'action : le jugement de `GET /v1/templates` (`verdictModele(modeleLuDe(t))`, jamais une règle
  * voisine), puis Service seulement (décision 3), sans carrousel, dix variables au plus (décision 5). Sert la liste ET
  * l'envoi : un modèle que la liste propose passe ce tri à l'envoi, et inversement.
+ *
+ * `marketing` : le client a attesté l'accord marketing de ses contacts (décision de Julien du 2026-11-02, plan
+ * `~/mm-hubspot/docs/2026-11-02-envoi-marketing-atteste-plan.md`), un modèle Marketing passe alors. Toute autre catégorie
+ * (Authentification) reste refusée : le verdict ne l'approuve jamais.
  */
-export function jugerPourWorkflow(t: TemplateSummary): { ok: true; variables: number } | { ok: false; issue: IssueWorkflow } {
+export function jugerPourWorkflow(
+  t: TemplateSummary, marketing = false,
+): { ok: true; variables: number } | { ok: false; issue: IssueWorkflow } {
   const v = verdictModele(modeleLuDe(t), t.language);
   if (v.statut === 'illisible') return { ok: false, issue: 'meta_indisponible' };
   if (v.statut !== 'approuve' || t.isCarousel || v.variables > VARIABLES_WORKFLOW_MAX) return { ok: false, issue: 'modele_refuse' };
-  if (v.categorie !== 'utility') return { ok: false, issue: 'marketing_refuse' };
+  if (v.categorie !== 'utility' && !marketing) return { ok: false, issue: 'marketing_refuse' };
   return { ok: true, variables: v.variables };
 }
 
@@ -141,15 +153,17 @@ export interface ScenarioLancable { code: string; nom: string; modele: TemplateS
  * l'ouverture, et un modèle sans bouton ne fait pas attendre le parcours ; « Service, puis Marketing » enverrait un
  * Marketing à un contact inscrit par un workflow, sans accord. Tous les blocs « Modèle » nommés du graphe sont lus au
  * catalogue : Marketing (ou inconnu de Meta) refuse le scénario entier, qu'il soit atteint tout de suite ou après un clic.
+ * Sauf quand le client atteste l'accord marketing (`marketing`, 2026-11-02) : l'accord est alors écrit sur la fiche au
+ * lancement, et un contact qui a dit STOP reste écarté par le cœur.
  */
 export function jugerScenarioPourWorkflow(
-  s: ScenarioPublie, catalogue: readonly TemplateSummary[],
+  s: ScenarioPublie, catalogue: readonly TemplateSummary[], marketing = false,
 ): { ok: true; scenario: ScenarioLancable } | { ok: false; issue: IssueWorkflow } {
   if (s.code === null || ouvertureApi(s.graph).ouverture !== 'whatsapp_template') return { ok: false, issue: 'scenario_refuse' };
   const ouvre = modeleDOuverture(s.graph);
   const t = ouvre ? catalogue.find((m) => m.name === ouvre.templateName && m.language === ouvre.language) : undefined;
   if (!t) return { ok: false, issue: 'scenario_refuse' };
-  const j = jugerPourWorkflow(t);
+  const j = jugerPourWorkflow(t, marketing);
   if (!j.ok) return { ok: false, issue: j.issue === 'modele_refuse' ? 'scenario_refuse' : j.issue };
   for (const n of s.graph.nodes) {
     const a = n.type === 'template' ? actionOf(n) : null;
@@ -160,7 +174,7 @@ export function jugerScenarioPourWorkflow(
     if (v.statut === 'illisible') return { ok: false, issue: 'meta_indisponible' };
     // Plus approuvé, ou d'une catégorie que l'envoi n'admet pas : le parcours casserait à ce bloc.
     if (v.statut !== 'approuve') return { ok: false, issue: 'scenario_refuse' };
-    if (v.categorie !== 'utility') return { ok: false, issue: 'marketing_refuse' };
+    if (v.categorie !== 'utility' && !marketing) return { ok: false, issue: 'marketing_refuse' };
   }
   return {
     ok: true,
@@ -212,12 +226,12 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     if (!signee(req)) return reply.code(401).send({ error: 'invalid signature' });
     const lu = corpsModeles.safeParse(req.body);
     if (!lu.success) return reply.code(400).send({ error: 'payload invalide' });
-    const { tenantId } = lu.data;
+    const { tenantId, marketing } = lu.data;
     if (!(await gardesEspace(reply, tenantId))) return reply;
     const catalogue = await lireCatalogue(tenantId);
     if (catalogue === null) return relancer(reply, 503, RELANCE_META_SEC, 'meta_indisponible', 'Les modèles n’ont pas pu être lus chez Meta : réessayez dans un instant.');
     const modeles = catalogue.flatMap((t) => {
-      const j = jugerPourWorkflow(t);
+      const j = jugerPourWorkflow(t, marketing === true);
       return j.ok ? [{ name: t.name, language: t.language, texte: t.body, variables: j.variables }] : [];
     });
     return reply.code(200).send({ espace: await deps.nomEspace(tenantId), modeles });
@@ -227,7 +241,7 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     if (!signee(req)) return reply.code(401).send({ error: 'invalid signature' });
     const lu = corpsModele.safeParse(req.body);
     if (!lu.success) return reply.code(400).send({ error: 'payload invalide' });
-    const { tenantId, telephone, modele, langue, workflowId } = lu.data;
+    const { tenantId, telephone, modele, langue, workflowId, accordMarketing } = lu.data;
 
     if (!(await gardesEspace(reply, tenantId))) return reply;
     const ligne = await deps.ligneHubspot(tenantId);
@@ -250,7 +264,7 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     const catalogue = await lireCatalogue(tenantId);
     if (catalogue === null) return relancer(reply, 503, RELANCE_META_SEC, 'meta_indisponible', 'Le modèle n’a pas pu être lu chez Meta : réessayez dans un instant.');
     const t = catalogue.find((m) => m.name === modele && m.language === langue);
-    const juge = t ? jugerPourWorkflow(t) : { ok: false as const, issue: 'modele_refuse' as const };
+    const juge = t ? jugerPourWorkflow(t, accordMarketing === true) : { ok: false as const, issue: 'modele_refuse' as const };
     if (!juge.ok) {
       if (juge.issue === 'meta_indisponible') return relancer(reply, 503, RELANCE_META_SEC, 'meta_indisponible', 'Le modèle n’a pas pu être lu chez Meta : réessayez dans un instant.');
       return reply.code(200).send({ issue: juge.issue });
@@ -265,7 +279,9 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
       attenteMs = v.attenteMs;
       return v.fenetre;
     };
-    const r = await envoyerPourWorkflow(deps.envoyer, { tenantId, telephone: e164, cible: { modele, langue }, valeurs, workflowId }, compter);
+    const r = await envoyerPourWorkflow(deps.envoyer, {
+      tenantId, telephone: e164, cible: { modele, langue }, valeurs, workflowId, ...(accordMarketing ? { accordMarketing } : {}),
+    }, compter);
     if (r.issue === 'plafond_minute') {
       return relancer(reply, 429, Math.max(1, Math.ceil(attenteMs / 1000)), 'rate_limited', 'Trop d’envois depuis les workflows HubSpot : réessayez plus tard.');
     }
@@ -275,11 +291,11 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
   });
 
   /** Les scénarios lançables, jugés sur le catalogue lu une fois. `null` : Meta n'a pas répondu (une panne se relance). */
-  async function scenariosLancables(tenantId: string): Promise<ScenarioLancable[] | null> {
+  async function scenariosLancables(tenantId: string, marketing: boolean): Promise<ScenarioLancable[] | null> {
     const catalogue = await lireCatalogue(tenantId);
     if (catalogue === null) return null;
     return (await deps.scenariosPublies(tenantId)).flatMap((s) => {
-      const j = jugerScenarioPourWorkflow(s, catalogue);
+      const j = jugerScenarioPourWorkflow(s, catalogue, marketing);
       return j.ok ? [j.scenario] : [];
     });
   }
@@ -288,11 +304,11 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     if (!signee(req)) return reply.code(401).send({ error: 'invalid signature' });
     const lu = corpsModeles.safeParse(req.body);
     if (!lu.success) return reply.code(400).send({ error: 'payload invalide' });
-    const { tenantId } = lu.data;
+    const { tenantId, marketing } = lu.data;
     if (!(await gardesEspace(reply, tenantId))) return reply;
     // Une offre sans scénarios : l'espace reste branché (ses modèles partent), sa liste de scénarios est vide.
     if (!(await deps.fonctions(tenantId)).has('scenarios')) return reply.code(200).send({ espace: await deps.nomEspace(tenantId), scenarios: [] });
-    const lancables = await scenariosLancables(tenantId);
+    const lancables = await scenariosLancables(tenantId, marketing === true);
     if (lancables === null) return relancer(reply, 503, RELANCE_META_SEC, 'meta_indisponible', 'Les modèles n’ont pas pu être lus chez Meta : réessayez dans un instant.');
     const scenarios = lancables.map((s) => ({
       code: s.code, nom: s.nom, modele: s.modele.name, langue: s.modele.language, texte: s.modele.body, variables: s.variables,
@@ -307,6 +323,7 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
    */
   async function garderLancement(
     reply: FastifyReply, tenantId: string, telephone: string, scenario: string, brutes: readonly string[] | null,
+    marketing: boolean,
   ): Promise<{ e164: string; waId: string | null; lancable: ScenarioLancable; valeurs: string[] } | null> {
     // Les mêmes gardes que l'envoi d'un modèle, dans le même ordre.
     if (!(await gardesEspace(reply, tenantId))) return null;
@@ -344,7 +361,7 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
       relancer(reply, 503, RELANCE_META_SEC, 'meta_indisponible', 'Le modèle d’ouverture n’a pas pu être lu chez Meta : réessayez dans un instant.');
       return null;
     }
-    const juge = jugerScenarioPourWorkflow(publie, catalogue);
+    const juge = jugerScenarioPourWorkflow(publie, catalogue, marketing);
     if (!juge.ok) {
       if (juge.issue === 'meta_indisponible') {
         relancer(reply, 503, RELANCE_META_SEC, 'meta_indisponible', 'Le modèle d’ouverture n’a pas pu être lu chez Meta : réessayez dans un instant.');
@@ -377,11 +394,13 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     if (!signee(req)) return reply.code(401).send({ error: 'invalid signature' });
     const lu = corpsScenario.safeParse(req.body);
     if (!lu.success) return reply.code(400).send({ error: 'payload invalide' });
-    const { tenantId, telephone, scenario, workflowId } = lu.data;
-    const g = await garderLancement(reply, tenantId, telephone, scenario, lu.data.valeurs);
+    const { tenantId, telephone, scenario, workflowId, accordMarketing } = lu.data;
+    const g = await garderLancement(reply, tenantId, telephone, scenario, lu.data.valeurs, accordMarketing === true);
     if (!g) return reply;
     if (g.valeurs.length !== g.lancable.variables) return reply.code(200).send({ issue: 'valeur_invalide' });
-    return lancer(reply, { tenantId, telephone: g.e164, cible: { scenario }, valeurs: g.valeurs, workflowId });
+    return lancer(reply, {
+      tenantId, telephone: g.e164, cible: { scenario }, valeurs: g.valeurs, workflowId, ...(accordMarketing ? { accordMarketing } : {}),
+    });
   });
 
   /**
@@ -400,8 +419,8 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     if (!signee(req)) return reply.code(401).send({ error: 'invalid signature' });
     const lu = corpsTransaction.safeParse(req.body);
     if (!lu.success) return reply.code(400).send({ error: 'payload invalide' });
-    const { tenantId, telephone, scenario, workflowId, champs } = lu.data;
-    const g = await garderLancement(reply, tenantId, telephone, scenario, null);
+    const { tenantId, telephone, scenario, workflowId, champs, accordMarketing } = lu.data;
+    const g = await garderLancement(reply, tenantId, telephone, scenario, null, accordMarketing === true);
     if (!g) return reply;
 
     const champsFiche = champsDeFiche(champs);
@@ -421,6 +440,8 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     if (remplies.missing.length > 0) return reply.code(200).send({ issue: 'valeur_invalide' });
     const valeurs = valeursDuWorkflow(remplies.values);
     if (valeurs === null || valeurs.length !== g.lancable.variables) return reply.code(200).send({ issue: 'valeur_invalide' });
-    return lancer(reply, { tenantId, telephone: g.e164, cible: { scenario }, valeurs, workflowId, champsFiche });
+    return lancer(reply, {
+      tenantId, telephone: g.e164, cible: { scenario }, valeurs, workflowId, champsFiche, ...(accordMarketing ? { accordMarketing } : {}),
+    });
   });
 }

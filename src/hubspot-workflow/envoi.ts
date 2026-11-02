@@ -17,7 +17,11 @@ export { PREFIXE_LIGNE_HUBSPOT };
  *
  * Les choix de l'adaptateur, et rien d'autre :
  *   - 🔴 AUCUN `consent` dans le destinataire (à l'inverse de Shopify) : l'inscription dans un workflow n'est pas un accord
- *     (décision 3). Et `serviceSeulement` : un modèle Marketing est refusé sur la catégorie que Meta rend ;
+ *     (décision 3). Et `serviceSeulement` : un modèle Marketing est refusé sur la catégorie que Meta rend. SAUF quand le
+ *     client a choisi « Envoi marketing » dans l'action (`accordMarketing`, décision de Julien du 2026-11-02) : il atteste
+ *     l'accord, le destinataire porte alors `consent: opted_in` et sa source `hubspot-workflow:<id du workflow>`, et
+ *     `serviceSeulement` tombe. Le cœur écrit cet accord sur la fiche, sauf sur une fiche `opted_out` : un STOP reste
+ *     infranchissable ;
  *   - 🔴 la clé `hubspot-workflow:<numéro>:<modèle>:<langue>` : sa vie de 24 h EST la garde « pas deux fois le même modèle
  *     au même contact en 24 h » (décision 11). Un nouvel essai au même corps rejoue le rapport (même `sendId`) ; un autre
  *     corps (d'autres valeurs) rend `deja_envoye`. Le connecteur, qui voit le `callbackId`, distingue un nouvel essai d'une
@@ -58,6 +62,8 @@ export interface EnvoiWorkflow {
   workflowId: string;
   /** Les champs que l'action transaction écrit sur la fiche, avec la campagne et seulement pour un envoi neuf. */
   champsFiche?: ChampsFiche;
+  /** Le client atteste l'accord marketing du contact : l'accord est déclaré au cœur, et un Marketing peut partir. */
+  accordMarketing?: true;
 }
 
 /** Le plafond qui a refusé, rempli par le compteur de l'appelant. */
@@ -91,13 +97,16 @@ export async function envoyerPourWorkflow(
 ): Promise<{ issue: IssueWorkflow; sendId?: string }> {
   const cles = e.valeurs.map((_, i) => `v${i + 1}`);
   const scenario = 'scenario' in e.cible;
+  const accord = e.accordMarketing ? { consent: 'opted_in', consentSource: `hubspot-workflow:${e.workflowId}` } : {};
   const corps = 'scenario' in e.cible
     ? {
       idempotencyKey: cleDuWorkflow(e.telephone, e.cible),
       target: { scenario: e.cible.scenario },
+      // `utility` même attesté : le cœur retient la plus stricte, celle que Meta rend pour l'ouverture. Déclarer
+      // `marketing` exigerait l'accord pour un scénario Service.
       category: 'utility',
       params: e.valeurs.map((value, i) => ({ position: i + 1, source: { type: 'literal', value } })),
-      recipients: [{ phone: e.telephone }],
+      recipients: [{ phone: e.telephone, ...accord }],
     }
     : {
       idempotencyKey: cleDuWorkflow(e.telephone, e.cible),
@@ -105,6 +114,7 @@ export async function envoyerPourWorkflow(
       params: cles.map((cle, i) => ({ position: i + 1, source: { type: 'variable', key: cle } })),
       recipients: [{
         phone: e.telephone,
+        ...accord,
         ...(cles.length > 0 ? { variables: Object.fromEntries(cles.map((cle, i) => [cle, e.valeurs[i] ?? ''])) } : {}),
       }],
     };
@@ -114,7 +124,7 @@ export async function envoyerPourWorkflow(
     plafond = await compter(unites);
     return plafond === null;
   }, {
-    nom: `${PREFIXE_LIGNE_HUBSPOT}${e.workflowId}`, sansCampagneVide: true, serviceSeulement: true,
+    nom: `${PREFIXE_LIGNE_HUBSPOT}${e.workflowId}`, sansCampagneVide: true, ...(e.accordMarketing ? {} : { serviceSeulement: true as const }),
     ...(e.champsFiche ? { champsFiche: e.champsFiche } : {}),
   });
   if (compteurEnvoiRefuse(r)) return { issue: plafond === 'jour' ? 'plafond_jour' : 'plafond_minute' };

@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: 9a0a05
+traduit_de: 216824
 description: WhatsApp in HubSpot with the Messaging Me app: reply from the contact record, send from your workflows, analyze every conversation. Without Sales Hub.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -86,10 +86,14 @@ question, a quick message or the AI agent is not offered: WhatsApp requires the 
 last 24 hours.
 
 Nothing goes to a contact who said STOP or is blocked, nor to a landline, nor the same template or scenario to the same
-contact twice within 24 hours; Marketing templates are not offered. A scenario never goes to a conversation an agent
+contact twice within 24 hours. A scenario never goes to a conversation an agent
 has taken over, and it replaces an automatic scenario in progress. The workflow history says, contact by contact, what
 was sent or why nothing was sent, and each send shows up in Campaigns. At most 60 sends a minute and 2,000 a day for
 the workspace, all three actions counted together; Meta charges for each template.
+
+Marketing templates are only offered if you choose “Marketing send” in the action: you then confirm you have your
+contacts' marketing consent, and Messaging Me records it on the record of each contact reached. A contact who said STOP
+receives nothing, even with this confirmation.
 
 The deal action writes only to the one contact associated with the deal: with several associated contacts, nothing is
 sent. It sets three fields on their Messaging Me record, declared when you turn the line on: **Prénom (HubSpot)**

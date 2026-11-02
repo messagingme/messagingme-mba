@@ -866,7 +866,8 @@ describe('le connecteur Shopify, par le vrai cycle d’envoi public', () => {
  * L'ACTION DE WORKFLOW HUBSPOT PASSE PAR LE VRAI CYCLE (cadrage du 2026-10-27, lot 1) : le corps de son adaptateur
  * (`envoyerPourWorkflow`) est donné à `lancerEnvoiPublic` lui-même. 🔴 À l'inverse de Shopify, il ne porte AUCUN
  * consentement (décision 3, l'inscription dans un workflow n'est pas un accord) : c'est ici que se prouve qu'aucun accord
- * n'est écrit, qu'un modèle Marketing ne part pas et que la clé borne la répétition à 24 h (décision 11).
+ * n'est écrit, qu'un modèle Marketing ne part pas et que la clé borne la répétition à 24 h (décision 11). Sauf quand le
+ * client a choisi « Envoi marketing » dans l'action (2026-11-02) : l'accord est alors déclaré, écrit, et jamais sur un STOP.
  */
 describe('l’action de workflow HubSpot, par le vrai cycle d’envoi public', () => {
   const branche = (sends: DepsEnvoiPublic) => (t: string, corps: unknown, compter: (n: number) => Promise<boolean>, options: OptionsEnvoiPublic) =>
@@ -919,6 +920,38 @@ describe('l’action de workflow HubSpot, par le vrai cycle d’envoi public', (
     expect(cap.sends).toHaveLength(1);
     // Le rejeu et l'envoi déjà fait sortent à la clé, avant le compteur : seul le premier compte.
     expect(comptes).toEqual([1]);
+  });
+
+  // L'envoi marketing attesté par le client (décision de Julien du 2026-11-02) : l'accord déclaré par l'adaptateur passe
+  // par le VRAI `appliquerConsentement`, donc un STOP reste infranchissable.
+  it('🔴 « Envoi marketing » attesté : un Marketing part, l’accord est écrit avec la source du workflow', async () => {
+    const { sends, cap, m } = app({}, {
+      modele: { statut: 'approuve', categorie: 'marketing', variables: 0 },
+      fiches: new Map([[C1, fiche(C1, 1, { optInStatus: 'unknown' })]]),
+    });
+    expect((await envoyerPourWorkflow(branche(sends), envoi({ accordMarketing: true }), libre)).issue).toBe('envoye');
+    expect(cap.consentements).toMatchObject([{ contactId: C1, consent: 'opted_in', source: 'hubspot-workflow:1234567' }]);
+    expect(m.fiches.get(C1)!.optInStatus).toBe('opted_in');
+    expect(cap.sends[0]!.input).toMatchObject({ category: 'marketing' });
+  });
+
+  it('🔴 « Envoi marketing » attesté pour un numéro inconnu : la fiche est créée avec l’accord, et le Marketing part', async () => {
+    const { sends, cap, m } = app({}, { modele: { statut: 'approuve', categorie: 'marketing', variables: 0 } });
+    expect((await envoyerPourWorkflow(branche(sends), envoi({ telephone: '+33699999999', accordMarketing: true }), libre)).issue).toBe('envoye');
+    expect([...m.fiches.values()].find((f) => f.phone_e164 === '+33699999999')?.optInStatus).toBe('opted_in');
+    expect(cap.sends[0]!.recipients.map((r) => r.toE164)).toEqual(['+33699999999']);
+  });
+
+  it('🔴 « Envoi marketing » attesté sur un contact qui a dit STOP : rien ne part, la fiche reste désabonnée', async () => {
+    for (const categorie of ['marketing', 'utility'] as const) {
+      const { sends, cap, m, idem } = app({}, {
+        modele: { statut: 'approuve', categorie, variables: 0 },
+        fiches: new Map([[C1, fiche(C1, 1, { optInStatus: 'opted_out' })]]),
+      });
+      expect(await envoyerPourWorkflow(branche(sends), envoi({ accordMarketing: true }), libre), categorie).toEqual({ issue: 'stop' });
+      expect([cap.sends, idem.size], categorie).toEqual([[], 0]);
+      expect(m.fiches.get(C1)!.optInStatus, categorie).toBe('opted_out');
+    }
   });
 
   it('🔴 la catégorie illisible chez Meta : `meta_indisponible` (HubSpot relance), la clé est libérée, rien ne part', async () => {

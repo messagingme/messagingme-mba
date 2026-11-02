@@ -3,7 +3,7 @@ description: WhatsApp dans HubSpot avec l'app Messaging Me : répondre depuis la
 ecran: integrations
 ancre_console: integration-hubspot
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 00b3d0
+source_empreinte: c666dc
 publique: oui
 rubrique: demarrer
 rang: 6
@@ -94,10 +94,14 @@ qui commence par une question, un message rapide ou l'agent IA n'est pas propos�
 écrit dans les 24 heures.
 
 Rien ne part à un contact qui a dit STOP ou qui est bloqué, ni à un numéro fixe, ni deux fois le même modèle ou le même
-scénario au même contact en 24 heures ; les modèles Marketing ne sont pas proposés. Un scénario ne part jamais vers une
+scénario au même contact en 24 heures. Un scénario ne part jamais vers une
 conversation qu'un conseiller a en main, et remplace un scénario automatique en cours. L'historique du workflow dit,
 contact par contact, ce qui est parti ou pourquoi rien n'est parti, et chaque envoi apparaît dans Campagnes. Au plus 60
 envois par minute et 2 000 par jour pour l'espace, les trois actions comptées ensemble ; Meta facture chaque modèle.
+
+Les modèles Marketing ne sont proposés que si vous choisissez « Envoi marketing » dans l'action : vous attestez alors
+avoir l'accord marketing de vos contacts, et Messaging Me l'enregistre sur la fiche de chaque contact touché. Un contact
+qui a dit STOP ne reçoit rien, même avec cette attestation.
 
 L'action de transaction écrit au seul contact associé à la transaction : avec plusieurs contacts associés, rien ne
 part. Elle pose sur sa fiche Messaging Me trois champs, déclarés quand vous allumez la ligne : **Prénom (HubSpot)**,

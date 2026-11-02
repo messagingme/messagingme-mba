@@ -2849,7 +2849,16 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   `retryAfterSec`. Puis le quatrième adaptateur de `lancerEnvoiPublic`, après `/v1/sends`, l'outil MCP et Shopify :
   🔴 AUCUN `consent` dans le destinataire (l'inscription dans un workflow n'est pas un accord ; un numéro inconnu devient
   une fiche sans consentement), et l'option `serviceSeulement` du cœur, qui refuse un modèle que Meta dit autre
-  qu'Utility (422 `template_rejected` avec sa `categorie`, la clé rendue, rien de créé). La catégorie y est lue chez
+  qu'Utility (422 `template_rejected` avec sa `categorie`, la clé rendue, rien de créé). SAUF « Envoi marketing »
+  (décision de Julien du 2026-11-02) : le connecteur transmet `accordMarketing: true` quand le client l'a choisi dans
+  l'action, et `marketing: true` aux deux listes ; les juges (`jugerPourWorkflow`, `jugerScenarioPourWorkflow`)
+  admettent alors le Marketing (jamais une autre catégorie), le destinataire porte `consent: opted_in` et
+  `consentSource: hubspot-workflow:<id du workflow>`, et `serviceSeulement` tombe. Le vrai `appliquerConsentement`
+  n'écrit pas cet accord sur une fiche `opted_out` : un STOP reste infranchissable (`tests/v1-sends.test.ts`). Comme la
+  source porte le workflow, un second workflow attesté au même modèle et au même contact dans les 24 h rend
+  `deja_envoye` au lieu de rejouer le rapport. L'accord vaut pour le CONTACT : il est écrit avant les refus qui suivent
+  (crédit WhatsApp, limite du mois, contact bloqué) et sert ensuite à toutes les campagnes Marketing de l'espace.
+  La catégorie y est lue chez
   Meta par le cache de cinq minutes du moteur (`templateVarInfo`) : un modèle reclassé Marketing peut encore partir
   quelques minutes, comme par `/v1/sends`. 🔴 La clé `hubspot-workflow:<numéro>:<modèle>:<langue>`, SANS le workflow ni
   les valeurs : sa vie (`DUREE_CLE_IDEMPOTENCE_MS`, 24 h au moins, épinglée par un test car le `trop_tard` à 20 h du

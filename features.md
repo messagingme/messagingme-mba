@@ -2337,7 +2337,10 @@ scénario, comment importer des contacts.
   lancer des scénarios »** (décochée, ouverte par l'offre qui relie HubSpot, indépendante de la réponse : les actions
   « Envoyer un modèle WhatsApp (Messaging Me) » et « Lancer un scénario Messaging Me » des workflows HubSpot de contacts
   n'agissent que cette ligne allumée ; la première envoie un modèle Service approuvé au contact inscrit, la seconde lui
-  lance un scénario publié qui commence par un modèle Service approuvé et dont aucun modèle n'est Marketing (un scénario
+  lance un scénario publié qui commence par un modèle Service approuvé et dont aucun modèle n'est Marketing ; le champ
+  « Envoi marketing » de chaque action, où le client atteste l'accord marketing de ses contacts (2026-11-02), y ajoute
+  les modèles et scénarios Marketing et écrit l'accord sur la fiche (source `hubspot-workflow:<id du workflow>`), jamais
+  sur un contact qui a dit STOP (un scénario
   qui commence par une question, un message rapide ou l'agent IA exige que le contact ait écrit dans les 24 heures ;
   l'offre doit inclure les scénarios), le numéro
   et chaque variable du modèle tirés d'une propriété du contact ; jamais à un contact STOP ou bloqué, ni à un fixe, ni

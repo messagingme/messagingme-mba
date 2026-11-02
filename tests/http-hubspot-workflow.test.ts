@@ -43,6 +43,8 @@ const CATALOGUE: TemplateSummary[] = [
   tpl('entete_variable', 'UTILITY', 'Bonjour {{1}}', { headerFormat: 'TEXT', headerText: 'Devis {{1}}' }),
   tpl('saut', 'UTILITY', '{{1}} puis {{3}}'),
   tpl('rappel_rdv', 'UTILITY', 'Votre rendez-vous est confirmé.', { language: 'en' }),
+  // Authentification : jamais approuvé par le verdict, même avec « Envoi marketing ».
+  tpl('code_connexion', 'AUTHENTICATION', 'Votre code est {{1}}.'),
 ];
 
 interface Options {
@@ -636,6 +638,86 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     expect(lus).toEqual([]);
     const sans = await server.inject({ method: 'POST', url: '/hubspot/workflow/transaction', headers: { 'content-type': 'application/json' }, payload: JSON.stringify(LANCEMENT) });
     expect(sans.statusCode).toBe(401);
+    await server.close();
+  });
+});
+
+/**
+ * L'ENVOI MARKETING ATTESTÉ (décision de Julien du 2026-11-02, plan `~/mm-hubspot/docs/2026-11-02-envoi-marketing-atteste-
+ * plan.md`) : le client choisit « Envoi marketing » dans l'action, il atteste l'accord de ses contacts. Les listes proposent
+ * alors les Marketing, chaque lancement déclare l'accord au cœur (avec sa source) et ne demande plus « Service seulement ».
+ * Sans l'attestation, rien ne change (les blocs précédents). Un STOP reste refusé par le vrai cœur : `tests/v1-sends.test.ts`.
+ */
+describe('l’envoi marketing attesté par le client', () => {
+  const ACCORD = { consent: 'opted_in', consentSource: 'hubspot-workflow:1234567' };
+
+  it('🔴 les listes : `marketing: true` ajoute les Marketing (modèles et scénarios), jamais le reste', async () => {
+    const { server } = app({ fonctions: AVEC_SCENARIOS });
+    const modeles = (await server.inject(appel('modeles', { tenantId: T1, marketing: true }))).json().modeles.map((m: { name: string }) => m.name);
+    expect(modeles).toEqual(['suivi_devis', 'offre_rentree', 'saut', 'rappel_rdv']);
+    const scenarios = (await server.inject(appel('scenarios', { tenantId: T1, marketing: true }))).json().scenarios.map((s: { code: string }) => s.code);
+    expect(scenarios).toEqual(['scn_relance', 'scn_promo', 'scn_puis_promo']);
+    // `false` vaut l'absence.
+    expect((await server.inject(appel('modeles', { tenantId: T1, marketing: false }))).json().modeles).toHaveLength(3);
+    await server.close();
+  });
+
+  it('🔴 un modèle Marketing part avec l’accord déclaré et sa source, sans « Service seulement »', async () => {
+    const { server, envois } = app();
+    const res = await server.inject(appel('modele', { ...ENVOI, modele: 'offre_rentree', valeurs: ['Julien'], accordMarketing: true }));
+    expect(res.json()).toEqual({ issue: 'envoye', sendId: 'envoi-1' });
+    expect(envois[0]!.corps).toMatchObject({ recipients: [{ phone: '+33612345678', ...ACCORD, variables: { v1: 'Julien' } }] });
+    expect(envois[0]!.options).toEqual({ nom: 'HubSpot · workflow 1234567', sansCampagneVide: true });
+    await server.close();
+  });
+
+  it('🔴 un Service attesté déclare aussi l’accord : l’attestation vaut pour le contact, pas pour le modèle', async () => {
+    const { server, envois } = app();
+    expect((await server.inject(appel('modele', { ...ENVOI, accordMarketing: true }))).json().issue).toBe('envoye');
+    expect(envois[0]!.corps).toMatchObject({ recipients: [ACCORD] });
+    await server.close();
+  });
+
+  it('🔴 un scénario Marketing (à l’ouverture ou plus loin) se lance, par l’action scénario et par l’action transaction', async () => {
+    const { server, envois } = app({ fonctions: AVEC_SCENARIOS });
+    for (const scenario of ['scn_promo', 'scn_puis_promo']) {
+      const valeurs = scenario === 'scn_promo' ? ['Julien'] : ['Julien', 'D-1002'];
+      expect((await server.inject(appel('scenario', { ...LANCEMENT, scenario, valeurs, accordMarketing: true }))).json(), scenario).toMatchObject({ issue: 'envoye' });
+    }
+    expect(envois.map((e) => e.corps)).toMatchObject([{ recipients: [{ phone: '+33612345678', ...ACCORD }] }, { recipients: [ACCORD] }]);
+    expect(envois.map((e) => e.options.serviceSeulement)).toEqual([undefined, undefined]);
+    await server.close();
+
+    const sources = { suivi_devis: [
+      { position: 1, source: { type: 'field' as const, key: 'hubspot_prenom' } },
+      { position: 2, source: { type: 'field' as const, key: 'hubspot_conseiller' } },
+    ] };
+    const t = app({ fonctions: AVEC_SCENARIOS, fiche: null, sources });
+    const transaction = { tenantId: T1, telephone: '06 12 34 56 78', scenario: 'scn_puis_promo', workflowId: '1234567', champs: { prenom: 'Claire', conseiller: 'Cédric Weiss' } };
+    expect((await t.server.inject(appel('transaction', transaction))).json()).toEqual({ issue: 'marketing_refuse' });
+    expect((await t.server.inject(appel('transaction', { ...transaction, accordMarketing: true }))).json()).toMatchObject({ issue: 'envoye' });
+    expect(t.envois).toHaveLength(1);
+    expect(t.envois[0]!.corps).toMatchObject({ recipients: [ACCORD] });
+    expect(t.envois[0]!.options).not.toHaveProperty('serviceSeulement');
+    await t.server.close();
+  });
+
+  it('l’attestation ne lève que le Marketing : un carrousel, un brouillon, un Authentification, un scénario qui ouvre par une question restent refusés', async () => {
+    const { server, envois } = app({ fonctions: AVEC_SCENARIOS });
+    expect((await server.inject(appel('modele', { ...ENVOI, modele: 'carrousel_suivi', valeurs: [], accordMarketing: true }))).json()).toEqual({ issue: 'modele_refuse' });
+    expect((await server.inject(appel('modele', { ...ENVOI, modele: 'brouillon', valeurs: [], accordMarketing: true }))).json()).toEqual({ issue: 'modele_refuse' });
+    expect((await server.inject(appel('scenario', { ...LANCEMENT, scenario: 'scn_question', valeurs: [], accordMarketing: true }))).json()).toEqual({ issue: 'scenario_refuse' });
+    expect((await server.inject(appel('modele', { ...ENVOI, modele: 'code_connexion', valeurs: ['1234'], accordMarketing: true }))).json()).toEqual({ issue: 'modele_refuse' });
+    expect(envois).toEqual([]);
+    await server.close();
+  });
+
+  it('un corps hors contrat : `accordMarketing` autre que `true`, `marketing` qui n’est pas un booléen, 400', async () => {
+    const { server, lus } = app({ fonctions: AVEC_SCENARIOS });
+    expect((await server.inject(appel('modele', { ...ENVOI, accordMarketing: false }))).statusCode).toBe(400);
+    expect((await server.inject(appel('scenario', { ...LANCEMENT, accordMarketing: 'atteste' }))).statusCode).toBe(400);
+    expect((await server.inject(appel('modeles', { tenantId: T1, marketing: 'oui' }))).statusCode).toBe(400);
+    expect(lus).toEqual([]);
     await server.close();
   });
 });
