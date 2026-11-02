@@ -1670,6 +1670,9 @@ export class PgContactStore implements ContactStore {
         `update ventes_attribuees set commande_id = null where tenant_id = $1 and contact_id = any($2::uuid[])`,
         [tenantId, ids],
       );
+      // Les pièces reçues par un bloc Question (migration 0269) : la mention et le message de Meta qui ouvrait le
+      // fichier, une pièce d'identité par exemple. La fiche est anonymisée, pas supprimée : leur cascade ne joue pas ici.
+      await client.query(`delete from pieces_question where tenant_id = $1 and contact_id = any($2::uuid[])`, [tenantId, ids]);
 
       let messages = 0;
       let analyses = 0;

@@ -274,4 +274,18 @@ describe('la purge', () => {
     expect(effacement!.sql).toMatch(/where tenant_id = \$1 and wa_id = any\(\$2::text\[\]\)/);
     expect(effacement!.params).toEqual([T, ['33612345678']]);
   });
+
+  it('🔴 efface les pièces reçues par un bloc Question, par les fiches visées, dans cet espace (migration 0269)', async () => {
+    // La fiche est ANONYMISÉE, pas supprimée : la cascade de `pieces_question` ne joue pas, la purge l'efface elle-même.
+    const appels: Array<{ sql: string; params: unknown[] }> = [];
+    const client = {
+      query: async (sql: string, params: unknown[] = []) => { appels.push({ sql, params }); return { rows: [], rowCount: 0 }; },
+      release: () => {},
+    };
+    await new PgContactStore({ connect: async () => client } as unknown as Pool).purgeMany(T, [ID]);
+    const effacement = appels.find((a) => /delete from pieces_question/.test(a.sql));
+    expect(effacement, 'l’effacement des pièces').toBeDefined();
+    expect(effacement!.sql).toMatch(/where tenant_id = \$1 and contact_id = any\(\$2::uuid\[\]\)/);
+    expect(effacement!.params).toEqual([T, [ID]]);
+  });
 });
