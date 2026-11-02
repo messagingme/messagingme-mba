@@ -1,0 +1,215 @@
+import { describe, it, expect, vi } from 'vitest';
+import {
+  creerScenario, lireScenario, remplacerScenario, supprimerScenario, type DepsScenariosApi, type LigneApi, type MagasinScenariosApi,
+} from '../src/workflow/scenarios-api';
+import type { TemplateSummary } from '../src/meta/templates';
+import type { WorkflowGraph } from '../src/workflow/graph';
+
+/**
+ * LE SERVICE DE LA CRÉATION DE SCÉNARIOS : ce que la route REST et l'outil MCP appellent, et rien d'autre. Ses
+ * dépendances sont simulées ; le SQL du magasin est prouvé en intégration (`tests/integration/workflow-scenarios-api`).
+ */
+const AGENT = '7f6b1c2e-1d2a-4b3c-8d4e-5f6a7b8c9d0e';
+const TENANT = 't-1';
+
+const tpl = (name: string, language: string, status: string, buttons: TemplateSummary['buttons'] = []): TemplateSummary => ({
+  id: `${name}-${language}`, name, language, status, category: 'MARKETING', body: 'Bonjour {{1}}', headerFormat: null, buttons,
+} as TemplateSummary);
+
+const QR = (text: string) => ({ type: 'QUICK_REPLY' as const, text });
+
+/** Un magasin en mémoire, assez fidèle pour que le contrôle du remplacement tourne vraiment. */
+function magasin() {
+  const lignes = new Map<string, LigneApi>();
+  let n = 0;
+  return {
+    lignes,
+    creerPublieParApi: vi.fn(async (tenantId: string, nom: string, graphe: WorkflowGraph) => {
+      const pris = [...lignes.values()].find((l) => l.tenantId === tenantId && l.name.trim().toLowerCase() === nom.trim().toLowerCase());
+      if (pris) return { nomPris: pris.id };
+      n += 1;
+      const id = `00000000-0000-4000-8000-00000000000${n}`;
+      lignes.set(id, { id, tenantId, name: nom, code: `scn_t1_${n}`, graph: graphe, draftGraph: null, publishedAt: 'x', createdAt: 'x', updatedAt: 'x', origine: 'api' });
+      return { id, code: `scn_t1_${n}` };
+    }),
+    lireParApi: vi.fn(async (tenantId: string, ref: string) => [...lignes.values()].find((l) => l.tenantId === tenantId && (l.id === ref || l.code === ref)) ?? null),
+    remplacerPublieParApi: vi.fn(async <R>(id: string, tenantId: string, nom: string, graphe: WorkflowGraph, controle: (l: LigneApi) => R | null) => {
+      const l = lignes.get(id);
+      if (!l || l.tenantId !== tenantId) return 'inconnu' as const;
+      const refus = controle(l);
+      if (refus !== null) return { refus };
+      lignes.set(id, { ...l, name: nom, graph: graphe, draftGraph: null });
+      return 'ok' as const;
+    }),
+    supprimerParApi: vi.fn(async () => 'ok' as const),
+  };
+}
+
+function deps(over: Partial<DepsScenariosApi> = {}) {
+  const store = magasin();
+  const journal = vi.fn(async () => {});
+  const templates = vi.fn(async () => [
+    tpl('relance', 'fr', 'APPROVED', [QR('Oui'), QR('Non')]),
+    tpl('relance', 'en', 'PENDING', [QR('Yes'), QR('No')]),
+  ]);
+  const d: DepsScenariosApi = {
+    // Le faux est générique à la main ; `vi.fn` efface le paramètre de type de `remplacerPublieParApi`.
+    scenarios: store as unknown as MagasinScenariosApi,
+    offres: { offreDe: async () => ({ droits: { fonctions: new Set(['scenarios']) } }) as never },
+    templates,
+    indices: { listerParEspace: async () => [{ name: 'relance', language: 'fr', position: 1, source: { type: 'field', key: 'prenom' } }] },
+    agents: async () => [{ id: AGENT, label: 'Conseiller', actif: true, sorties: [] }],
+    champs: async () => ['prenom'],
+    verifierFichier: async () => null,
+    tenantCode: async () => 't1',
+    journal,
+    ...over,
+  };
+  return { d, store, journal, templates };
+}
+
+const recette = (entree: unknown = {
+  template: { nom: 'relance', langue: 'fr' },
+  boutons: [{ texte: 'Oui', suite: { agent: { agent_id: AGENT } } }, { texte: 'Non', suite: { message: { texte: 'Merci, à bientôt.' } } }],
+}) => ({ nom: 'Relance', entree });
+
+describe('creerScenario', () => {
+  it('compile, publie, et rend la recette relue, son empreinte et son ouverture', async () => {
+    const { d, store, journal } = deps();
+    const r = await creerScenario(d, TENANT, recette(), 'api');
+    if (!r.ok) throw new Error(r.message);
+    expect(r.valeur).toMatchObject({ nom: 'Relance', origine: 'api', ouverture: 'whatsapp_template' });
+    expect(r.valeur.entreeCode).toMatch(/^nod_t1_/);
+    expect(r.valeur.recette.entree).toMatchObject({ template: { nom: 'relance', variables: { 1: { champ: 'prenom' } } } });
+    const graphe = store.creerPublieParApi.mock.calls[0]![2];
+    expect(graphe.nodes.every((n) => typeof n.data.code === 'string')).toBe(true);
+    expect(journal).toHaveBeenCalledWith(TENANT, 'workflow.published', r.valeur.id, expect.objectContaining({ origine: 'api' }));
+  });
+
+  it('🔴 hors offre : 402, avant toute lecture chez Meta', async () => {
+    const { d, templates, store } = deps({ offres: { offreDe: async () => ({ droits: { fonctions: new Set() } }) as never } });
+    const r = await creerScenario(d, TENANT, recette(), 'api');
+    expect(r).toMatchObject({ ok: false, statut: 402, code: 'plan_feature_unavailable' });
+    expect(templates).not.toHaveBeenCalled();
+    expect(store.creerPublieParApi).not.toHaveBeenCalled();
+  });
+
+  it('un template approuvé en fr et en revue en en : jugé par langue', async () => {
+    const { d } = deps();
+    const en = recette({ template: { nom: 'relance', langue: 'en' }, boutons: [{ texte: 'Yes', suite: { humain: {} } }, { texte: 'No', suite: { humain: {} } }] });
+    expect(await creerScenario(d, TENANT, en, 'api')).toMatchObject({ ok: false, statut: 422, code: 'template_not_approved' });
+    expect((await creerScenario(d, TENANT, recette(), 'api')).ok).toBe(true);
+  });
+
+  it('un fichier refusé : 422 `file_refused`, avec l’adresse et la raison', async () => {
+    const { d, store } = deps({ verifierFichier: async () => 'le serveur du fichier a répondu HTTP 404' });
+    const r = await creerScenario(d, TENANT, recette({ message: { texte: 'Bonjour', fichier: { url: 'https://exemple.fr/a.pdf' } } }), 'api');
+    expect(r).toMatchObject({ ok: false, statut: 422, code: 'file_refused', details: { url: 'https://exemple.fr/a.pdf' } });
+    expect(store.creerPublieParApi).not.toHaveBeenCalled();
+  });
+
+  it('ce que l’envoi refuserait est refusé à l’écriture : une entrée qui n’envoie rien', async () => {
+    const { d } = deps();
+    expect(await creerScenario(d, TENANT, recette({ humain: {} }), 'api')).toMatchObject({ ok: false, statut: 422, code: 'unsendable_target' });
+  });
+
+  it('un nom déjà pris : 409 avec l’id du scénario existant', async () => {
+    const { d } = deps();
+    const a = await creerScenario(d, TENANT, recette(), 'api');
+    const b = await creerScenario(d, TENANT, { ...recette(), nom: ' relance ' }, 'api');
+    expect(b).toMatchObject({ ok: false, statut: 409, code: 'scenario_name_taken', details: { id: a.ok && a.valeur.id } });
+  });
+
+  it('une recette mal formée : 400 avec le chemin', async () => {
+    const { d } = deps();
+    expect(await creerScenario(d, TENANT, { nom: 'x', entree: {} }, 'api')).toMatchObject({ ok: false, statut: 400, code: 'invalid_body', details: { chemin: 'entree' } });
+  });
+});
+
+describe('remplacerScenario', () => {
+  async function cree() {
+    const x = deps();
+    const r = await creerScenario(x.d, TENANT, recette(), 'api');
+    if (!r.ok) throw new Error(r.message);
+    return { ...x, vue: r.valeur };
+  }
+  const autre = recette({
+    template: { nom: 'relance', langue: 'fr' },
+    boutons: [{ texte: 'Oui', suite: { agent: { agent_id: AGENT } } }, { texte: 'Non', suite: { message: { texte: 'Dommage !' } } }],
+  });
+
+  it('sans empreinte : 428', async () => {
+    const { d, vue } = await cree();
+    expect(await remplacerScenario(d, TENANT, vue.id, autre, undefined, 'api')).toMatchObject({ ok: false, statut: 428, code: 'precondition_required' });
+  });
+
+  it('🔴 garde l’id du bloc où un contact attend, et publie la nouvelle version', async () => {
+    const { d, store, vue } = await cree();
+    const avant = store.lignes.get(vue.id)!.graph;
+    const r = await remplacerScenario(d, TENANT, vue.id, autre, vue.empreinte, 'api');
+    if (!r.ok) throw new Error(r.message);
+    const apres = store.lignes.get(vue.id)!.graph;
+    expect(apres.nodes[0]!.id).toBe(avant.nodes[0]!.id);
+    expect(apres.nodes[0]!.data.code).toBe(avant.nodes[0]!.data.code);
+    expect(apres.nodes.some((n) => n.data.body === 'Dommage !')).toBe(true);
+    expect(r.valeur.empreinte).not.toBe(vue.empreinte);
+  });
+
+  it('une empreinte périmée : 409 `scenario_changed`', async () => {
+    const { d, vue } = await cree();
+    const r1 = await remplacerScenario(d, TENANT, vue.id, autre, vue.empreinte, 'api');
+    expect(r1.ok).toBe(true);
+    expect(await remplacerScenario(d, TENANT, vue.id, recette(), vue.empreinte, 'api')).toMatchObject({ ok: false, statut: 409, code: 'scenario_changed' });
+  });
+
+  it('un scénario de la console : 409, intouchable', async () => {
+    const { d, store, vue } = await cree();
+    store.lignes.set(vue.id, { ...store.lignes.get(vue.id)!, origine: 'console' });
+    expect(await remplacerScenario(d, TENANT, vue.id, autre, vue.empreinte, 'api')).toMatchObject({ ok: false, statut: 409, code: 'scenario_managed_in_console' });
+  });
+
+  it('un brouillon de la console qui décrit autre chose : 409 ; un brouillon qui n’a bougé que des blocs : accepté', async () => {
+    const { d, store, vue } = await cree();
+    const l = store.lignes.get(vue.id)!;
+    const deplace: WorkflowGraph = { ...l.graph, nodes: l.graph.nodes.map((n) => ({ ...n, position: { x: n.position.x + 50, y: n.position.y } })) };
+    store.lignes.set(vue.id, { ...l, draftGraph: deplace });
+    expect((await remplacerScenario(d, TENANT, vue.id, autre, vue.empreinte, 'api')).ok).toBe(true);
+    const l2 = store.lignes.get(vue.id)!;
+    const lu = await lireScenario(d, TENANT, vue.id);
+    if (!lu.ok) throw new Error(lu.message);
+    const change: WorkflowGraph = { ...l2.graph, nodes: l2.graph.nodes.map((n) => (n.data.body === 'Dommage !' ? { ...n, data: { ...n.data, body: 'Tant pis' } } : n)) };
+    store.lignes.set(vue.id, { ...l2, draftGraph: change });
+    expect(await remplacerScenario(d, TENANT, vue.id, recette(), lu.valeur.empreinte, 'api')).toMatchObject({ ok: false, statut: 409, code: 'scenario_changed' });
+  });
+
+  it('un scénario inconnu, ou d’un autre espace : 404', async () => {
+    const { d, vue } = await cree();
+    expect(await remplacerScenario(d, 'autre-espace', vue.id, autre, vue.empreinte, 'api')).toMatchObject({ ok: false, statut: 404, code: 'scenario_not_found' });
+  });
+});
+
+describe('lireScenario et supprimerScenario', () => {
+  it('lit par uuid ou par code scn_', async () => {
+    const { d } = deps();
+    const c = await creerScenario(d, TENANT, recette(), 'mcp');
+    if (!c.ok) throw new Error(c.message);
+    const parCode = await lireScenario(d, TENANT, c.valeur.code);
+    expect(parCode.ok && parCode.valeur.empreinte).toBe(c.valeur.empreinte);
+  });
+
+  it('la suppression traduit chaque issue du magasin, et se journalise', async () => {
+    const { d, store, journal } = deps();
+    const c = await creerScenario(d, TENANT, recette(), 'api');
+    if (!c.ok) throw new Error(c.message);
+    expect(await supprimerScenario(d, TENANT, 'inconnu', 'api')).toMatchObject({ ok: false, statut: 404, code: 'scenario_not_found' });
+    store.supprimerParApi.mockResolvedValueOnce({ utilise: ['l’automation « Bienvenue »'] } as never);
+    const r = await supprimerScenario(d, TENANT, c.valeur.id, 'api');
+    expect(r).toMatchObject({ ok: false, statut: 409, code: 'scenario_in_use' });
+    expect(!r.ok && r.message).toContain('Bienvenue');
+    store.supprimerParApi.mockResolvedValueOnce('console' as never);
+    expect(await supprimerScenario(d, TENANT, c.valeur.id, 'api')).toMatchObject({ ok: false, statut: 409, code: 'scenario_managed_in_console' });
+    expect(await supprimerScenario(d, TENANT, c.valeur.code, 'mcp')).toMatchObject({ ok: true });
+    expect(store.supprimerParApi).toHaveBeenLastCalledWith(c.valeur.id, TENANT);
+    expect(journal).toHaveBeenLastCalledWith(TENANT, 'workflow.deleted', c.valeur.id, { origine: 'mcp' });
+  });
+});

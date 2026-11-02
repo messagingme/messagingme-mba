@@ -519,9 +519,11 @@ export const membresDepInertes: Pick<MembresDep, 'createPending' | 'setName' | '
   getPasswordHash: neDevraitPasEtreAppelee('getPasswordHash'),
 };
 
-export const scenariosDepInerte: Pick<ScenariosDep, 'publish' | 'ensureTestToken'> = {
+export const scenariosDepInerte: Pick<ScenariosDep, 'publish' | 'ensureTestToken' | 'utilisationsDuScenario'> = {
   publish: async () => null,
   ensureTestToken: async () => null,
+  // Absente : rien n'utilise le scénario.
+  utilisationsDuScenario: async () => [],
 };
 
 export const scenariosInertes: Pick<WorkflowRouteDeps, 'audit' | 'declareTags' | 'getDisplayPhoneNumber'> = {

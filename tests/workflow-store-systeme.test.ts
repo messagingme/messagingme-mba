@@ -21,11 +21,11 @@ function banc() {
   const ligne = {
     id: 'w1', tenant_id: 't1', name: 'n', code: null, graph: { nodes: [], edges: [] }, draft_graph: null,
     published_at: null, created_at: new Date(), updated_at: new Date(), node_count: 0, has_draft: false,
-    brouillon: false, test_token: 'jeton', systeme: null,
+    brouillon: false, test_token: 'jeton', systeme: null, origine: 'api',
   };
-  const pool = {
-    query: async (sql: string) => { requetes.push(sql.replace(/\s+/g, ' ')); return { rows: [ligne], rowCount: 1 }; },
-  } as unknown as Pool;
+  const query = async (sql: string) => { requetes.push(sql.replace(/\s+/g, ' ')); return { rows: [ligne], rowCount: 1 }; };
+  // Les écritures de l'API passent par un client du pool (transaction et verrou) : il note pareil.
+  const pool = { query, connect: async () => ({ query, release: () => {} }) } as unknown as Pool;
   return { requetes, store: new PgWorkflowStore(pool) };
 }
 
@@ -40,6 +40,11 @@ const FILTREES: Record<string, (s: PgWorkflowStore) => Promise<unknown>> = {
   remove: (s) => s.remove('w1', 't1'),
   ensureTestToken: (s) => s.ensureTestToken('w1', 't1', 'jeton'),
   findByTestToken: (s) => s.findByTestToken('jeton'),
+  creerPublieParApi: (s) => s.creerPublieParApi('t1', 'nom', { nodes: [], edges: [] }),
+  lireParApi: (s) => s.lireParApi('t1', 'w1'),
+  remplacerPublieParApi: (s) => s.remplacerPublieParApi('w1', 't1', 'nom', { nodes: [], edges: [] }, () => null),
+  supprimerParApi: (s) => s.supprimerParApi('w1', 't1'),
+  utilisationsDuScenario: (s) => s.utilisationsDuScenario('t1', 'w1'),
 };
 
 /**
@@ -55,11 +60,18 @@ describe('🔴 le scénario système n’existe pour aucune lecture publique du 
   });
 
   for (const [nom, appeler] of Object.entries(FILTREES)) {
-    it(`${nom} : chaque requête porte \`systeme is null\``, async () => {
+    it(`${nom} : chaque requête qui lit ou change une ligne porte \`systeme is null\``, async () => {
       const { requetes, store } = banc();
       await appeler(store);
-      expect(requetes.length, nom).toBeGreaterThan(0);
-      for (const r of requetes) expect(r, nom).toMatch(/\bsysteme is null\b/);
+      // Ni `begin`, ni le verrou consultatif, ni l'`insert` d'un scénario du client ne lisent une ligne existante.
+      const lectures = requetes.filter((r) => /\b(from|update) workflows\b/.test(r));
+      expect(lectures.length, nom).toBeGreaterThan(0);
+      for (const r of lectures) expect(r, nom).toMatch(/\bsysteme is null\b/);
+      // Et chaque mention de la table dans une requête qui en lit plusieurs (les « Aller à ») porte le sien.
+      for (const r of lectures) {
+        const mentions = (r.match(/\bworkflows \w+ /g) ?? []).map((m) => m.split(' ')[1]!).filter((a) => !['where', 'set'].includes(a));
+        for (const alias of mentions) expect(r, `${nom} : ${alias}`).toContain(`${alias}.systeme is null`);
+      }
     });
   }
 });

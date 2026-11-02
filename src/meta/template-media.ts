@@ -77,6 +77,53 @@ function typeEnTete(mime: string): FichierPrepare['type'] | null {
   return null;
 }
 
+/**
+ * Le fichier d'un bloc « message rapide », lu et jugé comme l'envoi le lira : une fiche de la médiathèque de l'espace par
+ * (espace, code), sinon le téléchargement GARDÉ de l'adresse, le type tranché sur les octets, une vidéo vérifiée. Le
+ * point de passage commun de l'envoi (`prepareFichier`) et de la vérification d'un scénario écrit par l'API : un fichier
+ * que l'un refuse, l'autre le refuse aussi. Ne lève jamais.
+ */
+export async function lireFichierDuBloc(
+  deps: Pick<TemplateMediaDeps, 'lireFichier' | 'telecharger'>,
+  tenantId: string,
+  url: string,
+): Promise<{ lu: { bytes: Buffer; mime: string; nom: string | null }; type: FichierPrepare['type'] } | { refus: string }> {
+  try {
+    const code = codeDeMediatheque(url);
+    const local = code ? await deps.lireFichier(tenantId, code) : null;
+    let lu: { bytes: Buffer; mime: string; nom: string | null };
+    if (local) {
+      // Le type d'une fiche est celui lu à son dépôt, sur ses octets, et une vidéo y a déjà été lue.
+      lu = local;
+    } else {
+      const genre = genreParAdresse(url);
+      const telecharge = await deps.telecharger(genre === 'video' ? 'VIDEO' : genre === 'document' ? 'DOCUMENT' : 'IMAGE', url);
+      if ('refus' in telecharge) return { refus: `téléchargement du fichier : ${telecharge.refus}` };
+      const mime = typeFichier(telecharge.octets);
+      if (mime === 'video/mp4') {
+        const raison = verifierVideo(telecharge.octets);
+        if (raison) return { refus: raison };
+      }
+      lu = { bytes: telecharge.octets, mime: mime ?? '', nom: null };
+    }
+    const type = typeEnTete(lu.mime);
+    if (!type) return { refus: `type de fichier non accepté par WhatsApp : ${lu.mime || 'inconnu'}` };
+    return { lu, type };
+  } catch (err) {
+    return { refus: `le fichier n’a pas pu être lu (${texteDe(err).slice(0, 200)})` };
+  }
+}
+
+/** La vérification d'un scénario écrit par l'API : la raison du refus, ou `null` si l'envoi pourra lire ce fichier. */
+export async function verifierFichierDuBloc(
+  deps: Pick<TemplateMediaDeps, 'lireFichier' | 'telecharger'>,
+  tenantId: string,
+  url: string,
+): Promise<string | null> {
+  const r = await lireFichierDuBloc(deps, tenantId, url);
+  return 'refus' in r ? r.refus : null;
+}
+
 export class TemplateMediaPreparer {
   /**
    * Cache par chemin d'image (l'URL porte une signature qui change à chaque lecture du template) : sans lui, une
@@ -177,25 +224,9 @@ export class TemplateMediaPreparer {
     const hit = this.fichiers.get(cle);
     if (hit && this.now() - hit.at < MEDIA_CACHE_MS) return { mediaId: hit.mediaId, type: hit.type, nom: hit.nom };
     try {
-      const code = codeDeMediatheque(url);
-      const local = code ? await this.deps.lireFichier(tenantId, code) : null;
-      let lu: { bytes: Buffer; mime: string; nom: string | null };
-      if (local) {
-        // Le type d'une fiche est celui lu à son dépôt, sur ses octets, et une vidéo y a déjà été lue.
-        lu = local;
-      } else {
-        const genre = genreParAdresse(url);
-        const telecharge = await this.deps.telecharger(genre === 'video' ? 'VIDEO' : genre === 'document' ? 'DOCUMENT' : 'IMAGE', url);
-        if ('refus' in telecharge) throw new Error(`téléchargement du fichier : ${telecharge.refus}`);
-        const mime = typeFichier(telecharge.octets);
-        if (mime === 'video/mp4') {
-          const raison = verifierVideo(telecharge.octets);
-          if (raison) throw new Error(raison);
-        }
-        lu = { bytes: telecharge.octets, mime: mime ?? '', nom: null };
-      }
-      const type = typeEnTete(lu.mime);
-      if (!type) throw new Error(`type de fichier non accepté par WhatsApp : ${lu.mime || 'inconnu'}`);
+      const fichier = await lireFichierDuBloc(this.deps, tenantId, url);
+      if ('refus' in fichier) throw new Error(fichier.refus);
+      const { lu, type } = fichier;
       const media = await this.deps.mediaClientFor(tenantId);
       const mediaId = await media.uploadForSend(pn, lu.bytes, lu.mime);
       const pret: FichierPrepare = { mediaId, type, nom: lu.nom };

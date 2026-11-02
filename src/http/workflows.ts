@@ -38,6 +38,8 @@ export interface ScenariosDep {
    */
   publish(id: string, tenantId: string): Promise<WorkflowRow | null>;
   remove(id: string, tenantId: string): Promise<boolean>;
+  /** Ce qui utilise ce scénario (automation, widget, répondeur, campagne, « Aller à »…), en phrases : vide = il peut partir. */
+  utilisationsDuScenario(tenantId: string, id: string): Promise<string[]>;
   /** Pose (une fois) le jeton de test du scénario et le renvoie. null si le scénario n'est pas au tenant. */
   ensureTestToken(id: string, tenantId: string, token: string): Promise<string | null>;
 }
@@ -246,6 +248,15 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
       return reply.code(409).send({
         error: `ce scénario répond aux prospects de ${pubs.length > 1 ? 'ces publicités' : 'cette publicité'} : ${pubs.slice(0, 3).join(', ')}${pubs.length > 3 ? '…' : ''}. Changez leur destination, ou supprimez-les, puis réessayez.`,
         code: 'utilise_par_publicite',
+      });
+    }
+    // La même garde que l'API (`supprimerParApi`) : une automation partait en cascade, un widget ou le répondeur
+    // perdaient leur scénario sans bruit.
+    const utilise = await deps.scenarios.utilisationsDuScenario(tenant, id);
+    if (utilise.length > 0) {
+      return reply.code(409).send({
+        error: `ce scénario sert encore : ${utilise.slice(0, 5).join(', ')}${utilise.length > 5 ? '…' : ''}. Retirez-le d’abord de là, puis réessayez.`,
+        code: 'scenario_in_use',
       });
     }
     try {

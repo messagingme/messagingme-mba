@@ -250,6 +250,26 @@ describe('routes workflows', () => {
     await server.close();
   });
 
+  it('🔴 DELETE d’un scénario qu’une automation, un widget ou le répondeur utilise : 409 qui les nomme, rien de supprimé', async () => {
+    // `automations.workflow_id` est en cascade et `widgets.workflow_id` en `set null` : sans ce refus, la suppression
+    // emportait l'automation en silence, ou laissait la bulle sans scénario. La même garde que l'API (`utilisationsDuScenario`).
+    let supprime = false;
+    const { server } = app({
+      scenarios: {
+        utilisationsDuScenario: async () => ['l’automation « Bienvenue »', 'le widget « Bulle »'],
+        remove: async () => { supprime = true; return true; },
+      },
+    });
+    const res = await server.inject({ method: 'DELETE', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok) });
+    expect(res.statusCode).toBe(409);
+    const corps = res.json<{ error: string; code: string }>();
+    expect(corps.code).toBe('scenario_in_use');
+    expect(corps.error).toContain('Bienvenue');
+    expect(corps.error).toContain('Bulle');
+    expect(supprime).toBe(false);
+    await server.close();
+  });
+
   it('aucune publicité ne l’utilise : la suppression passe, comme avant ce lot', async () => {
     let supprime = false;
     const { server } = app({ scenarios: { remove: async () => { supprime = true; return true; } } });

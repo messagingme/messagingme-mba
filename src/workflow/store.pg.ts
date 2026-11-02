@@ -1,4 +1,4 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import type { WorkflowGraph } from './graph';
 import { makeCode } from '../ids/code';
 import { resolveTenantCode } from '../ids/tenant-code';
@@ -142,6 +142,70 @@ export interface MajScenario {
  * (`channelsme_links.workflow_id ... on delete restrict`). Traduite en 409, sinon la violation 23503
  * remonterait en 500 sans dire qu'un lien de chaîne bloque.
  */
+/** Une ligne lue par l'API des scénarios : la marque d'origine en plus (migration 0267), hors de `COLS` à dessein. */
+export type LigneApi = WorkflowRow & { origine: 'console' | 'api' };
+
+/**
+ * Ce qui utilise un scénario, en phrases lisibles : un refus de suppression les cite. Toutes les tables qui le visent
+ * (relevé des clés étrangères vers `workflows`) sauf ses propres traces (`workflow_runs`, `workflow_node_events`,
+ * `workflow_reports`), plus le répondeur et les « Aller à » d'autres scénarios, qui n'ont pas de clé étrangère. Une
+ * campagne ne compte que tant qu'elle peut encore partir. Tout est scopé à l'espace.
+ */
+const UTILISATIONS = `
+  select 'l’automation « ' || name || ' »' as u from automations where tenant_id = $1 and workflow_id = $2
+  union all
+  select 'la campagne « ' || name || ' »' from campaigns
+   where tenant_id = $1 and workflow_id = $2 and status in ('scheduled', 'running', 'paused')
+  union all
+  select 'une étape de la campagne « ' || c.name || ' »' from campaign_etages e join campaigns c on c.id = e.campaign_id
+   where c.tenant_id = $1 and e.workflow_id = $2 and c.status in ('scheduled', 'running', 'paused')
+  union all
+  select 'la publicité « ' || nom || ' »' from publicites where tenant_id = $1 and workflow_id = $2 and etat <> 'echec_creation'
+  union all
+  select 'le widget « ' || nom || ' »' from widgets where tenant_id = $1 and workflow_id = $2
+  union all
+  select 'un lien de chaîne WhatsApp' from channelsme_links where tenant_id = $1 and workflow_id = $2
+  union all
+  select 'le répondeur de l’espace' from tenant_settings where tenant_id = $1 and repondeur_workflow_id = $2
+  union all
+  select 'le bloc « Aller à » du scénario « ' || w2.name || ' »' from workflows w2
+   where w2.tenant_id = $1 and w2.id <> $2 and w2.systeme is null and exists (
+     select 1 from jsonb_array_elements(coalesce(w2.graph->'nodes', '[]'::jsonb) || coalesce(w2.draft_graph->'nodes', '[]'::jsonb)) n
+      where n->>'type' = 'aller_a' and n->'data'->>'cible' in (
+        select m->'data'->>'code' from workflows w,
+               jsonb_array_elements(coalesce(w.graph->'nodes', '[]'::jsonb) || coalesce(w.draft_graph->'nodes', '[]'::jsonb)) m
+         where w.id = $2 and w.tenant_id = $1 and w.systeme is null and m->'data'->>'code' is not null))`;
+
+/** Une transaction sur un client du pool : toute requête de l’opération passe par lui. */
+async function enTransaction<T>(pool: Pool, f: (c: PoolClient) => Promise<T>): Promise<T> {
+  const c = await pool.connect();
+  try {
+    await c.query('begin');
+    const r = await f(c);
+    await c.query('commit');
+    return r;
+  } catch (err) {
+    await c.query('rollback').catch(() => {});
+    throw err;
+  } finally {
+    c.release();
+  }
+}
+
+/**
+ * Le nom unique d'un scénario dans l'espace, comparé comme `/v1/sends` le résout (`eqName`, `src/ids/resolve.ts`) : sans
+ * la casse ni les espaces aux bords. Sous un verrou consultatif de l'espace, tenu jusqu'à la fin de la transaction.
+ */
+async function nomPrisSousVerrou(c: PoolClient, tenantId: string, nom: string, sauf: string | null): Promise<string | null> {
+  await c.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`scenario-nom:${tenantId}`]);
+  const r = await c.query<{ id: string }>(
+    `select id from workflows where tenant_id = $1 and ${PUBLIC} and lower(btrim(name)) = lower(btrim($2))
+       and ($3::uuid is null or id <> $3::uuid) limit 1`,
+    [tenantId, nom, sauf],
+  );
+  return r.rows[0]?.id ?? null;
+}
+
 export class WorkflowUtiliseParLienChaine extends Error {
   constructor() { super('ce scénario est utilisé par un lien de chaîne WhatsApp'); this.name = 'WorkflowUtiliseParLienChaine'; }
 }
@@ -345,6 +409,85 @@ export class PgWorkflowStore {
       if ((err as { code?: string } | null)?.code === '23503') throw new WorkflowUtiliseParLienChaine();
       throw err;
     }
+  }
+
+  /**
+   * ─── L'API des scénarios (spec 2026-11-02-scenarios-api) ───
+   *
+   * 🔴 Toute écriture PUBLIE (`graph`), jamais le brouillon, et la marque `origine = 'api'` est posée à la création
+   * seulement. Le nom est unique (`nomPrisSousVerrou`), et 🔴 toute requête de l'opération passe par le client qui tient
+   * le verrou, jamais par `this.pool`.
+   */
+  async creerPublieParApi(tenantId: string, nom: string, graphe: WorkflowGraph): Promise<{ id: string; code: string } | { nomPris: string }> {
+    return enTransaction(this.pool, async (c) => {
+      const pris = await nomPrisSousVerrou(c, tenantId, nom, null);
+      if (pris) return { nomPris: pris };
+      const code = makeCode('scn', await resolveTenantCode(c, tenantId));
+      const r = await c.query<{ id: string; code: string }>(
+        `insert into workflows (tenant_id, name, graph, draft_graph, published_at, code, origine)
+         values ($1, $2, $3::jsonb, null, now(), $4, 'api') returning id, code`,
+        [tenantId, nom, JSON.stringify(graphe), code],
+      );
+      return r.rows[0]!;
+    });
+  }
+
+  /** Par uuid ou par code `scn_`. */
+  async lireParApi(tenantId: string, ref: string): Promise<LigneApi | null> {
+    const r = await this.pool.query<Row & { origine: 'console' | 'api' }>(
+      `select ${COLS}, origine from workflows where tenant_id = $1 and ${PUBLIC} and (id::text = $2 or code = $2) limit 1`,
+      [tenantId, ref],
+    );
+    const l = r.rows[0];
+    return l ? { ...toRow(l), origine: l.origine } : null;
+  }
+
+  /**
+   * Remplace et publie. `controle` juge la ligne SOUS SON VERROU (`for update`) : une publication de la console entre
+   * la lecture de l'appelant et cette écriture est vue ici, jamais écrasée.
+   */
+  async remplacerPublieParApi<R>(
+    id: string, tenantId: string, nom: string, graphe: WorkflowGraph, controle: (l: LigneApi) => R | null,
+  ): Promise<'ok' | 'inconnu' | { nomPris: string } | { refus: R }> {
+    return enTransaction(this.pool, async (c) => {
+      const r = await c.query<Row & { origine: 'console' | 'api' }>(
+        `select ${COLS}, origine from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} for update`,
+        [id, tenantId],
+      );
+      const l = r.rows[0];
+      if (!l) return 'inconnu' as const;
+      const refus = controle({ ...toRow(l), origine: l.origine });
+      if (refus !== null) return { refus };
+      const pris = await nomPrisSousVerrou(c, tenantId, nom, id);
+      if (pris) return { nomPris: pris };
+      await c.query(
+        `update workflows set name = $3, graph = $4::jsonb, draft_graph = null, published_at = now(), updated_at = now()
+          where id = $1 and tenant_id = $2 and ${PUBLIC}`,
+        [id, tenantId, nom, JSON.stringify(graphe)],
+      );
+      return 'ok' as const;
+    });
+  }
+
+  /** Ce qui utilise ce scénario (`UTILISATIONS`) : vide = il peut partir. */
+  async utilisationsDuScenario(tenantId: string, id: string, q: Pick<Pool, 'query'> = this.pool): Promise<string[]> {
+    const r = await q.query<{ u: string }>(UTILISATIONS, [tenantId, id]);
+    return r.rows.map((x) => x.u);
+  }
+
+  /** Supprime un scénario de l'API qui ne sert plus, sous le verrou de sa ligne. */
+  async supprimerParApi(id: string, tenantId: string): Promise<'ok' | 'inconnu' | 'console' | { utilise: string[] }> {
+    return enTransaction(this.pool, async (c) => {
+      const r = await c.query<{ origine: string }>(
+        `select origine from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} for update`, [id, tenantId]);
+      const l = r.rows[0];
+      if (!l) return 'inconnu' as const;
+      if (l.origine !== 'api') return 'console' as const;
+      const utilise = await this.utilisationsDuScenario(tenantId, id, c);
+      if (utilise.length > 0) return { utilise };
+      await c.query(`delete from workflows where id = $1 and tenant_id = $2 and ${PUBLIC}`, [id, tenantId]);
+      return 'ok' as const;
+    });
   }
 
   /**
