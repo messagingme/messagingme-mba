@@ -5,6 +5,7 @@ import type { AgentResume } from '@/lib/api-agent';
 import { useT } from '@/lib/i18n';
 import { nodeMetaOf } from '@/lib/nodeMeta';
 import { MAX_DESTINATAIRES_EMAIL } from '@/lib/partage/blocs';
+import { MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE } from '@/lib/partage/message-rapide';
 import { emailResolvableFields, varCountOf } from '@/lib/fields';
 import { carouselOutputs } from '@/lib/carousel-outputs';
 import { versBrouillonRcs, maxTexteRcs, MAX_BOUTONS_CARTE, MAX_BOUTONS_RCS } from '@/lib/rcs';
@@ -535,7 +536,7 @@ export function ConfigPanel({
                 // réponses rapides OU un bouton de lien, le message part en INTERACTIF, que Meta borne à 1024
                 // caractères ; avec un fichier sans bouton, le texte devient sa LÉGENDE, bornée à 1024 aussi (spec
                 // médias, § 3.4). Sans rien de tout ça, texte simple, borné à 4096. Le moteur refuse le même dépassement.
-                max={lienActif || qr.some((x) => x.trim() !== '') || String(d.imageUrl ?? '').trim() !== '' ? 1024 : 4096}
+                max={lienActif || qr.some((x) => x.trim() !== '') || String(d.imageUrl ?? '').trim() !== '' ? TEXTE_MAX_AVEC_FICHIER_OU_BOUTON : TEXTE_MAX_SIMPLE}
                 compact
               />
             </div>
@@ -615,12 +616,12 @@ export function ConfigPanel({
               <div className="space-y-1.5">
                 {qr.map((r, i) => (
                   <div key={i} className="flex items-center gap-1.5">
-                    <ChampCompte value={r} max={20} onChange={(e) => { const next = [...qr]; next[i] = e.target.value; onPatch({ quickReplies: next }); }} className={cls} placeholder={`${t('Réponse', 'Reply')} ${i + 1}`} />
+                    <ChampCompte value={r} max={MAX_TEXTE_REPONSE_RAPIDE} onChange={(e) => { const next = [...qr]; next[i] = e.target.value; onPatch({ quickReplies: next }); }} className={cls} placeholder={`${t('Réponse', 'Reply')} ${i + 1}`} />
                     <button type="button" onClick={() => onPatch({ quickReplies: qr.filter((_, j) => j !== i) })} className="shrink-0 text-ink-400 hover:text-danger" aria-label={t('Retirer', 'Remove')}><Icone nom="fermer" taille="petite" /></button>
                   </div>
                 ))}
               </div>
-              {qr.length < 3 && (
+              {qr.length < MAX_REPONSES_RAPIDES && (
                 <button type="button" onClick={() => onPatch({ quickReplies: [...qr, ''] })} className="mt-1.5 inline-flex items-center gap-1 text-xs text-brand-600 hover:underline"><Icone nom="ajouter" taille="petite" />{t('Réponse rapide', 'Quick reply')}</button>
               )}
               </>)}

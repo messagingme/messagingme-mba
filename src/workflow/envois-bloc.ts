@@ -1,6 +1,7 @@
 import type { WorkflowExecutorDeps } from './executor';
 import { LimiteOffreError } from '../offres/refus';
 import { problemeLienBouton } from './engine';
+import { TEXTE_MAX_AVEC_FICHIER_OU_BOUTON } from '../../web/lib/partage/message-rapide';
 import { buildWorkflowTemplateComponents, sourcesDuBloc } from './template-send';
 import type { MetaClient, EnTeteMedia } from '../meta/client';
 import type { FichierPrepare } from '../meta/template-media';
@@ -61,9 +62,6 @@ export type TplInfo = {
    */
   nonEnvoyable: string | null;
 };
-
-/** Meta : 1 024 caractères au plus pour la légende d'un fichier et pour le corps d'un message interactif. */
-export const TEXTE_MAX_AVEC_FICHIER_OU_BOUTON = 1024;
 
 /** Le nom sous lequel un PDF arrive chez le contact : le sien, avec l'extension que WhatsApp lit pour l'icône. */
 function nomDuDocument(nom: string | null): string {
