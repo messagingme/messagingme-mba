@@ -58,9 +58,10 @@ describe('le câblage de la lecture des pièces jointes', () => {
     const trouvees = proprietes();
     expect(trouvees, 'lireMediaMessage n est plus câblé, ou l est deux fois').toHaveLength(1);
     expect(sousLaTranscription(trouvees[0]!), 'lireMediaMessage est RENTRÉ dans le bloc de la transcription').toBe(false);
-    // Et aucun de ses deux lecteurs (l'Inbox, l'API) ne la reçoit sous la transcription.
+    // Et aucun de ses trois lecteurs (l'Inbox, l'API, le lien d'une pièce reçue par un bloc Question) ne la reçoit
+    // sous la transcription.
     const lecteurs = raccourcis();
-    expect(lecteurs).toHaveLength(2);
+    expect(lecteurs).toHaveLength(3);
     for (const r of lecteurs) expect(sousLaTranscription(r)).toBe(false);
   });
 

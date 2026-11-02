@@ -131,6 +131,7 @@ import { registerOpsNumeros, type OpsNumerosDeps } from './http/ops-numeros';
 import { registerOpsEmails, type OpsEmailsDeps } from './http/ops-emails';
 import { registerResendWebhook, type ResendWebhookRouteDeps } from './http/webhook-resend';
 import { registerDesinscriptionEmails, type DesinscriptionRouteDeps } from './http/emails-desinscription';
+import { registerPieceQuestion, type PieceQuestionRouteDeps } from './http/piece-question';
 import { registerEmailsMoi, type EmailsMoiDeps } from './http/emails-moi';
 import { registerOpsSuppression, type OpsSuppressionDeps } from './http/ops-suppression';
 import { registerOtpPont, type OtpPontRouteDeps } from './http/otp-pont';
@@ -517,6 +518,8 @@ export interface ServerDeps {
   resendWebhook?: ResendWebhookRouteDeps;
   /** Le lien de désinscription des e-mails du produit (lot 7, `/e/desinscription/:code`). */
   desinscriptionEmails?: DesinscriptionRouteDeps;
+  /** Le fichier d'une pièce reçue par un bloc Question (2026-11-02, `/f/:code`), le lien d'un Appel API de scénario. */
+  pieceQuestion?: PieceQuestionRouteDeps;
   /** La langue et les abonnements de la personne connectée (lot 7, `/tenants/:tenantId/moi/emails`). */
   emailsMoi?: EmailsMoiDeps;
 }
@@ -779,6 +782,9 @@ export function modulesDeRoutes(
     entree('links', 'code-url', deps.links, (app, d) => registerLinks(app, d)),
     // Le lien de désinscription d'un e-mail du produit (lot 7) : le jeton signé de l'adresse, pour une catégorie.
     entree('desinscriptionEmails', 'code-url', deps.desinscriptionEmails, (app, d) => registerDesinscriptionEmails(app, d)),
+    // Le fichier d'une pièce reçue par un bloc Question (2026-11-02) : le jeton signé de l'adresse, quinze minutes, pour
+    // une pièce d'un espace. Souvent une pièce d'identité : un jeton refusé ne lit rien et ne dit pas pourquoi.
+    entree('pieceQuestion', 'code-url', deps.pieceQuestion, (app, d) => registerPieceQuestion(app, d)),
     // Le script de la bulle WhatsApp : public aussi (le navigateur d'un visiteur le charge depuis le site d'un
     // client), autorisé par le code opaque de l'URL. Une balise posée est une porte à sens unique.
     entree('widgetPublic', 'code-url', deps.widgetPublic, (app, d) => registerWidgetPublic(app, d)),

@@ -116,6 +116,9 @@ const CATALOGUE_ACTIONS_AUDIT = {
   // Le Crédit WhatsApp (plan du 2026-10-30) : le détail porte l'identifiant Meta du numéro, jamais le numéro affiché.
   'ops.ligne_credit_posee': ['Numéro passé au Crédit WhatsApp par Messaging Me', 'Number moved to WhatsApp Credit by Messaging Me'],
   'ops.ligne_credit_retiree': ['Numéro retiré du Crédit WhatsApp par Messaging Me', 'Number removed from WhatsApp Credit by Messaging Me'],
+  // La pièce reçue par un bloc Question (2026-11-02) : téléchargée par le lien qu'un Appel API de scénario a fabriqué.
+  // La cible est le message, jamais le jeton ni le contact.
+  'piece.telechargee': ['Pièce reçue téléchargée par un lien de scénario', 'Received attachment downloaded through a scenario link'],
 } as const satisfies Record<string, readonly [string, string]>;
 
 /** Une nouvelle action doit porter ses deux libellés avant de pouvoir être écrite. */

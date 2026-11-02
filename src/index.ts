@@ -5,6 +5,7 @@ import { buildServer } from './server';
 import { config } from './config';
 import { adressesPubliques } from './lib/adresses-publiques';
 import { lireJetonDesinscription } from './emails-produit/desinscription';
+import { lireJetonPiece } from './workflow/piece-lien';
 import type { DepsPubInscription } from './pub/inscription';
 import { puisSignaler } from './pub/declencheurs';
 import { surveillerOps } from './ops/tentatives';
@@ -3229,6 +3230,15 @@ async function main(): Promise<void> {
     desinscriptionEmails: {
       lire: (jeton) => lireJetonDesinscription(jeton, config.AUTH_SECRET),
       desinscrire: (identityId, categorie) => emailsProduit.desinscrire(identityId, categorie),
+    },
+    // La pièce reçue par un bloc Question (2026-11-02) : le lien d'un Appel API de scénario, quinze minutes. Le fichier
+    // se relit par la MÊME lecture que l'Inbox et l'API ; chaque téléchargement laisse sa trace à l'admin de l'espace.
+    pieceQuestion: {
+      lire: (jeton) => lireJetonPiece(jeton, config.AUTH_SECRET, new Date()),
+      conversations: conversationsV1,
+      lireMediaMessage,
+      tracer: (tenant, idInterne) => auditStore.record(tenant, { userId: null, email: null }, 'piece.telechargee', { kind: 'message', id: idInterne }),
+      limiteur: new RateLimiter(30, 60_000),
     },
     // Les préférences d'e-mails et l'accord publicitaire (pixel, lot 2) de la personne connectée.
     emailsMoi: { store: emailsProduit, partage: conversionsMeta },

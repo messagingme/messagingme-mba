@@ -260,6 +260,9 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
   opsSuppression: inconnu('opsSuppression'),
   // Code dans l'adresse : aucun code ne se résout.
   links: inconnu('links'),
+  // Le fichier d'une pièce reçue par un bloc Question (2026-11-02) : aucun jeton ne se lit, donc aucun message n'est
+  // cherché ni aucun fichier demandé à Meta. Son plafond par adresse est un vrai limiteur désactivé.
+  pieceQuestion: inconnuSaufLimiteurs('pieceQuestion', ['limiteur']),
   webhookEntrant: inconnuSaufLimiteurs('webhookEntrant', ['limiter', 'budgetInconnus']),
   rcsCallback: inconnu('rcsCallback'),
   // Le script de la bulle WhatsApp : aucun widget ne se résout, donc ni numéro ni QR ne sont jamais demandés. Son
