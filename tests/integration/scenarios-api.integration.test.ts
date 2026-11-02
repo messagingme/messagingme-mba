@@ -85,7 +85,7 @@ describe.skipIf(!url)('scénarios écrits par l’API (Postgres)', () => {
     await pool.query(
       `insert into automations (tenant_id, name, enabled, trigger_kind, trigger_config, workflow_id)
        values ($1, 'Bienvenue', true, 'keyword', '{"keyword":"itest"}'::jsonb, $2)`, [tenantId, r.id]);
-    await pool.query(`insert into widgets (tenant_id, code, nom, phrase, workflow_id) values ($1, gen_random_uuid()::text, 'Bulle', 'itest', $2)`, [tenantId, r.id]);
+    await pool.query(`insert into widgets (tenant_id, code, nom, phrase, devenir, workflow_id) values ($1, gen_random_uuid()::text, 'Bulle', 'itest', 'scenario', $2)`, [tenantId, r.id]);
     await pool.query(
       `insert into tenant_settings (tenant_id, repondeur_mode, repondeur_workflow_id) values ($1, 'scenario', $2)
        on conflict (tenant_id) do update set repondeur_mode = 'scenario', repondeur_workflow_id = $2`, [tenantId, r.id]);
