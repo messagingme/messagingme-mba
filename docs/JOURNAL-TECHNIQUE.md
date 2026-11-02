@@ -4,6 +4,25 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : le Crédit WhatsApp prêt pour l'essai réel (prix Stripe, grille de Meta, jaunes du lot 2)
+
+- **Les quatre prix Stripe** (50, 100, 250 et 500 € HT, un produit par prix, taxe en sus) posés par Julien avec
+  `docs/prive/credit-whatsapp/poser-prix-wa.cjs`, en variables ORDINAIRES du conteneur de l'API : sa table des secrets
+  n'est jamais renvoyée (deux secrets n'existent qu'au conteneur, l'API de Scaleway ne rend jamais leur valeur), et le
+  déploiement suivant les a gardés (il fusionne les variables en place). Le script exigeait d'abord un seul produit pour
+  les quatre prix : rien dans le code ne le demande, la contrainte a été retirée.
+- **La grille de Meta en euros**, en vigueur le 2026-10-01, chargée par Claude à la demande de Julien. Le fichier « Tarifs
+  en EUR » de la page de tarifs de Meta est un xlsx sous un nom en `.csv` : converti (une case de titre sur deux lignes,
+  « Authentication- / International », remise sur une ; des prix en notation scientifique, « 8.0E-4 », écrits en
+  décimal), relu par `lireGrilleCsv` (206 tarifs, 47 marchés), enregistré par le vrai magasin dans l'image en service
+  (la même écriture que `PUT /ops/credit-whatsapp/grille`), puis relu par le vrai calcul : un marketing vers la France
+  à 74 760 µ€ (0,0712 € plus 5 %), un utilitaire ou une réponse à 26 040 µ€, un pays inconnu au plus cher (Pays-Bas).
+- **Les jaunes de la relecture du lot 2** (`25c8040e`) en service le 2026-11-02 (run 41412776720, `migration=aucune`,
+  approuvé par Julien) : workers et API sur `25c8040e`, les quatre prix toujours là, `aide:charger` (187 lignes, 0
+  retirée), fumée conforme. CI verte job par job avant le déploiement.
+- **Reste avant l'essai réel 207** : un de nos numéros de test posé sur la ligne dans `/ops` (l'espace ne peut plus rien
+  envoyer, réponses comprises, tant qu'il n'a pas de Crédit WhatsApp).
+
 ## 2026-10-31 (soir) : « il faudra télécharger l'application », et la 4e question reformulée (plugin 0.3.21)
 
 Julien, sur la vitrine en ligne : après « Non » à « Avez-vous déjà l'application WhatsApp Business ? », dire tout de

@@ -80,6 +80,11 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   depuis le 2026-11-01 (`22a5dd9f`) : reste son essai réel (essai 207), après que Julien a créé les quatre prix Stripe et
   lancé `node docs/prive/credit-whatsapp/poser-prix-wa.cjs`.
 - Les jaunes de la relecture du lot 2 sont faits (2026-11-02) : la relecture du lot 3 les couvre.
+- 🟡 La grille de Meta change au 1er de chaque trimestre (la prochaine le 2027-01-01, annoncée un mois avant). Le fichier
+  « Tarifs en EUR » de Meta est un xlsx, alors que `/ops` attend un csv, et son titre « Authentication-International »
+  tient sur deux lignes dans sa case : celle du 2026-10-01 a été convertie (`docs/prive/credit-whatsapp/xlsx-vers-csv.cjs`)
+  et chargée par le vrai magasin. À faire avant le 2027-01-01 : que `/ops` lise le xlsx de Meta tel quel, ou que le
+  lecteur accepte une case sur deux lignes et un prix en notation scientifique.
 - Lot 3 : la régularisation sur les volumes de Meta. Lot 4 : l'option à 30 € par numéro et la recharge automatique.
 - Lot 5, avec le partenaire : l'Embedded Signup sur sa ligne de crédit (rien ne lui est écrit sans Julien) ; et, à
   l'ouverture, ce que le lot 2 lui a laissé (écarts 4 et 5 du lot 2) : le prix en euros du récapitulatif d'une campagne,
