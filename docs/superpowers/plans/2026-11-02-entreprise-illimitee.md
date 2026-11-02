@@ -58,6 +58,23 @@ Entreprise sous son plafond) ; le plafond par espace dans `/ops` ; `features.md`
 **Déploiement :** `migration=avant`. ⚠️ Ce lot touche l'IA de Groupama PJ dès le déploiement : la relire en base juste
 après (sa clé, son solde figé, un tour réel par le vrai code).
 
+**Les jaunes de la relecture du lot A, repris par ce lot** (relecture du 2026-11-02, aucun rouge) :
+1. `consommationDuMois` (`src/credit-whatsapp/credit.pg.ts`) compte aussi les provisions prépayées d'un espace passé en
+   Entreprise en cours de mois : ne garder que `illimite`, et le test d'intégration attend alors 26 040.
+2. Le faux de `tests/credit-whatsapp-garde.test.ts` débite encore le solde en open bar (-74 760) : le faire comme la base
+   (provision écrite, solde intact, aucun `surDebit`).
+3. Le commentaire de `regulariser` : la règle porte sur chaque provision (`illimite`), jamais sur l'offre de l'espace au
+   moment de la passe (un espace sorti de l'Entreprise en cours de mois).
+4. L'alerte de `/ops` au retrait de l'Entreprise promet un achat impossible si l'espace retombe en Free : dire alors de
+   retirer d'abord le numéro de la ligne.
+5. `/ops` ne distingue pas l'illimité : `dernieresProvisions` et `OpsLignesCreditWhatsapp` doivent rendre et montrer
+   `illimite` (avant le lot C, aucun écran ne donne le montant à facturer d'une Entreprise).
+6. Des commentaires disent encore l'onglet fermé ou l'open bar « posé » : `src/offres/vue.ts`, `src/index.ts` (deux),
+   `src/mcp/outils-agent.ts`, `web/lib/offre.ts`, `src/http/ops-offre.ts`, `src/credit-whatsapp/credit.ts` (l'invariant,
+   `soldeApresMicroEur`), `src/worker.ts`, `src/socle.ts`, `src/stripe/achat-whatsapp.ts`, `src/credit-whatsapp/garde.ts`.
+7. La migration `apres` qui retirera `tenants.entreprise_open_bar_whatsapp` réécrit dans le même commit les trois tests
+   d'intégration qui l'écrivent encore (`offres.integration.test.ts`, `numero-delie.integration.test.ts`), sinon 42703.
+
 ## Lot C : le suivi
 
 **Fichiers :** les séries de 90 jours en jours de Paris (`src/agent/credits.pg.ts`, `src/credit-whatsapp/credit.pg.ts` :
