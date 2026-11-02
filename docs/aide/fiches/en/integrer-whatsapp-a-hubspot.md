@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: 216824
+traduit_de: 28e112
 description: WhatsApp in HubSpot with the Messaging Me app: reply from the contact record, send from your workflows, analyze every conversation. Without Sales Hub.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -19,7 +19,7 @@ Hub for webhooks.
 - **A task as soon as a customer asks for a human.** It reaches the contact owner within a minute, with the link to the
   conversation, and checks itself off when someone replies.
 - **Your HubSpot workflows write on WhatsApp.** Three actions join your workflows: send a template, launch a scenario,
-  or launch it from a deal, with the advisor and their booking link.
+  or launch it from a deal, with the HubSpot fields you choose.
 - **A deal stage launches a scenario.** When a deal reaches the chosen stage, its contact receives the scenario,
   without writing a workflow.
 - **The analysis of every conversation.** The intent, the sentiment and the suggested action land on the record, as
@@ -96,13 +96,18 @@ contacts' marketing consent, and Messaging Me records it on the record of each c
 receives nothing, even with this confirmation.
 
 The deal action writes only to the one contact associated with the deal: with several associated contacts, nothing is
-sent. It sets three fields on their Messaging Me record, declared when you turn the line on: **Prénom (HubSpot)**
-(first name), **Conseiller (HubSpot)** (the deal owner, their advisor) and **Lien d'agenda (HubSpot)** (the advisor's
-booking page, when Messaging Me can read it). The variables of its opening template come from the sources set on the
-template (for instance “{{1}}” = Prénom (HubSpot)), and the scenario's messages can write “{{hubspot_conseiller}}” or
-“{{hubspot_lien_agenda}}”. In the opening template, only set what is always filled in, such as the first name: an
-empty variable stops the send. The advisor and their link go in the messages that follow, and these three fields only
-serve the scenarios launched by this action.
+sent.
+
+Once the line is on, the “HubSpot fields to import” block, below the switches, lists the contact and deal properties,
+plus the advisor (the deal owner) and their booking link (when Messaging Me can read their calendar). Check 20 at most, then “Save the
+fields”. Each field becomes a field of the Messaging Me record, its HubSpot name followed by “(HubSpot)”, for instance
+**First name (HubSpot)**. The deal action writes them all to the record, the “Launch a scenario” action those of the
+contact. An empty property in HubSpot removes the field from the record, and an unchecked field is not deleted.
+
+The variables of the opening template come from the sources set on the template (for instance “{{1}}” = First name
+(HubSpot)), and the scenario's messages can write “{{hs_calc_conseiller}}” or “{{hs_calc_lien_agenda}}”. In the
+opening template, only set what is always filled in, such as the first name: an empty variable stops the send. The
+advisor and their link go in the messages that follow.
 
 Place the action right after the trigger, and turn re-enrollment on so that a revised proposal goes out again (it is
 refused within 24 hours). Do not also connect a console automation to the same stage: the contact would receive two

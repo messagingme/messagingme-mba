@@ -74,14 +74,27 @@ test.describe('Accueil : le bloc HubSpot suit l’interrupteur', () => {
   });
 });
 
-interface Trace { puts: Array<Record<string, unknown>> }
+interface Trace { puts: Array<Record<string, unknown>>; champs: unknown[] }
+
+/** Les champs HubSpot du portail (lot 2 du 2026-11-02) : vingt et une propriétés du contact, rien de choisi. */
+const CHAMPS_DU_PORTAIL = {
+  proprietes: {
+    contact: Array.from({ length: 21 }, (_, i) => ({ nom: `p${i}`, libelle: `Propriété ${i}`, type: 'string' })),
+    deal: [{ nom: 'montant_devis', libelle: 'Montant du devis', type: 'number' }],
+  },
+  calcules: [
+    { cle: 'conseiller', libelle: 'Conseiller (propriétaire de la transaction)', disponible: true },
+    { cle: 'lien_agenda', libelle: 'Lien de réservation du conseiller', disponible: true },
+  ],
+  choisis: [],
+};
 
 /**
  * Monte Paramètres (admin) avec des réglages et un statut de compte donnés (lot 1bis : le choix des fonctions).
  * `refus` : le PUT du choix rend ce statut avec ce message.
  */
 async function parametres(page: Page, o: { reglages: Record<string, unknown>; compte?: Record<string, unknown>; refus?: { status: number; error: string }; offre?: Record<string, unknown> }): Promise<Trace> {
-  const trace: Trace = { puts: [] };
+  const trace: Trace = { puts: [], champs: [] };
   const session = { token: 'e2e-token', email: 'moi@e2e.test', role: 'admin', tenantId: 't-e2e' };
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), session);
   await page.route('**/api/backend/**', async (route) => {
@@ -99,6 +112,12 @@ async function parametres(page: Page, o: { reglages: Record<string, unknown>; co
         tachesAppliquees: true, premiereValidation: true,
       });
     }
+    if (chemin.endsWith('/hubspot/champs') && req.method() === 'PUT') {
+      const corps = req.postDataJSON() as { champs: Array<{ objet: string; propriete: string }> };
+      trace.champs.push(corps);
+      return json({ choisis: corps.champs.map((c) => ({ ...c, libelle: c.propriete })) });
+    }
+    if (chemin.endsWith('/hubspot/champs')) return json(CHAMPS_DU_PORTAIL);
     if (chemin.endsWith('/offre') && o.offre) return json(o.offre);
     if (chemin.endsWith('/settings/agents-peuvent-prendre')) return json({ actif: false });
     if (chemin.endsWith('/settings')) return json({ mbaEnabled: false, timezone: 'Europe/Paris', businessHours: {}, ...o.reglages });
@@ -247,6 +266,33 @@ test.describe('Paramètres > Intégrations > HubSpot : « Workflows HubSpot : en
     await expect.poll(() => trace.puts.length, { timeout: 10_000 }).toBe(1);
     expect(trace.puts[0]).toMatchObject({ reponse: false, workflows: true });
     await expect(workflows).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('🔴 « Champs HubSpot à importer » : absent workflows éteints, présent allumés, la 21e case grisée, le corps sans libellé', async ({ page }) => {
+    const trace = await parametres(page, {
+      reglages: CHOIX_FAIT,
+      compte: { hasNumber: false, hubspotPortal: { ...PORTAIL, routingMode: 'mm_routing' } },
+      offre: offre('entreprise'),
+    });
+    await expect(page.getByTestId('integration-hubspot-workflows-toggle')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('integration-hubspot-champs')).toHaveCount(0);
+    await page.getByTestId('integration-hubspot-workflows-toggle').click();
+    await expect(page.getByTestId('integration-hubspot-champs')).toBeVisible();
+    await expect(page.getByTestId('integration-hubspot-champs-compte')).toHaveText('0 sur 20');
+    for (let i = 0; i < 20; i += 1) await page.getByTestId(`integration-hubspot-champ-contact:p${i}`).check();
+    await expect(page.getByTestId('integration-hubspot-champs-compte')).toHaveText('20 sur 20');
+    await expect(page.getByTestId('integration-hubspot-champ-contact:p20')).toBeDisabled();
+    await expect(page.getByTestId('integration-hubspot-champ-calcule:conseiller')).toBeDisabled();
+    await page.getByTestId('integration-hubspot-champ-contact:p0').uncheck();
+    await page.getByTestId('integration-hubspot-champ-calcule:conseiller').check();
+    await page.getByTestId('integration-hubspot-champs-recherche').fill('montant');
+    await expect(page.getByTestId('integration-hubspot-champ-deal:montant_devis')).toBeDisabled();
+    await page.getByTestId('integration-hubspot-champs-enregistrer').click();
+    await expect.poll(() => trace.champs.length, { timeout: 10_000 }).toBe(1);
+    const envoye = trace.champs[0] as { champs: Array<Record<string, unknown>> };
+    expect(envoye.champs).toHaveLength(20);
+    expect(envoye.champs).toContainEqual({ objet: 'calcule', propriete: 'conseiller' });
+    expect(envoye.champs.every((c) => !('libelle' in c))).toBe(true);
   });
 
   test('🔴 une offre sans HubSpot : la ligne ne s’allume pas et dit quelle offre l’ouvre', async ({ page }) => {

@@ -3,7 +3,7 @@ description: WhatsApp dans HubSpot avec l'app Messaging Me : répondre depuis la
 ecran: integrations
 ancre_console: integration-hubspot
 source_section: Accueil (1re entrée du menu)
-source_empreinte: c666dc
+source_empreinte: 4e692d
 publique: oui
 rubrique: demarrer
 rang: 6
@@ -26,7 +26,7 @@ sans Data Hub pour les webhooks.
 - **Une tâche dès qu'un client demande un humain.** Elle arrive dans la minute chez le propriétaire du contact, avec le
   lien de la conversation, et se coche toute seule quand quelqu'un répond.
 - **Vos workflows HubSpot écrivent sur WhatsApp.** Trois actions s'ajoutent à vos workflows : envoyer un modèle, lancer
-  un scénario, ou le lancer depuis une transaction, avec le conseiller et son lien de réservation.
+  un scénario, ou le lancer depuis une transaction, avec les champs HubSpot que vous choisissez.
 - **Une étape de transaction lance un scénario.** Quand une transaction arrive sur l'étape choisie, son contact reçoit
   le scénario, sans écrire de workflow.
 - **L'analyse de chaque conversation.** L'intention, le sentiment et l'action suggérée arrivent dans la fiche, en
@@ -104,13 +104,20 @@ avoir l'accord marketing de vos contacts, et Messaging Me l'enregistre sur la fi
 qui a dit STOP ne reçoit rien, même avec cette attestation.
 
 L'action de transaction écrit au seul contact associé à la transaction : avec plusieurs contacts associés, rien ne
-part. Elle pose sur sa fiche Messaging Me trois champs, déclarés quand vous allumez la ligne : **Prénom (HubSpot)**,
-**Conseiller (HubSpot)** (le propriétaire de la transaction) et **Lien d'agenda (HubSpot)** (sa page de réservation,
-quand Messaging Me peut la lire). Les variables de son modèle d'ouverture viennent des sources posées sur le modèle
-(par exemple « {{1}} » = Prénom (HubSpot)), et les messages du scénario peuvent écrire « {{hubspot_conseiller}} » ou
-« {{hubspot_lien_agenda}} ». Dans le modèle d'ouverture, ne posez que ce qui est toujours rempli, comme le prénom : une
-variable vide arrête l'envoi. Le conseiller et son lien vont dans les messages qui suivent, et ces trois champs ne
-servent qu'aux scénarios lancés par cette action.
+part.
+
+Une fois la ligne allumée, le bloc « Champs HubSpot à importer », sous les interrupteurs, liste les propriétés du
+contact et de la transaction, plus le conseiller (le propriétaire de la transaction) et son lien de réservation (quand
+Messaging Me peut lire son agenda).
+Cochez-en 20 au plus, puis « Enregistrer les champs ». Chaque champ devient un champ de la fiche Messaging Me, son nom
+HubSpot suivi de « (HubSpot) », par exemple **Prénom (HubSpot)**. L'action de transaction les écrit tous sur la fiche,
+l'action « Lancer un scénario » ceux du contact. Une propriété vide dans HubSpot retire le champ de la fiche, et un champ
+décoché n'est pas supprimé.
+
+Les variables du modèle d'ouverture viennent des sources posées sur le modèle (par exemple « {{1}} » = Prénom
+(HubSpot)), et les messages du scénario peuvent écrire « {{hs_calc_conseiller}} » ou « {{hs_calc_lien_agenda}} ». Dans
+le modèle d'ouverture, ne posez que ce qui est toujours rempli, comme le prénom : une variable vide arrête l'envoi. Le
+conseiller et son lien vont dans les messages qui suivent.
 
 Placez l'action juste après le déclencheur, et activez la réinscription pour qu'une proposition révisée reparte (elle
 est refusée dans les 24 heures). Ne branchez pas en plus une automatisation de la console sur la même étape : le contact

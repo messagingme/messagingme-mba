@@ -101,12 +101,13 @@ import { relancerPaniers, type DepsRelance } from './shopify/relance';
 import { effacerContacts } from './crm/effacement';
 import { signalDeLAccuse, signalDuClic } from './signaux/emetteur';
 import { plafondLePlusBas } from './campaign/pacing';
-import { fetchHubspotLists, importHubspotList, disconnectHubspot, fetchHubspotDealStages, lireHubspotPortal, poserModeTaches } from './crm/hubspot-service';
+import { fetchHubspotLists, importHubspotList, disconnectHubspot, fetchHubspotDealStages, lireHubspotPortal, poserModeTaches, lireChampsHubspot, poserChampsHubspot } from './crm/hubspot-service';
 import type { HubspotChoixRouteDeps } from './http/hubspot-choix';
+import type { HubspotChampsRouteDeps } from './http/hubspot-champs';
 import { etatLigneHubspot, type HubspotConversationDeps } from './http/hubspot-conversation';
 import type { HubspotWorkflowDeps } from './http/hubspot-workflow';
 import { plafondsDesWorkflows } from './hubspot-workflow/plafonds';
-import { declarerChampsHubspot } from './hubspot-workflow/champs';
+import { declarerChampsHubspot, type ChampChoisi, type ChampLibelle } from './hubspot-workflow/champs';
 import { PgATraiterHubspot } from './inbox/a-traiter-hubspot.pg';
 import { PlafondPartage } from './auth/plafond-partage';
 import { getEtatPassage } from './analysis/enrichment';
@@ -2029,6 +2030,8 @@ async function main(): Promise<void> {
         // dans la route, par les sources posées sur le modèle, sur la fiche lue comme le fait le scénario (`varsDuContact`).
         sourcesDuModele: (t: string, name: string, language: string) => templateHintStore.get(t, name, language),
         ficheParNumero: (t: string, waId: string) => contactStore.getResolvableByPhone(t, waId),
+        // Les champs HubSpot choisis (lot 2 du 2026-11-02) : seule une clé déclarée dans l'espace s'écrit sur la fiche.
+        champsDeclares: async (t: string) => (await fieldStore.list(t)).map((f) => f.key),
       } satisfies HubspotWorkflowDeps,
     } : {}),
     /**
@@ -2213,8 +2216,14 @@ async function main(): Promise<void> {
             numeroPrincipal: (t: string) => phoneStatusStore.getPhoneNumber(t),
             allumerSynchro: async (phoneNumberId: string, t: string) => { await phoneStatusStore.setHubspotConnected(phoneNumberId, t, true); },
             poserModeTaches: (t: string, mode: ModeTaches) => poserModeTaches(hubspotSuppression, t, mode),
-            declarerChampsWorkflows: (t: string) => declarerChampsHubspot(fieldStore, t),
           } satisfies HubspotChoixRouteDeps,
+          // Les champs HubSpot à importer (lot 2 du 2026-11-02) : la liste vit chez le connecteur, les champs de fiche
+          // sont déclarés ici AVANT qu'elle y soit posée. Tenu par `tests/hubspot-workflow-cablage.test.ts`.
+          hubspotChamps: {
+            lire: (t: string) => lireChampsHubspot(hubspotSuppression, t),
+            declarer: (t: string, champs: readonly ChampLibelle[]) => declarerChampsHubspot(fieldStore, t, champs),
+            poser: (t: string, champs: readonly ChampChoisi[]) => poserChampsHubspot(hubspotSuppression, t, champs),
+          } satisfies HubspotChampsRouteDeps,
         }
       : {}),
     admin: {

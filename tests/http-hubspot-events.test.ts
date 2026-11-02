@@ -50,6 +50,20 @@ describe('POST /hubspot/deal-stage', () => {
     await server.close();
   });
 
+  it('les champs HubSpot choisis (lot 2) : acceptés et validés, l’événement publié tel qu’avant (leur écriture vient au lot 3a)', async () => {
+    const { server, publies } = app();
+    const champs = { contact: { firstname: 'Claire' }, deal: { montant: '' }, calcules: { conseiller: 'Cédric Weiss', lien_agenda: '' } };
+    const res = await server.inject({ method: 'POST', url: '/hubspot/deal-stage', ...envoi({ ...VALIDE, champs }) });
+    expect(res.json()).toEqual({ ok: true, triggered: true });
+    expect(publies).toEqual([{ tenantId: 't1', ev: { kind: 'hubspot_deal_stage', waId: '33612345678', pipelineId: 'p1', stageId: 's-devis' } }]);
+    // Hors contrat : un lien qui n'est pas en https, un groupe inconnu, l'ancienne forme de l'action transaction.
+    for (const faux of [{ calcules: { lien_agenda: 'http://x.fr' } }, { company: { name: 'x' } }, { prenom: 'Claire' }]) {
+      expect((await server.inject({ method: 'POST', url: '/hubspot/deal-stage', ...envoi({ ...VALIDE, champs: faux }) })).statusCode, JSON.stringify(faux)).toBe(400);
+    }
+    expect(publies).toHaveLength(1);
+    await server.close();
+  });
+
   it('signature absente, fausse, ou d’un autre secret -> 401 et RIEN n’est publié', async () => {
     const { server, publies } = app();
     const sans = await server.inject({

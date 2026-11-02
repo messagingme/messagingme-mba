@@ -49,12 +49,35 @@ describe('le câblage de l’action de workflow HubSpot', () => {
     expect(bloc).toContain("conseillerEnMain: async (t: string, waId: string) => (await inboxStore.getControlOwner(t, waId)) === 'app_human',");
   });
 
-  it('🔴 l’action transaction : les sources du modèle et la fiche réelles, et les champs déclarés à l’allumage', () => {
+  it('🔴 l’action transaction : les sources du modèle et la fiche réelles', () => {
     // `sourcesDuModele: async () => []` compilerait, et tout lancement finirait en `valeur_invalide` ; une fiche jamais lue
     // ferait oublier aux variables les champs que le client a déjà sur la fiche (cadrage du 2026-10-29, décision 8).
     expect(bloc).toContain('sourcesDuModele: (t: string, name: string, language: string) => templateHintStore.get(t, name, language),');
     expect(bloc).toContain('ficheParNumero: (t: string, waId: string) => contactStore.getResolvableByPhone(t, waId),');
-    // Décision 6 : sans déclaration, les sources du modèle d'ouverture ne pourraient pas viser les champs HubSpot.
-    expect(index).toContain('declarerChampsWorkflows: (t: string) => declarerChampsHubspot(fieldStore, t),');
+  });
+
+  it('🔴 les champs HubSpot choisis : les clés déclarées lues dans l’espace, jamais une liste fixe', () => {
+    // `champsDeclares: async () => []` compilerait, et plus aucun champ ne s'écrirait (lot 2 du 2026-11-02).
+    expect(bloc).toContain('champsDeclares: async (t: string) => (await fieldStore.list(t)).map((f) => f.key),');
+  });
+});
+
+/**
+ * La route des champs à importer (lot 2 du 2026-11-02) : son test monte de fausses dépendances, il prouve l'ordre
+ * « déclarer, puis poser », pas que la production branche la vraie déclaration ni le vrai connecteur.
+ */
+describe('le câblage des champs HubSpot à importer', () => {
+  const champs = (() => {
+    const debut = index.indexOf('hubspotChamps: {');
+    const fin = index.indexOf('} satisfies HubspotChampsRouteDeps', debut);
+    expect(debut).toBeGreaterThan(0);
+    expect(fin).toBeGreaterThan(debut);
+    return index.slice(debut, fin);
+  })();
+
+  it('🔴 la déclaration est la vraie, sur le store des champs ; la lecture et la pose passent par le connecteur', () => {
+    expect(champs).toContain('declarer: (t: string, champs: readonly ChampLibelle[]) => declarerChampsHubspot(fieldStore, t, champs),');
+    expect(champs).toContain('lire: (t: string) => lireChampsHubspot(hubspotSuppression, t),');
+    expect(champs).toContain('poser: (t: string, champs: readonly ChampChoisi[]) => poserChampsHubspot(hubspotSuppression, t, champs),');
   });
 });

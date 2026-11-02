@@ -16,10 +16,9 @@ import type { TemplateSummary } from '../meta/templates';
 import type { EnvoyerPublic } from '../shopify/envoi';
 import { envoyerPourWorkflow, valeursDuWorkflow, type EnvoiWorkflow, type IssueWorkflow, type PlafondRefuse } from '../hubspot-workflow/envoi';
 import type { VerdictPlafonds } from '../hubspot-workflow/plafonds';
-import { champsDeFiche } from '../hubspot-workflow/champs';
+import { champsDeFiche, schemaChampsAnciens, schemaChampsContact, schemaChampsGroupes } from '../hubspot-workflow/champs';
 import { resolveHintParams, type ResolvableContact } from '../crm/template';
 import type { ParamHint } from '../crm/template-hints.pg';
-import { videEnAbsent } from '../api/fiche';
 import type { EtatLigneHubspot } from './hubspot-conversation';
 
 /**
@@ -66,6 +65,11 @@ export interface HubspotWorkflowDeps {
   sourcesDuModele(tenantId: string, name: string, language: string): Promise<ParamHint[]>;
   /** La fiche d'un numéro telle que les variables d'un modèle la lisent (`getResolvableByPhone`), ou `null`. */
   ficheParNumero(tenantId: string, waId: string): Promise<ResolvableContact | null>;
+  /**
+   * Les clés des champs de fiche déclarés dans l'espace (`fieldStore.list`) : seul un champ HubSpot déclaré s'écrit
+   * (lot 2 du 2026-11-02), la liste choisie vivant chez le connecteur.
+   */
+  champsDeclares(tenantId: string): Promise<string[]>;
   now?: () => number;
   windowMs?: number;
 }
@@ -101,20 +105,18 @@ const corpsScenario = z.object({
   valeurs: z.array(z.string().max(65_536)).max(VARIABLES_WORKFLOW_MAX),
   workflowId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/),
   accordMarketing: ACCORD_MARKETING,
+  // Les propriétés du contact choisies par l'espace (lot 2 du 2026-11-02), lues par le connecteur quand l'exécution porte
+  // un contact : écrites sur la fiche avec la campagne.
+  champs: schemaChampsContact.optional(),
 }).strict();
-/** Un champ de fiche reçu : vide vaut absent (le champ est alors RETIRÉ de la fiche, décision 6). */
-const texteFiche = z.preprocess(videEnAbsent, z.string().trim().max(200).optional());
 const corpsTransaction = z.object({
   tenantId: UUID,
   telephone: z.string().trim().max(1024),
   scenario: z.string().regex(/^scn_[A-Za-z0-9_-]{1,64}$/),
-  // Ce que le connecteur a lu dans HubSpot pour la fiche. Le lien de réservation en `https` seulement : il part tel quel
-  // dans un message au client.
-  champs: z.object({
-    prenom: texteFiche,
-    conseiller: texteFiche,
-    lienAgenda: z.preprocess(videEnAbsent, z.url({ protocol: /^https$/ }).max(2048).optional()),
-  }).strict(),
+  // Ce que le connecteur a lu dans HubSpot pour la fiche : la forme groupée des champs choisis (lot 2 du 2026-11-02), ou
+  // l'ancienne `{ prenom, conseiller, lienAgenda }` tant qu'un connecteur d'avant (ou une relance de son corps) l'envoie.
+  // Le lien de réservation en `https` seulement : il part tel quel dans un message au client.
+  champs: z.union([schemaChampsAnciens, schemaChampsGroupes]),
   workflowId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/),
   accordMarketing: ACCORD_MARKETING,
 }).strict();
@@ -394,19 +396,22 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     if (!signee(req)) return reply.code(401).send({ error: 'invalid signature' });
     const lu = corpsScenario.safeParse(req.body);
     if (!lu.success) return reply.code(400).send({ error: 'payload invalide' });
-    const { tenantId, telephone, scenario, workflowId, accordMarketing } = lu.data;
+    const { tenantId, telephone, scenario, workflowId, accordMarketing, champs } = lu.data;
     const g = await garderLancement(reply, tenantId, telephone, scenario, lu.data.valeurs, accordMarketing === true);
     if (!g) return reply;
     if (g.valeurs.length !== g.lancable.variables) return reply.code(200).send({ issue: 'valeur_invalide' });
+    const champsFiche = champs ? champsDeFiche(champs, await deps.champsDeclares(tenantId)) : null;
     return lancer(reply, {
-      tenantId, telephone: g.e164, cible: { scenario }, valeurs: g.valeurs, workflowId, ...(accordMarketing ? { accordMarketing } : {}),
+      tenantId, telephone: g.e164, cible: { scenario }, valeurs: g.valeurs, workflowId,
+      ...(champsFiche ? { champsFiche } : {}), ...(accordMarketing ? { accordMarketing } : {}),
     });
   });
 
   /**
    * L'ACTION « LANCER UN SCÉNARIO (TRANSACTION) » (cadrage `~/mm-hubspot/docs/2026-10-29-action-workflow-transaction-
    * cadrage.md`, décisions 1 à 13 validées par Julien le 2026-10-29). Le connecteur a lu HubSpot (le contact unique de la
-   * transaction, son numéro, son prénom, le conseiller et son lien de réservation) ; ici, les mêmes gardes que l'action
+   * transaction, son numéro, et les champs choisis par l'espace : propriétés du contact et de la transaction, conseiller et
+   * son lien de réservation, lot 2 du 2026-11-02) ; ici, les mêmes gardes que l'action
    * scénario, puis deux choses de plus :
    *   - 🔴 décision 8 : le modèle d'ouverture est rempli ICI, par les sources posées sur le modèle, sur la fiche vue avec
    *     les champs reçus, AVANT la clé et les plafonds. Une valeur manquante rend `valeur_invalide`, que HubSpot montre.
@@ -423,7 +428,7 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     const g = await garderLancement(reply, tenantId, telephone, scenario, null, accordMarketing === true);
     if (!g) return reply;
 
-    const champsFiche = champsDeFiche(champs);
+    const champsFiche = champsDeFiche(champs, await deps.champsDeclares(tenantId));
     // La fiche telle qu'elle sera après l'écriture : ses champs, moins ceux qu'on retire, plus ceux qu'on pose. Un lead
     // inconnu n'a pas encore de fiche (le cœur la crée) : sa vue n'a que son numéro et les champs reçus.
     const fiche = g.waId !== null ? await deps.ficheParNumero(tenantId, g.waId) : null;

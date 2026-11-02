@@ -819,6 +819,36 @@ export function putHubspotChoix(tenantId: string, choix: Omit<ChoixHubspot, 'tac
   return request(`/tenants/${tenantId}/hubspot/choix`, { method: 'PUT', body: JSON.stringify(choix) });
 }
 
+/** Un champ HubSpot choisi (lot 2 du 2026-11-02) : une propriété du contact, de la transaction, ou un calculé. */
+export interface ChampHubspot {
+  objet: 'contact' | 'deal' | 'calcule';
+  propriete: string;
+}
+
+/** Ce que `GET .../hubspot/champs` rend, lu chez HubSpot par le connecteur. */
+export interface ChampsHubspotDuPortail {
+  proprietes: {
+    contact: Array<{ nom: string; libelle: string; type: string }>;
+    deal: Array<{ nom: string; libelle: string; type: string }>;
+  };
+  /** Le conseiller (propriétaire de la transaction) et son lien de réservation ; `disponible` faux sans l'accès à l'agenda. */
+  calcules: Array<{ cle: 'conseiller' | 'lien_agenda'; libelle: string; disponible: boolean }>;
+  choisis: Array<ChampHubspot & { libelle: string }>;
+}
+
+/**
+ * Les champs HubSpot que l'espace peut importer, et ceux qu'il a choisis (admin). 503 quand le connecteur se réveille
+ * (`code: 'connecteur_en_reveil'`) ou n'est pas encore à jour (`mise_a_jour_en_cours`), jamais une liste vide.
+ */
+export function getHubspotChamps(tenantId: string): Promise<ChampsHubspotDuPortail> {
+  return request(`/tenants/${tenantId}/hubspot/champs`);
+}
+
+/** Enregistre la liste choisie (admin, 20 au plus). 400 `propriete_inconnue` pour une propriété disparue de HubSpot. */
+export function putHubspotChamps(tenantId: string, champs: ChampHubspot[]): Promise<{ choisis: ChampsHubspotDuPortail['choisis'] }> {
+  return request(`/tenants/${tenantId}/hubspot/champs`, { method: 'PUT', body: JSON.stringify({ champs }) });
+}
+
 /**
  * Demande au backend un lien d'install/re-consentement HubSpot SIGNÉ (le tenant est dans la signature, plus dans
  * un `?tenant=` en clair forgeable). Route admin-only ; le tenant vient du JWT. `grant='lists'` pour le re-consentement.

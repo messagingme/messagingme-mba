@@ -2348,12 +2348,21 @@ scénario, comment importer des contacts.
   conversation qu'un conseiller a en main, et remplace un scénario automatique en cours ; une troisième action,
   « Lancer un scénario Messaging Me (transaction) », lance le même scénario depuis un workflow HubSpot de transactions
   (par exemple au passage d'une étape), au seul contact associé à la transaction (plusieurs contacts : rien ne part),
-  et écrit sur sa fiche, avec la campagne et seulement pour un lancement neuf, le prénom HubSpot, le conseiller (le
-  propriétaire de la transaction) et son lien de réservation (`hubspot_prenom`, `hubspot_conseiller`,
-  `hubspot_lien_agenda`, déclarés quand on allume cette ligne), que lisent les blocs du scénario et les sources de son
-  modèle d'ouverture ; au plus 60 envois par minute et 2 000 par jour, les trois actions comptées ensemble ; chaque envoi apparaît dans Campagnes, et l'historique du
+  et écrit sur sa fiche, avec la campagne et seulement pour un lancement neuf, les champs HubSpot choisis (voir
+  ci-dessous), que lisent les blocs du scénario et les sources de son modèle d'ouverture ; au plus 60 envois par minute et 2 000 par jour, les trois actions comptées ensemble ; chaque envoi apparaît dans Campagnes, et l'historique du
   workflow dit ce qui est parti ou pourquoi rien n'est parti), et vos listes HubSpot comme audience de campagne
   (décochée ; un bouton **« Autoriser l'accès aux listes HubSpot »** demande ce droit au portail s'il manque).
+  Le choix validé et les workflows allumés, le bloc **« Champs HubSpot à importer »** (2026-11-02) liste les
+  propriétés du contact et de la transaction du portail (ni cachées, ni sensibles), plus deux champs calculés : le
+  conseiller (propriétaire de la transaction) et son lien de réservation (qui ne se coche que si l'accès à l'agenda
+  HubSpot est accordé). Une recherche, des cases groupées Contact, Transaction et Calculés, au plus 20 champs, puis
+  « Enregistrer les champs ». Chaque champ choisi devient un champ de fiche « (HubSpot) » (clé
+  `hs_contact_<propriété>`, `hs_deal_<propriété>`, `hs_calc_conseiller` ou `hs_calc_lien_agenda`), source possible
+  d'une variable de modèle et lisible par les blocs d'un scénario. L'action transaction écrit les champs choisis du
+  contact, de la transaction et les calculés ; l'action « Lancer un scénario » ceux du contact ; « Envoyer un modèle »
+  n'en écrit aucun. Une valeur vide dans HubSpot retire le champ de la fiche, un champ non choisi n'est pas touché, et
+  un champ décoché n'est pas supprimé de la fiche. Pendant une mise à jour de l'intégration, le bloc le dit au lieu
+  d'afficher une liste vide.
   Valider allume aussi la synchronisation du numéro principal : avant, une installation ne branchait rien. Ensuite,
   chaque choix se change d'un interrupteur. Ce que l'offre n'ouvre pas dit l'offre qui l'ouvre (« Inclus dans
   l'offre Pro » pour la réponse, « Inclus dans l'offre Entreprise » pour l'analyse et les listes) et ne s'allume pas

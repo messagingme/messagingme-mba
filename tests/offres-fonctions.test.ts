@@ -26,7 +26,7 @@ const ATTENDU: Record<string, string> = {
   rcsMessages: 'rcs', rcsChannel: 'rcs',
   // La médiathèque sert le bloc « message rapide » des scénarios autant que le RCS : le Pro y dépose (spec médias, § 2.3).
   rcsMedia: 'scenarios',
-  integrationBatch: 'crm', salesforce: 'crm', hubspotImport: 'crm', hubspotInstall: 'crm', hubspotPipelines: 'crm',
+  integrationBatch: 'crm', salesforce: 'crm', hubspotImport: 'crm', hubspotInstall: 'crm', hubspotPipelines: 'crm', hubspotChamps: 'crm',
   inbox: 'inbox', stats: 'partagé', flows: 'scenarios (écritures)', workflows: 'scenarios (écritures)',
   mbaPublication: 'agent_meta', mbaOutils: 'agent_meta', mba: 'agent_meta',
   mbaAssistant: 'assistants', agentSetup: 'assistants', aide: 'aide',

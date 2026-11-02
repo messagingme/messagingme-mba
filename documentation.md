@@ -2892,17 +2892,39 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   `~/mm-hubspot/docs/2026-10-29-action-workflow-transaction-cadrage.md`, décisions validées par Julien le 2026-10-29) :
   `POST /hubspot/workflow/transaction`, sur les gardes de l'action scénario (`garderLancement`, la même fonction, le
   même ordre) et le même adaptateur, la même clé. Le connecteur a lu HubSpot (le contact unique de la transaction, le
-  propriétaire et son lien de réservation) et transmet `champs` (`prenom`, `conseiller`, `lienAgenda` en `https`).
+  propriétaire et son lien de réservation) et transmet `champs`, les champs HubSpot choisis par l'espace (voir le point
+  suivant), ou l'ancienne forme `{ prenom, conseiller, lienAgenda }` qu'un connecteur d'avant (ou la relance d'un corps
+  gardé) envoie encore, traduite en `hs_contact_firstname`, `hs_calc_conseiller` et `hs_calc_lien_agenda`.
   🔴 Le modèle d'ouverture est rempli DANS la route, par les sources posées sur le modèle (`template_param_hints`,
-  `resolveHintParams`), sur la fiche vue avec ces champs (un champ absent est retiré de la vue) : le chemin d'une
+  `resolveHintParams`), sur la fiche vue avec ces champs (un champ vide est retiré de la vue) : le chemin d'une
   campagne ne lit pas ces sources à l'envoi, il reçoit des valeurs fixes, et un tableau vide y compte comme « fourni ».
   Une valeur manquante rend `valeur_invalide` avant la clé. 🔴 Les champs s'écrivent sur la fiche par l'option
   `champsFiche` du cœur d'envoi : dans `confirmer`, par le `tx` qui crée la campagne et scelle la clé, sur l'unique
-  destinataire (`ecrireChampsFiche`), donc jamais sur un rejeu, un tri vide ou un refus ; aucun autre appelant ne la
-  passe. Les trois champs (`hubspot_prenom`, `hubspot_conseiller`, `hubspot_lien_agenda`, `src/hubspot-workflow/champs.ts`)
-  se déclarent à clé fixe (`ensureFieldByKey`) à chaque enregistrement du choix HubSpot où les workflows sont allumés,
-  donc avant que le client crée le modèle qui les lit. L'autorisation optionnelle `agenda` (lecture des pages de
-  réservation) est admise par `POST /tenants/:id/hubspot/install-link`.
+  destinataire (`ecrireChampsFiche`), donc jamais sur un rejeu, un tri vide ou un refus ; seuls les workflows HubSpot
+  (transaction et scénario) la passent. L'autorisation optionnelle `agenda` (lecture des pages de réservation) est
+  admise par `POST /tenants/:id/hubspot/install-link`.
+- **Les champs HubSpot choisis** (lot 2 du plan `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`,
+  `src/hubspot-workflow/champs.ts`, `src/http/hubspot-champs.ts`). La liste vit chez le connecteur
+  (`tenant_portals.champs_hubspot`), par espace : `GET /tenants/:id/hubspot/champs` la relit avec les propriétés
+  importables du portail et les deux calculés (`lireChampsHubspot`, `POST /service/champs`), `PUT` la remplace
+  (`poserChampsHubspot`, `POST /service/champs/poser`). Les deux routes sont admin, sous l'offre `crm` posée au montage.
+  Le contrat, recopié chez le connecteur : un champ `{ objet: 'contact' | 'deal' | 'calcule', propriete }`, la propriété
+  à `/^[a-z0-9_]{1,53}$/` (la clé tient dans les 64 caractères d'une clé de l'API), les calculés `conseiller` et
+  `lien_agenda`, 20 au plus, calculés compris, sans doublon. 🔴 mba seul fabrique les clés de fiche, depuis le nom
+  interne et jamais depuis le libellé : `hs_contact_<p>`, `hs_deal_<p>`, `hs_calc_<calculé>` (un calculé ne rencontre
+  jamais une propriété de transaction du même nom), en `text` sauf le lien en `url` (`champsFiche` écrit sans
+  validation ni mise en forme), libellé HubSpot suivi de « (HubSpot) ». 🔴 Le `PUT` relit les libellés chez le
+  connecteur (jamais ceux du corps, `strict`), refuse une propriété absente ou filtrée (400 `propriete_inconnue`), puis
+  DÉCLARE les champs (`ensureFieldByKey`, idempotent) AVANT de poser la liste : une liste posée sans déclaration ferait
+  envoyer des valeurs que mba ignore. Un champ décoché n'est jamais supprimé (un modèle peut encore le viser). Les
+  valeurs voyagent brutes et groupées (`{ contact, deal, calcules }`), chaque propriété choisie présente, `''` quand
+  HubSpot la rend vide, coupées à 1 000 caractères par le connecteur ; `champsDeFiche` pose une valeur, RETIRE une
+  valeur vide, ne touche pas une propriété non reçue, et 🔴 n'écrit qu'une clé DÉCLARÉE dans l'espace (`champsDeclares`,
+  relu à chaque appel) : mba ne relit pas la liste du connecteur à l'envoi. `POST /hubspot/workflow/scenario` reçoit
+  `champs: { contact }` (facultatif), `POST /hubspot/deal-stage` la forme groupée (facultative, validée mais pas encore
+  écrite : la fiche ne s'écrit qu'avec une automation correspondante, lot 3a). Pannes du connecteur : réveil (délai de
+  `DELAI_CHAMPS_MS`, `ConnecteurEnReveil`) et route absente (404 sans `tenant_not_connected`, `ConnecteurPasAJour`)
+  rendent 503 avec leur code, l'écran dit « connexion en cours » ou « mise à jour en cours », jamais « aucun champ ».
 - **Le visuel d'en-tête d'un modèle envoyé depuis l'Inbox part en `media id`** (`creerEnvoiModeleInbox`,
   `mediaDuModele`) : l'adresse que l'écran passe est celle du CDN de Meta, que l'invariant 9 dit refusée en 131053 ;
   le visuel du modèle se re-téléverse comme pour le bloc de scénario. Sans visuel au modèle, ou si la préparation

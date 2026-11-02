@@ -32,11 +32,6 @@ export interface HubspotChoixRouteDeps {
   allumerSynchro(phoneNumberId: string, tenantId: string): Promise<void>;
   /** Pose le mode des tâches du portail chez le connecteur (`poserModeTaches`). LÈVE sur échec. */
   poserModeTaches(tenantId: string, mode: ModeTaches): Promise<ModeTaches>;
-  /**
-   * Déclare les champs de l'action transaction (`declarerChampsHubspot`, cadrage du 2026-10-29, décision 6) : à chaque
-   * enregistrement d'un choix où les workflows sont allumés, donc AVANT que le client crée le modèle qui les lit.
-   */
-  declarerChampsWorkflows(tenantId: string): Promise<void>;
 }
 
 /**
@@ -119,14 +114,8 @@ export function registerHubspotChoix(app: FastifyInstance, deps: HubspotChoixRou
       workflows: c.workflows, listes: c.listes,
     });
 
-    // Idempotent, et sans faire échouer l'enregistrement : le prochain le refera.
-    if (choix.workflows) {
-      try {
-        await deps.declarerChampsWorkflows(tenant);
-      } catch (err) {
-        journaliser('error', 'hubspot_champs_workflows_impossibles', { err, tenantId: tenant });
-      }
-    }
+    // Les champs de fiche des workflows ne se déclarent plus ici : ils sont choisis, et déclarés à l'enregistrement de
+    // la liste (`PUT .../hubspot/champs`, lot 2 du 2026-11-02).
 
     let routingMode: ModeTaches | null = null;
     if (c.taches !== undefined) {

@@ -65,7 +65,12 @@ interface Options {
   sources?: Record<string, ParamHint[]>;
   /** Les scénarios en ligne (défaut : `SCENARIOS`). */
   scenarios?: ScenarioPublie[];
+  /** Les clés des champs de fiche déclarés dans l'espace (défaut : `DECLAREES`). */
+  declarees?: string[];
 }
+
+/** Les champs HubSpot déclarés par défaut (lot 2 du 2026-11-02) : seuls ceux-là s'écrivent sur la fiche. */
+const DECLAREES = ['hs_contact_firstname', 'hs_contact_lastname', 'hs_deal_montant', 'hs_calc_conseiller', 'hs_calc_lien_agenda', 'ville'];
 
 const noeud = (id: string, type: WorkflowNode['type'], data: Record<string, unknown> = {}): WorkflowNode => ({ id, type, position: { x: 0, y: 0 }, data });
 const ouvrePar = (templateName: string, language = 'fr'): WorkflowGraph => ({ nodes: [noeud('t', 'template', { templateName, language })], edges: [] });
@@ -108,6 +113,7 @@ function app(o: Options = {}) {
     conseillerEnMain: async (t, waId) => { lus.push(['conseiller', `${t}/${waId}`]); return o.conseiller ?? false; },
     sourcesDuModele: async (t, name) => { lus.push(['sources', `${t}/${name}`]); return o.sources?.[name] ?? []; },
     ficheParNumero: async (t, waId) => { lus.push(['fiche', `${t}/${waId}`]); return o.fiche ?? null; },
+    champsDeclares: lire('declarees', o.declarees ?? DECLAREES),
     now: () => NOW,
   };
   const server = buildServer({ queue: new FakeQueue(), hubspotWorkflow: deps });
@@ -468,6 +474,31 @@ describe('l’action « Lancer un scénario » : les deux routes', () => {
     await server.close();
   });
 
+  it('🔴 les propriétés du contact choisies partent au cœur en `champsFiche` : vide retirée, non déclarée ignorée', async () => {
+    const { server, envois, lus } = app({ fonctions: AVEC_SCENARIOS });
+    const champs = { contact: { firstname: 'Claire', lastname: '', jobtitle: 'Notaire' } };
+    expect((await server.inject(appel('scenario', { ...LANCEMENT, champs }))).json()).toEqual({ issue: 'envoye', sendId: 'envoi-1' });
+    expect(envois[0]!.options).toEqual({
+      nom: 'HubSpot · workflow 1234567', sansCampagneVide: true, serviceSeulement: true,
+      // `hs_contact_jobtitle` n'est pas déclaré dans l'espace : ignoré.
+      champsFiche: { poser: { hs_contact_firstname: 'Claire' }, retirer: ['hs_contact_lastname'] },
+    });
+    expect(lus).toContainEqual(['declarees', T1]);
+    await server.close();
+  });
+
+  it('sans champs, rien ne s’écrit et les champs de l’espace ne sont pas lus ; un groupe autre que le contact : 400', async () => {
+    const { server, envois, lus } = app({ fonctions: AVEC_SCENARIOS });
+    expect((await server.inject(appel('scenario', LANCEMENT))).json().issue).toBe('envoye');
+    expect(envois[0]!.options).not.toHaveProperty('champsFiche');
+    expect(lus.map(([quoi]) => quoi)).not.toContain('declarees');
+    for (const champs of [{ deal: { montant: '1' } }, { contact: { firstname: 'Claire' }, calcules: {} }, { contact: { 'Pré-nom': 'x' } }]) {
+      expect((await server.inject(appel('scenario', { ...LANCEMENT, champs }))).statusCode, JSON.stringify(champs)).toBe(400);
+    }
+    expect(envois).toHaveLength(1);
+    await server.close();
+  });
+
   it('🔴 un opérateur tient la conversation : `conseiller_en_main`, rien ne part ni n’est compté', async () => {
     const { server, envois, comptes, lus } = app({ fonctions: AVEC_SCENARIOS, conseiller: true });
     expect((await server.inject(appel('scenario', LANCEMENT))).json()).toEqual({ issue: 'conseiller_en_main' });
@@ -531,15 +562,16 @@ describe('l’action « Lancer un scénario » : les deux routes', () => {
  */
 describe('l’action « Lancer un scénario (transaction) »', () => {
   const SOURCES = { suivi_devis: [
-    { position: 1, source: { type: 'field' as const, key: 'hubspot_prenom' } },
-    { position: 2, source: { type: 'field' as const, key: 'hubspot_conseiller' } },
+    { position: 1, source: { type: 'field' as const, key: 'hs_contact_firstname' } },
+    { position: 2, source: { type: 'field' as const, key: 'hs_calc_conseiller' } },
   ] };
   const LIEN = 'https://meetings-eu1.hubspot.com/cedric-weiss';
   /** Un espace dont l'offre a les scénarios (sinon `hors_offre`, garde commune). */
   const appT = (o: Options = {}) => app({ fonctions: ['crm', 'scenarios'], ...o });
+  /** La forme groupée du contrat (lot 2 du 2026-11-02) : chaque propriété choisie présente, `''` quand HubSpot la rend vide. */
   const LANCEMENT = {
     tenantId: T1, telephone: '06 12 34 56 78', scenario: 'scn_relance', workflowId: '1234567',
-    champs: { prenom: 'Claire', conseiller: 'Cédric Weiss', lienAgenda: LIEN },
+    champs: { contact: { firstname: 'Claire' }, deal: { montant: '1 200 €' }, calcules: { conseiller: 'Cédric Weiss', lien_agenda: LIEN } },
   };
 
   it('🔴 un lead inconnu : le modèle d’ouverture est rempli par ses sources avec les champs reçus, qui partent au cœur', async () => {
@@ -553,15 +585,47 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     });
     expect(envois[0]!.options).toMatchObject({
       nom: 'HubSpot · workflow 1234567', sansCampagneVide: true, serviceSeulement: true,
-      champsFiche: { poser: { hubspot_prenom: 'Claire', hubspot_conseiller: 'Cédric Weiss', hubspot_lien_agenda: LIEN }, retirer: [] },
+      champsFiche: {
+        poser: { hs_contact_firstname: 'Claire', hs_deal_montant: '1 200 €', hs_calc_conseiller: 'Cédric Weiss', hs_calc_lien_agenda: LIEN },
+        retirer: [],
+      },
     });
     expect(comptes).toEqual([T1]);
     await server.close();
   });
 
+  it('🔴 l’ancienne forme `{ prenom, conseiller, lienAgenda }` reste acceptée et se traduit, une valeur absente RETIRÉE comme avant', async () => {
+    // mba part avant le connecteur, et une relance rejoue le corps de la première tentative (plan du 2026-11-02, § 5).
+    const { server, envois } = appT({ fiche: null, sources: SOURCES });
+    const ancien = { ...LANCEMENT, champs: { prenom: 'Claire', conseiller: 'Cédric Weiss', lienAgenda: LIEN } };
+    expect((await server.inject(appel('transaction', ancien))).json()).toEqual({ issue: 'envoye', sendId: 'envoi-1' });
+    expect(envois[0]!.options.champsFiche).toEqual({
+      poser: { hs_contact_firstname: 'Claire', hs_calc_conseiller: 'Cédric Weiss', hs_calc_lien_agenda: LIEN }, retirer: [],
+    });
+    expect(envois[0]!.corps).toMatchObject({ params: [{ source: { value: 'Claire' } }, { source: { value: 'Cédric Weiss' } }] });
+    const sansLien = { ...LANCEMENT, champs: { prenom: 'Claire', conseiller: 'Cédric Weiss', lienAgenda: '' } };
+    const { server: s2, envois: e2 } = appT({ fiche: null, sources: SOURCES });
+    expect((await s2.inject(appel('transaction', sansLien))).json().issue).toBe('envoye');
+    expect(e2[0]!.options.champsFiche).toEqual({ poser: { hs_contact_firstname: 'Claire', hs_calc_conseiller: 'Cédric Weiss' }, retirer: ['hs_calc_lien_agenda'] });
+    await server.close();
+    await s2.close();
+  });
+
+  it('🔴 une clé reçue sans champ déclaré dans l’espace n’est pas écrite, et ne remplit donc aucune variable', async () => {
+    const { server, envois } = appT({ fiche: null, sources: SOURCES, declarees: ['hs_calc_conseiller'] });
+    expect((await server.inject(appel('transaction', LANCEMENT))).json()).toEqual({ issue: 'valeur_invalide' });
+    expect(envois).toEqual([]);
+    const conseillerDeuxFois = { suivi_devis: [SOURCES.suivi_devis[1]!, { ...SOURCES.suivi_devis[1]!, position: 2 }].map((s, i) => ({ ...s, position: i + 1 })) };
+    const { server: s2, envois: e2 } = appT({ fiche: null, sources: conseillerDeuxFois, declarees: ['hs_calc_conseiller'] });
+    expect((await s2.inject(appel('transaction', LANCEMENT))).json().issue).toBe('envoye');
+    expect(e2[0]!.options.champsFiche).toEqual({ poser: { hs_calc_conseiller: 'Cédric Weiss' }, retirer: [] });
+    await server.close();
+    await s2.close();
+  });
+
   it('🔴 le champ choisi dans le bloc d’ouverture prime sur la source du modèle', async () => {
     const graphe: WorkflowGraph = { nodes: [noeud('t', 'template', {
-      templateName: 'suivi_devis', language: 'fr', variables: [{ position: 1, source: { type: 'field', key: 'hubspot_conseiller' } }],
+      templateName: 'suivi_devis', language: 'fr', variables: [{ position: 1, source: { type: 'field', key: 'hs_calc_conseiller' } }],
     })], edges: [] };
     const { server, envois } = appT({ fiche: null, sources: SOURCES, scenarios: [scn('scn_relance', 'Relance devis', graphe)] });
     expect((await server.inject(appel('transaction', LANCEMENT))).json()).toEqual({ issue: 'envoye', sendId: 'envoi-1' });
@@ -573,7 +637,10 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
 
   it('🔴 une valeur manquante : `valeur_invalide`, rien n’est compté ni envoyé', async () => {
     const { server, envois, comptes } = appT({ fiche: null, sources: SOURCES });
-    const sansPrenom = { ...LANCEMENT, champs: { conseiller: 'Cédric Weiss' } };
+    const prenomVide = { ...LANCEMENT, champs: { contact: { firstname: '' }, calcules: { conseiller: 'Cédric Weiss' } } };
+    expect((await server.inject(appel('transaction', prenomVide))).json()).toEqual({ issue: 'valeur_invalide' });
+    // Un prénom non choisi (absent du corps), sur un lead sans fiche : manquant aussi.
+    const sansPrenom = { ...LANCEMENT, champs: { calcules: { conseiller: 'Cédric Weiss' } } };
     expect((await server.inject(appel('transaction', sansPrenom))).json()).toEqual({ issue: 'valeur_invalide' });
     // Une variable sans source posée sur le modèle : manquante aussi.
     const { server: s2, envois: e2 } = appT({ fiche: null, sources: { suivi_devis: [SOURCES.suivi_devis[0]!] } });
@@ -583,18 +650,24 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     await s2.close();
   });
 
-  it('🔴 la fiche est vue APRÈS l’écriture : un champ reçu remplace l’ancien, un champ absent est retiré (jamais la valeur d’une autre transaction)', async () => {
-    const fiche: ResolvableContact = { phone_e164: '+33612345678', fields: { hubspot_prenom: 'Ancien', hubspot_conseiller: 'Carole Arnal', ville: 'Lyon' } };
+  it('🔴 la fiche est vue APRÈS l’écriture : un champ reçu remplace l’ancien, un champ vide est retiré, un champ non reçu reste', async () => {
+    const fiche: ResolvableContact = { phone_e164: '+33612345678', fields: { hs_contact_firstname: 'Ancien', hs_calc_conseiller: 'Carole Arnal', ville: 'Lyon' } };
     const { server, envois } = appT({ fiche, sources: SOURCES });
-    // Le conseiller reçu remplace celui de la fiche.
-    const r1 = await server.inject(appel('transaction', { ...LANCEMENT, champs: { prenom: 'Claire', conseiller: 'Cédric Weiss' } }));
+    // Le conseiller reçu remplace celui de la fiche ; le lien, non reçu, n'est pas touché.
+    const r1 = await server.inject(appel('transaction', { ...LANCEMENT, champs: { contact: { firstname: 'Claire' }, calcules: { conseiller: 'Cédric Weiss' } } }));
     expect(r1.json().issue).toBe('envoye');
     expect(envois[0]!.corps).toMatchObject({ params: [{ source: { value: 'Claire' } }, { source: { value: 'Cédric Weiss' } }] });
-    expect(envois[0]!.options.champsFiche).toEqual({ poser: { hubspot_prenom: 'Claire', hubspot_conseiller: 'Cédric Weiss' }, retirer: ['hubspot_lien_agenda'] });
-    // Le conseiller absent (transaction sans propriétaire) : retiré de la vue, donc manquant, même si la fiche en avait un.
-    const r2 = await server.inject(appel('transaction', { ...LANCEMENT, champs: { prenom: 'Claire', conseiller: '' } }));
+    expect(envois[0]!.options.champsFiche).toEqual({ poser: { hs_contact_firstname: 'Claire', hs_calc_conseiller: 'Cédric Weiss' }, retirer: [] });
+    // Le conseiller vide (transaction sans propriétaire) : retiré de la vue, donc manquant, même si la fiche en avait un
+    // (jamais la valeur d'une autre transaction).
+    const r2 = await server.inject(appel('transaction', { ...LANCEMENT, champs: { contact: { firstname: 'Claire' }, calcules: { conseiller: '' } } }));
     expect(r2.json()).toEqual({ issue: 'valeur_invalide' });
-    expect(envois).toHaveLength(1);
+    // Le conseiller non choisi (absent du corps) : celui de la fiche reste.
+    const r3 = await server.inject(appel('transaction', { ...LANCEMENT, champs: { contact: { firstname: 'Claire' } } }));
+    expect(r3.json().issue).toBe('envoye');
+    expect(envois[1]!.corps).toMatchObject({ params: [{ source: { value: 'Claire' } }, { source: { value: 'Carole Arnal' } }] });
+    expect(envois[1]!.options.champsFiche).toEqual({ poser: { hs_contact_firstname: 'Claire' }, retirer: [] });
+    expect(envois).toHaveLength(2);
     await server.close();
   });
 
@@ -607,7 +680,7 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     const { server, envois } = appT({ fiche, sources: villeEtNumero });
     expect((await server.inject(appel('transaction', LANCEMENT))).json().issue).toBe('envoye');
     expect(envois[0]!.corps).toMatchObject({ params: [{ source: { value: 'Lyon' } }, { source: { value: '+33612345678' } }] });
-    const numeroSeul = { suivi_devis: [villeEtNumero.suivi_devis[1]!, { position: 2, source: { type: 'field' as const, key: 'hubspot_prenom' } }] };
+    const numeroSeul = { suivi_devis: [villeEtNumero.suivi_devis[1]!, { position: 2, source: { type: 'field' as const, key: 'hs_contact_firstname' } }] };
     const { server: s2, envois: e2 } = appT({ fiche: null, sources: { suivi_devis: numeroSeul.suivi_devis.map((s, i) => ({ ...s, position: i + 1 })) } });
     expect((await s2.inject(appel('transaction', LANCEMENT))).json().issue).toBe('envoye');
     expect(e2[0]!.corps).toMatchObject({ params: [{ source: { value: '+33612345678' } }, { source: { value: 'Claire' } }] });
@@ -621,20 +694,24 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     const { server: s2, envois: e2, lus: l2 } = appT({ sources: SOURCES });
     expect((await s2.inject(appel('transaction', { ...LANCEMENT, scenario: 'scn_puis_promo' }))).json()).toEqual({ issue: 'marketing_refuse' });
     expect([envois, e2]).toEqual([[], []]);
-    expect([...lus, ...l2].filter(([quoi]) => quoi === 'sources' || quoi === 'fiche')).toEqual([]);
+    expect([...lus, ...l2].filter(([quoi]) => quoi === 'sources' || quoi === 'fiche' || quoi === 'declarees')).toEqual([]);
     await server.close();
     await s2.close();
   });
 
-  it('un corps hors contrat : 400 ; un lien qui n’est pas en https, une clé de trop, sans signature : 401', async () => {
+  it('un corps hors contrat : 400 ; un lien qui n’est pas en https, un groupe inconnu, les deux formes mêlées ; sans signature : 401', async () => {
     const { server, lus } = appT({ sources: SOURCES });
     for (const corps of [
-      { ...LANCEMENT, champs: { ...LANCEMENT.champs, lienAgenda: 'http://meetings.hubspot.com/x' } },
-      { ...LANCEMENT, champs: { ...LANCEMENT.champs, lienAgenda: 'javascript:alert(1)' } },
-      { ...LANCEMENT, champs: { ...LANCEMENT.champs, devis: 'x' } },
+      { ...LANCEMENT, champs: { ...LANCEMENT.champs, calcules: { lien_agenda: 'http://meetings.hubspot.com/x' } } },
+      { ...LANCEMENT, champs: { ...LANCEMENT.champs, calcules: { lien_agenda: 'javascript:alert(1)' } } },
+      { ...LANCEMENT, champs: { prenom: 'Claire', lienAgenda: 'http://meetings.hubspot.com/x' } },
+      { ...LANCEMENT, champs: { ...LANCEMENT.champs, company: { name: 'x' } } },
+      { ...LANCEMENT, champs: { ...LANCEMENT.champs, prenom: 'Claire' } },
+      { ...LANCEMENT, champs: { prenom: 'Claire', devis: 'x' } },
+      { ...LANCEMENT, champs: { contact: { notes: 'x'.repeat(1001) } } },
       { ...LANCEMENT, valeurs: ['x'] },
       { ...LANCEMENT, champs: undefined },
-    ]) expect((await server.inject(appel('transaction', corps))).statusCode, JSON.stringify(corps)).toBe(400);
+    ]) expect((await server.inject(appel('transaction', corps))).statusCode, JSON.stringify(corps).slice(0, 200)).toBe(400);
     expect(lus).toEqual([]);
     const sans = await server.inject({ method: 'POST', url: '/hubspot/workflow/transaction', headers: { 'content-type': 'application/json' }, payload: JSON.stringify(LANCEMENT) });
     expect(sans.statusCode).toBe(401);
@@ -689,11 +766,11 @@ describe('l’envoi marketing attesté par le client', () => {
     await server.close();
 
     const sources = { suivi_devis: [
-      { position: 1, source: { type: 'field' as const, key: 'hubspot_prenom' } },
-      { position: 2, source: { type: 'field' as const, key: 'hubspot_conseiller' } },
+      { position: 1, source: { type: 'field' as const, key: 'hs_contact_firstname' } },
+      { position: 2, source: { type: 'field' as const, key: 'hs_calc_conseiller' } },
     ] };
     const t = app({ fonctions: AVEC_SCENARIOS, fiche: null, sources });
-    const transaction = { tenantId: T1, telephone: '06 12 34 56 78', scenario: 'scn_puis_promo', workflowId: '1234567', champs: { prenom: 'Claire', conseiller: 'Cédric Weiss' } };
+    const transaction = { tenantId: T1, telephone: '06 12 34 56 78', scenario: 'scn_puis_promo', workflowId: '1234567', champs: { contact: { firstname: 'Claire' }, calcules: { conseiller: 'Cédric Weiss' } } };
     expect((await t.server.inject(appel('transaction', transaction))).json()).toEqual({ issue: 'marketing_refuse' });
     expect((await t.server.inject(appel('transaction', { ...transaction, accordMarketing: true }))).json()).toMatchObject({ issue: 'envoye' });
     expect(t.envois).toHaveLength(1);

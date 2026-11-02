@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { verifyRequest } from '../lib/signature';
 import { waIdOf } from '../crm/identity';
 import { normalizePhone } from '../crm/phone';
+import { schemaChampsGroupes } from '../hubspot-workflow/champs';
 
 /** Corps brut, capturé par le parser du receiver Meta (un seul parser JSON pour toute l'app). */
 type WithRawBody = FastifyRequest & { rawBody?: Buffer };
@@ -19,6 +20,12 @@ const dealStageSchema = z.object({
   /** Vide = le connecteur n'a pas pu relire le pipeline. Une automation sans pipeline configuré s'en moque. */
   pipelineId: z.string().default(''),
   dealId: z.string().default(''),
+  /**
+   * Les champs HubSpot choisis par l'espace (lot 2 du 2026-11-02, forme groupée), envoyés seulement si sa liste n'est
+   * pas vide. Validés dès maintenant pour qu'un connecteur à jour ne prenne pas un 400, mais PAS ENCORE ÉCRITS : la fiche
+   * ne s'écrit que si une automation allumée correspond à l'étape, ce que le lot 3a apporte.
+   */
+  champs: schemaChampsGroupes.optional(),
 });
 
 export interface HubspotEventRouteDeps {

@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 Les champs HubSpot choisis : la forme d'avant à retirer (lot 2 du 2026-11-02)
+
+- `POST /hubspot/workflow/transaction` accepte encore `champs: { prenom, conseiller, lienAgenda }` (`schemaChampsAnciens`,
+  `src/hubspot-workflow/champs.ts`), le temps que le connecteur passe à la forme groupée et que les corps gardés de ses
+  relances vieillissent (`TROP_TARD_MS`, 20 h). À retirer au lot suivant du plan
+  `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, avec son test.
+
 ## 🟡 Le mode répétition de l'envoi (décidé le 2026-10-31, « plus tard »)
 
 - `dryRun: true` sur `POST /v1/sends` : tout vérifier (modèle approuvé, variables, consentement, fenêtre de 24 h,

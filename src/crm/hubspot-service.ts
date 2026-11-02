@@ -1,7 +1,7 @@
 /**
  * Client du canal service vers le connecteur mm-hubspot : appel signé (`callService`), import de listes,
  * déconnexion d'un portail, signalement d'un contact injoignable, passage à l'équipe, lecture des étapes de deal et
- * du portail relié.
+ * du portail relié, lecture et pose des champs HubSpot choisis.
  */
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
@@ -12,6 +12,7 @@ import type { HttpTransport } from '../meta/http';
 import { importContacts } from './import';
 import type { ImportDeps } from './import';
 import type { ColumnMapping, ImportReport } from './types';
+import { CALCULES_HUBSPOT, CHAMPS_HUBSPOT_MAX, NOM_PROPRIETE_HUBSPOT, type ChampChoisi, type ChampLibelle } from '../hubspot-workflow/champs';
 
 /** Le portail n'a pas (encore) accordé crm.lists.read : l'admin doit re-consentir. Porte l'URL construite par mm-hubspot. */
 export class ReconsentRequiredError extends Error {
@@ -22,7 +23,8 @@ export class ReconsentRequiredError extends Error {
 }
 /** Autre échec du canal service (tenant non connecté, portail désinstallé, 5xx...). `retryable` piloté par withRetry. */
 export class HubspotServiceError extends Error {
-  constructor(readonly status: number, readonly code: string | undefined, readonly retryable: boolean) {
+  /** `corps` : la réponse du connecteur telle quelle, NON validée (un refus qui détaille sa cause, lu par `safeParse`). */
+  constructor(readonly status: number, readonly code: string | undefined, readonly retryable: boolean, readonly corps?: unknown) {
     super(`hubspot service HTTP ${status}${code ? ` (${code})` : ''}`);
     this.name = 'HubspotServiceError';
   }
@@ -57,7 +59,7 @@ async function callService<T>(deps: ConnectorDeps, path: string, body: unknown, 
     if (res.status >= 200 && res.status < 300) return res.json as T;
     const j = res.json as { error?: string; reconsentUrl?: string } | undefined;
     if (res.status === 409 && j?.error === 'reconsent_required') throw new ReconsentRequiredError(j.reconsentUrl);
-    throw new HubspotServiceError(res.status, j?.error, res.status === 429 || res.status >= 500);
+    throw new HubspotServiceError(res.status, j?.error, res.status === 429 || res.status >= 500, res.json);
   };
   return delaiMs === undefined ? withRetry(appel) : appel();
 }
@@ -242,6 +244,96 @@ export async function lireHubspotPortal(deps: ConnectorDeps | null, tenantId: st
   const reponse = reponsePortail.safeParse(brut);
   if (!reponse.success) throw new HubspotServiceError(502, 'reponse_invalide', false);
   return reponse.data;
+}
+
+/**
+ * Le connecteur ne connaît pas encore la route (404 sans `tenant_not_connected`) : il n'est pas encore à jour, l'API de
+ * mba partant avant lui (plan du 2026-11-02, ordre de déploiement). Ce n'est ni « aucun champ » ni « pas relié » :
+ * l'écran dit qu'une mise à jour est en cours.
+ */
+export class ConnecteurPasAJour extends Error {
+  constructor() {
+    super('connecteur_pas_a_jour');
+    this.name = 'ConnecteurPasAJour';
+  }
+}
+
+/** Le connecteur refuse une liste : une propriété choisie n'existe plus dans le portail, ou ne s'importe pas. */
+export class ProprietesInconnues extends Error {
+  constructor(readonly champs: ReadonlyArray<{ objet: string; propriete: string }>) {
+    super('propriete_inconnue');
+    this.name = 'ProprietesInconnues';
+  }
+}
+
+/**
+ * L'échéance d'une lecture des champs : le connecteur lit les propriétés du contact et de la transaction chez HubSpot,
+ * deux appels d'une seconde ou deux, et dort quand personne ne s'en sert (réveil d'une quinzaine de secondes).
+ */
+export const DELAI_CHAMPS_MS = 8_000;
+
+const champLibelle = z.union([
+  z.object({ objet: z.enum(['contact', 'deal']), propriete: z.string().regex(NOM_PROPRIETE_HUBSPOT), libelle: z.string().max(500) }),
+  z.object({ objet: z.literal('calcule'), propriete: z.enum(CALCULES_HUBSPOT), libelle: z.string().max(500) }),
+]);
+const proprieteDuPortail = z.object({ nom: z.string().regex(NOM_PROPRIETE_HUBSPOT), libelle: z.string().max(500), type: z.string().max(100) });
+
+/** La réponse de `POST /service/champs` (lot 2 du 2026-11-02), validée : rien d'autre ne passe. */
+const reponseChamps = z.object({
+  proprietes: z.object({ contact: z.array(proprieteDuPortail).max(5000), deal: z.array(proprieteDuPortail).max(5000) }),
+  calcules: z.array(z.object({ cle: z.enum(CALCULES_HUBSPOT), libelle: z.string().max(500), disponible: z.boolean() })).max(CALCULES_HUBSPOT.length),
+  choisis: z.array(champLibelle).max(CHAMPS_HUBSPOT_MAX),
+});
+export type ChampsDuPortail = z.infer<typeof reponseChamps>;
+
+/** La réponse de `POST /service/champs/poser`, validée. */
+const reponsePoserChamps = z.object({ choisis: z.array(champLibelle).max(CHAMPS_HUBSPOT_MAX) });
+/** Le refus 400 d'une propriété absente ou filtrée : son code, et les champs en cause (illisibles : aucun nommé). */
+const refusProprietes = z.object({
+  champs: z.array(z.object({ objet: z.string().max(20), propriete: z.string().max(100) })).max(CHAMPS_HUBSPOT_MAX).catch([]),
+});
+
+/** Un 404 qui ne dit pas « espace sans portail » : la route n'existe pas encore chez le connecteur. */
+const traduireAbsence = (err: unknown): unknown => (
+  estAbandon(err) ? new ConnecteurEnReveil()
+    : err instanceof HubspotServiceError && err.status === 404 && err.code !== 'tenant_not_connected' ? new ConnecteurPasAJour()
+      : err
+);
+
+/**
+ * Les champs HubSpot de l'espace, lus PAR LE CONNECTEUR (`POST /service/champs`) : les propriétés importables du contact
+ * et de la transaction, les deux calculés, et la liste choisie. Un seul essai sous `DELAI_CHAMPS_MS` : le délai dépassé
+ * lève `ConnecteurEnReveil`, une route absente `ConnecteurPasAJour`. Pas de portail : `HubspotServiceError` 404
+ * `tenant_not_connected` (ou 409 `portal_disconnected`). Une réponse invalide : 502, jamais une liste vide.
+ */
+export async function lireChampsHubspot(deps: ConnectorDeps, tenantId: string): Promise<ChampsDuPortail> {
+  const brut = await callService<unknown>(deps, '/service/champs', { tenantId }, DELAI_CHAMPS_MS).catch((err: unknown) => {
+    throw traduireAbsence(err);
+  });
+  const r = reponseChamps.safeParse(brut);
+  if (!r.success) throw new HubspotServiceError(502, 'reponse_invalide', false);
+  return r.data;
+}
+
+/**
+ * Pose la liste choisie chez le connecteur (`POST /service/champs/poser`), qui relit les propriétés du portail et refuse
+ * une propriété absente ou filtrée (`ProprietesInconnues`). Rend la liste enregistrée, avec les libellés HubSpot. Mêmes
+ * traductions que `lireChampsHubspot` ; l'écriture est idempotente, l'écran peut la refaire.
+ */
+export async function poserChampsHubspot(deps: ConnectorDeps, tenantId: string, champs: readonly ChampChoisi[]): Promise<ChampLibelle[]> {
+  const brut = await callService<unknown>(deps, '/service/champs/poser', { tenantId, champs }, DELAI_CHAMPS_MS).catch((err: unknown) => {
+    if (err instanceof HubspotServiceError && err.status === 400) {
+      const c = err.corps as { code?: unknown; error?: unknown } | null | undefined;
+      if (c?.code === 'propriete_inconnue' || c?.error === 'propriete_inconnue') {
+        const lu = refusProprietes.safeParse(err.corps);
+        throw new ProprietesInconnues(lu.success ? lu.data.champs : []);
+      }
+    }
+    throw traduireAbsence(err);
+  });
+  const r = reponsePoserChamps.safeParse(brut);
+  if (!r.success) throw new HubspotServiceError(502, 'reponse_invalide', false);
+  return r.data.choisis;
 }
 
 export interface HubspotDealStage { id: string; label: string; closed: boolean }

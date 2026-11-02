@@ -97,6 +97,7 @@ import { registerHubspotImport } from './http/hubspot-import';
 import { registerHubspotPipelines } from './http/hubspot-pipelines';
 import { registerHubspotInstall } from './http/hubspot-install';
 import { registerHubspotChoix } from './http/hubspot-choix';
+import { registerHubspotChamps } from './http/hubspot-champs';
 import { registerLinks } from './http/links';
 import { registerWebhookEntrant } from './http/webhook-entrant';
 import type { WebhookEntrantRouteDeps } from './http/webhook-entrant';
@@ -181,6 +182,7 @@ import type { HubspotImportRouteDeps } from './http/hubspot-import';
 import type { HubspotPipelinesRouteDeps } from './http/hubspot-pipelines';
 import type { HubspotInstallRouteDeps } from './http/hubspot-install';
 import type { HubspotChoixRouteDeps } from './http/hubspot-choix';
+import type { HubspotChampsRouteDeps } from './http/hubspot-champs';
 import type { MbaRouteDeps } from './http/mba';
 import type { EmailRoutesDeps } from './http/email';
 import type { ApiKeyLookup } from './auth/api-key-store.pg';
@@ -456,6 +458,11 @@ export interface ServerDeps {
    * toujours permis (un espace descendu d'offre), la route refuse elle-même d'ALLUMER ce que l'offre n'ouvre pas.
    */
   hubspotChoix?: HubspotChoixRouteDeps;
+  /**
+   * Les champs HubSpot à importer sur les fiches (lot 2 du 2026-11-02), réservés aux admins, sous l'offre qui relie
+   * HubSpot. La liste vit chez le connecteur.
+   */
+  hubspotChamps?: HubspotChampsRouteDeps;
   /** Étapes de deal du portail HubSpot (menu de l'écran Automation), réservé aux admins. */
   hubspotPipelines?: HubspotPipelinesRouteDeps;
   /** Configuration de l'agent MBA (connaissance, personnalité, réglages), réservé aux admins. */
@@ -888,6 +895,7 @@ export function modulesDeRoutes(
     entree('hubspotImport', 'tenant', deps.hubspotImport, (app, d, g) => registerHubspotImport(app, d, g.admin), toutes('crm')),
     entree('hubspotInstall', 'tenant', deps.hubspotInstall, (app, d, g) => registerHubspotInstall(app, d, g.admin), toutes('crm')),
     entree('hubspotChoix', 'tenant', deps.hubspotChoix, (app, d, g) => registerHubspotChoix(app, d, g.admin)),
+    entree('hubspotChamps', 'tenant', deps.hubspotChamps, (app, d, g) => registerHubspotChamps(app, d, g.admin), toutes('crm')),
     entree('hubspotPipelines', 'tenant', deps.hubspotPipelines, (app, d, g) => registerHubspotPipelines(app, d, g.admin), toutes('crm')),
     entree('mba', 'tenant', deps.mba, (app, d, g) => registerMba(app, d, g.admin), toutes('agent_meta')),
     entree('email', 'tenant', deps.email, (app, d, g) => registerEmailRoutes(app, d, g.admin), toutes('email')),
