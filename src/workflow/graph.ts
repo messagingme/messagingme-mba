@@ -57,7 +57,7 @@ export interface WorkflowGraph {
   edges: WorkflowEdge[];
 }
 
-const MAX_NODES = 200;
+export const MAX_NODES = 200;
 const MAX_EDGES = 400;
 
 /**
