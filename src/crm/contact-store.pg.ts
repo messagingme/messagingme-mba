@@ -19,6 +19,7 @@ import {
   type FicheDeLEcriture,
 } from './transition-consentement';
 import { empreinteRefus, empreintesDeLaFiche, SOURCE_LISTE_DE_REFUS } from './refus-effaces';
+import type { ChampsFiche } from '../campaign/build';
 
 /**
  * 🔴 LA LISTE DE REFUS À LA CRÉATION D'UNE FICHE (`src/crm/refus-effaces.ts`). Un CTE qui CONSOMME les entrées des
@@ -999,6 +1000,20 @@ export class PgContactStore implements ContactStore {
       [tenantId, waId],
     );
     return res.rows[0]?.id ?? null;
+  }
+
+  /**
+   * Écrit des champs de fiche HORS transaction : retire, puis pose (une valeur vide reçue RETIRE le champ). La même
+   * écriture que `ecrireChampsFiche` du store des campagnes, qui exige la transaction de la campagne ; ici, les champs
+   * HubSpot importés au changement d'étape d'un deal, avant l'enfilement (`POST /hubspot/deal-stage`, lot 3a). N'émet
+   * aucun événement d'automation.
+   */
+  async ecrireChampsFiche(tenantId: string, contactId: string, champs: ChampsFiche): Promise<void> {
+    await this.pool.query(
+      `update contacts set fields = (fields - $4::text[]) || $3::jsonb, updated_at = now()
+       where tenant_id = $1 and id = $2 and deleted_at is null`,
+      [tenantId, contactId, JSON.stringify(champs.poser), [...champs.retirer]],
+    );
   }
 
   /**

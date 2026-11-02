@@ -107,6 +107,7 @@ import { plafondLePlusBas } from './campaign/pacing';
 import { fetchHubspotLists, importHubspotList, disconnectHubspot, fetchHubspotDealStages, lireHubspotPortal, poserModeTaches, lireChampsHubspot, poserChampsHubspot } from './crm/hubspot-service';
 import type { HubspotChoixRouteDeps } from './http/hubspot-choix';
 import type { HubspotChampsRouteDeps } from './http/hubspot-champs';
+import type { HubspotEventRouteDeps } from './http/hubspot-events';
 import { etatLigneHubspot, type HubspotConversationDeps } from './http/hubspot-conversation';
 import type { HubspotWorkflowDeps } from './http/hubspot-workflow';
 import { plafondsDesWorkflows } from './hubspot-workflow/plafonds';
@@ -138,6 +139,8 @@ import { gestionDesWidgetsEnBase, type DepsWidgets } from './widgets/gestion';
 import { etatDuScenario } from './workflow/store.pg';
 import { ATTENTE_REVEIL_COURT_A_L_ARRET_MS } from './workflow/reveil-court';
 import { enfilerEvenementAutomation, type AutomationEventJob } from './automation/event-job';
+import { automationsCandidates } from './automation/runner';
+import type { ChampsFiche } from './campaign/build';
 import { RateLimiter } from './auth/rate-limit';
 import { resolveTenantCode } from './ids/tenant-code';
 import { MetaEmbeddedSignupClient } from './meta/embedded-signup';
@@ -1964,11 +1967,20 @@ async function main(): Promise<void> {
     ...(config.HUBSPOT_SERVICE_SECRET ? {
       hubspotEvents: {
         secret: config.HUBSPOT_SERVICE_SECRET,
+        // Lot 3a du 2026-11-02 : la ligne « Automations HubSpot », puis la fiche d'un lead inconnu et les champs importés,
+        // seulement quand une automation allumée et permise correspond (la définition du runner, gel de l'offre compris).
+        automationsBranchees: async (t: string) => (await settingsStore.lireChoixHubspot(t)).automations,
+        automationCorrespond: async (t: string, ev: AutomationEventJob['event']) =>
+          (await automationsCandidates(t, ev, { automations: automationStore, offres })).length > 0,
         findWaId: async (tenant: string, waId: string) => ((await contactStore.findIdByWaId(tenant, waId)) ? waId : null),
+        estBloque: (t: string, waId: string) => contactStore.isBlockedByWaId(t, waId),
+        resoudreFiche: (t: string, e164: string) => resoudreFiche(contactStore, t, { phone: e164 }, { creer: 'phone' }),
+        champsDeclares: async (t: string) => (await fieldStore.list(t)).map((f) => f.key),
+        ecrireChamps: (t: string, contactId: string, champs: ChampsFiche) => contactStore.ecrireChampsFiche(t, contactId, champs),
         publish: async (tenantId: string, event: { kind: 'hubspot_deal_stage'; waId: string; pipelineId: string; stageId: string }) => {
           await enfilerEvenementAutomation(queue, { tenantId, event } satisfies AutomationEventJob);
         },
-      },
+      } satisfies HubspotEventRouteDeps,
       // La carte HubSpot lit, répond et rend la main (lot 2 de la reprise humaine) : le chemin d'envoi de la console,
       // tel quel (`depsRepondre`), et l'idempotence de `/v1/sends`.
       hubspotConversation: {
@@ -2228,7 +2240,10 @@ async function main(): Promise<void> {
             fonctions: async (t: string) => (await offres.offreDe(t)).droits.fonctions,
             choixEnVigueur: async (t: string) => {
               const [c, s] = await Promise.all([settingsStore.lireChoixHubspot(t), settingsStore.get(t)]);
-              return { analyse: c.analyse, reponse: c.reponse, modeles: c.modeles, workflows: c.workflows, listes: s.hubspotListsEnabled, valideLe: c.valideLe };
+              return {
+                analyse: c.analyse, reponse: c.reponse, modeles: c.modeles, workflows: c.workflows, automations: c.automations,
+                listes: s.hubspotListsEnabled, valideLe: c.valideLe,
+              };
             },
             portail: lirePortailHubspot,
             numeroPrincipal: (t: string) => phoneStatusStore.getPhoneNumber(t),

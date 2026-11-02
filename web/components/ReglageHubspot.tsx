@@ -10,7 +10,7 @@ import { Bouton } from '@/components/Bouton';
 import { ChampsHubspot } from '@/components/ChampsHubspot';
 import { useInstallationHubspot } from '@/lib/hubspot-installation';
 import { useOffre } from '@/lib/use-offre';
-import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule } from '@/lib/hubspot-choix';
+import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, envoyerAutomations } from '@/lib/hubspot-choix';
 
 /**
  * TOOLS > INTÉGRATIONS > HUBSPOT : le client choisit ce qu'il branche entre Messaging Me et HubSpot (lot 1bis de
@@ -24,6 +24,8 @@ import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixAct
  * « Répondre aux clients depuis HubSpot » (lot 3, décision D) : éteint par défaut, ouvert par l'offre qui ouvre l'Inbox.
  * « Envoyer des modèles depuis HubSpot » (sous-lot « relancer », décision E) : éteint par défaut, sous la même offre, et
  * seulement réponse allumée (éteindre la réponse l'éteint, `choixApresBascule`).
+ * « Automations HubSpot » (lot 3a du 2026-11-02, décision 5) : éteinte par défaut, allumée par la migration 0270 pour un
+ * espace qui a déjà une automation « deal » ; l'étape de choix la propose telle que les réglages la disent.
  * La raison d'une ligne fermée se lit dans la grille du serveur (`phraseInclusDans`) : la réponse vient avec Pro,
  * l'analyse et les listes avec Entreprise.
  *
@@ -43,6 +45,9 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
   const [listesAutorisees, setListesAutorisees] = useState(false);
   // Le mode des tâches du portail a-t-il été LU ? Sinon la ligne est grisée et le mode n'est jamais envoyé.
   const [modeConnu, setModeConnu] = useState(false);
+  // L'API connaît-elle la ligne « Automations HubSpot » (lot 3a) ? Une API d'avant ne la rend pas et refuserait la clé :
+  // la ligne n'est alors ni montrée ni envoyée.
+  const [automationsConnue, setAutomationsConnue] = useState(false);
   const [choix, setChoix] = useState<ChoixHubspot | null>(null);
   const [statut, setStatut] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [erreur, setErreur] = useState<string | null>(null);
@@ -82,8 +87,9 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
         setNomPortail(portail?.connected ? (portail.hubDomain ?? portail.hubId ?? null) : null);
         setListesAutorisees(portail?.listsScopeGranted === true);
         setModeConnu(portail?.connected === true && portail.routingMode !== undefined);
+        setAutomationsConnue(typeof s.hubspotAutomations === 'boolean');
         if (estRelie && date === null) {
-          if (!enEtapeDeChoix.current) setChoix(choixParDefaut({ routingMode: portail?.routingMode, fonctions: fonctionsLues.current }));
+          if (!enEtapeDeChoix.current) setChoix(choixParDefaut({ routingMode: portail?.routingMode, fonctions: fonctionsLues.current, reglages: s }));
           enEtapeDeChoix.current = true;
         } else {
           enEtapeDeChoix.current = false;
@@ -124,6 +130,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
       reponse: c.reponse && !fermeeParLOffre('reponse', fonctions),
       modeles: c.modeles && c.reponse && !fermeeParLOffre('modeles', fonctions),
       workflows: c.workflows && !fermeeParLOffre('workflows', fonctions),
+      automations: c.automations && !fermeeParLOffre('automations', fonctions),
       listes: c.listes && !fermeeParLOffre('listes', fonctions),
     } : c));
   }, [fonctions]);
@@ -138,12 +145,13 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
     return () => clearTimeout(minuteur);
   }, [etape, relecturesReveil, lire]);
 
-  const enregistrer = useCallback((suivant: ChoixHubspot, precedent: ChoixHubspot | null, envoyerTaches: boolean) => {
+  // `automationsPart` : la règle de `envoyerAutomations` (seulement sa ligne, ou la validation de l'étape de choix).
+  const enregistrer = useCallback((suivant: ChoixHubspot, precedent: ChoixHubspot | null, envoyerTaches: boolean, automationsPart: boolean) => {
     setStatut('saving');
     setErreur(null);
     version.current += 1;
     enregistrementEnCours.current = true;
-    putHubspotChoix(tenantId, corpsDuChoix(suivant, { envoyerTaches }))
+    putHubspotChoix(tenantId, corpsDuChoix(suivant, { envoyerTaches, envoyerAutomations: automationsPart }))
       .then((r) => {
         enregistrementEnCours.current = false;
         if (!vivant.current) return;
@@ -153,6 +161,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
           analyse: r.hubspotAnalyse, passage: r.hubspotPassage, injoignable: r.hubspotInjoignable, reponse: r.hubspotReponse,
           modeles: r.hubspotModeles === true,
           workflows: r.hubspotWorkflows === true,
+          automations: r.hubspotAutomations === true,
           listes: r.hubspotListsEnabled,
           // Le mode posé par cette requête ; non demandé, le mode affiché ne bouge pas ; demandé et non posé, la ligne
           // revient à ce qu'elle était (l'avertissement le dit).
@@ -168,14 +177,14 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
         setStatut('error');
         setErreur(e instanceof Error ? e.message : t('Enregistrement impossible', 'Unable to save'));
       });
-  }, [tenantId, t]);
+  }, [tenantId, t, automationsConnue]);
 
   const basculer = (champ: Champ) => {
     if (!choix || statut === 'saving') return;
     const suivant = choixApresBascule(choix, champ);
     if (etape === 'choisir') { setChoix(suivant); return; }
     setChoix(suivant);
-    enregistrer(suivant, choix, champ === 'taches');
+    enregistrer(suivant, choix, champ === 'taches', envoyerAutomations({ bascule: champ }, fonctions, automationsConnue));
   };
 
   const lignes: Array<{ champ: Champ; titre: string; detail: string }> = [
@@ -213,6 +222,11 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
       champ: 'workflows',
       titre: t('Workflows HubSpot : envoyer des modèles et lancer des scénarios', 'HubSpot workflows: send templates and launch scenarios'),
       detail: t('Vos workflows HubSpot envoient un modèle Service approuvé au contact inscrit, ou lui lancent un scénario qui commence par un tel modèle, avec les actions « Envoyer un modèle WhatsApp (Messaging Me) » et « Lancer un scénario Messaging Me ». Avec « Envoi marketing » dans l’action, vous attestez l’accord marketing de vos contacts : les modèles et scénarios Marketing partent aussi, et l’accord est enregistré sur chaque fiche. Jamais à un contact qui a dit STOP, jamais par-dessus un conseiller qui a la main, ni deux fois le même modèle ou le même scénario au même contact en 24 heures. Les champs HubSpot que vous choisissez ci-dessous s’écrivent sur la fiche du contact avant le scénario. Au plus 60 envois par minute et 2 000 par jour. Meta facture chaque modèle, et les réponses de l’agent IA d’un scénario se paient sur le crédit IA.', 'Your HubSpot workflows send an approved Utility template to the enrolled contact, or launch a scenario that starts with such a template, with the “Send a WhatsApp template (Messaging Me)” and “Launch a Messaging Me scenario” actions. With “Marketing send” in the action, you confirm your contacts’ marketing consent: Marketing templates and scenarios are sent too, and the consent is recorded on each record. Never to a contact who said STOP, never over an agent who has taken over, nor the same template or scenario to the same contact twice in 24 hours. The HubSpot fields you choose below are written to the contact record before the scenario. At most 60 sends per minute and 2,000 per day. Meta charges for each template, and the AI agent replies of a scenario are paid from the AI credit.'),
+    },
+    {
+      champ: 'automations',
+      titre: t('Automations HubSpot : lancer un scénario quand un deal atteint une étape', 'HubSpot automations: launch a scenario when a deal reaches a stage'),
+      detail: t('Quand un deal atteint l’étape choisie dans une de vos automations, Messaging Me lance son scénario au contact de la transaction, et crée sa fiche s’il n’en a pas encore, dans la limite de contacts de votre offre. Les champs HubSpot que vous choisissez ci-dessous s’écrivent sur la fiche avant le scénario. Éteinte, un changement d’étape ne déclenche rien. Jamais à un contact qui a dit STOP ou que vous avez bloqué.', 'When a deal reaches the stage chosen in one of your automations, Messaging Me launches its scenario for the deal’s contact, and creates their record if they do not have one yet, within your plan’s contact limit. The HubSpot fields you choose below are written to the record before the scenario. Off, a stage change triggers nothing. Never to a contact who said STOP or whom you blocked.'),
     },
     {
       champ: 'listes',
@@ -267,7 +281,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
             </p>
           )}
           <ul className="mt-2 divide-y divide-ink-50">
-            {lignes.map((l) => {
+            {lignes.filter((l) => l.champ !== 'automations' || automationsConnue).map((l) => {
               const fermee = fermeeParLOffre(l.champ, fonctions);
               return (
                 <li key={l.champ} className="flex items-start justify-between gap-3 py-3" data-testid={`integration-hubspot-${l.champ}`}>
@@ -310,14 +324,15 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
 
           {etape === 'choisir' && (
             <div className="mt-3">
-              <Bouton type="button" data-testid="integration-hubspot-valider" onClick={() => enregistrer(choix, null, modeConnu)} disabled={statut === 'saving'}>
+              <Bouton type="button" data-testid="integration-hubspot-valider" onClick={() => enregistrer(choix, null, modeConnu, envoyerAutomations({ validation: true }, fonctions, automationsConnue))} disabled={statut === 'saving'}>
                 {t('Valider', 'Confirm')}
               </Bouton>
             </div>
           )}
 
-          {/* Les champs à importer : seulement une fois le choix enregistré, workflows allumés (lot 2 du 2026-11-02). */}
-          {etape === 'regle' && choix.workflows && <ChampsHubspot tenantId={tenantId} />}
+          {/* Les champs à importer : seulement une fois le choix enregistré, workflows ou automations allumés (lots 2 et 3a
+              du 2026-11-02, décision 1). */}
+          {etape === 'regle' && (choix.workflows || choix.automations) && <ChampsHubspot tenantId={tenantId} />}
 
           {tachesNonAppliquees && (
             <p className="mt-3 text-sm text-danger" role="alert" data-testid="integration-hubspot-taches-non-appliquees">
@@ -327,8 +342,9 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
 
           <div className="mt-4 space-y-1 border-t border-ink-50 pt-3 text-sm text-ink-500">
             <p>
-              {t('Un changement d’étape de deal qui envoie un message WhatsApp se règle dans', 'A deal stage change that sends a WhatsApp message is set up in')}{' '}
-              <Link href="/automations" className="text-brand-600 hover:underline">{t('Automations', 'Automations')}</Link>.
+              {t('Le scénario lancé quand un deal atteint une étape se règle dans', 'The scenario launched when a deal reaches a stage is set up in')}{' '}
+              <Link href="/automations" className="text-brand-600 hover:underline">{t('Automations', 'Automations')}</Link>
+              {t(', avec « Automations HubSpot » allumée.', ', with “HubSpot automations” on.')}
             </p>
             <p>
               {t('Dans HubSpot, placez la carte Messaging Me sur la fiche contact : Paramètres > Objets > Contacts > Personnalisation des fiches.', 'In HubSpot, add the Messaging Me card to the contact record: Settings > Objects > Contacts > Record customization.')}{' '}

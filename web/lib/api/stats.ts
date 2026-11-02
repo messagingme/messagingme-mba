@@ -741,6 +741,11 @@ export interface TenantSettings {
   hubspotModeles?: boolean;
   /** Workflows HubSpot : envoyer des modèles et lancer des scénarios (les actions de workflow, migration 0259). Absent : éteint. */
   hubspotWorkflows?: boolean;
+  /**
+   * Automations HubSpot : un deal qui atteint une étape lance les automations « deal » (lot 3a, migration 0270). Absent
+   * d'une API antérieure : l'écran des automations montre le déclencheur comme avant, la carte HubSpot le lit éteint.
+   */
+  hubspotAutomations?: boolean;
   hubspotChoixValideLe?: string | null;
   /*
    * `prix` A QUITTE LES REGLAGES LE 2026-09-23 (lot 8, migration 0168). Il n'y a plus qu'une grille, pour
@@ -791,6 +796,8 @@ export interface ChoixHubspot {
   modeles: boolean;
   /** Les workflows HubSpot du client envoient des modèles WhatsApp (l'action de workflow). Indépendant de la réponse. */
   workflows: boolean;
+  /** Un deal HubSpot qui atteint une étape lance les automations « deal » de l'espace (lot 3a). */
+  automations: boolean;
   listes: boolean;
   /** Créer des tâches dans HubSpot (sinon : propriétés seulement). Vaut pour tout le portail. */
   taches: boolean;
@@ -804,6 +811,8 @@ export interface ChoixHubspotEnregistre {
   hubspotReponse: boolean;
   hubspotModeles: boolean;
   hubspotWorkflows: boolean;
+  /** Absent d'une API antérieure au lot 3a : lu éteint. */
+  hubspotAutomations?: boolean;
   hubspotListsEnabled: boolean;
   hubspotChoixValideLe: string | null;
   routingMode: 'mm_routing' | 'hubspot_native' | null;
@@ -815,7 +824,10 @@ export interface ChoixHubspotEnregistre {
  * Enregistre le choix des fonctions HubSpot (admin, lot 1bis). 402 si l'on ALLUME une fonction que l'offre n'ouvre pas,
  * 409 sans portail relié.
  */
-export function putHubspotChoix(tenantId: string, choix: Omit<ChoixHubspot, 'taches'> & { taches?: boolean }): Promise<ChoixHubspotEnregistre> {
+export function putHubspotChoix(
+  tenantId: string,
+  choix: Omit<ChoixHubspot, 'taches' | 'automations'> & { taches?: boolean; automations?: boolean },
+): Promise<ChoixHubspotEnregistre> {
   return request(`/tenants/${tenantId}/hubspot/choix`, { method: 'PUT', body: JSON.stringify(choix) });
 }
 

@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: 28e112
+traduit_de: 074e09
 description: WhatsApp in HubSpot with the Messaging Me app: reply from the contact record, send from your workflows, analyze every conversation. Without Sales Hub.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -21,7 +21,7 @@ Hub for webhooks.
 - **Your HubSpot workflows write on WhatsApp.** Three actions join your workflows: send a template, launch a scenario,
   or launch it from a deal, with the HubSpot fields you choose.
 - **A deal stage launches a scenario.** When a deal reaches the chosen stage, its contact receives the scenario,
-  without writing a workflow.
+  without writing a workflow, and their record is created if they are new to Messaging Me.
 - **The analysis of every conversation.** The intent, the sentiment and the suggested action land on the record, as
   properties your workflows can follow, with a task and one-click actions: create or attach the quote, call back,
   escalate to a human.
@@ -98,11 +98,11 @@ receives nothing, even with this confirmation.
 The deal action writes only to the one contact associated with the deal: with several associated contacts, nothing is
 sent.
 
-Once the line is on, the “HubSpot fields to import” block, below the switches, lists the contact and deal properties,
-plus the advisor (the deal owner) and their booking link (when Messaging Me can read their calendar). Check 20 at most, then “Save the
-fields”. Each field becomes a field of the Messaging Me record, its HubSpot name followed by “(HubSpot)”, for instance
-**First name (HubSpot)**. The deal action writes them all to the record, the “Launch a scenario” action those of the
-contact. An empty property in HubSpot removes the field from the record, and an unchecked field is not deleted.
+Once this line or the automations line (step 7) is on, the “HubSpot fields to import” block, below the switches, lists
+the contact and deal properties, plus the advisor (the deal owner) and their booking link (when Messaging Me can read
+their calendar). Check 20 at most, then “Save the fields”. Each field becomes a field of the Messaging Me record, its
+HubSpot name followed by “(HubSpot)”, for instance **First name (HubSpot)**. The deal action and the deal stage of step
+7 write them all to the record, the “Launch a scenario” action those of the contact. An empty property in HubSpot removes the field from the record, and an unchecked field is not deleted.
 
 The variables of the opening template come from the sources set on the template (for instance “{{1}}” = First name
 (HubSpot)), and the scenario's messages can write “{{hs_calc_conseiller}}” or “{{hs_calc_lien_agenda}}”. In the
@@ -113,12 +113,17 @@ Place the action right after the trigger, and turn re-enrollment on so that a re
 refused within 24 hours). Do not also connect a console automation to the same stage: the contact would receive two
 scenarios.
 
-**7. Launch a scenario at a deal stage.** No workflow needed: in Automation, the “a HubSpot deal reaches a stage”
-trigger launches the scenario of your choice to the deal's contact, when the deal reaches that stage. You pick the
-stage by its name; renaming it later in HubSpot breaks nothing.
+**7. Launch a scenario at a deal stage.** No workflow needed: turn on “HubSpot automations: launch a scenario when a
+deal reaches a stage”. In Automation, the “a HubSpot deal reaches a stage” trigger then launches the scenario of your
+choice to the deal's contact, when the deal reaches that stage. You pick the stage by its name; renaming it later in
+HubSpot breaks nothing.
+
+With the line off, a stage change triggers nothing, and the trigger is greyed out in Automation. A contact Messaging Me does not know yet gets a record, within your plan's contact limit, and the HubSpot fields you
+chose are written to it before the scenario. Without an automation turned on for that stage, no record is created.
 
 Since the contact is not writing at that moment, the scenario starts with a template. A deal without a contact, or a
-contact without a number, triggers nothing, and a deal moved several times in a row only triggers once.
+contact without a number, triggers nothing, and a deal moved several times in a row only triggers once. Nothing is sent
+to a contact who said STOP or whom you blocked.
 
 **8. Follow, pause or cut off.** On the Home screen, the HubSpot block shows the portal, the sync status and whether
 your lists serve as audiences. Cutting off the sync makes you choose between a pause, which can be undone, and a full

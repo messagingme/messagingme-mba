@@ -270,9 +270,16 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
   // d'exploitation bien signée doit quand même tomber, sur la relecture du facteur à chaque requête.
   auth: { users: aucunCompte, secret: SECRET, opsEmails: [ADRESSE_SONDE_OPS], mfa: magasinFacteurSonde },
   // Signature entre nos services : un VRAI secret, sans quoi la comparaison n'est jamais exercée.
+  // Derrière la signature, la ligne « Automations HubSpot » éteinte : rien ne se crée, ne s'écrit ni ne part.
   hubspotEvents: {
     secret: SECRET_SERVICE,
+    automationsBranchees: async () => false,
+    automationCorrespond: async () => false,
     findWaId: async () => null,
+    estBloque: async () => false,
+    resoudreFiche: async () => ({ ok: false, code: 'unknown_contact' }),
+    champsDeclares: async () => [],
+    ecrireChamps: async () => undefined,
     publish: async () => undefined,
   } satisfies HubspotEventRouteDeps,
   // La carte HubSpot (lot 2 de la reprise humaine) : le même vrai secret ; derrière lui, une offre sans l'Inbox et un

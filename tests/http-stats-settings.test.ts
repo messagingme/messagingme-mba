@@ -115,7 +115,7 @@ function app(over: { stats?: Partial<Omit<StatsRouteDeps, 'stats' | 'conversatio
     ...reglagesInertes,
     // Aucun portail lie : c est le defaut, et la fixture le DIT (cf. `tests/hubspot.ts`).
     hubspotPortalConnecte: sansPortailHubspot,
-    choixHubspot: async () => ({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, valideLe: null }),
+    choixHubspot: async () => ({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, valideLe: null }),
     ...over.settings,
     reglages: {
       ...reglagesDepInertes,
@@ -628,6 +628,16 @@ describe('settings route', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json<{ mbaEnabled: boolean }>().mbaEnabled).toBe(true);
     await a.close();
+  });
+
+  it('GET /settings rend la ligne « Automations HubSpot » (lot 3a), que lit l’écran des automations', async () => {
+    const choix = { analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, valideLe: null };
+    for (const automations of [true, false]) {
+      const a = app({ settings: { choixHubspot: async () => ({ ...choix, automations }) } });
+      const res = await a.inject({ method: 'GET', url: '/tenants/t1/settings', ...h(adminTok) });
+      expect(res.json<{ hubspotAutomations?: boolean }>().hubspotAutomations).toBe(automations);
+      await a.close();
+    }
   });
 
   it('🔴 GET /settings : un connecteur qui se réveille n’est ni relié ni délié (`hubspotReveil`), une panne reste « pas relié »', async () => {

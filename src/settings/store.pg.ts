@@ -199,6 +199,11 @@ export interface ChoixHubspot {
    * réponse : aucun humain n'est en jeu.
    */
   workflows: boolean;
+  /**
+   * Un deal HubSpot qui atteint une étape déclenche les automations « deal » de l'espace (lot 3a du 2026-11-02,
+   * migration 0270). Éteinte, `POST /hubspot/deal-stage` ne fait rien.
+   */
+  automations: boolean;
   /** L'étape de choix a été validée ; nul, l'écran la propose. */
   valideLe: Date | null;
 }
@@ -218,6 +223,9 @@ function choixDeLaLigne(r: Record<string, unknown> | undefined): ChoixHubspot {
     // Les deux, toujours : la route du choix l'écrit à faux quand la réponse s'éteint, la lecture ne s'y fie pas seule.
     modeles: reponse && r?.hubspot_modeles === true,
     workflows: r?.hubspot_workflows === true,
+    // 🔴 `=== true` : la migration 0270 part AVANT le code (sa reprise allume les espaces qui ont une automation « deal ») ;
+    // lue `!== false`, un espace sans ligne de réglages se lirait allumé.
+    automations: r?.hubspot_automations === true,
     valideLe: r?.hubspot_choix_valide_le instanceof Date ? r.hubspot_choix_valide_le : null,
   };
 }
@@ -231,6 +239,7 @@ export interface ChoixHubspotEcrit {
   /** Déjà ramené à faux par la route quand la réponse est éteinte. */
   modeles: boolean;
   workflows: boolean;
+  automations: boolean;
   listes: boolean;
 }
 
@@ -276,17 +285,18 @@ export class PgTenantSettingsStore {
       const premiereValidation = (avant.rows[0]?.v ?? null) === null;
       const res = await client.query<Record<string, unknown>>(
         `insert into tenant_settings (tenant_id, hubspot_analyse, hubspot_passage, hubspot_injoignable, hubspot_reponse,
-                                      hubspot_lists_enabled, hubspot_modeles, hubspot_workflows, hubspot_choix_valide_le, updated_at)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, now(), now())
+                                      hubspot_lists_enabled, hubspot_modeles, hubspot_workflows, hubspot_automations,
+                                      hubspot_choix_valide_le, updated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, now(), now())
          on conflict (tenant_id) do update set
            hubspot_analyse = excluded.hubspot_analyse, hubspot_passage = excluded.hubspot_passage,
            hubspot_injoignable = excluded.hubspot_injoignable, hubspot_reponse = excluded.hubspot_reponse,
            hubspot_lists_enabled = excluded.hubspot_lists_enabled, hubspot_modeles = excluded.hubspot_modeles,
-           hubspot_workflows = excluded.hubspot_workflows,
+           hubspot_workflows = excluded.hubspot_workflows, hubspot_automations = excluded.hubspot_automations,
            hubspot_choix_valide_le = coalesce(tenant_settings.hubspot_choix_valide_le, excluded.hubspot_choix_valide_le),
            updated_at = now()
          returning *`,
-        [tenantId, c.analyse, c.passage, c.injoignable, c.reponse, c.listes, c.modeles, c.workflows],
+        [tenantId, c.analyse, c.passage, c.injoignable, c.reponse, c.listes, c.modeles, c.workflows, c.automations],
       );
       const r = res.rows[0];
       return { choix: choixDeLaLigne(r), listes: r?.hubspot_lists_enabled === true, premiereValidation };

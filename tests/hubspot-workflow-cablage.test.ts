@@ -81,3 +81,30 @@ describe('le câblage des champs HubSpot à importer', () => {
     expect(champs).toContain('poser: (t: string, champs: readonly ChampChoisi[]) => poserChampsHubspot(hubspotSuppression, t, champs),');
   });
 });
+
+/**
+ * Le changement d'étape d'un deal (lot 3a du 2026-11-02) : le test de la route monte de fausses dépendances. Ici, ce que
+ * la production branche : `automationsBranchees: async () => true` ou `automationCorrespond: async () => true`
+ * compileraient, et chaque changement d'étape de chaque deal créerait une fiche.
+ */
+describe('le câblage du changement d’étape d’un deal HubSpot', () => {
+  const evenements = (() => {
+    const debut = index.indexOf('hubspotEvents: {');
+    const fin = index.indexOf('} satisfies HubspotEventRouteDeps', debut);
+    expect(debut).toBeGreaterThan(0);
+    expect(fin).toBeGreaterThan(debut);
+    return index.slice(debut, fin);
+  })();
+
+  it('🔴 la ligne lue sur l’espace ; la correspondance par la définition du runner, gel de l’offre compris', () => {
+    expect(evenements).toContain('automationsBranchees: async (t: string) => (await settingsStore.lireChoixHubspot(t)).automations,');
+    expect(evenements).toContain('(await automationsCandidates(t, ev, { automations: automationStore, offres })).length > 0,');
+  });
+
+  it('🔴 la fiche par `resoudreFiche` (limite de contacts, liste de refus), les champs déclarés de l’espace, le blocage relu', () => {
+    expect(evenements).toContain("resoudreFiche: (t: string, e164: string) => resoudreFiche(contactStore, t, { phone: e164 }, { creer: 'phone' }),");
+    expect(evenements).toContain('champsDeclares: async (t: string) => (await fieldStore.list(t)).map((f) => f.key),');
+    expect(evenements).toContain('ecrireChamps: (t: string, contactId: string, champs: ChampsFiche) => contactStore.ecrireChampsFiche(t, contactId, champs),');
+    expect(evenements).toContain('estBloque: (t: string, waId: string) => contactStore.isBlockedByWaId(t, waId),');
+  });
+});

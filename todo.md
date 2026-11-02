@@ -7,6 +7,19 @@
   relances vieillissent (`TROP_TARD_MS`, 20 h). À retirer au lot suivant du plan
   `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, avec son test.
 
+## 🟡 La ligne « Automations HubSpot » et la fiche d'un lead inconnu : les restes (lot 3a du 2026-11-02)
+
+- Pas d'e2e : le déclencheur grisé dans Automations et la ligne de la carte HubSpot ne sont couverts que par les tests
+  unitaires de `web/lib/hubspot-choix.ts` (`web/e2e/automations.spec.ts`, `web/e2e/hubspot-interrupteur.spec.ts`).
+- Aucun plafond de CRÉATIONS de fiches sur `POST /hubspot/deal-stage` : un changement d'étape en masse dans HubSpot (édition
+  groupée de deals) crée une fiche par lead inconnu, borné seulement par la limite de contacts de l'offre ; le plafond
+  horaire du runner borne les envois, pas les créations. À trancher avec Julien.
+- Un numéro au format national sans indicatif reste lu comme français (`normalizePhone` en `FR`, comme avant le lot) :
+  un lead belge saisi « 470 12 34 56 » dans HubSpot aurait une fiche au mauvais numéro. Seul le format international est
+  sûr.
+- L'API laisse créer ou allumer une automation « deal » ligne éteinte (seul l'écran la grise) ; elle ne part pas.
+- Lot 3b du même plan : la case d'accord marketing des automations, la garde marketing de l'exécuteur.
+
 ## 🟡 Les scénarios par l'API : la suite de la v1 (spec `docs/superpowers/specs/2026-11-02-scenarios-api-design.md`)
 
 - Blocs v2 : question à menu, étiquette et champ, opt-in et opt-out, attente, condition.

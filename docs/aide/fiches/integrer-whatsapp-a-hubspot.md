@@ -3,7 +3,7 @@ description: WhatsApp dans HubSpot avec l'app Messaging Me : répondre depuis la
 ecran: integrations
 ancre_console: integration-hubspot
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 4e692d
+source_empreinte: be818c
 publique: oui
 rubrique: demarrer
 rang: 6
@@ -28,7 +28,7 @@ sans Data Hub pour les webhooks.
 - **Vos workflows HubSpot écrivent sur WhatsApp.** Trois actions s'ajoutent à vos workflows : envoyer un modèle, lancer
   un scénario, ou le lancer depuis une transaction, avec les champs HubSpot que vous choisissez.
 - **Une étape de transaction lance un scénario.** Quand une transaction arrive sur l'étape choisie, son contact reçoit
-  le scénario, sans écrire de workflow.
+  le scénario, sans écrire de workflow, et sa fiche est créée s'il est nouveau pour Messaging Me.
 - **L'analyse de chaque conversation.** L'intention, le sentiment et l'action suggérée arrivent dans la fiche, en
   propriétés que vos workflows suivent, avec une tâche et des actions en un clic : créer ou rattacher le devis,
   rappeler, escalader vers un humain.
@@ -106,12 +106,12 @@ qui a dit STOP ne reçoit rien, même avec cette attestation.
 L'action de transaction écrit au seul contact associé à la transaction : avec plusieurs contacts associés, rien ne
 part.
 
-Une fois la ligne allumée, le bloc « Champs HubSpot à importer », sous les interrupteurs, liste les propriétés du
-contact et de la transaction, plus le conseiller (le propriétaire de la transaction) et son lien de réservation (quand
-Messaging Me peut lire son agenda).
+Une fois cette ligne ou celle des automations (étape 7) allumée, le bloc « Champs HubSpot à importer », sous les
+interrupteurs, liste les propriétés du contact et de la transaction, plus le conseiller (le propriétaire de la
+transaction) et son lien de réservation (quand Messaging Me peut lire son agenda).
 Cochez-en 20 au plus, puis « Enregistrer les champs ». Chaque champ devient un champ de la fiche Messaging Me, son nom
-HubSpot suivi de « (HubSpot) », par exemple **Prénom (HubSpot)**. L'action de transaction les écrit tous sur la fiche,
-l'action « Lancer un scénario » ceux du contact. Une propriété vide dans HubSpot retire le champ de la fiche, et un champ
+HubSpot suivi de « (HubSpot) », par exemple **Prénom (HubSpot)**. L'action de transaction et l'étape de transaction de
+l'étape 7 les écrivent tous sur la fiche, l'action « Lancer un scénario » ceux du contact. Une propriété vide dans HubSpot retire le champ de la fiche, et un champ
 décoché n'est pas supprimé.
 
 Les variables du modèle d'ouverture viennent des sources posées sur le modèle (par exemple « {{1}} » = Prénom
@@ -123,12 +123,18 @@ Placez l'action juste après le déclencheur, et activez la réinscription pour 
 est refusée dans les 24 heures). Ne branchez pas en plus une automatisation de la console sur la même étape : le contact
 recevrait deux scénarios.
 
-**7. Lancer un scénario à une étape de transaction.** Sans workflow : dans Automation, le déclencheur « un deal HubSpot
-atteint une étape » lance le scénario de votre choix au contact de la transaction, quand elle arrive sur cette étape.
-Vous choisissez l'étape par son nom ; la renommer ensuite dans HubSpot ne casse rien.
+**7. Lancer un scénario à une étape de transaction.** Sans workflow : allumez « Automations HubSpot : lancer un
+scénario quand un deal atteint une étape ». Dans Automation, le déclencheur « un deal HubSpot atteint une étape » lance
+alors le scénario de votre choix au contact de la transaction, quand elle arrive sur cette étape. Vous choisissez
+l'étape par son nom ; la renommer ensuite dans HubSpot ne casse rien.
+
+Ligne éteinte, un changement d'étape ne déclenche rien, et le déclencheur est grisé dans Automation. Un contact que Messaging Me ne connaît pas encore reçoit sa fiche, dans la limite de contacts de votre offre, et les
+champs HubSpot que vous avez choisis s'y écrivent avant le scénario. Sans automation allumée sur cette étape, aucune
+fiche n'est créée.
 
 Le contact n'écrivant pas à ce moment-là, le scénario commence par un modèle. Une transaction sans contact, ou un
 contact sans numéro, ne déclenche rien, et une transaction déplacée plusieurs fois de suite ne déclenche qu'une fois.
+Rien ne part à un contact qui a dit STOP ou que vous avez bloqué.
 
 **8. Suivre, mettre en pause ou couper.** Sur l'Accueil, le bloc HubSpot montre le portail, l'état de la
 synchronisation et si vos listes servent d'audience. Couper la synchronisation vous fait choisir entre une pause,

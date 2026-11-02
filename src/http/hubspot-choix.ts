@@ -23,7 +23,7 @@ export interface HubspotChoixRouteDeps {
    * espace descendu d'offre doit pouvoir tout éteindre sans renvoyer le reste à faux), et la date décide de l'allumage
    * de la synchro.
    */
-  choixEnVigueur(tenantId: string): Promise<{ analyse: boolean; reponse: boolean; modeles: boolean; workflows: boolean; listes: boolean; valideLe: Date | null }>;
+  choixEnVigueur(tenantId: string): Promise<{ analyse: boolean; reponse: boolean; modeles: boolean; workflows: boolean; automations: boolean; listes: boolean; valideLe: Date | null }>;
   /** Le portail relié, lu par le connecteur (`lireHubspotPortal`). Une panne LÈVE. */
   portail(tenantId: string): Promise<HubspotPortalLink>;
   /** Le numéro principal de l'espace et l'état de sa synchro HubSpot, null sans numéro. */
@@ -56,16 +56,21 @@ const corpsChoix = z.object({
   // L'action de workflow (migration 0259) : FACULTATIF pour la même raison que `modeles` (une console d'avant l'envoie
   // pas) ; absent, il garde sa valeur. Indépendant de la réponse.
   workflows: z.boolean().optional(),
+  // Les automations « deal » (lot 3a, migration 0270) : FACULTATIF pour la même raison, absent = valeur gardée. Une
+  // console d'avant, restée ouverte, ne l'éteint donc pas en basculant une autre ligne d'un espace repris allumé.
+  automations: z.boolean().optional(),
 }).strict();
 
 /** Ce que l'offre doit ouvrir pour ALLUMER une fonction. Éteindre, ou laisser allumé ce qui l'était, n'est jamais refusé. */
-const FONCTION_REQUISE: ReadonlyArray<['analyse' | 'listes' | 'reponse' | 'modeles' | 'workflows', Fonction]> = [
+const FONCTION_REQUISE: ReadonlyArray<['analyse' | 'listes' | 'reponse' | 'modeles' | 'workflows' | 'automations', Fonction]> = [
   ['analyse', 'analyse'],
   ['listes', 'crm'],
   ['reponse', 'inbox'],
   ['modeles', 'inbox'],
   // Les workflows envoient par l'offre qui relie HubSpot (décision 8 du cadrage) ; la route d'envoi relit l'offre à chaque fois.
   ['workflows', 'crm'],
+  // Les automations « deal » : la même offre qui relie HubSpot (décision 5).
+  ['automations', 'crm'],
 ];
 
 /**
@@ -83,12 +88,15 @@ export function registerHubspotChoix(app: FastifyInstance, deps: HubspotChoixRou
   app.put('/tenants/:tenantId/hubspot/choix', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const parsed = corpsChoix.safeParse(req.body);
-    if (!parsed.success) return reply.code(400).send({ error: 'corps invalide : analyse, passage, injoignable, reponse et listes (booléens) sont requis, taches, modeles et workflows (booléens) sont facultatifs' });
+    if (!parsed.success) return reply.code(400).send({ error: 'corps invalide : analyse, passage, injoignable, reponse et listes (booléens) sont requis, taches, modeles, workflows et automations (booléens) sont facultatifs' });
     const brut = parsed.data;
 
     const [fonctions, avant] = await Promise.all([deps.fonctions(tenant), deps.choixEnVigueur(tenant)]);
     // L'état EFFECTIF après écriture (`modeles` absent = inchangé, réponse éteinte = éteint), sur lequel juger l'offre.
-    const c = { ...brut, modeles: brut.reponse && (brut.modeles ?? avant.modeles), workflows: brut.workflows ?? avant.workflows };
+    const c = {
+      ...brut, modeles: brut.reponse && (brut.modeles ?? avant.modeles), workflows: brut.workflows ?? avant.workflows,
+      automations: brut.automations ?? avant.automations,
+    };
     for (const [champ, fonction] of FONCTION_REQUISE) {
       if (c[champ] && !avant[champ] && !fonctions.has(fonction)) return reply.code(402).send(corpsRefusFonction(fonction));
     }
@@ -111,7 +119,7 @@ export function registerHubspotChoix(app: FastifyInstance, deps: HubspotChoixRou
 
     const { choix, listes, premiereValidation } = await deps.poserChoix(tenant, {
       analyse: c.analyse, passage: c.passage, injoignable: c.injoignable, reponse: c.reponse, modeles: c.modeles,
-      workflows: c.workflows, listes: c.listes,
+      workflows: c.workflows, automations: c.automations, listes: c.listes,
     });
 
     // Les champs de fiche des workflows ne se déclarent plus ici : ils sont choisis, et déclarés à l'enregistrement de
@@ -133,6 +141,7 @@ export function registerHubspotChoix(app: FastifyInstance, deps: HubspotChoixRou
       hubspotReponse: choix.reponse,
       hubspotModeles: choix.modeles,
       hubspotWorkflows: choix.workflows,
+      hubspotAutomations: choix.automations,
       hubspotListsEnabled: listes,
       hubspotChoixValideLe: choix.valideLe ? choix.valideLe.toISOString() : null,
       // Le mode posé par CETTE requête, null s'il n'était pas demandé ou s'il a échoué ; `tachesAppliquees` ne dit faux

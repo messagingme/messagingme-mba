@@ -29,6 +29,7 @@ export const FONCTION_REQUISE: Partial<Record<keyof ChoixHubspot, FonctionOffre>
   reponse: 'inbox',
   modeles: 'inbox',
   workflows: 'crm',
+  automations: 'crm',
 };
 
 /** La ligne est-elle fermée par l'offre ? `fonctions` absente (offre inconnue) : tout est ouvert, le serveur tranche. */
@@ -46,8 +47,14 @@ export function phraseDeLOffre(vue: VueOffre, champ: keyof ChoixHubspot, t: (fr:
 /**
  * Le choix proposé à l'étape de choix : ce qui écrit dans HubSpot sans rien ouvrir est coché, ce qui ouvre une porte
  * est décoché (décision 2 du cadrage). Une fonction que l'offre n'ouvre pas est décochée (le serveur refuserait).
+ * 🔴 « Automations HubSpot » se LIT dans les réglages : la migration 0270 l'allume pour un espace qui a déjà une automation
+ * « deal », et un espace qui n'a jamais validé l'étape de choix l'éteindrait sinon en validant (lot 3a).
  */
-export function choixParDefaut(p: { routingMode: 'mm_routing' | 'hubspot_native' | undefined; fonctions: ReadonlySet<FonctionOffre> | null | undefined }): ChoixHubspot {
+export function choixParDefaut(p: {
+  routingMode: 'mm_routing' | 'hubspot_native' | undefined;
+  fonctions: ReadonlySet<FonctionOffre> | null | undefined;
+  reglages: TenantSettings;
+}): ChoixHubspot {
   return {
     analyse: !fermeeParLOffre('analyse', p.fonctions),
     passage: true,
@@ -55,6 +62,7 @@ export function choixParDefaut(p: { routingMode: 'mm_routing' | 'hubspot_native'
     reponse: false,
     modeles: false,
     workflows: false,
+    automations: p.reglages.hubspotAutomations === true && !fermeeParLOffre('automations', p.fonctions),
     listes: false,
     taches: p.routingMode !== 'hubspot_native',
   };
@@ -74,6 +82,7 @@ export function choixActuel(s: TenantSettings, routingMode: 'mm_routing' | 'hubs
     reponse,
     modeles: reponse && s.hubspotModeles === true && !fermeeParLOffre('modeles', fonctions),
     workflows: s.hubspotWorkflows === true && !fermeeParLOffre('workflows', fonctions),
+    automations: s.hubspotAutomations === true && !fermeeParLOffre('automations', fonctions),
     listes: s.hubspotListsEnabled === true && !fermeeParLOffre('listes', fonctions),
     taches: routingMode !== 'hubspot_native',
   };
@@ -93,8 +102,38 @@ export function choixApresBascule(choix: ChoixHubspot, champ: keyof ChoixHubspot
  * échouer : il ne part qu'à la validation de l'étape de choix s'il est connu, ou quand c'est SA ligne qu'on bascule.
  * Le renvoyer à chaque bascule d'une autre ligne l'écraserait depuis une valeur devinée ou périmée (relecture du lot
  * 1bis, le seul rouge).
+ * 🔴 « Automations HubSpot » ne part que si l'API la connaît (`envoyerAutomations` : les réglages lus la rendent) : la
+ * console part au push, avant l'API, et une API d'avant le lot 3a refuse en 400 une clé qu'elle ne connaît pas (corps
+ * strict). Absente, le serveur garde la valeur.
  */
-export function corpsDuChoix(choix: ChoixHubspot, p: { envoyerTaches: boolean }): Omit<ChoixHubspot, 'taches'> & { taches?: boolean } {
-  const { taches, ...reste } = choix;
-  return p.envoyerTaches ? { ...reste, taches } : reste;
+/**
+ * « Automations HubSpot » part-elle avec cet enregistrement ? 🔴 Seulement quand on bascule SA ligne, ou à la validation
+ * de l'étape de choix si l'offre ne la ferme pas, et toujours si l'API la connaît. Un espace dont l'offre ferme la ligne
+ * la lit à faux : la renvoyer à chaque bascule d'une autre ligne éteindrait ses automations « deal » sans que personne
+ * l'ait demandé (relecture du lot 3a, le modèle de « tâches »).
+ */
+export function envoyerAutomations(
+  quoi: { bascule: keyof ChoixHubspot } | { validation: true },
+  fonctions: ReadonlySet<FonctionOffre> | null | undefined,
+  connue: boolean,
+): boolean {
+  if (!connue) return false;
+  return 'bascule' in quoi ? quoi.bascule === 'automations' : !fermeeParLOffre('automations', fonctions);
+}
+
+export function corpsDuChoix(
+  choix: ChoixHubspot,
+  p: { envoyerTaches: boolean; envoyerAutomations: boolean },
+): Omit<ChoixHubspot, 'taches' | 'automations'> & { taches?: boolean; automations?: boolean } {
+  const { taches, automations, ...reste } = choix;
+  return { ...reste, ...(p.envoyerTaches ? { taches } : {}), ...(p.envoyerAutomations ? { automations } : {}) };
+}
+
+/**
+ * Le déclencheur « un deal HubSpot atteint une étape » est-il grisé dans Automations ? Seulement ligne « Automations
+ * HubSpot » ÉTEINTE (`false` : une API d'avant le lot 3a ne la rend pas, et on montre alors comme avant), et jamais pour
+ * l'automation en cours de modification qui l'a déjà (le formulaire doit pouvoir afficher et garder sa valeur).
+ */
+export function declencheurDealGrise(hubspotAutomations: boolean | null | undefined, enEdition: { triggerKind: string } | null): boolean {
+  return hubspotAutomations === false && enEdition?.triggerKind !== 'hubspot_deal_stage';
 }

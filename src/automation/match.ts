@@ -141,8 +141,9 @@ export type AutomationEvent =
     copie?: { avant: AnalyseDeFiche | null; apres: AnalyseDeFiche } | null;
   }
   /**
-   * Un deal HubSpot a changé d'étape (identifiants internes, stables au renommage). Le contact est déjà résolu
-   * en `waId` par le connecteur.
+   * Un deal HubSpot a changé d'étape (identifiants internes, stables au renommage). Le contact est résolu en `waId`
+   * par `POST /hubspot/deal-stage`, qui crée la fiche d'un lead inconnu et y écrit les champs importés quand une
+   * automation allumée correspond à l'étape (lot 3a du 2026-11-02) : la fiche existe donc avant l'enfilement.
    */
   | { kind: 'hubspot_deal_stage'; waId: string; pipelineId: string; stageId: string }
   /** Un webhook entrant a reçu un appel exploitable ; le contact est déjà résolu en `waId` par la route. */

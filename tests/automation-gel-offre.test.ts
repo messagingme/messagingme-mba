@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runAutomations } from '../src/automation/runner';
+import { automationsCandidates, runAutomations } from '../src/automation/runner';
 import type { AutomationRunnerDeps } from '../src/automation/runner';
 import { POSSESSEUR_LIEN_CHAINE, POSSESSEUR_PUBLICITE, POSSESSEUR_WIDGET, type AutomationRow, type AutomationEvent } from '../src/automation/match';
 import { DROITS, type Offre } from '../src/offres/offres';
@@ -86,5 +86,20 @@ describe('le gel des automations (lot 6, B2a)', () => {
     const m = monter([auto('recente')], 'base', ['a1', 'a2']);
     expect(await runAutomations('t1', MSG, m.deps)).toBe(0);
     expect(m.marquees).toEqual([]);
+  });
+});
+
+describe('automationsCandidates : ce que lit `POST /hubspot/deal-stage` avant de créer une fiche (lot 3a, décision 7)', () => {
+  const DEAL: AutomationEvent = { kind: 'hubspot_deal_stage', waId: '33611', pipelineId: 'p1', stageId: 's-devis' };
+  const deal = (id: string, stageId = 's-devis') =>
+    auto(id, { triggerKind: 'hubspot_deal_stage', triggerConfig: { pipelineId: 'p1', stageId } });
+
+  it('🔴 la définition du runner : l’étape doit correspondre, l’automation être allumée, ET permise par l’offre (le gel)', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    expect((await automationsCandidates('t1', DEAL, monter([deal('a1')], 'pro', []).deps)).map((a) => a.id)).toEqual(['a1']);
+    expect(await automationsCandidates('t1', DEAL, monter([deal('a1', 's-gagne')], 'pro', []).deps)).toEqual([]);
+    expect(await automationsCandidates('t1', DEAL, monter([{ ...deal('a1'), enabled: false }], 'pro', []).deps)).toEqual([]);
+    // En Base, une automation du client hors des plus anciennes est gelée : la route ne crée pas de fiche pour elle.
+    expect(await automationsCandidates('t1', DEAL, monter([deal('recente')], 'base', ['a1', 'a2']).deps)).toEqual([]);
   });
 });

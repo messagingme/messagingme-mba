@@ -1,7 +1,7 @@
 ---
 ecran: automations
 source_section: Automation (menu « Automation ») | Rappels avant ou après une date (menu Automation) | Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: b29338 | 08adbf | 40a676
+source_empreinte: 70c498 | 08adbf | 40a676
 ---
 # Lancer un scénario tout seul, sans campagne
 
@@ -25,7 +25,9 @@ clair, le scénario visé, et si c'est allumé ou non.
   « le sentiment devient négatif » ou « l'urgence passe à 7 ou plus ». Le scénario part quand une analyse fait
   passer le contact dans ce cas, pas quand il y était déjà. La première analyse d'un contact compte.
 - **Un deal HubSpot atteint une étape** : vous choisissez l'étape dans la liste de vos pipelines, les étapes
-  de fin étant signalées. Ce déclencheur n'apparaît que si un portail HubSpot est relié à votre espace.
+  de fin étant signalées. Ce déclencheur n'apparaît que si un portail HubSpot est relié à votre espace, et il est
+  grisé tant que « Automations HubSpot » est éteinte dans Tools > Intégrations > HubSpot. Un contact que Messaging Me
+  ne connaît pas encore reçoit sa fiche, dans la limite de contacts de votre offre.
 - **Un délai avant ou après une date enregistrée** : de quoi faire un rappel. Vous dites combien de temps
   (en minutes, en heures ou en jours), de quel côté de la date, et sur quel champ. Il vous faut pour cela un
   champ « date et heure » dans votre espace ; sinon l'écran vous le dit et vous propose d'en créer un.

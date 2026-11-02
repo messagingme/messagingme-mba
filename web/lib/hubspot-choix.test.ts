@@ -1,10 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule } from './hubspot-choix';
+import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, declencheurDealGrise, envoyerAutomations } from './hubspot-choix';
 import type { TenantSettings } from './api';
 import type { FonctionOffre, VueOffre } from './offre';
 
 const ENTREPRISE = new Set<FonctionOffre>(['analyse', 'crm', 'inbox']);
 const PRO = new Set<FonctionOffre>(['inbox']);
+const VIDE = {} as TenantSettings;
 
 describe('etapeHubspot (lot 1bis)', () => {
   it('🔴 relié et jamais validé : l’étape de choix ; validé : le réglage', () => {
@@ -44,30 +45,30 @@ describe('fermeeParLOffre', () => {
 
 describe('choixParDefaut (décision 2 du cadrage)', () => {
   it('🔴 coche ce qui écrit dans HubSpot, décoche ce qui ouvre une porte, et suit le mode du portail', () => {
-    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE }))
-      .toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, listes: false, taches: true });
-    expect(choixParDefaut({ routingMode: 'hubspot_native', fonctions: ENTREPRISE }).taches).toBe(false);
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE, reglages: VIDE }))
+      .toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false, taches: true });
+    expect(choixParDefaut({ routingMode: 'hubspot_native', fonctions: ENTREPRISE, reglages: VIDE }).taches).toBe(false);
   });
   it('🔴 une fonction fermée par l’offre est décochée (le serveur refuserait de l’allumer)', () => {
-    expect(choixParDefaut({ routingMode: undefined, fonctions: PRO }).analyse).toBe(false);
+    expect(choixParDefaut({ routingMode: undefined, fonctions: PRO, reglages: VIDE }).analyse).toBe(false);
   });
 });
 
 describe('choixActuel', () => {
   it('lit les réglages, et un champ absent (API antérieure) prend le défaut de la migration', () => {
     const vide = {} as TenantSettings;
-    expect(choixActuel(vide, undefined)).toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, listes: false, taches: true });
+    expect(choixActuel(vide, undefined)).toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false, taches: true });
     const s = { hubspotAnalyse: false, hubspotPassage: true, hubspotInjoignable: false, hubspotReponse: true, hubspotListsEnabled: true } as TenantSettings;
-    expect(choixActuel(s, 'hubspot_native')).toEqual({ analyse: false, passage: true, injoignable: false, reponse: true, modeles: false, workflows: false, listes: true, taches: false });
+    expect(choixActuel(s, 'hubspot_native')).toEqual({ analyse: false, passage: true, injoignable: false, reponse: true, modeles: false, workflows: false, automations: false, listes: true, taches: false });
   });
 });
 
 describe('les correctifs de la relecture du lot 1bis', () => {
-  const choix = { analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, listes: false, taches: true };
+  const choix = { analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false, taches: true };
   it('🔴 « Créer des tâches » ne part QUE si on le demande (sa ligne basculée, ou la validation avec un mode connu)', () => {
-    expect(corpsDuChoix(choix, { envoyerTaches: false })).toEqual({ analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, listes: false });
-    expect(corpsDuChoix(choix, { envoyerTaches: false })).not.toHaveProperty('taches');
-    expect(corpsDuChoix(choix, { envoyerTaches: true })).toEqual(choix);
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true })).toEqual({ analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false });
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true })).not.toHaveProperty('taches');
+    expect(corpsDuChoix(choix, { envoyerTaches: true, envoyerAutomations: true })).toEqual(choix);
   });
   it('🟡 un espace descendu d’offre lit éteint ce que l’offre ne permet plus', () => {
     const s = { hubspotAnalyse: true, hubspotListsEnabled: true } as TenantSettings;
@@ -85,7 +86,7 @@ describe('lot 3 : « Répondre aux clients depuis HubSpot » (décision D)', () 
     expect(fermeeParLOffre('reponse', FREE)).toBe(true);
   });
   it('éteinte par défaut, même quand l’offre l’ouvre', () => {
-    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE }).reponse).toBe(false);
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE, reglages: VIDE }).reponse).toBe(false);
   });
   it('🔴 un espace descendu sous l’Inbox la lit éteinte', () => {
     const s = { hubspotReponse: true } as TenantSettings;
@@ -100,7 +101,7 @@ describe('lot 3 : « Répondre aux clients depuis HubSpot » (décision D)', () 
 });
 
 describe('sous-lot « relancer » : « Envoyer des modèles depuis HubSpot » (décision E)', () => {
-  const choix = { analyse: true, passage: true, injoignable: true, reponse: true, modeles: true, workflows: false, listes: false, taches: true };
+  const choix = { analyse: true, passage: true, injoignable: true, reponse: true, modeles: true, workflows: false, automations: false, listes: false, taches: true };
   it('🔴 éteindre la réponse éteint les modèles ; basculer une autre ligne ne les touche pas', () => {
     expect(choixApresBascule(choix, 'reponse')).toMatchObject({ reponse: false, modeles: false });
     expect(choixApresBascule(choix, 'passage')).toMatchObject({ passage: false, reponse: true, modeles: true });
@@ -111,7 +112,7 @@ describe('sous-lot « relancer » : « Envoyer des modèles depuis HubSpot » (d
     expect(choixActuel(s, 'mm_routing', PRO).modeles).toBe(true);
     expect(choixActuel({ ...s, hubspotReponse: false }, 'mm_routing', PRO).modeles).toBe(false);
     expect(choixActuel(s, 'mm_routing', new Set<FonctionOffre>(['aide'])).modeles).toBe(false);
-    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE }).modeles).toBe(false);
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE, reglages: VIDE }).modeles).toBe(false);
     expect(fermeeParLOffre('modeles', PRO)).toBe(false);
   });
 });
@@ -119,7 +120,7 @@ describe('sous-lot « relancer » : « Envoyer des modèles depuis HubSpot » (d
 describe('lot 2 de l’action de workflow : « Workflows HubSpot : envoyer des modèles WhatsApp » (décision 8)', () => {
   const FREE = new Set<FonctionOffre>(['aide']);
   it('🔴 éteint par défaut ; ouvert par l’offre qui relie HubSpot (`crm`), fermé sans', () => {
-    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE }).workflows).toBe(false);
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE, reglages: VIDE }).workflows).toBe(false);
     expect(fermeeParLOffre('workflows', ENTREPRISE)).toBe(false);
     expect(fermeeParLOffre('workflows', PRO)).toBe(true);
   });
@@ -130,8 +131,62 @@ describe('lot 2 de l’action de workflow : « Workflows HubSpot : envoyer des m
     expect(choixActuel({} as TenantSettings, 'mm_routing', ENTREPRISE).workflows).toBe(false);
   });
   it('éteindre la réponse ne touche pas les workflows, et il part dans le corps du choix', () => {
-    const choix = { analyse: true, passage: true, injoignable: true, reponse: true, modeles: true, workflows: true, listes: false, taches: true };
+    const choix = { analyse: true, passage: true, injoignable: true, reponse: true, modeles: true, workflows: true, automations: false, listes: false, taches: true };
     expect(choixApresBascule(choix, 'reponse')).toMatchObject({ reponse: false, modeles: false, workflows: true });
-    expect(corpsDuChoix(choix, { envoyerTaches: false })).toMatchObject({ workflows: true });
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true })).toMatchObject({ workflows: true });
+  });
+});
+
+describe('lot 3a : « Automations HubSpot : lancer un scénario quand un deal atteint une étape » (décision 5)', () => {
+  const FREE = new Set<FonctionOffre>(['aide']);
+  const repris = { hubspotAutomations: true } as TenantSettings;
+
+  it('🔴 l’étape de choix la propose telle que les réglages la disent : un espace repris allumé ne s’éteint pas en validant', () => {
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE, reglages: repris }).automations).toBe(true);
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE, reglages: VIDE }).automations).toBe(false);
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE, reglages: { hubspotAutomations: false } as TenantSettings }).automations).toBe(false);
+    // Fermée par l'offre : décochée, comme les autres lignes (le serveur refuserait de l'allumer).
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: PRO, reglages: repris }).automations).toBe(false);
+  });
+
+  it('🔴 ouverte par l’offre qui relie HubSpot (`crm`) ; lue dans les réglages, éteinte si l’offre ne la permet plus', () => {
+    expect(fermeeParLOffre('automations', ENTREPRISE)).toBe(false);
+    expect(fermeeParLOffre('automations', PRO)).toBe(true);
+    expect(choixActuel(repris, 'mm_routing', ENTREPRISE).automations).toBe(true);
+    expect(choixActuel(repris, 'mm_routing', FREE).automations).toBe(false);
+    expect(choixActuel(VIDE, 'mm_routing', ENTREPRISE).automations).toBe(false);
+  });
+
+  it('🔴 elle ne part dans le corps que si l’API la connaît (une API d’avant refuserait la clé en 400)', () => {
+    const choix = { analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: true, listes: false, taches: true };
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true })).toMatchObject({ automations: true });
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: false })).not.toHaveProperty('automations');
+    expect(choixApresBascule({ ...choix, automations: false }, 'automations')).toMatchObject({ automations: true, workflows: false });
+  });
+
+  it('🔴 le déclencheur « deal » de l’écran Automations : grisé seulement ligne ÉTEINTE, jamais pour l’automation modifiée qui l’a déjà', () => {
+    expect(declencheurDealGrise(false, null)).toBe(true);
+    expect(declencheurDealGrise(false, { triggerKind: 'keyword' })).toBe(true);
+    expect(declencheurDealGrise(false, { triggerKind: 'hubspot_deal_stage' })).toBe(false);
+    expect(declencheurDealGrise(true, null)).toBe(false);
+    // Inconnue (lecture en cours, ou API d'avant le lot 3a) : montré, comme avant.
+    expect(declencheurDealGrise(null, null)).toBe(false);
+    expect(declencheurDealGrise(undefined, null)).toBe(false);
+  });
+});
+
+describe('« Automations HubSpot » dans le corps du choix (relecture du lot 3a)', () => {
+  it('🔴 ne part qu’avec la bascule de SA ligne : une autre ligne basculée ne l’éteint jamais, offre fermée comprise', () => {
+    expect(envoyerAutomations({ bascule: 'automations' }, ENTREPRISE, true)).toBe(true);
+    expect(envoyerAutomations({ bascule: 'workflows' }, ENTREPRISE, true)).toBe(false);
+    // L'espace descendu sous l'offre qui ouvre la ligne : la console la lit à faux, elle ne doit pas la renvoyer.
+    expect(envoyerAutomations({ bascule: 'reponse' }, PRO, true)).toBe(false);
+  });
+
+  it('à la validation de l’étape de choix : envoyée, sauf si l’offre la ferme ; jamais si l’API ne la connaît pas', () => {
+    expect(envoyerAutomations({ validation: true }, ENTREPRISE, true)).toBe(true);
+    expect(envoyerAutomations({ validation: true }, PRO, true)).toBe(false);
+    expect(envoyerAutomations({ bascule: 'automations' }, ENTREPRISE, false)).toBe(false);
+    expect(envoyerAutomations({ validation: true }, ENTREPRISE, false)).toBe(false);
   });
 });

@@ -112,6 +112,12 @@ function kindsFor(ev: AutomationEvent): AutomationTriggerKind[] {
   return [];
 }
 
+/** Ce que lit le choix des candidates : les automations allumées, et l'offre pour le gel. */
+type DepsCandidates = {
+  automations: Pick<AutomationRunnerDeps['automations'], 'listEnabled' | 'plusAnciennes'>;
+  offres: SourceOffres;
+};
+
 /**
  * 🔴 LE GEL AU RETOUR EN BASE (lot 6, livraison B2a, spec § 7, décision de Julien du 2026-10-07) : ce que l'offre laisse
  * encore tirer. Une chaîne et une publicité se taisent quand leur fonction est fermée ; un widget (qui démarre un scénario
@@ -121,7 +127,7 @@ function kindsFor(ev: AutomationEvent): AutomationTriggerKind[] {
  * limité qui a une candidate du client. ⚠️ Un propriétaire inconnu demain se range avec le client, mais la liste des
  * plus anciennes ne compte que les automations SANS propriétaire : sous une limite, il ne tirerait jamais. À déclarer ici.
  */
-async function permisesParLOffre(tenantId: string, candidates: AutomationRow[], deps: AutomationRunnerDeps): Promise<AutomationRow[]> {
+async function permisesParLOffre(tenantId: string, candidates: AutomationRow[], deps: DepsCandidates): Promise<AutomationRow[]> {
   const { droits } = await deps.offres.offreDe(tenantId);
   const limite = droits.limites.automations;
   const duClient = (a: AutomationRow) => a.possedePar !== POSSESSEUR_LIEN_CHAINE && a.possedePar !== POSSESSEUR_PUBLICITE
@@ -147,6 +153,26 @@ async function permisesParLOffre(tenantId: string, candidates: AutomationRow[], 
 }
 
 /**
+ * Les automations qu'un événement peut faire tirer : allumées, dont le déclencheur correspond, permises par l'offre (le
+ * gel). L'anti-rebond, la condition et le plafond restent au runner. Lue aussi par `POST /hubspot/deal-stage`, qui ne
+ * crée la fiche d'un lead inconnu que si l'une correspond (décision 7 du 2026-11-02) : une seule définition, sinon la
+ * route créerait des fiches pour une automation que le runner écarterait.
+ */
+export async function automationsCandidates(
+  tenantId: string,
+  ev: AutomationEvent,
+  deps: DepsCandidates,
+  opts: OptionsRun = SANS_RESTRICTION,
+): Promise<AutomationRow[]> {
+  // La restriction s'applique avant la mise en correspondance : « seule celle-là » ne doit pas dépendre de la
+  // configuration des automations écartées.
+  const candidates = (await deps.automations.listEnabled(tenantId, kindsFor(ev)))
+    .filter((a) => opts.seuleAutomation === null || a.id === opts.seuleAutomation)
+    .filter((a) => a.enabled && matchesTrigger(a, ev));
+  return candidates.length === 0 ? [] : permisesParLOffre(tenantId, candidates, deps);
+}
+
+/**
  * Évalue les automations d'un tenant contre un événement et démarre celles qui passent les trois filtres ;
  * renvoie le nombre de scénarios démarrés. Isolation par automation : une automation qui échoue ne doit ni
  * empêcher les autres, ni faire échouer l'appelant (le job webhook est partagé).
@@ -161,13 +187,7 @@ export async function runAutomations(
   // 🔴 Contact bloqué : son message reste enregistré, mais il ne déclenche plus rien. C'est le seul point
   // d'entrée des automations, donc la seule garde nécessaire côté scénarios.
   if (deps.contacts && (await deps.contacts.isBlockedByWaId(tenantId, ev.waId))) return 0;
-  // La restriction s'applique avant la mise en correspondance : « seule celle-là » ne doit pas dépendre de la
-  // configuration des automations écartées.
-  const candidates = (await deps.automations.listEnabled(tenantId, kindsFor(ev)))
-    .filter((a) => opts.seuleAutomation === null || a.id === opts.seuleAutomation)
-    .filter((a) => a.enabled && matchesTrigger(a, ev));
-  if (candidates.length === 0) return 0;
-  const permises = await permisesParLOffre(tenantId, candidates, deps);
+  const permises = await automationsCandidates(tenantId, ev, deps, opts);
   if (permises.length === 0) return 0;
 
   // Contexte contact construit une seule fois, et seulement si une candidate porte une condition.

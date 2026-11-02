@@ -2959,10 +2959,26 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   HubSpot la rend vide, coupées à 1 000 caractères par le connecteur ; `champsDeFiche` pose une valeur, RETIRE une
   valeur vide, ne touche pas une propriété non reçue, et 🔴 n'écrit qu'une clé DÉCLARÉE dans l'espace (`champsDeclares`,
   relu à chaque appel) : mba ne relit pas la liste du connecteur à l'envoi. `POST /hubspot/workflow/scenario` reçoit
-  `champs: { contact }` (facultatif), `POST /hubspot/deal-stage` la forme groupée (facultative, validée mais pas encore
-  écrite : la fiche ne s'écrit qu'avec une automation correspondante, lot 3a). Pannes du connecteur : réveil (délai de
+  `champs: { contact }` (facultatif), `POST /hubspot/deal-stage` la forme groupée (facultative, écrite seulement quand
+  une automation correspond, ci-dessous). Pannes du connecteur : réveil (délai de
   `DELAI_CHAMPS_MS`, `ConnecteurEnReveil`) et route absente (404 sans `tenant_not_connected`, `ConnecteurPasAJour`)
   rendent 503 avec leur code, l'écran dit « connexion en cours » ou « mise à jour en cours », jamais « aucun champ ».
+- **Le changement d'étape d'un deal HubSpot** (`POST /hubspot/deal-stage`, `src/http/hubspot-events.ts`, lot 3a du plan
+  `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, décisions 5 et 7). Dans l'ordre, après la signature
+  et le `safeParse` : 🔴 la ligne « Automations HubSpot » (`tenant_settings.hubspot_automations`, migration 0270, lue
+  `=== true` donc migration `avant` obligatoire ; offre `crm` pour l'allumer ; `automations` facultatif dans le corps du
+  choix, absent = gardé) ; éteinte, 200 `triggered: false` avant toute fiche, tout champ, tout événement (un événement
+  déjà en file part quand même). Puis le numéro normalisé comme avant (`normalizePhone` en `FR`, puis `waIdOf`). Puis
+  🔴 « une automation correspond-elle ? » par `automationsCandidates` (`src/automation/runner.ts`), la définition du
+  runner : allumée, déclencheur qui correspond, permise par l'offre (le gel). Aucune : le comportement d'avant (contact
+  connu publié, inconnu rien), sans fiche ni champ, sinon chaque changement d'étape du portail créerait une fiche et
+  entamerait la limite de contacts. Une : contact bloqué, rien ; sinon la fiche par `resoudreFiche` (mode `phone`, donc
+  `creerFicheApi` : limite de contacts de l'offre, `plan_limit_reached` en 200 `triggered: false`, et liste de refus ;
+  aucun événement d'automation émis), les champs reçus écrits HORS transaction (`PgContactStore.ecrireChampsFiche`,
+  filtré par espace et `deleted_at is null`), puis l'enfilement. La fiche existe donc avant que le worker lance le
+  scénario (`lancements` la relit par `findIdByWaId`). Dans Automations, le déclencheur est grisé quand la ligne est
+  éteinte (`declencheurDealGrise`, `web/lib/hubspot-choix.ts`) ; une API qui ne rend pas `hubspotAutomations` le
+  laisse montré, et la carte HubSpot n'envoie la clé qu'à une API qui la connaît (corps strict).
 - **Le visuel d'en-tête d'un modèle envoyé depuis l'Inbox part en `media id`** (`creerEnvoiModeleInbox`,
   `mediaDuModele`) : l'adresse que l'écran passe est celle du CDN de Meta, que l'invariant 9 dit refusée en 131053 ;
   le visuel du modèle se re-téléverse comme pour le bloc de scénario. Sans visuel au modèle, ou si la préparation

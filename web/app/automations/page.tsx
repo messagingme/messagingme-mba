@@ -12,6 +12,7 @@ import {
 import { listActionsAgent, type ActionAgentMenu } from '@/lib/api/integrations';
 import { useFermeture } from '@/lib/use-offre';
 import { nomDeLOffre, offreQuiOuvre } from '@/lib/offre';
+import { declencheurDealGrise } from '@/lib/hubspot-choix';
 import { Bouton } from '@/components/Bouton';
 import { IntroPage, TitrePage } from '@/components/TitrePage';
 import { BoutonConfirme } from '@/components/Confirmation';
@@ -158,10 +159,18 @@ function AutomationsInner({ session }: { session: Session }) {
    * grisage apres selection reste en place et sert alors de seconde ligne.
    */
   const [portailHubspot, setPortailHubspot] = useState<boolean | null>(null);
+  // La ligne « Automations HubSpot » de Tools > Intégrations > HubSpot (lot 3a) : éteinte, le déclencheur est grisé.
+  // `null` = inconnue (lecture en cours, ou API d'avant) : on montre, comme avant.
+  const [automationsHubspot, setAutomationsHubspot] = useState<boolean | null>(null);
+  const dealGrise = declencheurDealGrise(automationsHubspot, enEdition);
   useEffect(() => {
     let vivant = true;
     void getSettings(session.tenantId)
-      .then((s) => { if (vivant) setPortailHubspot(s.hubspotPortalConnecte ?? null); })
+      .then((s) => {
+        if (!vivant) return;
+        setPortailHubspot(s.hubspotPortalConnecte ?? null);
+        setAutomationsHubspot(s.hubspotAutomations ?? null);
+      })
       // Silencieux : l'ecran des automations ne doit pas tomber parce qu'un drapeau d'affichage manque.
       .catch(() => {});
     return () => { vivant = false; };
@@ -433,10 +442,12 @@ function AutomationsInner({ session }: { session: Session }) {
                   Le grisage après sélection RESTE : il attrape le cas où le portail est lié mais où les
                   étapes ne remontent pas (consentement à renouveler, synchro en pause). */}
               {portailHubspot !== false && (
-                <option value="hubspot_deal_stage" disabled={etatEtapes === 'non_connecte'}>
+                <option value="hubspot_deal_stage" disabled={etatEtapes === 'non_connecte' || dealGrise} data-testid="automation-trigger-deal">
                   {etatEtapes === 'non_connecte'
                     ? t('un deal HubSpot atteint une étape (HubSpot non connecté)', 'a HubSpot deal reaches a stage (HubSpot not connected)')
-                    : t('un deal HubSpot atteint une étape', 'a HubSpot deal reaches a stage')}
+                    : dealGrise
+                      ? t('un deal HubSpot atteint une étape (à allumer dans Tools > Intégrations > HubSpot)', 'a HubSpot deal reaches a stage (turn it on in Tools > Integrations > HubSpot)')
+                      : t('un deal HubSpot atteint une étape', 'a HubSpot deal reaches a stage')}
                 </option>
               )}
               <option value="avant_date">{t('un délai avant ou après une date enregistrée', 'a delay before or after a stored date')}</option>
