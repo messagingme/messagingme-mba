@@ -64,7 +64,10 @@ export interface GardeCreditWhatsapp {
 }
 
 export interface ConditionsCredit {
-  /** Entreprise en open bar : jamais de refus pour le solde, tout est compté. */
+  /**
+   * Illimité : toute Entreprise, lue sur l'offre seule (décision du 2026-11-02). Jamais de refus pour le solde, qui ne
+   * bouge pas ; chaque message est compté pour la facture du mois.
+   */
   openBar: boolean;
   commissionPct: number;
 }

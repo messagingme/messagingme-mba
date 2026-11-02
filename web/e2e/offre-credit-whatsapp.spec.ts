@@ -125,6 +125,21 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     expect(m.lectures()).toBeGreaterThanOrEqual(2);
   });
 
+  test('🔴 une Entreprise, illimitée : « Illimité » et les messages du mois, ni solde, ni alerte, ni bouton d’achat', async ({ page }) => {
+    // Son solde peut valoir zéro : il ne bouge pas et n'arrête rien (décision du 2026-11-02), l'écran ne doit pas le dire épuisé.
+    await monter(page, { vues: [credit({ illimite: true, soldeMicroEur: 0, consommationDuMoisMicroEur: 2_149_520, achat: { disponible: true, permis: 'open_bar', offres: [] } })] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-illimite')).toHaveText('Illimité');
+    await expect(page.getByTestId('credit-wa-conso-mois')).toContainText('2,15');
+    await expect(page.getByTestId('credit-wa-conso-mois')).toContainText(/selon votre contrat/);
+    for (const alerte of ['credit-wa-epuise', 'credit-wa-presque-epuise', 'credit-wa-bas', 'credit-wa-recharger']) {
+      await expect(page.getByTestId(alerte), alerte).toHaveCount(0);
+    }
+    // Les prix et l'historique restent : ils expliquent la facture.
+    await expect(page.getByTestId('credit-wa-prix').locator('[data-categorie="marketing"]')).toContainText('0,0748');
+    await expect(page.locator('[data-raison="envois"]')).toContainText('Envois du 30/10 (2 messages)');
+  });
+
   test('épuisé : plus rien ne part, réponses comprises', async ({ page }) => {
     await monter(page, { vues: [credit({ soldeMicroEur: 0 })] });
     await page.goto('/offre?tab=whatsapp');

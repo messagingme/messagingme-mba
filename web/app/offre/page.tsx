@@ -45,8 +45,8 @@ import {
  * (`AbonnementPro`), le résilie ou annule la résiliation, et toutes les factures de l'espace s'y listent (`FacturesEspace`).
  *
  * Un troisième onglet, « Crédit WhatsApp » (`?tab=whatsapp`, plan du Crédit WhatsApp, tâche 11), n'apparaît que quand la
- * vue de l'offre le dit (`ongletCreditWhatsapp` : un numéro sur la ligne de crédit, jamais en Free ni en open bar). Une API
- * qui ne rend pas encore ce champ ne l'ouvre pas.
+ * vue de l'offre le dit (`ongletCreditWhatsapp` : un numéro sur la ligne de crédit, jamais en Free ; une Entreprise y lit
+ * « Illimité »). Une API qui ne rend pas encore ce champ ne l'ouvre pas.
  */
 export default function OffrePage() {
   // `useSearchParams` impose une frontière Suspense au build (règle de Next 15).

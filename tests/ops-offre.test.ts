@@ -18,11 +18,13 @@ const T1 = '4169c753-311a-43bb-a334-d8a2cb7caf6f';
 const INCONNU = '11111111-2222-4333-8444-555555555555';
 
 /** Aucun abonnement Stripe, aucun numéro fourni : rien à signaler à l'exploitant. */
-const SANS_ALERTE: AlertesOffreManuelle = { proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false };
+const SANS_ALERTE: AlertesOffreManuelle = {
+  proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: false,
+};
 /** Les champs du Business (spec du 2026-10-27) d'un espace qui ne l'a jamais eu. */
 const SANS_BUSINESS = { business: false, utilisateursBusiness: null } as const;
-/** Les champs du Crédit WhatsApp (plan du 2026-10-30, tâche 8) d'une Entreprise qui ne l'a jamais eu en open bar. */
-const SANS_CREDIT_WA = { openBarWhatsapp: false, commissionMessagesPct: null } as const;
+/** Le champ du Crédit WhatsApp (plan du 2026-10-30, tâche 8) d'une Entreprise sans commission des messages négociée. */
+const SANS_CREDIT_WA = { commissionMessagesPct: null } as const;
 
 class MagasinMemoire {
   lectures = 0;
@@ -55,8 +57,6 @@ class MagasinMemoire {
             // Une seule offre posée à la main : l'Entreprise fait tomber le Business (`PgOffresStore.ecrireEntreprise`).
             business: r.entreprise ? false : r.business === undefined ? avant.business : r.business,
             utilisateursBusiness: r.utilisateursBusiness === undefined ? avant.utilisateursBusiness : r.utilisateursBusiness,
-            // L'open bar tombe avec l'Entreprise ; absent, il reste tel quel, comme la commission des messages.
-            openBarWhatsapp: !r.entreprise ? false : r.openBarWhatsapp === undefined ? avant.openBarWhatsapp : r.openBarWhatsapp,
             commissionMessagesPct: r.commissionMessagesPct === undefined ? avant.commissionMessagesPct : r.commissionMessagesPct,
           });
           return true;
@@ -282,7 +282,8 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: 20, note: 'devis Entreprise signé' } });
     expect(res.statusCode).toBe(200);
     expect(magasin.reglages.get(T1)).toMatchObject({ entreprise: true, business: false });
-    expect(magasin.gestesJoues).toEqual([]);
+    // Seule la reprise des campagnes du Crédit WhatsApp, devenu illimité avec l'Entreprise ; aucun geste de fin.
+    expect(magasin.gestesJoues).toEqual([`reprise-credit:${T1}`]);
     await server.close();
   });
 
@@ -301,9 +302,9 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     await server.close();
   });
 
-  it('GET et PUT rendent les alertes : un Pro payé vivant, un numéro payé à part, un numéro fourni que plus rien ne couvrirait', async () => {
+  it('GET et PUT rendent les alertes : un Pro payé vivant, un numéro payé à part, un numéro fourni que plus rien ne couvrirait, un numéro sur la ligne sans crédit', async () => {
     const { server, magasin } = monter();
-    magasin.alertes = { proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false };
+    magasin.alertes = { proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: true };
     expect((await server.inject({ method: 'GET', url: `/ops/offre/${T1}`, headers: ops })).json()).toMatchObject({ alertes: magasin.alertes });
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, note: 'inchangé' } });
     expect(res.json()).toMatchObject({ alertes: magasin.alertes });
@@ -328,7 +329,7 @@ describe('l’offre posée par l’exploitation, au journal des actions de l’e
         entreprise: false, utilisateurs: null, conservationJours: 365, contacts: null, commissionPct: null,
         entrepriseAvant: true, utilisateursAvant: null, conservationJoursAvant: null, contactsAvant: null, commissionPctAvant: null,
         business: false, utilisateursBusiness: null, businessAvant: false, utilisateursBusinessAvant: null,
-        openBarWhatsapp: false, commissionMessagesPct: null, openBarWhatsappAvant: false, commissionMessagesPctAvant: null,
+        commissionMessagesPct: null, commissionMessagesPctAvant: null,
       },
     }]);
     expect(JSON.stringify(magasin.audits)).not.toContain(BASE.note);
@@ -337,60 +338,62 @@ describe('l’offre posée par l’exploitation, au journal des actions de l’e
 });
 
 /**
- * LE CRÉDIT WHATSAPP D'UNE ENTREPRISE (plan du 2026-10-30, tâche 8) : l'open bar (facturé après) et la commission des
- * messages négociée, posés avec l'offre. Que la garde ne les lise qu'en Entreprise est tenu par
- * `tests/credit-whatsapp-conditions.test.ts` ; ici, la route et ce qu'elle écrit.
+ * LE CRÉDIT WHATSAPP D'UNE ENTREPRISE (plan du 2026-10-30, tâche 8 ; spec de l'Entreprise illimitée du 2026-11-02) : la
+ * commission des messages négociée, posée avec l'offre. L'illimité ne se règle pas, toute Entreprise l'est : que la garde
+ * le lise sur l'offre seule est tenu par `tests/credit-whatsapp-conditions.test.ts` ; ici, la route et ce qu'elle écrit.
  */
 describe('le Crédit WhatsApp de l’Entreprise, posé avec l’offre', () => {
-  it('🔴 l’open bar ne se pose que sur une Entreprise : 400 sinon, rien d’écrit', async () => {
+  it('🔴 l’ancien interrupteur d’open bar est refusé, quelle que soit sa valeur : 400, rien d’écrit ni de geste', async () => {
     const { server, magasin } = monter();
-    const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { ...BASE, openBarWhatsapp: true } });
-    expect(res.statusCode).toBe(400);
-    expect([magasin.ecritures.length, magasin.invalides.length]).toEqual([0, 0]);
+    for (const openBarWhatsapp of [true, false]) {
+      const res = await server.inject({
+        method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, openBarWhatsapp, note: 'devis' },
+      });
+      expect(res.statusCode, String(openBarWhatsapp)).toBe(400);
+    }
+    expect([magasin.ecritures.length, magasin.invalides.length, magasin.gestesJoues.length]).toEqual([0, 0, 0]);
     await server.close();
   });
 
-  it('pose l’open bar et la commission des messages d’une Entreprise, et la trace les porte avant et après', async () => {
+  it('pose la commission des messages d’une Entreprise, et la trace la porte avant et après ; absente, elle reste', async () => {
     const { server, magasin } = monter();
     const res = await server.inject({
       method: 'PUT', url: `/ops/offre/${T1}`, headers: ops,
-      payload: { entreprise: true, utilisateurs: null, openBarWhatsapp: true, commissionMessagesPct: 3, note: 'devis signé, messages facturés après' },
+      payload: { entreprise: true, utilisateurs: null, commissionMessagesPct: 3, note: 'devis signé, messages facturés après' },
     });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ openBarWhatsapp: true, commissionMessagesPct: 3 });
-    expect(magasin.audits[0]?.detail).toMatchObject({
-      openBarWhatsapp: true, commissionMessagesPct: 3, openBarWhatsappAvant: false, commissionMessagesPctAvant: null,
-    });
-    // Absents, ils restent tels quels.
+    expect(res.json()).toMatchObject({ commissionMessagesPct: 3 });
+    expect(res.json()).not.toHaveProperty('openBarWhatsapp');
+    expect(magasin.audits[0]?.detail).toMatchObject({ commissionMessagesPct: 3, commissionMessagesPctAvant: null });
     await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: 12, note: 'plus d’utilisateurs' } });
-    expect(magasin.reglages.get(T1)).toMatchObject({ openBarWhatsapp: true, commissionMessagesPct: 3 });
+    expect(magasin.reglages.get(T1)).toMatchObject({ commissionMessagesPct: 3 });
     await server.close();
   });
 
-  it('🔴 l’open bar POSÉ fait repartir les campagnes en pause faute de crédit, une fois ; ni le garder ni le retirer ne relance rien', async () => {
+  it('🔴 l’ENTRÉE en Entreprise fait repartir les campagnes en pause faute de crédit, une fois ; y rester ou en sortir ne relance rien', async () => {
     const { server, magasin } = monter();
+    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: false });
     const poser = (payload: Record<string, unknown>) => server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload });
-    await poser({ entreprise: true, utilisateurs: null, openBarWhatsapp: true, note: 'devis signé, messages facturés après' });
+    await poser({ entreprise: true, utilisateurs: null, note: 'devis signé, messages facturés au contrat' });
     expect(magasin.gestesJoues.filter((g) => g.startsWith('reprise-credit'))).toEqual([`reprise-credit:${T1}`]);
     await poser({ entreprise: true, utilisateurs: 12, note: 'plus d’utilisateurs' });
-    await poser({ entreprise: true, utilisateurs: 12, openBarWhatsapp: false, note: 'fin de l’open bar, retour au solde' });
+    await poser({ entreprise: false, utilisateurs: null, note: 'fin du contrat' });
     expect(magasin.gestesJoues.filter((g) => g.startsWith('reprise-credit'))).toEqual([`reprise-credit:${T1}`]);
     await server.close();
   });
 
-  it('🔴 l’Entreprise retirée fait tomber l’open bar ; la commission négociée reste, sans effet hors Entreprise', async () => {
+  it('l’Entreprise retirée garde la commission négociée, sans effet hors Entreprise', async () => {
     const { server, magasin } = monter();
-    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, openBarWhatsapp: true, commissionMessagesPct: 3 });
+    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, commissionMessagesPct: 3 });
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: BASE });
     expect(res.statusCode).toBe(200);
-    expect(magasin.ecritures.at(-1)?.reglage).not.toHaveProperty('openBarWhatsapp');
-    expect(magasin.reglages.get(T1)).toMatchObject({ entreprise: false, openBarWhatsapp: false, commissionMessagesPct: 3 });
+    expect(magasin.reglages.get(T1)).toMatchObject({ entreprise: false, commissionMessagesPct: 3 });
     await server.close();
   });
 
-  it('refuse une commission des messages hors de 0 à 100, ou décimale, et un open bar qui n’est pas un booléen', async () => {
+  it('refuse une commission des messages hors de 0 à 100, ou décimale', async () => {
     const { server, magasin } = monter();
-    for (const extra of [{ commissionMessagesPct: -1 }, { commissionMessagesPct: 101 }, { commissionMessagesPct: 2.5 }, { openBarWhatsapp: 'oui' }]) {
+    for (const extra of [{ commissionMessagesPct: -1 }, { commissionMessagesPct: 101 }, { commissionMessagesPct: 2.5 }]) {
       const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, note: 'devis', ...extra } });
       expect(res.statusCode, JSON.stringify(extra)).toBe(400);
     }

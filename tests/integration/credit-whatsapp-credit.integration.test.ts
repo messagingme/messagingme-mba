@@ -8,7 +8,7 @@ import { PgCreditWhatsappStore } from '../../src/credit-whatsapp/credit.pg';
  * LE MAGASIN DU CRÉDIT WHATSAPP SUR UNE VRAIE BASE (migration 0264, plan du Crédit WhatsApp, tâche 3).
  *
  * 🔴 CE QU'AUCUN TEST UNITAIRE NE VOIT : le débit conditionnel sous concurrence, l'idempotence par paiement, et
- * l'invariant « solde = mouvements − provisions non rendues » après n'importe quelle suite d'écritures.
+ * l'invariant « solde = mouvements − provisions non rendues et non illimitées » après n'importe quelle suite d'écritures.
  *
  * ⚠️ Ne PAS le lancer en local : le `DATABASE_URL` du `.env` local pointe sur une base de production. La CI monte un
  * Postgres jetable pour ça (job `integration`).
@@ -32,7 +32,8 @@ describe.skipIf(!url)('le Crédit WhatsApp (0264)', () => {
     const { rows } = await pool.query<{ stocke: string | null; recalcule: string }>(
       `select (select solde_micro_eur from credits_whatsapp where tenant_id = $1) as stocke,
               (select coalesce(sum(delta_micro_eur), 0) from credit_whatsapp_mouvements where tenant_id = $1)
-            - (select coalesce(sum(montant_micro_eur), 0) from credit_whatsapp_provisions where tenant_id = $1 and etat <> 'rendu') as recalcule`,
+            - (select coalesce(sum(montant_micro_eur), 0) from credit_whatsapp_provisions
+                where tenant_id = $1 and etat <> 'rendu' and not illimite) as recalcule`,
       [tenantId],
     );
     expect(Number(rows[0]!.stocke ?? 0)).toBe(Number(rows[0]!.recalcule));
@@ -135,11 +136,57 @@ describe.skipIf(!url)('le Crédit WhatsApp (0264)', () => {
     expect((await store.dernieresProvisions(t)).every((v) => v.montantMicroEur !== 9_000)).toBe(true);
   });
 
-  it('l’open bar provisionne sans regarder le solde, et le compte', async () => {
+  it('🔴 illimité (toute Entreprise, 0266) : la provision s’écrit marquée, le solde ne bouge JAMAIS, ni à la prise, ni au retour, ni à la correction', async () => {
     const t = await espace();
-    expect(await provision(t, 74_760, true)).toMatchObject({ ok: true });
-    expect(await store.solde(t)).toBe(-74_760);
+    // Un solde prépayé d'avant l'Entreprise : il reste intact, et se retrouve tel quel à la sortie, sans dette.
+    await store.crediter(t, 500_000, 'achat', 'cs_avant_entreprise');
+    const a = await provision(t, 74_760, true);
+    const b = await provision(t, 26_040, true);
+    if (!a.ok || !b.ok) throw new Error('provision refusée');
+    expect(a.soldeApresMicroEur).toBe(500_000);
+    expect(await store.solde(t)).toBe(500_000);
+    const { rows } = await pool.query<{ illimite: boolean }>('select illimite from credit_whatsapp_provisions where tenant_id = $1', [t]);
+    expect(rows.map((r) => r.illimite)).toEqual([true, true]);
+    // Reclassée, puis rendue : seul le montant de la provision change, jamais le solde.
+    await store.rattacher(a.provisionId, 'wamid.I1');
+    await store.corrigerParWamid(t, 'wamid.I1', 'marketing', 99_999);
+    expect(await store.solde(t)).toBe(500_000);
+    await store.rendreParWamid(t, 'wamid.I1');
+    await store.rendre(b.provisionId);
+    expect(await store.solde(t)).toBe(500_000);
     await invariant(t);
+    // Sorti de l'Entreprise, l'espace paie de nouveau sur son solde d'avant.
+    expect(await provision(t, 74_760)).toMatchObject({ ok: true, soldeApresMicroEur: 500_000 - 74_760 });
+    await invariant(t);
+  });
+
+  it('illimité, un espace jamais crédité envoie quand même, sans ligne de solde négative', async () => {
+    const t = await espace();
+    expect(await provision(t, 74_760, true)).toMatchObject({ ok: true, soldeApresMicroEur: 0 });
+    expect(await store.solde(t)).toBe(0);
+    await invariant(t);
+  });
+
+  it('la consommation du mois : les provisions non rendues du mois de Paris, illimitées comprises, dans son espace seulement', async () => {
+    const t = await espace();
+    const autre = await espace();
+    await store.crediter(t, 1_000_000, 'achat', 'cs_conso');
+    await provision(t, 74_760);
+    await provision(t, 26_040, true);
+    const rendue = await provision(t, 50_000);
+    if (!rendue.ok) throw new Error('provision refusée');
+    await store.rendre(rendue.provisionId);
+    await provision(autre, 9_999, true);
+    // Une provision d'avant le 1er du mois de Paris ne compte pas.
+    const ancienne = await provision(t, 11_111, true);
+    if (!ancienne.ok) throw new Error('provision refusée');
+    await pool.query(
+      `update credit_whatsapp_provisions
+          set cree_le = (date_trunc('month', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris') - interval '1 second'
+        where id = $1`,
+      [ancienne.provisionId],
+    );
+    expect(await store.consommationDuMois(t)).toBe(74_760 + 26_040);
   });
 
   it('une régularisation du jour se remplace : le solde ne bouge que de la dernière valeur', async () => {

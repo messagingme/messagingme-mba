@@ -4012,24 +4012,24 @@ nommé nulle part dans le dépôt. Spec : `docs/superpowers/specs/2026-10-30-cre
 l'estimation d'un lancement, les conditions d'un espace, les magasins), la fabrique d'envoi (`src/meta/factory.ts`), le
 lancement d'une campagne (`src/campaign/lancement.ts`, `schedule-sweep.ts`), les accusés (`src/webhooks/delivery.ts`),
 `/ops` (`src/http/ops-credit-whatsapp.ts` : la grille, la commission, un numéro posé sur la ligne, le solde et les dernières
-provisions d'un espace ; `src/http/ops-offre.ts` : l'open bar et la commission négociée d'une Entreprise), l'onglet de la
+provisions d'un espace ; `src/http/ops-offre.ts` : la commission négociée d'une Entreprise), l'onglet de la
 console (`src/http/credit-whatsapp.ts`, module d'espace `creditWhatsapp` : la vue de l'onglet et l'ouverture d'un achat ;
 `web/components/OngletCreditWhatsapp.tsx`), l'achat par Stripe (`src/stripe/achat-whatsapp.ts`, `offres-whatsapp.ts`, le
 webhook commun `traitement-recharge.ts`), la reprise (`leverPausesCreditWhatsapp`, `src/account/numero-delie.pg.ts`), les
 e-mails (`creerAlertesCreditWhatsapp`, `src/emails-produit/alertes.ts`) et Claude (`get_credit`, `buy_credit`,
 `get_setup_state`).
 
-**Données** (migration 0264) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par envoi : `provisionne`,
-`rendu` ou `ajuste`), `credit_whatsapp_mouvements` (achats, recharges, régularisations), `lignes_credit_whatsapp` (un numéro
-sur la ligne, arrêté ou retiré), `grilles_meta` et `grille_meta_tarifs` (les tarifs publiés par Meta, en euros),
-`credit_whatsapp_reglages` (la commission globale), et sur `tenants` l'open bar et la commission des messages d'une
-Entreprise.
+**Données** (migrations 0264 et 0266) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par envoi :
+`provisionne`, `rendu` ou `ajuste`, et `illimite` pour celle d'une Entreprise), `credit_whatsapp_mouvements` (achats,
+recharges, régularisations), `lignes_credit_whatsapp` (un numéro sur la ligne, arrêté ou retiré), `grilles_meta` et
+`grille_meta_tarifs` (les tarifs publiés par Meta, en euros), `credit_whatsapp_reglages` (la commission globale), et sur
+`tenants` la commission des messages d'une Entreprise. `tenants.entreprise_open_bar_whatsapp` n'est plus ni lue ni écrite.
 
 **Invariants.**
 - 🔴 La garde vit dans la fabrique d'envoi, et tout client Meta se construit là (`tests/credit-whatsapp-inventaire.test.ts`) :
   chaque méthode `send*` d'un numéro sur la ligne prend sa provision AVANT l'appel, par un débit conditionnel atomique
-  (`solde − prix >= 0`, sans condition en open bar). Un compte 360dialog n'est jamais gardé.
-- Solde = mouvements − provisions non rendues, vérifié en intégration après toute suite d'écritures.
+  (`solde − prix >= 0`) ; illimitée, la provision s'écrit marquée, sans débit. Un compte 360dialog n'est jamais gardé.
+- Solde = mouvements − provisions non rendues et non illimitées, vérifié en intégration après toute suite d'écritures.
 - Un refus net de Meta rend la provision ; une panne réseau la garde (le message est peut-être parti), la régularisation
   tranche sur les volumes de Meta.
 - L'accusé corrige au mieux : un échec ou un message que Meta ne facture pas est rendu ; une catégorie reclassée, ou un
@@ -4038,8 +4038,13 @@ Entreprise.
 - Le prix d'un message : la grille en vigueur, au marché du pays du destinataire (au plus cher quand il est illisible),
   majoré de la commission, globale ou négociée par une Entreprise. Les 1 000 premiers messages de service d'un numéro dans
   le mois sont à zéro.
-- L'open bar et la commission négociée ne valent qu'en Entreprise, lue par `offre_de_l_espace` ; l'open bar retombe en base
-  quand l'Entreprise est retirée.
+- 🔴 Toute Entreprise est illimitée (décision de Julien du 2026-11-02, spec `2026-11-02-entreprise-illimitee-design.md`),
+  lue par `offre_de_l_espace` et rien d'autre (`PgConditionsCreditStore`, son `openBar`) : jamais refusée pour le solde,
+  qui ne bouge pas (ni à la prise, ni au retour, ni à la correction d'une provision `illimite`), rien à acheter. Chaque
+  message reste provisionné pour la facture du mois : l'onglet affiche « Illimité » et ce coût (`consommationDuMois`, mois
+  de Paris), `get_credit` aussi, `get_setup_state` n'avertit jamais. Un espace qui quitte l'Entreprise retrouve son solde
+  d'avant ; `/ops` prévient, au retrait, d'un numéro sur la ligne sans de quoi payer un message
+  (`ligneCreditWhatsappSansCredit`). La commission négociée ne vaut elle aussi qu'en Entreprise.
 - Un solde nul ou négatif ne laisse rien partir, pas même un message de la franchise : tout s'arrête à zéro, réponses
   comprises.
 - Le refus : 402 `whatsapp_credit_exhausted` (solde), 409 `whatsapp_credit_line_inactive` (ligne arrêtée, ou aucune grille
@@ -4063,10 +4068,10 @@ Entreprise.
   Le webhook aiguille sur ce produit AVANT la recharge IA, ne crédite qu'une fois par session (la table `stripe_paiements`
   commune, donc jamais par les deux voies), refuse un montant qui ne vaut pas l'offre, et n'appelle jamais
   `remonterPlafondApresRecharge` ; une image plus ancienne qui recevrait un produit inconnu alerte au lieu d'acquitter.
-  Ouvert à un espace hors Free dont un numéro est sur une ligne active, hors open bar (`achatPermis`).
+  Ouvert à un espace hors Free et hors Entreprise dont un numéro est sur une ligne active (`achatPermis`).
 - La reprise : après chaque crédit, les campagnes en pause `credit_whatsapp_epuise` d'un espace dont le solde atteint un
   euro (`SOLDE_REPRISE_CREDIT_MICRO_EUR`, très au-dessus du prix d'un message : un reste qui ne couvre plus un message ne
-  relance rien) ou d'une Entreprise passée en open bar repartent, en `scheduled` si leur départ était programmé, et seulement si leur numéro
+  relance rien) ou d'une Entreprise (dès son passage en Entreprise dans `/ops`) repartent, en `scheduled` si leur départ était programmé, et seulement si leur numéro
   est encore relié ; un balayage horaire (`credit-whatsapp-reprise`, rôle `principal`) rattrape un avis manqué.
 - Les e-mails : `credit_whatsapp_bas` quand un débit fait passer le solde sous 10 € (occasion : le dernier achat ou la
   dernière recharge automatique, jamais une régularisation, donc une fois par crédit acheté), `credit_whatsapp_epuise`

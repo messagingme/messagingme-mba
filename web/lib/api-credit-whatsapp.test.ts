@@ -22,7 +22,9 @@ describe('getCreditWhatsapp', () => {
 
   it('rend la vue telle que le serveur la donne', async () => {
     const vue = {
+      illimite: false,
       soldeMicroEur: 12_340_000,
+      consommationDuMoisMicroEur: 2_149_520,
       prixFrance: [{ categorie: 'marketing', prixMicroEur: 74_760 }],
       franchiseServiceParNumero: 1000,
       achat: { disponible: true, permis: 'ok', offres: [{ offre: 'wa_50', htCentimes: 5_000 }] },
@@ -37,9 +39,15 @@ describe('getCreditWhatsapp', () => {
   it('🔴 un corps sans listes ne fait pas tomber l’écran : historique et offres vides, prix inconnus', async () => {
     repondre(200, { soldeMicroEur: 0 });
     expect(await getCreditWhatsapp('t1')).toEqual({
-      soldeMicroEur: 0, prixFrance: null, franchiseServiceParNumero: 0,
+      // Une API d'avant l'Entreprise illimitée (la console part avant l'API) : pas d'illimité, aucune consommation.
+      illimite: false, soldeMicroEur: 0, consommationDuMoisMicroEur: 0, prixFrance: null, franchiseServiceParNumero: 0,
       achat: { disponible: false, permis: 'ok', offres: [] }, ligneArretee: false, historique: [],
     });
+  });
+
+  it('🔴 une Entreprise : l’illimité et la consommation du mois passent tels quels', async () => {
+    repondre(200, { illimite: true, soldeMicroEur: 0, consommationDuMoisMicroEur: 2_149_520 });
+    expect(await getCreditWhatsapp('t1')).toMatchObject({ illimite: true, consommationDuMoisMicroEur: 2_149_520 });
   });
 
   it('🔴 un solde absent est une erreur, jamais un zéro inventé qui dirait « épuisé »', async () => {

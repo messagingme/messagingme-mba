@@ -3,9 +3,10 @@ import type { Pool } from 'pg';
 import { PgConditionsCreditStore } from '../src/credit-whatsapp/conditions.pg';
 
 /**
- * LES CONDITIONS D'UN ESPACE SUR LA LIGNE (plan du Crédit WhatsApp, tâche 8) : l'open bar et la commission négociée ne
- * valent qu'en Entreprise, lue par la seule définition de l'offre. Un faux pool rend la ligne que la base rendrait ; la
- * requête elle-même tourne sur la vraie base en CI (`tests/integration/offres.integration.test.ts`).
+ * LES CONDITIONS D'UN ESPACE SUR LA LIGNE (plan du Crédit WhatsApp, tâche 8) : toute Entreprise est illimitée (décision
+ * du 2026-11-02) et seule elle prend sa commission négociée, lue par la seule définition de l'offre. Un faux pool rend la
+ * ligne que la base rendrait, l'ancien interrupteur compris (`open_bar`) ; la requête elle-même tourne sur la vraie base
+ * en CI (`tests/integration/offres.integration.test.ts`).
  */
 type Ligne = { entreprise: boolean; open_bar: boolean | null; commission: number | null };
 
@@ -29,19 +30,19 @@ describe('les conditions du Crédit WhatsApp', () => {
     expect(await store.conditions('t1')).toEqual({ openBar: false, commissionPct: 5 });
   });
 
-  it('une Entreprise prend son open bar et sa commission négociée ; sans commission négociée, la globale', async () => {
+  it('🔴 toute Entreprise est illimitée, ancien interrupteur à faux compris ; sa commission négociée, sinon la globale', async () => {
     const { store } = monter({
       t1: { entreprise: true, open_bar: true, commission: 3 },
       t2: { entreprise: true, open_bar: false, commission: null },
     });
     expect(await store.conditions('t1')).toEqual({ openBar: true, commissionPct: 3 });
-    expect(await store.conditions('t2')).toEqual({ openBar: false, commissionPct: 5 });
+    expect(await store.conditions('t2')).toEqual({ openBar: true, commissionPct: 5 });
     expect(await store.commissionMessagesPour('t1')).toBe(3);
   });
 
   it('une commission négociée à zéro reste zéro, pas la globale', async () => {
     const { store } = monter({ t1: { entreprise: true, open_bar: false, commission: 0 } });
-    expect(await store.conditions('t1')).toEqual({ openBar: false, commissionPct: 0 });
+    expect(await store.conditions('t1')).toEqual({ openBar: true, commissionPct: 0 });
   });
 
   it('un espace inconnu : ni open bar, la commission globale', async () => {
@@ -49,11 +50,13 @@ describe('les conditions du Crédit WhatsApp', () => {
     expect(await store.conditions('inconnu')).toEqual({ openBar: false, commissionPct: 5 });
   });
 
-  it('🔴 l’offre se lit par sa seule définition, `offre_de_l_espace`, jamais par une colonne recopiée', async () => {
+  it('🔴 l’offre se lit par sa seule définition, `offre_de_l_espace`, jamais par une colonne recopiée ni un interrupteur', async () => {
     const { store, requetes } = monter({ t1: { entreprise: true, open_bar: true, commission: null } });
     await store.conditions('t1');
     expect(requetes[0]).toMatch(/offre_de_l_espace\(\$1::uuid\) = 'entreprise'/);
     expect(requetes[0]).not.toMatch(/offre_entreprise/);
+    // L'ancien interrupteur d'open bar n'est plus lu : l'oublier coupait un client Entreprise à zéro.
+    expect(requetes[0]).not.toMatch(/open_bar/);
   });
 
   it('une lecture par espace toutes les cinq secondes au plus', async () => {

@@ -1052,6 +1052,7 @@ async function main(): Promise<void> {
     achat: achatCreditWhatsapp,
     vue: {
       solde: (t) => creditWhatsapp.solde(t),
+      consommationDuMois: (t) => creditWhatsapp.consommationDuMois(t),
       historique: (t) => creditWhatsapp.historique(t),
       grille: () => reglagesCreditWhatsapp.grilleEnVigueur(),
       conditions: (t) => conditionsCreditWhatsapp.conditions(t),

@@ -6,9 +6,11 @@ const CACHE_MS = 5_000;
 
 /**
  * LES CONDITIONS D'UN ESPACE SUR LA LIGNE (plan du Crédit WhatsApp, tâche 8), lues par la garde, l'ajustement et les écrans.
- * L'open bar et la commission négociée ne valent que pour une Entreprise, lue par la seule définition de l'offre
- * (`offre_de_l_espace`) : un espace sorti de l'Entreprise les perd à la lecture, quoi que gardent ses colonnes. Partout
- * ailleurs, et pour une Entreprise sans commission négociée, la commission globale de `/ops`.
+ * 🔴 TOUTE ENTREPRISE EST ILLIMITÉE (décision de Julien du 2026-11-02, spec `2026-11-02-entreprise-illimitee-design.md`) :
+ * l'open bar se lit sur la seule définition de l'offre (`offre_de_l_espace`), jamais sur un réglage par espace. L'ancien
+ * interrupteur (`tenants.entreprise_open_bar_whatsapp`) n'est plus lu : l'oublier coupait un client Entreprise à zéro,
+ * réponses comprises. La commission négociée ne vaut elle aussi qu'en Entreprise : un espace qui en sort perd les deux à
+ * la lecture. Partout ailleurs, et pour une Entreprise sans commission négociée, la commission globale de `/ops`.
  */
 export class PgConditionsCreditStore {
   private readonly cache = new Map<string, { lue: number; valeur: ConditionsCredit }>();
@@ -23,16 +25,15 @@ export class PgConditionsCreditStore {
     const t = this.maintenant();
     const c = this.cache.get(tenantId);
     if (c !== undefined && t - c.lue < CACHE_MS) return c.valeur;
-    const { rows } = await this.pool.query<{ entreprise: boolean; open_bar: boolean | null; commission: number | null }>(
+    const { rows } = await this.pool.query<{ entreprise: boolean; commission: number | null }>(
       `select offre_de_l_espace($1::uuid) = 'entreprise' as entreprise,
-              (select t.entreprise_open_bar_whatsapp from tenants t where t.id = $1::uuid) as open_bar,
               (select t.entreprise_commission_messages_pct from tenants t where t.id = $1::uuid) as commission`,
       [tenantId],
     );
     const l = rows[0];
     const entreprise = l?.entreprise === true;
     const valeur: ConditionsCredit = {
-      openBar: entreprise && l?.open_bar === true,
+      openBar: entreprise,
       commissionPct: entreprise && l?.commission != null ? l.commission : await this.reglages.commission(),
     };
     this.cache.set(tenantId, { lue: t, valeur });

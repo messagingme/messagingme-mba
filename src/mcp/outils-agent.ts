@@ -1062,7 +1062,9 @@ export const OUTILS_AGENT: OutilMcp[] = [
       + 'credit_whatsapp gives that other prepaid balance, which pays the WhatsApp messages themselves: its balance, '
       + 'the price of one message in France per category (fees included), and its movements (sends aggregated per day, '
       + 'purchases, adjustments). At zero, NOTHING is sent from that number, replies included, until a purchase '
-      + '(buy_credit, credit "whatsapp").',
+      + '(buy_credit, credit "whatsapp"). On the Enterprise plan the WhatsApp credit is unlimited and billed under the '
+      + 'contract (illimite: true): no balance and nothing to buy, consommation_du_mois_eur gives what this month\'s '
+      + 'messages cost.',
     annotations: lecture('Read the AI credit'),
     entree: { type: 'object', properties: {} },
     async executer(deps, tenantId) {
@@ -1076,8 +1078,9 @@ export const OUTILS_AGENT: OutilMcp[] = [
         mouvements: mouvements.map((m) => ({ at: m.at, jour: m.jour, raison: m.raison, montant_eur: eurosDepuisMicro(m.deltaMicroEur) })),
       };
       if (!avecWa) return ia;
-      const [soldeWa, historiqueWa, grille, conditions] = await Promise.all([
-        wa.vue.solde(tenantId), wa.vue.historique(tenantId), wa.vue.grille(), wa.vue.conditions(tenantId),
+      const [soldeWa, consommationWa, historiqueWa, grille, conditions] = await Promise.all([
+        wa.vue.solde(tenantId), wa.vue.consommationDuMois(tenantId), wa.vue.historique(tenantId), wa.vue.grille(),
+        wa.vue.conditions(tenantId),
       ]);
       // Le prix d'un message en France, commission comprise : jamais son taux.
       let prixFrance: Record<string, ReturnType<typeof eurosDepuisMicro>> | null = null;
@@ -1091,7 +1094,10 @@ export const OUTILS_AGENT: OutilMcp[] = [
       return {
         ...ia,
         credit_whatsapp: {
-          solde_eur: eurosDepuisMicro(soldeWa),
+          // Une Entreprise : illimité, facturé au contrat (décision du 2026-11-02). Son solde, qui ne bouge pas, ne se montre pas.
+          ...(conditions.openBar
+            ? { illimite: true, consommation_du_mois_eur: eurosDepuisMicro(consommationWa) }
+            : { solde_eur: eurosDepuisMicro(soldeWa) }),
           prix_france_eur: prixFrance,
           mouvements: historiqueWa.slice(0, LIGNES_HISTORIQUE).map((m) => ({
             at: m.at, jour: m.jour, raison: m.raison, montant_eur: eurosDepuisMicro(m.deltaMicroEur), ...(m.messages !== null ? { messages: m.messages } : {}),

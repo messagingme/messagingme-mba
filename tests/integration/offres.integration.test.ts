@@ -164,40 +164,69 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     expect((await offres.offreDe(t)).offre).toBe('entreprise');
   });
 
-  it('🔴 0264 : l’open bar du Crédit WhatsApp tombe avec l’Entreprise, et les conditions ne lisent l’Entreprise que par sa fonction', async () => {
+  it('🔴 0266 : toute Entreprise est illimitée, sans interrupteur, et les conditions ne lisent l’Entreprise que par sa fonction', async () => {
     const t = await espace('itest-offre-credit-wa');
     const conditions = () => new PgConditionsCreditStore(pool, { commission: async () => 5 }).conditions(t);
-    await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: null, openBarWhatsapp: true, commissionMessagesPct: 3 });
-    expect(await offres.lireEntreprise(t)).toMatchObject({ entreprise: true, openBarWhatsapp: true, commissionMessagesPct: 3 });
+    await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: null, commissionMessagesPct: 3 });
+    expect(await offres.lireEntreprise(t)).toMatchObject({ entreprise: true, commissionMessagesPct: 3 });
+    expect(await offres.lireEntreprise(t)).not.toHaveProperty('openBarWhatsapp');
+    // L'ancien interrupteur à faux (son défaut, partout en production) : l'Entreprise est illimitée quand même.
+    await pool.query('update tenants set entreprise_open_bar_whatsapp = false where id = $1', [t]);
     expect(await conditions()).toEqual({ openBar: true, commissionPct: 3 });
-    // Absents, ils restent tels quels.
+    // Absente, la commission reste telle quelle.
     await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: 12 });
-    expect(await offres.lireEntreprise(t)).toMatchObject({ openBarWhatsapp: true, commissionMessagesPct: 3 });
-    // L'Entreprise retirée : l'open bar tombe en base, la commission négociée reste sans effet.
+    expect(await offres.lireEntreprise(t)).toMatchObject({ commissionMessagesPct: 3 });
+    // L'Entreprise retirée : plus d'illimité, la commission négociée reste sans effet.
     await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null });
-    expect(await offres.lireEntreprise(t)).toMatchObject({ entreprise: false, openBarWhatsapp: false, commissionMessagesPct: 3 });
+    expect(await offres.lireEntreprise(t)).toMatchObject({ entreprise: false, commissionMessagesPct: 3 });
     expect(await conditions()).toEqual({ openBar: false, commissionPct: 5 });
-    // Une colonne posée à la main hors Entreprise ne fait rien : les conditions passent par `offre_de_l_espace`.
+    // L'ancien interrupteur posé à la main hors Entreprise ne fait rien : les conditions passent par `offre_de_l_espace`.
     await pool.query('update tenants set entreprise_open_bar_whatsapp = true where id = $1', [t]);
     expect(await conditions()).toEqual({ openBar: false, commissionPct: 5 });
   });
 
   it('🔴 les alertes de /ops : un Pro payé vivant, un numéro payé à part, un numéro fourni que plus rien ne couvrirait', async () => {
     const t = await espace('itest-offre-alertes');
-    expect(await offres.alertes(t)).toEqual({ proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false });
+    expect(await offres.alertes(t)).toEqual({
+      proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: false,
+    });
     const numero = `3399${String(Date.now()).slice(-7)}`;
     await pool.query(
       `insert into numeros_fournis (numero, didww_did_id, statut, tenant_id, attribue_le) values ($1, $2, 'attribue', $3, now())`,
       [numero, `did-itest-${numero}`, t],
     );
     try {
-      expect(await offres.alertes(t)).toEqual({ proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: true });
+      expect(await offres.alertes(t)).toEqual({
+        proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: true, ligneCreditWhatsappSansCredit: false,
+      });
       await pro(t, 'sub_itestalertespro', null);
       await pool.query("insert into abonnements_numero (stripe_subscription_id, tenant_id, livemode, statut) values ('sub_itestalertesnum', $1, true, 'actif')", [t]);
-      expect(await offres.alertes(t)).toEqual({ proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false });
+      expect(await offres.alertes(t)).toEqual({
+        proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: false,
+      });
     } finally {
       await pool.query('delete from numeros_fournis where numero = $1', [numero]);
     }
+  });
+
+  it('🔴 l’alerte du Crédit WhatsApp (2026-11-02) : un numéro sur une ligne active et moins d’un euro ; arrêtée, retirée ou couverte, rien', async () => {
+    const t = await espace('itest-offre-alerte-credit-wa');
+    const pn = `pn-itest-alerte-${Date.now()}`;
+    const sansCredit = async () => (await offres.alertes(t)).ligneCreditWhatsappSansCredit;
+    expect(await sansCredit()).toBe(false);
+    await pool.query(`insert into lignes_credit_whatsapp (tenant_id, phone_number_id, origine, note) values ($1, $2, 'ops', 'itest')`, [t, pn]);
+    expect(await sansCredit()).toBe(true);
+    // Sous l'euro de la reprise : toujours vrai ; à l'euro, couvert.
+    await pool.query('insert into credits_whatsapp (tenant_id, solde_micro_eur) values ($1, 999999)', [t]);
+    expect(await sansCredit()).toBe(true);
+    await pool.query('update credits_whatsapp set solde_micro_eur = 1000000 where tenant_id = $1', [t]);
+    expect(await sansCredit()).toBe(false);
+    // Une ligne arrêtée ne laisse déjà rien partir : rien de plus à dire au retrait de l'offre.
+    await pool.query('update credits_whatsapp set solde_micro_eur = 0 where tenant_id = $1', [t]);
+    await pool.query('update lignes_credit_whatsapp set arretee_le = now() where tenant_id = $1', [t]);
+    expect(await sansCredit()).toBe(false);
+    await pool.query('update lignes_credit_whatsapp set retiree_le = now() where tenant_id = $1', [t]);
+    expect(await sansCredit()).toBe(false);
   });
 
   it('🔴 l’agent RCS ne se résout que pour une offre qui ouvre le RCS : un espace descendu au Business n’en a plus (spec Business)', async () => {
@@ -278,16 +307,16 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
   it('🔴 l’exploitation pose puis retire l’Entreprise, sa limite et sa conservation, sans toucher aux autres réglages', async () => {
     const t = await espace('itest-offre-ops');
     // Un espace sans ligne de réglages (7 sur 9 en production) : l'écriture la crée.
-    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, openBarWhatsapp: false, commissionMessagesPct: null });
+    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, commissionMessagesPct: null });
     expect(await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: 10, conservationJours: 365 })).toBe(true);
-    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: true, utilisateurs: 10, conservationJours: 365, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, openBarWhatsapp: false, commissionMessagesPct: null });
+    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: true, utilisateurs: 10, conservationJours: 365, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, commissionMessagesPct: null });
     expect((await offres.offreDe(t)).droits.limites.utilisateurs).toBe(10);
     // La conservation posée est celle que la vue affiche (relecture finale du lot 6).
     expect((await offres.offreDe(t)).droits.limites.conservationJours).toBe(365);
 
     await pool.query('update tenant_settings set agents_peuvent_prendre = true where tenant_id = $1', [t]);
     expect(await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null, conservationJours: null })).toBe(true);
-    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, openBarWhatsapp: false, commissionMessagesPct: null });
+    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, commissionMessagesPct: null });
     expect((await offres.offreDe(t)).offre).toBe('base');
     const r = await pool.query<{ p: boolean }>('select agents_peuvent_prendre as p from tenant_settings where tenant_id = $1', [t]);
     expect(r.rows[0]!.p).toBe(true);
@@ -322,7 +351,7 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     const t = await espace('itest-offre-conservation');
     expect(await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: null, conservationJours: 0 })).toBe(true);
     expect(await offres.ecrireEntreprise(t, { entreprise: false, utilisateurs: null })).toBe(true);
-    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: 0, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, openBarWhatsapp: false, commissionMessagesPct: null });
+    expect(await offres.lireEntreprise(t)).toEqual({ entreprise: false, utilisateurs: null, conservationJours: 0, contacts: null, commissionPct: null, business: false, utilisateursBusiness: null, commissionMessagesPct: null });
   });
 
   it('🔴 un Pro vivant couvre le numéro dans etatDeLEspace, sur le vrai SQL : ni fin ni libération (lot 6, B1, vigilance 4)', async () => {

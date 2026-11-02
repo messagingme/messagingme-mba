@@ -260,6 +260,17 @@ s'il y en a, les sortir d'abord du Business (une Entreprise provisoire posée da
 contacts), puis le dire aux espaces concernés. La migration elle-même n'a rien à défaire : elle n'ajoute que des
 colonnes et relâche un CHECK, l'ancien code y survit.
 
+## ⚠️ Retour arrière d'une image d'avant l'Entreprise illimitée (migration 0266, plan 2026-11-02-entreprise-illimitee)
+
+Une image d'avant le lot A ne rend une Entreprise illimitée que par son interrupteur, `tenants.entreprise_open_bar_whatsapp`,
+que plus rien n'écrit : elle traiterait une Entreprise dont un numéro est sur la ligne en prépayé, solde nul, donc TOUT
+refusé, réponses comprises. Et ses accusés (`rendre`, `rendreParWamid`, `corrigerParWamid`) ignorent `illimite` : chaque
+message illimité rendu créditerait un solde qu'il n'a jamais débité. Avant de revenir en arrière, s'il y a une ligne en
+cours (`select count(*) from lignes_credit_whatsapp where retiree_le is null`), poser l'interrupteur des Entreprises :
+`update tenants set entreprise_open_bar_whatsapp = true where offre_entreprise`. ⚠️ Ce retour arrière n'existe que tant
+que la colonne existe : la migration `apres` qui la retirera (`todo.md`) le ferme, une image ancienne lèverait alors 42703
+à chaque envoi d'un numéro sur la ligne et sur `/ops/offre`.
+
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 
 Les routes de `mba.` et d'`api.` nomment `mba-api` par une variable, que nginx relit seul (résolveur de Docker,

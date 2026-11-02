@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { enTransaction } from '../db/transaction';
 import { ficheComptee } from '../crm/contact-store.pg';
 import { contactsToutesOrigines, droitsDe, type Droits, type Offre } from './offres';
+import { SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
 
 /**
  * L'OFFRE D'UN ESPACE (lot 6, spec `docs/superpowers/specs/2026-10-07-offres-et-limites-design.md`, § 3).
@@ -99,11 +100,11 @@ export class PgOffresStore implements SourceOffres {
       offre_entreprise: boolean; entreprise_utilisateurs: number | null; conversation_retention_days: number | null;
       entreprise_contacts: number | null; entreprise_commission_pct: number | null;
       offre_business: boolean; business_utilisateurs: number | null;
-      entreprise_open_bar_whatsapp: boolean; entreprise_commission_messages_pct: number | null;
+      entreprise_commission_messages_pct: number | null;
     }>(
       `select t.offre_entreprise, t.entreprise_utilisateurs, s.conversation_retention_days,
               t.entreprise_contacts, t.entreprise_commission_pct, t.offre_business, t.business_utilisateurs,
-              t.entreprise_open_bar_whatsapp, t.entreprise_commission_messages_pct
+              t.entreprise_commission_messages_pct
          from tenants t left join tenant_settings s on s.tenant_id = t.id
         where t.id = $1`,
       [tenantId],
@@ -114,7 +115,7 @@ export class PgOffresStore implements SourceOffres {
         entreprise: l.offre_entreprise, utilisateurs: l.entreprise_utilisateurs, conservationJours: l.conversation_retention_days,
         contacts: l.entreprise_contacts, commissionPct: l.entreprise_commission_pct,
         business: l.offre_business, utilisateursBusiness: l.business_utilisateurs,
-        openBarWhatsapp: l.entreprise_open_bar_whatsapp, commissionMessagesPct: l.entreprise_commission_messages_pct,
+        commissionMessagesPct: l.entreprise_commission_messages_pct,
       }
       : null;
   }
@@ -122,17 +123,24 @@ export class PgOffresStore implements SourceOffres {
   /**
    * Ce que l'exploitant doit savoir avant de poser ou de retirer une offre à la main (spec Business) : un Pro payé encore
    * vivant chez Stripe (poser le Business sans le résilier ferait payer deux fois), un numéro payé à part (inclus en
-   * Business, à arrêter quand le Business est confirmé), un numéro fourni que plus rien ne couvrirait au retrait.
+   * Business, à arrêter quand le Business est confirmé), un numéro fourni que plus rien ne couvrirait au retrait. Et
+   * depuis l'Entreprise illimitée (2026-11-02) : un numéro sur la ligne du Crédit WhatsApp sans de quoi payer un message.
+   * Hors Entreprise, il ne pourrait plus rien envoyer, réponses comprises, avant un achat.
    */
   async alertes(tenantId: string): Promise<AlertesOffreManuelle> {
-    const r = await this.pool.query<{ pro: boolean; numero_seul: boolean; fourni: boolean }>(
+    const r = await this.pool.query<{ pro: boolean; numero_seul: boolean; fourni: boolean; ligne_sans_credit: boolean }>(
       `select exists (select 1 from abonnements_offre where tenant_id = $1 and fini_le is null) as pro,
               exists (select 1 from abonnements_numero where tenant_id = $1 and statut <> 'resilie') as numero_seul,
-              exists (select 1 from numeros_fournis where tenant_id = $1 and statut = 'attribue') as fourni`,
-      [tenantId],
+              exists (select 1 from numeros_fournis where tenant_id = $1 and statut = 'attribue') as fourni,
+              exists (select 1 from lignes_credit_whatsapp l where l.tenant_id = $1 and l.retiree_le is null and l.arretee_le is null)
+                and coalesce((select w.solde_micro_eur from credits_whatsapp w where w.tenant_id = $1), 0) < $2 as ligne_sans_credit`,
+      [tenantId, SOLDE_REPRISE_CREDIT_MICRO_EUR],
     );
-    const l = r.rows[0] ?? { pro: false, numero_seul: false, fourni: false };
-    return { proPayeVivant: l.pro, numeroSeulVivant: l.numero_seul, numeroFourniSansCouverture: l.fourni && !l.pro && !l.numero_seul };
+    const l = r.rows[0] ?? { pro: false, numero_seul: false, fourni: false, ligne_sans_credit: false };
+    return {
+      proPayeVivant: l.pro, numeroSeulVivant: l.numero_seul, numeroFourniSansCouverture: l.fourni && !l.pro && !l.numero_seul,
+      ligneCreditWhatsappSansCredit: l.ligne_sans_credit,
+    };
   }
 
   /**
@@ -149,8 +157,8 @@ export class PgOffresStore implements SourceOffres {
       // Le Business (spec du 2026-10-27) : une seule offre posée à la main, l'Entreprise le fait tomber ; absent, il reste
       // tel quel. Sa sortie est datée comme celle de l'Entreprise (la grâce de la conservation, la couverture du numéro).
       // Les deux colonnes de date relisent l'état AVANT la mise à jour (Postgres évalue tout `set` sur l'ancienne ligne).
-      // Le Crédit WhatsApp (plan du 2026-10-30, tâche 8) : l'open bar et la commission des messages ne s'écrivent que
-      // DONNÉS. 🔴 L'open bar tombe avec l'Entreprise : un espace qui y reviendrait ne doit pas le retrouver sans décision.
+      // Le Crédit WhatsApp (plan du 2026-10-30, tâche 8) : la commission des messages ne s'écrit que DONNÉE. L'illimité ne
+      // s'écrit nulle part : il se lit sur l'Entreprise seule (décision du 2026-11-02, `PgConditionsCreditStore`).
       const maj = await client.query(
         `update tenants
             set offre_entreprise = $2, entreprise_utilisateurs = $3,
@@ -161,14 +169,12 @@ export class PgOffresStore implements SourceOffres {
                 business_quitte_le = case
                   when offre_business and ($2 or $8::boolean = false) then now() else business_quitte_le end,
                 business_utilisateurs = case when $9 then $10::int else business_utilisateurs end,
-                entreprise_open_bar_whatsapp = case
-                  when not $2 then false when $11 then $12::boolean else entreprise_open_bar_whatsapp end,
-                entreprise_commission_messages_pct = case when $13 then $14::int else entreprise_commission_messages_pct end
+                entreprise_commission_messages_pct = case when $11 then $12::int else entreprise_commission_messages_pct end
           where id = $1`,
         [
           tenantId, r.entreprise, r.utilisateurs, r.contacts !== undefined, r.contacts ?? null, r.commissionPct !== undefined,
           r.commissionPct ?? null, r.business ?? null, r.utilisateursBusiness !== undefined, r.utilisateursBusiness ?? null,
-          r.openBarWhatsapp !== undefined, r.openBarWhatsapp ?? false, r.commissionMessagesPct !== undefined, r.commissionMessagesPct ?? null,
+          r.commissionMessagesPct !== undefined, r.commissionMessagesPct ?? null,
         ],
       );
       if ((maj.rowCount ?? 0) === 0) return false;
@@ -199,8 +205,6 @@ export interface EcritureEntreprise {
   business?: boolean;
   /** La limite d'utilisateurs du Business : absente = inchangée, `null` = les 5 de la grille. */
   utilisateursBusiness?: number | null;
-  /** Le Crédit WhatsApp en open bar, facturé après (Entreprise seulement) : absent = inchangé, retombe hors Entreprise. */
-  openBarWhatsapp?: boolean;
   /** La commission des messages négociée : absente = inchangée, `null` = la globale de `/ops`. */
   commissionMessagesPct?: number | null;
 }
@@ -210,6 +214,8 @@ export interface AlertesOffreManuelle {
   proPayeVivant: boolean;
   numeroSeulVivant: boolean;
   numeroFourniSansCouverture: boolean;
+  /** Un numéro est sur la ligne du Crédit WhatsApp et le solde ne couvre plus un message : hors Entreprise, tout s'arrête. */
+  ligneCreditWhatsappSansCredit: boolean;
 }
 
 /** Ce que l'exploitation règle sur un espace (`/ops/offre/:tenantId`). `null` = sans limite, ou le défaut de l'instance. */
@@ -222,7 +228,6 @@ export interface ReglageEntreprise {
   /** Le Business posé à la main, et sa limite d'utilisateurs (`null` = les 5 de la grille). */
   business: boolean;
   utilisateursBusiness: number | null;
-  /** Le Crédit WhatsApp de l'Entreprise : l'open bar, et la commission des messages (`null` = la globale). */
-  openBarWhatsapp: boolean;
+  /** La commission des messages WhatsApp négociée par une Entreprise (`null` = la globale). Son illimité ne se règle pas. */
   commissionMessagesPct: number | null;
 }

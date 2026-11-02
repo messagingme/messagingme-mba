@@ -7,7 +7,7 @@ import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { CreditWhatsappRouteDeps } from '../src/http/credit-whatsapp';
 import type { AchatPermis } from '../src/stripe/achat-whatsapp';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
-import { achatPermis } from '../src/credit-whatsapp/achat-permis';
+import { achatPermis, ongletCreditWhatsapp } from '../src/credit-whatsapp/achat-permis';
 import type { LigneCredit } from '../src/credit-whatsapp/lignes.pg';
 import type { GrilleMeta } from '../src/credit-whatsapp/grille';
 
@@ -70,15 +70,16 @@ const GRILLE: GrilleMeta = {
 
 function achat(o: {
   permis?: AchatPermis; payeur?: boolean; stripe?: 'aucun'; lesPrix?: Record<string, ReponseStripe>; prixVides?: boolean;
-  grille?: GrilleMeta | null; lignes?: LigneCredit[];
+  grille?: GrilleMeta | null; lignes?: LigneCredit[]; openBar?: boolean;
 } = {}) {
   const transport = new FauxStripe([CLIENT_OK, SESSION_OK], o.lesPrix ?? PRIX_JUSTES);
   const deps: CreditWhatsappRouteDeps = {
     vue: {
       solde: async () => 12_340_000,
+      consommationDuMois: async () => 2_149_520,
       historique: async () => [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
       grille: async () => (o.grille === undefined ? GRILLE : o.grille),
-      conditions: async () => ({ openBar: false, commissionPct: 5 }),
+      conditions: async () => ({ openBar: o.openBar ?? false, commissionPct: 5 }),
       lignes: async () => o.lignes ?? [ligne()],
     },
     achat: {
@@ -184,7 +185,9 @@ describe('GET /tenants/:tenantId/credit-whatsapp (l’onglet)', () => {
     const r = await lire(a.srv);
     expect(r.statusCode).toBe(200);
     const v = r.json();
+    expect(v.illimite).toBe(false);
     expect(v.soldeMicroEur).toBe(12_340_000);
+    expect(v.consommationDuMoisMicroEur).toBe(2_149_520);
     // 5 % compris : 71 200 devient 74 760 ; l'authentification prend le plus cher de ses deux tarifs du marché.
     expect(v.prixFrance).toEqual([
       { categorie: 'marketing', prixMicroEur: 74_760 }, { categorie: 'utility', prixMicroEur: 31_500 },
@@ -198,6 +201,16 @@ describe('GET /tenants/:tenantId/credit-whatsapp (l’onglet)', () => {
     });
     expect(v.ligneArretee).toBe(false);
     expect(v.historique).toEqual([expect.objectContaining({ raison: 'envois', messages: 2, deltaMicroEur: -149_520 })]);
+    await a.srv.close();
+  });
+
+  it('🔴 une Entreprise est illimitée : la vue le dit, avec la consommation du mois, et l’achat lui est refusé', async () => {
+    const a = achat({ openBar: true, permis: 'open_bar' });
+    const v = (await lire(a.srv)).json();
+    expect(v.illimite).toBe(true);
+    expect(v.consommationDuMoisMicroEur).toBe(2_149_520);
+    expect(v.achat).toMatchObject({ permis: 'open_bar' });
+    expect(v.historique).toHaveLength(1);
     await a.srv.close();
   });
 
@@ -222,14 +235,23 @@ describe('qui peut acheter du Crédit WhatsApp', () => {
     lignes: async () => o.lignes ?? [ligne()],
   });
 
-  it('la formule Free jamais, l’open bar jamais, un espace sans ligne active jamais ; sinon oui', async () => {
+  it('la formule Free jamais, l’Entreprise (illimitée) jamais, un espace sans ligne active jamais ; sinon oui', async () => {
     expect(await achatPermis(deps({ offre: 'base' }), T1)).toBe('free');
+    // Toute Entreprise est illimitée (`PgConditionsCreditStore`, décision du 2026-11-02) : rien à acheter.
     expect(await achatPermis(deps({ offre: 'entreprise', openBar: true }), T1)).toBe('open_bar');
     expect(await achatPermis(deps({ lignes: [] }), T1)).toBe('sans_ligne');
     // Une ligne arrêtée ne laisse rien partir : le crédit ne servirait pas.
     expect(await achatPermis(deps({ lignes: [ligne({ arreteeLe: '2026-10-31T11:00:00Z' })] }), T1)).toBe('sans_ligne');
     expect(await achatPermis(deps({}), T1)).toBe('ok');
     expect(await achatPermis(deps({ offre: 'business' }), T1)).toBe('ok');
-    expect(await achatPermis(deps({ offre: 'entreprise' }), T1)).toBe('ok');
+  });
+
+  it('🔴 l’onglet : jamais en Free ; dès qu’un numéro est sur la ligne, même arrêtée ; une Entreprise le voit aussi (« Illimité »)', async () => {
+    expect(await ongletCreditWhatsapp(deps({ offre: 'base' }), T1)).toBe(false);
+    expect(await ongletCreditWhatsapp(deps({ lignes: [] }), T1)).toBe(false);
+    expect(await ongletCreditWhatsapp(deps({}), T1)).toBe(true);
+    expect(await ongletCreditWhatsapp(deps({ lignes: [ligne({ arreteeLe: '2026-10-31T11:00:00Z' })] }), T1)).toBe(true);
+    expect(await ongletCreditWhatsapp(deps({ offre: 'entreprise', openBar: true }), T1)).toBe(true);
+    expect(await ongletCreditWhatsapp(deps({ offre: 'entreprise', openBar: true, lignes: [] }), T1)).toBe(false);
   });
 });

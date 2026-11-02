@@ -30,12 +30,12 @@ export interface StripeWhatsapp {
   pageClaude: string;
 }
 
-/** Ce que l'espace peut faire de cet achat. */
+/** Ce que l'espace peut faire de cet achat. `open_bar` : une Entreprise, illimitée (décision du 2026-11-02). */
 export type AchatPermis = 'ok' | 'free' | 'open_bar' | 'sans_ligne';
 
 export interface DepsAchatWhatsapp extends Pick<DepsPaiement, 'clients' | 'payeurAutorise'> {
   stripe: StripeWhatsapp | null;
-  /** Free, open bar, aucun numéro actif sur la ligne, ou permis. Lu à chaque ouverture. */
+  /** Free, Entreprise (illimitée), aucun numéro actif sur la ligne, ou permis. Lu à chaque ouverture. */
   achatPermis(tenantId: string): Promise<AchatPermis>;
 }
 
@@ -46,7 +46,7 @@ export const ACHAT_WHATSAPP_INDISPONIBLE = refus(503, 'achat du Crédit WhatsApp
 
 const REFUS_PERMIS: Readonly<Record<Exclude<AchatPermis, 'ok'>, ReturnType<typeof refus>>> = {
   free: refus(403, 'Le Crédit WhatsApp n’est pas proposé en formule Free.', { code: 'credit_whatsapp_hors_offre' }),
-  open_bar: refus(409, 'Vos messages WhatsApp sont facturés après coup (open bar) : il n’y a rien à acheter.', { code: 'credit_whatsapp_open_bar' }),
+  open_bar: refus(409, 'Votre offre Entreprise comprend un Crédit WhatsApp illimité, facturé selon votre contrat : il n’y a rien à acheter.', { code: 'credit_whatsapp_open_bar' }),
   sans_ligne: refus(409, 'Aucun de vos numéros n’est sur la ligne de crédit : le Crédit WhatsApp ne vous servirait pas.', { code: 'credit_whatsapp_sans_ligne' }),
 };
 

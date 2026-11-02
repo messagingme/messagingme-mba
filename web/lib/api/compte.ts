@@ -701,13 +701,15 @@ export interface OffreEntrepriseOps {
   business?: boolean;
   utilisateursBusiness?: number | null;
   /**
-   * Le Crédit WhatsApp de l'Entreprise : l'open bar (messages facturés après) et la commission des messages négociée
-   * (`null` = la globale). Absents sur une API d'avant lui : lus comme faux et `null`.
+   * La commission des messages WhatsApp négociée par une Entreprise (`null` = la globale ; absente sur une API d'avant
+   * elle : lue comme `null`). Son Crédit WhatsApp est illimité, sans réglage (décision du 2026-11-02).
    */
-  openBarWhatsapp?: boolean;
   commissionMessagesPct?: number | null;
-  /** Ce que l'exploitant doit savoir avant de poser ou de retirer une offre à la main. Absent sur une API plus ancienne. */
-  alertes?: { proPayeVivant: boolean; numeroSeulVivant: boolean; numeroFourniSansCouverture: boolean };
+  /**
+   * Ce que l'exploitant doit savoir avant de poser ou de retirer une offre à la main. Absent sur une API plus ancienne ;
+   * `ligneCreditWhatsappSansCredit` aussi sur une API d'avant l'Entreprise illimitée.
+   */
+  alertes?: { proPayeVivant: boolean; numeroSeulVivant: boolean; numeroFourniSansCouverture: boolean; ligneCreditWhatsappSansCredit?: boolean };
   /** Ce que le PUT a fait après l'écriture : le crédit offert (micro-euros), la fin du numéro, les gestes échoués. */
   gestes?: { creditOffert: number | null; finDuNumero: string | null; echecs: string[] };
 }
@@ -725,8 +727,8 @@ export function ecrireOffreOps(sessionOps: string, tenantId: string, corps: {
   contacts?: number | null; commissionPct?: number | null; note: string;
   /** Absent = inchangé (spec Business) ; vrai avec `entreprise` vrai : refusé par le serveur (400). */
   business?: boolean; utilisateursBusiness?: number | null;
-  /** Absents = inchangés ; l'open bar hors Entreprise est refusé (400) et tombe avec elle. */
-  openBarWhatsapp?: boolean; commissionMessagesPct?: number | null;
+  /** Absente = inchangée ; sans effet hors Entreprise. */
+  commissionMessagesPct?: number | null;
 }): Promise<OffreEntrepriseOps> {
   return appelOps(sessionOps, `/ops/offre/${encodeURIComponent(tenantId)}`, { method: 'PUT', corps });
 }

@@ -1520,8 +1520,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   const [changerDevis, setChangerDevis] = useState(false);
   const [contacts, setContacts] = useState('');
   const [commission, setCommission] = useState('');
-  // Le Crédit WhatsApp de l'Entreprise (plan du 2026-10-30) : partent avec le devis, comme la commission du crédit IA.
-  const [openBar, setOpenBar] = useState(false);
+  // La commission des messages WhatsApp de l'Entreprise (plan du 2026-10-30) : part avec le devis, comme celle du crédit IA.
+  // Son Crédit WhatsApp est illimité, sans case à cocher (décision du 2026-11-02).
   const [commissionMessages, setCommissionMessages] = useState('');
   // Le Business (spec Business) : une seule offre posée à la main, exclusive de l'Entreprise.
   const [business, setBusiness] = useState(false);
@@ -1541,7 +1541,6 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
     setChangerDevis(false);
     setContacts(r.contacts == null ? '' : String(r.contacts));
     setCommission(r.commissionPct == null ? '' : String(r.commissionPct));
-    setOpenBar(r.openBarWhatsapp === true);
     setCommissionMessages(r.commissionMessagesPct == null ? '' : String(r.commissionMessagesPct));
     setBusiness(r.business === true);
     setUtilisateursBusiness(r.utilisateursBusiness == null ? '' : String(r.utilisateursBusiness));
@@ -1591,8 +1590,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
         // `pret` a déjà écarté une saisie invalide (le compilateur le sait).
         ...(nouveauxContacts !== undefined ? { contacts: nouveauxContacts } : {}),
         ...(nouvelleCommission !== undefined ? { commissionPct: nouvelleCommission } : {}),
-        // Le Crédit WhatsApp ne part que s'il change, comme le Business (absents = inchangés côté serveur).
-        ...(devis && openBar !== (etat?.openBarWhatsapp === true) ? { openBarWhatsapp: openBar } : {}),
+        // La commission des messages ne part que si elle change, comme le Business (absente = inchangée côté serveur).
         ...(nouvelleCommissionMessages !== undefined && nouvelleCommissionMessages !== (etat?.commissionMessagesPct ?? null)
           ? { commissionMessagesPct: nouvelleCommissionMessages } : {}),
         // Le Business ne part que s'il change, sa limite que s'il est coché (absents = inchangés côté serveur).
@@ -1707,10 +1705,6 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
                     <input className={`${inputCls} w-24`} inputMode="numeric" value={commission} onChange={(e) => setCommission(e.target.value)} data-testid="offre-commission" />
                     {nouvelleCommission === 'invalide' && <span className="text-xs text-danger-700">{t('Un entier de 0 à 100, ou vide.', 'A whole number from 0 to 100, or empty.')}</span>}
                   </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={openBar} onChange={(e) => setOpenBar(e.target.checked)} data-testid="offre-open-bar" className="h-4 w-4" />
-                    <span className="text-ink-900">{t('Crédit WhatsApp en open bar : aucun solde, les messages sont facturés après', 'WhatsApp credit on open bar: no balance, messages are invoiced afterwards')}</span>
-                  </label>
                   <label className="grid gap-1">
                     <span className="text-xs font-medium text-ink-500">{t('Commission sur les messages WhatsApp, en % (vide = la commission globale)', 'WhatsApp message commission, in % (empty = the global commission)')}</span>
                     <input className={`${inputCls} w-24`} inputMode="numeric" value={commissionMessages} onChange={(e) => setCommissionMessages(e.target.value)} data-testid="offre-commission-messages" />
@@ -1725,6 +1719,12 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
               <input type="checkbox" checked={retraitConfirme} onChange={(e) => setRetraitConfirme(e.target.checked)} data-testid="offre-retrait-confirme" className="mt-0.5 h-4 w-4" />
               <span>{t('Le numéro fourni ne sera plus couvert : ses envois sont suspendus tout de suite, puis il est résilié 7 jours plus tard. Je confirme le retrait.', 'The provided number will no longer be covered: its sends are suspended at once, then it is cancelled 7 days later. I confirm the removal.')}</span>
             </label>
+          )}
+          {etat.entreprise && !entreprise && etat.alertes?.ligneCreditWhatsappSansCredit === true && (
+            <p className="rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700" data-testid="offre-alerte-credit-wa">
+              {t('Un numéro de l’espace est sur la ligne du Crédit WhatsApp, illimité en Entreprise. Hors Entreprise, il ne lui reste pas de quoi payer un message : plus rien ne partira, réponses comprises, avant un achat de Crédit WhatsApp.',
+                'A number of the workspace is on the WhatsApp credit line, unlimited on Enterprise. Out of Enterprise, nothing is left to pay for a message: nothing will go out, replies included, until a WhatsApp credit purchase.')}
+            </p>
           )}
           {etat.entreprise && !entreprise && !business && (
             <p className="rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700" data-testid="offre-retour-base">

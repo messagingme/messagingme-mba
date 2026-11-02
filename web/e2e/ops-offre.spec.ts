@@ -74,22 +74,36 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     expect(ecrits).toEqual([{ entreprise: true, utilisateurs: 10, contacts: 20000, commissionPct: 7, note: 'Devis signé' }]);
   });
 
-  test('🔴 le Crédit WhatsApp de l’Entreprise (open bar, commission des messages) ne part que s’il change', async ({ page }) => {
+  test('🔴 la commission des messages de l’Entreprise ne part que si elle change, et aucune case d’open bar (illimité d’office)', async ({ page }) => {
     const { modale, ecrits } = await ouvrir(page, {
-      entreprise: true, utilisateurs: 10, conservationJours: null, contacts: null, commissionPct: null, openBarWhatsapp: false, commissionMessagesPct: null,
+      entreprise: true, utilisateurs: 10, conservationJours: null, contacts: null, commissionPct: null, commissionMessagesPct: null,
     });
     await modale.getByTestId('offre-changer-devis').check();
+    // Toute Entreprise est illimitée (décision du 2026-11-02) : plus rien à cocher.
+    await expect(modale.getByTestId('offre-open-bar')).toHaveCount(0);
     await modale.getByTestId('offre-commission-messages').fill('2.5');
     await modale.getByTestId('offre-note').fill('Devis signé, messages facturés après');
     await expect(modale.getByTestId('offre-enregistrer')).toBeDisabled();
     await modale.getByTestId('offre-commission-messages').fill('3');
-    await modale.getByTestId('offre-open-bar').check();
     await modale.getByTestId('offre-enregistrer').click();
     await expect(modale.getByTestId('offre-message')).toBeVisible();
     expect(ecrits).toEqual([{
-      entreprise: true, utilisateurs: 10, contacts: null, commissionPct: null, openBarWhatsapp: true, commissionMessagesPct: 3,
+      entreprise: true, utilisateurs: 10, contacts: null, commissionPct: null, commissionMessagesPct: 3,
       note: 'Devis signé, messages facturés après',
     }]);
+  });
+
+  test('🔴 retirer l’Entreprise d’un espace dont un numéro est sur la ligne sans crédit : l’écran prévient avant l’enregistrement', async ({ page }) => {
+    const { modale } = await ouvrir(page, {
+      entreprise: true, utilisateurs: 10, conservationJours: null,
+      alertes: { proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: true },
+    });
+    await expect(modale.getByTestId('offre-alerte-credit-wa')).toHaveCount(0);
+    await modale.getByTestId('offre-entreprise').uncheck();
+    await expect(modale.getByTestId('offre-alerte-credit-wa')).toBeVisible();
+    // Vers le Business aussi : il prépaie, comme le Pro.
+    await modale.getByTestId('offre-business').check();
+    await expect(modale.getByTestId('offre-alerte-credit-wa')).toBeVisible();
   });
 
   test('sans limite d’utilisateurs : `null` part', async ({ page }) => {

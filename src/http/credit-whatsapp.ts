@@ -23,9 +23,13 @@ const CATEGORIES_AFFICHEES: readonly CategorieMeta[] = ['marketing', 'utility', 
 export interface CreditWhatsappRouteDeps {
   /** L'ouverture d'un achat : les MÊMES objets que l'outil MCP `buy_credit` reçoit. */
   achat: DepsAchatWhatsapp;
-  /** Ce que lit l'onglet : le solde, l'historique, la grille en vigueur, les conditions et les lignes de l'espace. */
+  /**
+   * Ce que lit l'onglet : le solde, la consommation du mois, l'historique, la grille en vigueur, les conditions et les
+   * lignes de l'espace.
+   */
   vue: {
     solde(tenantId: string): Promise<number>;
+    consommationDuMois(tenantId: string): Promise<number>;
     historique(tenantId: string): Promise<LigneHistoriqueWa[]>;
     grille(): Promise<GrilleMeta | null>;
     conditions(tenantId: string): Promise<ConditionsCredit>;
@@ -35,7 +39,14 @@ export interface CreditWhatsappRouteDeps {
 
 /** Ce que l'onglet lit. Montants en micro-euros ; un prix se montre commission comprise, JAMAIS son taux. */
 export interface VueCreditWhatsapp {
+  /**
+   * Toute Entreprise (décision du 2026-11-02) : son Crédit WhatsApp est illimité, facturé au contrat. L'onglet montre
+   * « Illimité » et la consommation du mois à la place du solde, qui ne bouge pas, et rien à acheter.
+   */
+  illimite: boolean;
   soldeMicroEur: number;
+  /** Ce qu'ont consommé les messages du mois de Paris (provisions non rendues), illimitées comprises. */
+  consommationDuMoisMicroEur: number;
   /** Le prix d'un message en France par catégorie, commission comprise ; `null` sans grille de Meta en vigueur. */
   prixFrance: Array<{ categorie: CategorieMeta; prixMicroEur: number }> | null;
   /** Les messages de service offerts par Meta, par numéro et par mois. */
@@ -55,9 +66,9 @@ export function registerCreditWhatsapp(
   /** L'onglet : tout membre le lit (un agent y voit le solde et qui peut recharger), seul un administrateur achète. */
   app.get('/tenants/:tenantId/credit-whatsapp', { preHandler: gardeLecture }, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const [soldeMicroEur, historique, grille, conditions, lignes, permis] = await Promise.all([
-      deps.vue.solde(tenant), deps.vue.historique(tenant), deps.vue.grille(), deps.vue.conditions(tenant), deps.vue.lignes(tenant),
-      deps.achat.achatPermis(tenant),
+    const [soldeMicroEur, consommationDuMoisMicroEur, historique, grille, conditions, lignes, permis] = await Promise.all([
+      deps.vue.solde(tenant), deps.vue.consommationDuMois(tenant), deps.vue.historique(tenant), deps.vue.grille(),
+      deps.vue.conditions(tenant), deps.vue.lignes(tenant), deps.achat.achatPermis(tenant),
     ]);
     const prixFrance = grille === null ? null : CATEGORIES_AFFICHEES.flatMap((categorie) => {
       const prix = prixMessage(grille, 'FR', categorie, conditions.commissionPct);
@@ -65,7 +76,9 @@ export function registerCreditWhatsapp(
     });
     const s = deps.achat.stripe;
     const vue: VueCreditWhatsapp = {
+      illimite: conditions.openBar,
       soldeMicroEur,
+      consommationDuMoisMicroEur,
       prixFrance,
       franchiseServiceParNumero: FRANCHISE_SERVICE_PAR_NUMERO,
       achat: {

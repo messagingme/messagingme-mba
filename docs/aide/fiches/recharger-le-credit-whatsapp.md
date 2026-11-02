@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: a35294
+source_empreinte: 5c67ae
 ---
 # Recharger le Crédit WhatsApp
 
@@ -31,6 +31,10 @@ Vous pouvez aussi demander à Claude de recharger : il vous donne le lien de pai
 
 **L'historique** liste les quatre-vingt-dix derniers jours : les envois d'une journée en une ligne (nombre de messages
 et montant), vos achats et les régularisations.
+
+**En offre Entreprise, le Crédit WhatsApp est illimité.** Vos messages partent sans solde à surveiller ni recharge, et
+nous les facturons selon votre contrat. L'onglet affiche « Illimité » et ce qu'ont coûté les messages du mois, avec les
+mêmes prix et le même historique ; il n'y a rien à acheter.
 
 **Si l'onglet dit que le crédit est arrêté sur vos numéros**, plus aucun message ne part et une recharge n'y changerait
 rien : contactez-nous depuis le Support.

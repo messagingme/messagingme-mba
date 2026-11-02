@@ -32,7 +32,7 @@ export interface ProvisionDemandee {
   categorie: CategorieMeta;
   /** Le prix du message, commission comprise (`prixMessage`). Zéro pour un service dans la franchise du numéro. */
   montantMicroEur: number;
-  /** Entreprise en open bar : la provision se prend sans regarder le solde. */
+  /** Illimité (toute Entreprise) : la provision s'écrit, marquée, sans regarder ni toucher le solde. */
   openBar: boolean;
 }
 

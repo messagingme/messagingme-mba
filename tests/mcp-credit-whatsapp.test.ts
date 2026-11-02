@@ -37,7 +37,7 @@ class FauxStripe implements TransportStripe {
   async delete(): Promise<ReponseStripe> { throw new Error('non prévu'); }
 }
 
-function deps(o: { onglet: boolean }) {
+function deps(o: { onglet: boolean; illimite?: boolean }) {
   const transport = new FauxStripe();
   const d = {
     ...mcpAgentInerte,
@@ -61,6 +61,8 @@ function deps(o: { onglet: boolean }) {
         vue: {
           ...creditWhatsappInerte.vue,
           solde: async () => 12_340_000,
+          consommationDuMois: async () => 2_149_520,
+          conditions: async () => ({ openBar: o.illimite === true, commissionPct: 5 }),
           grille: async () => GRILLE,
           historique: async () => [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
         },
@@ -84,6 +86,19 @@ describe('get_credit et le Crédit WhatsApp', () => {
     expect(Object.keys(wa.prix_france_eur as object)).toEqual(['marketing', 'utility', 'authentication', 'service']);
     expect(JSON.stringify(r)).not.toMatch(/commission/i);
     expect(wa.mouvements).toEqual([expect.objectContaining({ raison: 'envois', messages: 2 })]);
+    expect(wa).not.toHaveProperty('illimite');
+  });
+
+  it('🔴 une Entreprise : « illimité » et la consommation du mois, JAMAIS un solde (il ne bouge pas, il ne dit rien)', async () => {
+    const r = await outil('get_credit').executer(deps({ onglet: true, illimite: true }).d, T1, {}, PERSONNE) as { credit_whatsapp: Record<string, unknown> };
+    const wa = r.credit_whatsapp;
+    expect(wa).toMatchObject({ illimite: true, consommation_du_mois_eur: 2.15 });
+    expect(wa).not.toHaveProperty('solde_eur');
+    expect(wa.mouvements).toEqual([expect.objectContaining({ raison: 'envois', messages: 2 })]);
+  });
+
+  it('la description dit l’illimité de l’Entreprise', () => {
+    expect(outil('get_credit').description).toMatch(/Enterprise plan the WhatsApp credit is unlimited/);
   });
 });
 

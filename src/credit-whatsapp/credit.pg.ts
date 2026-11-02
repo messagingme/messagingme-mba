@@ -4,7 +4,9 @@ import { debutDuMois, type IssueProvision, type LigneHistoriqueWa, type Provisio
 
 /**
  * Le magasin du Crédit WhatsApp (migration 0264). Chaque écriture touche le solde ET sa trace dans la même instruction
- * ou la même transaction : l'invariant « solde = mouvements − provisions non rendues » ne dépend d'aucun ordre d'appel.
+ * ou la même transaction : l'invariant « solde = mouvements − provisions non rendues et non illimitées » ne dépend
+ * d'aucun ordre d'appel. Une provision ILLIMITÉE (toute Entreprise, migration 0266) ne touche jamais le solde : ni à la
+ * prise, ni au retour, ni à la correction.
  */
 /**
  * Le crédit d'un paiement, sur le pool ou sur le client d'une transaction (l'achat par Stripe l'écrit dans la même
@@ -46,22 +48,37 @@ export class PgCreditWhatsappStore {
    * solde nul ou négatif ne laisse rien partir, pas même un message de service compté dans la franchise (à zéro) : tout
    * s'arrête à zéro, réponses comprises (décision de Julien, spec du 2026-10-30). La ligne
    * de solde existe d'abord (une instruction idempotente), sinon un espace jamais crédité ne pourrait même pas être
-   * refusé proprement, et une Entreprise en open bar n'aurait rien à débiter.
+   * refusé proprement.
+   *
+   * 🔴 ILLIMITÉ (`openBar`, toute Entreprise, décision du 2026-11-02) : la provision s'écrit, MARQUÉE, pour la facture du
+   * mois, et le solde ne bouge pas. Jamais refusée. Le solde d'avant reste intact : un espace qui quitte l'Entreprise le
+   * retrouve tel quel, sans dette (avant la 0266, l'open bar le faisait passer en négatif).
    */
   async provisionner(p: ProvisionDemandee): Promise<IssueProvision> {
+    if (p.openBar) {
+      const { rows } = await this.pool.query<{ id: string; apres: string }>(
+        `insert into credit_whatsapp_provisions (tenant_id, phone_number_id, pays, categorie, montant_micro_eur, illimite)
+         values ($1, $2, $3, $4, $5, true)
+         returning id, coalesce((select solde_micro_eur from credits_whatsapp where tenant_id = $1), 0) as apres`,
+        [p.tenantId, p.phoneNumberId, p.pays, p.categorie, p.montantMicroEur],
+      );
+      const r = rows[0];
+      if (r === undefined) throw new Error('provision illimitée non écrite');
+      return { ok: true, provisionId: r.id, soldeApresMicroEur: Number(r.apres) };
+    }
     await this.pool.query('insert into credits_whatsapp (tenant_id) values ($1) on conflict (tenant_id) do nothing', [p.tenantId]);
     const { rows } = await this.pool.query<{ id: string; apres: string }>(
       `with debit as (
          update credits_whatsapp set solde_micro_eur = solde_micro_eur - $2, maj_le = now()
-          where tenant_id = $1 and ($3::boolean or (solde_micro_eur > 0 and solde_micro_eur - $2 >= 0))
+          where tenant_id = $1 and solde_micro_eur > 0 and solde_micro_eur - $2 >= 0
           returning solde_micro_eur
        ), prov as (
          insert into credit_whatsapp_provisions (tenant_id, phone_number_id, pays, categorie, montant_micro_eur)
-         select $1, $4, $5, $6, $2 from debit
+         select $1, $3, $4, $5, $2 from debit
          returning id
        )
        select prov.id, debit.solde_micro_eur as apres from prov, debit`,
-      [p.tenantId, p.montantMicroEur, p.openBar, p.phoneNumberId, p.pays, p.categorie],
+      [p.tenantId, p.montantMicroEur, p.phoneNumberId, p.pays, p.categorie],
     );
     if (rows[0]) return { ok: true, provisionId: rows[0].id, soldeApresMicroEur: Number(rows[0].apres) };
     // Relu par une instruction À PART : sous concurrence, l'instruction refusée garde l'instantané d'avant le débit qui
@@ -78,29 +95,32 @@ export class PgCreditWhatsappStore {
     await this.pool.query('update credit_whatsapp_provisions set wamid = $2 where id = $1 and wamid is null', [provisionId, wamid]);
   }
 
-  /** Rend une provision (refus net de Meta). Idempotent : une provision déjà rendue ne rend rien de plus. */
+  /**
+   * Rend une provision (refus net de Meta). Idempotent : une provision déjà rendue ne rend rien de plus. Une provision
+   * illimitée est rendue sans toucher le solde, qu'elle n'avait pas touché.
+   */
   async rendre(provisionId: string): Promise<void> {
     await this.pool.query(
       `with p as (
          update credit_whatsapp_provisions set etat = 'rendu' where id = $1 and etat <> 'rendu'
-         returning tenant_id, montant_micro_eur
+         returning tenant_id, montant_micro_eur, illimite
        )
        update credits_whatsapp c set solde_micro_eur = c.solde_micro_eur + p.montant_micro_eur, maj_le = now()
-         from p where c.tenant_id = p.tenant_id`,
+         from p where c.tenant_id = p.tenant_id and not p.illimite`,
       [provisionId],
     );
   }
 
-  /** Rend la provision d'un message par son wamid (accusé « non facturable » ou échec). Idempotent. */
+  /** Rend la provision d'un message par son wamid (accusé « non facturable » ou échec). Idempotent ; illimitée, sans solde. */
   async rendreParWamid(tenantId: string, wamid: string): Promise<void> {
     await this.pool.query(
       `with p as (
          update credit_whatsapp_provisions set etat = 'rendu'
           where tenant_id = $1 and wamid = $2 and etat <> 'rendu'
-          returning tenant_id, montant_micro_eur
+          returning tenant_id, montant_micro_eur, illimite
        )
        update credits_whatsapp c set solde_micro_eur = c.solde_micro_eur + p.montant_micro_eur, maj_le = now()
-         from p where c.tenant_id = p.tenant_id`,
+         from p where c.tenant_id = p.tenant_id and not p.illimite`,
       [tenantId, wamid],
     );
   }
@@ -108,7 +128,7 @@ export class PgCreditWhatsappStore {
   /**
    * Corrige une provision que Meta a facturée dans une autre catégorie (un modèle « utility » reclassé en marketing) :
    * la provision prend le nouveau montant, le solde bouge de la différence. Une seule fois : seule une provision encore
-   * « provisionnée » se corrige, et un rejeu de l'accusé ne bouge plus rien.
+   * « provisionnée » se corrige, et un rejeu de l'accusé ne bouge plus rien. Illimitée, seul son montant change.
    */
   async corrigerParWamid(tenantId: string, wamid: string, categorie: CategorieMeta, montantMicroEur: number): Promise<void> {
     await this.pool.query(
@@ -118,10 +138,10 @@ export class PgCreditWhatsappStore {
        ), p as (
          update credit_whatsapp_provisions q set categorie = $3, montant_micro_eur = $4, etat = 'ajuste'
            from ancienne a where q.id = a.id
-         returning q.tenant_id, $4::bigint - a.montant_micro_eur as ecart
+         returning q.tenant_id, $4::bigint - a.montant_micro_eur as ecart, q.illimite
        )
        update credits_whatsapp c set solde_micro_eur = c.solde_micro_eur - p.ecart, maj_le = now()
-         from p where c.tenant_id = p.tenant_id`,
+         from p where c.tenant_id = p.tenant_id and not p.illimite`,
       [tenantId, wamid, categorie, montantMicroEur],
     );
   }
@@ -156,6 +176,7 @@ export class PgCreditWhatsappStore {
    * La régularisation d'un jour (UTC) : SA ligne est remplacée, et le solde bouge de la seule différence avec la valeur
    * précédente du jour. `deltaMicroEur` est l'effet sur le solde (négatif = débit). Un seul régularisateur à la fois
    * (la passe horaire du lot 3 tient un verrou) : deux passes simultanées du même jour liraient la même ancienne valeur.
+   * 🔴 Jamais pour une Entreprise : son solde ne bouge pas (décision du 2026-11-02), son écart va au montant à facturer.
    */
   async regulariser(tenantId: string, jour: string, deltaMicroEur: number): Promise<void> {
     const client = await this.pool.connect();
@@ -222,6 +243,20 @@ export class PgCreditWhatsappStore {
   async solde(tenantId: string): Promise<number> {
     const { rows } = await this.pool.query<{ solde: string }>('select solde_micro_eur as solde from credits_whatsapp where tenant_id = $1', [tenantId]);
     return Number(rows[0]?.solde ?? 0);
+  }
+
+  /**
+   * Ce qu'ont consommé les messages du mois de Paris : les provisions non rendues depuis le 1er, illimitées comprises.
+   * L'onglet d'une Entreprise le montre à la place du solde ; c'est aussi la base de sa facture du mois.
+   */
+  async consommationDuMois(tenantId: string): Promise<number> {
+    const { rows } = await this.pool.query<{ total: string }>(
+      `select coalesce(sum(montant_micro_eur), 0) as total from credit_whatsapp_provisions
+        where tenant_id = $1 and etat <> 'rendu'
+          and cree_le >= (date_trunc('month', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris')`,
+      [tenantId],
+    );
+    return Number(rows[0]?.total ?? 0);
   }
 
   /**

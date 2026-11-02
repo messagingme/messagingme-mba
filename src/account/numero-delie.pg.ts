@@ -164,16 +164,16 @@ export class PgNumeroDelieStore {
   }
 
   /**
-   * Lève les pauses `credit_whatsapp_epuise` de l'espace (plan du Crédit WhatsApp, tâche 11), après un crédit, l'open bar
-   * posé dans `/ops`, ou au balayage horaire de secours. Même reprise que `leverPausesSuspension` : une campagne programmée
-   * redevient `scheduled` (son heure est passée, le balayage la fait partir aussitôt), les autres `running`, relancées par
-   * le balayage des campagnes gelées. Rend le nombre de campagnes reprises.
+   * Lève les pauses `credit_whatsapp_epuise` de l'espace (plan du Crédit WhatsApp, tâche 11), après un crédit, le passage
+   * en Entreprise posé dans `/ops`, ou au balayage horaire de secours. Même reprise que `leverPausesSuspension` : une
+   * campagne programmée redevient `scheduled` (son heure est passée, le balayage la fait partir aussitôt), les autres
+   * `running`, relancées par le balayage des campagnes gelées. Rend le nombre de campagnes reprises.
    *
    * 🔴 Deux conditions dans la MÊME instruction, pour qu'une reprise ne reparte pas aussitôt en pause ou dans le vide : le
-   * solde atteint `SOLDE_REPRISE_CREDIT_MICRO_EUR` (ou l'espace est une Entreprise en open bar, lue par la seule définition
-   * de l'offre), et l'espace a encore un numéro relié (une campagne dont le numéro a été libéré ne repart jamais : la
-   * libération change d'ailleurs sa pause en `numero_delie`). `ligne_credit_inactive` n'est pas levée ici : un crédit n'y
-   * change rien.
+   * solde atteint `SOLDE_REPRISE_CREDIT_MICRO_EUR` (ou l'espace est une Entreprise, illimitée, lue par la seule définition
+   * de l'offre : décision du 2026-11-02), et l'espace a encore un numéro relié (une campagne dont le numéro a été libéré ne
+   * repart jamais : la libération change d'ailleurs sa pause en `numero_delie`). `ligne_credit_inactive` n'est pas levée
+   * ici : un crédit n'y change rien.
    */
   async leverPausesCreditWhatsapp(tenantId: string): Promise<number> {
     const c = await this.pool.query(
@@ -182,8 +182,7 @@ export class PgNumeroDelieStore {
               pause_reason = null, paused_until = null
         where c.tenant_id = $1 and c.status = 'paused' and c.pause_reason = 'credit_whatsapp_epuise'
           and (coalesce((select w.solde_micro_eur from credits_whatsapp w where w.tenant_id = $1), 0) >= $2
-               or (offre_de_l_espace($1::uuid) = 'entreprise'
-                   and (select t.entreprise_open_bar_whatsapp from tenants t where t.id = $1)))
+               or offre_de_l_espace($1::uuid) = 'entreprise')
           and exists (select 1 from phone_numbers p where p.tenant_id = $1 and p.delie_le is null)`,
       [tenantId, SOLDE_REPRISE_CREDIT_MICRO_EUR],
     );

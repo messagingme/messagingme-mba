@@ -154,7 +154,7 @@ describe('l’étape suivante', () => {
 });
 
 describe('la lecture, sur des faux', () => {
-  function deps(o: { panne?: 'numero' | 'agents' | 'credit'; lus?: string[]; soldeWa?: number } = {}): DepsMiseEnService {
+  function deps(o: { panne?: 'numero' | 'agents' | 'credit'; lus?: string[]; soldeWa?: number; illimite?: boolean } = {}): DepsMiseEnService {
     const casse = (quoi: string) => async () => { throw new Error(`panne ${quoi}`); };
     // Chaque source note l'espace qu'on lui demande : l'isolation se vérifie sur toutes.
     const lu = <T>(source: string, v: T) => async (t: string) => { o.lus?.push(`${source}:${t}`); return v; };
@@ -172,8 +172,11 @@ describe('la lecture, sur des faux', () => {
           etatPourLint: async (t: string) => { o.lus?.push(`manques:${t}`); return null; },
         },
         repondeur: { reglages: { get: lu('repondeur', { ...EQUIPE, repondeurDelaiScenarioS: 0 }) } },
-        // Sur la ligne seulement quand le test donne un solde du Crédit WhatsApp.
-        creditWhatsapp: { onglet: async () => o.soldeWa !== undefined, vue: { solde: async () => o.soldeWa ?? 0 } },
+        // Sur la ligne seulement quand le test donne un solde du Crédit WhatsApp ; illimité, une Entreprise.
+        creditWhatsapp: {
+          onglet: async () => o.soldeWa !== undefined,
+          vue: { solde: async () => o.soldeWa ?? 0, conditions: async () => ({ openBar: o.illimite === true }) },
+        },
       },
       widgets: { gestion: { widgets: { lister: lu('bulles', []) } } },
     };
@@ -210,6 +213,12 @@ describe('la lecture, sur des faux', () => {
     expect((await lireMiseEnService(deps({ soldeWa: 1_000_000 }), 't1')).avertissements).not.toContain('credit_whatsapp_epuise');
     expect((await lireMiseEnService(deps(), 't1')).avertissements).not.toContain('credit_whatsapp_epuise');
   });
+
+  it('🔴 une Entreprise sur la ligne, illimitée, n’est JAMAIS avertie, même à solde nul : son solde ne bouge pas et n’arrête rien', async () => {
+    for (const soldeWa of [0, -1, 999_999]) {
+      expect((await lireMiseEnService(deps({ soldeWa, illimite: true }), 't1')).avertissements, String(soldeWa)).not.toContain('credit_whatsapp_epuise');
+    }
+  });
 });
 
 describe('l’outil get_setup_state', () => {
@@ -237,7 +246,7 @@ describe('l’outil get_setup_state', () => {
       agentIa: {
         gestion: { agents: { listToutes: async () => [] }, credits: { solde: async () => 0 }, etatPourLint: async () => null },
         repondeur: { reglages: { get: async () => EQUIPE } },
-        creditWhatsapp: { onglet: async () => false, vue: { solde: async () => 0 } },
+        creditWhatsapp: { onglet: async () => false, vue: { solde: async () => 0, conditions: async () => ({ openBar: false }) } },
       },
       widgets: { gestion: { widgets: { lister: async () => [] } } },
     } satisfies DepsMiseEnService;

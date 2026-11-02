@@ -273,13 +273,14 @@ describe.skipIf(!url)('Numéro délié (Postgres réel)', () => {
     // La ligne arrêtée n'est pas levée par un crédit ; la campagne d'un autre espace non plus.
     expect(await etat(ligneArretee)).toMatchObject({ status: 'paused', pause_reason: 'ligne_credit_inactive' });
     expect(await etat(chezLAutre)).toMatchObject({ status: 'paused', pause_reason: 'credit_whatsapp_epuise' });
-    // L'open bar d'une Entreprise lève la pause même à solde nul.
+    // 🔴 Toute Entreprise est illimitée (décision du 2026-11-02) : sa pause se lève même à solde nul, l'ancien
+    // interrupteur d'open bar à faux (il n'est plus lu).
     await solde(0);
     const openBar = await campagne(tenant, { status: 'paused', pauseReason: 'credit_whatsapp_epuise' });
-    await pool.query(`update tenants set offre_entreprise = true, entreprise_open_bar_whatsapp = true where id = $1`, [tenant]);
+    await pool.query(`update tenants set offre_entreprise = true, entreprise_open_bar_whatsapp = false where id = $1`, [tenant]);
     expect(await store.leverPausesCreditWhatsapp(tenant)).toBe(1);
     expect((await etat(openBar)).status).toBe('running');
-    await pool.query(`update tenants set offre_entreprise = false, entreprise_open_bar_whatsapp = false where id = $1`, [tenant]);
+    await pool.query(`update tenants set offre_entreprise = false where id = $1`, [tenant]);
     await pool.query(`update campaigns set status = 'completed', pause_reason = null where tenant_id = any($1::uuid[])`, [[tenant, autre]]);
     await pool.query('delete from credits_whatsapp where tenant_id = $1', [tenant]);
   });

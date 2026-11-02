@@ -33,7 +33,15 @@ export interface LigneCreditWhatsapp {
 
 /** Ce que lit l'onglet. Montants en micro-euros ; un prix se montre tout compris, jamais un taux. */
 export interface VueCreditWhatsapp {
+  /**
+   * Une Entreprise : le Crédit WhatsApp est illimité, facturé selon son contrat (décision du 2026-11-02). L'onglet montre
+   * « Illimité » et la consommation du mois à la place du solde, sans rien à acheter. Absent sur une API plus ancienne
+   * (la console part avant l'API) : lu comme faux.
+   */
+  illimite: boolean;
   soldeMicroEur: number;
+  /** Ce qu'ont coûté les messages du mois en cours ; 0 sur une API plus ancienne. */
+  consommationDuMoisMicroEur: number;
   /** Le prix d'un message vers la France, par catégorie ; `null` tant qu'aucune grille de prix n'est en vigueur. */
   prixFrance: Array<{ categorie: string; prixMicroEur: number }> | null;
   franchiseServiceParNumero: number;
@@ -59,7 +67,9 @@ export async function getCreditWhatsapp(tenantId: string): Promise<VueCreditWhat
   if (r === null || typeof r !== 'object' || typeof r.soldeMicroEur !== 'number') throw new Error('réponse inattendue');
   const achat = r.achat;
   return {
+    illimite: r.illimite === true,
     soldeMicroEur: r.soldeMicroEur,
+    consommationDuMoisMicroEur: typeof r.consommationDuMoisMicroEur === 'number' ? r.consommationDuMoisMicroEur : 0,
     prixFrance: Array.isArray(r.prixFrance) ? r.prixFrance : null,
     franchiseServiceParNumero: typeof r.franchiseServiceParNumero === 'number' ? r.franchiseServiceParNumero : 0,
     achat: {

@@ -25,8 +25,11 @@ import { MbaNotice } from '@/components/MbaNotice';
 
 /**
  * LE CRÉDIT WHATSAPP DE L'ESPACE (plan du Crédit WhatsApp, tâche 11) : troisième onglet de Paramètres > Offre, ouvert à
- * un espace dont un numéro est sur la ligne de crédit (`ongletCreditWhatsapp` de la vue de l'offre, jamais en Free ni en
- * Entreprise open bar). Le solde, le prix d'un message vers la France, les quatre achats et l'historique.
+ * un espace dont un numéro est sur la ligne de crédit (`ongletCreditWhatsapp` de la vue de l'offre, jamais en Free). Le
+ * solde, le prix d'un message vers la France, les quatre achats et l'historique.
+ *
+ * 🔴 UNE ENTREPRISE EST ILLIMITÉE (décision du 2026-11-02, `vue.illimite`) : « Illimité » et la consommation du mois à la
+ * place du solde, qui ne bouge pas, et aucune recharge. Ses messages sont facturés selon son contrat.
  *
  * 🔴 TOUT S'ARRÊTE À ZÉRO : un message ne part que si le solde couvre son prix, réponses de l'Inbox et des agents IA
  * comprises. L'écran le dit en clair, sans jamais parler de la ligne ni de qui la porte.
@@ -144,14 +147,20 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
 
   const admin = session.role === 'admin';
   const ouvert = vue !== null && vue.achat.permis === 'ok';
+  const illimite = vue?.illimite === true;
 
   return (
     <div className="max-w-formulaire space-y-4">
       <IntroPage>
-        {t(
-          'Le crédit prépayé qui paie les messages WhatsApp de vos numéros. À zéro, plus aucun message ne part, réponses comprises.',
-          'The prepaid credit that pays for your numbers’ WhatsApp messages. At zero, no message goes out any more, replies included.',
-        )}
+        {illimite
+          ? t(
+            'Votre offre Entreprise comprend un Crédit WhatsApp illimité : vos messages partent sans solde à recharger, et nous les facturons selon votre contrat.',
+            'Your Enterprise plan includes unlimited WhatsApp credit: your messages go out with no balance to top up, and we bill them under your contract.',
+          )
+          : t(
+            'Le crédit prépayé qui paie les messages WhatsApp de vos numéros. À zéro, plus aucun message ne part, réponses comprises.',
+            'The prepaid credit that pays for your numbers’ WhatsApp messages. At zero, no message goes out any more, replies included.',
+          )}
       </IntroPage>
 
       {retour === 'recu' && (
@@ -181,9 +190,18 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
       )}
 
       <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-solde">
-        <div className="text-xs font-medium text-ink-500">{t('Crédit WhatsApp restant', 'WhatsApp credit left')}</div>
+        <div className="text-xs font-medium text-ink-500">{illimite ? t('Crédit WhatsApp', 'WhatsApp credit') : t('Crédit WhatsApp restant', 'WhatsApp credit left')}</div>
         {vue === null && !erreurLecture && <Squelette forme="carte" className="mt-1" />}
-        {vue !== null && (
+        {vue !== null && illimite && (
+          <>
+            <div className="mt-1 text-3xl font-semibold tracking-tight text-ink-900" data-testid="credit-wa-illimite">{t('Illimité', 'Unlimited')}</div>
+            <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-conso-mois">
+              {t(`Messages de ce mois-ci : ${euros(vue.consommationDuMoisMicroEur, locale)} HT, facturés selon votre contrat.`,
+                `This month’s messages: ${euros(vue.consommationDuMoisMicroEur, locale)} excl. VAT, billed under your contract.`)}
+            </p>
+          </>
+        )}
+        {vue !== null && !illimite && (
           <>
             <div className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-ink-900">{euros(vue.soldeMicroEur, locale)}</div>
             {vue.soldeMicroEur <= 0 && !vue.ligneArretee && (
@@ -241,54 +259,56 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
         )}
       </section>
 
-      <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-recharger">
-        <h2 className="text-sm font-semibold text-ink-900">{t('Recharger', 'Top up')}</h2>
-        {!admin && (
-          <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-non-admin">
-            {t('Demandez à un administrateur de votre espace de recharger le Crédit WhatsApp.', 'Ask an administrator of your workspace to top up the WhatsApp credit.')}
-          </p>
-        )}
-        {admin && vue !== null && ouvert && (indisponible || !vue.achat.disponible) && (
-          <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-indisponible">
-            {t('La recharge en ligne n’est pas encore disponible. Contactez-nous depuis le Support.', 'Online top-up isn’t available yet. Contact us from Support.')}
-          </p>
-        )}
-        {admin && vue !== null && !ouvert && !vue.ligneArretee && (
-          <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-ferme">
-            {t('La recharge n’est pas ouverte pour cet espace. Contactez-nous depuis le Support.', 'Top-up is not open for this workspace. Contact us from Support.')}
-          </p>
-        )}
-        {admin && vue !== null && ouvert && !indisponible && vue.achat.disponible && (
-          <>
-            <p className="mt-1 text-sm text-ink-500">
-              {t(
-                'Montants hors taxe, TVA en sus. Le paiement se fait sur la page sécurisée de Stripe, qui vous envoie la facture par e-mail.',
-                'Amounts exclude VAT, which is added at checkout. Payment happens on Stripe’s secure page, which emails you the invoice.',
-              )}
+      {!illimite && (
+        <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-recharger">
+          <h2 className="text-sm font-semibold text-ink-900">{t('Recharger', 'Top up')}</h2>
+          {!admin && (
+            <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-non-admin">
+              {t('Demandez à un administrateur de votre espace de recharger le Crédit WhatsApp.', 'Ask an administrator of your workspace to top up the WhatsApp credit.')}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {vue.achat.offres.map(({ offre, htCentimes }) => (
-                <Bouton
-                  key={offre}
-                  data-testid={`credit-wa-offre-${offre}`}
-                  onClick={() => { void payer(offre); }}
-                  disabled={enCours !== null}
-                  enCours={enCours === offre}
-                >
-                  {t(`Recharger ${fmtNum(htCentimes / 100, 'fr')} € HT`, `Top up €${fmtNum(htCentimes / 100, 'en')} excl. VAT`)}
-                </Bouton>
-              ))}
-            </div>
-          </>
-        )}
-        {erreur && <p className="mt-2 text-sm text-danger" data-testid="credit-wa-erreur">{erreur}</p>}
-        <p className="mt-3 text-xs text-ink-500">
-          {t(
-            'Ce que le crédit paie : chaque message WhatsApp que vos numéros envoient (campagnes, scénarios, réponses de l’Inbox et de vos agents IA). Il ne paie pas l’IA, qui puise dans le Crédit IA.',
-            'What the credit pays for: every WhatsApp message your numbers send (campaigns, scenarios, Inbox and AI agent replies). It does not pay for AI, which draws on the AI credit.',
           )}
-        </p>
-      </section>
+          {admin && vue !== null && ouvert && (indisponible || !vue.achat.disponible) && (
+            <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-indisponible">
+              {t('La recharge en ligne n’est pas encore disponible. Contactez-nous depuis le Support.', 'Online top-up isn’t available yet. Contact us from Support.')}
+            </p>
+          )}
+          {admin && vue !== null && !ouvert && !vue.ligneArretee && (
+            <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-ferme">
+              {t('La recharge n’est pas ouverte pour cet espace. Contactez-nous depuis le Support.', 'Top-up is not open for this workspace. Contact us from Support.')}
+            </p>
+          )}
+          {admin && vue !== null && ouvert && !indisponible && vue.achat.disponible && (
+            <>
+              <p className="mt-1 text-sm text-ink-500">
+                {t(
+                  'Montants hors taxe, TVA en sus. Le paiement se fait sur la page sécurisée de Stripe, qui vous envoie la facture par e-mail.',
+                  'Amounts exclude VAT, which is added at checkout. Payment happens on Stripe’s secure page, which emails you the invoice.',
+                )}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {vue.achat.offres.map(({ offre, htCentimes }) => (
+                  <Bouton
+                    key={offre}
+                    data-testid={`credit-wa-offre-${offre}`}
+                    onClick={() => { void payer(offre); }}
+                    disabled={enCours !== null}
+                    enCours={enCours === offre}
+                  >
+                    {t(`Recharger ${fmtNum(htCentimes / 100, 'fr')} € HT`, `Top up €${fmtNum(htCentimes / 100, 'en')} excl. VAT`)}
+                  </Bouton>
+                ))}
+              </div>
+            </>
+          )}
+          {erreur && <p className="mt-2 text-sm text-danger" data-testid="credit-wa-erreur">{erreur}</p>}
+          <p className="mt-3 text-xs text-ink-500">
+            {t(
+              'Ce que le crédit paie : chaque message WhatsApp que vos numéros envoient (campagnes, scénarios, réponses de l’Inbox et de vos agents IA). Il ne paie pas l’IA, qui puise dans le Crédit IA.',
+              'What the credit pays for: every WhatsApp message your numbers send (campaigns, scenarios, Inbox and AI agent replies). It does not pay for AI, which draws on the AI credit.',
+            )}
+          </p>
+        </section>
+      )}
 
       <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-historique">
         <h2 className="text-sm font-semibold text-ink-900">{t('Historique', 'History')}</h2>

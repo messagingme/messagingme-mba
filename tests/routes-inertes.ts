@@ -634,6 +634,7 @@ export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
   },
   vue: {
     solde: async () => 0,
+    consommationDuMois: async () => 0,
     historique: async () => [],
     grille: async () => null,
     conditions: async () => ({ openBar: false, commissionPct: 5 }),
