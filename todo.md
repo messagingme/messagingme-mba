@@ -80,8 +80,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   depuis le 2026-11-01 (`22a5dd9f`) : reste son essai réel (essai 207), sur un espace de test passé en Business (toute
   Entreprise est désormais illimitée).
 - 🔴 L'Entreprise illimitée et le suivi des crédits (décision de Julien du 2026-11-02, plan
-  `docs/superpowers/plans/2026-11-02-entreprise-illimitee.md`) : lot A (le Crédit WhatsApp) écrit et relu le 2026-11-02,
-  son déploiement au journal ; ses jaunes de relecture passent avec le lot B. Restent le lot B (le
+  `docs/superpowers/plans/2026-11-02-entreprise-illimitee.md`) : lot A (le Crédit WhatsApp) en production le 2026-11-02
+  (`2c4a3e2c`), son essai réel 208 à faire ; ses jaunes de relecture passent avec le lot B. Restent le lot B (le
   Crédit IA illimité en Entreprise, avec son plafond de sécurité, dont Julien confirme le montant : 100 € par mois et par
   espace proposés) et le lot C (les courbes des deux onglets et la vue « Crédits » de `/ops`). Après le lot A en
   production, une migration `apres` retirera `tenants.entreprise_open_bar_whatsapp`, que plus rien ne lit.

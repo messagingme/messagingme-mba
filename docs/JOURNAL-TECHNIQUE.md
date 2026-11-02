@@ -4,6 +4,38 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : l'Entreprise illimitée, lot A (le Crédit WhatsApp) en production
+
+Décision de Julien avant l'essai réel du Crédit WhatsApp : « quand on est en Entreprise, on a un crédit infini, car on le
+fait payer d'une autre façon ; le rechargement et la défalcation ne concernent que le Pro et le Business », puis, en
+réponse aux questions, l'illimité pour les DEUX crédits et un suivi pour le client et pour nous (spec et plan
+`2026-11-02-entreprise-illimitee`, trois lots). La spec du Crédit WhatsApp disait déjà l'Entreprise en open bar ; le code
+s'en écartait en deux points, sans conséquence à ce jour (aucun numéro sur la ligne) : l'open bar était un interrupteur
+par espace, éteint par défaut (l'oublier coupait un client Entreprise à zéro, réponses comprises), et en open bar le
+solde descendait en négatif (un espace sorti de l'Entreprise aurait gardé cette dette).
+
+- **Le lot A** (`2c4a3e2c`) : l'illimité se lit sur l'offre seule (`PgConditionsCreditStore`), l'interrupteur de `/ops`
+  disparaît (la colonne reste, plus lue ni écrite) ; une provision illimitée est marquée (migration 0266) et ne touche le
+  solde ni à la prise, ni au retour, ni à la correction ; l'onglet s'ouvre à l'Entreprise (« Illimité », les messages du
+  mois, aucune recharge), `get_credit` et `get_setup_state` suivent ; la reprise des campagnes se joue à l'entrée en
+  Entreprise ; `/ops` prévient au retrait de l'Entreprise d'un numéro sur la ligne sans de quoi payer un message.
+- **Mesuré avant** (lecture seule) : 8 espaces Entreprise, 3 Free, aucun Pro ni Business ; aucun numéro sur la ligne,
+  aucun solde WhatsApp. Côté IA, le plus gros mois d'un espace : 1,38 € (la SANDBOX, octobre), d'où le plafond de
+  sécurité proposé pour le lot B (100 € par mois et par espace, à confirmer par Julien).
+- **Relecture indépendante** : aucun rouge. Dix jaunes, rangés pour le lot B (les deux de documentation faits dans le
+  commit : le retour arrière d'image dans `DEPLOY.md`, le todo). Le plus utile : la consommation du mois d'une Entreprise
+  compte aussi les messages prépayés d'un espace passé en Entreprise en cours de mois ; à restreindre aux illimités.
+- **Vérifié** : en local la suite serveur entière, la console, l'auto-attaque, l'e2e des deux écrans, chaque nouveau
+  test vu échouer sans le correctif ; en CI, les six jobs verts, dont `integration` (le solde figé sur une vraie base).
+- **En production** le 2026-11-02 (run 41433388244, `migration=avant`, approuvé par Julien) : la base relue avant (0265
+  appliquée, table vide, ni verrou ni transaction longue), puis après par le vrai code de l'image (0266 appliquée,
+  colonne booléenne non nulle à faux, la SANDBOX Entreprise illimitée sans interrupteur et l'achat refusé, la Free
+  prépayée, les cinq écritures du chemin chaud expliquées sur le vrai schéma) ; API et workers sur `2c4a3e2c`,
+  `/health` 200, `aide:charger` (187 lignes, 0 retirée).
+- **Reste** : l'essai réel 208 (la SANDBOX sur la ligne, solde nul), les lots B (le Crédit IA illimité en Entreprise,
+  avec son plafond) et C (les courbes et la vue « Crédits » de `/ops`), puis la migration `apres` qui retirera la colonne
+  de l'interrupteur.
+
 ## 2026-11-02 : « Envoi marketing » dans les actions de workflow HubSpot
 
 Décision de Julien pendant la préparation de l'essai de l'action transaction : Meta a classé Marketing le modèle
