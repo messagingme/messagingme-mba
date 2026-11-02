@@ -546,6 +546,26 @@ repos ; `executor` fait l'IO et persiste.
 `resume_at` : le mettre en `sleeping` pour obtenir l'échéance ferait perdre la réponse du contact, ce qu'un
 bloc Question ne peut pas se permettre.
 
+🔴 **La réponse rangée d'un bloc Question, et la pièce jointe** (spec `docs/superpowers/specs/2026-11-02-question-fichier-champ-design.md`).
+Les réglages vivent dans `node.data` (`champReponse`, `rangerLigne`, `attendreFichier`, `genresFichier`), lus par
+`reglagesQuestion` (`src/workflow/question-piece.ts`) ; un bloc sans eux ne range rien. Dans `advance`, une pièce se
+classe par son type MIME (`classerPiece`, jamais par la catégorie de WhatsApp, un sticker jamais) ; acceptée, elle
+prend la poignée `fichier` (`SORTIE_FICHIER`) et RIEN d'autre : sans cette arête elle remonte à un humain, et la
+publication d'un brouillon qui attend un fichier sans elle est refusée (422 `fichier_sans_suite`). Quatre invariants :
+- **Le champ ne reçoit qu'une MENTION** (`mentionDePiece`), jamais le fichier ni un lien. La table `pieces_question`
+  (migration 0269) relie (espace, contact, champ) au message de Meta et à la mention EXACTE ; la purge d'un contact,
+  qui anonymise la fiche sans la supprimer, efface ses lignes elle-même.
+- **Le lien se fabrique à l'appel, et seulement là** : `creerAppelHttpScenario` (`src/workflow/appel-http.ts`)
+  remplace un champ qui porte ENCORE la mention notée par `<PUBLIC_API_URL>/f/<jeton>` (`src/workflow/piece-lien.ts`,
+  HMAC d'une clé dérivée d'`AUTH_SECRET`, 15 minutes). Un champ réécrit depuis part tel quel. L'agent IA, la poussée
+  d'un désabonnement et le bouton « Essayer » n'ont pas cette capacité, et le lien n'entre dans aucun journal.
+- **La mention neuve s'écrit même si sa note échoue** : sinon le champ garderait la mention d'une pièce plus ancienne,
+  encore notée, et l'Appel API enverrait le lien de l'ancienne pièce.
+- **`GET /f/:code` (classe `code-url`, `src/http/piece-question.ts`)** : un jeton faux, échu ou d'un autre espace rend
+  le MÊME 404 sans rien lire ni tracer ; le message se relit dans l'espace du jeton, le fichier par `lireMediaMessage`
+  (mêmes en-têtes que l'Inbox) ; jamais de 5xx ; plafond PAR PIÈCE (jamais par `req.ip`, qui est le proxy) ; chaque
+  téléchargement trace `piece.telechargee` à l'espace.
+
 🔴 **Le canal est porté par le PARCOURS, pas par le bloc** (`workflow_runs.channel`). Un bloc « message
 rapide » dit l'INTENTION, pas le tuyau : WhatsApp et RCS savent tous deux le faire. Un bloc RCS réellement
 envoyé fait passer le parcours en `rcs`, un template le ramène à `whatsapp`, un message rapide suit le canal

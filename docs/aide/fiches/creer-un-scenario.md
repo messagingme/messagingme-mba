@@ -1,7 +1,7 @@
 ---
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 40a676
+source_empreinte: f8b6a6
 ---
 # Créer un scénario
 
@@ -26,7 +26,10 @@ Les blocs que vous utiliserez le plus :
   le bloc peut envoyer). Vos fichiers et le quota de votre offre se gèrent dans Paramètres > Médiathèque, où vous
   pouvez aussi en ajouter directement.
 - **Question** : une question avec un menu de réponses, ou une question ouverte. Le scénario attend la
-  réponse avant de continuer.
+  réponse avant de continuer. Elle peut ranger la réponse dans un de vos champs, et attendre un fichier (une pièce
+  d'identité, par exemple) : cochez « Attendre un fichier » et ses types, et le fichier part par la sortie « Fichier
+  reçu », que vous devez relier pour publier. Le champ reçoit une mention, jamais le fichier ; un bloc Appel API
+  placé ensuite l'envoie à votre stockage par un lien valable 15 minutes.
 - **Formulaire** : envoie un formulaire WhatsApp et attend. Il a deux sorties : « Formulaire rempli » quand le
   contact le renvoie (ses réponses remplissent sa fiche), « Toute autre réponse » quand il écrit à la place. Tant
   que « Formulaire rempli » n'est reliée à rien, le formulaire renvoyé passe par « Toute autre réponse ».

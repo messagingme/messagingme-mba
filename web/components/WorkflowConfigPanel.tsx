@@ -26,6 +26,7 @@ import { useEffect, useState } from 'react';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { CHAMP_MAINTENANT, nomDeParametreSur } from '@/lib/partage/fonction-js';
+import { GENRES_PAR_DEFAUT, GENRES_PIECE, type GenrePiece } from '@/lib/partage/question-piece';
 
 /**
  * Le panneau de DROITE : la configuration du bloc sélectionné, un cas par nature de bloc.
@@ -507,6 +508,10 @@ export function ConfigPanel({
                 {t('0 = on attend sans limite. Au-delà de 0, une sortie « Pas de réponse » apparaît sur le bloc.', '0 = wait with no limit. Above 0, a “No reply” output appears on the block.')}
               </p>
             </div>
+
+            {/* La réponse RANGÉE (2026-11-02, spec `docs/superpowers/specs/2026-11-02-question-fichier-champ-design.md`).
+                Tout est facultatif : sans champ choisi, le bloc ne range rien, comme avant. */}
+            <ReglagesReponseRangee node={node} d={d} fields={fields} onPatch={onPatch} avecMenu={rows.some((r) => r.title.trim() !== '')} />
           </div>
         );
       })()}
@@ -1088,6 +1093,95 @@ export function ConfigPanel({
  * template. Composant à part pour la même raison que `FonctionJs` (il porte un état). Indices illisibles : rien
  * n'est affiché plutôt qu'une alerte fausse.
  */
+const LIBELLES_GENRE: Readonly<Record<GenrePiece, readonly [string, string]>> = {
+  photo: ['Photo', 'Photo'],
+  pdf: ['PDF', 'PDF'],
+  document: ['Autre document', 'Other document'],
+  video: ['Vidéo', 'Video'],
+  vocal: ['Vocal', 'Voice note'],
+};
+
+/**
+ * La réponse RANGÉE d'un bloc Question (2026-11-02) : le champ personnalisé qui la reçoit, la case de la ligne du menu,
+ * et l'attente d'un fichier avec ses types. Tout est facultatif. Décocher l'attente passe par le parent
+ * (`wf-fichier-off`) : son arête « Fichier reçu » doit partir avec elle, et le panneau ne voit pas les arêtes.
+ */
+function ReglagesReponseRangee({ node, d, fields, onPatch, avecMenu }: {
+  node: RFNode;
+  d: Record<string, unknown>;
+  fields: UserFieldDef[];
+  onPatch: (p: Record<string, unknown>) => void;
+  avecMenu: boolean;
+}) {
+  const t = useT();
+  const champ = typeof d.champReponse === 'string' ? d.champReponse : '';
+  const attendre = d.attendreFichier === true;
+  const lus = Array.isArray(d.genresFichier) ? GENRES_PIECE.filter((g) => (d.genresFichier as unknown[]).includes(g)) : [];
+  // La même règle que le moteur (`reglagesQuestion`) : sans type lisible, photo et PDF.
+  const coches: GenrePiece[] = lus.length > 0 ? lus : [...GENRES_PAR_DEFAUT];
+  const basculerGenre = (g: GenrePiece) => {
+    const suivants = coches.includes(g) ? coches.filter((x) => x !== g) : GENRES_PIECE.filter((x) => x === g || coches.includes(x));
+    // Un type au moins reste coché : une attente sans type n'aurait aucun sens.
+    if (suivants.length > 0) onPatch({ genresFichier: suivants });
+  };
+  return (
+    <div className="space-y-2 rounded-controle border border-ink-200 bg-ink-50/50 p-2">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-ink-500">{t('Ranger la réponse dans le champ', 'Store the reply in the field')}</label>
+        <select
+          value={champ}
+          onChange={(e) => { const f = fields.find((x) => x.key === e.target.value); onPatch({ champReponse: e.target.value, champReponseLabel: f?.label ?? '' }); }}
+          data-testid="question-node-champ"
+          className={`${cls} bg-white`}
+        >
+          <option value="">{t('Ne rien ranger', 'Store nothing')}</option>
+          {fields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+        </select>
+        <p className="mt-1 text-xs text-ink-500">
+          {t(
+            'Un texte écrit y entre tel quel. Un fichier y laisse une mention, jamais le fichier : un bloc Appel API placé ensuite l’envoie par un lien valable 15 minutes.',
+            'A written reply is stored as is. A file leaves a mention, never the file itself: an API call block placed after it sends it through a link valid for 15 minutes.',
+          )}
+        </p>
+      </div>
+      {champ !== '' && avecMenu && (
+        <label className="flex items-start gap-2 text-xs font-medium text-ink-900">
+          <input type="checkbox" data-testid="question-node-ranger-ligne" checked={d.rangerLigne === true} onChange={(e) => onPatch({ rangerLigne: e.target.checked })} className="mt-0.5 shrink-0" />
+          <span>{t('Ranger aussi la ligne choisie dans le menu', 'Also store the row picked in the menu')}</span>
+        </label>
+      )}
+      <label className="flex items-start gap-2 text-xs font-medium text-ink-900">
+        <input
+          type="checkbox"
+          data-testid="question-node-attendre-fichier"
+          checked={attendre}
+          onChange={(e) => (e.target.checked
+            ? onPatch({ attendreFichier: true, genresFichier: [...coches] })
+            : window.dispatchEvent(new CustomEvent('wf-fichier-off', { detail: { nodeId: node.id } })))}
+          className="mt-0.5 shrink-0"
+        />
+        <span>{t('Attendre un fichier', 'Expect a file')}</span>
+      </label>
+      {attendre && (
+        <div className="space-y-1 pl-5">
+          {GENRES_PIECE.map((g) => (
+            <label key={g} className="flex items-center gap-2 text-xs text-ink-900">
+              <input type="checkbox" data-testid={`question-node-genre-${g}`} checked={coches.includes(g)} onChange={() => basculerGenre(g)} />
+              <span>{t(LIBELLES_GENRE[g][0], LIBELLES_GENRE[g][1])}</span>
+            </label>
+          ))}
+          <p className="text-xs text-ink-500">
+            {t(
+              'Un fichier d’un type coché part par la sortie « Fichier reçu », reconnu par son vrai type : une photo envoyée en fichier reste une photo. Le scénario ne se publie pas tant que cette sortie n’est reliée à aucun bloc.',
+              'A file of a ticked type goes out through the “File received” output, recognised by its real type: a photo sent as a file is still a photo. The scenario cannot be published while this output is not connected.',
+            )}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function VariablesDuTemplate({ tenantId, template, variables, fields, onPatch }: {
   tenantId: string;
   template: TemplateSummary | undefined;

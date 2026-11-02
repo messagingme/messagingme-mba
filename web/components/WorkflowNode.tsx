@@ -11,6 +11,7 @@ import { AGENT_SORTIES_RESERVEES, nodeMetaOf } from '@/lib/nodeMeta';
 import { famillesDeCondition, nomDeFamille, poigneeDeFamille, SORTIE_SINON } from '@/lib/condition-familles';
 import { carouselOutputs } from '@/lib/carousel-outputs';
 import { SORTIE_LIBRE } from '@/lib/workflow-sorties';
+import { SORTIE_FICHIER } from '@/lib/partage/question-piece';
 import { SORTIE_FORMULAIRE_REMPLI } from '@/lib/partage/sorties-formulaire';
 import { ouvreUneSortie } from '@/lib/rcs-boutons';
 import { sortiesDuBloc, type EmailRecipientData } from '@/lib/workflow-canevas';
@@ -267,6 +268,9 @@ function WFNode({ id, data, selected }: NodeProps) {
   // La sortie « pas de réponse » n'est dessinée QUE si un délai est posé. Sans délai elle ne partirait
   // jamais : l'afficher promettrait une branche morte, et quelqu'un finirait par la relier.
   const questionDelai = isQuestion && Number(data.timeoutValue ?? 0) > 0;
+  // « Attendre un fichier » (2026-11-02) : la sortie « Fichier reçu » n'existe que si l'attente est cochée. Reliée à
+  // rien, le scénario ne se publie pas (`refusFichierSansSuite`, côté serveur).
+  const questionFichier = isQuestion && data.attendreFichier === true;
   // Sous un aperçu de carousel, on ne liste QUE ce qui se relie : les boutons lien sont déjà visibles dans
   // l'aperçu, les répéter ici doublerait la hauteur du bloc pour des lignes sur lesquelles on ne peut rien
   // tirer. Hors carousel il n'y a pas d'aperçu, donc on les garde pour le contexte.
@@ -516,6 +520,14 @@ function WFNode({ id, data, selected }: NodeProps) {
                 React Flow ancrait cette flèche sur la PREMIÈRE ligne du menu. Voir `lib/workflow-sorties.ts`. */}
             <Handle type="source" id={SORTIE_LIBRE} position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-brand-500" title={t('Le contact écrit au lieu de choisir dans le menu', 'The contact writes instead of picking from the menu')} />
           </div>
+          {questionFichier && (
+            <div className="relative flex items-center gap-1 border-t border-ink-100 px-2 py-1 text-[10px] text-ink-900">
+              <Icone nom="piece" taille="mini" />
+              <span className="truncate">{t('Fichier reçu', 'File received')}</span>
+              {orpheline(SORTIE_FICHIER) && <span data-testid="sortie-orpheline-fichier" className="shrink-0 text-danger" title={TITRE_ORPHELINE}><Icone nom="attention" taille="mini" /></span>}
+              <Handle type="source" id={SORTIE_FICHIER} position={Position.Right} className={`!h-2.5 !w-2.5 !border-2 !border-white ${orpheline(SORTIE_FICHIER) ? '!bg-danger' : '!bg-brand-500'}`} title={orpheline(SORTIE_FICHIER) ? TITRE_ORPHELINE : t('Le contact a envoyé un fichier d’un type attendu', 'The contact sent a file of an expected type')} />
+            </div>
+          )}
           {questionDelai && (
             <div className="relative flex items-center gap-1 border-t border-ink-100 px-2 py-1 text-[10px] font-medium text-alerte-700">
               <Icone nom="chrono" taille="mini" />

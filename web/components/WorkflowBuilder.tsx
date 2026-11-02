@@ -18,6 +18,7 @@ import { NODE_META, NODE_ORDER, RCS_NODE_ORDER, EMAIL_NODE_ORDER, AGENT_NODE_ORD
 import { isCampaignEligible, waitBeforeSessionMessage, sessionMessageAfterRcs, entryNodeOf, canalDOuvertureDuGraphe } from '@/lib/campaign-eligibility';
 import { autoLayoutHorizontal } from '@/lib/workflow-layout';
 import { EDGE_OPTS, toRF, fromRF, type RFNode, type RFEdge } from '@/lib/workflow-canevas';
+import { sansSortieFichier } from '@/lib/workflow-sorties';
 import { estPoigneeDeFamille } from '@/lib/condition-familles';
 import { useEnregistrementScenario } from '@/lib/use-enregistrement-scenario';
 import { TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
@@ -334,6 +335,15 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
         return !estPoigneeDeFamille(h) || gardees.has(h);
       }));
     };
+    /**
+     * Décocher « Attendre un fichier » sur un bloc Question (2026-11-02) : l'attente s'éteint ET son arête « Fichier
+     * reçu » s'en va, dans le même geste. Le panneau ne voit pas les arêtes, d'où l'événement, comme `wf-row-delete`.
+     */
+    const onFichierOff = (ev: Event) => {
+      const { nodeId } = (ev as CustomEvent).detail as { nodeId: string };
+      setNodes((ns) => ns.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, attendreFichier: false } } : n)));
+      setEdges((eds) => sansSortieFichier(eds, nodeId));
+    };
     // Suppression d'un bloc via son ✕ : retire le node ET ses arêtes ; déselectionne si c'était lui.
     const onNodeDelete = (ev: Event) => {
       const nodeId = (ev as CustomEvent).detail as string;
@@ -347,7 +357,9 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
     window.addEventListener('wf-row-delete', onRowDelete);
     window.addEventListener('wf-agent-change', onAgentChange);
     window.addEventListener('wf-condition-familles', onConditionFamilles);
+    window.addEventListener('wf-fichier-off', onFichierOff);
     return () => {
+      window.removeEventListener('wf-fichier-off', onFichierOff);
       window.removeEventListener('wf-condition-familles', onConditionFamilles);
       window.removeEventListener('wf-edge-insert', onInsert);
       window.removeEventListener('wf-edge-delete', onDelete);

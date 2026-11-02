@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SORTIE_LIBRE, poigneeCanevas, poigneeGraphe, uneAreteParSortie } from '../web/lib/workflow-sorties';
+import { SORTIE_LIBRE, poigneeCanevas, poigneeGraphe, sansSortieFichier, uneAreteParSortie } from '../web/lib/workflow-sorties';
 
 /**
  * La SORTIE LIBRE d'un bloc, et la traduction entre le canevas et le graphe enregistré.
@@ -62,5 +62,19 @@ describe('la sortie libre, entre le canevas et le graphe', () => {
       { id: 'b', source: 'n1', target: 'y' },
     ];
     expect(uneAreteParSortie(edges)).toHaveLength(2);
+  });
+});
+
+describe('la sortie « Fichier reçu » d’un bloc Question (2026-11-02)', () => {
+  it('🔴 décocher l’attente d’un fichier emporte l’arête « Fichier reçu » de CE bloc, et aucune autre', () => {
+    // Sans ça, l'arête reste en base alors que sa poignée a disparu : invisible, mais enregistrée, et le moteur la
+    // suivrait encore pour une pièce que le bloc ne dit plus attendre.
+    const edges = [
+      { id: 'f', source: 'q', target: 'x', sourceHandle: 'fichier' },
+      { id: 'l', source: 'q', target: 'y' },
+      { id: 'r', source: 'q', target: 'z', sourceHandle: 'row:0' },
+      { id: 'autre', source: 'q2', target: 'x', sourceHandle: 'fichier' },
+    ];
+    expect(sansSortieFichier(edges, 'q').map((e) => e.id)).toEqual(['l', 'r', 'autre']);
   });
 });

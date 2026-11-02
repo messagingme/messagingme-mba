@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : le bloc Question range sa réponse, pièce jointe comprise
+
+Cadrage avec Julien le même jour (spec et plan `2026-11-02-question-fichier-champ`) : le cas qui motive est une **pièce
+d'identité** demandée par un scénario et transmise au stockage du client par un bloc Appel API.
+
+- **Livré en trois temps.** La migration 0269 (`pieces_question`) seule, poussée en 256d3c73 et appliquée en
+  `migration=avant` (run 41485914446), relue en base point par point avant tout code qui la nomme. Le lot serveur
+  ensuite (204376ba à f47a846d, run 41502330129 en `migration=aucune`). La console en dernier, après le déploiement de
+  l'API : un écran publié avant aurait laissé cocher « Attendre un fichier » sur un moteur qui l'ignorait.
+- **Trois décisions de Julien pendant la relecture de la spec** : un « Fichier reçu » relié à rien refuse la
+  publication ; le classement se fait par le type réel (une photo envoyée en fichier reste une photo) ; la fin de
+  parcours silencieuse reste inchangée (le message part chez le répondeur).
+- **La relecture du lot serveur** n'a trouvé aucun rouge et trois points importants, corrigés avant le déploiement :
+  le plafond de `/f/` était global (`req.ip` désigne le proxy, des jetons faux en rafale bloquaient tous les liens),
+  une panne en relisant le message rendait un 500 qui journalisait l'URL donc le jeton, et un échec de la note laissait
+  dans le champ la mention d'une pièce plus ancienne, dont l'Appel API aurait envoyé le lien. Mineurs reportés : HEAD
+  sur `/f/` télécharge deux fois, le wamid du lien encode le numéro, les lignes de `pieces_question` ne périment pas.
+
 ## 2026-11-02 : la ligne « Automations HubSpot » et la fiche d'un lead inconnu (lot 3a)
 
 Lot 3a du cadrage des champs HubSpot et de l'accord des automations (`~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-*.md`).

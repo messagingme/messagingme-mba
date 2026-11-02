@@ -24,7 +24,7 @@ const QUESTION: Graph = {
   edges: [{ id: 'e1', source: 'n1', target: 'n2', sourceHandle: 'row:0' }],
 };
 
-async function mockBuilder(page: import('@playwright/test').Page, graph: Graph, saved: Graph[] = []) {
+async function mockBuilder(page: import('@playwright/test').Page, graph: Graph, saved: Graph[] = [], fields: unknown[] = []) {
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   const wf = { id: 'wf1', name: 'Scénario E2E', graph, createdAt: '', updatedAt: '' };
   await page.route('**/api/backend/**', async (route) => {
@@ -44,7 +44,7 @@ async function mockBuilder(page: import('@playwright/test').Page, graph: Graph, 
     if (url.includes('/flows')) return json({ flows: [] });
     if (url.includes('/tags')) return json({ tags: [] });
     if (url.includes('/user-fields/usage')) return json({ total: 0, parChamp: {} });
-    if (url.includes('/user-fields')) return json({ fields: [] });
+    if (url.includes('/user-fields')) return json({ fields });
     if (url.includes('/settings')) return json({ mbaEnabled: false, rcsEnabled: false, hubspotListsEnabled: false, campaignsPaused: false });
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     return json({});
@@ -152,6 +152,68 @@ test.describe('Éditeur : le bloc Question', () => {
     const bloc = page.locator('.react-flow__node').first();
     await expect(bloc).toContainText('Toute autre réponse');
     await expect(bloc).toContainText('Ton code postal ?');
+  });
+});
+
+/**
+ * La réponse RANGÉE et la pièce jointe (2026-11-02, spec `2026-11-02-question-fichier-champ`). Ce que seul l'écran
+ * peut montrer : la sortie « Fichier reçu » apparaît avec l'attente et disparaît avec elle, EN EMPORTANT son arête
+ * (sinon elle resterait enregistrée, invisible, et le moteur la suivrait), et les réglages partent dans le graphe.
+ */
+test.describe('Éditeur : la réponse rangée et la pièce jointe', () => {
+  const CHAMPS = [{ key: 'piece_identite', label: 'Pièce d’identité', type: 'text' }];
+
+  test('🔴 « Attendre un fichier » fait apparaître « Fichier reçu », et le décocher emporte son arête', async ({ page }) => {
+    const saved: Graph[] = [];
+    const avecFichier: Graph = {
+      nodes: [
+        { id: 'n1', type: 'question', position: { x: 0, y: 0 }, data: { wfType: 'question', body: 'Votre pièce ?', rows: [], attendreFichier: true, genresFichier: ['photo', 'pdf'] } },
+        { id: 'n2', type: 'tag', position: { x: 360, y: 0 }, data: { wfType: 'tag', tag: 'recue' } },
+      ],
+      edges: [{ id: 'ef', source: 'n1', target: 'n2', sourceHandle: 'fichier' }],
+    };
+    await mockBuilder(page, avecFichier, saved, CHAMPS);
+    await page.goto('/workflows?open=wf1');
+    const bloc = page.locator('.react-flow__node').first();
+    await expect(bloc).toContainText('Fichier reçu');
+    await expect(page.getByTestId('sortie-orpheline-fichier')).toHaveCount(0);
+
+    await bloc.click();
+    await expect(page.getByTestId('question-node-genre-photo')).toBeChecked();
+    await expect(page.getByTestId('question-node-genre-video')).not.toBeChecked();
+    await page.getByTestId('question-node-attendre-fichier').uncheck();
+    await expect(bloc).not.toContainText('Fichier reçu');
+    await expect.poll(
+      () => saved.some((g) => {
+        const n = g.nodes.find((x) => x.id === 'n1') as { data?: { attendreFichier?: boolean } } | undefined;
+        return n?.data?.attendreFichier === false && !g.edges.some((e) => e.sourceHandle === 'fichier');
+      }),
+      { timeout: 10_000 },
+    ).toBe(true);
+  });
+
+  test('le champ choisi, l’attente et les types partent dans le graphe ; « Fichier reçu » non reliée est signalée', async ({ page }) => {
+    const saved: Graph[] = [];
+    await mockBuilder(page, QUESTION, saved, CHAMPS);
+    await page.goto('/workflows?open=wf1');
+    await page.locator('.react-flow__node').first().click();
+
+    await expect(page.getByTestId('question-node-ranger-ligne')).toHaveCount(0);
+    await page.getByTestId('question-node-champ').selectOption('piece_identite');
+    await page.getByTestId('question-node-ranger-ligne').check();
+    await page.getByTestId('question-node-attendre-fichier').check();
+    await page.getByTestId('question-node-genre-video').check();
+    await expect(page.getByTestId('sortie-orpheline-fichier')).toBeVisible();
+
+    await expect.poll(
+      () => saved.some((g) => {
+        const n = g.nodes.find((x) => x.id === 'n1') as { data?: Record<string, unknown> } | undefined;
+        const d = n?.data ?? {};
+        return d.champReponse === 'piece_identite' && d.rangerLigne === true && d.attendreFichier === true
+          && JSON.stringify(d.genresFichier) === JSON.stringify(['photo', 'pdf', 'video']);
+      }),
+      { timeout: 10_000 },
+    ).toBe(true);
   });
 });
 

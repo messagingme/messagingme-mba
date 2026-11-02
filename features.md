@@ -888,11 +888,29 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   - **« Pas de réponse »** : on pose un délai (minutes, heures ou jours, 30 jours maximum) et une sortie
     supplémentaire apparaît sur le bloc. Passé ce délai sans réponse, le parcours part par là. À zéro, on
     attend sans limite et la sortie n'apparaît pas : elle ne partirait jamais.
-  - Une réponse qui arrive **annule le délai**, et une ligne du menu **branchée sur rien** remonte la
-    conversation à un humain plutôt que de laisser le contact sans réponse.
+  - Une réponse qui arrive **annule le délai**. Une ligne du menu **branchée sur rien** part par « Toute autre
+    réponse » ; si celle-ci n'est reliée à rien non plus, la conversation remonte à un humain plutôt que de laisser
+    le contact sans réponse.
   - ⚠️ **WhatsApp uniquement**, et le contact doit avoir écrit dans les 24 h : le menu est un message libre.
     Un scénario qui **commence** par une question ne peut donc pas être lancé en campagne, il se déclenche
     depuis l'Inbox ou après un template.
+  - ✅ **La réponse rangée, pièce jointe comprise** (2026-11-02) : le bloc peut ranger la réponse dans un **champ
+    personnalisé** choisi dans la liste. Tout est facultatif : sans champ choisi, il ne range rien.
+    - **Un texte écrit** entre tel quel dans le champ. **La ligne choisie** dans le menu aussi, si la case « Ranger
+      aussi la ligne choisie dans le menu » est cochée.
+    - **« Attendre un fichier »** : on coche les types attendus (photo, PDF, autre document, vidéo, vocal ; photo et
+      PDF par défaut), et une sortie **« Fichier reçu »** apparaît. Le fichier est reconnu par son **vrai type** :
+      une photo envoyée « en fichier » reste une photo. Un fichier d'un type non coché, ou un texte, part par
+      « Toute autre réponse », et un fichier refusé ne touche pas au champ.
+    - Pour une pièce, le champ reçoit une **mention** (« Pièce reçue le 02/11/2026 à 14 h 32 (photo) »), **jamais
+      le fichier ni un lien** : une pièce d'identité ne circule ni dans la fiche, ni dans l'export, ni dans l'API.
+    - Un bloc **Appel API** placé ensuite, dont le connecteur envoie ce champ, envoie à la place un **lien de
+      téléchargement valable 15 minutes**, fabriqué au moment de l'appel. Le stockage du client télécharge le
+      fichier par ce lien, et chaque téléchargement se lit dans le **journal des actions**. Seul l'Appel API d'un
+      scénario fabrique ce lien : l'agent IA et le bouton « Essayer » d'un connecteur envoient la mention.
+    - Le scénario **ne se publie pas** tant que « Fichier reçu » n'est reliée à aucun bloc. **Un fichier par
+      question** : les suivants vont à l'Inbox. Au-delà de **7 jours**, Meta a effacé le fichier et le lien répond
+      « expiré ».
 
 - ✅ **La flèche CLIQUÉE se voit** (2026-09-01). Sur un scénario chargé, les flèches se croisent et se
   recouvrent : en cliquer une était le seul moyen de la désigner, mais rien ne disait LAQUELLE on venait de
