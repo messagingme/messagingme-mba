@@ -89,6 +89,25 @@ d'un client tant qu'aucun de ses numéros n'est sur la ligne (au lot 2 comme au 
   seulement expliqué). `aide:charger` avec l'image déployée : 187 lignes, 0 retirée, la fiche du Crédit WhatsApp en
   base. Fumée et fiches OAuth conformes. Essai réel 207, après les quatre prix Stripe.
 
+## 2026-10-31 : le pixel Meta, lot 3 (la case de l'accord et l'interrupteur de « Mon compte »)
+
+Lot 3 du plan `docs/superpowers/plans/2026-10-30-pixel-meta.md` (`b77bb18c`, textes précisés par `ee1c7580`) : la
+console donne l'accord que le serveur du lot 2 attend. Une case NON cochée sur `/signup` (pour l'e-mail comme pour
+Google) et sur `/autoriser` (avant le bouton Google, quand Google sert à entrer) ; cochée, le corps de la création porte
+`pub`, avec `fbc`/`fbp` lus dans l'adresse au moment d'envoyer. « Mon compte » porte l'interrupteur, qui accorde comme
+il retire. `features.md` a sa section, couverte par une fiche d'aide neuve (à charger par `aide:charger`).
+- **Vérifié** : suites racine et console entières, typecheck, lint ; l'e2e `partage-meta` (5 cas) et toute la suite e2e
+  (1 716 cas, sur une console construite servie sur un port libre). La liste des routes de la Free de
+  `e2e/console-free.spec.ts` manquait de `/moi/partage-meta` (ouverte côté serveur avec tout le module `emailsMoi`).
+  La case suit la RÉPONSE du serveur sur « Mon compte » (comme les préférences d'e-mails) : `check()` de Playwright
+  refuse un état qui ne change pas au clic, l'e2e clique puis attend.
+- **Relecture indépendante** (une) : aucun rouge. Jaunes pris tout de suite (`ee1c7580`), parce qu'ils touchent
+  l'information de la personne avant l'allumage : la case et l'interrupteur nomment les trois faits (inscription,
+  premier numéro, premier paiement) et l'adresse e-mail. Les autres au `todo.md`.
+- **En ligne** : la console publiée par Vercel au push (les deux CI vertes job par job) ; `/signup` sert la case. Rien
+  ne part encore chez Meta : il manque l'identifiant du pixel, la politique de cookies à jour et les variables des
+  workers.
+
 ## 2026-10-31 : la 4e question du numéro, le numéro fourni mis dans l'application (console, Claude, plugin 0.3.20)
 
 Aucune migration. Plan `docs/superpowers/plans/2026-10-31-numero-fourni-dans-application.md`, décision de Julien du

@@ -15,18 +15,23 @@
   tout). Quand la table comptera des milliers de lignes, relire ce plan ; si le balayage pèse, un index partiel
   `where repondeur is not null`, au prédicat mot pour mot celui de la requête.
 
-## Le pixel Meta : la suite (plan `docs/superpowers/plans/2026-10-30-pixel-meta.md`, lots 1 et 2 en production)
+## Le pixel Meta : la suite (plan `docs/superpowers/plans/2026-10-30-pixel-meta.md`, les trois lots en production)
 
-- **Lot 3, la console** : la case non cochée sur `/signup` et `/autoriser` (le champ `pub` des trois routes de création),
-  la lecture de `fbc`/`fbp` dans l'adresse, l'interrupteur « Partage avec Meta » de « Mon compte » (la route
-  `/tenants/:tenantId/moi/partage-meta` est en service), `features.md`. Poussé APRÈS la mise en service du lot 2 (fait).
-- **À Julien** : l'identifiant du pixel (à écrire dans `var PIXEL`, `site/site.js`), la politique de cookies et de
-  confidentialité de `www.messagingme.fr` à jour AVANT cet allumage, puis `META_PIXEL_ID` et `META_CAPI_TOKEN` dans
-  le `.env.prod` des workers (DEPLOY.md). Essai réel 201 (vitrine) puis l'essai réel du plan (inscription avec la case).
+- **À Julien, `aide:charger`** : la fiche d'aide neuve `partager-mes-etapes-avec-meta` (comparer `docs/aide` à origin
+  avant, pour ne pas défaire le chargement d'un pair).
+- **L'allumage de la vitrine** : l'identifiant du pixel est `430064039366684` (donné par Julien le 2026-10-31). Il
+  s'écrit dans `var PIXEL` (`site/site.js`) seulement APRÈS la mise à jour, par Julien, de la politique de cookies et
+  de confidentialité de `www.messagingme.fr`. Puis `META_PIXEL_ID` et `META_CAPI_TOKEN` dans le `.env.prod` des
+  workers (DEPLOY.md). Essai réel 201 (vitrine) puis l'essai réel du plan (inscription avec la case).
 - 🟡 **Ce que la relecture du lot 2 laisse** : un rattachement 360dialog qui finit en 502 après `linkTenant` compte
   comme une activation ; `noterEnvoye` n'a pas de garde `statut = 'a_envoyer'` (un retrait pendant les 10 s d'un appel
   à Meta n'arrête pas l'envoi en vol) ; une devise hors EUR, USD, GBP fait perdre un `Subscribe` sur un simple `warn` ;
   rien ne borne l'attente de la réservation dans les chemins qui l'appellent (le même modèle que les e-mails).
+- 🟡 **Ce que la relecture du lot 3 laisse** : sur `/autoriser`, une case cochée puis « Connectez-vous » (mot de passe)
+  est perdue sans le dire (`/login` n'a pas de case) ; avec une session ouverte, le bouton Google reste mais la case
+  n'est pas montrée, donc une autre adresse Google peut y créer un compte sans pouvoir accorder ; la première preuve
+  Google efface un accord donné à l'inscription par e-mail sans prévenir la personne (« Mon compte » dit alors « Rien
+  n'est partagé »). Les trois vont dans le sens prudent (rien ne part).
 
 ## 🟡 Les variables du bloc « Envoi template » : ce que la relecture laisse (2026-10-31)
 
