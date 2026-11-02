@@ -4,6 +4,27 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : les champs HubSpot choisis par l'espace (lot 2 du cadrage du même jour)
+
+Demande de Julien : trois champs fixes (prénom, conseiller, lien de réservation) ne suffisent pas, le client choisit
+les champs HubSpot qu'on importe, et ils alimentent les modèles des scénarios lancés par un workflow HubSpot ou par une
+automation « deal ». Cadrage et plan dans `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-*.md`.
+
+- Livré par un workflow : un implémenteur par dépôt en parallèle sur un contrat figé, une relecture indépendante, la
+  vérification adversariale de ses rouges. Un rouge confirmé (un champ choisi puis disparu de HubSpot bloquait la liste
+  dans la console, faute de ligne pour le décocher), corrigé et vérifié dans les deux sens ; cinq jaunes corrigés
+  (demi-emoji et caractère nul refusés par le jsonb, libellé borné, réponse illisible qui levait des vides,
+  re-consentement non traduit).
+- Déployé le 2026-11-02 : mba 07f0331b (run 41446615946, `migration=aucune` ; la 0267 d'une session voisine est dans
+  l'image sans être appliquée), connecteur 9af02bc (`migration=avant`, sa 0012), upload HubSpot build #22. La fiche
+  d'aide « Intégrer WhatsApp à HubSpot » a changé : `aide:charger`.
+- Les trois champs `hubspot_prenom`, `hubspot_conseiller`, `hubspot_lien_agenda` ne sont plus écrits : un modèle dont
+  une source les vise se re-pointe sur les nouveaux champs « (HubSpot) ». L'ancienne forme du corps de l'action
+  transaction reste acceptée jusqu'au lot suivant.
+- Leçon : un script Python passé par un heredoc dans l'outil Bash voit ses doubles barres obliques réduites ; un
+  `open(p, 'w')` avant une écriture qui échoue a vidé un fichier neuf non commité, reconstitué depuis le journal de
+  l'agent qui l'avait écrit. Les scripts qui écrivent se passent par fichier, et les fichiers neufs se sauvegardent.
+
 ## 2026-11-02 : l'Entreprise illimitée, lot A (le Crédit WhatsApp) en production
 
 Décision de Julien avant l'essai réel du Crédit WhatsApp : « quand on est en Entreprise, on a un crédit infini, car on le
