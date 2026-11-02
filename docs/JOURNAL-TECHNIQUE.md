@@ -4,6 +4,21 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : la ligne « Automations HubSpot » et la fiche d'un lead inconnu (lot 3a)
+
+Lot 3a du cadrage des champs HubSpot et de l'accord des automations (`~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-*.md`).
+Une ligne « Automations HubSpot » dans Intégrations > HubSpot (migration 0270, reprise allumée pour tout espace qui avait
+une automation « deal ») ; un changement d'étape crée la fiche d'un lead inconnu et écrit les champs HubSpot choisis,
+seulement si une automation allumée et permise par l'offre correspond à l'étape.
+
+- Livré par un workflow (un implémenteur, une relecture indépendante) : aucun rouge. Le jaune qui comptait, corrigé avant
+  le push : la console renvoyait « automations » à chaque bascule d'une autre ligne, ce qui aurait éteint en silence les
+  automations d'un espace dont l'offre ferme la ligne ; elle ne part plus qu'avec sa propre ligne (`envoyerAutomations`).
+- Le numéro de migration est passé de 0269 à 0270 au moment du push : une session voisine avait pris 0269 entre-temps.
+  Un numéro se relit dans le dossier d'origin juste avant de pousser, pas au début du lot.
+- Déployé le 2026-11-02 : 45893212 (run 41497751268, `migration=avant`). La fenêtre connue : une automation « deal »
+  créée entre la migration et le code, dans le même run, laisserait sa ligne éteinte ; la reprise se rejoue sans risque.
+
 ## 2026-11-02 : le pixel Meta allumé sur la vitrine
 
 `var PIXEL` (`site/site.js`) porte l'identifiant du pixel de Messaging Me, `430064039366684`, public par nature. La
