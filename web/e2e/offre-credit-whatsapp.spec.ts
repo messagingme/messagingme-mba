@@ -140,6 +140,26 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     await expect(page.locator('[data-raison="envois"]')).toContainText('Envois du 30/10 (2 messages)');
   });
 
+  test('🔴 la courbe de 90 jours : le solde d’un prépayé ; la consommation d’une Entreprise, dont l’historique perd son « moins »', async ({ page }) => {
+    const SERIE = [
+      { jour: '2026-10-30', soldeMicroEur: 37_399_520, consommationMicroEur: 149_520 },
+      { jour: '2026-11-02', soldeMicroEur: 37_250_000, consommationMicroEur: 149_520 },
+    ];
+    await monter(page, { vues: [credit({ serie: SERIE })] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-courbe')).toHaveAttribute('data-genre', 'solde');
+    await expect(page.getByTestId('credit-wa-courbe')).toContainText(/37,25\s€/);
+    await expect(page.getByTestId('credit-wa-montant').first()).toHaveText(/^-0,1495\s€$|^-0,15\s€$/);
+  });
+
+  test('🔴 une Entreprise : sa courbe est sa consommation, ses envois sans « moins »', async ({ page }) => {
+    const SERIE = [{ jour: '2026-11-02', soldeMicroEur: 0, consommationMicroEur: 149_520 }];
+    await monter(page, { vues: [credit({ illimite: true, soldeMicroEur: 0, consommationDuMoisMicroEur: 149_520, achat: { disponible: true, permis: 'open_bar', offres: [] }, serie: SERIE })] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-courbe')).toHaveAttribute('data-genre', 'consommation');
+    for (const texte of await page.getByTestId('credit-wa-montant').allTextContents()) expect(texte).not.toMatch(/^-/);
+  });
+
   test('épuisé : plus rien ne part, réponses comprises', async ({ page }) => {
     await monter(page, { vues: [credit({ soldeMicroEur: 0 })] });
     await page.goto('/offre?tab=whatsapp');

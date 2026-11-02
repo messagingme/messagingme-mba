@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getCreditIa, type CreditIaConsole } from '@/lib/api-agent';
 import {
-  aUneFacture, achatArriveDepuis, estPageDePaiement, getMouvementsCredit, lireDepartPaiement, oublierDepartPaiement,
-  ouvrirFacture, ouvrirPaiement, retenirDepartPaiement, seuilDuRetour, type LigneCredit, type OffreRecharge,
+  aUneFacture, achatArriveDepuis, estPageDePaiement, getSuiviCredit, lireDepartPaiement, oublierDepartPaiement,
+  ouvrirFacture, ouvrirPaiement, retenirDepartPaiement, seuilDuRetour, type LigneCredit, type OffreRecharge, type PointCredit,
 } from '@/lib/api-credit';
+import { CourbeCredit } from '@/components/CourbeCredit';
 import { eurosDepuisMicro, SOLDE_BAS_MICRO_EUR } from '@/lib/agent-solde';
 import { erreurDeChargement } from '@/lib/http';
 import { fmtCost } from '@/lib/format';
@@ -57,6 +58,8 @@ export function OngletCreditIA({ session }: { session: Session }) {
   const [credit, setCredit] = useState<CreditIaConsole | null>(null);
   const [charge, setCharge] = useState(false);
   const [mouvements, setMouvements] = useState<LigneCredit[] | null>(null);
+  // La courbe de 90 jours (lot C) : vide tant qu'elle n'est pas lue, ou sur une API plus ancienne.
+  const [serie, setSerie] = useState<PointCredit[]>([]);
   const [enCours, setEnCours] = useState<OffreRecharge | null>(null);
   const [indisponible, setIndisponible] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -65,16 +68,20 @@ export function OngletCreditIA({ session }: { session: Session }) {
   // Une facture qui n'a pas pu s'ouvrir : dit dans la page, sous l'historique.
   const [erreurFacture, setErreurFacture] = useState<string | null>(null);
 
-  /** Relit le solde et l'historique. L'historique ne fait jamais échouer la lecture : une liste vide le remplace. */
+  /**
+   * Relit le solde, l'historique et la courbe. L'historique ne fait jamais échouer la lecture : une liste vide le remplace,
+   * et la courbe avec lui (elle voyage dans la même réponse).
+   */
   const relire = useCallback(async (): Promise<{ solde: number | null; mouvements: LigneCredit[] }> => {
-    const [s, m] = await Promise.all([
+    const [s, suivi] = await Promise.all([
       getCreditIa(session.tenantId),
-      getMouvementsCredit(session.tenantId).catch((): LigneCredit[] => []),
+      getSuiviCredit(session.tenantId).catch(() => ({ mouvements: [] as LigneCredit[], serie: [] as PointCredit[] })),
     ]);
     setCredit(s);
     setCharge(true);
-    setMouvements(m);
-    return { solde: s.soldeMicroEur, mouvements: m };
+    setMouvements(suivi.mouvements);
+    setSerie(suivi.serie);
+    return { solde: s.soldeMicroEur, mouvements: suivi.mouvements };
   }, [session.tenantId]);
 
   useEffect(() => {
@@ -304,6 +311,8 @@ export function OngletCreditIA({ session }: { session: Session }) {
       </section>
       )}
 
+      <CourbeCredit serie={serie} illimite={illimite} testid="credit-courbe" />
+
       <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-historique">
         <h2 className="text-sm font-semibold text-ink-900">{t('Historique', 'History')}</h2>
         {mouvements === null && <Squelette forme="carte" className="mt-2" />}
@@ -328,8 +337,11 @@ export function OngletCreditIA({ session }: { session: Session }) {
                     </button>
                   )}
                 </span>
-                <span className={`tabular-nums ${m.deltaMicroEur >= 0 ? 'text-ink-900' : 'text-ink-500'}`}>
-                  {m.deltaMicroEur >= 0 ? '+' : ''}{fmtCost(m.deltaMicroEur / 1_000_000, locale, 'EUR')}
+                {/* Une Entreprise ne voit pas son solde baisser (illimité) : sa consommation s'affiche sans « moins ». */}
+                <span className={`tabular-nums ${m.deltaMicroEur >= 0 ? 'text-ink-900' : 'text-ink-500'}`} data-testid="credit-montant">
+                  {illimite && m.deltaMicroEur < 0
+                    ? fmtCost(-m.deltaMicroEur / 1_000_000, locale, 'EUR')
+                    : `${m.deltaMicroEur >= 0 ? '+' : ''}${fmtCost(m.deltaMicroEur / 1_000_000, locale, 'EUR')}`}
                 </span>
               </li>
             ))}

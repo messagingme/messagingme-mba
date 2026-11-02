@@ -1073,7 +1073,11 @@ function VocalMessage({ session, conversationId, message, traduire }: {
       if (err instanceof ApiError && err.status === 410) setExpire(true);
       // Le crédit IA paie la transcription (lot 6, C) : épuisé, « réessayez » serait faux, recharger règle le problème.
       else if (err instanceof ApiError && err.status === 402) {
-        setErreur(t('Crédit IA épuisé : rechargez-le dans Paramètres > Offre, onglet Crédit IA, pour transcrire ce vocal.', 'AI credit used up: top it up in Settings > Plan, AI credit tab, to transcribe this voice note.'));
+        // Une Entreprise à son plafond de sécurité du mois (`cause: 'plafond'`) n'a rien à recharger : c'est nous qui le relevons.
+        const cause = (err.corps as { cause?: unknown } | undefined)?.cause;
+        setErreur(cause === 'plafond'
+          ? t('Le plafond de sécurité de l’IA de ce mois est atteint : contactez-nous depuis le Support pour le relever et transcrire ce vocal.', 'This month’s AI safety cap is reached: contact us from Support to raise it and transcribe this voice note.')
+          : t('Crédit IA épuisé : rechargez-le dans Paramètres > Offre, onglet Crédit IA, pour transcrire ce vocal.', 'AI credit used up: top it up in Settings > Plan, AI credit tab, to transcribe this voice note.'));
       } else setErreur(t('La transcription a échoué, réessayez.', 'Transcription failed, try again.'));
     } finally { setOccupe(null); }
   }

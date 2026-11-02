@@ -27,7 +27,7 @@ function messages(opts: { transcription?: string | null } = {}) {
   ];
 }
 
-async function monter(page: import('@playwright/test').Page, opts: { transcription?: string | null; appels?: string[]; creditEpuise?: boolean } = {}) {
+async function monter(page: import('@playwright/test').Page, opts: { transcription?: string | null; appels?: string[]; creditEpuise?: boolean; plafondIa?: boolean } = {}) {
   const appels = opts.appels ?? [];
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
@@ -42,6 +42,9 @@ async function monter(page: import('@playwright/test').Page, opts: { transcripti
     if (/\/messages\/m-vocal\/transcrire$/.test(url)) {
       if (opts.creditEpuise) {
         return route.fulfill({ status: 402, contentType: 'application/json', body: JSON.stringify({ error: 'credit IA epuise', cause: 'credit' }) });
+      }
+      if (opts.plafondIa) {
+        return route.fulfill({ status: 402, contentType: 'application/json', body: JSON.stringify({ error: 'plafond atteint', cause: 'plafond' }) });
       }
       return json({ texte: 'Bonjour, ma commande est-elle partie ?', deja: false });
     }
@@ -87,6 +90,14 @@ test.describe('Inbox : un vocal s’écoute ou se transcrit', () => {
     await page.getByTestId('vocal-transcrire-m-vocal').click();
     await expect(page.getByText(/Crédit IA épuisé|AI credit used up/)).toBeVisible();
     await expect(page.getByText(/réessayez|try again/)).toHaveCount(0);
+  });
+
+  test('🔴 une Entreprise à son plafond de sécurité du mois : l’écran dit le plafond, jamais « rechargez »', async ({ page }) => {
+    // Relecture du lot B : la console disait « rechargez » sur tout 402, alors qu'une Entreprise n'a rien à recharger.
+    await monter(page, { plafondIa: true });
+    await page.getByTestId('vocal-transcrire-m-vocal').click();
+    await expect(page.getByText(/plafond de sécurité de l’IA de ce mois est atteint|AI safety cap is reached/)).toBeVisible();
+    await expect(page.getByText(/Crédit IA épuisé|AI credit used up/)).toHaveCount(0);
   });
 
   test('🔴 la transcription est MARQUÉE comme telle', async ({ page }) => {

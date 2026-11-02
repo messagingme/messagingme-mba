@@ -30,6 +30,7 @@ describe('getCreditWhatsapp', () => {
       achat: { disponible: true, permis: 'ok', offres: [{ offre: 'wa_50', htCentimes: 5_000 }] },
       ligneArretee: false,
       historique: [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
+      serie: [{ jour: '2026-10-31', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
     };
     const appels = repondre(200, vue);
     expect(await getCreditWhatsapp('t1')).toEqual(vue);
@@ -41,7 +42,7 @@ describe('getCreditWhatsapp', () => {
     expect(await getCreditWhatsapp('t1')).toEqual({
       // Une API d'avant l'Entreprise illimitée (la console part avant l'API) : pas d'illimité, aucune consommation.
       illimite: false, soldeMicroEur: 0, consommationDuMoisMicroEur: 0, prixFrance: null, franchiseServiceParNumero: 0,
-      achat: { disponible: false, permis: 'ok', offres: [] }, ligneArretee: false, historique: [],
+      achat: { disponible: false, permis: 'ok', offres: [] }, ligneArretee: false, historique: [], serie: [],
     });
   });
 

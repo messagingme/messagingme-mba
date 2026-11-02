@@ -1,5 +1,5 @@
 import { ApiError, request } from './http';
-import type { IssuePaiement } from './api-credit';
+import { pointsDeCourbe, type IssuePaiement, type PointCredit } from './api-credit';
 
 /**
  * LE CRÉDIT WHATSAPP, côté navigateur (plan du Crédit WhatsApp, tâche 11) : ce que lit l'onglet de la page Offre, et
@@ -55,6 +55,8 @@ export interface VueCreditWhatsapp {
   /** Toutes les lignes de l'espace sont arrêtées : plus rien ne part, recharger n'y changerait rien. */
   ligneArretee: boolean;
   historique: LigneCreditWhatsapp[];
+  /** La courbe de 90 jours (lot C) ; vide sur une API plus ancienne. */
+  serie: PointCredit[];
 }
 
 /**
@@ -79,6 +81,7 @@ export async function getCreditWhatsapp(tenantId: string): Promise<VueCreditWhat
     },
     ligneArretee: r.ligneArretee === true,
     historique: Array.isArray(r.historique) ? r.historique : [],
+    serie: pointsDeCourbe(r.serie),
   };
 }
 

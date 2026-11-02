@@ -36,13 +36,14 @@ import { OpsEmailsCard } from '@/components/OpsEmailsCard';
 import { MbaTabs } from '@/components/MbaTabs';
 import { OpsSante } from '@/components/OpsSante';
 import { OpsCapacite } from '@/components/OpsCapacite';
+import { OpsCredits } from '@/components/OpsCredits';
 import { OpsSeuils } from '@/components/OpsSeuils';
 
 /**
  * Les quatre onglets (refonte, `docs/superpowers/specs/2026-10-27-ops-refonte-design.md`). Santé d'abord : c'est
  * l'écran du téléphone. L'onglet vit dans l'adresse (`?tab=`), lu au montage et réécrit sans recharger.
  */
-const ONGLETS = ['sante', 'capacite', 'clients', 'reglages'] as const;
+const ONGLETS = ['sante', 'capacite', 'clients', 'credits', 'reglages'] as const;
 type Onglet = (typeof ONGLETS)[number];
 const ongletDe = (valeur: string | null): Onglet => (ONGLETS as readonly string[]).includes(valeur ?? '') ? valeur as Onglet : 'sante';
 
@@ -113,7 +114,8 @@ export default function OpsPage() {
 
   // La vue d'ensemble est lourde (charge et latence des files, lues dans la table des jobs de pg-boss) : l'onglet Santé,
   // celui du téléphone et de l'incident, n'en a pas besoin. Elle se relit en arrivant sur un autre onglet.
-  const besoinVue = onglet !== 'sante';
+  // Les Crédits non plus (lot C) : leur onglet lit sa propre route.
+  const besoinVue = onglet !== 'sante' && onglet !== 'credits';
   useEffect(() => {
     if (session && besoinVue) void load(session.token);
   }, [session, besoinVue, load]);
@@ -197,6 +199,7 @@ export default function OpsPage() {
             { key: 'sante', label: t('Santé', 'Health') },
             { key: 'capacite', label: t('Capacité', 'Capacity') },
             { key: 'clients', label: t('Clients', 'Clients') },
+            { key: 'credits', label: t('Crédits', 'Credits') },
             { key: 'reglages', label: t('Réglages', 'Settings') },
           ]}
           active={onglet}
@@ -205,6 +208,7 @@ export default function OpsPage() {
         {/* Santé et Capacité lisent leurs propres routes : elles n'attendent pas la vue d'ensemble. */}
         {onglet === 'sante' && <OpsSante jeton={session.token} onPerdue={perdue} onRevision={setRevisionSante} />}
         {onglet === 'capacite' && <OpsCapacite jeton={session.token} onPerdue={perdue} />}
+        {onglet === 'credits' && <OpsCredits jeton={session.token} onPerdue={perdue} />}
         {loading && !data ? (
           <Squelette forme="carte" />
         ) : data ? (

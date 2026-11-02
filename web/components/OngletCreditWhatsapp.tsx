@@ -22,6 +22,7 @@ import { IntroPage } from '@/components/TitrePage';
 import { Squelette } from '@/components/Squelette';
 import { Bouton } from '@/components/Bouton';
 import { MbaNotice } from '@/components/MbaNotice';
+import { CourbeCredit } from '@/components/CourbeCredit';
 
 /**
  * LE CRÉDIT WHATSAPP DE L'ESPACE (plan du Crédit WhatsApp, tâche 11) : troisième onglet de Paramètres > Offre, ouvert à
@@ -310,6 +311,8 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
         </section>
       )}
 
+      {vue !== null && <CourbeCredit serie={vue.serie} illimite={illimite} testid="credit-wa-courbe" />}
+
       <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-historique">
         <h2 className="text-sm font-semibold text-ink-900">{t('Historique', 'History')}</h2>
         {vue === null && !erreurLecture && <Squelette forme="carte" className="mt-2" />}
@@ -334,8 +337,11 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
                     </button>
                   )}
                 </span>
-                <span className={`tabular-nums ${m.deltaMicroEur >= 0 ? 'text-ink-900' : 'text-ink-500'}`}>
-                  {m.deltaMicroEur >= 0 ? '+' : ''}{fmtCost(m.deltaMicroEur / 1_000_000, locale, 'EUR')}
+                {/* Une Entreprise ne voit pas son solde baisser (illimité) : ses envois s'affichent sans « moins ». */}
+                <span className={`tabular-nums ${m.deltaMicroEur >= 0 ? 'text-ink-900' : 'text-ink-500'}`} data-testid="credit-wa-montant">
+                  {illimite && m.deltaMicroEur < 0
+                    ? fmtCost(-m.deltaMicroEur / 1_000_000, locale, 'EUR')
+                    : `${m.deltaMicroEur >= 0 ? '+' : ''}${fmtCost(m.deltaMicroEur / 1_000_000, locale, 'EUR')}`}
                 </span>
               </li>
             ))}

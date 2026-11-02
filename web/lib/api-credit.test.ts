@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ApiError } from './http';
 import {
-  aUneFacture, achatArriveDepuis, estPageDePaiement, FENETRE_SANS_DEPART_MS, getMouvementsCredit, lireDepartPaiement,
-  MARGE_HORLOGE_MS, oublierDepartPaiement, ouvrirFacture, ouvrirPaiement, retenirDepartPaiement, seuilDuRetour,
+  aUneFacture, achatArriveDepuis, estPageDePaiement, FENETRE_SANS_DEPART_MS, getMouvementsCredit, getSuiviCredit, lireDepartPaiement,
+  MARGE_HORLOGE_MS, oublierDepartPaiement, ouvrirFacture, ouvrirPaiement, pointsDeCourbe, retenirDepartPaiement, seuilDuRetour,
   type LigneCredit,
 } from './api-credit';
 
@@ -58,6 +58,17 @@ describe('getMouvementsCredit', () => {
     vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} });
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } })));
     expect(await getMouvementsCredit('t1')).toEqual([]);
+  });
+
+  it('🔴 la courbe voyage avec l’historique ; une API plus ancienne n’en rend pas, et un point mal formé est écarté', async () => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} });
+    const BON = { jour: '2026-11-02', soldeMicroEur: 4_200_000, consommationMicroEur: 1_800_000 };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      mouvements: [], serie: [BON, { jour: 'hier', soldeMicroEur: 1, consommationMicroEur: 0 }, { jour: '2026-11-01', soldeMicroEur: '4' }, null],
+    }), { status: 200, headers: { 'content-type': 'application/json' } })));
+    expect(await getSuiviCredit('t1')).toEqual({ mouvements: [], serie: [BON] });
+    expect(pointsDeCourbe(undefined)).toEqual([]);
+    expect(pointsDeCourbe({ jour: '2026-11-02' })).toEqual([]);
   });
 });
 

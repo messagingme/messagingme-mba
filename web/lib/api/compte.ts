@@ -610,6 +610,45 @@ export function getOpsVercel(sessionOps: string): Promise<JaugeVercel> {
   return appelOps(sessionOps, '/ops/vercel');
 }
 
+/** Un mois de Paris et le précédent, en micro-euros (la vue « Crédits » de `/ops`, lot C). */
+export interface DeuxMoisOps {
+  moisMicroEur: number;
+  moisPrecedentMicroEur: number;
+}
+
+/** Un espace de la vue « Crédits » (`PgCreditsOpsStore`, `src/ops/credits.pg.ts`). */
+export interface LigneCreditsOps {
+  tenantId: string;
+  nom: string;
+  /** `base` (la Free), `pro`, `business` ou `entreprise`. */
+  offre: string;
+  ia: {
+    illimite: boolean;
+    soldeMicroEur: number;
+    consommation: DeuxMoisOps;
+    /** Le plafond de sécurité du mois d'une Entreprise ; `null` hors Entreprise. */
+    plafondMicroEur: number | null;
+    plafondAtteint: boolean;
+    cle: boolean;
+  };
+  whatsapp: { surLaLigne: boolean; soldeMicroEur: number; consommation: DeuxMoisOps };
+  /** Ce qui se facture au contrat (IA et WhatsApp illimités) ; `null` pour un prépayé qui n'en a pas. */
+  aFacturer: DeuxMoisOps | null;
+}
+
+export interface VueCreditsOps {
+  espaces: LigneCreditsOps[];
+  plafondIaParDefautMicroEur: number;
+  plafondsEntreprisesAvecCleMicroEur: number;
+  /** La même somme en dollars, à comparer au budget d'équipe de Vercel. */
+  plafondsEntreprisesAvecCleDollars: number;
+}
+
+/** Lue à l'ouverture de l'onglet « Crédits » ; 404 sur une API plus ancienne (la console part avant l'API). */
+export function getOpsCredits(sessionOps: string): Promise<VueCreditsOps> {
+  return appelOps(sessionOps, '/ops/credits');
+}
+
 /** Coûteux côté base : lu une fois à l'ouverture de l'écran, jamais avec la vue d'ensemble. */
 export function getOpsStockage(sessionOps: string): Promise<MesureStockage> {
   return appelOps(sessionOps, '/ops/stockage');

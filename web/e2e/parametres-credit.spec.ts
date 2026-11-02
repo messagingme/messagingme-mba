@@ -37,6 +37,8 @@ interface Options {
   facture?: { status: number; body: unknown };
   /** Le corps ENTIER de la lecture du crédit (une Entreprise illimitée) : remplace les soldes successifs. */
   credit?: Record<string, unknown>;
+  /** La courbe de 90 jours rendue avec l'historique (lot C) ; absente, comme une API plus ancienne. */
+  serie?: unknown[];
 }
 
 async function monter(page: Page, o: Options = {}) {
@@ -68,7 +70,10 @@ async function monter(page: Page, o: Options = {}) {
       if (o.credit) return json(o.credit);
       return json({ soldeMicroEur: soldes.length > 1 ? soldes.shift()! : soldes[0]! });
     }
-    if (url.includes('/agents/mouvements')) return json({ mouvements: historiques.length > 1 ? historiques.shift()! : historiques[0]! });
+    if (url.includes('/agents/mouvements')) {
+      const mouvements = historiques.length > 1 ? historiques.shift()! : historiques[0]!;
+      return json(o.serie ? { mouvements, serie: o.serie } : { mouvements });
+    }
     if (url.includes('/unread-count')) return json({ count: 0 });
     if (url.endsWith('/me')) return json({ email: ADMIN.email, name: 'Jean Test', role: 'admin' });
     return json({});
@@ -221,6 +226,45 @@ test.describe('Paramètres > Offre > Crédit IA', () => {
     await expect(page.getByTestId('credit-plafond-ia')).toContainText(/Contactez-nous/);
     await expect(page.getByTestId('credit-illimite')).toHaveText('Illimité');
     await expect(page.getByTestId('credit-epuise')).toHaveCount(0);
+  });
+
+  test('🔴 la courbe de 90 jours d’un prépayé : son solde de fin de journée, le dernier point en grand ; sans courbe (API ancienne), rien', async ({ page }) => {
+    await monter(page, { serie: [
+      { jour: '2026-10-31', soldeMicroEur: 10_000_000, consommationMicroEur: 0 },
+      { jour: '2026-11-01', soldeMicroEur: 6_000_000, consommationMicroEur: 4_000_000 },
+      { jour: '2026-11-02', soldeMicroEur: 4_200_000, consommationMicroEur: 1_800_000 },
+    ] });
+    await page.goto('/parametres/credit');
+    const courbe = page.getByTestId('credit-courbe');
+    await expect(courbe).toHaveAttribute('data-genre', 'solde');
+    await expect(courbe).toContainText('Solde en fin de journée');
+    await expect(courbe).toContainText(/4,20\s€/);
+  });
+
+  test('sans courbe dans la réponse (une API plus ancienne) : aucune courbe, l’historique reste', async ({ page }) => {
+    await monter(page);
+    await page.goto('/parametres/credit');
+    await expect(page.getByTestId('credit-ligne')).toHaveCount(5);
+    await expect(page.getByTestId('credit-courbe')).toHaveCount(0);
+  });
+
+  test('🔴 une Entreprise : la courbe est sa consommation du jour, et l’historique la montre sans « moins »', async ({ page }) => {
+    await monter(page, {
+      credit: { soldeMicroEur: 4_820_000, illimite: true, consommationDuMoisMicroEur: 1_276_500, plafondAtteint: false },
+      serie: [
+        { jour: '2026-11-01', soldeMicroEur: 4_820_000, consommationMicroEur: 42_000 },
+        { jour: '2026-11-02', soldeMicroEur: 4_820_000, consommationMicroEur: 1_234_500 },
+      ],
+    });
+    await page.goto('/parametres/credit');
+    const courbe = page.getByTestId('credit-courbe');
+    await expect(courbe).toHaveAttribute('data-genre', 'consommation');
+    await expect(courbe).toContainText('Consommation par jour');
+    // Le grand chiffre est le total consommé sur la fenêtre : 1,2765 €, au centime.
+    await expect(courbe).toContainText(/1,28\s€/);
+    const montants = page.getByTestId('credit-montant');
+    await expect(montants.nth(1)).toHaveText(/^1,23\d*\s€$/);
+    for (const texte of await montants.allTextContents()) expect(texte).not.toMatch(/^-/);
   });
 
   test('🔴 un compte NON ADMIN n’y entre pas : aucun bouton de paiement ne lui est offert', async ({ page }) => {

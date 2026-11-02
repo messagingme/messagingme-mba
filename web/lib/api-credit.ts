@@ -33,8 +33,32 @@ export interface LigneCredit {
  * autre version) ne doit pas faire tomber l'écran entier, qui montre aussi le solde et les boutons de recharge.
  */
 export async function getMouvementsCredit(tenantId: string): Promise<LigneCredit[]> {
-  const r = await request<{ mouvements?: unknown }>(`/tenants/${tenantId}/agents/mouvements`);
-  return Array.isArray(r.mouvements) ? (r.mouvements as LigneCredit[]) : [];
+  return (await getSuiviCredit(tenantId)).mouvements;
+}
+
+/**
+ * Un point de la courbe de 90 jours d'un crédit (lot C), tel que le serveur le rend (`src/lib/serie-credit.ts`, que les
+ * deux builds ne partagent pas) : le solde à la fin du jour de Paris, et ce qui a été consommé ce jour-là.
+ */
+export interface PointCredit {
+  /** AAAA-MM-JJ. */
+  jour: string;
+  soldeMicroEur: number;
+  consommationMicroEur: number;
+}
+
+/** Les points bien formés d'une courbe ; une API plus ancienne n'en rend pas (la console part avant l'API) : aucun point. */
+export function pointsDeCourbe(brut: unknown): PointCredit[] {
+  if (!Array.isArray(brut)) return [];
+  return brut.filter((p): p is PointCredit => p !== null && typeof p === 'object'
+    && typeof (p as PointCredit).jour === 'string' && /^\d{4}-\d{2}-\d{2}$/.test((p as PointCredit).jour)
+    && typeof (p as PointCredit).soldeMicroEur === 'number' && typeof (p as PointCredit).consommationMicroEur === 'number');
+}
+
+/** L'historique et la courbe de 90 jours, en une lecture (la même route : la courbe voyage avec l'historique). */
+export async function getSuiviCredit(tenantId: string): Promise<{ mouvements: LigneCredit[]; serie: PointCredit[] }> {
+  const r = await request<{ mouvements?: unknown; serie?: unknown }>(`/tenants/${tenantId}/agents/mouvements`);
+  return { mouvements: Array.isArray(r.mouvements) ? (r.mouvements as LigneCredit[]) : [], serie: pointsDeCourbe(r.serie) };
 }
 
 /**

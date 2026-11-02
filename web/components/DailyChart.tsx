@@ -76,6 +76,7 @@ export function DailyChart({
   zonePdf,
   actions,
   seuils = [],
+  formatValeur,
 }: {
   title: string;
   series: ChartSeries[];
@@ -105,6 +106,11 @@ export function DailyChart({
    * une courbe loin de son seuil se lit loin de lui, au lieu de remplir la hauteur et de sembler au bord.
    */
   seuils?: ReadonlyArray<{ valeur: number; couleur: string; libelle: string }>;
+  /**
+   * Le format des valeurs (grand chiffre, tendance, pic, moyenne, infobulle) ; absent, un nombre entier. Les courbes des
+   * crédits (lot C) passent des euros : leur moyenne garde ses centimes au lieu d'être arrondie à l'unité.
+   */
+  formatValeur?: (n: number) => string;
 }) {
   const t = useT();
   const { locale } = useLocale();
@@ -130,7 +136,9 @@ export function DailyChart({
   const delta = summary === 'last' ? (primary[primary.length - 1] ?? 0) - (primary[0] ?? 0) : null;
   // Métriques (séries flux, une seule série) : pic + moyenne.
   const peak = primary.length ? Math.max(...primary) : 0;
-  const avg = primary.length ? Math.round(primary.reduce((a, b) => a + b, 0) / primary.length) : 0;
+  const moyenne = primary.length ? primary.reduce((a, b) => a + b, 0) / primary.length : 0;
+  const avg = formatValeur ? moyenne : Math.round(moyenne);
+  const fmt = (n: number): string => (formatValeur ? formatValeur(n) : fmtNum(n, locale));
 
   const max = Math.max(1, ...data.flatMap((s) => s.values), ...seuils.map((s) => s.valeur));
   const innerW = W - PAD.left - PAD.right;
@@ -160,7 +168,7 @@ export function DailyChart({
             {zonePdf && <BoutonPdf zone={zonePdf} />}
           </div>
           <div className="mt-1.5 flex items-baseline gap-2">
-            <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums text-ink-900">{fmtNum(hero, locale)}</span>
+            <span className="text-4xl font-semibold leading-none tracking-tight tabular-nums text-ink-900">{fmt(hero)}</span>
             {delta !== null && (
               <span
                 className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-xs font-medium ${
@@ -168,7 +176,7 @@ export function DailyChart({
                 }`}
               >
                 <Icone nom={delta > 0 ? 'hausse' : delta < 0 ? 'baisse' : 'stable'} taille="petite" />{delta > 0 ? '+' : ''}
-                {fmtNum(delta, locale)}
+                {fmt(delta)}
               </span>
             )}
           </div>
@@ -183,14 +191,14 @@ export function DailyChart({
               <span key={s.label} className="flex items-center gap-1.5 text-xs text-ink-500">
                 <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
                 {s.label}
-                <span className="font-semibold text-ink-900 tabular-nums">{fmtNum(s.values[s.values.length - 1] ?? 0, locale)}</span>
+                <span className="font-semibold text-ink-900 tabular-nums">{fmt(s.values[s.values.length - 1] ?? 0)}</span>
               </span>
             ))}
           </div>
         ) : (
           <div className="flex shrink-0 gap-2">
-            <MiniStat label={t('Pic', 'Peak')} value={fmtNum(peak, locale)} />
-            <MiniStat label={t('Moy.', 'Avg.')} value={fmtNum(avg, locale)} />
+            <MiniStat label={t('Pic', 'Peak')} value={fmt(peak)} />
+            <MiniStat label={t('Moy.', 'Avg.')} value={fmt(avg)} />
           </div>
         )}
       </div>
@@ -282,7 +290,7 @@ export function DailyChart({
               <div key={s.label} className="flex items-center gap-1.5 whitespace-nowrap">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.color }} />
                 {multi ? `${s.label} ` : ''}
-                <span className="font-semibold tabular-nums">{fmtNum(s.values[hover] ?? 0, locale)}</span>
+                <span className="font-semibold tabular-nums">{fmt(s.values[hover] ?? 0)}</span>
               </div>
             ))}
           </div>
