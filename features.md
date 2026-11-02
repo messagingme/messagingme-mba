@@ -3540,7 +3540,16 @@ boîte par sous-menu.
   (2026-11-02) se règle sous « Régler le devis », en euros par mois (vide = le défaut, 100 €) : il ne part que s'il
   change, et la trace garde l'avant et l'après. Retirer l'Entreprise d'un espace dont un numéro est sur la ligne du
   Crédit WhatsApp sans de quoi payer un message s'annonce en rouge : vers le Pro ou le Business, il faudra un achat ;
-  vers la Free, qui ne peut pas en acheter, il faut d'abord retirer le numéro de la ligne.
+  vers la Free, qui ne peut pas en acheter, il faut d'abord retirer le numéro de la ligne. Poser l'Entreprise, ou changer
+  son plafond IA, réarme les alertes du mois sur le nouveau plafond et remonte sa clé de modèle tout de suite.
+- ✅ **L'onglet « Crédits »** (lot C de l'Entreprise illimitée, 2026-11-02) : un espace par ligne, les Entreprises
+  d'abord. Son Crédit IA (le solde, ou « illimité » avec son plafond, « atteint » en rouge, « sans clé ») et son Crédit
+  WhatsApp (le solde, « illimité », ou « pas sur la ligne »), ce que chacun a consommé le mois en cours et le précédent,
+  et pour une Entreprise **le montant à facturer** (ses débits IA et ses messages WhatsApp illimités, au prix client,
+  commission comprise), qu'aucun autre écran ne donne. En tête, **la somme des plafonds IA des Entreprises qui ont une
+  clé, face au budget d'équipe de Vercel** : au-delà, l'écran le dit en rouge (une seule Entreprise qui s'emballe
+  couperait l'IA de tous les clients), et la veille horaire du budget envoie une alerte Telegram, une fois par mois et
+  par budget. Une clé d'Entreprise que Vercel a laissée à son plafond alerte aussi.
 - ✅ **Les numéros fournis** (lot 3a, 2026-10-05) : un numéro acheté chez DIDWW se déclare
   dans la carte « Numéros fournis » ; le serveur le branche sur l'Asterisk et l'ajoute à la réserve. Quand Meta appelle
   ce numéro pour le vérifier, le code qu'il dicte est capté automatiquement et s'affiche en face du numéro, avec ce qui
@@ -4293,6 +4302,10 @@ page Offre ; les anciennes adresses y mènent toujours, retour de paiement et li
     disponible » au lieu d'une erreur.
   - ⚠️ **Pendant les essais en mode test de Stripe, seul un exploitant peut payer** : une carte de test
     donnerait sinon de vrais euros de modèle à n'importe quel client.
+- ✅ **La courbe des quatre-vingt-dix derniers jours** (lot C de l'Entreprise illimitée, 2026-11-02), au-dessus de
+  l'historique : le solde en fin de journée, en euros hors taxe, le dernier point en grand ; au survol, le jour et son
+  montant. Pour une Entreprise, dont le solde ne bouge pas, la courbe est sa consommation de chaque jour (en grand, le
+  total des quatre-vingt-dix jours), et son historique montre ce qu'elle a consommé sans signe « moins ».
 - ✅ **L'historique** des quatre-vingt-dix derniers jours, raisons en clair : achat de crédit, crédit offert,
   recharge manuelle, **consommation IA du jour** (tous les tours d'agent, les recherches, la préparation des fiches et
   les transcriptions d'une journée, en une ligne ; « agents IA du jour » avant le lot 6) et **traductions du jour**.
@@ -4328,6 +4341,9 @@ qu'à un espace dont un numéro est payé ainsi, jamais en Free.
   Crédit IA (TVA en sus, paiement en euros, facture de Stripe par e-mail, « Facture » dans l'historique), sans code
   promo. Le retour ne crédite rien : seul l'avis signé de Stripe crédite, une fois par paiement, et l'écran relit
   jusqu'à voir l'achat. Un achat ne crédite jamais le Crédit IA, et l'inverse non plus.
+- ✅ **La courbe des quatre-vingt-dix derniers jours** (lot C, 2026-11-02), au-dessus de l'historique : le solde en fin de
+  journée ; pour une Entreprise, ce que ses messages ont coûté chaque jour, et ses envois sans signe « moins » dans
+  l'historique. Au jour près : un message que Meta refuse un autre jour que son envoi ne compte ni d'un côté ni de l'autre.
 - ✅ **L'historique** des quatre-vingt-dix derniers jours : les envois d'un jour en une ligne (nombre de messages et
   montant), les achats, les régularisations.
 - ✅ **La reprise toute seule** : une campagne arrêtée faute de crédit repart dès l'avis de paiement de Stripe, une fois

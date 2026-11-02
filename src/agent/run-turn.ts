@@ -56,6 +56,11 @@ export interface RunTurnDeps {
    * sécurité d'une Entreprise, qui prévient Julien et pas le client. Ne lève jamais. Absente : aucune alerte.
    */
   alerterCreditEpuise?(tenantId: string): Promise<void>;
+  /**
+   * L'alerte à l'exploitation (Telegram, limitée par clé) : la clé Vercel d'une Entreprise à son plafond avant celui du
+   * mois, qu'aucun client ne peut régler (relecture du lot B).
+   */
+  alerterExploitation?(cle: string, texte: string): void;
   /** Retire du solde ce que ce tour a coûté. Absent -> rien n'est débité. */
   debiterTenant?(tenantId: string, montantMicroEur: number, sessionId: string): Promise<void>;
   /** Le fil est-il encore à nous ? Absent -> considéré comme oui (suites à deps minimales). */
@@ -355,6 +360,7 @@ export async function runTurn(job: AgentTurnJob, deps: RunTurnDeps): Promise<Res
       if (deps.acces && await deps.acces.illimite(job.tenantId)) {
         // eslint-disable-next-line no-console
         console.error(`agent: plafond de la clé Vercel atteint pour l'Entreprise ${job.tenantId}, avant son plafond du mois`);
+        deps.alerterExploitation?.(`cle-entreprise:${job.tenantId}`, `la clé Vercel de l’Entreprise ${job.tenantId} est à son plafond avant celui du mois : ses agents se taisent. Remonter sa clé (le balayage horaire, ou /ops > Offre).`);
       } else {
         await deps.alerterCreditEpuise?.(job.tenantId);
       }

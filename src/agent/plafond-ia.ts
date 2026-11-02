@@ -20,7 +20,10 @@ export interface DepsPlafondIa {
     marquerAlerte(tenantId: string, seuil: 80 | 100): Promise<boolean>;
     oublierAlerte(tenantId: string, seuil: 80 | 100): Promise<void>;
   };
-  /** La remontée du plafond de la clé d'un espace ; `null` quand le provisionnement des clés est éteint. */
+  /**
+   * La remontée du plafond de la clé d'un espace (`remonterPlafondCle`, qui LÈVE sur un échec : l'espace compte alors en
+   * échec) ; `null` quand le provisionnement des clés est éteint.
+   */
   remonterPlafond: ((tenantId: string) => Promise<boolean>) | null;
   /** Le message à Julien (Telegram) : `true` s'il est parti. Ne lève jamais. */
   alerter(texte: string): Promise<boolean>;

@@ -7,6 +7,7 @@ import { htCentimesWhatsapp, OFFRES_WHATSAPP, type OffreWhatsapp } from '../stri
 import { prixMessage, type CategorieMeta, type GrilleMeta } from '../credit-whatsapp/grille';
 import { FRANCHISE_SERVICE_PAR_NUMERO, type ConditionsCredit } from '../credit-whatsapp/garde';
 import type { LigneHistoriqueWa } from '../credit-whatsapp/credit';
+import type { PointDeCredit } from '../lib/serie-credit';
 import type { LigneCredit } from '../credit-whatsapp/lignes.pg';
 
 /**
@@ -31,6 +32,8 @@ export interface CreditWhatsappRouteDeps {
     solde(tenantId: string): Promise<number>;
     consommationDuMois(tenantId: string): Promise<number>;
     historique(tenantId: string): Promise<LigneHistoriqueWa[]>;
+    /** La courbe de 90 jours : le solde de fin de jour et la consommation du jour (`PgCreditWhatsappStore.serie`). */
+    serie(tenantId: string): Promise<PointDeCredit[]>;
     grille(): Promise<GrilleMeta | null>;
     conditions(tenantId: string): Promise<ConditionsCredit>;
     lignes(tenantId: string): Promise<readonly LigneCredit[]>;
@@ -45,7 +48,7 @@ export interface VueCreditWhatsapp {
    */
   illimite: boolean;
   soldeMicroEur: number;
-  /** Ce qu'ont consommé les messages du mois de Paris (provisions non rendues), illimitées comprises. */
+  /** Ce qu'ont consommé les messages ILLIMITÉS du mois de Paris : ce qui se facture à une Entreprise ; 0 pour un prépayé. */
   consommationDuMoisMicroEur: number;
   /** Le prix d'un message en France par catégorie, commission comprise ; `null` sans grille de Meta en vigueur. */
   prixFrance: Array<{ categorie: CategorieMeta; prixMicroEur: number }> | null;
@@ -55,6 +58,11 @@ export interface VueCreditWhatsapp {
   /** Toutes les lignes de l'espace sont arrêtées : plus rien ne part, recharger n'y changerait rien. */
   ligneArretee: boolean;
   historique: LigneHistoriqueWa[];
+  /**
+   * La courbe des 90 derniers jours (lot C) : la console trace le solde de fin de jour d'un prépayé, la consommation du
+   * jour d'une Entreprise (dont le solde ne bouge pas).
+   */
+  serie: PointDeCredit[];
 }
 
 export function registerCreditWhatsapp(
@@ -66,9 +74,9 @@ export function registerCreditWhatsapp(
   /** L'onglet : tout membre le lit (un agent y voit le solde et qui peut recharger), seul un administrateur achète. */
   app.get('/tenants/:tenantId/credit-whatsapp', { preHandler: gardeLecture }, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const [soldeMicroEur, consommationDuMoisMicroEur, historique, grille, conditions, lignes, permis] = await Promise.all([
+    const [soldeMicroEur, consommationDuMoisMicroEur, historique, grille, conditions, lignes, permis, serie] = await Promise.all([
       deps.vue.solde(tenant), deps.vue.consommationDuMois(tenant), deps.vue.historique(tenant), deps.vue.grille(),
-      deps.vue.conditions(tenant), deps.vue.lignes(tenant), deps.achat.achatPermis(tenant),
+      deps.vue.conditions(tenant), deps.vue.lignes(tenant), deps.achat.achatPermis(tenant), deps.vue.serie(tenant),
     ]);
     const prixFrance = grille === null ? null : CATEGORIES_AFFICHEES.flatMap((categorie) => {
       const prix = prixMessage(grille, 'FR', categorie, conditions.commissionPct);
@@ -88,6 +96,7 @@ export function registerCreditWhatsapp(
       },
       ligneArretee: lignes.length > 0 && lignes.every((l) => l.arreteeLe !== null),
       historique,
+      serie,
     };
     return reply.code(200).send(vue);
   });

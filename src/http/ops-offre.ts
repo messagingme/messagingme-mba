@@ -44,6 +44,12 @@ export interface OpsOffreDeps {
      * les refusera plus (`leverPausesCreditWhatsapp`, plan du Crédit WhatsApp, tâche 11). Rend le nombre de campagnes reprises.
      */
     reprendreCreditWhatsapp(tenantId: string): Promise<number>;
+    /**
+     * L'IA d'une Entreprise réglée (son entrée, ou son plafond de sécurité changé ; relecture du lot B) : les alertes du
+     * mois réarmées sur le nouveau plafond, et sa clé de modèle remontée à un mois de plafond d'avance tout de suite,
+     * sans attendre le balayage horaire (une clé prépayée épuisée ferait échouer ses tours jusque-là).
+     */
+    reglerIaEntreprise(tenantId: string): Promise<void>;
   };
 }
 
@@ -51,7 +57,7 @@ export interface OpsOffreDeps {
 interface BilanGestes {
   creditOffert: number | null;
   finDuNumero: string | null;
-  echecs: Array<'passage' | 'credit' | 'fin' | 'reprise_credit_whatsapp'>;
+  echecs: Array<'passage' | 'credit' | 'fin' | 'reprise_credit_whatsapp' | 'ia_entreprise'>;
 }
 
 /** 10 utilisateurs proposés à l'écran ; la route accepte toute limite positive, ou `null` (sans limite). */
@@ -175,6 +181,10 @@ async function jouerLesGestes(deps: OpsOffreDeps, tenantId: string, avant: Regla
   // arrêtées faute de crédit repartent. Le retrait ne relance rien : la garde juge le solde au prochain envoi.
   if (!avant.entreprise && apres.entreprise) {
     await tenter('reprise_credit_whatsapp', () => deps.gestes.reprendreCreditWhatsapp(tenantId));
+  }
+  // Son Crédit IA aussi : illimité sous un plafond, que l'entrée pose et qu'un plafond changé déplace.
+  if (apres.entreprise && (!avant.entreprise || avant.plafondIaMoisEuros !== apres.plafondIaMoisEuros)) {
+    await tenter('ia_entreprise', () => deps.gestes.reglerIaEntreprise(tenantId));
   }
   return bilan;
 }

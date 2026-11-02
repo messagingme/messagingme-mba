@@ -71,6 +71,7 @@ class MagasinMemoire {
       gestes: {
         passageBusiness: async (t) => { this.gestesJoues.push(`passage:${t}`); if (this.echec === 'passage') throw new Error('base indisponible'); },
         reprendreCreditWhatsapp: async (t) => { this.gestesJoues.push(`reprise-credit:${t}`); return 1; },
+        reglerIaEntreprise: async (t) => { this.gestesJoues.push(`ia-entreprise:${t}`); },
         completerCredit: async (t) => {
           this.gestesJoues.push(`credit:${t}`);
           if (this.echec === 'credit') throw new Error('base indisponible');
@@ -286,8 +287,27 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: 20, note: 'devis Entreprise signé' } });
     expect(res.statusCode).toBe(200);
     expect(magasin.reglages.get(T1)).toMatchObject({ entreprise: true, business: false });
-    // Seule la reprise des campagnes du Crédit WhatsApp, devenu illimité avec l'Entreprise ; aucun geste de fin.
-    expect(magasin.gestesJoues).toEqual([`reprise-credit:${T1}`]);
+    // La reprise des campagnes du Crédit WhatsApp, devenu illimité avec l'Entreprise, et le réglage de son Crédit IA
+    // (alertes réarmées, clé remontée) ; aucun geste de fin.
+    expect(magasin.gestesJoues).toEqual([`reprise-credit:${T1}`, `ia-entreprise:${T1}`]);
+    await server.close();
+  });
+
+  it('🔴 le plafond IA d’une Entreprise changé : ses alertes se réarment et sa clé remonte ; un autre réglage ne les touche pas', async () => {
+    const { server, magasin } = monter();
+    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: true, plafondIaMoisEuros: null });
+    const relever = await server.inject({
+      method: 'PUT', url: `/ops/offre/${T1}`, headers: ops,
+      payload: { entreprise: true, utilisateurs: 10, plafondIaMoisEuros: 400, note: 'client prévenu, plafond relevé' },
+    });
+    expect(relever.statusCode).toBe(200);
+    expect(magasin.gestesJoues).toEqual([`ia-entreprise:${T1}`]);
+    const commission = await server.inject({
+      method: 'PUT', url: `/ops/offre/${T1}`, headers: ops,
+      payload: { entreprise: true, utilisateurs: 10, commissionPct: 7, note: 'commission du devis' },
+    });
+    expect(commission.statusCode).toBe(200);
+    expect(magasin.gestesJoues, 'le plafond inchangé ne rejoue rien').toEqual([`ia-entreprise:${T1}`]);
     await server.close();
   });
 

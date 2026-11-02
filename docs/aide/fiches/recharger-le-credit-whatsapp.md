@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: 5c67ae
+source_empreinte: 4b764c
 ---
 # Recharger le Crédit WhatsApp
 
@@ -28,6 +28,9 @@ sécurisée de Stripe, où vous saisissez votre carte et vos informations de fac
 porte un lien **Facture**. Les codes promo ne s'appliquent pas à ce crédit. Au retour, l'écran vous dit que le
 paiement est reçu, puis que votre crédit est à jour dès que l'achat apparaît ; si vous abandonnez, rien n'est débité.
 Vous pouvez aussi demander à Claude de recharger : il vous donne le lien de paiement.
+
+**La courbe**, au-dessus de l'historique, montre votre solde en fin de journée sur les quatre-vingt-dix derniers jours,
+hors taxe ; survolez-la pour lire un jour. En offre Entreprise, elle montre ce que vos messages ont coûté chaque jour.
 
 **L'historique** liste les quatre-vingt-dix derniers jours : les envois d'une journée en une ligne (nombre de messages
 et montant), vos achats et les régularisations.

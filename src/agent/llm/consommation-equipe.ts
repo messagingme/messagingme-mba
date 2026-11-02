@@ -94,11 +94,18 @@ export const SEUILS_POURCENT = [95, 80] as const;
  * mois) : un redémarrage du worker ne la renvoie pas. Le plafond est dans la clé parce que relever le budget est
  * précisément le geste que l'alerte demande : sans lui, une alerte à 95 % des 100 $ consommerait le mois, et 95 % des
  * 150 $ relevés ne se dirait plus. Une lecture en échec lève : la tâche le signale.
+ *
+ * 🔴 ET LA SOMME DES PLAFONDS IA DES ENTREPRISES QUI ONT UNE CLÉ (Entreprise illimitée, rouge de la relecture du lot B) :
+ * chacune peut consommer son plafond dans le mois, sans solde pour l'arrêter avant. Au-delà du budget d'équipe, une seule
+ * qui s'emballe coupe l'IA de tous les clients : l'alerte part une fois par mois et par budget, comme les seuils. La
+ * somme est comptée au prix client, en dollars au taux du jour : elle majore ce que Vercel compterait, c'est voulu.
  */
 export function creerVeilleVercel(deps: {
   lire: () => Promise<ConsommationEquipe>;
   compteur: CompteurDebit;
   alerter: (cle: string, texte: string) => void;
+  /** La somme des plafonds IA du mois des Entreprises qui ont une clé, en dollars ; absente, la comparaison ne se fait pas. */
+  plafondsEntreprisesDollars?: () => Promise<number>;
   maintenant?: () => number;
 }): () => Promise<void> {
   const maintenant = deps.maintenant ?? (() => Date.now());
@@ -119,6 +126,12 @@ export function creerVeilleVercel(deps: {
         deps.alerter('vercel:sans-plafond', `aucun plafond d’équipe chez Vercel : rien ne borne la dépense de la passerelle d’IA (${Math.round(c.depenseRetenueDollars)} $ ce mois).`);
       }
       return;
+    }
+    if (deps.plafondsEntreprisesDollars) {
+      const somme = await deps.plafondsEntreprisesDollars();
+      if (somme > c.limiteDollars && (await premiereFoisDuMois(`${c.limiteDollars}|plafonds-entreprises`))) {
+        deps.alerter('vercel:plafonds-entreprises', `les plafonds de sécurité IA des Entreprises qui ont une clé totalisent ${Math.round(somme)} $ par mois au plus, au-delà du budget d’équipe Vercel (${c.limiteDollars} $) : une seule qui s’emballe couperait l’IA de tous les clients. Relever le budget d’équipe chez Vercel, ou baisser un plafond dans /ops > Offre.`);
+      }
     }
     const franchis = SEUILS_POURCENT.filter((s) => c.part! * 100 >= s);
     for (const [i, s] of franchis.entries()) {

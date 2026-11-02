@@ -4102,7 +4102,8 @@ recharges, régularisations), `lignes_credit_whatsapp` (un numéro sur la ligne,
   lue par `offre_de_l_espace` et rien d'autre (`PgConditionsCreditStore`, son `openBar`) : jamais refusée pour le solde,
   qui ne bouge pas (ni à la prise, ni au retour, ni à la correction d'une provision `illimite`), rien à acheter. Chaque
   message reste provisionné pour la facture du mois : l'onglet affiche « Illimité » et ce coût (`consommationDuMois`, mois
-  de Paris), `get_credit` aussi, `get_setup_state` n'avertit jamais. Un espace qui quitte l'Entreprise retrouve son solde
+  de Paris, les seules provisions `illimite` : celles d'un espace passé en Entreprise en cours de mois ont été payées sur
+  son solde), `get_credit` aussi, `get_setup_state` n'avertit jamais. Un espace qui quitte l'Entreprise retrouve son solde
   d'avant ; `/ops` prévient, au retrait, d'un numéro sur la ligne sans de quoi payer un message
   (`ligneCreditWhatsappSansCredit`). La commission négociée ne vaut elle aussi qu'en Entreprise.
 - Un solde nul ou négatif ne laisse rien partir, pas même un message de la franchise : tout s'arrête à zéro, réponses
@@ -4421,6 +4422,27 @@ refuse un nouveau lecteur du solde qui déciderait ailleurs.
 - L'achat de Crédit IA lui est refusé (409 `credit_ia_illimite`, `ouvrirPaiement`, console et `buy_credit`). Les écrans
   (`GET /agents/solde`, `get_credit`, `get_setup_state`) lisent `PgAccesCreditIaStore.etat` : l'illimité, la consommation
   du mois, le plafond atteint ; son solde figé ne s'affiche pas.
+- `/ops` règle son plafond (`PUT /ops/offre`) ; poser l'Entreprise ou changer son plafond joue le geste
+  `reglerIaEntreprise` : les alertes du mois réarmées (`oublierAlertesDuMois`), la clé remontée en arrière-plan
+  (`remonterPlafondCle`, qui LÈVE sur un échec, contrairement à `remonterPlafondApresRecharge` : le balayage horaire s'en
+  sert aussi, pour compter en échec une clé que Vercel refuse de monter). La clé d'une Entreprise à son plafond chez
+  Vercel prévient l'exploitation (`alerterExploitation`, Telegram limité par clé) ; le client, jamais.
+🔴 **LA COURBE DE 90 JOURS D'UN CRÉDIT SE RECONSTRUIT À REBOURS DEPUIS LE SOLDE COURANT** (lot C, `src/lib/serie-credit.ts`),
+jamais en cumulant depuis le premier jour de la fenêtre, qui ne voit pas ce qui la précède. Chaque store
+(`PgCreditStore.serie`, `PgCreditWhatsappStore.serie`) rend, en UNE instruction avec le solde courant, ce qui a fait bouger
+le solde chaque jour de Paris et ce qui a été consommé (`generate_series` donne chaque jour, mouvement ou pas) ; la fin
+d'aujourd'hui est le solde courant, la fin de la veille est celle du lendemain moins ce qui a bougé le lendemain. Côté IA,
+le solde bouge des mouvements non illimités et la consommation compte tous les débits ; côté WhatsApp, l'invariant du
+solde découpé par jour (mouvements, au jour de leur écriture, moins provisions prépayées non rendues). La précision est
+celle du jour : une provision rendue un autre jour que sa prise ne compte ni d'un côté ni de l'autre. La courbe voyage
+dans les réponses existantes des deux onglets (`GET /agents/mouvements` et `GET /tenants/:tenantId/credit-whatsapp`, champ
+`serie`) : une console plus récente que l'API n'en reçoit pas et n'affiche rien. La console trace le solde d'un prépayé,
+la consommation d'une Entreprise.
+🔴 **LA VUE « CRÉDITS » DE `/ops`** (`GET /ops/credits`, `PgCreditsOpsStore`, `src/ops/credits.pg.ts`) : un espace par ligne, ses
+deux crédits, le mois de Paris en cours et le précédent, et le montant à FACTURER d'une Entreprise (ses débits IA et ses
+provisions WhatsApp illimités, au prix client) ; en une instruction, donc un instantané. Avec la somme des plafonds IA des
+Entreprises qui ont une clé, en euros et en dollars au taux `EUR_PER_USD`, que l'écran compare au budget d'équipe de
+Vercel (`GET /ops/vercel`).
 ⚠️ **`CREDIT_OFFERT_MICRO_EUR`** (1 € par défaut depuis le lot 6, pour toutes les origines) s'offre au PREMIER numéro WhatsApp que
 **Meta dit vérifié**, jamais à la liaison seule (`PgEmbeddedSignupStore.linkTenant` n'offre rien : elle tourne
 avant que la route ne sache si le numéro est `NOT_VERIFIED`). La route l'appelle (`offrirCredit`, câblé par
@@ -5037,7 +5059,11 @@ premier peut être en retard sur la seconde (0 $ contre 7,96 $). Le worker la li
 est tenu par `compteurs_debit` (plafond 1 sur la fenêtre du mois), pas en mémoire. Une lecture en échec alerte
 (`vercel:lecture`). `GET /ops/vercel` (session d'exploitation) la lit à la demande pour sa carte de `/ops` (502 et le
 message, jamais le corps, sur une lecture en échec ; `configure: false` sans jeton), aux mêmes seuils de couleur
-(`web/lib/ops-mesures.ts`). Julien relève le budget lui-même, chez Vercel.
+(`web/lib/ops-mesures.ts`). Julien relève le budget lui-même, chez Vercel. 🔴 La veille compare aussi le budget à **la somme des
+plafonds IA des Entreprises qui ont une clé** (`plafondsEntreprisesDollars`, lot C) : chacune peut consommer son plafond
+dans le mois sans solde pour l'arrêter avant, donc au-delà du budget une seule qui s'emballe coupe l'IA de tous les
+clients (rouge de la relecture du lot B). L'alerte part une fois par mois et par budget, comme les seuils ; la somme est
+comptée au prix client, en dollars au taux du jour, ce qui majore ce que Vercel compterait.
 
 **La latence HTTP par route** (carte de `/ops/overview`, sur 24 h). Chaque requête de l'API est mesurée par un
 crochet `onResponse` (`src/server.ts`), ou `onRequestAbort` sous le code 499 quand le client l'abandonne avant sa

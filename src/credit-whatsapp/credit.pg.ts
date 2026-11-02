@@ -1,6 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import type { CategorieMeta } from './grille';
 import { debutDuMois, type IssueProvision, type LigneHistoriqueWa, type ProvisionDemandee, type ProvisionVue, type RaisonMouvementWa } from './credit';
+import { JOURS_SERIE, serieDeCredit, type PointDeCredit } from '../lib/serie-credit';
 
 /**
  * Le magasin du Crédit WhatsApp (migration 0264). Chaque écriture touche le solde ET sa trace dans la même instruction
@@ -317,5 +318,52 @@ export class PgCreditWhatsappStore {
       reference: r.reference,
       facture: r.facture === true,
     }));
+  }
+
+  /**
+   * La courbe des `jours` derniers jours de Paris (lot C, `src/lib/serie-credit.ts`), en UNE instruction avec le solde
+   * courant. Ce qui fait bouger le solde un jour : ses mouvements (achats, recharges, régularisations, au jour de leur
+   * écriture) moins ses provisions PRÉPAYÉES non rendues ; ce qui a été consommé : toutes ses provisions non rendues,
+   * illimitées comprises. C'est l'invariant du solde (`credit.ts`) découpé par jour. Les index `(tenant_id, cree_le desc)`
+   * et `(tenant_id, le desc)` servent la fenêtre.
+   */
+  async serie(tenantId: string, jours = JOURS_SERIE): Promise<PointDeCredit[]> {
+    const { rows } = await this.pool.query<{ jour: string; mouvement_solde: string; consommation: string; solde_courant: string }>(
+      `with bornes as (
+         select (now() at time zone 'Europe/Paris')::date as aujourdhui,
+                (now() at time zone 'Europe/Paris')::date - ($2::int - 1) as premier
+       ),
+       jours as (
+         select g::date as jour
+           from bornes b, generate_series(b.premier::timestamp, b.aujourdhui::timestamp, interval '1 day') g
+       ),
+       envois as (
+         select (p.cree_le at time zone 'Europe/Paris')::date as jour,
+                coalesce(-sum(p.montant_micro_eur) filter (where not p.illimite), 0) as mouvement_solde,
+                coalesce(sum(p.montant_micro_eur), 0) as consommation
+           from credit_whatsapp_provisions p, bornes b
+          where p.tenant_id = $1 and p.etat <> 'rendu' and p.cree_le >= (b.premier::timestamp at time zone 'Europe/Paris')
+          group by 1
+       ),
+       mouvements as (
+         select (m.le at time zone 'Europe/Paris')::date as jour, sum(m.delta_micro_eur) as mouvement_solde
+           from credit_whatsapp_mouvements m, bornes b
+          where m.tenant_id = $1 and m.le >= (b.premier::timestamp at time zone 'Europe/Paris')
+          group by 1
+       )
+       select to_char(j.jour, 'YYYY-MM-DD') as jour,
+              coalesce(e.mouvement_solde, 0) + coalesce(m.mouvement_solde, 0) as mouvement_solde,
+              coalesce(e.consommation, 0) as consommation,
+              coalesce((select w.solde_micro_eur from credits_whatsapp w where w.tenant_id = $1), 0) as solde_courant
+         from jours j
+         left join envois e on e.jour = j.jour
+         left join mouvements m on m.jour = j.jour
+        order by j.jour`,
+      [tenantId, Math.max(1, Math.floor(jours))],
+    );
+    return serieDeCredit(
+      rows.map((r) => ({ jour: r.jour, mouvementSoldeMicroEur: Number(r.mouvement_solde), consommationMicroEur: Number(r.consommation) })),
+      Number(rows[0]?.solde_courant ?? 0),
+    );
   }
 }

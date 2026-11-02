@@ -9,6 +9,7 @@ import { espaceVerifie, estUuid } from './scope';
 import type { ConsommationAgent } from '../agent/session-store';
 import type { LigneHistorique } from '../agent/credits';
 import type { EtatCreditIa } from '../agent/acces-credit';
+import type { PointDeCredit } from '../lib/serie-credit';
 import {
   choisirRepondeur, choixDeLAncienneFormeSousLOffre, lireRepondeur, type ChoixRepondeur, type DepsReglageRepondeur,
 } from '../repondeur/reglage';
@@ -44,6 +45,8 @@ export interface AgentsRouteDeps extends DepsGestionAgents {
    * Entreprise est illimitée, son solde figé ne dit rien (`tests/credit-ia-acces-inventaire.test.ts`).
    */
   credits: {
+    /** La courbe de 90 jours : le solde de fin de jour et la consommation du jour (`PgCreditStore.serie`, lot C). */
+    serie(tenantId: string): Promise<PointDeCredit[]>;
     /** L'historique de ce qui a fait bouger le solde, pour la page Crédit IA (`PgCreditStore.historique`). */
     historique(tenantId: string, limite: number): Promise<LigneHistorique[]>;
   };
@@ -118,7 +121,9 @@ export function registerAgents(app: FastifyInstance, deps: AgentsRouteDeps, gard
    */
   app.get('/tenants/:tenantId/agents/mouvements', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    return reply.code(200).send({ mouvements: await deps.credits.historique(tenant, LIGNES_HISTORIQUE) });
+    // La courbe voyage avec l'historique (lot C) : une console plus ancienne ne lit que `mouvements`.
+    const [mouvements, serie] = await Promise.all([deps.credits.historique(tenant, LIGNES_HISTORIQUE), deps.credits.serie(tenant)]);
+    return reply.code(200).send({ mouvements, serie });
   });
 
   /**

@@ -115,7 +115,7 @@ describe.skipIf(!url)('l’accès au Crédit IA (Postgres, 0268)', () => {
     await entreprise(250 * MICRO);
     await credits.debiter(t, 3 * MICRO);
     expect((await acces().entreprises()).find((e) => e.tenantId === t)).toEqual({
-      tenantId: t, nom: 'itest-acces-credit-ia', consommationDuMoisMicroEur: 3 * MICRO, plafondMicroEur: 250 * MICRO,
+      tenantId: t, nom: 'itest-acces-credit-ia', consommationDuMoisMicroEur: 3 * MICRO, plafondMicroEur: 250 * MICRO, cle: false,
     });
     await pool.query('update tenants set offre_entreprise = false where id = $1', [t]);
     expect((await acces().entreprises()).some((e) => e.tenantId === t)).toBe(false);

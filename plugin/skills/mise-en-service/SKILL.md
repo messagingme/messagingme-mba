@@ -26,6 +26,8 @@ terminal cuts at the edge of the screen).
 - **Always start with `get_setup_state`.** It returns what is already done and `etape_suivante`, with the tools for it
   (`outils_suggeres`). Skip what is done. Call it again after each step, and whenever the session resumes.
 - Read its `avertissements`: `credit_epuise` (the AI agent cannot answer until the credit is topped up),
+  `plafond_ia_atteint` (an Enterprise workspace, whose AI credit is unlimited (`credit_illimite`), reached its monthly
+  safety cap: its AI stops until Messaging Me raises it; there is nothing to buy, never offer `buy_credit`),
   `numero_a_activer` (Meta has not finished activating the number), `carte_meta_a_regler` (Meta blocks the WhatsApp
   account for its payment method, so templates do not go out: give the user the numbered steps of
   `etapes_carte_meta`; it usually clears within 20 minutes of adding the card), `repondeur_gele_par_l_offre` (the responder the

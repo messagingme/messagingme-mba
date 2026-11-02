@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { assurerCleGateway, creerAssureurDeCle, remonterPlafondApresRecharge, revoquerCleGateway, CreditInsuffisantPourCle, CleIllisible, EspaceVerrouillePourCle, REPIT_APRES_ECHEC_MS, type DepsProvisionCle } from '../src/agent/provisionner-cle';
+import { assurerCleGateway, creerAssureurDeCle, remonterPlafondApresRecharge, remonterPlafondCle, revoquerCleGateway, CreditInsuffisantPourCle, CleIllisible, EspaceVerrouillePourCle, REPIT_APRES_ECHEC_MS, type DepsProvisionCle } from '../src/agent/provisionner-cle';
 import type { CleGatewayEspace, LectureCleGateway } from '../src/agent/cles-gateway.pg';
 import type { HttpResponse, HttpTransportPatch } from '../src/meta/http';
 import type { HttpTransportSuppression } from '../src/agent/llm/cles-gateway';
@@ -350,6 +350,20 @@ describe('remonterPlafondApresRecharge', () => {
     // Et le plafond n'est PAS noté : sinon on croirait l'avoir posé, et on ne réessaierait jamais.
     expect(cles.plafondsNotes).toEqual([]);
     expect(vus).toHaveLength(1);
+  });
+
+  it('🔴 `remonterPlafondCle` LÈVE le même échec : le balayage des Entreprises le compte, au lieu de le prendre pour « rien à remonter »', async () => {
+    // Relecture du lot B : `remonterPlafondApresRecharge` rend `false` sur un échec comme sur une cible déjà posée, et le
+    // balayage horaire ne voyait donc jamais une clé d'Entreprise que Vercel refusait de remonter.
+    const cles = fauxCles({ cleId: 'key_e', cle: 'vck_e', plafondMicroEur: 5 * MICRO });
+    cles.cible = 12 * MICRO;
+    const t = new FauxTransport([{ status: 500, json: {} }]);
+    await expect(remonterPlafondCle(deps({ cles, solde: 5 * MICRO, transport: t, marge: 100 * MICRO }), 't1')).rejects.toBeInstanceOf(Error);
+    expect(cles.plafondsNotes).toEqual([]);
+    // Et rien à remonter reste un `false` sans exception.
+    const rien = fauxCles({ cleId: 'key_e', cle: 'vck_e', plafondMicroEur: 500 * MICRO });
+    rien.cible = 12 * MICRO;
+    expect(await remonterPlafondCle(deps({ cles: rien, solde: 5 * MICRO, transport: new FauxTransport([]), marge: 100 * MICRO }), 't1')).toBe(false);
   });
 });
 

@@ -103,6 +103,18 @@ describe('POST /conversations/:id/traduire', () => {
     await a.close();
   });
 
+  it('🔴 une Entreprise à son plafond de sécurité du mois : le plafond, jamais « réessayez » ni « rechargez »', async () => {
+    // Relecture du lot B : la cause `plafond` tombait dans « momentanément indisponible, réessayez », alors que l'arrêt
+    // dure jusqu'au mois suivant et que seul Messaging Me peut relever le plafond.
+    const a = app({ traducteur: { empechement: async () => 'plafond', traduire: async () => null } });
+    const res = await a.inject({ method: 'POST', url: '/tenants/t1/conversations/c1/traduire', ...auth(), payload: { texte: 'Bonjour', cible: 'es' } });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ code: string; cause: string }>()).toMatchObject({ code: 'traduction_indisponible', cause: 'plafond' });
+    expect(res.json<{ error: string }>().error).toMatch(/plafond de sécurité de l’IA de cet espace est atteint ce mois-ci/);
+    expect(res.json<{ error: string }>().error).not.toMatch(/Réessayez|recharger/);
+    await a.close();
+  });
+
   it('🔴 une clé qui n a pas pu s ouvrir NE PARLE PAS de crédit', async () => {
     // L'espace a du crédit : l'envoyer recharger le ferait payer pour rien, et ne réglerait rien.
     const a = app({ traducteur: { empechement: async () => 'cle', traduire: async () => null } });

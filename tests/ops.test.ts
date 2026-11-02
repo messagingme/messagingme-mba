@@ -146,6 +146,30 @@ describe('route /ops/overview', () => {
     await panne.close();
   });
 
+  it('🔴 la vue « Crédits » (lot C) a SA route : lue à la demande, jamais par la vue d’ensemble, fermée sans session d’exploitation', async () => {
+    const vue = {
+      espaces: [{
+        tenantId: 't1', nom: 'Groupama PJ', offre: 'entreprise',
+        ia: { illimite: true, soldeMicroEur: 4_824_285, consommation: { moisMicroEur: 180_000, moisPrecedentMicroEur: 0 }, plafondMicroEur: 100_000_000, plafondAtteint: false, cle: true },
+        whatsapp: { surLaLigne: false, soldeMicroEur: 0, consommation: { moisMicroEur: 0, moisPrecedentMicroEur: 0 } },
+        aFacturer: { moisMicroEur: 180_000, moisPrecedentMicroEur: 0 },
+      }],
+      plafondIaParDefautMicroEur: 100_000_000,
+      plafondsEntreprisesAvecCleMicroEur: 100_000_000,
+      plafondsEntreprisesAvecCleDollars: 108.7,
+    };
+    let lectures = 0;
+    const a = app({ credits: { vue: async () => { lectures += 1; return vue; } } });
+    await a.inject({ method: 'GET', url: '/ops/overview', ...withTok(OPS) });
+    expect(lectures, 'la vue d’ensemble ne la lit pas').toBe(0);
+    const res = await a.inject({ method: 'GET', url: '/ops/credits', ...withTok(OPS) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual(vue);
+    expect((await a.inject({ method: 'GET', url: '/ops/credits' })).statusCode).toBe(401);
+    expect(lectures).toBe(1);
+    await a.close();
+  });
+
   it('inclut UN battement PAR RÔLE quand le magasin en rend', async () => {
     const hb = [
       { role: 'analyse', beatAt: '2026-07-24T10:00:00.000Z', bootedAt: '2026-07-24T09:00:00.000Z', instance: 'host:2', ageSeconds: 700 },

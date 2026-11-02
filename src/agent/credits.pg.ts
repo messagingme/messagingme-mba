@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from 'pg';
 import type { LigneHistorique, MouvementLu, RaisonMouvement } from './credits';
+import { JOURS_SERIE, serieDeCredit, type PointDeCredit } from '../lib/serie-credit';
 
 /**
  * Le solde prépayé en base.
@@ -187,6 +188,46 @@ export class PgCreditStore {
       paiementId: r.paiement_id,
       facture: r.facture === true,
     }));
+  }
+
+  /**
+   * La courbe des `jours` derniers jours de Paris (lot C, `src/lib/serie-credit.ts`) : ce qui a fait bouger le solde
+   * chaque jour (les mouvements non illimités) et ce qui a été consommé (tous les débits, illimités compris), avec le
+   * solde courant, en UNE instruction : le solde et les mouvements viennent du même instantané, donc la reconstruction
+   * à rebours retombe juste. `generate_series` donne chaque jour, mouvement ou pas. L'index `(tenant_id, at desc)` sert
+   * la fenêtre.
+   */
+  async serie(tenantId: string, jours = JOURS_SERIE): Promise<PointDeCredit[]> {
+    const res = await this.pool.query<{ jour: string; mouvement_solde: string; consommation: string; solde_courant: string }>(
+      `with bornes as (
+         select (now() at time zone 'Europe/Paris')::date as aujourdhui,
+                (now() at time zone 'Europe/Paris')::date - ($2::int - 1) as premier
+       ),
+       jours as (
+         select g::date as jour
+           from bornes b, generate_series(b.premier::timestamp, b.aujourdhui::timestamp, interval '1 day') g
+       ),
+       par_jour as (
+         select (m.at at time zone 'Europe/Paris')::date as jour,
+                coalesce(sum(m.delta_micro_eur) filter (where not m.illimite), 0) as mouvement_solde,
+                coalesce(-sum(m.delta_micro_eur) filter (where m.delta_micro_eur < 0), 0) as consommation
+           from agent_credit_mouvements m, bornes b
+          where m.tenant_id = $1 and m.at >= (b.premier::timestamp at time zone 'Europe/Paris')
+          group by 1
+       )
+       select to_char(j.jour, 'YYYY-MM-DD') as jour,
+              coalesce(p.mouvement_solde, 0) as mouvement_solde,
+              coalesce(p.consommation, 0) as consommation,
+              coalesce((select c.solde_micro_eur from agent_credits c where c.tenant_id = $1), 0) as solde_courant
+         from jours j left join par_jour p on p.jour = j.jour
+        order by j.jour`,
+      [tenantId, Math.max(1, Math.floor(jours))],
+    );
+    const solde = Number(res.rows[0]?.solde_courant ?? 0);
+    return serieDeCredit(
+      res.rows.map((r) => ({ jour: r.jour, mouvementSoldeMicroEur: Number(r.mouvement_solde), consommationMicroEur: Number(r.consommation) })),
+      solde,
+    );
   }
 }
 

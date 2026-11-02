@@ -105,8 +105,9 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   `docs/superpowers/plans/2026-11-02-entreprise-illimitee.md`) : lot A (le Crédit WhatsApp) en production le 2026-11-02
   (`2c4a3e2c`), son essai réel 208 à faire ; ses jaunes de relecture sont repris par le lot B. Le lot B (le Crédit IA
   illimité en Entreprise, avec son plafond de sécurité de 100 € par mois et par espace, confirmé par Julien) est en
-  production le 2026-11-02 (migration 0268 seule, `5ae1999a`, puis le code, `3a9a5785`). Reste le lot C (les courbes des deux onglets, l'historique d'une Entreprise sans signe
-  « moins », et la vue « Crédits » de `/ops` avec le montant à facturer). Après le lot A en production, une migration
+  production le 2026-11-02 (migration 0268 seule, `5ae1999a`, puis le code, `3a9a5785`). Le lot C (les courbes des deux onglets, l'historique d'une Entreprise sans signe
+  « moins », la vue « Crédits » de `/ops` avec le montant à facturer et la somme des plafonds face au budget Vercel, les
+  jaunes de la relecture du lot B) attend sa relecture et son déploiement, l'API d'abord, la console ensuite. Après le lot A en production, une migration
   `apres` retirera `tenants.entreprise_open_bar_whatsapp`, que plus rien ne lit, en réécrivant dans le même commit les
   tests d'intégration qui l'écrivent encore (`offres.integration.test.ts`, `numero-delie.integration.test.ts`).
 - 🔴 Le budget d'équipe de la passerelle d'IA chez Vercel est resté à 100 $ par mois : le lot B s'est déployé sans
@@ -114,6 +115,10 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   plafond de 100 € le vide à elle seule et coupe l'IA de tous les clients. À relever chez Vercel au-dessus de la somme
   des plafonds des Entreprises qui ont une clé (trois, donc au moins 300 $ ; chaque Entreprise qui ouvre une clé ajoute
   environ 100 $) avant que des Entreprises consomment vraiment ; la jauge le relit (`lireConsommationEquipe`).
+- 🟡 La FAQ du plugin (`scripts/plugin/faq.ts`, « Mon agent IA ne répond plus ») dit encore « le crédit IA est épuisé :
+  get_credit, puis buy_credit » sans l'exception de l'Entreprise : elle est PUBLIÉE sur la page Développeurs de la vitrine
+  (deux langues), donc elle attend la même décision que les fiches publiques ci-dessous. La fiche de mise en service du
+  plugin, elle, documente `plafond_ia_atteint` et `credit_illimite` (lot C, plugin 0.3.23).
 - 🟡 Dire l'illimité de l'Entreprise sur la vitrine ? Les fiches publiques « Construire un agent IA » et « Choisir mon
   offre » décrivent le crédit prépayé sans parler de l'Entreprise (relues au lot B, laissées telles quelles : un
   changement de la face publique attend le oui de Julien). La fiche « Recharger le crédit IA », de la console, le dit.

@@ -98,7 +98,15 @@ parti AVANT ce relèvement, à la demande de Julien (« on n'a pas encore de cli
 budget n'est pas relevé (`todo.md`). Le lot C rend la règle visible : la vue « Crédits » de `/ops` montre la somme des
 plafonds des Entreprises à clé à côté du budget d'équipe, et le balayage horaire alerte quand elle le dépasse.
 
-**Les jaunes de la relecture du lot B, repris par ce lot** (relecture du 2026-11-02, un rouge, ci-dessus) :
+**Les jaunes de la relecture du lot B, repris par ce lot** (relecture du 2026-11-02, un rouge, ci-dessus). Faits au lot C :
+1, 2, 3 (les alertes du mois réarmées quand l'IA d'une Entreprise est réglée dans `/ops`), 4 (l'alerte d'exploitation sur une
+clé d'Entreprise au plafond, `remonterPlafondCle` qui lève, la clé remontée au réglage), 8 (`/ops` lit le solde par
+`etat`, l'inventaire n'autorise plus `src/index.ts`) et 9 pour la fiche de mise en service (la FAQ du plugin, publiée sur
+la vitrine, attend la décision de Julien sur la face publique, `todo.md`). Écartés, par décision écrite : 5 (la ligne du
+jour d'une traduction garde le drapeau de son premier débit ; l'écart se limite aux traductions du jour d'un changement
+d'offre, et la courbe le reconstruit au jour près ; le corriger demanderait un index unique de plus sur une table chaude) ;
+6 (la clé d'un espace sorti de l'Entreprise garde sa marge : notre garde sur le solde mord avant elle, la clé n'est qu'un
+filet) ; 7 (sans objet depuis le déploiement de l'API du lot B).
 1. La transcription d'une Entreprise à son plafond : l'API rend 402 `cause: 'plafond'`, la console dit « rechargez »
    sur tout 402 (`web/app/inbox/page.tsx`) alors que l'Entreprise n'a rien à recharger.
 2. La traduction sortante au plafond tombe dans « momentanément indisponible, réessayez » (`src/http/inbox.ts`),

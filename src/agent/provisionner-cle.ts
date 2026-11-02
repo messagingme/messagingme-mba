@@ -254,22 +254,30 @@ export function creerAssureurDeCle(deps: {
  */
 export async function remonterPlafondApresRecharge(deps: DepsProvisionCle, tenantId: string): Promise<boolean> {
   try {
-    const marge = await deps.margeDeCle(tenantId);
-    return await deps.cles.ajusterPlafond(tenantId, async (cle, cible) => {
-      if (cible <= cle.plafondMicroEur) return null;
-      const dollars = dollarsDepuisMicroEuros(cible, deps.tauxEurParDollar);
-      if (dollars === null) return null;
-      await majPlafondCleGateway(deps.transport, {
-        cleGatewayMaison: deps.cleGatewayMaison,
-        cleId: cle.cleId,
-        plafondDollars: dollars,
-      });
-      return cible;
-    }, marge);
+    return await remonterPlafondCle(deps, tenantId);
   } catch (err) {
     deps.journal('plafond gateway non remonte', err instanceof CleGatewayError ? err.message : err, tenantId);
     return false;
   }
+}
+
+/**
+ * La même remontée, qui LÈVE sur un échec (relecture du lot B) : le balayage horaire des Entreprises et le geste de
+ * `/ops` doivent savoir qu'une clé n'a pas pu monter, sinon elle finit à son plafond et l'agent se tait sans alerte.
+ */
+export async function remonterPlafondCle(deps: DepsProvisionCle, tenantId: string): Promise<boolean> {
+  const marge = await deps.margeDeCle(tenantId);
+  return deps.cles.ajusterPlafond(tenantId, async (cle, cible) => {
+    if (cible <= cle.plafondMicroEur) return null;
+    const dollars = dollarsDepuisMicroEuros(cible, deps.tauxEurParDollar);
+    if (dollars === null) return null;
+    await majPlafondCleGateway(deps.transport, {
+      cleGatewayMaison: deps.cleGatewayMaison,
+      cleId: cle.cleId,
+      plafondDollars: dollars,
+    });
+    return cible;
+  }, marge);
 }
 
 /**

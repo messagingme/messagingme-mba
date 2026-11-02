@@ -81,6 +81,7 @@ function achat(o: {
       grille: async () => (o.grille === undefined ? GRILLE : o.grille),
       conditions: async () => ({ openBar: o.openBar ?? false, commissionPct: 5 }),
       lignes: async () => o.lignes ?? [ligne()],
+      serie: async () => [{ jour: '2026-11-02', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
     },
     achat: {
       stripe: o.stripe === 'aucun' ? null : {
@@ -201,6 +202,8 @@ describe('GET /tenants/:tenantId/credit-whatsapp (l’onglet)', () => {
     });
     expect(v.ligneArretee).toBe(false);
     expect(v.historique).toEqual([expect.objectContaining({ raison: 'envois', messages: 2, deltaMicroEur: -149_520 })]);
+    // La courbe de 90 jours (lot C) passe telle que le store la reconstruit.
+    expect(v.serie).toEqual([{ jour: '2026-11-02', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }]);
     await a.srv.close();
   });
 

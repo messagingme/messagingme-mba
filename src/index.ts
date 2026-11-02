@@ -68,6 +68,7 @@ import { viderLatencesVersLaBase } from './ops/latence-http.pg';
 import { nomDeCopie } from './ops/nom-copie';
 import { hostname } from 'node:os';
 import { PgStockageStore } from './ops/stockage.pg';
+import { PgCreditsOpsStore } from './ops/credits.pg';
 import { creerSurveillanceWorkers } from './ops/surveillance-workers';
 import { MesureLatenceHttp } from './ops/latence-http';
 import { PgWorkflowReportStore } from './workflow/reports.pg';
@@ -198,7 +199,7 @@ import { lireMediaRecu } from './inbox/media-entrant';
 import { creerOuvertureConversationInbox } from './inbox/ouverture';
 import { PgConversationsV1 } from './api/conversations-v1.pg';
 import type { DepsRepondre } from './inbox/repondre';
-import { assurerCleGateway, creerAssureurDeCle, remonterPlafondApresRecharge, revoquerCleGateway, type DepsProvisionCle } from './agent/provisionner-cle';
+import { assurerCleGateway, creerAssureurDeCle, remonterPlafondApresRecharge, remonterPlafondCle, revoquerCleGateway, type DepsProvisionCle } from './agent/provisionner-cle';
 import { decryptSecret, encryptSecret } from './crypto/secretbox';
 import { resolutionPublique } from './lib/adresse-privee';
 import { FILE_EVENEMENTS_ENVOI, appelProduction } from './evenements/envoi';
@@ -1036,6 +1037,7 @@ async function main(): Promise<void> {
       solde: (t) => creditWhatsapp.solde(t),
       consommationDuMois: (t) => creditWhatsapp.consommationDuMois(t),
       historique: (t) => creditWhatsapp.historique(t),
+      serie: (t) => creditWhatsapp.serie(t),
       grille: () => reglagesCreditWhatsapp.grilleEnVigueur(),
       conditions: (t) => conditionsCreditWhatsapp.conditions(t),
       lignes: (t) => lignesCreditWhatsapp.lignesDeLEspace(t),
@@ -1726,6 +1728,17 @@ async function main(): Promise<void> {
           return offert;
         },
         finOffreManuelle: (tenant, finiLe) => surFinDeLOffreManuelle(numeroInclus, { tenantId: tenant, finiLe }),
+        // L'IA d'une Entreprise réglée : les alertes du mois réarmées tout de suite ; la clé remontée en arrière-plan, comme
+        // le complément du Business (Vercel peut prendre 30 s). Un échec se journalise, et le balayage horaire la reprend
+        // et alerte s'il échoue aussi.
+        reglerIaEntreprise: async (tenant) => {
+          await accesCreditIa.oublierAlertesDuMois(tenant);
+          if (provisionCle) {
+            void travauxEnVol.suivre(remonterPlafondCle(provisionCle, tenant)).catch((err: unknown) => {
+              journaliser('error', 'plafond gateway non remonte au reglage de l IA d une Entreprise', { err, tenantId: tenant });
+            });
+          }
+        },
       },
     },
     // Rattacher un numéro 360dialog (lot 2, livraison A) : les gardes de l'Embedded Signup, la clé chiffrée comme un
@@ -3093,6 +3106,8 @@ async function main(): Promise<void> {
           ? lireConsommationEquipe(fetchGet, { jeton: config.VERCEL_API_TOKEN, teamId: config.VERCEL_TEAM_ID, signal: AbortSignal.timeout(10_000) })
           : Promise.resolve(null)),
       },
+      // La vue « Crédits » (lot C) : le même plafond par défaut que l'accès au Crédit IA (`ENTREPRISE_PLAFOND_IA_EUROS_MOIS`).
+      credits: new PgCreditsOpsStore(pool, config.ENTREPRISE_PLAFOND_IA_EUROS_MOIS * 1_000_000, config.EUR_PER_USD),
       // 🔴 Le solde prépayé d'un espace pour l'agent IA. La recharge est ici parce qu'un client ne doit
       // jamais pouvoir créditer son propre compte. L'espace est résolu d'abord : en lecture, un espace inconnu
       // rendrait un solde de zéro qu'on rechargerait ; en écriture, la clé étrangère lèverait un 500 masqué
@@ -3100,7 +3115,7 @@ async function main(): Promise<void> {
       soldeAgent: async (tenantId) => {
         if ((await opsStore.getTenantName(tenantId)) === null) return null;
         return {
-          soldeMicroEur: await credits.solde(tenantId),
+          soldeMicroEur: (await accesCreditIa.etat(tenantId)).soldeMicroEur,
           mouvements: await credits.mouvements(tenantId, 50),
         };
       },

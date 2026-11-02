@@ -23,6 +23,7 @@ import type { PointFileHeure } from '../ops/mesures-files.pg';
 import type { MemoireWorker, PointMemoireHeure } from '../ops/memoire-workers.pg';
 import type { LecteurCockpit } from '../ops/cockpit';
 import type { LecteurFacture } from '../ops/facture-scaleway';
+import type { VueCreditsOps } from '../ops/credits.pg';
 import { messageDe } from '../lib/erreur';
 import { makeTraceOps, type AuditSink } from '../audit/journal';
 
@@ -181,6 +182,12 @@ export interface OpsRouteDeps {
    * par la vue d'ensemble. `null` = jeton de compte non configuré.
    */
   vercel: { lire(): Promise<ConsommationEquipe | null> };
+  /**
+   * La vue « Crédits » (Entreprise illimitée, lot C) : les deux crédits de chaque espace, le mois en cours et le
+   * précédent, le montant à facturer d'une Entreprise et la somme des plafonds IA à comparer au budget d'équipe
+   * (`PgCreditsOpsStore`). Lue à l'ouverture de son onglet, jamais par la vue d'ensemble.
+   */
+  credits: { vue(): Promise<VueCreditsOps> };
   /**
    * Lance le balayage du risque de désengagement d'un espace, tout de suite. Rend son bilan, ou `null` si
    * l'espace est inconnu.
@@ -409,6 +416,9 @@ export function registerOps(app: FastifyInstance, deps: OpsRouteDeps, garde: Pre
 
   /** Les octets en base : lus une fois à l'ouverture de l'écran, pas à chaque chargement de la vue d'ensemble (voir `PgStockageStore`). */
   app.get('/ops/stockage', opts, async (_req, reply) => reply.code(200).send(await deps.stockage.mesurer()));
+
+  /** Les crédits de chaque espace (lot C) : sa propre route, lue à l'ouverture de l'onglet « Crédits ». */
+  app.get('/ops/credits', opts, async (_req, reply) => reply.code(200).send(await deps.credits.vue()));
 
   /** La jauge du budget d'équipe Vercel. Une lecture en échec rend 502 et son message, qui ne porte jamais le corps. */
   app.get('/ops/vercel', opts, async (_req, reply) => {

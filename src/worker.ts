@@ -72,7 +72,7 @@ const MESSAGES_DE_CONTEXTE = 30;
 import { runTurn, type RunTurnDeps } from './agent/run-turn';
 import { balayerVectorisation, balayerVectorisationPayee } from './agent/recherche';
 import { balayerPlafondsIa } from './agent/plafond-ia';
-import { remonterPlafondApresRecharge } from './agent/provisionner-cle';
+import { remonterPlafondCle } from './agent/provisionner-cle';
 import { GatewayChatClient } from './agent/llm/chat-client';
 import { creerCerveauGateway } from './agent/brain.gateway';
 import { lireContexteAvecReglages } from './agent/contexte';
@@ -1389,7 +1389,7 @@ export async function demarrerWorker(): Promise<void> {
   taches.programmer('plafond-ia-entreprises', 60 * 60_000, async () => {
     await balayerPlafondsIa({
       acces: accesCreditIa,
-      remonterPlafond: provisionCle ? (t) => remonterPlafondApresRecharge(provisionCle, t) : null,
+      remonterPlafond: provisionCle ? (t) => remonterPlafondCle(provisionCle, t) : null,
       // Pas `alert`, limitée à une par clé et par cinq minutes : deux Entreprises au même seuil en perdraient une. Le
       // dédoublonnage est la table des marques, retirée si Telegram n'a pas pris le message.
       alerter: (texte) => sendTelegram(`[mba-${nomDuProcessus(config.WORKER_ROLE)}] ${texte}`),
@@ -1983,6 +1983,10 @@ export async function demarrerWorker(): Promise<void> {
       lire: () => lireConsommationEquipe(fetchGet, { jeton: config.VERCEL_API_TOKEN, teamId: config.VERCEL_TEAM_ID, signal: AbortSignal.timeout(15_000) }),
       compteur: compteurDebit,
       alerter: (cle, texte) => alert(cle, texte),
+      // Au prix client converti en dollars au taux du jour : une borne haute de ce que Vercel compterait.
+      plafondsEntreprisesDollars: async () => (await accesCreditIa.entreprises())
+        .filter((e) => e.cle)
+        .reduce((s, e) => s + e.plafondMicroEur, 0) / 1_000_000 / config.EUR_PER_USD,
     });
     taches.programmer('consommation-vercel', 60 * 60_000, veilleVercel, {
       immediat: true,
@@ -2283,6 +2287,8 @@ export async function demarrerWorker(): Promise<void> {
       debiterTenant: async (t, montant, sessionId) => { await credits.debiter(t, montant, { sessionId }); },
       // L'alerte aux admins quand le tour sort faute de crédit : une par jour et par espace, tenue en base (socle).
       alerterCreditEpuise: (t) => alerteCredit.alerter(t),
+      // La clé d'une Entreprise à son plafond chez Vercel avant son plafond du mois : à nous de la remonter (lot B).
+      alerterExploitation: (cle, texte) => alert(cle, texte),
       lireRun: async (t, runId) => {
         const run = await runStore.byId(t, runId);
         return run ? { status: run.status, currentNode: run.currentNode } : null;

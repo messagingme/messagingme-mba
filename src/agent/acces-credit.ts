@@ -102,18 +102,22 @@ export class PgAccesCreditIaStore {
     return e.illimite ? (e.plafondMicroEur ?? this.plafondParDefautMicroEur) : 0;
   }
 
-  /** Les Entreprises, leur consommation du mois et leur plafond : le balayage horaire des alertes et des clés. */
-  async entreprises(): Promise<Array<{ tenantId: string; nom: string; consommationDuMoisMicroEur: number; plafondMicroEur: number }>> {
-    const { rows } = await this.pool.query<{ id: string; name: string; conso: string; plafond: string }>(
+  /**
+   * Les Entreprises, leur consommation du mois, leur plafond, et si elles ont une clé de modèle : le balayage horaire des
+   * alertes et des clés, et la veille du budget d'équipe Vercel (la somme des plafonds des Entreprises à clé).
+   */
+  async entreprises(): Promise<Array<{ tenantId: string; nom: string; consommationDuMoisMicroEur: number; plafondMicroEur: number; cle: boolean }>> {
+    const { rows } = await this.pool.query<{ id: string; name: string; conso: string; plafond: string; cle: boolean }>(
       `select t.id, t.name, consommation_ia_du_mois(t.id) as conso,
-              coalesce(t.entreprise_plafond_ia_micro_eur, $1::bigint) as plafond
+              coalesce(t.entreprise_plafond_ia_micro_eur, $1::bigint) as plafond,
+              exists (select 1 from agent_gateway_keys k where k.tenant_id = t.id) as cle
          from tenants t
         where offre_de_l_espace(t.id) = 'entreprise'
         order by t.id`,
       [this.plafondParDefautMicroEur],
     );
     return rows.map((r) => ({
-      tenantId: r.id, nom: r.name, consommationDuMoisMicroEur: Number(r.conso), plafondMicroEur: Number(r.plafond),
+      tenantId: r.id, nom: r.name, consommationDuMoisMicroEur: Number(r.conso), plafondMicroEur: Number(r.plafond), cle: r.cle,
     }));
   }
 
@@ -129,6 +133,18 @@ export class PgAccesCreditIaStore {
       [tenantId, seuil],
     );
     return (r.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * Réarme les deux alertes du mois d'un espace (relecture du lot B) : quand Julien relève un plafond dans `/ops`, 80 % et
+   * 100 % du NOUVEAU plafond doivent se dire, comme la jauge Vercel se réarme sur un budget relevé.
+   */
+  async oublierAlertesDuMois(tenantId: string): Promise<void> {
+    await this.pool.query(
+      `delete from alertes_plafond_ia
+        where tenant_id = $1 and mois = date_trunc('month', now() at time zone 'Europe/Paris')::date`,
+      [tenantId],
+    );
   }
 
   /** Retire la marque d'une alerte que Telegram n'a pas prise : le balayage suivant la retente. */

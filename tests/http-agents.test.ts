@@ -130,10 +130,13 @@ describe('routes agents : lecture', () => {
 });
 
 describe('routes agents : l’historique du crédit', () => {
-  it('🔴 rend l’historique de l’espace du JETON, sans note, et le nombre de lignes est fixé par le serveur', async () => {
+  it('🔴 rend l’historique et la courbe de l’espace du JETON, sans note, et le nombre de lignes est fixé par le serveur', async () => {
     const vus: Array<{ tenant: string; limite: number }> = [];
+    const courbes: string[] = [];
+    const SERIE = [{ jour: '2026-11-01', soldeMicroEur: 5_000_000, consommationMicroEur: 0 }, { jour: '2026-11-02', soldeMicroEur: 4_820_000, consommationMicroEur: 180_000 }];
     const { srv } = app(undefined, {
       credits: {
+        serie: async (tenant) => { courbes.push(tenant); return SERIE; },
         historique: async (tenant, limite) => {
           vus.push({ tenant, limite });
           return [{ id: 'a', deltaMicroEur: 50_000_000, raison: 'achat', jour: null, at: '2026-09-29T10:00:00.000Z', paiementId: 'cs_live_1', facture: true }];
@@ -142,8 +145,12 @@ describe('routes agents : l’historique du crédit', () => {
     });
     const r = await srv.inject({ method: 'GET', url: '/tenants/t1/agents/mouvements?limite=100000', ...h(adminTok) });
     expect(r.statusCode).toBe(200);
-    expect(r.json()).toEqual({ mouvements: [{ id: 'a', deltaMicroEur: 50_000_000, raison: 'achat', jour: null, at: '2026-09-29T10:00:00.000Z', paiementId: 'cs_live_1', facture: true }] });
+    expect(r.json()).toEqual({
+      mouvements: [{ id: 'a', deltaMicroEur: 50_000_000, raison: 'achat', jour: null, at: '2026-09-29T10:00:00.000Z', paiementId: 'cs_live_1', facture: true }],
+      serie: SERIE,
+    });
     expect(vus).toEqual([{ tenant: 't1', limite: 50 }]);
+    expect(courbes).toEqual(['t1']);
     // L'espace d'un autre, et un membre non admin : refusés comme le solde.
     expect((await srv.inject({ method: 'GET', url: '/tenants/t2/agents/mouvements', ...h(adminTok) })).statusCode).toBe(403);
     expect((await srv.inject({ method: 'GET', url: '/tenants/t1/agents/mouvements', ...h(agentTok) })).statusCode).toBe(403);

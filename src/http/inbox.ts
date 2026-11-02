@@ -580,6 +580,9 @@ export function registerInbox(app: FastifyInstance, deps: InboxRouteDeps, garde:
       return reply.code(422).send({
         error: empechement === 'credit' || empechement === 'credit_insuffisant'
           ? 'Le crédit de cet espace est épuisé ou insuffisant : la traduction est indisponible. Un administrateur peut le recharger.'
+          // Une Entreprise à son plafond de sécurité du mois : rien à recharger, et « réessayez » mentirait jusqu'au mois suivant.
+          : empechement === 'plafond'
+            ? 'Le plafond de sécurité de l’IA de cet espace est atteint ce mois-ci : la traduction est indisponible. Contactez-nous pour le relever.'
           : empechement === 'cle_en_preparation'
             ? 'La traduction se prépare pour cet espace : réessayez dans un instant.'
             : 'La traduction est momentanément indisponible pour cet espace. Réessayez dans un instant.',

@@ -584,11 +584,13 @@ describe('le budget, relié à la consommation', () => {
 
   it('une Entreprise sous son plafond répond, quel que soit son solde ; la clé du Gateway à son plafond ne prévient pas le client', async () => {
     const alertes: string[] = [];
+    const exploitation: string[] = [];
     const { deps, envois } = make({ acces: entreprise('ok') });
     expect((await runTurn(JOB, deps)).fait).toBe('repondu');
     expect(envois).toHaveLength(1);
     const { deps: gateway } = make({
       acces: entreprise('ok'), alerterCreditEpuise: async (t: string) => { alertes.push(t); },
+      alerterExploitation: (cle: string) => { exploitation.push(cle); },
       brain: { penser: async () => { throw new PlafondModeleAtteint(429, 'quota'); } },
     });
     const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -598,6 +600,8 @@ describe('le budget, relié à la consommation', () => {
       erreurs.mockRestore();
     }
     expect(alertes).toEqual([]);
+    // 🔴 Relecture du lot B : nous, si. Sa clé doit monter, et aucun client ne peut le faire (Telegram, limité par clé).
+    expect(exploitation).toEqual(['cle-entreprise:t1']);
   });
 
   it('🔴 une écriture de comptage EN ÉCHEC ne fait pas échouer le tour', async () => {

@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Crédit IA (menu « Paramètres » > Offre, onglet Crédit IA)
-source_empreinte: 5a6512
+source_empreinte: 236c73
 ---
 # Recharger le crédit IA
 
@@ -32,6 +32,10 @@ il relit votre historique jusqu'à y voir l'achat que vous venez de payer, et vo
 jour (tout de suite, si Stripe nous a prévenus avant votre retour). Si vous abandonnez le paiement, rien n'est
 débité. Le paiement se fait toujours en euros. Si l'écran dit que la recharge en ligne n'est pas encore
 disponible, ou momentanément indisponible, contactez-nous : le crédit est ajouté à votre espace dans la foulée.
+
+**La courbe**, au-dessus de l'historique, montre votre solde en fin de journée sur les quatre-vingt-dix derniers jours,
+hors taxe ; survolez-la pour lire un jour. En offre Entreprise, elle montre ce que l'IA a consommé chaque jour, et
+l'historique affiche ces montants sans signe « moins », puisque votre solde ne bouge pas.
 
 **L'historique** liste ce qui a fait bouger le solde sur les quatre-vingt-dix derniers jours, en clair : achat de
 crédit, crédit offert, recharge manuelle, consommation IA du jour (les échanges des agents, leurs recherches, la

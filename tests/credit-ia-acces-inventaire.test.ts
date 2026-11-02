@@ -17,7 +17,7 @@ const AUTORISES: Record<string, string> = {
   'src/agent/cles-gateway.pg.ts': 'la cible du plafond Vercel : ce qui a été crédité depuis l’ouverture de la clé, plus la marge d’une Entreprise',
   'src/agent/provisionner-cle.ts': 'le plafond de naissance d’une clé : le solde, plus la marge d’une Entreprise (`margeDeCle`)',
   'src/emails-produit/store.pg.ts': 'le récapitulatif de la semaine, qui ne va qu’à la Free (`estFree`), donc à un prépayé',
-  'src/index.ts': 'la vue de `/ops` (solde et mouvements d’un espace), un affichage',
+  'src/ops/credits.pg.ts': 'la vue « Crédits » de `/ops`, un affichage (le plafond atteint se lit par `acces_credit_ia`)',
   'src/ops/suppression-espace.pg.ts': 'le bilan avant la suppression d’un espace, un affichage',
 };
 

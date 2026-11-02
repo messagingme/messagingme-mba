@@ -121,6 +121,8 @@ describe('les skills', () => {
         { id: 'c', label: 'C', status: 'disabled', nbManques: null }],
       reglages: { mbaEnabled: false, repondeurMode: 'equipe', repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null },
       widgets: [{ id: 'w', nom: 'W', actif: true }],
+      // Une Entreprise (Crédit IA illimité, lot B) : l'exemple rend aussi `credit_illimite`, que la skill nomme.
+      creditIa: { illimite: true, plafondAtteint: false },
     });
     const arguments_ = OUTILS.flatMap((o) => Object.keys((o.entree as { properties?: object }).properties ?? {}));
     // Les valeurs permises d'un argument (le mode `business_hours` de set_transfer_mode, par exemple), et celles des éléments

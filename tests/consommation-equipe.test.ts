@@ -120,6 +120,36 @@ describe('🔴 la veille du plafond Vercel', () => {
     expect(alertes, '80 % des 150 $ se dit, comme 95 % des 100 $ s’était dit').toEqual(['vercel:95', 'vercel:80']);
   });
 
+  it('🔴 la somme des plafonds IA des Entreprises à clé au-delà du budget : une alerte par mois et par budget', async () => {
+    let somme = 99;
+    let lu: ConsommationEquipe = { limiteDollars: 100, depenseEquipeDollars: 1, depenseClesMensuellesDollars: 0, depenseRetenueDollars: 1, part: 0.01 };
+    const alertes: Array<{ cle: string; texte: string }> = [];
+    let t = Date.UTC(2026, 10, 2, 16);
+    const veille = creerVeilleVercel({
+      lire: async () => lu, compteur: new CompteurDebitMemoire(() => t), alerter: (cle, texte) => alertes.push({ cle, texte }),
+      plafondsEntreprisesDollars: async () => somme, maintenant: () => t,
+    });
+    await veille();
+    expect(alertes, 'sous le budget, rien').toEqual([]);
+    somme = 326.09;
+    await veille();
+    await veille();
+    expect(alertes.map((a) => a.cle)).toEqual(['vercel:plafonds-entreprises']);
+    expect(alertes[0]!.texte).toMatch(/totalisent 326 \$ par mois au plus, au-delà du budget d’équipe Vercel \(100 \$\)/);
+    // Julien relève le budget à 300 $, encore sous la somme : l'alerte se redit sur le nouveau budget.
+    lu = { ...lu, limiteDollars: 300, part: 1 / 300 };
+    await veille();
+    expect(alertes).toHaveLength(2);
+    // Le mois suivant, toujours au-dessus : elle se redit une fois.
+    t = Date.UTC(2026, 11, 1, 1);
+    await veille();
+    expect(alertes).toHaveLength(3);
+    // Relevé au-dessus de la somme : plus rien.
+    lu = { ...lu, limiteDollars: 400, part: 1 / 400 };
+    await veille();
+    expect(alertes).toHaveLength(3);
+  });
+
   it('aucun plafond d’équipe : une alerte par mois, car rien ne borne alors la dépense', async () => {
     const m = monter();
     m.poser(null);

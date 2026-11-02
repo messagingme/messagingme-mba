@@ -163,7 +163,7 @@ export const creditIaPrepaye = (soldeMicroEur: number): AgentsRouteDeps['creditI
 
 export const agentsInertes: Pick<AgentsRouteDeps, 'credits' | 'creditIa' | 'sessions' | 'etatPourLint' | 'modelesProposes' | 'historique' | 'oublierRepondeur' | 'repondeur' | 'audit'> = {
   audit: journalMuet,
-  credits: { historique: async () => [] },
+  credits: { historique: async () => [], serie: async () => [] },
   creditIa: creditIaPrepaye(0),
   sessions: {
     consommation: neDevraitPasEtreAppelee('consommation'),
@@ -370,7 +370,7 @@ export const mbaInerte: Pick<MbaRouteDeps, 'journaliserSuppression' | 'reglages'
 export const opsInerte: Pick<OpsRouteDeps,
   'deposerJetonPub' | 'lireGrillePrix' | 'reglages' | 'verrouillerEspace' | 'observerTenant'
   | 'file' | 'heartbeat' | 'soldeAgent' | 'rechargerAgent' | 'etatPoolInstantane' | 'attentesPool' | 'latencesHttp'
-  | 'mesuresTaches' | 'sante' | 'capacite' | 'cockpit' | 'facture' | 'seuils' | 'stockage' | 'vercel'
+  | 'mesuresTaches' | 'sante' | 'capacite' | 'cockpit' | 'facture' | 'seuils' | 'stockage' | 'vercel' | 'credits'
   | 'balayerRisque' | 'reinitialiserMfa' | 'audit'> = {
   audit: journalMuet,
   deposerJetonPub: neDevraitPasEtreAppelee('deposerJetonPub'),
@@ -409,6 +409,7 @@ export const opsInerte: Pick<OpsRouteDeps,
   stockage: { mesurer: async () => ({ baseOctets: 0, familles: [], tables: [], mesureLe: '1970-01-01T00:00:00.000Z' }) },
   // Aucun jeton de compte Vercel : la carte dit « non configurée ».
   vercel: { lire: async () => null },
+  credits: { vue: async () => ({ espaces: [], plafondIaParDefautMicroEur: 100_000_000, plafondsEntreprisesAvecCleMicroEur: 0, plafondsEntreprisesAvecCleDollars: 0 }) },
   balayerRisque: async () => null,
   reinitialiserMfa: async () => null,
 };
@@ -651,6 +652,7 @@ export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
     solde: async () => 0,
     consommationDuMois: async () => 0,
     historique: async () => [],
+    serie: async () => [],
     grille: async () => null,
     conditions: async () => ({ openBar: false, commissionPct: 5 }),
     lignes: async () => [],
