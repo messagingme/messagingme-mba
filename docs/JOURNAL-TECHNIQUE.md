@@ -26,6 +26,11 @@ bannière des cookies s'affiche sur toutes les pages de la vitrine ; le pixel ne
 du plan `docs/superpowers/plans/2026-10-30-pixel-meta.md`). Julien a choisi d'allumer pendant que Nawel met à jour la
 politique de cookies de `www.messagingme.fr`, vers laquelle la bannière renvoie. La Conversions API (lot 2) reste
 éteinte tant que `META_PIXEL_ID` et `META_CAPI_TOKEN` ne sont pas dans le `.env.prod` des workers.
+- **Vu en ligne, aussitôt** : au téléphone, la bulle WhatsApp de la vitrine (notre widget, même coin, couche
+  `2147483000` posée par `src/widgets/script.ts`) couvrait « Accepter » en entier ; personne ne pouvait accepter
+  depuis un téléphone, là où arrivent les publicités. La bannière passe au-dessus (`site/site.css`), tenu par
+  `tests/vitrine-consentement.test.ts`, qui lit les deux valeurs dans leurs fichiers. Mesuré sur la vraie page, règle
+  injectée : les trois points de chaque bouton répondent au bouton.
 
 ## 2026-11-02 : l'Entreprise illimitée, lot C (le suivi des crédits) en production
 

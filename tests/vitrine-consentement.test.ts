@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { lire, pagesHtml } from './vitrine-lecture';
 
@@ -35,5 +37,13 @@ describe('le pixel de Meta, derrière la bannière', () => {
   it('la bannière nomme Meta dans les deux langues, sans tiret long', () => {
     expect(js.match(/pixel de Meta \(Facebook\)|Meta \(Facebook\) pixel/g)).toHaveLength(2);
     expect(js).not.toMatch(/[–—]/);
+  });
+
+  it('🔴 la bannière passe au-dessus de la bulle WhatsApp, qui occupe le même coin', () => {
+    // Vu en ligne le 2026-11-02 : au téléphone, la bulle couvrait « Accepter » en entier, personne ne pouvait accepter.
+    const bulle = readFileSync(resolve(__dirname, '..', 'src', 'widgets', 'script.ts'), 'utf8').match(/hote\.style\.zIndex = '(\d+)'/);
+    const banniere = lire('site.css').match(/\.consentement\{[^}]*z-index:(\d+)/);
+    expect(bulle && banniere).toBeTruthy();
+    expect(Number(banniere![1])).toBeGreaterThan(Number(bulle![1]));
   });
 });
