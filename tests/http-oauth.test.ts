@@ -14,7 +14,7 @@ import { nouvelIdentifiantClient } from '../src/oauth/clients.pg';
 import { FakeQueue } from './fake-queue';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { jamaisDesabonne } from './consentement';
-import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { filiereApiSeule, aucunPremierMessage } from './gardes';
 
 /**
@@ -223,6 +223,7 @@ function monter(o: { publicApiUrl?: string; fiches?: Record<string, ClientResolu
       analysesEtResumes: async () => new Map(),
     },
     listerMembres: async () => [],
+    scenariosApi: scenariosApiInerte,
     ...mcpEtiquettesInertes,
     ...mcpWidgetsInertes,
     ...mcpAgentInerte,

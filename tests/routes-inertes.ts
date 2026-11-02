@@ -35,6 +35,8 @@ import { DROITS, FONCTIONS } from '../src/offres/offres';
 import { grilleDesOffres } from '../src/offres/vue';
 import type { StripeWebhookRouteDeps } from '../src/http/credit-stripe';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage, aucunCompteApplication } from './gardes';
+import type { DepsScenariosApi } from '../src/workflow/scenarios-api';
+import { depsScenarios } from './aide/scenarios-api';
 
 /**
  * LES DÉPENDANCES DE ROUTES DEVENUES REQUISES, EN VALEURS INERTES NOMMÉES (lot 3 de l'audit ponytail, 2026-09-26).
@@ -922,3 +924,10 @@ export const mcpSuppressionInerte: Pick<DepsMcp, 'suppression'> = {
     secret: 'secret-inerte-des-suppressions',
   },
 };
+
+/**
+ * Le service des scénarios de l'API, sur un magasin en mémoire (`tests/aide/scenarios-api.ts`) : les tests du serveur MCP
+ * n'en écrivent aucun ; `tests/mcp-outils-scenarios.test.ts` et `tests/v1-scenarios.test.ts` le couvrent.
+ */
+export const scenariosApiInerte: DepsScenariosApi = depsScenarios().d;
+

@@ -3509,6 +3509,8 @@ async function main(): Promise<void> {
         // La main du fil de `control_conversation` : le MÊME contrôle que les boutons « Prendre » et « Rendre la main ».
         fil,
         listerMembres: async (tenant) => (await userStore.list(tenant)).map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role })),
+        // Les scénarios par leur recette (spec 2026-11-02) : le MÊME service que `/v1/scenarios`.
+        scenariosApi: depsScenariosApi,
         // Les widgets de l'écran, le MÊME objet : un outil MCP n'est qu'un second appelant de leur gestion.
         widgets: widgetsDeLaConsole,
         scenarios: workflowStore,

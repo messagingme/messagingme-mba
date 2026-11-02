@@ -14,7 +14,7 @@ import * as catalogue from '../src/mcp/outils';
 import { API_SCOPES } from '../web/lib/partage/droits-api';
 import { cleApiDeTest, aucunJetonOauth } from './aide/cle-api';
 import { NumeroDelieError, MESSAGE_NUMERO_DELIE, NumeroSuspenduError, MESSAGE_NUMERO_SUSPENDU } from '../src/meta/numero-delie';
-import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpInerte, mcpWidgetsInertes } from './routes-inertes';
+import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
@@ -126,6 +126,7 @@ function app(
       emettre: async (tenant, waId, tag) => { traces.publiees.push(`${tenant}:${waId}:${tag}`); },
     }),
     listerMembres: async () => membres ?? [{ id: 'u1', name: 'Jean', email: 'jean@test.fr', role: 'admin' }],
+    scenariosApi: scenariosApiInerte,
     // Les outils des widgets ont leur fichier (`tests/mcp-widgets.test.ts`) : ici, ils ne servent à rien.
     ...mcpWidgetsInertes,
     ...mcpAgentInerte,
@@ -859,6 +860,11 @@ describe('serveur MCP : cohérence du catalogue', () => {
       // supprime rien de plus ; les deux se font chez Meta.
       update_template: [true, false, true],
       delete_template: [true, true, true],
+      // Les scénarios par leur recette (2026-11-02) : un scénario de plus à chaque création ; remplacer par la même recette
+      // ou supprimer deux fois ne change rien de plus ; rien ne part chez un tiers (la publication n'écrit à personne).
+      create_scenario: [true, false, false],
+      update_scenario: [true, true, false],
+      delete_scenario: [true, true, false],
       // Livraison B : un message part chez une personne ; la même clé d'idempotence ne renvoie rien ; le fil n'est pas pris.
       send_template_to_contact: [true, true, true],
       // Les campagnes depuis l'assistant (2026-10-20) : reposer les mêmes étiquettes ne change rien.
@@ -1059,6 +1065,8 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   control_campaign: 'console',
   // Les champs (2026-10-20) : remplir un champ en masse est une action de la console ; lister et créer suivent l'API.
   set_contact_field: 'console',
+  // Les scénarios par leur recette (2026-11-02) : la fonction qui garde les scénarios de la console.
+  get_scenario: 'scenarios', create_scenario: 'scenarios', update_scenario: 'scenarios', delete_scenario: 'scenarios',
 };
 
 describe('serveur MCP : les outils et l’offre (lot 6, B2a)', () => {

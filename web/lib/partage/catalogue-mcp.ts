@@ -31,6 +31,14 @@ export const CATALOGUE_MCP = {
   control_conversation: { scope: 'mcp:write' },
   list_widgets: { scope: 'mcp:read' },
   list_scenarios: { scope: 'mcp:read' },
+  /**
+   * Les scénarios par leur recette (spec 2026-11-02-scenarios-api) : toute écriture publie et écrit à de vrais contacts,
+   * donc au nom d'une personne, jamais d'une clé.
+   */
+  get_scenario: { scope: 'mcp:read' },
+  create_scenario: { scope: 'mcp:write', exigePersonne: true },
+  update_scenario: { scope: 'mcp:write', exigePersonne: true },
+  delete_scenario: { scope: 'mcp:write', exigePersonne: true },
   create_widget: { scope: 'mcp:write' },
   update_widget: { scope: 'mcp:write' },
   get_plan: { scope: 'mcp:read' },

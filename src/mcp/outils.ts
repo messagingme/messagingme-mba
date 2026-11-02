@@ -30,6 +30,7 @@ import { modeEffectif, reglagesSousLOffre } from '../repondeur/mode';
 import { OUTILS_AGENT, signataire, type DepsAgentMcp } from './outils-agent';
 import { estUuid } from '../http/scope';
 import { OUTILS_OFFRE, type DepsOffreMcp } from './outils-offre';
+import { OUTILS_SCENARIOS, type DepsScenariosMcp } from './outils-scenarios';
 import type { DepsCreationCle } from '../auth/creer-cle';
 import { OUTILS_EVENEMENTS, type DepsEvenementsMcp } from './outils-evenements';
 import { OUTILS_CHIFFRES, type DepsChiffresMcp } from './outils-chiffres';
@@ -73,7 +74,7 @@ export type { ScopeMcp } from '../../web/lib/partage/catalogue-mcp';
 /** Les actions d'agent IA rendues par `get_conversation` : les plus récentes, la conversation en porte peu. */
 export const ACTIONS_DE_LA_CONVERSATION = 10;
 
-export interface DepsMcp extends DepsRepondre, DepsChampsMcp {
+export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp {
   /** L'offre de l'espace (`OffresEnCache`, lot 6, B2a) : la fonction de chaque outil s'y vérifie avant de l'exécuter. */
   offres: SourceOffres;
   inbox: ConversationsRepondre & {
@@ -1153,6 +1154,7 @@ export const OUTILS: OutilMcp[] = [
   ...OUTILS_CHIFFRES,
   // La clé de l'application et le paiement du Pro, depuis Claude (spec offres v2) : leur fichier, `src/mcp/outils-offre.ts`.
   ...OUTILS_OFFRE,
+  ...OUTILS_SCENARIOS,
 ];
 
 /**

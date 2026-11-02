@@ -208,6 +208,10 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | launch_campaign | mcp:write OAuth connection required | Launch, or schedule for its date, a prepared campaign, with the code of its summary, once the person said yes; through the same path as the console’s Launch button. Also resumes a paused campaign, with the code of control_campaign. |
 | control_campaign | mcp:write OAuth connection required | Pause a sending campaign, unschedule a scheduled one, or prepare to resume a paused one (a summary and a code). |
 | list_scenarios | mcp:read | Scenarios, and which are published: a widget only starts a published scenario. |
+| get_scenario | mcp:read | A scenario as a recipe, with the fingerprint that guards its replacement. |
+| create_scenario | mcp:write OAuth connection required | Create a scenario from its recipe (template and buttons, quick-reply messages and a file, AI agent, team), published at once. |
+| update_scenario | mcp:write OAuth connection required | Replace a scenario created through the API or by Claude, published at once, if nobody changed it in the meantime. |
+| delete_scenario | mcp:write OAuth connection required | Delete a scenario created through the API or by Claude, if nothing uses it any more. |
 
 ### Chat bubble
 

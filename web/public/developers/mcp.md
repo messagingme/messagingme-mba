@@ -208,6 +208,10 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | launch_campaign | mcp:write connexion OAuth requise | Lancer, ou programmer à sa date, une campagne préparée, avec le code de son récapitulatif, une fois que la personne a dit oui ; par le même chemin que le bouton « Lancer » de la console. Reprend aussi une campagne en pause, avec le code de control_campaign. |
 | control_campaign | mcp:write connexion OAuth requise | Mettre en pause une campagne qui envoie, déprogrammer une campagne programmée, ou préparer la reprise d’une campagne en pause (un récapitulatif et un code). |
 | list_scenarios | mcp:read | Les scénarios, et lesquels sont publiés : un widget ne démarre qu’un scénario publié. |
+| get_scenario | mcp:read | Un scénario sous forme de recette, avec l’empreinte qui garde son remplacement. |
+| create_scenario | mcp:write connexion OAuth requise | Créer un scénario par sa recette (template et boutons, messages à réponses rapides et fichier, agent IA, équipe), publié aussitôt. |
+| update_scenario | mcp:write connexion OAuth requise | Remplacer un scénario créé par l’API ou par Claude, publié aussitôt, si personne ne l’a changé entre-temps. |
+| delete_scenario | mcp:write connexion OAuth requise | Supprimer un scénario créé par l’API ou par Claude, si plus rien ne l’utilise. |
 
 ### Bulle WhatsApp
 

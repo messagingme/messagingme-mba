@@ -44,10 +44,11 @@ import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { bornesDesChamps, bornesZod, champsDe, muettes, type Borne } from './aide/bornes-zod';
 import { jamaisDesabonne } from './consentement';
-import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes } from './routes-inertes';
+import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes, scenariosApiInerte } from './routes-inertes';
 import { SANS_MCP } from './outils-mcp';
 import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
+import { OUTILS_SCENARIOS } from '../src/mcp/outils-scenarios';
 
 /**
  * LES OUTILS MCP DE L'AGENT IA ET DU CRÉDIT (lot 8a, livraison B), montés par `buildServer` derrière la vraie garde
@@ -438,6 +439,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
       analysesEtResumes: async () => new Map(),
     },
     listerMembres: async () => [],
+    scenariosApi: scenariosApiInerte,
     ...mcpEtiquettesInertes,
     ...mcpWidgetsInertes,
     agentIa,
@@ -491,7 +493,7 @@ async function lister(server: Serveur, bearer: string): Promise<string[]> {
 const OUTILS_DU_NUMERO = new Set([
   ...[
     ...OUTILS_NUMERO, ...OUTILS_EVENEMENTS, ...OUTILS_MODELES, ...OUTILS_OFFRE, ...OUTILS_CAMPAGNES, ...OUTILS_CHAMPS, ...OUTILS_SHOPIFY,
-    ...OUTILS_SUPPRESSION,
+    ...OUTILS_SUPPRESSION, ...OUTILS_SCENARIOS,
   ].map((o) => o.nom),
   'block_contact',
 ]);

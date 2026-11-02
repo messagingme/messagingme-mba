@@ -32,7 +32,7 @@ export const FAMILLES_OUTILS: ReadonlyArray<{ readonly titre: string; readonly t
   { titre: 'Templates', titreFr: 'Modèles', outils: ['list_templates', 'get_template_status', 'create_template', 'update_template', 'delete_template', 'send_template_to_contact', 'get_message_status'] },
   {
     titre: 'Contacts and campaigns', titreFr: 'Contacts et campagnes',
-    outils: ['search_contacts', 'get_contact', 'block_contact', 'prepare_contacts_deletion', 'delete_contacts', 'find_contacts', 'tag_contacts', 'list_fields', 'create_field', 'set_contact_field', 'prepare_campaign', 'launch_campaign', 'control_campaign', 'list_scenarios'],
+    outils: ['search_contacts', 'get_contact', 'block_contact', 'prepare_contacts_deletion', 'delete_contacts', 'find_contacts', 'tag_contacts', 'list_fields', 'create_field', 'set_contact_field', 'prepare_campaign', 'launch_campaign', 'control_campaign', 'list_scenarios', 'get_scenario', 'create_scenario', 'update_scenario', 'delete_scenario'],
   },
   { titre: 'Chat bubble', titreFr: 'Bulle WhatsApp', outils: ['list_widgets', 'create_widget', 'update_widget'] },
   { titre: 'Shopify store', titreFr: 'Boutique Shopify', outils: ['connect_shopify', 'set_shopify_message', 'get_shopify_state', 'preview_shopify_customers', 'import_shopify_customers', 'disconnect_shopify'] },
