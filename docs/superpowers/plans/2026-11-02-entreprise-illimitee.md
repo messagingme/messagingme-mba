@@ -93,8 +93,9 @@ consommation IA plus WhatsApp du mois, au prix client ; e2e des deux onglets et 
 d'IA chez Vercel était de 100 $ par mois (mesuré le jour même), soit à peu près le plafond de sécurité d'UNE Entreprise
 (100 € au prix client, environ 99 $ bruts) ; à 100 %, Vercel coupe toutes les clés de l'équipe, donc l'IA de tous les
 clients. Julien a gardé 100 € et relève lui-même le budget d'équipe au-dessus de la somme des plafonds des Entreprises qui
-ont une clé (trois ce jour-là, donc au moins 300 $) ; le code du lot B ne se déploie qu'une fois le budget relevé, relu par
-la jauge (`lireConsommationEquipe`). Le lot C rend la règle visible : la vue « Crédits » de `/ops` montre la somme des
+ont une clé (trois ce jour-là, donc au moins 300 $), relu par la jauge (`lireConsommationEquipe`). Le code du lot B est
+parti AVANT ce relèvement, à la demande de Julien (« on n'a pas encore de client ») : le risque reste ouvert tant que le
+budget n'est pas relevé (`todo.md`). Le lot C rend la règle visible : la vue « Crédits » de `/ops` montre la somme des
 plafonds des Entreprises à clé à côté du budget d'équipe, et le balayage horaire alerte quand elle le dépasse.
 
 **Les jaunes de la relecture du lot B, repris par ce lot** (relecture du 2026-11-02, un rouge, ci-dessus) :

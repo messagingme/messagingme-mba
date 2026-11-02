@@ -89,14 +89,16 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
 - 🔴 L'Entreprise illimitée et le suivi des crédits (décision de Julien du 2026-11-02, plan
   `docs/superpowers/plans/2026-11-02-entreprise-illimitee.md`) : lot A (le Crédit WhatsApp) en production le 2026-11-02
   (`2c4a3e2c`), son essai réel 208 à faire ; ses jaunes de relecture sont repris par le lot B. Le lot B (le Crédit IA
-  illimité en Entreprise, avec son plafond de sécurité de 100 € par mois et par espace, confirmé par Julien) attend sa
-  relecture et son déploiement. Reste le lot C (les courbes des deux onglets, l'historique d'une Entreprise sans signe
+  illimité en Entreprise, avec son plafond de sécurité de 100 € par mois et par espace, confirmé par Julien) est en
+  production le 2026-11-02 (migration 0268 seule, `5ae1999a`, puis le code, `3a9a5785`). Reste le lot C (les courbes des deux onglets, l'historique d'une Entreprise sans signe
   « moins », et la vue « Crédits » de `/ops` avec le montant à facturer). Après le lot A en production, une migration
   `apres` retirera `tenants.entreprise_open_bar_whatsapp`, que plus rien ne lit, en réécrivant dans le même commit les
   tests d'intégration qui l'écrivent encore (`offres.integration.test.ts`, `numero-delie.integration.test.ts`).
-- 🔴 Avant le déploiement du CODE du lot B : Julien relève le budget d'équipe de la passerelle d'IA chez Vercel (100 $ par
-  mois, mesuré le 2026-11-02) au-dessus de la somme des plafonds des Entreprises qui ont une clé (trois, donc au moins
-  300 $ ; chaque Entreprise qui ouvre une clé ajoute environ 100 $). Relu par la jauge avant de déployer.
+- 🔴 Le budget d'équipe de la passerelle d'IA chez Vercel est resté à 100 $ par mois : le lot B s'est déployé sans
+  l'attendre, décision de Julien du 2026-11-02 (« on n'a pas encore de client »). Une Entreprise qui s'emballe jusqu'à son
+  plafond de 100 € le vide à elle seule et coupe l'IA de tous les clients. À relever chez Vercel au-dessus de la somme
+  des plafonds des Entreprises qui ont une clé (trois, donc au moins 300 $ ; chaque Entreprise qui ouvre une clé ajoute
+  environ 100 $) avant que des Entreprises consomment vraiment ; la jauge le relit (`lireConsommationEquipe`).
 - 🟡 Dire l'illimité de l'Entreprise sur la vitrine ? Les fiches publiques « Construire un agent IA » et « Choisir mon
   offre » décrivent le crédit prépayé sans parler de l'Entreprise (relues au lot B, laissées telles quelles : un
   changement de la face publique attend le oui de Julien). La fiche « Recharger le crédit IA », de la console, le dit.

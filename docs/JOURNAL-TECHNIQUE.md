@@ -4,6 +4,42 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : l'Entreprise illimitée, lot B (le Crédit IA) en production
+
+Suite du lot A (même décision de Julien, spec et plan `2026-11-02-entreprise-illimitee`) : en Entreprise, l'IA est
+illimitée, facturée au contrat, sous un plafond de sécurité de 100 € par mois et par espace (choisi par Julien).
+
+- **Ce qui a changé** : « cet espace peut-il consommer de l'IA ? » se lit par une seule fonction SQL, `acces_credit_ia`
+  (migration 0268 : `ok`, `epuise` pour un prépayé, `plafond` pour une Entreprise qui a atteint son plafond du mois), par
+  les six chemins qui consommaient sur le solde (tour, essai, démarreur du répondeur, traduction, transcription,
+  vectorisation) ; un débit d'Entreprise s'écrit marqué `illimite` sans toucher au solde ; sa clé Vercel s'ouvre sans
+  solde avec un mois de plafond d'avance, remontée chaque heure, et Julien est prévenu sur Telegram à 80 % puis à 100 % ;
+  l'achat d'IA lui est refusé ; console, `get_credit`, `get_setup_state` et `/ops` (le plafond par espace) suivent. Avec
+  les sept jaunes du lot A (dont la consommation du mois du Crédit WhatsApp limitée aux provisions illimitées).
+- **Relecture indépendante** : un rouge, chiffré et mesuré par le vrai code de la jauge : le budget d'équipe de la
+  passerelle d'IA chez Vercel est de 100 $ par mois, à peu près le plafond d'UNE Entreprise (environ 99 $ bruts), et à
+  100 % Vercel coupe toutes les clés de l'équipe. Julien a gardé 100 € et doit relever le budget (au moins 300 $) ; il a
+  ensuite décidé de déployer sans attendre (« on n'a pas encore de client »), le risque est au `todo.md`. Onze jaunes,
+  au plan pour le lot C (les messages de la console au plafond, les alertes qui ne se réarment pas quand le plafond est
+  relevé, une clé d'Entreprise qui peut s'arrêter sans alerte, le plugin qui ignore l'illimité).
+- **Livré en deux poussées**, parce que le chemin chaud nomme la migration (chaque tour appelle `acces_credit_ia`) : la
+  0268 seule (`5ae1999a`, run 41463001063, `migration=avant`, qui a aussi appliqué la 0267 d'une session voisine, à sa
+  demande), relue en base point par point (colonnes, contraintes sous leur nom, clé étrangère en cascade, fonctions
+  `stable`, la règle exécutée : les 8 Entreprises à `ok`, aucun écart avec le solde pour les prépayés), puis le code
+  (`3a9a5785`, run 41468762117, `migration=aucune`).
+- **Un rouge de CI entre les deux** : le job `integration` de `fcbfa8c1`, quatre attentes `toEqual` de `lireEntreprise`
+  qui ne connaissaient pas `plafondIaMoisEuros` (quatrième récidive de ce piège ; corrigé par `3a9a5785`, test seul, avec
+  l'aller-retour du plafond par le vrai store). Le reste de la suite d'intégration, dont les tests neufs du lot (solde
+  figé, plafond, mois de Paris, alertes), était vert sur une vraie base.
+- **Vérifié en production** par le vrai code de l'image, en lecture seule : les 8 Entreprises illimitées, `ok`, plafond
+  et marge de 100 € ; les trois clés remontées par la première passe du balayage (Groupama PJ 5 → 105 €, Messaging Me demo
+  10 → 110 €, la SANDBOX 60 → 160 €) ; les prépayés à l'accès de leur solde ; les quatre écritures du chemin chaud
+  expliquées sur le vrai schéma. `/health` 200, `scripts/fumee.mjs` et `oauth:fiches` verts, `aide:charger` (187 lignes,
+  0 retirée).
+- **Reste** : relever le budget Vercel, les essais réels 207 et 208, le lot C (les courbes, la vue « Crédits » de `/ops`
+  avec le montant à facturer et la somme des plafonds face au budget, les onze jaunes), puis la migration `apres` qui
+  retirera la colonne de l'interrupteur du lot A.
+
 ## 2026-11-02 : les champs HubSpot choisis par l'espace (lot 2 du cadrage du même jour)
 
 Demande de Julien : trois champs fixes (prénom, conseiller, lien de réservation) ne suffisent pas, le client choisit
