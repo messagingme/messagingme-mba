@@ -17,6 +17,10 @@
   parce que toute entrée de FAQ s'écrit aussi sur la vitrine (accord de Julien d'abord).
 - L'outil « Lancer un scénario » d'un agent IA (sa configuration) ne bloque pas la suppression d'un scénario, dans la
   console comme par l'API.
+- La place des blocs : un remplacement (`PUT /v1/scenarios`, `update_scenario`) recalcule la position de chaque
+  bloc (`poser`, `src/workflow/recette-graphe.ts`) et défait la mise en page faite dans la console (vu à l'essai
+  réel du 2026-11-02, « plus tard »). Reprendre la position d'un bloc resté au même chemin avec le même type, depuis
+  le brouillon s'il décrit la même recette, sinon depuis la version publiée.
 
 ## 🟡 Le mode répétition de l'envoi (décidé le 2026-10-31, « plus tard »)
 
