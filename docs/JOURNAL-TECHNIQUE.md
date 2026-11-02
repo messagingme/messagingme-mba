@@ -4,6 +4,35 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : l'Entreprise illimitée, lot C (le suivi des crédits) en production
+
+Fin du chantier de l'Entreprise illimitée (décision de Julien du 2026-11-02, « un endroit où suivre l'évolution du
+crédit », pour le client et pour nous ; spec et plan `2026-11-02-entreprise-illimitee`).
+
+- **Ce qui a changé** : une courbe de 90 jours de Paris au-dessus de l'historique des onglets Crédit IA et Crédit WhatsApp
+  (le solde de fin de journée d'un prépayé, la consommation du jour d'une Entreprise, dont l'historique perd aussi son signe
+  « moins ») ; un onglet « Crédits » dans `/ops` (un espace par ligne, deux mois, le montant à facturer d'une Entreprise, la
+  somme des plafonds IA des Entreprises à clé face au budget d'équipe Vercel) ; la veille horaire du budget qui alerte
+  quand cette somme le dépasse ; et les jaunes de la relecture du lot B (messages au plafond, alertes réarmées et clé
+  remontée quand l'IA d'une Entreprise est réglée, clé d'Entreprise au plafond signalée, remontée qui lève dans le
+  balayage, inventaire resserré, fiche de mise en service du plugin).
+- **La règle** : la courbe se reconstruit À REBOURS depuis le solde courant, lu dans la même instruction que les mouvements
+  (`src/lib/serie-credit.ts`) ; un cumul depuis le premier jour de la fenêtre partirait de zéro.
+- **Trouvé en chemin, par l'e2e** : le total des 90 jours additionnait des montants déjà arrondis au centime (1,27 € pour
+  1,2765 €, jusqu'à 45 centimes d'écart possibles) ; la courbe reçoit désormais des euros exacts, arrondis au seul affichage.
+- **Relecture indépendante** : aucun rouge, neuf jaunes, au plan pour le prochain passage (le plus utile : le balayage
+  horaire remonte la clé avant de lire les seuils, donc une clé qui ne monte pas fait sauter les alertes de l'espace).
+- **Livré en deux poussées**, l'API d'abord (`87200f37`, CI verte job par job, run 41491709917, `migration=aucune`, approuvé
+  par Julien), la console ensuite (`0707133d`, `web/` seul). Coordonné avec deux sessions voisines : le lot des scénarios
+  déployé d'abord (`a9d56892`), puis la migration 0269 du bloc Question, seule (`256d3c73`).
+- **Vérifié en production** par le vrai code de l'image, en lecture seule : 90 points pour chaque espace (du 2026-08-05 au
+  2026-11-02), le solde reconstruit d'aujourd'hui égal au solde stocké (Groupama PJ 4,82 €, la SANDBOX 58,55 €), la vue
+  « Crédits » en 14 ms pour 11 espaces, 300 € de plafonds pour les trois Entreprises à clé, au-delà du budget de 100 $ (l'alerte
+  part au démarrage du worker, c'est voulu) ; `/health` 200, `aide:charger` (188 lignes, 0 retirée).
+- **Reste** : le budget d'équipe Vercel à relever (100 $), la publication du plugin 0.3.23 (le garde-fou du mode automatique
+  la refuse, Julien la lance), les essais réels 207 et 208, la décision sur la face publique (fiches publiques et FAQ du
+  plugin), puis la migration `apres` qui retirera la colonne de l'interrupteur du lot A.
+
 ## 2026-11-02 : l'Entreprise illimitée, lot B (le Crédit IA) en production
 
 Suite du lot A (même décision de Julien, spec et plan `2026-11-02-entreprise-illimitee`) : en Entreprise, l'IA est

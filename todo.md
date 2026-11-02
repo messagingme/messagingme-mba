@@ -107,7 +107,10 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   illimité en Entreprise, avec son plafond de sécurité de 100 € par mois et par espace, confirmé par Julien) est en
   production le 2026-11-02 (migration 0268 seule, `5ae1999a`, puis le code, `3a9a5785`). Le lot C (les courbes des deux onglets, l'historique d'une Entreprise sans signe
   « moins », la vue « Crédits » de `/ops` avec le montant à facturer et la somme des plafonds face au budget Vercel, les
-  jaunes de la relecture du lot B) attend sa relecture et son déploiement, l'API d'abord, la console ensuite. Après le lot A en production, une migration
+  jaunes de la relecture du lot B) est en production le 2026-11-02 (l'API `87200f37`, puis la console `0707133d`) ; ses
+  neuf jaunes de relecture sont au plan, pour le prochain passage (le plus utile : le balayage horaire qui saute les
+  alertes d'un espace dont la clé ne monte pas). Reste à publier le plugin 0.3.23 (refusé au mode automatique : Julien
+  lance `gh workflow run plugin.yml --repo messagingme/messagingme-mba --ref main`). Après le lot A en production, une migration
   `apres` retirera `tenants.entreprise_open_bar_whatsapp`, que plus rien ne lit, en réécrivant dans le même commit les
   tests d'intégration qui l'écrivent encore (`offres.integration.test.ts`, `numero-delie.integration.test.ts`).
 - 🔴 Le budget d'équipe de la passerelle d'IA chez Vercel est resté à 100 $ par mois : le lot B s'est déployé sans

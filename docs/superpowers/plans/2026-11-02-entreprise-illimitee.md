@@ -104,9 +104,32 @@ clé d'Entreprise au plafond, `remonterPlafondCle` qui lève, la clé remontée 
 `etat`, l'inventaire n'autorise plus `src/index.ts`) et 9 pour la fiche de mise en service (la FAQ du plugin, publiée sur
 la vitrine, attend la décision de Julien sur la face publique, `todo.md`). Écartés, par décision écrite : 5 (la ligne du
 jour d'une traduction garde le drapeau de son premier débit ; l'écart se limite aux traductions du jour d'un changement
-d'offre, et la courbe le reconstruit au jour près ; le corriger demanderait un index unique de plus sur une table chaude) ;
+d'offre, quelques centimes, mal rangés de la même façon sur le solde, la courbe et le montant à facturer, qui lisent ce
+drapeau ; le corriger demanderait un index unique de plus sur une table chaude) ;
 6 (la clé d'un espace sorti de l'Entreprise garde sa marge : notre garde sur le solde mord avant elle, la clé n'est qu'un
 filet) ; 7 (sans objet depuis le déploiement de l'API du lot B).
+
+**Les jaunes de la relecture du lot C** (relecture du 2026-11-02, aucun rouge ; lot C en production le même jour), pour le
+prochain passage sur ce chantier :
+1. `DailyChart` garde un plancher d'échelle de 1 (fait pour des nombres entiers) : quelques centimes par jour restent
+   écrasés au bas de la courbe d'une Entreprise, et un solde IA négatif passe sous l'axe.
+2. La courbe d'une Entreprise compte TOUS ses débits, ceux d'avant son passage en illimité compris (pendant 90 jours après
+   le 2026-11-02), alors que son sous-titre dit « facturés selon votre contrat » ; le montant de `/ops`, lui, est juste.
+3. Le balayage horaire remonte la clé AVANT de lire les seuils : une clé que Vercel refuse de monter (supprimée à la main,
+   404) fait sauter les alertes 80 % et 100 % de l'espace, et Julien ne reçoit que l'échec du balayage. Deux commentaires
+   sont périmés (`plafond-ia.ts`, qui nomme encore `remonterPlafondApresRecharge` ; `provisionner-cle.ts`, « ne lève jamais »).
+4. Vercel rend la même erreur pour une clé au plafond et pour le budget d'équipe épuisé : pendant cet incident, chaque
+   Entreprise active alerterait « clé au plafond, remonter sa clé » (faux diagnostic), avec son identifiant plutôt que
+   son nom, toutes les cinq minutes par copie du worker.
+5. La vue « Crédits » écarte les espaces verrouillés (`t.status <> 'locked'`) : une Entreprise arrêtée par `/ops/verrou`,
+   dont les tours peuvent encore consommer, disparaît de l'écran du montant à facturer, et sa clé de la somme affichée
+   (que la veille du worker compte, elle).
+6. La veille Vercel lit la somme des plafonds avant ses seuils : une base indisponible fait sauter les alertes 80 % et
+   95 % de l'heure, et l'échec s'annonce comme une lecture de Vercel impossible.
+7. La courbe est dans le `Promise.all` des routes des deux onglets : si elle échoue, l'onglet WhatsApp rend 500 entier
+   (boutons d'achat compris), et l'historique IA disparaît avec elle.
+8. La spec voulait aussi les mêmes courbes depuis `/ops` (« un espace s'ouvre sur les mêmes courbes que le client ») : pas fait.
+9. Aucun test ne tient les deux câblages du worker (`remonterPlafondCle` dans le balayage, `alerterExploitation` dans le tour).
 1. La transcription d'une Entreprise à son plafond : l'API rend 402 `cause: 'plafond'`, la console dit « rechargez »
    sur tout 402 (`web/app/inbox/page.tsx`) alors que l'Entreprise n'a rien à recharger.
 2. La traduction sortante au plafond tombe dans « momentanément indisponible, réessayez » (`src/http/inbox.ts`),
