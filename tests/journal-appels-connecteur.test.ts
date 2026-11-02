@@ -159,10 +159,14 @@ describe('l’appel de connecteur journalise, et le journal dit QUI appelait', (
 });
 
 describe('les deux appelants qui ne journalisaient RIEN le font', () => {
+  // La pièce d'un bloc Question (2026-11-02) : aucune pièce notée, aucun lien à fabriquer.
+  const sansPiece = { pieces: { liensPossibles: async () => [] }, secretPiece: 's'.repeat(40), baseApi: 'https://api.messagingme.app' };
+
   it('🔴 le bloc « Appel HTTP » d’un scénario', async () => {
     const { journal, ouvertures } = journalEspion();
     const bloc = creerAppelHttpScenario({
       ...depsConnecteur(repond(500)),
+      ...sansPiece,
       projectionContact: async () => ({ nom: 'Julie', tags: [], champs: {} }),
       journalAppels: journal,
       libelleRequete: async () => 'Chercher une commande',
@@ -176,6 +180,7 @@ describe('les deux appelants qui ne journalisaient RIEN le font', () => {
     const { journal, ouvertures } = journalEspion();
     const bloc = creerAppelHttpScenario({
       ...depsConnecteur(repond(500)),
+      ...sansPiece,
       projectionContact: async () => null,
       journalAppels: journal,
     });
@@ -207,6 +212,7 @@ describe('les deux appelants qui ne journalisaient RIEN le font', () => {
   it('⚠️ sans journal câblé, les deux marchent comme avant', async () => {
     const bloc = creerAppelHttpScenario({
       ...depsConnecteur(repond(200)),
+      ...sansPiece,
       projectionContact: async () => null,
     });
     expect((await bloc('t1', '33600', 'rq1', 'integre')).ok).toBe(true);

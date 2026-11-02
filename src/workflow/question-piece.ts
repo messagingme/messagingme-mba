@@ -43,13 +43,21 @@ function partiesDate(instant: Date, fuseau: string): Record<string, string> {
   return Object.fromEntries(format.formatToParts(instant).map((p) => [p.type, p.value]));
 }
 
+/** Le début de toute mention : l'Appel API ne lit les pièces notées que si un champ commence ainsi. */
+const DEBUT_MENTION = 'Pièce reçue le ';
+
 /**
  * Ce que le champ reçoit pour une pièce acceptée : un texte lisible, qui ne contient AUCUN moyen d'accéder au fichier.
  * Le lien ne se fabrique qu'à l'appel, et seulement si le champ porte encore exactement cette mention.
  */
 export function mentionDePiece(recuLe: Date, fuseau: string, genre: GenrePiece): string {
   const p = partiesDate(recuLe, fuseau);
-  return `Pièce reçue le ${p.day}/${p.month}/${p.year} à ${p.hour} h ${p.minute} (${LIBELLE_GENRE[genre]})`;
+  return `${DEBUT_MENTION}${p.day}/${p.month}/${p.year} à ${p.hour} h ${p.minute} (${LIBELLE_GENRE[genre]})`;
+}
+
+/** Cette valeur de champ a-t-elle la forme d'une mention ? Un tri préalable, jamais une preuve : la note en est une. */
+export function ressembleAUneMention(valeur: unknown): boolean {
+  return typeof valeur === 'string' && valeur.startsWith(DEBUT_MENTION);
 }
 
 export interface ReglagesQuestion {

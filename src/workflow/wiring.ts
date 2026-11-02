@@ -527,6 +527,11 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
       // Relue à chaque appel, pas portée par le contexte du parcours : le bloc peut suivre un bloc qui vient
       // d'écrire un champ.
       projectionContact: (t, waId) => contactStore.projectionPourTiers(t, waId),
+      // 🔴 La pièce d'un bloc Question (spec du 2026-11-02) : SEUL ce câblage fabrique un lien vers le fichier. Le store
+      // entier, pour que `liensPossibles` garde son `this` ; le lien vit sous l'API, comme celui de désinscription.
+      pieces: piecesQuestion,
+      secretPiece: config.AUTH_SECRET,
+      baseApi: adressesApi.avecPrefixe,
     }),
     // Retrait : même normalisation que l'ajout (`normaliserEtiquette`). Le référentiel n'est pas touché (retirer
     // une étiquette d'un contact ne la dé-déclare pas).

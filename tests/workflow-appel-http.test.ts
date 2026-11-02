@@ -3,6 +3,9 @@ import { valeurPourChamp, creerAppelHttpScenario } from '../src/workflow/appel-h
 import { creerTransportConnecteurHttp } from '../src/agent/transport-connecteur-http';
 import { walk } from '../src/workflow/engine';
 import type { WorkflowGraph } from '../src/workflow/graph';
+import { lireJetonPiece } from '../src/workflow/piece-lien';
+
+const SECRET_PIECE = 'p'.repeat(40);
 
 /**
  * Le bloc « Appel HTTP » d'un scénario.
@@ -106,6 +109,10 @@ describe('le câblage du bloc', () => {
         fetch: fetchImpl,
         verifierResolution,
       }),
+      // Aucune pièce notée par défaut : un champ ordinaire part tel quel.
+      pieces: { liensPossibles: async () => [] },
+      secretPiece: SECRET_PIECE,
+      baseApi: 'https://api.messagingme.app',
       ...reste,
     };
   };
@@ -189,6 +196,92 @@ describe('le câblage du bloc', () => {
         fetchImpl: (async () => new Response('{"message":"bad"}', { status: 400 })) as unknown as typeof fetch,
       }) as never);
       expect(await appel('t1', '33600000001', 'req-1', 'pousse')).toEqual({ ok: false, valeur: '' });
+    });
+  });
+
+  /**
+   * 🔴 LA PIÈCE D'UN BLOC QUESTION (spec du 2026-11-02). Le champ ne porte qu'une mention ; c'est ICI, au moment où
+   * l'appel part, que le lien vers le fichier se fabrique, et seulement si le champ porte ENCORE la mention notée. Le
+   * lien ouvre une pièce d'identité : il ne doit apparaître dans aucun journal.
+   */
+  describe('la pièce d’un bloc Question', () => {
+    const MENTION = 'Pièce reçue le 02/11/2026 à 14 h 32 (photo)';
+    const MAINTENANT = new Date('2026-11-02T13:32:00.000Z');
+    const envoiPiece = {
+      requetes: {
+        parId: async () => ({
+          id: 'req-1', tenantId: 't1', sourceId: 's1', label: 'Stockage',
+          methode: 'POST' as const, chemin: '/pieces', parametres: [], entetes: [],
+          corps: { mode: 'json' as const, gabarit: '{"fichier": "{{piece}}"}' },
+          variables: [{ nom: 'piece', type: 'string', origine: { type: 'champ', cle: 'piece_identite' } }],
+          outputPaths: [], valeursTest: {}, outils: 0, updatedAt: '2026-11-02T00:00:00.000Z',
+        }),
+      },
+      maintenant: () => MAINTENANT,
+    };
+    const corpsEnvoyes = () => {
+      const corps: string[] = [];
+      const fetchImpl = (async (_u: string, init: RequestInit) => { corps.push(String(init.body)); return new Response(null, { status: 204 }); }) as unknown as typeof fetch;
+      return { corps, fetchImpl };
+    };
+
+    it('🔴 le champ porte encore la mention notée : le lien part, signé pour cet espace et ce message, quinze minutes', async () => {
+      const { corps, fetchImpl } = corpsEnvoyes();
+      const appel = creerAppelHttpScenario(deps({
+        ...envoiPiece, fetchImpl,
+        projectionContact: async () => ({ nom: 'Jean', tags: [], champs: { piece_identite: MENTION } }),
+        pieces: { liensPossibles: async () => [{ cle: 'piece_identite', metaMessageId: 'wamid.P1', mention: MENTION }] },
+      }) as never);
+      const espace = '11111111-2222-4333-8444-555555555555';
+      expect(await appel(espace, '33600000001', 'req-1', 'pousse')).toEqual({ ok: true, valeur: '' });
+      const lien = (JSON.parse(corps[0]!) as { fichier: string }).fichier;
+      expect(lien.startsWith('https://api.messagingme.app/f/')).toBe(true);
+      const jeton = decodeURIComponent(lien.slice('https://api.messagingme.app/f/'.length));
+      expect(lireJetonPiece(jeton, SECRET_PIECE, new Date(MAINTENANT.getTime() + 15 * 60_000 - 1))).toEqual({ tenantId: espace, metaMessageId: 'wamid.P1' });
+      expect(lireJetonPiece(jeton, SECRET_PIECE, new Date(MAINTENANT.getTime() + 15 * 60_000 + 1))).toBeNull();
+    });
+
+    it('🔴 le champ a été réécrit depuis : sa valeur part, aucun lien', async () => {
+      const { corps, fetchImpl } = corpsEnvoyes();
+      const appel = creerAppelHttpScenario(deps({
+        ...envoiPiece, fetchImpl,
+        projectionContact: async () => ({ nom: 'Jean', tags: [], champs: { piece_identite: 'Pièce reçue le 01/11/2026 à 09 h 00 (photo)' } }),
+        pieces: { liensPossibles: async () => [{ cle: 'piece_identite', metaMessageId: 'wamid.P1', mention: MENTION }] },
+      }) as never);
+      await appel('t1', '33600000001', 'req-1', 'pousse');
+      expect(JSON.parse(corps[0]!)).toEqual({ fichier: 'Pièce reçue le 01/11/2026 à 09 h 00 (photo)' });
+    });
+
+    it('aucun champ ne ressemble à une mention : les pièces ne sont même pas lues', async () => {
+      const lues = vi.fn(async () => []);
+      const { fetchImpl } = corpsEnvoyes();
+      const appel = creerAppelHttpScenario(deps({
+        ...envoiPiece, fetchImpl,
+        projectionContact: async () => ({ nom: 'Jean', tags: [], champs: { piece_identite: 'carte d’identité' } }),
+        pieces: { liensPossibles: lues },
+      }) as never);
+      await appel('t1', '33600000001', 'req-1', 'pousse');
+      expect(lues).not.toHaveBeenCalled();
+    });
+
+    it('🔴 un appel refusé dont la variable porte le lien : le lien n’entre dans aucun journal', async () => {
+      const ecrit: string[] = [];
+      const avertir = vi.spyOn(console, 'warn').mockImplementation((...a: unknown[]) => { ecrit.push(a.map(String).join(' ')); });
+      const appel = creerAppelHttpScenario(deps({
+        ...envoiPiece,
+        fetchImpl: (async () => new Response('{"message":"bad"}', { status: 400 })) as unknown as typeof fetch,
+        projectionContact: async () => ({ nom: 'Jean', tags: [], champs: { piece_identite: MENTION } }),
+        pieces: { liensPossibles: async () => [{ cle: 'piece_identite', metaMessageId: 'wamid.P1', mention: MENTION }] },
+        journalAppels: {
+          ouvrir: async (l: unknown) => { ecrit.push(JSON.stringify(l)); return 'ligne-1'; },
+          clore: async (l: unknown) => { ecrit.push(JSON.stringify(l)); },
+        },
+      }) as never);
+      expect(await appel('t1', '33600000001', 'req-1', 'pousse')).toEqual({ ok: false, valeur: '' });
+      avertir.mockRestore();
+      expect(ecrit.length).toBeGreaterThan(0);
+      expect(ecrit.join('\n')).not.toContain('/f/');
+      expect(ecrit.join('\n')).not.toContain('wamid.P1');
     });
   });
 });

@@ -1,6 +1,9 @@
 import { creerAppelConnecteur, type DepsResolveurHttp } from '../agent/resolvers/http';
 import type { JournalAppels } from '../agent/catalog';
 import { messageDe } from '../lib/erreur';
+import type { PgPiecesQuestion } from './pieces-question.pg';
+import { DUREE_LIEN_PIECE_MS, jetonPiece, lienPiece } from './piece-lien';
+import { ressembleAUneMention } from './question-piece';
 
 /**
  * Le bloc « Appel HTTP » d'un scénario : jouer un appel déjà mis au point dans Tools > Connecteurs API, et
@@ -58,6 +61,40 @@ export interface DepsAppelHttpScenario extends DepsResolveurHttp {
    * l'ancienne valeur.
    */
   projectionContact(tenantId: string, waId: string): Promise<Record<string, unknown> | null>;
+  /**
+   * 🔴 LA PIÈCE D'UN BLOC QUESTION (spec du 2026-11-02). Le champ ne porte qu'une mention ; le lien vers le fichier se
+   * fabrique ICI, au moment où l'appel part, et seulement si le champ porte ENCORE la mention notée. Ce câblage est le
+   * seul à recevoir cette capacité : l'agent IA, la poussée d'un désabonnement et le bouton « Essayer » envoient la
+   * mention telle quelle. Requises, pour qu'un câblage qui les oublie ne compile pas.
+   */
+  pieces: Pick<PgPiecesQuestion, 'liensPossibles'>;
+  /** Le secret qui signe le lien (`AUTH_SECRET`, dérivé pour cet usage dans `piece-lien.ts`). */
+  secretPiece: string;
+  /** La base des adresses servies par l'API, où vit `/f/:jeton`. */
+  baseApi: string;
+  maintenant?(): Date;
+}
+
+/**
+ * La projection du contact où chaque champ qui porte encore la mention d'une pièce notée devient un lien neuf, valable
+ * quinze minutes. Une copie : la projection reçue n'est pas modifiée. Sans champ qui ressemble à une mention, les pièces
+ * ne sont même pas lues.
+ */
+async function avecLiensDesPieces(
+  deps: DepsAppelHttpScenario, tenantId: string, waId: string, contact: Record<string, unknown> | null,
+): Promise<Record<string, unknown> | null> {
+  const champs = contact?.champs;
+  if (contact === null || champs === null || typeof champs !== 'object' || Array.isArray(champs)) return contact;
+  const valeurs = champs as Record<string, unknown>;
+  if (!Object.values(valeurs).some(ressembleAUneMention)) return contact;
+  const notees = await deps.pieces.liensPossibles(tenantId, waId);
+  const vivantes = notees.filter((p) => valeurs[p.cle] === p.mention);
+  if (vivantes.length === 0) return contact;
+  const maintenant = deps.maintenant ? deps.maintenant() : new Date();
+  const expireLe = new Date(maintenant.getTime() + DUREE_LIEN_PIECE_MS);
+  const copie: Record<string, unknown> = { ...valeurs };
+  for (const p of vivantes) copie[p.cle] = lienPiece(deps.baseApi, jetonPiece(tenantId, p.metaMessageId, expireLe, deps.secretPiece));
+  return { ...contact, champs: copie };
 }
 
 /**
@@ -70,7 +107,7 @@ export function creerAppelHttpScenario(deps: DepsAppelHttpScenario) {
     tenantId: string, waId: string, requestId: string, lecture: 'pousse' | 'integre',
   ): Promise<{ ok: boolean; valeur: string }> => {
     try {
-      const contact = await deps.projectionContact(tenantId, waId);
+      const contact = await avecLiensDesPieces(deps, tenantId, waId, await deps.projectionContact(tenantId, waId));
       const r = await appel({
         tenantId,
         waId,
