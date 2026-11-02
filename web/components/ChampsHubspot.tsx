@@ -5,8 +5,9 @@ import { ApiError, getHubspotChamps, putHubspotChamps, type ChampsHubspotDuPorta
 import { useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
+import { Icone } from '@/components/Icone';
 import {
-  CHAMPS_HUBSPOT_MAX, basculerChamp, caseGrisee, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
+  CHAMPS_HUBSPOT_MAX, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
 } from '@/lib/hubspot-champs';
 
 /**
@@ -119,6 +120,25 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
 
       {etat === 'ok' && portail && (
         <>
+          {/* Les champs sélectionnés, toujours visibles quelle que soit la recherche, chacun retiré d'une croix. */}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5" data-testid="integration-hubspot-champs-choisis">
+            {selection.size === 0 && <span className="text-xs text-ink-500">{t('Aucun champ choisi.', 'No field chosen.')}</span>}
+            {champsSelectionnes(portail, selection).map((l) => (
+              <span key={idChamp(l)} className="inline-flex items-center gap-1 rounded-controle bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-700">
+                {titres[l.objet]} : {l.libelle}
+                <button
+                  type="button"
+                  onClick={() => setSelection((s) => basculerChamp(s, l))}
+                  disabled={statut === 'saving'}
+                  aria-label={t(`Retirer ${l.libelle}`, `Remove ${l.libelle}`)}
+                  className="text-brand-600 hover:text-danger"
+                  data-testid={`integration-hubspot-champ-retirer-${idChamp(l)}`}
+                >
+                  <Icone nom="fermer" taille="petite" />
+                </button>
+              </span>
+            ))}
+          </div>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <input
               type="search"

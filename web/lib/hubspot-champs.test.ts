@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CHAMPS_HUBSPOT_MAX, basculerChamp, caseGrisee, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
+  CHAMPS_HUBSPOT_MAX, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
   type LigneChamp,
 } from './hubspot-champs';
 import type { ChampsHubspotDuPortail } from './api';
@@ -57,6 +57,19 @@ describe('les champs HubSpot à importer', () => {
     expect(basculerChamp(sans, disparu).has('deal:ancien_devis')).toBe(false);
     // Un champ choisi et toujours proposé n'est pas doublé.
     expect(groupesDeChamps(portail, '', s)[0]!.lignes.map((l) => l.propriete)).toEqual(['firstname', 'city']);
+  });
+
+  it('🔴 la liste des sélectionnés : chacun avec son libellé, dans l’ordre des groupes, disparus compris, quelle que soit la recherche', () => {
+    const portail: ChampsHubspotDuPortail = { ...PORTAIL, choisis: [...PORTAIL.choisis, { objet: 'deal', propriete: 'ancien_devis', libelle: 'Ancien devis' }] };
+    const s = new Set(['calcule:conseiller', 'deal:ancien_devis', 'contact:firstname']);
+    expect(champsSelectionnes(portail, s).map((l) => [idChamp(l), l.libelle])).toEqual([
+      ['contact:firstname', 'Prénom'],
+      ['deal:ancien_devis', 'Ancien devis (n’existe plus dans HubSpot)'],
+      ['calcule:conseiller', 'Conseiller (propriétaire de la transaction)'],
+    ]);
+    // La croix retire le champ de la sélection.
+    const sans = basculerChamp(s, champsSelectionnes(portail, s)[0]!);
+    expect(champsSelectionnes(portail, sans).map(idChamp)).toEqual(['deal:ancien_devis', 'calcule:conseiller']);
   });
 
   it('le lien de réservation sans l’accès à l’agenda ne se coche pas, mais se décoche s’il était choisi', () => {

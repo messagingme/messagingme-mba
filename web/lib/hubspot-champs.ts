@@ -55,6 +55,15 @@ export function groupesDeChamps(portail: ChampsHubspotDuPortail, recherche: stri
 }
 
 /**
+ * Les champs sélectionnés, dans l'ordre des groupes (Contact, Transaction, Calculés), avec leur libellé : la liste au-dessus
+ * des cases, où chacun se retire d'une croix (demande de Julien du 2026-11-02 : un champ coché disparaissait dès que la
+ * recherche changeait). Un choisi disparu de HubSpot y figure aussi, avec sa raison.
+ */
+export function champsSelectionnes(portail: ChampsHubspotDuPortail, selection: ReadonlySet<string>): LigneChamp[] {
+  return groupesDeChamps(portail, '', selection).flatMap((g) => g.lignes).filter((l) => selection.has(idChamp(l)));
+}
+
+/**
  * La réponse de la lecture a-t-elle la forme attendue ? Une API d'une autre version (ou un mock) qui rendrait autre chose
  * ferait tomber toute la page Intégrations : l'écran le dit à la place.
  */
