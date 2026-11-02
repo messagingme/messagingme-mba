@@ -2798,6 +2798,19 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   🔴 **Un template n'y figure que s'il peut vraiment partir** (2026-09-25) : ni un en-tête texte à variable,
   ni un bouton de lien dont l'adresse porte une variable (hors liens de suivi des clics posés par la console),
   qu'aucun envoi ne sait remplir et que Meta refuserait à chaque message.
+- ✅ **Créer un scénario par sa recette** (2026-11-02, spec `docs/superpowers/specs/2026-11-02-scenarios-api-design.md`) :
+  `POST /v1/scenarios`, `GET|PUT|DELETE /v1/scenarios/{id}` sous un droit neuf, `scenarios:write`, et les outils
+  `create_scenario`, `get_scenario`, `update_scenario`, `delete_scenario` pour Claude. Un intégrateur décrit un
+  parcours simple sans ouvrir la console : un template approuvé et une suite par réponse rapide, des messages à
+  réponses rapides avec une image, une vidéo ou un PDF, un agent IA, l'équipe. Le serveur le compile dans le même
+  graphe que la console dessine. Réservé aux offres qui ont les scénarios.
+  🔴 **Toute écriture publie aussitôt**, sans brouillon : le scénario n'écrit à personne tant qu'un envoi ou le
+  répondeur ne le lance pas. Un template encore en revue chez Meta fait refuser l'appel entier.
+  ⚠️ **L'API ne modifie et ne supprime que ses propres scénarios** : un scénario dessiné dans la console reste à la
+  console. Un remplacement exige l'empreinte lue, et il est refusé si quelqu'un a changé le scénario entre-temps ;
+  un contact en cours de parcours reprend où il était quand son étape n'a pas bougé. Une suppression est refusée
+  tant qu'une automation, le répondeur, une campagne, une publicité, un widget ou un « Aller à » utilise le
+  scénario, et la console applique désormais la même garde.
 - ✅ **Des erreurs qu'un programme peut traiter** : un refus de l'API rend `{ error, code }`, une phrase en
   français et un code stable en anglais, refus de la clé compris (clé absente, droit manquant, espace suspendu,
   débit), et un même refus porte le même code partout, qu'il arrive en erreur ou en motif d'écart d'un envoi.

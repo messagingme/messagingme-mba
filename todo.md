@@ -7,6 +7,17 @@
   relances vieillissent (`TROP_TARD_MS`, 20 h). À retirer au lot suivant du plan
   `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, avec son test.
 
+## 🟡 Les scénarios par l'API : la suite de la v1 (spec `docs/superpowers/specs/2026-11-02-scenarios-api-design.md`)
+
+- Blocs v2 : question à menu, étiquette et champ, opt-in et opt-out, attente, condition.
+- Les sorties de l'agent IA (une suite par règle d'arrêt et pour le délai) ; une règle ajoutée à l'agent après
+  l'écriture remonte aujourd'hui à l'équipe jusqu'au prochain remplacement.
+- Les déclencheurs (mot-clé, étiquette posée, nouveau contact) et le répondeur par défaut en REST.
+- La FAQ du plugin et la vitrine Développeurs : une entrée « Claude peut-il créer un parcours ? », écartée de la v1
+  parce que toute entrée de FAQ s'écrit aussi sur la vitrine (accord de Julien d'abord).
+- L'outil « Lancer un scénario » d'un agent IA (sa configuration) ne bloque pas la suppression d'un scénario, dans la
+  console comme par l'API.
+
 ## 🟡 Le mode répétition de l'envoi (décidé le 2026-10-31, « plus tard »)
 
 - `dryRun: true` sur `POST /v1/sends` : tout vérifier (modèle approuvé, variables, consentement, fenêtre de 24 h,

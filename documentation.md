@@ -719,6 +719,44 @@ Spec `docs/superpowers/specs/2026-10-14-medias-message-rapide-design.md`, plan d
   IGNORE la chaîne de requête (règle de cache « Images /m/ sans chaîne de requête » de la zone `messagingme.app`). 🔴 La
   route ne lit donc jamais un paramètre de requête : une variante (`?w=200`) recevrait la copie de l'adresse nue.
 
+#### Un scénario écrit par l'API ou le MCP (spec `docs/superpowers/specs/2026-11-02-scenarios-api-design.md`)
+
+Un seul service, `src/workflow/scenarios-api.ts`, que `/v1/scenarios` (`src/http/v1-scenarios.ts`) et les outils
+`create_scenario`, `get_scenario`, `update_scenario`, `delete_scenario` (`src/mcp/outils-scenarios.ts`) appellent sans
+logique à eux.
+
+🔴 **Le graphe brut n'entre jamais de l'extérieur.** L'appelant envoie une RECETTE (`src/workflow/recette.ts`, lue par
+`lireRecette` : Zod `safeParse`, schéma fermé, bornes de `web/lib/partage/message-rapide.ts`, les mêmes que l'éditeur et
+le moteur). `compilerRecette` (`recette-graphe.ts`) en fait le graphe que la console écrit, champ pour champ :
+`templateButtons` recopiés du template approuvé, branche `btn:<index du bouton dans le template>`, sorties de l'agent
+recopiées dans `data.sorties` et câblées comme `grapheDuRepondeur` (règles d'arrêt, `humain` et `timeout` vers une fin
+silencieuse ; `echec`, `plafond`, `sans_source` sans arête), arête libre pour la réponse écrite. Une réponse rapide
+sans suite est refusée : cliquée, elle remonterait à l'équipe en trou de montage (`boutonSansSuite`). Un template sans
+réponse rapide termine le parcours : avec l'agent de Meta en répondeur, il n'attend pas, et une suite en message de
+session ferait refuser tout le démarrage.
+
+🔴 **Les identifiants des blocs dérivent de leur chemin dans la recette et de leur type** (empreinte de l'entrée, du
+texte de chaque bouton suivi). Un remplacement redonne donc le même id à un bloc resté au même endroit, et son code
+`nod_` est repris du graphe publié : un contact arrêté dessus reprend au bon endroit (`grapheDuRun` lit le publié), et
+`/v1/sends` comme les « Aller à » qui visent ce code continuent de le trouver.
+
+🔴 **Toute écriture publie** (`creerPublieParApi`, `remplacerPublieParApi`, `src/workflow/store.pg.ts`) : `graph` et
+`published_at`, jamais `draft_graph`. `workflows.origine` (migration 0267) vaut `api` pour ces scénarios, `console`
+pour les autres, que l'API ne remplace ni ne supprime. Le nom est unique dans l'espace, comparé comme `/v1/sends` le
+résout (casse et espaces aux bords ignorés), sous un verrou consultatif de l'espace.
+
+🔴 **Le remplacement est gardé par l'empreinte de la RECETTE, pas du graphe** : la console réenregistre un scénario à la
+simple ouverture (les positions bougent). L'empreinte (`empreinteRecette`) se calcule sur la recette relue
+(`decompilerGraphe`) et se contrôle sous le verrou de la ligne ; un brouillon de la console qui décrit une autre
+recette fait aussi refuser. Un graphe que la recette ne sait plus dire (bloc hors des quatre formes, branches qui se
+rejoignent, bloc isolé) rend `scenario_not_describable`.
+
+🔴 **Le fichier d'un message se lit à chaque envoi** et se vérifie une fois à l'écriture par le MÊME chemin que l'envoi
+(`lireFichierDuBloc`, `src/meta/template-media.ts` : fiche de la médiathèque de l'espace, sinon téléchargement gardé),
+sans être stocké. **Ce qui utilise un scénario** (`utilisationsDuScenario` : automation, campagne qui peut encore
+partir, publicité, widget, lien de chaîne, répondeur, « Aller à » d'un autre scénario) bloque sa suppression, par
+l'API comme par la console.
+
 ### 4.4 Un agent IA répond
 
 ```
