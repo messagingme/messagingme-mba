@@ -40,7 +40,7 @@ function serveur(catalogues: Record<string, unknown> = {}) {
     usage: new GardeUsageMemoire(),
     v1: {
       apiKeys: new Cles(), oauth: aucunJetonOauth, contacts: {}, sends: {}, catalogues, messages: {}, messagesRcs: {},
-      conversations: {}, templates: {}, webhooks: {}, contactsAdmin: {},
+      conversations: {}, templates: {}, scenarios: {}, webhooks: {}, contactsAdmin: {},
     } as never,
   });
   // Deux routes d'essai, l'une sous `/v1`, l'autre comme une route de la console : le gestionnaire commun les sert.
@@ -55,7 +55,7 @@ function serveur(catalogues: Record<string, unknown> = {}) {
   return app;
 }
 const auth = { authorization: `Bearer ${CLE}` };
-const ecritures = ROUTES_V1.filter((r) => r.methode === 'POST' || r.methode === 'PATCH');
+const ecritures = ROUTES_V1.filter((r) => r.methode === 'POST' || r.methode === 'PATCH' || r.methode === 'PUT');
 
 describe('🔴 toute erreur de /v1 porte un code de la table', () => {
   it('garde de la garde : le registre a des routes d’écriture', () => {
