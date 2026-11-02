@@ -501,6 +501,43 @@ describe('POST /tenants/:t/workflows/:id/publish', () => {
     await server.close();
   });
 
+  /**
+   * 🔴 UN BLOC QUESTION QUI ATTEND UN FICHIER DOIT RELIER « FICHIER REÇU » (décision de Julien du 2026-11-02). La règle
+   * est tenue par `tests/workflow-question-piece.test.ts` (`refusFichierSansSuite`) ; ici, que la route la pose AVANT
+   * `publish`, sur le BROUILLON : sans elle, une pièce d'identité n'aurait aucune suite.
+   */
+  it('🔴 une Question qui attend un fichier sans arête « Fichier reçu » : 422, rien n’est publié', async () => {
+    const brouillon = {
+      nodes: [
+        { id: 'q', type: 'question' as const, position: { x: 0, y: 0 }, data: { body: 'Votre pièce d’identité ?', attendreFichier: true } },
+        { id: 'i', type: 'inbox' as const, position: { x: 0, y: 0 }, data: {} },
+      ],
+      edges: [{ id: 'e', source: 'q', target: 'i' }],
+    };
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? sampleRow({ draftGraph: brouillon }) : null) } });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ code: string }>().code).toBe('fichier_sans_suite');
+    expect(res.json<{ error: string }>().error).toContain('Publication refusée : le bloc Question « Votre pièce d’identité ? » attend un fichier');
+    expect(cap.publies).toEqual([]);
+    await server.close();
+  });
+
+  it('la même Question avec son arête « Fichier reçu » : publiée', async () => {
+    const brouillon = {
+      nodes: [
+        { id: 'q', type: 'question' as const, position: { x: 0, y: 0 }, data: { body: 'Votre pièce d’identité ?', attendreFichier: true } },
+        { id: 'i', type: 'inbox' as const, position: { x: 0, y: 0 }, data: {} },
+      ],
+      edges: [{ id: 'e', source: 'q', target: 'i', sourceHandle: 'fichier' }],
+    };
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? sampleRow({ draftGraph: brouillon }) : null) } });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(200);
+    expect(cap.publies).toEqual([W1]);
+    await server.close();
+  });
+
   it('le PATCH dit s’il reste un brouillon à publier : c’est lui qui allume le bouton', async () => {
     const { server } = app();
     const avec = await server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: validGraph } });
