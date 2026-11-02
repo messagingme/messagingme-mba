@@ -63,6 +63,10 @@ export const aucunEnvoiAuMba = async (): Promise<void> => {};
 export const reveilCourtInerte: WorkflowExecutorDeps['reveilCourt'] = { armer: () => {} };
 /** `signalerSaisie` (pauses en secondes) : avant lui, aucun « en train d'écrire… » ni marquage lu. */
 export const saisieInerte = async (): Promise<void> => {};
+/** `piecesQuestion` (2026-11-02) : avant lui, un bloc Question ne rangeait aucune pièce. */
+export const aucunePieceNotee: WorkflowExecutorDeps['piecesQuestion'] = { noter: async () => {} };
+/** `fuseau` (2026-11-02) : la mention d'une pièce est datée en UTC quand le test ne dit rien. */
+export const fuseauUtc = async (): Promise<string> => 'UTC';
 /** `rcs.recordOutbound` absent : l'envoi RCS n'était pas écrit dans le fil. */
 export const filRcsNonJournalise = async (): Promise<void> => {};
 /** `rcs.jetonPour` absent : les liens partaient tracés mais anonymes. */
@@ -165,4 +169,6 @@ export const depsInertes = {
   reveilCourt: reveilCourtInerte,
   signalerSaisie: saisieInerte,
   rcs: rcsSansAgent,
+  piecesQuestion: aucunePieceNotee,
+  fuseau: fuseauUtc,
 } satisfies Partial<WorkflowExecutorDeps>;

@@ -1,5 +1,6 @@
 import { messageDe, texteDe } from '../lib/erreur';
 import type { EntrantRattache } from './rattachement';
+import type { EntrantAvance } from '../workflow/executor';
 
 /** Fait avancer le run de workflow en attente d'un contact quand il envoie un message entrant. */
 export interface WorkflowAdvanceDeps {
@@ -18,8 +19,11 @@ export interface WorkflowAdvanceDeps {
    *
    * `entrant.formulaire` : le message est un formulaire renvoyé (`nfm_reply`). Sur un bloc Formulaire, il prend la
    * sortie « Formulaire rempli » ; son `buttonPayload` est le JSON de la réponse, qui ne nomme aucune sortie.
+   *
+   * `entrant.type`, `texte` et `media` : ce qu'un bloc Question range dans un champ (spec du 2026-11-02). `texte`
+   * n'est porté que par un message écrit, jamais par la légende d'un fichier ; `media` porte le MIME d'un fichier.
    */
-  advance(tenantId: string, waId: string, messageId: string, buttonPayload: string | null, entrant: { reaction: boolean; formulaire: boolean }): Promise<boolean | void>;
+  advance(tenantId: string, waId: string, messageId: string, buttonPayload: string | null, entrant: EntrantAvance): Promise<boolean | void>;
   /**
    * Consigne un échec d'avance là où quelqu'un le verra : l'isolation par message reste, mais un acquittement
    * silencieux laisserait le contact bloqué sur son bloc sans rejeu ni trace. Optionnelle et best-effort :
@@ -61,7 +65,7 @@ function contexteDeLAvance(err: unknown): { workflowId?: string; runId?: string;
 export function avanceDuParcours(d: {
   trouverEnAttente(tenantId: string, waId: string): Promise<object | null>;
   peutAgir(tenantId: string, waId: string): Promise<boolean>;
-  avancer(tenantId: string, waId: string, messageId: string, buttonPayload: string | null, entrant: { reaction: boolean; formulaire: boolean }): Promise<void>;
+  avancer(tenantId: string, waId: string, messageId: string, buttonPayload: string | null, entrant: EntrantAvance): Promise<void>;
 }): WorkflowAdvanceDeps['advance'] {
   return async (tenantId, waId, messageId, buttonPayload, entrant) => {
     const enAttente = (await d.trouverEnAttente(tenantId, waId)) !== null;
@@ -92,7 +96,14 @@ export async function processWorkflowAdvance(entrants: readonly EntrantRattache[
     if (m.field && m.field !== 'messages') continue;
     // Isolation par message : une erreur sur un contact ne prive pas les autres du même webhook.
     try {
-      if ((await deps.advance(tenantId, m.waId, m.messageId, m.buttonPayload, { reaction: m.type === 'reaction', formulaire: m.formulaire === true })) === true) {
+      const entrant: EntrantAvance = {
+        reaction: m.type === 'reaction',
+        formulaire: m.formulaire === true,
+        type: m.type,
+        ...(m.type === 'text' && m.body !== null ? { texte: m.body } : {}),
+        ...(m.media ? { media: { mime: m.media.mime } } : {}),
+      };
+      if ((await deps.advance(tenantId, m.waId, m.messageId, m.buttonPayload, entrant)) === true) {
         parParcours.add(m.messageId);
       }
     } catch (err) {

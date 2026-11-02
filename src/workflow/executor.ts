@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, pauseEnSecondes } from './engine';
+import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, pauseEnSecondes, questionRows } from './engine';
 import type { WalkStep } from './engine';
 import type { WorkflowAction, WalkRest, WorkflowButton, SendEmailAction, QuestionRow, LienBouton } from './engine';
 import type { WorkflowGraph, WorkflowNode, WorkflowNodeType } from './graph';
@@ -29,6 +29,9 @@ import {
 } from './lancements';
 import { MAX_SAUTS_SANS_PAUSE, nomDuBloc } from './aller-a';
 import { genreParAdresse } from '../medias/fichier';
+import { classerPiece, mentionDePiece, reglagesQuestion } from './question-piece';
+import type { PgPiecesQuestion } from './pieces-question.pg';
+import { SORTIE_FICHIER, type GenrePiece } from '../../web/lib/partage/question-piece';
 
 /**
  * Résultat d'un démarrage : `true` = parti, une chaîne = pas parti, avec la raison exacte (pour que la
@@ -143,6 +146,13 @@ export interface WorkflowExecutorDeps {
    *  « tag ajouté » (reposer un tag présent n'est pas un événement). `void` (fakes) est traité comme nouveau. */
   applyTag(tenantId: string, waId: string, tag: string): Promise<void | boolean>;
   setField(tenantId: string, waId: string, key: string, value: string): Promise<void>;
+  /**
+   * La pièce rangée par un bloc Question (spec du 2026-11-02) : la mention écrite dans le champ et le message de Meta
+   * qu'elle désigne. Requise : sans elle, un champ porterait une mention qu'aucun Appel API ne saurait ouvrir.
+   */
+  piecesQuestion: Pick<PgPiecesQuestion, 'noter'>;
+  /** Le fuseau de l'espace, qui date la mention d'une pièce (le même que celui des conditions horaires). */
+  fuseau(tenantId: string): Promise<string>;
   /** Retire un tag du contact (bloc Action « retirer un tag »). */
   removeTag(tenantId: string, waId: string, tag: string): Promise<void>;
   /** Vide un champ du contact = retire la clé (bloc Action « vider un champ »). */
@@ -441,6 +451,27 @@ function rcsOutboundOf(node: WorkflowNode | undefined): RcsOutbound | null {
 /** Anti-boucle de `walkResolved` : une chaîne de blocs RCS tous non joignables finit par s'arrêter. Le walk
  *  a déjà son propre `visited` par appel, ce plafond borne l'enchaînement de walks. */
 const MAX_RCS_ENCHAINES = 20;
+
+/**
+ * Ce que la porte d'entrée sait du message qui fait avancer un parcours. `type`, `texte` et `media` servent au bloc
+ * Question qui range sa réponse (spec du 2026-11-02) : `texte` n'est rempli que pour un message écrit (`type` `text`),
+ * `media` que pour un fichier, avec le type MIME annoncé par WhatsApp. Absents : rien n'est rangé, comme avant.
+ */
+export interface EntrantAvance {
+  reaction: boolean;
+  formulaire?: boolean;
+  type?: string;
+  texte?: string | null;
+  media?: { mime: string | null };
+}
+
+/** Le genre de la pièce reçue, s'il est l'un de ceux que le bloc Question attend ; sinon `null`. */
+function pieceAttendue(node: WorkflowNode, entrant: EntrantAvance): GenrePiece | null {
+  const { genres } = reglagesQuestion(node);
+  if (genres === null || entrant.media === undefined) return null;
+  const genre = classerPiece(entrant.type ?? '', entrant.media.mime);
+  return genre !== null && genres.includes(genre) ? genre : null;
+}
 
 export function restToState(rest: WalkRest, now: number): RunState {
   if (rest.status === 'waiting') {
@@ -1064,6 +1095,40 @@ export class WorkflowExecutor {
    * laisse le fil à nous (l'agent reste muet, ce qui se voit dans l'Inbox), alors qu'une exception remontée
    * ferait échouer un envoi déjà parti.
    */
+  /**
+   * Range la réponse à un bloc Question dans le champ qu'il a choisi (spec du 2026-11-02). Une pièce acceptée : la
+   * mention, notée D'ABORD avec son message (un échec entre les deux laisse un champ qui n'ouvre rien, jamais une note
+   * sans champ qui la porte) ; une ligne du menu : son titre, si la case est cochée ; un texte écrit : le texte. Rien
+   * d'autre, et un fichier refusé ne touche pas au champ. N'échoue jamais vers l'appelant : le contact doit avancer
+   * même si l'écriture manque. Le journal ne porte jamais la valeur, qui peut être une donnée du contact.
+   */
+  private async rangerLaReponse(
+    tenantId: string, waId: string, messageId: string, node: WorkflowNode, buttonPayload: string | null,
+    entrant: EntrantAvance, piece: GenrePiece | null,
+  ): Promise<void> {
+    const { champ, rangerLigne } = reglagesQuestion(node);
+    if (champ === null) return;
+    try {
+      if (piece !== null) {
+        const mention = mentionDePiece(new Date(this.now()), await this.deps.fuseau(tenantId), piece);
+        await this.deps.piecesQuestion.noter(tenantId, waId, champ, messageId, mention);
+        await this.deps.setField(tenantId, waId, champ, mention);
+        return;
+      }
+      if (typeof buttonPayload === 'string' && buttonPayload.startsWith('row:')) {
+        const ligne = rangerLigne ? questionRows(node)[Number(buttonPayload.slice(4))] : undefined;
+        if (ligne !== undefined && ligne.title !== '') await this.deps.setField(tenantId, waId, champ, ligne.title);
+        return;
+      }
+      if (buttonPayload === null && typeof entrant.texte === 'string' && entrant.texte.trim() !== '') {
+        await this.deps.setField(tenantId, waId, champ, entrant.texte);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn(`workflow: réponse du bloc ${node.id} NON rangée dans le champ « ${champ} » pour ${waId}:`, messageDe(err));
+    }
+  }
+
   private async rendreLaMainAMba(tenantId: string, waId: string, opts: { transmettre?: string } = {}): Promise<void> {
     if (!(await this.mbaActif(tenantId))) {
       // Aucun appel Meta si l'agent n'est pas le répondeur (éteint, ou en veille, RC6). Le message « à côté », lui, va au
@@ -1652,7 +1717,7 @@ export class WorkflowExecutor {
    */
   async advance(
     tenantId: string, waId: string, messageId: string, buttonPayload: string | null = null, canalRetour: RunChannel = 'whatsapp',
-    entrant: { reaction: boolean; formulaire?: boolean } = { reaction: false },
+    entrant: EntrantAvance = { reaction: false },
   ): Promise<void> {
     const run = await this.deps.runs.findWaitingByWaId(tenantId, waId);
     if (!run || run.lastMessageId === messageId) return; // dédup at-least-once
@@ -1746,13 +1811,20 @@ export class WorkflowExecutor {
     // le handle carte/bouton d'un carousel) ; pas de payload = le contact a écrit. Les blocs RCS sont exclus :
     // leur reprise est l'issue d'un envoi, pas une réponse. Un formulaire renvoyé se mesure sous `rempli` : son
     // payload est le JSON de la réponse, jusqu'à 2 000 caractères, qui s'affichait comme un « choix » illisible.
+    // La pièce attendue par un bloc Question (spec du 2026-11-02), reconnue par son type réel : acceptée, elle prend
+    // la sortie « Fichier reçu », se mesure sous elle, et ne retombe JAMAIS sur la branche prévue pour le texte.
+    const pieceAcceptee = courant?.type === 'question' && !sortieAgent ? pieceAttendue(courant, entrant) : null;
     if (run.currentNode && courant?.type !== 'rcs_message' && !sortieAgent) {
       const aClique = typeof buttonPayload === 'string' && buttonPayload !== '';
       await this.mesurer(
         tenantId, run.workflowId, run.currentNode, waId,
         aClique ? 'reply_button' : 'reply_text',
-        entrant.formulaire === true ? SORTIE_FORMULAIRE_REMPLI : aClique ? buttonPayload : undefined,
+        entrant.formulaire === true ? SORTIE_FORMULAIRE_REMPLI : aClique ? buttonPayload : pieceAcceptee !== null ? SORTIE_FICHIER : undefined,
       );
+    }
+    // La réponse rangée dans le champ du bloc, AVANT le routage : le bloc suivant (Appel API, Condition) la lit.
+    if (courant?.type === 'question' && !sortieAgent) {
+      await this.rangerLaReponse(tenantId, waId, messageId, courant, buttonPayload, entrant, pieceAcceptee);
     }
     // Bloc agent : le contact répond pendant une conversation que l'agent tient, on n'entre pas dans le
     // routage. Sinon une arête libre ferait sauter l'agent dès le premier message, ou le run serait clos et le fil
@@ -1824,17 +1896,19 @@ export class WorkflowExecutor {
     // sur `sent` ; sans clic, on reprend par `sent`.
     // Bloc Formulaire : deux issues seulement. Le formulaire renvoyé prend `rempli` ; tout le reste, bouton d'un ancien
     // message compris (il ne nomme aucune sortie de ce bloc), suit l'arête libre, « Toute autre réponse ».
+    // Bloc Question : une pièce acceptée prend « Fichier reçu » et rien d'autre (sans cette arête, elle remonte à un
+    // humain plus bas : la sortie libre est la branche prévue pour le texte).
     const handle = courant?.type === 'rcs_message'
       ? (buttonPayload ?? 'sent')
       : courant?.type === 'flow'
         ? (entrant.formulaire === true ? SORTIE_FORMULAIRE_REMPLI : null)
-        : buttonPayload;
+        : pieceAcceptee !== null ? SORTIE_FICHIER : buttonPayload;
     const sortieTypee = graph && run.currentNode
       ? graph.edges.some((e) => e.source === run.currentNode && (e.sourceHandle === 'sent' || e.sourceHandle === 'unreachable'))
       : false;
     const next = graph && run.currentNode
       ? ((handle ? nextNodeByHandle(graph, run.currentNode, handle) : null)
-        ?? (sortieTypee ? null : nextNodeSansHandle(graph, run.currentNode)))
+        ?? (sortieTypee || pieceAcceptee !== null ? null : nextNodeSansHandle(graph, run.currentNode)))
       : null;
     if (!graph || !next) {
       // Deux situations distinctes :
@@ -1845,11 +1919,13 @@ export class WorkflowExecutor {
       // `row:<i>` (menu d'une question), `sortie:` (sortie d'agent non câblée, qui ne doit pas envoyer le contact
       // au bot générique au lieu d'alerter un opérateur). Tout le reste (texte libre, payload d'un vieux template,
       // accusé RCS dont la sortie n'est pas branchée) suit le chemin (a).
-      const boutonSansSuite = typeof buttonPayload === 'string' && /^(btn:|card:|row:|sortie:)/.test(buttonPayload);
+      // Une pièce acceptée sans arête « Fichier reçu » (un brouillon : la publication la refuse) est un choix proposé.
+      const boutonSansSuite = pieceAcceptee !== null
+        || (typeof buttonPayload === 'string' && /^(btn:|card:|row:|sortie:)/.test(buttonPayload));
       await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId });
       if (boutonSansSuite) {
         // eslint-disable-next-line no-console
-        console.error(`workflow ${run.workflowId}: le bouton « ${buttonPayload} » du bloc ${run.currentNode} ne mène nulle part, ${waId} a cliqué et n'a rien reçu`);
+        console.error(`workflow ${run.workflowId}: le choix « ${pieceAcceptee !== null ? SORTIE_FICHIER : buttonPayload} » du bloc ${run.currentNode} ne mène nulle part, ${waId} a répondu et n'a rien reçu`);
         // Pas d'escalade : le contact vient de cliquer, `last_direction` est entrant et « À traiter » porte déjà
         // la conversation. Le drapeau n'ajouterait que la collance.
         await this.deps.escalateToHuman(tenantId, waId, null, false, run.workflowId, true);

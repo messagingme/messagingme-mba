@@ -41,6 +41,7 @@ import { decryptSecret } from '../crypto/secretbox';
 import { enfilerEvenementAutomation, type AutomationEventJob } from '../automation/event-job';
 import { AGENT_TURN_QUEUE, type AgentTurnJob } from '../agent/turn-job';
 import { PgAgentSessionStore } from '../agent/session-store.pg';
+import { PgPiecesQuestion } from './pieces-question.pg';
 import { creerPoseEtiquette, normaliserEtiquette } from '../crm/poser-etiquette';
 import type { PgEmailTemplateStore } from '../email/template-store.pg';
 import type { EmailAccountResolver } from '../email/resolver';
@@ -351,6 +352,8 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
   // Les sessions d'agent : partagées avec le worker, qui les reçoit d'ici plutôt que d'en construire un
   // second exemplaire (deux points de construction finissent par diverger sur une option).
   const agentSessions = new PgAgentSessionStore(pool);
+  // Les pièces reçues par un bloc Question (migration 0269) : écrites par l'avance, lues par l'Appel API du scénario.
+  const piecesQuestion = new PgPiecesQuestion(pool);
 
   // Le journal des échecs de scénario, où un « Aller à » qui n'a pas eu lieu est écrit (RC5).
   const echecsDeScenario = new PgErreursLivraisonStore(pool);
@@ -494,6 +497,10 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     // Un saut qui n'a pas lieu atterrit dans le journal des échecs de scénario, celui des avances qui échouent.
     journaliserEchecSaut: (e) => echecsDeScenario.enregistrerEchecAvance({ ...e, canal: null }),
     setField: async (tenant, waId, key, value) => { await contactStore.mergeFieldsByPhone(tenant, waId, { [key]: value }); },
+    // La pièce d'un bloc Question (spec du 2026-11-02) : le store entier, pour que `noter` garde son `this`. La mention
+    // se date dans le fuseau de l'espace, le même que celui des conditions horaires.
+    piecesQuestion,
+    fuseau: async (t) => (await settingsStore.horairesEffectifs(t)).timezone,
     /**
      * `appelHttp` (plus bas) : joue un appel de la bibliothèque et rend ce qu'il faut ranger dans un champ.
      * Mêmes gardes que l'agent IA, parce que c'est le même code (`creerAppelConnecteur`). Les deux valeurs

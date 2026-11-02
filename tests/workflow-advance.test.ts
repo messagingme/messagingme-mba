@@ -63,6 +63,26 @@ describe('processWorkflowAdvance', () => {
     expect(vus).toEqual([{ m: 'f1', formulaire: true }, { m: 't1', formulaire: false }]);
   });
 
+  it('🔴 le bloc Question qui range sa réponse reçoit le type, le texte d’un message écrit seulement, et le MIME d’un fichier', async () => {
+    // Spec du 2026-11-02 : une photo envoyée « en fichier » se reconnaît à son MIME ; sa légende n'est pas un texte écrit.
+    const vus: unknown[] = [];
+    const p = { entry: [{ changes: [{ field: 'messages', value: {
+      metadata: { phone_number_id: 'PN1' },
+      contacts: [{ wa_id: '33600' }],
+      messages: [
+        { id: 'd1', from: '33600', type: 'document', document: { id: 'MEDIA1', mime_type: 'image/jpeg', filename: 'carte.jpg', caption: 'ma carte' } },
+        { id: 't1', from: '33600', type: 'text', text: { body: 'Je n’ai pas ma carte' } },
+      ],
+    } }] }] };
+    await processWorkflowAdvance(await entrantsDe(p), {
+      advance: async (_t, _w, m, _bp, entrant) => { vus.push({ m, type: entrant.type, texte: entrant.texte, media: entrant.media }); },
+    });
+    expect(vus).toEqual([
+      { m: 'd1', type: 'document', texte: undefined, media: { mime: 'image/jpeg' } },
+      { m: 't1', type: 'text', texte: 'Je n’ai pas ma carte', media: undefined },
+    ]);
+  });
+
   it('numéro non rattaché à un tenant -> pas d\'avance', async () => {
     const calls: string[] = [];
     await processWorkflowAdvance(await entrantsDe(payload, null), {

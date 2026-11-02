@@ -248,3 +248,149 @@ describe('balayeur : les deux familles d echeance', () => {
     expect(vus).toEqual(['a']);
   });
 });
+
+/**
+ * Bloc QUESTION qui RANGE sa réponse (spec du 2026-11-02) : la pièce jointe reconnue par son type réel, la mention
+ * écrite dans le champ, le texte et la ligne choisie. Ce que chaque cas protège :
+ *  - une pièce acceptée part sur « Fichier reçu », jamais sur la branche prévue pour le texte ;
+ *  - le champ ne reçoit QUE la mention, et la pièce est notée (le lien se fabriquera à l'appel, sur cette note) ;
+ *  - un fichier refusé, ou un bloc qui n'attend rien, ne touche pas au champ ;
+ *  - un bloc enregistré avant ce lot ne range rien, et une fin silencieuse transmet le message comme avant.
+ */
+describe('bloc Question : la réponse rangée, pièce jointe comprise', () => {
+  const MAINTENANT = Date.parse('2026-11-02T13:32:00Z');
+  const MENTION = 'Pièce reçue le 02/11/2026 à 14 h 32 (photo)';
+  const reglages = { champReponse: 'piece_identite', attendreFichier: true };
+  const graphePiece = (data: Record<string, unknown> = reglages, avecFichier = true): WorkflowGraph => ({
+    nodes: [
+      n('q', 'question', { body: 'Votre pièce d’identité ?', buttonLabel: 'Choisir', rows: [{ title: 'Oui' }, { title: 'Non' }], ...data }),
+      n('recu', 'tag', { tag: 'piece' }),
+      n('oui', 'tag', { tag: 'ok' }),
+      n('non', 'tag', { tag: 'refus' }),
+      n('libre', 'tag', { tag: 'ecrit' }),
+    ],
+    edges: [
+      ...(avecFichier ? [e('e0', 'q', 'recu', 'fichier')] : []),
+      e('e1', 'q', 'oui', 'row:0'),
+      e('e2', 'q', 'non', 'row:1'),
+      e('e3', 'q', 'libre'),
+    ],
+  });
+  const fichier = (type: string, mime: string | null) => ({ reaction: false, type, media: { mime } });
+
+  function monterAvecChamps(graph: WorkflowGraph, run: WorkflowRunRow | null, over: Partial<WorkflowExecutorDeps> = {}) {
+    const cap = capture();
+    const champs: Array<[string, string]> = [];
+    const notes: Array<[string, string, string, string, string]> = [];
+    const confies: string[] = [];
+    const { ex } = monter(graph, run, cap, {
+      now: () => MAINTENANT,
+      fuseau: async () => 'Europe/Paris',
+      setField: async (_t, _w, cle, valeur) => { champs.push([cle, valeur]); },
+      piecesQuestion: { noter: async (t, w, cle, wamid, mention) => { notes.push([t, w, cle, wamid, mention]); } },
+      confierAuRepondeur: async (_t, _w, messageId) => { confies.push(messageId); },
+      ...over,
+    });
+    return { ex, cap, champs, notes, confies };
+  }
+
+  it('🔴 une photo acceptée part sur « Fichier reçu », le champ reçoit la mention, la pièce est notée', async () => {
+    const { ex, cap, champs, notes } = monterAvecChamps(graphePiece(), runQ());
+    await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    expect(cap.tags).toEqual(['piece']);
+    expect(champs).toEqual([['piece_identite', MENTION]]);
+    expect(notes).toEqual([['t1', '33600', 'piece_identite', 'wamid.P1', MENTION]]);
+  });
+
+  it('🔴 une photo envoyée « en fichier » (document JPEG) est une photo', async () => {
+    const { ex, cap, champs } = monterAvecChamps(graphePiece(), runQ());
+    await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('document', 'image/jpeg'));
+    expect(cap.tags).toEqual(['piece']);
+    expect(champs).toEqual([['piece_identite', MENTION]]);
+  });
+
+  it('une vidéo, avec les types par défaut : sortie libre, champ intact', async () => {
+    const { ex, cap, champs, notes } = monterAvecChamps(graphePiece(), runQ());
+    await ex.advance('t1', '33600', 'wamid.V1', null, 'whatsapp', fichier('video', 'video/mp4'));
+    expect(cap.tags).toEqual(['ecrit']);
+    expect(champs).toEqual([]);
+    expect(notes).toEqual([]);
+  });
+
+  it('un sticker n’est jamais une pièce : sortie libre, rien rangé', async () => {
+    const { ex, cap, champs } = monterAvecChamps(graphePiece(), runQ());
+    await ex.advance('t1', '33600', 'wamid.S1', null, 'whatsapp', fichier('sticker', 'image/webp'));
+    expect(cap.tags).toEqual(['ecrit']);
+    expect(champs).toEqual([]);
+  });
+
+  it('un texte écrit : sortie libre, le champ reçoit le texte', async () => {
+    const { ex, cap, champs, notes } = monterAvecChamps(graphePiece(), runQ());
+    await ex.advance('t1', '33600', 'wamid.T1', null, 'whatsapp', { reaction: false, type: 'text', texte: 'Je n’ai pas ma carte' });
+    expect(cap.tags).toEqual(['ecrit']);
+    expect(champs).toEqual([['piece_identite', 'Je n’ai pas ma carte']]);
+    expect(notes).toEqual([]);
+  });
+
+  it('une ligne du menu : son titre seulement si la case est cochée', async () => {
+    const sans = monterAvecChamps(graphePiece(), runQ());
+    await sans.ex.advance('t1', '33600', 'wamid.R1', 'row:1');
+    expect(sans.cap.tags).toEqual(['refus']);
+    expect(sans.champs).toEqual([]);
+
+    const avec = monterAvecChamps(graphePiece({ ...reglages, rangerLigne: true }), runQ());
+    await avec.ex.advance('t1', '33600', 'wamid.R1', 'row:1');
+    expect(avec.cap.tags).toEqual(['refus']);
+    expect(avec.champs).toEqual([['piece_identite', 'Non']]);
+  });
+
+  it('attente de fichier décochée : une photo prend la sortie libre et le champ reste intact', async () => {
+    const { ex, cap, champs } = monterAvecChamps(graphePiece({ champReponse: 'piece_identite' }), runQ());
+    await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    expect(cap.tags).toEqual(['ecrit']);
+    expect(champs).toEqual([]);
+  });
+
+  it('🔴 un bloc enregistré avant ce lot ne range rien, texte ou photo', async () => {
+    const { ex, cap, champs, notes } = monterAvecChamps(GRAPHE, runQ());
+    await ex.advance('t1', '33600', 'wamid.T1', null, 'whatsapp', { reaction: false, type: 'text', texte: 'bonjour' });
+    expect(cap.tags).toEqual(['ecrit']);
+    expect(champs).toEqual([]);
+    expect(notes).toEqual([]);
+  });
+
+  it('🔴 le fil tenu par un humain ou l’agent de Meta : l’avance est gelée, rien n’est rangé', async () => {
+    const { ex, cap, champs, notes } = monterAvecChamps(graphePiece(), runQ(), { mayAct: async () => false });
+    await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    expect(cap.tags).toEqual([]);
+    expect(champs).toEqual([]);
+    expect(notes).toEqual([]);
+  });
+
+  it('🔴 Meta redélivre le même message : rien n’est rangé une seconde fois', async () => {
+    const { ex, champs, notes } = monterAvecChamps(graphePiece(), { ...runQ(), lastMessageId: 'wamid.P1' });
+    await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    expect(champs).toEqual([]);
+    expect(notes).toEqual([]);
+  });
+
+  it('la pièce arrive quand aucun parcours n’attend (après le délai) : rien n’est rangé', async () => {
+    const { ex, champs, notes } = monterAvecChamps(graphePiece(), null);
+    await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    expect(champs).toEqual([]);
+    expect(notes).toEqual([]);
+  });
+
+  it('🔴 une pièce acceptée sans arête « Fichier reçu » (brouillon) remonte à un humain, jamais sur la sortie libre', async () => {
+    const { ex, cap } = monterAvecChamps(graphePiece(reglages, false), runQ());
+    await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    expect(cap.tags).toEqual([]);
+    expect(cap.escalades).toEqual(['33600']);
+  });
+
+  it('« Fichier reçu » puis fin sans envoi : le message part chez le répondeur, comme aujourd’hui (décision de Julien)', async () => {
+    const { ex, confies } = monterAvecChamps(graphePiece(), runQ());
+    await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    expect(confies).toEqual(['wamid.P1']);
+  });
+});
