@@ -29,6 +29,7 @@ export type RouteAvecCorps =
   | 'POST /v1/contacts/search'
   | 'PATCH /v1/contacts/{contactId}'
   | 'POST /v1/sends'
+  | 'POST /v1/scenarios'
   | 'POST /v1/messages/whatsapp'
   | 'POST /v1/messages'
   | 'POST /v1/messages/rcs'
@@ -188,6 +189,27 @@ export const EXEMPLES_CORPS = {
             { type: 'reply', reply: { id: 'relais', title: 'En point relais' } },
           ],
         },
+      },
+    },
+  },
+  // Un scénario par sa recette (spec 2026-11-02) : un template à deux réponses rapides, un message avec un PDF, un agent IA.
+  recetteScenario: {
+    route: 'POST /v1/scenarios',
+    corps: {
+      nom: 'Relance devis',
+      entree: {
+        template: { nom: 'relance_devis', langue: 'fr', variables: { 1: { champ: 'prenom' } } },
+        boutons: [
+          { texte: 'Oui, intéressé', suite: { agent: { agent_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' } } },
+          {
+            texte: 'Plus tard',
+            suite: {
+              message: { texte: 'Voici notre brochure. On en reparle ?', fichier: { url: 'https://www.exemple.fr/brochure.pdf' } },
+              reponses: [{ texte: 'Oui', suite: { humain: {} } }, { texte: 'Non merci', suite: { message: { texte: 'Entendu, à bientôt.' } } }],
+            },
+          },
+        ],
+        autre_reponse: { humain: {} },
       },
     },
   },
@@ -409,6 +431,26 @@ export const EXEMPLES_REPONSES = {
   },
   // Les modèles (lot 13, domaine 3) : tenus aux formes du serveur par `tests/api-exemples.test.ts`.
   modeleCree: { id: '1489201163476524', name: 'commande_prete', language: 'fr', category: 'utility', status: 'pending' },
+  scenarioCree: {
+    id: '7d2e4c1a-3b5f-4e6d-8a9b-0c1d2e3f4a5b',
+    code: 'scn_k7m2p3_01JCZ5Q8V9X3B2N4M6P7R8S9T0',
+    nom: 'Relance devis',
+    origine: 'api',
+    entreeCode: 'nod_k7m2p3_01JCZ5Q8VA1B2C3D4E5F6G7H8J',
+    recette: {
+      nom: 'Relance devis',
+      entree: {
+        template: { nom: 'relance_devis', langue: 'fr', variables: { 1: { champ: 'prenom' } } },
+        boutons: [
+          { texte: 'Oui, intéressé', suite: { agent: { agent_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' } } },
+          { texte: 'Plus tard', suite: { message: { texte: 'Voici notre brochure. On en reparle ?', fichier: { url: 'https://www.exemple.fr/brochure.pdf' } }, reponses: [{ texte: 'Oui', suite: { humain: {} } }, { texte: 'Non merci', suite: { message: { texte: 'Entendu, à bientôt.' } } }] } },
+        ],
+        autre_reponse: { humain: {} },
+      },
+    },
+    empreinte: '9b1c4e7f2a0d5c8e3b6f1a4d7c0e9b2f',
+    ouverture: 'whatsapp_template',
+  },
   statutModele: {
     name: 'commande_prete',
     languages: [

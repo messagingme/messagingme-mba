@@ -151,7 +151,7 @@ const ROUTE_DE_LA_REPONSE = {
   messageLu: 'GET /v1/messages/{messageId}', champs: 'GET /v1/fields', champCree: 'POST /v1/fields',
   ficheEffacee: 'DELETE /v1/contacts/{contactId}', webhook: 'GET /v1/webhooks/{webhookId}', webhooks: 'GET /v1/webhooks',
   webhookCree: 'POST /v1/webhooks', envoisWebhook: 'GET /v1/webhooks/{webhookId}/deliveries', modeleCree: 'POST /v1/templates',
-  statutModele: 'GET /v1/templates/{name}', messagesDuFil: 'GET /v1/conversations/{conversationId}/messages',
+  statutModele: 'GET /v1/templates/{name}', scenarioCree: 'POST /v1/scenarios', messagesDuFil: 'GET /v1/conversations/{conversationId}/messages',
 } as const satisfies Record<keyof typeof EXEMPLES_REPONSES, string | null>;
 type Routes = typeof ROUTE_DE_LA_REPONSE;
 type VerifReponses = {

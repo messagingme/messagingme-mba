@@ -20,6 +20,7 @@ import {
 import type { ReponseMessageSimple } from '../src/http/v1-messages';
 import { schemaMessageMeta } from '../src/api/message-meta';
 import { schemaModeleMeta } from '../src/api/modele-meta';
+import { lireRecette } from '../src/workflow/recette';
 import { saisieCreation, saisieModification } from '../src/evenements/gestion';
 import type { DeliveryV1, WebhookV1 } from '../src/http/v1-webhooks';
 import type { ChampV1 } from '../src/http/v1-contacts-admin';
@@ -114,6 +115,8 @@ const VALIDATEURS: Record<RouteAvecCorps, (corps: unknown) => Verdict> = {
   'POST /v1/messages/rcs': (c) => depuis(schemaMessageRcs.safeParse(c)),
   'POST /v1/templates': (c) => depuis(schemaModeleMeta.safeParse(c)),
   'POST /v1/fields': (c) => depuis(corpsChamp.safeParse(c)),
+  // La lecture de la route, jamais une copie : `lireRecette` est le seul juge d'une recette.
+  'POST /v1/scenarios': (c) => { const r = lireRecette(c); return r.ok ? { ok: true } : { ok: false, raison: r.message }; },
   'POST /v1/webhooks': (c) => depuis(saisieCreation.safeParse(c)),
   'PATCH /v1/webhooks/{webhookId}': (c) => depuis(saisieModification.safeParse(c)),
   'POST /v1/webhooks/{webhookId}/replay-failures': (c) => depuis(corpsRejeu.safeParse(c)),

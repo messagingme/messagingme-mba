@@ -391,6 +391,102 @@ Catégorie du template illisible chez Meta : l’envoi est refusé plutôt que d
 
 Que faire : Réessayer plus tard ; si cela dure, vérifier le modèle dans le WhatsApp Manager.
 
+<a id="template_not_approved"></a>
+
+### `template_not_approved` 422
+
+Le template de la recette n’est pas approuvé par Meta : réessayez après son approbation.
+
+Que faire : Attendre l’approbation (GET /v1/templates/{name}), puis renvoyer le scénario.
+
+<a id="template_button_unknown"></a>
+
+### `template_button_unknown` 422
+
+Ce texte n’est pas une réponse rapide du template. Le message cite les réponses exactes.
+
+Que faire : Reprendre le texte exact d’une réponse rapide, cité dans le message.
+
+<a id="quick_reply_unwired"></a>
+
+### `quick_reply_unwired` 422
+
+Une réponse rapide du template n’a pas de suite : chacune en demande une.
+
+Que faire : Donner une suite à chaque réponse rapide du template, au besoin l’étape humain.
+
+<a id="agent_unavailable"></a>
+
+### `agent_unavailable` 422
+
+Aucun agent IA actif de l’espace ne porte cet identifiant.
+
+Que faire : Choisir un agent actif (list_agents), ou activer celui-ci.
+
+<a id="field_unknown"></a>
+
+### `field_unknown` 422
+
+Aucun champ de ce nom dans l’espace.
+
+Que faire : Créer le champ (POST /v1/fields), ou en choisir un existant.
+
+<a id="file_refused"></a>
+
+### `file_refused` 422
+
+Le fichier n’a pas pu être lu, ou WhatsApp ne l’accepte pas (image JPEG, PNG ou GIF, vidéo MP4, PDF). Le message dit pourquoi.
+
+Que faire : Donner l’adresse https d’un fichier public au bon format, ou un fichier plus léger.
+
+<a id="scenario_name_taken"></a>
+
+### `scenario_name_taken` 409
+
+Un scénario de l’espace porte déjà ce nom : sa réponse donne son identifiant.
+
+Que faire : Choisir un autre nom, ou relire le scénario existant (son id est dans la réponse).
+
+<a id="scenario_managed_in_console"></a>
+
+### `scenario_managed_in_console` 409
+
+Ce scénario a été créé dans la console : seule la console le modifie ou le supprime.
+
+Que faire : Le modifier dans la console, ou en créer un par l’API.
+
+<a id="scenario_changed"></a>
+
+### `scenario_changed` 409
+
+Le scénario a changé depuis votre lecture : relisez-le et renvoyez son empreinte.
+
+Que faire : Relire le scénario (GET), reporter vos changements, renvoyer avec la nouvelle empreinte.
+
+<a id="scenario_not_describable"></a>
+
+### `scenario_not_describable` 409
+
+Modifié dans la console, le scénario ne se décrit plus par une recette : seule la console le modifie.
+
+Que faire : Le modifier dans la console, ou en créer un nouveau par l’API.
+
+<a id="scenario_in_use"></a>
+
+### `scenario_in_use` 409
+
+Le scénario sert encore (automation, répondeur, campagne, publicité, widget…) : le message dit où.
+
+Que faire : Retirer d’abord ce qui l’utilise, nommé dans le message.
+
+<a id="precondition_required"></a>
+
+### `precondition_required` 428
+
+L’empreinte lue manque : passez-la dans If-Match ou dans le corps.
+
+Que faire : Lire le scénario (GET) et passer son empreinte.
+
 <a id="idempotency_key_required"></a>
 
 ### `idempotency_key_required` 400

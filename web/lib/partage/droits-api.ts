@@ -11,7 +11,7 @@
  */
 export const API_SCOPES = [
   'contacts:write', 'contacts:read', 'sends:create', 'mcp:read', 'mcp:write', 'conversations:read', 'templates:write',
-  'webhooks:write', 'contacts:admin',
+  'webhooks:write', 'contacts:admin', 'scenarios:write',
 ] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 

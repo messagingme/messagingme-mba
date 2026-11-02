@@ -43,6 +43,7 @@ const SECTIONS: Record<CleDePage, string[]> = {
   messages: ['Message ou envoi'],
   conversations: ['Pagination'],
   templates: [],
+  scenarios: ['La recette'],
   'webhook-endpoints': [],
   sends: ['Types de cible', 'Destinataires', 'Paramètres et variables', 'Message d’ouverture', 'Catégorie', 'Exemples de cibles'],
   catalogs: [],

@@ -391,6 +391,102 @@ The template category cannot be read at Meta: the send is refused rather than gu
 
 What to do: Retry later; if it persists, check the template in WhatsApp Manager.
 
+<a id="template_not_approved"></a>
+
+### `template_not_approved` 422
+
+The recipe template is not approved by Meta: retry once it is approved.
+
+What to do: Wait for approval (GET /v1/templates/{name}), then send the scenario again.
+
+<a id="template_button_unknown"></a>
+
+### `template_button_unknown` 422
+
+This text is not a quick reply of the template. The message quotes the exact replies.
+
+What to do: Use the exact text of a quick reply, quoted in the message.
+
+<a id="quick_reply_unwired"></a>
+
+### `quick_reply_unwired` 422
+
+A quick reply of the template has no next step: each one needs one.
+
+What to do: Give each quick reply of the template a next step, if need be the humain step.
+
+<a id="agent_unavailable"></a>
+
+### `agent_unavailable` 422
+
+No active AI agent of the workspace has this id.
+
+What to do: Choose an active agent (list_agents), or activate this one.
+
+<a id="field_unknown"></a>
+
+### `field_unknown` 422
+
+No field with this name in the workspace.
+
+What to do: Create the field (POST /v1/fields), or choose an existing one.
+
+<a id="file_refused"></a>
+
+### `file_refused` 422
+
+The file could not be read, or WhatsApp does not accept it (JPEG, PNG or GIF image, MP4 video, PDF). The message says why.
+
+What to do: Give the https address of a public file in a supported format, or a lighter file.
+
+<a id="scenario_name_taken"></a>
+
+### `scenario_name_taken` 409
+
+A scenario of the workspace already has this name: the response gives its id.
+
+What to do: Choose another name, or read the existing scenario (its id is in the response).
+
+<a id="scenario_managed_in_console"></a>
+
+### `scenario_managed_in_console` 409
+
+This scenario was created in the console: only the console edits or deletes it.
+
+What to do: Edit it in the console, or create one through the API.
+
+<a id="scenario_changed"></a>
+
+### `scenario_changed` 409
+
+The scenario changed since you read it: read it again and send its fingerprint.
+
+What to do: Read the scenario again (GET), carry over your changes, send with the new fingerprint.
+
+<a id="scenario_not_describable"></a>
+
+### `scenario_not_describable` 409
+
+Edited in the console, the scenario can no longer be described by a recipe: only the console edits it.
+
+What to do: Edit it in the console, or create a new one through the API.
+
+<a id="scenario_in_use"></a>
+
+### `scenario_in_use` 409
+
+The scenario is still in use (automation, responder, campaign, ad, widget…): the message says where.
+
+What to do: First remove what uses it, named in the message.
+
+<a id="precondition_required"></a>
+
+### `precondition_required` 428
+
+The fingerprint read is missing: pass it in If-Match or in the body.
+
+What to do: Read the scenario (GET) and pass its fingerprint.
+
 <a id="idempotency_key_required"></a>
 
 ### `idempotency_key_required` 400

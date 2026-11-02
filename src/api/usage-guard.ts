@@ -39,6 +39,10 @@ export type OperationApi =
   // copie) serait prise aux envois ; ses téléchargements ont leurs propres places (`PLACES_TELECHARGEMENT`).
   | 'templates.create'
   | 'templates.read'
+  // Les scénarios (`/v1/scenarios`, spec 2026-11-02) : une unité, au plafond d'appels, hors quota du jour (écrire un
+  // scénario n'envoie rien ; ses envois passent par `/v1/sends` ou un déclencheur, qui comptent les leurs).
+  | 'scenarios.write'
+  | 'scenarios.read'
   // Les webhooks sortants (`/v1/webhooks`, lot 13, domaine 4) : une unité, au plafond d'appels, hors quota du jour.
   | 'webhooks.read'
   | 'webhooks.write'

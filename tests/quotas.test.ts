@@ -46,7 +46,7 @@ describe('le jour civil de Paris', () => {
     const attendu: Record<OperationApi, 'modeles' | 'reponses' | 'fiches' | null> = {
       'sends.create': 'modeles', 'messages.send': 'reponses', 'messages.reponse_application': null, 'contacts.batch': 'fiches', 'contacts.upsert': 'fiches',
       'contacts.read': null, 'sends.read': null, 'catalogues.read': null, 'conversations.read': null, 'mcp.call': null, 'mcp.refus': null,
-      'templates.create': null, 'templates.read': null, 'webhooks.read': null, 'webhooks.write': null, 'contacts.admin': null,
+      'templates.create': null, 'templates.read': null, 'scenarios.write': null, 'scenarios.read': null, 'webhooks.read': null, 'webhooks.write': null, 'contacts.admin': null,
     };
     for (const [op, f] of Object.entries(attendu)) expect(familleDe(op as OperationApi), op).toBe(f);
     expect(raisonDuRefus('modeles', 500)).toMatch(/500 modèles envoyés .*par jour, remise à zéro à minuit \(heure de Paris\)/);

@@ -78,6 +78,7 @@ import { registerV1Contacts } from './http/v1-contacts';
 import { registerOpenapi, type OpenapiRouteDeps } from './http/openapi';
 import { registerV1Conversations, type V1ConversationsRouteDeps } from './http/v1-conversations';
 import { registerV1Templates, type V1TemplatesRouteDeps } from './http/v1-templates';
+import { registerV1Scenarios, type V1ScenariosRouteDeps } from './http/v1-scenarios';
 import { registerV1Webhooks, type V1WebhooksRouteDeps } from './http/v1-webhooks';
 import { registerV1ContactsAdmin, type V1ContactsAdminRouteDeps } from './http/v1-contacts-admin';
 import { registerV1Sends } from './http/v1-sends';
@@ -434,6 +435,8 @@ export interface ServerDeps {
     conversations?: Omit<V1ConversationsRouteDeps, 'usage'>;
     /** La création des modèles et le suivi de leur validation (`POST /v1/templates`, `GET /v1/templates/{name}`, lot 13). */
     templates?: Omit<V1TemplatesRouteDeps, 'usage'>;
+    /** Créer, relire, remplacer et supprimer un scénario (`/v1/scenarios`, spec 2026-11-02-scenarios-api). */
+    scenarios?: Omit<V1ScenariosRouteDeps, 'usage'>;
     /** Les webhooks sortants gérés par une clé (`/v1/webhooks`, lot 13, domaine 4). */
     webhooks?: Omit<V1WebhooksRouteDeps, 'usage' | 'couteux'>;
     /** Les champs personnalisés et la suppression RGPD (`/v1/fields`, `DELETE /v1/contacts/{id}`, lot 13, domaine 5). */
@@ -953,6 +956,9 @@ export function modulesDeRoutes(
       if (v1.conversations) registerV1Conversations(app, { ...v1.conversations, usage: usageApi }, [requireApiKey, requireScope('conversations:read')]);
       // Les modèles (lot 13, domaine 3) : un droit NEUF, `templates:write`, sans reprise. Créer un modèle n'est pas envoyer.
       if (v1.templates) registerV1Templates(app, { ...v1.templates, usage: usageApi }, [requireApiKey, requireScope('templates:write')]);
+      // Les scénarios (spec 2026-11-02) : un droit NEUF, `scenarios:write`, sans reprise. Publier un parcours qui écrit aux
+      // contacts n'est ni envoyer, ni créer un modèle.
+      if (v1.scenarios) registerV1Scenarios(app, { ...v1.scenarios, usage: usageApi }, [requireApiKey, requireScope('scenarios:write')]);
       // Les webhooks sortants (lot 13, domaine 4) : un droit NEUF, `webhooks:write`, sans reprise ; il couvre la lecture, le
       // journal portant des données de contacts.
       // Le plafond coûteux de la console (`g.plafondCouteux`), posé ici comme pour le MCP : l'essai et le rejeu en masse.

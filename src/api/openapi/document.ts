@@ -9,10 +9,11 @@ import { STATUT_PAR_CODE, type CodeApi } from '../erreurs';
  * ce qu'il reçoit.
  */
 
-export type MethodeV1 = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type MethodeV1 = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 export type DroitV1 =
   | 'contacts:write' | 'contacts:read' | 'contacts:admin' | 'sends:create' | 'conversations:read' | 'templates:write'
-  | 'webhooks:write';
+  | 'webhooks:write'
+  | 'scenarios:write';
 
 /** Une route `/v1`, telle que le contrat la décrit. Les schémas sont CEUX que la route utilise, exportés par elle. */
 export interface RouteOpenapi {

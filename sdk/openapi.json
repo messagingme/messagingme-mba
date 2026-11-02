@@ -32,6 +32,9 @@
       "name": "Templates"
     },
     {
+      "name": "Scenarios"
+    },
+    {
       "name": "Outgoing webhooks"
     },
     {
@@ -1521,6 +1524,18 @@
                                   "scenario_ambiguous",
                                   "unsendable_target",
                                   "template_category_unknown",
+                                  "template_not_approved",
+                                  "template_button_unknown",
+                                  "quick_reply_unwired",
+                                  "agent_unavailable",
+                                  "field_unknown",
+                                  "file_refused",
+                                  "scenario_name_taken",
+                                  "scenario_managed_in_console",
+                                  "scenario_changed",
+                                  "scenario_not_describable",
+                                  "scenario_in_use",
+                                  "precondition_required",
                                   "idempotency_key_required",
                                   "idempotency_in_progress",
                                   "idempotency_key_reused",
@@ -5839,6 +5854,1449 @@
         }
       }
     },
+    "/v1/scenarios": {
+      "post": {
+        "operationId": "createScenario",
+        "summary": "Creates a scenario from a recipe and publishes it at once.",
+        "tags": [
+          "Scenarios"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-scope": "scenarios:write",
+        "description": "Requires the scenarios:write scope.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nom": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Unique in the workspace, case-insensitive."
+                  },
+                  "entree": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "template": {
+                            "type": "object",
+                            "properties": {
+                              "nom": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 512,
+                                "description": "An APPROVED template of the workspace."
+                              },
+                              "langue": {
+                                "type": "string",
+                                "description": "Its language code, e.g. fr or en_US."
+                              },
+                              "variables": {
+                                "description": "Position ({{1}} is \"1\") to source. Absent: the field associations set in the console.",
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "champ": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64
+                                        }
+                                      },
+                                      "required": [
+                                        "champ"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "texte": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 1024
+                                        }
+                                      },
+                                      "required": [
+                                        "texte"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "attribut": {
+                                          "type": "string",
+                                          "enum": [
+                                            "name",
+                                            "phone"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "attribut"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "nom",
+                              "langue"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "boutons": {
+                            "description": "One branch per QUICK_REPLY button of the template, named by its exact text; every quick reply needs one.",
+                            "maxItems": 10,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "texte": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 25
+                                },
+                                "suite": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {},
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain."
+                                }
+                              },
+                              "required": [
+                                "texte",
+                                "suite"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "autre_reponse": {
+                            "description": "The contact writes instead of tapping a button. Only for a template with quick replies.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "template"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "message": {
+                            "type": "object",
+                            "properties": {
+                              "texte": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4096,
+                                "description": "4096 characters; 1024 with a file or quick replies."
+                              },
+                              "fichier": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2048,
+                                    "description": "A public https address, read at each send: JPEG, PNG or GIF image, MP4 video, PDF."
+                                  }
+                                },
+                                "required": [
+                                  "url"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "texte"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "reponses": {
+                            "description": "Up to 3 quick replies, distinct, in the order the contact sees them.",
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "texte": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 20
+                                },
+                                "suite": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {},
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain."
+                                }
+                              },
+                              "required": [
+                                "texte",
+                                "suite"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "autre_reponse": {
+                            "description": "With quick replies: the contact writes instead of tapping.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "suite": {
+                            "description": "Without quick replies: the step played right after (the message does not wait).",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "agent": {
+                            "type": "object",
+                            "properties": {
+                              "agent_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "required": [
+                              "agent_id"
+                            ],
+                            "additionalProperties": false,
+                            "description": "An active AI agent of the workspace; it ends the scenario."
+                          }
+                        },
+                        "required": [
+                          "agent"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "humain": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false,
+                            "description": "Hands the conversation to the team; it ends the scenario."
+                          }
+                        },
+                        "required": [
+                          "humain"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "nom",
+                  "entree"
+                ],
+                "additionalProperties": false,
+                "description": "A scenario recipe, at most 20 steps deep and 200 steps. Every write publishes at once."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "The scn_ code, usable wherever a scenario is designated."
+                    },
+                    "nom": {
+                      "type": "string"
+                    },
+                    "origine": {
+                      "type": "string",
+                      "enum": [
+                        "console",
+                        "api"
+                      ],
+                      "description": "Only api scenarios can be replaced or deleted through the API."
+                    },
+                    "entreeCode": {
+                      "description": "The nod_ code of the entry step: POST /v1/sends targets it for a scenario that opens with a message.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recette": {
+                      "type": "object",
+                      "properties": {
+                        "nom": {
+                          "type": "string"
+                        },
+                        "entree": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "nom",
+                        "entree"
+                      ],
+                      "description": "The recipe, read back from what is published."
+                    },
+                    "empreinte": {
+                      "type": "string",
+                      "description": "Send it back in If-Match to replace the scenario."
+                    },
+                    "ouverture": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "whatsapp_template",
+                            "whatsapp_session",
+                            "rcs"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "nom",
+                    "origine",
+                    "entreeCode",
+                    "recette",
+                    "empreinte",
+                    "ouverture"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: invalid_body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Error: plan_feature_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: missing_scope, tenant_locked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: template_not_found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: scenario_name_taken.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error: template_not_approved, unsendable_target, template_button_unknown, quick_reply_unwired, agent_unavailable, field_unknown, file_refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error: internal_error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listScenarios",
+        "summary": "Lists the published scenarios and their opening message.",
+        "tags": [
+          "Catalogs"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-scope": "sends:create",
+        "description": "Requires the sends:create scope.",
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scenarios": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "opening": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "whatsapp_template",
+                                  "whatsapp_session",
+                                  "rcs"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "openingTemplate": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "name": {
+                                    "type": "string"
+                                  },
+                                  "language": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "name",
+                                  "language"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "entryNode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "publishedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "ISO 8601 date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "name",
+                          "opening",
+                          "openingTemplate",
+                          "entryNode",
+                          "publishedAt"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "scenarios"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: missing_scope, tenant_locked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error: internal_error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/scenarios/{scenarioId}": {
+      "get": {
+        "operationId": "getScenario",
+        "summary": "Reads a scenario as a recipe, with the fingerprint that guards its replacement.",
+        "tags": [
+          "Scenarios"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-scope": "scenarios:write",
+        "description": "Requires the scenarios:write scope.",
+        "parameters": [
+          {
+            "name": "scenarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The scenario id, or its scn_ code."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "The scn_ code, usable wherever a scenario is designated."
+                    },
+                    "nom": {
+                      "type": "string"
+                    },
+                    "origine": {
+                      "type": "string",
+                      "enum": [
+                        "console",
+                        "api"
+                      ],
+                      "description": "Only api scenarios can be replaced or deleted through the API."
+                    },
+                    "entreeCode": {
+                      "description": "The nod_ code of the entry step: POST /v1/sends targets it for a scenario that opens with a message.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recette": {
+                      "type": "object",
+                      "properties": {
+                        "nom": {
+                          "type": "string"
+                        },
+                        "entree": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "nom",
+                        "entree"
+                      ],
+                      "description": "The recipe, read back from what is published."
+                    },
+                    "empreinte": {
+                      "type": "string",
+                      "description": "Send it back in If-Match to replace the scenario."
+                    },
+                    "ouverture": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "whatsapp_template",
+                            "whatsapp_session",
+                            "rcs"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "nom",
+                    "origine",
+                    "entreeCode",
+                    "recette",
+                    "empreinte",
+                    "ouverture"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Error: plan_feature_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: missing_scope, tenant_locked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: scenario_not_found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: scenario_not_describable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error: internal_error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "replaceScenario",
+        "summary": "Replaces a scenario created through the API and publishes it at once.",
+        "tags": [
+          "Scenarios"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-scope": "scenarios:write",
+        "description": "Requires the scenarios:write scope.",
+        "parameters": [
+          {
+            "name": "scenarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The scenario id, or its scn_ code."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nom": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120,
+                    "description": "Unique in the workspace, case-insensitive."
+                  },
+                  "entree": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "template": {
+                            "type": "object",
+                            "properties": {
+                              "nom": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 512,
+                                "description": "An APPROVED template of the workspace."
+                              },
+                              "langue": {
+                                "type": "string",
+                                "description": "Its language code, e.g. fr or en_US."
+                              },
+                              "variables": {
+                                "description": "Position ({{1}} is \"1\") to source. Absent: the field associations set in the console.",
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string"
+                                },
+                                "additionalProperties": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "champ": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 64
+                                        }
+                                      },
+                                      "required": [
+                                        "champ"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "texte": {
+                                          "type": "string",
+                                          "minLength": 1,
+                                          "maxLength": 1024
+                                        }
+                                      },
+                                      "required": [
+                                        "texte"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "attribut": {
+                                          "type": "string",
+                                          "enum": [
+                                            "name",
+                                            "phone"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "attribut"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            "required": [
+                              "nom",
+                              "langue"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "boutons": {
+                            "description": "One branch per QUICK_REPLY button of the template, named by its exact text; every quick reply needs one.",
+                            "maxItems": 10,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "texte": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 25
+                                },
+                                "suite": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {},
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain."
+                                }
+                              },
+                              "required": [
+                                "texte",
+                                "suite"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "autre_reponse": {
+                            "description": "The contact writes instead of tapping a button. Only for a template with quick replies.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "template"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "message": {
+                            "type": "object",
+                            "properties": {
+                              "texte": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4096,
+                                "description": "4096 characters; 1024 with a file or quick replies."
+                              },
+                              "fichier": {
+                                "type": "object",
+                                "properties": {
+                                  "url": {
+                                    "type": "string",
+                                    "maxLength": 2048,
+                                    "description": "A public https address, read at each send: JPEG, PNG or GIF image, MP4 video, PDF."
+                                  }
+                                },
+                                "required": [
+                                  "url"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "texte"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "reponses": {
+                            "description": "Up to 3 quick replies, distinct, in the order the contact sees them.",
+                            "maxItems": 3,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "texte": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 20
+                                },
+                                "suite": {
+                                  "type": "object",
+                                  "propertyNames": {
+                                    "type": "string"
+                                  },
+                                  "additionalProperties": {},
+                                  "description": "Another step, of the same shape as entree: exactly one of template, message, agent, humain."
+                                }
+                              },
+                              "required": [
+                                "texte",
+                                "suite"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "autre_reponse": {
+                            "description": "With quick replies: the contact writes instead of tapping.",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          "suite": {
+                            "description": "Without quick replies: the step played right after (the message does not wait).",
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "message"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "agent": {
+                            "type": "object",
+                            "properties": {
+                              "agent_id": {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              }
+                            },
+                            "required": [
+                              "agent_id"
+                            ],
+                            "additionalProperties": false,
+                            "description": "An active AI agent of the workspace; it ends the scenario."
+                          }
+                        },
+                        "required": [
+                          "agent"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "humain": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": false,
+                            "description": "Hands the conversation to the team; it ends the scenario."
+                          }
+                        },
+                        "required": [
+                          "humain"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "empreinte": {
+                    "description": "The fingerprint read by GET, if not sent in If-Match.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nom",
+                  "entree"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string",
+                      "description": "The scn_ code, usable wherever a scenario is designated."
+                    },
+                    "nom": {
+                      "type": "string"
+                    },
+                    "origine": {
+                      "type": "string",
+                      "enum": [
+                        "console",
+                        "api"
+                      ],
+                      "description": "Only api scenarios can be replaced or deleted through the API."
+                    },
+                    "entreeCode": {
+                      "description": "The nod_ code of the entry step: POST /v1/sends targets it for a scenario that opens with a message.",
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "recette": {
+                      "type": "object",
+                      "properties": {
+                        "nom": {
+                          "type": "string"
+                        },
+                        "entree": {
+                          "type": "object",
+                          "propertyNames": {
+                            "type": "string"
+                          },
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "nom",
+                        "entree"
+                      ],
+                      "description": "The recipe, read back from what is published."
+                    },
+                    "empreinte": {
+                      "type": "string",
+                      "description": "Send it back in If-Match to replace the scenario."
+                    },
+                    "ouverture": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "whatsapp_template",
+                            "whatsapp_session",
+                            "rcs"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "nom",
+                    "origine",
+                    "entreeCode",
+                    "recette",
+                    "empreinte",
+                    "ouverture"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error: invalid_body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Error: plan_feature_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: missing_scope, tenant_locked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: template_not_found, scenario_not_found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: scenario_name_taken, scenario_managed_in_console, scenario_changed, scenario_not_describable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Error: template_not_approved, unsendable_target, template_button_unknown, quick_reply_unwired, agent_unavailable, field_unknown, file_refused.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Error: precondition_required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error: internal_error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteScenario",
+        "summary": "Deletes a scenario created through the API, if nothing uses it any more.",
+        "tags": [
+          "Scenarios"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "x-required-scope": "scenarios:write",
+        "description": "Requires the scenarios:write scope.",
+        "parameters": [
+          {
+            "name": "scenarioId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The scenario id, or its scn_ code."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "supprime": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "supprime"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error: unauthorized.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Error: plan_feature_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error: missing_scope, tenant_locked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error: scenario_not_found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error: scenario_managed_in_console, scenario_in_use.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying.",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                },
+                "description": "Seconds to wait."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error: internal_error.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/webhooks": {
       "get": {
         "operationId": "listWebhooks",
@@ -7430,166 +8888,6 @@
           },
           "404": {
             "description": "Error: webhook_not_found.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying.",
-            "headers": {
-              "Retry-After": {
-                "schema": {
-                  "type": "integer"
-                },
-                "description": "Seconds to wait."
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error: internal_error.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/scenarios": {
-      "get": {
-        "operationId": "listScenarios",
-        "summary": "Lists the published scenarios and their opening message.",
-        "tags": [
-          "Catalogs"
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "x-required-scope": "sends:create",
-        "description": "Requires the sends:create scope.",
-        "responses": {
-          "200": {
-            "description": "Success.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "scenarios": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "code": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "opening": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "enum": [
-                                  "whatsapp_template",
-                                  "whatsapp_session",
-                                  "rcs"
-                                ]
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "openingTemplate": {
-                            "anyOf": [
-                              {
-                                "type": "object",
-                                "properties": {
-                                  "name": {
-                                    "type": "string"
-                                  },
-                                  "language": {
-                                    "type": "string"
-                                  }
-                                },
-                                "required": [
-                                  "name",
-                                  "language"
-                                ]
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          },
-                          "entryNode": {
-                            "type": [
-                              "string",
-                              "null"
-                            ]
-                          },
-                          "publishedAt": {
-                            "anyOf": [
-                              {
-                                "type": "string",
-                                "description": "ISO 8601 date-time"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
-                          }
-                        },
-                        "required": [
-                          "code",
-                          "name",
-                          "opening",
-                          "openingTemplate",
-                          "entryNode",
-                          "publishedAt"
-                        ]
-                      }
-                    }
-                  },
-                  "required": [
-                    "scenarios"
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Error: unauthorized.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error: missing_scope, tenant_locked.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9746,6 +11044,18 @@
               "scenario_ambiguous",
               "unsendable_target",
               "template_category_unknown",
+              "template_not_approved",
+              "template_button_unknown",
+              "quick_reply_unwired",
+              "agent_unavailable",
+              "field_unknown",
+              "file_refused",
+              "scenario_name_taken",
+              "scenario_managed_in_console",
+              "scenario_changed",
+              "scenario_not_describable",
+              "scenario_in_use",
+              "precondition_required",
               "idempotency_key_required",
               "idempotency_in_progress",
               "idempotency_key_reused",

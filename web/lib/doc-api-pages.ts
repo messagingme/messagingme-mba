@@ -92,6 +92,12 @@ export const PAGES_DOC = [
     ancres: ['creer', 'statut'],
   },
   {
+    // Les scénarios par l'API (spec 2026-11-02) : une recette, compilée et publiée aussitôt.
+    cle: 'scenarios', href: '/developers/api/scenarios', fichier: 'web/app/developers/api/scenarios/page.tsx', groupe: 'reference-api',
+    nav: ['Scénarios', 'Scenarios'], titre: ['Scénarios', 'Scenarios'],
+    ancres: ['recette', 'creer', 'lire', 'remplacer', 'supprimer'],
+  },
+  {
     // Les webhooks sortants gérés par une clé (lot 13, domaine 4). Le format des événements reste sur `webhooks`.
     cle: 'webhook-endpoints', href: '/developers/api/webhook-endpoints', fichier: 'web/app/developers/api/webhook-endpoints/page.tsx', groupe: 'reference-api',
     nav: ['Gérer les webhooks', 'Manage webhooks'], titre: ['Gérer les webhooks sortants', 'Manage outgoing webhooks'],
@@ -204,6 +210,7 @@ export const RESUMES_PAGES: Readonly<Record<CleDePage, Bilingue>> = {
   conversations: ['Lire les conversations, leurs messages, le statut d’un message et les fichiers reçus.', 'Read conversations, their messages, a message’s status and received files.'],
   sends: ['Envoyer un modèle, un scénario ou un message RCS à des destinataires, et suivre l’envoi.', 'Send a template, a scenario or an RCS message to recipients, and follow the send.'],
   templates: ['Créer un modèle WhatsApp au format de Meta et suivre sa validation.', 'Create a WhatsApp template in Meta’s format and follow its review.'],
+  scenarios: ['Créer, relire, remplacer et supprimer un scénario simple par sa recette, publié aussitôt.', 'Create, read, replace and delete a simple scenario from its recipe, published at once.'],
   'webhook-endpoints': ['Gérer par l’API les adresses des webhooks sortants : créer, tester, lire le journal, rejouer.', 'Manage outgoing webhook endpoints through the API: create, test, read the log, replay.'],
   catalogs: ['Lister les modèles approuvés, les scénarios publiés et les messages RCS de l’espace.', 'List the workspace’s approved templates, published scenarios and RCS messages.'],
   concepts: ['Les règles communes : désigner une personne, consentement et STOP, fenêtre de 24 h, idempotence.', 'The common rules: identifying a person, consent and STOP, the 24-hour window, idempotency.'],

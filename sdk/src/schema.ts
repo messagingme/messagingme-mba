@@ -357,6 +357,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/scenarios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists the published scenarios and their opening message.
+         * @description Requires the sends:create scope.
+         */
+        get: operations["listScenarios"];
+        put?: never;
+        /**
+         * Creates a scenario from a recipe and publishes it at once.
+         * @description Requires the scenarios:write scope.
+         */
+        post: operations["createScenario"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/scenarios/{scenarioId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reads a scenario as a recipe, with the fingerprint that guards its replacement.
+         * @description Requires the scenarios:write scope.
+         */
+        get: operations["getScenario"];
+        /**
+         * Replaces a scenario created through the API and publishes it at once.
+         * @description Requires the scenarios:write scope.
+         */
+        put: operations["replaceScenario"];
+        post?: never;
+        /**
+         * Deletes a scenario created through the API, if nothing uses it any more.
+         * @description Requires the scenarios:write scope.
+         */
+        delete: operations["deleteScenario"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/webhooks": {
         parameters: {
             query?: never;
@@ -503,26 +555,6 @@ export interface paths {
          * @description Requires the webhooks:write scope.
          */
         post: operations["replayWebhookFailures"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/scenarios": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Lists the published scenarios and their opening message.
-         * @description Requires the sends:create scope.
-         */
-        get: operations["listScenarios"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1451,7 +1483,7 @@ export interface components {
              * @description The stable machine-readable code, on every JSON error response of the API. A 5xx may arrive without this body (a generic error page replaced it on the way).
              * @enum {string}
              */
-            code?: "invalid_body" | "invalid_recipient" | "invalid_phone" | "unauthorized" | "missing_scope" | "tenant_locked" | "unknown_contact" | "duplicate" | "identity_conflict" | "blocked_contact" | "opted_out" | "no_consent" | "window_closed" | "missing_variable" | "no_phone" | "rcs_unreachable" | "rcs_not_enabled" | "no_whatsapp_number" | "meta_rejected" | "invalid_header_media" | "template_rejected" | "meta_auth_failed" | "webhook_not_found" | "delivery_not_found" | "delivery_not_replayable" | "webhooks_unavailable" | "field_exists" | "number_unlinked" | "number_suspended" | "whatsapp_credit_exhausted" | "whatsapp_credit_line_inactive" | "scenario_not_found" | "node_not_found" | "template_not_found" | "rcs_message_not_found" | "send_not_found" | "conversation_not_found" | "message_not_found" | "invalid_cursor" | "no_media" | "media_expired" | "media_unavailable" | "scenario_ambiguous" | "unsendable_target" | "template_category_unknown" | "idempotency_key_required" | "idempotency_in_progress" | "idempotency_key_reused" | "rate_limited" | "quota_exceeded" | "plan_feature_unavailable" | "plan_limit_reached" | "route_not_found" | "internal_error";
+            code?: "invalid_body" | "invalid_recipient" | "invalid_phone" | "unauthorized" | "missing_scope" | "tenant_locked" | "unknown_contact" | "duplicate" | "identity_conflict" | "blocked_contact" | "opted_out" | "no_consent" | "window_closed" | "missing_variable" | "no_phone" | "rcs_unreachable" | "rcs_not_enabled" | "no_whatsapp_number" | "meta_rejected" | "invalid_header_media" | "template_rejected" | "meta_auth_failed" | "webhook_not_found" | "delivery_not_found" | "delivery_not_replayable" | "webhooks_unavailable" | "field_exists" | "number_unlinked" | "number_suspended" | "whatsapp_credit_exhausted" | "whatsapp_credit_line_inactive" | "scenario_not_found" | "node_not_found" | "template_not_found" | "rcs_message_not_found" | "send_not_found" | "conversation_not_found" | "message_not_found" | "invalid_cursor" | "no_media" | "media_expired" | "media_unavailable" | "scenario_ambiguous" | "unsendable_target" | "template_category_unknown" | "template_not_approved" | "template_button_unknown" | "quick_reply_unwired" | "agent_unavailable" | "field_unknown" | "file_refused" | "scenario_name_taken" | "scenario_managed_in_console" | "scenario_changed" | "scenario_not_describable" | "scenario_in_use" | "precondition_required" | "idempotency_key_required" | "idempotency_in_progress" | "idempotency_key_reused" | "rate_limited" | "quota_exceeded" | "plan_feature_unavailable" | "plan_limit_reached" | "route_not_found" | "internal_error";
             /** @description On meta_rejected: Meta’s own error number (131047, 132000…), null when Meta gives none. */
             metaCode?: number | null;
             /** @description On 402 (plan_feature_unavailable, plan_limit_reached): the page where the plan is upgraded. */
@@ -2095,7 +2127,7 @@ export interface operations {
                             /** @constant */
                             status: "error";
                             /** @enum {string} */
-                            code: "invalid_body" | "invalid_recipient" | "invalid_phone" | "unauthorized" | "missing_scope" | "tenant_locked" | "unknown_contact" | "duplicate" | "identity_conflict" | "blocked_contact" | "opted_out" | "no_consent" | "window_closed" | "missing_variable" | "no_phone" | "rcs_unreachable" | "rcs_not_enabled" | "no_whatsapp_number" | "meta_rejected" | "invalid_header_media" | "template_rejected" | "meta_auth_failed" | "webhook_not_found" | "delivery_not_found" | "delivery_not_replayable" | "webhooks_unavailable" | "field_exists" | "number_unlinked" | "number_suspended" | "whatsapp_credit_exhausted" | "whatsapp_credit_line_inactive" | "scenario_not_found" | "node_not_found" | "template_not_found" | "rcs_message_not_found" | "send_not_found" | "conversation_not_found" | "message_not_found" | "invalid_cursor" | "no_media" | "media_expired" | "media_unavailable" | "scenario_ambiguous" | "unsendable_target" | "template_category_unknown" | "idempotency_key_required" | "idempotency_in_progress" | "idempotency_key_reused" | "rate_limited" | "quota_exceeded" | "plan_feature_unavailable" | "plan_limit_reached" | "route_not_found" | "internal_error";
+                            code: "invalid_body" | "invalid_recipient" | "invalid_phone" | "unauthorized" | "missing_scope" | "tenant_locked" | "unknown_contact" | "duplicate" | "identity_conflict" | "blocked_contact" | "opted_out" | "no_consent" | "window_closed" | "missing_variable" | "no_phone" | "rcs_unreachable" | "rcs_not_enabled" | "no_whatsapp_number" | "meta_rejected" | "invalid_header_media" | "template_rejected" | "meta_auth_failed" | "webhook_not_found" | "delivery_not_found" | "delivery_not_replayable" | "webhooks_unavailable" | "field_exists" | "number_unlinked" | "number_suspended" | "whatsapp_credit_exhausted" | "whatsapp_credit_line_inactive" | "scenario_not_found" | "node_not_found" | "template_not_found" | "rcs_message_not_found" | "send_not_found" | "conversation_not_found" | "message_not_found" | "invalid_cursor" | "no_media" | "media_expired" | "media_unavailable" | "scenario_ambiguous" | "unsendable_target" | "template_category_unknown" | "template_not_approved" | "template_button_unknown" | "quick_reply_unwired" | "agent_unavailable" | "field_unknown" | "file_refused" | "scenario_name_taken" | "scenario_managed_in_console" | "scenario_changed" | "scenario_not_describable" | "scenario_in_use" | "precondition_required" | "idempotency_key_required" | "idempotency_in_progress" | "idempotency_key_reused" | "rate_limited" | "quota_exceeded" | "plan_feature_unavailable" | "plan_limit_reached" | "route_not_found" | "internal_error";
                             reason: string;
                         })[];
                         created: number;
@@ -3913,6 +3945,683 @@ export interface operations {
             };
         };
     };
+    listScenarios: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        scenarios: {
+                            code: string | null;
+                            name: string;
+                            opening: ("whatsapp_template" | "whatsapp_session" | "rcs") | null;
+                            openingTemplate: {
+                                name: string;
+                                language: string;
+                            } | null;
+                            entryNode: string | null;
+                            publishedAt: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Error: unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: missing_scope, tenant_locked. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: internal_error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    createScenario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Unique in the workspace, case-insensitive. */
+                    nom: string;
+                    entree: {
+                        template: {
+                            /** @description An APPROVED template of the workspace. */
+                            nom: string;
+                            /** @description Its language code, e.g. fr or en_US. */
+                            langue: string;
+                            /** @description Position ({{1}} is "1") to source. Absent: the field associations set in the console. */
+                            variables?: {
+                                [key: string]: {
+                                    champ: string;
+                                } | {
+                                    texte: string;
+                                } | {
+                                    /** @enum {string} */
+                                    attribut: "name" | "phone";
+                                };
+                            };
+                        };
+                        /** @description One branch per QUICK_REPLY button of the template, named by its exact text; every quick reply needs one. */
+                        boutons?: {
+                            texte: string;
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain. */
+                            suite: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                        /** @description The contact writes instead of tapping a button. Only for a template with quick replies. */
+                        autre_reponse?: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        message: {
+                            /** @description 4096 characters; 1024 with a file or quick replies. */
+                            texte: string;
+                            fichier?: {
+                                /** @description A public https address, read at each send: JPEG, PNG or GIF image, MP4 video, PDF. */
+                                url: string;
+                            };
+                        };
+                        /** @description Up to 3 quick replies, distinct, in the order the contact sees them. */
+                        reponses?: {
+                            texte: string;
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain. */
+                            suite: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                        /** @description With quick replies: the contact writes instead of tapping. */
+                        autre_reponse?: {
+                            [key: string]: unknown;
+                        };
+                        /** @description Without quick replies: the step played right after (the message does not wait). */
+                        suite?: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @description An active AI agent of the workspace; it ends the scenario. */
+                        agent: {
+                            /** Format: uuid */
+                            agent_id: string;
+                        };
+                    } | {
+                        /** @description Hands the conversation to the team; it ends the scenario. */
+                        humain: Record<string, never>;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Success. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        /** @description The scn_ code, usable wherever a scenario is designated. */
+                        code: string;
+                        nom: string;
+                        /**
+                         * @description Only api scenarios can be replaced or deleted through the API.
+                         * @enum {string}
+                         */
+                        origine: "console" | "api";
+                        /** @description The nod_ code of the entry step: POST /v1/sends targets it for a scenario that opens with a message. */
+                        entreeCode: string | null;
+                        /** @description The recipe, read back from what is published. */
+                        recette: {
+                            nom: string;
+                            entree: {
+                                [key: string]: unknown;
+                            };
+                        };
+                        /** @description Send it back in If-Match to replace the scenario. */
+                        empreinte: string;
+                        ouverture: ("whatsapp_template" | "whatsapp_session" | "rcs") | null;
+                    };
+                };
+            };
+            /** @description Error: invalid_body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: plan_feature_unavailable. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: missing_scope, tenant_locked. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: template_not_found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: scenario_name_taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: template_not_approved, unsendable_target, template_button_unknown, quick_reply_unwired, agent_unavailable, field_unknown, file_refused. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: internal_error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getScenario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenarioId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        /** @description The scn_ code, usable wherever a scenario is designated. */
+                        code: string;
+                        nom: string;
+                        /**
+                         * @description Only api scenarios can be replaced or deleted through the API.
+                         * @enum {string}
+                         */
+                        origine: "console" | "api";
+                        /** @description The nod_ code of the entry step: POST /v1/sends targets it for a scenario that opens with a message. */
+                        entreeCode: string | null;
+                        /** @description The recipe, read back from what is published. */
+                        recette: {
+                            nom: string;
+                            entree: {
+                                [key: string]: unknown;
+                            };
+                        };
+                        /** @description Send it back in If-Match to replace the scenario. */
+                        empreinte: string;
+                        ouverture: ("whatsapp_template" | "whatsapp_session" | "rcs") | null;
+                    };
+                };
+            };
+            /** @description Error: unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: plan_feature_unavailable. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: missing_scope, tenant_locked. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: scenario_not_found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: scenario_not_describable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: internal_error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    replaceScenario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenarioId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Unique in the workspace, case-insensitive. */
+                    nom: string;
+                    entree: {
+                        template: {
+                            /** @description An APPROVED template of the workspace. */
+                            nom: string;
+                            /** @description Its language code, e.g. fr or en_US. */
+                            langue: string;
+                            /** @description Position ({{1}} is "1") to source. Absent: the field associations set in the console. */
+                            variables?: {
+                                [key: string]: {
+                                    champ: string;
+                                } | {
+                                    texte: string;
+                                } | {
+                                    /** @enum {string} */
+                                    attribut: "name" | "phone";
+                                };
+                            };
+                        };
+                        /** @description One branch per QUICK_REPLY button of the template, named by its exact text; every quick reply needs one. */
+                        boutons?: {
+                            texte: string;
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain. */
+                            suite: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                        /** @description The contact writes instead of tapping a button. Only for a template with quick replies. */
+                        autre_reponse?: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        message: {
+                            /** @description 4096 characters; 1024 with a file or quick replies. */
+                            texte: string;
+                            fichier?: {
+                                /** @description A public https address, read at each send: JPEG, PNG or GIF image, MP4 video, PDF. */
+                                url: string;
+                            };
+                        };
+                        /** @description Up to 3 quick replies, distinct, in the order the contact sees them. */
+                        reponses?: {
+                            texte: string;
+                            /** @description Another step, of the same shape as entree: exactly one of template, message, agent, humain. */
+                            suite: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                        /** @description With quick replies: the contact writes instead of tapping. */
+                        autre_reponse?: {
+                            [key: string]: unknown;
+                        };
+                        /** @description Without quick replies: the step played right after (the message does not wait). */
+                        suite?: {
+                            [key: string]: unknown;
+                        };
+                    } | {
+                        /** @description An active AI agent of the workspace; it ends the scenario. */
+                        agent: {
+                            /** Format: uuid */
+                            agent_id: string;
+                        };
+                    } | {
+                        /** @description Hands the conversation to the team; it ends the scenario. */
+                        humain: Record<string, never>;
+                    };
+                    /** @description The fingerprint read by GET, if not sent in If-Match. */
+                    empreinte?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Success. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        /** @description The scn_ code, usable wherever a scenario is designated. */
+                        code: string;
+                        nom: string;
+                        /**
+                         * @description Only api scenarios can be replaced or deleted through the API.
+                         * @enum {string}
+                         */
+                        origine: "console" | "api";
+                        /** @description The nod_ code of the entry step: POST /v1/sends targets it for a scenario that opens with a message. */
+                        entreeCode: string | null;
+                        /** @description The recipe, read back from what is published. */
+                        recette: {
+                            nom: string;
+                            entree: {
+                                [key: string]: unknown;
+                            };
+                        };
+                        /** @description Send it back in If-Match to replace the scenario. */
+                        empreinte: string;
+                        ouverture: ("whatsapp_template" | "whatsapp_session" | "rcs") | null;
+                    };
+                };
+            };
+            /** @description Error: invalid_body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: plan_feature_unavailable. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: missing_scope, tenant_locked. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: template_not_found, scenario_not_found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: scenario_name_taken, scenario_managed_in_console, scenario_changed, scenario_not_describable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: template_not_approved, unsendable_target, template_button_unknown, quick_reply_unwired, agent_unavailable, field_unknown, file_refused. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: precondition_required. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: internal_error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteScenario: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scenarioId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        /** @constant */
+                        supprime: true;
+                    };
+                };
+            };
+            /** @description Error: unauthorized. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: plan_feature_unavailable. */
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: missing_scope, tenant_locked. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: scenario_not_found. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: scenario_managed_in_console, scenario_in_use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait. */
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Error: internal_error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     listWebhooks: {
         parameters: {
             query?: never;
@@ -4757,76 +5466,6 @@ export interface operations {
             };
             /** @description Error: webhook_not_found. */
             404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error: rate_limited, quota_exceeded. Wait for Retry-After (seconds) before retrying. */
-            429: {
-                headers: {
-                    /** @description Seconds to wait. */
-                    "Retry-After"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error: internal_error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-        };
-    };
-    listScenarios: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Success. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        scenarios: {
-                            code: string | null;
-                            name: string;
-                            opening: ("whatsapp_template" | "whatsapp_session" | "rcs") | null;
-                            openingTemplate: {
-                                name: string;
-                                language: string;
-                            } | null;
-                            entryNode: string | null;
-                            publishedAt: string | null;
-                        }[];
-                    };
-                };
-            };
-            /** @description Error: unauthorized. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Error: missing_scope, tenant_locked. */
-            403: {
                 headers: {
                     [name: string]: unknown;
                 };

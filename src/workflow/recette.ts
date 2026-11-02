@@ -210,6 +210,51 @@ export function lireRecette(brut: unknown): Lu<Recette> {
   return entree.ok ? { ok: true, valeur: { nom, entree: entree.valeur } } : entree;
 }
 
+/**
+ * LA RECETTE TELLE QUE LE CONTRAT OPENAPI LA DÉCRIT (`src/api/openapi/registre.ts`). Le contrat ne porte pas de schéma
+ * récursif (chaque référence doit se résoudre dans le document) : l'étape d'entrée est décrite en entier, une étape
+ * imbriquée est un objet de la même forme. Les bornes sont les constantes de `lireRecette`, qui reste le seul juge.
+ */
+const suiteDoc = z.record(z.string(), z.unknown()).describe('Another step, of the same shape as entree: exactly one of template, message, agent, humain.');
+const brancheDoc = z.strictObject({ texte: z.string().min(1), suite: suiteDoc });
+const etapeDoc = z.union([
+  z.strictObject({
+    template: z.strictObject({
+      nom: z.string().min(1).max(512).describe('An APPROVED template of the workspace.'),
+      langue: z.string().describe('Its language code, e.g. fr or en_US.'),
+      variables: z.record(z.string(), z.union([
+        z.strictObject({ champ: z.string().min(1).max(LONGUEUR_CHAMP_MAX) }),
+        z.strictObject({ texte: z.string().min(1).max(LONGUEUR_TEXTE_VARIABLE_MAX) }),
+        z.strictObject({ attribut: z.enum(ATTRIBUTS_RECETTE) }),
+      ])).optional().describe('Position ({{1}} is "1") to source. Absent: the field associations set in the console.'),
+    }),
+    boutons: z.array(brancheDoc.extend({ texte: z.string().min(1).max(MAX_TEXTE_BOUTON_TEMPLATE) })).max(MAX_BOUTONS_TEMPLATE).optional()
+      .describe('One branch per QUICK_REPLY button of the template, named by its exact text; every quick reply needs one.'),
+    autre_reponse: suiteDoc.optional().describe('The contact writes instead of tapping a button. Only for a template with quick replies.'),
+  }),
+  z.strictObject({
+    message: z.strictObject({
+      texte: z.string().min(1).max(TEXTE_MAX_SIMPLE).describe(`${TEXTE_MAX_SIMPLE} characters; ${TEXTE_MAX_AVEC_FICHIER_OU_BOUTON} with a file or quick replies.`),
+      fichier: z.strictObject({
+        url: z.string().max(LONGUEUR_URL_FICHIER_MAX).describe('A public https address, read at each send: JPEG, PNG or GIF image, MP4 video, PDF.'),
+      }).optional(),
+    }),
+    reponses: z.array(brancheDoc.extend({ texte: z.string().min(1).max(MAX_TEXTE_REPONSE_RAPIDE) })).max(MAX_REPONSES_RAPIDES).optional()
+      .describe(`Up to ${MAX_REPONSES_RAPIDES} quick replies, distinct, in the order the contact sees them.`),
+    autre_reponse: suiteDoc.optional().describe('With quick replies: the contact writes instead of tapping.'),
+    suite: suiteDoc.optional().describe('Without quick replies: the step played right after (the message does not wait).'),
+  }),
+  z.strictObject({ agent: z.strictObject({ agent_id: z.uuid() }).describe('An active AI agent of the workspace; it ends the scenario.') }),
+  z.strictObject({ humain: z.strictObject({}).describe('Hands the conversation to the team; it ends the scenario.') }),
+]);
+export const schemaRecetteDoc = z.strictObject({
+  nom: z.string().min(1).max(NOM_SCENARIO_MAX).describe('Unique in the workspace, case-insensitive.'),
+  entree: etapeDoc,
+}).describe(`A scenario recipe, at most ${PROFONDEUR_MAX_RECETTE} steps deep and ${MAX_NODES} steps. Every write publishes at once.`);
+export const schemaRemplacementDoc = schemaRecetteDoc.extend({
+  empreinte: z.string().optional().describe('The fingerprint read by GET, if not sent in If-Match.'),
+});
+
 /** Les sous-étapes d'une étape, dans l'ordre où le contact peut les rencontrer. */
 export function sousEtapes(e: Etape): Etape[] {
   if ('template' in e) return [...(e.boutons ?? []).map((b) => b.suite), ...(e.autre_reponse ? [e.autre_reponse] : [])];

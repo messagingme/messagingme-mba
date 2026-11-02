@@ -46,7 +46,7 @@ export const json = (v: unknown): string => JSON.stringify(v, null, 2);
  * Une commande prête à copier, corps indenté pour être lu. Le corps part entre apostrophes droites : la suite
  * refuse donc toute apostrophe droite dans un exemple, qui fermerait la chaîne du shell au milieu du JSON.
  */
-export function curl(chemin: string, corps: unknown, methode: 'POST' | 'PATCH' = 'POST'): string {
+export function curl(chemin: string, corps: unknown, methode: 'POST' | 'PATCH' | 'PUT' = 'POST'): string {
   return [
     `curl -X ${methode} ${ADRESSE_API}${chemin} \\`,
     `  -H "Authorization: Bearer ${CLE_EXEMPLE}" \\`,
@@ -58,6 +58,11 @@ export function curl(chemin: string, corps: unknown, methode: 'POST' | 'PATCH' =
 /** Une lecture prête à copier : pas de corps. */
 export function curlGet(chemin: string): string {
   return [`curl ${ADRESSE_API}${chemin} \\`, `  -H "Authorization: Bearer ${CLE_EXEMPLE}"`].join('\n');
+}
+
+/** Une suppression prête à copier : pas de corps. */
+export function curlDelete(chemin: string): string {
+  return [`curl -X DELETE ${ADRESSE_API}${chemin} \\`, `  -H "Authorization: Bearer ${CLE_EXEMPLE}"`].join('\n');
 }
 
 const inlineCls = 'rounded-controle bg-ink-100 px-1.5 py-0.5 font-mono text-[0.85em] text-ink-900 [overflow-wrap:anywhere]';
@@ -88,6 +93,7 @@ const COULEUR_METHODE: Record<Methode, string> = {
   GET: 'bg-succes-50 text-succes-700 ring-succes-200',
   POST: 'bg-brand-50 text-brand-700 ring-brand-200',
   PATCH: 'bg-alerte-50 text-alerte-800 ring-alerte-200',
+  PUT: 'bg-alerte-50 text-alerte-800 ring-alerte-200',
   DELETE: 'bg-danger-50 text-danger-700 ring-danger-200',
 };
 

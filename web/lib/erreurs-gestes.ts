@@ -59,7 +59,7 @@ export const GESTES: Readonly<Record<NomDeCode, Bilingue>> = {
   template_category_unknown: ['Réessayer plus tard ; si cela dure, vérifier le modèle dans le WhatsApp Manager.', 'Retry later; if it persists, check the template in WhatsApp Manager.'],
   template_not_approved: ['Attendre l’approbation (GET /v1/templates/{name}), puis renvoyer le scénario.', 'Wait for approval (GET /v1/templates/{name}), then send the scenario again.'],
   template_button_unknown: ['Reprendre le texte exact d’une réponse rapide, cité dans le message.', 'Use the exact text of a quick reply, quoted in the message.'],
-  quick_reply_unwired: ['Donner une suite à chaque réponse rapide du template, au besoin { "humain": {} }.', 'Give each quick reply of the template a next step, if need be { "humain": {} }.'],
+  quick_reply_unwired: ['Donner une suite à chaque réponse rapide du template, au besoin l’étape humain.', 'Give each quick reply of the template a next step, if need be the humain step.'],
   agent_unavailable: ['Choisir un agent actif (list_agents), ou activer celui-ci.', 'Choose an active agent (list_agents), or activate this one.'],
   field_unknown: ['Créer le champ (POST /v1/fields), ou en choisir un existant.', 'Create the field (POST /v1/fields), or choose an existing one.'],
   file_refused: ['Donner l’adresse https d’un fichier public au bon format, ou un fichier plus léger.', 'Give the https address of a public file in a supported format, or a lighter file.'],

@@ -11,6 +11,8 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'contact.optin': ['Passage en opt-in', 'Marked as opted in'],
   'contact.optout': ['Passage en opt-out', 'Marked as opted out'],
   'workflow.published': ['Scénario mis en ligne', 'Scenario published'],
+  // Un scénario supprimé par l'API ou le MCP (spec 2026-11-02-scenarios-api) : le détail ne porte que l'origine.
+  'workflow.deleted': ['Scénario supprimé', 'Scenario deleted'],
   // Effacement irréversible : la trace ne porte que l'identifiant interne et le nombre de messages effacés.
   'conversation.effacee': ['Conversation effacée', 'Conversation erased'],
   // Le branchement d'un outil qui reçoit les signaux (lot 6 de l'API publique). Ni le libellé, ni la cible

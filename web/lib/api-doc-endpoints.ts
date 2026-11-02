@@ -15,9 +15,9 @@ import type { LienVers } from './doc-api-pages';
  * ⚠️ AUCUN IMPORT DE VALEUR : lu par le build de la console ET par la suite racine.
  */
 
-export type Methode = 'GET' | 'POST' | 'PATCH' | 'DELETE';
-export type Droit = 'contacts:write' | 'contacts:read' | 'sends:create' | 'conversations:read' | 'templates:write' | 'webhooks:write' | 'contacts:admin';
-export type GroupeEndpoints = 'contacts' | 'messages' | 'conversations' | 'envois' | 'modeles' | 'webhooks' | 'catalogues';
+export type Methode = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+export type Droit = 'contacts:write' | 'contacts:read' | 'sends:create' | 'conversations:read' | 'templates:write' | 'webhooks:write' | 'contacts:admin' | 'scenarios:write';
+export type GroupeEndpoints = 'contacts' | 'messages' | 'conversations' | 'envois' | 'modeles' | 'scenarios' | 'webhooks' | 'catalogues';
 
 export interface EndpointDoc {
   readonly methode: Methode;
@@ -36,6 +36,7 @@ export const GROUPES_ENDPOINTS: ReadonlyArray<{ readonly cle: GroupeEndpoints; r
   { cle: 'conversations', titre: ['Conversations', 'Conversations'] },
   { cle: 'envois', titre: ['Envois', 'Sends'] },
   { cle: 'modeles', titre: ['Modèles', 'Templates'] },
+  { cle: 'scenarios', titre: ['Scénarios', 'Scenarios'] },
   { cle: 'webhooks', titre: ['Webhooks sortants', 'Outgoing webhooks'] },
   { cle: 'catalogues', titre: ['Catalogues', 'Catalogs'] },
 ];
@@ -120,6 +121,22 @@ export const ENDPOINTS = [
   {
     methode: 'GET', chemin: '/v1/templates/{name}', droit: 'templates:write', groupe: 'modeles', lien: { page: 'templates', ancre: 'statut' },
     resume: ['Lit le statut d’un modèle chez Meta, langue par langue.', 'Reads a template’s status at Meta, language by language.'],
+  },
+  {
+    methode: 'POST', chemin: '/v1/scenarios', droit: 'scenarios:write', groupe: 'scenarios', lien: { page: 'scenarios', ancre: 'creer' },
+    resume: ['Crée un scénario depuis une recette et le publie aussitôt.', 'Creates a scenario from a recipe and publishes it at once.'],
+  },
+  {
+    methode: 'GET', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: 'scenarios', lien: { page: 'scenarios', ancre: 'lire' },
+    resume: ['Lit un scénario sous forme de recette, avec l’empreinte qui garde son remplacement.', 'Reads a scenario as a recipe, with the fingerprint that guards its replacement.'],
+  },
+  {
+    methode: 'PUT', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: 'scenarios', lien: { page: 'scenarios', ancre: 'remplacer' },
+    resume: ['Remplace un scénario créé par l’API et le publie aussitôt.', 'Replaces a scenario created through the API and publishes it at once.'],
+  },
+  {
+    methode: 'DELETE', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: 'scenarios', lien: { page: 'scenarios', ancre: 'supprimer' },
+    resume: ['Supprime un scénario créé par l’API, si plus rien ne l’utilise.', 'Deletes a scenario created through the API, if nothing uses it any more.'],
   },
   {
     methode: 'GET', chemin: '/v1/webhooks', droit: 'webhooks:write', groupe: 'webhooks', lien: { page: 'webhook-endpoints', ancre: 'lister' },

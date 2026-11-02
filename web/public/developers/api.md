@@ -162,6 +162,15 @@ En TypeScript, le client généré depuis ce contrat : [SDK TypeScript](https://
 | POST | [/v1/templates](https://console.messagingme.app/developers/api/templates.md#creer) : Crée un modèle au format de Meta et le soumet à sa validation. | `templates:write` |
 | GET | [/v1/templates/{name}](https://console.messagingme.app/developers/api/templates.md#statut) : Lit le statut d’un modèle chez Meta, langue par langue. | `templates:write` |
 
+### Scénarios
+
+|   |   |   |
+| --- | --- | --- |
+| POST | [/v1/scenarios](https://console.messagingme.app/developers/api/scenarios.md#creer) : Crée un scénario depuis une recette et le publie aussitôt. | `scenarios:write` |
+| GET | [/v1/scenarios/{scenarioId}](https://console.messagingme.app/developers/api/scenarios.md#lire) : Lit un scénario sous forme de recette, avec l’empreinte qui garde son remplacement. | `scenarios:write` |
+| PUT | [/v1/scenarios/{scenarioId}](https://console.messagingme.app/developers/api/scenarios.md#remplacer) : Remplace un scénario créé par l’API et le publie aussitôt. | `scenarios:write` |
+| DELETE | [/v1/scenarios/{scenarioId}](https://console.messagingme.app/developers/api/scenarios.md#supprimer) : Supprime un scénario créé par l’API, si plus rien ne l’utilise. | `scenarios:write` |
+
 ### Webhooks sortants
 
 |   |   |   |

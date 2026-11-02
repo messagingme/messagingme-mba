@@ -221,6 +221,19 @@ export const journalWebhook = z.object({ data: z.array(deliveryV1), nextBefore: 
 export const rejeu = z.object({ replayed: z.literal(true) });
 export const rejeuEchecs = z.object({ replayed: z.number().describe('How many deliveries were replayed.') });
 
+/** Un scénario écrit ou lu par `/v1/scenarios` (`VueScenario`, `src/workflow/scenarios-api.ts`). */
+export const vueScenario = z.object({
+  id: z.string(),
+  code: z.string().describe('The scn_ code, usable wherever a scenario is designated.'),
+  nom: z.string(),
+  origine: z.enum(['console', 'api']).describe('Only api scenarios can be replaced or deleted through the API.'),
+  entreeCode: z.string().nullable().describe('The nod_ code of the entry step: POST /v1/sends targets it for a scenario that opens with a message.'),
+  recette: z.object({ nom: z.string(), entree: z.record(z.string(), z.unknown()) }).describe('The recipe, read back from what is published.'),
+  empreinte: z.string().describe('Send it back in If-Match to replace the scenario.'),
+  ouverture: z.enum(['whatsapp_template', 'whatsapp_session', 'rcs']).nullable(),
+});
+export const scenarioSupprime = z.object({ id: z.string(), supprime: z.literal(true) });
+
 /** Les trois catalogues (`CatalogueTemplatesV1`… dans `src/http/v1-catalogues.ts`). */
 export const reponseTemplates = z.object({ templates: z.array(templateCatalogue) });
 export const reponseScenarios = z.object({ scenarios: z.array(scenarioCatalogue) });

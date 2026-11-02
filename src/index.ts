@@ -71,6 +71,8 @@ import { PgStockageStore } from './ops/stockage.pg';
 import { creerSurveillanceWorkers } from './ops/surveillance-workers';
 import { MesureLatenceHttp } from './ops/latence-http';
 import { PgWorkflowReportStore } from './workflow/reports.pg';
+import type { DepsScenariosApi } from './workflow/scenarios-api';
+import { verifierFichierDuBloc } from './meta/template-media';
 import { lienDe, lienTraceAvecJeton } from './links/rewrite';
 import { fabriquerJeton } from './links/jeton-contact';
 import { newTrackingCode } from './ids/code';
@@ -1295,6 +1297,25 @@ async function main(): Promise<void> {
   const oublierModeles = async (tenant: string): Promise<void> => {
     const waba = await repo.getTenantWabaId(tenant);
     if (waba) catalogueTemplatesCache.invalider(`${tenant}:${waba}`);
+  };
+
+  /**
+   * Les scénarios écrits par l'API et le MCP (spec 2026-11-02-scenarios-api) : un seul service, `src/workflow/scenarios-api.ts`.
+   * Les templates sont la MÊME liste que le catalogue (une minute de cache) ; le fichier d'un message se vérifie par le
+   * chemin de l'envoi (`verifierFichierDuBloc`, médiathèque de l'espace puis téléchargement gardé).
+   */
+  const depsScenariosApi: DepsScenariosApi = {
+    scenarios: workflowStore,
+    offres,
+    templates: listerModeles,
+    indices: templateHintStore,
+    agents: async (tenant) => (await agentStore.listToutes(tenant))
+      .map((a) => ({ id: a.id, label: a.label, actif: a.status === 'active', sorties: a.sorties })),
+    champs: async (tenant) => (await fieldStore.list(tenant)).map((f) => f.key),
+    verifierFichier: (tenant, url) => verifierFichierDuBloc(
+      { lireFichier: (t, code) => rcsMediaStore.lireDeLEspace(t, code), telecharger: telechargerEnteteProduction }, tenant, url),
+    tenantCode: (tenant) => resolveTenantCode(pool, tenant),
+    journal: (tenant, action, id, details) => auditSink(tenant, { userId: null, email: null }, action, { kind: 'workflow', id }, details),
   };
 
   /**
@@ -3423,6 +3444,8 @@ async function main(): Promise<void> {
       },
       // Les modèles (lot 13, domaine 3) : la création de l'écran Modèles, au format de Meta.
       templates: creationModeles,
+      // Les scénarios (spec 2026-11-02) : le MÊME service que les outils MCP.
+      scenarios: depsScenariosApi,
       // Les webhooks sortants par une clé (lot 13, domaine 4) : la MÊME gestion que la console et les outils MCP.
       webhooks: { gestion: gestionEvenements, audit: auditSink },
       /**

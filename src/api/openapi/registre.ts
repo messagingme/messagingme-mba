@@ -14,9 +14,10 @@ import type { RouteOpenapi } from './document';
 import {
   champV1, champs, contactEcrit, contactModifie, contactTrouve, contactsLot, conversationV1, essaiWebhook, ficheApi,
   ficheEffacee, journalWebhook, listeWebhooks, messageV1, modeleCree, pageV1, paramSource, rapportEnvoi, rejeu, rejeuEchecs,
-  reponseMessageEnFile, reponseMessageSimple, reponseMessagesRcs, reponseScenarios, reponseTemplates, secretTourne, statutModele,
-  suiviEnvoi, webhookCree, webhookV1,
+  reponseMessageEnFile, reponseMessageSimple, reponseMessagesRcs, reponseScenarios, reponseTemplates, scenarioSupprime, secretTourne,
+  statutModele, suiviEnvoi, vueScenario, webhookCree, webhookV1,
 } from './reponses';
+import { schemaRecetteDoc, schemaRemplacementDoc } from '../../workflow/recette';
 
 /**
  * LE REGISTRE DES ROUTES `/v1` (lot 16) : ce que le contrat OpenAPI dit de chacune. Les schémas d'ENTRÉE sont ceux que
@@ -64,6 +65,12 @@ const E = 'Sends';
 const T = 'Templates';
 const W = 'Outgoing webhooks';
 const K = 'Catalogs';
+const S = 'Scenarios';
+/** Ce qu'une recette peut faire refuser, à l'écriture comme au remplacement. */
+const RECETTE: readonly CodeApi[] = [
+  'invalid_body', 'plan_feature_unavailable', 'template_not_found', 'template_not_approved', 'unsendable_target', 'template_button_unknown',
+  'quick_reply_unwired', 'agent_unavailable', 'field_unknown', 'file_refused', 'scenario_name_taken',
+];
 
 export const ROUTES_V1: readonly RouteOpenapi[] = [
   {
@@ -182,6 +189,31 @@ export const ROUTES_V1: readonly RouteOpenapi[] = [
     resume: 'Reads a template’s status at Meta, language by language.', requete: requeteStatutModele,
     succes: { statut: 200, schema: statutModele },
     erreurs: ['invalid_body', 'template_not_found', 'meta_rejected', 'meta_auth_failed', 'no_whatsapp_number'],
+  },
+  {
+    methode: 'POST', chemin: '/v1/scenarios', droit: 'scenarios:write', groupe: S, operationId: 'createScenario',
+    resume: 'Creates a scenario from a recipe and publishes it at once.', corps: schemaRecetteDoc,
+    succes: { statut: 201, schema: vueScenario }, erreurs: RECETTE,
+  },
+  {
+    methode: 'GET', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'getScenario',
+    resume: 'Reads a scenario as a recipe, with the fingerprint that guards its replacement.',
+    parametres: z.object({ scenarioId: z.string().describe('The scenario id, or its scn_ code.') }),
+    succes: { statut: 200, schema: vueScenario }, erreurs: ['plan_feature_unavailable', 'scenario_not_found', 'scenario_not_describable'],
+  },
+  {
+    methode: 'PUT', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'replaceScenario',
+    resume: 'Replaces a scenario created through the API and publishes it at once.',
+    parametres: z.object({ scenarioId: z.string().describe('The scenario id, or its scn_ code.') }), corps: schemaRemplacementDoc,
+    succes: { statut: 200, schema: vueScenario },
+    erreurs: [...RECETTE, 'precondition_required', 'scenario_not_found', 'scenario_managed_in_console', 'scenario_changed', 'scenario_not_describable'],
+  },
+  {
+    methode: 'DELETE', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'deleteScenario',
+    resume: 'Deletes a scenario created through the API, if nothing uses it any more.',
+    parametres: z.object({ scenarioId: z.string().describe('The scenario id, or its scn_ code.') }),
+    succes: { statut: 200, schema: scenarioSupprime },
+    erreurs: ['plan_feature_unavailable', 'scenario_not_found', 'scenario_managed_in_console', 'scenario_in_use'],
   },
   {
     methode: 'GET', chemin: '/v1/webhooks', droit: 'webhooks:write', groupe: W, operationId: 'listWebhooks',
