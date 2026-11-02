@@ -66,11 +66,12 @@ export interface RunTurnDeps {
   /** Le fil est-il encore à nous ? Absent -> considéré comme oui (suites à deps minimales). */
   mayAct?(tenantId: string, waId: string): Promise<boolean>;
   /**
-   * 🔴 Ce scénario est-il le répondeur de l'espace (`workflows.systeme`) ? Le cerveau y garde la phrase d'une escalade,
-   * qu'aucune branche ne dit après lui (`ContexteTourAgent.repondeur`). Requise : un câblage qui l'oublierait
-   * laisserait le contact du répondeur sans aucune réponse à sa demande d'humain.
+   * 🔴 Aucune branche ne parle-t-elle après une escalade de CE bloc ? Le répondeur de l'espace (`workflows.systeme`), ou
+   * un parcours dont la sortie `humain` du bloc finit muette (`brancheHumainMuette`, une recette de l'API par exemple :
+   * essai réel du 2026-11-02). Le cerveau y garde la phrase de l'escalade (`ContexteTourAgent.repondeur`). Requise : un
+   * câblage qui l'oublierait laisserait ces contacts sans aucune réponse à leur demande d'humain.
    */
-  estRepondeur(tenantId: string, workflowId: string): Promise<boolean>;
+  estRepondeur(tenantId: string, workflowId: string, runId: string, nodeId: string): Promise<boolean>;
   /**
    * 🔴 Ce contact a-t-il demandé à ne plus rien recevoir ? La réponse de l'agent ne passe pas par
    * `WorkflowExecutor.apply` mais par `deps.envoyer` : elle a donc sa propre garde. Lue au rang des plafonds,
@@ -307,10 +308,10 @@ export async function runTurn(job: AgentTurnJob, deps: RunTurnDeps): Promise<Res
   }
 
   /**
-   * Le parcours est-il le répondeur de l'espace ? Lu HORS du `try` du cerveau, comme la fiche et le solde : un raté de
-   * la base fait rejouer le job par pg-boss, au lieu de clore la session en erreur et de sortir par `echec`.
+   * Le parcours se tait-il après une escalade de ce bloc ? Lu HORS du `try` du cerveau, comme la fiche et le solde : un
+   * raté de la base fait rejouer le job par pg-boss, au lieu de clore la session en erreur et de sortir par `echec`.
    */
-  const repondeur = await deps.estRepondeur(job.tenantId, job.workflowId);
+  const repondeur = await deps.estRepondeur(job.tenantId, job.workflowId, job.runId, job.nodeId);
 
   // 4. Le cerveau, sous une échéance dure.
   let decision;

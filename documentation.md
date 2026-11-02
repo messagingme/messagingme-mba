@@ -888,8 +888,13 @@ webhooks sortants, `repondeur_adresse_id`, 0224). Les invariants :
   `plafond` et `sans_source` n'ont pas d'arête, donc la conversation passe à l'équipe (`boutonSansSuite`). 🔴 `humain`
   est câblée : non câblée, le moteur passerait la main pendant la sortie, AVANT l'escalade de l'agent, dont la bascule
   rendrait alors `false`, et la dernière phrase de l'agent serait jetée. 🔴 Et le tour GARDE cette phrase dans le
-  répondeur (`ContexteTourAgent.repondeur`, lu par `estRepondeur` sur le scénario du job) : ailleurs, équipe
-  joignable, il la jette parce que la branche `humain` du scénario parle à sa place ; ici, rien ne parle après lui.
+  répondeur (`ContexteTourAgent.repondeur`, lu par `estRepondeur`) : ailleurs, équipe joignable, il la jette parce que
+  la branche `humain` du scénario parle à sa place ; ici, rien ne parle après lui. 🔴 Même chose pour tout parcours
+  dont la sortie `humain` du bloc finit MUETTE (des blocs Action, puis rien, `brancheHumainMuette`,
+  `src/workflow/branche-humain.ts`), lue sur le graphe que le parcours joue : c'est le montage d'une recette de l'API,
+  dont le contact ne recevait rien quand l'agent passait la main (essai réel du 2026-11-02). Tout autre bloc après la
+  sortie est tenu pour parlant, et la phrase reste jetée (une seule voix). ⚠️ « Passer à un humain » derrière `humain`
+  laisse encore le contact sans la phrase : il bascule le fil pendant la sortie, avant l'escalade (`todo.md`).
 - **Le démarreur** (`creerDemarreurRepondeur`, `src/repondeur/demarrer.ts`) lit l'agent (actif) et le solde AVANT de
   démarrer : à sec, rien ne démarre (ni parcours, ni session), la conversation passe à l'équipe et l'alerte part. Le
   parcours naît en ayant reçu le message déclencheur (`last_message_id`, le dernier du contact qui n'est pas une
@@ -1332,8 +1337,8 @@ nombre, date, email, liste), au plus `BORNES_ACTION.champs` champs et `BORNES_AC
   parle est refusé AVANT toute étape. Un dépassement de délai sur un enchaînement qui finit par un scénario arrête le
   tour comme `lancer_scenario` (`executor.ts`, `issueInconnue`).
 - **Le transfert est le geste de `escalader`** (`escaladerVersHumain`) : `rendu` arrête le tour, `mainPrise` garde la
-  phrase (envoyée, comme celle d'`escalader`, seulement en répondeur ou équipe fermée, `brain.gateway.ts` ; sinon la
-  branche `humain` du scénario parle), et `message` (la dernière phrase de l'agent) est un paramètre DÉRIVÉ, présent seulement quand les étapes
+  phrase (envoyée, comme celle d'`escalader`, seulement en répondeur, branche `humain` muette ou équipe fermée,
+  `brain.gateway.ts` ; sinon la branche `humain` du scénario parle), et `message` (la dernière phrase de l'agent) est un paramètre DÉRIVÉ, présent seulement quand les étapes
   finissent par le transfert, annoncé requis et toléré absent comme celui d'`escalader` (`paramsAvecDerivations`).
   `deja_demande` et `message` sont donc des clés interdites à une question (`CLES_RESERVEES`). Un transfert qui échoue
   propose UN rappel, sauf si un bloc est déjà parti (il repartirait).

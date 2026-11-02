@@ -334,12 +334,14 @@ describe('la MÉMOIRE du tour', () => {
     const vus: Array<boolean | undefined> = [];
     for (const estLe of [true, false]) {
       const { deps } = make({
-        estRepondeur: async (t, wf) => { lus.push(`${t}/${wf}`); return estLe; },
+        estRepondeur: async (t, wf, run, bloc) => { lus.push(`${t}/${wf}/${run}/${bloc}`); return estLe; },
         brain: { penser: async (i) => { vus.push(i.tour?.repondeur); return { texte: 'ok', sortie: null }; } },
       });
       await runTurn(JOB, deps);
     }
-    expect(lus).toEqual([`${JOB.tenantId}/${JOB.workflowId}`, `${JOB.tenantId}/${JOB.workflowId}`]);
+    // Le parcours et le bloc : c'est LEUR branche `humain` qui décide (`brancheHumainMuette`, essai réel du 2026-11-02).
+    const lu = `${JOB.tenantId}/${JOB.workflowId}/${JOB.runId}/${JOB.nodeId}`;
+    expect(lus).toEqual([lu, lu]);
     expect(vus).toEqual([true, false]);
   });
 

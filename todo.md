@@ -34,6 +34,12 @@
   bloc (`poser`, `src/workflow/recette-graphe.ts`) et défait la mise en page faite dans la console (vu à l'essai
   réel du 2026-11-02, « plus tard »). Reprendre la position d'un bloc resté au même chemin avec le même type, depuis
   le brouillon s'il décrit la même recette, sinon depuis la version publiée.
+- La phrase d'escalade de l'agent, encore jetée dans deux montages (relecture du correctif `brancheHumainMuette`,
+  2026-11-02) : une sortie `humain` reliée à « Passer à un humain » (la console), et une recette jouée dans un espace où
+  l'agent de Meta reprend après un parcours (`rendreApresParcours`). Dans les deux, le fil passe à l'équipe PENDANT la
+  sortie, avant l'escalade, qui rend `false` : le tour jette la phrase comme une main perdue. Piste : que l'escalade
+  dise que le fil a basculé à cause de SA sortie (`creerEscaladeVersHumain`), test sur le banc de
+  `tests/repondeur-graphe.test.ts`.
 
 ## 🟡 Le mode répétition de l'envoi (décidé le 2026-10-31, « plus tard »)
 

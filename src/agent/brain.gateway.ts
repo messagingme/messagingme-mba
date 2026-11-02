@@ -384,7 +384,8 @@ async function boucler(
       // L'escalade a déjà rendu la main : le tour s'arrête ici.
       if (res.rendu) {
         /**
-         * La dernière phrase est gardée seulement si l'équipe est indisponible, ou dans le répondeur. Équipe joignable :
+         * La dernière phrase est gardée seulement si l'équipe est indisponible, ou quand aucune branche ne parle après
+         * l'escalade (le répondeur, une branche `humain` muette : `ContexteTourAgent.repondeur`). Équipe joignable :
          * c'est la branche `humain` du scénario qui parle, une seule voix. Équipe fermée : cette branche est un bloc
          * statique, qui ne peut pas dire « nous reprenons lundi 9 h » ; l'agent, qui a reçu la date dans sa consigne, le
          * peut. Dans le répondeur, aucune branche ne parle (`ContexteTourAgent.repondeur`) : jetée, la phrase laissait

@@ -80,9 +80,10 @@ export interface ContexteTourAgent {
    */
   sessionOuverteLe?: string;
   /**
-   * Ce parcours est le répondeur de l'espace (le scénario système, lot 5) : aucune branche ne parle après une escalade
-   * (son graphe relie `humain` à une fin muette, `src/repondeur/graphe.ts`), la dernière phrase de l'agent est donc la
-   * seule que le contact recevra. `false` dans un scénario du client et dans le bac à sable.
+   * Aucune branche ne parle après une escalade : le répondeur de l'espace (le scénario système, lot 5, dont le graphe
+   * relie `humain` à une fin muette, `src/repondeur/graphe.ts`), ou un parcours monté de même (`brancheHumainMuette`,
+   * une recette de l'API par exemple). La dernière phrase de l'agent est donc la seule que le contact recevra. `false`
+   * quand la branche `humain` parle, et dans le bac à sable. Le nom est resté celui du premier cas.
    */
   repondeur: boolean;
 }

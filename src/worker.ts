@@ -31,6 +31,7 @@ import { runCampaignScheduleSweep } from './campaign/schedule-sweep';
 import { runCampaignRepriseSweep } from './campaign/reprise-sweep';
 import { runWorkflowWakeSweep } from './workflow/wake-sweep';
 import { ATTENTE_REVEIL_COURT_A_L_ARRET_MS } from './workflow/reveil-court';
+import { creerSeTaitApresEscalade } from './workflow/branche-humain';
 import { runTourBloqueSweep } from './agent/tour-bloque-sweep';
 import { SORTIE_ECHEC } from '../web/lib/partage/sorties-agent';
 import { runRetrySweep } from './campaign/retry-sweep';
@@ -2306,8 +2307,9 @@ export async function demarrerWorker(): Promise<void> {
       majRun: async (t, runId, nodeId, state) => { await runStore.setStateSiEncoreSur(t, runId, nodeId, state); },
       // Le fil est-il encore à nous ? Relu par le tour juste avant l'envoi, pas seulement à son entrée.
       mayAct: fil.peutAgir,
-      // Le répondeur de l'espace est le scénario système (`workflows.systeme`) : une lecture par clé primaire par tour.
-      estRepondeur: async (t, workflowId) => (await workflowStore.designation(workflowId, t))?.systeme === 'repondeur',
+      // Le répondeur de l'espace, ou un parcours dont l'escalade de ce bloc finit muette : une à trois lectures par clé
+      // primaire par tour.
+      estRepondeur: creerSeTaitApresEscalade({ workflows: workflowStore, runs: runStore }),
       /**
        * 🔴 La garde d'opt-out de l'agent IA : sa réponse part par `envoyerTexteAgent`, qui appelle
        * `client.sendText` directement, sans passer par `WorkflowExecutor.apply`. Même lecture que l'exécuteur
