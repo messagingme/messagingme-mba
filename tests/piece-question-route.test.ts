@@ -112,11 +112,34 @@ describe('GET /f/:code', () => {
     await app.close();
   });
 
-  it('au-delà du plafond par adresse : 429, rien lu', async () => {
+  it('au-delà du plafond d’une même pièce : 429, rien lu', async () => {
     const { app, lus } = monter({ limiteur: new RateLimiter(1, 60_000) });
     expect((await app.inject({ method: 'GET', url: `/f/${BON}` })).statusCode).toBe(200);
     expect((await app.inject({ method: 'GET', url: `/f/${BON}` })).statusCode).toBe(429);
     expect(lus).toHaveLength(1);
+    await app.close();
+  });
+
+  it('🔴 des jetons faux en rafale n’épuisent pas le plafond d’un lien valide (relecture du lot : req.ip est le proxy)', async () => {
+    const { app } = monter({ limiteur: new RateLimiter(1, 60_000) });
+    for (let i = 0; i < 5; i++) expect((await app.inject({ method: 'GET', url: `/f/faux-${i}` })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: `/f/${BON}` })).statusCode).toBe(200);
+    await app.close();
+  });
+
+  it('🔴 une panne de la base en relisant le message : 422, jamais 5xx, et le jeton n’entre dans aucun journal', async () => {
+    const ecrit: string[] = [];
+    const espion = (...a: unknown[]) => { ecrit.push(a.map((x) => (typeof x === 'string' ? x : JSON.stringify(x, Object.getOwnPropertyNames(x ?? {})))).join(' ')); };
+    vi.spyOn(console, 'error').mockImplementation(espion);
+    vi.spyOn(console, 'log').mockImplementation(espion);
+    vi.spyOn(process.stdout, 'write').mockImplementation((t: string | Uint8Array) => { ecrit.push(String(t)); return true; });
+    const { app, lus } = monter({ conversations: { message: async () => { throw new Error('pool saturé'); } } });
+    const res = await app.inject({ method: 'GET', url: `/f/${BON}` });
+    vi.restoreAllMocks();
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ code: string }>().code).toBe('media_unavailable');
+    expect(lus).toEqual([]);
+    expect(ecrit.join('\n')).not.toContain(BON);
     await app.close();
   });
 });

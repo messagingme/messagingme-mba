@@ -1,6 +1,6 @@
 import { jamaisDesabonne } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowExecutorDeps } from '../src/workflow/executor';
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
@@ -386,6 +386,29 @@ describe('bloc Question : la réponse rangée, pièce jointe comprise', () => {
     await ex.advance('t1', '33600', 'wamid.P1', null, 'whatsapp', fichier('image', 'image/jpeg'));
     expect(cap.tags).toEqual([]);
     expect(cap.escalades).toEqual(['33600']);
+  });
+
+  it('🔴 la note de la pièce échoue : le champ reçoit QUAND MÊME la mention neuve, pour qu’aucun lien ne parte vers la pièce précédente', async () => {
+    // Relecture du lot : sans cette écriture, le champ gardait la mention d'une pièce plus ancienne, encore notée, et
+    // l'Appel API derrière « Fichier reçu » envoyait au stockage le lien de l'ANCIENNE pièce comme celui de la nouvelle.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { ex, cap, champs } = monterAvecChamps(graphePiece(), runQ(), {
+      piecesQuestion: { noter: async () => { throw new Error('base indisponible'); } },
+    });
+    await ex.advance('t1', '33600', 'wamid.P2', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    vi.restoreAllMocks();
+    expect(champs).toEqual([['piece_identite', MENTION]]);
+    expect(cap.tags).toEqual(['piece']);
+  });
+
+  it('🔴 le fuseau de l’espace est illisible : la mention est datée en UTC, et la pièce est notée', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { ex, champs, notes } = monterAvecChamps(graphePiece(), runQ(), { fuseau: async () => { throw new Error('base indisponible'); } });
+    await ex.advance('t1', '33600', 'wamid.P2', null, 'whatsapp', fichier('image', 'image/jpeg'));
+    vi.restoreAllMocks();
+    const utc = 'Pièce reçue le 02/11/2026 à 13 h 32 (photo)';
+    expect(notes).toEqual([['t1', '33600', 'piece_identite', 'wamid.P2', utc]]);
+    expect(champs).toEqual([['piece_identite', utc]]);
   });
 
   it('« Fichier reçu » puis fin sans envoi : le message part chez le répondeur, comme aujourd’hui (décision de Julien)', async () => {

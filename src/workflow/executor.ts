@@ -1091,16 +1091,15 @@ export class WorkflowExecutor {
   }
 
   /**
-   * Rend le fil à l'agent de Meta, sans jamais faire échouer le parcours qui l'appelle. Un release raté
-   * laisse le fil à nous (l'agent reste muet, ce qui se voit dans l'Inbox), alors qu'une exception remontée
-   * ferait échouer un envoi déjà parti.
-   */
-  /**
    * Range la réponse à un bloc Question dans le champ qu'il a choisi (spec du 2026-11-02). Une pièce acceptée : la
-   * mention, notée D'ABORD avec son message (un échec entre les deux laisse un champ qui n'ouvre rien, jamais une note
-   * sans champ qui la porte) ; une ligne du menu : son titre, si la case est cochée ; un texte écrit : le texte. Rien
-   * d'autre, et un fichier refusé ne touche pas au champ. N'échoue jamais vers l'appelant : le contact doit avancer
-   * même si l'écriture manque. Le journal ne porte jamais la valeur, qui peut être une donnée du contact.
+   * mention, notée d'abord avec son message, puis écrite dans le champ ; une ligne du menu : son titre, si la case est
+   * cochée ; un texte écrit : le texte. Rien d'autre, et un fichier refusé ne touche pas au champ. N'échoue jamais vers
+   * l'appelant : le contact doit avancer même si l'écriture manque. Le journal ne porte jamais la valeur, qui peut être
+   * une donnée du contact.
+   *
+   * 🔴 La mention neuve est écrite dans le champ MÊME si sa note échoue (relecture du lot) : sinon le champ garderait la
+   * mention d'une pièce plus ancienne, encore notée, et l'Appel API derrière « Fichier reçu » enverrait le lien de
+   * l'ancienne pièce comme celui de la nouvelle. Écrite sans note, elle n'ouvre rien. Un fuseau illisible date en UTC.
    */
   private async rangerLaReponse(
     tenantId: string, waId: string, messageId: string, node: WorkflowNode, buttonPayload: string | null,
@@ -1108,10 +1107,16 @@ export class WorkflowExecutor {
   ): Promise<void> {
     const { champ, rangerLigne } = reglagesQuestion(node);
     if (champ === null) return;
+    const echec = (quoi: string, err: unknown): void => {
+      // eslint-disable-next-line no-console
+      console.warn(`workflow: réponse du bloc ${node.id} : ${quoi} pour ${waId} (champ « ${champ} »):`, messageDe(err));
+    };
     try {
       if (piece !== null) {
-        const mention = mentionDePiece(new Date(this.now()), await this.deps.fuseau(tenantId), piece);
-        await this.deps.piecesQuestion.noter(tenantId, waId, champ, messageId, mention);
+        const fuseau = await this.deps.fuseau(tenantId).catch((err: unknown) => { echec('fuseau illisible, mention datée en UTC', err); return 'UTC'; });
+        const mention = mentionDePiece(new Date(this.now()), fuseau, piece);
+        await this.deps.piecesQuestion.noter(tenantId, waId, champ, messageId, mention)
+          .catch((err: unknown) => { echec('pièce NON notée, la mention écrite n’ouvrira rien', err); });
         await this.deps.setField(tenantId, waId, champ, mention);
         return;
       }
@@ -1124,11 +1129,15 @@ export class WorkflowExecutor {
         await this.deps.setField(tenantId, waId, champ, entrant.texte);
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn(`workflow: réponse du bloc ${node.id} NON rangée dans le champ « ${champ} » pour ${waId}:`, messageDe(err));
+      echec('réponse NON rangée', err);
     }
   }
 
+  /**
+   * Rend le fil à l'agent de Meta, sans jamais faire échouer le parcours qui l'appelle. Un release raté
+   * laisse le fil à nous (l'agent reste muet, ce qui se voit dans l'Inbox), alors qu'une exception remontée
+   * ferait échouer un envoi déjà parti.
+   */
   private async rendreLaMainAMba(tenantId: string, waId: string, opts: { transmettre?: string } = {}): Promise<void> {
     if (!(await this.mbaActif(tenantId))) {
       // Aucun appel Meta si l'agent n'est pas le répondeur (éteint, ou en veille, RC6). Le message « à côté », lui, va au

@@ -27,7 +27,11 @@ export interface PieceQuestionRouteDeps {
   lireMediaMessage: V1ConversationsRouteDeps['lireMediaMessage'];
   /** La trace d'un téléchargement, visible par l'admin de l'espace. Best-effort : elle n'empêche jamais l'envoi. */
   tracer(tenantId: string, idInterne: string): Promise<void>;
-  /** Le plafond par adresse IP : un lien valide ne doit pas servir à faire télécharger Meta en boucle. */
+  /**
+   * Le plafond PAR PIÈCE (l'espace et le message du jeton), compté après la lecture du jeton : un lien valide ne doit
+   * pas faire télécharger Meta en boucle. Jamais par `req.ip`, qui désigne le proxy (le serveur n'a pas `trustProxy`) :
+   * un tel plafond serait global, et des jetons faux en rafale bloqueraient les liens valides de tous les clients.
+   */
   limiteur: RateLimiter;
 }
 
@@ -38,10 +42,20 @@ export function registerPieceQuestion(app: FastifyInstance, deps: PieceQuestionR
     reply.code(statut).header('cache-control', 'no-store').send({ error, code });
 
   app.get('/f/:code', async (req, reply) => {
-    if (!deps.limiteur.take(req.ip)) return refuser(reply, 429, 'trop_de_demandes', 'trop de téléchargements depuis cette adresse : réessayez dans une minute');
     const lu = await deps.lire(String((req.params as { code?: unknown }).code ?? ''));
     if (lu === null) return reply.code(404).header('cache-control', 'no-store').send(INVALIDE);
-    const m = await deps.conversations.message(lu.tenantId, lu.metaMessageId);
+    if (!deps.limiteur.take(`${lu.tenantId}:${lu.metaMessageId}`)) {
+      return refuser(reply, 429, 'trop_de_demandes', 'trop de téléchargements de cette pièce : réessayez dans une minute');
+    }
+    // 🔴 Dans un `try` : une panne ici remonterait au gestionnaire global, qui répond 500 et journalise `req.url`, donc
+    // le jeton vivant (relecture du lot). Le journal ne porte que l'espace.
+    let m: Awaited<ReturnType<PieceQuestionRouteDeps['conversations']['message']>>;
+    try {
+      m = await deps.conversations.message(lu.tenantId, lu.metaMessageId);
+    } catch (err) {
+      journaliser('error', 'piece_question_message_illisible', { err, tenantId: lu.tenantId });
+      return refuser(reply, 422, 'media_unavailable', 'ce fichier ne peut pas être lu pour l’instant : réessayez dans un instant');
+    }
     if (!m || m.media === null) return reply.code(404).header('cache-control', 'no-store').send(INVALIDE);
     if (m.media.expired) return refuser(reply, 410, 'media_expired', 'Meta ne garde un fichier reçu que 7 jours : celui-ci n’existe plus');
     let fichier: Awaited<ReturnType<PieceQuestionRouteDeps['lireMediaMessage']>>;
