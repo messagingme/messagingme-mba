@@ -1,4 +1,5 @@
 import { transcrire, TranscriptionError } from '../agent/llm/transcription';
+import type { AccesCreditIa } from '../agent/acces-credit';
 import { prixClientMicroEur } from '../agent/devise';
 import { journaliser } from '../lib/journal';
 import { MediaExpire, estMediaExpireChezMeta } from './media-entrant';
@@ -27,6 +28,17 @@ export class CreditEpuise extends Error {
   constructor() {
     super('credit IA epuise');
     this.name = 'CreditEpuise';
+  }
+}
+
+/**
+ * Une Entreprise (illimitée) a atteint son plafond de sécurité de l'IA du mois (décision du 2026-11-02) : rien ne part.
+ * Distinct d'un crédit épuisé : il n'y a rien à recharger, c'est nous qui relevons le plafond.
+ */
+export class PlafondIaAtteint extends Error {
+  constructor() {
+    super('plafond IA du mois atteint');
+    this.name = 'PlafondIaAtteint';
   }
 }
 
@@ -76,7 +88,8 @@ export interface DepsTranscrire {
    * câblage qui l'oublierait ferait transcrire à nos frais, sans un mot.
    */
   facturation: {
-    solde(tenantId: string): Promise<number>;
+    /** L'accès de l'espace au Crédit IA (`PgAccesCreditIaStore.acces`) : un solde positif, ou une Entreprise sous son plafond. */
+    acces(tenantId: string): Promise<AccesCreditIa>;
     /** La commission de l'offre de l'espace (`commissionPour`, `src/offres/commission.ts`). */
     commissionPour(tenantId: string): Promise<number>;
     tauxEurParDollar: number;
@@ -133,8 +146,10 @@ export async function transcrireMessage(
   if (!msg.mediaId) throw new RienATranscrire();
   // Après le cas « déjà transcrit » : une transcription faite quand le vocal existait se relit pour toujours.
   if (msg.mediaExpire === true) throw new MediaExpire();
-  // Le crédit d'abord, avant même de télécharger : sans crédit, rien ne part (lot 6, C).
-  if (!((await deps.facturation.solde(tenantId)) > 0)) throw new CreditEpuise();
+  // Le crédit d'abord, avant même de télécharger : sans crédit, rien ne part (lot 6, C), ni au plafond d'une Entreprise.
+  const acces = await deps.facturation.acces(tenantId);
+  if (acces === 'epuise') throw new CreditEpuise();
+  if (acces === 'plafond') throw new PlafondIaAtteint();
 
   const fichier = await deps.media.telechargerEntrant(msg.mediaId, deps.tailleMaxOctets, tenantId).catch((err: unknown) => {
     throw estMediaExpireChezMeta(err) ? new MediaExpire() : err;

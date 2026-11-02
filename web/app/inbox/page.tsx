@@ -1787,6 +1787,10 @@ function Thread({ session, conversation, dossier, peutPrendre, onSent }: {
             'Traduction indisponible : le crédit de cet espace est trop bas pour l’activer. Les messages restent dans leur langue d’origine, un administrateur peut le recharger.',
             'Translation unavailable: this workspace’s credit is too low to turn it on. Messages stay in their original language, an admin can top it up.',
           )}
+          {traductionCause === 'plafond' && t(
+            'Traduction indisponible : le plafond de sécurité de l’IA de cet espace est atteint ce mois-ci. Les messages restent dans leur langue d’origine ; contactez-nous pour le relever.',
+            'Translation unavailable: this workspace has reached its monthly AI safety cap. Messages stay in their original language; contact us to raise it.',
+          )}
           {/* 🔴 LE LIEN NE SORT QUE POUR LE CRÉDIT (décision de Julien du 2026-09-29) : ce sont les seules causes que
               le client règle lui-même. Et seulement pour un ADMIN : la page Crédit IA renvoie un non-admin vers
               l'Inbox, le lien le ferait tourner en rond ; la phrase lui dit déjà qu'un administrateur recharge. */}

@@ -40,8 +40,8 @@ export interface OpsOffreDeps {
     /** La sortie de toute offre posée à la main : la fin du numéro fourni que plus rien ne couvre (`surFinDeLOffreManuelle`). */
     finOffreManuelle(tenantId: string, finiLe: Date): Promise<string>;
     /**
-     * L'open bar du Crédit WhatsApp posé : les campagnes en pause faute de crédit repartent, rien ne les refusera plus
-     * (`leverPausesCreditWhatsapp`, plan du Crédit WhatsApp, tâche 11). Rend le nombre de campagnes reprises.
+     * L'entrée en Entreprise (illimitée depuis le 2026-11-02) : les campagnes en pause faute de crédit repartent, rien ne
+     * les refusera plus (`leverPausesCreditWhatsapp`, plan du Crédit WhatsApp, tâche 11). Rend le nombre de campagnes reprises.
      */
     reprendreCreditWhatsapp(tenantId: string): Promise<number>;
   };
@@ -79,6 +79,9 @@ const corpsSchema = z.object({
   // inchangée ; `null` = la globale, un ENTIER comme l'autre. L'illimité ne se règle pas : toute Entreprise l'est
   // (décision du 2026-11-02), et le schéma strict refuse l'ancien `openBarWhatsapp`.
   commissionMessagesPct: z.number().int().min(0).max(100).nullable().optional(),
+  // Le plafond de sécurité de l'IA d'une Entreprise, en euros ENTIERS par mois (Entreprise illimitée, lot B) : absent =
+  // inchangé, `null` = le défaut de l'instance. Jamais 0 : la clé Vercel garde ce plafond d'avance, il lui faut un nombre.
+  plafondIaMoisEuros: z.number().int().min(1).max(1_000_000).nullable().optional(),
   note: z.string(),
 }).strict();
 
@@ -102,7 +105,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
     const lu = corpsSchema.safeParse(req.body ?? {});
     if (!lu.success) {
       return reply.code(400).send({
-        error: 'entreprise (booléen) et utilisateurs (entier positif ou null) requis, avec une note ; facultatifs, absents = inchangés : conservationJours (0 à 3650, ou null), contacts (entier positif, ou null), commissionPct (entier de 0 à 100, ou null), commissionMessagesPct (entier de 0 à 100, ou null)',
+        error: 'entreprise (booléen) et utilisateurs (entier positif ou null) requis, avec une note ; facultatifs, absents = inchangés : conservationJours (0 à 3650, ou null), contacts (entier positif, ou null), commissionPct (entier de 0 à 100, ou null), commissionMessagesPct (entier de 0 à 100, ou null), plafondIaMoisEuros (entier de 1 à 1 000 000, ou null)',
       });
     }
     if (lu.data.entreprise && lu.data.business === true) {
@@ -121,6 +124,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
       ...(lu.data.business !== undefined ? { business: lu.data.business } : {}),
       ...(lu.data.utilisateursBusiness !== undefined ? { utilisateursBusiness: lu.data.utilisateursBusiness } : {}),
       ...(lu.data.commissionMessagesPct !== undefined ? { commissionMessagesPct: lu.data.commissionMessagesPct } : {}),
+      ...(lu.data.plafondIaMoisEuros !== undefined ? { plafondIaMoisEuros: lu.data.plafondIaMoisEuros } : {}),
     };
     if (!(await deps.store.ecrireEntreprise(tenantId, ecriture))) return reply.code(404).send({ error: 'espace inconnu' });
     // L'état RELU, pour la réponse et la trace : un réglage absent n'a pas été écrit.
@@ -135,6 +139,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
       business: apres.business, utilisateursBusiness: apres.utilisateursBusiness,
       businessAvant: avant.business, utilisateursBusinessAvant: avant.utilisateursBusiness,
       commissionMessagesPct: apres.commissionMessagesPct, commissionMessagesPctAvant: avant.commissionMessagesPct,
+      plafondIaMoisEuros: apres.plafondIaMoisEuros, plafondIaMoisEurosAvant: avant.plafondIaMoisEuros,
     });
     const gestes = await jouerLesGestes(deps, tenantId, avant, apres);
     const alertes = await deps.store.alertes(tenantId);

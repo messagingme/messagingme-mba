@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
-import { ouvrirPaiement, RECHARGE_INDISPONIBLE, type DepsPaiement } from '../src/stripe/paiement';
+import { CREDIT_IA_ILLIMITE, ouvrirPaiement, RECHARGE_INDISPONIBLE, type DepsAchatCreditIa } from '../src/stripe/paiement';
 
 /**
  * L'OUVERTURE D'UN PAIEMENT, HORS DE LA ROUTE (lot 8a) : ce que l'outil MCP `buy_credit` recevra. La route, elle, est
@@ -29,7 +29,7 @@ class FauxStripe implements TransportStripe {
   }
 }
 
-function deps(payeurs: string[], autorise = true): DepsPaiement {
+function deps(payeurs: string[], autorise = true, illimite = false): DepsAchatCreditIa {
   return {
     stripe: {
       cle: 'rk_test_fausse', livemode: false,
@@ -43,6 +43,7 @@ function deps(payeurs: string[], autorise = true): DepsPaiement {
     },
     clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },
     payeurAutorise: async (userId) => { payeurs.push(userId); return autorise; },
+    creditIllimite: async () => illimite,
   };
 }
 
@@ -72,6 +73,16 @@ describe('ouvrirPaiement', () => {
     const r = await ouvrirPaiement(deps([], false), T1, { offre: 'refill_50' }, 'personne-1', 'console');
     expect(r).toEqual(RECHARGE_INDISPONIBLE);
     expect(r).toMatchObject({ statut: 503, details: { code: 'recharge_indisponible' } });
+  });
+
+  it('🔴 une Entreprise (Crédit IA illimité, 2026-11-02) : 409 `credit_ia_illimite`, rien n’est demandé à Stripe ni au payeur', async () => {
+    const payeurs: string[] = [];
+    const d = deps(payeurs, true, true);
+    const r = await ouvrirPaiement(d, T1, { offre: 'refill_50' }, 'personne-1', 'console');
+    expect(r).toEqual(CREDIT_IA_ILLIMITE);
+    expect(r).toMatchObject({ statut: 409, details: { code: 'credit_ia_illimite' } });
+    expect((d.stripe!.transport as FauxStripe).corps).toEqual([]);
+    expect(payeurs).toEqual([]);
   });
 
   it('une offre hors de la liste fermée, ou un montant : 400, rien n’est demandé à Stripe', async () => {

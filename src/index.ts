@@ -308,7 +308,7 @@ async function main(): Promise<void> {
     automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog, journalAppels, credits, reglagesCreditWhatsapp,
     lignesCreditWhatsapp, estimerCreditCampagne, creditWhatsapp, conditionsCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver, wabaDeLEspace,
     numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, gardeCreditWhatsapp, esCredentialsStore, metaCredentials, metaFactory, connexionsPub, connexionPub, publicites,
-    clientPubs, clientCreationPubs, workflowRuntime, clesGateway, fil, listeDeLAgent, offres, quotaModeles,
+    clientPubs, clientCreationPubs, workflowRuntime, clesGateway, provisionCle, accesCreditIa, fil, listeDeLAgent, offres, quotaModeles,
     emailsProduit, envoisResend, paiementRefuse, emetteurEmails, envoiApplication, comptesApplication, clientApplication,
     lienConversation,
     magasinObjets, conversionsMeta, emetteurConversions,
@@ -493,32 +493,6 @@ async function main(): Promise<void> {
     }),
     verrous: verrousCourts,
   });
-  /**
-   * `null` quand le jeton Vercel n'est pas configuré : le provisionnement est éteint et la création d'agent
-   * se passe de clé propre.
-   */
-  const provisionCle: DepsProvisionCle | null = config.VERCEL_API_TOKEN !== '' && config.VERCEL_TEAM_ID !== ''
-    ? {
-      cles: clesGateway,
-      credits,
-      nomEspace: async (tenant) => {
-        const r = await pool.query<{ name: string }>('select name from tenants where id = $1', [tenant]);
-        return r.rows[0]?.name ?? null;
-      },
-      // Un espace verrouillé (suspendu, ou qu'on supprime depuis /ops) n'ouvre aucune clé ; un espace disparu non plus.
-      espaceVerrouille: async (tenant) => {
-        const r = await pool.query<{ status: string }>('select status from tenants where id = $1', [tenant]);
-        return (r.rows[0]?.status ?? 'locked') === 'locked';
-      },
-      transport: new FetchTransport(),
-      jetonCompte: config.VERCEL_API_TOKEN,
-      teamId: config.VERCEL_TEAM_ID,
-      cleGatewayMaison: config.AI_GATEWAY_API_KEY,
-      tauxEurParDollar: config.EUR_PER_USD,
-      journal: (msg, err, tenant) => { journaliser('error', msg, { err, tenantId: tenant, pour: 'cle_modele' }); },
-    }
-    : null;
-
   // Vide -> la conversation de construction répond 503, aucun crash au boot.
   // 🔴 Le 3e argument est le résolveur de clé par espace : sans lui, tous les appels partiraient sur la clé
   // maison et aucune dépense ne serait attribuée au client. Seul `gatewayAide`, juste en dessous, s'en passe.
@@ -566,7 +540,8 @@ async function main(): Promise<void> {
     ? creerTraducteur({
       client: gateway,
       modele: config.TRADUCTION_MODELE,
-      credit: credits,
+      // L'accès lu avant l'appel (un solde prépayé, ou une Entreprise sous son plafond), le débit sur le solde après.
+      credit: { acces: (t) => accesCreditIa.acces(t), debiterTraduction: (t, montant) => credits.debiterTraduction(t, montant) },
       assurerCle: creerAssureurDeCle({
         cles: clesGateway,
         provision: provisionCle,
@@ -867,6 +842,8 @@ async function main(): Promise<void> {
     modeleParDefaut: config.AGENT_MODEL || config.LLM_MODEL,
     // Lecture seule : le client voit ce qui lui reste, il ne se recharge pas lui-même (cf. /ops).
     credits,
+    // Une Entreprise (illimitée) : « illimité » et sa consommation du mois à la place du solde (Entreprise illimitée, lot B).
+    creditIa: accesCreditIa,
     // Absente quand le provisionnement est éteint : la création d'agent se passe alors de clé propre.
     ...(provisionCle ? { assurerCleModele: (tenant: string) => assurerCleGateway(provisionCle, tenant) } : {}),
     // Chaque modification de la fiche y laisse sa ligne `fiche_agent`, avec son auteur et sa porte.
@@ -936,9 +913,9 @@ async function main(): Promise<void> {
     // sans lien avec LLM_MODEL (désactiver l'analyse de conversation ne doit pas couper /test).
     disponible: gateway !== null,
     // 🔴 Un essai consomme pour de vrai : les outils à effet sont simulés, l'appel de modèle ne l'est pas.
-    // Même solde et même garde qu'en production, sinon la console offrirait une porte gratuite sur un
+    // Même accès et même garde qu'en production, sinon la console offrirait une porte gratuite sur un
     // compte prépayé. Le mouvement n'a pas de session : la note l'explique dans le journal.
-    credits,
+    acces: accesCreditIa,
     debiter: async (tenant, montant, note) => { await credits.debiter(tenant, montant, { note }); },
     ...(gateway ? {
       cerveau: {
@@ -1017,9 +994,11 @@ async function main(): Promise<void> {
     }),
     // La facture d'un achat, relue dans les paiements de l'espace (lien « Facture » de la page Crédit IA).
     factures: stripeStore,
+    // Une Entreprise n'achète pas de Crédit IA : illimité, facturé au contrat (Entreprise illimitée, lot B).
+    creditIllimite: (t) => accesCreditIa.illimite(t),
   };
 
-  /** Les portes du Crédit WhatsApp (l'offre, l'open bar, les lignes), lues par l'achat et par l'onglet de la page Offre. */
+  /** Les portes du Crédit WhatsApp (l'offre, l'illimité de l'Entreprise, les lignes), lues par l'achat et par l'onglet de la page Offre. */
   const portesCreditWhatsapp: DepsAchatPermis = {
     offre: async (t) => (await offres.offreDe(t)).offre,
     conditions: (t) => conditionsCreditWhatsapp.conditions(t),
@@ -1173,7 +1152,8 @@ async function main(): Promise<void> {
     // L'abonnement Pro dit en clair (2026-10-26) : statut, souscription, renouvellement ou fin. L'essai s'en déduit (déjà
     // consommé par un Pro, même fini ; la fin de celui qui court) : une seule lecture de la table.
     abonnement: (tenant) => abonnementsOffre.resume(tenant),
-    // L'onglet Crédit WhatsApp : hors Free, hors open bar, et un numéro sur la ligne (les mêmes portes que l'achat).
+    // L'onglet Crédit WhatsApp : hors Free et un numéro sur la ligne (les mêmes portes que l'achat) ; une Entreprise y
+    // voit « Illimité », l'achat lui restant refusé.
     ongletCreditWhatsapp: (tenant) => ongletCreditWhatsapp(portesCreditWhatsapp, tenant),
   });
 
@@ -1580,7 +1560,7 @@ async function main(): Promise<void> {
       modele: config.TRANSCRIPTION_MODELE,
       tailleMaxOctets: config.TRANSCRIPTION_TAILLE_MAX_KO * 1024,
       facturation: {
-        solde: (t) => credits.solde(t),
+        acces: (t) => accesCreditIa.acces(t),
         commissionPour: commissionDeLEspace,
         tauxEurParDollar: config.EUR_PER_USD,
         debiter: async (t, montant, note) => { await credits.debiter(t, montant, { note }); },
@@ -1707,7 +1687,8 @@ async function main(): Promise<void> {
       // Les gestes après la pose ou le retrait d'une offre à la main (spec Business) : aucun n'écrit chez Stripe.
       gestes: {
         passageBusiness: (tenant) => surPassageEnPro(numeroInclus, tenant, { arreterLeNumeroSeul: false }),
-        // L'open bar du Crédit WhatsApp posé : les campagnes en pause faute de crédit repartent.
+        // L'entrée en Entreprise (illimitée, son Crédit WhatsApp ne refuse plus rien) : les campagnes en pause faute de
+        // crédit repartent.
         reprendreCreditWhatsapp: (tenant) => numeroDelieStore.leverPausesCreditWhatsapp(tenant),
         // Le complément d'abord, puis le plafond de la clé de l'espace en arrière-plan, comme le crédit offert au premier
         // numéro (`creerOffreDeBienvenue`) : Vercel peut prendre 30 s, l'écran de /ops ne l'attend pas.

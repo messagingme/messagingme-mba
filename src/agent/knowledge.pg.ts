@@ -26,7 +26,11 @@ interface Ligne {
  * `where` prend la requête OU-ée, la forme que l'index GIN sert ; la couverture prend le tableau.
  */
 export class PgKnowledgeStore implements KnowledgeStore {
-  constructor(private readonly pool: Pool) {}
+  constructor(
+    private readonly pool: Pool,
+    /** Le plafond de sécurité du mois d'une Entreprise par défaut, en micro-euros : la vectorisation le lit (0268). */
+    private readonly plafondIaParDefautMicroEur: number,
+  ) {}
 
   async chercher(tenantId: string, agentId: string, requete: string, limite: number): Promise<FicheTrouvee[]> {
     const termes = termesDeRecherche(requete);
@@ -99,15 +103,23 @@ export class PgKnowledgeStore implements KnowledgeStore {
    * au fil de l'eau, les anciens vecteurs servant jusque-là, au lieu de rendre toutes les bases sourdes.
    */
   async fichesAVectoriser(modele: string, limite: number): Promise<Array<{ id: string; titre: string; corps: string; tenantId: string }>> {
-    // 🔴 Seulement les fiches d'un espace qui a du crédit (lot 6, C) : la vectorisation se paie sur le crédit du client,
-    // une fiche d'un espace sans crédit attend. Dans la requête, sinon un lot de fiches sans crédit bloquerait les autres.
+    // 🔴 Seulement les fiches d'un espace qui a accès au crédit IA (lot 6, C ; Entreprise illimitée, 0268) : la
+    // vectorisation se paie sur le crédit du client, une fiche d'un espace sans crédit, ou d'une Entreprise à son plafond
+    // du mois, attend. Dans la requête, sinon un lot de fiches sans crédit bloquerait les autres. La règle est la SEULE
+    // définition (`acces_credit_ia`), lue une fois par ESPACE candidat et pas par fiche.
     const res = await this.pool.query<{ id: string; titre: string; corps: string; tenant_id: string }>(
       `select k.id, k.titre, k.corps, k.tenant_id from agent_knowledge k
         where (k.embedding is null or k.embedding_modele is distinct from $1)
-          and exists (select 1 from agent_credits c where c.tenant_id = k.tenant_id and c.solde_micro_eur > 0)
+          and k.tenant_id in (
+            select e.tenant_id from (
+              select distinct k2.tenant_id from agent_knowledge k2
+               where k2.embedding is null or k2.embedding_modele is distinct from $1
+            ) e
+            where acces_credit_ia(e.tenant_id, $3::bigint) = 'ok'
+          )
         order by k.updated_at asc
         limit $2::int`,
-      [modele, Math.max(1, Math.floor(limite))],
+      [modele, Math.max(1, Math.floor(limite)), this.plafondIaParDefautMicroEur],
     );
     return res.rows.map((r) => ({ id: r.id, titre: r.titre, corps: r.corps, tenantId: r.tenant_id }));
   }

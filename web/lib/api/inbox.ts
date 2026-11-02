@@ -26,10 +26,11 @@ export type ControlOwner = 'app_workflow' | 'app_human' | 'mba';
 
 /**
  * Pourquoi la traduction du fil est indisponible (la liste du serveur, `CauseSansTraduction` plus `instance`).
- * `credit` et `credit_insuffisant` se règlent en rechargeant ; les autres, non.
+ * `credit` et `credit_insuffisant` se règlent en rechargeant ; les autres, non (`plafond` : une Entreprise à son plafond
+ * de sécurité du mois, que nous relevons).
  */
-export type CauseTraduction = 'instance' | 'credit' | 'credit_insuffisant' | 'cle_en_preparation' | 'cle';
-export const CAUSES_TRADUCTION: readonly CauseTraduction[] = ['instance', 'credit', 'credit_insuffisant', 'cle_en_preparation', 'cle'];
+export type CauseTraduction = 'instance' | 'credit' | 'plafond' | 'credit_insuffisant' | 'cle_en_preparation' | 'cle';
+export const CAUSES_TRADUCTION: readonly CauseTraduction[] = ['instance', 'credit', 'plafond', 'credit_insuffisant', 'cle_en_preparation', 'cle'];
 export const causeDeCredit = (c: CauseTraduction | null): boolean => c === 'credit' || c === 'credit_insuffisant';
 
 export interface Conversation {

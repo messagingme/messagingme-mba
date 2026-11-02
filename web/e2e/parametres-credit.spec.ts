@@ -35,6 +35,8 @@ interface Options {
   historiques?: unknown[][];
   /** La réponse de la route de facture. */
   facture?: { status: number; body: unknown };
+  /** Le corps ENTIER de la lecture du crédit (une Entreprise illimitée) : remplace les soldes successifs. */
+  credit?: Record<string, unknown>;
 }
 
 async function monter(page: Page, o: Options = {}) {
@@ -63,6 +65,7 @@ async function monter(page: Page, o: Options = {}) {
     }
     if (url.includes('/agents/solde')) {
       lectures += 1;
+      if (o.credit) return json(o.credit);
       return json({ soldeMicroEur: soldes.length > 1 ? soldes.shift()! : soldes[0]! });
     }
     if (url.includes('/agents/mouvements')) return json({ mouvements: historiques.length > 1 ? historiques.shift()! : historiques[0]! });
@@ -196,6 +199,28 @@ test.describe('Paramètres > Offre > Crédit IA', () => {
     await page.goto('/parametres/credit');
     await expect(page.getByTestId('credit-ligne')).toHaveCount(2);
     await expect(page.getByTestId('credit-facture')).toHaveCount(0);
+  });
+
+  test('🔴 une Entreprise : « Illimité » et la consommation du mois, jamais son solde figé ni un bouton de recharge', async ({ page }) => {
+    await monter(page, { credit: { soldeMicroEur: 4_820_000, illimite: true, consommationDuMoisMicroEur: 12_345_678, plafondAtteint: false } });
+    await page.goto('/parametres/credit');
+    await expect(page.getByTestId('credit-illimite')).toHaveText('Illimité');
+    await expect(page.getByTestId('credit-conso-mois')).toContainText(/12,35\s€ HT, facturée selon votre contrat/);
+    await expect(page.getByTestId('credit-solde')).not.toContainText('4.82');
+    await expect(page.getByTestId('credit-recharger')).toHaveCount(0);
+    await expect(page.getByTestId('credit-offre-refill_5')).toHaveCount(0);
+    await expect(page.getByTestId('credit-plafond-ia')).toHaveCount(0);
+    // L'historique reste : c'est ce qui dit, jour par jour, ce que l'IA a consommé.
+    await expect(page.getByTestId('credit-ligne')).toHaveCount(5);
+  });
+
+  test('🔴 une Entreprise à son plafond de sécurité du mois : l’écran dit pourquoi l’IA s’est tue, et vers qui se tourner', async ({ page }) => {
+    await monter(page, { credit: { soldeMicroEur: 0, illimite: true, consommationDuMoisMicroEur: 100_020_000, plafondAtteint: true } });
+    await page.goto('/parametres/credit');
+    await expect(page.getByTestId('credit-plafond-ia')).toContainText(/plafond de sécurité de l’IA de ce mois est atteint/);
+    await expect(page.getByTestId('credit-plafond-ia')).toContainText(/Contactez-nous/);
+    await expect(page.getByTestId('credit-illimite')).toHaveText('Illimité');
+    await expect(page.getByTestId('credit-epuise')).toHaveCount(0);
   });
 
   test('🔴 un compte NON ADMIN n’y entre pas : aucun bouton de paiement ne lui est offert', async ({ page }) => {

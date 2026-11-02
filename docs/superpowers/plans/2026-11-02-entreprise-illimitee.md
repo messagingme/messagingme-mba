@@ -89,6 +89,34 @@ consommation IA plus WhatsApp du mois, au prix client ; e2e des deux onglets et 
 
 **Déploiement :** l'API d'abord, la console seulement après (Vercel la publie au push, ses routes neuves rendraient 404).
 
+**Le rouge de la relecture du lot B, et sa parade** (relecture du 2026-11-02) : le budget d'équipe de la passerelle
+d'IA chez Vercel était de 100 $ par mois (mesuré le jour même), soit à peu près le plafond de sécurité d'UNE Entreprise
+(100 € au prix client, environ 99 $ bruts) ; à 100 %, Vercel coupe toutes les clés de l'équipe, donc l'IA de tous les
+clients. Julien a gardé 100 € et relève lui-même le budget d'équipe au-dessus de la somme des plafonds des Entreprises qui
+ont une clé (trois ce jour-là, donc au moins 300 $) ; le code du lot B ne se déploie qu'une fois le budget relevé, relu par
+la jauge (`lireConsommationEquipe`). Le lot C rend la règle visible : la vue « Crédits » de `/ops` montre la somme des
+plafonds des Entreprises à clé à côté du budget d'équipe, et le balayage horaire alerte quand elle le dépasse.
+
+**Les jaunes de la relecture du lot B, repris par ce lot** (relecture du 2026-11-02, un rouge, ci-dessus) :
+1. La transcription d'une Entreprise à son plafond : l'API rend 402 `cause: 'plafond'`, la console dit « rechargez »
+   sur tout 402 (`web/app/inbox/page.tsx`) alors que l'Entreprise n'a rien à recharger.
+2. La traduction sortante au plafond tombe dans « momentanément indisponible, réessayez » (`src/http/inbox.ts`),
+   alors que l'arrêt dure jusqu'au mois suivant.
+3. Les alertes du plafond ne se réarment pas quand Julien le relève en cours de mois : la clé
+   (`tenant_id, mois, seuil`) d'`alertes_plafond_ia` ignore la valeur du plafond (la jauge Vercel, elle, met le plafond
+   dans sa clé).
+4. Une clé Vercel d'Entreprise peut s'arrêter sans alerte : sur `PlafondModeleAtteint`, une Entreprise n'a qu'un
+   `console.error` (`run-turn.ts`), et `remonterPlafondApresRecharge` rend `false` sur un PATCH refusé, que
+   `balayerPlafondsIa` ne compte pas en échec. Et passer un espace en Entreprise dans `/ops` ne remonte pas sa clé
+   (`jouerLesGestes`) : une clé prépayée épuisée échoue jusqu'au balayage suivant (une heure au plus).
+5. La ligne du jour des traductions garde le drapeau de son premier débit (documenté) : à reprendre avec les séries
+   jour par jour du lot C, qui reconstruisent le solde.
+6. Un espace qui quitte l'Entreprise garde la marge de sa clé (la cible ne descend jamais).
+7. `/ops` publiée avant l'API : un plafond saisi est refusé en 400 par l'ancien schéma (sans effet ailleurs).
+8. L'inventaire des lecteurs du solde autorise tout `src/index.ts` : le resserrer sur la vue de `/ops`.
+9. Le plugin ne connaît ni l'illimité ni `plafond_ia_atteint` (`plugin/skills/mise-en-service/SKILL.md`,
+   `scripts/plugin/faq.ts`) : Claude pourrait proposer `buy_credit` à une Entreprise, refusée en 409.
+
 ## Méthode de livraison
 
 **Implémenteur par lot + revue humaine du diff**, parce que la production emprunte ces chemins à chaque tour d'agent et

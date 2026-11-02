@@ -4304,7 +4304,7 @@ constantes du bloc `constantes` en fin de `src/config.ts` depuis le 2026-09-25 :
 | **Interrupteurs de fonctionnalité** | `META_ES_CONFIG_ID`, `AI_GATEWAY_API_KEY`, `DRY_RUN`, `CONVERSATION_ANALYSIS_ENABLED`, `OPS_EMAILS`, et `META_MM_LITE` (`false` par défaut, § 12, invariant 54) | vide = la fonctionnalité est OFF, proprement (503 explicite, file non consommée, `/ops` fermé pour tous) |
 | **Capacité** | `DB_POOL_MAX`, `PGBOSS_MAX`, `RATE_LIMIT_*` | latence, saturation muette, ou coupure de service |
 | **Rétention** | `WEBHOOK_EVENTS_RETENTION_DAYS` | une réponse RGPD fausse |
-| **Paramètres commerciaux** | `EUR_PER_USD`, `CREDIT_OFFERT_MICRO_EUR` | ce qu'on facture, et ce qu'on offre (la commission vit dans la grille des offres, `src/offres/offres.ts`) |
+| **Paramètres commerciaux** | `EUR_PER_USD`, `CREDIT_OFFERT_MICRO_EUR`, `ENTREPRISE_PLAFOND_IA_EUROS_MOIS` (100 par défaut, jamais 0) | ce qu'on facture, ce qu'on offre (la commission vit dans la grille des offres, `src/offres/offres.ts`), et ce qu'une Entreprise peut consommer d'IA par mois avant que son plafond de sécurité ne l'arrête |
 | **Provisionnement des clés client** | `VERCEL_API_TOKEN` + `VERCEL_TEAM_ID` | les deux vides = éteint ; une seule moitié = refus au boot (chaque création d'agent échouerait, donc plus aucun client ne pourrait en créer) |
 | **Conversions de nos publicités** | `META_PIXEL_ID` + `META_CAPI_TOKEN` (workers seulement) | les deux vides = éteint ; un seul = éteint et une ligne au démarrage du worker, jamais un refus ; l'API réserve sans elles |
 | **Recharge par Stripe** | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRIX_REFILL_5`, `_10`, `_50`, `_100` | vides = recharge fermée (un prix vide ferme sa seule offre) (la route rend 503, le webhook n'est pas monté) ; une clé sans préfixe `sk_`/`rk_` + `live_`/`test_`, ou la clé sans le secret du webhook (ou l'inverse) = refus au boot |
@@ -4325,9 +4325,10 @@ Gateway au taux `EUR_PER_USD`, majoré de la commission de l'OFFRE de l'espace (
 calculé par `prixClientMicroEur` (`src/agent/devise.ts`), seul point de calcul du montant débité. Ses appelants : le
 cerveau de l'agent (donc le tour de production et l'essai du bac à sable, qui y ajoutent le coût de la recherche dans
 la connaissance, rendu par l'outil : `SortieResolveur.coutDollars`), la traduction des conversations, la vectorisation
-des fiches de connaissance (`balayerVectorisationPayee`, un appel par espace, seulement pour un espace au solde
-positif : `PgKnowledgeStore.fichesAVectoriser` le filtre en SQL) et la transcription d'un vocal de l'Inbox
-(`DepsTranscrire.facturation`, refus `CreditEpuise` en 402 sans solde). La recherche, la vectorisation et la
+des fiches de connaissance (`balayerVectorisationPayee`, un appel par espace, seulement pour un espace dont l'accès
+est ouvert : `PgKnowledgeStore.fichesAVectoriser` le filtre en SQL par `acces_credit_ia`) et la transcription d'un
+vocal de l'Inbox (`DepsTranscrire.facturation`, refus en 402 : `CreditEpuise` sans solde, `PlafondIaAtteint` pour une
+Entreprise à son plafond). La recherche, la vectorisation et la
 transcription partent sur NOTRE clé et leur coût est DÉBITÉ (la vectorisation espace par espace, un espace en échec
 n'arrêtant pas les autres ; la transcription seulement si SON écriture a pris, `ecrireTranscription` n'écrivant que sur
 un message pas encore transcrit, donc deux clics simultanés ne paient qu'une fois) ; la passerelle le rend dans la réponse
@@ -4338,7 +4339,8 @@ que `tests/agent-devise.test.ts` refuse ailleurs) et plafonnés par espace ; le 
 fiches ; la transcription du pont des codes d'un numéro fourni (notre infrastructure).
 ⚠️ **La traduction se débite à chaque appel mais s'inscrit au journal en UNE ligne par espace et par jour de
 Paris** (raison `traduction`, colonne `jour`, index unique partiel de 0190, upsert de
-`PgCreditStore.debiterTraduction`). Solde nul : pas de traduction. Sa clé de modèle s'ouvre à la première
+`PgCreditStore.debiterTraduction`). Accès fermé (solde nul, ou Entreprise à son plafond, cause `plafond`) : pas de
+traduction. Sa clé de modèle s'ouvre à la première
 traduction s'il y a du crédit (`creerAssureurDeCle`, `src/agent/provisionner-cle.ts`), EN ARRIÈRE-PLAN : une
 promesse en vol par espace, et le GET du fil rend la cause `cle_en_preparation` sans l'attendre (Vercel peut
 prendre jusqu'à 30 s, le fil se rafraîchit toutes les 4). Le crédit se lit avant de partir : sous le minimum
@@ -4360,6 +4362,27 @@ l'ouverture de la clé, plafond initial compris. Sous le verrou de la ligne de l
 l'appel à Vercel), la cible se lit dans une SECONDE instruction, qui voit donc ce que la remontée précédente a
 noté. Deux remontées simultanées convergent, et un crédit écrit pendant l'ouverture de la clé (quand il n'y avait
 encore rien à remonter) est rattrapé par la remontée qui suit l'enregistrement de la clé.
+🔴 **L'ACCÈS AU CRÉDIT IA SE LIT EN UN SEUL ENDROIT, ET UNE ENTREPRISE EST ILLIMITÉE** (décision de Julien du
+2026-11-02, spec `docs/superpowers/specs/2026-11-02-entreprise-illimitee-design.md`, migration 0268). « Cet espace
+peut-il consommer de l'IA ? » est la fonction SQL `acces_credit_ia(espace, plafond_defaut)` : `ok`, `epuise` (un
+prépayé, solde nul ou négatif) ou `plafond` (une Entreprise dont la consommation du mois de Paris,
+`consommation_ia_du_mois`, a atteint son plafond : `tenants.entreprise_plafond_ia_micro_eur`, sinon
+`ENTREPRISE_PLAFOND_IA_EUROS_MOIS`). `PgAccesCreditIaStore` (`src/agent/acces-credit.ts`) la lit pour le tour, l'essai, le
+démarreur du répondeur, la traduction et la transcription ; la vectorisation la lit dans sa requête. Un accès
+d'Entreprise se garde dix secondes, un prépayé se relit à chaque fois. `tests/credit-ia-acces-inventaire.test.ts`
+refuse un nouveau lecteur du solde qui déciderait ailleurs.
+- Un débit d'Entreprise (`debiter`, `debiterTraduction`) écrit son mouvement marqué `illimite` SANS toucher au solde ;
+  la décision se prend dans la MÊME instruction, sur `offre_de_l_espace`. Un crédit reste un crédit. ⚠️ La ligne du
+  jour des traductions garde le drapeau de son PREMIER débit : un espace qui change d'offre dans la journée a une ligne
+  du jour au mauvais drapeau, l'écart se limitant aux traductions de ce jour-là.
+- Sa clé Vercel s'ouvre sans solde : sa marge (`margeDeCle`, son plafond du mois) s'ajoute au plafond de naissance comme
+  à la cible de `ajusterPlafond`, dont la somme des débits compte ses débits illimités. Le balayage horaire
+  `plafond-ia-entreprises` (rôle `principal`, `src/agent/plafond-ia.ts`, une passe au démarrage) remonte la clé de chaque
+  Entreprise et prévient Julien sur Telegram à 80 % puis à 100 %, une fois par seuil et par mois (`alertes_plafond_ia` :
+  la marque se pose avant l'envoi, et se retire si Telegram n'a pas pris le message).
+- L'achat de Crédit IA lui est refusé (409 `credit_ia_illimite`, `ouvrirPaiement`, console et `buy_credit`). Les écrans
+  (`GET /agents/solde`, `get_credit`, `get_setup_state`) lisent `PgAccesCreditIaStore.etat` : l'illimité, la consommation
+  du mois, le plafond atteint ; son solde figé ne s'affiche pas.
 ⚠️ **`CREDIT_OFFERT_MICRO_EUR`** (1 € par défaut depuis le lot 6, pour toutes les origines) s'offre au PREMIER numéro WhatsApp que
 **Meta dit vérifié**, jamais à la liaison seule (`PgEmbeddedSignupStore.linkTenant` n'offre rien : elle tourne
 avant que la route ne sache si le numéro est `NOT_VERIFIED`). La route l'appelle (`offrirCredit`, câblé par

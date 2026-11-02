@@ -31,7 +31,8 @@ import {
 import type { OutilComplet } from '../agent/catalog';
 import { PLAFOND_GATEWAY_MIN_DOLLARS, eurosDepuisMicro } from '../agent/devise';
 import type { LigneHistorique } from '../agent/credits';
-import { ouvrirPaiement, type DepsPaiement } from '../stripe/paiement';
+import type { EtatCreditIa } from '../agent/acces-credit';
+import { ouvrirPaiement, type DepsAchatCreditIa } from '../stripe/paiement';
 import { OFFRES_RECHARGE, definitionOffre, type OffreRecharge } from '../stripe/offres';
 import { OFFRES_WHATSAPP, htCentimesWhatsapp, type OffreWhatsapp } from '../stripe/offres-whatsapp';
 import { ouvrirAchatCreditWhatsapp } from '../stripe/achat-whatsapp';
@@ -72,10 +73,10 @@ export interface DepsAgentMcp {
    */
   gestion: DepsGestionAgents & {
     agents: DepsGestionAgents['agents'] & { listToutes(tenantId: string): Promise<AgentResume[]> };
-    credits: {
-      solde(tenantId: string): Promise<number>;
-      historique(tenantId: string, limite: number): Promise<LigneHistorique[]>;
-    };
+    /** L'historique du Crédit IA ; son solde se lit par `creditIa.etat` (une Entreprise est illimitée). */
+    credits: { historique(tenantId: string, limite: number): Promise<LigneHistorique[]> };
+    /** L'état du Crédit IA : une Entreprise est illimitée, sous un plafond de sécurité du mois (`PgAccesCreditIaStore`). */
+    creditIa: { etat(tenantId: string): Promise<EtatCreditIa> };
     modelesProposes(tenantId: string): Promise<ModeleProposable[]>;
   };
   /**
@@ -86,7 +87,7 @@ export interface DepsAgentMcp {
   /** Le bac à sable de la console : même solde exigé, même débit au prix client, même archivage. */
   essai: DepsEssai;
   /** Le paiement de la console : mêmes offres fermées, même prix relu chez Stripe, même règle du mode test. */
-  paiement: DepsPaiement;
+  paiement: DepsAchatCreditIa;
   /** Le catalogue d'outils de l'agent (`PgToolCatalog`) : poser, activer, modifier et retirer. */
   outils: OutilsActions;
   /** Les actions parties dans une conversation (`PgActionsAgent`), pour `get_conversation`. */
@@ -102,7 +103,8 @@ export interface DepsAgentMcp {
   repondeur: DepsReglageRepondeur;
   /**
    * Le Crédit WhatsApp (plan du Crédit WhatsApp, tâche 11) : les MÊMES objets que la route de l'onglet
-   * (`CreditWhatsappRouteDeps`), plus l'onglet visible ou non (hors Free, hors open bar, un numéro sur la ligne).
+   * (`CreditWhatsappRouteDeps`), plus l'onglet visible ou non (hors Free, un numéro sur la ligne ; une Entreprise y lit
+   * « illimité »).
    */
   creditWhatsapp: CreditWhatsappRouteDeps & { onglet(tenantId: string): Promise<boolean> };
 }
@@ -1062,19 +1064,26 @@ export const OUTILS_AGENT: OutilMcp[] = [
       + 'credit_whatsapp gives that other prepaid balance, which pays the WhatsApp messages themselves: its balance, '
       + 'the price of one message in France per category (fees included), and its movements (sends aggregated per day, '
       + 'purchases, adjustments). At zero, NOTHING is sent from that number, replies included, until a purchase '
-      + '(buy_credit, credit "whatsapp"). On the Enterprise plan the WhatsApp credit is unlimited and billed under the '
-      + 'contract (illimite: true): no balance and nothing to buy, consommation_du_mois_eur gives what this month\'s '
-      + 'messages cost.',
+      + '(buy_credit, credit "whatsapp"). On the Enterprise plan both credits are unlimited and billed under the '
+      + 'contract (illimite: true): no balance and nothing to buy, consommation_du_mois_eur gives what this month cost '
+      + '(AI usage, WhatsApp messages). Enterprise AI stops at a monthly safety cap (plafond_atteint: true): only '
+      + 'Messaging Me raises it, the customer has nothing to buy.',
     annotations: lecture('Read the AI credit'),
     entree: { type: 'object', properties: {} },
     async executer(deps, tenantId) {
       const credits = deps.agentIa.gestion.credits;
       const wa = deps.agentIa.creditWhatsapp;
-      const [solde, mouvements, avecWa] = await Promise.all([
-        credits.solde(tenantId), credits.historique(tenantId, LIGNES_HISTORIQUE), wa.onglet(tenantId),
+      const [etat, mouvements, avecWa] = await Promise.all([
+        deps.agentIa.gestion.creditIa.etat(tenantId), credits.historique(tenantId, LIGNES_HISTORIQUE), wa.onglet(tenantId),
       ]);
       const ia = {
-        solde_eur: eurosDepuisMicro(solde),
+        // Une Entreprise (illimitée, décision du 2026-11-02) : son solde, figé, ne dit rien ; sa consommation du mois, si.
+        ...(etat.illimite
+          ? {
+            illimite: true, consommation_du_mois_eur: eurosDepuisMicro(etat.consommationDuMoisMicroEur),
+            plafond_atteint: etat.acces === 'plafond',
+          }
+          : { solde_eur: eurosDepuisMicro(etat.soldeMicroEur) }),
         mouvements: mouvements.map((m) => ({ at: m.at, jour: m.jour, raison: m.raison, montant_eur: eurosDepuisMicro(m.deltaMicroEur) })),
       };
       if (!avecWa) return ia;

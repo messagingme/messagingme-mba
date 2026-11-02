@@ -118,8 +118,9 @@ export interface VueOffre {
   abonnement: AbonnementPro | null;
   upgradeUrl: string;
   /**
-   * L'onglet « Crédit WhatsApp » (plan du Crédit WhatsApp, tâche 11), tel que le serveur le décide : hors Free, hors open
-   * bar, et un numéro sur la ligne de crédit. Faux sur une API plus ancienne, qui n'a pas la route de l'onglet.
+   * L'onglet « Crédit WhatsApp » (plan du Crédit WhatsApp, tâche 11), tel que le serveur le décide : hors Free, et un
+   * numéro sur la ligne de crédit ; une Entreprise y voit « Illimité ». Faux sur une API plus ancienne, qui n'a pas la
+   * route de l'onglet.
    */
   ongletCreditWhatsapp: boolean;
 }

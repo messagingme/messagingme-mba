@@ -21,7 +21,7 @@ const FICHE = {
 };
 
 /** Le serveur, avec son état : désactiver l'agent qui répond le retire de ce rôle (`oublierRepondeur`). */
-async function monter(page: Page, o: { repondeurAgentId?: string | null } = {}) {
+async function monter(page: Page, o: { repondeurAgentId?: string | null; credit?: Record<string, unknown> } = {}) {
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   const etat = { repondeurAgentId: o.repondeurAgentId ?? null, statut: FICHE.status };
   const patches: Array<Record<string, unknown>> = [];
@@ -41,7 +41,7 @@ async function monter(page: Page, o: { repondeurAgentId?: string | null } = {}) 
       return json({ agent: { ...FICHE, status: etat.statut } });
     }
     if (chemin.endsWith('/agents/ag-lea')) return json({ agent: { ...FICHE, status: etat.statut } });
-    if (chemin.endsWith('/agents/solde')) return json({ soldeMicroEur: 5_000_000 });
+    if (chemin.endsWith('/agents/solde')) return json(o.credit ?? { soldeMicroEur: 5_000_000 });
     if (chemin.endsWith('/agents')) {
       return json({ agents: AGENTS.map((a) => (a.id === 'ag-lea' ? { ...a, status: etat.statut } : a)), repondeurAgentId: etat.repondeurAgentId });
     }
@@ -73,5 +73,24 @@ test.describe('Agents IA : qui répond au client se règle sur l’Accueil', () 
     await page.getByTestId('agent-activer').click();
     await repondre(page, true);
     await expect.poll(() => patches).toEqual([{ status: 'disabled' }]);
+  });
+});
+
+test.describe('Agents IA : le Crédit IA d’une Entreprise (illimité, 2026-11-02)', () => {
+  test('🔴 « illimité » au lieu du solde : un solde figé à zéro ne lui dit jamais « épuisé »', async ({ page }) => {
+    await monter(page, { credit: { soldeMicroEur: 0, illimite: true, consommationDuMoisMicroEur: 1_000_000, plafondAtteint: false } });
+    await page.goto('/agents');
+    await expect(page.getByTestId('agent-ligne-ag-lea')).toBeVisible();
+    await expect(page.getByTestId('agent-credit-illimite')).toContainText('Crédit IA illimité');
+    await expect(page.getByTestId('agent-solde-vide')).toHaveCount(0);
+    await expect(page.getByTestId('agent-plafond-ia')).toHaveCount(0);
+  });
+
+  test('🔴 son plafond de sécurité du mois atteint : la page dit pourquoi ses agents se taisent', async ({ page }) => {
+    await monter(page, { credit: { soldeMicroEur: 0, illimite: true, consommationDuMoisMicroEur: 100_020_000, plafondAtteint: true } });
+    await page.goto('/agents');
+    await expect(page.getByTestId('agent-plafond-ia')).toContainText(/plafond de sécurité de l’IA de ce mois est atteint/);
+    await expect(page.getByTestId('agent-credit-illimite')).toHaveCount(0);
+    await expect(page.getByTestId('agent-solde-vide')).toHaveCount(0);
   });
 });

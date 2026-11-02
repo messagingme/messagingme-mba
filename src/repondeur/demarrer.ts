@@ -1,4 +1,5 @@
 import type { AgentComplet } from '../agent/agent-store';
+import type { AccesCreditIa } from '../agent/acces-credit';
 import type { Lancements } from '../workflow/lancements';
 import type { SystemeScenario } from '../workflow/store.pg';
 import { grapheDuRepondeur } from './graphe';
@@ -17,19 +18,21 @@ import { journaliser } from '../lib/journal';
  *  - `parti` : le parcours est lancé, le premier tour enfilé ;
  *  - `credit_epuise` : le solde est nul ou négatif, RIEN n'a démarré (ni parcours, ni session : un tour sortirait
  *    aussitôt par le plafond, et chaque message en ouvrirait un), l'alerte aux admins est partie (une par jour) ;
+ *  - `plafond_ia` : une Entreprise (illimitée) a atteint son plafond de sécurité du mois, RIEN n'a démarré ; aucune
+ *    alerte au client, Julien est prévenu par le balayage horaire (`src/agent/plafond-ia.ts`) ;
  *  - `credit_whatsapp_epuise` : le numéro est sur la ligne du Crédit WhatsApp et ne peut rien envoyer (solde nul,
  *    ligne arrêtée), RIEN n'a démarré ; aucune alerte du crédit IA, qui n'est pas en cause ;
  *  - `indisponible` : le modèle n'est pas configuré sur l'instance, ou l'agent n'est plus actif ;
  *  - `refuse` : le lancement a refusé (fil tenu par un opérateur, numéro délié, désabonné), sa raison est journalisée.
  * Les trois derniers passent la conversation à l'équipe : le client n'attend pas un robot qui ne viendra pas.
  */
-export type IssueRepondeur = 'parti' | 'credit_epuise' | 'credit_whatsapp_epuise' | 'indisponible' | 'refuse';
+export type IssueRepondeur = 'parti' | 'credit_epuise' | 'plafond_ia' | 'credit_whatsapp_epuise' | 'indisponible' | 'refuse';
 
 export interface DepsDemarreurRepondeur {
   /** La fiche entière, scopée espace : son statut et ses règles d'arrêt (celles que le modèle peut emprunter). */
   agents: { complet(tenantId: string, id: string): Promise<Pick<AgentComplet, 'id' | 'status' | 'contenu'> | null> };
-  /** Le solde prépayé de l'espace, en micro-euros (`PgCreditStore.solde`). */
-  credits: { solde(tenantId: string): Promise<number> };
+  /** L'accès de l'espace au Crédit IA (`PgAccesCreditIaStore.acces`) : un solde positif, ou une Entreprise sous son plafond. */
+  acces: { acces(tenantId: string): Promise<AccesCreditIa> };
   /** L'ancre des parcours du répondeur, créée à la première utilisation (`PgWorkflowStore.assurerScenarioSysteme`). */
   scenarios: { assurerScenarioSysteme(tenantId: string, systeme: SystemeScenario): Promise<string> };
   /** Les lancements du processus (`buildWorkflowRuntime`), jamais un second exemplaire. */
@@ -65,12 +68,14 @@ export function creerDemarreurRepondeur(deps: DepsDemarreurRepondeur): Demarreur
       // Désactivé ou supprimé entre le réglage et ce message : la désactivation et la clé étrangère remettent le
       // réglage à nul, ceci ne couvre que la fenêtre entre les deux.
       if (!agent || agent.status !== 'active') return 'indisponible';
-      // 🔴 Le solde AVANT tout démarrage : à sec, un parcours et une session par message, chacun sorti aussitôt par le
-      // plafond, rempliraient la base pour rien. Même règle que le tour (`soldeEpuise`, `src/agent/run-turn.ts`).
-      if ((await deps.credits.solde(tenantId)) <= 0) {
+      // 🔴 Le crédit AVANT tout démarrage : à sec, un parcours et une session par message, chacun sorti aussitôt par le
+      // plafond, rempliraient la base pour rien. Même règle que le tour (`src/agent/run-turn.ts`).
+      const acces = await deps.acces.acces(tenantId);
+      if (acces === 'epuise') {
         await deps.alerteCredit.alerter(tenantId);
         return 'credit_epuise';
       }
+      if (acces === 'plafond') return 'plafond_ia';
       // Le Crédit WhatsApp, de même : un numéro de la ligne de crédit à sec ne porterait pas la réponse. Rien ne démarre,
       // la conversation va à l'équipe. L'agent de Meta n'y est pas soumis : sa facture est à part, chez Meta.
       if (await deps.creditWhatsapp.bloque(tenantId)) return 'credit_whatsapp_epuise';

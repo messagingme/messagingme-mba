@@ -24,9 +24,9 @@ describe.skipIf(!url)('le plafond de la clé de modèle (Postgres)', () => {
   let credits: PgCreditStore;
   let t = '';
   const MICRO = 1_000_000;
-  const cibleVue = async (): Promise<number> => {
+  const cibleVue = async (marge = 0): Promise<number> => {
     let vue = -1;
-    await cles.ajusterPlafond(t, async (_cle, cible) => { vue = cible; return null; });
+    await cles.ajusterPlafond(t, async (_cle, cible) => { vue = cible; return null; }, marge);
     return vue;
   };
 
@@ -44,7 +44,7 @@ describe.skipIf(!url)('le plafond de la clé de modèle (Postgres)', () => {
 
   it('un espace sans clé : rien à ajuster, et `poser` n’est jamais appelé', async () => {
     let appele = false;
-    expect(await cles.ajusterPlafond(t, async () => { appele = true; return 1; })).toBe(false);
+    expect(await cles.ajusterPlafond(t, async () => { appele = true; return 1; }, 0)).toBe(false);
     expect(appele).toBe(false);
   });
 
@@ -57,6 +57,22 @@ describe.skipIf(!url)('le plafond de la clé de modèle (Postgres)', () => {
     expect(await cibleVue()).toBe(10 * MICRO);
     await credits.crediter(t, 50 * MICRO, 'itest achat');
     expect(await cibleVue()).toBe(60 * MICRO);
+  });
+
+  it('🔴 une Entreprise (0268) : son solde est figé, ses débits illimités et sa marge font monter la cible', async () => {
+    // Le vrai débit décide de l'illimité sur l'offre (`offre_de_l_espace`) : l'Entreprise posée, le solde ne bouge plus.
+    await credits.crediter(t, 5 * MICRO, 'itest');
+    await pool.query('update tenants set offre_entreprise = true where id = $1', [t]);
+    await cles.enregistrer(t, { cleId: 'key_itest', cle: 'vck_itest', plafondMicroEur: 5 * MICRO });
+    await credits.debiter(t, 2 * MICRO);
+    await credits.debiterTraduction(t, 1 * MICRO);
+    expect(await credits.solde(t)).toBe(5 * MICRO);
+    // 5 € de solde figé, plus 3 € consommés depuis l'ouverture, plus un mois de plafond (100 €).
+    expect(await cibleVue(100 * MICRO)).toBe(108 * MICRO);
+    const { rows } = await pool.query<{ illimite: boolean }>(
+      `select illimite from agent_credit_mouvements where tenant_id = $1 and delta_micro_eur < 0 order by at`, [t],
+    );
+    expect(rows.map((r) => r.illimite)).toEqual([true, true]);
   });
 
   it('🔴 un débit ANTÉRIEUR à l’ouverture de la clé ne gonfle pas la cible (il n’a pas été payé sur elle)', async () => {
@@ -73,11 +89,11 @@ describe.skipIf(!url)('le plafond de la clé de modèle (Postgres)', () => {
   it('ce que `poser` rend est noté ; `null` ne note rien ; une exception annule tout', async () => {
     await credits.crediter(t, 10 * MICRO, 'itest');
     await cles.enregistrer(t, { cleId: 'key_itest', cle: 'vck_itest', plafondMicroEur: 5 * MICRO });
-    expect(await cles.ajusterPlafond(t, async () => null)).toBe(false);
+    expect(await cles.ajusterPlafond(t, async () => null, 0)).toBe(false);
     expect((await cles.lire(t))!.plafondMicroEur).toBe(5 * MICRO);
-    await expect(cles.ajusterPlafond(t, async () => { throw new Error('vercel'); })).rejects.toThrow('vercel');
+    await expect(cles.ajusterPlafond(t, async () => { throw new Error('vercel'); }, 0)).rejects.toThrow('vercel');
     expect((await cles.lire(t))!.plafondMicroEur).toBe(5 * MICRO);
-    expect(await cles.ajusterPlafond(t, async (_c, cible) => cible)).toBe(true);
+    expect(await cles.ajusterPlafond(t, async (_c, cible) => cible, 0)).toBe(true);
     expect((await cles.lire(t))!.plafondMicroEur).toBe(10 * MICRO);
   });
 
@@ -93,7 +109,7 @@ describe.skipIf(!url)('le plafond de la clé de modèle (Postgres)', () => {
       await porte; // Vercel met du temps : le verrou est tenu pendant ce temps
       ordre.push('premier:fin');
       return cible;
-    });
+    }, 0);
     // Laisser le premier prendre le verrou avant de lancer le second.
     await new Promise((r) => { setTimeout(r, 200); });
     await credits.crediter(t, 100 * MICRO, 'itest achat 2');
@@ -102,7 +118,7 @@ describe.skipIf(!url)('le plafond de la clé de modèle (Postgres)', () => {
       ordre.push('second');
       vuParLeSecond = { plafond: c.plafondMicroEur, cible };
       return cible;
-    });
+    }, 0);
     await new Promise((r) => { setTimeout(r, 200); });
     expect(ordre).toEqual(['premier:debut']); // le second attend le verrou
     liberer();

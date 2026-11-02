@@ -6,7 +6,7 @@ import { journaliser } from '../lib/journal';
 import { corpsDuRefus } from '../lib/issue';
 import { lireFactureStripe, StripeError } from '../stripe/client';
 import { verifierSignatureStripe } from '../stripe/signature';
-import { ouvrirPaiement, RECHARGE_INDISPONIBLE, type DepsPaiement } from '../stripe/paiement';
+import { ouvrirPaiement, RECHARGE_INDISPONIBLE, type DepsAchatCreditIa } from '../stripe/paiement';
 import { creerTraitementAbonnements, type DepsTraitementAbonnements } from '../stripe/traitement-abonnements';
 import { creerTraitementRecharge, type DepsTraitementRecharge } from '../stripe/traitement-recharge';
 
@@ -25,7 +25,7 @@ import { creerTraitementRecharge, type DepsTraitementRecharge } from '../stripe/
 export type { StripeConfigure } from '../stripe/paiement';
 
 /** L'ouverture d'un paiement (`src/stripe/paiement.ts`, les MÊMES objets que le MCP reçoit), plus les factures. */
-export interface CreditPaiementRouteDeps extends DepsPaiement {
+export interface CreditPaiementRouteDeps extends DepsAchatCreditIa {
   /**
    * La facture d'un paiement DE CET ESPACE (`PgStripeStore.factureDe`) : `null` = paiement inconnu ici (ou d'un autre
    * espace), `factureId` nul = Stripe n'en a pas émis. Requis : la route n'a pas d'autre source.

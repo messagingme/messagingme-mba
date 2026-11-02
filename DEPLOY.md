@@ -271,6 +271,16 @@ cours (`select count(*) from lignes_credit_whatsapp where retiree_le is null`), 
 que la colonne existe : la migration `apres` qui la retirera (`todo.md`) le ferme, une image ancienne lèverait alors 42703
 à chaque envoi d'un numéro sur la ligne et sur `/ops/offre`.
 
+## ⚠️ Retour arrière d'une image d'avant le Crédit IA illimité (migration 0268, lot B du plan 2026-11-02-entreprise-illimitee)
+
+Une image d'avant le lot B décide de l'IA d'une Entreprise sur son SOLDE, comme un prépayé : une Entreprise à solde nul
+perdrait ses agents, sa traduction et ses transcriptions, et le solde figé des autres recommencerait à baisser. Avant de
+revenir en arrière, lister les Entreprises qui consomment de l'IA et leur solde (`select t.name, c.solde_micro_eur from
+tenants t left join agent_credits c on c.tenant_id = t.id where offre_de_l_espace(t.id) = 'entreprise'`) et recharger
+dans `/ops` celles qui doivent continuer. Les débits illimités déjà écrits restent marqués et ne comptent pas dans le
+solde. La migration n'a rien à défaire : deux colonnes à défaut constant, une table et deux fonctions, que l'ancien code
+ne nomme pas.
+
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 
 Les routes de `mba.` et d'`api.` nomment `mba-api` par une variable, que nginx relit seul (résolveur de Docker,

@@ -629,7 +629,7 @@ describe.skipIf(!url)('le magasin des outils de l’agent de Meta', () => {
        values ($1, $2, 'Avant', 'ancien texte', 'page', 'https://exemple.test/page')`,
       [tenantId, agent],
     );
-    const connaissance = new PgKnowledgeStore(pool);
+    const connaissance = new PgKnowledgeStore(pool, 100_000_000);
     await avecConnexion(async (suppression) => {
       await suppression.query('begin');
       await suppression.query('select 1 from agents where tenant_id = $1 and id = $2 for update', [tenantId, agent]);

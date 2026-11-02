@@ -450,6 +450,7 @@ const CAUSES = {
   standby: parCause('Meta rend la conversation à son agent'),
   inactivite: parCause('délai de reprise écoulé'),
   creditEpuise: parCause('crédit IA épuisé, le répondeur automatique ne peut pas répondre'),
+  plafondIa: parCause('plafond de sécurité de l’IA atteint ce mois-ci, le répondeur automatique ne peut pas répondre'),
   creditWhatsappEpuise: parCause('Crédit WhatsApp épuisé, le répondeur automatique ne peut pas répondre'),
   repondeurIndisponible: parCause('le répondeur automatique ne peut pas répondre'),
   agentDeMetaRemplace: parCause('l’agent de Meta n’est plus le répondeur de l’espace'),
@@ -791,7 +792,8 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
           }
           if (demarrage === 'parti') return;
           await aLEquipe(demarrage === 'credit_epuise' ? CAUSES.creditEpuise
-            : demarrage === 'credit_whatsapp_epuise' ? CAUSES.creditWhatsappEpuise : CAUSES.repondeurIndisponible);
+            : demarrage === 'plafond_ia' ? CAUSES.plafondIa
+              : demarrage === 'credit_whatsapp_epuise' ? CAUSES.creditWhatsappEpuise : CAUSES.repondeurIndisponible);
           return;
         }
         case 'scenario': {

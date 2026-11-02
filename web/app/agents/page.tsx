@@ -12,8 +12,8 @@ import { useT, useLocale } from '@/lib/i18n';
 import { cardCls, inputCls, kickerCls } from '@/lib/ui';
 import { ChampSortie } from '@/components/ChampSortie';
 import {
-  createAgent, deleteAgent, getAgent, getSoldeAgent, listAgentsEtRepondeur, patchAgent,
-  type AgentComplet, type AgentResume, type PatchAgent, type SortieAgent,
+  createAgent, deleteAgent, getAgent, getCreditIa, listAgentsEtRepondeur, patchAgent,
+  type AgentComplet, type AgentResume, type CreditIaConsole, type PatchAgent, type SortieAgent,
 } from '@/lib/api-agent';
 import { eurosDepuisMicro, SOLDE_BAS_MICRO_EUR } from '@/lib/agent-solde';
 import { CodeSortieInput } from '@/components/AgentSorties';
@@ -120,9 +120,9 @@ function Ecran({ tenantId }: { tenantId: string }) {
   const [avertissements, setAvertissements] = useState<ManqueFiche[]>([]);
   /** Les messages échangés, et la fenêtre du serveur. `null` = on ne sait pas, l'en-tête n'affiche alors aucun chiffre. */
   const [messages, setMessages] = useState<MessagesTenus | null>(null);
-  // Le solde prépayé du workspace. `null` = aucun solde sur cette instance, on n'affiche rien plutôt que
-  // d'annoncer « 0 € » à un client dont le compte n'est simplement pas branché.
-  const [solde, setSolde] = useState<number | null>(null);
+  // Le Crédit IA du workspace. Un solde `null` = aucun solde sur cette instance, on n'affiche rien plutôt que
+  // d'annoncer « 0 € » à un client dont le compte n'est simplement pas branché. Une Entreprise est illimitée.
+  const [credit, setCredit] = useState<CreditIaConsole | null>(null);
   /**
    * Le répondeur de l'espace (lot 5), rendu avec la liste. `undefined` = on ne sait pas (API qui ne le rend pas) :
    * le choix n'est alors pas affiché, plutôt que d'annoncer « Aucun » sur un réglage qu'on n'a pas lu.
@@ -137,7 +137,7 @@ function Ecran({ tenantId }: { tenantId: string }) {
       setAgents(liste.agents);
       // Relu à chaque rechargement : désactiver ou supprimer l'agent répondeur le retire de ce rôle, côté serveur.
       setRepondeurAgentId(liste.repondeurAgentId);
-      setSolde(await getSoldeAgent(tenantId));
+      setCredit(await getCreditIa(tenantId));
     } catch (err) {
       setErreur(erreurDeChargement(err, t));
     }
@@ -506,7 +506,8 @@ function Ecran({ tenantId }: { tenantId: string }) {
   // la page sautait de 896 à 1152 px au moment d'ouvrir un agent, puis en sens inverse en revenant.
   return (
     <div className="mx-auto flex max-w-liste flex-col gap-4">
-      {solde !== null && <Solde microEur={solde} />}
+      {credit !== null && credit.illimite && <CreditIllimite plafondAtteint={credit.plafondAtteint} />}
+      {credit !== null && !credit.illimite && credit.soldeMicroEur !== null && <Solde microEur={credit.soldeMicroEur} />}
       <div>
         <p className={kickerCls}>{t('Agent IA', 'AI agent')}</p>
         <TitrePage>{t('Vos agents', 'Your agents')}</TitrePage>
@@ -655,6 +656,29 @@ function Solde({ microEur }: { microEur: number }) {
   return (
     <p data-testid="agent-solde" className="text-sm text-ink-500">
       {t(`Crédit restant : ${euros} €`, `Credit left: €${euros}`)}
+    </p>
+  );
+}
+
+/**
+ * Le Crédit IA d'une Entreprise : illimité, facturé selon son contrat (décision du 2026-11-02). Rien à surveiller, sauf
+ * son plafond de sécurité du mois : atteint, ses agents se taisent, et c'est nous qui le relevons.
+ */
+function CreditIllimite({ plafondAtteint }: { plafondAtteint: boolean }) {
+  const t = useT();
+  if (plafondAtteint) {
+    return (
+      <MbaNotice kind="error" testid="agent-plafond-ia">
+        {t(
+          'Le plafond de sécurité de l’IA de ce mois est atteint : vos agents ne répondent plus et sortent par « Plafond atteint ». Contactez-nous depuis le Support pour le relever.',
+          'This month’s AI safety cap is reached: your agents no longer answer and leave through “Cap reached”. Contact us from Support to raise it.',
+        )}
+      </MbaNotice>
+    );
+  }
+  return (
+    <p data-testid="agent-credit-illimite" className="text-sm text-ink-500">
+      {t('Crédit IA illimité, compris dans votre offre Entreprise.', 'Unlimited AI credit, included in your Enterprise plan.')}
     </p>
   );
 }

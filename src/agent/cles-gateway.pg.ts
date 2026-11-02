@@ -132,11 +132,16 @@ export class PgCleGatewayStore {
    * en lecture validée, elle voit alors tout ce que la remontée précédente a vu, et le plafond qu'elle a noté. Le
    * verrou ne gêne pas le chemin chaud : les tours d'agent LISENT la clé (`lireEtat`), sans verrou. Il retient une
    * connexion du pool le temps de l'appel à Vercel (30 s au pire), sur un geste rare : un achat, une offre, une
-   * recharge, l'ouverture d'une clé.
+   * recharge, l'ouverture d'une clé, et le balayage horaire des Entreprises.
+   *
+   * 🔴 `margeMicroEur` S'AJOUTE À LA CIBLE (Entreprise illimitée, 2026-11-02) : zéro pour un prépayé, dont la clé suit ce
+   * qu'il a payé ; le plafond du mois pour une Entreprise, dont le solde ne bouge pas et dont la consommation (ses débits
+   * illimités, dans la même somme) fait monter la cible : sa clé garde ainsi un mois d'avance sur notre plafond.
    */
   async ajusterPlafond(
     tenantId: string,
     poser: (cle: { cleId: string; plafondMicroEur: number }, cibleMicroEur: number) => Promise<number | null>,
+    margeMicroEur: number,
   ): Promise<boolean> {
     return enTransaction(this.pool, async (client) => {
       const lu = await client.query<{ cle_id: string; plafond_micro_eur: string }>(
@@ -153,7 +158,7 @@ export class PgCleGatewayStore {
                            where m.tenant_id = $1 and m.delta_micro_eur < 0 and m.at >= k.created_at), 0) as cible`,
         [tenantId],
       );
-      const cible = Number(calcul.rows[0]?.cible ?? 0);
+      const cible = Number(calcul.rows[0]?.cible ?? 0) + Math.max(0, Math.round(margeMicroEur));
       const pose = await poser({ cleId: row.cle_id, plafondMicroEur: Number(row.plafond_micro_eur) }, cible);
       if (pose === null) return false;
       await client.query(

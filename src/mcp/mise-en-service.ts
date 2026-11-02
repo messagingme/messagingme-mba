@@ -4,6 +4,7 @@ import { modeEffectif, sousLOffre, type ModeRepondeur, type ReglageDuRepondeur }
 import { manquesDeLAgent, type DepsGestionAgents } from '../agent/gestion';
 import { eurosDepuisMicro } from '../agent/devise';
 import type { AgentResume } from '../agent/agent-store';
+import type { EtatCreditIa } from '../agent/acces-credit';
 import type { EtatConnexion } from '../otp/etat-connexion';
 import type { VueOffre } from '../offres/vue';
 import type { WidgetRow } from '../widgets/store.pg';
@@ -51,6 +52,9 @@ export const AVERTISSEMENTS = [
   // La filière application (2026-10-22) : WhatsApp a coupé le numéro, ou l'appareil a été retiré depuis le téléphone ;
   // ou le compte dort faute de messages. Le développeur est prévenu par courriel, et Claude le lui dit dans sa session.
   'numero_coupe', 'numero_en_sommeil',
+  // Une Entreprise (Crédit IA illimité, 2026-11-02) à son plafond de sécurité du mois : son IA s'arrête, Messaging Me le
+  // relève ; le client n'a rien à acheter.
+  'plafond_ia_atteint',
 ] as const;
 
 /** Ce que l'outil lit, une source par champ ; `null` = la lecture a échoué. */
@@ -67,11 +71,18 @@ export interface LecturesMiseEnService {
    * quand la lecture a échoué (elle est journalisée) : aucun avertissement n'en sort alors.
    */
   soldeWhatsappMicroEur?: number;
+  /**
+   * Le Crédit IA d'une Entreprise (`PgAccesCreditIaStore.etat`) : illimité, son solde ne dit rien, et son plafond de
+   * sécurité du mois atteint ou non. Absent : lu comme un prépayé.
+   */
+  creditIa?: { illimite: boolean; plafondAtteint: boolean };
 }
 
 export interface EtatMiseEnService {
   offre: VueOffre['offre'] | null;
   credit_eur: number | null;
+  /** Une Entreprise : le Crédit IA est illimité, facturé au contrat (`credit_eur` vaut alors null). */
+  credit_illimite?: true;
   numero: {
     connecte: boolean; a_activer: boolean; chiffres: string | null; fourni: string | null; abonnement: string | null;
     /** `application` : un compte de l'application WhatsApp Business, relié par QR code ; `api` sinon. */
@@ -135,7 +146,9 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
 
   const bulles = l.widgets === null ? null : { actives: l.widgets.filter((w) => w.actif).length, total: l.widgets.length };
 
-  if (l.soldeMicroEur !== null && l.soldeMicroEur <= 0) avertissements.push('credit_epuise');
+  const illimite = l.creditIa?.illimite === true;
+  if (!illimite && l.soldeMicroEur !== null && l.soldeMicroEur <= 0) avertissements.push('credit_epuise');
+  if (l.creditIa?.plafondAtteint === true) avertissements.push('plafond_ia_atteint');
   // Sous un euro, et pas seulement à zéro : la garde refuse un message dès que le solde ne couvre plus son prix, et une
   // campagne arrêtée faute de crédit ne repart qu'au-dessus d'un euro (relecture du lot 2 du Crédit WhatsApp).
   if (l.soldeWhatsappMicroEur !== undefined && l.soldeWhatsappMicroEur < SOLDE_REPRISE_CREDIT_MICRO_EUR) avertissements.push('credit_whatsapp_epuise');
@@ -157,7 +170,8 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
 
   return {
     offre: l.offre?.offre ?? null,
-    credit_eur: l.soldeMicroEur === null ? null : eurosDepuisMicro(l.soldeMicroEur),
+    credit_eur: illimite || l.soldeMicroEur === null ? null : eurosDepuisMicro(l.soldeMicroEur),
+    ...(illimite ? { credit_illimite: true as const } : {}),
     numero,
     agents,
     repondeur,
@@ -176,7 +190,8 @@ export interface DepsMiseEnService {
   agentIa: {
     gestion: Pick<DepsGestionAgents, 'etatPourLint'> & {
       agents: { listToutes(tenantId: string): Promise<AgentResume[]> };
-      credits: { solde(tenantId: string): Promise<number> };
+      /** L'état du Crédit IA (`PgAccesCreditIaStore.etat`) : le solde, ou l'illimité d'une Entreprise et son plafond. */
+      creditIa: { etat(tenantId: string): Promise<EtatCreditIa> };
     };
     repondeur: { reglages: { get(tenantId: string): Promise<ReglageDuRepondeur> } };
     /**
@@ -205,9 +220,9 @@ function ou<T>(p: Promise<T>, tenantId: string, source: string): Promise<T | nul
 export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: string): Promise<EtatMiseEnService> {
   const g = deps.agentIa.gestion;
   const wa = deps.agentIa.creditWhatsapp;
-  const [offre, soldeMicroEur, numero, liste, reglages, widgets, soldeWhatsapp] = await Promise.all([
+  const [offre, creditIa, numero, liste, reglages, widgets, soldeWhatsapp] = await Promise.all([
     ou(deps.offre.vue(tenantId), tenantId, 'offre'),
-    ou(g.credits.solde(tenantId), tenantId, 'credit'),
+    ou(g.creditIa.etat(tenantId), tenantId, 'credit'),
     ou(deps.numero.etat(tenantId), tenantId, 'numero'),
     ou(g.agents.listToutes(tenantId), tenantId, 'agents'),
     ou(deps.agentIa.repondeur.reglages.get(tenantId), tenantId, 'repondeur'),
@@ -222,7 +237,8 @@ export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: strin
     nbManques: a.status === 'draft' ? ((await ou(manquesDeLAgent(g, tenantId, a.id), tenantId, 'manques'))?.manques.length ?? null) : null,
   })));
   return etatMiseEnService({
-    offre, soldeMicroEur, numero, agents, reglages, widgets,
+    offre, soldeMicroEur: creditIa === null ? null : creditIa.soldeMicroEur, numero, agents, reglages, widgets,
     ...(soldeWhatsapp !== null ? { soldeWhatsappMicroEur: soldeWhatsapp } : {}),
+    ...(creditIa !== null ? { creditIa: { illimite: creditIa.illimite, plafondAtteint: creditIa.acces === 'plafond' } } : {}),
   });
 }

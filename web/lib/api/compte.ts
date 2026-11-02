@@ -449,6 +449,8 @@ export interface ProvisionCreditOps {
   /** `rendu` : échec ou message que Meta ne facture pas ; `ajuste` : catégorie corrigée à l'accusé. */
   etat: 'provisionne' | 'rendu' | 'ajuste';
   livreLe: string | null;
+  /** Illimitée (Entreprise) : le solde ne l'a pas payée, elle va au montant à facturer. Absent d'une API plus ancienne. */
+  illimite?: boolean;
 }
 
 /** Ce que `/ops` montre du Crédit WhatsApp d'un espace. Le solde et les provisions sont absents sur une API plus ancienne. */
@@ -706,6 +708,11 @@ export interface OffreEntrepriseOps {
    */
   commissionMessagesPct?: number | null;
   /**
+   * Le plafond de sécurité de l'IA d'une Entreprise, en euros par mois (`null` = le défaut de l'instance ; absent sur une
+   * API d'avant lui : lu comme `null`). Son Crédit IA est illimité, l'IA s'arrête à ce plafond (Entreprise illimitée, lot B).
+   */
+  plafondIaMoisEuros?: number | null;
+  /**
    * Ce que l'exploitant doit savoir avant de poser ou de retirer une offre à la main. Absent sur une API plus ancienne ;
    * `ligneCreditWhatsappSansCredit` aussi sur une API d'avant l'Entreprise illimitée.
    */
@@ -729,6 +736,8 @@ export function ecrireOffreOps(sessionOps: string, tenantId: string, corps: {
   business?: boolean; utilisateursBusiness?: number | null;
   /** Absente = inchangée ; sans effet hors Entreprise. */
   commissionMessagesPct?: number | null;
+  /** Absent = inchangé, `null` = le défaut de l'instance ; sans effet hors Entreprise. */
+  plafondIaMoisEuros?: number | null;
 }): Promise<OffreEntrepriseOps> {
   return appelOps(sessionOps, `/ops/offre/${encodeURIComponent(tenantId)}`, { method: 'PUT', corps });
 }

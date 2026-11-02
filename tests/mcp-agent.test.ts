@@ -31,7 +31,7 @@ import { saisieDEssai, type DepsEssai } from '../src/agent/essai';
 import { saisieDOutilsSurs } from '../src/agent/reglages';
 import { MODES_TRANSFERT, type ModeTransfert } from '../src/agent/disponibilite-equipe';
 import { MODELES_CHOISIS, MODELE_AGENT_CLAUDE_CODE } from '../src/agent/modeles';
-import type { DepsPaiement } from '../src/stripe/paiement';
+import type { DepsAchatCreditIa } from '../src/stripe/paiement';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
 import { OFFRES_RECHARGE, type OffreRecharge } from '../src/stripe/offres';
 import type { OutilComplet } from '../src/agent/catalog';
@@ -44,7 +44,7 @@ import { cleApiDeTest } from './aide/cle-api';
 import { contactsV1Muets } from './aide/contacts-v1';
 import { bornesDesChamps, bornesZod, champsDe, muettes, type Borne } from './aide/bornes-zod';
 import { jamaisDesabonne } from './consentement';
-import { creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes } from './routes-inertes';
+import { creditIaPrepaye, creditWhatsappInerte, journalMuet, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpEtiquettesInertes, mcpInerte, mcpWidgetsInertes } from './routes-inertes';
 import { SANS_MCP } from './outils-mcp';
 import { AUCUN_GESTE, GESTE_MUET } from './gestes';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
@@ -250,9 +250,9 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
       return true;
     },
     credits: {
-      solde: async () => o.solde ?? 1_234_567,
       historique: async () => [{ id: 'm1', deltaMicroEur: 50_000_000, raison: 'achat', jour: null, at: '2026-10-03T09:00:00.000Z', paiementId: 'cs_1', facture: true }],
     },
+    creditIa: creditIaPrepaye(o.solde ?? 1_234_567),
     modelesProposes: async () => MODELES_CHOISIS.slice(0, 2).map((m) => ({ ...m, prixEntree: 0.1, prixSortie: 0.4 })),
   };
 
@@ -304,12 +304,12 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
     essais: { lister: async () => [], ecrire: async () => {}, purger: async () => 0 },
     cerveau,
     disponible: true,
-    credits: { solde: async () => o.solde ?? 1_234_567 },
+    acces: { acces: async () => ((o.solde ?? 1_234_567) > 0 ? 'ok' as const : 'epuise' as const) },
     debiter: async (t, montant, note) => { cap.debits.push({ tenant: t, montant, note }); },
   };
 
   const prixDe = (offre: OffreRecharge, id: string) => (o.prixVides?.includes(offre) ? '' : id);
-  const paiement: DepsPaiement = {
+  const paiement: DepsAchatCreditIa = {
     stripe: {
       cle: 'rk_test_fausse', livemode: false,
       prix: {
@@ -321,6 +321,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
     },
     clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },
     payeurAutorise: async (userId) => { cap.payeurs.push(userId); return o.payeurAutorise ?? true; },
+    creditIllimite: async () => false,
   };
 
   const agentIa: DepsAgentMcp = {

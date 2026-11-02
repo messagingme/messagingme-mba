@@ -100,9 +100,9 @@ export interface VueOffre {
   abonnement: AbonnementProVue | null;
   upgradeUrl: string;
   /**
-   * L'onglet « Crédit WhatsApp » de la page Offre (plan du Crédit WhatsApp, tâche 11) : seulement hors formule Free, hors
-   * open bar de l'Entreprise (elle paie après coup), et pour un espace qui a un numéro sur la ligne de crédit. Partout
-   * ailleurs, l'onglet ne parlerait de rien.
+   * L'onglet « Crédit WhatsApp » de la page Offre (plan du Crédit WhatsApp, tâche 11) : seulement hors formule Free, et
+   * pour un espace qui a un numéro sur la ligne de crédit. Une Entreprise, illimitée (décision du 2026-11-02), y voit
+   * « Illimité » et sa consommation du mois, sans rien à acheter. Partout ailleurs, l'onglet ne parlerait de rien.
    */
   ongletCreditWhatsapp: boolean;
 }

@@ -1,4 +1,5 @@
 import type { AgentBrain } from './brain';
+import type { AccesCreditIa } from './acces-credit';
 import { PlafondModeleAtteint } from '../llm/errors';
 import { TourInterrompu } from './brain';
 import type { FicheAgent } from './agent-store';
@@ -43,13 +44,16 @@ export interface RunTurnDeps {
    * porter son instant (`at`) : le cerveau y lit ce qui précède la session. Absente : l'agent parle sans mémoire.
    */
   lireConversation?(tenantId: string, waId: string, depuis: string): Promise<unknown[]>;
-  /** Le solde prépayé du workspace, en micro-euros. Absent : aucun plafond de workspace. */
-  credits?: { solde(tenantId: string): Promise<number> };
+  /**
+   * L'accès de l'espace au Crédit IA (`PgAccesCreditIaStore`) : un solde prépayé positif, ou une Entreprise (illimitée)
+   * sous son plafond de sécurité du mois. Absent : aucun plafond de workspace.
+   */
+  acces?: { acces(tenantId: string): Promise<AccesCreditIa>; illimite(tenantId: string): Promise<boolean> };
   /**
    * Prévient les admins que le crédit est épuisé (`src/repondeur/alerte-credit.ts`, une fois par jour et par espace),
-   * quand le tour sort faute de CRÉDIT : le solde de l'espace, ou le plafond de sa clé chez le Gateway. Pas sur un
-   * plafond de la conversation (tours, appels, budget de la fiche), qui ne dit rien du crédit. Ne lève jamais.
-   * Absente : aucune alerte (suites à deps minimales).
+   * quand le tour sort faute de CRÉDIT PRÉPAYÉ : le solde de l'espace, ou le plafond de sa clé chez le Gateway. Pas sur
+   * un plafond de la conversation (tours, appels, budget de la fiche), qui ne dit rien du crédit, ni sur le plafond de
+   * sécurité d'une Entreprise, qui prévient Julien et pas le client. Ne lève jamais. Absente : aucune alerte.
    */
   alerterCreditEpuise?(tenantId: string): Promise<void>;
   /** Retire du solde ce que ce tour a coûté. Absent -> rien n'est débité. */
@@ -248,15 +252,16 @@ export async function runTurn(job: AgentTurnJob, deps: RunTurnDeps): Promise<Res
     await cloreEtSortir(job, session.id, 'erreur', SORTIE_ECHEC, deps);
     return { fait: 'erreur', sortie: SORTIE_ECHEC };
   }
-  // 🔴 Le solde prépayé, lu avec les autres plafonds, donc avant l'appel au modèle. Vide, tous les agents du
-  // workspace s'arrêtent, par la même branche que les autres plafonds : le client la câble une seule fois.
-  const soldeEpuise = deps.credits ? (await deps.credits.solde(job.tenantId)) <= 0 : false;
-  if (soldeEpuise
+  // 🔴 Le crédit, lu avec les autres plafonds, donc avant l'appel au modèle. Prépayé vide, ou Entreprise à son plafond
+  // de sécurité du mois : tous les agents du workspace s'arrêtent, par la même branche que les autres plafonds.
+  const acces: AccesCreditIa = deps.acces ? await deps.acces.acces(job.tenantId) : 'ok';
+  if (acces !== 'ok'
     || session.tours > fiche.plafonds.maxTours
     || session.appelsOutils > fiche.plafonds.maxAppelsOutils
     || session.coutMicroEur >= fiche.plafonds.budgetMicroEur) {
-    // Faute de crédit, et seulement alors : les admins l'apprennent par e-mail (une fois par jour).
-    if (soldeEpuise) await deps.alerterCreditEpuise?.(job.tenantId);
+    // Faute de crédit prépayé, et seulement alors : les admins l'apprennent par e-mail (une fois par jour). Le plafond
+    // d'une Entreprise prévient Julien (`src/agent/plafond-ia.ts`), pas le client.
+    if (acces === 'epuise') await deps.alerterCreditEpuise?.(job.tenantId);
     await cloreEtSortir(job, session.id, 'plafond', SORTIE_PLAFOND, deps);
     return { fait: 'plafond', sortie: SORTIE_PLAFOND };
   }
@@ -344,8 +349,15 @@ export async function runTurn(job: AgentTurnJob, deps: RunTurnDeps): Promise<Res
     // côté. L'erreur peut voyager emballée dans `TourInterrompu`.
     const cause = err instanceof TourInterrompu ? err.erreur : err;
     if (cause instanceof PlafondModeleAtteint) {
-      // Le plafond de la clé de l'espace est le crédit acheté, vu par le Gateway : c'est un crédit épuisé.
-      await deps.alerterCreditEpuise?.(job.tenantId);
+      // Le plafond de la clé de l'espace est le crédit acheté, vu par le Gateway : c'est un crédit épuisé. Sauf pour une
+      // Entreprise, dont la clé garde un mois de plafond d'avance (`src/agent/plafond-ia.ts`) : l'atteindre dit une clé
+      // pas remontée à temps, ce que le journal dit, et pas un client à prévenir.
+      if (deps.acces && await deps.acces.illimite(job.tenantId)) {
+        // eslint-disable-next-line no-console
+        console.error(`agent: plafond de la clé Vercel atteint pour l'Entreprise ${job.tenantId}, avant son plafond du mois`);
+      } else {
+        await deps.alerterCreditEpuise?.(job.tenantId);
+      }
       await cloreEtSortir(job, session.id, 'plafond', SORTIE_PLAFOND, deps);
       return { fait: 'plafond', sortie: SORTIE_PLAFOND };
     }

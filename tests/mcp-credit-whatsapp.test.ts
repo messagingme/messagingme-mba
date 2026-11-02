@@ -97,8 +97,18 @@ describe('get_credit et le Crédit WhatsApp', () => {
     expect(wa.mouvements).toEqual([expect.objectContaining({ raison: 'envois', messages: 2 })]);
   });
 
-  it('la description dit l’illimité de l’Entreprise', () => {
-    expect(outil('get_credit').description).toMatch(/Enterprise plan the WhatsApp credit is unlimited/);
+  it('la description dit l’illimité de l’Entreprise, et son plafond de sécurité de l’IA', () => {
+    expect(outil('get_credit').description).toMatch(/Enterprise plan both credits are unlimited/);
+    expect(outil('get_credit').description).toMatch(/plafond_atteint/);
+  });
+
+  it('🔴 le Crédit IA d’une Entreprise : « illimité », sa consommation du mois et son plafond, JAMAIS un solde', async () => {
+    const { d } = deps({ onglet: false });
+    const g = (d.agentIa as unknown as { gestion: Record<string, unknown> }).gestion;
+    g.creditIa = { etat: async () => ({ acces: 'plafond', illimite: true, soldeMicroEur: 4_820_000, consommationDuMoisMicroEur: 100_020_000, plafondMicroEur: 100_000_000 }) };
+    const r = await outil('get_credit').executer(d, T1, {}, PERSONNE) as Record<string, unknown>;
+    expect(r).toMatchObject({ illimite: true, consommation_du_mois_eur: 100.02, plafond_atteint: true });
+    expect(r).not.toHaveProperty('solde_eur');
   });
 });
 

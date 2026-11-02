@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { transcrire, TranscriptionError } from '../src/agent/llm/transcription';
-import { transcrireMessage, RienATranscrire, CreditEpuise, type DepsTranscrire, type MessageATranscrire } from '../src/inbox/transcrire';
+import { transcrireMessage, RienATranscrire, CreditEpuise, PlafondIaAtteint, type DepsTranscrire, type MessageATranscrire } from '../src/inbox/transcrire';
 import type { HttpResponse, HttpTransport } from '../src/meta/http';
 import { MediaExpire } from '../src/inbox/media-entrant';
 import { MetaApiError } from '../src/meta/errors';
@@ -128,7 +128,7 @@ describe('Le client de transcription', () => {
 });
 
 /** Faux dépôt de messages, qui note ce qu'on lui écrit. */
-function deps(msg: MessageATranscrire | null, reponses: HttpResponse[] = [OK], o: { solde?: number; debiter?: (t: string, m: number, n: string) => Promise<void>; dejaEcrite?: boolean } = {}) {
+function deps(msg: MessageATranscrire | null, reponses: HttpResponse[] = [OK], o: { solde?: number; acces?: 'ok' | 'epuise' | 'plafond'; debiter?: (t: string, m: number, n: string) => Promise<void>; dejaEcrite?: boolean } = {}) {
   const ecrites: Array<{ texte: string; modele: string }> = [];
   const telechargements: string[] = [];
   const ordre: string[] = [];
@@ -148,7 +148,7 @@ function deps(msg: MessageATranscrire | null, reponses: HttpResponse[] = [OK], o
     modele: 'openai/whisper-1',
     tailleMaxOctets: 2 * 1024 * 1024,
     facturation: {
-      solde: async () => o.solde ?? 5_000_000,
+      acces: async () => o.acces ?? ((o.solde ?? 5_000_000) > 0 ? 'ok' : 'epuise'),
       commissionPour: async (t) => (t === 't-base' ? 50 : 10),
       tauxEurParDollar: 1,
       debiter: o.debiter ?? (async (tenantId, montant, note) => { ordre.push('debit'); debits.push({ tenantId, montant, note }); }),
@@ -207,6 +207,12 @@ describe('Transcrire le message d’une conversation', () => {
     expect(telechargements).toEqual([]);
     expect(faux.appels).toEqual([]);
     expect(debits).toEqual([]);
+  });
+
+  it('🔴 une Entreprise à son plafond du mois : rien ne part non plus, sous une erreur qui ne parle pas de recharger', async () => {
+    const { d, faux, telechargements, debits } = deps({ id: 'm1', mediaId: 'media-1', mediaMime: 'audio/ogg', transcription: null }, [OK], { acces: 'plafond' });
+    await expect(transcrireMessage(d, 't1', 'm1')).rejects.toBeInstanceOf(PlafondIaAtteint);
+    expect([telechargements.length, faux.appels.length, debits.length]).toEqual([0, 0, 0]);
   });
 
   it('🔴 J4 : deux opérateurs en même temps, une seule écriture prend : le second appel n’est pas débité au client', async () => {

@@ -12,8 +12,8 @@ import { refus, type Issue } from '../lib/issue';
  *
  * Trois différences, toutes voulues :
  *  - 🔴 les codes promo sont FERMÉS : un code à 100 % offrirait de vrais messages, payés au partenaire de la ligne ;
- *  - l'achat n'est permis qu'à un espace qui a au moins un numéro ACTIF sur la ligne, hors formule Free et hors open bar
- *    de l'Entreprise (qui paie après coup) : sans ligne, le crédit ne servirait à rien ;
+ *  - l'achat n'est permis qu'à un espace qui a au moins un numéro ACTIF sur la ligne, hors formule Free et hors Entreprise
+ *    (illimitée, facturée après coup) : sans ligne, le crédit ne servirait à rien ;
  *  - la session porte `metadata[produit] = credit_whatsapp`, que le webhook lit AVANT la recharge du crédit IA.
  */
 

@@ -1108,7 +1108,8 @@ export const OUTILS: OutilMcp[] = [
     fonction: null,
     description:
       'Where the workspace setup stands, in one call: the starting point to set up a workspace or to resume an '
-      + 'interrupted setup. Returns the plan (offre), the AI credit (credit_eur), the WhatsApp number (connecte, '
+      + 'interrupted setup. Returns the plan (offre), the AI credit (credit_eur; on the Enterprise plan credit_illimite: true, '
+      + 'the AI credit is unlimited and billed under the contract, credit_eur is null), the WhatsApp number (connecte, '
       + 'a_activer, chiffres, fourni, abonnement), the AI agents (actifs, a_completer with nb_manques, desactives), who '
       + 'answers the customer (repondeur.mode, as the plan lets it act), the bubbles (actives, total), and '
       + 'etape_suivante with outils_suggeres: '
@@ -1122,7 +1123,9 @@ export const OUTILS: OutilMcp[] = [
       + 'repondeur_gele_par_l_offre (the chosen responder is frozen by the current plan), carte_meta_a_regler (Meta '
       + 'blocks the account over its card; etapes_carte_meta gives the steps to follow), numero_coupe (WhatsApp cut the '
       + 'number linked by the app, or the device was removed from the phone), numero_en_sommeil (that account is asleep '
-      + 'for lack of messages), lecture_manquee:<source> (this part could not be read: the step it would have given is '
+      + 'for lack of messages), plafond_ia_atteint (Enterprise: the monthly AI safety cap is reached, the agents, '
+      + 'translation and transcription stop until Messaging Me raises it; nothing to buy), '
+      + 'lecture_manquee:<source> (this part could not be read: the step it would have given is '
       + 'skipped). The tool only reads.',
     annotations: lecture('Read the setup state'),
     entree: { type: 'object', properties: {} },

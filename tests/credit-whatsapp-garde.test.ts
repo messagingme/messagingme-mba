@@ -31,7 +31,10 @@ const GRILLE: GrilleMeta = {
 };
 const LIGNE: LigneCredit = { id: 'l1', tenantId: 't1', phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T00:00:00Z', arreteeLe: null };
 
-/** Un Crédit WhatsApp en mémoire, avec le même débit conditionnel que la base. */
+/**
+ * Un Crédit WhatsApp en mémoire, avec le même débit conditionnel que la base, et comme elle (lot A, 0266) une provision
+ * illimitée écrite sans toucher au solde, ni à la prise ni au retour.
+ */
 function creditEnMemoire(solde: number, servicesDuMois = 0) {
   const etat = {
     solde,
@@ -42,13 +45,16 @@ function creditEnMemoire(solde: number, servicesDuMois = 0) {
   const credit: DepsGardeCredit['credit'] = {
     provisionner: async (p) => {
       if (!p.openBar && (etat.solde <= 0 || etat.solde - p.montantMicroEur < 0)) return { ok: false, soldeMicroEur: etat.solde };
-      etat.solde -= p.montantMicroEur;
+      if (!p.openBar) etat.solde -= p.montantMicroEur;
       const id = `p${++n}`;
       etat.provisions.set(id, { ...p, wamid: null, rendue: false });
       return { ok: true, provisionId: id, soldeApresMicroEur: etat.solde };
     },
     rattacher: async (id, wamid) => { const p = etat.provisions.get(id); if (p && p.wamid === null) p.wamid = wamid; },
-    rendre: async (id) => { const p = etat.provisions.get(id); if (p && !p.rendue) { p.rendue = true; etat.solde += p.montantMicroEur; } },
+    rendre: async (id) => {
+      const p = etat.provisions.get(id);
+      if (p && !p.rendue) { p.rendue = true; if (!p.openBar) etat.solde += p.montantMicroEur; }
+    },
     serviceDuMois: async (_pn, _mois, plafond) => { etat.lus += 1; return Math.min(servicesDuMois, plafond); },
     solde: async () => etat.solde,
   };
@@ -128,10 +134,12 @@ describe('la garde seule', () => {
     expect(etat.solde).toBe(50_000);
   });
 
-  it('l’open bar provisionne sans regarder le solde', async () => {
-    const { g, etat } = garde({ solde: 0, openBar: true });
+  it('🔴 l’open bar (toute Entreprise) provisionne sans regarder le solde, et sans le toucher', async () => {
+    const { g, etat, alertes } = garde({ solde: 0, openBar: true });
     await g.avant(envoi({ type: 'marketing' }));
-    expect(etat.solde).toBe(-74_760);
+    expect([...etat.provisions.values()]).toEqual([expect.objectContaining({ openBar: true, montantMicroEur: 74_760 })]);
+    expect(etat.solde).toBe(0);
+    expect(alertes).toEqual([]);
   });
 
   it('une ligne arrêtée, une ligne d’un autre espace, aucune grille : refus « ligne inactive »', async () => {

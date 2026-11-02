@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { getSoldeAgent } from '@/lib/api-agent';
+import { getCreditIa, type CreditIaConsole } from '@/lib/api-agent';
 import {
   aUneFacture, achatArriveDepuis, estPageDePaiement, getMouvementsCredit, lireDepartPaiement, oublierDepartPaiement,
   ouvrirFacture, ouvrirPaiement, retenirDepartPaiement, seuilDuRetour, type LigneCredit, type OffreRecharge,
@@ -24,6 +24,9 @@ import { MbaNotice } from '@/components/MbaNotice';
  *
  * 🔴 LE SOLDE EST CELUI DE L'ESPACE, pas d'un agent : les agents IA ET la traduction de l'Inbox y puisent. C'est
  * pour ça qu'il vit dans Paramètres (2026-09-29, décision de Julien) et plus sous « Other AI agent ».
+ *
+ * 🔴 UNE ENTREPRISE EST ILLIMITÉE (décision du 2026-11-02, `credit.illimite`) : « Illimité », la consommation du mois et,
+ * s'il est atteint, son plafond de sécurité du mois ; ni solde (figé, il ne dit rien) ni recharge (le serveur la refuse).
  *
  * 🔴 LE RETOUR DE STRIPE NE CRÉDITE RIEN. Il dit « paiement reçu » et RELIT le solde, quelques secondes, le temps
  * que le webhook signé de Stripe passe. Une adresse de retour se tape à la main, une signature ne se forge pas.
@@ -51,7 +54,7 @@ export function OngletCreditIA({ session }: { session: Session }) {
   const t = useT();
   const { locale } = useLocale();
   const retour = useSearchParams().get('paiement');
-  const [solde, setSolde] = useState<number | null>(null);
+  const [credit, setCredit] = useState<CreditIaConsole | null>(null);
   const [charge, setCharge] = useState(false);
   const [mouvements, setMouvements] = useState<LigneCredit[] | null>(null);
   const [enCours, setEnCours] = useState<OffreRecharge | null>(null);
@@ -65,13 +68,13 @@ export function OngletCreditIA({ session }: { session: Session }) {
   /** Relit le solde et l'historique. L'historique ne fait jamais échouer la lecture : une liste vide le remplace. */
   const relire = useCallback(async (): Promise<{ solde: number | null; mouvements: LigneCredit[] }> => {
     const [s, m] = await Promise.all([
-      getSoldeAgent(session.tenantId),
+      getCreditIa(session.tenantId),
       getMouvementsCredit(session.tenantId).catch((): LigneCredit[] => []),
     ]);
-    setSolde(s);
+    setCredit(s);
     setCharge(true);
     setMouvements(m);
-    return { solde: s, mouvements: m };
+    return { solde: s.soldeMicroEur, mouvements: m };
   }, [session.tenantId]);
 
   useEffect(() => {
@@ -167,15 +170,31 @@ export function OngletCreditIA({ session }: { session: Session }) {
   }
 
   const admin = session.role === 'admin';
+  const solde = credit?.soldeMicroEur ?? null;
+  const illimite = credit?.illimite === true;
 
   return (
     <div className="max-w-formulaire space-y-4">
       <IntroPage>
-        {t(
-          'Le crédit prépayé de l’espace. Il paie vos agents IA et la traduction des conversations de l’Inbox.',
-          'The workspace’s prepaid credit. It pays for your AI agents and for translating Inbox conversations.',
-        )}
+        {illimite
+          ? t(
+            'Votre offre Entreprise comprend un Crédit IA illimité : vos agents IA et la traduction des conversations de l’Inbox fonctionnent sans solde à recharger, et nous facturons leur consommation selon votre contrat.',
+            'Your Enterprise plan includes unlimited AI credit: your AI agents and Inbox translation run with no balance to top up, and we bill their usage under your contract.',
+          )
+          : t(
+            'Le crédit prépayé de l’espace. Il paie vos agents IA et la traduction des conversations de l’Inbox.',
+            'The workspace’s prepaid credit. It pays for your AI agents and for translating Inbox conversations.',
+          )}
       </IntroPage>
+
+      {illimite && credit?.plafondAtteint && (
+        <MbaNotice kind="error" testid="credit-plafond-ia">
+          {t(
+            'Le plafond de sécurité de l’IA de ce mois est atteint : vos agents ne répondent plus (ils sortent par « Plafond atteint ») et l’Inbox ne traduit plus. Contactez-nous depuis le Support pour le relever.',
+            'This month’s AI safety cap is reached: your agents no longer answer (they leave through “Cap reached”) and the Inbox no longer translates. Contact us from Support to raise it.',
+          )}
+        </MbaNotice>
+      )}
 
       {retour === 'recu' && (
         <MbaNotice kind="success" testid="credit-retour-recu">
@@ -191,14 +210,31 @@ export function OngletCreditIA({ session }: { session: Session }) {
       )}
 
       <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-solde">
-        <div className="text-xs font-medium text-ink-500">{t('Crédit restant', 'Credit left')}</div>
+        <div className="text-xs font-medium text-ink-500">{illimite ? t('Crédit IA', 'AI credit') : t('Crédit restant', 'Credit left')}</div>
         {!charge && <Squelette forme="carte" className="mt-1" />}
-        {charge && solde === null && (
+        {charge && illimite && credit && (
+          <>
+            <div className="mt-1 text-3xl font-semibold tracking-tight text-ink-900" data-testid="credit-illimite">{t('Illimité', 'Unlimited')}</div>
+            <p className="mt-2 text-sm text-ink-500" data-testid="credit-conso-mois">
+              {t(
+                `Consommation IA de ce mois-ci : ${fmtCost(eurosDepuisMicro(credit.consommationDuMoisMicroEur), locale, 'EUR')} HT, facturée selon votre contrat.`,
+                `This month’s AI usage: ${fmtCost(eurosDepuisMicro(credit.consommationDuMoisMicroEur), locale, 'EUR')} excl. VAT, billed under your contract.`,
+              )}
+            </p>
+            <p className="mt-3 text-xs text-ink-500">
+              {t(
+                'Ce qui compte : chaque échange d’un agent IA avec son modèle et chaque recherche dans sa base de connaissance (en production comme au bac à sable), la préparation des fiches de connaissance, et chaque traduction ou transcription de l’Inbox, au tarif de votre offre. Le compteur repart de zéro le 1er de chaque mois.',
+                'What counts: every exchange between an AI agent and its model and every search in its knowledge base (in production as in the sandbox), the preparation of knowledge entries, and every Inbox translation or transcription, at your plan’s rate. The counter starts again from zero on the 1st of each month.',
+              )}
+            </p>
+          </>
+        )}
+        {charge && !illimite && solde === null && (
           <p className="mt-1 text-sm text-ink-500">
             {t('Aucun crédit n’est suivi sur cet espace.', 'No credit is tracked on this workspace.')}
           </p>
         )}
-        {charge && solde !== null && (
+        {charge && !illimite && solde !== null && (
           <>
             <div className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-ink-900">{eurosDepuisMicro(solde)} €</div>
             {solde <= 0 && (
@@ -218,6 +254,8 @@ export function OngletCreditIA({ session }: { session: Session }) {
         )}
       </section>
 
+      {/* Une Entreprise n'a rien à acheter : le serveur refuse son paiement (`credit_ia_illimite`), l'écran ne l'offre pas. */}
+      {!illimite && (
       <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-recharger">
         <h2 className="text-sm font-semibold text-ink-900">{t('Recharger', 'Top up')}</h2>
         {!admin && (
@@ -264,6 +302,7 @@ export function OngletCreditIA({ session }: { session: Session }) {
           )}
         </p>
       </section>
+      )}
 
       <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-historique">
         <h2 className="text-sm font-semibold text-ink-900">{t('Historique', 'History')}</h2>

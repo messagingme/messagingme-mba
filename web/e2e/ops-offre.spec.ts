@@ -93,6 +93,40 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     }]);
   });
 
+  test('🔴 le plafond de sécurité de l’IA (Entreprise illimitée) : lu, ne part que s’il change, et une saisie invalide ne part pas', async ({ page }) => {
+    const { modale, ecrits } = await ouvrir(page, {
+      entreprise: true, utilisateurs: 10, conservationJours: null, contacts: null, commissionPct: null, plafondIaMoisEuros: 150,
+    });
+    await modale.getByTestId('offre-changer-devis').check();
+    await expect(modale.getByTestId('offre-plafond-ia')).toHaveValue('150');
+    await modale.getByTestId('offre-note').fill('Client prévenu, plafond relevé');
+    await modale.getByTestId('offre-plafond-ia').fill('0');
+    await expect(modale.getByTestId('offre-enregistrer')).toBeDisabled();
+    await modale.getByTestId('offre-plafond-ia').fill('400');
+    await modale.getByTestId('offre-enregistrer').click();
+    await expect(modale.getByTestId('offre-message')).toBeVisible();
+    expect(ecrits).toEqual([{
+      entreprise: true, utilisateurs: 10, contacts: null, commissionPct: null, plafondIaMoisEuros: 400,
+      note: 'Client prévenu, plafond relevé',
+    }]);
+  });
+
+  // Inchangé, il ne part pas : le cas de la commission des messages, plus haut, coche « Régler » sans y toucher.
+  test('vidé, le plafond de l’IA revient au défaut de l’instance (`null` part)', async ({ page }) => {
+    const { modale, ecrits } = await ouvrir(page, {
+      entreprise: true, utilisateurs: 10, conservationJours: null, contacts: null, commissionPct: null, plafondIaMoisEuros: 150,
+    });
+    await modale.getByTestId('offre-changer-devis').check();
+    await modale.getByTestId('offre-plafond-ia').fill('');
+    await modale.getByTestId('offre-note').fill('Retour au plafond par défaut');
+    await modale.getByTestId('offre-enregistrer').click();
+    await expect(modale.getByTestId('offre-message')).toBeVisible();
+    expect(ecrits).toEqual([{
+      entreprise: true, utilisateurs: 10, contacts: null, commissionPct: null, plafondIaMoisEuros: null,
+      note: 'Retour au plafond par défaut',
+    }]);
+  });
+
   test('🔴 retirer l’Entreprise d’un espace dont un numéro est sur la ligne sans crédit : l’écran prévient avant l’enregistrement', async ({ page }) => {
     const { modale } = await ouvrir(page, {
       entreprise: true, utilisateurs: 10, conservationJours: null,
@@ -100,10 +134,11 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     });
     await expect(modale.getByTestId('offre-alerte-credit-wa')).toHaveCount(0);
     await modale.getByTestId('offre-entreprise').uncheck();
-    await expect(modale.getByTestId('offre-alerte-credit-wa')).toBeVisible();
-    // Vers le Business aussi : il prépaie, comme le Pro.
+    // Retombé en Free (aucun Pro payé), l'achat lui est fermé : l'écran ne le promet pas, il dit de retirer le numéro.
+    await expect(modale.getByTestId('offre-alerte-credit-wa')).toContainText(/En Free, le Crédit WhatsApp ne s’achète pas : retirez d’abord le numéro de la ligne/);
+    // Vers le Business : il prépaie, comme le Pro, et l'achat lui est ouvert.
     await modale.getByTestId('offre-business').check();
-    await expect(modale.getByTestId('offre-alerte-credit-wa')).toBeVisible();
+    await expect(modale.getByTestId('offre-alerte-credit-wa')).toContainText(/avant un achat de Crédit WhatsApp/);
   });
 
   test('sans limite d’utilisateurs : `null` part', async ({ page }) => {

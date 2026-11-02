@@ -50,6 +50,21 @@ export interface DepsPaiement {
   payeurAutorise(userId: string): Promise<boolean>;
 }
 
+/** L'achat du Crédit IA : le paiement, plus la question qu'il est seul à poser. */
+export interface DepsAchatCreditIa extends DepsPaiement {
+  /**
+   * L'espace est-il une Entreprise, dont le Crédit IA est illimité et facturé au contrat (décision du 2026-11-02,
+   * `PgAccesCreditIaStore.illimite`) ? Elle n'a rien à acheter. Requis : oublié, une Entreprise paierait un crédit
+   * qu'elle n'use jamais (son solde ne bouge pas).
+   */
+  creditIllimite(tenantId: string): Promise<boolean>;
+}
+
+/** Une Entreprise n'achète pas de Crédit IA : il est illimité, facturé selon son contrat. */
+export const CREDIT_IA_ILLIMITE = refus(409,
+  'Votre offre Entreprise comprend un Crédit IA illimité, facturé selon votre contrat : il n’y a rien à acheter.',
+  { code: 'credit_ia_illimite' });
+
 /** Le corps ne porte qu'une offre, jamais un montant ni un prix. Exporté : l'outil MCP annonce les offres d'ici. */
 export const saisieDePaiement = z.object({ offre: z.enum(OFFRES_RECHARGE) });
 
@@ -72,11 +87,13 @@ export interface PaiementOuvert {
  * refus 422 : son message part au journal, pas à l'appelant (il parle de NOTRE compte, et peut citer la fin de la clé).
  */
 export async function ouvrirPaiement(
-  deps: DepsPaiement, tenantId: string, corps: unknown, payeur: string, retour: RetourPaiement,
+  deps: DepsAchatCreditIa, tenantId: string, corps: unknown, payeur: string, retour: RetourPaiement,
 ): Promise<Issue<PaiementOuvert>> {
   const lu = saisieDePaiement.safeParse(corps ?? {});
   if (!lu.success) return refus(400, `offre inconnue (${OFFRES_RECHARGE.join(', ')})`);
   const offre = lu.data.offre;
+  // Avant Stripe : une Entreprise n'a rien à acheter, aucune session ne s'ouvre pour elle.
+  if (await deps.creditIllimite(tenantId)) return CREDIT_IA_ILLIMITE;
   const s = deps.stripe;
   if (s === null || s.prix[offre] === '') return RECHARGE_INDISPONIBLE;
   if (!(await deps.payeurAutorise(payeur))) return RECHARGE_INDISPONIBLE;

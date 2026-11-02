@@ -50,7 +50,7 @@ function monter(solde: number) {
     essais: { lister: async () => [], ecrire: async (_t, _a, e) => { cap.essais.push(e); }, purger: async () => 0 },
     cerveau,
     disponible: true,
-    credits: { solde: async () => solde },
+    acces: { acces: async () => (solde > 0 ? 'ok' : 'epuise') },
     debiter: async (_t, montant, note) => { cap.debits.push({ montant, note }); },
   };
   return { cap, deps };

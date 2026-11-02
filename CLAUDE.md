@@ -394,6 +394,7 @@ depuis deux jours. Un pointeur qui décrit un ÉTAT vieillit ; un pointeur qui d
   WhatsApp, quand Meta le dit vérifié (`offrirCredit`, après `linkTenant`), une fois par espace et jamais deux fois pour un numéro
   (`credits_offerts`). Plus à la création d'un espace : sans preuve, l'offre s'y récoltait par script et vidait le
   plafond d'équipe Vercel. Chaque porte appelle `remonterPlafondApresRecharge` après sa transaction.
+  🔴 **UNE ENTREPRISE EST ILLIMITÉE (2026-11-02) : « peut-elle consommer de l'IA ? » se lit par `acces_credit_ia` (0268), jamais sur le solde** (`tests/credit-ia-acces-inventaire.test.ts`).
   ⚠️ `TRADUCTION_MODELE` vide = traduction ÉTEINTE, et l'écran le dit avec la cause `instance` (rien à
   faire côté client) plutôt qu'en parlant d'un crédit qui n'est pas en cause. Les autres causes :
   `credit` (épuisé, recharger règle), `credit_insuffisant` (positif mais sous le minimum d'une clé, environ

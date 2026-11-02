@@ -29,7 +29,7 @@ describe.skipIf(!url)('recherche dans la base de connaissance (Postgres)', () =>
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl(), max: 4 });
-    store = new PgKnowledgeStore(pool);
+    store = new PgKnowledgeStore(pool, 100_000_000);
 
     const t = await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-agent-kb') returning id`);
     tenantId = t.rows[0]!.id;
@@ -199,7 +199,7 @@ describe.skipIf(!url)('écriture de la base de connaissance (Postgres)', () => {
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl(), max: 4 });
-    store = new PgKnowledgeStore(pool);
+    store = new PgKnowledgeStore(pool, 100_000_000);
     const t = await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-kb-write') returning id`);
     tenantId = t.rows[0]!.id;
     const t2 = await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-kb-write-autre') returning id`);

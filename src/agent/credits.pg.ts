@@ -40,8 +40,9 @@ export class PgCreditStore {
     // Un débit nul ou négatif n'est pas écrit : il ne doit pas devenir un rechargement déguisé.
     const montant = Math.max(0, Math.round(montantMicroEur));
     if (montant === 0) return this.solde(tenantId);
-    const apres = await bouger(this.pool, tenantId, -montant, 'conso', contexte ?? {});
-    await this.apresDebit(tenantId, montant, apres);
+    const { solde: apres, illimite } = await bouger(this.pool, tenantId, -montant, 'conso', contexte ?? {});
+    // Illimité (une Entreprise) : le solde n'a pas bougé, aucune alerte de crédit bas n'a lieu d'être.
+    if (!illimite) await this.apresDebit(tenantId, montant, apres);
     return apres;
   }
 
@@ -54,38 +55,48 @@ export class PgCreditStore {
    * n'est perdu, aucun ne crée une seconde ligne. ⚠️ La clause `on conflict` doit reprendre MOT POUR MOT le
    * prédicat de cet index, sinon Postgres n'en trouve aucun à inférer et chaque débit échoue (comparés par
    * `tests/migration-0190.test.ts`).
+   *
+   * Illimité (une Entreprise, migration 0268) : la ligne du jour grossit, le solde ne bouge pas. ⚠️ La ligne garde le
+   * marquage de son PREMIER débit du jour : un espace qui change d'offre dans la journée y mêle les deux, au centime près
+   * (le solde, lui, reste juste débit par débit).
    */
   async debiterTraduction(tenantId: string, montantMicroEur: number): Promise<number> {
     const montant = Math.max(0, Math.round(montantMicroEur));
     if (montant === 0) return this.solde(tenantId);
-    const res = await this.pool.query<{ solde_micro_eur: string }>(
+    const res = await this.pool.query<{ solde_micro_eur: string; illimite: boolean }>(
       `with aujourdhui as (
          -- Le jour de Paris, calculé une fois : la note et la clé de la ligne le lisent tous deux.
          select (now() at time zone 'Europe/Paris')::date as j
        ),
+       drapeau as (
+         select offre_de_l_espace($1::uuid) = 'entreprise' as illimite
+       ),
        solde as (
          insert into agent_credits (tenant_id, solde_micro_eur, updated_at)
-         values ($1, $2, now())
+         select $1, $2, now() from drapeau where not illimite
          on conflict (tenant_id) do update
            set solde_micro_eur = agent_credits.solde_micro_eur + excluded.solde_micro_eur,
                updated_at = now()
          returning solde_micro_eur
        ),
        trace as (
-         insert into agent_credit_mouvements (tenant_id, delta_micro_eur, raison, note, jour)
-         values ($1, $2, 'traduction',
-                 'traductions du ' || to_char((select j from aujourdhui), 'DD/MM'),
-                 (select j from aujourdhui))
+         insert into agent_credit_mouvements (tenant_id, delta_micro_eur, raison, note, jour, illimite)
+         select $1, $2, 'traduction',
+                'traductions du ' || to_char((select j from aujourdhui), 'DD/MM'),
+                (select j from aujourdhui), illimite
+           from drapeau
          on conflict (tenant_id, jour) where raison = 'traduction' do update
            set delta_micro_eur = agent_credit_mouvements.delta_micro_eur + excluded.delta_micro_eur,
                at = now()
          returning 1
        )
-       select solde_micro_eur from solde`,
+       select coalesce((select solde_micro_eur from solde),
+                       (select solde_micro_eur from agent_credits where tenant_id = $1), 0) as solde_micro_eur,
+              (select illimite from drapeau) as illimite`,
       [tenantId, -montant],
     );
     const apres = Number(res.rows[0]?.solde_micro_eur ?? 0);
-    await this.apresDebit(tenantId, montant, apres);
+    if (res.rows[0]?.illimite !== true) await this.apresDebit(tenantId, montant, apres);
     return apres;
   }
 
@@ -96,7 +107,7 @@ export class PgCreditStore {
   async crediter(tenantId: string, montantMicroEur: number, note: string): Promise<number> {
     const montant = Math.max(0, Math.round(montantMicroEur));
     if (montant === 0) return this.solde(tenantId);
-    return bouger(this.pool, tenantId, montant, 'recharge', { note });
+    return (await bouger(this.pool, tenantId, montant, 'recharge', { note })).solde;
   }
 
   async mouvements(tenantId: string, limite: number): Promise<MouvementLu[]> {
@@ -297,30 +308,42 @@ export async function crediterAchat(
   client: PoolClient, tenantId: string, montantMicroEur: number, note: string, stripeSessionId: string,
 ): Promise<number> {
   const montant = Math.max(0, Math.round(montantMicroEur));
-  return bouger(client, tenantId, montant, 'achat', { note, stripeSessionId });
+  return (await bouger(client, tenantId, montant, 'achat', { note, stripeSessionId })).solde;
 }
 
-/** Le solde et le journal, en une instruction. Rend le solde après opération. */
+/**
+ * Le solde et le journal, en une instruction. Rend le solde après opération, et si le mouvement était illimité.
+ *
+ * 🔴 UN DÉBIT D'UNE ENTREPRISE EST ILLIMITÉ (décision de Julien du 2026-11-02, migration 0268) : il s'écrit au journal,
+ * marqué, pour la facture du mois, et le solde ne bouge pas. Décidé ICI, dans la même instruction, sur la seule
+ * définition de l'offre (`offre_de_l_espace`) : aucun appelant n'a à le savoir. Un crédit (achat, recharge, offre)
+ * touche toujours le solde, même en Entreprise : un espace qui en sort le retrouve.
+ */
 async function bouger(
   q: Pool | PoolClient, tenantId: string, delta: number, raison: RaisonMouvement,
   extra: { sessionId?: string; note?: string; stripeSessionId?: string },
-): Promise<number> {
-  const res = await q.query<{ solde_micro_eur: string }>(
-    `with solde as (
+): Promise<{ solde: number; illimite: boolean }> {
+  const res = await q.query<{ solde_micro_eur: string; illimite: boolean }>(
+    `with drapeau as (
+       select ($2::bigint < 0 and offre_de_l_espace($1::uuid) = 'entreprise') as illimite
+     ),
+     solde as (
        insert into agent_credits (tenant_id, solde_micro_eur, updated_at)
-       values ($1, $2, now())
+       select $1, $2, now() from drapeau where not illimite
        on conflict (tenant_id) do update
          set solde_micro_eur = agent_credits.solde_micro_eur + excluded.solde_micro_eur,
              updated_at = now()
        returning solde_micro_eur
      ),
      trace as (
-       insert into agent_credit_mouvements (tenant_id, delta_micro_eur, raison, session_id, note, stripe_session_id)
-       values ($1, $2, $3, $4::uuid, $5, $6)
+       insert into agent_credit_mouvements (tenant_id, delta_micro_eur, raison, session_id, note, stripe_session_id, illimite)
+       select $1, $2, $3, $4::uuid, $5, $6, illimite from drapeau
        returning 1
      )
-     select solde_micro_eur from solde`,
+     select coalesce((select solde_micro_eur from solde),
+                     (select solde_micro_eur from agent_credits where tenant_id = $1), 0) as solde_micro_eur,
+            (select illimite from drapeau) as illimite`,
     [tenantId, delta, raison, extra.sessionId ?? null, extra.note ?? null, extra.stripeSessionId ?? null],
   );
-  return Number(res.rows[0]?.solde_micro_eur ?? 0);
+  return { solde: Number(res.rows[0]?.solde_micro_eur ?? 0), illimite: res.rows[0]?.illimite === true };
 }

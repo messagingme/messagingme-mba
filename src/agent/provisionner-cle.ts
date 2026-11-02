@@ -13,7 +13,9 @@ import type { TravauxEnVol } from '../lib/en-vol';
  *
  * 🔴 Le plafond est le crédit acheté, jamais un nombre saisi : un plafond choisi ne protège personne, un
  * plafond égal à ce qui a été payé est une garantie. Pas de crédit, pas de clé, donc pas d'agent : sinon un
- * client à zéro mettrait son agent au point sur notre argent.
+ * client à zéro mettrait son agent au point sur notre argent. L'EXCEPTION est l'Entreprise, illimitée et facturée au
+ * contrat (décision du 2026-11-02) : sa clé garde d'avance son plafond de sécurité du mois (`margeDeCle`), que notre
+ * propre garde (`acces_credit_ia`) fait mordre avant elle.
  */
 
 /** L'espace n'a pas de quoi ouvrir une cle. Distinct d'une panne : rien n'est casse, il faut recharger. */
@@ -57,6 +59,13 @@ export interface DepsProvisionCle {
   espaceVerrouille(tenantId: string): Promise<boolean>;
   /** Le solde prépayé de l'espace, en micro-euros. C'est lui qui devient le plafond. */
   credits: { solde(tenantId: string): Promise<number> };
+  /**
+   * Ce que la clé garde d'avance au-dessus de ce qui a été crédité et consommé (`PgAccesCreditIaStore.margeDeCle`) :
+   * zéro pour un prépayé, le plafond de sécurité du mois pour une Entreprise, illimitée (décision du 2026-11-02), dont le
+   * solde ne bouge pas. Requise : oubliée, une Entreprise ne pourrait ouvrir sa clé qu'avec un solde qu'elle n'use pas,
+   * et sa clé couperait ses agents à ce qu'elle a jadis payé.
+   */
+  margeDeCle(tenantId: string): Promise<number>;
   /** Comment nommer la cle dans le tableau de bord Vercel. */
   nomEspace(tenantId: string): Promise<string | null>;
   transport: HttpTransportPatch & HttpTransportSuppression;
@@ -88,8 +97,10 @@ export async function assurerCleGateway(deps: DepsProvisionCle, tenantId: string
   // Avant le crédit et avant Vercel : un espace verrouillé n'ouvre rien, quel que soit son solde.
   if (await deps.espaceVerrouille(tenantId)) throw new EspaceVerrouillePourCle();
 
+  // Le plafond de naissance : le solde, plus la marge d'une Entreprise (son plafond du mois, son solde ne bougeant pas).
   const solde = await deps.credits.solde(tenantId);
-  const plafond = dollarsDepuisMicroEuros(solde, deps.tauxEurParDollar);
+  const depart = Math.max(0, solde) + await deps.margeDeCle(tenantId);
+  const plafond = dollarsDepuisMicroEuros(depart, deps.tauxEurParDollar);
   if (plafond === null) throw new CreditInsuffisantPourCle(solde);
 
   const nom = await deps.nomEspace(tenantId);
@@ -105,7 +116,7 @@ export async function assurerCleGateway(deps: DepsProvisionCle, tenantId: string
   });
   let enregistree;
   try {
-    enregistree = await deps.cles.enregistrer(tenantId, { cleId: creee.id, cle: creee.cle, plafondMicroEur: solde });
+    enregistree = await deps.cles.enregistrer(tenantId, { cleId: creee.id, cle: creee.cle, plafondMicroEur: depart });
   } catch (err) {
     // La clé existe chez Vercel et nulle part chez nous : on la retire avant de relever l'échec. La
     // suppression ne lève jamais, pour ne pas masquer l'erreur d'origine.
@@ -204,9 +215,9 @@ export function creerAssureurDeCle(deps: {
     // Un espace verrouillé (qu'on supprime, ou suspendu) n'ouvre aucune clé ; `assurerCleGateway` le redit sous le vol.
     if (await provision.espaceVerrouille(tenantId)) return 'indisponible';
     // Pas de répit pour un crédit trop bas : Vercel n'est pas appelé, et une recharge doit ouvrir la clé tout de suite.
-    if (dollarsDepuisMicroEuros(await provision.credits.solde(tenantId), provision.tauxEurParDollar) === null) {
-      return 'credit_insuffisant';
-    }
+    // Une Entreprise ouvre sur sa marge (son plafond du mois), quel que soit son solde.
+    const depart = Math.max(0, await provision.credits.solde(tenantId)) + await provision.margeDeCle(tenantId);
+    if (dollarsDepuisMicroEuros(depart, provision.tauxEurParDollar) === null) return 'credit_insuffisant';
     // Relu après l'`await` du solde : deux demandes simultanées du même espace ne lancent qu'une ouverture.
     if (vols.has(tenantId)) return 'en_preparation';
     const vol = assurerCleGateway(provision, tenantId)
@@ -243,6 +254,7 @@ export function creerAssureurDeCle(deps: {
  */
 export async function remonterPlafondApresRecharge(deps: DepsProvisionCle, tenantId: string): Promise<boolean> {
   try {
+    const marge = await deps.margeDeCle(tenantId);
     return await deps.cles.ajusterPlafond(tenantId, async (cle, cible) => {
       if (cible <= cle.plafondMicroEur) return null;
       const dollars = dollarsDepuisMicroEuros(cible, deps.tauxEurParDollar);
@@ -253,7 +265,7 @@ export async function remonterPlafondApresRecharge(deps: DepsProvisionCle, tenan
         plafondDollars: dollars,
       });
       return cible;
-    });
+    }, marge);
   } catch (err) {
     deps.journal('plafond gateway non remonte', err instanceof CleGatewayError ? err.message : err, tenantId);
     return false;

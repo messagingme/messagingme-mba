@@ -264,7 +264,7 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     let lu = false;
     const PROVISION: ProvisionVue = {
       id: 'p1', creeLe: '2026-10-30T10:00:00.000Z', phoneNumberId: PN, wamid: 'wamid.1', pays: 'FR', categorie: 'utility',
-      montantMicroEur: 26_040, etat: 'rendu', livreLe: null,
+      montantMicroEur: 26_040, etat: 'rendu', livreLe: null, illimite: true,
     };
     const demandes: number[] = [];
     const a = app({}, true, { numeroDeLEspace: async () => { lu = true; return NUMERO; }, lignesDeLEspace: async () => [LIGNE] }, [], {

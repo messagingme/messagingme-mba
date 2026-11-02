@@ -111,15 +111,15 @@ export const assistantAgentInerte: Pick<AgentSetupRouteDeps,
   modeleVision: '',
 };
 
-/** `solde` absent : l'essai ne coûtait rien, aucun refus pour solde épuisé. */
-export const soldeIllimite = async (): Promise<number> => Number.POSITIVE_INFINITY;
+/** L'accès au Crédit IA absent : l'essai ne coûtait rien, aucun refus pour crédit épuisé ni plafond. */
+export const accesOuvert = async (): Promise<'ok'> => 'ok';
 /** `debiter` absent : rien n'était débité. */
 export const sansDebit = async (): Promise<void> => {};
 
-export const essaiAgentInerte: Pick<AgentTestRouteDeps, 'essais' | 'credits' | 'debiter'> = {
+export const essaiAgentInerte: Pick<AgentTestRouteDeps, 'essais' | 'acces' | 'debiter'> = {
   // Absent : liste vide à la lecture, rien d'écrit après un essai.
   essais: { lister: async () => [], ecrire: async () => {}, purger: async () => 0 },
-  credits: { solde: soldeIllimite },
+  acces: { acces: accesOuvert },
   debiter: sansDebit,
 };
 
@@ -149,9 +149,20 @@ export const repondeurInerte: DepsReglageRepondeur = {
   adresses: { lire: async () => null, lister: async () => [] },
 };
 
-export const agentsInertes: Pick<AgentsRouteDeps, 'credits' | 'sessions' | 'etatPourLint' | 'modelesProposes' | 'historique' | 'oublierRepondeur' | 'repondeur' | 'audit'> = {
+/**
+ * L'état du Crédit IA d'un espace prépayé (`PgAccesCreditIaStore.etat`), au solde donné : ce que les écrans et Claude lisaient
+ * avant l'Entreprise illimitée.
+ */
+export const creditIaPrepaye = (soldeMicroEur: number): AgentsRouteDeps['creditIa'] => ({
+  etat: async () => ({
+    acces: soldeMicroEur > 0 ? 'ok' : 'epuise', illimite: false, soldeMicroEur, consommationDuMoisMicroEur: 0, plafondMicroEur: null,
+  }),
+});
+
+export const agentsInertes: Pick<AgentsRouteDeps, 'credits' | 'creditIa' | 'sessions' | 'etatPourLint' | 'modelesProposes' | 'historique' | 'oublierRepondeur' | 'repondeur' | 'audit'> = {
   audit: journalMuet,
-  credits: { solde: async () => 0, historique: async () => [] },
+  credits: { historique: async () => [] },
+  creditIa: creditIaPrepaye(0),
   sessions: {
     consommation: neDevraitPasEtreAppelee('consommation'),
     messagesTenus: async () => 0,
@@ -657,7 +668,8 @@ export const mcpAgentInerte: Pick<DepsMcp, 'agentIa'> = {
       etatPourLint: async () => null,
       historique: { ecrire: neDevraitPasEtreAppelee('historique.ecrire') },
       oublierRepondeur: neDevraitPasEtreAppelee('oublierRepondeur'),
-      credits: { solde: async () => 0, historique: async () => [] },
+      credits: { historique: async () => [] },
+      creditIa: creditIaPrepaye(0),
       modelesProposes: async () => [],
     },
     connaissance: {
@@ -673,13 +685,14 @@ export const mcpAgentInerte: Pick<DepsMcp, 'agentIa'> = {
     essai: {
       essais: { lister: async () => [], ecrire: neDevraitPasEtreAppelee('essais.ecrire'), purger: async () => 0 },
       disponible: false,
-      credits: { solde: async () => 0 },
+      acces: { acces: async () => 'epuise' as const },
       debiter: neDevraitPasEtreAppelee('debiter'),
     },
     paiement: {
       stripe: null,
       clients: { clientDe: neDevraitPasEtreAppelee('clientDe'), retenirClient: neDevraitPasEtreAppelee('retenirClient') },
       payeurAutorise: async () => false,
+      creditIllimite: async () => false,
     },
     outils: {
       listToutes: async () => [],

@@ -44,7 +44,7 @@ describe.skipIf(!url)('les fiches à vectoriser, selon le crédit de leur espace
     const riche = await espaceAvecFiche('itest-vect-credit', 1_000_000);
     await espaceAvecFiche('itest-vect-zero', 0);
     await espaceAvecFiche('itest-vect-sans', null);
-    const lot = await new PgKnowledgeStore(pool).fichesAVectoriser('itest-modele-payant', 100_000);
+    const lot = await new PgKnowledgeStore(pool, 100_000_000).fichesAVectoriser('itest-modele-payant', 100_000);
     const ids = lot.map((f) => f.id);
     expect(ids).toContain(fiches['itest-vect-credit']);
     expect(ids).not.toContain(fiches['itest-vect-zero']);

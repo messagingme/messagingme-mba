@@ -2,7 +2,7 @@
 description: Construire un agent IA qui répond sur WhatsApp : l’entretien, la base de connaissance, les outils, les règles d’arrêt, l’essai et le crédit.
 ecran: agents
 source_section: Agent IA (menu « AI Agent » > Other AI agent)
-source_empreinte: 2d6b75
+source_empreinte: 3f44cd
 publique: oui
 rubrique: parler-aux-clients
 rang: 10

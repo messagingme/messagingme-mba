@@ -7,6 +7,16 @@ import type { OutilDefini, ToolCatalog } from '../src/agent/catalog';
 import type { EntreeResolveur } from '../src/agent/executor';
 import { ficheVide } from '../src/agent/fiche';
 import type { RunTurnDeps, EtatRun } from '../src/agent/run-turn';
+import type { AccesCreditIa } from '../src/agent/acces-credit';
+
+/** L'accès d'un espace prépayé, comme `acces_credit_ia` le rend : un solde positif, sinon épuisé. */
+const prepaye = (solde: number): NonNullable<RunTurnDeps['acces']> => ({
+  acces: async () => (solde > 0 ? 'ok' : 'epuise'), illimite: async () => false,
+});
+/** L'accès d'une Entreprise (illimitée) : sous son plafond du mois, ou à son plafond. Son solde n'y est pour rien. */
+const entreprise = (acces: AccesCreditIa): NonNullable<RunTurnDeps['acces']> => ({
+  acces: async () => acces, illimite: async () => true,
+});
 import type { FicheAgent } from '../src/agent/agent-store';
 import { FakeAgentBrain } from './fake-agent-brain';
 import type { DecisionAgent } from '../src/agent/brain';
@@ -497,9 +507,7 @@ describe('le budget, relié à la consommation', () => {
     const debits: Array<{ montant: number; sessionId: string }> = [];
     const { deps } = make({
       sessions: { ...sessionsOk(), ajouterCout: async (_t, _s, m) => { couts.push(m); } },
-      credits: {
-        solde: async () => 30_000,
-      },
+      acces: prepaye(30_000),
       debiterTenant: async (_t, montant, sessionId) => { debits.push({ montant, sessionId }); },
     }, { texte: 'ok', sortie: null, usage: USAGE });
     await runTurn(JOB, deps);
@@ -511,9 +519,7 @@ describe('le budget, relié à la consommation', () => {
     // Lire le solde après coup reviendrait à payer un appel qu'on savait ne pas pouvoir facturer.
     let pense = 0;
     const { deps, envois } = make({
-      credits: {
-        solde: async () => 0,
-      },
+      acces: prepaye(0),
       brain: { penser: async () => { pense += 1; return { texte: 'jamais', sortie: null }; } },
     });
     const res = await runTurn(JOB, deps);
@@ -523,12 +529,12 @@ describe('le budget, relié à la consommation', () => {
   });
 
   it('et un solde NÉGATIF aussi : on ne laisse pas la dette creuser', async () => {
-    const { deps } = make({ credits: { solde: async () => -1200 } });
+    const { deps } = make({ acces: prepaye(-1200) });
     expect((await runTurn(JOB, deps)).fait).toBe('plafond');
   });
 
   it('un solde suffisant laisse passer', async () => {
-    const { deps, envois } = make({ credits: { solde: async () => 1 } });
+    const { deps, envois } = make({ acces: prepaye(1) });
     expect((await runTurn(JOB, deps)).fait).toBe('repondu');
     expect(envois).toHaveLength(1);
   });
@@ -541,23 +547,57 @@ describe('le budget, relié à la consommation', () => {
   it('🔴 solde épuisé ou plafond de la clé chez le Gateway : l’alerte part ; un plafond de tours : rien', async () => {
     const alertes: string[] = [];
     const alerterCreditEpuise = async (t: string) => { alertes.push(t); };
-    const { deps } = make({ credits: { solde: async () => 0 }, alerterCreditEpuise });
+    const { deps } = make({ acces: prepaye(0), alerterCreditEpuise });
     expect((await runTurn(JOB, deps)).fait).toBe('plafond');
     expect(alertes).toEqual(['t1']);
 
     const { deps: gateway } = make({
-      credits: { solde: async () => 30_000 }, alerterCreditEpuise,
+      acces: prepaye(30_000), alerterCreditEpuise,
       brain: { penser: async () => { throw new PlafondModeleAtteint(429, 'quota'); } },
     });
     expect((await runTurn(JOB, gateway)).fait).toBe('plafond');
     expect(alertes).toEqual(['t1', 't1']);
 
     const { deps: tours } = make({
-      credits: { solde: async () => 30_000 }, alerterCreditEpuise,
+      acces: prepaye(30_000), alerterCreditEpuise,
       sessions: { ...sessionsOk(), prendreLeTour: async () => ({ ...SESSION, tours: 99 }) },
     });
     expect((await runTurn(JOB, tours)).fait).toBe('plafond');
     expect(alertes, 'un plafond de tours n’est pas un crédit épuisé').toEqual(['t1', 't1']);
+  });
+
+  /**
+   * 🔴 L'ENTREPRISE ILLIMITÉE (décision du 2026-11-02) : son plafond de sécurité du mois arrête le tour AVANT le modèle,
+   * comme un solde épuisé, mais le client n'est pas prévenu (rien à recharger, Julien l'est par le balayage horaire). Et
+   * le plafond de sa clé chez le Gateway, atteint avant le nôtre, ne lui écrit pas non plus « crédit épuisé ».
+   */
+  it('🔴 une Entreprise à son plafond du mois : le tour s’arrête avant le modèle, sans alerte au client', async () => {
+    const alertes: string[] = [];
+    let pense = 0;
+    const { deps, envois } = make({
+      acces: entreprise('plafond'), alerterCreditEpuise: async (t: string) => { alertes.push(t); },
+      brain: { penser: async () => { pense += 1; return { texte: 'jamais', sortie: null }; } },
+    });
+    expect(await runTurn(JOB, deps)).toMatchObject({ fait: 'plafond', sortie: 'plafond' });
+    expect([pense, envois.length, alertes.length]).toEqual([0, 0, 0]);
+  });
+
+  it('une Entreprise sous son plafond répond, quel que soit son solde ; la clé du Gateway à son plafond ne prévient pas le client', async () => {
+    const alertes: string[] = [];
+    const { deps, envois } = make({ acces: entreprise('ok') });
+    expect((await runTurn(JOB, deps)).fait).toBe('repondu');
+    expect(envois).toHaveLength(1);
+    const { deps: gateway } = make({
+      acces: entreprise('ok'), alerterCreditEpuise: async (t: string) => { alertes.push(t); },
+      brain: { penser: async () => { throw new PlafondModeleAtteint(429, 'quota'); } },
+    });
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      expect((await runTurn(JOB, gateway)).fait).toBe('plafond');
+    } finally {
+      erreurs.mockRestore();
+    }
+    expect(alertes).toEqual([]);
   });
 
   it('🔴 une écriture de comptage EN ÉCHEC ne fait pas échouer le tour', async () => {
@@ -565,9 +605,7 @@ describe('le budget, relié à la consommation', () => {
     // une seconde fois. On perd une ligne de comptabilité, jamais une conversation.
     const { deps, envois } = make({
       sessions: { ...sessionsOk(), ajouterCout: async () => { throw new Error('pooler injoignable'); } },
-      credits: {
-        solde: async () => 30_000,
-      },
+      acces: prepaye(30_000),
     }, { texte: 'ok', sortie: null, usage: USAGE });
     const res = await runTurn(JOB, deps);
     expect(res.fait).toBe('repondu');
@@ -583,9 +621,7 @@ describe('le budget, relié à la consommation', () => {
     const debits: number[] = [];
     const { deps } = make({
       sessions: { ...sessionsOk(), ajouterCout: async (_t: string, _s: string, m: number) => { couts.push(m); } } as unknown as RunTurnDeps['sessions'],
-      credits: {
-        solde: async () => 30_000,
-      },
+      acces: prepaye(30_000),
       debiterTenant: async (_t, m) => { debits.push(m); },
       brain: { penser: async () => { throw new TourInterrompu(new Error('502 du fournisseur'), USAGE); } },
     });
@@ -599,9 +635,7 @@ describe('le budget, relié à la consommation', () => {
     // introuvable) ne doit rien prélever, sinon on facture au client des tours qui n'ont rien coûté.
     const debits: number[] = [];
     const { deps } = make({
-      credits: {
-        solde: async () => 30_000,
-      },
+      acces: prepaye(30_000),
       debiterTenant: async (_t, m) => { debits.push(m); },
       brain: { penser: async () => { throw new Error('clé refusée'); } },
     });
@@ -615,9 +649,7 @@ describe('le budget, relié à la consommation', () => {
     const couts: number[] = [];
     const { deps, envois } = make({
       sessions: { ...sessionsOk(), ajouterCout: async (_t: string, _s: string, m: number) => { couts.push(m); } } as unknown as RunTurnDeps['sessions'],
-      credits: {
-        solde: async () => 30_000,
-      },
+      acces: prepaye(30_000),
       debiterTenant: async () => { throw new Error('contention sur la ligne de solde'); },
     }, { texte: 'ok', sortie: null, usage: USAGE });
     expect((await runTurn(JOB, deps)).fait).toBe('repondu');
@@ -627,7 +659,7 @@ describe('le budget, relié à la consommation', () => {
 
   it('un tour sans usage ne débite rien', async () => {
     const debits: number[] = [];
-    const { deps } = make({ credits: { solde: async () => 30_000 }, debiterTenant: async (_t, m) => { debits.push(m); } });
+    const { deps } = make({ acces: prepaye(30_000), debiterTenant: async (_t, m) => { debits.push(m); } });
     await runTurn(JOB, deps);
     expect(debits).toEqual([]);
   });

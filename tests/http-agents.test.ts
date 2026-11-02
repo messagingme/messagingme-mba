@@ -134,7 +134,6 @@ describe('routes agents : l’historique du crédit', () => {
     const vus: Array<{ tenant: string; limite: number }> = [];
     const { srv } = app(undefined, {
       credits: {
-        solde: async () => 0,
         historique: async (tenant, limite) => {
           vus.push({ tenant, limite });
           return [{ id: 'a', deltaMicroEur: 50_000_000, raison: 'achat', jour: null, at: '2026-09-29T10:00:00.000Z', paiementId: 'cs_live_1', facture: true }];

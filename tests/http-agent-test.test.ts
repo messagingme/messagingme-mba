@@ -86,7 +86,7 @@ function fauxHistorique(opts: { casse?: boolean; contenu?: EssaiAgent[] } = {}) 
 
 function app(opts: {
   reponses?: ReponseChat[]; agentConnu?: boolean; sansCerveau?: boolean; indisponible?: boolean;
-  solde?: number; sansHistorique?: boolean; historiqueCasse?: boolean; essais?: EssaiAgent[];
+  solde?: number; plafond?: boolean; sansHistorique?: boolean; historiqueCasse?: boolean; essais?: EssaiAgent[];
 } = {}) {
   const hist = fauxHistorique({ ...(opts.historiqueCasse ? { casse: true } : {}), ...(opts.essais ? { contenu: opts.essais } : {}) });
   const cap = {
@@ -132,7 +132,9 @@ function app(opts: {
     ...(opts.sansHistorique ? {} : { essais: hist.store }),
     ...(opts.sansCerveau ? {} : { cerveau }),
     ...(opts.solde === undefined ? {} : {
-      credits: { solde: async () => opts.solde! },
+      // L'accès tel que la base le décide (`acces_credit_ia`) : un prépayé, sur son solde ; une Entreprise, sur son plafond.
+      // 🔴 Un `credits: { solde }` passé ici ne serait vu par personne : le contrôle des propriétés ne traverse pas un spread.
+      acces: { acces: async () => (opts.plafond ? 'plafond' as const : opts.solde! > 0 ? 'ok' as const : 'epuise' as const) },
       debiter: async (_t: string, montant: number, note: string) => { cap.debits.push({ montant, note }); },
     }),
   };
@@ -295,6 +297,15 @@ describe('bac à sable de l’agent', () => {
       }
     });
 
+    it('🔴 une Entreprise à son plafond de sécurité du mois : 409 sans appeler le modèle, quel que soit son solde figé', async () => {
+      const { cap, srv } = app({ solde: 5_000_000, plafond: true });
+      const res = await srv.inject({ method: 'POST', url: url('t1'), ...h(adminTok), payload: bonjour });
+      expect(res.statusCode).toBe(409);
+      expect(res.json().error).toContain('plafond de sécurité');
+      expect(cap.messages).toHaveLength(0);
+      expect(cap.debits).toEqual([]);
+    });
+
     it('un essai qui ÉCHOUE après avoir déjà payé débite quand même, que la panne soit celle du fournisseur ou la nôtre', async () => {
       // Même règle qu'en production : le fournisseur facture chaque aller-retour, et un essai qui casse au
       // second n'a aucune raison d'être offert.
@@ -312,7 +323,7 @@ describe('bac à sable de l’agent', () => {
           agentTest: {
             ...essaiAgentInerte,
             disponible: true,
-            credits: { solde: async () => 5_000_000 },
+            acces: { acces: async () => 'ok' as const },
             debiter: async (_t: string, montant: number) => { cap.debits.push(montant); },
             cerveau: {
               client: {

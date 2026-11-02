@@ -6,6 +6,7 @@ import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import type { EtatConnexion } from '../src/otp/etat-connexion';
 import type { ReglageDuRepondeur } from '../src/repondeur/mode';
+import type { EtatCreditIa } from '../src/agent/acces-credit';
 import type { Fonction } from '../src/offres/offres';
 
 /**
@@ -21,6 +22,10 @@ const NUMERO_CONNECTE: EtatConnexion = {
 const SANS_NUMERO: EtatConnexion = { fourni: null, code: null, connecte: null, abonnement: null, inclusDansLePro: false };
 const EQUIPE: ReglageDuRepondeur = {
   mbaEnabled: false, repondeurMode: 'equipe', repondeurAgentId: null, repondeurWorkflowId: null, repondeurAdresseId: null,
+};
+/** Le Crédit IA d'un espace prépayé, 0,50 € de solde (`PgAccesCreditIaStore.etat`). */
+const ETAT_PREPAYE: EtatCreditIa = {
+  acces: 'ok', illimite: false, soldeMicroEur: 500_000, consommationDuMoisMicroEur: 0, plafondMicroEur: null,
 };
 const AGENT_REPOND: ReglageDuRepondeur = { ...EQUIPE, repondeurMode: 'agent', repondeurAgentId: 'a1' };
 
@@ -154,7 +159,7 @@ describe('l’étape suivante', () => {
 });
 
 describe('la lecture, sur des faux', () => {
-  function deps(o: { panne?: 'numero' | 'agents' | 'credit'; lus?: string[]; soldeWa?: number; illimite?: boolean } = {}): DepsMiseEnService {
+  function deps(o: { panne?: 'numero' | 'agents' | 'credit'; lus?: string[]; soldeWa?: number; illimite?: boolean; creditIa?: EtatCreditIa } = {}): DepsMiseEnService {
     const casse = (quoi: string) => async () => { throw new Error(`panne ${quoi}`); };
     // Chaque source note l'espace qu'on lui demande : l'isolation se vérifie sur toutes.
     const lu = <T>(source: string, v: T) => async (t: string) => { o.lus?.push(`${source}:${t}`); return v; };
@@ -168,7 +173,7 @@ describe('la lecture, sur des faux', () => {
               { id: '0b8b2a3e-1c4d-4e5f-8a9b-0c1d2e3f4a5b', label: 'Accueil', status: 'draft' as const, sorties: [], modele: 'm' },
             ]),
           },
-          credits: { solde: o.panne === 'credit' ? casse('credit') : lu('credit', 500_000) },
+          creditIa: { etat: o.panne === 'credit' ? casse('credit') : lu('credit', o.creditIa ?? ETAT_PREPAYE) },
           etatPourLint: async (t: string) => { o.lus?.push(`manques:${t}`); return null; },
         },
         repondeur: { reglages: { get: lu('repondeur', { ...EQUIPE, repondeurDelaiScenarioS: 0 }) } },
@@ -219,6 +224,21 @@ describe('la lecture, sur des faux', () => {
       expect((await lireMiseEnService(deps({ soldeWa, illimite: true }), 't1')).avertissements, String(soldeWa)).not.toContain('credit_whatsapp_epuise');
     }
   });
+
+  it('🔴 le Crédit IA d’une Entreprise : illimité, jamais « épuisé » à solde nul, et son plafond du mois atteint le dit', async () => {
+    const entreprise: EtatCreditIa = { acces: 'ok', illimite: true, soldeMicroEur: 0, consommationDuMoisMicroEur: 1_380_000, plafondMicroEur: 100_000_000 };
+    const sous = await lireMiseEnService(deps({ creditIa: entreprise }), 't1');
+    expect(sous).toMatchObject({ credit_eur: null, credit_illimite: true });
+    expect(sous.avertissements).not.toContain('credit_epuise');
+    expect(sous.avertissements).not.toContain('plafond_ia_atteint');
+    const auPlafond = await lireMiseEnService(deps({ creditIa: { ...entreprise, acces: 'plafond' } }), 't1');
+    expect(auPlafond.avertissements).toContain('plafond_ia_atteint');
+    expect(auPlafond.avertissements).not.toContain('credit_epuise');
+    // La preuve inverse : un prépayé à sec est toujours « épuisé », et ne porte pas la clé de l'illimité.
+    const sec = await lireMiseEnService(deps({ creditIa: { acces: 'epuise', illimite: false, soldeMicroEur: 0, consommationDuMoisMicroEur: 0, plafondMicroEur: null } }), 't1');
+    expect(sec.avertissements).toContain('credit_epuise');
+    expect(sec).not.toHaveProperty('credit_illimite');
+  });
 });
 
 describe('l’outil get_setup_state', () => {
@@ -244,7 +264,7 @@ describe('l’outil get_setup_state', () => {
       offre: { vue: async (t: string) => { lus.push(t); return { offre: 'free' as const, fonctions: [] }; } },
       numero: { etat: async () => SANS_NUMERO },
       agentIa: {
-        gestion: { agents: { listToutes: async () => [] }, credits: { solde: async () => 0 }, etatPourLint: async () => null },
+        gestion: { agents: { listToutes: async () => [] }, creditIa: { etat: async () => ({ ...ETAT_PREPAYE, acces: 'epuise' as const, soldeMicroEur: 0 }) }, etatPourLint: async () => null },
         repondeur: { reglages: { get: async () => EQUIPE } },
         creditWhatsapp: { onglet: async () => false, vue: { solde: async () => 0, conditions: async () => ({ openBar: false }) } },
       },

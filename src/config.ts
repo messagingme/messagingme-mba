@@ -561,6 +561,15 @@ export const schema = z.object({
    */
   ASSISTANT_PLAFOND_EUROS_MOIS: z.coerce.number().min(0).default(2),
   /**
+   * Le plafond de sécurité de l'IA d'une Entreprise, en euros par mois de Paris (décision de Julien du 2026-11-02, plan
+   * de l'Entreprise illimitée, lot B). Son Crédit IA est illimité et facturé au contrat, mais chaque appel nous est
+   * facturé par Vercel au fil de l'eau : ce plafond arrête l'IA d'un espace qui s'emballe (un agent qui répond à un robot,
+   * un numéro inondé, une boucle chez nous). Le plus gros mois mesuré au 2026-11-02 : 1,38 €. Un espace peut avoir le
+   * sien, réglé dans `/ops` (`tenants.entreprise_plafond_ia_micro_eur`). 🔴 Jamais 0 : la clé Vercel d'une Entreprise
+   * garde ce plafond d'avance, il lui faut un nombre ; pour lever la contrainte d'un client, on relève SON plafond.
+   */
+  ENTREPRISE_PLAFOND_IA_EUROS_MOIS: z.coerce.number().int().min(1).default(100),
+  /**
    * Le crédit offert au PREMIER numéro WhatsApp d'un espace que Meta dit VÉRIFIÉ, en micro-euros (1 000 000 = 1 €, pour
    * toutes les origines depuis le lot 6, décision de Julien du 2026-10-07),
    * avec un mouvement `offert`. Aucune clé Vercel n'est ouverte à ce moment (elle s'ouvre au premier usage qui en a

@@ -23,8 +23,11 @@ const SANS_ALERTE: AlertesOffreManuelle = {
 };
 /** Les champs du Business (spec du 2026-10-27) d'un espace qui ne l'a jamais eu. */
 const SANS_BUSINESS = { business: false, utilisateursBusiness: null } as const;
-/** Le champ du Crédit WhatsApp (plan du 2026-10-30, tâche 8) d'une Entreprise sans commission des messages négociée. */
-const SANS_CREDIT_WA = { commissionMessagesPct: null } as const;
+/**
+ * Les réglages de crédit du devis d'une Entreprise qui n'en a négocié aucun : la commission des messages WhatsApp (plan du
+ * 2026-10-30, tâche 8) et le plafond de sécurité de l'IA (Entreprise illimitée, lot B).
+ */
+const SANS_CREDIT_WA = { commissionMessagesPct: null, plafondIaMoisEuros: null } as const;
 
 class MagasinMemoire {
   lectures = 0;
@@ -58,6 +61,7 @@ class MagasinMemoire {
             business: r.entreprise ? false : r.business === undefined ? avant.business : r.business,
             utilisateursBusiness: r.utilisateursBusiness === undefined ? avant.utilisateursBusiness : r.utilisateursBusiness,
             commissionMessagesPct: r.commissionMessagesPct === undefined ? avant.commissionMessagesPct : r.commissionMessagesPct,
+            plafondIaMoisEuros: r.plafondIaMoisEuros === undefined ? avant.plafondIaMoisEuros : r.plafondIaMoisEuros,
           });
           return true;
         },
@@ -330,6 +334,7 @@ describe('l’offre posée par l’exploitation, au journal des actions de l’e
         entrepriseAvant: true, utilisateursAvant: null, conservationJoursAvant: null, contactsAvant: null, commissionPctAvant: null,
         business: false, utilisateursBusiness: null, businessAvant: false, utilisateursBusinessAvant: null,
         commissionMessagesPct: null, commissionMessagesPctAvant: null,
+        plafondIaMoisEuros: null, plafondIaMoisEurosAvant: null,
       },
     }]);
     expect(JSON.stringify(magasin.audits)).not.toContain(BASE.note);
@@ -396,6 +401,39 @@ describe('le Crédit WhatsApp de l’Entreprise, posé avec l’offre', () => {
     for (const extra of [{ commissionMessagesPct: -1 }, { commissionMessagesPct: 101 }, { commissionMessagesPct: 2.5 }]) {
       const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, note: 'devis', ...extra } });
       expect(res.statusCode, JSON.stringify(extra)).toBe(400);
+    }
+    expect(magasin.ecritures).toHaveLength(0);
+    await server.close();
+  });
+});
+
+/**
+ * LE PLAFOND DE SÉCURITÉ DE L'IA D'UNE ENTREPRISE (Entreprise illimitée, lot B) : posé avec le devis, en euros entiers,
+ * `null` = le défaut de l'instance. Jamais 0 : la clé Vercel d'une Entreprise garde ce plafond d'avance, il lui faut un
+ * nombre. Que l'accès au crédit le lise est tenu en base (`acces_credit_ia`, `tests/integration/acces-credit-ia.integration.test.ts`).
+ */
+describe('le plafond de sécurité de l’IA d’une Entreprise, posé avec l’offre', () => {
+  it('se pose, se garde quand il est absent, revient au défaut par null, et la trace le porte avant et après', async () => {
+    const { server, magasin } = monter();
+    const poser = (extra: Record<string, unknown>) => server.inject({
+      method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, note: 'devis', ...extra },
+    });
+    expect((await poser({ plafondIaMoisEuros: 250 })).json()).toMatchObject({ plafondIaMoisEuros: 250 });
+    expect(magasin.audits[0]?.detail).toMatchObject({ plafondIaMoisEuros: 250, plafondIaMoisEurosAvant: null });
+    await poser({});
+    expect(magasin.reglages.get(T1)).toMatchObject({ plafondIaMoisEuros: 250 });
+    await poser({ plafondIaMoisEuros: null });
+    expect(magasin.reglages.get(T1)).toMatchObject({ plafondIaMoisEuros: null });
+    await server.close();
+  });
+
+  it('🔴 refuse 0, un nombre négatif, une décimale ou plus d’un million : 400, rien d’écrit', async () => {
+    const { server, magasin } = monter();
+    for (const plafondIaMoisEuros of [0, -10, 12.5, 1_000_001, '100']) {
+      const res = await server.inject({
+        method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, note: 'devis', plafondIaMoisEuros },
+      });
+      expect(res.statusCode, String(plafondIaMoisEuros)).toBe(400);
     }
     expect(magasin.ecritures).toHaveLength(0);
     await server.close();

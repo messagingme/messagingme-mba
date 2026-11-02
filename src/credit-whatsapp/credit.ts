@@ -7,10 +7,12 @@ import type { CategorieMeta } from './grille';
  * 🔴 TOUT S'ARRÊTE À ZÉRO : un envoi part si le solde, une fois sa provision prise, reste positif ou nul. La provision
  * se prend AVANT l'appel à Meta et atomiquement (deux envois simultanés ne passent pas sur le même centime) ; elle est
  * rendue sur un refus net de Meta ou un accusé « non facturable », corrigée sur une catégorie reclassée, gardée sur un
- * doute (la régularisation tranche sur les volumes de Meta). L'Entreprise en open bar provisionne sans condition : rien
- * n'est refusé, tout est compté, Julien facture après coup.
+ * doute (la régularisation tranche sur les volumes de Meta). Une Entreprise (illimitée, décision du 2026-11-02, migration
+ * 0266) provisionne sans condition et sans toucher au solde : sa provision est marquée `illimite`, rien n'est refusé, tout
+ * est compté, Julien facture après coup.
  *
- * Invariant tenu par la base et vérifié en intégration : solde = somme des mouvements − somme des provisions non rendues.
+ * Invariant tenu par la base et vérifié en intégration : solde = somme des mouvements − somme des provisions PRÉPAYÉES
+ * non rendues (une provision illimitée n'y entre pas).
  */
 
 /**
@@ -36,7 +38,10 @@ export interface ProvisionDemandee {
   openBar: boolean;
 }
 
-/** `soldeApresMicroEur` : le solde juste après CE débit, lu dans la même instruction (l'alerte du solde bas s'y compare). */
+/**
+ * `soldeApresMicroEur` : le solde juste après CE débit, lu dans la même instruction (l'alerte du solde bas s'y compare).
+ * Pour une provision illimitée, le solde intact : rien n'a été débité, et la garde n'alerte pas.
+ */
 export type IssueProvision = { ok: true; provisionId: string; soldeApresMicroEur: number } | { ok: false; soldeMicroEur: number };
 
 /**
@@ -70,6 +75,8 @@ export interface ProvisionVue {
   montantMicroEur: number;
   etat: 'provisionne' | 'rendu' | 'ajuste';
   livreLe: string | null;
+  /** Une provision illimitée (Entreprise, 0266) : le solde ne l'a pas payée, elle va au montant à facturer. */
+  illimite: boolean;
 }
 
 /** Le premier jour d'un mois 'AAAA-MM', pour compter la franchise de service d'un numéro (mois civil UTC). */

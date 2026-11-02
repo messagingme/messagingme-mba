@@ -30,6 +30,12 @@ export const lireCommissionEntreprise = (saisie: string): number | null | 'inval
 /** La commission des messages WhatsApp négociée d'une Entreprise : vide = la commission globale, sinon un ENTIER de 0 à 100. */
 export const lireCommissionMessages = (saisie: string): number | null | 'invalide' => lireEntier(saisie, 0, 100);
 
+/**
+ * Le plafond de sécurité de l'IA d'une Entreprise, en euros par mois (Entreprise illimitée, lot B) : vide = le défaut de
+ * l'instance (100 €), sinon un entier de 1 à 1 000 000. Jamais 0 : pour lever la contrainte d'un client, on le relève.
+ */
+export const lirePlafondIa = (saisie: string): number | null | 'invalide' => lireEntier(saisie, 1, 1_000_000);
+
 /** Les utilisateurs d'un Business (spec Business) : vide = les cinq de la grille, sinon un entier de 1 à 10 000. */
 export const lireUtilisateursBusiness = (saisie: string): number | null | 'invalide' => lireEntier(saisie, 1, 10_000);
 

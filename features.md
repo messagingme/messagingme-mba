@@ -3523,7 +3523,11 @@ boîte par sous-menu.
   proposés, ou sans limite), ou la retire pour ramener l'espace à son offre en ligne. Une note est obligatoire, et la
   trace porte l'adresse de l'exploitant. La conservation des conversations ne change que si l'on coche « la
   changer » ; une durée plus courte que l'actuelle s'annonce en rouge, parce qu'elle efface sans retour les
-  conversations plus anciennes au prochain passage de la purge.
+  conversations plus anciennes au prochain passage de la purge. **Le plafond de sécurité de l'IA** d'une Entreprise
+  (2026-11-02) se règle sous « Régler le devis », en euros par mois (vide = le défaut, 100 €) : il ne part que s'il
+  change, et la trace garde l'avant et l'après. Retirer l'Entreprise d'un espace dont un numéro est sur la ligne du
+  Crédit WhatsApp sans de quoi payer un message s'annonce en rouge : vers le Pro ou le Business, il faudra un achat ;
+  vers la Free, qui ne peut pas en acheter, il faut d'abord retirer le numéro de la ligne.
 - ✅ **Les numéros fournis** (lot 3a, 2026-10-05) : un numéro acheté chez DIDWW se déclare
   dans la carte « Numéros fournis » ; le serveur le branche sur l'Asterisk et l'ajoute à la réserve. Quand Meta appelle
   ce numéro pour le vérifier, le code qu'il dicte est capté automatiquement et s'affiche en face du numéro, avec ce qui
@@ -4154,6 +4158,17 @@ minutes », 30 minutes par défaut, 24 heures au maximum). Passé ce délai, le 
 - 🔴 **Sans crédit, rien ne démarre**, et c'est le bon défaut : un crédit implicite ferait payer une
   consommation que personne n'a autorisée. Conséquence concrète : **un espace à zéro n'a ni agent qui
   démarre, ni bac à sable, ni traduction, ni transcription, et ses nouvelles fiches de connaissance attendent**.
+  Hors Entreprise : la sienne est illimitée (ci-dessous).
+- ✅ **EN ENTREPRISE, LE CRÉDIT IA EST ILLIMITÉ** (décision de Julien du 2026-11-02) : l'IA consomme sans solde à
+  recharger, et nous la facturons selon le contrat. Le solde ne bouge plus (un espace qui quitte l'Entreprise retrouve
+  celui d'avant, sans dette), et chaque consommation reste écrite, marquée, pour la facture du mois. Une Entreprise à
+  solde nul crée ses agents, essaie au bac à sable, traduit et transcrit ; sa clé de modèle s'ouvre avec un mois de
+  plafond d'avance, remonté chaque heure.
+  🔴 **Un plafond de sécurité par mois** arrête l'IA d'une Entreprise qui s'emballerait (un agent qui boucle) : 100 € de
+  consommation par défaut, réglable par espace dans `/ops`. Atteint, ses agents sortent par « Plafond atteint », la
+  traduction et la transcription s'arrêtent et ses nouvelles fiches attendent, jusqu'au 1er du mois suivant ou jusqu'à ce
+  que nous le relevions ; l'onglet Crédit IA et la page des agents le disent. Julien est prévenu sur Telegram à 80 %,
+  puis à 100 %, une fois par seuil et par mois.
 - ✅ **Trois plafonds de conversation** en plus du solde : le nombre de réponses (tours), d'actions (appels d'outils)
   et le crédit dépensé. Ils se règlent dans l'onglet **Périmètre** de l'agent (le crédit par une case « Sans limite » et
   un montant en euros) et **depuis Claude** (`set_agent_limits`, 2026-10-23). Le premier atteint fait sortir le
@@ -4232,6 +4247,13 @@ Modèle d'un agent (notre commission comprise). Écran réservé aux admins. Il 
 Crédit jusqu'au 2026-09-29, puis dans Paramètres > Crédit IA jusqu'au 2026-10-26, où il est devenu le second onglet de la
 page Offre ; les anciennes adresses y mènent toujours, retour de paiement et liens des e-mails compris.
 
+- ✅ **En Entreprise, illimité** (décision du 2026-11-02) : ni solde ni recharge. L'onglet affiche « Illimité » et la
+  consommation IA du mois, hors taxe, facturée selon le contrat (le compteur repart de zéro le 1er de chaque mois), et la
+  page des agents « Crédit IA illimité ». Le plafond de sécurité du mois atteint, un bandeau rouge le dit sur les deux
+  écrans et renvoie vers le Support (voir « Agent IA », le crédit et les plafonds). L'achat lui est refusé, dans la
+  console comme par `buy_credit`. Depuis Claude, `get_credit` rend l'illimité, la consommation du mois et
+  `plafond_atteint` ; `get_setup_state` ne signale jamais un crédit épuisé à une Entreprise, mais
+  `plafond_ia_atteint` quand son plafond l'est.
 - ✅ **Le solde**, en euros, avec un avertissement sous 0,50 € et un bandeau rouge à zéro (« vos agents ne
   répondent plus et l'Inbox ne traduit plus »).
 - ✅ **Recharger 5, 10, 50 ou 100 € HT** (50 et 100 € le 2026-09-29, lot 2 du chantier Stripe ; 5 et 10 € dans la console

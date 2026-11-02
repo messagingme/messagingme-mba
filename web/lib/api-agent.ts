@@ -127,8 +127,31 @@ export async function reglerQuiRepond(tenantId: string, choix: ChoixQuiRepond): 
  * lui-même n'aurait plus de prépayé du tout.
  */
 export async function getSoldeAgent(tenantId: string): Promise<number | null> {
-  const r = await request<{ soldeMicroEur: number | null }>(`/tenants/${tenantId}/agents/solde`);
-  return r.soldeMicroEur;
+  return (await getCreditIa(tenantId)).soldeMicroEur;
+}
+
+/**
+ * Le Crédit IA de l'espace tel que l'écran le lit. Une Entreprise est illimitée (décision du 2026-11-02) : son solde, figé,
+ * ne dit rien ; l'écran montre « Illimité », ce que l'IA a coûté ce mois-ci, et son plafond de sécurité du mois s'il est
+ * atteint (l'IA s'arrête, c'est nous qui le relevons). Une API plus ancienne (la console part avant l'API) ne rend que le
+ * solde : lu comme un prépayé.
+ */
+export interface CreditIaConsole {
+  /** `null` = aucun solde configuré sur cette instance. */
+  soldeMicroEur: number | null;
+  illimite: boolean;
+  consommationDuMoisMicroEur: number;
+  plafondAtteint: boolean;
+}
+
+export async function getCreditIa(tenantId: string): Promise<CreditIaConsole> {
+  const r = await request<Partial<CreditIaConsole> | null>(`/tenants/${tenantId}/agents/solde`);
+  return {
+    soldeMicroEur: typeof r?.soldeMicroEur === 'number' ? r.soldeMicroEur : null,
+    illimite: r?.illimite === true,
+    consommationDuMoisMicroEur: typeof r?.consommationDuMoisMicroEur === 'number' ? r.consommationDuMoisMicroEur : 0,
+    plafondAtteint: r?.plafondAtteint === true,
+  };
 }
 
 export async function getAgent(tenantId: string, agentId: string): Promise<AgentComplet> {

@@ -11,6 +11,7 @@ import { creerLancements, type DemandeDeLancement } from '../src/workflow/lancem
 import type { RunState, WorkflowRunRow } from '../src/workflow/run-store.pg';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import type { AgentComplet, FicheAgent } from '../src/agent/agent-store';
+import type { AccesCreditIa } from '../src/agent/acces-credit';
 import { ficheVide } from '../src/agent/fiche';
 import type { AgentSession, AgentSessionStatus, AgentSessionStore } from '../src/agent/session-store';
 import type { AgentTurnJob } from '../src/agent/turn-job';
@@ -44,12 +45,12 @@ const agentActif = (o: Partial<AgentComplet> = {}): AgentComplet => ({
 });
 
 /** Le démarreur, sur des dépendances qui notent ce qu'on leur demande. */
-function demarreur(o: { gateway?: boolean; agent?: AgentComplet | null; solde?: number; lancement?: true | string; creditWhatsappBloque?: boolean } = {}) {
+function demarreur(o: { gateway?: boolean; agent?: AgentComplet | null; solde?: number; acces?: AccesCreditIa; lancement?: true | string; creditWhatsappBloque?: boolean } = {}) {
   const journal: string[] = [];
   const demandes: DemandeDeLancement[] = [];
   const deps: DepsDemarreurRepondeur = {
     agents: { complet: async (_t, id) => { journal.push(`agent:${id}`); return o.agent === undefined ? agentActif() : o.agent; } },
-    credits: { solde: async () => { journal.push('solde'); return o.solde ?? 1_000_000; } },
+    acces: { acces: async () => { journal.push('solde'); return o.acces ?? ((o.solde ?? 1_000_000) > 0 ? 'ok' : 'epuise'); } },
     scenarios: { assurerScenarioSysteme: async (_t, s) => { journal.push(`ancre:${s}`); return 'w-sys'; } },
     lancements: { lancer: (async (d: DemandeDeLancement) => { journal.push(`lancer:${d.type}`); demandes.push(d); return o.lancement ?? true; }) as DepsDemarreurRepondeur['lancements']['lancer'] },
     gatewayDisponible: o.gateway ?? true,
@@ -91,6 +92,12 @@ describe('le démarreur : l’agent peut-il répondre ?', () => {
       expect(await m.d.demarrer(ESPACE, WA, { agentId: AGENT, messageDeclencheur: null })).toBe('credit_epuise');
       expect(m.journal).toEqual([`agent:${AGENT}`, 'solde', `alerte:${ESPACE}`]);
     }
+  });
+
+  it('🔴 une Entreprise à son plafond de sécurité du mois : RIEN ne démarre, et AUCUNE alerte au client', async () => {
+    const m = demarreur({ acces: 'plafond' });
+    expect(await m.d.demarrer(ESPACE, WA, { agentId: AGENT, messageDeclencheur: null })).toBe('plafond_ia');
+    expect(m.journal).toEqual([`agent:${AGENT}`, 'solde']);
   });
 
   it('modèle absent sur l’instance : indisponible, sans rien lire', async () => {
@@ -375,7 +382,7 @@ function bout(o: OptionsBanc = {}) {
   const lancements = creerLancements({ executor, scenarios: { getById: async () => null }, contacts: { findIdByWaId: async () => 'c-1' }, offres: offresToutOuvert });
   branche = creerDemarreurRepondeur({
     agents: { complet: async () => agentActif() },
-    credits: { solde: async () => 1_000_000 },
+    acces: { acces: async () => 'ok' as const },
     scenarios: { assurerScenarioSysteme: async () => 'w-sys' },
     lancements,
     gatewayDisponible: true,

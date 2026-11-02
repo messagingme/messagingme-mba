@@ -50,6 +50,11 @@ const configuration: ConfigSocle = {
   OBJETS_BUCKET: '',
   OBJETS_CLE: '',
   OBJETS_SECRET: '',
+  // Sans jeton Vercel : le provisionnement des clés est éteint (`provisionCle` nul) ; le plafond IA d'une Entreprise par défaut.
+  ENTREPRISE_PLAFOND_IA_EUROS_MOIS: 100,
+  VERCEL_API_TOKEN: '',
+  VERCEL_TEAM_ID: '',
+  EUR_PER_USD: 0.92,
 };
 
 /** Un faux pool qui répond aux deux lectures du chemin (la fiche avant l'écriture, les espaces branchés), et une file qui garde ce qu'on lui confie. */

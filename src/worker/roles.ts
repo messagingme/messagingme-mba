@@ -102,6 +102,8 @@ export const TACHES_PAR_ROLE: Record<string, Appartenance> = {
   'campagnes-reprise-plafond': 'principal',
   // Le filet de la reprise du Crédit WhatsApp (tâche 11) : une passe par heure.
   'credit-whatsapp-reprise': 'principal',
+  // Le plafond de sécurité de l'IA des Entreprises (Entreprise illimitée, lot B) : clés remontées, alertes à Julien.
+  'plafond-ia-entreprises': 'principal',
   'compteurs-debit': 'principal',
   'consommation-vercel': 'principal',
   'emails-produit-reprise': 'principal',

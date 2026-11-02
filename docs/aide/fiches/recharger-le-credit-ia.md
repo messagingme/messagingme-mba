@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Crédit IA (menu « Paramètres » > Offre, onglet Crédit IA)
-source_empreinte: 7586e2
+source_empreinte: 5a6512
 ---
 # Recharger le crédit IA
 
@@ -10,6 +10,13 @@ Le crédit IA est le crédit prépayé de votre espace. Il paie **vos agents IA*
 vos fiches de connaissance**, et **la traduction et la transcription des conversations de l'Inbox**. Le tarif est
 celui de votre offre, affiché dans l'onglet Modèle d'un agent. Vous le trouvez dans **Paramètres >
 Offre**, onglet **Crédit IA** ; l'écran est réservé aux administrateurs.
+
+**En Entreprise, le crédit IA est illimité.** Votre contrat le comprend : il n'y a ni solde à surveiller ni recharge,
+et nous facturons la consommation selon votre contrat. L'onglet affiche « Illimité » et ce que l'IA a consommé ce
+mois-ci, hors taxe ; le compteur repart de zéro le 1er de chaque mois. Un plafond de sécurité mensuel protège contre
+un emballement, un agent qui tournerait en boucle par exemple : s'il est atteint, l'onglet et la page des agents
+l'affichent en rouge, vos agents IA ne répondent plus (ils sortent par « Plafond atteint ») et l'Inbox ne traduit
+plus. Contactez-nous depuis le Support : nous le relevons.
 
 **Recharger.** Quatre boutons : 5, 10, 50 ou 100 €, hors taxe. La formule Free n'a pas cet onglet : elle recharge depuis
 Claude, aux mêmes montants. Un clic vous emmène sur la page de paiement sécurisée

@@ -108,6 +108,52 @@ describe.skipIf(!url)('solde prépayé d un workspace (Postgres)', () => {
     expect(await credits.mouvements(autreTenantId, 10)).toHaveLength(1);
   });
 
+  /**
+   * L'ENTREPRISE ILLIMITÉE (migration 0268, décision de Julien du 2026-11-02) : son débit écrit sa ligne, marquée
+   * `illimite`, sans toucher au solde ; la ligne du jour de ses traductions reste unique ; un crédit reste un crédit.
+   */
+  describe('l’Entreprise illimitée (0268)', () => {
+    let ent = '';
+    beforeAll(async () => {
+      ent = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-credits-entreprise') returning id`)).rows[0]!.id;
+    });
+    afterAll(async () => { if (ent) await pool.query('delete from tenants where id = $1', [ent]); });
+
+    it('🔴 un débit d’une Entreprise ne bouge pas le solde, et sa ligne est marquée', async () => {
+      await credits.crediter(ent, 3_000_000, 'itest');
+      await pool.query('update tenants set offre_entreprise = true where id = $1', [ent]);
+      expect(await credits.debiter(ent, 1_250_000)).toBe(3_000_000);
+      expect(await credits.solde(ent)).toBe(3_000_000);
+      const { rows } = await pool.query<{ raison: string; delta: string; illimite: boolean }>(
+        'select raison, delta_micro_eur as delta, illimite from agent_credit_mouvements where tenant_id = $1 order by at', [ent],
+      );
+      expect(rows.map((r) => [r.raison, Number(r.delta), r.illimite])).toEqual([['recharge', 3_000_000, false], ['conso', -1_250_000, true]]);
+    });
+
+    it('🔴 la ligne du jour de ses traductions reste UNE, et le solde ne bouge pas', async () => {
+      await credits.debiterTraduction(ent, 10_000);
+      await Promise.all(Array.from({ length: 5 }, () => credits.debiterTraduction(ent, 1_000)));
+      expect(await credits.solde(ent)).toBe(3_000_000);
+      const { rows } = await pool.query<{ delta: string; illimite: boolean }>(
+        `select delta_micro_eur as delta, illimite from agent_credit_mouvements where tenant_id = $1 and raison = 'traduction'`, [ent],
+      );
+      expect(rows.map((r) => [Number(r.delta), r.illimite])).toEqual([[-15_000, true]]);
+    });
+
+    it('un crédit reste un crédit : le solde monte, la ligne n’est pas illimitée', async () => {
+      expect(await credits.crediter(ent, 1_000_000, 'itest geste')).toBe(4_000_000);
+      const { rows } = await pool.query<{ illimite: boolean }>(
+        `select illimite from agent_credit_mouvements where tenant_id = $1 and raison = 'recharge' order by at desc limit 1`, [ent],
+      );
+      expect(rows[0]!.illimite).toBe(false);
+    });
+
+    it('🔴 sortie de l’Entreprise : le débit reprend sur le solde d’avant, sans dette de la période illimitée', async () => {
+      await pool.query('update tenants set offre_entreprise = false where id = $1', [ent]);
+      expect(await credits.debiter(ent, 500_000)).toBe(3_500_000);
+    });
+  });
+
   it('la suppression d un workspace emporte son solde et son journal', async () => {
     // `on delete cascade` : un solde orphelin serait de l'argent qui appartient à personne.
     const jetable = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-credits-jetable') returning id`)).rows[0]!.id;

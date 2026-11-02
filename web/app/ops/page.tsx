@@ -30,7 +30,7 @@ import { alerte, brand, danger, ink, succes } from '@/lib/couleurs';
 import { useConfirmation } from '@/components/Confirmation';
 import { Squelette } from '@/components/Squelette';
 import { Nd } from '@/components/Nd';
-import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages } from '@/lib/ops-offre';
+import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lirePlafondIa } from '@/lib/ops-offre';
 import { lireUtilisateursBusiness, retraitCoupeLeNumero } from '@/lib/ops-offre';
 import { OpsEmailsCard } from '@/components/OpsEmailsCard';
 import { MbaTabs } from '@/components/MbaTabs';
@@ -1523,6 +1523,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   // La commission des messages WhatsApp de l'Entreprise (plan du 2026-10-30) : part avec le devis, comme celle du crédit IA.
   // Son Crédit WhatsApp est illimité, sans case à cocher (décision du 2026-11-02).
   const [commissionMessages, setCommissionMessages] = useState('');
+  // Le plafond de sécurité de l'IA d'une Entreprise (lot B) : part avec le devis, vide = le défaut de l'instance.
+  const [plafondIa, setPlafondIa] = useState('');
   // Le Business (spec Business) : une seule offre posée à la main, exclusive de l'Entreprise.
   const [business, setBusiness] = useState(false);
   const [utilisateursBusiness, setUtilisateursBusiness] = useState('');
@@ -1542,6 +1544,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
     setContacts(r.contacts == null ? '' : String(r.contacts));
     setCommission(r.commissionPct == null ? '' : String(r.commissionPct));
     setCommissionMessages(r.commissionMessagesPct == null ? '' : String(r.commissionMessagesPct));
+    setPlafondIa(r.plafondIaMoisEuros == null ? '' : String(r.plafondIaMoisEuros));
     setBusiness(r.business === true);
     setUtilisateursBusiness(r.utilisateursBusiness == null ? '' : String(r.utilisateursBusiness));
     setRetraitConfirme(false);
@@ -1565,7 +1568,9 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   const nouveauxContacts = devis ? lireContactsEntreprise(contacts) : undefined;
   const nouvelleCommission = devis ? lireCommissionEntreprise(commission) : undefined;
   const nouvelleCommissionMessages = devis ? lireCommissionMessages(commissionMessages) : undefined;
-  const devisValide = nouveauxContacts !== 'invalide' && nouvelleCommission !== 'invalide' && nouvelleCommissionMessages !== 'invalide';
+  const nouveauPlafondIa = devis ? lirePlafondIa(plafondIa) : undefined;
+  const devisValide = nouveauxContacts !== 'invalide' && nouvelleCommission !== 'invalide' && nouvelleCommissionMessages !== 'invalide'
+    && nouveauPlafondIa !== 'invalide';
   const noteValide = note.trim().length >= 3;
   const nouveauxUtilisateursBusiness = business ? lireUtilisateursBusiness(utilisateursBusiness) : undefined;
   const businessValide = nouveauxUtilisateursBusiness !== 'invalide';
@@ -1593,6 +1598,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
         // La commission des messages ne part que si elle change, comme le Business (absente = inchangée côté serveur).
         ...(nouvelleCommissionMessages !== undefined && nouvelleCommissionMessages !== (etat?.commissionMessagesPct ?? null)
           ? { commissionMessagesPct: nouvelleCommissionMessages } : {}),
+        ...(nouveauPlafondIa !== undefined && nouveauPlafondIa !== (etat?.plafondIaMoisEuros ?? null)
+          ? { plafondIaMoisEuros: nouveauPlafondIa } : {}),
         // Le Business ne part que s'il change, sa limite que s'il est coché (absents = inchangés côté serveur).
         ...(business !== (etat?.business === true) ? { business } : {}),
         ...(business && nouveauxUtilisateursBusiness !== undefined ? { utilisateursBusiness: nouveauxUtilisateursBusiness } : {}),
@@ -1710,6 +1717,11 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
                     <input className={`${inputCls} w-24`} inputMode="numeric" value={commissionMessages} onChange={(e) => setCommissionMessages(e.target.value)} data-testid="offre-commission-messages" />
                     {nouvelleCommissionMessages === 'invalide' && <span className="text-xs text-danger-700">{t('Un entier de 0 à 100, ou vide.', 'A whole number from 0 to 100, or empty.')}</span>}
                   </label>
+                  <label className="grid gap-1">
+                    <span className="text-xs font-medium text-ink-500">{t('Plafond de sécurité de l’IA, en € par mois (vide = 100 €) : son Crédit IA est illimité, l’IA s’arrête à ce plafond', 'AI safety cap, in € per month (empty = €100): its AI credit is unlimited, AI stops at this cap')}</span>
+                    <input className={`${inputCls} w-32`} inputMode="numeric" value={plafondIa} onChange={(e) => setPlafondIa(e.target.value)} data-testid="offre-plafond-ia" />
+                    {nouveauPlafondIa === 'invalide' && <span className="text-xs text-danger-700">{t('Un entier de 1 à 1 000 000, ou vide.', 'A whole number from 1 to 1,000,000, or empty.')}</span>}
+                  </label>
                 </div>
               )}
             </div>
@@ -1722,8 +1734,13 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
           )}
           {etat.entreprise && !entreprise && etat.alertes?.ligneCreditWhatsappSansCredit === true && (
             <p className="rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700" data-testid="offre-alerte-credit-wa">
-              {t('Un numéro de l’espace est sur la ligne du Crédit WhatsApp, illimité en Entreprise. Hors Entreprise, il ne lui reste pas de quoi payer un message : plus rien ne partira, réponses comprises, avant un achat de Crédit WhatsApp.',
-                'A number of the workspace is on the WhatsApp credit line, unlimited on Enterprise. Out of Enterprise, nothing is left to pay for a message: nothing will go out, replies included, until a WhatsApp credit purchase.')}
+              {/* Retombé en Free (ni Business ni Pro payé), l'espace ne peut pas acheter de Crédit WhatsApp (`achatPermis`) :
+                  promettre un achat serait faux, il faut d'abord retirer son numéro de la ligne (relecture du lot A). */}
+              {!business && etat.alertes?.proPayeVivant !== true
+                ? t('Un numéro de l’espace est sur la ligne du Crédit WhatsApp, illimité en Entreprise. En Free, le Crédit WhatsApp ne s’achète pas : retirez d’abord le numéro de la ligne (Crédit WhatsApp de l’espace, « Retirer »), sinon plus rien ne partira, réponses comprises.',
+                  'A number of the workspace is on the WhatsApp credit line, unlimited on Enterprise. On Free, WhatsApp credit cannot be bought: take the number off the line first (the workspace’s WhatsApp credit, “Remove”), or nothing will go out, replies included.')
+                : t('Un numéro de l’espace est sur la ligne du Crédit WhatsApp, illimité en Entreprise. Hors Entreprise, il ne lui reste pas de quoi payer un message : plus rien ne partira, réponses comprises, avant un achat de Crédit WhatsApp.',
+                  'A number of the workspace is on the WhatsApp credit line, unlimited on Enterprise. Out of Enterprise, nothing is left to pay for a message: nothing will go out, replies included, until a WhatsApp credit purchase.')}
             </p>
           )}
           {etat.entreprise && !entreprise && !business && (

@@ -8,6 +8,7 @@ import { corpsDuRefus } from '../lib/issue';
 import { espaceVerifie, estUuid } from './scope';
 import type { ConsommationAgent } from '../agent/session-store';
 import type { LigneHistorique } from '../agent/credits';
+import type { EtatCreditIa } from '../agent/acces-credit';
 import {
   choisirRepondeur, choixDeLAncienneFormeSousLOffre, lireRepondeur, type ChoixRepondeur, type DepsReglageRepondeur,
 } from '../repondeur/reglage';
@@ -37,15 +38,20 @@ export interface AgentsDep {
  */
 export interface AgentsRouteDeps extends DepsGestionAgents {
   agents: AgentsDep;
+  /**
+   * 🔴 Lecture seule : un client ne s'ajoute pas de crédit par une écriture de solde. Il paie (webhook Stripe,
+   * `src/http/credit-stripe.ts`), ou l'exploitation le recharge (`/ops`). Le solde se lit par `creditIa.etat` : une
+   * Entreprise est illimitée, son solde figé ne dit rien (`tests/credit-ia-acces-inventaire.test.ts`).
+   */
   credits: {
-    /**
-     * Le solde prépayé de l'espace, en micro-euros. 🔴 Lecture seule : un client ne s'ajoute pas de crédit par une
-     * écriture de solde. Il paie (webhook Stripe, `src/http/credit-stripe.ts`), ou l'exploitation le recharge (`/ops`).
-     */
-    solde(tenantId: string): Promise<number>;
     /** L'historique de ce qui a fait bouger le solde, pour la page Crédit IA (`PgCreditStore.historique`). */
     historique(tenantId: string, limite: number): Promise<LigneHistorique[]>;
   };
+  /**
+   * L'état du Crédit IA de l'espace (`PgAccesCreditIaStore.etat`) : une Entreprise est illimitée (décision du
+   * 2026-11-02), son solde ne bouge pas, l'écran lit sa consommation du mois et son plafond de sécurité atteint.
+   */
+  creditIa: { etat(tenantId: string): Promise<EtatCreditIa> };
   sessions: {
     /** Ce que cet agent a consommé sur une fenêtre. */
     consommation(tenantId: string, agentId: string, jours: number): Promise<ConsommationAgent>;
@@ -95,7 +101,14 @@ export function registerAgents(app: FastifyInstance, deps: AgentsRouteDeps, gard
    */
   app.get('/tenants/:tenantId/agents/solde', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    return reply.code(200).send({ soldeMicroEur: await deps.credits.solde(tenant) });
+    // Une Entreprise (illimitée) : son solde, figé, ne dit rien ; l'écran lit « illimité » et sa consommation du mois.
+    const e = await deps.creditIa.etat(tenant);
+    return reply.code(200).send({
+      soldeMicroEur: e.soldeMicroEur,
+      illimite: e.illimite,
+      consommationDuMoisMicroEur: e.consommationDuMoisMicroEur,
+      plafondAtteint: e.acces === 'plafond',
+    });
   });
 
   /**

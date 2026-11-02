@@ -176,7 +176,9 @@ export class PgCreditWhatsappStore {
    * La régularisation d'un jour (UTC) : SA ligne est remplacée, et le solde bouge de la seule différence avec la valeur
    * précédente du jour. `deltaMicroEur` est l'effet sur le solde (négatif = débit). Un seul régularisateur à la fois
    * (la passe horaire du lot 3 tient un verrou) : deux passes simultanées du même jour liraient la même ancienne valeur.
-   * 🔴 Jamais pour une Entreprise : son solde ne bouge pas (décision du 2026-11-02), son écart va au montant à facturer.
+   * 🔴 Jamais pour une provision illimitée (`illimite`, décision du 2026-11-02) : le solde ne l'a pas payée, son écart va
+   * au montant à facturer. La règle se lit sur CHAQUE provision, jamais sur l'offre de l'espace au moment de la passe : un
+   * espace sorti de l'Entreprise en cours de mois garde illimitées les provisions prises avant (relecture du lot A).
    */
   async regulariser(tenantId: string, jour: string, deltaMicroEur: number): Promise<void> {
     const client = await this.pool.connect();
@@ -213,15 +215,16 @@ export class PgCreditWhatsappStore {
   async dernieresProvisions(tenantId: string, n = 50): Promise<ProvisionVue[]> {
     const { rows } = await this.pool.query<{
       id: string; cree_le: Date; phone_number_id: string; wamid: string | null; pays: string | null; categorie: CategorieMeta;
-      montant: string; etat: ProvisionVue['etat']; livre_le: Date | null;
+      montant: string; etat: ProvisionVue['etat']; livre_le: Date | null; illimite: boolean;
     }>(
-      `select id, cree_le, phone_number_id, wamid, pays, categorie, montant_micro_eur as montant, etat, livre_le
+      `select id, cree_le, phone_number_id, wamid, pays, categorie, montant_micro_eur as montant, etat, livre_le, illimite
          from credit_whatsapp_provisions where tenant_id = $1 order by cree_le desc limit $2`,
       [tenantId, n],
     );
     return rows.map((r) => ({
       id: r.id, creeLe: r.cree_le.toISOString(), phoneNumberId: r.phone_number_id, wamid: r.wamid, pays: r.pays,
       categorie: r.categorie, montantMicroEur: Number(r.montant), etat: r.etat, livreLe: r.livre_le?.toISOString() ?? null,
+      illimite: r.illimite === true,
     }));
   }
 
@@ -246,13 +249,15 @@ export class PgCreditWhatsappStore {
   }
 
   /**
-   * Ce qu'ont consommé les messages du mois de Paris : les provisions non rendues depuis le 1er, illimitées comprises.
-   * L'onglet d'une Entreprise le montre à la place du solde ; c'est aussi la base de sa facture du mois.
+   * Ce qu'ont consommé les messages ILLIMITÉS du mois de Paris : les provisions `illimite` non rendues depuis le 1er.
+   * L'onglet d'une Entreprise le montre à la place du solde ; c'est aussi la base de sa facture du mois. 🔴 Les provisions
+   * prépayées n'y entrent pas (relecture du lot A, 2026-11-02) : celles d'un espace passé en Entreprise en cours de mois
+   * ont été payées sur son solde, les compter les ferait facturer une seconde fois.
    */
   async consommationDuMois(tenantId: string): Promise<number> {
     const { rows } = await this.pool.query<{ total: string }>(
       `select coalesce(sum(montant_micro_eur), 0) as total from credit_whatsapp_provisions
-        where tenant_id = $1 and etat <> 'rendu'
+        where tenant_id = $1 and illimite and etat <> 'rendu'
           and cree_le >= (date_trunc('month', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris')`,
       [tenantId],
     );

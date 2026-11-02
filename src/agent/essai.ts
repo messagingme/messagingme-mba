@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AccesCreditIa } from './acces-credit';
 import type { ContexteTour, DecisionTracee, GatewayBrainDeps } from './brain.gateway';
 import { AgentIntrouvable, TEXTE_WHATSAPP_MAX, penserTrace } from './brain.gateway';
 import { TourInterrompu, type UsageTour } from './brain';
@@ -35,11 +36,12 @@ export interface DepsEssai {
   /** Le Gateway est-il configuré ? Le modèle, lui, vient de la fiche de l'agent, pas d'une variable d'env. */
   disponible: boolean;
   /**
-   * Le solde prépayé de l'espace, en micro-euros (les fixtures qui ne regardent pas l'argent passent `soldeIllimite`
-   * et `sansDebit`). 🔴 Un essai consomme pour de vrai : le fournisseur le facture comme une conversation, et le
-   * laisser hors du solde ouvrirait une porte gratuite et illimitée sur un compte prépayé.
+   * L'accès de l'espace au Crédit IA (`PgAccesCreditIaStore.acces` ; les fixtures qui ne regardent pas l'argent passent
+   * `accesOuvert` et `sansDebit`). 🔴 Un essai consomme pour de vrai : le fournisseur le facture comme une conversation,
+   * et le laisser hors du crédit ouvrirait une porte gratuite et illimitée, sur un compte prépayé comme sur le plafond
+   * d'une Entreprise.
    */
-  credits: { solde(tenantId: string): Promise<number> };
+  acces: { acces(tenantId: string): Promise<AccesCreditIa> };
   /** Retire du solde ce que l'essai a coûté. La note dit d'où vient le mouvement : un essai n'ouvre aucune
    *  session, donc le journal n'a rien d'autre pour l'expliquer. */
   debiter(tenantId: string, montantMicroEur: number, note: string): Promise<void>;
@@ -122,11 +124,11 @@ export async function essayerAgent(
   if (!lu.success) return refus(400, 'messages requis (rôle « user » ou « assistant », texte non vide)');
   const note = NOTE_DU_DEBIT[origine];
 
-  // Le solde, avant l'appel au modèle : on ne paie pas un appel qu'on ne pourra pas facturer. 409 : un état du
+  // Le crédit, avant l'appel au modèle : on ne paie pas un appel qu'on ne pourra pas facturer. 409 : un état du
   // compte, pas un incident (un 5xx serait remplacé par la page de Cloudflare).
-  if ((await deps.credits.solde(tenantId)) <= 0) {
-    return refus(409, 'solde épuisé : rechargez le compte pour essayer votre agent');
-  }
+  const acces = await deps.acces.acces(tenantId);
+  if (acces === 'epuise') return refus(409, 'solde épuisé : rechargez le compte pour essayer votre agent');
+  if (acces === 'plafond') return refus(409, 'plafond de sécurité de l’IA atteint ce mois-ci : contactez-nous pour le relever');
 
   let decision: DecisionTracee;
   try {

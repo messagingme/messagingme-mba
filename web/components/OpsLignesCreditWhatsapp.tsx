@@ -111,7 +111,11 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId }: { jeton: string; te
                 <td>{p.categorie}</td>
                 <td>{p.pays ?? '?'}</td>
                 <td className="text-right">{(p.montantMicroEur / 1_000_000).toFixed(4)} €</td>
-                <td>{p.etat === 'rendu' ? t('rendu', 'refunded') : p.etat === 'ajuste' ? t('corrigé', 'adjusted') : p.livreLe ? t('livré', 'delivered') : t('provisionné', 'reserved')}</td>
+                <td>
+                  {p.etat === 'rendu' ? t('rendu', 'refunded') : p.etat === 'ajuste' ? t('corrigé', 'adjusted') : p.livreLe ? t('livré', 'delivered') : t('provisionné', 'reserved')}
+                  {/* Une provision illimitée (Entreprise) n'a pas touché le solde : elle va au montant à facturer. */}
+                  {p.illimite === true && <span data-testid="ligne-credit-illimite">{t(' · illimité, à facturer', ' · unlimited, to invoice')}</span>}
+                </td>
               </tr>
             ))}
           </tbody>

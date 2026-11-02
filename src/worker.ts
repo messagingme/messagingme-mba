@@ -71,6 +71,8 @@ import { creerEcritParNosMachines } from './agent/nos-machines.pg';
 const MESSAGES_DE_CONTEXTE = 30;
 import { runTurn, type RunTurnDeps } from './agent/run-turn';
 import { balayerVectorisation, balayerVectorisationPayee } from './agent/recherche';
+import { balayerPlafondsIa } from './agent/plafond-ia';
+import { remonterPlafondApresRecharge } from './agent/provisionner-cle';
 import { GatewayChatClient } from './agent/llm/chat-client';
 import { creerCerveauGateway } from './agent/brain.gateway';
 import { lireContexteAvecReglages } from './agent/contexte';
@@ -233,7 +235,7 @@ export async function demarrerWorker(): Promise<void> {
     poolAttentesStore, httpLatencesStore, mesuresTachesStore, mesuresFilesStore, memoireWorkersStore, seuilsStore, nodeEventStore, trackedLinkStore, webhookStore, verrousCourts, compteurDebit, phoneStatusStore, numeroDelieStore, opsStore,
     heartbeatStore, workflowStore, automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog,
     journalAppels, credits, agentSources, agentRequetes, essaisStore, depotAide, metaFactory, connexionsPub, connexionPub,
-    publicites, clientPubs, clientCreationPubs, workflowRuntime, clesGateway, fil, listeDeLAgent, alerteCredit, numeroBloqueDeLEspace, creditWhatsappBloque, ajustementCreditWhatsapp, estimerCreditCampagne, offres,
+    publicites, clientPubs, clientCreationPubs, workflowRuntime, clesGateway, provisionCle, accesCreditIa, fil, listeDeLAgent, alerteCredit, numeroBloqueDeLEspace, creditWhatsappBloque, ajustementCreditWhatsapp, estimerCreditCampagne, offres,
     emailsProduit, emetteurEmails, envoisResend, prevenirEquipe, lienConversation, quotaModeles, comptesApplication, clientApplication,
     magasinObjets, conversionsMeta,
   } = construireSocle({ pool, queue, config });
@@ -1369,7 +1371,7 @@ export async function demarrerWorker(): Promise<void> {
 
   /**
    * Le filet de la reprise du Crédit WhatsApp (plan du Crédit WhatsApp, tâche 11) : les campagnes en pause
-   * `credit_whatsapp_epuise` d'un espace dont le solde est redevenu positif (ou passé en open bar) repartent, si la reprise
+   * `credit_whatsapp_epuise` d'un espace dont le solde est redevenu positif (ou passé en Entreprise) repartent, si la reprise
    * lancée par le crédit a raté (le webhook ne l'attend pas). Une lecture par heure, puis une écriture conditionnelle par
    * espace concerné (`leverPausesCreditWhatsapp` relit le solde et le numéro dans sa propre instruction).
    */
@@ -1378,6 +1380,21 @@ export async function demarrerWorker(): Promise<void> {
       await numeroDelieStore.leverPausesCreditWhatsapp(tenant);
     }
   }, { enEchec: echecDeBalayage('credit-whatsapp-reprise', 'sweeper:credit-whatsapp') });
+
+  /**
+   * Le plafond de sécurité de l'IA des Entreprises (Entreprise illimitée, lot B) : chaque heure, et une fois au
+   * démarrage (la clé d'une Entreprise doit avoir son mois d'avance dès le déploiement), la clé Vercel de chacune
+   * remontée, et Julien prévenu à 80 % puis à 100 % (`src/agent/plafond-ia.ts`).
+   */
+  taches.programmer('plafond-ia-entreprises', 60 * 60_000, async () => {
+    await balayerPlafondsIa({
+      acces: accesCreditIa,
+      remonterPlafond: provisionCle ? (t) => remonterPlafondApresRecharge(provisionCle, t) : null,
+      // Pas `alert`, limitée à une par clé et par cinq minutes : deux Entreprises au même seuil en perdraient une. Le
+      // dédoublonnage est la table des marques, retirée si Telegram n'a pas pris le message.
+      alerter: (texte) => sendTelegram(`[mba-${nomDuProcessus(config.WORKER_ROLE)}] ${texte}`),
+    });
+  }, { immediat: true, enEchec: echecDeBalayage('plafond-ia-entreprises', 'sweeper:plafond-ia') });
 
   /**
    * Balayage de reprise des campagnes gelées : `running`, des destinataires en attente, et aucun run qui
@@ -2260,9 +2277,9 @@ export async function demarrerWorker(): Promise<void> {
     const agentTurnDeps: RunTurnDeps = {
       sessions: agentSessions,
       brain: cerveau,
-      // 🔴 Le solde prépayé de l'espace : lu avec les autres plafonds (avant l'appel au modèle), et débité de ce
-      // que le tour a réellement coûté.
-      credits,
+      // 🔴 L'accès de l'espace au Crédit IA : lu avec les autres plafonds (avant l'appel au modèle) ; le solde est débité
+      // de ce que le tour a réellement coûté (une Entreprise, illimitée, inscrit son débit sans bouger son solde).
+      acces: accesCreditIa,
       debiterTenant: async (t, montant, sessionId) => { await credits.debiter(t, montant, { sessionId }); },
       // L'alerte aux admins quand le tour sort faute de crédit : une par jour et par espace, tenue en base (socle).
       alerterCreditEpuise: (t) => alerteCredit.alerter(t),

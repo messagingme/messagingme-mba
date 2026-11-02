@@ -132,7 +132,8 @@ describe.skipIf(!url)('le Crédit WhatsApp (0264)', () => {
     await provision(autre, 9_000, true);
     const vues = await store.dernieresProvisions(t, 2);
     expect(vues.map((v) => v.montantMicroEur)).toEqual([3_000, 2_000]);
-    expect(vues[0]).toMatchObject({ phoneNumberId: NUMERO, pays: 'FR', categorie: 'marketing', etat: 'provisionne', wamid: null, livreLe: null });
+    // `illimite` : /ops distingue ce qui va au montant à facturer d'une Entreprise (relecture du lot A).
+    expect(vues[0]).toMatchObject({ phoneNumberId: NUMERO, pays: 'FR', categorie: 'marketing', etat: 'provisionne', wamid: null, livreLe: null, illimite: true });
     expect((await store.dernieresProvisions(t)).every((v) => v.montantMicroEur !== 9_000)).toBe(true);
   });
 
@@ -167,7 +168,7 @@ describe.skipIf(!url)('le Crédit WhatsApp (0264)', () => {
     await invariant(t);
   });
 
-  it('la consommation du mois : les provisions non rendues du mois de Paris, illimitées comprises, dans son espace seulement', async () => {
+  it('🔴 la consommation du mois : les provisions ILLIMITÉES non rendues du mois de Paris, dans son espace seulement', async () => {
     const t = await espace();
     const autre = await espace();
     await store.crediter(t, 1_000_000, 'achat', 'cs_conso');
@@ -186,7 +187,8 @@ describe.skipIf(!url)('le Crédit WhatsApp (0264)', () => {
         where id = $1`,
       [ancienne.provisionId],
     );
-    expect(await store.consommationDuMois(t)).toBe(74_760 + 26_040);
+    // La provision prépayée (74 760) a été payée sur le solde : la compter la ferait facturer deux fois.
+    expect(await store.consommationDuMois(t)).toBe(26_040);
   });
 
   it('une régularisation du jour se remplace : le solde ne bouge que de la dernière valeur', async () => {

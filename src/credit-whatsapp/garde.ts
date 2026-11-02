@@ -43,7 +43,7 @@ export interface GardeCreditWhatsapp {
   /** `net` : Meta (ou une garde avant lui) a refusé, rien n'est parti ; sinon un doute, la provision reste. */
   surEchec(provisionId: string, net: boolean): Promise<void>;
   /**
-   * Le refus certain AVANT tout effet (ligne arrêtée, aucune grille, solde nul hors open bar), `null` sinon. Un parcours
+   * Le refus certain AVANT tout effet (ligne arrêtée, aucune grille, solde nul hors Entreprise), `null` sinon. Un parcours
    * qui enverra par WhatsApp le lit avant ses effets (`MetaClientFactory.verifierAvantEffets`), pour qu'un e-mail ou un
    * appel d'API placés avant un modèle ne partent pas à sec. Un solde positif mais sous le prix du message passe ici et
    * sera refusé à l'envoi.
@@ -87,7 +87,8 @@ export interface DepsGardeCredit {
   };
   /**
    * Les e-mails aux admins (`creerAlertesCreditWhatsapp`, plan du Crédit WhatsApp, tâche 11) : le débit qui fait passer le
-   * solde sous 10 €, et un refus faute de solde. Jamais attendus par l'envoi, jamais en open bar (rien n'y est acheté).
+   * solde sous 10 €, et un refus faute de solde. Jamais attendus par l'envoi, jamais pour une Entreprise, illimitée (rien
+   * n'y est acheté).
    * 🔴 Requises : oubliées par un câblage, un client découvrirait que ses messages ne partent plus sans en avoir été averti.
    */
   alertes: {

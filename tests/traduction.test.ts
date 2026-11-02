@@ -33,7 +33,7 @@ function traducteur(over: Partial<Omit<DepsTraduction, 'client'>> & Pick<DepsTra
   const { completer, ...reste } = over;
   return creerTraducteur({
     modele: 'modele-test',
-    credit: { solde: async () => 5_000_000, debiterTraduction: async () => 0 },
+    credit: { acces: async () => (5_000_000 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async () => 0 },
     assurerCle: async () => 'prete',
     tauxEurParDollar: 1,
     commissionPour: async () => 0,
@@ -154,7 +154,7 @@ describe('traducteur : le crédit du client', () => {
     let clesDemandees = 0;
     const t = traducteur({
       completer: async () => { appels += 1; return rendTraductions([{ id: 'seul', texte: 'Bonjour' }]); },
-      credit: { solde: async () => 0, debiterTraduction: async () => 0 },
+      credit: { acces: async () => (0 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async () => 0 },
       assurerCle: async () => { clesDemandees += 1; return 'prete'; },
     });
     expect(await t.empechement('t1')).toBe('credit');
@@ -167,7 +167,7 @@ describe('traducteur : le crédit du client', () => {
     // Le solde peut finir sous zéro (un appel déjà joué se débite toujours) : ce n'est pas du crédit.
     const t = traducteur({
       completer: async () => rendTraductions([{ id: 'seul', texte: 'Bonjour' }]),
-      credit: { solde: async () => -300, debiterTraduction: async () => 0 },
+      credit: { acces: async () => (-300 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async () => 0 },
     });
     expect(await t.empechement('t1')).toBe('credit');
   });
@@ -176,7 +176,7 @@ describe('traducteur : le crédit du client', () => {
     const debits: Array<{ tenantId: string; montant: number }> = [];
     const t = traducteur({
       completer: async () => rendTraductionsAuCout(0.001, [{ id: 'seul', texte: 'Bonjour' }]),
-      credit: { solde: async () => 5_000_000, debiterTraduction: async (tenantId, montant) => { debits.push({ tenantId, montant }); } },
+      credit: { acces: async () => (5_000_000 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async (tenantId, montant) => { debits.push({ tenantId, montant }); } },
       tauxEurParDollar: 0.92,
       commissionPour: async (tenantId) => (tenantId === 'espace-42' ? 10 : 50),
     });
@@ -189,7 +189,7 @@ describe('traducteur : le crédit du client', () => {
     const debits: number[] = [];
     const t = traducteur({
       completer: async () => ({ ...appelOutil('pas du json'), usage: { tokensIn: 0, tokensOut: 0, tokensCaches: 0, coutDollars: 0.001 } }),
-      credit: { solde: async () => 5_000_000, debiterTraduction: async (_t, montant) => { debits.push(montant); } },
+      credit: { acces: async () => (5_000_000 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async (_t, montant) => { debits.push(montant); } },
     });
     expect(await t.traduire('t1', 'Hola', 'fr')).toBeNull();
     expect(debits).toEqual([1000]);
@@ -199,7 +199,7 @@ describe('traducteur : le crédit du client', () => {
     let debits = 0;
     const t = traducteur({
       completer: async () => rendTraductionsAuCout(0, [{ id: 'seul', texte: 'Bonjour' }]),
-      credit: { solde: async () => 5_000_000, debiterTraduction: async () => { debits += 1; } },
+      credit: { acces: async () => (5_000_000 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async () => { debits += 1; } },
     });
     await t.traduire('t1', 'Hola', 'fr');
     expect(debits).toBe(0);
@@ -209,7 +209,7 @@ describe('traducteur : le crédit du client', () => {
     // Le modèle a répondu et a été payé : on perd le décompte (journalisé), jamais la lecture.
     const t = traducteur({
       completer: async () => rendTraductionsAuCout(0.001, [{ id: 'seul', texte: 'Bonjour' }]),
-      credit: { solde: async () => 5_000_000, debiterTraduction: async () => { throw new Error('base indisponible'); } },
+      credit: { acces: async () => (5_000_000 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async () => { throw new Error('base indisponible'); } },
     });
     const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
@@ -224,7 +224,7 @@ describe('traducteur : le crédit du client', () => {
     let debits = 0;
     const t = traducteur({
       completer: async () => { throw new Error('502 gateway'); },
-      credit: { solde: async () => 5_000_000, debiterTraduction: async () => { debits += 1; } },
+      credit: { acces: async () => (5_000_000 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async () => { debits += 1; } },
     });
     expect(await t.traduire('t1', 'Hola', 'fr')).toBeNull();
     expect(debits).toBe(0);
@@ -253,7 +253,7 @@ describe('traducteur : la clé de l espace', () => {
     let appels = 0;
     const t = traducteur({
       completer: async () => { appels += 1; return rendTraductions([{ id: 'seul', texte: 'Bonjour' }]); },
-      credit: { solde: async () => 500_000, debiterTraduction: async () => 0 },
+      credit: { acces: async () => (500_000 > 0 ? 'ok' as const : 'epuise' as const), debiterTraduction: async () => 0 },
       assurerCle: async () => 'credit_insuffisant',
     });
     expect(await t.empechement('t1')).toBe('credit_insuffisant');
@@ -280,7 +280,7 @@ describe('traducteur : la clé de l espace', () => {
     let appels = 0;
     const t = traducteur({
       completer: async () => { appels += 1; return rendTraductions([{ id: 'm1', texte: 'Bonjour' }]); },
-      credit: { solde: async () => { soldes += 1; return 5_000_000; }, debiterTraduction: async () => 0 },
+      credit: { acces: async () => { soldes += 1; return 'ok' as const; }, debiterTraduction: async () => 0 },
       assurerCle: async () => { cles += 1; return 'prete'; },
     });
     const r = await traduireFil(

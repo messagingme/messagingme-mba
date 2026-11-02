@@ -100,11 +100,11 @@ export class PgOffresStore implements SourceOffres {
       offre_entreprise: boolean; entreprise_utilisateurs: number | null; conversation_retention_days: number | null;
       entreprise_contacts: number | null; entreprise_commission_pct: number | null;
       offre_business: boolean; business_utilisateurs: number | null;
-      entreprise_commission_messages_pct: number | null;
+      entreprise_commission_messages_pct: number | null; entreprise_plafond_ia_micro_eur: string | null;
     }>(
       `select t.offre_entreprise, t.entreprise_utilisateurs, s.conversation_retention_days,
               t.entreprise_contacts, t.entreprise_commission_pct, t.offre_business, t.business_utilisateurs,
-              t.entreprise_commission_messages_pct
+              t.entreprise_commission_messages_pct, t.entreprise_plafond_ia_micro_eur
          from tenants t left join tenant_settings s on s.tenant_id = t.id
         where t.id = $1`,
       [tenantId],
@@ -116,6 +116,8 @@ export class PgOffresStore implements SourceOffres {
         contacts: l.entreprise_contacts, commissionPct: l.entreprise_commission_pct,
         business: l.offre_business, utilisateursBusiness: l.business_utilisateurs,
         commissionMessagesPct: l.entreprise_commission_messages_pct,
+        // En euros entiers à l'écran, en micro-euros en base (0268) : la colonne n'accepte que des euros ronds d'ici.
+        plafondIaMoisEuros: l.entreprise_plafond_ia_micro_eur === null ? null : Math.round(Number(l.entreprise_plafond_ia_micro_eur) / 1_000_000),
       }
       : null;
   }
@@ -169,12 +171,14 @@ export class PgOffresStore implements SourceOffres {
                 business_quitte_le = case
                   when offre_business and ($2 or $8::boolean = false) then now() else business_quitte_le end,
                 business_utilisateurs = case when $9 then $10::int else business_utilisateurs end,
-                entreprise_commission_messages_pct = case when $11 then $12::int else entreprise_commission_messages_pct end
+                entreprise_commission_messages_pct = case when $11 then $12::int else entreprise_commission_messages_pct end,
+                entreprise_plafond_ia_micro_eur = case when $13 then $14::bigint else entreprise_plafond_ia_micro_eur end
           where id = $1`,
         [
           tenantId, r.entreprise, r.utilisateurs, r.contacts !== undefined, r.contacts ?? null, r.commissionPct !== undefined,
           r.commissionPct ?? null, r.business ?? null, r.utilisateursBusiness !== undefined, r.utilisateursBusiness ?? null,
           r.commissionMessagesPct !== undefined, r.commissionMessagesPct ?? null,
+          r.plafondIaMoisEuros !== undefined, r.plafondIaMoisEuros == null ? null : r.plafondIaMoisEuros * 1_000_000,
         ],
       );
       if ((maj.rowCount ?? 0) === 0) return false;
@@ -207,6 +211,8 @@ export interface EcritureEntreprise {
   utilisateursBusiness?: number | null;
   /** La commission des messages négociée : absente = inchangée, `null` = la globale de `/ops`. */
   commissionMessagesPct?: number | null;
+  /** Le plafond de sécurité de l'IA du mois, en euros entiers : absent = inchangé, `null` = le défaut de l'instance. */
+  plafondIaMoisEuros?: number | null;
 }
 
 /** Ce que l'exploitant doit voir avant de poser ou de retirer une offre à la main (`PgOffresStore.alertes`). */
@@ -230,4 +236,9 @@ export interface ReglageEntreprise {
   utilisateursBusiness: number | null;
   /** La commission des messages WhatsApp négociée par une Entreprise (`null` = la globale). Son illimité ne se règle pas. */
   commissionMessagesPct: number | null;
+  /**
+   * Le plafond de sécurité de l'IA d'une Entreprise, en euros par mois (Entreprise illimitée, lot B) : `null` = le défaut
+   * de l'instance (`ENTREPRISE_PLAFOND_IA_EUROS_MOIS`). Sans effet hors Entreprise.
+   */
+  plafondIaMoisEuros: number | null;
 }

@@ -65,10 +65,11 @@ function fauxCles(initial?: CleGatewayEspace | 'illisible') {
       etat = { cleId: o.cleId, cle: o.cle, plafondMicroEur: o.plafondMicroEur };
       return etat;
     },
-    ajusterPlafond: (_t: string, poser: (cle: { cleId: string; plafondMicroEur: number }, cible: number) => Promise<number | null>): Promise<boolean> => {
+    ajusterPlafond: (_t: string, poser: (cle: { cleId: string; plafondMicroEur: number }, cible: number) => Promise<number | null>, marge: number): Promise<boolean> => {
       const tour = file.then(async () => {
         if (!etat) return false;
-        const pose = await poser({ cleId: etat.cleId, plafondMicroEur: etat.plafondMicroEur }, f.cible ?? etat.plafondMicroEur);
+        // Comme la base : la marge (une Entreprise) s'ajoute à la cible calculée ; sans cible posée, rien à remonter.
+        const pose = await poser({ cleId: etat.cleId, plafondMicroEur: etat.plafondMicroEur }, f.cible === null ? etat.plafondMicroEur : f.cible + marge);
         if (pose === null) return false;
         plafondsNotes.push(pose);
         etat.plafondMicroEur = pose;
@@ -89,11 +90,13 @@ function fauxCles(initial?: CleGatewayEspace | 'illisible') {
   return f;
 }
 
-function deps(o: { cles: ReturnType<typeof fauxCles>; solde: number; transport: HttpTransportPatch & HttpTransportSuppression; journal?: string[]; verrouille?: boolean }): DepsProvisionCle {
+function deps(o: { cles: ReturnType<typeof fauxCles>; solde: number; transport: HttpTransportPatch & HttpTransportSuppression; journal?: string[]; verrouille?: boolean; marge?: number }): DepsProvisionCle {
   return {
     cles: o.cles,
     espaceVerrouille: async () => o.verrouille ?? false,
     credits: { solde: async () => o.solde },
+    // Un prépayé par défaut : aucune marge. Une Entreprise (illimitée) garde son plafond du mois d'avance.
+    margeDeCle: async () => o.marge ?? 0,
     nomEspace: async () => 'Demo',
     transport: o.transport,
     jetonCompte: 'jeton',
@@ -156,6 +159,16 @@ describe('assurerCleGateway', () => {
     await expect(assurerCleGateway(deps({ cles, solde: 500_000, transport: t }), 't1'))
       .rejects.toBeInstanceOf(CreditInsuffisantPourCle);
     expect(t.appels).toHaveLength(0);
+  });
+
+  it('🔴 une Entreprise SANS solde ouvre sa clé, plafonnée à sa marge (son plafond de sécurité du mois)', async () => {
+    // Illimitée (décision du 2026-11-02) : son solde ne bouge pas, elle n'a pas à en avoir pour ouvrir sa clé.
+    const cles = fauxCles();
+    const t = new FauxTransport([OK]);
+    await assurerCleGateway(deps({ cles, solde: 0, transport: t, marge: 100 * MICRO }), 't1');
+    expect(cles.ecritures).toEqual([{ cleId: 'key_neuf', plafondMicroEur: 100 * MICRO }]);
+    // 100 € au taux de 0,92 : 108,70 $, donc 109.
+    expect(t.appels[0]!.body).toMatchObject({ aiGatewayQuota: { limitAmount: 109 } });
   });
 
   it('🔴 le plafond envoyé COUVRE le crédit acheté, il ne le rogne pas', async () => {
@@ -283,6 +296,16 @@ describe('remonterPlafondApresRecharge', () => {
     expect(cles.plafondsNotes).toEqual([30 * MICRO]);
   });
 
+  it('🔴 une Entreprise : la cible porte sa marge, la clé garde un mois d’avance sur ce qu’elle a consommé', async () => {
+    // Son solde est figé (5 €) ; la base calcule une cible de 12 € (solde plus consommation depuis l'ouverture) ; la
+    // marge de 100 € s'y ajoute. Sans elle, la clé couperait ses agents dès sa consommation rattrapée.
+    const cles = fauxCles({ cleId: 'key_e', cle: 'vck_e', plafondMicroEur: 5 * MICRO });
+    cles.cible = 12 * MICRO;
+    const t = new FauxTransport([{ status: 200, json: {} }]);
+    expect(await remonterPlafondApresRecharge(deps({ cles, solde: 5 * MICRO, transport: t, marge: 100 * MICRO }), 't1')).toBe(true);
+    expect(cles.plafondsNotes).toEqual([112 * MICRO]);
+  });
+
   it('🔴 DEUX remontées simultanées convergent vers la cible : aucune ne perd l’achat de l’autre', async () => {
     // Relecture du 2026-09-29 : l'ancienne remontée ajoutait le montant de SON achat au plafond qu'elle avait lu.
     // Deux achats (50 et 100 €) remontés ensemble lisaient tous deux 10 €, et la seconde écriture (110 €) écrasait la
@@ -391,12 +414,12 @@ describe('revoquerCleGateway', () => {
  * appels de création en rafale.
  */
 describe('creerAssureurDeCle', () => {
-  function assureur(o: { cles: ReturnType<typeof fauxCles>; solde: number; transport: FauxTransport; provision?: false; now?: () => number; verrouille?: boolean }) {
+  function assureur(o: { cles: ReturnType<typeof fauxCles>; solde: number; transport: FauxTransport; provision?: false; now?: () => number; verrouille?: boolean; marge?: number }) {
     const journal: string[] = [];
     const travaux = travauxNotes();
     const assurer = creerAssureurDeCle({
       cles: o.cles,
-      provision: o.provision === false ? null : deps({ cles: o.cles, solde: o.solde, transport: o.transport, verrouille: o.verrouille ?? false }),
+      provision: o.provision === false ? null : deps({ cles: o.cles, solde: o.solde, transport: o.transport, verrouille: o.verrouille ?? false, marge: o.marge ?? 0 }),
       journal: (msg) => { journal.push(msg); },
       travaux,
       ...(o.now ? { now: o.now } : {}),
@@ -439,6 +462,17 @@ describe('creerAssureurDeCle', () => {
     expect(t.appels[0]!.body).toMatchObject({ aiGatewayQuota: { limitAmount: 6 } });
   });
 
+  it('🔴 une Entreprise à solde nul n’est pas « crédit insuffisant » : sa clé s’ouvre sur sa marge', async () => {
+    const cles = fauxCles();
+    const t = new FauxTransport([OK]);
+    const { assurer } = assureur({ cles, solde: 0, transport: t, marge: 100 * MICRO });
+    expect(await assurer('t1')).toBe('en_preparation');
+    await assurer.enVol('t1');
+    expect(cles.ecritures).toEqual([{ cleId: 'key_neuf', plafondMicroEur: 100 * MICRO }]);
+    // La preuve inverse : un prépayé à solde nul, lui, l'est toujours.
+    expect(await assureur({ cles: fauxCles(), solde: 0, transport: new FauxTransport([]) }).assurer('t2')).toBe('credit_insuffisant');
+  });
+
   it('🔴 la demande N’ATTEND PAS Vercel, et une seule ouverture part par espace', async () => {
     // Le défaut relevé par la relecture du lot 1 : l'ouverture était sur le chemin du GET du fil, qui attendait
     // jusqu'à 30 s qu'un Vercel lent réponde. Ici Vercel ne répond JAMAIS pendant le test.
@@ -453,6 +487,8 @@ describe('creerAssureurDeCle', () => {
     expect(await assurer('t1')).toBe('en_preparation');
     // Les rafraîchissements suivants, et les autres opérateurs, voient l'ouverture en cours sans en lancer d'autre.
     expect(await Promise.all([assurer('t1'), assurer('t1')])).toEqual(['en_preparation', 'en_preparation']);
+    // L'ouverture en arrière-plan lit le solde et la marge avant d'appeler Vercel : on la laisse y arriver.
+    await new Promise((r) => { setTimeout(r, 0); });
     expect(t.appels.filter((a) => a.methode === 'POST')).toHaveLength(1);
     relacher(OK);
     await assurer.enVol('t1');

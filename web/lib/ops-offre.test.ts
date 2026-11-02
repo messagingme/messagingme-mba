@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lireUtilisateursBusiness, retraitCoupeLeNumero } from './ops-offre';
+import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lirePlafondIa, lireUtilisateursBusiness, retraitCoupeLeNumero } from './ops-offre';
 
 /** Les réglages de devis d'une Entreprise (spec offres v2) : vide = le défaut, sinon un entier dans ses bornes. */
 describe('les contacts et la commission saisis', () => {
@@ -72,5 +72,11 @@ describe('la commission des messages saisie', () => {
     expect(lireCommissionMessages('0')).toBe(0);
     expect(lireCommissionMessages(' 3 ')).toBe(3);
     for (const s of ['2.5', '2,5', '101', '-1', 'trois']) expect(lireCommissionMessages(s), s).toBe('invalide');
+  });
+
+  it('le plafond de sécurité de l’IA : vide = le défaut, un entier de 1 à 1 000 000 passe, jamais 0', () => {
+    expect(lirePlafondIa('')).toBeNull();
+    expect(lirePlafondIa(' 250 ')).toBe(250);
+    for (const s of ['0', '-5', '12.5', '1000001', 'cent']) expect(lirePlafondIa(s), s).toBe('invalide');
   });
 });

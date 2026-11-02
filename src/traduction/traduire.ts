@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { parse as secureJsonParse } from 'secure-json-parse';
 import type { ChatMessage, OutilExpose, ReponseChat } from '../agent/llm/chat-client';
 import type { VerdictCle } from '../agent/provisionner-cle';
+import type { AccesCreditIa } from '../agent/acces-credit';
 import { prixClientMicroEur } from '../agent/devise';
 import { journaliser } from '../lib/journal';
 
@@ -22,6 +23,7 @@ import { journaliser } from '../lib/journal';
 /**
  * Pourquoi un espace ne traduit pas, quand l'instance, elle, le sait (`TRADUCTION_MODELE` posé) :
  *   - `credit` : le crédit est ÉPUISÉ (solde nul ou négatif) ; le recharger règle ;
+ *   - `plafond` : une Entreprise (illimitée) a atteint son plafond de sécurité du mois ; nous le relevons, pas elle ;
  *   - `credit_insuffisant` : le crédit est POSITIF mais trop bas pour ouvrir la clé de l'espace (Vercel exige un
  *     plafond d'au moins 1 $, environ 0,92 €) ; le recharger règle aussi, mais « épuisé » serait faux ;
  *   - `cle_en_preparation` : la clé de l'espace s'ouvre chez Vercel, en arrière-plan ; quelques secondes, le
@@ -30,7 +32,7 @@ import { journaliser } from '../lib/journal';
  * La cause « traduction éteinte sur l'instance » n'est pas ici : il n'y a alors aucun traducteur.
  * ⚠️ L'écran de l'Inbox dit une phrase par cause ; une cause qu'il ne connaît pas retombe sur sa phrase prudente.
  */
-export type CauseSansTraduction = 'credit' | 'credit_insuffisant' | 'cle_en_preparation' | 'cle';
+export type CauseSansTraduction = 'credit' | 'plafond' | 'credit_insuffisant' | 'cle_en_preparation' | 'cle';
 
 /** Les deux langues de la console. Ce ne sont pas celles des clients, qui écrivent ce qu'ils veulent. */
 export type LangueConsole = 'fr' | 'en';
@@ -83,12 +85,12 @@ export interface DepsTraduction {
   };
   modele: string;
   /**
-   * Le crédit prépayé de l'espace : lu avant l'appel (solde > 0, comme un tour d'agent à son entrée), débité après.
-   * Requis : un traducteur qui ne débiterait pas userait la clé du client sans rien inscrire au solde, exactement
-   * le défaut que ce câblage corrige.
+   * Le crédit de l'espace : son accès lu avant l'appel (`PgAccesCreditIaStore.acces`, comme un tour d'agent à son
+   * entrée), le débit après. Requis : un traducteur qui ne débiterait pas userait la clé du client sans rien inscrire au
+   * solde, exactement le défaut que ce câblage corrige.
    */
   credit: {
-    solde(tenantId: string): Promise<number>;
+    acces(tenantId: string): Promise<AccesCreditIa>;
     debiterTraduction(tenantId: string, montantMicroEur: number): Promise<unknown>;
   };
   /**
@@ -338,7 +340,9 @@ export function creerTraducteur(deps: DepsTraduction): Traducteur {
    * jamais de clé. L'ouverture elle-même n'est pas attendue (`creerAssureurDeCle`) : la cause dit qu'elle est en cours.
    */
   async function empechement(tenantId: string): Promise<CauseSansTraduction | null> {
-    if ((await deps.credit.solde(tenantId)) <= 0) return 'credit';
+    const acces = await deps.credit.acces(tenantId);
+    if (acces === 'epuise') return 'credit';
+    if (acces === 'plafond') return 'plafond';
     const cle = await deps.assurerCle(tenantId);
     switch (cle) {
       case 'prete': return null;

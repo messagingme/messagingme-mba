@@ -49,6 +49,8 @@ import { PgKnowledgeStore } from './agent/knowledge.pg';
 import { creerRechercheSemantique } from './agent/recherche';
 import { PgToolCatalog, PgJournalAppels } from './agent/catalog.pg';
 import { PgCreditStore } from './agent/credits.pg';
+import { PgAccesCreditIaStore } from './agent/acces-credit';
+import type { DepsProvisionCle } from './agent/provisionner-cle';
 import { PgCreditWhatsappReglagesStore } from './credit-whatsapp/reglages.pg';
 import { PgCreditWhatsappStore } from './credit-whatsapp/credit.pg';
 import { PgLignesCreditStore } from './credit-whatsapp/lignes.pg';
@@ -117,6 +119,7 @@ export type ConfigSocle = Pick<Config,
   | 'CONTROL_HUMAN_TIMEOUT_MS' | 'AI_GATEWAY_API_KEY' | 'RESEND_API_KEY' | 'SUPPORT_FROM' | 'APP_URL'
   | 'APPLICATION_SERVICE_URL' | 'APPLICATION_SERVICE_SECRET' | 'HUBSPOT_SERVICE_URL'
   | 'OBJETS_POINT_ACCES' | 'OBJETS_REGION' | 'OBJETS_BUCKET' | 'OBJETS_CLE' | 'OBJETS_SECRET'
+  | 'ENTREPRISE_PLAFOND_IA_EUROS_MOIS' | 'VERCEL_API_TOKEN' | 'VERCEL_TEAM_ID' | 'EUR_PER_USD'
 >;
 
 export interface DepsSocle {
@@ -274,7 +277,12 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
   // Les dépôts des agents. Le worker ne s'en sert que si la clé du Gateway est posée, l'API sans condition : ce ne
   // sont que des enveloppes autour du pool, les construire ne coûte rien.
   const agentStore = new PgAgentStore(pool);
-  const knowledgeStore = new PgKnowledgeStore(pool);
+  /**
+   * Le plafond de sécurité de l'IA d'une Entreprise par défaut (Entreprise illimitée, lot B), en micro-euros : lu par
+   * l'accès au Crédit IA et par la requête de la vectorisation, la même valeur.
+   */
+  const plafondIaParDefautMicroEur = config.ENTREPRISE_PLAFOND_IA_EUROS_MOIS * 1_000_000;
+  const knowledgeStore = new PgKnowledgeStore(pool, plafondIaParDefautMicroEur);
   /**
    * Une seule fabrique pour l'agent, le bac à sable et le balayage qui vectorise : plusieurs constructions seraient
    * autant d'occasions de câbler un modèle ou un seuil différent. `null` sans clé du Gateway.
@@ -325,6 +333,11 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     pageCredit,
   });
   const credits = new PgCreditStore(pool, (t, avant, apres) => alerteCreditBas.surDebit(t, avant, apres));
+  /**
+   * L'accès au Crédit IA (Entreprise illimitée, lot B) : le point de passage unique de « cet espace peut-il consommer de
+   * l'IA ? », pour le tour d'un agent (worker), le répondeur, le bac à sable, la traduction et la transcription (API).
+   */
+  const accesCreditIa = new PgAccesCreditIaStore(pool, plafondIaParDefautMicroEur);
   /**
    * Les réglages du Crédit WhatsApp (la grille de Meta, la commission des messages), lus avant chaque envoi sur la
    * ligne de crédit : un seul magasin par processus, dont le cache d'une minute est celui de ce processus.
@@ -444,8 +457,8 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
    */
   const lignesCreditWhatsapp = new PgLignesCreditStore(pool);
   /**
-   * Les conditions d'un espace sur la ligne (tâche 8), communes à la garde, à l'ajustement et aux écrans : l'open bar et la
-   * commission négociée d'une Entreprise, sinon la commission globale.
+   * Les conditions d'un espace sur la ligne (tâche 8), communes à la garde, à l'ajustement et aux écrans : l'illimité
+   * (`openBar`, toute Entreprise depuis le 2026-11-02) et la commission négociée d'une Entreprise, sinon la commission globale.
    */
   const conditionsCreditWhatsapp = new PgConditionsCreditStore(pool, reglagesCreditWhatsapp);
   /** La catégorie d'un modèle lue chez Meta, un cache pour la garde et l'estimation du lancement. */
@@ -537,7 +550,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     numeroDeLEspace, verifierNumero: (pn) => metaFactory.verifierNumero(pn), filiereDe: (t) => comptesApplication.filiereDe(t),
   });
   /**
-   * Le Crédit WhatsApp bloque-t-il le numéro de l'espace (ligne arrêtée, aucune grille, solde nul hors open bar) ? Le
+   * Le Crédit WhatsApp bloque-t-il le numéro de l'espace (ligne arrêtée, aucune grille, solde nul hors Entreprise) ? Le
    * démarreur du répondeur et le tour d'un agent le demandent avant d'appeler un modèle, à côté du numéro bloqué. Le fil
    * ne le lit pas : l'agent de Meta n'y est pas soumis.
    */
@@ -664,7 +677,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
    */
   demarreurRepondeur = creerDemarreurRepondeur({
     agents: agentStore,
-    credits,
+    acces: accesCreditIa,
     scenarios: workflowStore,
     lancements: workflowRuntime.lancements,
     gatewayDisponible: config.AI_GATEWAY_API_KEY !== '',
@@ -688,9 +701,37 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     (chiffre) => decryptSecret(chiffre, config.ENCRYPTION_KEY),
     (tenantId, err) => { journaliser('error', 'cle_gateway_indechiffrable', { err, tenantId }); },
   );
+  /**
+   * Ouvrir la clé de modèle d'un espace et remonter son plafond chez Vercel. Dans le socle depuis l'Entreprise illimitée
+   * (lot B) : l'API ouvre les clés et les remonte après un crédit, le worker remonte chaque heure celles des Entreprises.
+   * `null` quand le jeton Vercel n'est pas configuré : le provisionnement est éteint et la création d'agent se passe de
+   * clé propre.
+   */
+  const provisionCle: DepsProvisionCle | null = config.VERCEL_API_TOKEN !== '' && config.VERCEL_TEAM_ID !== ''
+    ? {
+      cles: clesGateway,
+      credits,
+      margeDeCle: (tenant) => accesCreditIa.margeDeCle(tenant),
+      nomEspace: async (tenant) => {
+        const r = await pool.query<{ name: string }>('select name from tenants where id = $1', [tenant]);
+        return r.rows[0]?.name ?? null;
+      },
+      // Un espace verrouillé (suspendu, ou qu'on supprime depuis /ops) n'ouvre aucune clé ; un espace disparu non plus.
+      espaceVerrouille: async (tenant) => {
+        const r = await pool.query<{ status: string }>('select status from tenants where id = $1', [tenant]);
+        return (r.rows[0]?.status ?? 'locked') === 'locked';
+      },
+      transport: new FetchTransport(),
+      jetonCompte: config.VERCEL_API_TOKEN,
+      teamId: config.VERCEL_TEAM_ID,
+      cleGatewayMaison: config.AI_GATEWAY_API_KEY,
+      tauxEurParDollar: config.EUR_PER_USD,
+      journal: (msg, err, tenant) => { journaliser('error', msg, { err, tenantId: tenant, pour: 'cle_modele' }); },
+    }
+    : null;
 
   return {
-    clesGateway, dryRun, transport, repo, recipientStore, integrationBatch, espacesBatch, emetteur, contactStore, fieldStore,
+    clesGateway, provisionCle, accesCreditIa, dryRun, transport, repo, recipientStore, integrationBatch, espacesBatch, emetteur, contactStore, fieldStore,
     adressesEvenements, envoisEvenements, espacesEvenements,
     inboxStore, settingsStore, flowStore, idempotencyStore, auditStore, erreursLivraison, echecsMessages,
     poolAttentesStore, httpLatencesStore, mesuresTachesStore, mesuresFilesStore, santeStore, memoireWorkersStore, seuilsStore, nodeEventStore, trackedLinkStore, webhookStore, verrousCourts, compteurDebit, phoneStatusStore, opsStore, heartbeatStore,

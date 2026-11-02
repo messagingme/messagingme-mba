@@ -88,6 +88,7 @@ function paiement(o: {
       retenirClient: async (tenantId, livemode, customerId) => { retenus.push({ tenantId, livemode, customerId }); connu = customerId; return customerId; },
     },
     payeurAutorise: async () => o.payeur ?? true,
+    creditIllimite: async () => false,
     factures: {
       factureDe: async (tenantId, sessionId) => {
         factureDemandee.push({ tenantId, sessionId });
