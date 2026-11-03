@@ -4,6 +4,27 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-03 : l'accord marketing des automations et sa garde (lot 3b), le lien du devis HubSpot
+
+Deux lots du chantier « champs HubSpot et accord » (`~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md` et
+`2026-11-02-lien-du-devis-cadrage.md`), validés par Julien.
+
+- **Lot 3b.** La case « J'atteste avoir l'accord marketing… » dans toute automation, tamponnée par le serveur (qui,
+  adresse, quand) ; au déclenchement, le runner écrit l'accord sur la fiche (source `automation:<id>`, jamais sur un STOP).
+  La garde vit dans l'exécuteur, gouvernée par le type de lancement et figée sur le parcours
+  (`workflow_runs.accord_marketing_exige`) : sans accord, un modèle Marketing d'un parcours d'automation est sauté avec
+  les envois qui le suivent. Relevé préalable en production : aucun client n'envoyait de Marketing par scénario sans
+  accord. Migrations 0271 et 0272 poussées SEULES et déployées en `migration=avant` (459a9a9b) avant que leur code
+  n'arrive sur `main`, puis le code (1b66cd53). Relecture sans rouge ; deux e2e qui figeaient le corps du PATCH ont rougi
+  la CI de la console, corrigés.
+- **Lot devis.** « Lien du devis » et « PDF du devis » parmi les champs calculés : le plus récent devis publié, non
+  annulé et non expiré de la transaction (`hs_quote_link`, `hs_pdf_download_link`), sous la portée facultative
+  `crm.objects.quotes.read`. Le seul rouge de la relecture était l'ordre de déploiement du cadrage : une portée demandée
+  par le connecteur avant d'être déclarée dans l'app ferait refuser toute autorisation facultative, celle des listes
+  comprise. Ordre suivi : upload HubSpot #23, puis mba 63e78264, puis le connecteur 47f17e5.
+- Leçon : le `headSha` d'un run de déploiement est la tête de `main` au lancement, pas l'image ; l'entrée `commit` décide
+  de ce qui est construit (vérifié dans le journal du job « construire »).
+
 ## 2026-11-03 : le Crédit WhatsApp calcule juste (lot D), la grille de Meta lisible dans `/ops`
 
 Demande de Julien du 2026-11-02 : « surtout, il faut que tu sois vraiment en mesure de calculer et de défalquer du
