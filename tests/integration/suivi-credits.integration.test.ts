@@ -82,7 +82,7 @@ describe.skipIf(!url)('le suivi des crédits (lot C)', () => {
   it('🔴 Crédit WhatsApp : mouvements moins provisions prépayées, une provision rendue ne compte pas, l’illimitée se consomme sans toucher au solde', async () => {
     const t = await espace('itest-serie-wa');
     await wa.crediter(t, MICRO, 'achat', 'cs_itest_serie');
-    const prise = (montant: number, openBar = false) => wa.provisionner({ tenantId: t, phoneNumberId: 'pn-itest-serie', pays: 'FR', categorie: 'marketing', montantMicroEur: montant, openBar });
+    const prise = (montant: number, openBar = false) => wa.provisionner({ tenantId: t, phoneNumberId: 'pn-itest-serie', pays: 'FR', categorie: 'marketing', montantMicroEur: montant, openBar, commissionPct: 5 });
     await prise(74_760);
     const rendue = await prise(26_040);
     if (!rendue.ok) throw new Error('provision refusée');
@@ -109,7 +109,7 @@ describe.skipIf(!url)('le suivi des crédits (lot C)', () => {
         where tenant_id = $1 and delta_micro_eur = $2`,
       [e, -2 * MICRO],
     );
-    await wa.provisionner({ tenantId: e, phoneNumberId: 'pn-itest-ops', pays: 'FR', categorie: 'marketing', montantMicroEur: 50_000, openBar: true });
+    await wa.provisionner({ tenantId: e, phoneNumberId: 'pn-itest-ops', pays: 'FR', categorie: 'marketing', montantMicroEur: 50_000, openBar: true, commissionPct: 5 });
     await pool.query(`insert into lignes_credit_whatsapp (tenant_id, phone_number_id, origine) values ($1, 'pn-itest-ops', 'ops')`, [e]);
     await credits.crediter(p, 3 * MICRO, 'itest');
     await credits.debiter(p, 1 * MICRO);

@@ -40,7 +40,7 @@ describe.skipIf(!url)('le Crédit WhatsApp (0264)', () => {
   }
 
   const provision = (tenantId: string, montant: number, openBar = false, categorie: 'marketing' | 'service' = 'marketing') =>
-    store.provisionner({ tenantId, phoneNumberId: NUMERO, pays: 'FR', categorie, montantMicroEur: montant, openBar });
+    store.provisionner({ tenantId, phoneNumberId: NUMERO, pays: 'FR', categorie, montantMicroEur: montant, openBar, commissionPct: 5 });
 
   beforeAll(() => {
     pool = new Pool({ connectionString: url, ssl: pgSsl(url) });

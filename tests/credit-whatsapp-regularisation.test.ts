@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   calculerRegularisation, creerRegularisationCreditWhatsapp, demiHeuresCouvertes, horsMessagingMe, DEMI_HEURE_S, MARGE_FRAICHEUR_S,
-  type DepsRegularisation, type EspaceARegulariser, type JourDeParis, type NosDemiHeures, type PointVolumeMeta, type RegularisationAEcrire,
+  type ConditionsDuJour, type DepsRegularisation, type EspaceARegulariser, type JourDeParis, type NosDemiHeures, type PointVolumeMeta,
+  type RegularisationAEcrire,
 } from '../src/credit-whatsapp/regularisation';
 import { lirePointsVolume } from '../src/meta/pricing';
 import type { GrilleMeta } from '../src/credit-whatsapp/grille';
@@ -144,10 +145,12 @@ describe('la lecture des volumes de Meta', () => {
 /** Une passe sur des faux : un espace, une ligne posée à 13 h 51 le 2026-11-03 et toujours en cours. */
 function passe(o: {
   volumes?: PointVolumeMeta[] | null | ((wabaId: string) => PointVolumeMeta[] | null); nous?: NosDemiHeures[]; openBar?: boolean;
-  grille?: GrilleMeta | null; alerteDejaPartie?: boolean; soldeApres?: number; espaces?: EspaceARegulariser[];
+  grille?: GrilleMeta | null; alerteDejaPartie?: boolean; soldeAvant?: number; soldeApres?: number; espaces?: EspaceARegulariser[];
+  conditionsDuJour?: ConditionsDuJour | null; aBouge?: boolean;
 } = {}) {
   const ecrits: RegularisationAEcrire[] = [];
   const alertes: string[] = [];
+  const debits: Array<[string, number, number]> = [];
   const marques: string[] = [];
   const lus: string[] = [];
   const marges: number[] = [];
@@ -156,7 +159,12 @@ function passe(o: {
       joursClos: async (margeS) => { marges.push(margeS); return [JOUR, { jour: '2026-11-02', debutS: JOUR.debutS - 86_400, finS: JOUR.debutS }]; },
       espacesARegulariser: async () => o.espaces ?? [{ tenantId: 't1', nom: 'SANDBOX', comptes: [{ wabaId: 'w1', couvertures: [{ depuis: utc(ESSAI + 21 * 60), jusqua: null }] }] }],
       nosDemiHeures: async () => o.nous ?? [],
-      enregistrer: async (r) => { ecrits.push(r); return { alerteDejaPartie: o.alerteDejaPartie ?? false, soldeMicroEur: o.soldeApres ?? 0 }; },
+      conditionsDuJour: async () => o.conditionsDuJour ?? null,
+      enregistrer: async (r) => {
+        ecrits.push(r);
+        if (o.aBouge) return { ecrit: false };
+        return { ecrit: true, alerteDejaPartie: o.alerteDejaPartie ?? false, soldeAvantMicroEur: o.soldeAvant ?? 0, soldeMicroEur: o.soldeApres ?? 0 };
+      },
       marquerAlerte: async (t, j) => { marques.push(`${t}:${j}`); },
     },
     grilleAu: async () => (o.grille === undefined ? GRILLE : o.grille),
@@ -166,9 +174,10 @@ function passe(o: {
       if (typeof o.volumes === 'function') return o.volumes(wabaId);
       return o.volumes === undefined ? [] : o.volumes;
     },
+    alertes: { surDebit: async (t, avant, apres) => { debits.push([t, avant, apres]); } },
     alerter: (_cle, texte) => { alertes.push(texte); },
   };
-  return { r: creerRegularisationCreditWhatsapp(deps), ecrits, alertes, marques, lus, marges };
+  return { r: creerRegularisationCreditWhatsapp(deps), ecrits, alertes, marques, lus, marges, debits };
 }
 
 describe('la passe horaire', () => {
@@ -244,5 +253,48 @@ describe('la passe horaire', () => {
     await r.passe();
     expect(ecrits[0]?.illimite).toBe(false);
     expect(alertes.join(' ')).toContain('faire retirer la ligne');
+  });
+
+  it('🔴 l’offre et la commission du JOUR, lues sur ses provisions, l’emportent sur celles du moment', async () => {
+    // Prépayé à 0 % ce jour-là, Entreprise à 5 % aujourd'hui : le jour se règle sur le solde, et Meta au prix sans commission.
+    const { r, ecrits } = passe({ openBar: true, conditionsDuJour: { openBar: false, commissionPct: 0 }, volumes: [point({ debut: ESSAI + DEMI_HEURE_S, volume: 2 })] });
+    await r.passe();
+    expect(ecrits.map((e) => [e.illimite, e.calcul.metaMicroEur])).toEqual([[false, 2 * 24_800]]);
+  });
+
+  it('🔴 le retrait de la ligne se juge sur l’offre du MOMENT : une Entreprise d’aujourd’hui ne dépend plus de son solde', async () => {
+    const entreprise = passe({ openBar: true, conditionsDuJour: { openBar: false, commissionPct: 5 }, volumes: [point({ debut: ESSAI + DEMI_HEURE_S })], soldeApres: -60_000_000 });
+    await entreprise.r.passe();
+    expect(entreprise.alertes.join(' ')).not.toContain('faire retirer la ligne');
+  });
+
+  it('🔴 les demi-heures comparées et le début de la lecture vont à l’écriture, qui y fige les provisions', async () => {
+    const { r, ecrits } = passe({ volumes: [point({ debut: ESSAI + DEMI_HEURE_S })] });
+    await r.passe();
+    // La ligne posée à 13 h 51 UTC : de 14 h à la fin du jour de Paris (23 h UTC), dix-huit demi-heures entières.
+    expect(ecrits[0]!.tranches).toEqual(Array.from({ length: 18 }, (_, k) => ESSAI + DEMI_HEURE_S * (k + 1)));
+    expect(ecrits[0]!.lectureDepuisS).toBe(JOUR.debutS - 86_400);
+  });
+
+  it('🔴 nos provisions ont bougé entre la lecture et l’écriture : rien n’est compté, ni alerte ni e-mail', async () => {
+    const { r, alertes, debits } = passe({
+      openBar: false, aBouge: true, soldeAvant: 12_000_000, soldeApres: -60_000_000,
+      volumes: [point({ debut: ESSAI + DEMI_HEURE_S, categorie: 'MARKETING', palier: '0:MAX', volume: 40 })],
+    });
+    expect(await r.passe()).toBe(0);
+    expect(alertes).toEqual([]);
+    expect(debits).toEqual([]);
+  });
+
+  it('🔴 une régularisation qui débite un prépayé envoie le même e-mail « crédit bas » qu’un envoi ; jamais un crédit ni une Entreprise', async () => {
+    const debite = passe({ openBar: false, volumes: [point({ debut: ESSAI + DEMI_HEURE_S })], soldeAvant: 12_000_000, soldeApres: 8_000_000 });
+    await debite.r.passe();
+    expect(debite.debits).toEqual([['t1', 12_000_000, 8_000_000]]);
+    const rendu = passe({ openBar: false, volumes: [point({ debut: ESSAI + DEMI_HEURE_S })], soldeAvant: 8_000_000, soldeApres: 12_000_000 });
+    await rendu.r.passe();
+    expect(rendu.debits).toEqual([]);
+    const illimite = passe({ openBar: true, volumes: [point({ debut: ESSAI + DEMI_HEURE_S })], soldeAvant: 12_000_000, soldeApres: 8_000_000 });
+    await illimite.r.passe();
+    expect(illimite.debits).toEqual([]);
   });
 });

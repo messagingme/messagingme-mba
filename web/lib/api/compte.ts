@@ -462,7 +462,10 @@ export interface NumeroCreditOps {
   /** Le numéro tel que Meta l'affiche ; `null` s'il ne l'a pas rendu. */
   numero: string | null;
   nom: string | null;
-  couverture: 'ligne' | 'compte' | null;
+  /** `autre_espace` : son compte WhatsApp est sur la ligne d'un autre espace, la garde refuse ses envois. */
+  couverture: 'ligne' | 'compte' | 'autre_espace' | null;
+  /** La ligne qui le couvre a ses envois arrêtés (absent sur une API plus ancienne). */
+  arretee?: boolean;
   refus: '360dialog' | 'coexistence' | 'delie' | null;
 }
 

@@ -137,7 +137,7 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
    */
   const chiffrer = async (
     tenantId: string, phoneNumberId: string, destinataire: string, ligne: LigneCredit, categorieDe: () => Promise<CategorieMeta | null>,
-  ): Promise<{ refus: CreditWhatsappRefus } | { refus: null; openBar: boolean; categorie: CategorieMeta | null; pays: string | null; montant: number }> => {
+  ): Promise<{ refus: CreditWhatsappRefus } | { refus: null; openBar: boolean; commissionPct: number; categorie: CategorieMeta | null; pays: string | null; montant: number }> => {
     if (ligne.tenantId !== tenantId) {
       // Un numéro n'appartient qu'à un espace : une ligne d'un autre espace est une incohérence, on refuse fermé.
       journaliser('error', 'credit_whatsapp_ligne_autre_espace', { tenantId, ligneTenantId: ligne.tenantId });
@@ -159,7 +159,7 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
       journaliser('error', 'credit_whatsapp_sans_tarif', { tenantId, pays, categorie });
       return { refus: new CreditWhatsappRefus('ligne_inactive') };
     }
-    return { refus: null, openBar, categorie, pays, montant };
+    return { refus: null, openBar, commissionPct, categorie, pays, montant };
   };
   return {
     refusAvantEffets,
@@ -182,7 +182,7 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
         ? 'service'
         : e.nature.type === 'marketing' ? 'marketing' : d.categorieDuModele(e.tenantId, e.nature.name, e.nature.language)));
       if (c.refus !== null) throw c.refus;
-      const { openBar, categorie, pays, montant } = c;
+      const { openBar, commissionPct, categorie, pays, montant } = c;
       const issue = await d.credit.provisionner({
         tenantId: e.tenantId,
         phoneNumberId: e.phoneNumberId,
@@ -191,6 +191,7 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
         categorie: categorie ?? 'marketing',
         montantMicroEur: montant,
         openBar,
+        commissionPct,
       });
       // Ce qui manque pour que CE message parte : couvrir son prix, et laisser un solde positif avant lui (un solde nul ne
       // laisse rien partir, même un message à zéro). Au moins un micro-euro, même si un crédit est arrivé entre-temps.

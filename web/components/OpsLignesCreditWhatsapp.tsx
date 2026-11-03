@@ -11,7 +11,8 @@ import { lireLignesCreditOps, poserLigneCreditOps, type LigneCreditOps, type Num
  * de `/ops`. Les numéros de l'espace sont listés, chacun avec son geste : plus d'identifiant Meta à taper (Julien, le
  * 2026-11-02 : « ça sert à quoi identifiant Meta du numéro ? »). Le serveur refuse encore ce que la garde ne saurait pas
  * compter (360dialog, coexistence, délié) ; l'écran le dit avant le clic. Une ligne couvre tout le compte WhatsApp de son
- * numéro (Meta attache la ligne au compte) : un autre numéro du même compte est montré « couvert ». Une Entreprise est
+ * numéro (Meta attache la ligne au compte) : un autre numéro du même compte est montré « couvert », un numéro dont le
+ * compte est sur la ligne d'un autre espace « refusé », comme la garde les lit (relecture du lot D). Une Entreprise est
  * illimitée : son montant du mois est à facturer, son solde ne bouge pas. La section se masque quand l'API n'a pas encore
  * la route.
  */
@@ -142,13 +143,16 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
 /** Un numéro de l'espace et son geste : poser, retirer, ou la raison qui l'empêche. */
 function Numero({ n, ligne, actif, onGeste }: { n: NumeroCreditOps; ligne: LigneCreditOps | null; actif: boolean; onGeste: (poser: boolean) => void }) {
   const t = useT();
-  const raison = n.refus === '360dialog'
-    ? t('chez 360dialog : facturé par 360dialog, ne passe pas sur la ligne', 'with 360dialog: billed by 360dialog, cannot go on the line')
+  const motif = n.refus === '360dialog'
+    ? t('chez 360dialog : facturé par 360dialog', 'with 360dialog: billed by 360dialog')
     : n.refus === 'coexistence'
-      ? t('en coexistence : l’application WhatsApp Business envoie sans nous, ne passe pas sur la ligne', 'in coexistence: the WhatsApp Business app sends without us, cannot go on the line')
+      ? t('en coexistence : l’application WhatsApp Business envoie sans nous', 'in coexistence: the WhatsApp Business app sends without us')
       : n.refus === 'delie'
         ? t('délié : il n’envoie plus rien', 'unlinked: it no longer sends anything')
         : null;
+  const raison = motif === null || n.refus === 'delie' ? motif : `${motif}, ${t('ne passe pas sur la ligne', 'cannot go on the line')}`;
+  const arretee = ` · ${t('envois arrêtés', 'sends stopped')}`;
+  const couvert = n.couverture === 'ligne' || n.couverture === 'compte';
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-controle border border-ink-100 px-3 py-2 text-xs" data-testid={`ligne-credit-numero-${n.phoneNumberId}`}>
       <span className="text-ink-900">
@@ -156,11 +160,15 @@ function Numero({ n, ligne, actif, onGeste }: { n: NumeroCreditOps; ligne: Ligne
         {n.nom && <span className="text-ink-500"> · {n.nom}</span>}
         <span className="block text-ink-500">
           {n.couverture === 'ligne' && ligne
-            ? `${t('sur la ligne', 'on the line')} · ${ligne.origine === 'ops' ? t('posé à la main', 'set by hand') : t('option', 'option')}${ligne.arreteeLe !== null ? ` · ${t('envois arrêtés', 'sends stopped')}` : ''}`
+            ? `${t('sur la ligne', 'on the line')} · ${ligne.origine === 'ops' ? t('posé à la main', 'set by hand') : t('option', 'option')}${ligne.arreteeLe !== null ? arretee : ''}`
             : n.couverture === 'compte'
-              ? t('couvert : même compte WhatsApp qu’un numéro sur la ligne', 'covered: same WhatsApp account as a number on the line')
-              : raison ?? t('pas sur la ligne', 'not on the line')}
+              ? `${t('couvert : même compte WhatsApp qu’un numéro sur la ligne', 'covered: same WhatsApp account as a number on the line')}${n.arretee === true ? arretee : ''}`
+              : n.couverture === 'autre_espace'
+                ? t('refusé : son compte WhatsApp est sur la ligne d’un autre espace', 'refused: its WhatsApp account is on another workspace’s line')
+                : raison ?? t('pas sur la ligne', 'not on the line')}
         </span>
+        {/* Couvert malgré ce qui l'empêcherait d'être posé (par son compte, ou posé avant) : l'écran le dit encore. */}
+        {couvert && motif !== null && <span className="block text-danger-700" data-testid="ligne-credit-alerte">{motif}</span>}
       </span>
       {n.couverture === 'ligne' ? (
         <Bouton variante="secondaire" taille="petite" disabled={!actif} onClick={() => onGeste(false)} data-testid="ligne-credit-retirer">

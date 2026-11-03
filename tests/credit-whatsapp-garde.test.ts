@@ -94,7 +94,8 @@ describe('la garde seule', () => {
   it('provisionne au prix de la grille, commission comprise, la catégorie du modèle lue chez Meta', async () => {
     const { g, etat } = garde();
     const r = await g.avant(envoi({ type: 'modele', name: 'rappel', language: 'fr' }));
-    expect(etat.provisions.get(r.provisionId!)).toMatchObject({ categorie: 'utility', pays: 'FR', montantMicroEur: 26_040 });
+    // La commission qui a chiffré le message voyage avec lui : la régularisation de son jour chiffre Meta avec elle.
+    expect(etat.provisions.get(r.provisionId!)).toMatchObject({ categorie: 'utility', pays: 'FR', montantMicroEur: 26_040, commissionPct: 5 });
     await g.avant(envoi({ type: 'marketing' }));
     expect([...etat.provisions.values()].map((p) => p.montantMicroEur)).toEqual([26_040, 74_760]);
   });

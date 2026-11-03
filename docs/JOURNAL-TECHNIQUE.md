@@ -72,6 +72,37 @@ Deux lots du chantier « champs HubSpot et accord » (`~/mm-hubspot/docs/2026-11
 - Leçon : le `headSha` d'un run de déploiement est la tête de `main` au lancement, pas l'image ; l'entrée `commit` décide
   de ce qui est construit (vérifié dans le journal du job « construire »).
 
+## 2026-11-03 : les jaunes des lots D et E du Crédit WhatsApp (migration 0275)
+
+Demande de Julien (« ferme les jaunes et avance sur le lot 4 ») : les trois jaunes à fermer avant qu'un prépayé passe sur
+la ligne, et ceux du serveur du lot D. Plan `2026-11-03-credit-whatsapp-fiabilite.md`.
+
+- **Le gel.** Une provision comptée par une régularisation garde sa demi-heure pour toujours
+  (`credit_whatsapp_provisions.tranche_regularisee`) et ne se rend ni ne se corrige plus à l'accusé. Le défaut : un
+  message livré plus de deux jours après son envoi était rendu par la régularisation de son jour (Meta ne l'y facturait
+  pas), puis compté face à la facture du jour de sa livraison, donc jamais payé par le client ; un `failed` tardif le
+  rendait une seconde fois. En concevant le gel, une fenêtre plus fine est apparue : un accusé qui rend ou date une
+  provision entre la lecture de la passe et son écriture. L'écriture relit donc la somme des provisions qu'elle vient de
+  figer et n'écrit rien si elle a bougé ; la passe suivante recalcule.
+- **Les conditions du jour.** La commission qui a chiffré chaque provision s'écrit avec elle (`commission_pct`), et la
+  régularisation d'un jour prend l'offre et la commission de la plupart de ses provisions, plus celles du moment où elle
+  tourne. La garde choisit sa grille au jour de Paris, comme la régularisation (une heure d'écart au changement de
+  trimestre). Le retrait de la ligne au-delà de -50 € se juge, lui, sur l'offre du moment.
+- **L'e-mail du crédit bas** part aussi quand une régularisation fait passer le solde sous 10 €, avec la même occasion
+  que celui de la garde (une fois par crédit reçu).
+- **`/ops`** lit la couverture d'un numéro comme la garde : un compte sur la ligne d'un autre espace (dont la garde
+  refuse les envois) et une ligne couvrante arrêtée se disent, la coexistence d'un numéro couvert aussi ; un second
+  numéro d'un compte déjà couvert ne se pose plus (409). Deux index sur `lignes_credit_whatsapp`, par compte et par
+  numéro, servent la lecture de la garde (un `or` ne s'indexe que si ses deux bras le sont).
+- **Relecture indépendante** : aucun rouge, sept jaunes. Suivis : la 0275 poussée et appliquée SEULE avant son code (la
+  garde nomme `commission_pct` à chaque envoi), l'index par numéro ajouté, trois phrases de doc corrigées. Les autres
+  attendent le lot suivant, écrits au plan (les conditions d'un jour mixte, une fausse alerte « Meta vide » sur une
+  provision figée puis livrée, une ligne par compte tenue en base, deux tests qui resteraient verts).
+- **Vérifié** : chaque correction dans les deux sens sur les tests unitaires (dix mutations, dix échecs) ; l'écran de
+  `/ops` par Playwright sur le build de production (sept scénarios), le neuf vu échouer sans l'affichage qu'il garde ; le
+  comportement en base (gel, écriture refusée, conditions du jour) par la suite d'intégration de la CI seulement, le poste
+  n'ayant pas de Postgres jetable.
+
 ## 2026-11-03 : la régularisation du Crédit WhatsApp sur les volumes de Meta (lot E, migration 0274)
 
 Lancé par Julien le même jour (« Yes, lot E ») : le seul filet de ce que la garde et l'accusé ne voient pas, sans lequel

@@ -34,6 +34,11 @@ export interface OpsCreditWhatsappDeps {
     /** Les numéros de l'espace, proposés dans la fenêtre de l'offre (plus d'identifiant Meta à taper). */
     numerosDeLEspace(tenantId: string): Promise<NumeroDeLEspace[]>;
     lignesDeLEspace(tenantId: string): Promise<LigneCredit[]>;
+    /**
+     * La ligne qui couvre le numéro, telle que la garde la lit (la sienne ou celle de son compte, de cet espace ou d'un
+     * autre, arrêtée comprise) : l'écran et la pose disent ce que la garde fera de ses envois.
+     */
+    ligneDuNumero(phoneNumberId: string): Promise<LigneCredit | null>;
     poser(tenantId: string, phoneNumberId: string, wabaId: string | null, origine: 'ops', note: string): Promise<boolean>;
     retirer(tenantId: string, phoneNumberId: string): Promise<boolean>;
   };
@@ -58,12 +63,16 @@ function refusDePose(n: NumeroPourLaLigne): RefusDePose {
 }
 
 /**
- * Comment la ligne couvre un numéro : la sienne (`ligne`), celle d'un autre numéro du même compte WhatsApp (`compte`,
- * Meta attache la ligne au compte), ou aucune. La même règle que la garde (`PgLignesCreditStore.lireLigne`).
+ * Comment la ligne couvre un numéro, lue comme la garde la lit (`ligneDuNumero`) : la sienne (`ligne`), celle d'un autre
+ * numéro du même compte WhatsApp (`compte`, Meta attache la ligne au compte), celle d'un AUTRE espace sur ce compte
+ * (`autre_espace` : la garde refuse alors ses envois, relecture du lot D), ou aucune.
  */
-function couverture(n: NumeroDeLEspace, lignes: readonly LigneCredit[]): 'ligne' | 'compte' | null {
-  if (lignes.some((l) => l.phoneNumberId === n.phoneNumberId)) return 'ligne';
-  return n.wabaId !== null && lignes.some((l) => l.wabaId === n.wabaId) ? 'compte' : null;
+export type Couverture = 'ligne' | 'compte' | 'autre_espace' | null;
+
+function couverture(tenantId: string, n: NumeroDeLEspace, l: LigneCredit | null): Couverture {
+  if (l === null) return null;
+  if (l.tenantId !== tenantId) return 'autre_espace';
+  return l.phoneNumberId === n.phoneNumberId ? 'ligne' : 'compte';
 }
 
 const CORPS_GRILLE = z.object({
@@ -102,12 +111,18 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
       deps.lignes.lignesDeLEspace(tenantId), deps.lignes.numerosDeLEspace(tenantId), deps.credit.solde(tenantId),
       deps.credit.consommationDuMois(tenantId), deps.credit.dernieresProvisions(tenantId, 50),
     ]);
+    const couvrantes = await Promise.all(numeros.map((n) => deps.lignes.ligneDuNumero(n.phoneNumberId)));
     return {
       tenantId,
       lignes,
-      numeros: numeros.map((n) => ({
-        phoneNumberId: n.phoneNumberId, numero: n.numero, nom: n.nom, couverture: couverture(n, lignes), refus: refusDePose(n),
-      })),
+      numeros: numeros.map((n, i) => {
+        const l = couvrantes[i] ?? null;
+        // `arretee` : la ligne qui le couvre a ses envois arrêtés, la garde les refuse (« couvert » le cachait).
+        return {
+          phoneNumberId: n.phoneNumberId, numero: n.numero, nom: n.nom, couverture: couverture(tenantId, n, l),
+          arretee: l !== null && l.arreteeLe !== null, refus: refusDePose(n),
+        };
+      }),
       soldeMicroEur,
       consommationDuMoisMicroEur,
       provisions,
@@ -178,8 +193,9 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
    * Poser un numéro de l'espace sur la ligne, ou l'en retirer. 🔴 Le numéro à poser est lu DANS l'espace
    * (`numeroDeLEspace`) : celui d'un autre espace rend 404, comme un inconnu. Ne passent pas sur la ligne : un numéro
    * 360dialog (facturé chez 360dialog, la garde ne le voit pas), un numéro en coexistence (l'application WhatsApp Business
-   * envoie sans nous, donc sans provision), un numéro délié (il n'envoie plus rien), et aucun numéro tant qu'aucune grille
-   * de Meta n'est en vigueur (la garde refuserait tous ses envois). Retirer ne lit que la ligne en cours de l'espace : un
+   * envoie sans nous, donc sans provision), un numéro délié (il n'envoie plus rien), un numéro dont le compte WhatsApp est
+   * déjà couvert (une ligne par compte, de cet espace ou d'un autre), et aucun numéro tant qu'aucune grille de Meta n'est
+   * en vigueur (la garde refuserait tous ses envois). Retirer ne lit que la ligne en cours de l'espace : un
    * numéro déconnecté depuis, ou relié à un autre espace, se retire encore.
    */
   app.post('/ops/credit-whatsapp/ligne/:tenantId', opts, async (req, reply) => {
@@ -199,6 +215,15 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
       if (numero.delie) return reply.code(409).send({ error: 'numéro délié : il n’envoie plus rien, rien à mettre sur la ligne' });
       if ((await deps.reglages.grilleEnVigueur()) === null) {
         return reply.code(409).send({ error: 'aucune grille de Meta en vigueur : chargez-la avant de poser un numéro sur la ligne' });
+      }
+      // 🔴 Une ligne par compte WhatsApp (Meta attache la ligne au compte) : un numéro que la ligne d'un autre espace
+      // couvre, ou qu'un autre numéro de son compte couvre déjà, ne pose pas une seconde ligne (relecture du lot D).
+      const couvrante = await deps.lignes.ligneDuNumero(phoneNumberId);
+      if (couvrante !== null && couvrante.tenantId !== tenantId) {
+        return reply.code(409).send({ error: 'le compte WhatsApp de ce numéro est sur la ligne d’un autre espace : retirez-la d’abord' });
+      }
+      if (couvrante !== null && couvrante.phoneNumberId !== phoneNumberId) {
+        return reply.code(409).send({ error: 'déjà couvert : un autre numéro de son compte WhatsApp est sur la ligne, qui couvre tout le compte' });
       }
       if (!(await deps.lignes.poser(tenantId, phoneNumberId, numero.wabaId, 'ops', noteSignee(par, note)))) {
         return reply.code(409).send({ error: 'numéro déjà sur la ligne' });

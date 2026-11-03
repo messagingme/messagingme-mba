@@ -53,6 +53,7 @@ function app(
       numeroDeLEspace: async () => null,
       numerosDeLEspace: async () => [],
       lignesDeLEspace: async () => [],
+      ligneDuNumero: async () => null,
       poser: async () => true,
       retirer: async () => true,
       ...lignes,
@@ -277,6 +278,8 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     ];
     const a = app({}, true, {
       numeroDeLEspace: async () => { lu = true; return NUMERO; }, lignesDeLEspace: async () => [LIGNE], numerosDeLEspace: async () => numeros,
+      // La garde : le numéro de la ligne et l'autre numéro du même compte sont couverts par elle, les deux autres non.
+      ligneDuNumero: async (pn) => (pn === PN || pn === '106540352242999' ? LIGNE : null),
     }, [], {
       solde: async () => 973_960,
       consommationDuMois: async () => 52_080,
@@ -290,10 +293,10 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
       tenantId: T1,
       lignes: [LIGNE],
       numeros: [
-        { phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: 'Messaging Me Tech', couverture: 'ligne', refus: null },
-        { phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: 'Messaging Me Tech', couverture: 'compte', refus: null },
-        { phoneNumberId: '106540352243000', numero: '+44 1555 479304', nom: null, couverture: null, refus: 'coexistence' },
-        { phoneNumberId: '106540352243001', numero: null, nom: null, couverture: null, refus: '360dialog' },
+        { phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: 'Messaging Me Tech', couverture: 'ligne', arretee: false, refus: null },
+        { phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: 'Messaging Me Tech', couverture: 'compte', arretee: false, refus: null },
+        { phoneNumberId: '106540352243000', numero: '+44 1555 479304', nom: null, couverture: null, arretee: false, refus: 'coexistence' },
+        { phoneNumberId: '106540352243001', numero: null, nom: null, couverture: null, arretee: false, refus: '360dialog' },
       ],
       soldeMicroEur: 973_960,
       consommationDuMoisMicroEur: 52_080,
@@ -301,6 +304,40 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     });
     expect(demandes).toEqual([50]);
     await a.close();
+  });
+
+  it('🔴 la couverture se lit comme la garde : un compte sur la ligne d’un AUTRE espace, une ligne couvrante arrêtée', async () => {
+    const AUTRE = '0d9a3c1e-5b7f-4c2a-9e8d-6f1b2a3c4d5e';
+    const numeros: NumeroDeLEspace[] = [
+      { ...NUMERO, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: null },
+      { ...NUMERO, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: null },
+    ];
+    const a = app({}, true, {
+      numerosDeLEspace: async () => numeros,
+      ligneDuNumero: async (pn) => (pn === PN
+        ? { ...LIGNE, tenantId: AUTRE, phoneNumberId: '106540352200000' }
+        : { ...LIGNE, phoneNumberId: '106540352200001', arreteeLe: '2026-11-01T10:00:00.000Z' }),
+    });
+    const res = await a.inject({ method: 'GET', url: URL_LIGNE, ...withTok(OPS) });
+    expect(res.json().numeros.map((n: { couverture: string | null; arretee: boolean }) => [n.couverture, n.arretee]))
+      .toEqual([['autre_espace', false], ['compte', true]]);
+    await a.close();
+  });
+
+  it('🔴 une ligne par compte : un numéro que la ligne d’un autre numéro de son compte, ou d’un autre espace, couvre déjà, 409', async () => {
+    const cas: Array<[string, LigneCredit, string]> = [
+      ['même compte', { ...LIGNE, phoneNumberId: '106540352242999' }, 'déjà couvert'],
+      ['autre espace', { ...LIGNE, tenantId: '0d9a3c1e-5b7f-4c2a-9e8d-6f1b2a3c4d5e' }, 'autre espace'],
+    ];
+    for (const [nom, couvrante, motif] of cas) {
+      let pose = false;
+      const a = app({}, true, { numeroDeLEspace: async () => NUMERO, ligneDuNumero: async () => couvrante, poser: async () => { pose = true; return true; } });
+      const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+      expect(res.statusCode, nom).toBe(409);
+      expect(res.json().error, nom).toContain(motif);
+      expect(pose, nom).toBe(false);
+      await a.close();
+    }
   });
 });
 

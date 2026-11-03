@@ -185,7 +185,25 @@ export interface RegularisationAEcrire {
   jour: string;
   calcul: CalculRegularisation;
   illimite: boolean;
+  /** Les demi-heures comparées (la réunion des demi-heures couvertes du jour) : leurs provisions y sont figées. */
+  tranches: number[];
+  /** Le début de la lecture de nos provisions par la passe (`nosDemiHeures`) : l'écriture relit les mêmes. */
+  lectureDepuisS: number;
 }
+
+/** L'offre et la commission sous lesquelles la plupart des provisions d'un jour ont été chiffrées. */
+export interface ConditionsDuJour {
+  openBar: boolean;
+  commissionPct: number;
+}
+
+/**
+ * `ecrit: false` : nos provisions du jour ont bougé entre la lecture et l'écriture (un accusé), rien n'est écrit et la
+ * passe suivante recalcule. Sinon, si l'alerte de ce jour est déjà partie, et le solde juste avant et juste après.
+ */
+export type EcritureRegularisation =
+  | { ecrit: false }
+  | { ecrit: true; alerteDejaPartie: boolean; soldeAvantMicroEur: number; soldeMicroEur: number };
 
 export interface DepsRegularisation {
   store: {
@@ -197,16 +215,21 @@ export interface DepsRegularisation {
     /** Les espaces qu'une ligne couvrait au moins un instant depuis `depuisS`. */
     espacesARegulariser(depuisS: number): Promise<EspaceARegulariser[]>;
     nosDemiHeures(tenantId: string, debutS: number, finS: number): Promise<NosDemiHeures[]>;
+    /** Les conditions de la plupart des provisions du jour, `null` si aucune ne les porte. */
+    conditionsDuJour(tenantId: string, debutS: number, finS: number): Promise<ConditionsDuJour | null>;
     /**
      * Écrit (remplace) la régularisation du jour, et pour un prépayé son mouvement et le solde, dans une transaction sous
-     * un verrou par espace et par jour. Rend si l'alerte de ce jour est déjà partie et le solde après l'écriture.
+     * un verrou par espace et par jour, après avoir figé ses provisions et relu leur somme.
      */
-    enregistrer(r: RegularisationAEcrire): Promise<{ alerteDejaPartie: boolean; soldeMicroEur: number }>;
+    enregistrer(r: RegularisationAEcrire): Promise<EcritureRegularisation>;
     marquerAlerte(tenantId: string, jour: string): Promise<void>;
   };
   /** La grille en vigueur ce jour-là : celle qui a chiffré les provisions du jour. */
   grilleAu(jour: string): Promise<GrilleMeta | null>;
+  /** Les conditions du moment : celles d'un jour dont aucune provision ne dit les siennes. */
   conditions(tenantId: string): Promise<ConditionsCredit>;
+  /** L'e-mail « crédit bas » de la garde (`creerAlertesCreditWhatsapp`) : une régularisation qui débite passe le seuil aussi. */
+  alertes: { surDebit(tenantId: string, avantMicroEur: number, apresMicroEur: number): Promise<void> };
   /** Les volumes d'un compte sur `[debutS, finS)`, par demi-heure ; `null` : illisibles chez Meta. */
   volumes(tenantId: string, wabaId: string, debutS: number, finS: number): Promise<PointVolumeMeta[] | null>;
   /** Telegram vers Julien ; jamais attendu, ne lève jamais. */
@@ -259,12 +282,15 @@ export function creerRegularisationCreditWhatsapp(d: DepsRegularisation): { pass
             continue;
           }
           const nous = await d.store.nosDemiHeures(espace.tenantId, depuisS, finS);
-          const { openBar, commissionPct } = await d.conditions(espace.tenantId);
+          const actuelles = await d.conditions(espace.tenantId);
           for (const [i, j] of jours.entries()) {
             const comptes = couverts
               .map((c) => ({ points: points.get(c.compte.wabaId) ?? [], demiHeures: c.parJour[i]! }))
               .filter((c) => c.demiHeures.size > 0);
             if (comptes.length === 0) continue;
+            // L'offre et la commission du JOUR, lues sur ses provisions : un changement d'offre ou de commission depuis ne
+            // fait pas tomber le jour du côté de la nouvelle (relecture du lot E).
+            const { openBar, commissionPct } = (await d.store.conditionsDuJour(espace.tenantId, j.debutS, j.finS)) ?? actuelles;
             const grille = await d.grilleAu(j.jour);
             if (grille === null) {
               uneFoisParJour('regularisation-sans-grille', `Crédit WhatsApp : aucune grille de Meta en vigueur le ${j.jour}, la régularisation attend.`);
@@ -282,8 +308,20 @@ export function creerRegularisationCreditWhatsapp(d: DepsRegularisation): { pass
               uneFoisParJour(`regularisation-meta-vide:${espace.tenantId}`, `Crédit WhatsApp : Meta ne rend aucun volume pour « ${espace.nom} » le ${j.jour}, alors que ${calcul.livresNous} message(s) ont été livrés : sa régularisation attend.`);
               continue;
             }
-            const { alerteDejaPartie, soldeMicroEur } = await d.store.enregistrer({ tenantId: espace.tenantId, jour: j.jour, calcul, illimite: openBar });
+            const tranches = [...new Set(comptes.flatMap((c) => [...c.demiHeures]))];
+            const ecriture = await d.store.enregistrer({
+              tenantId: espace.tenantId, jour: j.jour, calcul, illimite: openBar, tranches, lectureDepuisS: depuisS,
+            });
+            if (!ecriture.ecrit) {
+              // Un accusé est passé entre la lecture et l'écriture : la passe suivante recalcule sur l'état à jour.
+              journaliser('info', 'credit_whatsapp_regularisation_a_bouge', { tenantId: espace.tenantId, jour: j.jour });
+              continue;
+            }
+            const { alerteDejaPartie, soldeAvantMicroEur, soldeMicroEur } = ecriture;
             ecrits += 1;
+            // Une régularisation qui débite peut faire passer le seuil du crédit bas, comme un envoi : le même e-mail que
+            // la garde, une fois par crédit reçu (la même occasion), et une panne d'envoi n'arrête pas la passe.
+            if (!openBar && soldeMicroEur < soldeAvantMicroEur) await d.alertes.surDebit(espace.tenantId, soldeAvantMicroEur, soldeMicroEur).catch(() => undefined);
             if (horsMessagingMe(calcul) && !alerteDejaPartie) {
               d.alerter(
                 `regularisation-hors:${espace.tenantId}:${j.jour}`,
@@ -291,7 +329,8 @@ export function creerRegularisationCreditWhatsapp(d: DepsRegularisation): { pass
               );
               await d.store.marquerAlerte(espace.tenantId, j.jour);
             }
-            if (!openBar && soldeMicroEur < SOLDE_RETRAIT_LIGNE_MICRO_EUR) {
+            // Le retrait se juge sur l'offre du MOMENT : une Entreprise d'aujourd'hui ne dépend plus de son solde.
+            if (!actuelles.openBar && soldeMicroEur < SOLDE_RETRAIT_LIGNE_MICRO_EUR) {
               uneFoisParJour(`regularisation-retrait:${espace.tenantId}`, `Crédit WhatsApp : le solde de « ${espace.nom} » est à ${euros(soldeMicroEur)} après régularisation : faire retirer la ligne par le partenaire.`);
             }
           }

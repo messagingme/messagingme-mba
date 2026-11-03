@@ -737,7 +737,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     poolAttentesStore, httpLatencesStore, mesuresTachesStore, mesuresFilesStore, santeStore, memoireWorkersStore, seuilsStore, nodeEventStore, trackedLinkStore, webhookStore, verrousCourts, compteurDebit, phoneStatusStore, opsStore, heartbeatStore,
     workflowStore, automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog, journalAppels,
     credits, reglagesCreditWhatsapp, creditWhatsapp, lignesCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver,
-    wabaDeLEspace, numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, numeroBloqueDeLEspace, gardeCreditWhatsapp, creditWhatsappBloque, ajustementCreditWhatsapp, conditionsCreditWhatsapp, estimerCreditCampagne, esCredentialsStore, metaCredentials, metaFactory, listeDeLAgent,
+    wabaDeLEspace, numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, numeroBloqueDeLEspace, gardeCreditWhatsapp, creditWhatsappBloque, ajustementCreditWhatsapp, conditionsCreditWhatsapp, alertesCreditWhatsapp, estimerCreditCampagne, esCredentialsStore, metaCredentials, metaFactory, listeDeLAgent,
     connexionsPub, connexionPub, publicites, clientPubs, clientCreationPubs, workflowRuntime, fil, alerteCredit, offres, quotaModeles,
     emailsProduit, emetteurEmails, envoisResend, paiementRefuse, prevenirEquipe, lienConversation,
     conversionsMeta, emetteurConversions,

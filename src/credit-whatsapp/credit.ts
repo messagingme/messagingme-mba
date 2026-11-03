@@ -36,6 +36,11 @@ export interface ProvisionDemandee {
   montantMicroEur: number;
   /** Illimité (toute Entreprise) : la provision s'écrit, marquée, sans regarder ni toucher le solde. */
   openBar: boolean;
+  /**
+   * La commission qui a chiffré ce message : la régularisation du jour chiffre les volumes de Meta avec elle, pas avec
+   * celle du moment de la passe (relecture du lot E).
+   */
+  commissionPct: number;
 }
 
 /**

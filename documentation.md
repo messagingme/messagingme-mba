@@ -4205,8 +4205,9 @@ webhook commun `traitement-recharge.ts`), la reprise (`leverPausesCreditWhatsapp
 e-mails (`creerAlertesCreditWhatsapp`, `src/emails-produit/alertes.ts`) et Claude (`get_credit`, `buy_credit`,
 `get_setup_state`).
 
-**Données** (migrations 0264, 0266 et 0274) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par envoi :
-`provisionne`, `rendu` ou `ajuste`, et `illimite` pour celle d'une Entreprise), `credit_whatsapp_mouvements` (achats,
+**Données** (migrations 0264, 0266, 0274 et 0275) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par
+envoi : `provisionne`, `rendu` ou `ajuste`, `illimite` pour celle d'une Entreprise, la commission qui l'a chiffrée, et la
+demi-heure sous laquelle une régularisation l'a comptée), `credit_whatsapp_mouvements` (achats,
 recharges, régularisations), `lignes_credit_whatsapp` (un numéro sur la ligne, arrêté ou retiré), `grilles_meta` et
 `grille_meta_tarifs` (les tarifs publiés par Meta, en euros), `credit_whatsapp_reglages` (la commission globale),
 `credit_whatsapp_regularisations` (l'écart de chaque jour de Paris entre les volumes de Meta et nos provisions, son
@@ -4225,11 +4226,15 @@ détail, l'alerte partie), et sur `tenants` la commission des messages d'une Ent
   lit la ligne du numéro, ou à défaut celle d'un autre numéro du même compte (`PgLignesCreditStore.lireLigne`), donc un
   numéro ajouté ou remplacé dans le compte est provisionné sans geste. Une écriture sur une ligne vide tout le cache des
   lignes. Un accusé lit encore une ligne retirée depuis moins de 35 jours (`ligneDesAccuses`) : un échec ou une gratuité
-  arrivés après le retrait rendent la provision du message parti avant.
+  arrivés après le retrait rendent la provision du message parti avant. `/ops` lit la couverture d'un numéro par la même
+  lecture (`ligneDuNumero`) : la ligne d'un AUTRE espace sur son compte (la garde refuse alors ses envois) et une ligne
+  couvrante arrêtée s'y disent ; et une pose est refusée (409) quand le compte du numéro est déjà couvert, une ligne par
+  compte.
 - L'accusé corrige au mieux : un échec ou un message que Meta ne facture pas est rendu ; une catégorie reclassée, ou un
   service facturé que nous avions compté dans la franchise, est corrigé une fois au prix de la grille ; `delivered` date la
   livraison. Un ajustement manqué ne fait jamais échouer le job.
-- Le prix d'un message : la grille en vigueur, au marché du pays du destinataire (pour un destinataire sans numéro, le
+- Le prix d'un message : la grille en vigueur au jour de PARIS (`grilleEnVigueur`, le même jour que `grilleAu` de la
+  régularisation), au marché du pays du destinataire (pour un destinataire sans numéro, le
   code ISO qui préfixe son BSUID, « FR.1349… », que Meta y met pour ça ; au plus cher quand il est illisible), majoré de
   la commission, globale ou négociée par une Entreprise, par une seule formule (`prixClient`) que `/ops` affiche aussi. Les 1 000 premiers messages de service d'un numéro dans
   le mois sont à zéro.
@@ -4269,8 +4274,9 @@ détail, l'alerte partie), et sur `tenants` la commission des messages d'une Ent
   euro (`SOLDE_REPRISE_CREDIT_MICRO_EUR`, très au-dessus du prix d'un message : un reste qui ne couvre plus un message ne
   relance rien) ou d'une Entreprise (dès son passage en Entreprise dans `/ops`) repartent, en `scheduled` si leur départ était programmé, et seulement si leur numéro
   est encore relié ; un balayage horaire (`credit-whatsapp-reprise`, rôle `principal`) rattrape un avis manqué.
-- Les e-mails : `credit_whatsapp_bas` quand un débit fait passer le solde sous 10 € (occasion : le dernier achat ou la
-  dernière recharge automatique, jamais une régularisation, donc une fois par crédit acheté), `credit_whatsapp_epuise`
+- Les e-mails : `credit_whatsapp_bas` quand un débit, d'un envoi ou d'une régularisation, fait passer le solde sous 10 €
+  (occasion : le dernier achat ou la dernière recharge automatique, jamais une régularisation, donc une fois par crédit
+  acheté), `credit_whatsapp_epuise`
   sur un refus faute de solde (une fois par jour du fuseau de l'espace, tentée au plus une fois toutes les dix minutes par
   espace et par processus : la garde la lance à chaque refus). Les seuils (10 €, et l'euro de la reprise, du « presque
   épuisé » de l'onglet et de `get_setup_state`) vivent dans `web/lib/partage/credit-whatsapp.ts`. Une alerte ne lève jamais.
@@ -4283,16 +4289,22 @@ détail, l'alerte partie), et sur `tenants` la commission des messages d'une Ent
   (une provision en doute, un accusé perdu, un message jamais livré, un rejeu qui envoie deux fois, un envoi hors
   Messaging Me). Meta ne rend le COÛT que de notre propre compte, jamais d'un compte client (code 10, mesuré) : elle lit
   donc ses VOLUMES par demi-heure (numéro, pays, catégorie, type, palier) et les chiffre par `prixMessage`, à la grille
-  en vigueur CE JOUR-LÀ (`grilleAu`) et à la commission de l'espace. Elle ne recalcule que la veille et l'avant-veille de
-  Paris (le jour en cours, jamais : ses volumes arrivent en retard), sur les seules demi-heures ENTIÈRES couvertes par une
-  ligne (celle qu'entame la pose ou le retrait contient des messages payés par la carte du client), et range nos
-  provisions par leur livraison, à défaut leur création. L'écart d'un jour REMPLACE le précédent, sous un verrou par
-  espace et par jour (`verrouRegularisation`) : un prépayé reçoit le mouvement `regularisation` du jour et le solde suit ;
-  une Entreprise n'a aucun mouvement, l'écart va au mois à facturer (`consommationDuMois`, l'onglet « Crédits » de
-  `/ops`). Des volumes illisibles, une grille absente ou un message impossible à chiffrer n'écrivent rien. Un écart
-  positif au-delà de 0,50 € et de 2 % du jour (des envois que nous n'avons pas vus) prévient Julien une fois par jour, et
-  un solde prépayé sous -50 € aussi (il fait retirer la ligne). Hors de son champ : les paliers de volume tant que seule
-  la grille de base est chargée, une livraison plus de deux jours après son jour, l'e-mail au client (avant l'ouverture).
+  en vigueur CE JOUR-LÀ (`grilleAu`), avec l'offre et la commission de la plupart des provisions du jour
+  (`conditionsDuJour` ; celles du moment quand aucune ne les porte, avant la 0275) : un changement d'offre ou de
+  commission depuis ne fait pas tomber le jour du côté de la nouvelle. Elle ne recalcule que la veille et l'avant-veille
+  de Paris (le jour en cours, jamais : ses volumes arrivent en retard), sur les seules demi-heures ENTIÈRES couvertes par
+  une ligne (celle qu'entame la pose ou le retrait contient des messages payés par la carte du client), et range nos
+  provisions par leur livraison, à défaut leur création. 🔴 Une provision comptée est FIGÉE dans sa demi-heure
+  (`tranche_regularisee`) : une livraison connue plus tard ne la recompte pas dans un autre jour, et un accusé ne la rend
+  ni ne la corrige plus (l'écart de son jour porte déjà ce que Meta a facturé pour elle). L'écriture relit la somme des
+  provisions figées et n'écrit rien si un accusé l'a changée depuis la lecture de la passe : la passe suivante recalcule.
+  L'écart d'un jour REMPLACE le précédent, sous un verrou par espace et par jour (`verrouRegularisation`) : un prépayé
+  reçoit le mouvement `regularisation` du jour et le solde suit ; une Entreprise n'a aucun mouvement, l'écart va au mois
+  à facturer (`consommationDuMois`, l'onglet « Crédits » de `/ops`). Des volumes illisibles, une grille absente ou un
+  message impossible à chiffrer n'écrivent rien. Un écart positif au-delà de 0,50 € et de 2 % du jour (des envois que
+  nous n'avons pas vus) prévient Julien une fois par jour, et un solde prépayé sous -50 € aussi (il fait retirer la
+  ligne ; jugé sur l'offre du moment, pas sur celle du jour). Hors de son champ : les paliers de volume tant que seule la
+  grille de base est chargée, et l'e-mail au client (avant l'ouverture).
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés

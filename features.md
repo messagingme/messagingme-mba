@@ -3623,8 +3623,11 @@ boîte par sous-menu.
   note, la fenêtre dit ce qui grise « Enregistrer » (2026-11-03 : la note vide, le plus souvent). **Les numéros de
   l'espace sur la ligne du Crédit WhatsApp** (2026-11-03) : chacun listé avec son geste (« Poser sur la ligne »,
   « Retirer »), « couvert » quand un autre numéro de son compte WhatsApp est déjà sur la ligne, ou la raison qui
-  l'empêche (360dialog, coexistence, délié) ; plus aucun identifiant à taper. Une Entreprise y est dite illimitée, avec
-  ses messages du mois à facturer, au lieu d'un solde.
+  l'empêche (360dialog, coexistence, délié) ; plus aucun identifiant à taper. Depuis le soir du 2026-11-03, l'écran lit
+  la couverture comme les envois la lisent : « refusé » quand le compte du numéro est sur la ligne d'un autre espace,
+  « envois arrêtés » quand la ligne qui le couvre l'est, et la coexistence d'un numéro couvert reste dite en rouge ; un
+  second numéro d'un compte déjà couvert ne se pose plus (une ligne couvre tout le compte). Une Entreprise y est dite
+  illimitée, avec ses messages du mois à facturer, au lieu d'un solde.
 - ✅ **La grille de Meta, prix par prix** (onglet Réglages, 2026-11-03) : sous la grille chargée, un marché par ligne et
   une catégorie par colonne, le prix client (commission globale comprise) et dessous le tarif de Meta ; chercher un
   pays trouve aussi le marché régional qui le contient (la Belgique dans « Reste de l'Europe de l'Ouest »).

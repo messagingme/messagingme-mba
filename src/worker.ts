@@ -240,7 +240,7 @@ export async function demarrerWorker(): Promise<void> {
     heartbeatStore, workflowStore, automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog,
     journalAppels, credits, agentSources, agentRequetes, essaisStore, depotAide, metaFactory, connexionsPub, connexionPub,
     publicites, clientPubs, clientCreationPubs, workflowRuntime, clesGateway, provisionCle, accesCreditIa, fil, listeDeLAgent, alerteCredit, numeroBloqueDeLEspace, creditWhatsappBloque, ajustementCreditWhatsapp, estimerCreditCampagne, offres,
-    reglagesCreditWhatsapp, conditionsCreditWhatsapp,
+    reglagesCreditWhatsapp, conditionsCreditWhatsapp, alertesCreditWhatsapp,
     emailsProduit, emetteurEmails, envoisResend, prevenirEquipe, lienConversation, quotaModeles, comptesApplication, clientApplication,
     magasinObjets, conversionsMeta,
   } = construireSocle({ pool, queue, config });
@@ -1402,6 +1402,7 @@ export async function demarrerWorker(): Promise<void> {
     store: new PgRegularisationStore(pool),
     grilleAu: (jour) => reglagesCreditWhatsapp.grilleAu(jour),
     conditions: (tenant) => conditionsCreditWhatsapp.conditions(tenant),
+    alertes: alertesCreditWhatsapp,
     volumes: async (tenant, wabaId, debutS, finS) => {
       try {
         return await (await metaFactory.pricingClientForTenant(tenant)).volumesDemiHeure(wabaId, debutS, finS);

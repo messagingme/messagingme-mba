@@ -88,7 +88,11 @@ test.describe('Ops : la grille de Meta, prix par prix', () => {
   });
 });
 
-/** La vue de la ligne d'un espace Entreprise : un numéro sur la ligne, un couvert par le compte, un empêché, un libre. */
+/**
+ * La vue de la ligne d'un espace Entreprise : un numéro sur la ligne, un couvert par le compte, un empêché, un libre, et
+ * ce que « couvert » cachait (relecture du lot D) : une ligne couvrante arrêtée, un numéro en coexistence couvert par son
+ * compte, un compte sur la ligne d'un autre espace.
+ */
 const VUE = {
   tenantId: 't-essai',
   lignes: [{ id: 'l1', phoneNumberId: '111', origine: 'ops', depuis: '2026-11-02T10:00:00Z', arreteeLe: null }],
@@ -97,6 +101,9 @@ const VUE = {
     { phoneNumberId: '222', numero: '+33 5 25 68 02 51', nom: null, couverture: 'compte', refus: null },
     { phoneNumberId: '333', numero: '+44 1555 479304', nom: null, couverture: null, refus: 'coexistence' },
     { phoneNumberId: '444', numero: '+33 6 00 00 00 00', nom: 'Autre', couverture: null, refus: null },
+    { phoneNumberId: '555', numero: '+33 6 00 00 00 05', nom: null, couverture: 'compte', arretee: true, refus: null },
+    { phoneNumberId: '666', numero: '+33 6 00 00 00 06', nom: null, couverture: 'compte', arretee: false, refus: 'coexistence' },
+    { phoneNumberId: '777', numero: '+33 6 00 00 00 07', nom: null, couverture: 'autre_espace', arretee: false, refus: null },
   ],
   soldeMicroEur: 0,
   consommationDuMoisMicroEur: 5_208_000,
@@ -147,6 +154,16 @@ test.describe('Ops : les numéros d’un espace sur la ligne du Crédit WhatsApp
     await poser.click();
     await expect(modale.getByTestId('ligne-credit-message')).toContainText('posé sur la ligne');
     expect(poses).toEqual([{ phoneNumberId: '444', poser: true, note: 'essai du calcul' }]);
+  });
+
+  test('🔴 « couvert » ne cache plus rien : ligne arrêtée, coexistence, compte sur la ligne d’un autre espace, sans geste', async ({ page }) => {
+    const { modale } = await offre(page);
+    await expect(modale.getByTestId('ligne-credit-numero-555')).toContainText('envois arrêtés');
+    await expect(modale.getByTestId('ligne-credit-numero-666').getByTestId('ligne-credit-alerte')).toContainText('coexistence');
+    await expect(modale.getByTestId('ligne-credit-numero-777')).toContainText('ligne d’un autre espace');
+    for (const pn of ['555', '666', '777']) await expect(modale.getByTestId(`ligne-credit-numero-${pn}`).getByRole('button')).toHaveCount(0);
+    // Un numéro couvert sans rien qui l'empêche n'a pas d'alerte.
+    await expect(modale.getByTestId('ligne-credit-numero-222').getByTestId('ligne-credit-alerte')).toHaveCount(0);
   });
 
   test('🔴 une Entreprise est dite illimitée, avec son montant du mois, jamais « Solde : 0 »', async ({ page }) => {

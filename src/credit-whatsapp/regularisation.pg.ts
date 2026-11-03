@@ -1,6 +1,18 @@
 import type { Pool } from 'pg';
 import { regulariserWhatsapp, verrouRegularisation } from './credit.pg';
-import type { EspaceARegulariser, JourDeParis, NosDemiHeures, RegularisationAEcrire } from './regularisation';
+import type { ConditionsDuJour, EcritureRegularisation, EspaceARegulariser, JourDeParis, NosDemiHeures, RegularisationAEcrire } from './regularisation';
+
+/**
+ * La demi-heure (secondes Unix) d'une provision pour la régularisation : celle de sa livraison (Meta facture à la
+ * livraison), à défaut de sa création...
+ */
+const TRANCHE_BRUTE = '(floor(extract(epoch from coalesce(livre_le, cree_le)) / 1800) * 1800)::bigint';
+/**
+ * ... sauf si une régularisation l'a déjà comptée (migration 0275) : elle reste dans la demi-heure où elle l'a été, pour
+ * toujours. Une livraison connue plus tard ne la fait plus changer de jour : la veille l'avait rendue, faute de facture
+ * de Meta, et le jour de sa livraison la compterait encore face à la facture, au détriment de Messaging Me.
+ */
+const TRANCHE = `coalesce(tranche_regularisee, ${TRANCHE_BRUTE})`;
 
 /**
  * Le magasin de la régularisation sur les volumes de Meta (migration 0274, `credit_whatsapp_regularisations` ; lot E du
@@ -54,18 +66,17 @@ export class PgRegularisationStore {
   }
 
   /**
-   * Nos provisions non rendues de l'espace sur `[debutS, finS)`, par demi-heure de leur livraison (Meta facture à la
-   * livraison), à défaut de leur création. La borne sur la création (31 jours avant, la fin de vie d'un message chez Meta)
-   * garde la lecture sur l'index de l'espace.
+   * Nos provisions non rendues de l'espace sur `[debutS, finS)`, par demi-heure (`TRANCHE`). La borne sur la création
+   * (31 jours avant, la fin de vie d'un message chez Meta) garde la lecture sur l'index de l'espace ; `enregistrer` la
+   * reprend telle quelle (`lectureDepuisS`) pour relire exactement les mêmes.
    */
   async nosDemiHeures(tenantId: string, debutS: number, finS: number): Promise<NosDemiHeures[]> {
     const { rows } = await this.pool.query<{ debut: string; montant: string; messages: string; livres: string }>(
-      `select (floor(extract(epoch from coalesce(livre_le, cree_le)) / 1800) * 1800)::bigint as debut,
-              sum(montant_micro_eur) as montant, count(*) as messages, count(livre_le) as livres
+      `select ${TRANCHE} as debut, sum(montant_micro_eur) as montant, count(*) as messages, count(livre_le) as livres
          from credit_whatsapp_provisions
         where tenant_id = $1 and etat <> 'rendu'
           and cree_le >= to_timestamp($2) - interval '31 days'
-          and coalesce(livre_le, cree_le) >= to_timestamp($2) and coalesce(livre_le, cree_le) < to_timestamp($3)
+          and ${TRANCHE} >= $2 and ${TRANCHE} < $3
         group by 1`,
       [tenantId, debutS, finS],
     );
@@ -75,17 +86,61 @@ export class PgRegularisationStore {
   }
 
   /**
+   * Les conditions sous lesquelles la plupart des provisions du jour ont été chiffrées (illimitée ou non, et la
+   * commission), rendues comprises : la régularisation chiffre les volumes de Meta du jour avec elles, pas avec celles du
+   * moment où elle tourne (une Entreprise d'aujourd'hui qui prépayait hier règle hier sur son solde). `null` quand aucune
+   * provision du jour ne les porte (avant la 0275, ou aucun envoi par Messaging Me) : la passe prend celles du moment.
+   */
+  async conditionsDuJour(tenantId: string, debutS: number, finS: number): Promise<ConditionsDuJour | null> {
+    const { rows } = await this.pool.query<{ illimite: boolean; commission_pct: number }>(
+      `select illimite, commission_pct
+         from credit_whatsapp_provisions
+        where tenant_id = $1 and commission_pct is not null
+          and cree_le >= to_timestamp($2) - interval '31 days'
+          and ${TRANCHE} >= $2 and ${TRANCHE} < $3
+        group by illimite, commission_pct
+        order by count(*) desc, sum(montant_micro_eur) desc, illimite desc, commission_pct desc
+        limit 1`,
+      [tenantId, debutS, finS],
+    );
+    const r = rows[0];
+    return r === undefined ? null : { openBar: r.illimite, commissionPct: Number(r.commission_pct) };
+  }
+
+  /**
    * Écrit, ou REMPLACE, la régularisation d'un jour, dans une transaction sous le verrou de l'espace et du jour. Un
    * prépayé reçoit le mouvement `regularisation` du jour (la valeur opposée de l'écart : Meta a facturé plus, on débite),
-   * et le solde bouge de la différence avec l'ancien ; une Entreprise n'en a aucun (un mouvement d'avant, du temps où
-   * l'espace prépayait, est ramené à zéro). Rend si l'alerte de ce jour est déjà partie, et le solde après l'écriture.
+   * et le solde bouge de la différence avec l'ancien ; un jour illimité n'en a aucun (un mouvement d'avant, du temps où
+   * ce jour se comptait prépayé, est ramené à zéro).
+   *
+   * 🔴 Les provisions comptées sont FIGÉES dans leur demi-heure (`tranche_regularisee`), puis leur somme est relue :
+   * si elle n'est plus celle du calcul (un accusé a rendu, corrigé ou daté une provision entre la lecture de la passe et
+   * cette transaction), rien n'est écrit et la passe suivante recalcule. Sinon une provision rendue après la lecture
+   * serait rendue deux fois, ou une provision datée d'un autre jour comptée dans les deux.
    */
-  async enregistrer(r: RegularisationAEcrire): Promise<{ alerteDejaPartie: boolean; soldeMicroEur: number }> {
+  async enregistrer(r: RegularisationAEcrire): Promise<EcritureRegularisation> {
     const c = r.calcul;
     const client = await this.pool.connect();
     try {
       await client.query('begin');
       await verrouRegularisation(client, r.tenantId, r.jour);
+      await client.query(
+        `update credit_whatsapp_provisions set tranche_regularisee = ${TRANCHE_BRUTE}
+          where tenant_id = $1 and tranche_regularisee is null and etat <> 'rendu'
+            and cree_le >= to_timestamp($3) - interval '31 days'
+            and ${TRANCHE_BRUTE} = any($2::bigint[])`,
+        [r.tenantId, r.tranches, r.lectureDepuisS],
+      );
+      const relu = await client.query<{ nous: string }>(
+        `select coalesce(sum(montant_micro_eur), 0) as nous from credit_whatsapp_provisions
+          where tenant_id = $1 and etat <> 'rendu' and tranche_regularisee = any($2::bigint[])
+            and cree_le >= to_timestamp($3) - interval '31 days'`,
+        [r.tenantId, r.tranches, r.lectureDepuisS],
+      );
+      if (Number(relu.rows[0]?.nous ?? 0) !== Math.round(c.nousMicroEur)) {
+        await client.query('rollback');
+        return { ecrit: false };
+      }
       const { rows } = await client.query<{ alerte_le: Date | null }>(
         `insert into credit_whatsapp_regularisations
            (tenant_id, jour, meta_micro_eur, nous_micro_eur, ecart_micro_eur, illimite, detail)
@@ -99,13 +154,16 @@ export class PgRegularisationStore {
           JSON.stringify({ meta: c.detail, messagesMeta: c.messagesMeta, messagesNous: c.messagesNous, demiHeures: c.demiHeures }),
         ],
       );
-      await regulariserWhatsapp(client, r.tenantId, r.jour, r.illimite ? 0 : -Math.round(c.ecartMicroEur));
+      const bouge = await regulariserWhatsapp(client, r.tenantId, r.jour, r.illimite ? 0 : -Math.round(c.ecartMicroEur));
       const solde = await client.query<{ solde: string | null }>(
         'select solde_micro_eur as solde from credits_whatsapp where tenant_id = $1',
         [r.tenantId],
       );
       await client.query('commit');
-      return { alerteDejaPartie: rows[0]?.alerte_le != null, soldeMicroEur: Number(solde.rows[0]?.solde ?? 0) };
+      const apres = Number(solde.rows[0]?.solde ?? 0);
+      // Le solde juste avant CE mouvement : celui d'après, moins ce que la régularisation vient de bouger (lus sous le
+      // verrou de ligne que son écriture tient, un envoi simultané ne s'intercale pas entre les deux).
+      return { ecrit: true, alerteDejaPartie: rows[0]?.alerte_le != null, soldeAvantMicroEur: apres - bouge, soldeMicroEur: apres };
     } catch (err) {
       await client.query('rollback').catch(() => undefined);
       throw err;

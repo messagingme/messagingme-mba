@@ -40,6 +40,7 @@ export async function crediterWhatsapp(
   return { applique: Number(rows[0]?.applique ?? 0) > 0, soldeMicroEur: Number(rows[0]?.solde ?? 0) };
 }
 
+
 /**
  * Le verrou d'une régularisation, pris dans la transaction de l'appelant : 🔴 sans lui, deux passes simultanées liraient
  * chacune « aucun mouvement ce jour-là » et appliqueraient l'écart deux fois au solde (relecture du 2026-11-02).
@@ -51,20 +52,21 @@ export async function verrouRegularisation(client: Pick<PoolClient, 'query'>, te
 /**
  * La régularisation d'un jour (de Paris), sur le client d'une transaction qui tient `verrouRegularisation` : le mouvement
  * du jour prend la valeur ABSOLUE donnée (une passe rejouée remplace, ne cumule jamais) et le solde bouge de la
- * différence avec l'ancienne. Un jour sans mouvement et sans écart n'écrit rien.
+ * différence avec l'ancienne, qu'elle rend (zéro : le solde n'a pas bougé). Un jour sans mouvement et sans écart n'écrit
+ * rien.
  */
-export async function regulariserWhatsapp(client: Pick<PoolClient, 'query'>, tenantId: string, jour: string, deltaMicroEur: number): Promise<void> {
+export async function regulariserWhatsapp(client: Pick<PoolClient, 'query'>, tenantId: string, jour: string, deltaMicroEur: number): Promise<number> {
   const { rows } = await client.query<{ delta: string }>(
     `select delta_micro_eur as delta from credit_whatsapp_mouvements
       where tenant_id = $1 and raison = 'regularisation' and jour = $2::date`,
     [tenantId, jour],
   );
   const avant = rows[0] === undefined ? null : Number(rows[0].delta);
-  if (avant === null && deltaMicroEur === 0) return;
+  if (avant === null && deltaMicroEur === 0) return 0;
   const ecart = deltaMicroEur - (avant ?? 0);
   // Une passe qui retrouve la même valeur ne réécrit rien : son instant (`le`) garde la place du mouvement dans
   // l'historique et la courbe, au lieu de le ramener en tête à chaque heure (relecture du lot E).
-  if (avant !== null && ecart === 0) return;
+  if (avant !== null && ecart === 0) return 0;
   await client.query(
     `insert into credit_whatsapp_mouvements (tenant_id, delta_micro_eur, raison, jour) values ($1, $3, 'regularisation', $2::date)
      on conflict (tenant_id, jour) where raison = 'regularisation' do update set delta_micro_eur = excluded.delta_micro_eur, le = now()`,
@@ -77,6 +79,7 @@ export async function regulariserWhatsapp(client: Pick<PoolClient, 'query'>, ten
       [tenantId, ecart],
     );
   }
+  return ecart;
 }
 
 export class PgCreditWhatsappStore {
@@ -97,10 +100,10 @@ export class PgCreditWhatsappStore {
   async provisionner(p: ProvisionDemandee): Promise<IssueProvision> {
     if (p.openBar) {
       const { rows } = await this.pool.query<{ id: string; apres: string }>(
-        `insert into credit_whatsapp_provisions (tenant_id, phone_number_id, pays, categorie, montant_micro_eur, illimite)
-         values ($1, $2, $3, $4, $5, true)
+        `insert into credit_whatsapp_provisions (tenant_id, phone_number_id, pays, categorie, montant_micro_eur, illimite, commission_pct)
+         values ($1, $2, $3, $4, $5, true, $6)
          returning id, coalesce((select solde_micro_eur from credits_whatsapp where tenant_id = $1), 0) as apres`,
-        [p.tenantId, p.phoneNumberId, p.pays, p.categorie, p.montantMicroEur],
+        [p.tenantId, p.phoneNumberId, p.pays, p.categorie, p.montantMicroEur, p.commissionPct],
       );
       const r = rows[0];
       if (r === undefined) throw new Error('provision illimitée non écrite');
@@ -113,12 +116,12 @@ export class PgCreditWhatsappStore {
           where tenant_id = $1 and solde_micro_eur > 0 and solde_micro_eur - $2 >= 0
           returning solde_micro_eur
        ), prov as (
-         insert into credit_whatsapp_provisions (tenant_id, phone_number_id, pays, categorie, montant_micro_eur)
-         select $1, $3, $4, $5, $2 from debit
+         insert into credit_whatsapp_provisions (tenant_id, phone_number_id, pays, categorie, montant_micro_eur, commission_pct)
+         select $1, $3, $4, $5, $2, $6 from debit
          returning id
        )
        select prov.id, debit.solde_micro_eur as apres from prov, debit`,
-      [p.tenantId, p.montantMicroEur, p.phoneNumberId, p.pays, p.categorie],
+      [p.tenantId, p.montantMicroEur, p.phoneNumberId, p.pays, p.categorie, p.commissionPct],
     );
     if (rows[0]) return { ok: true, provisionId: rows[0].id, soldeApresMicroEur: Number(rows[0].apres) };
     // Relu par une instruction À PART : sous concurrence, l'instruction refusée garde l'instantané d'avant le débit qui
@@ -151,12 +154,16 @@ export class PgCreditWhatsappStore {
     );
   }
 
-  /** Rend la provision d'un message par son wamid (accusé « non facturable » ou échec). Idempotent ; illimitée, sans solde. */
+  /**
+   * Rend la provision d'un message par son wamid (accusé « non facturable » ou échec). Idempotent ; illimitée, sans solde.
+   * 🔴 Jamais une provision qu'une régularisation a comptée (`tranche_regularisee`, migration 0275) : elle compare déjà
+   * son montant à ce que Meta a facturé, et la rendre encore l'offrirait au client une seconde fois (relecture du lot E).
+   */
   async rendreParWamid(tenantId: string, wamid: string): Promise<void> {
     await this.pool.query(
       `with p as (
          update credit_whatsapp_provisions set etat = 'rendu'
-          where tenant_id = $1 and wamid = $2 and etat <> 'rendu'
+          where tenant_id = $1 and wamid = $2 and etat <> 'rendu' and tranche_regularisee is null
           returning tenant_id, montant_micro_eur, illimite
        )
        update credits_whatsapp c set solde_micro_eur = c.solde_micro_eur + p.montant_micro_eur, maj_le = now()
@@ -168,13 +175,14 @@ export class PgCreditWhatsappStore {
   /**
    * Corrige une provision que Meta a facturée dans une autre catégorie (un modèle « utility » reclassé en marketing) :
    * la provision prend le nouveau montant, le solde bouge de la différence. Une seule fois : seule une provision encore
-   * « provisionnée » se corrige, et un rejeu de l'accusé ne bouge plus rien. Illimitée, seul son montant change.
+   * « provisionnée » se corrige, et un rejeu de l'accusé ne bouge plus rien. Illimitée, seul son montant change. Jamais
+   * une provision qu'une régularisation a comptée : l'écart de son jour porte déjà ce que Meta a facturé pour elle.
    */
   async corrigerParWamid(tenantId: string, wamid: string, categorie: CategorieMeta, montantMicroEur: number): Promise<void> {
     await this.pool.query(
       `with ancienne as (
          select id, montant_micro_eur from credit_whatsapp_provisions
-          where tenant_id = $1 and wamid = $2 and etat = 'provisionne' for update
+          where tenant_id = $1 and wamid = $2 and etat = 'provisionne' and tranche_regularisee is null for update
        ), p as (
          update credit_whatsapp_provisions q set categorie = $3, montant_micro_eur = $4, etat = 'ajuste'
            from ancienne a where q.id = a.id
@@ -217,9 +225,8 @@ export class PgCreditWhatsappStore {
    * différence avec la valeur précédente du jour, sous `verrouRegularisation` (deux écritures simultanées du même jour ne
    * débitent qu'une fois). `deltaMicroEur` est l'effet sur le solde (négatif = débit). La passe du lot E l'écrit dans sa
    * propre transaction (`PgRegularisationStore.enregistrer`, par `regulariserWhatsapp`). 🔴 Jamais pour un écart
-   * illimité (décision du 2026-11-02) : le solde ne l'a pas payé, il va au montant à facturer. ⚠️ La passe lit l'offre de
-   * l'espace au moment où elle tourne, pas celle des provisions du jour : un jour recalculé après un changement d'offre
-   * tombe du côté de la nouvelle (jaune de la relecture du lot E, au plan).
+   * illimité (décision du 2026-11-02) : le solde ne l'a pas payé, il va au montant à facturer. La passe le sait par les
+   * provisions du jour (`PgRegularisationStore.conditionsDuJour`), pas par l'offre du moment où elle tourne.
    */
   async regulariser(tenantId: string, jour: string, deltaMicroEur: number): Promise<void> {
     const client = await this.pool.connect();

@@ -197,15 +197,18 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
 - Le lot D du plan `2026-11-03-credit-whatsapp-fiabilite.md` (quatre rouges du calcul fermés, la grille de Meta prix par
   prix et les numéros d'un espace dans `/ops`) est en production le 2026-11-03 (l'API `0ad1d4c9`, la console
   `05cbbac3`) ; son essai réel 211 est fait, sauf le coût de Meta de la demi-heure à relire et un clic de Julien dans
-  `/ops`. Ses jaunes du serveur sont au plan, pour le lot E.
+  `/ops`. Ses jaunes du serveur sont fermés avec ceux du lot E (migration 0275), sauf `arreter` et `retirer` qui visent
+  le numéro et non la ligne qui le couvre, repris avec l'option du lot 4.
 - Lot 3 (lot E du plan `2026-11-03-credit-whatsapp-fiabilite.md`) : la régularisation sur les VOLUMES de Meta, EN
   PRODUCTION le 2026-11-03 (`b13a3425`, migration 0274, tâche horaire du worker), son essai réel 212 en cours (à relire le
-  2026-11-04). 🔴 Avant qu'un prépayé passe sur la ligne, fermer ses trois jaunes du plan (une provision qui change de jour
-  après le gel du sien, l'offre et la commission lues au moment de la passe, l'e-mail « crédit bas » après une
-  régularisation). Elle ferme les rouges restants de la relecture du 2026-11-02 (provision en doute, wamid jamais
+  2026-11-04). Ses trois jaunes d'avant un prépayé (le gel d'une provision comptée, l'offre et la commission du jour,
+  l'e-mail « crédit bas » après une régularisation) sont fermés le même soir (migration 0275). 🟡 Restent : la
+  consommation WhatsApp de `/ops` et la courbe d'une Entreprise ignorent l'écart (« à facturer » l'inclut ; facturer un
+  mois après le 2 à 2 h), et `nosDemiHeures` relit 33 jours de provisions par espace et par heure. Elle ferme les rouges
+  restants de la relecture du 2026-11-02 (provision en doute, wamid jamais
   rattaché, ajustement perdu, message jamais livré, rejeu sur délai). Restent hors d'elle, écrits au plan : les paliers de
   volume (seul le palier 0 est chargé), l'e-mail au client sur des envois hors Messaging Me (avant l'ouverture), les
-  réponses de l'agent de Meta, une livraison plus de deux jours après son jour. Son essai réel : la SANDBOX sur la ligne
+  réponses de l'agent de Meta. Son essai réel : la SANDBOX sur la ligne
   une demi-journée, la régularisation du lendemain relue en base. Lot 4 : l'option à 30 € par numéro et la recharge
   automatique.
 - 🟡 Le compte WhatsApp de Spareka ne se lit plus chez Meta (code 100 sur `pricing_analytics`, avec son jeton comme avec le

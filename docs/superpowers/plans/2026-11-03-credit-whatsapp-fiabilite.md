@@ -117,6 +117,46 @@ dès le démarrage. **Restent, AVANT qu'un prépayé passe sur la ligne** (relus
 6. L'ordre de déploiement : la table est lue par l'onglet, `get_credit` et la vue « Crédits » ; un déploiement de la tête
    de `main` en `migration=aucune` avant elle les ferait tomber en 42P01. Annoncé aux sessions voisines.
 
+## Les jaunes des lots D et E (2026-11-03 au soir, migration 0275)
+
+Demandé par Julien (« ferme les jaunes et avance sur le lot 4 »). Fermés :
+- **E1, le gel** : une provision comptée garde sa demi-heure (`tranche_regularisee`) et ne se rend ni ne se corrige plus
+  à l'accusé ; l'écriture relit la somme qu'elle vient de figer et n'écrit rien si un accusé l'a changée entre la lecture
+  et elle (la passe suivante recalcule).
+- **E2, les conditions du jour** : `commission_pct` sur chaque provision ; offre et commission du jour lues sur ses
+  provisions (`conditionsDuJour`), celles du moment à défaut ; la garde choisit sa grille au jour de Paris.
+- **E3, l'e-mail du crédit bas** après une régularisation qui débite (`alertes.surDebit`, la même occasion).
+- **D1 et D8, `/ops`** : la couverture lue comme la garde (`ligneDuNumero`), « autre espace », une ligne couvrante
+  arrêtée, la coexistence d'un numéro couvert dite en rouge. **D3** : deux index sur `lignes_credit_whatsapp`, `(waba_id)` et `(phone_number_id)` (un `or` ne s'indexe que si ses deux bras le sont).
+  **D4** : un second numéro d'un compte couvert refusé (409).
+- **D2, D6 et D7** n'ont plus de correction propre : une provision qu'un accusé ne retrouve pas, un pays de BSUID faux ou
+  un 134102 au rejeu restent comptés à leur montant, et l'écart de leur jour les règle sur ce que Meta a facturé.
+
+Restent : **D5** (`arreter` et `retirer` visent le numéro, pas la ligne qui le couvre) avec l'option du lot 4 ; **E4**
+(la consommation de `/ops` et la courbe d'une Entreprise ignorent l'écart, « à facturer » l'inclut ; facturer un mois
+après le 2 à 2 h) et **E5** (33 jours de provisions relus par espace et par heure, négligeable) au backlog.
+
+**Relecture indépendante (2026-11-03) : aucun rouge, sept jaunes.** Suivis avant la poussée : la 0275 poussée et
+appliquée SEULE avant son code (la garde nomme `commission_pct` à chaque envoi, un déploiement de la tête de `main` en
+`migration=aucune` casserait sinon tous les envois de la ligne), l'index par numéro ajouté (un `or` ne s'indexe que si
+ses deux bras le sont), trois phrases de doc. **Restent, relus avec le lot suivant** :
+1. Un jour MIXTE (une offre ou une commission changée dans la journée) se règle tout entier sur la majorité : ventiler
+   l'écart par demi-heure (`nosDemiHeures` peut rendre les conditions), et que l'ajustement chiffre avec la commission
+   de la provision plutôt qu'avec celle du moment.
+2. Une provision figée puis livrée plus tard compte dans les `livres` de son jour : fausse alerte « Meta ne rend aucun
+   volume » et jour plus réécrit (le montant écrit reste juste). Ne compter que la livraison tombée dans sa demi-heure.
+3. « Une ligne par compte » n'est tenue que par la route, à travers le cache de 5 s de chaque copie : un index unique
+   partiel sur le compte des lignes en cours, avec son conflit dans `poser`, avant l'option du lot 4.
+4. Deux tests resteraient verts : le jour de Paris de `grilleEnVigueur`, et un gel qui figerait d'autres demi-heures que
+   celles du jour (une provision hors tranche, une d'aujourd'hui, qui doivent rester rendables).
+5. Perf : chaque espace relit environ 33 jours de provisions sept fois par heure ; borner aussi par `cree_le < fin`.
+
+**Méthode** : en direct, sur les fichiers des lots D et E, avec une relecture indépendante en fin de lot ; la production
+emprunte la garde et l'accusé à chaque envoi. **Déploiement** : `migration=avant` (le code neuf écrit les deux colonnes ;
+l'ancien code y survit, elles sont nullables). **Essai réel** : la régularisation du 2026-11-03 de la SANDBOX (essai
+212), relue en base le 2026-11-04 après 2 h : sa ligne illimitée, Meta égal à nous, et les deux provisions de l'essai
+figées dans leur demi-heure.
+
 ## Méthode de livraison
 
 **Implémenteur par lot + revue humaine du diff**, parce que la production emprunte ces chemins à chaque envoi et à

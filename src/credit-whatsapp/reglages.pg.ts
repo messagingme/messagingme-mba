@@ -39,12 +39,16 @@ export class PgCreditWhatsappReglagesStore {
 
   constructor(private readonly pool: Pool, private readonly maintenant: () => Date = () => new Date()) {}
 
+  /**
+   * La grille d'aujourd'hui, au jour de PARIS comme `grilleAu` : au jour de la base (UTC), la première heure d'un
+   * trimestre se chiffrait d'une grille à l'envoi et de l'autre à la régularisation du même jour (relecture du lot E).
+   */
   async grilleEnVigueur(): Promise<GrilleMeta | null> {
     const t = this.maintenant().getTime();
     if (this.grille !== null && t - this.grille.lue < CACHE_MS) return this.grille.valeur;
     const { rows } = await this.pool.query<{ id: string; en_vigueur_le: string }>(
       `select id, en_vigueur_le::text as en_vigueur_le from grilles_meta
-        where en_vigueur_le <= current_date order by en_vigueur_le desc, chargee_le desc limit 1`,
+        where en_vigueur_le <= (now() at time zone 'Europe/Paris')::date order by en_vigueur_le desc, chargee_le desc limit 1`,
     );
     const g = rows[0];
     const valeur = g === undefined ? null : await this.lireTarifs(g.id, g.en_vigueur_le);
@@ -114,9 +118,9 @@ export class PgCreditWhatsappReglagesStore {
     }>(
       `select g.id, g.en_vigueur_le::text as en_vigueur_le, g.chargee_le, g.chargee_par, g.note,
               (select count(*) from grille_meta_tarifs t where t.grille_id = g.id) as tarifs,
-              (select min(p.en_vigueur_le)::text from grilles_meta p where p.en_vigueur_le > current_date) as prochaine
+              (select min(p.en_vigueur_le)::text from grilles_meta p where p.en_vigueur_le > (now() at time zone 'Europe/Paris')::date) as prochaine
          from grilles_meta g
-        where g.en_vigueur_le <= current_date
+        where g.en_vigueur_le <= (now() at time zone 'Europe/Paris')::date
         order by g.en_vigueur_le desc, g.chargee_le desc limit 1`,
     );
     const g = rows[0];
