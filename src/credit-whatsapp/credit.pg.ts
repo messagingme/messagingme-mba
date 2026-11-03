@@ -40,6 +40,45 @@ export async function crediterWhatsapp(
   return { applique: Number(rows[0]?.applique ?? 0) > 0, soldeMicroEur: Number(rows[0]?.solde ?? 0) };
 }
 
+/**
+ * Le verrou d'une régularisation, pris dans la transaction de l'appelant : 🔴 sans lui, deux passes simultanées liraient
+ * chacune « aucun mouvement ce jour-là » et appliqueraient l'écart deux fois au solde (relecture du 2026-11-02).
+ */
+export async function verrouRegularisation(client: Pick<PoolClient, 'query'>, tenantId: string, jour: string): Promise<void> {
+  await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`credit-whatsapp-regularisation:${tenantId}:${jour}`]);
+}
+
+/**
+ * La régularisation d'un jour (de Paris), sur le client d'une transaction qui tient `verrouRegularisation` : le mouvement
+ * du jour prend la valeur ABSOLUE donnée (une passe rejouée remplace, ne cumule jamais) et le solde bouge de la
+ * différence avec l'ancienne. Un jour sans mouvement et sans écart n'écrit rien.
+ */
+export async function regulariserWhatsapp(client: Pick<PoolClient, 'query'>, tenantId: string, jour: string, deltaMicroEur: number): Promise<void> {
+  const { rows } = await client.query<{ delta: string }>(
+    `select delta_micro_eur as delta from credit_whatsapp_mouvements
+      where tenant_id = $1 and raison = 'regularisation' and jour = $2::date`,
+    [tenantId, jour],
+  );
+  const avant = rows[0] === undefined ? null : Number(rows[0].delta);
+  if (avant === null && deltaMicroEur === 0) return;
+  const ecart = deltaMicroEur - (avant ?? 0);
+  // Une passe qui retrouve la même valeur ne réécrit rien : son instant (`le`) garde la place du mouvement dans
+  // l'historique et la courbe, au lieu de le ramener en tête à chaque heure (relecture du lot E).
+  if (avant !== null && ecart === 0) return;
+  await client.query(
+    `insert into credit_whatsapp_mouvements (tenant_id, delta_micro_eur, raison, jour) values ($1, $3, 'regularisation', $2::date)
+     on conflict (tenant_id, jour) where raison = 'regularisation' do update set delta_micro_eur = excluded.delta_micro_eur, le = now()`,
+    [tenantId, jour, deltaMicroEur],
+  );
+  if (ecart !== 0) {
+    await client.query(
+      `insert into credits_whatsapp (tenant_id, solde_micro_eur) values ($1, $2)
+       on conflict (tenant_id) do update set solde_micro_eur = credits_whatsapp.solde_micro_eur + excluded.solde_micro_eur, maj_le = now()`,
+      [tenantId, ecart],
+    );
+  }
+}
+
 export class PgCreditWhatsappStore {
   constructor(private readonly pool: Pool) {}
 
@@ -174,35 +213,20 @@ export class PgCreditWhatsappStore {
   }
 
   /**
-   * La régularisation d'un jour (UTC) : SA ligne est remplacée, et le solde bouge de la seule différence avec la valeur
-   * précédente du jour. `deltaMicroEur` est l'effet sur le solde (négatif = débit). Un seul régularisateur à la fois
-   * (la passe horaire du lot 3 tient un verrou) : deux passes simultanées du même jour liraient la même ancienne valeur.
-   * 🔴 Jamais pour une provision illimitée (`illimite`, décision du 2026-11-02) : le solde ne l'a pas payée, son écart va
-   * au montant à facturer. La règle se lit sur CHAQUE provision, jamais sur l'offre de l'espace au moment de la passe : un
-   * espace sorti de l'Entreprise en cours de mois garde illimitées les provisions prises avant (relecture du lot A).
+   * La régularisation d'un jour (de Paris, comme l'historique) : SA ligne est remplacée, et le solde bouge de la seule
+   * différence avec la valeur précédente du jour, sous `verrouRegularisation` (deux écritures simultanées du même jour ne
+   * débitent qu'une fois). `deltaMicroEur` est l'effet sur le solde (négatif = débit). La passe du lot E l'écrit dans sa
+   * propre transaction (`PgRegularisationStore.enregistrer`, par `regulariserWhatsapp`). 🔴 Jamais pour un écart
+   * illimité (décision du 2026-11-02) : le solde ne l'a pas payé, il va au montant à facturer. ⚠️ La passe lit l'offre de
+   * l'espace au moment où elle tourne, pas celle des provisions du jour : un jour recalculé après un changement d'offre
+   * tombe du côté de la nouvelle (jaune de la relecture du lot E, au plan).
    */
   async regulariser(tenantId: string, jour: string, deltaMicroEur: number): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query('begin');
-      const { rows } = await client.query<{ delta: string }>(
-        `select delta_micro_eur as delta from credit_whatsapp_mouvements
-          where tenant_id = $1 and raison = 'regularisation' and jour = $2::date for update`,
-        [tenantId, jour],
-      );
-      const ecart = deltaMicroEur - Number(rows[0]?.delta ?? 0);
-      await client.query(
-        `insert into credit_whatsapp_mouvements (tenant_id, delta_micro_eur, raison, jour) values ($1, $3, 'regularisation', $2::date)
-         on conflict (tenant_id, jour) where raison = 'regularisation' do update set delta_micro_eur = excluded.delta_micro_eur, le = now()`,
-        [tenantId, jour, deltaMicroEur],
-      );
-      if (ecart !== 0) {
-        await client.query(
-          `insert into credits_whatsapp (tenant_id, solde_micro_eur) values ($1, $2)
-           on conflict (tenant_id) do update set solde_micro_eur = credits_whatsapp.solde_micro_eur + excluded.solde_micro_eur, maj_le = now()`,
-          [tenantId, ecart],
-        );
-      }
+      await verrouRegularisation(client, tenantId, jour);
+      await regulariserWhatsapp(client, tenantId, jour, deltaMicroEur);
       await client.query('commit');
     } catch (err) {
       await client.query('rollback').catch(() => undefined);
@@ -256,10 +280,15 @@ export class PgCreditWhatsappStore {
    * ont été payées sur son solde, les compter les ferait facturer une seconde fois.
    */
   async consommationDuMois(tenantId: string): Promise<number> {
+    // Les provisions illimitées du mois de Paris, plus les régularisations illimitées de ses jours (lot E) : ce que Meta a
+    // facturé au-delà, ou en deçà, de nos provisions s'ajoute au mois à facturer.
     const { rows } = await this.pool.query<{ total: string }>(
-      `select coalesce(sum(montant_micro_eur), 0) as total from credit_whatsapp_provisions
-        where tenant_id = $1 and illimite and etat <> 'rendu'
-          and cree_le >= (date_trunc('month', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris')`,
+      `select coalesce((select sum(montant_micro_eur) from credit_whatsapp_provisions
+                         where tenant_id = $1 and illimite and etat <> 'rendu'
+                           and cree_le >= (date_trunc('month', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris')), 0)
+            + coalesce((select sum(ecart_micro_eur) from credit_whatsapp_regularisations
+                         where tenant_id = $1 and illimite
+                           and jour >= date_trunc('month', now() at time zone 'Europe/Paris')::date), 0) as total`,
       [tenantId],
     );
     return Number(rows[0]?.total ?? 0);

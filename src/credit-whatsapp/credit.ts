@@ -53,7 +53,7 @@ export interface LigneHistoriqueWa {
   id: string;
   raison: 'envois' | RaisonMouvementWa | string;
   deltaMicroEur: number;
-  /** 'AAAA-MM-JJ' (Paris pour les envois, UTC pour une régularisation), `null` pour un achat. */
+  /** 'AAAA-MM-JJ', le jour de Paris (des envois comme d'une régularisation), `null` pour un achat. */
   jour: string | null;
   at: string;
   /** Les messages du jour (envois seulement). */

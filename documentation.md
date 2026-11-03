@@ -4202,11 +4202,13 @@ webhook commun `traitement-recharge.ts`), la reprise (`leverPausesCreditWhatsapp
 e-mails (`creerAlertesCreditWhatsapp`, `src/emails-produit/alertes.ts`) et Claude (`get_credit`, `buy_credit`,
 `get_setup_state`).
 
-**Données** (migrations 0264 et 0266) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par envoi :
+**Données** (migrations 0264, 0266 et 0274) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par envoi :
 `provisionne`, `rendu` ou `ajuste`, et `illimite` pour celle d'une Entreprise), `credit_whatsapp_mouvements` (achats,
 recharges, régularisations), `lignes_credit_whatsapp` (un numéro sur la ligne, arrêté ou retiré), `grilles_meta` et
-`grille_meta_tarifs` (les tarifs publiés par Meta, en euros), `credit_whatsapp_reglages` (la commission globale), et sur
-`tenants` la commission des messages d'une Entreprise. `tenants.entreprise_open_bar_whatsapp` n'est plus ni lue ni écrite.
+`grille_meta_tarifs` (les tarifs publiés par Meta, en euros), `credit_whatsapp_reglages` (la commission globale),
+`credit_whatsapp_regularisations` (l'écart de chaque jour de Paris entre les volumes de Meta et nos provisions, son
+détail, l'alerte partie), et sur `tenants` la commission des messages d'une Entreprise.
+`tenants.entreprise_open_bar_whatsapp` n'est plus ni lue ni écrite.
 
 **Invariants.**
 - 🔴 La garde vit dans la fabrique d'envoi, et tout client Meta se construit là (`tests/credit-whatsapp-inventaire.test.ts`) :
@@ -4273,6 +4275,21 @@ recharges, régularisations), `lignes_credit_whatsapp` (un numéro sur la ligne,
   catégorie chez Meta est gardé 30 s, pas plus.
 - Un compte qui ne reçoit AUCUN `COST` de `pricing_analytics` (un compte payé par la ligne d'un partenaire) a un résumé de
   coût inconnu, jamais « 0 € » ; un compte qui en reçoit garde la lecture point par point.
+- 🔴 **La régularisation sur les volumes de Meta** (`src/credit-whatsapp/regularisation.ts`, tâche horaire
+  `credit-whatsapp-regularisation` du rôle `principal`) est le seul filet de ce que la garde et l'accusé ne voient pas
+  (une provision en doute, un accusé perdu, un message jamais livré, un rejeu qui envoie deux fois, un envoi hors
+  Messaging Me). Meta ne rend le COÛT que de notre propre compte, jamais d'un compte client (code 10, mesuré) : elle lit
+  donc ses VOLUMES par demi-heure (numéro, pays, catégorie, type, palier) et les chiffre par `prixMessage`, à la grille
+  en vigueur CE JOUR-LÀ (`grilleAu`) et à la commission de l'espace. Elle ne recalcule que la veille et l'avant-veille de
+  Paris (le jour en cours, jamais : ses volumes arrivent en retard), sur les seules demi-heures ENTIÈRES couvertes par une
+  ligne (celle qu'entame la pose ou le retrait contient des messages payés par la carte du client), et range nos
+  provisions par leur livraison, à défaut leur création. L'écart d'un jour REMPLACE le précédent, sous un verrou par
+  espace et par jour (`verrouRegularisation`) : un prépayé reçoit le mouvement `regularisation` du jour et le solde suit ;
+  une Entreprise n'a aucun mouvement, l'écart va au mois à facturer (`consommationDuMois`, l'onglet « Crédits » de
+  `/ops`). Des volumes illisibles, une grille absente ou un message impossible à chiffrer n'écrivent rien. Un écart
+  positif au-delà de 0,50 € et de 2 % du jour (des envois que nous n'avons pas vus) prévient Julien une fois par jour, et
+  un solde prépayé sous -50 € aussi (il fait retirer la ligne). Hors de son champ : les paliers de volume tant que seule
+  la grille de base est chargée, une livraison plus de deux jours après son jour, l'e-mail au client (avant l'ouverture).
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés

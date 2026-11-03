@@ -75,6 +75,8 @@ import { runTurn, type RunTurnDeps } from './agent/run-turn';
 import { balayerVectorisation, balayerVectorisationPayee } from './agent/recherche';
 import { balayerPlafondsIa } from './agent/plafond-ia';
 import { remonterPlafondCle } from './agent/provisionner-cle';
+import { creerRegularisationCreditWhatsapp } from './credit-whatsapp/regularisation';
+import { PgRegularisationStore } from './credit-whatsapp/regularisation.pg';
 import { GatewayChatClient } from './agent/llm/chat-client';
 import { creerCerveauGateway } from './agent/brain.gateway';
 import { lireContexteAvecReglages } from './agent/contexte';
@@ -238,6 +240,7 @@ export async function demarrerWorker(): Promise<void> {
     heartbeatStore, workflowStore, automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog,
     journalAppels, credits, agentSources, agentRequetes, essaisStore, depotAide, metaFactory, connexionsPub, connexionPub,
     publicites, clientPubs, clientCreationPubs, workflowRuntime, clesGateway, provisionCle, accesCreditIa, fil, listeDeLAgent, alerteCredit, numeroBloqueDeLEspace, creditWhatsappBloque, ajustementCreditWhatsapp, estimerCreditCampagne, offres,
+    reglagesCreditWhatsapp, conditionsCreditWhatsapp,
     emailsProduit, emetteurEmails, envoisResend, prevenirEquipe, lienConversation, quotaModeles, comptesApplication, clientApplication,
     magasinObjets, conversionsMeta,
   } = construireSocle({ pool, queue, config });
@@ -1389,6 +1392,31 @@ export async function demarrerWorker(): Promise<void> {
       await numeroDelieStore.leverPausesCreditWhatsapp(tenant);
     }
   }, { enEchec: echecDeBalayage('credit-whatsapp-reprise', 'sweeper:credit-whatsapp') });
+
+  /**
+   * La régularisation du Crédit WhatsApp sur les volumes de Meta (lot E du plan `2026-11-03-credit-whatsapp-fiabilite.md`) :
+   * chaque heure, la veille et l'avant-veille de Paris de chaque espace couvert par une ligne sont recalculées et
+   * remplacées (`src/credit-whatsapp/regularisation.ts`). Un compte illisible chez Meta n'écrit rien et prévient Julien.
+   */
+  const regularisationCreditWhatsapp = creerRegularisationCreditWhatsapp({
+    store: new PgRegularisationStore(pool),
+    grilleAu: (jour) => reglagesCreditWhatsapp.grilleAu(jour),
+    conditions: (tenant) => conditionsCreditWhatsapp.conditions(tenant),
+    volumes: async (tenant, wabaId, debutS, finS) => {
+      try {
+        return await (await metaFactory.pricingClientForTenant(tenant)).volumesDemiHeure(wabaId, debutS, finS);
+      } catch {
+        // Un jeton illisible ou invalide : la passe le traite comme des volumes illisibles (rien n'est écrit).
+        return null;
+      }
+    },
+    alerter: (cle, texte) => alert(cle, texte),
+  });
+  // `immediat` : après un redémarrage (chaque déploiement), la passe n'attend pas une heure.
+  taches.programmer('credit-whatsapp-regularisation', 60 * 60_000, () => regularisationCreditWhatsapp.passe(), {
+    immediat: true,
+    enEchec: echecDeBalayage('credit-whatsapp-regularisation', 'sweeper:credit-whatsapp-regularisation'),
+  });
 
   /**
    * Le plafond de sécurité de l'IA des Entreprises (Entreprise illimitée, lot B) : chaque heure, et une fois au

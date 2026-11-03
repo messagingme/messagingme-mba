@@ -60,11 +60,62 @@ avec lui :
 ## Lot E : la régularisation sur les volumes de Meta (le suivant, lot 3 de la spec du 2026-10-30)
 
 Les autres rouges ne se ferment qu'avec elle : une provision en doute (5xx, délai, panne réseau), un wamid jamais
-rattaché, un ajustement perdu, un message jamais livré, un rejeu qui envoie deux fois, les paliers de volume. Elle lit
-les VOLUMES de `pricing_analytics` (le coût est illisible sur un compte client, mesuré) par jour, numéro, pays, catégorie
-et type, les chiffre par `prixMessage` à la commission de l'espace, compare aux provisions du même jour et écrit l'écart
-(un mouvement `regularisation` pour un prépayé, le montant à facturer pour une Entreprise). Aucun client ne passe sur la
-ligne avant elle. À cadrer avec Julien : l'heure de passage et le traitement des envois hors Messaging Me.
+rattaché, un ajustement perdu, un message jamais livré, un rejeu qui envoie deux fois. Aucun client ne passe sur la ligne
+avant elle. Lancé par Julien le 2026-11-03 (« Yes, lot E »).
+
+**Mesuré le 2026-11-03** (lecture seule, notre compte et Groupama PJ) : `pricing_analytics` en `HALF_HOUR` rend des
+demi-heures exactes en UTC, en `DAILY` des jours de PARIS (fuseau du compte) ; chaque point porte `phone_number`
+(chiffres sans « + »), `country`, `pricing_category`, `pricing_type`, `tier` (« 0:100000 », « 0:MAX ») et `volume`, plus
+`cost` sur NOTRE compte seulement. Une demi-heure se lit moins d'une heure après sa fin. Sur la demi-heure de l'essai 211,
+le coût de Meta égale nos provisions sans commission au centime (0,1456 €).
+
+**Ce que fait la régularisation** (choix de Claude dans la spec du 2026-10-30, étage 3) :
+1. Une passe par heure (rôle `principal`), qui recalcule les deux derniers jours de PARIS clos (la veille et l'avant-veille,
+   pour les livraisons tardives) de chaque espace couvert par une ligne, en cours ou retirée depuis peu, et REMPLACE leur
+   régularisation : idempotente, jamais cumulée. Un jour plus ancien n'est plus recalculé. Le jour en cours ne l'est
+   jamais : ses volumes arrivent en retard, une régularisation du jour ferait monter et descendre le solde.
+2. Le côté de Meta : les demi-heures ENTIÈRES du jour pendant lesquelles une ligne couvrait le compte (une demi-heure
+   entamée par la pose ou le retrait est écartée des deux côtés), les seules `REGULAR`, chacune chiffrée par `prixMessage`
+   à la commission de l'espace, au palier lu (`palierDeTier`), avec la grille EN VIGUEUR CE JOUR-LÀ (`grilleAu`).
+3. Notre côté : les provisions non rendues de l'espace rangées dans ces mêmes demi-heures par l'instant de leur livraison,
+   à défaut de leur création. Une provision en doute ou jamais livrée y reste, et l'écart la rend si Meta ne l'a pas
+   facturée ; un message envoyé deux fois sous une provision est débité de l'autre.
+4. L'écart du jour (Meta moins nous) s'écrit dans `credit_whatsapp_regularisations` (migration 0274, une ligne par espace
+   et par jour, le détail par numéro, pays, catégorie et type), et pour un prépayé en mouvement `regularisation` (le
+   solde suit, dans la même transaction, sous un verrou par espace et par jour). Pour une Entreprise, il s'ajoute au
+   montant à facturer (`/ops`) et aux messages du mois, sans toucher au solde.
+5. Un écart positif au-delà d'une tolérance (plus de 0,50 € et de 2 % du jour : des envois que nous n'avons pas vus, hors
+   Messaging Me) prévient Julien par Telegram, une fois par espace et par jour ; un solde prépayé sous -50 € aussi (Julien
+   fait retirer la ligne, spec).
+
+**Hors du lot, écrit** : l'e-mail au client sur des envois hors Messaging Me (avant l'ouverture, lot 5) ; les paliers de
+volume, tant que seule la grille de base est chargée (un compte au-delà d'un seuil serait chiffré au tarif de base) ; les
+réponses de l'agent de Meta (aucune n'est sur la ligne aujourd'hui) ; une livraison plus de deux jours après son jour.
+
+**Tests** : le calcul pur (`tests/credit-whatsapp-regularisation.test.ts` : demi-heures entières, gratuités, palier,
+grille du jour, tolérance), le magasin sur une vraie base (intégration : une régularisation remplacée et non cumulée, le
+solde égal aux mouvements moins les provisions après elle, deux passes simultanées sans double débit), le câblage du
+worker (rôle, câblage). **Déploiement** : `migration=avant` (la table est neuve, l'ancien code l'ignore).
+
+**Relecture indépendante du lot E (2026-11-03) : aucun rouge.** Corrigés avant la poussée, vérifiés dans les deux sens :
+les volumes d'un compte filtrés par SES demi-heures couvertes (deux comptes d'un espace se mélangeaient, 2,60 € d'écart
+mesuré au lieu de 0) ; un jour régularisé deux heures après sa fin (`MARGE_FRAICHEUR_S`) ; un point facturé de catégorie
+inconnue ou sans pays compté « non chiffré », jamais au plus cher ; une lecture vide de Meta alors que nos messages ont été
+livrés refusée ; une réponse paginée, en plusieurs séries ou d'une autre durée refusée ; les alertes de la passe une fois
+par jour ; une panne sur un espace qui n'arrête plus les suivants ; un mouvement inchangé jamais réécrit ; la passe lancée
+dès le démarrage. **Restent, AVANT qu'un prépayé passe sur la ligne** (relus avec le lot suivant) :
+1. Une provision qui change de jour après le gel du sien (livraison plus de deux jours après sa création) est comptée
+   deux fois en faveur du client, et un `failed` tardif la rend une seconde fois : figer une provision dans le jour où
+   la régularisation l'a comptée.
+2. L'offre (prépayé ou illimité) et la commission sont lues au moment de la passe, pas sur les provisions du jour : un
+   jour recalculé après un changement d'offre ou de commission tombe du côté de la nouvelle. Et la garde choisit la
+   grille sur la date UTC, `grilleAu` sur le jour de Paris (une heure d'écart au début d'un trimestre).
+3. Aucun e-mail « crédit bas » quand une régularisation fait passer le solde sous le seuil.
+4. La consommation WhatsApp de `/ops` et la courbe d'une Entreprise ignorent l'écart (« à facturer » et l'onglet
+   l'incluent) ; « à facturer » du mois précédent bouge encore jusqu'au 2 à 2 h : facturer après.
+5. `nosDemiHeures` relit 33 jours de provisions par espace et par heure (négligeable aujourd'hui).
+6. L'ordre de déploiement : la table est lue par l'onglet, `get_credit` et la vue « Crédits » ; un déploiement de la tête
+   de `main` en `migration=aucune` avant elle les ferait tomber en 42P01. Annoncé aux sessions voisines.
 
 ## Méthode de livraison
 

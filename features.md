@@ -3632,7 +3632,8 @@ boîte par sous-menu.
   d'abord. Son Crédit IA (le solde, ou « illimité » avec son plafond, « atteint » en rouge, « sans clé ») et son Crédit
   WhatsApp (le solde, « illimité », ou « pas sur la ligne »), ce que chacun a consommé le mois en cours et le précédent,
   et pour une Entreprise **le montant à facturer** (ses débits IA et ses messages WhatsApp illimités, au prix client,
-  commission comprise), qu'aucun autre écran ne donne. En tête, **la somme des plafonds IA des Entreprises qui ont une
+  commission comprise, plus l'écart de chaque jour avec ce que Meta a facturé, la régularisation du 2026-11-03), qu'aucun
+  autre écran ne donne. En tête, **la somme des plafonds IA des Entreprises qui ont une
   clé, face au budget d'équipe de Vercel** : au-delà, l'écran le dit en rouge (une seule Entreprise qui s'emballe
   couperait l'IA de tous les clients), et la veille horaire du budget envoie une alerte Telegram, une fois par mois et
   par budget. Une clé d'Entreprise que Vercel a laissée à son plafond alerte aussi.

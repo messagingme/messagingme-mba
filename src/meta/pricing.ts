@@ -49,6 +49,65 @@ export class MetaPricingClient {
       return null;
     }
   }
+
+  /**
+   * Les VOLUMES d'un compte par demi-heure (la régularisation du Crédit WhatsApp, lot E) : par numéro, pays, catégorie,
+   * type et palier. Le coût n'est pas demandé : Meta le refuse sur un compte client (code 10, mesuré le 2026-11-03).
+   * `null` sur tout échec ou toute réponse inattendue : la régularisation attend au lieu de comparer à une lecture vide.
+   */
+  async volumesDemiHeure(wabaId: string, debutS: number, finS: number): Promise<PointVolumeBrut[] | null> {
+    const field = `pricing_analytics.start(${debutS}).end(${finS}).granularity(HALF_HOUR)`
+      + '.metric_types(["VOLUME"]).dimensions(["PHONE","COUNTRY","PRICING_CATEGORY","PRICING_TYPE","TIER"])';
+    const url = `${this.baseUrl}/${this.version}/${wabaId}?fields=${encodeURIComponent(field)}`;
+    try {
+      const res = await this.fetchImpl(url, { method: 'GET', headers: { authorization: `Bearer ${this.token}` } });
+      if (!res.ok) return null;
+      return lirePointsVolume((await res.json().catch(() => null)) as unknown);
+    } catch {
+      return null;
+    }
+  }
+}
+
+/**
+ * Un point de volume par demi-heure (`MetaPricingClient.volumesDemiHeure`) : la forme mesurée le 2026-11-03 sur notre
+ * compte et sur un compte client (`start` et `end` en secondes Unix, `phone_number` en chiffres, `tier` « 0:100000 »).
+ */
+export interface PointVolumeBrut {
+  debut: number;
+  numero: string | null;
+  pays: string | null;
+  categorie: string | null;
+  type: string;
+  palier: string | null;
+  volume: number;
+}
+
+/** Les points de volume d'une réponse Graph ; `null` si sa forme n'est pas celle attendue (rien n'est deviné). */
+export function lirePointsVolume(json: unknown): PointVolumeBrut[] | null {
+  if (typeof json !== 'object' || json === null || typeof (json as { id?: unknown }).id !== 'string') return null;
+  const analytics = (json as { pricing_analytics?: { data?: Array<{ data_points?: unknown }> } }).pricing_analytics;
+  // Un compte sans aucun envoi sur la période rend `{ "id": ... }` seul, sans `pricing_analytics` (mesuré le 2026-11-03
+  // sur deux comptes calmes) : zéro point, pas une erreur.
+  if (analytics === undefined) return [];
+  // Une réponse paginée ou en plusieurs séries n'a jamais été vue : refusée plutôt que lue à moitié (relecture du lot E).
+  if ((analytics as { paging?: { next?: unknown } }).paging?.next !== undefined) return null;
+  if (Array.isArray(analytics?.data) && analytics.data.length > 1) return null;
+  const points = analytics?.data?.[0]?.data_points ?? (Array.isArray(analytics?.data) && analytics.data.length === 0 ? [] : undefined);
+  if (!Array.isArray(points)) return null;
+  const texte = (v: unknown): string | null => (typeof v === 'string' && v !== '' ? v : null);
+  const lus: PointVolumeBrut[] = [];
+  for (const raw of points) {
+    const p = raw as { start?: unknown; end?: unknown; phone_number?: unknown; country?: unknown; pricing_category?: unknown; pricing_type?: unknown; tier?: unknown; volume?: unknown };
+    const debut = Number(p.start);
+    const volume = Number(p.volume);
+    const type = texte(p.pricing_type);
+    if (!Number.isInteger(debut) || !Number.isFinite(volume) || volume < 0 || type === null) return null;
+    // Une demi-heure, rien d'autre : un point d'une autre durée (un jour) serait rangé dans la mauvaise demi-heure.
+    if (Number(p.end) - debut !== 1800) return null;
+    lus.push({ debut, numero: texte(p.phone_number), pays: texte(p.country), categorie: texte(p.pricing_category), type, palier: texte(p.tier), volume });
+  }
+  return lus;
 }
 
 /** Parse la réponse Graph { currency, pricing_analytics: { data: [ { data_points: [...] } ] } }. */

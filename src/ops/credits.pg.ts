@@ -78,10 +78,13 @@ export class PgCreditsOpsStore {
       ia_mois: string; ia_precedent: string; ia_illimite_mois: string; ia_illimite_precedent: string;
       solde_wa: string; sur_la_ligne: boolean;
       wa_mois: string; wa_precedent: string; wa_illimite_mois: string; wa_illimite_precedent: string;
+      rg_mois: string; rg_precedent: string;
     }>(
       `with bornes as (
          select (date_trunc('month', now() at time zone 'Europe/Paris') at time zone 'Europe/Paris') as debut_mois,
-                ((date_trunc('month', now() at time zone 'Europe/Paris') - interval '1 month') at time zone 'Europe/Paris') as debut_precedent
+                ((date_trunc('month', now() at time zone 'Europe/Paris') - interval '1 month') at time zone 'Europe/Paris') as debut_precedent,
+                date_trunc('month', now() at time zone 'Europe/Paris')::date as jour_mois,
+                (date_trunc('month', now() at time zone 'Europe/Paris') - interval '1 month')::date as jour_precedent
        )
        select t.id::text, t.name as nom, offre_de_l_espace(t.id) as offre,
               acces_credit_ia(t.id, $1::bigint) as acces_ia,
@@ -93,7 +96,8 @@ export class PgCreditsOpsStore {
               coalesce(w.solde_micro_eur, 0) as solde_wa,
               exists (select 1 from lignes_credit_whatsapp l where l.tenant_id = t.id and l.retiree_le is null) as sur_la_ligne,
               wa.mois as wa_mois, wa.precedent as wa_precedent,
-              wa.illimite_mois as wa_illimite_mois, wa.illimite_precedent as wa_illimite_precedent
+              wa.illimite_mois as wa_illimite_mois, wa.illimite_precedent as wa_illimite_precedent,
+              rg.mois as rg_mois, rg.precedent as rg_precedent
          from tenants t
         cross join bornes b
          left join agent_credits c on c.tenant_id = t.id
@@ -114,6 +118,13 @@ export class PgCreditsOpsStore {
             from credit_whatsapp_provisions p
            where p.tenant_id = t.id and p.etat <> 'rendu' and p.cree_le >= b.debut_precedent
         ) wa
+        cross join lateral (
+          -- La régularisation sur les volumes de Meta d'une Entreprise (lot E) : son écart va au montant à facturer.
+          select coalesce(sum(g.ecart_micro_eur) filter (where g.jour >= b.jour_mois), 0) as mois,
+                 coalesce(sum(g.ecart_micro_eur) filter (where g.jour < b.jour_mois), 0) as precedent
+            from credit_whatsapp_regularisations g
+           where g.tenant_id = t.id and g.illimite and g.jour >= b.jour_precedent
+        ) rg
         where t.status <> 'locked'
         order by (offre_de_l_espace(t.id) = 'entreprise') desc, lower(t.name), t.id`,
       [this.plafondIaParDefautMicroEur],
@@ -121,8 +132,8 @@ export class PgCreditsOpsStore {
     const espaces = rows.map((r): LigneCreditsOps => {
       const entreprise = r.offre === 'entreprise';
       const facture: DeuxMois = {
-        moisMicroEur: Number(r.ia_illimite_mois) + Number(r.wa_illimite_mois),
-        moisPrecedentMicroEur: Number(r.ia_illimite_precedent) + Number(r.wa_illimite_precedent),
+        moisMicroEur: Number(r.ia_illimite_mois) + Number(r.wa_illimite_mois) + Number(r.rg_mois),
+        moisPrecedentMicroEur: Number(r.ia_illimite_precedent) + Number(r.wa_illimite_precedent) + Number(r.rg_precedent),
       };
       return {
         tenantId: r.id,

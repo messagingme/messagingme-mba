@@ -46,24 +46,39 @@ export class PgCreditWhatsappReglagesStore {
       `select id, en_vigueur_le::text as en_vigueur_le from grilles_meta
         where en_vigueur_le <= current_date order by en_vigueur_le desc, chargee_le desc limit 1`,
     );
-    let valeur: GrilleMeta | null = null;
     const g = rows[0];
-    if (g !== undefined) {
-      const tarifs = await this.pool.query<{ marche: string; categorie: string; palier: number; prix_micro_eur: string }>(
-        'select marche, categorie, palier, prix_micro_eur from grille_meta_tarifs where grille_id = $1',
-        [g.id],
-      );
-      valeur = {
-        id: g.id,
-        enVigueurLe: g.en_vigueur_le,
-        tarifs: tarifs.rows.flatMap((r) => {
-          const categorie = normaliserCategorie(r.categorie);
-          return categorie === null ? [] : [{ marche: r.marche, categorie, palier: r.palier, prixMicroEur: Number(r.prix_micro_eur) }];
-        }),
-      };
-    }
+    const valeur = g === undefined ? null : await this.lireTarifs(g.id, g.en_vigueur_le);
     this.grille = { lue: t, valeur };
     return valeur;
+  }
+
+  /**
+   * La grille en vigueur un jour donné (AAAA-MM-JJ) : celle qui chiffrait les envois de ce jour-là. La régularisation la
+   * lit pour un jour clos, une fois par passe : un changement de trimestre ne rechiffre pas la veille au nouveau tarif.
+   */
+  async grilleAu(jour: string): Promise<GrilleMeta | null> {
+    const { rows } = await this.pool.query<{ id: string; en_vigueur_le: string }>(
+      `select id, en_vigueur_le::text as en_vigueur_le from grilles_meta
+        where en_vigueur_le <= $1::date order by en_vigueur_le desc, chargee_le desc limit 1`,
+      [jour],
+    );
+    const g = rows[0];
+    return g === undefined ? null : this.lireTarifs(g.id, g.en_vigueur_le);
+  }
+
+  private async lireTarifs(id: string, enVigueurLe: string): Promise<GrilleMeta> {
+    const tarifs = await this.pool.query<{ marche: string; categorie: string; palier: number; prix_micro_eur: string }>(
+      'select marche, categorie, palier, prix_micro_eur from grille_meta_tarifs where grille_id = $1',
+      [id],
+    );
+    return {
+      id,
+      enVigueurLe,
+      tarifs: tarifs.rows.flatMap((r) => {
+        const categorie = normaliserCategorie(r.categorie);
+        return categorie === null ? [] : [{ marche: r.marche, categorie, palier: r.palier, prixMicroEur: Number(r.prix_micro_eur) }];
+      }),
+    };
   }
 
   /** Charge une grille entière, en une transaction : une grille à moitié écrite ferait payer au hasard. */
