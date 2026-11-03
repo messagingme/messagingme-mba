@@ -1015,7 +1015,7 @@ export class WorkflowExecutor {
         fenetreFermee = true;
         aExecuter = actions.filter((e) => !aBesoinFenetre(e.action));
         // eslint-disable-next-line no-console
-        console.error(`workflow ${run.workflowId}: fenêtre 24 h fermée à la reprise, message de session NON envoyé à ${waId} -> conversation remontée en inbox`);
+        console.error(`workflow ${run.workflowId}: fenêtre 24 h fermée à la reprise, message de session NON envoyé à ${waId}`);
       }
     }
 
@@ -1025,9 +1025,22 @@ export class WorkflowExecutor {
     // `emitEvents` vrai : un réveil est unitaire (un contact, ici et maintenant), comme `advance`. Sinon
     // « attendre 1 jour puis poser le tag » ne déclencherait pas l'automation branchée sur ce tag.
     const { refus, partis, canal } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk);
+    /**
+     * La fenêtre fermée ne compte pas quand la garde marketing a refusé, sans rien de parti, un modèle placé AVANT tout
+     * message qui l'exigeait : ces messages auraient été sautés avec lui (`apply` saute les envois qui suivent un
+     * Marketing refusé). « Attendre, Marketing, message rapide » se clôt alors comme une reprise sans accord, sans
+     * remplir « À traiter » (relecture du lot 3b). Le refus marketing étant le PREMIER refus et rien n'étant parti, le
+     * modèle refusé est le premier envoi WhatsApp exécuté : un e-mail parti avant ne compte ni dans `partis` ni dans
+     * `refus`, il est donc écarté. Un bloc agent réveillé vient après toutes les actions.
+     */
+    const premierEnvoi = aExecuter.findIndex((x) => EST_UN_ENVOI.has(x.action.kind) && x.action.kind !== 'sendEmail');
+    const iFenetre = actions.findIndex((x) => aBesoinFenetre(x.action));
+    const premierMessageDeSession = iFenetre === -1 ? actions.length : iFenetre;
+    const fenetreSansObjet = refus === MOTIF_SANS_ACCORD_MARKETING && partis === 0 && premierEnvoi !== -1
+      && premierMessageDeSession > actions.indexOf(aExecuter[premierEnvoi]!);
     // Un message du parcours n'a pas pu atteindre le contact : on clôt et on remonte à un humain. Ce qui
     // pouvait partir (template, tags) est déjà parti.
-    if (fenetreFermee) {
+    if (fenetreFermee && !fenetreSansObjet) {
       await this.deps.runs.setState(run.id, { currentNode: null, status: 'inbox' });
       // Aucun affectataire (aucun bloc « passer à un humain » atteint) et aucune escalade : c'est un réveil,
       // le contact n'attend rien à cet instant.

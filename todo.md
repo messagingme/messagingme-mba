@@ -25,13 +25,6 @@
 - **HEAD sur `/f/` rend le 404 générique de Fastify** : un stockage qui sonde le lien avant de le télécharger peut le
   croire mort. La spec promet un simple GET ; un 405 avec `allow: GET` serait plus lisible, sans rien lire chez Meta.
 
-## 🟡 Les champs HubSpot choisis : la forme d'avant à retirer (lot 2 du 2026-11-02)
-
-- `POST /hubspot/workflow/transaction` accepte encore `champs: { prenom, conseiller, lienAgenda }` (`schemaChampsAnciens`,
-  `src/hubspot-workflow/champs.ts`), le temps que le connecteur passe à la forme groupée et que les corps gardés de ses
-  relances vieillissent (`TROP_TARD_MS`, 20 h). À retirer au lot suivant du plan
-  `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, avec son test.
-
 ## 🟡 La ligne « Automations HubSpot » et la fiche d'un lead inconnu : les restes (lot 3a du 2026-11-02)
 
 - Pas d'e2e : le déclencheur grisé dans Automations et la ligne de la carte HubSpot ne sont couverts que par les tests
@@ -55,8 +48,6 @@
 - Un modèle Marketing refusé APRÈS un premier envoi parti dans la même liste laisse le parcours sur son repos, comme tout
   refus d'étape (`partis > 0`) : il n'est pas clos.
 
-- La liste `GET /automations` est lue par tout compte authentifié, agents compris : elle montre désormais l'adresse de
-  l'admin qui a coché la case. Voulu ou à réserver aux admins : à trancher avec Julien.
 - Une fiche déjà d'accord garde sa source d'origine (`inchange`) : elle ne portera jamais `automation:<id>`. L'essai réel
   du plan (« sa fiche porte l'accord et sa source ») ne vaut que pour une fiche neuve ou sans consentement.
 - Une automation « risque élevé » attestée écrit jusqu'à 200 accords par nuit et par espace (le seul déclencheur de masse).

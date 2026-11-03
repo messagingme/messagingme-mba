@@ -307,6 +307,24 @@ describe('routes automations', () => {
     await server.close();
   });
 
+  it('🔴 l’adresse de l’admin qui a coché l’accord marketing ne sort que pour un admin ; qui et quand restent pour tous', async () => {
+    const le = new Date('2026-11-03T10:00:00Z');
+    const attestee = {
+      id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] },
+      conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null,
+      accordMarketing: { par: 'u1', email: 'admin@exemple.fr', le },
+    };
+    const { server } = app({ list: async () => [attestee, { ...attestee, id: 'a2', accordMarketing: null }] });
+    const lire = async (tok: string) => (await server.inject({ method: 'GET', url: '/tenants/t1/automations', ...h(tok) })).json().automations;
+    const admin = await lire(adminTok);
+    expect(admin[0].accordMarketing).toEqual({ par: 'u1', email: 'admin@exemple.fr', le: le.toISOString() });
+    const agent = await lire(agentTok);
+    expect(agent[0].accordMarketing).toEqual({ par: 'u1', email: null, le: le.toISOString() });
+    expect(agent[1].accordMarketing).toBeNull();
+    expect(JSON.stringify(agent)).not.toContain('admin@exemple.fr');
+    await server.close();
+  });
+
   it('tenant de l’URL != tenant du jeton -> 403 sur toutes les routes', async () => {
     const { server } = app();
     const get = await server.inject({ method: 'GET', url: '/tenants/AUTRE/automations', ...h(adminTok) });

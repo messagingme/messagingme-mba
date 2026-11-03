@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { ensureFieldByKey, type UserFieldStore } from '../crm/fields';
 import type { UserFieldType } from '../crm/types';
 import type { ChampsFiche } from '../campaign/build';
-import { videEnAbsent } from '../api/fiche';
 
 /**
  * LES CHAMPS HUBSPOT QU'UN ESPACE CHOISIT D'IMPORTER SUR SES FICHES (lot 2 du plan
@@ -98,36 +97,18 @@ export const schemaChampsGroupes = z.object({
   .refine((c) => Object.keys(c).length > 0, { message: 'aucun groupe' })
   .refine((c) => Object.keys(c.contact ?? {}).length + Object.keys(c.deal ?? {}).length + Object.keys(c.calcules ?? {}).length <= CHAMPS_HUBSPOT_MAX, { message: 'trop de champs' });
 
-/**
- * L'ANCIENNE forme de l'action transaction (cadrage du 2026-10-29), acceptée le temps que le connecteur passe à la forme
- * groupée (mba se déploie avant lui, et une relance rejoue le corps de la première tentative). Une valeur absente ou
- * vide y était RETIRÉE : les trois sont donc toujours reçues. À retirer au lot suivant (`todo.md`).
- */
-const texteAncien = z.preprocess(videEnAbsent, z.string().trim().max(200).optional());
-export const schemaChampsAnciens = z.object({
-  prenom: texteAncien,
-  conseiller: texteAncien,
-  lienAgenda: z.preprocess(videEnAbsent, z.url({ protocol: /^https$/ }).max(2048).optional()),
-}).strict();
-
 export type ChampsGroupes = z.infer<typeof schemaChampsGroupes>;
-export type ChampsAnciens = z.infer<typeof schemaChampsAnciens>;
 
-/** Les champs de fiche reçus, clé de fiche et valeur brute, dans l'une ou l'autre forme. */
-function clesRecues(recus: ChampsGroupes | ChampsAnciens): Array<[string, string]> {
-  if ('contact' in recus || 'deal' in recus || 'calcules' in recus) {
-    const g = recus as ChampsGroupes;
-    return [
-      ...Object.entries(g.contact ?? {}).map(([p, v]): [string, string] => [cleChampHubspot('contact', p), v]),
-      ...Object.entries(g.deal ?? {}).map(([p, v]): [string, string] => [cleChampHubspot('deal', p), v]),
-      ...Object.entries(g.calcules ?? {}).flatMap(([p, v]): Array<[string, string]> => (v === undefined ? [] : [[cleChampHubspot('calcule', p), v]])),
-    ];
-  }
-  const a = recus as ChampsAnciens;
+/**
+ * Les champs de fiche reçus, clé de fiche et valeur brute. L'ancienne forme `{ prenom, conseiller, lienAgenda }` de
+ * l'action transaction est retirée depuis le 2026-11-03 : le connecteur n'envoie que la forme groupée depuis le lot 2
+ * (2026-11-02), et les corps gardés de ses relances ont passé `TROP_TARD_MS` (20 h).
+ */
+function clesRecues(g: ChampsGroupes): Array<[string, string]> {
   return [
-    [cleChampHubspot('contact', 'firstname'), a.prenom ?? ''],
-    [cleChampHubspot('calcule', 'conseiller'), a.conseiller ?? ''],
-    [cleChampHubspot('calcule', 'lien_agenda'), a.lienAgenda ?? ''],
+    ...Object.entries(g.contact ?? {}).map(([p, v]): [string, string] => [cleChampHubspot('contact', p), v]),
+    ...Object.entries(g.deal ?? {}).map(([p, v]): [string, string] => [cleChampHubspot('deal', p), v]),
+    ...Object.entries(g.calcules ?? {}).flatMap(([p, v]): Array<[string, string]> => (v === undefined ? [] : [[cleChampHubspot('calcule', p), v]])),
   ];
 }
 
@@ -136,7 +117,7 @@ function clesRecues(recus: ChampsGroupes | ChampsAnciens): Array<[string, string
  * transaction précédente, décision 6 du 2026-10-29), une propriété non reçue pas touchée. Seules les clés DÉCLARÉES dans
  * l'espace (`declarees`) s'écrivent ; une autre est ignorée.
  */
-export function champsDeFiche(recus: ChampsGroupes | ChampsAnciens, declarees: Iterable<string>): ChampsFiche {
+export function champsDeFiche(recus: ChampsGroupes, declarees: Iterable<string>): ChampsFiche {
   const connues = new Set(declarees);
   const poser: Record<string, string> = {};
   const retirer: string[] = [];

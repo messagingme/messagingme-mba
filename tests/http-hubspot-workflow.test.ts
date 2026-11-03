@@ -594,21 +594,13 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     await server.close();
   });
 
-  it('🔴 l’ancienne forme `{ prenom, conseiller, lienAgenda }` reste acceptée et se traduit, une valeur absente RETIRÉE comme avant', async () => {
-    // mba part avant le connecteur, et une relance rejoue le corps de la première tentative (plan du 2026-11-02, § 5).
+  it('🔴 l’ancienne forme `{ prenom, conseiller, lienAgenda }` est refusée (retirée le 2026-11-03), rien ne part', async () => {
     const { server, envois } = appT({ fiche: null, sources: SOURCES });
-    const ancien = { ...LANCEMENT, champs: { prenom: 'Claire', conseiller: 'Cédric Weiss', lienAgenda: LIEN } };
-    expect((await server.inject(appel('transaction', ancien))).json()).toEqual({ issue: 'envoye', sendId: 'envoi-1' });
-    expect(envois[0]!.options.champsFiche).toEqual({
-      poser: { hs_contact_firstname: 'Claire', hs_calc_conseiller: 'Cédric Weiss', hs_calc_lien_agenda: LIEN }, retirer: [],
-    });
-    expect(envois[0]!.corps).toMatchObject({ params: [{ source: { value: 'Claire' } }, { source: { value: 'Cédric Weiss' } }] });
-    const sansLien = { ...LANCEMENT, champs: { prenom: 'Claire', conseiller: 'Cédric Weiss', lienAgenda: '' } };
-    const { server: s2, envois: e2 } = appT({ fiche: null, sources: SOURCES });
-    expect((await s2.inject(appel('transaction', sansLien))).json().issue).toBe('envoye');
-    expect(e2[0]!.options.champsFiche).toEqual({ poser: { hs_contact_firstname: 'Claire', hs_calc_conseiller: 'Cédric Weiss' }, retirer: ['hs_calc_lien_agenda'] });
+    for (const champs of [{ prenom: 'Claire', conseiller: 'Cédric Weiss', lienAgenda: LIEN }, {}]) {
+      expect((await server.inject(appel('transaction', { ...LANCEMENT, champs }))).statusCode, JSON.stringify(champs)).toBe(400);
+    }
+    expect(envois).toEqual([]);
     await server.close();
-    await s2.close();
   });
 
   it('🔴 une clé reçue sans champ déclaré dans l’espace n’est pas écrite, et ne remplit donc aucune variable', async () => {
@@ -699,7 +691,7 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     await s2.close();
   });
 
-  it('un corps hors contrat : 400 ; un lien qui n’est pas en https, un groupe inconnu, les deux formes mêlées ; sans signature : 401', async () => {
+  it('un corps hors contrat : 400 ; un lien qui n’est pas en https, un groupe inconnu, l’ancienne forme, seule ou mêlée ; sans signature : 401', async () => {
     const { server, lus } = appT({ sources: SOURCES });
     for (const corps of [
       { ...LANCEMENT, champs: { ...LANCEMENT.champs, calcules: { lien_agenda: 'http://meetings.hubspot.com/x' } } },

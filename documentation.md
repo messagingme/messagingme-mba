@@ -625,7 +625,10 @@ voyage dans les trois reprises (`resume`, `advance`, `envoyerBlocDepuisAgent`) e
 la porte, requise ; `accordMarketingExige` est la seule lecture de la politique). Rien de parti : au démarrage rien n'est
 créé (le runner journalise et efface le tir) ; à une reprise ou à un saut, le parcours se CLÔT en `done`, sans passer à
 l'équipe ni entrer au journal des échecs de saut, et la main revient à l'agent de Meta (un déclencheur de masse, un deal
-HubSpot sur une étape peuplée, remplirait sinon « À traiter »). Les deux dépendances sont requises ; les fixtures disent
+HubSpot sur une étape peuplée, remplirait sinon « À traiter »). Au réveil, la fenêtre de 24 h fermée ne l'emporte pas
+quand le Marketing refusé précède tout message qui l'exigeait (« attendre, Marketing, message rapide » : ces messages
+auraient été sautés avec lui), un bloc agent compris ; un message de session placé AVANT reste, lui, remonté à l'équipe,
+même derrière un e-mail parti (il ne compte ni comme envoi parti, ni comme refus). Les deux dépendances sont requises ; les fixtures disent
 `toujoursDAccord` (le comportement d'avant) ou `jamaisDAccord` (`tests/consentement.ts`), et `categorieIllisible` est
 dans `depsInertes`. Les parcours nés avant la colonne valent `false` et finissent sans la garde. Le bloc RCS n'y passe pas.
 
@@ -3008,8 +3011,7 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   `POST /hubspot/workflow/transaction`, sur les gardes de l'action scénario (`garderLancement`, la même fonction, le
   même ordre) et le même adaptateur, la même clé. Le connecteur a lu HubSpot (le contact unique de la transaction, le
   propriétaire et son lien de réservation) et transmet `champs`, les champs HubSpot choisis par l'espace (voir le point
-  suivant), ou l'ancienne forme `{ prenom, conseiller, lienAgenda }` qu'un connecteur d'avant (ou la relance d'un corps
-  gardé) envoie encore, traduite en `hs_contact_firstname`, `hs_calc_conseiller` et `hs_calc_lien_agenda`.
+  suivant). L'ancienne forme `{ prenom, conseiller, lienAgenda }` est refusée (400) depuis le 2026-11-03.
   🔴 Le modèle d'ouverture est rempli DANS la route, par les sources posées sur le modèle (`template_param_hints`,
   `resolveHintParams`), sur la fiche vue avec ces champs (un champ vide est retiré de la vue) : le chemin d'une
   campagne ne lit pas ces sources à l'envoi, il reçoit des valeurs fixes, et un tableau vide y compte comme « fourni ».
@@ -3077,7 +3079,8 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   booléen `accordMarketing` (tout autre type : 400), la route pose `{ par: req.auth.userId }` (`tamponAccord`), et
   l'UPDATE garde le tampon d'origine d'une automation déjà attestée (chaque terme lit la ligne d'avant) ; `false` efface,
   absent ne touche rien (une console d'avant restée ouverte n'efface rien) ; la case seule est un PATCH valide. La liste
-  rend le tampon (`AutomationRow.accordMarketing`, REQUIS : une fabrique sans formulaire, widget compris, dit `null`) ;
+  rend le tampon (`AutomationRow.accordMarketing`, REQUIS : une fabrique sans formulaire, widget compris, dit `null`),
+  l'adresse à un admin seulement (un agent la reçoit à `null`, qui et quand restent) ;
   `listEnabled` le lit (`COLS`), sinon l'accord serait nul partout sans qu'aucun type ne bouge. Au déclenchement,
   `runAutomations` écrit l'accord APRÈS l'anti-rebond, la condition et le plafond, AVANT `markFired` (un échec lève dans
   le `catch` et ne consomme pas l'anti-rebond) : `ecrireAccord`, dépendance REQUISE (les fixtures disent

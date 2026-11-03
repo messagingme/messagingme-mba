@@ -281,7 +281,13 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
 
   app.get('/tenants/:tenantId/automations', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    return reply.code(200).send({ automations: await deps.automations.list(tenant) });
+    const automations = await deps.automations.list(tenant);
+    // L'adresse de l'admin qui a coché la case d'accord marketing ne sort que pour un admin (relecture du lot 3b) : un
+    // agent lit la liste, il n'a pas à connaître l'adresse d'un collègue. Qui (son identifiant) et quand restent.
+    if (req.auth?.role === 'admin') return reply.code(200).send({ automations });
+    return reply.code(200).send({
+      automations: automations.map((a) => (a.accordMarketing ? { ...a, accordMarketing: { ...a.accordMarketing, email: null } } : a)),
+    });
   });
 
   // Le menu du déclencheur « action de l'agent IA » : les actions posées sur les agents de l'espace. Lecture ouverte à

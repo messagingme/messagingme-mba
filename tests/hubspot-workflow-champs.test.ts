@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  champsDeFiche, cleChampHubspot, declarerChampsHubspot, schemaChampsAnciens, schemaChampsGroupes, schemaListeChoisie, typeChampHubspot,
+  champsDeFiche, cleChampHubspot, declarerChampsHubspot, schemaChampsGroupes, schemaListeChoisie, typeChampHubspot,
 } from '../src/hubspot-workflow/champs';
 import type { UserFieldDef } from '../src/crm/types';
 
@@ -84,7 +84,7 @@ describe('la liste choisie', () => {
   });
 });
 
-describe('champsDeFiche : la forme groupée et l’ancienne forme', () => {
+describe('champsDeFiche : la forme groupée', () => {
   const DECLAREES = ['hs_contact_firstname', 'hs_deal_montant', 'hs_calc_conseiller', 'hs_calc_lien_agenda', 'ville'];
 
   it('🔴 une valeur posée, une valeur vide RETIRÉE, une propriété non reçue pas touchée', () => {
@@ -100,17 +100,6 @@ describe('champsDeFiche : la forme groupée et l’ancienne forme', () => {
     const recus = schemaChampsGroupes.parse({ contact: { firstname: 'Claire', lastname: 'Martin' }, deal: { dealname: '' } });
     expect(champsDeFiche(recus, DECLAREES)).toEqual({ poser: { hs_contact_firstname: 'Claire' }, retirer: [] });
     expect(champsDeFiche(recus, [])).toEqual({ poser: {}, retirer: [] });
-  });
-
-  it('🔴 l’ancienne forme se traduit (prénom, conseiller, lien), une valeur absente y est RETIRÉE comme avant', () => {
-    const LIEN = 'https://meetings-eu1.hubspot.com/x';
-    expect(champsDeFiche(schemaChampsAnciens.parse({ prenom: 'Claire', conseiller: '', lienAgenda: LIEN }), DECLAREES)).toEqual({
-      poser: { hs_contact_firstname: 'Claire', hs_calc_lien_agenda: LIEN },
-      retirer: ['hs_calc_conseiller'],
-    });
-    expect(champsDeFiche(schemaChampsAnciens.parse({}), DECLAREES)).toEqual({
-      poser: {}, retirer: ['hs_contact_firstname', 'hs_calc_conseiller', 'hs_calc_lien_agenda'],
-    });
   });
 
   it('le contrat des valeurs : coupées à 1 000 par le connecteur (au-delà, refusé), le lien en https ou vide, 20 au plus', () => {

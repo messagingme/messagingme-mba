@@ -16,7 +16,7 @@ import type { TemplateSummary } from '../meta/templates';
 import type { EnvoyerPublic } from '../shopify/envoi';
 import { envoyerPourWorkflow, valeursDuWorkflow, type EnvoiWorkflow, type IssueWorkflow, type PlafondRefuse } from '../hubspot-workflow/envoi';
 import type { VerdictPlafonds } from '../hubspot-workflow/plafonds';
-import { champsDeFiche, schemaChampsAnciens, schemaChampsContact, schemaChampsGroupes } from '../hubspot-workflow/champs';
+import { champsDeFiche, schemaChampsContact, schemaChampsGroupes } from '../hubspot-workflow/champs';
 import { resolveHintParams, type ResolvableContact } from '../crm/template';
 import type { ParamHint } from '../crm/template-hints.pg';
 import type { EtatLigneHubspot } from './hubspot-conversation';
@@ -113,10 +113,10 @@ const corpsTransaction = z.object({
   tenantId: UUID,
   telephone: z.string().trim().max(1024),
   scenario: z.string().regex(/^scn_[A-Za-z0-9_-]{1,64}$/),
-  // Ce que le connecteur a lu dans HubSpot pour la fiche : la forme groupée des champs choisis (lot 2 du 2026-11-02), ou
-  // l'ancienne `{ prenom, conseiller, lienAgenda }` tant qu'un connecteur d'avant (ou une relance de son corps) l'envoie.
-  // Le lien de réservation en `https` seulement : il part tel quel dans un message au client.
-  champs: z.union([schemaChampsAnciens, schemaChampsGroupes]),
+  // Ce que le connecteur a lu dans HubSpot pour la fiche : la forme groupée des champs choisis (lot 2 du 2026-11-02).
+  // L'ancienne `{ prenom, conseiller, lienAgenda }` est refusée depuis le 2026-11-03. Les liens en `https` seulement : ils
+  // partent tels quels dans un message au client.
+  champs: schemaChampsGroupes,
   workflowId: z.string().min(1).max(64).regex(/^[A-Za-z0-9_-]+$/),
   accordMarketing: ACCORD_MARKETING,
 }).strict();

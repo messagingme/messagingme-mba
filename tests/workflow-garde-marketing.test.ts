@@ -169,6 +169,76 @@ describe('🔴 le réveil d’une attente (`resume`) garde la règle du parcours
     expect(m.etats).toEqual([{ currentNode: null, status: 'inbox' }]);
     expect(m.escalades).toEqual([WA]);
   });
+
+  /** Après l'attente, la fenêtre de 24 h est fermée : le message rapide ne pourrait de toute façon pas partir. */
+  const fenetreFermee = { isWindowOpen: async () => false };
+
+  it('🔴 « attendre, Marketing, message rapide », fenêtre fermée, sans accord : CLOS sans passer à l’équipe', async () => {
+    silence();
+    const g: WorkflowGraph = {
+      nodes: [n('w', 'wait', { delay: 2, unit: 'days' }), promo, n('qm', 'quick_message', { body: 'Et vous ?' })],
+      edges: [e('w', 'tpl'), e('tpl', 'qm')],
+    };
+    const m = monde(g, null, fenetreFermee);
+    expect(await m.executor.resume(PARCOURS(true, 'w', 'sleeping'))).toBe(false);
+    expect(m.envois).toEqual([]);
+    expect(m.etats).toEqual([{ currentNode: null, status: 'done' }]);
+    expect(m.escalades, 'la règle marketing, pas la fenêtre, a arrêté le parcours').toEqual([]);
+    expect(m.rendus).toEqual([WA]);
+  });
+
+  it('« attendre, message rapide, Marketing », fenêtre fermée : le message rapide manqué passe toujours à l’équipe', async () => {
+    silence();
+    const g: WorkflowGraph = {
+      nodes: [n('w', 'wait', { delay: 2, unit: 'days' }), n('qm', 'quick_message', { body: 'Et vous ?' }), promo],
+      edges: [e('w', 'qm'), e('qm', 'tpl')],
+    };
+    const m = monde(g, null, fenetreFermee);
+    expect(await m.executor.resume(PARCOURS(true, 'w', 'sleeping'))).toBe(false);
+    expect(m.etats).toEqual([{ currentNode: null, status: 'inbox' }]);
+    expect(m.escalades).toEqual([WA]);
+  });
+
+  it('« attendre, e-mail, message rapide, Marketing », fenêtre fermée : l’e-mail parti ne compte pas, le message rapide manqué passe à l’équipe', async () => {
+    silence();
+    const email = n('em', 'email', { emailAccountId: 'a1', templateId: 't1', to: { kind: 'literal', value: 'client@exemple.fr' } });
+    const g: WorkflowGraph = {
+      nodes: [n('w', 'wait', { delay: 2, unit: 'days' }), email, n('qm', 'quick_message', { body: 'Et vous ?' }), promo],
+      edges: [e('w', 'em'), e('em', 'qm'), e('qm', 'tpl')],
+    };
+    const courriels: string[] = [];
+    const m = monde(g, null, { ...fenetreFermee, sendEmail: async (_t, w) => { courriels.push(w); } });
+    expect(await m.executor.resume(PARCOURS(true, 'w', 'sleeping'))).toBe(false);
+    expect(courriels).toEqual([WA]);
+    expect(m.etats).toEqual([{ currentNode: null, status: 'inbox' }]);
+    expect(m.escalades).toEqual([WA]);
+  });
+
+  it('« attendre, Marketing, agent », fenêtre fermée, sans accord : CLOS sans passer à l’équipe, l’agent n’est pas réveillé', async () => {
+    silence();
+    const g: WorkflowGraph = {
+      nodes: [n('w', 'wait', { delay: 2, unit: 'days' }), promo, n('a', 'agent', { agentId: 'ag1' })],
+      edges: [e('w', 'tpl'), e('tpl', 'a')],
+    };
+    const m = monde(g, null, fenetreFermee);
+    expect(await m.executor.resume(PARCOURS(true, 'w', 'sleeping'))).toBe(false);
+    expect(m.etats).toEqual([{ currentNode: null, status: 'done' }]);
+    expect(m.escalades).toEqual([]);
+  });
+
+  it('« attendre, Marketing, message rapide », fenêtre fermée, AVEC l’accord : le Marketing part, le message manqué passe à l’équipe', async () => {
+    silence();
+    const g: WorkflowGraph = {
+      nodes: [n('w', 'wait', { delay: 2, unit: 'days' }), promo, n('qm', 'quick_message', { body: 'Et vous ?' })],
+      edges: [e('w', 'tpl'), e('tpl', 'qm')],
+    };
+    const m = monde(g, null, fenetreFermee);
+    m.fiche.accord = true;
+    expect(await m.executor.resume(PARCOURS(true, 'w', 'sleeping'))).toBe(false);
+    expect(m.envois).toEqual(['modèle promo']);
+    expect(m.etats).toEqual([{ currentNode: null, status: 'inbox' }]);
+    expect(m.escalades).toEqual([WA]);
+  });
 });
 
 describe('🔴 la réponse du contact (`advance`) garde la règle du parcours', () => {
