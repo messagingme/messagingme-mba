@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import { createHmac } from 'node:crypto';
 import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import { signSession } from '../src/auth/token';
@@ -72,6 +73,18 @@ describe('POST /tenants/:t/hubspot/install-link', () => {
     const res = await server.inject({ method: 'POST', url: '/tenants/t1/hubspot/install-link', ...h(adminTok), payload: JSON.stringify({ grant: 'agenda' }) });
     expect(res.statusCode).toBe(200);
     expect(new URL((res.json() as { installUrl: string }).installUrl).searchParams.get('t')).toBeTruthy();
+    await server.close();
+  });
+
+  it('🔴 grant=devis -> le jeton SIGNÉ porte le grant (les devis, cadrage « lien du devis » du 2026-11-02)', async () => {
+    const server = app();
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/hubspot/install-link', ...h(adminTok), payload: JSON.stringify({ grant: 'devis' }) });
+    expect(res.statusCode).toBe(200);
+    // `<ts>.<nonce>.<tenant>.<grant>.<hmac>`, HMAC du reste sous le secret partagé (`src/hubspot/install-link.ts`).
+    const jeton = new URL((res.json() as { installUrl: string }).installUrl).searchParams.get('t')!;
+    const [ts, nonce, tenant, grant, sig] = jeton.split('.');
+    expect([ts, tenant, grant]).toEqual([String(NOW), 't1', 'devis']);
+    expect(sig).toBe(createHmac('sha256', SERVICE_SECRET).update(`${ts}.${nonce}.${tenant}.${grant}`).digest('hex'));
     await server.close();
   });
 

@@ -15,8 +15,10 @@ export interface HubspotInstallRouteDeps {
 /**
  * Grants optionnels autorisés (whitelist stricte : jamais un grant arbitraire venu du corps de la requête). `agenda` : la
  * lecture des pages de réservation des conseillers, pour l'action transaction (cadrage du 2026-10-29, décisions 4 et 10).
+ * `devis` : la lecture des devis de la transaction, pour leurs deux calculés (cadrage « lien du devis » du 2026-11-02,
+ * décision 4). Le connecteur redemande TOUTES les portées facultatives à chaque grant : un seul consentement les couvre.
  */
-const ALLOWED_GRANTS = new Set(['lists', 'agenda']);
+const ALLOWED_GRANTS = new Set(['lists', 'agenda', 'devis']);
 
 /**
  * `POST /tenants/:tenantId/hubspot/install-link` (admin). Émet un lien d'installation HubSpot portant un jeton

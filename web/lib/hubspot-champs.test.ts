@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CHAMPS_HUBSPOT_MAX, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
+  CHAMPS_HUBSPOT_MAX, accesAAutoriser, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
   type LigneChamp,
 } from './hubspot-champs';
 import type { ChampsHubspotDuPortail } from './api';
@@ -70,6 +70,41 @@ describe('les champs HubSpot à importer', () => {
     // La croix retire le champ de la sélection.
     const sans = basculerChamp(s, champsSelectionnes(portail, s)[0]!);
     expect(champsSelectionnes(portail, sans).map(idChamp)).toEqual(['deal:ancien_devis', 'calcule:conseiller']);
+  });
+
+  it('🔴 les calculés du devis : dans l’ordre de l’écran quel que soit celui du connecteur, grisés avec leur raison, et le bouton d’autorisation', () => {
+    const portail: ChampsHubspotDuPortail = {
+      ...PORTAIL,
+      calcules: [
+        { cle: 'pdf_devis', libelle: 'PDF du devis', disponible: false },
+        { cle: 'lien_devis', libelle: 'Lien du devis', disponible: false },
+        ...PORTAIL.calcules,
+      ],
+    };
+    const calcules = groupesDeChamps(portail, '', new Set())[2]!.lignes;
+    expect(calcules.map((l) => [l.propriete, l.libelle, l.disponible, l.acces])).toEqual([
+      ['conseiller', 'Conseiller (propriétaire de la transaction)', true, undefined],
+      ['lien_agenda', 'Lien de réservation du conseiller', false, 'agenda'],
+      ['lien_devis', 'Lien du devis', false, 'devis'],
+      ['pdf_devis', 'PDF du devis', false, 'devis'],
+    ]);
+    expect(calcules.filter((l) => caseGrisee(new Set(), l)).map((l) => l.propriete)).toEqual(['lien_agenda', 'lien_devis', 'pdf_devis']);
+    expect(accesAAutoriser(portail)).toBe(true);
+    // Tout accordé : rien de grisé, pas de bouton.
+    const accorde: ChampsHubspotDuPortail = { ...portail, calcules: portail.calcules.map((c) => ({ ...c, disponible: true })) };
+    expect(groupesDeChamps(accorde, '', new Set())[2]!.lignes.some((l) => l.acces || caseGrisee(new Set(), l))).toBe(false);
+    expect(accesAAutoriser(accorde)).toBe(false);
+  });
+
+  it('un choisi disparu de HubSpot n’a pas de raison d’accès (sa raison est dans son libellé) et n’appelle pas le bouton', () => {
+    const portail: ChampsHubspotDuPortail = {
+      ...PORTAIL,
+      calcules: [{ cle: 'conseiller', libelle: 'Conseiller', disponible: true }],
+      choisis: [{ objet: 'deal', propriete: 'ancien_devis', libelle: 'Ancien devis' }],
+    };
+    const disparu = groupesDeChamps(portail, '', selectionDe(portail.choisis))[1]!.lignes.find((l) => l.propriete === 'ancien_devis')!;
+    expect(disparu.acces).toBeUndefined();
+    expect(accesAAutoriser(portail)).toBe(false);
   });
 
   it('le lien de réservation sans l’accès à l’agenda ne se coche pas, mais se décoche s’il était choisi', () => {

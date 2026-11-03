@@ -2994,11 +2994,11 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   importables du portail et les deux calculés (`lireChampsHubspot`, `POST /service/champs`), `PUT` la remplace
   (`poserChampsHubspot`, `POST /service/champs/poser`). Les deux routes sont admin, sous l'offre `crm` posée au montage.
   Le contrat, recopié chez le connecteur : un champ `{ objet: 'contact' | 'deal' | 'calcule', propriete }`, la propriété
-  à `/^[a-z0-9_]{1,53}$/` (la clé tient dans les 64 caractères d'une clé de l'API), les calculés `conseiller` et
-  `lien_agenda`, 20 au plus, calculés compris, sans doublon. 🔴 mba seul fabrique les clés de fiche, depuis le nom
+  à `/^[a-z0-9_]{1,53}$/` (la clé tient dans les 64 caractères d'une clé de l'API), les calculés de
+  `CALCULES_HUBSPOT` (`conseiller`, `lien_agenda`, `lien_devis`, `pdf_devis`), 20 au plus, calculés compris, sans doublon. 🔴 mba seul fabrique les clés de fiche, depuis le nom
   interne et jamais depuis le libellé : `hs_contact_<p>`, `hs_deal_<p>`, `hs_calc_<calculé>` (un calculé ne rencontre
-  jamais une propriété de transaction du même nom), en `text` sauf le lien en `url` (`champsFiche` écrit sans
-  validation ni mise en forme), libellé HubSpot suivi de « (HubSpot) ». 🔴 Le `PUT` relit les libellés chez le
+  jamais une propriété de transaction du même nom), en `text` sauf les trois liens calculés en `url` (`champsFiche`
+  écrit sans validation ni mise en forme), libellé HubSpot suivi de « (HubSpot) ». 🔴 Le `PUT` relit les libellés chez le
   connecteur (jamais ceux du corps, `strict`), refuse une propriété absente ou filtrée (400 `propriete_inconnue`), puis
   DÉCLARE les champs (`ensureFieldByKey`, idempotent) AVANT de poser la liste : une liste posée sans déclaration ferait
   envoyer des valeurs que mba ignore. Un champ décoché n'est jamais supprimé (un modèle peut encore le viser). Les
@@ -3010,6 +3010,18 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   une automation correspond, ci-dessous). Pannes du connecteur : réveil (délai de
   `DELAI_CHAMPS_MS`, `ConnecteurEnReveil`) et route absente (404 sans `tenant_not_connected`, `ConnecteurPasAJour`)
   rendent 503 avec leur code, l'écran dit « connexion en cours » ou « mise à jour en cours », jamais « aucun champ ».
+- **Le lien et le PDF du devis** (cadrage `~/mm-hubspot/docs/2026-11-02-lien-du-devis-cadrage.md`, décisions 1 à 5) :
+  deux calculés de plus, `lien_devis` (`hs_quote_link`, la page publique du devis) et `pdf_devis`
+  (`hs_pdf_download_link`), clés `hs_calc_lien_devis` et `hs_calc_pdf_devis`, type `url`. C'est le CONNECTEUR qui
+  choisit le devis (le plus récent de la transaction qui a un lien public, ni `DRAFT`, ni `PENDING_APPROVAL`, ni
+  `VOID`, ni `REJECTED`, ni expiré) et ne les lit que là où il y a une transaction (l'action transaction, le changement
+  d'étape) ; mba reçoit `''` ou une URL `https` bornée (`lienCalcule`, le même schéma que le lien de réservation), et
+  `''` RETIRE le champ : un modèle d'ouverture dont une source le vise rend `valeur_invalide`. La lecture demande la
+  portée FACULTATIVE `crm.objects.quotes.read` ; sans elle, `/service/champs` rend les deux avec `disponible: false`,
+  la console les grise (`accesAAutoriser`, `web/lib/hubspot-champs.ts`) et propose « Autoriser l'accès aux devis et à
+  l'agenda », qui demande `POST /tenants/:id/hubspot/install-link` avec le grant `devis` (`ALLOWED_GRANTS`) : le
+  connecteur redemande TOUTES les portées facultatives à chaque grant. 🔴 Le lien est public (quiconque l'a voit le
+  devis) : aucun journal ne le porte.
 - **Le changement d'étape d'un deal HubSpot** (`POST /hubspot/deal-stage`, `src/http/hubspot-events.ts`, lot 3a du plan
   `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, décisions 5 et 7). Dans l'ordre, après la signature
   et le `safeParse` : 🔴 la ligne « Automations HubSpot » (`tenant_settings.hubspot_automations`, migration 0270, lue

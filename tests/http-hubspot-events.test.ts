@@ -73,14 +73,17 @@ describe('POST /hubspot/deal-stage', () => {
 
   it('les champs HubSpot choisis (lot 2) : acceptés et validés ; SANS automation sur l’étape, rien n’est écrit, l’événement publié tel qu’avant', async () => {
     const { server, publies, ecrits, fiches } = app();
-    const champs = { contact: { firstname: 'Claire' }, deal: { montant: '' }, calcules: { conseiller: 'Cédric Weiss', lien_agenda: '' } };
+    const champs = {
+      contact: { firstname: 'Claire' }, deal: { montant: '' },
+      calcules: { conseiller: 'Cédric Weiss', lien_agenda: '', lien_devis: 'https://app-eu1.hubspot.com/quotes/1/a', pdf_devis: '' },
+    };
     const res = await server.inject({ method: 'POST', url: '/hubspot/deal-stage', ...envoi({ ...VALIDE, champs }) });
     expect(res.json()).toEqual({ ok: true, triggered: true });
     expect(publies).toEqual([{ tenantId: 't1', ev: { kind: 'hubspot_deal_stage', waId: '33612345678', pipelineId: 'p1', stageId: 's-devis' } }]);
     expect(ecrits).toEqual([]);
     expect(fiches).toEqual([]);
     // Hors contrat : un lien qui n'est pas en https, un groupe inconnu, l'ancienne forme de l'action transaction.
-    for (const faux of [{ calcules: { lien_agenda: 'http://x.fr' } }, { company: { name: 'x' } }, { prenom: 'Claire' }]) {
+    for (const faux of [{ calcules: { lien_agenda: 'http://x.fr' } }, { calcules: { lien_devis: 'http://x.fr' } }, { calcules: { pdf_devis: 'javascript:alert(1)' } }, { company: { name: 'x' } }, { prenom: 'Claire' }]) {
       expect((await server.inject({ method: 'POST', url: '/hubspot/deal-stage', ...envoi({ ...VALIDE, champs: faux }) })).statusCode, JSON.stringify(faux)).toBe(400);
     }
     expect(publies).toHaveLength(1);

@@ -3,7 +3,7 @@ description: WhatsApp dans HubSpot avec l'app Messaging Me : répondre depuis la
 ecran: integrations
 ancre_console: integration-hubspot
 source_section: Accueil (1re entrée du menu)
-source_empreinte: be818c
+source_empreinte: 6c82e6
 publique: oui
 rubrique: demarrer
 rang: 6
@@ -108,7 +108,10 @@ part.
 
 Une fois cette ligne ou celle des automations (étape 7) allumée, le bloc « Champs HubSpot à importer », sous les
 interrupteurs, liste les propriétés du contact et de la transaction, plus le conseiller (le propriétaire de la
-transaction) et son lien de réservation (quand Messaging Me peut lire son agenda).
+transaction), son lien de réservation (quand Messaging Me peut lire son agenda), le lien du devis et le PDF du devis
+(quand Messaging Me peut lire vos devis). Le devis retenu est le plus récent de la transaction qui est publié, ni
+annulé, ni refusé, ni expiré. Quand un accès manque, ces champs sont grisés : le bouton « Autoriser l'accès aux devis et
+à l'agenda » le demande à HubSpot, une seule fois pour les deux, puis rechargez la page.
 Cochez-en 20 au plus, puis « Enregistrer les champs ». Chaque champ devient un champ de la fiche Messaging Me, son nom
 HubSpot suivi de « (HubSpot) », par exemple **Prénom (HubSpot)**. L'action de transaction et l'étape de transaction de
 l'étape 7 les écrivent tous sur la fiche, l'action « Lancer un scénario » ceux du contact. Une propriété vide dans HubSpot retire le champ de la fiche, et un champ
@@ -117,7 +120,9 @@ décoché n'est pas supprimé.
 Les variables du modèle d'ouverture viennent des sources posées sur le modèle (par exemple « {{1}} » = Prénom
 (HubSpot)), et les messages du scénario peuvent écrire « {{hs_calc_conseiller}} » ou « {{hs_calc_lien_agenda}} ». Dans
 le modèle d'ouverture, ne posez que ce qui est toujours rempli, comme le prénom : une variable vide arrête l'envoi. Le
-conseiller et son lien vont dans les messages qui suivent.
+conseiller et son lien vont dans les messages qui suivent. Le lien du devis peut aller dans le modèle d'ouverture si
+chaque transaction qui arrive là a un devis publié : sans devis, rien ne part, jamais le devis d'une autre transaction.
+Ce lien est public, c'est sa fonction : quiconque l'a voit le devis.
 
 Placez l'action juste après le déclencheur, et activez la réinscription pour qu'une proposition révisée reparte (elle
 est refusée dans les 24 heures). Ne branchez pas en plus une automatisation de la console sur la même étape : le contact

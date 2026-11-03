@@ -6,14 +6,17 @@ import { useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
+import { useInstallationHubspot } from '@/lib/hubspot-installation';
 import {
-  CHAMPS_HUBSPOT_MAX, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
+  CHAMPS_HUBSPOT_MAX, accesAAutoriser, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
 } from '@/lib/hubspot-champs';
 
 /**
  * LE BLOC « CHAMPS HUBSPOT À IMPORTER » de Tools > Intégrations > HubSpot (lot 2 du plan du 2026-11-02, décisions 1 à 4
- * du cadrage du même jour) : le client choisit les propriétés du contact et de la transaction, et deux champs calculés,
- * que ses workflows HubSpot écrivent sur la fiche. Chaque champ choisi devient un champ de fiche « (HubSpot) ».
+ * du cadrage du même jour) : le client choisit les propriétés du contact et de la transaction, et des champs calculés
+ * (le conseiller, son lien de réservation, le lien et le PDF du devis), que ses workflows HubSpot écrivent sur la fiche.
+ * Chaque champ choisi devient un champ de fiche « (HubSpot) ». Un calculé dont l'accès manque (agenda, devis) est grisé,
+ * avec sa raison et le bouton qui redemande les portées facultatives.
  *
  * La liste est lue et posée chez le connecteur, par l'API : un connecteur qui se réveille se relit comme la carte (toutes
  * les 10 s, trois fois au plus), un connecteur pas encore à jour le dit, jamais « aucun champ ». Un enregistrement
@@ -32,6 +35,8 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
   const [erreur, setErreur] = useState<string | null>(null);
   const [relectures, setRelectures] = useState(0);
   const vivant = useRef(true);
+  // Le re-consentement des portées facultatives (devis et agenda), par le lien d'installation signé.
+  const { ouvrir, enCours } = useInstallationHubspot(tenantId, true);
 
   const lire = useCallback(() => {
     getHubspotChamps(tenantId)
@@ -157,6 +162,21 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
             {groupes.map((g) => (
               <div key={g.objet} data-testid={`integration-hubspot-champs-${g.objet}`}>
                 <p className="text-xs font-medium text-ink-500">{titres[g.objet]}</p>
+                {g.objet === 'calcule' && accesAAutoriser(portail) && (
+                  <p className="mt-1 text-xs text-ink-500">
+                    <button
+                      type="button"
+                      onClick={() => void ouvrir('devis')}
+                      disabled={enCours}
+                      className="text-sm text-brand-600 hover:underline disabled:opacity-60"
+                      data-testid="integration-hubspot-champs-autoriser"
+                    >
+                      {t('Autoriser l’accès aux devis et à l’agenda', 'Authorize access to quotes and the calendar')}
+                    </button>
+                    {' '}
+                    {t('Une fois l’accès accordé dans HubSpot, rechargez cette page.', 'Once access is granted in HubSpot, reload this page.')}
+                  </p>
+                )}
                 {g.lignes.length === 0 && <p className="mt-1 text-xs text-ink-500">{t('Aucune propriété.', 'No property.')}</p>}
                 <ul className="mt-1">
                   {g.lignes.map((l) => (
@@ -172,9 +192,11 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
                         />
                         <span className="min-w-0">
                           {l.libelle} <span className="text-xs text-ink-500">{l.nom}</span>
-                          {!l.disponible && (
-                            <span className="block text-xs text-ink-500">
-                              {t('L’accès à l’agenda HubSpot n’est pas accordé à Messaging Me.', 'Access to the HubSpot calendar is not granted to Messaging Me.')}
+                          {l.acces && (
+                            <span className="block text-xs text-ink-500" data-testid={`integration-hubspot-champ-raison-${idChamp(l)}`}>
+                              {l.acces === 'devis'
+                                ? t('L’accès aux devis HubSpot n’est pas accordé à Messaging Me.', 'Access to HubSpot quotes is not granted to Messaging Me.')
+                                : t('L’accès à l’agenda HubSpot n’est pas accordé à Messaging Me.', 'Access to the HubSpot calendar is not granted to Messaging Me.')}
                             </span>
                           )}
                         </span>

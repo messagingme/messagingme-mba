@@ -7,8 +7,8 @@ import { videEnAbsent } from '../api/fiche';
 /**
  * LES CHAMPS HUBSPOT QU'UN ESPACE CHOISIT D'IMPORTER SUR SES FICHES (lot 2 du plan
  * `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, cadrage du même jour, décisions 1 à 4, validées par
- * Julien). Le client choisit, dans Tools > Intégrations > HubSpot, des propriétés du contact et de la transaction, et deux
- * champs calculés (le conseiller, propriétaire de la transaction, et son lien de réservation). La liste vit dans le
+ * Julien). Le client choisit, dans Tools > Intégrations > HubSpot, des propriétés du contact et de la transaction, et des
+ * champs calculés (`CALCULES_HUBSPOT` : le conseiller, son lien de réservation, le lien et le PDF du devis). La liste vit dans le
  * connecteur ; le connecteur lit les valeurs à chaque exécution et les envoie BRUTES, groupées par objet.
  *
  * 🔴 MBA SEUL FABRIQUE LES CLÉS DE FICHE, depuis le NOM INTERNE de la propriété, jamais depuis son libellé : les sources
@@ -27,8 +27,14 @@ export const NOM_PROPRIETE_HUBSPOT = /^[a-z0-9_]{1,53}$/;
 export const CHAMPS_HUBSPOT_MAX = 20;
 /** La borne d'une valeur de champ de fiche (`validateFieldValue`) : le connecteur coupe à cette longueur. */
 export const VALEUR_CHAMP_HUBSPOT_MAX = 1000;
-export const CALCULES_HUBSPOT = ['conseiller', 'lien_agenda'] as const;
+/**
+ * Les calculés : le conseiller et son lien de réservation (lot 2), le lien public et le PDF du devis de la transaction
+ * (cadrage `~/mm-hubspot/docs/2026-11-02-lien-du-devis-cadrage.md`, décisions 1 à 5). Le connecteur choisit le devis.
+ */
+export const CALCULES_HUBSPOT = ['conseiller', 'lien_agenda', 'lien_devis', 'pdf_devis'] as const;
 export type CalculeHubspot = (typeof CALCULES_HUBSPOT)[number];
+/** Les calculés qui sont des liens envoyés au client : de type `url`, `https` seulement. */
+const CALCULES_LIENS: ReadonlySet<string> = new Set<CalculeHubspot>(['lien_agenda', 'lien_devis', 'pdf_devis']);
 export type ObjetHubspot = 'contact' | 'deal' | 'calcule';
 
 /** Un champ choisi, tel que le contrat le décrit. */
@@ -51,11 +57,11 @@ export function cleChampHubspot(objet: ObjetHubspot, propriete: string): string 
 }
 
 /**
- * Le type du champ de fiche : du texte, sauf le lien de réservation. `champsFiche` écrit sans validation ni mise en
- * forme, donc un champ déclaré date ou booléen recevrait la valeur brute de HubSpot.
+ * Le type du champ de fiche : du texte, sauf les liens calculés (réservation, devis, PDF du devis). `champsFiche` écrit
+ * sans validation ni mise en forme, donc un champ déclaré date ou booléen recevrait la valeur brute de HubSpot.
  */
 export function typeChampHubspot(objet: ObjetHubspot, propriete: string): UserFieldType {
-  return objet === 'calcule' && propriete === 'lien_agenda' ? 'url' : 'text';
+  return objet === 'calcule' && CALCULES_LIENS.has(propriete) ? 'url' : 'text';
 }
 
 /** Déclare les champs choisis dans l'espace (idempotent : une clé qui existe déjà est reprise telle quelle). */
@@ -69,8 +75,11 @@ const valeur = z.string().max(VALEUR_CHAMP_HUBSPOT_MAX);
 /** Les valeurs d'un objet : une par propriété choisie, `''` quand HubSpot la rend vide. */
 const valeursDUnObjet = z.record(z.string().regex(NOM_PROPRIETE_HUBSPOT), valeur)
   .refine((r) => Object.keys(r).length <= CHAMPS_HUBSPOT_MAX, { message: 'trop de champs' });
-/** Le lien de réservation part tel quel dans un message au client : `https` seulement, ou vide. */
-const lienReservation = z.union([z.literal(''), z.url({ protocol: /^https$/ }).max(VALEUR_CHAMP_HUBSPOT_MAX)]);
+/**
+ * Un lien calculé (réservation, devis, PDF du devis) part tel quel dans un message au client : `https` seulement, ou vide
+ * (aucun devis valable : le champ est RETIRÉ, jamais le lien d'une autre transaction).
+ */
+const lienCalcule = z.union([z.literal(''), z.url({ protocol: /^https$/ }).max(VALEUR_CHAMP_HUBSPOT_MAX)]);
 
 /** Les valeurs des propriétés du contact seules (l'action « Lancer un scénario »). */
 export const schemaChampsContact = z.object({ contact: valeursDUnObjet }).strict();
@@ -79,7 +88,12 @@ export const schemaChampsContact = z.object({ contact: valeursDUnObjet }).strict
 export const schemaChampsGroupes = z.object({
   contact: valeursDUnObjet.optional(),
   deal: valeursDUnObjet.optional(),
-  calcules: z.object({ conseiller: valeur.optional(), lien_agenda: lienReservation.optional() }).strict().optional(),
+  calcules: z.object({
+    conseiller: valeur.optional(),
+    lien_agenda: lienCalcule.optional(),
+    lien_devis: lienCalcule.optional(),
+    pdf_devis: lienCalcule.optional(),
+  }).strict().optional(),
 }).strict()
   .refine((c) => Object.keys(c).length > 0, { message: 'aucun groupe' })
   .refine((c) => Object.keys(c.contact ?? {}).length + Object.keys(c.deal ?? {}).length + Object.keys(c.calcules ?? {}).length <= CHAMPS_HUBSPOT_MAX, { message: 'trop de champs' });

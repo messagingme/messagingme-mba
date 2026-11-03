@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { getHubspotInstallLink } from '@/lib/api';
+import { getHubspotInstallLink, type GrantHubspot } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -14,10 +14,10 @@ import { useT } from '@/lib/i18n';
  * page d'Accueil, et la carte de l'interrupteur HubSpot en avait besoin. Deux copies du même geste finiraient
  * par ouvrir deux liens différents.
  */
-export function useInstallationHubspot(tenantId: string, isAdmin: boolean): { ouvrir: (grant?: 'lists') => Promise<void>; enCours: boolean } {
+export function useInstallationHubspot(tenantId: string, isAdmin: boolean): { ouvrir: (grant?: GrantHubspot) => Promise<void>; enCours: boolean } {
   const t = useT();
   const [enCours, setEnCours] = useState(false);
-  const ouvrir = useCallback(async (grant?: 'lists') => {
+  const ouvrir = useCallback(async (grant?: GrantHubspot) => {
     if (!isAdmin || enCours) return;
     setEnCours(true);
     try {

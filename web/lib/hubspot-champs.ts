@@ -16,8 +16,33 @@ export interface LigneChamp extends ChampHubspot {
   libelle: string;
   /** Le nom interne, montré sous le libellé (deux propriétés peuvent porter le même libellé). */
   nom: string;
-  /** Faux pour le lien de réservation sans l'accès à l'agenda. */
+  /** Faux pour un calculé dont l'accès manque, ou un choisi disparu de HubSpot. */
   disponible: boolean;
+  /** Le calculé indisponible : l'accès qui manque pour le cocher (la raison montrée sous la case). */
+  acces?: AccesHubspot;
+}
+
+/** Une portée facultative de l'application HubSpot qu'un calculé demande. */
+export type AccesHubspot = 'agenda' | 'devis';
+
+/**
+ * Les calculés, dans l'ordre de l'écran, et l'accès que chacun demande (cadrage « lien du devis » du 2026-11-02) : le
+ * conseiller n'en demande aucun, le lien de réservation l'agenda, le lien et le PDF du devis les devis.
+ */
+const CALCULES: ReadonlyArray<{ cle: ChampsHubspotDuPortail['calcules'][number]['cle']; acces?: AccesHubspot }> = [
+  { cle: 'conseiller' }, { cle: 'lien_agenda', acces: 'agenda' }, { cle: 'lien_devis', acces: 'devis' }, { cle: 'pdf_devis', acces: 'devis' },
+];
+const rangCalcule = (cle: string): number => {
+  const i = CALCULES.findIndex((c) => c.cle === cle);
+  return i < 0 ? CALCULES.length : i;
+};
+
+/**
+ * Faut-il proposer « Autoriser l'accès aux devis et à l'agenda » ? Oui dès qu'un calculé est grisé faute d'accès : le
+ * connecteur redemande toutes les portées facultatives à chaque autorisation, un seul bouton couvre les deux.
+ */
+export function accesAAutoriser(portail: ChampsHubspotDuPortail): boolean {
+  return portail.calcules.some((c) => !c.disponible && CALCULES.some((k) => k.cle === c.cle && k.acces));
 }
 
 export interface GroupeChamps {
@@ -37,9 +62,11 @@ export function groupesDeChamps(portail: ChampsHubspotDuPortail, recherche: stri
   const garde = (l: LigneChamp) => q === '' || selection.has(idChamp(l)) || plat(l.libelle).includes(q) || plat(l.nom).includes(q);
   const proprietes = (objet: 'contact' | 'deal'): LigneChamp[] =>
     portail.proprietes[objet].map((p) => ({ objet, propriete: p.nom, nom: p.nom, libelle: p.libelle, disponible: true }));
-  const calcules: LigneChamp[] = portail.calcules.map((c) => ({
-    objet: 'calcule', propriete: c.cle, nom: c.cle, libelle: c.libelle, disponible: c.disponible,
-  }));
+  // Les calculés dans l'ordre de l'écran (conseiller, réservation, devis, PDF), quel que soit celui du connecteur.
+  const calcules: LigneChamp[] = [...portail.calcules].sort((a, b) => rangCalcule(a.cle) - rangCalcule(b.cle)).map((c) => {
+    const acces = c.disponible ? undefined : CALCULES.find((k) => k.cle === c.cle)?.acces;
+    return { objet: 'calcule', propriete: c.cle, nom: c.cle, libelle: c.libelle, disponible: c.disponible, ...(acces ? { acces } : {}) };
+  });
   // 🔴 Un champ choisi que le portail ne propose plus (supprimé, caché ou devenu sensible dans HubSpot) : montré avec
   // la raison, décochable et jamais recochable. Sans sa ligne, il resterait dans la sélection sans case, et chaque
   // enregistrement prendrait le refus `propriete_inconnue` (relecture du lot 2, 2026-11-02).

@@ -33,6 +33,8 @@ const CHAMPS = {
   calcules: [
     { cle: 'conseiller', libelle: 'Conseiller (propriétaire de la transaction)', disponible: true },
     { cle: 'lien_agenda', libelle: 'Lien de réservation du conseiller', disponible: false },
+    { cle: 'lien_devis', libelle: 'Lien du devis', disponible: false },
+    { cle: 'pdf_devis', libelle: 'PDF du devis', disponible: false },
   ],
   choisis: [{ objet: 'contact', propriete: 'firstname', libelle: 'Prénom' }],
 };

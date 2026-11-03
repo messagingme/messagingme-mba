@@ -2398,11 +2398,18 @@ scénario, comment importer des contacts.
   et vos listes HubSpot comme audience de campagne
   (décochée ; un bouton **« Autoriser l'accès aux listes HubSpot »** demande ce droit au portail s'il manque).
   Le choix validé et les workflows ou les automations allumés, le bloc **« Champs HubSpot à importer »** (2026-11-02) liste les
-  propriétés du contact et de la transaction du portail (ni cachées, ni sensibles), plus deux champs calculés : le
-  conseiller (propriétaire de la transaction) et son lien de réservation (qui ne se coche que si l'accès à l'agenda
-  HubSpot est accordé). Une recherche, des cases groupées Contact, Transaction et Calculés, au plus 20 champs, puis
-  « Enregistrer les champs ». Chaque champ choisi devient un champ de fiche « (HubSpot) » (clé
-  `hs_contact_<propriété>`, `hs_deal_<propriété>`, `hs_calc_conseiller` ou `hs_calc_lien_agenda`), source possible
+  propriétés du contact et de la transaction du portail (ni cachées, ni sensibles), plus quatre champs calculés : le
+  conseiller (propriétaire de la transaction), son lien de réservation (qui ne se coche que si l'accès à l'agenda
+  HubSpot est accordé), le **lien du devis** et le **PDF du devis** (2026-11-02, qui ne se cochent que si l'accès aux
+  devis HubSpot est accordé). Le devis retenu est le plus récent de la transaction qui a un lien public et n'est ni
+  brouillon, ni en attente d'approbation, ni annulé, ni refusé, ni expiré ; sans lui, les deux champs sont retirés de la
+  fiche (jamais le devis d'une autre transaction), donc un modèle d'ouverture dont une variable vise le lien du devis ne
+  part pas. Un calculé dont l'accès manque est grisé avec sa raison, et un bouton **« Autoriser l'accès aux devis et à
+  l'agenda »** redemande ces accès au portail (un seul consentement pour les deux). Le lien du devis est public, c'est sa
+  fonction : quiconque l'a voit le devis. Une recherche, des cases groupées Contact, Transaction et Calculés, au plus 20
+  champs, calculés compris, puis « Enregistrer les champs ». Chaque champ choisi devient un champ de fiche « (HubSpot) »
+  (clé `hs_contact_<propriété>`, `hs_deal_<propriété>`, `hs_calc_conseiller`, `hs_calc_lien_agenda`,
+  `hs_calc_lien_devis` ou `hs_calc_pdf_devis`, les trois liens de type lien, `https` seulement), source possible
   d'une variable de modèle et lisible par les blocs d'un scénario. L'action transaction écrit les champs choisis du
   contact, de la transaction et les calculés ; l'action « Lancer un scénario » ceux du contact ; « Envoyer un modèle »
   n'en écrit aucun ; un deal qui atteint l'étape d'une automation allumée écrit ceux du contact, de la transaction et

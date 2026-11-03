@@ -20,17 +20,21 @@ describe('la règle de clé et la déclaration', () => {
     expect(cleChampHubspot('deal', 'conseiller')).toBe('hs_deal_conseiller');
     expect(cleChampHubspot('calcule', 'conseiller')).toBe('hs_calc_conseiller');
     expect(cleChampHubspot('calcule', 'lien_agenda')).toBe('hs_calc_lien_agenda');
+    expect(cleChampHubspot('calcule', 'lien_devis')).toBe('hs_calc_lien_devis');
+    expect(cleChampHubspot('calcule', 'pdf_devis')).toBe('hs_calc_pdf_devis');
     // La plus longue clé possible tient dans les 64 caractères d'une clé de l'API publique.
     expect(cleChampHubspot('contact', 'a'.repeat(53))).toHaveLength(64);
   });
 
-  it('🔴 déclarés une fois, libellé HubSpot suivi de « (HubSpot) », du texte sauf le lien de réservation', async () => {
+  it('🔴 déclarés une fois, libellé HubSpot suivi de « (HubSpot) », du texte sauf les liens calculés (réservation, devis, PDF)', async () => {
     const s = store();
     const champs = [
       { objet: 'contact' as const, propriete: 'firstname', libelle: 'Prénom' },
       { objet: 'deal' as const, propriete: 'montant_devis', libelle: 'Montant du devis' },
       { objet: 'calcule' as const, propriete: 'conseiller', libelle: 'Conseiller (propriétaire de la transaction)' },
       { objet: 'calcule' as const, propriete: 'lien_agenda', libelle: 'Lien de réservation du conseiller' },
+      { objet: 'calcule' as const, propriete: 'lien_devis', libelle: 'Lien du devis' },
+      { objet: 'calcule' as const, propriete: 'pdf_devis', libelle: 'PDF du devis' },
     ];
     await declarerChampsHubspot(s, 't1', champs);
     await declarerChampsHubspot(s, 't1', champs);
@@ -39,8 +43,12 @@ describe('la règle de clé et la déclaration', () => {
       { key: 'hs_deal_montant_devis', label: 'Montant du devis (HubSpot)', type: 'text' },
       { key: 'hs_calc_conseiller', label: 'Conseiller (propriétaire de la transaction) (HubSpot)', type: 'text' },
       { key: 'hs_calc_lien_agenda', label: 'Lien de réservation du conseiller (HubSpot)', type: 'url' },
+      { key: 'hs_calc_lien_devis', label: 'Lien du devis (HubSpot)', type: 'url' },
+      { key: 'hs_calc_pdf_devis', label: 'PDF du devis (HubSpot)', type: 'url' },
     ]);
     expect(typeChampHubspot('deal', 'lien_agenda')).toBe('text');
+    // Une propriété de transaction nommée comme un calculé reste du texte.
+    expect(typeChampHubspot('deal', 'lien_devis')).toBe('text');
   });
 
   it('une clé que le client a déjà est reprise telle quelle', async () => {
@@ -55,7 +63,10 @@ describe('la liste choisie', () => {
   const champ = (i: number) => ({ objet: 'contact', propriete: `p${i}` });
 
   it('🔴 au plus 20, calculés compris : 21 champs refusés', () => {
-    const vingt = [...Array.from({ length: 18 }, (_, i) => champ(i)), { objet: 'calcule', propriete: 'conseiller' }, { objet: 'calcule', propriete: 'lien_agenda' }];
+    const vingt = [
+      ...Array.from({ length: 16 }, (_, i) => champ(i)),
+      ...['conseiller', 'lien_agenda', 'lien_devis', 'pdf_devis'].map((propriete) => ({ objet: 'calcule', propriete })),
+    ];
     expect(schemaListeChoisie.safeParse(vingt).success).toBe(true);
     expect(schemaListeChoisie.safeParse([...vingt, champ(99)]).success).toBe(false);
   });
@@ -112,5 +123,30 @@ describe('champsDeFiche : la forme groupée et l’ancienne forme', () => {
     const vingtEtUn = Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`p${i}`, 'x']));
     expect(schemaChampsGroupes.safeParse({ contact: vingtEtUn }).success).toBe(false);
     expect(schemaChampsGroupes.safeParse({ contact: Object.fromEntries(Array.from({ length: 15 }, (_, i) => [`p${i}`, 'x'])), deal: Object.fromEntries(Array.from({ length: 6 }, (_, i) => [`p${i}`, 'x'])) }).success).toBe(false);
+  });
+});
+
+describe('le lien et le PDF du devis (cadrage du 2026-11-02, « lien du devis »)', () => {
+  const DEVIS = 'https://app-eu1.hubspot.com/quotes/1234/abcd';
+  const PDF = 'https://app-eu1.hubspot.com/quotes/1234/abcd/download';
+  const DECLAREES = ['hs_calc_lien_devis', 'hs_calc_pdf_devis'];
+
+  it('🔴 un lien de devis en https seulement, ou vide, borné : http, javascript:, un texte ou une valeur trop longue refusés', () => {
+    for (const cle of ['lien_devis', 'pdf_devis']) {
+      expect(schemaChampsGroupes.safeParse({ calcules: { [cle]: DEVIS } }).success, cle).toBe(true);
+      expect(schemaChampsGroupes.safeParse({ calcules: { [cle]: '' } }).success, cle).toBe(true);
+      for (const faux of ['http://app-eu1.hubspot.com/quotes/1', 'javascript:alert(1)', 'devis 12', `https://x.fr/${'a'.repeat(1000)}`]) {
+        expect(schemaChampsGroupes.safeParse({ calcules: { [cle]: faux } }).success, `${cle} ${faux.slice(0, 30)}`).toBe(false);
+      }
+    }
+  });
+
+  it('🔴 un devis valable est posé ; aucun devis (vide) RETIRE les deux champs de la fiche', () => {
+    expect(champsDeFiche(schemaChampsGroupes.parse({ calcules: { lien_devis: DEVIS, pdf_devis: PDF } }), DECLAREES))
+      .toEqual({ poser: { hs_calc_lien_devis: DEVIS, hs_calc_pdf_devis: PDF }, retirer: [] });
+    expect(champsDeFiche(schemaChampsGroupes.parse({ calcules: { lien_devis: '', pdf_devis: '' } }), DECLAREES))
+      .toEqual({ poser: {}, retirer: ['hs_calc_lien_devis', 'hs_calc_pdf_devis'] });
+    // Non déclarés dans l'espace : ignorés, comme toute autre clé.
+    expect(champsDeFiche(schemaChampsGroupes.parse({ calcules: { lien_devis: DEVIS } }), [])).toEqual({ poser: {}, retirer: [] });
   });
 });

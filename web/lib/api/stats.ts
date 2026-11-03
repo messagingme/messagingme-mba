@@ -843,8 +843,11 @@ export interface ChampsHubspotDuPortail {
     contact: Array<{ nom: string; libelle: string; type: string }>;
     deal: Array<{ nom: string; libelle: string; type: string }>;
   };
-  /** Le conseiller (propriétaire de la transaction) et son lien de réservation ; `disponible` faux sans l'accès à l'agenda. */
-  calcules: Array<{ cle: 'conseiller' | 'lien_agenda'; libelle: string; disponible: boolean }>;
+  /**
+   * Le conseiller (propriétaire de la transaction), son lien de réservation, le lien et le PDF du devis ; `disponible` faux
+   * sans l'accès à l'agenda (le lien de réservation) ou aux devis (les deux du devis).
+   */
+  calcules: Array<{ cle: 'conseiller' | 'lien_agenda' | 'lien_devis' | 'pdf_devis'; libelle: string; disponible: boolean }>;
   choisis: Array<ChampHubspot & { libelle: string }>;
 }
 
@@ -863,9 +866,11 @@ export function putHubspotChamps(tenantId: string, champs: ChampHubspot[]): Prom
 
 /**
  * Demande au backend un lien d'install/re-consentement HubSpot SIGNÉ (le tenant est dans la signature, plus dans
- * un `?tenant=` en clair forgeable). Route admin-only ; le tenant vient du JWT. `grant='lists'` pour le re-consentement.
+ * un `?tenant=` en clair forgeable). Route admin-only ; le tenant vient du JWT. `grant='lists'` pour le re-consentement des
+ * listes, `grant='devis'` pour celui des devis et de l'agenda (le connecteur redemande toutes les portées facultatives).
  */
-export function getHubspotInstallLink(tenantId: string, grant?: 'lists'): Promise<{ installUrl: string }> {
+export type GrantHubspot = 'lists' | 'devis';
+export function getHubspotInstallLink(tenantId: string, grant?: GrantHubspot): Promise<{ installUrl: string }> {
   return request(`/tenants/${tenantId}/hubspot/install-link`, {
     method: 'POST',
     body: JSON.stringify(grant ? { grant } : {}),
