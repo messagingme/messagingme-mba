@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowExecutorDeps } from '../src/workflow/executor';
@@ -97,11 +97,11 @@ describe('le moteur pur', () => {
 /** Un dépôt de parcours en mémoire, plusieurs parcours : celui d'origine, puis celui du scénario d'arrivée. */
 class FauxRuns {
   runs: Array<WorkflowRunRow & { contactId: string | null }> = [];
-  async start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null): Promise<{ id: string }> {
+  async start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean): Promise<{ id: string }> {
     const id = `r${this.runs.length + 1}`;
     this.runs.push({
       id, workflowId, tenantId, waId, contactId, currentNode: state.currentNode, status: state.status,
-      lastMessageId: state.lastMessageId ?? null, grapheFige,
+      lastMessageId: state.lastMessageId ?? null, grapheFige, exigeAccordMarketing,
     });
     return { id };
   }
@@ -137,6 +137,7 @@ function monter(scenarios: Record<string, WorkflowGraph>, over: Partial<Workflow
   const ex = new WorkflowExecutor({
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes(runs),
     getGraph: async (id) => scenarios[id] ?? null,
     // 🔴 Scopée à l'espace, comme le câblage : un code d'un autre espace n'y est jamais trouvé.
@@ -232,7 +233,8 @@ describe('le saut vers un AUTRE scénario, sur le vrai exécuteur', () => {
     expect(m.runs.runs[1]!.contactId, 'la fiche du parcours d’origine suit le saut').toBe('c1');
     expect(demarrer).toHaveBeenCalledTimes(1);
     expect(demarrer.mock.calls[0]![0]).toBe('aller_a');
-    expect(demarrer.mock.calls[0]![5]).toEqual({ depuis: 'saut', noeudId: 'x', fenetreOuverte: true, sauts: 1, messageDeclencheur: 'm1' });
+    // Un parcours libre (né avant la garde, ou d'un lancement libre) : le saut le reste.
+    expect(demarrer.mock.calls[0]![5]).toEqual({ depuis: 'saut', noeudId: 'x', fenetreOuverte: true, sauts: 1, messageDeclencheur: 'm1', exigeAccordMarketing: false });
     expect(m.journal).toEqual([]);
     expect(m.equipe).toEqual([]);
     // Redélivré par Meta, le même message n'est pas pris pour une réponse dans le parcours d'arrivée.
@@ -332,7 +334,7 @@ describe('🔴 la fenêtre de 24 h suit le saut, au réveil', () => {
     edges: [e('w', 'j')],
   };
   const b: WorkflowGraph = { nodes: [n('r', 'quick_message', { body: 'Relance', quickReplies: ['Ok'], code: code(80) })], edges: [] };
-  const reveil = { id: 'r1', workflowId: 'wf-a', tenantId: 't1', waId: WA, currentNode: 'w', grapheFige: null, status: 'sleeping' as const };
+  const reveil = { id: 'r1', workflowId: 'wf-a', tenantId: 't1', waId: WA, currentNode: 'w', grapheFige: null, exigeAccordMarketing: false, status: 'sleeping' as const };
 
   it('fenêtre fermée : le scénario d’arrivée refuse d’ouvrir par un message de session, la conversation va à l’équipe', async () => {
     silence();

@@ -3,6 +3,7 @@ import { automationsCandidates, runAutomations } from '../src/automation/runner'
 import type { AutomationRunnerDeps } from '../src/automation/runner';
 import { POSSESSEUR_LIEN_CHAINE, POSSESSEUR_PUBLICITE, POSSESSEUR_WIDGET, type AutomationRow, type AutomationEvent } from '../src/automation/match';
 import { DROITS, type Offre } from '../src/offres/offres';
+import { aucunAccordEcrit } from './consentement';
 
 /**
  * 🔴 LE GEL DES AUTOMATIONS AU RETOUR EN BASE (lot 6, livraison B2a, spec § 7, décision de Julien du 2026-10-07). Sous une
@@ -16,7 +17,7 @@ const MSG: AutomationEvent = { kind: 'message', waId: '33611', body: 'rdv', isNe
 const auto = (id: string, over: Partial<AutomationRow> = {}): AutomationRow => ({
   id, tenantId: 't1', name: id, enabled: true,
   triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null,
-  workflowId: `wf-${id}`, startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, ...over,
+  workflowId: `wf-${id}`, startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,
 });
 
 function monter(rows: AutomationRow[], offre: Offre, anciennes: string[]) {
@@ -34,6 +35,7 @@ function monter(rows: AutomationRow[], offre: Offre, anciennes: string[]) {
     offres: { offreDe: async () => ({ offre, droits: DROITS[offre], retourEnBaseLe: null }) },
     evalContext: async () => null,
     startWorkflow: async (d) => { demarrees.push(d.workflowId); return true; },
+    ecrireAccord: aucunAccordEcrit,
     defaultCooldownSeconds: 0,
     now: () => T,
   };

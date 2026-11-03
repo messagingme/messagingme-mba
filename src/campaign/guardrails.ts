@@ -21,6 +21,13 @@ export function optInAllows(category: CampaignCategory, contact: OptInContact): 
 export const MOTIF_DESABONNE = 'contact désabonné : il a demandé à ne plus recevoir de messages';
 
 /**
+ * Le motif d'un modèle Marketing que la garde d'un parcours d'automation n'envoie pas (décision A du cadrage mm-hubspot du
+ * 2026-11-02, `PolitiqueDeLancement.marketing`) : le modèle est Marketing (ou sa catégorie illisible) et la fiche n'a pas
+ * l'accord marketing (`opted_in`). Lu par l'opérateur et par le journal du runner d'automation.
+ */
+export const MOTIF_SANS_ACCORD_MARKETING = 'sans accord marketing : ce contact n’a pas donné son accord, le modèle Marketing ne part pas';
+
+/**
  * Décide de mettre la campagne en pause selon la santé du numéro :
  * quality rating RED, ou taux d'échec au-delà du seuil (après un minimum d'envois).
  */

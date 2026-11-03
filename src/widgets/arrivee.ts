@@ -101,6 +101,8 @@ export function automationDuWidget(tenantId: string, widget: WidgetRow, workflow
     possedePar: POSSESSEUR_WIDGET,
     cooldownSeconds: null,
     maxFiresPerHour: widget.maxParHeure,
+    // Un widget n'a pas le formulaire des automations, donc pas la case : il n'atteste jamais l'accord marketing.
+    accordMarketing: null,
   };
 }
 

@@ -44,17 +44,23 @@ export async function appliquerConsentement(
   contactId: string,
   consent: 'opted_in' | 'opted_out',
   source: string,
+  /**
+   * D'où vient l'écriture, pour le journal : `api` (l'API publique et ses adaptateurs), `automation` (l'accord d'une
+   * automation attestée, écrit par le runner). Sans elle, l'accord d'une automation se lirait comme un appel d'API.
+   */
+  origine: 'api' | 'automation' = 'api',
 ): Promise<IssueConsentement> {
   const issue = await deps.ecrireConsentementParId(tenantId, contactId, consent, source);
   // Rien n'a bougé (même statut, STOP à respecter, ou fiche purgée entre-temps) : rien à consigner.
   if (issue !== 'change') return issue;
   await tenter('audit du consentement ignoré:', () => deps.audit(
     tenantId,
-    // Une clé d'API n'est pas un compte : l'acteur reste vide, la source dit d'où vient la décision.
+    // Une clé d'API n'est pas un compte, une automation non plus : l'acteur reste vide, la source dit d'où vient la
+    // décision (l'attestant d'une automation est sur l'automation, `automation:<id>`).
     { userId: null, email: null },
     consent === 'opted_in' ? 'contact.optin' : 'contact.optout',
     { kind: 'contact', id: contactId },
-    { source: 'api', consentSource: source },
+    { source: origine, consentSource: source },
   ));
   return issue;
 }

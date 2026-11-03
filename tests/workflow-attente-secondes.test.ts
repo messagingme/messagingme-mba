@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect } from 'vitest';
 import { WorkflowExecutor } from '../src/workflow/executor';
@@ -46,6 +46,7 @@ function monter(graph: WorkflowGraph, run: WorkflowRunRow | null, cap: Capture, 
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async (_t: string, _w: string, _wa: string, _c: string | null, state: RunState) => { cap.etats.push(state); return { id: 'r1' }; },
       findWaitingByWaId: async () => run,
@@ -73,7 +74,7 @@ function monter(graph: WorkflowGraph, run: WorkflowRunRow | null, cap: Capture, 
 
 const capture = (): Capture => ({ envois: [], armes: [], saisies: [], etats: [] });
 const dormant = (currentNode: string, lastMessageId: string | null, channel: RunChannel = 'whatsapp') =>
-  ({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode, status: 'sleeping' as const, lastMessageId, channel, grapheFige: null });
+  ({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode, status: 'sleeping' as const, lastMessageId, channel, grapheFige: null, exigeAccordMarketing: false });
 
 describe('pause en secondes : le démarrage', () => {
   it('le parcours né endormi arme le réveil court à l’échéance exacte, et signale la saisie sur le message déclencheur', async () => {
@@ -157,7 +158,7 @@ describe('pause en secondes : le démarrage', () => {
 describe('pause en secondes : l’avance sur réponse du contact', () => {
   const enAttente = (): WorkflowRunRow => ({
     id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1',
-    currentNode: 'q', status: 'waiting', lastMessageId: null, channel: 'whatsapp', grapheFige: null,
+    currentNode: 'q', status: 'waiting', lastMessageId: null, channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: false,
   });
 
   it('la réponse mène à une pause : armée, avec la saisie sur la réponse', async () => {

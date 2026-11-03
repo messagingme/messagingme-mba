@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect } from 'vitest';
 import { WorkflowExecutor } from '../src/workflow/executor';
@@ -35,6 +35,7 @@ function executeur(graph: WorkflowGraph, opts: { mbaActif?: boolean; run?: Recor
   const ex = new WorkflowExecutor({
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async () => ({ id: 'r1' }),
       findWaitingByWaId: async () => run as unknown as WorkflowRunRow,

@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { WorkflowExecutor } from '../src/workflow/executor';
@@ -21,7 +21,7 @@ const graphe: WorkflowGraph = {
  */
 class RunsConditionnels {
   run: WorkflowRunRow | null = {
-    id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null,
+    id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', currentNode: 'a', status: 'waiting', lastMessageId: null, grapheFige: null, exigeAccordMarketing: false,
   };
   aBouge = false;
   /** Ce que la garde a reçu comme bloc de DÉPART, appel par appel. */
@@ -99,6 +99,7 @@ function exec(runs: RunsConditionnels, over: Partial<WorkflowExecutorDeps> = {})
   const ex = new WorkflowExecutor({
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     // Sans transtypage : c est le compilateur qui doit nommer ce faux quand le contrat bouge, pas
     // l execution. Un `as unknown as` ici avait deja laisse passer une methode manquante.
     runs: avecGardesDEtatInertes(runs),

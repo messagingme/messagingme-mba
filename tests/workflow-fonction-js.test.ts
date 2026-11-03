@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -134,6 +134,7 @@ describe('🔴 le bloc « Fonction JS » à l’exécution', () => {
   const deps = (over: Partial<WorkflowExecutorDeps>): WorkflowExecutorDeps => ({
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes(new FakeRuns()),
     getGraph: async () => graph,
     applyTag: async () => {},

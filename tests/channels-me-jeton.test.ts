@@ -128,7 +128,7 @@ describe('texte pre-rempli', () => {
       // C est bien une automation NEE D UN LIEN DE CHAINE : la fixture le dit, sinon elle cesserait de
       // representer le cas reel le jour ou ce champ decide de quelque chose. Il decide depuis le
       // 2026-09-08 de la reprise de main sur le fil.
-      possedePar: POSSESSEUR_LIEN_CHAINE,
+      possedePar: POSSESSEUR_LIEN_CHAINE, accordMarketing: null,
     });
     const ancienPost = (b: string): AutomationEvent =>
       ({ kind: 'message', waId: '33611', body: b, isNewContact: false, channel: 'whatsapp' });

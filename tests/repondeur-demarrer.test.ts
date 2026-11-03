@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { jamaisDesabonne, jamaisNosMachines, numeroJamaisBloque } from './consentement';
+import { jamaisDesabonne, jamaisNosMachines, numeroJamaisBloque, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { bancDuFil, ESPACE, type OptionsBanc } from './banc-du-fil';
 import { entrantsDe } from './webhook-fixtures';
@@ -302,9 +302,9 @@ describe('ce que la remise dit au répondeur : le dernier message, la redélivra
 function moteur() {
   const lignes: (WorkflowRunRow & { resumeAt: Date | null })[] = [];
   const runs = avecGardesDEtatInertes({
-    start: async (t: string, w: string, waId: string, _c: string | null, s: RunState, fige: WorkflowGraph | null) => {
+    start: async (t: string, w: string, waId: string, _c: string | null, s: RunState, fige: WorkflowGraph | null, exige: boolean) => {
       const id = `r${lignes.length + 1}`;
-      lignes.push({ id, workflowId: w, tenantId: t, waId, currentNode: s.currentNode, status: s.status, lastMessageId: s.lastMessageId ?? null, grapheFige: fige, resumeAt: s.resumeAt ?? null });
+      lignes.push({ id, workflowId: w, tenantId: t, waId, currentNode: s.currentNode, status: s.status, lastMessageId: s.lastMessageId ?? null, grapheFige: fige, exigeAccordMarketing: exige, resumeAt: s.resumeAt ?? null });
       return { id };
     },
     findWaitingByWaId: async (t: string, waId: string) => [...lignes].reverse().find((l) => l.tenantId === t && l.waId === waId && l.status === 'waiting') ?? null,
@@ -366,6 +366,7 @@ function bout(o: OptionsBanc = {}) {
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: mo.runs,
     // Le scénario d'une campagne se relit ; celui du répondeur, jamais (son parcours porte son graphe figé).
     getGraph: async (id) => (id === 'wf-campagne' ? CAMPAGNE : id === 'wf-suite' ? CAMPAGNE_SUITE : null),
@@ -633,6 +634,7 @@ describe('J4 : ce que rien ne tenait', () => {
     const ex = new WorkflowExecutor({
       ...depsInertes,
       estDesabonne: jamaisDesabonne,
+      aAccordMarketing: toujoursDAccord,
       runs: mo.runs,
       getGraph: async () => CAMPAGNE,
       applyTag: async () => true, setField: async () => {}, removeTag: async () => {}, clearField: async () => {},
@@ -669,7 +671,7 @@ describe('les autres gestes, agent de Meta éteint par le CHECK : le fil reste a
   it('la fin d’un parcours ne rend rien à Meta (l’exécuteur ne l’appelle pas, agent de Meta éteint)', async () => {
     const rendus: string[] = [];
     const ex = new WorkflowExecutor({
-      ...depsInertes, estDesabonne: jamaisDesabonne,
+      ...depsInertes, estDesabonne: jamaisDesabonne, aAccordMarketing: toujoursDAccord,
       runs: avecGardesDEtatInertes({ start: async () => ({ id: 'r1' }), findWaitingByWaId: async () => null, setState: async () => {}, closeActiveByWaId: async () => [] }),
       getGraph: async () => null, applyTag: async () => true, setField: async () => {}, removeTag: async () => {}, clearField: async () => {},
       sendTemplate: async () => {}, sendQuickMessage: async () => {}, sendFlow: async () => {}, sendQuestion: async () => {},

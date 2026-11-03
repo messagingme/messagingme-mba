@@ -18,7 +18,25 @@
   un lead belge saisi « 470 12 34 56 » dans HubSpot aurait une fiche au mauvais numéro. Seul le format international est
   sûr.
 - L'API laisse créer ou allumer une automation « deal » ligne éteinte (seul l'écran la grise) ; elle ne part pas.
-- Lot 3b du même plan : la case d'accord marketing des automations, la garde marketing de l'exécuteur.
+
+## 🟡 La case d'accord et la garde marketing des automations : ce qu'elles laissent (lot 3b du 2026-11-02)
+
+- 🔴 Trou connu, HORS décision A : une campagne à scénario ne trie ses destinataires que sur la catégorie de la campagne
+  (son ouverture, `optInAllows` à la construction). Un scénario « Service, puis Marketing » lancé en campagne envoie donc
+  le Marketing sans accord ; `campagne_scenario` reste `libre` dans `POLITIQUE_DE_LANCEMENT`. Le passer en `accord_fiche`
+  change le comportement des campagnes : à trancher avec Julien.
+- La garde ne couvre pas le bloc RCS (hors périmètre du plan). Les parcours d'automation déjà en cours au déploiement de
+  0272 finissent sans elle (accepté).
+- Un modèle Marketing refusé APRÈS un premier envoi parti dans la même liste laisse le parcours sur son repos, comme tout
+  refus d'étape (`partis > 0`) : il n'est pas clos.
+
+- La liste `GET /automations` est lue par tout compte authentifié, agents compris : elle montre désormais l'adresse de
+  l'admin qui a coché la case. Voulu ou à réserver aux admins : à trancher avec Julien.
+- Une fiche déjà d'accord garde sa source d'origine (`inchange`) : elle ne portera jamais `automation:<id>`. L'essai réel
+  du plan (« sa fiche porte l'accord et sa source ») ne vaut que pour une fiche neuve ou sans consentement.
+- Une automation « risque élevé » attestée écrit jusqu'à 200 accords par nuit et par espace (le seul déclencheur de masse).
+- Les automations sans formulaire (webhook entrant, chaîne, publicité, widget) n'ont pas la case : la mettre dans l'écran
+  des webhooks, ou faire valoir le clic sur une publicité comme accord, reste une question ouverte du cadrage.
 
 ## 🟡 Les scénarios par l'API : la suite de la v1 (spec `docs/superpowers/specs/2026-11-02-scenarios-api-design.md`)
 

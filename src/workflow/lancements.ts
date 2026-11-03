@@ -144,6 +144,21 @@ export interface PolitiqueDeLancement {
    *   à », qui CONTINUENT un parcours en cours (ceux-là finissent, dit la spec).
    */
   horsOffre: 'gele' | 'continue';
+  /**
+   * La garde marketing (décision A du cadrage mm-hubspot du 2026-11-02) : un modèle Marketing part-il sans l'accord de
+   * la fiche ?
+   * - `accord_fiche` : non. À chaque bloc Modèle, sa catégorie (lue sur le cache de l'envoi) Marketing ou illisible exige
+   *   `opted_in` sur la fiche, lu EN DIRECT ; sinon le bloc est sauté (`MOTIF_SANS_ACCORD_MARKETING`). Les trois
+   *   `automatisme_*` : une automation n'a ni liste construite sur l'accord ni attestation par contact (la case de
+   *   l'automation écrit l'accord sur la fiche AVANT le démarrage, `src/automation/runner.ts`).
+   * - `libre` : comme avant. Les campagnes et l'API publique ont filtré à la construction (`optInAllows`) ; le workflow
+   *   HubSpot a écrit l'accord sur la fiche ou refusé tout Marketing du graphe ; l'Inbox, les agents, les répondeurs et le
+   *   lien de test sont des gestes unitaires.
+   * 🔴 Elle se FIGE à la naissance du parcours (`workflow_runs.accord_marketing_exige`) et voyage dans les reprises et les
+   * « Aller à » (le départ `saut` la porte) : un saut vers un autre scénario ne la lève pas. Seul `accordMarketingExige`
+   * la lit.
+   */
+  marketing: 'libre' | 'accord_fiche';
 }
 
 /**
@@ -165,8 +180,8 @@ export const MOTIF_SCENARIO_LANCE = 'scenario_lance';
  * exécuteur. Changer une valeur change le comportement de chaque scénario lancé par ce chemin en production.
  */
 export const POLITIQUE_DE_LANCEMENT = {
-  inbox: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele' },
-  agent_meta_scenario: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele' },
+  inbox: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
+  agent_meta_scenario: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
   /**
    * L'outil « Lancer un scénario » d'un agent IA (RC4) : calqué sur celui de l'agent de Meta (un contact ici et
    * maintenant, le publié, la fenêtre prouvée par la conversation en cours), et la session de l'agent qu'il remplace se
@@ -175,14 +190,14 @@ export const POLITIQUE_DE_LANCEMENT = {
    * fenêtre que `run-turn` ferme en `main_perdue` pour un message écrit ; le lancement la ferme de la même façon que le
    * répondeur.
    */
-  agent_ia_scenario: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'retiree', horsOffre: 'gele' },
-  agent_meta_bloc: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'fourni', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele' },
-  automatisme_ordinaire: { reprise: 'non', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue' },
-  automatisme_chaine: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue' },
-  automatisme_publicite_ou_widget: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue' },
-  lien_de_test: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'brouillon_fige', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele' },
-  campagne_scenario: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele' },
-  campagne_bloc: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele' },
+  agent_ia_scenario: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'retiree', horsOffre: 'gele', marketing: 'libre' },
+  agent_meta_bloc: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'fourni', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
+  automatisme_ordinaire: { reprise: 'non', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'accord_fiche' },
+  automatisme_chaine: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'accord_fiche' },
+  automatisme_publicite_ou_widget: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'accord_fiche' },
+  lien_de_test: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'brouillon_fige', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
+  campagne_scenario: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
+  campagne_bloc: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
   /**
    * Un workflow HubSpot (décisions 3, 4 et 8 du cadrage du 2026-10-29) : une machine, pas un opérateur qui lance. Il
    * reprend le fil à l'agent de Meta, JAMAIS à un opérateur qui le tient (le conseiller qui répond dans la fiche HubSpot
@@ -190,13 +205,13 @@ export const POLITIQUE_DE_LANCEMENT = {
    * (un parcours peut dormir sans fin) ; aucune étiquette ne publie (un workflow inscrit des milliers de contacts, c'est
    * un chemin de masse) ; il écrit à froid, donc la fenêtre est gardée.
    */
-  workflow_hubspot: { reprise: 'sauf_operateur', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele' },
+  workflow_hubspot: { reprise: 'sauf_operateur', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
   /**
    * Le répondeur (lot 5, spec `docs/superpowers/specs/2026-10-04-repondeur-par-defaut-design.md`) : jamais à un
    * opérateur qui tient le fil (c'est le client qui écrit, comme un clic sur une publicité) ; ses étiquettes publient
    * (un contact, ici et maintenant) ; la fenêtre est prouvée par l'entrant qui le démarre.
    */
-  repondeur: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'fourni_fige', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue' },
+  repondeur: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'fourni_fige', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre' },
   /**
    * Le scénario répondeur (RC6, plan `docs/superpowers/plans/2026-10-06-rc6-qui-repond.md`) : la politique de l'agent IA
    * répondeur, sur le graphe PUBLIÉ du scénario choisi (un contact réel ne tombe jamais dans un brouillon, et rien n'est
@@ -204,7 +219,7 @@ export const POLITIQUE_DE_LANCEMENT = {
    * parcours attend ce contact, donc ce qu'il remplacerait (un parcours endormi et sa session) vient d'ailleurs, et
    * s'interrompt comme pour tout démarrage.
    */
-  repondeur_scenario: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele' },
+  repondeur_scenario: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
   /**
    * « Aller à » vers un autre scénario (RC5, plan `docs/superpowers/plans/2026-10-06-rc5-blocs-condition-aller-a.md`) :
    * - `reprise: 'oui'` (décision du plan) : le saut CONTINUE un parcours qui avait déjà le droit d'écrire, à l'instant
@@ -217,8 +232,8 @@ export const POLITIQUE_DE_LANCEMENT = {
    *   démarrage a déjà remplacé le parcours en cours), donc le saut ne remplace jamais une session d'agent vivante qui
    *   serait la sienne. Ce qu'il remplacerait encore viendrait d'ailleurs : une interruption, comme pour tout démarrage.
    */
-  aller_a: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue' },
-  aller_a_masse: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue' },
+  aller_a: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre' },
+  aller_a_masse: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre' },
 } as const satisfies Record<TypeDeLancement, PolitiqueDeLancement>;
 
 /**
@@ -247,9 +262,10 @@ export type DepartDuParcours =
    * délibérément : il porte une preuve de fenêtre (`bloc` n'en porte aucune, et la lui ajouter changerait la règle des
    * automations), le compteur de sauts sans pause (`MAX_SAUTS_SANS_PAUSE`, `src/workflow/aller-a.ts`), et le message
    * qui a déclenché le saut (inscrit comme déjà reçu, sans quoi sa redélivrance par Meta ferait avancer le parcours
-   * neuf comme une réponse).
+   * neuf comme une réponse). `exigeAccordMarketing` : la garde marketing du parcours d'origine, REQUISE (un saut
+   * d'automation vers un autre scénario la garde ; optionnelle, un oubli retomberait sur `libre` en silence).
    */
-  | { depuis: 'saut'; noeudId: string; fenetreOuverte: boolean; sauts: number; messageDeclencheur?: string };
+  | { depuis: 'saut'; noeudId: string; fenetreOuverte: boolean; sauts: number; messageDeclencheur?: string; exigeAccordMarketing: boolean };
 
 /**
  * La garde de fenêtre est-elle levée pour ce lancement ? Seul endroit où la politique et le départ se croisent.
@@ -262,6 +278,18 @@ export function fenetreLevee(politique: PolitiqueDeLancement, depart: DepartDuPa
     case 'selon_preuve': return prouvee;
     case 'bloc_ou_preuve': return depart.depuis === 'bloc' || prouvee;
     case 'levee': return true;
+  }
+}
+
+/**
+ * Le parcours qui naît exige-t-il l'accord de la fiche pour un modèle Marketing ? La politique du type, ou celle que le
+ * saut a héritée du parcours d'origine. La SEULE lecture de `politique.marketing` : l'exécuteur fige la réponse dans le
+ * parcours (`workflow_runs.accord_marketing_exige`), et les reprises la relisent là.
+ */
+export function accordMarketingExige(politique: PolitiqueDeLancement, depart: DepartDuParcours): boolean {
+  switch (politique.marketing) {
+    case 'accord_fiche': return true;
+    case 'libre': return depart.depuis === 'saut' && depart.exigeAccordMarketing;
   }
 }
 

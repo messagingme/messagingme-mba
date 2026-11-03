@@ -261,6 +261,11 @@ export interface Automation {
   startNodeId: string | null;
   /** null = anti-rebond par défaut du service. 0 = aucun garde-fou. */
   cooldownSeconds: number | null;
+  /**
+   * L'attestation de l'accord marketing (qui l'a cochée, son adresse, quand), posée par le serveur ; null = non attestée.
+   * Absente d'une API d'avant le lot 3b (la console part avec le push) : se lit comme non attestée.
+   */
+  accordMarketing?: { par: string | null; email: string | null; le: string } | null;
 }
 
 export interface AutomationInput {
@@ -272,6 +277,8 @@ export interface AutomationInput {
   conditionGroup?: unknown;
   startNodeId?: string | null;
   cooldownSeconds?: number | null;
+  /** La case seule : le serveur pose le tampon depuis la session. Absent = inchangé. */
+  accordMarketing?: boolean;
 }
 
 export function listAutomations(tenantId: string): Promise<{ automations: Automation[] }> {

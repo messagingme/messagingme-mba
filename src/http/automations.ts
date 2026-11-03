@@ -187,10 +187,16 @@ async function validateTriggerReferences(
   return null;
 }
 
-/** Corps commun création/modification. Renvoie l'erreur (400) ou l'input normalisé. */
-function parseBody(body: unknown, partial: boolean): { error: string } | { input: Partial<AutomationInput> } {
+/**
+ * Corps commun création/modification. Renvoie l'erreur (400) ou l'input normalisé, et à part la case d'accord marketing :
+ * un booléen seulement (absent = inchangé, pour qu'une console d'avant restée ouverte n'efface rien). Son tampon
+ * (`AutomationInput.accordMarketing`) n'est jamais lu du corps : la route le pose depuis la session.
+ */
+function parseBody(body: unknown, partial: boolean): { error: string } | { input: Partial<AutomationInput>; accord?: boolean } {
   const b = (body ?? {}) as Record<string, unknown>;
   const out: Partial<AutomationInput> = {};
+  if (b.accordMarketing !== undefined && typeof b.accordMarketing !== 'boolean') return { error: 'accordMarketing (booléen)' };
+  const accord = b.accordMarketing as boolean | undefined;
 
   if (b.name !== undefined || !partial) {
     if (!nonEmpty(b.name)) return { error: 'name requis' };
@@ -253,7 +259,17 @@ function parseBody(body: unknown, partial: boolean): { error: string } | { input
     const msg = validateTriggerConfig(out.triggerKind!, out.triggerConfig!);
     if (msg) return { error: msg };
   }
-  return { input: out };
+  return { input: out, accord };
+}
+
+/**
+ * Le tampon de l'attestation, posé ICI depuis la session et jamais recopié du corps : cocher atteste au nom du compte
+ * connecté (l'adresse et la date sont posées par la base), décocher efface, absent ne touche rien. Sur une automation
+ * déjà attestée, le store garde le tampon d'origine.
+ */
+function tamponAccord(accord: boolean | undefined, userId: string | undefined): Pick<AutomationInput, 'accordMarketing'> {
+  if (accord === undefined) return {};
+  return { accordMarketing: accord ? { par: userId ?? null } : null };
 }
 
 /**
@@ -293,8 +309,9 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     if (reference) return reply.code(400).send({ error: reference });
     const boucle = refuseIfLoopy(input.triggerKind, input.cooldownSeconds);
     if (boucle) return reply.code(400).send({ error: boucle });
-    const { id } = await deps.automations.create(tenant, input);
-    return reply.code(201).send({ id, ...input });
+    const { id } = await deps.automations.create(tenant, { ...input, ...tamponAccord(parsed.accord, req.auth?.userId) });
+    // La réponse rend le booléen reçu, jamais le tampon : il se relit par la liste.
+    return reply.code(201).send({ id, ...input, ...(parsed.accord === undefined ? {} : { accordMarketing: parsed.accord }) });
   });
 
   app.patch('/tenants/:tenantId/automations/:id', opts, async (req, reply) => {
@@ -303,7 +320,8 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
     const { id } = req.params as { id: string };
     const parsed = parseBody(req.body, true);
     if ('error' in parsed) return reply.code(400).send({ error: parsed.error });
-    if (Object.keys(parsed.input).length === 0) return reply.code(400).send({ error: 'rien à modifier' });
+    // La case seule est une modification : cocher ou décocher sans renvoyer le déclencheur.
+    if (Object.keys(parsed.input).length === 0 && parsed.accord === undefined) return reply.code(400).send({ error: 'rien à modifier' });
     if (parsed.input.workflowId !== undefined && !(await deps.workflowBelongsToTenant(parsed.input.workflowId, tenant))) {
       return reply.code(400).send({ error: 'workflowId inconnu pour ce tenant' });
     }
@@ -337,9 +355,9 @@ export function registerAutomations(app: FastifyInstance, deps: AutomationRouteD
       const boucle = refuseIfLoopy(kindEffectif, cooldownEffectif);
       if (boucle) return reply.code(400).send({ error: boucle });
     }
-    const ok = await deps.automations.update(id, tenant, parsed.input);
+    const ok = await deps.automations.update(id, tenant, { ...parsed.input, ...tamponAccord(parsed.accord, req.auth?.userId) });
     if (!ok) return reply.code(404).send({ error: 'automation inconnue' });
-    return reply.code(200).send({ id, ...parsed.input });
+    return reply.code(200).send({ id, ...parsed.input, ...(parsed.accord === undefined ? {} : { accordMarketing: parsed.accord }) });
   });
 
   app.delete('/tenants/:tenantId/automations/:id', opts, async (req, reply) => {

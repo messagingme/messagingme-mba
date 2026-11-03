@@ -6,7 +6,7 @@ import type { DueRun } from '../src/workflow/wake-sweep';
  * Le réveil court tient une pause de moins d'une minute à la seconde, là où le balayage ne passe qu'une fois par
  * minute. Les minuteries sont injectées (`poser`) : chaque test déclenche lui-même l'échéance.
  */
-const du = (id: string): DueRun => ({ id, workflowId: 'wf', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, lastMessageId: null });
+const du = (id: string): DueRun => ({ id, workflowId: 'wf', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, exigeAccordMarketing: false, lastMessageId: null });
 
 function minuteries() {
   const posees: Array<{ ms: number; f: () => void }> = [];

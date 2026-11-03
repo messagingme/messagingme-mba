@@ -40,3 +40,22 @@ export const numeroJamaisBloque = async (): Promise<boolean> => false;
  * ne portent pas sur la boucle entre deux agents, DITE plutôt qu'omise (la dépendance est requise).
  */
 export const jamaisNosMachines = async (): Promise<boolean> => false;
+
+/**
+ * L'écriture de l'accord d'une automation attestée (`AutomationRunnerDeps.ecrireAccord`, lot 3b du 2026-11-02) qui ne touche
+ * aucune fiche, pour les suites dont aucune automation n'atteste : elle n'y est jamais appelée. L'hypothèse est DITE (la
+ * dépendance est requise) ; un test qui VÉRIFIE l'accord câble sa propre écriture.
+ */
+export const aucunAccordEcrit = async (): Promise<'inconnu'> => 'inconnu';
+
+/**
+ * LA GARDE MARKETING D'UN PARCOURS D'AUTOMATION (`WorkflowExecutorDeps.aAccordMarketing`, lot 3b du 2026-11-02), en deux
+ * adaptateurs nommés, sur le modèle de `jamaisDesabonne` et `toujoursDesabonne`.
+ *
+ * `toujoursDAccord` REPRODUIT le comportement d'avant la garde : tout modèle partait, Marketing compris. Le passer ne change
+ * aucun verdict, et c'est ce qui permet de rendre la dépendance requise sans toucher une assertion.
+ */
+export const toujoursDAccord = async (): Promise<boolean> => true;
+
+/** La fiche n'a pas l'accord marketing. C'est CELUI-CI qui prouve que la garde refuse. */
+export const jamaisDAccord = async (): Promise<boolean> => false;

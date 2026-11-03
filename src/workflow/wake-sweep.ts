@@ -16,6 +16,11 @@ export interface DueRun {
    */
   grapheFige: WorkflowGraph | null;
   /**
+   * La garde marketing figée à la naissance du parcours (migration 0272). Requise, comme `grapheFige` : un parcours
+   * d'automation endormi doit se réveiller sous sa règle, et chaque réclamation est obligée de la lire jusqu'à `resume`.
+   */
+  exigeAccordMarketing: boolean;
+  /**
    * Le dernier message consommé par le parcours (`last_message_id`), que la reprise transmet pour afficher « en
    * train d'écrire… » sur une nouvelle pause en secondes. Requis, comme `grapheFige` : chaque réclamation doit le lire.
    */

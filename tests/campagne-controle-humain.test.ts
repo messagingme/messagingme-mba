@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -39,6 +39,7 @@ function exec(over: Partial<WorkflowExecutorDeps> = {}) {
   const ex = new WorkflowExecutor({
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     // 🔴 PAS DE `as unknown as` ICI. Cette fabrique en portait un, et il a fait exactement ce qu un double
     // transtypage fait : il a efface le contrat. Quand `closeActiveByWaId` y est devenue requise, le
     // compilateur a nomme les six autres fabriques a completer et a laisse passer celle-ci, qui a plante a

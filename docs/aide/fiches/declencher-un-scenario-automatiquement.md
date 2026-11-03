@@ -1,7 +1,7 @@
 ---
 ecran: automations
 source_section: Automation (menu « Automation ») | Rappels avant ou après une date (menu Automation) | Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 70c498 | 08adbf | f8b6a6
+source_empreinte: b8651e | 08adbf | f8b6a6
 ---
 # Lancer un scénario tout seul, sans campagne
 
@@ -46,6 +46,16 @@ clair, le scénario visé, et si c'est allumé ou non.
 Pour chaque automation, vous réglez aussi le délai avant de relancer le scénario pour un même contact : le
 délai par défaut (une heure, sept jours pour « la dernière analyse change », trente jours pour « le risque
 devient élevé »), ou une heure, six heures, un jour, trois jours, sept jours.
+
+**La case « J'atteste avoir l'accord marketing des contacts que cette automation touche »** est décochée par
+défaut. Cochez-la seulement si vous avez bien l'accord de ces personnes pour recevoir vos messages marketing :
+chaque contact qui déclenche l'automation est alors enregistré comme ayant donné son accord, avec l'automation
+pour origine. Messaging Me garde qui l'a cochée et quand, et vous le rappelle sous la case quand vous rouvrez
+l'automation ; la décocher retire l'attestation. Un contact qui a répondu STOP reste désabonné, case cochée ou non.
+
+Sans cet accord, un modèle **Marketing** du scénario ne part pas : comme une campagne, une automation ne l'envoie
+qu'aux contacts qui ont donné leur accord, et pour les autres le scénario s'arrête là, sans passer la conversation à
+votre équipe. Un modèle **Service** part toujours. L'accord est relu au moment d'envoyer, même après une attente.
 
 Trois de ces déclencheurs demandent une précision, parce qu'ils surprennent :
 

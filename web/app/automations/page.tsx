@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import type { Session } from '@/lib/session';
-import { useT } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n';
+import { dateHeure } from '@/lib/day';
 import {
   listAutomations, createAutomation, updateAutomation, deleteAutomation, listWorkflows, listHubspotDealStages, getSettings,
   listUserFields, estEnLigne,
@@ -50,6 +51,7 @@ function delaiParDefaut(kind: AutomationTriggerKind): [string, string] {
 
 function AutomationsInner({ session }: { session: Session }) {
   const t = useT();
+  const { locale } = useLocale();
   const [items, setItems] = useState<Automation[]>([]);
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,6 +112,8 @@ function AutomationsInner({ session }: { session: Session }) {
   // Une lecture ratée n'est pas « aucune action » : une automation existante ne se dit alors pas « supprimée ».
   const [actionsIllisibles, setActionsIllisibles] = useState(false);
   const [actionId, setActionId] = useState('');
+  // La case « J'atteste avoir l'accord marketing… » (décisions 6 et B du 2026-11-02) : le serveur pose qui et quand.
+  const [accordMarketing, setAccordMarketing] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -224,13 +228,15 @@ function AutomationsInner({ session }: { session: Session }) {
 
   /**
    * Remise à zéro COMPLÈTE du formulaire : un filtre resté collé (ressenti, « non résolue », étape) produirait une
-   * automation plus restrictive que voulu, sans que rien ne le signale à l'écran.
+   * automation plus restrictive que voulu, sans que rien ne le signale à l'écran. Et une case d'accord restée cochée,
+   * une automation qui atteste l'accord sans que l'admin l'ait coché.
    */
   function reinitialiser() {
     setCreating(false); setEnEdition(null); setName(''); setKeywords(''); setTag(''); setWorkflowId(''); setDealStageKey('');
     setMode('contains'); setSentiment('negatif'); setUnresolvedOnly(false); setTriggerKind('keyword'); setAdId('');
     setFiltreDevient(null); setFiltresAnalyse([]); setAntiRebond(null);
     setDateField(''); setDelai(2); setUnite('heures'); setSensDate('avant'); setActionId('');
+    setAccordMarketing(false);
   }
 
   /**
@@ -248,6 +254,7 @@ function AutomationsInner({ session }: { session: Session }) {
     setTriggerKind(a.triggerKind);
     setWorkflowId(a.workflowId);
     setAntiRebond(a.cooldownSeconds);
+    setAccordMarketing(a.accordMarketing != null);
     if (a.triggerKind === 'keyword') {
       setKeywords((Array.isArray(c.keywords) ? c.keywords : []).map(String).join(', '));
       setMode(c.mode === 'equals' ? 'equals' : 'contains');
@@ -288,6 +295,8 @@ function AutomationsInner({ session }: { session: Session }) {
           triggerConfig: configDuDeclencheur(),
           workflowId,
           ...(triggerKind !== 'avant_date' ? { cooldownSeconds: antiRebond } : {}),
+          // Cochée sur une automation déjà attestée, le serveur garde le tampon d'origine.
+          accordMarketing,
         });
       } else {
         await createAutomation(session.tenantId, {
@@ -295,6 +304,7 @@ function AutomationsInner({ session }: { session: Session }) {
           triggerKind,
           triggerConfig: configDuDeclencheur(),
           workflowId,
+          accordMarketing,
           enabled: false, // jamais active à la création : on l'allume explicitement après relecture
           ...(antiRebond !== null && triggerKind !== 'avant_date' ? { cooldownSeconds: antiRebond } : {}),
         });
@@ -750,6 +760,27 @@ function AutomationsInner({ session }: { session: Session }) {
               </select>
             </div>
           )}
+          {/* L'accord marketing (décisions 6 et B du 2026-11-02), pour tous les déclencheurs : le serveur pose qui et quand. */}
+          <div data-testid="automation-accord">
+            <label className="flex items-start gap-2 text-sm text-ink-900">
+              <input
+                type="checkbox" checked={accordMarketing} onChange={(e) => setAccordMarketing(e.target.checked)}
+                data-testid="automation-accord-case" className="mt-0.5 h-4 w-4"
+              />
+              {t('J’atteste avoir l’accord marketing des contacts que cette automation touche', 'I confirm I have marketing consent from the contacts this automation reaches')}
+            </label>
+            {accordMarketing && enEdition?.accordMarketing && (
+              <p className="mt-1 text-xs text-ink-500" data-testid="automation-accord-tampon">
+                {t('Attestée par', 'Confirmed by')} {enEdition.accordMarketing.email ?? t('un compte inconnu', 'an unknown account')} {t('le', 'on')} {dateHeure(enEdition.accordMarketing.le, locale)}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-ink-500">
+              {t(
+                'Cochée, chaque contact qui déclenche cette automation est enregistré comme ayant donné son accord marketing, avec cette automation pour source. Sans elle, un modèle Marketing du scénario ne part qu’aux contacts qui l’ont déjà donné. Un contact qui a répondu STOP reste toujours écarté.',
+                'When checked, every contact who triggers this automation is recorded as having given marketing consent, with this automation as the source. Without it, a Marketing template in the scenario only goes to contacts who already gave it. A contact who replied STOP is always left out.',
+              )}
+            </p>
+          </div>
           <div className="flex items-center gap-2 pt-1">
             <Bouton enCours={busy} onClick={() => { void submit(); }} disabled={!canSubmit || busy} data-testid="automation-submit">
               {enEdition

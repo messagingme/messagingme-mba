@@ -59,7 +59,8 @@ import {
   CTWA_AD_ID_FIELD_KEY, CTWA_AD_ID_FIELD_LABEL, CTWA_AD_TITLE_FIELD_KEY, CTWA_AD_TITLE_FIELD_LABEL,
 } from './crm/fields';
 import type { DemandeAutomatisme } from './workflow/lancements';
-import { runAutomations } from './automation/runner';
+import { runAutomations, ecrivainDAccord } from './automation/runner';
+import { depsConsentementDe } from './api/consentement';
 import { runDateSweep } from './automation/date-sweep';
 import { balayerRisque, jourABalayer } from './engagement/balayage';
 import { depsBalayageRisque } from './engagement/cablage';
@@ -406,6 +407,13 @@ export async function demarrerWorker(): Promise<void> {
     // choisit rien : reprise, publication et fenêtre sont dans la table des lancements, exécutée par
     // `tests/workflow-lancements.test.ts`. Un scénario inconnu (supprimé) rend `false`, comme avant.
     startWorkflow: async (demande: DemandeAutomatisme) => (await lancements.lancer(demande)) ?? false,
+    // L'accord d'une automation attestée (décision 6 du 2026-11-02) : le consentement partagé, construit par
+    // `depsConsentementDe` comme pour l'API, jamais à la main. L'acteur du journal est vide (une machine écrit) : le
+    // journal du worker écrit donc sans résoudre d'adresse.
+    ecrireAccord: ecrivainDAccord(contactStore, depsConsentementDe(
+      contactStore,
+      (tenant, actor, action, target, detail) => auditStore.record(tenant, actor, action, target, detail),
+    )),
     defaultCooldownSeconds: config.AUTOMATION_COOLDOWN_SECONDS,
   };
 

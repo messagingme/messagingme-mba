@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect, vi } from 'vitest';
 import { WorkflowExecutor } from '../src/workflow/executor';
@@ -52,6 +52,7 @@ function monter(graph: WorkflowGraph, run: WorkflowRunRow | null, cap: Capture, 
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async (_t: string, _w: string, _wa: string, _c: string | null, state: RunState) => { cap.etats.push({ id: 'r1', state }); return { id: 'r1' }; },
       findWaitingByWaId: async () => run,
@@ -82,7 +83,7 @@ function monter(graph: WorkflowGraph, run: WorkflowRunRow | null, cap: Capture, 
 const capture = (): Capture => ({ envois: [], tags: [], etats: [], escalades: [] });
 const runQ = (): WorkflowRunRow => ({
   id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1',
-  currentNode: 'q', status: 'waiting', lastMessageId: null, channel: 'whatsapp', grapheFige: null,
+  currentNode: 'q', status: 'waiting', lastMessageId: null, channel: 'whatsapp', grapheFige: null, exigeAccordMarketing: false,
 });
 
 describe('bloc Question : l’envoi et l’échéance', () => {
@@ -160,7 +161,7 @@ describe('bloc Question : le réveil « pas de réponse »', () => {
   it('🔴 à l’échéance, on sort par `timeout`, JAMAIS par le successeur', async () => {
     const cap = capture();
     const { ex } = monter(GRAPHE, null, cap);
-    const repris = await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'q', status: 'waiting', grapheFige: null });
+    const repris = await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'q', status: 'waiting', grapheFige: null, exigeAccordMarketing: false });
     expect(repris).toBe(true);
     expect(cap.tags).toEqual(['sans-reponse']);
   });
@@ -175,7 +176,7 @@ describe('bloc Question : le réveil « pas de réponse »', () => {
       mbaActifPour: async () => true,
       releaseToMba: async (_t: string, waId: string) => { rendus.push(waId); },
     });
-    const repris = await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'q', status: 'waiting', grapheFige: null });
+    const repris = await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'q', status: 'waiting', grapheFige: null, exigeAccordMarketing: false });
     expect(repris).toBe(false);
     expect(cap.etats.at(-1)?.state.status).toBe('done');
     expect(rendus).toEqual(['33600']);
@@ -189,7 +190,7 @@ describe('bloc Question : le réveil « pas de réponse »', () => {
     };
     const cap = capture();
     const { ex } = monter(g, null, cap);
-    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'w', status: 'sleeping', grapheFige: null });
+    await ex.resume({ id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: '33600', contactId: 'c1', currentNode: 'w', status: 'sleeping', grapheFige: null, exigeAccordMarketing: false });
     expect(cap.tags).toEqual(['apres-attente']);
   });
 });
@@ -200,8 +201,8 @@ describe('bloc Question : le réveil « pas de réponse »', () => {
  * question jamais reveillee, ou un dormant reveille par la mauvaise sortie.
  */
 describe('balayeur : les deux familles d echeance', () => {
-  const dormant = (id: string): DueRun => ({ id, workflowId: 'wf', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, lastMessageId: null });
-  const question = (id: string): DueRun => ({ id, workflowId: 'wf', tenantId: 't1', waId: '33601', currentNode: 'q', status: 'waiting', grapheFige: null, lastMessageId: null });
+  const dormant = (id: string): DueRun => ({ id, workflowId: 'wf', tenantId: 't1', waId: '33600', currentNode: 'w', grapheFige: null, exigeAccordMarketing: false, lastMessageId: null });
+  const question = (id: string): DueRun => ({ id, workflowId: 'wf', tenantId: 't1', waId: '33601', currentNode: 'q', status: 'waiting', grapheFige: null, exigeAccordMarketing: false, lastMessageId: null });
 
   it('reprend les dormants ET les questions sans reponse, en portant leur statut', async () => {
     const vus: Array<{ id: string; status?: string }> = [];

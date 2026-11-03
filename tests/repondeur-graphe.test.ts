@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { bancDuFil, ESPACE } from './banc-du-fil';
 import { WorkflowExecutor, type WorkflowExecutorDeps } from '../src/workflow/executor';
@@ -29,9 +29,9 @@ function runsEnMemoire() {
   const lignes: WorkflowRunRow[] = [];
   const crees: Array<{ state: RunState; fige: WorkflowGraph | null }> = [];
   const runs = avecGardesDEtatInertes({
-    start: async (t: string, w: string, waId: string, _c: string | null, state: RunState, fige: WorkflowGraph | null) => {
+    start: async (t: string, w: string, waId: string, _c: string | null, state: RunState, fige: WorkflowGraph | null, exige: boolean) => {
       const id = `r${lignes.length + 1}`;
-      lignes.push({ id, workflowId: w, tenantId: t, waId, currentNode: state.currentNode, status: state.status, lastMessageId: state.lastMessageId ?? null, grapheFige: fige });
+      lignes.push({ id, workflowId: w, tenantId: t, waId, currentNode: state.currentNode, status: state.status, lastMessageId: state.lastMessageId ?? null, grapheFige: fige, exigeAccordMarketing: exige });
       crees.push({ state, fige });
       return { id };
     },
@@ -76,6 +76,7 @@ function banc() {
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs,
     // La ligne du scénario système est cachée par le magasin : le parcours ne doit jamais la relire.
     getGraph: async () => null,

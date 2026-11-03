@@ -9,7 +9,7 @@ import type { InboundMessage } from '../src/webhooks/inbound';
 import type { ControlOwner } from '../src/inbox/store.pg';
 import { bancDuFil, type OptionsBanc } from './banc-du-fil';
 import { aucunEspacePlein, aucunNumeroDelie, aucunRoutagePub, aucunSignalReponse, aucuneArriveePub } from './webhook-fixtures';
-import { aucunStop, jamaisDesabonne } from './consentement';
+import { aucunStop, jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 
 /**
@@ -211,10 +211,11 @@ describe('invariant 4 : la réponse imprévue dans un scénario, sur la chaîne 
       corpsDuMessage: async (_t, id) => corps.get(id) ?? null,
       envoyer: (_t, pn, to, event) => b.client.agentEvent(pn, to, event),
     });
-    const run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: WA, currentNode: 'n1', status: 'waiting', lastMessageId: null, grapheFige: null };
+    const run = { id: 'r1', workflowId: 'wf1', tenantId: 't1', waId: WA, currentNode: 'n1', status: 'waiting', lastMessageId: null, grapheFige: null, exigeAccordMarketing: false };
     const ex = new WorkflowExecutor({
       ...depsInertes,
       estDesabonne: jamaisDesabonne,
+      aAccordMarketing: toujoursDAccord,
       runs: avecGardesDEtatInertes({
         start: async () => ({ id: 'r1' }),
         findWaitingByWaId: async () => run as unknown as WorkflowRunRow,

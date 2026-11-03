@@ -67,6 +67,13 @@ export const saisieInerte = async (): Promise<void> => {};
 export const aucunePieceNotee: WorkflowExecutorDeps['piecesQuestion'] = { noter: async () => {} };
 /** `fuseau` (2026-11-02) : la mention d'une pièce est datée en UTC quand le test ne dit rien. */
 export const fuseauUtc = async (): Promise<string> => 'UTC';
+/**
+ * `categorieDuModele` (garde marketing, lot 3b du 2026-11-02) : la catégorie n'est pas lue, donc illisible, que la garde
+ * traite comme Marketing. Inerte tant que l'accord vient de `toujoursDAccord` (`tests/consentement.ts`), qui reste DIT par
+ * chaque fixture ; avec `jamaisDAccord`, tout modèle d'un parcours qui exige l'accord est refusé (le sens sûr). Un test
+ * qui fait partir un Service sans accord surcharge cette valeur.
+ */
+export const categorieIllisible = async (): Promise<null> => null;
 /** `rcs.recordOutbound` absent : l'envoi RCS n'était pas écrit dans le fil. */
 export const filRcsNonJournalise = async (): Promise<void> => {};
 /** `rcs.jetonPour` absent : les liens partaient tracés mais anonymes. */
@@ -171,4 +178,5 @@ export const depsInertes = {
   rcs: rcsSansAgent,
   piecesQuestion: aucunePieceNotee,
   fuseau: fuseauUtc,
+  categorieDuModele: categorieIllisible,
 } satisfies Partial<WorkflowExecutorDeps>;

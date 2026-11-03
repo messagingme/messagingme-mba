@@ -809,6 +809,19 @@ export class PgContactStore implements ContactStore {
   }
 
   /**
+   * 🔴 Ce contact a-t-il donné son accord marketing (`opted_in`) ? La garde marketing d'un parcours d'automation
+   * (`WorkflowExecutorDeps.aAccordMarketing`), lue à chaque liste d'effets qui porte un modèle Marketing : aussi étroite
+   * que `estDesabonneParWaId`. Un contact inconnu ou supprimé n'a pas l'accord.
+   */
+  async aAccordMarketingParWaId(tenantId: string, waId: string): Promise<boolean> {
+    const res = await this.pool.query<{ opt_in_status: string }>(
+      `select opt_in_status from contacts where tenant_id = $1 and deleted_at is null ${MATCH_BY_WAID_SQL}`,
+      [tenantId, waId],
+    );
+    return res.rows[0]?.opt_in_status === 'opted_in';
+  }
+
+  /**
    * Ce contact a-t-il consenti, ou nous a-t-il déjà écrit ? La garde d'un RCS libre envoyé par une machine : un
    * message simple ne fonde pas une relation. « A écrit » = au moins un entrant dans son fil, tout canal. Un
    * contact inconnu rend `false`. Le `exists` s'arrête au premier entrant, par l'index (conversation_id, created_at).

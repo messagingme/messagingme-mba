@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect, vi } from 'vitest';
 import { WorkflowExecutor, type WorkflowExecutorDeps } from '../src/workflow/executor';
@@ -41,6 +41,7 @@ function deps(over: Partial<WorkflowExecutorDeps>): WorkflowExecutorDeps {
   return {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes(new FakeRuns()),
     getGraph: async () => graphe('quick_message', {}),
     applyTag: async () => {},

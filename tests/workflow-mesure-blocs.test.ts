@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { aucuneMesure, avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect } from 'vitest';
 import { walk } from '../src/workflow/engine';
@@ -49,6 +49,7 @@ function executeur(graph: WorkflowGraph, opts: { envoiRate?: boolean; sansDep?: 
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     // Requis par le contrat : un demarrage remplace le parcours en cours. Ce faux n exerce que l avance.
     runs: avecGardesDEtatInertes({ findWaitingByWaId: async () => run, setState: async () => {}, closeActiveByWaId: async () => [], start: async () => ({ id: 'r1' }) }),
     getGraph: async () => graph,
@@ -143,6 +144,7 @@ describe('garde-fous', () => {
     const ex = new WorkflowExecutor({
       ...depsInertes,
       estDesabonne: jamaisDesabonne,
+      aAccordMarketing: toujoursDAccord,
       runs: avecGardesDEtatInertes({ findWaitingByWaId: async () => run, setState: async (_id: string, st: RunState) => { etats.push(st); }, closeActiveByWaId: async () => [], start: async () => ({ id: 'r1' }) }),
       getGraph: async () => graphe(),
       applyTag: async () => {}, setField: async () => {}, removeTag: async () => {}, clearField: async () => {},

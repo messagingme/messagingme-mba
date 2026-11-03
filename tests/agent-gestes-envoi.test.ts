@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { bancDuFil, ESPACE } from './banc-du-fil';
 import { CONTACT_DESABONNE, SCENARIO_INCONNU, creerGestesEnvoiAgent, type DepsGestesEnvoiAgent } from '../src/agent/gestes-envoi';
@@ -125,7 +125,7 @@ function monde(parcoursAgent: { workflowId: string; graphe: WorkflowGraph; fige:
   const runs = new Map<string, WorkflowRunRow>();
   runs.set('r-agent', {
     id: 'r-agent', workflowId: parcoursAgent.workflowId, tenantId: ESPACE, waId: WA, currentNode: 'a', status: 'waiting',
-    lastMessageId: null, grapheFige: parcoursAgent.fige ? parcoursAgent.graphe : null,
+    lastMessageId: null, grapheFige: parcoursAgent.fige ? parcoursAgent.graphe : null, exigeAccordMarketing: false,
   });
   const scenarioB: WorkflowGraph = {
     nodes: [n('qm', 'quick_message', { body: 'Quel jour vous arrange ?', quickReplies: ['Lundi', 'Mardi'] })],
@@ -151,9 +151,10 @@ function monde(parcoursAgent: { workflowId: string; graphe: WorkflowGraph; fige:
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async (_t: string, workflowId: string, waId: string, contactId: string | null, state: { currentNode: string | null; status: string }) => {
-        runs.set('r-b', { id: 'r-b', workflowId, tenantId: ESPACE, waId, currentNode: state.currentNode, status: state.status as WorkflowRunRow['status'], lastMessageId: null, grapheFige: null });
+        runs.set('r-b', { id: 'r-b', workflowId, tenantId: ESPACE, waId, currentNode: state.currentNode, status: state.status as WorkflowRunRow['status'], lastMessageId: null, grapheFige: null, exigeAccordMarketing: false });
         return { id: 'r-b' };
       },
       findWaitingByWaId: async () => [...runs.values()].filter((r) => r.status === 'waiting').at(-1) ?? null,

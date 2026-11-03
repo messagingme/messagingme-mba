@@ -9,6 +9,7 @@ import type { IssueRoutage, PubDuLead } from '../src/pubs/routage';
 import { entrantsDe } from './webhook-fixtures';
 import { offresToutOuvert, plusAnciennesJamaisLues } from './gardes';
 import { DROITS } from '../src/offres/offres';
+import { aucunAccordEcrit } from './consentement';
 
 /**
  * LE ROUTAGE D'UN LEAD PUBLICITAIRE, CÂBLÉ, ET CE QUI EN SORT.
@@ -288,7 +289,7 @@ describe('la restriction écarte réellement les autres automations', () => {
   const auto = (over: Partial<AutomationRow>): AutomationRow => ({
     id: 'a', tenantId: 't1', name: 'x', enabled: true, triggerKind: 'ctwa_ad', triggerConfig: {},
     conditionGroup: null, workflowId: 'wf', startNodeId: null, cooldownSeconds: 0,
-    maxFiresPerHour: null, possedePar: null, ...over,
+    maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,
   });
 
   const ev: AutomationEvent = {
@@ -315,6 +316,7 @@ describe('la restriction écarte réellement les autres automations', () => {
           partis.push(`${d.workflowId}:${POLITIQUE_DE_LANCEMENT[d.type].reprise === 'non' ? 'sans' : 'reprise'}`);
           return true;
         },
+        ecrireAccord: aucunAccordEcrit,
         defaultCooldownSeconds: 0,
       },
     };

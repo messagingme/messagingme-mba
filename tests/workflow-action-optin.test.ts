@@ -4,7 +4,7 @@ import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowExecutorDeps } from '../src/workflow/executor';
 import type { WorkflowRunRow } from '../src/workflow/run-store.pg';
 import type { WorkflowGraph } from '../src/workflow/graph';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, consentementNonEcrit, depsInertes } from './executeur-inerte';
 
 /**
@@ -47,6 +47,7 @@ describe('executeur : l’action optIn appelle la dépendance', () => {
     const deps: WorkflowExecutorDeps = {
       ...depsInertes,
       estDesabonne: jamaisDesabonne,
+      aAccordMarketing: toujoursDAccord,
       runs: avecGardesDEtatInertes({
         findWaitingByWaId: async () => run,
         setState: async () => {},

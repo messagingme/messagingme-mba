@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -41,6 +41,7 @@ function monter(reclaim: boolean | void) {
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async () => { demarrages.push('r1'); return { id: 'r1' }; },
       findWaitingByWaId: async () => null,

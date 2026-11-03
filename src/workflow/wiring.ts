@@ -52,6 +52,7 @@ import type { ControleDuFil } from '../inbox/fil';
 import { leMbaRepond, reglagesSousLOffre } from '../repondeur/mode';
 import { creerTransmettreHorsParcours } from '../mba/transmettre-hors-parcours';
 import { cacheCourt } from '../lib/cache-court';
+import { messageDe } from '../lib/erreur';
 import type { MetaClient } from '../meta/client';
 import { resolveNode } from '../ids/resolve';
 import { PgErreursLivraisonStore } from '../ops/erreurs-livraison.pg';
@@ -552,6 +553,22 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
      * branchée sur la même lecture depuis `src/worker.ts`.
      */
     estDesabonne: (tenant, waId) => contactStore.machineSeTaitParWaId(tenant, waId),
+    /**
+     * 🔴 La garde marketing d'un parcours d'automation (`PolitiqueDeLancement.marketing`, décision A du cadrage mm-hubspot
+     * du 2026-11-02). La catégorie se lit sur le MÊME cache que l'envoi (`templateVarInfo`) : aucun appel à Meta de plus,
+     * et la garde juge le modèle que `sendTemplate` enverra. Une lecture en échec rend `null` (illisible), que la garde
+     * traite comme Marketing. L'accord : une lecture étroite d'`opt_in_status`, sur le store (méthode jamais détachée).
+     */
+    categorieDuModele: async (tenant, nom, langue) => {
+      try {
+        return (await templateVarInfo(tenant, nom, langue))?.category ?? null;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(`workflow: catégorie de « ${nom} » illisible, traitée comme Marketing par la garde:`, messageDe(err));
+        return null;
+      }
+    },
+    aAccordMarketing: (tenant, waId) => contactStore.aAccordMarketingParWaId(tenant, waId),
     // Le numéro délié et le Crédit WhatsApp à sec, vérifiés avant les effets d'un parcours qui enverra par WhatsApp
     // (cf. `runFrom`) : mêmes gardes que le point de passage des envois, sur le même numéro. DRY_RUN : rien ne part,
     // rien à refuser.

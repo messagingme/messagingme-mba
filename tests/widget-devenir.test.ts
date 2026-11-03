@@ -18,7 +18,7 @@ import { WorkflowExecutor, type WorkflowExecutorDeps } from '../src/workflow/exe
 import { creerLancements, type TypeDeLancementAutomatisme } from '../src/workflow/lancements';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
-import { aucunStop } from './consentement';
+import { aucunStop, aucunAccordEcrit, toujoursDAccord } from './consentement';
 import { offresToutOuvert } from './gardes';
 import { plusAnciennesJamaisLues } from './gardes';
 import {
@@ -105,6 +105,7 @@ function banc(o: {
   const execDeps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: async () => o.desabonne === true,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async () => ({ id: 'r1' }),
       findWaitingByWaId: async () => null,
@@ -158,6 +159,7 @@ function banc(o: {
       declenches.push({ type: demande.type, fenetreOuverte: demande.fenetreOuverte });
       return (await lancements.lancer(demande)) ?? false;
     },
+    ecrireAccord: aucunAccordEcrit,
     defaultCooldownSeconds: 3600,
     maxFiresPerHour: o.plafondInstance ?? 200,
     now: () => horloge,
@@ -648,6 +650,7 @@ describe('🔴 l’émission d’événements d’automation est décidée par l
       },
       evalContext: async () => null,
       startWorkflow,
+      ecrireAccord: aucunAccordEcrit,
       defaultCooldownSeconds: 0,
       offres: offresToutOuvert,
     };
@@ -707,6 +710,7 @@ describe('l’assemblage de production (`arriveeParWidget`), sur un faux pool', 
         },
         evalContext: async () => null,
         startWorkflow,
+        ecrireAccord: aucunAccordEcrit,
         defaultCooldownSeconds: 3600,
         maxFiresPerHour: 200,
         offres: offresToutOuvert,

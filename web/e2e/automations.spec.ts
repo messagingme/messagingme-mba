@@ -491,3 +491,89 @@ test.describe('Automation : déclencheur « action d’un agent IA »', () => {
     await expect(page.getByTestId('automation-trigger').locator('option[value="agent_action"]')).toHaveCount(0);
   });
 });
+
+/**
+ * La case d'accord marketing (lot 3b du plan mm-hubspot du 2026-11-02, décisions 6 et B) : pour TOUS les déclencheurs, un
+ * booléen seulement (le serveur pose qui et quand), remise à faux par Annuler, rechargée à l'édition avec son tampon.
+ */
+test.describe('Automation : la case d’accord marketing', () => {
+  const ATTESTEE = {
+    id: 'a1', name: 'Demande de RDV', enabled: false, triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'], mode: 'contains' },
+    conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null,
+    accordMarketing: { par: 'u1', email: 'marie@e2e.test', le: '2026-11-02T09:30:00.000Z' },
+  };
+
+  async function ouvrir(page: import('@playwright/test').Page, automations: unknown[]) {
+    const posted: Array<Record<string, unknown>> = [];
+    const patched: Array<Record<string, unknown>> = [];
+    await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
+    await page.route('**/api/backend/**', async (route) => {
+      const req = route.request();
+      const url = req.url();
+      const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+      if (url.endsWith('/automations') && req.method() === 'POST') {
+        posted.push(req.postDataJSON() as Record<string, unknown>);
+        return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ id: 'a2' }) });
+      }
+      if (/\/automations\/a1$/.test(url) && req.method() === 'PATCH') {
+        patched.push(req.postDataJSON() as Record<string, unknown>);
+        return json({ id: 'a1' });
+      }
+      if (url.endsWith('/automations')) return json({ automations });
+      if (url.endsWith('/workflows')) return json({ workflows: [WF] });
+      if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
+      return json({});
+    });
+    await page.goto('/automations');
+    return { posted, patched };
+  }
+
+  test('🔴 cochée, la création envoie le booléen seul ; décochée par défaut, elle envoie faux', async ({ page }) => {
+    const { posted } = await ouvrir(page, []);
+    await page.getByTestId('automation-add').click();
+    await expect(page.getByTestId('automation-accord-case')).not.toBeChecked();
+    await page.getByTestId('automation-name').fill('Avec accord');
+    await page.getByTestId('automation-keywords').fill('rdv');
+    await page.getByTestId('automation-workflow').selectOption('wf1');
+    await page.getByTestId('automation-accord-case').check();
+    await page.getByTestId('automation-submit').click();
+    await expect.poll(() => posted.length).toBe(1);
+    // Le corps ne porte que la case : qui et quand sont posés par le serveur depuis la session.
+    expect(posted[0]!.accordMarketing).toBe(true);
+  });
+
+  test('🔴 Annuler remet la case à faux : la création suivante n’atteste rien', async ({ page }) => {
+    const { posted } = await ouvrir(page, []);
+    await page.getByTestId('automation-add').click();
+    await page.getByTestId('automation-accord-case').check();
+    await page.getByRole('button', { name: 'Annuler' }).click();
+    await page.getByTestId('automation-add').click();
+    await expect(page.getByTestId('automation-accord-case')).not.toBeChecked();
+    await page.getByTestId('automation-name').fill('Sans accord');
+    await page.getByTestId('automation-keywords').fill('rdv');
+    await page.getByTestId('automation-workflow').selectOption('wf1');
+    await page.getByTestId('automation-submit').click();
+    await expect.poll(() => posted.length).toBe(1);
+    expect(posted[0]!.accordMarketing).toBe(false);
+  });
+
+  test('🔴 l’édition recharge la case et dit qui l’a cochée et quand ; décochée, elle part à faux', async ({ page }) => {
+    const { patched } = await ouvrir(page, [ATTESTEE]);
+    await page.getByTestId('automation-modifier-a1').click();
+    await expect(page.getByTestId('automation-accord-case')).toBeChecked();
+    await expect(page.getByTestId('automation-accord-tampon')).toContainText('marie@e2e.test');
+    await expect(page.getByTestId('automation-accord-tampon')).toContainText('02/11/2026');
+    await page.getByTestId('automation-accord-case').uncheck();
+    await expect(page.getByTestId('automation-accord-tampon')).toHaveCount(0);
+    await page.getByTestId('automation-submit').click();
+    await expect.poll(() => patched.length).toBe(1);
+    expect(patched[0]!.accordMarketing).toBe(false);
+  });
+
+  test('une API d’avant le lot (sans le champ) se lit comme non attestée', async ({ page }) => {
+    const { accordMarketing: _retire, ...ancienne } = ATTESTEE;
+    await ouvrir(page, [ancienne]);
+    await page.getByTestId('automation-modifier-a1').click();
+    await expect(page.getByTestId('automation-accord-case')).not.toBeChecked();
+  });
+});

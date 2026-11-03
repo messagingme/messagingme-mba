@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, aucunAccordEcrit, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { WorkflowExecutor, envoieParWhatsApp } from '../src/workflow/executor';
 import { creerLancements } from '../src/workflow/lancements';
@@ -67,6 +67,7 @@ function monde(graph: WorkflowGraph, o: { avecVerification?: boolean } = {}) {
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes(runs),
     getGraph: async () => graph,
     applyTag: async (_t, waId, tag) => { effets.push(`tag ${tag} ${waId}`); },
@@ -213,7 +214,7 @@ describe('campagne de scénario, numéro délié puis relié, avec le vrai exéc
 const T = Date.parse('2026-08-23T10:00:00Z'); // 12 h à Paris
 const auto = (over: Partial<AutomationRow>): AutomationRow => ({
   id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'tag_added', triggerConfig: { tag: 'vip' },
-  conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, ...over,
+  conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,
 });
 
 /** Les tirs, par (automation, contact), avec leur marqueur d'occurrence : la même règle que le dépôt. */
@@ -245,6 +246,7 @@ function runner(rows: AutomationRow[], m: ReturnType<typeof monde>, registre: Re
     // Le câblage du worker : la demande du runner transmise telle quelle (un tag posé ne prouve pas la fenêtre).
     startWorkflow: async (demande) => (await m.lancements.lancer(demande)) ?? false,
     // Un anti-rebond COURT : c'est le cas où l'effacement du tir rend la main au prochain événement.
+    ecrireAccord: aucunAccordEcrit,
     defaultCooldownSeconds: 60,
     now: () => T,
     offres: offresToutOuvert,

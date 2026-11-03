@@ -7,6 +7,30 @@ import type { DemandeAutomatisme } from '../workflow/lancements';
 import { NumeroBloqueError } from '../meta/numero-delie';
 import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
 import { messageDe } from '../lib/erreur';
+import { appliquerConsentement } from '../api/consentement';
+import type { DepsConsentement, IssueConsentement } from '../api/consentement';
+
+/** La source de l'accord écrit par une automation attestée : la fiche dit quelle automation l'a posé. */
+export function sourceAccordAutomation(automationId: string): string {
+  return `automation:${automationId}`;
+}
+
+/**
+ * L'écriture de l'accord d'une automation, telle que le câblage la donne au runner : la fiche du numéro, puis le
+ * consentement partagé (`appliquerConsentement`, autorité `api` : un STOP rend `refuse`, il ne se lève jamais par
+ * machine), journalisé avec l'origine `automation`. `consentement` vient de `depsConsentementDe`, jamais d'une
+ * construction à la main. Le dépôt est appelé sur son objet (`this` gardé).
+ */
+export function ecrivainDAccord(
+  contacts: { findIdByWaId(tenantId: string, waId: string): Promise<string | null> },
+  consentement: DepsConsentement,
+): AutomationRunnerDeps['ecrireAccord'] {
+  return async (tenantId, waId, source) => {
+    const contactId = await contacts.findIdByWaId(tenantId, waId);
+    if (contactId === null) return 'inconnu';
+    return appliquerConsentement(consentement, tenantId, contactId, 'opted_in', source, 'automation');
+  };
+}
 
 /**
  * Déclenche les scénarios abonnés à un événement. IO injectée, testable sans base ; le matching pur vit dans
@@ -70,6 +94,12 @@ export interface AutomationRunnerDeps {
    * reste assignable à un contrat qui en déclare plus, et le dernier serait avalé en silence.
    */
   startWorkflow(demande: DemandeAutomatisme): Promise<boolean | string>;
+  /**
+   * Écrit l'accord marketing sur la fiche, pour une automation attestée (`accordMarketing`, décision 6 du 2026-11-02).
+   * Requise : un câblage qui l'oublierait laisserait chaque attestation sans effet, sans bruit. Le câblage passe par
+   * `ecrivainDAccord`, jamais par une écriture d'autorité `scenario`, qui lèverait un STOP.
+   */
+  ecrireAccord(tenantId: string, waId: string, source: string): Promise<IssueConsentement | 'inconnu'>;
   /** Anti-rebond appliqué aux automations qui n'ont rien réglé (`cooldownSeconds` null). */
   defaultCooldownSeconds: number;
   /**
@@ -236,6 +266,18 @@ export async function runAutomations(
           // eslint-disable-next-line no-console
           console.error(`automation ${a.id} (${a.name}) : plafond de ${plafond} déclenchements/heure atteint, déclenchement ignoré`);
           continue;
+        }
+      }
+
+      // 🔴 L'accord d'une automation attestée s'écrit ICI : après l'anti-rebond, la condition et le plafond (jamais sur un
+      // contact que l'automation ne touche pas), avant `markFired` (un échec lève dans le `catch`, et l'anti-rebond n'est
+      // pas consommé sans envoi). Un STOP n'est jamais levé (`refuse`) : le scénario part quand même, et l'exécuteur
+      // écarte la personne désabonnée.
+      if (a.accordMarketing !== null) {
+        const issue = await deps.ecrireAccord(tenantId, ev.waId, sourceAccordAutomation(a.id));
+        if (issue === 'refuse' || issue === 'inconnu' || issue === 'absente') {
+          // eslint-disable-next-line no-console
+          console.log(`automation ${a.id} : accord marketing non écrit (${issue === 'refuse' ? 'contact désabonné' : 'fiche introuvable'})`);
         }
       }
 

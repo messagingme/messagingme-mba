@@ -9,7 +9,7 @@ import type { WorkflowExecutorDeps } from '../src/workflow/executor';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { repondreDansLaFenetre, type DepsRepondre } from '../src/inbox/repondre';
 import { ORIGINES } from '../src/inbox/origine';
-import { jamaisDesabonne, jamaisNosMachines, numeroJamaisBloque } from './consentement';
+import { jamaisDesabonne, jamaisNosMachines, numeroJamaisBloque, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { priseDeFilSansEffet } from './routes-inertes';
 import { filiereApiSeule, aucunPremierMessage } from './gardes';
@@ -45,6 +45,7 @@ function deps(over: Partial<WorkflowExecutorDeps> = {}): WorkflowExecutorDeps {
   return {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({ start: async () => ({ id: 'r1' }), findWaitingByWaId: async () => null, setState: async () => {}, closeActiveByWaId: async () => [] }),
     removeTag: async () => {},
     // ⚠️ La fenêtre de 24 h est OUVERTE dans ces cas : un message rapide ou une question sont des messages

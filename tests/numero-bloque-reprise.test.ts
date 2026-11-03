@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowExecutorDeps } from '../src/workflow/executor';
@@ -34,7 +34,7 @@ const ATTENTE_EMAIL_TAG: WorkflowGraph = {
 
 const RUN: WorkflowRunRow = {
   id: 'run-1', workflowId: 'wf1', tenantId: 't1', waId: '33611', contactId: 'c1',
-  currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null,
+  currentNode: 'w', status: 'sleeping', lastMessageId: null, grapheFige: null, exigeAccordMarketing: false,
 };
 
 /** Le monde : UNE garde (`bloque.vrai`), lue par la vérification préalable et par l'envoi du modèle. */
@@ -52,6 +52,7 @@ function monde(graph: WorkflowGraph, run: WorkflowRunRow = RUN) {
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes(runs),
     getGraph: async () => graph,
     applyTag: async (_t, waId, tag) => { effets.push(`tag ${tag} ${waId}`); },

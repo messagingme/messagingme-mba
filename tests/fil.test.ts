@@ -17,7 +17,7 @@ import type { WorkflowGraph } from '../src/workflow/graph';
 import type { IssueRoutage } from '../src/pubs/routage';
 import { bancDuFil, type EtatDuFil, type OptionsBanc } from './banc-du-fil';
 import { aucunEspacePlein, agentEteintALArrivee, aucunNumeroDelie, aucunRoutagePub, aucunSignalReponse, aucuneArriveePub, entrantsDe } from './webhook-fixtures';
-import { aucunStop, jamaisDesabonne } from './consentement';
+import { aucunStop, jamaisDesabonne, aucunAccordEcrit, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { offresToutOuvert } from './gardes';
 import { plusAnciennesJamaisLues } from './gardes';
@@ -593,7 +593,7 @@ describe('décision 5 : un lead ne prend pas la main à un opérateur', () => {
     id: 'a1', tenantId: 't1', name: 'automation', enabled: true,
     triggerKind: 'ctwa_ad', triggerConfig: { campaignId: 'camp-1' },
     conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null,
-    maxFiresPerHour: 0, possedePar: POSSESSEUR_PUBLICITE, ...over,
+    maxFiresPerHour: 0, possedePar: POSSESSEUR_PUBLICITE, accordMarketing: null, ...over,
   });
   const WA = '33611223344';
   const lead: AutomationEvent = {
@@ -611,6 +611,7 @@ describe('décision 5 : un lead ne prend pas la main à un opérateur', () => {
     const execDeps: WorkflowExecutorDeps = {
       ...depsInertes,
       estDesabonne: jamaisDesabonne,
+      aAccordMarketing: toujoursDAccord,
       runs: avecGardesDEtatInertes({
         start: async () => ({ id: 'r1' }),
         findWaitingByWaId: async () => null,
@@ -641,6 +642,7 @@ describe('décision 5 : un lead ne prend pas la main à un opérateur', () => {
       evalContext: async () => null,
       // Le MÊME câblage que `src/worker.ts`.
       startWorkflow: async (demande) => (await lancements.lancer(demande)) ?? false,
+      ecrireAccord: aucunAccordEcrit,
       defaultCooldownSeconds: 0,
       offres: offresToutOuvert,
     };

@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from '../consentement';
+import { jamaisDesabonne, toujoursDAccord } from '../consentement';
 import { depsInertes } from '../executeur-inerte';
 import { grilleDepuisLigne } from '../../src/stats/prix';
 import '../../src/charger-env';
@@ -1524,7 +1524,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     const wfStore = new PgWorkflowStore(pool);
     const { id: wfId } = await wfStore.insert(tenantId, 'WF attente courte', { nodes: [], edges: [] });
     const dormant = async (waId: string, echeanceSql: string): Promise<string> => {
-      const { id } = await runStore.start(tenantId, wfId, waId, null, { currentNode: 'w', status: 'sleeping', resumeAt: new Date() }, null);
+      const { id } = await runStore.start(tenantId, wfId, waId, null, { currentNode: 'w', status: 'sleeping', resumeAt: new Date() }, null, false);
       // L'échéance posée par l'horloge de Postgres : la tolérance se juge contre `now()`, pas contre celle du test.
       await pool.query(`update workflow_runs set resume_at = ${echeanceSql} where id = $1`, [id]);
       return id;
@@ -1574,7 +1574,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     const echeance = new Date(Date.now() - 60_000); // due depuis une minute
     const ids: string[] = [];
     for (let i = 0; i < 5; i += 1) {
-      const { id } = await runStore.start(tenantId, wfId, `3360000000${i}`, null, { currentNode: 'w', status: 'sleeping', resumeAt: echeance }, null);
+      const { id } = await runStore.start(tenantId, wfId, `3360000000${i}`, null, { currentNode: 'w', status: 'sleeping', resumeAt: echeance }, null, false);
       ids.push(id);
     }
 
@@ -1618,7 +1618,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     const wfStore = new PgWorkflowStore(pool);
     const { id: wfId } = await wfStore.insert(tenantId, 'WF occupe', { nodes: [], edges: [] });
     const wa = '33688888888';
-    const { id: dormant } = await runStore.start(tenantId, wfId, wa, null, { currentNode: 'w', status: 'sleeping', resumeAt: new Date(Date.now() + 3_600_000) }, null);
+    const { id: dormant } = await runStore.start(tenantId, wfId, wa, null, { currentNode: 'w', status: 'sleeping', resumeAt: new Date(Date.now() + 3_600_000) }, null, false);
 
     expect(await runStore.closeActiveByWaId(tenantId, wa)).toHaveLength(1);
     const apres = await pool.query<{ status: string; resume_at: Date | null }>(
@@ -1648,11 +1648,11 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
       `select count(*)::int as n from workflow_runs
         where tenant_id = $1 and wa_id = $2 and status in ('waiting','sleeping')`, [tenantId, wa])).rows[0]!.n;
 
-    await runStore.start(tenantId, wfA, wa, null, { currentNode: 'a', status: 'waiting' }, null);
+    await runStore.start(tenantId, wfA, wa, null, { currentNode: 'a', status: 'waiting' }, null, false);
     expect(await actifs()).toBe(1);
     // Ce que fait `runFrom` avant de persister le nouveau parcours.
     await runStore.closeActiveByWaId(tenantId, wa);
-    await runStore.start(tenantId, wfB, wa, null, { currentNode: 'b', status: 'waiting' }, null);
+    await runStore.start(tenantId, wfB, wa, null, { currentNode: 'b', status: 'waiting' }, null, false);
     expect(await actifs()).toBe(1);
     // Et c est bien le SECOND qui a survecu : sans ca, le test passerait avec le mauvais parcours vivant.
     const vivant = await runStore.findWaitingByWaId(tenantId, wa);
@@ -1676,7 +1676,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
       edges: [],
     };
 
-    const { id } = await runStore.start(tenantId, wfId, wa, null, { currentNode: 'n1', status: 'waiting' }, fige);
+    const { id } = await runStore.start(tenantId, wfId, wa, null, { currentNode: 'n1', status: 'waiting' }, fige, false);
     expect((await runStore.findWaitingByWaId(tenantId, wa))?.grapheFige).toEqual(fige);
     expect((await runStore.byId(tenantId, id))?.grapheFige).toEqual(fige);
 
@@ -1687,7 +1687,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     expect(dus.find((r) => r.id === id)?.grapheFige).toEqual(fige);
 
     // Et le cas NORMAL, celui de tous les parcours réels : rien de figé, on lira le publié.
-    const sansFige = await runStore.start(tenantId, wfId, '33688888878', null, { currentNode: 'n1', status: 'waiting' }, null);
+    const sansFige = await runStore.start(tenantId, wfId, '33688888878', null, { currentNode: 'n1', status: 'waiting' }, null, false);
     expect((await runStore.byId(tenantId, sansFige.id))?.grapheFige).toBeNull();
 
     await pool.query('delete from workflow_runs where tenant_id = $1 and workflow_id = $2', [tenantId, wfId]);
@@ -1701,8 +1701,8 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     const wfStore = new PgWorkflowStore(pool);
     const { id: wfId } = await wfStore.insert(tenantId, 'WF vieux', { nodes: [], edges: [] });
     const echeance = new Date(Date.now() + 3_600_000);
-    const { id: vieux } = await runStore.start(tenantId, wfId, '33677777771', null, { currentNode: 'w', status: 'sleeping', resumeAt: echeance }, null);
-    const { id: recent } = await runStore.start(tenantId, wfId, '33677777772', null, { currentNode: 'w', status: 'sleeping', resumeAt: echeance }, null);
+    const { id: vieux } = await runStore.start(tenantId, wfId, '33677777771', null, { currentNode: 'w', status: 'sleeping', resumeAt: echeance }, null, false);
+    const { id: recent } = await runStore.start(tenantId, wfId, '33677777772', null, { currentNode: 'w', status: 'sleeping', resumeAt: echeance }, null, false);
     await pool.query(`update workflow_runs set created_at = now() - interval '100 days' where id = $1`, [vieux]);
 
     expect(await runStore.closeStaleSleeping()).toBeGreaterThanOrEqual(1);
@@ -1722,7 +1722,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     const { id: wfId } = await wfStore.insert(tenantId, 'WF attente future', { nodes: [], edges: [] });
     const { id } = await runStore.start(tenantId, wfId, '33699999999', null, {
       currentNode: 'w', status: 'sleeping', resumeAt: new Date(Date.now() + 3_600_000),
-    }, null);
+    }, null, false);
     expect((await runStore.claimDueSleeping(50)).map((r) => r.id)).not.toContain(id);
     await wfStore.remove(wfId, tenantId);
   });
@@ -1839,6 +1839,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     const ex = new WorkflowExecutor({
       ...depsInertes,
       estDesabonne: jamaisDesabonne,
+      aAccordMarketing: toujoursDAccord,
       runs: runStore,
       getGraph: async (id, t) => (await wfStore.getById(id, t))?.graph ?? null,
       applyTag: (t, w, tag) => contactStore.addTagsByPhoneReturningNew(t, w, [tag]).then(() => undefined),

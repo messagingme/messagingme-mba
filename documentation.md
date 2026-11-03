@@ -607,6 +607,26 @@ automation reçoit son type de `typeDeLancementDe` (`src/automation/match.ts`), 
 runner construit la demande et le worker la transmet telle quelle. `tests/workflow-lancements.test.ts` exécute la
 table type par type, sur le vrai contrôle du fil.
 
+🔴 **Un parcours né d'une automation n'envoie un modèle Marketing qu'à une fiche d'accord** (décision A du cadrage
+mm-hubspot du 2026-11-02, colonne `marketing` de `POLITIQUE_DE_LANCEMENT` : `accord_fiche` pour les trois
+`automatisme_*`, `libre` pour tout le reste). La garde vit dans `apply`, gouvernée par le paramètre que pose le CHEMIN,
+jamais dans `sendTemplate` : les campagnes et l'API publique ont déjà filtré sur leur propre règle (`optInAllows`, à la
+construction), et le workflow HubSpot a écrit l'accord sur la fiche avant tout envoi (ou refusé tout Marketing du
+graphe). À chaque bloc Modèle, après le STOP qui prime toujours : la catégorie, lue sur le même cache que l'envoi
+(`categorieDuModele`, sur `templateVarInfo`), Marketing ou illisible exige `opted_in` sur la fiche, lu EN DIRECT
+(`aAccordMarketing`, `aAccordMarketingParWaId`), une fois par liste d'effets ; un Service part. Sans accord, le bloc est
+sauté et les envois qui le suivent dans la liste aussi (les étiquettes et les champs se posent), motif
+`MOTIF_SANS_ACCORD_MARKETING`. Un bloc « consentement » du scénario posé avant vaut accord (la fiche est relue). La
+règle se FIGE à la naissance du parcours (`workflow_runs.accord_marketing_exige`, migration 0272, écrite par `start`,
+relue par les quatre lectures « !== false » : une lecture qui l'oublierait fait refuser au lieu de laisser partir) et
+voyage dans les trois reprises (`resume`, `advance`, `envoyerBlocDepuisAgent`) et dans les « Aller à » (le départ `saut`
+la porte, requise ; `accordMarketingExige` est la seule lecture de la politique). Rien de parti : au démarrage rien n'est
+créé (le runner journalise et efface le tir) ; à une reprise ou à un saut, le parcours se CLÔT en `done`, sans passer à
+l'équipe ni entrer au journal des échecs de saut, et la main revient à l'agent de Meta (un déclencheur de masse, un deal
+HubSpot sur une étape peuplée, remplirait sinon « À traiter »). Les deux dépendances sont requises ; les fixtures disent
+`toujoursDAccord` (le comportement d'avant) ou `jamaisDAccord` (`tests/consentement.ts`), et `categorieIllisible` est
+dans `depsInertes`. Les parcours nés avant la colonne valent `false` et finissent sans la garde. Le bloc RCS n'y passe pas.
+
 ⚠️ **Répondre à un message RCS ne rouvre pas la fenêtre WhatsApp** : ce sont deux tuyaux distincts. Seul le
 formulaire reste impossible derrière un RCS, n'ayant aucun équivalent : le parcours ne fait pas semblant, il
 remonte la conversation à un humain.
@@ -3004,6 +3024,25 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   scénario (`lancements` la relit par `findIdByWaId`). Dans Automations, le déclencheur est grisé quand la ligne est
   éteinte (`declencheurDealGrise`, `web/lib/hubspot-choix.ts`) ; une API qui ne rend pas `hubspotAutomations` le
   laisse montré, et la carte HubSpot n'envoie la clé qu'à une API qui la connaît (corps strict).
+- **L'attestation de l'accord marketing d'une automation** (lot 3b du même plan, décisions 6 et B : la case du
+  formulaire, pour tous les déclencheurs). Trois colonnes sur `automations` (migration 0271, `avant`) :
+  `accord_marketing_par` (le compte, sans clé étrangère : la trace survit au compte), `accord_marketing_email` (son
+  adresse, résolue dans l'écriture même par un sous-select scopé `tenant_id`, comme `reglages_historique`) et
+  `accord_marketing_le` (NULL = non attestée, c'est elle que lit `toRow`), plus `automations_accord_marketing_chk` (pas
+  de « qui » sans « quand »). 🔴 Le tampon n'est JAMAIS lu du corps : `POST`/`PATCH /automations` ne prennent qu'un
+  booléen `accordMarketing` (tout autre type : 400), la route pose `{ par: req.auth.userId }` (`tamponAccord`), et
+  l'UPDATE garde le tampon d'origine d'une automation déjà attestée (chaque terme lit la ligne d'avant) ; `false` efface,
+  absent ne touche rien (une console d'avant restée ouverte n'efface rien) ; la case seule est un PATCH valide. La liste
+  rend le tampon (`AutomationRow.accordMarketing`, REQUIS : une fabrique sans formulaire, widget compris, dit `null`) ;
+  `listEnabled` le lit (`COLS`), sinon l'accord serait nul partout sans qu'aucun type ne bouge. Au déclenchement,
+  `runAutomations` écrit l'accord APRÈS l'anti-rebond, la condition et le plafond, AVANT `markFired` (un échec lève dans
+  le `catch` et ne consomme pas l'anti-rebond) : `ecrireAccord`, dépendance REQUISE (les fixtures disent
+  `aucunAccordEcrit`, `tests/consentement.ts`), câblée dans le worker par `ecrivainDAccord(contactStore,
+  depsConsentementDe(...))` : la fiche du numéro, puis `appliquerConsentement` (autorité `api` : un STOP rend `refuse`,
+  le scénario part quand même et l'exécuteur écarte la personne ; `inchange` garde la source d'origine), source
+  `automation:<id>`, journal `contact.optin` d'origine `automation` (le paramètre `origine` d'`appliquerConsentement`,
+  `api` par défaut). 🔴 Jamais par `setOptInByWaId` ni par l'autorité `scenario`, qui lèvent un STOP. L'écriture
+  n'émet aucun événement d'automation.
 - **Le visuel d'en-tête d'un modèle envoyé depuis l'Inbox part en `media id`** (`creerEnvoiModeleInbox`,
   `mediaDuModele`) : l'adresse que l'écran passe est celle du CDN de Meta, que l'invariant 9 dit refusée en 131053 ;
   le visuel du modèle se re-téléverse comme pour le bloc de scénario. Sans visuel au modèle, ou si la préparation
@@ -5864,7 +5903,7 @@ avec elle) garde son test de parité.
 | `src/repondeur/mode.ts` -> `MODES_REPONDEUR`, `modeEffectif`, `leMbaRepond`, `standbyPourNous` | 🔴 la liste des modes (dans `web/lib/partage/repondeur-modes.ts`, partagée avec la console ; miroir du CHECK de 0217) et les trois questions qu'on lui pose : le mode qui s'applique, « le MBA est-il le répondeur ? », « un standby hors liste est-il pour nous ? ». Des `switch` sans `default` |
 | `src/repondeur/mode.ts` -> `reglagesSousLOffre` | les réglages d'un espace lus SOUS SON OFFRE (les deux lectures, puis `sousLOffre`) : le point de passage de quiconque confie un contact, pour qu'aucun ne lise un `mbaEnabled` brut |
 | `src/repondeur/reglage.ts` -> `choisirRepondeur` | 🔴 le seul geste qui règle qui répond au client, pour la console et le MCP : cible vérifiée (agent actif et modèle, scénario publié, agent de Meta configurable et allumé au besoin), réglage écrit AVANT tout effet, puis, en quittant le mode `mba`, sa liste vidée et ses fils `mba` rendus aux robots, ligne d'historique |
-| `src/workflow/lancements.ts` -> `creerLancements`, `POLITIQUE_DE_LANCEMENT` | 🔴 le seul chemin pour démarrer un parcours : un TYPE de lancement (liste fermée) et sa politique (reprise du fil, publication des étiquettes, graphe joué, garde de fenêtre), lue par `WorkflowExecutor.demarrer`. Un câblage choisit un type, jamais un réglage ; `tests/workflow-lancements.test.ts` exécute la table |
+| `src/workflow/lancements.ts` -> `creerLancements`, `POLITIQUE_DE_LANCEMENT` | 🔴 le seul chemin pour démarrer un parcours : un TYPE de lancement (liste fermée) et sa politique (reprise du fil, publication des étiquettes, graphe joué, garde de fenêtre, garde marketing), lue par `WorkflowExecutor.demarrer`. Un câblage choisit un type, jamais un réglage ; `tests/workflow-lancements.test.ts` exécute la table |
 | `src/workflow/engine.ts` -> `FENETRE_SERVICE_MS` | la fenêtre de service de Meta (24 h), pour le balayage de contrôle et la fenêtre ouverte de l'Inbox |
 | `src/crm/render.ts` -> `escapeHtml` | l'échappement HTML du dépôt (gabarits d'e-mail, pages d'erreur des liens tracés) |
 | `src/stats/range.ts` -> `isValidDateStr` | une date `YYYY-MM-DD` qui EXISTE (aller-retour strict), lue aussi par la grille de prix |

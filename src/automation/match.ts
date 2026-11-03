@@ -115,6 +115,22 @@ export interface AutomationRow {
    * (`AUTOMATION_MAX_FIRES_PER_HOUR`), 0 = aucun plafond. Requis pour la même raison que `possedePar`.
    */
   maxFiresPerHour: number | null;
+  /**
+   * L'attestation de l'accord marketing (la case du formulaire, décisions 6 et B du 2026-11-02) ; `null` = non attestée.
+   * Attestée, le runner écrit l'accord sur la fiche à chaque déclenchement. Requis pour la même raison que `possedePar` :
+   * une fabrique sans formulaire (chaîne, widget, publicité, webhook entrant) dit `null`, elle n'atteste jamais rien.
+   */
+  accordMarketing: AccordMarketing | null;
+}
+
+/**
+ * Le tampon d'une attestation, posé par le serveur depuis la session (jamais lu du corps d'une requête) : le compte, son
+ * adresse au moment de cocher (la trace survit au compte) et la date. `par` et `email` sont nuls pour un appel sans session.
+ */
+export interface AccordMarketing {
+  par: string | null;
+  email: string | null;
+  le: Date;
 }
 
 /** L'événement observé, forme normalisée par l'appelant (webhook, file d'événements, hook d'analyse). */

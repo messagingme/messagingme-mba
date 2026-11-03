@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { aucunRepondeur, bancDuFil, type OptionsBanc } from './banc-du-fil';
 import { creerDemarreurScenario, type DemarreurScenario } from '../src/repondeur/scenario';
@@ -271,6 +271,7 @@ function executeur(graph: WorkflowGraph, o: { mbaRepond: boolean; blocLeve?: boo
   const ex = new WorkflowExecutor({
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async () => ({ id: 'r1' }),
       findWaitingByWaId: async () => run as unknown as WorkflowRunRow,

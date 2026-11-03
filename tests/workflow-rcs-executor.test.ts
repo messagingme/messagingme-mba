@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { aucunJetonRcs, avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect } from 'vitest';
 import { parseGraph } from '../src/workflow/graph';
@@ -50,6 +50,7 @@ function monter(graph: WorkflowGraph, nonJoignables: string[] = [], avecRcs = tr
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     getGraph: async () => graph,
     applyTag: async (_t, _w, tag) => {
       tags.push(tag);
@@ -75,7 +76,7 @@ function monter(graph: WorkflowGraph, nonJoignables: string[] = [], avecRcs = tr
       // Requis par le contrat : un demarrage remplace le parcours en cours.
       closeActiveByWaId: async () => [],
       findWaitingByWaId: async () => (enAttenteSur
-        ? { id: 'run-1', tenantId: 't1', workflowId: 'w1', waId: '33600000002', currentNode: enAttenteSur, status: 'waiting' as const, lastMessageId: null, channel: canal, grapheFige: null }
+        ? { id: 'run-1', tenantId: 't1', workflowId: 'w1', waId: '33600000002', currentNode: enAttenteSur, status: 'waiting' as const, lastMessageId: null, channel: canal, grapheFige: null, exigeAccordMarketing: false }
         : null),
     }),
     ...(avecRcs

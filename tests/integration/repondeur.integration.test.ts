@@ -243,7 +243,7 @@ describe.skipIf(!url)('le répondeur par défaut (Postgres)', () => {
       const sys = await new PgWorkflowStore(pool).assurerScenarioSysteme(tenantId, 'repondeur');
       const runs = new PgWorkflowRunStore(pool);
       const graphe = { nodes: [{ id: 'agent', type: 'agent' as const, position: { x: 0, y: 0 }, data: { agentId } }], edges: [] };
-      const { id } = await runs.start(tenantId, sys, WA, null, { currentNode: 'agent', status: 'waiting', lastMessageId: 'wamid.declencheur' }, graphe);
+      const { id } = await runs.start(tenantId, sys, WA, null, { currentNode: 'agent', status: 'waiting', lastMessageId: 'wamid.declencheur' }, graphe, false);
       expect(await runs.byId(tenantId, id)).toMatchObject({ lastMessageId: 'wamid.declencheur', grapheFige: graphe });
     });
   });

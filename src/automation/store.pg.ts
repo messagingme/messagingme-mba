@@ -27,6 +27,12 @@ export interface AutomationInput {
    * envois facturés.
    */
   maxFiresPerHour?: number | null;
+  /**
+   * L'attestation de l'accord marketing : `{ par }` atteste au nom de ce compte (`null` sans session), `null` efface,
+   * absent ne touche rien. Posée par la route depuis la session, JAMAIS recopiée du corps (qui ne porte qu'un booléen).
+   * L'adresse et la date sont posées par la base ; une automation déjà attestée garde son tampon d'origine.
+   */
+  accordMarketing?: { par: string | null } | null;
 }
 
 interface Raw {
@@ -34,6 +40,7 @@ interface Raw {
   trigger_kind: string; trigger_config: unknown; condition_group: unknown;
   workflow_id: string; start_node_id: string | null; cooldown_seconds: number | null;
   max_fires_per_hour: number | null; possede_par: string | null;
+  accord_marketing_par: string | null; accord_marketing_email: string | null; accord_marketing_le: Date | null;
 }
 
 /**
@@ -64,12 +71,23 @@ function toRow(r: Raw): AutomationRow | null {
     // Lu par le chemin chaud : un déclenchement né d'un geste explicite du contact (bouton de chaîne, clic sur
     // une publicité ; le widget, lui, n'est pas en base) reprend la main sur le fil (`typeDeLancementDe`).
     possedePar: r.possede_par,
+    // Lu par le chemin chaud aussi : une automation attestée écrit l'accord sur la fiche à chaque déclenchement. La date
+    // dit l'attestation (le CHECK de 0271 refuse un « qui » sans « quand »).
+    accordMarketing: r.accord_marketing_le === null
+      ? null
+      : { par: r.accord_marketing_par, email: r.accord_marketing_email, le: r.accord_marketing_le },
   };
 }
 
 // Liste tenue à la main : une colonne ajoutée ici doit l'être aussi dans `Raw` et `toRow`, sinon elle se
 // perd en silence dans le mapping.
-const COLS = 'id, tenant_id, name, enabled, trigger_kind, trigger_config, condition_group, workflow_id, start_node_id, cooldown_seconds, max_fires_per_hour, possede_par';
+const COLS = 'id, tenant_id, name, enabled, trigger_kind, trigger_config, condition_group, workflow_id, start_node_id, cooldown_seconds, max_fires_per_hour, possede_par, accord_marketing_par, accord_marketing_email, accord_marketing_le';
+
+/**
+ * L'adresse de l'attestant, résolue dans l'écriture même (comme `reglages_historique`) : dénormalisée pour qu'un départ
+ * ne rende pas l'attestation anonyme. Le sous-select porte `tenant_id = $2` : un compte d'un autre espace ne se lit pas.
+ */
+const EMAIL_DE = (par: string, tenant: string) => `(select email from users where id = ${par}::uuid and tenant_id = ${tenant})`;
 
 /**
  * Met hors de portée de ce store (donc de l'écran Automation) les automations possédées par autre chose :
@@ -152,15 +170,19 @@ export class PgAutomationStore {
     if (input.enabled && !input.possedePar && this.limiteAutomations) {
       await verifierPlaceAutomation(this.pool, tenantId, await this.limiteAutomations(tenantId), null);
     }
+    const accord = input.accordMarketing ?? null;
     const res = await this.pool.query<{ id: string }>(
-      `insert into automations (tenant_id, name, enabled, trigger_kind, trigger_config, condition_group, workflow_id, start_node_id, cooldown_seconds, possede_par, max_fires_per_hour)
-       values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11) returning id`,
+      `insert into automations (tenant_id, name, enabled, trigger_kind, trigger_config, condition_group, workflow_id, start_node_id, cooldown_seconds, possede_par, max_fires_per_hour,
+                                accord_marketing_par, accord_marketing_email, accord_marketing_le)
+       values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11,
+               $12::uuid, ${EMAIL_DE('$12', '$1')}, case when $13::boolean then now() end) returning id`,
       [
         tenantId, input.name, input.enabled, input.triggerKind,
         JSON.stringify(input.triggerConfig),
         input.conditionGroup === null ? null : JSON.stringify(input.conditionGroup),
         input.workflowId, input.startNodeId, input.cooldownSeconds,
         input.possedePar ?? null, input.maxFiresPerHour ?? null,
+        accord?.par ?? null, accord !== null,
       ],
     );
     return { id: res.rows[0]!.id };
@@ -183,6 +205,19 @@ export class PgAutomationStore {
     if (patch.workflowId !== undefined) push('workflow_id', patch.workflowId);
     if (patch.startNodeId !== undefined) push('start_node_id', patch.startNodeId);
     if (patch.cooldownSeconds !== undefined) push('cooldown_seconds', patch.cooldownSeconds);
+    if (patch.accordMarketing === null) {
+      sets.push('accord_marketing_par = null', 'accord_marketing_email = null', 'accord_marketing_le = null');
+    } else if (patch.accordMarketing !== undefined) {
+      // 🔴 Une automation déjà attestée garde son tampon d'origine : chaque terme lit la ligne AVANT l'écriture, donc la
+      // date d'origine décide pour les trois. Recocher en éditant le nom ne fait pas de l'éditeur l'attestant.
+      vals.push(patch.accordMarketing.par);
+      const p = `$${vals.length}`;
+      sets.push(
+        `accord_marketing_par = case when accord_marketing_le is null then ${p}::uuid else accord_marketing_par end`,
+        `accord_marketing_email = case when accord_marketing_le is null then ${EMAIL_DE(p, '$2')} else accord_marketing_email end`,
+        'accord_marketing_le = coalesce(accord_marketing_le, now())',
+      );
+    }
     if (sets.length === 0) return false;
     const res = await this.pool.query(
       `update automations set ${sets.join(', ')}, updated_at = now()

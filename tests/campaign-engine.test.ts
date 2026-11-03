@@ -15,7 +15,7 @@ import { CreditWhatsappRefus, MESSAGE_REFUS_CREDIT } from '../src/credit-whatsap
 import { WorkflowExecutor } from '../src/workflow/executor';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { RAISON_CREDIT_RECHARGE_ENTRE_TEMPS } from '../src/campaign/engine';
 
 class FakeSender implements MessageSender {
@@ -293,6 +293,7 @@ describe('runCampaign', () => {
     const executeur = new WorkflowExecutor({
       ...depsInertes,
       estDesabonne: jamaisDesabonne,
+      aAccordMarketing: toujoursDAccord,
       runs: avecGardesDEtatInertes({
         closeActiveByWaId: async (): Promise<string[]> => [],
         start: async (): Promise<{ id: string }> => ({ id: 'run-1' }),

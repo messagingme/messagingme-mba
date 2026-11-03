@@ -91,7 +91,7 @@ describe.skipIf(!url)('« Aller à » (Postgres)', () => {
     const contact = (await pool.query<{ id: string }>(
       `insert into contacts (tenant_id, phone_e164) values ($1, '+33600000902') returning id`, [tenantId],
     )).rows[0]!.id;
-    const { id } = await runs.start(tenantId, wf.id, '33600000902', contact, { currentNode: 'q', status: 'waiting' }, null);
+    const { id } = await runs.start(tenantId, wf.id, '33600000902', contact, { currentNode: 'q', status: 'waiting' }, null, false);
     expect((await runs.findWaitingByWaId(tenantId, '33600000902'))?.contactId).toBe(contact);
     expect((await runs.byId(tenantId, id))?.contactId).toBe(contact);
   });

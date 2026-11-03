@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect, vi } from 'vitest';
 import { WorkflowExecutor } from '../src/workflow/executor';
@@ -56,6 +56,7 @@ function makeDeps(
   return {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     ...(recordNodeEvent ? { recordNodeEvent } : {}),
     runs: avecGardesDEtatInertes(new FakeRuns()),
     getGraph: async () => graph,

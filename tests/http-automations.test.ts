@@ -45,7 +45,7 @@ function app(
     automations: {
       list: async () => [],
       // État courant d'UNE automation : c'est lui que la garde anti-boucle relit sur un PATCH partiel.
-      getById: async (id) => (id === 'a1' ? { id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'conversation_analyzed', triggerConfig: {}, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 3600, maxFiresPerHour: null, possedePar: null } : null),
+      getById: async (id) => (id === 'a1' ? { id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'conversation_analyzed', triggerConfig: {}, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 3600, maxFiresPerHour: null, possedePar: null, accordMarketing: null } : null),
       create: async (tenant, input) => { cap.created.push({ tenant, input }); return { id: 'a1' }; },
       update: async (id, tenant, patch) => { cap.updated.push({ id, tenant, patch }); return id === 'a1'; },
       remove: async (id, tenant) => { cap.removed.push({ id, tenant }); return id === 'a1'; },
@@ -194,7 +194,7 @@ describe('routes automations', () => {
   it('réactiver une référence supprimée est refusé, mais la désactivation reste possible', async () => {
     const courante = { id: 'a1', tenantId: 't1', name: 'Rappel', enabled: false, triggerKind: 'avant_date' as const,
       triggerConfig: { fieldKey: 'supprime', delai: 2, unite: 'heures' }, conditionGroup: null, workflowId: 'wf1',
-      startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null };
+      startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null };
     const { server, cap } = app({ getById: async () => courante });
     const activer = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { enabled: true } });
     const desactiver = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { enabled: false } });
@@ -245,7 +245,7 @@ describe('routes automations', () => {
 
     it('sens 2 : basculer vers « conversation analysée » une automation au délai DÉJÀ court -> refusé', async () => {
       const { server, cap } = app({
-        getById: async () => ({ id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 0, maxFiresPerHour: null, possedePar: null }),
+        getById: async () => ({ id: 'a1', tenantId: 't1', name: 'A', enabled: true, triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: 0, maxFiresPerHour: null, possedePar: null, accordMarketing: null }),
       });
       const res = await server.inject({
         method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok),
@@ -417,7 +417,7 @@ describe('les déclencheurs nés d’une analyse demandent l’offre qui l’ouv
   });
 
   it('🔴 changer le déclencheur d’une automation existante en un déclencheur d’analyse est une création : refusé', async () => {
-    const motCle = { id: 'a2', tenantId: 't1', name: 'B', enabled: false, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null };
+    const motCle = { id: 'a2', tenantId: 't1', name: 'B', enabled: false, triggerKind: 'keyword' as const, triggerConfig: { keywords: ['rdv'] }, conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null };
     const { server, cap } = app({ getById: async (id) => (id === 'a2' ? motCle : null), update: async (id, tenant, patch) => { cap.updated.push({ id, tenant, patch }); return true; } }, sansAnalyse);
     const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a2', ...h(adminTok), payload: { triggerKind: 'analyse_devient', triggerConfig: { cle: 'analyse_sentiment', op: 'in', valeur: 'negatif' } } });
     expect(res.statusCode).toBe(402);
@@ -442,6 +442,70 @@ describe('les déclencheurs nés d’une analyse demandent l’offre qui l’ouv
       expect(res.statusCode, d.triggerKind).toBe(201);
     }
     expect(cap.created).toHaveLength(2);
+    await server.close();
+  });
+});
+
+/**
+ * LA CASE D'ACCORD MARKETING (lot 3b du plan mm-hubspot du 2026-11-02, décisions 6 et B). Le corps ne porte qu'un booléen ;
+ * le tampon (qui, quand) est posé par le SERVEUR depuis la session. Un tampon forgeable par le corps ferait attester l'accord
+ * au nom de n'importe qui, à n'importe quelle date : c'est la trace qu'on montrerait à un contrôle.
+ */
+describe('la case d’accord marketing', () => {
+  it('🔴 cochée à la création : le tampon vient du JETON, jamais du corps', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: { ...VALID, accordMarketing: true } });
+    expect(res.statusCode).toBe(201);
+    expect(cap.created[0]!.input.accordMarketing).toEqual({ par: 'u1' });
+    // La réponse rend la case, jamais le tampon.
+    expect(res.json().accordMarketing).toBe(true);
+    await server.close();
+  });
+
+  it('🔴 un tampon fourni dans le corps est REFUSÉ, jamais recopié', async () => {
+    const { server, cap } = app();
+    for (const accordMarketing of [{ par: 'u-autre', email: 'x@y.z', le: '2020-01-01' }, 'true', 1, null]) {
+      const res = await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: { ...VALID, accordMarketing } });
+      expect(res.statusCode, JSON.stringify(accordMarketing)).toBe(400);
+      const patch = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { accordMarketing } });
+      expect(patch.statusCode, JSON.stringify(accordMarketing)).toBe(400);
+    }
+    expect(cap.created).toEqual([]);
+    expect(cap.updated).toEqual([]);
+    await server.close();
+  });
+
+  it('création sans la case, ou décochée : aucune attestation', async () => {
+    const { server, cap } = app();
+    await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: VALID });
+    await server.inject({ method: 'POST', url: '/tenants/t1/automations', ...h(adminTok), payload: { ...VALID, accordMarketing: false } });
+    expect(cap.created[0]!.input.accordMarketing ?? null).toBeNull();
+    expect(cap.created[1]!.input.accordMarketing).toBeNull();
+    await server.close();
+  });
+
+  it('🔴 PATCH : la case SEULE est acceptée (sans triggerKind) ; cochée = tampon du jeton, décochée = efface', async () => {
+    const { server, cap } = app();
+    const coche = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { accordMarketing: true } });
+    const decoche = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { accordMarketing: false } });
+    expect([coche.statusCode, decoche.statusCode]).toEqual([200, 200]);
+    expect(cap.updated.map((u) => u.patch)).toEqual([{ accordMarketing: { par: 'u1' } }, { accordMarketing: null }]);
+    await server.close();
+  });
+
+  it('🔴 PATCH sans la case (une console d’avant restée ouverte) ne touche PAS l’attestation', async () => {
+    const { server, cap } = app();
+    await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(adminTok), payload: { name: 'Renommée' } });
+    expect(cap.updated[0]!.patch).toEqual({ name: 'Renommée' });
+    expect(cap.updated[0]!.patch).not.toHaveProperty('accordMarketing');
+    await server.close();
+  });
+
+  it('🔴 un agent ne peut ni cocher ni décocher', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/automations/a1', ...h(agentTok), payload: { accordMarketing: true } });
+    expect(res.statusCode).toBe(403);
+    expect(cap.updated).toEqual([]);
     await server.close();
   });
 });

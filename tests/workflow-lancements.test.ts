@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { jamaisDesabonne } from './consentement';
+import { jamaisDAccord, jamaisDesabonne, toujoursDAccord, toujoursDesabonne } from './consentement';
+import { MOTIF_DESABONNE, MOTIF_SANS_ACCORD_MARKETING } from '../src/campaign/guardrails';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { bancDuFil, ESPACE } from './banc-du-fil';
 import { WorkflowExecutor } from '../src/workflow/executor';
@@ -94,8 +95,9 @@ const estUnSaut = (type: TypeDeLancement): type is TypeDuSaut => type === 'aller
 /**
  * Où commence le parcours, pour les types qui en laissent le choix. Un type qui n'a pas ce choix l'ignore. `auSaut` :
  * au bloc visé par un « Aller à », avec la preuve de fenêtre que le saut transporte (`fenetreOuverte`).
+ * `sautDepuisUneAutomation` : le saut hérite la garde marketing d'un parcours d'automation (défaut : non).
  */
-interface Variante { workflowId: string; fenetreOuverte?: boolean; auBloc?: boolean; auSaut?: boolean }
+interface Variante { workflowId: string; fenetreOuverte?: boolean; auBloc?: boolean; auSaut?: boolean; sautDepuisUneAutomation?: boolean }
 
 /** La demande que le câblage de ce type envoie, pour une variante. */
 function demandeDe(type: Exclude<TypeDeLancement, TypeDuSaut>, v: Variante): DemandeDeLancement {
@@ -138,15 +140,16 @@ function banc(detenteur: ControlOwner = 'app_workflow', surcharges: Partial<Work
   const envois: string[] = [];
   const emis: string[] = [];
   /** Ce que la création du parcours a transmis : la fiche et le graphe figé. */
-  const crees: Array<{ contactId: string | null; fige: WorkflowGraph | null }> = [];
+  const crees: Array<{ contactId: string | null; fige: WorkflowGraph | null; exige: boolean }> = [];
   const lectures: string[] = [];
   const recherches: string[] = [];
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
-      start: async (_t: string, _w: string, _waId: string, contactId: string | null, _s: unknown, fige: WorkflowGraph | null) => {
-        crees.push({ contactId, fige });
+      start: async (_t: string, _w: string, _waId: string, contactId: string | null, _s: unknown, fige: WorkflowGraph | null, exige: boolean) => {
+        crees.push({ contactId, fige, exige });
         return { id: 'r1' };
       },
       findWaitingByWaId: async () => null,
@@ -187,8 +190,10 @@ function lancerLeType(m: ReturnType<typeof banc>, type: TypeDeLancement, v: Vari
   if (!estUnSaut(type)) return m.lancements.lancer(demandeDe(type, v));
   const wf = SCENARIOS[v.workflowId];
   if (!wf) return Promise.resolve(null);
-  return m.executor.demarrer(type, ESPACE, v.workflowId, wf.graph, { waId: WA, contactId: 'c-saut' },
-    { depuis: 'saut', noeudId: PREMIER_BLOC[v.workflowId] ?? 'inconnu', fenetreOuverte: v.fenetreOuverte === true, sauts: 1 });
+  return m.executor.demarrer(type, ESPACE, v.workflowId, wf.graph, { waId: WA, contactId: 'c-saut' }, {
+    depuis: 'saut', noeudId: PREMIER_BLOC[v.workflowId] ?? 'inconnu', fenetreOuverte: v.fenetreOuverte === true, sauts: 1,
+    exigeAccordMarketing: v.sautDepuisUneAutomation === true,
+  });
 }
 
 /** Les journaux des refus (fil tenu, fenêtre) ne polluent pas la sortie des tests. */
@@ -608,5 +613,91 @@ describe('le gel au retour en Base (lot 6, B2a)', () => {
   it('en Pro, un type gelé en Base démarre comme avant', async () => {
     silence();
     expect(await lancerLeType(banc('app_workflow', {}, 'pro'), 'inbox', { workflowId: 'wf-modele', fenetreOuverte: true })).toBe(true);
+  });
+});
+
+/**
+ * 🔴 LA GARDE MARKETING (décision A du cadrage mm-hubspot du 2026-11-02, lot 3b). Un parcours né d'une automation n'envoie
+ * un modèle Marketing (ou de catégorie illisible) qu'à une fiche `opted_in` ; tous les autres lancements restent comme
+ * avant (campagne et API filtrées en amont, workflow HubSpot qui a écrit l'accord, gestes unitaires). Écrit ici, pas
+ * dérivé de la politique : la comparer à elle-même ne prouverait rien. Un saut n'a pas de règle à lui, il HÉRITE.
+ */
+const MARKETING_ATTENDU: Record<TypeDeLancement, 'libre' | 'accord_fiche'> = {
+  inbox: 'libre', agent_meta_scenario: 'libre', agent_ia_scenario: 'libre', agent_meta_bloc: 'libre',
+  automatisme_ordinaire: 'accord_fiche', automatisme_chaine: 'accord_fiche', automatisme_publicite_ou_widget: 'accord_fiche',
+  lien_de_test: 'libre', campagne_scenario: 'libre', campagne_bloc: 'libre', workflow_hubspot: 'libre',
+  repondeur: 'libre', repondeur_scenario: 'libre', aller_a: 'libre', aller_a_masse: 'libre',
+};
+
+/** La catégorie que Meta rend pour le modèle du scénario : c'est elle que la garde lit, sur le cache de l'envoi. */
+const categorie = (c: string | null): Partial<WorkflowExecutorDeps> => ({ categorieDuModele: async () => c });
+
+describe('la garde marketing, type par type (décision A)', () => {
+  it('la même table que la politique : chaque type a sa ligne', () => {
+    for (const type of TYPES_DE_LANCEMENT) expect(POLITIQUE_DE_LANCEMENT[type].marketing, type).toBe(MARKETING_ATTENDU[type]);
+  });
+
+  for (const type of TYPES_DE_LANCEMENT) {
+    const exige = MARKETING_ATTENDU[type] === 'accord_fiche';
+    it(`${type} : un modèle Marketing à une fiche SANS accord ${exige ? 'ne part pas, et rien n’est créé' : 'part comme avant'}`, async () => {
+      silence();
+      const m = banc('app_workflow', { aAccordMarketing: jamaisDAccord, ...categorie('marketing') });
+      const issue = await lancerLeType(m, type, { workflowId: 'wf-modele', fenetreOuverte: true });
+      if (exige) {
+        expect(issue).toBe(MOTIF_SANS_ACCORD_MARKETING);
+        expect(m.envois).toEqual([]);
+        expect(m.crees, 'au démarrage, rien n’est créé : le runner journalise et efface le tir').toEqual([]);
+      } else {
+        expect(issue).toBe(true);
+        expect(m.envois).toHaveLength(1);
+      }
+    });
+
+    it(`${type} : la règle se FIGE dans le parcours créé (${exige ? 'exigée' : 'libre'})`, async () => {
+      silence();
+      const m = banc('app_workflow', { aAccordMarketing: toujoursDAccord, ...categorie('marketing') });
+      expect(await lancerLeType(m, type, { workflowId: 'wf-modele', fenetreOuverte: true })).toBe(true);
+      expect(m.envois, 'avec l’accord, le Marketing part').toHaveLength(1);
+      expect(m.crees.map((c) => c.exige)).toEqual([exige]);
+    });
+  }
+
+  for (const type of ['aller_a', 'aller_a_masse'] as const) {
+    it(`🔴 ${type} : un saut venu d’une automation HÉRITE la garde (refusé sans accord, figée dans le parcours d’arrivée)`, async () => {
+      silence();
+      const refuse = banc('app_workflow', { aAccordMarketing: jamaisDAccord, ...categorie('marketing') });
+      expect(await lancerLeType(refuse, type, { workflowId: 'wf-modele', fenetreOuverte: true, sautDepuisUneAutomation: true }))
+        .toBe(MOTIF_SANS_ACCORD_MARKETING);
+      expect(refuse.envois).toEqual([]);
+      const parti = banc('app_workflow', { aAccordMarketing: toujoursDAccord, ...categorie('marketing') });
+      expect(await lancerLeType(parti, type, { workflowId: 'wf-modele', fenetreOuverte: true, sautDepuisUneAutomation: true })).toBe(true);
+      expect(parti.crees.map((c) => c.exige)).toEqual([true]);
+    });
+  }
+
+  it('🔴 un modèle Service (utility) part sans accord, même d’une automation', async () => {
+    const accordLu: string[] = [];
+    const m = banc('app_workflow', { aAccordMarketing: async (_t, w) => { accordLu.push(w); return false; }, ...categorie('utility') });
+    expect(await lancerLeType(m, 'automatisme_ordinaire', { workflowId: 'wf-modele', fenetreOuverte: true })).toBe(true);
+    expect(m.envois).toEqual(['tpl:publie']);
+    expect(accordLu, 'un Service ne lit même pas l’accord').toEqual([]);
+  });
+
+  it('🔴 une catégorie illisible se lit Marketing (fail-closed), sans accord : refusée', async () => {
+    silence();
+    const m = banc('app_workflow', { aAccordMarketing: jamaisDAccord, ...categorie(null) });
+    expect(await lancerLeType(m, 'automatisme_ordinaire', { workflowId: 'wf-modele', fenetreOuverte: true })).toBe(MOTIF_SANS_ACCORD_MARKETING);
+    expect(m.envois).toEqual([]);
+  });
+
+  it('🔴 le STOP prime toujours : une fiche désabonnée est écartée par le STOP, avec ou sans accord, Service compris', async () => {
+    silence();
+    for (const accord of [toujoursDAccord, jamaisDAccord]) {
+      for (const c of ['marketing', 'utility']) {
+        const m = banc('app_workflow', { estDesabonne: toujoursDesabonne, aAccordMarketing: accord, ...categorie(c) });
+        expect(await lancerLeType(m, 'automatisme_ordinaire', { workflowId: 'wf-modele', fenetreOuverte: true }), c).toBe(MOTIF_DESABONNE);
+        expect(m.envois).toEqual([]);
+      }
+    }
   });
 });

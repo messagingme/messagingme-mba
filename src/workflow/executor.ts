@@ -20,11 +20,11 @@ import { REVEIL_COURT_MAX_MS, type ReveilCourt } from './reveil-court';
 import { SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
 import { SORTIE_FORMULAIRE_REMPLI } from '../../web/lib/partage/sorties-formulaire';
 import type { AgentTurnJob } from '../agent/turn-job';
-import { MOTIF_DESABONNE } from '../campaign/guardrails';
+import { MOTIF_DESABONNE, MOTIF_SANS_ACCORD_MARKETING } from '../campaign/guardrails';
 import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
 import { messageDe, texteDe } from '../lib/erreur';
 import {
-  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, fenetreLevee, grapheAFiger,
+  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, accordMarketingExige, fenetreLevee, grapheAFiger,
   type DepartDuParcours, type PolitiqueDeLancement, type TypeDeLancement,
 } from './lancements';
 import { MAX_SAUTS_SANS_PAUSE, nomDuBloc } from './aller-a';
@@ -97,10 +97,12 @@ export async function grapheDuRun(
 export interface WorkflowExecutorDeps {
   runs: {
     /**
-     * Crée le parcours. `grapheFige` est un paramètre à part, pas un champ de `RunState` : il s'écrit une
-     * seule fois, ici, et les écritures d'état l'auraient ignoré en silence.
+     * Crée le parcours. `grapheFige` et `exigeAccordMarketing` sont des paramètres à part, pas des champs de
+     * `RunState` : ils s'écrivent une seule fois, ici, et les écritures d'état les auraient ignorés en silence.
+     * ⚠️ Une fausse implémentation à six paramètres reste assignable : seul l'aller-retour sur le vrai store prouve
+     * l'écriture (`tests/integration/run-accord-marketing.integration.test.ts`).
      */
-    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null): Promise<{ id: string }>;
+    start(tenantId: string, workflowId: string, waId: string, contactId: string | null, state: RunState, grapheFige: WorkflowGraph | null, exigeAccordMarketing: boolean): Promise<{ id: string }>;
     findWaitingByWaId(tenantId: string, waId: string): Promise<WorkflowRunRow | null>;
     setState(id: string, state: RunState): Promise<void>;
     /**
@@ -181,12 +183,29 @@ export interface WorkflowExecutorDeps {
    * Ce contact a-t-il demandé à ne plus être contacté ?
    *
    * 🔴 C'est la garde d'opt-out des envois qui passent par cet exécuteur (scénario, automation). L'agent IA
-   * répond sans passer par `apply` et porte sa propre garde (`src/agent/run-turn.ts`) ; la campagne et l'API
-   * publique filtrent en amont (`optInAllows`). Requise : optionnelle, un câblage qui l'oublie compilerait et
-   * écrirait au contact qui a répondu STOP. Les tests passent `jamaisDesabonne` (`tests/consentement.ts`). Le câblage
-   * y lit aussi le blocage (`machineSeTaitParWaId`) : un contact bloqué se tait comme un STOP, parcours en cours compris.
+   * répond sans passer par `apply` et porte sa propre garde (`src/agent/run-turn.ts`). L'ACCORD marketing est une
+   * autre question, posée à part (`aAccordMarketing`) : la campagne et l'API publique le filtrent en amont
+   * (`optInAllows`), un parcours d'automation le relit à chaque modèle Marketing (`PolitiqueDeLancement.marketing`).
+   * Requise : optionnelle, un câblage qui l'oublie compilerait et écrirait au contact qui a répondu STOP. Les tests
+   * passent `jamaisDesabonne` (`tests/consentement.ts`). Le câblage y lit aussi le blocage (`machineSeTaitParWaId`) : un
+   * contact bloqué se tait comme un STOP, parcours en cours compris.
    */
   estDesabonne(tenantId: string, waId: string): Promise<boolean>;
+  /**
+   * La catégorie Meta d'un modèle, en minuscules (`marketing`, `utility`...), lue sur le MÊME cache court que l'envoi
+   * (`templateVarInfo`) : aucun appel à Meta de plus. `null` = illisible (modèle introuvable, WhatsApp injoignable,
+   * catégorie absente), et la garde marketing la traite comme Marketing. Appelée seulement par un parcours qui exige
+   * l'accord. Requise ; fixtures : `categorieIllisible` (`tests/executeur-inerte.ts`).
+   */
+  categorieDuModele(tenantId: string, nom: string, langue: string): Promise<string | null>;
+  /**
+   * 🔴 La fiche porte-t-elle l'accord marketing (`opted_in`) ? Lue EN DIRECT, au plus une fois par liste d'effets, par la
+   * garde d'un parcours qui l'exige : un accord posé ou retiré depuis le déclenchement (bloc « consentement » du
+   * scénario, STOP, case de l'automation) est vu. Un contact inconnu n'a pas l'accord. Requise : optionnelle, un câblage
+   * qui l'oublierait laisserait partir le Marketing. Fixtures : `toujoursDAccord` (le comportement d'avant la garde) ou
+   * `jamaisDAccord` (celle qui prouve le refus), `tests/consentement.ts`.
+   */
+  aAccordMarketing(tenantId: string, waId: string): Promise<boolean>;
   /**
    * Lève `NumeroDelieError` si le numéro WhatsApp de l'espace est délié, `NumeroSuspenduError` s'il est suspendu
    * (lot 4) ; ne fait rien sinon, y compris sans numéro (l'envoi dira alors pourquoi il ne part pas).
@@ -630,6 +649,11 @@ export class WorkflowExecutor {
     tenantId: string,
     waId: string,
     steps: WalkStep[],
+    /**
+     * La garde marketing du parcours (`accordMarketingExige` à sa naissance, `workflow_runs.accord_marketing_exige`
+     * ensuite). REQUIS, sans défaut : chaque point d'application (`runFrom` et les trois reprises) dit la sienne.
+     */
+    exigeAccordMarketing: boolean,
     firstTemplateParams?: string[],
     emitEvents = false,
     workflowId?: string,
@@ -657,6 +681,10 @@ export class WorkflowExecutor {
     let irreversibles = 0;
     /** Réponse de la garde d'opt-out, lue au plus une fois par liste d'effets. `null` = pas encore posée. */
     let desabonne: boolean | null = null;
+    /** L'accord marketing de la fiche, lu au plus une fois par liste, au premier modèle qui le demande. */
+    let accord: boolean | null = null;
+    /** Un modèle Marketing vient d'être refusé faute d'accord : les envois qui suivent dans la liste ne partent pas. */
+    let refusMarketing = false;
     for (const { nodeId, action: a } of steps) {
       // On s'arrête ici, entre deux effets, si le tour n'est plus à nous : le jeton clôture l'écriture d'état
       // mais ne peut rien contre un message déjà remis à Meta. Sans ce point de contrôle, un porteur déchu
@@ -689,6 +717,30 @@ export class WorkflowExecutor {
           refus ??= MOTIF_DESABONNE;
           await this.mesurer(tenantId, workflowId, nodeId, waId, 'failed');
           continue;
+        }
+      }
+      /**
+       * 🔴 LA GARDE MARKETING (décision A du cadrage mm-hubspot du 2026-11-02), seulement pour un parcours qui l'exige (né
+       * d'une automation, ou d'un saut qui en vient) : un modèle Marketing, ou de catégorie illisible, ne part qu'à une fiche
+       * `opted_in`. Après le STOP, qui prime toujours. Le bloc est sauté, et les ENVOIS qui le suivent dans la liste aussi
+       * (comme après un refus du Crédit WhatsApp) : un « Marketing, puis message rapide » n'enverrait sinon que la suite,
+       * orpheline. Les étiquettes et les champs se posent encore. La décision vient du chemin (le paramètre), jamais de
+       * `sendTemplate`, que les campagnes et l'API empruntent après avoir filtré sur leur propre règle.
+       */
+      if (refusMarketing && EST_UN_ENVOI.has(a.kind)) {
+        await this.mesurer(tenantId, workflowId, nodeId, waId, 'failed');
+        continue;
+      }
+      if (exigeAccordMarketing && a.kind === 'sendTemplate') {
+        const categorie = await this.deps.categorieDuModele(tenantId, a.templateName, a.language);
+        if (categorie === null || categorie === 'marketing') {
+          accord ??= await this.deps.aAccordMarketing(tenantId, waId);
+          if (!accord) {
+            refus ??= MOTIF_SANS_ACCORD_MARKETING;
+            refusMarketing = true;
+            await this.mesurer(tenantId, workflowId, nodeId, waId, 'failed');
+            continue;
+          }
         }
       }
       if (a.kind === 'tag') {
@@ -878,6 +930,11 @@ export class WorkflowExecutor {
      * jusqu'ici ; perdu, la reprise retomberait sur le publié.
      */
     grapheFige: WorkflowGraph | null;
+    /**
+     * La garde marketing figée à la naissance du parcours. Requise, comme `grapheFige` : perdue au balayage, un parcours
+     * d'automation endormi (« attendre 2 jours, puis un modèle Marketing ») se réveillerait sans elle.
+     */
+    exigeAccordMarketing: boolean;
     /** Canal courant du parcours. Absent -> WhatsApp (runs anciens). */
     channel?: RunChannel;
     /** Le dernier message consommé par le parcours : celui sur lequel une nouvelle pause en secondes signale la saisie. */
@@ -967,7 +1024,7 @@ export class WorkflowExecutor {
     if (envoieParWhatsApp(aExecuter, apresWalk)) await this.deps.verifierNumeroWhatsApp(tenantId);
     // `emitEvents` vrai : un réveil est unitaire (un contact, ici et maintenant), comme `advance`. Sinon
     // « attendre 1 jour puis poser le tag » ne déclencherait pas l'automation branchée sur ce tag.
-    const { refus, partis, canal } = await this.apply(tenantId, waId, aExecuter, undefined, true, run.workflowId, apresWalk);
+    const { refus, partis, canal } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk);
     // Un message du parcours n'a pas pu atteindre le contact : on clôt et on remonte à un humain. Ce qui
     // pouvait partir (template, tags) est déjà parti.
     if (fenetreFermee) {
@@ -982,6 +1039,14 @@ export class WorkflowExecutor {
     if (refus !== null) {
       // eslint-disable-next-line no-console
       console.error(`workflow ${run.workflowId}: envoi refusé à la reprise pour ${waId} : ${refus}`);
+      if (partis === 0 && refus === MOTIF_SANS_ACCORD_MARKETING) {
+        // 🔴 Sans accord marketing, rien de parti : le parcours se CLÔT, sans passer à l'équipe. Ce refus est une règle,
+        // pas une panne, et un déclencheur de masse (un deal HubSpot sur une étape peuplée) remplirait « À traiter » de
+        // contacts qui n'attendent rien. Fin de parcours ordinaire : la main revient à l'agent de Meta.
+        if (!(await this.ecrireSiVivant(tenantId, run.id, { currentNode: null, status: 'done' }))) return false;
+        await this.rendreLaMainAMba(tenantId, waId);
+        return false;
+      }
       if (partis === 0) {
         // Garde de vivacité : remonter une conversation déjà remplacée mettrait un opérateur sur un parcours
         // abandonné.
@@ -1014,7 +1079,7 @@ export class WorkflowExecutor {
     if (rest.status === 'aller_a') {
       await this.sauter('aller_a', tenantId, { waId, contactId: run.contactId ?? null },
         { workflowId: run.workflowId, graph, noeudId: rest.nodeId, runId: run.id }, rest.cible,
-        { fenetreOuverte: await this.deps.isWindowOpen(tenantId, waId), sauts: 1 });
+        { fenetreOuverte: await this.deps.isWindowOpen(tenantId, waId), sauts: 1, exigeAccordMarketing: run.exigeAccordMarketing });
     }
     return true;
   }
@@ -1310,7 +1375,8 @@ export class WorkflowExecutor {
     contact: { waId: string; contactId: string | null },
     origine: { workflowId: string; graph: WorkflowGraph; noeudId: string; runId: string | null },
     cible: string,
-    depart: { fenetreOuverte: boolean; sauts: number; messageDeclencheur?: string },
+    /** `exigeAccordMarketing` : la garde marketing du parcours d'origine, que le parcours d'arrivée hérite. */
+    depart: { fenetreOuverte: boolean; sauts: number; messageDeclencheur?: string; exigeAccordMarketing: boolean },
   ): Promise<StartOutcome> {
     const bloc = origine.graph.nodes.find((n) => n.id === origine.noeudId);
     const nom = bloc ? nomDuBloc(bloc) : origine.noeudId;
@@ -1348,10 +1414,22 @@ export class WorkflowExecutor {
     try {
       issue = await this.demarrer(type, tenantId, arrivee.workflowId, arrivee.graph, contact, {
         depuis: 'saut', noeudId: arrivee.nodeId, fenetreOuverte: depart.fenetreOuverte, sauts: depart.sauts,
+        exigeAccordMarketing: depart.exigeAccordMarketing,
         ...(depart.messageDeclencheur !== undefined ? { messageDeclencheur: depart.messageDeclencheur } : {}),
       });
     } catch (err) {
       return echouer(`le saut du bloc « ${nom} » a échoué (${messageDe(err)})`);
+    }
+    /**
+     * Le scénario d'arrivée ouvre par un Marketing que la garde héritée refuse : une RÈGLE, pas un trou de montage. Comme à
+     * une reprise, le contact n'est pas passé à l'équipe (un déclencheur de masse remplirait « À traiter ») et le saut
+     * n'entre pas au journal des échecs ; la main revient à l'agent de Meta, comme à une fin de parcours.
+     */
+    if (issue === MOTIF_SANS_ACCORD_MARKETING) {
+      // eslint-disable-next-line no-console
+      console.log(`workflow ${origine.workflowId}: « Aller à » du bloc « ${nom} » non franchi : ${issue}`);
+      await this.rendreLaMainAMba(tenantId, contact.waId);
+      return issue;
     }
     if (issue !== true) return echouer(`le saut du bloc « ${nom} » n’a pas démarré le scénario visé : ${issue}`);
     return true;
@@ -1381,6 +1459,8 @@ export class WorkflowExecutor {
       politique: PolitiqueDeLancement; fenetreLevee: boolean; firstTemplateParams?: string[]; messageDeclencheur?: string;
       /** Combien d'« Aller à » ont mené ici sans pause (départ `saut`), 0 pour tout autre démarrage. */
       sauts?: number;
+      /** La garde marketing de ce parcours (`accordMarketingExige`), appliquée ici puis figée dans le parcours. */
+      exigeAccordMarketing: boolean;
     },
   ): Promise<StartOutcome> {
     const { politique } = opts;
@@ -1449,7 +1529,7 @@ export class WorkflowExecutor {
     if (envoieParWhatsApp(actions, apresWalk)) {
       await this.deps.verifierNumeroWhatsApp(tenantId);
     }
-    const { refus, partis, canal, refusCredit } = await this.apply(tenantId, contact.waId, actions, opts.firstTemplateParams, politique.publieLesEtiquettes, workflowId, apresWalk);
+    const { refus, partis, canal, refusCredit } = await this.apply(tenantId, contact.waId, actions, opts.exigeAccordMarketing, opts.firstTemplateParams, politique.publieLesEtiquettes, workflowId, apresWalk);
     // Refus alors que rien n'est parti : on ne persiste pas de run en attente (il attendrait une réponse à un
     // message jamais reçu, et le message suivant du contact le ferait avancer au bloc suivant). La raison
     // remonte telle quelle vers la campagne. Si un message est parti, le parcours vit et le refus reste au log.
@@ -1506,8 +1586,9 @@ export class WorkflowExecutor {
     //
     // Le figeage se demande, il n'est jamais implicite : seules les politiques du lien de test et du répondeur le
     // posent (`grapheAFiger`) ; figer le graphe de chaque destinataire d'une campagne le recopierait des milliers de fois.
+    // La garde marketing, elle, se fige toujours : les reprises n'ont pas d'autre moyen de savoir d'où vient le parcours.
     const cree = state.status !== 'done'
-      ? await this.deps.runs.start(tenantId, workflowId, contact.waId, contact.contactId, state, grapheAFiger(politique) ? graph : null)
+      ? await this.deps.runs.start(tenantId, workflowId, contact.waId, contact.contactId, state, grapheAFiger(politique) ? graph : null, opts.exigeAccordMarketing)
       : null;
     if (cree) await this.apresSommeil(tenantId, cree.id, state, canal, opts.messageDeclencheur ?? null, graph);
     // Bloc `inbox` atteint -> la conversation passe explicitement à un humain. L'escalade (collante : le
@@ -1532,7 +1613,7 @@ export class WorkflowExecutor {
       await this.sauter(politique.publieLesEtiquettes ? 'aller_a' : 'aller_a_masse', tenantId, contact,
         { workflowId, graph, noeudId: rest.nodeId, runId: null }, rest.cible,
         {
-          fenetreOuverte: opts.fenetreLevee, sauts: (opts.sauts ?? 0) + 1,
+          fenetreOuverte: opts.fenetreLevee, sauts: (opts.sauts ?? 0) + 1, exigeAccordMarketing: opts.exigeAccordMarketing,
           ...(opts.messageDeclencheur !== undefined ? { messageDeclencheur: opts.messageDeclencheur } : {}),
         });
     }
@@ -1569,6 +1650,7 @@ export class WorkflowExecutor {
     return this.runFrom(tenantId, workflowId, graph, contact, startNodeId, {
       politique,
       fenetreLevee: fenetreLevee(politique, depart),
+      exigeAccordMarketing: accordMarketingExige(politique, depart),
       ...(depart.depuis === 'entree' && depart.firstTemplateParams ? { firstTemplateParams: depart.firstTemplateParams } : {}),
       ...(depart.messageDeclencheur !== undefined ? { messageDeclencheur: depart.messageDeclencheur } : {}),
       ...(depart.depuis === 'saut' ? { sauts: depart.sauts } : {}),
@@ -1685,7 +1767,8 @@ export class WorkflowExecutor {
       return { ok: false, raison: 'ce bloc attend une reponse avec un delai, non disponible depuis un outil' };
     }
     if (envoieParWhatsApp(actions, canal)) await this.deps.verifierNumeroWhatsApp(tenantId);
-    const { refus, partis } = await this.apply(tenantId, waId, actions, undefined, false, input.workflowId, canal);
+    // La garde marketing du parcours de l'agent : un agent ouvert par un scénario d'automation reste sous sa règle.
+    const { refus, partis } = await this.apply(tenantId, waId, actions, attente.run.exigeAccordMarketing, undefined, false, input.workflowId, canal);
     if (partis === 0 && refus !== null) return { ok: false, raison: refus };
     return { ok: true };
   }
@@ -1954,12 +2037,23 @@ export class WorkflowExecutor {
     // l'e-mail ou l'appel API placés avant l'envoi refusé.
     if (envoieParWhatsApp(actions, apresWalk)) await this.deps.verifierNumeroWhatsApp(tenantId);
     // Un contact qui répond est unitaire par nature : ses tags publient.
-    const { refus, partis, canal } = await this.apply(tenantId, waId, actions, undefined, true, run.workflowId, apresWalk, battement);
+    // La réponse du contact ne lève pas la garde marketing : un parcours né d'une automation la garde jusqu'au bout.
+    const { refus, partis, canal } = await this.apply(tenantId, waId, actions, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk, battement);
     // Même règle qu'au réveil : un envoi refusé n'attend aucune réponse. On clôt le run (en gardant
     // `lastMessageId`, sinon le même message serait re-traité) et on remonte la conversation à un humain.
     if (refus !== null) {
       // eslint-disable-next-line no-console
       console.error(`workflow ${run.workflowId}: envoi refusé pour ${waId} : ${refus}`);
+      if (partis === 0 && refus === MOTIF_SANS_ACCORD_MARKETING) {
+        // Sans accord marketing, rien de parti : clos SANS passer à l'équipe (même règle qu'au réveil). Une fin de parcours
+        // ordinaire : le message du contact, resté sans réponse, part au répondeur comme à la fin d'une chaîne (mêmes
+        // conditions que plus bas, saisie recueillie comprise).
+        if (!(await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId }))) return;
+        const aLuLaSaisie = actions.some((a) => graph.nodes.find((n) => n.id === a.nodeId)?.data.valueKind === 'derniere_saisie');
+        const unMessage = buttonPayload === null && canalRetour === 'whatsapp' && !entrant.reaction && !aLuLaSaisie;
+        await this.rendreLaMainAMba(tenantId, waId, unMessage ? { transmettre: messageId } : {});
+        return;
+      }
       if (partis === 0) {
         await ecrire({ currentNode: null, status: 'inbox', lastMessageId: messageId });
         // Aucun bloc n'a demandé la remontée : pas d'affectataire. Pas d'escalade : le contact vient d'écrire,
@@ -1984,7 +2078,10 @@ export class WorkflowExecutor {
       const prouvee = canalRetour === 'whatsapp' && !sortieAgent && !entrant.reaction;
       await this.sauter('aller_a', tenantId, { waId, contactId: run.contactId ?? null },
         { workflowId: run.workflowId, graph, noeudId: rest.nodeId, runId: run.id }, rest.cible,
-        { fenetreOuverte: prouvee || await this.deps.isWindowOpen(tenantId, waId), sauts: 1, messageDeclencheur: messageId });
+        {
+          fenetreOuverte: prouvee || await this.deps.isWindowOpen(tenantId, waId), sauts: 1, messageDeclencheur: messageId,
+          exigeAccordMarketing: run.exigeAccordMarketing,
+        });
     }
     // « Envoyer au MBA » (RC6), après l'écriture qui a clos CE parcours, et seulement si elle a réussi : perdue, un autre
     // traitement tient le parcours. Le message que le contact vient d'écrire est le dernier : l'agent de Meta y répond.

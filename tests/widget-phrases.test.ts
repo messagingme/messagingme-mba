@@ -37,7 +37,7 @@ describe('phrasesEnConflit', () => {
     const lien: AutomationRow = {
       id: 'a1', tenantId: 't1', name: 'lien', enabled: true, triggerKind: 'keyword',
       triggerConfig: { keywords: [motCleDepuisPhrase('Je veux le guide !')], mode: 'contains' },
-      conditionGroup: null, workflowId: 'w1', startNodeId: null, possedePar: 'channelsme_link',
+      conditionGroup: null, workflowId: 'w1', startNodeId: null, possedePar: 'channelsme_link', accordMarketing: null,
       cooldownSeconds: 300, maxFiresPerHour: null,
     };
     expect(matchesTrigger(lien, {

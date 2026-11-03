@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runAutomations } from '../src/automation/runner';
+import { readFileSync } from 'node:fs';
+import { runAutomations, ecrivainDAccord, sourceAccordAutomation } from '../src/automation/runner';
+import { depsConsentementDe, type IssueConsentement } from '../src/api/consentement';
 import type { AutomationRunnerDeps } from '../src/automation/runner';
 import type { AutomationRow, AutomationEvent } from '../src/automation/match';
 import type { EvalContext } from '../src/workflow/conditions';
@@ -7,6 +9,7 @@ import type { TypeDeLancementAutomatisme } from '../src/workflow/lancements';
 import { NumeroDelieError, NumeroSuspenduError } from '../src/meta/numero-delie';
 import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../src/credit-whatsapp/refus';
 import { offresToutOuvert, plusAnciennesJamaisLues } from './gardes';
+import { aucunAccordEcrit } from './consentement';
 
 /**
  * Orchestration d'un déclenchement (IO injectée).
@@ -25,7 +28,7 @@ const T = new Date('2026-08-03T12:00:00Z').getTime();
 const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({
   id: 'a1', tenantId: 't1', name: 'A', enabled: true,
   triggerKind: 'keyword', triggerConfig: { keywords: ['rdv'] }, conditionGroup: null,
-  workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, ...over,
+  workflowId: 'wf1', startNodeId: null, cooldownSeconds: null, maxFiresPerHour: null, possedePar: null, accordMarketing: null, ...over,
 });
 const ctx = (over: Partial<EvalContext> = {}): EvalContext => ({
   fields: {}, tags: [], optIn: 'unknown', name: null, phone: null, bsuid: null, analyse: null,
@@ -60,6 +63,7 @@ function make(rows: AutomationRow[], over: Surcharges = {}): { deps: AutomationR
       trace.started.push({ workflowId: d.workflowId, startNodeId: d.blocDeDepart, windowOpen: d.fenetreOuverte, type: d.type });
       return true;
     },
+    ecrireAccord: aucunAccordEcrit,
     defaultCooldownSeconds: 3600,
     now: () => T,
     ...reste,
@@ -612,5 +616,120 @@ describe('runAutomations : le claim d’occurrence (avant_date)', () => {
     expect(await runAutomations('t1', MSG, deps)).toBe(1);
     expect(vus).toEqual([undefined]);
     expect(trace.started).toHaveLength(1);
+  });
+});
+
+/**
+ * L'ACCORD D'UNE AUTOMATION ATTESTÉE (lot 3b du plan mm-hubspot du 2026-11-02, décision 8). Ce que ces tests tiennent :
+ *  1. l'accord s'écrit, avec la source `automation:<id>`, pour une automation attestée SEULEMENT ;
+ *  2. APRÈS l'anti-rebond, la condition et le plafond (jamais sur un contact que l'automation ne touche pas) ;
+ *  3. AVANT `markFired` : une écriture qui échoue ne consomme pas l'anti-rebond, et rien ne part ;
+ *  4. un STOP n'est jamais levé : le câblage passe par `appliquerConsentement` (autorité `api`), journalisé `automation`.
+ */
+describe('runAutomations : l’accord marketing d’une automation attestée', () => {
+  const ATTESTEE = { par: 'u1', email: 'marie@exemple.fr', le: new Date(T - 86_400_000) };
+
+  function avecAccord(rows: AutomationRow[], over: Surcharges = {}, issue: Awaited<ReturnType<AutomationRunnerDeps['ecrireAccord']>> = 'change') {
+    const ordre: string[] = [];
+    const accords: Array<{ tenantId: string; waId: string; source: string }> = [];
+    const m = make(rows, {
+      ecrireAccord: async (tenantId, waId, source) => { ordre.push('accord'); accords.push({ tenantId, waId, source }); return issue; },
+      startWorkflow: async () => { ordre.push('start'); return true; },
+      ...over,
+      automations: { markFired: async () => { ordre.push('markFired'); return true; }, ...over.automations },
+    });
+    return { ...m, ordre, accords };
+  }
+
+  it('🔴 attestée : l’accord s’écrit avec sa source, AVANT markFired et le démarrage', async () => {
+    const { deps, ordre, accords } = avecAccord([auto({ id: 'a7', accordMarketing: ATTESTEE })]);
+    expect(await runAutomations('t1', MSG, deps)).toBe(1);
+    expect(accords).toEqual([{ tenantId: 't1', waId: '33611', source: 'automation:a7' }]);
+    expect(ordre).toEqual(['accord', 'markFired', 'start']);
+  });
+
+  it('🔴 non attestée : aucune écriture d’accord', async () => {
+    const { deps, accords, ordre } = avecAccord([auto({ accordMarketing: null })]);
+    expect(await runAutomations('t1', MSG, deps)).toBe(1);
+    expect(accords).toEqual([]);
+    expect(ordre).toEqual(['markFired', 'start']);
+  });
+
+  it('🔴 en anti-rebond, hors condition ou au plafond : AUCUN accord écrit', async () => {
+    const attestee = auto({ accordMarketing: ATTESTEE });
+    const rebond = avecAccord([attestee], { automations: { lastFiredAt: async () => new Date(T - 60_000) } });
+    const condition = avecAccord([auto({ accordMarketing: ATTESTEE, conditionGroup: { match: 'all', clauses: [{ kind: 'tag', op: 'has', tag: 'vip' }] } })]);
+    const plafond = avecAccord([attestee], { automations: { firedSince: async () => 200 }, maxFiresPerHour: 200 });
+    for (const [nom, cas] of Object.entries({ rebond, condition, plafond })) {
+      expect(await runAutomations('t1', MSG, cas.deps), nom).toBe(0);
+      expect(cas.accords, nom).toEqual([]);
+    }
+  });
+
+  it('🔴 une écriture qui échoue ne consomme PAS l’anti-rebond, et rien ne part', async () => {
+    const { deps, trace } = make([auto({ accordMarketing: ATTESTEE })], {
+      ecrireAccord: async () => { throw new Error('base indisponible'); },
+    });
+    expect(await runAutomations('t1', MSG, deps)).toBe(0);
+    expect(trace.fired).toEqual([]);
+    expect(trace.started).toEqual([]);
+  });
+
+  it('un contact désabonné (`refuse`) : le scénario part quand même, l’exécuteur l’écartera', async () => {
+    const { deps, ordre } = avecAccord([auto({ accordMarketing: ATTESTEE })], {}, 'refuse');
+    expect(await runAutomations('t1', MSG, deps)).toBe(1);
+    expect(ordre).toEqual(['accord', 'markFired', 'start']);
+  });
+});
+
+describe('ecrivainDAccord : le câblage de l’accord', () => {
+  /** Un dépôt dont la méthode lit `this` : un câblage qui la détacherait lèverait ici. */
+  class Fiches {
+    constructor(private readonly ids: Record<string, string>) {}
+    async findIdByWaId(_t: string, waId: string): Promise<string | null> { return this.ids[waId] ?? null; }
+  }
+
+  function monter(issue: IssueConsentement) {
+    const ecrits: Array<{ tenantId: string; contactId: string; statut: string; source: string }> = [];
+    const audits: unknown[] = [];
+    const consentement = depsConsentementDe(
+      { ecrireConsentementParId: async (tenantId, contactId, statut, source) => { ecrits.push({ tenantId, contactId, statut, source }); return issue; } },
+      async (_t, acteur, action, cible, detail) => { audits.push({ acteur, action, cible, detail }); },
+    );
+    return { ecrire: ecrivainDAccord(new Fiches({ '33611': 'fiche-1' }), consentement), ecrits, audits };
+  }
+
+  it('🔴 pose `opted_in` sur la fiche du numéro, et le journal dit l’origine `automation`, pas `api`', async () => {
+    const { ecrire, ecrits, audits } = monter('change');
+    expect(await ecrire('t1', '33611', 'automation:a7')).toBe('change');
+    expect(ecrits).toEqual([{ tenantId: 't1', contactId: 'fiche-1', statut: 'opted_in', source: 'automation:a7' }]);
+    expect(audits).toEqual([{
+      acteur: { userId: null, email: null }, action: 'contact.optin',
+      cible: { kind: 'contact', id: 'fiche-1' }, detail: { source: 'automation', consentSource: 'automation:a7' },
+    }]);
+  });
+
+  it('🔴 un STOP rend `refuse`, sans trace d’un accord', async () => {
+    const { ecrire, audits } = monter('refuse');
+    expect(await ecrire('t1', '33611', 'automation:a7')).toBe('refuse');
+    expect(audits).toEqual([]);
+  });
+
+  it('un numéro sans fiche : `inconnu`, rien d’écrit', async () => {
+    const { ecrire, ecrits } = monter('change');
+    expect(await ecrire('t1', '33699', 'automation:a7')).toBe('inconnu');
+    expect(ecrits).toEqual([]);
+  });
+
+  it('la source tient dans la borne d’une source de consentement (100)', () => {
+    expect(sourceAccordAutomation('0b7e2c1a-4d5e-4f60-8a9b-1c2d3e4f5a6b').length).toBeLessThanOrEqual(100);
+  });
+
+  it('🔴 le worker le câble sur le consentement PARTAGÉ (`depsConsentementDe`), et son journal reçoit le détail', () => {
+    // Test de source, comme `tests/v1-cablage.test.ts` : une flèche du journal à quatre paramètres compilerait et
+    // avalerait le détail (l'origine `automation` et la source), en silence.
+    const worker = readFileSync(new URL('../src/worker.ts', import.meta.url), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    expect(worker).toMatch(/ecrireAccord: ecrivainDAccord\(contactStore, depsConsentementDe\(\s*contactStore,\s*\(tenant, actor, action, target, detail\) => auditStore\.record\(tenant, actor, action, target, detail\),\s*\)\)/);
   });
 });

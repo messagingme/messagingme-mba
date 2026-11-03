@@ -1,4 +1,4 @@
-import { jamaisDesabonne } from './consentement';
+import { jamaisDesabonne, aucunAccordEcrit, toujoursDAccord } from './consentement';
 import { avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -45,7 +45,7 @@ const auto = (over: Partial<AutomationRow> = {}): AutomationRow => ({
   id: 'a1', tenantId: 't1', name: 'Chaine : je veux mon code promo', enabled: true,
   triggerKind: 'keyword', triggerConfig: { keywords: ['je veux mon code promo'], mode: 'contains' },
   conditionGroup: null, workflowId: 'wf1', startNodeId: null, cooldownSeconds: null,
-  maxFiresPerHour: null, possedePar: POSSESSEUR_LIEN_CHAINE, ...over,
+  maxFiresPerHour: null, possedePar: POSSESSEUR_LIEN_CHAINE, accordMarketing: null, ...over,
 });
 
 const clic: AutomationEvent = {
@@ -64,6 +64,7 @@ function monter(rows: AutomationRow[]) {
   const execDeps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
+    aAccordMarketing: toujoursDAccord,
     runs: avecGardesDEtatInertes({
       start: async () => ({ id: 'r1' }),
       findWaitingByWaId: async () => null,
@@ -101,6 +102,7 @@ function monter(rows: AutomationRow[]) {
     evalContext: async () => null,
     // Le MÊME câblage que `src/worker.ts` : la demande vient du runner, rien n'est choisi ici.
     startWorkflow: async (demande) => (await lancements.lancer(demande)) ?? false,
+    ecrireAccord: aucunAccordEcrit,
     defaultCooldownSeconds: 0,
     offres: offresToutOuvert,
   };

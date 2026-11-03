@@ -1248,6 +1248,21 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   relancer avant » : le délai par défaut du déclencheur (1 heure, 7 jours pour « la dernière analyse change »,
   30 jours pour « risque élevé »), ou 1 heure, 6 heures, 1 jour, 3 jours, 7 jours. Il n'existait jusque-là que
   par l'API. Pas pour « avant ou après une date », qui part une fois par date.
+- ✅ **La case « J'atteste avoir l'accord marketing des contacts que cette automation touche »** (2026-11-02), dans le
+  formulaire de toutes les automations, décochée par défaut. Cochée, elle est conservée avec le compte qui l'a cochée, son
+  adresse et la date, que l'écran rappelle sous la case quand on rouvre l'automation (« Attestée par … le … ») ; la
+  recocher en modifiant l'automation garde l'attestation d'origine, la décocher l'efface. À chaque déclenchement, le
+  contact est alors enregistré comme ayant donné son accord marketing, avec l'automation pour source
+  (`automation:<identifiant>`), après le délai de relance, la condition et le plafond. Un contact qui a répondu STOP
+  reste désabonné : la case ne lève jamais un STOP. Une fiche qui avait déjà l'accord garde sa source d'origine. Les
+  automations sans ce formulaire (webhook entrant, bouton de chaîne, publicité, widget) n'attestent rien.
+- ✅ **Un scénario lancé par une automation n'envoie un modèle Marketing qu'aux contacts d'accord** (2026-11-02), comme une
+  campagne : un contact sans accord marketing ne reçoit pas ce modèle ni les messages qui le suivent dans le même passage,
+  et le scénario s'arrête là pour lui, sans remonter la conversation à l'équipe. Un modèle Service part toujours. La règle
+  vaut pour toutes les automations, au déclenchement comme après une attente, une réponse ou un « Aller à » vers un autre
+  scénario ; l'accord est relu au moment d'envoyer (un accord posé par la case de l'automation, ou par un bloc
+  « consentement » placé avant le modèle, compte). Les scénarios déjà en cours le jour de la mise en service finissent
+  sans elle.
 - ✅ **Ce qui ne déclenche RIEN** (annoncé à l'écran, pas seulement en coulisse) : un tag posé **en masse**, par
   **import de fichier** ou par un scénario lancé en **campagne** (poser un tag sur 5 000 contacts enverrait
   sinon 5 000 messages : pour toucher une liste, l'outil reste la campagne) ; une conversation quand
