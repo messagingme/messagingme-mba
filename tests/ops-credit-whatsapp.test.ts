@@ -4,7 +4,7 @@ import { FakeQueue } from './fake-queue';
 import type { OpsRouteDeps } from '../src/http/ops';
 import type { OpsCreditWhatsappDeps } from '../src/http/ops-credit-whatsapp';
 import type { ChargementGrille, ResumeGrille } from '../src/credit-whatsapp/reglages.pg';
-import type { LigneCredit, NumeroPourLaLigne } from '../src/credit-whatsapp/lignes.pg';
+import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from '../src/credit-whatsapp/lignes.pg';
 import type { ProvisionVue } from '../src/credit-whatsapp/credit';
 import { exploitationInerte, opsInerte } from './routes-inertes';
 import { accesOps, ADRESSE_OPS } from './acces-ops';
@@ -51,13 +51,14 @@ function app(
     },
     lignes: {
       numeroDeLEspace: async () => null,
+      numerosDeLEspace: async () => [],
       lignesDeLEspace: async () => [],
       poser: async () => true,
       retirer: async () => true,
       ...lignes,
     },
     audit: async (tenant, acteur, action, _cible, detail) => { traces.push({ tenant, email: acteur.email, action, detail }); },
-    credit: { solde: async () => 0, dernieresProvisions: async () => [], ...credit },
+    credit: { solde: async () => 0, consommationDuMois: async () => 0, dernieresProvisions: async () => [], ...credit },
   };
   const deps: OpsRouteDeps = {
     ...opsInerte,
@@ -149,7 +150,7 @@ describe('PUT /ops/credit-whatsapp/commission', () => {
 const T1 = '4169c753-311a-43bb-a334-d8a2cb7caf6f';
 const PN = '106540352242922';
 const NUMERO: NumeroPourLaLigne = { wabaId: 'w1', fournisseur: 'meta', coexistence: false, delie: false };
-const LIGNE: LigneCredit = { id: 'l1', tenantId: T1, phoneNumberId: PN, wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T10:00:00.000Z', arreteeLe: null };
+const LIGNE: LigneCredit = { id: 'l1', tenantId: T1, phoneNumberId: PN, wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T10:00:00.000Z', arreteeLe: null, retireeLe: null };
 const corpsLigne = (poser = true, note = 'numéro d’essai de la ligne') => ({ phoneNumberId: PN, poser, note });
 const URL_LIGNE = `/ops/credit-whatsapp/ligne/${T1}`;
 
@@ -169,7 +170,7 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     }, traces);
     const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ tenantId: T1, lignes: [LIGNE], soldeMicroEur: 0, provisions: [] });
+    expect(res.json()).toEqual({ tenantId: T1, lignes: [LIGNE], numeros: [], soldeMicroEur: 0, consommationDuMoisMicroEur: 0, provisions: [] });
     expect(lus).toEqual([`${T1}:${PN}`]);
     expect(poses).toEqual([[T1, PN, 'w1', 'ops', `${ADRESSE_OPS} : numéro d’essai de la ligne`]]);
     expect(traces).toEqual([{ tenant: T1, email: ADRESSE_OPS, action: 'ops.ligne_credit_posee', detail: { phoneNumberId: PN } }]);
@@ -267,16 +268,81 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
       montantMicroEur: 26_040, etat: 'rendu', livreLe: null, illimite: true,
     };
     const demandes: number[] = [];
-    const a = app({}, true, { numeroDeLEspace: async () => { lu = true; return NUMERO; }, lignesDeLEspace: async () => [LIGNE] }, [], {
+    // Le numéro de la ligne, un autre du même compte WhatsApp, un en coexistence et un chez 360dialog.
+    const numeros: NumeroDeLEspace[] = [
+      { ...NUMERO, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: 'Messaging Me Tech' },
+      { ...NUMERO, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: 'Messaging Me Tech' },
+      { ...NUMERO, wabaId: 'w2', coexistence: true, phoneNumberId: '106540352243000', numero: '+44 1555 479304', nom: null },
+      { ...NUMERO, wabaId: 'w3', fournisseur: '360dialog', phoneNumberId: '106540352243001', numero: null, nom: null },
+    ];
+    const a = app({}, true, {
+      numeroDeLEspace: async () => { lu = true; return NUMERO; }, lignesDeLEspace: async () => [LIGNE], numerosDeLEspace: async () => numeros,
+    }, [], {
       solde: async () => 973_960,
+      consommationDuMois: async () => 52_080,
       dernieresProvisions: async (_t, n) => { demandes.push(n ?? -1); return [PROVISION]; },
     });
     const refus = await a.inject({ method: 'POST', url: URL_LIGNE, headers: { 'content-type': 'application/json' }, payload: corpsLigne() });
     expect(refus.statusCode).toBeGreaterThanOrEqual(400);
     expect(lu).toBe(false);
     const res = await a.inject({ method: 'GET', url: URL_LIGNE, ...withTok(OPS) });
-    expect(res.json()).toEqual({ tenantId: T1, lignes: [LIGNE], soldeMicroEur: 973_960, provisions: [PROVISION] });
+    expect(res.json()).toEqual({
+      tenantId: T1,
+      lignes: [LIGNE],
+      numeros: [
+        { phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: 'Messaging Me Tech', couverture: 'ligne', refus: null },
+        { phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: 'Messaging Me Tech', couverture: 'compte', refus: null },
+        { phoneNumberId: '106540352243000', numero: '+44 1555 479304', nom: null, couverture: null, refus: 'coexistence' },
+        { phoneNumberId: '106540352243001', numero: null, nom: null, couverture: null, refus: '360dialog' },
+      ],
+      soldeMicroEur: 973_960,
+      consommationDuMoisMicroEur: 52_080,
+      provisions: [PROVISION],
+    });
     expect(demandes).toEqual([50]);
+    await a.close();
+  });
+});
+
+describe('GET /ops/credit-whatsapp/grille', () => {
+  const GRILLE = {
+    id: 'g1', enVigueurLe: '2026-10-01',
+    tarifs: [
+      { marche: 'FR', categorie: 'marketing' as const, palier: 0, prixMicroEur: 71_200 },
+      { marche: 'rest_of_western_europe', categorie: 'service' as const, palier: 0, prixMicroEur: 14_200 },
+    ],
+  };
+
+  it('rend chaque tarif de Meta et le prix client à la commission globale, par la formule de la garde', async () => {
+    const a = app({ grilleEnVigueur: async () => GRILLE, commission: async () => 5 });
+    const res = await a.inject({ method: 'GET', url: '/ops/credit-whatsapp/grille', ...withTok(OPS) });
+    expect(res.statusCode).toBe(200);
+    const corps = res.json();
+    expect(corps.grille).toEqual({ id: 'g1', enVigueurLe: '2026-10-01' });
+    expect(corps.commissionPct).toBe(5);
+    expect(corps.tarifs).toEqual([
+      { marche: 'FR', categorie: 'marketing', palier: 0, metaMicroEur: 71_200, clientMicroEur: 74_760 },
+      { marche: 'rest_of_western_europe', categorie: 'service', palier: 0, metaMicroEur: 14_200, clientMicroEur: 14_910 },
+    ]);
+    // Les marchés et leurs pays, pour que l'écran dise quel pays est dans quel marché (la Belgique, reste de l'Europe de l'Ouest).
+    expect(corps.marches.find((m: { cle: string }) => m.cle === 'rest_of_western_europe').pays).toContain('BE');
+    expect(corps.marches.find((m: { cle: string }) => m.cle === 'GB').pays).toEqual(['GB', 'GG', 'JE', 'IM']);
+    await a.close();
+  });
+
+  it('sans grille en vigueur : vide, sans erreur', async () => {
+    const a = app({ grilleEnVigueur: async () => null });
+    const res = await a.inject({ method: 'GET', url: '/ops/credit-whatsapp/grille', ...withTok(OPS) });
+    expect(res.json()).toEqual({ grille: null, commissionPct: 5, marches: [], tarifs: [] });
+    await a.close();
+  });
+
+  it('🔴 sans la session d’exploitation : refus avant toute lecture', async () => {
+    let lu = false;
+    const a = app({ grilleEnVigueur: async () => { lu = true; return GRILLE; } });
+    const res = await a.inject({ method: 'GET', url: '/ops/credit-whatsapp/grille' });
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(lu).toBe(false);
     await a.close();
   });
 });

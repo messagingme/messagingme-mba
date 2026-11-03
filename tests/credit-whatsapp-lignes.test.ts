@@ -51,6 +51,33 @@ describe('la ligne d’un numéro, lue avant chaque envoi', () => {
     expect(p.requetes).toEqual(['select']);
   });
 
+  it('🔴 une écriture sur un numéro oublie aussi la ligne gardée pour un autre numéro de son compte WhatsApp', async () => {
+    const p = poolLent();
+    // La ligne de pn1, lue pour pn2 : la ligne couvre tout le compte.
+    p.etat.ligne = LIGNE;
+    const store = new PgLignesCreditStore(p.pool, () => 0);
+    const lue = store.ligneDuNumero('pn2');
+    await p.liberer();
+    expect((await lue)?.phoneNumberId).toBe('pn1');
+    expect(await store.retirer('t1', 'pn1')).toBe(true);
+    p.etat.ligne = null;
+    const apres = store.ligneDuNumero('pn2');
+    await p.liberer();
+    expect(await apres).toBeNull();
+    expect(p.requetes).toEqual(['select', 'update', 'select']);
+  });
+
+  it('🔴 une ligne retirée ne garde plus les envois, mais les accusés la lisent encore', async () => {
+    const p = poolLent();
+    p.etat.ligne = { ...LIGNE, retiree_le: new Date('2026-11-01T10:00:00Z') };
+    const store = new PgLignesCreditStore(p.pool, () => 0);
+    const envoi = store.ligneDuNumero('pn1');
+    await p.liberer();
+    expect(await envoi).toBeNull();
+    expect((await store.ligneDesAccuses('pn1'))?.retireeLe).toBe('2026-11-01T10:00:00.000Z');
+    expect(p.requetes).toEqual(['select']);
+  });
+
   it('🔴 une écriture pendant une lecture : la lecture lancée avant n’est jamais gardée en cache', async () => {
     const p = poolLent();
     p.etat.ligne = LIGNE;

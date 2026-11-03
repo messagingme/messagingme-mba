@@ -29,7 +29,7 @@ const GRILLE: GrilleMeta = {
     { marche: 'other', categorie: 'service', palier: 0, prixMicroEur: 7_100 },
   ],
 };
-const LIGNE: LigneCredit = { id: 'l1', tenantId: 't1', phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T00:00:00Z', arreteeLe: null };
+const LIGNE: LigneCredit = { id: 'l1', tenantId: 't1', phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T00:00:00Z', arreteeLe: null, retireeLe: null };
 
 /**
  * Un Crédit WhatsApp en mémoire, avec le même débit conditionnel que la base, et comme elle (lot A, 0266) une provision
@@ -121,10 +121,19 @@ describe('la garde seule', () => {
 
   it('🔴 sans pays ni catégorie : au plus cher, jamais au rabais', async () => {
     const { g, etat } = garde({ categorie: null });
-    const bsuid = await g.avant(envoi({ type: 'marketing' }, 'US.13491208655302741918'));
-    expect(etat.provisions.get(bsuid.provisionId!)).toMatchObject({ pays: null, montantMicroEur: 118_755 });
+    const sansPrefixe = await g.avant(envoi({ type: 'marketing' }, '13491208655302741918'));
+    expect(etat.provisions.get(sansPrefixe.provisionId!)).toMatchObject({ pays: null, montantMicroEur: 118_755 });
     const illisible = await g.avant(envoi({ type: 'modele', name: 'x', language: 'fr' }));
     expect(etat.provisions.get(illisible.provisionId!)).toMatchObject({ categorie: 'marketing', montantMicroEur: 74_760 });
+  });
+
+  it('🔴 un destinataire sans numéro (BSUID) est provisionné au tarif du pays de son préfixe, pas au plus cher', async () => {
+    const { g, etat } = garde();
+    const fr = await g.avant(envoi({ type: 'marketing' }, 'FR.13491208655302741918'));
+    expect(etat.provisions.get(fr.provisionId!)).toMatchObject({ pays: 'FR', montantMicroEur: 74_760 });
+    // Le BSUID « parent » glisse ENT entre le pays et l'identifiant.
+    const parent = await g.avant(envoi({ type: 'marketing' }, 'DE.ENT.13491208655302741918'));
+    expect(etat.provisions.get(parent.provisionId!)).toMatchObject({ pays: 'DE', montantMicroEur: 118_755 });
   });
 
   it('🔴 un solde qui ne couvre pas le message : refus « solde » avec ce qu’il manque, rien de provisionné', async () => {
@@ -408,6 +417,15 @@ describe('la fabrique d’envoi', () => {
     await expect(client2.sendText('+33612345678', 'bonjour')).rejects.toThrow();
     expect([...etat2.provisions.values()].map((x) => x.rendue)).toEqual([true]);
   }, 60_000);
+
+  it('🔴 un refus définitif de la MM API rendu en 500 (134102, modèle indisponible) rend la provision : rien n’est parti', async () => {
+    const { g, etat } = garde();
+    const t = new TransportNotant([{ status: 500, json: { error: { code: 134102, message: 'modèle indisponible' } } }]);
+    const client = await fabrique(t, g, { lite: true }).clientForTenant('t1', 'pn1');
+    await expect(client.sendMarketing({ to: '+33612345678', template: { name: 'promo', language: 'fr' } })).rejects.toThrow();
+    expect(t.appels).toHaveLength(1);
+    expect([...etat.provisions.values()].map((x) => x.rendue)).toEqual([true]);
+  });
 
   it('🔴 le retrait de la liste de l’agent refusé (un 503 levé chez nous, avant l’appel) rend la provision', async () => {
     const { g, etat } = garde();

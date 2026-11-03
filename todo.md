@@ -169,7 +169,16 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   tient sur deux lignes dans sa case : celle du 2026-10-01 a été convertie (`docs/prive/credit-whatsapp/xlsx-vers-csv.cjs`)
   et chargée par le vrai magasin. À faire avant le 2027-01-01 : que `/ops` lise le xlsx de Meta tel quel, ou que le
   lecteur accepte une case sur deux lignes et un prix en notation scientifique.
-- Lot 3 : la régularisation sur les volumes de Meta. Lot 4 : l'option à 30 € par numéro et la recharge automatique.
+- 🔴 Lot 3 (lot E du plan `2026-11-03-credit-whatsapp-fiabilite.md`) : la régularisation sur les VOLUMES de Meta, AVANT
+  qu'aucun client ne passe sur la ligne. Mesuré le 2026-11-03 : Meta refuse `COST` (code 10) sur les comptes de nos
+  clients, ligne ou pas, et en rend les volumes par pays, catégorie et type, égaux à nos accusés ; sur notre compte,
+  notre formule retrouve son coût au centime. Elle seule ferme les rouges restants de la relecture du 2026-11-02 : une
+  provision en doute (5xx, délai, panne réseau) jamais tranchée, un wamid jamais rattaché, un ajustement perdu par
+  `tenter`, un message jamais livré resté débité, un rejeu sur délai qui envoie deux fois pour une provision, les paliers
+  de volume (seul le palier 0 est chargé). Ses jaunes sont au plan. Lot 4 : l'option à 30 € par numéro et la recharge
+  automatique.
+- 🟡 Le compte WhatsApp de Spareka ne se lit plus chez Meta (code 100 sur `pricing_analytics`, avec son jeton comme avec le
+  nôtre, relevé le 2026-11-03) : compte retiré ou partage révoqué ? À regarder avant qu'il ne serve.
 - Lot 5, avec le partenaire : l'Embedded Signup sur sa ligne de crédit (rien ne lui est écrit sans Julien) ; et, à
   l'ouverture, ce que le lot 2 lui a laissé (écarts 4 et 5 du lot 2) : le prix en euros du récapitulatif d'une campagne,
   les cartes de coût lues dans les provisions, la fiche d'aide publique, la FAQ du plugin, la vitrine, et les fiches de

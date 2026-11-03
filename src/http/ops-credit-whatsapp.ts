@@ -4,8 +4,9 @@ import { auteurOps, type PreHandler } from '../auth/middleware';
 import { journaliser } from '../lib/journal';
 import { lireGrilleCsv } from '../credit-whatsapp/grille-csv';
 import type { ChargementGrille, ResumeGrille } from '../credit-whatsapp/reglages.pg';
-import type { GrilleMeta } from '../credit-whatsapp/grille';
-import type { LigneCredit, NumeroPourLaLigne } from '../credit-whatsapp/lignes.pg';
+import { prixClient, type GrilleMeta } from '../credit-whatsapp/grille';
+import { MARCHES_META } from '../credit-whatsapp/marches-meta';
+import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from '../credit-whatsapp/lignes.pg';
 import type { ProvisionVue } from '../credit-whatsapp/credit';
 import { makeTraceOps, type AuditSink } from '../audit/journal';
 import { estUuid } from './scope';
@@ -30,6 +31,8 @@ export interface OpsCreditWhatsappDeps {
   };
   lignes: {
     numeroDeLEspace(tenantId: string, phoneNumberId: string): Promise<NumeroPourLaLigne | null>;
+    /** Les numéros de l'espace, proposés dans la fenêtre de l'offre (plus d'identifiant Meta à taper). */
+    numerosDeLEspace(tenantId: string): Promise<NumeroDeLEspace[]>;
     lignesDeLEspace(tenantId: string): Promise<LigneCredit[]>;
     poser(tenantId: string, phoneNumberId: string, wabaId: string | null, origine: 'ops', note: string): Promise<boolean>;
     retirer(tenantId: string, phoneNumberId: string): Promise<boolean>;
@@ -39,8 +42,28 @@ export interface OpsCreditWhatsappDeps {
   /** Le solde et les dernières provisions de l'espace, montrés avec ses lignes (l'essai réel du lot 1). */
   credit: {
     solde(tenantId: string): Promise<number>;
+    /** Ce qu'une Entreprise a envoyé ce mois, au prix client : son solde ne bouge pas, ce montant est à facturer. */
+    consommationDuMois(tenantId: string): Promise<number>;
     dernieresProvisions(tenantId: string, n?: number): Promise<ProvisionVue[]>;
   };
+}
+
+/** Pourquoi un numéro ne peut pas être posé sur la ligne : les mêmes refus que la pose, dits avant le clic. */
+export type RefusDePose = '360dialog' | 'coexistence' | 'delie' | null;
+
+function refusDePose(n: NumeroPourLaLigne): RefusDePose {
+  if (n.fournisseur !== 'meta') return '360dialog';
+  if (n.coexistence) return 'coexistence';
+  return n.delie ? 'delie' : null;
+}
+
+/**
+ * Comment la ligne couvre un numéro : la sienne (`ligne`), celle d'un autre numéro du même compte WhatsApp (`compte`,
+ * Meta attache la ligne au compte), ou aucune. La même règle que la garde (`PgLignesCreditStore.lireLigne`).
+ */
+function couverture(n: NumeroDeLEspace, lignes: readonly LigneCredit[]): 'ligne' | 'compte' | null {
+  if (lignes.some((l) => l.phoneNumberId === n.phoneNumberId)) return 'ligne';
+  return n.wabaId !== null && lignes.some((l) => l.wabaId === n.wabaId) ? 'compte' : null;
 }
 
 const CORPS_GRILLE = z.object({
@@ -70,17 +93,49 @@ function dateValide(jour: string): boolean {
 export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditWhatsappDeps, garde: PreHandler): void {
   const opts = { preHandler: garde };
   const tracer = makeTraceOps(deps.audit);
-  /** Ce que la fenêtre de l'offre montre d'un espace : ses numéros sur la ligne, son solde, ses dernières provisions. */
+  /**
+   * Ce que la fenêtre de l'offre montre d'un espace : ses numéros (couverts ou non par la ligne, et pourquoi l'un ne peut
+   * pas l'être), ses lignes, son solde, ce qu'il a consommé ce mois en illimité, ses dernières provisions.
+   */
   const vue = async (tenantId: string) => {
-    const [lignes, soldeMicroEur, provisions] = await Promise.all([
-      deps.lignes.lignesDeLEspace(tenantId), deps.credit.solde(tenantId), deps.credit.dernieresProvisions(tenantId, 50),
+    const [lignes, numeros, soldeMicroEur, consommationDuMoisMicroEur, provisions] = await Promise.all([
+      deps.lignes.lignesDeLEspace(tenantId), deps.lignes.numerosDeLEspace(tenantId), deps.credit.solde(tenantId),
+      deps.credit.consommationDuMois(tenantId), deps.credit.dernieresProvisions(tenantId, 50),
     ]);
-    return { tenantId, lignes, soldeMicroEur, provisions };
+    return {
+      tenantId,
+      lignes,
+      numeros: numeros.map((n) => ({
+        phoneNumberId: n.phoneNumberId, numero: n.numero, nom: n.nom, couverture: couverture(n, lignes), refus: refusDePose(n),
+      })),
+      soldeMicroEur,
+      consommationDuMoisMicroEur,
+      provisions,
+    };
   };
 
   app.get('/ops/credit-whatsapp/reglages', opts, async (_req, reply) => {
     const [grille, commissionPct] = await Promise.all([deps.reglages.resumeGrille(), deps.reglages.commission()]);
     return reply.code(200).send({ grille, commissionPct });
+  });
+
+  /**
+   * La grille de Meta EN VIGUEUR, prix par prix : chaque marché (ses pays), chaque catégorie, le tarif de Meta et le prix
+   * client à la commission globale, calculé par la formule de la garde (`prixClient`). Une Entreprise à commission
+   * négociée paie la sienne : le tableau le dit, il ne la recalcule pas.
+   */
+  app.get('/ops/credit-whatsapp/grille', opts, async (_req, reply) => {
+    const [grille, commissionPct] = await Promise.all([deps.reglages.grilleEnVigueur(), deps.reglages.commission()]);
+    if (grille === null) return reply.code(200).send({ grille: null, commissionPct, marches: [], tarifs: [] });
+    return reply.code(200).send({
+      grille: { id: grille.id, enVigueurLe: grille.enVigueurLe },
+      commissionPct,
+      marches: MARCHES_META.map((m) => ({ cle: m.cle, nom: m.nom, pays: [...m.pays, ...(m.memeIndicatif ?? [])] })),
+      tarifs: grille.tarifs.map((t) => ({
+        marche: t.marche, categorie: t.categorie, palier: t.palier,
+        metaMicroEur: t.prixMicroEur, clientMicroEur: prixClient(t.prixMicroEur, commissionPct),
+      })),
+    });
   });
 
   /**

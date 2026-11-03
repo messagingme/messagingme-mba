@@ -104,7 +104,12 @@ export function prixMessage(
   }
   if (base === null) base = plusCher(g, categories);
   if (base === null) return null;
-  return Math.round(base * facteurCommission(commissionPct));
+  return prixClient(base, commissionPct);
+}
+
+/** Le tarif de Meta majoré de la commission, arrondi une seule fois : la formule de `prixMessage`, que `/ops` affiche. */
+export function prixClient(prixMetaMicroEur: number, commissionPct: number): number {
+  return Math.round(prixMetaMicroEur * facteurCommission(commissionPct));
 }
 
 /**

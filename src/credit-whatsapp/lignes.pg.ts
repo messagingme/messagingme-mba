@@ -5,8 +5,19 @@ import type { Pool } from 'pg';
  * envoie, chaque message provisionné) ou arrêtée (l'option a pris fin mais la ligne paie encore chez Meta : la garde
  * refuse tout envoi) ; une ligne retirée ne compte plus. Lue avant CHAQUE envoi Meta : gardée cinq secondes par numéro,
  * comme les gardes du numéro délié et suspendu.
+ *
+ * 🔴 UNE LIGNE COUVRE TOUT LE COMPTE WHATSAPP (WABA) DE SON NUMÉRO : Meta attache la ligne de crédit au compte, pas au
+ * numéro, donc tout numéro de ce compte est payé par la ligne et chacun de ses messages doit être provisionné. Un numéro
+ * ajouté ou remplacé dans le compte (« Déconnecter le numéro » efface `phone_numbers` sans toucher la ligne) est couvert
+ * par la ligne déjà posée, sans geste dans `/ops`. Relevé par la relecture du calcul du 2026-11-02.
  */
 const CACHE_MS = 5_000;
+
+/**
+ * Un accusé de Meta arrive jusqu'à la fin de vie du message (30 jours) : la ligne retirée depuis moins longtemps se lit
+ * encore pour lui, sinon l'échec ou la gratuité d'un message parti juste avant le retrait ne rendrait jamais sa provision.
+ */
+const JOURS_ACCUSES_APRES_RETRAIT = 35;
 
 export interface LigneCredit {
   id: string;
@@ -17,6 +28,8 @@ export interface LigneCredit {
   depuis: string;
   /** L'option a pris fin : la garde refuse les envois du numéro. */
   arreteeLe: string | null;
+  /** La ligne est retirée : seuls les accusés des messages partis avant la lisent encore (`ligneDesAccuses`). */
+  retireeLe: string | null;
 }
 
 /** Ce que la pose d'un numéro sur la ligne vérifie (`/ops`, puis l'option du lot 2). */
@@ -29,6 +42,15 @@ export interface NumeroPourLaLigne {
   delie: boolean;
 }
 
+/** Un numéro de l'espace tel que la fenêtre de l'offre de `/ops` le montre. */
+export interface NumeroDeLEspace extends NumeroPourLaLigne {
+  phoneNumberId: string;
+  /** Le numéro tel que Meta l'affiche (« +33 5 25 68 02 50 »). */
+  numero: string | null;
+  /** Le nom vérifié chez Meta. */
+  nom: string | null;
+}
+
 export class PgLignesCreditStore {
   private readonly cache = new Map<string, { lue: number; valeur: LigneCredit | null }>();
   /** Une lecture en vol par numéro : une rafale d'envois simultanés ne fait qu'une requête. */
@@ -36,8 +58,21 @@ export class PgLignesCreditStore {
 
   constructor(private readonly pool: Pool, private readonly maintenant: () => number = () => Date.now()) {}
 
-  /** La ligne en cours du numéro, active ou arrêtée ; `null` s'il n'est pas sur la ligne. */
+  /** La ligne en cours qui couvre le numéro (la sienne, ou celle de son compte), active ou arrêtée ; `null` sinon. */
   async ligneDuNumero(phoneNumberId: string): Promise<LigneCredit | null> {
+    const l = await this.ligneLue(phoneNumberId);
+    return l !== null && l.retireeLe === null ? l : null;
+  }
+
+  /**
+   * Pour un accusé : la ligne en cours qui couvre le numéro, ou à défaut celle retirée depuis moins de
+   * `JOURS_ACCUSES_APRES_RETRAIT` jours. L'ajustement y retrouve l'espace de la provision du message.
+   */
+  async ligneDesAccuses(phoneNumberId: string): Promise<LigneCredit | null> {
+    return this.ligneLue(phoneNumberId);
+  }
+
+  private async ligneLue(phoneNumberId: string): Promise<LigneCredit | null> {
     const t = this.maintenant();
     const c = this.cache.get(phoneNumberId);
     if (c !== undefined && t - c.lue < CACHE_MS) return c.valeur;
@@ -58,13 +93,22 @@ export class PgLignesCreditStore {
     return vol.lecture;
   }
 
+  /**
+   * La ligne du numéro, ou celle d'un autre numéro de son compte ; une ligne en cours passe avant une ligne retirée, et la
+   * sienne avant celle du compte. Un numéro effacé de `phone_numbers` ne se lit plus que par sa propre ligne.
+   */
   private async lireLigne(phoneNumberId: string): Promise<LigneCredit | null> {
     const { rows } = await this.pool.query<{
-      id: string; tenant_id: string; phone_number_id: string; waba_id: string | null; origine: 'ops' | 'option'; depuis: Date; arretee_le: Date | null;
+      id: string; tenant_id: string; phone_number_id: string; waba_id: string | null; origine: 'ops' | 'option'; depuis: Date;
+      arretee_le: Date | null; retiree_le: Date | null;
     }>(
-      `select id, tenant_id, phone_number_id, waba_id, origine, depuis, arretee_le
-         from lignes_credit_whatsapp where phone_number_id = $1 and retiree_le is null`,
-      [phoneNumberId],
+      `select l.id, l.tenant_id, l.phone_number_id, l.waba_id, l.origine, l.depuis, l.arretee_le, l.retiree_le
+         from lignes_credit_whatsapp l
+        where (l.phone_number_id = $1 or l.waba_id = (select p.waba_id from phone_numbers p where p.id = $1))
+          and (l.retiree_le is null or l.retiree_le > now() - make_interval(days => $2))
+        order by l.retiree_le is null desc, l.phone_number_id = $1 desc, coalesce(l.retiree_le, l.depuis) desc
+        limit 1`,
+      [phoneNumberId, JOURS_ACCUSES_APRES_RETRAIT],
     );
     const r = rows[0];
     return r === undefined ? null : {
@@ -75,13 +119,17 @@ export class PgLignesCreditStore {
       origine: r.origine,
       depuis: r.depuis.toISOString(),
       arreteeLe: r.arretee_le?.toISOString() ?? null,
+      retireeLe: r.retiree_le?.toISOString() ?? null,
     };
   }
 
-  /** Après une écriture : la prochaine lecture repart de la base, sans rejoindre une lecture lancée avant. */
-  private oublier(phoneNumberId: string): void {
-    this.cache.delete(phoneNumberId);
-    this.enVol.delete(phoneNumberId);
+  /**
+   * Après une écriture : la prochaine lecture repart de la base, sans rejoindre une lecture lancée avant. TOUT le cache, pas
+   * le seul numéro écrit : sa ligne couvre aussi les autres numéros de son compte. Les écritures sont des gestes rares.
+   */
+  private oublier(): void {
+    this.cache.clear();
+    this.enVol.clear();
   }
 
   /** Les lignes en cours d'un espace (la vue de `/ops`, l'achat permis). */
@@ -95,7 +143,25 @@ export class PgLignesCreditStore {
     );
     return rows.map((r) => ({
       id: r.id, tenantId: r.tenant_id, phoneNumberId: r.phone_number_id, wabaId: r.waba_id, origine: r.origine,
-      depuis: r.depuis.toISOString(), arreteeLe: r.arretee_le?.toISOString() ?? null,
+      depuis: r.depuis.toISOString(), arreteeLe: r.arretee_le?.toISOString() ?? null, retireeLe: null,
+    }));
+  }
+
+  /** Les numéros de l'espace, ce que la fenêtre de `/ops` propose de poser sur la ligne (plus d'identifiant à taper). */
+  async numerosDeLEspace(tenantId: string): Promise<NumeroDeLEspace[]> {
+    const { rows } = await this.pool.query<{
+      id: string; display_phone_number: string | null; verified_name: string | null; waba_id: string | null;
+      fournisseur: string; coexistence: boolean; delie: boolean;
+    }>(
+      `select p.id, p.display_phone_number, p.verified_name, p.waba_id, coalesce(w.fournisseur, 'meta') as fournisseur,
+              p.coexistence, p.delie_le is not null as delie
+         from phone_numbers p left join waba_credentials w on w.waba_id = p.waba_id
+        where p.tenant_id = $1 order by p.created_at, p.id`,
+      [tenantId],
+    );
+    return rows.map((r) => ({
+      phoneNumberId: r.id, numero: r.display_phone_number, nom: r.verified_name, wabaId: r.waba_id,
+      fournisseur: r.fournisseur, coexistence: r.coexistence, delie: r.delie,
     }));
   }
 
@@ -121,7 +187,7 @@ export class PgLignesCreditStore {
        on conflict (phone_number_id) where retiree_le is null do nothing`,
       [tenantId, phoneNumberId, wabaId, origine, note],
     );
-    this.oublier(phoneNumberId);
+    this.oublier();
     return (rowCount ?? 0) > 0;
   }
 
@@ -132,7 +198,7 @@ export class PgLignesCreditStore {
         where tenant_id = $1 and phone_number_id = $2 and retiree_le is null and arretee_le is null`,
       [tenantId, phoneNumberId],
     );
-    this.oublier(phoneNumberId);
+    this.oublier();
     return (rowCount ?? 0) > 0;
   }
 
@@ -143,7 +209,7 @@ export class PgLignesCreditStore {
         where tenant_id = $1 and phone_number_id = $2 and retiree_le is null`,
       [tenantId, phoneNumberId],
     );
-    this.oublier(phoneNumberId);
+    this.oublier();
     return (rowCount ?? 0) > 0;
   }
 }

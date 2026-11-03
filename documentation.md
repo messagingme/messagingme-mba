@@ -4153,8 +4153,9 @@ nommé nulle part dans le dépôt. Spec : `docs/superpowers/specs/2026-10-30-cre
 **Points d'entrée.** `src/credit-whatsapp/` (la grille de Meta, le prix d'un message, la garde, l'ajustement à l'accusé,
 l'estimation d'un lancement, les conditions d'un espace, les magasins), la fabrique d'envoi (`src/meta/factory.ts`), le
 lancement d'une campagne (`src/campaign/lancement.ts`, `schedule-sweep.ts`), les accusés (`src/webhooks/delivery.ts`),
-`/ops` (`src/http/ops-credit-whatsapp.ts` : la grille, la commission, un numéro posé sur la ligne, le solde et les dernières
-provisions d'un espace ; `src/http/ops-offre.ts` : la commission négociée d'une Entreprise), l'onglet de la
+`/ops` (`src/http/ops-credit-whatsapp.ts` : la grille, chargée puis lue prix par prix avec le prix client, la commission,
+les numéros d'un espace et leur couverture par la ligne, un numéro posé ou retiré, le solde ou le mois d'une Entreprise, et
+les dernières provisions ; `src/http/ops-offre.ts` : la commission négociée d'une Entreprise), l'onglet de la
 console (`src/http/credit-whatsapp.ts`, module d'espace `creditWhatsapp` : la vue de l'onglet et l'ouverture d'un achat ;
 `web/components/OngletCreditWhatsapp.tsx`), l'achat par Stripe (`src/stripe/achat-whatsapp.ts`, `offres-whatsapp.ts`, le
 webhook commun `traitement-recharge.ts`), la reprise (`leverPausesCreditWhatsapp`, `src/account/numero-delie.pg.ts`), les
@@ -4172,13 +4173,20 @@ recharges, régularisations), `lignes_credit_whatsapp` (un numéro sur la ligne,
   chaque méthode `send*` d'un numéro sur la ligne prend sa provision AVANT l'appel, par un débit conditionnel atomique
   (`solde − prix >= 0`) ; illimitée, la provision s'écrit marquée, sans débit. Un compte 360dialog n'est jamais gardé.
 - Solde = mouvements − provisions non rendues et non illimitées, vérifié en intégration après toute suite d'écritures.
-- Un refus net de Meta rend la provision ; une panne réseau la garde (le message est peut-être parti), la régularisation
-  tranche sur les volumes de Meta.
+- Un refus net de Meta rend la provision, un refus définitif de la MM API rendu en 500 compris (134100 à 134102,
+  `estTerminalMemeEn5xx`) ; une panne réseau la garde (le message est peut-être parti), la régularisation tranche sur les
+  volumes de Meta.
+- 🔴 Une ligne couvre tout le compte WhatsApp (WABA) de son numéro, parce que Meta attache la ligne au compte : la garde
+  lit la ligne du numéro, ou à défaut celle d'un autre numéro du même compte (`PgLignesCreditStore.lireLigne`), donc un
+  numéro ajouté ou remplacé dans le compte est provisionné sans geste. Une écriture sur une ligne vide tout le cache des
+  lignes. Un accusé lit encore une ligne retirée depuis moins de 35 jours (`ligneDesAccuses`) : un échec ou une gratuité
+  arrivés après le retrait rendent la provision du message parti avant.
 - L'accusé corrige au mieux : un échec ou un message que Meta ne facture pas est rendu ; une catégorie reclassée, ou un
   service facturé que nous avions compté dans la franchise, est corrigé une fois au prix de la grille ; `delivered` date la
   livraison. Un ajustement manqué ne fait jamais échouer le job.
-- Le prix d'un message : la grille en vigueur, au marché du pays du destinataire (au plus cher quand il est illisible),
-  majoré de la commission, globale ou négociée par une Entreprise. Les 1 000 premiers messages de service d'un numéro dans
+- Le prix d'un message : la grille en vigueur, au marché du pays du destinataire (pour un destinataire sans numéro, le
+  code ISO qui préfixe son BSUID, « FR.1349… », que Meta y met pour ça ; au plus cher quand il est illisible), majoré de
+  la commission, globale ou négociée par une Entreprise, par une seule formule (`prixClient`) que `/ops` affiche aussi. Les 1 000 premiers messages de service d'un numéro dans
   le mois sont à zéro.
 - 🔴 Toute Entreprise est illimitée (décision de Julien du 2026-11-02, spec `2026-11-02-entreprise-illimitee-design.md`),
   lue par `offre_de_l_espace` et rien d'autre (`PgConditionsCreditStore`, son `openBar`) : jamais refusée pour le solde,
@@ -4194,8 +4202,8 @@ recharges, régularisations), `lignes_credit_whatsapp` (un numéro sur la ligne,
   en vigueur), partout, codes publics de `/v1` compris (`STATUT_PAR_CODE`) ; `POST /v1/sends` les rend avant de créer quoi
   que ce soit : un solde nul avant de résoudre les destinataires (`refusAvantEffets`), puis le premier message réel chiffré
   comme sa provision, pays de son destinataire et catégorie que Meta donne au modèle d'ouverture (`refusPourMessage`, le
-  même calcul que `avant`, qui ne provisionne rien). Un 5xx de Meta, un délai ou une panne réseau gardent la
-  provision (le message est peut-être parti) ; un refus de Meta sous 500 la rend. Une campagne qui bute passe en pause `credit_whatsapp_epuise` ou `ligne_credit_inactive`, jamais en échec ;
+  même calcul que `avant`, qui ne provisionne rien). Un 5xx de Meta (hors 134100 à 134102), un délai ou une panne réseau
+  gardent la provision (le message est peut-être parti) ; un refus de Meta sous 500 la rend. Une campagne qui bute passe en pause `credit_whatsapp_epuise` ou `ligne_credit_inactive`, jamais en échec ;
   un lancement qui manquerait de crédit est refusé avec ce qui manque, une campagne programmée est mise en pause à son
   départ, sans rien envoyer.
 - 🔴 Pas de double envoi : un bloc de scénario lit `refusAvantEffets` avant tout effet (`verifierNumeroWhatsApp`), et un

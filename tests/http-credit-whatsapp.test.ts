@@ -228,7 +228,7 @@ describe('GET /tenants/:tenantId/credit-whatsapp (l’onglet)', () => {
 });
 
 const ligne = (o: Partial<LigneCredit> = {}): LigneCredit => ({
-  id: 'l1', tenantId: T1, phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-31T10:00:00Z', arreteeLe: null, ...o,
+  id: 'l1', tenantId: T1, phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-31T10:00:00Z', arreteeLe: null, retireeLe: null, ...o,
 });
 
 describe('qui peut acheter du Crédit WhatsApp', () => {

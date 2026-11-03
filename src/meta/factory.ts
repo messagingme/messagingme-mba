@@ -11,7 +11,7 @@ import type { MessageSender } from '../campaign/engine';
 import type { MetaCredentialsResolver, ResolvedToken } from './credentials';
 import type { ArbitreDeDebit } from './arbitre-debit';
 import { NumeroBloqueError, NumeroDelieError, NumeroSuspenduError } from './numero-delie';
-import { MetaApiError } from './errors';
+import { MetaApiError, estTerminalMemeEn5xx } from './errors';
 import type { MarketingParams, SendResult, TemplateSpec } from './types';
 import { RetraitDeLaListeRefuse, type ListeDeLAgent } from '../mba/liste';
 import { LimiteOffreError } from '../offres/refus';
@@ -44,13 +44,14 @@ function envoiDeLAppel(methode: string, args: readonly unknown[]): { destinatair
 }
 
 /**
- * Un refus NET : rien n'est parti. Une réponse d'erreur de Meta sous 500 (`MetaApiError` 4xx, 429 compris), le retrait
- * de la liste refusé (un 503 levé chez nous, AVANT l'appel), ou une garde levée avant lui (numéro bloqué, modèles du
- * mois). Un 5xx de Meta, un délai, une panne réseau laissent un doute : le message est peut-être parti, la provision
- * reste et la régularisation tranche.
+ * Un refus NET : rien n'est parti. Une réponse d'erreur de Meta sous 500 (`MetaApiError` 4xx, 429 compris), un refus
+ * définitif de la Marketing Messages API même rendu en 500 (134102, modèle indisponible), le retrait de la liste refusé
+ * (un 503 levé chez nous, AVANT l'appel), ou une garde levée avant lui (numéro bloqué, modèles du mois). Un autre 5xx de
+ * Meta, un délai, une panne réseau laissent un doute : le message est peut-être parti, la provision reste et la
+ * régularisation tranche.
  */
 function estUnRefusNet(err: unknown): boolean {
-  return (err instanceof MetaApiError && (err.httpStatus < 500 || err instanceof RetraitDeLaListeRefuse))
+  return (err instanceof MetaApiError && (err.httpStatus < 500 || estTerminalMemeEn5xx(err.code) || err instanceof RetraitDeLaListeRefuse))
     || err instanceof NumeroBloqueError || err instanceof LimiteOffreError;
 }
 

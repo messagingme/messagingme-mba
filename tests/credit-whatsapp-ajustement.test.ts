@@ -24,7 +24,7 @@ const GRILLE: GrilleMeta = {
     { marche: 'other', categorie: 'marketing', palier: 0, prixMicroEur: 55_800 },
   ],
 };
-const LIGNE: LigneCredit = { id: 'l1', tenantId: 't1', phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T00:00:00Z', arreteeLe: null };
+const LIGNE: LigneCredit = { id: 'l1', tenantId: 't1', phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T00:00:00Z', arreteeLe: null, retireeLe: null };
 
 interface Provision { categorie: CategorieMeta; pays: string | null; montantMicroEur: number; etat: 'provisionne' | 'rendu' | 'ajuste'; livreLe: Date | null }
 
@@ -54,7 +54,7 @@ function monter(p: Partial<Provision> | null, o: { ligne?: LigneCredit | null; g
     },
   };
   const ajustement = creerAjustementCredit({
-    lignes: { ligneDuNumero: async () => (o.ligne === undefined ? LIGNE : o.ligne) },
+    lignes: { ligneDesAccuses: async () => (o.ligne === undefined ? LIGNE : o.ligne) },
     credit,
     grille: async () => (o.grille === undefined ? GRILLE : o.grille),
     conditions: async () => ({ openBar: false, commissionPct: o.commissionPct ?? 10 }),

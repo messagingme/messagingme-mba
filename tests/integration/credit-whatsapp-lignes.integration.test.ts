@@ -66,6 +66,34 @@ describe.skipIf(!url)('les numéros sur la ligne du Crédit WhatsApp (0264)', ()
     expect(await lignes.lignesDeLEspace(t)).toHaveLength(1);
   });
 
+  it('🔴 la ligne couvre tout le compte WhatsApp du numéro, et une ligne retirée se lit encore 35 jours pour les accusés', async () => {
+    const t = await espace();
+    await numero(t, 'itest-cwa-a');
+    // Un second numéro du MÊME compte (ajouté ou remplacé), et un numéro d'un autre compte.
+    await pool.query(
+      `insert into phone_numbers (id, tenant_id, waba_id, display_phone_number) values ('itest-cwa-b', $1, 'waba-itest-cwa-a', '+33 6 00 00 00 01')`,
+      [t],
+    );
+    await numero(t, 'itest-cwa-c');
+    expect(await lignes.poser(t, 'itest-cwa-a', 'waba-itest-cwa-a', 'ops', 'essai')).toBe(true);
+    expect(await lignes.ligneDuNumero('itest-cwa-b')).toMatchObject({ tenantId: t, phoneNumberId: 'itest-cwa-a', retireeLe: null });
+    expect(await lignes.ligneDuNumero('itest-cwa-c')).toBeNull();
+    expect((await lignes.numerosDeLEspace(t)).map((n) => [n.phoneNumberId, n.wabaId])).toEqual([
+      ['itest-cwa-a', 'waba-itest-cwa-a'], ['itest-cwa-b', 'waba-itest-cwa-a'], ['itest-cwa-c', 'waba-itest-cwa-c'],
+    ]);
+
+    expect(await lignes.retirer(t, 'itest-cwa-a')).toBe(true);
+    expect(await lignes.ligneDuNumero('itest-cwa-a')).toBeNull();
+    expect(await lignes.ligneDuNumero('itest-cwa-b')).toBeNull();
+    expect((await lignes.ligneDesAccuses('itest-cwa-a'))?.retireeLe).not.toBeNull();
+    expect((await lignes.ligneDesAccuses('itest-cwa-b'))?.phoneNumberId).toBe('itest-cwa-a');
+    expect(await lignes.ligneDesAccuses('itest-cwa-c')).toBeNull();
+
+    // Au-delà de 35 jours, plus aucun accusé ne la lit (un magasin neuf : le cache de l'autre garde sa lecture).
+    await pool.query(`update lignes_credit_whatsapp set retiree_le = now() - interval '36 days' where tenant_id = $1`, [t]);
+    expect(await new PgLignesCreditStore(pool).ligneDesAccuses('itest-cwa-a')).toBeNull();
+  });
+
   it('🔴 un numéro se lit dans SON espace seulement, avec son fournisseur, sa coexistence et son état délié', async () => {
     const t = await espace();
     const autre = await espace();

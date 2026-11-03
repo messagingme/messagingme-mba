@@ -33,7 +33,11 @@ export interface AjustementCreditSink {
 }
 
 export interface DepsAjustementCredit {
-  lignes: { ligneDuNumero(phoneNumberId: string): Promise<LigneCredit | null> };
+  /**
+   * La ligne qui couvre le numéro, ou celle retirée depuis peu (`PgLignesCreditStore.ligneDesAccuses`) : un accusé arrivé
+   * après le retrait corrige encore la provision du message parti avant.
+   */
+  lignes: { ligneDesAccuses(phoneNumberId: string): Promise<LigneCredit | null> };
   credit: {
     provisionDuWamid(tenantId: string, wamid: string): Promise<{ categorie: CategorieMeta; pays: string | null; montantMicroEur: number; etat: string } | null>;
     rendreParWamid(tenantId: string, wamid: string): Promise<void>;
@@ -47,8 +51,9 @@ export interface DepsAjustementCredit {
 export function creerAjustementCredit(d: DepsAjustementCredit): AjustementCreditSink {
   return {
     async ajuster(phoneNumberId, a) {
-      // Un numéro hors de la ligne ne provisionne rien : une lecture en cache, rien d'autre.
-      const ligne = await d.lignes.ligneDuNumero(phoneNumberId);
+      // Un numéro que rien ne couvre (ni sa ligne, ni celle de son compte, ni une ligne retirée depuis moins de 35 jours)
+      // ne provisionne rien : une lecture en cache, rien d'autre.
+      const ligne = await d.lignes.ligneDesAccuses(phoneNumberId);
       if (ligne === null) return;
       const tenantId = ligne.tenantId;
       const p = await d.credit.provisionDuWamid(tenantId, a.wamid);

@@ -20,7 +20,7 @@ const GRILLE: GrilleMeta = {
     { marche: 'other', categorie: 'utility', palier: 0, prixMicroEur: 7_100 },
   ],
 };
-const LIGNE: LigneCredit = { id: 'l1', tenantId: 't1', phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T00:00:00Z', arreteeLe: null };
+const LIGNE: LigneCredit = { id: 'l1', tenantId: 't1', phoneNumberId: 'pn1', wabaId: 'w1', origine: 'ops', depuis: '2026-10-30T00:00:00Z', arreteeLe: null, retireeLe: null };
 const FR = '+33612345678';
 const DE = '+4915123456789';
 

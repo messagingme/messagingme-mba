@@ -98,9 +98,16 @@ export interface DepsGardeCredit {
   maintenant?: () => Date;
 }
 
-/** Le pays du destinataire : `null` pour un identifiant Meta sans numéro, provisionné au plus cher. */
-function paysDuDestinataire(destinataire: string): string | null {
-  return 'to' in messagingTarget(destinataire) ? paysDuNumero(destinataire) : null;
+/**
+ * Le pays du destinataire. Un identifiant Meta sans numéro (BSUID) porte en préfixe le code ISO du pays de la personne
+ * (« US.13491208655302741918 », « FR.ENT.… »), et Meta dit que sa facturation ne change pas : c'est ce pays qui est
+ * facturé (page « Business-scoped user IDs » de Meta, relue le 2026-11-03). Sans préfixe lisible : `null`, provisionné au
+ * plus cher.
+ */
+export function paysDuDestinataire(destinataire: string): string | null {
+  const cible = messagingTarget(destinataire);
+  if ('to' in cible) return paysDuNumero(destinataire);
+  return /^([A-Z]{2})\./.exec(cible.recipient)?.[1] ?? null;
 }
 
 export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsapp {
