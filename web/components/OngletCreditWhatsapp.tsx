@@ -7,9 +7,10 @@ import {
   seuilDuRetour,
 } from '@/lib/api-credit';
 import {
-  aUneFactureWhatsapp, getCreditWhatsapp, ouvrirAchatWhatsapp, type LigneCreditWhatsapp, type OffreWhatsapp,
-  type VueCreditWhatsapp,
+  aUneFactureWhatsapp, changerPlacesOption, factureDeLaPlace, getCreditWhatsapp, ouvrirAchatWhatsapp, ouvrirOptionWhatsapp,
+  type LigneCreditWhatsapp, type OffreWhatsapp, type OptionCreditWhatsapp, type VueCreditWhatsapp,
 } from '@/lib/api-credit-whatsapp';
+import { portailPro } from '@/lib/api/offre';
 import { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR, SOLDE_REPRISE_CREDIT_MICRO_EUR } from '@/lib/partage/credit-whatsapp';
 import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { erreurDeChargement } from '@/lib/http';
@@ -18,6 +19,7 @@ import { formatDate } from '@/lib/day';
 import type { Locale } from '@/lib/locale';
 import type { Session } from '@/lib/session';
 import { useT, useLocale } from '@/lib/i18n';
+import { inputClsAuto } from '@/lib/ui';
 import { IntroPage } from '@/components/TitrePage';
 import { Squelette } from '@/components/Squelette';
 import { Bouton } from '@/components/Bouton';
@@ -40,6 +42,11 @@ import { CourbeCredit } from '@/components/CourbeCredit';
  * 🔴 LE RETOUR DE STRIPE NE CRÉDITE RIEN, comme au Crédit IA (`OngletCreditIA`) : il relit jusqu'à voir la ligne `achat`
  * de CE paiement (`achatArriveDepuis`), le temps que le webhook signé de Stripe passe.
  *
+ * L'OPTION (lot 4a, 30 € HT par numéro et par mois, `OptionDuCredit`) : un Pro ou un Business la prend ici, pour 1 à 20
+ * numéros, et en change le nombre ; l'onglet paraît pour elle dès qu'elle est en vente, sans numéro sur le Crédit WhatsApp.
+ * Un tel espace n'envoie pas par le solde : l'écran ne le dit donc jamais épuisé. Comme au paiement, le retour de Stripe ne
+ * prend rien : il relit jusqu'à voir les places que le webhook a écrites.
+ *
  * ⚠️ `useSearchParams` : la page qui monte cet onglet le place sous une frontière Suspense (règle de Next 15).
  */
 
@@ -50,7 +57,9 @@ const INTERVALLE_RELECTURE_MS = 3_000;
 export function OngletCreditWhatsapp({ session }: { session: Session }) {
   const t = useT();
   const { locale } = useLocale();
-  const retour = useSearchParams().get('paiement');
+  const params = useSearchParams();
+  const retour = params.get('paiement');
+  const retourOption = params.get('option');
   const [vue, setVue] = useState<VueCreditWhatsapp | null>(null);
   const [erreurLecture, setErreurLecture] = useState(false);
   const [enCours, setEnCours] = useState<OffreWhatsapp | null>(null);
@@ -109,6 +118,25 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
     return () => { vivant = false; if (minuteur) clearTimeout(minuteur); };
   }, [relire, retour]);
 
+  // Le retour du paiement de l'option : relire jusqu'à voir les places que le webhook a écrites.
+  useEffect(() => {
+    if (retourOption !== 'recue') return;
+    let vivant = true;
+    let minuteur: ReturnType<typeof setTimeout> | undefined;
+    let restantes = RELECTURES_APRES_PAIEMENT;
+    const suivante = (): void => {
+      if (!vivant || restantes <= 0) return;
+      restantes -= 1;
+      minuteur = setTimeout(() => {
+        relire()
+          .then((v) => { if (vivant && v.option.places === 0 && v.option.statut === null) suivante(); })
+          .catch(() => suivante());
+      }, INTERVALLE_RELECTURE_MS);
+    };
+    suivante();
+    return () => { vivant = false; if (minuteur) clearTimeout(minuteur); };
+  }, [relire, retourOption]);
+
   async function payer(offre: OffreWhatsapp): Promise<void> {
     setEnCours(offre);
     setErreur(null);
@@ -149,6 +177,10 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
   const admin = session.role === 'admin';
   const ouvert = vue !== null && vue.achat.permis === 'ok';
   const illimite = vue?.illimite === true;
+  // Aucun numéro sur le Crédit WhatsApp (l'onglet paraît pour l'option) : ses messages ne passent pas par le solde.
+  const sansNumero = vue !== null && vue.achat.permis === 'sans_ligne' && !vue.ligneArretee;
+  const option = vue?.option;
+  const avecOption = !illimite && option !== undefined && (option.disponible || option.places > 0 || option.statut !== null);
 
   return (
     <div className="max-w-formulaire space-y-4">
@@ -205,7 +237,7 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
         {vue !== null && !illimite && (
           <>
             <div className="mt-1 text-3xl font-semibold tracking-tight tabular-nums text-ink-900">{euros(vue.soldeMicroEur, locale)}</div>
-            {vue.soldeMicroEur <= 0 && !vue.ligneArretee && (
+            {vue.soldeMicroEur <= 0 && !vue.ligneArretee && !sansNumero && (
               <p className="mt-2 text-sm text-danger" data-testid="credit-wa-epuise">
                 {t(
                   'Épuisé : plus aucun message WhatsApp ne part, réponses de l’Inbox et des agents IA comprises. Une campagne arrêtée faute de crédit reprend seule après la recharge.',
@@ -215,7 +247,7 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
             )}
             {/* Sous un euro, et pas seulement à zéro : la garde refuse un message dès que le solde ne couvre plus son prix, et
                 une campagne arrêtée ne repart qu'au-dessus d'un euro (`SOLDE_REPRISE_CREDIT_MICRO_EUR`). */}
-            {vue.soldeMicroEur > 0 && vue.soldeMicroEur < SOLDE_REPRISE_CREDIT_MICRO_EUR && !vue.ligneArretee && (
+            {vue.soldeMicroEur > 0 && vue.soldeMicroEur < SOLDE_REPRISE_CREDIT_MICRO_EUR && !vue.ligneArretee && !sansNumero && (
               <p className="mt-2 text-sm text-danger" data-testid="credit-wa-presque-epuise">
                 {t(
                   'Presque épuisé : sous un euro, ce reste ne couvre déjà plus certains messages, et une campagne arrêtée faute de crédit attend une recharge pour repartir.',
@@ -223,7 +255,7 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
                 )}
               </p>
             )}
-            {vue.soldeMicroEur >= SOLDE_REPRISE_CREDIT_MICRO_EUR && vue.soldeMicroEur < SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR && !vue.ligneArretee && (
+            {vue.soldeMicroEur >= SOLDE_REPRISE_CREDIT_MICRO_EUR && vue.soldeMicroEur < SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR && !vue.ligneArretee && !sansNumero && (
               <p className="mt-2 text-sm text-alerte" data-testid="credit-wa-bas">
                 {t('C’est bas : au bout, plus aucun message ne partira, réponses comprises.', 'That is low: once it runs out, no message will go out, replies included.')}
               </p>
@@ -260,6 +292,10 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
         )}
       </section>
 
+      {avecOption && option !== undefined && (
+        <OptionDuCredit tenantId={session.tenantId} option={option} admin={admin} retour={retourOption} relire={relire} />
+      )}
+
       {!illimite && (
         <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-recharger">
           <h2 className="text-sm font-semibold text-ink-900">{t('Recharger', 'Top up')}</h2>
@@ -275,7 +311,9 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
           )}
           {admin && vue !== null && !ouvert && !vue.ligneArretee && (
             <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-ferme">
-              {t('La recharge n’est pas ouverte pour cet espace. Contactez-nous depuis le Support.', 'Top-up is not open for this workspace. Contact us from Support.')}
+              {sansNumero && avecOption
+                ? t('La recharge s’ouvre dès qu’un de vos numéros est sur le Crédit WhatsApp, avec l’option ci-dessus.', 'Top-up opens as soon as one of your numbers is on WhatsApp credit, with the option above.')
+                : t('La recharge n’est pas ouverte pour cet espace. Contactez-nous depuis le Support.', 'Top-up is not open for this workspace. Contact us from Support.')}
             </p>
           )}
           {admin && vue !== null && ouvert && !indisponible && vue.achat.disponible && (
@@ -350,6 +388,239 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
         {erreurFacture && <p className="mt-2 text-sm text-danger" data-testid="credit-wa-facture-erreur">{erreurFacture}</p>}
       </section>
     </div>
+  );
+}
+
+/**
+ * L'option du Crédit WhatsApp (lot 4a) : la prendre pour 1 à `placesMax` numéros (Checkout de Stripe), ou en changer le
+ * nombre un numéro à la fois, son prix dit avant que rien ne soit facturé (comme le siège du Pro, `admin/page.tsx`). Un
+ * ajout se paie au prorata avant de compter : un paiement qui n'aboutit pas donne la page de sa facture. Un retrait ne passe
+ * pas sous les numéros déjà sur le Crédit WhatsApp. Carte, factures et résiliation passent par le portail de Stripe.
+ */
+function OptionDuCredit({ tenantId, option, admin, retour, relire }: {
+  tenantId: string;
+  option: OptionCreditWhatsapp;
+  admin: boolean;
+  retour: string | null;
+  relire: () => Promise<unknown>;
+}) {
+  const t = useT();
+  const { locale } = useLocale();
+  const [voulues, setVoulues] = useState(1);
+  const [geste, setGeste] = useState<'prendre' | 'ajouter' | 'retirer' | 'portail' | null>(null);
+  const [confirmer, setConfirmer] = useState<'ajouter' | 'retirer' | null>(null);
+  const [indisponible, setIndisponible] = useState(false);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [facture, setFacture] = useState<string | null>(null);
+
+  const prise = option.places > 0 || option.statut !== null;
+  const prixMois = (n: number): string => fmtNum((option.prixHtCentimes * n) / 100, locale);
+  const s = (n: number): string => (n > 1 ? 's' : '');
+  // Une ligne couvre tout le compte WhatsApp : au-delà des places, un numéro du compte n'envoie pas.
+  const enService = Math.min(option.couverts, option.places);
+  const enTrop = Math.max(0, option.couverts - option.places);
+  const libres = Math.max(0, option.places - option.couverts);
+  const modifiable = admin && option.disponible && option.statut === 'actif' && option.finPrevueLe === null;
+  const retraitPossible = option.places - 1 >= Math.max(1, option.couverts);
+
+  async function prendre(): Promise<void> {
+    setGeste('prendre');
+    setErreur(null);
+    try {
+      const r = await ouvrirOptionWhatsapp(tenantId, voulues);
+      if ('indisponible' in r) {
+        setIndisponible(true);
+        setGeste(null);
+        return;
+      }
+      if (!estPageDePaiement(r.url)) throw new Error(t('Adresse de paiement invalide.', 'Invalid payment address.'));
+      window.location.assign(r.url);
+    } catch (err) {
+      setErreur(erreurDeChargement(err, t));
+      setGeste(null);
+    }
+  }
+
+  /** Un numéro de plus ou de moins, depuis les places que l'écran a lues : une vue périmée est refusée par le serveur. */
+  async function changer(sens: 'ajouter' | 'retirer'): Promise<void> {
+    setGeste(sens);
+    setErreur(null);
+    setFacture(null);
+    try {
+      await changerPlacesOption(tenantId, option.places, sens === 'ajouter' ? option.places + 1 : option.places - 1);
+    } catch (err) {
+      setFacture(factureDeLaPlace(err));
+      setErreur(erreurDeChargement(err, t));
+    } finally {
+      setConfirmer(null);
+      setGeste(null);
+      // Les places relues dans tous les cas : un refus « changé entre-temps » se corrige à la relecture.
+      await relire().catch(() => undefined);
+    }
+  }
+
+  async function gerer(): Promise<void> {
+    setGeste('portail');
+    setErreur(null);
+    try {
+      window.location.assign((await portailPro(tenantId)).url);
+    } catch (err) {
+      setErreur(erreurDeChargement(err, t));
+      setGeste(null);
+    }
+  }
+
+  return (
+    <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-option">
+      <h2 className="text-sm font-semibold text-ink-900">{t('Vos numéros sur le Crédit WhatsApp', 'Your numbers on WhatsApp credit')}</h2>
+      <p className="mt-1 text-sm text-ink-500">
+        {t(
+          `L’option Crédit WhatsApp : ${prixMois(1)} € HT par numéro et par mois, TVA en sus. Les messages de ces numéros sont payés par votre Crédit WhatsApp, sans carte à enregistrer chez Meta.`,
+          `The WhatsApp credit option: €${prixMois(1)} excl. VAT per number per month, VAT added. The messages of these numbers are paid by your WhatsApp credit, with no card to register with Meta.`,
+        )}
+      </p>
+      {retour === 'recue' && (
+        <MbaNotice kind="success" testid="credit-wa-option-recue">
+          {prise
+            ? t('Paiement reçu, votre option est active.', 'Payment received, your option is active.')
+            : t('Paiement reçu : votre option arrive dans quelques secondes.', 'Payment received: your option arrives in a few seconds.')}
+        </MbaNotice>
+      )}
+      {retour === 'abandon' && !prise && (
+        <MbaNotice kind="warning" testid="credit-wa-option-abandon">
+          {t('Paiement abandonné : rien n’a été débité.', 'Payment cancelled: nothing was charged.')}
+        </MbaNotice>
+      )}
+
+      {!prise && !admin && (
+        <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-non-admin">
+          {t('Demandez à un administrateur de votre espace de prendre l’option.', 'Ask an administrator of your workspace to take the option.')}
+        </p>
+      )}
+      {!prise && admin && (indisponible || !option.disponible) && (
+        <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-indisponible">
+          {t('L’option n’est pas encore disponible en ligne. Contactez-nous depuis le Support.', 'The option isn’t available online yet. Contact us from Support.')}
+        </p>
+      )}
+      {!prise && admin && !indisponible && option.disponible && (
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="grid gap-1">
+            <span className="text-xs font-medium text-ink-500">{t('Nombre de numéros', 'How many numbers')}</span>
+            <select
+              className={`${inputClsAuto} bg-white`}
+              value={voulues}
+              onChange={(e) => setVoulues(Number(e.target.value))}
+              data-testid="credit-wa-option-places"
+            >
+              {Array.from({ length: Math.max(1, option.placesMax) }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </label>
+          <Bouton data-testid="credit-wa-option-prendre" onClick={() => { void prendre(); }} disabled={geste !== null} enCours={geste === 'prendre'}>
+            {t(`Prendre l’option, ${prixMois(voulues)} € HT par mois`, `Take the option, €${prixMois(voulues)} excl. VAT per month`)}
+          </Bouton>
+        </div>
+      )}
+
+      {prise && (
+        <>
+          <ul className="mt-2 divide-y divide-ink-100">
+            <li className="flex items-baseline justify-between gap-3 py-2 text-sm">
+              <span className="text-ink-900">{t('Numéros payés', 'Paid numbers')}</span>
+              <span className="tabular-nums text-ink-900" data-testid="credit-wa-option-payes">{fmtNum(option.places, locale)}</span>
+            </li>
+            <li className="flex items-baseline justify-between gap-3 py-2 text-sm">
+              <span className="text-ink-900">{t('Numéros sur le Crédit WhatsApp', 'Numbers on WhatsApp credit')}</span>
+              <span className="tabular-nums text-ink-900" data-testid="credit-wa-option-couverts">{fmtNum(enService, locale)}</span>
+            </li>
+            <li className="flex items-baseline justify-between gap-3 py-2 text-sm">
+              <span className="text-ink-900">{t('Prix', 'Price')}</span>
+              <span className="tabular-nums text-ink-900">{t(`${prixMois(option.places)} € HT par mois`, `€${prixMois(option.places)} excl. VAT per month`)}</span>
+            </li>
+          </ul>
+          {enTrop > 0 && (
+            <p className="mt-2 text-sm text-danger" data-testid="credit-wa-option-manque">
+              {t(
+                `${enTrop} numéro${s(enTrop)} de votre compte WhatsApp n’envoie${enTrop > 1 ? 'nt' : ''} pas : chaque numéro demande sa place. Ajoutez un numéro à l’option.`,
+                `${enTrop} number${s(enTrop)} of your WhatsApp account ${enTrop > 1 ? 'do' : 'does'} not send: each number needs its own place. Add a number to the option.`,
+              )}
+            </p>
+          )}
+          {libres > 0 && option.statut === 'actif' && (
+            <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-libre">
+              {t(
+                `${libres} numéro${s(libres)} payé${s(libres)} pas encore sur le Crédit WhatsApp : contactez-nous depuis le Support pour y mettre votre numéro.`,
+                `${libres} paid number${s(libres)} not yet on WhatsApp credit: contact us from Support to put your number on it.`,
+              )}
+            </p>
+          )}
+          {option.statut === 'en_retard' && (
+            <p className="mt-2 text-sm text-danger" data-testid="credit-wa-option-retard">
+              {t(
+                'Le dernier paiement de votre option n’a pas abouti : Stripe le retente. Mettez à jour votre carte avec « Gérer l’option ».',
+                'The last payment of your option did not go through: Stripe is retrying it. Update your card with “Manage the option”.',
+              )}
+            </p>
+          )}
+          {option.finPrevueLe !== null && (
+            <p className="mt-2 text-sm text-alerte" data-testid="credit-wa-option-fin">
+              {t(
+                `Votre option s’arrête le ${formatDate(option.finPrevueLe, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} : ses numéros n’enverront plus par le Crédit WhatsApp.`,
+                `Your option ends on ${formatDate(option.finPrevueLe, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}: its numbers will no longer send through WhatsApp credit.`,
+              )}
+            </p>
+          )}
+
+          {modifiable && confirmer === null && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Bouton variante="secondaire" taille="petite" data-testid="credit-wa-option-ajouter"
+                disabled={geste !== null || option.places >= option.placesMax} onClick={() => setConfirmer('ajouter')}>
+                {t('Ajouter un numéro', 'Add a number')}
+              </Bouton>
+              <Bouton variante="secondaire" taille="petite" data-testid="credit-wa-option-retirer"
+                disabled={geste !== null || !retraitPossible} onClick={() => setConfirmer('retirer')}>
+                {t('Retirer un numéro', 'Remove a number')}
+              </Bouton>
+            </div>
+          )}
+          {modifiable && confirmer !== null && (
+            <div className="mt-3 space-y-3 rounded-controle border border-brand-200 bg-white px-4 py-3 text-sm text-ink-700" data-testid="credit-wa-option-confirmer">
+              <p>
+                {confirmer === 'ajouter'
+                  ? t(
+                    `Un numéro de plus coûte ${prixMois(1)} € HT par mois : le prorata jusqu’à la fin de votre période est facturé maintenant, sur la carte de l’option. Il ne compte qu’une fois ce paiement passé.`,
+                    `One more number costs €${prixMois(1)} excl. VAT per month: the prorated amount until the end of your period is charged now, on the option’s card. It counts only once that payment has gone through.`,
+                  )
+                  : t(
+                    'Le numéro retiré ne compte plus dès maintenant, sans remboursement du mois entamé : vous payez un numéro de moins à partir du mois suivant.',
+                    'The removed number stops counting right away, with no refund of the month begun: you pay for one number less from the following month.',
+                  )}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Bouton type="button" data-testid="credit-wa-option-valider" enCours={geste === confirmer} disabled={geste !== null}
+                  onClick={() => { void changer(confirmer); }}>
+                  {confirmer === 'ajouter' ? t('Ajouter', 'Add') : t('Retirer', 'Remove')}
+                </Bouton>
+                <Bouton type="button" variante="secondaire" disabled={geste !== null} onClick={() => setConfirmer(null)}>{t('Annuler', 'Cancel')}</Bouton>
+              </div>
+            </div>
+          )}
+          {admin && (
+            <div className="mt-3">
+              <Bouton variante="secondaire" taille="petite" data-testid="credit-wa-option-portail" disabled={geste !== null}
+                enCours={geste === 'portail'} onClick={() => { void gerer(); }}>
+                {t('Gérer l’option : carte, factures, résiliation', 'Manage the option: card, invoices, cancellation')}
+              </Bouton>
+            </div>
+          )}
+        </>
+      )}
+      {erreur && <p className="mt-2 text-sm text-danger" data-testid="credit-wa-option-erreur">{erreur}</p>}
+      {facture && (
+        <a data-testid="credit-wa-option-facture" href={facture} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-sm font-medium text-brand-600 hover:underline">
+          {t('Régler la facture du numéro en plus', 'Pay the invoice for the extra number')}
+        </a>
+      )}
+    </section>
   );
 }
 

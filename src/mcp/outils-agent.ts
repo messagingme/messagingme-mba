@@ -103,10 +103,10 @@ export interface DepsAgentMcp {
   repondeur: DepsReglageRepondeur;
   /**
    * Le Crédit WhatsApp (plan du Crédit WhatsApp, tâche 11) : les MÊMES objets que la route de l'onglet
-   * (`CreditWhatsappRouteDeps`), plus l'onglet visible ou non (hors Free, un numéro sur la ligne ; une Entreprise y lit
-   * « illimité »).
+   * (`CreditWhatsappRouteDeps`), plus un numéro sur la ligne ou non (`surLaLigne`, hors Free ; une Entreprise y lit
+   * « illimité »). Pas l'onglet : il paraît aussi à un Pro sans ligne pour prendre l'option (lot 4a).
    */
-  creditWhatsapp: CreditWhatsappRouteDeps & { onglet(tenantId: string): Promise<boolean> };
+  creditWhatsapp: CreditWhatsappRouteDeps & { surLaLigne(tenantId: string): Promise<boolean> };
 }
 
 /**
@@ -1074,7 +1074,7 @@ export const OUTILS_AGENT: OutilMcp[] = [
       const credits = deps.agentIa.gestion.credits;
       const wa = deps.agentIa.creditWhatsapp;
       const [etat, mouvements, avecWa] = await Promise.all([
-        deps.agentIa.gestion.creditIa.etat(tenantId), credits.historique(tenantId, LIGNES_HISTORIQUE), wa.onglet(tenantId),
+        deps.agentIa.gestion.creditIa.etat(tenantId), credits.historique(tenantId, LIGNES_HISTORIQUE), wa.surLaLigne(tenantId),
       ]);
       const ia = {
         // Une Entreprise (illimitée, décision du 2026-11-02) : son solde, figé, ne dit rien ; sa consommation du mois, si.

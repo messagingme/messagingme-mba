@@ -110,7 +110,10 @@ const VUE = {
   provisions: [],
 };
 
-async function offre(page: import('@playwright/test').Page) {
+/** Un Business, avec les places de son option (lot 4a) : une pose y consomme des places, sauf forcée. */
+const BUSINESS = { entreprise: false, business: true, vue: { ...VUE, soldeMicroEur: 12_000_000, places: { payees: 1, couverts: 1 } } };
+
+async function offre(page: import('@playwright/test').Page, espace: { entreprise: boolean; business: boolean; vue: object } = { entreprise: true, business: false, vue: VUE }) {
   const poses: unknown[] = [];
   await page.addInitScript((s) => window.localStorage.setItem('mba.sessionOps', JSON.stringify(s)), SESSION_OPS);
   await page.route('**/api/backend/**', async (route) => {
@@ -118,14 +121,17 @@ async function offre(page: import('@playwright/test').Page) {
     const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (chemin.endsWith('/ops/overview')) return json({ tenants: [ESPACE], daily: [], queues: [], worker: null });
     if (chemin.endsWith('/ops/offre/t-essai')) {
-      return json({ tenantId: 't-essai', entreprise: true, utilisateurs: null, conservationJours: null, utilisateursProposes: 10, business: false });
+      return json({
+        tenantId: 't-essai', entreprise: espace.entreprise, utilisateurs: null, conservationJours: null, utilisateursProposes: 10,
+        business: espace.business, utilisateursBusiness: null,
+      });
     }
     if (chemin.endsWith('/ops/credit-whatsapp/ligne/t-essai')) {
       if (route.request().method() === 'POST') {
         poses.push(route.request().postDataJSON());
-        return json({ ...VUE, numeros: VUE.numeros.map((n) => (n.phoneNumberId === '444' ? { ...n, couverture: 'ligne' } : n)) });
+        return json({ ...espace.vue, numeros: VUE.numeros.map((n) => (n.phoneNumberId === '444' ? { ...n, couverture: 'ligne' } : n)) });
       }
-      return json(VUE);
+      return json(espace.vue);
     }
     return json({});
   });
@@ -170,6 +176,34 @@ test.describe('Ops : les numéros d’un espace sur la ligne du Crédit WhatsApp
     const { modale } = await offre(page);
     await expect(modale.getByTestId('ligne-credit-illimite-mois')).toContainText(/Illimité \(Entreprise\) : 5,21\s€ HT/);
     await expect(modale.getByTestId('ligne-credit-solde')).toHaveCount(0);
+  });
+
+  test('🔴 hors Entreprise, les places de l’option se lisent, et seule une pose COCHÉE « forcer » part forcée', async ({ page }) => {
+    const { modale, poses } = await offre(page, BUSINESS);
+    await expect(modale.getByTestId('ligne-credit-places')).toContainText('1 payée, 1 numéro couvert');
+    await modale.getByTestId('ligne-credit-note').fill('essai sans place');
+    const poser = modale.getByTestId('ligne-credit-numero-444').getByTestId('ligne-credit-poser');
+    // Une pose ordinaire garde le corps d'avant l'option : le serveur juge les places.
+    await poser.click();
+    await expect(modale.getByTestId('ligne-credit-message')).toContainText('posé sur la ligne');
+    expect(poses).toEqual([{ phoneNumberId: '444', poser: true, note: 'essai sans place' }]);
+  });
+
+  test('🔴 une pose forcée part avec `forcer`, et la case se décoche après le geste', async ({ page }) => {
+    const { modale, poses } = await offre(page, BUSINESS);
+    await modale.getByTestId('ligne-credit-note').fill('essai forcé');
+    await modale.getByTestId('ligne-credit-forcer').check();
+    await modale.getByTestId('ligne-credit-numero-444').getByTestId('ligne-credit-poser').click();
+    await expect(modale.getByTestId('ligne-credit-message')).toContainText('posé sur la ligne');
+    expect(poses).toEqual([{ phoneNumberId: '444', poser: true, note: 'essai forcé', forcer: true }]);
+    await expect(modale.getByTestId('ligne-credit-forcer')).not.toBeChecked();
+  });
+
+  test('une Entreprise ne compte pas de places : ni le compte des places, ni la case', async ({ page }) => {
+    const { modale } = await offre(page, { entreprise: true, business: false, vue: { ...VUE, places: { payees: 0, couverts: 0 } } });
+    await expect(modale.getByTestId('ligne-credit-illimite-mois')).toBeVisible();
+    await expect(modale.getByTestId('ligne-credit-places')).toHaveCount(0);
+    await expect(modale.getByTestId('ligne-credit-forcer')).toHaveCount(0);
   });
 
   test('🔴 « Enregistrer » grisé dit pourquoi, et la raison disparaît avec la note', async ({ page }) => {

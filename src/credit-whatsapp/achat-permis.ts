@@ -38,3 +38,12 @@ export async function ongletCreditWhatsapp(d: DepsAchatPermis, tenantId: string)
   // L'option (lot 4a) : un Pro ou un Business la voient dès qu'elle est en vente, pour la prendre ; jamais une Entreprise.
   return d.optionEnVente && (offre === 'pro' || offre === 'business');
 }
+
+/**
+ * Un numéro de l'espace est-il sur la ligne (hors Free, même arrêtée) ? Ce que l'onglet disait avant l'option : Claude (le
+ * MCP) ne parle du Crédit WhatsApp qu'à un espace dont il paie les messages, jamais à un Pro qui voit l'onglet pour prendre
+ * l'option (relecture du lot 4a : son solde à zéro y passait pour des envois coupés).
+ */
+export async function surLaLigne(d: Pick<DepsAchatPermis, 'offre' | 'lignes'>, tenantId: string): Promise<boolean> {
+  return (await d.offre(tenantId)) !== 'base' && (await d.lignes(tenantId)).length > 0;
+}

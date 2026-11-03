@@ -3629,8 +3629,10 @@ boîte par sous-menu.
   second numéro d'un compte déjà couvert ne se pose plus (une ligne couvre tout le compte). Une Entreprise y est dite
   illimitée, avec ses messages du mois à facturer, au lieu d'un solde. Avec l'option (lot 4a) : la fenêtre dit les places
   payées et les numéros couverts, et la pose d'un numéro d'un client Pro ou Business consomme des places, tout son compte
-  devant y tenir, sauf une pose forcée pour un essai ; retirer le Business ou l'Entreprise d'un espace qui a l'option sans
-  Pro s'annonce en rouge (l'option sera résiliée), et le bilan d'une suppression d'espace la liste à résilier.
+  devant y tenir, sauf une pose forcée pour un essai (la case « Forcer la pose », signée dans la note) ; retirer le
+  Business ou l'Entreprise d'un espace qui a l'option sans Pro s'annonce en rouge (l'option sera résiliée), poser
+  l'Entreprise sur un espace qui l'a s'annonce aussi (illimitée, elle ne sert plus et reste facturée tant qu'on ne la
+  résilie pas chez Stripe ; ses numéros continuent d'envoyer), et le bilan d'une suppression d'espace la liste à résilier.
 - ✅ **La grille de Meta, prix par prix** (onglet Réglages, 2026-11-03) : sous la grille chargée, un marché par ligne et
   une catégorie par colonne, le prix client (commission globale comprise) et dessous le tarif de Meta ; chercher un
   pays trouve aussi le marché régional qui le contient (la Belgique dans « Reste de l'Europe de l'Ouest »).
@@ -5518,12 +5520,17 @@ Les envois WhatsApp ne sont pas concernés : leur débit se règle campagne par 
 ## À venir / hors périmètre
 
 - 🚧 **L'option Crédit WhatsApp, 30 € HT par numéro et par mois** (lot 4a du plan `2026-11-03-credit-whatsapp-lot-4.md`) :
-  prête côté serveur, pas encore en vente ; elle ne se montre qu'une fois son prix posé chez Stripe, et sa fiche d'aide
-  arrive avec l'ouverture. Un client Pro ou Business la prendra dans l'onglet Crédit WhatsApp pour 1 à 20 numéros, payée
-  tout de suite (sans essai ni code promo). Une place est un numéro : un numéro ajouté au compte au-delà des places
-  payées ne part plus tant qu'une place de plus n'est pas prise. Un ajout se paie au prorata et ne compte qu'une fois
-  payé ; un retrait vaut tout de suite, sans remboursement, jamais sous les numéros déjà couverts. Une option que plus
-  aucune formule ne permet se résilie d'elle-même, sans remboursement du mois entamé, et ses numéros s'arrêtent.
+  prête, serveur et écrans, pas encore en vente ; elle ne se montre qu'une fois son prix posé chez Stripe, et sa fiche
+  d'aide arrive avec l'ouverture. Un client Pro ou Business la prendra dans l'onglet Crédit WhatsApp, qui paraît alors
+  même sans numéro sur le Crédit WhatsApp : il choisit de 1 à 20 numéros, voit le prix du mois, et paie tout de suite sur
+  la page de Stripe (sans essai ni code promo). L'option prise, l'onglet dit les numéros payés et ceux sur le Crédit
+  WhatsApp, ajoute ou retire un numéro à la fois, le prix dit avant toute facture, et renvoie au portail de Stripe pour la
+  carte, les factures et la résiliation. Une place est un numéro : un numéro ajouté au compte au-delà des places payées
+  ne part plus tant qu'une place de plus n'est pas prise, et l'onglet le dit. Un ajout se paie au prorata et ne compte
+  qu'une fois payé (un paiement qui n'aboutit pas donne le lien de sa facture) ; un retrait vaut tout de suite, sans
+  remboursement, jamais sous les numéros déjà sur le Crédit WhatsApp. Une option que plus aucune formule ne permet se
+  résilie d'elle-même, sans remboursement du mois entamé, et ses numéros s'arrêtent ; en Entreprise, illimitée, ses
+  numéros continuent d'envoyer.
 - 🔲 **Pool de numéros à l’embarquement** : plus tard. Le parcours Embedded Signup lui-même est **LIVE et
   éprouvé depuis le 2026-08-17** (voir la section Accueil) : un vrai numéro d’un business tiers est passé
   connecté et vérifié. Ce qui reste ouvert, c’est de proposer un numéro quand le client n’en a aucun.

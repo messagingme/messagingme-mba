@@ -254,7 +254,7 @@ import { estCleLive, FetchTransportStripe } from './stripe/client';
 import { creerPayeurAutorise, type CreditPaiementRouteDeps } from './http/credit-stripe';
 import type { DepsAchatWhatsapp } from './stripe/achat-whatsapp';
 import type { CreditWhatsappRouteDeps } from './http/credit-whatsapp';
-import { achatPermis, ongletCreditWhatsapp, type DepsAchatPermis } from './credit-whatsapp/achat-permis';
+import { achatPermis, ongletCreditWhatsapp, surLaLigne, type DepsAchatPermis } from './credit-whatsapp/achat-permis';
 import type { AgentsRouteDeps } from './http/agents';
 import type { AgentTestRouteDeps } from './http/agent-test';
 import type { AgentKnowledgeRouteDeps } from './http/agent-knowledge';
@@ -3635,8 +3635,9 @@ async function main(): Promise<void> {
           actions: new PgActionsAgent(pool),
           reglages: settingsStore,
           repondeur: repondeurDeLaConsole,
-          // Le Crédit WhatsApp de la console, plus l'onglet visible (`get_credit` n'en parle que là).
-          creditWhatsapp: { ...creditWhatsappDeLaConsole, onglet: (t) => ongletCreditWhatsapp(portesCreditWhatsapp, t) },
+          // Le Crédit WhatsApp de la console, plus un numéro sur la ligne ou non (`get_credit` n'en parle que là ; l'onglet
+          // paraît aussi pour l'option, lot 4a).
+          creditWhatsapp: { ...creditWhatsappDeLaConsole, surLaLigne: (t) => surLaLigne(portesCreditWhatsapp, t) },
         },
         // La connexion du numéro depuis Claude Code (lot 3c) : le lien signé avec le secret des sessions, vers la page
         // `/brancher` de la console, et la MÊME lecture de l'état que cette page.

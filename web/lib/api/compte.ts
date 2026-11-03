@@ -480,6 +480,8 @@ export interface VueCreditOps {
   /** Ce qu'une Entreprise a envoyé ce mois, au prix client : son solde ne bouge pas, ce montant est à facturer. */
   consommationDuMoisMicroEur?: number;
   provisions?: ProvisionCreditOps[];
+  /** Les places de l'option (lot 4a) : payées chez Stripe, et les numéros que ses lignes couvrent. Absent avant lui. */
+  places?: { payees: number; couverts: number };
 }
 
 /** Un tarif de la grille de Meta en vigueur, et le prix client à la commission globale (`prixClient` côté serveur). */
@@ -510,11 +512,17 @@ export function lireLignesCreditOps(sessionOps: string, tenantId: string): Promi
 }
 
 /**
- * Pose un numéro de l'espace sur la ligne (un numéro d'essai), ou l'en retire. Le serveur refuse un numéro d'un autre
- * espace (404), un numéro 360dialog, en coexistence ou délié (409) ; `note` dit pourquoi.
+ * Pose un numéro de l'espace sur la ligne, ou l'en retire. Le serveur refuse un numéro d'un autre espace (404), un numéro
+ * 360dialog, en coexistence ou délié (409) ; `note` dit pourquoi. Hors Entreprise, une pose consomme les places payées de
+ * l'option (409 `places_manquantes` sinon), sauf `forcer` : un essai, signé, hors des places. `forcer` ne part que coché,
+ * le corps d'une pose ordinaire restant celui d'avant l'option.
  */
-export function poserLigneCreditOps(sessionOps: string, tenantId: string, phoneNumberId: string, poser: boolean, note: string): Promise<VueCreditOps> {
-  return appelOps(sessionOps, `/ops/credit-whatsapp/ligne/${encodeURIComponent(tenantId)}`, { method: 'POST', corps: { phoneNumberId, poser, note } });
+export function poserLigneCreditOps(
+  sessionOps: string, tenantId: string, phoneNumberId: string, poser: boolean, note: string, forcer = false,
+): Promise<VueCreditOps> {
+  return appelOps(sessionOps, `/ops/credit-whatsapp/ligne/${encodeURIComponent(tenantId)}`, {
+    method: 'POST', corps: { phoneNumberId, poser, note, ...(poser && forcer ? { forcer: true } : {}) },
+  });
 }
 
 export function getOpsOverview(sessionOps: string): Promise<OpsOverview> {

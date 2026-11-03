@@ -179,7 +179,7 @@ describe('la lecture, sur des faux', () => {
         repondeur: { reglages: { get: lu('repondeur', { ...EQUIPE, repondeurDelaiScenarioS: 0 }) } },
         // Sur la ligne seulement quand le test donne un solde du Crédit WhatsApp ; illimité, une Entreprise.
         creditWhatsapp: {
-          onglet: async () => o.soldeWa !== undefined,
+          surLaLigne: async () => o.soldeWa !== undefined,
           vue: { solde: async () => o.soldeWa ?? 0, conditions: async () => ({ openBar: o.illimite === true }) },
         },
       },
@@ -266,7 +266,7 @@ describe('l’outil get_setup_state', () => {
       agentIa: {
         gestion: { agents: { listToutes: async () => [] }, creditIa: { etat: async () => ({ ...ETAT_PREPAYE, acces: 'epuise' as const, soldeMicroEur: 0 }) }, etatPourLint: async () => null },
         repondeur: { reglages: { get: async () => EQUIPE } },
-        creditWhatsapp: { onglet: async () => false, vue: { solde: async () => 0, conditions: async () => ({ openBar: false }) } },
+        creditWhatsapp: { surLaLigne: async () => false, vue: { solde: async () => 0, conditions: async () => ({ openBar: false }) } },
       },
       widgets: { gestion: { widgets: { lister: async () => [] } } },
     } satisfies DepsMiseEnService;

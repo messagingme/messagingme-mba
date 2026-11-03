@@ -4328,8 +4328,14 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   `places_manquantes`), sauf une pose FORCÉE et signée, dont la ligne reste `'ops'`. La fin : plus aucune offre qui y
   donne droit (la fin d'un Pro sans Business ni Entreprise, le retrait d'une offre posée à la main) la résilie tout de
   suite sans avoir (`finDeDroitOption`), Stripe qui abandonne un impayé la finit ; ses lignes sont alors arrêtées, pas
-  retirées. Une seule ligne en cours par compte WhatsApp, tenue par la base (`lignes_credit_whatsapp_un_compte_uidx`).
-  La vente s'ouvre quand `STRIPE_PRIX_OPTION_WA` est posé : l'onglet paraît alors pour tout Pro et Business.
+  retirées, 🔴 jamais celles d'une Entreprise (`illimite` du traitement du webhook) : la garde lit l'arrêt d'une ligne
+  AVANT l'illimité, et une Entreprise n'a besoin d'aucune option. Poser l'Entreprise ne résilie pas l'option : la
+  fenêtre de `/ops` l'annonce (`optionCreditWhatsappVivante`), Julien la résilie chez Stripe. Une seule ligne en cours
+  par compte WhatsApp, tenue par la base (`lignes_credit_whatsapp_un_compte_uidx`). La vente s'ouvre quand
+  `STRIPE_PRIX_OPTION_WA` est posé : l'onglet paraît alors pour tout Pro et Business. ⚠️ L'onglet n'est donc plus
+  « un numéro sur la ligne » : Claude (`get_setup_state`, `get_credit`) lit `surLaLigne`
+  (`src/credit-whatsapp/achat-permis.ts`), jamais l'onglet, sans quoi le solde à zéro d'un Pro sans ligne passerait pour
+  des envois coupés ; l'onglet, de son côté, ne dit jamais « épuisé » à un espace sans numéro sur la ligne.
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés

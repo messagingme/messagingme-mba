@@ -127,8 +127,19 @@ une pose dans `/ops` d'un Pro ou d'un Business exige une place payée, sauf gest
 - **Relevé dans le code avant d'écrire** : le webhook range par défaut un événement inconnu chez le numéro, qui
   l'acquitte en silence ; l'option s'aiguille donc avant lui, et une session d'abonnement d'un produit que la version ne
   connaît pas alerte désormais au lieu d'être acquittée sans trace par le chemin de la recharge.
-- **Pas encore en vente** : sans `STRIPE_PRIX_OPTION_WA`, rien ne se montre. Les écrans (l'onglet, la pose forcée de
-  `/ops`) suivent, poussés après l'API.
+- **Pas encore en vente** : sans `STRIPE_PRIX_OPTION_WA`, rien ne se montre.
+- **La relecture** : un rouge, latent tant que l'option n'est pas vendue. Un espace qui a l'option, passé en Entreprise
+  puis dont l'option se termine (résiliée au portail, ou un impayé abandonné) voyait ses lignes arrêtées ; la garde lit
+  l'arrêt AVANT l'illimité, donc tous ses envois refusés, réponses comprises. Corrigé avant la mise en service : la fin
+  d'une option ne coupe jamais les lignes d'une Entreprise, et la fenêtre de `/ops` annonce une option qui resterait
+  facturée quand on pose l'Entreprise ; test vérifié dans les deux sens. Dix jaunes : Claude lisait l'onglet comme « un
+  numéro sur la ligne », et aurait dit épuisé le solde de tout Pro sans ligne dès le prix posé (fermé, `surLaLigne`) ;
+  l'e-mail d'un impayé renvoyait à un geste absent (fermé par le portail de l'onglet) ; les autres attendent au plan,
+  avant l'ouverture de la vente.
+- **Les écrans** (le lot 4a-2, poussés avec le serveur parce qu'ils ne paraissent que sur ses champs neufs) : l'onglet
+  prend l'option (1 à 20 numéros, Checkout), en change le nombre un numéro à la fois, le prix dit avant toute facture et
+  le lien de la facture d'un prorata impayé, et renvoie au portail de Stripe ; il ne dit jamais « épuisé » à un espace
+  sans numéro sur la ligne. `/ops` dit les places et pose une ligne forcée, case cochée.
 
 ## 2026-11-03 : les jaunes des lots D et E du Crédit WhatsApp (migration 0275)
 

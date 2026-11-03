@@ -669,7 +669,7 @@ export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
     numerosCouverts: async () => 0,
     alerter: async () => {},
   },
-  onglet: async () => false,
+  surLaLigne: async () => false,
 };
 
 export const mcpAgentInerte: Pick<DepsMcp, 'agentIa'> = {

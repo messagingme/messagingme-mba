@@ -15,6 +15,10 @@ import { lireLignesCreditOps, poserLigneCreditOps, type LigneCreditOps, type Num
  * compte est sur la ligne d'un autre espace « refusé », comme la garde les lit (relecture du lot D). Une Entreprise est
  * illimitée : son montant du mois est à facturer, son solde ne bouge pas. La section se masque quand l'API n'a pas encore
  * la route.
+ *
+ * Les places de l'option (lot 4a, décision de Julien du 2026-11-03) : hors Entreprise, une pose consomme des places payées
+ * pour tout le compte du numéro, et le serveur refuse sans elles ; un essai se FORCE, case cochée, et sa ligne reste
+ * `'ops'`, signée, hors des places.
  */
 export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton: string; tenantId: string; entreprise: boolean }) {
   const t = useT();
@@ -24,6 +28,7 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
   const [vue, setVue] = useState<VueCreditOps | null>(null);
   const [absente, setAbsente] = useState(false);
   const [note, setNote] = useState('');
+  const [forcer, setForcer] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
 
@@ -41,8 +46,9 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
     setEnvoi(true);
     setMsg(null);
     try {
-      setVue(await poserLigneCreditOps(jeton, tenantId, phoneNumberId, poser, note.trim()));
+      setVue(await poserLigneCreditOps(jeton, tenantId, phoneNumberId, poser, note.trim(), forcer && !entreprise));
       setNote('');
+      setForcer(false);
       setMsg({ kind: 'ok', text: poser ? t('Numéro posé sur la ligne.', 'Number put on the line.') : t('Numéro retiré de la ligne.', 'Number removed from the line.') });
     } catch (err) {
       setMsg({ kind: 'err', text: err instanceof Error ? err.message : t('Geste impossible', 'Action failed') });
@@ -92,6 +98,21 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
         <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} data-testid="ligne-credit-note" />
         {!noteValide && <span className="text-xs text-ink-500" data-testid="ligne-credit-note-requise">{t('Écrivez d’abord la note (3 caractères au moins) : les boutons s’activent ensuite.', 'Write the note first (3 characters at least): the buttons then become active.')}</span>}
       </label>
+
+      {!entreprise && vue.places !== undefined && (
+        <>
+          <p className="text-xs text-ink-700" data-testid="ligne-credit-places">
+            {t(
+              `Places de l’option : ${vue.places.payees} payée${vue.places.payees > 1 ? 's' : ''}, ${vue.places.couverts} numéro${vue.places.couverts > 1 ? 's' : ''} couvert${vue.places.couverts > 1 ? 's' : ''} par ses lignes. Une pose consomme une place par numéro du compte WhatsApp.`,
+              `Option places: ${vue.places.payees} paid, ${vue.places.couverts} number${vue.places.couverts > 1 ? 's' : ''} covered by its lines. A pose takes one place per number of the WhatsApp account.`,
+            )}
+          </p>
+          <label className="flex items-start gap-2 text-xs text-ink-700">
+            <input type="checkbox" className="mt-0.5" checked={forcer} onChange={(e) => setForcer(e.target.checked)} data-testid="ligne-credit-forcer" />
+            <span>{t('Forcer la pose (un essai, sans place payée) : la ligne est posée à la main, hors des places, et la note le dit.', 'Force the pose (a test, without a paid place): the line is set by hand, outside the places, and the note says so.')}</span>
+          </label>
+        </>
+      )}
 
       {entreprise ? (
         <p className="text-xs text-ink-700" data-testid="ligne-credit-illimite-mois">

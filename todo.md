@@ -203,12 +203,17 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   réponses de l'agent de Meta. Son essai réel : la SANDBOX sur la ligne
   une demi-journée, la régularisation du lendemain relue en base.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
-  pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option : la migration 0276 et le serveur
-  (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet) ; restent l'écran de l'onglet
-  (prendre l'option, changer ses places) et celui de `/ops` (forcer une pose), poussés APRÈS l'API qui porte leurs
-  routes. 4b, la recharge automatique, ensuite. 🔴 Avant d'ouvrir la vente, à Julien : le prix `STRIPE_PRIX_OPTION_WA`
-  (le poser ouvre l'onglet à TOUS les Pro et Business), la clé restreinte de Stripe élargie aux factures en écriture
-  (4b), les secrets Stripe dans l'environnement du worker (4b).
+  pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option : la migration 0276, le serveur
+  (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet) et les écrans (l'onglet, la
+  pose forcée de `/ops`) ; le rouge de sa relecture corrigé (la fin de l'option d'une Entreprise n'arrête plus ses
+  lignes). 🟡 Ses jaunes encore ouverts, au plan (§ « La relecture du lot 4a »), dont trois à fermer AVANT l'ouverture de
+  la vente : une ligne arrêtée qui ne se relance pas quand l'option est reprise, les campagnes en pause sur une place
+  manquante jamais reprises, et les trois cas du webhook acquittés sans trace. À Julien : un retrait de place vaut tout
+  de suite (comme les sièges du Pro), la spec disait en fin de période. 4b, la recharge automatique, ensuite. 🔴 Avant
+  d'ouvrir la vente, à Julien : le prix `STRIPE_PRIX_OPTION_WA` (le poser ouvre l'onglet à TOUS les Pro et Business),
+  la modification de quantité laissée FERMÉE pour l'option dans le portail client de Stripe (sinon une place s'ajoute
+  sans payer d'abord), la clé restreinte de Stripe élargie aux factures en écriture (4b), les secrets Stripe dans
+  l'environnement du worker (4b).
 - 🟡 Le compte WhatsApp de Spareka ne se lit plus chez Meta (code 100 sur `pricing_analytics`, avec son jeton comme avec le
   nôtre, relevé le 2026-11-03) : compte retiré ou partage révoqué ? À regarder avant qu'il ne serve.
 - Lot 5, avec le partenaire : l'Embedded Signup sur sa ligne de crédit (rien ne lui est écrit sans Julien) ; et, à

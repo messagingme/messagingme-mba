@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ApiError } from './http';
-import { aUneFactureWhatsapp, getCreditWhatsapp, ouvrirAchatWhatsapp, type LigneCreditWhatsapp } from './api-credit-whatsapp';
+import {
+  aUneFactureWhatsapp, changerPlacesOption, factureDeLaPlace, getCreditWhatsapp, ouvrirAchatWhatsapp, ouvrirOptionWhatsapp,
+  SANS_OPTION, type LigneCreditWhatsapp,
+} from './api-credit-whatsapp';
 
 /**
  * Le Crédit WhatsApp côté navigateur : ce qu'une réponse du serveur veut dire pour l'onglet. 🔴 La console part avant
@@ -31,6 +34,7 @@ describe('getCreditWhatsapp', () => {
       ligneArretee: false,
       historique: [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
       serie: [{ jour: '2026-10-31', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
+      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null },
     };
     const appels = repondre(200, vue);
     expect(await getCreditWhatsapp('t1')).toEqual(vue);
@@ -43,7 +47,17 @@ describe('getCreditWhatsapp', () => {
       // Une API d'avant l'Entreprise illimitée (la console part avant l'API) : pas d'illimité, aucune consommation.
       illimite: false, soldeMicroEur: 0, consommationDuMoisMicroEur: 0, prixFrance: null, franchiseServiceParNumero: 0,
       achat: { disponible: false, permis: 'ok', offres: [] }, ligneArretee: false, historique: [], serie: [],
+      // Une API d'avant l'option : rien en vente, rien de pris, la section ne paraît pas.
+      option: SANS_OPTION,
     });
+  });
+
+  it('🔴 une option illisible n’invente ni places ni statut : des comptes faux valent zéro, un statut inconnu rien', async () => {
+    repondre(200, {
+      soldeMicroEur: 0,
+      option: { disponible: 'oui', prixHtCentimes: -5, placesMax: 2.5, places: '3', couverts: null, statut: 'perdu', finPrevueLe: 12 },
+    });
+    expect((await getCreditWhatsapp('t1')).option).toEqual(SANS_OPTION);
   });
 
   it('🔴 une Entreprise : l’illimité et la consommation du mois passent tels quels', async () => {
@@ -80,6 +94,49 @@ describe('ouvrirAchatWhatsapp : ce qu’une réponse veut dire', () => {
     const err = await ouvrirAchatWhatsapp('t1', 'wa_100').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
     expect((err as ApiError).message).toContain('Crédit WhatsApp');
+  });
+});
+
+describe('l’option : la prendre, changer ses places', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('200 : l’adresse de la page de paiement, et le corps ne porte que le nombre de numéros', async () => {
+    const appels = repondre(200, { url: 'https://checkout.stripe.com/c/pay/cs_option' });
+    expect(await ouvrirOptionWhatsapp('t1', 3)).toEqual({ url: 'https://checkout.stripe.com/c/pay/cs_option' });
+    expect(appels[0]!.url).toContain('/tenants/t1/credit-whatsapp/option');
+    expect(appels[0]!.corps).toEqual({ places: 3 });
+  });
+
+  it('🔴 404 (route pas encore déployée) et 503 (prix pas posé) : pas encore disponible ; un autre refus remonte', async () => {
+    repondre(404, { message: 'Route not found' });
+    expect(await ouvrirOptionWhatsapp('t1', 1)).toEqual({ indisponible: true });
+    vi.unstubAllGlobals();
+    repondre(503, { error: 'L’option Crédit WhatsApp n’est pas encore en vente : contactez-nous.', code: 'option_indisponible' });
+    expect(await ouvrirOptionWhatsapp('t1', 1)).toEqual({ indisponible: true });
+    vi.unstubAllGlobals();
+    repondre(409, { error: 'Votre espace a déjà l’option Crédit WhatsApp : changez son nombre de numéros.', code: 'option_deja_prise' });
+    await expect(ouvrirOptionWhatsapp('t1', 1)).rejects.toThrow(/déjà l’option/);
+  });
+
+  it('un changement de places part en PATCH, avec les places lues et la cible', async () => {
+    const appels = repondre(200, { places: 3 });
+    expect(await changerPlacesOption('t1', 2, 3)).toEqual({ places: 3 });
+    expect(appels[0]!.url).toContain('/tenants/t1/credit-whatsapp/option');
+    expect(appels[0]!.corps).toEqual({ depuis: 2, cible: 3 });
+  });
+
+  it('🔴 un ajout dont le prorata n’est pas payé (402) donne la page de sa facture, en https seulement', async () => {
+    const refus = async (status: number, corps: unknown): Promise<unknown> => {
+      vi.unstubAllGlobals();
+      repondre(status, corps);
+      return changerPlacesOption('t1', 1, 2).catch((e: unknown) => e);
+    };
+    const facture = 'https://invoice.stripe.com/i/acct_1/test_facture';
+    expect(factureDeLaPlace(await refus(402, { error: 'non abouti', code: 'paiement_place_incomplet', url: facture }))).toBe(facture);
+    expect(factureDeLaPlace(await refus(402, { error: 'non abouti', code: 'paiement_place_incomplet', url: 'javascript:alert(1)' }))).toBeNull();
+    expect(factureDeLaPlace(await refus(402, { error: 'non abouti', code: 'autre', url: facture }))).toBeNull();
+    expect(factureDeLaPlace(await refus(409, { error: 'changé', code: 'paiement_place_incomplet', url: facture }))).toBeNull();
+    expect(factureDeLaPlace(new Error('réseau'))).toBeNull();
   });
 });
 

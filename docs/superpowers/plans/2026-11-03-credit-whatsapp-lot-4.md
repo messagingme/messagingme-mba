@@ -85,8 +85,9 @@ cascade, statut, quantité de 1 à 20, fin de période, fin et sa raison, un viv
 
 **L'écran** : l'onglet Crédit WhatsApp de la page Offre se montre aussi à un Pro ou un Business SANS ligne (aujourd'hui
 il ne paraît qu'avec un numéro sur la ligne), avec l'option : « 30 € HT par numéro et par mois », le nombre de places
-et le bouton qui ouvre Checkout ; une place de plus ou de moins passe par la même route. En Free, grisé « avec le
-Pro » ; en Entreprise, « illimité », sans option. Routes du module `creditWhatsapp` : la lecture de l'option avec celle
+et le bouton qui ouvre Checkout ; une place de plus ou de moins passe par la même route. En Free, rien (relevé en
+écrivant l'écran : la Free n'a aucun onglet dans la page Offre ; son « avec le Pro » vit dans le guide de connexion, au
+lot 5) ; en Entreprise, « illimité », sans option. Routes du module `creditWhatsapp` : la lecture de l'option avec celle
 du solde (tout membre), `POST …/credit-whatsapp/option` et `PATCH …/option` (admin, plafond des opérations coûteuses).
 
 **Interfaces** : `PgOptionsCreditStore` (`enregistrer`, `majStatut`, `finir`, `vivante(tenantId)`) ;
@@ -114,8 +115,50 @@ premier `payment_failed` non ; la suppression d'un espace liste l'option à rés
 d'essai sur la session ; l'onglet d'un Pro sans ligne propose l'option, celui d'une Free la grise (e2e).
 
 **Avancement (2026-11-03 au soir)** : la migration 0276 poussée seule ; le serveur de 4a écrit et testé (magasin, places
-dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet, e-mail, bilan de suppression). Restent les deux
-écrans (l'onglet, la pose forcée de `/ops`), poussés après l'API qui porte leurs routes.
+dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet, e-mail, bilan de suppression), relu, son rouge
+corrigé ; les deux écrans (l'onglet, la pose forcée de `/ops`) écrits et testés. Ils ne paraissent que sur les champs
+neufs de l'API (l'option de la vue, les places de `/ops`) : ils partent avec elle, sans fenêtre où ils appelleraient une
+route absente.
+
+## La relecture du lot 4a (2026-11-03)
+
+**Un rouge, corrigé avant la mise en service** (latent tant que l'option n'est pas vendue) : un espace qui a l'option,
+passé en Entreprise, puis dont l'option se termine (résiliée au portail, ou un impayé que Stripe abandonne), voyait ses
+lignes arrêtées ; la garde lit l'arrêt d'une ligne AVANT l'illimité, donc tous les envois de l'Entreprise refusés,
+réponses comprises. La fin d'une option ne coupe plus les lignes d'une Entreprise (`illimite`, traitement du webhook), et
+poser l'Entreprise sur un espace qui a l'option s'annonce dans `/ops` : elle ne sert plus et reste facturée tant que
+Julien ne la résilie pas chez Stripe. Test vérifié dans les deux sens.
+
+**Les jaunes** (✅ fermé ; les autres attendent, ceux marqués « avant la vente » à fermer avant de poser le prix) :
+
+1. ✅ Claude lisait l'onglet comme « un numéro sur la ligne » : `get_setup_state` et `get_credit` auraient dit épuisé le
+   solde de tout Pro sans ligne dès le prix posé, et poussé un achat refusé. Fermé : `surLaLigne` ; l'onglet, lui, ne
+   dit plus « épuisé » à un espace sans numéro sur la ligne.
+2. SEPA, si le Checkout d'abonnement l'accepte : une session réglée en différé (`async_payment_succeeded`) d'un Pro, d'un
+   numéro ou de l'option lève l'alerte « produit inconnu » ; un `updated` en `active` enregistre l'option avant
+   l'encaissement (le Pro l'évite). À fermer avant d'ouvrir SEPA sur ces produits.
+3. Avant la vente : trois cas acquittés sans trace. `STRIPE_PRIX_OPTION_WA` absent d'un conteneur (une session payée
+   n'est pas enregistrée), une facture payée d'une option déjà finie chez nous, et `unpaid`, qui finit l'option sans la
+   résilier chez Stripe (un client qui règle en retard serait prélevé chaque mois, ses lignes arrêtées).
+4. Avant la vente : une ligne arrêtée ne se relance jamais ; un client qui reprend l'option paie et sa ligne reste
+   arrêtée (dans `/ops`, « Retirer » puis « Poser »).
+5. Une ligne posée sous l'Entreprise est `'ops'`, hors des places, et le reste quand l'espace redescend en Business ou en
+   Pro : l'origine confond l'essai forcé et l'Entreprise. À signaler à la sortie de l'Entreprise, ou une colonne
+   « forcée ».
+6. Avant la vente : une campagne en pause `ligne_credit_inactive` n'est jamais reprise quand les places changent, et le
+   refus d'une place manquante ne dit pas sa raison (la garde ne fait que la journaliser), alors que la décision 1 la
+   voulait dite.
+7. À trancher par Julien : un retrait de place vaut tout de suite (`proration_behavior: none`, comme les sièges du Pro),
+   la spec disait « à la fin de la période ». La facture est la même (le mois payé n'est pas remboursé, le suivant compte
+   un numéro de moins) ; le client perd tout de suite la place retirée, qui était libre (un retrait ne passe pas sous les
+   numéros couverts). La garder jusqu'à la fin de la période demanderait une colonne de plus.
+8. Une panne passagère de Stripe (réseau, 5xx, 429) pendant la résiliation de fin de droit devient une résiliation à la
+   main au lieu d'un rejeu.
+9. ✅ L'e-mail d'un renouvellement impayé renvoyait à l'onglet pour mettre à jour la carte, geste absent : fermé par le
+   bouton « Gérer l'option » de l'onglet (le portail de Stripe).
+10. Mineurs : `changerPlaces` ne relit pas l'offre (une Entreprise pourrait ajouter des places inutiles) ; `noter` ne
+    borne pas les places relues (une quantité posée à la main hors 1 à 20 rendrait 500 au CHECK) ; le cache des places
+    n'a pas de lecture partagée en vol ; la requête du bilan de suppression pour l'option n'a pas de test.
 
 ## Lot 4b : la recharge automatique (tâche 14 du plan d'ensemble)
 

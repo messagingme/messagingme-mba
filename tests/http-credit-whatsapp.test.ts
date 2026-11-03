@@ -7,7 +7,7 @@ import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { CreditWhatsappRouteDeps } from '../src/http/credit-whatsapp';
 import type { AchatPermis } from '../src/stripe/achat-whatsapp';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
-import { achatPermis, ongletCreditWhatsapp } from '../src/credit-whatsapp/achat-permis';
+import { achatPermis, ongletCreditWhatsapp, surLaLigne } from '../src/credit-whatsapp/achat-permis';
 import type { LigneCredit } from '../src/credit-whatsapp/lignes.pg';
 import type { GrilleMeta } from '../src/credit-whatsapp/grille';
 
@@ -279,6 +279,15 @@ describe('qui peut acheter du Crédit WhatsApp', () => {
     expect(await ongletCreditWhatsapp(deps({ offre: 'business', lignes: [], optionEnVente: true }), T1)).toBe(true);
     expect(await ongletCreditWhatsapp(deps({ offre: 'base', lignes: [], optionEnVente: true }), T1)).toBe(false);
     expect(await ongletCreditWhatsapp(deps({ offre: 'entreprise', openBar: true, lignes: [], optionEnVente: true }), T1)).toBe(false);
+  });
+
+  it('🔴 « sur la ligne », que Claude lit, n’est pas l’onglet : l’option en vente n’y met pas un Pro sans ligne', async () => {
+    // Relecture du lot 4a : `get_setup_state` et `get_credit` lisaient l'onglet, et disaient épuisé le solde d'un Pro dont
+    // aucun message ne passe par nous.
+    expect(await surLaLigne(deps({ lignes: [], optionEnVente: true }), T1)).toBe(false);
+    expect(await surLaLigne(deps({}), T1)).toBe(true);
+    expect(await surLaLigne(deps({ lignes: [ligne({ arreteeLe: '2026-10-31T11:00:00Z' })] }), T1)).toBe(true);
+    expect(await surLaLigne(deps({ offre: 'base' }), T1)).toBe(false);
   });
 });
 

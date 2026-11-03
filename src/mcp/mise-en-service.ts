@@ -195,11 +195,11 @@ export interface DepsMiseEnService {
     };
     repondeur: { reglages: { get(tenantId: string): Promise<ReglageDuRepondeur> } };
     /**
-     * Le Crédit WhatsApp (`DepsAgentMcp.creditWhatsapp`) : l'onglet visible, ses conditions (une Entreprise est illimitée :
-     * son solde, qui ne bouge pas, ne dit rien) et son solde.
+     * Le Crédit WhatsApp (`DepsAgentMcp.creditWhatsapp`) : un numéro sur la ligne ou non, ses conditions (une Entreprise est
+     * illimitée : son solde, qui ne bouge pas, ne dit rien) et son solde.
      */
     creditWhatsapp: {
-      onglet(tenantId: string): Promise<boolean>;
+      surLaLigne(tenantId: string): Promise<boolean>;
       vue: { solde(tenantId: string): Promise<number>; conditions(tenantId: string): Promise<{ openBar: boolean }> };
     };
   };
@@ -227,9 +227,10 @@ export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: strin
     ou(g.agents.listToutes(tenantId), tenantId, 'agents'),
     ou(deps.agentIa.repondeur.reglages.get(tenantId), tenantId, 'repondeur'),
     ou(deps.widgets.gestion.widgets.lister(tenantId), tenantId, 'bulles'),
-    // Le Crédit WhatsApp ne se lit que pour un espace sur la ligne ; ailleurs, il n'en est pas question. Une Entreprise est
-    // illimitée (décision du 2026-11-02) : son solde ne bouge pas et n'arrête rien, aucun avertissement n'en sort.
-    ou(wa.onglet(tenantId).then(async (o) => (o && !(await wa.vue.conditions(tenantId)).openBar ? wa.vue.solde(tenantId) : null)), tenantId, 'credit_whatsapp'),
+    // Le Crédit WhatsApp ne se lit que pour un espace sur la ligne ; ailleurs, il n'en est pas question (pas même pour un Pro
+    // qui voit l'onglet pour prendre l'option, lot 4a). Une Entreprise est illimitée (décision du 2026-11-02) : son solde ne
+    // bouge pas et n'arrête rien, aucun avertissement n'en sort.
+    ou(wa.surLaLigne(tenantId).then(async (o) => (o && !(await wa.vue.conditions(tenantId)).openBar ? wa.vue.solde(tenantId) : null)), tenantId, 'credit_whatsapp'),
   ]);
   // Les manques, pour les brouillons seulement (la lecture de la console, `/manques`) : un espace en porte quelques-uns.
   const agents = liste === null ? null : await Promise.all(liste.map(async (a) => ({

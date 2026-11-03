@@ -44,15 +44,27 @@ interface Options {
   /** Les vues successives du Crédit WhatsApp (la dernière se répète). */
   vues?: unknown[];
   achat?: { status: number; body: unknown };
+  /** La réponse à la prise de l'option (POST) et au changement de ses places (PATCH). */
+  option?: { status: number; body: unknown };
+  places?: { status: number; body: unknown };
 }
+
+/** L'option en vente, pas encore prise (lot 4a) : 30 € HT par numéro et par mois, de 1 à 20 numéros. */
+const OPTION = { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 0, statut: null, finPrevueLe: null };
+const PORTAIL = 'https://billing.stripe.com/p/session/test_e2e';
+/** Un Pro sans numéro sur le Crédit WhatsApp : l'onglet paraît pour l'option, la recharge attend un numéro. */
+const SANS_NUMERO = { soldeMicroEur: 0, historique: [], achat: { disponible: true, permis: 'sans_ligne', offres: credit().achat.offres } };
 
 async function monter(page: Page, o: Options = {}) {
   const achats: unknown[] = [];
+  const options: unknown[] = [];
+  const changements: unknown[] = [];
   const factures: string[] = [];
   const vues = [...(o.vues ?? [credit()])];
   let lectures = 0;
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), o.session ?? ADMIN);
   await page.route(`${PAGE_STRIPE}**`, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Stripe Checkout (e2e)</h1>' }));
+  await page.route(`${PORTAIL}**`, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Portail Stripe (e2e)</h1>' }));
   await page.route('**/api/backend/**', async (route) => {
     const req = route.request();
     const chemin = new URL(req.url()).pathname;
@@ -62,6 +74,17 @@ async function monter(page: Page, o: Options = {}) {
       const a = o.achat ?? { status: 200, body: { url: PAGE_STRIPE } };
       return json(a.body, a.status);
     }
+    if (chemin.endsWith('/credit-whatsapp/option') && req.method() === 'POST') {
+      options.push(req.postDataJSON());
+      const a = o.option ?? { status: 200, body: { url: PAGE_STRIPE } };
+      return json(a.body, a.status);
+    }
+    if (chemin.endsWith('/credit-whatsapp/option') && req.method() === 'PATCH') {
+      changements.push(req.postDataJSON());
+      const a = o.places ?? { status: 200, body: { places: 0 } };
+      return json(a.body, a.status);
+    }
+    if (chemin.endsWith('/offre/portail') && req.method() === 'POST') return json({ url: PORTAIL });
     if (chemin.endsWith('/credit-whatsapp')) {
       lectures += 1;
       return json(vues.length > 1 ? vues.shift()! : vues[0]!);
@@ -78,7 +101,7 @@ async function monter(page: Page, o: Options = {}) {
     if (chemin.endsWith('/me')) return json({ email: ADMIN.email, name: 'Jean Test', role: 'admin' });
     return json({});
   });
-  return { achats, factures, lectures: () => lectures };
+  return { achats, options, changements, factures, lectures: () => lectures };
 }
 
 test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
@@ -223,5 +246,114 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     await expect(page).toHaveURL(/\/inbox/);
     await expect(page.getByTestId('credit-wa-offre-wa_50')).toHaveCount(0);
     expect(m.achats).toEqual([]);
+  });
+});
+
+/**
+ * L'OPTION DU CRÉDIT WHATSAPP (lot 4a, 30 € HT par numéro et par mois) : un Pro ou un Business la prend dans l'onglet, pour
+ * 1 à 20 numéros, puis en change le nombre un numéro à la fois, le prix dit avant toute facture. Stripe est simulé.
+ */
+test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
+  test('🔴 un Pro sans numéro sur le Crédit WhatsApp : l’option proposée, jamais « épuisé », et la prendre ouvre Stripe', async ({ page }) => {
+    const m = await monter(page, { vues: [credit({ ...SANS_NUMERO, option: OPTION })] });
+    await page.goto('/offre?tab=whatsapp');
+    const section = page.getByTestId('credit-wa-option');
+    await expect(section).toContainText('30 € HT par numéro et par mois');
+    // Ses messages ne passent pas par le solde : un zéro n'y est pas « épuisé ».
+    await expect(page.getByTestId('credit-wa-solde')).toContainText('0,00');
+    for (const alerte of ['credit-wa-epuise', 'credit-wa-presque-epuise', 'credit-wa-bas']) {
+      await expect(page.getByTestId(alerte), alerte).toHaveCount(0);
+    }
+    await expect(page.getByTestId('credit-wa-ferme')).toContainText('avec l’option ci-dessus');
+    await page.getByTestId('credit-wa-option-places').selectOption('2');
+    await expect(page.getByTestId('credit-wa-option-prendre')).toHaveText(/Prendre l’option, 60 € HT par mois/);
+    await page.getByTestId('credit-wa-option-prendre').click();
+    await expect(page).toHaveURL(PAGE_STRIPE);
+    expect(m.options).toEqual([{ places: 2 }]);
+  });
+
+  test('🔴 une API d’avant l’option, ou une Entreprise : aucune section de l’option', async ({ page }) => {
+    await monter(page);
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-solde')).toContainText('37,25');
+    await expect(page.getByTestId('credit-wa-option')).toHaveCount(0);
+  });
+
+  test('une Entreprise, même l’option en vente : illimitée, sans option', async ({ page }) => {
+    await monter(page, { vues: [credit({ illimite: true, soldeMicroEur: 0, achat: { disponible: true, permis: 'open_bar', offres: [] }, option: OPTION })] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-illimite')).toBeVisible();
+    await expect(page.getByTestId('credit-wa-option')).toHaveCount(0);
+  });
+
+  test('🔴 le RETOUR du paiement de l’option ne prend rien : il relit jusqu’à voir ses places', async ({ page }) => {
+    const prise = { ...OPTION, places: 1, statut: 'actif' };
+    const m = await monter(page, { vues: [credit({ ...SANS_NUMERO, option: OPTION }), credit({ ...SANS_NUMERO, option: prise })] });
+    await page.goto('/offre?tab=whatsapp&option=recue');
+    await expect(page.getByTestId('credit-wa-option-recue')).toContainText('arrive dans quelques secondes');
+    await expect(page.getByTestId('credit-wa-option-recue')).toContainText('votre option est active', { timeout: 10_000 });
+    await expect(page.getByTestId('credit-wa-option-payes')).toHaveText('1');
+    await expect(page.getByTestId('credit-wa-option-libre')).toContainText('contactez-nous depuis le Support');
+    expect(m.lectures()).toBeGreaterThanOrEqual(2);
+    expect(m.options).toEqual([]);
+  });
+
+  test('🔴 un numéro de plus : son prix dit avant la facture ; un prorata impayé donne la page de sa facture', async ({ page }) => {
+    const facture = 'https://invoice.stripe.com/i/acct_e2e/test_place';
+    const m = await monter(page, {
+      vues: [credit({ option: { ...OPTION, places: 2, couverts: 1, statut: 'actif' } })],
+      places: { status: 402, body: { error: 'Le paiement du numéro en plus n’a pas abouti : réglez la facture sur sa page, puis recommencez.', code: 'paiement_place_incomplet', url: facture } },
+    });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-payes')).toHaveText('2');
+    await expect(page.getByTestId('credit-wa-option-couverts')).toHaveText('1');
+    await page.getByTestId('credit-wa-option-ajouter').click();
+    await expect(page.getByTestId('credit-wa-option-confirmer')).toContainText(/30 € HT par mois : le prorata .* est facturé maintenant/);
+    // Rien ne part avant la confirmation.
+    expect(m.changements).toEqual([]);
+    await page.getByTestId('credit-wa-option-valider').click();
+    await expect(page.getByTestId('credit-wa-option-erreur')).toContainText('n’a pas abouti');
+    await expect(page.getByTestId('credit-wa-option-facture')).toHaveAttribute('href', facture);
+    expect(m.changements).toEqual([{ depuis: 2, cible: 3 }]);
+  });
+
+  test('🔴 un retrait ne passe pas sous les numéros sur le Crédit WhatsApp, et part depuis les places lues', async ({ page }) => {
+    const pleine = await monter(page, { vues: [credit({ option: { ...OPTION, places: 2, couverts: 2, statut: 'actif' } })] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-retirer')).toBeDisabled();
+    expect(pleine.changements).toEqual([]);
+  });
+
+  test('un retrait possible : annoncé sans remboursement, puis envoyé et relu', async ({ page }) => {
+    const m = await monter(page, {
+      vues: [credit({ option: { ...OPTION, places: 3, couverts: 2, statut: 'actif' } }), credit({ option: { ...OPTION, places: 2, couverts: 2, statut: 'actif' } })],
+      places: { status: 200, body: { places: 2 } },
+    });
+    await page.goto('/offre?tab=whatsapp');
+    await page.getByTestId('credit-wa-option-retirer').click();
+    await expect(page.getByTestId('credit-wa-option-confirmer')).toContainText('sans remboursement du mois entamé');
+    await page.getByTestId('credit-wa-option-valider').click();
+    await expect(page.getByTestId('credit-wa-option-payes')).toHaveText('2');
+    expect(m.changements).toEqual([{ depuis: 3, cible: 2 }]);
+    await expect(page.getByTestId('credit-wa-option-retirer')).toBeDisabled();
+  });
+
+  test('🔴 un numéro du compte au-delà des places : l’écran dit qu’il n’envoie pas', async ({ page }) => {
+    await monter(page, { vues: [credit({ option: { ...OPTION, places: 1, couverts: 2, statut: 'actif' } })] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-couverts')).toHaveText('1');
+    await expect(page.getByTestId('credit-wa-option-manque')).toContainText('1 numéro de votre compte WhatsApp n’envoie pas');
+  });
+
+  test('🔴 un renouvellement impayé, une fin programmée : dits, et plus de changement de places', async ({ page }) => {
+    await monter(page, { vues: [credit({ option: { ...OPTION, places: 2, couverts: 1, statut: 'en_retard', finPrevueLe: '2026-11-30T10:00:00.000Z' } })] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-retard')).toContainText('Stripe le retente');
+    await expect(page.getByTestId('credit-wa-option-fin')).toContainText('30/11/2026');
+    await expect(page.getByTestId('credit-wa-option-ajouter')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-retirer')).toHaveCount(0);
+    // La carte se met à jour au portail de Stripe.
+    await page.getByTestId('credit-wa-option-portail').click();
+    await expect(page).toHaveURL(PORTAIL);
   });
 });

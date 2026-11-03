@@ -37,7 +37,7 @@ class FauxStripe implements TransportStripe {
   async delete(): Promise<ReponseStripe> { throw new Error('non prévu'); }
 }
 
-function deps(o: { onglet: boolean; illimite?: boolean }) {
+function deps(o: { surLaLigne: boolean; illimite?: boolean }) {
   const transport = new FauxStripe();
   const d = {
     ...mcpAgentInerte,
@@ -47,7 +47,7 @@ function deps(o: { onglet: boolean; illimite?: boolean }) {
       gestion: { ...mcpAgentInerte.agentIa.gestion, credits: { solde: async () => 4_000_000, historique: async () => [] } },
       creditWhatsapp: {
         ...creditWhatsappInerte,
-        onglet: async () => o.onglet,
+        surLaLigne: async () => o.surLaLigne,
         achat: {
           ...creditWhatsappInerte.achat,
           stripe: {
@@ -74,13 +74,13 @@ function deps(o: { onglet: boolean; illimite?: boolean }) {
 
 describe('get_credit et le Crédit WhatsApp', () => {
   it('🔴 sans numéro sur la ligne, `get_credit` n’en dit RIEN (pas de clé, pas de solde à zéro)', async () => {
-    const r = await outil('get_credit').executer(deps({ onglet: false }).d, T1, {}, PERSONNE) as Record<string, unknown>;
+    const r = await outil('get_credit').executer(deps({ surLaLigne: false }).d, T1, {}, PERSONNE) as Record<string, unknown>;
     expect(r).not.toHaveProperty('credit_whatsapp');
     expect(r.solde_eur).toBeDefined();
   });
 
   it('🔴 avec un numéro sur la ligne : le solde, le prix en France commission comprise (jamais son taux), les envois du jour', async () => {
-    const r = await outil('get_credit').executer(deps({ onglet: true }).d, T1, {}, PERSONNE) as { credit_whatsapp: Record<string, unknown> };
+    const r = await outil('get_credit').executer(deps({ surLaLigne: true }).d, T1, {}, PERSONNE) as { credit_whatsapp: Record<string, unknown> };
     const wa = r.credit_whatsapp;
     expect(wa.solde_eur).toBeDefined();
     expect(Object.keys(wa.prix_france_eur as object)).toEqual(['marketing', 'utility', 'authentication', 'service']);
@@ -90,7 +90,7 @@ describe('get_credit et le Crédit WhatsApp', () => {
   });
 
   it('🔴 une Entreprise : « illimité » et la consommation du mois, JAMAIS un solde (il ne bouge pas, il ne dit rien)', async () => {
-    const r = await outil('get_credit').executer(deps({ onglet: true, illimite: true }).d, T1, {}, PERSONNE) as { credit_whatsapp: Record<string, unknown> };
+    const r = await outil('get_credit').executer(deps({ surLaLigne: true, illimite: true }).d, T1, {}, PERSONNE) as { credit_whatsapp: Record<string, unknown> };
     const wa = r.credit_whatsapp;
     expect(wa).toMatchObject({ illimite: true, consommation_du_mois_eur: 2.15 });
     expect(wa).not.toHaveProperty('solde_eur');
@@ -103,7 +103,7 @@ describe('get_credit et le Crédit WhatsApp', () => {
   });
 
   it('🔴 le Crédit IA d’une Entreprise : « illimité », sa consommation du mois et son plafond, JAMAIS un solde', async () => {
-    const { d } = deps({ onglet: false });
+    const { d } = deps({ surLaLigne: false });
     const g = (d.agentIa as unknown as { gestion: Record<string, unknown> }).gestion;
     g.creditIa = { etat: async () => ({ acces: 'plafond', illimite: true, soldeMicroEur: 4_820_000, consommationDuMoisMicroEur: 100_020_000, plafondMicroEur: 100_000_000 }) };
     const r = await outil('get_credit').executer(d, T1, {}, PERSONNE) as Record<string, unknown>;
@@ -114,7 +114,7 @@ describe('get_credit et le Crédit WhatsApp', () => {
 
 describe('buy_credit et le Crédit WhatsApp', () => {
   it('🔴 une offre `wa_*` ouvre l’achat du Crédit WhatsApp (produit et codes promo fermés), retour par la page publique', async () => {
-    const { d, transport } = deps({ onglet: true });
+    const { d, transport } = deps({ surLaLigne: true });
     const r = await outil('buy_credit').executer(d, T1, { offre: 'wa_100' }, PERSONNE) as Record<string, unknown>;
     expect(r).toMatchObject({ url: 'https://checkout.stripe.com/c/pay/cs_live_1', offre: 'wa_100', credit: 'whatsapp', montant_ht_eur: 100 });
     const session = transport.sessions[0]!;
@@ -124,7 +124,7 @@ describe('buy_credit et le Crédit WhatsApp', () => {
   });
 
   it('`credit: "whatsapp"` avec une offre du crédit IA est refusé ; sans `credit`, une offre `refill_*` reste au crédit IA', async () => {
-    const { d, transport } = deps({ onglet: true });
+    const { d, transport } = deps({ surLaLigne: true });
     await expect(outil('buy_credit').executer(d, T1, { offre: 'refill_50', credit: 'whatsapp' }, PERSONNE)).rejects.toThrow(/offre inconnue/);
     expect(transport.sessions).toEqual([]);
   });

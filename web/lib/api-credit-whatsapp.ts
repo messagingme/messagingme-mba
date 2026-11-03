@@ -31,6 +31,29 @@ export interface LigneCreditWhatsapp {
   facture: boolean;
 }
 
+/**
+ * L'option du Crédit WhatsApp (lot 4a, 30 € HT par numéro et par mois) telle que l'onglet la lit. Une place est un numéro :
+ * `places` est ce que Stripe a relu payé, `couverts` les numéros déjà branchés sur le Crédit WhatsApp par l'option (un
+ * retrait ne passe pas sous leur nombre).
+ */
+export interface OptionCreditWhatsapp {
+  /** En vente pour cet espace (un Pro ou un Business, le prix posé chez Stripe) : sinon l'onglet n'en parle pas. */
+  disponible: boolean;
+  prixHtCentimes: number;
+  placesMax: number;
+  places: number;
+  couverts: number;
+  /** `null` sans option ; `en_retard` : un renouvellement impayé que Stripe relance encore. */
+  statut: 'actif' | 'en_retard' | 'resilie' | null;
+  /** La fin programmée (une résiliation demandée au portail de Stripe), ISO ; `null` sinon. */
+  finPrevueLe: string | null;
+}
+
+/** Une API d'avant l'option (la console part avant l'API) : rien en vente, rien de pris. */
+export const SANS_OPTION: OptionCreditWhatsapp = {
+  disponible: false, prixHtCentimes: 0, placesMax: 0, places: 0, couverts: 0, statut: null, finPrevueLe: null,
+};
+
 /** Ce que lit l'onglet. Montants en micro-euros ; un prix se montre tout compris, jamais un taux. */
 export interface VueCreditWhatsapp {
   /**
@@ -57,6 +80,25 @@ export interface VueCreditWhatsapp {
   historique: LigneCreditWhatsapp[];
   /** La courbe de 90 jours (lot C) ; vide sur une API plus ancienne. */
   serie: PointCredit[];
+  /** L'option ; `SANS_OPTION` sur une API plus ancienne. */
+  option: OptionCreditWhatsapp;
+}
+
+/** Un compte qu'on affiche : un entier positif, zéro sinon (un corps inattendu n'invente pas de places). */
+const compte = (v: unknown): number => (typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : 0);
+
+function lireOption(v: unknown): OptionCreditWhatsapp {
+  if (typeof v !== 'object' || v === null) return SANS_OPTION;
+  const o = v as Record<string, unknown>;
+  return {
+    disponible: o.disponible === true,
+    prixHtCentimes: compte(o.prixHtCentimes),
+    placesMax: compte(o.placesMax),
+    places: compte(o.places),
+    couverts: compte(o.couverts),
+    statut: o.statut === 'actif' || o.statut === 'en_retard' || o.statut === 'resilie' ? o.statut : null,
+    finPrevueLe: typeof o.finPrevueLe === 'string' ? o.finPrevueLe : null,
+  };
 }
 
 /**
@@ -82,7 +124,43 @@ export async function getCreditWhatsapp(tenantId: string): Promise<VueCreditWhat
     ligneArretee: r.ligneArretee === true,
     historique: Array.isArray(r.historique) ? r.historique : [],
     serie: pointsDeCourbe(r.serie),
+    option: lireOption(r.option),
   };
+}
+
+/**
+ * Prend l'option pour `places` numéros et rend l'adresse de la page de paiement de Stripe. 404 (route pas encore
+ * déployée) et 503 (prix pas posé) veulent dire « pas encore disponible » ; tout autre refus remonte avec le message du
+ * serveur (formule, option déjà prise).
+ */
+export async function ouvrirOptionWhatsapp(tenantId: string, places: number): Promise<IssuePaiement> {
+  try {
+    const r = await request<{ url: string }>(`/tenants/${tenantId}/credit-whatsapp/option`, {
+      method: 'POST',
+      body: JSON.stringify({ places }),
+    });
+    return { url: r.url };
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 404 || err.status === 503)) return { indisponible: true };
+    throw err;
+  }
+}
+
+/**
+ * Change les places de l'option, de `depuis` (ce que l'écran a lu : une vue périmée est refusée) à `cible`. Un ajout se
+ * paie au prorata avant de compter ; un retrait ne passe pas sous les numéros branchés. Rend les places relues chez Stripe.
+ */
+export function changerPlacesOption(tenantId: string, depuis: number, cible: number): Promise<{ places: number }> {
+  return request(`/tenants/${tenantId}/credit-whatsapp/option`, { method: 'PATCH', body: JSON.stringify({ depuis, cible }) });
+}
+
+/** La page de la facture d'un numéro en plus dont le paiement n'a pas abouti (402 `paiement_place_incomplet`), ou `null`. */
+export function factureDeLaPlace(err: unknown): string | null {
+  if (!(err instanceof ApiError) || err.status !== 402) return null;
+  const c = err.corps;
+  if (typeof c !== 'object' || c === null) return null;
+  const { code, url } = c as { code?: unknown; url?: unknown };
+  return code === 'paiement_place_incomplet' && typeof url === 'string' && url.startsWith('https://') ? url : null;
 }
 
 /**
