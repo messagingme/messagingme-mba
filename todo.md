@@ -1050,16 +1050,13 @@ fait échouer tout e2e qui viole la CSP et joue la suite dans les deux topologie
 pour l'instant, un jeton Docker Hub (posé par Julien, branché au lot B1), et les contrôles de CI laissés au choix de
 l'implémenteur. Restent :
 
-- **Observer, puis passer en blocage.** La console envoie ses rapports au collecteur depuis le 2026-10-14 (`report-uri`,
-  table `csp_rapports`, plan `docs/superpowers/plans/2026-10-14-lot6-collecteur-csp.md`). Lire la table en lecture seule
-  à partir du 2026-10-21, après au moins une vraie connexion ou un renouvellement de numéro (les e2e simulent le SDK
-  Meta) et en écartant les deux lignes d'essai `/essai-collecteur` ; une table pleine ou des premières vues en rafale
-  rendent la lecture invalide (`documentation.md`). Puis la clé `Content-Security-Policy-Report-Only` de
-  `web/next.config.mjs` devient `Content-Security-Policy`, et la table se vide.
-- **Avant le blocage, l'aperçu d'un modèle à en-tête vidéo** : `TemplatePreview` passe à `<video>` une adresse du CDN de
-  Meta (`headerMediaUrl`), que `media-src 'self' blob:` refuse ; aucun e2e ne la charge. Mesurer les hôtes qui la
-  servent, puis les nommer dans `media-src` (`tests/web-csp-media.test.ts` fixe la directive à l'exact, à mettre à
-  jour avec).
+- ~~**Observer, puis passer en blocage**~~ et ~~**l'aperçu d'un modèle à en-tête vidéo**~~ : **faits le 2026-11-03**
+  (journal du jour). La table n'a pas été vidée : ce qui est arrivé après le déploiement se lit par `dernier_vu` (pas
+  par la seule disposition, que WebKit n'enverrait pas). Reste à la relire après le premier vrai passage par
+  `/brancher`, par une connexion depuis `/publicites` et par l'aperçu d'un modèle vidéo (essai réel 214).
+- **Resserrer `img-src`** (aujourd'hui `https:`), gain faible tant que `script-src` garde `'unsafe-inline'` : un script
+  injecté sort le jeton par une navigation (`location`, `window.open`), que la CSP ne régit pas. Le vrai levier reste les
+  nonces ; `img-src` se resserre avec eux.
 - **Les nonces** (retirer `'unsafe-inline'` des scripts), écartés pour l'instant : ils imposent le rendu à la demande
   de chaque page sur Vercel, qui sert aujourd'hui des pages statiques.
 - **Les deux exceptions de l'audit** (`scripts/audit-exceptions.json`, la copie de postcss embarquée dans next 15)

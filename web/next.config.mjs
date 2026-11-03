@@ -34,15 +34,16 @@ const nextConfig = {
   /**
    * Les en-tetes de securite de la console (plan RSSI du 2026-09-09, livres le 2026-09-10).
    *
-   * 🔴 LA CSP EST EN REPORT-ONLY, ET ELLE DOIT LE RESTER JUSQU A OBSERVATION. La console charge le SDK Meta
-   * (`connect.facebook.net`) et Google Sign-In (`accounts.google.com`), et Next injecte ses propres scripts
-   * en ligne. Une CSP enforcante posee sans mesure casserait la connexion des clients, c est-a-dire la
-   * porte d entree du produit. Report-Only pose la meme politique et se contente de la SIGNALER : rien ne
-   * casse, et on apprend ce qui la violerait vraiment.
+   * 🔴 LA CSP BLOQUE DEPUIS LE 2026-11-03, APRES TROIS SEMAINES D OBSERVATION. Elle a d abord ete posee en
+   * Report-Only (2026-09-10) : la console charge le SDK Meta (`connect.facebook.net`) et Google Sign-In
+   * (`accounts.google.com`), et une politique bloquante posee sans mesure aurait pu casser la connexion des
+   * clients, c est-a-dire la porte d entree du produit. Les rapports des vrais navigateurs (`csp_rapports`) ont
+   * montre ce qu elle aurait coupe : les appels du SDK Meta vers `www.facebook.com` et `connect.facebook.net`
+   * depuis `/brancher` et `/accueil`, soit la connexion d un numero. Les deux sont autorises ci-dessous.
    *
-   * ⚠️ POUR LA PASSER EN BLOCAGE, il faut quelques jours d observation des rapports (`report-uri`, lus dans
-   * `csp_rapports`). Sans cette etape, on ne saurait pas ce qu on est en train d interdire. Le jour ou on
-   * bascule, c est cette meme chaine qui devient `Content-Security-Policy`.
+   * ⚠️ UN TIERS AJOUTE A LA CONSOLE se mesure AVANT d etre pousse : un e2e le simule, un vrai navigateur seul dit
+   * ce qu il appelle. Les rapports continuent d arriver (`report-uri`), avec la disposition `enforce` : ce qui est
+   * bloque a tort s y lit.
    *
    * ⚠️ `Strict-Transport-Security` n est PAS ici : Vercel le pose deja sur ce domaine (mesure le
    * 2026-09-10, `max-age=63072000`). Deux sources pour une meme valeur finissent par diverger.
@@ -50,23 +51,26 @@ const nextConfig = {
   async headers() {
     const csp = [
       "default-src 'self'",
-      // Next injecte des scripts en ligne (hydratation, chargeur). `unsafe-inline` est ce qui rend cette
-      // politique OBSERVABLE plutot que bruyante ; c est le premier relachement a retirer le jour ou on
-      // passera aux nonces.
+      // Next injecte des scripts en ligne (hydratation, chargeur). `unsafe-inline` reste le premier relachement a
+      // retirer, le jour ou on passera aux nonces (ils imposent le rendu a la demande de chaque page sur Vercel).
       "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://accounts.google.com",
       // La feuille de style du bouton Google Sign-In, à l'adresse que Google documente pour une CSP. Vue dans un vrai
       // navigateur sur la page de connexion : les e2e simulent Google et ne la chargent jamais.
       "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
       "img-src 'self' data: blob: https:",
-      // L'apercu d'une video de publicite lit le fichier choisi par une adresse locale `blob:`. Sans cette ligne,
-      // `media-src` retombe sur `default-src 'self'`, qui ne couvre pas `blob:` : la future CSP bloquante
-      // couperait l'apercu, et la politique actuelle le signalerait a chaque video choisie.
-      "media-src 'self' blob:",
+      // L'apercu d'une video de publicite lit le fichier choisi par une adresse locale `blob:` ; sans cette ligne,
+      // `media-src` retombe sur `default-src 'self'`, qui ne couvre pas `blob:`. L'apercu d'un modele a en-tete video
+      // lit son adresse sur le CDN de Meta (`headerMediaUrl`) : les memes hotes que `estCdnDeMeta`
+      // (`src/meta/template-media.ts`). ⚠️ Une video d'en-tete posee ailleurs (un modele cree chez 360dialog, une
+      // adresse saisie a la main) n'a pas d'apercu : seul l'apercu manque, l'envoi ne passe pas par le navigateur.
+      "media-src 'self' blob: https://lookaside.fbsbx.com https://*.whatsapp.net https://*.fbcdn.net",
       // `connect-src` : l'API (son origine quand la console l'appelle en direct, cf. `origineApi`), puis
-      // l'embarquement Meta et la connexion Google. 🔴 Sans l'origine de l'API, cette politique passée en blocage
-      // couperait chaque appel de la console servie par Vercel. `e2e/aide/test.ts` fait échouer tout e2e qui la
-      // viole, et la CI les joue dans les DEUX topologies.
-      `connect-src 'self'${origineApi ? ` ${origineApi}` : ''} https://graph.facebook.com https://accounts.google.com`,
+      // l'embarquement Meta et la connexion Google. 🔴 Sans l'origine de l'API, cette politique couperait chaque
+      // appel de la console servie par Vercel. 🔴 Sans `www.facebook.com` et `connect.facebook.net`, elle couperait
+      // les appels du SDK Meta pendant la connexion d'un numero (rapports des vrais navigateurs, `/brancher` et
+      // `/accueil`, du 2026-10-14 au 2026-10-29 ; les e2e simulent le SDK et ne les voient pas). `e2e/aide/test.ts` fait échouer
+      // tout e2e qui la viole, et la CI les joue dans les DEUX topologies.
+      `connect-src 'self'${origineApi ? ` ${origineApi}` : ''} https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://accounts.google.com`,
       "frame-src https://connect.facebook.net https://accounts.google.com https://business.facebook.com",
       "font-src 'self' data:",
       "base-uri 'self'",
@@ -79,8 +83,8 @@ const nextConfig = {
     return [{
       source: '/:path*',
       headers: [
-        { key: 'Content-Security-Policy-Report-Only', value: csp },
-        // Ceux-la sont ENFORCANTS des maintenant : ils ne peuvent rien casser dans une application qui n est
+        { key: 'Content-Security-Policy', value: csp },
+        // Ceux-la ont ete ENFORCANTS des le premier jour : ils ne peuvent rien casser dans une application qui n est
         // jamais encadree, ne devine jamais un type MIME et n a besoin d aucune capacite materielle.
         { key: 'X-Frame-Options', value: 'DENY' },
         { key: 'X-Content-Type-Options', value: 'nosniff' },

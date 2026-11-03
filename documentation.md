@@ -3652,12 +3652,15 @@ le voit, sur le serveur construit : chaque route qui a perdu son `forbidNonAdmin
 (403, même corps, handler jamais atteint), un admin l'atteint, et dans l'autre sens les écritures des modules
 `g.auth` refusent toujours un agent DANS le handler.
 
-🔴 **LES EN-TÊTES DE SÉCURITÉ SONT ENFORÇANTS CÔTÉ API ET EN OBSERVATION CÔTÉ CONSOLE** (2026-09-10). La
-surface de l'API est petite et connue (du JSON, deux redirections, des images, deux pages HTML d'erreur de
-lien) : sa CSP est donc fermée, `default-src 'none'`, et elle vit dans `src/http/entetes-securite.ts`. La
-console est une application Next entière avec le SDK Meta et Google Sign-In : sa CSP part en
-**Report-Only** dans `web/next.config.mjs`, et n'a rien à bloquer tant qu'on n'a pas observé ce qu'elle
-signale. Les quatre autres en-têtes (anti-frame, `nosniff`, référent, capacités) sont enforçants des deux
+🔴 **LES EN-TÊTES DE SÉCURITÉ SONT ENFORÇANTS DES DEUX CÔTÉS** (API depuis le 2026-09-10, CSP de la console depuis
+le 2026-11-03). La surface de l'API est petite et connue (du JSON, deux redirections, des images, deux pages HTML
+d'erreur de lien) : sa CSP est donc fermée, `default-src 'none'`, et elle vit dans `src/http/entetes-securite.ts`. La
+console est une application Next entière avec le SDK Meta et Google Sign-In : sa CSP (`web/next.config.mjs`) est
+d'abord restée en Report-Only, le temps de lire ce que les vrais navigateurs signalaient (les appels du SDK Meta vers
+`www.facebook.com` et `connect.facebook.net` pendant la connexion d'un numéro, invisibles des e2e), puis bloque.
+`tests/web-csp-media.test.ts` tient le mode, ces deux hôtes et `media-src`. ⚠️ Elle garde `script-src 'unsafe-inline'`
+(Next injecte ses scripts ; les nonces imposeraient le rendu à la demande de chaque page sur Vercel) et
+`img-src https:`. Les quatre autres en-têtes (anti-frame, `nosniff`, référent, capacités) sont enforçants des deux
 côtés.
 
 🔴 **LA CSP DE LA CONSOLE AUTORISE L'ORIGINE DE L'API QU'ELLE APPELLE, lue au build** : `connect-src` reçoit
@@ -3679,9 +3682,12 @@ sans corps à tout corps lu (413 au-delà de 32 Ko, 415 pour un autre type) et n
 rapports d'une page de nos origines (`CORS_ORIGINS`, `APP_URL` et la console du VPS, `src/index.ts`), d'une règle de la
 liste fermée `DIRECTIVES_CSP`, réduits à la règle, l'ORIGINE bloquée (ou son mot-clé), le CHEMIN de la page sans
 requête et identifiants masqués, et la disposition : rien de personnel. Une ligne par combinaison, avec un compteur ;
-la table s'arrête à `MAX_LIGNES_CSP` combinaisons (`src/csp/store.pg.ts`), un plafond de débit global compté par rapport
-borne l'écriture, et elle se vide à la main après la bascule.
-⚠️ **Elle se lit en lecture seule avant de passer en blocage, et deux signes rendent la lecture invalide** : n'importe
+la table s'arrête à `MAX_LIGNES_CSP` combinaisons (`src/csp/store.pg.ts`), et un plafond de débit global compté par
+rapport borne l'écriture. Depuis le blocage (2026-11-03), plus aucune politique d'observation n'est servie : toute ligne
+dont `dernier_vu` est postérieur est quelque chose que la politique a réellement bloqué (ou une extension du navigateur,
+ou un faux rapport), à lire après tout tiers ajouté à la console. ⚠️ Se fier à `dernier_vu`, pas à la seule
+disposition : un navigateur qui ne l'envoie pas (WebKit, à notre connaissance) est rangé en `report`.
+⚠️ **Elle se lit en lecture seule, et deux signes rendent la lecture invalide** : n'importe
 qui peut poster un faux rapport déclarant une page de la console, donc une table PLEINE (`MAX_LIGNES_CSP` lignes) ou des
 `premier_vu` tous en rafale disent du bruit, pas la console (vider et réobserver) ; et le plafond atteint fait lire sans
 écrire, donc un trou dans les dates n'est pas une absence de violation.

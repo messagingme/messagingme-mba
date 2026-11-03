@@ -13,7 +13,7 @@ async function politique(): Promise<string> {
     default: { headers: () => Promise<Array<{ headers: Array<{ key: string; value: string }> }>> };
   };
   const regles = await mod.default.headers();
-  return regles.flatMap((r) => r.headers).find((h) => h.key === 'Content-Security-Policy-Report-Only')?.value ?? '';
+  return regles.flatMap((r) => r.headers).find((h) => h.key === 'Content-Security-Policy')?.value ?? '';
 }
 
 describe('les rapports de la CSP de la console', () => {

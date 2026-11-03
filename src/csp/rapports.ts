@@ -3,9 +3,10 @@ import { z } from 'zod';
 /**
  * LES RAPPORTS DE VIOLATION DE LA CSP DE LA CONSOLE, réduits à ce qu'on en garde (lot 6 du bilan des audits, B3).
  *
- * La console est en observation (`Content-Security-Policy-Report-Only`, `web/next.config.mjs`) : les navigateurs de nos
- * clients signalent ce que la politique interdirait une fois bloquante. Les e2e ne voient que ce qu'ils dessinent et
- * simulent les tiers (le SDK Meta, Google Sign-In) : seuls ces rapports disent ce qui se passe dans une vraie session.
+ * La CSP de la console (`web/next.config.mjs`) a d'abord été observée, puis bloque depuis le 2026-11-03 : les navigateurs
+ * de nos clients signalent ce qu'elle a interdit (disposition `enforce`, `report` pour l'observation). Les e2e ne voient
+ * que ce qu'ils dessinent et simulent les tiers (le SDK Meta, Google Sign-In) : seuls ces rapports disent ce qui se passe
+ * dans une vraie session.
  *
  * 🔴 RIEN DE PERSONNEL N'EN SORT. Un rapport porte l'adresse complète de la page (une requête peut contenir un jeton de
  * réinitialisation) et celle de la ressource bloquée : on n'en garde que le CHEMIN de la page, ses identifiants masqués,

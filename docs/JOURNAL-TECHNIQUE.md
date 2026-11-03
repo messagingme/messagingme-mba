@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-03 (soir) : la CSP de la console bloque, après trois semaines d'observation
+
+Point ouvert de l'audit RSSI du jour, décidé par Julien. La table `csp_rapports`, lue en lecture seule sur la production
+(sonde par la machine des workers), comptait 21 rapports sur 9 combinaisons, du 2026-10-14 au 2026-10-29 : ni pleine ni en
+rafale, donc une lecture valable, sur peu de sessions réelles. Bloquante telle quelle, la politique aurait coupé les
+appels du SDK Meta vers `www.facebook.com` (13 rapports) et `connect.facebook.net` (3) depuis `/brancher` et `/accueil`,
+c'est-à-dire la connexion d'un numéro, que les e2e simulent et ne voient pas. Le reste : la balise d'analyse de
+Cloudflare (`static.cloudflareinsights.com`, deux rapports le 2026-10-16 seulement, laissée bloquée) et les lignes d'essai.
+
+Le lot : les deux hôtes du SDK Meta dans `connect-src` ; `media-src` ouvert au CDN de Meta pour l'aperçu d'un modèle à
+en-tête vidéo, avec les hôtes que `estCdnDeMeta` reconnaît déjà (aucun rapport : personne ne l'avait ouvert) ; la clé
+`Content-Security-Policy-Report-Only` devient `Content-Security-Policy`, `report-uri` gardé. La table n'est pas vidée :
+ce qui arrive après le déploiement se lit par `dernier_vu`. Relecture indépendante : aucun rouge (tout `web/` passé en
+revue : quatre `fetch` vers l'API, SDK Meta, Google Sign-In, navigations Stripe et OAuth hors CSP, aucun `eval` ni
+worker) ; ses jaunes de texte sont repris dans le lot. `tests/web-csp-media.test.ts` tient le mode,
+les deux hôtes et `media-src`, vérifié dans les deux sens (clé remise en Report-Only : cinq échecs ; hôtes retirés : un
+échec). Restent `script-src 'unsafe-inline'` (nonces écartés le 2026-10-14) et `img-src https:`, au backlog.
+
 ## 2026-11-03 (soir) : le ménage de Messaging Me sur le VPS, huit jours après la bascule
 
 Relevé par l'audit RSSI du jour : le retour arrière gardait des données personnelles au-delà de ce que l'annexe des

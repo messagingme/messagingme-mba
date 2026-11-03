@@ -5,7 +5,7 @@
  * reposer créerait une seconde source pour une valeur qui doit rester unique (le `max-age` le plus court gagnerait).
  *
  * La CSP de l'API est enforçante (sa surface est petite : JSON, redirections, images, deux pages HTML d'erreur de
- * lien tracé), celle de la console reste en Report-Only. `style-src 'unsafe-inline'` sert les attributs `style=`
+ * lien tracé), comme celle de la console depuis le 2026-11-03. `style-src 'unsafe-inline'` sert les attributs `style=`
  * de ces pages ; aucun `script-src` n'est ouvert, elles n'ont pas de JavaScript.
  */
 

@@ -6,10 +6,9 @@ export * from '@playwright/test';
  * LE `test` DE TOUS LES SPECS : celui de Playwright, plus une garde qui fait échouer le test si une page a violé la
  * politique de sécurité de la console (CSP, `next.config.mjs`).
  *
- * 🔴 POURQUOI. La CSP est en observation (`Content-Security-Policy-Report-Only`) : une violation ne casse rien, le
- * navigateur la signale dans sa console et continue. Passée en blocage, la même violation couperait l'écran. Lire
- * ces signalements pendant chaque e2e, c'est savoir AVANT de basculer ce que la politique interdirait, écran par
- * écran ; et une fois la politique bloquante, un écran qui la viole serait cassé, ce que la garde voit aussi.
+ * 🔴 POURQUOI. La CSP bloque depuis le 2026-11-03 : une violation coupe ce qu'elle interdit (un appel, un script, un
+ * aperçu), souvent sans erreur visible à l'écran. Pendant l'observation qui a précédé, la même garde disait ce que la
+ * politique interdirait ; bloquante, elle voit un écran cassé par elle.
  *
  * Chromium écrit chaque violation dans la console de la page (« … violates the following Content Security Policy
  * directive … »), en observation comme en blocage, et Playwright la reçoit : mesuré le 2026-10-14. L'écoute se pose sur
