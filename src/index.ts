@@ -49,6 +49,7 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
+import { finDeDroitOption, optionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { changerResiliationPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
 import { creerVueOffre } from './offres/vue';
 import { upsertContactsFromApi } from './api/contacts-upsert';
@@ -313,7 +314,7 @@ async function main(): Promise<void> {
     settingsStore, flowStore, idempotencyStore, auditStore, erreursLivraison, echecsMessages, poolAttentesStore,
     httpLatencesStore, mesuresTachesStore, mesuresFilesStore, santeStore, memoireWorkersStore, seuilsStore, nodeEventStore, trackedLinkStore, webhookStore, verrousCourts, compteurDebit, phoneStatusStore, opsStore, heartbeatStore, workflowStore,
     automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog, journalAppels, credits, reglagesCreditWhatsapp,
-    lignesCreditWhatsapp, estimerCreditCampagne, creditWhatsapp, conditionsCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver, wabaDeLEspace,
+    lignesCreditWhatsapp, optionsCreditWhatsapp, estimerCreditCampagne, creditWhatsapp, conditionsCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver, wabaDeLEspace,
     numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, gardeCreditWhatsapp, esCredentialsStore, metaCredentials, metaFactory, connexionsPub, connexionPub, publicites,
     clientPubs, clientCreationPubs, workflowRuntime, clesGateway, provisionCle, accesCreditIa, fil, listeDeLAgent, offres, quotaModeles,
     emailsProduit, envoisResend, paiementRefuse, emetteurEmails, envoiApplication, comptesApplication, clientApplication,
@@ -1010,6 +1011,7 @@ async function main(): Promise<void> {
     offre: async (t) => (await offres.offreDe(t)).offre,
     conditions: (t) => conditionsCreditWhatsapp.conditions(t),
     lignes: (t) => lignesCreditWhatsapp.lignesDeLEspace(t),
+    optionEnVente: config.STRIPE_SECRET_KEY !== '' && config.STRIPE_PRIX_OPTION_WA !== '',
   };
 
   /**
@@ -1034,6 +1036,21 @@ async function main(): Promise<void> {
     achatPermis: (tenant) => achatPermis(portesCreditWhatsapp, tenant),
   };
 
+  /**
+   * L'option du Crédit WhatsApp (lot 4a, `src/stripe/option-credit-whatsapp.ts`) : le MÊME Stripe, les MÊMES clients et la
+   * MÊME règle du mode test que le Pro. Son magasin est écrit par le seul webhook ; les places suivent ce que Stripe rend.
+   */
+  const optionDeLaConsole: DepsOptionCredit = {
+    stripe: paiementDeLaConsole.stripe,
+    clients: paiementDeLaConsole.clients,
+    payeurAutorise: (payeur) => paiementDeLaConsole.payeurAutorise(payeur),
+    urlConsole: config.APP_URL,
+    prixOption: config.STRIPE_PRIX_OPTION_WA,
+    options: optionsCreditWhatsapp,
+    offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
+    numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
+    alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
+  };
   /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */
   const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {
     achat: achatCreditWhatsapp,
@@ -1046,6 +1063,8 @@ async function main(): Promise<void> {
       conditions: (t) => conditionsCreditWhatsapp.conditions(t),
       lignes: (t) => lignesCreditWhatsapp.lignesDeLEspace(t),
     },
+    // L'option (lot 4a) : la prendre et changer ses places depuis l'onglet.
+    option: optionDeLaConsole,
   };
 
   /**
@@ -1127,6 +1146,20 @@ async function main(): Promise<void> {
     membres: async (tenant) => (await offresStore.usage(tenant)).membres,
     noterSieges: (abonnementId, sieges) => abonnementsOffre.noterSieges(abonnementId, sieges),
     invalider: (tenant) => offres.invalider(tenant),
+    alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
+  };
+  /**
+   * Sa fin de droit (spec du 2026-10-30, « Fin ») : après la fin d'un Pro (le webhook) et le retrait d'une offre posée à
+   * la main (`/ops`). L'offre est relue SANS cache : elle vient de changer.
+   */
+  const finDeDroitDeLOption: DepsFinDeDroitOption = {
+    stripe: paiementDeLaConsole.stripe,
+    options: optionsCreditWhatsapp,
+    aDroit: async (tenant) => {
+      const o = (await offresSansCache.offreDe(tenant)).offre;
+      return o === 'pro' || o === 'business' || o === 'entreprise';
+    },
+    arreterLesLignes: (tenant) => lignesCreditWhatsapp.arreterLesLignesDeLOption(tenant),
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
   };
   /**
@@ -1732,6 +1765,8 @@ async function main(): Promise<void> {
           return offert;
         },
         finOffreManuelle: (tenant, finiLe) => surFinDeLOffreManuelle(numeroInclus, { tenantId: tenant, finiLe }),
+        // L'option du Crédit WhatsApp sans offre qui y donne droit (lot 4a) : résiliée, ses lignes arrêtées.
+        finDeDroitOption: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant),
         // L'IA d'une Entreprise réglée : les alertes du mois réarmées tout de suite ; la clé remontée en arrière-plan, comme
         // le complément du Business (Vercel peut prendre 30 s). Un échec se journalise, et le balayage horaire la reprend
         // et alerte s'il échoue aussi.
@@ -2133,6 +2168,19 @@ async function main(): Promise<void> {
           siegesChezStripe: (abonnementId) => siegesChezStripe(siegesDeLaConsole, abonnementId),
           // La fin prévue relue chez Stripe (2026-10-26) : un événement en retard ne remet pas une fin retirée depuis.
           finPrevueChezStripe: (abonnementId) => finPrevueChezStripe(gestionProDeLaConsole, abonnementId),
+        },
+        // L'option du Crédit WhatsApp (lot 4a) : ses places relues chez Stripe à chaque événement, ses lignes arrêtées à sa
+        // fin, et sa fin de droit après celle du Pro.
+        option: {
+          enregistrer: (a) => optionsCreditWhatsapp.enregistrer(a),
+          majStatut: (abonnementId, statut, periodeFin, finFactureEchouee) => optionsCreditWhatsapp.majStatut(abonnementId, statut, periodeFin, finFactureEchouee),
+          noterPlaces: (abonnementId, places, finPrevueLe) => optionsCreditWhatsapp.noterPlaces(abonnementId, places, finPrevueLe),
+          finir: (abonnementId, raison, finiLe) => optionsCreditWhatsapp.finir(abonnementId, raison, finiLe),
+          vivante: (tenant) => optionsCreditWhatsapp.vivante(tenant),
+          chezStripe: (abonnementId) => optionChezStripe(optionDeLaConsole, abonnementId),
+          arreterLesLignes: (tenant) => lignesCreditWhatsapp.arreterLesLignesDeLOption(tenant),
+          surFinDuPro: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant),
+          alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
         },
       },
     } : {}),
@@ -3068,7 +3116,14 @@ async function main(): Promise<void> {
       reglages: settingsStore,
       // La grille de Meta et la commission des messages du Crédit WhatsApp, et les numéros sur la ligne : les magasins du
       // socle, ceux que lit la garde (une pose s'y voit en moins de 5 s, le cache de la ligne).
-      creditWhatsapp: { reglages: reglagesCreditWhatsapp, lignes: lignesCreditWhatsapp, audit: auditSink, credit: creditWhatsapp },
+      creditWhatsapp: {
+        reglages: reglagesCreditWhatsapp, lignes: lignesCreditWhatsapp, audit: auditSink, credit: creditWhatsapp,
+        // Les places de l'option (lot 4a) : une pose pour un Pro ou un Business en consomme ; une Entreprise, illimitée, non.
+        option: {
+          entreprise: async (tenant) => (await conditionsCreditWhatsapp.conditions(tenant)).openBar,
+          placesPayees: (tenant) => optionsCreditWhatsapp.placesPayees(tenant),
+        },
+      },
       // Les jobs morts et leur rejeu : un geste d'exploitation cross-espace, qui suppose qu'on ait corrigé la
       // cause de l'échec.
       file: queue,

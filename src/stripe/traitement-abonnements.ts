@@ -3,6 +3,7 @@ import { journaliser } from '../lib/journal';
 import type { FinDuPro } from '../offres/numero-inclus';
 import type { PgAbonnementsOffreStore, PeriodiciteOffre, RaisonFinOffre } from '../offres/abonnements-offre.pg';
 import type { PgAbonnementsNumeroStore } from './abonnements.pg';
+import type { PgOptionsCreditStore, RaisonFinOption } from '../credit-whatsapp/options.pg';
 import { finPrevueDe } from './client';
 import { lienTableauStripe } from './liens';
 
@@ -53,10 +54,24 @@ export interface DepsTraitementAbonnements {
     finPrevueChezStripe(abonnementId: string): Promise<Date | null | undefined>;
   };
   /**
+   * L'option du Crédit WhatsApp (lot 4a, `src/stripe/option-credit-whatsapp.ts`) : son abonnement, ses places RELUES chez
+   * Stripe à chaque événement (la charge peut arriver après un plus récent), l'arrêt de ses lignes à sa fin, et sa fin de
+   * droit jouée après la fin du Pro. 🔴 Aiguillée AVANT le numéro, qui acquitte en silence ce qu'il ne reconnaît pas.
+   */
+  option: Pick<PgOptionsCreditStore, 'enregistrer' | 'majStatut' | 'noterPlaces' | 'finir' | 'vivante'> & {
+    /** `optionChezStripe` : `null` quand rien n'est à relire (l'option pas en vente, ou un refus durable, Julien prévenu). */
+    chezStripe(abonnementId: string): Promise<{ statut: string; places: number; finPrevueLe: Date | null } | null>;
+    /** `PgLignesCreditStore.arreterLesLignesDeLOption` : rend le nombre de lignes arrêtées. */
+    arreterLesLignes(tenantId: string): Promise<number>;
+    /** `finDeDroitOption`, après la fin d'un Pro : l'option sans offre qui y donne droit se résilie. Rejouable. */
+    surFinDuPro(tenantId: string): Promise<unknown>;
+    alerter(texte: string): Promise<void>;
+  };
+  /**
    * L'e-mail aux admins d'un renouvellement refusé (lot 7, livraison B), une fois par facture : Stripe réessaie la même
    * facture, et chaque essai raté redonne un `invoice.payment_failed`. Ne lève jamais (`creerPaiementRefuse`).
    */
-  paiementRefuse(p: { tenantId: string; offre: 'pro' | 'numero'; factureId: string }): Promise<void>;
+  paiementRefuse(p: { tenantId: string; offre: 'pro' | 'numero' | 'option_credit_whatsapp'; factureId: string }): Promise<void>;
   /**
    * La conversion de nos publicités (pixel, lot 2, `src/pub/`) : le premier paiement RÉEL de l'offre d'un espace. Appelé à
    * chaque facture payée non nulle, rejeux compris : la réservation en garde une par espace. Ne lève jamais.
@@ -75,7 +90,7 @@ export interface EvenementStripeVerifie {
 export type IssueTraitementAbonnement =
   | { issue: 'non_abonnement' }
   | { issue: 'acquitte' }
-  | { issue: 'illisible'; domaine: 'pro' | 'numero' };
+  | { issue: 'illisible'; domaine: 'pro' | 'numero' | 'option' };
 
 const NON_ABONNEMENT = { issue: 'non_abonnement' } as const;
 const ACQUITTE = { issue: 'acquitte' } as const;
@@ -186,6 +201,35 @@ function objetDuPro(type: string, objet: unknown): boolean {
   return (type.startsWith('invoice.') ? factureMarqueeProSchema : marqueProSchema).safeParse(objet).success;
 }
 
+/**
+ * L'option du Crédit WhatsApp (lot 4a) : sa marque suffit à l'aiguiller, comme le Pro. Un objet marqué mais mal formé est
+ * refusé en 422, jamais confié au numéro, qui l'acquitterait en silence.
+ */
+const marqueOptionSchema = z.object({ metadata: z.object({ produit: z.literal('option_credit_whatsapp') }) });
+const factureMarqueeOptionSchema = z.object({ parent: z.object({ subscription_details: marqueOptionSchema }) });
+const metaOptionSchema = z.object({ tenant_id: z.uuid(), produit: z.literal('option_credit_whatsapp') });
+const sessionOptionSchema = z.object({
+  id: z.string().min(1),
+  mode: z.literal('subscription'),
+  payment_status: z.string(),
+  subscription: z.union([z.string().startsWith('sub_'), z.object({ id: z.string().startsWith('sub_') })]),
+  metadata: metaOptionSchema,
+});
+const abonnementOptionSchema = z.object({
+  id: z.string().startsWith('sub_'),
+  metadata: metaOptionSchema,
+  cancellation_details: z.object({ reason: z.string().nullable().optional() }).nullable().optional(),
+  ended_at: z.number().int().nullable().optional(),
+});
+
+function objetDeLOption(type: string, objet: unknown): boolean {
+  return (type.startsWith('invoice.') ? factureMarqueeOptionSchema : marqueOptionSchema).safeParse(objet).success;
+}
+
+/** Les places d'une option, bornées comme en base (1 à 20). Une quantité posée à la main hors bornes est ramenée. */
+const PLACES_MIN = 1;
+const PLACES_MAX = 20;
+
 export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
   const maintenant = deps.now ?? (() => Date.now());
 
@@ -194,13 +238,12 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       // La création d'un abonnement du Pro (essai de 14 jours) ; celle du numéro ne nous apprend rien.
       || (e.type === 'customer.subscription.created' && objetDuPro(e.type, e.objet))
       || (e.type === 'checkout.session.completed'
-        && (sessionNumeroSchema.safeParse(e.objet).success || objetDuPro(e.type, e.objet)));
+        && (sessionNumeroSchema.safeParse(e.objet).success || objetDuPro(e.type, e.objet) || objetDeLOption(e.type, e.objet)));
   }
 
-  function illisible(e: EvenementStripeVerifie, domaine: 'pro' | 'numero'): IssueTraitementAbonnement {
-    journaliser('error', domaine === 'pro' ? 'stripe_pro_illisible' : 'stripe_abonnement_illisible', {
-      evenement: e.id, type: e.type,
-    });
+  function illisible(e: EvenementStripeVerifie, domaine: 'pro' | 'numero' | 'option'): IssueTraitementAbonnement {
+    const cle = { pro: 'stripe_pro_illisible', numero: 'stripe_abonnement_illisible', option: 'stripe_option_wa_illisible' } as const;
+    journaliser('error', cle[domaine], { evenement: e.id, type: e.type });
     return { issue: 'illisible', domaine };
   }
 
@@ -329,6 +372,8 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
             customerId: lu.data.customer ? idDe(lu.data.customer) : null,
             carte: lu.data.default_payment_method ? idDe(lu.data.default_payment_method) : null,
           });
+          // L'option du Crédit WhatsApp que plus aucune offre ne permet (ni Business ni Entreprise) se résilie (lot 4a).
+          await deps.option.surFinDuPro(a.tenantId);
         }
         return ACQUITTE;
       }
@@ -465,10 +510,126 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     return ACQUITTE;
   }
 
+  /**
+   * L'OPTION DU CRÉDIT WHATSAPP (lot 4a). Enregistrée à la session payée, ou à la première facture payée arrivée avant ; ses
+   * places et sa fin programmée RELUES chez Stripe à chaque événement (une place n'existe que payée) ; en retard sur un
+   * échec de renouvellement, ses places restant tant que Stripe relance ; finie quand Stripe l'annonce (résiliée, ou un
+   * impayé qu'il abandonne), ses lignes alors arrêtées.
+   */
+  async function traiterOption(e: EvenementStripeVerifie): Promise<IssueTraitementAbonnement> {
+    /** Les places relues, ramenées aux bornes de la base ; `null` hors bornes basses (rien n'est inventé, Julien prévenu). */
+    const borner = async (places: number, abonnementId: string): Promise<number | null> => {
+      if (places >= PLACES_MIN && places <= PLACES_MAX) return places;
+      await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} : ${places} place(s) chez Stripe, hors des bornes (${PLACES_MIN} à ${PLACES_MAX}). À régler.`);
+      return places > PLACES_MAX ? PLACES_MAX : null;
+    };
+    /** La fin : ses lignes arrêtées si aucune AUTRE option ne vit (un rejeu tardif ne coupe pas une option reprise depuis). */
+    const finir = async (abonnementId: string, raison: RaisonFinOption, fin: Date): Promise<void> => {
+      const a = await deps.option.finir(abonnementId, raison, fin);
+      if (a === null) return;
+      // Rejouable : arrêter des lignes déjà arrêtées n'écrit rien ; seule la première fin prévient Julien. 🔴 Une AUTRE
+      // option vivante (reprise depuis) garde ses lignes : un rejeu tardif de la fin de l'ancienne ne les coupe pas.
+      const n = (await deps.option.vivante(a.tenantId)) === null ? await deps.option.arreterLesLignes(a.tenantId) : 0;
+      if (a.premiereFin) {
+        await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}.`);
+      }
+    };
+    const enregistrer = async (tenantId: string, abonnementId: string, periodeFin: Date | null): Promise<void> => {
+      const lu = await deps.option.chezStripe(abonnementId);
+      // Rien de relu (l'option pas en vente, ou un refus durable dont Julien est prévenu), ou pas encore payée (`incomplete`) :
+      // aucune place n'existe, rien n'est inventé.
+      if (lu === null || (lu.statut !== 'active' && lu.statut !== 'past_due')) return;
+      const places = await borner(lu.places, abonnementId);
+      if (places === null) return;
+      let issue: Awaited<ReturnType<typeof deps.option.enregistrer>>;
+      try {
+        issue = await deps.option.enregistrer({ tenantId, abonnementId, livemode: e.livemode, places, periodeFin, finPrevueLe: lu.finPrevueLe });
+      } catch (err) {
+        // Un espace supprimé peut encore être facturé : la clé étrangère ne guérira pas au rejeu, alerte et acquittement.
+        if (!espaceDisparu(err)) throw err;
+        journaliser('error', 'stripe_option_wa_espace_disparu', { tenantId, abonnement: abonnementId, livemode: e.livemode });
+        await deps.option.alerter(`L'espace supprimé ${tenantId} paie encore son option Crédit WhatsApp ${abonnementId} : à résilier chez Stripe. ${lienTableauStripe('subscriptions', abonnementId, e.livemode)}`);
+        return;
+      }
+      if (issue.etat === 'enregistre' && issue.nouveau) {
+        await deps.option.alerter(`Nouvelle option Crédit WhatsApp : espace ${issue.tenantId} (${abonnementId}), ${places} numéro${places > 1 ? 's' : ''}.`);
+      } else if (issue.etat === 'doublon') {
+        await deps.option.alerter(`Option Crédit WhatsApp en double : ${abonnementId} pour l'espace ${tenantId}, qui en a déjà une vivante. À annuler et rembourser chez Stripe.`);
+      }
+    };
+
+    if (e.type === 'checkout.session.completed') {
+      const lu = sessionOptionSchema.safeParse(e.objet);
+      if (!lu.success) return illisible(e, 'option');
+      if (lu.data.payment_status !== 'paid' && lu.data.payment_status !== 'no_payment_required') return ACQUITTE;
+      await enregistrer(lu.data.metadata.tenant_id, idDe(lu.data.subscription), null);
+      return ACQUITTE;
+    }
+
+    if (e.type === 'customer.subscription.deleted') {
+      const lu = abonnementOptionSchema.safeParse(e.objet);
+      if (!lu.success) return illisible(e, 'option');
+      await finir(lu.data.id, raisonDeLaFin(lu.data.cancellation_details?.reason), lu.data.ended_at ? new Date(lu.data.ended_at * 1000) : new Date(maintenant()));
+      return ACQUITTE;
+    }
+
+    if (e.type === 'customer.subscription.updated') {
+      const lu = abonnementOptionSchema.safeParse(e.objet);
+      if (!lu.success) return illisible(e, 'option');
+      const relu = await deps.option.chezStripe(lu.data.id);
+      if (relu === null) return ACQUITTE;
+      // Stripe abandonne ses relances en marquant l'abonnement impayé (selon le réglage du compte) : c'est la fin.
+      if (relu.statut === 'unpaid' || relu.statut === 'canceled' || relu.statut === 'incomplete_expired') {
+        await finir(lu.data.id, relu.statut === 'unpaid' ? 'impaye' : 'resiliation', new Date(maintenant()));
+        return ACQUITTE;
+      }
+      if (relu.statut !== 'active' && relu.statut !== 'past_due') return ACQUITTE;
+      const places = await borner(relu.places, lu.data.id);
+      if (places === null) return ACQUITTE;
+      // Une option encore inconnue (sa session pas encore traitée) : la modification l'enregistre.
+      if ((await deps.option.noterPlaces(lu.data.id, places, relu.finPrevueLe)) === null) {
+        await enregistrer(lu.data.metadata.tenant_id, lu.data.id, null);
+      }
+      return ACQUITTE;
+    }
+
+    const lu = factureSchema.safeParse(e.objet);
+    const details = lu.success ? lu.data.parent?.subscription_details : null;
+    const meta = metaOptionSchema.safeParse(details?.metadata ?? {});
+    if (!lu.success || !details || !meta.success) return illisible(e, 'option');
+    const abonnementId = idDe(details.subscription);
+    const fins = (lu.data.lines?.data ?? []).map((l) => l.period?.end).filter((v): v is number => typeof v === 'number');
+    const finFacture = fins.length > 0 ? new Date(Math.max(...fins) * 1000) : null;
+    if (e.type === 'invoice.payment_failed') {
+      // Le prorata d'une place refusé : l'ajout attendait ce paiement et n'est pas appliqué, l'option reste à jour.
+      if (lu.data.billing_reason === 'subscription_update') return ACQUITTE;
+      const a = await deps.option.majStatut(abonnementId, 'en_retard', null, finFacture);
+      if (a) {
+        await deps.option.alerter(`Renouvellement de l'option Crédit WhatsApp échoué : espace ${a.tenantId} (${a.abonnementId}). Stripe réessaie ; ses numéros envoient jusqu'à ce qu'il abandonne.`);
+        if (a.statut === 'en_retard') await deps.paiementRefuse({ tenantId: a.tenantId, offre: 'option_credit_whatsapp', factureId: lu.data.id });
+      }
+      return ACQUITTE;
+    }
+    // Une facture payée : le renouvellement, ou le prorata d'une place (le changement en attente s'applique alors). Les
+    // places se relisent ; une facture arrivée avant la session suffit à enregistrer l'option.
+    const paye = await deps.option.majStatut(abonnementId, 'actif', finFacture);
+    if (paye === null) {
+      await enregistrer(meta.data.tenant_id, abonnementId, finFacture);
+      return ACQUITTE;
+    }
+    const relu = await deps.option.chezStripe(abonnementId);
+    const places = relu === null ? null : await borner(relu.places, abonnementId);
+    if (relu !== null && places !== null) await deps.option.noterPlaces(abonnementId, places, relu.finPrevueLe);
+    return ACQUITTE;
+  }
+
   async function traiter(e: EvenementStripeVerifie): Promise<IssueTraitementAbonnement> {
     if (!concerne(e)) return NON_ABONNEMENT;
-    // Le Pro est aiguillé en premier ; un objet marqué Pro ne tombe jamais dans le chemin du numéro.
-    return objetDuPro(e.type, e.objet) ? traiterPro(e) : traiterNumero(e);
+    // Le Pro est aiguillé en premier, puis l'option ; un objet marqué ne tombe jamais dans le chemin du numéro, qui
+    // acquitte en silence ce qu'il ne reconnaît pas.
+    if (objetDuPro(e.type, e.objet)) return traiterPro(e);
+    if (objetDeLOption(e.type, e.objet)) return traiterOption(e);
+    return traiterNumero(e);
   }
 
   return { concerne, traiter };

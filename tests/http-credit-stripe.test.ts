@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { createHmac, randomBytes } from 'node:crypto';
 import { buildServer } from '../src/server';
-import { stripeProInerte } from './routes-inertes';
+import { stripeOptionInerte, stripeProInerte } from './routes-inertes';
 import { FakeQueue } from './fake-queue';
 import { signSession } from '../src/auth/token';
 import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
@@ -422,6 +422,7 @@ function webhook(o: { paiements?: ReturnType<typeof fauxPaiements>; apresCredit?
     },
     // Une recharge ne touche jamais le Pro non plus (lot 6, B1).
     pro: stripeProInerte,
+    option: stripeOptionInerte,
     now: () => NOW,
   };
   const srv = buildServer({ queue: new FakeQueue(), stripeWebhook: deps });

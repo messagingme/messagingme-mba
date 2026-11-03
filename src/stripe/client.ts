@@ -274,8 +274,15 @@ export interface DemandeAbonnement {
   urlAbandon: string;
   /** Une clé par geste : elle protège d'un rejeu du même appel, pas de deux paiements voulus. */
   idempotence: string;
-  /** Ce qui est vendu (lot 6, B1) : le numéro fourni, ou le Pro. Le webhook route l'abonnement sur cette métadonnée. */
-  produit: 'numero' | 'pro';
+  /**
+   * Ce qui est vendu (lot 6, B1) : le numéro fourni, le Pro, ou l'option du Crédit WhatsApp (lot 4a). Le webhook route
+   * l'abonnement sur cette métadonnée.
+   */
+  produit: 'numero' | 'pro' | 'option_credit_whatsapp';
+  /** La quantité de la ligne (les places de l'option) ; 1 par défaut. */
+  quantite?: number;
+  /** `false` ferme le champ « code promo » (l'option : une place offerte ferait envoyer des messages payés au partenaire). */
+  codesPromo?: boolean;
   /** Le Pro seulement : sa périodicité, recopiée en métadonnée (le webhook la relit à la création). */
   periodicite?: 'mois' | 'an';
   /**
@@ -300,7 +307,7 @@ export async function creerSessionAbonnement(transport: TransportStripe, d: Dema
     mode: 'subscription',
     customer: d.customerId,
     'line_items[0][price]': d.prix,
-    'line_items[0][quantity]': '1',
+    'line_items[0][quantity]': String(d.quantite ?? 1),
     'adaptive_pricing[enabled]': 'false',
     'automatic_tax[enabled]': 'true',
     'tax_id_collection[enabled]': 'true',
@@ -311,7 +318,7 @@ export async function creerSessionAbonnement(transport: TransportStripe, d: Dema
     'metadata[produit]': d.produit,
     'subscription_data[metadata][tenant_id]': d.tenantId,
     'subscription_data[metadata][produit]': d.produit,
-    allow_promotion_codes: 'true',
+    allow_promotion_codes: d.codesPromo === false ? 'false' : 'true',
     // Le Pro (lot 6, B1) : sa périodicité, que le webhook relit à la création.
     ...(d.produit === 'pro' && d.periodicite
       ? { 'metadata[periodicite]': d.periodicite, 'subscription_data[metadata][periodicite]': d.periodicite }

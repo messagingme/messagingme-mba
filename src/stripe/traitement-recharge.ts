@@ -77,6 +77,11 @@ const notreRechargeSchema = z.object({
   tenant_id: z.uuid(),
   offre: z.string().min(1),
 });
+/** Un abonnement ouvert par nous (`creerSessionAbonnement`) : notre espace et le produit vendu. */
+const notreAbonnementSchema = z.object({
+  tenant_id: z.uuid(),
+  produit: z.string().min(1),
+});
 
 /** Les métadonnées d'un achat du Crédit WhatsApp (`ouvrirAchatCreditWhatsapp`). */
 const metadonneesWhatsappSchema = z.object({
@@ -110,8 +115,19 @@ export function creerTraitementRecharge(deps: DepsTraitementRecharge) {
       ? null
       : typeof session.invoice === 'string' ? session.invoice : session.invoice.id;
     const lienFacture = facture === null ? '' : ` ${lienTableauStripe('invoices', facture, e.livemode)}`;
-    // Pas une de nos recharges : acquittée sans effet, sinon Stripe rejouerait un événement qui ne nous concerne pas.
-    if (session.mode !== 'payment') return ACQUITTE;
+    // Pas une de nos recharges : acquittée sans effet, sinon Stripe rejouerait un événement qui ne nous concerne pas. 🔴 Sauf
+    // un ABONNEMENT réglé, marqué de notre espace et d'un produit que cette version ne connaît pas (une image revenue en
+    // arrière sous une session ouverte par une plus récente) : de l'argent encaissé sans rien d'enregistré, qui partait
+    // en 200 sans trace. Les abonnements connus (Pro, numéro, option du Crédit WhatsApp) sont pris avant, par leur chemin.
+    if (session.mode !== 'payment') {
+      const abonnement = notreAbonnementSchema.safeParse(session.metadata ?? {});
+      if (session.mode === 'subscription' && abonnement.success && reglee) {
+        journaliser('error', 'stripe_abonnement_inconnu', { evenement: e.id, session: session.id, tenantId: abonnement.data.tenant_id, produit: abonnement.data.produit.slice(0, 40) });
+        await deps.alerter(`Abonnement réglé pour un produit que cette version ne connaît pas (${abonnement.data.produit.slice(0, 40)}) : espace ${abonnement.data.tenant_id}, session ${session.id}, rien n'a été enregistré. Revenir à une version qui le connaît, puis renvoyer l'événement depuis Stripe ; sinon résilier et rembourser.${lienFacture}`);
+        return NON_CREDITE;
+      }
+      return ACQUITTE;
+    }
     // 🔴 Le PRODUIT d'abord (plan du Crédit WhatsApp, tâche 10) : un achat du Crédit WhatsApp ne crédite JAMAIS le crédit
     // IA, et un produit que cette version ne connaît pas alerte au lieu d'être pris pour une recharge.
     const produit = session.metadata?.produit;

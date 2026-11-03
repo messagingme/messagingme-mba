@@ -20,6 +20,7 @@ const INCONNU = '11111111-2222-4333-8444-555555555555';
 /** Aucun abonnement Stripe, aucun numéro fourni : rien à signaler à l'exploitant. */
 const SANS_ALERTE: AlertesOffreManuelle = {
   proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: false,
+  optionCreditWhatsappSansDroit: false,
 };
 /** Les champs du Business (spec du 2026-10-27) d'un espace qui ne l'a jamais eu. */
 const SANS_BUSINESS = { business: false, utilisateursBusiness: null } as const;
@@ -83,6 +84,7 @@ class MagasinMemoire {
           if (this.echec === 'fin') throw new Error('base indisponible');
           return 'porte';
         },
+        finDeDroitOption: async (t) => { this.gestesJoues.push(`option:${t}`); return 'sans_option'; },
       },
     };
   }
@@ -159,10 +161,10 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
       tenantId: T1, entreprise: false, utilisateurs: null, conservationJours: null, contacts: null, commissionPct: null, ...SANS_BUSINESS, ...SANS_CREDIT_WA,
-      alertes: SANS_ALERTE, gestes: { creditOffert: null, finDuNumero: 'porte', echecs: [] }, utilisateursProposes: 10,
+      alertes: SANS_ALERTE, gestes: { creditOffert: null, finDuNumero: 'porte', finDeLOption: 'sans_option', echecs: [] }, utilisateursProposes: 10,
     });
     // Quitter l'Entreprise sans autre offre : le numéro fourni que plus rien ne couvre suit le chemin d'un impayé (spec Business).
-    expect(magasin.gestesJoues).toEqual([`fin:${T1}`]);
+    expect(magasin.gestesJoues).toEqual([`fin:${T1}`, `option:${T1}`]);
     expect(magasin.ecritures).toEqual([{ tenantId: T1, reglage: { entreprise: false, utilisateurs: null, conservationJours: null } }]);
     expect(magasin.invalides).toEqual([T1]);
     const traces = lignes.filter((l) => l.msg === 'ops_offre');
@@ -264,7 +266,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     const avant = Date.now();
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: false, note: 'fin de l’essai' } });
     expect(res.statusCode).toBe(200);
-    expect(magasin.gestesJoues).toEqual([`fin:${T1}`]);
+    expect(magasin.gestesJoues).toEqual([`fin:${T1}`, `option:${T1}`]);
     expect(magasin.finiLe!.getTime()).toBeGreaterThanOrEqual(avant);
     expect(res.json()).toMatchObject({ business: false, gestes: { creditOffert: null, finDuNumero: 'porte', echecs: [] } });
     await server.close();
@@ -328,7 +330,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
 
   it('GET et PUT rendent les alertes : un Pro payé vivant, un numéro payé à part, un numéro fourni que plus rien ne couvrirait, un numéro sur la ligne sans crédit', async () => {
     const { server, magasin } = monter();
-    magasin.alertes = { proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: true };
+    magasin.alertes = { proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: true, optionCreditWhatsappSansDroit: true };
     expect((await server.inject({ method: 'GET', url: `/ops/offre/${T1}`, headers: ops })).json()).toMatchObject({ alertes: magasin.alertes });
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, note: 'inchangé' } });
     expect(res.json()).toMatchObject({ alertes: magasin.alertes });

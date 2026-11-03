@@ -113,6 +113,10 @@ pas ; le retrait d'un Business dans `/ops` l'annonce puis la résilie ; un `dele
 premier `payment_failed` non ; la suppression d'un espace liste l'option à résilier ; codes promo fermés et jamais
 d'essai sur la session ; l'onglet d'un Pro sans ligne propose l'option, celui d'une Free la grise (e2e).
 
+**Avancement (2026-11-03 au soir)** : la migration 0276 poussée seule ; le serveur de 4a écrit et testé (magasin, places
+dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet, e-mail, bilan de suppression). Restent les deux
+écrans (l'onglet, la pose forcée de `/ops`), poussés après l'API qui porte leurs routes.
+
 ## Lot 4b : la recharge automatique (tâche 14 du plan d'ensemble)
 
 **Données** (la migration suivante) : `credit_whatsapp_recharge_auto` (l'espace pour clé, active, seuil et montant en

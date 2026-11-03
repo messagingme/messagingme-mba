@@ -13,6 +13,11 @@ export interface DepsAchatPermis {
   offre(tenantId: string): Promise<Offre>;
   conditions(tenantId: string): Promise<ConditionsCredit>;
   lignes(tenantId: string): Promise<readonly LigneCredit[]>;
+  /**
+   * L'option du Crédit WhatsApp est-elle en vente (Stripe configuré et `STRIPE_PRIX_OPTION_WA` posé, lot 4a) ? Un Pro ou
+   * un Business sans ligne voient alors l'onglet, pour la prendre. Poser le prix ouvre la vente à tous.
+   */
+  optionEnVente: boolean;
 }
 
 export async function achatPermis(d: DepsAchatPermis, tenantId: string): Promise<AchatPermis> {
@@ -27,6 +32,9 @@ export async function achatPermis(d: DepsAchatPermis, tenantId: string): Promise
  * aussi depuis le 2026-11-02 : « Illimité » et sa consommation du mois, sans rien à acheter (`achatPermis` le refuse).
  */
 export async function ongletCreditWhatsapp(d: DepsAchatPermis, tenantId: string): Promise<boolean> {
-  if ((await d.offre(tenantId)) === 'base') return false;
-  return (await d.lignes(tenantId)).length > 0;
+  const offre = await d.offre(tenantId);
+  if (offre === 'base') return false;
+  if ((await d.lignes(tenantId)).length > 0) return true;
+  // L'option (lot 4a) : un Pro ou un Business la voient dès qu'elle est en vente, pour la prendre ; jamais une Entreprise.
+  return d.optionEnVente && (offre === 'pro' || offre === 'business');
 }

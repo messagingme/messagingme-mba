@@ -4214,13 +4214,14 @@ webhook commun `traitement-recharge.ts`), la reprise (`leverPausesCreditWhatsapp
 e-mails (`creerAlertesCreditWhatsapp`, `src/emails-produit/alertes.ts`) et Claude (`get_credit`, `buy_credit`,
 `get_setup_state`).
 
-**Données** (migrations 0264, 0266, 0274 et 0275) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par
+**Données** (migrations 0264, 0266, 0274, 0275 et 0276) : `credits_whatsapp` (le solde), `credit_whatsapp_provisions` (une par
 envoi : `provisionne`, `rendu` ou `ajuste`, `illimite` pour celle d'une Entreprise, la commission qui l'a chiffrée, et la
 demi-heure sous laquelle une régularisation l'a comptée), `credit_whatsapp_mouvements` (achats,
 recharges, régularisations), `lignes_credit_whatsapp` (un numéro sur la ligne, arrêté ou retiré), `grilles_meta` et
 `grille_meta_tarifs` (les tarifs publiés par Meta, en euros), `credit_whatsapp_reglages` (la commission globale),
 `credit_whatsapp_regularisations` (l'écart de chaque jour de Paris entre les volumes de Meta et nos provisions, son
-détail, l'alerte partie), et sur `tenants` la commission des messages d'une Entreprise.
+détail, l'alerte partie), `options_credit_whatsapp` (l'abonnement Stripe de l'option d'un espace et ses places relues
+payées, une vivante par espace), et sur `tenants` la commission des messages d'une Entreprise.
 `tenants.entreprise_open_bar_whatsapp` n'est plus ni lue ni écrite.
 
 **Invariants.**
@@ -4314,10 +4315,26 @@ détail, l'alerte partie), et sur `tenants` la commission des messages d'une Ent
   nous n'avons pas vus) prévient Julien une fois par jour, et un solde prépayé sous -50 € aussi (il fait retirer la
   ligne ; jugé sur l'offre du moment, pas sur celle du jour). Hors de son champ : les paliers de volume tant que seule la
   grille de base est chargée, et l'e-mail au client (avant l'ouverture).
+- 🔴 **L'option, 30 € HT par numéro et par mois** (lot 4a, `src/stripe/option-credit-whatsapp.ts`, migration 0276) : un
+  abonnement Stripe mensuel à part, dont la quantité est le nombre de PLACES ; une place est un NUMÉRO couvert par une
+  ligne `'option'` (décision de Julien du 2026-11-03), alors qu'une ligne couvre tout son compte. Le Pro et le Business y
+  ont droit, jamais la Free ; une Entreprise n'en a pas besoin. Stripe d'abord : sans essai, codes promo fermés, une place
+  ajoutée n'existe que relue payée (`pending_if_incomplete`), un retrait s'applique sans prorata et jamais sous les
+  numéros couverts. Le webhook l'aiguille par sa marque APRÈS le Pro et AVANT le numéro (qui acquitte en silence ce
+  qu'il ne reconnaît pas), et relit ses places chez Stripe à chaque événement. La garde refuse (`ligne_inactive`) un
+  numéro d'une ligne `'option'` au-delà des places, rangés par le numéro de la ligne puis l'ancienneté, délié exclu
+  (`numerosCouvertsParOption`, `src/credit-whatsapp/places.ts`) ; ni une Entreprise ni une ligne `'ops'` ne comptent
+  de places. Dans `/ops`, la pose d'un Pro ou d'un Business consomme des places, tout le compte devant y tenir (409
+  `places_manquantes`), sauf une pose FORCÉE et signée, dont la ligne reste `'ops'`. La fin : plus aucune offre qui y
+  donne droit (la fin d'un Pro sans Business ni Entreprise, le retrait d'une offre posée à la main) la résilie tout de
+  suite sans avoir (`finDeDroitOption`), Stripe qui abandonne un impayé la finit ; ses lignes sont alors arrêtées, pas
+  retirées. Une seule ligne en cours par compte WhatsApp, tenue par la base (`lignes_credit_whatsapp_un_compte_uidx`).
+  La vente s'ouvre quand `STRIPE_PRIX_OPTION_WA` est posé : l'onglet paraît alors pour tout Pro et Business.
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés
-ensemble ou pas du tout, refusé au démarrage sinon), l'achat répond 503 et l'onglet dit « pas encore disponible ». Le solde d'un espace et ses provisions récentes se lisent dans `/ops`, fenêtre de l'offre.
+ensemble ou pas du tout, refusé au démarrage sinon), l'achat répond 503 et l'onglet dit « pas encore disponible ». Sans
+`STRIPE_PRIX_OPTION_WA`, l'option répond 503 et l'onglet ne la montre pas. Le solde d'un espace et ses provisions récentes se lisent dans `/ops`, fenêtre de l'offre.
 
 **Limites.** `todo.md`, section du Crédit WhatsApp.
 

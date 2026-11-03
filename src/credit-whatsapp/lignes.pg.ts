@@ -182,13 +182,57 @@ export class PgLignesCreditStore {
    * L'appelant a vérifié que le numéro appartient à l'espace (`tenant_id = $1` côté route).
    */
   async poser(tenantId: string, phoneNumberId: string, wabaId: string | null, origine: 'ops' | 'option', note: string): Promise<boolean> {
+    try {
+      const { rowCount } = await this.pool.query(
+        `insert into lignes_credit_whatsapp (tenant_id, phone_number_id, waba_id, origine, note) values ($1, $2, $3, $4, $5)
+         on conflict (phone_number_id) where retiree_le is null do nothing`,
+        [tenantId, phoneNumberId, wabaId, origine, note],
+      );
+      return (rowCount ?? 0) > 0;
+    } catch (err) {
+      // 🔴 Une ligne par compte WhatsApp (0276) : la base refuse une seconde ligne en cours sur un compte déjà couvert, que
+      // la route n'a pas vue (le cache de 5 s d'une autre copie). Rien n'est écrit : « déjà sur la ligne ».
+      const e = err as { code?: unknown; constraint?: unknown };
+      if (e.code === '23505' && e.constraint === 'lignes_credit_whatsapp_un_compte_uidx') return false;
+      throw err;
+    } finally {
+      this.oublier();
+    }
+  }
+
+  /**
+   * Les numéros de l'espace que ses lignes `'option'` en cours et actives couvrent (le numéro de la ligne, ou un autre de
+   * son compte WhatsApp), délié exclu : ceux que comptent les places de l'option (décision de Julien du 2026-11-03). Rangés
+   * pour l'attribution des places : le numéro d'une ligne d'abord, puis les autres par ancienneté dans l'espace.
+   */
+  async numerosCouvertsParOption(tenantId: string): Promise<string[]> {
+    const { rows } = await this.pool.query<{ id: string }>(
+      `with lignes as (
+         select phone_number_id, waba_id from lignes_credit_whatsapp
+          where tenant_id = $1 and origine = 'option' and retiree_le is null and arretee_le is null
+       )
+       select p.id from phone_numbers p
+        where p.tenant_id = $1 and p.delie_le is null
+          and (p.id in (select phone_number_id from lignes) or p.waba_id in (select waba_id from lignes where waba_id is not null))
+        order by (p.id in (select phone_number_id from lignes)) desc, p.created_at, p.id`,
+      [tenantId],
+    );
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * La fin de l'option de l'espace (fin de droit, impayé abandonné, résiliation) : TOUTES ses lignes `'option'` en cours
+   * sont arrêtées, par ligne et non par numéro (une ligne couvre tout son compte). Les lignes posées par `/ops` (un essai
+   * forcé, une Entreprise) ne bougent pas. Rend le nombre de lignes arrêtées.
+   */
+  async arreterLesLignesDeLOption(tenantId: string): Promise<number> {
     const { rowCount } = await this.pool.query(
-      `insert into lignes_credit_whatsapp (tenant_id, phone_number_id, waba_id, origine, note) values ($1, $2, $3, $4, $5)
-       on conflict (phone_number_id) where retiree_le is null do nothing`,
-      [tenantId, phoneNumberId, wabaId, origine, note],
+      `update lignes_credit_whatsapp set arretee_le = now()
+        where tenant_id = $1 and origine = 'option' and retiree_le is null and arretee_le is null`,
+      [tenantId],
     );
     this.oublier();
-    return (rowCount ?? 0) > 0;
+    return rowCount ?? 0;
   }
 
   /** L'option a pris fin : les envois du numéro s'arrêtent, la ligne reste en cours (elle paie encore chez Meta). */

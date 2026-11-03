@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { gardeEtendue, type Guard, type PreHandler } from '../auth/middleware';
 import { espaceVerifie } from './scope';
 import { corpsDuRefus } from '../lib/issue';
@@ -9,6 +10,8 @@ import { FRANCHISE_SERVICE_PAR_NUMERO, type ConditionsCredit } from '../credit-w
 import type { LigneHistoriqueWa } from '../credit-whatsapp/credit';
 import type { PointDeCredit } from '../lib/serie-credit';
 import type { LigneCredit } from '../credit-whatsapp/lignes.pg';
+import type { StatutOption } from '../credit-whatsapp/options.pg';
+import { changerPlaces, ouvrirOption, PRIX_OPTION_WA_HT_CENTIMES, PLACES_OPTION_MAX, type DepsOptionCredit } from '../stripe/option-credit-whatsapp';
 
 /**
  * LE CRÉDIT WHATSAPP D'UN ESPACE (plan du Crédit WhatsApp, tâches 10 et 11) : l'achat par Stripe et ce que montre l'onglet
@@ -38,6 +41,8 @@ export interface CreditWhatsappRouteDeps {
     conditions(tenantId: string): Promise<ConditionsCredit>;
     lignes(tenantId: string): Promise<readonly LigneCredit[]>;
   };
+  /** L'option du Crédit WhatsApp (lot 4a) : la prendre, changer ses places, et ce que l'onglet en montre. */
+  option: DepsOptionCredit;
 }
 
 /** Ce que l'onglet lit. Montants en micro-euros ; un prix se montre commission comprise, JAMAIS son taux. */
@@ -63,7 +68,23 @@ export interface VueCreditWhatsapp {
    * jour d'une Entreprise (dont le solde ne bouge pas).
    */
   serie: PointDeCredit[];
+  /**
+   * L'option (lot 4a, 30 € HT par numéro et par mois) : en vente ou non pour cet espace (un Pro ou un Business, le prix
+   * posé), ses places payées et les numéros que ses lignes couvrent, son statut et sa fin programmée.
+   */
+  option: {
+    disponible: boolean;
+    prixHtCentimes: number;
+    placesMax: number;
+    places: number;
+    couverts: number;
+    statut: StatutOption | null;
+    finPrevueLe: string | null;
+  };
 }
+
+const CORPS_OPTION = z.object({ places: z.number().int() }).strict();
+const CORPS_PLACES = z.object({ depuis: z.number().int(), cible: z.number().int() }).strict();
 
 export function registerCreditWhatsapp(
   app: FastifyInstance, deps: CreditWhatsappRouteDeps, gardeLecture: Guard, garde: Guard, limiteCouteuse: PreHandler,
@@ -74,9 +95,10 @@ export function registerCreditWhatsapp(
   /** L'onglet : tout membre le lit (un agent y voit le solde et qui peut recharger), seul un administrateur achète. */
   app.get('/tenants/:tenantId/credit-whatsapp', { preHandler: gardeLecture }, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const [soldeMicroEur, consommationDuMoisMicroEur, historique, grille, conditions, lignes, permis, serie] = await Promise.all([
+    const [soldeMicroEur, consommationDuMoisMicroEur, historique, grille, conditions, lignes, permis, serie, offre, option, couverts] = await Promise.all([
       deps.vue.solde(tenant), deps.vue.consommationDuMois(tenant), deps.vue.historique(tenant), deps.vue.grille(),
       deps.vue.conditions(tenant), deps.vue.lignes(tenant), deps.achat.achatPermis(tenant), deps.vue.serie(tenant),
+      deps.option.offre(tenant), deps.option.options.vivante(tenant), deps.option.numerosCouverts(tenant),
     ]);
     const prixFrance = grille === null ? null : CATEGORIES_AFFICHEES.flatMap((categorie) => {
       const prix = prixMessage(grille, 'FR', categorie, conditions.commissionPct);
@@ -97,8 +119,40 @@ export function registerCreditWhatsapp(
       ligneArretee: lignes.length > 0 && lignes.every((l) => l.arreteeLe !== null),
       historique,
       serie,
+      option: {
+        disponible: deps.option.stripe !== null && deps.option.prixOption !== '' && (offre === 'pro' || offre === 'business'),
+        prixHtCentimes: PRIX_OPTION_WA_HT_CENTIMES,
+        placesMax: PLACES_OPTION_MAX,
+        places: option?.places ?? 0,
+        couverts,
+        statut: option?.statut ?? null,
+        finPrevueLe: option?.finPrevueLe?.toISOString() ?? null,
+      },
     };
     return reply.code(200).send(vue);
+  });
+
+  /** Prendre l'option pour `places` numéros : une session Checkout d'abonnement, dont la console suit l'adresse. */
+  app.post('/tenants/:tenantId/credit-whatsapp/option', couteux, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const c = CORPS_OPTION.safeParse(req.body);
+    if (!c.success) return reply.code(400).send({ error: 'corps invalide : places (un entier) est attendu', code: 'corps_invalide' });
+    const r = await ouvrirOption(deps.option, tenant, c.data.places, req.auth?.userId ?? '');
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
+    return reply.code(200).send({ url: r.valeur.url });
+  });
+
+  /**
+   * Changer les places de l'option : de `depuis` (ce que l'écran a lu) à `cible`. Un ajout se paie avant de compter, un
+   * retrait ne passe pas sous les numéros couverts.
+   */
+  app.patch('/tenants/:tenantId/credit-whatsapp/option', couteux, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const c = CORPS_PLACES.safeParse(req.body);
+    if (!c.success) return reply.code(400).send({ error: 'corps invalide : depuis et cible (des entiers) sont attendus', code: 'corps_invalide' });
+    const r = await changerPlaces(deps.option, tenant, c.data, req.auth?.userId ?? '');
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
+    return reply.code(200).send({ places: r.valeur.places });
   });
 
   /** Ouvre une session Checkout pour une offre (`wa_50` à `wa_500`) et rend son adresse ; la console y redirige. */

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createHmac, randomBytes } from 'node:crypto';
 import { buildServer } from '../src/server';
-import { stripeProInerte } from './routes-inertes';
+import { stripeOptionInerte, stripeProInerte } from './routes-inertes';
 import { FakeQueue } from './fake-queue';
 import type { StripeWebhookRouteDeps } from '../src/http/credit-stripe';
 import type { AbonnementNumero, IssueEnregistrement, StatutAbonnement } from '../src/stripe/abonnements.pg';
@@ -59,6 +59,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrement; livemode?: 
     // Les événements du numéro ne touchent jamais le Pro (lot 6, B1) : ses dépendances lèvent si on les appelle. Seule
     // la lecture « un Pro couvre-t-il l'espace ? » répond (B2b).
     pro: { ...stripeProInerte, vivant: async () => o.proVivant ?? false },
+    option: stripeOptionInerte,
     now: () => NOW,
   };
   return { srv: buildServer({ queue: new FakeQueue(), stripeWebhook: deps }), cap };

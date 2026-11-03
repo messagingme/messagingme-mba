@@ -130,18 +130,21 @@ export class PgOffresStore implements SourceOffres {
    * Hors Entreprise, il ne pourrait plus rien envoyer, réponses comprises, avant un achat.
    */
   async alertes(tenantId: string): Promise<AlertesOffreManuelle> {
-    const r = await this.pool.query<{ pro: boolean; numero_seul: boolean; fourni: boolean; ligne_sans_credit: boolean }>(
+    const r = await this.pool.query<{ pro: boolean; numero_seul: boolean; fourni: boolean; ligne_sans_credit: boolean; option_wa: boolean }>(
       `select exists (select 1 from abonnements_offre where tenant_id = $1 and fini_le is null) as pro,
               exists (select 1 from abonnements_numero where tenant_id = $1 and statut <> 'resilie') as numero_seul,
               exists (select 1 from numeros_fournis where tenant_id = $1 and statut = 'attribue') as fourni,
               exists (select 1 from lignes_credit_whatsapp l where l.tenant_id = $1 and l.retiree_le is null and l.arretee_le is null)
-                and coalesce((select w.solde_micro_eur from credits_whatsapp w where w.tenant_id = $1), 0) < $2 as ligne_sans_credit`,
+                and coalesce((select w.solde_micro_eur from credits_whatsapp w where w.tenant_id = $1), 0) < $2 as ligne_sans_credit,
+              exists (select 1 from options_credit_whatsapp where tenant_id = $1 and fini_le is null) as option_wa`,
       [tenantId, SOLDE_REPRISE_CREDIT_MICRO_EUR],
     );
-    const l = r.rows[0] ?? { pro: false, numero_seul: false, fourni: false, ligne_sans_credit: false };
+    const l = r.rows[0] ?? { pro: false, numero_seul: false, fourni: false, ligne_sans_credit: false, option_wa: false };
     return {
       proPayeVivant: l.pro, numeroSeulVivant: l.numero_seul, numeroFourniSansCouverture: l.fourni && !l.pro && !l.numero_seul,
       ligneCreditWhatsappSansCredit: l.ligne_sans_credit,
+      // Sans Pro, retirer le Business ou l'Entreprise résiliera l'option du Crédit WhatsApp (sa fin de droit, lot 4a).
+      optionCreditWhatsappSansDroit: l.option_wa && !l.pro,
     };
   }
 
@@ -222,6 +225,8 @@ export interface AlertesOffreManuelle {
   numeroFourniSansCouverture: boolean;
   /** Un numéro est sur la ligne du Crédit WhatsApp et le solde ne couvre plus un message : hors Entreprise, tout s'arrête. */
   ligneCreditWhatsappSansCredit: boolean;
+  /** L'espace a l'option du Crédit WhatsApp sans Pro : retirer l'offre posée à la main la résilie, ses envois s'arrêtent. */
+  optionCreditWhatsappSansDroit: boolean;
 }
 
 /** Ce que l'exploitation règle sur un espace (`/ops/offre/:tenantId`). `null` = sans limite, ou le défaut de l'instance. */

@@ -141,6 +141,19 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     await expect(modale.getByTestId('offre-alerte-credit-wa')).toContainText(/avant un achat de Crédit WhatsApp/);
   });
 
+  test('🔴 retirer le Business d’un espace qui a l’option du Crédit WhatsApp sans Pro : l’écran annonce sa résiliation', async ({ page }) => {
+    const { modale } = await ouvrir(page, {
+      entreprise: false, utilisateurs: null, conservationJours: 90, business: true, utilisateursBusiness: null,
+      alertes: { proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, optionCreditWhatsappSansDroit: true },
+    });
+    await expect(modale.getByTestId('offre-alerte-option-wa')).toHaveCount(0);
+    await modale.getByTestId('offre-business').uncheck();
+    await expect(modale.getByTestId('offre-alerte-option-wa')).toContainText(/résiliée chez Stripe/);
+    // Passer en Entreprise garde le droit à l'option : plus d'annonce.
+    await modale.getByTestId('offre-entreprise').check();
+    await expect(modale.getByTestId('offre-alerte-option-wa')).toHaveCount(0);
+  });
+
   test('sans limite d’utilisateurs : `null` part', async ({ page }) => {
     const { modale, ecrits } = await ouvrir(page, { entreprise: false, utilisateurs: null, conservationJours: null });
     await modale.getByTestId('offre-entreprise').check();

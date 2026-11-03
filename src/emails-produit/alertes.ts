@@ -113,10 +113,10 @@ export function creerAlertesCreditWhatsapp(d: {
 // Le paiement refusé
 // ---------------------------------------------------------------------------------------------------------------
 
-/** Un renouvellement refusé par Stripe, d'un abonnement EN RETARD : le Pro ou le numéro fourni, et sa facture. */
+/** Un renouvellement refusé par Stripe, d'un abonnement EN RETARD : le Pro, le numéro fourni ou l'option du Crédit WhatsApp. */
 export interface PaiementRefuse {
   tenantId: string;
-  offre: 'pro' | 'numero';
+  offre: 'pro' | 'numero' | 'option_credit_whatsapp';
   /** La facture Stripe (`in_...`) : l'occasion. Stripe réessaie la même facture, l'e-mail ne part qu'une fois. */
   factureId: string;
 }
@@ -141,6 +141,12 @@ export function creerPaiementRefuse(d: {
         await d.emettre({
           cle: 'paiement_refuse_numero', tenantId: p.tenantId, occasion: `facture:${p.factureId}`, a: 'admins',
           valeurs: { date_coupure: coupure.toISOString(), lien_numero: d.pageNumero },
+        });
+      } else if (p.offre === 'option_credit_whatsapp') {
+        // L'onglet Crédit WhatsApp de la page Offre, où l'admin change sa carte (lot 4a).
+        await d.emettre({
+          cle: 'paiement_refuse_option_wa', tenantId: p.tenantId, occasion: `facture:${p.factureId}`, a: 'admins',
+          valeurs: { lien_credit_whatsapp: `${d.pageOffre}?tab=whatsapp` },
         });
       } else {
         await d.emettre({

@@ -169,6 +169,15 @@ describe('le paiement refusé', () => {
     ]);
   });
 
+  it('🔴 l’option du Crédit WhatsApp (lot 4a) : son e-mail, avec l’onglet Crédit WhatsApp de la page Offre, une fois par facture', async () => {
+    const e = emetteur();
+    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre', coupureDuNumero: async () => null });
+    await p({ tenantId: 't1', offre: 'option_credit_whatsapp', factureId: 'in_3' });
+    expect(e.emissions).toEqual([
+      { cle: 'paiement_refuse_option_wa', tenantId: 't1', occasion: 'facture:in_3', a: 'admins', valeurs: { lien_credit_whatsapp: 'https://c/offre?tab=whatsapp' } },
+    ]);
+  });
+
   it('🔴 un numéro qui ne sera pas coupé (un numéro apporté envoie) : aucun e-mail, il annoncerait une coupure fausse', async () => {
     const e = emetteur();
     const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'x', pageOffre: 'y', coupureDuNumero: async () => null });

@@ -54,6 +54,8 @@ import type { DepsProvisionCle } from './agent/provisionner-cle';
 import { PgCreditWhatsappReglagesStore } from './credit-whatsapp/reglages.pg';
 import { PgCreditWhatsappStore } from './credit-whatsapp/credit.pg';
 import { PgLignesCreditStore } from './credit-whatsapp/lignes.pg';
+import { PgOptionsCreditStore } from './credit-whatsapp/options.pg';
+import { creerPlacesOption } from './credit-whatsapp/places';
 import { creerGardeCreditWhatsapp, creerLecteurCategorie } from './credit-whatsapp/garde';
 import { creerAjustementCredit } from './credit-whatsapp/ajustement';
 import { PgConditionsCreditStore } from './credit-whatsapp/conditions.pg';
@@ -473,8 +475,15 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     fuseau: async (t) => (await settingsStore.horairesEffectifs(t)).timezone,
     pageOnglet: `${console_}/offre?tab=whatsapp`,
   });
+  /** L'option du Crédit WhatsApp (lot 4a) : son abonnement, écrit par le webhook, et les places que la garde compte. */
+  const optionsCreditWhatsapp = new PgOptionsCreditStore(pool);
+  const placesOptionWa = creerPlacesOption({
+    placesPayees: (t) => optionsCreditWhatsapp.placesPayees(t),
+    numerosCouvertsParOption: (t) => lignesCreditWhatsapp.numerosCouvertsParOption(t),
+  });
   const gardeCreditWhatsapp = creerGardeCreditWhatsapp({
     lignes: lignesCreditWhatsapp,
+    places: placesOptionWa,
     grille: () => reglagesCreditWhatsapp.grilleEnVigueur(),
     conditions: (tenant) => conditionsCreditWhatsapp.conditions(tenant),
     categorieDuModele: (t, nom, langue) => categorieDuModeleWa(t, nom, langue),
@@ -736,7 +745,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     inboxStore, settingsStore, flowStore, idempotencyStore, auditStore, erreursLivraison, echecsMessages,
     poolAttentesStore, httpLatencesStore, mesuresTachesStore, mesuresFilesStore, santeStore, memoireWorkersStore, seuilsStore, nodeEventStore, trackedLinkStore, webhookStore, verrousCourts, compteurDebit, phoneStatusStore, opsStore, heartbeatStore,
     workflowStore, automationStore, agentStore, knowledgeStore, rechercheSemantique, toolCatalog, journalAppels,
-    credits, reglagesCreditWhatsapp, creditWhatsapp, lignesCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver,
+    credits, reglagesCreditWhatsapp, creditWhatsapp, lignesCreditWhatsapp, optionsCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver,
     wabaDeLEspace, numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, numeroBloqueDeLEspace, gardeCreditWhatsapp, creditWhatsappBloque, ajustementCreditWhatsapp, conditionsCreditWhatsapp, alertesCreditWhatsapp, estimerCreditCampagne, esCredentialsStore, metaCredentials, metaFactory, listeDeLAgent,
     connexionsPub, connexionPub, publicites, clientPubs, clientCreationPubs, workflowRuntime, fil, alerteCredit, offres, quotaModeles,
     emailsProduit, emetteurEmails, envoisResend, paiementRefuse, prevenirEquipe, lienConversation,

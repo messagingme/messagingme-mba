@@ -370,6 +370,33 @@ export const CATALOGUE = [
     },
   },
   {
+    cle: 'paiement_refuse_option_wa',
+    categorie: 'service',
+    nom: 'Paiement refusé : option Crédit WhatsApp',
+    quand: 'Le paiement du renouvellement de l’option Crédit WhatsApp échoue. Une fois par facture.',
+    variables: {
+      lien_credit_whatsapp: { description: 'L’onglet Crédit WhatsApp de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
+    },
+    textes: {
+      fr: {
+        sujet: 'Le paiement de votre option Crédit WhatsApp a échoué',
+        corps: 'Bonjour,\n\nLe paiement du renouvellement de l’option Crédit WhatsApp de l’espace {{espace}} a échoué. Notre '
+          + 'prestataire de paiement va réessayer dans les prochains jours.\n\nSans paiement, les messages WhatsApp des numéros '
+          + 'de l’option s’arrêteront, réponses à vos clients comprises. Mettez à jour votre carte depuis l’onglet Crédit '
+          + 'WhatsApp de la page « Offre » de la console.',
+        bouton: { libelle: 'Mettre à jour ma carte', lien: '{{lien_credit_whatsapp}}' },
+      },
+      en: {
+        sujet: 'The payment for your WhatsApp credit option failed',
+        corps: 'Hello,\n\nThe renewal payment for the WhatsApp credit option of the {{espace}} workspace failed. Our payment '
+          + 'provider will try again over the next few days.\n\nWithout payment, the WhatsApp messages of the option’s numbers '
+          + 'will stop, replies to your customers included. Update your card from the WhatsApp credit tab of the “Plan” page '
+          + 'of the console.',
+        bouton: { libelle: 'Update my card', lien: '{{lien_credit_whatsapp}}' },
+      },
+    },
+  },
+  {
     cle: 'limite_modeles_80',
     categorie: 'service',
     nom: 'Offre Free : 80 % des modèles du mois',

@@ -346,6 +346,12 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
       // Le numéro inclus (B2b) : aucun Pro, rien à arrêter ni à recréer.
       vivant: async () => false, surPassageEnPro: async () => undefined, surFinDuPro: async () => undefined,
     },
+    // L'option du Crédit WhatsApp (lot 4a) : aucune option ne se résout, rien n'est relu chez Stripe ni arrêté.
+    option: {
+      enregistrer: async () => ({ etat: 'doublon' as const }), majStatut: async () => null, noterPlaces: async () => null,
+      finir: async () => null, vivante: async () => null, chezStripe: async () => null, arreterLesLignes: async () => 0,
+      surFinDuPro: async () => undefined, alerter: async () => undefined,
+    },
   } satisfies StripeWebhookRouteDeps,
   // Le pont du code (lot 3a) : un VRAI secret aussi, et une réserve vide. Une signature fausse ou absente doit tomber
   // avant la réserve (sonde 12).

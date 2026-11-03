@@ -30,7 +30,8 @@ export interface OpsOffreDeps {
   audit: AuditSink;
   /**
    * Les gestes qui suivent la pose ou le retrait d'une offre à la main (spec Business), après l'écriture : aucun ne la
-   * défait, un échec se journalise et la réponse le dit. Aucun n'écrit chez Stripe (aucun objet Stripe pour le Business).
+   * défait, un échec se journalise et la réponse le dit. Aucun n'écrit chez Stripe (aucun objet Stripe pour le Business),
+   * sauf la fin de droit de l'option du Crédit WhatsApp, qui la résilie (lot 4a).
    */
   gestes: {
     /** L'entrée en Business : les avis du numéro oubliés, les campagnes `numero_suspendu` reprises (`surPassageEnPro`). */
@@ -50,6 +51,11 @@ export interface OpsOffreDeps {
      * sans attendre le balayage horaire (une clé prépayée épuisée ferait échouer ses tours jusque-là).
      */
     reglerIaEntreprise(tenantId: string): Promise<void>;
+    /**
+     * La sortie de toute offre posée à la main : l'option du Crédit WhatsApp que plus aucune offre ne permet se résilie,
+     * ses lignes arrêtées (`finDeDroitOption`, lot 4a). Elle écrit chez Stripe, la seule. Rend ce qu'elle a fait.
+     */
+    finDeDroitOption(tenantId: string): Promise<string>;
   };
 }
 
@@ -57,7 +63,9 @@ export interface OpsOffreDeps {
 interface BilanGestes {
   creditOffert: number | null;
   finDuNumero: string | null;
-  echecs: Array<'passage' | 'credit' | 'fin' | 'reprise_credit_whatsapp' | 'ia_entreprise'>;
+  /** La fin de droit de l'option du Crédit WhatsApp (lot 4a) : `resiliee`, `garde_son_droit` (un Pro vivant), etc. */
+  finDeLOption: string | null;
+  echecs: Array<'passage' | 'credit' | 'fin' | 'reprise_credit_whatsapp' | 'ia_entreprise' | 'option'>;
 }
 
 /** 10 utilisateurs proposés à l'écran ; la route accepte toute limite positive, ou `null` (sans limite). */
@@ -160,7 +168,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
  * échoué : un échec se journalise, l'offre posée reste posée.
  */
 async function jouerLesGestes(deps: OpsOffreDeps, tenantId: string, avant: ReglageEntreprise, apres: ReglageEntreprise): Promise<BilanGestes> {
-  const bilan: BilanGestes = { creditOffert: null, finDuNumero: null, echecs: [] };
+  const bilan: BilanGestes = { creditOffert: null, finDuNumero: null, finDeLOption: null, echecs: [] };
   const tenter = async <T>(geste: BilanGestes['echecs'][number], f: () => Promise<T>): Promise<T | null> => {
     try {
       return await f();
@@ -176,7 +184,11 @@ async function jouerLesGestes(deps: OpsOffreDeps, tenantId: string, avant: Regla
     await tenter('passage', () => deps.gestes.passageBusiness(tenantId));
     bilan.creditOffert = await tenter('credit', () => deps.gestes.completerCredit(tenantId));
   }
-  if (quitteLaMain) bilan.finDuNumero = await tenter('fin', () => deps.gestes.finOffreManuelle(tenantId, new Date()));
+  if (quitteLaMain) {
+    bilan.finDuNumero = await tenter('fin', () => deps.gestes.finOffreManuelle(tenantId, new Date()));
+    // Plus de Business ni d'Entreprise : l'option du Crédit WhatsApp n'y a plus droit, sauf un Pro vivant (elle le lit).
+    bilan.finDeLOption = await tenter('option', () => deps.gestes.finDeDroitOption(tenantId));
+  }
   // L'Entreprise posée (lue sur l'état relu) : son Crédit WhatsApp devient illimité (décision du 2026-11-02), les campagnes
   // arrêtées faute de crédit repartent. Le retrait ne relance rien : la garde juge le solde au prochain envoi.
   if (!avant.entreprise && apres.entreprise) {

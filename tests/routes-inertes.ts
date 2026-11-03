@@ -657,6 +657,18 @@ export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
     conditions: async () => ({ openBar: false, commissionPct: 5 }),
     lignes: async () => [],
   },
+  // L'option du Crédit WhatsApp (lot 4a) : pas en vente, aucune option, rien à écrire.
+  option: {
+    stripe: null,
+    clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },
+    payeurAutorise: async () => false,
+    urlConsole: 'https://console.exemple',
+    prixOption: '',
+    options: { vivante: async () => null, noterPlaces: neDevraitPasEtreAppelee('creditWhatsapp.option.noterPlaces') },
+    offre: async () => 'base',
+    numerosCouverts: async () => 0,
+    alerter: async () => {},
+  },
   onglet: async () => false,
 };
 
@@ -747,6 +759,22 @@ export const stripeProInerte: StripeWebhookRouteDeps['pro'] = {
   surFinDuPro: neDevraitPasEtreAppelee('stripe.pro.surFinDuPro'),
   siegesChezStripe: neDevraitPasEtreAppelee('stripe.pro.siegesChezStripe'),
   finPrevueChezStripe: neDevraitPasEtreAppelee('stripe.pro.finPrevueChezStripe'),
+};
+
+/**
+ * L'option du Crédit WhatsApp (lot 4a), pour les montages qui n'en parlent pas : aucune option vivante, et chaque écriture
+ * LÈVE. Sa fin de droit, jouée après CHAQUE fin de Pro, n'a rien à résilier (`sans_option`).
+ */
+export const stripeOptionInerte: StripeWebhookRouteDeps['option'] = {
+  enregistrer: neDevraitPasEtreAppelee('stripe.option.enregistrer'),
+  majStatut: neDevraitPasEtreAppelee('stripe.option.majStatut'),
+  noterPlaces: neDevraitPasEtreAppelee('stripe.option.noterPlaces'),
+  finir: neDevraitPasEtreAppelee('stripe.option.finir'),
+  vivante: async () => null,
+  chezStripe: neDevraitPasEtreAppelee('stripe.option.chezStripe'),
+  arreterLesLignes: neDevraitPasEtreAppelee('stripe.option.arreterLesLignes'),
+  surFinDuPro: async () => 'sans_option',
+  alerter: async () => {},
 };
 
 /**

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   creerTraitementAbonnements, type DepsTraitementAbonnements, type EvenementStripeVerifie,
 } from '../src/stripe/traitement-abonnements';
-import { stripeNumeroInerte, stripeProInerte } from './routes-inertes';
+import { stripeNumeroInerte, stripeOptionInerte, stripeProInerte } from './routes-inertes';
 
 const TENANT = '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01';
 
@@ -14,6 +14,7 @@ function creer(over: Partial<DepsTraitementAbonnements> = {}) {
   return creerTraitementAbonnements({
     numero: stripeNumeroInerte,
     pro: stripeProInerte,
+    option: stripeOptionInerte,
     paiementRefuse: async () => {},
     signalerPro: async () => {},
     now: () => 1_790_000_000_000,
@@ -75,5 +76,93 @@ describe('le traitement des événements Stripe d’abonnement', () => {
     });
 
     await expect(traitement.traiter(e)).rejects.toBe(panne);
+  });
+});
+
+/**
+ * L'OPTION DU CRÉDIT WHATSAPP (lot 4a) : aiguillée avant le numéro, ses places toujours RELUES chez Stripe, en retard sans
+ * perdre ses places, finie à l'annonce de Stripe avec ses lignes arrêtées.
+ */
+describe('l’option du Crédit WhatsApp', () => {
+  const META = { tenant_id: TENANT, produit: 'option_credit_whatsapp' };
+  function option(o: { relu?: { statut: string; places: number; finPrevueLe: Date | null } | null; connue?: boolean; vivante?: boolean; premiereFin?: boolean } = {}) {
+    const journal: string[] = [];
+    const refus: string[] = [];
+    const ligneDe = { abonnementId: 'sub_opt', tenantId: TENANT, livemode: true, statut: 'actif' as const, places: 2, periodeFin: null, finPrevueLe: null, finiLe: null, finRaison: null };
+    const dep: DepsTraitementAbonnements['option'] = {
+      enregistrer: async (a) => { journal.push(`enregistrer:${a.abonnementId}:${a.places}`); return { etat: 'enregistre', tenantId: TENANT, nouveau: true }; },
+      majStatut: async (id, statut) => { journal.push(`statut:${id}:${statut}`); return o.connue === false ? null : { ...ligneDe, statut }; },
+      noterPlaces: async (id, places) => { journal.push(`places:${id}:${places}`); return o.connue === false ? null : ligneDe; },
+      finir: async (id, raison) => { journal.push(`finir:${id}:${raison}`); return { ...ligneDe, premiereFin: o.premiereFin ?? true }; },
+      vivante: async () => (o.vivante ? ligneDe : null),
+      chezStripe: async () => (o.relu === undefined ? { statut: 'active', places: 2, finPrevueLe: null } : o.relu),
+      arreterLesLignes: async (t) => { journal.push(`arret:${t}`); return 1; },
+      surFinDuPro: async () => 'sans_option',
+      alerter: async () => {},
+    };
+    const traitement = creer({ option: dep, paiementRefuse: async (p) => { refus.push(`${p.offre}:${p.factureId}`); } });
+    return { traitement, journal, refus };
+  }
+  const facture = (billing_reason = 'subscription_cycle') => ({
+    id: 'in_1', billing_reason, amount_paid: 3000, parent: { subscription_details: { subscription: 'sub_opt', metadata: META } },
+    lines: { data: [{ period: { end: 1_800_000_000 } }] },
+  });
+
+  it('🔴 la session payée enregistre les places RELUES chez Stripe ; une session impayée ou un abonnement incomplet, rien', async () => {
+    const paye = option({ relu: { statut: 'active', places: 3, finPrevueLe: null } });
+    const session = { id: 'cs_opt', mode: 'subscription', payment_status: 'paid', subscription: 'sub_opt', metadata: META };
+    expect(paye.traitement.concerne(evenement('checkout.session.completed', session))).toBe(true);
+    await expect(paye.traitement.traiter(evenement('checkout.session.completed', session))).resolves.toEqual({ issue: 'acquitte' });
+    expect(paye.journal).toEqual(['enregistrer:sub_opt:3']);
+    const impaye = option();
+    await impaye.traitement.traiter(evenement('checkout.session.completed', { ...session, payment_status: 'unpaid' }));
+    const incomplet = option({ relu: { statut: 'incomplete', places: 3, finPrevueLe: null } });
+    await incomplet.traitement.traiter(evenement('checkout.session.completed', session));
+    expect([impaye.journal, incomplet.journal]).toEqual([[], []]);
+  });
+
+  it('🔴 une modification relit les places chez Stripe ; un abonnement que Stripe dit impayé finit l’option et arrête ses lignes', async () => {
+    const modif = option({ relu: { statut: 'active', places: 4, finPrevueLe: null } });
+    await modif.traitement.traiter(evenement('customer.subscription.updated', { id: 'sub_opt', metadata: META }));
+    expect(modif.journal).toEqual(['places:sub_opt:4']);
+    const impaye = option({ relu: { statut: 'unpaid', places: 4, finPrevueLe: null } });
+    await impaye.traitement.traiter(evenement('customer.subscription.updated', { id: 'sub_opt', metadata: META }));
+    expect(impaye.journal).toEqual(['finir:sub_opt:impaye', `arret:${TENANT}`]);
+  });
+
+  it('🔴 la fin annoncée par Stripe arrête les lignes ; une AUTRE option vivante (reprise depuis) garde les siennes', async () => {
+    const fin = option();
+    await fin.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META, cancellation_details: { reason: 'payment_failed' } }));
+    expect(fin.journal).toEqual(['finir:sub_opt:impaye', `arret:${TENANT}`]);
+    const reprise = option({ vivante: true, premiereFin: false });
+    await reprise.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
+    expect(reprise.journal).toEqual(['finir:sub_opt:resiliation']);
+  });
+
+  it('🔴 un échec de renouvellement : en retard, places gardées, l’e-mail aux admins ; le prorata d’une place refusé ne change rien', async () => {
+    const echec = option();
+    await echec.traitement.traiter(evenement('invoice.payment_failed', facture()));
+    expect([echec.journal, echec.refus]).toEqual([['statut:sub_opt:en_retard'], ['option_credit_whatsapp:in_1']]);
+    const prorata = option();
+    await prorata.traitement.traiter(evenement('invoice.payment_failed', facture('subscription_update')));
+    expect([prorata.journal, prorata.refus]).toEqual([[], []]);
+  });
+
+  it('une facture payée remet l’option à jour et relit ses places ; arrivée avant la session, elle l’enregistre', async () => {
+    const payee = option();
+    await payee.traitement.traiter(evenement('invoice.paid', facture()));
+    expect(payee.journal).toEqual(['statut:sub_opt:actif', 'places:sub_opt:2']);
+    const avant = option({ connue: false });
+    await avant.traitement.traiter(evenement('invoice.paid', facture('subscription_create')));
+    expect(avant.journal).toEqual(['statut:sub_opt:actif', 'enregistrer:sub_opt:2']);
+  });
+
+  it('🔴 un événement de l’option ne tombe jamais dans le chemin du numéro (qui acquitte en silence) : marquée mais illisible, 422', async () => {
+    // Le numéro inerte LÈVE sur toute écriture : passer par lui ferait échouer ce test.
+    const o = option();
+    await expect(o.traitement.traiter(evenement('customer.subscription.updated', { metadata: { produit: 'option_credit_whatsapp' } })))
+      .resolves.toEqual({ issue: 'illisible', domaine: 'option' });
+    await expect(o.traitement.traiter(evenement('invoice.paid', { id: 'in_x', parent: { subscription_details: { subscription: 'sub_opt', metadata: { produit: 'option_credit_whatsapp' } } } })))
+      .resolves.toEqual({ issue: 'illisible', domaine: 'option' });
   });
 });

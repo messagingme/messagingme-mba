@@ -52,8 +52,8 @@ export interface ClientStripe {
 
 export interface AbonnementStripe {
   id: string;
-  /** L'abonnement du numéro fourni (lot 3c) ou celui de l'offre Pro (lot 6). */
-  produit: 'numero' | 'offre';
+  /** L'abonnement du numéro fourni (lot 3c), celui de l'offre Pro (lot 6) ou l'option du Crédit WhatsApp (lot 4a). */
+  produit: 'numero' | 'offre' | 'option_credit_whatsapp';
   statut: string;
   livemode: boolean;
   /** Stripe le facture encore : c'est lui qu'il faut résilier à la main. */

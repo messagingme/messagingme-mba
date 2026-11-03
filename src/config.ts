@@ -628,6 +628,12 @@ export const schema = z.object({
    */
   STRIPE_PRIX_NUMERO: z.string().default(''),
   /**
+   * Le prix mensuel de l'option du Crédit WhatsApp (lot 4a) : 30 € HT par numéro et par mois, taxe en sus, relu chez
+   * Stripe avant chaque paiement (`PRIX_OPTION_WA_HT_CENTIMES`). Vide : l'option n'est pas en vente (503), et la console ne
+   * la montre pas.
+   */
+  STRIPE_PRIX_OPTION_WA: z.string().default(''),
+  /**
    * Les prix du Pro (lot 6, livraison B1) : 49 € HT par mois et 490 € HT par an, taxe en sus, relus chez Stripe avant
    * chaque paiement (`PRIX_PRO_HT_CENTIMES`, `src/offres/offres.ts`). Posés ensemble ou pas du tout (garde plus bas) ; vides :
    * le Pro n'est pas en vente, la route rend 503 et la page de l'offre renvoie au Support.

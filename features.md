@@ -3627,7 +3627,10 @@ boîte par sous-menu.
   la couverture comme les envois la lisent : « refusé » quand le compte du numéro est sur la ligne d'un autre espace,
   « envois arrêtés » quand la ligne qui le couvre l'est, et la coexistence d'un numéro couvert reste dite en rouge ; un
   second numéro d'un compte déjà couvert ne se pose plus (une ligne couvre tout le compte). Une Entreprise y est dite
-  illimitée, avec ses messages du mois à facturer, au lieu d'un solde.
+  illimitée, avec ses messages du mois à facturer, au lieu d'un solde. Avec l'option (lot 4a) : la fenêtre dit les places
+  payées et les numéros couverts, et la pose d'un numéro d'un client Pro ou Business consomme des places, tout son compte
+  devant y tenir, sauf une pose forcée pour un essai ; retirer le Business ou l'Entreprise d'un espace qui a l'option sans
+  Pro s'annonce en rouge (l'option sera résiliée), et le bilan d'une suppression d'espace la liste à résilier.
 - ✅ **La grille de Meta, prix par prix** (onglet Réglages, 2026-11-03) : sous la grille chargée, un marché par ligne et
   une catégorie par colonne, le prix client (commission globale comprise) et dessous le tarif de Meta ; chercher un
   pays trouve aussi le marché régional qui le contient (la Belgique dans « Reste de l'Europe de l'Ouest »).
@@ -5514,6 +5517,13 @@ Les envois WhatsApp ne sont pas concernés : leur débit se règle campagne par 
 
 ## À venir / hors périmètre
 
+- 🚧 **L'option Crédit WhatsApp, 30 € HT par numéro et par mois** (lot 4a du plan `2026-11-03-credit-whatsapp-lot-4.md`) :
+  prête côté serveur, pas encore en vente ; elle ne se montre qu'une fois son prix posé chez Stripe, et sa fiche d'aide
+  arrive avec l'ouverture. Un client Pro ou Business la prendra dans l'onglet Crédit WhatsApp pour 1 à 20 numéros, payée
+  tout de suite (sans essai ni code promo). Une place est un numéro : un numéro ajouté au compte au-delà des places
+  payées ne part plus tant qu'une place de plus n'est pas prise. Un ajout se paie au prorata et ne compte qu'une fois
+  payé ; un retrait vaut tout de suite, sans remboursement, jamais sous les numéros déjà couverts. Une option que plus
+  aucune formule ne permet se résilie d'elle-même, sans remboursement du mois entamé, et ses numéros s'arrêtent.
 - 🔲 **Pool de numéros à l’embarquement** : plus tard. Le parcours Embedded Signup lui-même est **LIVE et
   éprouvé depuis le 2026-08-17** (voir la section Accueil) : un vrai numéro d’un business tiers est passé
   connecté et vérifié. Ce qui reste ouvert, c’est de proposer un numéro quand le client n’en a aucun.

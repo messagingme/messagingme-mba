@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import type { OpsRouteDeps } from '../src/http/ops';
-import type { OpsCreditWhatsappDeps } from '../src/http/ops-credit-whatsapp';
+import { placesApresPose, type OpsCreditWhatsappDeps } from '../src/http/ops-credit-whatsapp';
 import type { ChargementGrille, ResumeGrille } from '../src/credit-whatsapp/reglages.pg';
 import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from '../src/credit-whatsapp/lignes.pg';
 import type { ProvisionVue } from '../src/credit-whatsapp/credit';
@@ -39,6 +39,8 @@ type Trace = { tenant: string; email: string | null; action: string; detail: Rec
 function app(
   reglages: Partial<OpsCreditWhatsappDeps['reglages']> = {}, monter = true, lignes: Partial<OpsCreditWhatsappDeps['lignes']> = {}, traces: Trace[] = [],
   credit: Partial<OpsCreditWhatsappDeps['credit']> = {},
+  /** L'option (lot 4a) : une Entreprise par défaut, qui pose sans compter de places (le comportement d'avant). */
+  option: Partial<OpsCreditWhatsappDeps['option']> = {},
 ) {
   const creditWhatsapp: OpsCreditWhatsappDeps = {
     reglages: {
@@ -54,12 +56,14 @@ function app(
       numerosDeLEspace: async () => [],
       lignesDeLEspace: async () => [],
       ligneDuNumero: async () => null,
+      numerosCouvertsParOption: async () => [],
       poser: async () => true,
       retirer: async () => true,
       ...lignes,
     },
     audit: async (tenant, acteur, action, _cible, detail) => { traces.push({ tenant, email: acteur.email, action, detail }); },
     credit: { solde: async () => 0, consommationDuMois: async () => 0, dernieresProvisions: async () => [], ...credit },
+    option: { entreprise: async () => true, placesPayees: async () => 0, ...option },
   };
   const deps: OpsRouteDeps = {
     ...opsInerte,
@@ -171,10 +175,12 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     }, traces);
     const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ tenantId: T1, lignes: [LIGNE], numeros: [], soldeMicroEur: 0, consommationDuMoisMicroEur: 0, provisions: [] });
+    expect(res.json()).toEqual({
+      tenantId: T1, lignes: [LIGNE], numeros: [], soldeMicroEur: 0, consommationDuMoisMicroEur: 0, provisions: [], places: { payees: 0, couverts: 0 },
+    });
     expect(lus).toEqual([`${T1}:${PN}`]);
     expect(poses).toEqual([[T1, PN, 'w1', 'ops', `${ADRESSE_OPS} : numéro d’essai de la ligne`]]);
-    expect(traces).toEqual([{ tenant: T1, email: ADRESSE_OPS, action: 'ops.ligne_credit_posee', detail: { phoneNumberId: PN } }]);
+    expect(traces).toEqual([{ tenant: T1, email: ADRESSE_OPS, action: 'ops.ligne_credit_posee', detail: { phoneNumberId: PN, origine: 'ops', forcer: false } }]);
     await a.close();
   });
 
@@ -301,6 +307,7 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
       soldeMicroEur: 973_960,
       consommationDuMoisMicroEur: 52_080,
       provisions: [PROVISION],
+      places: { payees: 0, couverts: 0 },
     });
     expect(demandes).toEqual([50]);
     await a.close();
@@ -338,6 +345,53 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
       expect(pose, nom).toBe(false);
       await a.close();
     }
+  });
+
+  /** Le numéro posé et un second numéro de son compte, puis un délié du même compte (il ne compte pas de place). */
+  const COMPTE: NumeroDeLEspace[] = [
+    { ...NUMERO, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: null },
+    { ...NUMERO, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: null },
+    { ...NUMERO, phoneNumberId: '106540352243002', numero: '+33 5 25 68 02 52', nom: null, delie: true },
+  ];
+
+  it('🔴 un Pro ou un Business : la pose consomme des places payées, et tout le compte doit y tenir (décision du 2026-11-03)', async () => {
+    for (const [places, attendu] of [[0, 409], [1, 409], [2, 200]] as const) {
+      const poses: unknown[][] = [];
+      const a = app({}, true, {
+        numeroDeLEspace: async () => NUMERO, numerosDeLEspace: async () => COMPTE, poser: async (...args) => { poses.push(args); return true; },
+      }, [], {}, { entreprise: async () => false, placesPayees: async () => places });
+      const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+      expect(res.statusCode, `${places} place(s)`).toBe(attendu);
+      if (attendu === 409) {
+        expect(res.json()).toMatchObject({ code: 'places_manquantes' });
+        expect(poses).toEqual([]);
+      } else {
+        // Une ligne de l'option, sur une place payée.
+        expect(poses).toEqual([[T1, PN, 'w1', 'option', `${ADRESSE_OPS} : numéro d’essai de la ligne`]]);
+      }
+      await a.close();
+    }
+  });
+
+  it('🔴 une pose forcée, signée, passe sans place : sa ligne reste « ops », hors des places', async () => {
+    const poses: unknown[][] = [];
+    const traces: Trace[] = [];
+    const a = app({}, true, {
+      numeroDeLEspace: async () => NUMERO, numerosDeLEspace: async () => COMPTE, poser: async (...args) => { poses.push(args); return true; },
+    }, traces, {}, { entreprise: async () => false, placesPayees: async () => 0 });
+    const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: { ...corpsLigne(), forcer: true } });
+    expect(res.statusCode).toBe(200);
+    expect(poses).toEqual([[T1, PN, 'w1', 'ops', `${ADRESSE_OPS} : numéro d’essai de la ligne (pose forcée, sans place)`]]);
+    expect(traces[0]?.detail).toEqual({ phoneNumberId: PN, origine: 'ops', forcer: true });
+    await a.close();
+  });
+
+  it('les places qu’une pose demanderait : le numéro et son compte, déjà couverts une seule fois, délié exclu', () => {
+    expect(placesApresPose([], COMPTE, { phoneNumberId: PN, wabaId: 'w1' })).toBe(2);
+    expect(placesApresPose([PN], COMPTE, { phoneNumberId: PN, wabaId: 'w1' })).toBe(2);
+    expect(placesApresPose(['106540352200000'], COMPTE, { phoneNumberId: PN, wabaId: 'w1' })).toBe(3);
+    // Un numéro sans compte connu ne couvre que lui.
+    expect(placesApresPose([], COMPTE, { phoneNumberId: PN, wabaId: null })).toBe(1);
   });
 });
 

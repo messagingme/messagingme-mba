@@ -89,6 +89,19 @@ describe('creerTraitementRecharge', () => {
     expect(supprime.plafonds).toEqual([]);
   });
 
+  it('🔴 un ABONNEMENT réglé, de notre espace, d’un produit que cette version ne connaît pas : une alerte, jamais un acquittement muet', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const inconnu = monter();
+    const abonnement = session({ mode: 'subscription', metadata: { tenant_id: ESPACE, produit: 'produit_futur' } });
+    expect(await inconnu.t.traiter(evenement(abonnement))).toEqual({ issue: 'acquitte', credite: false });
+    expect(inconnu.alertes[0]).toContain('produit_futur');
+    expect(inconnu.credits).toEqual([]);
+    // Pas encore réglé : rien à signaler, la confirmation viendra.
+    const impaye = monter();
+    expect(await impaye.t.traiter(evenement({ ...abonnement, payment_status: 'unpaid' }))).toEqual({ issue: 'acquitte' });
+    expect(impaye.alertes).toEqual([]);
+  });
+
   it('un événement rejoué (session déjà créditée) : acquitté, `credite` faux, le plafond n’est pas relancé', async () => {
     const { t, plafonds } = monter({ issue: 'deja' });
     expect(await t.traiter(evenement(session()))).toEqual({ issue: 'acquitte', credite: false });

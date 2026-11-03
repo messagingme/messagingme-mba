@@ -4,7 +4,7 @@ import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import type { StripeWebhookRouteDeps } from '../src/http/credit-stripe';
 import type { AbonnementOffre, IssueEnregistrementPro, PeriodiciteOffre, RaisonFinOffre } from '../src/offres/abonnements-offre.pg';
-import { stripeNumeroInerte } from './routes-inertes';
+import { stripeNumeroInerte, stripeOptionInerte } from './routes-inertes';
 import type { FinDuPro } from '../src/offres/numero-inclus';
 
 /**
@@ -43,6 +43,8 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     paiementsRefuses: [] as Array<{ tenantId: string; offre: string; factureId: string }>,
     /** Les conversions « Subscribe » de nos publicités (pixel, lot 2). */
     pros: [] as Array<{ tenantId: string; montantCentimes: number; devise: string }>,
+    /** Les fins de droit de l'option du Crédit WhatsApp jouées après une fin de Pro (lot 4a). */
+    finsDeDroitOption: [] as string[],
   };
   const connus = new Set(o.connus ?? []);
   const finis = new Set<string>();
@@ -55,6 +57,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     paiementRefuse: async (p) => { cap.paiementsRefuses.push({ tenantId: p.tenantId, offre: p.offre, factureId: p.factureId }); },
     signalerPro: async (p) => { cap.pros.push(p); },
     numero: stripeNumeroInerte,
+    option: { ...stripeOptionInerte, surFinDuPro: async (t) => { cap.finsDeDroitOption.push(t); return 'sans_option'; } },
     pro: {
       enregistrer: async (a) => { if (o.panne !== undefined) throw o.panne; cap.enregistres.push(a); const neuf = !connus.has(a.abonnementId); connus.add(a.abonnementId); return o.issue ?? { etat: 'enregistre', tenantId: T1, nouveau: neuf }; },
       majStatut: async (abonnementId, statut, periodeFin, finEchouee = null) => {
@@ -219,6 +222,14 @@ describe('le webhook Stripe et le Pro', () => {
     const r3 = monter({ connus: ['sub_pro'] });
     await envoyer(r3.srv, evenement(abonnementPro({ cancellation_details: null }), 'customer.subscription.deleted'));
     expect(r3.cap.fins).toEqual([{ abonnementId: 'sub_pro', raison: 'resiliation', finiLe: new Date(NOW) }]);
+  });
+
+  it('🔴 la fin du Pro joue la fin de droit de l’option du Crédit WhatsApp de son espace (lot 4a), à chaque rejeu', async () => {
+    const { srv, cap } = monter({ connus: ['sub_pro'] });
+    const fin = evenement(abonnementPro({ ended_at: FIN, cancellation_details: { reason: 'cancellation_requested' } }), 'customer.subscription.deleted');
+    await envoyer(srv, fin);
+    await envoyer(srv, fin);
+    expect(cap.finsDeDroitOption).toEqual([T1, T1]);
   });
 
   it('🟡 un rejeu de la fin ne réalerte pas (Stripe rejoue un événement non acquitté)', async () => {

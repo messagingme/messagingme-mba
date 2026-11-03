@@ -39,8 +39,18 @@ export interface OpsCreditWhatsappDeps {
      * autre, arrêtée comprise) : l'écran et la pose disent ce que la garde fera de ses envois.
      */
     ligneDuNumero(phoneNumberId: string): Promise<LigneCredit | null>;
-    poser(tenantId: string, phoneNumberId: string, wabaId: string | null, origine: 'ops', note: string): Promise<boolean>;
+    poser(tenantId: string, phoneNumberId: string, wabaId: string | null, origine: 'ops' | 'option', note: string): Promise<boolean>;
     retirer(tenantId: string, phoneNumberId: string): Promise<boolean>;
+    /** Les numéros couverts par les lignes `'option'`, rangés : ceux que comptent les places (`numerosCouvertsParOption`). */
+    numerosCouvertsParOption(tenantId: string): Promise<string[]>;
+  };
+  /**
+   * L'option du Crédit WhatsApp (lot 4a, décision de Julien du 2026-11-03) : une pose pour un Pro ou un Business consomme
+   * des places payées, sauf geste forcé (un essai) ; une Entreprise, illimitée, n'en compte pas.
+   */
+  option: {
+    entreprise(tenantId: string): Promise<boolean>;
+    placesPayees(tenantId: string): Promise<number>;
   };
   /** Le journal des actions de l'espace : le numéro posé ou retiré, l'exploitant pour acteur. */
   audit: AuditSink;
@@ -91,7 +101,25 @@ const CORPS_LIGNE = z.object({
   phoneNumberId: z.string().regex(/^[0-9]{5,32}$/),
   poser: z.boolean(),
   note: z.string(),
+  /** Poser sans place payée (un essai, décision de Julien du 2026-11-03) : la ligne est `'ops'`, signée, hors des places. */
+  forcer: z.boolean().optional(),
 }).strict();
+
+/**
+ * Les places qu'une pose sur ce numéro demanderait : les numéros déjà couverts par l'option, plus ceux que la nouvelle ligne
+ * couvrirait (le numéro et les autres de son compte WhatsApp, déliés exclus). Une ligne couvre tout son compte.
+ */
+export function placesApresPose(
+  couverts: readonly string[], numeros: readonly NumeroDeLEspace[], numero: { phoneNumberId: string; wabaId: string | null },
+): number {
+  const apres = new Set(couverts);
+  for (const n of numeros) {
+    if (n.delie) continue;
+    if (n.phoneNumberId === numero.phoneNumberId || (numero.wabaId !== null && n.wabaId === numero.wabaId)) apres.add(n.phoneNumberId);
+  }
+  apres.add(numero.phoneNumberId);
+  return apres.size;
+}
 
 /** Une date du calendrier, vraie : '2026-02-30' a la bonne forme et n'existe pas. */
 function dateValide(jour: string): boolean {
@@ -107,9 +135,10 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
    * pas l'être), ses lignes, son solde, ce qu'il a consommé ce mois en illimité, ses dernières provisions.
    */
   const vue = async (tenantId: string) => {
-    const [lignes, numeros, soldeMicroEur, consommationDuMoisMicroEur, provisions] = await Promise.all([
+    const [lignes, numeros, soldeMicroEur, consommationDuMoisMicroEur, provisions, placesPayees, couverts] = await Promise.all([
       deps.lignes.lignesDeLEspace(tenantId), deps.lignes.numerosDeLEspace(tenantId), deps.credit.solde(tenantId),
       deps.credit.consommationDuMois(tenantId), deps.credit.dernieresProvisions(tenantId, 50),
+      deps.option.placesPayees(tenantId), deps.lignes.numerosCouvertsParOption(tenantId),
     ]);
     const couvrantes = await Promise.all(numeros.map((n) => deps.lignes.ligneDuNumero(n.phoneNumberId)));
     return {
@@ -126,6 +155,8 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
       soldeMicroEur,
       consommationDuMoisMicroEur,
       provisions,
+      // Les places de l'option (lot 4a) : payées, et les numéros que ses lignes couvrent (au-delà, refusés par la garde).
+      places: { payees: placesPayees, couverts: couverts.length },
     };
   };
 
@@ -206,7 +237,9 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
     const note = c.data.note.trim().slice(0, 500);
     if (note.length < MIN_NOTE) return reply.code(400).send({ error: 'note requise : pourquoi ce numéro' });
     const { phoneNumberId, poser } = c.data;
+    const forcer = c.data.forcer === true;
     const par = auteurOps(req);
+    let origine: 'ops' | 'option' = 'ops';
     if (poser) {
       const numero = await deps.lignes.numeroDeLEspace(tenantId, phoneNumberId);
       if (numero === null) return reply.code(404).send({ error: 'numéro inconnu dans cet espace' });
@@ -225,14 +258,30 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
       if (couvrante !== null && couvrante.phoneNumberId !== phoneNumberId) {
         return reply.code(409).send({ error: 'déjà couvert : un autre numéro de son compte WhatsApp est sur la ligne, qui couvre tout le compte' });
       }
-      if (!(await deps.lignes.poser(tenantId, phoneNumberId, numero.wabaId, 'ops', noteSignee(par, note)))) {
+      // Les places (décision de Julien du 2026-11-03) : hors Entreprise, la pose consomme des places payées, le compte entier
+      // devant y tenir ; un essai se FORCE, signé, et sa ligne `'ops'` reste hors des places. Une Entreprise n'en compte pas.
+      if (!forcer && !(await deps.option.entreprise(tenantId))) {
+        const [places, couverts, numeros] = await Promise.all([
+          deps.option.placesPayees(tenantId), deps.lignes.numerosCouvertsParOption(tenantId), deps.lignes.numerosDeLEspace(tenantId),
+        ]);
+        const requises = placesApresPose(couverts, numeros, { phoneNumberId, wabaId: numero.wabaId });
+        if (requises > places) {
+          return reply.code(409).send({
+            error: `il faut ${requises} place${requises > 1 ? 's' : ''} payée${requises > 1 ? 's' : ''} pour couvrir ce compte, l’espace en a ${places} : prendre l’option, ou forcer la pose pour un essai`,
+            code: 'places_manquantes',
+          });
+        }
+        origine = 'option';
+      }
+      const signee = noteSignee(par, forcer ? `${note} (pose forcée, sans place)` : note);
+      if (!(await deps.lignes.poser(tenantId, phoneNumberId, numero.wabaId, origine, signee))) {
         return reply.code(409).send({ error: 'numéro déjà sur la ligne' });
       }
     } else if (!(await deps.lignes.retirer(tenantId, phoneNumberId))) {
       return reply.code(404).send({ error: 'numéro pas sur la ligne de cet espace' });
     }
-    journaliser('warn', 'ops_ligne_credit_whatsapp', { tenantId, phoneNumberId, poser, par, note });
-    await tracer(tenantId, par, poser ? 'ops.ligne_credit_posee' : 'ops.ligne_credit_retiree', { phoneNumberId });
+    journaliser('warn', 'ops_ligne_credit_whatsapp', { tenantId, phoneNumberId, poser, origine, forcer, par, note });
+    await tracer(tenantId, par, poser ? 'ops.ligne_credit_posee' : 'ops.ligne_credit_retiree', poser ? { phoneNumberId, origine, forcer } : { phoneNumberId });
     return reply.code(200).send(await vue(tenantId));
   });
 }

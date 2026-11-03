@@ -61,12 +61,18 @@ function creditEnMemoire(solde: number, servicesDuMois = 0) {
   return { etat, credit };
 }
 
-function garde(o: { solde?: number; ligne?: LigneCredit | null; grille?: GrilleMeta | null; openBar?: boolean; services?: number; categorie?: 'utility' | 'marketing' | null } = {}) {
+function garde(o: {
+  solde?: number; ligne?: LigneCredit | null; grille?: GrilleMeta | null; openBar?: boolean; services?: number; categorie?: 'utility' | 'marketing' | null;
+  /** Le numéro tient-il dans les places de l'option (lot 4a) ? Vrai par défaut. */
+  dansLesPlaces?: boolean;
+} = {}) {
   const c = creditEnMemoire(o.solde ?? 1_000_000, o.services ?? 0);
   const lectures = { categorie: 0, grille: 0 };
   const alertes: string[] = [];
+  const places: string[] = [];
   const g = creerGardeCreditWhatsapp({
     lignes: { ligneDuNumero: async () => (o.ligne === undefined ? LIGNE : o.ligne) },
+    places: { couvre: async (t, pn) => { places.push(`${t}:${pn}`); return o.dansLesPlaces ?? true; } },
     grille: async () => { lectures.grille += 1; return o.grille === undefined ? GRILLE : o.grille; },
     conditions: async () => ({ openBar: o.openBar ?? false, commissionPct: 5 }),
     categorieDuModele: async () => { lectures.categorie += 1; return o.categorie === undefined ? 'utility' : o.categorie; },
@@ -77,7 +83,7 @@ function garde(o: { solde?: number; ligne?: LigneCredit | null; grille?: GrilleM
     },
     maintenant: () => new Date('2026-10-30T12:00:00Z'),
   });
-  return { g, ...c, lectures, alertes };
+  return { g, ...c, lectures, alertes, places };
 }
 
 const envoi = (nature: Parameters<GardeCreditWhatsapp['avant']>[0]['nature'], destinataire = '+33612345678') =>
@@ -150,6 +156,29 @@ describe('la garde seule', () => {
     expect([...etat.provisions.values()]).toEqual([expect.objectContaining({ openBar: true, montantMicroEur: 74_760 })]);
     expect(etat.solde).toBe(0);
     expect(alertes).toEqual([]);
+  });
+
+  it('🔴 les places de l’option (lot 4a) : un numéro d’une ligne « option » hors des places est refusé, sans provision ni appel', async () => {
+    const option = { ...LIGNE, origine: 'option' as const };
+    const hors = garde({ ligne: option, dansLesPlaces: false });
+    await expect(hors.g.avant(envoi({ type: 'marketing' }))).rejects.toMatchObject({ motif: 'ligne_inactive', statusCode: 409 });
+    expect(hors.etat.provisions.size).toBe(0);
+    expect(hors.places).toEqual(['t1:pn1']);
+    expect(await hors.g.refusAvantEffets('t1', 'pn1')).toMatchObject({ motif: 'ligne_inactive' });
+    expect(await hors.g.refusPourMessage('t1', 'pn1', '+33612345678', 'marketing')).toMatchObject({ motif: 'ligne_inactive' });
+    // Dans les places : il provisionne comme toute ligne.
+    const dans = garde({ ligne: option, dansLesPlaces: true });
+    await dans.g.avant(envoi({ type: 'marketing' }));
+    expect(dans.etat.provisions.size).toBe(1);
+  });
+
+  it('🔴 ni une Entreprise ni une ligne posée par /ops (un essai forcé) ne comptent de places', async () => {
+    const entreprise = garde({ ligne: { ...LIGNE, origine: 'option' }, dansLesPlaces: false, openBar: true });
+    await entreprise.g.avant(envoi({ type: 'marketing' }));
+    expect([entreprise.etat.provisions.size, entreprise.places]).toEqual([1, []]);
+    const essai = garde({ ligne: { ...LIGNE, origine: 'ops' }, dansLesPlaces: false });
+    await essai.g.avant(envoi({ type: 'marketing' }));
+    expect([essai.etat.provisions.size, essai.places]).toEqual([1, []]);
   });
 
   it('une ligne arrêtée, une ligne d’un autre espace, aucune grille : refus « ligne inactive »', async () => {

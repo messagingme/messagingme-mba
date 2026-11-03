@@ -799,7 +799,11 @@ export interface OffreEntrepriseOps {
    * Ce que l'exploitant doit savoir avant de poser ou de retirer une offre à la main. Absent sur une API plus ancienne ;
    * `ligneCreditWhatsappSansCredit` aussi sur une API d'avant l'Entreprise illimitée.
    */
-  alertes?: { proPayeVivant: boolean; numeroSeulVivant: boolean; numeroFourniSansCouverture: boolean; ligneCreditWhatsappSansCredit?: boolean };
+  alertes?: {
+    proPayeVivant: boolean; numeroSeulVivant: boolean; numeroFourniSansCouverture: boolean; ligneCreditWhatsappSansCredit?: boolean;
+    /** L'option du Crédit WhatsApp sans Pro : retirer l'offre posée à la main la résilie (absent sur une API d'avant le lot 4a). */
+    optionCreditWhatsappSansDroit?: boolean;
+  };
   /** Ce que le PUT a fait après l'écriture : le crédit offert (micro-euros), la fin du numéro, les gestes échoués. */
   gestes?: { creditOffert: number | null; finDuNumero: string | null; echecs: string[] };
 }
@@ -840,7 +844,7 @@ export type EtapeSuppressionNom =
   | 'verrou' | 'cle_vercel' | 'mba_eteint' | 'mba_liste' | 'waba_desabonne' | 'salesforce' | 'hubspot' | 'numero_fourni' | 'fichiers' | 'purge';
 
 /** Un objet Stripe, avec le lien du tableau de bord (dans le bon mode) : Julien y résilie à la main. */
-export interface AbonnementStripeOps { id: string; produit: 'numero' | 'offre'; statut: string; livemode: boolean; vivant: boolean; lien: string }
+export interface AbonnementStripeOps { id: string; produit: 'numero' | 'offre' | 'option_credit_whatsapp'; statut: string; livemode: boolean; vivant: boolean; lien: string }
 export interface ClientStripeOps { customerId: string; livemode: boolean; lien: string }
 
 /** Ce que la cascade emportera, lu AVANT la suppression (`GET /ops/espaces/:tenantId/suppression`). */

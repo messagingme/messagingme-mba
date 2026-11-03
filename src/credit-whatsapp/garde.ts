@@ -4,6 +4,7 @@ import { journaliser } from '../lib/journal';
 import { normaliserCategorie, prixMessage, type CategorieMeta, type GrilleMeta } from './grille';
 import type { IssueProvision, ProvisionDemandee } from './credit';
 import type { LigneCredit } from './lignes.pg';
+import type { PlacesOption } from './places';
 import { CreditWhatsappRefus } from './refus';
 
 /**
@@ -74,6 +75,11 @@ export interface ConditionsCredit {
 
 export interface DepsGardeCredit {
   lignes: { ligneDuNumero(phoneNumberId: string): Promise<LigneCredit | null> };
+  /**
+   * Les places de l'option (lot 4a, une place = un numéro) : un numéro d'une ligne `'option'` au-delà des places payées de
+   * l'espace est refusé. Ni une Entreprise (illimitée) ni une ligne posée par `/ops` n'y passent.
+   */
+  places: PlacesOption;
   grille(): Promise<GrilleMeta | null>;
   conditions(tenantId: string): Promise<ConditionsCredit>;
   /** La catégorie d'un modèle, lue chez Meta (`creerLecteurCategorie`) ; `null` si illisible. */
@@ -114,13 +120,24 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
   const maintenant = d.maintenant ?? (() => new Date());
   // Une alerte ne retarde ni ne fait échouer un envoi : lancée, jamais attendue, son échec avalé (elle journalise déjà).
   const signalerEpuise = (tenantId: string): void => { d.alertes.surEpuise(tenantId).catch(() => undefined); };
+  /**
+   * Un numéro d'une ligne `'option'` tient-il dans les places payées (une place = un numéro, décision du 2026-11-03) ?
+   * Une ligne posée par `/ops` ne compte pas de places : vrai.
+   */
+  const dansLesPlaces = async (tenantId: string, phoneNumberId: string, ligne: LigneCredit): Promise<boolean> => {
+    if (ligne.origine !== 'option' || (await d.places.couvre(tenantId, phoneNumberId))) return true;
+    journaliser('warn', 'credit_whatsapp_place_manquante', { tenantId, phoneNumberId });
+    return false;
+  };
   // Une fonction locale, pas `this` : `bloque` reste juste même appelée détachée de la garde.
   const refusAvantEffets = async (tenantId: string, phoneNumberId: string): Promise<CreditWhatsappRefus | null> => {
     const ligne = await d.lignes.ligneDuNumero(phoneNumberId);
     if (ligne === null) return null;
     if (ligne.tenantId !== tenantId || ligne.arreteeLe !== null) return new CreditWhatsappRefus('ligne_inactive');
     if ((await d.grille()) === null) return new CreditWhatsappRefus('ligne_inactive');
-    if ((await d.conditions(tenantId)).openBar) return null;
+    const { openBar } = await d.conditions(tenantId);
+    if (!openBar && !(await dansLesPlaces(tenantId, phoneNumberId, ligne))) return new CreditWhatsappRefus('ligne_inactive');
+    if (openBar) return null;
     const solde = await d.credit.solde(tenantId);
     if (solde > 0) return null;
     signalerEpuise(tenantId);
@@ -150,6 +167,7 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
       return { refus: new CreditWhatsappRefus('ligne_inactive') };
     }
     const { openBar, commissionPct } = await d.conditions(tenantId);
+    if (!openBar && !(await dansLesPlaces(tenantId, phoneNumberId, ligne))) return { refus: new CreditWhatsappRefus('ligne_inactive') };
     const categorie = await categorieDe();
     const pays = paysDuDestinataire(destinataire);
     const dansLaFranchise = categorie === 'service'

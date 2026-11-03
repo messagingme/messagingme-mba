@@ -1347,7 +1347,9 @@ function SuppressionEspace({ jeton, tenantId, nom, onFermer, onPerdue }: {
             <ul className="mt-1 space-y-0.5 text-xs">
               {stripe.abonnements.map((a) => (
                 <li key={a.id}>
-                  {a.produit === 'numero' ? t('Abonnement du numéro', 'Number subscription') : t('Abonnement Pro', 'Pro subscription')}
+                  {a.produit === 'numero'
+                    ? t('Abonnement du numéro', 'Number subscription')
+                    : a.produit === 'option_credit_whatsapp' ? t('Option Crédit WhatsApp', 'WhatsApp credit option') : t('Abonnement Pro', 'Pro subscription')}
                   {' '}({a.statut}{a.livemode ? '' : ', test'}) :{' '}
                   <a href={a.lien} target="_blank" rel="noreferrer" className="font-mono text-brand-600 underline">{a.id}</a>
                 </li>
@@ -1745,6 +1747,12 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
               <input type="checkbox" checked={retraitConfirme} onChange={(e) => setRetraitConfirme(e.target.checked)} data-testid="offre-retrait-confirme" className="mt-0.5 h-4 w-4" />
               <span>{t('Le numéro fourni ne sera plus couvert : ses envois sont suspendus tout de suite, puis il est résilié 7 jours plus tard. Je confirme le retrait.', 'The provided number will no longer be covered: its sends are suspended at once, then it is cancelled 7 days later. I confirm the removal.')}</span>
             </label>
+          )}
+          {(etat.entreprise || etat.business) && !entreprise && !business && etat.alertes?.optionCreditWhatsappSansDroit === true && (
+            <p className="rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700" data-testid="offre-alerte-option-wa">
+              {t('L’espace a l’option Crédit WhatsApp, sans formule Pro : sans offre qui y donne droit, elle sera résiliée chez Stripe, sans remboursement du mois entamé, et ses numéros cesseront d’envoyer.',
+                'The workspace has the WhatsApp credit option, without a Pro plan: with no plan that allows it, it will be cancelled at Stripe, with no refund of the month begun, and its numbers will stop sending.')}
+            </p>
           )}
           {etat.entreprise && !entreprise && etat.alertes?.ligneCreditWhatsappSansCredit === true && (
             <p className="rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700" data-testid="offre-alerte-credit-wa">

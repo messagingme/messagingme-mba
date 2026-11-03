@@ -113,6 +113,23 @@ Deux lots du chantier « champs HubSpot et accord » (`~/mm-hubspot/docs/2026-11
 - Leçon : le `headSha` d'un run de déploiement est la tête de `main` au lancement, pas l'image ; l'entrée `commit` décide
   de ce qui est construit (vérifié dans le journal du job « construire »).
 
+## 2026-11-03 : l'option du Crédit WhatsApp, côté serveur (lot 4a, migration 0276)
+
+Demande de Julien (« avance sur le lot 4 », puis « Oui, lance 4a »), décisions du même soir : une place est un NUMÉRO, et
+une pose dans `/ops` d'un Pro ou d'un Business exige une place payée, sauf geste forcé. Plan
+`2026-11-03-credit-whatsapp-lot-4.md`.
+
+- **Ce qui a changé** : l'abonnement Stripe de l'option (`options_credit_whatsapp`, écrit par le seul webhook, ses places
+  relues chez Stripe à chaque événement), la garde qui refuse un numéro d'une ligne de l'option au-delà des places, la
+  fin de droit qui la résilie sans remboursement quand plus aucune offre n'y donne droit et arrête ses lignes, la pose
+  de `/ops` sur places payées, les routes de l'onglet (prendre l'option, changer ses places), l'e-mail d'un paiement
+  refusé, l'option dans le bilan d'une suppression d'espace, et une ligne par compte WhatsApp tenue par la base.
+- **Relevé dans le code avant d'écrire** : le webhook range par défaut un événement inconnu chez le numéro, qui
+  l'acquitte en silence ; l'option s'aiguille donc avant lui, et une session d'abonnement d'un produit que la version ne
+  connaît pas alerte désormais au lieu d'être acquittée sans trace par le chemin de la recharge.
+- **Pas encore en vente** : sans `STRIPE_PRIX_OPTION_WA`, rien ne se montre. Les écrans (l'onglet, la pose forcée de
+  `/ops`) suivent, poussés après l'API.
+
 ## 2026-11-03 : les jaunes des lots D et E du Crédit WhatsApp (migration 0275)
 
 Demande de Julien (« ferme les jaunes et avance sur le lot 4 ») : les trois jaunes à fermer avant qu'un prépayé passe sur

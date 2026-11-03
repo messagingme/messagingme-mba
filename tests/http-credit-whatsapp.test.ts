@@ -71,6 +71,8 @@ const GRILLE: GrilleMeta = {
 function achat(o: {
   permis?: AchatPermis; payeur?: boolean; stripe?: 'aucun'; lesPrix?: Record<string, ReponseStripe>; prixVides?: boolean;
   grille?: GrilleMeta | null; lignes?: LigneCredit[]; openBar?: boolean;
+  /** L'option (lot 4a) : son prix posé (vide = pas en vente) et l'offre de l'espace. */
+  prixOption?: string; offre?: 'base' | 'pro' | 'business' | 'entreprise';
 } = {}) {
   const transport = new FauxStripe([CLIENT_OK, SESSION_OK], o.lesPrix ?? PRIX_JUSTES);
   const deps: CreditWhatsappRouteDeps = {
@@ -94,6 +96,19 @@ function achat(o: {
       clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },
       payeurAutorise: async () => o.payeur ?? true,
       achatPermis: async () => o.permis ?? 'ok',
+    },
+    // L'option (lot 4a) : en vente pour un Pro, sans option prise ; les gestes eux-mêmes sont éprouvés par
+    // `tests/stripe-option-credit-whatsapp.test.ts`.
+    option: {
+      stripe: o.stripe === 'aucun' ? null : { cle: CLE, livemode: true, transport } as never,
+      clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },
+      payeurAutorise: async () => o.payeur ?? true,
+      urlConsole: 'https://console.exemple',
+      prixOption: o.prixOption ?? 'price_opt',
+      options: { vivante: async () => null, noterPlaces: async () => null },
+      offre: async () => o.offre ?? 'pro',
+      numerosCouverts: async () => 1,
+      alerter: async () => {},
     },
   };
   const srv = buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET_SESSION }, creditWhatsapp: deps });
@@ -232,10 +247,11 @@ const ligne = (o: Partial<LigneCredit> = {}): LigneCredit => ({
 });
 
 describe('qui peut acheter du Crédit WhatsApp', () => {
-  const deps = (o: { offre?: 'base' | 'pro' | 'business' | 'entreprise'; openBar?: boolean; lignes?: LigneCredit[] }) => ({
+  const deps = (o: { offre?: 'base' | 'pro' | 'business' | 'entreprise'; openBar?: boolean; lignes?: LigneCredit[]; optionEnVente?: boolean }) => ({
     offre: async () => o.offre ?? 'pro',
     conditions: async () => ({ openBar: o.openBar ?? false, commissionPct: 5 }),
     lignes: async () => o.lignes ?? [ligne()],
+    optionEnVente: o.optionEnVente ?? false,
   });
 
   it('la formule Free jamais, l’Entreprise (illimitée) jamais, un espace sans ligne active jamais ; sinon oui', async () => {
@@ -256,5 +272,55 @@ describe('qui peut acheter du Crédit WhatsApp', () => {
     expect(await ongletCreditWhatsapp(deps({ lignes: [ligne({ arreteeLe: '2026-10-31T11:00:00Z' })] }), T1)).toBe(true);
     expect(await ongletCreditWhatsapp(deps({ offre: 'entreprise', openBar: true }), T1)).toBe(true);
     expect(await ongletCreditWhatsapp(deps({ offre: 'entreprise', openBar: true, lignes: [] }), T1)).toBe(false);
+  });
+
+  it('🔴 l’option en vente (lot 4a) : un Pro ou un Business sans ligne voient l’onglet, pour la prendre ; ni la Free ni une Entreprise', async () => {
+    expect(await ongletCreditWhatsapp(deps({ lignes: [], optionEnVente: true }), T1)).toBe(true);
+    expect(await ongletCreditWhatsapp(deps({ offre: 'business', lignes: [], optionEnVente: true }), T1)).toBe(true);
+    expect(await ongletCreditWhatsapp(deps({ offre: 'base', lignes: [], optionEnVente: true }), T1)).toBe(false);
+    expect(await ongletCreditWhatsapp(deps({ offre: 'entreprise', openBar: true, lignes: [], optionEnVente: true }), T1)).toBe(false);
+  });
+});
+
+/**
+ * L'OPTION DU CRÉDIT WHATSAPP DANS L'ONGLET (lot 4a) : ce que la vue en dit, et ses deux routes, réservées aux
+ * administrateurs. Les gestes chez Stripe sont éprouvés par `tests/stripe-option-credit-whatsapp.test.ts`.
+ */
+describe('l’option dans l’onglet', () => {
+  const lire = (srv: ReturnType<typeof buildServer>) => srv.inject({ method: 'GET', url: `/tenants/${T1}/credit-whatsapp`, ...h(admin) });
+  const option = (srv: ReturnType<typeof buildServer>, method: 'POST' | 'PATCH', corps: unknown, jeton = admin) =>
+    srv.inject({ method, url: `/tenants/${T1}/credit-whatsapp/option`, ...h(jeton), payload: JSON.stringify(corps) });
+
+  it('🔴 la vue dit l’option en vente pour un Pro (son prix, ses bornes, ses places), jamais sans prix posé', async () => {
+    const enVente = achat();
+    expect((await lire(enVente.srv)).json().option).toEqual({
+      disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 1, statut: null, finPrevueLe: null,
+    });
+    await enVente.srv.close();
+    for (const o of [{ prixOption: '' }, { stripe: 'aucun' as const }, { offre: 'entreprise' as const }]) {
+      const a = achat(o);
+      expect((await lire(a.srv)).json().option.disponible, JSON.stringify(o)).toBe(false);
+      await a.srv.close();
+    }
+  });
+
+  it('🔴 les deux routes sont réservées aux administrateurs, et un corps faux est refusé sans rien appeler chez Stripe', async () => {
+    const a = achat();
+    expect((await option(a.srv, 'POST', { places: 1 }, membre)).statusCode).toBe(403);
+    expect((await option(a.srv, 'PATCH', { depuis: 1, cible: 2 }, membre)).statusCode).toBe(403);
+    expect((await option(a.srv, 'POST', { places: '2' })).statusCode).toBe(400);
+    expect((await option(a.srv, 'PATCH', { cible: 2 })).statusCode).toBe(400);
+    expect([a.transport.appels, a.transport.lectures]).toEqual([[], []]);
+    await a.srv.close();
+  });
+
+  it('pas en vente : 503 ; sans option prise, changer ses places : 409', async () => {
+    const pasEnVente = achat({ prixOption: '' });
+    expect((await option(pasEnVente.srv, 'POST', { places: 1 })).json()).toMatchObject({ code: 'option_indisponible' });
+    await pasEnVente.srv.close();
+    const sansOption = achat();
+    const r = await option(sansOption.srv, 'PATCH', { depuis: 1, cible: 2 });
+    expect([r.statusCode, r.json().code]).toEqual([409, 'sans_option']);
+    await sansOption.srv.close();
   });
 });
