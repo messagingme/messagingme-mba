@@ -763,7 +763,9 @@ Spec `docs/superpowers/specs/2026-10-14-medias-message-rapide-design.md`, plan d
 
 Un seul service, `src/workflow/scenarios-api.ts`, que `/v1/scenarios` (`src/http/v1-scenarios.ts`) et les outils
 `create_scenario`, `get_scenario`, `update_scenario`, `delete_scenario` (`src/mcp/outils-scenarios.ts`) appellent sans
-logique à eux.
+logique à eux. `send_scenario_to_contact` (même fichier) fait partir un scénario vers UNE personne par
+`envoyerAUnePersonne` (`src/mcp/outils-modeles.ts`), l'envoi de `send_template_to_contact` avec la cible `scenario` et
+`category: utility`, que le chemin public durcit en la catégorie du template d'ouverture lue chez Meta.
 
 🔴 **Le graphe brut n'entre jamais de l'extérieur.** L'appelant envoie une RECETTE (`src/workflow/recette.ts`, lue par
 `lireRecette` : Zod `safeParse`, schéma fermé, bornes de `web/lib/partage/message-rapide.ts`, les mêmes que l'éditeur et

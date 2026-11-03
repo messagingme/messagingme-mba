@@ -2857,6 +2857,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   un contact en cours de parcours reprend où il était quand son étape n'a pas bougé. Une suppression est refusée
   tant qu'une automation, le répondeur, une campagne, une publicité, un widget ou un « Aller à » utilise le
   scénario, et la console applique désormais la même garde.
+  ✅ **Claude fait partir un scénario vers une personne** (2026-11-03, plan
+  `docs/superpowers/plans/2026-11-03-outil-envoyer-scenario.md`) : `send_scenario_to_contact`, le même envoi que
+  `send_template_to_contact` (consentement déclaré par le client, STOP, quota), cible un scénario publié qui ouvre
+  par un template approuvé. Claude donne les valeurs de ses variables, lues sur la fiche du contact.
 - ✅ **Des erreurs qu'un programme peut traiter** : un refus de l'API rend `{ error, code }`, une phrase en
   français et un code stable en anglais, refus de la clé compris (clé absente, droit manquant, espace suspendu,
   débit), et un même refus porte le même code partout, qu'il arrive en erreur ou en motif d'écart d'un envoi.

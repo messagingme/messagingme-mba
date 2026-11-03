@@ -5514,6 +5514,7 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | create_scenario | mcp:write OAuth connection required | Create a scenario from its recipe (template and buttons, quick-reply messages and a file, AI agent, team), published at once. |
 | update_scenario | mcp:write OAuth connection required | Replace a scenario created through the API or by Claude, published at once, if nobody changed it in the meantime. |
 | delete_scenario | mcp:write OAuth connection required | Delete a scenario created through the API or by Claude, if nothing uses it any more. |
+| send_scenario_to_contact | mcp:write OAuth connection required | Start a published scenario for one person, even outside the 24-hour window, through its opening template, with the sends rules (STOP, monthly templates); the person’s agreement is declared by the client. |
 
 ### Chat bubble
 

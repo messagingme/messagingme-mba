@@ -39,6 +39,7 @@ export const CATALOGUE_MCP = {
   create_scenario: { scope: 'mcp:write', exigePersonne: true },
   update_scenario: { scope: 'mcp:write', exigePersonne: true },
   delete_scenario: { scope: 'mcp:write', exigePersonne: true },
+  send_scenario_to_contact: { scope: 'mcp:write', exigePersonne: true },
   create_widget: { scope: 'mcp:write' },
   update_widget: { scope: 'mcp:write' },
   get_plan: { scope: 'mcp:read' },

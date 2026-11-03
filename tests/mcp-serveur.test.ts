@@ -865,6 +865,8 @@ describe('serveur MCP : cohérence du catalogue', () => {
       create_scenario: [true, false, false],
       update_scenario: [true, true, false],
       delete_scenario: [true, true, false],
+      // Un scénario part chez une personne ; la même clé d'idempotence ne renvoie rien ; comme l'envoi d'un modèle.
+      send_scenario_to_contact: [true, true, true],
       // Livraison B : un message part chez une personne ; la même clé d'idempotence ne renvoie rien ; le fil n'est pas pris.
       send_template_to_contact: [true, true, true],
       // Les campagnes depuis l'assistant (2026-10-20) : reposer les mêmes étiquettes ne change rien.
@@ -1067,6 +1069,7 @@ const FONCTION_DES_OUTILS: Readonly<Record<string, string>> = {
   set_contact_field: 'console',
   // Les scénarios par leur recette (2026-11-02) : la fonction qui garde les scénarios de la console.
   get_scenario: 'scenarios', create_scenario: 'scenarios', update_scenario: 'scenarios', delete_scenario: 'scenarios',
+  send_scenario_to_contact: 'scenarios',
 };
 
 describe('serveur MCP : les outils et l’offre (lot 6, B2a)', () => {

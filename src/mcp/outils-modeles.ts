@@ -1,5 +1,5 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
-import type { AnnotationsMcp, DepsMcp, OutilMcp } from './outils';
+import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
 import { RefusOutil, entierBorne } from './saisie';
 import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
 import { compteurEnvoiRefuse, type RapportEnvoi, type ReponseEnvoi } from '../api/envoi-public';
@@ -68,6 +68,59 @@ async function ceQueCeFormatPerdrait(
       + 'correction le changerait, et les envois qui la remplissent échoueraient. Il ne se corrige pas depuis Claude';
   }
   return null;
+}
+
+/**
+ * UN envoi à UNE personne par Claude (`send_template_to_contact`, `send_scenario_to_contact`), par le cœur de
+ * `POST /v1/sends` : `cible` porte la cible (et la catégorie d'un scénario), le reste est commun. La personne par `phone`
+ * OU `contact_id`, et `values` en sources littérales, positions 1..N.
+ * 🔴 L'ACCORD DE LA PERSONNE EST DÉCLARÉ PAR LE CLIENT (décision de Julien du 2026-10-25 : « si je demande d'envoyer à
+ * tel numéro, c'est le choix du client », sa responsabilité, pas la nôtre). Il s'écrit sur la fiche par le chemin partagé
+ * de `POST /v1/sends`, signé de la personne connectée ; ce chemin refuse d'y lever un STOP (`appliquerConsentement`), et
+ * la personne désabonnée reste écartée.
+ */
+export async function envoyerAUnePersonne(
+  deps: DepsMcp, tenantId: string, args: Record<string, unknown>, personne: PersonneMcp | null,
+  cible: Record<string, unknown>, evenement: string,
+): Promise<{ send_id: string; contact_created: boolean }> {
+  const phone = typeof args.phone === 'string' ? args.phone : undefined;
+  const contactId = typeof args.contact_id === 'string' ? args.contact_id : undefined;
+  if ((phone === undefined) === (contactId === undefined)) throw new RefusOutil('désignez la personne par phone OU par contact_id, pas les deux');
+  const values = Array.isArray(args.values) ? args.values : [];
+  if (values.some((v) => typeof v !== 'string' || v === '')) throw new RefusOutil('values : une chaîne non vide par variable');
+  if (values.some((v) => !VALEUR_ACCEPTEE.test(v as string))) {
+    throw new RefusOutil('values : ni retour à la ligne, ni tabulation, ni plus de quatre espaces de suite (Meta refuserait le message)');
+  }
+  const corps = {
+    idempotencyKey: args.idempotency_key,
+    ...cible,
+    ...(values.length > 0 ? { params: values.map((v, i) => ({ position: i + 1, source: { type: 'literal', value: v } })) } : {}),
+    recipients: [{
+      ...(phone !== undefined ? { phone } : { contactId }),
+      consent: 'opted_in', consentSource: `déclaré dans Claude par ${signataire(personne)}`,
+    }],
+  };
+  // Compté où le cycle public compte (juste après la clé d'idempotence, qu'il libère si ce compteur lève) : le plafond
+  // coûteux, PUIS le quota d'envois du jour.
+  const r = await deps.envoyerModele(tenantId, corps, async (unites) => {
+    const c = await deps.couteux.consommer(tenantId);
+    if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
+    const q = await deps.quotaEnvois(tenantId, unites);
+    if (!q.accepte) throw new RefusOutil(q.raison ?? 'quota quotidien d’envois de l’espace atteint');
+    return true;
+  });
+  if (compteurEnvoiRefuse(r)) throw new RefusOutil('envoi refusé par le compteur');
+  if (r.statut >= 400) throw new RefusOutil(phraseDeRefus(r));
+  // 201 : le rapport de l'envoi, ou celui d'un envoi déjà fait avec cette clé (rejeu), qui a la même forme.
+  const rapport = r.corps as RapportEnvoi;
+  if (rapport.recipientCount === 0) {
+    // La clé est consommée : l'envoi vide est scellé, et le même appel rejouerait ce refus.
+    throw new RefusOutil(`rien n’est parti : la personne est écartée (${rapport.skipped[0]?.reason ?? 'motif inconnu'})`
+      + `${rapport.created > 0 ? ' ; sa fiche a été créée' : ''} ; une fois la cause levée, réessayer avec une NOUVELLE idempotency_key`);
+  }
+  // La trace de la personne qui a envoyé : la campagne, elle, porte le préfixe des envois de l'API.
+  journaliser('info', evenement, { tenantId, userId: personne?.userId ?? null, sendId: rapport.sendId });
+  return { send_id: rapport.sendId, contact_created: rapport.created > 0 };
 }
 
 /** Une erreur de l'envoi (`{ error, code }`), lue pour la rendre à Claude telle que l'API la rend. */
@@ -228,49 +281,7 @@ export const OUTILS_MODELES: OutilMcp[] = [
       additionalProperties: false,
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
-      const phone = typeof args.phone === 'string' ? args.phone : undefined;
-      const contactId = typeof args.contact_id === 'string' ? args.contact_id : undefined;
-      if ((phone === undefined) === (contactId === undefined)) throw new RefusOutil('désignez la personne par phone OU par contact_id, pas les deux');
-      const values = Array.isArray(args.values) ? args.values : [];
-      if (values.some((v) => typeof v !== 'string' || v === '')) throw new RefusOutil('values : une chaîne non vide par variable');
-      if (values.some((v) => !VALEUR_ACCEPTEE.test(v as string))) {
-        throw new RefusOutil('values : ni retour à la ligne, ni tabulation, ni plus de quatre espaces de suite (Meta refuserait le message)');
-      }
-      // Le corps de `POST /v1/sends`, pour une seule personne : les valeurs en sources littérales, positions 1..N.
-      // 🔴 L'ACCORD DE LA PERSONNE EST DÉCLARÉ PAR LE CLIENT (décision de Julien du 2026-10-25 : « si je demande
-      // d'envoyer à tel numéro, c'est le choix du client », sa responsabilité, pas la nôtre). Il s'écrit sur la fiche par
-      // le chemin partagé de `POST /v1/sends`, signé de la personne connectée ; ce chemin refuse d'y lever un STOP
-      // (`appliquerConsentement`), et la personne désabonnée reste écartée.
-      const corps = {
-        idempotencyKey: args.idempotency_key,
-        target: { template: { name: args.name, language: args.language } },
-        ...(values.length > 0 ? { params: values.map((v, i) => ({ position: i + 1, source: { type: 'literal', value: v } })) } : {}),
-        recipients: [{
-          ...(phone !== undefined ? { phone } : { contactId }),
-          consent: 'opted_in', consentSource: `déclaré dans Claude par ${signataire(personne)}`,
-        }],
-      };
-      // Compté où le cycle public compte (juste après la clé d'idempotence, qu'il libère si ce compteur lève) : le
-      // plafond coûteux, PUIS le quota d'envois du jour.
-      const r = await deps.envoyerModele(tenantId, corps, async (unites) => {
-        const c = await deps.couteux.consommer(tenantId);
-        if (!c.accepte) throw new RefusOutil(`${MESSAGE_OPERATIONS_LOURDES} (réessayer dans ${Math.max(1, Math.ceil(c.attenteMs / 1000))} s)`);
-        const q = await deps.quotaEnvois(tenantId, unites);
-        if (!q.accepte) throw new RefusOutil(q.raison ?? 'quota quotidien d’envois de l’espace atteint');
-        return true;
-      });
-      if (compteurEnvoiRefuse(r)) throw new RefusOutil('envoi refusé par le compteur');
-      if (r.statut >= 400) throw new RefusOutil(phraseDeRefus(r));
-      // 201 : le rapport de l'envoi, ou celui d'un envoi déjà fait avec cette clé (rejeu), qui a la même forme.
-      const rapport = r.corps as RapportEnvoi;
-      if (rapport.recipientCount === 0) {
-        // La clé est consommée : l'envoi vide est scellé, et le même appel rejouerait ce refus.
-        throw new RefusOutil(`rien n’est parti : la personne est écartée (${rapport.skipped[0]?.reason ?? 'motif inconnu'})`
-          + `${rapport.created > 0 ? ' ; sa fiche a été créée' : ''} ; une fois la cause levée, réessayer avec une NOUVELLE idempotency_key`);
-      }
-      // La trace de la personne qui a envoyé : la campagne, elle, porte le préfixe des envois de l'API.
-      journaliser('info', 'mcp_modele_envoye', { tenantId, userId: personne?.userId ?? null, sendId: rapport.sendId });
-      return { send_id: rapport.sendId, contact_created: rapport.created > 0 };
+      return envoyerAUnePersonne(deps, tenantId, args, personne, { target: { template: { name: args.name, language: args.language } } }, 'mcp_modele_envoye');
     },
   },
   /*

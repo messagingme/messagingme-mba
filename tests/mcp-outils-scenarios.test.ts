@@ -9,6 +9,9 @@ import {
   MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE,
 } from '../web/lib/partage/message-rapide';
 import { TENANT, depsScenarios, recette } from './aide/scenarios-api';
+import { lireCible, schemaCorps, schemaDestinataire, type ResultatEnvoiPublic } from '../src/api/envoi-public';
+import { validateParamMapping } from '../src/crm/template';
+import { cleIdempotence } from '../src/api/idempotence';
 
 /**
  * LES OUTILS MCP DES SCÉNARIOS : `create_scenario`, `get_scenario`, `update_scenario`, `delete_scenario`. Ils appellent le
@@ -78,5 +81,84 @@ describe('les outils MCP des scénarios', () => {
     }
     // update_scenario annonce la même recette.
     expect(JSON.stringify(outil('update_scenario').entree.properties.entree)).toBe(JSON.stringify(outil('create_scenario').entree.properties.entree));
+  });
+});
+
+/**
+ * FAIRE PARTIR UN SCÉNARIO VERS UNE PERSONNE (plan `2026-11-03-outil-envoyer-scenario.md`) : le trou de l'essai réel du
+ * 2026-11-02. Le même envoi que `send_template_to_contact` (`envoyerAUnePersonne`, `tests/mcp-serveur.test.ts`), cible
+ * `scenario`.
+ */
+describe('send_scenario_to_contact', () => {
+  const RAPPORT = { sendId: 'send-9', opening: 'whatsapp_template', recipientCount: 1, created: 0, matched: 1, skipped: [], skippedTotal: 0 };
+  const ARGS = { scenario: 'scn_by5p57_01M6EJHTYPGD555ENTMES2CJGY', phone: '+33612345678', values: ['Julien'], idempotency_key: 'claude-scn-1' };
+
+  function monterEnvoi(reponse: ResultatEnvoiPublic) {
+    const corps: unknown[] = [];
+    const deps = {
+      couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) },
+      quotaEnvois: async () => ({ accepte: true }),
+      envoyerModele: async (_t: string, c: unknown, compter: (n: number) => Promise<boolean>) => { corps.push(c); await compter(1); return reponse; },
+    } as unknown as DepsMcp;
+    return { deps, corps };
+  }
+
+  it('🔴 réservé à une PERSONNE, sous la fonction « scénarios » : une clé d’API ne le voit pas', () => {
+    expect(outil('send_scenario_to_contact')).toMatchObject({ scope: 'mcp:write', exigePersonne: true, fonction: 'scenarios' });
+    expect(outilsPour({ scopes: ['mcp:read', 'mcp:write'], personne: null } as never).map((o) => o.nom)).not.toContain('send_scenario_to_contact');
+    expect(outilsPour({ scopes: ['mcp:read', 'mcp:write'], personne: MOI } as never).map((o) => o.nom)).toContain('send_scenario_to_contact');
+  });
+
+  it('🔴 le corps construit est un corps de POST /v1/sends que ses propres règles acceptent : cible scénario, UNE personne', async () => {
+    const { deps, corps } = monterEnvoi({ statut: 201, corps: RAPPORT });
+    expect(await outil('send_scenario_to_contact').executer(deps, TENANT, ARGS, MOI)).toEqual({ send_id: 'send-9', contact_created: false });
+    const lu = schemaCorps.safeParse(corps[0]);
+    expect(lu.success).toBe(true);
+    if (!lu.success) return;
+    expect(cleIdempotence(undefined, lu.data)).toEqual({ ok: true, cle: 'claude-scn-1' });
+    const params = validateParamMapping(lu.data.params ?? [], { accepterVariables: true });
+    expect(params).toEqual([{ position: 1, source: { type: 'literal', value: 'Julien' } }]);
+    // `utility` ne déclare rien : le chemin public prend la plus stricte de celle-ci et de celle du template chez Meta.
+    expect(lireCible(lu.data, params!)).toEqual({ kind: 'scenario', ref: ARGS.scenario, category: 'utility' });
+    // L'accord de la personne, déclaré par le client et signé de la personne connectée, comme pour un modèle.
+    expect(lu.data.recipients).toEqual([{ phone: '+33612345678', consent: 'opted_in', consentSource: 'déclaré dans Claude par u1' }]);
+    expect(schemaDestinataire.safeParse(lu.data.recipients[0]).success).toBe(true);
+  });
+
+  it('les refus du chemin public reviennent à Claude avec leur phrase et leur code ; un scénario sans nom n’appelle rien', async () => {
+    const ouvert = monterEnvoi({ statut: 422, corps: { error: 'ce scénario ouvre par un message de session', code: 'unsendable_target' } });
+    await expect(outil('send_scenario_to_contact').executer(ouvert.deps, TENANT, ARGS, MOI)).rejects.toThrow(/message de session.*unsendable_target/);
+    const absent = monterEnvoi({ statut: 404, corps: { error: 'scénario introuvable', code: 'scenario_not_found' } });
+    await expect(outil('send_scenario_to_contact').executer(absent.deps, TENANT, ARGS, MOI)).rejects.toThrow(/introuvable.*scenario_not_found/);
+    const rien = monterEnvoi({ statut: 201, corps: RAPPORT });
+    await expect(outil('send_scenario_to_contact').executer(rien.deps, TENANT, { ...ARGS, scenario: '  ' }, MOI)).rejects.toThrow(RefusOutil);
+    await expect(outil('send_scenario_to_contact').executer(rien.deps, TENANT, { ...ARGS, values: ['a\nb'] }, MOI)).rejects.toThrow(/retour à la ligne/);
+    expect(rien.corps).toHaveLength(0);
+  });
+
+  it('🔴 l’id que rend list_scenarios est traduit en code dans l’espace ; un id inconnu est refusé AVANT l’envoi', async () => {
+    // Relecture du lot : le chemin public ne connaît que le code et le nom, l'id y était cherché comme un nom (404),
+    // après avoir usé le plafond coûteux et le quota du jour.
+    const ID = 'cfeb395f-0215-4d91-b373-9140b02ffbdd';
+    const lus: string[] = [];
+    const avecMagasin = (m: ReturnType<typeof monterEnvoi>) => ({
+      ...m.deps,
+      scenariosApi: { scenarios: { lireParApi: async (t: string, ref: string) => { lus.push(`${t}/${ref}`); return ref === ID ? { code: 'scn_trouve' } : null; } } },
+    }) as unknown as DepsMcp;
+    const ok = monterEnvoi({ statut: 201, corps: RAPPORT });
+    await outil('send_scenario_to_contact').executer(avecMagasin(ok), TENANT, { ...ARGS, scenario: ID }, MOI);
+    expect((ok.corps[0] as { target: unknown }).target).toEqual({ scenario: 'scn_trouve' });
+    expect(lus).toEqual([`${TENANT}/${ID}`]);
+    const inconnu = monterEnvoi({ statut: 201, corps: RAPPORT });
+    await expect(outil('send_scenario_to_contact').executer(avecMagasin(inconnu), TENANT, { ...ARGS, scenario: ID.replace('c', 'd') }, MOI))
+      .rejects.toThrow(/introuvable/);
+    expect(inconnu.corps).toHaveLength(0);
+  });
+
+  it('🔴 les écritures de scénario citent ce nouvel outil pour le faire partir, plus send_template_to_contact', () => {
+    for (const nom of ['create_scenario', 'update_scenario']) {
+      expect(outil(nom).description, nom).toContain('send_scenario_to_contact');
+      expect(outil(nom).description, nom).not.toContain('send_template_to_contact');
+    }
   });
 });
