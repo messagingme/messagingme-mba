@@ -4,6 +4,26 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-03 : `send_scenario_to_contact`, Claude fait partir un scénario vers une personne
+
+Plan `2026-11-03-outil-envoyer-scenario.md`. Le trou de l'essai réel de la veille : Claude créait un scénario sans
+pouvoir le faire partir, il avait fallu `POST /v1/sends` depuis PowerShell.
+
+- **Livré** en 4b4f271a, en production par le déploiement groupé avec le Crédit WhatsApp (run 41605295306, décision de
+  Julien : un seul déploiement pour les deux lots). Le même envoi que `send_template_to_contact` : sa fin commune sort
+  dans `envoyerAUnePersonne` ; cible `scenario`, `category: utility` que le chemin public durcit en la catégorie Meta du
+  template d'ouverture. Claude donne les valeurs des variables (décision de Julien du jour). Vitrine (liste repliée des
+  outils de la page Shopify) et README du plugin régénérés ; le plugin part avec la publication de 0.3.23.
+- **La relecture** n'a trouvé aucun rouge. Trois points corrigés avant de pousser : l'id que rend `list_scenarios`
+  était cherché comme un nom par le chemin public (traduit en code dans l'espace avant l'envoi, sans user de quota), la
+  description taisait que l'envoi reprend la conversation à l'équipe ou à un agent, et prêtait à une ouverture RCS la
+  catégorie de Meta. Le test du répertoire de Claude a refusé une consigne (« tell the user ») dans la description.
+- **Une fausse alerte de déploiement croisé**, corrigée dans le quart d'heure : le `headSha` d'un run de
+  `deploy-scaleway.yml` est la tête de `main` au lancement, pas l'image ; l'entrée `commit` décide, et seul le checkout du
+  job « construire » le dit.
+- **L'essai réel** (n° 210) : envoi par Claude au +33633921577, scénario désigné par son id, template reçu, « Recevoir
+  mon devis » cliqué, message au livre blanc parti 5 s après.
+
 ## 2026-11-03 : l'accord marketing des automations et sa garde (lot 3b), le lien du devis HubSpot
 
 Deux lots du chantier « champs HubSpot et accord » (`~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md` et
