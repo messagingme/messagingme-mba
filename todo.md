@@ -173,9 +173,11 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   prix et les numéros d'un espace dans `/ops`) est en production le 2026-11-03 (l'API `0ad1d4c9`, la console
   `05cbbac3`) ; son essai réel 211 est fait, sauf le coût de Meta de la demi-heure à relire et un clic de Julien dans
   `/ops`. Ses jaunes du serveur sont au plan, pour le lot E.
-- 🔴 Lot 3 (lot E du plan `2026-11-03-credit-whatsapp-fiabilite.md`) : la régularisation sur les VOLUMES de Meta, AVANT
-  qu'aucun client ne passe sur la ligne, écrite le 2026-11-03 (migration 0274, tâche horaire du worker), en relecture
-  puis en déploiement. Elle ferme les rouges restants de la relecture du 2026-11-02 (provision en doute, wamid jamais
+- Lot 3 (lot E du plan `2026-11-03-credit-whatsapp-fiabilite.md`) : la régularisation sur les VOLUMES de Meta, EN
+  PRODUCTION le 2026-11-03 (`b13a3425`, migration 0274, tâche horaire du worker), son essai réel 212 en cours (à relire le
+  2026-11-04). 🔴 Avant qu'un prépayé passe sur la ligne, fermer ses trois jaunes du plan (une provision qui change de jour
+  après le gel du sien, l'offre et la commission lues au moment de la passe, l'e-mail « crédit bas » après une
+  régularisation). Elle ferme les rouges restants de la relecture du 2026-11-02 (provision en doute, wamid jamais
   rattaché, ajustement perdu, message jamais livré, rejeu sur délai). Restent hors d'elle, écrits au plan : les paliers de
   volume (seul le palier 0 est chargé), l'e-mail au client sur des envois hors Messaging Me (avant l'ouverture), les
   réponses de l'agent de Meta, une livraison plus de deux jours après son jour. Son essai réel : la SANDBOX sur la ligne

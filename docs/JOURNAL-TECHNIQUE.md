@@ -72,6 +72,33 @@ Deux lots du chantier « champs HubSpot et accord » (`~/mm-hubspot/docs/2026-11
 - Leçon : le `headSha` d'un run de déploiement est la tête de `main` au lancement, pas l'image ; l'entrée `commit` décide
   de ce qui est construit (vérifié dans le journal du job « construire »).
 
+## 2026-11-03 : la régularisation du Crédit WhatsApp sur les volumes de Meta (lot E, migration 0274)
+
+Lancé par Julien le même jour (« Yes, lot E ») : le seul filet de ce que la garde et l'accusé ne voient pas, sans lequel
+aucun client ne passe sur la ligne. Plan `2026-11-03-credit-whatsapp-fiabilite.md`, lot E.
+
+- **Mesuré avant d'écrire**, chez Meta et en lecture seule : le coût d'un compte client est illisible (code 10), ses
+  VOLUMES par demi-heure exacte se lisent (numéro, pays, catégorie, type, palier) ; une demi-heure est publiée moins
+  d'une heure après sa fin (vide à 13 h 55, complète à 14 h 15 pour celle de 13 h 30) ; les jours de Meta sont ceux de
+  Paris ; un compte sans envoi rend `{ id }` seul. Sur la demi-heure de l'essai 211, le coût de Meta (0,1456 €) égalait
+  nos quatre provisions sans commission.
+- **Ce qui a changé** : une tâche horaire du worker recalcule la veille et l'avant-veille de Paris, deux heures après leur
+  fin, pour chaque espace couvert par une ligne : les volumes facturés de chaque compte sur ses demi-heures entières
+  couvertes, chiffrés par la formule de la garde à la grille du jour, moins nos provisions des mêmes demi-heures. L'écart
+  remplace celui du jour, sous un verrou par espace et par jour ; un prépayé reçoit le mouvement `regularisation`, une
+  Entreprise voit l'écart dans son mois à facturer. Rien ne s'écrit sur une lecture douteuse ; Julien est prévenu une
+  fois par jour.
+- **Relecture indépendante** : aucun rouge ; ses jaunes d'argent corrigés avant la poussée (dont deux comptes d'un espace
+  qui se mélangeaient, 2,60 € mesurés au lieu de 0, et la première passe après minuit qui lisait une veille incomplète),
+  chacun vérifié dans les deux sens ; trois jaunes restent au plan, à fermer avant qu'un prépayé passe sur la ligne.
+- **Livré** : `b13a3425` par le run 41664374732, `migration=avant` (seule 0274 appliquée, vérifié avant : 0273 en place,
+  aucune transaction longue, aucun verrou sur `tenants`), approuvé par Julien. Ordonné avec les sessions voisines (le
+  lot 3b des automations, les segments et leur 0273, le lot devis HubSpot).
+- **Vérifié en production** par le vrai code de l'image : la table relue point par point (colonnes, défauts, clé (espace,
+  jour), clé étrangère en cascade) ; la régularisation rejouée À BLANC sur la demi-heure de l'essai 211 avec les vrais
+  volumes de Meta : écart nul, quatre messages de chaque côté. L'essai réel 212 est en cours : la SANDBOX sur la ligne
+  depuis 16 h 03 UTC, deux modèles dans la demi-heure de 16 h 30, la régularisation du 2026-11-03 à relire le lendemain.
+
 ## 2026-11-03 : le Crédit WhatsApp calcule juste (lot D), la grille de Meta lisible dans `/ops`
 
 Demande de Julien du 2026-11-02 : « surtout, il faut que tu sois vraiment en mesure de calculer et de défalquer du
