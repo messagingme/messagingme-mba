@@ -61,6 +61,9 @@ const commande = (over: Record<string, unknown> = {}) => ({
 });
 const expedition = { id: 5001, order_id: 1002, name: '#1002.1', tracking_company: 'Colissimo', tracking_number: '6A1', tracking_url: 'https://suivi/6A1', destination: { first_name: 'Julien', phone: '+33633921577', country_code: 'FR' } };
 
+/** Ce que dit le paiement de `commande()` : ni `processed_at` (la réception date), ni montant de boutique lisible. */
+const SANS_MONTANT = { payeeLe: new Date('2026-10-21T10:00:00Z'), montant: null, devise: null, test: false };
+
 const MESSAGE: MessageBranche = {
   evenement: 'order_paid', modele: 'commande_payee', texte: null, langue: 'fr', variables: ['first_name', 'order_number', 'order_status_url'],
   actif: true, modifieLe: '2026-10-21T00:00:00.000Z',
@@ -143,7 +146,8 @@ describe('une commande payée', () => {
     });
     expect(journal.envois[0]!.options).toEqual({ nom: 'Shopify · commande payée · #1002', sansCampagneVide: true });
     expect(journal.issues).toEqual([['shopify:b.myshopify.com:orders/paid:1002', 'envoye']]);
-    expect(journal.liees).toEqual([[T, '1002', '77', 'fiche-1']]);
+    // Écrite deux fois, au même effet : par l'attribution (fiche connue) puis après la confirmation (segments, 2026-11-03).
+    expect(journal.liees).toEqual([[T, '1002', '77', 'fiche-1', SANS_MONTANT], [T, '1002', '77', 'fiche-1', SANS_MONTANT]]);
   });
 
   it('🔴 la fiche est écrite consentante, source shopify:<boutique>, sans aucune affirmation du marchand (2026-10-26)', async () => {
@@ -432,7 +436,8 @@ describe('une commande sur un numéro relié par QR code', () => {
       origine: 'shopify_commande', reference: CLE, consentement: { mode: 'marchand', source: 'shopify:b.myshopify.com' },
     }]);
     expect(journal.issues).toEqual([[CLE, 'en_file']]);
-    expect(journal.liees).toEqual([[T, '1002', '77', 'fiche-1']]);
+    // Écrite deux fois, au même effet : par l'attribution (fiche connue) puis après la confirmation (segments, 2026-11-03).
+    expect(journal.liees).toEqual([[T, '1002', '77', 'fiche-1', SANS_MONTANT], [T, '1002', '77', 'fiche-1', SANS_MONTANT]]);
   });
 
   it('une expédition enfile son texte, le transporteur et le suivi remplis', async () => {
@@ -656,5 +661,57 @@ describe('l’attribution d’une commande payée', () => {
     const { deps } = monter({ ventes });
     await traiterWebhookShopify(deps, BOUTIQUE, 'customers/redact', { customer: { id: 9, email: null, phone: null }, orders_to_redact: [1002, 1003] });
     expect(ventes.anonymisees).toEqual([['1002', '1003']]);
+  });
+});
+
+/**
+ * CHAQUE COMMANDE PAYÉE D'UNE FICHE CONNUE EST ÉCRITE (segments, spec du 2026-10-31) : message branché ou non, source ou
+ * non, pour que « deux commandes en 90 jours » compte toutes les commandes. Jamais une fiche créée pour ça.
+ */
+describe('les commandes notées pour les segments', () => {
+  const payee = { processed_at: '2026-10-21T09:30:00+02:00', total_price_set: { shop_money: { amount: '49.90', currency_code: 'EUR' } } };
+  const DETAILS = { payeeLe: new Date('2026-10-21T07:30:00Z'), montant: '49.90', devise: 'EUR', test: false };
+
+  it('🔴 sans aucun message branché, la commande d’une fiche connue est écrite avec sa date et son montant', async () => {
+    const { deps, journal } = monter({ messages: [] });
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande(payee))).toEqual({ statut: 200 });
+    expect(journal.envois).toEqual([]);
+    expect(journal.liees).toEqual([[T, '1002', '77', 'fiche-1', DETAILS]]);
+  });
+
+  it('un numéro sans fiche n’écrit rien, et ne crée aucune fiche', async () => {
+    const { deps, journal } = monter({ messages: [] });
+    const inconnu = { shipping_address: { first_name: 'Ana', phone: '+33600000099', country_code: 'FR' } };
+    await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande({ ...payee, ...inconnu }));
+    expect(journal.liees).toEqual([]);
+  });
+
+  it('une commande de test est écrite, drapeau compris : elle compte dans les segments', async () => {
+    const { deps, journal } = monter({ messages: [] });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande({ ...payee, test: true }));
+    expect(journal.liees).toEqual([[T, '1002', '77', 'fiche-1', { ...DETAILS, test: true }]]);
+  });
+
+  it('🔴 la fiche née de la confirmation reçoit aussi la date et le montant', async () => {
+    const { deps, journal } = monter();
+    let appels = 0;
+    // Inconnue à l'attribution, la fiche existe une fois la confirmation partie (l'envoi l'a créée).
+    deps.ficheParTelephone = async () => (appels++ === 0 ? null : 'fiche-1');
+    await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande(payee));
+    expect(journal.liees).toEqual([[T, '1002', '77', 'fiche-1', DETAILS]]);
+  });
+
+  it('une panne de l’écriture ne coûte ni l’attribution ni la réponse à Shopify', async () => {
+    const ventes = new FauxVentes({ touches: [{ source: 'agent', le: new Date('2026-10-20T08:00:00Z'), campaignId: null, modele: null, lanceScenario: false }] });
+    const { deps } = monter({ messages: [], ventes });
+    deps.store.lierCommande = async () => { throw new Error('base indisponible'); };
+    expect(await traiterWebhookShopify(deps, BOUTIQUE, 'orders/paid', commande(payee))).toEqual({ statut: 200 });
+    expect(ventes.enregistrees).toHaveLength(1);
+  });
+
+  it('une expédition n’apporte aucun détail : rien de connu n’est écrasé', async () => {
+    const { deps, journal } = monter({ messages: [{ ...MESSAGE, evenement: 'order_fulfilled', modele: 'colis_parti', variables: [] }] });
+    await traiterWebhookShopify(deps, BOUTIQUE, 'fulfillments/create', expedition);
+    expect(journal.liees).toEqual([[T, '1002', null, 'fiche-1', undefined]]);
   });
 });

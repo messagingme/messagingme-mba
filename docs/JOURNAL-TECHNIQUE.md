@@ -4,6 +4,33 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-03 : les segments sur les commandes, le pays et l'activité (`find_contacts` et la console)
+
+Le premier manque restant de la comparaison avec Wax et Kanal. Cadré avec Julien le 2026-10-31 en trois rondes (spec
+`docs/superpowers/specs/2026-10-31-segments-commandes-pays-activite-design.md`, plan du même jour). `find_contacts`,
+`tag_contacts`, `set_contact_field` et `prepare_campaign` ciblent par commandes Shopify payées (nombre, dépense, jours
+depuis la dernière), activité (message reçu ou clic attribué) et pays (indicatif) ; la liste des contacts et le choix des
+destinataires d'une campagne aussi (« Achats et activité »). Migration 0273 (poussée seule, `4bb9d3dc`).
+
+- **Corrigé pendant la construction** : les critères étaient d'abord des membres neufs de `ContactFilters`. La règle des
+  filtres d'analyse (amendement 6 du 2026-10-01) l'interdit, parce qu'un serveur ancien ignore un membre neuf : un
+  brouillon de campagne repris pendant un retour arrière de l'API serait parti à tout l'espace. Ils voyagent donc dans
+  `fieldFilters`, clés réservées `segment_*`, opérateur `segment`, où un serveur ancien ne trouve personne. La console
+  ne les propose en plus que si `GET .../contacts/segments` répond, ce qui a permis un seul commit de code.
+- **La relecture du lot a rendu un rouge, sur l'ordre** : `purgeMany`, `connecter` et `lierCommande` nomment les
+  colonnes de 0273, donc la migration est partie seule et appliquée avant le code. Jaunes corrigés dans le lot : une
+  saisie invalide dans la console garde le dernier critère valide au lieu de l'enlever (elle élargissait l'audience),
+  un pays qui partage son indicatif sans en être le principal est refusé (cibler PR visait les États-Unis), un message
+  redélivré ne redate pas la fiche, un clic ne date pas une fiche supprimée, un rebranchement sans coupure ne remet pas
+  le suivi à zéro, les verrous de la migration suivent l'ordre de `purgeMany`. Reportés au `todo.md` : la validation
+  des arguments MCP par le serveur, et une expédition sans paiement connu comptée comme commande.
+- **Décision de Julien après la relecture** : `customers/redact` purge toute fiche liée aux commandes nommées, y compris
+  une fiche liée seulement pour les segments (un cadeau livré au numéro d'un contact existant), comme avant.
+- **Vérifié** : contre-épreuve des gardes principales (sans l'écriture de l'attribution, quatre tests rougissent ; sans
+  le refus « pas de boutique », son test rougit ; sans la garde de la console, l'e2e « API qui ne connaît pas les
+  segments » rougit). Suite racine verte hors `sdk-contrat` (rouge identique sur la base sans le lot : zod du poste),
+  console 1 207 tests, e2e des contacts et de l'audience de campagne, auto-attaque (2 046 sondes, aucune trouvaille).
+
 ## 2026-11-03 : `send_scenario_to_contact`, Claude fait partir un scénario vers une personne
 
 Plan `2026-11-03-outil-envoyer-scenario.md`. Le trou de l'essai réel de la veille : Claude créait un scénario sans

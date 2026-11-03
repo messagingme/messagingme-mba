@@ -12,7 +12,12 @@ export function isContactFieldOp(v: unknown): v is ContactFieldOp {
 export const OPERATEURS_FICHE_SEULS = ['in', 'gte', 'lte', 'is_true', 'is_false', 'newer_than_days'] as const;
 export type OperateurFicheSeul = (typeof OPERATEURS_FICHE_SEULS)[number];
 
-export interface ContactFieldFilter { key: string; op: ContactFieldOp | OperateurFicheSeul; value: string }
+/**
+ * `segment` : un critère de segment (commandes, activité, pays), sous une clé réservée et sa valeur en JSON
+ * (`./segments`). Il voyage ici et pas dans un membre neuf, pour qu'un serveur plus ancien ne trouve personne au lieu
+ * de tout le monde.
+ */
+export interface ContactFieldFilter { key: string; op: ContactFieldOp | OperateurFicheSeul | 'segment'; value: string }
 
 /** Critères composables du mini-CRM et des audiences de campagne. Tous optionnels. */
 export interface ContactFilters {

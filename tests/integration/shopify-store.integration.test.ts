@@ -364,3 +364,70 @@ describe.skipIf(!url)('le store Shopify : le texte d’un numéro relié par QR 
     expect((await store.reclamerPaniersDus(50, [])).filter((p) => p.tenantId === E)).toEqual([]);
   });
 });
+
+/**
+ * LES COMMANDES NOTÉES POUR LES SEGMENTS (migration 0273, spec du 2026-10-31) : ce qu'aucun faux ne prouve, l'upsert. Un
+ * paiement reçu deux fois ne fait qu'une commande ; une expédition, avant ou après le paiement, n'écrase ni sa date ni son
+ * montant ; et le suivi complet repart à chaque (re)branchement.
+ */
+describe.skipIf(!url)('les commandes notées pour les segments (store Shopify)', () => {
+  let pool: Pool;
+  let store: PgShopifyStore;
+  let contacts: PgContactStore;
+  let G = '';
+  let fiche = '';
+  const domaine = `itest-seg-${randomUUID().slice(0, 8)}.myshopify.com`;
+  const connexion = { domaine, clientId: 'cid', secretClair: 'shpss_itest', nom: 'Itest', pays: 'FR', devise: 'EUR', par: null, origine: 'claude_code' as const };
+  const ligne = async (commande: string) => (await pool.query<{ payee_le: Date; montant: string | null; devise: string | null; test: boolean }>(
+    `select payee_le, montant::text as montant, devise, test from shopify_commandes where tenant_id = $1 and commande_id = $2`, [G, commande],
+  )).rows;
+
+  beforeAll(async () => {
+    pool = new Pool({ connectionString: url, ssl: pgSsl() });
+    store = new PgShopifyStore(pool, CLE);
+    contacts = new PgContactStore(pool);
+    G = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-shopify-segments') returning id`)).rows[0]!.id;
+    fiche = (await contacts.upsertByPhoneReturningId({ tenantId: G, phoneE164: '+33600000947', profileName: 'Client', fields: {}, optInStatus: 'unknown', tags: [] })).id;
+  });
+  afterAll(async () => {
+    await pool.query('delete from tenants where id = $1', [G]);
+    await pool.end();
+  });
+
+  it('🔴 un paiement reçu deux fois fait UNE commande, avec sa date, son montant et son drapeau', async () => {
+    const details = { payeeLe: new Date('2026-10-21T07:30:00Z'), montant: '49.90', devise: 'EUR', test: true };
+    await store.lierCommande(G, '1001', '77', fiche, details);
+    await store.lierCommande(G, '1001', '77', fiche, details);
+    expect(await ligne('1001')).toEqual([{ payee_le: details.payeeLe, montant: '49.900', devise: 'EUR', test: true }]);
+  });
+
+  it('🔴 une expédition après le paiement n’écrase rien ; avant, le paiement la complète', async () => {
+    await store.lierCommande(G, '1001', null, fiche);
+    expect(await ligne('1001')).toEqual([{ payee_le: new Date('2026-10-21T07:30:00Z'), montant: '49.900', devise: 'EUR', test: true }]);
+    await store.lierCommande(G, '1002', null, fiche);
+    const avant = await ligne('1002');
+    expect(avant).toHaveLength(1);
+    expect(avant[0]).toMatchObject({ montant: null, devise: null, test: false });
+    await store.lierCommande(G, '1002', '77', fiche, { payeeLe: new Date('2026-10-20T07:30:00Z'), montant: null, devise: null, test: false });
+    expect(await ligne('1002')).toEqual([{ payee_le: new Date('2026-10-20T07:30:00Z'), montant: null, devise: null, test: false }]);
+  });
+
+  it('le suivi : depuis la connexion, la coupure se dit, le rebranchement remet la date', async () => {
+    expect(await store.connecter(G, connexion)).toBe('ok');
+    const branchee = await contacts.suiviSegments(G);
+    expect(branchee.boutique).toMatchObject({ devise: 'EUR', coupeeLe: null });
+    await store.couper(G, 'test');
+    const coupee = await contacts.suiviSegments(G);
+    expect(coupee.boutique?.coupeeLe).toBeInstanceOf(Date);
+    expect(coupee.boutique?.commandesDepuis).toEqual(branchee.boutique?.commandesDepuis);
+    await pool.query(`update shopify_boutiques set commandes_depuis = now() - interval '10 days' where tenant_id = $1`, [G]);
+    expect(await store.connecter(G, connexion)).toBe('ok');
+    const rebranchee = await contacts.suiviSegments(G);
+    expect(rebranchee.boutique?.coupeeLe).toBeNull();
+    expect(rebranchee.boutique!.commandesDepuis.getTime()).toBeGreaterThan(Date.now() - 60_000);
+    // Un nouveau secret sur la MÊME boutique branchée, sans coupure : aucun trou, la date reste.
+    await pool.query(`update shopify_boutiques set commandes_depuis = now() - interval '10 days' where tenant_id = $1`, [G]);
+    expect(await store.connecter(G, { ...connexion, secretClair: 'shpss_autre' })).toBe('ok');
+    expect((await contacts.suiviSegments(G)).boutique!.commandesDepuis.getTime()).toBeLessThan(Date.now() - 9 * 86_400_000);
+  });
+});

@@ -10,6 +10,9 @@ import { Bouton } from '@/components/Bouton';
 import { EditeurFiltreAnalyse, type FiltreAnalyseValide } from '@/components/EditeurFiltreAnalyse';
 import { estFiltreAnalyse, filtreAnalyseParDefaut } from '@/lib/champs-fiche';
 import { useChampsFiltrables } from '@/lib/use-champs-filtrables';
+import { useSegments } from '@/lib/use-segments';
+import { FiltresAchatsActivite } from '@/components/FiltresAchatsActivite';
+import { estCleSegment } from '@/lib/partage/segments';
 
 /**
  * Panneau de filtres de contacts, CONTRÔLÉ (édite un ContactFilters via onChange). Partagé par le mini-CRM
@@ -19,7 +22,8 @@ import { useChampsFiltrables } from '@/lib/use-champs-filtrables';
  *
  * Filtres : nom, opt-in, joignabilité, niveau de risque de désengagement, téléphone (commence par / contient),
  * tags (possède ET/OU + ne possède pas), champs perso répétables (contient / ne contient pas / égal / vide /
- * rempli), un contrôle Email dédié, et les champs de la dernière analyse (lot 2b « Tout sur la fiche »).
+ * rempli), un contrôle Email dédié, les champs de la dernière analyse (lot 2b « Tout sur la fiche »), et les achats et
+ * l'activité (segments, 2026-10-31 : `FiltresAchatsActivite`).
  */
 export function ContactFilterPanel({ tenantId, filters, onChange, userFields, tagSuggestions, onClear, lignes }: {
   /** L'espace, pour lire la liste des champs de la fiche : elle seule dit quels filtres d'analyse l'API sait appliquer. */
@@ -50,6 +54,8 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
   const montrerRisque = risqueConnu || filters.risque !== undefined;
   // Les champs de la dernière analyse, offerts seulement si l'API les décrit (cf. `@/lib/champs-fiche`).
   const champsAnalyse = useChampsFiltrables(tenantId);
+  // Les critères d'achats et d'activité, offerts si l'API les annonce (`GET .../contacts/segments`).
+  const suivi = useSegments(tenantId);
   const [tagInput, setTagInput] = useState('');
   const [tagExInput, setTagExInput] = useState('');
   const set = (patch: Partial<ContactFilters>) => onChange({ ...filters, ...patch });
@@ -61,14 +67,17 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
   const rmTag = (x: string) => set({ tags: tags.filter((v) => v !== x) });
   const rmTagEx = (x: string) => set({ tagsExclude: tagsExclude.filter((v) => v !== x) });
 
-  // Filtres de champ, en trois groupes : les champs perso (lignes génériques), la dernière analyse (sa section), et
-  // l'email (contrôle dédié). Chaque écriture les recompose tous les trois : n'en réécrire qu'un effacerait les autres.
+  // Filtres de champ, en quatre groupes : les champs perso (lignes génériques), la dernière analyse (sa section),
+  // l'email (contrôle dédié) et les achats et l'activité (clés réservées `segment_*`). Chaque écriture les recompose
+  // tous : n'en réécrire qu'un effacerait les autres.
   const tous = filters.fieldFilters ?? [];
-  const analyseRows = tous.filter((f) => f.key !== 'email' && estFiltreAnalyse(f, champsAnalyse));
-  const fieldRows = tous.filter((f) => f.key !== 'email' && !estFiltreAnalyse(f, champsAnalyse));
+  const segmentRows = tous.filter((f) => estCleSegment(f.key));
+  const analyseRows = tous.filter((f) => f.key !== 'email' && !estCleSegment(f.key) && estFiltreAnalyse(f, champsAnalyse));
+  const fieldRows = tous.filter((f) => f.key !== 'email' && !estCleSegment(f.key) && !estFiltreAnalyse(f, champsAnalyse));
   const emailRow = tous.find((f) => f.key === 'email');
-  const ecrireFiltres = (rows: ContactFieldFilter[], analyse: ContactFieldFilter[], email: ContactFieldFilter | undefined) =>
-    set({ fieldFilters: [...rows, ...analyse, ...(email ? [email] : [])] });
+  const ecrireFiltres = (
+    rows: ContactFieldFilter[], analyse: ContactFieldFilter[], email: ContactFieldFilter | undefined, segments: ContactFieldFilter[] = segmentRows,
+  ) => set({ fieldFilters: [...rows, ...analyse, ...(email ? [email] : []), ...segments] });
   const setFieldFilters = (rows: ContactFieldFilter[], email: ContactFieldFilter | undefined) => ecrireFiltres(rows, analyseRows, email);
   const addAnalyse = () => { const c = champsAnalyse[0]; if (c) ecrireFiltres(fieldRows, [...analyseRows, filtreAnalyseParDefaut(c)], emailRow); };
   const updAnalyse = (i: number, f: FiltreAnalyseValide) => ecrireFiltres(fieldRows, analyseRows.map((r, j) => (j === i ? f : r)), emailRow);
@@ -243,6 +252,9 @@ export function ContactFilterPanel({ tenantId, filters, onChange, userFields, ta
           )}
         </div>
       )}
+
+      {/* Achats et activité : offerts seulement si l'API les a annoncés (`useSegments`) ; un critère posé reste visible. */}
+      <FiltresAchatsActivite segments={segmentRows} onChange={(s) => ecrireFiltres(fieldRows, analyseRows, emailRow, s)} suivi={suivi} />
 
       <div className="flex justify-end border-t border-ink-100 pt-2">
         <button type="button" onClick={onClear} className="text-xs text-ink-500 hover:text-danger">{t('Réinitialiser les filtres', 'Reset filters')}</button>

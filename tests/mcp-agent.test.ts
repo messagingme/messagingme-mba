@@ -437,6 +437,7 @@ function monter(o: Options & { envoyerModele?: DepsMcp['envoyerModele']; usage?:
       setBlocked: async () => { throw new Error('setBlocked ne devrait pas être appelée'); },
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
+      suiviSegments: async () => ({ boutique: null }),
     },
     listerMembres: async () => [],
     scenariosApi: scenariosApiInerte,

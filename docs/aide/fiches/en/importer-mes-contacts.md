@@ -1,6 +1,6 @@
 ---
 slug: import-my-contacts
-traduit_de: 9063bc
+traduit_de: 94fd27
 ---
 # Add or import my contacts
 
@@ -26,7 +26,10 @@ You filter by tag, by marketing consent, by name, by phone number, by the value 
 there is an email address, by disengagement risk level (useful to prepare a campaign towards those who are drifting
 away), or by what their latest analysis says: intent, sentiment, satisfaction or urgency above or below a score,
 request resolved or not, analysed less than so many days ago. A record never analysed matches none of these values.
-Filters add up, and they are the same when you choose a campaign’s recipients.
+The “Purchases and activity” part keeps the contacts who were active (wrote to you or clicked a tracked link) in the
+last days, or inactive for a number of days; when your Shopify store is connected, it also filters by number of paid
+orders, by amount spent and by the date of the last order. Filters add up, and they are the same when you choose a
+campaign’s recipients.
 
 Three things to know before acting in bulk:
 

@@ -31,14 +31,15 @@ export function filtresRepris(v: unknown): ContactFilters {
     return l.length > 0 ? l : undefined;
   };
   // 🔴 Les opérateurs de la dernière analyse en font partie : un brouillon repris qui les jetterait perdrait son
-  // filtre d'analyse, et sa campagne partirait à une audience plus large que celle qu'on avait construite.
-  const ops: ReadonlyArray<ContactFieldOp | OperateurFicheSeul> = [...CONTACT_FIELD_OPS, ...OPERATEURS_FICHE_SEULS];
+  // filtre d'analyse, et sa campagne partirait à une audience plus large que celle qu'on avait construite. Même
+  // raison pour `segment`, l'opérateur des critères d'achats, d'activité et de pays.
+  const ops: ReadonlyArray<ContactFieldFilter['op']> = [...CONTACT_FIELD_OPS, ...OPERATEURS_FICHE_SEULS, 'segment'];
   const champs = (Array.isArray(o.fieldFilters) ? (o.fieldFilters as unknown[]) : [])
     .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x))
     // `value` est requis MÊME pour `empty`/`not_empty`, qui l'ignorent : le type le déclare non optionnel, et
     // c'est lui que `filtersActive` appelle `.trim()` sans détour.
-    .filter((x) => typeof x.key === 'string' && typeof x.value === 'string' && ops.includes(x.op as ContactFieldOp))
-    .map((x) => ({ key: x.key as string, op: x.op as ContactFieldOp | OperateurFicheSeul, value: x.value as string }));
+    .filter((x) => typeof x.key === 'string' && typeof x.value === 'string' && ops.includes(x.op as ContactFieldFilter['op']))
+    .map((x) => ({ key: x.key as string, op: x.op as ContactFieldFilter['op'], value: x.value as string }));
   return {
     ...(listeDeTextes('tags') ? { tags: listeDeTextes('tags')! } : {}),
     ...(listeDeTextes('tagsExclude') ? { tagsExclude: listeDeTextes('tagsExclude')! } : {}),

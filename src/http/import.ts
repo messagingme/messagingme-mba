@@ -10,6 +10,8 @@ import { gardeEtendue } from '../auth/middleware';
 import type { Guard, PreHandler } from '../auth/middleware';
 import { espaceVerifie } from './scope';
 import { buildContactFilters, normalizeFieldFilters } from '../crm/contact-filters';
+import { ACTIVITE_COMPLETE_DEPUIS, type SuiviSegments } from '../crm/segments';
+import type { SuiviSegmentsVue } from '../../web/lib/partage/segments';
 import { nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite } from '../offres/refus';
@@ -23,6 +25,8 @@ export interface ContactsListeDep extends ContactStore {
   count(tenantId: string, filters: ContactFilters): Promise<number>;
   /** Ids correspondant aux filtres (résolution serveur de la source de campagne). */
   idsForFilters(tenantId: string, filters: ContactFilters): Promise<string[]>;
+  /** La boutique et ses dates de suivi, pour les critères de segment (`GET .../contacts/segments`). */
+  suiviSegments(tenantId: string): Promise<SuiviSegments>;
 }
 
 export interface ImportRouteDeps extends ImportDeps {
@@ -111,6 +115,23 @@ export function registerImport(app: FastifyInstance, deps: ImportRouteDeps, gard
     const tag = typeof q.tag === 'string' && q.tag.trim() !== '' ? q.tag.trim() : undefined;
     const contacts = await deps.contacts.list(effectiveTenant, limit, offset, tag);
     return reply.code(200).send({ contacts });
+  });
+
+  /**
+   * Ce que l'API sait cibler en segments (spec du 2026-10-31) : la boutique de l'espace (branchée ou coupée), sa devise et
+   * ses dates de suivi, et depuis quand l'activité est complète. 🔴 Sa simple réponse est aussi une GARDE : la console ne
+   * propose ces critères qu'à une API qui a répondu ici, parce qu'une API plus ancienne les jetterait sans rien dire et
+   * rendrait tout l'espace à « au moins deux commandes ».
+   */
+  app.get('/tenants/:tenantId/contacts/segments', opts, async (req, reply) => {
+    const { boutique } = await deps.contacts.suiviSegments(espaceVerifie(req));
+    const vue: SuiviSegmentsVue = {
+      boutique: boutique === null ? null : {
+        devise: boutique.devise, commandesDepuis: boutique.commandesDepuis.toISOString(), coupeeLe: boutique.coupeeLe?.toISOString() ?? null,
+      },
+      activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
+    };
+    return reply.code(200).send(vue);
   });
 
   // Compteur seul (rapide) : « N contacts correspondent » avant de fixer le débit / lancer.

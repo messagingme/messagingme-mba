@@ -10,6 +10,7 @@ import type { ContactFilters } from '../src/crm/contact-store.pg';
 import { journalMuet } from './routes-inertes';
 import { csvLent, retardPendant } from './boucle';
 import { LimiteOffreError } from '../src/offres/refus';
+import { ACTIVITE_COMPLETE_DEPUIS } from '../src/crm/segments';
 
 const SECRET = 'test-secret';
 let token = '';
@@ -81,6 +82,7 @@ function inject(contacts: ContactStore, userFields: UserFieldStore, cap?: QueryC
         ]; },
         count: async (_t: string, filters: ContactFilters) => { cap?.countFilters.push(filters); return 3; },
         idsForFilters: async (_t: string, filters: ContactFilters) => { cap?.idsFilters.push(filters); return ['c2', 'c3']; },
+        suiviSegments: async () => ({ boutique: { devise: 'EUR', commandesDepuis: new Date('2026-11-03T10:00:00Z'), coupeeLe: null } }),
       }),
       userFields,
       audit: journalMuet,
@@ -186,6 +188,35 @@ describe('POST /tenants/:tenantId/contacts/import', { timeout: 30_000 }, () => {
     expect(res.statusCode).toBe(200);
     const body = res.json<{ contacts: Array<{ profileName: string }> }>();
     expect(body.contacts[0]?.profileName).toBe('Julie');
+    await app.close();
+  });
+
+  it('GET des segments : la boutique, ses dates de suivi et celle de l’activité, en texte', async () => {
+    const app = inject(new FakeContacts(), new FakeFields());
+    const res = await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments', headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      boutique: { devise: 'EUR', commandesDepuis: '2026-11-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: ACTIVITE_COMPLETE_DEPUIS,
+    });
+    expect((await app.inject({ method: 'GET', url: '/tenants/t1/contacts/segments' })).statusCode).toBe(401);
+    await app.close();
+  });
+
+  it('🔴 GET contacts avec un critère de segment malformé -> 400, jamais la liste entière', async () => {
+    const cap: QueryCapture = { queryFilters: [], countFilters: [], idsFilters: [] };
+    const app = inject(new FakeContacts(), new FakeFields(), cap);
+    const champs = (f: unknown[]) => '/tenants/t1/contacts?fields=' + encodeURIComponent(JSON.stringify(f));
+    const res = await app.inject({ method: 'GET', url: champs([{ key: 'segment_commandes', op: 'segment', value: '{"min":0}' }]), headers: { authorization: `Bearer ${token}` } });
+    expect(res.statusCode).toBe(400);
+    expect(cap.queryFilters).toHaveLength(0);
+    const ok = await app.inject({
+      method: 'GET', url: champs([{ key: 'segment_pays', op: 'segment', value: '["be"]' }, { key: 'segment_actif', op: 'segment', value: '30' }]),
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(cap.queryFilters).toEqual([{ fieldFilters: [
+      { key: 'segment_pays', op: 'segment', value: '["BE"]' }, { key: 'segment_actif', op: 'segment', value: '30' },
+    ] }]);
     await app.close();
   });
 

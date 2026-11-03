@@ -221,6 +221,7 @@ function monter(o: { publicApiUrl?: string; fiches?: Record<string, ClientResolu
       setBlocked: async () => { throw new Error('setBlocked ne devrait pas être appelée'); },
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
+      suiviSegments: async () => ({ boutique: null }),
     },
     listerMembres: async () => [],
     scenariosApi: scenariosApiInerte,

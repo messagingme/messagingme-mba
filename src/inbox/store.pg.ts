@@ -1,4 +1,6 @@
 import type { Pool } from 'pg';
+import { journaliser } from '../lib/journal';
+import { messageDe } from '../lib/erreur';
 import type { InboxStore, InboundMessage } from '../webhooks/inbound';
 import { MATCH_BY_WAID_SQL } from '../crm/contact-store.pg';
 import { vautReponseDeLEquipe, type OrigineMessage } from './origine';
@@ -913,7 +915,7 @@ export class PgInboxStore implements InboxStore {
     const { id: conversationId, rouverte } = await this.upsertConversationByWaId(
       tenantId, m.waId, preview, { archive: true, traite: !reaction }, reaction ? 'reaction' : 'in',
     );
-    await this.pool.query(
+    const ecrit = await this.pool.query(
       // `media_id`, `media_mime` et `media_nom` sont écrits ici et nulle part ailleurs : seul instant où le corps
       // du webhook est sous la main, un média non capté à l'insertion est perdu.
       `insert into conversation_messages (conversation_id, direction, type, body, button_payload, meta_message_id, channel, media_id, media_mime, media_nom)
@@ -921,7 +923,27 @@ export class PgInboxStore implements InboxStore {
        on conflict (meta_message_id) where meta_message_id is not null do nothing`,
       [conversationId, m.type, m.body, m.buttonPayload, m.messageId, channel, m.media?.id ?? null, m.media?.mime ?? null, m.media?.nom ?? null],
     );
+    // Un message redélivré par Meta (même identifiant) n'est pas une nouvelle activité.
+    if ((ecrit.rowCount ?? 0) > 0) await this.noterActivite(tenantId, conversationId);
     return { rouverte };
+  }
+
+  /**
+   * La dernière activité de la fiche du fil (segments, spec du 2026-10-31) : tout message du contact compte, réaction
+   * comprise. Elle survit à la purge des conversations, que la conservation de l'espace efface. Ne recule jamais.
+   * 🔴 Au mieux : une instruction À PART, après le message, et sans lever. Une panne ici ne doit ni perdre le message ni
+   * faire rejouer le webhook ; la fiche rattrape sa date au message ou au clic suivant.
+   */
+  private async noterActivite(tenantId: string, conversationId: string): Promise<void> {
+    await this.pool.query(
+      `update contacts c set derniere_activite_le = now()
+         from conversations v
+        where v.id = $1 and v.tenant_id = $2 and c.id = v.contact_id and c.tenant_id = $2
+          and c.deleted_at is null and (c.derniere_activite_le is null or c.derniere_activite_le < now())`,
+      [conversationId, tenantId],
+    ).catch((err: unknown) => {
+      journaliser('warn', 'activite_non_notee', { tenantId, erreur: messageDe(err) });
+    });
   }
 
   /**

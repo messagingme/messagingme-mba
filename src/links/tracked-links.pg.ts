@@ -2,6 +2,8 @@ import type { Pool } from 'pg';
 import type { DateRange } from '../stats/range';
 import { STATS_TZ, BOUNDS_CTE } from '../stats/range';
 import { valeursDeLaFiche } from './champs-url';
+import { journaliser } from '../lib/journal';
+import { messageDe } from '../lib/erreur';
 
 /**
  * Liens de redirection tracés : la destination d'origine d'un bouton URL, et les clics qu'il a reçus.
@@ -140,6 +142,17 @@ export class PgTrackedLinkStore {
       `insert into tracked_link_clicks (code, tenant_id, contact_id) values (lower($1), $2, $3)`,
       [code, tenantId, contactId ?? null],
     );
+    if (!contactId) return;
+    // Un clic attribué est une activité de la fiche (segments, spec du 2026-10-31), dans l'espace du lien, sur une fiche
+    // vivante (le jeton a pu être résolu juste avant une purge), sans reculer. Au mieux : le clic est déjà compté.
+    await this.pool.query(
+      `update contacts set derniere_activite_le = now()
+        where id = $1 and tenant_id = $2 and deleted_at is null
+          and (derniere_activite_le is null or derniere_activite_le < now())`,
+      [contactId, tenantId],
+    ).catch((err: unknown) => {
+      journaliser('warn', 'activite_non_notee', { tenantId, erreur: messageDe(err) });
+    });
   }
 
   /**

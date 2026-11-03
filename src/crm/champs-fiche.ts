@@ -1,5 +1,6 @@
 import { ACTIONS, HANDLED_BY, INTENTS, SENTIMENTS } from '../analysis/schema';
 import { NIVEAUX_RISQUE } from '../engagement/risque';
+import { estCleSegment } from '../../web/lib/partage/segments';
 
 /**
  * LA LISTE UNIQUE DES CHAMPS DE LA FICHE (chantier « Tout sur la fiche », lot 2, spec
@@ -85,7 +86,8 @@ export function champFiche(cle: string): ChampFiche | undefined {
  * message et rend 403 en suppression.
  */
 export function estCleReservee(cle: string): boolean {
-  return estCleFicheFixe(cle);
+  // Les critères de segment voyagent dans `fieldFilters` sous leurs clés : un champ perso homonyme se confondrait avec eux.
+  return estCleFicheFixe(cle) || estCleSegment(cle);
 }
 
 /** Un champ personnalisé tel que `user_fields` le décrit. */

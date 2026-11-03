@@ -113,6 +113,7 @@ function app(
       setBlocked: async () => { throw new Error('setBlocked ne devrait pas être appelée'); },
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
+      suiviSegments: async () => ({ boutique: null }),
       ...contacts,
     },
     // Le VRAI module de pose, sur de faux dépôts : c'est lui que l'outil appelle en production.

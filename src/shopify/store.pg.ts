@@ -99,6 +99,15 @@ export interface Connexion {
 /** `boutique_ailleurs` : un autre espace tient cette boutique, connectée. */
 export type IssueConnexionBoutique = 'ok' | 'boutique_ailleurs';
 
+/** Ce que le paiement dit d'une commande (`orders/paid`) : le montant reste un texte décimal, comme Shopify le donne. */
+export interface DetailsCommande {
+  payeeLe: Date;
+  /** Nul quand le montant ne se lit pas : la commande compte, sa dépense non. */
+  montant: string | null;
+  devise: string | null;
+  test: boolean;
+}
+
 /** Un panier réclamé pour sa relance, avec ce que l'envoi demande. */
 export interface PanierDu {
   tenantId: string;
@@ -226,7 +235,11 @@ export class PgShopifyStore {
            domaine = excluded.domaine, client_id = excluded.client_id, secret_chiffre = excluded.secret_chiffre,
            nom = excluded.nom, pays = excluded.pays, devise = excluded.devise, etat = 'connectee', origine = excluded.origine,
            motif_coupure = null, coupee_le = null, connectee_par = excluded.connectee_par, connectee_le = now(), maj_le = now(),
-           consentement_par = null, consentement_le = null`,
+           consentement_par = null, consentement_le = null,
+           -- Le suivi complet des commandes repart d ici apres une coupure (un trou, que l outil dit au lieu de le cacher)
+           -- ou sur une autre boutique ; un nouveau secret sur la meme boutique branchee ne le remet pas a zero.
+           commandes_depuis = case when shopify_boutiques.etat = 'coupee' or shopify_boutiques.domaine <> excluded.domaine
+                                   then now() else shopify_boutiques.commandes_depuis end`,
         [tenantId, c.domaine, c.clientId, secret, c.nom, c.pays, c.devise, c.par, c.origine],
       );
       // 🔴 Les paniers notés sous l'ancienne connexion partent avec elle : les commandes d'une boutique coupée ne les ont
@@ -574,12 +587,23 @@ export class PgShopifyStore {
     return res.rowCount ?? 0;
   }
 
-  /** La fiche écrite pour une commande, pour la retrouver quand Shopify demande d'effacer son client. */
-  async lierCommande(tenantId: string, commandeId: string, clientId: string | null, contactId: string): Promise<void> {
+  /**
+   * La fiche d'une commande, pour la retrouver quand Shopify demande d'effacer son client, et depuis le 2026-11-03 pour
+   * cibler par commandes (spec des segments) : `details` vient du paiement (`orders/paid`) et pose la date, le montant, la
+   * devise et le drapeau test ; sans eux (une expédition), rien de connu n'est écrasé. Une première ligne sans détails
+   * prend la date du jour.
+   */
+  async lierCommande(tenantId: string, commandeId: string, clientId: string | null, contactId: string, details?: DetailsCommande): Promise<void> {
     await this.pool.query(
-      `insert into shopify_commandes (tenant_id, commande_id, client_id, contact_id) values ($1, $2, $3, $4)
-       on conflict (tenant_id, commande_id) do update set client_id = coalesce(excluded.client_id, shopify_commandes.client_id), contact_id = excluded.contact_id`,
-      [tenantId, commandeId, clientId, contactId],
+      `insert into shopify_commandes (tenant_id, commande_id, client_id, contact_id, payee_le, montant, devise, test)
+       values ($1, $2, $3, $4, coalesce($5::timestamptz, now()), $6::numeric, $7, coalesce($8::boolean, false))
+       on conflict (tenant_id, commande_id) do update set
+         client_id = coalesce(excluded.client_id, shopify_commandes.client_id), contact_id = excluded.contact_id,
+         payee_le = case when $5::timestamptz is null then shopify_commandes.payee_le else excluded.payee_le end,
+         montant = coalesce(excluded.montant, shopify_commandes.montant),
+         devise = coalesce(excluded.devise, shopify_commandes.devise),
+         test = case when $8::boolean is null then shopify_commandes.test else excluded.test end`,
+      [tenantId, commandeId, clientId, contactId, details?.payeeLe ?? null, details?.montant ?? null, details?.devise ?? null, details?.test ?? null],
     );
   }
 

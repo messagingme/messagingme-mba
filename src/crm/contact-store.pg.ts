@@ -11,6 +11,8 @@ import { messageDe } from '../lib/erreur';
 import type { LigneDeLaListe } from '../mba/liste';
 import type { CleFicheFixe } from './champs-fiche';
 import { clauseFiltreFiche, estCleFiltrable, estOperateurFicheSeul } from './filtre-fiche';
+import { clauseSegment, type SuiviSegments } from './segments';
+import { estCleSegment } from '../../web/lib/partage/segments';
 import { COLONNES_ANALYSE_FICHE, analyseDeLaLigne, type AnalyseDeFiche, type LigneAnalyseFiche } from '../analysis/fiche';
 import { LimiteOffreError } from '../offres/refus';
 import { contactsToutesOrigines, estOffre, type LimiteContacts } from '../offres/offres';
@@ -1471,6 +1473,18 @@ export class PgContactStore implements ContactStore {
     return Number(res.rows[0]?.n ?? 0);
   }
 
+  /** Ce que l'espace permet de cibler en commandes (`SuiviSegments`) : sa boutique, branchée ou coupée, ou rien. */
+  async suiviSegments(tenantId: string): Promise<SuiviSegments> {
+    const res = await this.pool.query<{ devise: string | null; commandes_depuis: Date; coupee_le: Date | null; etat: string }>(
+      `select devise, commandes_depuis, coupee_le, etat from shopify_boutiques where tenant_id = $1`,
+      [tenantId],
+    );
+    const b = res.rows[0];
+    if (!b) return { boutique: null };
+    // `coupee_le` ne vaut que pour une boutique coupée : un rebranchement la remet à nul, mais rien ne coûte de le redire.
+    return { boutique: { devise: b.devise, commandesDepuis: b.commandes_depuis, coupeeLe: b.etat === 'coupee' ? b.coupee_le : null } };
+  }
+
   /** Ids des contacts correspondant aux filtres (source « Liste de contacts » d'une campagne), scopé tenant,
    *  avec un plafond dur. */
   async idsForFilters(tenantId: string, filters: ContactFilters, cap = 100_000): Promise<string[]> {
@@ -1828,7 +1842,7 @@ export class PgContactStore implements ContactStore {
                 -- c est precisement leur objet. Entiere, a cause de sa contrainte de coherence.
                 analyse_intention = null, analyse_sentiment = null, analyse_satisfaction = null, analyse_urgence = null,
                 analyse_resolue = null, analyse_sujet = null, analyse_traitee_par = null, analyse_action = null,
-                analyse_le = null, analyse_fenetre_fin = null, analyse_conversation_id = null,
+                analyse_le = null, analyse_fenetre_fin = null, analyse_conversation_id = null, derniere_activite_le = null,
                 -- RESTENT, deliberement : le statut d opt-in et sa date (0138), la date du blocage, le STOP RCS
                 -- (0057). Sans numero, un refus n identifie personne, et l effacer est la seule des deux erreurs
                 -- qui ne se rattrape pas. Ce ne sont plus eux qui protegent un run de campagne en cours (il tient
@@ -1897,6 +1911,9 @@ export function buildContactWhere(tenantId: string, f: ContactFilters): { where:
   for (const ff of f.fieldFilters ?? []) {
     const key = String(ff.key ?? '').trim();
     if (key === '') continue;
+    // Commandes, dépense, dernière commande, activité, pays (`src/crm/segments.ts`) : chaque sous-requête porte
+    // `tenant_id = $1`. Avant le jsonb : une clé réservée n'est jamais un champ perso.
+    if (estCleSegment(key)) { clauses.push(clauseSegment(key, String(ff.value ?? ''), add)); continue; }
     // Une clé de la dernière analyse va à SA colonne, par la carte fermée de `filtre-fiche` : jamais au jsonb, où un
     // champ perso homonyme ne peut plus naître (clés réservées) mais pourrait exister d'avant.
     if (estCleFiltrable(key)) { clauses.push(clauseFiltreFiche(key, ff.op, ff.value, add)); continue; }

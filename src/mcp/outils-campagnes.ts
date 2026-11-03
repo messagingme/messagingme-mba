@@ -1,9 +1,11 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
-import type { AnnotationsMcp, OutilMcp } from './outils';
+import type { AnnotationsMcp, DepsMcp, OutilMcp } from './outils';
 import { RefusOutil, dateAvecFuseau, entierBorne, texteObligatoire } from './saisie';
 import { CHAMPS_CIBLE_FILTRES, CHAMPS_CIBLE_IDENTIFIANTS, lireCibleMcp } from './cible';
 import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
-import type { AnalyseEtResume } from '../crm/contact-store.pg';
+import type { AnalyseEtResume, ContactFilters } from '../crm/contact-store.pg';
+import { ACTIVITE_COMPLETE_DEPUIS, paysDuNumero } from '../crm/segments';
+import { CLES_ACTIVITE, CLES_COMMANDES, OP_SEGMENT } from '../../web/lib/partage/segments';
 import { LONGUEUR_MAX_ETIQUETTE, nettoyerEtiquettes } from '../crm/poser-etiquette';
 import { MAX_TAGS } from '../crm/contact-filters';
 import { estUuid } from '../http/scope';
@@ -157,17 +159,38 @@ function analyseVue(ar: AnalyseEtResume | undefined): Record<string, unknown> | 
   };
 }
 
+/**
+ * Ce que l'assistant doit savoir pour lire un segment (spec du 2026-10-31) : depuis quand TOUTES les commandes sont
+ * suivies (et la coupure d'une boutique coupée), depuis quand l'activité est complète. Seulement si le critère est posé.
+ */
+async function suiviDeLaReponse(deps: DepsMcp, tenantId: string, f: ContactFilters): Promise<Record<string, string>> {
+  const cles = (f.fieldFilters ?? []).filter((x) => x.op === OP_SEGMENT).map((x) => x.key);
+  const commandes = cles.some((k) => (CLES_COMMANDES as readonly string[]).includes(k));
+  const activite = cles.some((k) => (CLES_ACTIVITE as readonly string[]).includes(k));
+  const boutique = commandes ? (await deps.contacts.suiviSegments(tenantId)).boutique : null;
+  return {
+    ...(boutique ? { orders_recorded_since: boutique.commandesDepuis.toISOString() } : {}),
+    ...(boutique?.coupeeLe ? { shop_cut_at: boutique.coupeeLe.toISOString() } : {}),
+    ...(activite ? { activity_complete_since: ACTIVITE_COMPLETE_DEPUIS } : {}),
+  };
+}
+
 export const OUTILS_CAMPAGNES: OutilMcp[] = [
   {
     ...ficheOutilMcp('find_contacts'),
     fonction: 'console',
     description:
       'Finds the contacts of a target, the way the console\'s contact list filters them: tags (all or any), marketing '
-      + 'consent, and on the Enterprise plan the fields of the latest conversation analysis (intent, sentiment, '
-      + `satisfaction, urgency, resolved...). Returns the total and up to ${MAX_CONTACTS_TROUVES} contacts, with their `
+      + 'consent, Shopify orders (count, amount spent, days since the last one), activity (wrote or clicked a tracked link '
+      + 'within N days, or not for N days), country by phone calling code, and on the Enterprise plan the fields of the '
+      + 'latest conversation analysis (intent, sentiment, satisfaction, urgency, resolved...). Criteria combine: "customers '
+      + 'with two orders in 90 days" is orders {"min":2,"within_days":90}; "Belgian customers inactive for 3 months" is '
+      + 'countries ["BE"] and inactive_for_days 90. Orders are the paid orders recorded since orders_recorded_since (in '
+      + 'the answer); activity is complete since activity_complete_since. '
+      + `Returns the total and up to ${MAX_CONTACTS_TROUVES} contacts with their country, and their `
       + 'latest analysis on the Enterprise plan. At least one criterion is required: there is no "everyone" target. '
-      + 'A topic is not filterable: to target the contacts who talked about something, read their conversations '
-      + '(list_conversations, get_messages) and tag them (tag_contacts).',
+      + 'A segment is a tag: to keep one, tag its contacts (tag_contacts). A topic is not filterable: to target the '
+      + 'contacts who talked about something, read their conversations (list_conversations, get_messages) and tag them.',
     annotations: lecture('Find contacts'),
     entree: {
       type: 'object',
@@ -188,8 +211,9 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       const analyses = fonctions.has('analyse') ? await deps.contacts.analysesEtResumes(tenantId, contacts.map((c) => c.id)) : null;
       return {
         total,
+        ...(await suiviDeLaReponse(deps, tenantId, filtres)),
         contacts: contacts.map((c) => ({
-          contact_id: c.id, name: c.profileName, phone: c.phoneE164, opt_in: c.optInStatus, tags: c.tags,
+          contact_id: c.id, name: c.profileName, phone: c.phoneE164, country: paysDuNumero(c.phoneE164), opt_in: c.optInStatus, tags: c.tags,
           ...(analyses === null ? {} : { last_analysis: analyseVue(analyses.get(c.id)) }),
         })),
       };

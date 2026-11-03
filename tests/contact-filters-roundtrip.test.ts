@@ -4,6 +4,7 @@ import { parseFilters } from '../src/http/import';
 import { parseBulkTarget } from '../src/http/contacts';
 import { FiltreContactInvalide } from '../src/crm/contact-filters';
 import { NIVEAUX_RISQUE } from '../src/engagement/risque';
+import { CLES_SEGMENT, filtreSegment } from '../web/lib/partage/segments';
 
 // Anti-drift : la sérialisation côté web (`filtersToQuery`) et le parse côté serveur (`parseFilters`) doivent
 // s'accorder sur le format fil. On sérialise puis on re-parse : le résultat doit être IDENTIQUE à l'entrée.
@@ -136,5 +137,75 @@ describe('parseFilters et le corps d’une action en masse : les filtres de la d
     expect(parseBulkTarget({ filters: { fieldFilters: [{ key: 'analyse_urgence', op: 'gte', value: '7' }] } })).toEqual({
       filters: { fieldFilters: [{ key: 'analyse_urgence', op: 'gte', value: '7' }] }, excludeIds: [],
     });
+  });
+});
+
+/**
+ * 🔴 LES CRITÈRES DE SEGMENT (spec du 2026-10-31) voyagent dans `fieldFilters`, sous clé réservée et opérateur `segment`,
+ * et se REFUSENT au moindre défaut, par les deux portes : le fil GET de la liste et le corps d'une action en masse ou
+ * d'une campagne. Ignoré, « au moins deux commandes » ne poserait aucune clause, et une campagne partirait à tout l'espace.
+ */
+describe('les critères de segment : dans fieldFilters, refusés au moindre défaut', () => {
+  const S = CLES_SEGMENT;
+  const brut = (key: string, value: unknown, op = 'segment') => ({ key, op, value: typeof value === 'string' ? value : JSON.stringify(value) });
+  const parGet = (champs: unknown[]): unknown => parseFilters({ fields: JSON.stringify(champs) });
+  const parCorps = (champs: unknown[]): unknown => parseBulkTarget({ filters: { fieldFilters: champs } });
+
+  it('chaque critère, seul ou ensemble, survit au round-trip sous sa forme canonique', () => {
+    const tous: ContactFilters = { fieldFilters: [
+      filtreSegment(S.commandes, { min: 2, jours: 90 }), filtreSegment(S.depense, { min: 49.9, max: 500 }),
+      filtreSegment(S.derniereCommande, { min: 180 }), filtreSegment(S.actif, 30), filtreSegment(S.inactif, 90),
+      filtreSegment(S.pays, ['FR', 'BE']),
+    ] };
+    expect(roundTrip(tous)).toEqual(tous);
+    for (const f of tous.fieldFilters!) expect(roundTrip({ fieldFilters: [f] }), f.key).toEqual({ fieldFilters: [f] });
+  });
+
+  it('la valeur est ramenée à sa forme : pays en capitales et sans doublon, clés de plage dans l’ordre', () => {
+    expect(parGet([brut(S.pays, ['be', 'fr', ' BE'])])).toEqual({ fieldFilters: [filtreSegment(S.pays, ['BE', 'FR'])] });
+    expect(parCorps([brut(S.commandes, '{"jours":90,"min":2}')]))
+      .toEqual({ filters: { fieldFilters: [filtreSegment(S.commandes, { min: 2, jours: 90 })] }, excludeIds: [] });
+  });
+
+  const malformes: Array<[string, unknown]> = [
+    ['plage vide', brut(S.commandes, {})],
+    ['au moins 0 sans maximum', brut(S.commandes, { min: 0 })],
+    ['dépense au moins 0 sans maximum', brut(S.depense, { min: 0, jours: 30 })],
+    ['minimum au-dessus du maximum', brut(S.commandes, { min: 3, max: 2 })],
+    ['commande non entière', brut(S.commandes, { min: 1.5 })],
+    ['commandes au-delà de 1000', brut(S.commandes, { min: 1001 })],
+    ['dépense négative', brut(S.depense, { min: -1 })],
+    ['dépense au-delà de dix millions', brut(S.depense, { max: 10_000_001 })],
+    ['jours à 0', brut(S.commandes, { min: 1, jours: 0 })],
+    ['jours au-delà de 3650', brut(S.actif, 3651)],
+    ['jours non entiers', brut(S.inactif, 1.5)],
+    ['jours en texte', brut(S.inactif, '"90"')],
+    ['clé inconnue', brut(S.commandes, { min: 1, depuis: 3 })],
+    ['jours dans la dernière commande', brut(S.derniereCommande, { min: 1, jours: 3 })],
+    ['pays inconnu', brut(S.pays, ['XX'])],
+    ['UK au lieu de GB', brut(S.pays, ['UK'])],
+    ['CA, qui partage +1 avec US', brut(S.pays, ['CA'])],
+    ['PR, qui partage +1 avec US', brut(S.pays, ['FR', 'PR'])],
+    ['JE, qui partage +44 avec GB', brut(S.pays, ['JE'])],
+    ['liste de pays vide', brut(S.pays, [])],
+    ['21 pays', brut(S.pays, ['FR', 'BE', 'DE', 'ES', 'IT', 'PT', 'NL', 'LU', 'CH', 'AT', 'IE', 'GB', 'US', 'CA', 'MA', 'TN', 'DZ', 'SN', 'CI', 'CM', 'PL'])],
+    ['JSON illisible', brut(S.commandes, '{pas du json')],
+    ['un autre opérateur sur une clé de segment', brut(S.actif, '30', 'eq')],
+    ['l’opérateur segment sur un champ perso', brut('ville', '30')],
+  ];
+  it.each(malformes)('🔴 refusé par les deux portes : %s', (_nom, champ) => {
+    expect(() => parCorps([champ])).toThrow(FiltreContactInvalide);
+    expect(() => parGet([champ])).toThrow(FiltreContactInvalide);
+  });
+
+  it('🔴 un pays qui partage son indicatif est refusé en nommant celui qui le cible', () => {
+    expect(() => parCorps([brut(S.pays, ['PR', 'KZ'])])).toThrow('PR partage son indicatif avec US, KZ partage son indicatif avec RU ; le numéro ne les distingue pas, ciblez US, RU, qui les vise tous');
+  });
+
+  it('🔴 au-delà de 20 filtres de champ, une liste qui porte un segment est refusée, jamais tronquée', () => {
+    const vingt = Array.from({ length: 20 }, (_, i) => ({ key: `champ${i}`, op: 'eq', value: 'x' }));
+    expect(() => parCorps([...vingt, brut(S.actif, 30)])).toThrow(FiltreContactInvalide);
+    // Sans segment, la troncature historique ne change pas.
+    expect(() => parCorps([...vingt, { key: 'champ20', op: 'eq', value: 'x' }])).not.toThrow();
   });
 });

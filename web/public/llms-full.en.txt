@@ -5501,7 +5501,7 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | block_contact | mcp:write OAuth connection required | Block or unblock a contact: nothing is sent to them anymore, their messages are still recorded. |
 | prepare_contacts_deletion | mcp:write OAuth connection required | Prepare the deletion of a selection of contacts without erasing anything (tags, consent, a list, the N oldest, 1,000 at most): their count, 10 records at most and a confirmation code. |
 | delete_contacts | mcp:write OAuth connection required | Delete for good the contacts of a prepared selection, with the same selection and its code: records, conversations and messages erased, as in the console; refused if the selection no longer designates the same contacts. |
-| find_contacts | mcp:read | The contacts of a target, like the contact list filters: tags, consent and, on the Enterprise plan, the latest analysis. The total, and up to 100 contacts. |
+| find_contacts | mcp:read | The contacts of a target, like the contact list filters: tags, consent, Shopify orders (count, amount spent, last order), activity, country and, on the Enterprise plan, the latest analysis. The total, and up to 100 contacts. |
 | tag_contacts | mcp:write OAuth connection required | Tag the contacts of a target or of a list of conversations: a segment is a tag. Through the console’s bulk action, without starting any automation. |
 | list_fields | mcp:read | The custom contact fields: key, label, type. A template variable can come from one of them. |
 | create_field | mcp:write OAuth connection required | Create a custom field, as in the console: its key comes from the label. |

@@ -1,6 +1,9 @@
 import { montantBoutique, telephoneDeCommande, type CommandeShopify } from './donnees';
 import { DELAI_PREUVE_MS } from './preuve-utm';
 import type { BoutiqueRecue, DepsTraitementShopify } from './traitement';
+import type { DetailsCommande } from './store.pg';
+import { journaliser } from '../lib/journal';
+import { messageDe } from '../lib/erreur';
 
 /**
  * LE CHIFFRE D'AFFAIRES ATTRIBUÉ (spec docs/superpowers/specs/2026-10-28-revenus-attribues-design.md) : une commande
@@ -79,6 +82,19 @@ export function choisirSource(e: {
 }
 
 /**
+ * Ce que le paiement dit d'une commande : sa date (Shopify, `processed_at`, sinon la réception), son montant et sa devise
+ * de boutique (nuls s'ils ne se lisent pas), et si c'est une commande de test.
+ */
+export function detailsDeCommande(c: CommandeShopify, b: Pick<BoutiqueRecue, 'devise'>, maintenant: () => number): DetailsCommande {
+  const traitee = c.processed_at ? Date.parse(c.processed_at) : NaN;
+  const montant = montantBoutique(c, b.devise);
+  return {
+    payeeLe: new Date(Number.isNaN(traitee) ? maintenant() : traitee),
+    montant: montant?.montant ?? null, devise: montant?.devise ?? null, test: c.test === true,
+  };
+}
+
+/**
  * Attribue une commande payée et la fige (`orders/paid`, plan 2026-10-28, tâche 4). Rien ne s'écrit à la réception pour
  * une commande au montant illisible, sans source, sans téléphone ou d'un numéro sans fiche (aucune fiche n'est créée : elle
  * compterait dans la limite de l'offre). Le paiement se date par Shopify (`processed_at`), sinon par la réception.
@@ -88,18 +104,27 @@ export function choisirSource(e: {
  * numéro (décision de Julien du 2026-10-30, plan `2026-10-30-attribution-sans-telephone.md`).
  */
 export async function attribuerCommande(
-  deps: Pick<DepsTraitementShopify, 'ventes' | 'ficheParTelephone' | 'filiere' | 'maintenant' | 'programmerPreuve'>,
+  deps: Pick<DepsTraitementShopify, 'ventes' | 'ficheParTelephone' | 'filiere' | 'maintenant' | 'programmerPreuve'>
+    & { store: Pick<DepsTraitementShopify['store'], 'lierCommande'> },
   b: Pick<BoutiqueRecue, 'tenantId' | 'pays' | 'devise'>,
   c: CommandeShopify,
 ): Promise<void> {
-  const montant = montantBoutique(c, b.devise);
-  if (montant === null) return;
   const telephone = telephoneDeCommande(c, b.pays);
   const contactId = telephone === null ? null : await deps.ficheParTelephone(b.tenantId, telephone);
-  const traitee = c.processed_at ? Date.parse(c.processed_at) : NaN;
-  const payeeLe = new Date(Number.isNaN(traitee) ? (deps.maintenant ?? Date.now)() : traitee);
+  const details = detailsDeCommande(c, b, deps.maintenant ?? Date.now);
   const commandeId = String(c.id);
-  const test = c.test === true;
+  // La commande d'une fiche connue s'écrit TOUJOURS, source ou non, montant lisible ou non (segments, spec du 2026-10-31) :
+  // « deux commandes en 90 jours » compte chaque commande payée, pas seulement celles que nos envois expliquent.
+  // Une panne ici ne coûte pas l'attribution : le chiffre d'affaires ne dépend pas des segments.
+  if (contactId !== null) {
+    await deps.store.lierCommande(b.tenantId, commandeId, c.customer?.id ? String(c.customer.id) : null, contactId, details).catch((err: unknown) => {
+      journaliser('error', 'shopify_commande_non_notee', { tenantId: b.tenantId, erreur: messageDe(err) });
+    });
+  }
+  const montant = montantBoutique(c, b.devise);
+  if (montant === null) return;
+  const payeeLe = details.payeeLe;
+  const test = details.test;
   const programmer = () => deps.programmerPreuve(
     { tenantId: b.tenantId, commandeId, contactId, ...montant, payeeLe: payeeLe.toISOString(), test, essai: 0 },
     new Date((deps.maintenant ?? Date.now)() + DELAI_PREUVE_MS),

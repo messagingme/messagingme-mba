@@ -1722,6 +1722,22 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   de `fields` (la fonction JS d'un scénario reçoit `fields`), rempli par `getContactStateByWaId` ; la parité
   avec le SQL est tenue contre une vraie base (`tests/integration/filtre-fiche.integration.test.ts`). La console
   ne propose ces filtres que si `champs-fiche` répond, et `filtresRepris` garde leurs opérateurs.
+- 🔴 **Les critères de segment passent eux aussi par `fieldFilters`** (spec
+  `docs/superpowers/specs/2026-10-31-segments-commandes-pays-activite-design.md`) : six clés réservées
+  (`segment_commandes`, `segment_depense`, `segment_derniere_commande`, `segment_actif`, `segment_inactif`,
+  `segment_pays`, `estCleReservee` les refuse à un champ perso), l'opérateur `segment` et une valeur JSON (une plage
+  `{min, max, jours}`, un nombre de jours, une liste de pays ISO). `lireSegment` la valide et la ramène à sa forme
+  canonique, ou lève `FiltreContactInvalide` : plage vide, minimum au-dessus du maximum, « au moins 0 » sans maximum
+  pour le nombre de commandes et la dépense, borne hors de `BORNES_SEGMENTS`, pays sans indicatif ; une liste de plus de
+  `MAX_FIELD_FILTERS` qui porte un segment est refusée au lieu d'être tronquée. `clauseSegment` (`src/crm/segments.ts`)
+  pose des sous-requêtes non corrélées (`id in` pour un minimum, `id not in` pour un maximum seul, qui garde les
+  contacts sans commande), chacune avec `o.tenant_id = $1` ; une valeur illisible pose `false`. Les commandes se
+  comptent toutes devises, la dépense ne somme que la devise de la boutique actuelle ; « inactif » retient les fiches
+  jamais actives, « actif » non ; le pays est un `or` de préfixes E.164 (`libphonenumber-js`), et un pays qui partage
+  son indicatif sans en être le pays principal (`paysPrincipalDe` : CA, PR, JE, KZ) est refusé en nommant celui qui le
+  cible, puisque le numéro ne les distingue pas. La console ne propose ces critères que si `GET .../contacts/segments` répond
+  (`FiltresAchatsActivite`), et les critères de commande que si l'espace a une boutique ; l'outil MCP refuse un critère
+  de commande sans boutique, puisque « au plus 0 commande » y viserait tout l'espace.
 - 🔴 **Le déclencheur « un champ d'analyse devient » (`analyse_devient`) naît de la copie, jamais d'un balayage.**
   `save` rend la copie faite (ancienne et nouvelle valeurs, lues dans sa transaction), le job d'analyse la passe
   au point de sortie (`AnalyseTerminee`, un type à part de `StoredConversationAnalysis`, contrat de la poussée
@@ -1857,6 +1873,10 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   mémoire) est fermée ailleurs : `claim` écarte d'abord une fiche purgée (`anonymized_at`, motif `efface`), et
   les balayages de relance et de bascule ne reprennent plus une ligne purgée (`to_e164 = 'anonyme'`, que la
   purge écrit), qui garde son statut pour les totaux.
+  `derniere_activite_le` (migration 0273, le dernier message reçu ou clic attribué, pour les segments) y est remise
+  à nul : elle dit quand la personne a agi. Ses deux seuls écrivains sont `recordInbound` (une instruction à part,
+  après le message, qui ne lève jamais : une panne ne perd pas le message) et `recordClick` avec un contact, scopés par
+  l'espace, et elle ne recule jamais ; elle survit à la purge des conversations, que la conservation de l'espace efface.
   🔴 **Toute colonne ajoutée à `contacts` décide son sort dans l'`update` de `purgeMany`**, où chaque colonne
   porte sa raison ; et un écrivain qui vise une fiche par son identifiant filtre `deleted_at is null`
   (l'identifiant survit à la purge, dans `campaign_recipients.contact_id` entre autres).
@@ -2471,7 +2491,15 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
 - **`shopify_commandes` relie commande, client Shopify et fiche**, pour que `customers/redact` retrouve la fiche née
   du téléphone de livraison ; `purgeMany` efface ses lignes et les paniers du numéro, par requête explicite (la purge
   anonymise la fiche, la cascade sur `contacts` ne joue pas). L'effacement demandé par Shopify passe par
-  `effacerContacts` HORS limite du jour.
+  `effacerContacts` HORS limite du jour. Depuis la migration 0273, elle porte aussi `payee_le`, `montant`, `devise` et
+  `test`, pour les segments : `attribuerCommande` écrit CHAQUE commande payée d'une fiche existante, message branché ou
+  non et avant de chercher une source, sans jamais lever (une panne se journalise, l'attribution continue) ; `servir`
+  la réécrit après la confirmation, pour la fiche que l'envoi vient de créer. Une expédition (`fulfillments/create`)
+  n'écrase ni la date ni le montant. `shopify_boutiques.commandes_depuis` dit depuis quand TOUTES les commandes sont
+  suivies : la migration pour les boutiques d'alors, puis chaque rebranchement après une coupure, ou sur une autre
+  boutique, par `connecter`. Une commande d'un numéro sans fiche n'est pas gardée. ⚠️ `customers/redact` purge TOUTE
+  fiche liée aux commandes nommées, y compris une fiche liée seulement pour les segments (un cadeau livré au numéro
+  d'un contact existant) : décision de Julien du 2026-11-03, la règle d'avant étendue à toutes les boutiques.
 - 🔴 **`ventes_attribuees` fige le chiffre d'affaires attribué** (migration 0261, spec
   `docs/superpowers/specs/2026-10-28-revenus-attribues-design.md`) : à la réception d'`orders/paid`, AVANT la
   confirmation et dans un budget (`BUDGET_ATTRIBUTION_MS`, `src/shopify/traitement.ts`), une commande payée d'une fiche
@@ -5911,7 +5939,8 @@ avec elle) garde son test de parité.
 | `src/http/preparation-campagne.ts` -> `preparerCampagne` | toutes les validations et lectures de la création d'une campagne, sans aucune écriture ; `src/campaign/create.ts` écrit (§ 4.2) |
 | `src/campaign/lancement.ts` -> `lancerCampagne` | le lancement d'une campagne (programmer à une date, ou lever la pause puis enfiler le run dans le groupe de l'espace) : le bouton « Lancer » de la console et `launch_campaign` de l'assistant |
 | `src/campaign/confirmation.ts`, `confirmation.pg.ts` | le code de confirmation d'une campagne préparée par l'assistant : empreinte de l'état, code haché, réclamation atomique |
-| `src/mcp/cible.ts` -> `lireCibleMcp` | la cible d'un outil de campagne de l'assistant, devant `parseBulkTarget` : jamais sans critère, jamais tronquée, l'analyse réservée à l'Entreprise |
+| `src/mcp/cible.ts` -> `lireCibleMcp` | la cible d'un outil de campagne de l'assistant, devant `parseBulkTarget` : jamais sans critère, jamais tronquée, l'analyse réservée à l'Entreprise, un critère de commande refusé sans boutique |
+| `web/lib/partage/segments.ts`, `src/crm/segments.ts` -> `clauseSegment` | 🔴 les critères de segment (commandes, dépense, dernière commande, activité, pays) : clés réservées `segment_*` et opérateur `segment` dans `fieldFilters`, bornes communes à la console, au serveur et au schéma MCP, la clause SQL de chacun ; leur validation est `lireSegment` (`src/crm/contact-filters.ts`) |
 | `src/api/modele-envoi.ts` -> `modeleEnvoyable`, `numeroDEnvoi` | un modèle jugé envoyable chez Meta (et sa catégorie), et le numéro d'envoi de l'espace : `POST /v1/sends` et `prepare_campaign` |
 | `src/inbox/fil.ts` -> `creerControleDuFil` | 🔴 le contrôle du fil : les gestes qui confient, reprennent ou passent une conversation (agent de Meta, scénario, équipe), l'ordre « Meta d'abord, la colonne ensuite », les gardes (agent allumé, `only`, fil de test, parcours en attente, détenteur relu avant Meta, opérateur épargné par un démarrage du client), l'événement `message_sans_suite` et la marque d'escalade. Seul appelant de `setControlOwner`, `demanderReleaseMba`, `consommerReleaseMba` et du `release` de Meta ; `tests/fil.test.ts` exécute sa table |
 | `src/inbox/delai-reprise.ts` -> `repriseDue`, `delaiHumainMs` | 🔴 le délai de reprise d'un fil tenu, une seule règle pour le balayage (`runControlSweep`) et la remise « personne ne suit » (`remettreSiPersonneNeSuit`) : escalade sans réponse jamais échue, délai nul ou absent = jamais, fil non daté échu ; le réglage de l'espace prime sur `CONTROL_HUMAN_TIMEOUT_MS`. Sans la fenêtre de service, que seul le balayage lit ; `tests/fil-delai-reprise.test.ts` |

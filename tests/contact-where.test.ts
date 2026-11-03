@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { buildContactWhere, buildBulkSelector } from '../src/crm/contact-store.pg';
 import { PEREMPTION_WHATSAPP_MS } from '../web/lib/partage/joignabilite';
+import { CLES_SEGMENT, filtreSegment } from '../web/lib/partage/segments';
 
 // Fonctions PURES (aucune DB) : on vérifie le SQL + les params générés. C'est le GATE testable de la boucle
 // mini-CRM (les nouveaux opérateurs de filtre + le sélecteur d'action en masse), sans toucher Postgres.
@@ -214,6 +215,73 @@ describe('buildContactWhere : les filtres de la dernière analyse (lot 2b)', () 
       const { where, params } = buildContactWhere('t1', { fieldFilters: [ff] });
       expect(where, ff.key).toBe('tenant_id = $1 and deleted_at is null and false');
       expect(params).toEqual(['t1']);
+    }
+  });
+});
+
+/**
+ * Les critères de segment (spec du 2026-10-31), dans `fieldFilters`. 🔴 Chaque sous-requête nomme `o.tenant_id = $1` :
+ * le rôle de l'application contourne la RLS, ce filtre est le seul contrôle d'isolation. Les valeurs voyagent en
+ * paramètres, jamais dans le texte, et une valeur qui ne se lit pas vise PERSONNE.
+ */
+describe('buildContactWhere : les critères de segment', () => {
+  const S = CLES_SEGMENT;
+  const ou = (...f: ReturnType<typeof filtreSegment>[]) => buildContactWhere('t1', { fieldFilters: f });
+  const sousRequetes = (where: string): string[] => where.match(/select o\.contact_id from shopify_commandes o where [^)]*\)/g) ?? [];
+
+  it('🔴 chaque sous-requête de commandes est scopée par l’espace', () => {
+    const { where } = ou(filtreSegment(S.commandes, { min: 2, jours: 90 }), filtreSegment(S.depense, { max: 100 }), filtreSegment(S.derniereCommande, { min: 180 }));
+    const sr = sousRequetes(where);
+    expect(sr).toHaveLength(3);
+    for (const s of sr) expect(s).toContain('o.tenant_id = $1');
+    expect(where).toContain('b.tenant_id = $1');
+    // Jamais le jsonb des champs perso pour une clé réservée.
+    expect(where).not.toContain('fields ->>');
+  });
+
+  it('un minimum d’au moins une commande passe par « id in », un maximum seul par « id not in »', () => {
+    const avec = ou(filtreSegment(S.commandes, { min: 2, max: 5, jours: 90 }));
+    expect(avec.where).toContain('id in (select o.contact_id from shopify_commandes o where o.tenant_id = $1 and o.payee_le >= now() - $2::int');
+    expect(avec.where).toContain('having count(*) >= $3::int and count(*) <= $4::int');
+    expect(avec.params).toEqual(['t1', 90, 2, 5]);
+    const sans = ou(filtreSegment(S.commandes, { max: 0 }));
+    expect(sans.where).toContain('id not in (select o.contact_id from shopify_commandes o where o.tenant_id = $1 group by o.contact_id having count(*) > $2::int)');
+    expect(sans.params).toEqual(['t1', 0]);
+  });
+
+  it('la dépense somme la devise de la boutique actuelle, en numérique', () => {
+    const { where, params } = ou(filtreSegment(S.depense, { min: 49.9 }));
+    expect(where).toContain('o.devise = coalesce((select b.devise from shopify_boutiques b where b.tenant_id = $1), o.devise)');
+    expect(where).toContain('having coalesce(sum(o.montant), 0) >= $2::numeric');
+    expect(params).toEqual(['t1', 49.9]);
+  });
+
+  it('la dernière commande exige une commande, bornée des deux côtés', () => {
+    const { where, params } = ou(filtreSegment(S.derniereCommande, { min: 30, max: 180 }));
+    expect(where).toContain('having max(o.payee_le) <= now() - $2::int');
+    expect(where).toContain('and max(o.payee_le) >= now() - $3::int');
+    expect(params).toEqual(['t1', 30, 180]);
+  });
+
+  it('actif exclut le jamais actif, inactif l’inclut', () => {
+    expect(ou(filtreSegment(S.actif, 7)).where).toContain("derniere_activite_le >= now() - $2::int * interval '1 day'");
+    expect(ou(filtreSegment(S.inactif, 90)).where)
+      .toContain("(derniere_activite_le is null or derniere_activite_le < now() - $2::int * interval '1 day')");
+  });
+
+  it('les pays deviennent des préfixes paramétrés, dédupliqués (US et CA partagent +1)', () => {
+    const { where, params } = ou(filtreSegment(S.pays, ['US', 'CA', 'BE']));
+    expect(where).toContain('(phone_e164 like $2 or phone_e164 like $3)');
+    expect(params).toEqual(['t1', '+1%', '+32%']);
+  });
+
+  it('🔴 une valeur qui ne se lit pas ou ne pose rien vise personne, jamais tout l’espace', () => {
+    for (const f of [
+      { key: S.pays, op: 'segment' as const, value: '["XX"]' }, { key: S.commandes, op: 'segment' as const, value: '{pas du json' },
+      { key: S.commandes, op: 'segment' as const, value: '{}' }, { key: S.actif, op: 'segment' as const, value: '"30"' },
+      { key: S.commandes, op: 'segment' as const, value: '{"min":0}' }, { key: S.depense, op: 'segment' as const, value: '{"min":-5}' },
+    ]) {
+      expect(buildContactWhere('t1', { fieldFilters: [f] }).where.split(' and '), f.value).toContain('false');
     }
   });
 });

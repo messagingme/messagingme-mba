@@ -79,6 +79,7 @@ function monter(o: { publicApiUrl?: string; apiParMinute?: number } = {}) {
       setBlocked: async () => { throw new Error('setBlocked ne devrait pas être appelée'); },
       isBlockedByWaId: async () => false,
       analysesEtResumes: async () => new Map(),
+      suiviSegments: async () => ({ boutique: null }),
     },
     listerMembres: async () => [],
     scenariosApi: scenariosApiInerte,

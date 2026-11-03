@@ -1,7 +1,7 @@
 ---
 ecran: contacts
 source_section: Contacts & CRM
-source_empreinte: 51ee78
+source_empreinte: e090e1
 publique: oui
 rubrique: parler-aux-clients
 rang: 4
@@ -33,8 +33,11 @@ Vous filtrez par tag, par consentement marketing, par nom, par numéro de télé
 que vous avez créé, par la présence d'une adresse e-mail, par niveau de risque de désengagement (de quoi
 préparer une campagne vers ceux qui décrochent), ou par ce que dit leur dernière analyse : intention,
 sentiment, satisfaction ou urgence au-dessus ou en dessous d'une note, demande résolue ou non, analysée depuis
-moins de tant de jours. Une fiche jamais analysée n'entre dans aucune de ces valeurs. Les filtres se cumulent,
-et ce sont les mêmes quand vous choisissez les destinataires d'une campagne.
+moins de tant de jours. Une fiche jamais analysée n'entre dans aucune de ces valeurs. La partie « Achats et
+activité » retient les contacts actifs (qui vous ont écrit ou ont cliqué un lien suivi) dans les derniers jours, ou
+inactifs depuis un nombre de jours ; si votre boutique Shopify est branchée, elle filtre aussi par nombre de
+commandes payées, par montant dépensé et par date de la dernière commande. Les filtres se cumulent, et ce sont les
+mêmes quand vous choisissez les destinataires d'une campagne.
 
 Trois points à connaître avant d'agir en masse :
 

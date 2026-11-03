@@ -11,6 +11,8 @@ import { corpsRefusFonction } from '../offres/refus';
 import type { Fonction } from '../offres/offres';
 import type { ProprieteEntree } from './outils';
 import { RefusOutil } from './saisie';
+import { BORNES_SEGMENTS, CLES_SEGMENT, OP_SEGMENT, type CleSegment } from '../../web/lib/partage/segments';
+import type { SuiviSegments } from '../crm/segments';
 
 /**
  * LA CIBLE D'UN OUTIL DE CAMPAGNE (plan « Campagnes depuis Claude », tâche 4) : les contacts que l'assistant désigne,
@@ -35,6 +37,8 @@ export interface DepsCibleMcp {
   contacts: {
     /** Les identifiants d'une cible, DANS l'espace : un contact d'un autre espace ne rend rien. */
     contactIdsForTarget(tenantId: string, target: BulkTarget, limite?: number): Promise<string[]>;
+    /** La boutique de l'espace : sans elle, un critère de commande est refusé. */
+    suiviSegments(tenantId: string): Promise<SuiviSegments>;
   };
 }
 
@@ -46,6 +50,61 @@ const AIDE_ANALYSE = CLES_FILTRABLES.map((cle) => {
   const valeurs = champ.type.nature === 'choix' ? ` (values: ${champ.type.valeurs.join(', ')})` : champ.type.nature === 'note' ? ' (value 0 to 10)' : champ.type.nature === 'date' ? ' (value: a number of days)' : '';
   return `${cle}: ${operateursDuChamp(champ).join('/')}${valeurs}`;
 }).join('; ');
+
+const { joursMax, commandesMax, depenseMax, paysMax } = BORNES_SEGMENTS;
+const JOURS = { type: 'integer', minimum: 1, maximum: joursMax } as const;
+
+/** Une plage `{ min, max }`, et `within_days` pour le nombre et la somme des commandes. */
+function plageAnnoncee(o: { borne: 'integer' | 'number'; max: number; avecJours: boolean; unite: string; description: string }): ProprieteEntree {
+  return {
+    type: 'object',
+    properties: {
+      min: { type: o.borne, minimum: 0, maximum: o.max, description: `At least this ${o.unite}.` },
+      max: { type: o.borne, minimum: 0, maximum: o.max, description: `At most this ${o.unite}.` },
+      ...(o.avecJours ? { within_days: { ...JOURS, description: `Counted over the last N days (1 to ${joursMax}); without it, since orders_recorded_since.` } } : {}),
+    },
+    additionalProperties: false,
+    description: o.description,
+  };
+}
+
+/**
+ * Les critères de segment (spec du 2026-10-31), annoncés avec chacune des bornes que `buildContactFilters` applique.
+ * Pro et au-dessus, comme les autres filtres : aucune fonction de plus.
+ */
+export const CHAMPS_CIBLE_SEGMENTS: Record<string, ProprieteEntree> = {
+  orders: plageAnnoncee({
+    borne: 'integer', max: commandesMax, avecJours: true, unite: 'number of orders',
+    description: 'Shopify paid orders (test orders included, refunds not deducted), e.g. {"min":2,"within_days":90} for two '
+      + 'orders in 90 days, {"max":0} for no order. Needs the workspace Shopify store. "min":0 alone restricts nothing '
+      + 'and is refused.',
+  }),
+  spent: plageAnnoncee({
+    borne: 'number', max: depenseMax, avecJours: true, unite: 'amount',
+    description: 'Total of those paid orders, in the store currency (orders in another currency are left out), e.g. '
+      + '{"min":200,"within_days":365}. Needs the Shopify store. "min":0 alone is refused.',
+  }),
+  days_since_last_order: plageAnnoncee({
+    borne: 'integer', max: joursMax, avecJours: false, unite: 'number of days',
+    description: 'Days since the last paid order; requires at least one order. {"min":180} for "nothing for 6 months", '
+      + '{"max":30} for "ordered this month". Needs the Shopify store.',
+  }),
+  active_within_days: {
+    ...JOURS,
+    description: `Contacts who wrote to the workspace or clicked a tracked link in the last N days (1 to ${joursMax}).`,
+  },
+  inactive_for_days: {
+    ...JOURS,
+    description: `No message and no click for N days (1 to ${joursMax}), contacts never active included.`,
+  },
+  countries: {
+    type: 'array', minItems: 1, maxItems: paysMax, items: { type: 'string', pattern: '^[A-Za-z]{2}$' },
+    description: `Countries by ISO code (FR, BE, GB...), ${paysMax} at most, matched by the phone number calling code. A `
+      + 'calling code shared by several countries is targeted only by its main country, which matches them all: US for +1 '
+      + '(the United States, Canada and about twenty Caribbean and Pacific countries), GB for +44, RU for +7; CA, PR, KZ '
+      + 'or JE are refused.',
+  },
+};
 
 /** Les paramètres de cible, annoncés par chaque outil qui en prend une. Toute borne appliquée ici y figure. */
 export const CHAMPS_CIBLE_FILTRES: Record<string, ProprieteEntree> = {
@@ -70,8 +129,11 @@ export const CHAMPS_CIBLE_FILTRES: Record<string, ProprieteEntree> = {
       required: ['field', 'op'],
       additionalProperties: false,
     },
-    description: `Enterprise plan only. Filters on each contact's latest conversation analysis: ${AIDE_ANALYSE}.`,
+    description: `Enterprise plan only. Filters on each contact's latest conversation analysis: ${AIDE_ANALYSE}. `
+      + `${MAX_FIELD_FILTERS} filters at most in all, the orders, spent, days_since_last_order, active_within_days, `
+      + 'inactive_for_days and countries criteria included.',
   },
+  ...CHAMPS_CIBLE_SEGMENTS,
 };
 export const CHAMPS_CIBLE_IDENTIFIANTS: Record<string, ProprieteEntree> = {
   contact_ids: {
@@ -103,7 +165,7 @@ export async function lireCibleMcp(
 ): Promise<BulkTarget> {
   const parContacts = present(args.contact_ids);
   const parConversations = present(args.conversation_ids);
-  const parFiltres = ['tags', 'tag_mode', 'opt_in', 'analysis'].some((k) => present(args[k]));
+  const parFiltres = ['tags', 'tag_mode', 'opt_in', 'analysis', ...CLES_SEGMENTS].some((k) => present(args[k]));
 
   if (parContacts || parConversations) {
     if (!opts.identifiants) throw new RefusOutil('cet outil cible par étiquettes, consentement ou analyse, pas par identifiants');
@@ -142,10 +204,18 @@ export async function lireCibleMcp(
     return { key: field, op, value: typeof value === 'string' ? value : '' };
   });
 
+  const segments = await lireSegmentsMcp(args, deps, tenantId);
+  // Jamais tronqué : un filtre jeté élargirait l'audience.
+  if (fieldFilters.length + segments.length > MAX_FIELD_FILTERS) {
+    throw new RefusOutil(`${MAX_FIELD_FILTERS} filtres au plus, analyse et critères d’achats, d’activité et de pays compris`);
+  }
   let cible: BulkTarget | null;
   try {
     cible = parseBulkTarget({
-      filters: { tags: Array.isArray(tags) ? tags : [], tagMode: args.tag_mode === 'any' ? 'or' : 'and', optIn: args.opt_in, fieldFilters },
+      filters: {
+        tags: Array.isArray(tags) ? tags : [], tagMode: args.tag_mode === 'any' ? 'or' : 'and', optIn: args.opt_in,
+        fieldFilters: [...fieldFilters, ...segments],
+      },
     });
   } catch (e) {
     // Un opérateur ou une valeur que le champ ne connaît pas : la phrase du mini-CRM, telle quelle.
@@ -154,7 +224,45 @@ export async function lireCibleMcp(
   }
   // 🔴 Une cible sans critère n'est JAMAIS « tout le monde » ici, contrairement au « tout sélectionner » de la console.
   if (cible === null || !('filters' in cible) || !filtersActive(cible.filters)) {
-    throw new RefusOutil('précisez au moins un critère : tags, opt_in, analysis, ou une liste de contact_ids ou de conversation_ids');
+    throw new RefusOutil(`précisez au moins un critère : tags, opt_in, analysis, ${CLES_SEGMENTS.join(', ')}, ou une liste de contact_ids ou de conversation_ids`);
   }
   return cible;
+}
+
+const CLES_SEGMENTS = ['orders', 'spent', 'days_since_last_order', 'active_within_days', 'inactive_for_days', 'countries'] as const;
+const CLES_COMMANDES_MCP = ['orders', 'spent', 'days_since_last_order'] as const;
+
+/**
+ * Les critères de segment de l'outil, dans la forme du fil : des `fieldFilters` sous clé réservée, opérateur `segment`
+ * (`web/lib/partage/segments.ts` dit pourquoi). Seule la FORME se lit ici (les clés d'une plage) ; les bornes, les pays
+ * et la plage vide sont refusés par `lireSegment`, la règle de la console. 🔴 Un critère de commande sans boutique est
+ * refusé : « au plus 0 commande » y viserait tout l'espace.
+ */
+async function lireSegmentsMcp(
+  args: Record<string, unknown>, deps: DepsCibleMcp, tenantId: string,
+): Promise<Array<{ key: CleSegment; op: typeof OP_SEGMENT; value: string }>> {
+  const entree = (key: CleSegment, valeur: unknown) => ({ key, op: OP_SEGMENT, value: JSON.stringify(valeur) });
+  const plage = (cle: string, avecJours: boolean): unknown => {
+    const v = args[cle];
+    if (typeof v !== 'object' || v === null || Array.isArray(v)) return v;
+    const brut = v as Record<string, unknown>;
+    const permises = avecJours ? ['min', 'max', 'within_days'] : ['min', 'max'];
+    const inconnues = Object.keys(brut).filter((k) => !permises.includes(k));
+    if (inconnues.length > 0) throw new RefusOutil(`paramètre « ${cle} » : clé inconnue (${inconnues.join(', ')}) ; seules ${permises.join(', ')}`);
+    return { min: brut.min, max: brut.max, ...(avecJours ? { jours: brut.within_days } : {}) };
+  };
+  if (CLES_COMMANDES_MCP.some((k) => present(args[k])) && (await deps.contacts.suiviSegments(tenantId)).boutique === null) {
+    throw new RefusOutil('aucune boutique Shopify dans cet espace : les critères de commande (orders, spent, days_since_last_order) '
+      + 'n’ont rien à compter. get_shopify_state dit comment la brancher');
+  }
+  const pays = args.countries;
+  if (present(pays) && (!Array.isArray(pays) || pays.length === 0)) throw new RefusOutil('paramètre « countries » : une liste non vide de codes ISO est attendue');
+  return [
+    ...(present(args.orders) ? [entree(CLES_SEGMENT.commandes, plage('orders', true))] : []),
+    ...(present(args.spent) ? [entree(CLES_SEGMENT.depense, plage('spent', true))] : []),
+    ...(present(args.days_since_last_order) ? [entree(CLES_SEGMENT.derniereCommande, plage('days_since_last_order', false))] : []),
+    ...(present(args.active_within_days) ? [entree(CLES_SEGMENT.actif, args.active_within_days)] : []),
+    ...(present(args.inactive_for_days) ? [entree(CLES_SEGMENT.inactif, args.inactive_for_days)] : []),
+    ...(present(pays) ? [entree(CLES_SEGMENT.pays, pays)] : []),
+  ];
 }

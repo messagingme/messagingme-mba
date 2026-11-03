@@ -238,10 +238,23 @@ Spec `docs/superpowers/specs/2026-10-28-revenus-attribues-design.md`, section «
 ## 🟡 Le MCP face à Wax et Kanal : ce qui manque encore (2026-10-28)
 
 Comparaison complète dans `docs/prive/MARCHE-SHOPIFY-2026-10-23.md` (hors dépôt). Le chiffre d'affaires attribué, le
-premier manque, est livré et essayé le 2026-10-31 (`get_revenue_stats`, Quantitatif > Shopify). Restent, dans l'ordre
-proposé :
-1. **Des segments sur les commandes, le pays et l'activité** dans `find_contacts` (« deux commandes en 90 jours », le
-   pays par l'indicatif, « a répondu depuis ») ; un segment reste une étiquette.
+premier manque, est livré et essayé le 2026-10-31 (`get_revenue_stats`, Quantitatif > Shopify). Les segments sur les
+commandes, le pays et l'activité sont livrés le 2026-11-03 (spec `2026-10-31-segments-commandes-pays-activite-design.md`) ;
+leurs suites :
+- le rattrapage de l'historique des commandes lu chez Shopify (aujourd'hui, le suivi complet commence au déploiement ou au
+  branchement ; `read_orders` ne rend que 60 jours sans un accès étendu) ;
+- les remboursements et annulations déduits (abonnements `orders/cancelled` et `refunds/create`, à redéployer chez
+  chaque marchand) ;
+- l'inactivité dans `prepare_contacts_deletion` (la colonne existe ; un effacement est irréversible et ouvert à la Free,
+  l'activité d'avant le 2026-11-03 n'est complète que par les messages alors conservés et les clics) ;
+- un sélecteur de pays dans la console (aujourd'hui « Téléphone commence par ») ;
+- 🟡 relecture du lot : le serveur MCP ne valide pas les arguments contre le schéma de l'outil (`src/mcp/serveur.ts`) ;
+  face à une API plus ancienne (retour arrière) et à une liste d'outils neuve, `tag_contacts` ou `set_contact_field`
+  avec `countries` viseraient tout le reste de la cible. Refuser tout argument absent de `entree.properties` ;
+- 🟡 relecture du lot : une expédition d'une commande jamais vue payée (paiement à la livraison, commande payée avant le
+  2026-11-03) crée une ligne comptée comme commande payée, datée de l'expédition.
+
+Restent, dans l'ordre proposé :
 2. **Une automatisation créée en brouillon par l'assistant**, activée dans la console (Wax et Kanal le font ; la
    relance de panier Shopify couvre déjà leur phrase de démo).
 3. **Plusieurs espaces sous une seule autorisation**, pour les agences et les intégrateurs (Wax) ; touche l'isolation

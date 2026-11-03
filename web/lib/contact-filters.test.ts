@@ -88,6 +88,12 @@ describe('filtresRepris', () => {
     for (const risque of ['élevé', 'high', 3, null]) expect(filtresRepris({ risque }), String(risque)).toEqual({});
   });
 
+  it('🔴 un critère de segment d’un brouillon est repris tel quel (opérateur segment) : perdu, la campagne viserait plus large', () => {
+    const f = { key: 'segment_commandes', op: 'segment' as const, value: '{"min":2,"jours":90}' };
+    expect(filtresRepris({ fieldFilters: [f] })).toEqual({ fieldFilters: [f] });
+    expect(filtersActive({ fieldFilters: [f] })).toBe(true);
+  });
+
   it('une chaîne VIDE ne devient pas un filtre : elle n’en est pas un', () => {
     // `filtersActive` la traiterait comme absente de toute façon ; la garder ferait seulement grossir le
     // brouillon et afficher un champ rempli de rien.

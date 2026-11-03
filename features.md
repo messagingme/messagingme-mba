@@ -577,6 +577,17 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     « sans valeur » (jamais analysée) ou « renseigné ». Ces filtres se cumulent avec les autres. Une fiche jamais
     analysée n'est dans aucune valeur, et « non résolue » ne la retient pas. Le sujet ne se filtre pas (c'est un
     texte libre). La section n'apparaît que si le serveur sait appliquer ces filtres.
+  - **Dans les filtres de la liste des contacts**, donc aussi pour **cibler une campagne** (2026-11-03, segments) :
+    une partie **Achats et activité** filtre les contacts **actifs** (qui ont écrit ou cliqué un lien suivi) dans les
+    N derniers jours, ou **inactifs** depuis N jours, ceux qui n'ont jamais rien fait compris. Si l'espace a une
+    boutique Shopify, elle filtre aussi par **commandes payées** (au moins, au plus, sur les N derniers jours ou depuis
+    le début du suivi), par **dépense** (même forme, dans la devise de la boutique) et par **dernière commande** (il y
+    a au moins ou au plus N jours). Chaque commande payée d'un contact connu compte, message de confirmation branché ou
+    non, commandes de test comprises, remboursements non déduits ; l'écran dit depuis quand elles sont suivies. Une
+    saisie impossible (un minimum au-dessus du maximum, « au moins 0 commande ») est signalée, et le dernier critère
+    valide reste appliqué : une faute de frappe n'élargit jamais l'audience.
+    La partie n'apparaît que si le serveur sait appliquer ces filtres. Le pays se filtre par « Téléphone commence
+    par » (+32 pour la Belgique).
 - ✅ **La fiche contact en onglets** (2026-09-30) : **Fiche**, **Tags**, **Champs**, **Analyse**, **Historique**.
   L'onglet Fiche garde TOUT, comme avant ; les trois suivants montrent chacun une partie, pour y aller
   directement : les étiquettes, les champs personnalisés, et tout ce que la plateforme a déduit du contact
@@ -2797,7 +2808,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   personne qui a dit STOP n'est jamais écrite. Une campagne, elle, se prépare puis se lance avec un code (entrée suivante).
 - ✅ **Claude prépare une campagne, et ne la lance qu'après votre oui** (2026-10-20, offre Pro) : « prépare une
   campagne pour les clients qui se sont plaints d'un retard de livraison, envoi demain 10 h ». Claude trouve les contacts
-  (`find_contacts` : étiquettes, consentement, et en Entreprise la dernière analyse : intention, sentiment, urgence…), en
+  (`find_contacts` : étiquettes, consentement, commandes Shopify, activité, pays, et en Entreprise la dernière analyse :
+  intention, sentiment, urgence…), en
   fait un segment, qui est une étiquette (`tag_contacts`, comme l'action en masse de la liste des contacts, sans
   déclencher d'automation), et prépare la campagne (`prepare_campaign`) : un brouillon visible dans Campagnes, rien ne
   part. Il montre le récapitulatif (contacts visés, combien partiront, combien sont écartés et pourquoi, cinq noms, le
@@ -2811,6 +2823,15 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   visibles et répondent avec le lien de l'offre ; les filtres par analyse demandent l'Entreprise. Sur un espace à plusieurs
   numéros, Claude demande lequel envoie, et le récapitulatif le nomme ; une campagne qui ne toucherait personne n'est pas
   créée, et Claude dit pourquoi (consentement, variable manquante, contacts bloqués).
+- ✅ **Claude cible par achats, pays et activité** (2026-11-03, offre Pro) : « mes clients qui ont commandé deux fois en
+  90 jours », « les Belges inactifs depuis trois mois », « ceux qui n'ont rien acheté depuis six mois ». `find_contacts`,
+  `tag_contacts`, `set_contact_field` et `prepare_campaign` prennent les commandes Shopify payées (nombre, dépense dans la
+  devise de la boutique, jours depuis la dernière), l'activité (a écrit ou cliqué un lien suivi dans les N derniers
+  jours, ou rien depuis N jours) et le pays (code ISO, reconnu par l'indicatif du numéro ; un indicatif partagé ne se
+  cible que par son pays principal, qui les vise tous : US pour +1, États-Unis, Canada et Caraïbes, et CA ou PR sont
+  refusés en le disant). Un segment reste une étiquette : Claude trouve, étiquette, puis cible l'étiquette. La réponse dit
+  depuis quand les commandes sont suivies et depuis quand l'activité est complète, et le pays de chaque contact. Un
+  critère de commande sans boutique Shopify est refusé (il viserait tout l'espace), comme un critère mal formé.
 - ✅ **Claude gère les champs des contacts** (2026-10-20) : il les liste (`list_fields`, dans toutes les offres), en crée un
   comme dans la console (`create_field`, la clé vient du libellé) et en remplit un sur une cible de contacts ou une liste
   de conversations (`set_contact_field`, en Pro, comme l'action en masse de la liste des contacts, sans déclencher

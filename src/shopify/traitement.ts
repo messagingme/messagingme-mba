@@ -11,8 +11,8 @@ import {
   type CommandeShopify, type DonneeShopify, type EvenementShopify,
 } from './donnees';
 import { envoyerMessageShopify, type DepsEnvoiShopify, type IssueShopify } from './envoi';
-import { PREFIXE_LIGNE_SHOPIFY, attribuerCommande } from './attribution';
-import type { EtatBoutique, OrigineBoutique, PgShopifyStore } from './store.pg';
+import { PREFIXE_LIGNE_SHOPIFY, attribuerCommande, detailsDeCommande } from './attribution';
+import type { DetailsCommande, EtatBoutique, OrigineBoutique, PgShopifyStore } from './store.pg';
 import type { PgVentesStore } from './ventes.pg';
 import type { ProgrammerPreuve } from './preuve-utm';
 
@@ -111,6 +111,7 @@ export async function traiterWebhookShopify(
         evenement: 'order_paid', cle: `orders/paid:${c.data.id}`, sujet,
         commandeId: String(c.data.id), clientId: c.data.customer?.id ? String(c.data.customer.id) : null,
         telephone: telephoneDeCommande(c.data, b.pays), valeurs: donneesDeCommande(c.data), numero: c.data.name,
+        details: detailsDeCommande(c.data, b, deps.maintenant ?? Date.now),
       });
     }
     case 'fulfillments/create': {
@@ -285,6 +286,8 @@ interface Service {
   telephone: string | null;
   valeurs: Partial<Record<DonneeShopify, string>>;
   numero: string;
+  /** Le paiement d'une commande : la fiche née de la confirmation reçoit aussi sa date et son montant (segments). */
+  details?: DetailsCommande;
 }
 
 async function servir(deps: DepsTraitementShopify, b: BoutiqueRecue, s: Service): Promise<ReponseTraitement> {
@@ -317,7 +320,7 @@ async function servir(deps: DepsTraitementShopify, b: BoutiqueRecue, s: Service)
     await deps.store.noterIssue(b.tenantId, cle, issue);
     if (s.telephone !== null) {
       const fiche = await deps.ficheParTelephone(b.tenantId, s.telephone);
-      if (fiche !== null) await deps.store.lierCommande(b.tenantId, s.commandeId, s.clientId, fiche);
+      if (fiche !== null) await deps.store.lierCommande(b.tenantId, s.commandeId, s.clientId, fiche, s.details);
     }
     if (issue === 'limite_contacts') {
       await deps.emails.emettre({
