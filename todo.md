@@ -969,13 +969,17 @@ d'un modèle par `waba-v2.360dialog.io/messages` ET par MM Lite (`/marketing_mes
 
 ## 🟠 Après la bascule Scaleway (2026-10-26) : le ménage
 
-- **La fin de l'observation** (quelques jours, décision de Julien) : alors seulement, Supabase mis en PAUSE (pas
-  supprimé), puis effacé plus tard ; la tâche planifiée `sauvegarde-base.sh` du VPS retirée (elle sauvegarde la copie
-  figée de Supabase) ; les conteneurs Messaging Me du VPS supprimés, avec l'hôte NPM 21 de `mba.` (lot 7), et avec eux
-  `tests/budget-pooler.test.ts`, qui ne tient plus que le compose du VPS (le retour arrière). ⚠️ AVANT d'effacer
-  `/home/ubuntu/mba`, donner leurs propres fichiers de clés à deux outils qui y lisent encore son `.env.prod` :
-  `guetteur-otp.sh` du pont des codes (`AI_GATEWAY_API_KEY`) et la veille d'éligibilité de l'agent de Meta
-  (`META_ACCESS_TOKEN`).
+- **La fin de l'observation : le VPS est fait le 2026-11-03** (accord de Julien, journal du jour) : conteneurs et
+  images Messaging Me supprimés, tâche `sauvegarde-base.sh` retirée et ses neuf copies effacées, `/home/ubuntu/mba`
+  effacé avec son `.env.prod` et ses copies. Les deux outils qui le lisaient ont leur propre clé : la veille
+  d'éligibilité tourne depuis `/home/ubuntu/veille-mba` (`MBA_ENV_FILE`, `MBA_STATE_FILE` dans sa ligne de crontab),
+  le guetteur lit `/home/ubuntu/otp-asterisk/.cle-gateway`. Restent :
+  - **Supabase** (Londres, hors UE, figé depuis le 2026-10-26) : mis en PAUSE puis supprimé par Julien dans son tableau
+    de bord, le projet n'étant visible d'aucun connecteur de Claude. Le `DATABASE_URL` du `.env` du poste y pointe
+    encore : à repointer ou retirer avant, sinon `npm run migrations` échoue.
+  - L'hôte NPM 21 de `mba.` (inerte, le nom n'existe plus chez Cloudflare) et la ligne commentée de `mba-docs-watch`
+    dans la crontab.
+  - `tests/budget-pooler.test.ts`, qui ne tient plus que le compose du VPS.
 - **Le pont des codes RESTE sur le VPS d'OVH** (décidé le 2026-10-26) : `otp-asterisk` a son dossier, son compose et
   ses identifiants DIDWW, il poste à `api.` et marche donc chez Scaleway sans rien changer ; le VPS reste (il porte
   d'autres clients), dans l'Union européenne. Seulement si le VPS entier s'arrête : une petite machine Scaleway avec
@@ -1029,10 +1033,9 @@ Mesuré sur le conteneur d'essai (`scripts/banc-serverless.mts`, journal du mêm
 L'exercice de restauration est fait et réussi (`DEPLOY.md` § Restauration : 29 secrets sur 29 déchiffrés sur une copie
 jetable, copie identique à la production). Restent :
 
-- **Après la bascule Scaleway** : retirer la tâche planifiée de sauvegarde du VPS, une fois la première sauvegarde
-  automatique de la base de production vue (§ 11 d'`ARCHITECTURE-CIBLE.md`, « Les secrets et la reprise »). La
-  restauration a déjà été rejouée chez Scaleway le 2026-10-15 sur les vraies données (lot 6 du plan d'avant la
-  bascule : 124 tables identiques, 30 secrets sur 30), et `DEPLOY.md` porte la procédure de la base managée.
+- ~~**Après la bascule Scaleway** : retirer la tâche planifiée de sauvegarde du VPS~~ **fait le 2026-11-03**. Reste
+  l'exercice sur un instantané de `mm-prod-db` elle-même (jamais fait depuis la bascule), en procès-verbal, et la
+  réécriture de la section reprise de `DEPLOY.md` pour Scaleway (audit RSSI du 2026-11-03).
 - 🟡 **La reprise d'un écouteur établi qui tombe n'est éprouvée par aucun test** : elle appartient à pg-boss
   (`listen` de `pg-boss/dist/db.js`, lu le 2026-10-14). Un test d'intégration qui coupe la connexion d'écoute
   (`pg_terminate_backend`) et mesure le réveil garderait une montée de version de pg-boss ; il ne tourne qu'en CI.

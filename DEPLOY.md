@@ -458,6 +458,9 @@ la base managée de Scaleway (qui porte ses propres sauvegardes : cette section 
    gestionnaire de mots de passe le même jour, empreinte identique à celle de la production.
 
 ### Les sauvegardes, d'ici la bascule
+⚠️ **Historique : cette tâche a été retirée du VPS le 2026-11-03, et ses copies effacées.** La production n'a plus que
+les sauvegardes de Scaleway (§ 11 d'`ARCHITECTURE-CIBLE.md`) ; cette section reste à réécrire pour elles.
+
 Le plan de sauvegarde du projet Supabase n'a jamais été relevé : on le tient pour nul. **`scripts/sauvegarde-base.sh`**
 fait chaque nuit un `pg_dump` des cinq schémas (format `custom`, ~24 Mo, ~10 s) dans `/home/ubuntu/sauvegardes-mba`
 (fichiers lisibles du seul propriétaire, gardés 7 jours), relit la table des matières de la copie, et ne passe jamais

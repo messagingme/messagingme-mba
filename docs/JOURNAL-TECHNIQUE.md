@@ -4,6 +4,29 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-03 (soir) : le ménage de Messaging Me sur le VPS, huit jours après la bascule
+
+Relevé par l'audit RSSI du jour : le retour arrière gardait des données personnelles au-delà de ce que l'annexe des
+conditions promet (effacement des sauvegardes sous 7 jours), et sans plus aucune valeur, puisqu'y revenir perdrait huit
+jours de données. Constat avant de toucher à quoi que ce soit : les cinq conteneurs Messaging Me arrêtés depuis le
+2026-10-26 ; la tâche de nuit `sauvegarde-base.sh` toujours active, neuf copies de la base Supabase figée (41 Mo
+chacune, de taille identique depuis le 2026-10-27 : plus rien n'y écrivait) ; `/home/ubuntu/mba` et son `.env.prod`,
+qui portait la clé de chiffrement de la production, plus huit copies datées du même fichier.
+
+Accord de Julien, puis deux temps. **D'abord rien n'est supprimé** : la veille d'éligibilité de l'agent de Meta part
+dans `/home/ubuntu/veille-mba` (script, état, journal, et un `.env` réduit à `META_ACCESS_TOKEN`), sa ligne de crontab
+passe ses chemins par `MBA_ENV_FILE` et `MBA_STATE_FILE`, et un passage manuel rend `HTTP 200`, « Inchangé » ; le
+guetteur du pont des codes lit `/home/ubuntu/otp-asterisk/.cle-gateway` (copie `guetteur-otp.sh.avant-cle-propre-20261103`),
+clé relue sans être imprimée ; la ligne `sauvegarde-base.sh` sort de la crontab (copie dans
+`/home/ubuntu/crontab.avant-menage-mba-20261103`). **Ensuite les suppressions**, derrière des gardes (aucune ligne active
+de la crontab ni du guetteur ne cite plus le dossier, chaque conteneur bien `exited`) : conteneurs et images
+`mba-mba-*`, `/home/ubuntu/sauvegardes-mba`, `/home/ubuntu/mba`. La première exécution s'est arrêtée sur sa propre
+garde, avant toute suppression, devant une ligne COMMENTÉE de `mba-docs-watch` : la garde ignore désormais les
+commentaires. Après : aucun conteneur ni image Messaging Me, les seize autres conteneurs du VPS en service, le pont des
+codes `healthy`.
+
+Restent Supabase (pause puis suppression par Julien) et les menus restes notés dans `todo.md`.
+
 ## 2026-11-03 : les segments sur les commandes, le pays et l'activité (`find_contacts` et la console)
 
 Le premier manque restant de la comparaison avec Wax et Kanal. Cadré avec Julien le 2026-10-31 en trois rondes (spec
