@@ -246,6 +246,10 @@ function WFNode({ id, data, selected }: NodeProps) {
     'Ce bouton ne mène nulle part : le contact peut le taper et ne rien recevoir. Tirez une flèche depuis ce point.',
     'This button leads nowhere: the contact can tap it and get nothing back. Drag an arrow from this dot.',
   );
+  const TITRE_FICHIER_ORPHELINE = t(
+    'Le fichier attendu ne mène nulle part : le scénario ne peut pas être publié. Tirez une flèche depuis ce point.',
+    'The expected file leads nowhere: the scenario cannot be published. Drag an arrow from this dot.',
+  );
   const isCondition = wfType === 'condition';
   // Les familles d'un bloc Condition, lues défensivement (un bloc d'avant RC5 en a une, « Si réunie »).
   const famillesDuBloc = isCondition ? famillesDeCondition(data) : [];
@@ -524,8 +528,8 @@ function WFNode({ id, data, selected }: NodeProps) {
             <div className="relative flex items-center gap-1 border-t border-ink-100 px-2 py-1 text-[10px] text-ink-900">
               <Icone nom="piece" taille="mini" />
               <span className="truncate">{t('Fichier reçu', 'File received')}</span>
-              {orpheline(SORTIE_FICHIER) && <span data-testid="sortie-orpheline-fichier" className="shrink-0 text-danger" title={TITRE_ORPHELINE}><Icone nom="attention" taille="mini" /></span>}
-              <Handle type="source" id={SORTIE_FICHIER} position={Position.Right} className={`!h-2.5 !w-2.5 !border-2 !border-white ${orpheline(SORTIE_FICHIER) ? '!bg-danger' : '!bg-brand-500'}`} title={orpheline(SORTIE_FICHIER) ? TITRE_ORPHELINE : t('Le contact a envoyé un fichier d’un type attendu', 'The contact sent a file of an expected type')} />
+              {orpheline(SORTIE_FICHIER) && <span data-testid="sortie-orpheline-fichier" className="shrink-0 text-danger" title={TITRE_FICHIER_ORPHELINE}><Icone nom="attention" taille="mini" /></span>}
+              <Handle type="source" id={SORTIE_FICHIER} position={Position.Right} className={`!h-2.5 !w-2.5 !border-2 !border-white ${orpheline(SORTIE_FICHIER) ? '!bg-danger' : '!bg-brand-500'}`} title={orpheline(SORTIE_FICHIER) ? TITRE_FICHIER_ORPHELINE : t('Le contact a envoyé un fichier d’un type attendu', 'The contact sent a file of an expected type')} />
             </div>
           )}
           {questionDelai && (

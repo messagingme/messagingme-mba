@@ -1,5 +1,30 @@
 # todo.md : backlog
 
+## 🟡 Le bloc Question range sa réponse : ce que la relecture laisse (spec `docs/superpowers/specs/2026-11-02-question-fichier-champ-design.md`)
+
+- **Le jeton de `/f/` porte le wamid en clair** (base64url), et un wamid encode le numéro du contact. Le lien ne part
+  que vers l'API du client, qui connaît déjà ce numéro, mais il passe aussi dans ses journaux. Un identifiant opaque
+  (l'`id` interne du message, ou une ligne de `pieces_question`) l'éviterait, au prix d'un format de jeton v2.
+- **Les lignes de `pieces_question` n'expirent jamais** : Meta ne garde le fichier que 7 jours, la ligne reste jusqu'à
+  la purge du contact ou la pièce suivante. Sans conséquence (le lien rend alors 410), mais un balayage des lignes de
+  plus de 7 jours garderait la table à la taille de ce qui sert.
+- **Un champ vidé puis réécrit À L'IDENTIQUE ressuscite le lien** : `liensPossibles` reconnaît la mention par son
+  texte. Il faudrait effacer la ligne quand le champ change, ce qui touche chaque chemin d'écriture d'un champ.
+- **La réponse d'un Appel API qui renverrait l'adresse `/f/` reçue** la rangerait dans un champ du contact, lisible
+  dans la console pendant ses 15 minutes. Dépend de l'API du client ; à documenter plutôt qu'à empêcher.
+- **Une note en échec, après une pièce précédente du même genre dans la même minute**, laisse une mention identique
+  à l'ancienne, donc un lien vers l'ANCIEN fichier. Il faut deux pannes rares à la suite ; l'horodatage à la seconde
+  le fermerait, mais la mention que voit le client deviendrait plus lourde.
+- **« A envoyé un fichier » a la même couleur que « A répondu (sans cliquer) »** dans Mes tableaux : les deux sont des
+  `reply_text`, donc ambre (`COULEUR_PAR_NATURE`, `web/lib/mesures-scenario.ts`), barres jointives et deux pastilles
+  identiques dans la légende. Lui donner sa couleur (la poignée passée à `couleurDe`), avec un test qui l'exige.
+- **La mesure est proposée sur une Question à texte vide** qui coche « Attendre un fichier » : le serveur en fait un
+  passe-plat qui n'attend rien (`refusFichierSansSuite`), la barre reste à zéro. Exiger aussi un texte non vide.
+- **`libelleDeCle` pour `reply_text|fichier` n'a pas de test** (tableau enregistré dont la Question a ensuite décoché
+  l'attente).
+- **HEAD sur `/f/` rend le 404 générique de Fastify** : un stockage qui sonde le lien avant de le télécharger peut le
+  croire mort. La spec promet un simple GET ; un 405 avec `allow: GET` serait plus lisible, sans rien lire chez Meta.
+
 ## 🟡 Les champs HubSpot choisis : la forme d'avant à retirer (lot 2 du 2026-11-02)
 
 - `POST /hubspot/workflow/transaction` accepte encore `champs: { prenom, conseiller, lienAgenda }` (`schemaChampsAnciens`,

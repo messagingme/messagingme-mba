@@ -31,6 +31,14 @@ export function poigneeGraphe(sourceHandle?: string | null): string | undefined 
 }
 
 /**
+ * Décocher « Attendre un fichier » sur un bloc Question emporte son arête « Fichier reçu », et aucune autre. Sans ça,
+ * l'arête resterait en base alors que sa poignée a disparu : invisible, mais suivie par le moteur.
+ */
+export function sansSortieFichier<E extends { source: string; sourceHandle?: string | null }>(edges: E[], nodeId: string): E[] {
+  return edges.filter((e) => !(e.source === nodeId && e.sourceHandle === SORTIE_FICHIER));
+}
+
+/**
  * UNE arête par sortie, appliquée au CHARGEMENT et pas seulement à la connexion.
  *
  * 🔴 POURQUOI AU CHARGEMENT AUSSI. Le moteur prend la PREMIÈRE arête qui part d'une sortie
@@ -42,14 +50,6 @@ export function poigneeGraphe(sourceHandle?: string | null): string | undefined 
  * La garde de connexion (`onConnect`) empêche d'en créer une seconde depuis le 2026-07-13 ; celle-ci couvre
  * les graphes plus anciens et tout ce qui pourrait écrire dans la table sans passer par l'éditeur.
  */
-/**
- * Décocher « Attendre un fichier » sur un bloc Question emporte son arête « Fichier reçu », et aucune autre. Sans ça,
- * l'arête resterait en base alors que sa poignée a disparu : invisible, mais suivie par le moteur.
- */
-export function sansSortieFichier<E extends { source: string; sourceHandle?: string | null }>(edges: E[], nodeId: string): E[] {
-  return edges.filter((e) => !(e.source === nodeId && e.sourceHandle === SORTIE_FICHIER));
-}
-
 export function uneAreteParSortie<E extends { source: string; sourceHandle?: string | null }>(edges: E[]): E[] {
   const vues = new Set<string>();
   return edges.filter((e) => {

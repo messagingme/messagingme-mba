@@ -112,11 +112,25 @@ describe('GET /f/:code', () => {
     await app.close();
   });
 
-  it('au-delà du plafond d’une même pièce : 429, rien lu', async () => {
-    const { app, lus } = monter({ limiteur: new RateLimiter(1, 60_000) });
+  it('au-delà du plafond d’une même pièce : 429 avec son retry-after, rien lu', async () => {
+    // Horloge figée : `retry-after` ne dépend pas du temps passé entre les deux appels.
+    const { app, lus } = monter({ limiteur: new RateLimiter(1, 60_000, () => 0) });
     expect((await app.inject({ method: 'GET', url: `/f/${BON}` })).statusCode).toBe(200);
-    expect((await app.inject({ method: 'GET', url: `/f/${BON}` })).statusCode).toBe(429);
+    const refus = await app.inject({ method: 'GET', url: `/f/${BON}` });
+    expect(refus.statusCode).toBe(429);
+    expect(refus.headers['retry-after']).toBe('60');
+    expect(refus.headers['cache-control']).toBe('no-store');
+    expect(refus.json().code).toBe('rate_limited');
     expect(lus).toHaveLength(1);
+    await app.close();
+  });
+
+  it('🔴 HEAD n’existe pas : il ne lit rien chez Meta, ne trace aucun téléchargement, ne consomme rien', async () => {
+    const { app, lus, traces } = monter({ limiteur: new RateLimiter(1, 60_000) });
+    expect((await app.inject({ method: 'HEAD', url: `/f/${BON}` })).statusCode).toBe(404);
+    expect(lus).toEqual([]);
+    expect(traces).toEqual([]);
+    expect((await app.inject({ method: 'GET', url: `/f/${BON}` })).statusCode).toBe(200);
     await app.close();
   });
 

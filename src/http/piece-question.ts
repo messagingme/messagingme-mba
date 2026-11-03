@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { DepotConversationsV1 } from '../api/conversations-v1';
 import type { V1ConversationsRouteDeps } from './v1-conversations';
-import type { RateLimiter } from '../auth/rate-limit';
+import { consommerEnSilence, type RateLimiter } from '../auth/rate-limit';
 import { MediaExpire, enTetesMedia } from '../inbox/media-entrant';
 import { MediaTropGros } from '../meta/media';
 import { journaliser } from '../lib/journal';
@@ -41,12 +41,14 @@ export function registerPieceQuestion(app: FastifyInstance, deps: PieceQuestionR
   const refuser = (reply: FastifyReply, statut: number, code: string, error: string): FastifyReply =>
     reply.code(statut).header('cache-control', 'no-store').send({ error, code });
 
-  app.get('/f/:code', async (req, reply) => {
+  // 🔴 Sans HEAD : Fastify en expose un par défaut, qui jouerait tout le gestionnaire (lecture chez Meta, trace d'un
+  // téléchargement, plafond consommé) pour ne rien servir.
+  app.get('/f/:code', { exposeHeadRoute: false }, async (req, reply) => {
     const lu = await deps.lire(String((req.params as { code?: unknown }).code ?? ''));
     if (lu === null) return reply.code(404).header('cache-control', 'no-store').send(INVALIDE);
-    if (!deps.limiteur.take(`${lu.tenantId}:${lu.metaMessageId}`)) {
-      return refuser(reply, 429, 'trop_de_demandes', 'trop de téléchargements de cette pièce : réessayez dans une minute');
-    }
+    reply.header('cache-control', 'no-store');
+    if (!(await consommerEnSilence(deps.limiteur, `${lu.tenantId}:${lu.metaMessageId}`, reply,
+      'trop de téléchargements de cette pièce : réessayez dans une minute', 'rate_limited'))) return reply;
     // 🔴 Dans un `try` : une panne ici remonterait au gestionnaire global, qui répond 500 et journalise `req.url`, donc
     // le jeton vivant (relecture du lot). Le journal ne porte que l'espace.
     let m: Awaited<ReturnType<PieceQuestionRouteDeps['conversations']['message']>>;

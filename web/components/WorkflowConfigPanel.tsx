@@ -1087,12 +1087,6 @@ export function ConfigPanel({
   );
 }
 
-/**
- * Les variables du template choisi et le champ du contact qui remplit chacune, modifiable POUR CE BLOC
- * (`data.variables`) : le template et ses autres usages ne changent pas. Le défaut est la source posée sur le
- * template. Composant à part pour la même raison que `FonctionJs` (il porte un état). Indices illisibles : rien
- * n'est affiché plutôt qu'une alerte fausse.
- */
 const LIBELLES_GENRE: Readonly<Record<GenrePiece, readonly [string, string]>> = {
   photo: ['Photo', 'Photo'],
   pdf: ['PDF', 'PDF'],
@@ -1139,8 +1133,8 @@ function ReglagesReponseRangee({ node, d, fields, onPatch, avecMenu }: {
         </select>
         <p className="mt-1 text-xs text-ink-500">
           {t(
-            'Un texte écrit y entre tel quel. Un fichier y laisse une mention, jamais le fichier : un bloc Appel API placé ensuite l’envoie par un lien valable 15 minutes.',
-            'A written reply is stored as is. A file leaves a mention, never the file itself: an API call block placed after it sends it through a link valid for 15 minutes.',
+            'Un texte écrit y entre tel quel. Un fichier attendu y laisse une mention, jamais le fichier : un bloc Appel API placé ensuite l’envoie par un lien valable 15 minutes.',
+            'A written reply is stored as is. An expected file leaves a mention, never the file itself: an API call block placed after it sends it through a link valid for 15 minutes.',
           )}
         </p>
       </div>
@@ -1182,6 +1176,12 @@ function ReglagesReponseRangee({ node, d, fields, onPatch, avecMenu }: {
   );
 }
 
+/**
+ * Les variables du template choisi et le champ du contact qui remplit chacune, modifiable POUR CE BLOC
+ * (`data.variables`) : le template et ses autres usages ne changent pas. Le défaut est la source posée sur le
+ * template. Composant à part pour la même raison que `FonctionJs` (il porte un état). Indices illisibles : rien
+ * n'est affiché plutôt qu'une alerte fausse.
+ */
 function VariablesDuTemplate({ tenantId, template, variables, fields, onPatch }: {
   tenantId: string;
   template: TemplateSummary | undefined;

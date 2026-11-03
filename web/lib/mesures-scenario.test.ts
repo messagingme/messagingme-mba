@@ -25,7 +25,7 @@ describe('quels blocs sont mesurables', () => {
     // proposer « délivré » ou « lu » sur ce bloc afficherait des barres à zéro pour toujours.
     // Et « échec » doit rester dispo hors premier bloc, contrairement aux blocs WhatsApp : c'est LA mesure
     // qu'on vient chercher ici, un mail échouant pour des raisons très ordinaires.
-    const bloc = { id: 'n1', type: 'email', titre: 'Envoi de mail', titrePropre: false, mesurable: true, choix: [], liens: [] };
+    const bloc = { id: 'n1', type: 'email', titre: 'Envoi de mail', titrePropre: false, mesurable: true, choix: [], liens: [], attendFichier: false };
     const dispos = mesuresDisponibles(bloc, 'fr', false).map((m) => m.kind);
     expect(dispos).toEqual(['sent', 'failed']);
   });
@@ -126,6 +126,24 @@ describe('les mesures proposées sur un bloc', () => {
     const rempli = mesuresDisponibles(formulaire, 'fr').find((m) => m.handle === 'rempli');
     expect(rempli?.label).toBe('A renvoyé le formulaire');
     expect(mesuresDisponibles(formulaire, 'en').find((m) => m.handle === 'rempli')?.label).toBe('Submitted the form');
+  });
+
+  it('🔴 une Question qui attend un fichier : « Fichier reçu » n’est pas un clic, elle se compte « A envoyé un fichier »', () => {
+    // Le moteur range une pièce acceptée sous `reply_text` avec la poignée `fichier` (`executor.advance`). Proposée
+    // comme un choix (`reply_button|fichier`), la case resterait à zéro pour toujours, et les pièces ne se verraient
+    // nulle part (relecture du lot console, 2026-11-03).
+    const question = blocsDuScenario({
+      nodes: [n('q', 'question', { body: 'Votre pièce ?', attendreFichier: true }), n('h', 'http', {})],
+      edges: [{ source: 'q', target: 'h', sourceHandle: 'fichier' }],
+    }, 'fr')[0]!;
+    const mesures = mesuresDisponibles(question, 'fr');
+    expect(mesures.some((m) => m.kind === 'reply_button' && m.handle === 'fichier')).toBe(false);
+    expect(mesures.find((m) => m.handle === 'fichier')).toEqual({ cle: 'q|reply_text|fichier', label: 'A envoyé un fichier', kind: 'reply_text', handle: 'fichier' });
+    expect(mesuresDisponibles(question, 'en').find((m) => m.handle === 'fichier')?.label).toBe('Sent a file');
+    expect(valeurDe([{ nodeId: 'q', kind: 'reply_text', handle: 'fichier', count: 3, contacts: 2 }], 'q', 'reply_text', 'fichier')).toEqual({ count: 3, contacts: 2 });
+    // Sans l'attente, la mesure n'est pas proposée : elle resterait à zéro.
+    const sansAttente = blocsDuScenario({ nodes: [n('q', 'question', { body: 'Q' })], edges: [] }, 'fr')[0]!;
+    expect(mesuresDisponibles(sansAttente, 'fr').some((m) => m.handle === 'fichier')).toBe(false);
   });
 
   it('un choix donne une mesure par bouton', () => {

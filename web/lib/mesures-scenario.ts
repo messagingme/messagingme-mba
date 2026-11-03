@@ -13,6 +13,7 @@ import type { Locale } from './locale';
 import { NODE_META } from './nodeMeta';
 import { sortiesDeCondition } from './condition-familles';
 import { SORTIE_FORMULAIRE_REMPLI } from './partage/sorties-formulaire';
+import { SORTIE_FICHIER } from './partage/question-piece';
 import type { WorkflowNodeType } from './api';
 
 /** Libellé du TYPE de bloc, dans la langue voulue. Une seule source : `NODE_META`, déjà en paires [fr, en]. */
@@ -97,6 +98,11 @@ export interface BlocMesurable {
    * approuvé avant la mise en service porte l'adresse du client en dur, et rien ne le mesurera jamais.
    */
   liens: Choix[];
+  /**
+   * Une Question qui attend un fichier (2026-11-02) : une pièce acceptée se mesure sous `reply_text` avec la poignée
+   * `fichier` (`executor.advance`), jamais comme un clic. La mesure « A envoyé un fichier » n'est proposée qu'ici.
+   */
+  attendFichier: boolean;
 }
 
 /**
@@ -268,7 +274,8 @@ export function blocsDuScenario(
     // Les sorties TYPÉES d'un bloc ne sont pas des choix du contact : elles décrivent une issue technique. Celles
     // d'une Condition se lisent dans `sortiesDeCondition` (une par famille, puis « Sinon »), jamais en dur : une
     // famille ajoutée apparaîtrait sinon comme un bouton que le contact aurait « cliqué ».
-    const typees = new Set(['sent', 'unreachable', 'timeout', ...(n.type === 'condition' ? sortiesDeCondition(n) : [])]);
+    // « Fichier reçu » d'une Question non plus : c'est une pièce envoyée, mesurée à part (`attendFichier`).
+    const typees = new Set(['sent', 'unreachable', 'timeout', SORTIE_FICHIER, ...(n.type === 'condition' ? sortiesDeCondition(n) : [])]);
     const tous = [...new Set([...desBoutons, ...desAretes, ...(handlesMesures[id] ?? [])])]
       .filter((h) => !typees.has(h));
     const { titre, propre } = titreDe(n, locale);
@@ -286,6 +293,7 @@ export function blocsDuScenario(
         handle: h,
         label: libelleHandle(h, h.startsWith('lien:') ? libellesBoutonsRcs(n) : libelles, locale),
       })),
+      attendFichier: n.type === 'question' && n.data?.attendreFichier === true,
     };
   });
 }
@@ -363,9 +371,19 @@ export function mesuresDisponibles(bloc: BlocMesurable, locale: Locale, estPremi
     kind: 'url_click',
     handle: l.handle,
   }));
+  // Une pièce reçue par une Question qui l'attend : rangée sous `reply_text|fichier`, elle n'est ni un clic ni une
+  // réponse écrite.
+  const fichier: MesureDispo[] = bloc.attendFichier
+    ? [{ cle: `${bloc.id}|reply_text|${SORTIE_FICHIER}`, label: libelleFichier(locale), kind: 'reply_text', handle: SORTIE_FICHIER }]
+    : [];
   // « A répondu sans cliquer » est proposé partout, et pas seulement sur les blocs à boutons : sur un bloc qui
   // n'offre aucun choix, c'est LA mesure de l'engagement.
-  return [...base, ...choix, ...liens, nature('reply_text')];
+  return [...base, ...choix, ...liens, ...fichier, nature('reply_text')];
+}
+
+/** Le libellé de la pièce reçue par une Question, pour `mesuresDisponibles` comme pour le repli `libelleDeCle`. */
+function libelleFichier(locale: Locale): string {
+  return locale === 'en' ? 'Sent a file' : 'A envoyé un fichier';
 }
 
 /** Une barre du graphe final. */
@@ -459,6 +477,7 @@ export interface BarreTableau {
  */
 function libelleDeCle(cle: string, locale: Locale): string {
   const [, kind = '', handle = ''] = cle.split('|');
+  if (kind === 'reply_text' && handle === SORTIE_FICHIER) return libelleFichier(locale);
   if (LIBELLES_NATURE[kind]) return libelleNature(kind, locale);
   // Sans les compteurs de la période, on n'a plus le TEXTE du bouton : son numéro reste juste et lisible.
   return libelleAvecBouton(kind, libelleHandle(handle, [], locale), locale, handle) ?? cle;

@@ -563,8 +563,10 @@ publication d'un brouillon qui attend un fichier sans elle est refusée (422 `fi
   encore notée, et l'Appel API enverrait le lien de l'ancienne pièce.
 - **`GET /f/:code` (classe `code-url`, `src/http/piece-question.ts`)** : un jeton faux, échu ou d'un autre espace rend
   le MÊME 404 sans rien lire ni tracer ; le message se relit dans l'espace du jeton, le fichier par `lireMediaMessage`
-  (mêmes en-têtes que l'Inbox) ; jamais de 5xx ; plafond PAR PIÈCE (jamais par `req.ip`, qui est le proxy) ; chaque
-  téléchargement trace `piece.telechargee` à l'espace.
+  (mêmes en-têtes que l'Inbox) ; jamais de 5xx ; plafond PAR PIÈCE (jamais par `req.ip`, qui est le proxy), refusé en
+  429 `rate_limited` avec `retry-after` ; chaque téléchargement trace `piece.telechargee` à l'espace. 🔴 Pas de HEAD
+  (`exposeHeadRoute: false`) : celui que Fastify expose par défaut jouerait tout le gestionnaire, lecture chez Meta,
+  trace et plafond compris, pour ne rien servir.
 
 🔴 **Le canal est porté par le PARCOURS, pas par le bloc** (`workflow_runs.channel`). Un bloc « message
 rapide » dit l'INTENTION, pas le tuyau : WhatsApp et RCS savent tous deux le faire. Un bloc RCS réellement
@@ -4025,8 +4027,9 @@ Restent EN MÉMOIRE, par copie, délibérément :
   plus un filet global ; au-delà, le visiteur a son PDF mais rien n'est transmis), la chaîne (demandes de lien), le relais du Meta
   Business Agent (par clé), le budget des empreintes et des codes jamais résolus (`API_KEY_PREFILTRE_MAX`,
   `CODES_INCONNUS_PAR_MINUTE`, qui protègent la base AVANT toute lecture, donc ne peuvent pas la payer), les codes de
-  `/w/:code` et `/rcs/callback/:code`, et les cinq essais par minute du second facteur (le total est tenu en base par
-  le blocage progressif de 0184) ;
+  `/w/:code` et `/rcs/callback/:code`, les trente téléchargements par minute d'une même pièce reçue par un bloc
+  Question (`/f/:code`, clé = l'espace et le message du jeton, comptée APRÈS sa lecture, jamais `req.ip`), et les
+  cinq essais par minute du second facteur (le total est tenu en base par le blocage progressif de 0184) ;
 - **les places d'opérations lourdes simultanées** (`API_MAX_LOURDES_SIMULTANEES`) : elles protègent le pool DE LA
   COPIE, que chaque copie a pour elle seule ; les compter au total diviserait la capacité sans rien protéger de plus ;
 - **les caches sans invalidation** : N copies font N fois les lectures, aucune ne rend un résultat faux.
