@@ -4,6 +4,28 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-02 : les scénarios par l'API en production, et la phrase d'escalade d'un agent qui se perdait
+
+Spec et plan `2026-11-02-scenarios-api` : une recette déclarative compilée en graphe de la console, sous le droit
+`scenarios:write`, et les cinq outils MCP (`list_scenarios` à `delete_scenario`).
+
+- **Livré en deux temps.** La migration 0267 (`workflows.origine`) seule (run 41463001063), puis le code en a9d56892
+  (run 41481041415, `migration=aucune`).
+- **L'essai réel** (n° 209, espace Entreprise, scénario créé par Claude) : refus vérifiés (adresse interne, fichier en
+  404, nom en double à la casse près, parcours sans envoi) ; trois envois par `POST /v1/sends` depuis PowerShell, chaque
+  branche cliquée ; un contact en attente sur un bloc a repris au bon endroit après deux publications (API puis
+  console) ; remplacement accepté après un déplacement de bloc, refusé en 409 après un texte changé dans la console.
+- **Deux défauts trouvés.** Le remplacement recalcule la place des blocs : le déplacement fait dans la console est
+  perdu (`todo.md`, « plus tard »). Et l'agent placé derrière « Parler à un conseiller » a passé la main dès son premier
+  tour, mais sa phrase (« Un conseiller SMATIS prend le relais… ») a été jetée : le cerveau ne la gardait que dans le
+  répondeur, et la recette relie la sortie `humain` à une fin muette. Le contact n'a rien reçu. Lu en base : session
+  ouverte, un tour, `mba_escalader_humain` appelé avec sa phrase, transcript vide.
+- **Le correctif** (95898e27, run 41503963951, `migration=aucune`) : `brancheHumainMuette` reconnaît une sortie `humain`
+  qui finit muette (des blocs Action, puis rien) sur le graphe que le parcours joue, et le tour garde alors la phrase.
+  La relecture n'a trouvé aucun rouge. Elle a fait retirer « Passer à un humain », d'abord compté muet à tort : le fil
+  bascule pendant la sortie, et la phrase serait jetée comme une main perdue. Ce cas, et celui de l'agent de Meta qui
+  reprend après un parcours, sont dans `todo.md`.
+
 ## 2026-11-02 : le bloc Question range sa réponse, pièce jointe comprise
 
 Cadrage avec Julien le même jour (spec et plan `2026-11-02-question-fichier-champ`) : le cas qui motive est une **pièce
