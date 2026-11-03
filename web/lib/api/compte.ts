@@ -453,11 +453,52 @@ export interface ProvisionCreditOps {
   illimite?: boolean;
 }
 
-/** Ce que `/ops` montre du Crédit WhatsApp d'un espace. Le solde et les provisions sont absents sur une API plus ancienne. */
+/**
+ * Un numéro de l'espace dans la fenêtre de l'offre : couvert par sa propre ligne, par celle de son compte WhatsApp (Meta
+ * attache la ligne au compte), ou pas ; et pourquoi il ne peut pas être posé, le cas échéant.
+ */
+export interface NumeroCreditOps {
+  phoneNumberId: string;
+  /** Le numéro tel que Meta l'affiche ; `null` s'il ne l'a pas rendu. */
+  numero: string | null;
+  nom: string | null;
+  couverture: 'ligne' | 'compte' | null;
+  refus: '360dialog' | 'coexistence' | 'delie' | null;
+}
+
+/**
+ * Ce que `/ops` montre du Crédit WhatsApp d'un espace. Le solde, les provisions, les numéros et la consommation du mois
+ * sont absents sur une API plus ancienne.
+ */
 export interface VueCreditOps {
   lignes: LigneCreditOps[];
+  numeros?: NumeroCreditOps[];
   soldeMicroEur?: number;
+  /** Ce qu'une Entreprise a envoyé ce mois, au prix client : son solde ne bouge pas, ce montant est à facturer. */
+  consommationDuMoisMicroEur?: number;
   provisions?: ProvisionCreditOps[];
+}
+
+/** Un tarif de la grille de Meta en vigueur, et le prix client à la commission globale (`prixClient` côté serveur). */
+export interface TarifGrilleOps {
+  marche: string;
+  categorie: 'marketing' | 'utility' | 'authentication' | 'authentication_international' | 'service';
+  /** 0 = le tarif de base ; sinon le seuil bas d'un palier de volume. */
+  palier: number;
+  metaMicroEur: number;
+  clientMicroEur: number;
+}
+
+/** La grille de Meta en vigueur, prix par prix, et ses marchés avec leurs pays (`GET /ops/credit-whatsapp/grille`). */
+export interface GrilleMetaOps {
+  grille: { id: string; enVigueurLe: string } | null;
+  commissionPct: number;
+  marches: Array<{ cle: string; nom: string; pays: string[] }>;
+  tarifs: TarifGrilleOps[];
+}
+
+export function lireGrilleMetaOps(sessionOps: string): Promise<GrilleMetaOps> {
+  return appelOps(sessionOps, '/ops/credit-whatsapp/grille');
 }
 
 /** Les numéros d'un espace sur la ligne du Crédit WhatsApp, son solde et ses dernières provisions. */

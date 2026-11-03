@@ -1,24 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useT } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
-import { lireLignesCreditOps, poserLigneCreditOps, type LigneCreditOps, type VueCreditOps } from '@/lib/api';
-import { eurosDepuisMicro } from '@/lib/agent-solde';
+import { lireLignesCreditOps, poserLigneCreditOps, type LigneCreditOps, type NumeroCreditOps, type VueCreditOps } from '@/lib/api';
 
 /**
  * LES NUMÉROS D'UN ESPACE SUR LA LIGNE DU CRÉDIT WHATSAPP (plan du Crédit WhatsApp, tâche 8), dans la fenêtre de l'offre
- * de `/ops` : poser un numéro d'essai avant l'option du lot 2, ou retirer un numéro. Le serveur lit le numéro dans l'espace
- * et refuse ce que la garde ne saurait pas compter (360dialog, coexistence, délié) ; l'écran affiche son refus tel quel.
- * La section se masque quand l'API n'a pas encore la route.
+ * de `/ops`. Les numéros de l'espace sont listés, chacun avec son geste : plus d'identifiant Meta à taper (Julien, le
+ * 2026-11-02 : « ça sert à quoi identifiant Meta du numéro ? »). Le serveur refuse encore ce que la garde ne saurait pas
+ * compter (360dialog, coexistence, délié) ; l'écran le dit avant le clic. Une ligne couvre tout le compte WhatsApp de son
+ * numéro (Meta attache la ligne au compte) : un autre numéro du même compte est montré « couvert ». Une Entreprise est
+ * illimitée : son montant du mois est à facturer, son solde ne bouge pas. La section se masque quand l'API n'a pas encore
+ * la route.
  */
-export function OpsLignesCreditWhatsapp({ jeton, tenantId }: { jeton: string; tenantId: string }) {
+export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton: string; tenantId: string; entreprise: boolean }) {
   const t = useT();
-  const [lignes, setLignes] = useState<LigneCreditOps[] | null>(null);
-  const [vue, setVue] = useState<Pick<VueCreditOps, 'soldeMicroEur' | 'provisions'>>({});
+  const { locale } = useLocale();
+  // Des euros au centime, à la française en français (« 0,52 € »), comme le reste de `/ops`.
+  const euros = (microEur: number): string => (microEur / 1_000_000).toLocaleString(locale === 'en' ? 'en-GB' : 'fr-FR', { style: 'currency', currency: 'EUR' });
+  const [vue, setVue] = useState<VueCreditOps | null>(null);
   const [absente, setAbsente] = useState(false);
-  const [numero, setNumero] = useState('');
   const [note, setNote] = useState('');
   const [envoi, setEnvoi] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
@@ -26,26 +29,19 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId }: { jeton: string; te
   useEffect(() => {
     let vivant = true;
     lireLignesCreditOps(jeton, tenantId)
-      .then((r) => { if (vivant) lire(r); })
+      .then((r) => { if (vivant) setVue(r); })
       .catch(() => { if (vivant) setAbsente(true); });
     return () => { vivant = false; };
   }, [jeton, tenantId]);
 
   const noteValide = note.trim().length >= 3;
 
-  function lire(r: VueCreditOps) {
-    setLignes(Array.isArray(r.lignes) ? r.lignes : []);
-    setVue({ soldeMicroEur: r.soldeMicroEur, provisions: Array.isArray(r.provisions) ? r.provisions : undefined });
-  }
-
   async function geste(phoneNumberId: string, poser: boolean) {
     setEnvoi(true);
     setMsg(null);
     try {
-      const r = await poserLigneCreditOps(jeton, tenantId, phoneNumberId, poser, note.trim());
-      lire(r);
+      setVue(await poserLigneCreditOps(jeton, tenantId, phoneNumberId, poser, note.trim()));
       setNote('');
-      if (poser) setNumero('');
       setMsg({ kind: 'ok', text: poser ? t('Numéro posé sur la ligne.', 'Number put on the line.') : t('Numéro retiré de la ligne.', 'Number removed from the line.') });
     } catch (err) {
       setMsg({ kind: 'err', text: err instanceof Error ? err.message : t('Geste impossible', 'Action failed') });
@@ -54,20 +50,34 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId }: { jeton: string; te
     }
   }
 
-  if (absente) return null;
+  if (absente || vue === null) return null;
+  const lignes = Array.isArray(vue.lignes) ? vue.lignes : [];
+  const numeros = Array.isArray(vue.numeros) ? vue.numeros : [];
+  const provisions = Array.isArray(vue.provisions) ? vue.provisions : [];
+  // Un numéro qui n'est plus dans l'espace (déconnecté) mais dont la ligne court encore : il doit pouvoir se retirer.
+  const lignesOrphelines = lignes.filter((l) => !numeros.some((n) => n.phoneNumberId === l.phoneNumberId));
+
   return (
     <div className="grid gap-2 border-t border-ink-100 pt-4" data-testid="ligne-credit">
       <p className="font-medium text-ink-900">{t('Crédit WhatsApp : numéros sur la ligne', 'WhatsApp credit: numbers on the line')}</p>
-      {lignes === null ? null : lignes.length === 0 ? (
-        <p className="text-xs text-ink-500">{t('Aucun numéro sur la ligne.', 'No number on the line.')}</p>
+      <p className="text-xs text-ink-500">
+        {t(
+          'Un numéro sur la ligne : ses messages sont payés par notre ligne de crédit WhatsApp, au prix de la grille de Meta, puis refacturés à l’espace (débités de son Crédit WhatsApp en Pro et Business, facturés au contrat en Entreprise). La ligne couvre tout le compte WhatsApp du numéro.',
+          'A number on the line: its messages are paid by our WhatsApp credit line, at Meta’s rate card price, then billed back to the workspace (taken from its WhatsApp credit on Pro and Business, invoiced per contract on Enterprise). The line covers the number’s whole WhatsApp account.',
+        )}
+      </p>
+
+      {numeros.length === 0 && lignesOrphelines.length === 0 ? (
+        <p className="text-xs text-ink-500">{t('Aucun numéro WhatsApp dans cet espace.', 'No WhatsApp number in this workspace.')}</p>
       ) : (
-        <ul className="grid gap-1">
-          {lignes.map((l) => (
+        <ul className="grid gap-1" data-testid="ligne-credit-numeros">
+          {numeros.map((n) => (
+            <Numero key={n.phoneNumberId} n={n} ligne={lignes.find((l) => l.phoneNumberId === n.phoneNumberId) ?? null}
+              actif={noteValide && !envoi} onGeste={(poser) => { void geste(n.phoneNumberId, poser); }} />
+          ))}
+          {lignesOrphelines.map((l) => (
             <li key={l.id} className="flex items-center justify-between gap-2 text-xs text-ink-700">
-              <span>
-                {l.phoneNumberId} · {l.origine === 'ops' ? t('posé à la main', 'set by hand') : t('option', 'option')}
-                {l.arreteeLe !== null ? ` · ${t('envois arrêtés', 'sends stopped')}` : ''}
-              </span>
+              <span>{t(`Numéro sorti de l’espace (${l.phoneNumberId}), encore sur la ligne`, `Number no longer in the workspace (${l.phoneNumberId}), still on the line`)}</span>
               <Bouton variante="secondaire" taille="petite" disabled={!noteValide || envoi} onClick={() => { void geste(l.phoneNumberId, false); }} data-testid="ligne-credit-retirer">
                 {t('Retirer', 'Remove')}
               </Bouton>
@@ -75,25 +85,26 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId }: { jeton: string; te
           ))}
         </ul>
       )}
-      <div className="flex flex-wrap items-end gap-2">
-        <label className="grid gap-1">
-          <span className="text-xs font-medium text-ink-500">{t('Identifiant Meta du numéro', 'Meta number ID')}</span>
-          <input className={`${inputCls} w-48`} inputMode="numeric" value={numero} onChange={(e) => setNumero(e.target.value)} data-testid="ligne-credit-numero" />
-        </label>
-        <Bouton taille="petite" enCours={envoi} disabled={!/^[0-9]{5,32}$/.test(numero.trim()) || !noteValide || envoi} onClick={() => { void geste(numero.trim(), true); }} data-testid="ligne-credit-poser">
-          {t('Poser sur la ligne', 'Put on the line')}
-        </Bouton>
-      </div>
+
       <label className="grid gap-1">
-        <span className="text-xs font-medium text-ink-500">{t('Note (obligatoire) : pourquoi ce numéro', 'Note (required): why this number')}</span>
+        <span className="text-xs font-medium text-ink-500">{t('Note (obligatoire) : pourquoi poser ou retirer ce numéro', 'Note (required): why put on or remove this number')}</span>
         <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} data-testid="ligne-credit-note" />
+        {!noteValide && <span className="text-xs text-ink-500" data-testid="ligne-credit-note-requise">{t('Écrivez d’abord la note (3 caractères au moins) : les boutons s’activent ensuite.', 'Write the note first (3 characters at least): the buttons then become active.')}</span>}
       </label>
-      {vue.soldeMicroEur !== undefined && (
+
+      {entreprise ? (
+        <p className="text-xs text-ink-700" data-testid="ligne-credit-illimite-mois">
+          {t(
+            `Illimité (Entreprise) : ${euros(vue.consommationDuMoisMicroEur ?? 0)} HT de messages ce mois, à facturer au contrat. Son solde ne bouge pas.`,
+            `Unlimited (Enterprise): ${euros(vue.consommationDuMoisMicroEur ?? 0)} excl. VAT of messages this month, invoiced per contract. Its balance does not move.`,
+          )}
+        </p>
+      ) : vue.soldeMicroEur !== undefined && (
         <p className="text-xs text-ink-700" data-testid="ligne-credit-solde">
-          {t(`Solde : ${eurosDepuisMicro(vue.soldeMicroEur).toFixed(2)} € HT`, `Balance: €${eurosDepuisMicro(vue.soldeMicroEur).toFixed(2)} excl. VAT`)}
+          {t(`Solde : ${euros(vue.soldeMicroEur)} HT`, `Balance: ${euros(vue.soldeMicroEur)} excl. VAT`)}
         </p>
       )}
-      {vue.provisions && vue.provisions.length > 0 && (
+      {provisions.length > 0 && (
         <table className="w-full text-xs text-ink-700" data-testid="ligne-credit-provisions">
           <thead>
             <tr className="text-left text-ink-500">
@@ -105,7 +116,7 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId }: { jeton: string; te
             </tr>
           </thead>
           <tbody>
-            {vue.provisions.map((p) => (
+            {provisions.map((p) => (
               <tr key={p.id}>
                 <td>{new Date(p.creeLe).toLocaleString('fr-FR', { timeZone: 'Europe/Paris' })}</td>
                 <td>{p.categorie}</td>
@@ -125,5 +136,41 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId }: { jeton: string; te
         <p data-testid="ligne-credit-message" className={`rounded-controle px-3 py-2 text-xs ${msg.kind === 'ok' ? 'bg-succes-50 text-succes-700' : 'bg-danger-50 text-danger-700'}`}>{msg.text}</p>
       )}
     </div>
+  );
+}
+
+/** Un numéro de l'espace et son geste : poser, retirer, ou la raison qui l'empêche. */
+function Numero({ n, ligne, actif, onGeste }: { n: NumeroCreditOps; ligne: LigneCreditOps | null; actif: boolean; onGeste: (poser: boolean) => void }) {
+  const t = useT();
+  const raison = n.refus === '360dialog'
+    ? t('chez 360dialog : facturé par 360dialog, ne passe pas sur la ligne', 'with 360dialog: billed by 360dialog, cannot go on the line')
+    : n.refus === 'coexistence'
+      ? t('en coexistence : l’application WhatsApp Business envoie sans nous, ne passe pas sur la ligne', 'in coexistence: the WhatsApp Business app sends without us, cannot go on the line')
+      : n.refus === 'delie'
+        ? t('délié : il n’envoie plus rien', 'unlinked: it no longer sends anything')
+        : null;
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-2 rounded-controle border border-ink-100 px-3 py-2 text-xs" data-testid={`ligne-credit-numero-${n.phoneNumberId}`}>
+      <span className="text-ink-900">
+        <span className="font-medium">{n.numero ?? n.phoneNumberId}</span>
+        {n.nom && <span className="text-ink-500"> · {n.nom}</span>}
+        <span className="block text-ink-500">
+          {n.couverture === 'ligne' && ligne
+            ? `${t('sur la ligne', 'on the line')} · ${ligne.origine === 'ops' ? t('posé à la main', 'set by hand') : t('option', 'option')}${ligne.arreteeLe !== null ? ` · ${t('envois arrêtés', 'sends stopped')}` : ''}`
+            : n.couverture === 'compte'
+              ? t('couvert : même compte WhatsApp qu’un numéro sur la ligne', 'covered: same WhatsApp account as a number on the line')
+              : raison ?? t('pas sur la ligne', 'not on the line')}
+        </span>
+      </span>
+      {n.couverture === 'ligne' ? (
+        <Bouton variante="secondaire" taille="petite" disabled={!actif} onClick={() => onGeste(false)} data-testid="ligne-credit-retirer">
+          {t('Retirer', 'Remove')}
+        </Bouton>
+      ) : n.couverture === null && raison === null ? (
+        <Bouton taille="petite" disabled={!actif} onClick={() => onGeste(true)} data-testid="ligne-credit-poser">
+          {t('Poser sur la ligne', 'Put on the line')}
+        </Bouton>
+      ) : null}
+    </li>
   );
 }

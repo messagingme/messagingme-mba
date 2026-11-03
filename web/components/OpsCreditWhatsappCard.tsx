@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
+import { OpsGrilleMeta } from '@/components/OpsGrilleMeta';
 import {
   chargerGrilleMetaOps, lireReglagesCreditWhatsappOps, reglerCommissionMessagesOps, type ResumeGrilleMeta,
 } from '@/lib/api';
@@ -33,6 +34,8 @@ export function OpsCreditWhatsappCard({ token }: { token: string }) {
   const [noteCommission, setNoteCommission] = useState('');
   const [etatGrille, setEtatGrille] = useState<{ statut: 'idle' | 'saving' | 'saved' | 'error'; msg?: string }>({ statut: 'idle' });
   const [etatCommission, setEtatCommission] = useState<{ statut: 'idle' | 'saving' | 'saved' | 'error'; msg?: string }>({ statut: 'idle' });
+  // Une commission enregistrée change tous les prix client : le tableau de la grille se relit.
+  const [versionPrix, setVersionPrix] = useState(0);
 
   useEffect(() => {
     let vivant = true;
@@ -62,6 +65,7 @@ export function OpsCreditWhatsappCard({ token }: { token: string }) {
       const r = await reglerCommissionMessagesOps(token, Number(commission), noteCommission);
       setCommission(String(r.commissionPct));
       setEtatCommission({ statut: 'saved' });
+      setVersionPrix((v) => v + 1);
       setNoteCommission('');
     } catch (err) {
       setEtatCommission({ statut: 'error', msg: err instanceof Error ? err.message : undefined });
@@ -111,6 +115,9 @@ export function OpsCreditWhatsappCard({ token }: { token: string }) {
           </p>
         )}
       </div>
+
+      {/* Les prix eux-mêmes, relus après chaque chargement d'une grille et chaque commission enregistrée. */}
+      {grille !== null && <OpsGrilleMeta key={`${grille.id}:${versionPrix}`} token={token} />}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div>

@@ -1,0 +1,166 @@
+import { test, expect } from './aide/test';
+
+/**
+ * LE CRÉDIT WHATSAPP DANS `/ops`, TEL QUE JULIEN LE LIT (2026-11-02 : « je vois toujours pas la grille des prix Meta dans
+ * ops », « ça sert à quoi identifiant Meta du numéro ? », « je peux pas enregistrer »).
+ *
+ * Ce que ces tests protègent à l'écran : la grille de Meta prix par prix (le prix client et, dessous, le tarif de Meta),
+ * trouvée par le nom d'un pays même rangé dans un marché régional ; les numéros de l'espace proposés tels quels, chacun
+ * avec son geste ou la raison qui l'empêche, au lieu d'un identifiant à taper ; l'Entreprise dite illimitée avec son
+ * montant du mois, jamais un « Solde : 0 » ; et ce qui grise « Enregistrer », dit en clair.
+ */
+const SESSION_OPS = { token: 'session-ops-e2e', email: 'exploitant@e2e.test' };
+const ESPACE = {
+  id: 't-essai', name: 'Essai Dupont', createdAt: '2026-10-01T00:00:00Z', mbaEnabled: false,
+  users: 1, contacts: 0, messages: 0, templatesUsed: 0, lastSendAt: null, phone: null, phoneStatus: null, quality: null,
+};
+
+const RESUME = {
+  id: 'g1', enVigueurLe: '2026-10-01', chargeeLe: '2026-11-02T08:23:11.407Z', chargeePar: 'exploitant@e2e.test',
+  note: 'grille T4', tarifs: 6, perimee: false, prochaine: null,
+};
+
+const GRILLE = {
+  grille: { id: 'g1', enVigueurLe: '2026-10-01' },
+  commissionPct: 5,
+  marches: [
+    { cle: 'FR', nom: 'France', pays: ['FR'] },
+    { cle: 'GB', nom: 'United Kingdom', pays: ['GB', 'GG', 'JE', 'IM'] },
+    { cle: 'rest_of_western_europe', nom: 'Rest of Western Europe', pays: ['AT', 'BE', 'DK'] },
+    { cle: 'other', nom: 'Other', pays: [] },
+  ],
+  tarifs: [
+    { marche: 'FR', categorie: 'marketing', palier: 0, metaMicroEur: 71_200, clientMicroEur: 74_760 },
+    { marche: 'FR', categorie: 'service', palier: 0, metaMicroEur: 24_800, clientMicroEur: 26_040 },
+    { marche: 'GB', categorie: 'marketing', palier: 0, metaMicroEur: 50_600, clientMicroEur: 53_130 },
+    { marche: 'rest_of_western_europe', categorie: 'marketing', palier: 0, metaMicroEur: 59_900, clientMicroEur: 62_895 },
+    { marche: 'other', categorie: 'marketing', palier: 0, metaMicroEur: 55_800, clientMicroEur: 58_590 },
+  ],
+};
+
+async function reglages(page: import('@playwright/test').Page, grille: typeof GRILLE | null) {
+  await page.addInitScript((s) => window.localStorage.setItem('mba.sessionOps', JSON.stringify(s)), SESSION_OPS);
+  await page.route('**/api/backend/**', async (route) => {
+    const chemin = route.request().url().split('?')[0]!;
+    const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+    if (chemin.endsWith('/ops/credit-whatsapp/reglages')) return json({ grille: RESUME, commissionPct: 5 });
+    if (chemin.endsWith('/ops/credit-whatsapp/grille')) {
+      if (grille === null) return route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"inconnu"}' });
+      return json(grille);
+    }
+    if (chemin.endsWith('/ops/overview')) return json({ tenants: [], daily: [], queues: [], worker: null });
+    // Les cartes voisines se masquent d'elles-mêmes sans leur route.
+    if (chemin.includes('/ops/')) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"indisponible"}' });
+    return json({});
+  });
+  await page.goto('/ops?tab=reglages');
+}
+
+test.describe('Ops : la grille de Meta, prix par prix', () => {
+  test('🔴 chaque prix client et, dessous, le tarif de Meta ; une catégorie sans tarif le dit', async ({ page }) => {
+    await reglages(page, GRILLE);
+    const france = page.getByTestId('ops-grille-meta-FR');
+    await expect(france).toBeVisible();
+    await expect(france.locator('[data-categorie="marketing"] [data-prix="client"]')).toHaveText(/0,0748\s€/);
+    await expect(france.locator('[data-categorie="marketing"] [data-prix="meta"]')).toHaveText(/Meta 0,0712\s€/);
+    await expect(france.locator('[data-categorie="authentication_international"]')).toHaveText('sans objet');
+    // La France d'abord ; les marchés régionaux disent leurs pays ; « Autres pays » vient en dernier.
+    await expect(page.getByTestId('ops-grille-meta-table').locator('tbody tr').first()).toContainText('France');
+    await expect(page.getByTestId('ops-grille-meta-rest_of_western_europe')).toContainText('Belgique');
+    await expect(page.getByTestId('ops-grille-meta-table').locator('tbody tr').last()).toContainText('Autres pays');
+  });
+
+  test('chercher un pays trouve le marché régional, ou le pays qui partage son indicatif', async ({ page }) => {
+    await reglages(page, GRILLE);
+    await page.getByTestId('ops-grille-meta-recherche').fill('belgique');
+    await expect(page.getByTestId('ops-grille-meta-rest_of_western_europe')).toBeVisible();
+    await expect(page.getByTestId('ops-grille-meta-FR')).toHaveCount(0);
+    // Guernesey, au +44, est facturé comme le Royaume-Uni.
+    await page.getByTestId('ops-grille-meta-recherche').fill('guernesey');
+    await expect(page.getByTestId('ops-grille-meta-GB')).toBeVisible();
+    await expect(page.getByTestId('ops-grille-meta-rest_of_western_europe')).toHaveCount(0);
+  });
+
+  test('API sans la route : la carte le dit, sans tableau', async ({ page }) => {
+    await reglages(page, null);
+    await expect(page.getByTestId('ops-grille-meta-prix-absente')).toBeVisible();
+    await expect(page.getByTestId('ops-grille-meta-table')).toHaveCount(0);
+  });
+});
+
+/** La vue de la ligne d'un espace Entreprise : un numéro sur la ligne, un couvert par le compte, un empêché, un libre. */
+const VUE = {
+  tenantId: 't-essai',
+  lignes: [{ id: 'l1', phoneNumberId: '111', origine: 'ops', depuis: '2026-11-02T10:00:00Z', arreteeLe: null }],
+  numeros: [
+    { phoneNumberId: '111', numero: '+33 5 25 68 02 50', nom: 'Messaging Me Tech', couverture: 'ligne', refus: null },
+    { phoneNumberId: '222', numero: '+33 5 25 68 02 51', nom: null, couverture: 'compte', refus: null },
+    { phoneNumberId: '333', numero: '+44 1555 479304', nom: null, couverture: null, refus: 'coexistence' },
+    { phoneNumberId: '444', numero: '+33 6 00 00 00 00', nom: 'Autre', couverture: null, refus: null },
+  ],
+  soldeMicroEur: 0,
+  consommationDuMoisMicroEur: 5_208_000,
+  provisions: [],
+};
+
+async function offre(page: import('@playwright/test').Page) {
+  const poses: unknown[] = [];
+  await page.addInitScript((s) => window.localStorage.setItem('mba.sessionOps', JSON.stringify(s)), SESSION_OPS);
+  await page.route('**/api/backend/**', async (route) => {
+    const chemin = route.request().url().split('?')[0]!;
+    const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+    if (chemin.endsWith('/ops/overview')) return json({ tenants: [ESPACE], daily: [], queues: [], worker: null });
+    if (chemin.endsWith('/ops/offre/t-essai')) {
+      return json({ tenantId: 't-essai', entreprise: true, utilisateurs: null, conservationJours: null, utilisateursProposes: 10, business: false });
+    }
+    if (chemin.endsWith('/ops/credit-whatsapp/ligne/t-essai')) {
+      if (route.request().method() === 'POST') {
+        poses.push(route.request().postDataJSON());
+        return json({ ...VUE, numeros: VUE.numeros.map((n) => (n.phoneNumberId === '444' ? { ...n, couverture: 'ligne' } : n)) });
+      }
+      return json(VUE);
+    }
+    return json({});
+  });
+  await page.goto('/ops?tab=clients');
+  await page.getByTestId('offre-t-essai').click();
+  const modale = page.getByTestId('offre-modale');
+  await expect(modale).toBeVisible();
+  return { modale, poses };
+}
+
+test.describe('Ops : les numéros d’un espace sur la ligne du Crédit WhatsApp', () => {
+  test('🔴 les numéros de l’espace, chacun avec son geste : plus d’identifiant Meta à taper', async ({ page }) => {
+    const { modale, poses } = await offre(page);
+    await expect(modale.getByTestId('ligne-credit-numero-111')).toContainText('sur la ligne');
+    await expect(modale.getByTestId('ligne-credit-numero-111').getByTestId('ligne-credit-retirer')).toBeVisible();
+    await expect(modale.getByTestId('ligne-credit-numero-222')).toContainText('même compte WhatsApp');
+    await expect(modale.getByTestId('ligne-credit-numero-222').getByRole('button')).toHaveCount(0);
+    await expect(modale.getByTestId('ligne-credit-numero-333')).toContainText('coexistence');
+    await expect(modale.getByTestId('ligne-credit-numero-333').getByRole('button')).toHaveCount(0);
+
+    // La note d'abord : le bouton le dit au lieu de rester grisé sans raison.
+    const poser = modale.getByTestId('ligne-credit-numero-444').getByTestId('ligne-credit-poser');
+    await expect(poser).toBeDisabled();
+    await expect(modale.getByTestId('ligne-credit-note-requise')).toBeVisible();
+    await modale.getByTestId('ligne-credit-note').fill('essai du calcul');
+    await poser.click();
+    await expect(modale.getByTestId('ligne-credit-message')).toContainText('posé sur la ligne');
+    expect(poses).toEqual([{ phoneNumberId: '444', poser: true, note: 'essai du calcul' }]);
+  });
+
+  test('🔴 une Entreprise est dite illimitée, avec son montant du mois, jamais « Solde : 0 »', async ({ page }) => {
+    const { modale } = await offre(page);
+    await expect(modale.getByTestId('ligne-credit-illimite-mois')).toContainText(/Illimité \(Entreprise\) : 5,21\s€ HT/);
+    await expect(modale.getByTestId('ligne-credit-solde')).toHaveCount(0);
+  });
+
+  test('🔴 « Enregistrer » grisé dit pourquoi, et la raison disparaît avec la note', async ({ page }) => {
+    const { modale } = await offre(page);
+    await expect(modale.getByTestId('offre-enregistrer')).toBeDisabled();
+    await expect(modale.getByTestId('offre-bloquants')).toContainText('écrivez la note');
+    await modale.getByTestId('offre-note').fill('Devis signé le 2 novembre');
+    await expect(modale.getByTestId('offre-bloquants')).toHaveCount(0);
+    await expect(modale.getByTestId('offre-enregistrer')).toBeEnabled();
+  });
+});

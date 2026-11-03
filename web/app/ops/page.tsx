@@ -1585,6 +1585,16 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   );
   const pret = etat !== null && limiteValide && conservationValide && devisValide && businessValide && noteValide
     && (!coupeLeNumero || retraitConfirme) && !envoi;
+  // Ce qui grise « Enregistrer », dit en clair sous la note : un bouton grisé sans raison laisse croire à une panne
+  // (Julien, le 2026-11-02 : « je peux pas enregistrer !!!! », la note était vide).
+  const bloquants = [
+    !noteValide ? t('écrivez la note (3 caractères au moins)', 'write the note (3 characters at least)') : '',
+    !limiteValide ? t('corrigez le nombre d’utilisateurs', 'fix the number of users') : '',
+    !businessValide ? t('corrigez les utilisateurs du Business', 'fix the Business users') : '',
+    !devisValide ? t('corrigez les champs du devis', 'fix the quote fields') : '',
+    !conservationValide ? t('corrigez la durée de conservation', 'fix the retention') : '',
+    coupeLeNumero && !retraitConfirme ? t('confirmez le retrait du numéro fourni', 'confirm the removal of the provided number') : '',
+  ].filter(Boolean);
 
   async function enregistrer() {
     if (!pret) return;
@@ -1775,11 +1785,16 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
           <label className="grid gap-1">
             <span className="text-xs font-medium text-ink-900">{t('Note (obligatoire) : pourquoi ce changement', 'Note (required): why this change')}</span>
             <input className={inputCls} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} data-testid="offre-note" placeholder={t('Devis signé le…', 'Quote signed on…')} />
+            {bloquants.length > 0 && !envoi && (
+              <span className="text-xs text-alerte-700" data-testid="offre-bloquants">
+                {t(`Pour enregistrer : ${bloquants.join(', ')}.`, `To save: ${bloquants.join(', ')}.`)}
+              </span>
+            )}
           </label>
           {msg && (
             <p data-testid="offre-message" className={`rounded-controle px-3 py-2 text-sm ${msg.kind === 'ok' ? 'bg-succes-50 text-succes-700' : 'bg-danger-50 text-danger-700'}`}>{msg.text}</p>
           )}
-          <OpsLignesCreditWhatsapp jeton={jeton} tenantId={tenantId} />
+          <OpsLignesCreditWhatsapp jeton={jeton} tenantId={tenantId} entreprise={etat.entreprise} />
         </div>
       )}
     </Modale>

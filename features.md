@@ -3598,7 +3598,15 @@ boîte par sous-menu.
   change, et la trace garde l'avant et l'après. Retirer l'Entreprise d'un espace dont un numéro est sur la ligne du
   Crédit WhatsApp sans de quoi payer un message s'annonce en rouge : vers le Pro ou le Business, il faudra un achat ;
   vers la Free, qui ne peut pas en acheter, il faut d'abord retirer le numéro de la ligne. Poser l'Entreprise, ou changer
-  son plafond IA, réarme les alertes du mois sur le nouveau plafond et remonte sa clé de modèle tout de suite.
+  son plafond IA, réarme les alertes du mois sur le nouveau plafond et remonte sa clé de modèle tout de suite. Sous la
+  note, la fenêtre dit ce qui grise « Enregistrer » (2026-11-03 : la note vide, le plus souvent). **Les numéros de
+  l'espace sur la ligne du Crédit WhatsApp** (2026-11-03) : chacun listé avec son geste (« Poser sur la ligne »,
+  « Retirer »), « couvert » quand un autre numéro de son compte WhatsApp est déjà sur la ligne, ou la raison qui
+  l'empêche (360dialog, coexistence, délié) ; plus aucun identifiant à taper. Une Entreprise y est dite illimitée, avec
+  ses messages du mois à facturer, au lieu d'un solde.
+- ✅ **La grille de Meta, prix par prix** (onglet Réglages, 2026-11-03) : sous la grille chargée, un marché par ligne et
+  une catégorie par colonne, le prix client (commission globale comprise) et dessous le tarif de Meta ; chercher un
+  pays trouve aussi le marché régional qui le contient (la Belgique dans « Reste de l'Europe de l'Ouest »).
 - ✅ **L'onglet « Crédits »** (lot C de l'Entreprise illimitée, 2026-11-02) : un espace par ligne, les Entreprises
   d'abord. Son Crédit IA (le solde, ou « illimité » avec son plafond, « atteint » en rouge, « sans clé ») et son Crédit
   WhatsApp (le solde, « illimité », ou « pas sur la ligne »), ce que chacun a consommé le mois en cours et le précédent,
