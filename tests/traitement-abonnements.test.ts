@@ -85,9 +85,10 @@ describe('le traitement des événements Stripe d’abonnement', () => {
  */
 describe('l’option du Crédit WhatsApp', () => {
   const META = { tenant_id: TENANT, produit: 'option_credit_whatsapp' };
-  function option(o: { relu?: { statut: string; places: number; finPrevueLe: Date | null } | null; connue?: boolean; vivante?: boolean; premiereFin?: boolean } = {}) {
+  function option(o: { relu?: { statut: string; places: number; finPrevueLe: Date | null } | null; connue?: boolean; vivante?: boolean; premiereFin?: boolean; illimite?: boolean } = {}) {
     const journal: string[] = [];
     const refus: string[] = [];
+    const alertes: string[] = [];
     const ligneDe = { abonnementId: 'sub_opt', tenantId: TENANT, livemode: true, statut: 'actif' as const, places: 2, periodeFin: null, finPrevueLe: null, finiLe: null, finRaison: null };
     const dep: DepsTraitementAbonnements['option'] = {
       enregistrer: async (a) => { journal.push(`enregistrer:${a.abonnementId}:${a.places}`); return { etat: 'enregistre', tenantId: TENANT, nouveau: true }; },
@@ -97,11 +98,12 @@ describe('l’option du Crédit WhatsApp', () => {
       vivante: async () => (o.vivante ? ligneDe : null),
       chezStripe: async () => (o.relu === undefined ? { statut: 'active', places: 2, finPrevueLe: null } : o.relu),
       arreterLesLignes: async (t) => { journal.push(`arret:${t}`); return 1; },
+      illimite: async () => o.illimite === true,
       surFinDuPro: async () => 'sans_option',
-      alerter: async () => {},
+      alerter: async (texte) => { alertes.push(texte); },
     };
     const traitement = creer({ option: dep, paiementRefuse: async (p) => { refus.push(`${p.offre}:${p.factureId}`); } });
-    return { traitement, journal, refus };
+    return { traitement, journal, refus, alertes };
   }
   const facture = (billing_reason = 'subscription_cycle') => ({
     id: 'in_1', billing_reason, amount_paid: 3000, parent: { subscription_details: { subscription: 'sub_opt', metadata: META } },
@@ -137,6 +139,18 @@ describe('l’option du Crédit WhatsApp', () => {
     const reprise = option({ vivante: true, premiereFin: false });
     await reprise.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
     expect(reprise.journal).toEqual(['finir:sub_opt:resiliation']);
+  });
+
+  it('🔴 la fin de l’option d’un espace passé en Entreprise n’arrête pas ses lignes : l’illimité les couvre, Julien le sait', async () => {
+    // Relecture du lot 4a : la garde lit l'arrêt d'une ligne AVANT l'illimité, des lignes arrêtées couperaient tous les
+    // envois de l'Entreprise, réponses comprises.
+    const resiliee = option({ illimite: true });
+    await resiliee.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
+    expect(resiliee.journal).toEqual(['finir:sub_opt:resiliation']);
+    expect(resiliee.alertes.join(' ')).toMatch(/Entreprise : ses lignes restent actives/);
+    const impayee = option({ illimite: true, relu: { statut: 'unpaid', places: 2, finPrevueLe: null } });
+    await impayee.traitement.traiter(evenement('customer.subscription.updated', { id: 'sub_opt', metadata: META }));
+    expect(impayee.journal).toEqual(['finir:sub_opt:impaye']);
   });
 
   it('🔴 un échec de renouvellement : en retard, places gardées, l’e-mail aux admins ; le prorata d’une place refusé ne change rien', async () => {

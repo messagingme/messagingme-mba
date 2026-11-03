@@ -20,7 +20,7 @@ const INCONNU = '11111111-2222-4333-8444-555555555555';
 /** Aucun abonnement Stripe, aucun numéro fourni : rien à signaler à l'exploitant. */
 const SANS_ALERTE: AlertesOffreManuelle = {
   proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: false,
-  optionCreditWhatsappSansDroit: false,
+  optionCreditWhatsappSansDroit: false, optionCreditWhatsappVivante: false,
 };
 /** Les champs du Business (spec du 2026-10-27) d'un espace qui ne l'a jamais eu. */
 const SANS_BUSINESS = { business: false, utilisateursBusiness: null } as const;
@@ -330,7 +330,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
 
   it('GET et PUT rendent les alertes : un Pro payé vivant, un numéro payé à part, un numéro fourni que plus rien ne couvrirait, un numéro sur la ligne sans crédit', async () => {
     const { server, magasin } = monter();
-    magasin.alertes = { proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: true, optionCreditWhatsappSansDroit: true };
+    magasin.alertes = { proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: true, optionCreditWhatsappSansDroit: true, optionCreditWhatsappVivante: true };
     expect((await server.inject({ method: 'GET', url: `/ops/offre/${T1}`, headers: ops })).json()).toMatchObject({ alertes: magasin.alertes });
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: null, note: 'inchangé' } });
     expect(res.json()).toMatchObject({ alertes: magasin.alertes });

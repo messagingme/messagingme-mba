@@ -1748,6 +1748,12 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
               <span>{t('Le numéro fourni ne sera plus couvert : ses envois sont suspendus tout de suite, puis il est résilié 7 jours plus tard. Je confirme le retrait.', 'The provided number will no longer be covered: its sends are suspended at once, then it is cancelled 7 days later. I confirm the removal.')}</span>
             </label>
           )}
+          {!etat.entreprise && entreprise && etat.alertes?.optionCreditWhatsappVivante === true && (
+            <p className="rounded-controle bg-alerte-50 px-3 py-2 text-xs text-alerte-700" data-testid="offre-alerte-option-wa-entreprise">
+              {t('L’espace a l’option Crédit WhatsApp : en Entreprise, illimitée, elle ne sert plus et reste facturée chaque mois. Résiliez-la chez Stripe, sans remboursement du mois entamé, si le contrat le prévoit ; ses numéros continuent d’envoyer.',
+                'The workspace has the WhatsApp credit option: on Enterprise, unlimited, it is no longer needed and is still billed every month. Cancel it at Stripe, with no refund of the month begun, if the contract says so; its numbers keep sending.')}
+            </p>
+          )}
           {(etat.entreprise || etat.business) && !entreprise && !business && etat.alertes?.optionCreditWhatsappSansDroit === true && (
             <p className="rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700" data-testid="offre-alerte-option-wa">
               {t('L’espace a l’option Crédit WhatsApp, sans formule Pro : sans offre qui y donne droit, elle sera résiliée chez Stripe, sans remboursement du mois entamé, et ses numéros cesseront d’envoyer.',

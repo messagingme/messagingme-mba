@@ -154,6 +154,18 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     await expect(modale.getByTestId('offre-alerte-option-wa')).toHaveCount(0);
   });
 
+  test('🔴 passer en Entreprise un espace qui a l’option du Crédit WhatsApp : l’écran dit qu’elle reste facturée', async ({ page }) => {
+    const { modale } = await ouvrir(page, {
+      entreprise: false, utilisateurs: null, conservationJours: 90, business: true, utilisateursBusiness: null,
+      alertes: { proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, optionCreditWhatsappSansDroit: true, optionCreditWhatsappVivante: true },
+    });
+    await expect(modale.getByTestId('offre-alerte-option-wa-entreprise')).toHaveCount(0);
+    await modale.getByTestId('offre-entreprise').check();
+    await expect(modale.getByTestId('offre-alerte-option-wa-entreprise')).toContainText(/reste facturée chaque mois/);
+    // L'Entreprise garde le droit à l'option : rien n'annonce sa résiliation automatique.
+    await expect(modale.getByTestId('offre-alerte-option-wa')).toHaveCount(0);
+  });
+
   test('sans limite d’utilisateurs : `null` part', async ({ page }) => {
     const { modale, ecrits } = await ouvrir(page, { entreprise: false, utilisateurs: null, conservationJours: null });
     await modale.getByTestId('offre-entreprise').check();

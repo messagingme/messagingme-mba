@@ -803,6 +803,8 @@ export interface OffreEntrepriseOps {
     proPayeVivant: boolean; numeroSeulVivant: boolean; numeroFourniSansCouverture: boolean; ligneCreditWhatsappSansCredit?: boolean;
     /** L'option du Crédit WhatsApp sans Pro : retirer l'offre posée à la main la résilie (absent sur une API d'avant le lot 4a). */
     optionCreditWhatsappSansDroit?: boolean;
+    /** Une option du Crédit WhatsApp vivante : poser l'Entreprise la rend inutile sans la résilier (absent avant le lot 4a). */
+    optionCreditWhatsappVivante?: boolean;
   };
   /** Ce que le PUT a fait après l'écriture : le crédit offert (micro-euros), la fin du numéro, les gestes échoués. */
   gestes?: { creditOffert: number | null; finDuNumero: string | null; echecs: string[] };

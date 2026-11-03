@@ -63,6 +63,8 @@ export interface DepsTraitementAbonnements {
     chezStripe(abonnementId: string): Promise<{ statut: string; places: number; finPrevueLe: Date | null } | null>;
     /** `PgLignesCreditStore.arreterLesLignesDeLOption` : rend le nombre de lignes arrêtées. */
     arreterLesLignes(tenantId: string): Promise<number>;
+    /** L'espace est-il une Entreprise (illimitée), l'offre relue SANS cache ? Ses lignes ne dépendent alors d'aucune option. */
+    illimite(tenantId: string): Promise<boolean>;
     /** `finDeDroitOption`, après la fin d'un Pro : l'option sans offre qui y donne droit se résilie. Rejouable. */
     surFinDuPro(tenantId: string): Promise<unknown>;
     alerter(texte: string): Promise<void>;
@@ -523,15 +525,22 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} : ${places} place(s) chez Stripe, hors des bornes (${PLACES_MIN} à ${PLACES_MAX}). À régler.`);
       return places > PLACES_MAX ? PLACES_MAX : null;
     };
-    /** La fin : ses lignes arrêtées si aucune AUTRE option ne vit (un rejeu tardif ne coupe pas une option reprise depuis). */
+    /**
+     * La fin : ses lignes arrêtées si aucune AUTRE option ne vit (un rejeu tardif ne coupe pas une option reprise depuis),
+     * et jamais celles d'une Entreprise.
+     */
     const finir = async (abonnementId: string, raison: RaisonFinOption, fin: Date): Promise<void> => {
       const a = await deps.option.finir(abonnementId, raison, fin);
       if (a === null) return;
+      // 🔴 Une Entreprise est illimitée, sans option (relecture du lot 4a) : la garde lit l'arrêt d'une ligne AVANT
+      // l'illimité, arrêter ses lignes couperait tous ses envois, réponses comprises.
+      const illimite = await deps.option.illimite(a.tenantId);
       // Rejouable : arrêter des lignes déjà arrêtées n'écrit rien ; seule la première fin prévient Julien. 🔴 Une AUTRE
       // option vivante (reprise depuis) garde ses lignes : un rejeu tardif de la fin de l'ancienne ne les coupe pas.
-      const n = (await deps.option.vivante(a.tenantId)) === null ? await deps.option.arreterLesLignes(a.tenantId) : 0;
+      const n = !illimite && (await deps.option.vivante(a.tenantId)) === null ? await deps.option.arreterLesLignes(a.tenantId) : 0;
       if (a.premiereFin) {
-        await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}.`);
+        const suite = illimite ? 'Entreprise : ses lignes restent actives, sous l’illimité' : `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
+        await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}.`);
       }
     };
     const enregistrer = async (tenantId: string, abonnementId: string, periodeFin: Date | null): Promise<void> => {

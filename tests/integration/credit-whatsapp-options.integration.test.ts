@@ -127,11 +127,11 @@ describe.skipIf(!url)('l’option du Crédit WhatsApp (0276)', () => {
     expect(await lignes.poser(t, 'itest-opt-b', w, 'ops', 'après le retrait')).toBe(true);
   });
 
-  it('l’annonce de /ops : une option sans Pro dit qu’un retrait de l’offre posée à la main la résiliera', async () => {
+  it('l’annonce de /ops : une option sans Pro dit qu’un retrait de l’offre posée à la main la résiliera, et toute option vivante qu’elle reste facturée en Entreprise', async () => {
     const t = await espace();
     const offres = new PgOffresStore(pool);
-    expect((await offres.alertes(t)).optionCreditWhatsappSansDroit).toBe(false);
+    expect(await offres.alertes(t)).toMatchObject({ optionCreditWhatsappSansDroit: false, optionCreditWhatsappVivante: false });
     await options.enregistrer({ tenantId: t, abonnementId: sub(), livemode: false, places: 1, periodeFin: null });
-    expect((await offres.alertes(t)).optionCreditWhatsappSansDroit).toBe(true);
+    expect(await offres.alertes(t)).toMatchObject({ optionCreditWhatsappSansDroit: true, optionCreditWhatsappVivante: true });
   });
 });

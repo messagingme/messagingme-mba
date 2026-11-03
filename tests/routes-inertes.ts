@@ -773,6 +773,7 @@ export const stripeOptionInerte: StripeWebhookRouteDeps['option'] = {
   vivante: async () => null,
   chezStripe: neDevraitPasEtreAppelee('stripe.option.chezStripe'),
   arreterLesLignes: neDevraitPasEtreAppelee('stripe.option.arreterLesLignes'),
+  illimite: neDevraitPasEtreAppelee('stripe.option.illimite'),
   surFinDuPro: async () => 'sans_option',
   alerter: async () => {},
 };

@@ -2179,6 +2179,7 @@ async function main(): Promise<void> {
           vivante: (tenant) => optionsCreditWhatsapp.vivante(tenant),
           chezStripe: (abonnementId) => optionChezStripe(optionDeLaConsole, abonnementId),
           arreterLesLignes: (tenant) => lignesCreditWhatsapp.arreterLesLignesDeLOption(tenant),
+          illimite: async (tenant) => (await offresSansCache.offreDe(tenant)).offre === 'entreprise',
           surFinDuPro: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
         },

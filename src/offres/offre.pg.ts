@@ -145,6 +145,8 @@ export class PgOffresStore implements SourceOffres {
       ligneCreditWhatsappSansCredit: l.ligne_sans_credit,
       // Sans Pro, retirer le Business ou l'Entreprise résiliera l'option du Crédit WhatsApp (sa fin de droit, lot 4a).
       optionCreditWhatsappSansDroit: l.option_wa && !l.pro,
+      // Poser l'Entreprise la rend inutile (illimitée), sans la résilier : elle resterait facturée (relecture du lot 4a).
+      optionCreditWhatsappVivante: l.option_wa,
     };
   }
 
@@ -227,6 +229,11 @@ export interface AlertesOffreManuelle {
   ligneCreditWhatsappSansCredit: boolean;
   /** L'espace a l'option du Crédit WhatsApp sans Pro : retirer l'offre posée à la main la résilie, ses envois s'arrêtent. */
   optionCreditWhatsappSansDroit: boolean;
+  /**
+   * L'espace a l'option du Crédit WhatsApp : poser l'Entreprise la rend inutile (illimitée) sans la résilier, elle reste
+   * facturée tant que Julien ne la résilie pas chez Stripe. Ses lignes, elles, restent actives à sa fin.
+   */
+  optionCreditWhatsappVivante: boolean;
 }
 
 /** Ce que l'exploitation règle sur un espace (`/ops/offre/:tenantId`). `null` = sans limite, ou le défaut de l'instance. */
