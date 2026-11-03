@@ -151,6 +151,9 @@ ses deux bras le sont), trois phrases de doc. **Restent, relus avec le lot suiva
    celles du jour (une provision hors tranche, une d'aujourd'hui, qui doivent rester rendables).
 5. Perf : chaque espace relit environ 33 jours de provisions sept fois par heure ; borner aussi par `cree_le < fin`.
 
+**Livré le 2026-11-03** : la 0275 seule (`a05c7090`, run 41706266811, `migration=avant`), relue en base, puis le code
+(`77a1011f`, run 41710578926). Son essai réel est le 213 de la liste privée, avec la relecture de l'essai 212.
+
 **Méthode** : en direct, sur les fichiers des lots D et E, avec une relecture indépendante en fin de lot ; la production
 emprunte la garde et l'accusé à chaque envoi. **Déploiement** : `migration=avant` (le code neuf écrit les deux colonnes ;
 l'ancien code y survit, elles sont nullables). **Essai réel** : la régularisation du 2026-11-03 de la SANDBOX (essai

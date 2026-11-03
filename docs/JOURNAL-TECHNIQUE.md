@@ -121,6 +121,13 @@ la ligne, et ceux du serveur du lot D. Plan `2026-11-03-credit-whatsapp-fiabilit
   garde nomme `commission_pct` à chaque envoi), l'index par numéro ajouté, trois phrases de doc corrigées. Les autres
   attendent le lot suivant, écrits au plan (les conditions d'un jour mixte, une fausse alerte « Meta vide » sur une
   provision figée puis livrée, une ligne par compte tenue en base, deux tests qui resteraient verts).
+- **Livré** : la 0275 SEULE par le run 41706266811 (`a05c7090`, `migration=avant` : seule elle appliquée, vérifié
+  avant : 0274 en place, aucune transaction longue ni verrou fort sur les deux tables), puis le code par le run
+  41710578926 (`77a1011f`, `migration=aucune`), tous deux approuvés par Julien. Le premier a emporté `bbda9695` (la pièce
+  jointe des questions, d'un pair, sans migration), avec l'accord de ce pair. Relu en base après la 0275 : les deux
+  colonnes nullables et sans défaut, la contrainte sous son nom et validée, les deux index valides. Après le code, par
+  les vrais magasins de l'image : les demi-heures du 2026-11-03 de la SANDBOX (trois, 0,3284 € pour onze messages, égal
+  à la consommation du mois), aucune provision encore figée ni chiffrée avec sa commission (toutes d'avant le code).
 - **Vérifié** : chaque correction dans les deux sens sur les tests unitaires (dix mutations, dix échecs) ; l'écran de
   `/ops` par Playwright sur le build de production (sept scénarios), le neuf vu échouer sans l'affichage qu'il garde ; le
   comportement en base (gel, écriture refusée, conditions du jour) par la suite d'intégration de la CI seulement, le poste

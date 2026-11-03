@@ -202,7 +202,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
 - Lot 3 (lot E du plan `2026-11-03-credit-whatsapp-fiabilite.md`) : la régularisation sur les VOLUMES de Meta, EN
   PRODUCTION le 2026-11-03 (`b13a3425`, migration 0274, tâche horaire du worker), son essai réel 212 en cours (à relire le
   2026-11-04). Ses trois jaunes d'avant un prépayé (le gel d'une provision comptée, l'offre et la commission du jour,
-  l'e-mail « crédit bas » après une régularisation) sont fermés le même soir (migration 0275). 🟡 Restent : la
+  l'e-mail « crédit bas » après une régularisation) sont fermés et en production le même soir (la 0275 seule,
+  `a05c7090`, puis le code, `77a1011f`). 🟡 Restent : la
   consommation WhatsApp de `/ops` et la courbe d'une Entreprise ignorent l'écart (« à facturer » l'inclut ; facturer un
   mois après le 2 à 2 h), et `nosDemiHeures` relit 33 jours de provisions par espace et par heure. Elle ferme les rouges
   restants de la relecture du 2026-11-02 (provision en doute, wamid jamais
