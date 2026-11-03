@@ -169,6 +169,10 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   tient sur deux lignes dans sa case : celle du 2026-10-01 a été convertie (`docs/prive/credit-whatsapp/xlsx-vers-csv.cjs`)
   et chargée par le vrai magasin. À faire avant le 2027-01-01 : que `/ops` lise le xlsx de Meta tel quel, ou que le
   lecteur accepte une case sur deux lignes et un prix en notation scientifique.
+- Le lot D du plan `2026-11-03-credit-whatsapp-fiabilite.md` (quatre rouges du calcul fermés, la grille de Meta prix par
+  prix et les numéros d'un espace dans `/ops`) est en production le 2026-11-03 (l'API `0ad1d4c9`, la console
+  `05cbbac3`) ; son essai réel 211 est fait, sauf le coût de Meta de la demi-heure à relire et un clic de Julien dans
+  `/ops`. Ses jaunes du serveur sont au plan, pour le lot E.
 - 🔴 Lot 3 (lot E du plan `2026-11-03-credit-whatsapp-fiabilite.md`) : la régularisation sur les VOLUMES de Meta, AVANT
   qu'aucun client ne passe sur la ligne. Mesuré le 2026-11-03 : Meta refuse `COST` (code 10) sur les comptes de nos
   clients, ligne ou pas, et en rend les volumes par pays, catégorie et type, égaux à nos accusés ; sur notre compte,

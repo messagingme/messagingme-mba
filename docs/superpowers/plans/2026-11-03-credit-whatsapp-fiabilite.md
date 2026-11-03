@@ -73,6 +73,10 @@ chaque accusé de Meta, et qu'ils portent des invariants invisibles : une ligne 
 provision rendue une seule fois, le même calcul du prix dans la garde, l'ajustement et l'écran. Une relecture
 indépendante par lot, en fin de lot.
 
+**Lot D en production le 2026-11-03** (l'API `0ad1d4c9`, run 41605295306 ; la console `05cbbac3`). Son essai réel est
+fait (211 dans la liste privée) : trois provisions illimitées au prix attendu, confirmées par leur accusé, solde resté à
+zéro, le numéro retiré ensuite ; reste le coût de Meta de la demi-heure à relire.
+
 **Essai réel qui clôt le lot D (accord de Julien du 2026-11-02)** : le numéro de la SANDBOX (Entreprise) posé sur la ligne
 (par la fenêtre de l'offre de `/ops`, ou par le même magasin), trois vrais modèles envoyés au numéro d'essai de Julien. Chaque envoi a sa
 provision illimitée au prix de la grille, son accusé la confirme, la somme des provisions du jour égale le coût que Meta

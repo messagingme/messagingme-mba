@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-03 : le Crédit WhatsApp calcule juste (lot D), la grille de Meta lisible dans `/ops`
+
+Demande de Julien du 2026-11-02 : « surtout, il faut que tu sois vraiment en mesure de calculer et de défalquer du
+Crédit WhatsApp la consommation » ; et dans `/ops` voir la grille de Meta, poser un numéro sans « identifiant Meta » à
+taper, savoir pourquoi « Enregistrer » reste grisé (la note était vide). Plan `2026-11-03-credit-whatsapp-fiabilite.md`.
+
+- **Mesuré avant d'écrire**, en lecture seule par le vrai code : notre formule rejoue au centime le coût que Meta facture
+  à NOTRE compte en octobre (2,3076 € des deux côtés) ; les services sont marqués gratuits dans l'accusé ; Meta refuse
+  `COST` sur les comptes de nos clients (code 10, ligne ou pas) et en rend les volumes, égaux à nos accusés.
+- **Une relecture indépendante du calcul** a trouvé sept rouges ; quatre sont fermés ici et vérifiés dans les deux
+  sens : un 134102 de la MM API rendu en 500 rend la provision ; la ligne couvre tout le compte WhatsApp ; un accusé
+  arrivé après le retrait d'une ligne (35 jours) corrige encore ; un BSUID est provisionné au pays de son préfixe. Les
+  trois autres (provisions en doute, accusés perdus, rejeu sur délai) attendent la régularisation sur les volumes
+  (lot E), avant laquelle aucun client ne passe sur la ligne.
+- **`/ops`** : la grille prix par prix (prix client et tarif de Meta, la France en tête, recherche par pays) ; la
+  fenêtre de l'offre liste les numéros de l'espace avec leur geste ; une Entreprise y est dite illimitée avec son mois ;
+  ce qui grise « Enregistrer » est écrit sous la note.
+- **Décision de Julien** : pas de plafond mensuel pour le WhatsApp d'une Entreprise (open bar, suivi dans « Crédits »).
+- **Relecture du lot** : aucun rouge ; les jaunes de la console corrigés avant sa poussée, ceux du serveur au plan (lot E).
+- **Livré** : l'API `0ad1d4c9` par UN déploiement (run 41605295306, `migration=aucune`, approuvé par Julien), qui a
+  emporté l'outil MCP `send_scenario_to_contact` d'une session voisine (`4b4f271a`) sur décision de Julien d'un seul
+  déploiement ; la console `05cbbac3` ensuite. Ordonné avec le lot 3b des automations (`1b66cd53`) et le lot devis
+  HubSpot (`63e78264`) d'une autre session.
+- **Vérifié en production** : la nouvelle lecture de la ligne sur la vraie base (15 ms), puis l'essai réel 211 : la
+  SANDBOX sur la ligne, trois modèles vers le numéro d'essai de Julien, trois provisions `illimite` au prix attendu
+  (0,02604 € l'utilitaire, 0,07476 € le marketing par la MM API), confirmées par leur accusé, solde resté à zéro ; le
+  numéro retiré ensuite, que les accusés lisent encore. Le coût de Meta pour cette demi-heure reste à relire.
+- **Trouvé en chemin** : l'adresse publique du poste a changé (82.230.190.122 vers 86.219.98.92), le bastion refusait tout
+  ssh ; Julien a ajouté la nouvelle (`brain/INFRA.md`).
+
 ## 2026-11-02 : les scénarios par l'API en production, et la phrase d'escalade d'un agent qui se perdait
 
 Spec et plan `2026-11-02-scenarios-api` : une recette déclarative compilée en graphe de la console, sous le droit
