@@ -148,7 +148,8 @@ test.describe('Automation : modifier', () => {
     await expect.poll(() => patched.length).toBe(1);
     expect(patched[0]).toEqual({
       name: 'Demande de RDV', triggerKind: 'keyword', triggerConfig: { keywords: ['rdv', 'devis'], mode: 'equals' },
-      workflowId: 'wf1', cooldownSeconds: null,
+      // La case d'accord marketing (lot 3b) part avec l'édition : décochée, l'automation reste sans attestation.
+      workflowId: 'wf1', cooldownSeconds: null, accordMarketing: false,
     });
   });
 
@@ -170,6 +171,7 @@ test.describe('Automation : modifier', () => {
     expect(patched[0]).toEqual({
       name: 'Clients mécontents', triggerKind: 'analyse_devient',
       triggerConfig: { cle: 'analyse_sentiment', op: 'in', valeur: 'negatif' }, workflowId: 'wf1', cooldownSeconds: 3 * 24 * 3600,
+      accordMarketing: false,
     });
   });
 });
