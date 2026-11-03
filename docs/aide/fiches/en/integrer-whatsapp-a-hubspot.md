@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: 4db91f
+traduit_de: 9dd52d
 description: WhatsApp in HubSpot with the Messaging Me app: reply from the contact record, send from your workflows, analyze every conversation. Without Sales Hub.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -91,9 +91,10 @@ has taken over, and it replaces an automatic scenario in progress. The workflow 
 was sent or why nothing was sent, and each send shows up in Campaigns. At most 60 sends a minute and 2,000 a day for
 the workspace, all three actions counted together; Meta charges for each template.
 
-Marketing templates are only offered if you choose “Marketing send” in the action: you then confirm you have your
-contacts' marketing consent, and Messaging Me records it on the record of each contact reached. A contact who said STOP
-receives nothing, even with this confirmation.
+Marketing templates and scenarios are offered in the action, marked “(Marketing)”, but are only sent if you choose
+“Marketing send”: you then confirm you have your contacts' marketing consent, and Messaging Me records it on the record
+of each contact reached. Without this choice, nothing is sent and the workflow history says why. A contact who said
+STOP receives nothing, even with this confirmation.
 
 The deal action writes only to the one contact associated with the deal: with several associated contacts, nothing is
 sent.

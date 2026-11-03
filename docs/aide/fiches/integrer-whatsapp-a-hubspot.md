@@ -99,9 +99,10 @@ conversation qu'un conseiller a en main, et remplace un scénario automatique en
 contact par contact, ce qui est parti ou pourquoi rien n'est parti, et chaque envoi apparaît dans Campagnes. Au plus 60
 envois par minute et 2 000 par jour pour l'espace, les trois actions comptées ensemble ; Meta facture chaque modèle.
 
-Les modèles Marketing ne sont proposés que si vous choisissez « Envoi marketing » dans l'action : vous attestez alors
-avoir l'accord marketing de vos contacts, et Messaging Me l'enregistre sur la fiche de chaque contact touché. Un contact
-qui a dit STOP ne reçoit rien, même avec cette attestation.
+Les modèles et scénarios Marketing sont proposés dans l'action, marqués « (Marketing) », mais ne partent que si vous
+choisissez « Envoi marketing » : vous attestez alors avoir l'accord marketing de vos contacts, et Messaging Me
+l'enregistre sur la fiche de chaque contact touché. Sans ce choix, rien ne part et l'historique du workflow dit
+pourquoi. Un contact qui a dit STOP ne reçoit rien, même avec cette attestation.
 
 L'action de transaction écrit au seul contact associé à la transaction : avec plusieurs contacts associés, rien ne
 part.
