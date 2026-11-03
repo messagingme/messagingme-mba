@@ -71,6 +71,13 @@ politique de cookies de `www.messagingme.fr`, vers laquelle la bannière renvoie
   depuis un téléphone, là où arrivent les publicités. La bannière passe au-dessus (`site/site.css`), tenu par
   `tests/vitrine-consentement.test.ts`, qui lit les deux valeurs dans leurs fichiers. Mesuré sur la vraie page, règle
   injectée : les trois points de chaque bouton répondent au bouton.
+- **La Conversions API allumée le même soir** : aucun jeton à générer chez Meta. Mesuré depuis `mba-worker`, le jeton
+  de l'utilisateur système déjà posé (`META_ACCESS_TOKEN`) porte `ads_management` et lit le pixel (« Messaging Me
+  Pixel », portefeuille Messaging Me) : il est recopié en `META_CAPI_TOKEN` SUR la machine, jamais affiché. Le mode
+  automatique de Claude Code refusant l'écriture distante en production, Julien a lancé une commande unique (copie de
+  `.env.prod`, les deux lignes, les trois workers recréés, chacun relu) ; son transport avait été essayé en lecture
+  seule. Relu après : les trois voient le pixel et le jeton, zéro redémarrage, aucune erreur en onze heures. Rien
+  n'est parti : `conversions_meta` ne porte que les dix faits antérieurs (`ignore`), et aucune identité n'a d'accord.
 
 ## 2026-11-02 : l'Entreprise illimitée, lot C (le suivi des crédits) en production
 

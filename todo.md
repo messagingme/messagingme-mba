@@ -62,9 +62,9 @@
   avant, pour ne pas défaire le chargement d'un pair).
 - **La vitrine est allumée depuis le 2026-11-02** (pixel `430064039366684`, la bannière des cookies s'affiche).
   Julien a choisi d'allumer sans attendre la politique de cookies et de confidentialité de `www.messagingme.fr`, que
-  Nawel met à jour : la bannière y renvoie, la page doit nommer le pixel de Meta et ses trois usages. Reste
-  `META_PIXEL_ID` et `META_CAPI_TOKEN` dans le `.env.prod` des workers (DEPLOY.md), puis l'essai réel 201 (vitrine)
-  et l'essai réel du plan (inscription avec la case).
+  Nawel met à jour : la bannière y renvoie, la page doit nommer le pixel de Meta et ses trois usages. La Conversions
+  API est allumée aussi (DEPLOY.md). Restent l'essai réel 201 (vitrine, au téléphone aussi) et l'essai réel du plan
+  (inscription avec la case).
 - 🟡 **Ce que la relecture du lot 2 laisse** : un rattachement 360dialog qui finit en 502 après `linkTenant` compte
   comme une activation ; `noterEnvoye` n'a pas de garde `statut = 'a_envoyer'` (un retrait pendant les 10 s d'un appel
   à Meta n'arrête pas l'envoi en vol) ; une devise hors EUR, USD, GBP fait perdre un `Subscribe` sur un simple `warn` ;

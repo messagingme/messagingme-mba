@@ -12,10 +12,11 @@ les mêmes qu'avant (la fumée, les fiches OAuth, `aide:charger` sur la machine)
 - **Changer un secret** : Julien, dans le conteneur (variables secrètes, console de Scaleway) ET dans
   `/opt/messagingme/.env.prod` de la machine, puis les workers redémarrés : les deux partagent `ENCRYPTION_KEY` et
   `AUTH_SECRET`, et une différence casse le déchiffrement ou les sessions.
-- **Allumer les conversions de nos publicités** (pixel, lot 2, `src/pub/`) : Julien pose `META_PIXEL_ID` (public) et
-  `META_CAPI_TOKEN` (secret, généré dans le Gestionnaire d'événements de Meta) dans `/opt/messagingme/.env.prod`
-  SEULEMENT (seuls les workers envoient ; l'API réserve sans elles), puis redémarre les workers. Un seul des deux :
-  éteint, sans refus au démarrage. La migration 0265 doit être appliquée avant (`migration=avant`).
+- **Les conversions de nos publicités** (pixel, lot 2, `src/pub/`), allumées : `META_PIXEL_ID` (public,
+  `430064039366684`) et `META_CAPI_TOKEN` vivent dans `/opt/messagingme/.env.prod` SEULEMENT (seuls les workers
+  envoient ; l'API réserve sans elles). Un seul des deux : éteint, sans refus au démarrage. 🔴 `META_CAPI_TOKEN` est une
+  COPIE de `META_ACCESS_TOKEN` (l'utilisateur système, mesuré avec `ads_management` et l'accès au pixel) : qui change
+  l'un change l'autre dans le même geste, sinon les conversions partent avec un jeton mort et finissent en échec.
 - **Retour arrière, tant que le VPS existe** : chez Cloudflare, `api` repasse en A vers le VPS et la règle « Jeton
   d'origine api » se désactive ; sur le VPS, `docker compose start` des quatre conteneurs. Ce qui a été écrit chez
   Scaleway depuis 19 h 08 n'est PAS dans Supabase : le recopier d'abord, sinon il est perdu. Pendant l'observation, le
