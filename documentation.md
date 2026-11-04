@@ -3547,6 +3547,16 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   sauf si le client a demandé à rendre le numéro (`rendreNumero`), qui l'arrête alors avec un avoir (`rendu`). La vue
   de l'offre porte `essai: { jours, possible, finLe }` ; la console (`/offre`) et `subscribe_pro` (`essai_jours`) le
   disent.
+  🔴 **L'essai écourté** (révision du Crédit WhatsApp du 2026-11-04, `demarrerProMaintenant`, `src/stripe/gestion-pro.ts`,
+  `POST /tenants/:tenantId/offre/pro/demarrer`, un administrateur sous le plafond coûteux) : l'abonnement est relu chez
+  Stripe (plus en essai : rien ne part, 409 `pas_en_essai`), puis `trial_end=now` en `error_if_incomplete` (un refus de
+  paiement rend 402 `paiement_refuse` et laisse l'essai tel quel ; une authentification demandée par la banque aussi),
+  sans prorata, hors session, une clé d'idempotence par demande et un verrou court de 60 s par espace contre le double
+  clic. La fin d'essai est notée tout de suite (`noterFinEssai`, seulement vers plus tôt et sur un essai en cours), le
+  webhook la réécrit : il recopie `trial_end` quel que soit le statut, et une fin d'essai déjà passée ne recule plus
+  (`modifier`), pour qu'un avis en retard ne rouvre pas l'essai. La facture de l'écourtement est une
+  `subscription_update` du plein prix : non nulle, elle arrête le numéro payé à part comme une première facture de cycle.
+  ⚠️ Avec un code promo à 100 %, elle vaut 0 sans être de cycle, et le numéro payé à part n'est pas arrêté : à la main.
   ⚠️ **Retour arrière** : une image antérieure à la livraison 6 ignore la métadonnée `essai`. Un essai en cours
   n'y arrêterait plus l'abonnement du numéro payé à part au premier paiement (le client paierait les deux), et une
   session d'essai ouverte avant et payée après arrêterait le numéro dès le début de l'essai. Avant un retour arrière,
@@ -4326,7 +4336,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
 - 🔴 **L'option, 30 € HT par numéro et par mois** (lot 4a, `src/stripe/option-credit-whatsapp.ts`, migration 0276) : un
   abonnement Stripe mensuel à part, dont la quantité est le nombre de PLACES ; une place est un NUMÉRO couvert par une
   ligne `'option'` (décision de Julien du 2026-11-03), alors qu'une ligne couvre tout son compte. Le Pro et le Business y
-  ont droit, jamais la Free ; une Entreprise n'en a pas besoin. Stripe d'abord : sans essai, codes promo fermés, une place
+  ont droit, jamais la Free ; une Entreprise n'en a pas besoin. 🔴 Elle ne s'ouvre qu'à une formule PAYÉE (`formulePayee`,
+  `src/offres/formule-payee.ts`, révision du 2026-11-04) : un Pro au statut actif hors essai, un Business confirmé (sa date
+  d'essai effacée, `tenants.offre_business_essai_fin_le`, migration 0278, posée et confirmée dans `/ops`) ; sinon 409
+  `option_apres_essai`, avant toute session Stripe. Stripe d'abord, sans essai, codes promo fermés, une place
   ajoutée n'existe que relue payée (`pending_if_incomplete`), un retrait s'applique sans prorata et jamais sous les
   numéros couverts. Le webhook l'aiguille par sa marque APRÈS le Pro et AVANT le numéro (qui acquitte en silence ce
   qu'il ne reconnaît pas), et relit ses places chez Stripe à chaque événement ; un paiement qu'il ne peut ni relire ni

@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-05 : la ligne de crédit prise à la connexion, lot A (le serveur)
+
+La révision du Crédit WhatsApp validée par Julien le 2026-11-04 (spec hors du dépôt, plan
+`2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) : pas de ligne de crédit pendant un essai, et un client qui ne veut
+pas attendre écourte son essai.
+
+- **L'option attend une formule payée** (`formulePayee`) : un Pro au statut actif hors essai, un Business confirmé. Un Pro
+  dont le premier prélèvement après l'essai a échoué n'y a pas accès. Refus 409 `option_apres_essai` avant toute session.
+- **L'essai du Business** se pose dans `/ops` (migration 0278) ; tant que Julien ne le confirme pas, même sa date passée,
+  l'option reste fermée.
+- **Démarrer la formule Pro maintenant** : l'abonnement relu chez Stripe, `trial_end=now` en `error_if_incomplete` (un
+  refus laisse l'essai), un verrou contre le double clic, la fin d'essai notée tout de suite. Le webhook n'écrivait la
+  fin d'essai que pendant `trialing` : un essai écourté, même au tableau de bord, serait resté « en essai ».
+- **Le refus d'une ligne arrêtée** dit les deux façons de repartir : reprendre l'option, ou sa carte chez Meta.
+- Onze retraits de garde, chacun vu par son test.
+
 ## 2026-11-05 : sans boutique Shopify, pas de critère de commande, et chaque écran le dit (segments)
 
 Demande de Julien après la livraison des segments : que la limite soit « hyper claire dans la doc et l'aide ». Nous ne

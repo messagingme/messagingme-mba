@@ -211,6 +211,10 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   volume (seul le palier 0 est chargé), l'e-mail au client sur des envois hors Messaging Me (avant l'ouverture), les
   réponses de l'agent de Meta. Son essai réel : la SANDBOX sur la ligne
   une demi-journée, la régularisation du lendemain relue en base.
+- **La ligne de crédit prise à la connexion** (révision du 2026-11-04, plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) :
+  lot A, le serveur, écrit et vérifié (relecture, puis déploiement en `migration=avant`) ; A5 (la console) après lui ;
+  puis les lots B (cartes « Qui règle Meta ? », guide), C (conversion, arrêt, doc), D (passage du numéro de l'essai,
+  après l'essai réel du partage), E (la fenêtre du partenaire). La vente attend A, B, C et D0.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes
