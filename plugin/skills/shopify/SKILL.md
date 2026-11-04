@@ -10,6 +10,18 @@ Speak the user's language. The merchant types no command: you run them, and expl
 before doing it. The user only signs in to Shopify (once, in the browser the CLI opens) and clicks Install on a link
 you give. A link exists for the user only once you write it, in full, as plain text on its own line.
 
+## Tell the way first
+
+Before the first command, tell the user in a few short lines what is coming, so they are never left guessing:
+
+- it takes about five minutes, and you do the technical part;
+- they make two gestures: sign in to Shopify with the account that manages their store (the one they use to open its
+  admin), in a browser window that opens on its own, then click Install on a link you give;
+- then you write the WhatsApp messages with them, and Meta approves each one before it can be sent.
+
+Then, at each step, say where you are and what comes next (for example "Step 2 of 4: I am creating the app in your
+Shopify account"), and say plainly when you are waiting for them.
+
 ## Before anything
 
 - Call `get_shopify_state`. If a store is already connected, say which one and go straight to the messages.
@@ -26,7 +38,13 @@ you give. A link exists for the user only once you write it, in full, as plain t
   stay, and what they type in the app does not show in Messaging Me yet. Or another number through Meta.
   `set_shopify_message` refuses them on such a number.
 - Node.js must be installed (`node --version`). On Windows, call the CLI with `npx.cmd`, not `npx`: PowerShell blocks
-  `npx` by its execution policy.
+  `npx` by its execution policy. Without Node.js, say why it is needed (it runs Shopify's own tool that creates the
+  app) and offer to install it, only once they agree: on Windows `winget install OpenJS.NodeJS.LTS`, on a Mac
+  `brew install node`, or else the LTS installer from https://nodejs.org. If `node` is still not found right after, the
+  terminal has not seen it yet: ask them to restart Claude Code and to say "connect my Shopify store" again. If they do
+  not want to install anything and are on a paid plan (`get_plan`), they can connect the store from the console
+  instead (Tools > Integrations, Shopify card), which guides them on screen; on Free there is no console, so Node.js is
+  the way.
 
 ## Create the app in the merchant's organization
 
@@ -34,7 +52,11 @@ The app is created in the organization that owns the store, never in ours: that 
 any Shopify review.
 
 1. Find the organization: `npx @shopify/cli@latest organization list --json`. The CLI opens the browser to sign in the
-   first time. Take the organization that has a store; if several do, ask the user which one by its name.
+   first time. Just before, tell the user a Shopify window is about to open, to sign in there with the account that
+   manages their store, then to come back here. If no window opens, the CLI prints a sign-in link: write it in full.
+   Take the organization that has a store; if several do, ask the user which one by its name. If none has a store,
+   they signed in with another account: say so, run `npx @shopify/cli@latest auth logout`, and start this step again
+   with the account they use to open the store's admin.
 2. Find the store: `npx @shopify/cli@latest store list --organization-id <id> --json`. Its `store` field is the
    `<name>.myshopify.com` domain. If several stores are listed, ask which one.
 3. In a new folder (for example `messagingme-shopify` in the user's home), run
@@ -73,8 +95,10 @@ redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
 
 1. Give the user this link, built from the store and the client id, and ask them to click Install:
    https://admin.shopify.com/store/<name>/oauth/install?client_id=<client id>
-   Shopify then opens a Messaging Me page saying it is installed and to come back to Claude Code. The same link
-   approves new access later, after an update of the scopes.
+   Warn them before they click: Shopify shows "This app hasn't been reviewed by Shopify", which is expected, since it
+   is their own app, made in their own account; they click Install anyway. Shopify then opens a Messaging Me page
+   saying it is installed and to come back to Claude Code. The same link approves new access later, after an update of
+   the scopes.
 2. Once they say it is installed, read the app's keys with `npx @shopify/cli@latest app env show --no-input`. Do not
    repeat the secret to the user.
 3. Call `connect_shopify` with `store`, `client_id` (SHOPIFY_API_KEY) and `client_secret` (SHOPIFY_API_SECRET). A refusal
@@ -93,7 +117,9 @@ On the official API (track `api`), two events can send a message: `order_paid` (
    - `order_paid`: `first_name`, `order_number`, `order_total`, `order_status_url`;
    - `order_fulfilled`: `first_name`, `order_number`, `carrier`, `tracking_number`, `tracking_url`.
 2. Wait for Meta to approve it (`get_template_status`), then call `set_shopify_message` with `event`, `template`,
-   `language` and `variables`, the data of {{1}}, {{2}}... in order, as many as the template has.
+   `language` and `variables`, the data of {{1}}, {{2}}... in order, as many as the template has. Tell the user what
+   the wait is: Meta reviews every template, in minutes or up to 24 hours; nothing is sent to their customers before
+   the message is set, and they can close Claude Code meanwhile and come back later with "finish my Shopify messages".
 
 Never ask the user about their customers' consent: the merchant is responsible for it. Each message records the
 customer as opted in, for campaigns too, and a customer who said STOP stays opted out and receives nothing. Every
