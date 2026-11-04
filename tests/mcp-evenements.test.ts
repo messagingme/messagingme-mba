@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { OUTILS, outilsPour, type DepsMcp } from '../src/mcp/outils';
 import { RefusOutil } from '../src/mcp/saisie';
+import { refusDesClesInconnues } from '../src/mcp/serveur';
 import { mcpEvenementsInertes } from './routes-inertes';
 import { JOURNAL_PAGE_MAX, type DepsGestionEvenements } from '../src/evenements/gestion';
 import type { AdresseVue, EnvoiVue } from '../src/evenements/store.pg';
@@ -251,18 +252,16 @@ describe('modifier et supprimer une adresse depuis Claude (marche arrière, tâc
     expect(ecrits).toEqual([]);
   });
 
-  it('🔴 l’URL ne se modifie pas : refusée, avec le chemin (supprimer puis recréer) ; une saisie vide aussi', async () => {
-    for (const saisie of [{ adresse_id: A, url: 'https://app.client.fr/hook' }, { adresse_id: A }]) {
-      const { d, ecrits, tournes } = avecAdresse();
-      await expect(outil('update_webhook_endpoint').executer(d, T, saisie, { userId: 'u1' })).rejects.toBeInstanceOf(RefusOutil);
-      expect(ecrits).toEqual([]);
-      expect(tournes).toEqual([]);
-    }
-    const { d } = avecAdresse();
-    await expect(outil('update_webhook_endpoint').executer(d, T, { adresse_id: A, url: 'https://app.client.fr/hook' }, { userId: 'u1' }))
-      .rejects.toThrow(/delete_webhook_endpoint/);
-    await expect(outil('update_webhook_endpoint').executer(d, T, { adresse_id: A, url: 'https://app.client.fr/hook' }, { userId: 'u1' }))
-      .rejects.toThrow(/set_default_responder/);
+  it('🔴 l’URL ne se modifie pas : refusée par le serveur AVANT l’outil, avec le chemin (supprimer puis recréer) ; une saisie vide aussi', async () => {
+    // Hors schéma, `url` est refusée par `traiterMessage` (tests/mcp-serveur.test.ts) : sa phrase est celle de l'outil.
+    const maj = outil('update_webhook_endpoint');
+    const refus = refusDesClesInconnues(maj, maj.entree, { adresse_id: A, url: 'https://app.client.fr/hook' });
+    expect(refus).toMatch(/delete_webhook_endpoint/);
+    expect(refus).toMatch(/set_default_responder/);
+    const { d, ecrits, tournes } = avecAdresse();
+    await expect(maj.executer(d, T, { adresse_id: A }, { userId: 'u1' })).rejects.toBeInstanceOf(RefusOutil);
+    expect(ecrits).toEqual([]);
+    expect(tournes).toEqual([]);
   });
 
   it('supprimer passe par la gestion, signé de la personne ; une adresse inconnue est un refus lisible', async () => {

@@ -3898,6 +3898,14 @@ l'activer, et d'ouvrir une recharge du crédit.
   conduite à Claude ; les refus et les valeurs rendues restent en français. `tests/mcp-repertoire.test.ts` tient les
   trois règles. ⚠️ Un texte à la fois rendu et décrit existe en deux langues (`ACTION_WEBHOOK`, `ACTION_WEBHOOK_EN`),
   et le même test exige qu'ils citent les mêmes repères.
+- 🔴 **Une clé d'argument hors du schéma d'un outil est REFUSÉE, jamais ignorée** (2026-11-04) : ignorée, elle élargirait
+  ce que l'outil touche (un critère neuf jeté par une image plus ancienne, `DEPLOY.md`). `traiterMessage` la refuse avant
+  l'outil, sur le schéma que `tools/list` annonce, par un résultat `isError` qui nomme la clé et celles que l'outil
+  accepte (`refusDesClesInconnues`, `src/mcp/serveur.ts`), et `tools/list` annonce `additionalProperties: false` pour
+  tout outil. Un outil qui sait où se règle ce qu'on lui demande donne sa phrase (`phraseClesInconnues` : l'`url` de
+  `update_webhook_endpoint`, les plafonds, le libellé ou le statut qu'`update_agent` renvoie à leur outil). Le contrôle
+  vaut au premier niveau : dans un objet imbriqué, c'est l'outil qui refuse (les plages de commandes le font).
+  `tests/mcp-serveur.test.ts` le tient.
 - **Une seule vérité** : chaque outil appelle la fonction de la console (`src/agent/gestion.ts`, `connaissance.ts`,
   `essai.ts`, `reglages.ts`, `src/stripe/paiement.ts`), sur les MÊMES objets que les routes (`src/index.ts`,
   `agentsDeLaConsole` et ses voisins). Un refus devient un refus d'outil avec la phrase de l'écran, suivie de ses

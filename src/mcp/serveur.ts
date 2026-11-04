@@ -1,4 +1,4 @@
-import { outilsPour, RefusOutil, type DepsMcp, type OutilMcp, type PersonneMcp } from './outils';
+import { outilsPour, RefusOutil, type DepsMcp, type OutilMcp, type PersonneMcp, type SchemaEntree } from './outils';
 import { messageDe } from '../lib/erreur';
 import { rappelDeLAbonnement, rappelDeLaSuiteDuPro } from './outils-numero';
 import { corpsRefusFonction } from '../offres/refus';
@@ -67,7 +67,28 @@ function ko(id: string | number, code: number, message: string): ReponseRpc {
  */
 function descriptionOutil(o: OutilMcp, deps: DepsMcp): Record<string, unknown> {
   const { description, entree } = o.selonInstance?.(deps) ?? o;
-  return { name: o.nom, title: o.annotations.title, description, inputSchema: entree, annotations: o.annotations };
+  // `additionalProperties: false` pour TOUT outil : `tools/call` refuse une clé hors schéma (`refusDesClesInconnues`),
+  // et une borne appliquée s'annonce.
+  return { name: o.nom, title: o.annotations.title, description, inputSchema: { ...entree, additionalProperties: false }, annotations: o.annotations };
+}
+
+/**
+ * 🔴 Une clé d'argument que le schéma de l'outil n'annonce pas est REFUSÉE, jamais ignorée (2026-11-04) : un critère
+ * jeté élargirait ce que l'outil touche. Le cas qui l'a fait poser : une API remise sur une image plus ancienne pendant
+ * qu'un client garde la liste d'outils neuve (`countries` ou `orders` de `tag_contacts`, ignorés, auraient étiqueté toute
+ * la cible restante). `Object.hasOwn`, jamais `in` : `toString` ou `constructor` passeraient pour annoncés. Rend la
+ * phrase du refus (celle de l'outil s'il en a une, `phraseClesInconnues`), ou `null` quand chaque clé est annoncée.
+ */
+export function refusDesClesInconnues(
+  outil: Pick<OutilMcp, 'nom' | 'phraseClesInconnues'>, entree: SchemaEntree, args: Record<string, unknown>,
+): string | null {
+  const inconnues = Object.keys(args).filter((k) => !Object.hasOwn(entree.properties, k));
+  if (inconnues.length === 0) return null;
+  const propre = outil.phraseClesInconnues?.(inconnues);
+  if (propre !== undefined) return propre;
+  const acceptees = Object.keys(entree.properties);
+  return `paramètre inconnu : ${inconnues.join(', ')} (${outil.nom} ${acceptees.length > 0 ? `accepte ${acceptees.join(', ')}` : 'n’accepte aucun paramètre'}) ; `
+    + 'rien n’a été fait. Une liste d’outils qui l’annonce n’est plus celle de ce serveur : reconnectez-le pour la relire.';
 }
 
 /**
@@ -140,6 +161,9 @@ export async function traiterMessage(deps: DepsMcp, ctx: ContexteMcp, message: u
         return ok(id, { content: blocs(phraseOutilSansObjet(sansObjet)), isError: true });
       }
       try {
+        // Sur le schéma que `tools/list` annonce (celui de l'instance), avant l'outil : rien ne part avec une clé inconnue.
+        const refus = refusDesClesInconnues(outil, (outil.selonInstance?.(deps) ?? outil).entree, args);
+        if (refus !== null) return ok(id, { content: blocs(refus), isError: true });
         const resultat = await outil.executer(deps, ctx.tenantId, args, ctx.personne);
         return ok(id, { content: blocs(JSON.stringify(resultat, null, 2)), isError: false });
       } catch (err) {

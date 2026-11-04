@@ -620,7 +620,12 @@ describe('🔴 le plafond des opérations coûteuses est celui de la console', (
 describe('les outils de l’agent appellent les fonctions de la console, dans l’espace du jeton', () => {
   it('🔴 create_agent : l’espace vient du jeton, jamais des arguments ; ni plafonds ni texte de mention d’IA rendus, sa seule langue', async () => {
     const { server, cap } = monter();
-    const r = await appeler(server, JETON.brut, 'create_agent', { label: 'Accueil', tenantId: 't2' });
+    // Un `tenantId` glissé est une clé hors schéma : refusée par le serveur, rien n'est créé (2026-11-04).
+    const glisse = await appeler(server, JETON.brut, 'create_agent', { label: 'Accueil', tenantId: 't2' });
+    expect(glisse.isError).toBe(true);
+    expect(glisse.texte).toMatch(/^paramètre inconnu : tenantId \(create_agent accepte /);
+    expect(cap.creations).toEqual([]);
+    const r = await appeler(server, JETON.brut, 'create_agent', { label: 'Accueil' });
     expect(r.isError).toBe(false);
     // Le modèle des agents de Claude Code, et non le défaut du serveur (`modele-config`) que garde la console.
     expect(cap.creations).toEqual([{ tenant: 't1', label: 'Accueil', modele: MODELE_AGENT_CLAUDE_CODE }]);
@@ -1027,7 +1032,8 @@ describe('les outils de l’agent appellent les fonctions de la console, dans l�
       const m = monter({ prixVides });
       const d = await decrire(m.server, JETON.brut, 'buy_credit');
       expect(d.description).toBe(sansWa.description);
-      expect(d.inputSchema).toEqual(sansWa.entree);
+      // `additionalProperties: false` : `tools/list` l'annonce pour tout outil (`refusDesClesInconnues`).
+      expect(d.inputSchema).toEqual({ ...sansWa.entree, additionalProperties: false });
       expect(d.description).not.toMatch(/wa_\d/);
       await m.server.close();
     }

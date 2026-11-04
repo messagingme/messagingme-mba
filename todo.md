@@ -305,11 +305,13 @@ leurs suites :
 - l'inactivité dans `prepare_contacts_deletion` (la colonne existe ; un effacement est irréversible et ouvert à la Free,
   l'activité d'avant le 2026-11-03 n'est complète que par les messages alors conservés et les clics) ;
 - un sélecteur de pays dans la console (aujourd'hui « Téléphone commence par ») ;
-- 🟡 relecture du lot : le serveur MCP ne valide pas les arguments contre le schéma de l'outil (`src/mcp/serveur.ts`) ;
-  face à une API plus ancienne (retour arrière) et à une liste d'outils neuve, `tag_contacts` ou `set_contact_field`
-  avec `countries` viseraient tout le reste de la cible. Refuser tout argument absent de `entree.properties` ;
 - 🟡 relecture du lot : une expédition d'une commande jamais vue payée (paiement à la livraison, commande payée avant le
-  2026-11-03) crée une ligne comptée comme commande payée, datée de l'expédition.
+  2026-11-03) crée une ligne comptée comme commande payée, datée de l'expédition ;
+- 🟡 relecture du refus des clés MCP inconnues (2026-11-04) : le contrôle passe après les lectures des rappels du numéro
+  et les portes d'offre et de filière (`src/mcp/serveur.ts`), donc un appel mal formé coûte deux lectures et, hors offre,
+  reçoit le refus d'offre ; le placer avant les rappels. Une clé en trop DANS un objet (`analysis[]`, `variables[]`,
+  `fiches[]`) est encore jetée sans le dire. `buy_credit` refuse `credit` quand le Crédit WhatsApp n'est pas en vente sur
+  l'instance (voulu : non annoncé), et la phrase générique y parle d'une liste périmée.
 
 Restent, dans l'ordre proposé :
 2. **Une automatisation créée en brouillon par l'assistant**, activée dans la console (Wax et Kanal le font ; la
@@ -459,9 +461,9 @@ que ce n'est pas reproduit dans un onglet au premier plan.
 - **Le retour à l'image d'avant n'est sûr qu'en partie** : les paniers ouverts notés par la nouvelle image restent en
   base ; si un marchand réaffirmait sous l'ancienne image, jusqu'à sept jours de paniers partiraient d'un coup. Les
   fiches écrites consentantes ne sont pas défaites par un retour (voulu). À dire dans le runbook d'un retour arrière.
-- **Un plugin 0.3.11 ou plus ancien pose encore la question** : `customers_consented` est ignoré sans le dire, et un
-  retrait (`false`) ne fait plus rien. Répondre à `false` par une phrase vraie (« plus rien à retirer ; pour arrêter,
-  `active: false` ») plutôt que de l'ignorer (`tests/shopify-gestion.test.ts`).
+- **Un plugin 0.3.11 ou plus ancien pose encore la question** : `customers_consented`, hors schéma, est refusé par le
+  serveur depuis le 2026-11-04, avec le refus générique. Lui donner sa phrase vraie par `phraseClesInconnues` de
+  `set_shopify_message` (« plus rien à déclarer ni à retirer ; pour arrêter, `active: false` ; relancez sans lui »).
 - **Un onglet resté sur l'ancienne console** affiche « en pause » et « Reprendre » pour une relance qui part, jusqu'au
   rechargement.
 - **À trancher par Julien : deux régimes d'import subsistent.** Importé par la console, un client arrive sans

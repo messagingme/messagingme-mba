@@ -238,7 +238,8 @@ describe('create_widget', () => {
     const { server, cap } = monter();
     const r = await appeler(server, CLE_AUTRE_ESPACE, 'create_widget', { nom: 'Blog', phrase: 'Je viens du blog', tenantId: 't1' });
     expect(r.isError).toBe(true);
-    expect(r.texte).toBe('Champ inconnu : tenantId.');
+    // Refusé par le serveur avant l'outil, comme toute clé hors schéma (`refusDesClesInconnues`, 2026-11-04).
+    expect(r.texte).toMatch(/^paramètre inconnu : tenantId \(create_widget accepte /);
     expect(cap.creations).toEqual([]);
     await server.close();
   });

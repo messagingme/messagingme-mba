@@ -210,12 +210,12 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       required: ['adresse_id'],
       additionalProperties: false,
     },
+    // `url` est hors schéma, donc refusée par le serveur avant l'outil (`refusDesClesInconnues`) : avec le chemin à suivre.
+    phraseClesInconnues: (inconnues) => (!inconnues.includes('url') ? undefined
+      : 'l’adresse d’un webhook ne se modifie pas : supprimez-la (delete_webhook_endpoint) puis recréez-la '
+        + '(create_webhook_endpoint), qui rend un nouveau secret ; si elle répondait aux clients (set_default_responder, '
+        + 'mode « application »), désignez la nouvelle aussitôt créée, sinon leurs messages vont à l’équipe, sans réponse automatique'),
     async executer(deps: DepsMcp, tenantId, args, personne) {
-      if (args.url !== undefined) {
-        throw new RefusOutil('l’adresse d’un webhook ne se modifie pas : supprimez-la (delete_webhook_endpoint) puis recréez-la '
-          + '(create_webhook_endpoint), qui rend un nouveau secret ; si elle répondait aux clients (set_default_responder, '
-          + 'mode « application »), désignez la nouvelle aussitôt créée, sinon leurs messages vont à l’équipe, sans réponse automatique');
-      }
       const id = typeof args.adresse_id === 'string' ? args.adresse_id : '';
       // Seuls les champs donnés partent à la gestion, qui refuse toute autre clé (`saisieModification`, stricte).
       const patch = Object.fromEntries((['types', 'description', 'active'] as const).filter((k) => args[k] !== undefined).map((k) => [k, args[k]]));

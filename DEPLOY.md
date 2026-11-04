@@ -285,6 +285,18 @@ dans `/ops` celles qui doivent continuer. Les débits illimités déjà écrits 
 solde. La migration n'a rien à défaire : deux colonnes à défaut constant, une table et deux fonctions, que l'ancien code
 ne nomme pas.
 
+## ⚠️ Retour arrière d'une image d'avant le refus des arguments MCP inconnus (2026-11-04)
+
+Un client MCP garde la liste d'outils lue à sa connexion (Claude Code jusqu'au redémarrage de la session). Revenu à une
+image plus ancienne, il envoie encore les paramètres neufs, et une image d'avant ce refus les IGNORE sans rien dire :
+avec les critères des segments (`countries`, `orders`, `spent`, `days_since_last_order`, `active_within_days`,
+`inactive_for_days`, `4bb9d3dc`), `tag_contacts`, `set_contact_field` et `prepare_campaign` viseraient toute la cible
+restante. Savoir si l'image visée a le refus : `git grep -q refusDesClesInconnues <sha> -- src/mcp/serveur.ts`. Avec lui,
+rien à faire : un paramètre qu'elle ne connaît pas est refusé, nommé, et rien ne part. Sans lui, lire ce que les outils
+ont gagné depuis (`git diff <sha> <en service> -- src/mcp`) : un paramètre ajouté à un outil qui écrit rend ce retour
+arrière dangereux tant que des clients restent connectés ; revenir plutôt à une image qui a le refus, ou faire
+reconnecter les clients MCP des espaces juste après le retour.
+
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 
 Les routes de `mba.` et d'`api.` nomment `mba-api` par une variable, que nginx relit seul (résolveur de Docker,

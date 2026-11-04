@@ -107,8 +107,8 @@ export const OUTILS_SHOPIFY: OutilMcp[] = [
       additionalProperties: false,
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
-      // Un plugin d'avant le 2026-10-26 envoie encore `customers_consented` : le serveur ne valide pas les arguments contre
-      // le schéma, la valeur n'est simplement pas lue.
+      // Un plugin d'avant le 2026-10-26 envoie encore `customers_consented` : hors schéma, le serveur la refuse avant
+      // l'outil depuis le 2026-11-04 (`refusDesClesInconnues`), avec le refus générique (`todo.md`).
       const messages = valeur(await brancherMessage(deps.shopify, tenantId, {
         evenement: args.event, modele: args.template, texte: args.text, langue: args.language, variables: args.variables, actif: args.active,
         delaiMinutes: args.delay_minutes,

@@ -256,6 +256,11 @@ function langueSaisie(args: Record<string, unknown>): LangueMentionIa | undefine
  */
 const CHAMPS_FICHE_MCP = ['objectif', 'ton', 'personnalite', 'reglesTransfert', 'sorties'] as const satisfies ReadonlyArray<keyof FicheAgentContenu>;
 const CLES_UPDATE_AGENT: ReadonlySet<string> = new Set(['agent_id', ...CHAMPS_FICHE_MCP, 'modele', 'fiche_version', 'mention_ia_langue']);
+/** Le refus d'une clé hors de la liste, qui dit où elle se règle : celui du serveur (`phraseClesInconnues`) et de l'outil. */
+const champsNonModifiables = (interdites: readonly string[]): string =>
+  `champ non modifiable par cet outil : ${interdites.join(', ')}. Le libellé et une mention d’IA en texte libre se `
+  + 'règlent dans la console (mention_ia_langue choisit une phrase relue), les limites d’une conversation par '
+  + 'set_agent_limits, le statut par activate_agent.';
 
 /**
  * La description et le schéma de `buy_credit` pour des offres données, la plus petite en tête : toutes dans le
@@ -471,16 +476,12 @@ export const OUTILS_AGENT: OutilMcp[] = [
       required: ['agent_id'],
       additionalProperties: false,
     },
+    phraseClesInconnues: champsNonModifiables,
     async executer(deps, tenantId, args, personne) {
       const id = texteObligatoire(args, 'agent_id', 100);
+      // Le serveur refuse déjà ces clés (même phrase) ; le filtre reste ici, devant la porte de l'administrateur.
       const interdites = Object.keys(args).filter((k) => !CLES_UPDATE_AGENT.has(k));
-      if (interdites.length > 0) {
-        throw new RefusOutil(
-          `champ non modifiable par cet outil : ${interdites.join(', ')}. Le libellé et une mention d’IA en texte libre se `
-          + 'règlent dans la console (mention_ia_langue choisit une phrase relue), les limites d’une conversation par '
-          + 'set_agent_limits, le statut par activate_agent.',
-        );
-      }
+      if (interdites.length > 0) throw new RefusOutil(champsNonModifiables(interdites));
       const langue = langueSaisie(args);
       const contenu = Object.fromEntries(CHAMPS_FICHE_MCP.filter((k) => args[k] !== undefined).map((k) => [k, args[k]]));
       // La saisie de la console, telle quelle : les bornes et le contrôle de complétude sont ceux de `modifierAgent`, qui

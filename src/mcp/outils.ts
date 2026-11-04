@@ -222,7 +222,11 @@ export interface SchemaEntree {
   type: 'object';
   properties: Record<string, ProprieteEntree>;
   required?: string[];
-  /** `false` quand l'outil REFUSE une clé inconnue (la saisie d'un widget est `.strict()`) : le modèle le sait. */
+  /**
+   * Sans effet sur ce que reçoit un client : depuis le 2026-11-04, `tools/list` annonce `false` pour TOUT outil, et
+   * `tools/call` refuse toute clé hors de `properties` (`refusDesClesInconnues`, `src/mcp/serveur.ts`). Ceux qui le
+   * déclarent le gardent pour les tests qui lisent ce schéma ; `true` n'existe pas, aucun outil n'est permissif.
+   */
   additionalProperties?: false;
 }
 
@@ -262,6 +266,12 @@ export interface OutilMcp {
    * prix est configuré). Absent : l'outil est décrit tel qu'écrit, comme dans la documentation publique et le plugin.
    */
   selonInstance?(deps: DepsMcp): Pick<OutilMcp, 'description' | 'entree'>;
+  /**
+   * La phrase qui refuse des clés hors schéma à la place du refus générique (`refusDesClesInconnues`), quand l'outil sait
+   * où se règle ce qu'un modèle lui demande (l'URL d'un webhook, le plafond d'un agent) ; `undefined` : le refus
+   * générique. Les clés restent refusées, seule la phrase change.
+   */
+  phraseClesInconnues?(inconnues: readonly string[]): string | undefined;
   /**
    * 🔴 L'outil agit au nom d'une personne nommée : il n'est ni listé ni appelable avec une clé d'API (`outilsPour`),
    * seulement avec un jeton OAuth, dont la personne est un admin relu à chaque appel. Une clé `mcp:write` peut être

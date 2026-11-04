@@ -26,6 +26,7 @@ import { filiereApiSeule, aucunPremierMessage } from './gardes';
 import { porteEnMemoire } from './aide/porte-premier';
 import { PHRASE_PREMIER_CONTACT } from '../src/application/envoi';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
+import { refusDesClesInconnues } from '../src/mcp/serveur';
 
 /**
  * Le serveur MCP : `POST /mcp`, du JSON-RPC 2.0 sans état, autorisé par une clé d'API.
@@ -725,6 +726,56 @@ describe('serveur MCP : les outils', () => {
     const oublie = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('assign_conversation', { conversation_id: 'cv1' }) });
     expect(contenu(oublie).isError).toBe(true);
     expect(vus).toHaveLength(2);
+    await server.close();
+  });
+});
+
+/**
+ * 🔴 UNE CLÉ D'ARGUMENT QUE LE SCHÉMA N'ANNONCE PAS EST REFUSÉE, JAMAIS IGNORÉE (2026-11-04). Ignorée, elle élargit ce
+ * que l'outil touche : sur une API remise à une image plus ancienne, un client qui garde la liste neuve enverrait
+ * `countries` à `tag_contacts`, et toute la cible restante serait étiquetée.
+ */
+describe('🔴 serveur MCP : une clé d’argument inconnue est refusée avant l’outil', () => {
+  it('le refus nomme la clé et ce que l’outil accepte, et RIEN n’est posé', async () => {
+    const { server, traces } = app();
+    const res = await server.inject({
+      method: 'POST', url: '/mcp', ...auth(CLE_TOUT),
+      payload: appeler('tag_conversation', { conversation_id: 'cv1', tags: ['chaud'], countries: ['FR'] }),
+    });
+    const { texte, isError } = contenu(res);
+    expect(isError).toBe(true);
+    expect(texte).toMatch(/^paramètre inconnu : countries \(tag_conversation accepte conversation_id, tags\) ; rien n’a été fait/);
+    expect(traces.poses).toEqual([]);
+    await server.close();
+  });
+
+  it('une clé héritée d’Object (toString, constructor) n’est pas une clé annoncée', async () => {
+    const { server, traces } = app();
+    for (const cle of ['toString', 'constructor']) {
+      const res = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_conversations', { [cle]: 'x' }) });
+      expect(contenu(res).isError, cle).toBe(true);
+      expect(contenu(res).texte, cle).toMatch(new RegExp(`^paramètre inconnu : ${cle} \\(list_conversations accepte `));
+    }
+    expect(traces.listes, 'aucune lecture : le refus précède l’outil').toEqual([]);
+    // Ni du côté des phrases propres d'un outil : `constructor` n'en est pas une.
+    const maj = OUTILS.find((o) => o.nom === 'update_webhook_endpoint')!;
+    expect(refusDesClesInconnues(maj, maj.entree, { adresse_id: 'a', constructor: 1 })).toMatch(/^paramètre inconnu : constructor /);
+    await server.close();
+  });
+
+  it('un outil sans paramètre le dit', async () => {
+    const { server } = app();
+    const res = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: appeler('list_widgets', { status: 'active' }) });
+    expect(contenu(res)).toMatchObject({ isError: true, texte: expect.stringMatching(/^paramètre inconnu : status \(list_widgets n’accepte aucun paramètre\)/) });
+    await server.close();
+  });
+
+  it('tools/list annonce le refus : additionalProperties false sur CHAQUE outil', async () => {
+    const { server } = app();
+    const res = await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_TOUT), payload: rpc('tools/list') });
+    const outils = res.json<{ result: { tools: Array<{ name: string; inputSchema: { additionalProperties?: unknown } }> } }>().result.tools;
+    expect(outils.length).toBeGreaterThan(0);
+    for (const t of outils) expect(t.inputSchema.additionalProperties, t.name).toBe(false);
     await server.close();
   });
 });
