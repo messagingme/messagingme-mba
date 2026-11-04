@@ -73,12 +73,17 @@ function direEchec(e: EchecMcp): string {
  * Pose une valeur au bout d'un chemin, en créant les objets intermédiaires. Un maillon déjà occupé par un
  * scalaire (schéma qui déclare `a` et `a.b`) arrête la pose plutôt que de l'écraser, pour un appel
  * reproductible quel que soit l'ordre des paramètres.
+ *
+ * 🔴 Le chemin vient du schéma d'un serveur MCP qu'un espace a déclaré. `__proto__` n'est jamais posé, et un
+ * maillon ne compte que s'il est PROPRE : `__proto__.fatal` écrivait `Object.prototype.fatal` dans le worker
+ * partagé, et chaque résultat d'outil de tous les espaces se lisait ensuite `fatal` (audit du 2026-11-04).
  */
 function poser(cible: Record<string, unknown>, chemin: string[], valeur: unknown): void {
+  if (chemin.includes('__proto__')) return;
   let courant = cible;
   for (let i = 0; i < chemin.length - 1; i += 1) {
     const cle = chemin[i]!;
-    const suivant = courant[cle];
+    const suivant = Object.hasOwn(courant, cle) ? courant[cle] : undefined;
     if (suivant === undefined) courant[cle] = {};
     else if (typeof suivant !== 'object' || suivant === null || Array.isArray(suivant)) return;
     courant = courant[cle] as Record<string, unknown>;

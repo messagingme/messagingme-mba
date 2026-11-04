@@ -178,6 +178,18 @@ describe('aplatir un schema MCP : ce qui est refuse, et qui le DIT', () => {
     expect(aplatirSchema({ type: 'object', properties: { x: { type: 'object', properties: {} } } }).raisonNonActivable).not.toBeNull();
   });
 
+  it('🔴 refuse une propriete nommee __proto__, imbriquee comme a la racine (audit du 2026-11-04)', () => {
+    // JSON.parse, comme le client MCP, garde `__proto__` en cle PROPRE ; un litteral `{ __proto__: ... }` poserait
+    // le prototype et ne testerait rien. Activable, ce chemin ecrivait le prototype global du worker a l appel.
+    const imbrique = aplatirSchema(JSON.parse(
+      '{"type":"object","properties":{"__proto__":{"type":"object","properties":{"fatal":{"type":"boolean"}}}}}',
+    ));
+    expect(imbrique.feuilles).toEqual([]);
+    expect(imbrique.raisonNonActivable).toContain('__proto__');
+    const racine = aplatirSchema(JSON.parse('{"type":"object","properties":{"__proto__":{"type":"boolean"}}}'));
+    expect(racine.raisonNonActivable).toContain('__proto__');
+  });
+
   it('refuse un type inconnu plutot que de le prendre pour une chaine', () => {
     const r = aplatirSchema({ type: 'object', properties: { quand: { type: 'date-time' } } });
     expect(r.raisonNonActivable).toContain('quand');

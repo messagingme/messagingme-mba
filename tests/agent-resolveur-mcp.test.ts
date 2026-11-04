@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { creerResolveurMcp, LECTURE_MCP_MAX_OCTETS } from '../src/agent/resolvers/mcp';
 import type { EntreeResolveur } from '../src/agent/executor';
 import type { OutilDefini } from '../src/agent/catalog';
@@ -171,6 +171,33 @@ describe('le resolveur MCP : ce qui PART chez le serveur', () => {
       {},
     ));
     expect(h.appeler).toHaveBeenCalledWith('search', {});
+  });
+
+  describe('🔴 un chemin venu du schema distant n ecrit QUE dans les arguments (audit du 2026-11-04)', () => {
+    // `cheminMcp` vient du serveur MCP qu un espace a declare. `__proto__.fatal` ecrivait `Object.prototype.fatal`
+    // dans le worker partage, et chaque resultat d outil de TOUS les espaces se lisait ensuite `fatal` : leurs tours
+    // s arretaient au premier appel, jusqu au redemarrage.
+    afterEach(() => { delete (Object.prototype as Record<string, unknown>).fatal; });
+
+    it('« __proto__ » n atteint pas le prototype global, et ne part pas chez le serveur', async () => {
+      const h = harnais();
+      await h.resolveur(entree(
+        OUTIL({ params: [{ name: 'proto_fatal', type: 'boolean', source: 'modele', cheminMcp: '__proto__.fatal' }] }),
+        { proto_fatal: true },
+      ));
+      expect(({} as Record<string, unknown>).fatal).toBeUndefined();
+      expect(h.appeler).toHaveBeenCalledWith('search', {});
+    });
+
+    it('un maillon HERITE (constructor) devient une cle propre, sans toucher au prototype', async () => {
+      const h = harnais();
+      await h.resolveur(entree(
+        OUTIL({ params: [{ name: 'c', type: 'boolean', source: 'modele', cheminMcp: 'constructor.prototype.fatal' }] }),
+        { c: true },
+      ));
+      expect(({} as Record<string, unknown>).fatal).toBeUndefined();
+      expect(h.appeler).toHaveBeenCalledWith('search', { constructor: { prototype: { fatal: true } } });
+    });
   });
 
   it('🔴 le jeton de la source part en en-tete, et JAMAIS dans ce qui revient au modele', async () => {

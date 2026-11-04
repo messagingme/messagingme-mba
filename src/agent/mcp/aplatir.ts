@@ -140,6 +140,12 @@ export function aplatirSchema(inputSchema: unknown): SchemaAplati {
     const obligatoires = requis(noeud);
     for (const [cle, brut] of Object.entries(props)) {
       const sousChemin = chemin === '' ? cle : `${chemin}.${cle}`;
+      // 🔴 JSON.parse garde `__proto__` en clé propre : activable, ce chemin écrirait le prototype global du
+      // worker à l'appel (`poser`, src/agent/resolvers/mcp.ts, refuse aussi). Audit du 2026-11-04.
+      if (cle === '__proto__') {
+        obstacles.push(`« ${sousChemin} » : ce nom de paramètre est réservé et n’est pas pris en charge`);
+        continue;
+      }
       const enfant = objetOuNull(brut);
       if (enfant === null) {
         obstacles.push(`« ${sousChemin} » : déclaration illisible`);
