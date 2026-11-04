@@ -285,6 +285,36 @@ describe.skipIf(!url)('Numéro délié (Postgres réel)', () => {
     await pool.query('delete from credits_whatsapp where tenant_id = $1', [tenant]);
   });
 
+  it('🔴 Crédit WhatsApp (lot 4a, jaune 6) : une ligne active lève les pauses `ligne_credit_inactive` ; arrêtée, absente ou sans numéro relié, rien', async () => {
+    const enCours = await campagne(tenant, { status: 'paused', pauseReason: 'ligne_credit_inactive' });
+    const programmee = await campagne(tenant, { status: 'paused', pauseReason: 'ligne_credit_inactive', scheduledAt: '2026-10-30T08:00:00Z' });
+    const credit = await campagne(tenant, { status: 'paused', pauseReason: 'credit_whatsapp_epuise' });
+    const chezLAutre = await campagne(autre, { status: 'paused', pauseReason: 'ligne_credit_inactive' });
+    // Aucune ligne : rien ne repart (la campagne repartirait aussitôt en pause).
+    expect(await store.leverPausesLigneCredit(tenant)).toBe(0);
+    // Une ligne arrêtée : rien non plus.
+    await pool.query(
+      `insert into lignes_credit_whatsapp (tenant_id, phone_number_id, waba_id, origine, note, arretee_le)
+       values ($1, $2, $3, 'option', 'itest', now())`,
+      [tenant, PN, `itest-delie-waba-${suffixe}`],
+    );
+    expect(await store.leverPausesLigneCredit(tenant)).toBe(0);
+    // Active, mais le numéro délié : rien.
+    await pool.query('update lignes_credit_whatsapp set arretee_le = null where tenant_id = $1', [tenant]);
+    await pool.query('update phone_numbers set delie_le = now() where tenant_id = $1', [tenant]);
+    expect(await store.leverPausesLigneCredit(tenant)).toBe(0);
+    await pool.query('update phone_numbers set delie_le = null where tenant_id = $1', [tenant]);
+    // Active et le numéro relié : ses deux pauses de ligne repartent, la programmée en `scheduled` ; celle du crédit et
+    // celle d'un autre espace restent.
+    expect(await store.leverPausesLigneCredit(tenant)).toBe(2);
+    expect(await etat(enCours)).toMatchObject({ status: 'running', pause_reason: null });
+    expect(await etat(programmee)).toMatchObject({ status: 'scheduled', pause_reason: null });
+    expect(await etat(credit)).toMatchObject({ status: 'paused', pause_reason: 'credit_whatsapp_epuise' });
+    expect(await etat(chezLAutre)).toMatchObject({ status: 'paused', pause_reason: 'ligne_credit_inactive' });
+    await pool.query(`update campaigns set status = 'completed', pause_reason = null where tenant_id = any($1::uuid[])`, [[tenant, autre]]);
+    await pool.query('delete from lignes_credit_whatsapp where tenant_id = $1', [tenant]);
+  });
+
   it('lot 4 : le numéro d’envoi, son espace et ses chiffres sans « + » ni espaces ; inconnu, `null`', async () => {
     expect(await store.telephone(PN)).toEqual({ tenantId: tenant, chiffres: '33500000077' });
     expect(await store.telephone('pn-inconnu')).toBeNull();

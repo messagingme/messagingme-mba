@@ -7,7 +7,7 @@ import { LimiteOffreError } from '../src/offres/refus';
 import { RetraitDeLaListeRefuse } from '../src/mba/liste';
 import { NumeroDelieError } from '../src/meta/numero-delie';
 import { creerGardeCreditWhatsapp, creerLecteurCategorie, FRANCHISE_SERVICE_PAR_NUMERO, type DepsGardeCredit, type GardeCreditWhatsapp } from '../src/credit-whatsapp/garde';
-import { CreditWhatsappRefus } from '../src/credit-whatsapp/refus';
+import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../src/credit-whatsapp/refus';
 import type { GrilleMeta } from '../src/credit-whatsapp/grille';
 import type { LigneCredit } from '../src/credit-whatsapp/lignes.pg';
 import type { ProvisionDemandee } from '../src/credit-whatsapp/credit';
@@ -166,6 +166,13 @@ describe('la garde seule', () => {
     expect(hors.places).toEqual(['t1:pn1']);
     expect(await hors.g.refusAvantEffets('t1', 'pn1')).toMatchObject({ motif: 'ligne_inactive' });
     expect(await hors.g.refusPourMessage('t1', 'pn1', '+33612345678', 'marketing')).toMatchObject({ motif: 'ligne_inactive' });
+    // 🔴 La raison est dite (décision 1 du lot 4 : « avec la raison »), le code de l'API reste le même.
+    for (const refus of [await hors.g.refusAvantEffets('t1', 'pn1'), await hors.g.refusPourMessage('t1', 'pn1', '+33612345678', 'marketing')]) {
+      expect(refus).toMatchObject({ detail: 'place_manquante', code: 'whatsapp_credit_line_inactive' });
+      expect(refus?.message).toMatch(/pas de place dans l’option/);
+      // Levé après un effet du bloc (une campagne, une automation) : la raison voyage avec lui.
+      if (refus !== null) expect(new CreditWhatsappRefusApresEffets(refus)).toMatchObject({ detail: 'place_manquante', message: refus.message });
+    }
     // Dans les places : il provisionne comme toute ligne.
     const dans = garde({ ligne: option, dansLesPlaces: true });
     await dans.g.avant(envoi({ type: 'marketing' }));

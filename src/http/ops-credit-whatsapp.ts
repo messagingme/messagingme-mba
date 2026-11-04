@@ -51,6 +51,8 @@ export interface OpsCreditWhatsappDeps {
   option: {
     entreprise(tenantId: string): Promise<boolean>;
     placesPayees(tenantId: string): Promise<number>;
+    /** `PgNumeroDelieStore.leverPausesLigneCredit` : une ligne posée fait repartir les campagnes en pause faute de ligne. */
+    reprendreCampagnes(tenantId: string): Promise<number>;
   };
   /** Le journal des actions de l'espace : le numéro posé ou retiré, l'exploitant pour acteur. */
   audit: AuditSink;
@@ -277,6 +279,8 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
       if (!(await deps.lignes.poser(tenantId, phoneNumberId, numero.wabaId, origine, signee))) {
         return reply.code(409).send({ error: 'numéro déjà sur la ligne' });
       }
+      // La ligne posée : les campagnes de l'espace en pause faute de ligne active repartent (relecture du lot 4a, jaune 6).
+      await deps.option.reprendreCampagnes(tenantId);
     } else if (!(await deps.lignes.retirer(tenantId, phoneNumberId))) {
       return reply.code(404).send({ error: 'numéro pas sur la ligne de cet espace' });
     }

@@ -114,6 +114,14 @@ describe.skipIf(!url)('l’option du Crédit WhatsApp (0276)', () => {
     expect(await lignes.arreterLesLignesDeLOption(t)).toBe(0);
     expect(await lignes.numerosCouvertsParOption(t)).toEqual([]);
     expect((await lignes.ligneDuNumero('itest-opt-essai'))?.arreteeLe).toBeNull();
+    // 🔴 L'option reprise relance SES lignes arrêtées (relecture du lot 4a, jaune 4), sans toucher à celle de /ops ; une
+    // ligne retirée reste retirée.
+    expect(await lignes.relancerLesLignesDeLOption(t)).toBe(1);
+    expect(await lignes.relancerLesLignesDeLOption(t)).toBe(0);
+    expect(await lignes.numerosCouvertsParOption(t)).toEqual(['itest-opt-ligne', 'itest-opt-ancien']);
+    expect(await lignes.retirer(t, 'itest-opt-ligne')).toBe(true);
+    expect(await lignes.relancerLesLignesDeLOption(t)).toBe(0);
+    expect(await lignes.ligneDuNumero('itest-opt-ligne')).toBeNull();
   });
 
   it('🔴 une seule ligne en cours par compte WhatsApp, tenue par la base : la seconde pose sur le compte ne passe pas', async () => {

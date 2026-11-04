@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-04 : les jaunes d'avant la vente de l'option du Crédit WhatsApp (lot 4a)
+
+Les quatre jaunes des deux relectures du lot 4a que le plan marquait « avant la vente » (à fermer avant de poser
+`STRIPE_PRIX_OPTION_WA`), demande de Julien du 2026-11-03 (« ferme les jaunes et avance sur le lot 4 »).
+
+- **Une option reprise relance ses lignes** : la fin d'une option arrêtait ses lignes, rien ne les relançait ; le client
+  qui la reprenait payait sans envoyer. Une option neuve relance les lignes `'option'` arrêtées de l'espace.
+- **Les campagnes en pause faute de ligne repartent, et le refus dit sa raison** : rien ne levait `ligne_credit_inactive`,
+  alors que son message promet la reprise. Une option prise, des places notées en plus, une pose dans `/ops` la lèvent ;
+  un numéro hors des places est refusé avec « pas de place dans l'option », sous le même code d'API.
+- **Plus rien d'acquitté sans trace** : une option payée que rien ne relit, ou finie chez nous et encore facturée, alerte
+  Julien ; un impayé que Stripe abandonne en `unpaid` est résilié chez lui avant d'être fini (il prélevait encore).
+- **Le message d'un prorata impayé** ne fait plus recommencer l'ajout : régler la facture l'applique, recommencer
+  faisait payer une seconde place.
+- Treize retraits de correctif, chacun vu par son test ; les requêtes neuves par la suite d'intégration de la CI.
+
 ## 2026-11-03 (soir) : la CSP de la console bloque, après trois semaines d'observation
 
 Point ouvert de l'audit RSSI du jour, décidé par Julien. La table `csp_rapports`, lue en lecture seule sur la production

@@ -189,6 +189,27 @@ export class PgNumeroDelieStore {
     return c.rowCount ?? 0;
   }
 
+  /**
+   * Lève les pauses `ligne_credit_inactive` de l'espace (relecture du lot 4a, jaune 6 : rien ne les levait, alors que
+   * `messageDePause` promet la reprise), quand ce qui les causait a pu changer : une option prise ou reprise, des places en
+   * plus, une ligne posée dans `/ops`. Même reprise que `leverPausesCreditWhatsapp`. 🔴 Seulement si l'espace a une ligne en
+   * cours ET active, et un numéro relié, dans la MÊME instruction : sinon la campagne repartirait dans le vide. Une
+   * campagne dont le numéro reste hors des places y retourne au premier envoi : la garde le refuse toujours, la levée ne
+   * coûte qu'un envoi refusé, jamais un message parti sans place. Rend le nombre de campagnes reprises.
+   */
+  async leverPausesLigneCredit(tenantId: string): Promise<number> {
+    const c = await this.pool.query(
+      `update campaigns c
+          set status = case when c.scheduled_at is not null then 'scheduled' else 'running' end,
+              pause_reason = null, paused_until = null
+        where c.tenant_id = $1 and c.status = 'paused' and c.pause_reason = 'ligne_credit_inactive'
+          and exists (select 1 from lignes_credit_whatsapp l where l.tenant_id = $1 and l.retiree_le is null and l.arretee_le is null)
+          and exists (select 1 from phone_numbers p where p.tenant_id = $1 and p.delie_le is null)`,
+      [tenantId],
+    );
+    return c.rowCount ?? 0;
+  }
+
   /** Les espaces qui ont une campagne en pause `credit_whatsapp_epuise`, pour le balayage horaire de secours. */
   async espacesEnPauseCredit(): Promise<string[]> {
     const res = await this.pool.query<{ tenant_id: string }>(

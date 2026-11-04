@@ -63,7 +63,7 @@ function app(
     },
     audit: async (tenant, acteur, action, _cible, detail) => { traces.push({ tenant, email: acteur.email, action, detail }); },
     credit: { solde: async () => 0, consommationDuMois: async () => 0, dernieresProvisions: async () => [], ...credit },
-    option: { entreprise: async () => true, placesPayees: async () => 0, ...option },
+    option: { entreprise: async () => true, placesPayees: async () => 0, reprendreCampagnes: async () => 0, ...option },
   };
   const deps: OpsRouteDeps = {
     ...opsInerte,
@@ -357,17 +357,22 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
   it('🔴 un Pro ou un Business : la pose consomme des places payées, et tout le compte doit y tenir (décision du 2026-11-03)', async () => {
     for (const [places, attendu] of [[0, 409], [1, 409], [2, 200]] as const) {
       const poses: unknown[][] = [];
+      const reprises: string[] = [];
       const a = app({}, true, {
         numeroDeLEspace: async () => NUMERO, numerosDeLEspace: async () => COMPTE, poser: async (...args) => { poses.push(args); return true; },
-      }, [], {}, { entreprise: async () => false, placesPayees: async () => places });
+      }, [], {}, {
+        entreprise: async () => false, placesPayees: async () => places,
+        reprendreCampagnes: async (t) => { reprises.push(t); return 1; },
+      });
       const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
       expect(res.statusCode, `${places} place(s)`).toBe(attendu);
       if (attendu === 409) {
         expect(res.json()).toMatchObject({ code: 'places_manquantes' });
-        expect(poses).toEqual([]);
+        expect([poses, reprises]).toEqual([[], []]);
       } else {
-        // Une ligne de l'option, sur une place payée.
+        // Une ligne de l'option, sur une place payée ; ses campagnes en pause faute de ligne repartent (jaune 6).
         expect(poses).toEqual([[T1, PN, 'w1', 'option', `${ADRESSE_OPS} : numéro d’essai de la ligne`]]);
+        expect(reprises).toEqual([T1]);
       }
       await a.close();
     }

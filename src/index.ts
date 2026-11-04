@@ -49,7 +49,7 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
-import { finDeDroitOption, optionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
+import { finDeDroitOption, optionChezStripe, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { changerResiliationPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
 import { creerVueOffre } from './offres/vue';
 import { upsertContactsFromApi } from './api/contacts-upsert';
@@ -1049,6 +1049,7 @@ async function main(): Promise<void> {
     options: optionsCreditWhatsapp,
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
     numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
+    reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
   };
   /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */
@@ -2180,6 +2181,9 @@ async function main(): Promise<void> {
           chezStripe: (abonnementId) => optionChezStripe(optionDeLaConsole, abonnementId),
           arreterLesLignes: (tenant) => lignesCreditWhatsapp.arreterLesLignesDeLOption(tenant),
           illimite: async (tenant) => (await offresSansCache.offreDe(tenant)).offre === 'entreprise',
+          relancerLesLignes: (tenant) => lignesCreditWhatsapp.relancerLesLignesDeLOption(tenant),
+          reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
+          resilier: (abonnementId) => resilierOptionChezStripe(optionDeLaConsole, abonnementId),
           surFinDuPro: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
         },
@@ -3123,6 +3127,7 @@ async function main(): Promise<void> {
         option: {
           entreprise: async (tenant) => (await conditionsCreditWhatsapp.conditions(tenant)).openBar,
           placesPayees: (tenant) => optionsCreditWhatsapp.placesPayees(tenant),
+          reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
         },
       },
       // Les jobs morts et leur rejeu : un geste d'exploitation cross-espace, qui suppose qu'on ait corrigé la

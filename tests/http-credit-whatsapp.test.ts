@@ -108,6 +108,7 @@ function achat(o: {
       options: { vivante: async () => null, noterPlaces: async () => null },
       offre: async () => o.offre ?? 'pro',
       numerosCouverts: async () => 1,
+      reprendreCampagnes: async () => 0,
       alerter: async () => {},
     },
   };

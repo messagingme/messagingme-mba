@@ -206,11 +206,12 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option : la migration 0276, le serveur
   (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet) et les écrans (l'onglet, la
   pose forcée de `/ops`) ; le rouge de sa relecture corrigé (la fin de l'option d'une Entreprise n'arrête plus ses
-  lignes), comme celui de la relecture des écrans (l'option payée pas encore arrivée ne se reprend plus). 🟡 Leurs jaunes
-  encore ouverts, au plan (§ « La relecture du lot 4a » et § « La relecture des écrans du lot 4a-2 »), dont quatre à
-  fermer AVANT l'ouverture de la vente : une ligne arrêtée qui ne se relance pas quand l'option est reprise, les
-  campagnes en pause sur une place manquante jamais reprises, les trois cas du webhook acquittés sans trace, et le
-  message d'un prorata impayé qui invite à payer une seconde place. À Julien : un retrait de place vaut tout
+  lignes), comme celui de la relecture des écrans (l'option payée pas encore arrivée ne se reprend plus). Les quatre
+  jaunes à fermer avant l'ouverture de la vente sont écrits et vérifiés le 2026-11-04 (une option reprise relance ses
+  lignes, les pauses faute de place se lèvent et le refus dit sa raison, les cas acquittés sans trace alertent et un
+  impayé abandonné est résilié chez Stripe, le message d'un prorata impayé ne fait plus payer deux fois) : ils attendent
+  leur relecture et leur déploiement, AVANT le prix. 🟡 Les autres jaunes, au plan (§ « La relecture du lot 4a » et
+  § « La relecture des écrans du lot 4a-2 »). À Julien : un retrait de place vaut tout
   de suite (comme les sièges du Pro), la spec disait en fin de période. 4b, la recharge automatique, ensuite. 🔴 Avant
   d'ouvrir la vente, à Julien : le prix `STRIPE_PRIX_OPTION_WA` (le poser ouvre l'onglet à TOUS les Pro et Business),
   la modification de quantité laissée FERMÉE pour l'option dans le portail client de Stripe (sinon une place s'ajoute

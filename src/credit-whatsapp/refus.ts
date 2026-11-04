@@ -8,7 +8,9 @@
  *
  * - `solde` (402) : le Crédit WhatsApp ne couvre pas ce message ; `manqueMicroEur` dit combien il manque.
  * - `ligne_inactive` (409) : le numéro est sur la ligne mais n'y est plus payé (option arrêtée), ou rien ne permet de
- *   chiffrer le message (aucune grille de Meta en vigueur) ; recharger n'y changerait rien.
+ *   chiffrer le message (aucune grille de Meta en vigueur) ; recharger n'y changerait rien. Le détail `place_manquante`
+ *   (un numéro du compte au-delà des places payées de l'option, décision de Julien du 2026-11-03) garde ce motif et son
+ *   code, et dit sa raison : une place de plus le libère.
  *
  * Le message ne porte aucun identifiant : il s'inscrit sur le destinataire d'une campagne ou dans un journal.
  */
@@ -27,15 +29,27 @@ export const MESSAGE_REFUS_CREDIT: Record<MotifRefusCredit, string> = {
   ligne_inactive: 'Le Crédit WhatsApp n’est pas actif sur ce numéro : ce message n’est pas parti.',
 };
 
+/** La raison d'un refus `ligne_inactive` qu'un administrateur peut lever lui-même. */
+export type DetailRefusCredit = 'place_manquante';
+
+export const MESSAGE_PLACE_MANQUANTE =
+  'Ce numéro n’a pas de place dans l’option Crédit WhatsApp : ce message n’est pas parti. Un administrateur peut ajouter un numéro à l’option depuis Paramètres > Offre.';
+
 export class CreditWhatsappRefus extends Error {
   readonly statusCode: 402 | 409;
 
   /**
    * `manqueMicroEur` : ce qui manque pour ce message ; `prixMicroEur` : son prix, commission comprise (la pause d'une
-   * campagne ne s'écrit que si le solde est encore sous ce prix, `pauserCampagneCredit`).
+   * campagne ne s'écrit que si le solde est encore sous ce prix, `pauserCampagneCredit`). `detail` : la raison d'un refus
+   * de la ligne quand elle se dit (une place manquante), le motif et le code restant les mêmes.
    */
-  constructor(readonly motif: MotifRefusCredit, readonly manqueMicroEur: number | null = null, readonly prixMicroEur: number | null = null) {
-    super(MESSAGE_REFUS_CREDIT[motif]);
+  constructor(
+    readonly motif: MotifRefusCredit,
+    readonly manqueMicroEur: number | null = null,
+    readonly prixMicroEur: number | null = null,
+    readonly detail: DetailRefusCredit | null = null,
+  ) {
+    super(detail === 'place_manquante' ? MESSAGE_PLACE_MANQUANTE : MESSAGE_REFUS_CREDIT[motif]);
     this.name = 'CreditWhatsappRefus';
     this.statusCode = motif === 'solde' ? 402 : 409;
   }
@@ -54,7 +68,7 @@ export class CreditWhatsappRefus extends Error {
  */
 export class CreditWhatsappRefusApresEffets extends CreditWhatsappRefus {
   constructor(origine: CreditWhatsappRefus) {
-    super(origine.motif, origine.manqueMicroEur, origine.prixMicroEur);
+    super(origine.motif, origine.manqueMicroEur, origine.prixMicroEur, origine.detail);
     this.name = 'CreditWhatsappRefusApresEffets';
   }
 }

@@ -136,7 +136,7 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
     if (ligne.tenantId !== tenantId || ligne.arreteeLe !== null) return new CreditWhatsappRefus('ligne_inactive');
     if ((await d.grille()) === null) return new CreditWhatsappRefus('ligne_inactive');
     const { openBar } = await d.conditions(tenantId);
-    if (!openBar && !(await dansLesPlaces(tenantId, phoneNumberId, ligne))) return new CreditWhatsappRefus('ligne_inactive');
+    if (!openBar && !(await dansLesPlaces(tenantId, phoneNumberId, ligne))) return new CreditWhatsappRefus('ligne_inactive', null, null, 'place_manquante');
     if (openBar) return null;
     const solde = await d.credit.solde(tenantId);
     if (solde > 0) return null;
@@ -167,7 +167,7 @@ export function creerGardeCreditWhatsapp(d: DepsGardeCredit): GardeCreditWhatsap
       return { refus: new CreditWhatsappRefus('ligne_inactive') };
     }
     const { openBar, commissionPct } = await d.conditions(tenantId);
-    if (!openBar && !(await dansLesPlaces(tenantId, phoneNumberId, ligne))) return { refus: new CreditWhatsappRefus('ligne_inactive') };
+    if (!openBar && !(await dansLesPlaces(tenantId, phoneNumberId, ligne))) return { refus: new CreditWhatsappRefus('ligne_inactive', null, null, 'place_manquante') };
     const categorie = await categorieDe();
     const pays = paysDuDestinataire(destinataire);
     const dansLaFranchise = categorie === 'service'

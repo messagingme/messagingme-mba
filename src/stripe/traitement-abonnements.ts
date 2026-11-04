@@ -65,6 +65,18 @@ export interface DepsTraitementAbonnements {
     arreterLesLignes(tenantId: string): Promise<number>;
     /** L'espace est-il une Entreprise (illimitée), l'offre relue SANS cache ? Ses lignes ne dépendent alors d'aucune option. */
     illimite(tenantId: string): Promise<boolean>;
+    /**
+     * `PgLignesCreditStore.relancerLesLignesDeLOption` : une option reprise relance les lignes que la fin de la précédente
+     * avait arrêtées (relecture du lot 4a, jaune 4). Rend le nombre de lignes relancées.
+     */
+    relancerLesLignes(tenantId: string): Promise<number>;
+    /** `PgNumeroDelieStore.leverPausesLigneCredit` : les campagnes en pause faute de ligne active repartent (jaune 6). */
+    reprendreCampagnes(tenantId: string): Promise<number>;
+    /**
+     * `resilierOptionChezStripe` : un impayé que Stripe abandonne en `unpaid` laisse l'abonnement vivant chez lui, qui le
+     * prélèverait encore (jaune 3). `false` si Stripe refuse (Julien prévenu) ; une panne passagère lève, Stripe rejouera.
+     */
+    resilier(abonnementId: string): Promise<boolean>;
     /** `finDeDroitOption`, après la fin d'un Pro : l'option sans offre qui y donne droit se résilie. Rejouable. */
     surFinDuPro(tenantId: string): Promise<unknown>;
     alerter(texte: string): Promise<void>;
@@ -545,9 +557,14 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     };
     const enregistrer = async (tenantId: string, abonnementId: string, periodeFin: Date | null): Promise<void> => {
       const lu = await deps.option.chezStripe(abonnementId);
-      // Rien de relu (l'option pas en vente, ou un refus durable dont Julien est prévenu), ou pas encore payée (`incomplete`) :
-      // aucune place n'existe, rien n'est inventé.
-      if (lu === null || (lu.statut !== 'active' && lu.statut !== 'past_due')) return;
+      // Rien de relu (l'option pas en vente dans cette copie, ou un refus durable) : rien n'est inventé, mais un paiement
+      // reçu sans option enregistrée se dit (relecture du lot 4a, jaune 3 : il était acquitté sans trace).
+      if (lu === null) {
+        await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} payée par l'espace ${tenantId}, mais rien n'a pu être relu chez Stripe (le prix de l'option absent de cette copie, ou un refus durable) : elle n'est PAS enregistrée, à vérifier. ${lienTableauStripe('subscriptions', abonnementId, e.livemode)}`);
+        return;
+      }
+      // Pas encore payée (`incomplete`) : aucune place n'existe.
+      if (lu.statut !== 'active' && lu.statut !== 'past_due') return;
       const places = await borner(lu.places, abonnementId);
       if (places === null) return;
       let issue: Awaited<ReturnType<typeof deps.option.enregistrer>>;
@@ -561,9 +578,18 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         return;
       }
       if (issue.etat === 'enregistre' && issue.nouveau) {
-        await deps.option.alerter(`Nouvelle option Crédit WhatsApp : espace ${issue.tenantId} (${abonnementId}), ${places} numéro${places > 1 ? 's' : ''}.`);
+        // Une option reprise (jaunes 4 et 6) : les lignes que la fin de la précédente avait arrêtées envoient de nouveau,
+        // et les campagnes en pause faute de ligne active repartent.
+        const relancees = await deps.option.relancerLesLignes(issue.tenantId);
+        await deps.option.reprendreCampagnes(issue.tenantId);
+        const suite = relancees > 0 ? `, ${relancees} ligne${relancees > 1 ? 's' : ''} relancée${relancees > 1 ? 's' : ''}` : '';
+        await deps.option.alerter(`Nouvelle option Crédit WhatsApp : espace ${issue.tenantId} (${abonnementId}), ${places} numéro${places > 1 ? 's' : ''}${suite}.`);
       } else if (issue.etat === 'doublon') {
         await deps.option.alerter(`Option Crédit WhatsApp en double : ${abonnementId} pour l'espace ${tenantId}, qui en a déjà une vivante. À annuler et rembourser chez Stripe.`);
+      } else if (issue.etat === 'fini') {
+        // Finie chez nous, vivante et payée chez Stripe (une résiliation à la main restée à faire) : le client paie pour
+        // rien, ses lignes restant arrêtées (jaune 3 : elle passait sans trace).
+        await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} de l'espace ${tenantId} : finie chez nous, mais Stripe la dit ${lu.statut} et l'a facturée. À résilier chez Stripe, et la facture à rembourser. ${lienTableauStripe('subscriptions', abonnementId, e.livemode)}`);
       }
     };
 
@@ -587,8 +613,11 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       if (!lu.success) return illisible(e, 'option');
       const relu = await deps.option.chezStripe(lu.data.id);
       if (relu === null) return ACQUITTE;
-      // Stripe abandonne ses relances en marquant l'abonnement impayé (selon le réglage du compte) : c'est la fin.
+      // Stripe abandonne ses relances en marquant l'abonnement impayé (selon le réglage du compte) : c'est la fin. Un
+      // `unpaid` reste vivant chez Stripe, qui le prélèverait au règlement d'une facture en retard alors que ses lignes sont
+      // arrêtées : il est résilié d'abord (jaune 3), une panne passagère faisant rejouer l'événement.
       if (relu.statut === 'unpaid' || relu.statut === 'canceled' || relu.statut === 'incomplete_expired') {
+        if (relu.statut === 'unpaid') await deps.option.resilier(lu.data.id);
         await finir(lu.data.id, relu.statut === 'unpaid' ? 'impaye' : 'resiliation', new Date(maintenant()));
         return ACQUITTE;
       }
@@ -596,8 +625,13 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       const places = await borner(relu.places, lu.data.id);
       if (places === null) return ACQUITTE;
       // Une option encore inconnue (sa session pas encore traitée) : la modification l'enregistre.
-      if ((await deps.option.noterPlaces(lu.data.id, places, relu.finPrevueLe)) === null) {
+      const notee = await deps.option.noterPlaces(lu.data.id, places, relu.finPrevueLe);
+      if (notee === null) {
         await enregistrer(lu.data.metadata.tenant_id, lu.data.id, null);
+      } else {
+        // Des places en plus (une place payée au portail ou après un prorata réglé) : une campagne d'un numéro qui y tient
+        // désormais repart (jaune 6) ; celle d'un numéro encore dehors retourne en pause au premier envoi.
+        await deps.option.reprendreCampagnes(notee.tenantId);
       }
       return ACQUITTE;
     }
@@ -628,7 +662,10 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     }
     const relu = await deps.option.chezStripe(abonnementId);
     const places = relu === null ? null : await borner(relu.places, abonnementId);
-    if (relu !== null && places !== null) await deps.option.noterPlaces(abonnementId, places, relu.finPrevueLe);
+    if (relu !== null && places !== null && (await deps.option.noterPlaces(abonnementId, places, relu.finPrevueLe)) !== null) {
+      // Le prorata d'une place réglé applique l'ajout en attente : les campagnes en pause faute de place repartent (jaune 6).
+      await deps.option.reprendreCampagnes(paye.tenantId);
+    }
     return ACQUITTE;
   }
 

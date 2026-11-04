@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
 import {
-  changerPlaces, finDeDroitOption, optionChezStripe, ouvrirOption, PRODUIT_OPTION_WA,
+  changerPlaces, finDeDroitOption, optionChezStripe, ouvrirOption, PRODUIT_OPTION_WA, resilierOptionChezStripe,
   type DepsFinDeDroitOption, type DepsOptionCredit,
 } from '../src/stripe/option-credit-whatsapp';
 import type { Offre } from '../src/offres/offres';
@@ -65,6 +65,7 @@ function deps(o: {
   const transport = new FauxStripe({ price_opt: PRIX, ...(o.objets ?? {}) }, o.reponses ?? []);
   const notes: Array<[string, number, Date | null]> = [];
   const alertes: string[] = [];
+  const reprises: string[] = [];
   const d: DepsOptionCredit = {
     stripe: { cle: 'rk_live_x', livemode: true, transport, prix: { refill_5: '', refill_10: '', refill_50: '', refill_100: '' }, pageCredit: 'https://c/credit' } as never,
     clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },
@@ -77,9 +78,10 @@ function deps(o: {
     },
     offre: async () => o.offre ?? 'pro',
     numerosCouverts: async () => o.couverts ?? 0,
+    reprendreCampagnes: async (t) => { reprises.push(t); return 0; },
     alerter: async (t) => { alertes.push(t); },
   };
-  return { d, transport, notes, alertes };
+  return { d, transport, notes, alertes, reprises };
 }
 
 describe('ouvrir l’option', () => {
@@ -121,18 +123,22 @@ describe('ouvrir l’option', () => {
 
 describe('changer les places', () => {
   it('🔴 un ajout se facture au prorata et ne compte que payé : les places notées sont celles que Stripe RELIT', async () => {
-    const { d, transport, notes } = deps({ vivante: OPTION, objets: { sub_opt: abonnement(1) }, reponses: [change(2)] });
+    const { d, transport, notes, reprises } = deps({ vivante: OPTION, objets: { sub_opt: abonnement(1) }, reponses: [change(2)] });
     expect(await changerPlaces(d, T1, { depuis: 1, cible: 2 }, 'u1')).toEqual({ ok: true, valeur: { places: 2 } });
     const modif = transport.posts.find((p) => p.url.endsWith('/subscriptions/sub_opt'))!.corps;
     expect([modif.get('items[0][quantity]'), modif.get('proration_behavior'), modif.get('payment_behavior')]).toEqual(['2', 'always_invoice', 'pending_if_incomplete']);
     expect(notes).toEqual([['sub_opt', 2, null]]);
+    // La place en plus libère peut-être un numéro resté dehors : ses campagnes en pause repartent (jaune 6).
+    expect(reprises).toEqual([T1]);
   });
 
   it('🔴 un ajout dont la facture attend son paiement : 402 avec la page de la facture, aucune place notée', async () => {
-    const { d, notes } = deps({ vivante: OPTION, objets: { sub_opt: abonnement(1) }, reponses: [change(1, true)] });
-    expect(await changerPlaces(d, T1, { depuis: 1, cible: 2 }, 'u1'))
-      .toMatchObject({ ok: false, statut: 402, details: { code: 'paiement_place_incomplet', url: 'https://invoice.stripe.com/i/prorata' } });
-    expect(notes).toEqual([]);
+    const { d, notes, reprises } = deps({ vivante: OPTION, objets: { sub_opt: abonnement(1) }, reponses: [change(1, true)] });
+    const r = await changerPlaces(d, T1, { depuis: 1, cible: 2 }, 'u1');
+    expect(r).toMatchObject({ ok: false, statut: 402, details: { code: 'paiement_place_incomplet', url: 'https://invoice.stripe.com/i/prorata' } });
+    // Régler la facture applique l'ajout : le message ne fait jamais recommencer, qui ferait payer une seconde place.
+    expect(r.ok ? '' : r.erreur).toMatch(/s’ajoutera dès qu’elle sera payée\. Ne recommencez pas/);
+    expect([notes, reprises]).toEqual([[], []]);
   });
 
   it('🔴 un retrait ne passe jamais sous les numéros déjà couverts ; dessus, il s’applique sans prorata', async () => {
@@ -216,5 +222,23 @@ describe('la fin de droit', () => {
     const { d, journal } = fin({ premiereFin: false });
     await finDeDroitOption(d, T1);
     expect(journal).toEqual(['finir:sub_opt:fin_de_droit']);
+  });
+});
+
+/**
+ * La résiliation d'un impayé abandonné (`unpaid`, relecture du lot 4a, jaune 3) : Stripe garde l'abonnement vivant et le
+ * prélèverait au règlement d'une facture en retard, alors que ses lignes sont arrêtées.
+ */
+describe('résilier une option impayée', () => {
+  it('🔴 résiliée sans avoir ; un refus durable prévient Julien et rend false ; une panne passagère lève, Stripe rejouera', async () => {
+    const ok = deps();
+    expect(await resilierOptionChezStripe(ok.d, 'sub_opt')).toBe(true);
+    expect(ok.transport.suppressions.map((s) => [s.url.split('/').pop(), s.corps.toString()])).toEqual([['sub_opt', '']]);
+    const refus = deps({ reponses: [{ status: 400, json: { error: { code: 'resource_missing', message: 'non' } } }] });
+    expect(await resilierOptionChezStripe(refus.d, 'sub_opt')).toBe(false);
+    expect(refus.alertes.join(' ')).toMatch(/À résilier à la main, sans remboursement/);
+    const panne = deps({ reponses: [{ status: 503, json: { error: { message: 'indisponible' } } }] });
+    await expect(resilierOptionChezStripe(panne.d, 'sub_opt')).rejects.toThrow();
+    expect(panne.alertes).toEqual([]);
   });
 });

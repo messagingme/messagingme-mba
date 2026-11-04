@@ -34,6 +34,8 @@ export interface DepsOptionCredit extends DepsPortail {
   offre(tenantId: string): Promise<Offre>;
   /** Les numéros que les lignes `'option'` couvrent déjà : un retrait de places ne passe pas sous leur nombre. */
   numerosCouverts(tenantId: string): Promise<number>;
+  /** `PgNumeroDelieStore.leverPausesLigneCredit` : une place en plus fait repartir les campagnes en pause faute de place. */
+  reprendreCampagnes(tenantId: string): Promise<number>;
   alerter(texte: string): Promise<void>;
 }
 
@@ -160,7 +162,9 @@ export async function changerPlaces(d: DepsOptionCredit, tenantId: string, deman
       cle: s.cle, abonnementId: o.abonnementId, ligne: { id: ligne.id }, quantite: cible, facturerMaintenant: true, idempotence,
     });
     if (r.enAttente) {
-      return refus(402, 'Le paiement du numéro en plus n’a pas abouti : réglez la facture sur sa page, puis recommencez.',
+      // Régler cette facture applique l'ajout en attente : « recommencez » faisait ajouter, et payer, une seconde place
+      // (relecture du lot 4a-2, jaune 1).
+      return refus(402, 'Le paiement du numéro en plus n’a pas abouti : réglez la facture sur sa page, et le numéro s’ajoutera dès qu’elle sera payée. Ne recommencez pas l’ajout : il serait facturé une seconde fois.',
         { code: 'paiement_place_incomplet', url: r.urlFacture });
     }
     // Relu, pas lu dans la réponse : un rejeu idempotent rend la réponse d'un appel plus ancien.
@@ -179,8 +183,35 @@ async function noter(
   d: DepsOptionCredit, tenantId: string, abonnementId: string, lu: { places: number; finPrevueLe: Date | null }, geste: string | null,
 ): Promise<Issue<{ places: number }>> {
   await d.options.noterPlaces(abonnementId, lu.places, lu.finPrevueLe);
-  if (geste !== null) await d.alerter(`Place de l'option Crédit WhatsApp ${geste} : espace ${tenantId} (${abonnementId}), ${lu.places} numéro${lu.places > 1 ? 's' : ''}.`);
+  if (geste !== null) {
+    await d.alerter(`Place de l'option Crédit WhatsApp ${geste} : espace ${tenantId} (${abonnementId}), ${lu.places} numéro${lu.places > 1 ? 's' : ''}.`);
+    // Une place en plus libère peut-être un numéro du compte resté dehors : ses campagnes en pause repartent (jaune 6).
+    await d.reprendreCampagnes(tenantId);
+  }
   return { ok: true, valeur: { places: lu.places } };
+}
+
+/**
+ * Résilie chez Stripe une option que nous finissons sur un impayé abandonné (`unpaid`, relecture du lot 4a, jaune 3) :
+ * Stripe la garde vivante, et prélèverait encore au règlement d'une facture en retard alors que ses lignes sont arrêtées.
+ * Sans remboursement. `false` quand Stripe refuse durablement (Julien prévenu) ; une panne passagère (réseau, 5xx, 429)
+ * lève, pour que le webhook échoue et que Stripe rejoue.
+ */
+export async function resilierOptionChezStripe(d: Pick<DepsOptionCredit, 'stripe' | 'alerter'>, abonnementId: string): Promise<boolean> {
+  const s = d.stripe;
+  if (s === null) {
+    await d.alerter(`Option Crédit WhatsApp ${abonnementId} impayée : Stripe n'est pas configuré dans cette copie, elle est à résilier à la main, sans remboursement.`);
+    return false;
+  }
+  try {
+    await arreterAbonnementNumeroSeul(s.transport, { cle: s.cle, abonnementId, avoir: false });
+    return true;
+  } catch (err) {
+    if (!(err instanceof StripeError) || err.status === null || err.status === 429 || err.status >= 500) throw err;
+    journaliser('error', 'option_wa_resiliation_impaye_impossible', { abonnement: abonnementId, status: err.status, code: err.code, err: err.message });
+    await d.alerter(`Option Crédit WhatsApp ${abonnementId} impayée : Stripe refuse de la résilier (${err.status}${err.code ? `, ${err.code}` : ''}). À résilier à la main, sans remboursement. ${lienTableauStripe('subscriptions', abonnementId, s.livemode)}`);
+    return false;
+  }
 }
 
 /**

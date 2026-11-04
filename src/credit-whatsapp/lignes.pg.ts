@@ -235,6 +235,22 @@ export class PgLignesCreditStore {
     return rowCount ?? 0;
   }
 
+  /**
+   * L'option reprise après sa fin (relecture du lot 4a, jaune 4) : les lignes `'option'` en cours que cette fin avait
+   * arrêtées envoient de nouveau, sans retirer ni reposer la ligne (Meta l'a gardée attachée au compte). Seule la fin de
+   * l'option arrête une ligne `'option'` (`arreterLesLignesDeLOption`) : la relancer ne contourne aucun autre arrêt. Une
+   * ligne retirée reste retirée. Rend le nombre de lignes relancées.
+   */
+  async relancerLesLignesDeLOption(tenantId: string): Promise<number> {
+    const { rowCount } = await this.pool.query(
+      `update lignes_credit_whatsapp set arretee_le = null
+        where tenant_id = $1 and origine = 'option' and retiree_le is null and arretee_le is not null`,
+      [tenantId],
+    );
+    this.oublier();
+    return rowCount ?? 0;
+  }
+
   /** L'option a pris fin : les envois du numéro s'arrêtent, la ligne reste en cours (elle paie encore chez Meta). */
   async arreter(tenantId: string, phoneNumberId: string): Promise<boolean> {
     const { rowCount } = await this.pool.query(

@@ -137,17 +137,22 @@ Julien ne la résilie pas chez Stripe. Test vérifié dans les deux sens.
 2. SEPA, si le Checkout d'abonnement l'accepte : une session réglée en différé (`async_payment_succeeded`) d'un Pro, d'un
    numéro ou de l'option lève l'alerte « produit inconnu » ; un `updated` en `active` enregistre l'option avant
    l'encaissement (le Pro l'évite). À fermer avant d'ouvrir SEPA sur ces produits.
-3. Avant la vente : trois cas acquittés sans trace. `STRIPE_PRIX_OPTION_WA` absent d'un conteneur (une session payée
+3. ✅ (2026-11-04) Trois cas acquittés sans trace. `STRIPE_PRIX_OPTION_WA` absent d'un conteneur (une session payée
    n'est pas enregistrée), une facture payée d'une option déjà finie chez nous, et `unpaid`, qui finit l'option sans la
-   résilier chez Stripe (un client qui règle en retard serait prélevé chaque mois, ses lignes arrêtées).
-4. Avant la vente : une ligne arrêtée ne se relance jamais ; un client qui reprend l'option paie et sa ligne reste
-   arrêtée (dans `/ops`, « Retirer » puis « Poser »).
+   résilier chez Stripe (un client qui règle en retard serait prélevé chaque mois, ses lignes arrêtées). Fermé : les deux
+   premiers alertent Julien, et un `unpaid` est résilié chez Stripe avant d'être fini (`resilierOptionChezStripe`, une
+   panne passagère faisant rejouer l'événement).
+4. ✅ (2026-11-04) Une ligne arrêtée ne se relançait jamais ; un client qui reprenait l'option payait et sa ligne restait
+   arrêtée. Fermé : une option neuve relance les lignes `'option'` que la fin de la précédente avait arrêtées
+   (`relancerLesLignesDeLOption`), une ligne retirée restant retirée.
 5. Une ligne posée sous l'Entreprise est `'ops'`, hors des places, et le reste quand l'espace redescend en Business ou en
    Pro : l'origine confond l'essai forcé et l'Entreprise. À signaler à la sortie de l'Entreprise, ou une colonne
    « forcée ».
-6. Avant la vente : une campagne en pause `ligne_credit_inactive` n'est jamais reprise quand les places changent, et le
-   refus d'une place manquante ne dit pas sa raison (la garde ne fait que la journaliser), alors que la décision 1 la
-   voulait dite.
+6. ✅ (2026-11-04) Une campagne en pause `ligne_credit_inactive` n'était jamais reprise quand les places changent, et le
+   refus d'une place manquante ne disait pas sa raison, alors que la décision 1 la voulait dite. Fermé : les pauses se
+   lèvent à une option prise ou reprise, à des places notées en plus, à une pose dans `/ops` (`leverPausesLigneCredit`,
+   seulement si l'espace a une ligne active et un numéro relié) ; le refus garde son motif et son code, et dit « pas de
+   place dans l'option » (`detail: 'place_manquante'`).
 7. À trancher par Julien : un retrait de place vaut tout de suite (`proration_behavior: none`, comme les sièges du Pro),
    la spec disait « à la fin de la période ». La facture est la même (le mois payé n'est pas remboursé, le suivant compte
    un numéro de moins) ; le client perd tout de suite la place retirée, qui était libre (un retrait ne passe pas sous les
@@ -167,11 +172,11 @@ Julien ne la résilie pas chez Stripe. Test vérifié dans les deux sens.
 payait deux fois. La prise reste fermée pendant cette attente (le Pro faisait déjà de même), et l'écran dit, au bout des
 relectures, que l'option tarde et qu'il ne faut pas la reprendre. Vérifié dans les deux sens par Playwright.
 
-**Les jaunes** (tous ouverts ; « avant la vente » à fermer avant de poser le prix) :
+**Les jaunes** (✅ fermé ; « avant la vente » à fermer avant de poser le prix) :
 
-1. Avant la vente : le message du 402 dit « réglez la facture sur sa page, puis recommencez », or régler la facture
-   applique la place en attente ; recommencer en ajoute une seconde, payée une seconde fois. Dire que la place s'ajoute
-   dès la facture réglée, comme les sièges le disent.
+1. ✅ (2026-11-04) Le message du 402 disait « réglez la facture sur sa page, puis recommencez », or régler la facture
+   applique la place en attente ; recommencer en ajoutait une seconde, payée une seconde fois. Fermé : il dit que le
+   numéro s'ajoute dès la facture payée, et de ne pas recommencer.
 2. L'onglet ment pour un espace en essai forcé : `couverts` ne compte que les lignes `'option'`, donc un Pro dont le numéro
    envoie déjà par une ligne forcée (`'ops'`) et qui prend l'option lit « 0 sur le Crédit WhatsApp » et « contactez-nous » ;
    il faut retirer puis reposer sa ligne pour qu'elle compte. Montrer la ligne d'essai, ou la dire « en essai ».
