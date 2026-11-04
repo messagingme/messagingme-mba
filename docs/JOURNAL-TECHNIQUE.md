@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-04 (soir) : les sessions d'avant un changement de mot de passe sont refusées (migration 0277)
+
+Demande de Julien (« Oui, le lot identité »), décisions du même jour : toutes les sessions de l'identité tombent, celle
+qui fait le changement reçoit une session neuve ; les identités existantes ne changent pas.
+
+- **Ce qui a changé** : `identities.sessions_depuis` (0277), posée à l'horloge de l'API par `setPassword`
+  (réinitialisation, changement, acceptation d'une invitation) et par l'effacement du second facteur. Les gardes
+  d'espace et d'exploitation refusent en 401 une session dont le `iat` la précède (la même seconde passe). Le
+  changement de mot de passe et la désactivation du facteur rendent un jeton neuf, que la console garde. Un admin
+  d'espace reçoit 409 pour le facteur d'une adresse d'`OPS_EMAILS`, qui se réinitialise par l'exploitation.
+- **À connaître du support** : accepter une invitation repose le mot de passe de l'identité, donc coupe aussi ses
+  sessions dans ses autres espaces.
+- **En production le 2026-11-04** : `04020b82`, run 41886138292, `migration=avant` : la 0277 seule appliquée (sous
+  `lock_timeout` de 5 s), puis l'API et les trois conteneurs de la machine relus sur `04020b82`. Pas de relecture en
+  base depuis le poste ce soir-là ; la CI d'intégration exerce la colonne par le vrai store, et l'essai réel n° 218
+  l'exerce en production.
+- **La relecture** : aucun rouge ; ses jaunes sont suivis avec le lot suivant.
+
 ## 2026-11-04 (soir, suite) : une option payée sans droit dit une seule consigne, et ses admins le savent
 
 Les trois jaunes d'avant la vente de la relecture de `394a1e90` (entrée suivante), demande de Julien du même soir.
