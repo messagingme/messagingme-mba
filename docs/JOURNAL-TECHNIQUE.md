@@ -139,7 +139,10 @@ une pose dans `/ops` d'un Pro ou d'un Business exige une place payée, sauf gest
 - **Les écrans** (le lot 4a-2, poussés avec le serveur parce qu'ils ne paraissent que sur ses champs neufs) : l'onglet
   prend l'option (1 à 20 numéros, Checkout), en change le nombre un numéro à la fois, le prix dit avant toute facture et
   le lien de la facture d'un prorata impayé, et renvoie au portail de Stripe ; il ne dit jamais « épuisé » à un espace
-  sans numéro sur la ligne. `/ops` dit les places et pose une ligne forcée, case cochée.
+  sans numéro sur la ligne. `/ops` dit les places et pose une ligne forcée, case cochée. Leur relecture (2026-11-04) :
+  un rouge, corrigé avant la mise en service. Au retour de Stripe, l'onglet proposait encore de prendre l'option tant
+  que le webhook ne l'avait pas écrite, donc de la payer deux fois ; la prise reste fermée pendant l'attente, comme au
+  Pro. Cinq jaunes au plan.
 
 ## 2026-11-03 : les jaunes des lots D et E du Crédit WhatsApp (migration 0275)
 

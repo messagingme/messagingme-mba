@@ -288,13 +288,30 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
 
   test('🔴 le RETOUR du paiement de l’option ne prend rien : il relit jusqu’à voir ses places', async ({ page }) => {
     const prise = { ...OPTION, places: 1, statut: 'actif' };
-    const m = await monter(page, { vues: [credit({ ...SANS_NUMERO, option: OPTION }), credit({ ...SANS_NUMERO, option: prise })] });
+    const sans = credit({ ...SANS_NUMERO, option: OPTION });
+    const m = await monter(page, { vues: [sans, sans, credit({ ...SANS_NUMERO, option: prise })] });
     await page.goto('/offre?tab=whatsapp&option=recue');
     await expect(page.getByTestId('credit-wa-option-recue')).toContainText('arrive dans quelques secondes');
-    await expect(page.getByTestId('credit-wa-option-recue')).toContainText('votre option est active', { timeout: 10_000 });
+    // 🔴 Payée, pas encore arrivée : rien ne se reprend (relecture du lot 4a-2, elle serait payée deux fois). Relevé TOUT DE
+    // SUITE, dans le rendu qui porte la notice : un `toHaveCount(0)` attendrait l'option arrivée et passerait sans la garde.
+    expect(await page.getByTestId('credit-wa-option-prendre').count()).toBe(0);
+    expect(await page.getByTestId('credit-wa-option-places').count()).toBe(0);
+    await expect(page.getByTestId('credit-wa-option-recue')).toContainText('votre option est active', { timeout: 15_000 });
     await expect(page.getByTestId('credit-wa-option-payes')).toHaveText('1');
     await expect(page.getByTestId('credit-wa-option-libre')).toContainText('contactez-nous depuis le Support');
     expect(m.lectures()).toBeGreaterThanOrEqual(2);
+    expect(m.options).toEqual([]);
+  });
+
+  test('🔴 l’option payée qui tarde : toutes les relectures faites, l’écran le dit, et la prise reste fermée', async ({ page }) => {
+    // Dix relectures toutes les 3 s : le scénario dure plus que le délai par défaut.
+    test.setTimeout(60_000);
+    const m = await monter(page, { vues: [credit({ ...SANS_NUMERO, option: OPTION })] });
+    await page.goto('/offre?tab=whatsapp&option=recue');
+    await expect(page.getByTestId('credit-wa-option-recue')).toContainText('pas encore arrivée', { timeout: 45_000 });
+    await expect(page.getByTestId('credit-wa-option-recue')).toContainText('sans la reprendre');
+    await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
+    expect(m.lectures()).toBeGreaterThanOrEqual(10);
     expect(m.options).toEqual([]);
   });
 

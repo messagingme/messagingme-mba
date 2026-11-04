@@ -68,6 +68,8 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
   // Le crédit est-il arrivé depuis le retour de paiement ? Tant que non, l'écran le dit et relit.
   const [arrive, setArrive] = useState(false);
   const [erreurFacture, setErreurFacture] = useState<string | null>(null);
+  // L'option payée n'est pas arrivée après toutes les relectures du retour : le webhook tarde.
+  const [optionTarde, setOptionTarde] = useState(false);
 
   const relire = useCallback(async (): Promise<VueCreditWhatsapp> => {
     const v = await getCreditWhatsapp(session.tenantId);
@@ -125,7 +127,12 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
     let minuteur: ReturnType<typeof setTimeout> | undefined;
     let restantes = RELECTURES_APRES_PAIEMENT;
     const suivante = (): void => {
-      if (!vivant || restantes <= 0) return;
+      if (!vivant) return;
+      // Toutes les relectures faites sans l'option : le webhook tarde, l'écran le dit (la prise reste fermée).
+      if (restantes <= 0) {
+        setOptionTarde(true);
+        return;
+      }
       restantes -= 1;
       minuteur = setTimeout(() => {
         relire()
@@ -293,7 +300,7 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
       </section>
 
       {avecOption && option !== undefined && (
-        <OptionDuCredit tenantId={session.tenantId} option={option} admin={admin} retour={retourOption} relire={relire} />
+        <OptionDuCredit tenantId={session.tenantId} option={option} admin={admin} retour={retourOption} tarde={optionTarde} relire={relire} />
       )}
 
       {!illimite && (
@@ -397,11 +404,13 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
  * ajout se paie au prorata avant de compter : un paiement qui n'aboutit pas donne la page de sa facture. Un retrait ne passe
  * pas sous les numéros déjà sur le Crédit WhatsApp. Carte, factures et résiliation passent par le portail de Stripe.
  */
-function OptionDuCredit({ tenantId, option, admin, retour, relire }: {
+function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   tenantId: string;
   option: OptionCreditWhatsapp;
   admin: boolean;
   retour: string | null;
+  /** Le retour de Stripe a été relu jusqu'au bout sans voir l'option : le webhook tarde. */
+  tarde: boolean;
   relire: () => Promise<unknown>;
 }) {
   const t = useT();
@@ -414,6 +423,9 @@ function OptionDuCredit({ tenantId, option, admin, retour, relire }: {
   const [facture, setFacture] = useState<string | null>(null);
 
   const prise = option.places > 0 || option.statut !== null;
+  // 🔴 Payée, pas encore arrivée (le webhook n'est pas passé) : la prise reste fermée, sinon le client la paierait deux fois
+  // (relecture du lot 4a-2 ; le Pro fait de même, `offre/page.tsx`).
+  const enAttenteDuRetour = retour === 'recue' && !prise;
   const prixMois = (n: number): string => fmtNum((option.prixHtCentimes * n) / 100, locale);
   const s = (n: number): string => (n > 1 ? 's' : '');
   // Une ligne couvre tout le compte WhatsApp : au-delà des places, un numéro du compte n'envoie pas.
@@ -483,7 +495,12 @@ function OptionDuCredit({ tenantId, option, admin, retour, relire }: {
         <MbaNotice kind="success" testid="credit-wa-option-recue">
           {prise
             ? t('Paiement reçu, votre option est active.', 'Payment received, your option is active.')
-            : t('Paiement reçu : votre option arrive dans quelques secondes.', 'Payment received: your option arrives in a few seconds.')}
+            : tarde
+              ? t(
+                'Paiement reçu, mais votre option n’est pas encore arrivée : rechargez la page dans quelques minutes. Si rien n’arrive, contactez-nous depuis le Support, sans la reprendre : elle serait payée deux fois.',
+                'Payment received, but your option has not arrived yet: reload the page in a few minutes. If nothing arrives, contact us from Support, without taking it again: it would be paid twice.',
+              )
+              : t('Paiement reçu : votre option arrive dans quelques secondes.', 'Payment received: your option arrives in a few seconds.')}
         </MbaNotice>
       )}
       {retour === 'abandon' && !prise && (
@@ -497,12 +514,12 @@ function OptionDuCredit({ tenantId, option, admin, retour, relire }: {
           {t('Demandez à un administrateur de votre espace de prendre l’option.', 'Ask an administrator of your workspace to take the option.')}
         </p>
       )}
-      {!prise && admin && (indisponible || !option.disponible) && (
+      {!prise && admin && !enAttenteDuRetour && (indisponible || !option.disponible) && (
         <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-indisponible">
           {t('L’option n’est pas encore disponible en ligne. Contactez-nous depuis le Support.', 'The option isn’t available online yet. Contact us from Support.')}
         </p>
       )}
-      {!prise && admin && !indisponible && option.disponible && (
+      {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && (
         <div className="mt-3 flex flex-wrap items-end gap-3">
           <label className="grid gap-1">
             <span className="text-xs font-medium text-ink-500">{t('Nombre de numéros', 'How many numbers')}</span>

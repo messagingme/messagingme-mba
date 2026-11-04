@@ -160,6 +160,28 @@ Julien ne la résilie pas chez Stripe. Test vérifié dans les deux sens.
     borne pas les places relues (une quantité posée à la main hors 1 à 20 rendrait 500 au CHECK) ; le cache des places
     n'a pas de lecture partagée en vol ; la requête du bilan de suppression pour l'option n'a pas de test.
 
+## La relecture des écrans du lot 4a-2 (2026-11-04)
+
+**Un rouge, corrigé avant la mise en service** : au retour de Stripe (`?option=recue`), tant que le webhook n'avait pas
+écrit l'option, l'onglet proposait encore de la prendre, et le serveur laissait passer une seconde session : le client la
+payait deux fois. La prise reste fermée pendant cette attente (le Pro faisait déjà de même), et l'écran dit, au bout des
+relectures, que l'option tarde et qu'il ne faut pas la reprendre. Vérifié dans les deux sens par Playwright.
+
+**Les jaunes** (tous ouverts ; « avant la vente » à fermer avant de poser le prix) :
+
+1. Avant la vente : le message du 402 dit « réglez la facture sur sa page, puis recommencez », or régler la facture
+   applique la place en attente ; recommencer en ajoute une seconde, payée une seconde fois. Dire que la place s'ajoute
+   dès la facture réglée, comme les sièges le disent.
+2. L'onglet ment pour un espace en essai forcé : `couverts` ne compte que les lignes `'option'`, donc un Pro dont le numéro
+   envoie déjà par une ligne forcée (`'ops'`) et qui prend l'option lit « 0 sur le Crédit WhatsApp » et « contactez-nous » ;
+   il faut retirer puis reposer sa ligne pour qu'elle compte. Montrer la ligne d'essai, ou la dire « en essai ».
+3. Le portail de Stripe devient la porte de gestion de l'option : sa configuration doit rester fermée au changement de
+   quantité sur ce produit (à Julien, déjà au backlog) ; le retour du portail mène à `/offre`, pas à l'onglet.
+4. Avant de payer, l'écran ne dit ni l'absence d'essai, ni la résiliation sans remboursement si la formule prend fin ;
+   « Ajoutez un numéro à l'option » reste affiché quand l'ajout est impossible (paiement en retard, fin programmée).
+5. Une Entreprise encore prélevée pour une option devenue inutile ne la voit plus dans l'onglet (l'illimité masque la
+   section, donc ni son état ni « Gérer l'option ») ; seul `/ops` l'annonce à Julien.
+
 ## Lot 4b : la recharge automatique (tâche 14 du plan d'ensemble)
 
 **Données** (la migration suivante) : `credit_whatsapp_recharge_auto` (l'espace pour clé, active, seuil et montant en
