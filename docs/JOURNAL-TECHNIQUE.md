@@ -4,6 +4,25 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-05 : sans boutique Shopify, pas de critère de commande, et chaque écran le dit (segments)
+
+Demande de Julien après la livraison des segments : que la limite soit « hyper claire dans la doc et l'aide ». Nous ne
+connaissons une commande que parce que Shopify nous l'envoie : sans boutique, les trois critères de commande n'existent
+pas, l'activité et le pays marchent partout, et un site hors Shopify passe par des étiquettes posées par l'API.
+
+- **La console** (`fadd2569`) : sans boutique, la partie « Achats et activité » dit pourquoi et quoi faire à la place
+  (e2e dans les deux sens : le message présent sans boutique, absent avec).
+- **L'aide**, FR et EN, vitrine et bot (`aide:charger` par montage, 191 lignes) : une section « Les filtres Achats et
+  activité » dans « Ajouter ou importer mes contacts », la règle dans « Lancer une campagne », et « Cibler vos clients
+  par leurs commandes » dans « Brancher ma boutique Shopify ». ⚠️ Le paragraphe ajouté d'abord DANS l'étape 4 la
+  faisait dépasser `MORCEAU_MAX` (2 000 caractères) : le découpage du bot coupait l'étape entre « Trois points à
+  connaître » et sa liste (test « rien n'est perdu » rouge). Une section à part a réglé le problème.
+- **La description de `find_contacts`** que lit Claude (déployée avec `fadd2569`, qui a aussi emporté le correctif
+  Crédit WhatsApp `92318323`, annulé de son côté par la session voisine, une seule approbation de Julien), le résumé
+  du catalogue MCP, `features.md` et `todo.md` (l'API « commande payée » pour les boutiques hors Shopify, à cadrer).
+- Avant cela (`3f366ffd`) : la fiche « Lancer une campagne » citait les filtres d'audience sans les nouveaux, et les
+  résumés de `tag_contacts`, `set_contact_field` et `prepare_campaign` ne disaient pas qu'ils prennent la même cible.
+
 ## 2026-11-04 (soir) : le serveur MCP refuse une clé d'argument que l'outil n'annonce pas
 
 - **Le défaut** (jaune de la relecture des segments, `4bb9d3dc`) : `tools/call` ignorait une clé hors du schéma de
