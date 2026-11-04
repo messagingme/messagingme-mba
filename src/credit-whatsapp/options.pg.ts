@@ -130,20 +130,25 @@ export class PgOptionsCreditStore {
 
   /**
    * La fin effective (`customer.subscription.deleted`, ou la fin de droit qui la résilie) : datée et raisonnée UNE fois, un
-   * rejeu ne déplace ni la date ni la raison. `premiereFin` dit si CET appel l'a finie (lue sur l'état d'avant, verrouillé) :
-   * un rejeu n'arrête pas deux fois les lignes et ne réalerte pas.
+   * rejeu ne déplace ni la date ni la raison. `premiereFin` dit si CET appel l'a finie : un rejeu n'arrête pas deux fois
+   * les lignes et ne réalerte pas.
+   *
+   * 🔴 La première fin se lit sur l'écriture elle-même (`fini_le is null` dans le WHERE), pas sur un état « d'avant » :
+   * une CTE `for update` lue dans le `returning` n'est évaluée qu'après l'`update` du même ordre, et ne rend plus aucune
+   * ligne (la ligne vient d'être changée par cet ordre) ; `premiereFin` valait alors toujours vrai (la CI d'intégration
+   * du 2026-11-04). Deux fins concurrentes : la seconde attend le verrou de ligne, puis réévalue son WHERE sur la ligne
+   * finie et n'écrit rien ; elle relit la ligne, `premiereFin` faux.
    */
   async finir(abonnementId: string, raison: RaisonFinOption, finiLe: Date): Promise<(OptionCredit & { premiereFin: boolean }) | null> {
-    const res = await this.pool.query<Ligne & { premiere_fin: boolean }>(
-      `with avant as (select fini_le as fini_avant from options_credit_whatsapp where stripe_subscription_id = $1 for update)
-       update options_credit_whatsapp
-          set statut = 'resilie', fini_le = coalesce(fini_le, $3), fin_raison = coalesce(fin_raison, $2), maj_le = now()
-        where stripe_subscription_id = $1
-        returning ${COLONNES}, (select fini_avant from avant) is null as premiere_fin`,
+    const premiere = await this.pool.query<Ligne>(
+      `update options_credit_whatsapp set statut = 'resilie', fini_le = $3, fin_raison = $2, maj_le = now()
+        where stripe_subscription_id = $1 and fini_le is null
+        returning ${COLONNES}`,
       [abonnementId, raison, finiLe],
     );
-    const l = res.rows[0];
-    return l ? { ...versOption(l), premiereFin: l.premiere_fin } : null;
+    if (premiere.rows[0]) return { ...versOption(premiere.rows[0]), premiereFin: true };
+    const deja = await this.pool.query<Ligne>(`select ${COLONNES} from options_credit_whatsapp where stripe_subscription_id = $1`, [abonnementId]);
+    return deja.rows[0] ? { ...versOption(deja.rows[0]), premiereFin: false } : null;
   }
 
   /** L'option vivante de l'espace (en cours ou en retard), `null` sans option. */

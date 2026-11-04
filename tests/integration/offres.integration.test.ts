@@ -189,6 +189,7 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     const t = await espace('itest-offre-alertes');
     expect(await offres.alertes(t)).toEqual({
       proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: false,
+      optionCreditWhatsappSansDroit: false, optionCreditWhatsappVivante: false,
     });
     const numero = `3399${String(Date.now()).slice(-7)}`;
     await pool.query(
@@ -198,11 +199,13 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     try {
       expect(await offres.alertes(t)).toEqual({
         proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: true, ligneCreditWhatsappSansCredit: false,
+        optionCreditWhatsappSansDroit: false, optionCreditWhatsappVivante: false,
       });
       await pro(t, 'sub_itestalertespro', null);
       await pool.query("insert into abonnements_numero (stripe_subscription_id, tenant_id, livemode, statut) values ('sub_itestalertesnum', $1, true, 'actif')", [t]);
       expect(await offres.alertes(t)).toEqual({
         proPayeVivant: true, numeroSeulVivant: true, numeroFourniSansCouverture: false, ligneCreditWhatsappSansCredit: false,
+        optionCreditWhatsappSansDroit: false, optionCreditWhatsappVivante: false,
       });
     } finally {
       await pool.query('delete from numeros_fournis where numero = $1', [numero]);
