@@ -8,7 +8,7 @@ import {
 } from '../web/lib/api-exemples';
 import { schemaClesFiche } from '../src/api/fiche';
 import { GESTES } from '../web/lib/erreurs-gestes';
-import { MESSAGE_PLACE_MANQUANTE } from '../src/credit-whatsapp/refus';
+import { MESSAGE_PLACE_MANQUANTE, MESSAGE_REFUS_CREDIT } from '../src/credit-whatsapp/refus';
 import {
   schemaContactV1 as schemaCorpsContact, schemaRechercheContactV1 as schemaCorpsRecherche,
   schemaPatchContactV1 as schemaCorpsModification, schemaContactLotV1 as schemaCorpsElementDuLot,
@@ -489,5 +489,16 @@ describe('le refus d’une place manquante, dans le catalogue public', () => {
     const exemple = CODES_DOCUMENTES.find((c) => c.code === 'whatsapp_credit_line_inactive');
     expect(exemple).toBeDefined();
     for (const texte of [...GESTES.whatsapp_credit_line_inactive, ...(exemple?.quoi ?? [])]) expect(texte).toContain(DEBUT);
+  });
+});
+
+describe('le refus d’une ligne arrêtée dit les deux façons de repartir', () => {
+  // Révision du Crédit WhatsApp (2026-11-04, décision 4) : à l'arrêt de l'option, tout se gèle ; le client reprend
+  // l'option, ou connecte son numéro avec sa carte chez Meta. « Nous contacter » ne reste que pour le reste.
+  it('🔴 le message de l’API et le geste du catalogue, en français et en anglais', () => {
+    expect(MESSAGE_REFUS_CREDIT.ligne_inactive).toMatch(/reprenez-la depuis Paramètres > Offre, ou connectez votre numéro avec votre carte chez Meta/);
+    const [fr, en] = GESTES.whatsapp_credit_line_inactive;
+    expect(fr).toMatch(/Si l’option est arrêtée, un admin la reprend au même endroit, ou connecte le numéro avec sa carte chez Meta/);
+    expect(en).toMatch(/If the option has stopped, an admin takes it again in the same place, or connects the number with their own card at Meta/);
   });
 });
