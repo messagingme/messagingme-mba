@@ -281,18 +281,26 @@ traitée ensuite se tait. Un renouvellement réglé avant une fin de droit ne di
 d'un impayé résilié, payée à la main, le dit. Une Entreprise ou un Business posé à la main ne reçoivent aucun e-mail.
 L'e-mail part une fois par abonnement et par admin, au vouvoiement, sans promesse. Aucune migration.
 
-**Les jaunes** (ouverts ; « avant la vente » à fermer avant de poser le prix) :
+**Les jaunes** (✅ fermé le 2026-11-04 ; les deux « avant la vente » le sont) :
 
-1. Avant la vente : l'e-mail est faux en `a_verifier`. Une panne passagère de Stripe sur la résiliation (délai, 5xx, 429)
+1. ✅ Avant la vente : l'e-mail est faux en `a_verifier`. Une panne passagère de Stripe sur la résiliation (délai, 5xx, 429)
    donne `a_verifier`, et les admins lisent « Nous l'avons résiliée » alors que l'abonnement court encore ; si la
    résiliation à la main est oubliée, le renouvellement suivant prélève un client à qui l'on a dit que c'était fini.
    Relancer les pannes passagères avant l'e-mail (Stripe rejoue, l'e-mail ne part qu'après une vraie résiliation, ce qui
-   ferme aussi le jaune 8 de la relecture du lot 4a), ou une formulation vraie dans les deux issues.
-2. Avant la vente : la consigne « payée sans droit, remboursement à décider » ne tient qu'à la première fin de cet appel.
+   ferme aussi le jaune 8 de la relecture du lot 4a), ou une formulation vraie dans les deux issues. Fermé : l'e-mail ne
+   part qu'une fois la résiliation faite chez Stripe. Pour une option payée sans droit, une panne passagère lève : ce cas ne
+   vient que du webhook, Stripe rejoue l'événement et la résiliation se refait. Un refus durable laisse la résiliation à la
+   main, sans e-mail, et l'alerte demande à Julien de prévenir les admins une fois résiliée. La fin de droit ordinaire
+   garde la résiliation à la main sur une panne, parce que `/ops` l'appelle aussi et que rien ne l'y rejouerait : le
+   jaune 8 du lot 4a reste ouvert pour elle.
+2. ✅ Avant la vente : la consigne « payée sans droit, remboursement à décider » ne tient qu'à la première fin de cet appel.
    Notre résiliation déclenche le `customer.subscription.deleted` de Stripe ; traité avant notre `finir`, il écrit la fin
    (raison `resiliation`) et Julien ne reçoit que « terminée (résiliation) », alors que les admins ont eu l'e-mail. Même
    perte si `finir` ou l'arrêt des lignes lève : le rejeu s'arrête sur le `canceled` de Stripe. Alerter aussi quand
-   `finir` rend une fin écrite par un autre chemin.
+   `finir` rend une fin écrite par un autre chemin. Fermé autrement : l'e-mail et la consigne partent juste après la
+   résiliation, AVANT d'écrire la fin ; ni l'avis `deleted` traité avant nous, ni une panne de la fin ne les perdent.
+
+Cinq retraits de correctif, chacun vu par son test.
 3. Le cas se décide sur l'ordre de traitement, pas sur le moment du paiement. Une fin du Pro traitée en retard (webhook
    rejoué) laisse s'enregistrer avec droit une option payée après elle, puis la résilie en `fin_de_droit`, sans e-mail ; à
    l'inverse, une option payée avec droit dont la session est traitée après la fin du Pro reçoit un e-mail qui dit le

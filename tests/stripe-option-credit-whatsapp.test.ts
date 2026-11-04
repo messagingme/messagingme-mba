@@ -232,23 +232,48 @@ describe('la fin de droit', () => {
    * et le client n'apprenait rien. Décision de Julien du 2026-11-04 : un e-mail aux admins, sans promesse, et le
    * remboursement décidé au cas par cas.
    */
-  it('🔴 payée sans droit, résiliée chez Stripe : l’e-mail aux admins avant la fin, une seule alerte, le remboursement à décider', async () => {
+  it('🔴 payée sans droit, résiliée chez Stripe : l’e-mail et la consigne AVANT la fin, puis les lignes arrêtées', async () => {
     const { d, journal, alertes } = fin();
     expect(await finDeDroitOption(d, T1, 'payee_sans_droit')).toBe('resiliee');
-    expect(journal).toEqual([`courriel:${T1}:sub_opt`, 'finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Crédit WhatsA']);
-    expect(alertes).toHaveLength(1);
-    expect(alertes[0]).toMatch(/payée sans offre qui y donne droit : .*résiliée chez Stripe, 2 lignes arrêtées, les admins prévenus par e-mail\. Remboursement à décider au cas par cas/);
-    expect(alertes[0]).not.toMatch(/sans remboursement/);
+    expect(journal).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Crédit WhatsA', 'finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Crédit WhatsA']);
+    expect(alertes).toHaveLength(2);
+    expect(alertes[0]).toMatch(/payée sans offre qui y donne droit : .*résiliée chez Stripe, un e-mail part à ses admins\. Remboursement à décider au cas par cas/);
+    expect(alertes[1]).toMatch(/payée sans droit, finie chez nous : .*2 lignes arrêtées/);
+    expect(alertes.join(' ')).not.toMatch(/sans remboursement/);
   });
 
-  it('🔴 payée sans droit, Stripe refuse de résilier : jamais « résiliée chez Stripe » ni « sans remboursement »', async () => {
+  it('🔴 payée sans droit, Stripe refuse de résilier : AUCUN e-mail (il la dirait résiliée), Julien résilie puis prévient', async () => {
+    // La relecture du correctif (jaune 1) : l'e-mail disait « Nous l'avons résiliée » alors que l'abonnement courait encore.
     const { d, journal, alertes } = fin({ refus: { status: 400, json: { error: { code: 'resource_missing', message: 'non' } } } });
     expect(await finDeDroitOption(d, T1, 'payee_sans_droit')).toBe('a_verifier');
-    expect(journal).toContain(`courriel:${T1}:sub_opt`);
+    expect(journal.some((j) => j.startsWith('courriel'))).toBe(false);
     expect(alertes).toHaveLength(2);
     expect(alertes.join(' ')).not.toMatch(/sans remboursement|résiliée chez Stripe/);
-    expect(alertes[0]).toMatch(/À résilier à la main \(payée sans droit, son remboursement est à décider\)/);
-    expect(alertes[1]).toMatch(/finie chez nous, à résilier chez Stripe .*Remboursement à décider au cas par cas/);
+    expect(alertes[0]).toMatch(/À résilier à la main \(payée sans droit, son remboursement est à décider, puis prévenir ses admins : aucun e-mail ne part tant qu’elle court\)/);
+    expect(alertes[1]).toMatch(/payée sans droit, finie chez nous/);
+  });
+
+  it('🔴 payée sans droit, une panne passagère de Stripe lève : ni e-mail, ni fin, ni alerte, Stripe rejouera l’événement', async () => {
+    for (const status of [503, 429]) {
+      const { d, journal, alertes } = fin({ refus: { status, json: { error: { message: 'indisponible' } } } });
+      await expect(finDeDroitOption(d, T1, 'payee_sans_droit'), String(status)).rejects.toThrow();
+      expect([journal, alertes], String(status)).toEqual([[], []]);
+    }
+  });
+
+  it('une fin de droit ordinaire garde la résiliation à la main sur une panne passagère : /ops ne la rejouerait pas', async () => {
+    const { d, journal } = fin({ refus: { status: 503, json: { error: { message: 'indisponible' } } } });
+    expect(await finDeDroitOption(d, T1, 'fin_de_droit')).toBe('a_verifier');
+    expect(journal).toContain(`arret:${T1}`);
+  });
+
+  it('🔴 payée sans droit, la fin déjà écrite par l’avis « deleted » de Stripe : la consigne est partie avant elle', async () => {
+    // La relecture du correctif (jaune 2) : notre résiliation déclenche l'avis `deleted`, qui peut écrire la fin avant nous
+    // et ne dit que « terminée (résiliation) ».
+    const { d, journal, alertes } = fin({ premiereFin: false });
+    expect(await finDeDroitOption(d, T1, 'payee_sans_droit')).toBe('resiliee');
+    expect(journal).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Crédit WhatsA', 'finir:sub_opt:fin_de_droit']);
+    expect(alertes[0]).toMatch(/Remboursement à décider au cas par cas/);
   });
 
   it('une fin de droit ordinaire (la fin du Pro) : aucun e-mail aux admins, le mois entamé sans remboursement', async () => {

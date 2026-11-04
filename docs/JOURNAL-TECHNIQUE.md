@@ -75,6 +75,9 @@ Les trois jaunes d'avant la vente de la relecture de `394a1e90` (entrée suivant
 - Relu sans rouge (`624843bc`) : sept jaunes au plan, dont deux avant la vente (l'e-mail dit l'option résiliée quand la
   résiliation chez Stripe a échoué ; la consigne de remboursement se perd si le `deleted` de Stripe passe avant notre
   fin). La mention du remboursement au cas par cas est retirée de `features.md`, public.
+- Ces deux-là fermés dans la foulée : l'e-mail aux admins ne part qu'une fois la résiliation faite chez Stripe (une panne
+  passagère d'une option payée sans droit lève, Stripe rejoue), et la consigne de remboursement part avant d'écrire la
+  fin. Cinq retraits de correctif, chacun vu par son test.
 
 ## 2026-11-04 (soir) : les quatre derniers jaunes d'avant la vente de l'option du Crédit WhatsApp
 

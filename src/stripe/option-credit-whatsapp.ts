@@ -8,6 +8,9 @@ import type { PgOptionsCreditStore } from '../credit-whatsapp/options.pg';
 import { journaliser } from '../lib/journal';
 import { refus, type Issue } from '../lib/issue';
 
+/** Une panne passagère de Stripe (réseau, 5xx, 429) : l'appelant la laisse remonter, pour qu'elle se rejoue. */
+const passagere = (err: StripeError): boolean => err.status === null || err.status === 429 || err.status >= 500;
+
 /**
  * L'OPTION CRÉDIT WHATSAPP (lot 4a du plan `2026-11-03-credit-whatsapp-lot-4.md`, spec du 2026-10-30 § « L'option ») : un
  * abonnement Stripe mensuel à part, 30 € HT par numéro, dont la quantité est le nombre de PLACES (une place = un numéro
@@ -207,7 +210,7 @@ export async function resilierOptionChezStripe(d: Pick<DepsOptionCredit, 'stripe
     await arreterAbonnementNumeroSeul(s.transport, { cle: s.cle, abonnementId, avoir: false });
     return true;
   } catch (err) {
-    if (!(err instanceof StripeError) || err.status === null || err.status === 429 || err.status >= 500) throw err;
+    if (!(err instanceof StripeError) || passagere(err)) throw err;
     journaliser('error', 'option_wa_resiliation_impaye_impossible', { abonnement: abonnementId, status: err.status, code: err.code, err: err.message });
     await d.alerter(`Option Crédit WhatsApp ${abonnementId} impayée : Stripe refuse de la résilier (${err.status}${err.code ? `, ${err.code}` : ''}). À résilier à la main, sans remboursement. ${lienTableauStripe('subscriptions', abonnementId, s.livemode)}`);
     return false;
@@ -228,7 +231,7 @@ export async function optionChezStripe(
   try {
     return await relire(s, abonnementId, d.prixOption);
   } catch (err) {
-    if (!(err instanceof StripeError) || err.status === null || err.status === 429 || err.status >= 500) throw err;
+    if (!(err instanceof StripeError) || passagere(err)) throw err;
     journaliser('error', 'stripe_option_wa_illisible', { abonnement: abonnementId, status: err.status, code: err.code, err: err.message });
     await d.alerter(`Option Crédit WhatsApp ${abonnementId} illisible chez Stripe (${err.status}) : ses places ne sont pas relues, à vérifier.`);
     return null;
@@ -275,9 +278,13 @@ export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string
   if (o === null) return 'sans_option';
   if (await d.aDroit(tenantId)) return 'garde_son_droit';
   const lien = lienTableauStripe('subscriptions', o.abonnementId, o.livemode);
+  const payee = cas === 'payee_sans_droit';
   // Une seule consigne de remboursement, la même dans chaque alerte d'un cas (relecture des derniers jaunes d'avant la
-  // vente, jaune 1) : jamais « sans remboursement » pour une option payée sans droit.
-  const remboursement = cas === 'payee_sans_droit' ? 'payée sans droit, son remboursement est à décider' : 'sans remboursement';
+  // vente, jaune 1) : jamais « sans remboursement » pour une option payée sans droit. Résiliée à la main, elle n'a pas eu
+  // d'e-mail (il la dirait résiliée) : Julien prévient ses admins (relecture du correctif, jaune 1).
+  const remboursement = payee
+    ? 'payée sans droit, son remboursement est à décider, puis prévenir ses admins : aucun e-mail ne part tant qu’elle court'
+    : 'sans remboursement';
   let issue: IssueFinDeDroitOption = 'resiliee';
   if (d.stripe === null || d.stripe.livemode !== o.livemode) {
     issue = 'a_verifier';
@@ -287,6 +294,10 @@ export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string
       await arreterAbonnementNumeroSeul(d.stripe.transport, { cle: d.stripe.cle, abonnementId: o.abonnementId, avoir: false });
     } catch (err) {
       if (!(err instanceof StripeError)) throw err;
+      // 🔴 Payée sans droit, une panne passagère (réseau, 5xx, 429) LÈVE : ce cas ne vient que du webhook, Stripe rejoue
+      // l'événement et la résiliation se refait, l'e-mail ne partant qu'après elle (relecture du correctif, jaune 1). Une
+      // fin de droit ordinaire garde la résiliation à la main : `/ops` l'appelle aussi, et rien ne l'y rejouerait.
+      if (payee && passagere(err)) throw err;
       // La même résiliation déjà en cours chez Stripe (deux fins traitées ensemble) : l'autre appel la fait.
       if (err.code !== 'idempotency_key_in_use') {
         issue = 'a_verifier';
@@ -295,17 +306,20 @@ export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string
       }
     }
   }
-  // L'e-mail AVANT la fin : il ne part qu'une fois par abonnement (son occasion), donc le rejeu d'une fin ratée le renvoie
-  // sans doublon ; placé après, ce rejeu rendrait `sans_option` et le perdrait.
-  if (cas === 'payee_sans_droit') await d.prevenirSansDroit(tenantId, o.abonnementId);
+  // Payée sans droit et résiliée chez Stripe : l'e-mail aux admins (vrai, elle l'est) et la consigne à Julien, AVANT
+  // d'écrire la fin. L'avis `deleted` que notre résiliation déclenche peut écrire la fin avant nous (il ne dit que
+  // « terminée »), et une panne de la fin fait rejouer un événement que Stripe dit fini, qui ne repasse plus ici : après la
+  // fin, l'un et l'autre se perdraient (relecture du correctif, jaune 2). L'e-mail ne part qu'une fois par abonnement.
+  if (payee && issue === 'resiliee') {
+    await d.prevenirSansDroit(tenantId, o.abonnementId);
+    await d.alerter(`Option Crédit WhatsApp payée sans offre qui y donne droit : espace ${tenantId} (${o.abonnementId}), résiliée chez Stripe, un e-mail part à ses admins. Remboursement à décider au cas par cas. ${lien}`);
+  }
   const fin = await d.options.finir(o.abonnementId, 'fin_de_droit', (d.now ?? (() => new Date()))());
   if (fin?.premiereFin) {
     const n = await d.arreterLesLignes(tenantId);
     const lignes = `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
-    // 🔴 « Résiliée » seulement quand Stripe l'a résiliée : en `a_verifier`, l'abonnement court encore (jaune 1).
-    const etat = issue === 'resiliee' ? 'résiliée chez Stripe' : 'finie chez nous, à résilier chez Stripe (l’e-mail aux admins la dit résiliée)';
-    await d.alerter(cas === 'payee_sans_droit'
-      ? `Option Crédit WhatsApp payée sans offre qui y donne droit : espace ${tenantId} (${o.abonnementId}), ${etat}, ${lignes}, les admins prévenus par e-mail. Remboursement à décider au cas par cas. ${lien}`
+    await d.alerter(payee
+      ? `Option Crédit WhatsApp payée sans droit, finie chez nous : espace ${tenantId} (${o.abonnementId}), ${lignes}.`
       : `Option Crédit WhatsApp finie, plus aucune offre n'y donne droit : espace ${tenantId} (${o.abonnementId}), ${lignes}.`);
   }
   return issue;

@@ -4348,8 +4348,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   AVANT l'illimité, et une Entreprise n'a besoin d'aucune option. Chaque enregistrement d'une option relit d'abord le droit
   (`finDeDroitOption`) : une option payée sans offre qui y donne droit (un Checkout ouvert pendant l'essai du Pro, réglé
   après sa fin) est résiliée et ses lignes restent arrêtées ; ses admins reçoivent un e-mail sans promesse
-  (`option_wa_sans_droit`, une fois par abonnement, envoyé avant d'écrire la fin), et Julien une consigne unique,
-  « remboursement à décider » (décision du 2026-11-04 : au cas par cas). 🔴 La fin de droit prend son cas en paramètre
+  (`option_wa_sans_droit`, une fois par abonnement), seulement une fois la résiliation faite chez Stripe, et Julien une
+  consigne unique, « remboursement à décider » (décision du 2026-11-04 : au cas par cas), l'un et l'autre AVANT d'écrire
+  la fin (l'avis `deleted` que notre résiliation déclenche peut l'écrire avant nous). Une panne passagère de Stripe y
+  lève, pour que Stripe rejoue l'événement ; un refus durable laisse la résiliation à la main, sans e-mail. 🔴 La fin de droit prend son cas en paramètre
   requis (`fin_de_droit` ou `payee_sans_droit`), et le webhook la reçoit par `brancherFinDeDroit` : une flèche à un
   paramètre avalerait le cas en silence. Avec le droit, il relance les lignes que la fin d'une
   précédente avait arrêtées (`relancerLesLignesDeLOption`), à chaque enregistrement et pas seulement le premier, pour
