@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { changerFinAbonnement, lireAbonnementStripe, listerFacturesStripe, StripeError } from './client';
+import { changerFinAbonnement, lireAbonnementStripe, listerFacturesStripe, StripeError, terminerEssaiStripe } from './client';
 import type { DepsPaiement } from './paiement';
 import { journaliser } from '../lib/journal';
 import { refus, type Issue } from '../lib/issue';
+import type { VerrousCourts } from '../db/verrous-courts';
 
 /**
  * GÉRER LE PRO SANS QUITTER LA CONSOLE (2026-10-26, demande de Julien : « un lien clair » pour les factures et la
@@ -23,6 +24,22 @@ export type DepsGestionPro = Pick<DepsPaiement, 'stripe' | 'payeurAutorise'> & {
   /** Les identifiants Stripe des prix d'un siège (`STRIPE_PRIX_SIEGE_MOIS`, `_AN`) : le tarif sépare le Pro de ses sièges. */
   prixSiege: readonly string[];
 };
+
+/** Ce que le démarrage de la formule Pro avant la fin de son essai lit et écrit (révision du 2026-11-04, décision 6). */
+export type DepsDemarrerPro = DepsGestionPro & {
+  /** La fin de l'essai du Pro vivant, en base (`ResumePro.essaiFinLe`) ; `null` sans essai. */
+  essaiDuPro(tenantId: string): Promise<Date | null>;
+  /**
+   * `PgAbonnementsOffreStore.noterFinEssai` : la fin de l'essai avancée tout de suite, sans attendre le webhook, pour que
+   * l'option s'ouvre dans la foulée. Le webhook réécrit la même fin.
+   */
+  noterFinEssai(abonnementId: string, finLe: Date): Promise<boolean>;
+  verrous: Pick<VerrousCourts, 'prendre' | 'relacher'>;
+  maintenant?: () => number;
+};
+
+/** Le verrou d'un démarrage : le temps d'une relecture et d'un prélèvement chez Stripe, largement. */
+const DUREE_VERROU_DEMARRAGE_MS = 60_000;
 
 /** Une panne passagère de Stripe (réseau, 5xx, 429) : l'appelant la laisse remonter, pour qu'elle se rejoue. */
 const passagere = (err: StripeError): boolean => err.status === null || err.status === 429 || err.status >= 500;
@@ -128,6 +145,58 @@ export async function changerResiliationPro(
     { code: 'resiliation_impossible' });
   }
 }
+
+/**
+ * DÉMARRER LA FORMULE PRO MAINTENANT (révision du Crédit WhatsApp, 2026-11-04, décision 6) : un client en essai l'arrête
+ * pour prendre la ligne de crédit sans attendre ses 14 jours. Stripe prélève tout de suite la carte prise au début de
+ * l'essai ; s'il refuse, rien ne change et l'essai continue. Un verrou par espace garde le double clic.
+ */
+export async function demarrerProMaintenant(d: DepsDemarrerPro, tenantId: string, payeur: string): Promise<Issue<{ essaiFini: true }>> {
+  const s = d.stripe;
+  if (s === null || !(await d.payeurAutorise(payeur))) return GESTION_INDISPONIBLE;
+  const pro = await d.proVivant(tenantId);
+  if (pro === null) return refus(409, 'Cet espace n’a pas de Pro en cours.', { code: 'aucun_pro' });
+  const maintenant = (d.maintenant ?? Date.now)();
+  const essai = await d.essaiDuPro(tenantId);
+  if (essai === null || essai.getTime() <= maintenant) return PAS_EN_ESSAI;
+  const prise = await d.verrous.prendre([[`pro.demarrer:${tenantId}`, DUREE_VERROU_DEMARRAGE_MS]]);
+  if (prise === null) return refus(409, 'Le démarrage de votre formule Pro est déjà en cours.', { code: 'deja_en_cours' });
+  try {
+    let issue: 'termine' | 'pas_en_essai';
+    try {
+      issue = await terminerEssaiStripe(s.transport, {
+        cle: s.cle, abonnementId: pro.abonnementId, idempotence: `essai-fini-${pro.abonnementId}-${randomUUID()}`,
+      });
+    } catch (err) {
+      if (!(err instanceof StripeError)) throw err;
+      // Le message de Stripe parle de NOTRE compte : au journal, jamais au navigateur.
+      journaliser('error', 'stripe_demarrage_pro_impossible', {
+        tenantId, abonnementId: pro.abonnementId, status: err.status, type: err.type, code: err.code, err: err.message,
+      });
+      if (err.status === 402) {
+        return refus(402, 'Le paiement n’a pas abouti : votre essai continue. Mettez à jour votre carte depuis « Gérer mon abonnement », puis réessayez.', { code: 'paiement_refuse' });
+      }
+      if (passagere(err)) {
+        return refus(503, 'Notre prestataire de paiement n’a pas répondu. Rechargez la page dans un instant pour voir si votre formule a démarré.', { code: 'paiement_indisponible' });
+      }
+      return refus(422, 'Le démarrage de votre formule Pro n’a pas pu être enregistré. Réessayez dans un instant ; si cela persiste, contactez-nous.', { code: 'demarrage_impossible' });
+    }
+    if (issue === 'pas_en_essai') return PAS_EN_ESSAI;
+    // 🔴 Stripe a prélevé : un échec d'écriture ici ne se dit pas en erreur au client. Le webhook réécrira la fin.
+    try {
+      await d.noterFinEssai(pro.abonnementId, new Date(maintenant));
+    } catch (err) {
+      journaliser('error', 'pro_fin_essai_non_ecrite', { tenantId, abonnementId: pro.abonnementId, err: err instanceof Error ? err.message : String(err) });
+    }
+    journaliser('info', 'pro_demarre_avant_la_fin_de_l_essai', { tenantId, abonnementId: pro.abonnementId });
+    return { ok: true, valeur: { essaiFini: true } };
+  } finally {
+    await d.verrous.relacher(prise);
+  }
+}
+
+/** Un Pro déjà payé, en base ou relu chez Stripe : rien à démarrer, rien n'est prélevé. */
+const PAS_EN_ESSAI = refus(409, 'Votre formule Pro est déjà payée.', { code: 'pas_en_essai' });
 
 /** Combien de factures la console montre, les plus récentes : les autres restent sur le portail de Stripe. */
 export const FACTURES_MONTREES = 24;

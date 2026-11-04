@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import { finPrevueDe, type ReponseStripe, type TransportStripe } from '../src/stripe/client';
-import { changerResiliationPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, FACTURES_MONTREES, type DepsGestionPro } from '../src/stripe/gestion-pro';
+import { changerResiliationPro, demarrerProMaintenant, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, FACTURES_MONTREES, type DepsDemarrerPro, type DepsGestionPro } from '../src/stripe/gestion-pro';
 import type { StripeConfigure } from '../src/stripe/paiement';
 
 /**
@@ -240,5 +240,78 @@ describe('tarifDuPro : le prix de l’abonné, pas la grille (2026-10-26)', () =
     const refuse = await tarifDuPro(monter({ reponses: [{ status: 403, json: { error: { message: 'The key rk_test_x cannot read subscriptions' } } }] }).d, 't1', 'u1');
     expect(refuse).toMatchObject({ ok: false, statut: 422, details: { code: 'tarif_impossible' } });
     expect(JSON.stringify(refuse)).not.toContain('rk_test');
+  });
+});
+
+/**
+ * DÉMARRER LA FORMULE PRO MAINTENANT (révision du Crédit WhatsApp, 2026-11-04, décision 6) : un client en essai arrête
+ * son essai pour prendre la ligne de crédit tout de suite. Stripe prélève la carte prise au début de l'essai ; s'il
+ * refuse, rien ne change et l'essai continue.
+ */
+describe('demarrerProMaintenant', () => {
+  const EN_ESSAI = new Date('2026-11-12T08:00:00Z');
+  const MAINTENANT = Date.parse('2026-11-05T10:00:00Z');
+  function demarrer(o: { reponses?: Array<ReponseStripe | Error>; essai?: Date | null; verrouTenu?: boolean; pro?: null } = {}) {
+    const base = monter({ reponses: o.reponses, ...(o.pro === null ? { pro: null } : {}) });
+    const fins: Array<{ abonnementId: string; finLe: Date }> = [];
+    const verrous = { pris: [] as string[], relaches: 0 };
+    const d: DepsDemarrerPro = {
+      ...base.d,
+      essaiDuPro: async () => (o.essai === undefined ? EN_ESSAI : o.essai),
+      noterFinEssai: async (abonnementId, finLe) => { fins.push({ abonnementId, finLe }); return true; },
+      verrous: {
+        prendre: async (cles) => {
+          verrous.pris.push(...cles.map(([c]) => c));
+          return o.verrouTenu ? null : { jeton: 'j', cles: cles.map(([c]) => c) };
+        },
+        relacher: async () => { verrous.relaches += 1; },
+      },
+      maintenant: () => MAINTENANT,
+    };
+    return { d, transport: base.transport, fins, verrous };
+  }
+  const relu = (status: string) => ({ status: 200, json: { id: 'sub_1', status, trial_end: Date.parse('2026-11-12T08:00:00Z') / 1000 } });
+  const demarre = { status: 200, json: { id: 'sub_1', status: 'active', trial_end: MAINTENANT / 1000 } };
+
+  it('🔴 en essai : relu en essai chez Stripe, arrêté par trial_end=now sans prorata, hors session, refusé si impayé ; la fin notée tout de suite', async () => {
+    const { d, transport, fins, verrous } = demarrer({ reponses: [relu('trialing'), demarre] });
+    expect(await demarrerProMaintenant(d, 't1', 'u1')).toEqual({ ok: true, valeur: { essaiFini: true } });
+    expect(transport.appels.map((a) => a.methode)).toEqual(['GET', 'POST']);
+    expect(Object.fromEntries(transport.appels[1]!.corps)).toEqual({
+      trial_end: 'now', payment_behavior: 'error_if_incomplete', proration_behavior: 'none', off_session: 'true',
+    });
+    expect(transport.appels[1]!.entetes['idempotency-key']).toMatch(/^essai-fini-sub_1-/);
+    expect(fins).toEqual([{ abonnementId: 'sub_1', finLe: new Date(MAINTENANT) }]);
+    expect([verrous.pris, verrous.relaches]).toEqual([['pro.demarrer:t1'], 1]);
+  });
+
+  it('🔴 carte refusée : 402 paiement_refuse, l’essai continue, aucune fin notée, le verrou relâché', async () => {
+    const refusee = { status: 402, json: { error: { type: 'card_error', code: 'card_declined', message: 'Your card was declined.' } } };
+    const { d, fins, verrous } = demarrer({ reponses: [relu('trialing'), refusee] });
+    expect(await demarrerProMaintenant(d, 't1', 'u1')).toMatchObject({ ok: false, statut: 402, details: { code: 'paiement_refuse' } });
+    expect([fins, verrous.relaches]).toEqual([[], 1]);
+  });
+
+  it('🔴 déjà payée : en base hors essai, ou relue active chez Stripe (base en retard), 409 pas_en_essai sans aucun prélèvement', async () => {
+    const enBase = demarrer({ essai: new Date(MAINTENANT - 1000) });
+    expect(await demarrerProMaintenant(enBase.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 409, details: { code: 'pas_en_essai' } });
+    expect(enBase.transport.appels).toEqual([]);
+    const chezStripe = demarrer({ reponses: [relu('active')] });
+    expect(await demarrerProMaintenant(chezStripe.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 409, details: { code: 'pas_en_essai' } });
+    expect(chezStripe.transport.appels.map((a) => a.methode)).toEqual(['GET']);
+  });
+
+  it('🔴 un double clic : le second trouve le verrou tenu, 409 deja_en_cours, aucun appel chez Stripe', async () => {
+    const { d, transport } = demarrer({ verrouTenu: true });
+    expect(await demarrerProMaintenant(d, 't1', 'u1')).toMatchObject({ ok: false, statut: 409, details: { code: 'deja_en_cours' } });
+    expect(transport.appels).toEqual([]);
+  });
+
+  it('une panne passagère : 503, rien de noté, le verrou relâché ; sans Pro, 409 aucun_pro', async () => {
+    const panne = demarrer({ reponses: [relu('trialing'), { status: 503, json: { error: { message: 'indisponible' } } }] });
+    expect(await demarrerProMaintenant(panne.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 503, details: { code: 'paiement_indisponible' } });
+    expect([panne.fins, panne.verrous.relaches]).toEqual([[], 1]);
+    const sansPro = demarrer({ pro: null });
+    expect(await demarrerProMaintenant(sansPro.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 409, details: { code: 'aucun_pro' } });
   });
 });

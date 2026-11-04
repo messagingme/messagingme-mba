@@ -613,6 +613,24 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
       expect(await pros.modifier('sub_itestprod', { finPrevueLe: null, periodicite: null })).toMatchObject({ finPrevueLe: null, periodicite: 'an' });
     });
 
+    it('🔴 l’essai écourté : la fin avance, ne recule plus une fois passée, et noterFinEssai n’avance qu’un essai en cours', async () => {
+      // Révision du Crédit WhatsApp (2026-11-04, décision 6) : la console arrête l'essai et note sa fin sans attendre le
+      // webhook ; un avis en retard (encore « en essai ») ne doit pas rouvrir l'essai.
+      const t = await espace('itest-pro-essai-ecourte');
+      const pros = new PgAbonnementsOffreStore(pool);
+      const prevue = new Date(Date.now() + 10 * 86_400_000);
+      const ecourte = new Date(Date.now() - 60_000);
+      await pros.enregistrer({ tenantId: t, abonnementId: 'sub_itestessai', periodicite: 'mois', livemode: true, periodeFin: null, essaiFinLe: prevue });
+      expect(await pros.noterFinEssai('sub_itestessai', ecourte)).toEqual({ tenantId: t });
+      expect((await pros.resume(t))?.essaiFinLe?.toISOString()).toBe(ecourte.toISOString());
+      expect(await pros.noterFinEssai('sub_itestessai', new Date(Date.now() + 86_400_000))).toBeNull();
+      await pros.modifier('sub_itestessai', { finPrevueLe: null, periodicite: null, essaiFinLe: prevue });
+      expect((await pros.resume(t))?.essaiFinLe?.toISOString()).toBe(ecourte.toISOString());
+      // Un Pro payé dès le départ n'a pas d'essai à écourter.
+      await pros.enregistrer({ tenantId: t, abonnementId: 'sub_itestsansessai', periodicite: 'mois', livemode: true, periodeFin: null });
+      expect(await pros.noterFinEssai('sub_itestsansessai', ecourte)).toBeNull();
+    });
+
     it('🔴 la fin : datée et raisonnée une fois ; l’espace revient en Base ; rien ne le ressuscite', async () => {
       const t = await espace('itest-pro-fin');
       const pros = new PgAbonnementsOffreStore(pool);

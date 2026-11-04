@@ -158,7 +158,8 @@ export class PgAbonnementsOffreStore {
   ): Promise<AbonnementOffre | null> {
     const res = await this.pool.query<Ligne>(
       `update abonnements_offre
-          set fin_prevue_le = $2, periodicite = coalesce($3, periodicite), essai_fin_le = coalesce($4, essai_fin_le),
+          set fin_prevue_le = $2, periodicite = coalesce($3, periodicite),
+              essai_fin_le = case when essai_fin_le is not null and essai_fin_le <= now() then essai_fin_le else coalesce($4, essai_fin_le) end,
               sieges = coalesce($5, sieges),
               suite_annoncee_le = case when $2::timestamptz is null then null else suite_annoncee_le end, maj_le = now()
         where stripe_subscription_id = $1 and fini_le is null
@@ -166,6 +167,21 @@ export class PgAbonnementsOffreStore {
       [abonnementId, m.finPrevueLe, m.periodicite, m.essaiFinLe ?? null, m.sieges ?? null],
     );
     return res.rows[0] ? versAbonnement(res.rows[0]) : null;
+  }
+
+  /**
+   * L'ESSAI ÉCOURTÉ (révision du Crédit WhatsApp, 2026-11-04, décision 6) : la console a arrêté l'essai chez Stripe, sa fin
+   * s'avance tout de suite, sans attendre le webhook (l'option s'ouvre dans la foulée). Seulement un essai EN COURS, et
+   * seulement vers plus tôt : un Pro payé dès le départ n'a rien à écourter. Rend l'espace touché, `null` si rien n'a changé.
+   */
+  async noterFinEssai(abonnementId: string, finLe: Date): Promise<{ tenantId: string } | null> {
+    const res = await this.pool.query<{ tenant_id: string }>(
+      `update abonnements_offre set essai_fin_le = $2, maj_le = now()
+        where stripe_subscription_id = $1 and fini_le is null and essai_fin_le is not null and essai_fin_le > $2
+        returning tenant_id`,
+      [abonnementId, finLe],
+    );
+    return res.rows[0] ? { tenantId: res.rows[0].tenant_id } : null;
   }
 
   /**

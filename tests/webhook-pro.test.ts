@@ -371,6 +371,15 @@ describe('l’essai de 14 jours du Pro', () => {
     expect(cap.modifs).toEqual([expect.objectContaining({ abonnementId: 'sub_pro', essaiFinLe: new Date(FIN_ESSAI * 1000) })]);
   });
 
+  it('🔴 un essai écourté (par la console ou au tableau de bord) : l’abonnement actif porte sa fin d’essai, réécrite', async () => {
+    // Révision du Crédit WhatsApp (2026-11-04, décision 6) : le webhook n'écrivait la fin d'essai que pendant `trialing` ;
+    // un essai écourté restait « en essai » jusqu'à sa date prévue, et l'option refusée.
+    const { srv, cap } = monter({ connus: ['sub_pro'] });
+    const ecourte = FIN_ESSAI - 5 * 86_400;
+    await envoyer(srv, evenement(abonnementPro({ status: 'active', trial_end: ecourte, metadata: META_ESSAI }), 'customer.subscription.updated'));
+    expect(cap.modifs).toEqual([expect.objectContaining({ abonnementId: 'sub_pro', essaiFinLe: new Date(ecourte * 1000) })]);
+  });
+
   it('hors essai, une facture payée d’un Pro connu n’arrête rien de plus : le numéro seul l’a été au passage', async () => {
     const { srv, cap } = monter({ connus: ['sub_pro'] });
     await envoyer(srv, evenement(facturePro({ amount_paid: 4900 }), 'invoice.paid'));

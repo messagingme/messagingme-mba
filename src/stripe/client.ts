@@ -74,7 +74,7 @@ async function lireReponse(res: Response): Promise<ReponseStripe> {
 /** Stripe a refusé, ou n'a pas répondu. `type` et `code` sont ceux de Stripe quand il les donne. */
 export class StripeError extends Error {
   constructor(
-    readonly operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege',
+    readonly operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege' | 'essai',
     readonly status: number | null,
     readonly type: string | null,
     readonly code: string | null,
@@ -107,7 +107,7 @@ const sessionSchema = z.object({ id: z.string().startsWith('cs_'), url: z.string
  */
 async function appeler<T>(
   transport: TransportStripe,
-  operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege',
+  operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege' | 'essai',
   chemin: string,
   champs: Record<string, string> | null,
   o: { cle: string; idempotence?: string; supprimer?: true },
@@ -571,6 +571,38 @@ export async function lireAbonnementStripe(transport: TransportStripe, o: { cle:
     statut: a.status, lignes: versLignes(a.items.data), derniereFacture: f ? (typeof f === 'string' ? f : f.id) : null,
     finPrevueLe: finPrevueDe(a), remise: (a.discounts?.length ?? 0) > 0,
   };
+}
+
+/** Ce qu'on lit d'un abonnement avant et après l'arrêt de son essai. */
+const essaiSchema = z.object({ id: z.string().startsWith('sub_'), status: z.string(), trial_end: z.number().int().nullable().optional() });
+
+/**
+ * ARRÊTE L'ESSAI D'UN ABONNEMENT TOUT DE SUITE (révision du Crédit WhatsApp, 2026-11-04, décision 6) : Stripe prélève la
+ * période qui commence (`trial_end=now`, la date de facturation recalée sur maintenant) avec la carte enregistrée.
+ * - 🔴 Relu d'abord : un abonnement qui n'est plus en essai (notre base en retard sur un essai déjà arrêté) ne reçoit
+ *   rien, sinon un second `trial_end=now` pourrait facturer une période de plus. Rend alors `pas_en_essai`.
+ * - `payment_behavior=error_if_incomplete` : un paiement qui échoue rend une erreur (402) et l'abonnement ne change pas
+ *   (« the subscription update does not go into effect », doc de Stripe) ; il ne gère pas une authentification
+ *   demandée par la banque, qui rend aussi une erreur.
+ * - `proration_behavior=none` : un essai gratuit n'a rien à créditer. `off_session=true` : le prélèvement repose sur
+ *   le mandat donné au Checkout de l'essai, le client n'est pas dans une page de paiement.
+ * Une clé d'idempotence PAR DEMANDE (comme la résiliation) : une clé fixe rejouerait 24 h le refus d'une carte changée
+ * depuis. Le double clic se garde par un verrou de l'appelant. La clé restreinte doit pouvoir LIRE et ÉCRIRE les
+ * abonnements.
+ */
+export async function terminerEssaiStripe(transport: TransportStripe, o: {
+  cle: string; abonnementId: string; idempotence: string;
+}): Promise<'termine' | 'pas_en_essai'> {
+  const chemin = `/subscriptions/${encodeURIComponent(o.abonnementId)}`;
+  const avant = await appeler(transport, 'essai', chemin, null, { cle: o.cle }, essaiSchema);
+  if (avant.id !== o.abonnementId) throw new StripeError('essai', 200, null, null, 'reponse pour un autre abonnement');
+  if (avant.status !== 'trialing') return 'pas_en_essai';
+  const apres = await appeler(transport, 'essai', chemin, {
+    trial_end: 'now', payment_behavior: 'error_if_incomplete', proration_behavior: 'none', off_session: 'true',
+  }, { cle: o.cle, idempotence: o.idempotence }, essaiSchema);
+  if (apres.id !== o.abonnementId) throw new StripeError('essai', 200, null, null, 'reponse pour un autre abonnement');
+  if (apres.status === 'trialing') throw new StripeError('essai', 200, null, null, 'reponse sans le changement demande');
+  return 'termine';
 }
 
 const abonnementChangeSchema = abonnementLuSchema.extend({

@@ -51,7 +51,7 @@ import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
 import { formulePayee } from './offres/formule-payee';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
-import { changerResiliationPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
+import { changerResiliationPro, demarrerProMaintenant, type DepsDemarrerPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
 import { creerVueOffre } from './offres/vue';
 import { upsertContactsFromApi } from './api/contacts-upsert';
 import { creerServiceContactsV1 } from './api/contacts-v1';
@@ -1193,6 +1193,20 @@ async function main(): Promise<void> {
     // Les prix d'un siège, pour séparer le Pro de ses sièges dans son tarif réel.
     prixSiege: [config.STRIPE_PRIX_SIEGE_MOIS, config.STRIPE_PRIX_SIEGE_AN].filter((p) => p !== ''),
   };
+  /**
+   * Démarrer la formule Pro avant la fin de l'essai (révision du Crédit WhatsApp, 2026-11-04, décision 6) : la gestion du
+   * Pro, plus la fin d'essai en base, son écriture immédiate (le cache de l'offre vidé) et le verrou du double clic.
+   */
+  const demarrageProDeLaConsole: DepsDemarrerPro = {
+    ...gestionProDeLaConsole,
+    essaiDuPro: async (tenant) => (await abonnementsOffre.resume(tenant))?.essaiFinLe ?? null,
+    noterFinEssai: async (abonnementId, finLe) => {
+      const a = await abonnementsOffre.noterFinEssai(abonnementId, finLe);
+      if (a) offres.invalider(a.tenantId);
+      return a !== null;
+    },
+    verrous: verrousCourts,
+  };
   // Le plafond de clés actives de l'offre (spec offres v2), lu par la route de la console et par l'outil `create_api_key`.
   const limiteClesDeLOffre = async (tenant: string): Promise<number | null> => (await offres.offreDe(tenant)).droits.limites.clesApi;
   const vueOffre = creerVueOffre({
@@ -1809,6 +1823,8 @@ async function main(): Promise<void> {
       sieges: (tenant, demande, payeur) => changerSieges(siegesDeLaConsole, tenant, demande, payeur),
       // Résilier le Pro, annuler la résiliation, et les factures de l'espace (2026-10-26).
       resiliation: (tenant, resilier, payeur) => changerResiliationPro(gestionProDeLaConsole, tenant, resilier, payeur),
+      // Démarrer la formule Pro avant la fin de l'essai (révision du Crédit WhatsApp, 2026-11-04).
+      demarrerPro: (tenant, payeur) => demarrerProMaintenant(demarrageProDeLaConsole, tenant, payeur),
       factures: (tenant, payeur) => facturesDeLEspace(gestionProDeLaConsole, tenant, payeur),
       tarif: (tenant, payeur) => tarifDuPro(gestionProDeLaConsole, tenant, payeur),
     },

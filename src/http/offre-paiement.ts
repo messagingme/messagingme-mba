@@ -31,6 +31,11 @@ export interface OffrePaiementRouteDeps {
   sieges(tenantId: string, demande: DemandeSieges, payeur: string): Promise<Issue<{ sieges: number }>>;
   /** Résilier le Pro à la fin de sa période, ou annuler cette résiliation (`changerResiliationPro`, `src/stripe/gestion-pro.ts`). */
   resiliation(tenantId: string, resilier: boolean, payeur: string): Promise<Issue<{ finPrevueLe: string | null }>>;
+  /**
+   * Démarrer la formule Pro avant la fin de l'essai (`demarrerProMaintenant`, révision du Crédit WhatsApp du 2026-11-04) :
+   * Stripe prélève tout de suite ; un refus laisse l'essai tel quel.
+   */
+  demarrerPro(tenantId: string, payeur: string): Promise<Issue<{ essaiFini: true }>>;
   /** Les dernières factures de l'espace chez Stripe (`facturesDeLEspace`) : Pro, numéro et recharges. */
   factures(tenantId: string, payeur: string): Promise<Issue<{ factures: FactureEspace[]; plusSurStripe: boolean }>>;
   /** Le tarif réel du Pro vivant, lu sur son abonnement chez Stripe (`tarifDuPro`) : le prix de l'abonné, pas la grille. */
@@ -92,6 +97,18 @@ export function registerOffrePaiement(app: FastifyInstance, deps: OffrePaiementR
     const lu = corpsResiliationSchema.safeParse(req.body ?? {});
     if (!lu.success) return reply.code(400).send({ error: 'resilier requis : true ou false' });
     const r = await deps.resiliation(tenant, lu.data.resilier, req.auth?.userId ?? '');
+    if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
+    return reply.code(200).send(r.valeur);
+  });
+
+  /**
+   * Démarrer la formule Pro avant la fin de l'essai (révision du Crédit WhatsApp, 2026-11-04, décision 6) : un
+   * administrateur, sous le plafond coûteux (chaque clic peut prélever une carte). Aucun corps : ni prix ni montant, tout
+   * vient de l'abonnement chez Stripe.
+   */
+  app.post('/tenants/:tenantId/offre/pro/demarrer', couteux, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const r = await deps.demarrerPro(tenant, req.auth?.userId ?? '');
     if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
     return reply.code(200).send(r.valeur);
   });

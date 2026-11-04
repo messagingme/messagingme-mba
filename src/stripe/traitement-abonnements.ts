@@ -415,8 +415,10 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         finPrevueLe: finPrevue,
         periodicite: intervalle ? (PERIODICITE_DE_STRIPE[intervalle] ?? null) : null,
         ...(sieges !== null ? { sieges } : {}),
-        // La fin de l'essai, tant qu'il court ; sinon on garde celle déjà notée (l'histoire de l'abonnement).
-        ...(lu.data.status === 'trialing' && lu.data.trial_end ? { essaiFinLe: new Date(lu.data.trial_end * 1000) } : {}),
+        // La fin de l'essai, quel que soit le statut : un essai écourté (par la console ou au tableau de bord) rend un
+        // abonnement actif dont la fin d'essai a avancé (révision du 2026-11-04, décision 6). Une fin déjà passée en base
+        // ne recule plus : un avis en retard, encore « en essai », ne rouvre pas l'essai (`PgAbonnementsOffreStore.modifier`).
+        ...(lu.data.trial_end ? { essaiFinLe: new Date(lu.data.trial_end * 1000) } : {}),
       });
       if (a) deps.pro.invalider(a.tenantId);
       return ACQUITTE;

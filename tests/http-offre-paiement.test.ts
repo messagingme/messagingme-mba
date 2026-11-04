@@ -21,12 +21,13 @@ beforeAll(async () => {
 });
 const personne: UserAuthStore = { findIdentity: async (): Promise<EmailIdentity | null> => null };
 
-function monter(o: { ouvrir?: OffrePaiementRouteDeps['ouvrir']; portail?: OffrePaiementRouteDeps['portail']; proVivant?: boolean; sieges?: OffrePaiementRouteDeps['sieges']; resiliation?: OffrePaiementRouteDeps['resiliation'] } = {}) {
+function monter(o: { ouvrir?: OffrePaiementRouteDeps['ouvrir']; portail?: OffrePaiementRouteDeps['portail']; proVivant?: boolean; sieges?: OffrePaiementRouteDeps['sieges']; resiliation?: OffrePaiementRouteDeps['resiliation']; demarrerPro?: OffrePaiementRouteDeps['demarrerPro'] } = {}) {
   const cap = {
     ouvertures: [] as Array<{ tenantId: string; periodicite: PeriodicitePro; payeur: string }>, portails: [] as string[],
     rendus: [] as Array<{ tenantId: string; rendre: boolean }>,
     sieges: [] as Array<{ tenantId: string; depuis: number; cible: number; payeur: string }>,
     resiliations: [] as Array<{ tenantId: string; resilier: boolean; payeur: string }>, factures: [] as Array<{ tenantId: string; payeur: string }>,
+    demarrages: [] as Array<{ tenantId: string; payeur: string }>,
   };
   const server = buildServer({
     queue: new FakeQueue(), auth: { users: personne, secret: SECRET },
@@ -44,6 +45,7 @@ function monter(o: { ouvrir?: OffrePaiementRouteDeps['ouvrir']; portail?: OffreP
       }),
       factures: async (tenantId, payeur) => { cap.factures.push({ tenantId, payeur }); return { ok: true, valeur: { factures: [], plusSurStripe: false } }; },
       tarif: async () => ({ ok: true, valeur: { proHtCentimes: 3900, siegeHtCentimes: 1200, remise: true } }),
+      demarrerPro: o.demarrerPro ?? (async (tenantId, payeur) => { cap.demarrages.push({ tenantId, payeur }); return { ok: true, valeur: { essaiFini: true } }; }),
     },
   });
   return { server, cap };
@@ -227,5 +229,27 @@ describe('GET /tenants/:tenantId/offre/tarif', () => {
     expect(r.json()).toEqual({ proHtCentimes: 3900, siegeHtCentimes: 1200, remise: true });
     expect((await lire(agent)).statusCode).toBe(403);
     await server.close();
+  });
+});
+
+describe('POST /tenants/:tenantId/offre/pro/demarrer', () => {
+  // Révision du Crédit WhatsApp (2026-11-04, décision 6) : un client en essai démarre sa formule Pro tout de suite.
+  it('🔴 un administrateur démarre sa formule, payée par l’utilisateur de la session ; un agent, 403, rien ne part', async () => {
+    const { server, cap } = monter();
+    const r = await poster(server, '/tenants/t1/offre/pro/demarrer', admin);
+    expect([r.statusCode, r.json()]).toEqual([200, { essaiFini: true }]);
+    expect(cap.demarrages).toEqual([{ tenantId: 't1', payeur: 'u1' }]);
+    expect((await poster(server, '/tenants/t1/offre/pro/demarrer', agent)).statusCode).toBe(403);
+    expect(cap.demarrages).toHaveLength(1);
+    await server.close();
+  });
+
+  it('🔴 un refus garde son statut et son code : carte refusée 402, déjà payée 409', async () => {
+    for (const [statut, code] of [[402, 'paiement_refuse'], [409, 'pas_en_essai']] as const) {
+      const { server } = monter({ demarrerPro: async () => refus(statut, 'refusé', { code }) });
+      const r = await poster(server, '/tenants/t1/offre/pro/demarrer', admin);
+      expect([r.statusCode, r.json()], code).toMatchObject([statut, { code }]);
+      await server.close();
+    }
   });
 });
