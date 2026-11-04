@@ -4,6 +4,25 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-04 (soir) : le serveur MCP refuse une clé d'argument que l'outil n'annonce pas
+
+- **Le défaut** (jaune de la relecture des segments, `4bb9d3dc`) : `tools/call` ignorait une clé hors du schéma de
+  l'outil. Sur une API remise à une image plus ancienne, un client qui garde la liste d'outils neuve aurait vu
+  `countries` ou `orders` jetés, et `tag_contacts` ou `set_contact_field` viser toute la cible restante.
+- **Vérifié avant d'écrire** : aucun outil n'ACCEPTE de clé hors schéma (accès directs relevés dans la source de chaque
+  `executer`, puis les fonctions qui reçoivent `args` entier). Deux en lisaient une pour la refuser :
+  `update_webhook_endpoint` (`url`) et `find_contacts` (`contact_ids`, `conversation_ids`, par `lireCibleMcp`).
+- **Le correctif** (`0ba651be`) : `refusDesClesInconnues` refuse avant l'outil, sur le schéma que `tools/list` annonce,
+  et `tools/list` annonce `additionalProperties: false` partout. La suite racine a montré qu'`update_agent` refusait
+  déjà toute clé hors de sa liste avec une phrase qui renvoie à `set_agent_limits` : d'où `phraseClesInconnues`, une
+  fonction de l'outil et non une table par clé. `create_agent` et `create_widget` refusent désormais un `tenantId`
+  glissé au lieu de l'ignorer.
+- **En production le 2026-11-04** : run 41920358023, `migration=aucune`, `mba-api` relu sur `mba:0ba651be`. Essai réel :
+  `list_conversations` avec `countries` depuis Claude Code, refusé (« paramètre inconnu : countries (list_conversations
+  accepte limit, a_traiter, since, until, cursor) ; rien n’a été fait ») ; le même appel sans la clé répond.
+- **La relecture** : aucun rouge. Ses jaunes sont au `todo.md`, dont `customers_consented`, qu'un plugin 0.3.11 ou plus
+  ancien envoie à `set_shopify_message` : ignoré hier, refusé aujourd'hui avec la phrase générique.
+
 ## 2026-11-04 (soir) : un appel de connecteur qu'un scénario utilise ne se supprime plus
 
 - **Le défaut, vérifié avant d'écrire.** Un bloc « Appel API » désigne son appel par `data.requestId` dans le graphe du
