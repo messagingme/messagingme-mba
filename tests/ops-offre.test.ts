@@ -23,7 +23,7 @@ const SANS_ALERTE: AlertesOffreManuelle = {
   optionCreditWhatsappSansDroit: false, optionCreditWhatsappVivante: false,
 };
 /** Les champs du Business (spec du 2026-10-27) d'un espace qui ne l'a jamais eu. */
-const SANS_BUSINESS = { business: false, utilisateursBusiness: null } as const;
+const SANS_BUSINESS = { business: false, utilisateursBusiness: null, businessEssaiFinLe: null } as const;
 /**
  * Les réglages de crédit du devis d'une Entreprise qui n'en a négocié aucun : la commission des messages WhatsApp (plan du
  * 2026-10-30, tâche 8) et le plafond de sécurité de l'IA (Entreprise illimitée, lot B).
@@ -61,6 +61,10 @@ class MagasinMemoire {
             // Une seule offre posée à la main : l'Entreprise fait tomber le Business (`PgOffresStore.ecrireEntreprise`).
             business: r.entreprise ? false : r.business === undefined ? avant.business : r.business,
             utilisateursBusiness: r.utilisateursBusiness === undefined ? avant.utilisateursBusiness : r.utilisateursBusiness,
+            // L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : l'Entreprise posée ou le Business retiré
+            // l'effacent ; sinon, absent = inchangé.
+            businessEssaiFinLe: r.entreprise || r.business === false ? null
+              : r.businessEssaiFinLe === undefined ? avant.businessEssaiFinLe : r.businessEssaiFinLe,
             commissionMessagesPct: r.commissionMessagesPct === undefined ? avant.commissionMessagesPct : r.commissionMessagesPct,
             plafondIaMoisEuros: r.plafondIaMoisEuros === undefined ? avant.plafondIaMoisEuros : r.plafondIaMoisEuros,
           });
@@ -260,9 +264,27 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     await server.close();
   });
 
+  it('🔴 PUT pose un Business en essai : sa date écrite, effacée à la confirmation ; une date illisible, 400', async () => {
+    // Révision du Crédit WhatsApp (2026-11-04, décision 1) : tant que l'essai du Business n'est pas confirmé, l'option
+    // Crédit WhatsApp ne s'ouvre pas.
+    const { server, magasin } = monter();
+    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: false });
+    const FIN = '2026-11-18T00:00:00.000Z';
+    const pose = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: true, businessEssaiFinLe: FIN, note: 'Business en essai de 14 jours' } });
+    expect(pose.statusCode).toBe(200);
+    expect(magasin.ecritures[0]!.reglage.businessEssaiFinLe).toEqual(new Date(FIN));
+    expect(pose.json()).toMatchObject({ business: true, businessEssaiFinLe: FIN });
+    const confirme = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: true, businessEssaiFinLe: null, note: 'Business confirmé' } });
+    expect(confirme.json()).toMatchObject({ business: true, businessEssaiFinLe: null });
+    for (const extra of [{ businessEssaiFinLe: 'demain' }, { businessEssaiFinLe: 14 }]) {
+      expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { ...BASE, business: true, ...extra } })).statusCode, JSON.stringify(extra)).toBe(400);
+    }
+    await server.close();
+  });
+
   it('🔴 PUT retire le Business : la fin du numéro fourni est demandée, à la date du retrait', async () => {
     const { server, magasin } = monter();
-    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null });
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null });
     const avant = Date.now();
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, business: false, note: 'fin de l’essai' } });
     expect(res.statusCode).toBe(200);
@@ -285,7 +307,7 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
 
   it('PUT pose l’Entreprise sur un Business : le Business tombe, sans geste de fin (l’Entreprise couvre le numéro)', async () => {
     const { server, magasin } = monter();
-    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: 6 });
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: 6, businessEssaiFinLe: null });
     const res = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: true, utilisateurs: 20, note: 'devis Entreprise signé' } });
     expect(res.statusCode).toBe(200);
     expect(magasin.reglages.get(T1)).toMatchObject({ entreprise: true, business: false });
@@ -355,6 +377,7 @@ describe('l’offre posée par l’exploitation, au journal des actions de l’e
         entreprise: false, utilisateurs: null, conservationJours: 365, contacts: null, commissionPct: null,
         entrepriseAvant: true, utilisateursAvant: null, conservationJoursAvant: null, contactsAvant: null, commissionPctAvant: null,
         business: false, utilisateursBusiness: null, businessAvant: false, utilisateursBusinessAvant: null,
+        businessEssaiFinLe: null, businessEssaiFinLeAvant: null,
         commissionMessagesPct: null, commissionMessagesPctAvant: null,
         plafondIaMoisEuros: null, plafondIaMoisEurosAvant: null,
       },

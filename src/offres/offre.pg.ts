@@ -99,12 +99,12 @@ export class PgOffresStore implements SourceOffres {
     const r = await this.pool.query<{
       offre_entreprise: boolean; entreprise_utilisateurs: number | null; conversation_retention_days: number | null;
       entreprise_contacts: number | null; entreprise_commission_pct: number | null;
-      offre_business: boolean; business_utilisateurs: number | null;
+      offre_business: boolean; business_utilisateurs: number | null; offre_business_essai_fin_le: Date | null;
       entreprise_commission_messages_pct: number | null; entreprise_plafond_ia_micro_eur: string | null;
     }>(
       `select t.offre_entreprise, t.entreprise_utilisateurs, s.conversation_retention_days,
               t.entreprise_contacts, t.entreprise_commission_pct, t.offre_business, t.business_utilisateurs,
-              t.entreprise_commission_messages_pct, t.entreprise_plafond_ia_micro_eur
+              t.offre_business_essai_fin_le, t.entreprise_commission_messages_pct, t.entreprise_plafond_ia_micro_eur
          from tenants t left join tenant_settings s on s.tenant_id = t.id
         where t.id = $1`,
       [tenantId],
@@ -114,7 +114,7 @@ export class PgOffresStore implements SourceOffres {
       ? {
         entreprise: l.offre_entreprise, utilisateurs: l.entreprise_utilisateurs, conservationJours: l.conversation_retention_days,
         contacts: l.entreprise_contacts, commissionPct: l.entreprise_commission_pct,
-        business: l.offre_business, utilisateursBusiness: l.business_utilisateurs,
+        business: l.offre_business, utilisateursBusiness: l.business_utilisateurs, businessEssaiFinLe: l.offre_business_essai_fin_le,
         commissionMessagesPct: l.entreprise_commission_messages_pct,
         // En euros entiers à l'écran, en micro-euros en base (0268) : la colonne n'accepte que des euros ronds d'ici.
         plafondIaMoisEuros: l.entreprise_plafond_ia_micro_eur === null ? null : Math.round(Number(l.entreprise_plafond_ia_micro_eur) / 1_000_000),
@@ -176,6 +176,8 @@ export class PgOffresStore implements SourceOffres {
                 business_quitte_le = case
                   when offre_business and ($2 or $8::boolean = false) then now() else business_quitte_le end,
                 business_utilisateurs = case when $9 then $10::int else business_utilisateurs end,
+                offre_business_essai_fin_le = case
+                  when $2 or $8::boolean = false then null when $15 then $16::timestamptz else offre_business_essai_fin_le end,
                 entreprise_commission_messages_pct = case when $11 then $12::int else entreprise_commission_messages_pct end,
                 entreprise_plafond_ia_micro_eur = case when $13 then $14::bigint else entreprise_plafond_ia_micro_eur end
           where id = $1`,
@@ -184,6 +186,7 @@ export class PgOffresStore implements SourceOffres {
           r.commissionPct ?? null, r.business ?? null, r.utilisateursBusiness !== undefined, r.utilisateursBusiness ?? null,
           r.commissionMessagesPct !== undefined, r.commissionMessagesPct ?? null,
           r.plafondIaMoisEuros !== undefined, r.plafondIaMoisEuros == null ? null : r.plafondIaMoisEuros * 1_000_000,
+          r.businessEssaiFinLe !== undefined, r.businessEssaiFinLe ?? null,
         ],
       );
       if ((maj.rowCount ?? 0) === 0) return false;
@@ -214,6 +217,11 @@ export interface EcritureEntreprise {
   business?: boolean;
   /** La limite d'utilisateurs du Business : absente = inchangée, `null` = les 5 de la grille. */
   utilisateursBusiness?: number | null;
+  /**
+   * L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : une date = en essai jusqu'à elle, `null` = confirmé ;
+   * absente = inchangée. L'Entreprise posée ou le Business retiré l'effacent.
+   */
+  businessEssaiFinLe?: Date | null;
   /** La commission des messages négociée : absente = inchangée, `null` = la globale de `/ops`. */
   commissionMessagesPct?: number | null;
   /** Le plafond de sécurité de l'IA du mois, en euros entiers : absent = inchangé, `null` = le défaut de l'instance. */
@@ -246,6 +254,11 @@ export interface ReglageEntreprise {
   /** Le Business posé à la main, et sa limite d'utilisateurs (`null` = les 5 de la grille). */
   business: boolean;
   utilisateursBusiness: number | null;
+  /**
+   * La fin de l'essai du Business, tant que Julien ne l'a pas confirmé (`null` : confirmé, ou sans Business). Tant
+   * qu'elle n'est pas effacée, même passée, l'option Crédit WhatsApp ne s'ouvre pas (`formulePayee`).
+   */
+  businessEssaiFinLe: Date | null;
   /** La commission des messages WhatsApp négociée par une Entreprise (`null` = la globale). Son illimité ne se règle pas. */
   commissionMessagesPct: number | null;
   /**

@@ -89,6 +89,9 @@ const corpsSchema = z.object({
   // Le Business (spec du 2026-10-27) : absent = inchangé ; sa limite d'utilisateurs, absente = inchangée, `null` = les 5.
   business: z.boolean().optional(),
   utilisateursBusiness: z.number().int().min(1).max(10_000).nullable().optional(),
+  // L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : une date ISO = en essai jusqu'à elle, `null` =
+  // confirmé, absente = inchangée. Tant qu'il n'est pas confirmé, l'option Crédit WhatsApp ne s'ouvre pas.
+  businessEssaiFinLe: z.string().datetime({ offset: true }).nullable().optional(),
   // Le Crédit WhatsApp de l'Entreprise (plan du 2026-10-30, tâche 8) : la commission des messages négociée. Absente =
   // inchangée ; `null` = la globale, un ENTIER comme l'autre. L'illimité ne se règle pas : toute Entreprise l'est
   // (décision du 2026-11-02), et le schéma strict refuse l'ancien `openBarWhatsapp`.
@@ -137,6 +140,8 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
       ...(lu.data.commissionPct !== undefined ? { commissionPct: lu.data.commissionPct } : {}),
       ...(lu.data.business !== undefined ? { business: lu.data.business } : {}),
       ...(lu.data.utilisateursBusiness !== undefined ? { utilisateursBusiness: lu.data.utilisateursBusiness } : {}),
+      ...(lu.data.businessEssaiFinLe !== undefined
+        ? { businessEssaiFinLe: lu.data.businessEssaiFinLe === null ? null : new Date(lu.data.businessEssaiFinLe) } : {}),
       ...(lu.data.commissionMessagesPct !== undefined ? { commissionMessagesPct: lu.data.commissionMessagesPct } : {}),
       ...(lu.data.plafondIaMoisEuros !== undefined ? { plafondIaMoisEuros: lu.data.plafondIaMoisEuros } : {}),
     };
@@ -152,6 +157,7 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
       contactsAvant: avant.contacts, commissionPctAvant: avant.commissionPct,
       business: apres.business, utilisateursBusiness: apres.utilisateursBusiness,
       businessAvant: avant.business, utilisateursBusinessAvant: avant.utilisateursBusiness,
+      businessEssaiFinLe: apres.businessEssaiFinLe, businessEssaiFinLeAvant: avant.businessEssaiFinLe,
       commissionMessagesPct: apres.commissionMessagesPct, commissionMessagesPctAvant: avant.commissionMessagesPct,
       plafondIaMoisEuros: apres.plafondIaMoisEuros, plafondIaMoisEurosAvant: avant.plafondIaMoisEuros,
     });
