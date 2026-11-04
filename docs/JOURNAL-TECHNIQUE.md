@@ -19,6 +19,8 @@ Les quatre jaunes des deux relectures du lot 4a que le plan marquait « avant la
 - **Le message d'un prorata impayé** ne fait plus recommencer l'ajout : régler la facture l'applique, recommencer
   faisait payer une seconde place.
 - Treize retraits de correctif, chacun vu par son test ; les requêtes neuves par la suite d'intégration de la CI.
+  Relus sans rouge (cinq jaunes au plan, dont quatre avant la vente), en production le même jour avec le lot 4a
+  (`00057374`).
 
 ## 2026-11-03 (soir) : la CSP de la console bloque, après trois semaines d'observation
 
@@ -144,6 +146,11 @@ une pose dans `/ops` d'un Pro ou d'un Business exige une place payée, sauf gest
   l'acquitte en silence ; l'option s'aiguille donc avant lui, et une session d'abonnement d'un produit que la version ne
   connaît pas alerte désormais au lieu d'être acquittée sans trace par le chemin de la recharge.
 - **Pas encore en vente** : sans `STRIPE_PRIX_OPTION_WA`, rien ne se montre.
+- **En production le 2026-11-04** : la 0276 seule le 2026-11-03 au soir (run 41720125296, relue en base point par
+  point), puis le code avec les écrans, le correctif de la CI d'intégration et les jaunes d'avant la vente (`00057374`,
+  run 41834984952, sans migration, avec la CSP de la console et le correctif HubSpot des sessions voisines, accord de
+  Julien). Vérifié : l'API et les trois conteneurs de la machine sur `00057374`, et la route de l'option qui répondait
+  404 rend 401 (elle existe, et exige une session).
 - **La relecture** : un rouge, latent tant que l'option n'est pas vendue. Un espace qui a l'option, passé en Entreprise
   puis dont l'option se termine (résiliée au portail, ou un impayé abandonné) voyait ses lignes arrêtées ; la garde lit
   l'arrêt AVANT l'illimité, donc tous ses envois refusés, réponses comprises. Corrigé avant la mise en service : la fin

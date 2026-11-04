@@ -203,9 +203,9 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   réponses de l'agent de Meta. Son essai réel : la SANDBOX sur la ligne
   une demi-journée, la régularisation du lendemain relue en base.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
-  pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option : la migration 0276, le serveur
-  (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet) et les écrans (l'onglet, la
-  pose forcée de `/ops`) ; le rouge de sa relecture corrigé (la fin de l'option d'une Entreprise n'arrête plus ses
+  pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
+  (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes
+  de l'onglet) et les écrans (l'onglet, la pose forcée de `/ops`) ; le rouge de sa relecture corrigé (la fin de l'option d'une Entreprise n'arrête plus ses
   lignes), comme celui de la relecture des écrans (l'option payée pas encore arrivée ne se reprend plus). Les quatre
   jaunes à fermer avant l'ouverture de la vente sont écrits et vérifiés le 2026-11-04 (une option reprise relance ses
   lignes, les pauses faute de place se lèvent et le refus dit sa raison, les cas acquittés sans trace alertent et un

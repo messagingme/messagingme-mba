@@ -118,7 +118,8 @@ d'essai sur la session ; l'onglet d'un Pro sans ligne propose l'option, celui d'
 dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet, e-mail, bilan de suppression), relu, son rouge
 corrigé ; les deux écrans (l'onglet, la pose forcée de `/ops`) écrits et testés. Ils ne paraissent que sur les champs
 neufs de l'API (l'option de la vue, les places de `/ops`) : ils partent avec elle, sans fenêtre où ils appelleraient une
-route absente.
+route absente. **En production le 2026-11-04** (`00057374`, run 41834984952), avec les jaunes d'avant la vente ; restent,
+avant de poser le prix, les quatre jaunes « avant la vente » de leur relecture (§ plus bas) et les gestes de Julien.
 
 ## La relecture du lot 4a (2026-11-03)
 
