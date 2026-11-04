@@ -337,6 +337,15 @@ test.describe('Connecteurs : mettre au point un appel', () => {
     await expect(page.getByTestId(`requete-supprimer-${RQ}`)).toBeDisabled();
   });
 
+  test('🔴 une requête qu’un bloc Appel API de scénario désigne ne se supprime pas non plus (2026-11-04)', async ({ page }) => {
+    // Le bloc ferait sinon un appel « requête introuvable » à chaque passage, sans que personne le voie.
+    const capture = { posts: [] as Array<{ url: string; body: unknown }> };
+    await mock(page, capture, { requetes: [{ ...REQUETE, outils: 0, scenarios: ['Accueil'] }] });
+    await expect(page.getByTestId(`requete-usage-${RQ}`)).toContainText('1 scénario');
+    await expect(page.getByTestId(`requete-usage-${RQ}`)).toHaveAttribute('title', 'Accueil');
+    await expect(page.getByTestId(`requete-supprimer-${RQ}`)).toBeDisabled();
+  });
+
   test('🔴 en MODIFIANT un appel rempli, chaque colonne garde son intitulé (Julien, 2026-09-23)', async ({ page }) => {
     // Les intitulés n'étaient que des `placeholder`, effacés par les valeurs chargées : on ne savait plus quelle
     // colonne était le nom, la valeur, ou la valeur d'essai.

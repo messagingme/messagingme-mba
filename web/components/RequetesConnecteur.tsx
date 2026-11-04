@@ -66,6 +66,17 @@ const deLaRequete = (r: RequeteApi): Brouillon => ({
   outputPaths: r.outputPaths, valeursTest: r.valeursTest,
 });
 
+/** « utilisé par … » : les outils d'agent et les scénarios qui désignent l'appel, ou ni l'un ni l'autre. */
+function libelleUsage(outils: number, scenarios: number, t: ReturnType<typeof useT>): string {
+  const fr: string[] = [];
+  const en: string[] = [];
+  if (outils > 0) { fr.push(`${outils} outil(s) d’agent`); en.push(`${outils} agent tool(s)`); }
+  if (scenarios > 0) { fr.push(`${scenarios} scénario(s)`); en.push(`${scenarios} scenario(s)`); }
+  return fr.length === 0
+    ? t('utilisé par aucun agent ni scénario', 'used by no agent or scenario')
+    : t(`utilisé par ${fr.join(' et ')}`, `used by ${en.join(' and ')}`);
+}
+
 export function RequetesConnecteur({ tenantId, sources, sourceFiltre }: {
   tenantId: string;
   sources: SourceAgent[];
@@ -180,17 +191,17 @@ export function RequetesConnecteur({ tenantId, sources, sourceFiltre }: {
                 >
                   {edite === r.id ? t('Fermer', 'Close') : t('Modifier', 'Edit')}
                 </button>
-                {/* Le nombre d'outils qui la désignent : sans lui, on la supprimerait en rendant un agent
-                    muet. Même rôle que le compteur d'agents sur une source. */}
-                <span data-testid={`requete-usage-${r.id}`} className="text-ink-500">
-                  {r.outils === 0
-                    ? t('utilisé par aucun agent', 'used by no agent')
-                    : t(`utilisé par ${r.outils} outil(s) d’agent`, `used by ${r.outils} agent tool(s)`)}
+                {/* Ce qui la désigne, outils d'agent et blocs « Appel API » de scénario : sans ce compte, on la
+                    supprimerait en rendant un agent muet ou un bloc mort. Même rôle que le compteur d'agents sur une source. */}
+                <span data-testid={`requete-usage-${r.id}`} className="text-ink-500" title={(r.scenarios ?? []).join(', ')}>
+                  {libelleUsage(r.outils, r.scenarios?.length ?? 0, t)}
                 </span>
                 <button
                   data-testid={`requete-supprimer-${r.id}`}
-                  disabled={busy || r.outils > 0}
-                  title={r.outils > 0 ? t('Retirez-le d’abord des agents qui l’utilisent.', 'Remove it from the agents using it first.') : ''}
+                  disabled={busy || r.outils > 0 || (r.scenarios?.length ?? 0) > 0}
+                  title={r.outils > 0 || (r.scenarios?.length ?? 0) > 0
+                    ? t('Retirez-le d’abord des agents et des scénarios qui l’utilisent.', 'Remove it from the agents and scenarios using it first.')
+                    : ''}
                   onClick={() => agir(async () => { await supprimerRequete(tenantId, r.id); setEdite(null); })}
                   className="text-danger hover:underline disabled:cursor-not-allowed disabled:text-ink-400 disabled:no-underline"
                 >

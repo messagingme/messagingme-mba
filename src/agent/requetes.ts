@@ -52,6 +52,14 @@ export interface RequeteConnecteur {
   updatedAt: string;
 }
 
+/**
+ * Une requête telle que la liste de l'écran la montre, avec les scénarios (hors système) dont un bloc « Appel API »,
+ * publié ou en brouillon, la désigne. Il la désigne dans son graphe, sans clé étrangère : sans cette liste, la supprimer
+ * laissait le bloc faire un appel « requête introuvable » à chaque passage, champ vidé et parcours poursuivi, sans que
+ * personne le voie. ⚠️ Calculée par la liste seulement : `parId` sert chaque appel d'outil et chaque bloc qui part.
+ */
+export type RequeteListee = RequeteConnecteur & { scenarios: string[] };
+
 export type CreationRequete = Omit<RequeteConnecteur, 'id' | 'tenantId' | 'outils' | 'updatedAt'>;
 export type PatchRequete = Partial<CreationRequete>;
 
@@ -117,8 +125,10 @@ export class SourceIntrouvable extends Error {
 }
 
 export interface RequeteStore {
-  lister(tenantId: string): Promise<RequeteConnecteur[]>;
+  lister(tenantId: string): Promise<RequeteListee[]>;
   parId(tenantId: string, id: string): Promise<RequeteConnecteur | null>;
+  /** Les scénarios dont un bloc « Appel API » désigne cette requête : ce qui refuse sa suppression (`RequeteListee`). */
+  scenariosQuiUtilisent(tenantId: string, id: string): Promise<string[]>;
   creer(tenantId: string, input: CreationRequete): Promise<RequeteConnecteur>;
   /** Monte au plancher de la méthode écrite le risque des outils branchés, sans jamais le redescendre. */
   patch(tenantId: string, id: string, patch: PatchRequete): Promise<RequeteConnecteur | null>;

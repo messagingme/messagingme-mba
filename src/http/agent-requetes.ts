@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Guard } from '../auth/middleware';
-import { LabelRequeteDejaPris, SourceIntrouvable, type RequeteConnecteur } from '../agent/requetes';
+import { LabelRequeteDejaPris, SourceIntrouvable, type CreationRequete, type RequeteConnecteur, type RequeteListee } from '../agent/requetes';
 import { construireCible, risqueSelonMethode } from '../agent/http-cible';
 import { assemblerAppel, cheminsDeLaReponse, estEnTeteReserve, variablesUtilisees, EN_TETES_RESERVES, type ValeurVariable } from '../agent/requete-http';
 import { CLES_SYSTEME, normaliserOrigine } from '../agent/variables';
@@ -19,14 +19,16 @@ import { transportConnecteurHttp, type TransportConnecteurHttp } from '../agent/
  *  3. `outputPaths` décide de ce que l'agent lit de la réponse, qui part chez le fournisseur de modèle. Il peut
  *     être vide à l'enregistrement (un brouillon se garde) : c'est le rattachement à un agent qui l'exige (409
  *     dans `agent-tools.ts`). Non rattaché, un appel n'envoie ni ne lit rien.
- *  4. Supprimer une requête que des outils désignent est refusé (409) : la cascade rendrait un agent muet.
+ *  4. Supprimer une requête que des outils désignent est refusé (409) : la cascade rendrait un agent muet. Celle
+ *     qu'un bloc « Appel API » de scénario désigne aussi (409, scénarios nommés) : le bloc ferait un appel mort.
  */
 
 export interface AgentRequetesRouteDeps {
   requetes: {
-    lister(tenantId: string): Promise<RequeteConnecteur[]>;
+    lister(tenantId: string): Promise<RequeteListee[]>;
     parId(tenantId: string, id: string): Promise<RequeteConnecteur | null>;
-    creer(tenantId: string, input: Omit<RequeteConnecteur, 'id' | 'tenantId' | 'outils' | 'updatedAt'>): Promise<RequeteConnecteur>;
+    scenariosQuiUtilisent(tenantId: string, id: string): Promise<string[]>;
+    creer(tenantId: string, input: CreationRequete): Promise<RequeteConnecteur>;
     patch(tenantId: string, id: string, patch: Record<string, unknown>): Promise<RequeteConnecteur | null>;
     supprimer(tenantId: string, id: string): Promise<boolean>;
   };
@@ -297,6 +299,13 @@ export function registerAgentRequetes(app: FastifyInstance, deps: AgentRequetesR
     // muet sur ces gestes-là, en production, sans que personne ne l'ait décidé.
     if (actuelle.outils > 0) {
       return reply.code(409).send({ error: `${actuelle.outils} outil(s) d’agent utilisent cette requête : retirez-les d’abord` });
+    }
+    // Un bloc « Appel API » la désigne dans son graphe, sans clé étrangère : supprimée, le bloc appellerait une requête
+    // introuvable à chaque passage, champ vidé et parcours poursuivi, sans que personne le voie.
+    const scenarios = await deps.requetes.scenariosQuiUtilisent(tenant, id);
+    if (scenarios.length > 0) {
+      const noms = scenarios.map((n) => `« ${n} »`).join(', ');
+      return reply.code(409).send({ error: `un bloc Appel API l’utilise dans ${scenarios.length === 1 ? 'le scénario' : 'les scénarios'} ${noms} : retirez-la de ces blocs d’abord` });
     }
     // Le second usage, hors de `outils` : la poussée d'opt-out du centre de Sécurité. Sans ce refus, la clé
     // `on delete set null` débrancherait la conformité sans un mot.

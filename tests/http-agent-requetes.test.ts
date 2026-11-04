@@ -5,7 +5,7 @@ import { FakeQueue } from './fake-queue';
 import { signSession } from '../src/auth/token';
 import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { AgentRequetesRouteDeps } from '../src/http/agent-requetes';
-import { LabelRequeteDejaPris, type RequeteConnecteur } from '../src/agent/requetes';
+import { LabelRequeteDejaPris, type RequeteListee } from '../src/agent/requetes';
 import { creerTransportConnecteurHttp, type TransportConnecteurHttpDeps } from '../src/agent/transport-connecteur-http';
 import { requetesInertes } from './routes-inertes';
 
@@ -33,17 +33,17 @@ beforeAll(async () => {
 const noUsers: UserAuthStore = { findIdentity: async (): Promise<EmailIdentity | null> => null };
 const h = (t: string) => ({ headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` } });
 
-const REQUETE: RequeteConnecteur = {
+const REQUETE: RequeteListee = {
   id: RQ, tenantId: 't1', sourceId: SRC, label: 'Chercher une commande',
   methode: 'GET', chemin: '/commandes/{ref}',
   parametres: [], entetes: [], corps: { mode: 'aucun' },
   variables: [{ nom: 'ref', type: 'string', origine: { type: 'modele' }, requis: true }],
-  outputPaths: ['statut'], valeursTest: { ref: 'CMD-1' }, outils: 0,
+  outputPaths: ['statut'], valeursTest: { ref: 'CMD-1' }, outils: 0, scenarios: [],
   updatedAt: '2026-09-02T00:00:00.000Z',
 };
 
 function app(
-  over: Partial<RequeteConnecteur> = {},
+  over: Partial<RequeteListee> = {},
   fetchImpl?: typeof fetch,
   champs = ['ville', 'points'],
   resolution?: TransportConnecteurHttpDeps['verifierResolution'],
@@ -60,6 +60,7 @@ function app(
     requetes: {
       lister: async () => [requete],
       parId: async (tenant, id) => (tenant === 't1' && id === RQ ? requete : null),
+      scenariosQuiUtilisent: async (tenant, id) => (tenant === 't1' && id === RQ ? requete.scenarios : []),
       creer: async (_t, input) => {
         cap.creations.push(input as unknown as Record<string, unknown>);
         if (input.label === 'deja') throw new LabelRequeteDejaPris(input.label);
@@ -304,6 +305,17 @@ describe('requêtes : modifier et supprimer', () => {
     const res = await srv.inject({ method: 'DELETE', url: `${base()}/${RQ}`, ...h(adminTok) });
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toContain('3');
+  });
+
+  it('🔴 supprimer une requête qu’un bloc « Appel API » de scénario désigne est refusé, en NOMMANT les scénarios', async () => {
+    // Le bloc la désigne dans son graphe, sans clé étrangère : supprimée, elle faisait « requête introuvable » à
+    // chaque passage, champ vidé et parcours poursuivi, sans un mot (vérifié le 2026-11-04).
+    const { cap, srv } = app({ scenarios: ['Accueil', 'Relance devis'] });
+    const res = await srv.inject({ method: 'DELETE', url: `${base()}/${RQ}`, ...h(adminTok) });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toContain('« Accueil »');
+    expect(res.json().error).toContain('« Relance devis »');
+    expect(cap.suppressions).toEqual([]);
   });
 
   it('sans outil, la suppression passe', async () => {
@@ -636,7 +648,7 @@ describe('requêtes : le bouton Test', () => {
       agentRequetes: {
         ...requetesInertes,
         requetes: {
-          lister: async () => [REQUETE], parId: async () => REQUETE,
+          lister: async () => [REQUETE], parId: async () => REQUETE, scenariosQuiUtilisent: async () => [],
           creer: async () => REQUETE, patch: async () => REQUETE, supprimer: async () => true,
         },
         clesDeChamps: async () => [],
@@ -657,7 +669,7 @@ describe('requêtes : le bouton Test', () => {
       agentRequetes: {
         ...requetesInertes,
         requetes: {
-          lister: async () => [REQUETE], parId: async () => REQUETE,
+          lister: async () => [REQUETE], parId: async () => REQUETE, scenariosQuiUtilisent: async () => [],
           creer: async () => REQUETE, patch: async () => REQUETE, supprimer: async () => true,
         },
         clesDeChamps: async () => [], ...deps,

@@ -5,7 +5,7 @@ import { risqueSelonMethode, risquesSous, type MethodeConnecteur } from './http-
 import type { GabaritCorps, EnTete, ParametreUrl } from './requete-http';
 import {
   LabelRequeteDejaPris, SourceIntrouvable, lireVariables,
-  type CreationRequete, type PatchRequete, type RequeteConnecteur, type RequeteStore,
+  type CreationRequete, type PatchRequete, type RequeteConnecteur, type RequeteListee, type RequeteStore,
 } from './requetes';
 
 /**
@@ -14,6 +14,23 @@ import {
  * 🔴 `tenant_id` sur chaque requête : la RLS est contournée par le pooler, ce filtrage est le seul contrôle.
  * Le jsonb survit aux versions : les fonctions `lire*` le relisent sans rien supposer de sa forme.
  */
+
+/** Les nœuds d'un graphe, `[]` si la clé manque ou n'est pas un tableau : `jsonb_array_elements` lèverait sinon. */
+const noeuds = (col: string): string =>
+  `case when jsonb_typeof(${col}->'nodes') = 'array' then ${col}->'nodes' else '[]'::jsonb end`;
+
+/**
+ * Les scénarios de l'espace (hors système) dont un bloc « Appel API », publié ou en brouillon, désigne la requête : le
+ * graphe la nomme par `data.requestId`, que le moteur lit débarrassé de ses blancs (`src/workflow/engine.ts`).
+ * 🔴 `w.tenant_id = r.tenant_id` : sans lui, le scénario d'un autre client bloquerait la suppression et y laisserait
+ * lire son nom. ⚠️ Jamais dans `COLS` : `parId` sert chaque appel d'outil et chaque bloc qui part, et ce balayage relit
+ * tous les graphes de l'espace ; seules la liste de l'écran et la suppression en ont besoin.
+ */
+const SCENARIOS = `(select coalesce(array_agg(w.name order by lower(w.name), w.name), '{}')
+     from workflows w
+    where w.tenant_id = r.tenant_id and w.systeme is null and exists (
+      select 1 from jsonb_array_elements(${noeuds('w.graph')} || ${noeuds('w.draft_graph')}) n
+       where n->>'type' = 'http' and btrim(n->'data'->>'requestId', E' \\t\\r\\n') = r.id::text)) as scenarios`;
 
 const COLS = `r.id, r.tenant_id, r.source_id, r.label, r.method, r.path, r.query, r.headers,
   r.body_mode, r.body_json, r.body_champs, r.variables, r.output_paths, r.valeurs_test, r.updated_at,
@@ -108,12 +125,20 @@ function corpsEnColonnes(c: GabaritCorps): { mode: string; json: string | null; 
 export class PgRequeteStore implements RequeteStore {
   constructor(private readonly pool: Pool) {}
 
-  async lister(tenantId: string): Promise<RequeteConnecteur[]> {
-    const res = await this.pool.query<Ligne>(
-      `select ${COLS} from connector_requests r where r.tenant_id = $1 order by lower(r.label)`,
+  async lister(tenantId: string): Promise<RequeteListee[]> {
+    const res = await this.pool.query<Ligne & { scenarios: string[] }>(
+      `select ${COLS}, ${SCENARIOS} from connector_requests r where r.tenant_id = $1 order by lower(r.label)`,
       [tenantId],
     );
-    return res.rows.map(versVue);
+    return res.rows.map((r) => ({ ...versVue(r), scenarios: r.scenarios }));
+  }
+
+  async scenariosQuiUtilisent(tenantId: string, id: string): Promise<string[]> {
+    const res = await this.pool.query<{ scenarios: string[] }>(
+      `select ${SCENARIOS} from connector_requests r where r.tenant_id = $1 and r.id = $2`,
+      [tenantId, id],
+    );
+    return res.rows[0]?.scenarios ?? [];
   }
 
   async parId(tenantId: string, id: string): Promise<RequeteConnecteur | null> {

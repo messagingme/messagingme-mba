@@ -59,6 +59,11 @@ export interface RequeteApi {
   valeursTest: Record<string, string | number | boolean>;
   /** Nombre d'outils d'agents qui la désignent : c'est ce qui refuse une suppression qui rendrait un agent muet. */
   outils: number;
+  /**
+   * Les scénarios dont un bloc « Appel API » la désigne : eux aussi refusent la suppression. Facultatif : une API
+   * d'avant ne le rend pas, l'écran la traite alors comme « aucun scénario » (le serveur refuse de toute façon).
+   */
+  scenarios?: string[];
   updatedAt: string;
 }
 

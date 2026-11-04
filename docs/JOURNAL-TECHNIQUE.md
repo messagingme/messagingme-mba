@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-04 (soir) : un appel de connecteur qu'un scénario utilise ne se supprime plus
+
+- **Le défaut, vérifié avant d'écrire.** Un bloc « Appel API » désigne son appel par `data.requestId` dans le graphe du
+  scénario, sans clé étrangère, et la suppression d'un appel ne refusait que pour un outil d'agent ou la poussée de
+  désabonnement ; l'écran disait « utilisé par aucun agent ». Supprimé, le bloc rendait « requête introuvable » à chaque
+  passage (`creerAppelConnecteur`), champ cible vidé, parcours poursuivi, une ligne au journal des appels sous
+  l'identifiant brut ; l'éditeur ne le signalait qu'à l'ouverture du bloc, la publication jamais. Mesuré en production :
+  deux blocs publiés (espace de test « Messaging me Brevo »), leur appel existe, aucun bloc orphelin.
+- **Le correctif.** `PgRequeteStore` calcule les scénarios (hors système, publié ou brouillon, `tenant_id` de la
+  requête) qui désignent un appel, pour la liste de l'écran (`RequeteListee`) et pour la route de suppression
+  (`scenariosQuiUtilisent`), qui refuse en 409 en les nommant ; jamais dans `parId`, que chaque appel d'outil et chaque
+  bloc qui part relisent (relecture : le premier jet l'y mettait, avec le balayage des graphes à chaque appel). Un
+  `nodes` qui n'est pas un tableau est ignoré au lieu de faire lever `jsonb_array_elements`. La console dit « utilisé par
+  N scénario(s) » et grise « Supprimer ». Le SQL exact a été joué en lecture seule sur la production : l'appel
+  « signaler » nomme ses deux scénarios.
+
 ## 2026-11-04 (soir) : les sessions d'avant un changement de mot de passe sont refusées (migration 0277)
 
 Demande de Julien (« Oui, le lot identité »), décisions du même jour : toutes les sessions de l'identité tombent, celle

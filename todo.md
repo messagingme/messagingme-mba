@@ -4,9 +4,10 @@
 
 - **Un seul clic, sans confirmation** : « Supprimer » sur un appel (Tools > Connecteurs API) l'efface aussitôt, alors
   que le connecteur, le scénario et le champ demandent une confirmation.
-- **À vérifier : un appel utilisé par un bloc Appel API de scénario.** La route (`src/http/agent-requetes.ts`) refuse
-  un appel qui sert un outil d'agent ou la poussée de désabonnement, pas un bloc de scénario, qui désigne l'appel dans
-  son graphe sans clé étrangère. Lire ce que fait alors le bloc au moment de l'appel avant de décider d'un refus.
+- **Deux scénarios homonymes** apparaissent deux fois dans le refus d'un appel qu'ils utilisent et dans l'infobulle de
+  l'écran (`SCENARIOS`, `src/agent/requetes.pg.ts`). Cosmétique.
+- **La réponse d'une création ou d'une modification d'appel ne porte pas `scenarios`** : l'écran relit la liste après
+  chaque geste, donc rien n'est faux à l'écran ; un autre client de la route ne l'aurait pas.
 
 ## 🟡 Le bloc Question range sa réponse : ce que la relecture laisse (spec `docs/superpowers/specs/2026-11-02-question-fichier-champ-design.md`)
 

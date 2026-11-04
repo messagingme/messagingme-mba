@@ -67,7 +67,8 @@ function app(branche: string | null = null) {
   };
   const agentRequetes: AgentRequetesRouteDeps = {
     requetes: {
-      lister: async () => [REQUETE],
+      lister: async () => [{ ...REQUETE, scenarios: [] }],
+      scenariosQuiUtilisent: async () => [],
       parId: async (tenant, id) => (tenant === 't1' && id === RQ ? REQUETE : null),
       creer: async () => REQUETE,
       patch: async () => REQUETE,
