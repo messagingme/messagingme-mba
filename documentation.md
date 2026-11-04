@@ -4322,20 +4322,25 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   ajoutée n'existe que relue payée (`pending_if_incomplete`), un retrait s'applique sans prorata et jamais sous les
   numéros couverts. Le webhook l'aiguille par sa marque APRÈS le Pro et AVANT le numéro (qui acquitte en silence ce
   qu'il ne reconnaît pas), et relit ses places chez Stripe à chaque événement ; un paiement qu'il ne peut ni relire ni
-  enregistrer, ou une option finie chez nous et encore facturée, alerte Julien. La garde refuse (`ligne_inactive`, avec
+  enregistrer, une option finie chez nous que Stripe dit vivante, ou une facture payée d'une option que Stripe dit finie,
+  alerte Julien. La garde refuse (`ligne_inactive`, avec
   la raison « pas de place dans l'option », `detail: 'place_manquante'`, sous le même code d'API) un numéro d'une ligne
   `'option'` au-delà des places, rangés par le numéro de la ligne puis l'ancienneté, délié exclu
   (`numerosCouvertsParOption`, `src/credit-whatsapp/places.ts`) ; ni une Entreprise ni une ligne `'ops'` ne comptent
-  de places. Les pauses de campagne `ligne_credit_inactive` se lèvent à une option prise ou reprise, à des places notées
-  en plus et à une pose dans `/ops` (`leverPausesLigneCredit`, seulement si l'espace a une ligne active et un numéro
-  relié) ; une campagne d'un numéro encore hors des places y retourne au premier envoi. Dans `/ops`, la pose d'un Pro ou d'un Business consomme des places, tout le compte devant y tenir (409
+  de places. Les pauses de campagne `ligne_credit_inactive` se lèvent à chaque enregistrement d'une option qui y a droit
+  (prise, reprise, rejouée), à des places notées en plus et à une pose dans `/ops` (`leverPausesLigneCredit`, seulement
+  si l'espace a une ligne active et un numéro relié ; dans `/ops`, une levée qui échoue est journalisée sans faire échouer
+  la pose) ; une campagne d'un numéro encore hors des places y retourne au premier envoi. Dans `/ops`, la pose d'un Pro ou d'un Business consomme des places, tout le compte devant y tenir (409
   `places_manquantes`), sauf une pose FORCÉE et signée, dont la ligne reste `'ops'`. La fin : plus aucune offre qui y
   donne droit (la fin d'un Pro sans Business ni Entreprise, le retrait d'une offre posée à la main) la résilie tout de
   suite sans avoir (`finDeDroitOption`), Stripe qui abandonne un impayé la finit (un `unpaid`, qu'il garderait vivant et
   prélèverait encore, est d'abord résilié chez lui, `resilierOptionChezStripe`) ; ses lignes sont alors arrêtées, pas
   retirées, 🔴 jamais celles d'une Entreprise (`illimite` du traitement du webhook) : la garde lit l'arrêt d'une ligne
-  AVANT l'illimité, et une Entreprise n'a besoin d'aucune option. Une option reprise relance les lignes que la fin de la
-  précédente avait arrêtées (`relancerLesLignesDeLOption`). Poser l'Entreprise ne résilie pas l'option : la
+  AVANT l'illimité, et une Entreprise n'a besoin d'aucune option. Chaque enregistrement d'une option relit d'abord le droit
+  (`finDeDroitOption`) : une option payée sans offre qui y donne droit (un Checkout ouvert pendant l'essai du Pro, réglé
+  après sa fin) est résiliée et ses lignes restent arrêtées ; avec le droit, il relance les lignes que la fin d'une
+  précédente avait arrêtées (`relancerLesLignesDeLOption`), à chaque enregistrement et pas seulement le premier, pour
+  qu'un rejeu de Stripe refasse une relance interrompue. Poser l'Entreprise ne résilie pas l'option : la
   fenêtre de `/ops` l'annonce (`optionCreditWhatsappVivante`), Julien la résilie chez Stripe. Une seule ligne en cours
   par compte WhatsApp, tenue par la base (`lignes_credit_whatsapp_un_compte_uidx`). La vente s'ouvre quand
   `STRIPE_PRIX_OPTION_WA` est posé : l'onglet paraît alors pour tout Pro et Business. ⚠️ L'onglet n'est donc plus

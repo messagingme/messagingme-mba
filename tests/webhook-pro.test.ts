@@ -57,7 +57,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     paiementRefuse: async (p) => { cap.paiementsRefuses.push({ tenantId: p.tenantId, offre: p.offre, factureId: p.factureId }); },
     signalerPro: async (p) => { cap.pros.push(p); },
     numero: stripeNumeroInerte,
-    option: { ...stripeOptionInerte, surFinDuPro: async (t) => { cap.finsDeDroitOption.push(t); return 'sans_option'; } },
+    option: { ...stripeOptionInerte, finDeDroit: async (t) => { cap.finsDeDroitOption.push(t); return 'sans_option'; } },
     pro: {
       enregistrer: async (a) => { if (o.panne !== undefined) throw o.panne; cap.enregistres.push(a); const neuf = !connus.has(a.abonnementId); connus.add(a.abonnementId); return o.issue ?? { etat: 'enregistre', tenantId: T1, nouveau: neuf }; },
       majStatut: async (abonnementId, statut, periodeFin, finEchouee = null) => {

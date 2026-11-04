@@ -118,8 +118,9 @@ d'essai sur la session ; l'onglet d'un Pro sans ligne propose l'option, celui d'
 dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet, e-mail, bilan de suppression), relu, son rouge
 corrigé ; les deux écrans (l'onglet, la pose forcée de `/ops`) écrits et testés. Ils ne paraissent que sur les champs
 neufs de l'API (l'option de la vue, les places de `/ops`) : ils partent avec elle, sans fenêtre où ils appelleraient une
-route absente. **En production le 2026-11-04** (`00057374`, run 41834984952), avec les jaunes d'avant la vente ; restent,
-avant de poser le prix, les quatre jaunes « avant la vente » de leur relecture (§ plus bas) et les gestes de Julien.
+route absente. **En production le 2026-11-04** (`00057374`, run 41834984952), avec les jaunes d'avant la vente. Les
+quatre jaunes « avant la vente » de leur relecture sont fermés le même jour (§ plus bas) ; restent, avant de poser le
+prix, les gestes de Julien.
 
 ## La relecture du lot 4a (2026-11-03)
 
@@ -195,26 +196,31 @@ rouvre aucun autre arrêt ; une pause levée de trop coûte au plus un envoi ref
 la résiliation d'un `unpaid` relit l'état présent chez Stripe et rejoue sans danger ; personne ne lisait le texte de
 `ligne_inactive`.
 
-**Les jaunes** (ouverts ; « avant la vente » à fermer avant de poser le prix) :
+**Les jaunes** (✅ fermé le 2026-11-04 ; les quatre « avant la vente » le sont) :
 
-1. Avant la vente : la relance ne relit pas le droit. Un client qui ouvre le Checkout de l'option pendant son essai Pro et
-   paie après la fin du Pro (la session vit 24 h) fait enregistrer une option sans droit, qui relance ses lignes ; une
-   Free renverrait par la ligne et paierait chaque mois une option qu'aucune offre ne permet. Relire le droit
-   (`finDeDroitOption`) avant de relancer.
-2. Avant la vente : la relance et la levée ne tournent que pour une option `nouveau` ; si l'une échoue après
-   l'insertion, le rejeu de Stripe ne les refait pas (l'option n'est plus neuve). Les faire sur tout `enregistre`.
-3. Avant la vente : après notre résiliation d'un `unpaid`, une facture ouverte reste payable à la main ; payée, elle
-   passe sans trace (l'alerte neuve ne couvre que `active` et `past_due`). Alerter sur toute facture payée non nulle d'une
-   option finie, ou annuler la facture ouverte en résiliant. Mineur : l'alerte dit « l'a facturée » même venue d'un
-   `updated`.
+1. ✅ Avant la vente : la relance ne relisait pas le droit. Un client qui ouvre le Checkout de l'option pendant son essai
+   Pro et paie après la fin du Pro (la session vit 24 h) faisait enregistrer une option sans droit, qui relançait ses
+   lignes ; une Free renverrait par la ligne et paierait chaque mois une option qu'aucune offre ne permet. Fermé : chaque
+   enregistrement relit le droit (`finDeDroit`, branché sur `finDeDroitOption`) avant de relancer ; sans droit, l'option
+   est résiliée, ses lignes restent arrêtées, et une option neuve alerte Julien du remboursement à envisager.
+2. ✅ Avant la vente : la relance et la levée ne tournaient que pour une option `nouveau` ; si l'une échouait après
+   l'insertion, le rejeu de Stripe ne les refaisait pas. Fermé : elles tournent sur tout `enregistre`, l'alerte
+   « Nouvelle option » seule restant réservée à la première écriture.
+3. ✅ Avant la vente : après notre résiliation d'un `unpaid`, une facture ouverte payée à la main passait sans trace.
+   Fermé : le montant d'une facture payée voyage jusqu'à l'enregistrement, et une facture non nulle d'une option que
+   Stripe dit finie alerte Julien (« à rembourser »). Le mineur aussi : l'alerte d'une option finie chez nous ne dit
+   « l'a facturée » que venue d'une facture.
 4. Les levées partent à chaque événement (chaque `updated`, chaque facture payée, chaque retrait de place) : sans danger,
    sauf une campagne en pause depuis des semaines qui repart d'elle-même à une option reprise (à borner par l'âge de la
-   pause si Julien le veut), et, dans `/ops`, une levée qui échoue après une pose réussie rend 500 alors que le numéro est
-   posé : la rendre non bloquante.
-5. Avant la vente : le catalogue public des erreurs (`web/lib/erreurs-gestes.ts`, `/developers/api/errors`) dit encore
-   pour `whatsapp_credit_line_inactive` « une recharge n'y changerait rien, contactez-nous », alors qu'une place manquante
-   se lève en ajoutant une place ; le corps de l'API ne porte que `{error, code}`. Ajouter ce cas au geste, ou exposer
-   `detail`.
+   pause si Julien le veut, ouvert). ✅ Dans `/ops`, une levée qui échoue après une pose réussie ne rend plus 500 : elle
+   est journalisée (`ops_ligne_credit_reprise_impossible`), la pose reste réussie.
+5. ✅ Avant la vente : le catalogue public des erreurs disait pour `whatsapp_credit_line_inactive` « une recharge n'y
+   changerait rien, contactez-nous », alors qu'une place manquante se lève en ajoutant une place. Fermé : le geste dit
+   les deux cas (le message de l'API dit lequel), en français et en anglais, et l'exemple d'API aussi ; `detail` reste
+   hors du corps.
+
+Les cinq correctifs retirés un par un, plus le montant de la facture perdu et « facturée » sans facture : sept échecs,
+chacun sur son test.
 
 ## Lot 4b : la recharge automatique (tâche 14 du plan d'ensemble)
 

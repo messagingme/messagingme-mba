@@ -4,6 +4,7 @@ import type { FinDuPro } from '../offres/numero-inclus';
 import type { PgAbonnementsOffreStore, PeriodiciteOffre, RaisonFinOffre } from '../offres/abonnements-offre.pg';
 import type { PgAbonnementsNumeroStore } from './abonnements.pg';
 import type { PgOptionsCreditStore, RaisonFinOption } from '../credit-whatsapp/options.pg';
+import type { IssueFinDeDroitOption } from './option-credit-whatsapp';
 import { finPrevueDe } from './client';
 import { lienTableauStripe } from './liens';
 
@@ -77,8 +78,12 @@ export interface DepsTraitementAbonnements {
      * prélèverait encore (jaune 3). `false` si Stripe refuse (Julien prévenu) ; une panne passagère lève, Stripe rejouera.
      */
     resilier(abonnementId: string): Promise<boolean>;
-    /** `finDeDroitOption`, après la fin d'un Pro : l'option sans offre qui y donne droit se résilie. Rejouable. */
-    surFinDuPro(tenantId: string): Promise<unknown>;
+    /**
+     * `finDeDroitOption` : l'option sans offre qui y donne droit se résilie, ses lignes arrêtées. Jouée après la fin d'un
+     * Pro, et à l'enregistrement d'une option (une option payée sans droit ne relance rien). Rejouable ; rend l'issue,
+     * `garde_son_droit` quand une offre y donne encore droit.
+     */
+    finDeDroit(tenantId: string): Promise<IssueFinDeDroitOption>;
     alerter(texte: string): Promise<void>;
   };
   /**
@@ -387,7 +392,7 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
             carte: lu.data.default_payment_method ? idDe(lu.data.default_payment_method) : null,
           });
           // L'option du Crédit WhatsApp que plus aucune offre ne permet (ni Business ni Entreprise) se résilie (lot 4a).
-          await deps.option.surFinDuPro(a.tenantId);
+          await deps.option.finDeDroit(a.tenantId);
         }
         return ACQUITTE;
       }
@@ -555,16 +560,28 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}.`);
       }
     };
-    const enregistrer = async (tenantId: string, abonnementId: string, periodeFin: Date | null): Promise<void> => {
+    /**
+     * Enregistre l'option relue chez Stripe. `payeCentimes` : le montant d'une facture payée qui a mené ici (le chemin d'une
+     * facture), `null` sinon.
+     */
+    const enregistrer = async (tenantId: string, abonnementId: string, periodeFin: Date | null, payeCentimes: number | null = null): Promise<void> => {
+      const lien = lienTableauStripe('subscriptions', abonnementId, e.livemode);
       const lu = await deps.option.chezStripe(abonnementId);
       // Rien de relu (l'option pas en vente dans cette copie, ou un refus durable) : rien n'est inventé, mais un paiement
       // reçu sans option enregistrée se dit (relecture du lot 4a, jaune 3 : il était acquitté sans trace).
       if (lu === null) {
-        await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} payée par l'espace ${tenantId}, mais rien n'a pu être relu chez Stripe (le prix de l'option absent de cette copie, ou un refus durable) : elle n'est PAS enregistrée, à vérifier. ${lienTableauStripe('subscriptions', abonnementId, e.livemode)}`);
+        await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} payée par l'espace ${tenantId}, mais rien n'a pu être relu chez Stripe (le prix de l'option absent de cette copie, ou un refus durable) : elle n'est PAS enregistrée, à vérifier. ${lien}`);
         return;
       }
-      // Pas encore payée (`incomplete`) : aucune place n'existe.
-      if (lu.statut !== 'active' && lu.statut !== 'past_due') return;
+      if (lu.statut !== 'active' && lu.statut !== 'past_due') {
+        // Une facture réglée sur un abonnement que Stripe dit fini (une facture restée ouverte après notre résiliation d'un
+        // impayé, payée à la main) : de l'argent reçu pour rien, qui passait sans trace (relecture des jaunes d'avant la
+        // vente, jaune 3). Pas encore payée (`incomplete`), sans facture : aucune place n'existe, rien à dire.
+        if (payeCentimes !== null && payeCentimes > 0) {
+          await deps.option.alerter(`Facture de ${(payeCentimes / 100).toFixed(2).replace('.', ',')} € payée pour l'option Crédit WhatsApp ${abonnementId} de l'espace ${tenantId}, que Stripe dit ${lu.statut} : à rembourser. ${lien}`);
+        }
+        return;
+      }
       const places = await borner(lu.places, abonnementId);
       if (places === null) return;
       let issue: Awaited<ReturnType<typeof deps.option.enregistrer>>;
@@ -577,19 +594,35 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         await deps.option.alerter(`L'espace supprimé ${tenantId} paie encore son option Crédit WhatsApp ${abonnementId} : à résilier chez Stripe. ${lienTableauStripe('subscriptions', abonnementId, e.livemode)}`);
         return;
       }
-      if (issue.etat === 'enregistre' && issue.nouveau) {
-        // Une option reprise (jaunes 4 et 6) : les lignes que la fin de la précédente avait arrêtées envoient de nouveau,
-        // et les campagnes en pause faute de ligne active repartent.
+      if (issue.etat === 'enregistre') {
+        // 🔴 Une option payée sans offre qui y donne droit (un Checkout ouvert pendant l'essai du Pro et réglé après sa fin :
+        // la session vit 24 h) se résilie au lieu de relancer ses lignes (relecture des jaunes d'avant la vente, jaune 1).
+        // La fin de droit prévient déjà Julien de la résiliation ; ce chemin ajoute le remboursement à envisager.
+        const droit = await deps.option.finDeDroit(issue.tenantId);
+        if (droit !== 'garde_son_droit') {
+          if (issue.nouveau && droit !== 'sans_option') {
+            await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} payée par l'espace ${issue.tenantId} sans offre qui y donne droit : résiliée (${droit}), ses lignes restent arrêtées. À rembourser si le client le demande. ${lien}`);
+          }
+          return;
+        }
+        // Une option reprise (jaunes 4 et 6 de la relecture du lot 4a) : les lignes que la fin de la précédente avait
+        // arrêtées envoient de nouveau, et les campagnes en pause faute de ligne active repartent. 🔴 Sur TOUT
+        // enregistrement, rejeu compris (jaune 2 des jaunes d'avant la vente) : une relance interrompue après l'insertion
+        // se refait au rejeu de Stripe, alors que l'option n'est plus neuve. Sans danger : une option vivante n'a aucune
+        // ligne arrêtée par une fin d'option.
         const relancees = await deps.option.relancerLesLignes(issue.tenantId);
         await deps.option.reprendreCampagnes(issue.tenantId);
-        const suite = relancees > 0 ? `, ${relancees} ligne${relancees > 1 ? 's' : ''} relancée${relancees > 1 ? 's' : ''}` : '';
-        await deps.option.alerter(`Nouvelle option Crédit WhatsApp : espace ${issue.tenantId} (${abonnementId}), ${places} numéro${places > 1 ? 's' : ''}${suite}.`);
+        if (issue.nouveau) {
+          const suite = relancees > 0 ? `, ${relancees} ligne${relancees > 1 ? 's' : ''} relancée${relancees > 1 ? 's' : ''}` : '';
+          await deps.option.alerter(`Nouvelle option Crédit WhatsApp : espace ${issue.tenantId} (${abonnementId}), ${places} numéro${places > 1 ? 's' : ''}${suite}.`);
+        }
       } else if (issue.etat === 'doublon') {
         await deps.option.alerter(`Option Crédit WhatsApp en double : ${abonnementId} pour l'espace ${tenantId}, qui en a déjà une vivante. À annuler et rembourser chez Stripe.`);
       } else if (issue.etat === 'fini') {
-        // Finie chez nous, vivante et payée chez Stripe (une résiliation à la main restée à faire) : le client paie pour
-        // rien, ses lignes restant arrêtées (jaune 3 : elle passait sans trace).
-        await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} de l'espace ${tenantId} : finie chez nous, mais Stripe la dit ${lu.statut} et l'a facturée. À résilier chez Stripe, et la facture à rembourser. ${lienTableauStripe('subscriptions', abonnementId, e.livemode)}`);
+        // Finie chez nous, vivante chez Stripe (une résiliation à la main restée à faire) : le client paie pour rien, ses
+        // lignes restant arrêtées (jaune 3 : elle passait sans trace). « Facturée » seulement venue d'une facture.
+        const facturee = payeCentimes !== null ? ` et l'a facturée` : '';
+        await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} de l'espace ${tenantId} : finie chez nous, mais Stripe la dit ${lu.statut}${facturee}. À résilier chez Stripe${payeCentimes !== null ? ', et la facture à rembourser' : ''}. ${lien}`);
       }
     };
 
@@ -657,7 +690,9 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     // places se relisent ; une facture arrivée avant la session suffit à enregistrer l'option.
     const paye = await deps.option.majStatut(abonnementId, 'actif', finFacture);
     if (paye === null) {
-      await enregistrer(meta.data.tenant_id, abonnementId, finFacture);
+      // Inconnue (la facture avant la session) ou finie chez nous : le montant voyage, une facture réglée pour une option
+      // que Stripe dit finie se dit.
+      await enregistrer(meta.data.tenant_id, abonnementId, finFacture, lu.data.amount_paid ?? 0);
       return ACQUITTE;
     }
     const relu = await deps.option.chezStripe(abonnementId);

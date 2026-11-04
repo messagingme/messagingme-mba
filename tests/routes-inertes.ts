@@ -778,7 +778,7 @@ export const stripeOptionInerte: StripeWebhookRouteDeps['option'] = {
   relancerLesLignes: neDevraitPasEtreAppelee('stripe.option.relancerLesLignes'),
   reprendreCampagnes: neDevraitPasEtreAppelee('stripe.option.reprendreCampagnes'),
   resilier: neDevraitPasEtreAppelee('stripe.option.resilier'),
-  surFinDuPro: async () => 'sans_option',
+  finDeDroit: async () => 'sans_option',
   alerter: async () => {},
 };
 

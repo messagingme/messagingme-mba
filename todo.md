@@ -218,9 +218,11 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   jaunes à fermer avant l'ouverture de la vente sont écrits et vérifiés le 2026-11-04 (une option reprise relance ses
   lignes, les pauses faute de place se lèvent et le refus dit sa raison, les cas acquittés sans trace alertent et un
   impayé abandonné est résilié chez Stripe, le message d'un prorata impayé ne fait plus payer deux fois), relus sans
-  rouge. 🟡 Leur relecture en laisse cinq, dont quatre à fermer AVANT le prix (la relance qui ne relit pas le droit, la
-  relance perdue au rejeu, une facture payée après la résiliation d'un impayé, le catalogue public des erreurs), au plan
-  § « La relecture des jaunes d'avant la vente ». Les autres jaunes, au plan (§ « La relecture du lot 4a » et
+  rouge. Les quatre jaunes de cette relecture à fermer AVANT le prix le sont aussi (2026-11-04 : la relance relit le
+  droit et se refait au rejeu, une facture payée d'une option finie alerte, le catalogue public dit le geste d'une place
+  manquante), comme la levée non bloquante de `/ops`. 🟡 Reste, à Julien s'il le veut : borner par l'âge de la pause une
+  campagne qui repart d'elle-même à une option reprise (plan § « La relecture des jaunes d'avant la vente », jaune 4).
+  Les autres jaunes, au plan (§ « La relecture du lot 4a » et
   § « La relecture des écrans du lot 4a-2 »). À Julien : un retrait de place vaut tout
   de suite (comme les sièges du Pro), la spec disait en fin de période. 4b, la recharge automatique, ensuite. 🔴 Avant
   d'ouvrir la vente, à Julien : le prix `STRIPE_PRIX_OPTION_WA` (le poser ouvre l'onglet à TOUS les Pro et Business),

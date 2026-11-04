@@ -2184,7 +2184,7 @@ async function main(): Promise<void> {
           relancerLesLignes: (tenant) => lignesCreditWhatsapp.relancerLesLignesDeLOption(tenant),
           reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
           resilier: (abonnementId) => resilierOptionChezStripe(optionDeLaConsole, abonnementId),
-          surFinDuPro: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant),
+          finDeDroit: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
         },
       },

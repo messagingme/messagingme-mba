@@ -280,7 +280,13 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
         return reply.code(409).send({ error: 'numéro déjà sur la ligne' });
       }
       // La ligne posée : les campagnes de l'espace en pause faute de ligne active repartent (relecture du lot 4a, jaune 6).
-      await deps.option.reprendreCampagnes(tenantId);
+      // Non bloquant : la pose est faite, une panne ici ne doit pas la faire passer pour un échec (une seconde pose rendrait
+      // « déjà sur la ligne ») ; les pauses se lèveront au prochain geste qui les lève.
+      try {
+        await deps.option.reprendreCampagnes(tenantId);
+      } catch (err) {
+        journaliser('error', 'ops_ligne_credit_reprise_impossible', { tenantId, phoneNumberId, err: err instanceof Error ? err.message : String(err) });
+      }
     } else if (!(await deps.lignes.retirer(tenantId, phoneNumberId))) {
       return reply.code(404).send({ error: 'numéro pas sur la ligne de cet espace' });
     }

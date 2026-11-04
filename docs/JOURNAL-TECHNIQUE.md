@@ -4,6 +4,27 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-04 (soir) : les quatre derniers jaunes d'avant la vente de l'option du Crédit WhatsApp
+
+La relecture des jaunes d'avant la vente (l'entrée du même nom, plus bas) en avait laissé quatre à fermer avant de poser
+`STRIPE_PRIX_OPTION_WA` ; Julien a dit de les fermer.
+
+- **Une option payée sans droit ne relance plus rien** : un Checkout ouvert pendant l'essai du Pro et réglé après sa fin
+  (la session vit 24 h) enregistrait une option sans offre qui y donne droit et relançait ses lignes. Chaque
+  enregistrement relit le droit d'abord ; sans lui, l'option est résiliée, ses lignes restent arrêtées, Julien est
+  prévenu du remboursement à envisager.
+- **La relance se refait au rejeu** : réservée à la première écriture, une relance interrompue après l'insertion était
+  perdue, le rejeu de Stripe trouvant l'option déjà connue. Elle tourne à chaque enregistrement ; l'alerte « Nouvelle
+  option » seule reste à la première.
+- **Une facture payée d'une option finie se dit** : une facture restée ouverte après notre résiliation d'un impayé,
+  réglée à la main, passait sans trace. Son montant voyage jusqu'à l'enregistrement et alerte (« à rembourser »).
+- **Le catalogue public des erreurs dit le geste d'une place manquante** (ajouter un numéro à l'option), en français et en
+  anglais, l'exemple d'API aussi.
+- Dans `/ops`, une levée des pauses qui échoue après une pose réussie ne rend plus 500 (une seconde pose aurait répondu
+  « déjà sur la ligne ») : journalisée.
+- Sept retraits de correctif, chacun vu par son test. Reste à Julien, s'il le veut : borner par l'âge de la pause une
+  campagne qui repart d'elle-même à une option reprise.
+
 ## 2026-11-04 : la suite du bloc Question, et un connecteur qui ne se supprimait qu'en 500
 
 - **La suite du bloc Question qui range sa réponse (`bbda9695`)**, partie en production le 2026-11-03 au soir dans

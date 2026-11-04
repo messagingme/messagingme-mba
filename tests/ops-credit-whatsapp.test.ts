@@ -378,6 +378,20 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     }
   });
 
+  it('une reprise des campagnes qui échoue après la pose ne fait pas passer la pose pour un échec', async () => {
+    // Relecture des jaunes d'avant la vente, jaune 4 : la pose est faite, un 500 ferait recommencer un geste déjà fait.
+    const poses: unknown[][] = [];
+    const a = app({}, true, {
+      numeroDeLEspace: async () => NUMERO, numerosDeLEspace: async () => COMPTE, poser: async (...args) => { poses.push(args); return true; },
+    }, [], {}, {
+      entreprise: async () => false, placesPayees: async () => 2, reprendreCampagnes: async () => { throw new Error('base muette'); },
+    });
+    const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+    expect(res.statusCode).toBe(200);
+    expect(poses).toHaveLength(1);
+    await a.close();
+  });
+
   it('🔴 une pose forcée, signée, passe sans place : sa ligne reste « ops », hors des places', async () => {
     const poses: unknown[][] = [];
     const traces: Trace[] = [];
