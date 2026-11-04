@@ -231,7 +231,10 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   de `/ops` sans alerte). 🟡 La relecture de ce dernier correctif (`624843bc`, sans rouge) en laisse sept, dont deux AVANT
   le prix, fermés le 2026-11-04 (l'e-mail ne part qu'une fois la résiliation faite chez Stripe, une panne passagère d'une
   option payée sans droit se rejoue ; la consigne de remboursement part avant d'écrire la fin). Les cinq autres attendent
-  au plan (§ « La relecture du correctif des derniers jaunes »).
+  au plan (§ « La relecture du correctif des derniers jaunes »). 🟡 La relecture de ce correctif (`7411f866`, sans rouge)
+  en laisse six, dont trois AVANT le prix : une panne passagère alors que Stripe a bien résilié perd l'e-mail et la
+  consigne (régression), la consigne en double quand la session et la facture arrivent ensemble, un 500 de Stripe gardé
+  24 h par la clé d'idempotence (plan § « La relecture du correctif de l'e-mail sans droit »).
   Les autres jaunes, au plan (§ « La relecture du lot 4a » et
   § « La relecture des écrans du lot 4a-2 »). À Julien : un retrait de place vaut tout
   de suite (comme les sièges du Pro), la spec disait en fin de période. 4b, la recharge automatique, ensuite. 🔴 Avant
