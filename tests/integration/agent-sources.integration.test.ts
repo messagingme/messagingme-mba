@@ -3,7 +3,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Pool } from 'pg';
 import { pgSsl } from '../../src/db/ssl';
 import { PgSourceStore } from '../../src/agent/sources.pg';
-import { LabelSourceDejaPris } from '../../src/agent/sources';
+import { PgRequeteStore } from '../../src/agent/requetes.pg';
+import { LabelSourceDejaPris, SourcePorteDesAppels } from '../../src/agent/sources';
 
 const url = process.env.DATABASE_URL ?? '';
 
@@ -178,6 +179,20 @@ describe.skipIf(!url)('sources externes d outils (Postgres)', () => {
     await sources.supprimer(tenantId, s.id);
     const reste = await pool.query('select 1 from agent_tools where source_id = $1', [s.id]);
     expect(reste.rowCount).toBe(0);
+  });
+
+  it('🔴 une source qui porte un appel enregistré : erreur TYPÉE (donc un 409), la source reste, puis elle part', async () => {
+    // `on delete restrict` de 0105 : le refus vient de la base. Il remontait en 500 (SANDBOX, 2026-11-03).
+    const requetes = new PgRequeteStore(pool);
+    const s = await sources.creer(tenantId, { kind: 'http', label: 'AvecAppel', baseUrl: 'https://api.client.fr/a', authKind: 'none' });
+    const appel = await requetes.creer(tenantId, {
+      sourceId: s.id, label: 'Envoyer', methode: 'GET', chemin: '/x',
+      parametres: [], entetes: [], corps: { mode: 'aucun' }, variables: [], outputPaths: [], valeursTest: {},
+    });
+    await expect(sources.supprimer(tenantId, s.id)).rejects.toBeInstanceOf(SourcePorteDesAppels);
+    expect(await sources.parId(tenantId, s.id)).not.toBeNull();
+    await requetes.supprimer(tenantId, appel.id);
+    expect(await sources.supprimer(tenantId, s.id)).toBe(true);
   });
 
   it('🔴 la base REFUSE un outil externe SANS source, et un outil maison AVEC', async () => {

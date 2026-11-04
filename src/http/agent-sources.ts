@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { Guard } from '../auth/middleware';
-import { LabelSourceDejaPris, type SourceVue } from '../agent/sources';
+import { LabelSourceDejaPris, SourcePorteDesAppels, type SourceVue } from '../agent/sources';
 import {
   preparerCreationSource,
   preparerPatchSource,
@@ -16,7 +16,8 @@ import { makeJournal, type AuditSink } from '../audit/journal';
  *  1. 🔴 l'adresse est validée à l'écriture, par la même fonction que le résolveur (`construireCible`) ;
  *  2. le secret ne se relit jamais ; un champ vide dans un patch veut dire « inchangé » ;
  *  3. supprimer une source dont des outils actifs dépendent est refusé (409) : la cascade rendrait l'agent muet
- *     sur ces gestes, sans que personne l'ait décidé.
+ *     sur ces gestes, sans que personne l'ait décidé. Une source qui porte encore des appels enregistrés aussi
+ *     (409) : la base la retient, et ses appels se suppriment d'abord.
  */
 
 export interface AgentSourcesRouteDeps {
@@ -157,7 +158,14 @@ export function registerAgentSources(app: FastifyInstance, deps: AgentSourcesRou
     if (actuelle.outilsActifs > 0) {
       return reply.code(409).send({ error: `${actuelle.outilsActifs} outil(s) actif(s) utilisent cette source : désactivez-les d’abord` });
     }
-    const supprime = await deps.sources.supprimer(tenant, id);
+    // Ses appels enregistrés le retiennent (0105, `on delete restrict`) : le store le dit, on le rend lisible.
+    let supprime: boolean;
+    try {
+      supprime = await deps.sources.supprimer(tenant, id);
+    } catch (err) {
+      if (err instanceof SourcePorteDesAppels) return reply.code(409).send({ error: err.message });
+      throw err;
+    }
     if (supprime) await journal(tenant, req, 'connecteur.supprime', { kind: 'connecteur', id });
     return reply.code(200).send({ id, deleted: supprime });
   });

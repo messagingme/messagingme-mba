@@ -82,6 +82,14 @@ export class LabelSourceDejaPris extends Error {
   constructor(label: string) { super(`une source nommée « ${label} » existe déjà`); this.name = 'LabelSourceDejaPris'; }
 }
 
+/** La source porte encore des appels enregistrés (`connector_requests`, `on delete restrict` de 0105). Erreur typée : 409. */
+export class SourcePorteDesAppels extends Error {
+  constructor() {
+    super('ce connecteur porte encore des appels enregistrés : supprimez-les d’abord, puis le connecteur');
+    this.name = 'SourcePorteDesAppels';
+  }
+}
+
 export interface SourceStore {
   lister(tenantId: string): Promise<SourceVue[]>;
   parId(tenantId: string, id: string): Promise<SourceVue | null>;

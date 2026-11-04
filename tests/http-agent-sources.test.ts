@@ -4,7 +4,7 @@ import { FakeQueue } from './fake-queue';
 import { signSession } from '../src/auth/token';
 import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { AgentSourcesRouteDeps } from '../src/http/agent-sources';
-import { LabelSourceDejaPris, type SourceVue } from '../src/agent/sources';
+import { LabelSourceDejaPris, SourcePorteDesAppels, type SourceVue } from '../src/agent/sources';
 import { journalMuet } from './routes-inertes';
 
 /**
@@ -34,7 +34,11 @@ const SOURCE: SourceVue = {
   status: 'active', lastOkAt: null, lastError: null, outilsActifs: 0, agents: 0,
 };
 
-function app(over: Partial<SourceVue> = {}, epreuve?: AgentSourcesRouteDeps['eprouver']) {
+function app(
+  over: Partial<SourceVue> = {},
+  epreuve?: AgentSourcesRouteDeps['eprouver'],
+  supprimer?: AgentSourcesRouteDeps['sources']['supprimer'],
+) {
   const cap = {
     creations: [] as Array<Record<string, unknown>>,
     patches: [] as Array<Record<string, unknown>>,
@@ -53,7 +57,7 @@ function app(over: Partial<SourceVue> = {}, epreuve?: AgentSourcesRouteDeps['epr
         return { ...source, label: input.label, baseUrl: input.baseUrl };
       },
       patch: async (_t, id, p) => { cap.patches.push(p); return id === SRC ? { ...source, ...p } : null; },
-      supprimer: async (_t, id) => { cap.suppressions.push(id); return id === SRC; },
+      supprimer: supprimer ?? (async (_t, id) => { cap.suppressions.push(id); return id === SRC; }),
     },
     eprouver: epreuve ?? (async (_t, id, chemin) => { cap.epreuves.push({ id, chemin }); return { ok: true, httpStatus: 200 }; }),
   };
@@ -137,6 +141,15 @@ describe('sources externes : supprimer et éprouver', () => {
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toContain('2');
     expect(cap.suppressions).toEqual([]);
+  });
+
+  it('🔴 une source qui porte encore des appels enregistrés : 409 qui le dit, jamais 500', async () => {
+    // Vécu sur la SANDBOX le 2026-11-03 : la contrainte `restrict` de 0105 retenait le connecteur, et la console
+    // affichait « Incident de notre côté (erreur 500) » sans dire quoi faire.
+    const { srv } = app({}, undefined, async () => { throw new SourcePorteDesAppels(); });
+    const res = await srv.inject({ method: 'DELETE', url: `${base()}/${SRC}`, ...h(adminTok) });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toContain('appels enregistrés');
   });
 
   it('sans outil actif, la suppression passe', async () => {

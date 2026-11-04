@@ -2,7 +2,7 @@ import type { Pool } from 'pg';
 import { encryptSecret, decryptSecret } from '../crypto/secretbox';
 import { config } from '../config';
 import {
-  LabelSourceDejaPris,
+  LabelSourceDejaPris, SourcePorteDesAppels,
   type AuthSource, type CreationSource, type KindSource, type PatchSource,
   type SourceAppel, type SourceStore, type SourceVue, type StatutSource,
 } from './sources';
@@ -68,6 +68,14 @@ function surLabelDejaPris(label: string) {
     if ((err as { code?: string })?.code === '23505') throw new LabelSourceDejaPris(label);
     throw err;
   };
+}
+
+/** `23503` sur la contrainte `restrict` de 0105 (nom lu en base) : la source porte encore des appels enregistrés.
+ *  Traduite en erreur typée pour que la route rende 409 plutôt qu'un 500 ; toute autre clé étrangère reste une panne. */
+function surAppelsRestants(err: unknown): never {
+  const e = err as { code?: string; constraint?: string };
+  if (e?.code === '23503' && e.constraint === 'connector_requests_source_id_fkey') throw new SourcePorteDesAppels();
+  throw err;
 }
 
 export class PgSourceStore implements SourceStore {
@@ -144,7 +152,8 @@ export class PgSourceStore implements SourceStore {
   }
 
   async supprimer(tenantId: string, id: string): Promise<boolean> {
-    const res = await this.pool.query('delete from agent_tool_sources where tenant_id = $1 and id = $2', [tenantId, id]);
+    const res = await this.pool.query('delete from agent_tool_sources where tenant_id = $1 and id = $2', [tenantId, id])
+      .catch(surAppelsRestants);
     return (res.rowCount ?? 0) > 0;
   }
 
