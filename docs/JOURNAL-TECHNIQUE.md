@@ -19,6 +19,9 @@ Les trois jaunes d'avant la vente de la relecture de `394a1e90` (entrée suivant
 - Le webhook reçoit la fin de droit par une fonction de branchement testée : une flèche du câblage à un seul paramètre
   aurait avalé le cas sans que le compilateur ne dise rien.
 - Douze retraits de correctif, chacun vu par son test.
+- Relu sans rouge (`624843bc`) : sept jaunes au plan, dont deux avant la vente (l'e-mail dit l'option résiliée quand la
+  résiliation chez Stripe a échoué ; la consigne de remboursement se perd si le `deleted` de Stripe passe avant notre
+  fin). La mention du remboursement au cas par cas est retirée de `features.md`, public.
 
 ## 2026-11-04 (soir) : les quatre derniers jaunes d'avant la vente de l'option du Crédit WhatsApp
 

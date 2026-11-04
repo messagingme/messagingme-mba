@@ -5532,8 +5532,7 @@ Les envois WhatsApp ne sont pas concernés : leur débit se règle campagne par 
   remboursement, jamais sous les numéros déjà sur le Crédit WhatsApp. Une option que plus aucune formule ne permet se
   résilie d'elle-même, sans remboursement du mois entamé, et ses numéros s'arrêtent ; en Entreprise, illimitée, ses
   numéros continuent d'envoyer. Une option payée alors que la formule n'y donnait plus droit (un essai de la formule Pro
-  fini avant le paiement) se résilie aussitôt : ses admins reçoivent un e-mail qui les invite à nous contacter, et le
-  remboursement se décide au cas par cas.
+  fini avant le paiement) se résilie aussitôt : ses admins reçoivent un e-mail qui les invite à nous contacter.
 - 🔲 **Pool de numéros à l’embarquement** : plus tard. Le parcours Embedded Signup lui-même est **LIVE et
   éprouvé depuis le 2026-08-17** (voir la section Accueil) : un vrai numéro d’un business tiers est passé
   connecté et vérifié. Ce qui reste ouvert, c’est de proposer un numéro quand le client n’en a aucun.

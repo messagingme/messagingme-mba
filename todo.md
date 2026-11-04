@@ -227,7 +227,10 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   décision de Julien ; une facture « à rembourser » seulement réglée après la fin de l'option ; le catalogue anglais cite
   le début du message français). 🟡 Les trois autres attendent au plan (§ « La relecture des derniers jaunes d'avant la
   vente » : la relance non atomique avec le droit, la relance au rejeu qui ne tient que par la session, la levée ratée
-  de `/ops` sans alerte).
+  de `/ops` sans alerte). 🟡 La relecture de ce dernier correctif (`624843bc`, sans rouge) en laisse sept, dont deux AVANT
+  le prix : l'e-mail qui dit l'option résiliée alors que la résiliation chez Stripe a échoué (`a_verifier`), et la
+  consigne de remboursement perdue quand le `deleted` de Stripe passe avant notre fin (plan § « La relecture du correctif
+  des derniers jaunes »).
   Les autres jaunes, au plan (§ « La relecture du lot 4a » et
   § « La relecture des écrans du lot 4a-2 »). À Julien : un retrait de place vaut tout
   de suite (comme les sièges du Pro), la spec disait en fin de période. 4b, la recharge automatique, ensuite. 🔴 Avant

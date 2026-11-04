@@ -273,6 +273,43 @@ espace ou par abonnement.
 
 Douze retraits de correctif, chacun vu par son test ; la lecture de `finieLe` par la suite d'intégration de la CI.
 
+## La relecture du correctif des derniers jaunes (2026-11-04)
+
+**Aucun rouge** (commit `624843bc`). Vérifié par la relecture : les deux appelants de la fin de droit passent leur cas, et
+tous les faux portent `finieLe`. En `resiliee`, une seule alerte « remboursement à décider », et la première facture
+traitée ensuite se tait. Un renouvellement réglé avant une fin de droit ne dit jamais « à rembourser » ; la facture ouverte
+d'un impayé résilié, payée à la main, le dit. Une Entreprise ou un Business posé à la main ne reçoivent aucun e-mail.
+L'e-mail part une fois par abonnement et par admin, au vouvoiement, sans promesse. Aucune migration.
+
+**Les jaunes** (ouverts ; « avant la vente » à fermer avant de poser le prix) :
+
+1. Avant la vente : l'e-mail est faux en `a_verifier`. Une panne passagère de Stripe sur la résiliation (délai, 5xx, 429)
+   donne `a_verifier`, et les admins lisent « Nous l'avons résiliée » alors que l'abonnement court encore ; si la
+   résiliation à la main est oubliée, le renouvellement suivant prélève un client à qui l'on a dit que c'était fini.
+   Relancer les pannes passagères avant l'e-mail (Stripe rejoue, l'e-mail ne part qu'après une vraie résiliation, ce qui
+   ferme aussi le jaune 8 de la relecture du lot 4a), ou une formulation vraie dans les deux issues.
+2. Avant la vente : la consigne « payée sans droit, remboursement à décider » ne tient qu'à la première fin de cet appel.
+   Notre résiliation déclenche le `customer.subscription.deleted` de Stripe ; traité avant notre `finir`, il écrit la fin
+   (raison `resiliation`) et Julien ne reçoit que « terminée (résiliation) », alors que les admins ont eu l'e-mail. Même
+   perte si `finir` ou l'arrêt des lignes lève : le rejeu s'arrête sur le `canceled` de Stripe. Alerter aussi quand
+   `finir` rend une fin écrite par un autre chemin.
+3. Le cas se décide sur l'ordre de traitement, pas sur le moment du paiement. Une fin du Pro traitée en retard (webhook
+   rejoué) laisse s'enregistrer avec droit une option payée après elle, puis la résilie en `fin_de_droit`, sans e-mail ; à
+   l'inverse, une option payée avec droit dont la session est traitée après la fin du Pro reçoit un e-mail qui dit le
+   contraire. Choisir `payee_sans_droit` dans la fin du Pro quand l'option a commencé chez Stripe après elle
+   (`start_date`).
+4. « Les admins prévenus par e-mail » s'écrit sans le savoir : une émission ratée (aucun admin, panne de réservation,
+   Resend absent) est avalée, et aucun rejeu ne la rattrape. Rendre le nombre de destinataires réservés et dire « aucun
+   admin prévenu » à zéro, ou lever (la fin n'est pas encore écrite, Stripe rejouerait sans danger).
+5. Le câblage n'est tenu par aucun test : une flèche `(t) => finDeDroitOption(d, t, 'fin_de_droit')` dans `src/index.ts`
+   compilerait et passerait tous les tests. Un test de texte sur `finDeDroit: brancherFinDeDroit(`, comme
+   `campagne-cablage`.
+6. Une fin vue par un `updated` prend l'heure de traitement (`new Date(maintenant())`), devenue la frontière du
+   remboursement : un `updated` en `canceled` traité tard juge « avant » une facture payée à la main entre la vraie fin et
+   notre traitement. Prendre `ended_at` quand il est là.
+7. ✅ (2026-11-04) `features.md` disait « le remboursement se décide au cas par cas », dans un dépôt public et la source
+   des fiches d'aide, alors que la décision ne l'annonce jamais. Retiré ; la décision reste ici.
+
 ## Lot 4b : la recharge automatique (tâche 14 du plan d'ensemble)
 
 **Données** (la migration suivante) : `credit_whatsapp_recharge_auto` (l'espace pour clé, active, seuil et montant en
