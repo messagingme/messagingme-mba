@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-04 : MUTAC, l'essai réel du devis HubSpot réussi, et les restes du chantier
+
+- **Essai réel (2026-11-03, portail de test 139615673).** Le lien et le PDF du devis publié arrivent par les deux
+  chemins : l'automation « deal HubSpot atteint une étape » et le workflow HubSpot de transactions avec « Envoi
+  marketing » (template Marketing `devishs`, parti 2 s après le passage en RDV 2). Deux refus vus en vrai : la propriété
+  du numéro choisie vide (`sans_numero`), un conseiller qui a la main (`conseiller_en_main`). Reste à essayer : une
+  transaction sans devis publié.
+- **Les listes des actions proposaient seulement les Service** (mesuré à l'essai) : HubSpot ne fait pas voyager
+  « Envoi marketing » jusqu'à la requête d'options. Le connecteur liste tout et marque les Marketing (1e61550) ; la
+  fiche d'aide publique le dit (f988c6d8, `aide:charger` monté dans l'image b13a3425, 189 lignes).
+- **Les cinq jaunes du chantier** (relus, aucun rouge) : au réveil, « attendre, Marketing, message rapide » (ou agent)
+  sans accord se clôt au lieu de remplir « À traiter » ; l'adresse de l'attestant réservée aux admins ; l'ancienne forme
+  `{ prenom, conseiller, lienAgenda }` retirée des deux côtés ; la liste illisible signalée et journalisée ; l'aide de
+  « Envoi marketing ». mba 8c184ef0, parti avec le déploiement 00057374 d'une session voisine ; connecteur 4cb0b0c.
+- **Upload HubSpot #24 refusé au déploiement** : `objectTypes: CONTACT` exigé désormais en `0-1` (et `DEAL` en `0-3`),
+  alors que la même définition passait au #23 la veille. Le build #23 est resté servi ; #25 corrigé et déployé
+  (connecteur efca29a).
+
 ## 2026-11-04 : les jaunes d'avant la vente de l'option du Crédit WhatsApp (lot 4a)
 
 Les quatre jaunes des deux relectures du lot 4a que le plan marquait « avant la vente » (à fermer avant de poser

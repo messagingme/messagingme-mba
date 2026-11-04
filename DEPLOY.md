@@ -208,13 +208,16 @@ n'ont pas été relues. Une fiche relue est une fiche à recharger.
 Pour la charger SANS déployer le code d'autres lots, monter le `docs/aide` du commit voulu dans l'image en service,
 à une condition : `git diff --stat <révision en service> <sha> -- docs/aide src/aide db/charger-aide.ts` ne montre que
 des fiches (si le chargeur ou `src/aide` ont bougé, on déploie ; et si une fiche d'un autre lot y décrit un code pas
-encore déployé, le bot en parlerait trop tôt). Depuis le dépôt du VPS, sans toucher à son arbre :
+encore déployé, le bot en parlerait trop tôt). La machine n'a pas le dépôt : l'archive se fabrique sur le poste
+(`git archive --format=tar.gz -o aide-<sha>.tar.gz <sha> docs/aide`), voyage par l'entrée standard du `ssh`, et se
+monte dans l'image EN SERVICE (son SHA complet) :
 
 ```bash
-cd /home/ubuntu/mba && git fetch -q origin && mkdir -p /tmp/aide-<sha> && git archive <sha> docs/aide | tar -x -C /tmp/aide-<sha>
-sudo docker compose run --rm --no-deps -v /tmp/aide-<sha>/docs/aide:/app/docs/aide:ro mba-api npm run aide:charger
-rm -rf /tmp/aide-<sha>
+ssh -J bastion@<ip de la passerelle>:61000 root@<ip privée> "rm -rf /tmp/aide-x && mkdir -p /tmp/aide-x && tar -xz -C /tmp/aide-x && chmod -R a+rX /tmp/aide-x && docker run --rm --env-file /opt/messagingme/.env.prod -v /tmp/aide-x/docs/aide:/app/docs/aide:ro rg.nl-ams.scw.cloud/messagingme/mba:<sha complet en service> npm run aide:charger; rm -rf /tmp/aide-x" < aide-<sha>.tar.gz
 ```
+
+⚠️ Le PowerShell 5.1 de Julien refuse le `<` (« réservé à une utilisation future ») : la même commande s'enveloppe
+dans `cmd /c '...'`, guillemets doubles autour de la commande distante (vécu le 2026-11-03).
 
 ⚠️ **Exception — migration qui DROP (ou renomme) une colonne encore lue par l'ANCIEN code** (ex. `0030_drop_workflow_status.sql`) : **ordre INVERSÉ**, deploy le code D'ABORD, migrate ENSUITE. Sinon la colonne disparaît pendant que l'ancien conteneur (qui la lit encore) tourne toujours -> 500 « column … does not exist » le temps du rebuild. Règle générale : une migration qui AJOUTE une colonne se fait avant le deploy (le code neuf en a besoin) ; une migration qui RETIRE une colonne se fait après (le code neuf a cessé de la lire, l'ancien en a encore besoin).
 
