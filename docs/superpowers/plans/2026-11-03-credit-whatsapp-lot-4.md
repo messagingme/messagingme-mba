@@ -187,6 +187,34 @@ relectures, que l'option tarde et qu'il ne faut pas la reprendre. Vérifié dans
 5. Une Entreprise encore prélevée pour une option devenue inutile ne la voit plus dans l'onglet (l'illimité masque la
    section, donc ni son état ni « Gérer l'option ») ; seul `/ops` l'annonce à Julien.
 
+## La relecture des jaunes d'avant la vente (2026-11-04)
+
+**Aucun rouge.** Vérifié par la relecture : seule la fin de l'option arrête une ligne `'option'`, donc la relancer ne
+rouvre aucun autre arrêt ; une pause levée de trop coûte au plus un envoi refusé, jamais un message parti sans place ;
+la résiliation d'un `unpaid` relit l'état présent chez Stripe et rejoue sans danger ; personne ne lisait le texte de
+`ligne_inactive`.
+
+**Les jaunes** (ouverts ; « avant la vente » à fermer avant de poser le prix) :
+
+1. Avant la vente : la relance ne relit pas le droit. Un client qui ouvre le Checkout de l'option pendant son essai Pro et
+   paie après la fin du Pro (la session vit 24 h) fait enregistrer une option sans droit, qui relance ses lignes ; une
+   Free renverrait par la ligne et paierait chaque mois une option qu'aucune offre ne permet. Relire le droit
+   (`finDeDroitOption`) avant de relancer.
+2. Avant la vente : la relance et la levée ne tournent que pour une option `nouveau` ; si l'une échoue après
+   l'insertion, le rejeu de Stripe ne les refait pas (l'option n'est plus neuve). Les faire sur tout `enregistre`.
+3. Avant la vente : après notre résiliation d'un `unpaid`, une facture ouverte reste payable à la main ; payée, elle
+   passe sans trace (l'alerte neuve ne couvre que `active` et `past_due`). Alerter sur toute facture payée non nulle d'une
+   option finie, ou annuler la facture ouverte en résiliant. Mineur : l'alerte dit « l'a facturée » même venue d'un
+   `updated`.
+4. Les levées partent à chaque événement (chaque `updated`, chaque facture payée, chaque retrait de place) : sans danger,
+   sauf une campagne en pause depuis des semaines qui repart d'elle-même à une option reprise (à borner par l'âge de la
+   pause si Julien le veut), et, dans `/ops`, une levée qui échoue après une pose réussie rend 500 alors que le numéro est
+   posé : la rendre non bloquante.
+5. Avant la vente : le catalogue public des erreurs (`web/lib/erreurs-gestes.ts`, `/developers/api/errors`) dit encore
+   pour `whatsapp_credit_line_inactive` « une recharge n'y changerait rien, contactez-nous », alors qu'une place manquante
+   se lève en ajoutant une place ; le corps de l'API ne porte que `{error, code}`. Ajouter ce cas au geste, ou exposer
+   `detail`.
+
 ## Lot 4b : la recharge automatique (tâche 14 du plan d'ensemble)
 
 **Données** (la migration suivante) : `credit_whatsapp_recharge_auto` (l'espace pour clé, active, seuil et montant en
