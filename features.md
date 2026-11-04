@@ -2128,7 +2128,8 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   scénario, il s'affiche **tel qu'il est dessiné** dans l'onglet Scénario (mêmes blocs, mêmes flèches), les
   blocs qui n'envoient rien sont **grisés et inertes**, et un clic sur un bloc de message ouvre le choix de ce
   qu'on veut compter : envoyés, échecs et délivrés (sur le 1er bloc seulement, après quoi ils ne disent plus
-  rien), lus, chaque **choix cliqué**, **le clic sur un lien**, et « a répondu sans cliquer ». Le tableau se
+  rien), lus, chaque **choix cliqué**, **le clic sur un lien**, « a répondu sans cliquer », et sur un bloc
+  Question qui attend un fichier, « **a envoyé un fichier** » (depuis le 2026-11-03). Le tableau se
   nomme, s'enregistre et se rouvre. Rendu en **histogramme** : un groupe de barres par bloc dans l'ordre du
   parcours, barres jointives à l'intérieur d'un bloc, un espace entre les blocs, une seule ligne d'abscisse et
   une couleur par nature de mesure.

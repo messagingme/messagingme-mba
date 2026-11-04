@@ -4,6 +4,29 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-04 : la suite du bloc Question, et un connecteur qui ne se supprimait qu'en 500
+
+- **La suite du bloc Question qui range sa réponse (`bbda9695`)**, partie en production le 2026-11-03 au soir dans
+  l'image `77a1011f` d'une autre session, CI verte sur les trois workflows : Mes tableaux propose « A envoyé un fichier »
+  (`reply_text` et la poignée `fichier`, ce que le moteur écrit) ; `/f/:code` n'expose plus de HEAD (celui de Fastify
+  jouait tout le gestionnaire : lecture chez Meta, trace d'un téléchargement, plafond consommé) et son 429 passe par
+  `consommerEnSilence` (`retry-after`, code `rate_limited`). Une relecture, aucun rouge, deux jaunes repris dans le lot
+  (une horloge figée pour le test du `retry-after`, l'invariant HEAD au manuel), les autres au `todo.md`.
+- **Essai réel sur la SANDBOX** : le tableau du scénario d'essai affiche 5 envoyés, 3 fichiers et 2 réponses écrites,
+  les mêmes chiffres que `workflow_node_events` lu en base, un seul contact. Les deux dernières barres partagent l'ambre
+  de `reply_text` (jaune au `todo.md`).
+- **Le ménage de l'essai a trouvé un 500.** Supprimer le connecteur « Essai pièce (webhook.site) » affichait « Incident
+  de notre côté (erreur 500) » : son appel enregistré le retenait (`connector_requests_source_id_fkey`, `on delete
+  restrict` de 0105, nom lu en base), et la route ne portait pas le refus lisible que la migration lui confiait, elle ne
+  comptait que les outils d'agent actifs. Corrigé par `63345146` : le store traduit ce `23503`, et lui seul, en
+  `SourcePorteDesAppels`, la route le rend en 409. Tests de la route et du store vus rouges sans le correctif, cas réel
+  joué contre Postgres par le job `integration`. Déployé seul (run 41841455486, `migration=aucune`), API et workers sur
+  l'image `63345146` ; dans la console, un connecteur d'essai portant un appel affiche le refus, puis appel et connecteur
+  supprimés, rien ne reste.
+- **Deux accès du poste tombés le même jour** : GitHub refuse sa clé SSH alors qu'elle est inscrite sur le compte (le
+  push est parti par HTTPS avec le jeton de `gh`, accord de Julien), et le bastion expire parce que le poste sort par une
+  adresse hors de sa liste. Les deux gestes sont à Julien.
+
 ## 2026-11-04 : MUTAC, l'essai réel du devis HubSpot réussi, et les restes du chantier
 
 - **Essai réel (2026-11-03, portail de test 139615673).** Le lien et le PDF du devis publié arrivent par les deux

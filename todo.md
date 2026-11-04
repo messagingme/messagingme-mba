@@ -1,5 +1,13 @@
 # todo.md : backlog
 
+## 🟡 Supprimer un appel de connecteur : ce que le ménage de la SANDBOX a montré (2026-11-04)
+
+- **Un seul clic, sans confirmation** : « Supprimer » sur un appel (Tools > Connecteurs API) l'efface aussitôt, alors
+  que le connecteur, le scénario et le champ demandent une confirmation.
+- **À vérifier : un appel utilisé par un bloc Appel API de scénario.** La route (`src/http/agent-requetes.ts`) refuse
+  un appel qui sert un outil d'agent ou la poussée de désabonnement, pas un bloc de scénario, qui désigne l'appel dans
+  son graphe sans clé étrangère. Lire ce que fait alors le bloc au moment de l'appel avant de décider d'un refus.
+
 ## 🟡 Le bloc Question range sa réponse : ce que la relecture laisse (spec `docs/superpowers/specs/2026-11-02-question-fichier-champ-design.md`)
 
 - **Le jeton de `/f/` porte le wamid en clair** (base64url), et un wamid encode le numéro du contact. Le lien ne part

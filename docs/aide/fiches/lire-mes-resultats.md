@@ -1,7 +1,7 @@
 ---
 ecran: perf-synthese
 source_section: Analytics (menu Analytics)
-source_empreinte: 5224f7
+source_empreinte: 512252
 ---
 # Lire mes résultats dans le Performance Lab
 
@@ -68,7 +68,8 @@ demandée n'est pas une anomalie.
 
 **Mes tableaux** sert à construire vos propres mesures sur un scénario : il s'affiche tel que vous l'avez
 dessiné, et un clic sur un bloc de message choisit ce que vous voulez compter (envoyés, lus, chaque choix
-cliqué, le clic sur un lien, « a répondu sans cliquer »). Le tableau se nomme, s'enregistre et se rouvre,
+cliqué, le clic sur un lien, « a répondu sans cliquer », et « a envoyé un fichier » sur une question qui attend
+un fichier). Le tableau se nomme, s'enregistre et se rouvre,
 rendu en histogramme.
 
 Deux derniers points qui évitent des surprises : la **période ne suit pas d'une page à l'autre**, chacune
