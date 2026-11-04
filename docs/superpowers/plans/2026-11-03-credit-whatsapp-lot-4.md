@@ -119,8 +119,8 @@ dans la garde, webhook, fin de droit, pose `/ops`, routes de l'onglet, e-mail, b
 corrigé ; les deux écrans (l'onglet, la pose forcée de `/ops`) écrits et testés. Ils ne paraissent que sur les champs
 neufs de l'API (l'option de la vue, les places de `/ops`) : ils partent avec elle, sans fenêtre où ils appelleraient une
 route absente. **En production le 2026-11-04** (`00057374`, run 41834984952), avec les jaunes d'avant la vente. Les
-quatre jaunes « avant la vente » de leur relecture sont fermés le même jour (§ plus bas) ; restent, avant de poser le
-prix, les gestes de Julien.
+quatre jaunes « avant la vente » de leur relecture sont fermés le même jour ; la relecture de ce correctif en laisse six,
+dont trois avant la vente (§ plus bas). Restent aussi, avant de poser le prix, les gestes de Julien.
 
 ## La relecture du lot 4a (2026-11-03)
 
@@ -221,6 +221,46 @@ la résiliation d'un `unpaid` relit l'état présent chez Stripe et rejoue sans 
 
 Les cinq correctifs retirés un par un, plus le montant de la facture perdu et « facturée » sans facture : sept échecs,
 chacun sur son test.
+
+## La relecture des derniers jaunes d'avant la vente (2026-11-04)
+
+**Aucun rouge** (commit `394a1e90`). Vérifié par la relecture : le droit se relit sans cache (`offre_de_l_espace`) ; un
+Pro en essai, en retard de paiement ou à fin programmée y donne droit, comme un Business ou une Entreprise posés ;
+`ouvrirOption` exige déjà un Pro ou un Business enregistré, donc aucune course avec l'enregistrement du Pro. Seules la
+fin d'option et la fin de droit arrêtent une ligne, la relance ne rouvre donc aucun autre arrêt. Aucune alerte ne part en
+boucle. La garde relit les places avant chaque envoi d'une ligne `'option'`. Toutes les requêtes touchées filtrent par
+espace ou par abonnement.
+
+**Les jaunes** (ouverts ; « avant la vente » à fermer avant de poser le prix) :
+
+1. Avant la vente : les alertes d'une option payée sans droit se contredisent, et peuvent arriver par trois. En
+   `a_verifier`, `finDeDroitOption` dit « à résilier à la main sans remboursement » ; l'enregistrement dit ensuite
+   « résiliée (a_verifier) », alors que l'abonnement court encore, et « à rembourser si le client le demande » ; la
+   première facture traitée après la session ajoute « la facture à rembourser ». Une facture de renouvellement payée juste
+   avant une fin de droit et traitée après dit aussi « à rembourser », alors que la règle est sans remboursement du mois
+   entamé. Ne dire « résiliée » qu'en `resiliee`, et la consigne de remboursement une seule fois.
+2. La relance n'est pas atomique avec le droit : un rejeu traité en même temps qu'une fin d'option ou de Pro peut lire le
+   droit, laisser l'autre chemin arrêter les lignes, puis les relancer. Aucun envoi sans place (la garde relit 0 place),
+   mais des lignes `'option'` actives sans option, un refus qui conseille d'ajouter une place, des campagnes levées puis
+   remises en pause. Fenêtre de quelques millisecondes. Conditionner l'`update` de relance, dans la même instruction, à
+   une option vivante et à une offre qui y donne droit.
+3. La relance au rejeu ne tient que par la session. Une option insérée par un `invoice.paid` ou un `updated` arrivé avant
+   elle, dont la relance échoue, n'est plus relancée au rejeu de cet événement : le chemin d'une option connue ne relance
+   pas. La session payée qui suit la refait, pas une session réglée en différé (SEPA, jaune 2 de la relecture du lot 4a).
+   Une étape qui échoue après l'insertion perd aussi l'alerte « Nouvelle option » (`nouveau` est faux au rejeu). Relancer
+   aussi sur le chemin d'une option connue, après le droit.
+4. Une levée ratée après une pose dans `/ops` n'est que journalisée : aucun balayage ne lève `ligne_credit_inactive`, le
+   client ne peut pas la reprendre (`PAUSES_SANS_REPRISE`), Julien n'est pas prévenu, et la relecture de la vue après la
+   pose peut encore rendre 500. Même défaut dans l'onglet : une levée qui échoue dans `noter`, après un ajout payé que
+   Stripe a appliqué, rend 500 (le `updated` lève les pauses ensuite, seul le message au client est faux). Une alerte en
+   plus du journal, et le même `try` dans `noter`.
+5. Avant la vente : le catalogue anglais dit « the message says which », or le message de l'API est en français et le
+   code est le même pour les deux cas. Citer le début exact du message (« Ce numéro n’a pas de place dans l’option »), ou
+   exposer `detail`.
+6. Avant la vente, à trancher par Julien : le client d'une option payée sans droit paie et ne reçoit rien. L'option est
+   résiliée aussitôt sans remboursement (`avoir: false`), aucun e-mail ne lui part, et le remboursement n'est qu'une
+   suggestion faite à Julien. Rembourser d'office la première facture d'une option neuve sans droit, ou prévenir les
+   admins de l'espace.
 
 ## Lot 4b : la recharge automatique (tâche 14 du plan d'ensemble)
 

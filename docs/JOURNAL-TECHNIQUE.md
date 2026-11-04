@@ -24,6 +24,9 @@ La relecture des jaunes d'avant la vente (l'entrée du même nom, plus bas) en a
   « déjà sur la ligne ») : journalisée.
 - Sept retraits de correctif, chacun vu par son test. Reste à Julien, s'il le veut : borner par l'âge de la pause une
   campagne qui repart d'elle-même à une option reprise.
+- Relu sans rouge (`394a1e90`) : six jaunes au plan, dont trois avant la vente (les alertes d'une option payée sans droit
+  se contredisent, le catalogue anglais renvoie au message français, et le client d'une option payée sans droit n'est ni
+  remboursé ni prévenu, à trancher par Julien).
 
 ## 2026-11-04 : la suite du bloc Question, et un connecteur qui ne se supprimait qu'en 500
 
