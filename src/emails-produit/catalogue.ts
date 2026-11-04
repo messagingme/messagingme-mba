@@ -397,6 +397,32 @@ export const CATALOGUE = [
     },
   },
   {
+    // Décision de Julien du 2026-11-04 : un e-mail « sans promesse ». Il dit l'option résiliée et invite à nous contacter ;
+    // le remboursement se décide au cas par cas, il n'est jamais annoncé.
+    cle: 'option_wa_sans_droit',
+    categorie: 'service',
+    nom: 'Option Crédit WhatsApp payée sans droit',
+    quand: 'L’option Crédit WhatsApp est payée alors que la formule de l’espace n’y donne plus droit (un essai de la formule Pro fini avant le paiement) : elle est résiliée aussitôt. Une fois par abonnement.',
+    variables: { lien_offre: LIEN_OFFRE },
+    textes: {
+      fr: {
+        sujet: 'Votre option Crédit WhatsApp est résiliée',
+        corps: 'Bonjour,\n\nL’option Crédit WhatsApp de l’espace {{espace}} a été payée alors que la formule de l’espace n’y '
+          + 'donnait plus droit, par exemple après la fin d’un essai de la formule Pro. Nous l’avons résiliée : ses numéros '
+          + 'n’envoient pas par le Crédit WhatsApp.\n\nPour toute question sur ce paiement, contactez-nous depuis le Support '
+          + 'de la console.',
+        bouton: { libelle: 'Voir mon offre', lien: '{{lien_offre}}' },
+      },
+      en: {
+        sujet: 'Your WhatsApp credit option has been cancelled',
+        corps: 'Hello,\n\nThe WhatsApp credit option of the {{espace}} workspace was paid while the workspace’s plan no '
+          + 'longer included it, for example after a Pro plan trial ended. We have cancelled it: its numbers do not send '
+          + 'through the WhatsApp credit.\n\nFor any question about this payment, contact us from the console Support.',
+        bouton: { libelle: 'See my plan', lien: '{{lien_offre}}' },
+      },
+    },
+  },
+  {
     cle: 'limite_modeles_80',
     categorie: 'service',
     nom: 'Offre Free : 80 % des modèles du mois',

@@ -4584,9 +4584,9 @@ Que faire : Un admin recharge le Crédit WhatsApp dans la console (Paramètres >
 
 ### `whatsapp_credit_line_inactive` 409
 
-Le Crédit WhatsApp n’est plus actif sur ce numéro, ou ce numéro n’a pas de place dans l’option Crédit WhatsApp (le message dit lequel) : rien ne part par WhatsApp, et une recharge n’y changerait rien. Rendu comme whatsapp_credit_exhausted.
+Le Crédit WhatsApp n’est plus actif sur ce numéro, ou ce numéro n’a pas de place dans l’option Crédit WhatsApp (le message commence alors par « Ce numéro n’a pas de place dans l’option ») : rien ne part par WhatsApp, et une recharge n’y changerait rien. Rendu comme whatsapp_credit_exhausted.
 
-Que faire : Si le message dit que le numéro n’a pas de place dans l’option, un admin ajoute un numéro à l’option Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp) ; sinon, nous contacter depuis le Support de la console : une recharge n’y changerait rien.
+Que faire : Si le message commence par « Ce numéro n’a pas de place dans l’option », un admin ajoute un numéro à l’option Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp) ; sinon, nous contacter depuis le Support de la console : une recharge n’y changerait rien.
 
 <a id="scenario_not_found"></a>
 

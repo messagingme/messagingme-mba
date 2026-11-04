@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
 import {
-  changerPlaces, finDeDroitOption, optionChezStripe, ouvrirOption, PRODUIT_OPTION_WA, resilierOptionChezStripe,
+  brancherFinDeDroit, changerPlaces, finDeDroitOption, optionChezStripe, ouvrirOption, PRODUIT_OPTION_WA, resilierOptionChezStripe,
   type DepsFinDeDroitOption, type DepsOptionCredit,
 } from '../src/stripe/option-credit-whatsapp';
 import type { Offre } from '../src/offres/offres';
@@ -180,6 +180,7 @@ describe('la fin de droit', () => {
   function fin(o: { vivante?: OptionCredit | null; aDroit?: boolean; refus?: ReponseStripe; premiereFin?: boolean; stripe?: null } = {}) {
     const transport = new FauxStripe({}, o.refus ? [o.refus] : []);
     const journal: string[] = [];
+    const alertes: string[] = [];
     const d: DepsFinDeDroitOption = {
       stripe: o.stripe === null ? null : { cle: 'rk_live_x', livemode: true, transport },
       options: {
@@ -188,40 +189,90 @@ describe('la fin de droit', () => {
       },
       aDroit: async () => o.aDroit ?? false,
       arreterLesLignes: async (t) => { journal.push(`arret:${t}`); return 2; },
-      alerter: async (t) => { journal.push(`alerte:${t.slice(0, 20)}`); },
+      prevenirSansDroit: async (t, id) => { journal.push(`courriel:${t}:${id}`); },
+      alerter: async (t) => { journal.push(`alerte:${t.slice(0, 20)}`); alertes.push(t); },
       now: () => new Date('2026-11-03T20:00:00Z'),
     };
-    return { d, transport, journal };
+    return { d, transport, journal, alertes };
   }
 
   it('🔴 plus aucune offre n’y donne droit : résiliée tout de suite sans avoir, finie, ses lignes arrêtées, Julien prévenu', async () => {
     const { d, transport, journal } = fin();
-    expect(await finDeDroitOption(d, T1)).toBe('resiliee');
+    expect(await finDeDroitOption(d, T1, 'fin_de_droit')).toBe('resiliee');
     expect(transport.suppressions.map((s) => [s.url.split('/').pop(), s.corps.toString()])).toEqual([['sub_opt', '']]);
     expect(journal).toEqual(['finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Crédit WhatsA']);
   });
 
   it('🔴 une offre y donne encore droit (un Pro, un Business, une Entreprise), ou aucune option : rien ne bouge', async () => {
     const droit = fin({ aDroit: true });
-    expect(await finDeDroitOption(droit.d, T1)).toBe('garde_son_droit');
+    expect(await finDeDroitOption(droit.d, T1, 'fin_de_droit')).toBe('garde_son_droit');
     const sans = fin({ vivante: null });
-    expect(await finDeDroitOption(sans.d, T1)).toBe('sans_option');
+    expect(await finDeDroitOption(sans.d, T1, 'fin_de_droit')).toBe('sans_option');
     expect([droit.transport.suppressions, droit.journal, sans.journal]).toEqual([[], [], []]);
   });
 
   it('🔴 Stripe refuse de résilier : les envois s’arrêtent QUAND MÊME et Julien résilie à la main', async () => {
     const { d, journal } = fin({ refus: { status: 400, json: { error: { code: 'resource_missing', message: 'non' } } } });
-    expect(await finDeDroitOption(d, T1)).toBe('a_verifier');
+    expect(await finDeDroitOption(d, T1, 'fin_de_droit')).toBe('a_verifier');
     expect(journal.filter((j) => !j.startsWith('alerte'))).toEqual(['finir:sub_opt:fin_de_droit', `arret:${T1}`]);
     const sansStripe = fin({ stripe: null });
-    expect(await finDeDroitOption(sansStripe.d, T1)).toBe('a_verifier');
+    expect(await finDeDroitOption(sansStripe.d, T1, 'fin_de_droit')).toBe('a_verifier');
     expect(sansStripe.journal).toContain(`arret:${T1}`);
   });
 
   it('un rejeu (l’option déjà finie par un autre chemin) ne réarrête rien et ne réalerte pas', async () => {
     const { d, journal } = fin({ premiereFin: false });
-    await finDeDroitOption(d, T1);
+    await finDeDroitOption(d, T1, 'fin_de_droit');
     expect(journal).toEqual(['finir:sub_opt:fin_de_droit']);
+  });
+
+  /**
+   * La relecture des derniers jaunes d'avant la vente (jaunes 1 et 6) : une option payée sans droit faisait jusqu'à trois
+   * alertes contradictoires (« résiliée » quand l'abonnement courait encore, « sans remboursement » puis « à rembourser »),
+   * et le client n'apprenait rien. Décision de Julien du 2026-11-04 : un e-mail aux admins, sans promesse, et le
+   * remboursement décidé au cas par cas.
+   */
+  it('🔴 payée sans droit, résiliée chez Stripe : l’e-mail aux admins avant la fin, une seule alerte, le remboursement à décider', async () => {
+    const { d, journal, alertes } = fin();
+    expect(await finDeDroitOption(d, T1, 'payee_sans_droit')).toBe('resiliee');
+    expect(journal).toEqual([`courriel:${T1}:sub_opt`, 'finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Crédit WhatsA']);
+    expect(alertes).toHaveLength(1);
+    expect(alertes[0]).toMatch(/payée sans offre qui y donne droit : .*résiliée chez Stripe, 2 lignes arrêtées, les admins prévenus par e-mail\. Remboursement à décider au cas par cas/);
+    expect(alertes[0]).not.toMatch(/sans remboursement/);
+  });
+
+  it('🔴 payée sans droit, Stripe refuse de résilier : jamais « résiliée chez Stripe » ni « sans remboursement »', async () => {
+    const { d, journal, alertes } = fin({ refus: { status: 400, json: { error: { code: 'resource_missing', message: 'non' } } } });
+    expect(await finDeDroitOption(d, T1, 'payee_sans_droit')).toBe('a_verifier');
+    expect(journal).toContain(`courriel:${T1}:sub_opt`);
+    expect(alertes).toHaveLength(2);
+    expect(alertes.join(' ')).not.toMatch(/sans remboursement|résiliée chez Stripe/);
+    expect(alertes[0]).toMatch(/À résilier à la main \(payée sans droit, son remboursement est à décider\)/);
+    expect(alertes[1]).toMatch(/finie chez nous, à résilier chez Stripe .*Remboursement à décider au cas par cas/);
+  });
+
+  it('une fin de droit ordinaire (la fin du Pro) : aucun e-mail aux admins, le mois entamé sans remboursement', async () => {
+    const { d, journal, alertes } = fin({ stripe: null });
+    expect(await finDeDroitOption(d, T1, 'fin_de_droit')).toBe('a_verifier');
+    expect(journal.some((j) => j.startsWith('courriel'))).toBe(false);
+    expect(alertes[0]).toMatch(/à résilier à la main \(sans remboursement\)/);
+    expect(alertes[1]).toMatch(/^Option Crédit WhatsApp finie, plus aucune offre n'y donne droit/);
+  });
+
+  it('🔴 branchée pour le câblage du webhook, la fin de droit reçoit le cas tel quel : payée sans droit, l’e-mail part ; fin du Pro, non', async () => {
+    const payee = fin();
+    await brancherFinDeDroit(payee.d)(T1, 'payee_sans_droit');
+    const ordinaire = fin();
+    await brancherFinDeDroit(ordinaire.d)(T1, 'fin_de_droit');
+    expect([payee.journal.includes(`courriel:${T1}:sub_opt`), ordinaire.journal.some((j) => j.startsWith('courriel'))]).toEqual([true, false]);
+  });
+
+  it('payée avec droit, ou sans option : ni e-mail ni alerte', async () => {
+    const droit = fin({ aDroit: true });
+    expect(await finDeDroitOption(droit.d, T1, 'payee_sans_droit')).toBe('garde_son_droit');
+    const sans = fin({ vivante: null });
+    expect(await finDeDroitOption(sans.d, T1, 'payee_sans_droit')).toBe('sans_option');
+    expect([droit.journal, sans.journal]).toEqual([[], []]);
   });
 });
 

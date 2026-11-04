@@ -57,7 +57,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     paiementRefuse: async (p) => { cap.paiementsRefuses.push({ tenantId: p.tenantId, offre: p.offre, factureId: p.factureId }); },
     signalerPro: async (p) => { cap.pros.push(p); },
     numero: stripeNumeroInerte,
-    option: { ...stripeOptionInerte, finDeDroit: async (t) => { cap.finsDeDroitOption.push(t); return 'sans_option'; } },
+    option: { ...stripeOptionInerte, finDeDroit: async (t, cas) => { cap.finsDeDroitOption.push(`${t}:${cas}`); return 'sans_option'; } },
     pro: {
       enregistrer: async (a) => { if (o.panne !== undefined) throw o.panne; cap.enregistres.push(a); const neuf = !connus.has(a.abonnementId); connus.add(a.abonnementId); return o.issue ?? { etat: 'enregistre', tenantId: T1, nouveau: neuf }; },
       majStatut: async (abonnementId, statut, periodeFin, finEchouee = null) => {
@@ -229,7 +229,8 @@ describe('le webhook Stripe et le Pro', () => {
     const fin = evenement(abonnementPro({ ended_at: FIN, cancellation_details: { reason: 'cancellation_requested' } }), 'customer.subscription.deleted');
     await envoyer(srv, fin);
     await envoyer(srv, fin);
-    expect(cap.finsDeDroitOption).toEqual([T1, T1]);
+    // 🔴 La fin du Pro est une fin de droit ordinaire : le mois entamé n'est pas remboursé, aucun e-mail aux admins.
+    expect(cap.finsDeDroitOption).toEqual([`${T1}:fin_de_droit`, `${T1}:fin_de_droit`]);
   });
 
   it('🟡 un rejeu de la fin ne réalerte pas (Stripe rejoue un événement non acquitté)', async () => {

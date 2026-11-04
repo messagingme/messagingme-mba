@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-  ATTENTE_RECENTE_MS, balayerLimites, creerAlerteCreditBas, creerAlerteEspacePlein, creerPaiementRefuse, creerPrevenirEquipe,
+  ATTENTE_RECENTE_MS, balayerLimites, creerAlerteCreditBas, creerAlerteEspacePlein, creerOptionSansDroit, creerPaiementRefuse, creerPrevenirEquipe,
   limitesAlertables, numeroMasque, PLAFOND_TRANSFERTS_JOUR, seuilAtteint, SEUIL_CREDIT_BAS_MICRO_EUR, type ContextePassage,
   type DepsLimites,
 } from '../src/emails-produit/alertes';
@@ -176,6 +176,22 @@ describe('le paiement refusé', () => {
     expect(e.emissions).toEqual([
       { cle: 'paiement_refuse_option_wa', tenantId: 't1', occasion: 'facture:in_3', a: 'admins', valeurs: { lien_credit_whatsapp: 'https://c/offre?tab=whatsapp' } },
     ]);
+  });
+
+  it('🔴 l’option payée sans droit : son e-mail aux admins, avec la page Offre, une fois par abonnement ; une panne ne lève pas', async () => {
+    const e = emetteur();
+    await creerOptionSansDroit({ emettre: e.emettre, pageOffre: 'https://c/offre' })('t1', 'sub_opt');
+    expect(e.emissions).toEqual([
+      { cle: 'option_wa_sans_droit', tenantId: 't1', occasion: 'option:sub_opt', a: 'admins', valeurs: { lien_offre: 'https://c/offre' } },
+    ]);
+    const panne = creerOptionSansDroit({ emettre: async () => { throw new Error('file pleine'); }, pageOffre: 'https://c/offre' });
+    await expect(panne('t1', 'sub_opt')).resolves.toBeUndefined();
+    // Sans promesse (décision de Julien du 2026-11-04) : le texte invite à nous contacter, il n'annonce aucun remboursement.
+    const m = modeleDe('option_wa_sans_droit')!;
+    for (const langue of ['fr', 'en'] as const) {
+      expect(m.textes[langue].corps, langue).not.toMatch(/rembours|refund/i);
+      expect(m.textes[langue].corps, langue).toMatch(/Support/);
+    }
   });
 
   it('🔴 un numéro qui ne sera pas coupé (un numéro apporté envoie) : aucun e-mail, il annoncerait une coupure fausse', async () => {

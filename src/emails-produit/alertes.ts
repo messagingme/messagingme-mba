@@ -160,6 +160,24 @@ export function creerPaiementRefuse(d: {
   };
 }
 
+/**
+ * L'option du Crédit WhatsApp payée sans offre qui y donne droit, résiliée aussitôt (relecture des derniers jaunes d'avant
+ * la vente, jaune 6) : les admins de l'espace le savent, une fois par abonnement. Sans promesse de remboursement (décision
+ * de Julien du 2026-11-04) : il se décide au cas par cas. Ne lève jamais.
+ */
+export function creerOptionSansDroit(d: { emettre: Emettre; pageOffre: string }): (tenantId: string, abonnementId: string) => Promise<void> {
+  return async (tenantId, abonnementId) => {
+    try {
+      await d.emettre({
+        cle: 'option_wa_sans_droit', tenantId, occasion: `option:${abonnementId}`, a: 'admins',
+        valeurs: { lien_offre: d.pageOffre },
+      });
+    } catch (err) {
+      journaliser('error', 'alerte_option_wa_sans_droit_impossible', { err, tenantId, abonnement: abonnementId });
+    }
+  };
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Les limites du Free
 // ---------------------------------------------------------------------------------------------------------------

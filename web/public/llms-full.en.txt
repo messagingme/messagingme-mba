@@ -4583,9 +4583,9 @@ What to do: An admin tops up the WhatsApp credit in the console (Settings > Plan
 
 ### `whatsapp_credit_line_inactive` 409
 
-The WhatsApp credit is no longer active on this number, or this number has no place in the WhatsApp credit option (the message says which): nothing goes out over WhatsApp, and a top-up would not change that. Returned like whatsapp_credit_exhausted.
+The WhatsApp credit is no longer active on this number, or this number has no place in the WhatsApp credit option (the message, in French, then starts with “Ce numéro n’a pas de place dans l’option”): nothing goes out over WhatsApp, and a top-up would not change that. Returned like whatsapp_credit_exhausted.
 
-What to do: If the message says the number has no place in the option, an admin adds a number to the WhatsApp credit option in the console (Settings > Plan, WhatsApp credit tab); otherwise, contact us from the console Support: a top-up would not change that.
+What to do: If the message, in French, starts with “Ce numéro n’a pas de place dans l’option” (this number has no place in the option), an admin adds a number to the WhatsApp credit option in the console (Settings > Plan, WhatsApp credit tab); otherwise, contact us from the console Support: a top-up would not change that.
 
 <a id="scenario_not_found"></a>
 

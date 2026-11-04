@@ -7,6 +7,8 @@ import {
   type RouteAvecCorps,
 } from '../web/lib/api-exemples';
 import { schemaClesFiche } from '../src/api/fiche';
+import { GESTES } from '../web/lib/erreurs-gestes';
+import { MESSAGE_PLACE_MANQUANTE } from '../src/credit-whatsapp/refus';
 import {
   schemaContactV1 as schemaCorpsContact, schemaRechercheContactV1 as schemaCorpsRecherche,
   schemaPatchContactV1 as schemaCorpsModification, schemaContactLotV1 as schemaCorpsElementDuLot,
@@ -474,5 +476,18 @@ describe('la documentation API (liste fermée de ses fichiers)', () => {
 
   it.each(FICHIERS_DOC.flatMap((f) => OUTILS_TIERS.map(([nom, motif]) => ({ f, nom, motif }))))('🔴 $f ne nomme pas $nom', ({ f, motif }) => {
     expect(lire(f)).not.toMatch(motif);
+  });
+});
+
+describe('le refus d’une place manquante, dans le catalogue public', () => {
+  // La relecture des derniers jaunes d'avant la vente (jaune 5) : le code est le même que pour une ligne arrêtée, et le
+  // message de l'API est en français. Un intégrateur reconnaît la place manquante au début exact du message, que le
+  // catalogue cite dans les deux langues ; un message qui change de début fait échouer ce test.
+  const DEBUT = 'Ce numéro n’a pas de place dans l’option';
+  it('🔴 le message de l’API commence par la citation, et le geste comme l’exemple la portent en français et en anglais', () => {
+    expect(MESSAGE_PLACE_MANQUANTE.startsWith(DEBUT)).toBe(true);
+    const exemple = CODES_DOCUMENTES.find((c) => c.code === 'whatsapp_credit_line_inactive');
+    expect(exemple).toBeDefined();
+    for (const texte of [...GESTES.whatsapp_credit_line_inactive, ...(exemple?.quoi ?? [])]) expect(texte).toContain(DEBUT);
   });
 });

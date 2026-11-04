@@ -349,7 +349,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
     // L'option du Crédit WhatsApp (lot 4a) : aucune option ne se résout, rien n'est relu chez Stripe ni arrêté.
     option: {
       enregistrer: async () => ({ etat: 'doublon' as const }), majStatut: async () => null, noterPlaces: async () => null,
-      finir: async () => null, vivante: async () => null, chezStripe: async () => null, arreterLesLignes: async () => 0,
+      finir: async () => null, vivante: async () => null, finieLe: async () => null, chezStripe: async () => null, arreterLesLignes: async () => 0,
       illimite: async () => false, relancerLesLignes: async () => 0, reprendreCampagnes: async () => 0, resilier: async () => false,
       finDeDroit: async () => 'sans_option' as const, alerter: async () => undefined,
     },

@@ -151,6 +151,18 @@ export class PgOptionsCreditStore {
     return deja.rows[0] ? { ...versOption(deja.rows[0]), premiereFin: false } : null;
   }
 
+  /**
+   * Le moment où l'option a fini chez nous, `null` si elle vit encore ou n'est pas connue : une facture réglée APRÈS ce
+   * moment est à rembourser, réglée avant elle payait un mois entamé (`aRembourser` du webhook).
+   */
+  async finieLe(abonnementId: string): Promise<Date | null> {
+    const res = await this.pool.query<{ fini_le: Date | null }>(
+      'select fini_le from options_credit_whatsapp where stripe_subscription_id = $1',
+      [abonnementId],
+    );
+    return res.rows[0]?.fini_le ?? null;
+  }
+
   /** L'option vivante de l'espace (en cours ou en retard), `null` sans option. */
   async vivante(tenantId: string): Promise<OptionCredit | null> {
     const res = await this.pool.query<Ligne>(

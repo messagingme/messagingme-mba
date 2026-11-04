@@ -89,6 +89,8 @@ describe('l’option du Crédit WhatsApp', () => {
   function option(o: {
     relu?: { statut: string; places: number; finPrevueLe: Date | null } | null; connue?: boolean; vivante?: boolean; premiereFin?: boolean;
     illimite?: boolean; issue?: 'fini' | 'doublon'; nouveau?: boolean; droit?: IssueFinDeDroitOption;
+    /** La fin de l'option chez nous (`finieLe`) ; absente : une option qui vit encore, ou inconnue. */
+    finiLe?: Date;
   } = {}) {
     const journal: string[] = [];
     const refus: string[] = [];
@@ -104,6 +106,7 @@ describe('l’option du Crédit WhatsApp', () => {
       noterPlaces: async (id, places) => { journal.push(`places:${id}:${places}`); return o.connue === false ? null : ligneDe; },
       finir: async (id, raison) => { journal.push(`finir:${id}:${raison}`); return { ...ligneDe, premiereFin: o.premiereFin ?? true }; },
       vivante: async () => (o.vivante ? ligneDe : null),
+      finieLe: async () => o.finiLe ?? null,
       chezStripe: async () => (o.relu === undefined ? { statut: 'active', places: 2, finPrevueLe: null } : o.relu),
       arreterLesLignes: async (t) => { journal.push(`arret:${t}`); return 1; },
       illimite: async () => o.illimite === true,
@@ -111,15 +114,16 @@ describe('l’option du Crédit WhatsApp', () => {
       reprendreCampagnes: async (t) => { journal.push(`reprise:${t}`); return 0; },
       resilier: async (id) => { journal.push(`resilier:${id}`); return true; },
       // Une option enregistrée relit son droit : une offre y donne droit, sauf avis contraire du test.
-      finDeDroit: async (t) => { droits.push(t); return o.droit ?? 'garde_son_droit'; },
+      finDeDroit: async (t, cas) => { droits.push(`${t}:${cas}`); return o.droit ?? 'garde_son_droit'; },
       alerter: async (texte) => { alertes.push(texte); },
     };
     const traitement = creer({ option: dep, paiementRefuse: async (p) => { refus.push(`${p.offre}:${p.factureId}`); } });
     return { traitement, journal, refus, alertes, droits };
   }
-  const facture = (billing_reason = 'subscription_cycle') => ({
+  const facture = (billing_reason = 'subscription_cycle', payeeLe?: Date) => ({
     id: 'in_1', billing_reason, amount_paid: 3000, parent: { subscription_details: { subscription: 'sub_opt', metadata: META } },
     lines: { data: [{ period: { end: 1_800_000_000 } }] },
+    ...(payeeLe ? { status_transitions: { paid_at: Math.floor(payeeLe.getTime() / 1000) } } : {}),
   });
 
   it('🔴 la session payée enregistre les places RELUES chez Stripe ; une session impayée ou un abonnement incomplet, rien', async () => {
@@ -210,15 +214,19 @@ describe('l’option du Crédit WhatsApp', () => {
   const SESSION = { id: 'cs_opt', mode: 'subscription', payment_status: 'paid', subscription: 'sub_opt', metadata: META };
 
   it('🔴 une option payée sans offre qui y donne droit se résilie au lieu de relancer ses lignes (jaune 1)', async () => {
-    // Un Checkout ouvert pendant l'essai du Pro et réglé après sa fin : la session vit 24 h.
-    const sansDroit = option({ droit: 'resiliee' });
-    await sansDroit.traitement.traiter(evenement('checkout.session.completed', SESSION));
-    expect([sansDroit.droits, sansDroit.journal]).toEqual([[TENANT], ['enregistrer:sub_opt:2']]);
-    expect(sansDroit.alertes.join(' ')).toMatch(/sans offre qui y donne droit : résiliée \(resiliee\)/);
+    // Un Checkout ouvert pendant l'essai du Pro et réglé après sa fin : la session vit 24 h. 🔴 Le cas `payee_sans_droit` :
+    // la fin de droit envoie l'e-mail aux admins et dit seule le remboursement à décider (derniers jaunes, 1 et 6).
+    for (const droit of ['resiliee', 'a_verifier'] as const) {
+      const sansDroit = option({ droit });
+      await sansDroit.traitement.traiter(evenement('checkout.session.completed', SESSION));
+      expect([sansDroit.droits, sansDroit.journal], droit).toEqual([[`${TENANT}:payee_sans_droit`], ['enregistrer:sub_opt:2']]);
+      // Aucune alerte de plus que celles de la fin de droit : elle se contredisaient (« résiliée » en `a_verifier`).
+      expect(sansDroit.alertes, droit).toEqual([]);
+    }
     // Une offre y donne droit : la relance et la levée suivent la lecture du droit.
     const avecDroit = option();
     await avecDroit.traitement.traiter(evenement('checkout.session.completed', SESSION));
-    expect([avecDroit.droits, avecDroit.journal]).toEqual([[TENANT], ['enregistrer:sub_opt:2', `relance:${TENANT}`, `reprise:${TENANT}`]]);
+    expect([avecDroit.droits, avecDroit.journal]).toEqual([[`${TENANT}:payee_sans_droit`], ['enregistrer:sub_opt:2', `relance:${TENANT}`, `reprise:${TENANT}`]]);
   });
 
   it('🔴 un rejeu refait la relance et la levée d’une option déjà connue, sans réalerter « nouvelle option » (jaune 2)', async () => {
@@ -237,6 +245,41 @@ describe('l’option du Crédit WhatsApp', () => {
     const nulle = option({ connue: false, relu: { statut: 'canceled', places: 2, finPrevueLe: null } });
     await nulle.traitement.traiter(evenement('invoice.paid', { ...facture(), amount_paid: 0 }));
     expect(nulle.alertes).toEqual([]);
+  });
+
+  /**
+   * La relecture des derniers jaunes d'avant la vente (jaune 1) : « à rembourser » partait pour toute facture payée d'une
+   * option finie, y compris un renouvellement réglé avant une fin de droit (le mois entamé n'est pas remboursé) et la
+   * première facture d'une option payée sans droit, dont la fin de droit dit déjà « remboursement à décider ».
+   */
+  const FIN = new Date('2026-11-04T12:00:00Z');
+  const AVANT = new Date('2026-11-04T11:59:00Z');
+  const APRES = new Date('2026-11-05T09:00:00Z');
+
+  it('🔴 Stripe dit l’option finie : « à rembourser » seulement pour une facture réglée APRÈS sa fin chez nous', async () => {
+    const canceled = { statut: 'canceled', places: 2, finPrevueLe: null };
+    const apres = option({ connue: false, relu: canceled, finiLe: FIN });
+    await apres.traitement.traiter(evenement('invoice.paid', facture('subscription_cycle', APRES)));
+    expect(apres.alertes.join(' ')).toMatch(/Facture de 30,00 € payée .* : à rembourser/);
+    // Réglée avant la fin : un mois entamé (fin de droit), ou la première facture d'une option payée sans droit.
+    const avant = option({ connue: false, relu: canceled, finiLe: FIN });
+    await avant.traitement.traiter(evenement('invoice.paid', facture('subscription_create', AVANT)));
+    expect(avant.alertes).toEqual([]);
+    // Une fin inconnue chez nous, ou un paiement sans moment : Julien vérifie.
+    const inconnue = option({ connue: false, relu: canceled });
+    await inconnue.traitement.traiter(evenement('invoice.paid', facture('subscription_cycle', AVANT)));
+    const sansMoment = option({ connue: false, relu: canceled, finiLe: FIN });
+    await sansMoment.traitement.traiter(evenement('invoice.paid', facture()));
+    expect([inconnue.alertes.join(' '), sansMoment.alertes.join(' ')]).toEqual([expect.stringMatching(/à rembourser/), expect.stringMatching(/à rembourser/)]);
+  });
+
+  it('🔴 finie chez nous, vivante chez Stripe : toujours « à résilier », « la facture à rembourser » seulement réglée après la fin', async () => {
+    const avant = option({ connue: false, issue: 'fini', finiLe: FIN });
+    await avant.traitement.traiter(evenement('invoice.paid', facture('subscription_create', AVANT)));
+    expect(avant.alertes.join(' ')).toMatch(/Stripe la dit active et l'a facturée\. À résilier chez Stripe\. /);
+    const apres = option({ connue: false, issue: 'fini', finiLe: FIN });
+    await apres.traitement.traiter(evenement('invoice.paid', facture('subscription_cycle', APRES)));
+    expect(apres.alertes.join(' ')).toMatch(/À résilier chez Stripe, et la facture à rembourser\. /);
   });
 
   it('🔴 un événement de l’option ne tombe jamais dans le chemin du numéro (qui acquitte en silence) : marquée mais illisible, 422', async () => {

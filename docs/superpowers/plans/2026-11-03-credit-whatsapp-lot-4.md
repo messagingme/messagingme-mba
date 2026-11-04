@@ -120,7 +120,8 @@ corrigé ; les deux écrans (l'onglet, la pose forcée de `/ops`) écrits et tes
 neufs de l'API (l'option de la vue, les places de `/ops`) : ils partent avec elle, sans fenêtre où ils appelleraient une
 route absente. **En production le 2026-11-04** (`00057374`, run 41834984952), avec les jaunes d'avant la vente. Les
 quatre jaunes « avant la vente » de leur relecture sont fermés le même jour ; la relecture de ce correctif en laisse six,
-dont trois avant la vente (§ plus bas). Restent aussi, avant de poser le prix, les gestes de Julien.
+dont les trois d'avant la vente, fermés eux aussi le même jour (§ plus bas). Restent, avant de poser le prix, les gestes
+de Julien.
 
 ## La relecture du lot 4a (2026-11-03)
 
@@ -231,14 +232,19 @@ fin d'option et la fin de droit arrêtent une ligne, la relance ne rouvre donc a
 boucle. La garde relit les places avant chaque envoi d'une ligne `'option'`. Toutes les requêtes touchées filtrent par
 espace ou par abonnement.
 
-**Les jaunes** (ouverts ; « avant la vente » à fermer avant de poser le prix) :
+**Les jaunes** (✅ fermé le 2026-11-04 ; les trois « avant la vente » le sont) :
 
-1. Avant la vente : les alertes d'une option payée sans droit se contredisent, et peuvent arriver par trois. En
+1. ✅ Avant la vente : les alertes d'une option payée sans droit se contredisent, et peuvent arriver par trois. En
    `a_verifier`, `finDeDroitOption` dit « à résilier à la main sans remboursement » ; l'enregistrement dit ensuite
    « résiliée (a_verifier) », alors que l'abonnement court encore, et « à rembourser si le client le demande » ; la
    première facture traitée après la session ajoute « la facture à rembourser ». Une facture de renouvellement payée juste
    avant une fin de droit et traitée après dit aussi « à rembourser », alors que la règle est sans remboursement du mois
-   entamé. Ne dire « résiliée » qu'en `resiliee`, et la consigne de remboursement une seule fois.
+   entamé. Ne dire « résiliée » qu'en `resiliee`, et la consigne de remboursement une seule fois. Fermé : la fin de droit
+   prend son cas en paramètre requis (`CasFinDeDroit`) ; en `payee_sans_droit`, toutes ses alertes disent « remboursement
+   à décider », « résiliée chez Stripe » seulement en `resiliee`, et l'enregistrement n'en ajoute plus. Une facture d'une
+   option finie n'est « à rembourser » que réglée APRÈS sa fin chez nous (`status_transitions.paid_at` comparé à
+   `finieLe`) : ni un renouvellement réglé avant une fin de droit, ni la première facture d'une option payée sans droit. Le
+   webhook reçoit la fin de droit par `brancherFinDeDroit`, qui transmet le cas : une flèche à un paramètre l'aurait avalé.
 2. La relance n'est pas atomique avec le droit : un rejeu traité en même temps qu'une fin d'option ou de Pro peut lire le
    droit, laisser l'autre chemin arrêter les lignes, puis les relancer. Aucun envoi sans place (la garde relit 0 place),
    mais des lignes `'option'` actives sans option, un refus qui conseille d'ajouter une place, des campagnes levées puis
@@ -254,13 +260,18 @@ espace ou par abonnement.
    pose peut encore rendre 500. Même défaut dans l'onglet : une levée qui échoue dans `noter`, après un ajout payé que
    Stripe a appliqué, rend 500 (le `updated` lève les pauses ensuite, seul le message au client est faux). Une alerte en
    plus du journal, et le même `try` dans `noter`.
-5. Avant la vente : le catalogue anglais dit « the message says which », or le message de l'API est en français et le
+5. ✅ Avant la vente : le catalogue anglais dit « the message says which », or le message de l'API est en français et le
    code est le même pour les deux cas. Citer le début exact du message (« Ce numéro n’a pas de place dans l’option »), ou
-   exposer `detail`.
-6. Avant la vente, à trancher par Julien : le client d'une option payée sans droit paie et ne reçoit rien. L'option est
+   exposer `detail`. Fermé : le geste et l'exemple citent ce début, en français et en anglais ; `tests/api-exemples.test.ts`
+   exige qu'il ouvre `MESSAGE_PLACE_MANQUANTE`. `detail` reste hors du corps.
+6. ✅ Avant la vente, à trancher par Julien : le client d'une option payée sans droit paie et ne reçoit rien. L'option est
    résiliée aussitôt sans remboursement (`avoir: false`), aucun e-mail ne lui part, et le remboursement n'est qu'une
    suggestion faite à Julien. Rembourser d'office la première facture d'une option neuve sans droit, ou prévenir les
-   admins de l'espace.
+   admins de l'espace. Tranché par Julien le 2026-11-04 : un e-mail sans promesse. Les admins reçoivent
+   `option_wa_sans_droit` (l'option résiliée, nous contacter depuis le Support), une fois par abonnement, envoyé AVANT
+   d'écrire la fin pour qu'un rejeu le rattrape ; Julien décide du remboursement au cas par cas.
+
+Douze retraits de correctif, chacun vu par son test ; la lecture de `finieLe` par la suite d'intégration de la CI.
 
 ## Lot 4b : la recharge automatique (tâche 14 du plan d'ensemble)
 

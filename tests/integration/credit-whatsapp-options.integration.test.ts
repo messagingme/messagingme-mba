@@ -100,6 +100,18 @@ describe.skipIf(!url)('l’option du Crédit WhatsApp (0276)', () => {
     expect(await options.vivante(t)).toBeNull();
   });
 
+  it('🔴 la fin chez nous se lit par l’abonnement : aucune pour une option vivante ou inconnue, la première datée sinon', async () => {
+    // Le webhook compare le paiement d'une facture à ce moment : « à rembourser » seulement réglée après (derniers jaunes).
+    const t = await espace();
+    const a = sub();
+    expect(await options.finieLe(a)).toBeNull();
+    await options.enregistrer({ tenantId: t, abonnementId: a, livemode: false, places: 1, periodeFin: null });
+    expect(await options.finieLe(a)).toBeNull();
+    await options.finir(a, 'fin_de_droit', new Date('2026-11-04T12:00:00Z'));
+    await options.finir(a, 'resiliation', new Date('2026-11-05T12:00:00Z'));
+    expect((await options.finieLe(a))?.toISOString()).toBe('2026-11-04T12:00:00.000Z');
+  });
+
   it('🔴 les numéros que comptent les places : celui de la ligne d’abord, puis l’ancienneté, délié et lignes « ops » ou arrêtées exclus', async () => {
     const t = await espace();
     // Trois numéros du compte, le plus ancien d'abord ; la ligne est posée sur le plus récent.

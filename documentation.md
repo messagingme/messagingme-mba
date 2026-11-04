@@ -4322,8 +4322,9 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   ajoutée n'existe que relue payée (`pending_if_incomplete`), un retrait s'applique sans prorata et jamais sous les
   numéros couverts. Le webhook l'aiguille par sa marque APRÈS le Pro et AVANT le numéro (qui acquitte en silence ce
   qu'il ne reconnaît pas), et relit ses places chez Stripe à chaque événement ; un paiement qu'il ne peut ni relire ni
-  enregistrer, une option finie chez nous que Stripe dit vivante, ou une facture payée d'une option que Stripe dit finie,
-  alerte Julien. La garde refuse (`ligne_inactive`, avec
+  enregistrer, une option finie chez nous que Stripe dit vivante, ou une facture d'une option finie réglée APRÈS sa fin
+  chez nous (réglée avant, elle payait un mois entamé ; `status_transitions.paid_at` comparé à `finieLe`), alerte
+  Julien. La garde refuse (`ligne_inactive`, avec
   la raison « pas de place dans l'option », `detail: 'place_manquante'`, sous le même code d'API) un numéro d'une ligne
   `'option'` au-delà des places, rangés par le numéro de la ligne puis l'ancienneté, délié exclu
   (`numerosCouvertsParOption`, `src/credit-whatsapp/places.ts`) ; ni une Entreprise ni une ligne `'ops'` ne comptent
@@ -4338,7 +4339,11 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   retirées, 🔴 jamais celles d'une Entreprise (`illimite` du traitement du webhook) : la garde lit l'arrêt d'une ligne
   AVANT l'illimité, et une Entreprise n'a besoin d'aucune option. Chaque enregistrement d'une option relit d'abord le droit
   (`finDeDroitOption`) : une option payée sans offre qui y donne droit (un Checkout ouvert pendant l'essai du Pro, réglé
-  après sa fin) est résiliée et ses lignes restent arrêtées ; avec le droit, il relance les lignes que la fin d'une
+  après sa fin) est résiliée et ses lignes restent arrêtées ; ses admins reçoivent un e-mail sans promesse
+  (`option_wa_sans_droit`, une fois par abonnement, envoyé avant d'écrire la fin), et Julien une consigne unique,
+  « remboursement à décider » (décision du 2026-11-04 : au cas par cas). 🔴 La fin de droit prend son cas en paramètre
+  requis (`fin_de_droit` ou `payee_sans_droit`), et le webhook la reçoit par `brancherFinDeDroit` : une flèche à un
+  paramètre avalerait le cas en silence. Avec le droit, il relance les lignes que la fin d'une
   précédente avait arrêtées (`relancerLesLignesDeLOption`), à chaque enregistrement et pas seulement le premier, pour
   qu'un rejeu de Stripe refasse une relance interrompue. Poser l'Entreprise ne résilie pas l'option : la
   fenêtre de `/ops` l'annonce (`optionCreditWhatsappVivante`), Julien la résilie chez Stripe. Une seule ligne en cours

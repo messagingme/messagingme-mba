@@ -49,7 +49,7 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
-import { finDeDroitOption, optionChezStripe, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
+import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { changerResiliationPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
 import { creerVueOffre } from './offres/vue';
 import { upsertContactsFromApi } from './api/contacts-upsert';
@@ -317,7 +317,7 @@ async function main(): Promise<void> {
     lignesCreditWhatsapp, optionsCreditWhatsapp, estimerCreditCampagne, creditWhatsapp, conditionsCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver, wabaDeLEspace,
     numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, gardeCreditWhatsapp, esCredentialsStore, metaCredentials, metaFactory, connexionsPub, connexionPub, publicites,
     clientPubs, clientCreationPubs, workflowRuntime, clesGateway, provisionCle, accesCreditIa, fil, listeDeLAgent, offres, quotaModeles,
-    emailsProduit, envoisResend, paiementRefuse, emetteurEmails, envoiApplication, comptesApplication, clientApplication,
+    emailsProduit, envoisResend, paiementRefuse, optionSansDroit, emetteurEmails, envoiApplication, comptesApplication, clientApplication,
     lienConversation,
     magasinObjets, conversionsMeta, emetteurConversions,
   } = construireSocle({ pool, queue, config });
@@ -1161,6 +1161,8 @@ async function main(): Promise<void> {
       return o === 'pro' || o === 'business' || o === 'entreprise';
     },
     arreterLesLignes: (tenant) => lignesCreditWhatsapp.arreterLesLignesDeLOption(tenant),
+    // L'e-mail aux admins d'une option payée sans droit, une fois par abonnement, sans promesse de remboursement.
+    prevenirSansDroit: optionSansDroit,
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
   };
   /**
@@ -1767,7 +1769,7 @@ async function main(): Promise<void> {
         },
         finOffreManuelle: (tenant, finiLe) => surFinDeLOffreManuelle(numeroInclus, { tenantId: tenant, finiLe }),
         // L'option du Crédit WhatsApp sans offre qui y donne droit (lot 4a) : résiliée, ses lignes arrêtées.
-        finDeDroitOption: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant),
+        finDeDroitOption: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant, 'fin_de_droit'),
         // L'IA d'une Entreprise réglée : les alertes du mois réarmées tout de suite ; la clé remontée en arrière-plan, comme
         // le complément du Business (Vercel peut prendre 30 s). Un échec se journalise, et le balayage horaire la reprend
         // et alerte s'il échoue aussi.
@@ -2184,7 +2186,10 @@ async function main(): Promise<void> {
           relancerLesLignes: (tenant) => lignesCreditWhatsapp.relancerLesLignesDeLOption(tenant),
           reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
           resilier: (abonnementId) => resilierOptionChezStripe(optionDeLaConsole, abonnementId),
-          finDeDroit: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant),
+          // 🔴 Le cas voyage tel quel (`brancherFinDeDroit`) : une flèche à un paramètre l'avalerait, « sans remboursement »
+          // au mauvais cas.
+          finDeDroit: brancherFinDeDroit(finDeDroitDeLOption),
+          finieLe: (abonnementId) => optionsCreditWhatsapp.finieLe(abonnementId),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
         },
       },

@@ -222,10 +222,12 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   droit et se refait au rejeu, une facture payée d'une option finie alerte, le catalogue public dit le geste d'une place
   manquante), comme la levée non bloquante de `/ops`. 🟡 Reste, à Julien s'il le veut : borner par l'âge de la pause une
   campagne qui repart d'elle-même à une option reprise (plan § « La relecture des jaunes d'avant la vente », jaune 4).
-  🟡 La relecture de ce correctif (sans rouge) en laisse six, dont trois AVANT le prix : les alertes contradictoires d'une
-  option payée sans droit, le catalogue anglais qui renvoie au message français, et, à trancher par Julien, le
-  remboursement ou l'e-mail du client d'une option payée sans droit (plan § « La relecture des derniers jaunes d'avant la
-  vente »).
+  La relecture de ce correctif (sans rouge) en laissait six : les trois d'AVANT le prix sont fermés le 2026-11-04 (une
+  seule consigne pour une option payée sans droit, « remboursement à décider » ; un e-mail sans promesse à ses admins,
+  décision de Julien ; une facture « à rembourser » seulement réglée après la fin de l'option ; le catalogue anglais cite
+  le début du message français). 🟡 Les trois autres attendent au plan (§ « La relecture des derniers jaunes d'avant la
+  vente » : la relance non atomique avec le droit, la relance au rejeu qui ne tient que par la session, la levée ratée
+  de `/ops` sans alerte).
   Les autres jaunes, au plan (§ « La relecture du lot 4a » et
   § « La relecture des écrans du lot 4a-2 »). À Julien : un retrait de place vaut tout
   de suite (comme les sièges du Pro), la spec disait en fin de période. 4b, la recharge automatique, ensuite. 🔴 Avant

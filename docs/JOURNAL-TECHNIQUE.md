@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-04 (soir, suite) : une option payée sans droit dit une seule consigne, et ses admins le savent
+
+Les trois jaunes d'avant la vente de la relecture de `394a1e90` (entrée suivante), demande de Julien du même soir.
+
+- **Une seule consigne de remboursement** : une option payée sans droit faisait jusqu'à trois alertes qui se
+  contredisaient (« résiliée » alors que l'abonnement courait encore, « sans remboursement » puis « à rembourser »). La fin
+  de droit prend désormais son cas en paramètre requis ; pour une option payée sans droit, elle dit seule « remboursement
+  à décider ». Une facture d'une option finie n'est « à rembourser » que réglée après la fin chez nous.
+- **Les admins le savent** : un e-mail sans promesse (décision de Julien), qui dit l'option résiliée et invite à nous
+  contacter ; Julien décide du remboursement au cas par cas.
+- **Le catalogue public cite le début exact du message français** d'une place manquante, en anglais aussi : le code est
+  le même que pour une ligne arrêtée.
+- Le webhook reçoit la fin de droit par une fonction de branchement testée : une flèche du câblage à un seul paramètre
+  aurait avalé le cas sans que le compilateur ne dise rien.
+- Douze retraits de correctif, chacun vu par son test.
+
 ## 2026-11-04 (soir) : les quatre derniers jaunes d'avant la vente de l'option du Crédit WhatsApp
 
 La relecture des jaunes d'avant la vente (l'entrée du même nom, plus bas) en avait laissé quatre à fermer avant de poser

@@ -243,11 +243,25 @@ export interface DepsFinDeDroitOption {
   aDroit(tenantId: string): Promise<boolean>;
   /** `PgLignesCreditStore.arreterLesLignesDeLOption` : rend le nombre de lignes arrêtées. */
   arreterLesLignes(tenantId: string): Promise<number>;
+  /**
+   * L'e-mail aux admins d'une option payée sans droit (`creerOptionSansDroit`) : une fois par abonnement, sans promesse de
+   * remboursement. Ne lève jamais.
+   */
+  prevenirSansDroit(tenantId: string, abonnementId: string): Promise<void>;
   alerter(texte: string): Promise<void>;
   now?: () => Date;
 }
 
 export type IssueFinDeDroitOption = 'sans_option' | 'garde_son_droit' | 'resiliee' | 'a_verifier';
+
+/**
+ * Pourquoi la fin de droit tourne. `fin_de_droit` : une offre qui y donnait droit s'est terminée, le mois entamé n'est pas
+ * remboursé. `payee_sans_droit` : l'option vient d'être payée alors qu'aucune offre n'y donne droit (un Checkout ouvert
+ * pendant l'essai de la formule Pro et réglé après sa fin) ; les admins le savent par e-mail, et le remboursement se décide
+ * au cas par cas (décision de Julien du 2026-11-04). Requis à chaque appel : un défaut dirait « sans remboursement » au
+ * mauvais cas, en silence.
+ */
+export type CasFinDeDroit = 'fin_de_droit' | 'payee_sans_droit';
 
 /**
  * LA FIN DE DROIT (spec § « L'option », « Fin ») : quand plus aucune offre de l'espace n'y donne droit (fin du Pro, Business
@@ -256,15 +270,18 @@ export type IssueFinDeDroitOption = 'sans_option' | 'garde_son_droit' | 'resilie
  * cours (arrêtées), pour qu'un client qui revient reprenne sans reconnexion. Rejouable : appelée à chaque fin d'offre,
  * rejeux compris. Un refus de Stripe ne lève jamais : les envois s'arrêtent quand même et Julien résilie à la main.
  */
-export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string): Promise<IssueFinDeDroitOption> {
+export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string, cas: CasFinDeDroit): Promise<IssueFinDeDroitOption> {
   const o = await d.options.vivante(tenantId);
   if (o === null) return 'sans_option';
   if (await d.aDroit(tenantId)) return 'garde_son_droit';
   const lien = lienTableauStripe('subscriptions', o.abonnementId, o.livemode);
+  // Une seule consigne de remboursement, la même dans chaque alerte d'un cas (relecture des derniers jaunes d'avant la
+  // vente, jaune 1) : jamais « sans remboursement » pour une option payée sans droit.
+  const remboursement = cas === 'payee_sans_droit' ? 'payée sans droit, son remboursement est à décider' : 'sans remboursement';
   let issue: IssueFinDeDroitOption = 'resiliee';
   if (d.stripe === null || d.stripe.livemode !== o.livemode) {
     issue = 'a_verifier';
-    await d.alerter(`Fin de droit de l'option Crédit WhatsApp de l'espace ${tenantId} : son abonnement ${o.abonnementId} court encore, à résilier à la main sans remboursement. ${lien}`);
+    await d.alerter(`Fin de droit de l'option Crédit WhatsApp de l'espace ${tenantId} : son abonnement ${o.abonnementId} court encore, à résilier à la main (${remboursement}). ${lien}`);
   } else {
     try {
       await arreterAbonnementNumeroSeul(d.stripe.transport, { cle: d.stripe.cle, abonnementId: o.abonnementId, avoir: false });
@@ -274,14 +291,31 @@ export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string
       if (err.code !== 'idempotency_key_in_use') {
         issue = 'a_verifier';
         journaliser('error', 'option_wa_resiliation_impossible', { tenantId, abonnement: o.abonnementId, status: err.status, code: err.code, err: err.message });
-        await d.alerter(`Fin de droit de l'option Crédit WhatsApp de l'espace ${tenantId} : Stripe refuse de résilier ${o.abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''}). À résilier à la main sans remboursement ; ses envois sont arrêtés. ${lien}`);
+        await d.alerter(`Fin de droit de l'option Crédit WhatsApp de l'espace ${tenantId} : Stripe refuse de résilier ${o.abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''}). À résilier à la main (${remboursement}) ; ses envois sont arrêtés. ${lien}`);
       }
     }
   }
+  // L'e-mail AVANT la fin : il ne part qu'une fois par abonnement (son occasion), donc le rejeu d'une fin ratée le renvoie
+  // sans doublon ; placé après, ce rejeu rendrait `sans_option` et le perdrait.
+  if (cas === 'payee_sans_droit') await d.prevenirSansDroit(tenantId, o.abonnementId);
   const fin = await d.options.finir(o.abonnementId, 'fin_de_droit', (d.now ?? (() => new Date()))());
   if (fin?.premiereFin) {
     const n = await d.arreterLesLignes(tenantId);
-    await d.alerter(`Option Crédit WhatsApp finie, plus aucune offre n'y donne droit : espace ${tenantId} (${o.abonnementId}), ${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}.`);
+    const lignes = `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
+    // 🔴 « Résiliée » seulement quand Stripe l'a résiliée : en `a_verifier`, l'abonnement court encore (jaune 1).
+    const etat = issue === 'resiliee' ? 'résiliée chez Stripe' : 'finie chez nous, à résilier chez Stripe (l’e-mail aux admins la dit résiliée)';
+    await d.alerter(cas === 'payee_sans_droit'
+      ? `Option Crédit WhatsApp payée sans offre qui y donne droit : espace ${tenantId} (${o.abonnementId}), ${etat}, ${lignes}, les admins prévenus par e-mail. Remboursement à décider au cas par cas. ${lien}`
+      : `Option Crédit WhatsApp finie, plus aucune offre n'y donne droit : espace ${tenantId} (${o.abonnementId}), ${lignes}.`);
   }
   return issue;
+}
+
+/**
+ * La fin de droit branchée sur ses dépendances, pour le câblage du webhook : le cas voyage tel quel. 🔴 Une flèche écrite à
+ * la main dans le câblage pourrait ne prendre que l'espace et passer un cas constant, ce que le compilateur accepte en
+ * silence (une flèche à un paramètre est assignable à un contrat qui en déclare deux).
+ */
+export function brancherFinDeDroit(d: DepsFinDeDroitOption): (tenantId: string, cas: CasFinDeDroit) => Promise<IssueFinDeDroitOption> {
+  return (tenantId, cas) => finDeDroitOption(d, tenantId, cas);
 }
