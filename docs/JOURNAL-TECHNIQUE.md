@@ -154,6 +154,18 @@ destinataires d'une campagne aussi (« Achats et activité »). Migration 0273 (
   le refus « pas de boutique », son test rougit ; sans la garde de la console, l'e2e « API qui ne connaît pas les
   segments » rougit). Suite racine verte hors `sdk-contrat` (rouge identique sur la base sans le lot : zod du poste),
   console 1 207 tests, e2e des contacts et de l'audience de campagne, auto-attaque (2 046 sondes, aucune trouvaille).
+- **En production** : migration 0273 seule (`4bb9d3dc`, `migration=avant`, relue en base : colonnes, types, nullabilité,
+  défauts et contraintes conformes, 5 commandes reprises sans date manquante, 39 fiches datées sur 45), puis le code
+  (`3059e86a`, `migration=aucune`), sonde du vrai code en lecture seule, `aide:charger` (189 lignes, 0 retirée).
+- **Essai réel** (2026-11-04) : Julien a payé une commande dans l'admin de la boutique de développement de l'espace
+  « Messaging Me demo » ; la ligne est arrivée datée par Shopify (749,95 USD, confirmation WhatsApp partie), et le vrai
+  `find_contacts` (lecture seule, en production) le trouve par « au moins 6 commandes » (il en avait 5), « au moins 1
+  commande dans le dernier jour » et « dernière commande il y a au plus 1 jour, FR ». Par le vrai MCP, sur la SANDBOX :
+  « FR, actif dans les 30 jours » rend 38 contacts avec leur pays et `activity_complete_since`, `tag_contacts` en
+  étiquette 38 (`essai-segments-fr-actifs`, laissée sur cet espace de test), l'étiquette les retrouve, CA est refusé en
+  nommant US, un critère de commande est refusé sans boutique ; la console, même espace, « actif dans les 30 jours » et
+  « +33 » : 38. ⚠️ Après le déploiement, une session Claude Code déjà ouverte garde l'ancien schéma de l'outil et envoie
+  les paramètres neufs en texte (refusés) : il a fallu la redémarrer.
 
 ## 2026-11-03 : `send_scenario_to_contact`, Claude fait partir un scénario vers une personne
 
