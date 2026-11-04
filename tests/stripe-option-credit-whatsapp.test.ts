@@ -61,6 +61,7 @@ const OPTION: OptionCredit = {
 
 function deps(o: {
   offre?: Offre; vivante?: OptionCredit | null; prixOption?: string; objets?: Record<string, unknown>; reponses?: ReponseStripe[]; couverts?: number;
+  formulePayee?: boolean;
 } = {}) {
   const transport = new FauxStripe({ price_opt: PRIX, ...(o.objets ?? {}) }, o.reponses ?? []);
   const notes: Array<[string, number, Date | null]> = [];
@@ -77,6 +78,7 @@ function deps(o: {
       noterPlaces: async (id, places, fin) => { notes.push([id, places, fin]); return null; },
     },
     offre: async () => o.offre ?? 'pro',
+    formulePayee: async () => o.formulePayee ?? true,
     numerosCouverts: async () => o.couverts ?? 0,
     reprendreCampagnes: async (t) => { reprises.push(t); return 0; },
     alerter: async (t) => { alertes.push(t); },
@@ -103,6 +105,9 @@ describe('ouvrir l’option', () => {
       ['sans prix', { prixOption: '' }, 1, 503, 'option_indisponible'],
       ['Free', { offre: 'base' }, 1, 409, 'option_avec_le_pro'],
       ['Entreprise', { offre: 'entreprise' }, 1, 409, 'option_inutile'],
+      // Révision du 2026-11-04 (décision 1) : pas d'option pendant un essai, Pro comme Business.
+      ['Pro en essai', { formulePayee: false }, 1, 409, 'option_apres_essai'],
+      ['Business en essai', { offre: 'business', formulePayee: false }, 1, 409, 'option_apres_essai'],
       ['déjà prise', { vivante: OPTION }, 1, 409, 'option_deja_prise'],
       ['zéro', {}, 0, 400, 'places_invalides'],
       ['vingt et un', {}, 21, 400, 'places_invalides'],

@@ -107,6 +107,7 @@ function achat(o: {
       prixOption: o.prixOption ?? 'price_opt',
       options: { vivante: async () => null, noterPlaces: async () => null },
       offre: async () => o.offre ?? 'pro',
+      formulePayee: async () => true,
       numerosCouverts: async () => 1,
       reprendreCampagnes: async () => 0,
       alerter: async () => {},

@@ -35,6 +35,11 @@ export interface DepsOptionCredit extends DepsPortail {
   prixOption: string;
   options: Pick<PgOptionsCreditStore, 'vivante' | 'noterPlaces'>;
   offre(tenantId: string): Promise<Offre>;
+  /**
+   * La formule de l'espace est-elle payée (`formulePayee`, révision du 2026-11-04) ? Pas pendant un essai, Pro comme
+   * Business : la ligne du partenaire paie Meta dès le premier message.
+   */
+  formulePayee(tenantId: string): Promise<boolean>;
   /** Les numéros que les lignes `'option'` couvrent déjà : un retrait de places ne passe pas sous leur nombre. */
   numerosCouverts(tenantId: string): Promise<number>;
   /** `PgNumeroDelieStore.leverPausesLigneCredit` : une place en plus fait repartir les campagnes en pause faute de place. */
@@ -43,6 +48,12 @@ export interface DepsOptionCredit extends DepsPortail {
 }
 
 export const OPTION_INDISPONIBLE = refus(503, 'L’option Crédit WhatsApp n’est pas encore en vente : contactez-nous.', { code: 'option_indisponible' });
+
+/**
+ * Pas d'option pendant un essai (révision du 2026-11-04, décision 1). Le même texte vaut pour un Business en essai, que
+ * Julien confirme : l'écran propose à un Pro de démarrer sa formule payée tout de suite.
+ */
+export const OPTION_APRES_ESSAI = refus(409, 'L’option Crédit WhatsApp s’ouvre avec une formule payée, pas pendant un essai.', { code: 'option_apres_essai' });
 
 const placesValides = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= PLACES_OPTION_MAX;
 const PLACES_INVALIDES = refus(400, `De 1 à ${PLACES_OPTION_MAX} numéros : au-delà, contactez-nous.`, { code: 'places_invalides' });
@@ -78,6 +89,7 @@ export async function ouvrirOption(d: DepsOptionCredit, tenantId: string, places
   if (offre !== 'pro' && offre !== 'business') {
     return refus(409, 'L’option Crédit WhatsApp se prend avec la formule Pro ou Business.', { code: 'option_avec_le_pro' });
   }
+  if (!(await d.formulePayee(tenantId))) return OPTION_APRES_ESSAI;
   if ((await d.options.vivante(tenantId)) !== null) {
     return refus(409, 'Votre espace a déjà l’option Crédit WhatsApp : changez son nombre de numéros.', { code: 'option_deja_prise' });
   }

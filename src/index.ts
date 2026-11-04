@@ -49,6 +49,7 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
+import { formulePayee } from './offres/formule-payee';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { changerResiliationPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
 import { creerVueOffre } from './offres/vue';
@@ -1048,6 +1049,13 @@ async function main(): Promise<void> {
     prixOption: config.STRIPE_PRIX_OPTION_WA,
     options: optionsCreditWhatsapp,
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
+    // Pas d'option pendant un essai (révision du 2026-11-04) : l'offre et le Business relus sans cache, l'abonnement Pro
+    // en base (sa fin d'essai, son statut).
+    formulePayee: async (tenant) => formulePayee({
+      offre: (await offresSansCache.offreDe(tenant)).offre,
+      pro: await abonnementsOffre.resume(tenant),
+      businessEssaiFinLe: (await offresSansCache.lireEntreprise(tenant))?.businessEssaiFinLe ?? null,
+    }, Date.now()),
     numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
     reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
