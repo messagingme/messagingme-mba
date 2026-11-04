@@ -16,8 +16,9 @@ import type { SuiviSegments } from '../crm/segments';
 
 /**
  * LA CIBLE D'UN OUTIL DE CAMPAGNE (plan « Campagnes depuis Claude », tâche 4) : les contacts que l'assistant désigne,
- * par étiquettes, consentement et, en Entreprise, champs de la dernière analyse ; ou par identifiants de contacts ou de
- * conversations. 🔴 Elle passe par `parseBulkTarget`, l'analyseur du mini-CRM et de la création de campagne : un second
+ * par étiquettes, consentement, critères de segment (commandes Shopify, dépense, dernière commande, activité, pays :
+ * `lireSegmentsMcp`, spec du 2026-10-31) et, en Entreprise, champs de la dernière analyse ; ou par identifiants de
+ * contacts ou de conversations. 🔴 Elle passe par `parseBulkTarget`, l'analyseur du mini-CRM et de la création de campagne : un second
  * analyseur ferait viser à l'assistant autre chose que ce que la console montre. Ce module n'ajoute que ce qui précède
  * cet analyseur, et le durcit sur trois points qu'un modèle rencontre et pas un écran :
  * - une cible sans critère est REFUSÉE (la console appelle « tous les contacts » une cible vide, et une campagne

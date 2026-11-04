@@ -1,7 +1,7 @@
 ---
 description: Launch a WhatsApp or RCS campaign in five steps: the name, the channel, the content, the audience, then the summary and sending.
 slug: launch-a-campaign
-traduit_de: 91423e
+traduit_de: f976c1
 ---
 # Launch a campaign
 
@@ -67,8 +67,11 @@ message that can only go out in a conversation already open, or it opens on the 
 only offers scenarios that start with a template, an RCS stage only those that start with an RCS message).
 
 **4. The audience.** Say who to send to. Most often: pick from your contacts, with filters you combine (one or
-several tags, marketing consent, the start or part of the number, the value of a field you created, the name). A
-counter tells you live how many contacts match.
+several tags, marketing consent, the start or part of the number, the value of a field you created, the name, the
+disengagement risk level, what the latest analysis says). A counter tells you live how many contacts match.
+
+The “Purchases and activity” part of the filters adds the contacts active or inactive for a number of days and, when
+your Shopify store is connected, the number of orders, the amount spent and the date of the last order.
 
 You can also import a CSV file, which then puts a required tag on the imported contacts and targets that tag.
 Another option: an “Au fil de l’eau” (continuous) campaign, with no list at all, which takes every contact arriving through a webhook

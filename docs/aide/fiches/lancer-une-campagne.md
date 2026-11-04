@@ -78,7 +78,11 @@ ceux qui démarrent par un message RCS).
 
 **4. L'audience.** Dites à qui envoyer. Le plus courant : piocher dans vos contacts, avec des filtres que vous
 combinez (un ou plusieurs tags, le consentement marketing, le début ou un morceau du numéro, la valeur d'un
-champ que vous avez créé, le nom). Un compteur vous dit en direct combien de contacts correspondent.
+champ que vous avez créé, le nom, le niveau de risque de désengagement, ce que dit la dernière analyse). Un
+compteur vous dit en direct combien de contacts correspondent.
+
+La partie « Achats et activité » des filtres ajoute les contacts actifs ou inactifs depuis un nombre de jours et, si
+votre boutique Shopify est branchée, le nombre de commandes, le montant dépensé et la date de la dernière commande.
 
 Vous pouvez aussi importer un fichier CSV, qui pose alors un tag obligatoire sur les contacts importés et cible
 ce tag. Autre possibilité : une campagne « au fil de l'eau », sans liste du tout, qui prend chaque contact
