@@ -1,6 +1,6 @@
 ---
 slug: import-my-contacts
-traduit_de: 94fd27
+traduit_de: be9fca
 ---
 # Add or import my contacts
 
@@ -26,10 +26,7 @@ You filter by tag, by marketing consent, by name, by phone number, by the value 
 there is an email address, by disengagement risk level (useful to prepare a campaign towards those who are drifting
 away), or by what their latest analysis says: intent, sentiment, satisfaction or urgency above or below a score,
 request resolved or not, analysed less than so many days ago. A record never analysed matches none of these values.
-The “Purchases and activity” part keeps the contacts who were active (wrote to you or clicked a tracked link) in the
-last days, or inactive for a number of days; when your Shopify store is connected, it also filters by number of paid
-orders, by amount spent and by the date of the last order. Filters add up, and they are the same when you choose a
-campaign’s recipients.
+Filters add up, and they are the same when you choose a campaign’s recipients.
 
 Three things to know before acting in bulk:
 
@@ -44,6 +41,17 @@ Three things to know before acting in bulk:
 **Good to know.** A bulk action triggers no scenario. Adding a tag to five thousand contacts at once does not start
 the “tag added” automation, otherwise that would be as many messages sent without you wanting it. Only a tag added
 on a record, one at a time, triggers it. To reach a whole list, a campaign is what you need.
+
+## The “Purchases and activity” filters
+
+The “Purchases and activity” part of the filters works in every workspace for activity: the contacts who were active
+(wrote to you or clicked a tracked link) in the last days, or inactive for a number of days, those who never did
+anything included. Its order criteria (number of paid orders, amount spent, date of the last order) need a **connected
+Shopify store** (Tools > Integrations): we only know about an order because Shopify sends it to us. Without a store,
+they do not appear. With one, they count the orders paid since the store was connected, test orders included, refunds
+not deducted, and only those from a number already in your contacts. The country is filtered with “Phone starts with”
+(+32 for Belgium). Your site is not on Shopify? It can put tags on your contacts through the API (“loyal customer”),
+which you then filter.
 
 ## A contact’s record
 

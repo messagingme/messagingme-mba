@@ -84,6 +84,16 @@ export function FiltresAchatsActivite({ segments, onChange, suivi }: {
           )}
         </>
       )}
+      {/* Sans boutique, les critères de commande manquent : on dit pourquoi, et ce qui reste, au lieu de les laisser absents
+          sans un mot (« où est le filtre des commandes ? »). */}
+      {!montrerCommandes && (
+        <p className="text-xs text-ink-500" data-testid="filtres-achats-sans-boutique">
+          {t(
+            'Commandes, dépense et dernière commande : branchez votre boutique Shopify (Tools > Intégrations). Nous ne connaissons une commande que par Shopify. Sans boutique, ciblez par activité, par pays (« Téléphone commence par ») ou par étiquette.',
+            'Orders, amount spent and last order: connect your Shopify store (Tools > Integrations). We only know about an order through Shopify. Without a store, target by activity, by country (“Phone starts with”) or by tag.',
+          )}
+        </p>
+      )}
     </div>
   );
 }

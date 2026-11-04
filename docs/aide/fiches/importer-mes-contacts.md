@@ -1,7 +1,7 @@
 ---
 ecran: contacts
 source_section: Contacts & CRM
-source_empreinte: e090e1
+source_empreinte: eed84f
 publique: oui
 rubrique: parler-aux-clients
 rang: 4
@@ -33,11 +33,8 @@ Vous filtrez par tag, par consentement marketing, par nom, par numéro de télé
 que vous avez créé, par la présence d'une adresse e-mail, par niveau de risque de désengagement (de quoi
 préparer une campagne vers ceux qui décrochent), ou par ce que dit leur dernière analyse : intention,
 sentiment, satisfaction ou urgence au-dessus ou en dessous d'une note, demande résolue ou non, analysée depuis
-moins de tant de jours. Une fiche jamais analysée n'entre dans aucune de ces valeurs. La partie « Achats et
-activité » retient les contacts actifs (qui vous ont écrit ou ont cliqué un lien suivi) dans les derniers jours, ou
-inactifs depuis un nombre de jours ; si votre boutique Shopify est branchée, elle filtre aussi par nombre de
-commandes payées, par montant dépensé et par date de la dernière commande. Les filtres se cumulent, et ce sont les
-mêmes quand vous choisissez les destinataires d'une campagne.
+moins de tant de jours. Une fiche jamais analysée n'entre dans aucune de ces valeurs. Les filtres se cumulent, et
+ce sont les mêmes quand vous choisissez les destinataires d'une campagne.
 
 Trois points à connaître avant d'agir en masse :
 
@@ -53,6 +50,18 @@ Trois points à connaître avant d'agir en masse :
 coup ne lance pas l'automation « tag ajouté », sinon ce serait autant de messages envoyés sans que vous l'ayez
 voulu. Seul un tag posé sur une fiche, une par une, la déclenche. Pour toucher une liste entière, c'est une
 campagne qu'il vous faut.
+
+## Les filtres « Achats et activité »
+
+La partie « Achats et activité » des filtres marche dans tous les espaces pour l'activité : les contacts actifs (qui
+vous ont écrit ou ont cliqué un lien suivi) dans les derniers jours, ou inactifs depuis un nombre de jours, ceux qui
+n'ont jamais rien fait compris. Ses critères de commande (nombre de commandes payées, montant dépensé, date de la
+dernière commande) demandent une **boutique Shopify branchée** (Tools > Intégrations) : nous ne connaissons une
+commande que parce que Shopify nous l'envoie. Sans boutique, ils n'apparaissent pas. Avec, ils comptent les commandes
+payées depuis le branchement de la boutique, commandes de test comprises, remboursements non déduits, et seulement
+celles d'un numéro déjà dans vos contacts. Le pays se filtre par « Téléphone commence par » (+32 pour la Belgique).
+Votre site n'est pas sous Shopify ? Il peut poser des étiquettes sur vos contacts par l'API (« client fidèle »), que
+vous filtrez ensuite.
 
 ## La fiche d'un contact
 

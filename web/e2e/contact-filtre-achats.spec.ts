@@ -55,6 +55,8 @@ test.describe('Contacts : les filtres d’achats et d’activité', () => {
     const requetes = await mock(page, AVEC_BOUTIQUE);
     await ouvrir(page);
     await expect(page.getByTestId('filtres-achats-suivi')).toContainText('Commandes payées suivies depuis le');
+    // Avec une boutique, pas d'invitation à la brancher.
+    await expect(page.getByTestId('filtres-achats-sans-boutique')).toHaveCount(0);
     await page.getByTestId('filtre-commandes-jours').fill('90');
     await page.getByTestId('filtre-commandes-min').fill('2');
     await page.getByTestId('filtre-actif-jours').fill('30');
@@ -83,12 +85,13 @@ test.describe('Contacts : les filtres d’achats et d’activité', () => {
     expect(requetes.some((q) => 'segment_commandes' in segments(q) && segments(q).segment_commandes !== '{"min":3}')).toBe(false);
   });
 
-  test('sans boutique : l’activité seulement', async ({ page }) => {
+  test('sans boutique : l’activité seulement, et l’écran dit pourquoi les commandes manquent', async ({ page }) => {
     await mock(page, SANS_BOUTIQUE);
     await ouvrir(page);
     await expect(page.getByTestId('filtre-actif-jours')).toBeVisible();
     await expect(page.getByTestId('filtre-commandes-min')).toHaveCount(0);
     await expect(page.getByTestId('filtre-depense-min')).toHaveCount(0);
+    await expect(page.getByTestId('filtres-achats-sans-boutique')).toContainText('branchez votre boutique Shopify');
   });
 
   test('🔴 une API qui ne connaît pas les segments : aucun de ces critères n’est proposé', async ({ page }) => {

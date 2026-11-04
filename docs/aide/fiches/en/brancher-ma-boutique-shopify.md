@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp: order confirmation, shipping notice with tracking, abandoned checkout reminders. The simplest way: Claude Code.
 slug: connect-my-shopify-store
-traduit_de: 497597
+traduit_de: 54f3b0
 bouton_claude: Connect Shopify from Claude Code, for free
 bouton_console: Connect Shopify in the console
 ---
@@ -99,6 +99,16 @@ reminder, a scenario, an AI agent or Meta’s agent). The figure is gross, refun
 Part of it is **proven**: the reminded checkout itself paid, or a visit that came through your WhatsApp links. The rest
 is a match in time, not a proof. Shopify test orders are shown apart, never counted, and only orders paid since the
 store was connected count.
+
+## Targeting your customers by their orders
+
+Once the store is connected, you target your customers by their paid orders: how many over a period, how much they
+spent, how long since they last ordered. In the console, it is the “Purchases and activity” part of the filters of the
+contacts and of a campaign’s recipients (Pro plan); with Claude Code, just ask, for example “my customers who ordered
+at least twice in 90 days, in France”. Orders count from the moment the store was connected (not before), test orders
+included, refunds not deducted, and only those from a number already in your contacts. Without a Shopify store, these
+criteria do not exist: we only know about an order because Shopify sends it to us. Country and activity, on the other
+hand, work in every workspace.
 
 ## The sending rules
 

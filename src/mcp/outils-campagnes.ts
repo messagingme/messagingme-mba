@@ -186,7 +186,9 @@ export const OUTILS_CAMPAGNES: OutilMcp[] = [
       + 'latest conversation analysis (intent, sentiment, satisfaction, urgency, resolved...). Criteria combine: "customers '
       + 'with two orders in 90 days" is orders {"min":2,"within_days":90}; "Belgian customers inactive for 3 months" is '
       + 'countries ["BE"] and inactive_for_days 90. Orders are the paid orders recorded since orders_recorded_since (in '
-      + 'the answer); activity is complete since activity_complete_since. '
+      + 'the answer); activity is complete since activity_complete_since. Orders exist only for a workspace with a '
+      + 'connected Shopify store (get_shopify_state): we know an order only because Shopify sends it. Without a store, '
+      + 'the orders criteria are refused: target by countries, activity or tags instead, and say so to the person. '
       + `Returns the total and up to ${MAX_CONTACTS_TROUVES} contacts with their country, and their `
       + 'latest analysis on the Enterprise plan. At least one criterion is required: there is no "everyone" target. '
       + 'A segment is a tag: to keep one, tag its contacts (tag_contacts). A topic is not filterable: to target the '

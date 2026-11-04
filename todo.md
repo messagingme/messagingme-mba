@@ -309,6 +309,10 @@ leurs suites :
 - l'inactivité dans `prepare_contacts_deletion` (la colonne existe ; un effacement est irréversible et ouvert à la Free,
   l'activité d'avant le 2026-11-03 n'est complète que par les messages alors conservés et les clics) ;
 - un sélecteur de pays dans la console (aujourd'hui « Téléphone commence par ») ;
+- **les commandes des boutiques hors Shopify** (WooCommerce, PrestaShop, site maison) : une route d'API « commande
+  payée » (téléphone, montant, devise, date) qui remplit `shopify_commandes` (ou sa généralisation) ; les critères de
+  commande, et peut-être le chiffre d'affaires attribué, marcheraient alors pour tous. À cadrer : authentification,
+  doublons, effacement RGPD des commandes d'une personne, ce que voit un espace qui a les deux sources ;
 - 🟡 relecture du lot : une expédition d'une commande jamais vue payée (paiement à la livraison, commande payée avant le
   2026-11-03) crée une ligne comptée comme commande payée, datée de l'expédition ;
 - 🟡 relecture du refus des clés MCP inconnues (2026-11-04) : le contrôle passe après les lectures des rappels du numéro

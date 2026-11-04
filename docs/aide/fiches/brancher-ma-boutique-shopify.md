@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp : confirmation de commande, avis d'expédition, relance des paniers abandonnés. Le plus simple : Claude Code.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: d1b0e2
+source_empreinte: 7dd4f7
 publique: oui
 rubrique: parler-aux-clients
 rang: 6
@@ -107,6 +107,16 @@ le chiffre d'affaires des commandes payées dans les 5 jours après un message W
 non déduits, et compté par devise. Une part est **prouvée** : le panier relancé lui-même payé, ou une visite venue de
 vos liens WhatsApp. Le reste est une concordance dans le temps, pas une preuve. Les commandes de test de Shopify sont
 annoncées à part, jamais comptées, et seules comptent les commandes payées depuis le branchement de la boutique.
+
+## Cibler vos clients par leurs commandes
+
+Une fois la boutique branchée, vous ciblez vos clients par leurs commandes payées : combien sur une période, combien
+ils ont dépensé, depuis quand ils n'ont rien commandé. Dans la console, c'est la partie « Achats et activité » des
+filtres des contacts et des destinataires d'une campagne (offre Pro) ; avec Claude Code, il suffit de le demander,
+par exemple « mes clients qui ont commandé au moins 2 fois en 90 jours, en France ». Les commandes comptent depuis le
+branchement de la boutique (pas avant), commandes de test comprises, remboursements non déduits, et seulement celles
+d'un numéro déjà dans vos contacts. Sans boutique Shopify, ces critères n'existent pas : nous ne connaissons une
+commande que parce que Shopify nous l'envoie. Le pays et l'activité, eux, marchent dans tous les espaces.
 
 ## Les règles des envois
 

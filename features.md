@@ -586,6 +586,9 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     non, commandes de test comprises, remboursements non déduits ; l'écran dit depuis quand elles sont suivies. Une
     saisie impossible (un minimum au-dessus du maximum, « au moins 0 commande ») est signalée, et le dernier critère
     valide reste appliqué : une faute de frappe n'élargit jamais l'audience.
+    🔴 **Sans boutique Shopify, les trois critères de commande n'apparaissent pas**, et l'écran dit pourquoi : nous ne
+    connaissons une commande que parce que Shopify nous l'envoie (un site hors Shopify peut poser des étiquettes par
+    l'API, que l'on filtre ensuite). L'activité marche dans tous les espaces.
     La partie n'apparaît que si le serveur sait appliquer ces filtres. Le pays se filtre par « Téléphone commence
     par » (+32 pour la Belgique).
 - ✅ **La fiche contact en onglets** (2026-09-30) : **Fiche**, **Tags**, **Champs**, **Analyse**, **Historique**.
@@ -2717,6 +2720,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   - **Les commandes de test** (passerelle de test de Shopify) sont annoncées à part et jamais comptées.
   - **Depuis le branchement** : seules les commandes payées depuis le branchement de la boutique comptent, d'un client déjà
     dans l'espace, ou, sans fiche, venu par le lien d'une campagne.
+- **Cibler les clients par leurs commandes** (2026-11-04, offre Pro) : une fois la boutique branchée, la liste des
+  contacts, le choix des destinataires d'une campagne et Claude Code (`find_contacts`) ciblent par nombre de commandes
+  payées, montant dépensé et jours depuis la dernière commande, depuis le branchement de la boutique. Sans boutique, ces
+  critères n'existent pas (détail dans « Contacts & CRM »).
 
 ## API publique `/v1` (intégrateurs externes)
 
@@ -2832,7 +2839,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   cible que par son pays principal, qui les vise tous : US pour +1, États-Unis, Canada et Caraïbes, et CA ou PR sont
   refusés en le disant). Un segment reste une étiquette : Claude trouve, étiquette, puis cible l'étiquette. La réponse dit
   depuis quand les commandes sont suivies et depuis quand l'activité est complète, et le pays de chaque contact. Un
-  critère de commande sans boutique Shopify est refusé (il viserait tout l'espace), comme un critère mal formé.
+  critère de commande sans boutique Shopify est refusé (il viserait tout l'espace), comme un critère mal formé : sans
+  Shopify, Claude cible par pays, par activité et par étiquette, jamais par commandes.
 - ✅ **Claude gère les champs des contacts** (2026-10-20) : il les liste (`list_fields`, dans toutes les offres), en crée un
   comme dans la console (`create_field`, la clé vient du libellé) et en remplit un sur une cible de contacts ou une liste
   de conversations (`set_contact_field`, en Pro, comme l'action en masse de la liste des contacts, sans déclencher
