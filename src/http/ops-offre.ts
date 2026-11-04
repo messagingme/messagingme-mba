@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { horodatageIso } from '../lib/horodatage-iso';
 import { auteurOps, type PreHandler } from '../auth/middleware';
 import { estUuid } from './scope';
 import { journaliser } from '../lib/journal';
@@ -91,7 +92,7 @@ const corpsSchema = z.object({
   utilisateursBusiness: z.number().int().min(1).max(10_000).nullable().optional(),
   // L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : une date ISO = en essai jusqu'à elle, `null` =
   // confirmé, absente = inchangée. Tant qu'il n'est pas confirmé, l'option Crédit WhatsApp ne s'ouvre pas.
-  businessEssaiFinLe: z.string().datetime({ offset: true }).nullable().optional(),
+  businessEssaiFinLe: horodatageIso().nullable().optional(),
   // Le Crédit WhatsApp de l'Entreprise (plan du 2026-10-30, tâche 8) : la commission des messages négociée. Absente =
   // inchangée ; `null` = la globale, un ENTIER comme l'autre. L'illimité ne se règle pas : toute Entreprise l'est
   // (décision du 2026-11-02), et le schéma strict refuse l'ancien `openBarWhatsapp`.
