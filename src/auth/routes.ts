@@ -447,8 +447,9 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
   // Changement de mot de passe (compte connecté) : vérifie le mdp courant.
   app.post('/auth/change-password', { preHandler: garde }, async (req, reply) => {
     if (!deps.comptes?.getPasswordHash || !deps.comptes.setPassword) return reply.code(503).send({ error: 'indisponible' });
-    const userId = req.auth?.userId;
-    if (!userId) return reply.code(401).send({ error: 'authentification requise' });
+    const auth = req.auth;
+    const userId = auth?.userId;
+    if (!auth || !userId) return reply.code(401).send({ error: 'authentification requise' });
     const b = (req.body ?? {}) as { currentPassword?: unknown; newPassword?: unknown };
     const current = str(b.currentPassword);
     const next = str(b.newPassword);
@@ -457,7 +458,10 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     const ok = await verifyPassword(current, hash ?? DUMMY_HASH);
     if (!hash || !ok) return reply.code(401).send({ error: 'mot de passe actuel incorrect' });
     await deps.comptes.setPassword(userId, await hashPassword(next));
-    return reply.code(200).send({ ok: true });
+    // L'écriture a posé l'époque des sessions : toutes celles de l'identité tombent, celle-ci comprise. Une session neuve,
+    // signée APRÈS, garde connecté qui vient de changer son mot de passe ; la console la range (`web/app/compte`).
+    const token = await signSession({ userId: auth.userId, tenantId: auth.tenantId, role: auth.role }, deps.secret);
+    return reply.code(200).send({ ok: true, token });
   });
 
   // Le second facteur : routes d'étape (avant session) et de la page Compte. La suite leur est passée, pas

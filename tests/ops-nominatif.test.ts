@@ -75,7 +75,7 @@ describe('la connexion d’exploitation', () => {
     const corps = fin.json<{ sessionOps: string; email: string; token?: unknown }>();
     expect(corps.email).toBe(ADRESSE_OPS);
     expect(corps.token, 'jamais une session d’espace au bout d’une connexion d’exploitation').toBeUndefined();
-    expect(await verifySessionOps(corps.sessionOps, SECRET_OPS)).toEqual({ identityId: identiteDe(ADRESSE_OPS), email: ADRESSE_OPS, facteur: 'totp' });
+    expect(await verifySessionOps(corps.sessionOps, SECRET_OPS)).toEqual({ identityId: identiteDe(ADRESSE_OPS), email: ADRESSE_OPS, facteur: 'totp', emisLe: expect.any(Number) });
     expect((await overview(app, bearer(corps.sessionOps))).statusCode).toBe(200);
     await app.close();
   });

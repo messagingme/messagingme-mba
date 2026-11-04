@@ -437,9 +437,12 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
 
       // createPending (invitation) : user sans mot de passe -> setPassword le finalise.
       const pending = await users.createPending(newTenant, `invite.itest.${Date.now()}@exemple.fr`, 'agent');
+      expect((await users.getAuthState(pending.id))!.sessionsDepuis).toBeNull();
       expect(await users.setPassword(pending.id, 'scrypt$cc$dd')).toBe(true);
       const pw = (await pool.query<{ password_hash: string | null }>(`select password_hash from users where id = $1`, [pending.id])).rows[0]!;
       expect(pw.password_hash).toBe('scrypt$cc$dd');
+      // 🔴 Un mot de passe écrit pose l'époque des sessions (migration 0277), relue par la garde à chaque requête.
+      expect((await users.getAuthState(pending.id))!.sessionsDepuis).toBeInstanceOf(Date);
     } finally {
       await pool.query('delete from tenants where id = $1', [newTenant]); // cascade users + auth_tokens
     }

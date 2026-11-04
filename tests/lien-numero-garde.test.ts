@@ -19,7 +19,7 @@ describe('la garde adminOuLien', () => {
   const connectes = new Set<string>();
   const aActiver = new Set<string>();
   const lectures: string[] = [];
-  const loadState: UserStateLoader = async (userId, tenantId) => { lectures.push(`${userId}@${tenantId}`); const e = etats.get(userId) ?? null; return e && { ...e, horsOffre: e.horsOffre ?? null }; };
+  const loadState: UserStateLoader = async (userId, tenantId) => { lectures.push(`${userId}@${tenantId}`); const e = etats.get(userId) ?? null; return e && { ...e, horsOffre: e.horsOffre ?? null, sessionsDepuis: null }; };
 
   beforeAll(async () => {
     const requireAuth = makeRequireAuth(SECRET, loadState);
@@ -56,7 +56,7 @@ describe('la garde adminOuLien', () => {
     etats.set('u-membre', { role: 'agent', disabled: false });
     const admin = await appeler('GET', await signSession({ userId: 'u-admin', tenantId: 't-1', role: 'admin' }, SECRET));
     expect(admin.statusCode).toBe(200);
-    expect(admin.json().auth).toEqual({ userId: 'u-admin', tenantId: 't-1', role: 'admin' });
+    expect(admin.json().auth).toEqual({ userId: 'u-admin', tenantId: 't-1', role: 'admin', emisLe: expect.any(Number) });
     const membre = await appeler('GET', await signSession({ userId: 'u-membre', tenantId: 't-1', role: 'agent' }, SECRET));
     expect(membre.statusCode).toBe(403);
     expect((await appeler('GET')).statusCode).toBe(401);

@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { MESSAGE_CODE_INVALIDE } from '../../web/lib/partage/textes-serveur';
 import type { Guard } from './middleware';
+import { signSession } from './token';
 import {
   creerMachineMfa,
   type CommandeMfa,
@@ -134,10 +135,19 @@ export function registerMfa(
       code: texte((req.body as { code?: unknown } | undefined)?.code),
     }));
 
-  app.post('/auth/mfa/moi/desactiver', opts, async (req, reply) =>
-    executer(reply, machine, {
+  app.post('/auth/mfa/moi/desactiver', opts, async (req, reply) => {
+    const resultat = await machine({
       type: 'desactiver_compte',
       userId: req.auth?.userId ?? '',
       code: texte((req.body as { code?: unknown } | undefined)?.code),
-    }));
+    });
+    // L'effacement a posé l'époque des sessions (migration 0277) : toutes celles de l'identité tombent, celle-ci
+    // comprise. Une session neuve, signée après, garde connecté qui vient de retirer son facteur ; la console la range.
+    const auth = req.auth;
+    if (resultat.kind === 'succes' && auth) {
+      const token = await signSession({ userId: auth.userId, tenantId: auth.tenantId, role: auth.role }, deps.secret);
+      return repondre(reply, { kind: 'succes', corps: { ...resultat.corps, token } });
+    }
+    return repondre(reply, resultat);
+  });
 }

@@ -33,7 +33,7 @@ function app(over: Partial<Omit<AuthRouteDeps, 'comptes'>> & { comptes?: Partial
     },
     secret: SECRET,
     mfa,
-    getUserState: async () => ({ role: 'admin', disabled: false, tenantStatus: 'active', horsOffre: null }),
+    getUserState: async () => ({ role: 'admin', disabled: false, tenantStatus: 'active', horsOffre: null, sessionsDepuis: null }),
     comptes: {
       createTenantWithAdmin: async (name, admin) => {
         if (admin.email === 'taken@x.fr') throw new DuplicateEmailError();

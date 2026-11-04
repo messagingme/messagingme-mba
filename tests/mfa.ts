@@ -40,6 +40,8 @@ interface EtatFaux {
  */
 export class MfaEnMemoire implements MfaStore {
   private readonly etats = new Map<string, EtatFaux>();
+  /** L'époque des sessions de chaque identité (`identities.sessions_depuis`), posée comme le vrai : à l'effacement. */
+  private readonly epoques = new Map<string, Date>();
   /** Le hash du mot de passe de chaque identité, pour l'enrôlement depuis Mon compte. */
   readonly motsDePasse = new Map<string, string>();
   readonly espacesExigeants: Set<string>;
@@ -83,7 +85,14 @@ export class MfaEnMemoire implements MfaStore {
       codesSecoursRestants: [...e.codes.values()].filter((d) => d === null).length,
       obligatoire: this.exige(identityId),
       bloqueJusqua: e.bloqueJusqua,
+      sessionsDepuis: this.epoques.get(identityId) ?? null,
     };
+  }
+
+  /** Efface le facteur comme le vrai (`effacer`) : tout part, et l'époque des sessions est posée. */
+  private effacer(identityId: string): void {
+    this.etats.delete(identityId);
+    this.epoques.set(identityId, new Date());
   }
 
   async lireParCompte(userId: string): Promise<EtatMfa | null> {
@@ -124,22 +133,23 @@ export class MfaEnMemoire implements MfaStore {
   }
 
   async desactiver(identityId: string): Promise<void> {
-    this.etats.delete(identityId);
+    this.effacer(identityId);
   }
 
-  async reinitialiserDansEspace(tenantId: string, userId: string): Promise<IssueReinitialisation> {
+  async reinitialiserDansEspace(tenantId: string, userId: string, opsEmails: readonly string[]): Promise<IssueReinitialisation> {
     const c = this.liste.find((x) => x.userId === userId && x.tenantId === tenantId);
     if (!c) return 'not_found';
     const id = identiteDe(c.email);
     if (this.comptesDe(id).some((x) => x.tenantId !== tenantId)) return 'autres_espaces';
-    this.etats.delete(id);
+    if (opsEmails.some((a) => a.trim().toLowerCase() === c.email.toLowerCase())) return 'exploitation';
+    this.effacer(id);
     return 'ok';
   }
 
   async reinitialiserParEmail(email: string): Promise<string | null> {
     const id = identiteDe(email);
     if (this.comptesDe(id).length === 0) return null;
-    this.etats.delete(id);
+    this.effacer(id);
     return id;
   }
 
@@ -166,6 +176,11 @@ export class MfaEnMemoire implements MfaStore {
   }
 
   // --- Aides de test, hors contrat ------------------------------------------------------------------------
+
+  /** Pose l'époque des sessions d'une identité, comme un mot de passe changé en base (`setPassword`). */
+  poserEpoque(email: string, quand: Date): void {
+    this.epoques.set(identiteDe(email), quand);
+  }
 
   estActif(email: string): boolean {
     return this.etats.get(identiteDe(email))?.activeLe != null;

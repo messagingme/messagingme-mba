@@ -60,7 +60,7 @@ function app(over: { lus?: string[]; connexions?: string[] } = {}) {
       comptes,
       getUserState: async (userId) => {
         const c = tous().find((x) => x.id === userId);
-        return c ? { role: c.role, disabled: c.disabled, tenantStatus: c.tenantId === 't3' ? 'locked' : 'active', horsOffre: c.tenantId === 't5' ? { limite: 'utilisateurs' as const, max: 1 } : null } : null;
+        return c ? { role: c.role, disabled: c.disabled, tenantStatus: c.tenantId === 't3' ? 'locked' : 'active', horsOffre: c.tenantId === 't5' ? { limite: 'utilisateurs' as const, max: 1 } : null, sessionsDepuis: null } : null;
       },
     },
     me: { getById: async () => null },
@@ -123,7 +123,7 @@ describe('POST /tenants/:tenantId/changer-espace', () => {
     expect(r.statusCode).toBe(200);
     const corps = r.json() as { token: string; user: unknown };
     expect(corps.user).toEqual({ email: MOI, role: 'agent', tenantId: 't2' });
-    expect(await verifySession(corps.token, SECRET)).toEqual({ userId: 'u2', tenantId: 't2', role: 'agent' });
+    expect(await verifySession(corps.token, SECRET)).toEqual({ userId: 'u2', tenantId: 't2', role: 'agent', emisLe: expect.any(Number) });
     expect(connexions).toEqual(['u2']);
     // La session neuve ouvre l'espace cible, et lui seul.
     expect((await a.inject({ method: 'GET', url: '/tenants/t2/espaces', ...h(corps.token) })).json()).toMatchObject({
@@ -133,7 +133,7 @@ describe('POST /tenants/:tenantId/changer-espace', () => {
     // Et l'on revient de la même façon, admin de nouveau.
     const retour = await basculer(a, corps.token, 't1', 't2');
     expect(retour.statusCode).toBe(200);
-    expect(await verifySession((retour.json() as { token: string }).token, SECRET)).toEqual({ userId: 'u1', tenantId: 't1', role: 'admin' });
+    expect(await verifySession((retour.json() as { token: string }).token, SECRET)).toEqual({ userId: 'u1', tenantId: 't1', role: 'admin', emisLe: expect.any(Number) });
     await a.close();
   });
 

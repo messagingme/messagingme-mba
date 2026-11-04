@@ -501,7 +501,7 @@ export const modelesInertes: Pick<DepsGestionModeles, 'getPublishedFlow' | 'indi
 /** `listActiveCampaignsForTemplate` absente : pas de garde-fou, donc aucune campagne active. */
 export const aucuneCampagneActive = async (): Promise<[]> => [];
 
-export const membresInertes: Pick<UsersRouteDeps, 'audit' | 'createInviteToken' | 'getInviterName' | 'mfa' | 'appUrl'> = {
+export const membresInertes: Pick<UsersRouteDeps, 'audit' | 'createInviteToken' | 'getInviterName' | 'mfa' | 'appUrl' | 'opsEmails'> = {
   audit: journalMuet,
   createInviteToken: neDevraitPasEtreAppelee('createInviteToken'),
   // Absente : phrase générique dans l'e-mail d'invitation.
@@ -509,6 +509,8 @@ export const membresInertes: Pick<UsersRouteDeps, 'audit' | 'createInviteToken' 
   mfa: { reinitialiserDansEspace: neDevraitPasEtreAppelee('reinitialiserDansEspace') },
   // Absente : aucun e-mail d'invitation ne partait. Une adresse vide produit le même saut.
   appUrl: '',
+  // Personne n'est exploitant : la réinitialisation n'est de toute façon pas appelée ici.
+  opsEmails: [],
 };
 
 export const membresDepInertes: Pick<MembresDep, 'createPending' | 'setName' | 'getTenantName' | 'setTenantName' | 'getSecondFacteurAdmins' | 'setSecondFacteurAdmins' | 'getPasswordHash'> = {

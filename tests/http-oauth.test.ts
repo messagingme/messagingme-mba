@@ -247,7 +247,7 @@ function monter(o: { publicApiUrl?: string; fiches?: Record<string, ClientResolu
       secret: SECRET,
       getUserState: async (userId) => {
         const c = compteDe(userId);
-        return c ? { role: c.role, disabled: c.disabled, tenantStatus: 'active', horsOffre: null } : null;
+        return c ? { role: c.role, disabled: c.disabled, tenantStatus: 'active', horsOffre: null, sessionsDepuis: null } : null;
       },
     },
     oauth: deps,

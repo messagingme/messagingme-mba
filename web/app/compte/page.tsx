@@ -7,7 +7,7 @@ import {
   lirePreferencesEmails, ecrirePreferencesEmails, lirePartageMeta, ecrirePartageMeta,
   type EtatSecondFacteur, type CleTotp, type PreferencesEmails, type PartageMeta,
 } from '@/lib/api';
-import { getSession, type Session } from '@/lib/session';
+import { getSession, remplacerJeton, type Session } from '@/lib/session';
 import { useT, useLocale } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { erreurDeChargement } from '@/lib/http';
@@ -40,7 +40,8 @@ function Compte({ session }: { session: Session }) {
     setMsg(null);
     setLoading(true);
     try {
-      await changePassword(current, next);
+      // Le serveur coupe les sessions d'avant, celle-ci comprise : on range la neuve qu'il rend.
+      remplacerJeton((await changePassword(current, next)).token);
       setMsg({ kind: 'ok', text: t('Mot de passe mis à jour.', 'Password updated.') });
       setCurrent('');
       setNext('');
@@ -292,7 +293,7 @@ function DoubleAuthentification() {
         setCode('');
         setCodes(res.codesSecours);
       } else {
-        await desactiverSecondFacteur(code.trim());
+        remplacerJeton((await desactiverSecondFacteur(code.trim())).token);
         terminer(t('Double authentification désactivée.', 'Two-factor authentication disabled.'));
       }
     } catch (err) {

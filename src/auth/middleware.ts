@@ -34,7 +34,30 @@ export type Guard = PreHandler | PreHandler[];
  * L'état d'un compte relu à chaque requête. `horsOffre` (lot 6, B2a) : le membre dépasse les limites de l'offre de son
  * espace (`GelMembres`), `null` s'il y tient. REQUIS : un chargeur qui l'oublierait laisserait passer les membres en trop.
  */
-export type UserStateLoader = (userId: string, tenantId: string) => Promise<{ role: string; disabled: boolean; tenantStatus?: string; horsOffre: HorsOffreMembre | null } | null>;
+export type UserStateLoader = (userId: string, tenantId: string) => Promise<{
+  role: string;
+  disabled: boolean;
+  tenantStatus?: string;
+  horsOffre: HorsOffreMembre | null;
+  /**
+   * L'époque des sessions de l'identité (`identities.sessions_depuis`, migration 0277). REQUISE, comme `horsOffre` : un
+   * chargeur qui l'oublierait laisserait passer une session volée après un changement de mot de passe.
+   */
+  sessionsDepuis: Date | null;
+} | null>;
+
+/**
+ * Une session émise avant l'époque de son identité est périmée. 🔴 À la seconde : `iat` est en secondes, l'époque est
+ * tronquée à la seconde, et une session signée dans la même seconde que l'époque passe. C'est ce qui garde valide la
+ * session neuve rendue à qui vient de changer son mot de passe ; l'écart laissé à une session volée est d'une seconde.
+ * Un jeton sans `iat` est traité comme émis à l'origine : il tombe dès qu'une époque existe. Une époque qui n'est pas
+ * une date (un chargeur qui aurait omis le champ malgré le type) refuse : l'absence ferme, jamais n'ouvre.
+ */
+export function sessionAnterieure(emisLe: number | undefined, depuis: Date | null): boolean {
+  if (depuis === null) return false;
+  if (!(depuis instanceof Date)) return true;
+  return (emisLe ?? 0) < Math.floor(depuis.getTime() / 1000);
+}
 
 /**
  * Garde de rôle à utiliser dans un handler déjà authentifié : rend true (et répond 403) si l'appelant n'est
@@ -104,8 +127,10 @@ export function makeRequireOps(autorite: AutoriteOps | undefined, surveillance?:
     const etat = session && autorite?.mfa && estAdresseOps(autorite.opsEmails, session.email)
       ? await autorite.mfa.lire(session.identityId)
       : null;
-    // L'adresse relue en base, pas celle du jeton : c'est elle que la liste doit contenir, et elle qui signe.
-    if (!etat || etat.secret === null || !estAdresseOps(autorite?.opsEmails, etat.email)) {
+    // L'adresse relue en base, pas celle du jeton : c'est elle que la liste doit contenir, et elle qui signe. Et une
+    // session émise avant l'époque de l'identité (mot de passe changé, facteur effacé) tombe comme une session d'espace.
+    if (!etat || etat.secret === null || !estAdresseOps(autorite?.opsEmails, etat.email)
+      || sessionAnterieure(session?.emisLe, etat.sessionsDepuis)) {
       // Signalé avant de répondre, sans rien attendre (la promesse ne rejette jamais) : `/ops` ouvre la lecture de
       // tous les clients. Le jeton présenté n'est jamais transmis (voir `ops/tentatives.ts`).
       void surveillance?.refus({ chemin: req.url, ip: ipIndicative(req) });
@@ -167,7 +192,10 @@ export function makeRequireAuth(secret: string, loadState?: UserStateLoader, lim
     }
     if (loadState) {
       const state = await loadState(session.userId, session.tenantId);
-      if (!state || state.disabled) {
+      // 🔴 Une session émise avant le dernier changement d'identifiant de son identité (mot de passe réinitialisé ou
+      // changé, second facteur effacé) est refusée : c'est ce qui coupe une session volée quand son titulaire reprend la
+      // main. Audit du 2026-11-04.
+      if (!state || state.disabled || sessionAnterieure(session.emisLe, state.sessionsDepuis)) {
         await reply.code(401).send({ error: 'session révoquée' });
         return;
       }

@@ -124,7 +124,8 @@ export function activerMoi(code: string): Promise<{ codesSecours: string[] }> {
 export function regenererCodesSecours(code: string): Promise<{ codesSecours: string[] }> {
   return request('/auth/mfa/moi/codes', { method: 'POST', body: JSON.stringify({ code }) }, 'code');
 }
-export function desactiverSecondFacteur(code: string): Promise<{ ok: boolean }> {
+/** `token` : la session neuve (le retrait du facteur coupe toutes celles d'avant), à ranger par `remplacerJeton`. */
+export function desactiverSecondFacteur(code: string): Promise<{ ok: boolean; token?: string }> {
   return request('/auth/mfa/moi/desactiver', { method: 'POST', body: JSON.stringify({ code }) }, 'code');
 }
 
@@ -139,7 +140,8 @@ export function forgotPassword(email: string): Promise<{ ok: boolean; message: s
 export function resetPassword(token: string, password: string): Promise<{ ok: boolean }> {
   return request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) });
 }
-export function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean }> {
+/** `token` : la session neuve (le changement coupe toutes celles d'avant), à ranger par `remplacerJeton`. */
+export function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: boolean; token?: string }> {
   return request('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) });
 }
 /** Config publique d'auth : le front l'utilise pour afficher (ou non) le bouton Google. */

@@ -20,6 +20,11 @@ export interface Session {
   viaLien?: true;
   /** Posé par `adminOuLien` avec `viaLien` quand le lien est celui de la filière application (2026-10-22). */
   filiere?: 'application';
+  /**
+   * L'instant d'émission (`iat`, en secondes), rendu par `verifySession` et jamais signé à partir de ce champ : la garde
+   * le compare à l'époque des sessions de l'identité (`identities.sessions_depuis`, migration 0277).
+   */
+  emisLe?: number;
 }
 
 function key(secret: string): Uint8Array {
@@ -55,7 +60,8 @@ export async function verifySession(token: string, secret: string): Promise<Sess
     const emprunt = payload.impersonated === true
       ? { impersonated: true as const, ...(typeof payload.observateur === 'string' ? { observateur: payload.observateur } : {}) }
       : {};
-    return { userId: payload.sub, tenantId: payload.tenantId, role: payload.role, ...emprunt };
+    const emisLe = typeof payload.iat === 'number' ? { emisLe: payload.iat } : {};
+    return { userId: payload.sub, tenantId: payload.tenantId, role: payload.role, ...emprunt, ...emisLe };
   } catch {
     return null;
   }
@@ -197,6 +203,8 @@ export interface SessionOps {
   identityId: string;
   email: string;
   facteur: MoyenFacteur;
+  /** L'instant d'émission (`iat`), rendu par `verifySessionOps` : comparé à l'époque des sessions de l'identité. */
+  emisLe?: number;
 }
 
 /** 12 heures, comme une session d'admin (décision du plan `2026-09-28-ops-nominatif.md`). */
@@ -215,7 +223,10 @@ export async function verifySessionOps(token: string, secret: string): Promise<S
     if (payload.kind !== 'ops' || typeof payload.sub !== 'string' || typeof payload.email !== 'string') return null;
     // Sans la preuve du facteur, ce n'est pas une session d'exploitation.
     if (payload.facteur !== 'totp' && payload.facteur !== 'secours') return null;
-    return { identityId: payload.sub, email: payload.email, facteur: payload.facteur };
+    return {
+      identityId: payload.sub, email: payload.email, facteur: payload.facteur,
+      ...(typeof payload.iat === 'number' ? { emisLe: payload.iat } : {}),
+    };
   } catch {
     return null;
   }

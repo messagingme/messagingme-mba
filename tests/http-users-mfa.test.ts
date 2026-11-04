@@ -24,6 +24,8 @@ const SANS_MDP = '55555555-5555-4555-8555-555555555555';
 const MDP = { 'content-type': 'application/json' };
 const avecMdp = (motDePasse: unknown = 'pw') => ({ payload: { motDePasse } as object });
 const INCONNU = '44444444-4444-4444-8444-444444444444';
+/** Une adresse d'exploitation (`OPS_EMAILS`) dont le seul compte est dans `t1`, comme admin. */
+const EXPLOITANT_ICI = '66666666-6666-4666-8666-666666666666';
 const h = (t: string) => ({ headers: { ...MDP, authorization: `Bearer ${t}` } });
 /** L'exploitant, et sa session gagnée une fois par le vrai parcours (`tests/acces-ops.ts`), au même secret. */
 const acces = accesOps({ auth: { secret: SECRET } });
@@ -40,9 +42,11 @@ function app() {
     { userId: MEMBRE, tenantId: 't1', role: 'admin', email: 'membre@x.fr' },
     { userId: MULTI, tenantId: 't1', role: 'agent', email: 'multi@x.fr' },
     { userId: 'ailleurs', tenantId: 't2', role: 'admin', email: 'multi@x.fr' },
+    { userId: EXPLOITANT_ICI, tenantId: 't1', role: 'admin', email: ADRESSE_OPS },
   ]);
   mfa.poserFacteur('membre@x.fr');
   mfa.poserFacteur('multi@x.fr');
+  mfa.poserFacteur(ADRESSE_OPS);
   const journal: Array<{ tenant: string; action: string; target: string; acteur: string | null }> = [];
   const audit: AuditSink = async (tenant, actor, action, target) => { journal.push({ tenant, action, target: target.id, acteur: actor.userId }); };
   const deps: UsersRouteDeps = {
@@ -57,6 +61,7 @@ function app() {
       getPasswordHash: async (userId: string) => (userId === ADMIN ? HASH_ADMIN : null),
     },
     mfa,
+    opsEmails: [ADRESSE_OPS],
   };
   const reinitialisesOps: string[] = [];
   const auteurs: string[] = [];
@@ -95,6 +100,17 @@ describe('DELETE /tenants/:tenantId/users/:userId/mfa', () => {
     const res = await server.inject({ method: 'DELETE', url: `/tenants/t1/users/${MULTI}/mfa`, ...h(await jeton(ADMIN, 'admin')), ...avecMdp() });
     expect(res.statusCode).toBe(409);
     expect(mfa.estActif('multi@x.fr')).toBe(true);
+    expect(journal).toEqual([]);
+    await server.close();
+  });
+
+  it('🔴 refusé (409) pour une adresse d’exploitation, même si son seul compte est dans cet espace : seule l’exploitation y touche', async () => {
+    // Audit du 2026-11-04 : Mon compte refuse déjà de retirer ce facteur ; l'admin d'un espace ne doit pas pouvoir le faire
+    // à sa place, sinon l'entrée dans /ops retomberait au seul premier facteur.
+    const { server, mfa, journal } = app();
+    const res = await server.inject({ method: 'DELETE', url: `/tenants/t1/users/${EXPLOITANT_ICI}/mfa`, ...h(await jeton(ADMIN, 'admin')), ...avecMdp() });
+    expect(res.statusCode).toBe(409);
+    expect(mfa.estActif(ADRESSE_OPS)).toBe(true);
     expect(journal).toEqual([]);
     await server.close();
   });

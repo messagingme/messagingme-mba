@@ -31,7 +31,7 @@ function app(over: Partial<Omit<AuthRouteDeps, 'comptes'>> & { comptes?: Partial
   const deps: AuthRouteDeps = {
     users: { findIdentity: async () => null },
     secret: SECRET,
-    getUserState: async () => ({ role: 'admin', disabled: false, tenantStatus: 'active', horsOffre: null }),
+    getUserState: async () => ({ role: 'admin', disabled: false, tenantStatus: 'active', horsOffre: null, sessionsDepuis: null }),
     comptes: {
       createTenantWithAdmin: async (name, admin, origine) => {
         if (admin.email === 'taken@x.fr') throw new DuplicateEmailError();
@@ -109,7 +109,7 @@ describe('POST /auth/google', () => {
       auth: {
         users: { findIdentity: async () => null },
         secret: SECRET,
-        getUserState: async () => ({ role: 'admin', disabled: false, tenantStatus: 'active', horsOffre: null }),
+        getUserState: async () => ({ role: 'admin', disabled: false, tenantStatus: 'active', horsOffre: null, sessionsDepuis: null }),
         comptes: store,
         googleClientId: 'client-abc',
         verifyGoogle: fakeVerify,

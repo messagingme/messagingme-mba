@@ -31,7 +31,7 @@ describe('route me', () => {
     const server = buildServer({
       queue: new FakeQueue(),
       // Le rôle frais que la garde pose à chaque requête : `getUserState` rend le rôle effectif (`roleEffectif`, src/index.ts).
-      auth: { users: noUsers, secret: SECRET, getUserState: async () => ({ role: 'admin', disabled: false, horsOffre: null }) },
+      auth: { users: noUsers, secret: SECRET, getUserState: async () => ({ role: 'admin', disabled: false, horsOffre: null, sessionsDepuis: null }) },
       me: { getById: async () => ({ email: 'julien@messagingme.fr', name: 'Julien Dumas', role: 'agent' }) },
     });
     const res = await server.inject({ method: 'GET', url: '/tenants/t1/me', ...h(agentTok) });

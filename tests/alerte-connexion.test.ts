@@ -39,7 +39,7 @@ describe('alerte sur un 500 des routes de connexion', () => {
       auth: {
         users: { findIdentity: async () => null },
         secret: 's',
-        getUserState: async () => ({ role: 'admin', disabled: false, tenantStatus: 'active', horsOffre: null }),
+        getUserState: async () => ({ role: 'admin', disabled: false, tenantStatus: 'active', horsOffre: null, sessionsDepuis: null }),
         comptes: {
           getByEmail: async () => { throw new TypeError("Cannot read properties of undefined (reading 'query')"); },
           createTenantWithAdmin: async () => ({ tenantId: 't', userId: 'u' }),

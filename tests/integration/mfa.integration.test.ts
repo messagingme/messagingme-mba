@@ -137,10 +137,10 @@ describe.skipIf(!url)('le second facteur, en base', () => {
     const b = await espace('itest-mfa-multi-b', multi);
     expect(b.identityId).toBe(a.identityId);
     await facteurActif(a.identityId);
-    expect(await mfa.reinitialiserDansEspace(a.tenantId, a.userId)).toBe('autres_espaces');
+    expect(await mfa.reinitialiserDansEspace(a.tenantId, a.userId, [])).toBe('autres_espaces');
     expect((await mfa.lire(a.identityId))!.secret).not.toBeNull();
     // Un compte d'un autre espace ne se désigne pas par l'espace d'ici.
-    expect(await mfa.reinitialiserDansEspace(a.tenantId, b.userId)).toBe('not_found');
+    expect(await mfa.reinitialiserDansEspace(a.tenantId, b.userId, [])).toBe('not_found');
 
     // L'exploitation, elle, peut : par l'adresse, quelle que soit sa casse.
     expect(await mfa.reinitialiserParEmail(multi.toUpperCase())).toBe(a.identityId);
@@ -175,14 +175,21 @@ describe.skipIf(!url)('le second facteur, en base', () => {
     const { tenantId, userId, identityId } = await espace('itest-mfa-seul', `mfa.seul.${suffixe}@exemple.fr`);
     await users.setSecondFacteurAdmins(tenantId, true);
     await facteurActif(identityId);
-    expect(await mfa.reinitialiserDansEspace(tenantId, userId)).toBe('ok');
+    // 🔴 Une adresse d'exploitation ne se réinitialise pas par l'espace, même seule ici, et son facteur reste.
+    const email = (await mfa.lire(identityId))!.email;
+    expect(await mfa.reinitialiserDansEspace(tenantId, userId, [` ${email.toUpperCase()} `])).toBe('exploitation');
+    expect((await mfa.lire(identityId))!.secret).not.toBeNull();
+    expect((await mfa.lire(identityId))!.sessionsDepuis).toBeNull();
+    expect(await mfa.reinitialiserDansEspace(tenantId, userId, [])).toBe('ok');
     expect(await mfa.lire(identityId)).toMatchObject({ secret: null, codesSecoursRestants: 0, obligatoire: true });
+    // L'effacement pose l'époque des sessions (migration 0277) : celles d'avant tombent à la garde.
+    expect((await mfa.lire(identityId))!.sessionsDepuis).toBeInstanceOf(Date);
     // Un admin RÉVOQUÉ n'oblige plus à rien : il ne peut de toute façon plus se connecter.
     await pool.query('update users set disabled_at = now() where id = $1', [userId]);
     expect((await mfa.lire(identityId))!.obligatoire).toBe(false);
     // Et un identifiant mal formé ne part jamais en base (22P02, donc un 500).
     expect(await mfa.lire('pas-un-uuid')).toBeNull();
     expect(await mfa.lireParCompte('pas-un-uuid')).toBeNull();
-    expect(await mfa.reinitialiserDansEspace(tenantId, 'pas-un-uuid')).toBe('not_found');
+    expect(await mfa.reinitialiserDansEspace(tenantId, 'pas-un-uuid', [])).toBe('not_found');
   });
 });

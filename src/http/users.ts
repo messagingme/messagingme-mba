@@ -29,10 +29,16 @@ export interface UsersRouteDeps {
   mfa: {
     /**
      * Réinitialise le second facteur d'un membre (téléphone perdu, codes de secours épuisés). `autres_espaces` =
-     * la personne a un compte dans un autre espace : refusé ici, ce cas passe par l'exploitation.
+     * la personne a un compte dans un autre espace, `exploitation` = son adresse est dans `opsEmails` : refusés ici, ces
+     * cas passent par l'exploitation.
      */
-    reinitialiserDansEspace(tenantId: string, userId: string): Promise<IssueReinitialisation>;
+    reinitialiserDansEspace(tenantId: string, userId: string, opsEmails: readonly string[]): Promise<IssueReinitialisation>;
   };
+  /**
+   * `OPS_EMAILS`. REQUIS : sans la liste, un admin d'espace effacerait le facteur d'un exploitant dont le seul compte est
+   * chez lui, et l'entrée dans `/ops` retomberait au seul premier facteur (audit du 2026-11-04).
+   */
+  opsEmails: readonly string[];
   /** Base URL du front pour le lien d'invitation. */
   appUrl: string;
 }
@@ -273,12 +279,15 @@ export function registerUsers(app: FastifyInstance, deps: UsersRouteDeps, garde:
     // Un identifiant mal formé partirait dans un `where id = $1` sur une colonne `uuid` : 22P02, donc un 500.
     if (!estUuid(userId)) return reply.code(404).send({ error: 'Utilisateur inconnu.' });
     if (!(await motDePasseConfirme(req, reply))) return reply;
-    const issue = await deps.mfa.reinitialiserDansEspace(tenant, userId);
+    const issue = await deps.mfa.reinitialiserDansEspace(tenant, userId, deps.opsEmails);
     if (issue === 'not_found') return reply.code(404).send({ error: 'Utilisateur inconnu.' });
     if (issue === 'autres_espaces') {
       return reply.code(409).send({
         error: 'Ce membre a aussi un compte dans un autre espace : sa double authentification se réinitialise par le support.',
       });
+    }
+    if (issue === 'exploitation') {
+      return reply.code(409).send({ error: 'La double authentification de ce membre se réinitialise par le support.' });
     }
     await journal(tenant, req, 'mfa.reinitialise', { kind: 'user', id: userId });
     return reply.code(200).send({ id: userId, mfaReinitialise: true });

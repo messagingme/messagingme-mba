@@ -22,6 +22,15 @@ export function saveSession(s: Session): void {
   localStorage.setItem(KEY, JSON.stringify(s));
 }
 
+/**
+ * Range le jeton neuf que rend un changement d'identifiant (mot de passe changé, second facteur retiré) : le serveur
+ * vient de couper toutes les sessions d'avant, celle-ci comprise. Sans jeton (ancienne API), rien ne change.
+ */
+export function remplacerJeton(token: string | undefined): void {
+  const s = getSession();
+  if (s && typeof token === 'string' && token !== '') saveSession({ ...s, token });
+}
+
 export function getSession(): Session | null {
   if (typeof window === 'undefined') return null;
   const raw = localStorage.getItem(KEY);

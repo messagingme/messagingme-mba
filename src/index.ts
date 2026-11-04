@@ -2323,6 +2323,8 @@ async function main(): Promise<void> {
         return u ? (u.name ?? u.email) : null;
       },
       mfa: mfaStore,
+      // Un admin d'espace ne réinitialise jamais le facteur d'une adresse d'exploitation (audit du 2026-11-04).
+      opsEmails,
       appUrl: config.APP_URL,
       ...(sendAuthEmail ? { sendEmail: sendAuthEmail } : {}),
     },

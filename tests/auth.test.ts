@@ -28,7 +28,7 @@ describe('token', () => {
   it('signe puis vérifie une session', async () => {
     const token = await signSession({ userId: 'u1', tenantId: 't1', role: 'admin' }, SECRET);
     const s = await verifySession(token, SECRET);
-    expect(s).toEqual({ userId: 'u1', tenantId: 't1', role: 'admin' });
+    expect(s).toEqual({ userId: 'u1', tenantId: 't1', role: 'admin', emisLe: expect.any(Number) });
   });
   it('rejette un token signé avec un autre secret', async () => {
     const token = await signSession({ userId: 'u1', tenantId: 't1', role: 'admin' }, SECRET);

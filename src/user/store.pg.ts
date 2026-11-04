@@ -81,14 +81,17 @@ export class PgUserStore {
    * supprimé. Une révocation, une suppression ou un changement de rôle prend effet tout de suite : la base fait foi,
    * pas le JWT.
    */
-  async getAuthState(userId: string): Promise<{ role: string; disabled: boolean; tenantStatus: string } | null> {
-    const res = await this.pool.query<{ role: string; disabled_at: Date | null; tenant_status: string }>(
-      `select u.role, u.disabled_at, t.status as tenant_status
-       from users u join tenants t on t.id = u.tenant_id where u.id = $1`,
+  async getAuthState(userId: string): Promise<{ role: string; disabled: boolean; tenantStatus: string; sessionsDepuis: Date | null } | null> {
+    // `left join` : un compte sans identité (ancien) garde sa session, sans époque.
+    const res = await this.pool.query<{ role: string; disabled_at: Date | null; tenant_status: string; sessions_depuis: Date | null }>(
+      `select u.role, u.disabled_at, t.status as tenant_status, i.sessions_depuis
+       from users u join tenants t on t.id = u.tenant_id
+       left join identities i on i.id = u.identity_id
+       where u.id = $1`,
       [userId],
     );
     const r = res.rows[0];
-    return r ? { role: r.role, disabled: r.disabled_at !== null, tenantStatus: r.tenant_status } : null;
+    return r ? { role: r.role, disabled: r.disabled_at !== null, tenantStatus: r.tenant_status, sessionsDepuis: r.sessions_depuis } : null;
   }
 
   /**
@@ -267,13 +270,15 @@ export class PgUserStore {
    * Pose (ou écrase) le mot de passe : finalisation d'invitation, réinitialisation. `true` si le compte existe.
    * 🔴 Écrit sur l'identité, pas sur le compte : une adresse a un seul mot de passe, quel que soit le nombre de ses
    * espaces. `users.password_hash` est mis à jour en miroir, pour qu'un retour arrière ne prive personne du sien.
+   * 🔴 Pose aussi l'époque des sessions (migration 0277) : celles de l'identité émises avant sont refusées par la garde.
+   * L'heure vient de l'API, qui signe le `iat` des sessions, pas de la base.
    */
   async setPassword(userId: string, passwordHash: string): Promise<boolean> {
     return enTransaction(this.pool, async (client) => {
       const res = await client.query(
-        `update identities set password_hash = $2
+        `update identities set password_hash = $2, sessions_depuis = $3
           where id = (select identity_id from users where id = $1)`,
-        [userId, passwordHash],
+        [userId, passwordHash, new Date()],
       );
       const miroir = await client.query(`update users set password_hash = $2 where id = $1`, [userId, passwordHash]);
       // L'une ou l'autre écriture suffit : un compte sans identité doit pouvoir poser son mot de passe.

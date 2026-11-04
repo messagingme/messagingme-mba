@@ -84,7 +84,7 @@ export async function serveurSonde(): Promise<ServeurSonde> {
     queue: new FakeQueue(),
     // Le chargeur d'état rend le rôle signé par `jeton` : le lien de connexion du numéro n'est jamais accepté sans
     // relecture de son auteur (lot 3c), et les sessions gardent le rôle de leur jeton.
-    auth: { users: { findIdentity: async () => null }, secret, getUserState: async (userId: string) => (ROLE_DE[userId] ? { role: ROLE_DE[userId]!, disabled: false } : null) },
+    auth: { users: { findIdentity: async () => null }, secret, getUserState: async (userId: string) => (ROLE_DE[userId] ? { role: ROLE_DE[userId]!, disabled: false, horsOffre: null, sessionsDepuis: null } : null) },
     // Des centaines d'appels avec la même session : le plafond par utilisateur rendrait des 429.
     plafonds: { utilisateurParMinute: 0, couteuxParMinute: 0 },
   });

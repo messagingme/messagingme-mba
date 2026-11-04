@@ -3,6 +3,7 @@ import { enTransaction } from '../db/transaction';
 import { encryptSecret, decryptSecret } from '../crypto/secretbox';
 import { estUuid } from '../http/scope';
 import { facteurExigeSql } from './facteur-exige';
+import { estAdresseOps } from './middleware';
 
 /**
  * Le second facteur d'une identité. 🔴 Il vit sur `identities`, pas sur `users` : c'est la personne qui a un
@@ -28,10 +29,18 @@ export interface EtatMfa {
   obligatoire: boolean;
   /** Fin du blocage du code de l'application après une série d'échecs ; les codes de secours restent acceptés. */
   bloqueJusqua: Date | null;
+  /**
+   * L'époque des sessions de l'identité (`identities.sessions_depuis`, migration 0277) : la garde de `/ops` refuse une
+   * session d'exploitation émise avant. `null` = aucune coupure.
+   */
+  sessionsDepuis: Date | null;
 }
 
-/** `autres_espaces` : l'identité a un compte dans un autre espace, un admin d'ici n'a pas à y toucher. */
-export type IssueReinitialisation = 'ok' | 'not_found' | 'autres_espaces';
+/**
+ * `autres_espaces` : l'identité a un compte dans un autre espace, un admin d'ici n'a pas à y toucher. `exploitation` :
+ * l'adresse est dans `OPS_EMAILS`, seule l'exploitation réinitialise son facteur (audit du 2026-11-04).
+ */
+export type IssueReinitialisation = 'ok' | 'not_found' | 'autres_espaces' | 'exploitation';
 
 export interface MfaStore {
   lire(identityId: string): Promise<EtatMfa | null>;
@@ -53,8 +62,11 @@ export interface MfaStore {
   remplacerCodesSecours(identityId: string, empreintesCodes: string[]): Promise<boolean>;
   /** Retire le facteur et les codes. */
   desactiver(identityId: string): Promise<void>;
-  /** Réinitialisation par un admin de l'espace : refusée si l'identité a un compte ailleurs. */
-  reinitialiserDansEspace(tenantId: string, userId: string): Promise<IssueReinitialisation>;
+  /**
+   * Réinitialisation par un admin de l'espace : refusée si l'identité a un compte ailleurs, ou si son adresse est dans
+   * `opsEmails` (le facteur de l'exploitation ne se retire que par l'exploitation).
+   */
+  reinitialiserDansEspace(tenantId: string, userId: string, opsEmails: readonly string[]): Promise<IssueReinitialisation>;
   /** Réinitialisation d'exploitation, par l'adresse. Rend l'identité, ou `null` si l'adresse est inconnue. */
   reinitialiserParEmail(email: string): Promise<string | null>;
   /** Les comptes d'une identité, tout statut : le journal s'écrit dans chacun de ses espaces. */
@@ -80,10 +92,12 @@ interface LigneEtat {
   codes_restants: number;
   obligatoire: boolean;
   mfa_bloque_jusqua: Date | null;
+  sessions_depuis: Date | null;
 }
 
 const SELECT_ETAT = `
   select i.id, i.email, i.mfa_secret_enc, i.mfa_active_le, i.mfa_dernier_pas, i.mfa_secret_attente_enc, i.mfa_bloque_jusqua,
+         i.sessions_depuis,
          (select count(*) from mfa_codes_secours c where c.identity_id = i.id and c.utilise_le is null)::int as codes_restants,
          ${facteurExigeSql('i.id')} as obligatoire
     from identities i`;
@@ -105,6 +119,7 @@ export class PgMfaStore implements MfaStore {
       codesSecoursRestants: r.codes_restants,
       obligatoire: r.obligatoire,
       bloqueJusqua: r.mfa_bloque_jusqua,
+      sessionsDepuis: r.sessions_depuis,
     };
   }
 
@@ -183,19 +198,22 @@ export class PgMfaStore implements MfaStore {
     await enTransaction(this.pool, (client) => this.effacer(client, identityId));
   }
 
-  async reinitialiserDansEspace(tenantId: string, userId: string): Promise<IssueReinitialisation> {
+  async reinitialiserDansEspace(tenantId: string, userId: string, opsEmails: readonly string[]): Promise<IssueReinitialisation> {
     if (!estUuid(userId)) return 'not_found';
     return enTransaction(this.pool, async (client) => {
-      const res = await client.query<{ identity_id: string | null; ailleurs: boolean }>(
-        `select u.identity_id,
+      const res = await client.query<{ identity_id: string | null; email: string | null; ailleurs: boolean }>(
+        `select u.identity_id, i.email,
                 exists (select 1 from users o where o.identity_id = u.identity_id and o.tenant_id <> u.tenant_id) as ailleurs
            from users u
+           left join identities i on i.id = u.identity_id
           where u.id = $1 and u.tenant_id = $2`,
         [userId, tenantId],
       );
       const r = res.rows[0];
       if (!r || r.identity_id === null) return 'not_found';
       if (r.ailleurs) return 'autres_espaces';
+      // L'adresse de l'IDENTITÉ, relue ici : c'est elle que la garde de `/ops` compare à la liste.
+      if (r.email !== null && estAdresseOps(opsEmails, r.email)) return 'exploitation';
       await this.effacer(client, r.identity_id);
       return 'ok';
     });
@@ -258,14 +276,18 @@ export class PgMfaStore implements MfaStore {
     );
   }
 
-  /** Retire tout : secret actif, secret en attente, pas, codes. Les sessions déjà émises vivent jusqu'à leur fin. */
+  /**
+   * Retire tout : secret actif, secret en attente, pas, codes. 🔴 Et pose l'époque des sessions (migration 0277) : celles
+   * de l'identité émises avant sont refusées par la garde. L'heure vient de l'API, qui signe le `iat` des sessions : une
+   * horloge de la base en avance refuserait aussi la session neuve rendue à qui vient d'effacer son facteur.
+   */
   private async effacer(client: PoolClient, identityId: string): Promise<void> {
     await client.query(
       `update identities
           set mfa_secret_enc = null, mfa_active_le = null, mfa_dernier_pas = null, mfa_secret_attente_enc = null,
-              mfa_echecs = 0, mfa_bloque_jusqua = null
+              mfa_echecs = 0, mfa_bloque_jusqua = null, sessions_depuis = $2
         where id = $1`,
-      [identityId],
+      [identityId, new Date()],
     );
     await client.query(`delete from mfa_codes_secours where identity_id = $1`, [identityId]);
   }
