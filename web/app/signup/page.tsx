@@ -3,23 +3,25 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { signup, isLoginChoice, estEtapeSecondFacteur, type EtapeSecondFacteur, type SuiteConnexion } from '@/lib/api';
+import { signup, isLoginChoice, estEtapeSecondFacteur, estLienEnvoye, type EtapeSecondFacteur, type SuiteConnexion } from '@/lib/api';
 import { arriveeDUnNouvelEspace, saveSession, veutLePro } from '@/lib/session';
 import { avecDemande, demandeDeLAdresse } from '@/lib/oauth';
 import { CadreSansCompte } from '@/components/CadreSansCompte';
 import { GoogleButton, RetourGoogle } from '@/components/GoogleButton';
-import { useT } from '@/lib/i18n';
+import { LienEnvoye } from '@/components/LienEnvoye';
+import { useLocale, useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { aideMotDePasse } from '@/lib/mot-de-passe';
 import { MIN_MOT_DE_PASSE } from '@/lib/partage/mot-de-passe';
 import { Bouton } from '@/components/Bouton';
 import { EtapesSecondFacteur, EtapeInterrompue } from '@/components/SecondFacteur';
 import { CasePartageMeta } from '@/components/CasePartageMeta';
-import { champPub } from '@/lib/pub';
+import { champPub, identifiantsPub } from '@/lib/pub';
 
 export default function SignupPage() {
   const router = useRouter();
   const t = useT();
+  const { locale } = useLocale();
   const [workspaceName, setWorkspaceName] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -42,6 +44,11 @@ export default function SignupPage() {
   const [pro, setPro] = useState(false);
   /** L'accord publicitaire (pixel Meta, lot 3) : NON coché par défaut, il vaut pour l'e-mail comme pour Google. */
   const [partage, setPartage] = useState(false);
+  /**
+   * L'adresse à qui un lien d'inscription vient de partir (lot identité B) : une adresse inconnue ne crée rien ici,
+   * l'espace naît au clic. Une API d'avant le lot rend encore la session : les deux réponses se lisent.
+   */
+  const [lienPour, setLienPour] = useState<string | null>(null);
 
   // Lus ici et pas au rendu : l'adresse n'existe pas côté serveur.
   useEffect(() => {
@@ -70,9 +77,13 @@ export default function SignupPage() {
       const res = await signup({
         workspaceName: workspaceName.trim(), email: email.trim(), password, name: name.trim() || undefined,
         pub: champPub(partage, window.location.search),
+        // Ce qui voyage avec une demande de lien jusqu'au clic (lot identité B) ; une API d'avant le lot les ignore.
+        langue: locale, ...(pro ? { offre: 'pro' as const } : {}), ...(demande !== null ? { application: true } : {}),
+        ...identifiantsPub(window.location.search),
       });
       setPassword('');
-      if (estEtapeSecondFacteur(res)) setEtape(res);
+      if (estLienEnvoye(res)) setLienPour(email.trim());
+      else if (estEtapeSecondFacteur(res)) setEtape(res);
       else entrer(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Inscription impossible', 'Sign-up failed'));
@@ -84,7 +95,13 @@ export default function SignupPage() {
   return (
     <CadreSansCompte titre={t('Créer votre espace', 'Create your workspace')} sousTitre={t('Votre espace WhatsApp Business en quelques secondes.', 'Your WhatsApp Business workspace in seconds.')}>
 
-      {etape ? (
+      {lienPour !== null ? (
+        <LienEnvoye
+          email={lienPour}
+          onAutreAdresse={() => setLienPour(null)}
+          {...(demande !== null ? { onContinuer: () => router.push(avecDemande('/autoriser', demande)) } : {})}
+        />
+      ) : etape ? (
         <EtapesSecondFacteur etape={etape} onSuite={entrer} onRetour={(message) => { setEtape(null); setInterrompu(message); }} />
       ) : interrompu ? (
         <EtapeInterrompue message={interrompu} connexion={avecDemande('/login', demande)} />

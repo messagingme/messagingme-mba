@@ -4,7 +4,7 @@ import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import { signSession } from '../src/auth/token';
 import { hashPasswordSync, verifyPassword } from '../src/auth/password';
-import { makeRequireOps } from '../src/auth/middleware';
+import { makeRequireOps, sessionAnterieure } from '../src/auth/middleware';
 import type { AuthRouteDeps } from '../src/auth/routes';
 import { MfaEnMemoire, UtilisateursFaux, comptesDe } from './mfa';
 import { accesOps, ADRESSE_OPS } from './acces-ops';
@@ -108,5 +108,24 @@ describe('🔴 /ops : une session d’exploitation émise avant l’époque de s
     acces.mfa.poserEpoque(ADRESSE_OPS, new Date(Date.now() + 60_000));
     expect((await app.inject({ method: 'GET', url: '/ops/sonde', headers: bearer(jeton) })).statusCode).toBe(401);
     await app.close();
+  });
+});
+
+describe('🔴 sessionAnterieure, aux bornes (jaune de la relecture du lot A)', () => {
+  const epoque = new Date('2026-11-05T10:00:00.750Z');
+  const seconde = Math.floor(epoque.getTime() / 1000);
+
+  it('sans époque, rien ne tombe ; une session de la même seconde que l’époque passe, celle d’avant tombe', () => {
+    expect(sessionAnterieure(undefined, null)).toBe(false);
+    expect(sessionAnterieure(seconde - 1000, null)).toBe(false);
+    expect(sessionAnterieure(seconde, epoque)).toBe(false);
+    expect(sessionAnterieure(seconde + 1, epoque)).toBe(false);
+    expect(sessionAnterieure(seconde - 1, epoque)).toBe(true);
+  });
+
+  it('🔴 un jeton sans iat tombe dès qu’une époque existe ; une époque qui n’est pas une date refuse', () => {
+    expect(sessionAnterieure(undefined, epoque)).toBe(true);
+    expect(sessionAnterieure(seconde + 10, '2026-11-05' as unknown as Date)).toBe(true);
+    expect(sessionAnterieure(seconde + 10, undefined as unknown as Date)).toBe(true);
   });
 });

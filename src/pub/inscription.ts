@@ -5,17 +5,24 @@ import type { ChampPub } from './conversions-meta.pg';
 import type { Fait } from './conversions-meta';
 
 /**
- * L'ACCORD DONNÉ À LA CRÉATION D'UN COMPTE, ET L'INSCRIPTION QUI EN DÉCOULE (lot 2 du plan pixel). Les trois routes de
- * création (`/auth/signup`, `/auth/google`, `/oauth/consentement/google`) appellent `apresEntree` une fois l'entrée
- * réussie. La console envoie `pub: { accord: true, fbc?, fbp? }` quand la case est cochée, rien sinon.
+ * L'ACCORD DONNÉ À LA CRÉATION D'UN COMPTE, ET L'INSCRIPTION QUI EN DÉCOULE (lot 2 du plan pixel). Les routes de
+ * création (`/auth/signup` pour une adresse connue, `/auth/signup/confirm` au clic sur le lien d'une adresse neuve,
+ * `/auth/google`, `/oauth/consentement/google`) appellent `apresEntree` une fois l'entrée réussie. La console envoie
+ * `pub: { accord: true, fbc?, fbp? }` quand la case est cochée, rien sinon.
  *
  * 🔴 PAS DE CASE COCHÉE, PAS D'ACCORD : sans `pub.accord === true`, rien ne s'écrit et rien ne part. Une entrée Google
- * marque seulement l'adresse comme prouvée (Google l'a vérifiée), ce qui ne fait rien partir à lui seul.
+ * ou un clic sur le lien marquent seulement l'adresse comme prouvée, ce qui ne fait rien partir à lui seul.
  */
 
 /** Le format des identifiants de Meta (`fb.<version>.<horodatage>.<valeur>`), borné : tout le reste est ignoré. */
 const IDENTIFIANT_META = /^fb\.[0-9]+\.[0-9]+\.[A-Za-z0-9_.-]+$/;
 const identifiant = z.string().max(500).regex(IDENTIFIANT_META);
+
+/** Un identifiant de Meta (`fbc`, `fbp`) valide, ou `null` : toute autre valeur est ignorée, jamais refusée. */
+export function identifiantMeta(v: unknown): string | null {
+  const lu = identifiant.safeParse(v);
+  return lu.success ? lu.data : null;
+}
 const corpsPub = z.object({
   pub: z.object({ accord: z.literal(true), fbc: z.unknown().optional(), fbp: z.unknown().optional() }),
 }).loose();
@@ -49,7 +56,7 @@ export interface DepsPubInscription {
 
 /**
  * Après une entrée réussie. `nouvelle` : l'identité vient de naître (seule une identité neuve fait une inscription) ;
- * `prouvee` : Google a vérifié l'adresse ; `requete` : celle de l'entrée, dont l'IP (`CF-Connecting-IP`, comme les
+ * `prouvee` : Google, ou le lien reçu dans la boîte, a prouvé l'adresse ; `requete` : celle de l'entrée, dont l'IP (`CF-Connecting-IP`, comme les
  * plafonds) et le navigateur sont ceux de la personne. 🔴 Ne lève jamais : l'entrée a réussi, une panne ici ne la
  * défait pas.
  */

@@ -297,6 +297,25 @@ ont gagné depuis (`git diff <sha> <en service> -- src/mcp`) : un paramètre ajo
 arrière dangereux tant que des clients restent connectés ; revenir plutôt à une image qui a le refus, ou faire
 reconnecter les clients MCP des espaces juste après le retour.
 
+## ⚠️ Le lien d'inscription (migration 0279, lot identité B, 2026-11-05) : les clés Turnstile, et le retour arrière
+
+**Les clés Turnstile se posent dans CET ordre**, sinon chaque demande de lien arrive sans jeton et elle est refusée :
+1. le widget chez Cloudflare (Turnstile, nom d'hôte `console.messagingme.app`, mode « Managed ») ;
+2. sa clé de SITE dans Vercel (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`, projet `messagingme-mba`, Production), puis un
+   redéploiement de la console : une variable `NEXT_PUBLIC_*` est figée au build, la poser ne suffit pas ;
+3. vérifier que le défi s'affiche sur `/signup` ;
+4. sa clé SECRÈTE sur le conteneur `mba-api` seulement (`TURNSTILE_SECRET_KEY`, en variable secrète ; le worker ne
+   sert aucune inscription). Sans elle, l'API écrit `turnstile_inactif` au démarrage et n'exige aucun défi.
+
+**Le levier d'urgence** : `INSCRIPTION_PLAFOND_HEURE` (défaut 200 demandes de lien par heure, au total ; 0 = aucun
+refus global, les trois liens par adresse et par jour et la fenêtre par réseau restent).
+
+**Retour arrière d'une image d'avant le lot** : l'inscription immédiate revient, et les liens déjà envoyés deviennent
+morts (`/auth/signup/confirm` répond 404, la page du lien affiche une erreur). La table `inscriptions_attente` reste,
+l'ancien code l'ignore, et sa rétention ne la purge pas : si le retour arrière dure plus d'un jour, ses adresses restent
+au-delà de leurs 24 heures, et se vident par un `delete from inscriptions_attente where expire_le <= now()` (une
+écriture en production : un script pour Julien).
+
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 
 Les routes de `mba.` et d'`api.` nomment `mba-api` par une variable, que nginx relit seul (résolveur de Docker,

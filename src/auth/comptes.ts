@@ -1,4 +1,5 @@
 import type { OrigineEspace } from '../user/store.pg';
+import type { ConfirmationInscription, DemandeInscription, EspaceAConfirmer } from '../user/inscriptions';
 
 /** Un compte rattaché à une adresse, actif ou révoqué. */
 export interface CompteParAdresse {
@@ -29,6 +30,14 @@ export interface ComptesAuthDep {
   getByEmail?(email: string): Promise<CompteParAdresse[]>;
   /** Horodate la dernière connexion réussie (page Équipe). */
   touchLastLogin?(userId: string): Promise<void>;
+  /** Inscription d'une adresse inconnue, en attente du clic (lot identité B) : rend le jeton du lien, en clair. */
+  demanderInscription?(demande: DemandeInscription, ttlMs: number): Promise<string>;
+  /** Efface la demande d'un lien qui n'est pas parti. */
+  oublierDemande?(jeton: string): Promise<void>;
+  /** Le jeton désigne-t-il une demande vivante ? Lu avant le hachage du mot de passe : un jeton inventé ne coûte rien. */
+  inscriptionVivante?(jeton: string): Promise<boolean>;
+  /** Le clic : crée l'espace, l'identité prouvée et le compte admin, ou dit pourquoi rien n'est créé. */
+  confirmerInscription?(jeton: string, espace: EspaceAConfirmer): Promise<ConfirmationInscription>;
 }
 
 /**

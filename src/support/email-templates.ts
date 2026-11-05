@@ -44,6 +44,12 @@ export interface BrandedEmailInput {
   phrases?: { lang: 'fr' | 'en'; secours: string; pied: string };
   /** Un lien de désinscription en pied (e-mails commerciaux et de transfert, lot 7). Texte et adresse échappés. */
   desinscription?: { texte: string; url: string };
+  /**
+   * La ligne sous « Messaging Me » dans l'en-tête, échappée. Absente : « Business Agent », celle des e-mails d'avant le
+   * lot identité B ; `null` : aucune ligne. Le lien d'inscription part vers une adresse qui ne nous connaît pas encore, et
+   * ce nom est celui du produit de Meta, que notre console configure sans le porter.
+   */
+  sousTitre?: string | null;
 }
 
 /** Les phrases fixes de l'invitation, d'avant le lot 7. */
@@ -59,6 +65,7 @@ const PHRASES_INVITATION = {
  */
 export function renderBrandedEmail(input: BrandedEmailInput): string {
   const { title, bodyHtml, ctaLabel, ctaUrl, preheader, footnote } = input;
+  const sousTitre = input.sousTitre === undefined ? 'Business Agent' : input.sousTitre;
   const phrases = input.phrases ?? PHRASES_INVITATION;
   const safeTitle = escapeHtml(title);
   const pre = preheader ? escapeHtml(preheader) : '';
@@ -104,7 +111,7 @@ ${pre ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hid
                 </td>
                 <td valign="middle">
                   <div style="font-family:${FONT};font-size:18px;line-height:20px;font-weight:700;color:${NAVY};letter-spacing:-0.2px;">Messaging Me</div>
-                  <div style="font-family:${FONT};font-size:12px;line-height:16px;font-weight:600;color:${BLUE};letter-spacing:0.3px;text-transform:uppercase;">Business Agent</div>
+                  ${sousTitre === null ? '' : `<div style="font-family:${FONT};font-size:12px;line-height:16px;font-weight:600;color:${BLUE};letter-spacing:0.3px;text-transform:uppercase;">${escapeHtml(sousTitre)}</div>`}
                 </td>
               </tr>
             </table>

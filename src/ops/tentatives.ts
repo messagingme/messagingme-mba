@@ -128,3 +128,35 @@ export function ipIndicative(req: { ip: string; headers: Record<string, unknown>
   const brut = Array.isArray(cf) ? cf[0] : cf;
   return typeof brut === 'string' && brut.trim() !== '' ? brut.trim() : req.ip;
 }
+
+/**
+ * Le RÉSEAU du client, pour la seule clé d'un plafond (lot identité B) : une IPv4 telle quelle, une IPv6 ramenée à son
+ * /64. Une machine louée dispose couramment d'un /64 entier : compter par adresse IPv6 laisserait un script en changer à
+ * chaque requête sans que le plafond ne morde jamais. Une IPv4 écrite en IPv6 (`::ffff:a.b.c.d`) est rendue en IPv4.
+ * ⚠️ Elle lit l'en-tête de Cloudflare, comme `ipIndicative` : il ne vaut que tant que le conteneur n'est joignable que
+ * par Cloudflare (conteneur privé et jeton d'origine, `documentation.md` § 7, les gardes). C'est un frein ; la barrière
+ * de l'inscription est le défi Turnstile.
+ */
+export function reseauDuClient(req: { ip: string; headers: Record<string, unknown> }): string {
+  const ip = ipIndicative(req).toLowerCase();
+  if (!ip.includes(':')) return ip;
+  const mappee = /^(?:::|(?:0{1,4}:){5})ffff:(\d{1,3}(?:\.\d{1,3}){3})$/.exec(ip);
+  if (mappee) return mappee[1]!;
+  const groupes = groupesIpv6(ip);
+  return groupes === null ? ip : `${groupes.slice(0, 4).join(':')}::/64`;
+}
+
+/** Les huit groupes d'une IPv6, développés et sans zéro de tête, ou `null` si ce n'en est pas une. */
+function groupesIpv6(ip: string): string[] | null {
+  const sansZone = ip.split('%')[0]!;
+  const moities = sansZone.split('::');
+  if (moities.length > 2) return null;
+  const lire = (s: string): string[] => (s === '' ? [] : s.split(':'));
+  const gauche = lire(moities[0]!);
+  const droite = moities.length === 2 ? lire(moities[1]!) : [];
+  const manquants = 8 - gauche.length - droite.length;
+  if (moities.length === 1 ? manquants !== 0 : manquants < 1) return null;
+  const tous = [...gauche, ...Array.from({ length: moities.length === 2 ? manquants : 0 }, () => '0'), ...droite];
+  if (!tous.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return null;
+  return tous.map((g) => g.replace(/^0+(?=.)/, ''));
+}

@@ -97,17 +97,17 @@ describe('limiteurs d’authentification : le câblage', () => {
   const tentatives = readFileSync(new URL('../src/auth/tentatives.ts', import.meta.url), 'utf8');
   const tentativesSansCommentaires = tentatives.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
-  it('🔴 les SIX plafonds comptent dans le compteur PARTAGÉ, tous fermés sur panne, et aucun ne reste en mémoire', () => {
+  it('🔴 les SEPT plafonds comptent dans le compteur PARTAGÉ, tous fermés sur panne, et aucun ne reste en mémoire', () => {
     // Lot B (2026-09-28). Ce cas tenait jusque-là le plafond de clés vivantes des six limiteurs EN MÉMOIRE (une
     // table qu'un robot remplissait d'adresses inventées) ; les six comptent désormais en base, où ces lignes vivent
     // une minute et la tâche `compteurs-debit` les efface (`tests/debit-cablage.test.ts`). Ce qui compte
     // maintenant : qu'aucun ne soit resté en mémoire (il serait servi une fois par copie), et que la fabrique
     // unique les construise FERMÉS sur panne (une panne ne doit jamais ouvrir un essai de plus).
     expect(sansCommentaires.match(/new RateLimiter\(/g) ?? [], 'plus aucun limiteur en mémoire dans ce fichier').toEqual([]);
-    expect(sansCommentaires.match(/new PlafondPartage\(/g) ?? [], 'une seule fabrique construit les six').toHaveLength(1);
+    expect(sansCommentaires.match(/new PlafondPartage\(/g) ?? [], 'une seule fabrique construit les sept').toHaveLength(1);
     expect(sansCommentaires).toMatch(/new PlafondPartage\(compteur, \{ nom: `connexion\.\$\{nom\}`, max, dureeMs, siLaBaseEchoue: 'refuser' \}\)/);
     const plafonds = [...sansCommentaires.matchAll(/= plafond\('([a-z]+)'/g)].map((m) => m[1]!);
-    expect(plafonds.sort()).toEqual(['accept', 'forgot', 'google', 'login', 'reset', 'signup']);
+    expect(plafonds.sort()).toEqual(['accept', 'confirm', 'forgot', 'google', 'login', 'reset', 'signup']);
   });
 
   it('🔴 la clé est TOUJOURS une empreinte : ni adresse ni jeton en clair dans le compteur partagé', () => {

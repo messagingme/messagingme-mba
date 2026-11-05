@@ -1,6 +1,6 @@
 ---
 source_section: Comptes & authentification
-source_empreinte: e78242
+source_empreinte: c40266
 ---
 # Inviter mon équipe, et gérer les accès
 
@@ -36,10 +36,12 @@ directement, sans redonner votre mot de passe ni votre code, avec votre rôle da
 vous êtes s'affiche en tête de ce menu. Votre session n'en est pas prolongée : elle se termine à la même heure
 qu'avant. Un espace suspendu n'y est pas proposé.
 
-**Créer son propre espace** se fait depuis la page d'inscription : un nom d'espace, une adresse, un mot de
-passe, et vous en êtes l'administrateur. Vous pouvez aussi passer par Google, à l'inscription comme à la
-connexion : le rapprochement se fait sur l'adresse e-mail, donc un compte qui existe déjà est simplement
-reconnu. Un espace qui vient de naître passe ensuite par son numéro WhatsApp (« Plus tard » le saute), puis par une
+**Créer son propre espace** se fait depuis la page d'inscription : vous donnez votre adresse, un lien vous
+arrive par e-mail (valable 24 heures, il ne sert qu'une fois), et c'est sur la page de ce lien que vous nommez
+l'espace et choisissez votre mot de passe ; vous en êtes l'administrateur. Si votre adresse a déjà un compte, la
+page vous demande son mot de passe et ajoute l'espace tout de suite. Vous pouvez aussi passer par Google, à
+l'inscription comme à la connexion : le rapprochement se fait sur l'adresse e-mail, donc un compte qui existe déjà
+est simplement reconnu. Un espace qui vient de naître passe ensuite par son numéro WhatsApp (« Plus tard » le saute), puis par une
 page qui donne tout pour piloter l'espace depuis Claude Code : les deux commandes qui installent le plugin Messaging Me
 (puis /mcp dans Claude Code pour valider la connexion), la clé de votre application, montrée une seule fois, et
 /messagingme:demarrer, qui lance la mise en service.

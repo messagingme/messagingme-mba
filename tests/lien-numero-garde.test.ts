@@ -11,7 +11,7 @@ import { signSession, signLienNumero } from '../src/auth/token';
  * (`tests/scope-tenant.test.ts` le prouve sur le serveur construit).
  */
 const SECRET = 'secret-de-test';
-type Etat = { role: string; disabled: boolean; tenantStatus?: string; horsOffre?: { limite: 'utilisateurs' | 'admins'; max: number } } | null;
+type Etat = { role: string; disabled: boolean; tenantStatus?: string; horsOffre?: { limite: 'utilisateurs' | 'admins'; max: number }; sessionsDepuis?: Date } | null;
 
 describe('la garde adminOuLien', () => {
   let app: FastifyInstance;
@@ -19,7 +19,7 @@ describe('la garde adminOuLien', () => {
   const connectes = new Set<string>();
   const aActiver = new Set<string>();
   const lectures: string[] = [];
-  const loadState: UserStateLoader = async (userId, tenantId) => { lectures.push(`${userId}@${tenantId}`); const e = etats.get(userId) ?? null; return e && { ...e, horsOffre: e.horsOffre ?? null, sessionsDepuis: null }; };
+  const loadState: UserStateLoader = async (userId, tenantId) => { lectures.push(`${userId}@${tenantId}`); const e = etats.get(userId) ?? null; return e && { ...e, horsOffre: e.horsOffre ?? null, sessionsDepuis: e.sessionsDepuis ?? null }; };
 
   beforeAll(async () => {
     const requireAuth = makeRequireAuth(SECRET, loadState);
@@ -87,6 +87,15 @@ describe('la garde adminOuLien', () => {
     expect((await appeler('GET', await lien('u-retrograde'))).statusCode).toBe(403);
     etats.set('u-suspendu', { role: 'admin', disabled: false, tenantStatus: 'locked' });
     expect((await appeler('GET', await lien('u-suspendu'))).statusCode).toBe(403);
+  });
+
+  it('🔴 un lien émis avant l’époque des sessions de son auteur (mot de passe réinitialisé) est refusé en 401 ; émis après, il passe', async () => {
+    // Le jaune de la relecture du lot A (2026-11-04) : le lien gardé par un tiers survivait à la reprise du compte.
+    const ancien = await lien('u-repris');
+    etats.set('u-repris', { role: 'admin', disabled: false, sessionsDepuis: new Date(Date.now() + 60_000) });
+    expect((await appeler('GET', ancien)).statusCode).toBe(401);
+    etats.set('u-repris', { role: 'admin', disabled: false, sessionsDepuis: new Date(Date.now() - 60_000) });
+    expect((await appeler('GET', await lien('u-repris'))).statusCode).toBe(200);
   });
 
   it('🔴 une fois le numéro connecté, le lien n’écrit plus rien, mais se lit encore', async () => {

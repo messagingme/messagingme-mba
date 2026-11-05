@@ -26,12 +26,12 @@ const compte = (statut: StatutCompte, numero = '447700900000'): CompteApplicatio
 describe('le jeton du lien', () => {
   it('🔴 sans filière, le jeton est exactement celui d’aujourd’hui', async () => {
     const jeton = await signLienNumero({ tenantId: T, userId: 'u1', mode: 'fourni' }, SECRET);
-    expect(await verifyLienNumero(jeton, SECRET)).toEqual({ tenantId: T, userId: 'u1', mode: 'fourni' });
+    expect(await verifyLienNumero(jeton, SECRET)).toEqual({ tenantId: T, userId: 'u1', mode: 'fourni', emisLe: expect.any(Number) });
   });
 
   it('la filière application voyage dans le jeton', async () => {
     const jeton = await signLienNumero({ tenantId: T, userId: 'u1', mode: 'apporte', filiere: 'application' }, SECRET);
-    expect(await verifyLienNumero(jeton, SECRET)).toEqual({ tenantId: T, userId: 'u1', mode: 'apporte', filiere: 'application' });
+    expect(await verifyLienNumero(jeton, SECRET)).toEqual({ tenantId: T, userId: 'u1', mode: 'apporte', filiere: 'application', emisLe: expect.any(Number) });
   });
 });
 

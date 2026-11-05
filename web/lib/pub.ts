@@ -19,6 +19,18 @@ const IDENTIFIANT_META = /^fb\.[0-9]+\.[0-9]+\.[A-Za-z0-9_.-]+$/;
 const identifiant = (v: string | null): string | undefined =>
   v !== null && v.length <= 500 && IDENTIFIANT_META.test(v) ? v : undefined;
 
+/**
+ * Les identifiants de l'adresse SANS accord (lot identité B) : la demande d'un lien d'inscription les garde jusqu'au
+ * clic, où ils ne servent que si l'accord y est donné. Une inscription commencée sur ordinateur et finie sur téléphone
+ * garde ainsi l'attribution de la publicité qui l'a amenée.
+ */
+export function identifiantsPub(recherche: string): { fbc?: string; fbp?: string } {
+  const p = new URLSearchParams(recherche);
+  const fbc = identifiant(p.get('fbc'));
+  const fbp = identifiant(p.get('fbp'));
+  return { ...(fbc ? { fbc } : {}), ...(fbp ? { fbp } : {}) };
+}
+
 /** Le champ `pub` du corps : `undefined` sans la case cochée, rien ne part alors. */
 export function champPub(accord: boolean, recherche: string): ChampPub | undefined {
   if (!accord) return undefined;

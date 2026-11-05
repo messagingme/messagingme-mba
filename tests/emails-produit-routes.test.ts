@@ -154,15 +154,17 @@ function signer(corps: string, o: { id?: string; t?: number; secret?: string } =
 function monterWebhook() {
   const notes: string[] = [];
   const desinscrits: string[] = [];
+  const retoursInscription: string[] = [];
   const server = buildServer({
     queue: new FakeQueue(),
     resendWebhook: {
       secret: SECRET_RESEND,
       noterEvenement: async (resendId, ev) => { notes.push(`${resendId}:${ev}`); return resendId === 're_connu' ? { identityId: IDENTITE } : null; },
       desinscrireDesCommerciaux: async (id) => { desinscrits.push(id); },
+      noterRetourInscription: async (type) => { retoursInscription.push(type); },
     },
   });
-  return { server, notes, desinscrits };
+  return { server, notes, desinscrits, retoursInscription };
 }
 
 describe('le webhook de Resend', () => {
@@ -203,6 +205,26 @@ describe('le webhook de Resend', () => {
     expect((await envoyer({ type: 'email.complained', created_at: '2026-10-14T10:00:00Z', data: { email_id: 're_inconnu' } })).statusCode).toBe(200);
     expect(notes).toEqual(['re_connu:email.opened', 're_connu:email.complained', 're_inconnu:email.complained']);
     expect(desinscrits).toEqual([IDENTITE]);
+    await server.close();
+  });
+
+  it('🔴 un lien d’inscription (étiquette categorie=inscription) : ses rebonds et plaintes se comptent à part, rien au journal du produit', async () => {
+    const { server, notes, desinscrits, retoursInscription } = monterWebhook();
+    const envoyer = (ev: object) => {
+      const corps = JSON.stringify(ev);
+      return server.inject({ method: 'POST', url: '/webhooks/resend', headers: signer(corps), payload: corps });
+    };
+    const lien = (type: string) => ({ type, created_at: '2026-11-05T10:00:00Z', data: { email_id: 're_connu', tags: { categorie: 'inscription' } } });
+    for (const type of ['email.bounced', 'email.complained', 'email.delivered', 'email.opened']) {
+      expect((await envoyer(lien(type))).statusCode).toBe(200);
+    }
+    expect(retoursInscription).toEqual(['email.bounced', 'email.complained']);
+    expect(notes).toEqual([]);
+    expect(desinscrits).toEqual([]);
+    // Un e-mail du produit étiqueté autrement, ou aux étiquettes d'une forme inattendue, reste noté comme avant.
+    expect((await envoyer({ type: 'email.opened', created_at: '2026-11-05T10:00:00Z', data: { email_id: 're_connu', tags: { categorie: 'commercial' } } })).statusCode).toBe(200);
+    expect((await envoyer({ type: 'email.opened', created_at: '2026-11-05T10:00:00Z', data: { email_id: 're_connu', tags: [{ name: 'categorie', value: 'inscription' }] } })).statusCode).toBe(200);
+    expect(notes).toEqual(['re_connu:email.opened', 're_connu:email.opened']);
     await server.close();
   });
 });

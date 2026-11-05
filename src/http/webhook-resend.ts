@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { journaliser } from '../lib/journal';
 import { EVENEMENTS_RESEND, type EvenementResend } from '../emails-produit/store.pg';
+import { ETIQUETTE_INSCRIPTION } from '../auth/email-inscription';
 
 /**
  * LE WEBHOOK DE RESEND (lot 7), classe `signature-service` : ce que deviennent les e-mails du produit (livré, ouvert,
@@ -48,14 +49,27 @@ export function verifierSignatureResend(
 const evenementSchema = z.object({
   type: z.string().max(80),
   created_at: z.string().max(60),
-  data: z.object({ email_id: z.string().min(1).max(100) }),
+  // `tags` : l'objet clé-valeur des étiquettes de l'envoi, tel que Resend le rend dans ses webhooks (documentation
+  // relue le 2026-11-05) ; à l'envoi, c'est une liste de `{ name, value }`. Lu sans schéma strict : une forme
+  // inattendue ne doit pas faire perdre l'événement d'un e-mail du produit.
+  data: z.object({ email_id: z.string().min(1).max(100), tags: z.unknown().optional() }),
 });
+
+/** L'envoi porte-t-il l'étiquette des liens d'inscription ? */
+const estLienInscription = (tags: unknown): boolean =>
+  tags !== null && typeof tags === 'object' && !Array.isArray(tags)
+  && (tags as Record<string, unknown>)[ETIQUETTE_INSCRIPTION.name] === ETIQUETTE_INSCRIPTION.value;
 
 export interface ResendWebhookRouteDeps {
   /** Le secret de signature de la destination déclarée chez Resend (`whsec_...`). Vide : tout est refusé. */
   secret: string;
   noterEvenement(resendId: string, evenement: EvenementResend, le: Date): Promise<{ identityId: string } | null>;
   desinscrireDesCommerciaux(identityId: string): Promise<void>;
+  /**
+   * Un rebond ou une plainte d'un lien d'inscription (étiquette `categorie=inscription`, lot identité B). Ces e-mails ne
+   * sont pas au journal du produit : ils ne passent pas par `noterEvenement`. Absent : rien n'est compté.
+   */
+  noterRetourInscription?(type: 'email.bounced' | 'email.complained'): Promise<void>;
   now?: () => number;
 }
 
@@ -75,6 +89,11 @@ export function registerResendWebhook(app: FastifyInstance, deps: ResendWebhookR
     if (!signe) return reply.code(401).send({ error: 'signature invalide' });
 
     const ev = evenementSchema.safeParse(req.body);
+    // Un lien d'inscription : seuls ses rebonds et ses plaintes se comptent, et il n'a pas de ligne au journal du produit.
+    if (ev.success && estLienInscription(ev.data.data.tags)) {
+      if (ev.data.type === 'email.bounced' || ev.data.type === 'email.complained') await deps.noterRetourInscription?.(ev.data.type);
+      return reply.code(200).send({ recu: true });
+    }
     // Signé mais illisible, ou un type qu'on ne note pas (envoyé, retardé...) : 200, rien à rejouer.
     if (!ev.success || !Object.hasOwn(EVENEMENTS_RESEND, ev.data.type)) return reply.code(200).send({ recu: true });
     const type = ev.data.type as EvenementResend;

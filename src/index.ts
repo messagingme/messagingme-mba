@@ -10,6 +10,8 @@ import type { DepsPubInscription } from './pub/inscription';
 import { puisSignaler } from './pub/declencheurs';
 import { surveillerOps } from './ops/tentatives';
 import { sendTelegram } from './ops/telegram';
+import { creerVerificateurTurnstile } from './auth/turnstile';
+import { creerSuiviRetoursInscription } from './auth/retours-inscription';
 import { creerAlertesReserve } from './http/numero-fourni';
 import { PgBossQueue } from './queue/pgboss';
 import { pool, mesureAttentePool, creerPoolReception, mesureAttenteReception } from './db/pool';
@@ -626,10 +628,13 @@ async function main(): Promise<void> {
 
   // Envoi d'email auth (liens reset/invitation) : seulement si Resend est configuré, sinon undefined.
   const sendAuthEmail = envoisResend
-    ? async ({ to, subject, text, html }: { to: string; subject: string; text: string; html?: string }) => {
-        await envoisResend.produit({ to, subject, text, ...(html ? { html } : {}) });
+    ? async ({ to, subject, text, html, tags }: { to: string; subject: string; text: string; html?: string; tags?: Array<{ name: string; value: string }> }) => {
+        await envoisResend.produit({ to, subject, text, ...(html ? { html } : {}), ...(tags && tags.length > 0 ? { tags } : {}) });
       }
     : undefined;
+  // Le défi anti-robot de la demande d'un lien d'inscription (lot identité B) : sans clé secrète, aucun défi.
+  const turnstile = config.TURNSTILE_SECRET_KEY ? creerVerificateurTurnstile(config.TURNSTILE_SECRET_KEY) : undefined;
+  if (!turnstile) journaliser('warn', 'turnstile_inactif', { raison: 'TURNSTILE_SECRET_KEY vide : la demande d’un lien d’inscription n’a pas de défi' });
   /**
    * Le chiffrage : toutes les lectures de coût (statistiques, fiche contact, `/ops`), leur tarif Meta sous
    * micro-cache et la marge. Construit une fois, donc un cache de tarifs par process ; le worker, qui
@@ -1887,6 +1892,11 @@ async function main(): Promise<void> {
       verifyGoogle: (idToken) => verifyGoogleIdToken(idToken, config.GOOGLE_CLIENT_ID),
       ...(sendAuthEmail ? { sendEmail: sendAuthEmail } : {}),
       pub: pubInscription,
+      // La demande d'un lien d'inscription (lot identité B) : le défi Turnstile si sa clé secrète est posée, l'alerte du
+      // total horaire, et ce total (0 : aucun refus).
+      ...(turnstile ? { turnstile } : {}),
+      alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
+      inscriptionPlafondHeure: config.INSCRIPTION_PLAFOND_HEURE,
       // Le second facteur : exigé des admins d'un espace qui l'exige (`facteurExigeSql`), à la connexion, à l'inscription
       // et à l'invitation ; toujours exigé de l'exploitation.
       mfa: mfaStore,
@@ -3318,6 +3328,8 @@ async function main(): Promise<void> {
       secret: config.RESEND_WEBHOOK_SECRET,
       noterEvenement: (resendId, ev, le) => emailsProduit.noterEvenementResend(resendId, ev, le),
       desinscrireDesCommerciaux: (identityId) => emailsProduit.desinscrire(identityId, 'commercial'),
+      // Les rebonds et plaintes des liens d'inscription (lot identité B) : comptés par jour, une alerte au seuil.
+      noterRetourInscription: creerSuiviRetoursInscription(compteurDebit, async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); }),
     },
     desinscriptionEmails: {
       lire: (jeton) => lireJetonDesinscription(jeton, config.AUTH_SECRET),

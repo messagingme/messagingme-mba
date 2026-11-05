@@ -27,9 +27,9 @@ describe('mot de passe — alignement avec le serveur', () => {
   });
 
   it('🔴 aucun écran ne réécrit le nombre à la main', async () => {
-    // C'est l'inventaire que le test remplace : quatre écrans posent un mot de passe, et c'est le genre de
+    // C'est l'inventaire que le test remplace : cinq écrans posent un mot de passe, et c'est le genre de
     // liste qui dérive dès qu'on en ajoute un cinquième. On ne les énumère donc pas, on interdit le motif.
-    for (const chemin of ['compte/page.tsx', 'signup/page.tsx', 'invite/[token]/page.tsx', 'reset/[token]/page.tsx']) {
+    for (const chemin of ['compte/page.tsx', 'signup/page.tsx', 'signup/confirm/[token]/page.tsx', 'invite/[token]/page.tsx', 'reset/[token]/page.tsx']) {
       const src = await readFile(new URL(`../app/${chemin}`, import.meta.url), 'utf8');
       expect(src, `${chemin} : minLength en dur`).not.toMatch(/minLength=\{\d+\}/);
       expect(src, `${chemin} : longueur écrite dans le texte`).not.toMatch(/\d+ caractères min|\d+ characters/);

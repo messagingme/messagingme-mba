@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { verifyPassword, hashPassword, hashPasswordSync } from './password';
 import { signSession, signChoice, verifyChoice, signMfa, signEnrolement, signSessionOps, type EtapeConnexion } from './token';
 import { refuserTropDeRequetes } from './rate-limit';
@@ -17,7 +17,12 @@ import { marquerConnexion, type ComptesAuthDep } from './comptes';
 import { entrerParGoogle } from './entree-google';
 import { empreinteTentative, verifierTentative } from './tentatives';
 import { MIN_MOT_DE_PASSE } from '../../web/lib/partage/mot-de-passe';
-import { apresEntree, type DepsPubInscription } from '../pub/inscription';
+import { DUREE_LIEN_INSCRIPTION_MS, REFUS_INSCRIPTION } from '../../web/lib/partage/inscription';
+import { apresEntree, lireChampPub, type DepsPubInscription } from '../pub/inscription';
+import { ipIndicative, reseauDuClient } from '../ops/tentatives';
+import { emailInscription, lienInscription } from './email-inscription';
+import { compterDemande, lireDemande, PLAFOND_INSCRIPTIONS_PAR_HEURE, SEUIL_ALERTE_INSCRIPTIONS_PAR_HEURE } from './inscription-lien';
+import type { VerificateurTurnstile } from './turnstile';
 
 export interface AuthRouteDeps extends MfaDeps {
   /**
@@ -45,8 +50,20 @@ export interface AuthRouteDeps extends MfaDeps {
     create(purpose: 'reset' | 'invite', userId: string, ttlMs: number): Promise<string>;
     consume(purpose: 'reset' | 'invite', raw: string): Promise<string | null>;
   };
-  /** Envoi d'e-mail (Resend) pour les liens. Absent : forgot-password répond 200 sans rien envoyer. */
-  sendEmail?(input: { to: string; subject: string; text: string; html?: string }): Promise<void>;
+  /**
+   * Envoi d'e-mail (Resend) pour les liens. Absent : forgot-password répond 200 sans rien envoyer, et la demande du lien
+   * d'inscription rend 503. `tags` : l'étiquette Resend que le webhook lit (lien d'inscription).
+   */
+  sendEmail?(input: { to: string; subject: string; text: string; html?: string; tags?: Array<{ name: string; value: string }> }): Promise<void>;
+  /**
+   * Le défi Cloudflare Turnstile de la demande d'inscription (lot identité B). Absent (clé secrète non posée) : pas de
+   * défi, les plafonds seuls.
+   */
+  turnstile?: VerificateurTurnstile;
+  /** Une alerte à l'exploitant (Telegram) : le total horaire des demandes de lien qui atteint son seuil. Absente : rien. */
+  alerter?(message: string): Promise<void>;
+  /** Le total horaire des demandes de lien au-delà duquel tout est refusé (`INSCRIPTION_PLAFOND_HEURE`) ; 0 : aucun refus. */
+  inscriptionPlafondHeure?: number;
   /** Base URL du front pour les liens d'email. */
   appUrl?: string;
   /** Durée de validité d'un lien de reset (ms). */
@@ -145,6 +162,17 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // chemins qui en choisissent un (inscription, invitation acceptée, réinitialisation, changement) : `/auth/login`
 // compare un hash, un compte existant plus court continue de se connecter.
 const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+/** La borne d'une adresse, celle de la table des demandes (migration 0279) et de la norme (RFC 5321). */
+const LONGUEUR_MAX_EMAIL = 254;
+/** Un jeton de lien fait 43 caractères (32 octets en base64url) : au-delà, ce n'en est pas un. */
+const LONGUEUR_MAX_JETON = 128;
+/** La borne du nom d'un membre, celle de l'invitation (`MAX_NOM`, `src/http/users.ts`). */
+const LONGUEUR_MAX_NOM = 60;
+const ADRESSE_DEJA_CONNUE = { error: 'un compte existe déjà avec cet email', code: REFUS_INSCRIPTION.adresseConnue } as const;
+const LIEN_MORT = {
+  error: 'Ce lien ne vaut plus : il a expiré, ou il a déjà servi. Refaites une demande d’inscription.',
+  code: REFUS_INSCRIPTION.lienInvalide,
+} as const;
 
 /** Adapte la décision de débit indépendante du transport à la réponse Fastify de ces routes. */
 async function freine(plafond: PlafondPartage, cle: string, reply: FastifyReply): Promise<boolean> {
@@ -156,7 +184,7 @@ async function freine(plafond: PlafondPartage, cle: string, reply: FastifyReply)
 
 export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: Guard, compteur: CompteurDebit): void {
   /**
-   * Les six plafonds, dans le compteur partagé, tous fermés sur panne. Plus de plafond de clés vivantes : il bornait
+   * Les sept plafonds, dans le compteur partagé, tous fermés sur panne. Plus de plafond de clés vivantes : il bornait
    * la MÉMOIRE d'un processus contre un robot qui invente des adresses ; en base, ces lignes vivent le temps de leur
    * fenêtre et la tâche `compteurs-debit` du worker les efface toutes les cinq minutes.
    */
@@ -169,6 +197,9 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
   const resetLimiter = plafond('reset', 10);
   const acceptLimiter = plafond('accept', 10);
   const googleLimiter = plafond('google', 20);
+  // Le clic sur le lien d'inscription, par réseau du client : un jeton inventé ne coûte qu'une requête indexée, et ce
+  // plafond borne leur nombre. Les plafonds de la DEMANDE du lien sont à part (`compterDemande`, trois fenêtres en un appel).
+  const confirmLimiter = plafond('confirm', 20);
 
   app.post('/auth/login', async (req, reply) => {
     const b = (req.body ?? {}) as { email?: unknown; password?: unknown; ops?: unknown };
@@ -316,40 +347,75 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     return reply.code(201).send({ token: jwt, user: { email: entree.identite.email, role: 'admin', tenantId: cree.tenantId }, isNew: true });
   });
 
-  // Inscription libre : crée un nouvel espace et son admin, puis la porte du second facteur (la session pour un espace
-  // neuf, qui n'exige rien ; un code ou un enrôlement si l'identité a un facteur, ou y est tenue ailleurs).
+  /**
+   * La demande d'inscription d'une adresse INCONNUE (lot identité B) : rien ne se crée, un lien part. Dans cet ordre :
+   * le refus d'exploitation, les dépendances, le défi anti-robot, UN comptage des trois plafonds, la demande, l'envoi
+   * ATTENDU (un 202 sans e-mail bloquerait l'inscription en silence). Le mot de passe, le nom d'espace et le nom qu'une
+   * console d'avant le lot envoie encore sont ignorés : ils se choisissent au clic, par qui a reçu le lien. Pas
+   * d'`apresEntree` ici : l'accord publicitaire se donne au clic, lui aussi.
+   */
+  const demanderUnLien = async (req: FastifyRequest, reply: FastifyReply, email: string, corps: Record<string, unknown>): Promise<FastifyReply> => {
+    // 🔴 Une adresse d'exploitation (`OPS_EMAILS`) ne naît jamais par l'inscription libre, même prouvée au clic : la
+    // décision du lot laisse `/ops` tel quel, et l'invitation et Google restent ses portes. Même réponse qu'une adresse
+    // déjà prise, pour ne pas dire qui est dans la liste ; aucune demande écrite, aucun e-mail.
+    if (estAdresseOps(deps.opsEmails, email)) return reply.code(409).send(ADRESSE_DEJA_CONNUE);
+    const comptes = deps.comptes;
+    if (!comptes?.demanderInscription || !comptes.oublierDemande || !deps.sendEmail || !deps.appUrl) {
+      return reply.code(503).send({ error: 'inscription par e-mail indisponible' });
+    }
+    if (deps.turnstile && !(await deps.turnstile.verifier(str(corps.turnstile), ipIndicative(req)))) {
+      return reply.code(403).send({ error: 'La vérification anti-robot n’a pas abouti : réessayez.', code: 'defi' });
+    }
+    const plafonds = await compterDemande(compteur, email, req, deps.inscriptionPlafondHeure ?? PLAFOND_INSCRIPTIONS_PAR_HEURE);
+    if (!plafonds.accepte) {
+      await refuserTropDeRequetes(reply, plafonds.attenteMs, plafonds.message);
+      return reply;
+    }
+    if (plafonds.totalDeLHeure === SEUIL_ALERTE_INSCRIPTIONS_PAR_HEURE) {
+      void deps.alerter?.(`Inscriptions par e-mail : ${SEUIL_ALERTE_INSCRIPTIONS_PAR_HEURE} demandes de lien dans l'heure (refus au-delà de ${deps.inscriptionPlafondHeure ?? PLAFOND_INSCRIPTIONS_PAR_HEURE}).`)?.catch(() => {});
+    }
+    const demande = lireDemande(email, corps);
+    const jeton = await comptes.demanderInscription(demande, DUREE_LIEN_INSCRIPTION_MS);
+    try {
+      await deps.sendEmail({ to: email, ...emailInscription(demande.langue, lienInscription(deps.appUrl, jeton, demande.langue)) });
+    } catch (err) {
+      // Le lien n'est pas parti : il ne doit rien confirmer. Le journal ne porte ni l'adresse ni le jeton.
+      await comptes.oublierDemande(jeton).catch(() => {});
+      journaliser('error', 'inscription_envoi_echec', { err });
+      return reply.code(503).send({ error: 'L’e-mail n’a pas pu partir : réessayez dans un instant, ou continuez avec Google.' });
+    }
+    return reply.code(202).send({ lienEnvoye: true });
+  };
+
+  // Inscription libre. Une adresse INCONNUE reçoit un lien (`demanderUnLien`), et l'identité, l'espace et la session
+  // naissent au clic (`/auth/signup/confirm`), l'adresse prouvée. Une adresse CONNUE qui donne son mot de passe ajoute un
+  // espace tout de suite, puis la porte du second facteur ; sans mot de passe, 409, et la console le demande.
   app.post('/auth/signup', async (req, reply) => {
     // Sans magasin du second facteur, l'inscription ne pourrait pas lire l'état du facteur de l'identité qu'elle crée
     // (`lireParCompte`), donc ni son code ni son obligation ailleurs : refus avant de créer quoi que ce soit.
     if (!deps.comptes?.createTenantWithAdmin || !deps.mfa || !deps.comptes.motDePasseDeLAdresse) return reply.code(503).send({ error: 'inscription indisponible' });
-    const b = (req.body ?? {}) as { workspaceName?: unknown; email?: unknown; password?: unknown; name?: unknown };
+    const b = (req.body ?? {}) as Record<string, unknown>;
     const email = str(b.email).trim().toLowerCase();
     const password = str(b.password);
     const name = str(b.name).trim() || null;
+    if (!EMAIL_RE.test(email) || email.length > LONGUEUR_MAX_EMAIL) return reply.code(400).send({ error: 'email invalide' });
+    if (await freine(signupLimiter, empreinteTentative(req, email), reply)) return reply;
+    const existant = await deps.comptes.motDePasseDeLAdresse(email);
+    if (existant === undefined) return demanderUnLien(req, reply, email, b);
+    // 🔴 Une adresse déjà connue ne s'inscrit qu'avec son mot de passe : l'inscription réutilise son identité, et
+    // sans cette vérification n'importe qui se rattacherait à l'identité d'un autre, puis changerait le mot de
+    // passe de tous ses espaces. Une identité sans mot de passe (invitation en attente, Google) ne s'étend pas
+    // par ici. Sans mot de passe du tout (l'étape de l'adresse de la console), le même 409 : la console demande alors
+    // le mot de passe et le nom du nouvel espace.
+    if (password === '') return reply.code(409).send(ADRESSE_DEJA_CONNUE);
     if (str(b.workspaceName).trim() === '') return reply.code(400).send({ error: 'nom de l\'espace requis' });
     // La même règle que le renommage (`src/user/nom-espace.ts`) : un nom de 500 Ko ou un saut de ligne
     // s'afficheraient tels quels dans l'écran de choix.
     const nomLu = nomEspace.safeParse(str(b.workspaceName));
     if (!nomLu.success) return reply.code(400).send({ error: MESSAGE_NOM_ESPACE_INVALIDE });
     const workspaceName = nomLu.data;
-    if (!EMAIL_RE.test(email)) return reply.code(400).send({ error: 'email invalide' });
-    if (await freine(signupLimiter, empreinteTentative(req, email), reply)) return reply;
     if (password.length < MIN_MOT_DE_PASSE) return reply.code(400).send({ error: `mot de passe trop court (min ${MIN_MOT_DE_PASSE})` });
-    // 🔴 Une adresse déjà connue ne s'inscrit qu'avec son mot de passe : l'inscription réutilise son identité, et
-    // sans cette vérification n'importe qui se rattacherait à l'identité d'un autre, puis changerait le mot de
-    // passe de tous ses espaces. Une identité sans mot de passe (invitation en attente, Google) ne s'étend pas
-    // par ici.
-    const existant = await deps.comptes.motDePasseDeLAdresse(email);
-    if (existant !== undefined && (existant === null || !(await verifyPassword(password, existant)))) {
-      return reply.code(409).send({ error: 'un compte existe déjà avec cet email' });
-    }
-    // 🔴 Une adresse d'exploitation (`OPS_EMAILS`) ne naît jamais par l'inscription libre, qui ne prouve pas qu'on
-    // possède l'adresse : un tiers créerait l'identité d'un futur exploitant, poserait son propre facteur et
-    // ouvrirait `/ops`. L'invitation (lien reçu dans la boîte) et Google (adresse vérifiée) restent ouverts. Même
-    // réponse qu'une adresse déjà prise, pour ne pas dire qui est dans la liste.
-    if (existant === undefined && estAdresseOps(deps.opsEmails, email)) {
-      return reply.code(409).send({ error: 'un compte existe déjà avec cet email' });
-    }
+    if (existant === null || !(await verifyPassword(password, existant))) return reply.code(409).send(ADRESSE_DEJA_CONNUE);
     try {
       const { tenantId, userId } = await deps.comptes.createTenantWithAdmin(workspaceName, { email, name, passwordHash: await hashPassword(password) }, 'console');
       // L'inscription crée un admin d'un espace qui n'exige pas le second facteur (défaut de la migration 0230) : elle
@@ -358,13 +424,53 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
       const facteur = await deps.mfa.lireParCompte(userId);
       if (!facteur) throw new Error('inscription : le compte créé n’a pas d’identité');
       const etape: EtapeConnexion = { identityId: facteur.identityId, email, comptes: [{ userId, tenantId, role: 'admin' }] };
-      // L'adresse n'est pas prouvée ici : l'accord coché s'enregistre, mais son empreinte ne partira pas chez Meta.
-      if (deps.pub) await apresEntree(deps.pub, { adresse: email, corps: req.body, nouvelle: existant === undefined, prouvee: false, requete: req });
+      // Une identité existante : l'accord coché s'enregistre, sans inscription chez Meta (seule une identité neuve en fait une).
+      if (deps.pub) await apresEntree(deps.pub, { adresse: email, corps: req.body, nouvelle: false, prouvee: false, requete: req });
       return reply.code(201).send(await apresLeMotDePasse(deps, etape, { actif: facteur.secret !== null, obligatoire: facteur.obligatoire }));
     } catch (err) {
-      if (err instanceof DuplicateEmailError) return reply.code(409).send({ error: 'un compte existe déjà avec cet email' });
+      if (err instanceof DuplicateEmailError) return reply.code(409).send(ADRESSE_DEJA_CONNUE);
       throw err;
     }
+  });
+
+  /**
+   * Le clic sur le lien d'inscription (lot identité B) : le nom de l'espace, le nom, le mot de passe et l'accord
+   * publicitaire se choisissent ICI, par la personne qui a reçu l'e-mail. 🔴 Le jeton est relu AVANT le hachage du mot
+   * de passe : un jeton inventé ne coûte qu'une requête indexée, jamais un scrypt. Les refus sont 400 et 409, jamais
+   * 401 : la console viderait une autre session ouverte dans le même navigateur.
+   */
+  app.post('/auth/signup/confirm', async (req, reply) => {
+    const comptes = deps.comptes;
+    if (!comptes?.confirmerInscription || !comptes.inscriptionVivante || !deps.mfa) return reply.code(503).send({ error: 'inscription indisponible' });
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    if (await freine(confirmLimiter, empreinteTentative({ ip: reseauDuClient(req) }, 'confirmation'), reply)) return reply;
+    const jeton = str(b.jeton);
+    if (jeton === '' || jeton.length > LONGUEUR_MAX_JETON) return reply.code(400).send(LIEN_MORT);
+    if (str(b.workspaceName).trim() === '') return reply.code(400).send({ error: 'nom de l\'espace requis' });
+    const nomLu = nomEspace.safeParse(str(b.workspaceName));
+    if (!nomLu.success) return reply.code(400).send({ error: MESSAGE_NOM_ESPACE_INVALIDE });
+    const name = str(b.name).trim() || null;
+    if (name !== null && name.length > LONGUEUR_MAX_NOM) return reply.code(400).send({ error: `nom trop long (${LONGUEUR_MAX_NOM} caractères au plus)` });
+    const password = str(b.password);
+    if (password.length < MIN_MOT_DE_PASSE) return reply.code(400).send({ error: `mot de passe trop court (min ${MIN_MOT_DE_PASSE})` });
+    if (!(await comptes.inscriptionVivante(jeton))) return reply.code(400).send(LIEN_MORT);
+    const r = await comptes.confirmerInscription(jeton, { workspaceName: nomLu.data, name, passwordHash: await hashPassword(password) });
+    if (r.statut === 'lien_invalide') return reply.code(400).send(LIEN_MORT);
+    if (r.statut === 'adresse_connue') {
+      return reply.code(409).send({ error: 'Cette adresse a déjà un compte : connectez-vous.', code: REFUS_INSCRIPTION.adresseConnue });
+    }
+    const facteur = await deps.mfa.lireParCompte(r.userId);
+    if (!facteur) throw new Error('inscription confirmée : le compte créé n’a pas d’identité');
+    const etape: EtapeConnexion = { identityId: facteur.identityId, email: r.email, comptes: [{ userId: r.userId, tenantId: r.tenantId, role: 'admin' }] };
+    // L'adresse est prouvée (le clic) et l'identité est neuve : l'accord DU CLIC s'enregistre et l'inscription part chez
+    // Meta. Les identifiants du navigateur du clic passent devant ceux gardés avec la demande ; sans accord, rien.
+    if (deps.pub) {
+      const accord = lireChampPub(b);
+      const corps = accord === null ? {} : { pub: { accord: true, fbc: accord.fbc ?? r.pubFbc ?? undefined, fbp: accord.fbp ?? r.pubFbp ?? undefined } };
+      await apresEntree(deps.pub, { adresse: r.email, corps, nouvelle: true, prouvee: true, requete: req });
+    }
+    const suite = await apresLeMotDePasse(deps, etape, { actif: facteur.secret !== null, obligatoire: facteur.obligatoire });
+    return reply.code(201).send({ ...suite, inscription: { offre: r.offrePro ? 'pro' : null, application: r.application, langue: r.langue } });
   });
 
   // Mot de passe perdu : toujours 200 (anti-énumération), un lien si le compte existe.

@@ -59,7 +59,7 @@ describe('start_whatsapp_connection', () => {
     const r = await outil('start_whatsapp_connection').executer(deps, 't1', { mode: 'fourni' }, PERSONNE) as Record<string, string>;
     const [base, jeton] = r.url!.split('#');
     expect(base).toBe('https://console.exemple.test/brancher');
-    expect(await verifyLienNumero(jeton!, SECRET)).toEqual({ tenantId: 't1', userId: 'u-admin', mode: 'fourni' });
+    expect(await verifyLienNumero(jeton!, SECRET)).toEqual({ tenantId: 't1', userId: 'u-admin', mode: 'fourni', emisLe: expect.any(Number) });
     expect(r.expire_le).toBe(new Date(debut + DUREE_LIEN_NUMERO_MS).toISOString());
     expect(typeof r.consigne).toBe('string');
   });
@@ -335,7 +335,7 @@ describe('start_whatsapp_connection en coexistence', () => {
 
   it('🔴 accepté sur un espace relié par QR code : le jeton porte le mode, sans filière', async () => {
     const r = await demarrer(QR_CODE, { mode: 'coexistence' });
-    expect(await verifyLienNumero(r.url!.split('#')[1]!, SECRET)).toEqual({ tenantId: 't1', userId: 'u-admin', mode: 'coexistence' });
+    expect(await verifyLienNumero(r.url!.split('#')[1]!, SECRET)).toEqual({ tenantId: 't1', userId: 'u-admin', mode: 'coexistence', emisLe: expect.any(Number) });
   });
 
   it('accepté sur un espace sans rien, et avec la filière « api » dite', async () => {
@@ -483,7 +483,7 @@ describe('le mode fourni_application', () => {
 
   it('🔴 le lien porte le mode, et la consigne dit les étapes de la page : l’application, son code, puis la garder', async () => {
     const r = await demarrer(VIDE, { mode: 'fourni_application' });
-    expect(await verifyLienNumero(r.url!.split('#')[1]!, SECRET)).toEqual({ tenantId: 't1', userId: 'u-admin', mode: 'fourni_application' });
+    expect(await verifyLienNumero(r.url!.split('#')[1]!, SECRET)).toEqual({ tenantId: 't1', userId: 'u-admin', mode: 'fourni_application', emisLe: expect.any(Number) });
     for (const e of ETAPES_COMPTE_FOURNI) expect(r.consigne).toContain(e.fr);
     expect(r.consigne).toContain(`« ${COEXISTENCE_BOUTON.fr} »`);
     expect(r.consigne).toMatch(/Payer 3,50 € HT par mois/);

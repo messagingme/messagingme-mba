@@ -304,17 +304,28 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     (Facebook) est nommé, le choix est retenu six mois, et « Gérer les cookies », au pied de chaque page, le rouvre.
     Sans accord, rien ne part chez Meta. Avec, le pixel compte les pages vues, et un clic vers la console lui passe de
     quoi relier l'inscription à la publicité. Inerte tant que l'identifiant du pixel n'est pas posé.
-  - **À la création d'un compte** (`/signup`, par e-mail ou par Google, et `/autoriser`, le parcours du plugin), une
-    case **décochée** : « J'accepte que Messaging Me transmette à Meta (Facebook) mon inscription, la connexion de mon
-    premier numéro WhatsApp et mon premier paiement… ». Sans elle, rien ne part pour la personne, jamais.
+  - **À la création d'un compte**, une case **décochée** : « J'accepte que Messaging Me transmette à Meta (Facebook)
+    mon inscription, la connexion de mon premier numéro WhatsApp et mon premier paiement… ». Par Google, sur `/signup`
+    ou `/autoriser` (le parcours du plugin) ; par e-mail, sur la page du lien reçu dans la boîte (2026-11-05), là où
+    l'on choisit son mot de passe : le formulaire a pu être rempli par quelqu'un d'autre, son accord n'engage personne.
+    Sans elle, rien ne part pour la personne, jamais.
   - **Dans « Mon compte »**, l'interrupteur « Partager avec Meta » accorde comme il retire ; retirer arrête aussitôt ce
     qui attendait d'être envoyé.
   - **Ce qui part chez Meta**, par notre serveur, une fois chacun : l'inscription, le premier numéro connecté d'un
     espace, le premier paiement d'une offre. Un fait antérieur à l'accord ne part jamais. L'adresse e-mail, sous une
-    forme non lisible, ne part que si Google l'a prouvée. Inerte tant que les variables de Meta ne sont pas posées.
+    forme non lisible, ne part que si elle est prouvée : par Google, ou par le lien d'inscription reçu dans la boîte.
+    Inerte tant que les variables de Meta ne sont pas posées.
 
 ## Comptes & authentification
 
+- ✅ **L'inscription par e-mail passe par un lien** (2026-11-05). Une adresse qui n'a pas encore de compte reçoit
+  un lien, valable 24 heures et qui ne sert qu'une fois ; rien n'est créé avant le clic. Sur la page du lien, la
+  personne qui l'a reçu nomme son espace, choisit son mot de passe et donne ou non son accord Meta, puis entre dans
+  le tunnel de démarrage de Free, dans la souscription Pro (venue de l'offre Pro) ou, venue de Claude Code sans
+  Google, retourne à l'onglet de connexion pour cliquer « Continuer ». Un formulaire rempli avec l'adresse d'un autre ne lui crée donc
+  rien. Une adresse qui a déjà un compte garde son chemin : la page demande son mot de passe et ajoute l'espace tout de
+  suite. Pas plus de trois liens par adresse et par jour, et un défi anti-robot (Cloudflare Turnstile) devant la
+  demande dès que sa clé est posée ; Google, qui prouve l'adresse, reste immédiat.
 - ✅ **Double authentification** (2026-09-26) : un code d'application d'authentification (six chiffres, renouvelés
   toutes les 30 secondes) en plus du mot de passe. **Au choix de l'espace pour ses administrateurs** depuis le
   2026-10-13 (elle était obligatoire pour eux, et c'était le premier geste demandé à qui venait de créer son espace),
@@ -332,7 +343,7 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     vient après le code. Un code faux laisse sur l'étape ; une étape expirée (5 minutes) ramène au formulaire.
   - **Un administrateur d'un espace qui l'exige, sans second facteur, le pose avant d'entrer**, à la connexion, à
     l'inscription comme à l'acceptation d'une invitation d'administrateur. Créer un espace n'en demande plus : la
-    session s'ouvre directement. L'enrôlement : un QR code à scanner (dessiné dans le navigateur), la clé à
+    session s'ouvre directement (au clic sur le lien, pour une inscription par e-mail). L'enrôlement : un QR code à scanner (dessiné dans le navigateur), la clé à
     saisir à la main, le premier code, puis **dix codes de secours** montrés une seule fois (Copier, Télécharger en
     `.txt`, et une case « J'ai conservé ces codes » avant de continuer). Chaque code de secours ne sert qu'une
     fois ; quand l'un a servi, l'écran dit combien il en reste.
@@ -5255,8 +5266,9 @@ façons de prouver qui l'on est :
   (2026-10-27), sous le bouton Google, un bouton de même taille « Créer mon espace avec mon adresse e-mail »
   (l'inscription) et le lien « Déjà un compte avec mot de passe ? Connectez-vous » (la connexion, second facteur
   compris). Les deux gardent la
-  demande et ramènent à la page, la session ouverte, sur ce bouton : ni nouvel onglet, ni rechargement, ni tunnel de la
-  Free (Claude fait la suite). Ces deux pages n'y montrent pas Google, qui ouvrirait la console et perdrait la demande,
+  demande et ramènent à la page, la session ouverte, sur ce bouton : ni rechargement, ni tunnel de démarrage (Claude
+  fait la suite). L'inscription d'une adresse neuve passe par le lien reçu par e-mail (2026-11-05) : on l'ouvre dans le même
+  navigateur, on y crée son espace, puis « Continuer », resté dans l'onglet de connexion, ramène sur ce bouton. Ces deux pages n'y montrent pas Google, qui ouvrirait la console et perdrait la demande,
   mais un lien « Continuer avec Google » qui ramène à la page. Un compte qui n'est pas administrateur y lit pourquoi
   il n'a pas de bouton. La demande attend dix minutes ;
 - **« Continuer avec Google »** : la page liste les espaces de la personne, un bouton « Autoriser dans <espace> »

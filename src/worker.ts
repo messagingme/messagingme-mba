@@ -159,6 +159,7 @@ import { creerDejaRecu } from './application/entrant.pg';
 import { endormirLesComptes } from './application/sommeil';
 import { FILE_PREMIER_MESSAGE, enfileurPremier, jobPremierSchema, traiterPremierMessage } from './application/premier-message';
 import { PgPremiersMessages } from './application/premier-message.pg';
+import { PgUserStore } from './user/store.pg';
 import { avisDeGel } from './application/avis';
 import { noterIssueShopify } from './shopify/envoi';
 
@@ -780,6 +781,8 @@ export async function demarrerWorker(): Promise<void> {
    * envoi à la fois par numéro, deux espaces en parallèle.
    */
   const premiersMessages = new PgPremiersMessages(pool);
+  // Les demandes d'inscription par e-mail (lot identité B, migration 0279) : effacées à l'échéance de leur lien.
+  const demandesInscription = new PgUserStore(pool);
   // L'issue finale d'un message Shopify (tâche 5) : sur l'événement ou le panier qui l'a mis en file.
   const issuesShopify = noterIssueShopify(new PgShopifyStore(pool, config.ENCRYPTION_KEY));
   await queue.work(FILE_PREMIER_MESSAGE, async (data) => {
@@ -1853,6 +1856,8 @@ export async function demarrerWorker(): Promise<void> {
     // Les premiers messages de la filière application (0252) : le numéro et le texte d'un client, trente jours une fois finis.
     await etape('premiers-messages', 'premier(s) message(s) de l’application fini(s) effacé(s) (au-delà de 30 j)',
       () => premiersMessages.purgerTermines(30));
+    // Les demandes d'inscription échues (lot identité B) : une adresse saisie par n'importe qui, gardée 24 h au plus.
+    await etape('inscriptions', 'demande(s) d’inscription échue(s) effacée(s)', () => demandesInscription.purgerInscriptionsEchues());
     // Les fichiers supprimés de la médiathèque, au-delà de leur grâce (spec médias, § 2.4) : `/m/` les sert jusque-là, pour un
     // visuel RCS que l'opérateur télécharge tard. Par petits lots : une ligne peut porter une vidéo de 16 Mo.
     await etape('medias', `fichier(s) supprimé(s) de la médiathèque effacé(s) (au-delà de ${GRACE_SUPPRESSION_JOURS} j)`,

@@ -45,6 +45,9 @@ function app(over: Partial<Omit<AuthRouteDeps, 'comptes'>> & { comptes?: Partial
       getPasswordHash: async () => KNOWN_HASH,
       motDePasseDeLAdresse: async (email) => (email === 'deja@x.fr' ? KNOWN_HASH : email === 'sansmdp@x.fr' ? null : undefined),
       getSessionUser: async (uid) => (uid === 'u1' ? { tenantId: 't1', role: 'agent', email: 'invited@x.fr' } : null),
+      // Une adresse inconnue reçoit un lien (lot identité B) : le parcours complet est dans `tests/auth-inscription-lien.test.ts`.
+      demanderInscription: async () => 'LIEN-DEMANDE',
+      oublierDemande: async () => {},
       ...comptes,
     },
     tokens: { create: async (p, uid) => { cap.tokens.push({ p, uid }); return 'RAWTOKEN'; }, consume: async (_p, raw) => (raw === 'GOOD' ? 'u1' : null) },
@@ -56,30 +59,36 @@ function app(over: Partial<Omit<AuthRouteDeps, 'comptes'>> & { comptes?: Partial
   return { server: buildServer({ queue: new FakeQueue(), auth: deps }), cap };
 }
 
+/**
+ * 🔴 Depuis le lot identité B, une adresse INCONNUE ne crée rien à la demande : un lien part, et l'espace naît au clic
+ * (`tests/auth-inscription-lien.test.ts`). Les cas ci-dessous, écrits pour l'inscription immédiate, sont gardés sur la
+ * branche où ils s'appliquent encore : l'adresse CONNUE (`deja@x.fr`) qui donne son mot de passe pour un espace de plus.
+ * Leurs jumeaux de l'adresse inconnue vivent sur la route du clic.
+ */
 describe('POST /auth/signup', () => {
-  it('🔴 crée un espace + admin, et ouvre la session TOUT DE SUITE : un espace neuf n’exige pas le second facteur', async () => {
+  it('🔴 une adresse connue qui donne son mot de passe : l’espace + admin, et la session TOUT DE SUITE ; un espace neuf n’exige pas le second facteur', async () => {
     const { server, cap } = app();
-    const res = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: 'Mon Espace', email: 'A@X.fr', password: 'motdepasse-longue', name: 'Jean' } });
+    const res = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: 'Mon Espace', email: 'Deja@X.fr', password: 'current-pass-123', name: 'Jean' } });
     expect(res.statusCode).toBe(201);
     // Décision de Julien du 2026-10-13 : le second facteur n'est plus le premier geste demandé à qui crée son espace.
-    expect(cap.created).toEqual([{ name: 'Mon Espace', email: 'a@x.fr' }]); // email normalisé
+    expect(cap.created).toEqual([{ name: 'Mon Espace', email: 'deja@x.fr' }]); // email normalisé
     const body = res.json<{ token: string; user: { role: string; tenantId: string }; enrolToken?: string }>();
     expect(body.enrolToken).toBeUndefined();
     expect(body.token).toBeTruthy();
     expect(body.user).toMatchObject({ role: 'admin', tenantId: 'tNew' });
     await server.close();
   });
-  it('email déjà pris -> 409', async () => {
-    const { server } = app();
-    const res = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: 'E', email: 'taken@x.fr', password: 'motdepasse-longue' } });
+  it('email pris entre la lecture et la création -> 409', async () => {
+    const { server } = app({ comptes: { createTenantWithAdmin: async () => { throw new DuplicateEmailError(); } } });
+    const res = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: 'E', email: 'deja@x.fr', password: 'current-pass-123' } });
     expect(res.statusCode).toBe(409);
     await server.close();
   });
   it('validations -> 400 (mdp court, email invalide, espace vide)', async () => {
     const { server } = app();
-    const short = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: 'E', email: 'a@x.fr', password: 'court' } });
+    const short = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: 'E', email: 'deja@x.fr', password: 'court' } });
     const mail = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: 'E', email: 'pasunemail', password: 'motdepasse-longue' } });
-    const ws = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: '', email: 'a@x.fr', password: 'motdepasse-longue' } });
+    const ws = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: '', email: 'deja@x.fr', password: 'current-pass-123' } });
     expect([short.statusCode, mail.statusCode, ws.statusCode]).toEqual([400, 400, 400]);
     /**
      * 🔴 LA RAISON, PAS SEULEMENT LE CODE. Trois refus qui rendent tous 400 se ressemblent : rien ne dit
@@ -107,15 +116,15 @@ describe('POST /auth/signup', () => {
   it('🔴 un nom d’espace trop long, avec un saut de ligne ou un caractère invisible -> 400, et aucun espace créé', async () => {
     const { server, cap } = app();
     for (const workspaceName of ['a'.repeat(81), 'Mon\nEspace', 'Acme\u202Eevil', '\u200B', '---']) {
-      const res = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName, email: 'a@x.fr', password: 'motdepasse-longue' } });
+      const res = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName, email: 'deja@x.fr', password: 'current-pass-123' } });
       expect(res.statusCode, JSON.stringify(workspaceName)).toBe(400);
       expect(res.json().error, JSON.stringify(workspaceName)).toMatch(/80/);
     }
     expect(cap.created).toEqual([]);
     // Et le nom ROGNÉ est celui qui est écrit, 80 caractères inclus.
-    const ok = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: ` ${'b'.repeat(80)} `, email: 'b@x.fr', password: 'motdepasse-longue' } });
+    const ok = await server.inject({ method: 'POST', url: '/auth/signup', ...j, payload: { workspaceName: ` ${'b'.repeat(80)} `, email: 'deja@x.fr', password: 'current-pass-123' } });
     expect(ok.statusCode).toBe(201);
-    expect(cap.created).toEqual([{ name: 'b'.repeat(80), email: 'b@x.fr' }]);
+    expect(cap.created).toEqual([{ name: 'b'.repeat(80), email: 'deja@x.fr' }]);
     await server.close();
   });
 });
@@ -261,20 +270,25 @@ describe('POST /auth/signup : l’accord publicitaire coché (pixel, lot 2)', ()
     payload: { workspaceName: 'Mon Espace', email, password, ...(pub === undefined ? {} : { pub }) },
   });
 
-  it('🔴 case cochée sur une identité neuve : l’accord, puis l’inscription avec l’IP et le navigateur ; jamais d’adresse prouvée', async () => {
+  /**
+   * 🔴 Une adresse INCONNUE ne donne plus son accord à la demande (lot identité B) : le formulaire a pu être rempli par un
+   * tiers. L'accord, l'adresse prouvée et l'inscription chez Meta viennent au clic, par qui a reçu le lien
+   * (`tests/auth-inscription-lien.test.ts`, « l’accord publicitaire du clic »).
+   */
+  it('🔴 case cochée au formulaire d’une adresse inconnue : rien ne s’écrit, rien ne part à la demande', async () => {
     const p = fauxPub();
     const { server } = app({ pub: p.deps });
     const res = await inscrire(server, 'neuve@x.fr', { accord: true, fbc: 'fb.1.1793300000000.essai' });
-    expect(res.statusCode).toBe(201);
-    expect(p.notes).toEqual(['accord neuve@x.fr fbc=fb.1.1793300000000.essai fbp=-', 'inscription neuve@x.fr ip=203.0.113.7 navigateur=Navigateur/1.0']);
+    expect(res.statusCode).toBe(202);
+    expect(p.notes).toEqual([]);
     await server.close();
   });
 
   it('🔴 sans la case, ou avec un accord qui n’est pas vrai : rien ne s’écrit, rien ne part', async () => {
     const p = fauxPub();
     const { server } = app({ pub: p.deps });
-    expect((await inscrire(server, 'a@x.fr')).statusCode).toBe(201);
-    expect((await inscrire(server, 'b@x.fr', { accord: 'oui' })).statusCode).toBe(201);
+    expect((await inscrire(server, 'deja@x.fr', undefined, 'current-pass-123')).statusCode).toBe(201);
+    expect((await inscrire(server, 'deja@x.fr', { accord: 'oui' }, 'current-pass-123')).statusCode).toBe(201);
     expect(p.notes).toEqual([]);
     await server.close();
   });
@@ -291,14 +305,14 @@ describe('POST /auth/signup : l’accord publicitaire coché (pixel, lot 2)', ()
   it('un fbc mal formé est omis, l’accord reste', async () => {
     const p = fauxPub();
     const { server } = app({ pub: p.deps });
-    await inscrire(server, 'c@x.fr', { accord: true, fbc: '<script>', fbp: 'fb.1.1793300000000.42' });
-    expect(p.notes[0]).toBe('accord c@x.fr fbc=- fbp=fb.1.1793300000000.42');
+    await inscrire(server, 'deja@x.fr', { accord: true, fbc: '<script>', fbp: 'fb.1.1793300000000.42' }, 'current-pass-123');
+    expect(p.notes[0]).toBe('accord deja@x.fr fbc=- fbp=fb.1.1793300000000.42');
     await server.close();
   });
 
   it('🔴 un accord qui ne s’écrit pas (base en panne) ne fait pas échouer l’inscription', async () => {
     const { server } = app({ pub: fauxPub({ leve: true }).deps });
-    expect((await inscrire(server, 'd@x.fr', { accord: true })).statusCode).toBe(201);
+    expect((await inscrire(server, 'deja@x.fr', { accord: true }, 'current-pass-123')).statusCode).toBe(201);
     await server.close();
   });
 });

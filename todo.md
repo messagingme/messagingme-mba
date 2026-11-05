@@ -358,6 +358,16 @@ eux est une promesse publique en attente.
 - **Un geste de `/ops` échoué ne se rejoue pas seul** (jaune 13 de la relecture de A) : une route qui rejoue le seul geste
   échoué, si l'essai réel en montre le besoin.
 
+## 🟡 L'inscription par e-mail prouvée par un lien : ce que le lot laisse (2026-11-05)
+
+Lot identité B (journal du 2026-11-05). Rien ne bloque.
+
+- **Un sous-domaine d'envoi pour les e-mails qu'un anonyme déclenche** (le lien d'inscription), distinct de celui de
+  la réinitialisation, des invitations et des e-mails du produit, et un lien « Je n'ai rien demandé » dans l'e-mail,
+  qui suspendrait 30 jours les envois vers l'adresse. Décision de Julien : au backlog, l'étiquette et le suivi des
+  rebonds suffisent pour commencer.
+- **La suite de l'audit d'identité** : son plan est privé, dans `docs/prive/`.
+
 ## 🟡 Sans Google sur /autoriser : ce que la relecture laisse (2026-10-27)
 
 Lot `b9c0ccd1` et `0a7418cf` (journal du 2026-10-27). Rien ne bloque.
@@ -368,8 +378,6 @@ Lot `b9c0ccd1` et `0a7418cf` (journal du 2026-10-27). Rien ne bloque.
   un avertissement sur `/signup?demande=` quand l'adresse existe, ou la connexion proposée à la place.
 - **L'origine des espaces créés par ce chemin est `console`**, pas `claude_code` ni `client_mcp` comme par Google sur la
   même page. Donnée d'exploitation seulement ; la porter dans `/auth/signup` si on veut compter ces inscriptions.
-- **L'adresse saisie à l'inscription n'est pas vérifiée** (seule celle de Google l'est) : les alertes, le récapitulatif
-  de la semaine et les e-mails produit y partent.
 - **Les trois e2e neufs n'ont pas été vérifiés dans les deux sens** (il faut une compilation de la console mutée de plus).
 - **À décider par Julien** : l'inscription qui mène directement au Pro (le bouton « Créer mon compte » du Pro de la page
   Shopify finit en Free, relevé par la session de la vitrine) ; l'e-mail de l'admin rempli d'avance sur la page de

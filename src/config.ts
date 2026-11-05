@@ -385,6 +385,19 @@ export const schema = z.object({
    * e-mails partent quand même. Posé par Julien dans `.env.prod`, jamais par Claude.
    */
   RESEND_WEBHOOK_SECRET: z.string().default(''),
+  /**
+   * La clé SECRÈTE du widget Cloudflare Turnstile (lot identité B) : le défi anti-robot de la demande d'un lien
+   * d'inscription, vérifié par l'API. Vide -> pas de défi, les plafonds seuls. Posée par Julien (conteneur et
+   * `.env.prod`), APRÈS la clé du site dans la console (`NEXT_PUBLIC_TURNSTILE_SITE_KEY`), sinon chaque demande arrive
+   * sans jeton et elle est refusée (`DEPLOY.md`).
+   */
+  TURNSTILE_SECRET_KEY: z.string().default(''),
+  /**
+   * Le total horaire des demandes de lien d'inscription au-delà duquel tout est refusé (lot identité B) ; une alerte
+   * Telegram part bien avant, à 30. 0 le désactive : le levier d'urgence d'une campagne qui amènerait des centaines
+   * d'inscriptions dans l'heure.
+   */
+  INSCRIPTION_PLAFOND_HEURE: z.coerce.number().int().min(0).default(200),
   /** Client OAuth Google (public) pour « se connecter avec Google ». Vide -> bouton Google masqué (pas de crash). */
   GOOGLE_CLIENT_ID: z.string().default(''),
   /**

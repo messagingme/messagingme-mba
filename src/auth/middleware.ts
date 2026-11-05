@@ -266,7 +266,9 @@ export function makeRequireAdminOuLien(o: {
       return;
     }
     const etat = await o.loadState(lien.userId, lien.tenantId);
-    if (!etat || etat.disabled) {
+    // Un lien émis avant l'époque des sessions de l'identité (réinitialisation ou changement du mot de passe, facteur
+    // effacé) tombe comme une session : un lien gardé par un tiers ne survit pas à la reprise du compte.
+    if (!etat || etat.disabled || sessionAnterieure(lien.emisLe, etat.sessionsDepuis)) {
       await reply.code(401).send({ error: 'lien révoqué : redemandez-en un à Claude' });
       return;
     }

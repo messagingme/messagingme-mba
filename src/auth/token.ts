@@ -338,6 +338,14 @@ export function signLienNumero(l: LienNumero, secret: string): Promise<string> {
     tenantId: l.tenantId, userId: l.userId, mode: l.mode, ...(l.filiere ? { filiere: l.filiere } : {}),
   }, secret, `${DUREE_LIEN_NUMERO_MS / 1000}s`);
 }
-export function verifyLienNumero(token: string, secret: string): Promise<LienNumero | null> {
-  return verifierKind('lien_numero', lienNumero, token, secret);
+/**
+ * `emisLe` : l'`iat` du lien, en secondes (lot identité B, jaune de la relecture du lot A). La garde `adminOuLien` refuse
+ * un lien émis avant l'époque des sessions de l'identité, comme une session : une réinitialisation du mot de passe coupe
+ * aussi le lien qu'un tiers aurait gardé.
+ */
+export async function verifyLienNumero(token: string, secret: string): Promise<(LienNumero & { emisLe?: number }) | null> {
+  const lu = await verifierKind('lien_numero', lienNumero.extend({ iat: z.number().optional() }), token, secret);
+  if (!lu) return null;
+  const { iat, ...lien } = lu;
+  return { ...lien, ...(typeof iat === 'number' ? { emisLe: iat } : {}) };
 }

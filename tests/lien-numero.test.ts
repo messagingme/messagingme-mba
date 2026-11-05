@@ -18,19 +18,19 @@ describe('le jeton du lien de connexion du numéro', () => {
   const cle = new TextEncoder().encode(SECRET);
 
   it('se relit tel qu’il a été signé, pour les trois modes', async () => {
-    expect(await verifyLienNumero(await signLienNumero(lien, SECRET), SECRET)).toEqual(lien);
+    expect(await verifyLienNumero(await signLienNumero(lien, SECRET), SECRET)).toEqual({ ...lien, emisLe: expect.any(Number) });
     const apporte: LienNumero = { ...lien, mode: 'apporte' };
-    expect(await verifyLienNumero(await signLienNumero(apporte, SECRET), SECRET)).toEqual(apporte);
+    expect(await verifyLienNumero(await signLienNumero(apporte, SECRET), SECRET)).toEqual({ ...apporte, emisLe: expect.any(Number) });
     // La coexistence (plan 2026-10-24) : le numéro de l'application WhatsApp Business, gardé dans l'application.
     const coexistence: LienNumero = { ...lien, mode: 'coexistence' };
-    expect(await verifyLienNumero(await signLienNumero(coexistence, SECRET), SECRET)).toEqual(coexistence);
+    expect(await verifyLienNumero(await signLienNumero(coexistence, SECRET), SECRET)).toEqual({ ...coexistence, emisLe: expect.any(Number) });
   });
 
   it('🔴 un jeton signé avant la coexistence reste valide : sa charge n’a pas bougé', async () => {
     for (const mode of ['fourni', 'apporte'] as const) {
       const avant = await new SignJWT({ kind: 'lien_numero', tenantId: 't-1', userId: 'u-1', mode })
         .setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('1h').sign(cle);
-      expect(await verifyLienNumero(avant, SECRET)).toEqual({ tenantId: 't-1', userId: 'u-1', mode });
+      expect(await verifyLienNumero(avant, SECRET)).toEqual({ tenantId: 't-1', userId: 'u-1', mode, emisLe: expect.any(Number) });
     }
   });
 

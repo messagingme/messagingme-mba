@@ -3152,9 +3152,10 @@ d'un client. Le pixel lui-même vit sur la vitrine (`site/site.js`), derrière u
 - **Le travail** (`creerTravailConversion`) relit AU MOMENT D'ENVOYER : la fonction allumée, l'accord (🔴 `cree_le`,
   l'heure du fait, doit suivre `pub_consenti_le` : un fait antérieur à l'accord ne part jamais), l'âge du fait (Meta
   refuse plus de sept jours). L'empreinte SHA-256 de l'adresse ne part que pour une adresse PROUVÉE
-  (`identities.adresse_prouvee_le`, posée par la première entrée Google) : une inscription par e-mail peut porter
-  l'adresse d'un tiers. 🔴 Pour la même raison, cette première preuve efface l'accord donné avant elle ; l'entrée Google
-  qui coche la case le réenregistre aussitôt. L'IP et le navigateur ne partent que pour l'inscription, et s'effacent de la ligne dès l'envoi fini. Le
+  (`identities.adresse_prouvee_le`) : posée par la première entrée Google, ou à la naissance de l'identité par le lien
+  d'inscription (§ 7, l'inscription par e-mail). 🔴 Un accord donné avant la première preuve Google n'est pas forcément
+  celui du titulaire : cette preuve l'efface, et l'entrée Google qui coche la case le réenregistre aussitôt.
+  L'inscription par lien n'en a pas besoin : son accord se donne au clic. L'IP et le navigateur ne partent que pour l'inscription, et s'effacent de la ligne dès l'envoi fini. Le
   jeton part dans le corps, jamais dans l'adresse. Un 429, un 5xx ou une panne réseau réessaient (5 min, puis 30 min) ;
   un autre 4xx ou le troisième échec passent `echec`. Même prise à bail et même reprise (`conversions-meta-reprise`)
   que les e-mails du produit. Seul le worker envoie, donc seul lui lit `META_PIXEL_ID` et `META_CAPI_TOKEN` : sans la
@@ -3403,6 +3404,48 @@ le relais de l'agent de Meta). De même, une entrée anonyme qui écrit entre da
 qui écrivent ». Aucun challenge sur `api.` ni `mm-hubspot.` (règle « API : aucun challenge ») : tout y est appelé par
 `fetch` ou par une machine. La configuration exacte, ses seuils et ses preuves : `docs/prive/2026-10-26-cloudflare-pro.md`,
 hors du dépôt.
+
+### L'époque des sessions (lot identité A, 2026-11-04)
+
+`identities.sessions_depuis` (migration 0277) : toute session émise AVANT cet instant est refusée en 401, par la garde
+des espaces (`makeRequireAuth`), par celle de l'exploitation (`makeRequireOps`) et par celle du lien du numéro
+(`adminOuLien`, 2026-11-05). `setPassword` la pose (réinitialisation, changement, acceptation d'une invitation), et
+l'effacement du second facteur aussi, à l'horloge de l'API (celle qui signe le `iat`). La comparaison est à la seconde :
+une session de la même seconde passe, un jeton sans `iat` tombe, une époque qui n'est pas une date refuse
+(`sessionAnterieure`). Le changement de mot de passe et la désactivation du facteur rendent une session neuve, que la
+console range (`remplacerJeton`). ⚠️ Accepter une invitation repose le mot de passe de l'IDENTITÉ : ses sessions dans
+ses autres espaces tombent aussi, ce que le support doit savoir.
+
+### L'inscription par e-mail, prouvée par un lien (lot identité B, 2026-11-05)
+
+Une adresse INCONNUE ne crée rien à `POST /auth/signup` : la demande attend dans `inscriptions_attente` (migration
+0279), un lien part, et l'identité, l'espace et la session naissent au clic (`POST /auth/signup/confirm`), l'adresse
+prouvée (`adresse_prouvee_le`, posée dans l'insertion même de l'identité). Une adresse CONNUE garde son chemin : avec
+son mot de passe, un espace de plus tout de suite ; sans mot de passe, 409 `adresse_connue`, et la console le demande.
+- 🔴 **L'invariant** : seuls des secrets posés par le titulaire PROUVÉ ouvrent l'identité. La demande ne garde ni mot de
+  passe, ni nom d'espace, ni nom, ni accord publicitaire (qu'un tiers aurait pu saisir) : la page du lien les demande.
+  Elle garde l'adresse, la langue de l'e-mail, le choix du Pro, « venue d'une application » (retour à l'onglet de
+  connexion) et les identifiants publicitaires du formulaire, servis seulement si l'accord est donné au clic.
+- **Le lien** : `<APP_URL>/signup/confirm/<jeton>?lang=` (jeton dans le chemin, comme `/reset`), 24 heures
+  (`DUREE_LIEN_INSCRIPTION_MS`, `web/lib/partage/inscription.ts`), sha256 seul en base. Plusieurs demandes vivantes par
+  adresse ; la première confirmée efface toutes celles de l'adresse dans la transaction qui crée l'espace, verrous pris
+  sur TOUTES les demandes de l'adresse d'abord (sinon deux clics croisés s'interbloquent). Une identité née entre la
+  demande et le clic : insertion SANS `on conflict`, tout est annulé, la demande reste, 409 `adresse_connue`. Le jeton
+  est relu avant le scrypt du mot de passe choisi. Refus en 400 et 409, jamais 401 (la console viderait une autre
+  session). La rétention générale du worker efface les demandes échues.
+- **L'e-mail** (`src/auth/email-inscription.ts`) : au vouvoiement, français ou anglais, AUCUN texte saisi (un nom
+  d'espace d'anonyme y deviendrait un message signé Messaging Me), sans « Business Agent » dans l'en-tête, étiqueté
+  `categorie=inscription` chez Resend. Envoi ATTENDU : sans `sendEmail` ou `APP_URL`, 503 sans demande ; un envoi raté
+  efface sa demande. Le webhook de Resend compte leurs rebonds et plaintes à part (`inscription.retours`, par jour) et
+  alerte sur Telegram au cinquième.
+- **Le défi et les plafonds** (`src/auth/inscription-lien.ts`), sur la seule branche inconnue, après le refus
+  d'exploitation et les dépendances : Turnstile si `TURNSTILE_SECRET_KEY` est posée (échec fermé : panne de Cloudflare
+  = refus), puis UN comptage de trois fenêtres, tout ou rien, fermé sur panne : 3 liens par adresse et par jour UTC, 10
+  demandes par heure et par réseau (`reseauDuClient` : une IPv6 compte par /64), et un total horaire qui alerte sur
+  Telegram à 30 et refuse au-delà de `INSCRIPTION_PLAFOND_HEURE` (200 ; 0 = aucun refus, le levier d'urgence). Trois
+  appels séparés laisseraient une demande refusée par l'un brûler les liens du jour de l'adresse visée.
+- **Ce que le lot n'a pas changé** : les identités nées par e-mail avant lui restent telles quelles (décision de
+  Julien), et une adresse connue reçoit toujours son 409.
 
 ### L'offre d'un espace (lot 6)
 
@@ -4489,9 +4532,11 @@ porte l'adresse et le moyen qui a prouvé le facteur.
   dans la liste, et son facteur toujours actif. Retirer quelqu'un de `OPS_EMAILS` (puis `--force-recreate`) ou
   réinitialiser son facteur coupe son accès à la requête suivante, sans attendre 12 heures. L'ancien en-tête
   `x-ops-token` n'est plus lu nulle part, ni autorisé par le CORS.
-- 🔴 **L'inscription libre refuse une adresse de la liste** (`/auth/signup`, même 409 qu'une adresse prise) :
-  elle ne prouve pas qu'on possède l'adresse, et un tiers créerait sinon le compte d'un futur exploitant, poserait
-  son propre facteur et ouvrirait `/ops`. N'inscrire dans `OPS_EMAILS` qu'une adresse dont le compte existe déjà.
+- 🔴 **L'inscription libre refuse une adresse de la liste** (`/auth/signup`, même 409 qu'une adresse prise, sans
+  demande ni e-mail) : une adresse d'exploitation naît par une invitation ou par Google. Le lien d'inscription prouve
+  désormais l'adresse (2026-11-05), mais la décision du lot laisse `/ops` tel quel ; le refus est gardé. N'inscrire
+  dans `OPS_EMAILS` qu'une adresse dont le compte existe déjà et dont l'adresse est prouvée (Google, ou le lien
+  d'inscription).
 - **Sans l'écran** (verrou d'un espace, recharge, rejeu de DLQ, réinitialisation d'un facteur) : la session
   d'exploitation est un `Bearer`. L'obtenir par `POST /auth/login` (`{ email, password, ops: true }`) puis
   `POST /auth/mfa/verifier` (`{ mfaToken, code }`), qui rend `sessionOps` ; ou la reprendre dans la console

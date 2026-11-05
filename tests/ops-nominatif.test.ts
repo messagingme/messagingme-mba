@@ -154,37 +154,51 @@ describe('la connexion d’exploitation', () => {
 });
 
 describe('une adresse d’exploitation ne naît pas par l’inscription libre', () => {
-  /** Des comptes où l'adresse n'existe pas encore : l'inscription créerait l'identité, avec le mot de passe de l'appelant. */
+  /**
+   * Des comptes où l'adresse n'existe pas encore. Depuis le lot identité B, une adresse inconnue reçoit un lien et rien
+   * ne se crée avant le clic : le magasin des demandes et l'envoi sont FOURNIS, pour que le refus d'exploitation se
+   * prouve par son effet (aucune demande, aucun e-mail) et pas par une dépendance absente.
+   */
   function inscription(liste: string[]) {
     const crees: string[] = [];
+    const demandes: string[] = [];
+    const courriels: string[] = [];
     const { app } = serveur({
       liste,
       auth: {
         comptes: {
           motDePasseDeLAdresse: async () => undefined,
           createTenantWithAdmin: async (_nom: string, a: { email: string }) => { crees.push(a.email); return { tenantId: 't-squat', userId: 'u-squat' }; },
+          demanderInscription: async (d) => { demandes.push(d.email); return `lien-${demandes.length}`; },
+          oublierDemande: async () => {},
         },
+        sendEmail: async (e) => { courriels.push(e.to); },
+        appUrl: 'https://console.messagingme.app',
       },
     });
-    return { app, crees };
+    return { app, crees, demandes, courriels };
   }
   const corps = (email: string) => ({ workspaceName: 'Espace', email, password: 'un-mot-de-passe-long', name: null });
 
-  it('🔴 une adresse de la liste SANS compte : 409 comme une adresse prise, et rien n’est créé', async () => {
+  it('🔴 une adresse de la liste SANS compte : 409 comme une adresse prise ; ni compte, ni demande, ni e-mail', async () => {
     // Sans ce refus, un tiers crée le compte d'un futur exploitant, pose son propre facteur et ouvre `/ops`.
-    const { app, crees } = inscription([ADRESSE_OPS, 'futur@exploitation.test']);
+    const { app, crees, demandes, courriels } = inscription([ADRESSE_OPS, 'futur@exploitation.test']);
     const res = await post(app, '/auth/signup', corps('Futur@Exploitation.test'));
     expect(res.statusCode).toBe(409);
-    expect(res.json()).toEqual({ error: 'un compte existe déjà avec cet email' });
+    expect(res.json()).toEqual({ error: 'un compte existe déjà avec cet email', code: 'adresse_connue' });
     expect(crees).toEqual([]);
+    expect(demandes).toEqual([]);
+    expect(courriels).toEqual([]);
     await app.close();
   });
 
-  it('une adresse hors de la liste s’inscrit comme avant', async () => {
-    const { app, crees } = inscription([ADRESSE_OPS]);
+  it('une adresse hors de la liste reçoit un lien, comme toute adresse inconnue, et rien n’est créé avant le clic', async () => {
+    const { app, crees, demandes, courriels } = inscription([ADRESSE_OPS]);
     const res = await post(app, '/auth/signup', corps('client@ailleurs.test'));
-    expect(crees).toEqual(['client@ailleurs.test']);
-    expect(res.statusCode).not.toBe(409);
+    expect(res.statusCode).toBe(202);
+    expect(demandes).toEqual(['client@ailleurs.test']);
+    expect(courriels).toEqual(['client@ailleurs.test']);
+    expect(crees).toEqual([]);
     await app.close();
   });
 });

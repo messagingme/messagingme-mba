@@ -193,8 +193,10 @@ export class PgConversionsMetaStore {
   /**
    * Google a prouvé cette adresse : son empreinte pourra partir. Seule la PREMIÈRE preuve écrit (une connexion Google
    * ne réécrit pas la ligne à chaque fois). 🔴 Et elle efface l'accord donné avant elle : une inscription par e-mail
-   * peut avoir été faite, case cochée, par quelqu'un d'autre que le titulaire, qui entre maintenant par Google. Si
-   * cette entrée coche la case, l'accord se réenregistre juste après (`apresEntree`).
+   * d'avant le lien de confirmation (lot identité B, 2026-11-05) peut avoir été faite, case cochée, par quelqu'un
+   * d'autre que le titulaire, qui entre maintenant par Google. Si cette entrée coche la case, l'accord se réenregistre
+   * juste après (`apresEntree`). Une identité née par le lien est prouvée dès son insertion (`confirmerInscription`) :
+   * ici, rien ne change pour elle.
    */
   async marquerAdresseProuvee(adresse: string): Promise<void> {
     await this.pool.query(

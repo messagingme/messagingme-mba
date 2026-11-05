@@ -52,13 +52,50 @@ export function login(email: string, password: string): Promise<LoginOutcome> {
   return request<LoginOutcome>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, 'etape');
 }
 /**
- * Inscription libre : crée un espace dont on devient administrateur. Un espace neuf n'exige pas le second facteur
- * (décision de Julien du 2026-10-13) : la réponse est la session. Une étape seulement si l'adresse a déjà un facteur
- * (son code) ou est admin d'un autre espace qui l'exige (l'enrôlement). Une API antérieure rend toujours une étape :
- * les deux formes se lisent, ce qui laisse la console partir avant l'API.
+ * La réponse d'une demande d'inscription pour une adresse INCONNUE (lot identité B) : un lien est parti, rien n'est créé.
+ * L'espace, le mot de passe et la session viennent au clic, sur la page du lien (`confirmerInscription`).
  */
-export function signup(input: { workspaceName: string; email: string; password: string; name?: string; pub?: ChampPub }): Promise<EtapeSecondFacteur | SuiteConnexion> {
-  return request<EtapeSecondFacteur | SuiteConnexion>('/auth/signup', { method: 'POST', body: JSON.stringify(input) });
+export interface LienEnvoye { lienEnvoye: true }
+export function estLienEnvoye(r: unknown): r is LienEnvoye {
+  return typeof r === 'object' && r !== null && (r as { lienEnvoye?: unknown }).lienEnvoye === true;
+}
+/**
+ * Inscription libre. Une adresse INCONNUE reçoit un lien (`LienEnvoye`, lot identité B) ; une adresse CONNUE qui donne
+ * son mot de passe ajoute un espace dont elle devient administratrice. Un espace neuf n'exige pas le second facteur
+ * (décision de Julien du 2026-10-13) : la réponse est la session. Une étape seulement si l'adresse a déjà un facteur
+ * (son code) ou est admin d'un autre espace qui l'exige (l'enrôlement). Une API d'avant le lot rend encore la session
+ * pour une adresse inconnue : les trois formes se lisent, ce qui laisse la console partir avant l'API.
+ * `langue`, `offre`, `application`, `fbc` et `fbp` voyagent avec la demande jusqu'au clic ; `turnstile` est le jeton du
+ * défi anti-robot, quand la console le pose.
+ */
+export function signup(input: {
+  workspaceName?: string; email: string; password?: string; name?: string; pub?: ChampPub;
+  langue?: 'fr' | 'en'; offre?: 'pro'; application?: boolean; fbc?: string; fbp?: string; turnstile?: string;
+}): Promise<EtapeSecondFacteur | SuiteConnexion | LienEnvoye> {
+  return request<EtapeSecondFacteur | SuiteConnexion | LienEnvoye>('/auth/signup', { method: 'POST', body: JSON.stringify(input) });
+}
+/**
+ * Le code d'un refus de l'inscription, lu dans le corps de l'erreur (`adresse_connue`, `lien_invalide`, `defi`), ou
+ * `null` : un écran choisit sa suite sur ce code, jamais sur le texte du message.
+ */
+export function codeDuRefus(err: unknown): string | null {
+  if (!(err instanceof ApiError) || typeof err.corps !== 'object' || err.corps === null) return null;
+  const code = (err.corps as { code?: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+/** Ce que la confirmation rend avec la session : d'où venait la demande, pour l'arrivée après le clic. */
+export interface SuiteInscription { offre: 'pro' | null; application: boolean; langue: 'fr' | 'en' }
+/**
+ * Le clic sur le lien d'inscription : le nom de l'espace, le nom, le mot de passe et l'accord se choisissent ici.
+ * En mode `etape` : aucune session n'existe encore pour CE compte, et un refus (400 lien mort, 409 adresse connue)
+ * ne doit jamais vider une autre session ouverte dans le navigateur.
+ */
+export function confirmerInscription(input: {
+  jeton: string; workspaceName: string; name?: string; password: string; pub?: ChampPub;
+}): Promise<(EtapeSecondFacteur | SuiteConnexion) & { inscription?: SuiteInscription }> {
+  return request<(EtapeSecondFacteur | SuiteConnexion) & { inscription?: SuiteInscription }>(
+    '/auth/signup/confirm', { method: 'POST', body: JSON.stringify(input) }, 'etape',
+  );
 }
 
 // --- Second facteur : les étapes de la connexion (sans session) -----------------------------------------------
