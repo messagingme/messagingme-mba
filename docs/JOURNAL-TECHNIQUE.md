@@ -24,6 +24,12 @@ pas attendre écourte son essai.
   conversion de nos publicités ne serait pas partie. Corrigé avant le déploiement : une `subscription_update` sans
   aucune ligne de prorata compte comme période payée ; cinq retraits de garde vus. Le manuel affirmait l'inverse de ce
   que faisait le code, sur la foi du nom de la facture. Les jaunes ouverts sont dans le plan, relus avec A5.
+- **En production le 2026-11-05** : emporté par `5aca4c54` (le correctif pg-boss d'une session voisine), run
+  42035584064, `migration=avant`, une seule approbation de Julien pour les deux lots, pendant la maintenance de Scaleway
+  (nl-ams) et sans incident : la 0278 seule appliquée (sous `lock_timeout` de 5 s), puis l'API et les trois conteneurs de
+  la machine relus sur `5aca4c54`. Relu en base, en lecture seule : la 0278 inscrite, la colonne en `timestamp with time
+  zone`, nullable, sans défaut, aucune date posée ; la formule payée calculée par le vrai code (le câblage de
+  `src/index.ts`) sur les onze espaces, sans erreur.
 
 ## 2026-11-05 : sans boutique Shopify, pas de critère de commande, et chaque écran le dit (segments)
 

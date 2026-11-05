@@ -39,8 +39,8 @@ Julien le 2026-11-04), qui révise `2026-10-30-credit-whatsapp-design.md`. Toute
 ## Lot A : l'option attend une formule payée, et l'essai s'écourte
 
 **Avancement (2026-11-05)** : A1 à A4 et A6, le serveur, écrits et testés ; onze retraits de garde, chacun vu par son
-test ; relus (un rouge corrigé, cinq jaunes ouverts, plus bas) ; la migration 0278 part en `avant`. Reste A5, la
-console, après le déploiement de l'API.
+test ; relus (un rouge corrigé, cinq jaunes ouverts, plus bas) ; en production le 2026-11-05 avec `5aca4c54` (run
+42035584064, la 0278 seule, relue en base). Reste A5, la console.
 
 ### A1. La règle « formule payée »
 

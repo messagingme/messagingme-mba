@@ -212,8 +212,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   réponses de l'agent de Meta. Son essai réel : la SANDBOX sur la ligne
   une demi-journée, la régularisation du lendemain relue en base.
 - **La ligne de crédit prise à la connexion** (révision du 2026-11-04, plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) :
-  lot A, le serveur, relu (un rouge corrigé), déploiement en `migration=avant` ; A5 (la console) après lui, avec les cinq
-  jaunes ouverts de la relecture (le plan, § « La relecture du lot A ») ;
+  lot A, le serveur, en production le 2026-11-05 (`5aca4c54`, la 0278 relue en base) ; A5 (la console) maintenant, avec
+  les cinq jaunes ouverts de la relecture (le plan, § « La relecture du lot A ») ;
   puis les lots B (cartes « Qui règle Meta ? », guide), C (conversion, arrêt, doc), D (passage du numéro de l'essai,
   après l'essai réel du partage), E (la fenêtre du partenaire). La vente attend A, B, C et D0.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
