@@ -19,6 +19,11 @@ pas attendre écourte son essai.
   fin d'essai que pendant `trialing` : un essai écourté, même au tableau de bord, serait resté « en essai ».
 - **Le refus d'une ligne arrêtée** dit les deux façons de repartir : reprendre l'option, ou sa carte chez Meta.
 - Onze retraits de garde, chacun vu par son test.
+- **La relecture** (un rouge, sept jaunes) : la facture d'un essai écourté est une `subscription_update`, le motif que la
+  règle du prorata de siège excluait. Le numéro payé à part serait resté prélevé (jusqu'à douze mois en annuel) et la
+  conversion de nos publicités ne serait pas partie. Corrigé avant le déploiement : une `subscription_update` sans
+  aucune ligne de prorata compte comme période payée ; cinq retraits de garde vus. Le manuel affirmait l'inverse de ce
+  que faisait le code, sur la foi du nom de la facture. Les jaunes ouverts sont dans le plan, relus avec A5.
 
 ## 2026-11-05 : sans boutique Shopify, pas de critère de commande, et chaque écran le dit (segments)
 

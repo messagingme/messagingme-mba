@@ -626,9 +626,13 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
       expect(await pros.noterFinEssai('sub_itestessai', new Date(Date.now() + 86_400_000))).toBeNull();
       await pros.modifier('sub_itestessai', { finPrevueLe: null, periodicite: null, essaiFinLe: prevue });
       expect((await pros.resume(t))?.essaiFinLe?.toISOString()).toBe(ecourte.toISOString());
-      // Un Pro payé dès le départ n'a pas d'essai à écourter.
-      await pros.enregistrer({ tenantId: t, abonnementId: 'sub_itestsansessai', periodicite: 'mois', livemode: true, periodeFin: null });
+      // Un Pro payé dès le départ n'a pas d'essai à écourter. Sur un espace à part (jaune 6 de la relecture du lot A) : un
+      // second Pro vivant sur le même espace serait refusé en doublon, et le refus ci-dessous ne prouverait rien.
+      const t2 = await espace('itest-pro-sans-essai');
+      expect(await pros.enregistrer({ tenantId: t2, abonnementId: 'sub_itestsansessai', periodicite: 'mois', livemode: true, periodeFin: null }))
+        .toEqual({ etat: 'enregistre', tenantId: t2, nouveau: true });
       expect(await pros.noterFinEssai('sub_itestsansessai', ecourte)).toBeNull();
+      expect((await pros.resume(t2))?.essaiFinLe).toBeNull();
     });
 
     it('🔴 la fin : datée et raisonnée une fois ; l’espace revient en Base ; rien ne le ressuscite', async () => {

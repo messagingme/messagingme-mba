@@ -39,7 +39,8 @@ Julien le 2026-11-04), qui révise `2026-10-30-credit-whatsapp-design.md`. Toute
 ## Lot A : l'option attend une formule payée, et l'essai s'écourte
 
 **Avancement (2026-11-05)** : A1 à A4 et A6, le serveur, écrits et testés ; onze retraits de garde, chacun vu par son
-test ; la migration 0278 part en `avant`. Reste A5, la console, après le déploiement de l'API.
+test ; relus (un rouge corrigé, cinq jaunes ouverts, plus bas) ; la migration 0278 part en `avant`. Reste A5, la
+console, après le déploiement de l'API.
 
 ### A1. La règle « formule payée »
 
@@ -118,6 +119,28 @@ tests de la gestion de la formule Pro existant) et `tests/traitement-abonnements
   langues.
 
 **Fin du lot A** : une relecture indépendante ; l'ordre : migration `avant`, API, puis la console.
+
+### La relecture du lot A (2026-11-05) : 1 rouge, 7 jaunes
+
+- 🔴 **Corrigé avant le déploiement** : la facture d'un essai écourté est une `subscription_update`, que la règle du
+  prorata de siège excluait ; le numéro payé à part restait prélevé et la conversion de nos publicités ne partait pas.
+  Une `subscription_update` dont toutes les lignes portent `parent.subscription_item_details.proration = false` compte
+  désormais comme période payée (`traitement-abonnements.ts`), deux tests `webhook-pro`, cinq retraits de garde vus.
+- Jaune 6 corrigé dans le même envoi (test seul) : le cas « payé dès le départ » du test d'intégration de l'essai
+  écourté passe sur un espace à part, son enregistrement vérifié. Jaune 7 (la CI de `horodatage-iso`) : corrigé par
+  `0ab36f7f`, qui part avec le lot.
+- **Ouverts, relus avec A5** :
+  1. Le verrou du démarrage est relâché même quand l'issue chez Stripe est inconnue (délai dépassé, 5xx après l'envoi) :
+     le laisser échoir dans ce cas.
+  2. Un essai avec résiliation programmée peut être démarré : refuser en 409 tant qu'une fin est posée (A5 ne montre
+     pas le bouton dans ce cas).
+  3. L'essai en base dépend de l'ordre des événements : `enregistrer` réécrit `essai_fin_le` sans la garde de
+     `modifier` (un `created` rejoué en retard rouvre l'essai), et un Pro d'essai enregistré par la session ou la facture
+     à 0 € garde `essai_fin_le` nul jusqu'au `created` (lu « payé dès le départ »). Poser la garde, porter l'essai dès
+     l'enregistrement.
+  4. Un prélèvement différé (SEPA, s'il est ouvert au Checkout du Pro) serait tenu pour réussi : n'annoncer le
+     démarrage qu'avec la facture relue payée.
+  5. `/ops` écrit une date d'essai du Business sur un espace qui n'est pas en Business : 400 dans ce cas.
 
 ## Lot B : les cartes « Qui règle Meta ? » et le guide
 
