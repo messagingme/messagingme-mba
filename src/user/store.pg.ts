@@ -1,8 +1,17 @@
-import type { Pool } from 'pg';
+import { randomBytes } from 'node:crypto';
+import type { Pool, PoolClient } from 'pg';
 import { enTransaction } from '../db/transaction';
 import { makeCode, deriveTenantCode } from '../ids/code';
 import { resolveTenantCode } from '../ids/tenant-code';
+import { sha256Hex } from '../lib/signature';
 import { verifierPlaceMembre, type LimitesMembres, type RangMembre } from '../offres/membres';
+import type { ConfirmationInscription, DemandeInscription, EspaceAConfirmer } from './inscriptions';
+
+/** Une suppression de demandes échues ne touche jamais plus de lignes que ceci par instruction. */
+const PAQUET_PURGE_INSCRIPTIONS = 500;
+
+const estDoublon = (err: unknown): boolean =>
+  Boolean(err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === '23505');
 
 export interface UserRow {
   id: string;
@@ -298,24 +307,145 @@ export class PgUserStore {
     origine: OrigineEspace = 'console',
   ): Promise<{ tenantId: string; userId: string }> {
     try {
-      return await enTransaction(this.pool, async (client) => {
-        const t = await client.query<{ id: string }>(`insert into tenants (name, origine) values ($1, $2) returning id`, [workspaceName, origine]);
-        const tenantId = t.rows[0]!.id;
-        // Code client posé à la création (déterministe depuis l'uuid, immuable), puis code du premier admin.
-        const tcode = deriveTenantCode(tenantId);
-        await client.query(`update tenants set public_code = $2 where id = $1`, [tenantId, tcode]);
+      return await enTransaction(this.pool, (client) =>
         // Même adresse qu'un espace existant : on réutilise son identité, donc son mot de passe.
-        const identityId = await this.ensureIdentity(client, admin.email, admin.passwordHash);
-        const u = await client.query<{ id: string }>(
-          `insert into users (tenant_id, email, name, role, password_hash, code, identity_id) values ($1, $2, $3, 'admin', $4, $5, $6) returning id`,
-          [tenantId, admin.email, admin.name, admin.passwordHash, makeCode('usr', tcode), identityId],
-        );
-        return { tenantId, userId: u.rows[0]!.id };
-      });
+        this.creerEspaceEtAdmin(client, workspaceName, admin, origine, () => this.ensureIdentity(client, admin.email, admin.passwordHash)),
+      );
     } catch (err) {
-      if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === '23505') throw new DuplicateEmailError();
+      if (estDoublon(err)) throw new DuplicateEmailError();
       throw err;
     }
+  }
+
+  /**
+   * Le corps commun d'une création d'espace, dans la transaction de l'appelant : l'espace, son code public, l'identité
+   * que rend `identite` (trouvée ou créée, selon le chemin), puis le compte admin avec la copie du hash.
+   */
+  private async creerEspaceEtAdmin(
+    client: PoolClient,
+    workspaceName: string,
+    admin: { email: string; name: string | null; passwordHash: string | null },
+    origine: OrigineEspace,
+    identite: () => Promise<string>,
+  ): Promise<{ tenantId: string; userId: string }> {
+    const t = await client.query<{ id: string }>(`insert into tenants (name, origine) values ($1, $2) returning id`, [workspaceName, origine]);
+    const tenantId = t.rows[0]!.id;
+    // Code client posé à la création (déterministe depuis l'uuid, immuable), puis code du premier admin.
+    const tcode = deriveTenantCode(tenantId);
+    await client.query(`update tenants set public_code = $2 where id = $1`, [tenantId, tcode]);
+    const identityId = await identite();
+    const u = await client.query<{ id: string }>(
+      `insert into users (tenant_id, email, name, role, password_hash, code, identity_id) values ($1, $2, $3, 'admin', $4, $5, $6) returning id`,
+      [tenantId, admin.email, admin.name, admin.passwordHash, makeCode('usr', tcode), identityId],
+    );
+    return { tenantId, userId: u.rows[0]!.id };
+  }
+
+  /**
+   * La demande d'inscription d'une adresse INCONNUE (lot identité B, migration 0279) : rien ne se crée avant le clic.
+   * Rend le jeton en clair, pour le lien de l'e-mail ; la base n'en garde que le sha256 (256 bits aléatoires, pas un
+   * secret humain : sha256 suffit, comme `PgAuthTokenStore`). Plusieurs demandes vivantes par adresse, bornées par le
+   * plafond de la route : un tiers qui redemande ne tue pas le lien que le titulaire tient déjà.
+   */
+  async demanderInscription(demande: DemandeInscription, ttlMs: number): Promise<string> {
+    const jeton = randomBytes(32).toString('base64url');
+    await this.pool.query(
+      `insert into inscriptions_attente (jeton_hash, email, langue, offre_pro, application, pub_fbc, pub_fbp, expire_le)
+       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [sha256Hex(jeton), demande.email, demande.langue, demande.offrePro, demande.application, demande.pubFbc, demande.pubFbp, new Date(Date.now() + ttlMs)],
+    );
+    return jeton;
+  }
+
+  /**
+   * Le jeton désigne-t-il une demande vivante ? Une requête indexée, lue AVANT le hachage du mot de passe choisi au clic :
+   * un jeton inventé ne coûte jamais un scrypt. La réponse ne vaut qu'un instant : `confirmerInscription` relit tout
+   * dans sa transaction.
+   */
+  async inscriptionVivante(jeton: string): Promise<boolean> {
+    if (!jeton) return false;
+    const r = await this.pool.query(
+      `select 1 from inscriptions_attente where jeton_hash = $1 and expire_le > now()`,
+      [sha256Hex(jeton)],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  /** Efface la demande d'un lien qui n'est pas parti : il ne doit rien confirmer. */
+  async oublierDemande(jeton: string): Promise<void> {
+    await this.pool.query(`delete from inscriptions_attente where jeton_hash = $1`, [sha256Hex(jeton)]);
+  }
+
+  /**
+   * Le clic sur le lien, en UNE transaction : la demande vivante verrouillée, puis l'espace, l'identité NÉE PROUVÉE
+   * (`adresse_prouvee_le`, avec le mot de passe choisi au clic) et son compte admin, puis l'effacement de TOUTES les
+   * demandes de l'adresse. 🔴 Sans `on conflict` sur l'identité : une adresse qui a reçu une identité entre la demande
+   * et le clic (Google, invitation, autre lien) ne se rattache jamais en silence ; tout est annulé, la demande reste,
+   * et la route rend `adresse_connue`.
+   * 🔴 Les verrous se prennent sur TOUTES les demandes de l'adresse, dans l'ordre de leur id, AVANT de créer quoi que ce
+   * soit : deux liens de la même adresse cliqués en même temps se sérialisent ici. Verrouiller la seule demande du lien
+   * ferait s'attendre l'un sur l'index unique de l'identité, l'autre sur la suppression des demandes : un interblocage.
+   * Le second relit ensuite sa demande, que le premier a effacée : `lien_invalide`.
+   */
+  async confirmerInscription(jeton: string, espace: EspaceAConfirmer): Promise<ConfirmationInscription> {
+    if (!jeton) return { statut: 'lien_invalide' };
+    const hash = sha256Hex(jeton);
+    try {
+      return await enTransaction(this.pool, async (client) => {
+        const vise = await client.query<{ email: string }>(
+          `select email from inscriptions_attente where jeton_hash = $1 and expire_le > now()`,
+          [hash],
+        );
+        const adresse = vise.rows[0]?.email;
+        if (adresse === undefined) return { statut: 'lien_invalide' } as const;
+        await client.query(`select id from inscriptions_attente where lower(email) = lower($1) order by id for update`, [adresse]);
+        const d = await client.query<{
+          email: string; langue: 'fr' | 'en'; offre_pro: boolean; application: boolean; pub_fbc: string | null; pub_fbp: string | null;
+        }>(
+          `select email, langue, offre_pro, application, pub_fbc, pub_fbp from inscriptions_attente
+            where jeton_hash = $1 and expire_le > now()`,
+          [hash],
+        );
+        const demande = d.rows[0];
+        if (!demande) return { statut: 'lien_invalide' } as const;
+        const { tenantId, userId } = await this.creerEspaceEtAdmin(
+          client,
+          espace.workspaceName,
+          { email: demande.email, name: espace.name, passwordHash: espace.passwordHash },
+          'console',
+          async () => {
+            const i = await client.query<{ id: string }>(
+              `insert into identities (email, password_hash, adresse_prouvee_le) values ($1, $2, now()) returning id`,
+              [demande.email, espace.passwordHash],
+            );
+            return i.rows[0]!.id;
+          },
+        );
+        await client.query(`delete from inscriptions_attente where lower(email) = lower($1)`, [demande.email]);
+        return {
+          statut: 'cree', tenantId, userId, email: demande.email, langue: demande.langue, offrePro: demande.offre_pro,
+          application: demande.application, pubFbc: demande.pub_fbc, pubFbp: demande.pub_fbp,
+        } as const;
+      });
+    } catch (err) {
+      if (estDoublon(err)) return { statut: 'adresse_connue' };
+      throw err;
+    }
+  }
+
+  /** La rétention (worker) : les demandes échues, par paquets bornés. Rend le nombre de lignes effacées. */
+  async purgerInscriptionsEchues(): Promise<number> {
+    let total = 0;
+    for (;;) {
+      const n = (await this.pool.query(
+        `delete from inscriptions_attente where id in (
+           select id from inscriptions_attente where expire_le <= now() limit $1)`,
+        [PAQUET_PURGE_INSCRIPTIONS],
+      )).rowCount ?? 0;
+      total += n;
+      if (n < PAQUET_PURGE_INSCRIPTIONS) break;
+    }
+    return total;
   }
 
   /**
