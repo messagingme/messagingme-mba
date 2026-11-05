@@ -27,8 +27,8 @@ export type DepsGestionPro = Pick<DepsPaiement, 'stripe' | 'payeurAutorise'> & {
 
 /** Ce que le démarrage de la formule Pro avant la fin de son essai lit et écrit (révision du 2026-11-04, décision 6). */
 export type DepsDemarrerPro = DepsGestionPro & {
-  /** La fin de l'essai du Pro vivant, en base (`ResumePro.essaiFinLe`) ; `null` sans essai. */
-  essaiDuPro(tenantId: string): Promise<Date | null>;
+  /** Le Pro vivant en base (`ResumePro`) : la fin de son essai et sa fin programmée ; `null` sans Pro. */
+  resumeDuPro(tenantId: string): Promise<{ essaiFinLe: Date | null; finPrevueLe: Date | null } | null>;
   /**
    * `PgAbonnementsOffreStore.noterFinEssai` : la fin de l'essai avancée tout de suite, sans attendre le webhook, pour que
    * l'option s'ouvre dans la foulée. Le webhook réécrit la même fin.
@@ -150,19 +150,32 @@ export async function changerResiliationPro(
  * DÉMARRER LA FORMULE PRO MAINTENANT (révision du Crédit WhatsApp, 2026-11-04, décision 6) : un client en essai l'arrête
  * pour prendre la ligne de crédit sans attendre ses 14 jours. Stripe prélève tout de suite la carte prise au début de
  * l'essai ; s'il refuse, rien ne change et l'essai continue. Un verrou par espace garde le double clic.
+ * - 🟡 Une résiliation programmée refuse (jaune 2 de la relecture du lot A) : le client a dit ne pas vouloir de premier
+ *   paiement, un clic ne le prélève pas. Annuler la résiliation d'abord.
+ * - 🟡 Une issue INCONNUE chez Stripe (panne passagère, délai dépassé) GARDE le verrou, qui échoit seul (jaune 1) : le
+ *   prélèvement est peut-être en cours, un second clic ne doit pas relire l'abonnement encore en essai et prélever deux fois.
+ * - 🟡 `paye` : la facture de la période relue payée (jaune 4). Un prélèvement différé (SEPA) arrête l'essai sans être
+ *   encore encaissé : la console ne l'annonce pas comme fait et n'enchaîne pas sur l'option.
  */
-export async function demarrerProMaintenant(d: DepsDemarrerPro, tenantId: string, payeur: string): Promise<Issue<{ essaiFini: true }>> {
+export async function demarrerProMaintenant(
+  d: DepsDemarrerPro, tenantId: string, payeur: string,
+): Promise<Issue<{ essaiFini: true; paye: boolean }>> {
   const s = d.stripe;
   if (s === null || !(await d.payeurAutorise(payeur))) return GESTION_INDISPONIBLE;
   const pro = await d.proVivant(tenantId);
   if (pro === null) return refus(409, 'Cet espace n’a pas de Pro en cours.', { code: 'aucun_pro' });
   const maintenant = (d.maintenant ?? Date.now)();
-  const essai = await d.essaiDuPro(tenantId);
+  const resume = await d.resumeDuPro(tenantId);
+  const essai = resume?.essaiFinLe ?? null;
   if (essai === null || essai.getTime() <= maintenant) return PAS_EN_ESSAI;
+  if (resume?.finPrevueLe != null) {
+    return refus(409, 'Votre formule Pro est programmée pour s’arrêter à la fin de l’essai : annulez la résiliation pour la démarrer maintenant.', { code: 'resiliation_programmee' });
+  }
   const prise = await d.verrous.prendre([[`pro.demarrer:${tenantId}`, DUREE_VERROU_DEMARRAGE_MS]]);
   if (prise === null) return refus(409, 'Le démarrage de votre formule Pro est déjà en cours.', { code: 'deja_en_cours' });
+  let issueInconnue = false;
   try {
-    let issue: 'termine' | 'pas_en_essai';
+    let issue: 'paye' | 'en_attente' | 'pas_en_essai';
     try {
       issue = await terminerEssaiStripe(s.transport, {
         cle: s.cle, abonnementId: pro.abonnementId, idempotence: `essai-fini-${pro.abonnementId}-${randomUUID()}`,
@@ -177,6 +190,7 @@ export async function demarrerProMaintenant(d: DepsDemarrerPro, tenantId: string
         return refus(402, 'Le paiement n’a pas abouti : votre essai continue. Mettez à jour votre carte depuis « Gérer mon abonnement », puis réessayez.', { code: 'paiement_refuse' });
       }
       if (passagere(err)) {
+        issueInconnue = true;
         return refus(503, 'Notre prestataire de paiement n’a pas répondu. Rechargez la page dans un instant pour voir si votre formule a démarré.', { code: 'paiement_indisponible' });
       }
       return refus(422, 'Le démarrage de votre formule Pro n’a pas pu être enregistré. Réessayez dans un instant ; si cela persiste, contactez-nous.', { code: 'demarrage_impossible' });
@@ -188,10 +202,10 @@ export async function demarrerProMaintenant(d: DepsDemarrerPro, tenantId: string
     } catch (err) {
       journaliser('error', 'pro_fin_essai_non_ecrite', { tenantId, abonnementId: pro.abonnementId, err: err instanceof Error ? err.message : String(err) });
     }
-    journaliser('info', 'pro_demarre_avant_la_fin_de_l_essai', { tenantId, abonnementId: pro.abonnementId });
-    return { ok: true, valeur: { essaiFini: true } };
+    journaliser('info', 'pro_demarre_avant_la_fin_de_l_essai', { tenantId, abonnementId: pro.abonnementId, paye: issue === 'paye' });
+    return { ok: true, valeur: { essaiFini: true, paye: issue === 'paye' } };
   } finally {
-    await d.verrous.relacher(prise);
+    if (!issueInconnue) await d.verrous.relacher(prise);
   }
 }
 

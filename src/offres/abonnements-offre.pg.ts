@@ -75,11 +75,18 @@ export class PgAbonnementsOffreStore {
    * Le paiement est confirmé (`checkout.session.completed`, ou une première facture payée arrivée avant) : l'espace passe
    * en Pro. Rejoué : la fin de période ne recule jamais, et un abonnement fini le reste. `nouveau` dit si la ligne vient
    * d'être créée (l'alerte « nouveau Pro » ne part qu'une fois).
+   * 🟡 La fin de l'essai suit la garde de `modifier` : une fin déjà PASSÉE ne bouge plus, sans quoi une création rejouée en
+   * retard rouvrirait un essai écourté (jaune 3 de la relecture du lot A).
    */
   async enregistrer(a: {
     tenantId: string; abonnementId: string; periodicite: PeriodiciteOffre; livemode: boolean; periodeFin: Date | null;
     /** La fin de l'essai (`customer.subscription.created`), quand on la connaît ; absente, celle déjà notée reste. */
     essaiFinLe?: Date | null;
+    /**
+     * Une fin APPROCHÉE (la session d'un essai, sa facture à 0 €) : elle ne remplit qu'un vide, et la fin exacte la
+     * remplace. Sans elle, un essai enregistré avant la création de son abonnement était lu « payé dès le départ ».
+     */
+    essaiFinProvisoire?: Date | null;
   }): Promise<IssueEnregistrementPro> {
     for (let essai = 0; ; essai += 1) {
       try {
@@ -102,7 +109,10 @@ export class PgAbonnementsOffreStore {
   }
 
   private async enregistrerUneFois(
-    a: { tenantId: string; abonnementId: string; periodicite: PeriodiciteOffre; livemode: boolean; periodeFin: Date | null; essaiFinLe?: Date | null },
+    a: {
+      tenantId: string; abonnementId: string; periodicite: PeriodiciteOffre; livemode: boolean; periodeFin: Date | null;
+      essaiFinLe?: Date | null; essaiFinProvisoire?: Date | null;
+    },
   ): Promise<IssueEnregistrementPro> {
     // J2 (lot 6, B2b) : le verrou d'espace commun avec la libération du numéro (`src/numero/verrou-numero-pro.ts`), sur
     // l'espace de l'événement ; un rejeu sur un autre espace ne ferait que prendre un verrou de trop.
@@ -110,12 +120,16 @@ export class PgAbonnementsOffreStore {
       await client.query(VERROU_NUMERO_PRO_SQL, [a.tenantId]);
       return client.query<{ tenant_id: string; fini_le: Date | null; nouveau: boolean }>(
         `insert into abonnements_offre (stripe_subscription_id, tenant_id, periodicite, livemode, statut, periode_fin, essai_fin_le)
-         values ($1, $2, $3, $4, 'actif', $5, $6)
+         values ($1, $2, $3, $4, 'actif', $5, coalesce($6::timestamptz, $7::timestamptz))
          on conflict (stripe_subscription_id) do update
            set periode_fin = greatest(abonnements_offre.periode_fin, excluded.periode_fin),
-               essai_fin_le = coalesce(excluded.essai_fin_le, abonnements_offre.essai_fin_le), maj_le = now()
+               essai_fin_le = case
+                 when abonnements_offre.essai_fin_le is not null and abonnements_offre.essai_fin_le <= now()
+                   then abonnements_offre.essai_fin_le
+                 else coalesce($6::timestamptz, abonnements_offre.essai_fin_le, $7::timestamptz) end,
+               maj_le = now()
          returning tenant_id, fini_le, (xmax = 0) as nouveau`,
-        [a.abonnementId, a.tenantId, a.periodicite, a.livemode, a.periodeFin, a.essaiFinLe ?? null],
+        [a.abonnementId, a.tenantId, a.periodicite, a.livemode, a.periodeFin, a.essaiFinLe ?? null, a.essaiFinProvisoire ?? null],
       );
     });
     const l = res.rows[0]!;

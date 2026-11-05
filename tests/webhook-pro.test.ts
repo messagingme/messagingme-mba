@@ -328,6 +328,23 @@ describe('l’essai de 14 jours du Pro', () => {
     expect(cap.passages).toEqual([{ tenantId: T1, arreter: false }]);
   });
 
+  it('🟡 la session et la facture à 0 € d’un essai, arrivées avant la création, portent une fin PROVISOIRE : l’essai n’est pas lu payé (jaune 3 du lot A)', async () => {
+    // La fin exacte vient de la création de l'abonnement ; la provisoire ne remplit qu'un vide (`enregistrer`, en base).
+    const session = monter();
+    await envoyer(session.srv, evenement(sessionPro({ payment_status: 'no_payment_required', amount_total: 0, metadata: META_ESSAI }), 'checkout.session.completed'));
+    expect(session.cap.enregistres).toEqual([expect.objectContaining({ essaiFinProvisoire: new Date(NOW + 14 * 86_400_000) })]);
+    expect(session.cap.enregistres[0]).not.toHaveProperty('essaiFinLe');
+    const facture = monter();
+    const essai = { type: 'subscription_details', subscription_details: { subscription: 'sub_pro', metadata: META_ESSAI } };
+    await envoyer(facture.srv, evenement(facturePro({ amount_paid: 0, billing_reason: 'subscription_create', parent: essai }), 'invoice.paid'));
+    expect(facture.cap.enregistres).toEqual([expect.objectContaining({ essaiFinProvisoire: new Date(FIN * 1000) })]);
+    // La première facture PAYÉE d'un essai (il est fini) n'en porte aucune.
+    const payee = monter();
+    await envoyer(payee.srv, evenement(facturePro({ amount_paid: 4900, billing_reason: 'subscription_cycle', parent: essai }), 'invoice.paid'));
+    expect(payee.cap.enregistres).toHaveLength(1);
+    expect(payee.cap.enregistres[0]).not.toHaveProperty('essaiFinProvisoire');
+  });
+
   it('🔴 seule la création d’un ESSAI fait le Pro : un abonnement incomplet, ou actif avant encaissement (un prélèvement SEPA en cours), attend sa facture payée', async () => {
     const { srv, cap } = monter();
     for (const status of ['incomplete', 'active']) {

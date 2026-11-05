@@ -134,6 +134,13 @@ export function registerOpsOffre(app: FastifyInstance, deps: OpsOffreDeps, garde
 
     const avant = await deps.store.lireEntreprise(tenantId);
     if (avant === null) return reply.code(404).send({ error: 'espace inconnu' });
+    // 🟡 Une date d'essai du Business ne s'écrit que sur un Business, jugé sur l'état EFFECTIF après l'écriture (le Business
+    // demandé, ou celui d'avant quand il n'est pas dit) : sinon elle dormirait, et rendrait « en essai » un Business posé
+    // plus tard (jaune 5 de la relecture du lot A). La confirmation (`null`) passe partout.
+    const businessApres = !lu.data.entreprise && (lu.data.business ?? avant.business);
+    if (lu.data.businessEssaiFinLe != null && !businessApres) {
+      return reply.code(400).send({ error: 'une date d’essai du Business demande un espace en Business' });
+    }
     const ecriture: EcritureEntreprise = {
       entreprise: lu.data.entreprise, utilisateurs: lu.data.utilisateurs,
       ...(lu.data.conservationJours !== undefined ? { conservationJours: lu.data.conservationJours } : {}),

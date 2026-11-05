@@ -73,6 +73,8 @@ function achat(o: {
   grille?: GrilleMeta | null; lignes?: LigneCredit[]; openBar?: boolean;
   /** L'option (lot 4a) : son prix posé (vide = pas en vente) et l'offre de l'espace. */
   prixOption?: string; offre?: 'base' | 'pro' | 'business' | 'entreprise';
+  /** La formule payée (`formulePayee`, révision du 2026-11-04) : fausse pendant un essai. */
+  formulePayee?: boolean;
 } = {}) {
   const transport = new FauxStripe([CLIENT_OK, SESSION_OK], o.lesPrix ?? PRIX_JUSTES);
   const deps: CreditWhatsappRouteDeps = {
@@ -107,7 +109,7 @@ function achat(o: {
       prixOption: o.prixOption ?? 'price_opt',
       options: { vivante: async () => null, noterPlaces: async () => null },
       offre: async () => o.offre ?? 'pro',
-      formulePayee: async () => true,
+      formulePayee: async () => o.formulePayee ?? true,
       numerosCouverts: async () => 1,
       reprendreCampagnes: async () => 0,
       alerter: async () => {},
@@ -306,11 +308,25 @@ describe('l’option dans l’onglet', () => {
     const enVente = achat();
     expect((await lire(enVente.srv)).json().option).toEqual({
       disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 1, statut: null, finPrevueLe: null,
+      formulePayee: true,
     });
     await enVente.srv.close();
     for (const o of [{ prixOption: '' }, { stripe: 'aucun' as const }, { offre: 'entreprise' as const }]) {
       const a = achat(o);
       expect((await lire(a.srv)).json().option.disponible, JSON.stringify(o)).toBe(false);
+      await a.srv.close();
+    }
+  });
+
+  it('🔴 la vue dit si la formule est payée, par la règle de la prise (`formulePayee`) : faux pendant un essai, Pro comme Business, et hors d’eux', async () => {
+    // Révision du 2026-11-04 : l'onglet explique l'essai au lieu de vendre une option que la prise refuserait.
+    for (const [o, attendu] of [
+      [{ offre: 'pro' as const, formulePayee: false }, false], [{ offre: 'business' as const, formulePayee: false }, false],
+      [{ offre: 'business' as const, formulePayee: true }, true], [{ offre: 'entreprise' as const, formulePayee: true }, false],
+      [{ offre: 'base' as const, formulePayee: true }, false],
+    ] as const) {
+      const a = achat(o);
+      expect((await lire(a.srv)).json().option.formulePayee, JSON.stringify(o)).toBe(attendu);
       await a.srv.close();
     }
   });

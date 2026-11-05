@@ -1204,7 +1204,10 @@ async function main(): Promise<void> {
    */
   const demarrageProDeLaConsole: DepsDemarrerPro = {
     ...gestionProDeLaConsole,
-    essaiDuPro: async (tenant) => (await abonnementsOffre.resume(tenant))?.essaiFinLe ?? null,
+    resumeDuPro: async (tenant) => {
+      const r = await abonnementsOffre.resume(tenant);
+      return r === null ? null : { essaiFinLe: r.essaiFinLe, finPrevueLe: r.finPrevueLe };
+    },
     noterFinEssai: async (abonnementId, finLe) => {
       const a = await abonnementsOffre.noterFinEssai(abonnementId, finLe);
       if (a) offres.invalider(a.tenantId);

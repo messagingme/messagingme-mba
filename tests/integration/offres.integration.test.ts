@@ -635,6 +635,32 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
       expect((await pros.resume(t2))?.essaiFinLe).toBeNull();
     });
 
+    it('🟡 enregistrer et l’ordre des événements de l’essai : la fin provisoire ne remplit qu’un vide, l’exacte la remplace, une fin passée ne bouge plus', async () => {
+      // Jaune 3 de la relecture du lot A : la session (ou la facture à 0 €) d'un essai arrivée avant la création de
+      // l'abonnement laissait la fin nulle, lue « payé dès le départ » ; une création rejouée en retard rouvrait un essai
+      // écourté.
+      const t = await espace('itest-pro-essai-ordre');
+      const pros = new PgAbonnementsOffreStore(pool);
+      const a = { tenantId: t, abonnementId: 'sub_itestordre', periodicite: 'mois' as const, livemode: true, periodeFin: null };
+      const provisoire = new Date(Date.now() + 14 * 86_400_000);
+      const exacte = new Date(Date.now() + 13 * 86_400_000);
+      const iso = async (): Promise<string | undefined> => (await pros.resume(t))?.essaiFinLe?.toISOString();
+      await pros.enregistrer({ ...a, essaiFinProvisoire: provisoire });
+      expect(await iso()).toBe(provisoire.toISOString());
+      await pros.enregistrer({ ...a, essaiFinLe: exacte });
+      expect(await iso()).toBe(exacte.toISOString());
+      await pros.enregistrer({ ...a, essaiFinProvisoire: provisoire });
+      expect(await iso()).toBe(exacte.toISOString());
+      const ecourte = new Date(Date.now() - 60_000);
+      expect(await pros.noterFinEssai('sub_itestordre', ecourte)).toEqual({ tenantId: t });
+      await pros.enregistrer({ ...a, essaiFinLe: exacte });
+      expect(await iso()).toBe(ecourte.toISOString());
+      // Un Pro sans essai, enregistré sans aucune fin : rien n'est inventé.
+      const t2 = await espace('itest-pro-ordre-sans-essai');
+      await pros.enregistrer({ ...a, tenantId: t2, abonnementId: 'sub_itestordre2' });
+      expect((await pros.resume(t2))?.essaiFinLe).toBeNull();
+    });
+
     it('🔴 la fin : datée et raisonnée une fois ; l’espace revient en Base ; rien ne le ressuscite', async () => {
       const t = await espace('itest-pro-fin');
       const pros = new PgAbonnementsOffreStore(pool);

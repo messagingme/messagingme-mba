@@ -187,6 +187,11 @@ const metaProSchema = z.object({
   tenant_id: z.uuid(), produit: z.literal('pro'), periodicite: z.enum(['mois', 'an']).optional(), essai: z.string().optional(),
 });
 const estEssai = (m: { essai?: string }): boolean => m.essai !== undefined && m.essai !== '';
+/** Les jours d'essai que porte la marque (`essai: '14'`), un entier positif ; sinon `null`. */
+const joursEssai = (m: { essai?: string }): number | null => {
+  const n = Number(m.essai);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
 
 /**
  * La marque du Pro suffit à aiguiller vers ce chemin : un objet marqué mais mal formé doit être refusé en 422, jamais
@@ -321,6 +326,8 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       periodicite: PeriodiciteOffre;
       periodeFin: Date | null;
       essaiFinLe?: Date | null;
+      /** Une fin d'essai approchée, qui ne remplit qu'un vide en base (`PgAbonnementsOffreStore.enregistrer`). */
+      essaiFinProvisoire?: Date | null;
     }, essai = false): Promise<void> => {
       let issue: Awaited<ReturnType<typeof deps.pro.enregistrer>>;
       try {
@@ -353,11 +360,16 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       const lu = sessionProSchema.safeParse(e.objet);
       if (!lu.success) return illisible(e, 'pro');
       if (lu.data.payment_status !== 'paid' && lu.data.payment_status !== 'no_payment_required') return ACQUITTE;
+      // 🟡 La session d'un essai ne dit pas sa fin : arrivée avant la création de l'abonnement, elle laissait l'essai sans
+      // fin, lu « payé dès le départ » (jaune 3 de la relecture du lot A). Une fin provisoire, maintenant plus les jours de
+      // la marque, remplit ce vide ; la création de l'abonnement écrit la fin exacte.
+      const jours = joursEssai(lu.data.metadata);
       await enregistrer({
         tenantId: lu.data.metadata.tenant_id,
         abonnementId: idDe(lu.data.subscription),
         periodicite: lu.data.metadata.periodicite ?? 'mois',
         periodeFin: null,
+        ...(jours === null ? {} : { essaiFinProvisoire: new Date(maintenant() + jours * 86_400_000) }),
       }, estEssai(lu.data.metadata));
       return ACQUITTE;
     }
@@ -474,12 +486,15 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       deps.pro.invalider(paye.tenantId);
       if (estEssai(meta.data) && payeeNonNulle) await deps.pro.surPassageEnPro(paye.tenantId, { arreterLeNumeroSeul: true });
     } else {
+      // 🟡 La facture à 0 € qui ouvre un essai couvre l'essai : sa fin, provisoire comme celle de la session (jaune 3).
+      const ouvreUnEssai = estEssai(meta.data) && !payeeNonNulle;
       await enregistrer({
         tenantId: meta.data.tenant_id,
         abonnementId,
         periodicite: meta.data.periodicite ?? 'mois',
         periodeFin: finFacture,
-      }, estEssai(meta.data) && !payeeNonNulle);
+        ...(ouvreUnEssai && finFacture !== null ? { essaiFinProvisoire: finFacture } : {}),
+      }, ouvreUnEssai);
     }
     // La conversion de nos publicités : un paiement RÉEL, jamais la facture à 0 € d'un essai ou d'un code promo à 100 %, ni
     // le prorata d'un siège ; l'essai écourté, lui, en est un. Après l'enregistrement : le fait suit le paiement qu'il raconte.

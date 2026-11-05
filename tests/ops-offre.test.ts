@@ -282,6 +282,32 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
     await server.close();
   });
 
+  it('🔴 une date d’essai du Business sur un espace qui ne sera pas en Business : 400, rien d’écrit (jaune 5 de la relecture du lot A)', async () => {
+    // L'état EFFECTIF après l'écriture décide : le Business demandé, ou celui d'avant quand il n'est pas dit.
+    const { server, magasin } = monter();
+    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: false });
+    const FIN = '2026-11-18T00:00:00.000Z';
+    for (const payload of [
+      { entreprise: false, utilisateurs: null, businessEssaiFinLe: FIN, note: 'essai sans Business' },
+      { entreprise: false, utilisateurs: null, business: false, businessEssaiFinLe: FIN, note: 'essai et retrait' },
+      { entreprise: true, utilisateurs: null, businessEssaiFinLe: FIN, note: 'essai et Entreprise' },
+    ]) {
+      expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload })).statusCode, payload.note).toBe(400);
+    }
+    // Un Business que l'Entreprise demandée fait tomber : la date n'a plus de Business où s'écrire.
+    magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null });
+    const versEntreprise = { entreprise: true, utilisateurs: null, businessEssaiFinLe: FIN, note: 'Entreprise et essai sur un Business' };
+    expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: versEntreprise })).statusCode).toBe(400);
+    expect(magasin.ecritures).toEqual([]);
+    // Un Business déjà posé, sans le redire : sa date s'écrit. Une confirmation (`null`) passe partout.
+    const pose = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, businessEssaiFinLe: FIN, note: 'essai du Business posé' } });
+    expect(pose.statusCode).toBe(200);
+    magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: false });
+    const nul = await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, businessEssaiFinLe: null, note: 'confirmation sans Business' } });
+    expect(nul.statusCode).toBe(200);
+    await server.close();
+  });
+
   it('🔴 PUT retire le Business : la fin du numéro fourni est demandée, à la date du retrait', async () => {
     const { server, magasin } = monter();
     magasin.reglages.set(T1, { ...ENTREPRISE, entreprise: false, business: true, utilisateursBusiness: null, businessEssaiFinLe: null });

@@ -80,6 +80,12 @@ export interface VueCreditWhatsapp {
     couverts: number;
     statut: StatutOption | null;
     finPrevueLe: string | null;
+    /**
+     * La formule de l'espace est payée, par la MÊME règle que la prise de l'option (`formulePayee`, révision du
+     * 2026-11-04) : faux pendant un essai, Pro comme Business, et hors d'eux. L'onglet explique alors l'essai au lieu de
+     * vendre une option que la prise refuserait.
+     */
+    formulePayee: boolean;
   };
 }
 
@@ -104,6 +110,7 @@ export function registerCreditWhatsapp(
       const prix = prixMessage(grille, 'FR', categorie, conditions.commissionPct);
       return prix === null ? [] : [{ categorie, prixMicroEur: prix }];
     });
+    const formulePayee = (offre === 'pro' || offre === 'business') && await deps.option.formulePayee(tenant);
     const s = deps.achat.stripe;
     const vue: VueCreditWhatsapp = {
       illimite: conditions.openBar,
@@ -127,6 +134,7 @@ export function registerCreditWhatsapp(
         couverts,
         statut: option?.statut ?? null,
         finPrevueLe: option?.finPrevueLe?.toISOString() ?? null,
+        formulePayee,
       },
     };
     return reply.code(200).send(vue);

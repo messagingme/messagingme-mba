@@ -573,8 +573,14 @@ export async function lireAbonnementStripe(transport: TransportStripe, o: { cle:
   };
 }
 
-/** Ce qu'on lit d'un abonnement avant et après l'arrêt de son essai. */
-const essaiSchema = z.object({ id: z.string().startsWith('sub_'), status: z.string(), trial_end: z.number().int().nullable().optional() });
+/**
+ * Ce qu'on lit d'un abonnement avant et après l'arrêt de son essai. `latest_invoice`, relue dépliée après l'arrêt : la
+ * facture de la période qui commence ; non dépliée (un identifiant) ou absente, elle ne prouve rien.
+ */
+const essaiSchema = z.object({
+  id: z.string().startsWith('sub_'), status: z.string(), trial_end: z.number().int().nullable().optional(),
+  latest_invoice: z.union([z.string(), z.object({ id: z.string(), status: z.string().nullable().optional() })]).nullable().optional(),
+});
 
 /**
  * ARRÊTE L'ESSAI D'UN ABONNEMENT TOUT DE SUITE (révision du Crédit WhatsApp, 2026-11-04, décision 6) : Stripe prélève la
@@ -586,23 +592,28 @@ const essaiSchema = z.object({ id: z.string().startsWith('sub_'), status: z.stri
  *   demandée par la banque, qui rend aussi une erreur.
  * - `proration_behavior=none` : un essai gratuit n'a rien à créditer. `off_session=true` : le prélèvement repose sur
  *   le mandat donné au Checkout de l'essai, le client n'est pas dans une page de paiement.
+ * - 🟡 La facture de la période relue (`expand`) : seule une facture `paid` rend `paye`. Un prélèvement différé (SEPA)
+ *   laisse l'abonnement actif et sa facture ouverte plusieurs jours : `en_attente`, le démarrage n'est pas annoncé
+ *   (jaune 4 de la relecture du lot A).
  * Une clé d'idempotence PAR DEMANDE (comme la résiliation) : une clé fixe rejouerait 24 h le refus d'une carte changée
  * depuis. Le double clic se garde par un verrou de l'appelant. La clé restreinte doit pouvoir LIRE et ÉCRIRE les
- * abonnements.
+ * abonnements, et lire les factures.
  */
 export async function terminerEssaiStripe(transport: TransportStripe, o: {
   cle: string; abonnementId: string; idempotence: string;
-}): Promise<'termine' | 'pas_en_essai'> {
+}): Promise<'paye' | 'en_attente' | 'pas_en_essai'> {
   const chemin = `/subscriptions/${encodeURIComponent(o.abonnementId)}`;
   const avant = await appeler(transport, 'essai', chemin, null, { cle: o.cle }, essaiSchema);
   if (avant.id !== o.abonnementId) throw new StripeError('essai', 200, null, null, 'reponse pour un autre abonnement');
   if (avant.status !== 'trialing') return 'pas_en_essai';
   const apres = await appeler(transport, 'essai', chemin, {
     trial_end: 'now', payment_behavior: 'error_if_incomplete', proration_behavior: 'none', off_session: 'true',
+    'expand[0]': 'latest_invoice',
   }, { cle: o.cle, idempotence: o.idempotence }, essaiSchema);
   if (apres.id !== o.abonnementId) throw new StripeError('essai', 200, null, null, 'reponse pour un autre abonnement');
   if (apres.status === 'trialing') throw new StripeError('essai', 200, null, null, 'reponse sans le changement demande');
-  return 'termine';
+  const facture = apres.latest_invoice;
+  return typeof facture === 'object' && facture !== null && facture.status === 'paid' ? 'paye' : 'en_attente';
 }
 
 const abonnementChangeSchema = abonnementLuSchema.extend({
