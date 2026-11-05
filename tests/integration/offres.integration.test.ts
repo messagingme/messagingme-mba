@@ -678,7 +678,11 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
   it('🔴 0243 : la fin de l’essai du Pro écrite à la création, gardée quand un événement ne la porte pas, relue par l’espace (spec offres v2)', async () => {
     const t = await espace('essai-pro');
     const pros = new PgAbonnementsOffreStore(pool);
-    const fin = new Date('2026-11-02T09:00:00Z');
+    // Des dates FUTURES, relatives : le cas est celui d'un essai EN COURS que Stripe prolonge. Une fin d'essai déjà passée
+    // ne bouge plus (`modifier`, révision du 2026-11-04 : un avis en retard ne rouvre pas un essai écourté) ; les dates
+    // fixes d'origine (2 et 5 novembre 2026), déjà passées quand cette garde est arrivée, faisaient tomber ce test dans ce
+    // cas-là, testé à part (« l'essai écourté »).
+    const fin = new Date(Date.now() + 10 * 86_400_000);
     expect(await pros.enregistrer({ tenantId: t, abonnementId: 'sub_essaiA', periodicite: 'mois', livemode: false, periodeFin: null, essaiFinLe: fin }))
       .toEqual({ etat: 'enregistre', tenantId: t, nouveau: true });
     expect((await pros.deLEspace(t))!.essaiFinLe).toEqual(fin);
@@ -688,7 +692,7 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
     // Une modification sans essai la garde aussi ; une modification qui en porte une autre la remplace.
     await pros.modifier('sub_essaiA', { finPrevueLe: null, periodicite: null });
     expect((await pros.deLEspace(t))!.essaiFinLe).toEqual(fin);
-    const prolonge = new Date('2026-11-05T09:00:00Z');
+    const prolonge = new Date(Date.now() + 14 * 86_400_000);
     expect((await pros.modifier('sub_essaiA', { finPrevueLe: null, periodicite: null, essaiFinLe: prolonge }))!.essaiFinLe).toEqual(prolonge);
   });
 
