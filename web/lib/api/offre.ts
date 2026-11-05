@@ -54,6 +54,17 @@ export function resilierPro(tenantId: string, resilier: boolean): Promise<{ finP
   return request(`/tenants/${tenantId}/offre/resiliation`, { method: 'POST', body: JSON.stringify({ resilier }) });
 }
 
+/**
+ * Démarrer la formule Pro avant la fin de l'essai (révision du Crédit WhatsApp, 2026-11-04, décision 6) : Stripe prélève
+ * tout de suite la carte prise au début de l'essai. `paye` : la facture relue payée ; faux pour un prélèvement différé
+ * (SEPA), que l'écran n'annonce pas comme fait. Une API d'avant ce champ ne l'envoie pas : lu vrai, elle n'annonçait que
+ * les paiements faits. Un refus (carte refusée 402, résiliation programmée 409) remonte avec le message du serveur.
+ */
+export async function demarrerPro(tenantId: string): Promise<{ paye: boolean }> {
+  const r = await request<{ paye?: unknown } | null>(`/tenants/${tenantId}/offre/pro/demarrer`, { method: 'POST', body: '{}' });
+  return { paye: r?.paye !== false };
+}
+
 export type StatutFacture = 'payee' | 'a_regler' | 'impayee' | 'annulee';
 
 /** Une facture de l'espace, telle que le serveur la rend (`src/stripe/gestion-pro.ts`). Les adresses sont `https`. */

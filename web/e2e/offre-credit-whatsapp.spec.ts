@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { repondre } from './aide/confirmation';
 
 /**
  * L'ONGLET CRÉDIT WHATSAPP DE LA PAGE OFFRE (plan du Crédit WhatsApp, tâche 11) : il n'apparaît que quand la vue de l'offre
@@ -13,11 +14,11 @@ const LIMITES = {
   utilisateurs: 3, admins: 2, contacts: 5000, envoisModelesMois: null, automations: null, suppressionsJour: null, adressesWebhook: 5,
   journalWebhooksJours: 30, conservationJours: 90, commissionPct: 20, badge: false, numeroInclus: true,
 };
-const vueOffre = (onglet: boolean) => ({
+const vueOffre = (onglet: boolean, plus: Record<string, unknown> = {}) => ({
   offre: 'pro', fonctions: PRO, limites: LIMITES, usage: { envoisModelesMois: null, contacts: 12, automations: 1, membres: 2 },
   grille: { free: { fonctions: [], limites: LIMITES }, pro: { fonctions: PRO, limites: LIMITES }, entreprise: { fonctions: PRO, limites: LIMITES } },
   prixPro: null, essai: null, sieges: null, suiteDuNumero: null, abonnement: null, upgradeUrl: 'https://console.e2e.test/offre',
-  ongletCreditWhatsapp: onglet,
+  ongletCreditWhatsapp: onglet, ...plus,
 });
 
 const ACHAT_ANCIEN = { id: 'm1', raison: 'achat', deltaMicroEur: 50_000_000, jour: null, at: '2026-10-20T09:00:00.000Z', messages: null, reference: 'cs_live_wa_ancien', facture: true };
@@ -47,6 +48,10 @@ interface Options {
   /** La réponse à la prise de l'option (POST) et au changement de ses places (PATCH). */
   option?: { status: number; body: unknown };
   places?: { status: number; body: unknown };
+  /** Ce que la vue de l'offre change (l'offre, l'abonnement en essai, ses prix). */
+  vueOffre?: Record<string, unknown>;
+  /** La réponse à « Démarrer la formule Pro maintenant » ; par défaut, un paiement fait. */
+  demarrer?: { status: number; body: unknown };
 }
 
 /** L'option en vente, pas encore prise (lot 4a) : 30 € HT par numéro et par mois, de 1 à 20 numéros. */
@@ -62,6 +67,7 @@ async function monter(page: Page, o: Options = {}) {
   const factures: string[] = [];
   const vues = [...(o.vues ?? [credit()])];
   let lectures = 0;
+  let demarrages = 0;
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), o.session ?? ADMIN);
   await page.route(`${PAGE_STRIPE}**`, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Stripe Checkout (e2e)</h1>' }));
   await page.route(`${PORTAIL}**`, (route) => route.fulfill({ status: 200, contentType: 'text/html', body: '<h1>Portail Stripe (e2e)</h1>' }));
@@ -85,6 +91,12 @@ async function monter(page: Page, o: Options = {}) {
       return json(a.body, a.status);
     }
     if (chemin.endsWith('/offre/portail') && req.method() === 'POST') return json({ url: PORTAIL });
+    if (chemin.endsWith('/offre/pro/demarrer') && req.method() === 'POST') {
+      demarrages += 1;
+      const a = o.demarrer ?? { status: 200, body: { essaiFini: true, paye: true } };
+      return json(a.body, a.status);
+    }
+    if (chemin.endsWith('/offre/tarif')) return json({ proHtCentimes: 4900, siegeHtCentimes: null, remise: false });
     if (chemin.endsWith('/credit-whatsapp')) {
       lectures += 1;
       return json(vues.length > 1 ? vues.shift()! : vues[0]!);
@@ -93,7 +105,7 @@ async function monter(page: Page, o: Options = {}) {
       factures.push(chemin);
       return json({ error: 'paiement inconnu', code: 'paiement_inconnu' }, 404);
     }
-    if (chemin.endsWith('/offre')) return json(vueOffre(o.onglet ?? true));
+    if (chemin.endsWith('/offre')) return json(vueOffre(o.onglet ?? true, o.vueOffre ?? {}));
     if (chemin.endsWith('/offre/factures')) return json({ plusSurStripe: false, factures: [] });
     if (chemin.endsWith('/agents/solde')) return json({ soldeMicroEur: 3_000_000 });
     if (chemin.endsWith('/agents/mouvements')) return json({ mouvements: [] });
@@ -101,7 +113,7 @@ async function monter(page: Page, o: Options = {}) {
     if (chemin.endsWith('/me')) return json({ email: ADMIN.email, name: 'Jean Test', role: 'admin' });
     return json({});
   });
-  return { achats, options, changements, factures, lectures: () => lectures };
+  return { achats, options, changements, factures, lectures: () => lectures, demarrages: () => demarrages };
 }
 
 test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
@@ -372,5 +384,76 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
     // La carte se met à jour au portail de Stripe.
     await page.getByTestId('credit-wa-option-portail').click();
     await expect(page).toHaveURL(PORTAIL);
+  });
+});
+
+/**
+ * PENDANT UN ESSAI (révision du Crédit WhatsApp, 2026-11-04) : l'option attend une formule payée. L'onglet explique qui
+ * facture quoi, jamais « Prendre l'option » ; un Pro peut démarrer sa formule maintenant, ce qui enchaîne sur le paiement
+ * de l'option. La règle est celle du serveur (`option.formulePayee`), l'abonnement ne choisit que les mots.
+ */
+test.describe('Paramètres > Offre > Crédit WhatsApp : l’option pendant un essai', () => {
+  const ESSAI = {
+    statut: 'essai', periodicite: 'mois', debutLe: '2026-11-01T09:00:00.000Z', prochaineEcheanceLe: '2099-11-15T09:00:00.000Z',
+    finPrevueLe: null, essaiFinLe: '2099-11-15T09:00:00.000Z', finiLe: null, finRaison: null,
+  };
+  const EN_ESSAI = { abonnement: ESSAI, prixPro: { moisCentimes: 4900, anCentimes: 49000 } };
+  const OPTION_EN_ESSAI = credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: false } });
+
+  test('🔴 un Pro en essai : l’explication et « Démarrer la formule Pro maintenant », jamais « Prendre l’option » ; confirmé avec son prix, il démarre puis ouvre le paiement de l’option', async ({ page }) => {
+    const m = await monter(page, { vues: [OPTION_EN_ESSAI], vueOffre: EN_ESSAI });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-essai')).toContainText('vient avec la formule payante');
+    await expect(page.getByTestId('credit-wa-option-essai')).toContainText('votre carte chez Meta, qui vous facture vos modèles');
+    await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
+    await page.getByTestId('credit-wa-option-places').selectOption('2');
+    await page.getByTestId('credit-wa-option-demarrer').click();
+    await repondre(page, true, /Votre essai gratuit s’arrête aujourd’hui : votre formule Pro \(Mensuel, 49 € HT par mois\)[\s\S]*pour 2 numéros, 60 € HT par mois/);
+    await expect(page).toHaveURL(PAGE_STRIPE);
+    expect([m.demarrages(), m.options]).toEqual([1, [{ places: 2 }]]);
+  });
+
+  test('🔴 une carte refusée : le message du serveur, l’essai continue, aucun paiement de l’option', async ({ page }) => {
+    const m = await monter(page, {
+      vues: [OPTION_EN_ESSAI], vueOffre: EN_ESSAI,
+      demarrer: { status: 402, body: { error: 'Le paiement n’a pas abouti : votre essai continue. Mettez à jour votre carte depuis « Gérer mon abonnement », puis réessayez.', code: 'paiement_refuse' } },
+    });
+    await page.goto('/offre?tab=whatsapp');
+    await page.getByTestId('credit-wa-option-demarrer').click();
+    await repondre(page, true);
+    await expect(page.getByTestId('credit-wa-option-demarrer-erreur')).toContainText('votre essai continue');
+    expect(m.options).toEqual([]);
+  });
+
+  test('🔴 un prélèvement différé (SEPA) : le paiement dit en cours, rien n’enchaîne sur l’option', async ({ page }) => {
+    const m = await monter(page, { vues: [OPTION_EN_ESSAI], vueOffre: EN_ESSAI, demarrer: { status: 200, body: { essaiFini: true, paye: false } } });
+    await page.goto('/offre?tab=whatsapp');
+    await page.getByTestId('credit-wa-option-demarrer').click();
+    await repondre(page, true);
+    await expect(page.getByTestId('credit-wa-option-demarrage-attente')).toContainText('en cours chez votre banque');
+    expect(m.options).toEqual([]);
+  });
+
+  test('🔴 un Business en essai : l’explication et sa confirmation, ni démarrage ni prise', async ({ page }) => {
+    await monter(page, { vues: [OPTION_EN_ESSAI], vueOffre: { offre: 'business' } });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-attente')).toContainText('dès que votre formule Business est confirmée');
+    await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
+  });
+
+  test('🔴 une résiliation programmée pendant l’essai : la raison, sans bouton de démarrage', async ({ page }) => {
+    await monter(page, { vues: [OPTION_EN_ESSAI], vueOffre: { ...EN_ESSAI, abonnement: { ...ESSAI, statut: 'resiliation_programmee', finPrevueLe: ESSAI.essaiFinLe } } });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-attente')).toContainText('annulez la résiliation');
+    await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
+  });
+
+  test('🔴 la formule payée : « Prendre l’option », sans explication de l’essai', async ({ page }) => {
+    await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: true } })], vueOffre: EN_ESSAI });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-prendre')).toBeVisible();
+    await expect(page.getByTestId('credit-wa-option-essai')).toHaveCount(0);
   });
 });

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { repondre } from './aide/confirmation';
 
 /**
  * LE PRO DIT EN CLAIR SUR LA PAGE OFFRE (2026-10-26) : la carte « Votre abonnement » (statut, formule, dates), résilier
@@ -36,8 +37,13 @@ const FACTURES = {
   ],
 };
 
-async function monter(page: Page, o: { vue: unknown; resiliation?: { status: number; corps: unknown }; tarif?: unknown }) {
+async function monter(page: Page, o: {
+  vue: unknown; resiliation?: { status: number; corps: unknown }; tarif?: unknown;
+  /** La réponse à « Démarrer la formule Pro maintenant » ; par défaut, un paiement fait. */
+  demarrer?: { status: number; corps: unknown };
+}) {
   const resiliations: unknown[] = [];
+  let demarrages = 0;
   let vue = o.vue as ReturnType<typeof vuePro>;
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
@@ -55,6 +61,13 @@ async function monter(page: Page, o: { vue: unknown; resiliation?: { status: num
         : ACTIF);
       return json({ finPrevueLe: fin });
     }
+    if (req.method() === 'POST' && chemin.endsWith('/offre/pro/demarrer')) {
+      demarrages += 1;
+      const r = o.demarrer ?? { status: 200, corps: { essaiFini: true, paye: true } };
+      // L'essai arrêté chez Stripe, même un paiement en cours : la vue suivante dit le Pro actif.
+      if (r.status === 200) vue = vuePro(ACTIF);
+      return json(r.corps, r.status);
+    }
     if (chemin.endsWith('/offre/factures')) return json(FACTURES);
     // Sans tarif simulé, la route répond comme une API plus ancienne (404) : la carte garde la grille.
     if (chemin.endsWith('/offre/tarif')) return o.tarif ? json(o.tarif) : json({ error: 'Not Found' }, 404);
@@ -65,8 +78,11 @@ async function monter(page: Page, o: { vue: unknown; resiliation?: { status: num
     if (chemin.endsWith('/me')) return json({ email: SESSION.email, name: 'Jean Test', role: 'admin' });
     return json({});
   });
-  return { resiliations };
+  return { resiliations, demarrages: () => demarrages };
 }
+
+/** Un Pro en essai (révision du Crédit WhatsApp, 2026-11-04) : « Démarrer la formule Pro maintenant » s'y offre. */
+const ESSAI = { ...ACTIF, statut: 'essai', essaiFinLe: '2099-11-01T09:00:00.000Z', prochaineEcheanceLe: '2099-11-01T09:00:00.000Z' };
 
 test.describe('la carte « Votre abonnement »', () => {
   test('🔴 un Pro qui court : statut, formule et prix, souscription, renouvellement, et aucune fin', async ({ page }) => {
@@ -137,6 +153,53 @@ test.describe('la carte « Votre abonnement »', () => {
     await expect(page.getByTestId('offre-abonnement-echeance')).toContainText('Premier paiement');
     await page.getByTestId('offre-resilier').click();
     await expect(page.getByTestId('confirmation-message')).toContainText('Vous ne serez pas prélevé');
+  });
+
+  test('🔴 pendant l’essai, « Démarrer la formule Pro maintenant » : confirmé avec la fin de l’essai et le prix, puis la carte relue dit « Actif »', async ({ page }) => {
+    const m = await monter(page, { vue: vuePro(ESSAI) });
+    await page.goto('/offre');
+    await page.getByTestId('offre-demarrer-pro').click();
+    await repondre(page, false, 'Votre essai gratuit s’arrête aujourd’hui : votre formule Pro (Mensuel, 49 € HT par mois) est prélevée tout de suite');
+    expect(m.demarrages()).toBe(0);
+    await page.getByTestId('offre-demarrer-pro').click();
+    await repondre(page, true);
+    await expect(page.getByTestId('offre-demarrage-paye')).toContainText('Votre formule Pro a démarré');
+    await expect(page.getByTestId('offre-abonnement-statut')).toHaveText('Actif');
+    await expect(page.getByTestId('offre-demarrer-pro')).toHaveCount(0);
+    expect(m.demarrages()).toBe(1);
+  });
+
+  test('🔴 une carte refusée : le message du serveur sous le bouton, et l’essai reste tel quel', async ({ page }) => {
+    await monter(page, { vue: vuePro(ESSAI), demarrer: { status: 402, corps: { error: 'Le paiement n’a pas abouti : votre essai continue. Mettez à jour votre carte depuis « Gérer mon abonnement », puis réessayez.', code: 'paiement_refuse' } } });
+    await page.goto('/offre');
+    await page.getByTestId('offre-demarrer-pro').click();
+    await repondre(page, true);
+    await expect(page.getByTestId('offre-demarrer-pro-erreur')).toContainText('votre essai continue');
+    await expect(page.getByTestId('offre-abonnement-statut')).toHaveText('Essai gratuit');
+    await expect(page.getByTestId('offre-demarrage-paye')).toHaveCount(0);
+  });
+
+  test('🔴 un prélèvement différé (SEPA) : l’essai est arrêté, le paiement dit en cours, jamais « a démarré »', async ({ page }) => {
+    await monter(page, { vue: vuePro(ESSAI), demarrer: { status: 200, corps: { essaiFini: true, paye: false } } });
+    await page.goto('/offre');
+    await page.getByTestId('offre-demarrer-pro').click();
+    await repondre(page, true);
+    await expect(page.getByTestId('offre-demarrage-attente')).toContainText('en cours chez votre banque');
+    await expect(page.getByTestId('offre-demarrage-paye')).toHaveCount(0);
+  });
+
+  test('🔴 hors essai, ou une résiliation programmée pendant l’essai : pas de bouton de démarrage', async ({ page }) => {
+    await monter(page, { vue: vuePro({ ...ESSAI, statut: 'resiliation_programmee', finPrevueLe: '2099-11-01T09:00:00.000Z' }) });
+    await page.goto('/offre');
+    await expect(page.getByTestId('offre-abonnement-statut')).toHaveText('Résiliation programmée');
+    await expect(page.getByTestId('offre-demarrer-pro')).toHaveCount(0);
+  });
+
+  test('un Pro qui court n’a pas de bouton de démarrage', async ({ page }) => {
+    await monter(page, { vue: vuePro(ACTIF) });
+    await page.goto('/offre');
+    await expect(page.getByTestId('offre-abonnement-statut')).toHaveText('Actif');
+    await expect(page.getByTestId('offre-demarrer-pro')).toHaveCount(0);
   });
 
   test('un paiement en retard le dit, et met « Changer de carte bancaire » en avant', async ({ page }) => {

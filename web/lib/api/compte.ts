@@ -794,6 +794,11 @@ export interface OffreEntrepriseOps {
   business?: boolean;
   utilisateursBusiness?: number | null;
   /**
+   * L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : sa fin (ISO) tant qu'il n'est pas confirmé, `null` une
+   * fois confirmé. Absent sur une API d'avant lui : lu comme `null`.
+   */
+  businessEssaiFinLe?: string | null;
+  /**
    * La commission des messages WhatsApp négociée par une Entreprise (`null` = la globale ; absente sur une API d'avant
    * elle : lue comme `null`). Son Crédit WhatsApp est illimité, sans réglage (décision du 2026-11-02).
    */
@@ -831,6 +836,8 @@ export function ecrireOffreOps(sessionOps: string, tenantId: string, corps: {
   contacts?: number | null; commissionPct?: number | null; note: string;
   /** Absent = inchangé (spec Business) ; vrai avec `entreprise` vrai : refusé par le serveur (400). */
   business?: boolean; utilisateursBusiness?: number | null;
+  /** L'essai du Business : une date ISO = en essai jusqu'à elle, `null` = confirmé, absente = inchangée (400 hors Business). */
+  businessEssaiFinLe?: string | null;
   /** Absente = inchangée ; sans effet hors Entreprise. */
   commissionMessagesPct?: number | null;
   /** Absent = inchangé, `null` = le défaut de l'instance ; sans effet hors Entreprise. */

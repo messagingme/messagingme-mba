@@ -34,7 +34,7 @@ describe('getCreditWhatsapp', () => {
       ligneArretee: false,
       historique: [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
       serie: [{ jour: '2026-10-31', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
-      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null },
+      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null, formulePayee: true },
     };
     const appels = repondre(200, vue);
     expect(await getCreditWhatsapp('t1')).toEqual(vue);
@@ -58,6 +58,16 @@ describe('getCreditWhatsapp', () => {
       option: { disponible: 'oui', prixHtCentimes: -5, placesMax: 2.5, places: '3', couverts: null, statut: 'perdu', finPrevueLe: 12 },
     });
     expect((await getCreditWhatsapp('t1')).option).toEqual(SANS_OPTION);
+  });
+
+  it('🔴 la formule payée (révision du 2026-11-04) : fausse quand le serveur le dit ; absente (une API d’avant), lue vraie, l’ancien écran', async () => {
+    const option = { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 0, statut: null, finPrevueLe: null };
+    repondre(200, { soldeMicroEur: 0, option: { ...option, formulePayee: false } });
+    expect((await getCreditWhatsapp('t1')).option.formulePayee).toBe(false);
+    for (const formulePayee of [undefined, 'non', null]) {
+      repondre(200, { soldeMicroEur: 0, option: { ...option, formulePayee } });
+      expect((await getCreditWhatsapp('t1')).option.formulePayee, String(formulePayee)).toBe(true);
+    }
   });
 
   it('🔴 une Entreprise : l’illimité et la consommation du mois passent tels quels', async () => {

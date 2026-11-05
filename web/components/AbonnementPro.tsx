@@ -3,11 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Bouton } from '@/components/Bouton';
 import { useConfirmation } from '@/components/Confirmation';
+import { DemarrerPro } from '@/components/DemarrerPro';
+import { MbaNotice } from '@/components/MbaNotice';
 import { useT, useLocale } from '@/lib/i18n';
 import { erreurDeChargement } from '@/lib/http';
 import { lireTarifPro, portailPro, resilierPro, type TarifPro } from '@/lib/api/offre';
 import { relireOffre } from '@/lib/use-offre';
-import type { StatutAbonnementPro, VueOffre } from '@/lib/offre';
+import { phraseFormulePro, type StatutAbonnementPro, type VueOffre } from '@/lib/offre';
 
 /**
  * L'ABONNEMENT PRO DIT EN CLAIR (2026-10-26, demande de Julien : « super clair sur quand l'abonnement commence, quand il
@@ -37,6 +39,9 @@ export function AbonnementPro({ tenantId, vue }: { tenantId: string; vue: VueOff
     return () => { actif = false; };
   }, [tenantId, vivantPro]);
   const [erreur, setErreur] = useState<string | null>(null);
+  // « Démarrer la formule Pro maintenant » (révision du 2026-11-04) : ce que le démarrage a donné, gardé après la relecture
+  // de l'offre (le statut passe alors à « Actif » et le bouton s'en va).
+  const [demarrage, setDemarrage] = useState<'paye' | 'en_attente' | null>(null);
 
   const date = (iso: string): string => new Date(iso).toLocaleDateString(locale === 'en' ? 'en-GB' : 'fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   const euros = (centimes: number): string => `${(centimes / 100).toLocaleString(locale === 'en' ? 'en-GB' : 'fr-FR', { maximumFractionDigits: 2 })} €`;
@@ -55,9 +60,7 @@ export function AbonnementPro({ tenantId, vue }: { tenantId: string; vue: VueOff
   // Le prix de l'abonné d'abord (Stripe), celui de la grille à défaut : ils diffèrent le jour où le tarif change.
   const prixGrille = vue.prixPro ? (a.periodicite === 'an' ? vue.prixPro.anCentimes : vue.prixPro.moisCentimes) : null;
   const prix = tarif === undefined && vivantPro ? null : (tarif?.proHtCentimes ?? prixGrille);
-  const formule = a.periodicite === 'an'
-    ? (prix === null ? t('Annuel', 'Yearly') : t(`Annuel, ${euros(prix)} HT par an`, `Yearly, ${euros(prix)} excl. VAT a year`))
-    : (prix === null ? t('Mensuel', 'Monthly') : t(`Mensuel, ${euros(prix)} HT par mois`, `Monthly, ${euros(prix)} excl. VAT a month`));
+  const formule = phraseFormulePro(a.periodicite, prix, t, locale === 'en' ? 'en' : 'fr');
   const achetes = vue.sieges?.achetes ?? 0;
   const prixSiegeGrille = vue.prixSiege ? (a.periodicite === 'an' ? vue.prixSiege.anCentimes : vue.prixSiege.moisCentimes) : null;
   const prixSiege = tarif === undefined && vivantPro ? null : (tarif?.siegeHtCentimes ?? prixSiegeGrille);
@@ -182,6 +185,35 @@ export function AbonnementPro({ tenantId, vue }: { tenantId: string; vue: VueOff
           {t(`Votre essai de la formule Pro se termine le ${date(a.essaiFinLe)} : sans résiliation, le premier paiement a lieu ce jour-là.`,
             `Your Pro trial ends on ${date(a.essaiFinLe)}: unless you cancel, the first payment happens that day.`)}
         </p>
+      )}
+      {/* Démarrer maintenant (révision du 2026-11-04, décision 6) : pendant l'essai seulement. Une résiliation programmée
+          a son propre statut et ne le montre pas, le serveur la refuserait. */}
+      {a.statut === 'essai' && (
+        <div className="mt-3">
+          <DemarrerPro
+            tenantId={tenantId}
+            formule={`${formule}${sieges}`}
+            {...(tarif?.remise === true ? { suite: t('Une remise s’applique : votre facture dira le montant payé.', 'A discount applies: your invoice will show the amount paid.') } : {})}
+            onDemarre={async (paye) => { setDemarrage(paye ? 'paye' : 'en_attente'); await relireOffre(tenantId); }}
+            testid="offre-demarrer-pro"
+          />
+        </div>
+      )}
+      {demarrage === 'paye' && (
+        <div className="mt-3">
+          <MbaNotice kind="success" testid="offre-demarrage-paye">
+            {t('Votre formule Pro a démarré : le premier paiement est fait. Sa facture est plus bas sur cette page.',
+              'Your Pro plan has started: the first payment is made. Its invoice is further down this page.')}
+          </MbaNotice>
+        </div>
+      )}
+      {demarrage === 'en_attente' && (
+        <div className="mt-3">
+          <MbaNotice kind="warning" testid="offre-demarrage-attente">
+            {t('Votre essai est arrêté et le premier paiement est en cours chez votre banque : il est confirmé à son encaissement, sous quelques jours.',
+              'Your trial is over and the first payment is being processed by your bank: it is confirmed once collected, within a few days.')}
+          </MbaNotice>
+        </div>
       )}
 
       {vivant && (

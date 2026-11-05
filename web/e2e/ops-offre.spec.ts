@@ -31,6 +31,7 @@ async function ouvrir(page: import('@playwright/test').Page, offre: Record<strin
           tenantId: 't-essai', entreprise: corps.entreprise, utilisateurs: corps.utilisateurs,
           conservationJours: 'conservationJours' in corps ? corps.conservationJours : offre.conservationJours, utilisateursProposes: 10,
           business, utilisateursBusiness: 'utilisateursBusiness' in corps ? corps.utilisateursBusiness : (offre.utilisateursBusiness ?? null),
+          businessEssaiFinLe: 'businessEssaiFinLe' in corps ? corps.businessEssaiFinLe : (offre.businessEssaiFinLe ?? null),
           alertes: offre.alertes, ...(offre.gestes ? { gestes: offre.gestes } : {}),
         });
       }
@@ -224,6 +225,43 @@ test.describe('Ops : le Business d’un espace (spec Business)', () => {
     await expect(modale.getByTestId('offre-message')).toContainText(/Business/);
     await expect(modale.getByTestId('offre-message')).toContainText(/9[.,]00/);
     expect(ecrits).toEqual([{ entreprise: false, utilisateurs: null, business: true, utilisateursBusiness: 7, note: 'Contrat Business signé' }]);
+  });
+
+  test('🔴 poser un Business en essai (révision du 2026-11-04) : la case et sa date partent ensemble ; sans date, rien ne part', async ({ page }) => {
+    const { modale, ecrits } = await ouvrir(page, { entreprise: false, utilisateurs: null, conservationJours: 90, business: false, alertes: ALERTES });
+    await modale.getByTestId('offre-business').check();
+    await modale.getByTestId('offre-business-essai').check();
+    await expect(modale.getByTestId('offre-business-essai-aide')).toContainText('l’option Crédit WhatsApp reste fermée');
+    await modale.getByTestId('offre-note').fill('Business en essai de 14 jours');
+    await expect(modale.getByTestId('offre-enregistrer')).toBeDisabled();
+    await modale.getByTestId('offre-business-essai-fin').fill('2026-11-19');
+    await modale.getByTestId('offre-enregistrer').click();
+    await expect(modale.getByTestId('offre-message')).toContainText(/Business/);
+    expect(ecrits).toEqual([{
+      entreprise: false, utilisateurs: null, business: true, utilisateursBusiness: null,
+      businessEssaiFinLe: '2026-11-19T00:00:00.000Z', note: 'Business en essai de 14 jours',
+    }]);
+  });
+
+  test('🔴 confirmer un Business en essai : la case décochée envoie la confirmation (null) ; sinon l’essai ne part pas', async ({ page }) => {
+    const { modale, ecrits } = await ouvrir(page, {
+      entreprise: false, utilisateurs: null, conservationJours: 90, business: true, utilisateursBusiness: null,
+      businessEssaiFinLe: '2026-11-19T00:00:00.000Z', alertes: ALERTES,
+    });
+    await expect(modale.getByTestId('offre-business-essai')).toBeChecked();
+    await expect(modale.getByTestId('offre-business-essai-fin')).toHaveValue('2026-11-19');
+    // Un enregistrement qui ne touche pas l'essai ne le renvoie pas (absent = inchangé côté serveur).
+    await modale.getByTestId('offre-note').fill('Limite revue');
+    await modale.getByTestId('offre-enregistrer').click();
+    await expect(modale.getByTestId('offre-message')).toBeVisible();
+    await modale.getByTestId('offre-business-essai').uncheck();
+    await modale.getByTestId('offre-note').fill('Business confirmé');
+    await modale.getByTestId('offre-enregistrer').click();
+    await expect.poll(() => ecrits.length).toBe(2);
+    expect(ecrits).toEqual([
+      { entreprise: false, utilisateurs: null, utilisateursBusiness: null, note: 'Limite revue' },
+      { entreprise: false, utilisateurs: null, utilisateursBusiness: null, businessEssaiFinLe: null, note: 'Business confirmé' },
+    ]);
   });
 
   test('🔴 retirer un Business qui laisse le numéro fourni sans couverture : rien ne part sans la confirmation', async ({ page }) => {

@@ -31,7 +31,7 @@ import { useConfirmation } from '@/components/Confirmation';
 import { Squelette } from '@/components/Squelette';
 import { Nd } from '@/components/Nd';
 import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lirePlafondIa } from '@/lib/ops-offre';
-import { lireUtilisateursBusiness, retraitCoupeLeNumero } from '@/lib/ops-offre';
+import { lireFinEssaiBusiness, lireUtilisateursBusiness, retraitCoupeLeNumero } from '@/lib/ops-offre';
 import { OpsEmailsCard } from '@/components/OpsEmailsCard';
 import { MbaTabs } from '@/components/MbaTabs';
 import { OpsSante } from '@/components/OpsSante';
@@ -1534,6 +1534,10 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   // Le Business (spec Business) : une seule offre posée à la main, exclusive de l'Entreprise.
   const [business, setBusiness] = useState(false);
   const [utilisateursBusiness, setUtilisateursBusiness] = useState('');
+  // L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : coché = en essai jusqu'à la date, et l'option Crédit
+  // WhatsApp reste fermée ; décoché = confirmé.
+  const [businessEssai, setBusinessEssai] = useState(false);
+  const [businessEssaiFin, setBusinessEssaiFin] = useState('');
   const [retraitConfirme, setRetraitConfirme] = useState(false);
   const [note, setNote] = useState('');
   const [envoi, setEnvoi] = useState(false);
@@ -1553,6 +1557,8 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
     setPlafondIa(r.plafondIaMoisEuros == null ? '' : String(r.plafondIaMoisEuros));
     setBusiness(r.business === true);
     setUtilisateursBusiness(r.utilisateursBusiness == null ? '' : String(r.utilisateursBusiness));
+    setBusinessEssai(r.businessEssaiFinLe != null);
+    setBusinessEssaiFin(r.businessEssaiFinLe ? r.businessEssaiFinLe.slice(0, 10) : '');
     setRetraitConfirme(false);
   };
 
@@ -1580,12 +1586,17 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   const noteValide = note.trim().length >= 3;
   const nouveauxUtilisateursBusiness = business ? lireUtilisateursBusiness(utilisateursBusiness) : undefined;
   const businessValide = nouveauxUtilisateursBusiness !== 'invalide';
+  // L'essai ne part qu'avec un Business coché, et seulement s'il change (absent = inchangé côté serveur, qui refuse une date
+  // hors Business) ; retirer le Business l'efface côté serveur.
+  const finEssaiSaisie = business && businessEssai ? lireFinEssaiBusiness(businessEssaiFin) : null;
+  const finEssaiValide = finEssaiSaisie !== 'invalide';
+  const finEssaiChange = business && finEssaiValide && (finEssaiSaisie?.slice(0, 10) ?? null) !== (etat?.businessEssaiFinLe?.slice(0, 10) ?? null);
   // 🔴 Retirer une offre posée à la main lance la fin d'un numéro fourni que plus rien ne couvre : l'écran le fait confirmer.
   const coupeLeNumero = etat !== null && retraitCoupeLeNumero(
     { entreprise: etat.entreprise, business: etat.business === true }, { entreprise, business },
     etat.alertes?.numeroFourniSansCouverture === true,
   );
-  const pret = etat !== null && limiteValide && conservationValide && devisValide && businessValide && noteValide
+  const pret = etat !== null && limiteValide && conservationValide && devisValide && businessValide && finEssaiValide && noteValide
     && (!coupeLeNumero || retraitConfirme) && !envoi;
   // Ce qui grise « Enregistrer », dit en clair sous la note : un bouton grisé sans raison laisse croire à une panne
   // (Julien, le 2026-11-02 : « je peux pas enregistrer !!!! », la note était vide).
@@ -1593,6 +1604,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
     !noteValide ? t('écrivez la note (3 caractères au moins)', 'write the note (3 characters at least)') : '',
     !limiteValide ? t('corrigez le nombre d’utilisateurs', 'fix the number of users') : '',
     !businessValide ? t('corrigez les utilisateurs du Business', 'fix the Business users') : '',
+    !finEssaiValide ? t('corrigez la date de fin de l’essai du Business', 'fix the end date of the Business trial') : '',
     !devisValide ? t('corrigez les champs du devis', 'fix the quote fields') : '',
     !conservationValide ? t('corrigez la durée de conservation', 'fix the retention') : '',
     coupeLeNumero && !retraitConfirme ? t('confirmez le retrait du numéro fourni', 'confirm the removal of the provided number') : '',
@@ -1619,6 +1631,7 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
         // Le Business ne part que s'il change, sa limite que s'il est coché (absents = inchangés côté serveur).
         ...(business !== (etat?.business === true) ? { business } : {}),
         ...(business && nouveauxUtilisateursBusiness !== undefined ? { utilisateursBusiness: nouveauxUtilisateursBusiness } : {}),
+        ...(finEssaiChange && finEssaiSaisie !== 'invalide' ? { businessEssaiFinLe: finEssaiSaisie } : {}),
         note: note.trim(),
       });
       remplir(r);
@@ -1680,6 +1693,19 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
                 <input className={`${inputCls} w-32`} inputMode="numeric" value={utilisateursBusiness} onChange={(e) => setUtilisateursBusiness(e.target.value)} data-testid="offre-utilisateurs-business" />
                 {!businessValide && <span className="text-xs text-danger-700">{t('Un entier de 1 à 10 000, ou vide.', 'A whole number from 1 to 10,000, or empty.')}</span>}
               </label>
+              <label className="flex flex-wrap items-center gap-2">
+                <input type="checkbox" checked={businessEssai} onChange={(e) => setBusinessEssai(e.target.checked)} data-testid="offre-business-essai" className="h-4 w-4" />
+                <span className="text-sm text-ink-900">{t('En essai jusqu’au', 'On trial until')}</span>
+                <input type="date" className={`${inputCls} w-44`} value={businessEssaiFin} disabled={!businessEssai}
+                  onChange={(e) => setBusinessEssaiFin(e.target.value)} data-testid="offre-business-essai-fin" />
+              </label>
+              <p className="text-xs text-ink-500" data-testid="offre-business-essai-aide">
+                {businessEssai
+                  ? t('Pendant l’essai, l’option Crédit WhatsApp reste fermée, même la date passée : décochez pour confirmer le Business.',
+                    'During the trial, the WhatsApp credit option stays closed, even after the date: untick to confirm Business.')
+                  : t('Business confirmé : l’option Crédit WhatsApp est ouverte.', 'Business confirmed: the WhatsApp credit option is open.')}
+              </p>
+              {!finEssaiValide && <span className="text-xs text-danger-700">{t('Une date de fin, au format du calendrier.', 'An end date, from the calendar.')}</span>}
               {etat.business !== true && etat.alertes?.proPayeVivant && (
                 <p className="rounded-controle bg-alerte-50 px-3 py-2 text-xs text-alerte" data-testid="offre-alerte-pro">
                   {t('Un Pro payé est encore vivant chez Stripe : résiliez-le dans Stripe, sinon le client paiera deux fois.', 'A paid Pro is still live at Stripe: cancel it in Stripe, or the customer pays twice.')}

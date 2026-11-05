@@ -3610,9 +3610,20 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   Stripe (plus en essai : rien ne part, 409 `pas_en_essai`), puis `trial_end=now` en `error_if_incomplete` (un refus de
   paiement rend 402 `paiement_refuse` et laisse l'essai tel quel ; une authentification demandée par la banque aussi),
   sans prorata, hors session, une clé d'idempotence par demande et un verrou court de 60 s par espace contre le double
-  clic. La fin d'essai est notée tout de suite (`noterFinEssai`, seulement vers plus tôt et sur un essai en cours), le
+  clic. Une résiliation programmée en base refuse avant tout (409 `resiliation_programmee`, ni verrou ni appel chez
+  Stripe) ; une issue INCONNUE chez Stripe (panne passagère, délai dépassé : 503) GARDE le verrou, qui échoit seul, pour
+  qu'un second clic ne relise pas un abonnement encore en essai pendant que le prélèvement court. La facture de la
+  période est relue dépliée (`expand[]=latest_invoice`) : la réponse dit `paye` vrai pour une facture `paid` seulement ;
+  un prélèvement différé (SEPA) arrête l'essai sans être encaissé, `paye` faux, et la console ne l'annonce pas comme
+  fait. La fin d'essai est notée tout de suite (`noterFinEssai`, seulement vers plus tôt et sur un essai en cours), le
   webhook la réécrit : il recopie `trial_end` quel que soit le statut, et une fin d'essai déjà passée ne recule plus
-  (`modifier`), pour qu'un avis en retard ne rouvre pas l'essai. 🔴 La facture de l'écourtement est une
+  (`modifier`, et `enregistrer` avec la même garde), pour qu'un avis en retard ne rouvre pas l'essai. La session et la
+  facture à 0 € d'un essai, qui ne disent pas sa fin, en portent une PROVISOIRE (maintenant plus les jours de la marque
+  `essai`, ou la fin de la facture) qui ne remplit qu'un vide ; la création de l'abonnement écrit l'exacte. Sans elle,
+  un essai enregistré avant la création de son abonnement était lu « payé dès le départ ». La console porte le geste
+  dans le bloc de l'abonnement Pro et dans l'onglet Crédit WhatsApp (`DemarrerPro`), confirmé avec la fin de l'essai
+  aujourd'hui et le prix de la formule ; depuis l'onglet, un démarrage payé enchaîne sur le paiement de l'option.
+  🔴 La facture de l'écourtement est une
   `subscription_update`, le motif du prorata d'un siège, mais du plein prix et sans aucune ligne de prorata : une
   `subscription_update` ne compte comme période payée que si TOUTES ses lignes portent
   `parent.subscription_item_details.proration = false`. Non nulle, elle arrête alors le numéro payé à part et compte pour
@@ -4402,8 +4413,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   ligne `'option'` (décision de Julien du 2026-11-03), alors qu'une ligne couvre tout son compte. Le Pro et le Business y
   ont droit, jamais la Free ; une Entreprise n'en a pas besoin. 🔴 Elle ne s'ouvre qu'à une formule PAYÉE (`formulePayee`,
   `src/offres/formule-payee.ts`, révision du 2026-11-04) : un Pro au statut actif hors essai, un Business confirmé (sa date
-  d'essai effacée, `tenants.offre_business_essai_fin_le`, migration 0278, posée et confirmée dans `/ops`) ; sinon 409
-  `option_apres_essai`, avant toute session Stripe. Stripe d'abord, sans essai, codes promo fermés, une place
+  d'essai effacée, `tenants.offre_business_essai_fin_le`, migration 0278, posée et confirmée dans `/ops`, qui refuse
+  en 400 une date sur un espace que l'écriture ne laisse pas en Business) ; sinon 409 `option_apres_essai`, avant toute
+  session Stripe. La vue de l'onglet porte la même règle (`option.formulePayee`, faux hors Pro et Business) : pendant un
+  essai, l'onglet explique qui facture quoi au lieu de vendre, et ne recalcule rien. Stripe d'abord, sans essai, codes promo fermés, une place
   ajoutée n'existe que relue payée (`pending_if_incomplete`), un retrait s'applique sans prorata et jamais sous les
   numéros couverts. Le webhook l'aiguille par sa marque APRÈS le Pro et AVANT le numéro (qui acquitte en silence ce
   qu'il ne reconnaît pas), et relit ses places chez Stripe à chaque événement ; un paiement qu'il ne peut ni relire ni

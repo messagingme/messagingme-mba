@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lirePlafondIa, lireUtilisateursBusiness, retraitCoupeLeNumero } from './ops-offre';
+import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lireFinEssaiBusiness, lirePlafondIa, lireUtilisateursBusiness, retraitCoupeLeNumero } from './ops-offre';
+
+/** L'essai du Business (révision du Crédit WhatsApp, 2026-11-04) : sa date de fin, saisie dans /ops. */
+describe('la fin de l’essai du Business saisie', () => {
+  it('une date AAAA-MM-JJ réelle devient minuit UTC de ce jour ; vide, mal écrite ou impossible, elle est refusée', () => {
+    expect(lireFinEssaiBusiness(' 2026-11-18 ')).toBe('2026-11-18T00:00:00.000Z');
+    for (const s of ['', '18/11/2026', '2026-02-30', '2026-13-01', 'demain']) expect(lireFinEssaiBusiness(s), s).toBe('invalide');
+  });
+});
 
 /** Les réglages de devis d'une Entreprise (spec offres v2) : vide = le défaut, sinon un entier dans ses bornes. */
 describe('les contacts et la commission saisis', () => {

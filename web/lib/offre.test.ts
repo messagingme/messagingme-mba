@@ -1,5 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { estAccesSuspendu, lireRefusOffre, lireSiegeRequis, lireVueOffre, offreQuiOuvre, phraseInclusDans, phraseSansAdresse, FONCTIONS_OFFRE } from './offre';
+import { estAccesSuspendu, lireRefusOffre, lireSiegeRequis, lireVueOffre, offreQuiOuvre, phraseFormulePro, phraseInclusDans, phraseSansAdresse, FONCTIONS_OFFRE } from './offre';
+
+describe('phraseFormulePro : la formule et son prix, dits comme l’abonnement les dit', () => {
+  const fr = (f: string): string => f;
+  const en = (_f: string, e: string): string => e;
+  it('le mois et l’an, en euros HT, les centimes seulement s’il y en a ; sans prix, la formule seule', () => {
+    expect(phraseFormulePro('mois', 4900, fr, 'fr')).toBe('Mensuel, 49 € HT par mois');
+    expect(phraseFormulePro('an', 49_050, fr, 'fr')).toBe('Annuel, 490,5 € HT par an');
+    expect(phraseFormulePro('mois', null, fr, 'fr')).toBe('Mensuel');
+    expect(phraseFormulePro('an', 49_000, en, 'en')).toBe('Yearly, 490 € excl. VAT a year');
+  });
+});
 
 /**
  * L'OFFRE CÔTÉ CONSOLE (lot 6, tâche 7) : la réponse du serveur vérifiée, et la règle qui protège un client d'une panne :

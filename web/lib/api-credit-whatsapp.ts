@@ -47,11 +47,17 @@ export interface OptionCreditWhatsapp {
   statut: 'actif' | 'en_retard' | 'resilie' | null;
   /** La fin programmée (une résiliation demandée au portail de Stripe), ISO ; `null` sinon. */
   finPrevueLe: string | null;
+  /**
+   * La formule de l'espace est payée, par la règle du serveur qui garde la prise de l'option (révision du 2026-11-04) :
+   * faux pendant un essai, Pro comme Business, et l'onglet explique alors l'essai au lieu de vendre. Une API d'avant ce
+   * champ le rend absent : lu vrai, l'ancien écran (sa prise refuserait de toute façon pendant un essai).
+   */
+  formulePayee: boolean;
 }
 
 /** Une API d'avant l'option (la console part avant l'API) : rien en vente, rien de pris. */
 export const SANS_OPTION: OptionCreditWhatsapp = {
-  disponible: false, prixHtCentimes: 0, placesMax: 0, places: 0, couverts: 0, statut: null, finPrevueLe: null,
+  disponible: false, prixHtCentimes: 0, placesMax: 0, places: 0, couverts: 0, statut: null, finPrevueLe: null, formulePayee: true,
 };
 
 /** Ce que lit l'onglet. Montants en micro-euros ; un prix se montre tout compris, jamais un taux. */
@@ -98,6 +104,7 @@ function lireOption(v: unknown): OptionCreditWhatsapp {
     couverts: compte(o.couverts),
     statut: o.statut === 'actif' || o.statut === 'en_retard' || o.statut === 'resilie' ? o.statut : null,
     finPrevueLe: typeof o.finPrevueLe === 'string' ? o.finPrevueLe : null,
+    formulePayee: o.formulePayee !== false,
   };
 }
 

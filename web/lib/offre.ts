@@ -312,6 +312,21 @@ export function phraseInclusDans(vue: VueOffre, f: FonctionOffre, t: (fr: string
     : t('Pas dans votre offre.', 'Not in your plan.');
 }
 
+/**
+ * La formule Pro et son prix HT, dits comme le bloc de l'abonnement les dit (`AbonnementPro`) : « Mensuel, 49 € HT par
+ * mois ». Un prix inconnu (`null`) laisse la formule seule. Le bloc et la confirmation de « Démarrer la formule Pro
+ * maintenant » lisent la même phrase.
+ */
+export function phraseFormulePro(
+  periodicite: 'mois' | 'an', prixHtCentimes: number | null, t: (fr: string, en: string) => string, locale: 'fr' | 'en',
+): string {
+  const euros = (c: number): string => `${(c / 100).toLocaleString(locale === 'en' ? 'en-GB' : 'fr-FR', { maximumFractionDigits: 2 })} €`;
+  if (periodicite === 'an') {
+    return prixHtCentimes === null ? t('Annuel', 'Yearly') : t(`Annuel, ${euros(prixHtCentimes)} HT par an`, `Yearly, ${euros(prixHtCentimes)} excl. VAT a year`);
+  }
+  return prixHtCentimes === null ? t('Mensuel', 'Monthly') : t(`Mensuel, ${euros(prixHtCentimes)} HT par mois`, `Monthly, ${euros(prixHtCentimes)} excl. VAT a month`);
+}
+
 /** Le nom de l'offre, tel que l'écran le montre. */
 export function nomDeLOffre(o: NomOffre, t: (fr: string, en: string) => string): string {
   return o === 'free' ? t('Free', 'Free') : o === 'pro' ? t('Pro', 'Pro') : o === 'business' ? t('Business', 'Business') : t('Entreprise', 'Enterprise');

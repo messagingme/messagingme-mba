@@ -10,7 +10,9 @@ import {
   aUneFactureWhatsapp, changerPlacesOption, factureDeLaPlace, getCreditWhatsapp, ouvrirAchatWhatsapp, ouvrirOptionWhatsapp,
   type LigneCreditWhatsapp, type OffreWhatsapp, type OptionCreditWhatsapp, type VueCreditWhatsapp,
 } from '@/lib/api-credit-whatsapp';
-import { portailPro } from '@/lib/api/offre';
+import { lireTarifPro, portailPro, type TarifPro } from '@/lib/api/offre';
+import { phraseFormulePro } from '@/lib/offre';
+import { relireOffre, useOffre } from '@/lib/use-offre';
 import { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR, SOLDE_REPRISE_CREDIT_MICRO_EUR } from '@/lib/partage/credit-whatsapp';
 import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { erreurDeChargement } from '@/lib/http';
@@ -25,6 +27,7 @@ import { Squelette } from '@/components/Squelette';
 import { Bouton } from '@/components/Bouton';
 import { MbaNotice } from '@/components/MbaNotice';
 import { CourbeCredit } from '@/components/CourbeCredit';
+import { DemarrerPro } from '@/components/DemarrerPro';
 
 /**
  * LE CRÉDIT WHATSAPP DE L'ESPACE (plan du Crédit WhatsApp, tâche 11) : troisième onglet de Paramètres > Offre, ouvert à
@@ -428,6 +431,59 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   const enAttenteDuRetour = retour === 'recue' && !prise;
   const prixMois = (n: number): string => fmtNum((option.prixHtCentimes * n) / 100, locale);
   const s = (n: number): string => (n > 1 ? 's' : '');
+
+  // 🔴 L'OPTION ATTEND UNE FORMULE PAYÉE (révision du 2026-11-04) : la règle du serveur (`formulePayee`), lue telle quelle,
+  // jamais recalculée ici. Pendant l'essai, l'onglet explique au lieu de vendre, et propose à un Pro de démarrer sa formule
+  // maintenant, puis enchaîne sur le paiement de l'option. Le statut de l'abonnement ne sert qu'à choisir les mots.
+  const attend = !prise && option.disponible && !option.formulePayee;
+  const vueOffre = useOffre(tenantId);
+  const abonnement = vueOffre?.abonnement ?? null;
+  const essaiPro = attend && vueOffre?.offre === 'pro' && abonnement?.statut === 'essai';
+  // Le tarif réel de l'abonné (un code promo le baisse) pour la confirmation ; la grille sert tant qu'il n'est pas lu.
+  const [tarif, setTarif] = useState<TarifPro | null>(null);
+  useEffect(() => {
+    if (!essaiPro) return;
+    let actif = true;
+    lireTarifPro(tenantId).then((r) => { if (actif) setTarif(r); }).catch(() => undefined);
+    return () => { actif = false; };
+  }, [tenantId, essaiPro]);
+  const [demarrageEnAttente, setDemarrageEnAttente] = useState(false);
+  const prixGrille = abonnement && vueOffre?.prixPro
+    ? (abonnement.periodicite === 'an' ? vueOffre.prixPro.anCentimes : vueOffre.prixPro.moisCentimes) : null;
+  const formulePro = abonnement === null ? null : phraseFormulePro(abonnement.periodicite, tarif?.proHtCentimes ?? prixGrille, t, locale);
+  const raisonAttente = vueOffre?.offre === 'business'
+    ? t('Il s’ouvre dès que votre formule Business est confirmée, à la fin de son essai.', 'It opens as soon as your Business plan is confirmed, at the end of its trial.')
+    : abonnement?.statut === 'resiliation_programmee'
+      ? t('Votre formule Pro est programmée pour s’arrêter : annulez la résiliation dans l’onglet Offre pour pouvoir la démarrer maintenant.',
+        'Your Pro plan is set to stop: cancel the cancellation in the Plan tab to be able to start it now.')
+      : abonnement?.statut === 'en_retard'
+        ? t('Le premier paiement de votre formule Pro n’est pas passé : il s’ouvre une fois la formule réglée. Mettez à jour votre carte dans l’onglet Offre.',
+          'The first payment of your Pro plan did not go through: it opens once the plan is paid. Update your card in the Plan tab.')
+        : t('Il s’ouvre avec le premier paiement de votre formule.', 'It opens with the first payment of your plan.');
+
+  /** Le nombre de numéros de l'option : avant de la prendre, ou avant de démarrer la formule Pro qui y mène. */
+  const choixPlaces = (
+    <label className="grid gap-1">
+      <span className="text-xs font-medium text-ink-500">{t('Nombre de numéros', 'How many numbers')}</span>
+      <select
+        className={`${inputClsAuto} bg-white`}
+        value={voulues}
+        onChange={(e) => setVoulues(Number(e.target.value))}
+        data-testid="credit-wa-option-places"
+      >
+        {Array.from({ length: Math.max(1, option.placesMax) }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
+      </select>
+    </label>
+  );
+
+  /** Après le démarrage de la formule Pro : un paiement fait enchaîne sur l'option ; sinon l'offre et l'onglet sont relus. */
+  async function apresDemarrage(paye: boolean): Promise<void> {
+    if (paye) await prendre();
+    else setDemarrageEnAttente(true);
+    // Encore ici (un paiement en cours, ou une prise refusée) : l'écran suit l'offre et l'onglet relus.
+    await relireOffre(tenantId).catch(() => undefined);
+    await relire().catch(() => undefined);
+  }
   // Une ligne couvre tout le compte WhatsApp : au-delà des places, un numéro du compte n'envoie pas.
   const enService = Math.min(option.couverts, option.places);
   const enTrop = Math.max(0, option.couverts - option.places);
@@ -509,7 +565,7 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
         </MbaNotice>
       )}
 
-      {!prise && !admin && (
+      {!prise && !admin && !attend && (
         <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-non-admin">
           {t('Demandez à un administrateur de votre espace de prendre l’option.', 'Ask an administrator of your workspace to take the option.')}
         </p>
@@ -519,19 +575,55 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
           {t('L’option n’est pas encore disponible en ligne. Contactez-nous depuis le Support.', 'The option isn’t available online yet. Contact us from Support.')}
         </p>
       )}
-      {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && (
+      {/* Pendant un essai (moment 1 de la révision du 2026-11-04) : qui facture quoi, et quand l'option s'ouvre. Jamais
+          « Prendre l'option » : la prise la refuserait. */}
+      {!prise && !enAttenteDuRetour && attend && (
+        <div className="mt-3 space-y-3" data-testid="credit-wa-option-essai">
+          <p className="text-sm text-ink-700">
+            {t('Le Crédit WhatsApp, vos messages payés chez Messaging Me sans carte chez Meta, vient avec la formule payante. Pendant l’essai, vous connectez votre numéro avec votre carte chez Meta, qui vous facture vos modèles.',
+              'WhatsApp credit, your messages paid at Messaging Me with no card at Meta, comes with the paid plan. During the trial, you connect your number with your card at Meta, which bills your templates.')}
+          </p>
+          {essaiPro ? (
+            <>
+              <p className="text-sm text-ink-700">
+                {t('Il s’ouvre à la fin de l’essai, ou tout de suite si vous démarrez votre formule Pro maintenant.',
+                  'It opens at the end of the trial, or right away if you start your Pro plan now.')}
+              </p>
+              {admin ? (
+                <div className="flex flex-wrap items-end gap-3">
+                  {choixPlaces}
+                  <DemarrerPro
+                    tenantId={tenantId}
+                    formule={formulePro}
+                    suite={t(`Ensuite, vous réglez l’option Crédit WhatsApp pour ${voulues} numéro${s(voulues)}, ${prixMois(voulues)} € HT par mois, sur la page de paiement de Stripe.`,
+                      `Then you pay for the WhatsApp credit option for ${voulues} number${s(voulues)}, €${prixMois(voulues)} excl. VAT per month, on Stripe’s payment page.`)}
+                    onDemarre={apresDemarrage}
+                    testid="credit-wa-option-demarrer"
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-ink-500" data-testid="credit-wa-option-non-admin">
+                  {t('Un administrateur de votre espace peut démarrer la formule Pro maintenant.', 'An administrator of your workspace can start the Pro plan now.')}
+                </p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-ink-700" data-testid="credit-wa-option-attente">{raisonAttente}</p>
+          )}
+        </div>
+      )}
+      {/* Hors du bloc de l'essai : la relecture qui suit le démarrage le fait disparaître. */}
+      {demarrageEnAttente && (
+        <div className="mt-3">
+          <MbaNotice kind="warning" testid="credit-wa-option-demarrage-attente">
+            {t('Votre essai est arrêté et le premier paiement de votre formule Pro est en cours chez votre banque, qui le confirme sous quelques jours.',
+              'Your trial is over and the first payment of your Pro plan is being processed by your bank, which confirms it within a few days.')}
+          </MbaNotice>
+        </div>
+      )}
+      {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && !attend && (
         <div className="mt-3 flex flex-wrap items-end gap-3">
-          <label className="grid gap-1">
-            <span className="text-xs font-medium text-ink-500">{t('Nombre de numéros', 'How many numbers')}</span>
-            <select
-              className={`${inputClsAuto} bg-white`}
-              value={voulues}
-              onChange={(e) => setVoulues(Number(e.target.value))}
-              data-testid="credit-wa-option-places"
-            >
-              {Array.from({ length: Math.max(1, option.placesMax) }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </label>
+          {choixPlaces}
           <Bouton data-testid="credit-wa-option-prendre" onClick={() => { void prendre(); }} disabled={geste !== null} enCours={geste === 'prendre'}>
             {t(`Prendre l’option, ${prixMois(voulues)} € HT par mois`, `Take the option, €${prixMois(voulues)} excl. VAT per month`)}
           </Bouton>

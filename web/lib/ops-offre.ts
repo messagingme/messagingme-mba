@@ -40,6 +40,18 @@ export const lirePlafondIa = (saisie: string): number | null | 'invalide' => lir
 export const lireUtilisateursBusiness = (saisie: string): number | null | 'invalide' => lireEntier(saisie, 1, 10_000);
 
 /**
+ * La fin de l'essai d'un Business (révision du Crédit WhatsApp, 2026-11-04), saisie AAAA-MM-JJ : minuit UTC de ce jour,
+ * en ISO. Une date vide, mal écrite ou qui n'existe pas (le 30 février) est refusée. L'heure ne décide de rien : seule la
+ * confirmation de l'essai (la case décochée) ouvre l'option Crédit WhatsApp.
+ */
+export const lireFinEssaiBusiness = (saisie: string): string | 'invalide' => {
+  const s = saisie.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return 'invalide';
+  const d = new Date(`${s}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? 'invalide' : d.toISOString();
+};
+
+/**
  * Le retrait d'une offre posée à la main (Business ou Entreprise) laisse-t-il le numéro fourni sans couverture ? Oui quand
  * aucune autre ne la remplace et que le serveur signale un numéro fourni que rien d'autre ne couvre
  * (`alertes.numeroFourniSansCouverture`) : sa fin se lance, suspendu tout de suite puis résilié 7 jours plus tard. L'écran
