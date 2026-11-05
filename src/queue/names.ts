@@ -168,8 +168,17 @@ export const SONDAGE_FILET_NOTIFIE = 60;
  * destinataire de campagne et son journal (`updateDeliveryByMessageId`, `src/campaign/store.pg.ts` ; la garde des
  * deux derniers est posée le même jour, `tests/integration/stores.integration.test.ts`). Une relance de campagne n'en
  * souffre pas : elle remet le statut à zéro et part sous un nouvel identifiant (`resetForRetry`, `basculerEtage`).
+ *
+ * `analyze-conversation` (2026-11-05) : une analyse à la fois par espace (`groupConcurrency: 1`, `src/worker.ts`), puis
+ * le prochain tour de 30 s. Mesuré le 2026-11-04 (`pgboss.job`) : vingt conversations d'un espace prêtes à 11:43:54,
+ * analysées une toutes les 30 s jusqu'à 11:53:46, pour 2,5 s de travail chacune. Le vidage garde les deux plafonds (un
+ * par espace, que pg-boss suit par NOM de file sur toutes les boucles, et `ANALYZE_CONVERSATION_CONCURRENCY` en tout) :
+ * il ne retire que l'attente entre deux analyses. ⚠️ Le débit maximal passe d'environ 6 à 70 analyses par minute, sur
+ * NOTRE clé Anthropic, sans plafond de dépense : une rafale se paie en une heure au lieu de plusieurs jours, pour le même
+ * total. Pas de réveil à l'arrivée (hors de `FILES_NOTIFIEES`, le worker d'analyse n'écoute pas) ni de changement de
+ * cadence : la première analyse d'une rafale attend toujours son tour, les suivantes plus.
  */
-export const FILES_VIDEES_EN_CONTINU: readonly (typeof BASE_QUEUES)[number][] = ['webhook', 'webhook-status'];
+export const FILES_VIDEES_EN_CONTINU: readonly (typeof BASE_QUEUES)[number][] = ['webhook', 'webhook-status', 'analyze-conversation'];
 
 export function videeEnContinu(queue: string): boolean {
   return (FILES_VIDEES_EN_CONTINU as readonly string[]).includes(queue);

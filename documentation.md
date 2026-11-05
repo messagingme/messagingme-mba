@@ -2683,7 +2683,11 @@ sommeil du worker à l'instant (vérifié dans la source de pg-boss et mesuré �
 retente trois fois au démarrage (`ATTENTES_ECOUTE_MS`, `PgBossQueue.start`, avant tout traitement enregistré), et
 seul le dernier échec alerte. Un écouteur établi qui tombe, lui, est rouvert par pg-boss (attente doublée jusqu'à
 30 s), qui réveille alors toutes les boucles des files notifiées ; pendant la coupure, le filet s'applique toujours,
-pas la cadence de base. Seule `webhook` a un filet court
+pas la cadence de base. 🔴 **pg-boss ne le rouvre que sur une ERREUR**, et un écouteur ne fait qu'attendre : coupé d'un
+seul côté, il restait « établi » côté worker pour toujours (vécu le 2026-11-05, absent de la base depuis la nuit,
+chaque entrant à 0,6-4,3 s au lieu de 0,01). La sonde TCP (`SONDE_TCP`, `src/db/sonde-tcp.ts`, 60 s) est posée sur
+les connexions de pg-boss, écouteur compris : une base qui a fermé répond par un refus à la première sonde, un chemin
+muet se voit en une douzaine de minutes, et l'erreur part en alerte Telegram (`queue.onError`). Seule `webhook` a un filet court
 (`FILETS_NOTIFIES`, 5 s), la ceinture du vidage continu ci-dessous ; `agent-turn` garde 60 s, ses douze boucles
 rendraient un filet court coûteux.
 
@@ -2702,6 +2706,17 @@ quatre, sous le compte en cache de la rafale, et la file les prenait un par lect
 paquet, mesuré dans `pgboss.job`). Un paquet attend désormais la lecture suivante, puis se vide d'une traite. Sa
 cadence de 30 s et sa boucle unique ne bougent pas : elle ne prend toujours qu'une connexion, et une grosse campagne se
 vide au rythme de la rafale d'avant. Le vidage ne se déclenche que par `notifyWorker`, indépendant de LISTEN.
+
+`analyze-conversation` l'est aussi (2026-11-05), sans être notifiée : une analyse à la fois par espace puis un tour de
+30 s laissait vingt conversations d'un espace s'analyser en dix minutes, pour 2,5 s de travail chacune. Les deux
+plafonds restent (un par espace, suivi par pg-boss sur toutes les boucles de la file, et
+`ANALYZE_CONVERSATION_CONCURRENCY` en tout). ⚠️ Le débit maximal passe d'environ 6 à 70 analyses par minute, sur notre
+clé Anthropic et sans plafond de dépense : une rafale se paie plus vite, pour le même total. Ce qui suit l'analyse suit
+son rythme : les automations « conversation analysée » et les signaux partent jusqu'à 24 fois par minute et par espace
+(la garde STOP s'applique toujours), la poussée vers HubSpot garde sa cadence de 30 s et absorbe le surplus en file.
+Une panne d'Anthropic de plus de cinq minutes épuise désormais les tentatives de tout l'arriéré (10, 20, 40, 80, 160 s)
+au lieu d'une analyse par tour : pic de file d'échec et d'alertes, sans perte, la conversation restée `queued` étant
+remise en file par le balayage (`reclaimStaleQueued`, `src/analysis/sweep.ts`).
 
 🔴 **CHAQUE FILE PORTE UN BATTEMENT DE CŒUR** (`BATTEMENT_SECONDES`, 20 s, rafraîchi toutes les 5 s pendant le
 traitement), posé par `updateQueue` puisque les files existent. La supervision de pg-boss passe toutes les

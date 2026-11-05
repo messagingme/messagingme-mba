@@ -205,6 +205,22 @@ describe('🔴 le battement de cœur des tâches (banc des trente espaces, 2026-
     expect(etat.reveils).toHaveLength(4);
   });
 
+  it('🔴 l’analyse comme le worker l’enregistre : une boucle par unité, une analyse à la fois par espace, un délai de rejeu (2026-11-05)', async () => {
+    // Les options de `src/worker.ts` (`ANALYZE_CONVERSATION_CONCURRENCY`, groupe = l'espace) : le plafond par espace
+    // reste sur chaque boucle, la cadence de 30 s aussi, et une analyse finie réveille les trois.
+    const q = new PgBossQueue('postgres://u:p@h:5432/db', 'pgboss', { max: 2 });
+    await q.work('analyze-conversation', async () => {}, { concurrency: 3, groupConcurrency: 1 });
+    expect(etat.travaux).toHaveLength(3);
+    for (const [nom, o] of etat.travaux) {
+      expect(nom).toBe('analyze-conversation');
+      expect(o).toMatchObject({ localConcurrency: 1, localGroupConcurrency: 1, pollingIntervalSeconds: 30, batchSize: 1 });
+    }
+    await etat.travaux[0]![2]([{ data: {} }]);
+    expect(etat.reveils).toHaveLength(3);
+    // Sans délai, une analyse en échec serait relue aussitôt et ses rejeux s'enchaîneraient en une seconde.
+    expect(etat.reglages).toContainEqual(['analyze-conversation', { retryDelay: DELAI_REJEU_VIDAGE_SECONDES }]);
+  });
+
   it('🔴 la file des entrants : une boucle par registration, et chaque message traité réveille les trois', async () => {
     const q = new PgBossQueue('postgres://u:p@h:5432/db', 'pgboss', { max: 2 });
     await q.work('webhook', async () => {}, { concurrency: 3, groupConcurrency: 1 });

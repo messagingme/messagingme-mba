@@ -290,7 +290,16 @@ describe('cadence de polling par file', () => {
     expect(videeEnContinu('webhook')).toBe(true);
     expect(filetNotifieSecondes('webhook')).toBeLessThanOrEqual(10);
     // Les autres files ne paient pas un réveil par message sans mesure qui le justifie (`agent-turn` : douze boucles).
-    for (const q of BASE_QUEUES.filter((x) => x !== 'webhook' && x !== 'webhook-status')) expect(videeEnContinu(q), q).toBe(false);
+    const videes = ['webhook', 'webhook-status', 'analyze-conversation'];
+    for (const q of BASE_QUEUES.filter((x) => !videes.includes(x))) expect(videeEnContinu(q), q).toBe(false);
+  });
+
+  it('🔴 l’analyse vide sa file d’un espace sans attendre un tour par conversation, sans réveil ni cadence changés', () => {
+    // Mesuré le 2026-11-04 (`pgboss.job`) : vingt conversations d'un espace, une analysée toutes les 30 s.
+    expect(videeEnContinu('analyze-conversation')).toBe(true);
+    // Le worker d'analyse n'écoute pas les notifications (`ecouteLesFiles`) : la file n'en devient pas une.
+    expect(notifieePour('analyze-conversation')).toBe(false);
+    expect(pollingSecondsFor('analyze-conversation')).toBe(30);
   });
 
   it('🔴 la file des accusés vide son paquet d’un coup, sans être réveillée à l’arrivée', () => {

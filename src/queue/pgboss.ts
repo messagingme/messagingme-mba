@@ -6,6 +6,7 @@ import {
   dlqName, filetNotifieSecondes, notifieePour, pollingSecondsFor, seuilRafalePour, videeEnContinu,
 } from './names';
 import { pgSsl } from '../db/ssl';
+import { SONDE_TCP } from '../db/sonde-tcp';
 import { estUuid } from '../http/scope';
 import { journaliser } from '../lib/journal';
 
@@ -241,6 +242,9 @@ export class PgBossQueue implements Queue {
             connectionString: connexion,
             schema,
             ssl: pgSsl(),
+            // pg-boss passe sa configuration telle quelle à son pool ET à la connexion de son écouteur
+            // (`pg-boss/dist/db.js`) : sans sonde, un écouteur coupé d'un seul côté ne se rouvre jamais (`SONDE_TCP`).
+            ...SONDE_TCP,
             ...poolOptions(opts),
             // La surveillance resserrée va avec le battement de cœur des files (`ensure`) : sans elle, une orpheline
             // attendrait encore jusqu'à deux minutes de plus. Une valeur passée par l'appelant l'emporte, `supervise`
