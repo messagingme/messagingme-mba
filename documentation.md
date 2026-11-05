@@ -3554,9 +3554,14 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   sans prorata, hors session, une clé d'idempotence par demande et un verrou court de 60 s par espace contre le double
   clic. La fin d'essai est notée tout de suite (`noterFinEssai`, seulement vers plus tôt et sur un essai en cours), le
   webhook la réécrit : il recopie `trial_end` quel que soit le statut, et une fin d'essai déjà passée ne recule plus
-  (`modifier`), pour qu'un avis en retard ne rouvre pas l'essai. La facture de l'écourtement est une
-  `subscription_update` du plein prix : non nulle, elle arrête le numéro payé à part comme une première facture de cycle.
-  ⚠️ Avec un code promo à 100 %, elle vaut 0 sans être de cycle, et le numéro payé à part n'est pas arrêté : à la main.
+  (`modifier`), pour qu'un avis en retard ne rouvre pas l'essai. 🔴 La facture de l'écourtement est une
+  `subscription_update`, le motif du prorata d'un siège, mais du plein prix et sans aucune ligne de prorata : une
+  `subscription_update` ne compte comme période payée que si TOUTES ses lignes portent
+  `parent.subscription_item_details.proration = false`. Non nulle, elle arrête alors le numéro payé à part et compte pour
+  nos publicités, comme une première facture de cycle ; une ligne de prorata, une ligne d'un autre parent ou aucune ligne
+  lue la laissent exclue des deux. ⚠️ Avec un code promo à 100 %, elle vaut 0 sans être de cycle, et le numéro payé à
+  part n'est pas arrêté : à la main (le 0 € reste réservé au cycle, pour qu'une mise à jour à 0 € pendant l'essai
+  n'arrête rien).
   ⚠️ **Retour arrière** : une image antérieure à la livraison 6 ignore la métadonnée `essai`. Un essai en cours
   n'y arrêterait plus l'abonnement du numéro payé à part au premier paiement (le client paierait les deux), et une
   session d'essai ouverte avant et payée après arrêterait le numéro dès le début de l'essai. Avant un retour arrière,
@@ -3581,7 +3586,8 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   `customer.subscription.updated` (jamais dans la charge, qui peut être plus ancienne) ; un refus durable de Stripe (4xx,
   réponse illisible) est journalisé et alerté sans bloquer la mise à jour du Pro, une panne passagère le fait rejouer. Un
   `invoice.payment_failed` de `billing_reason = subscription_update` (un prorata refusé) ne met pas le Pro en retard, et un
-  `invoice.paid` de ce motif n'est jamais le premier paiement de l'essai. Un retrait se fait sans prorata ni remboursement,
+  `invoice.paid` de ce motif n'est jamais le premier paiement de l'essai, sauf l'essai écourté, reconnu à ses lignes sans
+  prorata (plus haut). Un retrait se fait sans prorata ni remboursement,
   refusé tant que les membres actifs dépassent 3 plus la cible ; une ligne de siège posée à la main chez Stripe (deux
   lignes, ou l'autre formule) est refusée en 409 `sieges_a_regler`.
   ⚠️ **Les lignes de siège se reconnaissent à leur PRIX** (`STRIPE_PRIX_SIEGE_*`) : changer ces identifiants sans migrer les

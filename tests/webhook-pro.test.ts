@@ -380,6 +380,36 @@ describe('l’essai de 14 jours du Pro', () => {
     expect(cap.modifs).toEqual([expect.objectContaining({ abonnementId: 'sub_pro', essaiFinLe: new Date(ecourte * 1000) })]);
   });
 
+  // Les lignes d'une facture telles que Stripe les écrit depuis la version « basil » : le prorata se lit sur leur parent.
+  const ligneAbonnement = (proration: boolean) => ({
+    id: `il_${proration ? 'prorata' : 'periode'}`, period: { start: FIN - 2_592_000, end: FIN },
+    parent: { type: 'subscription_item_details', subscription_item_details: { invoice_item: null, proration, subscription: 'sub_pro', subscription_item: 'si_pro' } },
+  });
+  const ligneElement = { id: 'il_element', period: { start: FIN - 2_592_000, end: FIN }, parent: { type: 'invoice_item_details', invoice_item_details: { invoice_item: 'ii_1', proration: true, subscription: 'sub_pro' } } };
+  const essaiPro = { type: 'subscription_details', subscription_details: { subscription: 'sub_pro', metadata: META_ESSAI } };
+  const factureMiseAJour = (id: string, lignes: unknown[]) =>
+    facturePro({ id, amount_paid: 4900, billing_reason: 'subscription_update', parent: essaiPro, lines: { object: 'list', data: lignes } });
+
+  it('🔴 la facture d’un essai écourté (`subscription_update` du plein prix, sans prorata) arrête le numéro seul et compte pour nos publicités', async () => {
+    // Le rouge de la relecture du lot A (révision du 2026-11-04) : `trial_end=now` facture la première période en
+    // `subscription_update`, que la règle du prorata de siège excluait. Le numéro payé à part restait prélevé, en silence.
+    const { srv, cap } = monter({ connus: ['sub_pro'] });
+    await envoyer(srv, evenement(factureMiseAJour('in_ecourte', [ligneAbonnement(false)]), 'invoice.paid'));
+    expect(cap.passages).toEqual([{ tenantId: T1, arreter: true }]);
+    expect(cap.pros).toEqual([{ tenantId: T1, montantCentimes: 4900, devise: 'EUR' }]);
+  });
+
+  it('🔴 une `subscription_update` dont une ligne est un prorata, ou dont les lignes ne disent rien, reste exclue des deux', async () => {
+    const { srv, cap } = monter({ connus: ['sub_pro'] });
+    // Le prorata d'un siège, sous ses deux formes de parent, seul ou mêlé à une ligne de période.
+    await envoyer(srv, evenement(factureMiseAJour('in_siege', [ligneAbonnement(true), ligneAbonnement(true)]), 'invoice.paid'));
+    await envoyer(srv, evenement(factureMiseAJour('in_mele', [ligneAbonnement(false), ligneAbonnement(true)]), 'invoice.paid'));
+    await envoyer(srv, evenement(factureMiseAJour('in_element', [ligneAbonnement(false), ligneElement]), 'invoice.paid'));
+    // Aucune ligne lue : on ne sait pas, donc rien ne s'arrête.
+    await envoyer(srv, evenement(factureMiseAJour('in_vide', []), 'invoice.paid'));
+    expect([cap.passages, cap.pros]).toEqual([[], []]);
+  });
+
   it('hors essai, une facture payée d’un Pro connu n’arrête rien de plus : le numéro seul l’a été au passage', async () => {
     const { srv, cap } = monter({ connus: ['sub_pro'] });
     await envoyer(srv, evenement(facturePro({ amount_paid: 4900 }), 'invoice.paid'));

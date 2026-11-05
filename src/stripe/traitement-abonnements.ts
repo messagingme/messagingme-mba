@@ -141,7 +141,15 @@ const factureSchema = z.object({
       metadata: z.record(z.string(), z.string()).nullable().optional(),
     }).nullable().optional(),
   }).nullable().optional(),
-  lines: z.object({ data: z.array(z.object({ period: z.object({ end: z.number().int() }).optional() })) }).optional(),
+  lines: z.object({
+    data: z.array(z.object({
+      period: z.object({ end: z.number().int() }).optional(),
+      /** Ce qui a produit la ligne (version « basil » et après) : un prorata le dit sur son parent, une période non. */
+      parent: z.object({
+        subscription_item_details: z.object({ proration: z.boolean().optional() }).nullable().optional(),
+      }).nullable().optional(),
+    })),
+  }).optional(),
   /** Le montant réellement payé, en centimes : 0 pour la facture qui ouvre un essai (spec offres v2). */
   amount_paid: z.number().int().optional(),
   /** La devise de la facture, en minuscules chez Stripe (`eur`). */
@@ -450,7 +458,15 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     // Un essai abandonné ne produit jamais de facture de cycle payée.
     // Le prorata d'un siège (`subscription_update`, livraison 7) n'est jamais le premier paiement du Pro : pendant l'essai il
     // vaut 0 €, mais on ne le confie pas à Stripe (Y12 de la relecture).
-    const payeeNonNulle = lu.data.billing_reason !== 'subscription_update'
+    // 🔴 Sauf l'essai ÉCOURTÉ (`trial_end=now`, révision du 2026-11-04) : Stripe facture sa première période en
+    // `subscription_update` aussi, mais au plein prix et sans aucune ligne de prorata. Une `subscription_update` ne compte
+    // donc comme période payée que si TOUTES ses lignes disent n'être pas un prorata ; une ligne de prorata (siège), une
+    // ligne d'un autre parent ou aucune ligne lue la laissent exclue, comme avant. Le 0 € reste réservé au cycle : une mise
+    // à jour à 0 € pendant l'essai n'arrête rien.
+    const lignes = lu.data.lines?.data ?? [];
+    const periodeSansProrata = lignes.length > 0 && lignes.every((l) => l.parent?.subscription_item_details?.proration === false);
+    const paiementDePeriode = lu.data.billing_reason !== 'subscription_update' || periodeSansProrata;
+    const payeeNonNulle = paiementDePeriode
       && ((lu.data.amount_paid ?? 0) > 0 || lu.data.billing_reason === 'subscription_cycle');
     // Une facture peut arriver avant la session Checkout : elle suffit alors à enregistrer le Pro.
     const paye = await deps.pro.majStatut(abonnementId, 'actif', finFacture);
@@ -466,9 +482,9 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       }, estEssai(meta.data) && !payeeNonNulle);
     }
     // La conversion de nos publicités : un paiement RÉEL, jamais la facture à 0 € d'un essai ou d'un code promo à 100 %, ni
-    // le prorata d'un siège. Après l'enregistrement : le fait suit le paiement qu'il raconte.
+    // le prorata d'un siège ; l'essai écourté, lui, en est un. Après l'enregistrement : le fait suit le paiement qu'il raconte.
     const montant = lu.data.amount_paid ?? 0;
-    if (montant > 0 && lu.data.billing_reason !== 'subscription_update') {
+    if (montant > 0 && paiementDePeriode) {
       await deps.signalerPro({ tenantId: paye?.tenantId ?? meta.data.tenant_id, montantCentimes: montant, devise: (lu.data.currency ?? 'eur').toUpperCase() });
     }
     return ACQUITTE;
