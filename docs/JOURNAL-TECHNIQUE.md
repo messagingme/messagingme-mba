@@ -39,7 +39,7 @@ qui a déjà un mot de passe donne l'actuel ; pas de mesure en production avant 
   rouge par son test. Une fusion avec l'annonce Telegram des espaces nés, ajoutée le même jour dans
   `confirmerInscription`.
 - **La relecture** : aucun rouge ; ses jaunes utiles corrigés avant la poussée, les autres suivis avec le lot suivant.
-  L'essai réel est le n° 221 (`docs/prive/ESSAIS-REELS.md`).
+  L'essai réel est le n° 230 (`docs/prive/ESSAIS-REELS.md`).
 
 ## 2026-11-06 : Google Analytics sur la vitrine, dans la bannière du pixel, usage par usage
 
