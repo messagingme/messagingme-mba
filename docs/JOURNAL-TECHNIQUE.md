@@ -23,6 +23,10 @@ une skill serait faux au trimestre suivant).
   gagne « Utility ou marketing : qu'est-ce qui décide ? », publiée aussi sur les deux pages Développeurs.
 - **Restent dehors** : la formule Pro et l'option Crédit WhatsApp (pas en vente ; le lot B du Crédit WhatsApp pose
   « Qui paie vos messages à Meta ? »).
+- **En production le 2026-11-06** : `80a628ba`, run 42252318392, `migration=aucune`, après le lot B du Crédit
+  WhatsApp (`2f0b000a`) ; l'API et les trois conteneurs de la machine relus sur `80a628ba`, `/health` à 200, et
+  `prixMetaFrance` relu en production par le vrai code (lecture seule) : marketing 0,0712 €, utility, authentification
+  et service 0,0248 €, grille du 2026-10-01.
 - **Tests dans les deux sens** : le marché ignoré, le palier ignoré, la catégorie de la création forcée à marketing :
   chacune des trois mutations fait rougir son test.
 - **Au passage, la 0280 relue en production** (après le déploiement commun de `60b4812b`, en lecture seule par le vrai
