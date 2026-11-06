@@ -98,6 +98,7 @@ import { registerHubspotImport } from './http/hubspot-import';
 import { registerHubspotPipelines } from './http/hubspot-pipelines';
 import { registerHubspotInstall } from './http/hubspot-install';
 import { registerHubspotChoix } from './http/hubspot-choix';
+import { registerHubspotInbox, type HubspotInboxRouteDeps } from './http/hubspot-inbox';
 import { registerHubspotChamps } from './http/hubspot-champs';
 import { registerLinks } from './http/links';
 import { registerWebhookEntrant } from './http/webhook-entrant';
@@ -462,6 +463,11 @@ export interface ServerDeps {
    * toujours permis (un espace descendu d'offre), la route refuse elle-même d'ALLUMER ce que l'offre n'ouvre pas.
    */
   hubspotChoix?: HubspotChoixRouteDeps;
+  /**
+   * Les conversations dans l'Inbox HubSpot (lot 1 de l'Inbox), réservé aux admins. SANS garde d'offre au montage, comme
+   * le choix : débrancher est toujours permis, la route refuse elle-même de BRANCHER sans la fonction.
+   */
+  hubspotInbox?: HubspotInboxRouteDeps;
   /**
    * Les champs HubSpot à importer sur les fiches (lot 2 du 2026-11-02), réservés aux admins, sous l'offre qui relie
    * HubSpot. La liste vit chez le connecteur.
@@ -904,6 +910,7 @@ export function modulesDeRoutes(
     entree('hubspotImport', 'tenant', deps.hubspotImport, (app, d, g) => registerHubspotImport(app, d, g.admin), toutes('crm')),
     entree('hubspotInstall', 'tenant', deps.hubspotInstall, (app, d, g) => registerHubspotInstall(app, d, g.admin), toutes('crm')),
     entree('hubspotChoix', 'tenant', deps.hubspotChoix, (app, d, g) => registerHubspotChoix(app, d, g.admin)),
+    entree('hubspotInbox', 'tenant', deps.hubspotInbox, (app, d, g) => registerHubspotInbox(app, d, g.admin)),
     entree('hubspotChamps', 'tenant', deps.hubspotChamps, (app, d, g) => registerHubspotChamps(app, d, g.admin), toutes('crm')),
     entree('hubspotPipelines', 'tenant', deps.hubspotPipelines, (app, d, g) => registerHubspotPipelines(app, d, g.admin), toutes('crm')),
     entree('mba', 'tenant', deps.mba, (app, d, g) => registerMba(app, d, g.admin), toutes('agent_meta')),

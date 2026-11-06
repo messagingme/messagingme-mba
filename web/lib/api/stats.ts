@@ -911,3 +911,22 @@ export function setTimezone(tenantId: string, timezone: string): Promise<{ timez
 export function setBusinessHours(tenantId: string, businessHours: BusinessHours, opts?: { keepalive?: boolean }): Promise<{ businessHours: BusinessHours }> {
   return request(`/tenants/${tenantId}/settings/business-hours`, { method: 'PATCH', body: JSON.stringify({ businessHours }), ...(opts?.keepalive ? { keepalive: true } : {}) });
 }
+
+/** Les conversations dans l'Inbox HubSpot (lot 1 de l'Inbox) : la boîte branchée et celles du portail. */
+export type RaisonInboxHubspot = 'portees_inbox_manquantes' | 'hubspot_non_relie' | 'connecteur_indisponible' | 'sans_numero';
+export interface InboxHubspot {
+  boite: string | null;
+  ligne: string | null;
+  boites: Array<{ id: string; nom: string; type: string | null }> | null;
+  raison: RaisonInboxHubspot | null;
+}
+
+/** La boîte branchée et les boîtes du portail (admin). Une API trop ancienne rend 404 : l'écran cache alors le bloc. */
+export function getInboxHubspot(tenantId: string): Promise<InboxHubspot> {
+  return request(`/tenants/${tenantId}/hubspot/inbox`);
+}
+
+/** Branche la ligne WhatsApp sur une boîte, ou la débranche (`null`). 409 et 502 portent `error` (une raison). */
+export function putInboxHubspot(tenantId: string, inboxId: string | null): Promise<{ boite: string | null }> {
+  return request(`/tenants/${tenantId}/hubspot/inbox`, { method: 'PUT', body: JSON.stringify({ inboxId }) });
+}

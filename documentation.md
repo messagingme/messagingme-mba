@@ -3146,6 +3146,20 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   l'agenda », qui demande `POST /tenants/:id/hubspot/install-link` avec le grant `devis` (`ALLOWED_GRANTS`) : le
   connecteur redemande TOUTES les portées facultatives à chaque grant. 🔴 Le lien est public (quiconque l'a voit le
   devis) : aucun journal ne le porte.
+- **Les conversations WhatsApp dans l'Inbox HubSpot** (lot 1 du plan `~/mm-hubspot/docs/2026-11-06-inbox-hubspot-lot1-plan.md`,
+  migration 0283, `src/hubspot/inbox.ts`, `src/http/hubspot-inbox.ts`). L'admin choisit, dans Tools > Intégrations > HubSpot,
+  la boîte de réception où la ligne WhatsApp de l'espace (son PREMIER numéro, la règle de `getEtatPassage`) est branchée ;
+  le connecteur crée le compte de canal du canal personnalisé « WhatsApp (Messaging Me) » (`PUT /tenants/:id/hubspot/inbox`,
+  qui n'écrit `hubspot_inbox_boite` qu'APRÈS la réponse du connecteur ; brancher exige la fonction `inbox`, débrancher
+  jamais). Il faut au portail les trois portées `conversations.*`, que seul Sales Hub ou Service Hub Pro accorde. La
+  minuterie `hubspot-inbox` (15 s, rôle `principal`) relit `conversation_messages` des espaces branchés après leur curseur
+  (`hubspot_inbox_curseur_le`, `hubspot_inbox_curseur_id`, l'ordre du balayage, lu et écrit en TEXTE à la microseconde : un `Date`
+  le tronquerait et ferait republier le dernier message à chaque tour ; il ne recule jamais) jusqu'à `now() - 30 s`, et pousse au plus
+  50 messages par espace et par tour (`POST /service/inbox/messages`) ; le curseur n'avance qu'après un lot accepté, et
+  HubSpot déduplique un lot rejoué par l'identifiant du message. 🔴 Aucun chemin d'envoi n'est touché : c'est une
+  RELECTURE. Sans rattrapage : une ligne non reliée ou en pause, un portail sans portées, ou rien d'arrivé, et le curseur
+  avance à la borne. Un contact connu par son seul BSUID n'est pas publié (le canal identifie par numéro). Le connecteur
+  qui n'a plus de compte de canal (portail délié) fait débrancher l'espace ici aussi.
 - **Le changement d'étape d'un deal HubSpot** (`POST /hubspot/deal-stage`, `src/http/hubspot-events.ts`, lot 3a du plan
   `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, décisions 5 et 7). Dans l'ordre, après la signature
   et le `safeParse` : 🔴 la ligne « Automations HubSpot » (`tenant_settings.hubspot_automations`, migration 0270, lue

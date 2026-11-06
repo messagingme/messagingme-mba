@@ -8,6 +8,7 @@ import { cardCls } from '@/lib/ui';
 import { Toggle } from '@/components/Toggle';
 import { Bouton } from '@/components/Bouton';
 import { ChampsHubspot } from '@/components/ChampsHubspot';
+import { InboxHubspot } from '@/components/InboxHubspot';
 import { useInstallationHubspot } from '@/lib/hubspot-installation';
 import { useOffre } from '@/lib/use-offre';
 import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, envoyerAutomations } from '@/lib/hubspot-choix';
@@ -333,6 +334,9 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
           {/* Les champs à importer : seulement une fois le choix enregistré, workflows ou automations allumés (lots 2 et 3a
               du 2026-11-02, décision 1). */}
           {etape === 'regle' && (choix.workflows || choix.automations) && <ChampsHubspot tenantId={tenantId} />}
+
+          {/* Les conversations dans l'Inbox HubSpot (lot 1 de l'Inbox) : une fois le choix enregistré. */}
+          {etape === 'regle' && <InboxHubspot tenantId={tenantId} />}
 
           {tachesNonAppliquees && (
             <p className="mt-3 text-sm text-danger" role="alert" data-testid="integration-hubspot-taches-non-appliquees">

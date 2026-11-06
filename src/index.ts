@@ -114,6 +114,9 @@ import { effacerContacts } from './crm/effacement';
 import { signalDeLAccuse, signalDuClic } from './signaux/emetteur';
 import { plafondLePlusBas } from './campaign/pacing';
 import { fetchHubspotLists, importHubspotList, disconnectHubspot, fetchHubspotDealStages, lireHubspotPortal, poserModeTaches, lireChampsHubspot, poserChampsHubspot } from './crm/hubspot-service';
+import { lireBoitesInbox, brancherInbox, debrancherInbox } from './crm/hubspot-service';
+import { PgInboxHubspotStore } from './hubspot/inbox';
+import type { HubspotInboxRouteDeps } from './http/hubspot-inbox';
 import type { HubspotChoixRouteDeps } from './http/hubspot-choix';
 import type { HubspotChampsRouteDeps } from './http/hubspot-champs';
 import type { HubspotEventRouteDeps } from './http/hubspot-events';
@@ -2391,6 +2394,16 @@ async function main(): Promise<void> {
             allumerSynchro: async (phoneNumberId: string, t: string) => { await phoneStatusStore.setHubspotConnected(phoneNumberId, t, true); },
             poserModeTaches: (t: string, mode: ModeTaches) => poserModeTaches(hubspotSuppression, t, mode),
           } satisfies HubspotChoixRouteDeps,
+          // Les conversations dans l'Inbox HubSpot (lot 1 de l'Inbox) : choisir la boîte où la ligne WhatsApp est branchée.
+          hubspotInbox: {
+            store: new PgInboxHubspotStore(pool),
+            fonctions: async (t: string) => (await offres.offreDe(t)).droits.fonctions,
+            connecteur: {
+              boites: (t: string) => lireBoitesInbox(hubspotSuppression, t),
+              brancher: (c: { tenantId: string; ligne: string; inboxId: string; nom: string }) => brancherInbox(hubspotSuppression, c),
+              debrancher: (c: { tenantId: string; ligne: string }) => debrancherInbox(hubspotSuppression, c),
+            },
+          } satisfies HubspotInboxRouteDeps,
           // Les champs HubSpot à importer (lot 2 du 2026-11-02) : la liste vit chez le connecteur, les champs de fiche
           // sont déclarés ici AVANT qu'elle y soit posée. Tenu par `tests/hubspot-workflow-cablage.test.ts`.
           hubspotChamps: {

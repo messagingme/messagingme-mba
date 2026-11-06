@@ -439,3 +439,87 @@ export async function ecrireChampContactHubspot(
     case 'refuse': return { issue: 'echec', motif: `HubSpot refuse la valeur${r.data.message ? ` : ${r.data.message}` : ''}` };
   }
 }
+
+/*
+ * L'INBOX HUBSPOT (lot 1 de l'Inbox, tâche 6 du plan `~/mm-hubspot/docs/2026-11-06-inbox-hubspot-lot1-plan.md`). Le
+ * connecteur porte le canal personnalisé « WhatsApp (Messaging Me) » ; mba lui dit quelle boîte brancher et lui pousse
+ * les messages. Les quatre routes exigent les trois portées `conversations.*` du portail (409
+ * `portees_inbox_manquantes` sinon), qu'un admin accorde par la réautorisation habituelle (`grant=lists`, qui
+ * redemande toutes les portées facultatives).
+ */
+
+/** Une boîte de réception du portail, pour le menu de la console. */
+export interface BoiteInbox { id: string; nom: string; type: string | null }
+
+const reponseBoites = z.object({ boites: z.array(z.object({ id: z.string(), nom: z.string(), type: z.string().nullable() })) });
+
+/** Les boîtes du portail. Un seul essai sous 8 s (un affichage n'attend pas les reprises) ; tout échec LÈVE. */
+export async function lireBoitesInbox(deps: ConnectorDeps, tenantId: string): Promise<BoiteInbox[]> {
+  const r = reponseBoites.safeParse(await callService<unknown>(deps, '/service/inbox/boites', { tenantId }, 8_000));
+  if (!r.success) throw new HubspotServiceError(502, 'reponse_illisible', false);
+  return r.data.boites;
+}
+
+/**
+ * Branche la ligne WhatsApp de l'espace sur une boîte : le connecteur crée le compte de canal (ou rend celui qui
+ * existe pour cette boîte). Un seul essai sous 25 s (le connecteur endormi met ~16 s à se réveiller), c'est un geste de la console ; tout échec LÈVE
+ * (`HubspotServiceError` 409 `deja_branche` si la ligne l'est sur une autre boîte).
+ */
+export async function brancherInbox(
+  deps: ConnectorDeps,
+  corps: { tenantId: string; ligne: string; inboxId: string; nom: string },
+): Promise<void> {
+  await callService<unknown>(deps, '/service/inbox/brancher', corps, 25_000);
+}
+
+/** Débranche la ligne : le connecteur désautorise le compte de canal et l'oublie. Idempotent ; tout échec LÈVE. */
+export async function debrancherInbox(deps: ConnectorDeps, corps: { tenantId: string; ligne: string }): Promise<void> {
+  await callService<unknown>(deps, '/service/inbox/debrancher', corps, 25_000);
+}
+
+/** Un message poussé au connecteur : `id` (uuid de `conversation_messages`) est la clé d'idempotence chez HubSpot. */
+export interface MessageInboxHubspot {
+  id: string;
+  conversationId: string;
+  sens: 'in' | 'out';
+  texte: string;
+  le: string;
+  contactE164: string;
+  contactNom: string | null;
+  expediteur: string | null;
+}
+
+/**
+ * L'issue d'un lot poussé. `fait` : publié (les refus propres à un message sont dans `refuses`, ils ne se rejouent pas).
+ * `non_branche` : le connecteur n'a pas de compte de canal pour la ligne. `non_relie` : l'espace n'a plus de portail.
+ * `portees` : le portail n'a pas (ou plus) les portées de l'Inbox. `refuse` : un autre 4xx, terminal.
+ */
+export type IssueInbox =
+  | { issue: 'fait'; publies: number; refuses: number }
+  | { issue: 'non_branche' }
+  | { issue: 'non_relie' }
+  | { issue: 'portees' }
+  | { issue: 'refuse'; status: number; code: string | undefined };
+
+const reponseMessages = z.object({ publies: z.number(), refuses: z.array(z.unknown()) });
+
+/** Pousse un lot (50 au plus). 429, 5xx et réseau sont rejoués ici, puis LÈVENT : le balayage suivant rejoue le lot. */
+export async function pousserMessagesInbox(
+  deps: ConnectorDeps,
+  corps: { tenantId: string; ligne: string; messages: MessageInboxHubspot[] },
+): Promise<IssueInbox> {
+  let reponse: unknown;
+  try {
+    reponse = await callService<unknown>(deps, '/service/inbox/messages', corps);
+  } catch (err) {
+    if (err instanceof HubspotServiceError && !err.retryable) {
+      if (err.status === 404 && err.code === 'ligne_non_branchee') return { issue: 'non_branche' };
+      if (err.status === 404 && err.code === 'tenant_not_connected') return { issue: 'non_relie' };
+      if (err.status === 409 && err.code === 'portees_inbox_manquantes') return { issue: 'portees' };
+      return { issue: 'refuse', status: err.status, code: err.code };
+    }
+    throw err;
+  }
+  const r = reponseMessages.safeParse(reponse);
+  return r.success ? { issue: 'fait', publies: r.data.publies, refuses: r.data.refuses.length } : { issue: 'fait', publies: 0, refuses: 0 };
+}

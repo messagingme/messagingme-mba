@@ -43,7 +43,8 @@ import { assignerReponse } from './inbox/assignation-campagne';
 import { arriveeParWidget } from './widgets/arrivee';
 import { relanceurDeCampagnes } from './campaign/enqueue';
 import { plafondDuCanal, plafondLePlusBas } from './campaign/pacing';
-import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff } from './crm/hubspot-service';
+import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff, pousserMessagesInbox } from './crm/hubspot-service';
+import { balayerInbox, PgInboxHubspotStore } from './hubspot/inbox';
 import { DUREE_CLE_IDEMPOTENCE_MS } from './api/idempotence';
 import { PgArriveesPubStore } from './pubs/arrivees.pg';
 import { PgTarifsMetaStore } from './pubs/tarifs-meta.pg';
@@ -1194,6 +1195,16 @@ export async function demarrerWorker(): Promise<void> {
       enfilerRelance: (job) => queue.enqueue('push-handoff', job),
       relanceMinutes: config.HUBSPOT_RELANCE_EQUIPE_MINUTES,
     }), { enEchec: echecDeBalayage('hubspot-clotures', 'sweeper:hubspot-clotures') });
+    /**
+     * L'Inbox HubSpot (lot 1 de l'Inbox, 2026-11-06) : toutes les 15 s, les messages WhatsApp des espaces qui ont branché
+     * une boîte partent au connecteur, qui les publie dans le fil de leur conversation. Le connecteur n'est appelé que s'il
+     * y a des messages : un espace silencieux ne le réveille pas. Deux copies qui balaient ensemble publieraient le même
+     * lot deux fois, ce que HubSpot déduplique par l'identifiant du message.
+     */
+    taches.programmer('hubspot-inbox', 15_000, () => balayerInbox({
+      store: new PgInboxHubspotStore(pool),
+      pousser: (corps) => pousserMessagesInbox(connecteurHubspot, corps),
+    }), { enEchec: echecDeBalayage('hubspot-inbox', 'sweeper:hubspot-inbox') });
   }
 
   // File analyze-conversation : inerte tant que CONVERSATION_ANALYSIS_ENABLED != 'true' (aucun worker, aucun

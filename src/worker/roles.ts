@@ -91,6 +91,8 @@ export const TACHES_PAR_ROLE: Record<string, Appartenance> = {
   'abonnements-numero': 'principal',
   // La clôture des tâches HubSpot et la relance (lot 2b de la reprise humaine, 2026-10-26).
   'hubspot-clotures': 'principal',
+  // L'Inbox HubSpot : les messages des espaces branchés partent au connecteur (2026-11-06).
+  'hubspot-inbox': 'principal',
   // La mise en sommeil des comptes de l'application WhatsApp Business (2026-10-22).
   'application-sommeil': 'principal',
   'agregats-analyse': 'principal',
