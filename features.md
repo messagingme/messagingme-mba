@@ -322,7 +322,8 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   - **Sur la vitrine**, une bannière demande l'accord avant tout : « Refuser » et « Accepter » ont le même poids, Meta
     (Facebook) est nommé, le choix est retenu six mois, et « Gérer les cookies », au pied de chaque page, le rouvre.
     Sans accord, rien ne part chez Meta. Avec, le pixel compte les pages vues, et un clic vers la console lui passe de
-    quoi relier l'inscription à la publicité. Inerte tant que l'identifiant du pixel n'est pas posé.
+    quoi relier l'inscription à la publicité. Allumé depuis le 2026-11-02 (pixel `430064039366684`) ; au téléphone,
+    la bannière passe au-dessus de la bulle WhatsApp, pour qu'« Accepter » reste à portée de doigt.
   - **À la création d'un compte**, une case **décochée** : « J'accepte que Messaging Me transmette à Meta (Facebook)
     mon inscription, la connexion de mon premier numéro WhatsApp et mon premier paiement… ». Par Google, sur `/signup`
     ou `/autoriser` (le parcours du plugin) ; par e-mail, sur la page du lien reçu dans la boîte (2026-11-05), là où
@@ -333,7 +334,7 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   - **Ce qui part chez Meta**, par notre serveur, une fois chacun : l'inscription, le premier numéro connecté d'un
     espace, le premier paiement d'une offre. Un fait antérieur à l'accord ne part jamais. L'adresse e-mail, sous une
     forme non lisible, ne part que si elle est prouvée : par Google, ou par le lien d'inscription reçu dans la boîte.
-    Inerte tant que les variables de Meta ne sont pas posées.
+    Allumé depuis le 2026-11-02.
 
 ## Comptes & authentification
 

@@ -1,6 +1,6 @@
 ---
 source_section: Le pixel Meta et l'accord publicitaire
-source_empreinte: 0a0294
+source_empreinte: f14092
 ---
 # Que partage Messaging Me avec Meta, et comment le retirer ?
 

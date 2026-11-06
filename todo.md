@@ -171,8 +171,6 @@
 
 ## Le pixel Meta : la suite (plan `docs/superpowers/plans/2026-10-30-pixel-meta.md`, les trois lots en production)
 
-- **À Julien, `aide:charger`** : la fiche d'aide neuve `partager-mes-etapes-avec-meta` (comparer `docs/aide` à origin
-  avant, pour ne pas défaire le chargement d'un pair).
 - **La vitrine est allumée depuis le 2026-11-02** (pixel `430064039366684`, la bannière des cookies s'affiche).
   Julien a choisi d'allumer sans attendre la politique de cookies et de confidentialité de `www.messagingme.fr`, que
   Nawel met à jour : la bannière y renvoie, la page doit nommer le pixel de Meta et ses trois usages. La Conversions
