@@ -51,7 +51,7 @@ Bundler` sans extensions). Plus de script `build` ni `start` à la racine : le c
 ⚠️ **La CI `unit` lance aussi l'auto-attaque** (`npx tsx scripts/auto-attaque.mts`), que `npm test` ne couvre pas.
 Un module de routes ajouté au registre hors classe `tenant` doit déclarer sa fausse autorité dans
 `FAUSSES_AUTORITES`, sinon le job est rouge alors que tout est vert en local (vécu le 2026-09-30) : la lancer en
-local avant de pousser.
+local avant de pousser. ⚠️ Et `npm run lint` aussi : ses suppressions sont COMPTÉES par fichier, une violation de plus y fait ressortir toutes les autres (vécu le 2026-11-06).
 
 ## Déploiement
 

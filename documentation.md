@@ -3087,6 +3087,18 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   une automation correspond, ci-dessous). Pannes du connecteur : réveil (délai de
   `DELAI_CHAMPS_MS`, `ConnecteurEnReveil`) et route absente (404 sans `tenant_not_connected`, `ConnecteurPasAJour`)
   rendent 503 avec leur code, l'écran dit « connexion en cours » ou « mise à jour en cours », jamais « aucun champ ».
+- **Un parcours qui écrit un champ HubSpot du CONTACT le remonte** (cadrage
+  `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`) : les écritures de fiche de l'exécuteur (`setField`,
+  `clearField`) sont enveloppées dans le câblage par `avecRemonteeHubspot` (`src/hubspot-workflow/remontee.ts`,
+  `src/workflow/wiring.ts`), l'exécuteur ne sait rien de HubSpot. Une clé `hs_contact_<p>` part au connecteur
+  (`ecrireChampContactHubspot`, `POST /service/champs/ecrire`, un essai sous `DELAI_ECRITURE_CHAMP_MS`), qui trouve le
+  contact par `searchByPhone`, sans création. 🔴 Le miroir ne s'écrit qu'après `ecrit` ; un refus ou une panne laisse la
+  fiche telle quelle et va au journal des échecs de scénario (`workflow_advance_failures`), le parcours continue. Fiche
+  SEULE, comme avant : champ retiré de la liste (`non_choisi`), espace sans portail (404 `tenant_not_connected`), route
+  absente (le 404 de Fastify, `error: 'Not Found'`), contact absent de HubSpot ou sans numéro. `portal_disconnected` et
+  tout autre 404 sont des échecs visibles. 🔴 Une valeur VIDE écrite par `setField` (un Appel API ou une Fonction JS en
+  échec vide son champ) ne remonte jamais ; seul `clearField` vide la propriété. `hs_deal_*` et `hs_calc_*` restent
+  locaux, comme la saisie dans la console, l'API publique et le MCP.
 - **Le lien et le PDF du devis** (cadrage `~/mm-hubspot/docs/2026-11-02-lien-du-devis-cadrage.md`, décisions 1 à 5) :
   deux calculés de plus, `lien_devis` (`hs_quote_link`, la page publique du devis) et `pdf_devis`
   (`hs_pdf_download_link`), clés `hs_calc_lien_devis` et `hs_calc_pdf_devis`, type `url`. C'est le CONNECTEUR qui
