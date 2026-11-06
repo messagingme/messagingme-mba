@@ -76,6 +76,7 @@ const RAISON_REFUS: Variable = { description: 'La raison du refus, telle que Met
 /** La limite de contacts du Pro, lue dans la grille (`DROITS.pro`), que l'e-mail de la Free cite (spec offres v2, livraison 5). */
 const LIMITE_PRO: Variable = { description: 'La limite de contacts de l’offre Pro', forme: 'texte', exemple: '5000' };
 const LIEN_CONSOLE: Variable = { description: 'L’accueil de la console', forme: 'lien', exemple: 'https://console.messagingme.app/accueil' };
+const LIEN_SUPPORT: Variable = { description: 'La page Support de la console', forme: 'lien', exemple: 'https://console.messagingme.app/support' };
 const NUMERO_APPLICATION: Variable = { description: 'Le numéro du compte de l’application WhatsApp Business', forme: 'texte', exemple: '+447700900000' };
 
 export const CATALOGUE = [
@@ -419,6 +420,89 @@ export const CATALOGUE = [
           + 'longer included it, for example after a Pro plan trial ended. We have cancelled it: its numbers do not send '
           + 'through the WhatsApp credit.\n\nFor any question about this payment, contact us from the console Support.',
         bouton: { libelle: 'See my plan', lien: '{{lien_offre}}' },
+      },
+    },
+  },
+  {
+    // La conversion (révision du 2026-11-04, lot C, moment 2 ; textes validés par Julien le 2026-11-06) : la formule de
+    // l'espace devient payée, l'option en vente. Le prix est celui de l'option (`PRIX_OPTION_WA_HT_CENTIMES`, tenu égal par
+    // `tests/credit-whatsapp-conversion.test.ts`).
+    cle: 'ligne_credit_disponible',
+    categorie: 'service',
+    nom: 'Crédit WhatsApp disponible',
+    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) et l’option Crédit WhatsApp est en vente. Une fois par espace.',
+    variables: { lien_numero: LIEN_NUMERO },
+    textes: {
+      fr: {
+        sujet: 'Vos messages WhatsApp, payés chez Messaging Me',
+        corps: 'Bonjour,\n\nLa formule de l’espace {{espace}} est active : vous pouvez maintenant payer vos messages WhatsApp '
+          + 'chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois.\n\nUn numéro connecté sans '
+          + 'l’application WhatsApp Business garde ses conversations, ses modèles sont recopiés, et leur qualité repart de '
+          + 'zéro ; un numéro qui garde l’application reste sur votre carte chez Meta.',
+        bouton: { libelle: 'Prendre l’option', lien: '{{lien_numero}}' },
+      },
+      en: {
+        sujet: 'Your WhatsApp messages, paid at Messaging Me',
+        corps: 'Hello,\n\nThe plan of the {{espace}} workspace is active: you can now pay for your WhatsApp messages at '
+          + 'Messaging Me, with no card at Meta, €30 excl. VAT per number per month.\n\nA number connected without the '
+          + 'WhatsApp Business app keeps its conversations, its templates are copied over, and their quality starts again '
+          + 'from zero; a number that keeps the app stays on your card at Meta.',
+        bouton: { libelle: 'Take the option', lien: '{{lien_numero}}' },
+      },
+    },
+  },
+  {
+    // Le même moment HORS VENTE (décision de Julien du 2026-11-06, « dès maintenant, sur demande ») : l'option ne se prend pas
+    // en ligne, elle se demande au Support. Le même prix que l'e-mail de vente.
+    cle: 'ligne_credit_sur_demande',
+    categorie: 'service',
+    nom: 'Crédit WhatsApp sur demande',
+    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) alors que l’option Crédit WhatsApp n’est pas en vente en ligne. Une fois par espace.',
+    variables: { lien_support: LIEN_SUPPORT },
+    textes: {
+      fr: {
+        sujet: 'Vos messages WhatsApp, payés chez Messaging Me',
+        corps: 'Bonjour,\n\nLa formule de l’espace {{espace}} est active : vous pouvez payer vos messages WhatsApp chez '
+          + 'Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois. Le Crédit WhatsApp se prend sur demande : '
+          + 'écrivez-nous depuis le Support de la console.\n\nUn numéro connecté sans l’application WhatsApp Business garde '
+          + 'ses conversations, ses modèles sont recopiés, et leur qualité repart de zéro ; un numéro qui garde '
+          + 'l’application reste sur votre carte chez Meta.',
+        bouton: { libelle: 'Écrire au Support', lien: '{{lien_support}}' },
+      },
+      en: {
+        sujet: 'Your WhatsApp messages, paid at Messaging Me',
+        corps: 'Hello,\n\nThe plan of the {{espace}} workspace is active: you can pay for your WhatsApp messages at '
+          + 'Messaging Me, with no card at Meta, €30 excl. VAT per number per month. WhatsApp credit is available on '
+          + 'request: write to us from the console Support.\n\nA number connected without the WhatsApp Business app keeps '
+          + 'its conversations, its templates are copied over, and their quality starts again from zero; a number that '
+          + 'keeps the app stays on your card at Meta.',
+        bouton: { libelle: 'Write to Support', lien: '{{lien_support}}' },
+      },
+    },
+  },
+  {
+    // L'arrêt de l'option (lot C, moment 3 ; texte validé par Julien le 2026-11-06) : la première fin d'une option que
+    // Stripe annonce (une résiliation, un impayé abandonné) alors que la formule y donne encore droit, ses lignes arrêtées.
+    // Une option payée sans droit a son propre e-mail (`option_wa_sans_droit`), une fin de droit n'en a pas.
+    cle: 'option_wa_arretee',
+    categorie: 'service',
+    nom: 'Option Crédit WhatsApp arrêtée',
+    quand: 'L’option Crédit WhatsApp se termine (résiliée, ou un impayé que Stripe abandonne) et ses numéros n’envoient plus par le Crédit WhatsApp, la formule de l’espace y donnant encore droit. Une fois par abonnement.',
+    variables: { lien_numero: LIEN_NUMERO },
+    textes: {
+      fr: {
+        sujet: 'Vos envois par le Crédit WhatsApp sont arrêtés',
+        corps: 'Bonjour,\n\nL’option Crédit WhatsApp de l’espace {{espace}} est terminée : vos envois par le Crédit WhatsApp '
+          + 'sont arrêtés, votre crédit restant est conservé.\n\nPour envoyer de nouveau : reprenez l’option, ou connectez '
+          + 'votre numéro avec votre carte chez Meta.',
+        bouton: { libelle: 'Connecter WhatsApp', lien: '{{lien_numero}}' },
+      },
+      en: {
+        sujet: 'Your sends through WhatsApp credit are stopped',
+        corps: 'Hello,\n\nThe WhatsApp credit option of the {{espace}} workspace has ended: your sends through WhatsApp '
+          + 'credit are stopped, your remaining credit is kept.\n\nTo send again: take the option again, or connect your '
+          + 'number with your card at Meta.',
+        bouton: { libelle: 'Connect WhatsApp', lien: '{{lien_numero}}' },
       },
     },
   },

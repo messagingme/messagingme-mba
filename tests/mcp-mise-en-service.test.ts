@@ -175,6 +175,8 @@ describe('la lecture, sur des faux', () => {
     panne?: 'numero' | 'agents' | 'credit'; lus?: string[]; soldeWa?: number; illimite?: boolean; creditIa?: EtatCreditIa;
     /** L'option du Crédit WhatsApp (lot B) : payée sans ligne, elle attend sa ligne. */
     option?: { places: number; statut: 'actif' | 'en_retard' | 'resilie' }; numero?: EtatConnexion;
+    /** Les numéros de l'espace et s'ils gardent l'application (jaune 2 du lot B). */
+    numeros?: Array<{ coexistence: boolean; delie: boolean }>;
   } = {}): DepsMiseEnService {
     const casse = (quoi: string) => async () => { throw new Error(`panne ${quoi}`); };
     // Chaque source note l'espace qu'on lui demande : l'isolation se vérifie sur toutes.
@@ -199,6 +201,7 @@ describe('la lecture, sur des faux', () => {
           vue: {
             solde: async () => o.soldeWa ?? 0, conditions: async () => ({ openBar: o.illimite === true }),
             lignes: lu('lignes_credit', []),
+            numeros: lu('numeros_credit', o.numeros ?? []),
           },
           // L'état de la ligne (lot B) : un Pro payé, son option seulement si le test la donne.
           option: {
@@ -215,8 +218,8 @@ describe('la lecture, sur des faux', () => {
     const lus: string[] = [];
     await lireMiseEnService(deps({ lus }), 't1');
     expect(lus.sort()).toEqual([
-      'agents:t1', 'bulles:t1', 'credit:t1', 'formule_payee:t1', 'lignes_credit:t1', 'manques:t1', 'numero:t1', 'offre:t1',
-      'offre_ligne:t1', 'option_credit:t1', 'repondeur:t1',
+      'agents:t1', 'bulles:t1', 'credit:t1', 'formule_payee:t1', 'lignes_credit:t1', 'manques:t1', 'numero:t1', 'numeros_credit:t1',
+      'offre:t1', 'offre_ligne:t1', 'option_credit:t1', 'repondeur:t1',
     ]);
   });
 
@@ -225,6 +228,9 @@ describe('la lecture, sur des faux', () => {
     expect((await lireMiseEnService(deps({ numero: bloque }), 't1')).avertissements).toContain('carte_meta_a_regler');
     const enAttente = await lireMiseEnService(deps({ numero: bloque, option: { places: 1, statut: 'actif' } }), 't1');
     expect(enAttente.avertissements).not.toContain('carte_meta_a_regler');
+    // 🔴 Son numéro garde l'application (jaune 2) : la ligne ne le couvrira pas, la carte chez Meta reste à régler.
+    const avecApplication = await lireMiseEnService(deps({ numero: bloque, option: { places: 1, statut: 'actif' }, numeros: [{ coexistence: true, delie: false }] }), 't1');
+    expect(avecApplication.avertissements).toContain('carte_meta_a_regler');
   });
 
   it('assemble les lectures, une par source', async () => {
@@ -302,7 +308,7 @@ describe('l’outil get_setup_state', () => {
         repondeur: { reglages: { get: async () => EQUIPE } },
         creditWhatsapp: {
           surLaLigne: async () => false,
-          vue: { solde: async () => 0, conditions: async () => ({ openBar: false }), lignes: async () => [] },
+          vue: { solde: async () => 0, conditions: async () => ({ openBar: false }), lignes: async () => [], numeros: async () => [] },
           option: { offre: async () => 'base' as const, formulePayee: async () => false, options: { vivante: async () => null } },
         },
       },

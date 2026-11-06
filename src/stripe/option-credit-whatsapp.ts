@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { arreterAbonnementNumeroSeul, changerLigneAbonnement, creerSessionAbonnement, lireAbonnementStripe, lirePrixStripe, StripeError, type TransportStripe } from './client';
+import { arreterAbonnementNumeroSeul, changerLigneAbonnement, creerSessionAbonnement, expirerSessionsOuvertes, lireAbonnementStripe, lirePrixStripe, StripeError, type TransportStripe } from './client';
 import { clientDeLEspace, page, refusDeStripe, type DepsPortail } from './abonnement';
 import type { StripeConfigure } from './paiement';
 import { lienTableauStripe } from './liens';
@@ -46,6 +46,12 @@ export interface DepsOptionCredit extends DepsPortail {
   reprendreCampagnes(tenantId: string): Promise<number>;
   alerter(texte: string): Promise<void>;
 }
+
+/**
+ * L'option se prend en ligne : son prix posé chez Stripe. La carte « Qui règle Meta ? » (`/credit-whatsapp/etat`) et
+ * l'e-mail de la conversion (lot C) lisent cette règle-ci : jamais « prenez l'option » pour une option qui ne se prend pas.
+ */
+export const optionEnVente = (d: Pick<DepsOptionCredit, 'stripe' | 'prixOption'>): boolean => d.stripe !== null && d.prixOption !== '';
 
 export const OPTION_INDISPONIBLE = refus(503, 'L’option Crédit WhatsApp n’est pas encore en vente : contactez-nous.', { code: 'option_indisponible' });
 
@@ -99,11 +105,15 @@ export async function ouvrirOption(
   try {
     if (!(await prixJuste(s, d.prixOption, tenantId))) return PRIX_INCOHERENT;
     const retour = origine === 'connecter' ? `${page(d, 'console')}?` : `${page(d, 'offre')}?tab=whatsapp&`;
+    const customerId = await clientDeLEspace(d, s, tenantId);
+    // 🔴 Un seul paiement de l'option à la fois (jaune 11 de la relecture du lot B) : les sessions encore ouvertes du client
+    // sont expirées d'abord, le dernier clic gagne.
+    await expirerSessionsOuvertes(s.transport, { cle: s.cle, customerId, produit: PRODUIT_OPTION_WA });
     const session = await creerSessionAbonnement(s.transport, {
       cle: s.cle,
       tenantId,
       prix: d.prixOption,
-      customerId: await clientDeLEspace(d, s, tenantId),
+      customerId,
       urlSucces: `${retour}option=recue`,
       urlAbandon: `${retour}option=abandon`,
       idempotence: `option-wa-${tenantId}-${randomUUID()}`,

@@ -11,6 +11,7 @@ import { PREREQUIS_META } from '../web/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '../web/lib/partage/etapes-application';
 import { ETAPES_NUMERO_FOURNI } from '../web/lib/partage/etapes-numero-fourni';
 import { COEXISTENCE_BOUTON } from '../web/lib/fenetre-meta';
+import { NOTE_CARTE_APPLICATION } from '../web/lib/questions-numero';
 
 /**
  * LES OUTILS DE LA CONNEXION DU NUMÉRO (lot 3c, livraison A, tâche 4). `start_whatsapp_connection` donne le lien qui
@@ -495,6 +496,13 @@ describe('le mode fourni_application', () => {
     expect(r.consigne).toMatch(/quelques jours/);
     expect(r.consigne).not.toMatch(/\d+ jours/);
     expect(r.consigne).not.toMatch(/QR/);
+  });
+
+  it('🔴 garder l’application, c’est payer Meta avec sa carte (lot C) : la phrase de la console, en fourni_application comme en coexistence', async () => {
+    for (const mode of ['fourni_application', 'coexistence']) {
+      const { consigne } = await demarrer(VIDE, { mode });
+      expect(consigne, mode).toContain(`« ${NOTE_CARTE_APPLICATION.fr} »`);
+    }
   });
 
   it('en Pro, le numéro est inclus : la consigne ne demande pas de payer', async () => {

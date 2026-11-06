@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   achatArriveDepuis, estPageDePaiement, lireDepartPaiement, oublierDepartPaiement, ouvrirFacture, retenirDepartPaiement,
   seuilDuRetour,
@@ -25,7 +26,7 @@ import { useT, useLocale } from '@/lib/i18n';
 import { inputClsAuto } from '@/lib/ui';
 import { IntroPage } from '@/components/TitrePage';
 import { Squelette } from '@/components/Squelette';
-import { Bouton } from '@/components/Bouton';
+import { Bouton, classesBouton } from '@/components/Bouton';
 import { MbaNotice } from '@/components/MbaNotice';
 import { CourbeCredit } from '@/components/CourbeCredit';
 import { DemarrerPro } from '@/components/DemarrerPro';
@@ -224,7 +225,36 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
           {t('Le Crédit WhatsApp n’a pas pu être lu. Réessayez dans un instant.', 'The WhatsApp credit could not be read. Try again in a moment.')}
         </MbaNotice>
       )}
-      {vue?.ligneArretee && (
+      {/* L'option arrêtée (lot C, moment 3, texte validé par Julien le 2026-11-06) : la sortie, ses deux chemins. Des lignes
+          posées à la main et arrêtées gardent l'avis d'avant, qui renvoie au Support. */}
+      {vue?.optionArretee && (
+        <div className="space-y-3" data-testid="credit-wa-option-arretee">
+          <MbaNotice kind="error">
+            {t(
+              'Vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant est conservé. Pour envoyer de nouveau : reprenez l’option, ou connectez votre numéro avec votre carte chez Meta.',
+              'Your sends through WhatsApp credit are stopped, your remaining credit is kept. To send again: take the option again, or connect your number with your card at Meta.',
+            )}
+            {!vue.option.disponible && ` ${t('Sur demande : écrivez-nous depuis le Support.', 'On request: write to us from Support.')}`}
+          </MbaNotice>
+          {admin ? (
+            <div className="flex flex-wrap gap-3">
+              {vue.option.disponible && (
+                <a href="#option-credit-whatsapp" data-testid="credit-wa-option-arretee-reprendre" className={classesBouton('principal')}>
+                  {t('Reprendre l’option', 'Take the option again')}
+                </a>
+              )}
+              <Link href="/connecter-whatsapp" data-testid="credit-wa-option-arretee-meta" className={classesBouton('secondaire')}>
+                {t('Connecter avec ma carte chez Meta', 'Connect with my card at Meta')}
+              </Link>
+            </div>
+          ) : (
+            <p className="text-sm text-ink-500">
+              {t('Un administrateur de votre espace peut reprendre l’option.', 'An administrator of your workspace can take the option again.')}
+            </p>
+          )}
+        </div>
+      )}
+      {vue?.ligneArretee && !vue.optionArretee && (
         <MbaNotice kind="error" testid="credit-wa-ligne-arretee">
           {t(
             'Le Crédit WhatsApp est arrêté sur vos numéros : plus aucun message ne part, et une recharge n’y changerait rien. Contactez-nous depuis le Support.',
@@ -531,7 +561,7 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   }
 
   return (
-    <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-option">
+    <section id="option-credit-whatsapp" className="scroll-mt-4 rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-option">
       <h2 className="text-sm font-semibold text-ink-900">{t('Vos numéros sur le Crédit WhatsApp', 'Your numbers on WhatsApp credit')}</h2>
       <p className="mt-1 text-sm text-ink-500">
         {t(

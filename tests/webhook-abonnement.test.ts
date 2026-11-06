@@ -39,6 +39,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrement; livemode?: 
     apresCreditWhatsapp: async () => {},
     paiementRefuse: async (p) => { cap.paiementsRefuses.push(p); },
     signalerPro: async () => {},
+    signalerConversion: async () => {},
     numero: {
       enregistrer: async (a) => {
         if (o.enregistrerLeve) throw o.enregistrerLeve;

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-  ATTENTE_RECENTE_MS, balayerLimites, creerAlerteCreditBas, creerAlerteEspacePlein, creerOptionSansDroit, creerPaiementRefuse, creerPrevenirEquipe,
+  ATTENTE_RECENTE_MS, balayerLimites, creerAlerteCreditBas, creerAlerteEspacePlein, creerOptionArretee, creerOptionSansDroit, creerPaiementRefuse, creerPrevenirEquipe,
   limitesAlertables, numeroMasque, PLAFOND_TRANSFERTS_JOUR, seuilAtteint, SEUIL_CREDIT_BAS_MICRO_EUR, type ContextePassage,
   type DepsLimites,
 } from '../src/emails-produit/alertes';
@@ -192,6 +192,21 @@ describe('le paiement refusé', () => {
       expect(m.textes[langue].corps, langue).not.toMatch(/rembours|refund/i);
       expect(m.textes[langue].corps, langue).toMatch(/Support/);
     }
+  });
+
+  it('🔴 l’option arrêtée (lot C, moment 3) : son e-mail aux admins, vers Connecter WhatsApp, une fois par abonnement ; une panne ne lève pas', async () => {
+    const e = emetteur();
+    await creerOptionArretee({ emettre: e.emettre, pageNumero: 'https://c/connecter-whatsapp' })('t1', 'sub_opt');
+    expect(e.emissions).toEqual([
+      { cle: 'option_wa_arretee', tenantId: 't1', occasion: 'option:sub_opt', a: 'admins', valeurs: { lien_numero: 'https://c/connecter-whatsapp' } },
+    ]);
+    const panne = creerOptionArretee({ emettre: async () => { throw new Error('file pleine'); }, pageNumero: 'x' });
+    await expect(panne('t1', 'sub_opt')).resolves.toBeUndefined();
+    // Les deux chemins (spec, moment 3) et le crédit conservé, dans les deux langues.
+    const m = modeleDe('option_wa_arretee')!;
+    expect(m.textes.fr.corps).toMatch(/reprenez l’option, ou connectez votre numéro avec votre carte chez Meta/);
+    expect(m.textes.fr.corps).toMatch(/votre crédit restant est conservé/);
+    expect(m.textes.en.corps).toMatch(/take the option again, or connect your number with your card at Meta/);
   });
 
   it('🔴 un numéro qui ne sera pas coupé (un numéro apporté envoie) : aucun e-mail, il annoncerait une coupure fausse', async () => {

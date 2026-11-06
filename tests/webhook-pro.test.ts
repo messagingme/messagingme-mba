@@ -45,6 +45,8 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     pros: [] as Array<{ tenantId: string; montantCentimes: number; devise: string }>,
     /** Les fins de droit de l'option du Crédit WhatsApp jouées après une fin de Pro (lot 4a). */
     finsDeDroitOption: [] as string[],
+    /** Les conversions signalées au client (lot C du Crédit WhatsApp, moment 2). */
+    conversions: [] as string[],
   };
   const connus = new Set(o.connus ?? []);
   const finis = new Set<string>();
@@ -56,6 +58,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     apresCreditWhatsapp: async () => {},
     paiementRefuse: async (p) => { cap.paiementsRefuses.push({ tenantId: p.tenantId, offre: p.offre, factureId: p.factureId }); },
     signalerPro: async (p) => { cap.pros.push(p); },
+    signalerConversion: async (t) => { cap.conversions.push(t); },
     numero: stripeNumeroInerte,
     option: { ...stripeOptionInerte, finDeDroit: async (t, cas) => { cap.finsDeDroitOption.push(`${t}:${cas}`); return 'sans_option'; } },
     pro: {
@@ -313,6 +316,23 @@ const META_ESSAI = { ...META, periodicite: 'mois', essai: '14' };
 const FIN_ESSAI = 1_791_209_600;
 
 describe('l’essai de 14 jours du Pro', () => {
+  it('🔴 la conversion (lot C du Crédit WhatsApp) : une facture de période payée la signale, la facture à 0 € d’un essai ni le prorata d’un siège jamais', async () => {
+    // La règle « formule payée » et l'occasion unique sont relues par signalerConversion (tests/credit-whatsapp-conversion.test.ts).
+    const essai = { type: 'subscription_details', subscription_details: { subscription: 'sub_pro', metadata: META_ESSAI } };
+    const payee = monter({ connus: ['sub_pro'] });
+    await envoyer(payee.srv, evenement(facturePro({ amount_paid: 4900, billing_reason: 'subscription_cycle', parent: essai }), 'invoice.paid'));
+    expect(payee.cap.conversions).toEqual([T1]);
+    const ouverture = monter();
+    await envoyer(ouverture.srv, evenement(facturePro({ amount_paid: 0, billing_reason: 'subscription_create', parent: essai }), 'invoice.paid'));
+    expect(ouverture.cap.conversions).toEqual([]);
+    const prorata = monter({ connus: ['sub_pro'] });
+    await envoyer(prorata.srv, evenement(facturePro({
+      amount_paid: 900, billing_reason: 'subscription_update', parent: essai,
+      lines: { object: 'list', data: [{ id: 'il_1', period: { start: FIN - 1000, end: FIN }, parent: { subscription_item_details: { proration: true } } }] },
+    }), 'invoice.paid'));
+    expect(prorata.cap.conversions).toEqual([]);
+  });
+
   it('🔴 la session d’un essai (rien à payer) fait le Pro, sans arrêter le numéro payé à part ; Julien est prévenu de l’essai', async () => {
     const { srv, cap } = monter();
     await envoyer(srv, evenement(sessionPro({ payment_status: 'no_payment_required', amount_total: 0, metadata: META_ESSAI }), 'checkout.session.completed'));

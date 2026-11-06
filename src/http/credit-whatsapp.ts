@@ -11,8 +11,8 @@ import type { LigneHistoriqueWa } from '../credit-whatsapp/credit';
 import type { PointDeCredit } from '../lib/serie-credit';
 import type { LigneCredit } from '../credit-whatsapp/lignes.pg';
 import type { StatutOption } from '../credit-whatsapp/options.pg';
-import { changerPlaces, ouvrirOption, PRIX_OPTION_WA_HT_CENTIMES, PLACES_OPTION_MAX, type DepsOptionCredit } from '../stripe/option-credit-whatsapp';
-import { lireEtatLigne, tousGardentLApplication } from '../credit-whatsapp/etat-ligne';
+import { changerPlaces, optionEnVente, ouvrirOption, PRIX_OPTION_WA_HT_CENTIMES, PLACES_OPTION_MAX, type DepsOptionCredit } from '../stripe/option-credit-whatsapp';
+import { arretDesLignes, lireEtatLigne, tousGardentLApplication } from '../credit-whatsapp/etat-ligne';
 
 /**
  * LE CRÉDIT WHATSAPP D'UN ESPACE (plan du Crédit WhatsApp, tâches 10 et 11) : l'achat par Stripe et ce que montre l'onglet
@@ -65,6 +65,11 @@ export interface VueCreditWhatsapp {
   achat: { disponible: boolean; permis: AchatPermis; offres: Array<{ offre: OffreWhatsapp; htCentimes: number }> };
   /** Toutes les lignes de l'espace sont arrêtées : plus rien ne part, recharger n'y changerait rien. */
   ligneArretee: boolean;
+  /**
+   * Toutes arrêtées, dont au moins une venue de l'option (lot C, moment 3) : la sortie se dit, reprendre l'option ou sa
+   * carte chez Meta. Des lignes posées à la main seules se redemandent au Support.
+   */
+  optionArretee: boolean;
   historique: LigneHistoriqueWa[];
   /**
    * La courbe des 90 derniers jours (lot C) : la console trace le solde de fin de jour d'un prépayé, la consommation du
@@ -114,7 +119,7 @@ export function registerCreditWhatsapp(
     const tenant = espaceVerifie(req);
     const o = deps.option;
     const [etat, offre, numeros] = await Promise.all([lireEtatLigne(deps, tenant), o.offre(tenant), deps.vue.numeros(tenant)]);
-    const enVente = o.stripe !== null && o.prixOption !== '' && (offre === 'pro' || offre === 'business');
+    const enVente = optionEnVente(o) && (offre === 'pro' || offre === 'business');
     return reply.code(200).send({ etat, enVente, avecApplication: tousGardentLApplication(numeros) });
   });
 
@@ -132,6 +137,7 @@ export function registerCreditWhatsapp(
     });
     const formulePayee = (offre === 'pro' || offre === 'business') && await deps.option.formulePayee(tenant);
     const s = deps.achat.stripe;
+    const arret = arretDesLignes(lignes);
     const vue: VueCreditWhatsapp = {
       illimite: conditions.openBar,
       soldeMicroEur,
@@ -143,11 +149,12 @@ export function registerCreditWhatsapp(
         permis,
         offres: OFFRES_WHATSAPP.map((offre) => ({ offre, htCentimes: htCentimesWhatsapp(offre) })),
       },
-      ligneArretee: lignes.length > 0 && lignes.every((l) => l.arreteeLe !== null),
+      ligneArretee: arret.toutes,
+      optionArretee: arret.parLOption,
       historique,
       serie,
       option: {
-        disponible: deps.option.stripe !== null && deps.option.prixOption !== '' && (offre === 'pro' || offre === 'business'),
+        disponible: optionEnVente(deps.option) && (offre === 'pro' || offre === 'business'),
         prixHtCentimes: PRIX_OPTION_WA_HT_CENTIMES,
         placesMax: PLACES_OPTION_MAX,
         places: option?.places ?? 0,

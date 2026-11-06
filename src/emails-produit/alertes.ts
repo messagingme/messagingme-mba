@@ -178,6 +178,24 @@ export function creerOptionSansDroit(d: { emettre: Emettre; pageOffre: string })
   };
 }
 
+/**
+ * L'option du Crédit WhatsApp ARRÊTÉE (révision du 2026-11-04, lot C, moment 3) : sa première fin annoncée par Stripe (une
+ * résiliation, un impayé abandonné), ses lignes arrêtées alors que la formule y donne encore droit. Ses admins savent leurs
+ * envois arrêtés, leur crédit conservé, et les deux chemins pour reprendre. Une fois par abonnement. Ne lève jamais.
+ */
+export function creerOptionArretee(d: { emettre: Emettre; pageNumero: string }): (tenantId: string, abonnementId: string) => Promise<void> {
+  return async (tenantId, abonnementId) => {
+    try {
+      await d.emettre({
+        cle: 'option_wa_arretee', tenantId, occasion: `option:${abonnementId}`, a: 'admins',
+        valeurs: { lien_numero: d.pageNumero },
+      });
+    } catch (err) {
+      journaliser('error', 'alerte_option_wa_arretee_impossible', { err, tenantId, abonnement: abonnementId });
+    }
+  };
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Les limites du Free
 // ---------------------------------------------------------------------------------------------------------------

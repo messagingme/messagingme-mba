@@ -17,11 +17,15 @@ const T1 = '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01';
 class FauxStripe implements TransportStripe {
   readonly posts: Array<{ url: string; corps: URLSearchParams; cle: string }> = [];
   readonly suppressions: Array<{ url: string; corps: URLSearchParams }> = [];
+  readonly lectures: string[] = [];
   constructor(private readonly objets: Record<string, unknown>, private readonly reponses: ReponseStripe[] = []) {}
   async post(url: string, corps: string, entetes: Record<string, string>): Promise<ReponseStripe> {
     this.posts.push({ url, corps: new URLSearchParams(corps), cle: entetes['idempotency-key'] ?? '' });
     if (url.endsWith('/customers')) return { status: 200, json: { id: 'cus_1' } };
     if (url.endsWith('/checkout/sessions')) return { status: 200, json: { id: 'cs_1', url: 'https://checkout.stripe.com/c/1' } };
+    // Une session expirée (jaune 11 du lot B) : Stripe la rend, son statut `expired`.
+    const expiree = url.match(/\/checkout\/sessions\/(cs_[^/]+)\/expire$/);
+    if (expiree) return { status: 200, json: { id: expiree[1], status: 'expired' } };
     const r = this.reponses.shift();
     if (!r) throw new Error(`appel non prévu : ${url}`);
     // L'abonnement relu ensuite est celui que la modification a rendu, si elle s'est appliquée.
@@ -34,6 +38,7 @@ class FauxStripe implements TransportStripe {
     return this.reponses.shift() ?? { status: 200, json: { id: 'sub_opt', status: 'canceled' } };
   }
   async get(url: string): Promise<ReponseStripe> {
+    this.lectures.push(url);
     const id = decodeURIComponent((url.split('/').pop() ?? '').split('?')[0]!);
     const o = this.objets[id];
     if (o instanceof Error) throw o;
@@ -63,7 +68,8 @@ function deps(o: {
   offre?: Offre; vivante?: OptionCredit | null; prixOption?: string; objets?: Record<string, unknown>; reponses?: ReponseStripe[]; couverts?: number;
   formulePayee?: boolean;
 } = {}) {
-  const transport = new FauxStripe({ price_opt: PRIX, ...(o.objets ?? {}) }, o.reponses ?? []);
+  // Les sessions Checkout ouvertes du client (jaune 11) : aucune par défaut.
+  const transport = new FauxStripe({ price_opt: PRIX, sessions: { object: 'list', data: [] }, ...(o.objets ?? {}) }, o.reponses ?? []);
   const notes: Array<[string, number, Date | null]> = [];
   const alertes: string[] = [];
   const reprises: string[] = [];
@@ -98,6 +104,24 @@ describe('ouvrir l’option', () => {
       });
     expect([...session.keys()].some((k) => k.includes('trial'))).toBe(false);
     expect(session.get('success_url')).toBe('https://console.messagingme.app/offre?tab=whatsapp&option=recue');
+  });
+
+  it('🔴 une session de l’option encore ouverte (deux onglets, une carte périmée) est expirée avant d’en ouvrir une autre : un seul paiement possible (jaune 11 du lot B)', async () => {
+    const ouvertes = {
+      object: 'list',
+      data: [
+        { id: 'cs_ancienne', status: 'open', customer: 'cus_1', metadata: { produit: PRODUIT_OPTION_WA, tenant_id: T1 } },
+        // Une session du Pro, ou d'un autre client, n'est pas la nôtre : elle reste ouverte.
+        { id: 'cs_pro', status: 'open', customer: 'cus_1', metadata: { produit: 'pro', tenant_id: T1 } },
+        { id: 'cs_autre', status: 'open', customer: 'cus_2', metadata: { produit: PRODUIT_OPTION_WA, tenant_id: T1 } },
+      ],
+    };
+    const { d, transport } = deps({ objets: { sessions: ouvertes } });
+    expect(await ouvrirOption(d, T1, 1, 'u1')).toMatchObject({ ok: true });
+    const chemins = transport.posts.map((p) => new URL(p.url).pathname);
+    expect(chemins).toEqual(['/v1/customers', '/v1/checkout/sessions/cs_ancienne/expire', '/v1/checkout/sessions']);
+    const liste = new URL(transport.lectures.find((u) => new URL(u).pathname === '/v1/checkout/sessions')!);
+    expect([liste.searchParams.get('customer'), liste.searchParams.get('status')]).toEqual(['cus_1', 'open']);
   });
 
   it('🔴 depuis les cartes « Qui règle Meta ? » (lot B), le retour de Stripe ramène sur Connecter WhatsApp, payé ou abandonné', async () => {

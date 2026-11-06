@@ -37,6 +37,7 @@ import { OFFRES_RECHARGE, definitionOffre, type OffreRecharge } from '../stripe/
 import { OFFRES_WHATSAPP, htCentimesWhatsapp, type OffreWhatsapp } from '../stripe/offres-whatsapp';
 import { ouvrirAchatCreditWhatsapp } from '../stripe/achat-whatsapp';
 import { prixMessage } from '../credit-whatsapp/grille';
+import { arretDesLignes } from '../credit-whatsapp/etat-ligne';
 import type { CreditWhatsappRouteDeps } from '../http/credit-whatsapp';
 import { LIGNES_HISTORIQUE } from '../http/agents';
 import { estUuid } from '../http/scope';
@@ -294,7 +295,8 @@ export function descriptionBuyCredit(offres: readonly OffreRecharge[], offresWa:
         + 'made by the person on that page, and the credit arrives once Stripe has confirmed it (get_credit). '
         + `AI credit (credit "ia", the default): ${enClair}, credited in full. Offer the smallest amount that covers the `
         + `need: ${offres[0]} is enough for a trial. WhatsApp credit (credit "whatsapp"): ${enClairWa}, only for a `
-        + 'workspace whose number is on the WhatsApp credit line (get_credit then shows credit_whatsapp); it pays the '
+        + 'workspace whose number is on the WhatsApp credit line and not stopped (get_credit then shows credit_whatsapp, '
+        + 'without envois_arretes); it pays the '
         + 'WhatsApp messages themselves, and no promotion code applies to it. ' + taxe
       : 'Opens the payment of an AI credit top-up and returns the URL of the Stripe checkout page; the payment itself is '
         + 'made by the person on that page, and the credit arrives once Stripe has confirmed it (get_credit). '
@@ -1065,7 +1067,11 @@ export const OUTILS_AGENT: OutilMcp[] = [
       + 'credit_whatsapp gives that other prepaid balance, which pays the WhatsApp messages themselves: its balance, '
       + 'the price of one message in France per category (fees included), and its movements (sends aggregated per day, '
       + 'purchases, adjustments). At zero, NOTHING is sent from that number, replies included, until a purchase '
-      + '(buy_credit, credit "whatsapp"). On the Enterprise plan both credits are unlimited and billed under the '
+      + '(buy_credit, credit "whatsapp"). When every number of the workspace is stopped on the line, credit_whatsapp says '
+      + 'envois_arretes: true: nothing is sent whatever the balance, which is kept, and a purchase changes nothing. With '
+      + 'option_arretee: true, the WhatsApp credit option has ended: to send again, the person takes the option again or '
+      + 'connects the number with their card at Meta, both from the Connect WhatsApp page of the console; otherwise they '
+      + 'write to Support. On the Enterprise plan both credits are unlimited and billed under the '
       + 'contract (illimite: true): no balance and nothing to buy, consommation_du_mois_eur gives what this month cost '
       + '(AI usage, WhatsApp messages). Enterprise AI stops at a monthly safety cap (plafond_atteint: true): only '
       + 'Messaging Me raises it, the customer has nothing to buy.',
@@ -1088,10 +1094,12 @@ export const OUTILS_AGENT: OutilMcp[] = [
         mouvements: mouvements.map((m) => ({ at: m.at, jour: m.jour, raison: m.raison, montant_eur: eurosDepuisMicro(m.deltaMicroEur) })),
       };
       if (!avecWa) return ia;
-      const [soldeWa, consommationWa, historiqueWa, grille, conditions] = await Promise.all([
+      const [soldeWa, consommationWa, historiqueWa, grille, conditions, lignes] = await Promise.all([
         wa.vue.solde(tenantId), wa.vue.consommationDuMois(tenantId), wa.vue.historique(tenantId), wa.vue.grille(),
-        wa.vue.conditions(tenantId),
+        wa.vue.conditions(tenantId), wa.vue.lignes(tenantId),
       ]);
+      // L'arrêt (lot C), la même règle que l'onglet : rien à acheter, la sortie se dit.
+      const arret = arretDesLignes(lignes);
       // Le prix d'un message en France, commission comprise : jamais son taux.
       let prixFrance: Record<string, ReturnType<typeof eurosDepuisMicro>> | null = null;
       if (grille !== null) {
@@ -1112,6 +1120,8 @@ export const OUTILS_AGENT: OutilMcp[] = [
           mouvements: historiqueWa.slice(0, LIGNES_HISTORIQUE).map((m) => ({
             at: m.at, jour: m.jour, raison: m.raison, montant_eur: eurosDepuisMicro(m.deltaMicroEur), ...(m.messages !== null ? { messages: m.messages } : {}),
           })),
+          ...(arret.toutes ? { envois_arretes: true } : {}),
+          ...(arret.parLOption ? { option_arretee: true } : {}),
         },
       };
     },

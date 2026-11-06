@@ -37,7 +37,7 @@ class FauxStripe implements TransportStripe {
   async delete(): Promise<ReponseStripe> { throw new Error('non prévu'); }
 }
 
-function deps(o: { surLaLigne: boolean; illimite?: boolean }) {
+function deps(o: { surLaLigne: boolean; illimite?: boolean; lignes?: Array<{ origine: 'ops' | 'option'; arreteeLe: string | null }> }) {
   const transport = new FauxStripe();
   const d = {
     ...mcpAgentInerte,
@@ -64,6 +64,7 @@ function deps(o: { surLaLigne: boolean; illimite?: boolean }) {
           consommationDuMois: async () => 2_149_520,
           conditions: async () => ({ openBar: o.illimite === true, commissionPct: 5 }),
           grille: async () => GRILLE,
+          lignes: async () => o.lignes ?? [{ origine: 'option', arreteeLe: null }],
           historique: async () => [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
         },
       },
@@ -87,6 +88,23 @@ describe('get_credit et le Crédit WhatsApp', () => {
     expect(JSON.stringify(r)).not.toMatch(/commission/i);
     expect(wa.mouvements).toEqual([expect.objectContaining({ raison: 'envois', messages: 2 })]);
     expect(wa).not.toHaveProperty('illimite');
+  });
+
+  it('🔴 toutes les lignes arrêtées (lot C) : envois_arretes, et option_arretee quand l’option en est la cause ; une ligne vivante, ni l’un ni l’autre', async () => {
+    const lire = async (lignes: Array<{ origine: 'ops' | 'option'; arreteeLe: string | null }>) =>
+      ((await outil('get_credit').executer(deps({ surLaLigne: true, lignes }).d, T1, {}, PERSONNE)) as { credit_whatsapp: Record<string, unknown> }).credit_whatsapp;
+    const ARRET = '2026-11-06T09:00:00Z';
+    expect(await lire([{ origine: 'option', arreteeLe: ARRET }])).toMatchObject({ envois_arretes: true, option_arretee: true });
+    const aLaMain = await lire([{ origine: 'ops', arreteeLe: ARRET }]);
+    expect(aLaMain).toMatchObject({ envois_arretes: true });
+    expect(aLaMain).not.toHaveProperty('option_arretee');
+    const vivante = await lire([{ origine: 'option', arreteeLe: ARRET }, { origine: 'option', arreteeLe: null }]);
+    expect(vivante).not.toHaveProperty('envois_arretes');
+    expect(vivante).not.toHaveProperty('option_arretee');
+    // La description dit ce que Claude en fait : rien à acheter, les deux chemins de l'option arrêtée, le Support sinon.
+    const description = outil('get_credit').description;
+    for (const mot of ['envois_arretes', 'option_arretee', 'changes nothing', 'card at Meta', 'Support']) expect(description, mot).toContain(mot);
+    expect(outil('buy_credit').description).toContain('envois_arretes');
   });
 
   it('🔴 une Entreprise : « illimité » et la consommation du mois, JAMAIS un solde (il ne bouge pas, il ne dit rien)', async () => {

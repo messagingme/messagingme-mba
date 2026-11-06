@@ -55,6 +55,8 @@ export async function mockAccueil(
      * que ce support ne connaît pas, donc aucun répondeur IA.
      */
     repondeurIa?: { id: string; label: string };
+    /** L'état du Crédit WhatsApp (`GET /credit-whatsapp/etat`, lot B). Absent : `{}`, un état illisible. */
+    etatLigne?: { etat: string; enVente: boolean; avecApplication: boolean };
     /**
      * « Qui répond au client » (RC6), rendu par `GET /repondeur` et TENU par le mock : un `PUT` le change, comme le
      * serveur (le mode et sa cible, et l'agent de Meta allumé par le mode « mba »). Absent : `{}`, comme toute route que
@@ -278,6 +280,7 @@ export async function mockAccueil(
       return json({ connected: true, wabaId: 'W360', phoneNumberId: 'PN360', displayPhoneNumber: null });
     }
     if (url.includes('/account-status')) return json(compteCourant);
+    if (over.etatLigne && url.endsWith('/credit-whatsapp/etat')) return json(over.etatLigne);
     if (url.includes('/settings')) return json(settings); // GET + PUT + PATCH control-handback : même forme
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     if (url.includes('/stats/templates')) return json({ breakdown: [], pricing: null });

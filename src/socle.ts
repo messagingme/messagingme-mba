@@ -99,7 +99,7 @@ import { creerEmetteurEmails, FILE_EMAILS_PRODUIT } from './emails-produit/emiss
 import { PgConversionsMetaStore } from './pub/conversions-meta.pg';
 import { FILE_CONVERSIONS_META } from './pub/conversions-meta';
 import { creerEmetteurConversions } from './pub/emission';
-import { creerAlerteCreditBas, creerAlertesCreditWhatsapp, creerOptionSansDroit, creerPaiementRefuse, creerPrevenirEquipe } from './emails-produit/alertes';
+import { creerAlerteCreditBas, creerAlertesCreditWhatsapp, creerOptionArretee, creerOptionSansDroit, creerPaiementRefuse, creerPrevenirEquipe } from './emails-produit/alertes';
 import { composerPassageEquipe } from './analysis/push-handoff';
 import { PgOffresStore } from './offres/offre.pg';
 import { OffresEnCache } from './offres/cache';
@@ -363,6 +363,12 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
    * abonnement, sans promesse de remboursement (décision de Julien du 2026-11-04). La fin de droit l'envoie, dans l'API.
    */
   const optionSansDroit = creerOptionSansDroit({ emettre: (e) => emetteurEmails.emettre(e), pageOffre: `${console_}/offre` });
+  /**
+   * L'option du Crédit WhatsApp arrêtée alors que la formule y donne encore droit (une résiliation, un impayé ; lot C,
+   * moment 3) : l'e-mail aux admins, une fois par abonnement, vers Connecter WhatsApp (reprendre l'option, ou sa carte
+   * chez Meta). Le webhook l'envoie, dans l'API.
+   */
+  const optionArretee = creerOptionArretee({ emettre: (e) => emetteurEmails.emettre(e), pageNumero: `${console_}/connecter-whatsapp` });
   /**
    * La conversation passée à l'équipe (lot 7, livraison B) : appelée par les TROIS chemins d'un robot qui passe la main
    * (agent IA et passation de l'agent de Meta dans le worker, bloc d'un scénario dans l'exécuteur), seulement quand la
@@ -757,7 +763,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     credits, reglagesCreditWhatsapp, creditWhatsapp, lignesCreditWhatsapp, optionsCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver,
     wabaDeLEspace, numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, numeroBloqueDeLEspace, gardeCreditWhatsapp, creditWhatsappBloque, ajustementCreditWhatsapp, conditionsCreditWhatsapp, alertesCreditWhatsapp, estimerCreditCampagne, esCredentialsStore, metaCredentials, metaFactory, listeDeLAgent,
     connexionsPub, connexionPub, publicites, clientPubs, clientCreationPubs, workflowRuntime, fil, alerteCredit, offres, quotaModeles,
-    emailsProduit, emetteurEmails, envoisResend, paiementRefuse, optionSansDroit, prevenirEquipe, lienConversation,
+    emailsProduit, emetteurEmails, envoisResend, paiementRefuse, optionSansDroit, optionArretee, prevenirEquipe, lienConversation,
     conversionsMeta, emetteurConversions,
     comptesApplication, clientApplication, envoiApplication,
     magasinObjets,

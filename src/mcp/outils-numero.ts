@@ -122,6 +122,13 @@ const LIEN_EN_ENTIER = 'Écris ce lien EN ENTIER à la personne, en texte simple
 const SI_ELLE_REVIENT = ' Si elle revient avant la fin, rappelle-lui où elle en est (la page du lien, la fenêtre de Meta, '
   + 'le numéro) avant d’attendre à nouveau.';
 
+/**
+ * Garder l'application, c'est payer Meta avec sa carte (révision du Crédit WhatsApp, lot C) : la phrase de la console
+ * (`NOTE_CARTE_APPLICATION`, `web/lib/questions-numero.ts`), que `tests/mcp-numero.test.ts` tient égale.
+ */
+const CARTE_AVEC_APPLICATION = ' Dis-lui aussi, dans sa langue : « Vous payez Meta avec votre carte : le Crédit WhatsApp n’est pas '
+  + 'possible avec l’application. »';
+
 /** Des étapes numérotées sur une ligne : Claude les remet une par ligne, dans la langue de la personne. */
 const numerotees = (etapes: readonly string[]): string => etapes.map((t, i) => `${i + 1}) ${t}`).join(' ');
 
@@ -172,6 +179,7 @@ const CONSIGNES = {
     + 'Facebook ; avant le premier modèle, Meta demandera un moyen de paiement sur le compte WhatsApp. Appelle ensuite '
     + 'watch_whatsapp_connection avec mode égal à « coexistence » pour savoir quand le numéro est relié à l’API, '
     + 'l’application gardée.'
+    + CARTE_AVEC_APPLICATION
     + SI_ELLE_REVIENT,
 } as const;
 
@@ -211,7 +219,8 @@ const consigneFourniApplication = (inclusDansLePro: boolean): string =>
   ])
   + ` Dis-lui aussi, avant de commencer : ${NUMERO_NEUF} Pas encore de compte Meta Business ? La fenêtre le crée en chemin, `
   + 'avec un profil Facebook. Appelle ensuite watch_whatsapp_connection avec mode égal à « fourni_application » : le code '
-  + 'de vérification de l’application arrivera aussi ici, écris-le-lui en entier dès qu’il arrive.' + SI_ELLE_REVIENT;
+  + 'de vérification de l’application arrivera aussi ici, écris-le-lui en entier dès qu’il arrive.' + CARTE_AVEC_APPLICATION
+  + SI_ELLE_REVIENT;
 
 /**
  * Le compte de l'application est CRÉÉ (un code capté depuis l'attribution, que `codeDeLEspace` ne montre plus après 15

@@ -18,6 +18,7 @@ function creer(over: Partial<DepsTraitementAbonnements> = {}) {
     option: stripeOptionInerte,
     paiementRefuse: async () => {},
     signalerPro: async () => {},
+    signalerConversion: async () => {},
     now: () => 1_790_000_000_000,
     ...over,
   });
@@ -93,11 +94,17 @@ describe('l’option du Crédit WhatsApp', () => {
     relancees?: number;
     /** La fin de l'option chez nous (`finieLe`) ; absente : une option qui vit encore, ou inconnue. */
     finiLe?: Date;
+    /** La formule y donne-t-elle encore droit (lot C) ; oui par défaut. */
+    aDroit?: boolean;
+    /** Les lignes que la fin arrête ; une par défaut. */
+    arretees?: number;
   } = {}) {
     const journal: string[] = [];
     const refus: string[] = [];
     const alertes: string[] = [];
     const droits: string[] = [];
+    /** Les e-mails de l'arrêt demandés (lot C, moment 3). */
+    const arrets: string[] = [];
     const ligneDe = { abonnementId: 'sub_opt', tenantId: TENANT, livemode: true, statut: 'actif' as const, places: 2, periodeFin: null, finPrevueLe: null, finiLe: null, finRaison: null };
     const dep: DepsTraitementAbonnements['option'] = {
       enregistrer: async (a) => {
@@ -110,7 +117,7 @@ describe('l’option du Crédit WhatsApp', () => {
       vivante: async () => (o.vivante ? ligneDe : null),
       finieLe: async () => o.finiLe ?? null,
       chezStripe: async () => (o.relu === undefined ? { statut: 'active', places: 2, finPrevueLe: null } : o.relu),
-      arreterLesLignes: async (t) => { journal.push(`arret:${t}`); return 1; },
+      arreterLesLignes: async (t) => { journal.push(`arret:${t}`); return o.arretees ?? 1; },
       illimite: async () => o.illimite === true,
       relancerLesLignes: async (t) => { journal.push(`relance:${t}`); return o.relancees ?? 1; },
       reprendreCampagnes: async (t) => { journal.push(`reprise:${t}`); return 0; },
@@ -118,9 +125,11 @@ describe('l’option du Crédit WhatsApp', () => {
       // Une option enregistrée relit son droit : une offre y donne droit, sauf avis contraire du test.
       finDeDroit: async (t, cas) => { droits.push(`${t}:${cas}`); return o.droit ?? 'garde_son_droit'; },
       alerter: async (texte) => { alertes.push(texte); },
+      aDroit: async () => o.aDroit ?? true,
+      prevenirArret: async (t, id) => { arrets.push(`${t}:${id}`); },
     };
     const traitement = creer({ option: dep, paiementRefuse: async (p) => { refus.push(`${p.offre}:${p.factureId}`); } });
-    return { traitement, journal, refus, alertes, droits };
+    return { traitement, journal, refus, alertes, droits, arrets };
   }
   const facture = (billing_reason = 'subscription_cycle', payeeLe?: Date) => ({
     id: 'in_1', billing_reason, amount_paid: 3000, parent: { subscription_details: { subscription: 'sub_opt', metadata: META } },
@@ -167,6 +176,18 @@ describe('l’option du Crédit WhatsApp', () => {
     const reprise = option({ vivante: true, premiereFin: false });
     await reprise.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
     expect(reprise.journal).toEqual(['finir:sub_opt:resiliation']);
+  });
+
+  it('🔴 l’arrêt dit au client (lot C, moment 3) : la première fin, ses lignes arrêtées, la formule y donnant encore droit ; jamais un rejeu, une fin de droit, une Entreprise ni une option sans ligne', async () => {
+    const fin = option();
+    await fin.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META, cancellation_details: { reason: 'payment_failed' } }));
+    expect(fin.arrets).toEqual([`${TENANT}:sub_opt`]);
+    // Une option payée sans droit a son propre e-mail, une fin de droit n'en a aucun : la formule n'y donne plus droit.
+    for (const o of [{ premiereFin: false }, { aDroit: false }, { illimite: true }, { arretees: 0 }]) {
+      const m = option(o);
+      await m.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
+      expect(m.arrets, JSON.stringify(o)).toEqual([]);
+    }
   });
 
   it('🔴 la fin de l’option d’un espace passé en Entreprise n’arrête pas ses lignes : l’illimité les couvre, Julien le sait', async () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { etatLigneCredit, type DepsEtatLigne } from '../src/credit-whatsapp/etat-ligne';
+import { arretDesLignes, etatLigneCredit, type DepsEtatLigne } from '../src/credit-whatsapp/etat-ligne';
+import { creditPaieMeta } from '../web/lib/partage/credit-whatsapp';
 
 /**
  * L'ÉTAT DU CRÉDIT WHATSAPP D'UN ESPACE, VU DES CARTES « QUI RÈGLE META ? » (révision du 2026-11-04, lot B, B1) : la
@@ -17,7 +18,36 @@ function deps(o: {
   };
 }
 
+describe('creditPaieMeta (jaunes 2 et 3 de la relecture du lot B)', () => {
+  it('🔴 la ligne active, ou l’option payée qui attend sa ligne, pour un numéro qui ne garde pas l’application ; sinon la carte chez Meta', () => {
+    expect(creditPaieMeta('active', false)).toBe(true);
+    expect(creditPaieMeta('en_attente', false)).toBe(true);
+    // Qui garde l'application reste sur sa carte chez Meta (décision 8) : la ligne ne le couvrira jamais.
+    expect(creditPaieMeta('en_attente', true)).toBe(false);
+    expect(creditPaieMeta('active', true)).toBe(false);
+    for (const etat of ['free', 'essai', 'a_prendre', 'arretee', undefined, null]) expect(creditPaieMeta(etat, false), String(etat)).toBe(false);
+  });
+});
+
+describe('arretDesLignes (lot C, moment 3)', () => {
+  const ARRET = '2026-11-06T09:00:00Z';
+  it('🔴 toutes arrêtées, et par l’option dès qu’une ligne en vient ; une ligne vivante, ou aucune ligne, rien n’est arrêté', () => {
+    expect(arretDesLignes([])).toEqual({ toutes: false, parLOption: false });
+    expect(arretDesLignes([{ origine: 'option', arreteeLe: ARRET }])).toEqual({ toutes: true, parLOption: true });
+    expect(arretDesLignes([{ origine: 'option', arreteeLe: ARRET }, { origine: 'ops', arreteeLe: new Date(ARRET) }])).toEqual({ toutes: true, parLOption: true });
+    expect(arretDesLignes([{ origine: 'ops', arreteeLe: ARRET }])).toEqual({ toutes: true, parLOption: false });
+    expect(arretDesLignes([{ origine: 'option', arreteeLe: ARRET }, { origine: 'option', arreteeLe: null }])).toEqual({ toutes: false, parLOption: false });
+  });
+});
+
 describe('etatLigneCredit', () => {
+  it('🔴 une option payée sur une formule qui ne l’est plus (un Pro passé en retard) se lit en attente de sa ligne, jamais en essai (jaune 5 du lot B)', async () => {
+    expect(await etatLigneCredit(deps({ payee: false, option: { places: 1, statut: 'actif' } }), 't1')).toBe('en_attente');
+    expect(await etatLigneCredit(deps({ payee: false, option: { places: 1, statut: 'en_retard' } }), 't1')).toBe('en_attente');
+    // Résiliée, elle ne compte plus : la formule non payée reste un essai.
+    expect(await etatLigneCredit(deps({ payee: false, option: { places: 1, statut: 'resilie' } }), 't1')).toBe('essai');
+  });
+
   it('🔴 chaque état depuis ses données : Free, essai, à prendre, en attente, active, arrêtée', async () => {
     const ARRETEE = new Date('2026-11-01T00:00:00Z');
     const cas: Array<[Parameters<typeof deps>[0], string]> = [

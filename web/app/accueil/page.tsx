@@ -33,6 +33,8 @@ import { lireHubspotActif, affichageHubspotAccueil } from '@/lib/hubspot-actif';
 import { useInstallationHubspot } from '@/lib/hubspot-installation';
 import { Bouton } from '@/components/Bouton';
 import { ETAPES_CARTE_META } from '@/lib/partage/etapes-meta';
+import { creditPaieMeta } from '@/lib/partage/credit-whatsapp';
+import { lireEtatLigne } from '@/lib/api-credit-whatsapp';
 import { TitrePage } from '@/components/TitrePage';
 import { Icone } from '@/components/Icone';
 import { Modale } from '@/components/Modale';
@@ -48,6 +50,34 @@ export default function AccueilPage() {
 }
 
 /** Prénom depuis le nom complet ; repli sur la partie locale de l'email ; sinon vide. */
+/**
+ * « Ajoutez votre carte chez Meta » (erreur 141006) : tu quand le Crédit WhatsApp paie Meta pour le numéro de l'espace
+ * (`creditPaieMeta`, la règle de `get_setup_state`, jaune 3 de la relecture du lot B). L'état ne se lit qu'ici, quand Meta
+ * bloque le compte ; illisible, ou en échec, le bandeau paraît : mieux vaut un conseil de trop qu'un blocage tu.
+ */
+function CarteMetaARegler({ tenantId }: { tenantId: string }) {
+  const t = useT();
+  const [paie, setPaie] = useState<boolean | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    lireEtatLigne(tenantId)
+      .then((v) => { if (vivant) setPaie(v !== null && creditPaieMeta(v.etat, v.avecApplication)); })
+      .catch(() => { if (vivant) setPaie(false); });
+    return () => { vivant = false; };
+  }, [tenantId]);
+  if (paie !== false) return null;
+  return (
+    <div data-testid="carte-meta-a-regler" className="mt-3 rounded-controle bg-alerte-50 px-3 py-3 text-xs text-alerte-700">
+      <div className="text-sm font-semibold">
+        {t('Ajoutez votre carte chez Meta : vos modèles ne partent pas', 'Add your card at Meta: your templates are not sent')}
+      </div>
+      <ol className="mt-2 list-decimal space-y-1 pl-5">
+        {ETAPES_CARTE_META.map((e) => <li key={e.fr}>{t(e.fr, e.en)}</li>)}
+      </ol>
+    </div>
+  );
+}
+
 function firstNameOf(me: MeResponse | null): string {
   const n = me?.name?.trim();
   if (n) return n.split(/\s+/)[0] ?? '';
@@ -669,14 +699,7 @@ function AccueilInner({ session }: { session: Session }) {
               {/* Meta bloque le compte pour son moyen de paiement (erreur 141006, migration 0231) : les modèles ne
                   partent pas. Le bandeau tombe de lui-même au prochain relevé, une fois la carte posée. */}
               {account?.hasNumber && !est360 && !account.delieLe && account.paiementMetaBloque === true && (
-                <div data-testid="carte-meta-a-regler" className="mt-3 rounded-controle bg-alerte-50 px-3 py-3 text-xs text-alerte-700">
-                  <div className="text-sm font-semibold">
-                    {t('Ajoutez votre carte chez Meta : vos modèles ne partent pas', 'Add your card at Meta: your templates are not sent')}
-                  </div>
-                  <ol className="mt-2 list-decimal space-y-1 pl-5">
-                    {ETAPES_CARTE_META.map((e) => <li key={e.fr}>{t(e.fr, e.en)}</li>)}
-                  </ol>
-                </div>
+                <CarteMetaARegler tenantId={session.tenantId} />
               )}
               {account?.hasNumber && !est360 && (
                 <div className="mt-4 flex flex-wrap gap-x-8 gap-y-3 border-t border-ink-100 pt-3 text-xs">

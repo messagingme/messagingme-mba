@@ -13,3 +13,14 @@ export const SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR = 10_000_000;
  * dit le crédit presque épuisé, et `get_setup_state` le signale (`credit_whatsapp_epuise`).
  */
 export const SOLDE_REPRISE_CREDIT_MICRO_EUR = 1_000_000;
+
+/**
+ * LE CRÉDIT WHATSAPP PAIE-T-IL META POUR LE NUMÉRO DE L'ESPACE ? (jaunes 2 et 3 de la relecture du lot B) Oui quand la
+ * ligne est active, ou quand l'option payée attend sa ligne, et jamais pour un numéro qui garde l'application WhatsApp
+ * Business : il reste sur sa carte chez Meta (décision 8). Alors seulement, « Ajoutez votre carte chez Meta » se tait :
+ * `get_setup_state` (`carte_meta_a_regler`) et le bandeau de l'Accueil lisent cette règle-ci. `avecApplication` : tous
+ * les numéros vivants de l'espace gardent l'application (`tousGardentLApplication`) ; un espace pilote un seul numéro.
+ */
+export function creditPaieMeta(etat: string | null | undefined, avecApplication: boolean): boolean {
+  return !avecApplication && (etat === 'active' || etat === 'en_attente');
+}

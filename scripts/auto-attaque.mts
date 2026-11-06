@@ -332,6 +332,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
     apresCreditWhatsapp: async () => undefined,
     paiementRefuse: async () => undefined,
     signalerPro: async () => undefined,
+    signalerConversion: async () => undefined,
     numero: {
       enregistrer: async () => ({ etat: 'doublon' as const }), majStatut: async () => null, alerter: async () => undefined,
       noterFinPrevue: async () => false, reprendreCampagnes: async () => undefined, inclusDansLOffre: async () => false,
@@ -352,6 +353,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
       finir: async () => null, vivante: async () => null, finieLe: async () => null, chezStripe: async () => null, arreterLesLignes: async () => 0,
       illimite: async () => false, relancerLesLignes: async () => 0, reprendreCampagnes: async () => 0, resilier: async () => false,
       finDeDroit: async () => 'sans_option' as const, alerter: async () => undefined,
+      aDroit: async () => false, prevenirArret: async () => undefined,
     },
   } satisfies StripeWebhookRouteDeps,
   // Le pont du code (lot 3a) : un VRAI secret aussi, et une réserve vide. Une signature fausse ou absente doit tomber

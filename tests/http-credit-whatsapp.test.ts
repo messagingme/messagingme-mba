@@ -247,6 +247,23 @@ describe('GET /tenants/:tenantId/credit-whatsapp (l’onglet)', () => {
     await a.srv.close();
   });
 
+  it('🔴 l’option arrêtée (lot C, moment 3) : toutes les lignes arrêtées, dont une venue de l’option ; une ligne vivante, ou des lignes posées à la main seules, non', async () => {
+    const ARRET = '2026-11-06T09:00:00Z';
+    const cas: Array<[LigneCredit[], boolean, boolean]> = [
+      [[ligne({ origine: 'option', arreteeLe: ARRET })], true, true],
+      [[ligne({ origine: 'option', arreteeLe: ARRET }), ligne({ id: 'l2', phoneNumberId: 'pn2', arreteeLe: ARRET })], true, true],
+      [[ligne({ origine: 'option', arreteeLe: ARRET }), ligne({ id: 'l2', phoneNumberId: 'pn2', origine: 'option' })], false, false],
+      // Posée à la main et arrêtée à la main : la sortie se demande au Support, jamais « reprenez l'option ».
+      [[ligne({ arreteeLe: ARRET })], true, false],
+    ];
+    for (const [lignes, ligneArretee, optionArretee] of cas) {
+      const a = achat({ lignes });
+      const v = (await lire(a.srv)).json();
+      expect([v.ligneArretee, v.optionArretee], JSON.stringify(lignes)).toEqual([ligneArretee, optionArretee]);
+      await a.srv.close();
+    }
+  });
+
   it('sans grille : aucun prix ; toutes les lignes arrêtées : dit ; prix Stripe absents : achat indisponible', async () => {
     const a = achat({ grille: null, lignes: [ligne({ arreteeLe: '2026-10-31T11:00:00Z' })], prixVides: true, permis: 'sans_ligne' });
     const v = (await lire(a.srv)).json();

@@ -73,8 +73,10 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   }, [tenantId, vueOffre, offre, relectures]);
 
   const etat = vue?.etat;
-  // Payée, pas encore arrivée : l'écran attend le webhook, la prise reste fermée.
-  const optionPayee = retour === 'recue' && (etat === 'a_prendre' || etat === 'essai');
+  const lignePayee = etat === 'en_attente' || etat === 'active';
+  // Payée, pas encore arrivée : l'écran attend le webhook, la prise reste fermée. Tout état hors d'une ligne payée, une
+  // option reprise (`arretee`) comprise, que le webhook relance (jaune 1 de la relecture du lot B).
+  const optionPayee = retour === 'recue' && etat !== undefined && !lignePayee;
   const formuleDemarre = demarrage === 'paye' && etat === 'essai';
   useEffect(() => {
     if (!(optionPayee || formuleDemarre) || relectures >= RELECTURES) return undefined;
@@ -111,7 +113,6 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     setRelectures((n) => n + 1);
   }
 
-  const lignePayee = etat === 'en_attente' || etat === 'active';
   const carteActive = carte ?? (!connecte && !lignePayee && !optionPayee && retour !== 'recue');
   const surDemande = (
     <>
@@ -144,7 +145,8 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
       grisee = true;
       ligne = surDemande;
     } else if (etat === 'essai' && formuleDemarre) {
-      ligne = t('Votre formule Pro démarre : le Crédit WhatsApp s’ouvre dans quelques secondes.', 'Your Pro plan is starting: WhatsApp credit opens in a few seconds.');
+      // Après toutes ses relectures, la carte ne promet plus « quelques secondes » sans issue (jaune 12 du lot B).
+      ligne = t('Votre formule Pro démarre : le Crédit WhatsApp s’ouvre dans quelques secondes. Rechargez la page s’il tarde.', 'Your Pro plan is starting: WhatsApp credit opens in a few seconds. Reload the page if it takes a while.');
     } else if (etat === 'essai' && essaiPro) {
       ligne = t('Il vient avec la formule Pro payante : à la fin de l’essai, ou tout de suite.', 'It comes with the paid Pro plan: at the end of the trial, or right away.');
       action = admin ? (
@@ -198,7 +200,8 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
       {t('Connecter avec ma carte chez Meta', 'Connect with my card at Meta')}
     </Bouton>
   ) : null;
-  const metaEnAvant = lieu === 'accueil' ? !lignePayee : carteActive;
+  // Un numéro connecté que la ligne ne paie pas est payé par sa carte : elle est mise en avant (jaune 4 du lot B).
+  const metaEnAvant = lieu === 'accueil' || connecte ? !lignePayee : carteActive;
 
   return (
     <div className={lieu === 'accueil' ? 'mb-4' : 'mt-6'}>
@@ -236,7 +239,12 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
           <div className="grid grid-rows-[1fr_auto] gap-3">
             <div data-testid="carte-credit-wa" data-etat={etat ?? ''} aria-disabled={grisee || undefined} className={`rounded-carte border p-4 ${lignePayee ? 'border-ink-900' : 'border-ink-200'}`}>
               <div className={`text-sm font-semibold text-ink-900 ${grisee ? 'opacity-60' : ''}`}>{t(QUESTION_PAIEMENT.credit.titre.fr, QUESTION_PAIEMENT.credit.titre.en)}</div>
-              <p className={`mt-1 text-sm text-ink-700 ${grisee ? 'opacity-60' : ''}`}>{t(QUESTION_PAIEMENT.credit.texte.fr, QUESTION_PAIEMENT.credit.texte.en)}</p>
+              <p className={`mt-1 text-sm text-ink-700 ${grisee ? 'opacity-60' : ''}`}>
+                {/* Une Entreprise : son contrat, jamais le prix de l'option (jaune 9 du lot B, texte validé par Julien le 2026-11-06). */}
+                {offre === 'entreprise'
+                  ? t('Vous payez vos messages chez Messaging Me, sans carte chez Meta, selon votre contrat Entreprise.', 'You pay for your messages at Messaging Me, with no card at Meta, under your Enterprise contract.')
+                  : t(QUESTION_PAIEMENT.credit.texte.fr, QUESTION_PAIEMENT.credit.texte.en)}
+              </p>
               {ligne && <p className="mt-2 text-sm font-semibold text-ink-900" data-testid="carte-credit-wa-ligne">{ligne}</p>}
             </div>
             {(grisee || action || avertissement) && (

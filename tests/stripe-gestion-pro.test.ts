@@ -255,6 +255,8 @@ describe('demarrerProMaintenant', () => {
     const base = monter({ reponses: o.reponses, ...(o.pro === null ? { pro: null } : {}) });
     const fins: Array<{ abonnementId: string; finLe: Date }> = [];
     const verrous = { pris: [] as string[], relaches: 0, prolonges: [] as number[] };
+    /** Les conversions signalées (lot C du Crédit WhatsApp), chacune avec le nombre de fins notées à cet instant. */
+    const conversions: string[] = [];
     const d: DepsDemarrerPro = {
       ...base.d,
       resumeDuPro: async () => ({ essaiFinLe: o.essai === undefined ? EN_ESSAI : o.essai, finPrevueLe: o.finPrevue ?? null }),
@@ -268,8 +270,9 @@ describe('demarrerProMaintenant', () => {
         prolonger: async (_prise, dureeMs) => { verrous.prolonges.push(dureeMs); return true; },
       },
       maintenant: () => MAINTENANT,
+      signalerConversion: async (t) => { conversions.push(`${t}:${fins.length}`); },
     };
-    return { d, transport: base.transport, fins, verrous };
+    return { d, transport: base.transport, fins, verrous, conversions };
   }
   const relu = (status: string) => ({ status: 200, json: { id: 'sub_1', status, trial_end: Date.parse('2026-11-12T08:00:00Z') / 1000 } });
   const demarreAvec = (facture: unknown) => ({ status: 200, json: { id: 'sub_1', status: 'active', trial_end: MAINTENANT / 1000, latest_invoice: facture } });
@@ -286,6 +289,18 @@ describe('demarrerProMaintenant', () => {
     expect(transport.appels[1]!.entetes['idempotency-key']).toMatch(/^essai-fini-sub_1-/);
     expect(fins).toEqual([{ abonnementId: 'sub_1', finLe: new Date(MAINTENANT) }]);
     expect([verrous.pris, verrous.relaches]).toEqual([['pro.demarrer:t1'], 1]);
+  });
+
+  it('🔴 la conversion (lot C du Crédit WhatsApp) : un démarrage payé la signale APRÈS la fin notée (le webhook peut arriver avant elle et trouver l’essai en cours) ; un prélèvement différé ou une carte refusée, jamais', async () => {
+    const payee = demarrer({ reponses: [relu('trialing'), demarre] });
+    await demarrerProMaintenant(payee.d, 't1', 'u1');
+    expect(payee.conversions).toEqual(['t1:1']);
+    const differe = demarrer({ reponses: [relu('trialing'), demarreAvec({ id: 'in_1', status: 'open' })] });
+    await demarrerProMaintenant(differe.d, 't1', 'u1');
+    expect(differe.conversions).toEqual([]);
+    const refusee = demarrer({ reponses: [relu('trialing'), { status: 402, json: { error: { type: 'card_error', code: 'card_declined' } } }] });
+    await demarrerProMaintenant(refusee.d, 't1', 'u1');
+    expect(refusee.conversions).toEqual([]);
   });
 
   it('🔴 carte refusée : 402 paiement_refuse, l’essai continue, aucune fin notée, le verrou relâché', async () => {
@@ -321,6 +336,14 @@ describe('demarrerProMaintenant', () => {
     }
     const sansPro = demarrer({ pro: null });
     expect(await demarrerProMaintenant(sansPro.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 409, details: { code: 'aucun_pro' } });
+  });
+
+  it('🔴 une réponse 200 illisible AVANT l’envoi (la lecture de l’abonnement) : rien n’est parti, 422 et le verrou relâché, jamais « issue inconnue » (jaune 7 du lot B)', async () => {
+    for (const lu of [{ status: 200, json: { pas: 'un abonnement' } }, { status: 200, json: { id: 'sub_autre', status: 'trialing' } }]) {
+      const r = demarrer({ reponses: [lu] });
+      expect(await demarrerProMaintenant(r.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 422, details: { code: 'demarrage_impossible' } });
+      expect([r.transport.appels.map((a) => a.methode), r.fins, r.verrous.relaches, r.verrous.prolonges]).toEqual([['GET'], [], 1, []]);
+    }
   });
 
   it('🔴 une réponse 200 illisible après l’envoi : l’issue est inconnue, pas un refus (jaune 4 du lot A5) : le verrou gardé, « rechargez la page »', async () => {

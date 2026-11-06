@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { changerFinAbonnement, lireAbonnementStripe, listerFacturesStripe, StripeError, terminerEssaiStripe } from './client';
+import { changerFinAbonnement, LECTURE_AVANT_ENVOI, lireAbonnementStripe, listerFacturesStripe, StripeError, terminerEssaiStripe } from './client';
 import type { DepsPaiement } from './paiement';
 import { journaliser } from '../lib/journal';
 import { refus, type Issue } from '../lib/issue';
@@ -34,6 +34,11 @@ export type DepsDemarrerPro = DepsGestionPro & {
    * l'option s'ouvre dans la foulée. Le webhook réécrit la même fin.
    */
   noterFinEssai(abonnementId: string, finLe: Date): Promise<boolean>;
+  /**
+   * La conversion dite au client (lot C du Crédit WhatsApp, `signalerConversion`), APRÈS la fin notée : la facture payée
+   * peut arriver au webhook avant cette écriture et y trouver l'essai encore en cours. Ne lève jamais.
+   */
+  signalerConversion(tenantId: string): Promise<void>;
   verrous: Pick<VerrousCourts, 'prendre' | 'relacher' | 'prolonger'>;
   maintenant?: () => number;
 };
@@ -194,8 +199,9 @@ export async function demarrerProMaintenant(
         return refus(503, 'Notre prestataire de paiement n’a pas répondu. Rechargez la page dans un instant pour voir si votre formule a démarré.', { code: 'paiement_indisponible' });
       }
       // 🟡 Une réponse 200 illisible (un autre abonnement, l'essai pas arrêté, un corps hors schéma) : Stripe a sans doute
-      // appliqué l'arrêt, l'issue est INCONNUE comme une panne, jamais un refus à retenter (jaune 4 du lot A5).
-      if (err.status === 200) {
+      // appliqué l'arrêt, l'issue est INCONNUE comme une panne, jamais un refus à retenter (jaune 4 du lot A5). Sauf celle de
+      // la lecture d'AVANT l'envoi : rien n'est parti, le refus se retente (jaune 7 du lot B).
+      if (err.status === 200 && err.code !== LECTURE_AVANT_ENVOI) {
         issueInconnue = true;
         return refus(503, 'La réponse de notre prestataire de paiement n’a pas pu être lue. Rechargez la page dans un instant pour voir si votre formule a démarré.', { code: 'demarrage_incertain' });
       }
@@ -208,6 +214,7 @@ export async function demarrerProMaintenant(
     } catch (err) {
       journaliser('error', 'pro_fin_essai_non_ecrite', { tenantId, abonnementId: pro.abonnementId, err: err instanceof Error ? err.message : String(err) });
     }
+    if (issue === 'paye') await d.signalerConversion(tenantId);
     journaliser('info', 'pro_demarre_avant_la_fin_de_l_essai', { tenantId, abonnementId: pro.abonnementId, paye: issue === 'paye' });
     return { ok: true, valeur: { essaiFini: true, paye: issue === 'paye' } };
   } finally {

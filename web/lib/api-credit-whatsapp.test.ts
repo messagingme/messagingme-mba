@@ -32,6 +32,7 @@ describe('getCreditWhatsapp', () => {
       franchiseServiceParNumero: 1000,
       achat: { disponible: true, permis: 'ok', offres: [{ offre: 'wa_50', htCentimes: 5_000 }] },
       ligneArretee: false,
+      optionArretee: false,
       historique: [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
       serie: [{ jour: '2026-10-31', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
       option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null, formulePayee: true, avecApplication: false },
@@ -47,9 +48,18 @@ describe('getCreditWhatsapp', () => {
       // Une API d'avant l'Entreprise illimitée (la console part avant l'API) : pas d'illimité, aucune consommation.
       illimite: false, soldeMicroEur: 0, consommationDuMoisMicroEur: 0, prixFrance: null, franchiseServiceParNumero: 0,
       achat: { disponible: false, permis: 'ok', offres: [] }, ligneArretee: false, historique: [], serie: [],
+      // Une API d'avant le lot C : un arrêt se dit comme avant, au Support.
+      optionArretee: false,
       // Une API d'avant l'option : rien en vente, rien de pris, la section ne paraît pas.
       option: SANS_OPTION,
     });
+  });
+
+  it('🔴 l’option arrêtée (lot C, moment 3) passe telle quelle ; un autre corps vaut non', async () => {
+    repondre(200, { soldeMicroEur: 0, ligneArretee: true, optionArretee: true });
+    expect(await getCreditWhatsapp('t1')).toMatchObject({ ligneArretee: true, optionArretee: true });
+    repondre(200, { soldeMicroEur: 0, ligneArretee: true, optionArretee: 'oui' });
+    expect((await getCreditWhatsapp('t1')).optionArretee).toBe(false);
   });
 
   it('🔴 une option illisible n’invente ni places ni statut : des comptes faux valent zéro, un statut inconnu rien', async () => {

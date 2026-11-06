@@ -9,8 +9,8 @@ import { modeDeReprise, type EtatConnexion, type ModeDeReprise } from '../otp/et
 import type { VueOffre } from '../offres/vue';
 import type { WidgetRow } from '../widgets/store.pg';
 import { journaliser } from '../lib/journal';
-import { SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
-import { lireEtatLigne, type EtatLigne, type SourcesEtatLigne } from '../credit-whatsapp/etat-ligne';
+import { creditPaieMeta, SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
+import { lireEtatLigne, tousGardentLApplication, type EtatLigne, type SourcesEtatLigne } from '../credit-whatsapp/etat-ligne';
 
 /**
  * OÙ EN EST LA MISE EN SERVICE D'UN ESPACE (lot 10, outil `get_setup_state`). La skill de mise en service du plugin
@@ -82,6 +82,11 @@ export interface LecturesMiseEnService {
    * à la carte chez Meta de payer. Absent (lecture en échec) : lu comme avant, sans ligne.
    */
   etatLigne?: EtatLigne;
+  /**
+   * Tous les numéros de l'espace gardent l'application (`tousGardentLApplication`, jaune 2 du lot B) : la ligne ne les
+   * couvrira pas, la carte chez Meta reste à régler. Absent (lecture en échec) : lu comme non.
+   */
+  avecApplication?: boolean;
 }
 
 export interface EtatMiseEnService {
@@ -136,9 +141,10 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
   if (statutApplication === 'banni' || statutApplication === 'deconnecte') avertissements.push('numero_coupe');
   if (statutApplication === 'sommeil') avertissements.push('numero_en_sommeil');
   // Connecté mais bloqué chez Meta pour sa carte : les modèles ne partent pas (erreur 141006, guide « compte Meta »).
-  // Sauf si le Crédit WhatsApp paie Meta (lot B) : l'option payée attend sa ligne, ou la ligne est posée.
+  // Sauf si le Crédit WhatsApp paie Meta (`creditPaieMeta`) : la ligne posée, ou l'option payée qui l'attend, pour un
+  // numéro qui ne garde pas l'application.
   const carteARegler = numero?.connecte === true && l.numero?.connecte?.paiementBloque === true
-    && l.etatLigne !== 'en_attente' && l.etatLigne !== 'active';
+    && !creditPaieMeta(l.etatLigne, l.avecApplication === true);
   if (carteARegler) avertissements.push('carte_meta_a_regler');
 
   const agents = l.agents === null ? null : {
@@ -210,12 +216,16 @@ export interface DepsMiseEnService {
     repondeur: { reglages: { get(tenantId: string): Promise<ReglageDuRepondeur> } };
     /**
      * Le Crédit WhatsApp (`DepsAgentMcp.creditWhatsapp`) : un numéro sur la ligne ou non, ses conditions (une Entreprise est
-     * illimitée : son solde, qui ne bouge pas, ne dit rien) et son solde.
+     * illimitée : son solde, qui ne bouge pas, ne dit rien) et son solde ; avec l'option et les lignes, l'état de la ligne
+     * (`lireEtatLigne`, lot B), la même lecture que les cartes.
      */
-    /** Avec l'option et les lignes : l'état de la ligne (`lireEtatLigne`, lot B), la même lecture que les cartes. */
     creditWhatsapp: SourcesEtatLigne & {
       surLaLigne(tenantId: string): Promise<boolean>;
-      vue: { solde(tenantId: string): Promise<number>; conditions(tenantId: string): Promise<{ openBar: boolean }> };
+      vue: {
+        solde(tenantId: string): Promise<number>; conditions(tenantId: string): Promise<{ openBar: boolean }>;
+        /** Les numéros de l'espace, pour savoir s'ils gardent tous l'application (`tousGardentLApplication`). */
+        numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean }>>;
+      };
     };
   };
   widgets: { gestion: { widgets: { lister(tenantId: string): Promise<WidgetRow[]> } } };
@@ -235,7 +245,7 @@ function ou<T>(p: Promise<T>, tenantId: string, source: string): Promise<T | nul
 export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: string): Promise<EtatMiseEnService> {
   const g = deps.agentIa.gestion;
   const wa = deps.agentIa.creditWhatsapp;
-  const [offre, creditIa, numero, liste, reglages, widgets, soldeWhatsapp, etatLigne] = await Promise.all([
+  const [offre, creditIa, numero, liste, reglages, widgets, soldeWhatsapp, etatLigne, numerosCredit] = await Promise.all([
     ou(deps.offre.vue(tenantId), tenantId, 'offre'),
     ou(g.creditIa.etat(tenantId), tenantId, 'credit'),
     ou(deps.numero.etat(tenantId), tenantId, 'numero'),
@@ -247,6 +257,7 @@ export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: strin
     // bouge pas et n'arrête rien, aucun avertissement n'en sort.
     ou(wa.surLaLigne(tenantId).then(async (o) => (o && !(await wa.vue.conditions(tenantId)).openBar ? wa.vue.solde(tenantId) : null)), tenantId, 'credit_whatsapp'),
     ou(lireEtatLigne(wa, tenantId), tenantId, 'ligne_credit'),
+    ou(wa.vue.numeros(tenantId), tenantId, 'numeros_credit'),
   ]);
   // Les manques, pour les brouillons seulement (la lecture de la console, `/manques`) : un espace en porte quelques-uns.
   const agents = liste === null ? null : await Promise.all(liste.map(async (a) => ({
@@ -258,5 +269,6 @@ export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: strin
     ...(soldeWhatsapp !== null ? { soldeWhatsappMicroEur: soldeWhatsapp } : {}),
     ...(creditIa !== null ? { creditIa: { illimite: creditIa.illimite, plafondAtteint: creditIa.acces === 'plafond' } } : {}),
     ...(etatLigne !== null ? { etatLigne } : {}),
+    ...(numerosCredit !== null ? { avecApplication: tousGardentLApplication(numerosCredit) } : {}),
   });
 }

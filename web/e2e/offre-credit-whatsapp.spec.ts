@@ -226,6 +226,37 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     await expect(page.getByTestId('credit-wa-epuise')).toHaveCount(0);
   });
 
+  test('🔴 l’option arrêtée (lot C, moment 3) : la sortie dite, « Reprendre l’option » mène à sa section, la carte chez Meta à Connecter WhatsApp', async ({ page }) => {
+    const arretee = credit({
+      soldeMicroEur: 12_000_000, ligneArretee: true, optionArretee: true,
+      achat: { disponible: true, permis: 'sans_ligne', offres: credit().achat.offres }, option: { ...OPTION, formulePayee: true },
+    });
+    await monter(page, { vues: [arretee] });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-arretee')).toContainText(
+      'Vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant est conservé. Pour envoyer de nouveau : reprenez l’option, ou connectez votre numéro avec votre carte chez Meta.',
+    );
+    // L'ancien avis (« contactez-nous ») reste aux lignes posées à la main : jamais les deux.
+    await expect(page.getByTestId('credit-wa-ligne-arretee')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-offre-wa_50')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-arretee-meta')).toHaveAttribute('href', '/connecter-whatsapp');
+    await page.getByTestId('credit-wa-option-arretee-reprendre').click();
+    await expect(page.getByTestId('credit-wa-option-prendre')).toBeInViewport();
+  });
+
+  test('l’option arrêtée hors vente : la carte chez Meta et le Support, jamais « Reprendre l’option »', async ({ page }) => {
+    await monter(page, {
+      vues: [credit({
+        soldeMicroEur: 0, ligneArretee: true, optionArretee: true,
+        achat: { disponible: true, permis: 'sans_ligne', offres: credit().achat.offres }, option: { ...OPTION, disponible: false, formulePayee: true },
+      })],
+    });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-arretee')).toContainText('Sur demande : écrivez-nous depuis le Support.');
+    await expect(page.getByTestId('credit-wa-option-arretee-reprendre')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-arretee-meta')).toBeVisible();
+  });
+
   test('🔴 une route d’achat absente (la console part avant l’API) : « pas encore disponible », pas une erreur brute', async ({ page }) => {
     await monter(page, { achat: { status: 404, body: { message: 'Route not found' } } });
     await page.goto('/offre?tab=whatsapp');

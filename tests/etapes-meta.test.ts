@@ -96,5 +96,9 @@ describe('ce qu’il faut chez Meta', () => {
     for (const etatLigne of ['a_prendre', 'essai', 'arretee'] as const) {
       expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne }).avertissements, etatLigne).toContain('carte_meta_a_regler');
     }
+    // 🔴 Un numéro qui garde l'application reste sur sa carte chez Meta (jaune 2 du lot B) : l'option payée ne le couvre pas.
+    for (const etatLigne of ['en_attente', 'active'] as const) {
+      expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne, avecApplication: true }).avertissements, etatLigne).toContain('carte_meta_a_regler');
+    }
   });
 });

@@ -410,6 +410,7 @@ function webhook(o: { paiements?: ReturnType<typeof fauxPaiements>; apresCredit?
     apresCreditWhatsapp: async () => {},
     paiementRefuse: async () => {},
     signalerPro: async () => {},
+    signalerConversion: async () => {},
     // 🔴 Une recharge ne touche jamais l'abonnement du numéro (lot 3c) : ses dépendances lèvent si on les appelle.
     // Seule l'alerte à Julien sert aussi la recharge : celle d'un espace supprimé (RC8), notée ici.
     numero: {

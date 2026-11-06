@@ -57,6 +57,11 @@ export interface OpsOffreDeps {
      * ses lignes arrêtées (`finDeDroitOption`, lot 4a). Elle écrit chez Stripe, la seule. Rend ce qu'elle a fait.
      */
     finDeDroitOption(tenantId: string): Promise<string>;
+    /**
+     * La conversion dite au client (lot C du Crédit WhatsApp, moment 2, `signalerConversion`) : un Business devenu confirmé
+     * (posé sans essai, ou son essai confirmé). Elle relit la formule payée et ne part qu'une fois ; ne lève jamais.
+     */
+    signalerConversion(tenantId: string): Promise<void>;
   };
 }
 
@@ -208,6 +213,10 @@ async function jouerLesGestes(deps: OpsOffreDeps, tenantId: string, avant: Regla
   if (!avant.entreprise && apres.entreprise) {
     await tenter('reprise_credit_whatsapp', () => deps.gestes.reprendreCreditWhatsapp(tenantId));
   }
+  // Un Business devenu CONFIRMÉ (posé sans essai, ou son essai confirmé) : la conversion dite au client (lot C du Crédit
+  // WhatsApp). Un Business déjà confirmé qu'on règle ne la redit pas ; elle ne lève jamais, elle ne compte aucun échec.
+  const confirme = (r: ReglageEntreprise): boolean => r.business && !r.entreprise && r.businessEssaiFinLe === null;
+  if (confirme(apres) && !confirme(avant)) await deps.gestes.signalerConversion(tenantId);
   // Son Crédit IA aussi : illimité sous un plafond, que l'entrée pose et qu'un plafond changé déplace.
   if (apres.entreprise && (!avant.entreprise || avant.plafondIaMoisEuros !== apres.plafondIaMoisEuros)) {
     await tenter('ia_entreprise', () => deps.gestes.reglerIaEntreprise(tenantId));

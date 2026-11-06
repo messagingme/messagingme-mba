@@ -788,6 +788,8 @@ export const stripeOptionInerte: StripeWebhookRouteDeps['option'] = {
   resilier: neDevraitPasEtreAppelee('stripe.option.resilier'),
   finDeDroit: async () => 'sans_option',
   alerter: async () => {},
+  aDroit: neDevraitPasEtreAppelee('stripe.option.aDroit'),
+  prevenirArret: neDevraitPasEtreAppelee('stripe.option.prevenirArret'),
 };
 
 /**

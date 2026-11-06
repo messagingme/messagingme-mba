@@ -35,6 +35,8 @@ class MagasinMemoire {
   alertes: AlertesOffreManuelle = SANS_ALERTE;
   /** Les gestes qui suivent la pose ou le retrait, dans l'ordre (spec Business). */
   readonly gestesJoues: string[] = [];
+  /** Les conversions signalées au client (lot C du Crédit WhatsApp), à part des gestes : elles ne comptent aucun échec. */
+  readonly conversions: string[] = [];
   finiLe: Date | null = null;
   complement = 9_000_000;
   echec: 'passage' | 'credit' | 'fin' | null = null;
@@ -89,6 +91,7 @@ class MagasinMemoire {
           return 'porte';
         },
         finDeDroitOption: async (t) => { this.gestesJoues.push(`option:${t}`); return 'sans_option'; },
+        signalerConversion: async (t) => { this.conversions.push(t); },
       },
     };
   }
@@ -280,6 +283,27 @@ describe('la route d’exploitation /ops/offre/:tenantId', () => {
       expect((await server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { ...BASE, business: true, ...extra } })).statusCode, JSON.stringify(extra)).toBe(400);
     }
     await server.close();
+  });
+
+  it('🔴 la conversion (lot C du Crédit WhatsApp) : un Business posé sans essai, ou son essai confirmé, la signale ; en essai ou déjà confirmé, non', async () => {
+    const FIN = '2026-11-18T00:00:00.000Z';
+    const poser = (server: Awaited<ReturnType<typeof monter>>['server'], payload: Record<string, unknown>) =>
+      server.inject({ method: 'PUT', url: `/ops/offre/${T1}`, headers: ops, payload: { entreprise: false, utilisateurs: null, note: 'Business', ...payload } });
+    const direct = monter();
+    direct.magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: false });
+    expect((await poser(direct.server, { business: true })).statusCode).toBe(200);
+    expect(direct.magasin.conversions).toEqual([T1]);
+    // Déjà confirmé : un réglage de plus (ses utilisateurs) ne la redit pas.
+    await poser(direct.server, { business: true, utilisateursBusiness: 6 });
+    expect(direct.magasin.conversions).toEqual([T1]);
+    await direct.server.close();
+    const essai = monter();
+    essai.magasin.reglages.set(T1, { ...SANS_BUSINESS, ...ENTREPRISE, entreprise: false });
+    await poser(essai.server, { business: true, businessEssaiFinLe: FIN });
+    expect(essai.magasin.conversions).toEqual([]);
+    await poser(essai.server, { business: true, businessEssaiFinLe: null });
+    expect(essai.magasin.conversions).toEqual([T1]);
+    await essai.server.close();
   });
 
   it('🔴 une date d’essai du Business sur un espace qui ne sera pas en Business : 400, rien d’écrit (jaune 5 de la relecture du lot A)', async () => {

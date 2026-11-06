@@ -135,6 +135,36 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     expect(s.options).toEqual([]);
   });
 
+  test('🔴 une option reprise (arrêtée) : au retour de Stripe, la prise reste fermée et l’écran relit jusqu’à la ligne relancée (jaune 1 du lot B)', async ({ page }) => {
+    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+    const s = await simuler(page, { etats: [{ etat: 'arretee', enVente: true }, { etat: 'arretee', enVente: true }, { etat: 'active', enVente: true }] });
+    await page.goto('/connecter-whatsapp?option=recue');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre ligne s’ouvre sous 24 h ouvrées.');
+    await expect(page.getByTestId('carte-credit-wa-reprendre')).toHaveCount(0);
+    await expect.poll(() => s.lecturesEtat(), { timeout: 10_000 }).toBeGreaterThanOrEqual(3);
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos messages sont payés par votre Crédit WhatsApp.');
+    expect(s.options).toEqual([]);
+  });
+
+  test('🔴 une Entreprise : son contrat, sur demande, jamais le prix de l’option ni « avec la formule Pro ou Business » (jaune 9 du lot B)', async ({ page }) => {
+    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false }] });
+    await page.goto('/connecter-whatsapp');
+    const carte = page.getByTestId('carte-credit-wa');
+    await expect(carte).toContainText('Vous payez vos messages chez Messaging Me, sans carte chez Meta, selon votre contrat Entreprise.');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
+    await expect(carte).not.toContainText('30 €');
+    await expect(carte).not.toContainText('avec la formule Pro ou Business');
+  });
+
+  test('🔴 un numéro connecté payé par sa carte : « Ma carte chez Meta » est mise en avant (jaune 4 du lot B)', async ({ page }) => {
+    await mockAccueil(page, { inscription: { complete: {} } });
+    await simuler(page, { etats: [{ etat: 'a_prendre', enVente: true }] });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('carte-meta')).toHaveClass(/border-ink-900/);
+    await expect(page.getByTestId('carte-credit-wa')).toHaveClass(/border-ink-200/);
+  });
+
   test('un paiement abandonné : rien n’a été débité pour l’option, et la prise se représente', async ({ page }) => {
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'a_prendre', enVente: true }] });

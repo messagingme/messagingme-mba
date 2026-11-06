@@ -86,6 +86,13 @@ export interface DepsTraitementAbonnements {
      */
     finDeDroit(tenantId: string, cas: CasFinDeDroit): Promise<IssueFinDeDroitOption>;
     alerter(texte: string): Promise<void>;
+    /**
+     * La formule de l'espace donne-t-elle encore droit à l'option, l'offre relue SANS cache (lot C) ? Une fin de droit, ou une
+     * option payée sans droit, ont leur propre traitement et ne disent pas l'arrêt au client.
+     */
+    aDroit(tenantId: string): Promise<boolean>;
+    /** L'e-mail de l'arrêt aux admins (lot C, moment 3, `creerOptionArretee`), une fois par abonnement. Ne lève jamais. */
+    prevenirArret(tenantId: string, abonnementId: string): Promise<void>;
   };
   /**
    * L'e-mail aux admins d'un renouvellement refusé (lot 7, livraison B), une fois par facture : Stripe réessaie la même
@@ -97,6 +104,12 @@ export interface DepsTraitementAbonnements {
    * chaque facture payée non nulle, rejeux compris : la réservation en garde une par espace. Ne lève jamais.
    */
   signalerPro(p: { tenantId: string; montantCentimes: number; devise: string }): Promise<void>;
+  /**
+   * La conversion dite au client (lot C du Crédit WhatsApp, moment 2, `signalerConversion`) : appelée à chaque facture de
+   * période payée de la formule Pro ; la règle « formule payée » et l'occasion unique, relues par elle, gardent d'un
+   * second e-mail et d'un e-mail pendant l'essai. Ne lève jamais.
+   */
+  signalerConversion(tenantId: string): Promise<void>;
   now?: () => number;
 }
 
@@ -496,6 +509,9 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         ...(ouvreUnEssai && finFacture !== null ? { essaiFinProvisoire: finFacture } : {}),
       }, ouvreUnEssai);
     }
+    // La conversion dite au client (lot C du Crédit WhatsApp) : une facture de période payée, jamais la facture à 0 € qui
+    // ouvre un essai ni le prorata d'un siège. Après l'enregistrement : la formule payée se relit sur ce qu'il a écrit.
+    if (payeeNonNulle) await deps.signalerConversion(paye?.tenantId ?? meta.data.tenant_id);
     // La conversion de nos publicités : un paiement RÉEL, jamais la facture à 0 € d'un essai ou d'un code promo à 100 %, ni
     // le prorata d'un siège ; l'essai écourté, lui, en est un. Après l'enregistrement : le fait suit le paiement qu'il raconte.
     const montant = lu.data.amount_paid ?? 0;
@@ -600,6 +616,10 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       if (a.premiereFin) {
         const suite = illimite ? 'Entreprise : ses lignes restent actives, sous l’illimité' : `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
         await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}.`);
+        // L'arrêt dit au client (lot C, moment 3) : ses lignes viennent de s'arrêter alors que la formule y donne encore droit
+        // (une résiliation, un impayé). Jamais une Entreprise (ses lignes restent), ni une option sans ligne, ni une fin de
+        // droit ou une option payée sans droit, que l'avis `deleted` de notre propre résiliation peut amener ici d'abord.
+        if (!illimite && n > 0 && await deps.option.aDroit(a.tenantId)) await deps.option.prevenirArret(a.tenantId, a.abonnementId);
       }
     };
     /**

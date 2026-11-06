@@ -15,6 +15,12 @@ export const META_BUSINESS_URL = 'https://business.facebook.com/';
  * grisée tant qu'il n'est pas en vente en ligne (en Free, il vient avec la formule Pro ; ailleurs, sur demande). Les mêmes
  * mots que la vitrine (`tests/questions-numero-vitrine.test.ts`) ; la console y ajoute l'état de l'espace (`QuiRegleMeta`).
  */
+/**
+ * ⚠️ `carte.texte` et `grisee` sont les mots de la VITRINE, tenus égaux par le test de parité : la console dit ses
+ * variantes validées (`QuiRegleMeta` : « Vous connectez votre numéro avec votre carte chez Meta… », « Sur demande :
+ * écrivez-nous depuis le Support. ») ; le titre, la question, sa précision et le texte du Crédit WhatsApp sont communs
+ * (jaune 8 de la relecture du lot B).
+ */
 export const QUESTION_PAIEMENT = {
   texte: { fr: 'Qui paie vos messages à Meta ?', en: 'Who pays Meta for your messages?' },
   precision: { fr: 'Meta facture chaque modèle que vous envoyez.', en: 'Meta bills each template you send.' },

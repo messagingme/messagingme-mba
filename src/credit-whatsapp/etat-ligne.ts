@@ -54,6 +54,18 @@ export function tousGardentLApplication(numeros: ReadonlyArray<{ coexistence: bo
   return vivants.length > 0 && vivants.every((n) => n.coexistence);
 }
 
+/**
+ * L'ARRÊT DES LIGNES DE L'ESPACE (lot C, moment 3) : toutes arrêtées (plus rien ne part, quel que soit le solde, qui reste),
+ * et par l'option dès qu'une d'elles en vient (la sortie : reprendre l'option, ou sa carte chez Meta ; des lignes posées
+ * à la main seules se redemandent au Support). L'onglet de la console et `get_credit` le lisent ici.
+ */
+export function arretDesLignes(
+  lignes: ReadonlyArray<{ origine: 'ops' | 'option'; arreteeLe: Date | string | null }>,
+): { toutes: boolean; parLOption: boolean } {
+  const toutes = lignes.length > 0 && lignes.every((l) => l.arreteeLe !== null);
+  return { toutes, parLOption: toutes && lignes.some((l) => l.origine === 'option') };
+}
+
 export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promise<EtatLigne> {
   const offre = await d.offre(tenantId);
   if (offre === 'base') return 'free';
@@ -61,7 +73,9 @@ export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promi
   const lignes = await d.lignes(tenantId);
   if (lignes.length > 0) return lignes.some((l) => l.arreteeLe === null) ? 'active' : 'arretee';
   if (offre === 'entreprise') return 'a_prendre';
-  if (!(await d.formulePayee(tenantId))) return 'essai';
+  // Une option payée attend sa ligne, la formule payée ou non : un Pro passé en retard ne la remet pas à l'essai (jaune 5
+  // de la relecture du lot B).
   const option = await d.option(tenantId);
-  return option !== null && option.places > 0 && option.statut !== 'resilie' ? 'en_attente' : 'a_prendre';
+  if (option !== null && option.places > 0 && option.statut !== 'resilie') return 'en_attente';
+  return (await d.formulePayee(tenantId)) ? 'a_prendre' : 'essai';
 }

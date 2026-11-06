@@ -72,6 +72,12 @@ async function lireReponse(res: Response): Promise<ReponseStripe> {
 }
 
 /** Stripe a refusé, ou n'a pas répondu. `type` et `code` sont ceux de Stripe quand il les donne. */
+/**
+ * Le code d'une réponse 200 illisible de la lecture qui PRÉCÈDE un envoi (`terminerEssaiStripe`) : rien n'est parti, l'appelant
+ * peut refuser sans garder de verrou (jaune 7 de la relecture du lot B).
+ */
+export const LECTURE_AVANT_ENVOI = 'lecture_avant_envoi';
+
 export class StripeError extends Error {
   constructor(
     readonly operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege' | 'essai',
@@ -336,6 +342,41 @@ export async function creerSessionAbonnement(transport: TransportStripe, d: Dema
     success_url: d.urlSucces,
     cancel_url: d.urlAbandon,
   }, { cle: d.cle, idempotence: d.idempotence }, sessionSchema);
+}
+
+const sessionsListeesSchema = z.object({ data: z.array(z.unknown()) });
+const sessionOuverteSchema = z.object({
+  id: z.string().startsWith('cs_'),
+  status: z.literal('open'),
+  customer: z.union([z.string(), z.object({ id: z.string() })]).nullable().optional(),
+  metadata: z.record(z.string(), z.string()).nullable().optional(),
+});
+const sessionExpireeSchema = z.object({ id: z.string().startsWith('cs_'), status: z.literal('expired') });
+
+/**
+ * Expire les sessions Checkout encore OUVERTES d'un client pour un produit, et rend leur nombre (jaune 11 de la relecture
+ * du lot B) : deux onglets, ou une carte périmée, ouvriraient deux sessions de l'option, et deux abonnements si les deux
+ * étaient payés. Le dernier clic gagne : celle qu'on ouvre ensuite est la seule payable. 🔴 Seules les sessions de CE client
+ * et de CE produit, relues sur leur propre corps : une session du Pro, ou d'un autre client, reste ouverte. La clé
+ * restreinte doit pouvoir ÉCRIRE les sessions Checkout, comme pour les créer.
+ */
+export async function expirerSessionsOuvertes(transport: TransportStripe, o: {
+  cle: string; customerId: string; produit: DemandeAbonnement['produit'];
+}): Promise<number> {
+  const q = new URLSearchParams({ customer: o.customerId, status: 'open', limit: '100' }).toString();
+  const r = await appeler(transport, 'session', `/checkout/sessions?${q}`, null, { cle: o.cle }, sessionsListeesSchema);
+  let expirees = 0;
+  for (const brute of r.data) {
+    const lu = sessionOuverteSchema.safeParse(brute);
+    if (!lu.success) continue;
+    const client = lu.data.customer ? (typeof lu.data.customer === 'string' ? lu.data.customer : lu.data.customer.id) : null;
+    if (client !== o.customerId || lu.data.metadata?.produit !== o.produit) continue;
+    await appeler(transport, 'session', `/checkout/sessions/${encodeURIComponent(lu.data.id)}/expire`, {}, {
+      cle: o.cle, idempotence: `expirer-${lu.data.id}`,
+    }, sessionExpireeSchema);
+    expirees += 1;
+  }
+  return expirees;
 }
 
 const portailSchema = z.object({ url: z.string().url().startsWith('https://') });
@@ -603,8 +644,15 @@ export async function terminerEssaiStripe(transport: TransportStripe, o: {
   cle: string; abonnementId: string; idempotence: string;
 }): Promise<'paye' | 'en_attente' | 'pas_en_essai'> {
   const chemin = `/subscriptions/${encodeURIComponent(o.abonnementId)}`;
-  const avant = await appeler(transport, 'essai', chemin, null, { cle: o.cle }, essaiSchema);
-  if (avant.id !== o.abonnementId) throw new StripeError('essai', 200, null, null, 'reponse pour un autre abonnement');
+  let avant: z.infer<typeof essaiSchema>;
+  try {
+    avant = await appeler(transport, 'essai', chemin, null, { cle: o.cle }, essaiSchema);
+  } catch (err) {
+    // Un 200 illisible de la LECTURE : rien n'est encore parti chez Stripe (jaune 7 de la relecture du lot B).
+    if (err instanceof StripeError && err.status === 200) throw new StripeError('essai', 200, null, LECTURE_AVANT_ENVOI, 'reponse illisible');
+    throw err;
+  }
+  if (avant.id !== o.abonnementId) throw new StripeError('essai', 200, null, LECTURE_AVANT_ENVOI, 'reponse pour un autre abonnement');
   if (avant.status !== 'trialing') return 'pas_en_essai';
   const apres = await appeler(transport, 'essai', chemin, {
     trial_end: 'now', payment_behavior: 'error_if_incomplete', proration_behavior: 'none', off_session: 'true',

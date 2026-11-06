@@ -52,7 +52,9 @@ import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
 import { formulePayee } from './offres/formule-payee';
-import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
+import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
+import { signalerConversion, type DepsConversion } from './credit-whatsapp/conversion';
+import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
 import { changerResiliationPro, demarrerProMaintenant, type DepsDemarrerPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
 import { creerVueOffre } from './offres/vue';
 import { upsertContactsFromApi } from './api/contacts-upsert';
@@ -322,7 +324,7 @@ async function main(): Promise<void> {
     lignesCreditWhatsapp, optionsCreditWhatsapp, estimerCreditCampagne, creditWhatsapp, conditionsCreditWhatsapp, agentSources, agentRequetes, essaisStore, depotAide, emailAccounts, emailTemplates, emailResolver, wabaDeLEspace,
     numeroDelieStore, gardeNumeroDelie, gardeNumeroSuspendu, gardeCreditWhatsapp, esCredentialsStore, metaCredentials, metaFactory, connexionsPub, connexionPub, publicites,
     clientPubs, clientCreationPubs, workflowRuntime, clesGateway, provisionCle, accesCreditIa, fil, listeDeLAgent, offres, quotaModeles,
-    emailsProduit, envoisResend, paiementRefuse, optionSansDroit, emetteurEmails, envoiApplication, comptesApplication, clientApplication,
+    emailsProduit, envoisResend, paiementRefuse, optionSansDroit, optionArretee, emetteurEmails, envoiApplication, comptesApplication, clientApplication,
     lienConversation,
     magasinObjets, conversionsMeta, emetteurConversions,
   } = construireSocle({ pool, queue, config });
@@ -1089,6 +1091,19 @@ async function main(): Promise<void> {
     // L'option (lot 4a) : la prendre et changer ses places depuis l'onglet.
     option: optionDeLaConsole,
   };
+  /**
+   * La conversion dite au client (lot C du Crédit WhatsApp, `signalerConversion`) : le webhook (une facture de période
+   * payée du Pro), le démarrage de la formule Pro et `/ops` (un Business confirmé) l'appellent. L'état se lit comme sur
+   * les cartes de la console, la vente comme leur bouton.
+   */
+  const conversionDeLaConsole: DepsConversion = {
+    offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
+    etat: (tenant) => lireEtatLigne(creditWhatsappDeLaConsole, tenant),
+    enVente: optionEnVente(optionDeLaConsole),
+    emettre: (e) => emetteurEmails.emettre(e),
+    pageNumero: `${config.APP_URL.trim().replace(/\/+$/, '')}/connecter-whatsapp`,
+    pageSupport: `${config.APP_URL.trim().replace(/\/+$/, '')}/support`,
+  };
 
   /**
    * L'abonnement du numéro fourni (lot 3c) : le MÊME Stripe, les MÊMES clients et la MÊME règle du mode test que la
@@ -1222,6 +1237,7 @@ async function main(): Promise<void> {
       if (a) offres.invalider(a.tenantId);
       return a !== null;
     },
+    signalerConversion: (tenant) => signalerConversion(conversionDeLaConsole, tenant),
     verrous: verrousCourts,
   };
   // Le plafond de clés actives de l'offre (spec offres v2), lu par la route de la console et par l'outil `create_api_key`.
@@ -1821,6 +1837,8 @@ async function main(): Promise<void> {
         finOffreManuelle: (tenant, finiLe) => surFinDeLOffreManuelle(numeroInclus, { tenantId: tenant, finiLe }),
         // L'option du Crédit WhatsApp sans offre qui y donne droit (lot 4a) : résiliée, ses lignes arrêtées.
         finDeDroitOption: (tenant) => finDeDroitOption(finDeDroitDeLOption, tenant, 'fin_de_droit'),
+        // La conversion dite au client (lot C du Crédit WhatsApp) : un Business confirmé.
+        signalerConversion: (tenant) => signalerConversion(conversionDeLaConsole, tenant),
         // L'IA d'une Entreprise réglée : les alertes du mois réarmées tout de suite ; la clé remontée en arrière-plan, comme
         // le complément du Business (Vercel peut prendre 30 s). Un échec se journalise, et le balayage horaire la reprend
         // et alerte s'il échoue aussi.
@@ -2189,6 +2207,8 @@ async function main(): Promise<void> {
         // La conversion de nos publicités (pixel, lot 2) : le premier paiement réel de l'offre, une fois par espace.
         signalerPro: (p: { tenantId: string; montantCentimes: number; devise: string }) =>
           emetteurConversions.signaler({ evenement: 'Subscribe', tenantId: p.tenantId, valeurCentimes: p.montantCentimes, devise: p.devise }),
+        // La conversion dite au client (lot C du Crédit WhatsApp) : chaque facture de période payée du Pro, une fois par espace.
+        signalerConversion: (tenantId: string) => signalerConversion(conversionDeLaConsole, tenantId),
         // 🔴 Le plafond de la clé de modèle suit l'achat, exactement comme après une recharge par `/ops` : sinon le
         // client paie et Vercel le coupe au plafond d'avant. La route répond sans l'attendre : l'arrêt du processus,
         // lui, l'attend (`travauxEnVol`), pour ne pas couper l'appel à Vercel en route.
@@ -2249,6 +2269,9 @@ async function main(): Promise<void> {
           finDeDroit: brancherFinDeDroit(finDeDroitDeLOption),
           finieLe: (abonnementId) => optionsCreditWhatsapp.finieLe(abonnementId),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
+          // L'arrêt dit au client (lot C, moment 3) : la règle de droit de sa fin de droit, l'e-mail une fois par abonnement.
+          aDroit: (tenant) => finDeDroitDeLOption.aDroit(tenant),
+          prevenirArret: optionArretee,
         },
       },
     } : {}),

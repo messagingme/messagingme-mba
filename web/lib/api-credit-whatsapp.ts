@@ -89,6 +89,11 @@ export interface VueCreditWhatsapp {
   };
   /** Toutes les lignes de l'espace sont arrêtées : plus rien ne part, recharger n'y changerait rien. */
   ligneArretee: boolean;
+  /**
+   * Toutes arrêtées, dont une venue de l'option (lot C, moment 3) : l'onglet dit la sortie (reprendre l'option, ou sa carte
+   * chez Meta) au lieu de « contactez-nous ». Faux sur une API plus ancienne : l'arrêt s'y dit comme avant.
+   */
+  optionArretee: boolean;
   historique: LigneCreditWhatsapp[];
   /** La courbe de 90 jours (lot C) ; vide sur une API plus ancienne. */
   serie: PointCredit[];
@@ -136,6 +141,7 @@ export async function getCreditWhatsapp(tenantId: string): Promise<VueCreditWhat
       offres: Array.isArray(achat?.offres) ? achat.offres : [],
     },
     ligneArretee: r.ligneArretee === true,
+    optionArretee: r.optionArretee === true,
     historique: Array.isArray(r.historique) ? r.historique : [],
     serie: pointsDeCourbe(r.serie),
     option: lireOption(r.option),
