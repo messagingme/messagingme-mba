@@ -98,8 +98,8 @@ export const LEVIERS_ENVOIS = `
     from envois x
     left join campaigns k on k.id = x.campaign_id and k.tenant_id = $1
     left join credit_whatsapp_provisions p
-           -- `p.wamid is not null` répète le prédicat de l'index unique partiel (tenant_id, wamid) : sans lui, le
-           -- planificateur ne peut pas s'en servir (relecture du lot).
+           -- p.wamid is not null repete le predicat de l index unique partiel (tenant_id, wamid) : sans lui, le
+           -- planificateur ne peut pas s en servir (relecture du lot).
            on p.tenant_id = $1 and x.wamid is not null and p.wamid is not null and p.wamid = x.wamid and p.etat <> 'rendu'
    group by 1, 2, 3, 4, 5, 6
    order by 1, 2, 3`;
