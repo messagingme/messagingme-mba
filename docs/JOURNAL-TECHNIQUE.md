@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : un scénario écrit un champ HubSpot du contact, éprouvé en production
+
+Cadrage `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`, validé par Julien (contact seul, jamais la
+transaction ; un contact absent de HubSpot a sa fiche écrite seule). Livré : mba `d445cd1b` puis `a7ec1e2a` (le lint),
+connecteur `d421499` (route `/service/champs/ecrire`). Déployés le même jour sans migration ni upload HubSpot :
+connecteur (run 42205553105), puis mba dans le run 42205539109 sur `945b9bf9`, qui portait aussi la garde marketing des
+campagnes à scénario (le run 42198260307 sur `55c187c1` annulé par sa session, pour qu'il ne repasse pas après).
+
+- **Ce qui a été construit** : les écritures de fiche d'un parcours (`setField`, `clearField`) passent par
+  `avecRemonteeHubspot` (`src/hubspot-workflow/remontee.ts`, câblée dans `src/workflow/wiring.ts`) ; l'exécuteur ne
+  change pas. Le miroir `hs_contact_<p>` ne s'écrit qu'après le `ecrit` du connecteur ; un refus va au journal des
+  échecs de scénario.
+- **La relecture indépendante** n'a trouvé aucun rouge ; ses jaunes corrigés dans le lot : le client du connecteur
+  borné (4 s par appel, une relance) sous les 25 s que mba attend, `portal_disconnected` et tout 404 autre que
+  `tenant_not_connected` ou la route absente devenus des échecs visibles (le 404 de Fastify mesuré :
+  `"error":"Not Found"`), et une valeur vide écrite par un Appel API ou une Fonction JS en échec qui n'efface jamais
+  HubSpot. Le volume d'une campagne qui écrirait des milliers de champs est au `todo.md` du connecteur.
+- **La CI rouge du premier push** : `unbound-method` sur `wiring.ts`, qui détachait deux méthodes d'interface ; le lint
+  n'avait pas été lancé en local. Corrigé en déclarant `EcrituresDeFiche` en propriétés-fonctions.
+- **L'essai réel** (portail 139615673, espace SANDBOX) : un scénario créé par le MCP puis complété dans la console d'un
+  bloc « Action » qui pose « First Name (HubSpot) » = « Julien-essai » derrière le bouton « Recevoir mon devis ».
+  Envoyé à +33633921577, bouton touché par Julien : le contact HubSpot 653375037651 est passé à « Julien-essai »
+  (11 h 13 min 29 s UTC), puis la fiche ; les deux égaux. « Dumas » remis ensuite des deux côtés.
+- **Ce que l'essai a appris** : ce numéro porte QUATRE contacts HubSpot (trois avec le numéro en « Mobile phone », un en
+  « Phone »). `searchByPhone` prend le premier rendu : c'est le même contact que celui dont la fiche tient son miroir
+  (d'où le prénom et le nom inversés qu'elle portait), donc la descente et la remontée restent cohérentes ; mais ce
+  n'est pas forcément le contact que le client regarde. Les doublons de numéro se fusionnent dans HubSpot.
+- Hors lot : `api-usage-guard`, `latence-http` et deux cas de `mcp-agent` échouent sous la charge de la suite complète
+  sur le poste et passent seuls (ils n'importent rien du lot).
+
 ## 2026-11-06 : la vitrine, l'en-tête, le retour vers messagingme.fr, la carte des coûts et l'app dans le CRM
 
 Plan `docs/superpowers/plans/2026-11-06-vitrine-entete-roi-crm.md`, décisions de Julien du jour (une ronde de questions).
