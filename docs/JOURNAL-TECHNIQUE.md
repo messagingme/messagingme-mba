@@ -29,8 +29,9 @@ Lot B du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`, textes valid
 - **En production le 2026-11-06** : l'API sur `2f0b000a` (run 42245489983, `migration=aucune`, aucune migration en
   attente) : l'image de `mba-api` et les trois conteneurs de la machine relus sur `2f0b000a`, `/health` à 200, la route
   de l'état en 401 sans session (404 pour une route inconnue). La console, la vitrine et le plugin 0.3.27 (posé sur le
-  0.3.26 d'une session voisine, sa FAQ régénérée depuis la source fusionnée) poussés après ; le plugin attend sa
-  publication. L'essai réel 225 (`docs/prive/ESSAIS-REELS.md`).
+  0.3.26 d'une session voisine, sa FAQ régénérée depuis la source fusionnée) poussés après ; le plugin 0.3.27
+  publié par Julien le même jour (run 42260078832, étiquette `v0.3.27`, les 17 fichiers publiés égaux à `plugin/` de
+  `c48ec3d3`, empreinte par empreinte). L'essai réel 225 (`docs/prive/ESSAIS-REELS.md`).
 
 ## 2026-11-06 : les webhooks muets, une fausse alerte ; l'annonce des espaces nés
 
