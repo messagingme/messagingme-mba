@@ -127,7 +127,8 @@ lui dise de demander à Claude de « connecter en coexistence ».
   migration. La 0280 appliquée à 14 h 48 UTC, relue en base en lecture seule : `numero_fourni_destination` (`text`) et
   `numero_fourni_destination_le` (`timestamptz`), nullables, sans défaut ; `tenants_numero_fourni_destination_chk`
   validée, prédicat exact ; les 13 espaces à « inconnue », aucune reprise ; `destinationDeLEspace` (le vrai magasin,
-  sur un client en lecture seule) rend `null`. Reste la publication du plugin 0.3.25, après l'API.
+  sur un client en lecture seule) rend `null`. Plugin 0.3.25 publié ensuite, sur l'accord de Julien (run
+  42238977919, étiquette `v0.3.25`) : ses 17 fichiers identiques à `plugin/` de `c6777e67`, tête au lancement.
 
 ## 2026-11-06 : un scénario écrit un champ HubSpot du contact, éprouvé en production
 
