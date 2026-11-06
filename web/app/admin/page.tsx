@@ -216,7 +216,7 @@ function AdminInner({ session }: { session: Session }) {
                       {u.disabled ? (
                         <span className="inline-flex items-center rounded-full bg-danger-50 px-2 py-0.5 text-xs font-medium text-danger-700">{t('Révoqué', 'Revoked')}</span>
                       ) : u.pending ? (
-                        <span className="inline-flex items-center rounded-full bg-alerte-50 px-2 py-0.5 text-xs font-medium text-alerte" title={t("A été invité mais n’a pas encore choisi son mot de passe", "Has been invited but hasn't chosen a password yet")}>{t('Invité', 'Invited')}</span>
+                        <span className="inline-flex items-center rounded-full bg-alerte-50 px-2 py-0.5 text-xs font-medium text-alerte" title={t("A été invité mais n’a pas encore accepté l’invitation : son lien vaut 7 jours", "Has been invited but hasn't accepted the invitation yet: its link is valid for 7 days")}>{t('Invité', 'Invited')}</span>
                       ) : (
                         <span className="inline-flex items-center rounded-full bg-succes-50 px-2 py-0.5 text-xs font-medium text-succes-700">{t('Actif', 'Active')}</span>
                       )}

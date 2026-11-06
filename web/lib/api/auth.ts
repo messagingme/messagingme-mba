@@ -98,6 +98,56 @@ export function confirmerInscription(input: {
   );
 }
 
+// --- L'invitation (lot identité C) : elle ne s'ouvre que par sa page ------------------------------------------
+
+/** Ce que la page d'une invitation affiche avant tout geste. `invitant` null : invitation ancienne, ou invitant supprimé. */
+export interface ApercuInvitation {
+  espace: string;
+  adresse: string;
+  invitant: { nom: string | null; adresse: string } | null;
+  /** L'adresse a déjà un mot de passe : la page demande l'actuel, et rien ne change ailleurs. */
+  aUnMotDePasse: boolean;
+}
+
+/**
+ * La lecture de l'aperçu : `ok` ; `invalide` (400 : invitation morte, rien à accepter) ; `indisponible` (ancienne API
+ * sans la route, 429, 503, réseau, ou une réponse d'une autre forme). Indisponible, la page garde l'ancien formulaire
+ * SANS Google : l'ancien bouton appelait `/auth/google`, qui créerait un espace neuf au lieu d'accepter l'invitation.
+ */
+export type LectureApercuInvitation =
+  | { statut: 'ok'; apercu: ApercuInvitation }
+  | { statut: 'invalide' }
+  | { statut: 'indisponible' };
+
+/** La forme exacte de l'aperçu : tout écart le fait tenir pour indisponible, jamais pour une invitation lisible. */
+export function estApercuInvitation(x: unknown): x is ApercuInvitation {
+  if (typeof x !== 'object' || x === null) return false;
+  const a = x as Record<string, unknown>;
+  const i = a.invitant;
+  const invitantLisible = i === null || (typeof i === 'object' && i !== null
+    && typeof (i as Record<string, unknown>).adresse === 'string'
+    && ((i as Record<string, unknown>).nom === null || typeof (i as Record<string, unknown>).nom === 'string'));
+  return typeof a.espace === 'string' && typeof a.adresse === 'string' && typeof a.aUnMotDePasse === 'boolean' && invitantLisible;
+}
+
+/** L'aperçu d'une invitation, lu sans rien consommer. En mode `etape` : aucun refus ne vide une autre session. */
+export async function lireApercuInvitation(token: string): Promise<LectureApercuInvitation> {
+  try {
+    const corps = await request<unknown>('/auth/invitations/apercu', { method: 'POST', body: JSON.stringify({ token }) }, 'etape');
+    return estApercuInvitation(corps) ? { statut: 'ok', apercu: corps } : { statut: 'indisponible' };
+  } catch (err) {
+    return err instanceof ApiError && err.status === 400 ? { statut: 'invalide' } : { statut: 'indisponible' };
+  }
+}
+
+/**
+ * L'acceptation par Google, avec le jeton ID que rend le bouton : une session dans l'espace qui invite, comme la
+ * connexion par Google. 403 `autre_adresse` : ce compte Google n'est pas l'adresse invitée (l'invitation reste valable).
+ */
+export function accepterInvitationGoogle(token: string, idToken: string): Promise<LoginResult> {
+  return request<LoginResult>('/auth/invitations/google', { method: 'POST', body: JSON.stringify({ token, idToken }) }, 'etape');
+}
+
 // --- Second facteur : les étapes de la connexion (sans session) -----------------------------------------------
 
 /** Le secret d'un enrôlement : `uri` pour le QR code, `secret` (base32) pour la saisie à la main. */

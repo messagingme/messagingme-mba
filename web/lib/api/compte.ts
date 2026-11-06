@@ -973,11 +973,12 @@ export function poserSecondFacteurEspace(tenantId: string, exigePourLesAdmins: b
   });
 }
 /**
- * Accepte une invitation : pose le mot de passe, puis la même porte que la connexion. Une session directe pour un
- * membre sans second facteur, une étape (code ou enrôlement) sinon.
+ * Accepte une invitation par mot de passe, puis la même porte que la connexion : une session directe pour un membre
+ * sans second facteur, une étape (code ou enrôlement) sinon. L'adresse qui a déjà un mot de passe donne l'ACTUEL (403
+ * `mot_de_passe_incorrect` s'il est faux, l'invitation reste valable) ; celle qui n'en a pas en choisit un (lot identité C).
  */
 export function acceptInvitation(token: string, password: string): Promise<LoginResult | EtapeSecondFacteur> {
-  return request('/auth/invitations/accept', { method: 'POST', body: JSON.stringify({ token, password }) });
+  return request('/auth/invitations/accept', { method: 'POST', body: JSON.stringify({ token, password }) }, 'etape');
 }
 export function setUserRole(tenantId: string, userId: string, role: UserRole): Promise<{ id: string; role: UserRole }> {
   return request(`/tenants/${tenantId}/users/${userId}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
