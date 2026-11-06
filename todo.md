@@ -44,6 +44,8 @@
   `npm run vitrine:aide`, l'entrée du dictionnaire anglais et `aide:charger` en production.
 - La saisie à la main d'un champ « (HubSpot) » dans la console, l'API publique et le MCP écrivent la fiche seule.
 - Le bloc « Mettre à jour un champ » ne montre pas le type de la propriété HubSpot (date, liste, case).
+- Le chemin du REFUS n'est éprouvé que par les tests : un essai réel avec une valeur que HubSpot refuse (un
+  propriétaire inexistant dans « Contact owner (HubSpot) »), fiche intacte et ligne au journal des échecs de scénario.
 
 ## 🟡 Supprimer un appel de connecteur : ce que le ménage de la SANDBOX a montré (2026-11-04)
 
