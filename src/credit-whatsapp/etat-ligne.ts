@@ -23,6 +23,27 @@ export interface DepsEtatLigne {
   option(tenantId: string): Promise<{ places: number; statut: StatutOption } | null>;
 }
 
+/**
+ * Les lectures de l'état, telles que la route de l'onglet (`CreditWhatsappRouteDeps`) et le serveur MCP (`DepsAgentMcp`)
+ * les reçoivent déjà : une seule façon de le lire, pour les cartes de la console comme pour Claude.
+ */
+export interface SourcesEtatLigne {
+  option: {
+    offre(tenantId: string): Promise<Offre>;
+    formulePayee(tenantId: string): Promise<boolean>;
+    options: { vivante(tenantId: string): Promise<{ places: number; statut: StatutOption } | null> };
+  };
+  vue: { lignes(tenantId: string): Promise<ReadonlyArray<{ arreteeLe: Date | string | null }>> };
+}
+
+/** Les méthodes des magasins s'appellent sur leur objet, jamais détachées (`this`). */
+export function lireEtatLigne(s: SourcesEtatLigne, tenantId: string): Promise<EtatLigne> {
+  return etatLigneCredit({
+    offre: (t) => s.option.offre(t), formulePayee: (t) => s.option.formulePayee(t), lignes: (t) => s.vue.lignes(t),
+    option: (t) => s.option.options.vivante(t),
+  }, tenantId);
+}
+
 export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promise<EtatLigne> {
   const offre = await d.offre(tenantId);
   if (offre === 'base') return 'free';

@@ -10,6 +10,7 @@ import type { VueOffre } from '../offres/vue';
 import type { WidgetRow } from '../widgets/store.pg';
 import { journaliser } from '../lib/journal';
 import { SOLDE_REPRISE_CREDIT_MICRO_EUR } from '../../web/lib/partage/credit-whatsapp';
+import { lireEtatLigne, type EtatLigne, type SourcesEtatLigne } from '../credit-whatsapp/etat-ligne';
 
 /**
  * OÙ EN EST LA MISE EN SERVICE D'UN ESPACE (lot 10, outil `get_setup_state`). La skill de mise en service du plugin
@@ -76,6 +77,11 @@ export interface LecturesMiseEnService {
    * sécurité du mois atteint ou non. Absent : lu comme un prépayé.
    */
   creditIa?: { illimite: boolean; plafondAtteint: boolean };
+  /**
+   * L'état du Crédit WhatsApp de l'espace (`etatLigneCredit`, lot B) : en attente d'une ligne ou sur la ligne, ce n'est pas
+   * à la carte chez Meta de payer. Absent (lecture en échec) : lu comme avant, sans ligne.
+   */
+  etatLigne?: EtatLigne;
 }
 
 export interface EtatMiseEnService {
@@ -130,7 +136,9 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
   if (statutApplication === 'banni' || statutApplication === 'deconnecte') avertissements.push('numero_coupe');
   if (statutApplication === 'sommeil') avertissements.push('numero_en_sommeil');
   // Connecté mais bloqué chez Meta pour sa carte : les modèles ne partent pas (erreur 141006, guide « compte Meta »).
-  const carteARegler = numero?.connecte === true && l.numero?.connecte?.paiementBloque === true;
+  // Sauf si le Crédit WhatsApp paie Meta (lot B) : l'option payée attend sa ligne, ou la ligne est posée.
+  const carteARegler = numero?.connecte === true && l.numero?.connecte?.paiementBloque === true
+    && l.etatLigne !== 'en_attente' && l.etatLigne !== 'active';
   if (carteARegler) avertissements.push('carte_meta_a_regler');
 
   const agents = l.agents === null ? null : {
@@ -204,7 +212,8 @@ export interface DepsMiseEnService {
      * Le Crédit WhatsApp (`DepsAgentMcp.creditWhatsapp`) : un numéro sur la ligne ou non, ses conditions (une Entreprise est
      * illimitée : son solde, qui ne bouge pas, ne dit rien) et son solde.
      */
-    creditWhatsapp: {
+    /** Avec l'option et les lignes : l'état de la ligne (`lireEtatLigne`, lot B), la même lecture que les cartes. */
+    creditWhatsapp: SourcesEtatLigne & {
       surLaLigne(tenantId: string): Promise<boolean>;
       vue: { solde(tenantId: string): Promise<number>; conditions(tenantId: string): Promise<{ openBar: boolean }> };
     };
@@ -226,7 +235,7 @@ function ou<T>(p: Promise<T>, tenantId: string, source: string): Promise<T | nul
 export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: string): Promise<EtatMiseEnService> {
   const g = deps.agentIa.gestion;
   const wa = deps.agentIa.creditWhatsapp;
-  const [offre, creditIa, numero, liste, reglages, widgets, soldeWhatsapp] = await Promise.all([
+  const [offre, creditIa, numero, liste, reglages, widgets, soldeWhatsapp, etatLigne] = await Promise.all([
     ou(deps.offre.vue(tenantId), tenantId, 'offre'),
     ou(g.creditIa.etat(tenantId), tenantId, 'credit'),
     ou(deps.numero.etat(tenantId), tenantId, 'numero'),
@@ -237,6 +246,7 @@ export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: strin
     // qui voit l'onglet pour prendre l'option, lot 4a). Une Entreprise est illimitée (décision du 2026-11-02) : son solde ne
     // bouge pas et n'arrête rien, aucun avertissement n'en sort.
     ou(wa.surLaLigne(tenantId).then(async (o) => (o && !(await wa.vue.conditions(tenantId)).openBar ? wa.vue.solde(tenantId) : null)), tenantId, 'credit_whatsapp'),
+    ou(lireEtatLigne(wa, tenantId), tenantId, 'ligne_credit'),
   ]);
   // Les manques, pour les brouillons seulement (la lecture de la console, `/manques`) : un espace en porte quelques-uns.
   const agents = liste === null ? null : await Promise.all(liste.map(async (a) => ({
@@ -247,5 +257,6 @@ export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: strin
     offre, soldeMicroEur: creditIa === null ? null : creditIa.soldeMicroEur, numero, agents, reglages, widgets,
     ...(soldeWhatsapp !== null ? { soldeWhatsappMicroEur: soldeWhatsapp } : {}),
     ...(creditIa !== null ? { creditIa: { illimite: creditIa.illimite, plafondAtteint: creditIa.acces === 'plafond' } } : {}),
+    ...(etatLigne !== null ? { etatLigne } : {}),
   });
 }

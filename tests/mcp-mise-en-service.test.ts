@@ -171,13 +171,17 @@ describe('l’étape suivante', () => {
 });
 
 describe('la lecture, sur des faux', () => {
-  function deps(o: { panne?: 'numero' | 'agents' | 'credit'; lus?: string[]; soldeWa?: number; illimite?: boolean; creditIa?: EtatCreditIa } = {}): DepsMiseEnService {
+  function deps(o: {
+    panne?: 'numero' | 'agents' | 'credit'; lus?: string[]; soldeWa?: number; illimite?: boolean; creditIa?: EtatCreditIa;
+    /** L'option du Crédit WhatsApp (lot B) : payée sans ligne, elle attend sa ligne. */
+    option?: { places: number; statut: 'actif' | 'en_retard' | 'resilie' }; numero?: EtatConnexion;
+  } = {}): DepsMiseEnService {
     const casse = (quoi: string) => async () => { throw new Error(`panne ${quoi}`); };
     // Chaque source note l'espace qu'on lui demande : l'isolation se vérifie sur toutes.
     const lu = <T>(source: string, v: T) => async (t: string) => { o.lus?.push(`${source}:${t}`); return v; };
     return {
       offre: { vue: lu('offre', { offre: 'free' as const, fonctions: [] }) },
-      numero: { etat: o.panne === 'numero' ? casse('numero') : lu('numero', NUMERO_CONNECTE) },
+      numero: { etat: o.panne === 'numero' ? casse('numero') : lu('numero', o.numero ?? NUMERO_CONNECTE) },
       agentIa: {
         gestion: {
           agents: {
@@ -192,7 +196,15 @@ describe('la lecture, sur des faux', () => {
         // Sur la ligne seulement quand le test donne un solde du Crédit WhatsApp ; illimité, une Entreprise.
         creditWhatsapp: {
           surLaLigne: async () => o.soldeWa !== undefined,
-          vue: { solde: async () => o.soldeWa ?? 0, conditions: async () => ({ openBar: o.illimite === true }) },
+          vue: {
+            solde: async () => o.soldeWa ?? 0, conditions: async () => ({ openBar: o.illimite === true }),
+            lignes: lu('lignes_credit', []),
+          },
+          // L'état de la ligne (lot B) : un Pro payé, son option seulement si le test la donne.
+          option: {
+            offre: lu('offre_ligne', 'pro' as const), formulePayee: lu('formule_payee', true),
+            options: { vivante: lu('option_credit', o.option ?? null) },
+          },
         },
       },
       widgets: { gestion: { widgets: { lister: lu('bulles', []) } } },
@@ -202,7 +214,17 @@ describe('la lecture, sur des faux', () => {
   it('🔴 chaque source est lue pour l’espace demandé, et lui seul', async () => {
     const lus: string[] = [];
     await lireMiseEnService(deps({ lus }), 't1');
-    expect(lus.sort()).toEqual(['agents:t1', 'bulles:t1', 'credit:t1', 'manques:t1', 'numero:t1', 'offre:t1', 'repondeur:t1']);
+    expect(lus.sort()).toEqual([
+      'agents:t1', 'bulles:t1', 'credit:t1', 'formule_payee:t1', 'lignes_credit:t1', 'manques:t1', 'numero:t1', 'offre:t1',
+      'offre_ligne:t1', 'option_credit:t1', 'repondeur:t1',
+    ]);
+  });
+
+  it('🔴 une option payée qui attend sa ligne (lot B) : Claude ne dit pas d’enregistrer une carte chez Meta', async () => {
+    const bloque = { ...NUMERO_CONNECTE, connecte: { chiffres: '33612345678', aActiver: false, paiementBloque: true } };
+    expect((await lireMiseEnService(deps({ numero: bloque }), 't1')).avertissements).toContain('carte_meta_a_regler');
+    const enAttente = await lireMiseEnService(deps({ numero: bloque, option: { places: 1, statut: 'actif' } }), 't1');
+    expect(enAttente.avertissements).not.toContain('carte_meta_a_regler');
   });
 
   it('assemble les lectures, une par source', async () => {
@@ -278,7 +300,11 @@ describe('l’outil get_setup_state', () => {
       agentIa: {
         gestion: { agents: { listToutes: async () => [] }, creditIa: { etat: async () => ({ ...ETAT_PREPAYE, acces: 'epuise' as const, soldeMicroEur: 0 }) }, etatPourLint: async () => null },
         repondeur: { reglages: { get: async () => EQUIPE } },
-        creditWhatsapp: { surLaLigne: async () => false, vue: { solde: async () => 0, conditions: async () => ({ openBar: false }) } },
+        creditWhatsapp: {
+          surLaLigne: async () => false,
+          vue: { solde: async () => 0, conditions: async () => ({ openBar: false }), lignes: async () => [] },
+          option: { offre: async () => 'base' as const, formulePayee: async () => false, options: { vivante: async () => null } },
+        },
       },
       widgets: { gestion: { widgets: { lister: async () => [] } } },
     } satisfies DepsMiseEnService;

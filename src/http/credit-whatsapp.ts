@@ -12,7 +12,7 @@ import type { PointDeCredit } from '../lib/serie-credit';
 import type { LigneCredit } from '../credit-whatsapp/lignes.pg';
 import type { StatutOption } from '../credit-whatsapp/options.pg';
 import { changerPlaces, ouvrirOption, PRIX_OPTION_WA_HT_CENTIMES, PLACES_OPTION_MAX, type DepsOptionCredit } from '../stripe/option-credit-whatsapp';
-import { etatLigneCredit } from '../credit-whatsapp/etat-ligne';
+import { lireEtatLigne } from '../credit-whatsapp/etat-ligne';
 
 /**
  * LE CRÉDIT WHATSAPP D'UN ESPACE (plan du Crédit WhatsApp, tâches 10 et 11) : l'achat par Stripe et ce que montre l'onglet
@@ -108,13 +108,7 @@ export function registerCreditWhatsapp(
   app.get('/tenants/:tenantId/credit-whatsapp/etat', { preHandler: gardeLecture }, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const o = deps.option;
-    const [etat, offre] = await Promise.all([
-      etatLigneCredit({
-        offre: (t) => o.offre(t), formulePayee: (t) => o.formulePayee(t), lignes: (t) => deps.vue.lignes(t),
-        option: (t) => o.options.vivante(t),
-      }, tenant),
-      o.offre(tenant),
-    ]);
+    const [etat, offre] = await Promise.all([lireEtatLigne(deps, tenant), o.offre(tenant)]);
     const enVente = o.stripe !== null && o.prixOption !== '' && (offre === 'pro' || offre === 'business');
     return reply.code(200).send({ etat, enVente });
   });

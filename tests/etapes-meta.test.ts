@@ -87,5 +87,14 @@ describe('ce qu’il faut chez Meta', () => {
     expect(sain.etapes_carte_meta).toBeUndefined();
     // Sans numéro connecté, rien à dire de la carte : la connexion vient d'abord.
     expect(etatMiseEnService({ ...PRET, numero: VIDE }).avertissements).not.toContain('carte_meta_a_regler');
+    // 🔴 Le Crédit WhatsApp paie Meta (lot B) : l'option payée attend sa ligne, ou la ligne est posée. Ce n'est pas à la
+    // carte chez Meta de payer, Claude ne doit pas dire d'en enregistrer une.
+    const numeroBloque = { ...CONNECTE, connecte: { chiffres: '336', aActiver: false, paiementBloque: true } };
+    for (const etatLigne of ['en_attente', 'active'] as const) {
+      expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne }).avertissements, etatLigne).not.toContain('carte_meta_a_regler');
+    }
+    for (const etatLigne of ['a_prendre', 'essai', 'arretee'] as const) {
+      expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne }).avertissements, etatLigne).toContain('carte_meta_a_regler');
+    }
   });
 });
