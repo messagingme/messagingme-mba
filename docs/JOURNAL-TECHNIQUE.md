@@ -4,6 +4,43 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : l'inscription par e-mail prouvée par un lien, et le défi Turnstile (lot identité B, migration 0279)
+
+Demande de Julien (« Oui, le lot B », 2026-11-05), décisions du même jour : l'adresse d'abord, un lien valable 24 heures,
+le défi Turnstile et des plafonds, l'accord Meta donné au clic (les identifiants publicitaires de la demande gardés),
+la réponse 409 gardée pour une adresse connue, l'étiquette Resend et le suivi des retours.
+
+- **Ce qui a changé** : une adresse sans compte ne crée plus rien en s'inscrivant. Elle reçoit un lien à usage unique,
+  valable 24 heures ; l'identité, l'espace et la session naissent au clic (`POST /auth/signup/confirm`), l'adresse
+  prouvée. La demande vit dans `inscriptions_attente` (0279 : l'empreinte du jeton, jamais le jeton, l'adresse, la
+  langue, l'offre, la venue d'une application, les identifiants publicitaires), vidée par la rétention générale. Une
+  adresse connue garde son parcours : son mot de passe, puis un espace de plus. La demande du lien passe le défi
+  Turnstile dès que sa clé secrète est posée, puis trois plafonds comptés en un appel (par adresse et par jour, par
+  réseau et par heure, au total par heure, levier `INSCRIPTION_PLAFOND_HEURE`). L'e-mail porte l'étiquette
+  `categorie=inscription`, que le webhook de Resend lit pour suivre les retours.
+- **La console** : `/signup` demande l'adresse seule, avec le défi ; une adresse connue passe à l'étape du mot de passe ;
+  la page du lien (`/signup/confirm/<jeton>`) fait nommer l'espace et choisir le mot de passe, et renvoie à l'onglet de
+  connexion quand la demande venait de Claude Code. La CSP de la console autorise `challenges.cloudflare.com` (script
+  et cadre).
+- **En production** :
+  - 2026-11-05, `5f408412` (la table, son magasin, son test d'intégration), run 42050968772, `migration=avant` : la 0279
+    appliquée ;
+  - 2026-11-05, `2eed33a0` (l'API, la console qui tolère les deux réponses, la page du lien), run 42096372928,
+    `migration=aucune` ;
+  - 2026-11-06, `f07a6462` (la console « adresse d'abord », le défi, la CSP), publié par Vercel, CI verte job par job ;
+  - 2026-11-06, les clés Turnstile posées par Julien dans l'ordre de `DEPLOY.md` : celle du site dans Vercel avant la
+    construction de `f07a6462`, la clé secrète en variable secrète de `mba-api` après sa publication (relue par les noms
+    seuls, et encore là après le déploiement suivant d'une session voisine) ; une demande sans jeton répond 403 `defi`.
+    `/auth/signup/confirm` a rejoint la règle de débit Cloudflare « Entrées anonymes qui écrivent » ;
+  - pas de relecture de la table en base depuis le poste : l'intégration de la CI l'exerce par le vrai magasin, et
+    l'essai réel l'a exercée en production.
+- **L'essai réel** (n° 220, `docs/prive/ESSAIS-REELS.md`) : une adresse jamais inscrite, depuis la page des tarifs
+  anglaise et l'offre Pro : défi passé, lien reçu en anglais, connexion refusée avant le clic, espace créé au clic dans
+  un autre navigateur, formule Pro, accord Meta allumé, un seul espace. Restent le lien recliqué, le parcours de Claude
+  Code sans Google et la suppression de l'espace d'essai.
+- **La relecture** : aucun rouge ; ses jaunes, et une gêne relevée à l'essai (la page du lien ne dit qu'à l'envoi du
+  formulaire qu'un lien a déjà servi), sont suivis avec le lot suivant.
+
 ## 2026-11-06 : une variable dans l'adresse du bouton de lien (le lien du devis HubSpot)
 
 Demande de Julien : le bouton de lien du bloc « Message rapide » doit pouvoir ouvrir le devis HubSpot du contact,
