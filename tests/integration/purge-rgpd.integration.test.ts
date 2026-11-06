@@ -160,6 +160,13 @@ describe.skipIf(!url)('purge RGPD — ce qui part et ce qui reste', () => {
        values ($1, 'itest-purge-echec', $2, 'rcs', 'UNDELIVERABLE'), ($3, 'itest-purge-echec-voisin', $2, 'rcs', 'UNDELIVERABLE')`,
       [tenantId, WA_ID, autreTenantId],
     );
+    // LE JOURNAL DES ÉCHECS DE SCÉNARIO (migration 0108) : le numéro et la raison, lus au Journal des erreurs. Une ligne
+    // chez le voisin, sur le même numéro, prouve le cloisonnement.
+    await pool.query(
+      `insert into workflow_advance_failures (tenant_id, wa_id, erreur)
+       values ($1, $2, 'itest envoi refusé'), ($3, $2, 'itest envoi refusé chez le voisin')`,
+      [tenantId, WA_ID, autreTenantId],
+    );
     // LA LISTE DE L'AGENT DE META (migration 0195) : la personne y est chez ce client ET chez le voisin. Seule la
     // ligne de ce client doit partir, et elle doit être RENDUE : l'entrée chez Meta ne se retire qu'avec elle.
     await pool.query(
@@ -190,14 +197,15 @@ describe.skipIf(!url)('purge RGPD — ce qui part et ce qui reste', () => {
       [tenantId, contactId],
     );
 
-    // ANCRE : les deux données existent AVANT la purge. Sans elle, les assertions d'absence plus bas
+    // ANCRE : les trois données existent AVANT la purge. Sans elle, les assertions d'absence plus bas
     // passeraient à vide sur une insertion ratée.
-    const avant = await pool.query<{ v: unknown; e: number }>(
+    const avant = await pool.query<{ v: unknown; e: number; f: number }>(
       `select (select variables from campaign_recipients where contact_id = $1) as v,
-              (select count(*)::int from echecs_messages where tenant_id = $2 and wa_id = $3) as e`,
+              (select count(*)::int from echecs_messages where tenant_id = $2 and wa_id = $3) as e,
+              (select count(*)::int from workflow_advance_failures where tenant_id = $2 and wa_id = $3) as f`,
       [contactId, tenantId, WA_ID],
     );
-    expect(avant.rows[0]).toEqual({ v: { commande: '8412' }, e: 1 });
+    expect(avant.rows[0]).toEqual({ v: { commande: '8412' }, e: 1, f: 1 });
     const fiche = await pool.query(
       `select tags, risque_niveau, langue_detectee, whatsapp_joignable, opt_in_source, blocked_by, analyse_intention
          from contacts where id = $1`,
@@ -345,6 +353,11 @@ describe.skipIf(!url)('purge RGPD — ce qui part et ce qui reste', () => {
     expect(r.rows.map((x) => x.tenant_id)).toEqual([autreTenantId]);
   });
 
+  it('🔴 l’échec de scénario de la personne est effacé, pas celui d’un autre espace (migration 0108)', async () => {
+    const r = await pool.query<{ tenant_id: string }>('select tenant_id from workflow_advance_failures where wa_id = $1', [WA_ID]);
+    expect(r.rows.map((x) => x.tenant_id)).toEqual([autreTenantId]);
+  });
+
   /**
    * `webhook_events` garde le payload BRUT de Meta : le texte du message entrant et le numéro de qui l'écrit.
    * C'était la DERNIÈRE table du dépôt à garder une trace nominative hors de portée de cette purge, faute de
@@ -406,6 +419,27 @@ describe.skipIf(!url)('purge RGPD — ce qui part et ce qui reste', () => {
     const lignes = (t: string) => pool.query('select 1 from application_premiers_messages where tenant_id = $1 and wa_id = $2', [t, chiffres]);
     // ANCRES : les lignes existent AVANT la purge.
     expect((await lignes(tenantId)).rowCount).toBe(2);
+    expect((await store.purgeMany(tenantId, [fiche])).purges).toBe(1);
+    expect((await lignes(tenantId)).rowCount).toBe(0);
+    expect((await lignes(autreTenantId)).rowCount).toBe(1);
+  });
+
+  it('🔴 l’échec de scénario d’une personne au seul BSUID, sans conversation, part par le BSUID de sa fiche', async () => {
+    // Le Journal des erreurs rattache la ligne à la fiche par `matchWaIdPredicat`, dont le BSUID est la troisième forme.
+    // La rétention efface les fils et garde la fiche : sans numéro, seul le BSUID de la fiche désigne encore la personne.
+    const bsuid = 'itest-bsuid-purge-echec';
+    const fiche = (await pool.query<{ id: string }>(
+      `insert into contacts (tenant_id, bsuid, opt_in_status) values ($1, $2, 'opted_in') returning id`, [tenantId, bsuid],
+    )).rows[0]!.id;
+    await pool.query(
+      `insert into workflow_advance_failures (tenant_id, wa_id, erreur)
+       values ($1, $3, 'itest envoi refusé'), ($2, $3, 'itest envoi refusé chez le voisin')`,
+      [tenantId, autreTenantId, bsuid],
+    );
+    const lignes = (t: string) => pool.query('select 1 from workflow_advance_failures where tenant_id = $1 and wa_id = $2', [t, bsuid]);
+    // ANCRES : aucun fil pour ce BSUID (c'est tout le cas), et la ligne existe AVANT la purge.
+    expect((await pool.query('select 1 from conversations where tenant_id = $1 and wa_id = $2', [tenantId, bsuid])).rowCount).toBe(0);
+    expect((await lignes(tenantId)).rowCount).toBe(1);
     expect((await store.purgeMany(tenantId, [fiche])).purges).toBe(1);
     expect((await lignes(tenantId)).rowCount).toBe(0);
     expect((await lignes(autreTenantId)).rowCount).toBe(1);

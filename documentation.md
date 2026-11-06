@@ -2443,6 +2443,12 @@ base ; les appelants ne refont ni ces défauts ni cette compatibilité.
   `payload->>'from'` (entrant) ou `payload->>'recipient_id'` (statut), dans les numéros de l'espace. Elle n'atteint
   ni les échos (la personne y est dans `message.to`) ni les bascules (dans `sender.phone_number`), laissés à la
   rétention. La suppression d'un espace (§ 10) ne touche pas la table, délibérément.
+- `workflow_advance_failures` (0108) : le journal des échecs de scénario, lu dans Sécurité > Journal des erreurs
+  (origine `scenario`), seul domicile de ces échecs. Il porte le numéro tel que l'exécuteur le tient (`waId` : chiffres
+  nus, ou BSUID), que la lecture rattache à la fiche par `matchWaIdPredicat`. ⚠️ **Purgé** : balayage du worker sur
+  `AVANCE_ECHECS_RETENTION_DAYS`. 🔴 La purge RGPD efface les lignes de la personne par TOUS ses numéros (ceux de ses
+  fils, celui de sa fiche) ET par le BSUID de sa fiche, la troisième forme que la lecture reconnaît : une personne sans
+  numéro dont la rétention a effacé le fil n'est plus désignée que par lui.
 - `audit_log` : **AJOUT SEUL**, ni update ni delete, sinon il ne prouve rien. Il ne porte JAMAIS de donnée
   personnelle, seulement l'identifiant interne du contact : y écrire le numéro au moment d'une suppression
   annulerait la suppression. `actor_email` est DÉNORMALISÉ pour que l'historique reste lisible après le départ

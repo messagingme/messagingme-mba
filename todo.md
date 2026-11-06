@@ -34,13 +34,6 @@ Depuis le 2026-11-06, un envoi refusé sur une réponse ou un réveil s'écrit a
   `journaliserRefus`, sur le parcours créé (ou sans parcours, si la chaîne a fini d'un trait).
 - **Un bloc envoyé par un outil d'agent** (`envoyerBlocDepuisAgent`) : un refus total revient au modèle (`raison`), un
   refus après un autre envoi parti se perd.
-- 🟡 **RGPD, antérieur au lot et agrandi par lui** (relecture du lot) : la purge d'un contact (`purgeMany`,
-  `src/crm/contact-store.pg.ts`) efface `echecs_messages` par numéro, mais pas `workflow_advance_failures`. Le numéro
-  d'un contact effacé reste lisible au Journal des erreurs jusqu'à 90 jours (rétention), et le lot y écrit davantage
-  (un réveil fenêtre fermée par destinataire). Correctif : le même `delete ... where tenant_id = $1 and wa_id = any($2)`
-  dans la même transaction, la forme du numéro vérifiée (la table porte le `waId` de l'exécuteur), et le cas dans
-  `tests/integration/purge-rgpd.integration.test.ts`, prouvé dans les deux sens. `features.md` promet déjà que ce
-  journal « disparaît avec le contact ».
 - **Décision de Julien : un « Aller à » refusé pour un STOP** (relecture du lot). `sauter` n'écarte du journal que le
   refus marketing : un saut vers un scénario qui ouvre par un message écrit à un contact désabonné s'écrit « … n'a pas
   démarré le scénario visé : contact désabonné ». Le garder (le trou est réel pour le montage), ou l'écarter comme les
@@ -1899,6 +1892,14 @@ ne les vise que par les numéros des FILS de la personne ; la rétention efface 
 demande d'effacement tardive laisse le numéro dans ces deux tables. `widget_tirs` a été corrigé par
 `waIdsDeLaPersonne` (fils ET fiche), avec un test d'intégration vérifié dans les deux sens par un commit muté poussé
 sur une étiquette jetable : même correctif et même test à appliquer aux deux autres.
+
+Même famille, relevé le 2026-11-06 (plan `docs/superpowers/plans/2026-11-06-purge-echecs-de-scenario.md`) : le BSUID
+de la fiche n'entre dans `waIdsDeLaPersonne` que par un fil encore vivant. Pour une personne sans numéro dont la
+rétention a effacé le fil, les tables visées par ces numéros (`widget_tirs`, `application_premiers_messages`,
+`workflow_node_events`, `webhook_events`, `mba_liste`, `echecs_messages`) gardent ses lignes, si elles en portent sous
+son BSUID (à vérifier table par table). `workflow_advance_failures` ajoute déjà le BSUID de la fiche, par son propre
+jeu (`waIdsDesEchecs`) : le correctif durable élargit `waIdsDeLaPersonne` à la source plutôt qu'un jeu par table.
+`mba_liste` rend ses lignes pour un retrait chez Meta, à relire avant de l'élargir.
 
 ## 🟡 Widget WhatsApp : les jaunes ouverts (2026-10-03)
 

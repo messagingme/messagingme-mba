@@ -1628,8 +1628,9 @@ export class PgContactStore implements ContactStore {
    * 🔴 Purge : efface réellement les données d'une personne, en gardant les compteurs. `listeAgent` : les lignes
    * de la liste de l'agent de Meta supprimées ici, à retirer chez Meta après la transaction (la route s'en charge).
    * Effacé : le fil, ses messages, son analyse (texte libre tiré de la conversation), et les traces techniques
-   * qui portent le numéro (parcours, déclenchements d'automation, cache RCS). Anonymisé : la fiche et ses lignes
-   * de campagne restent, colonnes identifiantes remplacées, pour que les totaux restent justes.
+   * qui portent le numéro (parcours, déclenchements d'automation, cache RCS, journaux d'échec des messages libres
+   * et des scénarios). Anonymisé : la fiche et ses lignes de campagne restent, colonnes identifiantes remplacées,
+   * pour que les totaux restent justes.
    * L'identifiant de remplacement est aléatoire, pas une empreinte du numéro (réversible en quelques minutes).
    * Transactionnel : une purge à moitié faite laisserait du contenu sans moyen de le retrouver.
    */
@@ -1778,6 +1779,19 @@ export class PgContactStore implements ContactStore {
         await client.query(
           `delete from echecs_messages where tenant_id = $1 and wa_id = any($2::text[])`,
           [tenantId, waIdsAAnonymiser],
+        );
+      }
+      // Le journal des échecs de scénario (migration 0108), de même nature : le numéro et la raison, lus dans Sécurité >
+      // Journal des erreurs. Il porte le `waId` de l'exécuteur (chiffres nus ou BSUID), que son lecteur rattache à la fiche
+      // par `matchWaIdPredicat` : le BSUID de la fiche s'ajoute aux numéros, sinon une personne sans numéro dont le fil est
+      // parti avec la rétention garderait ses lignes.
+      const waIdsDesEchecs = [...new Set([
+        ...waIdsAAnonymiser, ...cibles.rows.map((r) => r.bsuid).filter((b): b is string => b !== null),
+      ])];
+      if (waIdsDesEchecs.length > 0) {
+        await client.query(
+          `delete from workflow_advance_failures where tenant_id = $1 and wa_id = any($2::text[])`,
+          [tenantId, waIdsDesEchecs],
         );
       }
 

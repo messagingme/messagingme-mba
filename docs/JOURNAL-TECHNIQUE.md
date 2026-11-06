@@ -4,6 +4,32 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la purge d'un contact efface aussi ses échecs de scénario
+
+Plan `docs/superpowers/plans/2026-11-06-purge-echecs-de-scenario.md`. Le jaune n° 8 de la relecture du lot sur la
+raison d'un envoi refusé (3ff58e33), antérieur à ce lot : `purgeMany` effaçait `echecs_messages` par numéro, pas
+`workflow_advance_failures`. Le numéro d'un contact effacé restait lisible dans Sécurité > Journal des erreurs jusqu'à
+90 jours (`AVANCE_ECHECS_RETENTION_DAYS`), alors que `features.md` promet que ce journal disparaît avec le contact.
+Livré en direct, dans une copie à part (le dossier partagé avait 365 commits de retard).
+
+- **La forme du numéro, vérifiée avant d'écrire** : tous les écrivains de la table passent le `waId` de l'exécuteur ou
+  du message entrant (chiffres nus, ou BSUID), et la lecture rattache la fiche par `matchWaIdPredicat` (E.164 exact,
+  chiffres nus, BSUID). `waIdsDeLaPersonne` couvre les chiffres, ceux des fils et celui de la fiche ; le BSUID de la
+  fiche n'y entre que par un fil encore vivant. L'effacement prend donc ces numéros plus le BSUID des fiches visées,
+  dans la même transaction, sous `tenant_id = $1`.
+- **Le test** (`tests/integration/purge-rgpd.integration.test.ts`) : la ligne de la personne part, celle d'un autre
+  espace sur le même numéro reste ; une fiche au seul BSUID, sans fil, perd la sienne, et le voisin garde la sienne.
+  Vérifié dans les deux sens en CI, sur deux commits mutés poussés sur des étiquettes jetables (accord de Julien,
+  étiquettes supprimées après lecture) : sans l'effacement, les deux cas tombent et eux seuls (2 rouges sur 1 809) ;
+  sans le BSUID, seul le cas de la fiche au BSUID (1 sur 1 809). Le symptôme est chaque fois la ligne restée après la
+  purge, les ancres d'avant la purge passant.
+- **Relecture indépendante** : aucun rouge, quatre jaunes. Trois corrigés dans le lot (l'entrée de ce journal, que le
+  plan annonçait ; l'en-tête de `purgeMany`, qui ne nommait pas les journaux d'échec ; au todo, le correctif durable
+  du BSUID à la source plutôt qu'un jeu par table), le quatrième est un doute sans suite (l'essai réel garde sa valeur
+  propre : la lecture n'a pas besoin de la fiche pour montrer une ligne restée).
+- **Hors périmètre, au todo** : les autres tables visées par `waIdsDeLaPersonne` n'atteignent pas le BSUID d'une fiche
+  dont le fil est parti (même famille que `workflow_runs` et `automation_fires`, 2026-10-03).
+
 ## 2026-11-06 : une invitation ne s'ouvre que par son lien (lot identité C, migration 0281)
 
 Demande de Julien (« Oui, le lot C », 2026-11-06), décisions du même jour : Google, sur une adresse qui n'a que des
