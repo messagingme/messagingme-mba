@@ -23,6 +23,7 @@ describe.skipIf(!url)('les lectures du ROI', () => {
   let T = '';
   let autre = '';
   let contact = '';
+  let contactAutre = '';
   let fil = '';
 
   async function vente(o: { espace?: string; commande: string; montant: string; payee: Date; test?: boolean; preuve?: string }): Promise<void> {
@@ -46,7 +47,7 @@ describe.skipIf(!url)('les lectures du ROI', () => {
     await pool.query(
       `insert into campaign_recipients (campaign_id, contact_id, to_e164, status, sent_at, claimed_at, delivery_status, message_id)
        values ($1, $2, '+33600000009', 'sent', $3, $3, 'delivered', $4)`,
-      [k, espace === T ? contact : null, o.envoye ?? le('2026-10-19T10:00:00Z'), o.wamid ?? null],
+      [k, espace === T ? contact : contactAutre, o.envoye ?? le('2026-10-19T10:00:00Z'), o.wamid ?? null],
     );
     return k;
   }
@@ -79,6 +80,9 @@ describe.skipIf(!url)('les lectures du ROI', () => {
     autre = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-roi-autre') returning id`)).rows[0]!.id;
     contact = (await pool.query<{ id: string }>(
       `insert into contacts (tenant_id, phone_e164) values ($1, '+33600000009') returning id`, [T],
+    )).rows[0]!.id;
+    contactAutre = (await pool.query<{ id: string }>(
+      `insert into contacts (tenant_id, phone_e164) values ($1, '+33600000009') returning id`, [autre],
     )).rows[0]!.id;
     fil = (await pool.query<{ id: string }>(
       `insert into conversations (tenant_id, wa_id, contact_id) values ($1, '33600000009', $2) returning id`, [T, contact],
