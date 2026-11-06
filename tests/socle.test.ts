@@ -44,6 +44,7 @@ const configuration: ConfigSocle = {
   APPLICATION_SERVICE_SECRET: '',
   // Sans connecteur HubSpot : `prevenirEquipe` n'enfile pas `push-handoff` (le cas avec, plus bas, le pose).
   HUBSPOT_SERVICE_URL: '',
+  HUBSPOT_SERVICE_SECRET: '',
   // Sans stockage objet : la médiathèque reste en base, le magasin vaut null.
   OBJETS_POINT_ACCES: '',
   OBJETS_REGION: '',

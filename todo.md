@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 Un scénario écrit un champ HubSpot du contact : la suite (cadrage `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`)
+
+- Après l'essai réel : une phrase dans la fiche publique `integrer-whatsapp-a-hubspot` (étape des champs), donc
+  `npm run vitrine:aide`, l'entrée du dictionnaire anglais et `aide:charger` en production.
+- La saisie à la main d'un champ « (HubSpot) » dans la console, l'API publique et le MCP écrivent la fiche seule.
+- Le bloc « Mettre à jour un champ » ne montre pas le type de la propriété HubSpot (date, liste, case).
+
 ## 🟡 Supprimer un appel de connecteur : ce que le ménage de la SANDBOX a montré (2026-11-04)
 
 - **Un seul clic, sans confirmation** : « Supprimer » sur un appel (Tools > Connecteurs API) l'efface aussitôt, alors

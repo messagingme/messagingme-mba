@@ -2451,6 +2451,14 @@ scénario, comment importer des contacts.
   les calculés avant le scénario (aucun sans automation sur l'étape). Une valeur vide dans HubSpot retire le champ de la fiche, un champ non choisi n'est pas touché, et
   un champ décoché n'est pas supprimé de la fiche. Pendant une mise à jour de l'intégration, le bloc le dit au lieu
   d'afficher une liste vide.
+  **Un scénario écrit aussi dans HubSpot** (2026-11-06) : quand un parcours pose un champ « (HubSpot) » d'une propriété
+  du CONTACT (bloc « Mettre à jour un champ », réponse d'une Question, Appel API, Fonction JS) ou le vide (« vider un
+  champ »), la valeur s'écrit d'abord dans HubSpot, sur le contact qui porte le numéro de la fiche, puis sur la fiche.
+  Si HubSpot refuse (format, valeur hors liste, accès retiré, portail déconnecté), la fiche n'est pas modifiée, le
+  parcours continue et la raison s'inscrit au journal des échecs de scénario. Une valeur vide laissée par un Appel API ou
+  une Fonction JS en échec n'efface rien dans HubSpot. La fiche s'écrit seule, comme avant, pour un contact absent de
+  HubSpot (un contact venu de WhatsApp), les champs de transaction et les calculés, un champ retiré de la liste et un
+  espace sans portail relié.
   Valider allume aussi la synchronisation du numéro principal : avant, une installation ne branchait rien. Ensuite,
   chaque choix se change d'un interrupteur. Ce que l'offre n'ouvre pas dit l'offre qui l'ouvre (« Inclus dans
   l'offre Pro » pour la réponse, « Inclus dans l'offre Entreprise » pour l'analyse et les listes) et ne s'allume pas

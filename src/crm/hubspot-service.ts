@@ -381,3 +381,61 @@ export async function importHubspotList(
   const report = await importContacts({ rows, mapping, tenantId, optIn: true, optInSource: 'hubspot_list', tags, autorite: 'import' }, importDeps);
   return { report, truncated: data.truncated, skippedNoPhone: data.skippedNoPhone, tags };
 }
+
+/**
+ * L'échéance d'une écriture de champ HubSpot par un scénario : le connecteur cherche le contact puis écrit la propriété,
+ * avec ses propres relances sur un 429 de HubSpot. Un seul essai ici : le parcours attend, et un échec n'écrit pas le
+ * miroir (cadrage `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`, décision 1).
+ */
+export const DELAI_ECRITURE_CHAMP_MS = 25_000;
+
+/**
+ * L'issue d'une écriture de propriété du contact dans HubSpot, dans les mots du parcours :
+ *  - `ecrit` : HubSpot a la valeur, le miroir de la fiche s'écrit ;
+ *  - `fiche_seule` : il n'y a plus de miroir à tenir (champ retiré de la liste, espace sans portail, connecteur pas encore
+ *    à jour) : la fiche s'écrit seule, comme avant la remontée ;
+ *  - `echec` : HubSpot n'a PAS la valeur, le miroir ne s'écrit pas ; `motif` va au journal des échecs de scénario.
+ */
+export type IssueEcritureChamp = { issue: 'ecrit' } | { issue: 'fiche_seule' } | { issue: 'echec'; motif: string };
+
+const reponseEcritureChamp = z.discriminatedUnion('issue', [
+  z.object({ issue: z.literal('ecrit') }),
+  z.object({ issue: z.literal('non_choisi') }),
+  z.object({ issue: z.literal('contact_inconnu') }),
+  z.object({ issue: z.literal('refuse'), message: z.string().max(300).catch('') }),
+]);
+
+/**
+ * Écrit une propriété du CONTACT dans HubSpot (`POST /service/champs/ecrire`), le contact trouvé par son téléphone. Ne
+ * lève jamais : toute panne devient `echec`, et le parcours continue sans écrire le miroir.
+ */
+export async function ecrireChampContactHubspot(
+  deps: ConnectorDeps, corps: { tenantId: string; e164: string; propriete: string; valeur: string },
+): Promise<IssueEcritureChamp> {
+  let brut: unknown;
+  try {
+    brut = await callService<unknown>(deps, '/service/champs/ecrire', corps, DELAI_ECRITURE_CHAMP_MS);
+  } catch (err) {
+    if (estAbandon(err)) return { issue: 'echec', motif: 'HubSpot n’a pas répondu à temps' };
+    if (err instanceof ReconsentRequiredError) return { issue: 'echec', motif: 'HubSpot refuse l’écriture : ré-autorisez l’application Messaging Me sur le portail' };
+    if (err instanceof HubspotServiceError) {
+      // Espace sans portail, ou route absente (le 404 de Fastify, connecteur pas encore à jour) : plus de miroir à tenir.
+      // Tout autre 404 (une adresse fausse, un frontal) est un échec VISIBLE, jamais une écriture locale silencieuse.
+      if (err.status === 404 && (err.code === 'tenant_not_connected' || err.code === 'Not Found')) return { issue: 'fiche_seule' };
+      // Le portail est relié mais son jeton manque : HubSpot n'a pas la valeur, le miroir ne s'écrit pas.
+      if (err.status === 409 && err.code === 'portal_disconnected') return { issue: 'echec', motif: 'le portail HubSpot est déconnecté : reconnectez-le' };
+      return { issue: 'echec', motif: `HubSpot n’a pas pu écrire la valeur (erreur ${err.status})` };
+    }
+    return { issue: 'echec', motif: 'HubSpot injoignable' };
+  }
+  const r = reponseEcritureChamp.safeParse(brut);
+  if (!r.success) return { issue: 'echec', motif: 'réponse illisible du connecteur HubSpot' };
+  switch (r.data.issue) {
+    case 'ecrit': return { issue: 'ecrit' };
+    case 'non_choisi': return { issue: 'fiche_seule' };
+    // Aucun contact HubSpot pour ce numéro (un contact né sur WhatsApp) : rien à tenir égal, la fiche s'écrit seule
+    // (décision de Julien du 2026-11-06, sans ligne au journal : ce n'est pas une panne).
+    case 'contact_inconnu': return { issue: 'fiche_seule' };
+    case 'refuse': return { issue: 'echec', motif: `HubSpot refuse la valeur${r.data.message ? ` : ${r.data.message}` : ''}` };
+  }
+}

@@ -204,7 +204,7 @@ function socle(deja: string[] = []) {
     // Le lot 7 : ces bancs ne testent pas l’e-mail aux admins.
     prevenirEquipe: async () => {},
     application: filiereApiSeule,
-    magasinObjets: null,
+    magasinObjets: null, connecteurHubspot: null,
   });
   const publiees = () => file.map((j) => {
     expect(j.name).toBe(AUTOMATION_EVENT_QUEUE);

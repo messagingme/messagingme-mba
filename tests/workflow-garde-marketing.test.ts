@@ -455,7 +455,7 @@ describe('🔴 le câblage des deux dépendances', () => {
       inboxStore: inerte, settingsStore: inerte, workflowStore: inerte, metaCredentials: inerte,
       metaFactory: { templateClientForTenant: async () => ({ list: async () => { lecturesMeta += 1; return list(); } }) } as never,
       rcsProvider: 'fake', emailTemplates: inerte, emailResolver: inerte, numeroDeLEspace: async () => null, runStore: inerte,
-      fil: inerte, offres: offresToutOuvert, prevenirEquipe: async () => {}, application: filiereApiSeule, magasinObjets: null,
+      fil: inerte, offres: offresToutOuvert, prevenirEquipe: async () => {}, application: filiereApiSeule, magasinObjets: null, connecteurHubspot: null,
     });
     const deps = Reflect.get(runtime.executor, 'deps') as WorkflowExecutorDeps;
     return { runtime, deps, fiches, lectures: () => lecturesMeta };

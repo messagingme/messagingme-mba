@@ -119,7 +119,7 @@ export type ConfigSocle = Pick<Config,
   | 'DRY_RUN' | 'PGBOSS_SCHEMA' | 'ENCRYPTION_KEY' | 'META_ACCESS_TOKEN' | 'META_APP_ID' | 'META_APP_SECRET'
   | 'META_GRAPH_VERSION' | 'META_MM_LITE' | 'PHONE_RATE_PER_MINUTE_MAX' | 'RCS_PROVIDER' | 'CREDIT_OFFERT_MICRO_EUR' | 'CREDIT_OFFERT_BUSINESS_MICRO_EUR'
   | 'CONTROL_HUMAN_TIMEOUT_MS' | 'AI_GATEWAY_API_KEY' | 'RESEND_API_KEY' | 'SUPPORT_FROM' | 'APP_URL'
-  | 'APPLICATION_SERVICE_URL' | 'APPLICATION_SERVICE_SECRET' | 'HUBSPOT_SERVICE_URL'
+  | 'APPLICATION_SERVICE_URL' | 'APPLICATION_SERVICE_SECRET' | 'HUBSPOT_SERVICE_URL' | 'HUBSPOT_SERVICE_SECRET'
   | 'OBJETS_POINT_ACCES' | 'OBJETS_REGION' | 'OBJETS_BUCKET' | 'OBJETS_CLE' | 'OBJETS_SECRET'
   | 'ENTREPRISE_PLAFOND_IA_EUROS_MOIS' | 'VERCEL_API_TOKEN' | 'VERCEL_TEAM_ID' | 'EUR_PER_USD'
 >;
@@ -682,6 +682,10 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     emailTemplates, emailResolver, numeroDeLEspace, runStore, fil, offres, prevenirEquipe,
     application: envoiApplication,
     magasinObjets,
+    // Un parcours qui écrit un champ HubSpot du contact l'écrit d'abord dans HubSpot (cadrage mm-hubspot du 2026-11-06).
+    connecteurHubspot: config.HUBSPOT_SERVICE_URL
+      ? { baseUrl: config.HUBSPOT_SERVICE_URL, secret: config.HUBSPOT_SERVICE_SECRET, transport }
+      : null,
   });
 
   /**

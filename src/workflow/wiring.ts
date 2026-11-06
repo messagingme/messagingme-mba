@@ -58,6 +58,8 @@ import { resolveNode } from '../ids/resolve';
 import { PgErreursLivraisonStore } from '../ops/erreurs-livraison.pg';
 import type { SourceOffres } from '../offres/offre.pg';
 import type { EnvoiApplication } from '../application/envoi';
+import { ecrireChampContactHubspot, type ConnectorDeps } from '../crm/hubspot-service';
+import { avecRemonteeHubspot } from '../hubspot-workflow/remontee';
 import type { MagasinObjets } from '../lib/magasin-objets';
 
 /**
@@ -128,11 +130,17 @@ export interface WorkflowRuntimeDeps {
    * « message rapide » s'y lit avant de partir chez Meta. Requis, `null` compris, comme pour la médiathèque elle-même.
    */
   magasinObjets: MagasinObjets | null;
+  /**
+   * Le canal service vers le connecteur HubSpot, `null` sans `HUBSPOT_SERVICE_URL`. Requis, `null` compris : un parcours
+   * qui écrit un champ HubSpot du contact l'écrit D'ABORD dans HubSpot (`avecRemonteeHubspot`, cadrage
+   * `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`).
+   */
+  connecteurHubspot: ConnectorDeps | null;
 }
 
 /** `buildWorkflowRuntime` construit l'exécuteur et ce qui l'accompagne, une fois par process (les caches vivent dedans). */
 export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
-  const { pool, queue, dryRun, repo, contactStore, inboxStore, settingsStore, workflowStore, metaCredentials, metaFactory, rcsProvider, emailTemplates, emailResolver, numeroDeLEspace, runStore, fil, offres, application } = deps;
+  const { pool, queue, dryRun, repo, contactStore, inboxStore, settingsStore, workflowStore, metaCredentials, metaFactory, rcsProvider, emailTemplates, emailResolver, numeroDeLEspace, runStore, fil, offres, application, connecteurHubspot } = deps;
   /**
    * Le client Meta de l'espace pour un envoi WhatsApp, ou le refus (une chaîne, comme tout `SendRefusal`)
    * quand aucun numéro n'est rattaché. `dryRun` reste chez l'appelant : certains envois refusent un bloc vide
@@ -356,8 +364,21 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
   // Les pièces reçues par un bloc Question (migration 0269) : écrites par l'avance, lues par l'Appel API du scénario.
   const piecesQuestion = new PgPiecesQuestion(pool);
 
-  // Le journal des échecs de scénario, où un « Aller à » qui n'a pas eu lieu est écrit (RC5).
+  // Le journal des échecs de scénario, où un « Aller à » qui n'a pas eu lieu est écrit (RC5), comme un champ HubSpot
+  // que HubSpot a refusé (`ecrituresDeFiche`, juste en dessous).
   const echecsDeScenario = new PgErreursLivraisonStore(pool);
+  /**
+   * Les écritures de fiche d'un parcours (`setField`, `clearField`). Un champ HubSpot du contact (`hs_contact_<p>`) remonte
+   * D'ABORD dans HubSpot ; un refus laisse la fiche telle quelle et va au journal des échecs de scénario. Le store passé
+   * entier dans une flèche : ses méthodes lisent `this`.
+   */
+  const ecrituresDeFiche = avecRemonteeHubspot({
+    setField: async (tenant, waId, key, value) => { await contactStore.mergeFieldsByPhone(tenant, waId, { [key]: value }); },
+    clearField: async (tenant, waId, key) => { await contactStore.clearFieldsByPhone(tenant, waId, [key]); },
+  }, connecteurHubspot === null ? null : {
+    ecrire: (corps) => ecrireChampContactHubspot(connecteurHubspot, corps),
+    journaliser: (e) => echecsDeScenario.enregistrerEchecAvance({ ...e, workflowId: null, runId: null, messageId: null, canal: null }),
+  });
 
   // La réponse « à côté » : les gardes vivent dans le module, testé.
   const transmettreHorsParcours = creerTransmettreHorsParcours({
@@ -497,7 +518,8 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     },
     // Un saut qui n'a pas lieu atterrit dans le journal des échecs de scénario, celui des avances qui échouent.
     journaliserEchecSaut: (e) => echecsDeScenario.enregistrerEchecAvance({ ...e, canal: null }),
-    setField: async (tenant, waId, key, value) => { await contactStore.mergeFieldsByPhone(tenant, waId, { [key]: value }); },
+    // Un champ HubSpot du contact s'écrit D'ABORD dans HubSpot, la fiche ensuite (`avecRemonteeHubspot`).
+    setField: ecrituresDeFiche.setField,
     // La pièce d'un bloc Question (spec du 2026-11-02) : le store entier, pour que `noter` garde son `this`. La mention
     // se date dans le fuseau de l'espace, le même que celui des conditions horaires.
     piecesQuestion,
@@ -541,7 +563,7 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
       if (clean === '') return;
       await contactStore.removeTagsByPhone(tenant, waId, [clean]);
     },
-    clearField: async (tenant, waId, key) => { await contactStore.clearFieldsByPhone(tenant, waId, [key]); },
+    clearField: ecrituresDeFiche.clearField,
     // Autorité `scenario` (elle lève un STOP, `LEVE_UN_STOP`), et source `scenario` : distingue un consentement posé
     // par un parcours de celui saisi à la main (`crm`) ou coché dans un Flow (`flow`).
     setOptIn: async (tenant, waId, value) => { await contactStore.setOptInByWaId(tenant, waId, value, 'scenario', 'scenario'); },

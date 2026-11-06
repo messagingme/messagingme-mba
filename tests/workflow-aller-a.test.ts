@@ -408,7 +408,7 @@ describe('le vrai câblage', () => {
       // Le lot 7 : ces bancs ne testent pas l’e-mail aux admins.
       prevenirEquipe: async () => {},
       application: filiereApiSeule,
-      magasinObjets: null,
+      magasinObjets: null, connecteurHubspot: null,
     });
     const deps = Reflect.get(executor, 'deps') as WorkflowExecutorDeps;
     expect(await deps.resoudreBloc('t2', code(130))).toBeNull();

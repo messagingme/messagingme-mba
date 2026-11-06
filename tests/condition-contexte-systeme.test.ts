@@ -36,7 +36,7 @@ function cablage(lectures: { recu?: () => Promise<Date | null>; langue?: () => P
     // Le lot 7 : ces bancs ne testent pas l’e-mail aux admins.
     prevenirEquipe: async () => {},
     application: filiereApiSeule,
-    magasinObjets: null,
+    magasinObjets: null, connecteurHubspot: null,
   });
   // `deps` est privé à l'exécuteur : on lit la dépendance que le câblage lui a donnée.
   const { evalContext } = Reflect.get(executor, 'deps') as WorkflowExecutorDeps;
