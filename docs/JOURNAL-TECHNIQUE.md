@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : le ROI des messages sur Quantitatif > Shopify
+
+Demande de Julien : en face du chiffre d'affaires attribué, ce que les messages ont coûté, sur deux courbes, et le ROI.
+Cadré en deux rondes de questions (spec `docs/superpowers/specs/2026-11-06-roi-shopify-design.md`, plan du même jour) :
+le coût des seuls leviers de vente, l'IA sur une ligne à part, le ROI sur le brut en pourcentage, deux courbes cumulées,
+console seulement, et « Par source » qui part de tout ce qui a coûté.
+
+- **Livré** : `07202865` (le lot), `f581498f` et `1097d45a` (deux correctifs), déployés dans le run commun 42236807466
+  (`60b4812b`, avec le lot du lien variable d'une autre session, sur l'accord de Julien qui nommait les deux). La route
+  `GET /stats/roi` répondait 401 sans session juste après (une route inconnue : 404). La console était partie au push
+  et restait celle d'avant tant que la route manquait (e2e du 404).
+- **Le périmètre des leviers vit une fois** (`src/shopify/perimetre-leviers.ts`), interpolé par l'attribution
+  (`TOUCHES`, chaîne SQL comparée à l'ancienne : identique) et par le coût (`src/shopify/cout-leviers.pg.ts`) ; le test
+  de parité a été vu rouge dans les deux sens. `prixServiceEffectif` est désormais partagé avec le coût par campagne.
+- **Deux rouges de CI, tous deux de l'implémenteur.** (1) Un commentaire ajouté au SQL APRÈS la relecture citait
+  `p.wamid` entre accents graves, qui fermaient le gabarit : typecheck et intégration rouges. Le piège était noté ; ce
+  qui a manqué, c'est de relancer le typecheck après un « petit » jaune repris. (2) Une fixture d'intégration insérait un
+  destinataire de campagne sans contact (`contact_id` est NOT NULL) ; les quatre autres cas, SQL des leviers compris,
+  passaient déjà sur le Postgres de la CI.
+- **Le déploiement** : le run du numéro (28ac904b, 0280) a d'abord échoué sur le disque plein de `mm-workers` (entrée
+  précédente) ; Julien avait accordé à deux sessions deux ordres différents (le mien seul après le numéro, puis un run
+  commun qui nommait mon lot). Je me suis retiré par écrit : un run épinglé sur mon commit, plus ancien, passé après le
+  run commun, aurait défait le lot du pair.
+- **Simplification à connaître** : le RCS est compté au prix SIMPLE de la grille, la bascule conversationnelle n'est pas
+  rejouée par source ; l'écran dit « estimé ». Jaunes laissés au lot suivant : mesurer `LEVIERS_ENVOIS` par EXPLAIN sur
+  un gros espace (la sous-requête de rattachement des scénarios n'est servie par aucun index), et une campagne RCS ou
+  e-mail à repli WhatsApp n'est pas comptée.
+- **Reste** : `aide:charger` avec l'image `60b4812b` (fiche `lire-mes-resultats`), refusé à Claude en mode automatique,
+  donné à Julien ; l'essai réel 224.
+
 ## 2026-11-06 : la machine des workers pleine, et sa purge à chaque déploiement réussi
 
 Le déploiement du connecteur HubSpot a échoué au `docker compose pull` de son worker : « no space left on device » sur
