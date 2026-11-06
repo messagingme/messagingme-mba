@@ -213,8 +213,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   une demi-journée, la régularisation du lendemain relue en base.
 - **La ligne de crédit prise à la connexion** (révision du 2026-11-04, plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) :
   lot A, le serveur, en production le 2026-11-05 (`5aca4c54`, la 0278 relue en base) ; A5 (la console et les cinq
-  jaunes du lot A) relu sans rouge le 2026-11-06, ses seize jaunes au plan (§ « La relecture du lot A5 »), le premier
-  à trancher avant la vente ;
+  jaunes du lot A) en production le 2026-11-06 (`6bfa5f37`), ses seize jaunes au plan (§ « La relecture du lot A5 »),
+  relus avec le lot B ; l'essai réel 219 à faire ;
   puis les lots B (cartes « Qui règle Meta ? », guide), C (conversion, arrêt, doc), D (passage du numéro de l'essai,
   après l'essai réel du partage), E (la fenêtre du partenaire). La vente attend A, B, C et D0.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une

@@ -40,8 +40,9 @@ Julien le 2026-11-04), qui révise `2026-10-30-credit-whatsapp-design.md`. Toute
 
 **Avancement (2026-11-05)** : A1 à A4 et A6, le serveur, écrits et testés ; onze retraits de garde, chacun vu par son
 test ; relus (un rouge corrigé, cinq jaunes ouverts, plus bas) ; en production le 2026-11-05 avec `5aca4c54` (run
-42035584064, la 0278 seule, relue en base). A5 (la console, et les cinq jaunes du serveur) écrit, testé et relu le
-2026-11-06 : aucun rouge, seize jaunes (plus bas, le premier à trancher avant la vente).
+42035584064, la 0278 seule, relue en base). A5 (la console, et les cinq jaunes du serveur) relu sans rouge (seize
+jaunes, plus bas) et en production le 2026-11-06 avec `6bfa5f37` (run 42181871248, sans migration). Le lot A est livré ;
+son essai réel est l'essai 219 de `docs/prive/ESSAIS-REELS.md`.
 
 ### A1. La règle « formule payée »
 

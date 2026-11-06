@@ -19,8 +19,12 @@ Lot A5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`.
 - **Vérifié** : suite racine et suite de la console entières, e2e de l'offre, de l'onglet et de `/ops`, auto-attaque.
   ⚠️ Le port 3000 du poste était pris par un autre processus : les e2e ont tourné sur une construction de production
   servie sur 3105, par une configuration locale jamais commitée.
-- **Relecture indépendante** : aucun rouge, seize jaunes au plan ; le premier (un SEPA refusé après un démarrage laisse
-  le Pro actif) est à trancher avant la vente.
+- **Relecture indépendante** : aucun rouge, seize jaunes au plan. Le premier (un SEPA refusé après un démarrage laisse
+  le Pro actif) est sans objet : Julien n'accepte que la carte au Checkout du Pro, à rouvrir si un prélèvement s'ouvre.
+- **En production le 2026-11-06** : `6bfa5f37`, run 42181871248, `migration=aucune` (aucune n'attendait, la 0279 d'une
+  session voisine déjà appliquée) : l'API et les trois conteneurs de la machine relus sur `6bfa5f37`, `/health` à 200,
+  la console publiée par Vercel. Le SQL du jaune 3 n'a tourné que dans l'intégration de la CI, sur sa base jetable ;
+  le reste se vérifie par l'essai réel 219 (`docs/prive/ESSAIS-REELS.md`).
 
 ## 2026-11-05 : la ligne de crédit prise à la connexion, lot A (le serveur)
 
