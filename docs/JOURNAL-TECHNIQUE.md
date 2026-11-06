@@ -4,6 +4,34 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la ligne de crédit prise à la connexion, lot B (« Qui paie vos messages à Meta ? »)
+
+Lot B du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`, textes validés par Julien le 2026-11-06.
+
+- **Le serveur** (`2f0b000a`) : `etatLigneCredit` et `GET /tenants/:tenantId/credit-whatsapp/etat` (l'état, `enVente`,
+  `avecApplication`) ; l'option prise depuis les cartes ramène sur Connecter WhatsApp ; l'alerte « Nouvelle option » dit
+  « ligne à poser sous 24 h ouvrées » ; `get_setup_state` tait la carte à régler chez Meta quand la ligne est payée ou
+  posée ; trois jaunes du lot A5 (le verrou prolongé sur une issue inconnue, le 200 illisible, `paye` au contrat).
+- **La console, la vitrine et le plugin** : les deux cartes « Qui paie vos messages à Meta ? » sur Connecter WhatsApp
+  (première question du guide, la carte chez Meta active par défaut) et sur l'Accueil sans numéro ; la même question
+  dans le tunnel de la vitrine (cinq questions au plus, la carte Crédit WhatsApp grisée, sa raison selon la formule) et
+  dans la skill du plugin et sa FAQ ; chaque voie qui garde l'application dit qu'on y paie Meta avec sa carte ; les
+  jaunes 7, 9, 10, 11, 13 et 14 du lot A5.
+- **Vérifié** : suites racine et console, typecheck et lint des deux côtés, auto-attaque, e2e complète sur une
+  construction de production (port 3105) ; treize retraits de garde unitaires et six d'écran (une construction mutée,
+  huit e2e rouges). Un e2e instable hors du lot (`agents-connaissance.spec.ts:127`, la suggestion d'adresse collée devant
+  la saisie) est MESURÉ antérieur : 2 échecs sur 10 sur la construction du lot, 1 sur 10 sur une construction
+  d'`origin/main` au même symptôme.
+- **Relecture indépendante** : un rouge, corrigé avant le push de la console : hors vente, la carte
+  proposait « Démarrer la formule Pro maintenant » pendant l'essai, un prélèvement sur la promesse d'une option qui ne se
+  prend pas. Deux e2e vus rouges au symptôme exact sur la construction d'avant, verts après. Treize jaunes au plan
+  (§ « La relecture du lot B »), dont trois à fermer avant l'ouverture de la vente.
+- **En production le 2026-11-06** : l'API sur `2f0b000a` (run 42245489983, `migration=aucune`, aucune migration en
+  attente) : l'image de `mba-api` et les trois conteneurs de la machine relus sur `2f0b000a`, `/health` à 200, la route
+  de l'état en 401 sans session (404 pour une route inconnue). La console, la vitrine et le plugin 0.3.27 (posé sur le
+  0.3.26 d'une session voisine, sa FAQ régénérée depuis la source fusionnée) poussés après ; le plugin attend sa
+  publication. L'essai réel 225 (`docs/prive/ESSAIS-REELS.md`).
+
 ## 2026-11-06 : les webhooks muets, une fausse alerte ; l'annonce des espaces nés
 
 **Les alertes « 7 webhook(s) Meta reçu(s) en 60 min et AUCUN événement enregistré »** (Telegram, 9 h 00, 11 h 40 et

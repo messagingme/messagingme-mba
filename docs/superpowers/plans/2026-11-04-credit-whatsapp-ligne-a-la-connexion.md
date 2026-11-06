@@ -187,13 +187,14 @@ Connecter WhatsApp) ; `src/stripe/option-credit-whatsapp.ts` (le retour de Strip
 **Interface produite** : `etatLigneCredit(d, tenantId): Promise<'free' | 'essai' | 'a_prendre' | 'en_attente' |
 'active' | 'arretee'>` (`en_attente` : option payée, aucune ligne posée).
 
-- [ ] Tests : chaque état depuis ses données ; `carte_meta_a_regler` absent en `en_attente` ; le retour de Stripe mène à
+- [x] Tests : chaque état depuis ses données ; `carte_meta_a_regler` absent en `en_attente` ; le retour de Stripe mène à
   `/connecter-whatsapp` quand le paiement part de la carte ; un espace dont tous les numéros gardent l'application voit
-  l'avertissement au moment de payer.
-- [ ] Deux cartes, chaque bouton sous la sienne : « Ma carte chez Meta » et « Crédit WhatsApp » ; leurs textes selon
+  l'avertissement au moment de payer (`avecApplication`, calculé au serveur, dit par la carte et par l'onglet).
+- [x] Deux cartes, chaque bouton sous la sienne : « Ma carte chez Meta » et « Crédit WhatsApp » ; leurs textes selon
   l'état (grisée en Free avec « avec la formule Pro », explication et « Démarrer la formule Pro maintenant » en essai,
-  « Votre ligne s'ouvre sous 24 h ouvrées » en attente, les deux chemins une fois arrêtée).
-- [ ] L'alerte « Nouvelle option » à Julien dit « ligne à poser sous 24 h ouvrées ».
+  « Votre ligne s'ouvre sous 24 h ouvrées » en attente, les deux chemins une fois arrêtée). Hors vente, la carte est
+  grisée « sur demande » dans tous les états, essai compris (décision de Julien du 2026-11-06, rouge de la relecture).
+- [x] L'alerte « Nouvelle option » à Julien dit « ligne à poser sous 24 h ouvrées ».
 
 ### B2. Le guide du numéro
 
@@ -201,12 +202,60 @@ Connecter WhatsApp) ; `src/stripe/option-credit-whatsapp.ts` (le retour de Strip
 la skill du plugin qui porte le guide ; tests de parité existants (`tests/questions-numero-vitrine.test.ts`,
 `tests/etapes-meta.test.ts`, `tests/etapes-numero-fourni.test.ts`).
 
-- [ ] Garder l'application dit « vous payez Meta avec votre carte : le Crédit WhatsApp n'est pas possible avec
-  l'application » ; la voie du Crédit WhatsApp connecte sans l'application, numéro fourni compris (choix à confirmer par
-  Julien, spec décision 8). La parité console, plugin et vitrine reste verte.
-- [ ] Textes montrés à Julien avant le push (nouveauté publique) ; la vitrine et son anglais régénérés.
+- [x] Garder l'application dit « vous payez Meta avec votre carte : le Crédit WhatsApp n'est pas possible avec
+  l'application » ; la parité console, plugin et vitrine reste verte. La voie du Crédit WhatsApp sans l'application,
+  numéro fourni compris, est CONFIRMÉE par Julien (2026-11-06) mais n'est pas construite : elle arrive avec la vente
+  (ci-dessous, ses textes validés).
+- [x] Textes montrés à Julien avant le push (nouveauté publique) ; la vitrine et son anglais régénérés.
+
+**Les textes validés par Julien le 2026-11-06** (« Oui, ces textes ») : la question « Qui paie vos messages à Meta ? »,
+précision « Meta facture chaque modèle que vous envoyez. », juste après l'offre (Free et Pro ; Business et Entreprise
+vont à l'échange). Les cartes : « Ma carte chez Meta », « Vous enregistrez votre carte bancaire chez Meta, qui vous
+facture vos modèles. » (console : « Vous connectez votre numéro avec votre carte chez Meta, qui vous facture vos
+modèles. ») ; « Crédit WhatsApp », « Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : 30 € HT par
+numéro et par mois, avec la formule Pro ou Business. », grisée en Free « Avec la formule Pro. », hors vente « Sur
+demande : écrivez-nous. » (console : « … depuis le Support. »). Dans la console, selon l'état : en essai « Il vient avec
+la formule Pro payante : à la fin de l'essai, ou tout de suite. » et « Démarrer la formule Pro maintenant » ; en vente
+« Prendre l'option » ; en attente « Votre ligne s'ouvre sous 24 h ouvrées. » ; active « Vos messages sont payés par
+votre Crédit WhatsApp. » ; arrêtée « Vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant est
+conservé. », « Reprendre l'option » et « Connecter avec ma carte chez Meta ». Les voies qui gardent l'application :
+« Vous payez Meta avec votre carte : le Crédit WhatsApp n'est pas possible avec l'application. » **À poser à
+l'ouverture de la vente**, la voie du Crédit WhatsApp : « Avez-vous un numéro à brancher ? », précision « Avec le Crédit
+WhatsApp, le numéro n'est pas dans l'application WhatsApp Business : vous répondez à vos clients depuis l'Inbox de
+Messaging Me. » ; Oui, « Branchez votre numéro » : « La fenêtre de Meta s'ouvre depuis Messaging Me : vous y créez votre
+compte Meta Business si vous n'en avez pas, puis le numéro reçoit son code. Un numéro encore dans l'application WhatsApp
+Business doit d'abord en être retiré. » ; Non, « Nous vous fournissons le numéro » : « Un numéro fourni, inclus dans
+votre formule, branché directement, sans l'application. » Validés aussi le même jour : la phrase de la FAQ du plugin et
+des pages Développeurs, « cinq questions » sur Démarrer, l'avertissement des numéros qui gardent l'application, et
+« Prendre l'option » d'un seul numéro depuis les cartes.
 
 **Fin du lot B** : une relecture indépendante ; l'API avant la console, la vitrine après l'API.
+
+### La relecture du lot B (2026-11-06) : 1 rouge, 13 jaunes
+
+Le rouge, corrigé avant le push de la console (son commit à part, deux e2e vus rouges au symptôme puis verts) : hors vente,
+la carte proposait « Démarrer la formule Pro maintenant » pendant l'essai, un prélèvement sur une promesse que la
+production ne tenait pas. Les jaunes, relus avec le lot C ; **1, 3 et 11 se ferment avant l'ouverture de la vente** :
+
+1. Une option reprise (`arretee`) au retour de Stripe avant le webhook remontre « Reprendre l'option » sans relire :
+   `optionPayee` doit couvrir tout état hors `en_attente` et `active`.
+2. `carte_meta_a_regler` est tu par espace, pas par numéro : un numéro qui garde l'application, ou d'un autre compte,
+   bloqué pour sa carte, ne l'entend plus quand la ligne est active ou en attente.
+3. Le bandeau de l'Accueil « Ajoutez votre carte chez Meta » ne lit pas l'état de la ligne (la spec le tait en attente).
+4. Un numéro connecté payé par sa carte : aucune des deux cartes n'est mise en avant (`metaEnAvant`).
+5. `etatLigneCredit` : la ligne d'un numéro délié compte encore ; une ligne forcée sur une Free se lit `free` ; une
+   option payée sur un Pro passé en retard se lit `essai` au lieu de `en_attente`.
+6. Le guide rouvert sur un numéro connecté (option arrêtée) reçoit `connecte={false}`.
+7. `demarrerProMaintenant` marque « issue inconnue » aussi un 200 illisible de la lecture faite AVANT l'envoi.
+8. `QUESTION_PAIEMENT.carte.texte` et `.grisee` ne servent qu'à la parité (la console a ses variantes validées) :
+   l'écrire dans le module, ou les retirer.
+9. Une Entreprise lit le prix de l'option « avec la formule Pro ou Business » puis « sur demande ».
+10. Fermé : la phrase de la FAQ, montrée à Julien et validée le 2026-11-06.
+11. Deux onglets, ou une carte périmée, ouvrent deux Checkout de l'option avant le webhook (antérieur au lot, deux
+    entrées de plus) : refuser une prise quand une session est ouverte, ou un verrou court par espace.
+12. Après les quinze relectures, « s'ouvre dans quelques secondes » reste affiché : dire « rechargez la page ».
+13. Doc : la fiche publique « Connecter mon numéro WhatsApp » ne dit pas la question (avec C3) ; deux JSDoc empilés sur
+    `creditWhatsapp` dans `src/mcp/mise-en-service.ts`.
 
 ## Lot C : la conversion et l'arrêt dits au client
 

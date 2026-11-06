@@ -4509,6 +4509,22 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   « un numéro sur la ligne » : Claude (`get_setup_state`, `get_credit`) lit `surLaLigne`
   (`src/credit-whatsapp/achat-permis.ts`), jamais l'onglet, sans quoi le solde à zéro d'un Pro sans ligne passerait pour
   des envois coupés ; l'onglet, de son côté, ne dit jamais « épuisé » à un espace sans numéro sur la ligne.
+- 🔴 **« Qui paie vos messages à Meta ? »** (révision du 2026-11-04, lot B) : l'état du Crédit WhatsApp d'un espace
+  (`etatLigneCredit`, `src/credit-whatsapp/etat-ligne.ts`) vaut `free`, `essai` (la formule n'est pas encore payée),
+  `a_prendre`, `en_attente` (l'option payée, aucune ligne posée), `active` ou `arretee` (toutes ses lignes arrêtées).
+  `GET /tenants/:tenantId/credit-whatsapp/etat`, lisible par tout membre et fermé à la Free comme tout le module, le rend
+  avec `enVente` (l'option se prend en ligne) et `avecApplication` (tous les numéros non déliés de l'espace gardent
+  l'application, `tousGardentLApplication`, décision 8 ; la vue de l'onglet porte le même champ). La console en tire deux
+  cartes (`web/components/QuiRegleMeta.tsx`) : sur Connecter WhatsApp, la première question du guide du numéro, et sur
+  l'Accueil tant qu'aucun numéro n'est connecté. « Ma carte chez Meta » est la voie active et ouvre le guide ; elle cède
+  la place quand une ligne est payée ou posée. 🔴 « Crédit WhatsApp » reste grisée « sur demande » tant que l'option n'est
+  pas en vente, dans TOUS les états, essai compris : jamais « Démarrer la formule Pro maintenant » pour une option qui ne
+  se prend pas. Une Free l'est sans lire la route (402), par la vue de l'offre. Prise depuis une carte, l'option compte
+  un numéro et ramène sur Connecter WhatsApp (`origine: 'connecter'`, le corps d'avant sans elle), dont le retour garde la
+  prise fermée jusqu'à relire l'option. `get_setup_state` tait `carte_meta_a_regler` en `en_attente` et `active`. La même
+  question se pose sur la vitrine (`scripts/vitrine/tunnel-textes.ts`, une réponse grisée par formule, `Reponse.grisee`)
+  et dans la skill de mise en service du plugin, aux mêmes mots (`tests/questions-numero-vitrine.test.ts`) ; chaque voie
+  qui garde l'application y dit qu'on paie Meta avec sa carte.
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés

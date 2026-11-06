@@ -300,9 +300,13 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
 - **La ligne de crédit prise à la connexion** (révision du 2026-11-04, plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) :
   lot A, le serveur, en production le 2026-11-05 (`5aca4c54`, la 0278 relue en base) ; A5 (la console et les cinq
   jaunes du lot A) en production le 2026-11-06 (`6bfa5f37`), ses seize jaunes au plan (§ « La relecture du lot A5 »),
-  relus avec le lot B ; l'essai réel 219 à faire ;
-  puis les lots B (cartes « Qui règle Meta ? », guide), C (conversion, arrêt, doc), D (passage du numéro de l'essai,
-  après l'essai réel du partage), E (la fenêtre du partenaire). La vente attend A, B, C et D0.
+  relus avec le lot B ; l'essai réel 219 à faire ; le lot B (« Qui paie vos messages à Meta ? » : l'état de la ligne,
+  les cartes de Connecter WhatsApp et de l'Accueil, la question du guide sur la vitrine et dans le plugin 0.3.27) en
+  production le 2026-11-06 (l'API `2f0b000a`, la console et la vitrine poussées après), ses treize jaunes au plan
+  (§ « La relecture du lot B »), dont 1, 3 et 11 à fermer avant la vente, et sa voie du Crédit WhatsApp sans
+  l'application (textes validés, au plan) à poser à l'ouverture de la vente ; l'essai réel 225 à faire ;
+  puis les lots C (conversion, arrêt, doc), D (passage du numéro de l'essai, après l'essai réel du partage), E (la
+  fenêtre du partenaire). La vente attend A, B, C et D0.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes
