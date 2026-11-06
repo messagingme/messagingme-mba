@@ -148,9 +148,10 @@ tests de la gestion de la formule Pro existant) et `tests/traitement-abonnements
 
 Relus avec le lot B (les jaunes ne bloquent pas le déploiement) :
 
-1. **À trancher avant la vente** (si le SEPA est ouvert au Checkout du Pro, à vérifier au tableau de bord de Stripe) :
-   l'échec d'une facture `subscription_update` est acquitté sans rien écrire, et la facture de l'essai écourté en est
-   une. Un démarrage payé par SEPA puis refusé par la banque laisse le Pro actif, l'option ouverte et aucun e-mail.
+1. **Sans objet tant que seule la carte est acceptée** (Julien, 2026-11-06 : « pas de prélèvement, uniquement CB
+   acceptée ») ; à rouvrir si un prélèvement (SEPA) est un jour activé au Checkout du Pro : l'échec d'une facture
+   `subscription_update` est acquitté sans rien écrire, et la facture de l'essai écourté en est une. Un démarrage payé
+   par SEPA puis refusé par la banque laisserait le Pro actif, l'option ouverte et aucun e-mail.
    Antérieur à A5. Correctif d'une ligne : n'acquitter que la `subscription_update` qui porte une ligne de prorata.
 2. Le contrat de la route du démarrage (`src/http/offre-paiement.ts`) déclare `{ essaiFini: true }` sans `paye`, et son
    test répond sans ce champ : ajouter `paye` au type et un cas au test.
