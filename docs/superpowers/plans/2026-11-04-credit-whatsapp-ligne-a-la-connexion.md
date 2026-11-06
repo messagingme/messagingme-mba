@@ -51,11 +51,11 @@ son essai réel est l'essai 219 de `docs/prive/ESSAIS-REELS.md`.
 **Interface produite** : `formulePayee(e: { offre: Offre; pro: ResumePro | null; businessEssaiFinLe: Date | null },
 maintenant: number): boolean`.
 
-- [ ] Tests, une ligne par cas : Pro en essai (`essaiFinLe` futur) faux ; Pro dont l'essai est fini et `statut` actif
+- [x] Tests, une ligne par cas : Pro en essai (`essaiFinLe` futur) faux ; Pro dont l'essai est fini et `statut` actif
   vrai ; Pro `en_retard` après l'essai faux ; résiliation programmée PENDANT l'essai faux ; Pro payé dès le départ
   (`essaiFinLe` nul) vrai ; Pro fini faux ; Business confirmé (`businessEssaiFinLe` nul) vrai ; Business en essai faux ;
   Free et Entreprise faux.
-- [ ] Les voir échouer, écrire la fonction pure, les voir passer.
+- [x] Les voir échouer, écrire la fonction pure, les voir passer.
 
 ### A2. `ouvrirOption` refuse pendant un essai
 
@@ -66,7 +66,7 @@ maintenant: number): boolean`.
 sans cache) ; refus `409`, code `option_apres_essai`, message : « L’option Crédit WhatsApp s’ouvre avec la formule
 payée : à la fin de votre essai, ou tout de suite si vous démarrez la formule Pro maintenant. »
 
-- [ ] Tests : un Pro en essai reçoit `option_apres_essai` et AUCUNE session Stripe n'est créée ; un Business en essai
+- [x] Tests : un Pro en essai reçoit `option_apres_essai` et AUCUNE session Stripe n'est créée ; un Business en essai
   aussi ; une formule payée passe comme avant. Retirer la garde les fait échouer.
 
 ### A3. Le Business en essai
@@ -76,9 +76,9 @@ lire et l'écrire), `src/http/ops-offre.ts` (la pose du Business prend `business
 l'offre dans `/ops` (une case « en essai » et sa date) ; tests `tests/ops-offre.test.ts` et
 `tests/integration/offres.integration.test.ts`.
 
-- [ ] Tests : la pose d'un Business en essai écrit la date ; la confirmation (date retirée) l'efface ; le retrait du
+- [x] Tests : la pose d'un Business en essai écrit la date ; la confirmation (date retirée) l'efface ; le retrait du
   Business l'efface. Chercher les `toEqual` des retours du store dans `tests/integration` avant de pousser.
-- [ ] Déploiement : la migration en `avant`.
+- [x] Déploiement : la migration en `avant`.
 
 ### A4. Démarrer la formule Pro maintenant
 
@@ -96,7 +96,7 @@ tests de la gestion de la formule Pro existant) et `tests/traitement-abonnements
 - Route `POST /tenants/:tenantId/offre/pro/demarrer`, admin, plafond des opérations coûteuses.
 - Le webhook de la formule Pro écrit la fin d'essai quand `trial_end` RECULE (aujourd'hui il ne l'écrit que pendant `trialing`).
 
-- [ ] Tests : en essai, un succès arrête l'essai (un seul appel, la clé d'idempotence fixe) ; carte refusée, rien ne
+- [x] Tests : en essai, un succès arrête l'essai (un seul appel, la clé d'idempotence fixe) ; carte refusée, rien ne
   change et 402 ; hors essai 409 ; un `updated` actif dont `trial_end` recule réécrit `essaiFinLe`, et `formulePayee`
   devient vrai. Chaque garde retirée fait échouer son test.
 
@@ -117,7 +117,7 @@ tests de la gestion de la formule Pro existant) et `tests/traitement-abonnements
 **Fichiers** : `src/credit-whatsapp/refus.ts` (`MESSAGE_REFUS_CREDIT.ligne_inactive`), `web/lib/erreurs-gestes.ts`,
 `web/lib/api-exemples.ts`, la doc régénérée (`cd web && npm run doc:md`) ; tests `tests/api-exemples.test.ts`.
 
-- [ ] Le message et le geste disent les deux chemins : reprendre l'option, ou connecter le numéro avec sa carte chez
+- [x] Le message et le geste disent les deux chemins : reprendre l'option, ou connecter le numéro avec sa carte chez
   Meta (spec, décision 4) ; la place manquante garde son texte. Test : le geste cite les deux chemins dans les deux
   langues.
 
@@ -268,7 +268,7 @@ créer `web/components/BandeauLigneCredit.tsx`.
 **Interface** : `signalerConversion(d, tenantId: string): Promise<void>`, une fois par espace (occasion `conversion`),
 ne lève jamais.
 
-- [ ] Tests : une seule émission sur des rejeux et une double confirmation ; jamais pour une formule pas encore payée ;
+- [x] Tests : une seule émission sur des rejeux et une double confirmation ; jamais pour une formule pas encore payée ;
   le texte (moment 2) distingue un numéro sans l'application d'un numéro qui la garde.
 
 ### C2. L'arrêt de l'option
@@ -276,7 +276,7 @@ ne lève jamais.
 **Fichiers** : `src/stripe/traitement-abonnements.ts` (la première fin d'une option, hors l'option payée sans droit qui a
 son e-mail), une entrée du catalogue (`option_wa_arretee`), `web/components/OngletCreditWhatsapp.tsx`.
 
-- [ ] Tests : une première fin émet une fois ; un rejeu non ; l'option payée sans droit garde le sien ; l'onglet dit les
+- [x] Tests : une première fin émet une fois ; un rejeu non ; l'option payée sans droit garde le sien ; l'onglet dit les
   deux chemins (moment 3).
 
 ### C3. La doc et ce que dit Claude
@@ -286,7 +286,7 @@ son e-mail), une entrée du catalogue (`option_wa_arretee`), `web/components/Ong
 `buy_credit`, `scripts/plugin/faq.ts` (puis `npm run plugin:generer` et la version du plugin montée), `features.md` et les
 empreintes des fiches qui la citent, `documentation.md`.
 
-- [ ] Tests existants verts (`tests/aide-proposer.test.ts`, la parité du catalogue MCP et de sa doc générée, la FAQ du
+- [x] Tests existants verts (`tests/aide-proposer.test.ts`, la parité du catalogue MCP et de sa doc générée, la FAQ du
   plugin) ; `features.md` retouché vérifié par `tests/aide-proposer.test.ts` AVANT le push.
 - [ ] Avant l'ouverture de la vente, pas avant : la fiche publique « Payer ses messages sans carte chez Meta » (une page
   de la vitrine) et la ligne « Crédit WhatsApp, après l'essai » sur les cartes Pro et Business de la vitrine, montrées à

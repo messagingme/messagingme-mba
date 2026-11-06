@@ -2,7 +2,7 @@
 description: Connecter un numéro WhatsApp à Messaging Me depuis la fenêtre de Meta, en obtenir un si besoin, le faire vérifier, puis lire son état sur l'Accueil.
 ecran: accueil
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 848d29
+source_empreinte: 64d54e
 publique: oui
 rubrique: demarrer
 rang: 3
@@ -15,6 +15,13 @@ video: oui
 
 L'Accueil est l'écran sur lequel vous arrivez en vous connectant, et celui que le logo ramène. Il porte une seule
 chose : l'état de votre compte WhatsApp, et tant qu'aucun numéro n'est rattaché, de quoi en connecter un.
+
+**Qui paie vos messages à Meta ?** Tant qu'aucun numéro n'est rattaché, l'Accueil vous pose la question, comme la page
+« Connecter WhatsApp ». « Ma carte chez Meta » : vous connectez votre numéro avec votre carte chez Meta, qui vous
+facture vos modèles. « Crédit WhatsApp » : vous prépayez vos messages chez Messaging Me, sans carte chez Meta, 30 € HT
+par numéro et par mois, avec la formule Pro ou Business ; il se prend sur demande, écrivez-nous depuis le Support.
+Pendant l'essai de la formule Pro, vous connectez votre numéro avec votre carte chez Meta. Un numéro qui garde
+l'application WhatsApp Business reste sur votre carte : le Crédit WhatsApp n'est pas possible avec l'application.
 
 **1. Ouvrir la fenêtre de Meta.** Tant qu'aucun numéro n'est rattaché, un bouton de l'Accueil ouvre la fenêtre de
 Meta. Vous y choisissez votre compte professionnel et votre numéro, et tout le reste se fait sans vous.

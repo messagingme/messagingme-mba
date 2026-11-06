@@ -1,7 +1,7 @@
 ---
 ecran: accueil
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 848d29
+source_empreinte: 64d54e
 ---
 # Renouveler la connexion Meta, ou déconnecter le numéro
 

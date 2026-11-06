@@ -1,6 +1,6 @@
 ---
 source_section: Les e-mails de Messaging Me aux administrateurs
-source_empreinte: 2e2979
+source_empreinte: 4ad7f6
 ---
 # Les e-mails que Messaging Me vous envoie
 
@@ -20,7 +20,10 @@ avant sa libération, sa libération, et la suite du numéro quand votre offre P
 de passer en Pro. Au-delà de votre limite de contacts (au retour en formule Free après la formule Pro, par exemple), une alerte vous
 dit combien en supprimer pour y revenir, en le demandant à Claude. Quand votre espace Free est plein et qu'un nouveau
 client vous écrit, un e-mail vous dit que son message n'est pas entré, une fois par jour au plus. En offre Pro, 80 % puis 100 % de vos contacts : l'alerte renvoie à
-l'offre Entreprise.
+l'offre Entreprise. Quand votre formule devient payée (la fin de l'essai de la formule Pro, ou un Business confirmé), un
+e-mail vous dit que vous pouvez payer vos messages WhatsApp chez Messaging Me, sans carte chez Meta, une seule fois. Si
+l'option Crédit WhatsApp s'arrête (une résiliation, un impayé), un e-mail vous dit que vos envois par le Crédit WhatsApp
+sont arrêtés, votre crédit restant conservé, et comment envoyer de nouveau.
 
 **Une conversation attend votre équipe.** Quand un agent IA, l'agent de Meta ou un scénario confie à l'équipe une
 conversation dont le client vient d'écrire, vous recevez un e-mail avec le nom du contact (ou son numéro masqué), l'heure

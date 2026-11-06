@@ -1,12 +1,19 @@
 ---
 description: Connect a WhatsApp number to Messaging Me from Meta's window, get one if needed, have it verified, then read its status on the Home screen.
 slug: connect-my-whatsapp-number
-traduit_de: ec7853
+traduit_de: 53cd8a
 ---
 # Connect my WhatsApp number, and read its status
 
 The Home screen is where you land when you sign in, and where the logo takes you back. It holds one thing: the
 status of your WhatsApp account, and as long as no number is attached, the way to connect one.
+
+**Who pays Meta for your messages?** As long as no number is attached, the Home screen asks you, like the “Connect
+WhatsApp” page. “My card at Meta”: you connect your number with your card at Meta, which bills you for your templates.
+“WhatsApp credit”: you prepay your messages at Messaging Me, with no card at Meta, €30 excl. VAT per number per month,
+with the Pro or Business plan; it is available on request, write to us from Support. During the Pro plan trial, you
+connect your number with your card at Meta. A number that keeps the WhatsApp Business app stays on your card: WhatsApp
+credit is not possible with the app.
 
 **1. Open Meta’s window.** As long as no number is attached, a button on the Home screen opens Meta’s window. There
 you choose your business account and your number, and everything else happens without you.

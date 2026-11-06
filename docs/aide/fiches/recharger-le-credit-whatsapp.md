@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: 4b764c
+source_empreinte: f1a87c
 ---
 # Recharger le Crédit WhatsApp
 
@@ -40,4 +40,6 @@ nous les facturons selon votre contrat. L'onglet affiche « Illimité » et ce q
 mêmes prix et le même historique ; il n'y a rien à acheter.
 
 **Si l'onglet dit que le crédit est arrêté sur vos numéros**, plus aucun message ne part et une recharge n'y changerait
-rien : contactez-nous depuis le Support.
+rien : contactez-nous depuis le Support. Si c'est votre option Crédit WhatsApp qui s'est arrêtée (une résiliation, un
+impayé), l'onglet le dit autrement : votre crédit restant est conservé, et pour envoyer de nouveau, reprenez l'option
+ou connectez votre numéro avec votre carte chez Meta.

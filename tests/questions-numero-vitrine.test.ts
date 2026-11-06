@@ -44,6 +44,8 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
 
     it(`${langue} : les voies qui gardent l’application disent qu’on y paie Meta avec sa carte`, () => {
       for (const id of ['garder', 'telecharger', 'fourni']) expect(issue(id).textes.map(texte), id).toContain(NOTE_CARTE_APPLICATION[langue]);
+      // La FAQ du plugin, sur la même question (lot C du Crédit WhatsApp) : la même phrase.
+      expect(FAQ.find((q) => q.id === 'numero-dans-l-application')!.reponse[langue]).toContain(NOTE_CARTE_APPLICATION[langue]);
     });
 
     it(`${langue} : « Avez-vous un compte Meta Business ? », ses trois réponses et leurs notes`, () => {

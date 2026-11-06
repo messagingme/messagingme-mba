@@ -2554,6 +2554,15 @@ scénario, comment importer des contacts.
   matin ; un numéro non délivrable une fois, puis marqué injoignable dans HubSpot au 2e échec.
 - 🗑️ **« À la reprise, le fil… » : SUPPRIMÉ le 2026-08-18** (voir la section Inbox). Ce réglage d’espace
   n’existe plus, et le sélecteur par conversation non plus.
+- ✅ **« Qui paie vos messages à Meta ? »** (révision du Crédit WhatsApp, lot B, 2026-11-06) : tant qu'aucun numéro n'est
+  rattaché, l'Accueil pose la question, comme la page « Connecter WhatsApp » juste après l'offre. « Ma carte chez Meta » :
+  le numéro se connecte avec la carte du client chez Meta, qui lui facture ses modèles (le bouton mène au guide du
+  numéro). « Crédit WhatsApp » : il prépaie ses messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et
+  par mois, avec la formule Pro ou Business ; grisé tant que l'option n'est pas en vente (en Free, « avec la formule
+  Pro » ; ailleurs, sur demande au Support), et pendant un essai la carte chez Meta. Un numéro qui garde l'application
+  WhatsApp Business reste sur la carte chez Meta : le Crédit WhatsApp n'est pas possible avec l'application. La carte
+  suit l'état de l'espace (à prendre, payée et en attente de sa ligne, active, arrêtée) ; Claude lit le même état
+  (`get_setup_state`).
 - ✅ **Onboarding « Connecter mon compte WhatsApp » (Embedded Signup)** : un espace **sans numéro rattaché** voit un
   bouton qui ouvre la **popup Meta** (Facebook Login for Business + config_id) ; le business choisit son compte + son
   numéro et le backend rattache tout (échange de code, webhooks, register). ✅ **LIVE et éprouvé de bout en bout
@@ -3664,7 +3673,14 @@ boîte par sous-menu.
     l'espace dépasse ;
   - en offre Free pleine, un nouveau client qui a écrit et n'est pas entré (une fois par jour au plus, quel que soit le
     nombre de clients écartés) : passer en Pro, ou supprimer des contacts en le demandant à Claude ;
-  - en offre Pro, 80 % puis 100 % des contacts, à chaque franchissement ; ces alertes renvoient à l'Entreprise.
+  - en offre Pro, 80 % puis 100 % des contacts, à chaque franchissement ; ces alertes renvoient à l'Entreprise ;
+  - la formule devenue payée (l'essai de la formule Pro fini et payé, ou écourté ; un Business confirmé), une fois par
+    espace : ils peuvent payer leurs messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois, ce
+    qu'il advient d'un numéro avec ou sans l'application WhatsApp Business, et le bouton vers « Connecter WhatsApp » ; tant
+    que l'option n'est pas en vente, elle se demande au Support. Jamais à un espace qui a déjà son option ou une ligne ;
+  - l'option Crédit WhatsApp arrêtée alors que la formule y donne encore droit (une résiliation, un impayé), une fois par
+    option : les envois par le Crédit WhatsApp sont arrêtés, le crédit restant conservé, et pour envoyer de nouveau,
+    reprendre l'option ou connecter le numéro avec sa carte chez Meta.
 - ✅ **Une conversation attend l'équipe** : quand un agent IA, l'agent de Meta ou un scénario passe la main à l'équipe
   alors que le contact vient d'écrire, les administrateurs reçoivent un e-mail avec le nom du contact (ou son numéro
   masqué, jamais le texte des messages), l'heure où la fenêtre de 24 heures se ferme, et un bouton vers la conversation.
@@ -4567,7 +4583,9 @@ qu'à un espace dont un numéro est payé ainsi, jamais en Free.
   message refusé faute de crédit (une fois par jour au plus, dans le fuseau de l'espace).
 - ✅ **Depuis Claude** : `get_credit` montre aussi ce crédit (solde, ou « illimité » et la consommation du mois en
   Entreprise, prix vers la France, derniers mouvements), et `buy_credit` rend le lien de paiement d'une de ses quatre
-  recharges ; `get_setup_state` signale un solde sous un euro, jamais en Entreprise.
+  recharges ; `get_setup_state` signale un solde sous un euro, jamais en Entreprise. Quand tous les numéros de
+  l'espace sont arrêtés, `get_credit` le dit (`envois_arretes`, rien à acheter) et, si l'option en est la cause
+  (`option_arretee`), les deux façons d'envoyer de nouveau : reprendre l'option, ou connecter le numéro avec sa carte.
 - ✅ **API publique** : un envoi refusé faute de crédit rend `whatsapp_credit_exhausted` (402), un numéro dont le crédit
   est arrêté `whatsapp_credit_line_inactive` (409) ; `POST /v1/sends` les rend avant de créer quoi que ce soit, dès que
   le solde ne couvre pas son premier message.
@@ -5652,7 +5670,11 @@ Les envois WhatsApp ne sont pas concernés : leur débit se règle campagne par 
   remboursement, jamais sous les numéros déjà sur le Crédit WhatsApp. Une option que plus aucune formule ne permet se
   résilie d'elle-même, sans remboursement du mois entamé, et ses numéros s'arrêtent ; en Entreprise, illimitée, ses
   numéros continuent d'envoyer. Une option payée alors que la formule n'y donnait plus droit (un essai de la formule Pro
-  fini avant le paiement) se résilie aussitôt : ses admins reçoivent un e-mail qui les invite à nous contacter.
+  fini avant le paiement) se résilie aussitôt : ses admins reçoivent un e-mail qui les invite à nous contacter. En
+  vente, la formule devenue payée s'annonce aussi par un bandeau en haut de chaque page, pour un administrateur d'un Pro
+  ou d'un Business qui n'a pas pris l'option (« Voir le Crédit WhatsApp », une croix le masque) ; et une option arrêtée
+  alors que la formule y donne encore droit, l'onglet dit la sortie (« Reprendre l'option », « Connecter avec ma carte
+  chez Meta »), le crédit restant conservé. Des numéros arrêtés à la main gardent l'avis d'avant, qui renvoie au Support.
 - 🔲 **Pool de numéros à l’embarquement** : plus tard. Le parcours Embedded Signup lui-même est **LIVE et
   éprouvé depuis le 2026-08-17** (voir la section Accueil) : un vrai numéro d’un business tiers est passé
   connecté et vérifié. Ce qui reste ouvert, c’est de proposer un numéro quand le client n’en a aucun.

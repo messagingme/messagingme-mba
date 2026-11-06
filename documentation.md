@@ -4582,6 +4582,27 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   question se pose sur la vitrine (`scripts/vitrine/tunnel-textes.ts`, une réponse grisée par formule, `Reponse.grisee`)
   et dans la skill de mise en service du plugin, aux mêmes mots (`tests/questions-numero-vitrine.test.ts`) ; chaque voie
   qui garde l'application y dit qu'on paie Meta avec sa carte.
+- 🔴 **La conversion et l'arrêt dits au client** (révision du 2026-11-04, lot C). La conversion
+  (`signalerConversion`, `src/credit-whatsapp/conversion.ts`) a trois appelants : le webhook, à chaque facture de période
+  payée de la formule Pro (jamais la facture à 0 € d'un essai ni le prorata d'un siège) ; le démarrage de la formule Pro
+  avant la fin de son essai, APRÈS la fin notée en base (la facture peut atteindre le webhook avant cette écriture et y
+  trouver l'essai en cours) ; `/ops`, au passage d'un Business à confirmé. Elle relit l'offre sans cache et l'état des
+  cartes (`a_prendre` seulement : jamais un essai, ni un espace qui a déjà son option ou une ligne, ni une Free ou une
+  Entreprise), puis émet aux admins sous l'occasion `conversion`, qui ne laisse partir qu'un e-mail par clé et par
+  espace : `ligne_credit_disponible` quand l'option est en vente, `ligne_credit_sur_demande` sinon. ⚠️ Au passage en
+  vente, un espace converti hors vente et encore `a_prendre` reçoit donc une fois l'e-mail de vente, à sa facture
+  suivante. La vente se lit par une seule règle, `optionEnVente` (`src/stripe/option-credit-whatsapp.ts`), que la route
+  de l'état et la vue de l'onglet lisent aussi. L'arrêt : à la première fin d'une option (`finir` du webhook), si ses
+  lignes viennent de s'arrêter et que la formule y donne encore droit (`aDroit`, la règle de la fin de droit), l'e-mail
+  `option_wa_arretee` part aux admins, une fois par abonnement ; jamais une Entreprise (ses lignes restent), ni une option
+  sans ligne, ni une fin de droit, ni l'option payée sans droit, qui a le sien. Toutes les lignes arrêtées se lisent par
+  une seule règle (`arretDesLignes`, `src/credit-whatsapp/etat-ligne.ts`) : la vue de l'onglet en tire `ligneArretee` et
+  `optionArretee` (dont une ligne venue de l'option), `get_credit` en tire `envois_arretes` et `option_arretee`.
+  L'onglet dit alors la sortie, « Reprendre l'option » (sa section) et « Connecter avec ma carte chez Meta » ; des lignes
+  posées à la main gardent l'avis qui renvoie au Support. Le bandeau de la conversion
+  (`web/components/BandeauLigneCredit.tsx`) est monté par l'AppShell pour un administrateur d'un Pro ou d'un Business,
+  l'offre lue, et ne lit la route de l'état que dans ce cas : il paraît en vente et `a_prendre`, masqué d'un clic sur ce
+  navigateur.
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés
