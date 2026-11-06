@@ -1,5 +1,18 @@
 # todo.md : backlog
 
+## 🟡 Les jaunes de la relecture des webhooks muets et de l'annonce des espaces (2026-11-06, `d50f364a`)
+
+Aucun rouge ; à reprendre au lot suivant qui touche ces chemins.
+
+- **L'adresse e-mail de l'admin part chez Telegram** (`src/index.ts`, `annoncerEspace`) : la première alerte qui
+  porte une donnée personnelle de client, alors que l'audit RSSI range Telegram parmi les sous-traitants « à
+  qualifier ». Décision de Julien : la garder et l'inscrire au registre, ou la masquer.
+- **Un lien tapé dans le nom d'un espace devient cliquable** dans le message Telegram, sous le préfixe `[mba-…]`.
+- **`history` et `smb_app_state_sync`** (connexion d'un numéro déjà dans l'application WhatsApp Business) ne sont pas
+  dans `CHAMPS_DU_COMPTE` : leur rafale pourrait encore faire sonner les webhooks muets à tort. Les y ajouter si une
+  telle connexion le montre.
+- **Le texte du message Telegram** (Google ou e-mail, Claude Code ou client MCP) n'a pas de test.
+
 ## 🟡 Google Analytics sur la vitrine : la suite (plan `docs/superpowers/plans/2026-11-06-ga4-vitrine.md`)
 
 - **L'essai réel**, en production : « Tout refuser » n'envoie rien ; la mesure seule fait apparaître la visite dans

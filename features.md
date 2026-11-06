@@ -3813,6 +3813,12 @@ boîte par sous-menu.
   sans signal de vie, avec ce qui s'arrête (messages entrants et campagnes, ou analyses), un rappel par heure tant que
   ça dure, puis « reparti » à son retour ; ou dès cinq redémarrages en un quart d'heure. Une seule alerte même si
   l'API tourne en plusieurs copies.
+- ✅ **Une alerte Telegram à chaque espace créé** (2026-11-06) : son nom, l'adresse de son administrateur, Google ou
+  e-mail, et s'il vient de Claude Code ou d'un client MCP, quel que soit le chemin de l'inscription (Google, e-mail,
+  lien). Une panne de Telegram ne bloque jamais une inscription, et une inscription refusée n'annonce rien.
+- ✅ **Une alerte Telegram quand Meta appelle mais que rien ne s'enregistre** (« webhooks muets ») : au moins cinq
+  webhooks en une heure sans aucun événement enregistré, une fois par silence. Depuis le 2026-11-06, les notifications
+  du compte qu'envoie la connexion d'un numéro ne comptent plus : elles faisaient sonner l'alerte à tort.
 - ✅ **Les tâches de fond des workers** (2026-10-04) : pour chaque tâche périodique (purges, statistiques
   d'analyse, risque de désengagement, balayages de reprise...), le nombre de passes, les échecs, la durée moyenne et
   la pire des dernières 24 heures, et les lignes traitées quand la tâche les compte. La plus lente en tête ; rouge au-delà
