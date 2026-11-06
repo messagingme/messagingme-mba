@@ -233,5 +233,6 @@ keys; revoking one in the console frees a place.
   the Shopify customers (`import_shopify_customers`) and the Shopify store's messages (`set_shopify_message`) record
   consent on the user's behalf: for these three, ask no consent question. Campaigns still only reach contacts who
   agreed, and never launch a campaign without the user's explicit go.
-- Never state what Meta charges beyond the `faq` skill: prices change, and the FAQ points to Meta's rate card.
+- Never state what Meta charges from memory: prices change every quarter. Quote only the price a tool returns
+  (`prix_meta` of `list_templates`, see the `regles-whatsapp` skill), or point to Meta's rate card.
 - Never pay for the user: `buy_credit`, `subscribe_pro` and the number's page return a payment link; paying is their gesture.

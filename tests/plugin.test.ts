@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { OUTILS } from '../src/mcp/outils';
+import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { API_PUBLIQUE, COMMANDE_DEMARRAGE, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
 import { AVERTISSEMENTS, OUTILS_DE_L_ETAPE, etatMiseEnService } from '../src/mcp/mise-en-service';
@@ -108,9 +108,16 @@ describe('les skills', () => {
     expect(SKILLS.find((s) => s.nom === 'demarrer')!.champ('disable-model-invocation')).toBe('true');
   });
 
-  it('🔴 chaque nom en code d’une skill existe : un outil du catalogue, ou un nom que le code porte', () => {
+  it('🔴 chaque nom en code d’une skill existe : un outil du catalogue, ou un nom que le code porte', async () => {
     // Ce qu'une skill peut nommer d'autre qu'un outil, DÉRIVÉ du code : renommer une étape, un champ de get_setup_state,
     // un argument d'outil ou un code de refus laisse sinon la skill périmée et ce test vert.
+    // Les champs que rend `list_templates` (le prix de Meta, plan 2026-11-06), par le VRAI outil sur une grille d'exemple.
+    const sortieListe = await OUTILS.find((o) => o.nom === 'list_templates')!.executer({
+      modeles: {
+        lister: async () => [],
+        grilleMeta: async () => ({ id: 'g', enVigueurLe: '2026-10-01', tarifs: [{ marche: 'FR', categorie: 'utility', palier: 0, prixMicroEur: 1 }] }),
+      },
+    } as unknown as DepsMcp, 't', {}, null);
     const clesRendues = (o: unknown): string[] => (o !== null && typeof o === 'object')
       ? Object.entries(o).flatMap(([k, v]) => [k, ...clesRendues(Array.isArray(v) ? v[0] : v)]) : [];
     const exemple = etatMiseEnService({
@@ -130,7 +137,7 @@ describe('les skills', () => {
     const valeurs = OUTILS.flatMap((o) => Object.values((o.entree as { properties?: Record<string, { enum?: unknown[]; items?: { enum?: unknown[] } }> }).properties ?? {})
       .flatMap((p) => [...(p.enum ?? []), ...(p.items?.enum ?? [])].filter((v): v is string => typeof v === 'string')));
     const connus = new Set<string>([
-      ...Object.keys(CATALOGUE_MCP), ...Object.keys(OUTILS_DE_L_ETAPE), ...AVERTISSEMENTS, ...clesRendues(exemple),
+      ...Object.keys(CATALOGUE_MCP), ...Object.keys(OUTILS_DE_L_ETAPE), ...AVERTISSEMENTS, ...clesRendues(exemple), ...clesRendues(sortieListe),
       ...arguments_, ...valeurs, ...OUTILS_SURS, ...Object.keys(STATUT_PAR_CODE),
     ]);
     for (const s of SKILLS) {

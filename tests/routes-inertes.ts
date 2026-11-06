@@ -802,6 +802,8 @@ export const mcpMessagesInertes: Pick<DepsMcp, 'messagesApi' | 'envoyerMessage' 
   modeles: {
     lister: async () => [],
     oublier: async () => {},
+    // Aucune grille de Meta chargée : les outils de modèles rendent `prix_meta: null` (plan 2026-11-06).
+    grilleMeta: async () => null,
     modeles: {
       ...modelesInertes,
       meta: { templateClientForTenant: neDevraitPasEtreAppelee('templateClientForTenant') },

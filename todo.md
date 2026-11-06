@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 Le prix et la catégorie des modèles : la suite (plan `docs/superpowers/plans/2026-11-06-prix-et-categories-modeles.md`)
+
+- **L'essai réel**, après la publication du plugin 0.3.26 : « combien coûte un message de bienvenue ? », puis un message
+  de bienvenue promotionnel et une confirmation de commande créés par Claude ; la catégorie et le prix annoncés, et la
+  catégorie gardée par Meta après sa revue, comparée.
+- **La formule Pro et l'option Crédit WhatsApp** : Claude ne les propose pas encore pour « avancer les frais de Meta »
+  (option pas en vente). À brancher avec le lot B du Crédit WhatsApp, qui pose « Qui paie vos messages à Meta ? ».
+- **Un prix pour un autre pays que la France** : `prix_meta` ne porte que la France ; un client qui écrit surtout à
+  l'étranger lit la grille de Meta. Un marché choisi (le pays des contacts, ou un argument) attendrait un besoin réel.
+
 ## 🟡 Les références rangées dans un graphe de scénario : l'inventaire (2026-11-04)
 
 Un bloc désigne sa cible dans son `data`, sans clé étrangère (`documentation.md`, après le bloc « Aller à »). L'appel

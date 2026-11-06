@@ -4,6 +4,32 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : le prix et la catégorie des modèles, dits par Claude (plugin 0.3.26)
+
+Plan `docs/superpowers/plans/2026-11-06-prix-et-categories-modeles.md`. Johan, bêta-testeur : « c'est quoi le tarif
+Meta actuel pour chaque message welcome envoyé ? C'est gratuit car inclus dans l'offre Free ? », et Claude ne savait
+pas. Qui paie et où mettre la carte étaient déjà dans la FAQ ; le chiffre manquait, faute de source (un prix écrit dans
+une skill serait faux au trimestre suivant).
+
+- **La source** : la grille de Meta en euros que `/ops` charge pour le Crédit WhatsApp (en vigueur depuis le
+  2026-10-01 en production, relu en lecture seule). `prixMetaFrance` (`src/mcp/prix-meta.ts`) en tire le tarif de BASE
+  de Meta par message livré en France, par catégorie ; `list_templates` le rend (`prix_meta`), `create_template` celui de
+  sa catégorie. Jamais le tarif d'un autre marché sous le nom de la France, jamais un palier de volume, et une grille en
+  panne rend `null` sans faire échouer l'outil. Les descriptions des outils ne bougent pas (recopiées dans trois fichiers
+  générés) : la skill dit où lire le prix.
+- **Les catégories** : les règles de Meta (pages « Template categorization » et « new-template-guidelines », relues le
+  jour même) entrent dans la skill `regles-whatsapp`, avec la conduite avant `create_template` (la catégorie et pourquoi,
+  le prix, ce que Meta vérifie, la version utility quand le besoin s'y prête, jamais d'utility pour payer moins). La FAQ
+  gagne « Utility ou marketing : qu'est-ce qui décide ? », publiée aussi sur les deux pages Développeurs.
+- **Restent dehors** : la formule Pro et l'option Crédit WhatsApp (pas en vente ; le lot B du Crédit WhatsApp pose
+  « Qui paie vos messages à Meta ? »).
+- **Tests dans les deux sens** : le marché ignoré, le palier ignoré, la catégorie de la création forcée à marketing :
+  chacune des trois mutations fait rougir son test.
+- **Au passage, la 0280 relue en production** (après le déploiement commun de `60b4812b`, en lecture seule par le vrai
+  code) : deux colonnes nullables (`text`, `timestamp with time zone`), le CHECK `tenants_numero_fourni_destination_chk`
+  validé, les lectures neuves du magasin et `modeDeReprise` exécutées sur trois espaces sans erreur, les trois conteneurs
+  de la machine et l'API sur `60b4812b`.
+
 ## 2026-11-06 : le ROI des messages sur Quantitatif > Shopify
 
 Demande de Julien : en face du chiffre d'affaires attribué, ce que les messages ont coûté, sur deux courbes, et le ROI.

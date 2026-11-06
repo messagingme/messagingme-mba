@@ -3641,8 +3641,9 @@ async function main(): Promise<void> {
         },
         // La création d'une clé d'API (spec offres v2) : la MÊME fonction que la route de la console, pour `create_api_key`.
         cles: { cles: apiKeyStore, limiteCles: limiteClesDeLOffre, audit: auditSink },
-        // Les modèles (lot 13, domaine 3) : la MÊME création que `POST /v1/templates`, la MÊME liste que le catalogue.
-        modeles: { ...creationModeles, lister: listerModeles, oublier: oublierModeles },
+        // Les modèles (lot 13, domaine 3) : la MÊME création que `POST /v1/templates`, la MÊME liste que le catalogue. La
+        // grille de Meta du Crédit WhatsApp donne à Claude le prix d'un message (plan 2026-11-06).
+        modeles: { ...creationModeles, lister: listerModeles, oublier: oublierModeles, grilleMeta: () => reglagesCreditWhatsapp.grilleEnVigueur() },
         // Le connecteur Shopify (2026-10-21) : la MÊME gestion que la carte de la console.
         shopify: gestionShopify,
         // L'envoi d'un modèle à un contact (livraison B) : le MÊME cœur que `POST /v1/sends`, sans clé d'en-tête.

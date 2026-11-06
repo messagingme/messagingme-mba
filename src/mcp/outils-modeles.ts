@@ -13,6 +13,8 @@ import { codeDuLienTrace } from '../links/rewrite';
 import type { TemplateSummary } from '../meta/templates';
 import { VALEUR_ACCEPTEE } from '../api/modele-envoi';
 import { LOURDE, plafondCouteux, signataire } from './outils-agent';
+import type { GrilleMeta } from '../credit-whatsapp/grille';
+import { categorieDePrix, prixMetaFrance, type PrixMeta } from './prix-meta';
 
 /**
  * LES MODÈLES DEPUIS CLAUDE (lot 13, domaine 3, spec § 5) : créer un modèle au format de Meta, suivre sa validation,
@@ -26,6 +28,24 @@ export interface DepsModelesMcp extends DepsCreationModele {
   lister(tenantId: string): Promise<TemplateSummary[]>;
   /** Oublie cette liste en cache pour l'espace : après une création, une correction ou une suppression par Claude. */
   oublier(tenantId: string): Promise<void>;
+  /**
+   * La grille de Meta en vigueur (`PgCreditWhatsappReglagesStore.grilleEnVigueur`, celle du Crédit WhatsApp), d'où Claude
+   * tire le prix d'un message (`prixMetaFrance`, plan 2026-11-06). `null` : aucune grille chargée.
+   */
+  grilleMeta(): Promise<GrilleMeta | null>;
+}
+
+/**
+ * Les tarifs de Meta pour la France, ou `null` : une grille absente ou illisible ne fait échouer ni la liste ni la
+ * création d'un modèle (le prix est une aide, pas une condition), et le journal le dit.
+ */
+async function prixMeta(deps: DepsMcp, tenantId: string): Promise<PrixMeta | null> {
+  try {
+    return prixMetaFrance(await deps.modeles.grilleMeta());
+  } catch (err) {
+    journaliser('warn', 'mcp_prix_meta_illisible', { tenantId, erreur: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
 }
 
 /**
@@ -170,12 +190,14 @@ export const OUTILS_MODELES: OutilMcp[] = [
     },
     async executer(deps: DepsMcp, tenantId, args) {
       const limit = entierBorne(args, 'limit', 100, 1, 500);
-      const tous = await deps.modeles.lister(tenantId);
+      const [tous, prix] = await Promise.all([deps.modeles.lister(tenantId), prixMeta(deps, tenantId)]);
       return {
         templates: tous.slice(0, limit).map((t) => ({
           name: t.name, language: t.language, category: t.category.toLowerCase(), status: t.status.toLowerCase(),
         })),
         tronque: tous.length > limit,
+        // Ce que Meta facture par message livré en France, par catégorie, d'après sa grille en vigueur (plan 2026-11-06).
+        prix_meta: prix,
       };
     },
   },
@@ -242,7 +264,16 @@ export const OUTILS_MODELES: OutilMcp[] = [
       if ('refus' in r) throw new RefusOutil(r.refus.message);
       await oublierLaListe(deps, tenantId);
       journaliser('info', 'mcp_modele_cree', { tenantId, userId: personne?.userId ?? null, nom: r.modele.name, langue: r.modele.language });
-      return r.modele;
+      // Le prix de SA catégorie, celle qui a été demandée : Meta peut la changer à sa revue, et le prix suit (list_templates).
+      const prix = await prixMeta(deps, tenantId);
+      const categorie = categorieDePrix(lu.data.category);
+      const parMessage = prix && categorie ? prix.par_message_livre[categorie] : undefined;
+      return {
+        ...r.modele,
+        prix_meta: prix && categorie && parMessage !== undefined
+          ? { categorie, par_message_livre: parMessage, marche: prix.marche, grille_du: prix.grille_du, devise: prix.devise, hors_taxes: true }
+          : null,
+      };
     },
   },
   {

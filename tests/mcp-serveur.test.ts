@@ -18,6 +18,7 @@ import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInert
 import { creerPoseEtiquette, LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
 import { DROITS } from '../src/offres/offres';
 import { MetaTemplateClient, type FetchLike, type TemplateSummary } from '../src/meta/templates';
+import type { GrilleMeta } from '../src/credit-whatsapp/grille';
 import { lireCible, schemaCorps, schemaDestinataire, type ResultatEnvoiPublic } from '../src/api/envoi-public';
 import { validateParamMapping } from '../src/crm/template';
 import { cleIdempotence } from '../src/api/idempotence';
@@ -1210,7 +1211,7 @@ describe('serveur MCP : les modèles (lot 13, domaine 3)', () => {
   const base = { offreDe: async () => ({ offre: 'base' as const, droits: DROITS.base, retourEnBaseLe: null }) };
 
   /** Meta est un faux `fetch` qui garde le corps de chaque appel ; la création de l'écran Modèles est la vraie. */
-  function modeles(reponse: unknown, liste: TemplateSummary[] = []) {
+  function modeles(reponse: unknown, liste: TemplateSummary[] = [], grille: GrilleMeta | null = null) {
     const corps: Array<Record<string, unknown> | null> = [];
     const oublis: string[] = [];
     const fetchMeta: FetchLike = async (_url, init) => {
@@ -1223,6 +1224,7 @@ describe('serveur MCP : les modèles (lot 13, domaine 3)', () => {
       modeles: {
         lister: async () => liste,
         oublier: async (tenant: string) => { oublis.push(tenant); },
+        grilleMeta: async () => grille,
         modeles: {
           ...modelesInertes,
           meta: { templateClientForTenant: async () => new MetaTemplateClient('tok', 'v23.0', fetchMeta) },
@@ -1252,7 +1254,7 @@ describe('serveur MCP : les modèles (lot 13, domaine 3)', () => {
     const outil = OUTILS.find((o) => o.nom === 'create_template')!;
     const deps = { modeles: m.modeles, couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) } } as unknown as DepsMcp;
     expect(await outil.executer(deps, 't1', { template: MODELE }, { userId: 'u1' }))
-      .toEqual({ id: 'tid', name: 'commande_prete', language: 'fr', category: 'utility', status: 'pending' });
+      .toEqual({ id: 'tid', name: 'commande_prete', language: 'fr', category: 'utility', status: 'pending', prix_meta: null });
     expect(m.corps).toHaveLength(1);
     // La liste en cache s'oublie : list_templates montre le modèle créé tout de suite.
     expect(m.oublis).toEqual(['t1']);
@@ -1272,8 +1274,58 @@ describe('serveur MCP : les modèles (lot 13, domaine 3)', () => {
       name: 'commande_prete', languages: [{ language: 'fr', status: 'rejected', category: 'utility', rejectedReason: 'INVALID_FORMAT' }],
     });
     const liste = contenu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_LECTURE), payload: appeler('list_templates') }));
-    expect(JSON.parse(liste.texte)).toEqual({ templates: [{ name: 'commande_prete', language: 'fr', category: 'utility', status: 'approved' }], tronque: false });
+    expect(JSON.parse(liste.texte)).toEqual({ templates: [{ name: 'commande_prete', language: 'fr', category: 'utility', status: 'approved' }], tronque: false, prix_meta: null });
     await server.close();
+  });
+
+  /**
+   * 🔴 LE PRIX D'UN MESSAGE, LU DANS LA GRILLE DE META (plan 2026-11-06, la question de Johan) : la liste porte les tarifs
+   * français de chaque catégorie, la création celui de SA catégorie. Par le vrai serveur MCP, comme Claude les lit.
+   */
+  const GRILLE: GrilleMeta = {
+    id: 'g1', enVigueurLe: '2026-10-01',
+    tarifs: [
+      { marche: 'FR', categorie: 'marketing', palier: 0, prixMicroEur: 71_200 },
+      { marche: 'FR', categorie: 'utility', palier: 0, prixMicroEur: 24_800 },
+      { marche: 'FR', categorie: 'authentication', palier: 0, prixMicroEur: 24_800 },
+      { marche: 'FR', categorie: 'service', palier: 0, prixMicroEur: 24_800 },
+    ],
+  };
+
+  it('🔴 list_templates rend le prix de Meta par message livré en France, par catégorie, avec la date de la grille', async () => {
+    const m = modeles({}, [], GRILLE);
+    const { server } = app({ offres: base, modeles: m.modeles });
+    const liste = contenu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_LECTURE), payload: appeler('list_templates') }));
+    expect(JSON.parse(liste.texte).prix_meta).toEqual({
+      marche: 'France', grille_du: '2026-10-01', devise: 'EUR', hors_taxes: true,
+      par_message_livre: { marketing: 0.0712, utility: 0.0248, authentication: 0.0248, service: 0.0248 },
+    });
+    await server.close();
+  });
+
+  it('🔴 create_template rend le prix de SA catégorie : utility et marketing ne coûtent pas la même chose', async () => {
+    const outil = OUTILS.find((o) => o.nom === 'create_template')!;
+    const creer = async (category: string) => {
+      const m = modeles({ id: 'tid', status: 'PENDING', category }, [], GRILLE);
+      const deps = { modeles: m.modeles, couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) } } as unknown as DepsMcp;
+      return (await outil.executer(deps, 't1', { template: { ...MODELE, category } }, { userId: 'u1' })) as { prix_meta: unknown };
+    };
+    expect((await creer('UTILITY')).prix_meta)
+      .toEqual({ categorie: 'utility', par_message_livre: 0.0248, marche: 'France', grille_du: '2026-10-01', devise: 'EUR', hors_taxes: true });
+    expect((await creer('MARKETING')).prix_meta).toMatchObject({ categorie: 'marketing', par_message_livre: 0.0712 });
+  });
+
+  it('une grille illisible ne fait échouer ni la liste ni la création : le prix vaut null', async () => {
+    const m = modeles({ id: 'tid', status: 'PENDING', category: 'UTILITY' }, []);
+    const enPanne = { ...m.modeles, grilleMeta: async () => { throw new Error('base injoignable'); } };
+    const { server } = app({ offres: base, modeles: enPanne });
+    const liste = contenu(await server.inject({ method: 'POST', url: '/mcp', ...auth(CLE_LECTURE), payload: appeler('list_templates') }));
+    expect(liste.isError).toBe(false);
+    expect(JSON.parse(liste.texte).prix_meta).toBeNull();
+    await server.close();
+    const deps = { modeles: enPanne, couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) } } as unknown as DepsMcp;
+    expect(await OUTILS.find((o) => o.nom === 'create_template')!.executer(deps, 't1', { template: MODELE }, { userId: 'u1' }))
+      .toMatchObject({ status: 'pending', prix_meta: null });
   });
 });
 

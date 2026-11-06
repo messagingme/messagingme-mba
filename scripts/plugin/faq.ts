@@ -105,10 +105,19 @@ export const FAQ: readonly EntreeFaq[] = [
     id: 'ce-que-meta-facture',
     question: { fr: 'Pourquoi Meta me demande une carte, et que facture-t-il ?', en: 'Why does Meta ask for a card, and what does it charge?' },
     reponse: {
-      fr: `Meta facture directement votre entreprise, sur le moyen de paiement de votre Business Manager : les modèles, et depuis le 1er octobre 2026 les réponses dans la fenêtre de 24 heures aussi, selon sa grille et le pays de la personne. Messaging Me ne touche pas à ces frais. La grille de Meta : ${GRILLE_META}. Pour ajouter la carte : ${enUnBloc(ETAPES_CARTE_META, 'fr')}`,
-      en: `Meta bills your business directly, on the payment method of your Business Manager: templates, and since October 1, 2026 replies within the 24-hour window too, according to its rate card and the person’s country. Messaging Me never touches these fees. Meta’s rate card: ${GRILLE_META}. To add the card: ${enUnBloc(ETAPES_CARTE_META, 'en')}`,
+      fr: `Meta facture directement votre entreprise, sur le moyen de paiement de votre Business Manager : les modèles, et depuis le 1er octobre 2026 les réponses dans la fenêtre de 24 heures aussi, selon sa grille et le pays de la personne. Messaging Me ne touche pas à ces frais, et aucune formule, Free comprise, ne les inclut. Claude vous donne le tarif en vigueur d’un message livré en France, catégorie par catégorie, lu dans la grille de Meta (list_templates) ; pour un autre pays, la grille de Meta : ${GRILLE_META}. Pour ajouter la carte : ${enUnBloc(ETAPES_CARTE_META, 'fr')}`,
+      en: `Meta bills your business directly, on the payment method of your Business Manager: templates, and since October 1, 2026 replies within the 24-hour window too, according to its rate card and the person’s country. Messaging Me never touches these fees, and no plan, Free included, includes them. Claude gives you the current price of a message delivered in France, category by category, read from Meta’s rate card (list_templates); for another country, Meta’s rate card: ${GRILLE_META}. To add the card: ${enUnBloc(ETAPES_CARTE_META, 'en')}`,
     },
-    source: 'brain/MESSAGINGME.md, § Pricing WhatsApp (fin de la fenêtre de service gratuite le 2026-10-01) ; web/lib/partage/etapes-meta.ts (aide Meta 488291839463771, relue le 2026-10-13)',
+    source: 'brain/MESSAGINGME.md, § Pricing WhatsApp (fin de la fenêtre de service gratuite le 2026-10-01) ; web/lib/partage/etapes-meta.ts (aide Meta 488291839463771, relue le 2026-10-13) ; le prix lu dans la grille de Meta chargée dans /ops (src/mcp/prix-meta.ts, plan 2026-11-06)',
+  },
+  {
+    id: 'utility-ou-marketing',
+    question: { fr: 'Utility ou marketing : qu’est-ce qui décide ?', en: 'Utility or marketing: what decides?' },
+    reponse: {
+      fr: 'L’objet du message, pas son ton. Utility : sans aucune promotion, et lié à ce que la personne a fait ou demandé (sa commande, son rendez-vous, son compte, son paiement, la confirmation de son inscription), factuel et précis. Marketing : tout le reste, une offre, un code promo, une nouveauté, une lettre d’information, une bienvenue qui présente l’entreprise, une relance de panier, une enquête générale ; un modèle qui mêle une information de commande et une promotion est marketing. Le marketing coûte plus cher : Claude vous dit la catégorie et son prix avant de soumettre un modèle. Un modèle déclaré utility qui ne l’est pas est approuvé en marketing par Meta, et un abus répété limite les modèles utility du compte.',
+      en: 'What the message is for, not its tone. Utility: no promotion at all, and about something the person did or asked for (their order, booking, account, payment, the confirmation of their sign-up), factual and specific. Marketing: everything else, an offer, a promo code, something new, a newsletter, a welcome that presents the business, an abandoned cart reminder, a general survey; a template that mixes order information and a promotion is marketing. Marketing costs more: Claude tells you the category and its price before submitting a template. A template declared utility that is not is approved as marketing by Meta, and repeated misuse limits the account’s utility templates.',
+    },
+    source: 'les pages de Meta « Template categorization » et « new-template-guidelines », relues le 2026-11-06 ; plugin/skills/regles-whatsapp/SKILL.md',
   },
   {
     id: 'modele-refuse',

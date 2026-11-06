@@ -5757,6 +5757,13 @@ Ajouté par le lot 4 de l'API publique :
    voit pas. Par Claude, l'accord de la personne est déclaré par le client (décision de Julien du 2026-10-25) :
    `send_template_to_contact` envoie `consent: opted_in` signé de la personne connectée, que `appliquerConsentement`
    refuse sur une fiche désabonnée.
+   🔴 **Le prix que Claude dit vient de la grille de Meta, jamais d'une skill** (plan 2026-11-06) : `list_templates` rend
+   `prix_meta` (le tarif de BASE de Meta par message livré en France, par catégorie, sans commission ni palier, et la
+   date de la grille), `create_template` celui de SA catégorie, tous deux par `prixMetaFrance` (`src/mcp/prix-meta.ts`)
+   sur la grille du Crédit WhatsApp (`grilleMeta`, `grilleEnVigueur`). Sans tarif français, rien : jamais le tarif d'un
+   autre marché sous le nom de la France. Une grille absente ou illisible rend `null` sans faire échouer l'outil. Les
+   skills ne chiffrent aucun prix (`tests/plugin.test.ts`) : elles renvoient à `prix_meta`. Les règles des catégories
+   que Claude applique avant de soumettre sont dans la skill `regles-whatsapp`, reprises des pages de Meta.
 47. **Le cœur de `POST /v1/sends` est une fonction, `lancerEnvoi` (`src/http/v1-sends.ts`)**, que la route et l'outil
    `send_template_to_contact` appellent sur les MÊMES dépendances (`depsEnvois`, `src/index.ts`) : validation,
    idempotence, cible, gardes du numéro, modèles du mois, destinataires, consentement, campagne scellée avec sa clé,
