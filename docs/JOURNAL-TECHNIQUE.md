@@ -221,6 +221,9 @@ Plan `docs/superpowers/plans/2026-11-06-vitrine-entete-roi-crm.md`, décisions d
   Dynamics dans le tunnel et la FAQ de l'analyse, anglais ; le reste au `todo.md`.
 - **Vérifié** : les tests qui lisent la vitrine, l'en-tête mesuré à 1 141 px en français et en anglais sans
   débordement, captures au bureau et au téléphone dans les deux langues.
+- **En production le 2026-11-06** : `0dadae50`, publié par Vercel à la poussée ; l'accueil, Intégrations et Tarifs
+  relus en ligne en français et en anglais, les images neuves en 200 ; CI 42203968870 verte (unit, integration,
+  securite). L'essai réel 221 (`docs/prive/ESSAIS-REELS.md`) reste à Julien.
 
 ## 2026-11-06 : la garde marketing des campagnes à scénario, ouverture exemptée
 
