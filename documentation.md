@@ -1908,6 +1908,14 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   🔴 **Toute colonne ajoutée à `contacts` décide son sort dans l'`update` de `purgeMany`**, où chaque colonne
   porte sa raison ; et un écrivain qui vise une fiche par son identifiant filtre `deleted_at is null`
   (l'identifiant survit à la purge, dans `campaign_recipients.contact_id` entre autres).
+  🔴 **Toute table qui porte un `wa_id` est visée par UN jeu, `waIdsDeLaPersonne`** (`purgeMany`) : les numéros des
+  fils de la personne, les chiffres de sa fiche ET son BSUID, les trois formes que `matchWaIdPredicat` rattache à une
+  fiche. La rétention efface les fils et garde la fiche : un jeu tiré des seuls fils laissait le numéro, ou le BSUID, à
+  une demande d'effacement tardive. Une table ajoutée qui porte un `wa_id` entre dans ce jeu, sous `tenant_id = $1`.
+  Effacer un parcours (`workflow_runs`) emporte en cascade ses sessions d'agent IA et leurs appels d'outils (0086) :
+  le coût des tours d'agent affiché (`consommationIa`, la somme de `agent_sessions.cout_micro_eur`) et le journal des
+  erreurs système (`listerEchecsSysteme`, sur `agent_tool_calls`) ne comptent plus une personne effacée, quand le crédit
+  débité, lui, reste (`agent_credit_mouvements`, `session_id` en `on delete set null`).
 - 🔴 **Bloqué n'est pas supprimé.** `contacts.blocked_at` est une DÉCISION humaine (plus aucun envoi,
   conversation masquée) ; `conversation_analysis.abusive` est un CONSTAT posé par l'analyse, qui ne déclenche
   rien. Les mélanger laisserait un modèle bloquer des clients tout seul. Les messages d'un contact bloqué
@@ -2414,8 +2422,8 @@ base ; les appelants ne refont ni ces défauts ni cette compatibilité.
   widget INERTE sans le détruire. `widgets_phrase_key` rend la phrase unique par espace, à la casse et aux espaces
   près.
 - `widget_tirs` (0201) : l'anti-rebond et le plafond horaire du scénario d'un widget, clé `(widget_id, wa_id)`. Il
-  porte un numéro : 🔴 la purge RGPD l'efface par TOUS les numéros de la personne, ceux de ses fils ET celui de sa
-  fiche, parce que la rétention efface les fils et garde la fiche.
+  porte un numéro : 🔴 la purge RGPD l'efface par TOUS les identifiants de la personne (`waIdsDeLaPersonne` : ses
+  fils, les chiffres de sa fiche et son BSUID), parce que la rétention efface les fils et garde la fiche.
 - 🔴 **Un seul point de passage pour écrire : `src/widgets/gestion.ts`**, appelé par la route de la console
   (`src/http/widgets.ts`, réservée aux admins, lecture comprise) ET par les outils MCP (`create_widget`,
   `update_widget`, `list_widgets`, `list_scenarios`). Ses contrôles, que la base ne fait pas : cinq widgets au plus
@@ -2446,9 +2454,9 @@ base ; les appelants ne refont ni ces défauts ni cette compatibilité.
 - `workflow_advance_failures` (0108) : le journal des échecs de scénario, lu dans Sécurité > Journal des erreurs
   (origine `scenario`), seul domicile de ces échecs. Il porte le numéro tel que l'exécuteur le tient (`waId` : chiffres
   nus, ou BSUID), que la lecture rattache à la fiche par `matchWaIdPredicat`. ⚠️ **Purgé** : balayage du worker sur
-  `AVANCE_ECHECS_RETENTION_DAYS`. 🔴 La purge RGPD efface les lignes de la personne par TOUS ses numéros (ceux de ses
-  fils, celui de sa fiche) ET par le BSUID de sa fiche, la troisième forme que la lecture reconnaît : une personne sans
-  numéro dont la rétention a effacé le fil n'est plus désignée que par lui.
+  `AVANCE_ECHECS_RETENTION_DAYS`. 🔴 La purge RGPD efface les lignes de la personne par `waIdsDeLaPersonne` (ses fils,
+  les chiffres de sa fiche ET son BSUID, les trois formes que la lecture reconnaît) : une personne sans numéro dont la
+  rétention a effacé le fil n'est plus désignée que par son BSUID.
 - `audit_log` : **AJOUT SEUL**, ni update ni delete, sinon il ne prouve rien. Il ne porte JAMAIS de donnée
   personnelle, seulement l'identifiant interne du contact : y écrire le numéro au moment d'une suppression
   annulerait la suppression. `actor_email` est DÉNORMALISÉ pour que l'historique reste lisible après le départ

@@ -424,27 +424,6 @@ describe.skipIf(!url)('purge RGPD — ce qui part et ce qui reste', () => {
     expect((await lignes(autreTenantId)).rowCount).toBe(1);
   });
 
-  it('🔴 l’échec de scénario d’une personne au seul BSUID, sans conversation, part par le BSUID de sa fiche', async () => {
-    // Le Journal des erreurs rattache la ligne à la fiche par `matchWaIdPredicat`, dont le BSUID est la troisième forme.
-    // La rétention efface les fils et garde la fiche : sans numéro, seul le BSUID de la fiche désigne encore la personne.
-    const bsuid = 'itest-bsuid-purge-echec';
-    const fiche = (await pool.query<{ id: string }>(
-      `insert into contacts (tenant_id, bsuid, opt_in_status) values ($1, $2, 'opted_in') returning id`, [tenantId, bsuid],
-    )).rows[0]!.id;
-    await pool.query(
-      `insert into workflow_advance_failures (tenant_id, wa_id, erreur)
-       values ($1, $3, 'itest envoi refusé'), ($2, $3, 'itest envoi refusé chez le voisin')`,
-      [tenantId, autreTenantId, bsuid],
-    );
-    const lignes = (t: string) => pool.query('select 1 from workflow_advance_failures where tenant_id = $1 and wa_id = $2', [t, bsuid]);
-    // ANCRES : aucun fil pour ce BSUID (c'est tout le cas), et la ligne existe AVANT la purge.
-    expect((await pool.query('select 1 from conversations where tenant_id = $1 and wa_id = $2', [tenantId, bsuid])).rowCount).toBe(0);
-    expect((await lignes(tenantId)).rowCount).toBe(1);
-    expect((await store.purgeMany(tenantId, [fiche])).purges).toBe(1);
-    expect((await lignes(tenantId)).rowCount).toBe(0);
-    expect((await lignes(autreTenantId)).rowCount).toBe(1);
-  });
-
   it('purger deux fois ne compte pas deux fois (anonymized_at fait garde)', async () => {
     expect((await store.purgeMany(tenantId, [contactId])).purges).toBe(0);
   });
@@ -498,5 +477,130 @@ describe.skipIf(!url)('purge RGPD — ce qui part et ce qui reste', () => {
       lignes.filter((l) => l.campaignId === campagneId).map((l) => l.contactId);
     expect(de(await repo.listRetry131026SecondFail(), simple)).toEqual([temoin]);
     expect(de(await repo.listCandidatsBascule(), chainee)).toEqual([temoin]);
+  });
+
+  /**
+   * 🔴 UNE PERSONNE AU SEUL BSUID, SANS CONVERSATION. La rétention efface les fils et garde la fiche : sans numéro, seul le
+   * BSUID de la fiche désigne encore la personne (la troisième forme que `matchWaIdPredicat` rattache à une fiche), et
+   * chaque table qui peut le porter doit le perdre. Chaque ligne a sa jumelle chez le voisin, sur le même BSUID, qui doit
+   * rester. Hors du cas : `application_premiers_messages` (un CHECK n'y admet que des chiffres) et `mba_liste` (un BSUID
+   * n'y entre jamais). Placé APRÈS les cas du haut : ses événements de Meta chez le voisin fausseraient leur compte.
+   */
+  describe('une personne au seul BSUID, sans conversation', () => {
+    const bsuid = 'itest-bsuid-purge';
+    const TOUT = { parcours: 1, declenchements: 1, tirs: 1, mesures: 1, echecs: 1, echecs_scenario: 1, evenements: 1 };
+    let rendu: Awaited<ReturnType<PgContactStore['purgeMany']>> | undefined;
+    const lignes = async (t: string, pn: string) => (await pool.query<Record<string, number>>(
+      `select (select count(*)::int from workflow_runs where tenant_id = $1 and wa_id = $2) as parcours,
+              (select count(*)::int from automation_fires f join automations a on a.id = f.automation_id
+                where a.tenant_id = $1 and f.wa_id = $2) as declenchements,
+              (select count(*)::int from widget_tirs where tenant_id = $1 and wa_id = $2) as tirs,
+              (select count(*)::int from workflow_node_events where tenant_id = $1 and wa_id = $2) as mesures,
+              (select count(*)::int from echecs_messages where tenant_id = $1 and wa_id = $2) as echecs,
+              (select count(*)::int from workflow_advance_failures where tenant_id = $1 and wa_id = $2) as echecs_scenario,
+              (select count(*)::int from webhook_events where phone_number_id = $3 and payload->>'from' = $2) as evenements`,
+      [t, bsuid, pn],
+    )).rows[0];
+
+    beforeAll(async () => {
+      const fiche = (await pool.query<{ id: string }>(
+        `insert into contacts (tenant_id, bsuid, opt_in_status) values ($1, $2, 'opted_in') returning id`, [tenantId, bsuid],
+      )).rows[0]!.id;
+      for (const [t, pn] of [[tenantId, 'itest-pn-purge'], [autreTenantId, 'itest-pn-voisin']] as const) {
+        const wf = (await pool.query<{ id: string }>(
+          `insert into workflows (tenant_id, name) values ($1, 'itest-purge-bsuid') returning id`, [t],
+        )).rows[0]!.id;
+        await pool.query(`insert into workflow_runs (workflow_id, tenant_id, wa_id, status) values ($1, $2, $3, 'waiting')`, [wf, t, bsuid]);
+        const automation = (await pool.query<{ id: string }>(
+          `insert into automations (tenant_id, name, trigger_kind, workflow_id) values ($1, 'itest-purge-bsuid', 'tag_added', $2) returning id`,
+          [t, wf],
+        )).rows[0]!.id;
+        await pool.query(`insert into automation_fires (automation_id, wa_id) values ($1, $2)`, [automation, bsuid]);
+        const widget = (await pool.query<{ id: string }>(
+          `insert into widgets (tenant_id, code, nom, phrase) values ($1, gen_random_uuid()::text, 'itest', 'itest purge bsuid') returning id`,
+          [t],
+        )).rows[0]!.id;
+        await pool.query(`insert into widget_tirs (widget_id, tenant_id, wa_id) values ($1, $2, $3)`, [widget, t, bsuid]);
+        await pool.query(
+          `insert into workflow_node_events (tenant_id, workflow_id, node_id, wa_id, kind) values ($1, $2, 'n-bsuid', $3, 'sent')`,
+          [t, wf, bsuid],
+        );
+        await pool.query(
+          `insert into echecs_messages (tenant_id, message_id, wa_id, canal, motif) values ($1, $2, $3, 'rcs', 'UNDELIVERABLE')`,
+          [t, `itest-purge-bsuid-${pn}`, bsuid],
+        );
+        await pool.query(`insert into workflow_advance_failures (tenant_id, wa_id, erreur) values ($1, $2, 'itest envoi refusé')`, [t, bsuid]);
+        await pool.query(
+          `insert into webhook_events (source, meta_message_id, payload, phone_number_id) values ('messages', $1, $2::jsonb, $3)`,
+          [`wam-itest-ev-bsuid-${pn}`, JSON.stringify({ from: bsuid, id: `wam-bsuid-${pn}`, text: { body: 'sans numéro' } }), pn],
+        );
+      }
+      // ANCRES : aucun fil pour ce BSUID (c'est tout le cas), et une ligne dans chaque table AVANT la purge.
+      expect((await pool.query('select 1 from conversations where tenant_id = $1 and wa_id = $2', [tenantId, bsuid])).rowCount).toBe(0);
+      expect(await lignes(tenantId, 'itest-pn-purge')).toEqual(TOUT);
+      rendu = await store.purgeMany(tenantId, [fiche]);
+    });
+
+    it('🔴 chaque table perd la personne : parcours, déclenchements, tirs, mesures, journaux, événements de Meta', async () => {
+      expect(rendu?.purges).toBe(1);
+      expect(await lignes(tenantId, 'itest-pn-purge')).toEqual({
+        parcours: 0, declenchements: 0, tirs: 0, mesures: 0, echecs: 0, echecs_scenario: 0, evenements: 0,
+      });
+    });
+
+    it('🔴 la mesure par bloc reste, anonymisée (le quanti survit)', async () => {
+      const r = await pool.query<{ wa_id: string }>(
+        `select wa_id from workflow_node_events where tenant_id = $1 and node_id = 'n-bsuid'`, [tenantId],
+      );
+      expect(r.rows).toEqual([{ wa_id: 'anonyme' }]);
+    });
+
+    it('🔴 chez le voisin, le même BSUID garde tout', async () => {
+      expect(await lignes(autreTenantId, 'itest-pn-voisin')).toEqual(TOUT);
+    });
+  });
+
+  /**
+   * 🔴 UNE PERSONNE AU NUMÉRO, SANS CONVERSATION : ses parcours et ses déclenchements. Ils n'étaient visés que par les
+   * numéros de ses FILS (revue finale du widget, 2026-10-03) : une demande d'effacement tardive les laissait.
+   */
+  describe('une personne au numéro, sans conversation : parcours et déclenchements', () => {
+    const tel = '+33600000941';
+    const chiffres = '33600000941';
+    const lignes = async (t: string) => (await pool.query<{ parcours: number; declenchements: number }>(
+      `select (select count(*)::int from workflow_runs where tenant_id = $1 and wa_id = $2) as parcours,
+              (select count(*)::int from automation_fires f join automations a on a.id = f.automation_id
+                where a.tenant_id = $1 and f.wa_id = $2) as declenchements`,
+      [t, chiffres],
+    )).rows[0];
+
+    beforeAll(async () => {
+      const fiche = (await pool.query<{ id: string }>(
+        `insert into contacts (tenant_id, phone_e164, opt_in_status) values ($1, $2, 'opted_in') returning id`, [tenantId, tel],
+      )).rows[0]!.id;
+      for (const t of [tenantId, autreTenantId]) {
+        const wf = (await pool.query<{ id: string }>(
+          `insert into workflows (tenant_id, name) values ($1, 'itest-purge-sans-fil') returning id`, [t],
+        )).rows[0]!.id;
+        await pool.query(`insert into workflow_runs (workflow_id, tenant_id, wa_id, status) values ($1, $2, $3, 'waiting')`, [wf, t, chiffres]);
+        const automation = (await pool.query<{ id: string }>(
+          `insert into automations (tenant_id, name, trigger_kind, workflow_id) values ($1, 'itest-purge-sans-fil', 'tag_added', $2) returning id`,
+          [t, wf],
+        )).rows[0]!.id;
+        await pool.query(`insert into automation_fires (automation_id, wa_id) values ($1, $2)`, [automation, chiffres]);
+      }
+      // ANCRES : aucun fil pour ce numéro (c'est tout le cas), et les deux lignes existent AVANT la purge.
+      expect((await pool.query('select 1 from conversations where tenant_id = $1 and wa_id = $2', [tenantId, chiffres])).rowCount).toBe(0);
+      expect(await lignes(tenantId)).toEqual({ parcours: 1, declenchements: 1 });
+      expect((await store.purgeMany(tenantId, [fiche])).purges).toBe(1);
+    });
+
+    it('🔴 ses parcours et ses déclenchements partent', async () => {
+      expect(await lignes(tenantId)).toEqual({ parcours: 0, declenchements: 0 });
+    });
+
+    it('🔴 chez le voisin, le même numéro garde les siens', async () => {
+      expect(await lignes(autreTenantId)).toEqual({ parcours: 1, declenchements: 1 });
+    });
   });
 });

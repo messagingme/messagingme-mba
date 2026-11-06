@@ -1903,22 +1903,6 @@ Le comportement est antérieur au déplacement des envois
 `SendRefusal` lisible (sortie d'échec du bloc, événement de bloc), au moins pour les erreurs de paramètre, qui ne
 se corrigent pas en rejouant.
 
-## 🟡 RGPD : `workflow_runs` et `automation_fires` ne sont pas purgés pour une personne sans conversation (2026-10-03)
-
-Trouvé par la revue finale du widget, ANTÉRIEUR au widget. `PgContactStore.purgeMany` (`src/crm/contact-store.pg.ts`)
-ne les vise que par les numéros des FILS de la personne ; la rétention efface les fils et garde la fiche, donc une
-demande d'effacement tardive laisse le numéro dans ces deux tables. `widget_tirs` a été corrigé par
-`waIdsDeLaPersonne` (fils ET fiche), avec un test d'intégration vérifié dans les deux sens par un commit muté poussé
-sur une étiquette jetable : même correctif et même test à appliquer aux deux autres.
-
-Même famille, relevé le 2026-11-06 (plan `docs/superpowers/plans/2026-11-06-purge-echecs-de-scenario.md`) : le BSUID
-de la fiche n'entre dans `waIdsDeLaPersonne` que par un fil encore vivant. Pour une personne sans numéro dont la
-rétention a effacé le fil, les tables visées par ces numéros (`widget_tirs`, `application_premiers_messages`,
-`workflow_node_events`, `webhook_events`, `mba_liste`, `echecs_messages`) gardent ses lignes, si elles en portent sous
-son BSUID (à vérifier table par table). `workflow_advance_failures` ajoute déjà le BSUID de la fiche, par son propre
-jeu (`waIdsDesEchecs`) : le correctif durable élargit `waIdsDeLaPersonne` à la source plutôt qu'un jeu par table.
-`mba_liste` rend ses lignes pour un retrait chez Meta, à relire avant de l'élargir.
-
 ## 🟡 Widget WhatsApp : les jaunes ouverts (2026-10-03)
 
 La liste vit dans le plan (`docs/superpowers/plans/2026-10-02-widget-whatsapp.md`, « Ce qui reste ») : la recopier

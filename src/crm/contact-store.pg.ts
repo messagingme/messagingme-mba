@@ -1675,8 +1675,8 @@ export class PgContactStore implements ContactStore {
           [tenantId, JSON.stringify([...refus.values()])],
         );
       }
-      // Les mesures par bloc sont indexées par wa_id (chiffres nus) : on dérive les numéros visés en plus des wa_id
-      // des fils, un contact pouvant avoir des mesures sans conversation.
+      // Les tables par `wa_id` portent les chiffres nus du numéro : on les dérive de la fiche, en plus des `wa_id` des
+      // fils, une personne pouvant y avoir des lignes sans conversation.
       const waIdsDuNumero = e164.map((p) => p.replace(/[^0-9]/g, '')).filter((d) => d !== '');
 
       // Les fils visés, par la règle partagée contact <-> wa_id. Une égalité `conversations.wa_id =
@@ -1691,6 +1691,12 @@ export class PgContactStore implements ContactStore {
       );
       const convIds = fils.rows.map((r) => r.id);
       const waIds = fils.rows.map((r) => r.wa_id);
+      // 🔴 TOUS LES IDENTIFIANTS DE LA PERSONNE, par lesquels chaque table qui porte un `wa_id` est visée plus bas : les
+      // numéros de ses fils, les chiffres de sa fiche ET son BSUID, les trois formes que `matchWaIdPredicat` rattache à une
+      // fiche. La rétention efface les fils et garde la fiche : un jeu tiré des seuls fils laissait, à une demande
+      // d'effacement tardive, le numéro (revue finale du widget, 2026-10-03) ou le BSUID (2026-11-06).
+      const bsuids = cibles.rows.map((r) => r.bsuid).filter((b): b is string => b !== null);
+      const waIdsDeLaPersonne = [...new Set([...waIds, ...waIdsDuNumero, ...bsuids])];
 
       // Les ventes attribuées (migration 0261) : le numéro de commande retrouve la personne chez Shopify, il part ; le
       // montant, la devise et la source restent, pour qu'un chiffre déjà lu ne change pas.
@@ -1709,23 +1715,18 @@ export class PgContactStore implements ContactStore {
         messages = (await client.query(`delete from conversation_messages where conversation_id = any($1::uuid[])`, [convIds])).rowCount ?? 0;
         await client.query(`delete from conversations where tenant_id = $1 and id = any($2::uuid[])`, [tenantId, convIds]);
       }
-      if (waIds.length > 0) {
-        // `workflow_runs` et `automation_fires` portent bien un wa_id (chiffres nus), eux.
-        await client.query(`delete from workflow_runs where tenant_id = $1 and wa_id = any($2::text[])`, [tenantId, waIds]);
+      if (waIdsDeLaPersonne.length > 0) {
+        // `workflow_runs` porte le `waId` de l'exécuteur. Effacer un parcours emporte en cascade ses sessions d'agent IA et
+        // leurs appels d'outils (migration 0086).
+        await client.query(`delete from workflow_runs where tenant_id = $1 and wa_id = any($2::text[])`, [tenantId, waIdsDeLaPersonne]);
         // `automation_fires` a pour clé (automation_id, wa_id), sans tenant_id : le cloisonnement passe par l'automation.
         await client.query(
           `delete from automation_fires f using automations a
             where a.id = f.automation_id and a.tenant_id = $1 and f.wa_id = any($2::text[])`,
-          [tenantId, waIds],
+          [tenantId, waIdsDeLaPersonne],
         );
-      }
-      // Le pendant d'`automation_fires` pour le scénario d'un widget (migration 0201), qui porte, lui, son espace. 🔴 Par
-      // TOUS les numéros de la personne, ceux de ses fils ET celui de sa fiche : la rétention efface les conversations
-      // et garde la fiche, donc une demande d'effacement tardive ne trouve plus de fil, et le numéro resterait dans
-      // `widget_tirs`, qui n'expire pas (revue finale du widget, 2026-10-03). `workflow_runs` et `automation_fires`,
-      // juste au-dessus, ont le même trou, antérieur au widget.
-      const waIdsDeLaPersonne = [...new Set([...waIds, ...waIdsDuNumero])];
-      if (waIdsDeLaPersonne.length > 0) {
+        // Le pendant d'`automation_fires` pour le scénario d'un widget (migration 0201), qui porte, lui, son espace, et
+        // n'expire pas.
         await client.query(`delete from widget_tirs where tenant_id = $1 and wa_id = any($2::text[])`, [tenantId, waIdsDeLaPersonne]);
         // Les premiers messages de la filière application (migration 0252) : le numéro et le texte, envoyés ou encore en
         // file. 🔴 Une ligne en file partirait sinon à une personne effacée : le STOP relu par son `wa_id` ne trouve plus
@@ -1742,11 +1743,10 @@ export class PgContactStore implements ContactStore {
       }
 
       // Mesures par bloc : anonymisées, pas supprimées, pour que les tableaux gardent des compteurs justes.
-      const waIdsAAnonymiser = waIdsDeLaPersonne;
-      if (waIdsAAnonymiser.length > 0) {
+      if (waIdsDeLaPersonne.length > 0) {
         await client.query(
           `update workflow_node_events set wa_id = 'anonyme' where tenant_id = $1 and wa_id = any($2::text[])`,
-          [tenantId, waIdsAAnonymiser],
+          [tenantId, waIdsDeLaPersonne],
         );
       }
 
@@ -1756,42 +1756,35 @@ export class PgContactStore implements ContactStore {
       // d'atteinte, couverts par la rétention : les lignes sans `phone_number_id` (toutes celles écrites avant le
       // 2026-10-08, le handler perdait le numéro), les échos (la personne y est dans `message.to`, le texte de
       // l'agent de Meta compris) et les `messaging_handovers` (dans `sender.phone_number`, sans texte).
-      if (waIdsAAnonymiser.length > 0) {
+      if (waIdsDeLaPersonne.length > 0) {
         await client.query(
           `delete from webhook_events
             where (payload->>'from' = any($2::text[]) or payload->>'recipient_id' = any($2::text[]))
               and phone_number_id in (select id from phone_numbers where tenant_id = $1)`,
-          [tenantId, waIdsAAnonymiser],
+          [tenantId, waIdsDeLaPersonne],
         );
       }
 
       // La liste de l'agent de Meta (migration 0195) : la ligne part ici, et elle est RENDUE, parce que l'entrée chez
       // Meta ne peut se retirer qu'avec l'identifiant qu'elle porte. La route la retire chez Meta après la validation :
-      // un appel à un tiers ne se fait pas dans une transaction qu'il retiendrait ouverte.
-      const listeAgent = waIdsAAnonymiser.length === 0 ? [] : (await client.query<{ wa_id: string; phone_number_id: string; entree_id: string }>(
+      // un appel à un tiers ne se fait pas dans une transaction qu'il retiendrait ouverte. Un BSUID n'entre jamais dans
+      // la liste : le jeu le porte, et n'y trouve rien.
+      const listeAgent = waIdsDeLaPersonne.length === 0 ? [] : (await client.query<{ wa_id: string; phone_number_id: string; entree_id: string }>(
         `delete from mba_liste where tenant_id = $1 and wa_id = any($2::text[]) returning wa_id, phone_number_id, entree_id`,
-        [tenantId, waIdsAAnonymiser],
+        [tenantId, waIdsDeLaPersonne],
       )).rows.map((r) => ({ waId: r.wa_id, phoneNumberId: r.phone_number_id, entreeId: r.entree_id }));
 
       // L'échec d'un message libre garde le numéro et le motif : effacé, pas anonymisé (journal d'exploitation, sans
-      // quantitatif). Visé par les deux formes du numéro : un échec survit à son fil, et peut précéder le message.
-      if (waIdsAAnonymiser.length > 0) {
+      // quantitatif). Un échec survit à son fil, et peut précéder le message. Le journal des échecs de scénario (migration
+      // 0108), lu comme lui dans Sécurité > Journal des erreurs, est de même nature : le numéro et la raison.
+      if (waIdsDeLaPersonne.length > 0) {
         await client.query(
           `delete from echecs_messages where tenant_id = $1 and wa_id = any($2::text[])`,
-          [tenantId, waIdsAAnonymiser],
+          [tenantId, waIdsDeLaPersonne],
         );
-      }
-      // Le journal des échecs de scénario (migration 0108), de même nature : le numéro et la raison, lus dans Sécurité >
-      // Journal des erreurs. Il porte le `waId` de l'exécuteur (chiffres nus ou BSUID), que son lecteur rattache à la fiche
-      // par `matchWaIdPredicat` : le BSUID de la fiche s'ajoute aux numéros, sinon une personne sans numéro dont le fil est
-      // parti avec la rétention garderait ses lignes.
-      const waIdsDesEchecs = [...new Set([
-        ...waIdsAAnonymiser, ...cibles.rows.map((r) => r.bsuid).filter((b): b is string => b !== null),
-      ])];
-      if (waIdsDesEchecs.length > 0) {
         await client.query(
           `delete from workflow_advance_failures where tenant_id = $1 and wa_id = any($2::text[])`,
-          [tenantId, waIdsDesEchecs],
+          [tenantId, waIdsDeLaPersonne],
         );
       }
 

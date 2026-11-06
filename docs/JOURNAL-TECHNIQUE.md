@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la purge vise chaque table par tous les identifiants de la personne
+
+Plan `docs/superpowers/plans/2026-11-06-purge-identifiants-de-la-personne.md`. Suite du lot d'en dessous, demandée par
+Julien le même soir. Deux trous de `purgeMany`, de la même famille : `workflow_runs` et `automation_fires` n'étaient
+visés que par les numéros des FILS (todo du 2026-10-03), et `waIdsDeLaPersonne` ne contenait le BSUID de la fiche que
+par un fil vivant. La rétention efface les fils et garde la fiche : une demande d'effacement tardive laissait le numéro,
+ou le BSUID, dans ces tables.
+
+- **Un seul jeu** : `waIdsDeLaPersonne` = les numéros des fils, les chiffres de la fiche et son BSUID, calculé juste
+  après les fils ; chaque table qui porte un `wa_id` le prend, sous `tenant_id = $1`. L'alias `waIdsAAnonymiser` et le
+  jeu `waIdsDesEchecs` du lot d'en dessous disparaissent.
+- **Les tables, relues une par une** : `workflow_runs` et `automation_fires` portent le `waId` de l'exécuteur ; effacer
+  un parcours emporte en cascade ses sessions d'agent IA et leurs appels d'outils (0086), comme déjà pour une personne
+  qui a un fil. `application_premiers_messages` n'admet que des chiffres (CHECK) et `mba_liste` ne reçoit jamais de
+  BSUID (son retrait chez Meta passe par l'identifiant de l'entrée) : le BSUID n'y change rien. `agent_actions` part
+  avec sa conversation, par cascade.
+- **Les tests** : une personne au seul BSUID, sans fil, avec une ligne sous son BSUID dans chaque table qui peut en
+  porter (parcours, déclenchements, tirs de widget, mesures anonymisées, deux journaux d'échec, événements de Meta), et
+  la même chez un autre espace, qui reste ; une personne au numéro, sans fil, pour ses parcours et déclenchements. Le cas
+  BSUID du lot d'en dessous y entre. Vérifié dans les deux sens en CI, sur deux commits mutés poussés sur des étiquettes
+  jetables (accord de Julien, étiquettes supprimées après lecture), 2 rouges sur 1 813 chaque fois : sans le BSUID dans
+  le jeu, les sept tables gardent la personne et sa mesure garde son BSUID ; parcours et déclenchements remis aux seuls
+  fils, ces deux compteurs-là restent, et la personne au numéro garde les siens. Le voisin garde tout dans les deux cas.
+- **Relecture indépendante** : aucun rouge, sept jaunes. Corrigés dans le lot : ce que la cascade des sessions d'agent
+  change ailleurs, désormais écrit dans `documentation.md` (le coût des tours affiché et le journal des erreurs système
+  ne comptent plus une personne effacée ; le crédit débité reste dans `agent_credit_mouvements`), et un commentaire de la
+  liste de l'agent. Laissés, avec leur raison : un doute d'interblocage entre la purge et un tour d'agent (aucun cycle
+  trouvé, et le cas existait déjà pour une personne qui a un fil) ; la ligne vide sous l'en-tête de ce journal (la
+  convention du fichier, sur laquelle les sessions qui insèrent en tête s'appuient). Les trois autres confirment.
+
 ## 2026-11-06 : le Crédit WhatsApp dit la conversion et l'arrêt au client (lot C de « la ligne prise à la connexion »)
 
 Demande de Julien (« Lance le lot C », 2026-11-06), décisions du même jour : hors vente, l'e-mail de la conversion part
@@ -63,7 +93,10 @@ Livré en direct, dans une copie à part (le dossier partagé avait 365 commits 
   du BSUID à la source plutôt qu'un jeu par table), le quatrième est un doute sans suite (l'essai réel garde sa valeur
   propre : la lecture n'a pas besoin de la fiche pour montrer une ligne restée).
 - **Hors périmètre, au todo** : les autres tables visées par `waIdsDeLaPersonne` n'atteignent pas le BSUID d'une fiche
-  dont le fil est parti (même famille que `workflow_runs` et `automation_fires`, 2026-10-03).
+  dont le fil est parti (même famille que `workflow_runs` et `automation_fires`, 2026-10-03). Fermé par le lot du dessus.
+- **Déployé** : `1a9e6e73`, `deploy-scaleway.yml` en `migration=aucune` (run 42276968594, approuvé par Julien), par-dessus
+  `0a357e80` d'un pair déjà en service avec sa 0281. `mba-api` sert `mba:1a9e6e73…`, fumée publique et fiches OAuth
+  conformes.
 
 ## 2026-11-06 : une invitation ne s'ouvre que par son lien (lot identité C, migration 0281)
 
