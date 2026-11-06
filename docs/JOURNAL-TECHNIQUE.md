@@ -63,6 +63,10 @@ d'une autre session sur `executor.ts`).
   le STOP, le STOP RCS et l'accord poussés au journal, et les deux gardes d'écriture) fait rougir ses seuls tests ; la
   suite racine (2 dépassements de délai sous la charge, `mcp-agent` et `agent-connaissance-entretien`, verts seuls trois
   fois sur trois), la suite de la console, les deux typecheck, le lint, l'auto-attaque.
+- **En production le 2026-11-06** avec `3ff58e33` (run 42264090066, `migration=aucune`, approuvé par Julien) : l'API sur
+  l'image `3ff58e33`, les trois conteneurs de la machine sur `3ff58e33`, CI verte job par job, fumée verte, fiches OAuth
+  conformes ; `aide:charger` avec les fiches de `d9e61464` montées dans l'image (une fiche d'un pair plus récente que le
+  lot), 194 lignes, aucune retirée. Essai réel : n° 228 de `docs/prive/ESSAIS-REELS.md`.
 
 ## 2026-11-06 : la ligne de crédit prise à la connexion, lot B (« Qui paie vos messages à Meta ? »)
 
