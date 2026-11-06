@@ -94,6 +94,9 @@ le commit de `createTenantWithAdmin` (Google, e-mail direct) et de `confirmerIns
 n'annonce rien (`tests/annonce-espace.test.ts`, vérifié dans les deux sens : l'annonce déplacée avant le commit rougit
 le cas de l'adresse déjà prise).
 
+En production le 2026-11-06 avec `d50f364a` (API et les trois workers relus sur cette révision, sans migration,
+aucune erreur aux journaux après le redémarrage). Reste l'essai réel 226 : créer un espace, puis y connecter un numéro sans alerte.
+
 ## 2026-11-06 : le prix et la catégorie des modèles, dits par Claude (plugin 0.3.26)
 
 Plan `docs/superpowers/plans/2026-11-06-prix-et-categories-modeles.md`. Johan, bêta-testeur : « c'est quoi le tarif
