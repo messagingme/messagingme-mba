@@ -53,7 +53,7 @@ const nextConfig = {
       "default-src 'self'",
       // Next injecte des scripts en ligne (hydratation, chargeur). `unsafe-inline` reste le premier relachement a
       // retirer, le jour ou on passera aux nonces (ils imposent le rendu a la demande de chaque page sur Vercel).
-      "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://accounts.google.com",
+      "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://accounts.google.com https://challenges.cloudflare.com",
       // La feuille de style du bouton Google Sign-In, à l'adresse que Google documente pour une CSP. Vue dans un vrai
       // navigateur sur la page de connexion : les e2e simulent Google et ne la chargent jamais.
       "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
@@ -71,7 +71,9 @@ const nextConfig = {
       // `/accueil`, du 2026-10-14 au 2026-10-29 ; les e2e simulent le SDK et ne les voient pas). `e2e/aide/test.ts` fait échouer
       // tout e2e qui la viole, et la CI les joue dans les DEUX topologies.
       `connect-src 'self'${origineApi ? ` ${origineApi}` : ''} https://graph.facebook.com https://www.facebook.com https://connect.facebook.net https://accounts.google.com`,
-      "frame-src https://connect.facebook.net https://accounts.google.com https://business.facebook.com",
+      // Le défi Turnstile de l'inscription (lot identité B) : son script et son cadre, les deux valeurs que Cloudflare
+      // documente pour une CSP sans nonce (developers.cloudflare.com/turnstile/reference/content-security-policy).
+      "frame-src https://connect.facebook.net https://accounts.google.com https://business.facebook.com https://challenges.cloudflare.com",
       "font-src 'self' data:",
       "base-uri 'self'",
       "form-action 'self'",

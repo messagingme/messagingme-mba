@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { inscrireUneAdresseConnue, signupAdresseConnue } from './aide/inscription';
 
 /**
  * L'INSCRIPTION VENUE DU CHOIX DU PRO (`/signup?offre=pro`, la fin Pro du guide du numéro de la vitrine, 2026-10-27).
@@ -59,12 +60,11 @@ test.describe('Inscription venue du choix du Pro', () => {
   });
 
   test('🔴 une demande d’autorisation de Claude passe avant le Pro', async ({ page }) => {
-    await monter(page, (chemin) => (chemin === '/auth/signup' ? { status: 201, body: SESSION_ADMIN } : undefined));
+    // Une adresse connue qui ajoute un espace (lot identité B) : une adresse neuve, elle, reçoit un lien.
+    const signup = signupAdresseConnue({ status: 201, body: SESSION_ADMIN });
+    await monter(page, (chemin) => (chemin === '/auth/signup' ? signup() : undefined));
     await page.goto('/signup?demande=d-e2e&offre=pro');
-    await page.getByPlaceholder(/Mon entreprise|My company/).fill('Mon espace');
-    await page.locator('input[type="email"]').fill('a@b.co');
-    await page.locator('input[type="password"]').fill('motdepasse-long');
-    await page.getByRole('button', { name: /Créer mon espace|Create my workspace/ }).click();
+    await inscrireUneAdresseConnue(page, { email: 'a@b.co', motDePasse: 'motdepasse-long', espace: 'Mon espace' });
     await page.waitForURL('**/autoriser?demande=d-e2e', { timeout: 15_000 });
   });
 });

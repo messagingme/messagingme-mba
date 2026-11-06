@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { signupAdresseConnue } from './aide/inscription';
 
 /**
  * 🔴 L'INSCRIPTION PAR E-MAIL PROUVÉE PAR UN LIEN (lot identité B, 2026-11-05). Une adresse inconnue ne crée rien à la
@@ -29,11 +30,10 @@ async function monter(page: Page, repondeur: (chemin: string) => Reponse | undef
   return appels;
 }
 
+/** L'étape de l'adresse (« adresse d'abord ») : l'adresse seule, puis « Continuer ». */
 async function remplirLaDemande(page: Page): Promise<void> {
-  await page.getByPlaceholder(/Mon entreprise|My company/).fill('Mon espace');
   await page.locator('input[type="email"]').fill('neuve@b.co');
-  await page.locator('input[type="password"]').fill('mot-de-passe-du-formulaire');
-  await page.getByRole('button', { name: /Créer mon espace|Create my workspace/ }).click();
+  await page.getByRole('button', { name: /^(Continuer|Continue)$/ }).click();
 }
 
 async function remplirLeLien(page: Page): Promise<void> {
@@ -67,11 +67,39 @@ test.describe('Inscription par e-mail : la demande du lien', () => {
     await page.waitForURL('**/autoriser?demande=d-e2e', { timeout: 15_000 });
   });
 
-  test('une API d’avant le lot rend encore la session : la console entre, comme avant', async ({ page }) => {
-    await monter(page, (chemin) => (chemin === '/auth/signup' ? { status: 201, body: SESSION_NEUVE } : undefined));
+  test('🔴 l’étape de l’adresse n’envoie que l’adresse : ni mot de passe, ni nom d’espace, ni accord', async ({ page }) => {
+    const appels = await monter(page, (chemin) => (chemin === '/auth/signup' ? { status: 202, body: { lienEnvoye: true } } : undefined));
+    await page.goto('/signup');
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+    await remplirLaDemande(page);
+    await expect(page.getByText(/Vérifiez votre boîte de réception|Check your inbox/)).toBeVisible();
+    const corps = appels.find((a) => a.chemin === '/auth/signup')?.corps as Record<string, unknown>;
+    expect(Object.keys(corps).sort()).toEqual(['email', 'langue']);
+  });
+
+  test('une adresse connue : l’étape du mot de passe, puis l’espace tout de suite', async ({ page }) => {
+    const signup = signupAdresseConnue({ status: 201, body: SESSION_NEUVE });
+    const appels = await monter(page, (chemin) => (chemin === '/auth/signup' ? signup() : undefined));
     await page.goto('/signup');
     await remplirLaDemande(page);
+    await expect(page.getByText(/Cette adresse a déjà un compte|This address already has an account/)).toBeVisible();
+    await page.getByPlaceholder(/Mon entreprise|My company/).fill('Deuxième espace');
+    await page.locator('input[type="password"]').fill('mot-de-passe-du-compte');
+    await page.getByRole('button', { name: /Ajouter l’espace|Add the workspace/ }).click();
     await page.waitForURL('**/connecter-whatsapp?suite=demarrer', { timeout: 15_000 });
+    expect(appels.filter((a) => a.chemin === '/auth/signup')[1]?.corps).toMatchObject({
+      email: 'neuve@b.co', workspaceName: 'Deuxième espace', password: 'mot-de-passe-du-compte',
+    });
+  });
+
+  test('un défi anti-robot refusé le dit, et le formulaire reste', async ({ page }) => {
+    await monter(page, (chemin) => (chemin === '/auth/signup'
+      ? { status: 403, body: { error: 'La vérification anti-robot n’a pas abouti : réessayez.', code: 'defi' } }
+      : undefined));
+    await page.goto('/signup');
+    await remplirLaDemande(page);
+    await expect(page.getByText('La vérification anti-robot n’a pas abouti : réessayez.')).toBeVisible();
+    await expect(page.locator('input[type="email"]')).toBeVisible();
   });
 });
 

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { signupAdresseConnue } from './aide/inscription';
 
 /**
  * L'ACCORD PUBLICITAIRE (pixel Meta, lot 3 du plan docs/superpowers/plans/2026-10-30-pixel-meta.md).
@@ -49,31 +50,38 @@ async function monter(page: Page, repondeur: (chemin: string, methode: string) =
 const corpsDe = (appels: Appel[], chemin: string): Record<string, unknown> | null => appels.find((a) => a.chemin === chemin)?.corps ?? null;
 const caseMeta = (page: Page) => page.getByTestId('case-partage-meta').locator('input[type="checkbox"]');
 
+/** Une adresse connue (lot identité B) : l'adresse, le 409, puis l'étape du mot de passe, où la case se donne. */
 async function remplirInscription(page: Page): Promise<void> {
-  await page.getByPlaceholder(/Mon entreprise|My company/).fill('Mon espace');
   await page.locator('input[type="email"]').fill('a@b.co');
+  await page.getByRole('button', { name: /^(Continuer|Continue)$/ }).click();
+  await page.getByPlaceholder(/Mon entreprise|My company/).fill('Mon espace');
   await page.locator('input[type="password"]').fill('motdepasse-long');
 }
 
 test.describe('L’accord publicitaire à l’inscription', () => {
   test('🔴 /signup : la case est décochée, et sans elle le corps ne porte aucun accord', async ({ page }) => {
-    const appels = await monter(page, (chemin) => (chemin === '/auth/signup' ? { status: 201, body: SESSION } : undefined));
+    const signup = signupAdresseConnue({ status: 201, body: SESSION });
+    const appels = await monter(page, (chemin) => (chemin === '/auth/signup' ? signup() : undefined));
     await page.goto(`/signup?fbc=${FBC}&fbp=${FBP}`);
     await expect(caseMeta(page)).not.toBeChecked();
     await remplirInscription(page);
-    await page.getByRole('button', { name: /Créer mon espace|Create my workspace/ }).click();
-    await expect.poll(() => corpsDe(appels, '/auth/signup')).not.toBeNull();
-    expect(corpsDe(appels, '/auth/signup')).not.toHaveProperty('pub');
+    await page.getByRole('button', { name: /Ajouter l’espace|Add the workspace/ }).click();
+    await expect.poll(() => appels.filter((a) => a.chemin === '/auth/signup').length).toBe(2);
+    expect(appels.filter((a) => a.chemin === '/auth/signup')[1]?.corps).not.toHaveProperty('pub');
   });
 
   test('🔴 /signup, case cochée : l’accord part avec les identifiants de Meta venus de la vitrine', async ({ page }) => {
-    const appels = await monter(page, (chemin) => (chemin === '/auth/signup' ? { status: 201, body: SESSION } : undefined));
+    const signup = signupAdresseConnue({ status: 201, body: SESSION });
+    const appels = await monter(page, (chemin) => (chemin === '/auth/signup' ? signup() : undefined));
     await page.goto(`/signup?fbc=${FBC}&fbp=${FBP}`);
     await remplirInscription(page);
     await caseMeta(page).check();
-    await page.getByRole('button', { name: /Créer mon espace|Create my workspace/ }).click();
-    await expect.poll(() => corpsDe(appels, '/auth/signup')).not.toBeNull();
-    expect(corpsDe(appels, '/auth/signup')?.pub).toEqual({ accord: true, fbc: FBC, fbp: FBP });
+    await page.getByRole('button', { name: /Ajouter l’espace|Add the workspace/ }).click();
+    await expect.poll(() => appels.filter((a) => a.chemin === '/auth/signup').length).toBe(2);
+    expect(appels.filter((a) => a.chemin === '/auth/signup')[1]?.corps?.pub).toEqual({ accord: true, fbc: FBC, fbp: FBP });
+    // L'étape de l'adresse, elle, n'envoie aucun accord : les identifiants seuls, gardés avec une demande de lien.
+    expect(appels.filter((a) => a.chemin === '/auth/signup')[0]?.corps).not.toHaveProperty('pub');
+    expect(appels.filter((a) => a.chemin === '/auth/signup')[0]?.corps).toMatchObject({ fbc: FBC, fbp: FBP });
   });
 
   test('/signup par Google : la case cochée part avec le jeton (décochée : `champPub(false)`, `lib/pub.test.ts`)', async ({ page }) => {

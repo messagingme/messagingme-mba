@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { inscrireUneAdresseConnue, signupAdresseConnue } from './aide/inscription';
 
 /**
  * LE CONSENTEMENT DE CLAUDE (`/autoriser`, spec `docs/superpowers/specs/2026-10-03-oauth-mcp-design.md`, section 3).
@@ -204,26 +205,30 @@ test.describe('Autoriser Claude : sans compte Google', () => {
   };
 
   test('🔴 l’inscription par e-mail ramène au consentement, et l’autorisation attend le clic', async ({ page }) => {
-    const appels = await monter(page, repondeur);
+    // Une adresse neuve reçoit un lien (lot identité B) : la page du lien, ouverte dans ce navigateur, range la session ;
+    // « Continuer », resté dans cet onglet, ramène sur le bouton direct.
+    const appels = await monter(page, (chemin) => (chemin === '/auth/signup' ? { status: 202, body: { lienEnvoye: true } } : repondeur(chemin)));
     await page.goto('/autoriser?demande=d-e2e');
     await page.getByRole('link', { name: 'Créer mon espace avec mon adresse e-mail' }).click();
 
     await page.waitForURL('**/signup?demande=d-e2e');
     // Google est resté sur la page d'autorisation : ici, il ouvrirait la console et perdrait la demande. Le lien de
     // retour est rendu À LA PLACE du bouton : sa présence prouve la branche, l'absence du bouton seule dépendrait du délai.
-    await expect(page.getByRole('button', { name: 'Créer mon espace' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Continuer' })).toBeVisible();
     await expect(page.getByTestId('retour-google').getByRole('link')).toHaveAttribute('href', '/autoriser?demande=d-e2e');
     await expect(page.getByTestId('google-simule')).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Se connecter' })).toHaveAttribute('href', '/login?demande=d-e2e');
-    await page.getByPlaceholder('Mon entreprise').fill('Mon espace');
     await page.locator('input[type="email"]').fill('lea@exemple.fr');
-    await page.locator('input[type="password"]').fill('motdepasse-long');
-    await page.getByRole('button', { name: 'Créer mon espace' }).click();
+    await page.getByRole('button', { name: 'Continuer' }).click();
+    await expect(page.getByText('Ouvrez le lien sur cet ordinateur', { exact: false })).toBeVisible();
+    expect(appels.find((a) => a.chemin === '/auth/signup')?.corps).toMatchObject({ email: 'lea@exemple.fr', application: true });
+    // La page du lien, dans un autre onglet du même navigateur, a rangé la session.
+    await page.evaluate((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), { token: 'jeton-console', email: 'lea@exemple.fr', role: 'admin', tenantId: 't1' });
+    await page.getByRole('button', { name: 'Continuer' }).click();
 
     await page.waitForURL('**/autoriser?demande=d-e2e');
     const direct = page.getByRole('button', { name: 'Autoriser dans Mon espace' });
     await expect(direct).toBeVisible();
-    expect(appels.find((a) => a.chemin === '/auth/signup')?.corps).toMatchObject({ email: 'lea@exemple.fr', workspaceName: 'Mon espace' });
     expect(autorisations(appels)).toEqual([]);
 
     await direct.click();
@@ -255,17 +260,15 @@ test.describe('Autoriser Claude : sans compte Google', () => {
   });
 
   test('une étape du second facteur expirée après l’inscription renvoie à la connexion avec la demande', async ({ page }) => {
+    const signup = signupAdresseConnue({ status: 201, body: { enrolToken: 'jeton-enrol' } });
     await monter(page, (chemin) => {
       if (chemin === '/oauth/consentement/demande') return { body: DEMANDE };
-      if (chemin === '/auth/signup') return { status: 201, body: { enrolToken: 'jeton-enrol' } };
+      if (chemin === '/auth/signup') return signup();
       if (chemin === '/auth/mfa/enroler') return { status: 401, body: { error: 'Cette étape a expiré, reconnectez-vous.' } };
       return undefined;
     });
     await page.goto('/signup?demande=d-e2e');
-    await page.getByPlaceholder('Mon entreprise').fill('Mon espace');
-    await page.locator('input[type="email"]').fill('lea@exemple.fr');
-    await page.locator('input[type="password"]').fill('motdepasse-long');
-    await page.getByRole('button', { name: 'Créer mon espace' }).click();
+    await inscrireUneAdresseConnue(page, { email: 'lea@exemple.fr', motDePasse: 'motdepasse-long', espace: 'Mon espace' });
     await expect(page.getByTestId('etape-interrompue').getByRole('link')).toHaveAttribute('href', '/login?demande=d-e2e');
   });
 });
