@@ -4,6 +4,43 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : une invitation ne s'ouvre que par son lien (lot identité C, migration 0281)
+
+Demande de Julien (« Oui, le lot C », 2026-11-06), décisions du même jour : Google, sur une adresse qui n'a que des
+invitations en attente, crée son propre espace ; la règle vaut partout ; l'inscription par e-mail d'une adresse née
+d'une invitation reçoit le lien ; l'e-mail et la page de l'invitation disent qui invite, nom et adresse ; une adresse
+qui a déjà un mot de passe donne l'actuel ; pas de mesure en production avant le déploiement.
+
+- **Ce qui a changé** : `users.invitation_en_attente` (0281), posé par la seule création d'invitation et levé par
+  l'acceptation, et `users.invite_par`. Un compte en attente n'est rendu ni par la recherche par adresse (Google de la
+  console et du plugin, sélecteur d'espaces, autorisation OAuth) ni par la connexion par mot de passe ; la garde de
+  session et les jetons OAuth le refusent ; il ne compte ni pour le second facteur exigé, ni pour le journal par
+  identité, ni parmi les admins de l'invariant du dernier admin ; il ne reçoit jamais de marque de connexion. La page
+  `/invite/<jeton>` est sa seule porte : aperçu (espace, invitant, mot de passe existant), acceptation par mot de passe
+  (l'actuel vérifié sans rien écrire, ou un nouveau) ou par Google à l'adresse invitée, en une transaction. « Mot de
+  passe oublié » vaut aussi pour une identité dont le seul compte est une invitation. L'e-mail d'invitation vouvoie et
+  nomme l'invitant avec son adresse. Plafond `invitation` (60 par minute et par réseau) sur la page.
+- **La reprise de la migration** : les comptes qui ont reçu un jeton d'invitation, sans connexion ni mot de passe sur
+  le compte. La trace positive du jeton vient de la relecture du lot : sans elle, le compte semé par `db/seed.ts` ou un
+  compte Google dont la marque avait échoué devenaient des invitations.
+- **En production** :
+  - `15dece66` (la console : la page `/invite` et son client), publié par Vercel, CI verte job par job ; tant que l'API
+    n'avait pas la route, la page gardait l'ancien formulaire sans Google, vérifié en production ;
+  - `0a357e80` (l'API, la migration 0281, les tests, la documentation), run 42271636171, `migration=avant` : 0281
+    appliquée, puis les workers et l'API sur `0a357e80` ; fumée bonne ; `/auth/invitations/apercu` et `/google`
+    répondent 400 sans rien consommer, la page d'un jeton inventé dit qu'il n'est plus valable ;
+  - relue en base par une commande en lecture seule lancée par Julien : les deux colonnes (`boolean not null default
+    false`, `uuid` nullable), la clé `users_invite_par_fkey` en `ON DELETE SET NULL`, 2 comptes sur 22 marqués en
+    attente, aucun avec une connexion, un mot de passe ou sans jeton d'invitation ;
+  - la fiche « Inviter mon équipe » chargée (`aide:charger`, image `0a357e80`, 195 lignes, 0 retirée) ; la règle de
+    débit Cloudflare « Entrées anonymes qui écrivent » complétée des deux routes neuves.
+- **Vérifié avant de pousser** : suite racine entière sur l'état final, suite de la console, e2e de la page et du second
+  facteur sur une construction de production, auto-attaque, lint, typecheck ; huit défauts remis en place, chacun vu
+  rouge par son test. Une fusion avec l'annonce Telegram des espaces nés, ajoutée le même jour dans
+  `confirmerInscription`.
+- **La relecture** : aucun rouge ; ses jaunes utiles corrigés avant la poussée, les autres suivis avec le lot suivant.
+  L'essai réel est le n° 221 (`docs/prive/ESSAIS-REELS.md`).
+
 ## 2026-11-06 : Google Analytics sur la vitrine, dans la bannière du pixel, usage par usage
 
 Plan `docs/superpowers/plans/2026-11-06-ga4-vitrine.md`. Julien voulait GA4 sur `app.messagingme.fr`. La propriété
