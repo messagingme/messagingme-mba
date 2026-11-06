@@ -9,6 +9,47 @@ type Texte = { readonly fr: string; readonly en: string };
 /** Où vérifier qu'on a un compte Meta Business : la console en fait un lien, la vitrine aussi. */
 export const META_BUSINESS_URL = 'https://business.facebook.com/';
 
+/**
+ * QUI PAIE META, juste après l'offre (révision du Crédit WhatsApp, lot B, textes validés par Julien le 2026-11-06) : deux
+ * cartes, chaque bouton sous la sienne. « Ma carte chez Meta » mène à l'arbre du numéro ; la carte du Crédit WhatsApp est
+ * grisée tant qu'il n'est pas en vente en ligne (en Free, il vient avec la formule Pro ; ailleurs, sur demande). Les mêmes
+ * mots que la vitrine (`tests/questions-numero-vitrine.test.ts`) ; la console y ajoute l'état de l'espace (`QuiRegleMeta`).
+ */
+export const QUESTION_PAIEMENT = {
+  texte: { fr: 'Qui paie vos messages à Meta ?', en: 'Who pays Meta for your messages?' },
+  precision: { fr: 'Meta facture chaque modèle que vous envoyez.', en: 'Meta bills each template you send.' },
+  carte: {
+    titre: { fr: 'Ma carte chez Meta', en: 'My card at Meta' },
+    texte: { fr: 'Vous enregistrez votre carte bancaire chez Meta, qui vous facture vos modèles.', en: 'You register your bank card at Meta, which bills your templates.' },
+  },
+  credit: {
+    titre: { fr: 'Crédit WhatsApp', en: 'WhatsApp credit' },
+    texte: {
+      fr: 'Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : 30 € HT par numéro et par mois, avec la formule Pro ou Business.',
+      en: 'You prepay your messages at Messaging Me, with no card at Meta: €30 excl. VAT per number per month, with the Pro or Business plan.',
+    },
+  },
+  grisee: {
+    free: { fr: 'Avec la formule Pro.', en: 'With the Pro plan.' },
+    pro: { fr: 'Sur demande : écrivez-nous.', en: 'On request: write to us.' },
+  },
+} as const;
+
+/** Les voies qui gardent l'application WhatsApp Business : le Crédit WhatsApp n'y est pas possible (spec, décision 8). */
+export const NOTE_CARTE_APPLICATION: Texte = {
+  fr: 'Vous payez Meta avec votre carte : le Crédit WhatsApp n’est pas possible avec l’application.',
+  en: 'You pay Meta with your card: WhatsApp credit is not possible with the app.',
+};
+
+/**
+ * Au moment de payer l'option, quand tous les numéros de l'espace gardent l'application (décision 8) : la carte
+ * « Crédit WhatsApp » (`QuiRegleMeta`) et l'onglet Crédit WhatsApp le disent pareil.
+ */
+export const AVERTISSEMENT_APPLICATION: Texte = {
+  fr: 'Vos numéros connectés gardent l’application WhatsApp Business : ils restent payés par votre carte chez Meta, le Crédit WhatsApp n’est pas possible avec l’application. L’option sert à connecter un nouveau numéro, sans l’application.',
+  en: 'Your connected numbers keep the WhatsApp Business app: they stay paid by your card at Meta, WhatsApp credit is not possible with the app. The option is for connecting a new number, without the app.',
+};
+
 export const QUESTION_COMPTE = {
   texte: { fr: 'Avez-vous un compte Meta Business ?', en: 'Do you have a Meta Business account?' },
   precision: { fr: 'L’ancien Business Manager : le compte de votre entreprise chez Meta.', en: 'Formerly Business Manager: your business’s account at Meta.' },

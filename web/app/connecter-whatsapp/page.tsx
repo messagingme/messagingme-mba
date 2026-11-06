@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { TitrePage, IntroPage } from '@/components/TitrePage';
 import { ParcoursNumero, BoutonPortail } from '@/components/ParcoursNumero';
+import { QuiRegleMeta } from '@/components/QuiRegleMeta';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import type { Session } from '@/lib/session';
 import { useT } from '@/lib/i18n';
@@ -16,6 +17,10 @@ import { CLE_SUITE, enSuiteDeDemarrage, SUITE_DEMARRER } from '@/lib/demarrer';
  * « CONNECTER WHATSAPP » dans la console (lot 3b, spec `docs/superpowers/specs/2026-10-05-numero-fourni-design.md`).
  * Le parcours lui-même vit dans `ParcoursNumero`, partagé avec `/brancher`, la page qu'ouvre le lien de Claude Code
  * (lot 3c) ; celle-ci y ajoute la coquille, la session et l'état du compte.
+ *
+ * « Qui paie vos messages à Meta ? » (`QuiRegleMeta`, révision du Crédit WhatsApp, lot B) ouvre le guide : la voie de la
+ * carte chez Meta y mène, active par défaut. Un numéro connecté garde les deux cartes, qui disent l'état de son Crédit
+ * WhatsApp ; une fois l'option arrêtée, la carte chez Meta y rouvre le guide.
  */
 export default function ConnecterWhatsappPage() {
   return <AppShell active="accueil">{(session) => <ConnecterWhatsapp session={session} />}</AppShell>;
@@ -47,6 +52,16 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
   }, []);
 
   const connecte = compte?.hasNumber === true;
+  const parcours = (
+    <ParcoursNumero
+      tenantId={tenantId}
+      api={api}
+      choixInitial={null}
+      retour="console"
+      connecte={false}
+      surConnexion={(av) => { setAvertissements(av); chargerCompte(); }}
+    />
+  );
   // Connecté avec un numéro fourni payé : l'abonnement se gère encore d'ici (jaune 1 de la relecture de la livraison B).
   // Résilié (lot 4) : un nouveau paiement rend le MÊME numéro, sans refaire la fenêtre de Meta.
   const [statut, setStatut] = useState<string | null>(null);
@@ -95,15 +110,9 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
       ) : !isAdmin ? (
         <p className="mt-6 text-sm text-ink-500">{t('Réservé aux admins de l’espace.', 'Workspace admins only.')}</p>
       ) : (
-        <ParcoursNumero
-          tenantId={tenantId}
-          api={api}
-          choixInitial={null}
-          retour="console"
-          connecte={connecte}
-          surConnexion={(av) => { setAvertissements(av); chargerCompte(); }}
-        />
+        <QuiRegleMeta tenantId={tenantId} admin lieu="connecter">{parcours}</QuiRegleMeta>
       )}
+      {connecte && <QuiRegleMeta tenantId={tenantId} admin={isAdmin} lieu="connecter" connecte>{isAdmin && parcours}</QuiRegleMeta>}
 
       {tunnel && !connecte && (
         <Link href="/demarrer" className="mt-6 inline-block text-sm font-semibold text-ink-900 underline" data-testid="numero-plus-tard">

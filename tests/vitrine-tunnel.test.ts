@@ -67,8 +67,13 @@ describe('le tunnel du numéro WhatsApp', () => {
           expect(iIds, `${langue} : ${id} n'est ni une question ni une issue`).toContain(id);
           return;
         }
-        // Une seule réponse sans destination, et seulement si la question a une aide à déplier.
-        expect(q.reponses.filter((r) => !r.vers).length, `${langue} : ${id}`).toBeLessThanOrEqual(q.aide ? 1 : 0);
+        // Une seule réponse sans destination, et seulement si la question a une aide à déplier ; une réponse grisée n'en
+        // a pas encore, et dit pourquoi pour chaque formule qui mène à sa question (Free et Pro).
+        expect(q.reponses.filter((r) => !r.vers && !r.grisee).length, `${langue} : ${id}`).toBeLessThanOrEqual(q.aide ? 1 : 0);
+        for (const r of q.reponses.filter((x) => x.grisee)) {
+          expect(r.vers, `${langue} : ${id}`).toBeUndefined();
+          expect(Object.keys(r.grisee!).sort(), `${langue} : ${id}`).toEqual(['free', 'pro']);
+        }
         for (const r of q.reponses) if (r.vers) parcourir(r.vers, [...chemin, id]);
       };
       parcourir(qIds[0]!, []);
@@ -76,20 +81,23 @@ describe('le tunnel du numéro WhatsApp', () => {
       // Le lien d'une issue vers une autre mène à une issue.
       for (const x of issues) if (x.autre) expect(iIds, `${langue} : ${x.id}`).toContain(x.autre.vers);
     }
-    const forme = (l: Langue) => TEXTES_TUNNEL[l].questions.map((q) => `${q.id}:${q.reponses.map((r) => `${r.vers ?? '?'}${r.offre ?? ''}${r.note ? '+' : ''}`).join(',')}`);
+    const forme = (l: Langue) => TEXTES_TUNNEL[l].questions.map((q) => `${q.id}:${q.reponses.map((r) => `${r.vers ?? '?'}${r.offre ?? ''}${r.note ? '+' : ''}${r.grisee ? '~' : ''}`).join(',')}`);
     expect(forme('en')).toEqual(forme('fr'));
     expect(TEXTES_TUNNEL.en.issues.map((x) => `${x.id}>${x.autre?.vers ?? ''}`)).toEqual(TEXTES_TUNNEL.fr.issues.map((x) => `${x.id}>${x.autre?.vers ?? ''}`));
   });
 
-  it('🔴 suit l’arbre de Julien : l’offre, le compte Meta Business, l’application WhatsApp Business, puis le numéro', () => {
+  it('🔴 suit l’arbre de Julien : l’offre, qui paie Meta, le compte Meta Business, l’application WhatsApp Business, puis le numéro', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { questions } = TEXTES_TUNNEL[langue];
       const q = (id: string) => questions.find((x) => x.id === id)!;
-      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'compte', 'application', 'numero']);
+      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'paiement', 'compte', 'application', 'numero']);
       // Free ou Pro, les deux vers la même question : l'offre ne change pas le chemin du numéro, seulement le bout.
       // Business et Entreprise mènent à la démo et au contact, jamais aux questions du numéro (Julien, 2026-10-30).
       expect(q('offre').reponses.filter((r) => r.vers).map((r) => `${r.offre}>${r.vers}`), langue)
-        .toEqual(['free>compte', 'pro>compte', 'business>echange', 'entreprise>echange']);
+        .toEqual(['free>paiement', 'pro>paiement', 'business>echange', 'entreprise>echange']);
+      // Qui paie Meta (2026-11-06) : la carte chez Meta mène au compte Meta Business ; le Crédit WhatsApp, grisé tant
+      // qu'il n'est pas en vente en ligne, ne mène nulle part.
+      expect(q('paiement').reponses.map((r) => r.vers ?? (r.grisee ? 'grisee' : '?')), langue).toEqual(['compte', 'grisee']);
       // Oui : le numéro API ; Non et « Je ne sais pas » : l'application, et « Je ne sais pas » dit où vérifier.
       expect(q('compte').reponses.map((r) => r.vers), langue).toEqual(['api', 'application', 'application']);
       expect(q('compte').reponses[2]!.note, langue).toContain('business.facebook.com');
@@ -148,10 +156,10 @@ describe('le tunnel du numéro WhatsApp', () => {
     expect(css).not.toMatch(/\.bt-question\.repondue :is\([^)]*\.bt-(voies|reponses)\b[^)]*\)\{display:none/);
   });
 
-  it('🔴 le plus long parcours fait quatre questions, et le chapeau, l’étape et la page « Démarrer » le disent', () => {
-    for (const [langue, trois] of [['fr', 'quatre question'], ['en', 'four question']] as const) {
+  it('🔴 le plus long parcours fait cinq questions, et le chapeau, l’étape et la page « Démarrer » le disent', () => {
+    for (const [langue, trois] of [['fr', 'cinq question'], ['en', 'five question']] as const) {
       const max = profondeurTunnel(TEXTES_TUNNEL[langue].questions);
-      expect(max).toBe(4);
+      expect(max).toBe(5);
       expect(TEXTES_TUNNEL[langue].chapeau, langue).toContain(trois);
       expect(TEXTES_DEMARRER[langue].h1.join(' '), langue).toContain(trois);
       expect(TEXTES_DEMARRER[langue].titre, langue).toContain(trois);
@@ -239,19 +247,34 @@ describe('le tunnel du numéro WhatsApp', () => {
     expect(lire('site.css')).toContain('.bt-guide [hidden]{display:none}');
   });
 
-  it('la question de l’offre porte, sous chaque carte, le bouton de même rang (Julien, 2026-10-27)', () => {
+  it('une question à cartes porte, sous chaque carte, le bouton de même rang (Julien, 2026-10-27)', () => {
     for (const p of PAGES) {
       const html = lire(fichierDe(p.adresse));
       const aCartes = TEXTES_TUNNEL[p.langue].questions.filter((q) => q.voies);
-      expect(aCartes.map((q) => q.id), p.adresse).toEqual(['offre']);
+      expect(aCartes.map((q) => q.id), p.adresse).toEqual(['offre', 'paiement']);
       for (const q of aCartes) {
-        const menent = q.reponses.filter((r) => r.vers);
+        const menent = q.reponses.filter((r) => r.vers || r.grisee);
         const fieldset = html.match(new RegExp(`<fieldset class="bt-question" data-question="${q.id}"[\\s\\S]*?</fieldset>`))?.[0] ?? '';
-        const cartes = fieldset.split('<div class="bt-voie-choix">').slice(1);
+        const cartes = fieldset.split('<div class="bt-voie-choix').slice(1);
         expect(cartes.length, p.adresse).toBe(q.voies!.length);
-        cartes.forEach((c, i) => expect(c.match(/data-vers="([^"]+)" data-offre="([^"]+)"/)?.slice(1), `${p.adresse}, carte ${i + 1}`).toEqual([menent[i]!.vers, menent[i]!.offre]));
+        cartes.forEach((c, i) => {
+          const r = menent[i]!;
+          const ou = `${p.adresse}, ${q.id}, carte ${i + 1}`;
+          if (r.grisee) {
+            // Grisée : un bouton qui ne se choisit pas, et la raison de chaque formule dans la carte.
+            expect(c, ou).toMatch(/^ bt-voie-grisee">/);
+            expect(c, ou).toContain('<button type="button" class="bouton bouton-trait" disabled>');
+            expect(c, ou).not.toContain('data-vers=');
+            for (const offre of Object.keys(r.grisee)) expect(c, ou).toContain(`<p class="bt-grisee" data-pour="${offre}">`);
+            return;
+          }
+          expect(c.match(/data-vers="([^"]+)"(?: data-offre="([^"]+)")?/)?.slice(1), ou).toEqual([r.vers, r.offre]);
+        });
       }
     }
+    // La raison d'une carte grisée ne s'affiche que pour la formule choisie, et la carte ne se choisit pas.
+    expect(lire('site.css')).toContain('.js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}');
+    expect(lire('site.js')).toContain("carte && carte.querySelector('[data-vers]')");
   });
 
   it('🔴 chaque issue finit sur les boutons de chaque offre, et sa demande reprend l’offre, les réponses et la page d’origine', () => {

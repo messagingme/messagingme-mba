@@ -13,7 +13,8 @@ import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { QrApplication } from '@/components/QrApplication';
 import {
-  ISSUE_API, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_NUMERO, type ReponseCompte,
+  ISSUE_API, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_NUMERO,
+  type ReponseCompte,
 } from '@/lib/questions-numero';
 
 /** Les choix du parcours : le mode du lien de Claude Code, ou celui que les questions de la console ont fait. */
@@ -25,7 +26,9 @@ type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
  * Sans choix déjà fait, il pose d'abord les questions du tunnel de la vitrine (2026-10-30, `@/lib/questions-numero`) :
  * « Avez-vous un compte Meta Business ? », Oui menant aux deux choix du numéro API ; Non ou « Je ne sais pas » à
  * « Avez-vous déjà l'application WhatsApp Business ? », dont les deux réponses mènent à la garder (Non : après l'avoir
- * téléchargée), la carte s'affichant sous la question. Plus aucune voie par QR code.
+ * téléchargée), la carte s'affichant sous la question. Plus aucune voie par QR code. « Qui paie vos messages à Meta ? »
+ * vient avant, posée par la page (`QuiRegleMeta`, lot B du Crédit WhatsApp) : ce guide est la voie de la carte chez Meta,
+ * et chaque voie qui garde l'application le dit (`NOTE_CARTE_APPLICATION`).
  *
  * Les trois choix où elles mènent. « Fournissez-moi un numéro » : un numéro de notre réserve s'affiche ; le client le
  * tape dans la fenêtre de Meta, par SMS de préférence (la ligne fixe le lit à voix haute), sinon par la voix ; notre
@@ -229,6 +232,8 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
         {retour}
       </div>
       {COEXISTENCE_PHRASES.map((p) => <p key={p.fr} className="mt-3 text-sm text-ink-700">{t(p.fr, p.en)}</p>)}
+      {/* Garder l'application, c'est payer Meta avec sa carte (révision du Crédit WhatsApp, décision 8). */}
+      <p data-testid="note-carte-application" className="mt-3 text-sm text-ink-700">{t(NOTE_CARTE_APPLICATION.fr, NOTE_CARTE_APPLICATION.en)}</p>
       {/* Un numéro qu'on vient de mettre dans l'application peut être refusé par Meta : on le dit avant qu'il le soit. */}
       {apresTelechargement && <p data-testid="numero-trop-neuf" className="mt-3 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[1].fr, ISSUE_TELECHARGER.textes[1].en)}</p>}
     </div>
@@ -241,6 +246,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     <div data-testid="issue-fourni" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
       <div className="text-base font-semibold text-ink-900">{t(ISSUE_FOURNI.titre.fr, ISSUE_FOURNI.titre.en)}</div>
       {ISSUE_FOURNI.textes.map((p) => <p key={p.fr} className="mt-2 text-sm text-ink-700">{t(p.fr, p.en)}</p>)}
+      <p data-testid="note-carte-application" className="mt-2 text-sm text-ink-700">{t(NOTE_CARTE_APPLICATION.fr, NOTE_CARTE_APPLICATION.en)}</p>
       {magasins}
       <Bouton type="button" className="mt-4" onClick={() => choisirFourni('fourni_application')} data-testid="choix-fourni-application">
         {t('Fournissez-moi un numéro', 'Provide me a number')}

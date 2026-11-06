@@ -53,11 +53,17 @@ export interface OptionCreditWhatsapp {
    * champ le rend absent : lu vrai, l'ancien écran (sa prise refuserait de toute façon pendant un essai).
    */
   formulePayee: boolean;
+  /**
+   * Tous les numéros de l'espace gardent l'application WhatsApp Business (lot B, décision 8) : aucun ne passera sur le
+   * Crédit WhatsApp, et le paiement de l'option le dit. Faux sur une API d'avant ce champ.
+   */
+  avecApplication: boolean;
 }
 
 /** Une API d'avant l'option (la console part avant l'API) : rien en vente, rien de pris. */
 export const SANS_OPTION: OptionCreditWhatsapp = {
   disponible: false, prixHtCentimes: 0, placesMax: 0, places: 0, couverts: 0, statut: null, finPrevueLe: null, formulePayee: true,
+  avecApplication: false,
 };
 
 /** Ce que lit l'onglet. Montants en micro-euros ; un prix se montre tout compris, jamais un taux. */
@@ -105,6 +111,7 @@ function lireOption(v: unknown): OptionCreditWhatsapp {
     statut: o.statut === 'actif' || o.statut === 'en_retard' || o.statut === 'resilie' ? o.statut : null,
     finPrevueLe: typeof o.finPrevueLe === 'string' ? o.finPrevueLe : null,
     formulePayee: o.formulePayee !== false,
+    avecApplication: o.avecApplication === true,
   };
 }
 
@@ -138,17 +145,51 @@ export async function getCreditWhatsapp(tenantId: string): Promise<VueCreditWhat
 /**
  * Prend l'option pour `places` numéros et rend l'adresse de la page de paiement de Stripe. 404 (route pas encore
  * déployée) et 503 (prix pas posé) veulent dire « pas encore disponible » ; tout autre refus remonte avec le message du
- * serveur (formule, option déjà prise).
+ * serveur (formule, option déjà prise). `connecter` (lot B) : depuis les cartes « Qui paie vos messages à Meta ? »,
+ * Stripe ramène sur Connecter WhatsApp ; sans elle, sur l'onglet (le corps d'avant, qu'une API stricte accepte).
  */
-export async function ouvrirOptionWhatsapp(tenantId: string, places: number): Promise<IssuePaiement> {
+export async function ouvrirOptionWhatsapp(tenantId: string, places: number, origine?: 'connecter'): Promise<IssuePaiement> {
   try {
     const r = await request<{ url: string }>(`/tenants/${tenantId}/credit-whatsapp/option`, {
       method: 'POST',
-      body: JSON.stringify({ places }),
+      body: JSON.stringify(origine ? { places, origine } : { places }),
     });
     return { url: r.url };
   } catch (err) {
     if (err instanceof ApiError && (err.status === 404 || err.status === 503)) return { indisponible: true };
+    throw err;
+  }
+}
+
+/**
+ * L'état du Crédit WhatsApp de l'espace pour les cartes « Qui paie vos messages à Meta ? » (`etatLigneCredit` du serveur,
+ * lot B) : `free`, `essai` (la formule n'est pas encore payée), `a_prendre`, `en_attente` (option payée, ligne pas
+ * encore posée), `active` ou `arretee`.
+ */
+export type EtatLigne = 'free' | 'essai' | 'a_prendre' | 'en_attente' | 'active' | 'arretee';
+const ETATS_LIGNE: readonly EtatLigne[] = ['free', 'essai', 'a_prendre', 'en_attente', 'active', 'arretee'];
+
+export interface VueEtatLigne {
+  etat: EtatLigne;
+  /** L'option se prend en ligne : sinon la carte est grisée, « sur demande ». */
+  enVente: boolean;
+  /** Tous les numéros de l'espace gardent l'application : le paiement de l'option le dit (décision 8). */
+  avecApplication: boolean;
+}
+
+/**
+ * Lit cet état (`GET /tenants/:tenantId/credit-whatsapp/etat`). `null` quand il ne se lit pas : la route pas encore
+ * déployée (404, la console part avant l'API), fermée à l'offre (402, une Free), ou un état inconnu ; la carte reste alors
+ * neutre. Une vente illisible vaut fausse : jamais un bouton de paiement inventé.
+ */
+export async function lireEtatLigne(tenantId: string): Promise<VueEtatLigne | null> {
+  try {
+    const r = await request<Record<string, unknown> | null>(`/tenants/${tenantId}/credit-whatsapp/etat`);
+    const etat = r?.etat;
+    if (typeof etat !== 'string' || !(ETATS_LIGNE as readonly string[]).includes(etat)) return null;
+    return { etat: etat as EtatLigne, enVente: r?.enVente === true, avecApplication: r?.avecApplication === true };
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 402 || err.status === 404)) return null;
     throw err;
   }
 }

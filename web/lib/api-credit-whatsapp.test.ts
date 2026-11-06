@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ApiError } from './http';
 import {
-  aUneFactureWhatsapp, changerPlacesOption, factureDeLaPlace, getCreditWhatsapp, ouvrirAchatWhatsapp, ouvrirOptionWhatsapp,
+  aUneFactureWhatsapp, changerPlacesOption, factureDeLaPlace, getCreditWhatsapp, lireEtatLigne, ouvrirAchatWhatsapp, ouvrirOptionWhatsapp,
   SANS_OPTION, type LigneCreditWhatsapp,
 } from './api-credit-whatsapp';
 
@@ -34,7 +34,7 @@ describe('getCreditWhatsapp', () => {
       ligneArretee: false,
       historique: [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
       serie: [{ jour: '2026-10-31', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
-      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null, formulePayee: true },
+      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null, formulePayee: true, avecApplication: false },
     };
     const appels = repondre(200, vue);
     expect(await getCreditWhatsapp('t1')).toEqual(vue);
@@ -67,6 +67,16 @@ describe('getCreditWhatsapp', () => {
     for (const formulePayee of [undefined, 'non', null]) {
       repondre(200, { soldeMicroEur: 0, option: { ...option, formulePayee } });
       expect((await getCreditWhatsapp('t1')).option.formulePayee, String(formulePayee)).toBe(true);
+    }
+  });
+
+  it('🔴 les numéros qui gardent tous l’application (lot B, décision 8) : vrai seulement quand le serveur le dit', async () => {
+    const option = { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 0, statut: null, finPrevueLe: null, formulePayee: true };
+    repondre(200, { soldeMicroEur: 0, option: { ...option, avecApplication: true } });
+    expect((await getCreditWhatsapp('t1')).option.avecApplication).toBe(true);
+    for (const avecApplication of [undefined, 'oui', false]) {
+      repondre(200, { soldeMicroEur: 0, option: { ...option, avecApplication } });
+      expect((await getCreditWhatsapp('t1')).option.avecApplication, String(avecApplication)).toBe(false);
     }
   });
 
@@ -117,6 +127,12 @@ describe('l’option : la prendre, changer ses places', () => {
     expect(appels[0]!.corps).toEqual({ places: 3 });
   });
 
+  it('🔴 depuis les cartes « Qui paie vos messages à Meta ? », le corps dit l’origine, pour que Stripe ramène sur Connecter WhatsApp', async () => {
+    const appels = repondre(200, { url: 'https://checkout.stripe.com/c/pay/cs_option' });
+    expect(await ouvrirOptionWhatsapp('t1', 1, 'connecter')).toEqual({ url: 'https://checkout.stripe.com/c/pay/cs_option' });
+    expect(appels[0]!.corps).toEqual({ places: 1, origine: 'connecter' });
+  });
+
   it('🔴 404 (route pas encore déployée) et 503 (prix pas posé) : pas encore disponible ; un autre refus remonte', async () => {
     repondre(404, { message: 'Route not found' });
     expect(await ouvrirOptionWhatsapp('t1', 1)).toEqual({ indisponible: true });
@@ -162,5 +178,30 @@ describe('aUneFactureWhatsapp', () => {
     expect(aUneFactureWhatsapp(ligne({ reference: null }))).toBe(false);
     expect(aUneFactureWhatsapp(ligne({ reference: '' }))).toBe(false);
     expect(aUneFactureWhatsapp(ligne({ raison: 'envois', reference: null, facture: false }))).toBe(false);
+  });
+});
+
+describe('lireEtatLigne : l’état pour les cartes « Qui paie vos messages à Meta ? » (lot B)', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('rend l’état, la vente et les numéros avec l’application tels que le serveur les donne', async () => {
+    const appels = repondre(200, { etat: 'essai', enVente: true, avecApplication: true });
+    expect(await lireEtatLigne('t1')).toEqual({ etat: 'essai', enVente: true, avecApplication: true });
+    expect(appels[0]!.url).toContain('/tenants/t1/credit-whatsapp/etat');
+  });
+
+  it('🔴 un état inconnu, ou une route absente (404) ou fermée à l’offre (402) : rien, la carte reste neutre', async () => {
+    repondre(200, { etat: 'perdu', enVente: true });
+    expect(await lireEtatLigne('t1')).toBeNull();
+    for (const status of [402, 404]) {
+      vi.unstubAllGlobals();
+      repondre(status, { error: 'non' });
+      expect(await lireEtatLigne('t1'), String(status)).toBeNull();
+    }
+  });
+
+  it('🔴 une vente ou des numéros illisibles valent faux : jamais un bouton de paiement inventé', async () => {
+    repondre(200, { etat: 'a_prendre', enVente: 'oui', avecApplication: 1 });
+    expect(await lireEtatLigne('t1')).toEqual({ etat: 'a_prendre', enVente: false, avecApplication: false });
   });
 });

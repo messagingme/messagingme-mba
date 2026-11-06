@@ -921,6 +921,15 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-note-reponse a{color:var(--action-ink)}
 .bt-note-reponse .bt-liens{padding:12px 0 2px}
 .bt-question .bt-note-reponse .bouton-trait{min-width:0;padding:.5em 1em;background:transparent;color:var(--ink);font-size:.9rem;font-weight:600}
+/* Une carte grisée (le Crédit WhatsApp, pas encore en vente en ligne) ne se choisit pas, son bouton non plus, et elle dit
+   pourquoi pour la formule choisie plus haut (`data-pour`). */
+.js .bt-voie-choix.bt-voie-grisee{cursor:default}
+.bt-voie-grisee .bt-voie :is(h4,ul){opacity:.6}
+.bt-voie-choix.bt-voie-grisee:hover .bt-voie{border-color:var(--line)}
+.bt-question .bt-voie-grisee .bouton-trait:disabled,.bt-question .bt-voie-grisee .bouton-trait:disabled:hover{opacity:.45;cursor:not-allowed;border-color:var(--line);background:transparent;color:var(--ink)}
+.bt-grisee{margin:12px 0 0;color:var(--ink);font-size:.95rem;font-weight:600}
+.bt-grisee a{color:var(--action-ink)}
+.js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}
 /* La page « Démarrer » : le titre, puis le tunnel tout de suite dessous. */
 .demarrer-une{gap:8px}
 .demarrer-une .bt-guide{margin:0;max-width:880px}

@@ -187,8 +187,9 @@ export function AbonnementPro({ tenantId, vue }: { tenantId: string; vue: VueOff
         </p>
       )}
       {/* Démarrer maintenant (révision du 2026-11-04, décision 6) : pendant l'essai seulement. Une résiliation programmée
-          a son propre statut et ne le montre pas, le serveur la refuserait. */}
-      {a.statut === 'essai' && (
+          a son propre statut et ne le montre pas, le serveur la refuserait. Le tarif lu d'abord (ou illisible : la grille),
+          pour que la confirmation dise toujours le prix (jaune 9 de la relecture du lot A5). */}
+      {a.statut === 'essai' && tarif !== undefined && (
         <div className="mt-3">
           <DemarrerPro
             tenantId={tenantId}
@@ -202,8 +203,8 @@ export function AbonnementPro({ tenantId, vue }: { tenantId: string; vue: VueOff
       {demarrage === 'paye' && (
         <div className="mt-3">
           <MbaNotice kind="success" testid="offre-demarrage-paye">
-            {t('Votre formule Pro a démarré : le premier paiement est fait. Sa facture est plus bas sur cette page.',
-              'Your Pro plan has started: the first payment is made. Its invoice is further down this page.')}
+            {t('Votre formule Pro a démarré : le premier paiement est fait. Sa facture s’ajoute à vos factures, rechargez la page pour la voir.',
+              'Your Pro plan has started: the first payment is made. Its invoice is added to your invoices, reload the page to see it.')}
           </MbaNotice>
         </div>
       )}

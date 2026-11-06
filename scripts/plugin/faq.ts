@@ -9,6 +9,7 @@
  */
 import { DROITS, PRIX_SIEGE_BUSINESS_HT_CENTIMES, PRIX_SIEGE_HT_CENTIMES } from '../../src/offres/offres';
 import { PRIX_NUMERO_HT_CENTIMES } from '../../src/stripe/abonnement';
+import { PRIX_OPTION_WA_HT_CENTIMES } from '../../src/stripe/option-credit-whatsapp';
 import { ETAPES_CARTE_META, PREREQUIS_META } from '../../web/lib/partage/etapes-meta';
 import { DUREE_CODE_MS } from '../../src/campaign/confirmation';
 import { NOMS_DU_RECAPITULATIF } from '../../src/mcp/outils-campagnes';
@@ -28,6 +29,10 @@ const prix = (centimes: number, langue: 'fr' | 'en'): string => {
 };
 const NUMERO_FR = `${prix(PRIX_NUMERO_HT_CENTIMES, 'fr')} par mois`;
 const NUMERO_EN = `${prix(PRIX_NUMERO_HT_CENTIMES, 'en')} a month`;
+/** L'option Crédit WhatsApp (révision du 2026-11-04, lot B), par numéro et par mois, sans centimes quand il n'y en a pas. */
+const sansCentimes = (s: string): string => s.replace(/[,.]00(?= )/, '');
+const OPTION_WA_FR = `${sansCentimes(prix(PRIX_OPTION_WA_HT_CENTIMES, 'fr'))} par numéro et par mois`;
+const OPTION_WA_EN = `${sansCentimes(prix(PRIX_OPTION_WA_HT_CENTIMES, 'en'))} per number per month`;
 const nombre = (n: number, langue: 'fr' | 'en'): string =>
   langue === 'fr' ? n.toLocaleString('fr-FR').replace(/\u202f/g, ' ') : n.toLocaleString('en-US');
 /** Les modèles par mois d'une offre, dits depuis `DROITS` : `null` (sans limite) se dit, il ne devient jamais « 0 ». */
@@ -72,10 +77,10 @@ export const FAQ: readonly EntreeFaq[] = [
     id: 'api-ou-application',
     question: { fr: 'Quel numéro WhatsApp prendre ?', en: 'Which WhatsApp number should I use?' },
     reponse: {
-      fr: `Votre numéro passe par l’API officielle, relié par Meta. Il écrit en premier (modèles, confirmations, rappels, campagnes, messages Shopify), et Meta facture les modèles et, au-delà d’une franchise mensuelle, les réponses, sur un moyen de paiement chez Meta. Claude vous pose les questions une par une. Votre offre : Free ou Pro. Avez-vous un compte Meta Business ? Oui : un numéro libre, qui ne sert ni dans WhatsApp ni dans l’application WhatsApp Business, ou un numéro fourni (${NUMERO_FR}${INCLUS_FR}) ; s’il est déjà dans l’application WhatsApp Business, vous pouvez la garder. Non, ou vous ne savez pas : avez-vous déjà l’application WhatsApp Business ? Oui, vous la gardez. Non : il faudra la télécharger ; avez-vous déjà un numéro que vous pourriez utiliser ? Oui, vous l’y mettez ; non, nous vous en fournissons un, qui va dans l’application. La fenêtre de Meta crée le compte en chemin.`,
-      en: `Your number goes through the official API, connected through Meta. It writes first (templates, confirmations, reminders, campaigns, Shopify messages), and Meta bills the templates and, beyond a monthly allowance, the replies, on a payment method at Meta. Claude asks you the questions one at a time. Your plan: Free or Pro. Do you have a Meta Business account? Yes: an available number, used neither in WhatsApp nor in the WhatsApp Business app, or a provided number (${NUMERO_EN}${INCLUS_EN}); if it is already in the WhatsApp Business app, you can keep it. No, or you do not know: do you already have the WhatsApp Business app? Yes, you keep it. No: you will need to download it; do you already have a number you could use? Yes, you put it in the app; no, we provide one, which goes in the app. Meta’s window creates the account along the way.`,
+      fr: `Votre numéro passe par l’API officielle, relié par Meta. Il écrit en premier (modèles, confirmations, rappels, campagnes, messages Shopify), et Meta facture les modèles et, au-delà d’une franchise mensuelle, les réponses, sur un moyen de paiement chez Meta. Claude vous pose les questions une par une. Votre offre : Free ou Pro. Qui paie vos messages à Meta ? Votre carte chez Meta, ou le Crédit WhatsApp, prépayé chez Messaging Me (${OPTION_WA_FR}, avec la formule Pro ou Business), qui se prend sur demande. Avez-vous un compte Meta Business ? Oui : un numéro libre, qui ne sert ni dans WhatsApp ni dans l’application WhatsApp Business, ou un numéro fourni (${NUMERO_FR}${INCLUS_FR}) ; s’il est déjà dans l’application WhatsApp Business, vous pouvez la garder. Non, ou vous ne savez pas : avez-vous déjà l’application WhatsApp Business ? Oui, vous la gardez. Non : il faudra la télécharger ; avez-vous déjà un numéro que vous pourriez utiliser ? Oui, vous l’y mettez ; non, nous vous en fournissons un, qui va dans l’application. La fenêtre de Meta crée le compte en chemin.`,
+      en: `Your number goes through the official API, connected through Meta. It writes first (templates, confirmations, reminders, campaigns, Shopify messages), and Meta bills the templates and, beyond a monthly allowance, the replies, on a payment method at Meta. Claude asks you the questions one at a time. Your plan: Free or Pro. Who pays Meta for your messages? Your card at Meta, or WhatsApp credit, prepaid at Messaging Me (${OPTION_WA_EN}, with the Pro or Business plan), available on request. Do you have a Meta Business account? Yes: an available number, used neither in WhatsApp nor in the WhatsApp Business app, or a provided number (${NUMERO_EN}${INCLUS_EN}); if it is already in the WhatsApp Business app, you can keep it. No, or you do not know: do you already have the WhatsApp Business app? Yes, you keep it. No: you will need to download it; do you already have a number you could use? Yes, you put it in the app; no, we provide one, which goes in the app. Meta’s window creates the account along the way.`,
     },
-    source: 'l’arbre du numéro de Julien du 2026-10-30 (scripts/vitrine/tunnel-textes.ts), repris par la console (web/lib/questions-numero.ts) et la skill mise-en-service ; src/stripe/abonnement.ts',
+    source: 'l’arbre du numéro de Julien du 2026-10-30 et sa question du paiement du 2026-11-06 (scripts/vitrine/tunnel-textes.ts), repris par la console (web/lib/questions-numero.ts) et la skill mise-en-service ; src/stripe/abonnement.ts ; src/stripe/option-credit-whatsapp.ts',
   },
   {
     id: 'compte-meta',

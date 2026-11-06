@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
 import { FAQ } from '../scripts/plugin/faq';
 import {
-  ISSUE_API, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_NUMERO,
+  ISSUE_API, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE,
+  QUESTION_NUMERO, QUESTION_PAIEMENT,
 } from '../web/lib/questions-numero';
 
 /**
@@ -20,6 +21,30 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
     const v = TEXTES_TUNNEL[langue];
     const question = (id: string) => v.questions.find((q) => q.id === id)!;
     const issue = (id: string) => v.issues.find((x) => x.id === id)!;
+
+    it(`${langue} : « Qui paie vos messages à Meta ? » juste après l’offre ; la carte chez Meta mène à l’arbre, le Crédit WhatsApp grisé`, () => {
+      // Révision du Crédit WhatsApp, lot B (Julien, 2026-11-06) : Free et Pro y mènent ; Business et Entreprise, comme avant,
+      // à l'échange.
+      const offre = question('offre');
+      expect(offre.reponses.filter((r) => r.offre === 'free' || r.offre === 'pro').map((r) => r.vers)).toEqual(['paiement', 'paiement']);
+      const q = question('paiement');
+      expect(QUESTION_PAIEMENT.texte[langue]).toBe(texte(q.texte));
+      expect(QUESTION_PAIEMENT.precision[langue]).toBe(texte(q.precision!));
+      const cartes = [QUESTION_PAIEMENT.carte, QUESTION_PAIEMENT.credit];
+      expect(q.voies!.map((x) => texte(x.titre))).toEqual(cartes.map((c) => c.titre[langue]));
+      expect(q.voies!.map((x) => texte(x.plus[0]!))).toEqual(cartes.map((c) => c.texte[langue]));
+      expect(q.reponses.map((r) => r.libelle)).toEqual(cartes.map((c) => c.titre[langue]));
+      expect(q.reponses[0]!.vers).toBe('compte');
+      // Grisée tant que la vente n'est pas ouverte : en Free, avec la formule Pro ; en Pro, sur demande, et sur la vitrine
+      // « écrivez-nous » mène à la page Contact.
+      const g = q.reponses[1]!.grisee!;
+      expect({ free: texte(g.free!), pro: texte(g.pro!) }).toEqual({ free: QUESTION_PAIEMENT.grisee.free[langue], pro: QUESTION_PAIEMENT.grisee.pro[langue] });
+      expect(g.pro).toContain(`href="${langue === 'fr' ? '/contact/' : '/en/contact/'}"`);
+    });
+
+    it(`${langue} : les voies qui gardent l’application disent qu’on y paie Meta avec sa carte`, () => {
+      for (const id of ['garder', 'telecharger', 'fourni']) expect(issue(id).textes.map(texte), id).toContain(NOTE_CARTE_APPLICATION[langue]);
+    });
 
     it(`${langue} : « Avez-vous un compte Meta Business ? », ses trois réponses et leurs notes`, () => {
       const q = question('compte');
@@ -89,7 +114,7 @@ describe('le plugin pose les mêmes questions, sans QR code', () => {
 
   it('🔴 la skill de mise en service : l’offre, le compte Meta Business, puis l’application, dans cet ordre', () => {
     const skill = lire('plugin/skills/mise-en-service/SKILL.md');
-    const rangs = ['**The plan: Free or Pro?**', `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
+    const rangs = ['**The plan: Free or Pro?**', `**"${q('paiement')}"**`, `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
     expect(rangs.every((r) => r > 0), rangs.join(',')).toBe(true);
     expect([...rangs].sort((a, b) => a - b)).toEqual(rangs);
     // Le numéro trop neuf se dit sans chiffre, et le QR code n'est plus nommé que pour dire qu'il n'est plus proposé.

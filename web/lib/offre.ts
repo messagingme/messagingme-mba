@@ -327,6 +327,27 @@ export function phraseFormulePro(
   return prixHtCentimes === null ? t('Mensuel', 'Monthly') : t(`Mensuel, ${euros(prixHtCentimes)} HT par mois`, `Monthly, ${euros(prixHtCentimes)} excl. VAT a month`);
 }
 
+/**
+ * POURQUOI L'OPTION CRÉDIT WHATSAPP ATTEND (révision du 2026-11-04) : la formule de l'espace n'est pas encore payée, hors de
+ * l'essai du Pro, qui propose de la démarrer maintenant. L'onglet Crédit WhatsApp et la carte « Crédit WhatsApp »
+ * (`QuiRegleMeta`) le disent avec les mêmes mots. Un Pro en retard de paiement : « le dernier paiement », vrai à la
+ * première échéance comme à un renouvellement (jaune 7 de la relecture du lot A5).
+ */
+export function raisonAttenteOption(
+  offre: NomOffre | undefined, statut: StatutAbonnementPro | undefined, t: (fr: string, en: string) => string,
+): string {
+  if (offre === 'business') return t('Il s’ouvre dès que votre formule Business est confirmée, à la fin de son essai.', 'It opens as soon as your Business plan is confirmed, at the end of its trial.');
+  if (statut === 'resiliation_programmee') {
+    return t('Votre formule Pro est programmée pour s’arrêter : annulez la résiliation dans l’onglet Offre pour pouvoir la démarrer maintenant.',
+      'Your Pro plan is set to stop: cancel the cancellation in the Plan tab to be able to start it now.');
+  }
+  if (statut === 'en_retard') {
+    return t('Le dernier paiement de votre formule Pro n’est pas passé : il s’ouvre une fois la formule réglée. Mettez à jour votre carte dans l’onglet Offre.',
+      'The last payment of your Pro plan did not go through: it opens once the plan is paid. Update your card in the Plan tab.');
+  }
+  return t('Il s’ouvre avec le premier paiement de votre formule.', 'It opens with the first payment of your plan.');
+}
+
 /** Le nom de l'offre, tel que l'écran le montre. */
 export function nomDeLOffre(o: NomOffre, t: (fr: string, en: string) => string): string {
   return o === 'free' ? t('Free', 'Free') : o === 'pro' ? t('Pro', 'Pro') : o === 'business' ? t('Business', 'Business') : t('Entreprise', 'Enterprise');

@@ -1,5 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import { estAccesSuspendu, lireRefusOffre, lireSiegeRequis, lireVueOffre, offreQuiOuvre, phraseFormulePro, phraseInclusDans, phraseSansAdresse, FONCTIONS_OFFRE } from './offre';
+import { estAccesSuspendu, lireRefusOffre, lireSiegeRequis, lireVueOffre, offreQuiOuvre, phraseFormulePro, phraseInclusDans, phraseSansAdresse, raisonAttenteOption, FONCTIONS_OFFRE } from './offre';
+
+describe('raisonAttenteOption : pourquoi l’option Crédit WhatsApp attend, dit pareil par l’onglet et la carte', () => {
+  const fr = (f: string): string => f;
+  it('un Business attend sa confirmation ; un Pro, sa résiliation annulée, son paiement réglé, ou son premier paiement', () => {
+    expect(raisonAttenteOption('business', undefined, fr)).toMatch(/dès que votre formule Business est confirmée/);
+    expect(raisonAttenteOption('pro', 'resiliation_programmee', fr)).toMatch(/annulez la résiliation/);
+    expect(raisonAttenteOption('pro', 'essai', fr)).toBe('Il s’ouvre avec le premier paiement de votre formule.');
+  });
+  it('🔴 un Pro en retard de paiement : « le dernier paiement », vrai hors de l’essai aussi (jaune 7 de la relecture du lot A5)', () => {
+    const r = raisonAttenteOption('pro', 'en_retard', fr);
+    expect(r).toMatch(/^Le dernier paiement de votre formule Pro n’est pas passé/);
+    expect(r).not.toMatch(/premier|essai/);
+  });
+});
 
 describe('phraseFormulePro : la formule et son prix, dits comme l’abonnement les dit', () => {
   const fr = (f: string): string => f;

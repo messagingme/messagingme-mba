@@ -357,11 +357,11 @@
     <div class="cadre">
       <p class="f-surtitre">Votre numéro WhatsApp</p>
       <h2 class="f-titre">Votre branchement <span class="sec-accent">commence ici.</span></h2>
-      <p class="f-texte">En quatre questions au plus, sur votre formule, votre compte Meta Business, votre application WhatsApp Business et votre numéro, vous savez quoi faire.</p>
+      <p class="f-texte">En cinq questions au plus, sur votre formule, qui paie Meta, votre compte Meta Business, votre application WhatsApp Business et votre numéro, vous savez quoi faire.</p>
       <div class="bt-guide" data-guide-numero>
         <div class="bt-tunnel">
-          <div class="bt-progression" data-progression="Question {n} sur 4 au plus" data-max="4" data-fin="Votre chemin" hidden>
-            <p class="bt-etape" data-etape>Question 1 sur 4 au plus</p>
+          <div class="bt-progression" data-progression="Question {n} sur 5 au plus" data-max="5" data-fin="Votre chemin" hidden>
+            <p class="bt-etape" data-etape>Question 1 sur 5 au plus</p>
             <div class="bt-piste" aria-hidden="true"><span class="bt-jauge" data-jauge></span></div>
           </div>
           <div class="bt-questions" hidden>
@@ -378,7 +378,7 @@
                     <li class="bt-moins"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg><span class="bt-sr">Contre&nbsp;: </span>100 contacts et 1&nbsp;000 messages envoyés par mois.</li>
                   </ul>
                 </section>
-                <button type="button" class="bouton bouton-trait" data-vers="compte" data-offre="free" aria-pressed="false">Free</button>
+                <button type="button" class="bouton bouton-trait" data-vers="paiement" data-offre="free" aria-pressed="false">Free</button>
               </div>
               <div class="bt-voie-choix">
                 <section class="bt-voie">
@@ -390,7 +390,7 @@
                     <li class="bt-moins"><svg class="ic" aria-hidden="true"><use href="#i-x"/></svg><span class="bt-sr">Contre&nbsp;: </span>Une carte demandée dès l’essai.</li>
                   </ul>
                 </section>
-                <button type="button" class="bouton bouton-trait" data-vers="compte" data-offre="pro" aria-pressed="false">Pro</button>
+                <button type="button" class="bouton bouton-trait" data-vers="paiement" data-offre="pro" aria-pressed="false">Pro</button>
               </div>
               <div class="bt-voie-choix">
                 <section class="bt-voie">
@@ -418,6 +418,31 @@
             <div class="bt-fleches"><button type="button" class="bt-fleche" data-defiler="-1" aria-label="Formules précédentes"><svg class="ic" aria-hidden="true"><use href="#i-caret-left"/></svg></button><button type="button" class="bt-fleche" data-defiler="1" aria-label="Formules suivantes"><svg class="ic" aria-hidden="true"><use href="#i-caret-left"/></svg></button></div>
             <div class="bt-reponses"><button type="button" class="bouton bouton-texte" data-aide aria-expanded="false">Je ne sais pas</button></div>
             <p class="bt-aide" hidden>Free se pilote uniquement depuis un agent IA comme Claude Code ou Codex&nbsp;: sans lui, Free ne marche pas. Sans agent IA, choisissez Pro&nbsp;: la console, pour vous et votre équipe, avec un numéro fourni.</p>
+          </fieldset>
+          <fieldset class="bt-question" data-question="paiement" aria-describedby="voies-paiement" hidden>
+            <legend>Qui paie vos messages à Meta&nbsp;?<span class="bt-precision">Meta facture chaque modèle que vous envoyez.</span></legend>
+            <div class="bt-voies" id="voies-paiement">
+              <div class="bt-voie-choix">
+                <section class="bt-voie">
+                  <h4>Ma carte chez Meta</h4>
+                  <ul>
+                    <li class="bt-plus"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span class="bt-sr">Pour&nbsp;: </span>Vous enregistrez votre carte bancaire chez Meta, qui vous facture vos modèles.</li>
+                  </ul>
+                </section>
+                <button type="button" class="bouton bouton-trait" data-vers="compte" aria-pressed="false">Ma carte chez Meta</button>
+              </div>
+              <div class="bt-voie-choix bt-voie-grisee">
+                <section class="bt-voie">
+                  <h4>Crédit WhatsApp</h4>
+                  <ul>
+                    <li class="bt-plus"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span class="bt-sr">Pour&nbsp;: </span>Vous prépayez vos messages chez Messaging Me, sans carte chez Meta&nbsp;: 30&nbsp;€ HT par numéro et par mois, avec la formule Pro ou Business.</li>
+                  </ul>
+                  <p class="bt-grisee" data-pour="free">Avec la formule Pro.</p>
+                  <p class="bt-grisee" data-pour="pro">Sur demande&nbsp;: <a href="/contact/">écrivez-nous</a>.</p>
+                </section>
+                <button type="button" class="bouton bouton-trait" disabled>Crédit WhatsApp</button>
+              </div>
+            </div>
           </fieldset>
           <fieldset class="bt-question" data-question="compte" hidden>
             <legend>Avez-vous un compte Meta Business&nbsp;?<span class="bt-precision">L’ancien Business Manager&nbsp;: le compte de votre entreprise chez Meta.</span></legend>
@@ -462,6 +487,7 @@
           <h3>Gardez votre application WhatsApp Business</h3>
           <p>Votre numéro reste dans l’application et envoie aussi depuis Messaging Me&nbsp;: vous répondez toujours depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.</p>
           <p>Pas de compte Meta Business&nbsp;? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement. Meta facture les messages partis de Messaging Me, réponses comprises au-delà d’une franchise mensuelle&nbsp;; ceux que vous tapez dans l’application restent gratuits.</p>
+          <p>Vous payez Meta avec votre carte&nbsp;: le Crédit WhatsApp n’est pas possible avec l’application.</p>
           <p>Quelques fonctions de l’application s’arrêtent, comme les listes de diffusion et le message d’absence, et il faut l’ouvrir au moins toutes les deux semaines. Ce que vous y tapez n’apparaît pas dans Messaging Me&nbsp;: votre agent IA ne voit pas vos réponses.</p>
           <div class="bt-appels" data-offre="free">
             <p class="bt-appels-titre">En formule Free, depuis votre assistant IA</p>
@@ -481,6 +507,7 @@
           <h3>Téléchargez l’application WhatsApp Business</h3>
           <p>Installez l’application WhatsApp Business sur un téléphone, avec le numéro de votre entreprise, puis branchez-le tout de suite en gardant l’application&nbsp;: votre numéro reste sur votre téléphone et envoie aussi depuis Messaging Me.</p>
           <p>Pas de compte Meta Business&nbsp;? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement.</p>
+          <p>Vous payez Meta avec votre carte&nbsp;: le Crédit WhatsApp n’est pas possible avec l’application.</p>
           <p>Meta refuse parfois un numéro trop neuf&nbsp;: servez-vous alors de l’application quelques jours, puis revenez le brancher.</p>
           <p class="bt-liens"><a class="bouton bouton-trait" href="https://apps.apple.com/app/whatsapp-business/id1386412985" rel="noopener"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>App Store (iPhone)</a><a class="bouton bouton-trait" href="https://play.google.com/store/apps/details?id=com.whatsapp.w4b" rel="noopener"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"/></svg>Google Play (Android)</a></p>
           <div class="bt-appels" data-offre="free">
@@ -502,6 +529,7 @@
           <p>Installez l’application WhatsApp Business sur votre téléphone et créez-y votre compte avec le numéro que nous vous fournissons, 3,50&nbsp;€ HT par mois en formule Free, inclus en formule Pro&nbsp;: son code de vérification s’affiche sur la page de Messaging Me.</p>
           <p>Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.</p>
           <p>Pas de compte Meta Business&nbsp;? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement.</p>
+          <p>Vous payez Meta avec votre carte&nbsp;: le Crédit WhatsApp n’est pas possible avec l’application.</p>
           <p>Meta refuse souvent un numéro tout neuf&nbsp;: l’envoi de vos messages depuis Messaging Me attend alors quelques jours, le temps de revenir le brancher, et vous répondez à vos clients depuis l’application en attendant.</p>
           <p class="bt-liens"><a class="bouton bouton-trait" href="https://apps.apple.com/app/whatsapp-business/id1386412985" rel="noopener"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>App Store (iPhone)</a><a class="bouton bouton-trait" href="https://play.google.com/store/apps/details?id=com.whatsapp.w4b" rel="noopener"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594zM1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924zm12.207 10.065l3.258-3.238L3.45.195a1.466 1.466 0 0 0-.946-.179l11.04 10.973zm0 2.067l-11 10.933c.298.036.612-.016.906-.183l13.324-7.54-3.23-3.21z"/></svg>Google Play (Android)</a></p>
           <div class="bt-appels" data-offre="free">

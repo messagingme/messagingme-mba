@@ -450,6 +450,26 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option pendant un es
     await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
   });
 
+  test('🔴 démarrée et payée, une prise encore refusée (la formule pas encore écrite) : « Démarrer » ne revient pas (jaune 11 de la relecture du lot A5)', async ({ page }) => {
+    const m = await monter(page, {
+      vues: [OPTION_EN_ESSAI], vueOffre: EN_ESSAI,
+      option: { status: 409, body: { error: 'Le Crédit WhatsApp s’ouvre avec votre formule payée.', code: 'formule_non_payee' } },
+    });
+    await page.goto('/offre?tab=whatsapp');
+    await page.getByTestId('credit-wa-option-demarrer').click();
+    await repondre(page, true);
+    await expect(page.getByTestId('credit-wa-option-demarree')).toContainText('Votre formule Pro démarre');
+    await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
+    expect([m.demarrages(), m.options]).toEqual([1, [{ places: 1 }]]);
+  });
+
+  test('🔴 tous les numéros gardent l’application : l’avertissement avant « Prendre l’option » (décision 8)', async ({ page }) => {
+    await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: true, avecApplication: true } })], vueOffre: EN_ESSAI });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-avertissement')).toContainText('le Crédit WhatsApp n’est pas possible avec l’application');
+    await expect(page.getByTestId('credit-wa-option-prendre')).toBeVisible();
+  });
+
   test('🔴 la formule payée : « Prendre l’option », sans explication de l’essai', async ({ page }) => {
     await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: true } })], vueOffre: EN_ESSAI });
     await page.goto('/offre?tab=whatsapp');

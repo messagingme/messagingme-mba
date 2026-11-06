@@ -10,9 +10,10 @@ import {
   aUneFactureWhatsapp, changerPlacesOption, factureDeLaPlace, getCreditWhatsapp, ouvrirAchatWhatsapp, ouvrirOptionWhatsapp,
   type LigneCreditWhatsapp, type OffreWhatsapp, type OptionCreditWhatsapp, type VueCreditWhatsapp,
 } from '@/lib/api-credit-whatsapp';
-import { lireTarifPro, portailPro, type TarifPro } from '@/lib/api/offre';
-import { phraseFormulePro } from '@/lib/offre';
-import { relireOffre, useOffre } from '@/lib/use-offre';
+import { portailPro } from '@/lib/api/offre';
+import { raisonAttenteOption } from '@/lib/offre';
+import { AVERTISSEMENT_APPLICATION } from '@/lib/questions-numero';
+import { relireOffre, useFormuleProADemarrer, useOffre } from '@/lib/use-offre';
 import { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR, SOLDE_REPRISE_CREDIT_MICRO_EUR } from '@/lib/partage/credit-whatsapp';
 import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { erreurDeChargement } from '@/lib/http';
@@ -439,27 +440,16 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   const vueOffre = useOffre(tenantId);
   const abonnement = vueOffre?.abonnement ?? null;
   const essaiPro = attend && vueOffre?.offre === 'pro' && abonnement?.statut === 'essai';
-  // Le tarif réel de l'abonné (un code promo le baisse) pour la confirmation ; la grille sert tant qu'il n'est pas lu.
-  const [tarif, setTarif] = useState<TarifPro | null>(null);
-  useEffect(() => {
-    if (!essaiPro) return;
-    let actif = true;
-    lireTarifPro(tenantId).then((r) => { if (actif) setTarif(r); }).catch(() => undefined);
-    return () => { actif = false; };
-  }, [tenantId, essaiPro]);
+  // Le tarif réel de l'abonné (un code promo le baisse) pour la confirmation, lu pour un administrateur seulement (jaune 14
+  // de la relecture du lot A5) ; la grille sert tant qu'il n'est pas lu. La carte « Crédit WhatsApp » dit la même chose.
+  const formulePro = useFormuleProADemarrer(tenantId, vueOffre, essaiPro && admin);
   const [demarrageEnAttente, setDemarrageEnAttente] = useState(false);
-  const prixGrille = abonnement && vueOffre?.prixPro
-    ? (abonnement.periodicite === 'an' ? vueOffre.prixPro.anCentimes : vueOffre.prixPro.moisCentimes) : null;
-  const formulePro = abonnement === null ? null : phraseFormulePro(abonnement.periodicite, tarif?.proHtCentimes ?? prixGrille, t, locale);
-  const raisonAttente = vueOffre?.offre === 'business'
-    ? t('Il s’ouvre dès que votre formule Business est confirmée, à la fin de son essai.', 'It opens as soon as your Business plan is confirmed, at the end of its trial.')
-    : abonnement?.statut === 'resiliation_programmee'
-      ? t('Votre formule Pro est programmée pour s’arrêter : annulez la résiliation dans l’onglet Offre pour pouvoir la démarrer maintenant.',
-        'Your Pro plan is set to stop: cancel the cancellation in the Plan tab to be able to start it now.')
-      : abonnement?.statut === 'en_retard'
-        ? t('Le premier paiement de votre formule Pro n’est pas passé : il s’ouvre une fois la formule réglée. Mettez à jour votre carte dans l’onglet Offre.',
-          'The first payment of your Pro plan did not go through: it opens once the plan is paid. Update your card in the Plan tab.')
-        : t('Il s’ouvre avec le premier paiement de votre formule.', 'It opens with the first payment of your plan.');
+  /**
+   * Démarrée et payée : la formule s'écrit chez nous en quelques secondes. « Démarrer » ne revient pas entre-temps, même
+   * si la prise de l'option est refusée tant qu'elle n'est pas écrite (jaune 11 de la relecture du lot A5).
+   */
+  const [demarree, setDemarree] = useState(false);
+  const raisonAttente = raisonAttenteOption(vueOffre?.offre, abonnement?.statut, t);
 
   /** Le nombre de numéros de l'option : avant de la prendre, ou avant de démarrer la formule Pro qui y mène. */
   const choixPlaces = (
@@ -478,8 +468,10 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
 
   /** Après le démarrage de la formule Pro : un paiement fait enchaîne sur l'option ; sinon l'offre et l'onglet sont relus. */
   async function apresDemarrage(paye: boolean): Promise<void> {
-    if (paye) await prendre();
-    else setDemarrageEnAttente(true);
+    if (paye) {
+      setDemarree(true);
+      await prendre();
+    } else setDemarrageEnAttente(true);
     // Encore ici (un paiement en cours, ou une prise refusée) : l'écran suit l'offre et l'onglet relus.
     await relireOffre(tenantId).catch(() => undefined);
     await relire().catch(() => undefined);
@@ -561,7 +553,7 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
       )}
       {retour === 'abandon' && !prise && (
         <MbaNotice kind="warning" testid="credit-wa-option-abandon">
-          {t('Paiement abandonné : rien n’a été débité.', 'Payment cancelled: nothing was charged.')}
+          {t('Paiement de l’option abandonné : rien n’a été débité pour l’option.', 'Option payment cancelled: nothing was charged for the option.')}
         </MbaNotice>
       )}
 
@@ -580,10 +572,18 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
       {!prise && !enAttenteDuRetour && attend && (
         <div className="mt-3 space-y-3" data-testid="credit-wa-option-essai">
           <p className="text-sm text-ink-700">
-            {t('Le Crédit WhatsApp, vos messages payés chez Messaging Me sans carte chez Meta, vient avec la formule payante. Pendant l’essai, vous connectez votre numéro avec votre carte chez Meta, qui vous facture vos modèles.',
-              'WhatsApp credit, your messages paid at Messaging Me with no card at Meta, comes with the paid plan. During the trial, you connect your number with your card at Meta, which bills your templates.')}
+            {t('Le Crédit WhatsApp, vos messages payés chez Messaging Me sans carte chez Meta, vient avec la formule payante.',
+              'WhatsApp credit, your messages paid at Messaging Me with no card at Meta, comes with the paid plan.')}
+            {/* Hors de l'essai (un paiement en retard), pas d'essai à évoquer (jaune 7 de la relecture du lot A5). */}
+            {abonnement?.statut !== 'en_retard' && ` ${t('Pendant l’essai, vous connectez votre numéro avec votre carte chez Meta, qui vous facture vos modèles.',
+              'During the trial, you connect your number with your card at Meta, which bills your templates.')}`}
           </p>
-          {essaiPro ? (
+          {essaiPro && demarree ? (
+            <p className="text-sm text-ink-700" data-testid="credit-wa-option-demarree">
+              {t('Votre formule Pro démarre : l’option s’ouvre dans quelques secondes. Rechargez la page si elle tarde.',
+                'Your Pro plan is starting: the option opens in a few seconds. Reload the page if it takes a while.')}
+            </p>
+          ) : essaiPro ? (
             <>
               <p className="text-sm text-ink-700">
                 {t('Il s’ouvre à la fin de l’essai, ou tout de suite si vous démarrez votre formule Pro maintenant.',
@@ -620,6 +620,10 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
               'Your trial is over and the first payment of your Pro plan is being processed by your bank, which confirms it within a few days.')}
           </MbaNotice>
         </div>
+      )}
+      {/* Tous les numéros gardent l'application : ils restent sur la carte chez Meta (décision 8), dit avant de payer. */}
+      {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && !attend && option.avecApplication && (
+        <p className="mt-3 text-sm text-alerte-700" data-testid="credit-wa-option-avertissement">{t(AVERTISSEMENT_APPLICATION.fr, AVERTISSEMENT_APPLICATION.en)}</p>
       )}
       {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && !attend && (
         <div className="mt-3 flex flex-wrap items-end gap-3">

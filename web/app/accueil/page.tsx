@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { RcsChannelCard, useCanalRcs } from '@/components/RcsChannelCard';
 import { CanauxServices } from '@/components/CanauxServices';
+import { QuiRegleMeta } from '@/components/QuiRegleMeta';
 import { LogoHubSpot } from '@/components/LogosCanaux';
 import { Toggle } from '@/components/Toggle';
 import type { Session } from '@/lib/session';
@@ -594,6 +595,9 @@ function AccueilInner({ session }: { session: Session }) {
                   )}
                 </p>
               )}
+              {/* Qui paie vos messages à Meta ? (révision du Crédit WhatsApp, lot B) : la carte chez Meta mène au guide de
+                  Connecter WhatsApp, le Crédit WhatsApp dit ce que l'état de l'espace permet. */}
+              <QuiRegleMeta tenantId={session.tenantId} admin={isAdmin} lieu="accueil" />
               <ConnectNumberZone isAdmin={isAdmin} connexion={connexionNumero} tenantId={session.tenantId} onConnecte360={recharger360} />
               {/* 🔴 Le compte peut revenir de la fenêtre Meta SANS numéro (lot 3b) : l'espace n'a toujours pas de
                   numéro, donc c'est cette branche qui s'affiche, et l'avertissement qui dit quoi faire doit y être.

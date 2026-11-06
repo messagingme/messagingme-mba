@@ -49,26 +49,34 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
   const a = n.appels;
   const max = profondeurTunnel(n.questions);
   const progression = n.progression.replace('{max}', String(max));
-  const bouton = (q: Question, r: Reponse, k: number) => (r.vers
+  // Une réponse grisée (le Crédit WhatsApp, pas encore en vente en ligne) : un bouton qui ne se choisit pas, et sa carte
+  // dit pourquoi.
+  const bouton = (q: Question, r: Reponse, k: number) => (r.grisee
+    ? `<button type="button" class="bouton bouton-trait" disabled>${r.libelle}</button>`
+    : r.vers
     ? `<button type="button" class="bouton bouton-trait" data-vers="${r.vers}"${r.offre ? ` data-offre="${r.offre}"` : ''}${r.note ? ` data-note="note-${q.id}-${k}"` : ''} aria-pressed="false">${r.libelle}</button>`
     : `<button type="button" class="bouton bouton-texte" data-aide aria-expanded="false">${r.libelle}</button>`);
   const ligne = (classe: string, icone: string, sr: string) => (x: string) =>
     `                    <li class="${classe}"><svg class="ic" aria-hidden="true"><use href="#${icone}"/></svg><span class="bt-sr">${sr} </span>${x}</li>`;
-  const voie = (v: Voie) => [
+  // La raison d'une carte grisée, une par formule : seule celle de la formule choisie plus haut s'affiche (`data-pour`,
+  // la règle de `site.css`).
+  const voie = (v: Voie, r: Reponse) => [
     '                <section class="bt-voie">',
     `                  <h4>${v.titre}</h4>`,
     '                  <ul>',
     ...v.plus.map(ligne('bt-plus', 'i-check', n.plus)),
     ...v.moins.map(ligne('bt-moins', 'i-x', n.moins)),
     '                  </ul>',
+    ...Object.entries(r.grisee ?? {}).map(([offre, raison]) => `                  <p class="bt-grisee" data-pour="${offre}">${raison}</p>`),
     '                </section>',
   ];
   // Une question à cartes : sous chaque carte, la réponse de même rang ; ce qui reste (« Je ne sais pas ») vient dessous.
   const reponses = (q: Question): string[] => {
     const toutes = q.reponses.map((r, k) => ({ r, k }));
     if (!q.voies) return [`            <div class="bt-reponses">${toutes.map(({ r, k }) => bouton(q, r, k)).join('')}</div>`];
-    const menent = toutes.filter(({ r }) => r.vers);
-    const autres = toutes.filter(({ r }) => !r.vers);
+    // Une réponse grisée a sa carte, comme une réponse qui mène quelque part.
+    const menent = toutes.filter(({ r }) => r.vers || r.grisee);
+    const autres = toutes.filter(({ r }) => !r.vers && !r.grisee);
     if (menent.length !== q.voies.length) throw new Error(`tunnel : ${q.id} a ${q.voies.length} cartes et ${menent.length} réponses qui mènent quelque part`);
     // Plus de deux cartes : un carrousel sur le bureau (Julien, 2026-10-30 : « un carousel sur ordi, pas 2 rangées »), ses
     // flèches (`data-defiler`), et les cartes l'une sous l'autre au téléphone.
@@ -77,7 +85,9 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
       `<button type="button" class="bt-fleche" data-defiler="${sens}" aria-label="${libelle}"><svg class="ic" aria-hidden="true"><use href="#i-caret-left"/></svg></button>`;
     return [
       `            <div class="bt-voies${carrousel ? ' bt-carrousel' : ''}" id="voies-${q.id}">`,
-      ...q.voies.flatMap((v, i) => ['              <div class="bt-voie-choix">', ...voie(v), `                ${bouton(q, menent[i]!.r, menent[i]!.k)}`, '              </div>']),
+      ...q.voies.flatMap((v, i) => [
+        `              <div class="bt-voie-choix${menent[i]!.r.grisee ? ' bt-voie-grisee' : ''}">`, ...voie(v, menent[i]!.r), `                ${bouton(q, menent[i]!.r, menent[i]!.k)}`, '              </div>',
+      ]),
       '            </div>',
       ...(carrousel ? [`            <div class="bt-fleches">${fleche(-1, n.defiler.precedente)}${fleche(1, n.defiler.suivante)}</div>`] : []),
       ...(autres.length > 0 ? [`            <div class="bt-reponses">${autres.map(({ r, k }) => bouton(q, r, k)).join('')}</div>`] : []),
@@ -191,19 +201,19 @@ export function sectionTunnel(langue: Langue, origine: Origine, classe = 'f-bloc
  */
 export const TEXTES_DEMARRER = {
   fr: {
-    titre: 'Démarrer : votre numéro WhatsApp en quatre questions · Messaging Me',
-    description: 'Free ou Pro, compte Meta Business, application WhatsApp Business, numéro : quatre questions au plus, puis la demande à coller dans Claude Code ou Codex.',
+    titre: 'Démarrer : votre numéro WhatsApp en cinq questions · Messaging Me',
+    description: 'Free ou Pro, qui paie Meta, compte Meta Business, application WhatsApp Business, numéro : cinq questions au plus, et la demande à coller dans Claude Code.',
     fil: 'Démarrer',
-    h1: ['Branchez votre WhatsApp,', 'en quatre questions.'],
-    chapeau: 'Votre offre, votre compte Meta Business, votre application WhatsApp Business, votre numéro : à la fin, vous savez quoi faire, et vous avez la demande à coller dans Claude Code ou Codex.',
+    h1: ['Branchez votre WhatsApp,', 'en cinq questions.'],
+    chapeau: 'Votre offre, qui paie Meta, votre compte Meta Business, votre application WhatsApp Business, votre numéro : à la fin, vous savez quoi faire, et vous avez la demande à coller dans Claude Code ou Codex.',
     appel: { titre: 'Vous préférez qu’on en parle ?', texte: 'Une démo sur votre cas : vos clients, vos conversations, votre numéro.', bouton: 'Demander une démo', contact: '/contact/#formulaire' },
   },
   en: {
-    titre: 'Get started: your WhatsApp number in four questions · Messaging Me',
-    description: 'Free or Pro, Meta Business account, WhatsApp Business app, number: four questions at most, then the request to paste into Claude Code or Codex.',
+    titre: 'Get started: your WhatsApp number in five questions · Messaging Me',
+    description: 'Free or Pro, who pays Meta, Meta Business account, WhatsApp Business app, number: five questions at most, then the request to paste into Claude Code.',
     fil: 'Get started',
-    h1: ['Connect your WhatsApp,', 'in four questions.'],
-    chapeau: 'Your plan, your Meta Business account, your WhatsApp Business app, your number: at the end, you know what to do, and you have the request to paste into Claude Code or Codex.',
+    h1: ['Connect your WhatsApp,', 'in five questions.'],
+    chapeau: 'Your plan, who pays Meta, your Meta Business account, your WhatsApp Business app, your number: at the end, you know what to do, and you have the request to paste into Claude Code or Codex.',
     appel: { titre: 'Would you rather talk it through?', texte: 'A demo on your case: your customers, your conversations, your number.', bouton: 'Request a demo', contact: '/en/contact/#formulaire' },
   },
 } as const;
