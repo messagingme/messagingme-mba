@@ -51,6 +51,8 @@ function monde(graph: WorkflowGraph, run: WorkflowRunRow | null, surcharges: Par
   const sautsJournalises: string[] = [];
   const mesures: string[] = [];
   const lecturesAccord: string[] = [];
+  /** La règle figée de chaque parcours créé (`runs.start`, dernier argument). */
+  const crees: boolean[] = [];
   const deps: WorkflowExecutorDeps = {
     ...depsInertes,
     estDesabonne: jamaisDesabonne,
@@ -58,7 +60,7 @@ function monde(graph: WorkflowGraph, run: WorkflowRunRow | null, surcharges: Par
     aAccordMarketing: async (_t, waId) => { lecturesAccord.push(waId); return fiche.accord; },
     setOptIn: async (_t, _w, v) => { fiche.accord = v === 'opted_in'; },
     runs: avecGardesDEtatInertes({
-      start: async () => ({ id: 'run-2' }),
+      start: async (...a: Parameters<WorkflowExecutorDeps['runs']['start']>) => { crees.push(a[6]); return { id: 'run-2' }; },
       findWaitingByWaId: async () => (run && run.status === 'waiting' ? run : null),
       setState: async (_id: string, s: RunState) => { etats.push(s); },
       closeActiveByWaId: async () => [],
@@ -80,7 +82,7 @@ function monde(graph: WorkflowGraph, run: WorkflowRunRow | null, surcharges: Par
     journaliserEchecSaut: async (ev) => { sautsJournalises.push(ev.erreur); },
     ...surcharges,
   };
-  return { executor: new WorkflowExecutor(deps), fiche, envois, etiquettes, etats, escalades, rendus, sautsJournalises, mesures, lecturesAccord };
+  return { executor: new WorkflowExecutor(deps), fiche, envois, etiquettes, etats, escalades, rendus, sautsJournalises, mesures, lecturesAccord, crees };
 }
 
 function silence(): void {
@@ -135,6 +137,118 @@ describe('au démarrage d’une automation : le bloc refusé, et ce qui le suit'
       { depuis: 'entree', fenetreOuverte: true })).toBe(true);
     expect(m.envois).toEqual(['modèle rappel', 'modèle promo', 'modèle promo']);
     expect(m.lecturesAccord).toEqual([WA]);
+  });
+});
+
+/**
+ * 🔴 UNE CAMPAGNE À SCÉNARIO (décision de Julien du 2026-11-05, la règle la moins stricte). Sa liste est triée à la
+ * construction sur la catégorie cochée pour la campagne, qui décrit son modèle d'OUVERTURE : celui-là part sans la garde
+ * (sinon une campagne cochée Service sur un modèle Marketing verrait ses destinataires refusés, comptés en échec par la
+ * porte de qualité). Tout modèle Marketing qui le SUIT est vérifié au moment de partir, et la règle se fige pour les reprises.
+ */
+describe('🔴 une campagne à scénario : l’ouverture exemptée, la suite gardée', () => {
+  const rappel = n('r', 'template', { templateName: 'rappel', language: 'fr' });
+  const ouvrir = (m: ReturnType<typeof monde>, g: WorkflowGraph) =>
+    m.executor.demarrer('campagne_scenario', 't1', 'wf1', g, { waId: WA, contactId: 'c1' }, { depuis: 'entree', firstTemplateParams: [] });
+
+  it('🔴 l’ouverture Marketing part sans accord ni lecture de l’accord, et la règle se FIGE vraie pour la suite', async () => {
+    const g: WorkflowGraph = { nodes: [promo], edges: [] };
+    // Sans l'agent de Meta répondeur, le modèle bloque : le parcours naît en attente de la réponse.
+    const m = monde(g, null, { mbaActifPour: async () => false });
+    expect(await ouvrir(m, g)).toBe(true);
+    expect(m.envois).toEqual(['modèle promo']);
+    expect(m.lecturesAccord, 'l’ouverture a été triée à la construction').toEqual([]);
+    expect(m.crees).toEqual([true]);
+  });
+
+  it('🔴 deux Marketing dans la liste du démarrage (l’agent de Meta répond) : seul le premier est exempté, le second est refusé sans accord', async () => {
+    silence();
+    const g: WorkflowGraph = {
+      nodes: [promo, n('p2', 'template', { templateName: 'promo', language: 'fr' }), n('t', 'tag', { tag: 'apres' })],
+      edges: [e('tpl', 'p2'), e('p2', 't')],
+    };
+    const m = monde(g, null);
+    expect(await ouvrir(m, g), 'l’ouverture est partie : le parcours vit').toBe(true);
+    expect(m.envois).toEqual(['modèle promo']);
+    expect(m.mesures).toContain('p2:failed');
+    expect(m.etiquettes, 'les étiquettes se posent encore').toEqual(['apres']);
+    expect(m.lecturesAccord).toEqual([WA]);
+  });
+
+  it('🔴 « Service, puis Marketing » dans la liste du démarrage : l’exemption est consommée par le PREMIER modèle, le Service', async () => {
+    silence();
+    const g: WorkflowGraph = { nodes: [rappel, promo], edges: [e('r', 'tpl')] };
+    const m = monde(g, null);
+    expect(await ouvrir(m, g)).toBe(true);
+    expect(m.envois, 'le Marketing qui suit n’hérite pas de l’exemption').toEqual(['modèle rappel']);
+    expect(m.lecturesAccord).toEqual([WA]);
+  });
+
+  it('🔴 « Service à bouton, puis Marketing » : à la réponse du contact, refusé sans accord, clos sans équipe ; parti avec', async () => {
+    silence();
+    const g: WorkflowGraph = {
+      nodes: [n('r', 'template', { templateName: 'rappel', language: 'fr', templateButtons: [{ type: 'QUICK_REPLY', text: 'Voir' }] }), promo],
+      edges: [e('r', 'tpl', 'btn:0')],
+    };
+    for (const accord of [false, true]) {
+      const m = monde(g, null, { mbaActifPour: async () => false });
+      m.fiche.accord = accord;
+      expect(await ouvrir(m, g)).toBe(true);
+      expect(m.envois).toEqual(['modèle rappel']);
+      expect(m.crees).toEqual([true]);
+      const apres = monde(g, PARCOURS(m.crees[0]!, 'r', 'waiting'), { mbaActifPour: async () => false });
+      apres.fiche.accord = accord;
+      await apres.executor.advance('t1', WA, 'wamid.1', 'btn:0');
+      expect(apres.envois, `accord ${accord}`).toEqual(accord ? ['modèle promo'] : []);
+      expect(apres.escalades).toEqual([]);
+      if (!accord) expect(apres.etats).toEqual([{ currentNode: null, status: 'done', lastMessageId: 'wamid.1' }]);
+    }
+  });
+
+  it('le même démarrage AVEC l’accord : tout part (l’autre sens)', async () => {
+    const g: WorkflowGraph = {
+      nodes: [promo, n('p2', 'template', { templateName: 'promo', language: 'fr' })],
+      edges: [e('tpl', 'p2')],
+    };
+    const m = monde(g, null);
+    m.fiche.accord = true;
+    expect(await ouvrir(m, g)).toBe(true);
+    expect(m.envois).toEqual(['modèle promo', 'modèle promo']);
+  });
+
+  /** « Service, attente, Marketing » : le trou du lot 3b, une relance Marketing derrière une ouverture Service. */
+  const SERVICE_ATTENTE_PROMO: WorkflowGraph = {
+    nodes: [rappel, n('w', 'wait', { delay: 2, unit: 'days' }), promo],
+    edges: [e('r', 'w'), e('w', 'tpl')],
+  };
+
+  it('🔴 « Service, attente, Marketing » sans accord : le Service part à tous, le Marketing est refusé au réveil, clos sans équipe', async () => {
+    silence();
+    const m = monde(SERVICE_ATTENTE_PROMO, null);
+    expect(await ouvrir(m, SERVICE_ATTENTE_PROMO)).toBe(true);
+    expect(m.envois, 'l’audience ne bouge pas').toEqual(['modèle rappel']);
+    expect(m.crees).toEqual([true]);
+    // Le réveil relit la règle FIGÉE dans le parcours, pas le type de lancement.
+    expect(await m.executor.resume(PARCOURS(m.crees[0]!, 'w', 'sleeping'))).toBe(false);
+    expect(m.envois).toEqual(['modèle rappel']);
+    expect(m.etats.at(-1)).toEqual({ currentNode: null, status: 'done' });
+    expect(m.escalades, 'une campagne ne remplit pas « À traiter »').toEqual([]);
+  });
+
+  it('« Service, attente, Marketing » avec l’accord : le Marketing part au réveil', async () => {
+    const m = monde(SERVICE_ATTENTE_PROMO, null);
+    m.fiche.accord = true;
+    expect(await ouvrir(m, SERVICE_ATTENTE_PROMO)).toBe(true);
+    expect(await m.executor.resume(PARCOURS(m.crees[0]!, 'w', 'sleeping'))).toBe(true);
+    expect(m.envois).toEqual(['modèle rappel', 'modèle promo']);
+  });
+
+  it('un départ à un bloc (pas l’entrée) n’exempte rien : seule l’ouverture d’une campagne l’est', async () => {
+    silence();
+    const m = monde(SERVICE_ATTENTE_PROMO, null);
+    expect(await m.executor.demarrer('campagne_scenario', 't1', 'wf1', SERVICE_ATTENTE_PROMO, { waId: WA, contactId: 'c1' },
+      { depuis: 'bloc', noeudId: 'tpl' })).toBe(MOTIF_SANS_ACCORD_MARKETING);
+    expect(m.envois).toEqual([]);
   });
 });
 
@@ -252,7 +366,7 @@ describe('🔴 la réponse du contact (`advance`) garde la règle du parcours', 
     expect(m.rendus).toEqual([WA]);
   });
 
-  it('parcours libre (une campagne, l’Inbox) : la réponse fait partir le Marketing comme avant', async () => {
+  it('parcours libre (l’Inbox, une campagne à bloc) : la réponse fait partir le Marketing comme avant', async () => {
     const m = monde(QUESTION_PUIS_PROMO, PARCOURS(false, 'qm', 'waiting'));
     await m.executor.advance('t1', WA, 'wamid.1', 'btn:0');
     expect(m.envois).toEqual(['modèle promo']);

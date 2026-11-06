@@ -611,9 +611,9 @@ table type par type, sur le vrai contrôle du fil.
 
 🔴 **Un parcours né d'une automation n'envoie un modèle Marketing qu'à une fiche d'accord** (décision A du cadrage
 mm-hubspot du 2026-11-02, colonne `marketing` de `POLITIQUE_DE_LANCEMENT` : `accord_fiche` pour les trois
-`automatisme_*`, `libre` pour tout le reste). La garde vit dans `apply`, gouvernée par le paramètre que pose le CHEMIN,
-jamais dans `sendTemplate` : les campagnes et l'API publique ont déjà filtré sur leur propre règle (`optInAllows`, à la
-construction), et le workflow HubSpot a écrit l'accord sur la fiche avant tout envoi (ou refusé tout Marketing du
+`automatisme_*`, `accord_fiche_sauf_ouverture` pour `campagne_scenario`, `libre` pour tout le reste). La garde vit dans
+`apply`, gouvernée par le paramètre que pose le CHEMIN, jamais dans `sendTemplate` : les campagnes à bloc et l'API publique
+ont déjà filtré sur leur propre règle (`optInAllows`, à la construction), et le workflow HubSpot a écrit l'accord sur la fiche avant tout envoi (ou refusé tout Marketing du
 graphe). À chaque bloc Modèle, après le STOP qui prime toujours : la catégorie, lue sur le même cache que l'envoi
 (`categorieDuModele`, sur `templateVarInfo`), Marketing ou illisible exige `opted_in` sur la fiche, lu EN DIRECT
 (`aAccordMarketing`, `aAccordMarketingParWaId`), une fois par liste d'effets ; un Service part. Sans accord, le bloc est
@@ -631,6 +631,20 @@ auraient été sautés avec lui), un bloc agent compris ; un message de session 
 même derrière un e-mail parti (il ne compte ni comme envoi parti, ni comme refus). Les deux dépendances sont requises ; les fixtures disent
 `toujoursDAccord` (le comportement d'avant) ou `jamaisDAccord` (`tests/consentement.ts`), et `categorieIllisible` est
 dans `depsInertes`. Les parcours nés avant la colonne valent `false` et finissent sans la garde. Le bloc RCS n'y passe pas.
+
+🔴 **Une campagne à scénario garde tout modèle Marketing SAUF son ouverture** (décision de Julien du 2026-11-05, la règle
+la moins stricte : l'audience ne bouge pas). Sa liste est triée à la construction sur la catégorie COCHÉE pour la campagne,
+qui décrit son modèle d'ouverture ; `accord_fiche_sauf_ouverture` fige la garde à vrai dans le parcours, et
+`ouvertureExemptee` (départ depuis l'entrée seulement) fait partir sans elle le PREMIER modèle de la liste du démarrage
+(`apply` en `sauf_ouverture`, jamais figé : une reprise n'a pas d'ouverture). Tout modèle Marketing suivant (même liste
+quand l'agent de Meta répond, réveil, réponse, bloc d'un agent, « Aller à ») part seulement à une fiche `opted_in`, et un
+refus clôt le parcours sans passer à l'équipe, comme pour une automation. L'ouverture n'est pas revérifiée parce que la
+catégorie de la campagne est un choix à la main : une campagne cochée Service sur un modèle Marketing verrait sinon ses
+destinataires sans accord refusés au démarrage, comptés `failed` par la porte de qualité, qui peut la mettre en pause.
+⚠️ « Message et scénario » partage le type : le premier modèle de son scénario est exempté comme une ouverture. ⚠️ Un
+envoi `/v1/sends` qui démarre un scénario depuis son entrée part aussi en `campagne_scenario` : la garde vaut pour
+l'intégrateur. ⚠️ Un modèle de repli WhatsApp derrière un RCS sauté tout de suite est dans la liste du démarrage (exempté) ;
+derrière un RCS revenu « non joignable », il part par `advance` (vérifié).
 
 ⚠️ **Répondre à un message RCS ne rouvre pas la fenêtre WhatsApp** : ce sont deux tuyaux distincts. Seul le
 formulaire reste impossible derrière un RCS, n'ayant aucun équivalent : le parcours ne fait pas semblant, il

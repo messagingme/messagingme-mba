@@ -2,7 +2,7 @@
 description: Lancer une campagne WhatsApp ou RCS en cinq étapes : le nom, le canal, le contenu, l'audience, puis le récapitulatif et l'envoi.
 ecran: campagnes
 source_section: Campagnes
-source_empreinte: f1d238
+source_empreinte: e97000
 publique: oui
 rubrique: parler-aux-clients
 rang: 5
@@ -70,6 +70,12 @@ retrouvez ensuite dans l'onglet Scénario comme les autres. Sur un étage qui ou
 la réponse ne vous est pas posée : c'est le scénario qui décide de ce qui se passe à la réponse, et l'écran
 vous le dit à sa place. Elle réapparaît sur tout étage qui envoie un message simple, parce que les contacts
 joints par celui-là répondront hors de tout scénario.
+
+**Un scénario qui envoie du Marketing plus loin.** La nature cochée à l'étape 1 vaut pour le modèle qui ouvre le
+scénario : il part à toute la liste. Un modèle Marketing placé ensuite (après une attente, ou quand le contact
+répond) ne part qu'aux contacts qui ont donné leur consentement, vérifié au moment d'envoyer ; pour les autres, ce
+modèle et les messages qui le suivent ne partent pas, sans rien vous signaler dans « À traiter ». Un scénario « Service, puis Marketing » peut donc
+partir en campagne « Service » : chacun reçoit le Service, seuls les contacts d'accord reçoivent la suite.
 
 Si le scénario que vous cherchez n'apparaît pas dans le sélecteur, c'est l'une de ces deux raisons : il
 commence par un message qui ne peut partir que dans une conversation déjà ouverte, ou bien il ouvre sur

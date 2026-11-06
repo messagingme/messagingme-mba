@@ -1,7 +1,7 @@
 ---
 description: Launch a WhatsApp or RCS campaign in five steps: the name, the channel, the content, the audience, then the summary and sending.
 slug: launch-a-campaign
-traduit_de: 25a1f6
+traduit_de: 9557b4
 ---
 # Launch a campaign
 
@@ -61,6 +61,12 @@ published scenario is selected on its own for that stage. You then find it in th
 stage that opens a scenario, the reply question is not asked: the scenario decides what happens on reply, and the
 screen tells you so instead. It reappears on any stage that sends a simple message, because the contacts reached by
 that one will reply outside any scenario.
+
+**A scenario that sends Marketing further on.** The nature you ticked in step 1 applies to the template that opens
+the scenario: it goes to the whole list. A Marketing template placed later (after a wait, or when the contact
+replies) only goes to contacts who gave their consent, checked at the moment of sending; for the others, that
+template and the messages after it are not sent, without flagging anything in “To handle”. A “Service, then Marketing” scenario can therefore go out as
+a “Service” campaign: everyone receives the Service message, only consenting contacts receive what follows.
 
 If the scenario you are looking for does not appear in the picker, it is for one of two reasons: it starts with a
 message that can only go out in a conversation already open, or it opens on the other channel (a WhatsApp stage

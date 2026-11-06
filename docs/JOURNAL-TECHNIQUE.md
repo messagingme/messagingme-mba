@@ -4,6 +4,32 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la garde marketing des campagnes à scénario, ouverture exemptée
+
+Le trou laissé par le lot 3b (plan `2026-11-06-garde-marketing-campagne-scenario.md`) : une campagne à scénario ne triait
+ses destinataires que sur la catégorie cochée pour la campagne, et un modèle Marketing placé plus loin partait sans
+l'accord du contact. Julien a refusé la règle stricte (la catégorie la plus stricte du graphe, audience réduite) et
+choisi la moins stricte le 2026-11-05.
+
+- **`campagne_scenario` passe en `accord_fiche_sauf_ouverture`** : la garde se fige vraie dans le parcours, et le premier
+  modèle de la liste du démarrage depuis l'entrée part sans elle (`ouvertureExemptee`, `apply` en `sauf_ouverture`).
+- **Pourquoi exempter l'ouverture plutôt que `accord_fiche` tel quel** : la catégorie d'une campagne est cochée à la main
+  (« Marketing » par défaut). Une campagne cochée Service sur un modèle Marketing aurait vu ses destinataires sans accord
+  refusés au démarrage, marqués `failed`, et la porte de qualité (`qualityGate`) pouvait la mettre en pause : l'audience
+  réduite que Julien refuse, par un autre chemin.
+- **Le refus en cours de parcours clôt sans passer à l'équipe**, comme pour une automation : une campagne est un chemin de
+  masse.
+- Vérifié dans les deux sens : `campagne_scenario` remis à `libre`, quatre tests de campagne rouges ; l'exemption retirée,
+  trois rouges (l'ouverture refusée au lieu de partir).
+- Aucune migration (0272 porte la colonne). Les parcours de campagne en cours au déploiement finissent sans la garde.
+- **La relecture indépendante** : aucun rouge. Corrigés avant le commit : la doc et la fiche disaient « le parcours s'arrête
+  là » alors qu'un Marketing refusé APRÈS un envoi parti laisse le parcours vivre ; cinq commentaires présentaient encore
+  la garde comme réservée aux automations ; deux tests manquaient (« Service, puis Marketing » dans la même liste, qui
+  distingue « premier modèle » de « premier Marketing », vu rouge en retirant la consommation de l'exemption ; « Service
+  à bouton, Marketing » à la réponse). Notés au todo : le repli RCS vers WhatsApp (exempté si le RCS est sauté, vérifié
+  s'il revient « non joignable »), et `/v1/sends` vers un scénario, que la garde couvre désormais sans que la doc de l'API
+  le dise.
+
 ## 2026-11-06 : la ligne de crédit prise à la connexion, lot A5 (la console) et les jaunes du lot A
 
 Lot A5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`.

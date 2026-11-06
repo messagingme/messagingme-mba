@@ -8,7 +8,7 @@ import type { StartOutcome, WorkflowExecutorDeps } from '../src/workflow/executo
 import { buildWorkflowRuntime } from '../src/workflow/wiring';
 import {
   POLITIQUE_DE_LANCEMENT, REFUS_SCENARIOS_HORS_OFFRE, TYPES_DE_LANCEMENT, creerLancements,
-  type DemandeDeLancement, type TypeDeLancement,
+  type DemandeDeLancement, type PolitiqueDeLancement, type TypeDeLancement,
 } from '../src/workflow/lancements';
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
 import type { WorkflowRow } from '../src/workflow/store.pg';
@@ -618,14 +618,16 @@ describe('le gel au retour en Base (lot 6, B2a)', () => {
 
 /**
  * 🔴 LA GARDE MARKETING (décision A du cadrage mm-hubspot du 2026-11-02, lot 3b). Un parcours né d'une automation n'envoie
- * un modèle Marketing (ou de catégorie illisible) qu'à une fiche `opted_in` ; tous les autres lancements restent comme
- * avant (campagne et API filtrées en amont, workflow HubSpot qui a écrit l'accord, gestes unitaires). Écrit ici, pas
- * dérivé de la politique : la comparer à elle-même ne prouverait rien. Un saut n'a pas de règle à lui, il HÉRITE.
+ * un modèle Marketing (ou de catégorie illisible) qu'à une fiche `opted_in` ; une campagne à scénario aussi, SAUF son
+ * modèle d'ouverture, que la catégorie de la campagne a trié à la construction (décision de Julien du 2026-11-05 : la
+ * règle la moins stricte, l'audience ne bouge pas). Les autres lancements restent comme avant (API filtrée en amont,
+ * workflow HubSpot qui a écrit l'accord, gestes unitaires). Écrit ici, pas dérivé de la politique : la comparer à
+ * elle-même ne prouverait rien. Un saut n'a pas de règle à lui, il HÉRITE.
  */
-const MARKETING_ATTENDU: Record<TypeDeLancement, 'libre' | 'accord_fiche'> = {
+const MARKETING_ATTENDU: Record<TypeDeLancement, PolitiqueDeLancement['marketing']> = {
   inbox: 'libre', agent_meta_scenario: 'libre', agent_ia_scenario: 'libre', agent_meta_bloc: 'libre',
   automatisme_ordinaire: 'accord_fiche', automatisme_chaine: 'accord_fiche', automatisme_publicite_ou_widget: 'accord_fiche',
-  lien_de_test: 'libre', campagne_scenario: 'libre', campagne_bloc: 'libre', workflow_hubspot: 'libre',
+  lien_de_test: 'libre', campagne_scenario: 'accord_fiche_sauf_ouverture', campagne_bloc: 'libre', workflow_hubspot: 'libre',
   repondeur: 'libre', repondeur_scenario: 'libre', aller_a: 'libre', aller_a_masse: 'libre',
 };
 
@@ -638,12 +640,15 @@ describe('la garde marketing, type par type (décision A)', () => {
   });
 
   for (const type of TYPES_DE_LANCEMENT) {
-    const exige = MARKETING_ATTENDU[type] === 'accord_fiche';
-    it(`${type} : un modèle Marketing à une fiche SANS accord ${exige ? 'ne part pas, et rien n’est créé' : 'part comme avant'}`, async () => {
+    // Le scénario du banc ouvre sur son seul modèle : une campagne à scénario l'exempte (c'est son ouverture), mais fige la
+    // règle pour la suite du parcours.
+    const refuseALOuverture = MARKETING_ATTENDU[type] === 'accord_fiche';
+    const exige = MARKETING_ATTENDU[type] !== 'libre';
+    it(`${type} : un modèle Marketing d’ouverture à une fiche SANS accord ${refuseALOuverture ? 'ne part pas, et rien n’est créé' : 'part comme avant'}`, async () => {
       silence();
       const m = banc('app_workflow', { aAccordMarketing: jamaisDAccord, ...categorie('marketing') });
       const issue = await lancerLeType(m, type, { workflowId: 'wf-modele', fenetreOuverte: true });
-      if (exige) {
+      if (refuseALOuverture) {
         expect(issue).toBe(MOTIF_SANS_ACCORD_MARKETING);
         expect(m.envois).toEqual([]);
         expect(m.crees, 'au démarrage, rien n’est créé : le runner journalise et efface le tir').toEqual([]);

@@ -554,7 +554,7 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
      */
     estDesabonne: (tenant, waId) => contactStore.machineSeTaitParWaId(tenant, waId),
     /**
-     * 🔴 La garde marketing d'un parcours d'automation (`PolitiqueDeLancement.marketing`, décision A du cadrage mm-hubspot
+     * 🔴 La garde marketing d'un parcours d'automation ou de campagne à scénario (`PolitiqueDeLancement.marketing`, décision A du cadrage mm-hubspot
      * du 2026-11-02). La catégorie se lit sur le MÊME cache que l'envoi (`templateVarInfo`) : aucun appel à Meta de plus,
      * et la garde juge le modèle que `sendTemplate` enverra. Une lecture en échec rend `null` (illisible), que la garde
      * traite comme Marketing. L'accord : une lecture étroite d'`opt_in_status`, sur le store (méthode jamais détachée).

@@ -1363,6 +1363,15 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   seule question du canal, **sans réponse pré-cochée** : le réessai et la question des heures ouvrées
   n'apparaissent qu'une fois WhatsApp, RCS ou le repli choisi, et « Suivant » reste inactif d'ici là en
   disant pourquoi. Aucune campagne ne peut donc partir sur un canal que personne n'a choisi.
+- ✅ **Une campagne à scénario n'envoie un modèle Marketing placé plus loin qu'aux contacts d'accord** (2026-11-06).
+  La liste d'une campagne se trie sur la nature cochée (« Marketing » : seuls les contacts d'accord ; « Service » :
+  tous ceux qui n'ont pas dit STOP), et cette nature décrit le modèle d'OUVERTURE : celui-là part à toute la liste,
+  comme avant. Un modèle Marketing qui vient ENSUITE dans le scénario (après une attente, une réponse du contact) ne
+  part qu'à une fiche d'accord, relue au moment d'envoyer ; sinon il est sauté avec les messages qui le suivent, les
+  étiquettes et les champs se posent quand même, et rien n'entre dans « À traiter ». Un
+  « Service, puis Marketing » touche donc toute la liste avec son Service, et seulement les contacts d'accord avec son
+  Marketing. ⚠️ Un message texte du contact arrivé à ce moment part au répondeur habituel ; un clic sur un bouton reste
+  sans suite si l'agent de Meta ne répond pas.
 - ✅ **Un étage « modèle et scénario » ne redemande pas ce que devient la conversation** (2026-09-14).
   Quand chaque étage ouvre un scénario, la question « Que se passe-t-il quand le contact répond ? »
   disparaît, et l'écran dit à sa place que **le scénario s'en charge** : c'est lui qui décide si un

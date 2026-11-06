@@ -24,7 +24,7 @@ import { MOTIF_DESABONNE, MOTIF_SANS_ACCORD_MARKETING } from '../campaign/guardr
 import { CreditWhatsappRefus, CreditWhatsappRefusApresEffets } from '../credit-whatsapp/refus';
 import { messageDe, texteDe } from '../lib/erreur';
 import {
-  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, accordMarketingExige, fenetreLevee, grapheAFiger,
+  MOTIF_SCENARIO_LANCE, POLITIQUE_DE_LANCEMENT, accordMarketingExige, fenetreLevee, grapheAFiger, ouvertureExemptee,
   type DepartDuParcours, type PolitiqueDeLancement, type TypeDeLancement,
 } from './lancements';
 import { MAX_SAUTS_SANS_PAUSE, nomDuBloc } from './aller-a';
@@ -185,7 +185,8 @@ export interface WorkflowExecutorDeps {
    * 🔴 C'est la garde d'opt-out des envois qui passent par cet exécuteur (scénario, automation). L'agent IA
    * répond sans passer par `apply` et porte sa propre garde (`src/agent/run-turn.ts`). L'ACCORD marketing est une
    * autre question, posée à part (`aAccordMarketing`) : la campagne et l'API publique le filtrent en amont
-   * (`optInAllows`), un parcours d'automation le relit à chaque modèle Marketing (`PolitiqueDeLancement.marketing`).
+   * (`optInAllows`), un parcours d'automation le relit à chaque modèle Marketing, une campagne à scénario à chaque modèle
+   * Marketing après son ouverture (`PolitiqueDeLancement.marketing`).
    * Requise : optionnelle, un câblage qui l'oublie compilerait et écrirait au contact qui a répondu STOP. Les tests
    * passent `jamaisDesabonne` (`tests/consentement.ts`). Le câblage y lit aussi le blocage (`machineSeTaitParWaId`) : un
    * contact bloqué se tait comme un STOP, parcours en cours compris.
@@ -652,8 +653,10 @@ export class WorkflowExecutor {
     /**
      * La garde marketing du parcours (`accordMarketingExige` à sa naissance, `workflow_runs.accord_marketing_exige`
      * ensuite). REQUIS, sans défaut : chaque point d'application (`runFrom` et les trois reprises) dit la sienne.
+     * `sauf_ouverture` : exigée, sauf pour le PREMIER modèle de la liste (l'ouverture d'une campagne à scénario,
+     * `ouvertureExemptee`) ; seul `runFrom` le passe, une reprise n'a pas d'ouverture.
      */
-    exigeAccordMarketing: boolean,
+    exigeAccordMarketing: boolean | 'sauf_ouverture',
     firstTemplateParams?: string[],
     emitEvents = false,
     workflowId?: string,
@@ -685,6 +688,8 @@ export class WorkflowExecutor {
     let accord: boolean | null = null;
     /** Un modèle Marketing vient d'être refusé faute d'accord : les envois qui suivent dans la liste ne partent pas. */
     let refusMarketing = false;
+    /** L'ouverture exemptée (`sauf_ouverture`) n'a pas encore été vue : le premier modèle de la liste la consomme. */
+    let ouvertureAExempter = exigeAccordMarketing === 'sauf_ouverture';
     for (const { nodeId, action: a } of steps) {
       // On s'arrête ici, entre deux effets, si le tour n'est plus à nous : le jeton clôture l'écriture d'état
       // mais ne peut rien contre un message déjà remis à Meta. Sans ce point de contrôle, un porteur déchu
@@ -721,17 +726,20 @@ export class WorkflowExecutor {
       }
       /**
        * 🔴 LA GARDE MARKETING (décision A du cadrage mm-hubspot du 2026-11-02), seulement pour un parcours qui l'exige (né
-       * d'une automation, ou d'un saut qui en vient) : un modèle Marketing, ou de catégorie illisible, ne part qu'à une fiche
+       * d'une automation ou d'une campagne à scénario, ou d'un saut qui en vient ; l'ouverture d'une campagne exceptée) : un modèle Marketing, ou de catégorie illisible, ne part qu'à une fiche
        * `opted_in`. Après le STOP, qui prime toujours. Le bloc est sauté, et les ENVOIS qui le suivent dans la liste aussi
        * (comme après un refus du Crédit WhatsApp) : un « Marketing, puis message rapide » n'enverrait sinon que la suite,
        * orpheline. Les étiquettes et les champs se posent encore. La décision vient du chemin (le paramètre), jamais de
-       * `sendTemplate`, que les campagnes et l'API empruntent après avoir filtré sur leur propre règle.
+       * `sendTemplate`, que les campagnes et l'API empruntent pour un modèle qu'elles ont trié sur leur propre règle.
        */
       if (refusMarketing && EST_UN_ENVOI.has(a.kind)) {
         await this.mesurer(tenantId, workflowId, nodeId, waId, 'failed');
         continue;
       }
-      if (exigeAccordMarketing && a.kind === 'sendTemplate') {
+      // Le premier modèle de la liste consomme l'exemption, qu'il soit Marketing ou non : le SUIVANT est gardé.
+      const ouverture = a.kind === 'sendTemplate' && ouvertureAExempter;
+      if (a.kind === 'sendTemplate') ouvertureAExempter = false;
+      if (exigeAccordMarketing !== false && a.kind === 'sendTemplate' && !ouverture) {
         const categorie = await this.deps.categorieDuModele(tenantId, a.templateName, a.language);
         if (categorie === null || categorie === 'marketing') {
           accord ??= await this.deps.aAccordMarketing(tenantId, waId);
@@ -1474,6 +1482,8 @@ export class WorkflowExecutor {
       sauts?: number;
       /** La garde marketing de ce parcours (`accordMarketingExige`), appliquée ici puis figée dans le parcours. */
       exigeAccordMarketing: boolean;
+      /** Le modèle d'ouverture part sans elle (`ouvertureExemptee`) ; jamais figé, une reprise n'a pas d'ouverture. */
+      exempterOuverture?: boolean;
     },
   ): Promise<StartOutcome> {
     const { politique } = opts;
@@ -1542,7 +1552,7 @@ export class WorkflowExecutor {
     if (envoieParWhatsApp(actions, apresWalk)) {
       await this.deps.verifierNumeroWhatsApp(tenantId);
     }
-    const { refus, partis, canal, refusCredit } = await this.apply(tenantId, contact.waId, actions, opts.exigeAccordMarketing, opts.firstTemplateParams, politique.publieLesEtiquettes, workflowId, apresWalk);
+    const { refus, partis, canal, refusCredit } = await this.apply(tenantId, contact.waId, actions, opts.exigeAccordMarketing && opts.exempterOuverture === true ? 'sauf_ouverture' : opts.exigeAccordMarketing, opts.firstTemplateParams, politique.publieLesEtiquettes, workflowId, apresWalk);
     // Refus alors que rien n'est parti : on ne persiste pas de run en attente (il attendrait une réponse à un
     // message jamais reçu, et le message suivant du contact le ferait avancer au bloc suivant). La raison
     // remonte telle quelle vers la campagne. Si un message est parti, le parcours vit et le refus reste au log.
@@ -1664,6 +1674,7 @@ export class WorkflowExecutor {
       politique,
       fenetreLevee: fenetreLevee(politique, depart),
       exigeAccordMarketing: accordMarketingExige(politique, depart),
+      exempterOuverture: ouvertureExemptee(politique, depart),
       ...(depart.depuis === 'entree' && depart.firstTemplateParams ? { firstTemplateParams: depart.firstTemplateParams } : {}),
       ...(depart.messageDeclencheur !== undefined ? { messageDeclencheur: depart.messageDeclencheur } : {}),
       ...(depart.depuis === 'saut' ? { sauts: depart.sauts } : {}),

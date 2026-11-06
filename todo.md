@@ -48,10 +48,22 @@
 
 ## 🟡 La case d'accord et la garde marketing des automations : ce qu'elles laissent (lot 3b du 2026-11-02)
 
-- 🔴 Trou connu, HORS décision A : une campagne à scénario ne trie ses destinataires que sur la catégorie de la campagne
-  (son ouverture, `optInAllows` à la construction). Un scénario « Service, puis Marketing » lancé en campagne envoie donc
-  le Marketing sans accord ; `campagne_scenario` reste `libre` dans `POLITIQUE_DE_LANCEMENT`. Le passer en `accord_fiche`
-  change le comportement des campagnes : à trancher avec Julien.
+- ✅ Le trou « campagne à scénario Service puis Marketing » est fermé le 2026-11-06 (plan
+  `docs/superpowers/plans/2026-11-06-garde-marketing-campagne-scenario.md`, décision de Julien : la règle la moins
+  stricte) : `campagne_scenario` passe en `accord_fiche_sauf_ouverture`, l'ouverture part à toute la liste, chaque modèle
+  Marketing suivant exige `opted_in`. Restes :
+  - « Message et scénario » partage le type : le premier modèle de son scénario est exempté comme une ouverture alors
+    que la campagne a déjà envoyé son propre modèle.
+  - Une campagne simple (un modèle, sans scénario) cochée Service sur un modèle Marketing part toujours sans accord, et
+    `campagne_bloc` (`/v1/sends`) reste `libre`. Comparer la catégorie cochée à celle de Meta à la création.
+  - Une campagne qui ouvre par un « Aller à » vers un autre scénario : le saut hérite la garde sans l'exemption, donc
+    l'ouverture du scénario d'arrivée est vérifiée.
+  - Les parcours de campagne nés avant le déploiement ont `accord_marketing_exige = false` et finissent sans la garde.
+  - Repli RCS vers WhatsApp incohérent : un modèle de repli derrière un RCS sauté tout de suite est exempté (liste du
+    démarrage), le même derrière un RCS revenu « non joignable » est vérifié (`rcsUndeliverable`, puis `advance`). Sur
+    une campagne cochée Service dont le repli est Marketing, l'audience du repli baisse : à trancher avec Julien.
+  - `/v1/sends` vers un scénario part en `campagne_scenario` : la garde y vaut aussi, ni la doc de l'API ni la FAQ du
+    plugin ne le disent encore.
 - La garde ne couvre pas le bloc RCS (hors périmètre du plan). Les parcours d'automation déjà en cours au déploiement de
   0272 finissent sans elle (accepté).
 - Un modèle Marketing refusé APRÈS un premier envoi parti dans la même liste laisse le parcours sur son repos, comme tout

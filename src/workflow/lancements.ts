@@ -151,14 +151,22 @@ export interface PolitiqueDeLancement {
    *   `opted_in` sur la fiche, lu EN DIRECT ; sinon le bloc est sauté (`MOTIF_SANS_ACCORD_MARKETING`). Les trois
    *   `automatisme_*` : une automation n'a ni liste construite sur l'accord ni attestation par contact (la case de
    *   l'automation écrit l'accord sur la fiche AVANT le démarrage, `src/automation/runner.ts`).
-   * - `libre` : comme avant. Les campagnes et l'API publique ont filtré à la construction (`optInAllows`) ; le workflow
+   * - `accord_fiche_sauf_ouverture` : la même garde, figée de même, SAUF pour le modèle d'ouverture (le premier modèle de
+   *   la liste d'effets d'un départ depuis l'entrée, `ouvertureExemptee`). Une campagne à scénario (décision de Julien du
+   *   2026-11-05, la règle la moins stricte) : sa liste est triée à la construction (`optInAllows`) sur la catégorie
+   *   cochée pour la campagne, qui décrit son ouverture ; un modèle Marketing placé plus loin (après une attente, une
+   *   réponse, ou dans la même liste quand l'agent de Meta répond) part seulement à une fiche `opted_in`. L'ouverture
+   *   n'est PAS revérifiée : une campagne cochée Service sur un modèle Marketing verrait sinon ses destinataires sans
+   *   accord refusés, comptés en échec par la porte de qualité, et son audience réduite, ce que Julien refuse.
+   * - `libre` : comme avant. Les campagnes à bloc ont filtré à la construction (`optInAllows`), et l'API publique aussi
+   *   (un envoi `/v1/sends` qui démarre un scénario depuis son entrée part en `campagne_scenario`, garde comprise) ; le workflow
    *   HubSpot a écrit l'accord sur la fiche ou refusé tout Marketing du graphe ; l'Inbox, les agents, les répondeurs et le
    *   lien de test sont des gestes unitaires.
    * 🔴 Elle se FIGE à la naissance du parcours (`workflow_runs.accord_marketing_exige`) et voyage dans les reprises et les
    * « Aller à » (le départ `saut` la porte) : un saut vers un autre scénario ne la lève pas. Seul `accordMarketingExige`
    * la lit.
    */
-  marketing: 'libre' | 'accord_fiche';
+  marketing: 'libre' | 'accord_fiche' | 'accord_fiche_sauf_ouverture';
 }
 
 /**
@@ -196,7 +204,7 @@ export const POLITIQUE_DE_LANCEMENT = {
   automatisme_chaine: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'accord_fiche' },
   automatisme_publicite_ou_widget: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'bloc_ou_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'accord_fiche' },
   lien_de_test: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'brouillon_fige', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
-  campagne_scenario: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
+  campagne_scenario: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'gardee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'accord_fiche_sauf_ouverture' },
   campagne_bloc: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'levee', sessionRemplacee: 'interrompue', horsOffre: 'gele', marketing: 'libre' },
   /**
    * Un workflow HubSpot (décisions 3, 4 et 8 du cadrage du 2026-10-29) : une machine, pas un opérateur qui lance. Il
@@ -283,14 +291,24 @@ export function fenetreLevee(politique: PolitiqueDeLancement, depart: DepartDuPa
 
 /**
  * Le parcours qui naît exige-t-il l'accord de la fiche pour un modèle Marketing ? La politique du type, ou celle que le
- * saut a héritée du parcours d'origine. La SEULE lecture de `politique.marketing` : l'exécuteur fige la réponse dans le
- * parcours (`workflow_runs.accord_marketing_exige`), et les reprises la relisent là.
+ * saut a héritée du parcours d'origine. Avec `ouvertureExemptee` (lue au seul démarrage), la seule lecture de
+ * `politique.marketing` : l'exécuteur fige la réponse dans le parcours (`workflow_runs.accord_marketing_exige`), et les reprises la relisent là.
  */
 export function accordMarketingExige(politique: PolitiqueDeLancement, depart: DepartDuParcours): boolean {
   switch (politique.marketing) {
-    case 'accord_fiche': return true;
+    case 'accord_fiche':
+    case 'accord_fiche_sauf_ouverture': return true;
     case 'libre': return depart.depuis === 'saut' && depart.exigeAccordMarketing;
   }
+}
+
+/**
+ * Le modèle d'ouverture de ce démarrage part-il sans la garde marketing ? Seulement pour `accord_fiche_sauf_ouverture`, et
+ * seulement depuis l'entrée du graphe : c'est là, et là seul, que la liste a été triée sur la catégorie de l'ouverture. Lu
+ * au démarrage, jamais figé : une reprise n'a pas d'ouverture.
+ */
+export function ouvertureExemptee(politique: PolitiqueDeLancement, depart: DepartDuParcours): boolean {
+  return politique.marketing === 'accord_fiche_sauf_ouverture' && depart.depuis === 'entree';
 }
 
 /** Les champs que toute demande porte : l'espace et le scénario. */
