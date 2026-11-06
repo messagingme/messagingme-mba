@@ -1,6 +1,6 @@
 import { jamaisDesabonne, toujoursDAccord } from './consentement';
 import { aucunJetonRcs, avecGardesDEtatInertes, depsInertes } from './executeur-inerte';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { parseGraph } from '../src/workflow/graph';
 import type { WorkflowGraph } from '../src/workflow/graph';
 import { WorkflowExecutor } from '../src/workflow/executor';
@@ -645,6 +645,25 @@ describe('message rapide à bouton de lien sur un parcours RCS', () => {
     await executor.advance('t1', '33600000002', 'mo-2', 'btn:0', 'rcs');
 
     expect(provider.sent).toHaveLength(0);
+  });
+
+  it('🔴 une adresse À VARIABLE ne part pas en RCS, même quand la fiche la remplirait', async () => {
+    // En RCS, le lien passe par notre redirection de suivi (`/r/`) : rempli par un champ que le contact écrit
+    // lui-même, il ferait de notre domaine un redirecteur ouvert. Le même bloc part en WhatsApp
+    // (`tests/workflow-lien-bouton.test.ts`), jamais ici, et pas non plus en repli WhatsApp.
+    const g = grapheQuick({ body: 'Votre devis', lienActif: true, lienTexte: 'Votre devis', lienUrl: '{{hs_calc_lien_devis}}' });
+    const { provider, quickWhatsApp, executor } = monter(g, [], true, 'r', { hs_calc_lien_devis: 'https://devis.exemple.fr/q/1' }, 'rcs');
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await executor.advance('t1', '33600000002', 'mo-3', 'btn:0', 'rcs');
+      // La RAISON est celle du canal, pas « variable non remplacée » : l'opérateur doit lire qu'elle ne part
+      // qu'en WhatsApp, sans quoi il chercherait un champ vide sur une fiche pleine.
+      expect(erreurs.mock.calls.flat().join(' ')).toContain('sur un parcours RCS, l’adresse du bouton de lien ne peut pas porter de variable');
+    } finally {
+      erreurs.mockRestore();
+    }
+    expect(provider.sent).toHaveLength(0);
+    expect(quickWhatsApp).toHaveLength(0);
   });
 });
 

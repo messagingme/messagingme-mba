@@ -11,6 +11,8 @@ import { formatMaintenant } from '../agent/variables';
 // voir la même valeur que celle que l'exécuteur écrira sur le contact.
 import { normaliserEtiquette } from '../crm/poser-etiquette';
 import { parseParamHints, type ParamSource } from '../crm/template';
+import { renderText } from '../crm/render';
+import { encoder } from '../links/champs-url';
 import { MAX_DESTINATAIRES_EMAIL } from '../../web/lib/partage/blocs';
 import { blocDuCode as blocDuCodePartage, cibleDuSaut as cibleDuSautPartage, entreeDuGraphe, scannerOuverture } from '../../web/lib/partage/ouverture-scenario';
 import type { AnalyseOuverture } from '../../web/lib/partage/ouverture-scenario';
@@ -132,24 +134,77 @@ function quickMessageNonBloquant(a: WorkflowAction | null): boolean {
 export interface LienBouton { texte: string; url: string }
 
 /**
- * Ce bouton de lien est-il utilisable ? Rend la raison du refus, ou `null` quand il est bon.
+ * Ce bouton de lien peut-il partir TEL QUEL ? Rend la raison du refus, ou `null` quand il est bon. Juge l'adresse
+ * finale : celle d'un contact passe d'abord par `lienPourLeContact`, qui remplace ses variables.
  *
- * Un refus explicite, jamais un envoi sans le bouton que le client a coché. Aucune variable dans l'adresse :
- * une variable vide ferait refuser le message entier par Meta. On ne vérifie pas que l'adresse est
- * publiquement joignable (`urlRecuperable`) : ces gardes protègent nos requêtes sortantes, et ici c'est le
- * contact qui ouvre la page, dans son navigateur.
+ * Un refus explicite, jamais un envoi sans le bouton que le client a coché. Une accolade restée dans l'adresse est
+ * une variable que rien n'a remplacée (mal écrite, ou parcours RCS) : Meta refuserait le message entier. On ne
+ * vérifie pas que l'adresse est publiquement joignable (`urlRecuperable`) : ces gardes protègent nos requêtes
+ * sortantes, et ici c'est le contact qui ouvre la page, dans son navigateur.
+ *
+ * ⚠️ Volontairement PAS `isSendableButtonUrl` (espace, nom de site sans point) : la règle date de 2026-09-11, des
+ * blocs publiés depuis peuvent porter une telle adresse, et personne n'a mesuré que Meta les refuse. Les durcir
+ * couperait leurs envois au déploiement (relecture du 2026-11-06).
  */
 export function problemeLienBouton(lien: LienBouton): string | null {
   if (lien.texte.trim() === '') return 'le bouton de lien du bloc « message rapide » n’a pas de libellé';
   const url = lien.url.trim();
   if (url === '') return 'le bouton de lien du bloc « message rapide » n’a pas d’adresse';
-  if (url.includes('{{')) return 'l’adresse du bouton de lien ne peut pas contenir de variable';
+  if (url.includes('{{')) return 'l’adresse du bouton de lien porte une variable qui n’a pas été remplacée';
   let parsee: URL;
   try { parsee = new URL(url); } catch { return 'l’adresse du bouton de lien n’est pas une adresse valide'; }
   if (parsee.protocol !== 'http:' && parsee.protocol !== 'https:') {
     return 'l’adresse du bouton de lien doit commencer par http:// ou https://';
   }
   return null;
+}
+
+/** Une variable `{{champ}}` de la fiche : la grammaire de `renderText`, la même que le corps du message. */
+const VARIABLE_DE_FICHE = /\{\{\s*([\w.-]+)\s*\}\}/g;
+
+/**
+ * Le bouton de lien tel qu'il part chez CE contact : les variables `{{champ}}` de l'adresse prennent la valeur de
+ * sa fiche (même grammaire et même table que le corps, `contactVars`), puis l'adresse obtenue passe par
+ * `problemeLienBouton`. Rend le lien prêt à partir, ou la raison du refus. Né pour le lien d'un devis HubSpot
+ * (`hs_calc_lien_devis`), un champ qui porte l'adresse ENTIÈRE.
+ *
+ * - Un champ qui OUVRE l'adresse y entre tel quel : c'est elle qu'il porte. Placé plus loin, sa valeur est ENCODÉE
+ *   comme dans un lien de modèle (`encoder`, `src/links/champs-url.ts`) : « Martin & Fils » dans `?nom=` part en
+ *   `Martin%20%26%20Fils` au lieu de couper la requête, et `../admin` ne remonte pas le chemin.
+ * - L'adresse remplie passe ensuite par l'analyseur d'URL (une espace d'un champ d'ouverture devient `%20`). Une
+ *   adresse SANS variable part octet pour octet comme saisie.
+ * - 🔴 UNE VARIABLE SANS VALEUR FAIT REFUSER L'ENVOI, même au milieu de l'adresse : `https://site.fr/devis/{{id}}`
+ *   vide donnerait `https://site.fr/devis/`, une adresse valide qui ouvre la mauvaise page sans que rien ne le dise.
+ *   Même règle qu'un modèle dont une variable manque : un refus nommé, jamais un bouton faux. `.` et `..` seuls
+ *   comptent pour vides, comme dans un lien de modèle.
+ * - `vars` absent (aucune table câblée) : l'adresse garde ses accolades, et `problemeLienBouton` la refuse.
+ *
+ * WhatsApp seulement : en RCS, le lien passe par notre redirection de suivi, et un champ que le contact écrit
+ * lui-même ferait de notre domaine un redirecteur ouvert (`envoyerQuickEnRcs`).
+ */
+export function lienPourLeContact(
+  lien: LienBouton,
+  vars: Record<string, string | null | undefined> | undefined,
+): { lien: LienBouton } | { refus: string } {
+  const saisie = lien.url.trim();
+  if (vars === undefined || !saisie.includes('{{')) {
+    const probleme = problemeLienBouton(lien);
+    return probleme ? { refus: probleme } : { lien };
+  }
+  const vides: string[] = [];
+  const remplie = saisie.replace(VARIABLE_DE_FICHE, (_jeton: string, nom: string, position: number) => {
+    const brute = renderText(`{{${nom}}}`, vars, { html: false }).trim();
+    const valeur = position === 0 ? brute : encoder(brute);
+    if (valeur === '' && !vides.includes(nom)) vides.push(nom);
+    return valeur;
+  }).trim();
+  if (vides.length > 0) {
+    return { refus: `le bouton de lien n’est pas parti : ce contact n’a pas de valeur pour ${vides.map((n) => `{{${n}}}`).join(', ')}` };
+  }
+  let url = remplie;
+  try { url = new URL(remplie).href; } catch { /* `problemeLienBouton` nomme l'adresse invalide */ }
+  const probleme = problemeLienBouton({ ...lien, url });
+  return probleme ? { refus: probleme } : { lien: { ...lien, url } };
 }
 
 /**

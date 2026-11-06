@@ -1,7 +1,7 @@
 ---
 ecran: automations
 source_section: Automation (menu « Automation ») | Rappels avant ou après une date (menu Automation) | Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: b8651e | 08adbf | f8b6a6
+source_empreinte: b8651e | 08adbf | 068394
 ---
 # Lancer un scénario tout seul, sans campagne
 

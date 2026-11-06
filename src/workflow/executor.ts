@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, pauseEnSecondes, questionRows } from './engine';
+import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, lienPourLeContact, pauseEnSecondes, questionRows } from './engine';
 import type { WalkStep } from './engine';
 import type { WorkflowAction, WalkRest, WorkflowButton, SendEmailAction, QuestionRow, LienBouton } from './engine';
 import type { WorkflowGraph, WorkflowNode, WorkflowNodeType } from './graph';
@@ -38,6 +38,9 @@ import { SORTIE_FICHIER, type GenrePiece } from '../../web/lib/partage/question-
  * campagne affiche la cause qui s'applique, pas toutes les causes possibles).
  */
 export type StartOutcome = true | string;
+
+/** Ce texte porte-t-il une variable `{{champ}}` de la fiche ? Grammaire de `renderText`. Sans `g` : `test` sans état. */
+const VARIABLE_DU_CORPS = /\{\{\s*[\w.-]+\s*\}\}/;
 
 /**
  * Ce que rend une dep d'envoi : `void` (parti), une chaîne portant la raison d'un non-envoi, ou
@@ -228,7 +231,7 @@ export interface WorkflowExecutorDeps {
    *
    *  `mediaUrl` = visuel hébergé chez nous, téléversé chez Meta et posé en en-tête (ou image légendée sans
    *  bouton). `lien` = bouton de lien, exclusif des réponses rapides (l'action arrive alors avec `buttons`
-   *  vide).
+   *  vide), son adresse déjà remplie pour ce contact (`lienPourLeContact`).
    *
    *  Sixième paramètre : une implémentation qui n'en déclare que cinq compile et avale le lien en silence
    *  (une flèche à moins de paramètres reste assignable). La vraie implémentation (`src/workflow/envois-bloc.ts`)
@@ -592,6 +595,14 @@ export class WorkflowExecutor {
     // bouton. Libellé borné à 20 comme côté WhatsApp (le RCS en accepte 25), pour un rendu identique sur les
     // deux canaux. `postbackData` hors de l'espace `btn:<i>` : un clic sur un lien ne correspond à aucune
     // branche du scénario.
+    //
+    // 🔴 Une adresse à variable ne part qu'en WhatsApp (`lienPourLeContact`). En RCS, le lien passe par notre
+    // redirection de suivi (`/r/`) : rempli par un champ que le contact peut écrire lui-même (réponse à une
+    // Question, dernier message), il ferait de notre domaine un redirecteur ouvert. Même raison que les modèles,
+    // dont un champ ne se place qu'après le nom du site (`web/lib/champs-url.ts`).
+    if (a.lien?.url.includes('{{')) {
+      return 'sur un parcours RCS, l’adresse du bouton de lien ne peut pas porter de variable : elle ne part qu’en WhatsApp';
+    }
     const probleme = a.lien ? problemeLienBouton(a.lien) : null;
     if (probleme) return probleme;
     // Une vidéo ou un PDF ne partent qu'en WhatsApp (spec médias, § 3.5) : leur adresse n'est pas publique, et une carte
@@ -621,6 +632,31 @@ export class WorkflowExecutor {
         : "le contact n'est pas joignable en RCS";
     }
     return { messageId: out.messageId };
+  }
+
+  /**
+   * Un message rapide envoyé en WhatsApp. Le corps et l'adresse du bouton de lien (`lienPourLeContact`) prennent les
+   * valeurs de la fiche du contact, LUE UNE FOIS pour les deux, et seulement si l'un d'eux porte une accolade : une
+   * campagne envoie ce bloc à des milliers de contacts. Un refus de l'adresse (variable sans valeur, adresse
+   * invalide) arrête l'envoi AVANT Meta, avec sa raison.
+   */
+  private async envoyerQuickEnWhatsapp(
+    tenantId: string,
+    waId: string,
+    a: { body: string; buttons: WorkflowButton[]; mediaUrl?: string; lien?: LienBouton },
+  ): Promise<SendRefusal> {
+    const corpsAVariable = VARIABLE_DU_CORPS.test(a.body);
+    const vars = this.deps.varsFor && (corpsAVariable || a.lien?.url.includes('{{'))
+      ? await this.deps.varsFor(tenantId, waId)
+      : undefined;
+    let lien = a.lien;
+    if (lien) {
+      const pret = lienPourLeContact(lien, vars);
+      if ('refus' in pret) return pret.refus;
+      lien = pret.lien;
+    }
+    const corps = vars && corpsAVariable ? renderText(a.body, vars, { html: false }) : a.body;
+    return this.deps.sendQuickMessage(tenantId, waId, corps, a.buttons, a.mediaUrl, lien);
   }
 
   /**
@@ -829,11 +865,12 @@ export class WorkflowExecutor {
         /**
          * Les variables `{{champ}}` du contact, pour les deux blocs WhatsApp à corps libre (message rapide,
          * question) : même grammaire et même table que le RCS et les modèles d'e-mail (`contactVars`). La fiche
-         * n'est lue que si le message en porte. Seul le corps est substitué, pas les libellés de boutons : 20
-         * caractères chez Meta, un prénom long ferait refuser le message entier (même règle que le RCS).
+         * n'est lue que si le message en porte. Le corps est substitué ici, l'adresse d'un bouton de lien par
+         * `lienPourLeContact` ; jamais les libellés de boutons : 20 caractères chez Meta, un prénom long ferait
+         * refuser le message entier (même règle que le RCS).
          */
         const corpsAvecVariables = async (texte: string): Promise<string> => {
-          if (!this.deps.varsFor || !/\{\{\s*[\w.-]+\s*\}\}/.test(texte)) return texte;
+          if (!this.deps.varsFor || !VARIABLE_DU_CORPS.test(texte)) return texte;
           return renderText(texte, await this.deps.varsFor(tenantId, waId), { html: false });
         };
         // Jamais `refus ??= await …` : `??=` n'évalue pas sa droite quand la gauche est remplie, et l'envoi
@@ -844,7 +881,7 @@ export class WorkflowExecutor {
             // Le canal du parcours décide, pas le type du bloc. Voir `envoyerQuickEnRcs`.
             ? (canal === 'rcs'
               ? await this.envoyerQuickEnRcs(tenantId, waId, a)
-              : await this.deps.sendQuickMessage(tenantId, waId, await corpsAvecVariables(a.body), a.buttons, a.mediaUrl, a.lien))
+              : await this.envoyerQuickEnWhatsapp(tenantId, waId, a))
             // Une question part toujours en WhatsApp : la liste interactive n'a aucun équivalent RCS. Pas de
             // branche `canal === 'rcs'`, qui promettrait un repli inexistant.
             : a.kind === 'sendQuestion'

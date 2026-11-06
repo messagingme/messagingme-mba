@@ -1,7 +1,7 @@
 ---
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: f8b6a6
+source_empreinte: 068394
 ---
 # Créer un scénario
 
@@ -19,7 +19,10 @@ Les blocs que vous utiliserez le plus :
   modèle d'un scénario lancé en campagne, l'étape Contenu de la campagne reprend vos choix, et vous pouvez encore les
   y changer.
 - **Message rapide** : un texte, avec jusqu'à trois boutons de réponse ou un bouton qui ouvre une page. Il ne
-  part que dans une conversation déjà ouverte. Il peut porter une image, une vidéo MP4 ou un PDF ; la vidéo et le
+  part que dans une conversation déjà ouverte. L'adresse du bouton peut venir d'un champ du contact : le bouton
+  « Variable » sous l'adresse l'insère, par exemple le lien du devis importé de HubSpot. Si ce champ est vide sur la
+  fiche, le message ne part pas pour ce contact et la conversation passe à votre équipe. Une adresse à variable ne
+  part qu'en WhatsApp : un parcours RCS la refuse. Il peut porter une image, une vidéo MP4 ou un PDF ; la vidéo et le
   PDF ne partent qu'en WhatsApp, et le texte qui les accompagne est limité à 1 024 caractères. Une vidéo d'iPhone
   (MOV, ou HEVC) est refusée au dépôt : convertissez-la en MP4 H.264. Le fichier vient de votre ordinateur
   (« Choisir un fichier ») ou de ceux que vous avez déjà déposés (« Depuis la médiathèque », qui ne propose que ce que

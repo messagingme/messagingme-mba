@@ -6,7 +6,8 @@ import { useT } from '@/lib/i18n';
 import { nodeMetaOf } from '@/lib/nodeMeta';
 import { MAX_DESTINATAIRES_EMAIL } from '@/lib/partage/blocs';
 import { MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE } from '@/lib/partage/message-rapide';
-import { emailResolvableFields, varCountOf } from '@/lib/fields';
+import { emailResolvableFields, emailVariableFields, varCountOf } from '@/lib/fields';
+import { SelecteurVariable } from '@/components/SelecteurVariable';
 import { carouselOutputs } from '@/lib/carousel-outputs';
 import { versBrouillonRcs, maxTexteRcs, MAX_BOUTONS_CARTE, MAX_BOUTONS_RCS } from '@/lib/rcs';
 import { boutonsDepuisNode } from '@/lib/rcs-boutons';
@@ -22,7 +23,7 @@ import { essayerFonctionJs, getTemplateHints, type EssaiJs, type TemplateParamHi
 import { SourceDeVariable } from '@/components/SourceDeVariable';
 import { SEL_AUCUN, lignesDuBloc, lireSourcesDuBloc, versSourcesDuBloc } from '@/lib/variables-bloc-template';
 import type { VarRow } from '@/lib/variables-template';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { CHAMP_MAINTENANT, nomDeParametreSur } from '@/lib/partage/fonction-js';
@@ -117,6 +118,84 @@ function FieldValueEditor({ d, fields, onPatch, avecValeur }: {
             <input value={(d.value as string) ?? ''} onChange={(e) => onPatch({ value: e.target.value })} className={`${cls} mt-1.5`} placeholder={t('valeur à poser', 'value to set')} />
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * L'ADRESSE DU BOUTON DE LIEN d'un message rapide. Un champ de la fiche peut en porter une partie
+ * (`https://site.fr/rdv?id={{...}}`) ou l'adresse ENTIÈRE : c'est le cas qui l'a fait naître, le lien d'un devis
+ * HubSpot posé sur la fiche (`hs_calc_lien_devis`). Le moteur la remplit à l'envoi (`lienPourLeContact`,
+ * src/workflow/engine.ts), en WhatsApp seulement.
+ *
+ * Un `input` nu plutôt que l'éditeur à pastilles : une adresse se colle et se corrige caractère par caractère. Le jeton
+ * s'insère au curseur par LE sélecteur de variables, comme dans le sujet d'un modèle d'e-mail, et la ligne du dessous
+ * nomme par leur LIBELLÉ les champs que l'adresse utilise. Composant à part pour sa `ref`, comme `FonctionJs` pour
+ * son état : un hook dans le panneau serait appelé pour les seize natures de bloc.
+ */
+function AdresseDuLien({ valeur, fields, onChange }: {
+  valeur: string;
+  fields: UserFieldDef[];
+  onChange: (v: string) => void;
+}) {
+  const t = useT();
+  const champ = useRef<HTMLInputElement>(null);
+  const url = valeur.trim();
+  const noms = [...new Set([...url.matchAll(/\{\{\s*([\w.-]+)\s*\}\}/g)].map((m) => m[1]!))];
+  // ⚠️ MIROIR ALLÉGÉ de `problemeLienBouton` et `lienPourLeContact` (src/workflow/engine.ts) : l'écran dit la règle à
+  // la saisie, le moteur la fait respecter à l'envoi. D'accord sur le PRINCIPE : `http(s)://` en tête, ou un champ qui
+  // porte l'adresse entière. Le reste ne se juge qu'à l'envoi, une fois la fiche lue.
+  const mauvaise = url !== '' && !/^(https?:\/\/|\{\{)/i.test(url);
+  const libelles = emailVariableFields(fields, t);
+  const utilises = noms.map((n) => libelles.find((f) => f.key === n)?.label ?? n).join(', ');
+  // Un champ qui OUVRE l'adresse doit la porter entière. Les liens HubSpot sont de type lien (`typeChampHubspot`) ; un
+  // autre type n'est pas forcément faux (un champ texte peut porter une adresse), d'où un avertissement, pas une erreur.
+  // Champ introuvable (liste pas encore chargée) : on ne dit rien plutôt qu'une fausse alerte.
+  const tete = /^\{\{\s*([\w.-]+)\s*\}\}/.exec(url)?.[1];
+  const champDeTete = tete === undefined ? undefined : libelles.find((f) => f.key === tete);
+  const teteDouteuse = champDeTete !== undefined && champDeTete.type !== 'url';
+
+  function inserer(cle: string) {
+    const jeton = `{{${cle}}}`;
+    const debut = champ.current?.selectionStart ?? valeur.length;
+    const fin = champ.current?.selectionEnd ?? valeur.length;
+    onChange(valeur.slice(0, debut) + jeton + valeur.slice(fin));
+    const curseur = debut + jeton.length;
+    requestAnimationFrame(() => { champ.current?.focus(); champ.current?.setSelectionRange(curseur, curseur); });
+  }
+
+  return (
+    <div>
+      <input
+        ref={champ}
+        value={valeur}
+        onChange={(e) => onChange(e.target.value)}
+        className={cls}
+        placeholder="https://…"
+        data-testid="quick-node-lien-url"
+      />
+      <div className="mt-1 flex items-start justify-between gap-2">
+        <p className="text-xs text-ink-500" data-testid="quick-node-lien-champs">
+          {noms.length > 0 && t(
+            `Remplie à l’envoi avec : ${utilises}. Champ vide sur la fiche du contact : le message ne part pas. En WhatsApp seulement, un parcours RCS le refuse.`,
+            `Filled at sending time with: ${utilises}. Empty field on the contact record: the message does not go out. WhatsApp only, an RCS journey rejects it.`,
+          )}
+        </p>
+        <SelecteurVariable fields={fields} onInsert={inserer} testId="quick-node-lien-variable" className="shrink-0" />
+      </div>
+      {mauvaise && (
+        <p className="mt-1 text-xs text-danger" data-testid="quick-node-lien-erreur">
+          {t('L’adresse doit commencer par http://, https:// ou par une variable qui porte l’adresse entière : sinon WhatsApp refuse le message entier.', 'The address must start with http://, https:// or with a variable that holds the whole address, otherwise WhatsApp rejects the whole message.')}
+        </p>
+      )}
+      {teteDouteuse && (
+        <p className="mt-1 text-xs text-alerte-700" data-testid="quick-node-lien-type">
+          {t(
+            `« ${champDeTete.label} » n’est pas un champ de type lien : il doit contenir une adresse complète (https://…), sinon le message ne part pas.`,
+            `“${champDeTete.label}” is not a link field: it must hold a full address (https://…), otherwise the message does not go out.`,
+          )}
+        </p>
       )}
     </div>
   );
@@ -518,12 +597,6 @@ export function ConfigPanel({
       {wfType === 'quick_message' && (() => {
         const qr = Array.isArray(d.quickReplies) ? (d.quickReplies as string[]) : [];
         const lienActif = d.lienActif === true;
-        const lienUrl = String(d.lienUrl ?? '').trim();
-        // ⚠️ MIROIR de `problemeLienBouton` (src/workflow/engine.ts), volontairement ALLÉGÉ : l'écran dit la
-        // règle au moment de la saisie, le moteur la fait respecter à l'envoi. Les deux doivent rester
-        // d'accord sur le PRINCIPE (http(s), aucune variable), pas sur chaque détail de formulation.
-        const lienMauvaiseUrl = lienUrl !== ''
-          && (lienUrl.includes('{{') || !(lienUrl.startsWith('http://') || lienUrl.startsWith('https://')));
         return (
           <div className="space-y-2">
             {/* MÊME composant d'insertion que le bloc RCS et le bloc Question : « Variable » pose un champ
@@ -593,18 +666,7 @@ export function ConfigPanel({
                     placeholder={t('Libellé du bouton', 'Button label')}
                     data-testid="quick-node-lien-texte"
                   />
-                  <input
-                    value={String(d.lienUrl ?? '')}
-                    onChange={(e) => onPatch({ lienUrl: e.target.value })}
-                    className={cls}
-                    placeholder="https://…"
-                    data-testid="quick-node-lien-url"
-                  />
-                  {lienMauvaiseUrl && (
-                    <p className="text-xs text-danger" data-testid="quick-node-lien-erreur">
-                      {t('L’adresse doit commencer par http:// ou https:// et ne peut pas contenir de variable : sinon WhatsApp refuse le message entier.', 'The address must start with http:// or https:// and cannot contain a variable, otherwise WhatsApp rejects the whole message.')}
-                    </p>
-                  )}
+                  <AdresseDuLien valeur={String(d.lienUrl ?? '')} fields={fields} onChange={(lienUrl) => onPatch({ lienUrl })} />
                   <p className="text-xs text-ink-500">
                     {t('Libellé 20 caractères max. Le contact ouvre la page dans son navigateur : rien ne revient au scénario, donc ce bloc n’a pas de sortie à relier et le parcours continue juste après.', 'Label 20 characters max. The contact opens the page in their browser: nothing comes back to the scenario, so this block has no output to connect and the journey continues right after.')}
                   </p>

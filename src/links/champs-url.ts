@@ -70,8 +70,12 @@ export function valeursDeLaFiche(c: {
   return out;
 }
 
-/** La valeur à écrire dans l'adresse : encodée, ou vide. `.` et `..` seuls seraient lus comme un chemin relatif. */
-function encoder(v: string | null | undefined): string {
+/**
+ * La valeur à écrire dans l'adresse : encodée, ou vide. `.` et `..` seuls seraient lus comme un chemin relatif. Sert
+ * aussi l'adresse du bouton de lien d'un message rapide (`lienPourLeContact`), pour qu'un champ placé dans une
+ * adresse s'écrive pareil partout.
+ */
+export function encoder(v: string | null | undefined): string {
   const s = (v ?? '').trim();
   if (s === '' || s === '.' || s === '..') return '';
   return encodeURIComponent(s);

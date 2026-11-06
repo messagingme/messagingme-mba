@@ -46,7 +46,12 @@ async function mockBuilder(page: import('@playwright/test').Page, saved: Graph[]
     if (url.includes('/flows')) return json({ flows: [] });
     if (url.includes('/tags')) return json({ tags: [] });
     if (url.includes('/user-fields/usage')) return json({ total: 0, parChamp: {} });
-    if (url.includes('/user-fields')) return json({ fields: [] });
+    if (url.includes('/user-fields')) {
+      return json({ fields: [
+        { key: 'hs_calc_lien_devis', label: 'Lien du devis (HubSpot)', type: 'url' },
+        { key: 'prenom', label: 'Prénom', type: 'text' },
+      ] });
+    }
     if (url.includes('/settings')) return json({ mbaEnabled: false, rcsEnabled: false, hubspotListsEnabled: false, campaignsPaused: false });
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     return json({});
@@ -89,8 +94,8 @@ test.describe('Bloc message rapide : le bouton de lien', () => {
   });
 
   test('⚠️ une adresse mal formée est signalée AVANT l’envoi, pas après', async ({ page }) => {
-    // Une adresse sans schéma, ou porteuse d'une variable, fait refuser le message ENTIER par Meta. Le dire
-    // au moment de la saisie évite un scénario qui se montre cassé seulement en production.
+    // Une adresse sans schéma fait refuser le message ENTIER par Meta. Le dire au moment de la saisie évite un
+    // scénario qui se montre cassé seulement en production.
     await mockBuilder(page, []);
     await page.goto('/workflows?open=wf1');
     await page.locator('.react-flow__node').first().click();
@@ -99,10 +104,67 @@ test.describe('Bloc message rapide : le bouton de lien', () => {
     await page.getByTestId('quick-node-lien-url').fill('exemple.fr');
     await expect(page.getByTestId('quick-node-lien-erreur')).toBeVisible();
 
-    await page.getByTestId('quick-node-lien-url').fill('https://exemple.fr/{{prenom}}');
-    await expect(page.getByTestId('quick-node-lien-erreur')).toBeVisible();
-
     await page.getByTestId('quick-node-lien-url').fill('https://exemple.fr');
     await expect(page.getByTestId('quick-node-lien-erreur')).toHaveCount(0);
+  });
+
+  test('🔴 une VARIABLE est acceptée dans l’adresse, jusqu’à l’adresse entière (le lien du devis HubSpot)', async ({ page }) => {
+    // Demandé par Julien le 2026-11-06 : le lien du devis, importé de HubSpot sur la fiche, ouvre le bouton. Le
+    // moteur remplit l'adresse à l'envoi (`lienPourLeContact`) ; l'écran ne la refuse plus.
+    await mockBuilder(page, []);
+    await page.goto('/workflows?open=wf1');
+    await page.locator('.react-flow__node').first().click();
+    await page.getByTestId('quick-node-lien-actif').check();
+
+    await page.getByTestId('quick-node-lien-url').fill('https://exemple.fr/rdv?id={{hs_calc_lien_devis}}');
+    await expect(page.getByTestId('quick-node-lien-erreur')).toHaveCount(0);
+    await page.getByTestId('quick-node-lien-url').fill('{{hs_calc_lien_devis}}');
+    await expect(page.getByTestId('quick-node-lien-erreur')).toHaveCount(0);
+    // Le champ est nommé par son LIBELLÉ sous l'adresse, pas seulement par sa clé ; un champ de type lien
+    // n'appelle aucun avertissement.
+    await expect(page.getByTestId('quick-node-lien-champs')).toContainText('Lien du devis (HubSpot)');
+    await expect(page.getByTestId('quick-node-lien-type')).toHaveCount(0);
+    // Un champ qui n'est pas de type lien, en tête de l'adresse : averti (il doit porter une adresse complète).
+    await page.getByTestId('quick-node-lien-url').fill('{{prenom}}');
+    await expect(page.getByTestId('quick-node-lien-type')).toContainText('Prénom');
+    // Une adresse qui ne commence ni par http(s):// ni par une variable reste signalée.
+    await page.getByTestId('quick-node-lien-url').fill('devis/{{hs_calc_lien_devis}}');
+    await expect(page.getByTestId('quick-node-lien-erreur')).toBeVisible();
+  });
+
+  test('le champ s’insère AU CURSEUR, après ce qui est déjà saisi', async ({ page }) => {
+    // Le cas d'une adresse mixte : on tape le début, puis on choisit le champ. Mesuré à la relecture : la sélection
+    // survit au clic sur « Variable » ; ce test le garde.
+    await mockBuilder(page, []);
+    await page.goto('/workflows?open=wf1');
+    await page.locator('.react-flow__node').first().click();
+    await page.getByTestId('quick-node-lien-actif').check();
+
+    await page.getByTestId('quick-node-lien-url').fill('https://exemple.fr/rdv?id=');
+    await page.getByTestId('quick-node-lien-variable').click();
+    await page.getByTestId('quick-node-lien-variable-hs_calc_lien_devis').click();
+    await expect(page.getByTestId('quick-node-lien-url')).toHaveValue('https://exemple.fr/rdv?id={{hs_calc_lien_devis}}');
+  });
+
+  test('🔴 le bouton « Variable » insère le champ choisi dans l’adresse, et le scénario l’enregistre', async ({ page }) => {
+    // LE sélecteur de variables, comme partout : personne ne doit taper `{{hs_calc_lien_devis}}` de mémoire.
+    const saved: Graph[] = [];
+    await mockBuilder(page, saved);
+    await page.goto('/workflows?open=wf1');
+    await page.locator('.react-flow__node').first().click();
+    await page.getByTestId('quick-node-lien-actif').check();
+    await page.getByTestId('quick-node-lien-texte').fill('Votre devis');
+
+    await page.getByTestId('quick-node-lien-variable').click();
+    await page.getByTestId('quick-node-lien-variable-hs_calc_lien_devis').click();
+    await expect(page.getByTestId('quick-node-lien-url')).toHaveValue('{{hs_calc_lien_devis}}');
+
+    await expect.poll(
+      () => saved.some((g) => g.nodes.some((n) => {
+        const d = n.data as { lienActif?: boolean; lienUrl?: string };
+        return d.lienActif === true && d.lienUrl === '{{hs_calc_lien_devis}}';
+      })),
+      { timeout: 10_000 },
+    ).toBe(true);
   });
 });

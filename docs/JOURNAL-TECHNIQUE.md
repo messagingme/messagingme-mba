@@ -4,6 +4,37 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : une variable dans l'adresse du bouton de lien (le lien du devis HubSpot)
+
+Demande de Julien : le bouton de lien du bloc « Message rapide » doit pouvoir ouvrir le devis HubSpot du contact,
+dont l'intégration pose l'adresse entière sur la fiche (`hs_calc_lien_devis`). Livré en direct, sans agent, dans une
+copie à part (le dossier partagé portait le travail d'une autre session sur les mêmes fichiers).
+
+- **Moteur** : `lienPourLeContact` (`src/workflow/engine.ts`) remplit l'adresse avec la fiche, même grammaire et même
+  table que le corps. Un champ qui OUVRE l'adresse y entre tel quel (il la porte entière) ; placé plus loin, sa valeur
+  passe par `encoder` (`src/links/champs-url.ts`, exporté pour l'occasion), comme un champ de lien de modèle. L'adresse
+  remplie passe ensuite par `new URL(...).href`. Une adresse sans variable part octet pour octet comme avant, et
+  `problemeLienBouton` garde sa règle du 2026-09-11 pour elle. 🔴 Une variable SANS VALEUR (ou `.`, `..`) fait refuser
+  l'envoi, même au milieu de l'adresse : `https://site.fr/devis/` serait valide et ouvrirait la mauvaise page.
+- **WhatsApp seulement** : `envoyerQuickEnWhatsapp` lit la fiche UNE fois pour le corps et l'adresse, puis remplit le
+  lien avant `sendQuickMessage`. En RCS, `envoyerQuickEnRcs` refuse toute adresse à variable : le lien y passe par notre
+  redirection `/r/`, et un champ que le contact écrit lui-même ferait de notre domaine un redirecteur ouvert (même
+  doctrine que les champs d'URL des modèles).
+- **Console** : `AdresseDuLien` (`WorkflowConfigPanel.tsx`), un `input` et LE sélecteur de variables, le jeton inséré au
+  curseur, les champs utilisés nommés par leur libellé sous l'adresse, un avertissement quand le champ de tête n'est pas
+  de type lien. L'adresse doit commencer par `http(s)://` ou par une variable.
+- **Relecture indépendante** : aucun rouge, sept jaunes, tous corrigés dans le lot (rien n'était publié) : la règle
+  `isSendableButtonUrl` d'abord ajoutée aux adresses sans variable aurait coupé, au déploiement, des blocs publiés
+  depuis le 2026-09-11 (retirée) ; la valeur insérée brute au milieu de l'adresse (`&`, `#`, `../`) ; la fiche lue deux
+  fois ; le type du champ de tête ; l'insertion au curseur sans test ; une doc qui promettait la raison du refus dans
+  l'historique du scénario. ⚠️ Cette raison n'est affichée NULLE PART, pour aucun refus d'envoi d'un parcours en cours
+  (`advance` : journal du serveur, puis la conversation passe à l'équipe) : écart antérieur au lot, laissé tel quel.
+- **Vérifié** : la suite racine (un cas de `mcp-agent` rouge sous la charge, vert seul trois fois sur trois, déjà connu),
+  la suite de la console, son typecheck et son lint, les e2e des blocs « Message rapide » contre la console construite ;
+  chaque garde retirée tour à tour fait rougir son test (variable vide, adresse remplie au sixième argument, refus RCS).
+- **Essai réel** : un scénario lancé depuis HubSpot vers le numéro de Julien, bouton « Votre devis » qui ouvre le bon
+  devis, et un contact sans devis publié : rien ne part et la conversation passe à l'équipe.
+
 ## 2026-11-06 : la reprise d'un numéro fourni mis dans l'application (migration 0280, plugin 0.3.25)
 
 Plan `docs/superpowers/plans/2026-11-06-numero-fourni-reprise.md`. Vécu par Johan le jour même : un numéro fourni mis

@@ -997,9 +997,18 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   disparaissent. Le contact qui clique **ne renvoie rien** au scénario (Meta n'émet aucun retour pour ce
   bouton) : le bloc n'a donc pas de sortie à relier, et le parcours continue tout de suite après, comme après
   un simple texte. Sur un parcours **RCS**, le même bloc part avec un bouton « ouvrir un lien », si bien
-  qu'un scénario se monte une fois pour les deux canaux. Une adresse vide, mal formée ou porteuse d'une
-  variable **fait refuser l'envoi** au lieu de laisser partir le message sans son bouton, et l'écran la
-  signale dès la saisie.
+  qu'un scénario se monte une fois pour les deux canaux. Une adresse vide ou mal formée (sans `http://` ni
+  `https://`) **fait refuser l'envoi** au lieu de laisser partir le message sans son bouton, et l'écran la signale
+  dès la saisie. **L'adresse peut venir de la fiche du contact** (2026-11-06) : le bouton « Variable » sous l'adresse
+  y insère un champ, à l'endroit du curseur, pour une partie (`https://site.fr/rdv?id=…`) ou pour l'adresse
+  entière, comme le lien du devis importé de HubSpot (`hs_calc_lien_devis`). L'écran nomme le champ sous l'adresse,
+  et avertit quand le champ qui ouvre l'adresse n'est pas un champ de type lien. À l'envoi, un champ qui ouvre
+  l'adresse y entre tel quel ; placé plus loin, sa valeur est encodée comme dans un lien de modèle (une espace, un
+  `&` ou un accent n'y cassent rien). Un champ vide sur la fiche **fait refuser l'envoi** pour ce contact : le
+  parcours s'arrête et la conversation passe à votre équipe, plutôt qu'un bouton qui ouvrirait la mauvaise page
+  (la raison du refus n'est pas encore affichée à l'écran). ⚠️ En WhatsApp seulement : sur un parcours RCS, le
+  lien passe par notre redirection de suivi, et une adresse à variable y fait refuser l'envoi (un champ que le
+  contact écrit lui-même ferait de notre domaine un redirecteur ouvert).
 - ✅ **Le bloc « message rapide » accepte une vidéo ou un PDF** (2026-10-15), en plus d'une image. Vidéo MP4
   encodée en H.264 ou PDF, 16 Mo chacun ; image JPEG ou PNG, 2 Mo. Avec des boutons, le fichier part en en-tête
   du message ; sans bouton, en vidéo ou en document légendé, le PDF sous son nom d'origine. Le texte est alors
