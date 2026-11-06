@@ -27,10 +27,13 @@ export function proprieteContactDe(cle: string): string | null {
   return NOM_PROPRIETE_HUBSPOT.test(propriete) ? propriete : null;
 }
 
-/** Les deux écritures de fiche d'un parcours, telles que l'exécuteur les reçoit. */
+/**
+ * Les deux écritures de fiche d'un parcours, telles que l'exécuteur les reçoit. Des PROPRIÉTÉS-fonctions, pas des
+ * méthodes : elles ne lisent pas `this` et le câblage les détache (`setField: ecrituresDeFiche.setField`).
+ */
 export interface EcrituresDeFiche {
-  setField(tenantId: string, waId: string, key: string, value: string): Promise<void>;
-  clearField(tenantId: string, waId: string, key: string): Promise<void>;
+  setField: (tenantId: string, waId: string, key: string, value: string) => Promise<void>;
+  clearField: (tenantId: string, waId: string, key: string) => Promise<void>;
 }
 
 export interface RemonteeDeps {
