@@ -6,8 +6,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Intégrations : Shopify, HubSpot, Salesforce, Claude Code · Messaging Me</title>
-<meta name="description" content="Messaging Me se branche à votre boutique Shopify, à HubSpot, à Salesforce, à Claude Code et à Codex, et au reste par l’API, les webhooks et le serveur MCP.">
+<title>Intégrations : Salesforce, Dynamics, HubSpot, Shopify · Messaging Me</title>
+<meta name="description" content="Messaging Me s’installe dans Salesforce, Dynamics 365 et HubSpot, se branche à Shopify, à Claude Code et à Codex, et au reste par l’API et les webhooks.">
 <link rel="canonical" href="https://app.messagingme.fr/integrations/">
 <link rel="alternate" hreflang="fr" href="https://app.messagingme.fr/integrations/">
 <link rel="alternate" hreflang="en" href="https://app.messagingme.fr/en/integrations/">
@@ -16,8 +16,8 @@
 <meta property="og:type" content="website">
 <meta property="og:locale" content="fr_FR">
 <meta property="og:site_name" content="Messaging Me">
-<meta property="og:title" content="Intégrations : Shopify, HubSpot, Salesforce, Claude Code · Messaging Me">
-<meta property="og:description" content="Messaging Me se branche à votre boutique Shopify, à HubSpot, à Salesforce, à Claude Code et à Codex, et au reste par l’API, les webhooks et le serveur MCP.">
+<meta property="og:title" content="Intégrations : Salesforce, Dynamics, HubSpot, Shopify · Messaging Me">
+<meta property="og:description" content="Messaging Me s’installe dans Salesforce, Dynamics 365 et HubSpot, se branche à Shopify, à Claude Code et à Codex, et au reste par l’API et les webhooks.">
 <meta property="og:image" content="https://app.messagingme.fr/img/partage/accueil.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -146,15 +146,15 @@
           <a class="menu-sous" href="/cas-d-usage/notifications-de-commande/"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-package"/></svg></span><span><strong>Notifications de commande</strong></span></a>
         </div>
       </details>
-      <a class="burger-ligne" href="/tarifs/">Tarifs</a>
       <details class="burger-groupe" open>
         <summary>Ressources<svg class="ic" aria-hidden="true"><use href="#i-caret-down"/></svg></summary>
         <div class="burger-liens">
           <a href="/aide/"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-question"/></svg></span><span><strong>Aide</strong><small>Les guides de la console, pas à pas</small></span></a>
-          <a href="/integrations/" aria-current="page"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-arrows-left-right"/></svg></span><span><strong>Intégrations</strong><small>Shopify, HubSpot, Salesforce, Claude Code</small></span></a>
+          <a href="/integrations/" aria-current="page"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-arrows-left-right"/></svg></span><span><strong>Intégrations</strong><small>Salesforce, Dynamics, HubSpot, Shopify</small></span></a>
           <a href="https://www.messagingme.fr/blog-messaging-me-agence-conversationelle/"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg></span><span><strong>Blog</strong><small>Nos articles sur le conversationnel</small></span></a>
         </div>
       </details>
+      <a class="burger-ligne" href="/tarifs/">Tarifs</a>
       <a class="burger-ligne" href="/developpeurs/">Développeurs</a>
       <div class="langues burger-langues" role="group" aria-label="Langue du site">
         <span class="langue" aria-current="true" title="Français"><svg aria-hidden="true"><use href="#drapeau-fr"/></svg><span class="masque">Français, langue du site</span></span>
@@ -197,15 +197,15 @@
         </div>
       </div>
     </details>
-    <a class="lien" href="/tarifs/">Tarifs</a>
     <details class="menu">
       <summary class="lien"><span class="menu-bureau">Ressources</span><svg class="ic" aria-hidden="true"><use href="#i-caret-down"/></svg></summary>
       <div class="menu-panneau">
         <a href="/aide/"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-question"/></svg></span><span><strong>Aide</strong><small>Les guides de la console, pas à pas</small></span></a>
-        <a href="/integrations/" aria-current="page"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-arrows-left-right"/></svg></span><span><strong>Intégrations</strong><small>Shopify, HubSpot, Salesforce, Claude Code</small></span></a>
+        <a href="/integrations/" aria-current="page"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-arrows-left-right"/></svg></span><span><strong>Intégrations</strong><small>Salesforce, Dynamics, HubSpot, Shopify</small></span></a>
         <a href="https://www.messagingme.fr/blog-messaging-me-agence-conversationelle/"><span class="menu-ic"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg></span><span><strong>Blog</strong><small>Nos articles sur le conversationnel</small></span></a>
       </div>
     </details>
+    <a class="lien" href="/tarifs/">Tarifs</a>
     <a class="lien nav-dev" href="/developpeurs/">Développeurs</a>
     <div class="nav-droite">
       <div class="langues" role="group" aria-label="Langue du site">
@@ -218,6 +218,7 @@
   </nav>
 </header>
 </div>
+<nav class="cadre retour-site" aria-label="Site institutionnel"><a href="https://www.messagingme.fr/"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Retour sur messagingme.fr</a></nav>
 
 <main>
   <section class="cadre f-une-large integ-une">
@@ -229,14 +230,6 @@
 
   <section class="f-bloc bande-claire integ-bloc" aria-label="Les intégrations">
     <ul class="cadre integ-grille">
-      <li id="shopify">
-        <a class="integ-carte" href="/solutions/shopify/">
-          <span class="integ-logo"><img class="logo-shopify" src="/img/logos/shopify-noir.svg" width="105" height="30" alt="Shopify"></span>
-          <h2>Shopify</h2>
-          <p>Se branche à votre boutique Shopify&nbsp;: vos clients reçoivent sur WhatsApp la confirmation de leur commande, l’avis d’expédition avec son suivi, et une relance de leur panier abandonné.</p>
-          <span class="integ-lien">Boutiques Shopify <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></span>
-        </a>
-      </li>
       <li id="hubspot">
         <a class="integ-carte" href="/aide/integrer-whatsapp-a-hubspot/">
           <span class="integ-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#FF7A59" d="M18.164 7.93V5.084a2.198 2.198 0 001.267-1.978v-.067A2.2 2.2 0 0017.238.845h-.067a2.2 2.2 0 00-2.193 2.193v.067a2.196 2.196 0 001.252 1.973l.013.006v2.852a6.22 6.22 0 00-2.969 1.31l.012-.01-7.828-6.095A2.497 2.497 0 104.3 4.656l-.012.006 7.697 5.991a6.176 6.176 0 00-1.038 3.446c0 1.343.425 2.588 1.147 3.607l-.013-.02-2.342 2.343a1.968 1.968 0 00-.58-.095h-.002a2.033 2.033 0 102.033 2.033 1.978 1.978 0 00-.1-.595l.005.014 2.317-2.317a6.247 6.247 0 104.782-11.134l-.036-.005zm-.964 9.378a3.206 3.206 0 113.215-3.207v.002a3.206 3.206 0 01-3.207 3.207z"/></svg></span>
@@ -246,11 +239,27 @@
         </a>
       </li>
       <li id="salesforce">
-        <a class="integ-carte" href="/fonctionnalites/conversations-en-actions/">
+        <a class="integ-carte" href="#dans-le-crm" data-onglet="crm-salesforce">
           <span class="integ-logo"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#00A1E0" d="M10.006 5.415a4.195 4.195 0 013.045-1.306c1.56 0 2.954.9 3.69 2.205.63-.3 1.35-.45 2.1-.45 2.85 0 5.159 2.34 5.159 5.22s-2.31 5.22-5.176 5.22c-.345 0-.69-.044-1.02-.104a3.75 3.75 0 01-3.3 1.95c-.6 0-1.155-.15-1.65-.375A4.314 4.314 0 018.88 20.4a4.302 4.302 0 01-4.05-2.82c-.27.062-.54.076-.825.076-2.204 0-4.005-1.8-4.005-4.05 0-1.5.811-2.805 2.01-3.51-.255-.57-.39-1.2-.39-1.846 0-2.58 2.1-4.65 4.65-4.65 1.53 0 2.85.705 3.72 1.8"/></svg></span>
           <h2>Salesforce</h2>
-          <p>L’analyse de chaque conversation arrive dans Salesforce&nbsp;: votre équipe sait qui appeler, et quand.</p>
-          <span class="integ-lien">Analyse de conversations <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></span>
+          <p>Une étape WhatsApp dans vos parcours Marketing Cloud, la carte Messaging Me sur chaque fiche de Sales Cloud, et l’analyse de chaque conversation.</p>
+          <span class="integ-lien">Dans Salesforce <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></span>
+        </a>
+      </li>
+      <li id="dynamics">
+        <a class="integ-carte" href="#dans-le-crm" data-onglet="crm-dynamics">
+          <span class="integ-logo"><img src="/img/logos/dynamics-365.svg" width="34" height="34" alt=""></span>
+          <h2>Dynamics 365</h2>
+          <p>WhatsApp devient un canal de vos parcours Customer Insights - Journeys, et les réponses de vos contacts reviennent dans leur fiche.</p>
+          <span class="integ-lien">Dans Dynamics 365 <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></span>
+        </a>
+      </li>
+      <li id="shopify">
+        <a class="integ-carte" href="/solutions/shopify/">
+          <span class="integ-logo"><img class="logo-shopify" src="/img/logos/shopify-noir.svg" width="105" height="30" alt="Shopify"></span>
+          <h2>Shopify</h2>
+          <p>Se branche à votre boutique Shopify&nbsp;: vos clients reçoivent sur WhatsApp la confirmation de leur commande, l’avis d’expédition avec son suivi, et une relance de leur panier abandonné.</p>
+          <span class="integ-lien">Boutiques Shopify <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></span>
         </a>
       </li>
       <li id="claude-code">
@@ -269,7 +278,7 @@
           <span class="integ-lien">Les pages développeurs <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></span>
         </a>
       </li>
-      <li id="autres">
+      <li id="autres" class="integ-large">
         <a class="integ-carte" href="https://console.messagingme.app/developers/api/quickstart">
           <span class="integ-logo"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg></span>
           <h2>Vos autres outils</h2>
@@ -278,6 +287,42 @@
         </a>
       </li>
     </ul>
+  </section>
+
+  <section class="f-bloc integ-crm" id="dans-le-crm" aria-labelledby="dans-le-crm-titre">
+    <div class="cadre">
+      <h2 class="f-titre" id="dans-le-crm-titre">Messaging Me s’installe dans votre CRM.</h2>
+      <p class="f-texte">Pas seulement à côté&nbsp;: dans Dynamics&nbsp;365 et dans Salesforce, WhatsApp devient une étape de vos parcours. Vos équipes orchestrent les envois depuis leur CRM, et les réponses reviennent dans la fiche.</p>
+      <fieldset class="integ-onglets">
+        <legend class="masque">Le CRM montré</legend>
+        <input type="radio" name="crm" id="crm-dynamics" checked><label for="crm-dynamics"><img src="/img/logos/dynamics-365.svg" width="20" height="20" alt="">Dynamics 365</label>
+        <input type="radio" name="crm" id="crm-salesforce"><label for="crm-salesforce"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#00A1E0" d="M10.006 5.415a4.195 4.195 0 013.045-1.306c1.56 0 2.954.9 3.69 2.205.63-.3 1.35-.45 2.1-.45 2.85 0 5.159 2.34 5.159 5.22s-2.31 5.22-5.176 5.22c-.345 0-.69-.044-1.02-.104a3.75 3.75 0 01-3.3 1.95c-.6 0-1.155-.15-1.65-.375A4.314 4.314 0 018.88 20.4a4.302 4.302 0 01-4.05-2.82c-.27.062-.54.076-.825.076-2.204 0-4.005-1.8-4.005-4.05 0-1.5.811-2.805 2.01-3.51-.255-.57-.39-1.2-.39-1.846 0-2.58 2.1-4.65 4.65-4.65 1.53 0 2.85.705 3.72 1.8"/></svg>Salesforce</label>
+      </fieldset>
+      <div class="integ-crm-panneau panneau-dynamics">
+        <figure class="integ-crm-visuel">
+          <img class="integ-fenetre" src="/img/integ-dynamics.webp" width="1300" height="815" alt="Un parcours de Dynamics 365 Customer Insights - Journeys : l’étape WhatsApp « invitation à la démo », deux jours d’attente, puis une relance WhatsApp si le rendez-vous n’est pas pris." loading="lazy">
+          <img class="integ-fiche" src="/img/integ-dynamics-fiche.webp" width="720" height="440" alt="La fiche du contact dans Dynamics 365 : le rendez-vous pris sur WhatsApp, sa date, la conseillère et le sujet." loading="lazy">
+        </figure>
+        <ul class="integ-points">
+            <li><strong>Une étape WhatsApp dans le parcours</strong><span>Vos équipes la posent dans Customer Insights - Journeys, comme un e-mail ou un SMS, et choisissent le scénario Messaging Me qui part.</span></li>
+            <li><strong>Les champs de Dynamics dans le message</strong><span>Prénom, conseiller, date du rendez-vous&nbsp;: le message part rempli avec les données de la fiche.</span></li>
+            <li><strong>Les réponses dans la fiche contact</strong><span>Ce que le contact répond sur WhatsApp met à jour sa fiche, et un STOP s’inscrit dans son consentement.</span></li>
+        </ul>
+      </div>
+      <div class="integ-crm-panneau panneau-salesforce">
+        <figure class="integ-crm-visuel">
+          <img class="integ-fenetre" src="/img/integ-salesforce.webp" width="1300" height="733" alt="Un parcours de Journey Builder, dans Salesforce Marketing Cloud : l’activité WhatsApp « invitation », deux jours d’attente, la piste mise à jour quand le prospect a répondu, sinon une relance WhatsApp." loading="lazy">
+          <img class="integ-fiche" src="/img/integ-salesforce-fiche.webp" width="720" height="528" alt="La fiche d’une piste dans Sales Cloud, avec la carte Messaging Me : la dernière conversation analysée, les boutons Envoyer un WhatsApp et Voir la conversation." loading="lazy">
+        </figure>
+        <ul class="integ-points">
+            <li><strong>Marketing Cloud&nbsp;: WhatsApp dans Journey Builder</strong><span>Une activité WhatsApp s’ajoute à vos parcours, à côté de l’e-mail et du SMS, avec les données de vos extensions.</span></li>
+            <li><strong>Sales Cloud&nbsp;: Messaging Me sur la fiche</strong><span>Sur chaque piste et chaque contact, la dernière conversation analysée&nbsp;: intention, urgence, satisfaction, risque de départ.</span></li>
+            <li><strong>Vos équipes agissent sans changer d’outil</strong><span>Envoyer un WhatsApp depuis la fiche, ouvrir la conversation, et retrouver les réponses en tâches et en champs.</span></li>
+        </ul>
+      </div>
+      <p class="integ-crm-pied">Avec HubSpot aussi&nbsp;: vos équipes répondent sur WhatsApp depuis la fiche contact, et vos workflows envoient des modèles et lancent des scénarios. <a href="/aide/integrer-whatsapp-a-hubspot/">Le guide HubSpot <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></a></p>
+      <p class="integ-crm-pied">Les apps Salesforce et Dynamics&nbsp;365 font partie de la formule Entreprise, l’app HubSpot de la formule Business. <a href="/tarifs/">Les tarifs <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></a></p>
+    </div>
   </section>
 
   <section class="f-appel">
@@ -291,6 +336,12 @@
     </div>
   </section>
 </main>
+<script>
+  // Une carte de CRM mène à la section « dans votre CRM » et y ouvre l'onglet de son CRM.
+  document.querySelectorAll('[data-onglet]').forEach(function (a) {
+    a.addEventListener('click', function () { var r = document.getElementById(a.getAttribute('data-onglet')); if (r) r.checked = true; });
+  });
+</script>
 
 <footer class="pied">
   <div class="cadre pied-haut">

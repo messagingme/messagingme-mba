@@ -41,6 +41,18 @@ describe('la marque Shopify sur la vitrine', () => {
     expect(svg).not.toMatch(/<script|on[a-z]+=/i);
   });
 
+  it('🔴 aucun logo Shopify dessiné dans la page : le sac vert en SVG intégré échappe au contrôle des <img>', () => {
+    // Vécu le 2026-11-06 : la carte des coûts de l'accueil portait le sac Shopify en couleur, à 14 et 22 px, en SVG
+    // intégré ; le contrôle ci-dessous ne lit que les <img> et restait vert. Les verts de la marque et le tracé du sac
+    // (Simple Icons) sont donc refusés partout dans les pages et la feuille de style.
+    const VERTS_SHOPIFY = /#(?:7AB55C|95BF47|5E8E3E)\b/i;
+    for (const p of [...pagesHtml(), 'site.css']) {
+      const h = lire(p);
+      expect(h, p).not.toMatch(VERTS_SHOPIFY);
+      expect(h, p).not.toContain('M15.337 23.979');
+    }
+  });
+
   it('🔴 chaque logo Shopify affiché fait au moins 80 px de large, et rien d’autre ne le remplace', () => {
     let vus = 0;
     for (const p of pagesHtml()) {

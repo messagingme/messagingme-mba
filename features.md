@@ -126,13 +126,32 @@ marche » de la page chapeau, les enjeux de la page Transport, les étapes de la
 Meta, le détail des Tarifs, les publicités de Pilotage des coûts.
 
 ✅ **La vitrine a sa page Intégrations** (2026-10-24) : `app.messagingme.fr/integrations/`, jumelle `/en/integrations/`,
-au menu « Ressources ». Shopify, HubSpot, Salesforce, Claude Code, Codex et « vos autres outils » (API, webhooks, MCP),
-un logo et une ligne chacun, sans offre ni état. Shopify mène à la page « Boutiques Shopify », HubSpot à son guide
+au menu « Ressources ». Les CRM en tête (HubSpot, Salesforce, Dynamics 365), puis Shopify, Claude Code, Codex et « vos
+autres outils » (API, webhooks, MCP), un logo et une ligne chacun. Shopify mène à la page « Boutiques Shopify », HubSpot à son guide
 « Intégrer WhatsApp à HubSpot, sans Sales Hub » (depuis le 2026-10-30 : répondre depuis la fiche contact, les actions
-de workflow, l'analyse), Salesforce à « Analyse de conversations », Claude Code et Codex aux pages développeurs. Après « Ils nous font confiance », l'accueil porte la rangée « Se branche à vos
-outils », dont chaque logo mène à sa carte ; les tarifs citent Shopify, par Claude Code dans la Free et depuis la console
-dans le Pro. Shopify n'y apparaît qu'en compatibilité (Messaging Me n'est pas Partner) : son logo noir, jamais
+de workflow, l'analyse), Salesforce et Dynamics 365 à la section « Messaging Me s'installe dans votre CRM » (2026-11-06),
+Claude Code et Codex aux pages développeurs. Cette section a un onglet par CRM : la fenêtre Customer Insights - Journeys
+avec son étape WhatsApp et la fiche contact où reviennent les réponses ; la fenêtre Journey Builder (Marketing Cloud)
+avec son activité WhatsApp et la carte Messaging Me d'une fiche Sales Cloud. Les écrans sont rendus dans l'atelier
+(`~/engageme-motion/engageme-integrations-crm`), d'après la maquette Neoma pour Dynamics et les captures Trailhead pour
+Salesforce. Ces deux apps sont à la formule Entreprise (la page Tarifs : « Salesforce, Dynamics et Batch »), HubSpot à la
+formule Business. Après « Ils nous font confiance », l'accueil porte la rangée « Se branche à vos
+outils », dont chaque logo mène à sa carte, Dynamics 365 compris ; les tarifs citent Shopify, par Claude Code avec Free et depuis la console
+avec la formule Pro. Shopify n'y apparaît qu'en compatibilité (Messaging Me n'est pas Partner) : son logo noir, jamais
 « partenaire », « officiel » ni « certifié ».
+
+✅ **L'en-tête, le retour vers messagingme.fr et la carte des coûts de l'accueil** (2026-11-06, demande de Julien). Le
+menu met côte à côte ses trois menus dépliants, puis ses deux liens : Fonctionnalités, Solutions, Ressources, Tarifs,
+Développeurs, dans le même ordre au téléphone. Sous la barre, la ligne « ← Retour sur messagingme.fr » (« Back to
+messagingme.fr ») mène au site institutionnel ; posée hors de la barre collante, elle part au défilement, sur toutes les
+pages. Sur l'accueil, la carte qui suit la conversation alterne d'un tour à l'autre : l'analyse qui part vers les CRM
+(HubSpot, Salesforce, Dynamics, Brevo, Pipedrive, Batch), puis « Mesuré par Messaging Me », qui fait défiler ses sources
+(publicités Click-to-WhatsApp, campagnes WhatsApp et RCS, paniers abandonnés) et compte le coût total, le chiffre
+d'affaires attribué, le coût par lead et le ROI, ses flèches remontant des sources (Meta, WhatsApp, RCS, l'IA, Shopify)
+vers la carte. Son coût et son coût par lead sont ceux de la page Pilotage des coûts, son ROI se compte au sens strict
+(chiffre d'affaires moins coût, divisé par le coût) ; les deux cartes ont la même hauteur, et sans script ou en
+mouvement réduit, seule la carte de l'analyse s'affiche. La ligne de retour mène, depuis la vitrine anglaise, à la
+version anglaise du site institutionnel.
 
 ✅ **La vitrine a sa page Boutiques Shopify** (2026-10-24) : `app.messagingme.fr/solutions/shopify/`, jumelle
 `/en/solutions/shopify-stores/`, au menu « Solutions » après les secteurs. Pour les marchands : la relance de panier et

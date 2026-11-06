@@ -33,7 +33,7 @@
  {"fr":"Que devient une conversation analysée ?","en":"What happens to an analysed conversation?"},
  {"fr":"Une action : chaque conversation qui compte devient une tâche, confiée à la bonne personne, dans le CRM que vous utilisez déjà.","en":"An action: every conversation that matters becomes a task, given to the right person, in the CRM you already use."},
  {"fr":"Dans quels CRM arrive l’analyse ?","en":"Which CRMs does the analysis reach?"},
- {"fr":"HubSpot et Salesforce par leur connecteur ; Brevo, Pipedrive et les autres CRM par les webhooks ou l’API de Messaging Me.","en":"HubSpot and Salesforce through their connector; Brevo, Pipedrive and other CRMs through the Messaging Me webhooks or API."},
+ {"fr":"HubSpot et Salesforce par leur connecteur ; Dynamics 365, Brevo, Pipedrive et les autres CRM par les webhooks ou l’API de Messaging Me.","en":"HubSpot and Salesforce through their connector; Dynamics 365, Brevo, Pipedrive and other CRMs through the Messaging Me webhooks or API."},
  {"fr":"Faut-il ressaisir quelque chose ?","en":"Does anything need to be re-entered?"},
  {"fr":"Non : la fiche du client se remplit à chaque échange, sans que vos équipes aient rien à ressaisir.","en":"No: the customer record fills in at every exchange, without your teams re-entering anything."},
  {"fr":"L’assurance","en":"Insurance"}

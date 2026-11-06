@@ -1,5 +1,24 @@
 # todo.md : backlog
 
+## 🟡 La suite du lot vitrine du 2026-11-06 (ROI, Dynamics 365, Salesforce, attribution)
+
+- **Le ROI dans la console** (décision de Julien, 2026-11-06), au sens strict : (chiffre d'affaires attribué - coûts)
+  divisé par les coûts, la définition de la carte « Mesuré par Messaging Me » de l'accueil (× 23 sur ses chiffres
+  d'exemple). Le chiffre d'affaires attribué (Quantitatif > Shopify) et les coûts (Quantitatif > Coûts) se lisent sur deux
+  écrans : le ROI, par campagne et en tout, se pose là où les deux se lisent.
+- **L'attribution du chiffre d'affaires aux publicités Click-to-WhatsApp et aux campagnes RCS** : la carte fait défiler
+  ces sources au-dessus du chiffre d'affaires et du ROI ; l'attribution ne compte aujourd'hui que les envois WhatsApp
+  vers une boutique Shopify (features.md, « Le chiffre d'affaires attribué aux envois WhatsApp »).
+- **Le connecteur Dynamics 365 dans la console** (formule Entreprise) : le même que celui de Neoma (`~/neoma`, cadrage
+  `docs/2026-10-29-cadrage-connecteur-dynamics.md`) : l'aller par un canal personnalisé de Customer Insights - Journeys,
+  le retour par une étape « Mettre à jour la fiche Dynamics » dans le scénario, le STOP dans le consentement natif.
+- **Les deux apps Salesforce** : l'activité WhatsApp de Journey Builder (Marketing Cloud : le connecteur construit pour
+  EDH, `~/messagingme-sfmc-connector`, coquille SFMC en attente du bac à sable) et la carte Messaging Me sur la fiche
+  (Sales Cloud : spec `docs/superpowers/specs/2026-09-26-app-salesforce-design.md`, la liaison du namespace plus bas).
+- **La fiche publique « Choisir mon offre »** (`docs/aide/fiches/choisir-mon-offre.md` et sa version `en/`) cite Salesforce
+  à l'Entreprise sans Dynamics : l'aligner sur la page Tarifs, puis `npm run vitrine:aide`, la version anglaise et
+  `aide:charger` après le push (relecture du lot, 2026-11-06).
+
 ## 🟡 Un scénario écrit un champ HubSpot du contact : la suite (cadrage `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`)
 
 - Après l'essai réel : une phrase dans la fiche publique `integrer-whatsapp-a-hubspot` (étape des champs), donc

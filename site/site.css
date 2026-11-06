@@ -78,6 +78,13 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:3px;border-radius
 .lien{white-space:nowrap;font-size:.92rem;font-weight:600;text-decoration:none;color:var(--muted);transition:color .15s}
 .lien:hover,.lien[aria-current="page"]{color:var(--ink)}
 @media (max-width:480px){.marque{gap:8px;font-size:.95rem}.marque img{height:19px}.nav{gap:12px}.nav .lien{font-size:.85rem}.nav .bouton-trait{padding:.45em .8em;font-size:.85rem}}
+/* Le retour vers messagingme.fr (2026-11-06, idée de Julien) : une ligne sobre sous la barre, alignée sur le logo. Elle
+   est HORS de la barre collante (`entete.ts` la pose après elle) : on la voit en arrivant, elle part au défilement. */
+.retour-site{padding-top:12px;font-size:.82rem;line-height:1.4}
+.retour-site a{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-weight:600;text-decoration:none;transition:color .15s}
+.retour-site a:hover{color:var(--ink)}
+.retour-site .ic{font-size:.95rem;transition:transform .15s}
+.retour-site a:hover .ic{transform:translateX(-2px)}
 
 /* Boutons */
 .bouton{display:inline-flex;align-items:center;gap:.45em;white-space:nowrap;border-radius:999px;font-weight:600;text-decoration:none;transition:background-color .15s,border-color .15s,color .15s,transform .15s}
@@ -98,14 +105,16 @@ a:focus-visible{outline:2px solid var(--action);outline-offset:3px;border-radius
 .bouton-texte:hover .ic{transform:translateX(3px)}
 
 /* 1. La une : le titre sur toute la largeur, puis le message à gauche et les deux téléphones à droite */
-.une{display:grid;grid-template-columns:minmax(0,1fr) 500px;grid-template-rows:auto auto 1fr;gap:34px clamp(40px,12vw - 80px,96px);padding-top:88px;padding-bottom:120px}
+/* Le haut de la une rend à la ligne de retour vers messagingme.fr sa hauteur (33 px, 2026-11-06) : 88 devient 55 au
+   bureau, 48 devient 15 au téléphone, et le titre reste exactement à sa place (mesuré au navigateur). */
+.une{display:grid;grid-template-columns:minmax(0,1fr) 500px;grid-template-rows:auto auto 1fr;gap:34px clamp(40px,12vw - 80px,96px);padding-top:55px;padding-bottom:120px}
 h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3rem,4.3vw,3.4rem);line-height:1.05;letter-spacing:-.035em;font-weight:800;margin:0;text-wrap:balance}
 .une-gauche{grid-column:1;grid-row:2;padding-top:8px}
 .chapeau{font-size:1.15rem;color:var(--muted);max-width:30em;margin:0 0 34px;text-wrap:pretty}
 .appels{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px}
 .scene-cadre{grid-column:2;grid-row:1 / span 3;position:relative}
 @media (max-width:960px){
-  .une{grid-template-columns:minmax(0,1fr);grid-template-rows:none;gap:28px;padding-top:48px;padding-bottom:72px}
+  .une{grid-template-columns:minmax(0,1fr);grid-template-rows:none;gap:28px;padding-top:15px;padding-bottom:72px}
   h1,.une-gauche,.scene-cadre{grid-column:1;grid-row:auto}
   h1 br{display:none}
 }
@@ -200,14 +209,17 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .statut .s-cours{opacity:0}
 .lu dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px 14px;margin:0}
 .lu .large{grid-column:1 / -1;padding-bottom:11px;border-bottom:1px solid var(--line)}
-.lu dt{font-size:.72rem;color:var(--muted)}
+/* Un intitulé trop long pour sa case se termine en « … » : sur un petit téléphone, « Chiffre d’affaires attribué »
+   passait sur deux lignes, et la carte des coûts, plus haute que celle de l’analyse, faisait sauter la page à chaque tour. */
+.lu dt{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lu dd{position:relative;margin:1px 0 0;font-size:.98rem;font-weight:700;letter-spacing:-.01em}
 .lu dd small{font-size:.72rem;font-weight:600;color:var(--muted)}
 /* Qui répond : trois répondants superposés dans la même case (le Meta Business Agent, un agent IA, l'équipe),
    qui se relaient pendant le cycle de la carte. Sans animation, seul le premier se montre. Logos et avatars
    repris du film Messaging Me. */
-.qui-repond{display:grid;clip-path:inset(-3px -3px)}
-.rep{grid-area:1 / 1;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.qui-repond{display:grid;grid-template-columns:minmax(0,1fr);clip-path:inset(-3px -3px)}
+.rep{grid-area:1 / 1;display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap}
+.rep-texte{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .rep ~ .rep{opacity:0}
 .rep > img{width:22px;height:22px;border-radius:6px}
 .pile{display:flex}
@@ -224,12 +236,30 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .flux path{fill:none;stroke:rgb(111 194 254 / .55);stroke-width:1.5;stroke-dasharray:4 5}
 .flux circle{fill:#6FC2FE}
 .flux marker path{fill:rgb(111 194 254 / .8);stroke:none}
-.crm{list-style:none;margin:0;transform:translateX(-64px);padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.crm{list-style:none;margin:0;transform:translateX(-64px);padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.crm.sources{grid-template-columns:repeat(5,minmax(0,1fr))}
 .flux .geo-centre{display:none}
 .crm li{position:relative;display:grid;place-items:center;height:44px;border-radius:10px;background:#FFFFFF;box-shadow:0 10px 24px -14px rgb(0 0 0 / .6)}
-.crm svg{width:22px;height:22px}
-.crm .batch{width:46px;height:auto}
+.crm svg,.crm img{width:22px;height:22px}
+.crm .batch{width:42px;height:auto}
 .crm li::after{content:"";position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:50%;background:#17C74E url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.3l2.6 2.5L12 5.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/10px no-repeat;box-shadow:0 0 0 2px var(--nuit)}
+/* La carte des coûts (2026-11-06, Julien : « 50 % du temps l'analyse qui remonte dans le CRM, 50 % l'analyse des
+   coûts ») : la même conversation, MESURÉE un tour sur deux. Le script de la une pose `couts` sur `.flux-crm` ; sans
+   script, ou pour qui a demandé moins de mouvement, la carte de l'analyse reste seule. Ses flèches MONTENT des sources
+   (la pub, WhatsApp, le RCS, l'IA, la boutique) vers la carte, à l'inverse de celles qui partent vers les CRM. Le ROI
+   garde son vert dans un `span` : l'animation `revele` rend au `dd` la couleur de son parent. */
+.flux-crm:not(.couts) .v-couts,.flux-crm.couts .v-crm{display:none}
+.rep-logo{display:grid;place-items:center;width:22px;height:22px;border-radius:6px;background:#FFFFFF}
+.rep-logo svg{width:15px;height:15px}
+.pile .ia svg{width:14px;height:14px}
+.logo-wa{color:#25D366}
+.logo-panier{color:#010630}
+.rcs{display:grid;place-items:center;border-radius:6px;background:#1A73E8;color:#FFFFFF;font-weight:800;letter-spacing:.02em}
+.pile .rcs{font-size:.42rem}
+.lu .roi{color:#5BE38A}
+.sources .rcs{width:30px;height:22px;font-size:.6rem}
+.sources .pile > *{width:20px;height:20px;box-shadow:0 0 0 2px #FFFFFF}
+.sources .pile .ia{background:#F3F4FB}
 
 @media (prefers-reduced-motion:no-preference){
   /* Le cycle est rejoué par le script (classe joue) tant que la carte est à l'écran. */
@@ -246,7 +276,9 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
   .js .flux-crm.joue .lu dd::after{animation:scintille 1s linear infinite,cache 0s var(--d) forwards}
   .js .flux-crm.joue .lu dd{animation:revele .35s var(--d) forwards}
   .js .flux-crm.joue .lu dd *{animation:visible 0s var(--d) forwards}
-  .js .flux-crm.joue .compte{animation:compte .9s cubic-bezier(.2,.7,.2,1) var(--d) both}
+  /* Le compteur reprend `visible` : la règle générique `dd *` (plus précise que `.compte` seul) remplaçait son animation,
+     et les notes s'affichaient d'un coup (relevé à la relecture du 2026-11-06). */
+  .js .flux-crm.joue .lu dd .compte{animation:visible 0s var(--d) forwards,compte .9s cubic-bezier(.2,.7,.2,1) var(--d) both}
   /* Le cerveau réfléchit pendant les 2,7 s de l'analyse : son remplissage s'allume, une onde en part. */
   .js .flux-crm.joue .cerveau{animation:onde .9s ease-out 3}
   .js .flux-crm.joue .cerveau .c-fond{animation:neurones .45s ease-in-out 6 alternate}
@@ -744,16 +776,19 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
    sur les tuiles de « Ils nous font confiance », et les cartes de /integrations/. Le logo Shopify reste noir et garde au
    moins 80 px de large, sa marge comprise dans la tuile : ses règles de marque, pour une simple mention de compatibilité. */
 .outils-bandeau{margin-top:-64px}
-.clients.outils-logos{grid-template-columns:repeat(5,minmax(0,1fr));max-width:880px;margin:0 auto}
+/* Six logos depuis Dynamics 365 (2026-11-06) : « Dynamics 365 » tient sur une ligne à partir de 176 px de tuile, d'où la
+   largeur et le passage à trois colonnes sous 1 180 px. */
+.clients.outils-logos{grid-template-columns:repeat(6,minmax(0,1fr));max-width:1120px;margin:0 auto}
 .outils-logos li{padding:0}
-.outils-logos a{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:100%;padding:0 14px;border-radius:inherit;color:#010630;font-size:.95rem;font-weight:700;text-decoration:none}
-.outils-logos svg{flex:none;width:26px;height:26px}
+.outils-logos a{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:100%;padding:0 14px;border-radius:inherit;color:#010630;font-size:.95rem;font-weight:700;text-decoration:none;white-space:nowrap}
+.outils-logos svg,.outils-logos img:not(.logo-shopify){flex:none;width:26px;height:26px}
 .outils-logos .logo-shopify,.integ-logo .logo-shopify{display:block;width:105px;height:30px}
 .outils-tous{margin:20px 0 0;text-align:center}
 .outils-tous a{display:inline-flex;align-items:center;gap:6px;color:var(--action-ink);font-weight:700;text-decoration:none}
 @media (max-width:960px){.outils-bandeau{margin-top:-32px}}
-@media (max-width:1000px){.clients.outils-logos{grid-template-columns:repeat(2,minmax(0,1fr))}.outils-logos li:first-child{grid-column:1 / -1}}
-@media (max-width:400px){.outils-logos a{gap:6px;padding:0 8px;font-size:.85rem}.outils-logos svg{width:22px;height:22px}}
+@media (max-width:1180px){.clients.outils-logos{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:560px){.clients.outils-logos{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:400px){.outils-logos a{gap:6px;padding:0 8px;font-size:.85rem}.outils-logos svg,.outils-logos img:not(.logo-shopify){width:22px;height:22px}}
 .integ-grille{list-style:none;margin:0 auto;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
 @media (max-width:960px){.integ-grille{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:600px){.integ-grille{grid-template-columns:minmax(0,1fr)}}
@@ -765,6 +800,35 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .integ-carte h2{margin:6px 0 0;font-size:1.2rem}
 .integ-carte p{margin:0;color:var(--muted)}
 .integ-lien{display:inline-flex;align-items:center;gap:6px;margin-top:auto;padding-top:6px;color:var(--action-ink);font-weight:700}
+.integ-logo img{display:block;width:34px;height:34px}
+.integ-grille li.integ-large{grid-column:1 / -1}
+/* « Messaging Me s'installe dans votre CRM » (2026-11-06) : un onglet par CRM (décision de Julien), des boutons radio
+   comme la bascule WhatsApp et RCS de l'accueil, donc sans script. Chaque onglet montre la fenêtre du CRM (rendue
+   dans l'atelier, `engageme-integrations-crm`) et, en gros plan par-dessus, la fiche où reviennent les réponses. */
+.integ-onglets{display:inline-flex;gap:4px;margin:30px 0 40px;padding:4px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+.integ-onglets input{position:absolute;opacity:0;pointer-events:none}
+.integ-onglets label{display:inline-flex;align-items:center;gap:8px;padding:9px 20px;border-radius:999px;font-weight:700;font-size:.95rem;color:var(--muted);cursor:pointer;transition:background-color .2s,color .2s}
+.integ-onglets label:hover{color:var(--ink)}
+.integ-onglets label img,.integ-onglets label svg{width:20px;height:20px;flex:none}
+.integ-onglets input:checked + label{background:#FFFFFF;color:#010630}
+.integ-onglets input:focus-visible + label{outline:2px solid var(--action);outline-offset:2px}
+.integ-crm:has(#crm-salesforce:checked) .panneau-dynamics,.integ-crm:has(#crm-dynamics:checked) .panneau-salesforce{display:none}
+.integ-crm-visuel{position:relative;margin:0 52px 0 0}
+.integ-crm-visuel img{display:block;height:auto}
+.integ-fenetre{width:100%;filter:drop-shadow(0 34px 48px rgb(0 2 20 / .6))}
+.integ-fiche{position:absolute;right:-52px;bottom:-56px;width:min(36%,380px);filter:drop-shadow(0 24px 40px rgb(0 2 20 / .55))}
+.integ-points{list-style:none;margin:96px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+.integ-points li{display:grid;gap:6px;padding-top:16px;border-top:1px solid var(--line)}
+.integ-points strong{font-size:1.05rem;line-height:1.3}
+.integ-points span{color:var(--muted)}
+.integ-crm-pied{margin:22px 0 0;max-width:46em;color:var(--muted)}
+.panneau-salesforce + .integ-crm-pied{margin-top:44px}
+.integ-crm-pied a{display:inline-flex;align-items:center;gap:6px;color:var(--action-ink);font-weight:700;text-decoration:none}
+@media (max-width:860px){
+  .integ-crm-visuel{margin:0}
+  .integ-fiche{position:relative;right:auto;bottom:auto;width:min(88%,420px);margin:-28px 0 0 auto}
+  .integ-points{margin-top:40px;grid-template-columns:minmax(0,1fr);gap:20px}
+}
 
 /* LA PAGE « BOUTIQUES SHOPIFY » (2026-10-24, scripts/vitrine/boutique.ts) : le téléphone de l'accueil, fixe (hors de la
    une de l'accueil, rien ne l'anime), les étapes numérotées, les cartes, le prix, et le guide du numéro : ses mots

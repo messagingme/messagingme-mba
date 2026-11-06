@@ -131,7 +131,7 @@ const fr = (): TexteTunnel => {
     },
     {
       titre: 'Entreprise, sur devis',
-      plus: ['Tout Business, plus le RCS, Salesforce, l’analyse des conversations et les publicités Click-to-WhatsApp.', 'Contacts, utilisateurs et webhooks à votre mesure.'],
+      plus: ['Tout Business, plus le RCS, Salesforce et Dynamics, l’analyse des conversations et les publicités Click-to-WhatsApp.', 'Contacts, utilisateurs et webhooks à votre mesure.'],
       moins: ['Un devis selon votre volume.'],
     },
   ];
@@ -311,7 +311,7 @@ const en = (): TexteTunnel => {
     },
     {
       titre: 'Enterprise, on quote',
-      plus: ['Everything in Business, plus RCS, Salesforce, conversation analysis and Click-to-WhatsApp ads.', 'Contacts, users and webhooks sized for you.'],
+      plus: ['Everything in Business, plus RCS, Salesforce and Dynamics, conversation analysis and Click-to-WhatsApp ads.', 'Contacts, users and webhooks sized for you.'],
       moins: ['A quote based on your volume.'],
     },
   ];

@@ -18,6 +18,19 @@ export type Langue = 'fr' | 'en';
 const ORIGINE = 'https://app.messagingme.fr';
 const ENTETE = /<header class="cadre entete">[\s\S]*?<\/header>/;
 const PIED = /<footer class="pied">[\s\S]*?<\/footer>/;
+/** La fin de la barre collante, et la ligne de retour qui la suit quand elle est déjà posée. */
+const APRES_BARRE = /<\/header>\n<\/div>\n(?:<nav class="cadre retour-site".*\n)?/;
+
+/**
+ * La ligne « Retour sur messagingme.fr » (demande de Julien du 2026-11-06) : le site institutionnel, d'un clic. Elle
+ * se pose APRÈS la barre collante (`.barre`), jamais dedans : on la voit en arrivant, et elle part dès qu'on défile.
+ * La vitrine anglaise mène à la version anglaise du site institutionnel (`/en/`). Un repère `nav` : un lecteur d'écran
+ * la trouve parmi les zones de la page.
+ */
+const RETOUR: Record<Langue, string> = {
+  fr: '<nav class="cadre retour-site" aria-label="Site institutionnel"><a href="https://www.messagingme.fr/"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Retour sur messagingme.fr</a></nav>',
+  en: '<nav class="cadre retour-site" aria-label="Corporate website"><a href="https://www.messagingme.fr/en/"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back to messagingme.fr</a></nav>',
+};
 
 /** Un gabarit tel qu'il s'insère : en LF même si le dépôt l'a extrait en CRLF, sans son saut de ligne final. */
 export const normaliserGabarit = (texte: string): string => texte.replace(/\r\n/g, '\n').replace(/\n$/, '');
@@ -104,9 +117,13 @@ export function jumelleDe(html: string, chemin: string): string {
 /** La page avec son en-tête et son pied de page régénérés ; `chemin` est relatif à `site/`. */
 export function pageAvecEntete(html: string, chemin: string): string {
   if (!ENTETE.test(html) || !PIED.test(html)) throw new Error(`${chemin} : en-tête ou pied de page introuvable`);
+  // Sans la barre fermée juste après l'en-tête, la ligne de retour ne saurait pas où se poser : refusé, plutôt qu'une
+  // page qui la perdrait en silence.
+  if (!APRES_BARRE.test(html)) throw new Error(`${chemin} : la barre (<div class="barre">) ne se ferme pas juste après l'en-tête (ou la page est en CRLF)`);
   const langue = langueDe(chemin);
   return html
     .replace(ENTETE, () => enteteVitrine(langue, adressePage(chemin), jumelleDe(html, chemin)))
+    .replace(APRES_BARRE, () => `</header>\n</div>\n${RETOUR[langue]}\n`)
     .replace(PIED, () => piedVitrine(langue));
 }
 

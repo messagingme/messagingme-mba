@@ -58,6 +58,35 @@ describe('le menu', () => {
   });
 });
 
+describe('la ligne de retour vers messagingme.fr (2026-11-06)', () => {
+  // Elle doit partir au défilement : posée DANS la barre collante, elle resterait à l'écran. Le contrôle se fait donc
+  // sur sa place exacte, juste après la fermeture de la barre, et une seule fois par page.
+  const FIN_DE_BARRE = '</header>\n</div>\n';
+
+  it('suit la barre collante sur chaque page, jamais dedans, une seule fois', () => {
+    for (const page of PAGES) {
+      const h = lire(page).replace(/\r\n/g, '\n');
+      const i = h.indexOf('<nav class="cadre retour-site"');
+      expect(i, page).toBeGreaterThan(0);
+      expect(h.slice(i - FIN_DE_BARRE.length, i), page).toBe(FIN_DE_BARRE);
+      expect(h.indexOf('retour-site', i + 'retour-site'.length + 20), page).toBe(-1);
+    }
+  });
+
+  it('mène au site institutionnel, dans la langue de la page, depuis un repère de navigation', () => {
+    const fr = lire('index.html').replace(/\r\n/g, '\n');
+    const en = lire('en/index.html').replace(/\r\n/g, '\n');
+    expect(fr).toContain('<nav class="cadre retour-site" aria-label="Site institutionnel"><a href="https://www.messagingme.fr/"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Retour sur messagingme.fr</a></nav>');
+    expect(en).toContain('<nav class="cadre retour-site" aria-label="Corporate website"><a href="https://www.messagingme.fr/en/"><svg class="ic" aria-hidden="true"><use href="#i-arrow-left"/></svg>Back to messagingme.fr</a></nav>');
+  });
+
+  it('une page dont la barre ne se ferme pas juste après l’en-tête est refusée', () => {
+    const page = 'contact/index.html';
+    const cassee = lire(page).replace(/\r\n/g, '\n').replace('</header>\n</div>\n', '</header>\n\n</div>\n');
+    expect(() => pageAvecEntete(cassee, page)).toThrow(/barre/);
+  });
+});
+
 describe('la page jumelle', () => {
   it('se lit dans la page ; sans jumelle déclarée, le générateur refuse, sauf pour la page 404', () => {
     const page = '<link rel="alternate" hreflang="en" href="https://app.messagingme.fr/en/contact/">';

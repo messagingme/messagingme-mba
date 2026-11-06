@@ -4,6 +4,38 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la vitrine, l'en-tête, le retour vers messagingme.fr, la carte des coûts et l'app dans le CRM
+
+Plan `docs/superpowers/plans/2026-11-06-vitrine-entete-roi-crm.md`, décisions de Julien du jour (une ronde de questions).
+
+- **L'en-tête** : les trois menus dépliants côte à côte, puis Tarifs et Développeurs. La ligne « ← Retour sur
+  messagingme.fr », un repère `nav`, est posée par `entete.ts` juste APRÈS la barre collante (dedans, elle resterait à
+  l'écran) ; en anglais elle mène à `www.messagingme.fr/en/`. Le haut de la une lui rend ses 33 px (88 devient 55, 48
+  devient 15) : le titre est au pixel près à sa place, mesuré. Les 111 pages régénérées, aucune autre ligne ne bouge.
+- **La carte des coûts de l'accueil** : un tour sur deux (classe `couts`, posée par le script de la une), les mêmes
+  animations que la carte de l'analyse, ses flèches montantes avec leur propre marqueur (`pointe-c`) : un marqueur pris
+  dans un SVG masqué ne se dessine pas partout. Le ROI garde son vert dans un `span`, parce que l'animation `revele` rend
+  au `dd` la couleur de son parent. Dynamics entre dans la rangée des CRM, qui passe à six tuiles (Batch à 42 px). Le
+  ROI se compte au sens strict, (18 240 - 750) / 750, d'où « × 23 ». Les compteurs des deux cartes ne comptaient pas
+  (la règle générique `dd *` remplaçait l'animation `compte`) : réparé. Les intitulés trop longs finissent en « … »,
+  et les deux cartes ont la même hauteur de 320 à 1 440 px : la page ne saute plus à chaque tour.
+- **L'anglais de la carte** : « Measured by Messaging Me » passait sur deux lignes, parce que la pastille prend la largeur
+  du plus long de ses DEUX libellés superposés (« Calculating… ») ; « Counting… » et « Paid off » la ramènent à la
+  largeur de celle de l'analyse, mesuré au navigateur sans fenêtre.
+- **Intégrations** : la carte Dynamics 365, les CRM en tête, la section « Messaging Me s'installe dans votre CRM » à un
+  onglet par CRM. Ses quatre écrans (et leur `-en`) sont rendus dans l'atelier (`engageme-integrations-crm`) : Dynamics
+  d'après la maquette Neoma, Journey Builder relevé sur une capture Trailhead (couleurs mesurées au pixel), la carte de
+  la fiche Sales Cloud au Lightning Design System. L'icône de Dynamics 365 est celle que sert Microsoft Learn.
+- **Promesses suivies** : le ROI de la console, le connecteur Dynamics de la console et les deux apps Salesforce entrent
+  au `todo.md` ; la vitrine les dit inclus (jamais « bientôt »).
+- **Relecture indépendante** : un rouge, le sac Shopify en couleur et sous 80 px, dessiné en SVG dans la carte des
+  coûts, que le contrôle des `<img>` ne voyait pas. Retiré (un panier à la place), et `tests/vitrine-marque-shopify.test.ts`
+  refuse désormais les verts de la marque et le tracé du sac dans toute page, vérifié dans les deux sens. Jaunes
+  corrigés dans le lot (rien n'était publié) : compteurs, hauteur des cartes, « Avec HubSpot aussi », retour anglais,
+  Dynamics dans le tunnel et la FAQ de l'analyse, anglais ; le reste au `todo.md`.
+- **Vérifié** : les tests qui lisent la vitrine, l'en-tête mesuré à 1 141 px en français et en anglais sans
+  débordement, captures au bureau et au téléphone dans les deux langues.
+
 ## 2026-11-06 : la garde marketing des campagnes à scénario, ouverture exemptée
 
 Le trou laissé par le lot 3b (plan `2026-11-06-garde-marketing-campagne-scenario.md`) : une campagne à scénario ne triait

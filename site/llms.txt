@@ -110,7 +110,7 @@
 
 ## Intégrations
 
-- [Les intégrations](https://app.messagingme.fr/integrations/) : Messaging Me se branche à votre boutique Shopify, à HubSpot, à Salesforce, à Claude Code et à Codex ; l’API, les webhooks et le serveur MCP relient le reste.
+- [Les intégrations](https://app.messagingme.fr/integrations/) : Messaging Me s’installe dans Salesforce (Marketing Cloud et Sales Cloud), Dynamics 365 et HubSpot, où WhatsApp devient une étape des parcours et les réponses reviennent dans la fiche ; il se branche à Shopify, à Claude Code et à Codex ; l’API, les webhooks et le serveur MCP relient le reste.
 - [Integrations](https://app.messagingme.fr/en/integrations/) : the same page in English.
 
 ## Démarrer
