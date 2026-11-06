@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la machine des workers pleine, et sa purge à chaque déploiement réussi
+
+Le déploiement du connecteur HubSpot a échoué au `docker compose pull` de son worker : « no space left on device » sur
+`mm-workers`, disque de 17 Go plein à 100 %. 56 images Docker y occupaient 15 Go, deux seulement en service : chaque
+déploiement de mba et du connecteur laisse la précédente. mba purgeait bien, avec `--filter "until=168h"`, mais ce
+filtre porte sur la date de CONSTRUCTION de l'image : à plusieurs déploiements par semaine, il ne retirait presque rien.
+L'échec n'a rien changé en production (l'ancienne image a continué de tourner, l'étape de l'API n'a pas couru).
+
+Avec l'accord de Julien, `docker image prune -a -f` à la main a ramené le disque à 21 %, puis le déploiement est passé.
+Correctif le même jour, dans les deux dépôts (mba `3241d055`, connecteur `c44a2d4`) : une étape « Purger les images que
+plus aucun conteneur n'utilise » ferme chaque déploiement réussi, après les workers, l'API et la migration « après »,
+et une purge en échec n'y est qu'un avertissement. L'ancienne purge de l'étape des workers est retirée : elle tournait
+avant l'API et, sous `set -e`, pouvait faire échouer le déploiement. `tests/deploy-scaleway.test.ts` tient l'étape dans
+les deux dépôts (vérifié dans les deux sens), `DEPLOY.md` la décrit. Pas encore éprouvée : le premier déploiement qui
+suit doit afficher `Total reclaimed space` puis la ligne `df -h /` à la fin du run.
+
 ## 2026-11-06 : l'inscription par e-mail prouvée par un lien, et le défi Turnstile (lot identité B, migration 0279)
 
 Demande de Julien (« Oui, le lot B », 2026-11-05), décisions du même jour : l'adresse d'abord, un lien valable 24 heures,
