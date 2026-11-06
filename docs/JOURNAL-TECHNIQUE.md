@@ -4,6 +4,41 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : le Crédit WhatsApp dit la conversion et l'arrêt au client (lot C de « la ligne prise à la connexion »)
+
+Demande de Julien (« Lance le lot C », 2026-11-06), décisions du même jour : hors vente, l'e-mail de la conversion part
+dès maintenant, avec un texte « sur demande » ; les textes des moments 2 et 3 de la spec validés ; l'Entreprise a son
+texte sur la carte ; la fiche publique « Connecter mon numéro WhatsApp » mise à jour tout de suite. L'e-mail « sur
+demande », la fiche et la phrase de la FAQ ont été montrés et validés avant le push.
+
+- **Ce qui a changé** :
+  - la conversion (`signalerConversion`, `src/credit-whatsapp/conversion.ts`) : le webhook à chaque facture de période
+    payée de la formule Pro, le démarrage de la formule Pro après la fin notée, `/ops` au Business confirmé ; seulement à
+    un espace `a_prendre` ; `ligne_credit_disponible` en vente, `ligne_credit_sur_demande` hors vente ;
+  - l'arrêt : `option_wa_arretee` à la première fin d'une option dont la formule donne encore droit ; l'onglet dit la
+    sortie (`optionArretee`), `get_credit` aussi (`envois_arretes`, `option_arretee`), par une seule règle,
+    `arretDesLignes` ;
+  - le bandeau de la conversion (`BandeauLigneCredit`, en vente seulement) ; la consigne de Claude pour un numéro qui
+    garde l'application (on y paie Meta avec sa carte) ;
+  - les jaunes de la relecture du lot B : 1 à 13 sauf 5a et 6, reportés au lot D ; dont `creditPaieMeta` (le bandeau
+    « Ajoutez votre carte chez Meta » et `get_setup_state`) et `expirerSessionsOuvertes` (une session de l'option
+    ouverte expirée avant d'en ouvrir une autre) ;
+  - la doc : la fiche publique (français et anglais), la FAQ du plugin 0.3.28 et des pages Développeurs, `features.md`
+    et les empreintes des fiches qui citent ses sections, `documentation.md`.
+- **Vérifié avant de pousser** : suite racine entière (970 fichiers, 16 271 tests), console (102 fichiers, 1 240 tests),
+  tsc et lint des deux côtés, auto-attaque (2 063 sondes, aucune trouvaille), e2e entière sur une construction de
+  production (1 849 verts ; deux tests du lot étaient faux : le bandeau éprouvé sur /contacts, que le faux serveur fait
+  planter, et un membre sur l'onglet, alors qu'il est renvoyé vers l'Inbox) ; 19 retraits de garde côté serveur (18
+  rouges, le dernier sur une garde redondante) et 6 côté console en une construction (5 rouges ; un test d'absence
+  vérifié avant la lecture de l'état, ancré sur la réponse du serveur puis vu rouge) ; une relecture indépendante : aucun
+  rouge, 13 jaunes (au plan). Une sonde en lecture seule : aucun abonnement Pro vivant en production, l'e-mail de la
+  conversion ne part donc à personne au déploiement.
+- **En production** : `631c9cb9` (le code `602d48d3` et la doc), CI racine, console et CodeQL vertes job par job, la
+  vitrine publiée par Vercel ; run 42284923563, `migration=aucune` : `mba-api` sur `mba:631c9cb9`, les trois
+  conteneurs de la machine sur `631c9cb9`, fumée bonne (`scripts/fumee.mjs`), fiches OAuth conformes ; les fiches
+  d'aide chargées (`aide:charger`, image `631c9cb9`, 195 lignes, 0 retirée). Le plugin 0.3.28 à publier par Julien.
+  Essai réel 231.
+
 ## 2026-11-06 : la purge d'un contact efface aussi ses échecs de scénario
 
 Plan `docs/superpowers/plans/2026-11-06-purge-echecs-de-scenario.md`. Le jaune n° 8 de la relecture du lot sur la

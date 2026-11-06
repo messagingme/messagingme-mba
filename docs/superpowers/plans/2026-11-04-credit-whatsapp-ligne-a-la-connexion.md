@@ -294,6 +294,45 @@ empreintes des fiches qui la citent, `documentation.md`.
 
 **Fin du lot C** : une relecture indépendante ; le serveur avant la console.
 
+### La relecture du lot C (2026-11-06) : aucun rouge, 13 jaunes
+
+Les jaunes du lot B y sont fermés, sauf 5a (la ligne d'un numéro délié compte encore dans l'état) et 6 (le guide rouvert
+ne sait pas le numéro connecté), reportés au lot D, qui traite les numéros et leurs lignes. Les treize jaunes du lot C
+partent dans un lot de suite, après le déploiement ; **2, 4, 5 et 10 se ferment avant l'ouverture de la vente**, le 11
+attend Julien :
+
+1. L'e-mail de la conversion n'est pas « une fois par espace » : le webhook l'appelle à chaque facture de période, et la
+   réservation est par PERSONNE et purgée à treize mois. Un admin arrivé plus tard le reçoit à l'échéance suivante, et
+   le même e-mail repart treize mois après. Le borner à son moment (la formule devenue payée depuis peu). Mesuré en
+   lecture seule le 2026-11-06 : aucun abonnement Pro vivant en production, personne ne le reçoit au déploiement.
+2. L'e-mail de l'arrêt peut se perdre : une panne entre la fin écrite et l'e-mail fait rejouer l'événement, qui voit
+   `premiereFin` à faux ; deux traitements de la même fin (l'`updated` impayé et le `deleted` qu'il déclenche) peuvent
+   se partager `premiereFin` et `n`. Décider sur « des lignes de l'option arrêtées par cette fin », la réservation
+   `option:<abonnement>` dédoublonnant déjà.
+3. `!illimite` est redondant dans la condition de l'e-mail de l'arrêt (n vaut 0 pour une Entreprise) : le retrait de
+   garde le montre, aucun test ne peut le tenir. Le retirer.
+4. Un espace mixte (une ligne posée à la main encore active) lit « vos envois par le Crédit WhatsApp sont arrêtés ».
+5. `aDroit` est lu trop tôt quand le Pro est lui aussi en retard, ou quand le `deleted` de l'option passe avant celui du
+   Pro : « reprenez l'option » alors que la prise sera refusée.
+6. Conversion manquée si `noterFinEssai` échoue et que la facture d'écourtement passe au webhook avant l'`updated`, ou
+   pour un essai écourté depuis le tableau de bord de Stripe : elle attend l'échéance suivante.
+7. Le jaune 11 du lot B n'est fermé qu'à moitié : lister, expirer et créer sans verrou laisse deux clics simultanés
+   ouvrir deux sessions payables. Un verrou court par espace, comme pour le démarrage de la formule Pro.
+8. Le bandeau lit l'état à chaque page pour tout admin d'un Pro ou d'un Business, même hors vente : le garder par
+   `ongletCreditWhatsapp`, déjà lu. Il consomme aussi la file d'états du faux serveur de `qui-regle-meta.spec.ts`.
+9. Deux politiques d'échec opposées : `get_setup_state` tait `carte_meta_a_regler` quand les numéros sont illisibles,
+   l'Accueil montre le bandeau. En choisir une.
+10. À l'ouverture de la vente : « il se prend sur demande » de la fiche publique (FR et EN) et de la FAQ du plugin et des
+    pages Développeurs devient faux ; un Business converti hors vente ne reçoit jamais l'e-mail de vente ; l'e-mail « sur
+    demande » dit « ses modèles sont recopiés » avant l'essai réel du partage (D0).
+11. Catégorie : `ligne_credit_disponible` est une proposition commerciale classée `service`, donc sans lien de
+    désinscription. À trancher par Julien.
+12. Tests manquants : la distinction de texte entre un numéro avec et sans l'application, « une fois par espace » ailleurs
+    que sur un faux `emettre`, le câblage `conversionDeLaConsole`.
+13. JSDoc déplacés : celui de `StripeError` coiffe `LECTURE_AVANT_ENVOI`, celui de `firstNameOf` coiffe
+    `CarteMetaARegler`, deux JSDoc empilés sur `QUESTION_PAIEMENT` ; `documentation.md` dit `optionEnVente` règle unique,
+    alors que `portesCreditWhatsapp.optionEnVente` la recalcule depuis la configuration (équivalentes aujourd'hui).
+
 ## Lot D : le passage du numéro de l'essai sur la ligne
 
 - [ ] **D0, l'essai réel du partage** (spec, « L'essai réel avant toute vente ») : sur un numéro d'essai connecté avec une
