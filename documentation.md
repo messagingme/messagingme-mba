@@ -736,6 +736,15 @@ variable propre, tout vit sur la fiche.
   bouton qui copie `data.code`, grisé tant que le bloc n'en a pas. Le code d'un bloc neuf arrive par la réponse du
   `PATCH` (`useEnregistrementScenario`, `surCodes`), recopiée sur la carte.
 
+🔴 **Une référence rangée dans un graphe n'a pas de clé étrangère.** Un bloc désigne sa cible par une valeur de son
+`data` (l'appel d'un « Appel API » par `requestId`, le code visé par un « Aller à », l'agent d'un bloc Agent IA, un
+modèle, un champ) : la base ne garde rien. La suppression de la cible la cherche donc elle-même dans `graph` ET
+`draft_graph`, hors scénarios système : un appel de connecteur se refuse en 409 en nommant ses scénarios
+(`scenariosQuiUtilisent`, `src/agent/requetes.pg.ts`), comme un scénario visé par un « Aller à ». Ce balayage ne va
+jamais dans la projection commune d'un magasin (`parId`), que chaque appel d'outil et chaque bloc relisent, et un
+`nodes` qui n'est pas un tableau s'ignore au lieu de faire lever `jsonb_array_elements`. Les autres références (agent,
+modèle, champ, formulaire) restent à inventorier (`todo.md`).
+
 #### Le fichier d'un message rapide, et la médiathèque
 
 Spec `docs/superpowers/specs/2026-10-14-medias-message-rapide-design.md`, plan du même jour.

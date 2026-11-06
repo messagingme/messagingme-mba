@@ -323,6 +323,15 @@ pas, l'activité et le pays marchent partout, et un site hors Shopify passe par 
 - Avant cela (`3f366ffd`) : la fiche « Lancer une campagne » citait les filtres d'audience sans les nouveaux, et les
   résumés de `tag_contacts`, `set_contact_field` et `prepare_campaign` ne disaient pas qu'ils prennent la même cible.
 
+## 2026-11-04 (nuit) : l'appel qu'un scénario utilise, en production et éprouvé
+
+- `5775c6b1` déployé seul (run 41923499239, `migration=aucune`), après le Crédit WhatsApp (`c1ad8eda`) et le serveur
+  MCP (`0ba651be`), dans cet ordre convenu entre les trois sessions ; API et trois conteneurs de workers sur l'image.
+- Essai réel sur la SANDBOX : un connecteur et un appel d'essai, un scénario brouillon dont un bloc Appel API le
+  choisit ; l'écran dit « utilisé par 1 scénario(s) », l'infobulle nomme le scénario, « Supprimer » est grisé ;
+  scénario supprimé, l'appel redevient « utilisé par aucun agent ni scénario » et se supprime. Tout rangé ensuite. Le
+  409 du serveur n'est vu que par les tests : l'écran n'envoie plus la demande.
+
 ## 2026-11-04 (soir) : le serveur MCP refuse une clé d'argument que l'outil n'annonce pas
 
 - **Le défaut** (jaune de la relecture des segments, `4bb9d3dc`) : `tools/call` ignorait une clé hors du schéma de

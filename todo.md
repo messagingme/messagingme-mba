@@ -1,5 +1,13 @@
 # todo.md : backlog
 
+## 🟡 Les références rangées dans un graphe de scénario : l'inventaire (2026-11-04)
+
+Un bloc désigne sa cible dans son `data`, sans clé étrangère (`documentation.md`, après le bloc « Aller à »). L'appel
+d'un bloc Appel API est gardé depuis `5775c6b1`, le scénario visé par un « Aller à » aussi. Restent à lire, une par une,
+ce que fait la suppression de : l'agent d'un bloc Agent IA, un modèle (template) d'un bloc d'envoi, le champ cible ou
+source d'un bloc (Appel API, Fonction JS, Question), le formulaire d'un bloc Formulaire. Pour chacune : ce que le bloc
+fait ensuite au passage d'un contact, et si la suppression doit refuser comme pour les appels.
+
 ## 🟡 La reprise d'un numéro fourni : la suite (plan `docs/superpowers/plans/2026-11-06-numero-fourni-reprise.md`)
 
 - **L'essai réel** : un numéro fourni mis dans l'application, son compte créé, plus de 15 minutes, puis une NOUVELLE

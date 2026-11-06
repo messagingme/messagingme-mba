@@ -3272,8 +3272,11 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   lit toute la réponse. La poser donnerait un réglage sans effet.
 - ✅ Un outil de connecteur naît **inactif**, comme un outil maison : c'est un administrateur qui l'active
   après l'avoir relu.
-- ✅ **Un appel utilisé par un agent ne se supprime pas** : l'écran dit combien d'agents s'en servent et refuse,
-  plutôt que de les rendre muets en silence.
+- ✅ **Un appel utilisé par un agent ou par un bloc Appel API de scénario ne se supprime pas** : l'écran dit combien
+  d'outils d'agent et de scénarios s'en servent (le nom des scénarios au survol) et refuse, plutôt que de rendre un
+  agent muet ou un bloc inopérant en silence (scénarios depuis le 2026-11-04).
+- ✅ **Un connecteur qui porte encore des appels ne se supprime pas** : on supprime d'abord ses appels, et le refus le
+  dit (depuis le 2026-11-04 ; avant, il finissait en « Incident de notre côté »).
 - ⛔ **L'authentification ne se règle pas sur un appel** : elle vit sur le système, où le secret est chiffré. Un
   en-tête `authorization` saisi sur un appel est refusé, en vous disant où le déclarer.
 - ➡️ **Les serveurs MCP ont leur propre écran**, voir la section suivante.
