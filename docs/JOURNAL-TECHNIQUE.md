@@ -19,6 +19,8 @@ et une purge en échec n'y est qu'un avertissement. L'ancienne purge de l'étape
 avant l'API et, sous `set -e`, pouvait faire échouer le déploiement. `tests/deploy-scaleway.test.ts` tient l'étape dans
 les deux dépôts (vérifié dans les deux sens), `DEPLOY.md` la décrit. Pas encore éprouvée : le premier déploiement qui
 suit doit afficher `Total reclaimed space` puis la ligne `df -h /` à la fin du run.
+Éprouvée le jour même par le run 42236807466 (`60b4812b`) : `Total reclaimed space: 90.88MB`, puis le disque à 21 %
+(14 Go libres).
 
 ## 2026-11-06 : l'inscription par e-mail prouvée par un lien, et le défi Turnstile (lot identité B, migration 0279)
 
@@ -87,6 +89,10 @@ copie à part (le dossier partagé portait le travail d'une autre session sur le
   chaque garde retirée tour à tour fait rougir son test (variable vide, adresse remplie au sixième argument, refus RCS).
 - **Essai réel** : un scénario lancé depuis HubSpot vers le numéro de Julien, bouton « Votre devis » qui ouvre le bon
   devis, et un contact sans devis publié : rien ne part et la conversation passe à l'équipe.
+- **En production le 2026-11-06** : `60b4812b`, run 42236807466 (`migration=avant`, pour la 0280 du numéro ; le run
+  emportait aussi le ROI Shopify, dont la route `/tenants/:id/stats/roi` rend 401 sans session). L'API et les trois
+  workers à la révision, fumée publique et fiches OAuth conformes, `aide:charger` depuis l'image déployée : 193 lignes,
+  0 retirée. La console était publiée par Vercel depuis le push.
 
 ## 2026-11-06 : la reprise d'un numéro fourni mis dans l'application (migration 0280, plugin 0.3.25)
 
@@ -116,6 +122,12 @@ lui dise de demander à Claude de « connecter en coexistence ».
 - **Tests dans les deux sens** : cinq mutations (la destination retenue ignorée, la branche du compte créé retirée, le
   refus de `fourni` retiré, l'heure de la destination ignorée, la destination réécrite à chaque lien), chacune fait
   rougir son test, les fichiers restaurés à l'octet. Le prédicat SQL de l'heure n'est éprouvé qu'en CI (intégration).
+- **En production le 2026-11-06** avec `60b4812b` (run 42236807466, `migration=avant`), qui emportait aussi le ROI
+  Shopify et le lien variable : le run du lot, 42212152292, avait échoué au disque plein de `mm-workers`, avant toute
+  migration. La 0280 appliquée à 14 h 48 UTC, relue en base en lecture seule : `numero_fourni_destination` (`text`) et
+  `numero_fourni_destination_le` (`timestamptz`), nullables, sans défaut ; `tenants_numero_fourni_destination_chk`
+  validée, prédicat exact ; les 13 espaces à « inconnue », aucune reprise ; `destinationDeLEspace` (le vrai magasin,
+  sur un client en lecture seule) rend `null`. Reste la publication du plugin 0.3.25, après l'API.
 
 ## 2026-11-06 : un scénario écrit un champ HubSpot du contact, éprouvé en production
 
