@@ -54,6 +54,9 @@ choisi la moins stricte le 2026-11-05.
 - Vérifié dans les deux sens : `campagne_scenario` remis à `libre`, quatre tests de campagne rouges ; l'exemption retirée,
   trois rouges (l'ouverture refusée au lieu de partir).
 - Aucune migration (0272 porte la colonne). Les parcours de campagne en cours au déploiement finissent sans la garde.
+- **En production le 2026-11-06** avec `945b9bf9` (run 42205539109, `migration=aucune`, le même déploiement que la remontée
+  des champs HubSpot) ; le run 42198260307 de ce seul lot a été annulé pour ne pas pouvoir passer après. `aide:charger`
+  reste à lancer par Julien sur la machine (le contrôle des écritures à distance le refuse à Claude).
 - **La relecture indépendante** : aucun rouge. Corrigés avant le commit : la doc et la fiche disaient « le parcours s'arrête
   là » alors qu'un Marketing refusé APRÈS un envoi parti laisse le parcours vivre ; cinq commentaires présentaient encore
   la garde comme réservée aux automations ; deux tests manquaient (« Service, puis Marketing » dans la même liste, qui
