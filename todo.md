@@ -64,6 +64,10 @@
     une campagne cochée Service dont le repli est Marketing, l'audience du repli baisse : à trancher avec Julien.
   - `/v1/sends` vers un scénario part en `campagne_scenario` : la garde y vaut aussi, ni la doc de l'API ni la FAQ du
     plugin ne le disent encore.
+- 🟡 **Test d'intégration instable** (vu le 2026-11-06 sur 9f275fc3, vert à la relance) : `tests/integration/stores.integration.test.ts:303`
+  crée un contact `+3360000` suivi des 4 derniers chiffres de l'horloge, sans le supprimer, dans le tenant partagé du
+  fichier ; une fois sur environ 3 300, il tombe sur `0700` à `0702`, que `fieldUsage` insère (23505). Lui donner un
+  numéro hors de cette plage, ou le supprimer en fin de test.
 - La garde ne couvre pas le bloc RCS (hors périmètre du plan). Les parcours d'automation déjà en cours au déploiement de
   0272 finissent sans elle (accepté).
 - Un modèle Marketing refusé APRÈS un premier envoi parti dans la même liste laisse le parcours sur son repos, comme tout
