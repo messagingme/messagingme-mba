@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la ligne de crédit prise à la connexion, lot A5 (la console) et les jaunes du lot A
+
+Lot A5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`.
+
+- **La console** : « Démarrer la formule Pro maintenant » (`DemarrerPro`) dans le bloc de l'abonnement Pro et dans
+  l'onglet Crédit WhatsApp, confirmé avec la fin de l'essai et le prix ; depuis l'onglet, un démarrage payé enchaîne sur
+  le paiement de l'option. Pendant un essai, l'onglet explique qui facture quoi et ne vend pas l'option, sur la règle du
+  serveur (`option.formulePayee`, ajouté à la vue). `/ops` porte la case d'essai du Business.
+- **Les cinq jaunes du lot A** corrigés : le verrou gardé sur une issue inconnue chez Stripe, le refus d'une résiliation
+  programmée, `enregistrer` avec la garde de `modifier` et une fin d'essai provisoire, la facture relue payée (un SEPA
+  n'est pas annoncé fait), la date d'essai refusée hors Business. Onze retraits de garde côté serveur ; côté console,
+  trois sur les fonctions et trois sur les écrans (une construction mutée, sept e2e rouges).
+- **Vérifié** : suite racine et suite de la console entières, e2e de l'offre, de l'onglet et de `/ops`, auto-attaque.
+  ⚠️ Le port 3000 du poste était pris par un autre processus : les e2e ont tourné sur une construction de production
+  servie sur 3105, par une configuration locale jamais commitée.
+- **Relecture indépendante** : aucun rouge, seize jaunes au plan ; le premier (un SEPA refusé après un démarrage laisse
+  le Pro actif) est à trancher avant la vente.
+
 ## 2026-11-05 : la ligne de crédit prise à la connexion, lot A (le serveur)
 
 La révision du Crédit WhatsApp validée par Julien le 2026-11-04 (spec hors du dépôt, plan

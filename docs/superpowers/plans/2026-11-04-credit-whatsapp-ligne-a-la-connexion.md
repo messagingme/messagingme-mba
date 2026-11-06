@@ -40,7 +40,8 @@ Julien le 2026-11-04), qui révise `2026-10-30-credit-whatsapp-design.md`. Toute
 
 **Avancement (2026-11-05)** : A1 à A4 et A6, le serveur, écrits et testés ; onze retraits de garde, chacun vu par son
 test ; relus (un rouge corrigé, cinq jaunes ouverts, plus bas) ; en production le 2026-11-05 avec `5aca4c54` (run
-42035584064, la 0278 seule, relue en base). Reste A5, la console.
+42035584064, la 0278 seule, relue en base). A5 (la console, et les cinq jaunes du serveur) écrit, testé et relu le
+2026-11-06 : aucun rouge, seize jaunes (plus bas, le premier à trancher avant la vente).
 
 ### A1. La règle « formule payée »
 
@@ -103,11 +104,12 @@ tests de la gestion de la formule Pro existant) et `tests/traitement-abonnements
 **Fichiers** : `web/components/OngletCreditWhatsapp.tsx`, `web/components/EncartOffre.tsx` (le bloc de la formule Pro),
 `web/lib/offre.ts` (l'appel `demarrerProMaintenant(tenantId)`), `web/lib/api-credit-whatsapp.ts` ; un e2e.
 
-- [ ] Pendant l'essai, l'onglet explique (moment 1 de la spec) et propose « Démarrer la formule Pro maintenant » ; une
+- [x] Pendant l'essai, l'onglet explique (moment 1 de la spec) et propose « Démarrer la formule Pro maintenant » ; une
   confirmation dit que l'essai gratuit s'arrête aujourd'hui et le prix de la formule ; au succès, enchaîner sur le
-  paiement de l'option ; au 402, le message et l'essai intact. Le même bouton dans le bloc de la formule Pro.
-- [ ] e2e : un espace en essai voit l'explication et le bouton, jamais « Prendre l'option ».
-- [ ] Pousser APRÈS le déploiement de l'API de A2 à A4.
+  paiement de l'option ; au 402, le message et l'essai intact. Le même bouton dans le bloc de la formule Pro
+  (`AbonnementPro`, et non `EncartOffre`, qui est l'écran d'une fonction fermée), sans enchaîner sur l'option.
+- [x] e2e : un espace en essai voit l'explication et le bouton, jamais « Prendre l'option ».
+- [x] Pousser APRÈS le déploiement de l'API de A2 à A4.
 
 ### A6. Le refus d'un envoi sur une ligne arrêtée
 
@@ -129,7 +131,7 @@ tests de la gestion de la formule Pro existant) et `tests/traitement-abonnements
 - Jaune 6 corrigé dans le même envoi (test seul) : le cas « payé dès le départ » du test d'intégration de l'essai
   écourté passe sur un espace à part, son enregistrement vérifié. Jaune 7 (la CI de `horodatage-iso`) : corrigé par
   `0ab36f7f`, qui part avec le lot.
-- **Ouverts, relus avec A5** :
+- **Ouverts, relus avec A5, et corrigés par A5** (chacun avec son test et son retrait de garde) :
   1. Le verrou du démarrage est relâché même quand l'issue chez Stripe est inconnue (délai dépassé, 5xx après l'envoi) :
      le laisser échoir dans ce cas.
   2. Un essai avec résiliation programmée peut être démarré : refuser en 409 tant qu'une fin est posée (A5 ne montre
@@ -141,6 +143,35 @@ tests de la gestion de la formule Pro existant) et `tests/traitement-abonnements
   4. Un prélèvement différé (SEPA, s'il est ouvert au Checkout du Pro) serait tenu pour réussi : n'annoncer le
      démarrage qu'avec la facture relue payée.
   5. `/ops` écrit une date d'essai du Business sur un espace qui n'est pas en Business : 400 dans ce cas.
+
+### La relecture du lot A5 (2026-11-06) : aucun rouge, seize jaunes
+
+Relus avec le lot B (les jaunes ne bloquent pas le déploiement) :
+
+1. **À trancher avant la vente** (si le SEPA est ouvert au Checkout du Pro, à vérifier au tableau de bord de Stripe) :
+   l'échec d'une facture `subscription_update` est acquitté sans rien écrire, et la facture de l'essai écourté en est
+   une. Un démarrage payé par SEPA puis refusé par la banque laisse le Pro actif, l'option ouverte et aucun e-mail.
+   Antérieur à A5. Correctif d'une ligne : n'acquitter que la `subscription_update` qui porte une ligne de prorata.
+2. Le contrat de la route du démarrage (`src/http/offre-paiement.ts`) déclare `{ essaiFini: true }` sans `paye`, et son
+   test répond sans ce champ : ajouter `paye` au type et un cas au test.
+3. Le verrou gardé 60 s aussi sur une panne de la relecture ou un 429, quand rien n'est parti (décision écrite).
+4. Un 200 illisible après l'envoi relâche le verrou et dit « n'a pas pu être enregistré », alors que le prélèvement a
+   sans doute eu lieu (pas de double prélèvement, le webhook note la fin).
+5. Le délai du verrou court depuis sa prise : deux appels de 30 s peuvent rendre le 503 à l'échéance ; le prolonger sur
+   l'issue inconnue.
+6. Après un démarrage SEPA, l'onglet montre « Prendre l'option » sous « paiement en cours » (conforme à la décision).
+7. Pour un Pro `en_retard` d'un renouvellement, l'onglet parle du « premier paiement » et de l'essai : faux hors essai.
+8. La confirmation de l'onglet dit le prix sans les sièges ni la remise (décision écrite).
+9. Tant que le tarif n'est pas lu, la confirmation du bloc Pro ne dit que « Mensuel », sans le prix.
+10. « Sa facture est plus bas sur cette page » : la liste des factures ne se relit qu'au rechargement.
+11. Si `noterFinEssai` échoue, l'option est refusée (409) juste après le démarrage et « Démarrer » réapparaît (le
+    webhook répare, rien n'est prélevé deux fois).
+12. La confirmation de l'onglet promet l'option même quand le paiement est différé.
+13. Un Checkout d'option abandonné juste après un démarrage affiche « rien n'a été débité » alors que la formule Pro l'a
+    été (la phrase vise l'option).
+14. `lireTarifPro` appelé pour un membre non administrateur (403 avalé).
+15. Le journal et les cases du plan : portés avec le commit de déploiement.
+16. Hors du lot, inchangé : une création rejouée en retard réécrit une fin d'essai FUTURE prolongée entre-temps.
 
 ## Lot B : les cartes « Qui règle Meta ? » et le guide
 
