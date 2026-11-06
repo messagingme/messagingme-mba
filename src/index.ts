@@ -38,7 +38,7 @@ import { PgUserAuthStore } from './auth/store';
 import { PgMfaStore } from './auth/mfa-store.pg';
 import { estAdresseOps } from './auth/middleware';
 import type { ActionMfa } from './auth/mfa';
-import { PgUserStore } from './user/store.pg';
+import { PgUserStore, type EspaceNe } from './user/store.pg';
 import { PgAuthTokenStore } from './auth/token-store.pg';
 import { verifyGoogleIdToken } from './auth/google';
 import { PgApiKeyStore } from './auth/api-key-store.pg';
@@ -403,6 +403,11 @@ async function main(): Promise<void> {
   const offreQuiInclutLeNumero = {
     numeroInclus: async (tenant: string): Promise<boolean> => (await offresSansCache.offreDe(tenant)).droits.limites.numeroInclus,
   };
+  // Chaque espace qui naît, quel que soit son chemin (Google, e-mail, lien, Claude Code), annoncé à Julien sur Telegram.
+  const annoncerEspace = (e: EspaceNe): Promise<boolean> => sendTelegram(
+    `[mba-${NOM_API}] Nouvel espace « ${e.nom} » : ${e.email}, par ${e.parGoogle ? 'Google' : 'e-mail'}`
+    + `${e.origine === 'claude_code' ? ', depuis Claude Code' : e.origine === 'client_mcp' ? ', depuis un client MCP' : ''} (${e.tenantId})`,
+  );
   const userStore = new PgUserStore(pool, async (tenant) => {
     const o = await offresSansCache.offreDe(tenant);
     const { limites } = o.droits;
@@ -410,7 +415,7 @@ async function main(): Promise<void> {
       utilisateurs: limites.utilisateurs, admins: limites.admins, offre: o.offre,
       siege: siegesEnVente && o.pro ? { achetes: o.pro.sieges, periodicite: o.pro.periodicite } : null,
     };
-  });
+  }, annoncerEspace);
   /**
    * Le gel des membres en trop (lot 6, B2a, spec § 7) : la même question pour la garde des sessions de la console et pour
    * celle des jetons de Claude, qui portent une personne. Le rang n'est lu que pour un espace limité.

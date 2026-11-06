@@ -111,6 +111,26 @@ export function cleDeContact(payload: unknown): string | undefined {
   return inattribuable || cles.size !== 1 ? undefined : [...cles][0];
 }
 
+/**
+ * Les notifications du COMPTE, pas d'une conversation : Meta n'y met ni message, ni accusé, ni écho, et `parseWebhook`
+ * n'en tire aucun événement. Une connexion de numéro par Embedded Signup en envoie une dizaine d'un coup
+ * (`account_update` : PARTNER_ADDED, PARTNER_APP_INSTALLED, MM_LITE_TERMS_SIGNED, WEBHOOK_CONFIG_UPDATED, relevé le
+ * 2026-11-06). Le balayage des webhooks muets ne les compte pas parmi les reçus (`webhooksRecusDepuis`), sans quoi une
+ * matinée sans client mais avec trois connexions fausse son alerte. `message_template_status_update` n'y est PAS : il
+ * donne un événement (`template_status`).
+ */
+export const CHAMPS_DU_COMPTE: readonly string[] = [
+  'account_alerts',
+  'account_review_update',
+  'account_update',
+  'business_capability_update',
+  'message_template_components_update',
+  'message_template_quality_update',
+  'phone_number_name_update',
+  'phone_number_quality_update',
+  'security',
+  'template_category_update',
+];
 
 /**
  * Normalise un payload de webhook Meta (entry[].changes[].value) en une liste d'événements portant chacun une clé

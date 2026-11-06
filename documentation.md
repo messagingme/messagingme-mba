@@ -3314,6 +3314,7 @@ automations, servis par le principal) : ça tient parce que `enqueue` crée sa f
 | purge des payloads webhook | rétention du dernier payload d'un webhook entrant |
 | purge des événements Meta | `WEBHOOK_EVENTS_RETENTION_DAYS` |
 | `ops/dlq-sweep` | alerte Telegram sur les DLQ non vides |
+| `webhooks-muets` | toutes les 5 min et au démarrage, alerte Telegram quand au moins 5 jobs de la file `webhook` arrivent en 60 min sans aucun événement dans `webhook_events` ; un job fait seulement de notifications du compte (`CHAMPS_DU_COMPTE`, une connexion de numéro en envoie une dizaine) ne compte pas, un champ inconnu ou un payload sans `change` si. L'alerte n'est donnée qu'une fois par silence, mémoire perdue à chaque redémarrage |
 | `retention-conversations` | toutes les heures (`principal`), après les agrégats : lots de 500 (`PURGE_CONVERSATIONS_PAR_LOT`) enchaînés tant qu'ils sont pleins, dans un budget de 2 min par passe (`purgerJusquAEpuisement`), sans plafond journalier |
 | `veille-charge` | chaque minute (`principal`), quatre alertes Telegram, au plus une par clé toutes les 30 min (§ Surveillance) |
 | `consommation-vercel` | toutes les heures (`principal`), seulement avec `VERCEL_API_TOKEN` : le budget d'équipe de la passerelle d'IA, alertes à 80 % et 95 % (§ Surveillance) |
@@ -3497,6 +3498,11 @@ son mot de passe, un espace de plus tout de suite ; sans mot de passe, 409 `adre
   appels séparés laisseraient une demande refusée par l'un brûler les liens du jour de l'adresse visée.
 - **Ce que le lot n'a pas changé** : les identités nées par e-mail avant lui restent telles quelles (décision de
   Julien), et une adresse connue reçoit toujours son 409.
+
+**L'annonce d'un espace né** (2026-11-06) : quel que soit son chemin (Google, e-mail direct, lien, Claude Code ou un
+client MCP), `PgUserStore` l'annonce APRÈS le commit (`annoncerEspace`), et l'API la câble sur Telegram : nom, adresse
+de l'admin, Google ou e-mail, origine, identifiant. Une annonce qui échoue ne fait jamais échouer l'inscription ; une
+transaction annulée (adresse déjà prise) n'annonce rien.
 
 ### L'offre d'un espace (lot 6)
 

@@ -4,6 +4,31 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : les webhooks muets, une fausse alerte ; l'annonce des espaces nés
+
+**Les alertes « 7 webhook(s) Meta reçu(s) en 60 min et AUCUN événement enregistré »** (Telegram, 9 h 00, 11 h 40 et
+12 h 06, heure de Paris) étaient fausses : aucun message perdu. Sondé en lecture seule dans `mba-worker` : les jobs de la
+file `webhook` de ces fenêtres étaient TOUS des `account_update` (PARTNER_ADDED, PARTNER_APP_INSTALLED, quatre à six
+MM_LITE_TERMS_SIGNED, WEBHOOK_CONFIG_UPDATED), soit trois connexions de numéro par Embedded Signup (8 h 57, 10 h 18,
+11 h 15), et `parseWebhook` n'en tire jamais d'événement. Sans aucun message de client dans l'heure, le balayage
+voyait 7 à 10 reçus contre 0 enregistrés. Les deux messages du jour (12 h 13 et 15 h 29) sont bien dans
+`webhook_events`. La troisième alerte vient du redémarrage du déploiement de 11 h 49 : le « déjà alerté » vit en
+mémoire, et le balayage passe dès le démarrage.
+
+Correctif : `webhooksRecusDepuis` ne compte plus un job fait SEULEMENT de notifications du compte (`CHAMPS_DU_COMPTE`,
+`src/webhooks/parse.ts`) ; un champ inconnu, un `change` sans champ ou un payload sans `change` restent comptés, c'est la
+forme inattendue que le balayage doit voir. La requête lit aussi `${schema}.job` au lieu de `pgboss.job` en dur, comme
+les autres requêtes du magasin. Prouvé sur le texte exact de la requête, tiré du module, en lecture seule sur la base de
+production : les fenêtres des alertes de 11 h 40 et 12 h 06 passent de 7 à 0, celle de 16 h garde son message (1 et 1),
+et huit lignes fictives donnent 7 avec l'ancienne requête et 5 avec la neuve, ce que
+`tests/integration/webhooks-muets.integration.test.ts` attend en CI.
+
+**L'annonce des espaces nés** (demande de Julien du même jour) : `PgUserStore` reçoit `annoncerEspace`, appelée après
+le commit de `createTenantWithAdmin` (Google, e-mail direct) et de `confirmerInscription` (le lien), câblée dans
+`src/index.ts` sur Telegram. Une annonce qui lève ou rejette ne fait pas échouer l'inscription, une transaction annulée
+n'annonce rien (`tests/annonce-espace.test.ts`, vérifié dans les deux sens : l'annonce déplacée avant le commit rougit
+le cas de l'adresse déjà prise).
+
 ## 2026-11-06 : le prix et la catégorie des modèles, dits par Claude (plugin 0.3.26)
 
 Plan `docs/superpowers/plans/2026-11-06-prix-et-categories-modeles.md`. Johan, bêta-testeur : « c'est quoi le tarif

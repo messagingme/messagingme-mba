@@ -41,6 +41,17 @@ export type UserMutation = 'ok' | 'last_admin' | 'not_found';
  */
 export type OrigineEspace = 'console' | 'claude_code' | 'client_mcp';
 
+/** Un espace qui vient de naître, tel qu'il est annoncé à l'exploitation (`annoncerEspace`). */
+export interface EspaceNe {
+  tenantId: string;
+  nom: string;
+  /** L'adresse de son premier admin. */
+  email: string;
+  origine: OrigineEspace;
+  /** Compte Google seul (sans mot de passe), sinon inscription par e-mail. */
+  parGoogle: boolean;
+}
+
 /** Email déjà pris (unicité globale de lower(email)). Traduit en 409 côté route. */
 export class DuplicateEmailError extends Error {
   constructor() {
@@ -61,7 +72,18 @@ export class PgUserStore {
   constructor(
     private readonly pool: Pool,
     private readonly limitesMembres?: (tenantId: string) => Promise<LimitesMembres>,
+    /**
+     * Prévient l'exploitation de chaque espace qui naît (Telegram en production, `src/index.ts`), APRÈS le commit : une
+     * transaction annulée n'annonce rien. Une annonce qui lève ou rejette ne fait jamais échouer l'inscription.
+     * Absente : aucune annonce (scripts et tests).
+     */
+    private readonly annoncerEspace?: (espace: EspaceNe) => unknown,
   ) {}
+
+  /** Annonce un espace né, sans faire attendre ni échouer l'inscription qu'elle suit. */
+  private annoncer(espace: EspaceNe): void {
+    void Promise.resolve().then(() => this.annoncerEspace?.(espace)).catch(() => {});
+  }
 
   /**
    * Le rang d'un membre actif dans son espace (lot 6, B2a, `limiteDepassee`) : les membres actifs du même genre créés
@@ -306,8 +328,9 @@ export class PgUserStore {
     admin: { email: string; name: string | null; passwordHash: string | null },
     origine: OrigineEspace = 'console',
   ): Promise<{ tenantId: string; userId: string }> {
+    let cree: { tenantId: string; userId: string };
     try {
-      return await enTransaction(this.pool, (client) =>
+      cree = await enTransaction(this.pool, (client) =>
         // Même adresse qu'un espace existant : on réutilise son identité, donc son mot de passe.
         this.creerEspaceEtAdmin(client, workspaceName, admin, origine, () => this.ensureIdentity(client, admin.email, admin.passwordHash)),
       );
@@ -315,6 +338,8 @@ export class PgUserStore {
       if (estDoublon(err)) throw new DuplicateEmailError();
       throw err;
     }
+    this.annoncer({ tenantId: cree.tenantId, nom: workspaceName, email: admin.email, origine, parGoogle: admin.passwordHash === null });
+    return cree;
   }
 
   /**
@@ -390,8 +415,9 @@ export class PgUserStore {
   async confirmerInscription(jeton: string, espace: EspaceAConfirmer): Promise<ConfirmationInscription> {
     if (!jeton) return { statut: 'lien_invalide' };
     const hash = sha256Hex(jeton);
+    let r: ConfirmationInscription;
     try {
-      return await enTransaction(this.pool, async (client) => {
+      r = await enTransaction(this.pool, async (client) => {
         const vise = await client.query<{ email: string }>(
           `select email from inscriptions_attente where jeton_hash = $1 and expire_le > now()`,
           [hash],
@@ -431,6 +457,10 @@ export class PgUserStore {
       if (estDoublon(err)) return { statut: 'adresse_connue' };
       throw err;
     }
+    if (r.statut === 'cree') {
+      this.annoncer({ tenantId: r.tenantId, nom: espace.workspaceName, email: r.email, origine: 'console', parGoogle: false });
+    }
+    return r;
   }
 
   /** La rétention (worker) : les demandes échues, par paquets bornés. Rend le nombre de lignes effacées. */

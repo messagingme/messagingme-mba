@@ -1,5 +1,6 @@
 import type { Pool } from 'pg';
 import { ALL_QUEUES, BASE_QUEUES, dlqName } from '../queue/names';
+import { CHAMPS_DU_COMPTE } from '../webhooks/parse';
 
 /** Rollup par tenant pour la surface d'exploitation cross-tenant (lecture seule). */
 export interface TenantOverviewRow {
@@ -373,13 +374,19 @@ export class PgOpsStore {
   /**
    * Combien de webhooks Meta ont été reçus (enfilés par le receveur) sur la fenêtre : le seul compteur qui reste
    * vrai quand la lecture des payloads est cassée, puisque le receveur enfile avant toute interprétation.
+   * Sauf les jobs faits SEULEMENT de notifications du compte (`CHAMPS_DU_COMPTE`), qui ne donnent jamais d'événement.
+   * Un job sans aucun `change`, ou dont un `change` n'a pas de `field` connu, reste compté : c'est la forme inattendue
+   * que le balayage doit voir.
    */
   async webhooksRecusDepuis(minutes: number): Promise<number> {
     const n = Math.max(1, Math.min(1440, Math.floor(minutes)));
     const res = await this.pool.query<{ n: string }>(
-      `select count(*)::text as n from pgboss.job
-        where name = 'webhook' and created_on > now() - ($1 || ' minutes')::interval`,
-      [String(n)],
+      `select count(*)::text as n from ${this.schema}.job j
+        where j.name = 'webhook' and j.created_on > now() - ($1 || ' minutes')::interval
+          and (not jsonb_path_exists(j.data, '$.entry[*].changes[*]')
+               or exists (select 1 from jsonb_path_query(j.data, '$.entry[*].changes[*]') c
+                           where c->>'field' is null or c->>'field' <> all($2::text[])))`,
+      [String(n), CHAMPS_DU_COMPTE],
     );
     return Number(res.rows[0]?.n ?? '0');
   }
