@@ -516,8 +516,9 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
       const r = await resolveNode(tenant, code, workflowStore);
       return r.ok ? r.value : null;
     },
-    // Un saut qui n'a pas lieu atterrit dans le journal des échecs de scénario, celui des avances qui échouent.
-    journaliserEchecSaut: (e) => echecsDeScenario.enregistrerEchecAvance({ ...e, canal: null }),
+    // Un saut qui n'a pas lieu et un envoi refusé en cours de parcours atterrissent dans le journal des échecs de scénario,
+    // celui des avances qui échouent.
+    journaliserEchec: (e) => echecsDeScenario.enregistrerEchecAvance({ ...e, canal: null }),
     // Un champ HubSpot du contact s'écrit D'ABORD dans HubSpot, la fiche ensuite (`avecRemonteeHubspot`).
     setField: ecrituresDeFiche.setField,
     // La pièce d'un bloc Question (spec du 2026-11-02) : le store entier, pour que `noter` garde son `this`. La mention

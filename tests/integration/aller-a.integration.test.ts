@@ -75,7 +75,7 @@ describe.skipIf(!url)('« Aller à » (Postgres)', () => {
 
   it('🔴 un saut manqué s’écrit dans le journal des échecs de scénario, au nom du scénario', async () => {
     const wf = await wfStore().insert(tenantId, 'Scénario qui saute', { nodes: [], edges: [] });
-    await deps.journaliserEchecSaut({
+    await deps.journaliserEchec({
       tenantId, waId: '33600000901', workflowId: wf.id, runId: null, messageId: 'wamid.901',
       erreur: 'le bloc « Vers le menu » vise un bloc qui n’existe plus',
     });

@@ -24,11 +24,17 @@ describe('le journal des erreurs de livraison : l’origine, la même à l’éc
     expect(libelleOrigine({ origine: 'message', canal: 'whatsapp', origineMessage: null }, fr)).toBe('message non délivré');
   });
 
-  it('les trois autres origines : les mots de l’écran, en anglais aussi', () => {
+  it('les deux autres origines : les mots de l’écran, en anglais aussi', () => {
     expect(libelleOrigine({ origine: 'envoi' }, fr)).toBe('jamais parti');
     expect(libelleOrigine({ origine: 'livraison' }, fr)).toBe('parti, non délivré');
-    expect(libelleOrigine({ origine: 'scenario' }, fr)).toBe('scénario bloqué sur une réponse');
     expect(libelleOrigine({ origine: 'livraison' }, en)).toBe('sent, not delivered');
     expect(csvErreursLivraison([RCS_API], en).lignes[0]![5]).toBe('RCS not delivered (API send)');
+  });
+
+  it('🔴 un échec de scénario se dit « échec de scénario » : la ligne n’est pas toujours une réponse bloquée', () => {
+    // La table reçoit un envoi refusé au réveil d'un parcours (2026-11-06), un « Aller à » raté, un champ HubSpot refusé :
+    // « scénario bloqué sur une réponse » était faux pour eux. La colonne Message dit lequel.
+    expect(libelleOrigine({ origine: 'scenario' }, fr)).toBe('échec de scénario');
+    expect(libelleOrigine({ origine: 'scenario' }, en)).toBe('scenario failure');
   });
 });

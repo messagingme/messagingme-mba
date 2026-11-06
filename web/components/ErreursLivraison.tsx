@@ -135,9 +135,9 @@ export function ErreursLivraison({ tenantId }: { tenantId: string }) {
               <span className="text-xs text-ink-500">{e.campaignName}</span>
               {/* L'ORIGINE distingue quatre pannes très différentes : un refus à l'envoi vient de notre appel,
                   un échec de livraison vient du téléphone d'en face, un échec de scénario ne vient d'aucun
-                  des deux, c'est notre traitement du message ENTRANT qui n'a pas abouti, et un message libre
-                  non délivré vient du téléphone d'en face, hors de toute campagne. Chercher au mauvais
-                  endroit coûte cher. */}
+                  des deux, c'est un parcours qui n'a pas pu faire ce qu'il devait (un envoi refusé avec son
+                  bloc, un « Aller à » raté, un message reçu mal traité), et un message libre non délivré vient
+                  du téléphone d'en face, hors de toute campagne. Chercher au mauvais endroit coûte cher. */}
               <span className="text-xs text-ink-500">{libelleOrigine(e, t)}</span>
               <span className="w-full text-xs text-ink-500">
                 {sens(e.code) || e.message || t('sans détail', 'no detail')}

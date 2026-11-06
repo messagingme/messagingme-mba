@@ -55,7 +55,7 @@ export const aucuneSortieNotee = async (): Promise<void> => {};
 export const aucunRepondeurHorsParcours = async (): Promise<void> => {};
 /** `resoudreBloc` (RC5) : aucun bloc d'un autre scénario n'est trouvé, donc un « Aller à » ailleurs n'a pas de cible. */
 export const aucunBlocAilleurs = async (): Promise<null> => null;
-/** `journaliserEchecSaut` (RC5) : aucun saut manqué n'est écrit. */
+/** `journaliserEchec` (RC5, refus d'envoi depuis le 2026-11-06) : aucun saut manqué ni envoi refusé n'est écrit. */
 export const aucunEchecJournalise = async (): Promise<void> => {};
 /** `confierAuMbaParLeBloc` (RC6) : avant lui, aucun bloc ne confiait un contact à l'agent de Meta. */
 export const aucunEnvoiAuMba = async (): Promise<void> => {};
@@ -171,7 +171,7 @@ export const depsInertes = {
   noterSortieAgent: aucuneSortieNotee,
   confierAuRepondeur: aucunRepondeurHorsParcours,
   resoudreBloc: aucunBlocAilleurs,
-  journaliserEchecSaut: aucunEchecJournalise,
+  journaliserEchec: aucunEchecJournalise,
   confierAuMbaParLeBloc: aucunEnvoiAuMba,
   reveilCourt: reveilCourtInerte,
   signalerSaisie: saisieInerte,

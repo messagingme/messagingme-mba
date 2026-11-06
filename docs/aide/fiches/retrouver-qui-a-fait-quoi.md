@@ -1,7 +1,7 @@
 ---
 ecran: securite-audit
 source_section: Journaux et traces (menu Sécurité)
-source_empreinte: 193233
+source_empreinte: 5bf9a6
 ---
 # Retrouver qui a fait quoi, et pourquoi un message n'est pas parti
 
@@ -35,7 +35,10 @@ la campagne, le numéro, et surtout **d'où vient l'échec** :
 
 - « jamais parti » : notre appel a été refusé ;
 - « parti, non délivré » : le téléphone d'en face n'a pas reçu un message de campagne ;
-- « scénario bloqué sur une réponse » : c'est le traitement du message REÇU qui n'a pas abouti ;
+- « échec de scénario » : un parcours n'a pas pu faire ce qu'il devait. La colonne du message dit lequel : un
+  envoi refusé sur la réponse d'un contact ou au réveil d'une attente (avec le bloc en cause, la raison et ce qui a
+  suivi), un « Aller à » qui n'a pas eu lieu, un bloc « Envoyer au MBA » qui n'a pas pu confier le contact, un champ
+  HubSpot refusé, ou un message reçu que nous n'avons pas pu traiter ;
 - « message non délivré » ou « RCS non délivré » : un message envoyé hors campagne n'est pas arrivé, et sa
   provenance est dite entre parenthèses (réponse d'un opérateur, envoi par l'API, bloc de scénario, agent
   IA, agent de Meta, agent branché par MCP).

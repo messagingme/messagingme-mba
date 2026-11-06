@@ -79,7 +79,7 @@ function monde(graph: WorkflowGraph, run: WorkflowRunRow | null, surcharges: Par
     // L'agent de Meta répond : une fin de parcours lui rend la main, et un modèle sans bouton ne bloque pas le parcours.
     mbaActifPour: async () => true,
     releaseToMba: async (_t, w) => { rendus.push(w); },
-    journaliserEchecSaut: async (ev) => { sautsJournalises.push(ev.erreur); },
+    journaliserEchec: async (ev) => { sautsJournalises.push(ev.erreur); },
     ...surcharges,
   };
   return { executor: new WorkflowExecutor(deps), fiche, envois, etiquettes, etats, escalades, rendus, sautsJournalises, mesures, lecturesAccord, crees };

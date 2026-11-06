@@ -624,7 +624,7 @@ relue par les quatre lectures « !== false » : une lecture qui l'oublierait fai
 voyage dans les trois reprises (`resume`, `advance`, `envoyerBlocDepuisAgent`) et dans les « Aller à » (le départ `saut`
 la porte, requise ; `accordMarketingExige` est la seule lecture de la politique). Rien de parti : au démarrage rien n'est
 créé (le runner journalise et efface le tir) ; à une reprise ou à un saut, le parcours se CLÔT en `done`, sans passer à
-l'équipe ni entrer au journal des échecs de saut, et la main revient à l'agent de Meta (un déclencheur de masse, un deal
+l'équipe ni entrer au journal des échecs de scénario, et la main revient à l'agent de Meta (un déclencheur de masse, un deal
 HubSpot sur une étape peuplée, remplirait sinon « À traiter »). Au réveil, la fenêtre de 24 h fermée ne l'emporte pas
 quand le Marketing refusé précède tout message qui l'exigeait (« attendre, Marketing, message rapide » : ces messages
 auraient été sautés avec lui), un bloc agent compris ; un message de session placé AVANT reste, lui, remonté à l'équipe,
@@ -720,7 +720,7 @@ variable propre, tout vit sur la fiche.
   (un appel direct, aucune file), et au-delà de `MAX_SAUTS_SANS_PAUSE` (20) le saut n'a pas lieu.
 - **Un saut qui n'a pas lieu** (boucle, aucune cible, cible disparue ou d'un autre espace, scénario d'arrivée qui refuse
   de démarrer, panne) est un trou de montage : une ligne au journal des échecs de scénario
-  (`workflow_advance_failures`, `journaliserEchecSaut`), et la conversation passe à l'équipe, sans escalade. Le
+  (`workflow_advance_failures`, `journaliserEchec`), et la conversation passe à l'équipe, sans escalade. Le
   démarrage qui l'a franchi rend `true` : la suite est l'affaire du saut.
 - 🔴 **La publication refuse** (`refusDePublication`, 422 `aller_a_invalide`, seulement si le brouillon porte un saut) :
   un saut sans cible, une cible ni dans le brouillon ni dans la version publiée d'un autre scénario de l'espace, et un
@@ -2120,6 +2120,18 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   rien promis, et aucune action de masse ne les libère. Et au rattrapage d'un parcours resté sur un bloc
   d'agent IA sans session vivante, le drapeau suit le STATUT de la session close : `sortie` est une fin
   délibérée (c'est l'escalade de l'agent), `erreur`, `plafond` et `inactivite` sont des pannes.
+  🔴 **La RAISON d'un envoi refusé sur une réponse ou un réveil s'écrit au journal des échecs de scénario**
+  (`journaliserRefus` de l'exécuteur, vers `workflow_advance_failures`, « échec de scénario » à l'écran) : une ligne
+  par contact et par bloc refusé, le nom du bloc, la raison rendue par l'envoi, puis l'issue (parcours arrêté et passé
+  à l'équipe, ou autres messages de l'étape partis, sans rien dire de la suite). La ligne ne s'écrit qu'une fois l'état
+  du parcours écrit : perdue, l'écriture dit qu'un autre traitement le tient. Au réveil fenêtre fermée, une ligne sur
+  le premier bloc retenu (le bloc agent quand il est seul, avec sa propre raison), sauf pour un contact qui a dit STOP,
+  puis une par refus de la partie exécutée. Jamais le STOP (WhatsApp, ou RCS : `MOTIF_DESABONNE_RCS`) ni l'absence
+  d'accord marketing (des règles), ni un tour perdu. Au mieux : le journal en panne n'empêche ni l'arrêt ni le passage
+  à l'équipe. Une erreur LEVÉE par le client Meta (131009...) ne passe pas par là : sur une réponse, le gestionnaire du
+  webhook l'écrit telle quelle (`processWorkflowAdvance`, sans le bloc) ; au réveil, le balayage la journalise au
+  serveur et reprend le parcours plus tard. Un refus au DÉMARRAGE n'y entre pas : sa raison remonte à l'appelant (la
+  campagne l'écrit sur son destinataire), sauf quand un autre message de l'étape est parti, où elle se perd encore.
 - 🔴 **LES DOSSIERS N'ONT PAS LA MÊME NATURE, et c'est ce qui décide de ce qu'on peut y ranger.**
   « Archivé » (`archived_at`), « Traité » (`traitee_le`) et l'affectation (`assigned_to`) sont des ÉTATS
   ÉCRITS ; « À traiter » est DÉRIVÉ (`A_TRAITER_SQL`, `src/inbox/store.pg.ts` : scénario qui ne tient pas le

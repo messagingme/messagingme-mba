@@ -37,7 +37,10 @@ export interface ErreurLivraison {
    * D'où vient l'échec :
    *  - `envoi` : Meta a refusé l'appel (`status = 'failed'`), le message n'est jamais parti ;
    *  - `livraison` : l'appel a réussi, le webhook de statut a ensuite signalé l'échec ;
-   *  - `scenario` : l'avance d'un parcours a échoué sur un message entrant, le contact reste posé sur son bloc ;
+   *  - `scenario` : un parcours n'a pas pu faire ce qu'il devait (`workflow_advance_failures`) : l'avance sur un message
+   *    entrant a échoué, un envoi a été refusé sur une réponse ou un réveil, un « Aller à » n'a pas eu lieu, un bloc
+   *    « Envoyer au MBA » n'a pas pu confier le contact, un champ HubSpot a été refusé ; l'écran dit « échec de
+   *    scénario », le message dit lequel ;
    *  - `message` : un message libre n'est pas arrivé (jamais un envoi de campagne).
    */
   origine: 'envoi' | 'livraison' | 'scenario' | 'message';

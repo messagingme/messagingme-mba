@@ -4,6 +4,42 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la raison d'un envoi refusé en cours de parcours, au Journal des erreurs
+
+Plan `docs/superpowers/plans/2026-11-06-raison-des-refus-en-parcours.md`. Né de la relecture du lot du bouton de lien à
+variable (60b4812b) : quand la réponse d'un contact ou le réveil d'un parcours faisait partir un envoi refusé, la
+raison ne partait que dans le journal du serveur, et l'équipe recevait la conversation avec pour seule cause le nom du
+scénario. Livré en direct, dans une copie à part (le dossier partagé avait 338 commits de retard et portait le travail
+d'une autre session sur `executor.ts`).
+
+- **Mesuré avant de coder** (production, lecture seule, 30 jours) : 26 envois refusés, tous sur SANDBOX, dont 4 en cours
+  de parcours ; une seule ligne dans `workflow_advance_failures` ; la plus grosse campagne à scénario avait 4
+  destinataires. Le seul volume à craindre est structurel (une campagne qui réveille ses destinataires fenêtre fermée).
+- **Décisions de Julien** : tous les refus d'une réponse ou d'un réveil, que le parcours s'arrête ou continue, fenêtre
+  fermée comprise ; une ligne par contact et par bloc, sans plafond ; le STOP et l'absence d'accord marketing hors du
+  journal (des règles) ; le journal des erreurs seulement (pas la frise de l'Inbox) ; l'origine `scenario` affichée
+  « échec de scénario ».
+- **Exécuteur** : `apply` rend aussi `refusDesBlocs` (bloc et raison de chaque envoi refusé, hors STOP WhatsApp ou RCS,
+  accord et tour perdu) ; `journaliserRefus` écrit une ligne par bloc (« envoi refusé au bloc « X » : raison », puis
+  l'issue : arrêt et passage à l'équipe, ou « les autres messages de cette étape sont partis »), au mieux, et seulement
+  une fois l'état du parcours écrit. Au réveil fenêtre fermée : une ligne sur le premier bloc retenu (le bloc agent
+  avec sa propre raison), sauf STOP, puis les refus de la partie exécutée. La dépendance `journaliserEchecSaut` devient
+  `journaliserEchec` (même table, aucune migration).
+- **Console** : `libelleOrigine` dit « échec de scénario » (il disait « scénario bloqué sur une réponse », faux pour un
+  réveil, un « Aller à » ou un champ HubSpot refusé).
+- **Relecture indépendante** : aucun rouge, neuf jaunes. Huit corrigés dans le lot, rien n'étant publié : le STOP en
+  RCS écrivait sa ligne (`MOTIF_DESABONNE_RCS`) ; un contact STOP réveillé fenêtre fermée recevait le conseil d'un
+  modèle ; l'issue « le parcours continue » était fausse quand le refus touchait le dernier bloc ; `advance` écrivait la
+  ligne d'arrêt même sur une écriture d'état perdue ; un bloc agent recevait le conseil d'un modèle ; la doc promettait
+  le Crédit WhatsApp épuisé au réveil (levé, donc reporté, jamais écrit) et un passage à l'équipe au démarrage ; six cas
+  sans test ; `aide:charger` absent de l'ordre de déploiement. Le neuvième, antérieur au lot, va au todo : la purge d'un
+  contact n'efface pas `workflow_advance_failures`. Et une question pour Julien : un « Aller à » refusé pour un STOP
+  s'écrit encore au journal.
+- **Vérifié** : `tests/workflow-refus-journal.test.ts` (18 cas), chaque garde retirée tour à tour (15 mutations, dont
+  le STOP, le STOP RCS et l'accord poussés au journal, et les deux gardes d'écriture) fait rougir ses seuls tests ; la
+  suite racine (2 dépassements de délai sous la charge, `mcp-agent` et `agent-connaissance-entretien`, verts seuls trois
+  fois sur trois), la suite de la console, les deux typecheck, le lint, l'auto-attaque.
+
 ## 2026-11-06 : la ligne de crédit prise à la connexion, lot B (« Qui paie vos messages à Meta ? »)
 
 Lot B du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`, textes validés par Julien le 2026-11-06.

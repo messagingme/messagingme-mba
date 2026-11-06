@@ -1005,9 +1005,11 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   entière, comme le lien du devis importé de HubSpot (`hs_calc_lien_devis`). L'écran nomme le champ sous l'adresse,
   et avertit quand le champ qui ouvre l'adresse n'est pas un champ de type lien. À l'envoi, un champ qui ouvre
   l'adresse y entre tel quel ; placé plus loin, sa valeur est encodée comme dans un lien de modèle (une espace, un
-  `&` ou un accent n'y cassent rien). Un champ vide sur la fiche **fait refuser l'envoi** pour ce contact : le
-  parcours s'arrête et la conversation passe à votre équipe, plutôt qu'un bouton qui ouvrirait la mauvaise page
-  (la raison du refus n'est pas encore affichée à l'écran). ⚠️ En WhatsApp seulement : sur un parcours RCS, le
+  `&` ou un accent n'y cassent rien). Un champ vide sur la fiche **fait refuser l'envoi** pour ce contact, plutôt
+  qu'un bouton qui ouvrirait la mauvaise page. En cours de parcours (sur une réponse du contact ou après une attente),
+  le parcours s'arrête, la conversation passe à votre équipe, et la raison se lit dans Sécurité > Journal des
+  erreurs, sous « échec de scénario » ; au démarrage, le parcours ne démarre pas pour ce contact (une campagne le
+  compte en échec, avec la raison). ⚠️ En WhatsApp seulement : sur un parcours RCS, le
   lien passe par notre redirection de suivi, et une adresse à variable y fait refuser l'envoi (un champ que le
   contact écrit lui-même ferait de notre domaine un redirecteur ouvert).
 - ✅ **Le bloc « message rapide » accepte une vidéo ou un PDF** (2026-10-15), en plus d'une image. Vidéo MP4
@@ -1075,7 +1077,20 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   que dans les 24 h qui suivent le dernier message du client. Le constructeur signale donc en clair un montage
   « attendre 24 h ou plus, puis message rapide », en nommant les deux blocs concernés. Et si la fenêtre s'avère
   fermée au moment de la reprise, le message n'est pas envoyé : la conversation remonte dans l'Inbox pour
-  qu'une personne la reprenne, plutôt que de compter un envoi qui n'a jamais eu lieu.
+  qu'une personne la reprenne, plutôt que de compter un envoi qui n'a jamais eu lieu. Le Journal des erreurs dit
+  pourquoi, et quel bloc n'est pas parti (point suivant).
+- ✅ **La raison d'un envoi refusé en cours de parcours se lit à l'écran** (2026-11-06). Quand la réponse d'un
+  contact, ou le réveil d'un parcours après une attente, fait partir un message que nous refusons d'envoyer (une
+  variable sans valeur sur la fiche, la fenêtre de 24 h fermée au réveil, une vidéo sur un parcours RCS, un modèle à
+  qui il manque une valeur...), une ligne entre dans **Sécurité > Journal des erreurs**, sous « échec de scénario » :
+  le contact, le scénario, le bloc et la raison, puis ce qui a suivi (le parcours s'arrête et la conversation passe à
+  votre équipe, ou les autres messages de l'étape sont partis). Une ligne par contact : une campagne qui réveille
+  mille contacts fenêtre fermée en écrit mille, comme elle passe mille conversations à l'équipe. Le STOP (WhatsApp ou
+  RCS) et l'absence d'accord marketing n'y entrent pas : ce sont des règles, pas des pannes. ⚠️ Une erreur renvoyée
+  par WhatsApp lui-même au moment de l'envoi suit un autre chemin : sur une réponse du contact, elle s'écrit au même
+  journal telle que WhatsApp l'a dite, sans le nom du bloc. ⚠️ Un refus au **démarrage** d'un parcours n'y est pas : la
+  campagne l'écrit sur son destinataire, sauf quand un autre message de la même étape est parti, et cette raison-là
+  se perd encore.
 - ✅ **La nature d'un bloc se choisit à sa création, plus après** : le panneau de droite ne sert qu'à configurer
   le bloc (choix du template, de l'action, de la durée…). Quand on tire une flèche dans le vide, ou qu'on insère
   un bloc sur une flèche existante, la liste des natures s'affiche et on choisit. Avant, le bloc était deviné
@@ -3590,7 +3605,9 @@ boîte par sous-menu.
     n'est pas parti ou n'est pas arrivé. Le code, sa signification en français pour les plus courants, la
     campagne, le numéro, et surtout **d'où vient l'échec**, parmi quatre origines : « jamais parti » (notre
     appel a été refusé), « parti, non délivré » (le téléphone d'en face, pour un envoi de campagne),
-    « scénario bloqué sur une réponse » (c'est notre traitement du message REÇU qui n'a pas abouti), et
+    « échec de scénario » (un parcours n'a pas pu faire ce qu'il devait : un envoi refusé sur une réponse ou un
+    réveil, avec le bloc et la raison, un « Aller à » qui n'a pas eu lieu, un bloc « Envoyer au MBA » qui n'a pas
+    pu confier le contact, un champ HubSpot refusé, un message reçu mal traité), et
     « message non délivré » ou « RCS non délivré » pour un message envoyé hors campagne (réponse de l'Inbox,
     message de l'API, bloc de scénario, agent IA, agent de Meta ou agent branché par MCP, la provenance est
     dite entre parenthèses). Chercher au mauvais endroit coûte cher. Au-dessus de la liste, un administrateur

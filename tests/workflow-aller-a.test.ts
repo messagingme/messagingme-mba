@@ -150,7 +150,7 @@ function monter(scenarios: Record<string, WorkflowGraph>, over: Partial<Workflow
       }
       return null;
     },
-    journaliserEchecSaut: async (j) => { journal.push({ workflowId: j.workflowId, runId: j.runId, messageId: j.messageId, erreur: j.erreur }); },
+    journaliserEchec: async (j) => { journal.push({ workflowId: j.workflowId, runId: j.runId, messageId: j.messageId, erreur: j.erreur }); },
     escalateToHuman: async (_t, _w, assigneA, escalade, workflowId) => { equipe.push([assigneA, escalade, workflowId]); },
     evalContext: async () => ({
       fields: { ...fiche }, tags: [], optIn: 'unknown', name: null, phone: null, bsuid: null, analyse: null,
@@ -414,7 +414,7 @@ describe('le vrai câblage', () => {
     expect(await deps.resoudreBloc('t2', code(130))).toBeNull();
     expect(await deps.resoudreBloc('t1', code(130))).toEqual({ workflowId: 'wf-1', nodeId: 'x', graph });
     expect(lus).toEqual(['t2', 't1']);
-    await deps.journaliserEchecSaut({ tenantId: 't1', waId: WA, workflowId: 'wf-1', runId: null, messageId: 'm1', erreur: 'boucle' });
+    await deps.journaliserEchec({ tenantId: 't1', waId: WA, workflowId: 'wf-1', runId: null, messageId: 'm1', erreur: 'boucle' });
     expect(requetes).toHaveLength(1);
     expect(requetes[0]!.sql).toMatch(/insert into workflow_advance_failures/);
     expect(requetes[0]!.params).toEqual(['t1', WA, 'm1', 'wf-1', null, null, 'boucle']);

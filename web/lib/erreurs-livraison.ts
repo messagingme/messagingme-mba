@@ -24,7 +24,9 @@ export function libelleOrigine(e: Pick<ErreurLivraison, 'origine' | 'canal' | 'o
   switch (e.origine) {
     case 'envoi': return t('jamais parti', 'never sent');
     case 'livraison': return t('parti, non délivré', 'sent, not delivered');
-    case 'scenario': return t('scénario bloqué sur une réponse', 'scenario stuck on a reply');
+    // Pas « bloqué sur une réponse » : la ligne peut être un envoi refusé au réveil d'un parcours, un « Aller à » raté ou
+    // un champ HubSpot refusé (2026-11-06). La colonne Message dit lequel.
+    case 'scenario': return t('échec de scénario', 'scenario failure');
     case 'message': {
       const base = e.canal === 'rcs' ? t('RCS non délivré', 'RCS not delivered') : t('message non délivré', 'message not delivered');
       const origine = e.origineMessage ? ORIGINES_MESSAGE[e.origineMessage] : undefined;

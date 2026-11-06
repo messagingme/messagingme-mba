@@ -431,11 +431,12 @@ export interface WorkflowExecutorDeps {
    */
   resoudreBloc(tenantId: string, code: string): Promise<{ workflowId: string; nodeId: string; graph: WorkflowGraph } | null>;
   /**
-   * Écrit un saut qui n'a pas eu lieu dans le journal des échecs de scénario (`workflow_advance_failures`, que l'écran
-   * des erreurs de livraison montre) : cible disparue, boucle, scénario d'arrivée qui refuse de démarrer. Au mieux :
-   * un journal ne fait jamais échouer ce qu'il observe. Requise ; fixtures : `aucunEchecJournalise`.
+   * Écrit au journal des échecs de scénario (`workflow_advance_failures`, que Sécurité > Journal des erreurs montre sous
+   * « échec de scénario ») ce qu'un parcours n'a pas pu faire : un saut qui n'a pas eu lieu (cible disparue, boucle,
+   * scénario d'arrivée qui refuse de démarrer), et un envoi refusé sur une réponse ou un réveil (`journaliserRefus`).
+   * Au mieux : un journal ne fait jamais échouer ce qu'il observe. Requise ; fixtures : `aucunEchecJournalise`.
    */
-  journaliserEchecSaut(e: {
+  journaliserEchec(e: {
     tenantId: string; waId: string; workflowId: string; runId: string | null; messageId: string | null; erreur: string;
   }): Promise<void>;
 }
@@ -470,6 +471,25 @@ function rcsOutboundOf(node: WorkflowNode | undefined): RcsOutbound | null {
   }
   return { kind: 'text', text, ...(boutons.length ? { suggestions: boutons } : {}) };
 }
+
+/** Un envoi refusé par `apply`, avec le bloc qui le portait : ce qui va au journal des échecs de scénario. */
+interface RefusDeBloc {
+  nodeId: string;
+  raison: string;
+}
+
+/** La raison d'un message de session retenu au réveil d'un parcours, la fenêtre de 24 h fermée (`resume`). */
+const FENETRE_FERMEE_AU_REVEIL = 'la fenêtre de 24 h était fermée au réveil du parcours, et ce bloc n’écrit que dans les '
+  + '24 h qui suivent un message du contact : il fallait un modèle';
+/** La même, pour un bloc agent réveillé fenêtre fermée : aucun modèle ne le remplace, il écrit du texte libre. */
+const FENETRE_FERMEE_AGENT = 'la fenêtre de 24 h était fermée au réveil du parcours, et un agent IA écrit du texte '
+  + 'libre, impossible plus de 24 h après le dernier message du contact';
+
+/**
+ * Le STOP d'un contact en RCS (`rcs_optout_at`), que `envoyerQuickEnRcs` rend comme un refus. Une RÈGLE, comme le STOP
+ * WhatsApp que `estDesabonne` lit avant l'envoi : `apply` ne le pousse pas au journal des échecs.
+ */
+export const MOTIF_DESABONNE_RCS = 'le contact s’est désabonné du RCS';
 
 /** Anti-boucle de `walkResolved` : une chaîne de blocs RCS tous non joignables finit par s'arrêter. Le walk
  *  a déjà son propre `visited` par appel, ce plafond borne l'enchaînement de walks. */
@@ -628,7 +648,7 @@ export class WorkflowExecutor {
     if (!('skipped' in out)) await this.journaliserRcs(tenantId, waId, msg, out.messageId);
     if ('skipped' in out) {
       return out.skipped === 'rcs_optout'
-        ? 'le contact s’est désabonné du RCS'
+        ? MOTIF_DESABONNE_RCS
         : "le contact n'est pas joignable en RCS";
     }
     return { messageId: out.messageId };
@@ -703,13 +723,20 @@ export class WorkflowExecutor {
      * peut durer plusieurs minutes. Absente pour les chemins qui ne réservent pas de tour (`demarrer`, `runFrom`).
      */
     garde?: GardeDuTour,
-  ): Promise<{ refus: string | null; partis: number; canal: RunChannel; refusCredit: CreditWhatsappRefus | null }> {
+  ): Promise<{ refus: string | null; partis: number; canal: RunChannel; refusCredit: CreditWhatsappRefus | null; refusDesBlocs: RefusDeBloc[] }> {
     let canal: RunChannel = canalEntrant;
     const posedTags: string[] = [];
     // Un walk peut produire plusieurs envois (un message rapide sans bouton ne bloque pas). On retient la
     // première raison de refus et on compte ce qui est parti : un refus n'est décisif que si rien n'est parti.
     let refus: string | null = null;
     let partis = 0;
+    /**
+     * Chaque envoi refusé, avec son bloc : ce que `advance` et `resume` écrivent au journal des échecs de scénario
+     * (`journaliserRefus`). Ni le STOP (WhatsApp ou RCS) ni l'absence d'accord marketing, des règles et pas des pannes
+     * (décision de Julien du 2026-11-06), ni un tour perdu, où un autre traitement reprend le message : ceux-là ne passent
+     * que par `refus`.
+     */
+    const refusDesBlocs: RefusDeBloc[] = [];
     /** Le refus du Crédit WhatsApp converti en refus d'étape ci-dessous : `runFrom` le relève quand rien n'est parti. */
     let refusCredit: CreditWhatsappRefus | null = null;
     /**
@@ -900,6 +927,7 @@ export class WorkflowExecutor {
           if (!(err instanceof CreditWhatsappRefus) || irreversibles === 0) throw err;
           refus ??= err.message;
           refusCredit ??= err;
+          refusDesBlocs.push({ nodeId, raison: err.message });
           await this.mesurer(tenantId, workflowId, nodeId, waId, 'failed');
           // Pas `break` : les étiquettes et les champs qui suivent se posent encore (voir le haut de la boucle).
           continue;
@@ -913,6 +941,8 @@ export class WorkflowExecutor {
         if (!rate && (a.kind === 'sendTemplate' || a.kind === 'sendFlow' || a.kind === 'sendQuestion')) canal = 'whatsapp';
         if (rate) {
           if (refus === null) refus = dit;
+          // Le STOP en RCS est une règle, comme le STOP WhatsApp : il reste hors du journal.
+          if (dit !== MOTIF_DESABONNE_RCS) refusDesBlocs.push({ nodeId, raison: dit });
         } else {
           partis += 1;
           irreversibles += 1;
@@ -929,7 +959,43 @@ export class WorkflowExecutor {
         try { await this.deps.emitTagAdded(tenantId, waId, tag); } catch { /* best-effort */ }
       }
     }
-    return { refus, partis, canal, refusCredit };
+    return { refus, partis, canal, refusCredit, refusDesBlocs };
+  }
+
+  /**
+   * Écrit au journal des échecs de scénario (`journaliserEchec`) les envois refusés d'une réponse ou d'un réveil, une
+   * ligne par bloc : son nom, la raison, puis ce qui a suivi (`arret` : le parcours s'arrête et passe à l'équipe ;
+   * `partiel` : d'autres messages de l'étape sont partis, et le parcours suit son cours, qui peut être sa fin). Avant le
+   * 2026-11-06, la raison ne partait que dans le journal du serveur, et l'équipe recevait la conversation avec pour seule
+   * cause le nom du scénario. Au mieux : un journal ne fait jamais échouer ce qu'il observe, l'arrêt et le passage à
+   * l'équipe ont lieu quand même. Les appelants ne l'appellent qu'une fois l'état du parcours écrit : perdue, l'écriture
+   * dit qu'un autre traitement tient le parcours, et la ligne dirait faux (ou s'écrirait deux fois).
+   */
+  private async journaliserRefus(
+    tenantId: string,
+    waId: string,
+    origine: { workflowId: string; runId: string; messageId: string | null; graph: WorkflowGraph },
+    refusDesBlocs: readonly RefusDeBloc[],
+    suite: 'arret' | 'partiel',
+  ): Promise<void> {
+    // `partiel` ne dit rien de la suite : le refus a pu toucher le dernier bloc (parcours fini, main rendue), ou précéder
+    // un passage à l'équipe. Seul ce qui est sûr s'écrit.
+    const apres = suite === 'arret'
+      ? 'Le parcours s’arrête là et la conversation passe à votre équipe.'
+      : 'Les autres messages de cette étape sont partis.';
+    for (const { nodeId, raison } of refusDesBlocs) {
+      const bloc = origine.graph.nodes.find((x) => x.id === nodeId);
+      // Une raison qui finit déjà par un point ne le double pas devant la suite.
+      const erreur = `envoi refusé au bloc « ${bloc ? nomDuBloc(bloc) : nodeId} » : ${raison.replace(/[\s.]+$/u, '')}. ${apres}`;
+      try {
+        await this.deps.journaliserEchec({
+          tenantId, waId, workflowId: origine.workflowId, runId: origine.runId, messageId: origine.messageId, erreur,
+        });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error(`journal de l’envoi refusé ignoré pour ${waId}:`, messageDe(err));
+      }
+    }
   }
 
   /**
@@ -1069,7 +1135,9 @@ export class WorkflowExecutor {
     if (envoieParWhatsApp(aExecuter, apresWalk)) await this.deps.verifierNumeroWhatsApp(tenantId);
     // `emitEvents` vrai : un réveil est unitaire (un contact, ici et maintenant), comme `advance`. Sinon
     // « attendre 1 jour puis poser le tag » ne déclencherait pas l'automation branchée sur ce tag.
-    const { refus, partis, canal } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk);
+    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk);
+    // Un réveil n'a pas de message reçu : la ligne du journal n'en nomme aucun.
+    const origine = { workflowId: run.workflowId, runId: run.id, messageId: null, graph };
     /**
      * La fenêtre fermée ne compte pas quand la garde marketing a refusé, sans rien de parti, un modèle placé AVANT tout
      * message qui l'exigeait : ces messages auraient été sautés avec lui (`apply` saute les envois qui suivent un
@@ -1087,6 +1155,20 @@ export class WorkflowExecutor {
     // pouvait partir (template, tags) est déjà parti.
     if (fenetreFermee && !fenetreSansObjet) {
       await this.deps.runs.setState(run.id, { currentNode: null, status: 'inbox' });
+      // Au journal des échecs : le premier bloc que la fenêtre a retenu (le bloc agent quand il est seul en cause), une
+      // ligne par contact plutôt qu'une par bloc retenu, la raison étant la même ; puis les refus de la partie exécutée.
+      const premier = actions.find((x) => aBesoinFenetre(x.action));
+      const retenu: RefusDeBloc | null = premier
+        ? { nodeId: premier.nodeId, raison: FENETRE_FERMEE_AU_REVEIL }
+        : rest.status === 'agent_turn' ? { nodeId: rest.nodeId, raison: FENETRE_FERMEE_AGENT } : null;
+      // Un contact qui a dit STOP (ou bloqué) n'aurait rien reçu, fenêtre ouverte ou non : pas de ligne de fenêtre, et
+      // surtout pas le conseil d'un modèle. `apply` n'a lu la garde que si la partie exécutée envoyait quelque chose,
+      // d'où une lecture ici, sur ce seul chemin, au mieux : en panne, la ligne s'écrit.
+      const seTait = refus === MOTIF_DESABONNE || await this.deps.estDesabonne(tenantId, waId).catch(() => false);
+      await this.journaliserRefus(tenantId, waId, origine, [
+        ...(retenu !== null && !seTait ? [retenu] : []),
+        ...refusDesBlocs,
+      ], 'arret');
       // Aucun affectataire (aucun bloc « passer à un humain » atteint) et aucune escalade : c'est un réveil,
       // le contact n'attend rien à cet instant.
       await this.deps.escalateToHuman(tenantId, waId, null, false, run.workflowId, false);
@@ -1109,6 +1191,7 @@ export class WorkflowExecutor {
         // Garde de vivacité : remonter une conversation déjà remplacée mettrait un opérateur sur un parcours
         // abandonné.
         if (!(await this.ecrireSiVivant(tenantId, run.id, { currentNode: null, status: 'inbox' }))) return false;
+        await this.journaliserRefus(tenantId, waId, origine, refusDesBlocs, 'arret');
         // Sans bloc « passer à un humain » : pas d'affectataire (pot commun), et pas d'escalade au réveil
         // (voir `escalateToHuman`).
         await this.deps.escalateToHuman(tenantId, waId, null, false, run.workflowId, false);
@@ -1119,6 +1202,8 @@ export class WorkflowExecutor {
     // regarder le ressusciterait avec son échéance.
     const etat = { ...restToState(rest, this.now()), channel: canal };
     if (!(await this.ecrireSiVivant(tenantId, run.id, etat))) return false;
+    // Un envoi refusé alors qu'un autre message de l'étape est parti : la raison va au journal.
+    await this.journaliserRefus(tenantId, waId, origine, refusDesBlocs, 'partiel');
     await this.apresSommeil(tenantId, run.id, etat, canal, run.lastMessageId ?? null, graph);
     if (rest.status === 'inbox') {
       await this.deps.escalateToHuman(tenantId, waId, rest.assigneA ?? null, true, run.workflowId, false);
@@ -1442,7 +1527,7 @@ export class WorkflowExecutor {
       // eslint-disable-next-line no-console
       console.error(`workflow ${origine.workflowId}: « Aller à » NON franchi pour ${contact.waId} : ${raison}`);
       try {
-        await this.deps.journaliserEchecSaut({
+        await this.deps.journaliserEchec({
           tenantId, waId: contact.waId, workflowId: origine.workflowId, runId: origine.runId,
           messageId: depart.messageDeclencheur ?? null, erreur: raison,
         });
@@ -2099,7 +2184,9 @@ export class WorkflowExecutor {
     if (envoieParWhatsApp(actions, apresWalk)) await this.deps.verifierNumeroWhatsApp(tenantId);
     // Un contact qui répond est unitaire par nature : ses tags publient.
     // La réponse du contact ne lève pas la garde marketing : un parcours né d'une automation la garde jusqu'au bout.
-    const { refus, partis, canal } = await this.apply(tenantId, waId, actions, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk, battement);
+    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, actions, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk, battement);
+    // La ligne du journal d'un envoi refusé nomme le message du contact qui l'a déclenché.
+    const origine = { workflowId: run.workflowId, runId: run.id, messageId, graph };
     // Même règle qu'au réveil : un envoi refusé n'attend aucune réponse. On clôt le run (en gardant
     // `lastMessageId`, sinon le même message serait re-traité) et on remonte la conversation à un humain.
     if (refus !== null) {
@@ -2116,7 +2203,10 @@ export class WorkflowExecutor {
         return;
       }
       if (partis === 0) {
-        await ecrire({ currentNode: null, status: 'inbox', lastMessageId: messageId });
+        const clos = await ecrire({ currentNode: null, status: 'inbox', lastMessageId: messageId });
+        // La raison au journal, juste avant le passage à l'équipe, seulement si l'écriture a pris : perdue, un autre
+        // traitement tient le parcours (la redélivrance du même message écrirait sinon la ligne deux fois).
+        if (clos) await this.journaliserRefus(tenantId, waId, origine, refusDesBlocs, 'arret');
         // Aucun bloc n'a demandé la remontée : pas d'affectataire. Pas d'escalade : le contact vient d'écrire,
         // « À traiter » le porte déjà (même raison qu'au bouton sans suite).
         await this.deps.escalateToHuman(tenantId, waId, null, false, run.workflowId, true);
@@ -2126,6 +2216,9 @@ export class WorkflowExecutor {
     const etat = { ...restToState(rest, this.now()), lastMessageId: messageId, channel: canal };
     const ecrit = await ecrire(etat);
     if (ecrit) await this.apresSommeil(tenantId, run.id, etat, canal, messageId, graph);
+    // Un envoi refusé alors qu'un autre message de l'étape est parti : la raison va au journal, seulement si l'écriture a
+    // pris (perdue = un autre traitement tient le parcours, la ligne dirait faux).
+    if (ecrit) await this.journaliserRefus(tenantId, waId, origine, refusDesBlocs, 'partiel');
     if (rest.status === 'inbox') {
       await this.deps.escalateToHuman(tenantId, waId, rest.assigneA ?? null, true, run.workflowId, true);
     }

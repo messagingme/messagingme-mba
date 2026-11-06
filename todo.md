@@ -1,5 +1,27 @@
 # todo.md : backlog
 
+## 🟡 La raison d'un envoi refusé : ce qui reste hors du journal (plan `docs/superpowers/plans/2026-11-06-raison-des-refus-en-parcours.md`)
+
+Depuis le 2026-11-06, un envoi refusé sur une réponse ou un réveil s'écrit au journal des échecs de scénario
+(`journaliserRefus`). Deux chemins restent hors du journal :
+
+- **Au démarrage d'un parcours** (`runFrom`), un refus quand un autre message de la même étape est parti : la campagne
+  compte le destinataire « envoyé », et la raison ne va que dans le journal du serveur. Même geste que
+  `journaliserRefus`, sur le parcours créé (ou sans parcours, si la chaîne a fini d'un trait).
+- **Un bloc envoyé par un outil d'agent** (`envoyerBlocDepuisAgent`) : un refus total revient au modèle (`raison`), un
+  refus après un autre envoi parti se perd.
+- 🟡 **RGPD, antérieur au lot et agrandi par lui** (relecture du lot) : la purge d'un contact (`purgeMany`,
+  `src/crm/contact-store.pg.ts`) efface `echecs_messages` par numéro, mais pas `workflow_advance_failures`. Le numéro
+  d'un contact effacé reste lisible au Journal des erreurs jusqu'à 90 jours (rétention), et le lot y écrit davantage
+  (un réveil fenêtre fermée par destinataire). Correctif : le même `delete ... where tenant_id = $1 and wa_id = any($2)`
+  dans la même transaction, la forme du numéro vérifiée (la table porte le `waId` de l'exécuteur), et le cas dans
+  `tests/integration/purge-rgpd.integration.test.ts`, prouvé dans les deux sens. `features.md` promet déjà que ce
+  journal « disparaît avec le contact ».
+- **Décision de Julien : un « Aller à » refusé pour un STOP** (relecture du lot). `sauter` n'écarte du journal que le
+  refus marketing : un saut vers un scénario qui ouvre par un message écrit à un contact désabonné s'écrit « … n'a pas
+  démarré le scénario visé : contact désabonné ». Le garder (le trou est réel pour le montage), ou l'écarter comme les
+  envois refusés pour STOP.
+
 ## 🟡 Le prix et la catégorie des modèles : la suite (plan `docs/superpowers/plans/2026-11-06-prix-et-categories-modeles.md`)
 
 - **L'essai réel**, après la publication du plugin 0.3.26 : « combien coûte un message de bienvenue ? », puis un message

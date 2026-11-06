@@ -1,7 +1,7 @@
 ---
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 068394
+source_empreinte: 54f252
 ---
 # Créer un scénario
 
@@ -21,7 +21,8 @@ Les blocs que vous utiliserez le plus :
 - **Message rapide** : un texte, avec jusqu'à trois boutons de réponse ou un bouton qui ouvre une page. Il ne
   part que dans une conversation déjà ouverte. L'adresse du bouton peut venir d'un champ du contact : le bouton
   « Variable » sous l'adresse l'insère, par exemple le lien du devis importé de HubSpot. Si ce champ est vide sur la
-  fiche, le message ne part pas pour ce contact et la conversation passe à votre équipe. Une adresse à variable ne
+  fiche, le message ne part pas pour ce contact : en cours de parcours, la conversation passe à votre équipe et le
+  Journal des erreurs dit pourquoi (voir plus bas). Une adresse à variable ne
   part qu'en WhatsApp : un parcours RCS la refuse. Il peut porter une image, une vidéo MP4 ou un PDF ; la vidéo et le
   PDF ne partent qu'en WhatsApp, et le texte qui les accompagne est limité à 1 024 caractères. Une vidéo d'iPhone
   (MOV, ou HEVC) est refusée au dépôt : convertissez-la en MP4 H.264. Le fichier vient de votre ordinateur
@@ -60,6 +61,12 @@ Les blocs que vous utiliserez le plus :
 Chaque bouton que vous proposez devient une **sortie à relier** : le petit point à droite du bloc. Un bouton
 que vous laissez débranché est un trou dans le parcours, le contact tape et ne reçoit rien. L'écran vous le
 signale sur la ligne du bouton concerné.
+
+Quand, en cours de parcours (sur une réponse du contact ou après une attente), un message ne peut pas partir (un
+champ vide dans l'adresse d'un bouton, la fenêtre de 24 h fermée au réveil d'une attente...), la raison et le bloc
+en cause s'écrivent dans **Sécurité > Journal des erreurs**, sous « échec de scénario », avec ce qui a suivi : le
+plus souvent, le parcours s'arrête et la conversation passe à votre équipe. Au lancement d'une campagne, rien ne
+part pour ce contact, et la campagne le compte en échec avec la raison.
 
 Le scénario s'enregistre tout seul, environ une seconde après chaque modification. Un indicateur vous dit
 quand la dernière sauvegarde a eu lieu.
