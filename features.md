@@ -319,11 +319,13 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
 
 - ✅ **Les publicités de Messaging Me mesurées, avec l'accord de chacun** (2026-10-31, plan
   `docs/superpowers/plans/2026-10-30-pixel-meta.md`). Ce sont NOS publicités, pas celles d'un client.
-  - **Sur la vitrine**, une bannière demande l'accord avant tout : « Refuser » et « Accepter » ont le même poids, Meta
-    (Facebook) est nommé, le choix est retenu six mois, et « Gérer les cookies », au pied de chaque page, le rouvre.
-    Sans accord, rien ne part chez Meta. Avec, le pixel compte les pages vues, et un clic vers la console lui passe de
-    quoi relier l'inscription à la publicité. Allumé depuis le 2026-11-02 (pixel `430064039366684`) ; au téléphone,
-    la bannière passe au-dessus de la bulle WhatsApp, pour qu'« Accepter » reste à portée de doigt.
+  - **Sur la vitrine**, une bannière demande l'accord avant tout, usage par usage depuis le 2026-11-06 : « Tout
+    refuser » et « Tout accepter » ont le même poids, et « Personnaliser » montre une case pour la mesure d'audience
+    (Google Analytics, section suivante) et une pour la publicité, où Meta (Facebook) est nommé. Le choix est retenu six
+    mois, et « Gérer les cookies », au pied de chaque page, le rouvre. Sans accord pour la publicité, rien ne part chez
+    Meta. Avec, le pixel compte les pages vues, et un clic vers la console lui passe de quoi relier l'inscription à la
+    publicité. Allumé depuis le 2026-11-02 (pixel `430064039366684`) ; au téléphone, la bannière passe au-dessus de la
+    bulle WhatsApp, pour que ses boutons restent à portée de doigt.
   - **À la création d'un compte**, une case **décochée** : « J'accepte que Messaging Me transmette à Meta (Facebook)
     mon inscription, la connexion de mon premier numéro WhatsApp et mon premier paiement… ». Par Google, sur `/signup`
     ou `/autoriser` (le parcours du plugin) ; par e-mail, sur la page du lien reçu dans la boîte (2026-11-05), là où
@@ -335,6 +337,16 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
     espace, le premier paiement d'une offre. Un fait antérieur à l'accord ne part jamais. L'adresse e-mail, sous une
     forme non lisible, ne part que si elle est prouvée : par Google, ou par le lien d'inscription reçu dans la boîte.
     Allumé depuis le 2026-11-02.
+
+## La mesure d'audience de la vitrine
+
+- ✅ **Google Analytics sur la vitrine, avec l'accord de chacun** (2026-11-06, plan
+  `docs/superpowers/plans/2026-11-06-ga4-vitrine.md`). La même propriété que www.messagingme.fr : un visiteur qui passe
+  de l'un à l'autre reste un seul parcours. Sans l'accord « Mesure d'audience » de la bannière, rien ne part chez Google.
+  Avec, Google Analytics compte les pages vues et les sources des visites, et trois actions, à marquer « événements
+  clés » dans Google Analytics : le clic vers la console (`clic_console`), le formulaire de contact envoyé
+  (`contact_envoye`), la copie de la commande Claude Code ou le clic vers GitHub (`interet_developpeur`). Aucune
+  fonction publicitaire de Google.
 
 ## Comptes & authentification
 

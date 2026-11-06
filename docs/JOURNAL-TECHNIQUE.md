@@ -4,6 +4,30 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : Google Analytics sur la vitrine, dans la bannière du pixel, usage par usage
+
+Plan `docs/superpowers/plans/2026-11-06-ga4-vitrine.md`. Julien voulait GA4 sur `app.messagingme.fr`. La propriété
+existait déjà : `G-F4KVJ1Z8MR`, celle de www.messagingme.fr (relevée dans sa page, derrière Complianz).
+
+- **La bannière du pixel devient celle des deux usages** : « Tout refuser » et « Tout accepter » du même poids,
+  « Personnaliser » avec une case pour la mesure d'audience et une pour la publicité. Le choix se garde par usage
+  (`{ mesure, pub, le }`) ; un choix d'avant (`{ choix, le }`) vaut encore pour le pixel, et la bannière redemande pour
+  la mesure.
+- **GA4 ne se charge qu'avec l'accord de la mesure**, sans fonction publicitaire (`ad_*` refusés, signaux coupés), et
+  envoie trois événements : `clic_console`, `contact_envoye`, `interet_developpeur`.
+- **Mesuré dans le navigateur** : rien vers Google ni Meta avant le choix ; la mesure seule charge Google et pas Meta
+  (`gcs=G101`, `npa=1` dans la requête de collecte) ; `clic_console` part en `fetch` keepalive et survit au départ
+  vers la console (espion posé sur `fetch` et `sendBeacon` avant le chargement de gtag) ; le retrait efface `_ga` et
+  `_ga_F4KVJ1Z8MR` et rend le focus à « Gérer les cookies » ; un ancien refus rouvre la bannière sans rien charger.
+  ⚠️ Ces essais ont envoyé quelques visites de test à la propriété, nom d'hôte `localhost`.
+- **Le test** (`tests/vitrine-cookies.test.ts`) exécute le vrai bloc sur un faux document ; vérifié dans les deux sens
+  par trois mutations (GA chargé sur l'accord du seul pixel, case de la publicité ignorée, refus qui efface les `_ga`
+  de www) et une balise Google posée dans une page, chacune rouge avec son symptôme.
+- ⚠️ **Un premier jet est parti d'un arbre partagé en retard de 353 commits**, qui n'avait ni pixel ni bannière : il
+  aurait posé une seconde bannière à côté de la première. Vu en relisant `origin` avant d'écrire au journal, et refait
+  dans une copie à jour. La leçon : `git rev-list --count HEAD..origin/main` AVANT de lire l'existant, pas avant de
+  commiter.
+
 ## 2026-11-06 : la raison d'un envoi refusé en cours de parcours, au Journal des erreurs
 
 Plan `docs/superpowers/plans/2026-11-06-raison-des-refus-en-parcours.md`. Né de la relecture du lot du bouton de lien à

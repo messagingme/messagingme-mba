@@ -19,11 +19,15 @@ describe('le pixel de Meta, derrière la bannière', () => {
     }
   });
 
-  it('site.js le charge à un seul endroit, avec un seul identifiant de pixel', () => {
+  it('site.js le charge à un seul endroit, avec un seul identifiant de pixel (et GA4 de même)', () => {
     expect(js.match(/connect\.facebook\.net\/en_US\/fbevents\.js/g)).toHaveLength(1);
-    expect(js.match(/var PIXEL = '[0-9]*';/g)).toHaveLength(1);
-    // L'appel qui charge le pixel au démarrage n'existe que pour un accord relu et encore valide.
-    expect(js).toContain("if (choix === 'accepte') charger();");
+    expect(js.match(/var PIXEL = '[0-9]*'/g)).toHaveLength(1);
+    expect(js.match(/googletagmanager\.com\/gtag\/js/g)).toHaveLength(1);
+    expect(js.match(/GA = 'G-[A-Z0-9]+'/g)).toHaveLength(1);
+    // Les appels qui chargent au démarrage n'existent que pour un accord relu, encore valide, de LEUR usage
+    // (le comportement, usage par usage : tests/vitrine-cookies.test.ts).
+    expect(js).toContain('if (garde && garde.pub) chargerPixel();');
+    expect(js).toContain('if (garde && garde.mesure) chargerMesure();');
   });
 
   it('chaque page porte le bouton « Gérer les cookies », caché sans script', () => {

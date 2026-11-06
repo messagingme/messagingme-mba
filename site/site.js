@@ -471,49 +471,109 @@
   });
 })();
 
-// Le pixel de Meta, seulement avec l'accord du visiteur (spec docs/superpowers/specs/2026-10-30-pixel-meta-design.md).
-// Avant « Accepter », rien ne part chez Meta : ni son script, ni un cookie. Le choix est retenu six mois, puis redemandé ;
-// le bouton « Gérer les cookies » du pied rouvre la bannière. Le pixel n'envoie que `PageView` : les segments se font
-// chez Meta, par l'adresse de la page, et les conversions partent de notre serveur. Après accord, un clic vers la console
-// lui passe `fbc` et `fbp` dans l'adresse, pour que Meta relie une inscription au clic sur sa publicité. Rien du
-// `fbclid` n'est gardé avant l'accord : un visiteur qui accepte sur sa deuxième page perd l'attribution de son clic. Le
-// stockage peut être refusé (navigation privée) : tout est dans des try, et la bannière revient alors à chaque page.
+// Les cookies de la vitrine : deux usages, chacun seulement avec l'accord du visiteur, et rien avant (ni script ni cookie).
+// - `mesure` : Google Analytics 4, la propriété de www.messagingme.fr (plan docs/superpowers/plans/2026-11-06-ga4-vitrine.md).
+//   Ses cookies `_ga*` sont posés sur messagingme.fr : www et app y lisent le même visiteur. Aucune fonction publicitaire.
+//   Trois événements, que Julien marque « clés » dans GA4 : `clic_console`, `contact_envoye`, `interet_developpeur`.
+// - `pub` : le pixel de Meta (spec docs/superpowers/specs/2026-10-30-pixel-meta-design.md). Il n'envoie que `PageView` :
+//   les segments se font chez Meta, par l'adresse de la page, et les conversions partent de notre serveur. Après accord, un
+//   clic vers la console lui passe `fbc` et `fbp` dans l'adresse, pour que Meta relie une inscription au clic sur sa
+//   publicité. Rien du `fbclid` n'est gardé avant l'accord : un visiteur qui accepte sur sa deuxième page perd
+//   l'attribution de son clic.
+// La bannière propose « Tout refuser » et « Tout accepter », du même poids, et « Personnaliser », qui montre une case par
+// usage : la CNIL exige qu'on puisse accepter l'un et refuser l'autre (choix de Julien du 2026-11-06). Le choix est retenu
+// six mois, puis redemandé ; « Gérer les cookies » du pied rouvre la bannière. Un choix gardé avant la mesure
+// (`{ choix, le }`, le pixel seul) vaut encore pour le pixel, et la bannière revient poser la question de la mesure,
+// usage nouveau. Le stockage peut être refusé (navigation privée) : tout est dans des try, et la bannière revient alors à
+// chaque page. `tests/vitrine-cookies.test.ts` exécute ce bloc sur un faux document.
 (function () {
-  // L'identifiant du pixel de Messaging Me, public par nature (la vitrine n'a aucune variable). Vide : rien ne s'affiche.
-  var PIXEL = '430064039366684';
-  if (!PIXEL) return;
+  // Les identifiants, publics par nature (la vitrine n'a aucune variable).
+  var PIXEL = '430064039366684', GA = 'G-F4KVJ1Z8MR';
   var pied = document.querySelector('[data-cookies]');
   var CLE = 'mm-consentement', DUREE = 183 * 864e5, CONSOLE = 'console.messagingme.app';
   var EN = document.documentElement.lang === 'en' || location.pathname.indexOf('/en/') === 0;
   var T = EN ? {
-    texte: 'With your consent, we use the Meta (Facebook) pixel: it sets cookies and tells Meta which pages you visit here, to measure our ads, show them to you and to people with a similar profile. You can change your mind at any time with “Manage cookies” at the bottom of every page.',
+    texte: 'With your consent, we use two tools that set cookies: Google Analytics, to measure this site’s audience, and the Meta (Facebook) pixel, which tells Meta which pages you visit here, to measure our ads, show them to you and to people with a similar profile. You can change your mind at any time with “Manage cookies” at the bottom of every page.',
     politique: 'Cookie policy', lien: 'https://www.messagingme.fr/en/politique-de-cookies-ue-messaging-me/',
-    refuser: 'Decline', accepter: 'Accept'
+    refuser: 'Decline all', accepter: 'Accept all', personnaliser: 'Customize', enregistrer: 'Save my choices',
+    usages: [
+      ['mesure', 'Audience measurement:', 'Google Analytics counts the visits and pages viewed on this site.'],
+      ['pub', 'Advertising:', 'the Meta pixel measures our ads and lets us show them to you.']
+    ]
   } : {
-    texte: 'Avec votre accord, nous utilisons le pixel de Meta (Facebook) : il dépose des cookies et transmet à Meta les pages que vous visitez ici, pour mesurer nos publicités, vous les montrer et les montrer à des personnes au profil proche. Vous pouvez changer d’avis à tout moment par « Gérer les cookies », en bas de chaque page.',
+    texte: 'Avec votre accord, nous utilisons deux outils qui déposent des cookies : Google Analytics, pour mesurer l’audience de ce site, et le pixel de Meta (Facebook), qui transmet à Meta les pages que vous visitez ici, pour mesurer nos publicités, vous les montrer et les montrer à des personnes au profil proche. Vous pouvez changer d’avis à tout moment par « Gérer les cookies », en bas de chaque page.',
     politique: 'Politique de cookies', lien: 'https://www.messagingme.fr/politique-de-cookies-ue-messaging-me/',
-    refuser: 'Refuser', accepter: 'Accepter'
+    refuser: 'Tout refuser', accepter: 'Tout accepter', personnaliser: 'Personnaliser', enregistrer: 'Enregistrer mes choix',
+    usages: [
+      ['mesure', 'Mesure d’audience :', 'Google Analytics compte les visites et les pages vues de ce site.'],
+      ['pub', 'Publicité :', 'le pixel de Meta mesure nos publicités et nous permet de vous les montrer.']
+    ]
   };
+  // Le choix gardé : `{ mesure, pub, complet }`, ou null s'il n'y en a pas, s'il a plus de six mois ou s'il est illisible.
+  // `complet` faux : un choix d'avant la mesure, qui ne disait rien d'elle.
   var lire = function () {
     try {
       var c = JSON.parse(localStorage.getItem(CLE) || 'null');
-      if (c && (c.choix === 'accepte' || c.choix === 'refuse') && Date.now() - Date.parse(c.le) < DUREE) return c.choix;
+      if (!c || !(Date.now() - Date.parse(c.le) < DUREE)) return null;
+      if (typeof c.mesure === 'boolean' && typeof c.pub === 'boolean') return { mesure: c.mesure, pub: c.pub, complet: true };
+      if (c.choix === 'accepte' || c.choix === 'refuse') return { mesure: false, pub: c.choix === 'accepte', complet: false };
     } catch (e) {}
     return null;
   };
   var ecrire = function (choix) {
-    try { localStorage.setItem(CLE, JSON.stringify({ choix: choix, le: new Date().toISOString() })); } catch (e) {}
+    try { localStorage.setItem(CLE, JSON.stringify({ mesure: choix.mesure, pub: choix.pub, le: new Date().toISOString() })); } catch (e) {}
   };
   var cookie = function (nom) {
     var m = document.cookie.match(new RegExp('(?:^|; )' + nom + '=([^;]*)'));
     return m ? decodeURIComponent(m[1]) : '';
   };
-  // Le code de base de Meta, réécrit lisiblement : `fbq` met les appels en file, que le script vide en arrivant.
-  var charge = false, accorde = false;
-  var charger = function () {
-    accorde = true;
-    if (charge) { window.fbq('consent', 'grant'); return; }
-    charge = true;
+  var effacer = function (garder) {
+    var domaine = location.hostname.split('.').slice(-2).join('.');
+    document.cookie.split(';').forEach(function (c) {
+      var n = c.split('=')[0].trim();
+      if (!garder(n)) return;
+      document.cookie = n + '=; Max-Age=0; path=/';
+      document.cookie = n + '=; Max-Age=0; path=/; domain=.' + domaine;
+    });
+  };
+  // Ce qui tourne sur cette page.
+  var actif = { mesure: false, pub: false };
+
+  // La mesure. La file de gtag reçoit `arguments` tel quel, la forme que gtag.js lit en arrivant.
+  var gtag = function () { (window.dataLayer = window.dataLayer || []).push(arguments); };
+  var gaCharge = false;
+  var evenement = function (nom, details) { if (actif.mesure) gtag('event', nom, details || {}); };
+  var chargerMesure = function () {
+    actif.mesure = true;
+    window['ga-disable-' + GA] = false;
+    if (gaCharge) { gtag('consent', 'update', { analytics_storage: 'granted' }); return; }
+    gaCharge = true;
+    // Aucune fonction publicitaire de Google (pas de Google Ads, décision du 2026-11-06) : le jour où il y en a une, la
+    // bannière demande d'abord cet accord-là.
+    gtag('consent', 'default', { analytics_storage: 'granted', ad_storage: 'denied', ad_user_data: 'denied', ad_personalization: 'denied' });
+    gtag('js', new Date());
+    gtag('config', GA, { allow_google_signals: false, allow_ad_personalization_signals: false });
+    var s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA;
+    document.head.appendChild(s);
+    if (document.querySelector('.c-merci')) evenement('contact_envoye');
+  };
+  // Le retrait d'un accord DONNÉ ICI : le script chargé se tait, ses cookies s'effacent. Un refus sans accord préalable ne
+  // touche pas aux `_ga` : posés sur messagingme.fr, ils peuvent venir de l'accord donné sur www.
+  var couperMesure = function () {
+    actif.mesure = false;
+    window['ga-disable-' + GA] = true;
+    if (gaCharge) gtag('consent', 'update', { analytics_storage: 'denied' });
+    effacer(function (n) { return n === '_ga' || n.indexOf('_ga_') === 0; });
+  };
+
+  // Le pixel : le code de base de Meta, réécrit lisiblement. `fbq` met les appels en file, que le script vide en arrivant.
+  var pixelCharge = false;
+  var chargerPixel = function () {
+    actif.pub = true;
+    if (pixelCharge) { window.fbq('consent', 'grant'); return; }
+    pixelCharge = true;
     var f = window.fbq = function () { if (f.callMethod) f.callMethod.apply(f, arguments); else f.queue.push(arguments); };
     if (!window._fbq) window._fbq = f;
     f.push = f; f.loaded = true; f.version = '2.0'; f.queue = [];
@@ -526,14 +586,10 @@
   };
   // Le retrait : plus rien ne part de cette page (le script chargé ne se décharge pas), les cookies de Meta s'effacent,
   // et les liens déjà décorés redeviennent nus. Les pages suivantes ne chargent plus rien.
-  var retirer = function () {
-    accorde = false;
-    if (charge) window.fbq('consent', 'revoke');
-    var domaine = location.hostname.split('.').slice(-2).join('.');
-    ['_fbp', '_fbc'].forEach(function (n) {
-      document.cookie = n + '=; Max-Age=0; path=/';
-      document.cookie = n + '=; Max-Age=0; path=/; domain=.' + domaine;
-    });
+  var retirerPixel = function () {
+    actif.pub = false;
+    if (pixelCharge) window.fbq('consent', 'revoke');
+    effacer(function (n) { return n === '_fbp' || n === '_fbc'; });
     [].slice.call(document.querySelectorAll('a[href^="https://' + CONSOLE + '/"]')).forEach(function (a) {
       var u = new URL(a.href);
       if (!u.searchParams.has('fbc') && !u.searchParams.has('fbp')) return;
@@ -544,7 +600,7 @@
   // Au moment du clic, pas au chargement : les cookies de Meta n'existent qu'une fois son script arrivé.
   var decorer = function (e) {
     var a = e.target.closest && e.target.closest('a[href]');
-    if (!accorde || !a || a.hostname !== CONSOLE) return;
+    if (!actif.pub || !a || a.hostname !== CONSOLE) return;
     var fbc = cookie('_fbc'), fbp = cookie('_fbp');
     if (!fbc && !fbp) return;
     var u = new URL(a.href);
@@ -554,9 +610,30 @@
   };
   ['mousedown', 'keydown', 'touchstart', 'click'].forEach(function (t) { document.addEventListener(t, decorer, true); });
 
-  var banniere = null;
-  var fermer = function () { if (banniere) { banniere.remove(); banniere = null; } };
-  var ouvrir = function () {
+  // Les événements de la mesure. Un lien vers la console ou GitHub quitte la page : gtag envoie en `fetch` keepalive, qui
+  // survit à la navigation (mesuré le 2026-11-06 sur « Créer mon espace »).
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest) return;
+    if (e.target.closest('.dev-copier')) { evenement('interet_developpeur', { geste: 'copie_commande' }); return; }
+    var a = e.target.closest('a[href]');
+    if (!a) return;
+    if (a.hostname === CONSOLE) evenement('clic_console', { destination: a.pathname });
+    else if (a.hostname === 'github.com') evenement('interet_developpeur', { geste: 'github' });
+  });
+
+  var banniere = null, retour = null;
+  var fermer = function () {
+    if (banniere) { banniere.remove(); banniere = null; }
+    if (retour) { retour.focus(); retour = null; }
+  };
+  var decider = function (choix) {
+    ecrire(choix);
+    if (choix.mesure) chargerMesure(); else if (actif.mesure) couperMesure();
+    if (choix.pub) chargerPixel(); else retirerPixel();
+    fermer();
+  };
+  // `actuel` coche d'avance, dans « Personnaliser », ce qui est déjà accordé ; rien n'est coché sans accord.
+  var ouvrir = function (actuel) {
     if (banniere) return;
     banniere = document.createElement('section');
     banniere.className = 'consentement';
@@ -566,30 +643,67 @@
     var a = document.createElement('a');
     a.href = T.lien; a.textContent = T.politique;
     p.appendChild(a);
+    banniere.appendChild(p);
+
+    var details = document.createElement('div');
+    details.className = 'consentement-details';
+    details.id = 'consentement-details';
+    details.hidden = true;
+    var cases = {};
+    T.usages.forEach(function (u) {
+      var label = document.createElement('label');
+      var c = document.createElement('input');
+      c.type = 'checkbox';
+      c.checked = Boolean(actuel && actuel[u[0]]);
+      cases[u[0]] = c;
+      var texte = document.createElement('span');
+      var titre = document.createElement('strong');
+      titre.textContent = u[1];
+      texte.appendChild(titre);
+      texte.appendChild(document.createTextNode(' ' + u[2]));
+      label.appendChild(c);
+      label.appendChild(texte);
+      details.appendChild(label);
+    });
+    banniere.appendChild(details);
+
     var choix = document.createElement('div');
     choix.className = 'consentement-choix';
-    // « Refuser » et « Accepter » ont exactement le même poids : même classe, même taille, côte à côte.
-    [['refuse', T.refuser], ['accepte', T.accepter]].forEach(function (c) {
+    var bouton = function (texte, classe, quand) {
       var b = document.createElement('button');
-      b.type = 'button'; b.className = 'bouton bouton-trait'; b.textContent = c[1];
-      b.setAttribute('data-choix', c[0]);
-      b.addEventListener('click', function () {
-        ecrire(c[0]);
-        if (c[0] === 'accepte') charger(); else retirer();
-        fermer();
-      });
+      b.type = 'button'; b.className = classe; b.textContent = texte;
+      b.addEventListener('click', quand);
       choix.appendChild(b);
+      return b;
+    };
+    var enregistrer;
+    var perso = bouton(T.personnaliser, 'consentement-perso', function () {
+      details.hidden = false; perso.hidden = true; enregistrer.hidden = false;
+      cases.mesure.focus();
     });
-    banniere.appendChild(p);
+    perso.setAttribute('aria-controls', details.id);
+    // « Tout refuser » et « Tout accepter » ont exactement le même poids : même classe, même taille, côte à côte.
+    bouton(T.refuser, 'bouton bouton-trait', function () { decider({ mesure: false, pub: false }); });
+    bouton(T.accepter, 'bouton bouton-trait', function () { decider({ mesure: true, pub: true }); });
+    enregistrer = bouton(T.enregistrer, 'bouton bouton-trait', function () {
+      decider({ mesure: cases.mesure.checked, pub: cases.pub.checked });
+    });
+    enregistrer.hidden = true;
     banniere.appendChild(choix);
     document.body.appendChild(banniere);
   };
   if (pied) {
     pied.hidden = false;
-    var bouton = pied.querySelector('button');
-    if (bouton) bouton.addEventListener('click', ouvrir);
+    var gerer = pied.querySelector('button');
+    if (gerer) gerer.addEventListener('click', function () {
+      if (banniere) return;
+      retour = gerer;
+      ouvrir(actif);
+      banniere.querySelector('button').focus();
+    });
   }
-  var choix = lire();
-  if (choix === 'accepte') charger();
-  else if (choix === null) ouvrir();
+  var garde = lire();
+  if (garde && garde.mesure) chargerMesure();
+  if (garde && garde.pub) chargerPixel();
+  if (!garde || !garde.complet) ouvrir(garde);
 })();

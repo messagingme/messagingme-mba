@@ -1,15 +1,16 @@
 ---
 source_section: Le pixel Meta et l'accord publicitaire
-source_empreinte: f14092
+source_empreinte: a97856
 ---
 # Que partage Messaging Me avec Meta, et comment le retirer ?
 
 Messaging Me mesure ses propres publicités sur Facebook et Instagram. Rien n'est partagé sans votre accord, et vous
 pouvez le retirer à tout moment.
 
-**Sur le site de Messaging Me.** Une bannière vous demande votre accord avant tout. « Refuser » et « Accepter » ont le
-même poids ; votre choix est retenu six mois, et « Gérer les cookies », en bas de chaque page, le rouvre. Sans accord,
-rien ne part chez Meta.
+**Sur le site de Messaging Me.** Une bannière vous demande votre accord avant tout. « Tout refuser » et « Tout
+accepter » ont le même poids, et « Personnaliser » vous laisse accepter la publicité sans la mesure d'audience, ou
+l'inverse ; votre choix est retenu six mois, et « Gérer les cookies », en bas de chaque page, le rouvre. Sans votre
+accord pour la publicité, rien ne part chez Meta.
 
 **À la création de votre compte.** Une case, décochée, vous propose de partager avec Meta (Facebook) votre
 inscription, la connexion de votre premier numéro WhatsApp et votre premier paiement. Avec Google, elle est sur la page
