@@ -661,6 +661,7 @@ export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
     grille: async () => null,
     conditions: async () => ({ openBar: false, commissionPct: 5 }),
     lignes: async () => [],
+    numeros: async () => [],
   },
   // L'option du Crédit WhatsApp (lot 4a) : pas en vente, aucune option, rien à écrire.
   option: {

@@ -12,7 +12,7 @@ import type { PointDeCredit } from '../lib/serie-credit';
 import type { LigneCredit } from '../credit-whatsapp/lignes.pg';
 import type { StatutOption } from '../credit-whatsapp/options.pg';
 import { changerPlaces, ouvrirOption, PRIX_OPTION_WA_HT_CENTIMES, PLACES_OPTION_MAX, type DepsOptionCredit } from '../stripe/option-credit-whatsapp';
-import { lireEtatLigne } from '../credit-whatsapp/etat-ligne';
+import { lireEtatLigne, tousGardentLApplication } from '../credit-whatsapp/etat-ligne';
 
 /**
  * LE CRÉDIT WHATSAPP D'UN ESPACE (plan du Crédit WhatsApp, tâches 10 et 11) : l'achat par Stripe et ce que montre l'onglet
@@ -41,6 +41,8 @@ export interface CreditWhatsappRouteDeps {
     grille(): Promise<GrilleMeta | null>;
     conditions(tenantId: string): Promise<ConditionsCredit>;
     lignes(tenantId: string): Promise<readonly LigneCredit[]>;
+    /** Les numéros de l'espace : gardent-ils l'application WhatsApp Business (`tousGardentLApplication`, lot B) ? */
+    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean }>>;
   };
   /** L'option du Crédit WhatsApp (lot 4a) : la prendre, changer ses places, et ce que l'onglet en montre. */
   option: DepsOptionCredit;
@@ -87,6 +89,8 @@ export interface VueCreditWhatsapp {
      * vendre une option que la prise refuserait.
      */
     formulePayee: boolean;
+    /** Tous les numéros de l'espace gardent l'application (décision 8) : le paiement de l'option prévient. */
+    avecApplication: boolean;
   };
 }
 
@@ -104,22 +108,23 @@ export function registerCreditWhatsapp(
    * L'état pour les cartes « Qui règle Meta ? » de Connecter WhatsApp et de l'Accueil (révision du 2026-11-04, lot B) :
    * une lecture légère, sans l'historique ni la courbe de l'onglet. Tout membre la lit ; seul un administrateur agit.
    * `enVente` : l'option se prend en ligne (son prix posé, un Pro ou un Business) ; sinon la carte est grisée.
+   * `avecApplication` : tous les numéros de l'espace gardent l'application, et le paiement le dit (décision 8).
    */
   app.get('/tenants/:tenantId/credit-whatsapp/etat', { preHandler: gardeLecture }, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const o = deps.option;
-    const [etat, offre] = await Promise.all([lireEtatLigne(deps, tenant), o.offre(tenant)]);
+    const [etat, offre, numeros] = await Promise.all([lireEtatLigne(deps, tenant), o.offre(tenant), deps.vue.numeros(tenant)]);
     const enVente = o.stripe !== null && o.prixOption !== '' && (offre === 'pro' || offre === 'business');
-    return reply.code(200).send({ etat, enVente });
+    return reply.code(200).send({ etat, enVente, avecApplication: tousGardentLApplication(numeros) });
   });
 
   /** L'onglet : tout membre le lit (un agent y voit le solde et qui peut recharger), seul un administrateur achète. */
   app.get('/tenants/:tenantId/credit-whatsapp', { preHandler: gardeLecture }, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const [soldeMicroEur, consommationDuMoisMicroEur, historique, grille, conditions, lignes, permis, serie, offre, option, couverts] = await Promise.all([
+    const [soldeMicroEur, consommationDuMoisMicroEur, historique, grille, conditions, lignes, permis, serie, offre, option, couverts, numeros] = await Promise.all([
       deps.vue.solde(tenant), deps.vue.consommationDuMois(tenant), deps.vue.historique(tenant), deps.vue.grille(),
       deps.vue.conditions(tenant), deps.vue.lignes(tenant), deps.achat.achatPermis(tenant), deps.vue.serie(tenant),
-      deps.option.offre(tenant), deps.option.options.vivante(tenant), deps.option.numerosCouverts(tenant),
+      deps.option.offre(tenant), deps.option.options.vivante(tenant), deps.option.numerosCouverts(tenant), deps.vue.numeros(tenant),
     ]);
     const prixFrance = grille === null ? null : CATEGORIES_AFFICHEES.flatMap((categorie) => {
       const prix = prixMessage(grille, 'FR', categorie, conditions.commissionPct);
@@ -150,6 +155,7 @@ export function registerCreditWhatsapp(
         statut: option?.statut ?? null,
         finPrevueLe: option?.finPrevueLe?.toISOString() ?? null,
         formulePayee,
+        avecApplication: tousGardentLApplication(numeros),
       },
     };
     return reply.code(200).send(vue);

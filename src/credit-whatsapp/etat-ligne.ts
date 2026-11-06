@@ -44,6 +44,16 @@ export function lireEtatLigne(s: SourcesEtatLigne, tenantId: string): Promise<Et
   }, tenantId);
 }
 
+/**
+ * TOUS LES NUMÉROS VIVANTS DE L'ESPACE GARDENT L'APPLICATION WHATSAPP BUSINESS (spec, décision 8) : aucun ne passera sur
+ * la ligne, et l'écran de paiement de l'option le dit. Faux sans numéro : l'option sert alors à en connecter un ; un
+ * numéro délié ne compte plus.
+ */
+export function tousGardentLApplication(numeros: ReadonlyArray<{ coexistence: boolean; delie: boolean }>): boolean {
+  const vivants = numeros.filter((n) => !n.delie);
+  return vivants.length > 0 && vivants.every((n) => n.coexistence);
+}
+
 export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promise<EtatLigne> {
   const offre = await d.offre(tenantId);
   if (offre === 'base') return 'free';

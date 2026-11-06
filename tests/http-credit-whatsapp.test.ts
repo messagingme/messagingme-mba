@@ -77,6 +77,8 @@ function achat(o: {
   formulePayee?: boolean;
   /** L'option vivante de l'espace (lot B) : ses places et son statut ; aucune par défaut. */
   optionVivante?: { places: number; statut: 'actif' | 'en_retard' | 'resilie' };
+  /** Les numéros de l'espace (lot B, décision 8) : gardent-ils l'application, sont-ils déliés ; aucun par défaut. */
+  numeros?: Array<{ coexistence: boolean; delie: boolean }>;
 } = {}) {
   const transport = new FauxStripe([CLIENT_OK, SESSION_OK], o.lesPrix ?? PRIX_JUSTES);
   const deps: CreditWhatsappRouteDeps = {
@@ -88,6 +90,7 @@ function achat(o: {
       conditions: async () => ({ openBar: o.openBar ?? false, commissionPct: 5 }),
       lignes: async () => o.lignes ?? [ligne()],
       serie: async () => [{ jour: '2026-11-02', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
+      numeros: async () => o.numeros ?? [],
     },
     achat: {
       stripe: o.stripe === 'aucun' ? null : {
@@ -315,21 +318,35 @@ describe('GET /tenants/:tenantId/credit-whatsapp/etat', () => {
   const etat = (srv: ReturnType<typeof buildServer>, jeton = admin) => srv.inject({ method: 'GET', url: `/tenants/${T1}/credit-whatsapp/etat`, ...h(jeton) });
 
   it('🔴 l’état de la ligne (etatLigneCredit) et la vente ouverte ou non, lus par tout membre', async () => {
-    const cas: Array<[Parameters<typeof achat>[0], { etat: string; enVente: boolean }]> = [
-      [{ lignes: [] }, { etat: 'a_prendre', enVente: true }],
-      [{ lignes: [], optionVivante: { places: 1, statut: 'actif' } }, { etat: 'en_attente', enVente: true }],
-      [{}, { etat: 'active', enVente: true }],
-      [{ lignes: [], formulePayee: false }, { etat: 'essai', enVente: true }],
-      [{ lignes: [], prixOption: '' }, { etat: 'a_prendre', enVente: false }],
-      [{ lignes: [], stripe: 'aucun' }, { etat: 'a_prendre', enVente: false }],
-      [{ lignes: [], offre: 'base' }, { etat: 'free', enVente: false }],
-      [{ lignes: [], offre: 'entreprise' }, { etat: 'a_prendre', enVente: false }],
+    const cas: Array<[Parameters<typeof achat>[0], { etat: string; enVente: boolean; avecApplication: boolean }]> = [
+      [{ lignes: [] }, { etat: 'a_prendre', enVente: true, avecApplication: false }],
+      [{ lignes: [], optionVivante: { places: 1, statut: 'actif' } }, { etat: 'en_attente', enVente: true, avecApplication: false }],
+      [{}, { etat: 'active', enVente: true, avecApplication: false }],
+      [{ lignes: [], formulePayee: false }, { etat: 'essai', enVente: true, avecApplication: false }],
+      [{ lignes: [], prixOption: '' }, { etat: 'a_prendre', enVente: false, avecApplication: false }],
+      [{ lignes: [], stripe: 'aucun' }, { etat: 'a_prendre', enVente: false, avecApplication: false }],
+      [{ lignes: [], offre: 'base' }, { etat: 'free', enVente: false, avecApplication: false }],
+      [{ lignes: [], offre: 'entreprise' }, { etat: 'a_prendre', enVente: false, avecApplication: false }],
     ];
     for (const [o, attendu] of cas) {
       const a = achat(o);
       const r = await etat(a.srv, membre);
       expect(r.statusCode, JSON.stringify(o)).toBe(200);
       expect(r.json(), JSON.stringify(o)).toEqual(attendu);
+      await a.srv.close();
+    }
+  });
+
+  it('🔴 dit quand TOUS les numéros vivants de l’espace gardent l’application (décision 8) : l’écran de paiement prévient', async () => {
+    const app = { coexistence: true, delie: false };
+    const api = { coexistence: false, delie: false };
+    for (const [numeros, attendu] of [
+      [[app], true], [[app, app], true], [[app, api], false], [[api], false], [[], false],
+      // Un numéro délié ne compte plus : il ne passera jamais sur la ligne, ni ne l'empêche.
+      [[app, { coexistence: false, delie: true }], true], [[{ coexistence: true, delie: true }], false],
+    ] as const) {
+      const a = achat({ lignes: [], numeros: [...numeros] });
+      expect((await etat(a.srv, membre)).json().avecApplication, JSON.stringify(numeros)).toBe(attendu);
       await a.srv.close();
     }
   });
@@ -344,9 +361,13 @@ describe('l’option dans l’onglet', () => {
     const enVente = achat();
     expect((await lire(enVente.srv)).json().option).toEqual({
       disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 1, statut: null, finPrevueLe: null,
-      formulePayee: true,
+      formulePayee: true, avecApplication: false,
     });
     await enVente.srv.close();
+    // La même règle que l'état de la ligne : l'onglet prévient aussi au moment de payer.
+    const avecApp = achat({ numeros: [{ coexistence: true, delie: false }] });
+    expect((await lire(avecApp.srv)).json().option.avecApplication).toBe(true);
+    await avecApp.srv.close();
     for (const o of [{ prixOption: '' }, { stripe: 'aucun' as const }, { offre: 'entreprise' as const }]) {
       const a = achat(o);
       expect((await lire(a.srv)).json().option.disponible, JSON.stringify(o)).toBe(false);

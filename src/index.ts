@@ -1078,6 +1078,8 @@ async function main(): Promise<void> {
       grille: () => reglagesCreditWhatsapp.grilleEnVigueur(),
       conditions: (t) => conditionsCreditWhatsapp.conditions(t),
       lignes: (t) => lignesCreditWhatsapp.lignesDeLEspace(t),
+      // Les numéros de l'espace, pour dire au paiement de l'option s'ils gardent tous l'application (lot B, décision 8).
+      numeros: (t) => lignesCreditWhatsapp.numerosDeLEspace(t),
     },
     // L'option (lot 4a) : la prendre et changer ses places depuis l'onglet.
     option: optionDeLaConsole,
