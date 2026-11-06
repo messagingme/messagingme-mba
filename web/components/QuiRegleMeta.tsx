@@ -26,9 +26,9 @@ const INTERVALLE_MS = 2_000;
  * facture. Elle cède la place quand une ligne est payée ou posée (`en_attente`, `active`), et se reprend d'un clic.
  *
  * « Crédit WhatsApp » dit ce que l'état de la ligne permet (`GET /credit-whatsapp/etat`, `etatLigneCredit` du serveur) :
- * grisée en Free et tant que l'option n'est pas en vente en ligne (« sur demande »), « Démarrer la formule Pro
- * maintenant » pendant l'essai, « Prendre l'option » une fois la formule payée, puis la ligne qui s'ouvre, active, ou
- * arrêtée avec ses deux chemins. Les mots de la question sont ceux de la vitrine (`QUESTION_PAIEMENT`, tenus égaux par
+ * grisée en Free et, tant que l'option n'est pas en vente en ligne, pendant l'essai comme après (« sur demande ») ; une
+ * fois en vente, « Démarrer la formule Pro maintenant » pendant l'essai, « Prendre l'option » une fois la formule payée,
+ * puis la ligne qui s'ouvre, active, ou arrêtée avec ses deux chemins. Les mots de la question sont ceux de la vitrine (`QUESTION_PAIEMENT`, tenus égaux par
  * `tests/questions-numero-vitrine.test.ts`) ; ceux de chaque état, validés par Julien le 2026-11-06.
  *
  * 🔴 LE RETOUR DE STRIPE NE PREND RIEN : il relit l'état jusqu'à voir l'option que le webhook écrit, et la prise reste
@@ -137,6 +137,12 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     } else if (etat === 'free') {
       grisee = true;
       ligne = t('Avec la formule Pro.', 'With the Pro plan.');
+    } else if ((etat === 'essai' || etat === 'a_prendre') && !vue.enVente) {
+      // 🔴 HORS VENTE, LA CARTE RESTE GRISÉE, ESSAI COMPRIS (décision de Julien du 2026-11-06) : jamais « Démarrer la
+      // formule Pro maintenant » ni « il s'ouvre… » pour une option qui ne se prend pas. Un démarrage prélèverait la
+      // formule Pro sur une promesse que rien ne tient (rouge de la relecture du lot B).
+      grisee = true;
+      ligne = surDemande;
     } else if (etat === 'essai' && formuleDemarre) {
       ligne = t('Votre formule Pro démarre : le Crédit WhatsApp s’ouvre dans quelques secondes.', 'Your Pro plan is starting: WhatsApp credit opens in a few seconds.');
     } else if (etat === 'essai' && essaiPro) {
@@ -153,10 +159,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     } else if (etat === 'essai') {
       ligne = raisonAttenteOption(offre, vueOffre?.abonnement?.statut, t);
     } else if (etat === 'a_prendre') {
-      if (!vue.enVente) {
-        grisee = true;
-        ligne = surDemande;
-      } else if (!admin) {
+      if (!admin) {
         action = nonAdmin(t('Demandez à un administrateur de votre espace de prendre l’option.', 'Ask an administrator of your workspace to take the option.'));
       } else {
         action = (

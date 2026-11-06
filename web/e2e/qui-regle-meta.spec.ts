@@ -91,6 +91,25 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     expect([s.demarrages(), s.options]).toEqual([1, [{ places: 1, origine: 'connecter' }]]);
   });
 
+  test('🔴 un Pro en essai, l’option hors vente : la carte grisée, sur demande, jamais « Démarrer la formule Pro maintenant » (rouge de la relecture du lot B)', async ({ page }) => {
+    // Démarrer la formule Pro pour une option qui ne se prend pas : un prélèvement sur une promesse que rien ne tient.
+    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+    const s = await simuler(page, { abonnement: ESSAI, etats: [{ etat: 'essai', enVente: false }] });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
+    await expect(page.getByTestId('carte-credit-wa-grisee')).toBeDisabled();
+    await expect(page.getByTestId('carte-credit-wa-demarrer')).toHaveCount(0);
+    expect(s.demarrages()).toBe(0);
+  });
+
+  test('🔴 un Business en essai, l’option hors vente : sur demande, jamais « il s’ouvre dès que… »', async ({ page }) => {
+    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+    await simuler(page, { offre: 'business', etats: [{ etat: 'essai', enVente: false }] });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
+    await expect(page.getByTestId('carte-credit-wa-grisee')).toBeDisabled();
+  });
+
   test('🔴 la formule payée et l’option en vente : « Prendre l’option » pour un numéro, et l’avertissement quand tous les numéros gardent l’application', async ({ page }) => {
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     const s = await simuler(page, { etats: [{ etat: 'a_prendre', enVente: true, avecApplication: true }] });
