@@ -158,6 +158,21 @@ describe('le workflow de déploiement Scaleway', () => {
       .toBeLessThan(WORKFLOW.indexOf('- name: L\'API passe sur la nouvelle image'));
   });
 
+  it('⚠️ la machine purge ses images à la fin d’un déploiement RÉUSSI seulement, sans jamais le faire échouer', () => {
+    // 2026-11-06 : 56 images jamais purgées ont rempli le disque de `mm-workers`, partagé avec le connecteur HubSpot.
+    // L'ancien `until=168h` gardait toute image construite dans la semaine, et tournait avant l'API.
+    const purge = etape('Purger les images que plus aucun conteneur n\'utilise');
+    expect(purge).toMatch(/ssh workers 'docker image prune -af' \| tail -n 1 \\\n +\|\| echo "::warning::/);
+    expect(purge).not.toMatch(/^ {8}(if|continue-on-error):/m);
+    // Après les workers et l'API (l'image précédente sert de retour arrière tant que le nouveau n'est pas prouvé),
+    // avant la fermeture du bastion, et nulle part ailleurs.
+    const position = WORKFLOW.indexOf('- name: Purger les images que plus aucun conteneur n\'utilise');
+    expect(position).toBeGreaterThan(WORKFLOW.indexOf('- name: L\'API passe sur la nouvelle image'));
+    expect(position).toBeGreaterThan(WORKFLOW.indexOf('- name: Migration apres le deploiement'));
+    const code = WORKFLOW.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+    expect(code.match(/image prune/g)?.length).toBe(1);
+  });
+
   it('⚠️ une erreur du conteneur ne compte que sur la NOUVELLE image', () => {
     // L'image provisoire du premier déploiement, ou une version cassée qu'on remplace, peut rester affichée en erreur
     // le temps que la mise à jour parte : s'arrêter là ferait échouer le déploiement même qui la répare.

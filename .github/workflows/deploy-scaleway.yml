@@ -247,8 +247,8 @@ jobs:
       # 🔴 L'API NE PASSE SUR CETTE IMAGE QUE SI CHAQUE WORKER A ANNONCE SON DEMARRAGE (la ligne de `src/worker.ts`)
       # PUIS N'A PAS REDEMARRE pendant 30 secondes. Les journaux des workers portent des donnees de clients : ils ne
       # sont jamais imprimes ici, seulement comptes (`grep -c`, sortie jetee ; pas `grep -q`, qui s'arrete au premier
-      # trouve, coupe `docker logs` et fait echouer le pipeline sous `pipefail`). Les images de plus d'une semaine que
-      # plus aucun conteneur n'utilise sont effacees (le registre les garde pour un retour arriere).
+      # trouve, coupe `docker logs` et fait echouer le pipeline sous `pipefail`). Pas de purge ici : l'image precedente
+      # reste tant que l'API n'a pas pris la nouvelle (« Purger les images », a la fin).
       - name: Les workers passent sur la nouvelle image
         run: |
           scp docker-compose.workers.yml workers:/opt/messagingme/docker-compose.yml
@@ -275,7 +275,6 @@ jobs:
           if [ "$avant" != "$apres" ] || [ "$etats" != "running" ]; then
             echo "::error::un worker redemarre ou s'arrete (journal sur la machine)"; docker compose ps; exit 1
           fi
-          docker image prune -af --filter "until=168h" > /dev/null
           docker compose ps
           SCRIPT
       # API des conteneurs `v1` (la `v1beta1` portait `registry_image` et un drapeau `redeploy`). La TAILLE declaree
@@ -329,6 +328,17 @@ jobs:
         if: env.MIGRATION == 'apres'
         run: |
           ssh workers "umask 077; docker run --rm --env-file /opt/messagingme/.env.prod '$REGISTRE/$IMAGE:$SHA' npm run migrate > /root/migrate-$SHA.log 2>&1; c=\$?; grep -oE '^-> [^ ]+( \(hors transaction\))? \.\.\. (ok|ECHEC)?|^[0-9]+ migration\(s\) appliquée\(s\)$|^à jour, rien à appliquer$|^ +(code|table|constraint|schema|column): .*' /root/migrate-$SHA.log; [ \$c -eq 0 ] || echo \"migration en echec (code \$c) : journal complet sur la machine, /root/migrate-$SHA.log\"; exit \$c"
+      # 🔴 LA MACHINE PURGE SES IMAGES, SUR UN DEPLOIEMENT REUSSI SEULEMENT (2026-11-06 : 56 images jamais purgees ont
+      # rempli son disque, et le `pull` du connecteur HubSpot a echoue ; le filtre `until=168h` d'avant gardait toute
+      # image CONSTRUITE dans la semaine). Apres les workers ET l'API : tant que le nouveau n'est pas prouve, l'image
+      # precedente reste sur la machine pour revenir en arriere. `prune -a` ne retire que les images sans conteneur :
+      # celles en service du connecteur, sur la meme machine, restent ; le registre garde toutes les versions. Un echec
+      # ne fait pas echouer le deploiement : il se dit en avertissement.
+      - name: Purger les images que plus aucun conteneur n'utilise
+        run: |
+          ssh workers 'docker image prune -af' | tail -n 1 \
+            || echo "::warning::la purge des images de la machine a echoue (code $?) : deploiement bon, purge a relancer a la main"
+          ssh workers 'df -h /' | tail -n 1 || true
       # TOUJOURS la derniere etape, et `always()` : un deploiement en echec ou annule referme aussi. Le retrait se
       # reessaie (la passerelle peut refuser une ecriture pendant qu'elle applique la precedente), un 404 vaut « deja
       # absente » (un ajout qui n'a jamais pris), et la liste est RELUE : un echec laisse l'adresse d'un runner

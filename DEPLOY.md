@@ -682,6 +682,15 @@ celles du script, et le workflow la RELIT une fois prête : un écart avec le fi
 CE COMMIT ; un commit antérieur au 2026-10-15 n'a pas ce fichier, et la construction échoue franchement sur sa copie,
 avant de toucher à quoi que ce soit.
 
+⚠️ **La machine des workers purge ses images à la fin d'un déploiement RÉUSSI** (2026-11-06, les deux workflows, mba
+et le connecteur) : `docker image prune -af`, après les workers, l'API et la migration « après », jamais avant. Tant
+que le nouveau n'est pas prouvé, l'image précédente reste sur la machine pour revenir en arrière ; un déploiement en
+échec ne purge donc rien. `prune -a` ne retire que les images sans conteneur, celles en service de l'autre dépôt
+restent ; le registre garde toutes les versions. Une purge en échec ne fait qu'un avertissement dans le run. Pourquoi :
+56 images jamais purgées ont rempli le disque de 17 Go et fait échouer le `pull` du connecteur (l'ancien filtre
+`until=168h` de mba gardait toute image construite dans la semaine). Disque plein quand même : `df -h /` et
+`docker system df` sur la machine, puis la même commande à la main.
+
 ⚠️ **Épingler le commit, et regarder ce qui attend déjà** (2026-10-26). Sans `-f commit=<sha complet>`, le workflow
 prend la tête de `main` au moment où il part : le lot d'une autre session poussé entre-temps part avec lui, sous un
 accord qui n'était pas le sien. Et un déploiement en attente d'approbation TIENT le groupe de concurrence
