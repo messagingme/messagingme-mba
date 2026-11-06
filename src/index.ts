@@ -3704,6 +3704,8 @@ async function main(): Promise<void> {
           maintenant: () => Date.now(),
           // La filière application : son propre numéro se prépare dès le lien (`start_whatsapp_connection`).
           comptesApplication,
+          // Où va le numéro fourni (migration 0280) : retenu au lien, relu par la reprise (`modeDeReprise`).
+          retenirDestination: (tenant, destination) => numerosFournis.retenirDestination(tenant, destination),
           ouvrirPortail: (tenant, payeur) => ouvrirPortail(abonnementDuNumero, tenant, 'console', payeur),
           // Lot 4 : la seule lecture de l'état, et le réabonnement du même numéro (retour sur `/paiement-recu`).
           abonnement: (tenant) => abonnementsNumero.etatDeLEspace(tenant),

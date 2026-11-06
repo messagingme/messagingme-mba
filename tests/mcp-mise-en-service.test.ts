@@ -69,6 +69,18 @@ describe('l’étape suivante', () => {
     expect(e.numero?.fourni).toBe('+442071234567');
   });
 
+  it('🔴 un numéro fourni pas encore relié : la reprise est DITE, pour que Claude ne la devine ni ne la demande (Johan, 2026-11-06)', () => {
+    const fourni: EtatConnexion = { ...SANS_NUMERO, fourni: '+442071234567' };
+    const reprise = (n: EtatConnexion) => etatMiseEnService({ ...PRET, numero: n }).numero?.reprise;
+    expect(reprise({ ...fourni, destination: 'application', codeDejaCapte: true })).toBe('coexistence');
+    expect(reprise({ ...fourni, destination: 'application' })).toBe('fourni_application');
+    expect(reprise({ ...fourni, destination: 'api' })).toBe('fourni');
+    // Inconnue, ou rien à reprendre.
+    expect(reprise(fourni)).toBeNull();
+    expect(reprise(NUMERO_CONNECTE)).toBeNull();
+    expect(etatMiseEnService({ ...PRET, numero: { ...fourni, destination: 'application', codeDejaCapte: true } }).etape_suivante).toBe('connecter_numero');
+  });
+
   it('aucun agent : creer_agent', () => {
     expect(etatMiseEnService({ ...PRET, agents: [], reglages: EQUIPE }).etape_suivante).toBe('creer_agent');
   });

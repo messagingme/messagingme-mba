@@ -94,6 +94,7 @@ function monter(o: {
       numeroDeLEspace: async () => (attribue ? NUMERO(attribue) : null),
       codeDeLEspace: async () => o.code ?? null,
       codeCapteDepuisLAttribution: async () => o.codeCapte ?? false,
+      destinationDeLEspace: async () => null,
       remplacerNumero: async () => {
         cap.remplaces += 1;
         const bloque = attribue;

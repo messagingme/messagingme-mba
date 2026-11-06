@@ -28,7 +28,7 @@ import { abonnementVivant, droitAuNumero as droitDansLaReserve, numerosDisponibl
  * d'office à l'abonné qui attend le sien (la réserve est à nous, comme dans /ops).
  */
 export interface NumeroFourniRouteDeps {
-  numeros: Pick<PgNumerosFournisStore, 'attribuer' | 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'remplacerNumero' | 'rendre' | 'bloquer' | 'compterLibres'>;
+  numeros: Pick<PgNumerosFournisStore, 'attribuer' | 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'destinationDeLEspace' | 'remplacerNumero' | 'rendre' | 'bloquer' | 'compterLibres'>;
   /**
    * Le numéro WhatsApp connecté à l'espace, en chiffres (`''` si son affichage est inconnu), `null` s'il n'en a pas.
    * 🔴 Un espace qui a déjà un numéro n'en reçoit pas d'autre (un seul numéro par espace), et le numéro fourni ne

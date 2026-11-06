@@ -4951,6 +4951,21 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   (`bloque`, Julien prévenu, `numeroFourniAGarder`), parce qu'il porte peut-être un compte WhatsApp Business, celui du
   numéro fourni mis dans l'application compris (mode `fourni_application`, 2026-10-31) ; la règle de la libération
   (`vuDeMeta`), quelle que soit la voie.
+  🔴 **La reprise d'un numéro fourni se CALCULE, elle ne se devine pas** (plan 2026-11-06, migration 0280). La destination
+  du numéro (`tenants.numero_fourni_destination` : `api`, la fenêtre de Meta ; `application`, dans l'application WhatsApp
+  Business) est retenue par `start_whatsapp_connection` (modes `fourni` et `fourni_application`, jamais `coexistence`, qui
+  peut porter le numéro de la personne), avec son heure (`numero_fourni_destination_le`), et seulement quand elle CHANGE.
+  L'état de la connexion la porte (`destination`), avec `codeDejaCapte` : un code arrivé depuis l'attribution ET depuis
+  cette heure, sans autre borne. 🔴 Les deux bornes comptent : un code reçu par la fenêtre de Meta avant que la personne
+  ne choisisse l'application ne prouve aucun compte de l'application, et reposer l'heure à chaque lien redemandé ferait
+  oublier un compte déjà créé. `modeDeReprise` (`src/otp/etat-connexion.ts`) en tire le mode du lien
+  neuf : `application` vérifiée = `coexistence` (le compte de l'application existe, il ne reste qu'à le garder),
+  `application` sans code = `fourni_application`, `api` = `fourni`, inconnue = `null`. `get_setup_state` le rend
+  (`numero.reprise`) ; la suite de `watch_whatsapp_connection` suit la destination retenue, le `mode` passé seulement à
+  défaut ; `start_whatsapp_connection` refuse `fourni` quand la reprise est `coexistence`. Sans elle, le jeton d'une heure,
+  le code de 15 minutes et le `mode` facultatif étaient les seuls à savoir où allait le numéro : passé l'un d'eux, Claude
+  redonnait les étapes de création du compte ou celles d'un numéro neuf. ⚠️ La console garde encore sa variante dans le
+  `localStorage` (`varianteGardee`) et ne lit pas cette destination.
   ⚠️ Ces attentes de 25 s entrent dans `http_latences` sous la route `/mcp`, avec les autres outils : un p95 de `/mcp`
   qui grimpe sur /ops ne dit pas une régression tant qu'on ne l'a pas lu par outil.
 - **L'origine de l'espace** (`tenants.origine`, migration 0212) : `claude_code` quand l'espace naît par la connexion

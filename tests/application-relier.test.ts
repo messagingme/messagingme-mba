@@ -36,7 +36,10 @@ describe('le jeton du lien', () => {
 });
 
 const depsEtat = (c: CompteApplication | null) => ({
-  numeros: { numeroDeLEspace: async () => null, codeDeLEspace: async () => null },
+  numeros: {
+    numeroDeLEspace: async () => null, codeDeLEspace: async () => null,
+    codeCapteDepuisLAttribution: async () => false, destinationDeLEspace: async () => null,
+  },
   numeroConnecte: async () => null,
   abonnements: { deLEspace: async () => null },
   offre: { numeroInclus: async () => false },

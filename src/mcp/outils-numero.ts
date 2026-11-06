@@ -6,7 +6,8 @@ import { RefusOutil, valeurOuRefus } from './saisie';
 import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
 import type { Issue } from '../lib/issue';
 import { DUREE_LIEN_NUMERO_MS, type LienNumero } from '../auth/token';
-import { empreinteEtat, type EtatConnexion } from '../otp/etat-connexion';
+import { empreinteEtat, modeDeReprise, type EtatConnexion } from '../otp/etat-connexion';
+import type { DestinationNumeroFourni } from '../otp/store.pg';
 import type { EtatDeLEspace } from '../stripe/abonnements.pg';
 import { ETAPES_COMPTE_FOURNI, ETAPES_RELIER_APPLICATION } from '../../web/lib/partage/etapes-application';
 import type { ComptesApplication } from '../application/comptes';
@@ -47,6 +48,8 @@ export interface DepsNumeroMcp {
   rendreLeNumero(tenantId: string, rendre: boolean): Promise<boolean>;
   /** La filière application (2026-10-22) : son propre numéro se prépare dès le lien, que la page relie par QR code. */
   comptesApplication: Pick<ComptesApplication, 'preparer'>;
+  /** Retient où va le numéro fourni (`PgNumerosFournisStore.retenirDestination`, migration 0280), relu par `modeDeReprise`. */
+  retenirDestination(tenantId: string, destination: DestinationNumeroFourni): Promise<void>;
 }
 
 const jour = (d: Date | null): string | null => (d === null ? null : d.toISOString().slice(0, 10));
@@ -210,6 +213,29 @@ const consigneFourniApplication = (inclusDansLePro: boolean): string =>
   + 'avec un profil Facebook. Appelle ensuite watch_whatsapp_connection avec mode égal à « fourni_application » : le code '
   + 'de vérification de l’application arrivera aussi ici, écris-le-lui en entier dès qu’il arrive.' + SI_ELLE_REVIENT;
 
+/**
+ * Le compte de l'application est CRÉÉ (un code capté depuis l'attribution, que `codeDeLEspace` ne montre plus après 15
+ * minutes) : il ne reste qu'à le garder. Vécu par Johan le 2026-11-06 : la suite redonnait les étapes de création du compte
+ * et « le code arrivera aussi ici », et il a tourné en rond jusqu'à ce que Julien lui dise de demander la coexistence.
+ */
+const compteCree = (fourni: string): string => `Le numéro ${fourni} a déjà reçu son code de vérification : son compte de `
+  + 'l’application WhatsApp Business est créé. Ne redonne PAS les étapes de création du compte. Il ne reste qu’une étape, '
+  + 'garder l’application : sur la page, « Garder mon application WhatsApp Business », puis, dans la fenêtre de Meta, '
+  + 'saisir ce numéro et confirmer dans l’application, sur le téléphone. Si la page n’est plus ouverte, ou si l’heure du '
+  + 'lien est passée, start_whatsapp_connection avec mode « coexistence » donne un lien neuf qui ouvre directement cette '
+  + 'fenêtre : écris-le-lui en entier (ce mot reste dans ton appel, jamais dans ce que tu lui dis). Si l’application '
+  + `redemande un code, il arrivera ici. Rappelle-lui : ${NUMERO_NEUF} ${RAPPEL_ATTENTE}`;
+
+/**
+ * Un numéro fourni déjà vérifié une fois, dont on ne sait pas où il est allé (un lien d'avant la migration 0280, ou un
+ * parcours mené dans la console) : UNE question que la personne sait trancher, sur son propre téléphone, plutôt que les
+ * étapes d'un numéro neuf dans la fenêtre de Meta, que Meta refuse pour un numéro déjà dans l'application.
+ */
+const destinationInconnue = (fourni: string): string => `Le numéro ${fourni} a déjà reçu un code de vérification, mais `
+  + `il n’est pas encore relié. Pose UNE question à la personne : « Le numéro ${fourni} est-il dans l’application WhatsApp `
+  + 'Business de votre téléphone ? ». Oui : start_whatsapp_connection avec mode « coexistence » (ce mot reste dans ton '
+  + 'appel). Non : start_whatsapp_connection avec mode « fourni », la fenêtre de Meta.';
+
 /** Ce que Claude dit ensuite sur le numéro fourni mis dans l'application, tant qu'il n'est pas relié. `null` : la suite commune. */
 function suiteFourniApplication(e: EtatConnexion): string | null {
   if (e.connecte) return null;
@@ -218,6 +244,7 @@ function suiteFourniApplication(e: EtatConnexion): string | null {
       + `pour y créer le compte avec ce numéro (pas dans la fenêtre de Meta). Puis : ${GARDER_APRES_COMPTE} Rappelle-lui : ${NUMERO_NEUF} `
       + RAPPEL_ATTENTE;
   }
+  if (e.fourni && e.codeDejaCapte) return compteCree(e.fourni);
   if (e.fourni) {
     return `Le numéro ${e.fourni} est attribué. Redonne à la personne les étapes de la page si elle ne les a plus : `
       + `${numerotees([...ETAPES_COMPTE_FOURNI.map((x) => x.fr), GARDER_APRES_COMPTE])} Le code arrivera aussi ici. ${RAPPEL_ATTENTE}`;
@@ -286,16 +313,27 @@ function suiteApplication(e: EtatConnexion): string | null {
   }
 }
 
+/** Où va le numéro fourni : la destination retenue (0280), à défaut le mode que Claude a passé (un lien d'avant 0280). */
+function destinationDe(e: EtatConnexion, mode?: string): DestinationNumeroFourni | undefined {
+  if (e.destination) return e.destination;
+  if (mode === 'fourni_application') return 'application';
+  if (mode === 'fourni') return 'api';
+  return undefined;
+}
+
 /**
  * Ce que Claude dit ensuite, selon l'étape. À l'essai 99, il attendait en silence pendant que la personne ne savait plus
  * où aller, et annonçait le crédit lu avant la connexion (0 €) alors que le crédit offert venait d'arriver.
  * `mode` : le mode demandé. En coexistence (plan 2026-10-24), tant qu'aucun numéro de Meta n'est relié, le compte de
  * l'application d'un espace relié par QR code n'est pas la fin. Le numéro fourni mis dans l'application (plan 2026-10-31)
- * a ses propres étapes avant la fenêtre de Meta.
+ * a ses propres étapes avant la fenêtre de Meta. 🔴 Elles suivent la destination RETENUE (migration 0280), et le `mode`
+ * seulement à défaut (plan 2026-11-06) : un appel sans `mode`, ou une session reprise, ne retombe plus sur la fenêtre de
+ * Meta d'un numéro neuf.
  */
 function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string): string {
   if (mode === 'coexistence' && (e.connecte === null || e.application !== undefined)) return COEXISTENCE_EN_COURS;
-  const fourniApplication = mode === 'fourni_application' ? suiteFourniApplication(e) : null;
+  const destination = filiere === 'api' ? destinationDe(e, mode) : undefined;
+  const fourniApplication = destination === 'application' ? suiteFourniApplication(e) : null;
   if (fourniApplication) return fourniApplication;
   const application = suiteApplication(e);
   if (application) return application;
@@ -318,6 +356,7 @@ function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string
     return 'Écris ce code en entier à la personne, en texte simple : elle le saisit dans la fenêtre de Meta (il s’affiche '
       + `aussi sur la page), puis va jusqu’au dernier écran, « Finish ». ${RAPPEL_ATTENTE}`;
   }
+  if (e.fourni && e.codeDejaCapte && destination === undefined) return destinationInconnue(e.fourni);
   if (e.fourni) {
     return `Le numéro ${e.fourni} est attribué. Redonne à la personne les étapes de la page si elle ne les a plus : `
       + `${numerotees(ETAPES_NUMERO_FOURNI.map((x) => x.fr))} Le code arrivera aussi ici. ${RAPPEL_ATTENTE}`;
@@ -522,6 +561,20 @@ export const OUTILS_NUMERO: OutilMcp[] = [
           + 'vérification, dans l’Accueil de la console (« Activer le numéro »).');
       }
       if (relie) throw new RefusOutil('Cet espace a déjà un numéro WhatsApp connecté : il n’y a rien à brancher.');
+      // 🔴 Un numéro fourni déjà mis dans l'application et vérifié (Johan, 2026-11-06) : la fenêtre de Meta d'un numéro neuf
+      // le refuserait, et retenir `api` effacerait la seule chose qui dit où il est. Sa seule suite : garder l'application.
+      if (filiere === 'api' && mode === 'fourni' && modeDeReprise(etat) === 'coexistence') {
+        throw new RefusOutil(`Le numéro fourni ${etat.fourni} est déjà dans l’application WhatsApp Business (son code de `
+          + 'vérification y est arrivé) : la suite est de garder l’application, start_whatsapp_connection avec mode « coexistence ».');
+      }
+      // La destination du numéro fourni (migration 0280), que la suite de l'attente et la reprise d'une session relisent.
+      // Pas pour `coexistence` : elle peut porter le numéro de la personne, et non le numéro fourni de l'espace. 🔴 Écrite
+      // seulement quand elle CHANGE : son heure dit depuis quand un code prouve le compte de l'application, et un lien
+      // redemandé sur la même voie ne doit pas faire oublier un compte déjà créé.
+      if (filiere === 'api' && (mode === 'fourni' || mode === 'fourni_application')) {
+        const destination = mode === 'fourni' ? 'api' : 'application';
+        if (etat.destination !== destination) await deps.numero.retenirDestination(tenantId, destination);
+      }
       if (filiere === 'application' && mode === 'apporte') {
         // Son propre numéro : le compte se prépare maintenant, la page n'aura plus qu'à afficher son QR code.
         const brut = typeof args.numero === 'string' ? args.numero.replace(/[^0-9]/g, '') : '';

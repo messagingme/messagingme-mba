@@ -4,6 +4,35 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-06 : la reprise d'un numéro fourni mis dans l'application (migration 0280, plugin 0.3.25)
+
+Plan `docs/superpowers/plans/2026-11-06-numero-fourni-reprise.md`. Vécu par Johan le jour même : un numéro fourni mis
+dans l'application WhatsApp Business, son compte créé, puis « mon numéro est non relié » en boucle, jusqu'à ce que Julien
+lui dise de demander à Claude de « connecter en coexistence ».
+
+- **La cause** : le serveur ne retenait nulle part que le numéro allait DANS l'application. Seuls le jeton du lien (une
+  heure), le `localStorage` de la console et le `mode` facultatif de `watch_whatsapp_connection` le savaient. Passé l'un
+  d'eux, la suite repartait de travers : après les 15 minutes du code, les étapes de création du compte et « le code
+  arrivera aussi ici » ; sans `mode`, les étapes d'un numéro neuf dans la fenêtre de Meta, que Meta refuse pour un numéro
+  déjà dans l'application ; et `get_setup_state` laissait Claude deviner le mode, ou le demander au client avec des mots
+  qu'il ne connaît pas. Aucune trace des appels d'outils côté serveur : on ne sait pas lequel des trois Johan a
+  rencontré, d'où un correctif à la source.
+- **Le correctif** : la destination retenue au lien (`tenants.numero_fourni_destination`), l'état de la connexion qui la
+  porte avec `codeDejaCapte`, et `modeDeReprise` qui en tire la seule étape restante, rendue par `get_setup_state`
+  (`numero.reprise`) et suivie par l'attente même sans `mode`. `fourni` est refusé pour un numéro déjà mis dans
+  l'application et vérifié. La skill reprend avec `numero.reprise`, sans rien demander ; à défaut, une seule question sur
+  le téléphone de la personne.
+- **La migration 0280** : deux colonnes nullables sur `tenants` (la destination et son heure) et un CHECK, sans reprise
+  (une destination devinée serait inventée), `migration=avant` parce que le code neuf les écrit et les lit.
+- **La relecture** (un agent, à froid) : un rouge, corrigé. `codeDejaCapte` comptait tout code depuis l'attribution :
+  une personne passée par la fenêtre de Meta (un code capté), puis par l'application, se serait vu dire « votre compte
+  de l'application est créé » sans l'avoir créé. Le code ne compte plus que depuis l'heure de la destination, que le lien
+  ne repose que si elle change (sinon un lien redemandé ferait oublier le compte de Johan). Deux faux de test sans
+  `retenirDestination` (`etapes-meta`, `etapes-numero-fourni`) réparés. Jaunes au `todo.md`.
+- **Tests dans les deux sens** : cinq mutations (la destination retenue ignorée, la branche du compte créé retirée, le
+  refus de `fourni` retiré, l'heure de la destination ignorée, la destination réécrite à chaque lien), chacune fait
+  rougir son test, les fichiers restaurés à l'octet. Le prédicat SQL de l'heure n'est éprouvé qu'en CI (intégration).
+
 ## 2026-11-06 : un scénario écrit un champ HubSpot du contact, éprouvé en production
 
 Cadrage `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`, validé par Julien (contact seul, jamais la

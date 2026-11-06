@@ -188,6 +188,37 @@ describe.skipIf(!url)('la réserve de numéros fournis (0210)', () => {
       expect(await store.codeCapteDepuisLAttribution(tenantId)).toBe(true);
     });
 
+    it('🔴 la destination du numéro fourni (0280) : inconnue d’abord, retenue par espace avec son heure ; le CHECK tient', async () => {
+      await pool.query('update tenants set numero_fourni_destination = null, numero_fourni_destination_le = null where id = any($1)', [[tenantId, autre]]);
+      expect(await store.destinationDeLEspace(tenantId)).toBeNull();
+      await store.retenirDestination(tenantId, 'application');
+      const retenue = await store.destinationDeLEspace(tenantId);
+      expect(retenue).toMatchObject({ destination: 'application', depuis: expect.any(Date) });
+      // Filtrée sur l'espace : l'autre espace n'a rien.
+      expect(await store.destinationDeLEspace(autre)).toBeNull();
+      await store.retenirDestination(tenantId, 'api');
+      expect(await store.destinationDeLEspace(tenantId)).toMatchObject({ destination: 'api' });
+      await expect(pool.query(`update tenants set numero_fourni_destination = 'qr' where id = $1`, [tenantId]))
+        .rejects.toMatchObject({ code: '23514' });
+    });
+
+    it('🔴 relecture : le code « déjà capté » d’AVANT la destination retenue ne compte pas pour la reprise ; « Abandonner » le voit toujours', async () => {
+      const { numero: n1 } = await store.declarer(N1, 'did-itest-1');
+      await store.attribuer(tenantId);
+      // Un code de la fenêtre de Meta, il y a dix minutes ; puis la personne choisit l'application, il y a cinq minutes.
+      await store.ecrireCode(n1.id, { appelId: 'itest.50', code: '222222', transcription: 'fenêtre de Meta' });
+      await pool.query(`update numeros_fournis set attribue_le = now() - interval '20 minutes' where numero = $1`, [N1]);
+      await pool.query(`update codes_verification set recu_le = now() - interval '10 minutes' where appel_id = 'itest.50'`);
+      await pool.query(`update tenants set numero_fourni_destination = 'application', numero_fourni_destination_le = now() - interval '5 minutes' where id = $1`, [tenantId]);
+      const depuis = (await store.destinationDeLEspace(tenantId))!.depuis;
+      expect(await store.codeCapteDepuisLAttribution(tenantId, depuis)).toBe(false);
+      expect(await store.codeCapteDepuisLAttribution(tenantId)).toBe(true);
+      // Le code de l'application, après : il compte.
+      await store.ecrireCode(n1.id, { appelId: 'itest.51', code: '333333', transcription: 'application' });
+      expect(await store.codeCapteDepuisLAttribution(tenantId, depuis)).toBe(true);
+      expect(await store.codeCapteDepuisLAttribution(autre, depuis)).toBe(false);
+    });
+
     it('remplacer : l’actuel passe en bloque, sans espace, et un autre est attribué ; rendre le remet en réserve', async () => {
       await store.declarer(N1, 'did-itest-1');
       await store.declarer(N2, 'did-itest-2');

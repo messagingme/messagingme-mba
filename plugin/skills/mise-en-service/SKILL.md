@@ -44,10 +44,14 @@ terminal cuts at the edge of the screen).
 The same questions as the "Get started" page of the website, in the same order: the plan, the Meta Business account,
 the WhatsApp Business app, then, without the app, the number. Skip a question whose answer is already known, from the user's request (the
 request copied from the website names the plan and the answers) or from `get_setup_state`. When `numero.fourni` is
-already set, a number we provide was paid for: resume without asking the questions again, in this order. The number
-is already in their WhatsApp Business app (they come back after Meta refused it as too new, for instance): mode
-`coexistence`. It is meant for the app but its account is not created yet: mode `fourni_application`. Otherwise: mode
-`fourni`. If you cannot tell which, ask that one thing only.
+already set and the number is not connected, a number we provide was paid for: resume without asking the questions
+again, with `start_whatsapp_connection` in the mode `numero.reprise` gives, never one you guess. `coexistence`: the
+number is already in their WhatsApp Business app (its account was created with its verification code, or they come
+back after Meta refused it as too new); only one step remains, keeping the app, and you never give the account
+creation steps again. `fourni_application`: it goes in the app, whose account is not created yet. `fourni`: Meta's
+window. When `numero.reprise` is null, ask one thing only, about their phone: "Is the number (`numero.fourni`) in the
+WhatsApp Business app on your phone?" Yes: `coexistence`. No: question 2 below decides. When a tool refuses a mode and
+names another one, use the one it names.
 
 Almost nobody knows what a Meta Business account or the WhatsApp Business app is, nor why it matters here: be
 didactic. Before the first question, explain these four words in plain sentences, briefly, in the user's language:

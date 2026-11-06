@@ -5,7 +5,7 @@ import { manquesDeLAgent, type DepsGestionAgents } from '../agent/gestion';
 import { eurosDepuisMicro } from '../agent/devise';
 import type { AgentResume } from '../agent/agent-store';
 import type { EtatCreditIa } from '../agent/acces-credit';
-import type { EtatConnexion } from '../otp/etat-connexion';
+import { modeDeReprise, type EtatConnexion, type ModeDeReprise } from '../otp/etat-connexion';
 import type { VueOffre } from '../offres/vue';
 import type { WidgetRow } from '../widgets/store.pg';
 import { journaliser } from '../lib/journal';
@@ -87,6 +87,11 @@ export interface EtatMiseEnService {
     connecte: boolean; a_activer: boolean; chiffres: string | null; fourni: string | null; abonnement: string | null;
     /** `application` : un compte de l'application WhatsApp Business, relié par QR code ; `api` sinon. */
     filiere: 'api' | 'application';
+    /**
+     * Le numéro fourni pas encore relié : le mode du lien neuf qui le reprend (`modeDeReprise`, plan 2026-11-06), pour que
+     * Claude ne le devine pas et ne le demande pas au client. `null` : rien à reprendre, ou une destination inconnue.
+     */
+    reprise: ModeDeReprise | null;
   } | null;
   agents: {
     actifs: Array<{ id: string; label: string }>;
@@ -118,6 +123,7 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
     fourni: l.numero.fourni,
     abonnement: l.numero.abonnement?.statut ?? null,
     filiere: l.numero.application ? 'application' as const : 'api' as const,
+    reprise: modeDeReprise(l.numero),
   };
   if (numero?.a_activer) avertissements.push('numero_a_activer');
   const statutApplication = l.numero?.application?.statut;

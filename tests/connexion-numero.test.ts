@@ -5,7 +5,7 @@ import { signSession, signLienNumero } from '../src/auth/token';
 import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { NumeroFourniRouteDeps } from '../src/http/numero-fourni';
 import type { NumeroFourni } from '../src/otp/store.pg';
-import { lireEtatConnexion, empreinteEtat, numeroConnecteDe, type EtatConnexion } from '../src/otp/etat-connexion';
+import { lireEtatConnexion, empreinteEtat, modeDeReprise, numeroConnecteDe, type EtatConnexion } from '../src/otp/etat-connexion';
 import { aucunCompteApplication } from './gardes';
 
 /**
@@ -19,12 +19,26 @@ const NUMERO = (numero: string): NumeroFourni => ({
   id: `id-${numero}`, numero, didwwDidId: `did-${numero}`, statut: 'attribue', tenantId: 't1', attribueLe: new Date(), creeLe: new Date(),
 });
 
-function etatDe(o: { attribue?: string; code?: { code: string; recuLe: Date }; connecte?: string; aActiver?: boolean; abonnement?: 'actif' | 'resilie'; pro?: boolean }) {
+function etatDe(o: {
+  attribue?: string; code?: { code: string; recuLe: Date }; connecte?: string; aActiver?: boolean; abonnement?: 'actif' | 'resilie'; pro?: boolean;
+  deja?: boolean; destination?: 'api' | 'application';
+}) {
   const lus: string[] = [];
+  /** L'heure passée à la lecture du code « déjà capté » : celle de la destination retenue, ou null. */
+  const depuisLus: Array<Date | null> = [];
   const deps = {
     numeros: {
       numeroDeLEspace: async (t: string) => { lus.push(`numero:${t}`); return o.attribue ? NUMERO(o.attribue) : null; },
       codeDeLEspace: async (t: string) => { lus.push(`code:${t}`); return o.code ?? null; },
+      codeCapteDepuisLAttribution: async (t: string, depuis: Date | null = null) => {
+        lus.push(`deja:${t}`);
+        depuisLus.push(depuis);
+        return o.deja === true;
+      },
+      destinationDeLEspace: async (t: string) => {
+        lus.push(`destination:${t}`);
+        return o.destination ? { destination: o.destination, depuis: DESTINATION_LE } : null;
+      },
     },
     numeroConnecte: async (t: string) => { lus.push(`connecte:${t}`); return o.connecte !== undefined ? { chiffres: o.connecte, aActiver: o.aActiver === true } : null; },
     abonnements: {
@@ -36,8 +50,10 @@ function etatDe(o: { attribue?: string; code?: { code: string; recuLe: Date }; c
     offre: { numeroInclus: async (t: string) => { lus.push(`pro:${t}`); return o.pro === true; } },
     application: aucunCompteApplication,
   };
-  return { deps, lus };
+  return { deps, lus, depuisLus };
 }
+/** L'heure où la destination a été retenue, dans les faux. */
+const DESTINATION_LE = new Date('2026-11-06T10:00:00Z');
 
 describe('lireEtatConnexion', () => {
   it('un espace sans rien : tout à null', async () => {
@@ -73,6 +89,48 @@ describe('lireEtatConnexion', () => {
     const { deps, lus } = etatDe({ attribue: '441235619343' });
     await lireEtatConnexion(deps, 't-42');
     expect(lus.every((l) => l.endsWith(':t-42'))).toBe(true);
+    expect(lus).toEqual(expect.arrayContaining(['deja:t-42', 'destination:t-42']));
+  });
+
+  it('🔴 le code déjà capté (sans borne de temps) et la destination retenue (0280) : dits seulement quand ils sont là', async () => {
+    expect(await lireEtatConnexion(etatDe({ attribue: '441235619343', deja: true, destination: 'application' }).deps, 't1')).toEqual({
+      fourni: '+441235619343', code: null, codeDejaCapte: true, destination: 'application', connecte: null, abonnement: null, inclusDansLePro: false,
+    });
+    // Sans numéro attribué, les codes ne se lisent même pas.
+    const sansNumero = etatDe({ deja: true });
+    expect(await lireEtatConnexion(sansNumero.deps, 't1')).not.toHaveProperty('codeDejaCapte');
+    expect(sansNumero.lus).not.toContain('deja:t1');
+  });
+
+  it('🔴 relecture : le code « déjà capté » ne compte que DEPUIS la destination retenue (un code de la fenêtre de Meta ne prouve aucun compte de l’application)', async () => {
+    const retenue = etatDe({ attribue: '441235619343', destination: 'application' });
+    await lireEtatConnexion(retenue.deps, 't1');
+    expect(retenue.depuisLus).toEqual([DESTINATION_LE]);
+    // Destination inconnue : depuis l'attribution seule, comme « Abandonner ».
+    const inconnue = etatDe({ attribue: '441235619343' });
+    await lireEtatConnexion(inconnue.deps, 't1');
+    expect(inconnue.depuisLus).toEqual([null]);
+  });
+});
+
+describe('modeDeReprise : la seule étape qui reste à un numéro fourni pas encore relié (plan 2026-11-06)', () => {
+  const base: EtatConnexion = { fourni: '+441235619343', code: null, connecte: null, abonnement: null, inclusDansLePro: false };
+
+  it('mis dans l’application : créer son compte, puis, une fois vérifié, le GARDER (le cas de Johan)', () => {
+    expect(modeDeReprise({ ...base, destination: 'application' })).toBe('fourni_application');
+    expect(modeDeReprise({ ...base, destination: 'application', codeDejaCapte: true })).toBe('coexistence');
+  });
+
+  it('par la fenêtre de Meta : fourni, code capté ou non', () => {
+    expect(modeDeReprise({ ...base, destination: 'api' })).toBe('fourni');
+    expect(modeDeReprise({ ...base, destination: 'api', codeDejaCapte: true })).toBe('fourni');
+  });
+
+  it('rien à reprendre : sans numéro fourni, numéro relié (même à activer), ou destination inconnue', () => {
+    expect(modeDeReprise({ ...base, fourni: null, destination: 'application' })).toBeNull();
+    expect(modeDeReprise({ ...base, destination: 'application', connecte: { chiffres: '441235619343', aActiver: false } })).toBeNull();
+    expect(modeDeReprise({ ...base, destination: 'api', connecte: { chiffres: '441235619343', aActiver: true } })).toBeNull();
+    expect(modeDeReprise({ ...base, codeDejaCapte: true })).toBeNull();
   });
 });
 
@@ -131,6 +189,7 @@ describe('GET /tenants/:tenantId/connexion-numero', () => {
         numeroDeLEspace: async () => NUMERO('441235619343'),
         codeDeLEspace: async () => ({ code: '123456', recuLe: new Date('2026-10-06T08:53:01Z') }),
         codeCapteDepuisLAttribution: async () => true,
+        destinationDeLEspace: async () => ({ destination: 'application' as const, depuis: new Date('2026-10-06T08:50:00Z') }),
         remplacerNumero: async () => ({ bloque: null, nouveau: null }),
         rendre: async () => null,
         bloquer: async () => null,
@@ -159,7 +218,10 @@ describe('GET /tenants/:tenantId/connexion-numero', () => {
     const r = await lire(server, 't1', adminTok);
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({
-      etat: { fourni: '+441235619343', code: { code: '123456', recuLe: '2026-10-06T08:53:01.000Z' }, connecte: null, abonnement: null, inclusDansLePro: false },
+      etat: {
+        fourni: '+441235619343', code: { code: '123456', recuLe: '2026-10-06T08:53:01.000Z' }, codeDejaCapte: true, destination: 'application',
+        connecte: null, abonnement: null, inclusDansLePro: false,
+      },
       empreinte: expect.any(String),
     });
     expect((await lire(server, 't1', agentTok)).statusCode).toBe(403);

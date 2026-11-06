@@ -8,7 +8,7 @@ import { enTransaction } from '../db/transaction';
  * ⚠️ LA RÉSERVE EST À NOUS, PAS À UN CLIENT : `declarer`, `lister`, `ecrireCode` et la suite ne filtrent sur aucun
  * espace, délibérément (la session d'exploitation de /ops et la route du pont, que l'Asterisk appelle pour un numéro
  * et non pour un espace). Ce qu'un CLIENT lit ou écrit (lot 3b : `attribuer`, `numeroDeLEspace`, `codeDeLEspace`,
- * `remplacerNumero`, `rendre`) est filtré sur `tenant_id`, sans exception.
+ * `remplacerNumero`, `rendre` ; 0280 : `destinationDeLEspace`, `retenirDestination`) est filtré sur l'espace, sans exception.
  */
 
 /** Un code ne vaut que dix minutes ; la transcription sert au dépannage une semaine, puis le balayage l'efface. */
@@ -16,6 +16,15 @@ export const RETENTION_CODES_VERIFICATION_JOURS = 7;
 
 /** `bloque` (0212) : refusé par Meta (déjà actif ailleurs), sorti de la réserve sans être résilié chez DIDWW. */
 export type StatutNumero = 'libre' | 'attribue' | 'resilie' | 'bloque';
+
+/** Où va le numéro fourni d'un espace (migration 0280) : la fenêtre de Meta, ou l'application WhatsApp Business. */
+export type DestinationNumeroFourni = 'api' | 'application';
+
+/** La destination retenue, et l'heure où elle l'a été (`null` seulement pour une ligne écrite à la main). */
+export interface DestinationRetenue {
+  destination: DestinationNumeroFourni;
+  depuis: Date | null;
+}
 
 /** Pourquoi un appel n'a pas rendu de code : la transcription n'a pas abouti, ou aucun code certain n'y figure. */
 export type CauseSansCode = 'transcription_indisponible' | 'code_introuvable';
@@ -244,16 +253,44 @@ export class PgNumerosFournisStore {
    * Un code a-t-il été capté pour le numéro de l'espace depuis son attribution, SANS borne de temps (2026-10-31) ? C'est ce
    * que lit « Abandonner » : un numéro vérifié une fois porte peut-être un compte WhatsApp Business (le numéro fourni mis
    * dans l'application, ou la fenêtre de Meta) et ne retourne jamais à la réserve, comme à la libération (`vuDeMeta`).
-   * `codeDeLEspace`, borné à 15 minutes, ne suffit pas : on abandonne parfois des jours après.
+   * `codeDeLEspace`, borné à 15 minutes, ne suffit pas : on abandonne parfois des jours après. `depuis` (la reprise,
+   * migration 0280) : seulement un code arrivé depuis cette heure, celle où la destination a été retenue.
    */
-  async codeCapteDepuisLAttribution(tenantId: string): Promise<boolean> {
+  async codeCapteDepuisLAttribution(tenantId: string, depuis: Date | null = null): Promise<boolean> {
     const res = await this.pool.query(
       `select 1 from codes_verification c join numeros_fournis n on n.id = c.numero_id
         where n.tenant_id = $1 and n.statut = 'attribue' and c.code is not null and c.recu_le >= n.attribue_le
+          and ($2::timestamptz is null or c.recu_le >= $2::timestamptz)
         limit 1`,
-      [tenantId],
+      [tenantId, depuis],
     );
     return (res.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * Où va le numéro fourni de l'espace (migration 0280) : par la fenêtre de Meta (`api`), ou DANS l'application WhatsApp
+   * Business (`application`), et depuis quand. `null` = inconnue (jamais retenue). C'est elle qui dit comment reprendre une
+   * connexion une fois le lien d'une heure ou le code de 15 minutes passés (`modeDeReprise`).
+   */
+  async destinationDeLEspace(tenantId: string): Promise<DestinationRetenue | null> {
+    const res = await this.pool.query<{ d: DestinationNumeroFourni | null; le: Date | null }>(
+      'select numero_fourni_destination as d, numero_fourni_destination_le as le from tenants where id = $1',
+      [tenantId],
+    );
+    const l = res.rows[0];
+    return l?.d ? { destination: l.d, depuis: l.le } : null;
+  }
+
+  /**
+   * Retient la destination du numéro fourni de l'espace, et son heure (`start_whatsapp_connection`). 🔴 L'appelant ne
+   * l'appelle que quand elle CHANGE : l'heure dit depuis quand un code prouve le compte de l'application, et la reposer
+   * à chaque lien ferait oublier un compte déjà créé (le cas même de Johan).
+   */
+  async retenirDestination(tenantId: string, destination: DestinationNumeroFourni): Promise<void> {
+    await this.pool.query(
+      'update tenants set numero_fourni_destination = $2, numero_fourni_destination_le = now() where id = $1',
+      [tenantId, destination],
+    );
   }
 
   /**

@@ -9,6 +9,7 @@ import { signLienNumero, verifyLienNumero, DUREE_LIEN_NUMERO_MS } from '../src/a
 import { empreinteEtat, type EtatConnexion } from '../src/otp/etat-connexion';
 import { PREREQUIS_META } from '../web/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '../web/lib/partage/etapes-application';
+import { ETAPES_NUMERO_FOURNI } from '../web/lib/partage/etapes-numero-fourni';
 import { COEXISTENCE_BOUTON } from '../web/lib/fenetre-meta';
 
 /**
@@ -29,8 +30,10 @@ function monter(etats: (t: number) => EtatConnexion, o: { portail?: Issue<{ url:
   const paiements: Array<{ tenant: string; payeur: string }> = [];
   const couteux: string[] = [];
   const rendus: Array<{ tenant: string; rendre: boolean }> = [];
+  const destinations: Array<{ tenant: string; destination: string }> = [];
   const deps = {
     numero: {
+      retenirDestination: async (tenant: string, destination: string) => { destinations.push({ tenant, destination }); },
       signerLien: (l: Parameters<typeof signLienNumero>[0]) => signLienNumero(l, SECRET),
       etat: async (tenant: string) => { lectures.push({ tenant, t }); return etats(t); },
       urlConsole: 'https://console.exemple.test',
@@ -50,7 +53,7 @@ function monter(etats: (t: number) => EtatConnexion, o: { portail?: Issue<{ url:
     },
     couteux: { consommer: async (tenant: string) => { couteux.push(tenant); return { accepte: true, attenteMs: 0 }; } },
   } as unknown as DepsMcp;
-  return { deps, lectures, debut: t, portails, couteux, paiements, rendus };
+  return { deps, lectures, debut: t, portails, couteux, paiements, rendus, destinations };
 }
 
 describe('start_whatsapp_connection', () => {
@@ -519,5 +522,79 @@ describe('le mode fourni_application', () => {
     for (const e of ETAPES_COMPTE_FOURNI) expect(attribue.suite).toContain(e.fr);
     const relie = await attendre({ ...FOURNI, connecte: { chiffres: '441235619343', aActiver: false, coexistence: true } });
     expect(relie.suite).toMatch(/branchement est fini/);
+  });
+});
+
+/**
+ * LA REPRISE D'UN NUMÉRO FOURNI MIS DANS L'APPLICATION (plan 2026-11-06). Vécu par Johan : son compte créé, le code passé
+ * de 15 minutes, la suite lui redonnait les étapes de création du compte, et rien ne disait « garder l'application ». Le
+ * serveur retient désormais la destination au lien et la relit, quel que soit le `mode` que Claude repasse.
+ */
+describe('la reprise d’un numéro fourni (Johan, 2026-11-06)', () => {
+  const FOURNI: EtatConnexion = { ...VIDE, fourni: '+441235619343', abonnement: { statut: 'actif', periodeFin: null } };
+  /** Le compte de l'application créé : un code capté depuis l'attribution, plus lisible (15 minutes passées). */
+  const COMPTE_CREE: EtatConnexion = { ...FOURNI, destination: 'application', codeDejaCapte: true };
+  const attendre = (etat: EtatConnexion, args: Record<string, unknown>) =>
+    outil('watch_whatsapp_connection').executer(monter(() => etat).deps, 't1', args, PERSONNE) as Promise<{ suite: string; code: string | null }>;
+  const demarrer = async (etat: EtatConnexion, args: Record<string, unknown>) => {
+    const m = monter(() => etat);
+    const r = await outil('start_whatsapp_connection').executer(m.deps, 't1', args, PERSONNE) as Record<string, string>;
+    return { r, destinations: m.destinations };
+  };
+  const ditDeGarder = (suite: string) => {
+    expect(suite).toContain(`« ${COEXISTENCE_BOUTON.fr} »`);
+    expect(suite).toMatch(/start_whatsapp_connection avec mode « coexistence »/);
+    expect(suite).toMatch(/Ne redonne PAS les étapes de création du compte/);
+    for (const e of ETAPES_COMPTE_FOURNI) expect(suite).not.toContain(e.fr);
+    for (const e of ETAPES_NUMERO_FOURNI) expect(suite).not.toContain(e.fr);
+  };
+
+  it('🔴 le lien retient la destination : fourni = api, fourni_application = application, rien pour les autres modes', async () => {
+    expect((await demarrer(VIDE, { mode: 'fourni' })).destinations).toEqual([{ tenant: 't1', destination: 'api' }]);
+    expect((await demarrer(VIDE, { mode: 'fourni_application' })).destinations).toEqual([{ tenant: 't1', destination: 'application' }]);
+    expect((await demarrer(FOURNI, { mode: 'coexistence' })).destinations).toEqual([]);
+    expect((await demarrer(VIDE, { mode: 'apporte' })).destinations).toEqual([]);
+  });
+
+  it('🔴 relecture : écrite seulement quand elle CHANGE, sinon un lien redemandé ferait oublier le compte déjà créé', async () => {
+    // Même voie : rien d'écrit, l'heure retenue (depuis quand un code prouve le compte) ne bouge pas.
+    expect((await demarrer({ ...FOURNI, destination: 'application' }, { mode: 'fourni_application' })).destinations).toEqual([]);
+    expect((await demarrer({ ...FOURNI, destination: 'api' }, { mode: 'fourni' })).destinations).toEqual([]);
+    // De la fenêtre de Meta à l'application : retenue, donc un code d'avant ne compte plus.
+    expect((await demarrer({ ...FOURNI, destination: 'api', codeDejaCapte: true }, { mode: 'fourni_application' })).destinations)
+      .toEqual([{ tenant: 't1', destination: 'application' }]);
+  });
+
+  it('🔴 les 15 minutes du code passées : « le compte est créé, il reste à garder l’application », jamais les étapes de création', async () => {
+    ditDeGarder((await attendre(COMPTE_CREE, { mode: 'fourni_application' })).suite);
+  });
+
+  it('🔴 sans mode (une session reprise), ou avec un mode faux, la destination retenue décide', async () => {
+    ditDeGarder((await attendre(COMPTE_CREE, {})).suite);
+    ditDeGarder((await attendre(COMPTE_CREE, { mode: 'fourni' })).suite);
+  });
+
+  it('un lien d’avant la migration (destination inconnue) : le mode passé décide, à défaut UNE question sur son téléphone', async () => {
+    const inconnue: EtatConnexion = { ...FOURNI, codeDejaCapte: true };
+    ditDeGarder((await attendre(inconnue, { mode: 'fourni_application' })).suite);
+    const question = (await attendre(inconnue, {})).suite;
+    expect(question).toMatch(/est-il dans l’application WhatsApp Business de votre téléphone/);
+    expect(question).toMatch(/mode « coexistence »/);
+    for (const e of ETAPES_NUMERO_FOURNI) expect(question).not.toContain(e.fr);
+  });
+
+  it('par la fenêtre de Meta, rien ne change : les étapes du numéro neuf', async () => {
+    const suite = (await attendre({ ...FOURNI, destination: 'api', codeDejaCapte: true }, {})).suite;
+    for (const e of ETAPES_NUMERO_FOURNI) expect(suite).toContain(e.fr);
+  });
+
+  it('🔴 fourni est REFUSÉ pour un numéro déjà mis dans l’application et vérifié, sans rien retenir ; fourni_application passe', async () => {
+    const m = monter(() => COMPTE_CREE);
+    await expect(outil('start_whatsapp_connection').executer(m.deps, 't1', { mode: 'fourni' }, PERSONNE))
+      .rejects.toThrow(/déjà dans l’application WhatsApp Business.*mode « coexistence »/);
+    expect(m.destinations).toEqual([]);
+    await expect(demarrer(COMPTE_CREE, { mode: 'fourni_application' })).resolves.toBeDefined();
+    // Par la fenêtre de Meta, un code capté ne bloque rien.
+    await expect(demarrer({ ...FOURNI, destination: 'api', codeDejaCapte: true }, { mode: 'fourni' })).resolves.toBeDefined();
   });
 });

@@ -1,5 +1,24 @@
 # todo.md : backlog
 
+## 🟡 La reprise d'un numéro fourni : la suite (plan `docs/superpowers/plans/2026-11-06-numero-fourni-reprise.md`)
+
+- **L'essai réel** : un numéro fourni mis dans l'application, son compte créé, plus de 15 minutes, puis une NOUVELLE
+  session de Claude Code sans jamais dire « coexistence » ; Claude doit donner le lien de la fenêtre de Meta en gardant
+  l'application, et le numéro doit finir relié.
+- **La console ne lit pas la destination retenue** (migration 0280) : la page « Connecter WhatsApp » garde sa variante
+  dans le `localStorage` (`varianteGardee`, `web/components/ParcoursNumero.tsx`) ; un autre navigateur la perd et retombe
+  sur la fenêtre de Meta d'un numéro neuf. La page pourrait lire `destination` et `codeDejaCapte` de l'état, qu'elle
+  reçoit déjà, et la retenir à « Obtenir mon numéro » et « Payer ».
+- 🟡 **La destination survit au numéro** (relecture du lot) : `rendre` et `remplacerNumero` ne la remettent pas à nulle.
+  Remplacer garde la même voie (voulu) ; après « Abandonner », le prochain lien de Claude la réécrit, mais un parcours
+  mené dans la console, qui ne l'écrit pas, hériterait de l'ancienne.
+- 🟡 **`start_whatsapp_connection` retient la destination avant de signer le lien** : un échec de signature la laisse
+  changée. Bénin (la prochaine demande la réécrit), à ranger après la signature si on y retouche.
+- **« Meta refuse souvent un numéro tout neuf »** : le numéro neuf de Johan est passé du premier coup (2026-11-06). Un seul
+  cas ne fait pas une règle, mais « souvent » n'est pas mesuré : « peut refuser » suffirait. Le texte vit dans la vitrine
+  (`tunnel-textes.ts`), la console et le plugin, tenus égaux par `tests/questions-numero-vitrine.test.ts` ; décision de
+  Julien.
+
 ## 🟡 La suite du lot vitrine du 2026-11-06 (ROI, Dynamics 365, Salesforce, attribution)
 
 - **Le ROI dans la console** (décision de Julien, 2026-11-06), au sens strict : (chiffre d'affaires attribué - coûts)

@@ -611,6 +611,8 @@ export const mcpNumeroInerte: Pick<DepsMcp, 'numero'> = {
     rendreLeNumero: neDevraitPasEtreAppelee('numero.rendreLeNumero'),
     // La filière application : aucun compte à préparer dans ces montages.
     comptesApplication: aucunCompteApplication.comptes,
+    // La destination du numéro fourni (0280) : retenue seulement par un lien, que ces montages ne signent pas.
+    retenirDestination: neDevraitPasEtreAppelee('numero.retenirDestination'),
   },
 };
 

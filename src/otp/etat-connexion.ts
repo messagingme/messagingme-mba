@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { PgNumerosFournisStore } from './store.pg';
+import type { DestinationNumeroFourni, PgNumerosFournisStore } from './store.pg';
 import type { PgAbonnementsNumeroStore, StatutAbonnement } from '../stripe/abonnements.pg';
 import type { ComptesApplication, StatutCompte } from '../application/comptes';
 import type { PhoneNumberRecord } from '../account/types';
@@ -14,6 +14,17 @@ export interface EtatConnexion {
   fourni: string | null;
   /** Le dernier code capté pour ce numéro depuis son attribution, dans la fenêtre de `codeDeLEspace` (15 minutes). */
   code: { code: string; recuLe: string } | null;
+  /**
+   * Un code a été capté pour le numéro fourni depuis son attribution ET depuis que sa destination a été retenue, SANS
+   * autre borne de temps (`codeCapteDepuisLAttribution`) : le numéro a été vérifié sur la voie choisie. Dit seulement
+   * quand c'est vrai.
+   */
+  codeDejaCapte?: true;
+  /**
+   * Où va le numéro fourni (migration 0280) : la fenêtre de Meta (`api`) ou l'application WhatsApp Business
+   * (`application`), retenue par `start_whatsapp_connection`. Absente : inconnue.
+   */
+  destination?: DestinationNumeroFourni;
   /**
    * Le numéro WhatsApp relié à l'espace, en chiffres (`''` si son affichage est inconnu). `aActiver` : relié, mais Meta
    * ne l'a pas encore activé (`status` lu et différent de `CONNECTED`, la règle de l'Accueil) ; il n'est pas « connecté ».
@@ -36,7 +47,7 @@ export interface EtatConnexion {
 }
 
 export interface DepsEtatConnexion {
-  numeros: Pick<PgNumerosFournisStore, 'numeroDeLEspace' | 'codeDeLEspace'>;
+  numeros: Pick<PgNumerosFournisStore, 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'destinationDeLEspace'>;
   /** Le numéro de Meta de l'espace (`numeroConnecteDe`). */
   numeroConnecte(tenantId: string): Promise<{ chiffres: string; aActiver: boolean; paiementBloque?: boolean; coexistence?: true } | null>;
   abonnements: Pick<PgAbonnementsNumeroStore, 'deLEspace'>;
@@ -66,23 +77,49 @@ export function numeroConnecteDe(
 }
 
 export async function lireEtatConnexion(deps: DepsEtatConnexion, tenantId: string): Promise<EtatConnexion> {
-  const [n, connecteMeta, a, inclus, compte] = await Promise.all([
+  const [n, connecteMeta, a, inclus, compte, retenue] = await Promise.all([
     deps.numeros.numeroDeLEspace(tenantId), deps.numeroConnecte(tenantId), deps.abonnements.deLEspace(tenantId),
-    deps.offre.numeroInclus(tenantId), deps.application.comptes.parEspace(tenantId),
+    deps.offre.numeroInclus(tenantId), deps.application.comptes.parEspace(tenantId), deps.numeros.destinationDeLEspace(tenantId),
   ]);
   const connecte = connecteMeta ?? (compte?.statut === 'relie' ? { chiffres: compte.numero, aActiver: false } : null);
   // Un numéro de Meta relié prime sur un vieux compte de l'application (`filiereDe`) : l'état est alors celui de l'API.
   const application = connecteMeta === null && compte ? { statut: compte.statut, numero: compte.numero } : null;
-  // Le code ne se lit que pour un numéro attribué : `codeDeLEspace` le borne à l'attribution.
-  const c = n ? await deps.numeros.codeDeLEspace(tenantId) : null;
+  // Les codes ne se lisent que pour un numéro attribué : les deux lectures les bornent à l'attribution. 🔴 Le code « déjà
+  // capté » l'est AUSSI à la destination retenue (relecture du lot) : un code reçu par la fenêtre de Meta avant que la
+  // personne ne choisisse l'application ne prouve aucun compte dans l'application.
+  const [c, deja] = n
+    ? await Promise.all([
+      deps.numeros.codeDeLEspace(tenantId),
+      deps.numeros.codeCapteDepuisLAttribution(tenantId, retenue?.depuis ?? null),
+    ])
+    : [null, false];
   return {
     fourni: n ? `+${n.numero}` : null,
     code: c ? { code: c.code, recuLe: c.recuLe.toISOString() } : null,
+    ...(deja ? { codeDejaCapte: true as const } : {}),
+    ...(retenue ? { destination: retenue.destination } : {}),
     connecte,
     abonnement: a ? { statut: a.statut, periodeFin: a.periodeFin ? a.periodeFin.toISOString() : null } : null,
     inclusDansLePro: inclus,
     ...(application ? { application } : {}),
   };
+}
+
+/** Le mode d'un lien neuf de `start_whatsapp_connection` pour reprendre un numéro fourni pas encore relié. */
+export type ModeDeReprise = 'fourni' | 'fourni_application' | 'coexistence';
+
+/**
+ * COMMENT REPRENDRE UN NUMÉRO FOURNI (plan 2026-11-06, vécu par Johan) : la seule étape qui reste, calculée ici pour que ni
+ * Claude ni le client n'aient à la deviner. Mis dans l'application et déjà vérifié (un code capté depuis l'attribution) :
+ * son compte de l'application existe, il reste à le GARDER par la fenêtre de Meta (`coexistence`). Mis dans
+ * l'application sans code : créer ce compte (`fourni_application`). Par la fenêtre de Meta : `fourni`. `null` : rien à
+ * reprendre (pas de numéro fourni, ou un numéro déjà relié), ou une destination inconnue.
+ */
+export function modeDeReprise(e: Pick<EtatConnexion, 'fourni' | 'connecte' | 'codeDejaCapte' | 'destination'>): ModeDeReprise | null {
+  if (e.fourni === null || e.connecte !== null) return null;
+  if (e.destination === 'application') return e.codeDejaCapte ? 'coexistence' : 'fourni_application';
+  if (e.destination === 'api') return 'fourni';
+  return null;
 }
 
 /**
