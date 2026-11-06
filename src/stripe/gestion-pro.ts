@@ -34,7 +34,7 @@ export type DepsDemarrerPro = DepsGestionPro & {
    * l'option s'ouvre dans la foulée. Le webhook réécrit la même fin.
    */
   noterFinEssai(abonnementId: string, finLe: Date): Promise<boolean>;
-  verrous: Pick<VerrousCourts, 'prendre' | 'relacher'>;
+  verrous: Pick<VerrousCourts, 'prendre' | 'relacher' | 'prolonger'>;
   maintenant?: () => number;
 };
 
@@ -193,6 +193,12 @@ export async function demarrerProMaintenant(
         issueInconnue = true;
         return refus(503, 'Notre prestataire de paiement n’a pas répondu. Rechargez la page dans un instant pour voir si votre formule a démarré.', { code: 'paiement_indisponible' });
       }
+      // 🟡 Une réponse 200 illisible (un autre abonnement, l'essai pas arrêté, un corps hors schéma) : Stripe a sans doute
+      // appliqué l'arrêt, l'issue est INCONNUE comme une panne, jamais un refus à retenter (jaune 4 du lot A5).
+      if (err.status === 200) {
+        issueInconnue = true;
+        return refus(503, 'La réponse de notre prestataire de paiement n’a pas pu être lue. Rechargez la page dans un instant pour voir si votre formule a démarré.', { code: 'demarrage_incertain' });
+      }
       return refus(422, 'Le démarrage de votre formule Pro n’a pas pu être enregistré. Réessayez dans un instant ; si cela persiste, contactez-nous.', { code: 'demarrage_impossible' });
     }
     if (issue === 'pas_en_essai') return PAS_EN_ESSAI;
@@ -205,7 +211,10 @@ export async function demarrerProMaintenant(
     journaliser('info', 'pro_demarre_avant_la_fin_de_l_essai', { tenantId, abonnementId: pro.abonnementId, paye: issue === 'paye' });
     return { ok: true, valeur: { essaiFini: true, paye: issue === 'paye' } };
   } finally {
-    if (!issueInconnue) await d.verrous.relacher(prise);
+    // Une issue inconnue garde le verrou, repoussé d'une minute pleine depuis la réponse : il a couru pendant les appels,
+    // jusqu'à deux fois 30 s, et aurait pu échoir à l'instant du 503 (jaune 5 du lot A5).
+    if (issueInconnue) await d.verrous.prolonger(prise, DUREE_VERROU_DEMARRAGE_MS);
+    else await d.verrous.relacher(prise);
   }
 }
 

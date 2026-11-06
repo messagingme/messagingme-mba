@@ -45,7 +45,7 @@ function monter(o: { ouvrir?: OffrePaiementRouteDeps['ouvrir']; portail?: OffreP
       }),
       factures: async (tenantId, payeur) => { cap.factures.push({ tenantId, payeur }); return { ok: true, valeur: { factures: [], plusSurStripe: false } }; },
       tarif: async () => ({ ok: true, valeur: { proHtCentimes: 3900, siegeHtCentimes: 1200, remise: true } }),
-      demarrerPro: o.demarrerPro ?? (async (tenantId, payeur) => { cap.demarrages.push({ tenantId, payeur }); return { ok: true, valeur: { essaiFini: true } }; }),
+      demarrerPro: o.demarrerPro ?? (async (tenantId, payeur) => { cap.demarrages.push({ tenantId, payeur }); return { ok: true, valeur: { essaiFini: true, paye: true } }; }),
     },
   });
   return { server, cap };
@@ -237,11 +237,15 @@ describe('POST /tenants/:tenantId/offre/pro/demarrer', () => {
   it('🔴 un administrateur démarre sa formule, payée par l’utilisateur de la session ; un agent, 403, rien ne part', async () => {
     const { server, cap } = monter();
     const r = await poster(server, '/tenants/t1/offre/pro/demarrer', admin);
-    expect([r.statusCode, r.json()]).toEqual([200, { essaiFini: true }]);
+    expect([r.statusCode, r.json()]).toEqual([200, { essaiFini: true, paye: true }]);
     expect(cap.demarrages).toEqual([{ tenantId: 't1', payeur: 'u1' }]);
     expect((await poster(server, '/tenants/t1/offre/pro/demarrer', agent)).statusCode).toBe(403);
     expect(cap.demarrages).toHaveLength(1);
     await server.close();
+    // Un paiement pas encore encaissé passe tel quel : la console ne l'annonce pas comme fait (jaune 2 du lot A5).
+    const enCours = monter({ demarrerPro: async () => ({ ok: true, valeur: { essaiFini: true, paye: false } }) });
+    expect((await poster(enCours.server, '/tenants/t1/offre/pro/demarrer', admin)).json()).toEqual({ essaiFini: true, paye: false });
+    await enCours.server.close();
   });
 
   it('🔴 un refus garde son statut et son code : carte refusée 402, déjà payée 409', async () => {

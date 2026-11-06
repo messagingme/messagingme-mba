@@ -75,6 +75,8 @@ function achat(o: {
   prixOption?: string; offre?: 'base' | 'pro' | 'business' | 'entreprise';
   /** La formule payée (`formulePayee`, révision du 2026-11-04) : fausse pendant un essai. */
   formulePayee?: boolean;
+  /** L'option vivante de l'espace (lot B) : ses places et son statut ; aucune par défaut. */
+  optionVivante?: { places: number; statut: 'actif' | 'en_retard' | 'resilie' };
 } = {}) {
   const transport = new FauxStripe([CLIENT_OK, SESSION_OK], o.lesPrix ?? PRIX_JUSTES);
   const deps: CreditWhatsappRouteDeps = {
@@ -107,7 +109,13 @@ function achat(o: {
       payeurAutorise: async () => o.payeur ?? true,
       urlConsole: 'https://console.exemple',
       prixOption: o.prixOption ?? 'price_opt',
-      options: { vivante: async () => null, noterPlaces: async () => null },
+      options: {
+        vivante: async () => (o.optionVivante ? {
+          abonnementId: 'sub_opt', tenantId: T1, livemode: true, periodeFin: null, finPrevueLe: null, finiLe: null, finRaison: null,
+          ...o.optionVivante,
+        } : null),
+        noterPlaces: async () => null,
+      },
       offre: async () => o.offre ?? 'pro',
       formulePayee: async () => o.formulePayee ?? true,
       numerosCouverts: async () => 1,
@@ -299,6 +307,34 @@ describe('qui peut acheter du Crédit WhatsApp', () => {
  * L'OPTION DU CRÉDIT WHATSAPP DANS L'ONGLET (lot 4a) : ce que la vue en dit, et ses deux routes, réservées aux
  * administrateurs. Les gestes chez Stripe sont éprouvés par `tests/stripe-option-credit-whatsapp.test.ts`.
  */
+/**
+ * L'ÉTAT POUR LES CARTES « QUI RÈGLE META ? » (révision du 2026-11-04, lot B, B1) : une lecture légère, que Connecter
+ * WhatsApp et l'Accueil font à chaque affichage, sans l'historique ni la courbe de l'onglet.
+ */
+describe('GET /tenants/:tenantId/credit-whatsapp/etat', () => {
+  const etat = (srv: ReturnType<typeof buildServer>, jeton = admin) => srv.inject({ method: 'GET', url: `/tenants/${T1}/credit-whatsapp/etat`, ...h(jeton) });
+
+  it('🔴 l’état de la ligne (etatLigneCredit) et la vente ouverte ou non, lus par tout membre', async () => {
+    const cas: Array<[Parameters<typeof achat>[0], { etat: string; enVente: boolean }]> = [
+      [{ lignes: [] }, { etat: 'a_prendre', enVente: true }],
+      [{ lignes: [], optionVivante: { places: 1, statut: 'actif' } }, { etat: 'en_attente', enVente: true }],
+      [{}, { etat: 'active', enVente: true }],
+      [{ lignes: [], formulePayee: false }, { etat: 'essai', enVente: true }],
+      [{ lignes: [], prixOption: '' }, { etat: 'a_prendre', enVente: false }],
+      [{ lignes: [], stripe: 'aucun' }, { etat: 'a_prendre', enVente: false }],
+      [{ lignes: [], offre: 'base' }, { etat: 'free', enVente: false }],
+      [{ lignes: [], offre: 'entreprise' }, { etat: 'a_prendre', enVente: false }],
+    ];
+    for (const [o, attendu] of cas) {
+      const a = achat(o);
+      const r = await etat(a.srv, membre);
+      expect(r.statusCode, JSON.stringify(o)).toBe(200);
+      expect(r.json(), JSON.stringify(o)).toEqual(attendu);
+      await a.srv.close();
+    }
+  });
+});
+
 describe('l’option dans l’onglet', () => {
   const lire = (srv: ReturnType<typeof buildServer>) => srv.inject({ method: 'GET', url: `/tenants/${T1}/credit-whatsapp`, ...h(admin) });
   const option = (srv: ReturnType<typeof buildServer>, method: 'POST' | 'PATCH', corps: unknown, jeton = admin) =>

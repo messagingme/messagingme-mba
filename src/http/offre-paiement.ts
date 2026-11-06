@@ -33,9 +33,10 @@ export interface OffrePaiementRouteDeps {
   resiliation(tenantId: string, resilier: boolean, payeur: string): Promise<Issue<{ finPrevueLe: string | null }>>;
   /**
    * Démarrer la formule Pro avant la fin de l'essai (`demarrerProMaintenant`, révision du Crédit WhatsApp du 2026-11-04) :
-   * Stripe prélève tout de suite ; un refus laisse l'essai tel quel.
+   * Stripe prélève tout de suite ; un refus laisse l'essai tel quel. `paye` : la facture relue payée, que la console lit
+   * pour annoncer le démarrage et enchaîner sur l'option (jaune 2 de la relecture du lot A5).
    */
-  demarrerPro(tenantId: string, payeur: string): Promise<Issue<{ essaiFini: true }>>;
+  demarrerPro(tenantId: string, payeur: string): Promise<Issue<{ essaiFini: true; paye: boolean }>>;
   /** Les dernières factures de l'espace chez Stripe (`facturesDeLEspace`) : Pro, numéro et recharges. */
   factures(tenantId: string, payeur: string): Promise<Issue<{ factures: FactureEspace[]; plusSurStripe: boolean }>>;
   /** Le tarif réel du Pro vivant, lu sur son abonnement chez Stripe (`tarifDuPro`) : le prix de l'abonné, pas la grille. */

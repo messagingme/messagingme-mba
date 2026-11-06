@@ -12,6 +12,7 @@ import type { PointDeCredit } from '../lib/serie-credit';
 import type { LigneCredit } from '../credit-whatsapp/lignes.pg';
 import type { StatutOption } from '../credit-whatsapp/options.pg';
 import { changerPlaces, ouvrirOption, PRIX_OPTION_WA_HT_CENTIMES, PLACES_OPTION_MAX, type DepsOptionCredit } from '../stripe/option-credit-whatsapp';
+import { etatLigneCredit } from '../credit-whatsapp/etat-ligne';
 
 /**
  * LE CRÉDIT WHATSAPP D'UN ESPACE (plan du Crédit WhatsApp, tâches 10 et 11) : l'achat par Stripe et ce que montre l'onglet
@@ -89,7 +90,8 @@ export interface VueCreditWhatsapp {
   };
 }
 
-const CORPS_OPTION = z.object({ places: z.number().int() }).strict();
+/** `origine` (lot B) : depuis les cartes « Qui règle Meta ? », le retour de Stripe ramène sur Connecter WhatsApp. */
+const CORPS_OPTION = z.object({ places: z.number().int(), origine: z.enum(['offre', 'connecter']).optional() }).strict();
 const CORPS_PLACES = z.object({ depuis: z.number().int(), cible: z.number().int() }).strict();
 
 export function registerCreditWhatsapp(
@@ -97,6 +99,25 @@ export function registerCreditWhatsapp(
 ): void {
   // Admin (la garde) et plafond coûteux : chaque clic crée des objets chez Stripe.
   const couteux = gardeEtendue(garde, limiteCouteuse);
+
+  /**
+   * L'état pour les cartes « Qui règle Meta ? » de Connecter WhatsApp et de l'Accueil (révision du 2026-11-04, lot B) :
+   * une lecture légère, sans l'historique ni la courbe de l'onglet. Tout membre la lit ; seul un administrateur agit.
+   * `enVente` : l'option se prend en ligne (son prix posé, un Pro ou un Business) ; sinon la carte est grisée.
+   */
+  app.get('/tenants/:tenantId/credit-whatsapp/etat', { preHandler: gardeLecture }, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const o = deps.option;
+    const [etat, offre] = await Promise.all([
+      etatLigneCredit({
+        offre: (t) => o.offre(t), formulePayee: (t) => o.formulePayee(t), lignes: (t) => deps.vue.lignes(t),
+        option: (t) => o.options.vivante(t),
+      }, tenant),
+      o.offre(tenant),
+    ]);
+    const enVente = o.stripe !== null && o.prixOption !== '' && (offre === 'pro' || offre === 'business');
+    return reply.code(200).send({ etat, enVente });
+  });
 
   /** L'onglet : tout membre le lit (un agent y voit le solde et qui peut recharger), seul un administrateur achète. */
   app.get('/tenants/:tenantId/credit-whatsapp', { preHandler: gardeLecture }, async (req, reply) => {
@@ -145,7 +166,7 @@ export function registerCreditWhatsapp(
     const tenant = espaceVerifie(req);
     const c = CORPS_OPTION.safeParse(req.body);
     if (!c.success) return reply.code(400).send({ error: 'corps invalide : places (un entier) est attendu', code: 'corps_invalide' });
-    const r = await ouvrirOption(deps.option, tenant, c.data.places, req.auth?.userId ?? '');
+    const r = await ouvrirOption(deps.option, tenant, c.data.places, req.auth?.userId ?? '', c.data.origine ?? 'offre');
     if (!r.ok) return reply.code(r.statut).send(corpsDuRefus(r));
     return reply.code(200).send({ url: r.valeur.url });
   });

@@ -75,9 +75,12 @@ const PRIX_INCOHERENT = refus(422,
 
 /**
  * Ouvre la session Checkout de l'option pour `places` numéros. `payeur` est l'utilisateur de la session, jamais une valeur
- * du corps. Une option déjà vivante se change (`changerPlaces`), elle ne se reprend pas.
+ * du corps. Une option déjà vivante se change (`changerPlaces`), elle ne se reprend pas. `origine` : d'où part le paiement,
+ * pour y revenir ; depuis les cartes « Qui règle Meta ? » (lot B), Connecter WhatsApp, où le numéro se branche ensuite.
  */
-export async function ouvrirOption(d: DepsOptionCredit, tenantId: string, places: number, payeur: string): Promise<Issue<{ url: string }>> {
+export async function ouvrirOption(
+  d: DepsOptionCredit, tenantId: string, places: number, payeur: string, origine: 'offre' | 'connecter' = 'offre',
+): Promise<Issue<{ url: string }>> {
   const s = d.stripe;
   if (s === null || d.prixOption === '') return OPTION_INDISPONIBLE;
   if (!(await d.payeurAutorise(payeur))) return OPTION_INDISPONIBLE;
@@ -95,14 +98,14 @@ export async function ouvrirOption(d: DepsOptionCredit, tenantId: string, places
   }
   try {
     if (!(await prixJuste(s, d.prixOption, tenantId))) return PRIX_INCOHERENT;
-    const retour = `${page(d, 'offre')}?tab=whatsapp`;
+    const retour = origine === 'connecter' ? `${page(d, 'console')}?` : `${page(d, 'offre')}?tab=whatsapp&`;
     const session = await creerSessionAbonnement(s.transport, {
       cle: s.cle,
       tenantId,
       prix: d.prixOption,
       customerId: await clientDeLEspace(d, s, tenantId),
-      urlSucces: `${retour}&option=recue`,
-      urlAbandon: `${retour}&option=abandon`,
+      urlSucces: `${retour}option=recue`,
+      urlAbandon: `${retour}option=abandon`,
       idempotence: `option-wa-${tenantId}-${randomUUID()}`,
       produit: PRODUIT_OPTION_WA,
       quantite: places,

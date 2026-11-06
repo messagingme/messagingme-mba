@@ -100,6 +100,16 @@ describe('ouvrir l’option', () => {
     expect(session.get('success_url')).toBe('https://console.messagingme.app/offre?tab=whatsapp&option=recue');
   });
 
+  it('🔴 depuis les cartes « Qui règle Meta ? » (lot B), le retour de Stripe ramène sur Connecter WhatsApp, payé ou abandonné', async () => {
+    const { d, transport } = deps();
+    expect(await ouvrirOption(d, T1, 1, 'u1', 'connecter')).toMatchObject({ ok: true });
+    const session = transport.posts.find((p) => p.url.endsWith('/checkout/sessions'))!.corps;
+    expect([session.get('success_url'), session.get('cancel_url')]).toEqual([
+      'https://console.messagingme.app/connecter-whatsapp?option=recue',
+      'https://console.messagingme.app/connecter-whatsapp?option=abandon',
+    ]);
+  });
+
   it('🔴 rien ne part chez Stripe : sans prix, en Free, en Entreprise, déjà prise, hors des bornes', async () => {
     const cas: Array<[string, Parameters<typeof deps>[0], number, number, string]> = [
       ['sans prix', { prixOption: '' }, 1, 503, 'option_indisponible'],

@@ -663,7 +663,10 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         const relancees = await deps.option.relancerLesLignes(issue.tenantId);
         await deps.option.reprendreCampagnes(issue.tenantId);
         if (issue.nouveau) {
-          const suite = relancees > 0 ? `, ${relancees} ligne${relancees > 1 ? 's' : ''} relancée${relancees > 1 ? 's' : ''}` : '';
+          // Sans ligne à relancer, c'est une ligne à POSER, dans le délai que les cartes promettent au client (lot B).
+          const suite = relancees > 0
+            ? `, ${relancees} ligne${relancees > 1 ? 's' : ''} relancée${relancees > 1 ? 's' : ''}`
+            : ' : ligne à poser sous 24 h ouvrées';
           await deps.option.alerter(`Nouvelle option Crédit WhatsApp : espace ${issue.tenantId} (${abonnementId}), ${places} numéro${places > 1 ? 's' : ''}${suite}.`);
         }
       } else if (issue.etat === 'doublon') {

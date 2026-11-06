@@ -89,6 +89,8 @@ describe('l’option du Crédit WhatsApp', () => {
   function option(o: {
     relu?: { statut: string; places: number; finPrevueLe: Date | null } | null; connue?: boolean; vivante?: boolean; premiereFin?: boolean;
     illimite?: boolean; issue?: 'fini' | 'doublon'; nouveau?: boolean; droit?: IssueFinDeDroitOption;
+    /** Les lignes que l'enregistrement relance (une option reprise) ; une par défaut. */
+    relancees?: number;
     /** La fin de l'option chez nous (`finieLe`) ; absente : une option qui vit encore, ou inconnue. */
     finiLe?: Date;
   } = {}) {
@@ -110,7 +112,7 @@ describe('l’option du Crédit WhatsApp', () => {
       chezStripe: async () => (o.relu === undefined ? { statut: 'active', places: 2, finPrevueLe: null } : o.relu),
       arreterLesLignes: async (t) => { journal.push(`arret:${t}`); return 1; },
       illimite: async () => o.illimite === true,
-      relancerLesLignes: async (t) => { journal.push(`relance:${t}`); return 1; },
+      relancerLesLignes: async (t) => { journal.push(`relance:${t}`); return o.relancees ?? 1; },
       reprendreCampagnes: async (t) => { journal.push(`reprise:${t}`); return 0; },
       resilier: async (id) => { journal.push(`resilier:${id}`); return true; },
       // Une option enregistrée relit son droit : une offre y donne droit, sauf avis contraire du test.
@@ -134,6 +136,13 @@ describe('l’option du Crédit WhatsApp', () => {
     // Une option neuve (ou reprise) relance les lignes que la fin de la précédente avait arrêtées, et ses campagnes en
     // pause faute de ligne repartent (jaunes 4 et 6 de la relecture du lot 4a).
     expect(paye.journal).toEqual(['enregistrer:sub_opt:3', `relance:${TENANT}`, `reprise:${TENANT}`]);
+    // Une option reprise relance ses lignes : rien à poser, l'alerte le dit comme avant.
+    expect(paye.alertes).toEqual(['Nouvelle option Crédit WhatsApp : espace 5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01 (sub_opt), 3 numéros, 1 ligne relancée.']);
+    // Une option neuve, sans ligne : l'alerte à Julien dit le geste et son délai, celui que les cartes promettent au
+    // client (lot B, B1).
+    const neuve = option({ relu: { statut: 'active', places: 1, finPrevueLe: null }, relancees: 0 });
+    await neuve.traitement.traiter(evenement('checkout.session.completed', session));
+    expect(neuve.alertes).toEqual(['Nouvelle option Crédit WhatsApp : espace 5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01 (sub_opt), 1 numéro : ligne à poser sous 24 h ouvrées.']);
     const impaye = option();
     await impaye.traitement.traiter(evenement('checkout.session.completed', { ...session, payment_status: 'unpaid' }));
     const incomplet = option({ relu: { statut: 'incomplete', places: 3, finPrevueLe: null } });

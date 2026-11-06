@@ -254,7 +254,7 @@ describe('demarrerProMaintenant', () => {
   function demarrer(o: { reponses?: Array<ReponseStripe | Error>; essai?: Date | null; finPrevue?: Date; verrouTenu?: boolean; pro?: null } = {}) {
     const base = monter({ reponses: o.reponses, ...(o.pro === null ? { pro: null } : {}) });
     const fins: Array<{ abonnementId: string; finLe: Date }> = [];
-    const verrous = { pris: [] as string[], relaches: 0 };
+    const verrous = { pris: [] as string[], relaches: 0, prolonges: [] as number[] };
     const d: DepsDemarrerPro = {
       ...base.d,
       resumeDuPro: async () => ({ essaiFinLe: o.essai === undefined ? EN_ESSAI : o.essai, finPrevueLe: o.finPrevue ?? null }),
@@ -265,6 +265,7 @@ describe('demarrerProMaintenant', () => {
           return o.verrouTenu ? null : { jeton: 'j', cles: cles.map(([c]) => c) };
         },
         relacher: async () => { verrous.relaches += 1; },
+        prolonger: async (_prise, dureeMs) => { verrous.prolonges.push(dureeMs); return true; },
       },
       maintenant: () => MAINTENANT,
     };
@@ -314,10 +315,23 @@ describe('demarrerProMaintenant', () => {
     for (const reponses of [[relu('trialing'), indisponible], [relu('trialing'), new Error('TimeoutError')], [indisponible]]) {
       const panne = demarrer({ reponses });
       expect(await demarrerProMaintenant(panne.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 503, details: { code: 'paiement_indisponible' } });
-      expect([panne.fins, panne.verrous.pris, panne.verrous.relaches]).toEqual([[], ['pro.demarrer:t1'], 0]);
+      // Gardé, et repoussé d'une minute pleine depuis la réponse (jaune 5 du lot A5) : deux appels de 30 s peuvent l'avoir
+      // presque échu.
+      expect([panne.fins, panne.verrous.pris, panne.verrous.relaches, panne.verrous.prolonges]).toEqual([[], ['pro.demarrer:t1'], 0, [60_000]]);
     }
     const sansPro = demarrer({ pro: null });
     expect(await demarrerProMaintenant(sansPro.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 409, details: { code: 'aucun_pro' } });
+  });
+
+  it('🔴 une réponse 200 illisible après l’envoi : l’issue est inconnue, pas un refus (jaune 4 du lot A5) : le verrou gardé, « rechargez la page »', async () => {
+    // Stripe a sans doute appliqué l'arrêt de l'essai : dire « réessayez » ferait cliquer de nouveau sur un essai fini.
+    const autre = { status: 200, json: { id: 'sub_autre', status: 'active' } };
+    const illisible = { status: 200, json: { pas: 'un abonnement' } };
+    for (const apres of [autre, illisible]) {
+      const r = demarrer({ reponses: [relu('trialing'), apres] });
+      expect(await demarrerProMaintenant(r.d, 't1', 'u1')).toMatchObject({ ok: false, statut: 503, details: { code: 'demarrage_incertain' } });
+      expect([r.fins, r.verrous.relaches, r.verrous.prolonges]).toEqual([[], 0, [60_000]]);
+    }
   });
 
   it('🔴 une résiliation programmée : 409 resiliation_programmee, ni verrou ni appel chez Stripe (le premier paiement n’est pas voulu)', async () => {
