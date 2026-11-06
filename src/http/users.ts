@@ -6,6 +6,7 @@ import type { Guard } from '../auth/middleware';
 import { verifyPassword } from '../auth/password';
 import { RateLimiter } from '../auth/rate-limit';
 import { renderInvitationEmail } from '../support/email-templates';
+import { libelleInvitant } from '../../web/lib/partage/invitation';
 import { espaceVerifie, estUuid } from './scope';
 import type { IssueReinitialisation } from '../auth/mfa-store.pg';
 import { makeJournal, type AuditSink } from '../audit/journal';
@@ -24,8 +25,6 @@ export interface UsersRouteDeps {
   createInviteToken(userId: string): Promise<string>;
   /** Envoi de l'email d'invitation (Resend). Absent -> l'invitation est créée mais aucun email n'est envoyé. */
   sendEmail?(input: { to: string; subject: string; text: string; html?: string }): Promise<void>;
-  /** Nom (ou email de repli) de l'invitant, pour personnaliser l'email. null -> phrase générique. */
-  getInviterName(userId: string): Promise<string | null>;
   mfa: {
     /**
      * Réinitialise le second facteur d'un membre (téléphone perdu, codes de secours épuisés). `autres_espaces` =
@@ -52,8 +51,13 @@ export interface MembresDep {
   setDisabled(tenantId: string, userId: string, disabled: boolean): Promise<UserMutation>;
   /** Supprime définitivement un compte. Refusé si dernier admin actif. */
   deleteUser(tenantId: string, userId: string): Promise<UserMutation>;
-  /** Invitation : crée un compte en attente (sans mdp). */
-  createPending(tenantId: string, email: string, role: string, name?: string): Promise<UserRow>;
+  /**
+   * Invitation : crée un compte en attente (sans mdp), qui n'ouvre rien avant l'acceptation sur sa page. `invitePar` : le
+   * compte qui invite, que la page affiche (lot identité C).
+   */
+  createPending(tenantId: string, email: string, role: string, name?: string, invitePar?: string | null): Promise<UserRow>;
+  /** Le nom et l'adresse d'un compte : l'invitant, que l'e-mail d'invitation nomme. `null` = compte inconnu. */
+  getById(userId: string): Promise<{ email: string; name: string | null; role: string } | null>;
   /**
    * Pose le nom affiché d'un membre. `not_found` = id inconnu ou autre espace. Même type de retour que les autres
    * mutations de membre (`last_admin` n'arrive pas ici).
@@ -147,29 +151,33 @@ export function registerUsers(app: FastifyInstance, deps: UsersRouteDeps, garde:
     const nom = typeof b.name === 'string' ? b.name.trim() : '';
 
     try {
-      const user = await deps.users.createPending(tenant, email, b.role, nom);
+      // Le compte qui invite, que la page de l'invitation affiche (lot identité C). Une session d'observation (`/ops`)
+      // n'a pas d'identifiant de compte, et n'écrit de toute façon rien.
+      const invitePar = req.auth?.userId && estUuid(req.auth.userId) ? req.auth.userId : null;
+      const user = await deps.users.createPending(tenant, email, b.role, nom, invitePar);
       const raw = await deps.createInviteToken(user.id);
       let emailSent = false;
       if (deps.sendEmail && deps.appUrl) {
         const acceptUrl = `${deps.appUrl}/invite/${raw}`;
-        // Personnalisation au mieux : le nom de l'invitant (req.auth.userId) et de l'espace. Une panne de lookup ne
-        // bloque jamais l'invitation -> repli sur une formulation générique.
-        const inviterName = req.auth?.userId ? await deps.getInviterName(req.auth.userId).catch(() => null) : null;
+        // Personnalisation au mieux : le nom et l'adresse de l'invitant, et l'espace. Une panne de lecture ne bloque
+        // jamais l'invitation -> repli sur une formulation générique.
+        const inviteur = req.auth?.userId ? await deps.users.getById(req.auth.userId).catch(() => null) : null;
+        const inviterName = libelleInvitant(inviteur?.name, inviteur?.email) || null;
         const workspaceName = await deps.users.getTenantName(tenant).catch(() => null);
         // Le rôle ENREGISTRÉ (`user.role`) : en Pro, le store inscrit un administrateur quel que soit le rôle demandé.
-        const html = renderInvitationEmail({ inviterName, workspaceName, acceptUrl, role: user.role });
+        const html = renderInvitationEmail({ inviterName: inviteur?.name, inviterEmail: inviteur?.email, workspaceName, acceptUrl, role: user.role });
         // Repli texte brut pour les clients qui ne rendent pas le HTML (personnalisé si dispo).
         const intro = inviterName && workspaceName
-          ? `${inviterName} t'invite à rejoindre l'espace ${workspaceName} sur Messaging Me.`
+          ? `${inviterName} vous invite à rejoindre l'espace ${workspaceName} sur Messaging Me.`
           : workspaceName
-            ? `Tu es invité à rejoindre l'espace ${workspaceName} sur Messaging Me.`
-            : `Tu es invité à rejoindre un espace de travail sur Messaging Me.`;
-        const subject = workspaceName ? `Rejoins ${workspaceName} sur Messaging Me` : 'Tu es invité sur Messaging Me';
+            ? `Vous êtes invité à rejoindre l'espace ${workspaceName} sur Messaging Me.`
+            : `Vous êtes invité à rejoindre un espace de travail sur Messaging Me.`;
+        const subject = workspaceName ? `Rejoignez ${workspaceName} sur Messaging Me` : 'Vous êtes invité sur Messaging Me';
         try {
           await deps.sendEmail({
             to: email,
             subject,
-            text: `${intro}\n\nClique sur ce lien pour choisir ton mot de passe et activer ton compte (valide 7 jours) :\n${acceptUrl}`,
+            text: `${intro}\n\nOuvrez ce lien pour rejoindre l'espace, avec Google ou avec un mot de passe (valable 7 jours) :\n${acceptUrl}`,
             html,
           });
           emailSent = true;

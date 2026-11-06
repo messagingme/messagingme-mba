@@ -26,7 +26,7 @@ interface Captured {
   roleSet: Array<{ tenant: string; userId: string; role: string }>;
   disabledSet: Array<{ tenant: string; userId: string; disabled: boolean }>;
   deleted: Array<{ tenant: string; userId: string }>;
-  invited: Array<{ tenant: string; email: string; role: string; name?: string }>;
+  invited: Array<{ tenant: string; email: string; role: string; name?: string; invitePar?: string | null }>;
   nameSet: Array<{ tenant: string; userId: string; name: string }>;
   emails: string[];
   emailObjs: Array<{ to: string; subject: string; text: string; html?: string }>;
@@ -40,13 +40,14 @@ function app(over: Partial<Omit<UsersRouteDeps, 'users'>> & { users?: Partial<Me
     users: {
       ...membresDepInertes,
       list: async () => [EXISTING],
-      createPending: async (tenant, email, role, name) => {
+      createPending: async (tenant, email, role, name, invitePar) => {
         if (email === 'taken@demo.test') throw new DuplicateEmailError();
-        cap.invited.push({ tenant, email, role, ...(name ? { name } : {}) });
+        cap.invited.push({ tenant, email, role, ...(name ? { name } : {}), ...(invitePar ? { invitePar } : {}) });
         // Une invitation en attente n'a par construction jamais servi à se connecter.
         return { id: 'pending1', email, name: null, role, disabled: false, pending: true, createdAt: '2026-07-10T00:00:00.000Z', lastLoginAt: null };
       },
       getTenantName: async () => 'Acme Corp',
+      getById: async (userId) => (userId === 'u1' ? { email: 'julien@demo.test', name: 'Julien', role: 'admin' } : null),
       setName: async (tenant, userId, name) => {
         cap.nameSet.push({ tenant, userId, name });
         return userId === 'known' ? 'ok' : 'not_found';
@@ -67,7 +68,6 @@ function app(over: Partial<Omit<UsersRouteDeps, 'users'>> & { users?: Partial<Me
     },
     createInviteToken: async () => 'INVITE_RAW',
     sendEmail: async (e) => { cap.emails.push(e.text); cap.emailObjs.push(e); },
-    getInviterName: async () => 'Julien',
     appUrl: 'https://mba.messagingme.app',
     ...reste,
   };
@@ -306,14 +306,24 @@ describe('users route — invitation', () => {
     expect(res.json<{ emailSent: boolean; user: { pending: boolean } }>()).toMatchObject({ emailSent: true, user: { pending: true } });
     expect(cap.invited).toEqual([{ tenant: 't1', email: 'new@demo.test', role: 'agent' }]); // email normalisé
     expect(cap.emails[0]).toContain('/invite/INVITE_RAW');
-    // Email HTML brandé + personnalisé (invitant + espace), sans jamais « UChat ».
+    // Email HTML brandé + personnalisé (invitant, avec son ADRESSE, et espace), sans jamais « UChat ».
     const sent = cap.emailObjs[0]!;
     expect(sent.html).toBeDefined();
-    expect(sent.html).toContain('Julien');
+    expect(sent.html).toContain('Julien (julien@demo.test)');
+    expect(cap.emails[0]).toContain('Julien (julien@demo.test) vous invite');
     expect(sent.html).toContain('Acme Corp');
     expect(sent.html).toContain('/invite/INVITE_RAW');
     expect(sent.html!.toLowerCase()).not.toContain('uchat');
     expect(sent.subject).toContain('Acme Corp');
+  });
+  it('🔴 lot identité C : le compte invité garde qui l’a invité (un identifiant de compte), que la page de l’invitation affiche', async () => {
+    const { server, cap } = app();
+    const admin = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+    const tok = await signSession({ userId: admin, tenantId: 't1', role: 'admin' }, SECRET);
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/invitations', ...h(tok), payload: { email: 'new@demo.test', role: 'agent' } });
+    expect(res.statusCode).toBe(201);
+    expect(cap.invited).toEqual([{ tenant: 't1', email: 'new@demo.test', role: 'agent', invitePar: admin }]);
+    await server.close();
   });
   it('POST /invitations email déjà pris -> 409', async () => {
     const { server } = app();

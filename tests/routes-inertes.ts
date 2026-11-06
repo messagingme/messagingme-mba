@@ -502,11 +502,9 @@ export const modelesInertes: Pick<DepsGestionModeles, 'getPublishedFlow' | 'indi
 /** `listActiveCampaignsForTemplate` absente : pas de garde-fou, donc aucune campagne active. */
 export const aucuneCampagneActive = async (): Promise<[]> => [];
 
-export const membresInertes: Pick<UsersRouteDeps, 'audit' | 'createInviteToken' | 'getInviterName' | 'mfa' | 'appUrl' | 'opsEmails'> = {
+export const membresInertes: Pick<UsersRouteDeps, 'audit' | 'createInviteToken' | 'mfa' | 'appUrl' | 'opsEmails'> = {
   audit: journalMuet,
   createInviteToken: neDevraitPasEtreAppelee('createInviteToken'),
-  // Absente : phrase générique dans l'e-mail d'invitation.
-  getInviterName: async () => null,
   mfa: { reinitialiserDansEspace: neDevraitPasEtreAppelee('reinitialiserDansEspace') },
   // Absente : aucun e-mail d'invitation ne partait. Une adresse vide produit le même saut.
   appUrl: '',
@@ -514,8 +512,10 @@ export const membresInertes: Pick<UsersRouteDeps, 'audit' | 'createInviteToken' 
   opsEmails: [],
 };
 
-export const membresDepInertes: Pick<MembresDep, 'createPending' | 'setName' | 'getTenantName' | 'setTenantName' | 'getSecondFacteurAdmins' | 'setSecondFacteurAdmins' | 'getPasswordHash'> = {
+export const membresDepInertes: Pick<MembresDep, 'createPending' | 'getById' | 'setName' | 'getTenantName' | 'setTenantName' | 'getSecondFacteurAdmins' | 'setSecondFacteurAdmins' | 'getPasswordHash'> = {
   createPending: neDevraitPasEtreAppelee('createPending'),
+  // Absente : ni nom ni adresse d'invitant, phrase générique dans l'e-mail d'invitation.
+  getById: async () => null,
   setName: neDevraitPasEtreAppelee('setName'),
   // Absente : phrase générique dans l'e-mail d'invitation.
   getTenantName: async () => null,

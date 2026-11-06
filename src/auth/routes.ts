@@ -49,6 +49,8 @@ export interface AuthRouteDeps extends MfaDeps {
   tokens?: {
     create(purpose: 'reset' | 'invite', userId: string, ttlMs: number): Promise<string>;
     consume(purpose: 'reset' | 'invite', raw: string): Promise<string | null>;
+    /** Le compte d'un token valide, sans le consommer (la page d'une invitation). Absent : ses routes rendent 503. */
+    lire?(purpose: 'reset' | 'invite', raw: string): Promise<string | null>;
   };
   /**
    * Envoi d'e-mail (Resend) pour les liens. Absent : forgot-password répond 200 sans rien envoyer, et la demande du lien
@@ -169,6 +171,7 @@ const LONGUEUR_MAX_JETON = 128;
 /** La borne du nom d'un membre, celle de l'invitation (`MAX_NOM`, `src/http/users.ts`). */
 const LONGUEUR_MAX_NOM = 60;
 const ADRESSE_DEJA_CONNUE = { error: 'un compte existe déjà avec cet email', code: REFUS_INSCRIPTION.adresseConnue } as const;
+const INVITATION_INVALIDE = { error: 'invitation invalide ou expirée' } as const;
 const LIEN_MORT = {
   error: 'Ce lien ne vaut plus : il a expiré, ou il a déjà servi. Refaites une demande d’inscription.',
   code: REFUS_INSCRIPTION.lienInvalide,
@@ -184,7 +187,7 @@ async function freine(plafond: PlafondPartage, cle: string, reply: FastifyReply)
 
 export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: Guard, compteur: CompteurDebit): void {
   /**
-   * Les sept plafonds, dans le compteur partagé, tous fermés sur panne. Plus de plafond de clés vivantes : il bornait
+   * Les huit plafonds, dans le compteur partagé, tous fermés sur panne. Plus de plafond de clés vivantes : il bornait
    * la MÉMOIRE d'un processus contre un robot qui invente des adresses ; en base, ces lignes vivent le temps de leur
    * fenêtre et la tâche `compteurs-debit` du worker les efface toutes les cinq minutes.
    */
@@ -200,6 +203,11 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
   // Le clic sur le lien d'inscription, par réseau du client : un jeton inventé ne coûte qu'une requête indexée, et ce
   // plafond borne leur nombre. Les plafonds de la DEMANDE du lien sont à part (`compterDemande`, trois fenêtres en un appel).
   const confirmLimiter = plafond('confirm', 20);
+  // La page d'une invitation (aperçu, acceptation par Google, puis par mot de passe), par réseau du client : un jeton
+  // inventé ne coûte qu'une requête indexée, et ce plafond borne leur nombre (lot identité C). 60 et non 20 : une équipe
+  // derrière une même adresse (un NAT d'entreprise) passe par ici en même temps. Distinct d'`acceptLimiter`, qui borne
+  // les essais de mot de passe d'UN jeton : recharger la page n'en consomme aucun.
+  const invitationLimiter = plafond('invitation', 60);
 
   app.post('/auth/login', async (req, reply) => {
     const b = (req.body ?? {}) as { email?: unknown; password?: unknown; ops?: unknown };
@@ -402,11 +410,17 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     if (await freine(signupLimiter, empreinteTentative(req, email), reply)) return reply;
     const existant = await deps.comptes.motDePasseDeLAdresse(email);
     if (existant === undefined) return demanderUnLien(req, reply, email, b);
+    // Une identité sans mot de passe ET sans compte ouvert est née d'une invitation jamais acceptée (lot identité C) :
+    // l'adresse est traitée comme neuve, le lien part, et le clic lui donne son mot de passe et son espace, l'invitation
+    // restant en attente, à part. Rien de plus n'est révélé : une adresse inconnue reçoit la même réponse.
+    if (existant === null && deps.comptes.getByEmail && (await deps.comptes.getByEmail(email)).length === 0) {
+      return demanderUnLien(req, reply, email, b);
+    }
     // 🔴 Une adresse déjà connue ne s'inscrit qu'avec son mot de passe : l'inscription réutilise son identité, et
     // sans cette vérification n'importe qui se rattacherait à l'identité d'un autre, puis changerait le mot de
-    // passe de tous ses espaces. Une identité sans mot de passe (invitation en attente, Google) ne s'étend pas
-    // par ici. Sans mot de passe du tout (l'étape de l'adresse de la console), le même 409 : la console demande alors
-    // le mot de passe et le nom du nouvel espace.
+    // passe de tous ses espaces. Une identité sans mot de passe qui a un compte ouvert (Google) ne s'étend pas par ici.
+    // Sans mot de passe du tout (l'étape de l'adresse de la console), le même 409 : la console demande alors le mot de
+    // passe et le nom du nouvel espace.
     if (password === '') return reply.code(409).send(ADRESSE_DEJA_CONNUE);
     if (str(b.workspaceName).trim() === '') return reply.code(400).send({ error: 'nom de l\'espace requis' });
     // La même règle que le renommage (`src/user/nom-espace.ts`) : un nom de 500 Ko ou un saut de ligne
@@ -479,14 +493,14 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     // Clé sur l'adresse. Le `take()` précède toute lecture : le seuil du 429 ne révèle pas l'existence du compte.
     if (await freine(forgotLimiter, empreinteTentative(req, email), reply)) return reply;
     const generic = { ok: true, message: 'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.' };
-    if (EMAIL_RE.test(email) && deps.tokens && deps.sendEmail && deps.appUrl) {
+    if (EMAIL_RE.test(email) && deps.tokens && deps.sendEmail && deps.appUrl && deps.comptes?.compteAReinitialiser) {
       try {
         // Le jeton vise un compte de l'adresse, mais `setPassword` écrit sur l'identité : le nouveau mot de passe
-        // vaut pour tous ses espaces, l'utilisateur n'en ayant qu'un.
-        const identite = await deps.users.findIdentity(email); // null si inconnue / sans mdp (Google-only)
-        const user = identite?.comptes[0] ?? null;
-        if (user) {
-          const raw = await deps.tokens.create('reset', user.id, deps.resetTtlMs ?? 60 * 60 * 1000);
+        // vaut pour tous ses espaces. Une invitation en attente compte ici (lot identité C) : la réinitialisation prouve
+        // l'adresse et n'ouvre aucun compte, et un membre réinvité qui a oublié son mot de passe doit pouvoir le reprendre.
+        const userId = await deps.comptes.compteAReinitialiser(email); // null si inconnue, sans mdp ou tout révoqué
+        if (userId) {
+          const raw = await deps.tokens.create('reset', userId, deps.resetTtlMs ?? 60 * 60 * 1000);
           // Envoi en fire-and-forget : la réponse ne dépend pas de la latence de Resend, qui trahirait une adresse
           // connue.
           void deps.sendEmail({
@@ -518,36 +532,103 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     return reply.code(200).send({ ok: true });
   });
 
-  // Acceptation d'invitation : consomme le token (usage unique), pose le mot de passe, puis la même porte que la
-  // connexion (second facteur si dû, session sinon).
+  /**
+   * LA PAGE D'UNE INVITATION (lot identité C) : elle seule ouvre un compte créé par une invitation, qu'aucune autre entrée
+   * ne voit (Google, mot de passe, sélecteur, OAuth). Ses trois routes passent d'abord le plafond par réseau du client.
+   *
+   * L'aperçu, lu sans rien consommer : l'espace, l'adresse invitée, l'invitant (nom et adresse) et si l'adresse a déjà un
+   * mot de passe (la page demande alors l'actuel).
+   */
+  app.post('/auth/invitations/apercu', async (req, reply) => {
+    if (!deps.tokens?.lire || !deps.comptes?.apercuInvitation) return reply.code(503).send({ error: 'invitations indisponibles' });
+    const token = str((req.body as { token?: unknown } | undefined)?.token);
+    if (token === '') return reply.code(400).send({ error: 'token requis' });
+    if (await freine(invitationLimiter, empreinteTentative({ ip: reseauDuClient(req) }, 'invitation'), reply)) return reply;
+    const userId = await deps.tokens.lire('invite', token);
+    const apercu = userId ? await deps.comptes.apercuInvitation(userId) : null;
+    if (!apercu) return reply.code(400).send(INVITATION_INVALIDE);
+    return reply.code(200).send(apercu);
+  });
+
+  /**
+   * L'acceptation par mot de passe. Une adresse qui en a déjà un donne l'ACTUEL : vérifié, rien n'est écrit (ni hash ni
+   * époque des sessions), et sans minimum de longueur (un mot de passe d'avant le minimum de 12 caractères se connecte
+   * toujours). Une adresse qui n'en a pas en choisit un. Le jeton n'est consommé qu'après la preuve, dans la transaction qui
+   * accepte : un faux mot de passe le laisse intact. Puis la même porte que la connexion, l'état du second facteur relu
+   * APRÈS l'acceptation : le compte accepté compte alors pour l'obligation (un admin invité dans un espace qui l'exige
+   * enrôle d'abord ; une identité qui a un facteur donne son code).
+   */
   app.post('/auth/invitations/accept', async (req, reply) => {
-    if (!deps.tokens || !deps.comptes?.setPassword || !deps.comptes.getSessionUser || !deps.mfa) return reply.code(503).send({ error: 'invitations indisponibles' });
+    if (!deps.tokens?.lire || !deps.comptes?.accepterInvitation || !deps.comptes.getPasswordHash || !deps.comptes.getSessionUser || !deps.mfa) {
+      return reply.code(503).send({ error: 'invitations indisponibles' });
+    }
     const b = (req.body ?? {}) as { token?: unknown; password?: unknown };
     const token = str(b.token);
     const password = str(b.password);
     if (token === '') return reply.code(400).send({ error: 'token requis' });
-    // Clé sur le jeton d'invitation : borne le brute-force d'un lien sans bloquer les autres.
+    if (await freine(invitationLimiter, empreinteTentative({ ip: reseauDuClient(req) }, 'invitation'), reply)) return reply;
+    // Clé sur le jeton d'invitation : borne les essais de mot de passe d'un lien sans bloquer les autres.
     if (await freine(acceptLimiter, empreinteTentative(req, token), reply)) return reply;
-    if (password.length < MIN_MOT_DE_PASSE) return reply.code(400).send({ error: `mot de passe trop court (min ${MIN_MOT_DE_PASSE})` });
-    const userId = await deps.tokens.consume('invite', token);
-    if (!userId) return reply.code(400).send({ error: 'invitation invalide ou expirée' });
-    const su = await deps.comptes.getSessionUser(userId);
-    if (!su) return reply.code(400).send({ error: 'invitation invalide ou expirée' });
-    const facteur = await deps.mfa.lireParCompte(userId);
-    if (!facteur) return reply.code(400).send({ error: 'invitation invalide ou expirée' });
-    await deps.comptes.setPassword(userId, await hashPassword(password));
-    // Accepter une invitation, c'est se connecter pour la première fois : même porte que la connexion. Une
-    // invitation d'admin dans un espace qui exige le second facteur (ou une identité déjà admin d'un tel espace)
-    // enrôle d'abord : le compte invité est actif, `obligatoire` le compte. Une identité qui a un facteur donne son code.
+    if (password === '') return reply.code(400).send({ error: 'mot de passe requis' });
+    const userId = await deps.tokens.lire('invite', token);
+    if (!userId) return reply.code(400).send(INVITATION_INVALIDE);
+    const actuel = await deps.comptes.getPasswordHash(userId);
+    let nouveauHash: string | null = null;
+    if (actuel !== null) {
+      if (!(await verifyPassword(password, actuel))) {
+        return reply.code(403).send({ error: 'mot de passe incorrect', code: 'mot_de_passe_incorrect' });
+      }
+    } else {
+      if (password.length < MIN_MOT_DE_PASSE) return reply.code(400).send({ error: `mot de passe trop court (min ${MIN_MOT_DE_PASSE})` });
+      nouveauHash = await hashPassword(password);
+    }
+    const r = await deps.comptes.accepterInvitation(token, nouveauHash);
+    if (r.statut === 'invalide') return reply.code(400).send(INVITATION_INVALIDE);
+    if (r.statut === 'mot_de_passe_existe') {
+      return reply.code(409).send({ error: 'cette adresse a désormais un mot de passe : saisissez-le', code: 'mot_de_passe_existe' });
+    }
+    const su = await deps.comptes.getSessionUser(r.userId);
+    const facteur = await deps.mfa.lireParCompte(r.userId);
+    if (!su || !facteur) return reply.code(400).send(INVITATION_INVALIDE);
     const etape: EtapeConnexion = {
       identityId: facteur.identityId,
       email: su.email,
-      comptes: [{ userId, tenantId: su.tenantId, role: su.role }],
+      comptes: [{ userId: r.userId, tenantId: su.tenantId, role: su.role }],
     };
     return reply.code(200).send(await apresLeMotDePasse(deps, etape, {
       actif: facteur.secret !== null,
       obligatoire: facteur.obligatoire,
     }));
+  });
+
+  /**
+   * L'acceptation par Google : Google prouve l'adresse, qui doit être l'adresse invitée (sinon 403, jeton intact). Rien
+   * n'est écrit sur l'identité, aucun espace ne naît ; une session comme `/auth/google`, avec le même traitement du second
+   * facteur que lui. Jamais 401 : la console viderait une autre session ouverte dans le navigateur.
+   */
+  app.post('/auth/invitations/google', async (req, reply) => {
+    if (!deps.verifyGoogle || !deps.tokens?.lire || !deps.comptes?.accepterInvitation || !deps.comptes.getSessionUser) {
+      return reply.code(503).send({ error: 'invitations indisponibles' });
+    }
+    const b = (req.body ?? {}) as { token?: unknown; idToken?: unknown };
+    const token = str(b.token);
+    const idToken = str(b.idToken);
+    if (token === '' || idToken === '') return reply.code(400).send({ error: 'token et idToken requis' });
+    if (await freine(invitationLimiter, empreinteTentative({ ip: reseauDuClient(req) }, 'invitation'), reply)) return reply;
+    const google = await deps.verifyGoogle(idToken);
+    if (!google?.emailVerified) return reply.code(400).send({ error: 'jeton Google invalide' });
+    const userId = await deps.tokens.lire('invite', token);
+    const su = userId ? await deps.comptes.getSessionUser(userId) : null;
+    if (!userId || !su) return reply.code(400).send(INVITATION_INVALIDE);
+    if (su.email.trim().toLowerCase() !== google.email.trim().toLowerCase()) {
+      return reply.code(403).send({ error: `le compte Google ${google.email} n'est pas l'adresse invitée`, code: 'autre_adresse' });
+    }
+    const r = await deps.comptes.accepterInvitation(token, null);
+    if (r.statut !== 'acceptee') return reply.code(400).send(INVITATION_INVALIDE);
+    if (deps.pub) await apresEntree(deps.pub, { adresse: su.email, corps: req.body, nouvelle: false, prouvee: true, requete: req });
+    const jwt = await signSession({ userId: r.userId, tenantId: su.tenantId, role: su.role }, deps.secret);
+    marquerConnexion(deps.comptes, r.userId);
+    return reply.code(200).send({ token: jwt, user: { email: su.email, role: su.role, tenantId: su.tenantId }, isNew: false });
   });
 
   // Changement de mot de passe (compte connecté) : vérifie le mdp courant.

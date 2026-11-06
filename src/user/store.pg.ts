@@ -6,12 +6,18 @@ import { resolveTenantCode } from '../ids/tenant-code';
 import { sha256Hex } from '../lib/signature';
 import { verifierPlaceMembre, type LimitesMembres, type RangMembre } from '../offres/membres';
 import type { ConfirmationInscription, DemandeInscription, EspaceAConfirmer } from './inscriptions';
+import type { AcceptationInvitation, ApercuInvitation } from './invitations';
 
 /** Une suppression de demandes échues ne touche jamais plus de lignes que ceci par instruction. */
 const PAQUET_PURGE_INSCRIPTIONS = 500;
 
 const estDoublon = (err: unknown): boolean =>
   Boolean(err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === '23505');
+
+/** Lancées DANS une transaction pour l'annuler entière, puis traduites en statut par la méthode qui l'ouvre. */
+class MotDePasseDejaPose extends Error {}
+class AdresseDejaConnue extends Error {}
+class InvitationRevoquee extends Error {}
 
 export interface UserRow {
   id: string;
@@ -22,7 +28,10 @@ export interface UserRow {
   code?: string | null;
   /** true = compte révoqué (login bloqué), réversible. */
   disabled: boolean;
-  /** true = invitation en attente (pas encore de mot de passe posé). */
+  /**
+   * true = invitation en attente : créée par une invitation et pas encore acceptée sur sa page (`invitation_en_attente`,
+   * migration 0281). Un tel compte n'ouvre rien et ne compte pour rien tant qu'elle ne l'est pas (lot identité C).
+   */
   pending: boolean;
   createdAt: string;
   /** Dernière connexion réussie (ISO). null = jamais connecté : pas de repli sur `createdAt`, une date d'inscription
@@ -30,7 +39,11 @@ export interface UserRow {
   lastLoginAt: string | null;
 }
 
-/** Résultat d'une mutation de compte gardée par l'invariant « au moins un admin actif par espace ». */
+/**
+ * Résultat d'une mutation de compte gardée par l'invariant « au moins un admin actif par espace ». Une invitation en
+ * attente n'y compte pas (lot identité C) : elle n'ouvre rien, et un espace dont le dernier vrai admin partirait serait
+ * laissé à quelqu'un qui n'y est jamais entré.
+ */
 export type UserMutation = 'ok' | 'last_admin' | 'not_found';
 
 /**
@@ -111,6 +124,9 @@ export class PgUserStore {
    * État d'auth courant d'un compte, relu à chaque requête par requireAuth : rôle frais et révocation. null = compte
    * supprimé. Une révocation, une suppression ou un changement de rôle prend effet tout de suite : la base fait foi,
    * pas le JWT.
+   * 🔴 Un compte en attente d'invitation rend null, comme un compte supprimé (lot identité C) : c'est le filet sous toutes
+   * les entrées. Un jeton de choix, de code ou d'enrôlement signé avant le lot, ou un chemin qu'on aurait oublié de
+   * filtrer, n'y ouvre aucune session.
    */
   async getAuthState(userId: string): Promise<{ role: string; disabled: boolean; tenantStatus: string; sessionsDepuis: Date | null } | null> {
     // `left join` : un compte sans identité (ancien) garde sa session, sans époque.
@@ -118,7 +134,7 @@ export class PgUserStore {
       `select u.role, u.disabled_at, t.status as tenant_status, i.sessions_depuis
        from users u join tenants t on t.id = u.tenant_id
        left join identities i on i.id = u.identity_id
-       where u.id = $1`,
+       where u.id = $1 and not u.invitation_en_attente`,
       [userId],
     );
     const r = res.rows[0];
@@ -190,9 +206,10 @@ export class PgUserStore {
 
   async list(tenantId: string): Promise<UserRow[]> {
     const res = await this.pool.query<{ id: string; email: string; name: string | null; role: string; code: string | null; disabled_at: Date | null; pending: boolean; created_at: Date; last_login_at: Date | null }>(
-      // `pending` veut dire « n'a jamais accepté son invitation » et se lit sur `last_login_at`, jamais sur
-      // `password_hash` : un compte Google n'a pas de mot de passe, et trois écrans excluent les comptes en attente.
-      `select id, email, name, role, code, disabled_at, (last_login_at is null) as pending, created_at, last_login_at from users
+      // `pending` veut dire « invitation pas encore acceptée » et se lit sur le drapeau que pose la seule invitation
+      // (migration 0281), jamais sur `last_login_at` (une marque de connexion manquée n'en fait pas une invitation) ni sur
+      // `password_hash` (un compte Google n'a pas de mot de passe). Trois écrans excluent les comptes en attente.
+      `select id, email, name, role, code, disabled_at, invitation_en_attente as pending, created_at, last_login_at from users
        where tenant_id = $1 order by created_at asc`,
       [tenantId],
     );
@@ -214,26 +231,50 @@ export class PgUserStore {
    * une authentification valide en 500.
    */
   async touchLastLogin(userId: string): Promise<void> {
-    await this.pool.query(`update users set last_login_at = now() where id = $1`, [userId]);
+    // Jamais pour une invitation en attente (lot identité C) : un jeton de choix ou de code signé avant le lot y
+    // laisserait sinon une marque de connexion, que le tour de rôle et les e-mails produit lisent comme une acceptation.
+    await this.pool.query(`update users set last_login_at = now() where id = $1 and not invitation_en_attente`, [userId]);
   }
 
   /**
-   * Tous les comptes d'une adresse, quel que soit leur statut, pour la connexion Google (liée par email). Distinct de
-   * `PgUserAuthStore.findIdentity`, qui exige un mot de passe. La liste complète laisse la route proposer l'écran
-   * de choix, avec le même tri que `findIdentity`.
+   * Les comptes OUVERTS d'une adresse, révoqués compris, pour l'entrée Google (console et consentement du plugin), le
+   * sélecteur d'espaces et l'autorisation OAuth. Distinct de `PgUserAuthStore.findIdentity`, qui exige un mot de passe.
+   * La liste laisse la route proposer l'écran de choix, avec le même tri que `findIdentity`.
+   * 🔴 Une invitation en attente n'y figure jamais (lot identité C) : elle ne s'ouvre que par sa page, et une adresse
+   * qui n'a qu'elle est, pour Google, une adresse inconnue (son propre espace naît).
    */
   async getByEmail(email: string): Promise<Array<{ id: string; tenantId: string; tenantName: string; role: string; disabled: boolean }>> {
     const res = await this.pool.query<{ id: string; tenant_id: string; tenant_name: string; role: string; disabled_at: Date | null }>(
       `select u.id, u.tenant_id, t.name as tenant_name, u.role, u.disabled_at
          from users u
          join tenants t on t.id = u.tenant_id
-        where lower(u.email) = lower($1)
+        where lower(u.email) = lower($1) and not u.invitation_en_attente
         order by t.name, u.id`,
       [email],
     );
     return res.rows.map((r) => ({
       id: r.id, tenantId: r.tenant_id, tenantName: r.tenant_name, role: r.role, disabled: r.disabled_at !== null,
     }));
+  }
+
+  /**
+   * Le compte auquel rattacher un lien de réinitialisation : une identité qui a un mot de passe, et l'un de ses comptes non
+   * révoqués, invitation en attente COMPRISE (un compte ouvert d'abord). La réinitialisation prouve l'adresse et n'ouvre
+   * aucun compte (`setPassword` ne lève aucun drapeau) : un membre retiré puis réinvité, qui a oublié son mot de passe, le
+   * reprend ainsi avant d'accepter sur la page de l'invitation, qui lui demande l'actuel (lot identité C).
+   * `null` = adresse inconnue, sans mot de passe, ou dont tous les comptes sont révoqués.
+   */
+  async compteAReinitialiser(email: string): Promise<string | null> {
+    const res = await this.pool.query<{ id: string }>(
+      `select u.id
+         from identities i
+         join users u on u.identity_id = i.id
+        where lower(i.email) = lower($1) and i.password_hash is not null and u.disabled_at is null
+        order by u.invitation_en_attente, u.id
+        limit 1`,
+      [email],
+    );
+    return res.rows[0]?.id ?? null;
   }
 
   /** {tenantId, role, email} d'un compte, pour émettre une session après acceptation d'invitation. */
@@ -265,9 +306,12 @@ export class PgUserStore {
     return res.rows[0]!.id;
   }
 
-  /** Crée un compte en attente (invitation), sans mot de passe : connexion impossible avant l'acceptation.
-   *  DuplicateEmailError (409) si l'email est déjà pris. */
-  async createPending(tenantId: string, email: string, role: string, name?: string): Promise<UserRow> {
+  /**
+   * Crée un compte en attente (invitation), sans mot de passe : il n'ouvre rien avant l'acceptation sur sa page. SEULE
+   * fonction qui pose `invitation_en_attente` (lot identité C) ; `invitePar`, le compte qui invite, que la page affiche.
+   * DuplicateEmailError (409) si l'email est déjà pris.
+   */
+  async createPending(tenantId: string, email: string, role: string, name?: string, invitePar?: string | null): Promise<UserRow> {
     // Le doublon AVANT la limite (livraison 7) : sinon le refus de la limite proposerait un siège, payé, pour une adresse
     // que l'insertion refuserait ensuite. La même règle que l'index `users_tenant_email_unique` (espace, adresse sans casse).
     const deja = await this.pool.query(`select 1 from users where tenant_id = $1 and lower(email) = lower($2)`, [tenantId, email]);
@@ -284,10 +328,10 @@ export class PgUserStore {
       // Le nom saisi par l'admin est posé dès l'invitation, sinon le membre apparaît sous son adresse partout.
       // Absent : `null`, donc le repli `name ?? email`.
       const res = await this.pool.query<{ id: string; email: string; name: string | null; role: string; created_at: Date }>(
-        `insert into users (tenant_id, email, name, role, password_hash, code, identity_id)
-         values ($1, $2, $6, $3, null, $4, $5)
+        `insert into users (tenant_id, email, name, role, password_hash, code, identity_id, invitation_en_attente, invite_par)
+         values ($1, $2, $6, $3, null, $4, $5, true, $7)
          returning id, email, name, role, created_at`,
-        [tenantId, email, roleEnregistre, code, identityId, name?.trim() === '' ? null : (name?.trim() ?? null)],
+        [tenantId, email, roleEnregistre, code, identityId, name?.trim() === '' ? null : (name?.trim() ?? null), invitePar ?? null],
       );
       const r = res.rows[0]!;
       return { id: r.id, email: r.email, name: r.name, role: r.role, code, disabled: false, pending: true, createdAt: r.created_at.toISOString(), lastLoginAt: null };
@@ -315,6 +359,88 @@ export class PgUserStore {
       // L'une ou l'autre écriture suffit : un compte sans identité doit pouvoir poser son mot de passe.
       return (res.rowCount ?? 0) > 0 || (miroir.rowCount ?? 0) > 0;
     });
+  }
+
+  /**
+   * Ce que la page d'une invitation affiche (lot identité C), lu sans rien consommer : l'espace, l'adresse invitée,
+   * l'invitant (nom et adresse ; null pour une invitation d'avant le lot ou un invitant supprimé) et si l'adresse a déjà
+   * un mot de passe (la page demande alors l'actuel). null = compte inconnu, ou révoqué par son espace.
+   */
+  async apercuInvitation(userId: string): Promise<ApercuInvitation | null> {
+    const res = await this.pool.query<{
+      espace: string; adresse: string; a_un_mot_de_passe: boolean; invitant_nom: string | null; invitant_adresse: string | null;
+    }>(
+      `select t.name as espace, u.email as adresse,
+              (case when u.identity_id is null then u.password_hash else i.password_hash end) is not null as a_un_mot_de_passe,
+              p.name as invitant_nom, p.email as invitant_adresse
+         from users u
+         join tenants t on t.id = u.tenant_id
+         left join identities i on i.id = u.identity_id
+         left join users p on p.id = u.invite_par
+        where u.id = $1 and u.disabled_at is null`,
+      [userId],
+    );
+    const r = res.rows[0];
+    if (!r) return null;
+    return {
+      espace: r.espace,
+      adresse: r.adresse,
+      invitant: r.invitant_adresse === null ? null : { nom: r.invitant_nom, adresse: r.invitant_adresse },
+      aUnMotDePasse: r.a_un_mot_de_passe,
+    };
+  }
+
+  /**
+   * L'acceptation d'une invitation, en UNE transaction (lot identité C) : le jeton consommé, la ligne de l'identité
+   * verrouillée (le clic d'un lien d'inscription qui s'y rattacherait attend ici), le mot de passe posé s'il est fourni,
+   * le drapeau levé. Rien ne reste à moitié : un double envoi ou une acceptation Google simultanée n'a qu'un gagnant, et
+   * l'autre n'a rien écrit.
+   * `nouveauHash` : le mot de passe choisi par une adresse qui n'en avait pas, posé seulement si elle n'en a toujours pas
+   * (sinon `mot_de_passe_existe`, tout annulé, jeton intact). null : Google, ou le mot de passe actuel déjà vérifié par
+   * la route ; rien n'est alors écrit sur l'identité. Comme `setPassword`, un mot de passe posé ouvre une nouvelle époque
+   * des sessions de l'identité (migration 0277).
+   */
+  async accepterInvitation(jeton: string, nouveauHash: string | null): Promise<AcceptationInvitation> {
+    if (!jeton) return { statut: 'invalide' };
+    try {
+      return await enTransaction(this.pool, async (client) => {
+        const t = await client.query<{ user_id: string }>(
+          `update auth_tokens set used_at = now()
+            where token_hash = $1 and purpose = 'invite' and used_at is null and expires_at > now()
+            returning user_id`,
+          [sha256Hex(jeton)],
+        );
+        const userId = t.rows[0]?.user_id;
+        if (userId === undefined) return { statut: 'invalide' } as const;
+        const u = await client.query<{ identity_id: string | null; disabled_at: Date | null }>(
+          `select identity_id, disabled_at from users where id = $1`,
+          [userId],
+        );
+        if (u.rows.length === 0) return { statut: 'invalide' } as const;
+        // Une invitation révoquée par son espace ne s'accepte pas ; annulée, la consommation laisse le jeton à l'invitation
+        // si l'espace la réactive.
+        if (u.rows[0]!.disabled_at !== null) throw new InvitationRevoquee();
+        const identityId = u.rows[0]!.identity_id;
+        if (identityId !== null) await client.query(`select 1 from identities where id = $1 for update`, [identityId]);
+        if (nouveauHash !== null) {
+          const pose = identityId === null
+            ? await client.query(`update users set password_hash = $2 where id = $1 and password_hash is null`, [userId, nouveauHash])
+            : await client.query(
+              `update identities set password_hash = $2, sessions_depuis = $3 where id = $1 and password_hash is null`,
+              [identityId, nouveauHash, new Date()],
+            );
+          if ((pose.rowCount ?? 0) === 0) throw new MotDePasseDejaPose();
+          // La copie sur le compte, comme `setPassword` : un retour arrière d'avant les identités ne prive personne du sien.
+          if (identityId !== null) await client.query(`update users set password_hash = $2 where id = $1`, [userId, nouveauHash]);
+        }
+        await client.query(`update users set invitation_en_attente = false where id = $1`, [userId]);
+        return { statut: 'acceptee', userId } as const;
+      });
+    } catch (err) {
+      if (err instanceof MotDePasseDejaPose) return { statut: 'mot_de_passe_existe' };
+      if (err instanceof InvitationRevoquee) return { statut: 'invalide' };
+      throw err;
+    }
   }
 
   /**
@@ -402,65 +528,99 @@ export class PgUserStore {
   }
 
   /**
-   * Le clic sur le lien, en UNE transaction : la demande vivante verrouillée, puis l'espace, l'identité NÉE PROUVÉE
+   * Le clic sur le lien, en UNE transaction : la demande vivante verrouillée, puis l'espace, l'identité PROUVÉE
    * (`adresse_prouvee_le`, avec le mot de passe choisi au clic) et son compte admin, puis l'effacement de TOUTES les
-   * demandes de l'adresse. 🔴 Sans `on conflict` sur l'identité : une adresse qui a reçu une identité entre la demande
-   * et le clic (Google, invitation, autre lien) ne se rattache jamais en silence ; tout est annulé, la demande reste,
-   * et la route rend `adresse_connue`.
+   * demandes de l'adresse.
+   * 🔴 L'identité de l'adresse naît ici, ou, si elle existe déjà, n'est reprise QUE si elle n'a ni mot de passe ni compte
+   * ouvert : née d'une invitation jamais acceptée (lot identité C), elle reçoit le mot de passe choisi et la preuve, et
+   * l'invitation reste en attente, à part. Toute autre (Google, mot de passe, compte ouvert) ne se rattache jamais en
+   * silence : tout est annulé, la demande reste, et la route rend `adresse_connue`. Sa ligne est verrouillée avant la
+   * relecture : l'acceptation d'une invitation, qui verrouille la même, se sérialise avec ce clic.
    * 🔴 Les verrous se prennent sur TOUTES les demandes de l'adresse, dans l'ordre de leur id, AVANT de créer quoi que ce
    * soit : deux liens de la même adresse cliqués en même temps se sérialisent ici. Verrouiller la seule demande du lien
    * ferait s'attendre l'un sur l'index unique de l'identité, l'autre sur la suppression des demandes : un interblocage.
    * Le second relit ensuite sa demande, que le premier a effacée : `lien_invalide`.
+   * Une identité née entre la relecture et l'insertion (23505) : UNE reprise, qui la relit et s'y rattache si elle est
+   * née d'une invitation.
    */
   async confirmerInscription(jeton: string, espace: EspaceAConfirmer): Promise<ConfirmationInscription> {
     if (!jeton) return { statut: 'lien_invalide' };
-    const hash = sha256Hex(jeton);
-    let r: ConfirmationInscription;
-    try {
-      r = await enTransaction(this.pool, async (client) => {
-        const vise = await client.query<{ email: string }>(
-          `select email from inscriptions_attente where jeton_hash = $1 and expire_le > now()`,
-          [hash],
-        );
-        const adresse = vise.rows[0]?.email;
-        if (adresse === undefined) return { statut: 'lien_invalide' } as const;
-        await client.query(`select id from inscriptions_attente where lower(email) = lower($1) order by id for update`, [adresse]);
-        const d = await client.query<{
-          email: string; langue: 'fr' | 'en'; offre_pro: boolean; application: boolean; pub_fbc: string | null; pub_fbp: string | null;
-        }>(
-          `select email, langue, offre_pro, application, pub_fbc, pub_fbp from inscriptions_attente
-            where jeton_hash = $1 and expire_le > now()`,
-          [hash],
-        );
-        const demande = d.rows[0];
-        if (!demande) return { statut: 'lien_invalide' } as const;
-        const { tenantId, userId } = await this.creerEspaceEtAdmin(
-          client,
-          espace.workspaceName,
-          { email: demande.email, name: espace.name, passwordHash: espace.passwordHash },
-          'console',
-          async () => {
-            const i = await client.query<{ id: string }>(
-              `insert into identities (email, password_hash, adresse_prouvee_le) values ($1, $2, now()) returning id`,
-              [demande.email, espace.passwordHash],
-            );
-            return i.rows[0]!.id;
-          },
-        );
-        await client.query(`delete from inscriptions_attente where lower(email) = lower($1)`, [demande.email]);
-        return {
-          statut: 'cree', tenantId, userId, email: demande.email, langue: demande.langue, offrePro: demande.offre_pro,
-          application: demande.application, pubFbc: demande.pub_fbc, pubFbp: demande.pub_fbp,
-        } as const;
-      });
-    } catch (err) {
-      if (estDoublon(err)) return { statut: 'adresse_connue' };
-      throw err;
-    }
+    const r = await this.confirmerAvecUneReprise(jeton, espace);
+    // L'annonce d'un espace né, APRÈS le commit : une transaction annulée n'annonce rien.
     if (r.statut === 'cree') {
       this.annoncer({ tenantId: r.tenantId, nom: espace.workspaceName, email: r.email, origine: 'console', parGoogle: false });
     }
     return r;
+  }
+
+  private async confirmerAvecUneReprise(jeton: string, espace: EspaceAConfirmer): Promise<ConfirmationInscription> {
+    for (let essai = 0; ; essai += 1) {
+      try {
+        return await this.confirmerUneFois(jeton, espace);
+      } catch (err) {
+        if (err instanceof AdresseDejaConnue) return { statut: 'adresse_connue' };
+        if (estDoublon(err) && essai === 0) continue;
+        if (estDoublon(err)) return { statut: 'adresse_connue' };
+        throw err;
+      }
+    }
+  }
+
+  private async confirmerUneFois(jeton: string, espace: EspaceAConfirmer): Promise<ConfirmationInscription> {
+    const hash = sha256Hex(jeton);
+    return enTransaction(this.pool, async (client) => {
+      const vise = await client.query<{ email: string }>(
+        `select email from inscriptions_attente where jeton_hash = $1 and expire_le > now()`,
+        [hash],
+      );
+      const adresse = vise.rows[0]?.email;
+      if (adresse === undefined) return { statut: 'lien_invalide' } as const;
+      await client.query(`select id from inscriptions_attente where lower(email) = lower($1) order by id for update`, [adresse]);
+      const d = await client.query<{
+        email: string; langue: 'fr' | 'en'; offre_pro: boolean; application: boolean; pub_fbc: string | null; pub_fbp: string | null;
+      }>(
+        `select email, langue, offre_pro, application, pub_fbc, pub_fbp from inscriptions_attente
+          where jeton_hash = $1 and expire_le > now()`,
+        [hash],
+      );
+      const demande = d.rows[0];
+      if (!demande) return { statut: 'lien_invalide' } as const;
+      const { tenantId, userId } = await this.creerEspaceEtAdmin(
+        client,
+        espace.workspaceName,
+        { email: demande.email, name: espace.name, passwordHash: espace.passwordHash },
+        'console',
+        async () => {
+          const existante = await client.query<{ id: string; password_hash: string | null }>(
+            `select id, password_hash from identities where lower(email) = lower($1) for update`,
+            [demande.email],
+          );
+          const deja = existante.rows[0];
+          if (deja) {
+            const ouvert = await client.query(
+              `select 1 from users where identity_id = $1 and not invitation_en_attente limit 1`,
+              [deja.id],
+            );
+            if (deja.password_hash !== null || (ouvert.rowCount ?? 0) > 0) throw new AdresseDejaConnue();
+            await client.query(
+              `update identities set password_hash = $2, adresse_prouvee_le = now(), sessions_depuis = $3 where id = $1`,
+              [deja.id, espace.passwordHash, new Date()],
+            );
+            return deja.id;
+          }
+          const i = await client.query<{ id: string }>(
+            `insert into identities (email, password_hash, adresse_prouvee_le) values ($1, $2, now()) returning id`,
+            [demande.email, espace.passwordHash],
+          );
+          return i.rows[0]!.id;
+        },
+      );
+      await client.query(`delete from inscriptions_attente where lower(email) = lower($1)`, [demande.email]);
+      return {
+        statut: 'cree', tenantId, userId, email: demande.email, langue: demande.langue, offrePro: demande.offre_pro,
+        application: demande.application, pubFbc: demande.pub_fbc, pubFbp: demande.pub_fbp,
+      } as const;
+    });
   }
 
   /** La rétention (worker) : les demandes échues, par paquets bornés. Rend le nombre de lignes effacées. */
@@ -511,8 +671,8 @@ export class PgUserStore {
       // d'admins, quel que soit son rôle actuel.
       `update users set role = $3
          where id = $1 and tenant_id = $2
-           and ($3 = 'admin' or role <> 'admin' or disabled_at is not null
-                or (select count(*) from users where tenant_id = $2 and role = 'admin' and disabled_at is null) > 1)`,
+           and ($3 = 'admin' or role <> 'admin' or disabled_at is not null or invitation_en_attente
+                or (select count(*) from users where tenant_id = $2 and role = 'admin' and disabled_at is null and not invitation_en_attente) > 1)`,
       [userId, tenantId, role],
     );
     if ((upd.rowCount ?? 0) > 0) return 'ok';
@@ -538,8 +698,8 @@ export class PgUserStore {
     const upd = await this.pool.query(
       `update users set disabled_at = now()
          where id = $1 and tenant_id = $2
-           and (role <> 'admin' or disabled_at is not null
-                or (select count(*) from users where tenant_id = $2 and role = 'admin' and disabled_at is null) > 1)`,
+           and (role <> 'admin' or disabled_at is not null or invitation_en_attente
+                or (select count(*) from users where tenant_id = $2 and role = 'admin' and disabled_at is null and not invitation_en_attente) > 1)`,
       [userId, tenantId],
     );
     if ((upd.rowCount ?? 0) > 0) return 'ok';
@@ -576,8 +736,8 @@ export class PgUserStore {
       const del = await client.query(
         `delete from users
            where id = $1 and tenant_id = $2
-             and (role <> 'admin' or disabled_at is not null
-                  or (select count(*) from users where tenant_id = $2 and role = 'admin' and disabled_at is null) > 1)`,
+             and (role <> 'admin' or disabled_at is not null or invitation_en_attente
+                  or (select count(*) from users where tenant_id = $2 and role = 'admin' and disabled_at is null and not invitation_en_attente) > 1)`,
         [userId, tenantId],
       );
       if ((del.rowCount ?? 0) === 0) {

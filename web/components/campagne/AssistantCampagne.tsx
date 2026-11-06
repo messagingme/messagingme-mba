@@ -284,7 +284,7 @@ export interface MembreAssistant {
   id: string;
   nom: string;
   /**
-   * LE COMPTE N'A JAMAIS ÉTÉ ACTIVÉ : son invitation est en attente (`users.last_login_at is null`).
+   * LE COMPTE N'A JAMAIS ÉTÉ ACTIVÉ : son invitation est en attente (`users.invitation_en_attente`, migration 0281).
    *
    * 🔴 IL EST GRISÉ, PAS MASQUÉ, ET C'EST LE PREMIER RETOUR DE JULIEN SUR CET ÉCRAN (2026-09-12) : il
    * voyait UNE personne alors que son espace en compte trois. Le filtre silencieux faisait exactement ce

@@ -56,9 +56,14 @@ describe('un compte actif se juge sur sa DERNIÈRE CONNEXION, jamais sur son mot
     expect(sql).not.toContain('password_hash');
   });
 
-  it('« invitation en attente » veut dire « jamais connecté »', () => {
+  // Lot identité C (2026-11-06) : « invitation en attente » se lit sur le drapeau que pose la SEULE création
+  // d'invitation (migration 0281). Un compte Google, qui n'a pas de mot de passe, n'y est jamais : le défaut que ce
+  // fichier ferme ne peut pas revenir par là. Et la règle d'accès est la même que l'écran : un compte en attente
+  // n'ouvre rien tant que son invitation n'est pas acceptée.
+  it('« invitation en attente » se lit sur le drapeau de l’invitation', () => {
     const q = requeteDe('src/user/store.pg.ts', 'async list(tenantId');
-    expect(q).toContain('(last_login_at is null) as pending');
+    const sql = q.slice(q.indexOf('`select id, email'), q.indexOf('where tenant_id'));
+    expect(sql).toContain('invitation_en_attente as pending');
   });
 
   it('« invitation en attente » ne se lit PAS sur le mot de passe', () => {

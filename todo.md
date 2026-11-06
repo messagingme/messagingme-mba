@@ -505,6 +505,16 @@ Lot identité B (journal du 2026-11-05). Rien ne bloque.
   rebonds suffisent pour commencer.
 - **La suite de l'audit d'identité** : son plan est privé, dans `docs/prive/`.
 
+## 🟡 Une invitation ne s'ouvre que par son lien : ce que le lot laisse (2026-11-06)
+
+Lot identité C (journal du 2026-11-06). Rien ne bloque.
+
+- **L'e-mail de réinitialisation tutoie encore** (« Réinitialiser ton mot de passe »), quand l'invitation, l'inscription
+  et la console vouvoient.
+- **Un bouton « Renvoyer l'invitation »** sur l'écran Équipe : aujourd'hui, une invitation échue (7 jours) se refait en
+  supprimant le compte invité, puis en l'invitant de nouveau.
+- **Les jaunes de la relecture du lot**, s'il en reste, sont notés avec le plan, privé (`docs/prive/`).
+
 ## 🟡 Sans Google sur /autoriser : ce que la relecture laisse (2026-10-27)
 
 Lot `b9c0ccd1` et `0a7418cf` (journal du 2026-10-27). Rien ne bloque.

@@ -58,17 +58,24 @@ describe('renderBrandedEmail (shell réutilisable)', () => {
 describe('renderInvitationEmail', () => {
   const acceptUrl = 'https://mba.messagingme.app/invite/INVITE_RAW';
 
-  it('personnalise avec le nom de l\'invitant, l\'espace et le lien d\'acceptation', () => {
-    const html = renderInvitationEmail({ inviterName: 'Julien', workspaceName: 'Acme Corp', acceptUrl, role: 'agent' });
-    expect(html).toContain('Julien');
+  it('personnalise avec le nom ET l\'adresse de l\'invitant, l\'espace et le lien de l\'invitation, au vouvoiement', () => {
+    const html = renderInvitationEmail({ inviterName: 'Julien', inviterEmail: 'julien@exemple.fr', workspaceName: 'Acme Corp', acceptUrl, role: 'agent' });
+    // Lot identité C : un nom se choisit librement, l'adresse montrée à côté fait voir une usurpation.
+    expect(html).toContain('Julien (julien@exemple.fr)</strong> vous invite');
     expect(html).toContain('Acme Corp');
     expect(html).toContain(acceptUrl);
     // Rôle traduit dans le corps.
     expect(html).toContain('agent');
     // Jamais « UChat ».
     expect(html.toLowerCase()).not.toContain('uchat');
-    // C'est bien le shell brandé (CTA présent).
-    expect(html).toContain('Activer mon compte');
+    // C'est bien le shell brandé, avec un appel neutre : la page demande, selon l'adresse, un mot de passe ou Google.
+    expect(html).toContain('Rejoindre l’espace');
+    expect(html).not.toMatch(/\bt['’]invite\b|\bTu\b|\bton mot de passe\b|\bRejoins\b/);
+  });
+
+  it('l\'adresse seule quand l\'invitant n\'a pas de nom', () => {
+    const html = renderInvitationEmail({ inviterName: null, inviterEmail: 'boss@exemple.fr', workspaceName: 'Acme', acceptUrl, role: 'agent' });
+    expect(html).toContain('<strong>boss@exemple.fr</strong> vous invite');
   });
 
   it('traduit le rôle admin', () => {
@@ -80,7 +87,7 @@ describe('renderInvitationEmail', () => {
     const html = renderInvitationEmail({ inviterName: null, workspaceName: null, acceptUrl, role: 'agent' });
     expect(html).toContain(acceptUrl);
     expect(html).toContain('un espace de travail');
-    expect(html).toContain('Activer mon compte');
+    expect(html).toContain('Rejoindre l’espace');
   });
 
   it('échappe un nom d\'invitant/espace malveillant (pas d\'injection de markup)', () => {

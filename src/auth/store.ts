@@ -38,15 +38,18 @@ export interface EmailIdentity {
    * facteur actif, la connexion rend alors un enrôlement. Requis, pour la même raison que `mfaActif`.
    */
   facteurExige: boolean;
-  /** Espaces accessibles. Jamais vide : une identité sans compte actif n'est pas rendue. */
+  /**
+   * Espaces accessibles. Jamais vide : une identité sans compte actif n'est pas rendue. 🔴 Une invitation en attente n'y
+   * figure jamais (lot identité C) : elle ne s'ouvre que par sa page, pas par le mot de passe de l'adresse.
+   */
   comptes: CompteAccessible[];
 }
 
 export interface UserAuthStore {
   /**
    * Identité d'une adresse : son mot de passe et ses espaces. `null` = adresse inconnue, sans mot de passe,
-   * ou dont tous les comptes sont révoqués. L'appelant répond la même chose dans les trois cas, pour ne pas
-   * révéler lequel s'applique.
+   * dont tous les comptes sont révoqués, ou qui n'a que des invitations en attente. L'appelant répond la même chose
+   * dans tous ces cas, pour ne pas révéler lequel s'applique.
    */
   findIdentity(email: string): Promise<EmailIdentity | null>;
 }
@@ -69,14 +72,15 @@ export class PgUserAuthStore implements UserAuthStore {
     }>(
       // Le mot de passe vient de l'identité : une adresse, un mot de passe, quel que soit le nombre d'espaces.
       // `disabled_at is null` : un compte révoqué ne s'authentifie pas ; si tous le sont, rien n'est rendu, comme
-      // pour une adresse inconnue. Trié par nom d'espace : l'ordre de l'écran de choix reste stable.
+      // pour une adresse inconnue. Une invitation en attente non plus (lot identité C). Trié par nom d'espace :
+      // l'ordre de l'écran de choix reste stable.
       `select i.id as identity_id, i.password_hash, (i.mfa_active_le is not null) as mfa_actif,
               ${facteurExigeSql('i.id')} as facteur_exige,
               u.id as user_id, u.tenant_id, t.name as tenant_name, u.email, u.role
          from identities i
          join users u on u.identity_id = i.id
          join tenants t on t.id = u.tenant_id
-        where lower(i.email) = lower($1) and u.disabled_at is null
+        where lower(i.email) = lower($1) and u.disabled_at is null and not u.invitation_en_attente
         order by t.name, u.id`,
       [email],
     );

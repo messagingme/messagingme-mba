@@ -171,9 +171,10 @@ export class PgOauthStore {
    * a fui. Deux renouvellements simultanés du même jeton y mènent aussi : le second attend le verrou de ligne du
    * premier, ne retrouve plus son empreinte en cours, et la trouve en précédente. Accepté par la spec.
    *
-   * Refusé (`inconnu`) : un jeton inconnu, échu, d'un autre client, ou dont la personne n'est plus admin ou est
-   * désactivée. Un espace suspendu n'est PAS refusé ici : `/mcp` lui rend 403, et refuser le renouvellement
-   * relancerait la connexion en boucle.
+   * Refusé (`inconnu`) : un jeton inconnu, échu, d'un autre client, ou dont la personne n'est plus admin, est
+   * désactivée, ou n'a pas accepté son invitation (lot identité C : une autorisation donnée avant le lot à un compte
+   * jamais accepté ne survit pas). Un espace suspendu n'est PAS refusé ici : `/mcp` lui rend 403, et refuser le
+   * renouvellement relancerait la connexion en boucle.
    */
   async renouveler(empreinteRefresh: string, clientId: string, nouveaux: NouveauxJetons): Promise<'ok' | 'rejeu' | 'inconnu'> {
     const tourne = await this.pool.query(
@@ -184,7 +185,8 @@ export class PgOauthStore {
          from users u
         where a.refresh_hash = $1 and a.client_id = $2 and a.revoque_le is null
           and a.refresh_expire_le > now() and a.refresh_max_le > now()
-          and u.id = a.user_id and u.tenant_id = a.tenant_id and ${roleAdminEffectifSql('u')} and u.disabled_at is null`,
+          and u.id = a.user_id and u.tenant_id = a.tenant_id and ${roleAdminEffectifSql('u')} and u.disabled_at is null
+          and not u.invitation_en_attente`,
       [empreinteRefresh, clientId, nouveaux.refresh, nouveaux.acces, nouveaux.accesExpireLe, nouveaux.refreshExpireLe],
     );
     if ((tourne.rowCount ?? 0) > 0) return 'ok';
@@ -198,7 +200,8 @@ export class PgOauthStore {
 
   /**
    * Le jeton d'accès, sa personne et son espace, en une requête : la garde la fait à chaque appel. Le dernier usage
-   * s'écrit dans la même requête, au plus une fois par minute, et seulement pour un accès valide.
+   * s'écrit dans la même requête, au plus une fois par minute, et seulement pour un accès valide. Un compte qui n'a pas
+   * accepté son invitation n'en a aucun (lot identité C).
    */
   async resoudreAcces(empreinte: string): Promise<AccesOauth | null> {
     const res = await this.pool.query<{
@@ -207,7 +210,7 @@ export class PgOauthStore {
       `with a as (
          select a.id, a.tenant_id, a.user_id, a.scopes, t.status as tenant_status, a.dernier_usage_le,
                 coalesce(a.revoque_le is null and a.acces_expire_le > now()
-                         and u.disabled_at is null and ${roleAdminEffectifSql('u')}, false) as valide
+                         and u.disabled_at is null and not u.invitation_en_attente and ${roleAdminEffectifSql('u')}, false) as valide
            from oauth_autorisations a
            join users u on u.id = a.user_id and u.tenant_id = a.tenant_id
            join tenants t on t.id = a.tenant_id

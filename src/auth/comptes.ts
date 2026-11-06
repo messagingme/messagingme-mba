@@ -1,5 +1,6 @@
 import type { OrigineEspace } from '../user/store.pg';
 import type { ConfirmationInscription, DemandeInscription, EspaceAConfirmer } from '../user/inscriptions';
+import type { AcceptationInvitation, ApercuInvitation } from '../user/invitations';
 
 /** Un compte rattaché à une adresse, actif ou révoqué. */
 export interface CompteParAdresse {
@@ -26,8 +27,23 @@ export interface ComptesAuthDep {
   motDePasseDeLAdresse?(email: string): Promise<string | null | undefined>;
   /** Compte par id : sert à émettre une session après invitation ou à retrouver l'adresse de la session. */
   getSessionUser?(userId: string): Promise<{ tenantId: string; role: string; email: string } | null>;
-  /** Tous les comptes d'une adresse, tout statut. Vide = adresse inconnue. */
+  /**
+   * Les comptes OUVERTS d'une adresse, révoqués compris. Vide = adresse inconnue, ou qui n'a que des invitations en
+   * attente : elles ne s'ouvrent que par leur page (lot identité C).
+   */
   getByEmail?(email: string): Promise<CompteParAdresse[]>;
+  /**
+   * Le compte auquel rattacher un lien de réinitialisation, invitation en attente comprise : la réinitialisation prouve
+   * l'adresse et n'ouvre rien. `null` = adresse inconnue, sans mot de passe, ou tout révoqué. Absente : aucun lien.
+   */
+  compteAReinitialiser?(email: string): Promise<string | null>;
+  /** Ce que la page d'une invitation affiche avant tout geste. `null` = compte inconnu. */
+  apercuInvitation?(userId: string): Promise<ApercuInvitation | null>;
+  /**
+   * L'acceptation d'une invitation, en une transaction : jeton consommé, identité verrouillée, mot de passe posé s'il est
+   * fourni (seulement si l'adresse n'en a pas), drapeau levé.
+   */
+  accepterInvitation?(jeton: string, nouveauHash: string | null): Promise<AcceptationInvitation>;
   /** Horodate la dernière connexion réussie (page Équipe). */
   touchLastLogin?(userId: string): Promise<void>;
   /** Inscription d'une adresse inconnue, en attente du clic (lot identité B) : rend le jeton du lien, en clair. */

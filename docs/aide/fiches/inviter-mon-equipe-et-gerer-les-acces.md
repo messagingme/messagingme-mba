@@ -1,15 +1,20 @@
 ---
 source_section: Comptes & authentification
-source_empreinte: c40266
+source_empreinte: 114b49
 ---
 # Inviter mon équipe, et gérer les accès
 
 **On n'ajoute un collaborateur que par invitation.** Depuis le menu Compte, en haut à droite,
 « Compte & équipe » permet à un administrateur d'inviter quelqu'un par son adresse e-mail et de lui donner
-son rôle. La personne reçoit un message à votre nom (« X vous invite à rejoindre l'espace Y »), pose son
-mot de passe ou passe par Google, et rejoint l'espace. Tant qu'elle ne l'a pas fait, son compte reste
-« invité ». Vous ne pouvez pas créer un compte en choisissant vous-même son mot de passe, et c'est voulu :
-personne d'autre que la personne concernée ne doit connaître le sien.
+son rôle. La personne reçoit un message à votre nom, avec votre adresse (« X (adresse) vous invite à rejoindre
+l'espace Y »). Le lien ouvre la page de l'invitation, qui redit l'espace et qui invite : elle y entre avec Google à
+l'adresse invitée, avec son mot de passe actuel si elle a déjà un compte Messaging Me, ou en en choisissant un. Tant
+qu'elle ne l'a pas fait, son compte reste « invité », et il n'ouvre rien : ni Google, ni la connexion par mot de passe,
+ni Claude Code ne la font entrer dans votre espace sans passer par ce lien. Le lien vaut 7 jours ; passé ce délai,
+supprimez le compte invité et invitez-la de nouveau. Supprimer un membre éteint aussi les outils d'agent qu'il avait
+activés depuis Claude : un administrateur les rallume depuis l'onglet Outils de l'agent. Vous ne pouvez pas créer un
+compte en choisissant vous-même son mot de passe, et c'est voulu : personne d'autre que la personne concernée ne doit
+connaître le sien.
 
 **Au-delà des utilisateurs de votre offre**, l'invitation est refusée. En formule Pro, elle vous propose d'ajouter un
 utilisateur payé : son prix s'affiche, rien n'est facturé avant votre confirmation, puis le prorata jusqu'à la fin de

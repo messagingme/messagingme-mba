@@ -2381,11 +2381,6 @@ async function main(): Promise<void> {
       audit: auditSink,
       users: userStore,
       createInviteToken: (userId) => authTokenStore.create('invite', userId, config.INVITE_TOKEN_TTL_MS),
-      // Personnalisation de l'email d'invitation : nom de l'invitant (repli email) + nom de l'espace.
-      getInviterName: async (userId) => {
-        const u = await userStore.getById(userId);
-        return u ? (u.name ?? u.email) : null;
-      },
       mfa: mfaStore,
       // Un admin d'espace ne réinitialise jamais le facteur d'une adresse d'exploitation (audit du 2026-11-04).
       opsEmails,

@@ -16,6 +16,8 @@ function fausseBase(o: { doublon?: boolean } = {}) {
         if (/from inscriptions_attente/i.test(sql)) {
           return { rows: [{ email: 'lien@b.fr', langue: 'fr', offre_pro: false, application: false, pub_fbc: null, pub_fbp: null }], rowCount: 1 };
         }
+        // Le clic d'un lien relit, verrouillée, l'identité de l'adresse (lot identité C) : aucune ici, elle y naît.
+        if (/from identities[\s\S]*for update/i.test(sql)) return { rows: [], rowCount: 0 };
         if (/from identities/i.test(sql)) return { rows: [{ id: 'ident-1' }], rowCount: 1 };
         if (/insert into tenants/i.test(sql)) return { rows: [{ id: 'tenant-neuf' }], rowCount: 1 };
         if (/insert into users/i.test(sql) && o.doublon) throw Object.assign(new Error('doublon'), { code: '23505' });

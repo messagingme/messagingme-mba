@@ -3477,8 +3477,9 @@ des espaces (`makeRequireAuth`), par celle de l'exploitation (`makeRequireOps`) 
 l'effacement du second facteur aussi, à l'horloge de l'API (celle qui signe le `iat`). La comparaison est à la seconde :
 une session de la même seconde passe, un jeton sans `iat` tombe, une époque qui n'est pas une date refuse
 (`sessionAnterieure`). Le changement de mot de passe et la désactivation du facteur rendent une session neuve, que la
-console range (`remplacerJeton`). ⚠️ Accepter une invitation repose le mot de passe de l'IDENTITÉ : ses sessions dans
-ses autres espaces tombent aussi, ce que le support doit savoir.
+console range (`remplacerJeton`). ⚠️ Accepter une invitation en CHOISISSANT un mot de passe (adresse qui n'en avait
+pas) pose l'époque de l'IDENTITÉ : ses sessions Google dans ses autres espaces tombent aussi. Une adresse qui avait déjà
+un mot de passe donne l'actuel, et rien ne change (lot identité C).
 
 ### L'inscription par e-mail, prouvée par un lien (lot identité B, 2026-11-05)
 
@@ -3493,8 +3494,9 @@ son mot de passe, un espace de plus tout de suite ; sans mot de passe, 409 `adre
 - **Le lien** : `<APP_URL>/signup/confirm/<jeton>?lang=` (jeton dans le chemin, comme `/reset`), 24 heures
   (`DUREE_LIEN_INSCRIPTION_MS`, `web/lib/partage/inscription.ts`), sha256 seul en base. Plusieurs demandes vivantes par
   adresse ; la première confirmée efface toutes celles de l'adresse dans la transaction qui crée l'espace, verrous pris
-  sur TOUTES les demandes de l'adresse d'abord (sinon deux clics croisés s'interbloquent). Une identité née entre la
-  demande et le clic : insertion SANS `on conflict`, tout est annulé, la demande reste, 409 `adresse_connue`. Le jeton
+  sur TOUTES les demandes de l'adresse d'abord (sinon deux clics croisés s'interbloquent). Une identité de l'adresse qui
+  existe au clic n'est reprise QUE si elle n'a ni mot de passe ni compte ouvert (née d'une invitation jamais acceptée,
+  lot identité C) ; toute autre : tout est annulé, la demande reste, 409 `adresse_connue`. Le jeton
   est relu avant le scrypt du mot de passe choisi. Refus en 400 et 409, jamais 401 (la console viderait une autre
   session). La rétention générale du worker efface les demandes échues.
 - **L'e-mail** (`src/auth/email-inscription.ts`) : au vouvoiement, français ou anglais, AUCUN texte saisi (un nom
@@ -3515,6 +3517,43 @@ son mot de passe, un espace de plus tout de suite ; sans mot de passe, 409 `adre
 client MCP), `PgUserStore` l'annonce APRÈS le commit (`annoncerEspace`), et l'API la câble sur Telegram : nom, adresse
 de l'admin, Google ou e-mail, origine, identifiant. Une annonce qui échoue ne fait jamais échouer l'inscription ; une
 transaction annulée (adresse déjà prise) n'annonce rien.
+
+### Une invitation ne s'ouvre que par son lien (lot identité C, 2026-11-06)
+
+`users.invitation_en_attente` (migration 0281) : vrai pour un compte créé par une invitation (`createPending`, la SEULE
+écriture à vrai) tant qu'elle n'est pas acceptée ; faux pour tout autre compte (inscription, Google, seed, ancien), qui
+ne devient donc jamais une invitation parce que sa marque de connexion manque. `users.invite_par` garde le compte qui
+invite. Reprise de la migration : les comptes qui ont reçu un jeton d'invitation (`auth_tokens`, que rien ne purge hors
+la cascade d'un compte supprimé), sans connexion ET sans mot de passe sur le compte. La trace est positive : ni le compte
+semé par `db/seed.ts` ni un compte Google dont la marque de connexion a échoué ne deviennent des invitations. Un compte en
+attente ne reçoit jamais de marque de connexion (`touchLastLogin`), et une invitation révoquée ne s'accepte pas.
+- 🔴 **La règle** : un compte en attente n'ouvre rien et ne compte pour rien. `getByEmail` (entrée Google de la console
+  et du consentement du plugin, sélecteur d'espaces, `autoriser`) et `findIdentity` (connexion par mot de passe, noms de
+  l'écran de choix) ne le rendent pas ; une adresse qui n'a que lui est, pour Google, une adresse inconnue (son propre
+  espace naît), et pour l'inscription par e-mail aussi, quand son identité n'a pas de mot de passe (le lien part, le clic
+  s'y rattache, § précédent). Il ne compte ni pour « le second facteur exigé » (`facteurExigeSql`), ni pour
+  « ailleurs » de la réinitialisation du facteur par un admin, ni pour le journal par identité (`PgMfaStore.comptes`),
+  ni parmi les admins de l'invariant « au moins un admin » (dernier admin).
+- 🔴 **Le filet** : la garde de session (`getAuthState` rend null pour lui) et la résolution OAuth (`resoudreAcces`,
+  `renouveler`) le refusent. Un jeton de choix, de code ou d'enrôlement signé avant le lot, une autorisation du plugin
+  donnée avant lui, ou un chemin qu'on aurait oublié de filtrer, n'ouvrent rien.
+- **La page `/invite/<jeton>`**, seule porte : `POST /auth/invitations/apercu` (l'espace, l'adresse invitée, l'invitant
+  nom et adresse, `aUnMotDePasse` ; rien consommé) ; `POST /auth/invitations/accept` (l'adresse qui a un mot de passe
+  donne l'ACTUEL, vérifié sans minimum de longueur et sans rien écrire ; sinon un mot de passe choisi, au minimum) ;
+  `POST /auth/invitations/google` (l'adresse Google égale à l'adresse invitée, sinon 403 `autre_adresse` ; une session
+  comme `/auth/google`). La preuve se vérifie AVANT de consommer le jeton : un échec le laisse valable. L'acceptation
+  (`accepterInvitation`) est UNE transaction : jeton consommé, identité verrouillée (le rattachement d'un lien
+  d'inscription verrouille la même), mot de passe posé seulement `where password_hash is null` (sinon
+  `mot_de_passe_existe`, 409, tout annulé), drapeau levé. L'état du second facteur se relit APRÈS. Les trois routes
+  passent d'abord le plafond `invitation` (par réseau du client) ; l'acceptation par mot de passe aussi `accept` (par
+  jeton). Jamais 401.
+- **« Mot de passe oublié »** (`compteAReinitialiser`) vise aussi une identité dont le seul compte est une invitation en
+  attente : la réinitialisation prouve l'adresse et n'ouvre rien, et un membre retiré puis réinvité, qui garde son mot
+  de passe, doit pouvoir le reprendre avant d'accepter.
+- **La console** : sans aperçu lisible (API d'avant le lot, 429, 503, réseau, réponse d'une autre forme), la page garde
+  l'ancien formulaire SANS bouton Google : l'ancien bouton appelait `/auth/google`, qui crée un espace neuf.
+- **L'e-mail d'invitation** : « <nom> (<adresse>) vous invite à rejoindre l'espace <espace> », au vouvoiement, par le
+  même libellé que la page (`libelleInvitant`, `web/lib/partage/invitation.ts`).
 
 ### L'offre d'un espace (lot 6)
 

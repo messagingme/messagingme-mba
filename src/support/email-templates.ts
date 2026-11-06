@@ -1,4 +1,5 @@
 import { escapeHtml } from '../crm/render';
+import { libelleInvitant } from '../../web/lib/partage/invitation';
 /**
  * Gabarits d'email HTML à la marque, en fonctions pures. `renderBrandedEmail` rend un shell générique : tables et
  * styles en ligne pour Gmail et Outlook, ~600px, en-tête aux trois couleurs, bouton construit en table (pas de
@@ -178,22 +179,28 @@ function roleLabel(role: string): string {
 }
 
 export interface InvitationEmailInput {
-  /** Nom (ou email) de la personne qui invite. Vide/null -> phrase générique sans nom. */
+  /** Nom de la personne qui invite. Vide/null -> son adresse seule, ou une phrase générique. */
   inviterName?: string | null;
+  /**
+   * L'adresse du compte qui invite, toujours montrée à côté du nom (lot identité C) : un nom se choisit librement, une
+   * usurpation se voit à l'adresse.
+   */
+  inviterEmail?: string | null;
   /** Nom de l'espace de travail (tenant). Vide/null -> phrase générique sans nom d'espace. */
   workspaceName?: string | null;
-  /** Lien d'acceptation (choix du mot de passe), ex. https://console.messagingme.app/invite/<token>. */
+  /** Lien de la page de l'invitation, ex. https://console.messagingme.app/invite/<token>. */
   acceptUrl: string;
   /** Rôle attribué à l'invité ('admin' | 'agent'). */
   role: string;
 }
 
 /**
- * Email d'invitation d'équipe : « <invitant> t'invite à rejoindre l'espace <espace> sur Messaging Me », avec des
- * formulations génériques si l'un des noms manque.
+ * Email d'invitation d'équipe : « <invitant> (<adresse>) vous invite à rejoindre l'espace <espace> sur Messaging Me »,
+ * avec des formulations génériques si l'un manque. Vouvoiement, comme la console. L'appel reste neutre (« Rejoindre
+ * l'espace ») : selon l'adresse, la page demande de choisir un mot de passe, de saisir l'actuel, ou Google.
  */
 export function renderInvitationEmail(input: InvitationEmailInput): string {
-  const inviter = (input.inviterName ?? '').trim();
+  const inviter = libelleInvitant(input.inviterName, input.inviterEmail);
   const workspace = (input.workspaceName ?? '').trim();
   const safeInviter = inviter ? escapeHtml(inviter) : '';
   const safeWorkspace = workspace ? escapeHtml(workspace) : '';
@@ -201,31 +208,31 @@ export function renderInvitationEmail(input: InvitationEmailInput): string {
   // Phrase d'accroche selon les données disponibles (invitant et/ou espace connus).
   let lede: string;
   if (safeInviter && safeWorkspace) {
-    lede = `<strong>${safeInviter}</strong> t'invite à rejoindre l'espace <strong>${safeWorkspace}</strong> sur Messaging Me.`;
+    lede = `<strong>${safeInviter}</strong> vous invite à rejoindre l'espace <strong>${safeWorkspace}</strong> sur Messaging Me.`;
   } else if (safeWorkspace) {
-    lede = `Tu es invité à rejoindre l'espace <strong>${safeWorkspace}</strong> sur Messaging Me.`;
+    lede = `Vous êtes invité à rejoindre l'espace <strong>${safeWorkspace}</strong> sur Messaging Me.`;
   } else if (safeInviter) {
-    lede = `<strong>${safeInviter}</strong> t'invite à rejoindre son espace de travail sur Messaging Me.`;
+    lede = `<strong>${safeInviter}</strong> vous invite à rejoindre son espace de travail sur Messaging Me.`;
   } else {
-    lede = `Tu es invité à rejoindre un espace de travail sur Messaging Me.`;
+    lede = `Vous êtes invité à rejoindre un espace de travail sur Messaging Me.`;
   }
 
   const bodyHtml = [
     `<p style="margin:0 0 14px 0;">${lede}</p>`,
-    `<p style="margin:0 0 14px 0;">Tu y rejoindras l'équipe avec le rôle <strong>${escapeHtml(roleLabel(input.role))}</strong>. Clique sur le bouton ci-dessous pour choisir ton mot de passe et activer ton compte.</p>`,
+    `<p style="margin:0 0 14px 0;">Vous y rejoindrez l'équipe avec le rôle <strong>${escapeHtml(roleLabel(input.role))}</strong>. Le bouton ci-dessous ouvre l'invitation : vous y entrez avec Google ou avec un mot de passe.</p>`,
   ].join('\n');
 
   // Titre en clair : renderBrandedEmail l'échappe une fois. Ne pas pré-échapper ici (double échappement).
-  const title = workspace ? `Rejoins ${workspace} sur Messaging Me` : 'Rejoins ton équipe sur Messaging Me';
+  const title = workspace ? `Rejoignez ${workspace} sur Messaging Me` : 'Rejoignez votre équipe sur Messaging Me';
 
   return renderBrandedEmail({
     title,
     bodyHtml,
-    ctaLabel: 'Activer mon compte',
+    ctaLabel: 'Rejoindre l’espace',
     ctaUrl: input.acceptUrl,
     preheader: inviter
-      ? `${inviter} t'invite à rejoindre Messaging Me`
-      : `Tu es invité à rejoindre un espace sur Messaging Me`,
+      ? `${inviter} vous invite à rejoindre Messaging Me`
+      : `Vous êtes invité à rejoindre un espace sur Messaging Me`,
     footnote: 'Ce lien d\'invitation est valable 7 jours.',
   });
 }

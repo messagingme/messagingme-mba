@@ -11,8 +11,10 @@ import { roleAdminEffectifSql } from '../offres/membres';
  * finiraient par dire deux choses, et l'écart serait une porte : l'écran refuserait de retirer un facteur que la
  * connexion n'exige plus, ou l'inverse.
  *
- * ⚠️ Un compte en attente d'invitation est actif (`disabled_at` nul) : l'admin invité dans un espace qui l'exige pose
- * son facteur en acceptant. Un compte révoqué n'oblige plus à rien.
+ * ⚠️ Un compte en attente d'invitation ne compte PAS (lot identité C) : sans cela, n'importe quel admin d'un espace qui
+ * l'exige imposait un enrôlement à une personne en l'invitant, jusque dans son propre espace. L'acceptation relit l'état
+ * du facteur APRÈS avoir levé le drapeau : l'admin invité dans un espace qui l'exige pose donc son facteur en acceptant.
+ * Un compte révoqué n'oblige plus à rien.
  *
  * ⚠️ L'EXPLOITATION N'EN DÉPEND PAS : son entrée exige toujours un code ou un enrôlement (`entreeOps`), et sa garde
  * relit le facteur à chaque requête (`makeRequireOps`). Ni ce réglage ni son absence n'y touchent.
@@ -24,4 +26,5 @@ import { roleAdminEffectifSql } from '../offres/membres';
  */
 export const facteurExigeSql = (identite: string): string => `exists (
   select 1 from users a join tenants ta on ta.id = a.tenant_id
-   where a.identity_id = ${identite} and ${roleAdminEffectifSql('a')} and a.disabled_at is null and ta.second_facteur_admins)`;
+   where a.identity_id = ${identite} and ${roleAdminEffectifSql('a')} and a.disabled_at is null
+     and not a.invitation_en_attente and ta.second_facteur_admins)`;

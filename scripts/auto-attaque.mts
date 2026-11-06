@@ -615,6 +615,9 @@ const OUVERTES: ReadonlyArray<{ motif: RegExp; raison: string }> = [
   // et c'est bien la sonde 1 qui doit continuer à le vérifier.
   { motif: /^\/auth\/(login|signup|config|google|forgot-password|reset-password)$/, raison: 'entrée : pas encore de session' },
   { motif: /^\/auth\/invitations\/accept$/, raison: 'entrée : on accepte une invitation sans avoir de compte' },
+  // La page d'une invitation (lot identité C) : son aperçu et l'acceptation par Google, autorisés par le jeton reçu par
+  // e-mail, et pour Google par l'adresse qu'il prouve, égale à l'adresse invitée.
+  { motif: /^\/auth\/invitations\/(apercu|google)$/, raison: 'entrée : la page d’une invitation, autorisée par le jeton reçu par e-mail' },
   // Le clic sur le lien d'inscription (lot identité B) : le compte naît là, autorisé par le jeton reçu dans la boîte.
   { motif: /^\/auth\/signup\/confirm$/, raison: 'entrée : le compte naît au clic, autorisé par le jeton du lien reçu par e-mail' },
   // Second temps d'une connexion à plusieurs espaces. Autorité SÉPARÉE de la session, comme /ops : ce qui

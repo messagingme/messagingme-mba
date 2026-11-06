@@ -23,6 +23,20 @@ export class PgAuthTokenStore {
     return raw;
   }
 
+  /**
+   * Le user_id d'un token valide, SANS le consommer (lot identité C) : la page d'une invitation l'affiche, et la preuve
+   * (mot de passe actuel, adresse Google) se vérifie avant de le consommer, pour qu'un échec le laisse intact.
+   */
+  async lire(purpose: TokenPurpose, raw: string): Promise<string | null> {
+    if (!raw) return null;
+    const res = await this.pool.query<{ user_id: string }>(
+      `select user_id from auth_tokens
+        where token_hash = $1 and purpose = $2 and used_at is null and expires_at > now()`,
+      [sha256Hex(raw), purpose],
+    );
+    return res.rows[0]?.user_id ?? null;
+  }
+
   /** Renvoie le user_id si le token est valide (bon purpose, non expiré, non déjà utilisé), sinon null. */
   async consume(purpose: TokenPurpose, raw: string): Promise<string | null> {
     if (!raw) return null;

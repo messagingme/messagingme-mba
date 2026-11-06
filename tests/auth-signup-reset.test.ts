@@ -17,13 +17,22 @@ beforeAll(async () => { tok = await signSession({ userId: 'u1', tenantId: 't1', 
 const h = (t: string) => ({ headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` } });
 const j = { headers: { 'content-type': 'application/json' } };
 
-interface Cap { created: Array<{ name: string; email: string }>; setPass: string[]; emails: Array<{ to: string; text: string }>; tokens: Array<{ p: string; uid: string }>; mfa: MfaEnMemoire }
+interface Cap {
+  created: Array<{ name: string; email: string }>; setPass: string[]; emails: Array<{ to: string; text: string }>;
+  tokens: Array<{ p: string; uid: string }>; mfa: MfaEnMemoire;
+  /** Les acceptations d'invitation demandées au magasin (lot identité C) : le jeton, et le hash posé ou `null`. */
+  acceptations: Array<{ jeton: string; hash: string | null }>;
+  /** L'ordre des lectures et écritures de l'acceptation. */
+  ordre: string[];
+}
 
 function app(over: Partial<Omit<AuthRouteDeps, 'comptes'>> & { comptes?: Partial<ComptesAuthDep> } = {}) {
   // Le second facteur : l'invité `u1` est un agent (cf. `getSessionUser`), les admins créés par l'inscription s'y
   // ajoutent à leur création, comme `createTenantWithAdmin` crée leur identité en production.
   const mfa = new MfaEnMemoire([{ userId: 'u1', tenantId: 't1', role: 'agent', email: 'invited@x.fr' }]);
-  const cap: Cap = { created: [], setPass: [], emails: [], tokens: [], mfa };
+  const cap: Cap = { created: [], setPass: [], emails: [], tokens: [], mfa, acceptations: [], ordre: [] };
+  const lireFacteur = mfa.lireParCompte.bind(mfa);
+  mfa.lireParCompte = async (userId: string) => { cap.ordre.push('facteur'); return lireFacteur(userId); };
   const { comptes, ...reste } = over;
   const deps: AuthRouteDeps = {
     users: {
@@ -48,9 +57,26 @@ function app(over: Partial<Omit<AuthRouteDeps, 'comptes'>> & { comptes?: Partial
       // Une adresse inconnue reçoit un lien (lot identité B) : le parcours complet est dans `tests/auth-inscription-lien.test.ts`.
       demanderInscription: async () => 'LIEN-DEMANDE',
       oublierDemande: async () => {},
+      // Lot identité C : la réinitialisation vise aussi une identité dont le seul compte est une invitation en attente.
+      compteAReinitialiser: async (email) => (email === 'known@x.fr' ? 'u1' : email === 'pending@x.fr' ? 'uP' : null),
+      apercuInvitation: async (uid) => (uid === 'u1'
+        ? { espace: 'Espace 1', adresse: 'invited@x.fr', invitant: { nom: 'Boss', adresse: 'boss@x.fr' }, aUnMotDePasse: true }
+        : null),
+      accepterInvitation: async (jeton, hash) => {
+        cap.ordre.push('accepter');
+        cap.acceptations.push({ jeton, hash });
+        return jeton === 'GOOD' ? { statut: 'acceptee', userId: 'u1' } : { statut: 'invalide' };
+      },
       ...comptes,
     },
-    tokens: { create: async (p, uid) => { cap.tokens.push({ p, uid }); return 'RAWTOKEN'; }, consume: async (_p, raw) => (raw === 'GOOD' ? 'u1' : null) },
+    tokens: {
+      create: async (p, uid) => { cap.tokens.push({ p, uid }); return 'RAWTOKEN'; },
+      consume: async (_p, raw) => (raw === 'GOOD' ? 'u1' : null),
+      lire: async (_p, raw) => (raw === 'GOOD' ? 'u1' : null),
+    },
+    verifyGoogle: async (idToken) => (idToken === 'G-INVITE'
+      ? { email: 'Invited@X.fr', emailVerified: true, name: 'Invitée', sub: 'g1' }
+      : idToken === 'G-AUTRE' ? { email: 'autre@x.fr', emailVerified: true, name: 'Autre', sub: 'g2' } : null),
     sendEmail: async (e) => { cap.emails.push({ to: e.to, text: e.text }); },
     appUrl: 'https://mba.messagingme.app',
     resetTtlMs: 3600000,
@@ -153,6 +179,16 @@ describe('POST /auth/forgot-password (anti-énumération)', () => {
     expect(cap.emails).toHaveLength(0);
     await server.close();
   });
+  it('🔴 lot identité C : une identité à mot de passe dont le seul compte est une invitation en attente reçoit son lien', async () => {
+    // Un membre retiré puis réinvité garde son mot de passe : la page de l'invitation lui demande l'actuel, et s'il l'a
+    // oublié, la réinitialisation (qui n'ouvre rien) doit pouvoir partir.
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'POST', url: '/auth/forgot-password', ...j, payload: { email: 'pending@x.fr' } });
+    expect(res.statusCode).toBe(200);
+    expect(cap.tokens).toEqual([{ p: 'reset', uid: 'uP' }]);
+    expect(cap.emails).toHaveLength(1);
+    await server.close();
+  });
 });
 
 describe('POST /auth/reset-password', () => {
@@ -178,28 +214,127 @@ describe('POST /auth/reset-password', () => {
   });
 });
 
+/**
+ * 🔴 LA PAGE D'UNE INVITATION (lot identité C) : la seule porte d'un compte créé par une invitation. Le jeton ne se
+ * consomme qu'après la preuve (mot de passe actuel, mot de passe choisi, adresse Google), dans la transaction du magasin
+ * qui accepte (`accepterInvitation`) ; un échec le laisse intact.
+ */
 describe('POST /auth/invitations/accept', () => {
-  it('token valide -> pose le mdp + connecte (200 + token + rôle de l\'invitation)', async () => {
-    const { server, cap } = app();
-    const res = await server.inject({ method: 'POST', url: '/auth/invitations/accept', ...j, payload: { token: 'GOOD', password: 'nouveaupass1' } });
+  const accepter = (password: string, token = 'GOOD') => ({ method: 'POST' as const, url: '/auth/invitations/accept', ...j, payload: { token, password } });
+
+  it('adresse SANS mot de passe : celui qu’elle choisit est posé par l’acceptation, puis la session (200, rôle de l’invitation)', async () => {
+    const { server, cap } = app({ comptes: { getPasswordHash: async () => null } });
+    const res = await server.inject(accepter('nouveaupass12'));
     expect(res.statusCode).toBe(200);
     const body = res.json<{ token: string; user: { role: string; tenantId: string } }>();
     expect(body.token).toBeTruthy();
     expect(body.user).toMatchObject({ role: 'agent', tenantId: 't1' });
-    expect(cap.setPass).toEqual(['u1']);
+    expect(cap.acceptations).toHaveLength(1);
+    expect(cap.acceptations[0]!.jeton).toBe('GOOD');
+    expect(cap.acceptations[0]!.hash).toMatch(/\S{20,}/);
+    // Le mot de passe passe par la transaction de l'acceptation, jamais par un `setPassword` à part.
+    expect(cap.setPass).toEqual([]);
     await server.close();
   });
-  it('token invalide -> 400, aucun mdp posé', async () => {
+  it('🔴 adresse qui a DÉJÀ un mot de passe : l’actuel est vérifié, et rien n’est écrit (hash null)', async () => {
     const { server, cap } = app();
-    const res = await server.inject({ method: 'POST', url: '/auth/invitations/accept', ...j, payload: { token: 'BAD', password: 'nouveaupass1' } });
-    expect(res.statusCode).toBe(400);
-    expect(cap.setPass).toHaveLength(0);
+    const res = await server.inject(accepter('current-pass-123'));
+    expect(res.statusCode).toBe(200);
+    expect(cap.acceptations).toEqual([{ jeton: 'GOOD', hash: null }]);
+    expect(cap.setPass).toEqual([]);
     await server.close();
   });
-  it('mot de passe trop court -> 400', async () => {
-    const { server } = app();
-    const res = await server.inject({ method: 'POST', url: '/auth/invitations/accept', ...j, payload: { token: 'GOOD', password: 'court' } });
+  it('🔴 mot de passe actuel FAUX : 403, l’invitation n’est pas consommée', async () => {
+    const { server, cap } = app();
+    const res = await server.inject(accepter('pas-le-bon-mot-de-passe'));
+    expect(res.statusCode).toBe(403);
+    expect(res.json<{ code: string }>().code).toBe('mot_de_passe_incorrect');
+    expect(cap.acceptations).toEqual([]);
+    await server.close();
+  });
+  it('🔴 un mot de passe actuel plus court que le minimum d’aujourd’hui reste bon (posé avant les 12 caractères)', async () => {
+    const { server, cap } = app({ comptes: { getPasswordHash: async () => hashPasswordSync('dix-carac.') } });
+    const res = await server.inject(accepter('dix-carac.'));
+    expect(res.statusCode).toBe(200);
+    expect(cap.acceptations).toEqual([{ jeton: 'GOOD', hash: null }]);
+    await server.close();
+  });
+  it('adresse sans mot de passe : un mot de passe choisi trop court -> 400, rien consommé', async () => {
+    const { server, cap } = app({ comptes: { getPasswordHash: async () => null } });
+    const res = await server.inject(accepter('court'));
     expect(res.statusCode).toBe(400);
+    expect(cap.acceptations).toEqual([]);
+    await server.close();
+  });
+  it('token invalide -> 400, rien consommé', async () => {
+    const { server, cap } = app();
+    const res = await server.inject(accepter('current-pass-123', 'BAD'));
+    expect(res.statusCode).toBe(400);
+    expect(cap.acceptations).toEqual([]);
+    await server.close();
+  });
+  it('un mot de passe posé entre l’aperçu et l’envoi -> 409 `mot_de_passe_existe` (la page demande alors l’actuel)', async () => {
+    const { server } = app({ comptes: { getPasswordHash: async () => null, accepterInvitation: async () => ({ statut: 'mot_de_passe_existe' }) } });
+    const res = await server.inject(accepter('nouveaupass12'));
+    expect(res.statusCode).toBe(409);
+    expect(res.json<{ code: string }>().code).toBe('mot_de_passe_existe');
+    await server.close();
+  });
+  it('🔴 l’état du second facteur se lit APRÈS l’acceptation : le compte accepté compte pour l’obligation', async () => {
+    const { server, cap } = app();
+    expect((await server.inject(accepter('current-pass-123'))).statusCode).toBe(200);
+    expect(cap.ordre).toEqual(['accepter', 'facteur']);
+    await server.close();
+  });
+});
+
+describe('POST /auth/invitations/apercu', () => {
+  it('l’espace, l’adresse invitée, qui invite et s’il y a déjà un mot de passe, sans rien consommer', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'POST', url: '/auth/invitations/apercu', ...j, payload: { token: 'GOOD' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ espace: 'Espace 1', adresse: 'invited@x.fr', invitant: { nom: 'Boss', adresse: 'boss@x.fr' }, aUnMotDePasse: true });
+    expect(cap.acceptations).toEqual([]);
+    await server.close();
+  });
+  it('jeton mort -> 400 ; jeton absent -> 400', async () => {
+    const { server } = app();
+    expect((await server.inject({ method: 'POST', url: '/auth/invitations/apercu', ...j, payload: { token: 'BAD' } })).statusCode).toBe(400);
+    expect((await server.inject({ method: 'POST', url: '/auth/invitations/apercu', ...j, payload: {} })).statusCode).toBe(400);
+    await server.close();
+  });
+  it('échoue FERMÉ sans la lecture du jeton : 503', async () => {
+    const { server } = app({ tokens: { create: async () => 'x', consume: async () => null } });
+    expect((await server.inject({ method: 'POST', url: '/auth/invitations/apercu', ...j, payload: { token: 'GOOD' } })).statusCode).toBe(503);
+    await server.close();
+  });
+});
+
+describe('POST /auth/invitations/google', () => {
+  const parGoogle = (idToken: string, token = 'GOOD') => ({ method: 'POST' as const, url: '/auth/invitations/google', ...j, payload: { token, idToken } });
+
+  it('🔴 Google à l’adresse invitée : la session dans l’espace qui invite, aucun espace créé, rien d’écrit sur l’identité', async () => {
+    const { server, cap } = app();
+    const res = await server.inject(parGoogle('G-INVITE'));
+    expect(res.statusCode).toBe(200);
+    expect(res.json<{ token: string; user: { tenantId: string }; isNew: boolean }>()).toMatchObject({ user: { tenantId: 't1' }, isNew: false });
+    expect(cap.acceptations).toEqual([{ jeton: 'GOOD', hash: null }]);
+    expect(cap.created).toEqual([]);
+    await server.close();
+  });
+  it('🔴 Google à une AUTRE adresse : 403 `autre_adresse`, l’invitation n’est pas consommée', async () => {
+    const { server, cap } = app();
+    const res = await server.inject(parGoogle('G-AUTRE'));
+    expect(res.statusCode).toBe(403);
+    expect(res.json<{ code: string }>().code).toBe('autre_adresse');
+    expect(cap.acceptations).toEqual([]);
+    await server.close();
+  });
+  it('jeton Google invalide -> 400, jamais 401 (la console viderait une autre session) ; invitation morte -> 400', async () => {
+    const { server, cap } = app();
+    expect((await server.inject(parGoogle('G-FAUX'))).statusCode).toBe(400);
+    expect((await server.inject(parGoogle('G-INVITE', 'BAD'))).statusCode).toBe(400);
+    expect(cap.acceptations).toEqual([]);
     await server.close();
   });
 });
@@ -240,10 +375,20 @@ describe('🔴 POST /auth/signup avec une adresse DÉJÀ connue', () => {
     expect(cap.created).toEqual([]);
     await server.close();
   });
-  it('refuse une identité SANS mot de passe (invitation en attente, compte Google)', async () => {
-    const { server, cap } = app();
+  it('refuse une identité SANS mot de passe qui a un compte ouvert (Google)', async () => {
+    const { server, cap } = app({ comptes: { getByEmail: async () => [{ id: 'uG', tenantId: 'tG', tenantName: 'Google', role: 'admin', disabled: false }] } });
     const res = await server.inject(inscrire('sansmdp@x.fr', 'motdepasse-longue'));
     expect(res.statusCode).toBe(409);
+    expect(cap.created).toEqual([]);
+    await server.close();
+  });
+  it('🔴 lot identité C : une identité SANS mot de passe et SANS compte ouvert (née d’une invitation) reçoit le lien, rien n’est créé', async () => {
+    const demandes: string[] = [];
+    const { server, cap } = app({ comptes: { getByEmail: async () => [], demanderInscription: async (d) => { demandes.push(d.email); return 'LIEN-DEMANDE'; } } });
+    const res = await server.inject(inscrire('sansmdp@x.fr', 'motdepasse-longue'));
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ lienEnvoye: true });
+    expect(demandes).toEqual(['sansmdp@x.fr']);
     expect(cap.created).toEqual([]);
     await server.close();
   });

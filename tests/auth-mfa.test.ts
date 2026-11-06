@@ -384,8 +384,11 @@ describe('inscription et invitation passent par la même porte', () => {
       comptes: {
         setPassword: async () => true,
         getSessionUser: async () => ({ tenantId: 't1', role: 'admin', email: 'inv@x.fr' }),
+        // Lot identité C : l'invité n'a pas de mot de passe, il en choisit un, et l'acceptation se fait en une transaction.
+        getPasswordHash: async () => null,
+        accepterInvitation: async () => ({ statut: 'acceptee', userId: 'u-inv' }),
       },
-      tokens: { create: async () => 'x', consume: async () => 'u-inv' },
+      tokens: { create: async () => 'x', consume: async () => 'u-inv', lire: async () => 'u-inv' },
     });
     const res = await post(app, '/auth/invitations/accept', { token: 'BON', password: 'motdepasse-longue' });
     expect(res.statusCode).toBe(200);
@@ -405,8 +408,11 @@ describe('inscription et invitation passent par la même porte', () => {
       comptes: {
         setPassword: async () => true,
         getSessionUser: async () => ({ tenantId: 't1', role: 'agent', email: 'inv@x.fr' }),
+        // Lot identité C : l'invité n'a pas de mot de passe, il en choisit un, et l'acceptation se fait en une transaction.
+        getPasswordHash: async () => null,
+        accepterInvitation: async () => ({ statut: 'acceptee', userId: 'u-inv' }),
       },
-      tokens: { create: async () => 'x', consume: async () => 'u-inv' },
+      tokens: { create: async () => 'x', consume: async () => 'u-inv', lire: async () => 'u-inv' },
     });
     const res = await post(app, '/auth/invitations/accept', { token: 'BON', password: 'motdepasse-longue' });
     expect(Object.keys(res.json())).toEqual(['enrolToken']);
@@ -530,8 +536,11 @@ describe('le second facteur, au choix de l’espace (décision de Julien du 2026
       comptes: {
         setPassword: async () => true,
         getSessionUser: async () => ({ tenantId: 't1', role: 'admin', email: 'inv@x.fr' }),
+        // Lot identité C : l'invité n'a pas de mot de passe, il en choisit un, et l'acceptation se fait en une transaction.
+        getPasswordHash: async () => null,
+        accepterInvitation: async () => ({ statut: 'acceptee', userId: 'u-inv' }),
       },
-      tokens: { create: async () => 'x', consume: async () => 'u-inv' },
+      tokens: { create: async () => 'x', consume: async () => 'u-inv', lire: async () => 'u-inv' },
     }, []);
     const res = await post(app, '/auth/invitations/accept', { token: 'BON', password: 'motdepasse-longue' });
     expect(res.statusCode).toBe(200);

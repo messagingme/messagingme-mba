@@ -316,6 +316,24 @@ l'ancien code l'ignore, et sa rétention ne la purge pas : si le retour arrière
 au-delà de leurs 24 heures, et se vident par un `delete from inscriptions_attente where expire_le <= now()` (une
 écriture en production : un script pour Julien).
 
+## ⚠️ Une invitation ne s'ouvre que par son lien (migration 0281, lot identité C, 2026-11-06) : l'ordre, le secours
+
+**L'ordre** : la console d'abord (sa page `/invite` tolère l'API d'avant : sans aperçu, l'ancien formulaire, sans
+Google), puis l'API avec `migration=avant` (deux colonnes sur `users`, que l'ancien code ignore). Entre la migration et
+la bascule du code (une minute du même run), une invitation créée par l'ancien code n'a pas son drapeau.
+
+**Le geste de secours** : un compte légitime pris pour une invitation (ce qui ne peut arriver qu'à un compte d'avant le
+lot qui avait reçu un jeton d'invitation, sans s'être jamais connecté ni avoir posé de mot de passe sur le compte) n'ouvre
+plus rien. Son admin le supprime et le réinvite depuis l'écran Équipe ; la suppression éteint les outils d'agent qu'il avait
+activés depuis Claude, à rallumer depuis l'onglet Outils. S'il est le SEUL admin de son espace, personne ne peut le
+réinviter : après vérification hors bande que la
+personne est bien le titulaire, lever son drapeau en production (une écriture : un script pour Julien), compte et espace
+désignés tous les deux : `update users set invitation_en_attente = false where id = '<compte>' and tenant_id = '<espace>'`.
+
+**Retour arrière d'une image d'avant le lot** : l'ancien code ignore les deux colonnes et rouvre en silence les
+invitations en attente (le comportement d'avant). Rien à défaire en base : les drapeaux levés par une acceptation le
+restent, à bon droit.
+
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 
 Les routes de `mba.` et d'`api.` nomment `mba-api` par une variable, que nginx relit seul (résolveur de Docker,

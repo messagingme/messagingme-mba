@@ -202,8 +202,11 @@ export class PgMfaStore implements MfaStore {
     if (!estUuid(userId)) return 'not_found';
     return enTransaction(this.pool, async (client) => {
       const res = await client.query<{ identity_id: string | null; email: string | null; ailleurs: boolean }>(
+        // `ailleurs` ne compte pas une invitation en attente (lot identité C) : celle qu'un tiers enverrait à la personne
+        // empêcherait sinon l'admin de son espace de lui réinitialiser son facteur.
         `select u.identity_id, i.email,
-                exists (select 1 from users o where o.identity_id = u.identity_id and o.tenant_id <> u.tenant_id) as ailleurs
+                exists (select 1 from users o where o.identity_id = u.identity_id and o.tenant_id <> u.tenant_id
+                                                and not o.invitation_en_attente) as ailleurs
            from users u
            left join identities i on i.id = u.identity_id
           where u.id = $1 and u.tenant_id = $2`,
@@ -231,8 +234,10 @@ export class PgMfaStore implements MfaStore {
 
   async comptes(identityId: string): Promise<Array<{ userId: string; tenantId: string; email: string }>> {
     if (!estUuid(identityId)) return [];
+    // Sans les invitations en attente (lot identité C) : le journal d'un espace qui a invité la personne, lisible par
+    // celui qui l'a invitée, ne reçoit pas ses échecs de code ni ses changements de facteur avant qu'elle ait accepté.
     const res = await this.pool.query<{ id: string; tenant_id: string; email: string }>(
-      `select id, tenant_id, email from users where identity_id = $1 order by tenant_id, id`,
+      `select id, tenant_id, email from users where identity_id = $1 and not invitation_en_attente order by tenant_id, id`,
       [identityId],
     );
     return res.rows.map((r) => ({ userId: r.id, tenantId: r.tenant_id, email: r.email }));

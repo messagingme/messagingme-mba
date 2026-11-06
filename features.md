@@ -433,14 +433,20 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   mensuel ou l'annuel et l'essai de 14 jours.
 - ✅ **Se connecter avec Google** (bouton sur `/login`, `/signup`, `/invite`) : vérif du jeton côté serveur ;
   liaison **par email** (compte existant -> connexion ; email inconnu -> crée un espace et prend le même tunnel
-  qu'un signup).
-- ✅ **Invitations d'équipe** (admin) : inviter un membre par email (Resend) -> il pose son mot de passe (ou
-  Google) via un lien, puis rejoint l'espace avec le rôle défini. Le compte reste « invité » tant qu'il n'a pas
-  activé. L'email est un **HTML brandé** (logo Messaging Me, couleurs de marque) et **personnalisé** (« X t'invite
-  à rejoindre l'espace Y »). **La création de compte par mot de passe (posé par l'admin) est SUPPRIMÉE** : on
-  n'ajoute un membre QUE par invitation (front + route + code backend retirés).
+  qu'un signup). Une invitation jamais acceptée ne compte pas : une adresse qui n'a qu'elle est, pour Google, une
+  adresse inconnue, et son propre espace naît.
+- ✅ **Invitations d'équipe** (admin) : inviter un membre par email (Resend) -> le lien ouvre la **page de
+  l'invitation**, qui dit l'espace et qui invite (son nom ET son adresse) ; on y entre par Google à l'adresse invitée,
+  par son mot de passe ACTUEL si l'adresse en a déjà un (rien ne change ailleurs), ou en en choisissant un. Le compte
+  reste « invité » tant que l'invitation n'est pas acceptée. **Une invitation ne s'ouvre QUE par son lien** (lot
+  identité C, 2026-11-06) : ni Google, ni la connexion par mot de passe, ni le sélecteur d'espaces, ni l'autorisation
+  de Claude Code n'ouvrent un compte « invité », qui ne compte pas non plus parmi les administrateurs d'un espace ni
+  pour l'obligation du second facteur. L'email est un **HTML brandé** (logo Messaging Me, couleurs de marque) et
+  **personnalisé** (« X (adresse) vous invite à rejoindre l'espace Y »). **La création de compte par mot de passe
+  (posé par l'admin) est SUPPRIMÉE** : on n'ajoute un membre QUE par invitation (front + route + code backend retirés).
 - ✅ **Mot de passe** : « oublié » (`/forgot`, lien de réinitialisation par email, réponse toujours générique
-  anti-énumération) + changement depuis le compte (`/compte`).
+  anti-énumération, y compris pour une adresse dont le seul compte est une invitation en attente) + changement
+  depuis le compte (`/compte`).
 - ✅ **Session expirée : on le dit, et on propose de revenir** (2026-08-17) : quand le jeton tombe pendant
   qu'on travaille, une bannière apparaît en haut de l'écran avec un bouton **« Se reconnecter »** qui ramène à
   la connexion. Avant, l'interface restait active et les enregistrements échouaient en silence.
