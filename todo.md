@@ -96,7 +96,14 @@
 - ✅ Le trou « campagne à scénario Service puis Marketing » est fermé le 2026-11-06 (plan
   `docs/superpowers/plans/2026-11-06-garde-marketing-campagne-scenario.md`, décision de Julien : la règle la moins
   stricte) : `campagne_scenario` passe en `accord_fiche_sauf_ouverture`, l'ouverture part à toute la liste, chaque modèle
-  Marketing suivant exige `opted_in`. Restes :
+  Marketing suivant exige `opted_in`. En production avec `945b9bf9`. Restes :
+  - 🟠 **L'essai réel reste à faire** (reporté par Julien le 2026-11-06), tout est monté sur l'espace de test : le scénario
+    « Essai garde marketing campagne (2026-11-06) » (`scn_by5p57_01M6R998D557BS0K479RNNN025`, Service à boutons
+    `essai_proposition_tarifaire2`, puis Marketing `test_julien` sur « Recevoir mon devis ») et l'étiquette
+    `essai-garde-marketing-20261106` sur les deux seules fiches visées, +33633921577 (`opted_in`) et +33672942994 (sans
+    accord). Lancer une campagne de nature Service depuis la CONSOLE (pas `send_scenario_to_contact`, qui déclare
+    l'accord), avec une valeur de repli pour `{{1}}` (la seconde fiche n'a pas de `prenom`), récapitulatif à 2
+    destinataires. Attendu au clic : le Marketing pour la première seulement, la seconde close sans « À traiter ».
   - « Message et scénario » partage le type : le premier modèle de son scénario est exempté comme une ouverture alors
     que la campagne a déjà envoyé son propre modèle.
   - Une campagne simple (un modèle, sans scénario) cochée Service sur un modèle Marketing part toujours sans accord, et
