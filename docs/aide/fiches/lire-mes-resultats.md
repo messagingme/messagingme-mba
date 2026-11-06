@@ -1,7 +1,7 @@
 ---
 ecran: perf-synthese
 source_section: Analytics (menu Analytics)
-source_empreinte: 512252
+source_empreinte: a80307
 ---
 # Lire mes résultats dans le Performance Lab
 
@@ -38,6 +38,14 @@ ne baisse jamais, ou **actifs**, ce qu'il vous reste après vos suppressions), l
 échangés, le coût estimé par jour, filtrable par campagne ou par modèle, et les erreurs de Meta par code et
 par modèle. Un tableau dit aussi **qui a écrit les messages de service** : l'IA, un scénario, ou une
 personne de votre équipe, avec le détail de l'IA (votre agent, celui de Meta, un agent tiers).
+
+La page **Quantitatif > Shopify** (si votre boutique est branchée) met en face ce que vos messages ont **coûté** et
+ce qu'ils ont **ramené** : deux courbes cumulées sur la période, chacune sur son échelle, et le **ROI en
+pourcentage**. Le coût ne compte que ce qui peut amener une vente (campagnes, relances de panier, scénarios, agent
+IA, avec ses réponses, et agent de Meta), jamais les confirmations de commande. C'est le coût réel pour les messages
+passés par le Crédit WhatsApp, une estimation pour les autres, et l'écran le dit. Le ROI se calcule dans la devise
+de votre boutique ; un coût dans une autre devise est montré à part. Le tableau « Par source » montre aussi les
+campagnes qui n'ont rien vendu.
 
 La page **Quantitatif > Performance** mesure votre équipe sur les conversations qu'un robot lui a passées (un
 scénario, un agent IA, l'agent de Meta, ou la réponse à une campagne qui arrive dans l'Inbox), et sur celles qu'un

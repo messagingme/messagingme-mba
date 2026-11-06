@@ -1986,6 +1986,22 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
 
 ## Analytics (menu Analytics)
 
+- ✅ **Quantitatif > Shopify : le ROI des messages** (2026-11-06, formule Pro, plan
+  `docs/superpowers/plans/2026-11-06-roi-shopify.md`). Au-dessus du chiffre d'affaires attribué, une carte met en face
+  ce que les **leviers de vente** ont coûté (campagnes, relance de panier, scénarios, agent IA, agent de Meta ; jamais
+  les confirmations ni les avis d'expédition, qui suivent la vente) et ce qu'ils ont **ramené** (le chiffre brut, dont
+  la part prouvée) : deux courbes **cumulées** sur la période, chacune sur son échelle, et le **ROI en pourcentage**,
+  (ramené - dépensé) / dépensé. Le coût de l'**agent IA** (ses tours, au prix client) y entre, montré à part.
+  - **Le prix d'un message** : son coût réel quand il est passé par le Crédit WhatsApp, sinon l'estimation des autres
+    écrans de coût (tarif de Meta margé, prix du service franchise déduite, RCS au prix simple de la grille), et l'écran
+    dit « estimé » ; un e-mail n'a pas de prix connu, et le coût s'annonce alors comme un minimum.
+  - **Une seule devise** : le ROI se calcule dans la devise de la boutique ; un coût dans une autre devise est montré à
+    part, jamais converti ni additionné. Rien n'a coûté : pas de pourcentage, la phrase le dit.
+  - **Par source** : le tableau part de tout ce qui a coûté, trié par coût (50 lignes au plus, le reste regroupé). Une
+    campagne qui n'a rien vendu y figure, à -100 %.
+  - Une vente est datée de son paiement, un coût de son envoi : l'écran le dit sous la courbe. Pas dans Claude Code
+    (`get_revenue_stats` ne change pas).
+
 - ✅ **Quantitatif > Performance : le temps de réponse et le temps de résolution de l'équipe** (2026-09-29,
   `/dashboard/performance`). Sur les seules conversations qu'un **robot a passées à l'équipe** : un scénario (bloc
   « passer à un humain »), un agent IA, l'agent de Meta, ou la réponse à une campagne dont le devenir est l'Inbox.

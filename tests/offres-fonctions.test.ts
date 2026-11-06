@@ -212,6 +212,8 @@ const PARTAGE_DES_STATISTIQUES: Record<string, Fonction | null> = {
   // Quantitatif > Shopify, le chiffre d'affaires attribué (plan 2026-10-30) : formule Pro, comme ses voisines. En Free,
   // l'outil MCP `get_revenue_stats`, ouvert à toutes les offres, le lit.
   '/stats/ventes': 'statistiques',
+  // Le ROI des messages, sur la même page (plan 2026-11-06) : formule Pro aussi ; l'outil MCP ne le lit pas.
+  '/stats/roi': 'statistiques',
   '/stats/cost/pubs': 'statistiques',
   '/stats/cost/messages': 'statistiques',
   '/stats/cost/ia': 'statistiques',

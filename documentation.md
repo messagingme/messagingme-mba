@@ -2560,6 +2560,22 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   part, de même forme. Les ventes se comptent à la date du PAIEMENT ; relances parties, récupérés et montant récupéré à
   la date de la RELANCE (`relances_panier_jour.jour`, `ventes_attribuees.relance_le`), pour se comparer entre eux : la
   carte Shopify les rend ensemble (`relancesParties`, `recuperes`), à part de ses compteurs par panier ouvert.
+- 🔴 **le ROI des messages compte EXACTEMENT les messages que l'attribution prend pour des touches** (plan 2026-11-06) :
+  `GET /tenants/:tenantId/stats/roi` (fonction `statistiques`, console seulement, `get_revenue_stats` ne le lit pas) sert
+  `roiVentes` (`src/shopify/roi.ts`), qui met en face du chiffre brut de `chiffreVentes` (et de sa série cumulée par
+  Postgres, `lireSerieChiffre`) le coût des leviers lu par `PgCoutLeviersStore` (`src/shopify/cout-leviers.pg.ts`). Le
+  périmètre des leviers (campagnes hors lignes Shopify, `[API]` et HubSpot, relance de panier, messages d'origine
+  scénario, IA ou agent de Meta) vit UNE fois, dans `src/shopify/perimetre-leviers.ts`, interpolé par `TOUCHES` ET par
+  la lecture du coût ; `tests/shopify-perimetre-leviers.test.ts` casse si l'une recopie sa condition. Un message de
+  scénario lancé par une campagne coûte à la campagne (`ATTRIBUTION_CAMPAGNE_SCENARIO`, exporté de
+  `src/stats/store.pg.ts`). Le prix se choisit message par message : la provision non rendue du Crédit WhatsApp
+  (EUR) si le message en a une, sinon l'estimation de `getPrixLeviers` (`src/stats/chiffrage.ts` : `prixFactures`, et le
+  prix de service de `prixServiceEffectif`, le même que le coût par campagne), le RCS au prix SIMPLE de la grille (la
+  bascule conversationnelle n'est pas rejouée par source : un coût RCS peut être sous-estimé, l'écran dit « estimé »).
+  Un e-mail n'a pas de prix : coût `partiel`. L'IA (`agent_sessions.cout_micro_eur`) entre en EUR sous la source
+  « agent ». Le ROI ne porte que sur les coûts dans la devise de la boutique (`autresDevises` pour le reste, jamais
+  converti) et vaut `null` quand rien n'a coûté. Seul le pourcentage passe par un flottant ; les montants du chiffre
+  restent du texte.
 
 - 🔴 **chaque envoi né d'un événement Shopify écrit la fiche consentante** (décision de Julien du 2026-10-26 : le
   consentement des clients relève du marchand, aucune affirmation ne lui est demandée, ni par Claude ni par la

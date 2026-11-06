@@ -4,6 +4,7 @@ import { PREFIXE_LIGNE_HUBSPOT } from '../hubspot-workflow/envoi';
 import { ficheActive } from '../crm/contact-store.pg';
 import { BOUNDS_CTE, STATS_TZ, type DateRange } from '../stats/range';
 import { LIGNE_RELANCE_PANIER, PREFIXE_LIGNE_SHOPIFY, type SourceVente, type Touche, type VenteAttribuee } from './attribution';
+import { campagneLevier, origineLevier, sourceDeCampagne, sourceDeLOrigine } from './perimetre-leviers';
 
 /**
  * Ce que la base somme pour une période (plan 2026-10-30, lot 2) : les montants sont des décimaux en TEXTE, additionnés
@@ -20,6 +21,9 @@ export interface LignesChiffre {
   /** Les ventes `relance_panier` dont la RELANCE tombe dans la période (et non le paiement). */
   recuperes: Array<{ test: boolean; devise: string; montant: string; commandes: number }>;
 }
+
+/** Le chiffre cumulé jour par jour, par devise : un point par jour qui a une vente, décimaux en texte. */
+export type SerieChiffre = Array<{ jour: string; devise: string; brutCumule: string; prouveCumule: string }>;
 
 /** La somme, et la part prouvée, d'un groupe de ventes : `trim_scale` rend `150.5` plutôt que `150.500`. */
 const SOMMES = `trim_scale(sum(v.montant))::text as brut,
@@ -51,7 +55,7 @@ interface LigneTouche { source: SourceVente; le: Date; campaign_id: string | nul
  * « Livré » = `delivered` ou `read`. En filière `application`, aucun accusé n'arrive jamais : parti sans échec suffit.
  * Une campagne qui lance un scénario n'a pas d'accusé non plus (identifiant de message synthétique) : partie suffit.
  */
-const TOUCHES = `
+export const TOUCHES = `
   with fils as (
     select v.id from conversations v
      where v.tenant_id = $1 and v.wa_id in (
@@ -60,7 +64,7 @@ const TOUCHES = `
         where c.tenant_id = $1 and c.id = $2 and x is not null and x <> ''
      )
   )
-  select case when k.name = $6 then 'relance_panier' else 'campagne' end as source,
+  select ${sourceDeCampagne('k', '$6')} as source,
          r.sent_at as le,
          case when k.name = $6 then null else k.id end as campaign_id,
          k.template_name as modele,
@@ -68,16 +72,16 @@ const TOUCHES = `
     from campaign_recipients r join campaigns k on k.id = r.campaign_id
    where k.tenant_id = $1 and r.contact_id = $2 and r.status = 'sent'
      and ($3::timestamptz is null or r.sent_at >= $3) and r.sent_at <= $4
-     and (k.name = $6 or not (starts_with(k.name, $7) or starts_with(k.name, $8) or starts_with(k.name, $10)))
+     and ${campagneLevier('k', { relance: '$6', shopify: '$7', api: '$8', hubspot: '$10' })}
      and ($9::text is null or k.template_name = $9)
      and (r.delivery_status in ('delivered', 'read')
           or (r.delivery_status is distinct from 'failed' and ($5 or k.workflow_id is not null)))
   union all
-  select case m.origin when 'scenario' then 'scenario' when 'ia' then 'agent' else 'agent_meta' end,
+  select ${sourceDeLOrigine('m')},
          m.created_at, null::uuid, m.template_name, false
     from conversation_messages m
    where m.conversation_id in (select id from fils)
-     and m.direction = 'out' and m.origin in ('scenario', 'ia', 'mba')
+     and m.direction = 'out' and ${origineLevier('m')}
      and ($3::timestamptz is null or m.created_at >= $3) and m.created_at <= $4
      and ($9::text is null or m.template_name = $9)
      and (m.statut in ('delivered', 'read') or ($5 and m.statut is distinct from 'failed'))
@@ -245,6 +249,33 @@ export class PgVentesStore {
       relances: relances.rows[0]?.n ?? 0,
       recuperes: recuperes.rows.map((r) => ({ test: r.test, devise: r.devise, montant: r.montant, commandes: r.commandes })),
     };
+  }
+
+  /**
+   * Le chiffre d'une période, JOUR PAR JOUR et CUMULÉ (plan 2026-11-06, tâche 2) : la courbe « ramené » du ROI. Ventes
+   * réelles seulement (jamais une commande de test), datées de leur PAIEMENT en jour de Paris, comme `lireChiffre`, et
+   * par devise. Le cumul est fait par Postgres (fenêtre), jamais en JavaScript : les montants restent des décimaux en
+   * texte, et le dernier point d'une devise égale le `brut` de `lireChiffre` sur la même plage. Seuls les jours qui ont
+   * une vente ont une ligne : l'écran porte le cumul d'un jour sur les suivants.
+   */
+  async lireSerieChiffre(tenantId: string, range: DateRange): Promise<SerieChiffre> {
+    const res = await this.pool.query<{ jour: string; devise: string; brut: string; prouve: string }>(
+      `with ${BOUNDS_CTE},
+       jours as (
+         select to_char(v.payee_le at time zone $4, 'YYYY-MM-DD') as jour, v.devise,
+                sum(v.montant) as brut, coalesce(sum(v.montant) filter (where v.preuve is not null), 0) as prouve
+           from ventes_attribuees v, bounds b
+          where v.tenant_id = $1 and not v.test and v.payee_le >= b.start_ts and v.payee_le < b.end_ts
+          group by 1, 2
+       )
+       select jour, devise,
+              trim_scale(sum(brut) over (partition by devise order by jour))::text as brut,
+              trim_scale(sum(prouve) over (partition by devise order by jour))::text as prouve
+         from jours
+        order by jour, devise`,
+      [tenantId, range.from, range.to, STATS_TZ],
+    );
+    return res.rows.map((r) => ({ jour: r.jour, devise: r.devise, brutCumule: r.brut, prouveCumule: r.prouve }));
   }
 
   private async lire(

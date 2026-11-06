@@ -25,11 +25,33 @@ const VENTES = {
 
 const BOUTIQUE = { domaine: 'essai.myshopify.com', nom: 'Essai', etat: 'connectee', dernierEvenementLe: null, delaiPanierMinutes: 15, origine: 'console' };
 
-async function mock(page: import('@playwright/test').Page, opts: { boutique?: unknown; ventes?: unknown; statut?: number } = {}) {
+const ROI = {
+  devise: 'EUR',
+  serie: [
+    { jour: '2026-10-01', chiffreCumule: '0', coutCumule: 2 },
+    { jour: '2026-10-02', chiffreCumule: '150.5', coutCumule: 6.5 },
+    { jour: '2026-10-03', chiffreCumule: '170.5', coutCumule: 7.5 },
+  ],
+  depense: 7.5, ramene: '170.5', prouve: '100.5', roiPct: 2173, ia: 1.5, estime: true, partiel: false,
+  autresDevises: [{ devise: 'USD', cout: 0.4 }],
+  sources: [
+    { source: 'campagne', campaignId: 'k1', nom: 'Soldes', cout: 5, brut: '150.5', roiPct: 2910, partiel: false },
+    { source: 'agent', campaignId: null, nom: null, cout: 1.5, brut: '0', roiPct: -100, partiel: false },
+    { source: 'campagne', campaignId: 'k2', nom: 'Muette', cout: 1, brut: '0', roiPct: -100, partiel: true },
+  ],
+  autres: null,
+};
+
+async function mock(page: import('@playwright/test').Page, opts: { boutique?: unknown; ventes?: unknown; statut?: number; roi?: unknown } = {}) {
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), ADMIN);
   await page.route('**/api/backend/**', async (route) => {
     const url = route.request().url();
     const json = (b: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(b) });
+    if (url.includes('/stats/roi')) {
+      // Par défaut, la route du ROI rend un corps illisible : la page reste celle d'avant, comme avant ce lot.
+      if (opts.roi === 404) return json({ message: 'Route GET:/tenants/t-e2e/stats/roi not found', error: 'Not Found', statusCode: 404 }, 404);
+      return json(opts.roi ?? {});
+    }
     if (url.includes('/stats/ventes')) {
       // Le 404 du ROUTEUR, celui d'une API qui ne connaît pas encore la route.
       if (opts.statut === 404) return json({ message: 'Route GET:/tenants/t-e2e/stats/ventes not found', error: 'Not Found', statusCode: 404 }, 404);
@@ -97,6 +119,45 @@ test.describe('Quantitatif > Shopify', () => {
     await page.goto('/dashboard/shopify');
     await expect(page.getByTestId('ventes-tests')).toContainText(/1 panier relancé récupéré|1 reminded checkout recovered/);
     await expect(page.getByTestId('ventes-tests')).not.toContainText(/0 commandes|0 test orders/);
+  });
+
+  test('🔴 le ROI : dépensé, ramené, pourcentage, deux courbes, et « Par source » parti de ce qui a coûté', async ({ page }) => {
+    await mock(page, { roi: ROI });
+    await page.goto('/dashboard/shopify');
+    await expect(page.getByTestId('roi-depense')).toContainText(/7,50\s€|€7\.50/);
+    await expect(page.getByTestId('roi-ramene')).toContainText(/170,50\s€|€170\.50/);
+    await expect(page.getByTestId('roi-pct')).toContainText(/\+2\s173\s%|\+2,173 %/);
+    await expect(page.getByTestId('roi-courbe-ramene')).toHaveCount(1);
+    await expect(page.getByTestId('roi-courbe-depense')).toHaveCount(1);
+    // Une autre devise se dit à part, jamais additionnée ; l'estimation se dit aussi.
+    await expect(page.getByTestId('roi-autres-devises')).toContainText(/0,40\s\$US|\$0\.40/);
+    await expect(page.getByTestId('roi-estime')).toBeVisible();
+    await expect(page.getByTestId('roi-notes')).toContainText(/confirmations de commande|order confirmations/);
+    // Le tableau part des coûts : une campagne sans vente y est, à -100 %, son coût annoncé comme un minimum.
+    const sources = page.getByTestId('roi-sources');
+    await expect(sources).toContainText(/Campagne « Soldes »|Campaign “Soldes”/);
+    await expect(sources).toContainText(/Campagne « Muette »|Campaign “Muette”/);
+    await expect(sources).toContainText('-100 %');
+    await expect(sources).toContainText(/minimum/);
+    // La part prouvée de « Soldes » vient du chiffre voisin (100,50).
+    await expect(sources).toContainText(/100,50\s€|€100\.50/);
+    await expect(page.getByTestId('ventes-sources')).toHaveCount(0);
+  });
+
+  test('aucun coût sur la période : pas de pourcentage, la phrase le dit', async ({ page }) => {
+    await mock(page, { roi: { ...ROI, depense: 0, roiPct: null, sources: [], autresDevises: [], estime: false } });
+    await page.goto('/dashboard/shopify');
+    await expect(page.getByTestId('roi-pct')).toContainText(/aucun coût sur la période|no cost in the period/);
+    // Sans ligne de ROI, le tableau des ventes d'avant revient.
+    await expect(page.getByTestId('ventes-sources')).toBeVisible();
+  });
+
+  test('🔴 la route du ROI absente (console publiée avant l’API) : la page reste celle d’avant, sans la carte', async ({ page }) => {
+    await mock(page, { roi: 404 });
+    await page.goto('/dashboard/shopify');
+    await expect(page.getByTestId('ventes-total-EUR')).toBeVisible();
+    await expect(page.getByTestId('ventes-sources')).toBeVisible();
+    await expect(page.getByTestId('roi-carte')).toHaveCount(0);
   });
 
   test('la console publiée avant l’API : « pas encore disponible »', async ({ page }) => {

@@ -141,3 +141,14 @@ export function coutMessages(e: EntreeCoutMessages, g: GrillePrix): CoutMessages
     sansTarif,
   };
 }
+
+/**
+ * Le prix effectif d'un message de service sur la période, franchise mensuelle déduite : le tarif est celui d'un message
+ * facturé, la franchise en rend une partie gratuite (une période sous le plafond vaut zéro). Une seule écriture pour le
+ * coût par campagne (`getCoutParCampagne`) et le ROI des messages (`src/shopify/roi.ts`) : un message de service a le
+ * même prix sur les deux écrans. Aucun envoi -> 0, ni division ni imputation.
+ */
+export function prixServiceEffectif(service: readonly MoisService[], rates: CategoryRates, g: GrillePrix): number {
+  const cm = coutMessages({ templates: [], rates, service, rcsSimple: 0, rcsConversationnel: 0 }, g);
+  return cm.service.envoyes > 0 ? cm.service.cout / cm.service.envoyes : 0;
+}

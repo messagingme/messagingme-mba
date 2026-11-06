@@ -611,6 +611,14 @@ export function getVentes(tenantId: string, range?: StatsRange): Promise<unknown
 }
 
 /**
+ * Quantitatif > Shopify, le ROI des messages (plan 2026-11-06) : `unknown`, lu par `lireRoi` (`@/lib/roi`). Un 404 (console
+ * publiée avant l'API) remonte en `ApiError`, et la page reste alors comme avant, sans la carte.
+ */
+export function getRoi(tenantId: string, range?: StatsRange): Promise<unknown> {
+  return request<unknown>(`/tenants/${tenantId}/stats/roi${rangeQuery(range)}`);
+}
+
+/**
  * Le damier « satisfaction x urgence » (lot F du 2026-09-08, migration 0121).
  *
  * Un point par CASE occupee du damier (les deux notes sont des entiers de 0 a 10 : 121 positions au plus),

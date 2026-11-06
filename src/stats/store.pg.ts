@@ -211,7 +211,7 @@ export interface DashboardStats {
  * (`cv.wa_id = regexp_replace(r3.to_e164, ...)`), et `getTemplateBreakdown`, qui jette la colonne, ne la paie
  * pas.
  */
-const ATTRIBUTION_CAMPAGNE_SCENARIO = `(
+export const ATTRIBUTION_CAMPAGNE_SCENARIO = `(
            -- 🔴 ATTRIBUTION A LA LECTURE, decidee par Julien le 2026-09-07. Un envoi de template fait DANS
            -- un scenario n'ecrit nulle part la campagne qui l'a declenche : le parcours n'est enregistre
            -- qu'APRES son premier envoi ("src/workflow/executor.ts", "apply" puis "runs.start"), donc au

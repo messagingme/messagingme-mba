@@ -96,6 +96,8 @@ import type { ShopifyWebhooksRouteDeps } from './http/shopify-webhooks';
 import { PgShopifyStore } from './shopify/store.pg';
 import { PgVentesStore } from './shopify/ventes.pg';
 import { chiffreVentes } from './shopify/chiffre';
+import { PgCoutLeviersStore } from './shopify/cout-leviers.pg';
+import { roiVentes } from './shopify/roi';
 import type { DateRange } from './stats/range';
 import { FILE_PREUVE_UTM } from './shopify/preuve-utm';
 import { demanderJeton, verifierBoutique } from './shopify/connexion';
@@ -1500,6 +1502,18 @@ async function main(): Promise<void> {
    */
   const ventesStore = new PgVentesStore(pool);
   const lireChiffreVentes = (tenant: string, range: DateRange) => chiffreVentes(ventesStore, tenant, range);
+  /**
+   * Le ROI des messages (Quantitatif > Shopify, plan 2026-11-06) : le même chiffre que la route voisine, sa série par jour,
+   * les volumes des leviers, l'IA par jour et les prix du chiffrage commun. Les stores entiers, jamais une méthode détachée.
+   */
+  const coutLeviersStore = new PgCoutLeviersStore(pool);
+  const lireRoiVentes = (tenant: string, range: DateRange) => roiVentes({
+    chiffre: lireChiffreVentes,
+    serie: (t, r) => ventesStore.lireSerieChiffre(t, r),
+    volumes: (t, r) => coutLeviersStore.lireVolumes(t, r),
+    ia: (t, r) => coutLeviersStore.lireIaParJour(t, r),
+    prix: (t, r) => chiffrage.getPrixLeviers(t, r),
+  }, tenant, range);
   // Le ménage des modèles de l'assistant que remplace un nouveau message (2026-10-23) : l'API ne fait que PROGRAMMER
   // l'oubli ; le worker le traite un quart d'heure plus tard (`traiterOubli`, la suppression de l'écran Modèles).
   const programmerOubliShopify: ProgrammerOubli = (job, quand) => queue.enqueue(FILE_OUBLI_MODELE, job, { groupId: job.tenantId, startAfter: quand });
@@ -2257,6 +2271,7 @@ async function main(): Promise<void> {
       ),
       // Quantitatif > Shopify : la lecture partagée avec l'outil MCP et la page Shopify (plan 2026-10-30).
       getVentes: lireChiffreVentes,
+      getRoiVentes: lireRoiVentes,
       // Le même journal que l'écran d'exploitation (`/parametres`), avec le code et la plage en filtre : deux
       // requêtes sur des populations voisines feraient se contredire deux écrans de même titre.
       getErrorContacts: (tenant, range, code, filter) => erreursLivraison.lister(tenant, {

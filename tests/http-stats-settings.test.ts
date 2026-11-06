@@ -339,6 +339,24 @@ describe('stats route', () => {
     await a.close();
   });
 
+  it('GET /stats/roi : le ROI des messages de la période, tel que le calcul le rend (plan 2026-11-06)', async () => {
+    const vus: Array<[string, unknown]> = [];
+    const roi = {
+      devise: 'EUR', serie: [{ jour: '2026-10-01', chiffreCumule: '920', coutCumule: 40 }], depense: 40, ramene: '920', prouve: '300',
+      roiPct: 2200, ia: 0, estime: true, partiel: false, autresDevises: [], sources: [], autres: null,
+    };
+    const a = app({ stats: { getRoiVentes: async (t, r) => { vus.push([t, r]); return roi; } } });
+    const ok = await a.inject({ method: 'GET', url: '/tenants/t1/stats/roi?from=2026-10-01&to=2026-10-30', ...h(adminTok) });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toEqual(roi);
+    expect(vus).toEqual([['t1', { from: '2026-10-01', to: '2026-10-30' }]]);
+    expect((await a.inject({ method: 'GET', url: '/tenants/t1/stats/roi?days=30', ...h(agentTok) })).statusCode).toBe(403);
+    expect((await a.inject({ method: 'GET', url: '/tenants/AUTRE/stats/roi?days=30', ...h(adminTok) })).statusCode).toBe(403);
+    expect((await a.inject({ method: 'GET', url: '/tenants/t1/stats/roi?from=2026-01-10&to=2026-01-01', ...h(adminTok) })).statusCode).toBe(400);
+    expect(vus).toHaveLength(1);
+    await a.close();
+  });
+
   it('tenant != token -> 403', async () => {
     const a = app();
     const res = await a.inject({ method: 'GET', url: '/tenants/AUTRE/stats', ...h(adminTok) });

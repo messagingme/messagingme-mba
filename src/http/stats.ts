@@ -10,6 +10,7 @@ import type { CoutIa } from '../stats/cout-ia';
 import type { CoutParPub } from '../pubs/publicites.pg';
 import type { Performance } from '../stats/performance';
 import type { ChiffreVentes } from '../shopify/chiffre';
+import type { RoiVentes } from '../shopify/roi';
 import type { PricingSummary } from '../meta/pricing';
 import { parseRange } from '../stats/range';
 import type { DateRange } from '../stats/range';
@@ -90,6 +91,11 @@ export interface StatsRouteDeps {
    * la MÊME lecture que l'outil MCP `get_revenue_stats` et les récupérés de la page Shopify.
    */
   getVentes(tenantId: string, range: DateRange): Promise<ChiffreVentes>;
+  /**
+   * Le ROI des messages (Quantitatif > Shopify, plan 2026-11-06) : ce que les leviers de vente ont coûté en face du chiffre
+   * qu'ils ont ramené (`roiVentes`, `src/shopify/roi.ts`). Route à part de `/stats/ventes`, que l'outil MCP partage.
+   */
+  getRoiVentes(tenantId: string, range: DateRange): Promise<RoiVentes>;
 }
 
 /** Ce que les routes lisent du dépôt des statistiques d'envoi. */
@@ -342,6 +348,18 @@ export function registerStats(app: FastifyInstance, deps: StatsRouteDeps, garde:
     const r = parseRange(req.query as Record<string, unknown>);
     if ('error' in r) return reply.code(400).send({ error: r.error });
     return reply.code(200).send(await deps.getVentes(tenant, r.range));
+  });
+
+  /**
+   * Quantitatif > Shopify, le ROI des messages : deux courbes cumulées (coût des leviers, chiffre brut attribué), le ROI en
+   * pourcentage et le coût par source (`src/shopify/roi.ts`). Formule Pro, comme `/stats/ventes`. ⚠️ Son chemin ne
+   * contient PAS `/stats/ventes` : un faux réseau qui répond sur ce motif (e2e) lui rendrait le chiffre.
+   */
+  app.get('/tenants/:tenantId/stats/roi', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const r = parseRange(req.query as Record<string, unknown>);
+    if ('error' in r) return reply.code(400).send({ error: r.error });
+    return reply.code(200).send(await deps.getRoiVentes(tenant, r.range));
   });
 
   /**

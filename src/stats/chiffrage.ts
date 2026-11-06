@@ -12,7 +12,7 @@ import {
   type VolumeCampagneRow, type VolumeContactRow,
 } from './cost';
 import { assemblerDetailCampagne, type DetailCoutCampagne, type EnvoisCampagneRow } from './cout-campagne';
-import { coutMessages, type CoutMessages, type MoisService } from './cout-messages';
+import { coutMessages, prixServiceEffectif, type CoutMessages, type MoisService } from './cout-messages';
 import { PLAFOND_TOURS_IA, type CoutIa } from './cout-ia';
 import { grilleDepuisLigne, tarifsFactures, pricingFacture, type GrillePrix } from './prix';
 import { basculesRcs, FENETRE_BASCULE_MS } from './rcs-conversationnel';
@@ -110,6 +110,11 @@ export interface LecturesDeCout {
   getCoutParCampagne(tenantId: string, range: DateRange, opts: { inclureArchivees: boolean }): Promise<CoutParCampagne>;
   getCoutMessages(tenantId: string, range: DateRange): Promise<CoutMessages>;
   getCoutIa(tenantId: string, range: DateRange): Promise<CoutIa>;
+  /**
+   * Les prix d'une période pour le ROI des messages (Quantitatif > Shopify, plan 2026-11-06) : les tarifs margés, le prix
+   * effectif d'un message de service et la grille, par les MÊMES lectures que le coût par campagne.
+   */
+  getPrixLeviers(tenantId: string, range: DateRange): Promise<{ tarifs: CategoryRates; prixService: number; grille: GrillePrix }>;
   getDetailCoutCampagne(tenantId: string, campaignId: string): Promise<DetailCoutCampagne | null>;
   getWorkflowNodeCounts(tenantId: string, workflowId: string, range: DateRange): Promise<Array<NodeEventCount | CompteurClic>>;
   getBilanContact(tenantId: string, contactId: string): Promise<{ cout: CoutContact; entonnoir: NiveauEngagement[] } | null>;
@@ -288,11 +293,7 @@ export function creerChiffrage(d: DepsChiffrage): LecturesDeCout {
        * le millième vaut zéro). Prendre le tarif nu surfacturerait chaque campagne du début de mois.
        * `envoyes === 0` -> ni division ni imputation.
        */
-      const cm = coutMessages(
-        { templates: [], rates, service: serviceMois, rcsSimple: 0, rcsConversationnel: 0 },
-        grilleDepuisLigne(ligne),
-      );
-      const prixUnitaire = cm.service.envoyes > 0 ? cm.service.cout / cm.service.envoyes : 0;
+      const prixUnitaire = prixServiceEffectif(serviceMois, rates, grilleDepuisLigne(ligne));
       // La marge est déjà dans `rates` (cf. `prixFactures`) : la réappliquer la compterait deux fois. Elle
       // ne touche pas le RCS, dont le prix saisi est déjà un prix de vente.
       return estimateCoutParCampagne(volumes, rates, clics, engagements,
@@ -336,6 +337,18 @@ export function creerChiffrage(d: DepsChiffrage): LecturesDeCout {
      * message de service (`getCoutMessages`).
      */
     getCoutIa: async (tenant, range) => d.stats.consommationIa(tenant, range, PLAFOND_TOURS_IA),
+
+    /**
+     * Les prix du ROI des messages : le même `prixFactures` que tous les écrans de coût, et le même prix de service que
+     * le coût par campagne (`prixServiceEffectif`, franchise du mois déduite), pour qu'un envoi ait un seul prix.
+     */
+    getPrixLeviers: async (tenant, range) => {
+      const [tarifs, service, ligne] = await Promise.all([
+        prixFactures(tenant, range), d.stats.serviceParMois(tenant, range), d.stats.grillePrixGlobale(),
+      ]);
+      const grille = grilleDepuisLigne(ligne);
+      return { tarifs, prixService: prixServiceEffectif(service, tarifs, grille), grille };
+    },
 
     /**
      * La fiche d'une campagne, ouverte depuis sa ligne du tableau. Les mêmes tarifs que le tableau, par le
