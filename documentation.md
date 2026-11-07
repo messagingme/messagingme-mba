@@ -2872,6 +2872,9 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   dont le GET n'écrit rien et le POST (celui du bouton et de `List-Unsubscribe-Post`) coupe une catégorie pour une
   personne ; « Mon compte » la rétablit (`/tenants/:tenantId/moi/emails`).
 - La rétention garde le journal treize mois ; il part en cascade avec l'espace et l'identité.
+  🔴 Une occasion se réserve donc PAR PERSONNE et pour treize mois : un e-mail « une fois » dont le déclencheur se
+  répète (chaque facture, chaque mise à jour) partirait à un admin arrivé plus tard, puis à tous un an après. Un tel
+  déclencheur se borne au moment qu'il annonce (modèle : `signalerConversionDuPro`, la conversion du Crédit WhatsApp).
 - **Les alertes** (`src/emails-produit/alertes.ts`) décident qu'un e-mail part, et de son occasion :
   - le crédit bas, par le crochet `surDebit` du magasin du crédit (tous les débits y passent), sur le seul débit qui
     franchit 0,50 € ; occasion : le dernier mouvement positif du crédit, qu'une recharge renouvelle ;
