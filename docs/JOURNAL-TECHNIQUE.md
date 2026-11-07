@@ -4,6 +4,45 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-07 : révoquer une application coupe les clés d'API et les webhooks qu'elle a créés (lot D de l'audit de sécurité, migration 0282)
+
+Demande de Julien (« Oui, la clé /v1 », 2026-11-06), décisions du même jour : révoquer une application dans
+« Applications autorisées » révoque ses clés d'API et met ses adresses de webhook en pause, la boîte de confirmation
+les nomme ; les autres fins de l'autorisation (déconnexion par le client, jeton rejoué, fin de vie, purge) les laissent
+vivre ; les listes des clés et des webhooks disent l'application qui les a créés ; ce qui a été créé avant le lot reste
+sans lien ; et, après la critique du plan, une application déconnectée reste listée tant qu'une de ses créations vit.
+
+- **Ce qui a changé** : `api_keys.oauth_autorisation_id` et `adresses_evenements.oauth_autorisation_id` (0282), écrits
+  par `create_api_key` et `create_webhook_endpoint` depuis l'autorisation de la personne (`PersonneMcp.autorisationId`,
+  requis, posé par la seule garde). `PgOauthStore.revoquer` coupe ses clés actives et ses adresses actives dans la même
+  transaction que l'autorisation, l'espace reposé sur chaque écriture, et accepte une autorisation déjà finie ; la liste
+  des applications rend `creations` et `connectee` ; la purge épargne une autorisation qui porte une création vivante.
+  Une création et une réactivation sous une autorisation prennent `verrouillerAutorisationVivante` (`for share`) avant
+  d'écrire. Console : la boîte nomme ce qu'elle coupe, relu au clic ; la liste des clés se relit après la révocation ;
+  « Créée par <application> » sous une clé et une adresse, « non vérifié » pour un nom déclaré ; « déconnectée » dans la
+  liste des applications. Les descriptions des deux outils MCP disent le rattachement.
+- **0282** : deux colonnes nullables sans défaut, clés étrangères `on delete set null`, deux index partiels
+  `where oauth_autorisation_id is not null`, `lock_timeout` de 5 s, aucune reprise. Poussée SEULE (`a68282ff`) parce
+  que le code neuf la nomme sur des chemins chauds, et déployée `migration=avant` (run 42359546612) après la purge RGPD
+  d'un pair et avant la 0283 d'un autre, dans l'ordre convenu entre les trois sessions : `0282_creations_oauth.sql ...
+  ok`. Relue en base par une commande en lecture seule lancée par Julien : colonnes `uuid` nullables sans défaut,
+  `api_keys_oauth_autorisation_id_fkey` et `adresses_evenements_oauth_autorisation_id_fkey` en `ON DELETE SET NULL`,
+  index partiels valides au prédicat exact ; 11 clés, aucune adresse, rien de rattaché.
+- **La critique du plan**, avant le code, a trouvé trois rouges, tous repris : la clé de l'offre sans limite se créait
+  hors de la transaction et sans lien ; une application finie disparaissait de la liste, donc du geste qui coupe ses
+  créations ; une réactivation d'adresse en vol pouvait passer après la révocation.
+- **En production** : `9cf3de91` (la console, l'API, les tests, la documentation), publié par Vercel à la poussée
+  (READY) et déployé `migration=aucune` (run 42362537017, approuvé par Julien) : l'API et les trois conteneurs de la machine
+  sur `9cf3de91`, fumée bonne. Le temps du déploiement, la console a tenu l'API d'avant (sans `creations`, l'ancien
+  affichage).
+- **Vérifié avant de pousser** : suite racine entière sur l'arbre exact du commit (972 fichiers ; les deux seuls rouges
+  sont les tests qui lancent `git grep`, qui échouent hors d'un dépôt), suite de la console (102), e2e de la page des
+  clés sur une construction de production, auto-attaque, lint, typecheck ; quatorze défauts remis en place, chacun vu
+  rouge par son test. Les tests d'intégration ne tournent qu'en CI, faute de base jetable sur le poste : leur sens rouge
+  est prouvé par les tests à faux pool qui épinglent le même SQL, et la CI les a joués verts, la course comprise.
+- **La relecture** : aucun rouge ; sept jaunes corrigés avant la poussée, deux au `todo.md`. L'essai réel est le n° 233
+  (`docs/prive/ESSAIS-REELS.md`).
+
 ## 2026-11-07 : les conversations WhatsApp dans l'Inbox HubSpot, côté mba (lot 1 de l'Inbox, migration 0283)
 
 - **Ce qui a changé** : `GET`/`PUT /tenants/:id/hubspot/inbox` (choisir la boîte HubSpot où la ligne WhatsApp est
