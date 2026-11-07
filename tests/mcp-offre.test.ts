@@ -3,7 +3,7 @@ import { OUTILS, outilsPour, type DepsMcp } from '../src/mcp/outils';
 import { RefusOutil } from '../src/mcp/saisie';
 import { DROIT_RELAIS, DROITS_CLE_APPLICATION, VARIABLE_CLE } from '../web/lib/partage/droits-api';
 import { PRIX_PRO_HT_CENTIMES } from '../src/offres/offres';
-import type { PlafondCles } from '../src/auth/api-key-store.pg';
+import { AUTORISATION_REVOQUEE, type PlafondCles } from '../src/auth/api-key-store.pg';
 import type { PeriodicitePro } from '../src/stripe/pro';
 
 /**
@@ -13,20 +13,21 @@ import type { PeriodicitePro } from '../src/stripe/pro';
  * une fois et dite comme telle, et le retour du paiement sur la page publique.
  */
 const T = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
-const PERSONNE = { userId: 'u1' };
+const PERSONNE = { userId: 'u1', autorisationId: 'aut-1' };
 const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
 
-function deps(o: { limiteCles?: number | null; creee?: boolean; couteuxAccepte?: boolean; pro?: 'ok' | 'entreprise' | 'portail' | 'essai' } = {}) {
+function deps(o: { limiteCles?: number | null; creee?: boolean | 'revoquee'; couteuxAccepte?: boolean; pro?: 'ok' | 'entreprise' | 'portail' | 'essai' } = {}) {
   const cap = {
-    creations: [] as Array<{ name: string; scopes: string[]; plafond: PlafondCles }>,
+    creations: [] as Array<{ name: string; scopes: string[]; plafond: PlafondCles; autorisation: string | null }>,
     audit: [] as Array<{ action: string; userId: string | null; detail: unknown }>,
     pro: [] as Array<{ periodicite: PeriodicitePro; payeur: string; retour: string }>,
   };
   const d = {
     cles: {
       cles: {
-        creerSousPlafond: async (_t: string, name: string, scopes: string[], plafond: PlafondCles) => {
-          cap.creations.push({ name, scopes, plafond });
+        creerSousPlafond: async (_t: string, name: string, scopes: string[], plafond: PlafondCles, autorisation: string | null) => {
+          if (o.creee === 'revoquee') return AUTORISATION_REVOQUEE;
+          cap.creations.push({ name, scopes, plafond, autorisation });
           return o.creee === false ? null : { id: 'k1', key: 'mba_cle_montree_une_fois' };
         },
       },
@@ -72,11 +73,13 @@ describe('les outils MCP d’une Free : la clé de son application et le Pro', (
     const r = await outil('create_api_key').executer(d, T, { name: 'Mon application' }, PERSONNE) as Record<string, unknown>;
     expect(r).toMatchObject({ id: 'k1', key: 'mba_cle_montree_une_fois', name: 'Mon application', variable: VARIABLE_CLE });
     // Sans droits demandés : ceux de la clé d'une application (les mêmes que la page « Démarrer »).
-    expect(cap.creations).toEqual([{ name: 'Mon application', scopes: [...DROITS_CLE_APPLICATION], plafond: { max: 2, horsDroit: DROIT_RELAIS } }]);
+    // 🔴 Lot D de l'audit : la clé est rattachée à l'autorisation de la personne, que sa révocation par un admin coupe.
+    expect(cap.creations).toEqual([{ name: 'Mon application', scopes: [...DROITS_CLE_APPLICATION], plafond: { max: 2, horsDroit: DROIT_RELAIS }, autorisation: 'aut-1' }]);
     expect(outil('create_api_key').description).toMatch(/shown ONCE/);
     expect(outil('create_api_key').description).toMatch(/passes through this conversation/);
+    expect(outil('create_api_key').description).toContain('revokes this connection in the console (Authorized applications) revokes the key');
     // L'audit signe la personne et l'origine, jamais la clé.
-    expect(cap.audit).toEqual([{ action: 'cle_api.creee', userId: 'u1', detail: { scopes: [...DROITS_CLE_APPLICATION], via: 'mcp' } }]);
+    expect(cap.audit).toEqual([{ action: 'cle_api.creee', userId: 'u1', detail: { scopes: [...DROITS_CLE_APPLICATION], via: 'mcp', autorisation: 'aut-1' } }]);
     expect(JSON.stringify(cap.audit)).not.toContain('mba_cle_montree_une_fois');
   });
 
@@ -97,6 +100,12 @@ describe('les outils MCP d’une Free : la clé de son application et le Pro', (
     expect(cap.creations.map((c) => c.scopes)).toEqual([['contacts:read']]);
     await expect(outil('create_api_key').executer(deps({ creee: false }).d, T, { name: 'x' }, PERSONNE))
       .rejects.toThrow(/Limite de votre offre atteinte : 2 clés d’API actives.*Passez en Pro/);
+  });
+
+  it('🔴 lot D de l’audit : une autorisation révoquée pendant l’appel refuse la clé, sans trace', async () => {
+    const { d, cap } = deps({ creee: 'revoquee' });
+    await expect(outil('create_api_key').executer(d, T, { name: 'x' }, PERSONNE)).rejects.toThrow(/vient d’être révoquée/);
+    expect(cap.audit).toEqual([]);
   });
 
   it('🔴 subscribe_pro : l’adresse de Stripe, le montant hors taxe de la grille, et le retour sur la page publique', async () => {

@@ -22,7 +22,7 @@ const C2 = '22222222-2222-4222-8222-222222222222';
 const ANCIEN = '44444444-4444-4444-8444-444444444444';
 const NEUF = '55555555-5555-4555-8555-555555555555';
 const C3 = '33333333-3333-4333-8333-333333333333';
-const PERSONNE = { userId: 'u1' };
+const PERSONNE = { userId: 'u1', autorisationId: 'aut-1' };
 const outil = OUTILS.find((o) => o.nom === 'prepare_campaign')!;
 
 const contact = (id: string, opt: 'opted_in' | 'unknown', nom: string): BuildContact =>

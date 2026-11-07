@@ -9,6 +9,7 @@
  */
 
 import { request } from '../http';
+import type { ApplicationCreatrice } from '../oauth';
 import type { UserFieldKind } from '../field-kinds';
 import type { AutomationTriggerKind as TypeDeDeclencheur } from '../partage/automations';
 
@@ -26,6 +27,11 @@ export interface ApiKeyRow {
   lastUsedAt: string | null;
   /** Instant de révocation. Non null = la clé ne peut plus rien : la ligne RESTE dans la liste. */
   revokedAt: string | null;
+  /**
+   * L'application connectée qui a créé la clé (`create_api_key`, lot D de l'audit) ; `null` pour une clé de la console.
+   * Absente d'une API plus ancienne.
+   */
+  application?: ApplicationCreatrice | null;
 }
 /** Réponse de création. `key` est la clé EN CLAIR, renvoyée UNE SEULE FOIS et jamais re-consultable. */
 export interface ApiKeyCreated {

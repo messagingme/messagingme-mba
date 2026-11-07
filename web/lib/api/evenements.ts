@@ -1,4 +1,5 @@
 import { request } from '../http';
+import type { ApplicationCreatrice } from '../oauth';
 
 /**
  * Développeurs > Webhooks sortants (lot 12) : les adresses de l'application d'un client et leur journal. Le serveur
@@ -15,6 +16,11 @@ export interface AdresseEvenements {
   derniereLivraisonLe: string | null;
   enReessai: number;
   echecs: number;
+  /**
+   * L'application connectée qui a créé l'adresse (`create_webhook_endpoint`, lot D de l'audit) ; `null` pour une
+   * adresse de la console ou de l'API. Absente d'une API plus ancienne.
+   */
+  application?: ApplicationCreatrice | null;
 }
 
 export interface ListeAdressesEvenements {

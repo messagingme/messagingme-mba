@@ -2,7 +2,7 @@ import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import { DROITS_CLE_APPLICATION, VARIABLE_CLE, type ApiScope } from '../../web/lib/partage/droits-api';
 import type { OutilMcp } from './outils';
 import { RefusOutil, texteObligatoire, valeurOuRefus } from './saisie';
-import { LOURDE, ecriture, plafondCouteux, signataire } from './outils-agent';
+import { LOURDE, ecriture, personneRequise, plafondCouteux, signataire } from './outils-agent';
 import { creerCleApi } from '../auth/creer-cle';
 import { PRIX_PRO_HT_CENTIMES } from '../offres/offres';
 import type { PeriodicitePro, RetourPro } from '../stripe/pro';
@@ -20,8 +20,11 @@ export interface DepsOffreMcp {
 
 /**
  * Les droits qu'une clé créée par Claude peut porter : une clé à droits LIMITÉS (spec offres v2). Ni le MCP, ni les
- * webhooks, ni la suppression de contacts : une consigne glissée dans un message que Claude lit ne fabrique pas une clé
- * qui exfiltre ou efface, et qui survivrait à la révocation de Claude. Ces clés-là se créent dans la console.
+ * webhooks, ni la suppression de contacts : ces clés-là se créent dans la console. La lecture des fils et des contacts
+ * en fait partie depuis le lot 13 : l'application d'un vibe codeur lit le fil pour répondre.
+ * 🔴 Une clé créée ici reste rattachée à l'autorisation de l'application qui l'a demandée (lot D de l'audit, 0282) :
+ * un admin qui révoque cette application dans la console révoque la clé avec elle. Les autres fins de l'autorisation
+ * (déconnexion par le client, jeton rejoué, fin de vie) la laissent vivre, décision de Julien du 2026-11-06.
  */
 const DROITS_PAR_CLAUDE = ['contacts:read', 'contacts:write', 'sends:create', 'conversations:read', 'templates:write'] as const satisfies readonly ApiScope[];
 
@@ -37,7 +40,9 @@ export const OUTILS_OFFRE: OutilMcp[] = [
       + `.env file as ${VARIABLE_CLE} (a file git does not track), never in the code, and revoke it in the console (API keys) `
       + `if it leaks. Without scopes, the application key's: ${DROITS_CLE_APPLICATION.join(', ')}. Only limited scopes; a key `
       + 'with MCP, webhook or contact deletion scopes is created in the console. The plan caps active keys '
-      + '(the refusal plan_limit_reached says so; revoking one frees a place). ' + LOURDE,
+      + '(the refusal plan_limit_reached says so; revoking one frees a place). The key stays tied to this connection of '
+      + 'the assistant: an administrator who revokes this connection in the console (Authorized applications) revokes '
+      + 'the key with it, and the application that uses it stops. ' + LOURDE,
     // Une clé de plus à chaque appel ; rien ne sort chez un tiers.
     annotations: ecriture('Create an API key', false, false),
     entree: {
@@ -52,7 +57,7 @@ export const OUTILS_OFFRE: OutilMcp[] = [
       required: ['name'],
     },
     async executer(deps, tenantId, args, personne) {
-      const auteur = signataire(personne);
+      const p = personneRequise(personne);
       const nom = texteObligatoire(args, 'name', 100);
       const permis: readonly string[] = DROITS_PAR_CLAUDE;
       if (args.scopes !== undefined && (!Array.isArray(args.scopes) || !args.scopes.every((s) => typeof s === 'string' && permis.includes(s)))) {
@@ -61,7 +66,9 @@ export const OUTILS_OFFRE: OutilMcp[] = [
       }
       const scopes = (args.scopes as string[] | undefined) ?? [...DROITS_CLE_APPLICATION];
       await plafondCouteux(deps, tenantId);
-      const cle = valeurOuRefus(await creerCleApi(deps.cles, tenantId, nom, scopes, { userId: auteur, email: null }, 'mcp'));
+      const cle = valeurOuRefus(await creerCleApi(
+        deps.cles, tenantId, nom, scopes, { userId: p.userId, email: null }, { via: 'mcp', autorisationId: p.autorisationId },
+      ));
       return { ...cle, variable: VARIABLE_CLE, montree_une_fois: true };
     },
   },

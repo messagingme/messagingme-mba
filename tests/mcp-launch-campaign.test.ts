@@ -11,7 +11,7 @@ import { empreinteEtat, type EtatConfirme, type IssueReclamation } from '../src/
  */
 const T = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const ID = '55555555-5555-4555-8555-555555555555';
-const PERSONNE = { userId: 'u1' };
+const PERSONNE = { userId: 'u1', autorisationId: 'aut-1' };
 const outil = OUTILS.find((o) => o.nom === 'launch_campaign')!;
 
 const ETAT: EtatConfirme = {

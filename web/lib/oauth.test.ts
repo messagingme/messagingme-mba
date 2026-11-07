@@ -2,8 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ApiError } from './http';
 import {
   adresseDeRetourSure, autoriserParGoogle, autoriserParSession, avecDemande, capacitesAnnoncees, continuerAvecGoogle,
-  demandeDeLAdresse, estDemandeExpiree, listerAutorisations, ouvrirConsentement, personneDe, peutAutoriserDirectement,
-  revoquerAutorisation,
+  creeeParApplication, demandeDeLAdresse, estDemandeExpiree, listerAutorisations, messageRevocation, ouvrirConsentement,
+  personneDe, peutAutoriserDirectement, provenanceClient, revoquerAutorisation, type AutorisationOauth,
 } from './oauth';
 import type { Session } from './session';
 import { ACTIONS_JOURNAL } from './partage/actions-journal';
@@ -231,5 +231,53 @@ describe('le journal des actions', () => {
       expect(fr, a).not.toBe('');
       expect(en, a).not.toBe('');
     }
+  });
+});
+
+describe('lot D de l’audit : ce qu’une application a créé, dans la boîte de révocation et dans les listes', () => {
+  // Le français, comme `useT` le rend dans la console en français.
+  const fr = (francais: string) => francais;
+  const en = (_francais: string, anglais: string) => anglais;
+  const base: AutorisationOauth = {
+    id: 'a1', clientId: 'cc', client: 'Claude Code', userId: 'u1', email: 'lea@exemple.fr', nom: 'Léa Martin', scopes: ['mcp:read', 'mcp:write'],
+    creeLe: '2026-11-06T10:00:00.000Z', dernierUsageLe: null,
+  };
+
+  it('🔴 la boîte nomme chaque clé et chaque webhook, et dit que l’application qui s’en sert s’arrêtera', () => {
+    const m = messageRevocation({ ...base, creations: { cles: [{ id: 'k1', name: 'Mon application' }], adresses: [{ id: 'w1', url: 'https://app.client.fr/hook' }] } }, fr);
+    // Le début reste celui que l'e2e lit (`e2e/applications-autorisees.spec.ts`).
+    expect(m.startsWith('Révoquer l’accès de « Claude Code », autorisé par Léa Martin ?')).toBe(true);
+    expect(m).toContain('la clé d’API « Mon application » sera révoquée et le webhook https://app.client.fr/hook sera mis en pause');
+    expect(m).toContain('cessera de fonctionner');
+    expect(m).toContain('leurs messages iront à votre équipe');
+  });
+
+  it('le pluriel, et rien sur le répondeur quand aucun webhook n’est coupé', () => {
+    const m = messageRevocation({ ...base, creations: { cles: [{ id: 'k1', name: 'A' }, { id: 'k2', name: 'B' }], adresses: [] } }, fr);
+    expect(m).toContain('les clés d’API « A », « B » seront révoquées');
+    expect(m).not.toContain('équipe');
+    expect(messageRevocation({ ...base, creations: { cles: [], adresses: [{ id: 'w1', url: 'https://a.fr/h' }, { id: 'w2', url: 'https://b.fr/h' }] } }, en))
+      .toContain('the webhooks https://a.fr/h, https://b.fr/h will be paused');
+  });
+
+  it('🔴 une API d’avant le lot ne rend pas les créations, et ne les coupe pas : la boîte n’en promet rien', () => {
+    const m = messageRevocation(base, fr);
+    expect(m).toBe('Révoquer l’accès de « Claude Code », autorisé par Léa Martin ? Son prochain appel sera refusé, et il devra demander une nouvelle autorisation.');
+    expect(messageRevocation({ ...base, creations: { cles: [], adresses: [] } }, fr)).toBe(m);
+  });
+
+  it('🔴 une application déconnectée : il ne reste à couper que ce qu’elle a créé', () => {
+    const m = messageRevocation({ ...base, connectee: false, creations: { cles: [{ id: 'k1', name: 'Mon application' }], adresses: [] } }, fr);
+    expect(m.startsWith('« Claude Code », autorisé par Léa Martin, n’est plus connecté, mais ce qu’il a créé vit encore. Révoquer l’arrête : ')).toBe(true);
+    expect(m).not.toContain('Son prochain appel');
+  });
+
+  it('🔴 la provenance d’un nom déclaré se dit « non vérifié », partout où il s’affiche', () => {
+    expect(provenanceClient('declaree', 'evil.example', fr)).toBe('non vérifié · retour vers evil.example');
+    expect(provenanceClient('epingle', null, fr)).toBeNull();
+    expect(creeeParApplication({ nom: 'Claude Code', marque: 'declaree', hote: 'evil.example' }, fr)).toBe('Créée par Claude Code · non vérifié · retour vers evil.example');
+    expect(creeeParApplication({ nom: 'Claude Code', marque: 'epingle', hote: null }, en)).toBe('Created by Claude Code');
+    expect(creeeParApplication(null, fr)).toBeNull();
+    expect(creeeParApplication(undefined, fr)).toBeNull();
   });
 });

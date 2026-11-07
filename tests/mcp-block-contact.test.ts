@@ -12,7 +12,7 @@ import type { ContactRow } from '../src/crm/contact-store.pg';
 const T = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const C = '33333333-3333-4333-8333-333333333333';
 const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
-const MOI = { userId: '99999999-9999-4999-8999-999999999999' };
+const MOI = { userId: '99999999-9999-4999-8999-999999999999', autorisationId: 'aut-1' };
 
 function contact(blockedAt: string | null): ContactRow {
   return {

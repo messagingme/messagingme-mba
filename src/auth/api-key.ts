@@ -40,10 +40,11 @@ declare module 'fastify' {
      */
     apiAcces?: { type: 'cle' | 'oauth'; id: string };
     /**
-     * La personne derrière un jeton OAuth, `null` derrière une clé, qui n'en a pas. Elle signe les écritures de
-     * `/mcp` ; son rôle n'est pas ici, il est relu en base à chaque appel et doit valoir `admin`.
+     * La personne derrière un jeton OAuth, et l'autorisation de ce jeton ; `null` derrière une clé, qui n'en a pas.
+     * Elle signe les écritures de `/mcp` ; son rôle n'est pas ici, il est relu en base à chaque appel et doit valoir
+     * `admin`. L'autorisation rattache ce qu'un outil crée d'accès durable (lot D de l'audit, migration 0282).
      */
-    apiPersonne?: { userId: string } | null;
+    apiPersonne?: { userId: string; autorisationId: string } | null;
   }
 }
 
@@ -53,7 +54,7 @@ interface Porteur {
   readonly tenantStatus?: string;
   readonly scopes: string[];
   readonly acces: { type: 'cle' | 'oauth'; id: string };
-  readonly personne: { userId: string } | null;
+  readonly personne: { userId: string; autorisationId: string } | null;
   /** La personne d'un jeton au-delà de l'offre (lot 6, B2a) ; toujours `null` pour une clé, qui n'a pas de personne. */
   readonly horsOffre: HorsOffreMembre | null;
 }
@@ -118,7 +119,10 @@ export function makeRequireApiKey(
     if (jeton) {
       const a = await oauth.resoudreAcces(empreinte);
       if (!a?.valide) return null;
-      return { tenantId: a.tenantId, tenantStatus: a.tenantStatus, scopes: a.scopes, acces: { type: 'oauth', id: a.autorisationId }, personne: { userId: a.userId }, horsOffre: a.horsOffre };
+      return {
+        tenantId: a.tenantId, tenantStatus: a.tenantStatus, scopes: a.scopes, acces: { type: 'oauth', id: a.autorisationId },
+        personne: { userId: a.userId, autorisationId: a.autorisationId }, horsOffre: a.horsOffre,
+      };
     }
     const k = await store.findActiveByHash(empreinte);
     if (!k) return null;

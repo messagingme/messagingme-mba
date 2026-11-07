@@ -73,7 +73,8 @@ describe('la garde : un jeton mbo_', () => {
     expect(req.auth).toEqual({ userId: 'oauth:a1', tenantId: 't1', role: 'api' });
     expect(req.apiScopes).toEqual(['mcp:read']);
     expect(req.apiAcces).toEqual({ type: 'oauth', id: 'a1' });
-    expect(req.apiPersonne).toEqual({ userId: 'u-admin' });
+    // 🔴 Lot D de l'audit : la personne porte son autorisation, à laquelle se rattache ce qu'un outil crée.
+    expect(req.apiPersonne).toEqual({ userId: 'u-admin', autorisationId: 'a1' });
     expect(cles.lectures).toBe(0);
     expect(jetons.lectures).toBe(1);
   });

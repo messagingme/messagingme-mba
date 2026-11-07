@@ -47,7 +47,7 @@ describe.skipIf(!url)('webhooks sortants : adresses et envois (Postgres)', () =>
   });
 
   it('🔴 une adresse se crée et se lit sans son secret ; un autre espace ne la voit pas', async () => {
-    const a = await adresses.creer(tenantId, { url: 'https://app.client.fr/hook', description: 'prod', types: ['message.received'], secretChiffre: 'chiffre-1' });
+    const a = (await adresses.creer(tenantId, { url: 'https://app.client.fr/hook', description: 'prod', types: ['message.received'], secretChiffre: 'chiffre-1' }, null))!;
     expect(a).toMatchObject({ url: 'https://app.client.fr/hook', types: ['message.received'], active: true, enReessai: 0, echecs: 0 });
     expect(JSON.stringify(await adresses.lister(tenantId))).not.toContain('chiffre-1');
     expect(await adresses.lister(autreTenantId)).toEqual([]);
@@ -58,8 +58,8 @@ describe.skipIf(!url)('webhooks sortants : adresses et envois (Postgres)', () =>
   });
 
   it('🔴 le rang suit l’ordre de création : c’est lui qui gèle les plus récentes au-delà de l’offre', async () => {
-    const a1 = await adresses.creer(tenantId, { url: 'https://a.client.fr/h', description: '', types: ['link.clicked'], secretChiffre: 'c' });
-    const a2 = await adresses.creer(tenantId, { url: 'https://b.client.fr/h', description: '', types: ['link.clicked'], secretChiffre: 'c' });
+    const a1 = (await adresses.creer(tenantId, { url: 'https://a.client.fr/h', description: '', types: ['link.clicked'], secretChiffre: 'c' }, null))!;
+    const a2 = (await adresses.creer(tenantId, { url: 'https://b.client.fr/h', description: '', types: ['link.clicked'], secretChiffre: 'c' }, null))!;
     expect((await adresses.pourEnvoi(tenantId, a1.id))?.rang).toBe(1);
     expect((await adresses.pourEnvoi(tenantId, a2.id))?.rang).toBe(2);
     expect((await adresses.activesPourDistribution(tenantId)).map((a) => a.id)).toEqual([a1.id, a2.id]);
@@ -68,7 +68,7 @@ describe.skipIf(!url)('webhooks sortants : adresses et envois (Postgres)', () =>
   });
 
   it('🔴 un envoi n’est créé qu’une fois par (adresse, événement), et une tentative périmée n’écrase rien', async () => {
-    const a = await adresses.creer(tenantId, { url: 'https://app.client.fr/hook', description: '', types: ['message.received'], secretChiffre: 'c' });
+    const a = (await adresses.creer(tenantId, { url: 'https://app.client.fr/hook', description: '', types: ['message.received'], secretChiffre: 'c' }, null))!;
     const ligne = { tenantId, adresseId: a.id, evenementId: 'evt_itest_1', type: 'message.received' as const, contactId, corps: '{"id":"evt_itest_1"}' };
     const crees = await envois.creer([ligne]);
     expect(crees).toHaveLength(1);
@@ -104,7 +104,7 @@ describe.skipIf(!url)('webhooks sortants : adresses et envois (Postgres)', () =>
   });
 
   it('🔴 la purge du journal suit l’offre : un espace en Base garde 3 jours', async () => {
-    const a = await adresses.creer(tenantId, { url: 'https://app.client.fr/hook', description: '', types: ['message.received'], secretChiffre: 'c' });
+    const a = (await adresses.creer(tenantId, { url: 'https://app.client.fr/hook', description: '', types: ['message.received'], secretChiffre: 'c' }, null))!;
     const [vieux, recent] = await envois.creer([
       { tenantId, adresseId: a.id, evenementId: 'evt_itest_vieux', type: 'message.received', contactId: null, corps: '{}' },
       { tenantId, adresseId: a.id, evenementId: 'evt_itest_recent', type: 'message.received', contactId: null, corps: '{}' },
@@ -117,7 +117,7 @@ describe.skipIf(!url)('webhooks sortants : adresses et envois (Postgres)', () =>
   });
 
   it('🔴 la purge RGPD d’un contact efface ses envois : leur corps porte son numéro et ses messages', async () => {
-    const a = await adresses.creer(tenantId, { url: 'https://app.client.fr/hook', description: '', types: ['message.received'], secretChiffre: 'c' });
+    const a = (await adresses.creer(tenantId, { url: 'https://app.client.fr/hook', description: '', types: ['message.received'], secretChiffre: 'c' }, null))!;
     const [envoi] = await envois.creer([{ tenantId, adresseId: a.id, evenementId: 'evt_itest_rgpd', type: 'message.received', contactId, corps: '{"phone":"+33600000771"}' }]);
     await new PgContactStore(pool).purgeMany(tenantId, [contactId]);
     expect(await envois.pourEnvoi(tenantId, envoi!.id)).toBeNull();
@@ -126,7 +126,7 @@ describe.skipIf(!url)('webhooks sortants : adresses et envois (Postgres)', () =>
 
   it('un espace supprimé emporte ses adresses et ses envois (cascade)', async () => {
     const t = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-evenements-cascade') returning id`)).rows[0]!.id;
-    const a = await adresses.creer(t, { url: 'https://app.client.fr/hook', description: '', types: ['message.received'], secretChiffre: 'c' });
+    const a = (await adresses.creer(t, { url: 'https://app.client.fr/hook', description: '', types: ['message.received'], secretChiffre: 'c' }, null))!;
     await envois.noterEssai(t, a.id, { evenementId: 'evt_itest_essai', corps: '{}', livre: true, code: 200, extrait: '' });
     await pool.query('delete from tenants where id = $1', [t]);
     expect((await pool.query('select 1 from envois_evenements where tenant_id = $1', [t])).rowCount).toBe(0);

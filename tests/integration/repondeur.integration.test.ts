@@ -116,7 +116,7 @@ describe.skipIf(!url)('le répondeur par défaut (Postgres)', () => {
 
     it('🔴 le mode « application » (0224) : l’adresse s’écrit et se lit ; CHECK à sens unique ; supprimer l’adresse NE lève PAS, le mode se lit « Équipe »', async () => {
       const adresses = new PgAdressesEvenementsStore(pool);
-      const a = await adresses.creer(tenantId, { url: 'https://app.client.fr/repond', description: '', types: ['message.received'], secretChiffre: 'c' });
+      const a = (await adresses.creer(tenantId, { url: 'https://app.client.fr/repond', description: '', types: ['message.received'], secretChiffre: 'c' }, null))!;
       await reglages().setRepondeur(tenantId, { mode: 'equipe' });
       await expect(pool.query(`update tenant_settings set repondeur_adresse_id = $2 where tenant_id = $1`, [tenantId, a.id]))
         .rejects.toMatchObject({ code: '23514', constraint: 'tenant_settings_repondeur_adresse_chk' });
@@ -137,7 +137,7 @@ describe.skipIf(!url)('le répondeur par défaut (Postgres)', () => {
     it('🔴 creerNeuf : la même demande deux fois ne rend une ligne qu’une fois (rien à enfiler la seconde)', async () => {
       const adresses = new PgAdressesEvenementsStore(pool);
       const envois = new PgEnvoisEvenementsStore(pool);
-      const a = await adresses.creer(tenantId, { url: 'https://app.client.fr/demande', description: '', types: ['message.received'], secretChiffre: 'c' });
+      const a = (await adresses.creer(tenantId, { url: 'https://app.client.fr/demande', description: '', types: ['message.received'], secretChiffre: 'c' }, null))!;
       const ligne = { tenantId, adresseId: a.id, evenementId: 'evt_demande_itest', type: 'conversation.needs_reply' as const, contactId: null, corps: '{}' };
       const premier = await envois.creerNeuf(ligne);
       expect(premier).toMatch(/^[0-9a-f-]{36}$/);

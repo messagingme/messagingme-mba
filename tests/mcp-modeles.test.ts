@@ -11,7 +11,7 @@ import type { TemplateSummary } from '../src/meta/templates';
  */
 const T = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
-const MOI = { userId: 'u1' };
+const MOI = { userId: 'u1', autorisationId: 'aut-1' };
 
 const RESUME: TemplateSummary = {
   id: 'tpl-1', name: 'commande_prete', status: 'REJECTED', category: 'UTILITY', language: 'fr',

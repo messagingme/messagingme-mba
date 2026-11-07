@@ -516,6 +516,20 @@ Lot identité B (journal du 2026-11-05). Rien ne bloque.
   rebonds suffisent pour commencer.
 - **La suite de l'audit d'identité** : son plan est privé, dans `docs/prive/`.
 
+## 🟡 Ce qu'une application connectée crée : ce que le lot laisse (lot D de l'audit de sécurité, 2026-11-06)
+
+- **La page de consentement** (`web/app/autoriser`) ne dit pas qu'une application peut créer des clés d'API et des webhooks,
+  ni qu'ils s'arrêtent si on la révoque.
+- **Le plugin** recommande `create_api_key` et `create_webhook_endpoint` pour l'application de production (skills
+  « rappels » et « mise en service ») sans dire le rattachement : le dire, monter sa version, le publier après l'API. La
+  description des deux outils, servie par l'API, le dit déjà à Claude.
+- **« Créée par Claude Code »** ne dit pas de quelle connexion il s'agit (une ligne par consentement) : ajouter la personne
+  ou la date.
+- **La suppression d'un membre** efface ses autorisations (cascade de 0204) : ce que Claude a créé sous elles vit, sans
+  lien ni provenance, la seule fin qui échappe à la liste « déconnectée ». À trancher.
+- **Une adresse coupée rallumée par une autre connexion de Claude** reste rattachée à l'application révoquée : refuser
+  cette réactivation, ou rattacher l'adresse à la connexion qui la rallume. À trancher.
+
 ## 🟡 Une invitation ne s'ouvre que par son lien : ce que le lot laisse (2026-11-06)
 
 Lot identité C (journal du 2026-11-06). Rien ne bloque.

@@ -18,7 +18,7 @@ import { cleIdempotence } from '../src/api/idempotence';
  * MÊME service que `/v1/scenarios` (`src/workflow/scenarios-api.ts`) et n'ont aucune logique à eux.
  */
 const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
-const MOI = { userId: 'u1' };
+const MOI = { userId: 'u1', autorisationId: 'aut-1' };
 const NOMS = ['create_scenario', 'get_scenario', 'update_scenario', 'delete_scenario'];
 
 function monter() {

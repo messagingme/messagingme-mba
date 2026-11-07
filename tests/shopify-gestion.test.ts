@@ -361,7 +361,7 @@ describe('l’état et la coupure', () => {
   it('get_shopify_state rend les paniers récupérés des 7 jours et leur montant, par devise', async () => {
     const { deps } = monter();
     const mcp = { shopify: deps } as unknown as DepsMcp;
-    const etat = await OUTILS.find((x) => x.nom === 'get_shopify_state')!.executer(mcp, T, {}, { userId: 'u1' } as never);
+    const etat = await OUTILS.find((x) => x.nom === 'get_shopify_state')!.executer(mcp, T, {}, { userId: 'u1', autorisationId: 'aut-1' } as never);
     expect(etat).toMatchObject({
       checkouts: {
         sent_reminders_last_7_days: 4, recovered_last_7_days: 2, recovered_amount_last_7_days: [{ currency: 'EUR', amount: '59.9' }],
@@ -404,13 +404,13 @@ describe('les outils MCP du connecteur', () => {
     const { deps } = monter({ filiere: 'application' });
     const mcp = { shopify: deps } as unknown as DepsMcp;
     const outil = OUTILS.find((x) => x.nom === 'set_shopify_message')!;
-    await expect(outil.executer(mcp, T, { event: 'order_paid', text: 'Merci pour {{order_number}}.', language: 'fr' }, { userId: 'u1' } as never))
+    await expect(outil.executer(mcp, T, { event: 'order_paid', text: 'Merci pour {{order_number}}.', language: 'fr' }, { userId: 'u1', autorisationId: 'aut-1' } as never))
       .rejects.toThrow(PHRASE_SHOPIFY_QR_CODE);
     const regle = await outil.executer(mcp, T, {
       event: 'order_paid', text: 'Merci pour {{order_number}}.', language: 'fr', active: false,
-    }, { userId: 'u1' } as never);
+    }, { userId: 'u1', autorisationId: 'aut-1' } as never);
     expect(regle).toMatchObject({ messages: [{ event: 'order_paid', template: null, text: 'Merci pour {{order_number}}.', variables: ['order_number'], active: false }] });
-    const etat = await OUTILS.find((x) => x.nom === 'get_shopify_state')!.executer(mcp, T, {}, { userId: 'u1' } as never);
+    const etat = await OUTILS.find((x) => x.nom === 'get_shopify_state')!.executer(mcp, T, {}, { userId: 'u1', autorisationId: 'aut-1' } as never);
     expect(etat).toMatchObject({ messages: [{ event: 'order_paid', template: null, text: 'Merci pour {{order_number}}.' }] });
   });
 
@@ -425,13 +425,13 @@ describe('les outils MCP du connecteur', () => {
       const { deps, journal } = monter({ modele: { statut: 'approuve', categorie: 'marketing', variables: 1 } });
       const r = await regler.executer({ shopify: deps } as unknown as DepsMcp, T, {
         event: 'checkout_abandoned', template: 'relance', language: 'fr', variables: ['checkout_url'], customers_consented,
-      }, { userId: 'u1' } as never);
+      }, { userId: 'u1', autorisationId: 'aut-1' } as never);
       expect(r, String(customers_consented)).toEqual({
         messages: [{ event: 'checkout_abandoned', template: 'relance', text: null, language: 'fr', variables: ['checkout_url'], active: true }],
       });
       expect(journal.branches, String(customers_consented)).toHaveLength(1);
     }
-    const lu = await etat.executer({ shopify: monter().deps } as unknown as DepsMcp, T, {}, { userId: 'u1' } as never);
+    const lu = await etat.executer({ shopify: monter().deps } as unknown as DepsMcp, T, {}, { userId: 'u1', autorisationId: 'aut-1' } as never);
     expect(lu).toMatchObject({ connected: true, store: 'b.myshopify.com' });
     expect(lu).not.toHaveProperty('customers_consented_at');
   });
@@ -512,7 +512,7 @@ describe('l’import des clients abonnés (lot 3)', () => {
     const outil = OUTILS.find((o) => o.nom === 'import_shopify_customers')!;
     const { deps, journal } = monterImport();
     const depsMcp = { couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) }, shopify: deps } as unknown as DepsMcp;
-    const r = await outil.executer(depsMcp, T, { max_contacts: 2 }, { userId: 'u1' }) as { consent: string };
+    const r = await outil.executer(depsMcp, T, { max_contacts: 2 }, { userId: 'u1', autorisationId: 'aut-1' }) as { consent: string };
     expect(journal.imports[0]).toMatchObject({ optIn: true, optInSource: 'import Shopify, déclaré dans Claude par u1' });
     expect(r.consent).toMatch(/^opted_in/);
   });
@@ -557,11 +557,11 @@ describe('l’import des clients abonnés (lot 3)', () => {
     for (const [nom, args] of [['preview_shopify_customers', {}], ['import_shopify_customers', { max_contacts: 1 }]] as const) {
       const { deps, journal } = monterImport();
       const refusant = { couteux: { consommer: async () => ({ accepte: false, attenteMs: 2000 }) }, shopify: deps } as unknown as DepsMcp;
-      await expect(OUTILS.find((x) => x.nom === nom)!.executer(refusant, T, args, { userId: 'u1' } as never), nom)
+      await expect(OUTILS.find((x) => x.nom === nom)!.executer(refusant, T, args, { userId: 'u1', autorisationId: 'aut-1' } as never), nom)
         .rejects.toThrow(MESSAGE_OPERATIONS_LOURDES);
       expect([journal.lectures, journal.imports], nom).toEqual([[], []]);
       const acceptant = { couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) }, shopify: deps } as unknown as DepsMcp;
-      await OUTILS.find((x) => x.nom === nom)!.executer(acceptant, T, args, { userId: 'u1' } as never);
+      await OUTILS.find((x) => x.nom === nom)!.executer(acceptant, T, args, { userId: 'u1', autorisationId: 'aut-1' } as never);
       expect(journal.lectures, nom).toHaveLength(1);
     }
   });

@@ -26,6 +26,8 @@ const BASE = '/tenants/t1/evenements/adresses';
 function monter(o: { limite?: number | null } = {}) {
   const adresses = new Map<string, AdresseVue & { secretChiffre: string }>();
   const audit: Array<{ action: string; detail: unknown }> = [];
+  // Lot D de l'audit : l'autorisation que chaque création passe au magasin (`null` pour la console).
+  const autorisations: Array<string | null> = [];
   const sansSecret = ({ secretChiffre: _s, ...v }: AdresseVue & { secretChiffre: string }): AdresseVue => v;
   const gestion: DepsGestionEvenements = {
     adresses: {
@@ -33,11 +35,12 @@ function monter(o: { limite?: number | null } = {}) {
       lire: async (_t, id) => { const a = adresses.get(id); return a ? sansSecret(a) : null; },
       existe: async (_t, id) => adresses.has(id),
       compterActives: async () => [...adresses.values()].filter((a) => a.active).length,
-      creer: async (_t, a) => {
+      creer: async (_t, a, autorisation) => {
+        autorisations.push(autorisation);
         const id = randomUUID();
         adresses.set(id, {
           id, url: a.url, description: a.description, types: [...a.types], active: true, creeLe: new Date().toISOString(),
-          ancienSecretJusqua: null, derniereLivraisonLe: null, enReessai: 0, echecs: 0, secretChiffre: a.secretChiffre,
+          ancienSecretJusqua: null, derniereLivraisonLe: null, enReessai: 0, echecs: 0, application: null, secretChiffre: a.secretChiffre,
         });
         return sansSecret(adresses.get(id)!);
       },
@@ -60,7 +63,7 @@ function monter(o: { limite?: number | null } = {}) {
     queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET },
     evenements: { gestion, audit: async (_t, _acteur, action, _cible, detail) => { audit.push({ action, detail }); } },
   });
-  return { app, audit };
+  return { app, audit, autorisations };
 }
 
 describe('les routes des webhooks sortants', () => {
@@ -70,9 +73,11 @@ describe('les routes des webhooks sortants', () => {
   });
 
   it('🔴 le secret est rendu à la création, puis jamais : ni dans la liste, ni dans l’audit', async () => {
-    const { app, audit } = monter();
+    const { app, audit, autorisations } = monter();
     const cree = await app.inject({ method: 'POST', url: BASE, ...en(admin), payload: { url: 'https://app.client.fr/hook', types: ['message.received'] } });
     expect(cree.statusCode).toBe(201);
+    // Lot D de l'audit : une adresse de la console n'est rattachée à aucune application connectée.
+    expect(autorisations).toEqual([null]);
     const { secret, adresse } = cree.json() as { secret: string; adresse: { id: string } };
     expect(secret).toMatch(/^whsec_/);
 

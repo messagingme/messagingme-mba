@@ -21,16 +21,17 @@ const noUsers: UserAuthStore = { findIdentity: async (): Promise<EmailIdentity |
 const h = (t: string) => ({ headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` } });
 
 function app(over: Partial<ApiKeysRouteDeps> = {}) {
-  const cap = { created: [] as Array<{ name: string; scopes: string[] }>, revoked: [] as string[], plafonds: [] as PlafondCles[] };
+  const cap = { created: [] as Array<{ name: string; scopes: string[] }>, revoked: [] as string[], plafonds: [] as PlafondCles[], autorisations: [] as Array<string | null> };
   const deps: ApiKeysRouteDeps = {
     audit: journalMuet,
     cles: {
-      creerSousPlafond: async (_t, name, scopes, plafond) => {
+      creerSousPlafond: async (_t, name, scopes, plafond, autorisation) => {
         cap.plafonds.push(plafond);
+        cap.autorisations.push(autorisation);
         cap.created.push({ name, scopes });
         return { id: 'k1', key: 'mba_secret_shown_once' };
       },
-      listByTenant: async (): Promise<ApiKeyRow[]> => [{ id: 'k1', name: 'CI', scopes: ['contacts:write'], createdAt: '2026-07-17T00:00:00.000Z', lastUsedAt: null, revokedAt: null }],
+      listByTenant: async (): Promise<ApiKeyRow[]> => [{ id: 'k1', name: 'CI', scopes: ['contacts:write'], createdAt: '2026-07-17T00:00:00.000Z', lastUsedAt: null, revokedAt: null, application: null }],
       revoke: async (_t, id) => { cap.revoked.push(id); return id === 'k1'; },
     },
     limiteCles: async () => 10,
@@ -46,6 +47,8 @@ describe('routes api-keys (admin)', () => {
     expect(res.statusCode).toBe(201);
     expect(res.json<{ id: string; key: string }>()).toMatchObject({ id: 'k1', key: 'mba_secret_shown_once' });
     expect(cap.created[0]).toEqual({ name: 'Intégration', scopes: ['contacts:write', 'sends:create'] });
+    // Lot D de l'audit : une clé de la console n'est rattachée à aucune application connectée.
+    expect(cap.autorisations).toEqual([null]);
     await server.close();
   });
 

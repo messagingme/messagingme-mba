@@ -22,7 +22,7 @@ import { DROITS } from '../src/offres/offres';
  */
 const T = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const AUTRE = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
-const MOI = { userId: '99999999-9999-4999-8999-999999999999' };
+const MOI = { userId: '99999999-9999-4999-8999-999999999999', autorisationId: 'aut-1' };
 const SECRET = 'secret-de-test-des-suppressions';
 const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
 const preparer = outil('prepare_contacts_deletion');

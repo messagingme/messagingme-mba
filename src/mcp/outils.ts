@@ -244,9 +244,15 @@ export type AnnotationsMcp = { title: string; openWorldHint: boolean } & (
   | { readOnlyHint: false; destructiveHint: true; idempotentHint: boolean }
 );
 
-/** La personne qui a autorisé un jeton OAuth (migration 0204). Une clé d'API n'en a pas. */
+/**
+ * La personne qui a autorisé un jeton OAuth (migration 0204), et cette autorisation. Une clé d'API n'en a pas.
+ * 🔴 `autorisationId` est REQUIS (lot D de l'audit, migration 0282) : la clé d'API et l'adresse de webhook qu'un outil
+ * crée s'y rattachent, et meurent quand un admin la révoque dans la console. Facultatif, un câblage qui l'oublierait
+ * créerait en silence une clé qui survit à la révocation.
+ */
 export interface PersonneMcp {
   userId: string;
+  autorisationId: string;
 }
 
 export interface OutilMcp {

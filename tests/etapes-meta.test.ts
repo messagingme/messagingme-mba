@@ -64,9 +64,9 @@ describe('ce qu’il faut chez Meta', () => {
   });
 
   it('🔴 Claude les dit avant le lien ; au numéro fourni, sans lui proposer un numéro qu’il vient de choisir', async () => {
-    const apporte = await outil('start_whatsapp_connection').executer(deps(), 't1', { mode: 'apporte' }, { userId: 'u' }) as Record<string, string>;
+    const apporte = await outil('start_whatsapp_connection').executer(deps(), 't1', { mode: 'apporte' }, { userId: 'u', autorisationId: 'aut-1' }) as Record<string, string>;
     for (const e of PREREQUIS_META) expect(apporte.consigne).toContain(e.fr);
-    const fourni = await outil('start_whatsapp_connection').executer(deps(), 't1', { mode: 'fourni' }, { userId: 'u' }) as Record<string, string>;
+    const fourni = await outil('start_whatsapp_connection').executer(deps(), 't1', { mode: 'fourni' }, { userId: 'u', autorisationId: 'aut-1' }) as Record<string, string>;
     for (const e of PREREQUIS_META.slice(0, 2)) expect(fourni.consigne).toContain(e.fr);
     expect(fourni.consigne).not.toContain(PREREQUIS_META[2]!.fr);
   });
@@ -74,7 +74,7 @@ describe('ce qu’il faut chez Meta', () => {
   it('🔴 dès la connexion, la suite de watch_whatsapp_connection donne le chemin de la carte (le drapeau n’est pas encore lu)', async () => {
     const d = deps();
     (d.numero as unknown as { etat: () => Promise<EtatConnexion> }).etat = async () => ({ ...VIDE, connecte: { chiffres: '336', aActiver: false } });
-    const r = await outil('watch_whatsapp_connection').executer(d, 't1', {}, { userId: 'u' }) as Record<string, string>;
+    const r = await outil('watch_whatsapp_connection').executer(d, 't1', {}, { userId: 'u', autorisationId: 'aut-1' }) as Record<string, string>;
     for (const e of ETAPES_CARTE_META) expect(r.suite).toContain(e.fr);
   });
 

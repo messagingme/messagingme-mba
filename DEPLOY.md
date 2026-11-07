@@ -334,6 +334,26 @@ désignés tous les deux : `update users set invitation_en_attente = false where
 invitations en attente (le comportement d'avant). Rien à défaire en base : les drapeaux levés par une acceptation le
 restent, à bon droit.
 
+## ⚠️ Ce qu'une application crée meurt avec sa révocation (migration 0282, lot D de l'audit de sécurité, 2026-11-06) : l'ordre, le secours
+
+**L'ordre** : 0282 SEULE d'abord, avec `migration=avant` (deux colonnes nullables et deux index partiels, que l'ancien code
+ignore). Le code neuf les nomme sur des chemins chauds (l'insertion de toute clé, relais compris, les listes des clés et
+des webhooks, `/v1/webhooks`, les outils MCP, la liste des applications) : une image qui arriverait avant les colonnes
+tomberait en 42703. Puis la console (sans `creations` ni `application`, l'ancien affichage), puis l'API avec
+`migration=aucune`.
+
+**Le geste de secours** : une adresse mise en pause par une révocation se réactive dans Developers > Webhooks sortants (la
+console ne prend aucun verrou d'autorisation : c'est le geste d'un humain) ; en Free, qui n'a pas cet écran, depuis une
+autre connexion de Claude (`update_webhook_endpoint`). Une clé révoquée ne revient pas : on en crée une neuve et on la
+met dans l'application.
+
+**Retour arrière de la console seule** (un build Vercel d'avant le lot, l'API neuve en place) : la révocation coupe les
+créations derrière une boîte qui ne les nomme plus. Ramener aussi l'API, ou garder la console du lot.
+
+**Retour arrière d'une image d'avant le lot** : l'ancien code ignore les colonnes, ne coupe plus les créations à la
+révocation, ne liste plus les applications déconnectées et purge leurs autorisations (le comportement d'avant ; le lien de
+ce qu'elles ont créé passe alors à vide). Rien à défaire en base.
+
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 
 Les routes de `mba.` et d'`api.` nomment `mba-api` par une variable, que nginx relit seul (résolveur de Docker,

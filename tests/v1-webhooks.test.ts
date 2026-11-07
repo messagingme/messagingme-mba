@@ -36,6 +36,8 @@ function monter(o: { limite?: number | null; couteux?: number } = {}) {
   const adresses = new Map<string, AdresseVue & { tenantId: string; secretChiffre: string }>();
   const audit: Array<{ action: string; detail: unknown; acteur?: unknown }> = [];
   const appels: Array<{ quoi: string; tenantId: string }> = [];
+  // Lot D de l'audit : l'autorisation que chaque création passe au magasin (`null` pour une clé d'API).
+  const autorisations: Array<string | null> = [];
   const sansSecret = ({ secretChiffre: _s, tenantId: _t, ...v }: AdresseVue & { tenantId: string; secretChiffre: string }): AdresseVue => v;
   const de = (t: string, id: string) => { const a = adresses.get(id); return a && a.tenantId === t ? a : undefined; };
   const gestion: DepsGestionEvenements = {
@@ -44,11 +46,12 @@ function monter(o: { limite?: number | null; couteux?: number } = {}) {
       lire: async (t, id) => { const a = de(t, id); return a ? sansSecret(a) : null; },
       existe: async (t, id) => de(t, id) !== undefined,
       compterActives: async (t) => [...adresses.values()].filter((a) => a.tenantId === t && a.active).length,
-      creer: async (t, a) => {
+      creer: async (t, a, autorisation) => {
+        autorisations.push(autorisation);
         const id = randomUUID();
         adresses.set(id, {
           id, tenantId: t, url: a.url, description: a.description, types: [...a.types], active: true, creeLe: '2026-10-09T09:00:00.000Z',
-          ancienSecretJusqua: null, derniereLivraisonLe: null, enReessai: 0, echecs: 1, secretChiffre: a.secretChiffre,
+          ancienSecretJusqua: null, derniereLivraisonLe: null, enReessai: 0, echecs: 1, application: null, secretChiffre: a.secretChiffre,
         });
         return sansSecret(adresses.get(id)!);
       },
@@ -110,7 +113,7 @@ function monter(o: { limite?: number | null; couteux?: number } = {}) {
     const r = await appel('POST', '/v1/webhooks', cle, { url: 'https://app.client.fr/hook', types: ['message.received', 'template.status_changed'] });
     return r.json() as { webhook: { id: string }; secret: string };
   };
-  return { server, appel, creer, audit, appels, usage };
+  return { server, appel, creer, audit, appels, usage, autorisations };
 }
 
 describe('les webhooks sortants par l’API', () => {
@@ -123,9 +126,11 @@ describe('les webhooks sortants par l’API', () => {
   });
 
   it('🔴 créée : 201 avec le secret, une fois ; la liste et la lecture ne le rendent jamais ; l’audit dit « api »', async () => {
-    const { appel, creer, audit, server } = monter();
+    const { appel, creer, audit, server, autorisations } = monter();
     const { webhook, secret } = await creer();
     expect(secret).toMatch(/^whsec_/);
+    // Lot D de l'audit : créée par une clé d'API, rattachée à aucune application connectée.
+    expect(autorisations).toEqual([null]);
     const liste = await appel('GET', '/v1/webhooks');
     expect(liste.statusCode).toBe(200);
     expect(liste.body).not.toContain(secret.slice(6));
@@ -133,6 +138,8 @@ describe('les webhooks sortants par l’API', () => {
       data: [{ id: webhook.id, url: 'https://app.client.fr/hook', types: ['message.received', 'template.status_changed'], active: true, retrying: 0, failed: 1 }],
       limit: null, types: expect.arrayContaining(['template.status_changed']),
     });
+    // La provenance (lot D de l'audit) est un champ de la console : la vue publique ne la rend pas.
+    expect((liste.json() as { data: object[] }).data[0]).not.toHaveProperty('application');
     const une = await appel('GET', `/v1/webhooks/${webhook.id}`);
     expect(une.json()).toMatchObject({ id: webhook.id, createdAt: '2026-10-09T09:00:00.000Z', previousSecretValidUntil: null });
     // 🔴 L'écriture d'une clé arrive au journal : acteur vide (une clé n'est pas un compte), la clé dans le détail.

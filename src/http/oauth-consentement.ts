@@ -4,7 +4,7 @@ import type { Guard } from '../auth/middleware';
 import type { ComptesAuthDep } from '../auth/comptes';
 import { verifyDemandeOauth } from '../auth/token';
 import { makeJournal } from '../audit/journal';
-import { clientConnu } from '../oauth/clients';
+import { clientDeLAutorisation } from '../oauth/clients';
 import { autoriser, DEMANDE_EXPIREE, type DepsAutoriser } from '../oauth/autoriser';
 import type { PgOauthStore } from '../oauth/store.pg';
 import { espaceVerifie, estUuid } from './scope';
@@ -47,28 +47,35 @@ export function registerOauthConsentement(app: FastifyInstance, deps: OauthConse
     return r.ok ? reply.code(200).send({ adresse: r.adresse }) : reply.code(403).send({ error: r.erreur });
   });
 
-  // Ni empreinte ni échéance de jeton : le client (nommé), la personne, la date, le dernier usage.
+  // Ni empreinte ni échéance de jeton : le client (nommé), la personne, la date, le dernier usage, et ce que
+  // l'application a créé (lot D de l'audit), que la boîte de révocation nomme.
   app.get('/tenants/:tenantId/oauth/autorisations', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     // Lot 15 : un client non épinglé porte son nom, sa marque (`domaine`, `declaree`) et son hôte de retour.
-    const autorisations = (await deps.store.lister(tenant)).map((a) => ({
-      ...a,
-      client: a.clientNom ?? clientConnu(a.clientId)?.nom ?? a.clientId,
-      marque: a.clientMarque ?? (clientConnu(a.clientId) ? 'epingle' : 'declaree'),
-    }));
+    const autorisations = (await deps.store.lister(tenant)).map((a) => {
+      const c = clientDeLAutorisation(a);
+      return { ...a, client: c.nom, marque: c.marque };
+    });
     return reply.code(200).send({ autorisations });
   });
 
-  // L'appel suivant de Claude échoue en 401, et il redemande une connexion.
+  /**
+   * L'appel suivant de Claude échoue en 401, et il redemande une connexion. Ce que l'application a créé sous cette
+   * autorisation (clés d'API, adresses de webhook) est coupé dans la même transaction (lot D de l'audit) ; le journal
+   * en garde les identifiants.
+   */
   app.delete('/tenants/:tenantId/oauth/autorisations/:id', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const { id } = req.params as { id?: unknown };
     // Un identifiant mal formé ferait lever Postgres (`22P02`) : 404, comme une autorisation inconnue.
-    if (!estUuid(id) || !(await deps.store.revoquer(tenant, id))) {
-      return reply.code(404).send({ error: 'autorisation inconnue ou déjà révoquée' });
-    }
+    const inconnue = { error: 'autorisation inconnue ou déjà révoquée' };
+    if (!estUuid(id)) return reply.code(404).send(inconnue);
+    const coupees = await deps.store.revoquer(tenant, id);
+    if (coupees === null) return reply.code(404).send(inconnue);
     // Après le succès : une révocation refusée n'a rien révoqué.
-    await journal(tenant, req, 'oauth.revoque', { kind: 'oauth_autorisation', id });
+    await journal(tenant, req, 'oauth.revoque', { kind: 'oauth_autorisation', id }, {
+      cles: coupees.cles.map((c) => c.id), adresses: coupees.adresses.map((a) => a.id),
+    });
     return reply.code(200).send({ id, revoked: true });
   });
 }

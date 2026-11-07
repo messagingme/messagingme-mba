@@ -1,6 +1,7 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { DUREE_CODE_S } from './jetons';
 import { roleAdminEffectifSql, type HorsOffreMembre } from '../offres/membres';
+import { enTransaction } from '../db/transaction';
 
 /**
  * Les autorisations OAuth et leurs codes (migration 0204).
@@ -80,6 +81,56 @@ export interface AutorisationListee {
   clientNom: string | null;
   clientMarque: 'domaine' | 'declaree' | null;
   clientHote: string | null;
+  /** Ce que l'application a créé et qui vit encore : la révocation par un admin le coupe (lot D de l'audit). */
+  creations: CreationsDeLApplication;
+  /**
+   * Faux pour une application dont l'accès est fini (déconnectée par elle-même, jeton rejoué, fin de vie) et qui reste
+   * listée parce que ce qu'elle a créé vit encore : un admin peut encore le couper (décision de Julien du 2026-11-06).
+   */
+  connectee: boolean;
+}
+
+/** Une création refusée parce que l'autorisation de l'application qui la demande vient d'être révoquée (lot D de l'audit). */
+export const AUTORISATION_REVOQUEE = 'autorisation_revoquee' as const;
+
+/**
+ * Une autorisation vivante : non révoquée, avec un renouvellement encore valide. Celles dont le code n'a jamais été
+ * échangé ne servent à rien. Écrite une fois, pour la liste et le drapeau `connectee`.
+ */
+const VIVANTE = `(a.revoque_le is null and a.refresh_hash is not null and least(a.refresh_expire_le, a.refresh_max_le) > now())`;
+
+/**
+ * L'autorisation `a` porte-t-elle encore une création vivante (une clé active, une adresse active) ? `tenant_id` y est
+ * reposé : le lien seul ne suffit pas à l'isolation. Servi par les index partiels de 0282.
+ */
+const CREATIONS_VIVANTES = `(exists (select 1 from api_keys k where k.tenant_id = a.tenant_id and k.oauth_autorisation_id = a.id and k.revoked_at is null)
+  or exists (select 1 from adresses_evenements e where e.tenant_id = a.tenant_id and e.oauth_autorisation_id = a.id and e.active))`;
+
+/**
+ * Ce qu'une application connectée a créé d'accès durable sous son autorisation (lot D de l'audit, migration 0282) : ses
+ * clés d'API actives et ses adresses de webhook actives. La liste des applications le nomme avant la révocation, la
+ * révocation rend ce qu'elle a effectivement coupé.
+ */
+export interface CreationsDeLApplication {
+  cles: Array<{ id: string; name: string }>;
+  adresses: Array<{ id: string; url: string }>;
+}
+
+/**
+ * 🔴 LE CONTRAT ENTRE UNE CRÉATION ET LA RÉVOCATION (lot D de l'audit). Une clé ou une adresse créée sous une
+ * autorisation passe ici, dans la transaction de son insertion et AVANT elle : l'autorisation est verrouillée en partage
+ * si elle vit encore dans l'espace. `false` = révoquée, ou d'un autre espace : rien ne doit être créé.
+ * Le verrou `FOR SHARE` bloque l'`update` de la révocation (un `FOR NO KEY UPDATE`) jusqu'à la fin de la création, qui
+ * la coupe alors dans sa seconde instruction (nouvel instantané en `read committed`) ; une création qui arrive après la
+ * révocation ne retrouve plus la ligne. Le verrou que pose la clé étrangère à l'insertion (`FOR KEY SHARE`) ne bloque
+ * PAS cet `update` : sans celui-ci, une création en vol survivrait à la révocation.
+ */
+export async function verrouillerAutorisationVivante(client: Pick<PoolClient, 'query'>, tenantId: string, autorisationId: string): Promise<boolean> {
+  const res = await client.query(
+    `select 1 from oauth_autorisations where id = $1 and tenant_id = $2 and revoque_le is null for share`,
+    [autorisationId, tenantId],
+  );
+  return (res.rowCount ?? 0) > 0;
 }
 
 /** La purge efface par paquets : une rafale de lignes mortes ne tient jamais un verrou long. */
@@ -246,20 +297,31 @@ export class PgOauthStore {
   }
 
   /**
-   * Les autorisations vivantes de l'espace, la plus récente d'abord : non révoquées, avec un renouvellement encore
-   * valide. Celles dont le code n'a jamais été échangé ne servent à rien et n'y figurent pas.
+   * Les applications de l'espace, la plus récente d'abord : les autorisations vivantes, et celles dont l'accès est fini
+   * (déconnectée par elle-même, jeton rejoué, fin de vie) tant qu'une de leurs créations vit encore (`connectee` faux).
+   * 🔴 Sans ces dernières, une application malveillante qui se déconnecte juste après avoir créé sa clé disparaîtrait de
+   * la liste, et l'admin ne pourrait plus couper ce qu'elle a laissé (critique du lot D, décision de Julien du
+   * 2026-11-06). Celles dont le code n'a jamais été échangé ne créent rien et n'y figurent pas.
    */
   async lister(tenantId: string): Promise<AutorisationListee[]> {
     const res = await this.pool.query<{
       id: string; client_id: string; user_id: string; email: string; name: string | null; scopes: string[];
       cree_le: Date; dernier_usage_le: Date | null; client_nom: string | null; client_marque: 'domaine' | 'declaree' | null;
-      client_hote: string | null;
+      client_hote: string | null; cles: Array<{ id: string; name: string }>; adresses: Array<{ id: string; url: string }>;
+      connectee: boolean;
     }>(
+      // Les créations vivantes de chaque autorisation, servies par les index partiels de 0282 ; `tenant_id` y est
+      // reposé, le lien seul ne suffit pas à l'isolation.
       `select a.id, a.client_id, a.user_id, u.email, u.name, a.scopes, a.cree_le, a.dernier_usage_le,
-              a.client_nom, a.client_marque, a.client_hote
+              a.client_nom, a.client_marque, a.client_hote, ${VIVANTE} as connectee,
+              coalesce((select json_agg(json_build_object('id', k.id, 'name', k.name) order by k.created_at, k.id)
+                          from api_keys k
+                         where k.tenant_id = a.tenant_id and k.oauth_autorisation_id = a.id and k.revoked_at is null), '[]'::json) as cles,
+              coalesce((select json_agg(json_build_object('id', e.id, 'url', e.url) order by e.cree_le, e.id)
+                          from adresses_evenements e
+                         where e.tenant_id = a.tenant_id and e.oauth_autorisation_id = a.id and e.active), '[]'::json) as adresses
          from oauth_autorisations a join users u on u.id = a.user_id and u.tenant_id = a.tenant_id
-        where a.tenant_id = $1 and a.revoque_le is null and a.refresh_hash is not null
-          and least(a.refresh_expire_le, a.refresh_max_le) > now()
+        where a.tenant_id = $1 and (${VIVANTE} or ${CREATIONS_VIVANTES})
         order by a.cree_le desc`,
       [tenantId],
     );
@@ -267,29 +329,64 @@ export class PgOauthStore {
       id: r.id, clientId: r.client_id, userId: r.user_id, email: r.email, nom: r.name, scopes: r.scopes,
       creeLe: r.cree_le.toISOString(), dernierUsageLe: r.dernier_usage_le ? r.dernier_usage_le.toISOString() : null,
       clientNom: r.client_nom, clientMarque: r.client_marque, clientHote: r.client_hote,
+      creations: { cles: r.cles, adresses: r.adresses }, connectee: r.connectee,
     }));
   }
 
-  /** Révoque une autorisation de l'espace. `false` si elle est inconnue, d'un autre espace, ou déjà révoquée. */
-  async revoquer(tenantId: string, id: string): Promise<boolean> {
-    const res = await this.pool.query(
-      `update oauth_autorisations set revoque_le = now()
-        where id = $1 and tenant_id = $2 and revoque_le is null`,
-      [id, tenantId],
-    );
-    return (res.rowCount ?? 0) > 0;
+  /**
+   * Révoque une autorisation de l'espace, et dans la MÊME transaction ce que l'application a créé sous elle (lot D de
+   * l'audit, migration 0282) : ses clés d'API actives sont révoquées, ses adresses de webhook actives mises en pause.
+   * L'autorisation peut être déjà finie (déconnectée par l'application, jeton rejoué, fin de vie) : la liste la montre tant
+   * qu'une création vit, et la révoquer coupe celles-ci. Rend ce qui a été coupé ; `null` si l'autorisation est inconnue,
+   * d'un autre espace, ou déjà révoquée sans plus rien à couper.
+   * 🔴 C'est le SEUL geste qui coupe les créations (décision de Julien du 2026-11-06) : `revoquerParJeton`, le rejeu de
+   * `renouveler` et `purger` les laissent vivre. Une déconnexion par le client ou une course entre deux sessions de Claude
+   * Code ne doit jamais arrêter l'application d'un client ; un admin, lui, a vu leurs noms dans la boîte de confirmation.
+   * 🔴 `tenant_id = $2` partout. Le verrou de la ligne (`for no key update`, celui d'un `update`) se prend d'abord : une
+   * création en vol attend ou est refusée (`verrouillerAutorisationVivante`).
+   */
+  async revoquer(tenantId: string, id: string): Promise<CreationsDeLApplication | null> {
+    return enTransaction(this.pool, async (client) => {
+      const avant = await client.query<{ deja: boolean }>(
+        `select revoque_le is not null as deja from oauth_autorisations where id = $1 and tenant_id = $2 for no key update`,
+        [id, tenantId],
+      );
+      const ligne = avant.rows[0];
+      if (!ligne) return null;
+      if (!ligne.deja) {
+        await client.query(`update oauth_autorisations set revoque_le = now() where id = $1 and tenant_id = $2`, [id, tenantId]);
+      }
+      const cles = await client.query<{ id: string; name: string }>(
+        `update api_keys set revoked_at = now()
+          where oauth_autorisation_id = $1 and tenant_id = $2 and revoked_at is null
+          returning id, name`,
+        [id, tenantId],
+      );
+      const adresses = await client.query<{ id: string; url: string }>(
+        `update adresses_evenements set active = false, maj_le = now()
+          where oauth_autorisation_id = $1 and tenant_id = $2 and active
+          returning id, url`,
+        [id, tenantId],
+      );
+      // Déjà révoquée et plus rien à couper : la réponse d'avant le lot, 404 (un double clic, un onglet en retard).
+      if (ligne.deja && cles.rows.length === 0 && adresses.rows.length === 0) return null;
+      return { cles: cles.rows, adresses: adresses.rows };
+    });
   }
 
   /**
    * La purge (worker) : les codes échus depuis une heure, et les autorisations mortes depuis 30 jours (leurs codes
    * partent avec elles, en cascade). Rend le nombre de lignes effacées.
+   * 🔴 Sauf une autorisation dont une création vit encore (lot D de l'audit) : l'effacer remettrait le lien à vide, la
+   * provenance s'effacerait, et l'admin ne pourrait plus couper d'un geste ce que l'application a laissé.
    */
   async purger(): Promise<number> {
     const requetes = [
       `delete from oauth_codes where hash in (
          select hash from oauth_codes where expire_le < now() - interval '1 hour' limit $1)`,
       `delete from oauth_autorisations where id in (
-         select id from oauth_autorisations where ${FIN_DE_VIE} < now() - interval '30 days' limit $1)`,
+         select a.id from oauth_autorisations a
+          where ${FIN_DE_VIE} < now() - interval '30 days' and not ${CREATIONS_VIVANTES} limit $1)`,
     ];
     let total = 0;
     for (const sql of requetes) {

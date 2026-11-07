@@ -45,7 +45,8 @@ export function registerEvenements(app: FastifyInstance, deps: EvenementsRouteDe
 
   app.post('/tenants/:tenantId/evenements/adresses', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const r = await creerAdresse(g, tenant, req.body);
+    // Créée par la console : rattachée à aucune application connectée (lot D de l'audit).
+    const r = await creerAdresse(g, tenant, req.body, null);
     if (!r.ok) return refuser(reply, r);
     await journal(tenant, req, 'evenements.adresse_creee', CIBLE(r.valeur.adresse.id), { url: r.valeur.adresse.url, types: r.valeur.adresse.types });
     return reply.code(201).send(r.valeur);
@@ -53,7 +54,8 @@ export function registerEvenements(app: FastifyInstance, deps: EvenementsRouteDe
 
   app.patch<{ Params: { adresseId: string } }>('/tenants/:tenantId/evenements/adresses/:adresseId', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
-    const r = await modifierAdresse(g, tenant, req.params.adresseId, req.body);
+    // La console : aucune application connectée derrière la modification (lot D de l'audit).
+    const r = await modifierAdresse(g, tenant, req.params.adresseId, req.body, null);
     if (!r.ok) return refuser(reply, r);
     await journal(tenant, req, 'evenements.adresse_modifiee', CIBLE(r.valeur.id), { active: r.valeur.active, types: r.valeur.types });
     return reply.code(200).send(r.valeur);

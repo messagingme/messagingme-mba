@@ -3178,7 +3178,8 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   Entreprise.
 - ✅ **« Envoyer un essai »** part tout de suite, signé, et dit ce que l'application a répondu.
 - ✅ **Depuis Claude Code** : `create_webhook_endpoint` inscrit une adresse et rend son secret, `send_test_event`
-  envoie l'essai (connexion OAuth d'un admin, jamais une clé d'API). Depuis le lot 13 (domaine 4, 2026-10-09),
+  envoie l'essai (connexion OAuth d'un admin, jamais une clé d'API). L'adresse reste rattachée à cette connexion :
+  la révoquer dans « Applications autorisées » la met en pause (lot D de l'audit de sécurité, 2026-11-06). Depuis le lot 13 (domaine 4, 2026-10-09),
   `list_webhook_endpoints` liste les adresses, `get_webhook_deliveries` lit un journal et `replay_webhook_delivery`
   rejoue un envoi (ces deux-là réservés à une personne connectée : le journal porte des données de contacts).
 - ✅ **Par l'API** (lot 13, domaine 4, 2026-10-09, droit neuf `webhooks:write`, qui couvre aussi la lecture) :
@@ -5412,6 +5413,15 @@ coupe l'accès dès l'appel suivant ; Claude redemande alors une connexion. Deux
 deux lignes, révocables séparément. Le journal des actions (menu Sécurité) garde qui a autorisé Claude, et qui a
 révoqué cet accès.
 
+**Révoquer coupe aussi ce que l'application a créé** (lot D de l'audit de sécurité, 2026-11-06) : les clés d'API
+(`create_api_key`) sont révoquées et les webhooks sortants (`create_webhook_endpoint`) mis en pause, dans le même geste.
+La boîte de confirmation les nomme avant le clic et prévient que l'application qui s'en sert s'arrêtera : pour la
+garder, on crée d'abord dans la console de quoi les remplacer. Seul ce geste d'un administrateur coupe : une application
+qui se déconnecte elle-même, ou dont l'accès expire, laisse vivre ce qu'elle a créé. Elle reste alors dans la liste,
+marquée « déconnectée », tant qu'une de ses créations vit, et « Révoquer » les coupe. Les listes des clés d'API et des
+webhooks sortants disent l'application qui a créé chaque élément (« Créée par Claude Code », et « non vérifié » pour un
+nom déclaré).
+
 **Les autres clients MCP (lot 15, 2026-10-09).** ChatGPT, Cursor, VS Code ou Lovable ajoutent la même adresse
 (`https://api.messagingme.app/mcp`), sans clé, en connecteur ou serveur MCP distant avec l'authentification OAuth, et
 passent par la même page « Autoriser ». Un client qui publie une fiche d'identité (ChatGPT) y apparaît « publié par »
@@ -5575,7 +5585,9 @@ restaient (spec offres v2, livraison 4).
   MCP, les webhooks ou la suppression de contacts se crée dans la console. La clé est montrée une fois, dans la réponse : Claude la range dans le `.env` du projet sous
   `MESSAGINGME_API_KEY`, jamais dans le code. Le plafond de l'offre s'applique (2 clés actives en Free, 10 en Pro, sans
   limite en Entreprise) : la clé de trop est refusée avec le lien de l'offre Pro, et révoquer une clé dans la console
-  libère une place. Le journal d'audit signe la personne et l'origine (« via Claude »), jamais la clé.
+  libère une place. Le journal d'audit signe la personne et l'origine (« via Claude »), jamais la clé. La clé reste
+  rattachée à cette connexion de Claude : un administrateur qui la révoque dans « Applications autorisées » révoque la
+  clé avec elle (lot D de l'audit de sécurité, 2026-11-06).
 - **`subscribe_pro`** ouvre le paiement du Pro, au mois ou à l'année : Claude donne l'adresse de la page de paiement
   de Stripe, avec le montant hors taxe (la taxe est calculée sur cette page), et c'est la personne qui paie. Après le
   paiement, Stripe renvoie sur une page publique qui invite à retourner dans Claude, où `get_plan` dit l'offre passée.

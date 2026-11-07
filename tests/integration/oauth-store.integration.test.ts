@@ -115,7 +115,8 @@ describe.skipIf(!url)('PgOauthStore (Postgres réel)', () => {
     await pool.query(`update oauth_codes set expire_le = now() - interval '1 second' where hash = $1`, [echu.code.empreinte]);
     expect(await store.consommerCode(echu.code.empreinte)).toBeNull();
     const revoquee = await autoriser();
-    expect(await store.revoquer(tenantId, revoquee.autorisationId)).toBe(true);
+    // Lot D de l'audit : la révocation rend ce qu'elle a coupé (ici, rien).
+    expect(await store.revoquer(tenantId, revoquee.autorisationId)).toEqual({ cles: [], adresses: [] });
     expect(await store.consommerCode(revoquee.code.empreinte)).toBeNull();
   });
 
@@ -207,10 +208,10 @@ describe.skipIf(!url)('PgOauthStore (Postgres réel)', () => {
     expect(liste.map((a) => a.id)).toContain(ici.autorisationId);
     expect(liste.map((a) => a.id)).not.toContain(chezLAutre.autorisationId);
     expect(liste.find((a) => a.id === ici.autorisationId)).toMatchObject({ clientId: CLAUDE_CODE, userId: adminId, scopes: ['mcp:read', 'mcp:write'] });
-    expect(await store.revoquer(tenantId, chezLAutre.autorisationId)).toBe(false);
+    expect(await store.revoquer(tenantId, chezLAutre.autorisationId)).toBeNull();
     expect((await store.resoudreAcces(chezLAutre.jetons.acces))?.valide).toBe(true);
-    expect(await store.revoquer(tenantId, ici.autorisationId)).toBe(true);
-    expect(await store.revoquer(tenantId, ici.autorisationId)).toBe(false);
+    expect(await store.revoquer(tenantId, ici.autorisationId)).toEqual({ cles: [], adresses: [] });
+    expect(await store.revoquer(tenantId, ici.autorisationId)).toBeNull();
     expect((await store.resoudreAcces(ici.jetons.acces))?.valide).toBe(false);
   });
 

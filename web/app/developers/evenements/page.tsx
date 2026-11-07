@@ -18,6 +18,7 @@ import { useConfirmation } from '@/components/Confirmation';
 import { Modale } from '@/components/Modale';
 import { Squelette } from '@/components/Squelette';
 import { erreurDeChargement } from '@/lib/http';
+import { creeeParApplication } from '@/lib/oauth';
 
 /**
  * DÉVELOPPEURS > WEBHOOKS SORTANTS (lot 12, livraison A, spec `docs/superpowers/specs/2026-10-08-webhooks-sortants-design.md`) :
@@ -240,6 +241,11 @@ function CarteAdresse({ adresse: a, tenantId, ouvert, libelles, basculer, agir, 
         <div className="min-w-0">
           <div className="break-all font-mono text-sm text-ink-900">{a.url}</div>
           {a.description && <div className="text-sm text-ink-500">{a.description}</div>}
+          {/* Lot D de l'audit : l'adresse créée par une application connectée le dit ; révoquer cette application la
+              met en pause. */}
+          {creeeParApplication(a.application, t) && (
+            <div className="text-xs text-ink-500" data-testid="evt-provenance">{creeeParApplication(a.application, t)}</div>
+          )}
           <div className="mt-1 text-xs text-ink-500">
             {a.active ? t('Active', 'Active') : <span className="font-medium text-alerte-700">{t('En pause', 'Paused')}</span>}
             {' · '}{a.types.map((ty) => libelles[ty] ?? ty).join(', ')}

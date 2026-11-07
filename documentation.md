@@ -1673,7 +1673,10 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   caractères, 0227) et `scopes` à `mcp:read` et `mcp:write`. `client_nom`, `client_marque` et `client_hote` (0227)
   gardent le client affiché d'un client non épinglé, pour les applications autorisées. `oauth_clients` (0227) : les
   clients ENREGISTRÉS par `POST /oauth/register`, anonymes, sans secret. Un code (60 s, usage unique) garde son défi PKCE et son adresse de retour. Seules des
-  empreintes SHA-256 y entrent ; le rôle et la désactivation ne sont PAS recopiés, ils se relisent dans `users`.
+  empreintes SHA-256 y entrent ; le rôle et la désactivation ne sont PAS recopiés, ils se relisent dans `users`. Ce
+  qu'une application crée sous une autorisation (clé d'API, adresse de webhook) lui est rattaché (0282) et meurt avec sa
+  révocation par un admin ; la purge (30 jours après la fin) épargne une autorisation dont une création vit encore
+  (§ Ce qu'une application connectée crée meurt avec sa révocation).
 - 🔴 **La connexion multi-espace est en deux temps.** Un seul espace -> session directe. Plusieurs -> le
   serveur rend la LISTE et un jeton de CHOIX, jamais une session. Ce jeton ne peut pas tenir lieu de session
   (pas de `tenantId` ni de `role` à la racine, `kind` vérifié) et il PORTE la liste signée des espaces
@@ -3582,6 +3585,35 @@ attente ne reçoit jamais de marque de connexion (`touchLastLogin`), et une invi
   l'ancien formulaire SANS bouton Google : l'ancien bouton appelait `/auth/google`, qui crée un espace neuf.
 - **L'e-mail d'invitation** : « <nom> (<adresse>) vous invite à rejoindre l'espace <espace> », au vouvoiement, par le
   même libellé que la page (`libelleInvitant`, `web/lib/partage/invitation.ts`).
+
+### Ce qu'une application connectée crée meurt avec sa révocation (lot D de l'audit de sécurité, 2026-11-06)
+
+`api_keys.oauth_autorisation_id` et `adresses_evenements.oauth_autorisation_id` (migration 0282, clé étrangère
+`on delete set null`, index partiels `where oauth_autorisation_id is not null`) : l'autorisation OAuth sous laquelle une
+application connectée (Claude, Claude Code, un client enregistré) a créé une clé d'API (`create_api_key`) ou une adresse
+de webhook sortant (`create_webhook_endpoint`). Vide pour la console, l'API publique, le relais de l'agent de Meta, et
+tout ce qui a été créé avant 0282.
+- 🔴 **La règle** : révoquer l'application dans « Applications autorisées » (`PgOauthStore.revoquer`) révoque ses clés et
+  met ses adresses en pause, dans la même transaction que l'autorisation, `tenant_id` reposé sur chaque écriture. C'est
+  le SEUL geste qui coupe (décision du 2026-11-06) : la révocation par le client (RFC 7009), le rejeu d'un jeton de
+  renouvellement, la fin de vie (30 jours sans usage, 90 au plus) et la purge laissent vivre. Une déconnexion, ou deux
+  sessions de Claude Code qui se renouvellent ensemble, n'arrêtent jamais l'application d'un client.
+- 🔴 **Une application finie reste listée** tant qu'une de ses créations vit (`connectee` faux), pour que l'admin puisse
+  toujours la couper : `revoquer` accepte une autorisation déjà finie (il pose `revoque_le` s'il manque ; 404 seulement
+  pour une autorisation inconnue, ou déjà révoquée sans rien à couper), et la purge l'épargne tant qu'une création vit,
+  ce qui garde aussi la provenance.
+- 🔴 **Le verrou** : une création liée (clé, adresse) et une réactivation liée (`modifierAdresse` avec `active: true` sous
+  une personne OAuth) prennent `verrouillerAutorisationVivante` (`for share` sur l'autorisation, `revoque_le is null`)
+  dans leur transaction, avant l'insertion ou l'update. La révocation (`for no key update`) attend leur fin et les coupe,
+  ou bien elles la trouvent passée et refusent (`AUTORISATION_REVOQUEE`, 403). Le verrou de la clé étrangère
+  (`for key share`) ne suffirait pas : il ne bloque pas une mise à jour de `revoque_le`. Dans la création d'une clé, ce
+  verrou précède le verrou consultatif du plafond ; l'offre sans limite passe par la même transaction.
+- **Ce qui l'affiche** : la liste des applications rend `creations` (clés et adresses actives) et `connectee` ; la boîte de
+  révocation les nomme, relues au clic ; les listes des clés et des webhooks de la console portent `application` (nom,
+  marque, hôte), par `clientDeLAutorisation`, le même calcul que la liste des applications : un nom déclaré reste
+  « non vérifié ». La vue publique `/v1/webhooks` ne la rend pas.
+- **Ce qui n'est pas lié** : supprimer un membre efface ses autorisations (cascade de 0204) ; le lien de ses créations
+  passe à vide et elles vivent, comme une clé de la console d'un admin parti.
 
 ### L'offre d'un espace (lot 6)
 

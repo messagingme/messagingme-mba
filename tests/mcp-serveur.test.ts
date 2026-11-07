@@ -1253,12 +1253,12 @@ describe('serveur MCP : les modèles (lot 13, domaine 3)', () => {
     const m = modeles({ id: 'tid', status: 'PENDING', category: 'UTILITY' });
     const outil = OUTILS.find((o) => o.nom === 'create_template')!;
     const deps = { modeles: m.modeles, couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) } } as unknown as DepsMcp;
-    expect(await outil.executer(deps, 't1', { template: MODELE }, { userId: 'u1' }))
+    expect(await outil.executer(deps, 't1', { template: MODELE }, { userId: 'u1', autorisationId: 'aut-1' }))
       .toEqual({ id: 'tid', name: 'commande_prete', language: 'fr', category: 'utility', status: 'pending', prix_meta: null });
     expect(m.corps).toHaveLength(1);
     // La liste en cache s'oublie : list_templates montre le modèle créé tout de suite.
     expect(m.oublis).toEqual(['t1']);
-    await expect(outil.executer(deps, 't1', { template: { ...MODELE, category: 'AUTHENTICATION' } }, { userId: 'u1' })).rejects.toThrow(/category/);
+    await expect(outil.executer(deps, 't1', { template: { ...MODELE, category: 'AUTHENTICATION' } }, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/category/);
     expect(m.corps).toHaveLength(1);
     expect(m.oublis).toEqual(['t1']);
   });
@@ -1308,7 +1308,7 @@ describe('serveur MCP : les modèles (lot 13, domaine 3)', () => {
     const creer = async (category: string) => {
       const m = modeles({ id: 'tid', status: 'PENDING', category }, [], GRILLE);
       const deps = { modeles: m.modeles, couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) } } as unknown as DepsMcp;
-      return (await outil.executer(deps, 't1', { template: { ...MODELE, category } }, { userId: 'u1' })) as { prix_meta: unknown };
+      return (await outil.executer(deps, 't1', { template: { ...MODELE, category } }, { userId: 'u1', autorisationId: 'aut-1' })) as { prix_meta: unknown };
     };
     expect((await creer('UTILITY')).prix_meta)
       .toEqual({ categorie: 'utility', par_message_livre: 0.0248, marche: 'France', grille_du: '2026-10-01', devise: 'EUR', hors_taxes: true });
@@ -1324,7 +1324,7 @@ describe('serveur MCP : les modèles (lot 13, domaine 3)', () => {
     expect(JSON.parse(liste.texte).prix_meta).toBeNull();
     await server.close();
     const deps = { modeles: enPanne, couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) } } as unknown as DepsMcp;
-    expect(await OUTILS.find((o) => o.nom === 'create_template')!.executer(deps, 't1', { template: MODELE }, { userId: 'u1' }))
+    expect(await OUTILS.find((o) => o.nom === 'create_template')!.executer(deps, 't1', { template: MODELE }, { userId: 'u1', autorisationId: 'aut-1' }))
       .toMatchObject({ status: 'pending', prix_meta: null });
   });
 });
@@ -1355,7 +1355,7 @@ describe('serveur MCP : envoyer un modèle à un contact (lot 13, domaine 3, liv
 
   it('🔴 le corps construit est un corps de POST /v1/sends que ses propres règles acceptent, pour UNE personne', async () => {
     const { deps, corps, comptes } = monterEnvoi({ statut: 201, corps: RAPPORT });
-    expect(await outil.executer(deps, 't1', ARGS, { userId: 'u1' })).toEqual({ send_id: 'send-1', contact_created: false });
+    expect(await outil.executer(deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).toEqual({ send_id: 'send-1', contact_created: false });
     expect(comptes).toEqual([1]);
     const lu = schemaCorps.safeParse(corps[0]);
     expect(lu.success).toBe(true);
@@ -1376,46 +1376,46 @@ describe('serveur MCP : envoyer un modèle à un contact (lot 13, domaine 3, liv
     expect(outil.description).toMatch(/consent is not a parameter, the send records it on the user's behalf/);
     const parFiche = monterEnvoi({ statut: 201, corps: RAPPORT });
     const { phone: _p, ...sansNumero } = ARGS;
-    await outil.executer(parFiche.deps, 't1', { ...sansNumero, contact_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' }, { userId: 'u2' });
+    await outil.executer(parFiche.deps, 't1', { ...sansNumero, contact_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' }, { userId: 'u2', autorisationId: 'aut-1' });
     expect((parFiche.corps[0] as { recipients: unknown[] }).recipients)
       .toEqual([{ contactId: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01', consent: 'opted_in', consentSource: 'déclaré dans Claude par u2' }]);
     // Une personne désabonnée : écartée par le chemin partagé, et Claude le dit.
     const stop = monterEnvoi({ statut: 201, corps: { ...RAPPORT, recipientCount: 0, skipped: [{ index: 0, reason: 'opted_out' }], skippedTotal: 1 } });
-    await expect(outil.executer(stop.deps, 't1', ARGS, { userId: 'u1' })).rejects.toThrow(/rien n’est parti.*opted_out/);
+    await expect(outil.executer(stop.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/rien n’est parti.*opted_out/);
   });
 
   it('🔴 un refus de l’envoi revient à Claude avec sa phrase et son code ; une personne écartée aussi', async () => {
     const refus = monterEnvoi({ statut: 402, corps: { error: 'limite de 1000 envois de modèles par mois atteinte', code: 'plan_limit_reached' } });
-    await expect(outil.executer(refus.deps, 't1', ARGS, { userId: 'u1' })).rejects.toThrow(/1000 envois de modèles.*plan_limit_reached/);
+    await expect(outil.executer(refus.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/1000 envois de modèles.*plan_limit_reached/);
     const ecarte = monterEnvoi({ statut: 201, corps: { ...RAPPORT, recipientCount: 0, created: 1, skipped: [{ index: 0, reason: 'no_consent' }], skippedTotal: 1 } });
-    await expect(outil.executer(ecarte.deps, 't1', ARGS, { userId: 'u1' }))
+    await expect(outil.executer(ecarte.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' }))
       .rejects.toThrow(/rien n’est parti.*no_consent.*fiche a été créée.*NOUVELLE idempotency_key/);
   });
 
   it('phone OU contact_id, une valeur non vide par variable : sinon rien n’est appelé ; le plafond coûteux refuse aussi', async () => {
     const { deps, corps } = monterEnvoi({ statut: 201, corps: RAPPORT });
-    await expect(outil.executer(deps, 't1', { ...ARGS, contact_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' }, { userId: 'u1' })).rejects.toThrow(/phone OU par contact_id/);
+    await expect(outil.executer(deps, 't1', { ...ARGS, contact_id: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01' }, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/phone OU par contact_id/);
     const { phone: _p, ...sansPersonne } = ARGS;
-    await expect(outil.executer(deps, 't1', sansPersonne, { userId: 'u1' })).rejects.toThrow(/phone OU par contact_id/);
-    await expect(outil.executer(deps, 't1', { ...ARGS, values: ['Claire', ''] }, { userId: 'u1' })).rejects.toThrow(/values/);
+    await expect(outil.executer(deps, 't1', sansPersonne, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/phone OU par contact_id/);
+    await expect(outil.executer(deps, 't1', { ...ARGS, values: ['Claire', ''] }, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/values/);
     expect(corps).toHaveLength(0);
     const plein = monterEnvoi({ statut: 201, corps: RAPPORT }, false);
-    await expect(outil.executer(plein.deps, 't1', ARGS, { userId: 'u1' })).rejects.toThrow(/réessayer dans 4 s/);
+    await expect(outil.executer(plein.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/réessayer dans 4 s/);
   });
 
   it('🔴 le quota d’envois du jour refuse aussi, avec sa phrase', async () => {
     const quota = monterEnvoi({ statut: 201, corps: RAPPORT }, true, false);
-    await expect(outil.executer(quota.deps, 't1', ARGS, { userId: 'u1' })).rejects.toThrow(/2000 envois par jour/);
+    await expect(outil.executer(quota.deps, 't1', ARGS, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/2000 envois par jour/);
   });
 
   it('🔴 une valeur que Meta refuserait à l’envoi (retour à la ligne, tabulation, cinq espaces) est refusée avant', async () => {
     const { deps, corps } = monterEnvoi({ statut: 201, corps: RAPPORT });
     for (const v of ['Claire\nDupont', 'Claire\tDupont', 'Claire     Dupont']) {
-      await expect(outil.executer(deps, 't1', { ...ARGS, values: [v] }, { userId: 'u1' }), v).rejects.toThrow(/retour à la ligne/);
+      await expect(outil.executer(deps, 't1', { ...ARGS, values: [v] }, { userId: 'u1', autorisationId: 'aut-1' }), v).rejects.toThrow(/retour à la ligne/);
     }
     expect(corps).toHaveLength(0);
     // Quatre espaces passent ; le schéma annoncé dit la même règle.
-    expect(await outil.executer(deps, 't1', { ...ARGS, values: ['Claire    Dupont'] }, { userId: 'u1' })).toMatchObject({ send_id: 'send-1' });
+    expect(await outil.executer(deps, 't1', { ...ARGS, values: ['Claire    Dupont'] }, { userId: 'u1', autorisationId: 'aut-1' })).toMatchObject({ send_id: 'send-1' });
     const motif = new RegExp((outil.entree.properties.values as { items: { pattern: string } }).items.pattern);
     expect(['Claire\nDupont', 'Claire     Dupont'].map((v) => motif.test(v))).toEqual([false, false]);
     expect(motif.test('Claire    Dupont')).toBe(true);
@@ -1430,7 +1430,7 @@ describe('serveur MCP : plus d’outil pour écrire en premier', () => {
   it('🔴 write_first_message n’est plus listé, ni pour une clé, ni pour une personne', () => {
     expect(OUTILS.map((o) => o.nom)).not.toContain('write_first_message');
     expect(Object.keys(CATALOGUE_MCP)).not.toContain('write_first_message');
-    for (const personne of [null, { userId: 'u1' }]) {
+    for (const personne of [null, { userId: 'u1', autorisationId: 'aut-1' }]) {
       expect(outilsPour({ scopes: ['mcp:read', 'mcp:write'], personne }).map((o) => o.nom)).not.toContain('write_first_message');
     }
   });

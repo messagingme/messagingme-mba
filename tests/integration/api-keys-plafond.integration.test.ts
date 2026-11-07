@@ -2,7 +2,7 @@ import '../../src/charger-env';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Pool } from 'pg';
 import { pgSsl } from '../../src/db/ssl';
-import { PgApiKeyStore, type PlafondCles } from '../../src/auth/api-key-store.pg';
+import { AUTORISATION_REVOQUEE, PgApiKeyStore, type PlafondCles } from '../../src/auth/api-key-store.pg';
 
 /**
  * AU PLUS DIX CLÉS ACTIVES PAR ESPACE (décision de Julien, 2026-10-04), tenu en base par `creerSousPlafond`.
@@ -35,15 +35,19 @@ describe.skipIf(!url)('le plafond de clés d’API actives par espace', () => {
     await pool.end();
   });
 
-  const creer = (nom: string): Promise<{ id: string; key: string } | null> =>
-    cles.creerSousPlafond(tenantId, nom, ['contacts:write'], PLAFOND);
+  const creer = async (nom: string): Promise<{ id: string; key: string } | null> => {
+    // Aucune autorisation passée (la console) : le refus d'une autorisation révoquée ne peut pas sortir d'ici.
+    const r = await cles.creerSousPlafond(tenantId, nom, ['contacts:write'], PLAFOND, null);
+    if (r === AUTORISATION_REVOQUEE) throw new Error('refus d’autorisation sans autorisation : impossible');
+    return r;
+  };
 
   it('🔴 la onzième est refusée ; ni la clé du relais, ni les révoquées, ni l’autre espace ne comptent', async () => {
     // Ce qui ne doit PAS compter, posé d'abord : sinon le test passerait aussi avec un compte trop large.
     await cles.create(tenantId, 'Agent de Meta', ['mba:relais']);
     const revoquee = await creer('à révoquer');
     await cles.revoke(tenantId, revoquee!.id);
-    for (let i = 0; i < 10; i += 1) await cles.creerSousPlafond(autre, `ailleurs ${i}`, ['contacts:write'], PLAFOND);
+    for (let i = 0; i < 10; i += 1) await cles.creerSousPlafond(autre, `ailleurs ${i}`, ['contacts:write'], PLAFOND, null);
 
     for (let i = 0; i < 10; i += 1) expect(await creer(`clé ${i}`), `la clé ${i + 1} doit passer`).not.toBeNull();
     expect(await creer('de trop')).toBeNull();
@@ -56,7 +60,7 @@ describe.skipIf(!url)('le plafond de clés d’API actives par espace', () => {
   it('🔴 sans limite (l’Entreprise, spec offres v2) : la onzième passe', async () => {
     const sansLimite: PlafondCles = { max: null, horsDroit: 'mba:relais' };
     for (let i = 0; i < 11; i += 1) {
-      expect(await cles.creerSousPlafond(tenantId, `clé ${i}`, ['contacts:write'], sansLimite), `la clé ${i + 1} doit passer`).not.toBeNull();
+      expect(await cles.creerSousPlafond(tenantId, `clé ${i}`, ['contacts:write'], sansLimite, null), `la clé ${i + 1} doit passer`).not.toBeNull();
     }
   });
 

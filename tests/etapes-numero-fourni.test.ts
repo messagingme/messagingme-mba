@@ -50,7 +50,7 @@ describe('les étapes du numéro fourni', () => {
 
   it('🔴 Claude les redit toutes, encadrées : le lien, le paiement, puis revenir seulement après « Finish »', async () => {
     for (const inclusDansLePro of [false, true]) {
-      const r = await outil('start_whatsapp_connection').executer(deps({ ...VIDE, inclusDansLePro }), 't1', { mode: 'fourni' }, { userId: 'u' }) as Record<string, string>;
+      const r = await outil('start_whatsapp_connection').executer(deps({ ...VIDE, inclusDansLePro }), 't1', { mode: 'fourni' }, { userId: 'u', autorisationId: 'aut-1' }) as Record<string, string>;
       for (const e of ETAPES_NUMERO_FOURNI) expect(r.consigne).toContain(e.fr);
       expect(r.consigne).toMatch(/Cliquer sur le lien/);
       expect(r.consigne).toMatch(/Revenir te voir seulement une fois l’écran « Finish » passé/);
@@ -59,7 +59,7 @@ describe('les étapes du numéro fourni', () => {
   });
 
   it('🔴 numéro attribué, sans code : la suite redonne les mêmes étapes', async () => {
-    const r = await outil('watch_whatsapp_connection').executer(deps({ ...VIDE, fourni: '+441873901030' }), 't1', {}, { userId: 'u' }) as Record<string, string>;
+    const r = await outil('watch_whatsapp_connection').executer(deps({ ...VIDE, fourni: '+441873901030' }), 't1', {}, { userId: 'u', autorisationId: 'aut-1' }) as Record<string, string>;
     for (const e of ETAPES_NUMERO_FOURNI) expect(r.suite).toContain(e.fr);
   });
 });

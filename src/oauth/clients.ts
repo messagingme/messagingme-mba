@@ -47,6 +47,27 @@ export function clientConnu(id: string): ClientOauth | null {
   return CLIENTS_OAUTH.find((c) => c.id === id) ?? null;
 }
 
+/** Le client d'une autorisation tel que la console l'affiche : son nom, la marque de ce nom, son hôte de retour. */
+export interface ClientAffiche {
+  nom: string;
+  marque: MarqueClient;
+  /** L'hôte de retour d'un client non épinglé (lot 15) ; `null` pour Claude et Claude Code. */
+  hote: string | null;
+}
+
+/**
+ * Le client d'une autorisation, par UN seul calcul : « Applications autorisées » et la provenance d'une clé d'API ou
+ * d'une adresse de webhook (lot D de l'audit). Le nom et la marque scellés à l'autorisation (lot 15), sinon ceux d'un
+ * épinglé, sinon l'identifiant, déclaré. 🔴 Un client enregistré qui se déclare « Claude Code » reste `declaree` : sa
+ * provenance doit dire « non vérifié » partout où son nom s'affiche.
+ */
+export function clientDeLAutorisation(a: {
+  clientId: string; clientNom: string | null; clientMarque: 'domaine' | 'declaree' | null; clientHote: string | null;
+}): ClientAffiche {
+  const epingle = clientConnu(a.clientId);
+  return { nom: a.clientNom ?? epingle?.nom ?? a.clientId, marque: a.clientMarque ?? (epingle ? 'epingle' : 'declaree'), hote: a.clientHote };
+}
+
 /** La forme d'un identifiant rendu par l'enregistrement dynamique (CHECK `oauth_clients_id_chk`, migration 0227). */
 const FORME_ENREGISTRE = /^mcl_[A-Za-z0-9]{32}$/;
 export function estClientEnregistre(id: string): boolean {

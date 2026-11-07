@@ -4,7 +4,7 @@ import { buildServer } from '../src/server';
 import { signSession, verifyDemandeOauth } from '../src/auth/token';
 import { metadonneesRessource, metadonneesServeur } from '../src/oauth/metadonnees';
 import { nouveauJeton, PREFIXE_CODE } from '../src/oauth/jetons';
-import type { AccesOauthResolu, CodeConsomme, NouveauxJetons, NouvelleAutorisation, AutorisationListee } from '../src/oauth/store.pg';
+import type { AccesOauthResolu, CodeConsomme, NouveauxJetons, NouvelleAutorisation, AutorisationListee, CreationsDeLApplication } from '../src/oauth/store.pg';
 import type { OauthRouteDeps } from '../src/http/oauth';
 import type { OauthConsentementRouteDeps } from '../src/http/oauth-consentement';
 import type { GoogleIdentity } from '../src/auth/google';
@@ -67,6 +67,8 @@ function comptesDeDepart(): Map<string, Compte[]> {
 
 class FauxMagasin {
   readonly lignes = new Map<string, Ligne>();
+  /** Lot D de l'audit : ce que chaque application a créé et qui vit encore, que la révocation par un admin coupe. */
+  readonly creations = new Map<string, CreationsDeLApplication>();
   readonly codes = new Map<string, { autorisationId: string; challenge: string; redirectUri: string; utilise: boolean }>();
   lectures = 0;
   constructor(private readonly compteDe: (userId: string) => Compte | undefined) {}
@@ -131,13 +133,16 @@ class FauxMagasin {
       id: a.id, clientId: a.clientId, userId: a.userId, email: 'admin@x.fr', nom: null, scopes: a.scopes,
       creeLe: '2026-10-03T10:00:00.000Z', dernierUsageLe: null,
       clientNom: a.client?.nom ?? null, clientMarque: a.client?.marque ?? null, clientHote: a.client?.hote ?? null,
+      creations: this.creations.get(a.id) ?? { cles: [], adresses: [] }, connectee: true,
     }));
   }
-  async revoquer(tenantId: string, id: string): Promise<boolean> {
+  async revoquer(tenantId: string, id: string): Promise<CreationsDeLApplication | null> {
     const a = this.lignes.get(id);
-    if (!a || a.tenantId !== tenantId || a.revoque) return false;
+    if (!a || a.tenantId !== tenantId || a.revoque) return null;
     a.revoque = true;
-    return true;
+    const coupees = this.creations.get(id) ?? { cles: [], adresses: [] };
+    this.creations.delete(id);
+    return coupees;
   }
 }
 
@@ -628,6 +633,21 @@ describe('la révocation', () => {
     expect(r.statusCode).toBe(200);
     expect((await appelerMcp(server, p.access_token)).statusCode).toBe(401);
     expect((await echanger(server, { grant_type: 'refresh_token', refresh_token: p.refresh_token, client_id: CC })).statusCode).toBe(400);
+    await server.close();
+  });
+
+  it('🔴 lot D de l’audit : la liste nomme ce que chaque application a créé, la révocation le journalise', async () => {
+    const { server, audits, magasin } = monter();
+    await echangerCode(server, await codeAutorise(server));
+    const entetes = { authorization: `Bearer ${await session('u-admin', T1, 'admin')}` };
+    const lue = (await server.inject({ method: 'GET', url: `/tenants/${T1}/oauth/autorisations`, headers: entetes })).json<{ autorisations: Array<{ id: string }> }>();
+    const id = lue.autorisations[0]!.id;
+    const creees = { cles: [{ id: 'k-1', name: 'Mon application' }], adresses: [{ id: 'w-1', url: 'https://app.client.fr/hook' }] };
+    magasin.creations.set(id, creees);
+    const liste = await server.inject({ method: 'GET', url: `/tenants/${T1}/oauth/autorisations`, headers: entetes });
+    expect(liste.json<{ autorisations: Array<{ creations: unknown }> }>().autorisations[0]!.creations).toEqual(creees);
+    expect((await server.inject({ method: 'DELETE', url: `/tenants/${T1}/oauth/autorisations/${id}`, headers: entetes })).statusCode).toBe(200);
+    expect(audits.at(-1)).toMatchObject({ action: 'oauth.revoque', cible: id, detail: { cles: ['k-1'], adresses: ['w-1'] } });
     await server.close();
   });
 

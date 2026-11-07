@@ -12,7 +12,7 @@ import type { BulkEdits, BulkTarget } from '../src/crm/contact-store.pg';
  */
 const T = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const C1 = '11111111-1111-4111-8111-111111111111';
-const PERSONNE = { userId: 'u1' };
+const PERSONNE = { userId: 'u1', autorisationId: 'aut-1' };
 const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
 
 const VILLE: UserFieldDef = { key: 'ville', label: 'Ville', type: 'text' };

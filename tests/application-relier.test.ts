@@ -219,7 +219,7 @@ function mcp(o: { etat?: EtatConnexion; preparer?: Awaited<ReturnType<DepsConnex
 describe('start_whatsapp_connection, filière application', () => {
   it('🔴 son propre numéro : Claude le donne, le compte se prépare, et le lien porte la filière', async () => {
     const { deps, prepares } = mcp();
-    const r = await outil('start_whatsapp_connection').executer(deps, T, { mode: 'apporte', filiere: 'application', numero: '+44 7700 900000' }, { userId: 'u1' }) as Record<string, string>;
+    const r = await outil('start_whatsapp_connection').executer(deps, T, { mode: 'apporte', filiere: 'application', numero: '+44 7700 900000' }, { userId: 'u1', autorisationId: 'aut-1' }) as Record<string, string>;
     expect(prepares).toEqual([`${T}:447700900000`]);
     expect(await verifyLienNumero(r.url!.split('#')[1]!, SECRET)).toMatchObject({ mode: 'apporte', filiere: 'application' });
     expect(r.consigne).toMatch(/QR/);
@@ -227,26 +227,26 @@ describe('start_whatsapp_connection, filière application', () => {
 
   it('son propre numéro sans numéro : refusé, sans rien préparer', async () => {
     const { deps, prepares } = mcp();
-    await expect(outil('start_whatsapp_connection').executer(deps, T, { mode: 'apporte', filiere: 'application' }, { userId: 'u1' })).rejects.toThrow(/numero/);
+    await expect(outil('start_whatsapp_connection').executer(deps, T, { mode: 'apporte', filiere: 'application' }, { userId: 'u1', autorisationId: 'aut-1' })).rejects.toThrow(/numero/);
     expect(prepares).toEqual([]);
   });
 
   it('un numéro déjà tenu par un autre espace est refusé avec une phrase', async () => {
     const { deps } = mcp({ preparer: { ok: false, raison: 'numero_pris' } });
-    await expect(outil('start_whatsapp_connection').executer(deps, T, { mode: 'apporte', filiere: 'application', numero: '447700900000' }, { userId: 'u1' }))
+    await expect(outil('start_whatsapp_connection').executer(deps, T, { mode: 'apporte', filiere: 'application', numero: '447700900000' }, { userId: 'u1', autorisationId: 'aut-1' }))
       .rejects.toThrow(/déjà/);
   });
 
   it('un numéro fourni : rien ne se prépare avant son attribution, le lien porte la filière', async () => {
     const { deps, prepares } = mcp();
-    const r = await outil('start_whatsapp_connection').executer(deps, T, { mode: 'fourni', filiere: 'application' }, { userId: 'u1' }) as Record<string, string>;
+    const r = await outil('start_whatsapp_connection').executer(deps, T, { mode: 'fourni', filiere: 'application' }, { userId: 'u1', autorisationId: 'aut-1' }) as Record<string, string>;
     expect(prepares).toEqual([]);
     expect(await verifyLienNumero(r.url!.split('#')[1]!, SECRET)).toMatchObject({ mode: 'fourni', filiere: 'application' });
   });
 
   it('watch_whatsapp_connection dit l’état du compte et demande de scanner le QR code', async () => {
     const { deps } = mcp({ etat: { ...VIDE, application: { statut: 'en_attente', numero: '447700900000' } } });
-    const r = await outil('watch_whatsapp_connection').executer(deps, T, {}, { userId: 'u1' }) as { etat: Record<string, unknown>; suite: string };
+    const r = await outil('watch_whatsapp_connection').executer(deps, T, {}, { userId: 'u1', autorisationId: 'aut-1' }) as { etat: Record<string, unknown>; suite: string };
     expect(r.etat).toMatchObject({ filiere: 'application', compte_application: 'en_attente', connecte: false });
     expect(r.suite).toMatch(/QR/);
   });

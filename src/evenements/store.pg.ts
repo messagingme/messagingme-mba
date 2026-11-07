@@ -2,6 +2,9 @@ import type { Pool } from 'pg';
 import type { MessageRecu } from './types';
 import type { LigneEnvoi } from './distribution';
 import type { MajEnvoi } from './envoi';
+import { enTransaction } from '../db/transaction';
+import { clientDeLAutorisation, type ClientAffiche } from '../oauth/clients';
+import { AUTORISATION_REVOQUEE, verrouillerAutorisationVivante } from '../oauth/store.pg';
 
 /**
  * 🔴 Les webhooks sortants en Postgres (migration 0223). `tenant_id = $1` sur chaque requête qui sert un espace : le
@@ -25,6 +28,12 @@ export interface AdresseVue {
   enReessai: number;
   /** Envois abandonnés (24 h d'échecs, 410, adresse en pause ou au-delà de l'offre). */
   echecs: number;
+  /**
+   * L'application connectée qui a créé l'adresse (`create_webhook_endpoint`, lot D de l'audit), tant que son
+   * autorisation existe en base ; `null` pour la console, l'API publique et les adresses d'avant le lot. La vue publique
+   * (`webhookV1`) ne la rend pas.
+   */
+  application: ClientAffiche | null;
 }
 
 export interface SecretsAdresse {
@@ -40,6 +49,7 @@ export interface SecretsAdresse {
 type LigneAdresse = {
   id: string; url: string; description: string; types: string[]; active: boolean; cree_le: Date;
   secret_precedent_jusqua: Date | null; derniere_livraison: Date | null; en_reessai: number; echecs: number;
+  application: { client_id: string; client_nom: string | null; client_marque: 'domaine' | 'declaree' | null; client_hote: string | null } | null;
 };
 
 const vue = (r: LigneAdresse): AdresseVue => ({
@@ -47,13 +57,22 @@ const vue = (r: LigneAdresse): AdresseVue => ({
   ancienSecretJusqua: r.secret_precedent_jusqua && r.secret_precedent_jusqua.getTime() > Date.now() ? r.secret_precedent_jusqua.toISOString() : null,
   derniereLivraisonLe: r.derniere_livraison?.toISOString() ?? null,
   enReessai: r.en_reessai, echecs: r.echecs,
+  application: r.application === null ? null : clientDeLAutorisation({
+    clientId: r.application.client_id, clientNom: r.application.client_nom,
+    clientMarque: r.application.client_marque, clientHote: r.application.client_hote,
+  }),
 });
 
-/** Les colonnes d'une adresse vue par l'écran, avec l'état de ses envois (servi par l'index du journal). */
+/**
+ * Les colonnes d'une adresse vue par l'écran, avec l'état de ses envois (servi par l'index du journal), et le client de
+ * l'autorisation qui l'a créée (0282), `tenant_id` reposé : le lien seul ne suffit pas à l'isolation.
+ */
 const COLONNES_VUE = `a.id, a.url, a.description, a.types, a.active, a.cree_le, a.secret_precedent_jusqua,
   (select max(e.livre_le) from envois_evenements e where e.adresse_id = a.id) as derniere_livraison,
   (select count(*)::int from envois_evenements e where e.adresse_id = a.id and e.statut = 'en_cours' and e.tentatives > 0) as en_reessai,
-  (select count(*)::int from envois_evenements e where e.adresse_id = a.id and e.statut = 'echec') as echecs`;
+  (select count(*)::int from envois_evenements e where e.adresse_id = a.id and e.statut = 'echec') as echecs,
+  (select json_build_object('client_id', o.client_id, 'client_nom', o.client_nom, 'client_marque', o.client_marque, 'client_hote', o.client_hote)
+     from oauth_autorisations o where o.id = a.oauth_autorisation_id and o.tenant_id = a.tenant_id) as application`;
 
 /**
  * Le rang d'une adresse parmi les actives de son espace, la plus ancienne d'abord, à égalité par identifiant : le même
@@ -96,26 +115,51 @@ export class PgAdressesEvenementsStore {
     return res.rows[0]?.n ?? 0;
   }
 
-  async creer(tenantId: string, a: { url: string; description: string; types: readonly string[]; secretChiffre: string }): Promise<AdresseVue> {
-    const res = await this.pool.query<{ id: string }>(
-      `insert into adresses_evenements (tenant_id, url, description, types, secret_chiffre)
-       values ($1, $2, $3, $4::text[], $5) returning id`,
-      [tenantId, a.url, a.description, [...a.types], a.secretChiffre],
-    );
-    return (await this.lire(tenantId, res.rows[0]!.id))!;
+  /**
+   * `autorisationId` : l'autorisation de l'application qui crée l'adresse (`create_webhook_endpoint`), `null` pour la
+   * console et l'API publique. 🔴 Rattachée, l'adresse est mise en pause quand un admin révoque l'application (lot D de
+   * l'audit) : l'autorisation se verrouille dans la transaction de l'insertion (`verrouillerAutorisationVivante`), et
+   * `null` dit qu'elle vient d'être révoquée, rien n'est créé.
+   */
+  async creer(
+    tenantId: string, a: { url: string; description: string; types: readonly string[]; secretChiffre: string }, autorisationId: string | null,
+  ): Promise<AdresseVue | null> {
+    const inserer = `insert into adresses_evenements (tenant_id, url, description, types, secret_chiffre, oauth_autorisation_id)
+       values ($1, $2, $3, $4::text[], $5, $6) returning id`;
+    const valeurs = [tenantId, a.url, a.description, [...a.types], a.secretChiffre, autorisationId];
+    const id = autorisationId === null
+      ? (await this.pool.query<{ id: string }>(inserer, valeurs)).rows[0]!.id
+      : await enTransaction(this.pool, async (client) => {
+        if (!(await verrouillerAutorisationVivante(client, tenantId, autorisationId))) return null;
+        return (await client.query<{ id: string }>(inserer, valeurs)).rows[0]!.id;
+      });
+    return id === null ? null : (await this.lire(tenantId, id))!;
   }
 
-  async modifier(tenantId: string, id: string, m: { description?: string; types?: readonly string[]; active?: boolean }): Promise<AdresseVue | null> {
-    const res = await this.pool.query(
-      `update adresses_evenements set
+  /**
+   * `autorisationId` : l'autorisation de l'application connectée qui modifie, `null` pour la console et l'API publique.
+   * 🔴 Une RÉACTIVATION sous une autorisation (lot D de l'audit) passe par le même verrou que la création, dans la
+   * transaction de l'update : si l'application vient d'être révoquée, rien n'est écrit (`AUTORISATION_REVOQUEE`) ; si la
+   * révocation arrive pendant, elle attend et remet l'adresse en pause. `null` = adresse inconnue dans cet espace.
+   */
+  async modifier(
+    tenantId: string, id: string, m: { description?: string; types?: readonly string[]; active?: boolean }, autorisationId: string | null,
+  ): Promise<AdresseVue | null | typeof AUTORISATION_REVOQUEE> {
+    const maj = `update adresses_evenements set
          description = coalesce($3::text, description),
          types = coalesce($4::text[], types),
          active = coalesce($5::boolean, active),
          maj_le = now()
-       where tenant_id = $1 and id = $2`,
-      [tenantId, id, m.description ?? null, m.types === undefined ? null : [...m.types], m.active ?? null],
-    );
-    return (res.rowCount ?? 0) > 0 ? this.lire(tenantId, id) : null;
+       where tenant_id = $1 and id = $2`;
+    const valeurs = [tenantId, id, m.description ?? null, m.types === undefined ? null : [...m.types], m.active ?? null];
+    const n = autorisationId === null || m.active !== true
+      ? (await this.pool.query(maj, valeurs)).rowCount ?? 0
+      : await enTransaction(this.pool, async (client) => {
+        if (!(await verrouillerAutorisationVivante(client, tenantId, autorisationId))) return AUTORISATION_REVOQUEE;
+        return (await client.query(maj, valeurs)).rowCount ?? 0;
+      });
+    if (n === AUTORISATION_REVOQUEE) return AUTORISATION_REVOQUEE;
+    return n > 0 ? this.lire(tenantId, id) : null;
   }
 
   /** La rotation : le secret actuel devient l'ancien, qui signe encore jusqu'à `ancienJusqua`. */

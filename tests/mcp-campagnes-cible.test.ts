@@ -236,7 +236,7 @@ describe('les segments de l’assistant', () => {
     const supprimer = OUTILS.find((o) => o.nom === 'prepare_contacts_deletion')!;
     expect(Object.keys(supprimer.entree.properties)).not.toContain('inactive_for_days');
     const { d } = deps({ boutique: BOUTIQUE });
-    await expect(supprimer.executer(d, T, { inactive_for_days: 90 }, { userId: '99999999-9999-4999-8999-999999999999' }))
+    await expect(supprimer.executer(d, T, { inactive_for_days: 90 }, { userId: '99999999-9999-4999-8999-999999999999', autorisationId: 'aut-1' }))
       .rejects.toThrow(/paramètre inconnu/);
   });
 });

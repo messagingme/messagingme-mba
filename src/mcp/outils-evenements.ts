@@ -1,6 +1,7 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import type { DepsMcp, OutilMcp } from './outils';
 import { RefusOutil, entierBorne, valeurOuRefus } from './saisie';
+import { personneRequise } from './outils-agent';
 import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
 import type { AuditSink } from '../audit/journal';
 import { TYPES_ABONNABLES, TYPES_DECOCHES_PAR_DEFAUT } from '../evenements/types';
@@ -18,6 +19,8 @@ import { journaliser } from '../lib/journal';
  * 🔴 Les deux exigent une PERSONNE (un jeton OAuth d'admin, jamais une clé d'API) : une adresse sortante est un canal
  * par lequel des données de contacts quittent l'espace. Une clé `mcp:write` branchée comme connecteur d'un agent qui
  * lit des messages de clients ne doit pas pouvoir en créer une sur l'injection d'un message.
+ * 🔴 L'adresse créée reste rattachée à l'autorisation de cette personne (lot D de l'audit, 0282) : un admin qui révoque
+ * l'application dans la console la met en pause dans la même transaction.
  *
  * Aucun contrôle propre ici : ce sont ceux de la console (`src/evenements/gestion.ts`), et un refus y garde sa phrase.
  */
@@ -36,7 +39,9 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       + 'analyzed...), and will retry them for 24 hours as long as it does not answer 2xx. Returns the endpoint and its '
       + 'secret (whsec_...), shown ONLY ONCE: it belongs in an environment variable of the application (never in the '
       + 'code), to verify the webhook-signature header. Without types given: all, except delivery receipts and AI agent '
-      + 'actions (agent.action). The limit of active endpoints depends on the plan (refusal plan_limit_reached).',
+      + 'actions (agent.action). The limit of active endpoints depends on the plan (refusal plan_limit_reached). The '
+      + 'endpoint stays tied to this connection of the assistant: an administrator who revokes this connection in the '
+      + 'console (Authorized applications) pauses it, and the application stops receiving events.',
     // Non idempotente : chaque appel qui réussit crée une adresse de plus. Destructrice pour la règle du répertoire de
     // Claude (voir `AnnotationsMcp`).
     annotations: { title: 'Create an outgoing webhook', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
@@ -54,10 +59,12 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       additionalProperties: false,
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
-      const r = valeurOuRefus(await creerAdresse(deps.evenements.gestion, tenantId, args));
+      const p = personneRequise(personne);
+      const r = valeurOuRefus(await creerAdresse(deps.evenements.gestion, tenantId, args, p.autorisationId));
       await deps.evenements.audit(
-        tenantId, { userId: personne?.userId ?? null, email: null }, 'evenements.adresse_creee',
-        { kind: 'adresse_evenements', id: r.adresse.id }, { url: r.adresse.url, types: r.adresse.types, via: 'mcp' },
+        tenantId, { userId: p.userId, email: null }, 'evenements.adresse_creee',
+        { kind: 'adresse_evenements', id: r.adresse.id },
+        { url: r.adresse.url, types: r.adresse.types, via: 'mcp', autorisation: p.autorisationId },
       );
       return {
         adresse: { id: r.adresse.id, url: r.adresse.url, types: r.adresse.types, active: r.adresse.active },
@@ -222,11 +229,13 @@ export const OUTILS_EVENEMENTS: OutilMcp[] = [
       const tourner = args.rotate_secret === true;
       if (Object.keys(patch).length === 0 && !tourner) throw new RefusOutil('rien à modifier : types, description, active ou rotate_secret');
       const g = deps.evenements.gestion;
-      const auteur = { userId: personne?.userId ?? null, email: null };
+      const p = personneRequise(personne);
+      const auteur = { userId: p.userId, email: null };
       const cible = { kind: 'adresse_evenements', id };
       // La modification AVANT la rotation : un refus de la modification (la limite de l'offre) ne doit pas laisser derrière
       // lui un secret neuf que personne n'aurait vu.
-      let adresse = Object.keys(patch).length > 0 ? valeurOuRefus(await modifierAdresse(g, tenantId, id, patch)) : null;
+      // L'autorisation de la personne : une réactivation se fait sous le verrou de la révocation (lot D de l'audit).
+      let adresse = Object.keys(patch).length > 0 ? valeurOuRefus(await modifierAdresse(g, tenantId, id, patch, p.autorisationId)) : null;
       if (adresse !== null) {
         await deps.evenements.audit(tenantId, auteur, 'evenements.adresse_modifiee', cible, { active: adresse.active, types: adresse.types, via: 'mcp' });
       }

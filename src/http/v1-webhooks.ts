@@ -139,7 +139,8 @@ export function registerV1Webhooks(app: FastifyInstance, deps: V1WebhooksRouteDe
     if (!req.auth) return refuser(reply, 401, 'unauthorized', 'clé d’API requise');
     if (!await ecriture(req, reply)) return reply;
     const t = req.auth.tenantId;
-    const r = await creerAdresse(g, t, req.body);
+    // Créée par une clé d'API : rattachée à aucune application connectée (lot D de l'audit).
+    const r = await creerAdresse(g, t, req.body, null);
     if (!r.ok) return refuserGestion(reply, r, 'webhook');
     await journal(t, req, 'evenements.adresse_creee', CIBLE(r.valeur.adresse.id), { url: r.valeur.adresse.url, types: r.valeur.adresse.types, via: 'api' });
     // 🔴 Le secret n'est rendu qu'ici et à la rotation : il ne se relit jamais.
@@ -159,7 +160,8 @@ export function registerV1Webhooks(app: FastifyInstance, deps: V1WebhooksRouteDe
     if (!req.auth) return refuser(reply, 401, 'unauthorized', 'clé d’API requise');
     if (!await ecriture(req, reply)) return reply;
     const t = req.auth.tenantId;
-    const r = await modifierAdresse(g, t, adresseDe(req.params), req.body);
+    // Une clé d'API : aucune application connectée derrière la modification (lot D de l'audit).
+    const r = await modifierAdresse(g, t, adresseDe(req.params), req.body, null);
     if (!r.ok) return refuserGestion(reply, r, 'webhook');
     await journal(t, req, 'evenements.adresse_modifiee', CIBLE(r.valeur.id), { active: r.valeur.active, types: r.valeur.types, via: 'api' });
     return reply.code(200).send(webhookV1(r.valeur));

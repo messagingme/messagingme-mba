@@ -2,6 +2,8 @@ import { randomBytes } from 'node:crypto';
 import type { Pool } from 'pg';
 import { sha256Hex } from '../lib/signature';
 import { enTransaction } from '../db/transaction';
+import { AUTORISATION_REVOQUEE, verrouillerAutorisationVivante } from '../oauth/store.pg';
+import { clientDeLAutorisation, type ClientAffiche } from '../oauth/clients';
 
 export interface ApiKeyRow {
   id: string;
@@ -10,6 +12,11 @@ export interface ApiKeyRow {
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  /**
+   * L'application connectée qui a créé la clé (`create_api_key`, lot D de l'audit), tant que son autorisation existe en
+   * base ; `null` pour la console, le relais et les clés d'avant le lot.
+   */
+  application: ClientAffiche | null;
 }
 
 /** Ce que le preHandler /v1 a besoin de résoudre pour authentifier une requête (interface étroite). */
@@ -43,7 +50,11 @@ function nouvelleCle(): { key: string; hash: string } {
   return { key, hash: sha256Hex(key) };
 }
 
-const INSERER_CLE = `insert into api_keys (tenant_id, key_hash, name, scopes) values ($1, $2, $3, $4) returning id`;
+/** `oauth_autorisation_id` (0282) : l'autorisation de l'application qui a créé la clé, `null` pour la console et le relais. */
+const INSERER_CLE = `insert into api_keys (tenant_id, key_hash, name, scopes, oauth_autorisation_id) values ($1, $2, $3, $4, $5) returning id`;
+
+/** Le refus d'une création sous une autorisation qui vient d'être révoquée : défini avec le verrou qui le produit. */
+export { AUTORISATION_REVOQUEE };
 
 /**
  * Clés d'API par tenant. `create` et `creerSousPlafond` rendent la clé en clair une seule fois et 🔴 ne persistent que son hash
@@ -59,7 +70,7 @@ export class PgApiKeyStore implements ApiKeyLookup {
    */
   async create(tenantId: string, name: string, scopes: string[]): Promise<{ id: string; key: string }> {
     const { key, hash } = nouvelleCle();
-    const res = await this.pool.query<{ id: string }>(INSERER_CLE, [tenantId, hash, name, scopes]);
+    const res = await this.pool.query<{ id: string }>(INSERER_CLE, [tenantId, hash, name, scopes, null]);
     return { id: res.rows[0]!.id, key };
   }
 
@@ -69,19 +80,30 @@ export class PgApiKeyStore implements ApiKeyLookup {
    * 🔴 Le compte et l'insertion se font sous un verrou consultatif PAR ESPACE : sans lui, deux créations
    * simultanées liraient chacune le même compte et dépasseraient le plafond. La clé du verrou porte le préfixe
    * `api_keys:`, pour ne pas sérialiser avec les bascules HubSpot, verrouillées sur l'identifiant nu de l'espace.
+   *
+   * `autorisationId` : l'autorisation OAuth de l'application qui crée la clé (`create_api_key`), `null` pour la console.
+   * 🔴 La clé lui reste rattachée, et la révocation de l'autorisation par un admin la révoque (lot D de l'audit). Elle se
+   * verrouille AVANT le verrou consultatif, dans la même transaction que l'insertion (`verrouillerAutorisationVivante`) :
+   * une révocation déjà passée refuse la clé (`AUTORISATION_REVOQUEE`), une révocation qui arrive attend la fin de la
+   * création et la coupe.
    */
-  async creerSousPlafond(tenantId: string, name: string, scopes: string[], plafond: PlafondCles): Promise<{ id: string; key: string } | null> {
-    if (plafond.max === null) return this.create(tenantId, name, scopes);
+  async creerSousPlafond(
+    tenantId: string, name: string, scopes: string[], plafond: PlafondCles, autorisationId: string | null,
+  ): Promise<{ id: string; key: string } | null | typeof AUTORISATION_REVOQUEE> {
+    if (plafond.max === null && autorisationId === null) return this.create(tenantId, name, scopes);
     const max = plafond.max;
     return enTransaction(this.pool, async (client) => {
-      await client.query(`select pg_advisory_xact_lock(hashtext('api_keys:' || $1))`, [tenantId]);
-      const actives = await client.query<{ n: number }>(
-        `select count(*)::int as n from api_keys where tenant_id = $1 and revoked_at is null and not ($2 = any(scopes))`,
-        [tenantId, plafond.horsDroit],
-      );
-      if ((actives.rows[0]?.n ?? 0) >= max) return null;
+      if (autorisationId !== null && !(await verrouillerAutorisationVivante(client, tenantId, autorisationId))) return AUTORISATION_REVOQUEE;
+      if (max !== null) {
+        await client.query(`select pg_advisory_xact_lock(hashtext('api_keys:' || $1))`, [tenantId]);
+        const actives = await client.query<{ n: number }>(
+          `select count(*)::int as n from api_keys where tenant_id = $1 and revoked_at is null and not ($2 = any(scopes))`,
+          [tenantId, plafond.horsDroit],
+        );
+        if ((actives.rows[0]?.n ?? 0) >= max) return null;
+      }
       const { key, hash } = nouvelleCle();
-      const res = await client.query<{ id: string }>(INSERER_CLE, [tenantId, hash, name, scopes]);
+      const res = await client.query<{ id: string }>(INSERER_CLE, [tenantId, hash, name, scopes, autorisationId]);
       return { id: res.rows[0]!.id, key };
     });
   }
@@ -141,11 +163,20 @@ export class PgApiKeyStore implements ApiKeyLookup {
     return (res.rowCount ?? 0) > 0;
   }
 
-  /** Liste les clés du tenant sans jamais exposer le hash (ni le clair, qu'on n'a pas). */
+  /**
+   * Liste les clés du tenant sans jamais exposer le hash (ni le clair, qu'on n'a pas), avec l'application connectée qui
+   * a créé chacune (0282). La jointure repose `tenant_id` : le lien seul ne suffit pas à l'isolation.
+   */
   async listByTenant(tenantId: string): Promise<ApiKeyRow[]> {
-    const res = await this.pool.query<{ id: string; name: string; scopes: string[]; created_at: Date; last_used_at: Date | null; revoked_at: Date | null }>(
-      `select id, name, scopes, created_at, last_used_at, revoked_at from api_keys
-       where tenant_id = $1 order by created_at desc`,
+    const res = await this.pool.query<{
+      id: string; name: string; scopes: string[]; created_at: Date; last_used_at: Date | null; revoked_at: Date | null;
+      client_id: string | null; client_nom: string | null; client_marque: 'domaine' | 'declaree' | null; client_hote: string | null;
+    }>(
+      `select k.id, k.name, k.scopes, k.created_at, k.last_used_at, k.revoked_at,
+              o.client_id, o.client_nom, o.client_marque, o.client_hote
+         from api_keys k
+         left join oauth_autorisations o on o.id = k.oauth_autorisation_id and o.tenant_id = k.tenant_id
+        where k.tenant_id = $1 order by k.created_at desc`,
       [tenantId],
     );
     return res.rows.map((r) => ({
@@ -155,6 +186,9 @@ export class PgApiKeyStore implements ApiKeyLookup {
       createdAt: r.created_at.toISOString(),
       lastUsedAt: r.last_used_at ? r.last_used_at.toISOString() : null,
       revokedAt: r.revoked_at ? r.revoked_at.toISOString() : null,
+      application: r.client_id === null ? null : clientDeLAutorisation({
+        clientId: r.client_id, clientNom: r.client_nom, clientMarque: r.client_marque, clientHote: r.client_hote,
+      }),
     }));
   }
 }

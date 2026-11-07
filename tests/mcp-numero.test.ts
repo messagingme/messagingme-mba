@@ -19,7 +19,7 @@ import { NOTE_CARTE_APPLICATION } from '../web/lib/questions-numero';
  * attribué, code, connexion) et rend le code pour que Claude l'affiche dans le terminal.
  */
 const SECRET = randomBytes(32).toString('hex');
-const PERSONNE = { userId: 'u-admin' };
+const PERSONNE = { userId: 'u-admin', autorisationId: 'aut-1' };
 const VIDE: EtatConnexion = { fourni: null, code: null, connecte: null, abonnement: null, inclusDansLePro: false };
 const outil = (nom: string): OutilMcp => OUTILS.find((o) => o.nom === nom)!;
 

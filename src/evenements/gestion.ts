@@ -6,6 +6,7 @@ import type { VerdictResolution } from '../lib/adresse-privee';
 import { LimiteOffreError, corpsRefusLimite } from '../offres/refus';
 import { enTetesSignes, genererSecret, secretsQuiSignent } from './signature';
 import { horodatageIso } from '../lib/horodatage-iso';
+import { AUTORISATION_REVOQUEE } from '../oauth/store.pg';
 import {
   TYPES_ABONNABLES, TYPES_DECOCHES_PAR_DEFAUT, TYPE_ESSAI, donneesEssai, enveloppe, idEssai, type TypeAbonnable,
 } from './types';
@@ -90,7 +91,14 @@ async function adresseAcceptable(deps: DepsGestionEvenements, url: string): Prom
   return null;
 }
 
-export async function creerAdresse(deps: DepsGestionEvenements, tenantId: string, saisie: unknown): Promise<Issue<{ adresse: AdresseVue; secret: string }>> {
+/**
+ * `autorisationId` : REQUIS, l'autorisation de l'application connectée qui crée l'adresse (`create_webhook_endpoint`),
+ * `null` pour la console et l'API publique. Une adresse rattachée est mise en pause quand un admin révoque l'application
+ * (lot D de l'audit) ; requis pour qu'un nouvel appelant ne puisse pas l'oublier en silence.
+ */
+export async function creerAdresse(
+  deps: DepsGestionEvenements, tenantId: string, saisie: unknown, autorisationId: string | null,
+): Promise<Issue<{ adresse: AdresseVue; secret: string }>> {
   const lu = saisieCreation.safeParse(saisie ?? {});
   if (!lu.success) return refus(400, premiereFaute(lu.error));
   if (!deps.chiffrementPret) return refus(503, 'Le chiffrement des secrets n’est pas configuré sur cette instance : impossible de créer une adresse.');
@@ -101,12 +109,21 @@ export async function creerAdresse(deps: DepsGestionEvenements, tenantId: string
   const secret = genererSecret();
   const adresse = await deps.adresses.creer(tenantId, {
     url: lu.data.url, description: lu.data.description ?? '', types: lu.data.types ?? TYPES_PAR_DEFAUT, secretChiffre: deps.chiffrer(secret),
-  });
+  }, autorisationId);
+  if (adresse === null) return refus(403, 'Cette connexion de l’application vient d’être révoquée par un administrateur : aucune adresse n’a été créée.');
   deps.invaliderCache();
   return { ok: true, valeur: { adresse, secret } };
 }
 
-export async function modifierAdresse(deps: DepsGestionEvenements, tenantId: string, id: string, saisie: unknown): Promise<Issue<AdresseVue>> {
+/**
+ * `autorisationId` : REQUIS, l'autorisation de l'application connectée qui modifie (`update_webhook_endpoint`), `null`
+ * pour la console et l'API publique. 🔴 Une RÉACTIVATION sous une autorisation se fait sous le même verrou que la création
+ * (lot D de l'audit) : sans lui, une réactivation passée par la garde avant la révocation de l'application et écrite
+ * après rallumerait une adresse que la révocation vient de mettre en pause.
+ */
+export async function modifierAdresse(
+  deps: DepsGestionEvenements, tenantId: string, id: string, saisie: unknown, autorisationId: string | null,
+): Promise<Issue<AdresseVue>> {
   if (!estUuid(id)) return refus(404, 'Adresse introuvable.');
   const lu = saisieModification.safeParse(saisie ?? {});
   if (!lu.success) return refus(400, premiereFaute(lu.error));
@@ -116,7 +133,8 @@ export async function modifierAdresse(deps: DepsGestionEvenements, tenantId: str
     const limite = await deps.limiteAdresses(tenantId);
     if (limite !== null && (await deps.adresses.compterActives(tenantId, id)) >= limite) return refusLimite(tenantId, limite);
   }
-  const apres = await deps.adresses.modifier(tenantId, id, lu.data);
+  const apres = await deps.adresses.modifier(tenantId, id, lu.data, autorisationId);
+  if (apres === AUTORISATION_REVOQUEE) return refus(403, 'Cette connexion de l’application vient d’être révoquée par un administrateur : l’adresse reste en pause.');
   if (apres === null) return refus(404, 'Adresse introuvable.');
   deps.invaliderCache();
   return { ok: true, valeur: apres };

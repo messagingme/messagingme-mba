@@ -14,7 +14,9 @@ import { Modale } from '@/components/Modale';
 import { Squelette } from '@/components/Squelette';
 import { Nd } from '@/components/Nd';
 import { erreurDeChargement } from '@/lib/http';
-import { listerAutorisations, personneDe, revoquerAutorisation, type AutorisationOauth } from '@/lib/oauth';
+import {
+  creeeParApplication, listerAutorisations, messageRevocation, personneDe, provenanceClient, revoquerAutorisation, type AutorisationOauth,
+} from '@/lib/oauth';
 import { useOffre } from '@/lib/use-offre';
 import { useChargement } from '@/lib/use-chargement';
 
@@ -193,7 +195,11 @@ function KeysInner({ session }: { session: Session }) {
               </tr>
             </thead>
             <tbody>
-              {keys.map((k) => (
+              {keys.map((k) => {
+                // Lot D de l'audit : la clé créée par une application connectée le dit, avec la provenance d'un nom
+                // déclaré. Révoquer cette application dans la section du dessous la révoque.
+                const par = creeeParApplication(k.application, t);
+                return (
                 // Une clé révoquée RESTE listée (le serveur ne la supprime pas) : sans ce badge, la ligne
                 // ressemblerait à une clé encore valide.
                 <tr key={k.id} className="border-b border-ink-50 last:border-0">
@@ -202,6 +208,7 @@ function KeysInner({ session }: { session: Session }) {
                     {k.revokedAt && (
                       <span className="ml-2 rounded-controle bg-ink-100 px-1.5 py-0.5 text-xs text-ink-500">{t('révoquée', 'revoked')}</span>
                     )}
+                    {par && <span className="block text-xs text-ink-500" data-testid={`cle-provenance-${k.id}`}>{par}</span>}
                   </td>
                   <td className="px-5 py-2.5 font-mono text-xs text-ink-500">
                     {/* `mba:relais` ne se crée pas ici (absent d'`API_SCOPES`) : seule la publication chez Meta
@@ -220,13 +227,14 @@ function KeysInner({ session }: { session: Session }) {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
 
-      <ApplicationsAutorisees tenantId={session.tenantId} />
+      <ApplicationsAutorisees tenantId={session.tenantId} apresRevocation={load} />
 
       {created && (
         <Modale
@@ -265,10 +273,13 @@ function KeysInner({ session }: { session: Session }) {
  * machines font deux lignes, révocables séparément.
  *
  * Sur la page des clés parce que c'est la même question, « qui peut appeler l'espace de l'extérieur ? », et la même
- * réserve aux admins. Une autorisation révoquée disparaît de la liste (le serveur ne rend que les vivantes), à la
- * différence d'une clé, qui reste listée avec son badge.
+ * réserve aux admins. Le serveur rend les autorisations vivantes, et celles dont l'accès est fini tant que ce qu'elles
+ * ont créé vit encore (lot D de l'audit, « déconnectée ») ; une autorisation révoquée sans plus rien de vivant disparaît
+ * de la liste, à la différence d'une clé, qui reste listée avec son badge.
+ *
+ * `apresRevocation` : la révocation coupe aussi les clés que l'application a créées, la liste des clés du dessus se relit.
  */
-function ApplicationsAutorisees({ tenantId }: { tenantId: string }) {
+function ApplicationsAutorisees({ tenantId, apresRevocation }: { tenantId: string; apresRevocation: () => Promise<void> }) {
   const t = useT();
   const confirmer = useConfirmation();
   const { locale } = useLocale();
@@ -286,12 +297,12 @@ function ApplicationsAutorisees({ tenantId }: { tenantId: string }) {
   useEffect(() => { void load(); }, [load]);
 
   async function revoke(a: AutorisationOauth) {
+    // Relue au clic (lot D de l'audit) : une clé ou une adresse créée depuis l'ouverture de la page serait coupée sans
+    // avoir été nommée. Une relecture en échec garde la ligne affichée, que la révocation traitera de toute façon.
+    const fraiche = await listerAutorisations(tenantId).then((l) => l.find((x) => x.id === a.id) ?? a, () => a);
     const ok = await confirmer({
       titre: t('Révoquer l’accès', 'Revoke access'),
-      message: t(
-        `Révoquer l’accès de « ${a.client} », autorisé par ${personneDe(a)} ? Son prochain appel sera refusé, et il devra demander une nouvelle autorisation.`,
-        `Revoke “${a.client}” access, authorized by ${personneDe(a)}? Its next call will be refused, and it will have to ask for a new authorization.`,
-      ),
+      message: messageRevocation(fraiche, t),
       confirmer: t('Révoquer', 'Revoke'),
     });
     if (!ok) return;
@@ -301,8 +312,9 @@ function ApplicationsAutorisees({ tenantId }: { tenantId: string }) {
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Révocation impossible', 'Revocation failed'));
     }
-    // Relue dans les deux cas : un 404 veut dire « déjà révoquée », la ligne ne doit pas rester affichée.
-    await load();
+    // Relue dans les deux cas : un 404 veut dire « déjà révoquée », la ligne ne doit pas rester affichée. Les clés aussi :
+    // celles que l'application a créées viennent d'être révoquées avec elle.
+    await Promise.all([load(), apresRevocation()]);
   }
 
   const fmt = (iso: string) => `${formatDate(iso, locale, { day: '2-digit', month: '2-digit', year: '2-digit' })} ${hourMin(iso, locale)}`;
@@ -316,6 +328,11 @@ function ApplicationsAutorisees({ tenantId }: { tenantId: string }) {
             'Claude (Claude Code, claude.ai) connecté à cet espace par un administrateur, sans clé d’API. Révoquer coupe l’accès dès son prochain appel.',
             'Claude (Claude Code, claude.ai) connected to this workspace by an administrator, without an API key. Revoking cuts access on its next call.',
           )}
+          {/* Seulement face à une API qui coupe les créations (lot D de l'audit) : elle les rend dans la liste. */}
+          {autorisations?.some((a) => a.creations !== undefined) && ` ${t(
+            'Les clés d’API et les webhooks qu’une application a créés s’arrêtent avec elle.',
+            'The API keys and webhooks an application created stop with it.',
+          )}`}
         </p>
       </div>
       {error && <p className="mx-5 mt-3 rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
@@ -344,11 +361,17 @@ function ApplicationsAutorisees({ tenantId }: { tenantId: string }) {
               <tr key={a.id} className="border-b border-ink-50 last:border-0">
                 <td className="px-5 py-2.5 text-ink-900">
                   {a.client}
-                  {/* Lot 15 : un nom déclaré se dit tel, et l'hôte où le client reçoit son code se montre. */}
-                  {(a.marque === 'declaree' || a.clientHote) && (
+                  {/* Lot D de l'audit : son accès est fini, mais ce qu'elle a créé vit ; « Révoquer » le coupe. */}
+                  {a.connectee === false && (
+                    <span className="ml-2 rounded-controle bg-ink-100 px-1.5 py-0.5 text-xs text-ink-500" data-testid={`application-deconnectee-${a.id}`}>
+                      {t('déconnectée', 'disconnected')}
+                    </span>
+                  )}
+                  {/* Lot 15 : un nom déclaré se dit tel, et l'hôte où le client reçoit son code se montre (le même calcul
+                      que la provenance d'une clé ou d'une adresse, `provenanceClient`). */}
+                  {provenanceClient(a.marque, a.clientHote, t) !== null && (
                     <span className="block text-xs text-ink-500" data-testid={`application-provenance-${a.id}`}>
-                      {[a.marque === 'declaree' ? t('non vérifié', 'unverified') : null, a.clientHote ? t(`retour vers ${a.clientHote}`, `returns to ${a.clientHote}`) : null]
-                        .filter((x) => x !== null).join(' · ')}
+                      {provenanceClient(a.marque, a.clientHote, t)}
                     </span>
                   )}
                 </td>

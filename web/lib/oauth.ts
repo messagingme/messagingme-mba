@@ -158,7 +158,10 @@ export function demandeDeLAdresse(recherche: string): string | null {
 
 // --- « Applications autorisées » (page des clés d'API, admin) --------------------------------------------------
 
-/** Une autorisation vivante de l'espace, telle que la liste la rend : ni jeton, ni empreinte, ni échéance. */
+/**
+ * Une autorisation de l'espace, telle que la liste la rend : ni jeton, ni empreinte, ni échéance. Vivante, ou finie mais
+ * avec une création encore vivante (`connectee` faux, lot D de l'audit).
+ */
 export interface AutorisationOauth {
   id: string;
   clientId: string;
@@ -173,6 +176,89 @@ export interface AutorisationOauth {
   scopes: string[];
   creeLe: string;
   dernierUsageLe: string | null;
+  /**
+   * Lot D de l'audit : ce que l'application a créé et qui vit encore (clés d'API, adresses de webhook), que sa révocation
+   * coupe. Absent d'une API plus ancienne, qui ne les coupe pas : la boîte n'en parle alors pas.
+   */
+  creations?: { cles: Array<{ id: string; name: string }>; adresses: Array<{ id: string; url: string }> };
+  /**
+   * Faux pour une application dont l'accès est fini (déconnectée par elle-même, jeton rejoué, fin de vie), listée parce
+   * que ce qu'elle a créé vit encore (lot D de l'audit). Absent d'une API plus ancienne : connectée.
+   */
+  connectee?: boolean;
+}
+
+/** L'application connectée qui a créé une clé ou une adresse de webhook (lot D de l'audit), telle que le serveur la nomme. */
+export interface ApplicationCreatrice {
+  nom: string;
+  marque: MarqueClient;
+  hote: string | null;
+}
+
+type Traduire = (fr: string, en: string) => string;
+
+/**
+ * Ce qui se dit d'un client à côté de son nom, partout où il s'affiche (« Applications autorisées », provenance d'une
+ * clé ou d'une adresse) : un nom DÉCLARÉ se dit tel, et l'hôte où il reçoit son code se montre. 🔴 Un client enregistré
+ * peut se déclarer « Claude Code » : la mention « non vérifié » ne doit manquer à aucun de ces écrans. `null` : rien à dire.
+ */
+export function provenanceClient(marque: MarqueClient | undefined, hote: string | null | undefined, t: Traduire): string | null {
+  const mentions = [marque === 'declaree' ? t('non vérifié', 'unverified') : null, hote ? t(`retour vers ${hote}`, `returns to ${hote}`) : null]
+    .filter((x): x is string => x !== null);
+  return mentions.length === 0 ? null : mentions.join(' · ');
+}
+
+/** « Créée par Claude Code », suivi de la provenance d'un client déclaré ; `null` pour une création de la console. */
+export function creeeParApplication(application: ApplicationCreatrice | null | undefined, t: Traduire): string | null {
+  if (!application) return null;
+  const provenance = provenanceClient(application.marque, application.hote, t);
+  return t(`Créée par ${application.nom}`, `Created by ${application.nom}`) + (provenance ? ` · ${provenance}` : '');
+}
+
+/**
+ * Le message de la boîte de révocation. Depuis le lot D de l'audit, révoquer coupe aussi ce que l'application a créé :
+ * la boîte NOMME chaque clé et chaque adresse avant le clic, et dit que l'application qui s'en sert s'arrêtera. Une
+ * API d'avant le lot ne rend pas les créations, et ne les coupe pas : le message ne promet alors rien de plus.
+ */
+export function messageRevocation(a: AutorisationOauth, t: Traduire): string {
+  // Déconnectée (par elle-même, un jeton rejoué, sa fin de vie) : il ne reste à couper que ce qu'elle a créé.
+  const deconnectee = a.connectee === false;
+  const debut = deconnectee
+    ? t(
+      `« ${a.client} », autorisé par ${personneDe(a)}, n’est plus connecté, mais ce qu’il a créé vit encore.`,
+      `“${a.client}”, authorized by ${personneDe(a)}, is no longer connected, but what it created is still live.`,
+    )
+    : t(
+      `Révoquer l’accès de « ${a.client} », autorisé par ${personneDe(a)} ? Son prochain appel sera refusé, et il devra demander une nouvelle autorisation.`,
+      `Revoke “${a.client}” access, authorized by ${personneDe(a)}? Its next call will be refused, and it will have to ask for a new authorization.`,
+    );
+  const cles = a.creations?.cles ?? [];
+  const adresses = a.creations?.adresses ?? [];
+  if (cles.length === 0 && adresses.length === 0) return debut;
+  const nomsFr = cles.map((c) => `« ${c.name} »`).join(', ');
+  const nomsEn = cles.map((c) => `“${c.name}”`).join(', ');
+  const urls = adresses.map((w) => w.url).join(', ');
+  const parties = [
+    cles.length === 0 ? null : cles.length === 1
+      ? t(`la clé d’API ${nomsFr} sera révoquée`, `the API key ${nomsEn} will be revoked`)
+      : t(`les clés d’API ${nomsFr} seront révoquées`, `the API keys ${nomsEn} will be revoked`),
+    adresses.length === 0 ? null : adresses.length === 1
+      ? t(`le webhook ${urls} sera mis en pause`, `the webhook ${urls} will be paused`)
+      : t(`les webhooks ${urls} seront mis en pause`, `the webhooks ${urls} will be paused`),
+  ].filter((x): x is string => x !== null);
+  const liaison = deconnectee
+    ? t('Révoquer l’arrête : ', 'Revoking stops it: ')
+    : t('Ce qu’il a créé s’arrête avec lui : ', 'What it created stops with it: ');
+  // Une adresse coupée peut être celle qui répond aux clients : leurs messages vont alors à l'équipe, et les événements
+  // de la pause ne repartent pas (critique du lot D).
+  const repondeur = adresses.length === 0 ? '' : ` ${t(
+    'Si un de ces webhooks répond à vos clients, leurs messages iront à votre équipe, et les événements de la pause ne seront pas renvoyés.',
+    'If one of these webhooks answers your customers, their messages will go to your team, and events sent during the pause will not be resent.',
+  )}`;
+  return `${debut} ${liaison}${parties.join(t(' et ', ' and '))}. ${t(
+    'L’application qui s’en sert cessera de fonctionner ; pour la garder en marche, créez d’abord de quoi les remplacer, dans la console ou depuis une autre connexion de Claude.',
+    'The application that uses them will stop working; to keep it running, first create their replacements, in the console or from another Claude connection.',
+  )}${repondeur}`;
 }
 
 /**

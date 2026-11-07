@@ -189,8 +189,16 @@ export async function plafondCouteux(deps: DepsMcp, tenantId: string): Promise<v
  * refus ne sert qu'à un appel qui contournerait le serveur, et il vaut mieux que signer au nom de personne.
  */
 export function signataire(personne: PersonneMcp | null): string {
+  return personneRequise(personne).userId;
+}
+
+/**
+ * La personne entière, avec son autorisation, pour un outil qui crée un accès durable (une clé d'API, une adresse de
+ * webhook) : il le rattache à cette autorisation (lot D de l'audit). Même refus que `signataire`.
+ */
+export function personneRequise(personne: PersonneMcp | null): PersonneMcp {
   if (personne === null) throw new RefusOutil('connexion OAuth requise : cet outil agit au nom d’une personne');
-  return personne.userId;
+  return personne;
 }
 
 /** Le budget le plus bas qu'on accepte de Claude, en euros : un centime (la console descend au micro-euro). */
