@@ -33,6 +33,9 @@ ou le BSUID, dans ces tables.
   liste de l'agent. Laissés, avec leur raison : un doute d'interblocage entre la purge et un tour d'agent (aucun cycle
   trouvé, et le cas existait déjà pour une personne qui a un fil) ; la ligne vide sous l'en-tête de ce journal (la
   convention du fichier, sur laquelle les sessions qui insèrent en tête s'appuient). Les trois autres confirment.
+- **Déployé** : `de46ab09`, `deploy-scaleway.yml` en `migration=aucune` (run 42294784691, approuvé par Julien, en service
+  le 2026-11-07 à 10 h 22), par-dessus `631c9cb9` d'un pair. `mba-api` sert `mba:de46ab09…`, fumée publique et fiches
+  OAuth conformes.
 
 ## 2026-11-06 : le Crédit WhatsApp dit la conversion et l'arrêt au client (lot C de « la ligne prise à la connexion »)
 
