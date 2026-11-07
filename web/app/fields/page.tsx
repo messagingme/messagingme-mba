@@ -49,8 +49,13 @@ function FieldsInner({ session }: { session: Session }) {
     try {
       await updateUserField(session.tenantId, f.key, patch);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Enregistrement impossible', 'Failed to save'));
-      await load(); // resync en cas d'échec
+      const message = err instanceof Error ? err.message : t('Enregistrement impossible', 'Failed to save');
+      try {
+        await charger(); // rétablir la valeur serveur avant d'afficher l'échec
+        setError(message);
+      } catch {
+        setError(`${message} — ${t('la liste n’a pas pu être rechargée', 'the list could not be reloaded')}`);
+      }
     } finally {
       setSavingKey(null);
     }
