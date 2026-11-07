@@ -4,6 +4,23 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-07 : les conversations WhatsApp dans l'Inbox HubSpot, côté mba (lot 1 de l'Inbox, migration 0283)
+
+- **Ce qui a changé** : `GET`/`PUT /tenants/:id/hubspot/inbox` (choisir la boîte HubSpot où la ligne WhatsApp est
+  branchée), la minuterie `hubspot-inbox` (15 s, rôle `principal`) qui relit `conversation_messages` des espaces branchés
+  et pousse au connecteur, et le bloc « Conversations dans l'Inbox HubSpot » de Tools > Intégrations > HubSpot. Aucun
+  chemin d'envoi touché. Plan et décisions : `~/mm-hubspot/docs/2026-11-06-inbox-hubspot-lot1-plan.md`.
+- **0283** : trois colonnes nullables sur `tenant_settings` (`hubspot_inbox_boite`, `hubspot_inbox_curseur_le`,
+  `hubspot_inbox_curseur_id`) et un index partiel `where hubspot_inbox_boite is not null`. Aucune donnée personnelle,
+  rien pour la purge. Déployée `migration=avant` (run 42359990710, `f71457d3`), après 0282 d'un pair, dans l'ordre
+  convenu entre les trois sessions : `0283_hubspot_inbox.sql ... ok`.
+- **La relecture du lot** a trouvé un 🔴 : le curseur lu dans un `Date` JavaScript était tronqué à la milliseconde,
+  et le dernier message de chaque espace branché aurait été republié toutes les 15 s. Il est lu et écrit en texte à la
+  microseconde (le motif de `curseur-precision`), ne recule plus, tenu par
+  `tests/integration/hubspot-inbox.integration.test.ts`, vérifié dans les deux sens sur un Postgres embarqué (PGlite).
+- **Un piège évité** : l'arbre partagé avait 374 commits de retard, et 0255 y paraissait libre alors qu'elle était prise
+  sur `origin`. Le lot a été refait dans une copie d'`origin/main` (scratchpad), puis retiré de l'arbre partagé.
+
 ## 2026-11-06 : la purge vise chaque table par tous les identifiants de la personne
 
 Plan `docs/superpowers/plans/2026-11-06-purge-identifiants-de-la-personne.md`. Suite du lot d'en dessous, demandée par
