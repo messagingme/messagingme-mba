@@ -18,6 +18,15 @@ import type { EtatLigne } from './etat-ligne';
  * y serait faux), ni pour une Free ou une Entreprise, qui n'ont pas d'option. Ne lève jamais : un e-mail qui tombe ne
  * fait pas tomber le webhook ni `/ops`.
  */
+/**
+ * La fenêtre de la conversion dite par le webhook (jaune 1 de la relecture du lot C) : la formule Pro devenue payée depuis
+ * moins de 25 jours (la fin de son essai, sinon sa souscription). Le premier paiement que Stripe relance quelques semaines
+ * y tient ; le renouvellement suivant, un mois plus tard, n'y est plus, ni treize mois plus tard, quand le journal des
+ * e-mails a purgé la réservation de l'occasion.
+ */
+export const FENETRE_CONVERSION_JOURS = 25;
+const JOUR_MS = 86_400_000;
+
 export interface DepsConversion {
   /** L'offre de l'espace, relue sans cache : elle vient peut-être de changer. */
   offre(tenantId: string): Promise<Offre>;
@@ -30,6 +39,9 @@ export interface DepsConversion {
   pageNumero: string;
   /** La page Support de la console, où l'option se demande hors vente. */
   pageSupport: string;
+  /** Quand la formule Pro est devenue payée : la fin de son essai, sinon sa souscription ; `null` sans Pro. */
+  proPayeDepuis(tenantId: string): Promise<Date | null>;
+  maintenant?: () => number;
 }
 
 export async function signalerConversion(d: DepsConversion, tenantId: string): Promise<void> {
@@ -43,4 +55,22 @@ export async function signalerConversion(d: DepsConversion, tenantId: string): P
   } catch (err) {
     journaliser('error', 'conversion_ligne_credit_impossible', { err, tenantId });
   }
+}
+
+/**
+ * Le chemin du webhook (une facture de période payée, la mise à jour d'un Pro actif) : la conversion n'y est dite qu'à son
+ * moment, dans les `FENETRE_CONVERSION_JOURS` qui suivent la formule devenue payée. Sinon un admin arrivé depuis
+ * l'apprendrait à l'échéance suivante, et tous les admins treize mois plus tard (jaune 1 de la relecture du lot C). Le
+ * démarrage de la formule Pro et `/ops` sont le moment lui-même : ils appellent `signalerConversion`. Ne lève jamais.
+ */
+export async function signalerConversionDuPro(d: DepsConversion, tenantId: string): Promise<void> {
+  try {
+    const depuis = await d.proPayeDepuis(tenantId);
+    if (depuis === null) return;
+    if ((d.maintenant ?? Date.now)() - depuis.getTime() > FENETRE_CONVERSION_JOURS * JOUR_MS) return;
+  } catch (err) {
+    journaliser('error', 'conversion_ligne_credit_impossible', { err, tenantId });
+    return;
+  }
+  await signalerConversion(d, tenantId);
 }

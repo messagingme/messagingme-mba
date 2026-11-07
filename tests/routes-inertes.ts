@@ -676,6 +676,7 @@ export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
     numerosCouverts: async () => 0,
     reprendreCampagnes: neDevraitPasEtreAppelee('creditWhatsapp.option.reprendreCampagnes'),
     alerter: async () => {},
+    verrous: { prendre: neDevraitPasEtreAppelee('creditWhatsapp.option.verrous.prendre'), relacher: neDevraitPasEtreAppelee('creditWhatsapp.option.verrous.relacher') },
   },
   surLaLigne: async () => false,
 };

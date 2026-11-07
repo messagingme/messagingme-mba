@@ -124,6 +124,7 @@ function achat(o: {
       numerosCouverts: async () => 1,
       reprendreCampagnes: async () => 0,
       alerter: async () => {},
+      verrous: { prendre: async (cles) => ({ jeton: 'j', cles: cles.map(([c]) => c) }), relacher: async () => {} },
     },
   };
   const srv = buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET_SESSION }, creditWhatsapp: deps });

@@ -53,7 +53,7 @@ import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
 import { formulePayee } from './offres/formule-payee';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
-import { signalerConversion, type DepsConversion } from './credit-whatsapp/conversion';
+import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
 import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
 import { changerResiliationPro, demarrerProMaintenant, type DepsDemarrerPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
 import { creerVueOffre } from './offres/vue';
@@ -1029,7 +1029,8 @@ async function main(): Promise<void> {
     offre: async (t) => (await offres.offreDe(t)).offre,
     conditions: (t) => conditionsCreditWhatsapp.conditions(t),
     lignes: (t) => lignesCreditWhatsapp.lignesDeLEspace(t),
-    optionEnVente: config.STRIPE_SECRET_KEY !== '' && config.STRIPE_PRIX_OPTION_WA !== '',
+    // La règle unique de la vente (`optionEnVente`, jaune 13 de la relecture du lot C) : la carte, l'e-mail et l'onglet.
+    optionEnVente: optionEnVente({ stripe: paiementDeLaConsole.stripe, prixOption: config.STRIPE_PRIX_OPTION_WA }),
   };
 
   /**
@@ -1076,6 +1077,8 @@ async function main(): Promise<void> {
     numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
     reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
+    // Une prise à la fois par espace (jaune 7 de la relecture du lot C).
+    verrous: verrousCourts,
   };
   /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */
   const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {
@@ -1106,6 +1109,11 @@ async function main(): Promise<void> {
     emettre: (e) => emetteurEmails.emettre(e),
     pageNumero: `${config.APP_URL.trim().replace(/\/+$/, '')}/connecter-whatsapp`,
     pageSupport: `${config.APP_URL.trim().replace(/\/+$/, '')}/support`,
+    // Le moment de la conversion par le webhook : la fin de l'essai du Pro, sinon sa souscription (jaune 1 du lot C).
+    proPayeDepuis: async (tenant) => {
+      const r = await abonnementsOffre.resume(tenant);
+      return r === null ? null : (r.essaiFinLe ?? r.creeLe);
+    },
   };
 
   /**
@@ -2211,7 +2219,7 @@ async function main(): Promise<void> {
         signalerPro: (p: { tenantId: string; montantCentimes: number; devise: string }) =>
           emetteurConversions.signaler({ evenement: 'Subscribe', tenantId: p.tenantId, valeurCentimes: p.montantCentimes, devise: p.devise }),
         // La conversion dite au client (lot C du Crédit WhatsApp) : chaque facture de période payée du Pro, une fois par espace.
-        signalerConversion: (tenantId: string) => signalerConversion(conversionDeLaConsole, tenantId),
+        signalerConversion: (tenantId: string) => signalerConversionDuPro(conversionDeLaConsole, tenantId),
         // 🔴 Le plafond de la clé de modèle suit l'achat, exactement comme après une recharge par `/ops` : sinon le
         // client paie et Vercel le coupe au plafond d'avant. La route répond sans l'attendre : l'arrêt du processus,
         // lui, l'attend (`travauxEnVol`), pour ne pas couper l'appel à Vercel en route.

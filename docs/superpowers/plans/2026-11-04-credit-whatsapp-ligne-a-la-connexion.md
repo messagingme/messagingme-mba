@@ -333,6 +333,28 @@ attend Julien :
     `CarteMetaARegler`, deux JSDoc empilés sur `QUESTION_PAIEMENT` ; `documentation.md` dit `optionEnVente` règle unique,
     alors que `portesCreditWhatsapp.optionEnVente` la recalcule depuis la configuration (équivalentes aujourd'hui).
 
+### C4. Les jaunes de la relecture du lot C (lot de suite, accord de Julien du 2026-11-07)
+
+**Méthode** : en direct, TDD, sans relecture propre : des jaunes se poussent après le déploiement et sont relus avec le
+lot D. Les retraits de garde à la fin, serveur et console, comme au lot C.
+
+- [x] Jaunes 1, 6 et 12 : le webhook ne dit la conversion qu'à son moment, dans les `FENETRE_CONVERSION_JOURS` (25)
+  qui suivent la fin de l'essai de la formule Pro, ou sa souscription sans essai ; la mise à jour d'un Pro actif la
+  rattrape (un essai écourté au tableau de bord de Stripe, une fin d'essai que le démarrage n'a pas pu écrire). Tests :
+  une facture un mois plus tard, ou treize mois, ne la dit plus ; l'`updated` d'un Pro actif la dit ; les textes des
+  deux e-mails distinguent un numéro avec et sans l'application, dans les deux langues.
+- [x] Jaune 3 : la garde redondante de l'e-mail de l'arrêt retirée.
+- [x] Jaune 7 : la prise de l'option sous un verrou court par espace ; un second clic pendant la prise reçoit 409.
+- [x] Jaune 8 : le bandeau monté seulement quand l'onglet Crédit WhatsApp existe (`ongletCreditWhatsapp`).
+- [x] Jaune 9 : une seule politique d'échec : un état ou des numéros illisibles laissent dire « Ajoutez votre carte
+  chez Meta », à Claude comme sur l'Accueil.
+- [x] Jaune 13 : les JSDoc remis sur leur symbole ; la règle de vente unique lue aussi par l'onglet
+  (`portesCreditWhatsapp`).
+- Restent pour avant la vente : 2, 4, 5 et 10 ; le 11 attend Julien.
+
+**Essai réel** : l'essai 231 le couvre ; s'y ajoute, au premier Pro payant, l'e-mail à la fin de l'essai et aucun au
+renouvellement suivant.
+
 ## Lot D : le passage du numéro de l'essai sur la ligne
 
 - [ ] **D0, l'essai réel du partage** (spec, « L'essai réel avant toute vente ») : sur un numéro d'essai connecté avec une

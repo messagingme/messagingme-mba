@@ -7,6 +7,7 @@ import type { Offre } from '../offres/offres';
 import type { PgOptionsCreditStore } from '../credit-whatsapp/options.pg';
 import { journaliser } from '../lib/journal';
 import { refus, type Issue } from '../lib/issue';
+import type { VerrousCourts } from '../db/verrous-courts';
 
 /** Une panne passagère de Stripe (réseau, 5xx, 429) : l'appelant la laisse remonter, pour qu'elle se rejoue. */
 const passagere = (err: StripeError): boolean => err.status === null || err.status === 429 || err.status >= 500;
@@ -45,7 +46,12 @@ export interface DepsOptionCredit extends DepsPortail {
   /** `PgNumeroDelieStore.leverPausesLigneCredit` : une place en plus fait repartir les campagnes en pause faute de place. */
   reprendreCampagnes(tenantId: string): Promise<number>;
   alerter(texte: string): Promise<void>;
+  /** Une prise à la fois par espace (jaune 7 de la relecture du lot C), le temps de la liste, de l'expiration et de la création. */
+  verrous: Pick<VerrousCourts, 'prendre' | 'relacher'>;
 }
+
+/** Le verrou d'une prise : quelques appels à Stripe, largement. Relâché dès la session créée ou l'échec rendu. */
+const DUREE_VERROU_PRISE_MS = 60_000;
 
 /**
  * L'option se prend en ligne : son prix posé chez Stripe. La carte « Qui règle Meta ? » (`/credit-whatsapp/etat`) et
@@ -104,24 +110,34 @@ export async function ouvrirOption(
   }
   try {
     if (!(await prixJuste(s, d.prixOption, tenantId))) return PRIX_INCOHERENT;
-    const retour = origine === 'connecter' ? `${page(d, 'console')}?` : `${page(d, 'offre')}?tab=whatsapp&`;
-    const customerId = await clientDeLEspace(d, s, tenantId);
-    // 🔴 Un seul paiement de l'option à la fois (jaune 11 de la relecture du lot B) : les sessions encore ouvertes du client
-    // sont expirées d'abord, le dernier clic gagne.
-    await expirerSessionsOuvertes(s.transport, { cle: s.cle, customerId, produit: PRODUIT_OPTION_WA });
-    const session = await creerSessionAbonnement(s.transport, {
-      cle: s.cle,
-      tenantId,
-      prix: d.prixOption,
-      customerId,
-      urlSucces: `${retour}option=recue`,
-      urlAbandon: `${retour}option=abandon`,
-      idempotence: `option-wa-${tenantId}-${randomUUID()}`,
-      produit: PRODUIT_OPTION_WA,
-      quantite: places,
-      codesPromo: false,
-    });
-    return { ok: true, valeur: { url: session.url } };
+    // 🔴 Une prise à la fois par espace (jaune 7 de la relecture du lot C) : sans verrou, deux clics simultanés listent
+    // chacun zéro session ouverte et en créent deux, toutes deux payables (et deux clients Stripe pour un espace neuf).
+    const prise = await d.verrous.prendre([[`option.prendre:${tenantId}`, DUREE_VERROU_PRISE_MS]]);
+    if (prise === null) {
+      return refus(409, 'Une prise de l’option est déjà en cours pour cet espace : rechargez la page dans quelques secondes.', { code: 'option_en_cours' });
+    }
+    try {
+      const retour = origine === 'connecter' ? `${page(d, 'console')}?` : `${page(d, 'offre')}?tab=whatsapp&`;
+      const customerId = await clientDeLEspace(d, s, tenantId);
+      // 🔴 Un seul paiement de l'option à la fois (jaune 11 de la relecture du lot B) : les sessions encore ouvertes du
+      // client sont expirées d'abord, le dernier clic gagne.
+      await expirerSessionsOuvertes(s.transport, { cle: s.cle, customerId, produit: PRODUIT_OPTION_WA });
+      const session = await creerSessionAbonnement(s.transport, {
+        cle: s.cle,
+        tenantId,
+        prix: d.prixOption,
+        customerId,
+        urlSucces: `${retour}option=recue`,
+        urlAbandon: `${retour}option=abandon`,
+        idempotence: `option-wa-${tenantId}-${randomUUID()}`,
+        produit: PRODUIT_OPTION_WA,
+        quantite: places,
+        codesPromo: false,
+      });
+      return { ok: true, valeur: { url: session.url } };
+    } finally {
+      await d.verrous.relacher(prise);
+    }
   } catch (err) {
     if (!(err instanceof StripeError)) throw err;
     return refusDeStripe(err, tenantId, 'option_credit_whatsapp');

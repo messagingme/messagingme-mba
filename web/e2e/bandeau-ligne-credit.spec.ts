@@ -12,7 +12,7 @@ const LIMITES = {
 };
 const PRO = ['inbox', 'scenarios', 'statistiques', 'agent_meta', 'aide', 'assistants', 'email', 'console'];
 
-async function monter(page: Page, o: { etat?: string; enVente?: boolean; role?: 'admin' | 'agent'; offre?: string } = {}) {
+async function monter(page: Page, o: { etat?: string; enVente?: boolean; role?: 'admin' | 'agent'; offre?: string; onglet?: boolean } = {}) {
   const lectures: string[] = [];
   await page.addInitScript((s) => { window.localStorage.setItem('mba.session', JSON.stringify(s)); },
     { token: 'e2e-token', email: 'x@e2e.test', role: o.role ?? 'admin', tenantId: TENANT });
@@ -28,7 +28,7 @@ async function monter(page: Page, o: { etat?: string; enVente?: boolean; role?: 
         offre: o.offre ?? 'pro', fonctions: PRO, limites: LIMITES, usage: { envoisModelesMois: null, contacts: 12, automations: 1, membres: 2 },
         grille: { free: { fonctions: [], limites: LIMITES }, pro: { fonctions: PRO, limites: LIMITES }, entreprise: { fonctions: PRO, limites: LIMITES } },
         prixPro: null, essai: null, sieges: null, suiteDuNumero: null, abonnement: null, upgradeUrl: 'https://console.e2e.test/offre',
-        ongletCreditWhatsapp: true,
+        ongletCreditWhatsapp: o.onglet ?? true,
       }));
     }
     return route.fulfill(json({}));
@@ -75,8 +75,8 @@ test('aucun bandeau : l’option prise, payée ou en essai, ou hors vente (l’�
   }
 });
 
-test('ni un membre ni une Free : aucune lecture de l’état, aucun bandeau', async ({ page }) => {
-  for (const cas of [{ role: 'agent' as const }, { offre: 'base' }]) {
+test('ni un membre, ni une Free, ni un Pro sans l’onglet Crédit WhatsApp (option hors vente) : aucune lecture de l’état, aucun bandeau', async ({ page }) => {
+  for (const cas of [{ role: 'agent' as const }, { offre: 'base' }, { onglet: false }]) {
     const lectures = await monter(page, cas);
     // L'offre lue (ce qui déciderait du montage), puis un temps : aucune lecture de l'état ne doit suivre.
     const offre = page.waitForResponse((r) => r.url().endsWith(`/tenants/${TENANT}/offre`));

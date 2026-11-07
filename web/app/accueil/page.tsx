@@ -49,7 +49,6 @@ export default function AccueilPage() {
   return <AppShell active="accueil">{(session) => <AccueilInner session={session} />}</AppShell>;
 }
 
-/** Prénom depuis le nom complet ; repli sur la partie locale de l'email ; sinon vide. */
 /**
  * « Ajoutez votre carte chez Meta » (erreur 141006) : tu quand le Crédit WhatsApp paie Meta pour le numéro de l'espace
  * (`creditPaieMeta`, la règle de `get_setup_state`, jaune 3 de la relecture du lot B). L'état ne se lit qu'ici, quand Meta
@@ -78,6 +77,7 @@ function CarteMetaARegler({ tenantId }: { tenantId: string }) {
   );
 }
 
+/** Prénom depuis le nom complet ; repli sur la partie locale de l'email ; sinon vide. */
 function firstNameOf(me: MeResponse | null): string {
   const n = me?.name?.trim();
   if (n) return n.split(/\s+/)[0] ?? '';

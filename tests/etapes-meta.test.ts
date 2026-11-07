@@ -91,9 +91,14 @@ describe('ce qu’il faut chez Meta', () => {
     // carte chez Meta de payer, Claude ne doit pas dire d'en enregistrer une.
     const numeroBloque = { ...CONNECTE, connecte: { chiffres: '336', aActiver: false, paiementBloque: true } };
     for (const etatLigne of ['en_attente', 'active'] as const) {
-      expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne }).avertissements, etatLigne).not.toContain('carte_meta_a_regler');
+      expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne, avecApplication: false }).avertissements, etatLigne).not.toContain('carte_meta_a_regler');
     }
     for (const etatLigne of ['a_prendre', 'essai', 'arretee'] as const) {
+      expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne }).avertissements, etatLigne).toContain('carte_meta_a_regler');
+    }
+    // 🔴 Des numéros illisibles (`avecApplication` absent) : le conseil de la carte reste dit, comme sur l'Accueil (jaune 9
+    // du lot C) ; seule une lecture qui dit « sans l'application » le tait.
+    for (const etatLigne of ['en_attente', 'active'] as const) {
       expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne }).avertissements, etatLigne).toContain('carte_meta_a_regler');
     }
     // 🔴 Un numéro qui garde l'application reste sur sa carte chez Meta (jaune 2 du lot B) : l'option payée ne le couvre pas.

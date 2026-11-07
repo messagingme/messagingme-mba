@@ -430,7 +430,7 @@ export const CATALOGUE = [
     cle: 'ligne_credit_disponible',
     categorie: 'service',
     nom: 'Crédit WhatsApp disponible',
-    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) et l’option Crédit WhatsApp est en vente. Une fois par espace.',
+    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) et l’option Crédit WhatsApp est en vente. Une fois par administrateur, à ce moment-là (dans les 25 jours qui suivent la fin de l’essai de la formule Pro).',
     variables: { lien_numero: LIEN_NUMERO },
     textes: {
       fr: {
@@ -457,7 +457,7 @@ export const CATALOGUE = [
     cle: 'ligne_credit_sur_demande',
     categorie: 'service',
     nom: 'Crédit WhatsApp sur demande',
-    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) alors que l’option Crédit WhatsApp n’est pas en vente en ligne. Une fois par espace.',
+    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) alors que l’option Crédit WhatsApp n’est pas en vente en ligne. Une fois par administrateur, à ce moment-là (dans les 25 jours qui suivent la fin de l’essai de la formule Pro).',
     variables: { lien_support: LIEN_SUPPORT },
     textes: {
       fr: {

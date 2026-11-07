@@ -71,13 +71,13 @@ async function lireReponse(res: Response): Promise<ReponseStripe> {
   return { status: res.status, json };
 }
 
-/** Stripe a refusé, ou n'a pas répondu. `type` et `code` sont ceux de Stripe quand il les donne. */
 /**
  * Le code d'une réponse 200 illisible de la lecture qui PRÉCÈDE un envoi (`terminerEssaiStripe`) : rien n'est parti, l'appelant
  * peut refuser sans garder de verrou (jaune 7 de la relecture du lot B).
  */
 export const LECTURE_AVANT_ENVOI = 'lecture_avant_envoi';
 
+/** Stripe a refusé, ou n'a pas répondu. `type` et `code` sont ceux de Stripe quand il les donne. */
 export class StripeError extends Error {
   constructor(
     readonly operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege' | 'essai',

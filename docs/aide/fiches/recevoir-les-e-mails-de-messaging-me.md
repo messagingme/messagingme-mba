@@ -1,6 +1,6 @@
 ---
 source_section: Les e-mails de Messaging Me aux administrateurs
-source_empreinte: 4ad7f6
+source_empreinte: 65f41b
 ---
 # Les e-mails que Messaging Me vous envoie
 

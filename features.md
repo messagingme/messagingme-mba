@@ -3675,8 +3675,8 @@ boîte par sous-menu.
   - en offre Free pleine, un nouveau client qui a écrit et n'est pas entré (une fois par jour au plus, quel que soit le
     nombre de clients écartés) : passer en Pro, ou supprimer des contacts en le demandant à Claude ;
   - en offre Pro, 80 % puis 100 % des contacts, à chaque franchissement ; ces alertes renvoient à l'Entreprise ;
-  - la formule devenue payée (l'essai de la formule Pro fini et payé, ou écourté ; un Business confirmé), une fois par
-    espace : ils peuvent payer leurs messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois, ce
+  - la formule devenue payée (l'essai de la formule Pro fini et payé, ou écourté ; un Business confirmé), une fois, à ce
+    moment-là : ils peuvent payer leurs messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois, ce
     qu'il advient d'un numéro avec ou sans l'application WhatsApp Business, et le bouton vers « Connecter WhatsApp » ; tant
     que l'option n'est pas en vente, elle se demande au Support. Jamais à un espace qui a déjà son option ou une ligne ;
   - l'option Crédit WhatsApp arrêtée alors que la formule y donne encore droit (une résiliation, un impayé), une fois par

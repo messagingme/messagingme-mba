@@ -67,12 +67,15 @@ const OPTION: OptionCredit = {
 function deps(o: {
   offre?: Offre; vivante?: OptionCredit | null; prixOption?: string; objets?: Record<string, unknown>; reponses?: ReponseStripe[]; couverts?: number;
   formulePayee?: boolean;
+  /** Le verrou de la prise déjà tenu par un autre clic (jaune 7 du lot C). */
+  verrouTenu?: boolean;
 } = {}) {
   // Les sessions Checkout ouvertes du client (jaune 11) : aucune par défaut.
   const transport = new FauxStripe({ price_opt: PRIX, sessions: { object: 'list', data: [] }, ...(o.objets ?? {}) }, o.reponses ?? []);
   const notes: Array<[string, number, Date | null]> = [];
   const alertes: string[] = [];
   const reprises: string[] = [];
+  const verrous = { pris: [] as string[], relaches: 0 };
   const d: DepsOptionCredit = {
     stripe: { cle: 'rk_live_x', livemode: true, transport, prix: { refill_5: '', refill_10: '', refill_50: '', refill_100: '' }, pageCredit: 'https://c/credit' } as never,
     clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },
@@ -88,8 +91,15 @@ function deps(o: {
     numerosCouverts: async () => o.couverts ?? 0,
     reprendreCampagnes: async (t) => { reprises.push(t); return 0; },
     alerter: async (t) => { alertes.push(t); },
+    verrous: {
+      prendre: async (cles) => {
+        verrous.pris.push(...cles.map(([c]) => c));
+        return o.verrouTenu ? null : { jeton: 'j', cles: cles.map(([c]) => c) };
+      },
+      relacher: async () => { verrous.relaches += 1; },
+    },
   };
-  return { d, transport, notes, alertes, reprises };
+  return { d, transport, notes, alertes, reprises, verrous };
 }
 
 describe('ouvrir l’option', () => {
@@ -122,6 +132,16 @@ describe('ouvrir l’option', () => {
     expect(chemins).toEqual(['/v1/customers', '/v1/checkout/sessions/cs_ancienne/expire', '/v1/checkout/sessions']);
     const liste = new URL(transport.lectures.find((u) => new URL(u).pathname === '/v1/checkout/sessions')!);
     expect([liste.searchParams.get('customer'), liste.searchParams.get('status')]).toEqual(['cus_1', 'open']);
+  });
+
+  it('🔴 un second clic pendant une prise (deux onglets) : 409 option_en_cours, ni client ni session chez Stripe ; une prise faite relâche son verrou (jaune 7 du lot C)', async () => {
+    const tenu = deps({ verrouTenu: true });
+    expect(await ouvrirOption(tenu.d, T1, 1, 'u1')).toMatchObject({ ok: false, statut: 409, details: { code: 'option_en_cours' } });
+    expect(tenu.transport.posts).toEqual([]);
+    expect(tenu.verrous).toEqual({ pris: [`option.prendre:${T1}`], relaches: 0 });
+    const libre = deps();
+    expect(await ouvrirOption(libre.d, T1, 1, 'u1')).toMatchObject({ ok: true });
+    expect(libre.verrous).toEqual({ pris: [`option.prendre:${T1}`], relaches: 1 });
   });
 
   it('🔴 depuis les cartes « Qui règle Meta ? » (lot B), le retour de Stripe ramène sur Connecter WhatsApp, payé ou abandonné', async () => {

@@ -84,7 +84,8 @@ export interface LecturesMiseEnService {
   etatLigne?: EtatLigne;
   /**
    * Tous les numéros de l'espace gardent l'application (`tousGardentLApplication`, jaune 2 du lot B) : la ligne ne les
-   * couvrira pas, la carte chez Meta reste à régler. Absent (lecture en échec) : lu comme non.
+   * couvrira pas, la carte chez Meta reste à régler. Absent (lecture en échec) : lu comme oui, le conseil de la carte
+   * reste dit, comme sur l'Accueil (jaune 9 du lot C).
    */
   avecApplication?: boolean;
 }
@@ -144,7 +145,7 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
   // Sauf si le Crédit WhatsApp paie Meta (`creditPaieMeta`) : la ligne posée, ou l'option payée qui l'attend, pour un
   // numéro qui ne garde pas l'application.
   const carteARegler = numero?.connecte === true && l.numero?.connecte?.paiementBloque === true
-    && !creditPaieMeta(l.etatLigne, l.avecApplication === true);
+    && !creditPaieMeta(l.etatLigne, l.avecApplication ?? true);
   if (carteARegler) avertissements.push('carte_meta_a_regler');
 
   const agents = l.agents === null ? null : {

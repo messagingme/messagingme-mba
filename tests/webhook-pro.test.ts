@@ -402,6 +402,15 @@ describe('l’essai de 14 jours du Pro', () => {
     expect(cap.passages).toEqual([{ tenantId: T1, arreter: true }]);
   });
 
+  it('🔴 la mise à jour d’un Pro ACTIF rattrape la conversion (jaune 6 du lot C : un essai écourté au tableau de bord, une fin d’essai non écrite) ; en essai, non', async () => {
+    const actif = monter({ connus: ['sub_pro'] });
+    await envoyer(actif.srv, evenement(abonnementPro({ status: 'active', trial_end: FIN_ESSAI, metadata: META_ESSAI }), 'customer.subscription.updated'));
+    expect(actif.cap.conversions).toEqual([T1]);
+    const enEssai = monter({ connus: ['sub_pro'] });
+    await envoyer(enEssai.srv, evenement(abonnementPro({ status: 'trialing', trial_end: FIN_ESSAI, metadata: META_ESSAI }), 'customer.subscription.updated'));
+    expect(enEssai.cap.conversions).toEqual([]);
+  });
+
   it('la modification de l’abonnement relit la fin de l’essai', async () => {
     const { srv, cap } = monter({ connus: ['sub_pro'] });
     await envoyer(srv, evenement(abonnementPro({ status: 'trialing', trial_end: FIN_ESSAI, metadata: META_ESSAI }), 'customer.subscription.updated'));

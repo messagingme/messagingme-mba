@@ -105,9 +105,9 @@ export interface DepsTraitementAbonnements {
    */
   signalerPro(p: { tenantId: string; montantCentimes: number; devise: string }): Promise<void>;
   /**
-   * La conversion dite au client (lot C du Crédit WhatsApp, moment 2, `signalerConversion`) : appelée à chaque facture de
-   * période payée de la formule Pro ; la règle « formule payée » et l'occasion unique, relues par elle, gardent d'un
-   * second e-mail et d'un e-mail pendant l'essai. Ne lève jamais.
+   * La conversion dite au client (lot C du Crédit WhatsApp, moment 2, `signalerConversionDuPro`) : appelée à chaque facture
+   * de période payée de la formule Pro et à chaque mise à jour d'un Pro actif ; elle se borne à son moment (la fenêtre qui
+   * suit la formule devenue payée), relit l'état et ne laisse partir qu'un e-mail par occasion. Ne lève jamais.
    */
   signalerConversion(tenantId: string): Promise<void>;
   now?: () => number;
@@ -454,6 +454,9 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         ...(lu.data.trial_end ? { essaiFinLe: new Date(lu.data.trial_end * 1000) } : {}),
       });
       if (a) deps.pro.invalider(a.tenantId);
+      // La conversion rattrapée (jaune 6 de la relecture du lot C) : un essai écourté au tableau de bord de Stripe, ou une fin
+      // d'essai que le démarrage n'a pas pu écrire, ne se voient que par cette mise à jour. La fenêtre la borne.
+      if (a && lu.data.status === 'active') await deps.signalerConversion(a.tenantId);
       return ACQUITTE;
     }
 
@@ -617,9 +620,10 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         const suite = illimite ? 'Entreprise : ses lignes restent actives, sous l’illimité' : `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
         await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}.`);
         // L'arrêt dit au client (lot C, moment 3) : ses lignes viennent de s'arrêter alors que la formule y donne encore droit
-        // (une résiliation, un impayé). Jamais une Entreprise (ses lignes restent), ni une option sans ligne, ni une fin de
-        // droit ou une option payée sans droit, que l'avis `deleted` de notre propre résiliation peut amener ici d'abord.
-        if (!illimite && n > 0 && await deps.option.aDroit(a.tenantId)) await deps.option.prevenirArret(a.tenantId, a.abonnementId);
+        // (une résiliation, un impayé). Jamais une Entreprise (ses lignes restent : n vaut 0), ni une option sans ligne, ni
+        // une fin de droit ou une option payée sans droit, que l'avis `deleted` de notre propre résiliation peut amener ici
+        // d'abord.
+        if (n > 0 && await deps.option.aDroit(a.tenantId)) await deps.option.prevenirArret(a.tenantId, a.abonnementId);
       }
     };
     /**

@@ -631,9 +631,10 @@ export function AppShell({ active, fullBleed = false, fonction, children }: {
         {/* L'abonnement du numéro fourni (lot 4) : en retard, suspendu ou fin prévue, sur toutes les pages, pour tous les
             membres (la suspension coupe aussi les réponses de l'Inbox). */}
         <BandeauAbonnement tenantId={session.tenantId} admin={session.role === 'admin'} />
-        {/* La conversion (Crédit WhatsApp, lot C) : un administrateur d'un Pro ou d'un Business, l'offre déjà lue, sans quoi
-            aucune lecture de plus. */}
-        {session.role === 'admin' && (vueOffre?.offre === 'pro' || vueOffre?.offre === 'business') && <BandeauLigneCredit tenantId={session.tenantId} />}
+        {/* La conversion (Crédit WhatsApp, lot C) : un administrateur d'un Pro ou d'un Business qui a l'onglet Crédit
+            WhatsApp (l'option en vente, ou une ligne), l'offre déjà lue : hors vente, aucune lecture de plus (jaune 8). */}
+        {session.role === 'admin' && (vueOffre?.offre === 'pro' || vueOffre?.offre === 'business') && vueOffre.ongletCreditWhatsapp
+          && <BandeauLigneCredit tenantId={session.tenantId} />}
         <main className={fullBleed ? 'w-full flex-1 lg:flex lg:min-h-0 lg:flex-col' : 'mx-auto w-full max-w-liste flex-1 px-4 py-8 sm:px-6'}>
           {pageEnAttente ? null : pageFermee && vueOffre && fonctionDeCettePage ? <EncartOffre fonction={fonctionDeCettePage} vue={vueOffre} /> : children(session)}
         </main>
