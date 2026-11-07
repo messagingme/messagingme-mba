@@ -162,7 +162,7 @@ Auth **JWT (login)** + **RBAC** (écritures réservées aux admins).
 qui ajoute une colonne écrite par le code part en `avant` (`DEPLOY.md`).
 
 🔴 **LE NUMÉRO D'UNE MIGRATION SE LIT, IL NE S'ÉCRIT NULLE PART** (décision de Julien, 2026-10-10). **`npm run
-migrations`** dit le dernier numéro PRIS et le prochain libre (le DOSSIER `db/migrations/` tranche sur ce qui est pris),
+migrations`** dit le dernier numéro PRIS et le prochain libre (le DOSSIER `db/migrations/` d'une copie à jour d'origin tranche ; celui de l'arbre partagé, en retard, ment),
 le dernier APPLIQUÉ et ce qui attend (la BASE, en lecture seule ; d'un poste, l'ANCIENNE base : la production se lit sur la machine, `DEPLOY.md`).
 Le compteur qu'on écrivait ici a dérivé onze fois, puis il est devenu le registre où chaque déploiement racontait sa
 migration : 820 lignes sur 1 391, parties au journal le 2026-10-10. Le dossier a deux trous voulus : 0153 (réservé,
