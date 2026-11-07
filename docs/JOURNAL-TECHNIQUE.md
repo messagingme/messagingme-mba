@@ -4,6 +4,33 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-07 : les jaunes de la relecture du lot C du Crédit WhatsApp (la conversion bornée à son moment)
+
+Accord de Julien (« Oui, lance-le », 2026-11-07) pour le lot de suite écrit au plan (§ C4). Méthode : en direct, en
+TDD, sans relecture propre (des jaunes ; ils seront relus avec le lot D).
+
+- **Ce qui a changé** :
+  - la conversion par le webhook ne part plus qu'à son moment (`signalerConversionDuPro`, `FENETRE_CONVERSION_JOURS`
+    = 25 jours après la fin de l'essai de la formule Pro, sinon sa souscription) : la réservation de l'occasion est par
+    personne et purgée à treize mois, et sans cette fenêtre un admin arrivé plus tard, puis tous un an après, l'auraient
+    reçue à une échéance quelconque ; la mise à jour d'un Pro actif la rattrape (essai écourté au tableau de bord de
+    Stripe, fin d'essai non écrite par le démarrage) ;
+  - la prise de l'option tient un verrou court par espace (`option.prendre:<espace>`, 409 `option_en_cours`) ;
+  - le bandeau de la conversion n'est monté qu'avec l'onglet Crédit WhatsApp (`ongletCreditWhatsapp`) : hors vente,
+    aucune lecture ; un état ou des numéros illisibles laissent dire « Ajoutez votre carte chez Meta », à Claude comme
+    sur l'Accueil ; la garde redondante de l'e-mail de l'arrêt retirée ; les JSDoc remis ; la porte de l'onglet lit
+    `optionEnVente` ;
+  - la doc : « une fois, à ce moment-là » au catalogue et dans `features.md`, `documentation.md`, le plan.
+- **Vérifié avant de pousser** : sur l'état final rebasé (lot D de l'audit compris), suite racine entière (974 fichiers,
+  16 334 tests), console (102 fichiers, 1 245 tests), tsc et lint, auto-attaque (2 070 sondes, aucune trouvaille) ; e2e
+  entière sur une construction de production avant le rebase (1 851 verts) ; sept retraits de garde (six côté serveur,
+  le bandeau sans l'onglet dans une construction), chacun vu rouge par son test.
+- **En production** : `67aa1324`, CI racine, console et CodeQL vertes job par job ; run 42373260894, `migration=aucune`,
+  après le lot D de l'audit (`9cf3de91`) mis en service par sa session : `mba-api` sur `mba:67aa1324`, les trois
+  conteneurs de la machine sur `67aa1324`, aucune erreur dans leurs journaux, fumée bonne ; fiches d'aide rechargées
+  (image `67aa1324`, 195 lignes, 0 retirée). Restent pour avant la vente les jaunes 2, 4, 5 et 10 ; le 11 (la catégorie
+  de l'e-mail de vente) attend Julien.
+
 ## 2026-11-07 : révoquer une application coupe les clés d'API et les webhooks qu'elle a créés (lot D de l'audit de sécurité, migration 0282)
 
 Demande de Julien (« Oui, la clé /v1 », 2026-11-06), décisions du même jour : révoquer une application dans

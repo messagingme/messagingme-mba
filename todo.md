@@ -360,8 +360,9 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   le lot C (la conversion et l'arrêt dits au client : les e-mails, le bandeau en vente, l'onglet de l'option arrêtée,
   ce que dit Claude ; la fiche « Connecter mon numéro WhatsApp » et la FAQ du plugin 0.3.28 ; les jaunes du lot B sauf
   5a et 6, reportés au lot D) en production le 2026-11-06 (`631c9cb9`), ses treize jaunes au plan (§ « La relecture du
-  lot C »), dont 1, 3, 7, 8, 9 et 13 dans un lot de suite tout de suite, 2, 4, 5 et 10 avant l'ouverture de la vente et
-  le 11 (la catégorie de l'e-mail de vente) à Julien ; l'essai réel 231 à faire ; à l'ouverture de la vente, « il se
+  lot C ») : le lot de suite (1, 3, 6, 7, 8, 9, 12 et 13 : la conversion bornée à son moment, le verrou de l'option, le
+  bandeau gardé par l'onglet) en production le 2026-11-07 (`67aa1324`) ; restent 2, 4, 5 et 10 avant l'ouverture de la
+  vente et le 11 (la catégorie de l'e-mail de vente) à Julien ; l'essai réel 231 à faire ; à l'ouverture de la vente, « il se
   prend sur demande » de la fiche « Connecter mon numéro WhatsApp » et de la FAQ se reprend ; puis les lots D (passage du
   numéro de l'essai, après l'essai réel du partage), E (la fenêtre du partenaire). La vente attend D0.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
