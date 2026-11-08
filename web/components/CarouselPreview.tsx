@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { TemplateButtonInput } from '@/lib/api';
+import type { TemplateButtonInput, TemplateCarouselButton } from '@/lib/api';
 import { TemplateBodyText } from '@/components/WhatsAppPreview';
 import { useT } from '@/lib/i18n';
 import { PhoneFrame } from '@/components/PhoneFrame';
@@ -16,7 +16,7 @@ export interface CarouselPreviewCard {
   mediaFormat?: 'IMAGE' | 'VIDEO';
   body?: string;
   /** Boutons PROPRES à la carte. Absents -> les boutons communs passés au composant. */
-  buttons?: TemplateButtonInput[];
+  buttons?: TemplateCarouselButton[];
 }
 
 /** Vignette d'une carte. Une URL Meta porte une expiration : si le chargement échoue, on le DIT au lieu de

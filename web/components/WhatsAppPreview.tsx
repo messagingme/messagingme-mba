@@ -79,9 +79,9 @@ export interface WhatsAppPreviewProps {
    *  Absent -> substitution par exemple (comportement campagne/aperçu). */
   varLabels?: Array<string | undefined>;
   buttons: TemplateButtonInput[];
-  /** En-tête : texte (rendu tel quel) ou média (image/vidéo/document). `mediaUrl` = source affichable locale (data
-   *  URL / object URL du fichier choisi) ; si fournie pour une IMAGE/VIDEO, on l'affiche, sinon un placeholder. */
-  header?: { format: 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'; text?: string; mediaUrl?: string } | null;
+  /** En-tête : texte, média ou format Meta inconnu (signalé dans l'aperçu). `mediaUrl` = source affichable locale
+   *  (data URL / object URL du fichier choisi) ; si fournie pour une IMAGE/VIDEO, on l'affiche. */
+  header?: { format: string; text?: string; mediaUrl?: string } | null;
   /** Pied de page : petit texte gris sous le corps. */
   footer?: string;
   /** Nom affiché dans l'en-tête. Absent -> libellé générique (le nom vérifié n'est pas connu ici). */
@@ -90,12 +90,13 @@ export interface WhatsAppPreviewProps {
   hideNote?: boolean;
 }
 
-const MEDIA_ICON: Record<'IMAGE' | 'VIDEO' | 'DOCUMENT', NomIcone> = { IMAGE: 'image', VIDEO: 'video', DOCUMENT: 'modele' };
+const MEDIA_ICON: Partial<Record<string, NomIcone>> = { IMAGE: 'image', VIDEO: 'video', DOCUMENT: 'modele' };
 
 /** Aperçu façon fenêtre WhatsApp (message reçu = bulle blanche à gauche). Partagé Templates + Campagnes. */
 export function WhatsAppPreview({ body, examples, varLabels, buttons, header, footer, senderName, hideNote = false }: WhatsAppPreviewProps) {
   const t = useT();
   const mediaHeader = header && header.format !== 'TEXT' ? header.format : null;
+  const mediaIcon = mediaHeader && Object.hasOwn(MEDIA_ICON, mediaHeader) ? MEDIA_ICON[mediaHeader] : undefined;
   const textHeader = header && header.format === 'TEXT' && header.text?.trim() ? header.text : null;
   // Source média affichable (image/vidéo uploadée localement) : on montre le vrai visuel plutôt que l'icône.
   const mediaUrl = header && header.format !== 'TEXT' ? header.mediaUrl : undefined;
@@ -111,8 +112,9 @@ export function WhatsAppPreview({ body, examples, varLabels, buttons, header, fo
                 ) : mediaUrl && mediaHeader === 'VIDEO' ? (
                   <video src={mediaUrl} muted className="-mx-2.5 -mt-1.5 mb-1.5 h-28 w-[calc(100%+1.25rem)] max-w-none rounded-t-controle bg-black object-cover" />
                 ) : (
-                  <div className="-mx-2.5 -mt-1.5 mb-1.5 flex h-24 items-center justify-center rounded-t-controle bg-ink-100 text-ink-400">
-                    <Icone nom={MEDIA_ICON[mediaHeader]} taille="grande" />
+                  <div className="-mx-2.5 -mt-1.5 mb-1.5 flex h-24 flex-col items-center justify-center gap-1 rounded-t-controle bg-ink-100 text-ink-400">
+                    <Icone nom={mediaIcon ?? 'attention'} taille="grande" />
+                    {!mediaIcon && <span className="break-all px-2 text-center text-xs">{t('En-tête non prévisualisé', 'Header preview unavailable')} ({mediaHeader})</span>}
                   </div>
                 )
               )}

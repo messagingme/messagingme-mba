@@ -13,11 +13,12 @@ const CAROUSEL = {
     cards: [
       { mediaUrl: 'https://scontent.example/carte-a.jpg', mediaFormat: 'IMAGE', body: 'Masterclass', buttons: [{ type: 'QUICK_REPLY', text: "Je m'inscris" }, { type: 'URL', text: 'En savoir plus', url: 'https://x.fr' }] },
       { mediaUrl: 'https://scontent.example/carte-b.jpg', mediaFormat: 'IMAGE', body: 'Portes ouvertes', buttons: [{ type: 'QUICK_REPLY', text: 'Je viens' }] },
-      { body: 'Carte sans image' },
+      { body: 'Carte sans image', buttons: [{ type: 'URL' }] },
     ],
   },
 };
 const SIMPLE = { id: 'S1', name: 'promo_simple', status: 'APPROVED', category: 'MARKETING', language: 'fr', body: 'Bonjour', headerFormat: null, isCarousel: false, editable: true };
+const FORMAT_INCONNU = { ...SIMPLE, id: 'S2', name: 'format_inconnu', headerFormat: 'LOCATION', editable: false };
 
 test.describe('Templates : aperçu d’un carousel', () => {
   test.beforeEach(async ({ page }) => {
@@ -29,7 +30,7 @@ test.describe('Templates : aperçu d’un carousel', () => {
     await page.route('**/api/backend/**', async (route) => {
       const url = route.request().url();
       const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
-      if (url.includes('/templates')) return json({ templates: [CAROUSEL, SIMPLE] });
+      if (url.includes('/templates')) return json({ templates: [CAROUSEL, SIMPLE, FORMAT_INCONNU] });
       if (url.endsWith('/settings')) return json({ mbaEnabled: false, hubspotListsEnabled: false, campaignsPaused: false, autoRetryEnabled: false, controlHandbackSeconds: null, timezone: 'Europe/Paris', businessHours: {} });
       if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
       return json({});
@@ -61,6 +62,7 @@ test.describe('Templates : aperçu d’un carousel', () => {
     // Carte sans image : emplacement honnête, jamais d'image cassée.
     await expect(cards.getByText('Carte sans image')).toBeVisible();
     await expect(cards.getByText('image', { exact: true })).toBeVisible();
+    await expect(cards.getByText('Lien')).toBeVisible(); // libellé absent dans la réponse de Meta
   });
 
   test('image expirée ou injoignable -> on le dit, pas d’icône cassée', async ({ page }) => {
@@ -74,5 +76,11 @@ test.describe('Templates : aperçu d’un carousel', () => {
     await page.getByRole('button', { name: 'promo_simple' }).click();
     await expect(page.getByText('Bonjour')).toBeVisible();
     await expect(page.getByTestId('carousel-cards')).toHaveCount(0);
+  });
+
+  test('un format d’en-tête inconnu reste lisible sans faire planter l’aperçu', async ({ page }) => {
+    await page.getByRole('button', { name: 'format_inconnu' }).click();
+    await expect(page.getByText('Bonjour')).toBeVisible();
+    await expect(page.getByText('En-tête non prévisualisé (LOCATION)')).toBeVisible();
   });
 });

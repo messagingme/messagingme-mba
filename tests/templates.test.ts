@@ -3,6 +3,7 @@ import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import { MetaTemplateClient } from '../src/meta/templates';
 import type { FetchLike } from '../src/meta/templates';
+import type { TemplateSummary as ConsoleTemplateSummary } from '../web/lib/api/templates';
 import { signSession } from '../src/auth/token';
 import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import { aucuneCampagneActive, modelesInertes } from './routes-inertes';
@@ -87,6 +88,17 @@ describe('MetaTemplateClient.list (pagination)', () => {
     const all = await client.list('waba1');
     expect(all.map((t) => t.name)).toEqual(['a', 'b']);
     expect(calls[1]!.url).toBe('https://graph.facebook.com/next?cursor=2'); // 2e appel = curseur suivant
+  });
+
+  it('la réponse serveur reste compatible avec le contrat lu par la console, même si Meta ajoute un format', async () => {
+    const { fn } = makeFetch([{ ok: true, status: 200, json: {
+      data: [{ name: 'lieu', status: 'APPROVED', category: 'UTILITY', language: 'fr', components: [
+        { type: 'HEADER', format: 'LOCATION' }, { type: 'BODY', text: 'Bonjour' },
+      ] }],
+    } }]);
+    const [resume] = await new MetaTemplateClient('tok', 'v23.0', fn).list('waba1');
+    const luParConsole: ConsoleTemplateSummary = resume!;
+    expect(luParConsole).toMatchObject({ body: 'Bonjour', headerFormat: 'LOCATION', isCarousel: false, editable: false });
   });
 });
 

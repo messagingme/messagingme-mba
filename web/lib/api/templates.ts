@@ -22,8 +22,8 @@ export interface TemplateSummary {
   language: string;
   /** Corps du template : déduit les variables + aperçu côté campagne. Peut être '' (anciens). */
   body?: string;
-  /** Format du header : TEXT | IMAGE | VIDEO | DOCUMENT, ou null si pas de header. */
-  headerFormat?: 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | null;
+  /** Format renvoyé par Meta : quatre formats connus aujourd'hui, mais Meta peut en ajouter. Null = pas d'en-tête. */
+  headerFormat?: string | null;
   /**
    * Média d'en-tête DÉJÀ défini sur le template (lu chez Meta dans `example.header_handle`). C'est lui qu'on
    * renvoie à l'envoi : Meta exige le média à CHAQUE envoi, mais il n'y a aucune raison de le redemander à
@@ -47,7 +47,7 @@ export interface TemplateSummary {
   isCarousel: boolean;
   /** Cartes du carousel relues chez Meta (image, texte, boutons), pour l'aperçu. Absent hors carousel.
    *  ⚠️ `mediaUrl` porte une expiration : à consommer à l'affichage, jamais à mettre en cache. */
-  carousel?: { cards: Array<{ mediaUrl?: string; mediaFormat?: 'IMAGE' | 'VIDEO'; body?: string; buttons?: TemplateButtonInput[] }> };
+  carousel?: { cards: Array<{ mediaUrl?: string; mediaFormat?: 'IMAGE' | 'VIDEO'; body?: string; buttons?: TemplateCarouselButton[] }> };
   /** true = l'édition ne perd rien (`isSimpleEditable` côté serveur) : un en-tête média, un carousel ou un bouton
    *  téléphone, code à copier, appel ou catalogue la bloquent ; un pied de page et un en-tête texte, non. */
   editable?: boolean;
@@ -60,6 +60,12 @@ export interface TemplateButtonInput {
   url?: string;
   /** requis si type = FLOW : id d'un flow PUBLISHED. */
   flowId?: string;
+}
+/** Un bouton de carte relu chez Meta peut ne pas avoir de libellé ; la création, elle, en exige un. */
+export interface TemplateCarouselButton {
+  type: TemplateButtonInput['type'];
+  text?: string;
+  url?: string;
 }
 export interface CarouselCardInput {
   headerHandle: string;
