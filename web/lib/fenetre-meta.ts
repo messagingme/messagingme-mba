@@ -27,6 +27,16 @@ export function optionsFenetreMeta(configId: string, coexistence: boolean): Opti
   };
 }
 
+/**
+ * Le recours si la fenêtre ne s'est pas ouverte (bloquée par le navigateur), dit sous le bouton passé ce délai. Il
+ * s'affiche aussi pendant qu'une fenêtre ouverte se remplit : la page ne sait pas les distinguer, d'où le conditionnel.
+ */
+export const DELAI_FENETRE_BLOQUEE_MS = 5000;
+export const FENETRE_BLOQUEE = {
+  fr: 'La fenêtre de Meta ne s’est pas ouverte ? Autorisez les fenêtres surgissantes pour ce site, puis rechargez la page.',
+  en: 'The Meta window did not open? Allow pop-ups for this site, then reload the page.',
+} as const;
+
 /** Le bouton qui ouvre la fenêtre de Meta en coexistence, sur l'Accueil et sur la page du numéro. */
 export const COEXISTENCE_BOUTON = { fr: 'Garder mon application WhatsApp Business', en: 'Keep my WhatsApp Business app' } as const;
 

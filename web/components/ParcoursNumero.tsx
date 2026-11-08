@@ -6,7 +6,7 @@ import { Icone } from '@/components/Icone';
 import { useT } from '@/lib/i18n';
 import { useConnexionNumero } from '@/lib/connexion-numero';
 import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
-import { COEXISTENCE_BOUTON, COEXISTENCE_PHRASES } from '@/lib/fenetre-meta';
+import { COEXISTENCE_BOUTON, COEXISTENCE_PHRASES, FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
 import { repriseDuNumeroFourni } from '@/lib/lien-numero';
 import { ETAPES_NUMERO_FOURNI } from '@/lib/partage/etapes-numero-fourni';
 import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
@@ -456,6 +456,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
           </div>
         </div>
       )}
+      {connexion.peutEtreBloquee && <p data-testid="fenetre-bloquee" className="mt-4 text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
       {(erreur ?? connexion.error) && <p data-testid="erreur-connexion" className="mt-4 rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700">{erreur ?? connexion.error}</p>}
     </>
   );

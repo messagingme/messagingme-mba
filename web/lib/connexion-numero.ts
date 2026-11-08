@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { EsConfig } from '@/lib/api';
 import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
-import { loadFbSdk } from '@/lib/fb-sdk';
-import { optionsFenetreMeta } from '@/lib/fenetre-meta';
+import { ouvrirFenetreMeta, prechargerFbSdk } from '@/lib/fb-sdk';
+import { DELAI_FENETRE_BLOQUEE_MS, optionsFenetreMeta } from '@/lib/fenetre-meta';
 import { lireMessageEs, retenirMessageEs, type MessageEs } from '@/lib/message-es';
 import { useT } from '@/lib/i18n';
 
@@ -23,6 +23,11 @@ export interface ConnexionNumero {
   /** `null` = configuration pas encore lue. `enabled: false` = pas de configuration d'inscription sur l'instance. */
   cfg: EsConfig | null;
   busy: boolean;
+  /**
+   * La fenêtre est attendue depuis quelques secondes : la page ajoute `FENETRE_BLOQUEE` sous le bouton. Rien ne se
+   * réactive : la page ne sait pas distinguer une fenêtre bloquée d'une fenêtre ouverte où le client remplit ses écrans.
+   */
+  peutEtreBloquee: boolean;
   error: string | null;
   /**
    * Ouvre la fenêtre de Meta. `coexistence` : le numéro reste dans l'application WhatsApp Business (plan 2026-10-24,
@@ -71,6 +76,19 @@ export function useConnexionNumero(
     apiRef.current.config().then(setCfg).catch(() => setCfg({ enabled: false, appId: '', configId: '', graphVersion: '' }));
   }, [tenantId]);
 
+  // Le SDK se charge dès que la fenêtre est possible, pas au clic : `ouvrirFenetreMeta`.
+  useEffect(() => {
+    if (cfg?.enabled) prechargerFbSdk(cfg.appId, cfg.graphVersion, t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg]);
+
+  const [peutEtreBloquee, setPeutEtreBloquee] = useState(false);
+  useEffect(() => {
+    if (!busy) { setPeutEtreBloquee(false); return undefined; }
+    const minuterie = setTimeout(() => setPeutEtreBloquee(true), DELAI_FENETRE_BLOQUEE_MS);
+    return () => clearTimeout(minuterie);
+  }, [busy]);
+
   useEffect(() => {
     // L'origine, le type du message et la lecture des identifiants : `lireMessageEs` (`@/lib/message-es`).
     const FB_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*facebook\.com$/;
@@ -109,8 +127,7 @@ export function useConnexionNumero(
     setError(null);
     idsRef.current = undefined;
     try {
-      await loadFbSdk(cfg.appId, cfg.graphVersion, t);
-      window.FB!.login(
+      await ouvrirFenetreMeta(cfg.appId, cfg.graphVersion, t, () => window.FB!.login(
         (resp) => {
           void (async () => {
             try {
@@ -139,12 +156,12 @@ export function useConnexionNumero(
         },
         // Les options de la fenêtre, et la seule différence de la coexistence : `@/lib/fenetre-meta`.
         optionsFenetreMeta(cfg.configId, o.coexistence === true),
-      );
+      ));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Connexion impossible', 'Connection failed'));
       setBusy(false);
     }
   }
 
-  return { cfg, busy, error, connect };
+  return { cfg, busy, peutEtreBloquee, error, connect };
 }

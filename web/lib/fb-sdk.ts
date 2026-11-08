@@ -46,3 +46,28 @@ export function loadFbSdk(appId: string, version: string, t: (fr: string, en?: s
   });
   return fbSdkLoading;
 }
+
+/**
+ * Charge le SDK dès que la page sait qu'elle aura une fenêtre de Meta, pour que le clic n'ait plus rien à attendre
+ * (`ouvrirFenetreMeta`). Silencieux : un échec (bloqueur de pub) remet le chargeur à zéro, et le clic retente puis dit
+ * l'erreur.
+ */
+export function prechargerFbSdk(appId: string, version: string, t: (fr: string, en?: string) => string): void {
+  loadFbSdk(appId, version, t).catch(() => {});
+}
+
+/**
+ * 🔴 OUVRE LA FENÊTRE DE META DANS LE GESTE DU CLIC (2026-11-08). Safari n'ouvre une fenêtre qu'immédiatement après un
+ * clic : un `await` du chargement du SDK avant `FB.login` la faisait bloquer en silence, et le bouton restait sur
+ * « Fenêtre de Meta ouverte… » (vécu sur Mac). SDK déjà là (`prechargerFbSdk`) : `ouvrir` est appelé tout de suite,
+ * sans aucune attente. Sinon, le chargement d'abord, en secours (Chrome laisse quelques secondes après le clic).
+ */
+export function ouvrirFenetreMeta(
+  appId: string,
+  version: string,
+  t: (fr: string, en?: string) => string,
+  ouvrir: () => void,
+): Promise<void> {
+  if (window.FB) { ouvrir(); return Promise.resolve(); }
+  return loadFbSdk(appId, version, t).then(ouvrir);
+}

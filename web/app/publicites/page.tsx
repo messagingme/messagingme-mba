@@ -5,7 +5,7 @@ import { AppShell } from '@/components/AppShell';
 import type { Session } from '@/lib/session';
 import { useT } from '@/lib/i18n';
 import { ApiError, estAnnulation, erreurDeChargement } from '@/lib/http';
-import { loadFbSdk } from '@/lib/fb-sdk';
+import { ouvrirFenetreMeta, prechargerFbSdk } from '@/lib/fb-sdk';
 import {
   choisirActifsPub, deconnecterPubs, echangerCodePub, getEtatPubs, listerPubs,
   listerBrouillons, lireBrouillon, supprimerBrouillon,
@@ -259,13 +259,18 @@ function PublicitesInner({ session }: { session: Session }) {
   useEffect(() => { void chargerPubs(); void chargerContexte(); void chargerBrouillons(); },
     [chargerPubs, chargerContexte, chargerBrouillons]);
 
+  // Le SDK se charge dès que la fenêtre est possible, pas au clic : `ouvrirFenetreMeta` (Safari).
+  useEffect(() => {
+    if (etat?.configure) prechargerFbSdk(etat.appId, etat.graphVersion, t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etat?.configure, etat?.appId, etat?.graphVersion]);
+
   async function connecter(): Promise<void> {
     if (etat === null || !etat.configure) return;
     setErreur(null);
     setBusy(true);
     try {
-      await loadFbSdk(etat.appId, etat.graphVersion, t);
-      window.FB!.login(
+      await ouvrirFenetreMeta(etat.appId, etat.graphVersion, t, () => window.FB!.login(
         (resp) => {
           void (async () => {
             try {
@@ -287,7 +292,7 @@ function PublicitesInner({ session }: { session: Session }) {
           })();
         },
         { config_id: etat.configId, response_type: 'code', override_default_response_type: true },
-      );
+      ));
     } catch (err) {
       setErreur(err instanceof Error ? err.message : t('Connexion impossible', 'Connection failed'));
       setBusy(false);

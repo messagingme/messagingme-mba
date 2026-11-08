@@ -27,7 +27,7 @@ import { useConfirmation } from '@/components/Confirmation';
 import { ChiffreMessagesTenus } from '@/components/EnteteAgent';
 import { agentMetaRepond, lireMessagesMba, type MessagesEcritsMba } from '@/lib/chiffres-canaux';
 import { useConnexionNumero, type ConnexionNumero } from '@/lib/connexion-numero';
-import { COEXISTENCE_BOUTON, COEXISTENCE_PHRASES } from '@/lib/fenetre-meta';
+import { COEXISTENCE_BOUTON, COEXISTENCE_PHRASES, FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
 import { apiDeLaSession } from '@/lib/api/connexion-numero';
 import { lireHubspotActif, affichageHubspotAccueil } from '@/lib/hubspot-actif';
 import { useInstallationHubspot } from '@/lib/hubspot-installation';
@@ -1104,6 +1104,7 @@ function ConnectNumberZone({ isAdmin, connexion, tenantId, onConnecte360 }: {
             par l'une ou l'autre voie : la règle est celle de la branche qui la monte (`!account.hasNumber`). */}
         {isAdmin && <Connexion360dialog tenantId={tenantId} mode="connecter" onConnecte={onConnecte360} />}
       </div>
+      {connexion.peutEtreBloquee && <p data-testid="fenetre-bloquee" className="mt-2 text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
       {ready && (
         <div data-testid="coexistence-explication" className="mt-2 space-y-1">
           {COEXISTENCE_PHRASES.map((p) => <p key={p.fr} className="text-xs text-ink-500">{t(p.fr, p.en)}</p>)}
@@ -1176,6 +1177,7 @@ function ConnexionMetaDuNumero({ connexion, tenantId, est360, onRecolle, onDecon
           'Disconnect removes the number from this workspace and erases its conversations, to connect another one.',
         )}
       </p>
+      {connexion.peutEtreBloquee && <p data-testid="fenetre-bloquee" className="mt-2 text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
       {connexion.error && <p data-testid="renouveler-erreur" className="mt-2 rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700">{connexion.error}</p>}
       {confirmer && (
         <ConfirmationDeconnexion
