@@ -386,6 +386,41 @@ qu'ils partagent avec ceux du lot C.
 **Essai réel** : l'essai 231 s'enrichit (une option résiliée au portail : l'e-mail une fois, même l'événement renvoyé
 depuis le tableau de bord de Stripe) ; l'essai 215, après le prix, couvre l'option payée sans droit.
 
+### La relecture du lot C5 (2026-11-09) : aucun rouge, 10 jaunes
+
+Relecture indépendante du commit du lot, sur sa copie : 290 tests des fichiers touchés et voisins, la suite unitaire
+entière (seul `tests/mcp-agent.test.ts` a dépassé 5 s sous la charge, vert seul), `tsc`, eslint, l'auto-attaque (2 070
+sondes, aucune trouvaille). Les dix jaunes partent dans un lot de suite, avant l'ouverture de la vente :
+
+1. Le verrou par espace avale un cas différent : la fin du Pro (`fin_de_droit`) et la session d'une option payée sans
+   droit traitées dans les mêmes millisecondes, l'enregistrement reçoit `en_cours` et l'option est résiliée « sans
+   remboursement », sans e-mail ni consigne. Une clé par cas (`option.fin:<cas>:<espace>`) : la session et la facture
+   restent sérialisées, deux cas différents tournent comme avant.
+2. Le bail de 60 s ne couvre pas le pire cas qu'il protège (la résiliation et sa relecture à 30 s chacune, puis deux
+   alertes) : un second appel reprend le verrou et rejoue tout. Un bail de 3 minutes, ou `prolonger` après la relecture.
+3. `resilierOptionChezStripe` (l'impayé abandonné) garde la clé `arret-<abonnement>` et lève sur une panne : un vrai 500
+   gardé 24 h laisse les lignes d'une option impayée actives, sans alerte. Le même traitement que la fin de droit :
+   relire ; sinon alerte « à résilier à la main », et la fin quand même. Défaut antérieur au lot.
+4. L'e-mail de l'arrêt n'a plus de borne dans le temps : décidé à chaque passage, un `updated` tardif sur l'abonnement
+   résilié (une métadonnée retouchée, un événement renvoyé), le Pro réglé entre-temps, l'envoie des semaines après. Le
+   borner à quelques jours après `finiLe`, comme la conversion.
+5. `repriseOuverte` ne lit pas `optionEnVente` : la vente suspendue (prix vidé), « reprenez l'option » part quand même.
+6. La doc dit plus que le code : seule une fin programmée PASSÉE ferme la reprise, « qui se termine » et « sur sa fin »
+   se lisent autrement. L'écrire juste. Question à Julien : fermer la reprise, et la porte de la prise, dès qu'une fin est
+   programmée ? Cas résiduel invisible de la base : Pro et option arrêtés ensemble sans fin programmée, l'avis de
+   l'option traité le premier.
+7. L'onglet ne suit pas la règle de l'e-mail : « Reprendre l'option » se montre à un Pro en retard, et la porte répond
+   « pas pendant un essai », une raison fausse. Exposer `repriseOuverte` dans la vue.
+8. Deux trous de tests : le cas Entreprise de l'e-mail joué avec `repriseOuverte: false` (la garde `seule` n'y est pas
+   tenue pour l'e-mail) ; aucun test du câblage des trois dépendances neuves (`lignes`, `repriseOuverte`, `verrous`).
+9. De la doc restée sur l'ancien état : la page de confirmation de désinscription (`src/http/emails-desinscription.ts`)
+   et la JSDoc de `web/lib/api/compte.ts` disent « (bienvenue, conseils, récapitulatif) », sans les offres.
+10. La lecture des lignes passe entre `finir` et l'alerte de fin : une panne à cet endroit perd l'alerte (défaut
+    antérieur, déjà vrai avec `illimite`, `vivante` et `arreterLesLignes`). Alerter avant de lire les lignes.
+
+Constat sans défaut : sans levée, une option payée sans droit dont la résiliation n'a pas atteint Stripe passe à la main
+de Julien au lieu d'être rejouée ; la facture suivante réalerte (« finie chez nous, mais Stripe la dit active »).
+
 ## Lot D : le passage du numéro de l'essai sur la ligne
 
 - [ ] **D0, l'essai réel du partage** (spec, « L'essai réel avant toute vente ») : sur un numéro d'essai connecté avec une

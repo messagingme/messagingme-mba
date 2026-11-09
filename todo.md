@@ -354,8 +354,9 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   ce que dit Claude ; la fiche « Connecter mon numéro WhatsApp » et la FAQ du plugin 0.3.28 ; les jaunes du lot B sauf
   5a et 6, reportés au lot D) en production le 2026-11-06 (`631c9cb9`), ses treize jaunes au plan (§ « La relecture du
   lot C ») : le lot de suite (1, 3, 6, 7, 8, 9, 12 et 13 : la conversion bornée à son moment, le verrou de l'option, le
-  bandeau gardé par l'onglet) en production le 2026-11-07 (`67aa1324`) ; restent 2, 4, 5 et 10 avant l'ouverture de la
-  vente et le 11 (la catégorie de l'e-mail de vente) à Julien ; l'essai réel 231 à faire ; à l'ouverture de la vente, « il se
+  bandeau gardé par l'onglet) en production le 2026-11-07 (`67aa1324`) ; le lot C5 (2, 4, 5 et 11,
+  décisions de Julien du 2026-11-09) en production le 2026-11-09 (`5427ec44`), ses dix jaunes au plan (§ « La relecture du lot C5 »), à
+  fermer avant la vente ; reste 10, à l'ouverture de la vente ; l'essai réel 231 à faire ; à l'ouverture de la vente, « il se
   prend sur demande » de la fiche « Connecter mon numéro WhatsApp » et de la FAQ se reprend ; puis les lots D (passage du
   numéro de l'essai, après l'essai réel du partage), E (la fenêtre du partenaire). La vente attend D0.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
@@ -379,7 +380,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   le prix, fermés le 2026-11-04 (l'e-mail ne part qu'une fois la résiliation faite chez Stripe, une panne passagère d'une
   option payée sans droit se rejoue ; la consigne de remboursement part avant d'écrire la fin). Les cinq autres attendent
   au plan (§ « La relecture du correctif des derniers jaunes »). 🟡 La relecture de ce correctif (`7411f866`, sans rouge)
-  en laisse six, dont trois AVANT le prix : une panne passagère alors que Stripe a bien résilié perd l'e-mail et la
+  en laisse six, dont trois AVANT le prix, fermés le 2026-11-09 avec 5 et 6 (§ C5 du plan de la ligne à la connexion,
+  `5427ec44`) : une panne passagère alors que Stripe a bien résilié perd l'e-mail et la
   consigne (régression), la consigne en double quand la session et la facture arrivent ensemble, un 500 de Stripe gardé
   24 h par la clé d'idempotence (plan § « La relecture du correctif de l'e-mail sans droit »).
   Les autres jaunes, au plan (§ « La relecture du lot 4a » et

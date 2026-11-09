@@ -4,6 +4,33 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : les jaunes d'avant la vente du Crédit WhatsApp (l'arrêt dit sur l'état, la résiliation comptée relue)
+
+Accord de Julien (« Oui, lance-le », 2026-11-09) pour le lot écrit au plan (§ C5 de
+`2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`). Méthode : implémenteur par lot, TDD, puis une relecture
+indépendante du diff (aucun rouge, dix jaunes écrits au plan, § « La relecture du lot C5 »). Deux décisions de Julien le même jour : un espace qui garde une ligne posée à la main
+ne reçoit pas l'e-mail de l'arrêt (son alerte le dit, il prévient le client) ; les deux e-mails de la conversion sont
+commerciaux.
+
+- **Ce qui a changé** :
+  - l'e-mail de l'arrêt se décide sur l'ÉTAT, à chaque passage du webhook : toutes les lignes arrêtées, l'une de l'option
+    (`arretDesLignes`, la règle de l'onglet), aucune autre option vivante, une fin en base qui n'est pas une fin de droit,
+    et la reprise ouverte (`repriseOuverte` : jamais un Pro en retard ou dont la fin programmée est passée) ; un rejeu
+    après une panne et la fin partagée entre l'`updated` impayé et le `deleted` le perdaient (lot C, jaunes 2, 4, 5) ;
+  - les e-mails de la conversion en `commercial` (jaune 11), la fiche « Recevoir les e-mails » et « Mon compte » le
+    disent ;
+  - la fin de droit de l'option : une résiliation ne se compte que relue chez Stripe, sinon « à vérifier » tout de suite,
+    sans levée ni rejeu ; une seule à la fois par espace (verrou court `option.fin`), la consigne de remboursement part
+    une fois (lot 4, jaunes 1 à 3, 5 et 6 du correctif de l'e-mail sans droit).
+- **Vérifié avant de pousser** : suite racine entière sur l'état rejoué (16 367 tests verts ; deux dépassements de 5 s de tests/mcp-agent.test.ts sous la charge, verts seuls trois fois sur trois) ; console (103 fichiers, 1 247 tests) ; tsc et lint, auto-attaque (2 070 sondes, aucune
+  trouvaille) ; douze retraits de garde, chacun vu rouge par son test. Le test de latence d'un vrai serveur
+  (`tests/latence-http.test.ts`) échoue par intermittence SANS ce lot : 3 fois sur 5 sur la référence, mesuré.
+- **En production** : `5427ec44`, CI racine (unit, intégration, sécurité) et CodeQL vertes job par job, console verte en
+  topologie Vercel et verte en topologie proxy (sa première exécution coupée par un arrêt de la machine de GitHub, à
+  1 389 tests sur 1 856, aucun en échec) ; run 42602895146, `migration=aucune`, après le déploiement de la session voisine
+  (`1da02ef3`) : `mba-api` et les trois conteneurs de la machine sur `5427ec44`, aucune erreur dans leurs journaux,
+  fumée bonne, fiches OAuth conformes ; fiches d'aide rechargées (image 5427ec44, 196 lignes, 0 retirée).
+
 ## 2026-11-09 : la connexion du numéro par Claude, le lien toujours écrit et la suite dite avant (aide à la connexion, lot 1)
 
 Né de l'onboarding du 2026-11-07 d'un proche de Julien, qui gardait son application WhatsApp Business, par Claude
