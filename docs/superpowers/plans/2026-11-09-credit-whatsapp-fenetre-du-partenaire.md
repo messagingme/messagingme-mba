@@ -45,8 +45,9 @@ crédit ; seule notre application envoie (« Only me », relu par l'API le 2026-
 ## Ordre de déploiement
 
 L'API d'abord, puis la console : sans `solutionId` dans la config, la carte ne montre pas le bouton, donc l'écran
-tolère une API d'avant. Julien pose `META_SOLUTION_ID` dans le conteneur et le `.env.prod` de la machine (la commande
-lui est donnée prête) ; vide, rien ne change.
+tolère une API d'avant. `META_SOLUTION_ID` ne se lit que dans l'API : il se pose dans le conteneur seul, en COMPLÉTANT
+ses variables comme le fait le workflow de déploiement (un PATCH remplace la table entière), avec l'accord de Julien ;
+le `.env.prod` de la machine n'en a pas besoin. Vide, rien ne change.
 
 ## Méthode de livraison
 
@@ -60,3 +61,45 @@ carte sur une construction de production.
 solution, un numéro de test s'y connecte, Julien reçoit l'alerte ; on lit chez Meta que le compte est partagé avec le
 partenaire, puis quand et comment sa ligne se branche ; Julien pose la ligne dans `/ops`, un modèle part et se
 provisionne.
+
+## La relecture du lot E (2026-11-09)
+
+Une relecture indépendante du commit `01cf6682` : **aucun rouge, onze jaunes**. Variable vide, la production ne change
+pas, quel que soit l'ordre de déploiement ; déployé tel quel. Mutations vérifiées avant elle : 12 côté serveur, 2 côté
+console, 5 sur l'écran construit (dont une, la carte chez Meta active par défaut, qu'aucun test ne voyait : l'état
+« ligne en attente » la masquait, l'e2e de l'Entreprise la tient désormais).
+
+**À fermer avant de laisser la variable posée pour un vrai client, ou avant d'ouvrir la vente** (tous dépendent de la
+question 2 de la note privée, que l'essai réel tranche : la ligne du partenaire s'attache-t-elle d'office au partage ?) :
+1. Une fenêtre du partenaire réussie chez Meta mais refusée chez nous (compte d'un autre espace, second numéro, échange
+   refusé, réseau, onglet fermé) n'alerte personne, alors que le partage a eu lieu : alerter aussi sur `!r.ok` quand
+   `parLaLigne` (le test `ratee` s'inverse) ; l'onglet fermé ne se rattrape que par le webhook `PARTNER_ADDED`.
+2. L'alerte dit « vérifier que le partenaire a branché sa ligne, PUIS poser la ligne dans /ops » : entre les deux, des
+   envois partent sans débit. Écrire « poser la ligne dans /ops tout de suite » (un refus de Meta faute de paiement rend
+   la provision). « Sans droit : ne pas brancher » devient « demander la révocation au partenaire » si l'attache est
+   d'office.
+3. L'alerte est la seule trace, et `sendTelegram` rend `false` sans lever : porter `parLaLigne` dans la trace d'audit
+   `numero.connecte`, journaliser l'alerte perdue, alerter aussi quand le droit est illisible.
+4. Une Entreprise connectée par la fenêtre lit ensuite l'état `a_prendre` : la carte dit « Sur demande » et met « Ma
+   carte chez Meta » en avant, l'Accueil et `get_setup_state` peuvent dire d'ajouter sa carte. Lui donner l'état
+   `en_attente` tant que sa ligne n'est pas posée, sur la marque gardée en base (point 3).
+
+**Le lot de suite** : 5. compter tous les numéros, déliés compris, comme `hasNumber` et `linkTenant` (le test de
+câblage s'inverse) ; 6. la configuration et l'état des cartes rendent `null` / `false` quand la règle ne se lit pas,
+au lieu d'un 500 qui éteint toute connexion ; 9. après « Déconnecter le numéro », ne pas compter le numéro qui vient
+d'arriver dans la relecture du droit ; 10. le commentaire « une seule instance par page » de `useConnexionNumero`,
+`META_SOLUTION_ID` dans `.env.example` et contrôlé au démarrage (chiffres seuls, `trim`), la carte qui se dit ouverte
+quand l'inscription est éteinte, `connexionParLaLigne` qui sort tôt variable vide, les tests d'une option `en_retard`,
+de places à 0 et d'une fin ratée.
+
+**À Julien** : 8. une option `en_retard` (Stripe relance) ouvre la fenêtre et la carte dit « Votre option est payée » ;
+l'attache au partenaire ne se défait pas : réserver la fenêtre à une option `actif`, ou changer le texte.
+
+**À l'ouverture de la vente** : 7. les autres entrées (la zone directe de l'Accueil, `/brancher`, l'onglet Crédit
+WhatsApp, le serveur MCP) ne mènent pas à la fenêtre du partenaire ; la fiche publique « Connecter mon numéro WhatsApp »
+et sa version anglaise disent encore « sur demande ». 11. Poser la variable ouvre la fenêtre à TOUS les espaces qui y
+ont droit : le 2026-11-09, d'après ce qu'on sait, seulement des espaces de test (l'option n'est pas en vente, Groupama
+PJ a son numéro) ; la sonde qui le mesure (la vraie règle sur chaque espace, en lecture seule) reste à lancer.
+
+**En production le 2026-11-09** (run 42651171128, `01cf6682`) ; `META_SOLUTION_ID` posée dans le conteneur de l'API le
+même jour, avec l'accord de Julien. L'essai réel est le 236 de la liste privée.

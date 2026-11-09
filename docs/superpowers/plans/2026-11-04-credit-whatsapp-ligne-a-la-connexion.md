@@ -451,6 +451,20 @@ Pro en retard lit partout la vraie raison du refus.
 offres ; après le prix, un événement de fin renvoyé depuis le tableau de bord de Stripe plus de trois jours après la fin
 de l'option n'envoie plus l'e-mail de l'arrêt.
 
+### La relecture du lot C6 (2026-11-09) : aucun rouge, 8 jaunes
+
+Commit `f5a6b3cd`, déployé avec le lot E. Les huit jaunes, à relire avec le lot suivant :
+1. Un 409 `idempotency_key_in_use` entre deux cas (l'autre cas tient la clé de la résiliation) n'est pas absorbé par la
+   relecture de l'abonnement.
+2. Le bail de 3 minutes, l'événement acquitté `en_cours` : l'arrêt du worker ne laisse que 25 s.
+3. La fenêtre de trois jours de l'e-mail de l'arrêt est au bord exact des rejeux de Stripe, et son refus n'a pas
+   d'alerte « sans e-mail ».
+4. Les alertes « sans e-mail » (espace mixte, hors vente) ne partent qu'à la première fin.
+5. Hors vente, un `updated` sort tôt sans résilier ni finir (`optionChezStripe` nul).
+6. Des commentaires périmés (« trois alertes » pour deux) et l'entrée de `todo.md`.
+7. `formulePayee` et `formuleEnRetard` sont deux lectures séparées de la formule.
+8. Le test du verrou par cas a un angle mort.
+
 ## Lot D : le passage du numéro de l'essai sur la ligne
 
 - [ ] **D0, l'essai réel du partage** (spec, « L'essai réel avant toute vente ») : sur un numéro d'essai connecté avec une
@@ -464,7 +478,8 @@ de l'option n'envoie plus l'e-mail de l'arrêt.
 
 ## Lot E : la fenêtre du partenaire
 
-En attente de sa doc : un plan à part quand elle arrive.
+Plan à part : `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md` (`01cf6682`, relu sans rouge, onze jaunes à ce
+plan ; les quatre premiers à fermer avant de laisser `META_SOLUTION_ID` posé pour un vrai client ou d'ouvrir la vente).
 
 ## Ordre de livraison
 

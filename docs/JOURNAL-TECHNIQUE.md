@@ -4,6 +4,47 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : connecter un numéro sans carte chez Meta, par la fenêtre du partenaire (lot E du Crédit WhatsApp), avec les jaunes du lot C5 (C6)
+
+Accord de Julien pour les deux lots le 2026-11-09 (« Oui, lance-le » pour C6, « Oui, démarre E », les textes du bouton
+validés le même jour). Méthode : implémenteur par lot, TDD, puis une relecture indépendante du diff par lot.
+
+- **C6 (`f5a6b3cd`)**, les jaunes de la relecture du lot C5 sauf le 10 : le verrou de la fin de droit par cas et un bail
+  de 3 minutes ; la résiliation d'un impayé abandonné relue chez Stripe sur toute erreur ; l'e-mail de l'arrêt borné aux
+  trois jours qui suivent la fin et jamais hors vente (l'alerte à Julien le dit) ; une formule Pro en retard lit la vraie
+  raison du refus (`formule_en_retard`). Relu sans rouge, huit jaunes au plan parent (§ « La relecture du lot C6 »).
+- **Lot E (`01cf6682`, plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`)** : un espace qui a droit à la ligne
+  (une Entreprise ; une formule Pro ou un Business avec l'option payée et une place libre ; jamais une Free ni un essai)
+  et n'a encore aucun numéro voit « Connecter sans carte chez Meta » : la fenêtre de Meta s'ouvre avec la solution
+  multi-partenaires du partenaire, le compte connecté est partagé avec lui. L'identifiant ne sort que de la configuration
+  de la connexion, vers l'espace que la règle désigne ; la fin alerte Julien, qui pose la ligne dans `/ops`.
+- **Ce que la vérification a appris** : sur cinq mutations de l'écran construit, une restait verte, la carte chez Meta
+  rendue active par défaut. Le seul e2e qui la visait était dans l'état « ligne en attente », où une autre condition
+  décide déjà ; seule l'Entreprise, sans ligne en attente, la laisse trancher, et son e2e la tient désormais (le
+  « chemin masqué » de `brain/LEARNINGS.md`, 2026-10-16). Vu à l'implémentation : dès qu'on choisissait la carte chez
+  Meta, le bouton du partenaire disparaissait jusqu'au rechargement ; il reste en second et referme le guide dans le
+  même clic que la fenêtre.
+- **Vérifié avant de pousser** : suite racine entière sur l'état reporté (16 403 tests ; un dépassement de 5 s de
+  `tests/mcp-agent.test.ts` sous la charge, vert seul trois fois sur trois) ; console (103 fichiers, 1 260 tests),
+  tsc et lint, auto-attaque (2 070 sondes, aucune trouvaille) ; e2e sur une construction de production (94) ; douze
+  retraits de garde côté serveur, deux côté console, cinq sur l'écran construit, chacun vu rouge par son test.
+- **Relecture du lot E** : aucun rouge, onze jaunes au plan du lot ; les quatre premiers (une fenêtre réussie chez Meta
+  mais refusée chez nous n'alerte pas ; l'ordre de l'alerte laisse passer des envois sans débit ; l'alerte est la seule
+  trace ; une Entreprise connectée lit ensuite « Sur demande ») avant un vrai client ou la vente. Ils dépendent de la
+  question 2 de la note privée (la ligne du partenaire s'attache-t-elle d'office ?), que l'essai réel 236 tranche.
+- **En production** : CI racine (unit, intégration, sécurité), CodeQL et console (topologies Vercel et proxy) vertes
+  job par job sur `01cf6682` ; run 42651171128, `migration=aucune` : `mba-api` et les trois conteneurs de la machine sur
+  `01cf6682`, aucune erreur dans les journaux de la machine, fumée bonne, fiches OAuth conformes. Fiches d'aide non
+  rechargées : seules leurs empreintes ont changé, que rien ne lit en service.
+- **`META_SOLUTION_ID` posée le même jour**, accord de Julien (« Oui, pose-la ») : dans le conteneur de l'API seul (aucun
+  autre processus ne la lit), en COMPLÉTANT ses variables comme le workflow de déploiement, parce qu'un PATCH de l'API
+  des conteneurs remplace la table entière des variables en clair (un `scaleway-cli ... environment-variables.X=...`
+  seul aurait effacé `NODE_ENV` et `DRY_RUN`). Relu après : les 14 variables d'avant intactes, les 70 secrets aux mêmes
+  noms (l'API v1 les rend en objet), même image, conteneur prêt en 80 s. La fenêtre s'ouvre désormais à tous les espaces
+  qui y ont droit ; ce jour-là, d'après ce qu'on sait (l'option n'est pas en vente, Groupama PJ a son numéro), seulement
+  des espaces de test. Non mesuré : la sonde qui passe la vraie règle sur chaque espace, en lecture seule, a été refusée
+  par le garde-fou du mode auto ; elle reste à lancer par Julien.
+
 ## 2026-11-09 : les jaunes d'avant la vente du Crédit WhatsApp (l'arrêt dit sur l'état, la résiliation comptée relue)
 
 Accord de Julien (« Oui, lance-le », 2026-11-09) pour le lot écrit au plan (§ C5 de

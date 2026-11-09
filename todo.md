@@ -355,10 +355,14 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   5a et 6, reportés au lot D) en production le 2026-11-06 (`631c9cb9`), ses treize jaunes au plan (§ « La relecture du
   lot C ») : le lot de suite (1, 3, 6, 7, 8, 9, 12 et 13 : la conversion bornée à son moment, le verrou de l'option, le
   bandeau gardé par l'onglet) en production le 2026-11-07 (`67aa1324`) ; le lot C5 (2, 4, 5 et 11,
-  décisions de Julien du 2026-11-09) en production le 2026-11-09 (`5427ec44`), ses dix jaunes au plan (§ « La relecture du lot C5 »), à
-  fermer avant la vente ; reste 10, à l'ouverture de la vente ; l'essai réel 231 à faire ; à l'ouverture de la vente, « il se
-  prend sur demande » de la fiche « Connecter mon numéro WhatsApp » et de la FAQ se reprend ; puis les lots D (passage du
-  numéro de l'essai, après l'essai réel du partage), E (la fenêtre du partenaire). La vente attend D0.
+  décisions de Julien du 2026-11-09) en production le 2026-11-09 (`5427ec44`), ses dix jaunes au plan (§ « La relecture du lot C5 »)
+  fermés par le lot C6 sauf le 10 (`f5a6b3cd`, en production le 2026-11-09 avec le lot E), ses huit jaunes au plan
+  (§ « La relecture du lot C6 ») ; reste 10, à l'ouverture de la vente ; l'essai réel 231 à faire ; à l'ouverture de la
+  vente, « il se prend sur demande » de la fiche « Connecter mon numéro WhatsApp » et de la FAQ se reprend ; le lot E (la
+  fenêtre du partenaire, « Connecter sans carte chez Meta », plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`)
+  en production le 2026-11-09 (`01cf6682`), `META_SOLUTION_ID` posée le même jour : onze jaunes à son plan, dont quatre
+  avant un vrai client ou la vente, l'essai réel 236 à faire (il tranche la question 2 du partenaire) ; puis le lot D
+  (passage du numéro de l'essai, après l'essai réel du partage). La vente attend D0.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes
