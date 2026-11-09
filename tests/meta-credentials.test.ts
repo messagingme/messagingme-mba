@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { MetaCredentialsResolver, TokenInvalidError, isMetaAuthError, type CredentialsResolverDeps } from '../src/meta/credentials';
 import { MetaApiError } from '../src/meta/errors';
+import { MbaClient } from '../src/mba/client';
 
 // Fakes : la résolution ne touche ni DB ni réseau (deps injectées).
 function makeDeps(over: Partial<CredentialsResolverDeps> & {
@@ -147,6 +148,38 @@ describe('MetaCredentialsResolver (B1 : token Meta par tenant)', () => {
     expect(isMetaAuthError(new MetaApiError(401, { message: 'x' }))).toBe(true);
     expect(isMetaAuthError(new MetaApiError(400, { code: 100, message: 'x' }))).toBe(false);
     expect(isMetaAuthError(new Error('réseau'))).toBe(false);
+  });
+
+  /**
+   * 🔴 Un refus de l'agent de Meta marquait invalide le jeton de tout l'espace (écran MBA en 500, envois coupés ;
+   * soupçonné sur MUTAC le 2026-11-09, après l'onglet « Tester »). La surface de l'agent répond 401 pour autre chose qu'un
+   * jeton mort (« an error is not a negative answer », `src/mba/activation.ts`). L'erreur passe ici par le VRAI client
+   * de l'agent, pour que la forme de l'erreur soit celle que la production fabrique.
+   */
+  it('🔴 un 401 de l’agent de Meta sans code 190 n’invalide PAS le jeton de l’espace (les deux formes de corps)', async () => {
+    const corps = [
+      { title: 'Unauthorized', detail: 'Accept the Business AI terms of service', status: 401 },
+      { error: { message: 'Unauthorized', type: 'OAuthException' } },
+    ];
+    for (const c of corps) {
+      const h = makeDeps({ tenants: { tA: 'wabaA' }, creds: { wabaA: { businessTokenEnc: 'enc:TOK_A', tokenStatus: 'active' } } });
+      const r = new MetaCredentialsResolver(h.deps);
+      const repond401 = (async () => new Response(JSON.stringify(c), { status: 401 })) as unknown as typeof fetch;
+      const err = await new MbaClient('TOK_A', repond401).test('PN1', 'bonjour').catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(MetaApiError);
+      await r.onError(err, { wabaId: 'wabaA', chiffre: 'enc:TOK_A' });
+      expect(h.invalidated, JSON.stringify(c)).toEqual([]);
+      expect((await r.resolveForTenant('tA')).token).toBe('TOK_A');
+    }
+  });
+
+  it('un vrai jeton mort sur la surface de l’agent (code 190) invalide toujours le jeton', async () => {
+    const h = makeDeps({ tenants: { tA: 'wabaA' }, creds: { wabaA: { businessTokenEnc: 'enc:TOK_A', tokenStatus: 'active' } } });
+    const r = new MetaCredentialsResolver(h.deps);
+    const mort = (async () => new Response(JSON.stringify({ error: { code: 190, message: 'Error validating access token', type: 'OAuthException' } }), { status: 401 })) as unknown as typeof fetch;
+    const err = await new MbaClient('TOK_A', mort).test('PN1', 'bonjour').catch((e: unknown) => e);
+    await r.onError(err, { wabaId: 'wabaA', chiffre: 'enc:TOK_A' });
+    expect(h.invalidated).toEqual(['wabaA']);
   });
 
   it('🔴 le seul type OAuthException ne prouve PAS un jeton mort : Meta le pose sur ses refus d’envoi', () => {

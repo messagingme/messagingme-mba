@@ -101,3 +101,12 @@ export class MetaApiError extends Error {
     this.userMessage = body?.error_user_msg ?? body?.error_user_title ?? undefined;
   }
 }
+
+/**
+ * Une erreur de la surface de l'agent de Meta (`api.facebook.com`, `src/mba/client.ts`). 🔴 Son HTTP 401 n'est PAS un
+ * verdict sur le jeton : Meta le rend pour une question qui n'a pas pu être posée (conditions d'utilisation de l'agent
+ * pas encore acceptées, par exemple). Seul le code 190 y prouve un jeton mort (`isMetaAuthError`). Sans cette
+ * distinction, un refus de l'agent marquait invalide le jeton de tout l'espace : écran MBA en 500 et envois coupés
+ * jusqu'à une remise en état à la main (soupçonné sur MUTAC le 2026-11-09, après un essai dans l'onglet « Tester »).
+ */
+export class MetaAgentApiError extends MetaApiError {}

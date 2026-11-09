@@ -1,4 +1,4 @@
-import { MetaApiError } from './errors';
+import { MetaAgentApiError, MetaApiError } from './errors';
 import { messageDe } from '../lib/erreur';
 
 /**
@@ -32,7 +32,11 @@ export class CompteChez360dialog extends Error {
 }
 
 /**
- * Vrai si l'erreur Meta dit un jeton mort : code 190, ou HTTP 401. Règle unique, que `pullFromError` importe.
+ * Vrai si l'erreur Meta dit un jeton mort : code 190, ou HTTP 401 hors de la surface de l'agent de Meta. Règle unique,
+ * que `pullFromError` importe.
+ *
+ * 🔴 UN 401 DE L'AGENT DE META NE COMPTE PAS (`MetaAgentApiError`) : cette surface le rend pour autre chose qu'un jeton
+ * mort, et le compter coupait l'espace entier. Seul son code 190 invalide.
  *
  * 🔴 JAMAIS LE SEUL TYPE `OAuthException` : Meta le pose sur la plupart de ses refus d'envoi (paramètre refusé 100,
  * paramètres du modèle 132000, quota, refus de la Marketing Messages API 134101...). Le tenir pour une preuve
@@ -40,7 +44,8 @@ export class CompteChez360dialog extends Error {
  * c'est ce qu'a vécu « Test DIDWA claude code », marqué invalide le 2026-10-05 alors que Meta le disait valide.
  */
 export function isMetaAuthError(err: unknown): boolean {
-  return err instanceof MetaApiError && (err.code === 190 || err.httpStatus === 401);
+  return err instanceof MetaApiError
+    && (err.code === 190 || (err.httpStatus === 401 && !(err instanceof MetaAgentApiError)));
 }
 
 export interface WabaCredential {

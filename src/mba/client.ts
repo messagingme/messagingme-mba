@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { MetaApiError } from '../meta/errors';
+import { MetaAgentApiError, MetaApiError } from '../meta/errors';
 import type { MetaErrorBody } from '../meta/errors';
 import type { FetchLike } from '../meta/templates';
 import type { EvenementAgent } from './evenement';
@@ -632,15 +632,18 @@ export class MbaClient {
  * Normalise les deux formes d'erreur de cette surface. MBA répond `{title, detail, status}` quand le reste de
  * Graph répond `{error:{message,code}}` : sans ça, le `detail` de Meta (souvent la marche à suivre exacte,
  * URL comprise) serait perdu et l'écran afficherait « erreur inconnue ».
+ *
+ * 🔴 Les deux formes rendent une `MetaAgentApiError` : un 401 de cette surface n'invalide pas le jeton de l'espace, seul
+ * son code 190 le fait (`isMetaAuthError`).
  */
 function erreurMba(status: number, json: unknown): MetaApiError {
   const o = (json ?? {}) as { title?: string; detail?: string; error?: MetaErrorBody };
-  if (o.error) return new MetaApiError(status, o.error);
+  if (o.error) return new MetaAgentApiError(status, o.error);
   const message = [o.title, o.detail].filter(Boolean).join(' : ') || `HTTP ${status}`;
   // `error_user_msg` : c'est ce champ que les écrans affichent. Le `detail` de Meta porte souvent la marche
   // à suivre exacte (« Add a payment method in the Billing Hub and try again : <URL> »), il doit arriver
   // jusqu'au client tel quel.
-  return new MetaApiError(status, { message, type: 'MbaError', error_user_msg: o.detail ?? message, error_user_title: o.title });
+  return new MetaAgentApiError(status, { message, type: 'MbaError', error_user_msg: o.detail ?? message, error_user_title: o.title });
 }
 
 /**
