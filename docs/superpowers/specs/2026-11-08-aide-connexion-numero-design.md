@@ -274,6 +274,11 @@ test de parité ; une relecture en fin de lot. Plan `2026-11-09-aide-connexion-l
 parcours d'un numéro fourni montre l'étape « Phone call » en gras, et la prochaine vraie connexion d'un numéro fourni
 reçoit son code par l'appel.
 
+**Livré le 2026-11-09** (`6db6d133`, run 42694180754). La ligne discrète dit « le SMS nous parvient lu à voix haute par
+un appel, et le code s'affiche en général de la même façon » : une ligne fixe britannique ne reçoit pas de SMS
+(relecture). Le film de la fiche et le visuel définitif attendent les rushes de Julien (`todo.md`). Puis `aide:charger`
+et la publication du plugin 0.3.31, par Julien.
+
 ## Lot 3 : l'arbre, partout
 
 Le cas 4 (après « Oui, j'ai l'application » : « Voulez-vous utiliser ce numéro-là ? » ; non, numéro fourni par la

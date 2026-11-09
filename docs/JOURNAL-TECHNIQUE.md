@@ -4,6 +4,42 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : « Phone call », pas « Text message », pour un numéro fourni (aide à la connexion, lot 2c)
+
+Demande de Julien, le même soir : « il faut lourdement insister » pour que la personne qui nous achète un numéro
+choisisse l'appel dans la fenêtre de Meta. La consigne disait l'inverse depuis l'essai 99 du 2026-10-13 : « Text
+message », puis « l'autre méthode » au bout de 45 secondes. Plan `2026-11-09-aide-connexion-lot-2c.md`, en direct,
+une relecture indépendante.
+
+- **Ce qui a changé** (`6db6d133`) :
+  - « Pour recevoir le code, choisissez « Phone call » (l'appel), surtout pas « Text message » » : la page du parcours
+    met l'étape en gras, et Claude la redit à part après les étapes ;
+  - au bout de 45 secondes sans code, on le redemande, toujours par « Phone call » ;
+  - une ligne discrète couvre la fenêtre qui ne proposerait que « Text message » : le SMS nous parvient lu à voix haute
+    par un appel, un chemin plus fragile (une ligne fixe britannique ne reçoit pas de SMS) ;
+  - les copies suivent : la skill du plugin (0.3.31), les fiches FR et EN avec leurs pages, `features.md` (cinq
+    empreintes recalculées ; aucune autre fiche ne parlait du SMS) ;
+  - la capture générique de la fenêtre de Meta, refaite seule (« Phone call » coché). Le visuel définitif attend les
+    rushes de Julien, et le film de la fiche, qui montre sans doute encore « Text message », est au `todo.md`.
+- **Vérifié** :
+  - douze mutations vues rouges ;
+  - la suite racine entière sur l'état final ;
+  - la console : tests unitaires, et 48 e2e dont l'étape en gras et la ligne discrète à l'écran ;
+  - tsc, lint ;
+  - la capture refaite par sa seule scène, sur un serveur minimal le temps de la prise.
+- **Relecture** : aucun rouge. Ses jaunes sont corrigés dans le commit : l'insistance conditionnelle dans la suite
+  d'attente ; « notre ligne reçoit aussi le SMS », inexact, réécrit ; des guillemets imbriqués allégés ; le film au todo.
+- **Ordre** : poussé après le déploiement du lot E5 de la session du crédit (`2d9943e8`, migrations 0284 et 0285) et
+  après la relance verte de la CI console de l'Inbox HubSpot ; le déploiement de `6db6d133` emporte E5, déjà en
+  service.
+- **En production** :
+  - CI racine, console et CodeQL vertes job par job ;
+  - run 42694180754 (`migration=aucune`, épinglé sur `6db6d133`) : `mba-api` sur l'image `6db6d133`, et `mba-worker`,
+    `mba-worker-analyse` et `mba-application` en révision `6db6d133` ;
+  - fumée bonne, fiches OAuth conformes ;
+  - `aide:charger` et la publication du plugin 0.3.31 confiés à Julien. Celui du lot 2b est fait par lui : 196 lignes
+    chargées, aucune retirée.
+
 ## 2026-11-09 : la fenêtre du partenaire, ce que l'essai 236 a appris (lot E5, migration 0285), et le rouge de sa relecture
 
 Accord de Julien (« ok avance ») pour les jaunes 1 à 4 de la relecture du lot E et 1, 3, 4, 5 de celle du lot E4 ; plan
