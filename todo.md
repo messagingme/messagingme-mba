@@ -91,10 +91,13 @@ fait ensuite au passage d'un contact, et si la suppression doit refuser comme po
 
 ## 🟡 La suite du lot vitrine du 2026-11-06 (ROI, Dynamics 365, Salesforce, attribution)
 
-- **Le ROI dans la console** (décision de Julien, 2026-11-06), au sens strict : (chiffre d'affaires attribué - coûts)
-  divisé par les coûts, la définition de la carte « Mesuré par Messaging Me » de l'accueil (× 23 sur ses chiffres
-  d'exemple). Le chiffre d'affaires attribué (Quantitatif > Shopify) et les coûts (Quantitatif > Coûts) se lisent sur deux
-  écrans : le ROI, par campagne et en tout, se pose là où les deux se lisent.
+- **Le ROI dans la console : LIVRÉ le 2026-11-06 sur Quantitatif > Shopify** (`07202865`, en production dans `60b4812b`),
+  en tout et par source (chaque campagne par son nom), en POURCENTAGE (choix de Julien au cadrage). ⚠️ La carte « Mesuré
+  par Messaging Me » de la vitrine l'écrit en multiple (× 23) : à aligner si les deux doivent dire la même chose. Les
+  jaunes de sa relecture, à reprendre au lot suivant qui touche `src/shopify/cout-leviers.pg.ts` : mesurer
+  `LEVIERS_ENVOIS` par EXPLAIN sur un gros espace (le rattachement des scénarios à leur campagne n'est servi par aucun
+  index) ; une campagne RCS ou e-mail à repli WhatsApp n'y est pas comptée ; le RCS y est au prix simple (la bascule
+  conversationnelle n'est pas rejouée par source).
 - **L'attribution du chiffre d'affaires aux publicités Click-to-WhatsApp et aux campagnes RCS** : la carte fait défiler
   ces sources au-dessus du chiffre d'affaires et du ROI ; l'attribution ne compte aujourd'hui que les envois WhatsApp
   vers une boutique Shopify (features.md, « Le chiffre d'affaires attribué aux envois WhatsApp »).
