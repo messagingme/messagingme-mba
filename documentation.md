@@ -4611,8 +4611,13 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   après sa fin) est résiliée et ses lignes restent arrêtées ; ses admins reçoivent un e-mail sans promesse
   (`option_wa_sans_droit`, une fois par abonnement), seulement une fois la résiliation faite chez Stripe, et Julien une
   consigne unique, « remboursement à décider » (décision du 2026-11-04 : au cas par cas), l'un et l'autre AVANT d'écrire
-  la fin (l'avis `deleted` que notre résiliation déclenche peut l'écrire avant nous). Une panne passagère de Stripe y
-  lève, pour que Stripe rejoue l'événement ; un refus durable laisse la résiliation à la main, sans e-mail. 🔴 La fin de droit prend son cas en paramètre
+  la fin (l'avis `deleted` que notre résiliation déclenche peut l'écrire avant nous). 🔴 Une résiliation ne se compte
+  que RELUE : sur toute erreur de Stripe (une réponse perdue, un 500, le 409 de la clé d'idempotence, un arrêt déjà fait),
+  l'abonnement est relu ; résilié, la suite est la même ; sinon, ou illisible, « à vérifier » : la fin est écrite, les
+  lignes arrêtées, et Julien résilie à la main et prévient les admins, sans e-mail. Rien ne lève : un rejeu de Stripe
+  retombait sur un abonnement déjà résilié (la session relue n'y repasse plus) ou sur le même 500, que la clé
+  d'idempotence garde 24 h. Une seule fin de droit à la fois par espace (verrou court `option.fin:<espace>`, `en_cours`
+  pour la seconde, qui laisse faire la première) : la consigne ne part qu'une fois. 🔴 La fin de droit prend son cas en paramètre
   requis (`fin_de_droit` ou `payee_sans_droit`), et le webhook la reçoit par `brancherFinDeDroit` : une flèche à un
   paramètre avalerait le cas en silence. Avec le droit, il relance les lignes que la fin d'une
   précédente avait arrêtées (`relancerLesLignesDeLOption`), à chaque enregistrement et pas seulement le premier, pour
@@ -4654,10 +4659,16 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   (`src/stripe/option-credit-whatsapp.ts`), que lisent la route de l'état, la vue de l'onglet, l'e-mail et la porte de
   l'onglet (`portesCreditWhatsapp`). La prise de l'option tient un verrou court par espace (`option.prendre:<espace>`)
   le temps d'expirer les sessions encore ouvertes du client et d'en créer une : un second clic reçoit 409
-  `option_en_cours`. L'arrêt : à la première fin d'une option (`finir` du webhook), si ses
-  lignes viennent de s'arrêter et que la formule y donne encore droit (`aDroit`, la règle de la fin de droit), l'e-mail
-  `option_wa_arretee` part aux admins, une fois par abonnement ; jamais une Entreprise (ses lignes restent), ni une option
-  sans ligne, ni une fin de droit, ni l'option payée sans droit, qui a le sien. Toutes les lignes arrêtées se lisent par
+  `option_en_cours`. Les deux e-mails de la conversion sont `commercial` (décision du 2026-11-09) : une proposition
+  payante porte le lien de désinscription, et ne part plus à qui a coupé les e-mails d'information. L'arrêt : à chaque
+  passage d'une fin d'option dans le webhook (`finir`), rejeu et fin partagée entre l'`updated` impayé et le `deleted`
+  compris, 🔴 l'e-mail `option_wa_arretee` se décide sur l'ÉTAT, pas sur ce que l'appel a arrêté : toutes les lignes de
+  l'espace arrêtées, l'une de l'option (`arretDesLignes`, la règle de l'onglet), aucune autre option vivante, une fin en
+  base qui n'est pas une fin de droit, et la reprise ouverte (`repriseOuverte`, `src/offres/formule-payee.ts` : la règle
+  de la prise et un Pro dont la fin programmée n'est pas passée, lus par les mêmes lectures que la prise, `formuleDe`).
+  La réservation `option:<abonnement>` le garde unique. Jamais une Entreprise, un Pro en retard ou qui se termine, une
+  option sans ligne, ni l'option payée sans droit, qui a le sien ; un espace qui garde une ligne posée à la main active
+  n'en reçoit pas, et l'alerte à Julien le dit (décision du 2026-11-09). Toutes les lignes arrêtées se lisent par
   une seule règle (`arretDesLignes`, `src/credit-whatsapp/etat-ligne.ts`) : la vue de l'onglet en tire `ligneArretee` et
   `optionArretee` (dont une ligne venue de l'option), `get_credit` en tire `envois_arretes` et `option_arretee`.
   L'onglet dit alors la sortie, « Reprendre l'option » (sa section) et « Connecter avec ma carte chez Meta » ; des lignes

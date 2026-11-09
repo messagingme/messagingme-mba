@@ -327,23 +327,23 @@ se rejoue ; l'avis `deleted` traité avant notre fin ne perd plus la consigne ; 
 
 **Les jaunes** (ouverts ; « avant la vente » à fermer avant de poser le prix) :
 
-1. Avant la vente, une régression par rapport à `c1ad8eda` : une panne passagère alors que Stripe a bien résilié
+1. ✅ (2026-11-09, § C5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) Avant la vente, une régression par rapport à `c1ad8eda` : une panne passagère alors que Stripe a bien résilié
    (réponse perdue, ou 500 après la résiliation) fait lever ; au rejeu, la session trouve l'abonnement `canceled` et
    rend la main sans jouer la fin de droit, et l'avis `deleted` ne dit que « terminée ». Ni e-mail ni consigne : le
    client a payé et personne ne le sait. Sur une panne, relire l'abonnement chez Stripe (`canceled` vaut `resiliee`)
    au lieu de lever, ou jouer la fin `payee_sans_droit` au rejeu quand notre base tient encore cet abonnement vivant.
-2. Avant la vente : `idempotency_key_in_use` compte pour `resiliee`. La session et la première facture arrivant
+2. ✅ (2026-11-09, § C5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) Avant la vente : `idempotency_key_in_use` compte pour `resiliee`. La session et la première facture arrivant
    ensemble, les deux appels envoient la consigne (deux fois, trois avec un `updated`), et l'appel en 409 peut réserver
    l'e-mail avant que la résiliation en vol n'aboutisse. N'envoyer la consigne que par l'appel qui a réservé l'e-mail, et
    ne compter la résiliation que relue.
-3. Avant la vente : la clé d'idempotence fixe (`arret-<abonnement>`) garde un vrai 500 de Stripe au moins 24 h ;
+3. ✅ (2026-11-09, § C5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) Avant la vente : la clé d'idempotence fixe (`arret-<abonnement>`) garde un vrai 500 de Stripe au moins 24 h ;
    chaque rejeu reprend le même 500, l'option reste vivante chez nous pour un espace sans droit, et Julien n'a aucune
    alerte. Le correctif du jaune 1 (relire l'abonnement) le ferme aussi ; prévenir Julien une fois.
 4. L'alerte (jusqu'à 5 s) passe désormais entre la résiliation et `finir` : une première facture traitée dans cet
    intervalle trouve `finieLe` nul et dit « à rembourser ». Ne pas attendre l'alerte avant `finir`.
-5. La consigne en `a_verifier` dit « aucun e-mail ne part tant qu'elle court », comme si un e-mail partait après la
+5. ✅ (2026-11-09, § C5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) La consigne en `a_verifier` dit « aucun e-mail ne part tant qu'elle court », comme si un e-mail partait après la
    résiliation à la main ; aucun chemin ne l'envoie. Écrire « aucun e-mail ne partira, à prévenir à la main ».
-6. Des commentaires périmés : « un refus de Stripe ne lève jamais » (faux en `payee_sans_droit`), « les admins sont
+6. ✅ (2026-11-09, § C5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`) Des commentaires périmés : « un refus de Stripe ne lève jamais » (faux en `payee_sans_droit`), « les admins sont
    prévenus par e-mail » et « une seule fois » dans le webhook.
 7. ✅ (2026-11-04) Une phrase collée à la liste du plan cassait son affichage. Déplacée.
 

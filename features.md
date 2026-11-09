@@ -3679,13 +3679,11 @@ boîte par sous-menu.
   - en offre Free pleine, un nouveau client qui a écrit et n'est pas entré (une fois par jour au plus, quel que soit le
     nombre de clients écartés) : passer en Pro, ou supprimer des contacts en le demandant à Claude ;
   - en offre Pro, 80 % puis 100 % des contacts, à chaque franchissement ; ces alertes renvoient à l'Entreprise ;
-  - la formule devenue payée (l'essai de la formule Pro fini et payé, ou écourté ; un Business confirmé), une fois, à ce
-    moment-là : ils peuvent payer leurs messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois, ce
-    qu'il advient d'un numéro avec ou sans l'application WhatsApp Business, et le bouton vers « Connecter WhatsApp » ; tant
-    que l'option n'est pas en vente, elle se demande au Support. Jamais à un espace qui a déjà son option ou une ligne ;
-  - l'option Crédit WhatsApp arrêtée alors que la formule y donne encore droit (une résiliation, un impayé), une fois par
-    option : les envois par le Crédit WhatsApp sont arrêtés, le crédit restant conservé, et pour envoyer de nouveau,
-    reprendre l'option ou connecter le numéro avec sa carte chez Meta.
+  - l'option Crédit WhatsApp arrêtée (une résiliation, un impayé) alors que la formule permet de la reprendre (jamais une
+    formule en retard de paiement ou qui se termine), une fois par option, et seulement quand toutes les lignes de
+    l'espace sont arrêtées : les envois par le Crédit WhatsApp sont arrêtés, le crédit restant conservé, et pour envoyer
+    de nouveau, reprendre l'option ou connecter le numéro avec sa carte chez Meta. Un espace qui garde une ligne posée à
+    la main n'en reçoit pas : notre équipe le prévient.
 - ✅ **Une conversation attend l'équipe** : quand un agent IA, l'agent de Meta ou un scénario passe la main à l'équipe
   alors que le contact vient d'écrire, les administrateurs reçoivent un e-mail avec le nom du contact (ou son numéro
   masqué, jamais le texte des messages), l'heure où la fenêtre de 24 heures se ferme, et un bouton vers la conversation.
@@ -3702,6 +3700,11 @@ boîte par sous-menu.
 - ✅ **Le récapitulatif de la semaine, en offre Free** (2026-10-14, un e-mail d'information) : le lundi à partir de
   9 h, les messages WhatsApp reçus et envoyés de la semaine écoulée, les conversations, celles confiées à l'équipe et
   le crédit IA restant, avec ce que l'offre Pro ajoute. Une semaine sans aucun message n'envoie rien.
+- ✅ **La proposition du Crédit WhatsApp** (2026-11-06, un e-mail d'information depuis le 2026-11-09) : la formule
+  devenue payée (l'essai de la formule Pro fini et payé, ou écourté ; un Business confirmé), une fois, à ce moment-là :
+  ils peuvent payer leurs messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois, ce qu'il
+  advient d'un numéro avec ou sans l'application WhatsApp Business, et le bouton vers « Connecter WhatsApp » ; tant que
+  l'option n'est pas en vente, elle se demande au Support. Jamais à un espace qui a déjà son option ou une ligne.
 - ✅ **Mon compte, « E-mails de Messaging Me »** : la langue des e-mails, et deux familles qu'on peut couper ou
   rétablir (les conversations qui attendent l'équipe, les e-mails d'information). Chacun de ces e-mails porte aussi un
   lien pour ne plus les recevoir. Les alertes de service (crédit, numéro, limites) partent toujours.

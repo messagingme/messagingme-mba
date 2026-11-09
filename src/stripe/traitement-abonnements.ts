@@ -4,6 +4,7 @@ import type { FinDuPro } from '../offres/numero-inclus';
 import type { PgAbonnementsOffreStore, PeriodiciteOffre, RaisonFinOffre } from '../offres/abonnements-offre.pg';
 import type { PgAbonnementsNumeroStore } from './abonnements.pg';
 import type { PgOptionsCreditStore, RaisonFinOption } from '../credit-whatsapp/options.pg';
+import { arretDesLignes } from '../credit-whatsapp/etat-ligne';
 import type { CasFinDeDroit, IssueFinDeDroitOption } from './option-credit-whatsapp';
 import { finPrevueDe } from './client';
 import { lienTableauStripe } from './liens';
@@ -81,16 +82,22 @@ export interface DepsTraitementAbonnements {
     /**
      * `finDeDroitOption` : l'option sans offre qui y donne droit se résilie, ses lignes arrêtées. Jouée après la fin d'un
      * Pro (`fin_de_droit`), et à l'enregistrement d'une option (`payee_sans_droit` : une option payée sans droit ne relance
-     * rien, les admins sont prévenus par e-mail). Rejouable ; rend l'issue, `garde_son_droit` quand une offre y donne encore
-     * droit. 🔴 `cas` est transmis tel quel au câblage : une flèche qui ne le recevrait pas l'avalerait en silence.
+     * rien ; ses admins le savent par e-mail une fois résiliée, sinon Julien les prévient). Rejouable, une à la fois par
+     * espace ; rend l'issue, `garde_son_droit` quand une offre y donne encore droit, `en_cours` quand une autre la joue.
+     * 🔴 `cas` est transmis tel quel au câblage : une flèche qui ne le recevrait pas l'avalerait en silence.
      */
     finDeDroit(tenantId: string, cas: CasFinDeDroit): Promise<IssueFinDeDroitOption>;
     alerter(texte: string): Promise<void>;
     /**
-     * La formule de l'espace donne-t-elle encore droit à l'option, l'offre relue SANS cache (lot C) ? Une fin de droit, ou une
-     * option payée sans droit, ont leur propre traitement et ne disent pas l'arrêt au client.
+     * `PgLignesCreditStore.lignesDeLEspace` : les lignes en cours de l'espace, relues après l'arrêt. Leur ÉTAT décide
+     * l'e-mail de l'arrêt (`arretDesLignes`, la règle de l'onglet), pas ce qu'un appel a arrêté (lot C, jaunes 2 et 4).
      */
-    aDroit(tenantId: string): Promise<boolean>;
+    lignes(tenantId: string): Promise<ReadonlyArray<{ origine: 'ops' | 'option'; arreteeLe: Date | string | null }>>;
+    /**
+     * La prise de l'option serait-elle acceptée maintenant (`repriseOuverte`, l'offre relue SANS cache) ? « Reprenez
+     * l'option » ne se dit qu'alors (lot C, jaune 5) : jamais à un Pro en retard, ni à un Pro qui se termine.
+     */
+    repriseOuverte(tenantId: string): Promise<boolean>;
     /** L'e-mail de l'arrêt aux admins (lot C, moment 3, `creerOptionArretee`), une fois par abonnement. Ne lève jamais. */
     prevenirArret(tenantId: string, abonnementId: string): Promise<void>;
   };
@@ -615,15 +622,27 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       const illimite = await deps.option.illimite(a.tenantId);
       // Rejouable : arrêter des lignes déjà arrêtées n'écrit rien ; seule la première fin prévient Julien. 🔴 Une AUTRE
       // option vivante (reprise depuis) garde ses lignes : un rejeu tardif de la fin de l'ancienne ne les coupe pas.
-      const n = !illimite && (await deps.option.vivante(a.tenantId)) === null ? await deps.option.arreterLesLignes(a.tenantId) : 0;
+      const seule = !illimite && (await deps.option.vivante(a.tenantId)) === null;
+      const n = seule ? await deps.option.arreterLesLignes(a.tenantId) : 0;
+      // L'ÉTAT des lignes après l'arrêt (lot C, jaunes 2 et 4) : il décide l'e-mail, pas ce que CET appel a arrêté. Un rejeu
+      // après une panne (la fin déjà écrite) et deux traitements de la même fin (l'`updated` impayé et le `deleted` qu'il
+      // déclenche) le perdaient ; la réservation par abonnement le garde unique.
+      const lignes = seule ? await deps.option.lignes(a.tenantId) : [];
+      const arret = arretDesLignes(lignes);
+      // Une ligne posée à la main encore active (un essai forcé) : l'e-mail dirait tout arrêté, il ne part pas, et Julien
+      // prévient le client (décision du 2026-11-09).
+      const mixte = !arret.toutes && lignes.some((l) => l.origine === 'option' && l.arreteeLe !== null);
       if (a.premiereFin) {
         const suite = illimite ? 'Entreprise : ses lignes restent actives, sous l’illimité' : `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
-        await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}.`);
-        // L'arrêt dit au client (lot C, moment 3) : ses lignes viennent de s'arrêter alors que la formule y donne encore droit
-        // (une résiliation, un impayé). Jamais une Entreprise (ses lignes restent : n vaut 0), ni une option sans ligne, ni
-        // une fin de droit ou une option payée sans droit, que l'avis `deleted` de notre propre résiliation peut amener ici
-        // d'abord.
-        if (n > 0 && await deps.option.aDroit(a.tenantId)) await deps.option.prevenirArret(a.tenantId, a.abonnementId);
+        const main = mixte ? ' ; une ligne posée à la main reste active : aucun e-mail au client, à prévenir à la main si besoin' : '';
+        await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}${main}.`);
+      }
+      // L'arrêt dit au client (lot C, moment 3) : toutes ses lignes arrêtées, l'une de l'option, aucune autre option
+      // vivante, et la prise de l'option ouverte (jaune 5 : jamais « reprenez l'option » à un Pro en retard ou qui se
+      // termine, ni à une Entreprise). Jamais une fin de droit (la raison en base, même quand la formule y redonne droit
+      // depuis) ni une option payée sans droit, que l'avis `deleted` de notre propre résiliation peut amener ici d'abord.
+      if (arret.parLOption && a.finRaison !== 'fin_de_droit' && await deps.option.repriseOuverte(a.tenantId)) {
+        await deps.option.prevenirArret(a.tenantId, a.abonnementId);
       }
     };
     /**
@@ -675,8 +694,9 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       if (issue.etat === 'enregistre') {
         // 🔴 Une option payée sans offre qui y donne droit (un Checkout ouvert pendant l'essai du Pro et réglé après sa fin :
         // la session vit 24 h) se résilie au lieu de relancer ses lignes (relecture des jaunes d'avant la vente, jaune 1).
-        // La fin de droit dit tout, une seule fois : l'e-mail aux admins, sans promesse, et l'alerte à Julien, « remboursement
-        // à décider » (relecture des derniers jaunes d'avant la vente, jaunes 1 et 6).
+        // La fin de droit dit tout, une fois par espace (son verrou) : résiliée et relue, l'e-mail aux admins, sans promesse,
+        // et l'alerte à Julien, « remboursement à décider » ; sinon, à vérifier, la consigne à Julien de les prévenir
+        // (relecture des derniers jaunes d'avant la vente, jaunes 1 et 6 ; du correctif de l'e-mail sans droit, 1 à 3).
         const droit = await deps.option.finDeDroit(issue.tenantId, 'payee_sans_droit');
         if (droit !== 'garde_son_droit') return;
         // Une option reprise (jaunes 4 et 6 de la relecture du lot 4a) : les lignes que la fin de la précédente avait

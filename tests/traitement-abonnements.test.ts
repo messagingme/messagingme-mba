@@ -94,10 +94,14 @@ describe('l’option du Crédit WhatsApp', () => {
     relancees?: number;
     /** La fin de l'option chez nous (`finieLe`) ; absente : une option qui vit encore, ou inconnue. */
     finiLe?: Date;
-    /** La formule y donne-t-elle encore droit (lot C) ; oui par défaut. */
-    aDroit?: boolean;
-    /** Les lignes que la fin arrête ; une par défaut. */
+    /** La prise de l'option serait-elle acceptée maintenant (lot C, jaune 5) ; oui par défaut. */
+    repriseOuverte?: boolean;
+    /** Les lignes que CET appel arrête ; une par défaut. */
     arretees?: number;
+    /** Les lignes de l'espace relues après l'arrêt ; par défaut, une ligne de l'option, arrêtée. */
+    lignes?: Array<{ origine: 'ops' | 'option'; arreteeLe: string | null }>;
+    /** La raison de la fin en base, quand un autre chemin l'a écrite d'abord (la fin de droit) ; sinon celle de l'appel. */
+    raisonEnBase?: 'resiliation' | 'impaye' | 'fin_de_droit';
   } = {}) {
     const journal: string[] = [];
     const refus: string[] = [];
@@ -113,7 +117,10 @@ describe('l’option du Crédit WhatsApp', () => {
       },
       majStatut: async (id, statut) => { journal.push(`statut:${id}:${statut}`); return o.connue === false ? null : { ...ligneDe, statut }; },
       noterPlaces: async (id, places) => { journal.push(`places:${id}:${places}`); return o.connue === false ? null : ligneDe; },
-      finir: async (id, raison) => { journal.push(`finir:${id}:${raison}`); return { ...ligneDe, premiereFin: o.premiereFin ?? true }; },
+      finir: async (id, raison) => {
+        journal.push(`finir:${id}:${raison}`);
+        return { ...ligneDe, finRaison: o.raisonEnBase ?? raison, premiereFin: o.premiereFin ?? true };
+      },
       vivante: async () => (o.vivante ? ligneDe : null),
       finieLe: async () => o.finiLe ?? null,
       chezStripe: async () => (o.relu === undefined ? { statut: 'active', places: 2, finPrevueLe: null } : o.relu),
@@ -125,7 +132,8 @@ describe('l’option du Crédit WhatsApp', () => {
       // Une option enregistrée relit son droit : une offre y donne droit, sauf avis contraire du test.
       finDeDroit: async (t, cas) => { droits.push(`${t}:${cas}`); return o.droit ?? 'garde_son_droit'; },
       alerter: async (texte) => { alertes.push(texte); },
-      aDroit: async () => o.aDroit ?? true,
+      lignes: async () => o.lignes ?? [{ origine: 'option', arreteeLe: '2026-11-09T10:00:00.000Z' }],
+      repriseOuverte: async () => o.repriseOuverte ?? true,
       prevenirArret: async (t, id) => { arrets.push(`${t}:${id}`); },
     };
     const traitement = creer({ option: dep, paiementRefuse: async (p) => { refus.push(`${p.offre}:${p.factureId}`); } });
@@ -178,16 +186,44 @@ describe('l’option du Crédit WhatsApp', () => {
     expect(reprise.journal).toEqual(['finir:sub_opt:resiliation']);
   });
 
-  it('🔴 l’arrêt dit au client (lot C, moment 3) : la première fin, ses lignes arrêtées, la formule y donnant encore droit ; jamais un rejeu, une fin de droit, une Entreprise ni une option sans ligne', async () => {
+  it('🔴 l’arrêt dit au client (lot C, moment 3) : les lignes de l’option arrêtées, aucune autre option, la reprise ouverte ; jamais une fin de droit, une Entreprise ni une option sans ligne', async () => {
     const fin = option();
     await fin.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META, cancellation_details: { reason: 'payment_failed' } }));
     expect(fin.arrets).toEqual([`${TENANT}:sub_opt`]);
-    // Une option payée sans droit a son propre e-mail, une fin de droit n'en a aucun : la formule n'y donne plus droit.
-    for (const o of [{ premiereFin: false }, { aDroit: false }, { illimite: true }, { arretees: 0 }]) {
+    // Une option payée sans droit a son propre e-mail, une fin de droit n'en a aucun, même relue après que la formule
+    // y redonne droit ; une Entreprise ne reprend pas d'option ; une AUTRE option vivante garde ses lignes ; une prise
+    // que la formule refuserait (un Pro en retard, un Pro qui se termine : jaune 5) ne se propose pas.
+    const sans: Array<Parameters<typeof option>[0]> = [
+      { repriseOuverte: false }, { illimite: true, repriseOuverte: false }, { lignes: [] }, { vivante: true }, { raisonEnBase: 'fin_de_droit' },
+    ];
+    for (const o of sans) {
       const m = option(o);
       await m.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
       expect(m.arrets, JSON.stringify(o)).toEqual([]);
     }
+  });
+
+  it('🔴 l’arrêt se décide sur l’ÉTAT, à chaque passage : un rejeu après une panne, ou la fin partagée entre l’updated impayé et le deleted, le dit encore (jaune 2)', async () => {
+    // Le rejeu : la fin déjà écrite (`premiereFin` faux), les lignes arrêtées au premier passage, aucune par celui-ci.
+    const rejeu = option({ premiereFin: false, arretees: 0 });
+    await rejeu.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
+    expect(rejeu.arrets).toEqual([`${TENANT}:sub_opt`]);
+    // La première fin, dont l'autre traitement a déjà arrêté les lignes : elle le dit aussi. La réservation par abonnement
+    // (`creerOptionArretee`, occasion `option:<abonnement>`) le garde unique.
+    const partagee = option({ arretees: 0, relu: { statut: 'unpaid', places: 2, finPrevueLe: null } });
+    await partagee.traitement.traiter(evenement('customer.subscription.updated', { id: 'sub_opt', metadata: META }));
+    expect([partagee.journal, partagee.arrets]).toEqual([['resilier:sub_opt', 'finir:sub_opt:impaye', `arret:${TENANT}`], [`${TENANT}:sub_opt`]]);
+  });
+
+  it('🔴 un espace qui garde une ligne posée à la main active : aucun e-mail (il dirait tout arrêté), l’alerte à Julien le dit (jaune 4)', async () => {
+    // Décision de Julien du 2026-11-09 : l'e-mail suit la règle de l'onglet (`arretDesLignes`), Julien prévient le client.
+    const mixte = option({ lignes: [{ origine: 'option', arreteeLe: '2026-11-09T10:00:00.000Z' }, { origine: 'ops', arreteeLe: null }] });
+    await mixte.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
+    expect(mixte.arrets).toEqual([]);
+    expect(mixte.alertes.join(' ')).toMatch(/1 ligne arrêtée ; une ligne posée à la main reste active : aucun e-mail au client, à prévenir à la main si besoin\./);
+    const seule = option();
+    await seule.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }));
+    expect(seule.alertes.join(' ')).not.toMatch(/posée à la main/);
   });
 
   it('🔴 la fin de l’option d’un espace passé en Entreprise n’arrête pas ses lignes : l’illimité les couvre, Julien le sait', async () => {
@@ -246,7 +282,8 @@ describe('l’option du Crédit WhatsApp', () => {
   it('🔴 une option payée sans offre qui y donne droit se résilie au lieu de relancer ses lignes (jaune 1)', async () => {
     // Un Checkout ouvert pendant l'essai du Pro et réglé après sa fin : la session vit 24 h. 🔴 Le cas `payee_sans_droit` :
     // la fin de droit envoie l'e-mail aux admins et dit seule le remboursement à décider (derniers jaunes, 1 et 6).
-    for (const droit of ['resiliee', 'a_verifier'] as const) {
+    // `en_cours` : une autre fin de droit de l'espace fait le travail (relecture du correctif de l'e-mail sans droit, jaune 2).
+    for (const droit of ['resiliee', 'a_verifier', 'en_cours'] as const) {
       const sansDroit = option({ droit });
       await sansDroit.traitement.traiter(evenement('checkout.session.completed', SESSION));
       expect([sansDroit.droits, sansDroit.journal], droit).toEqual([[`${TENANT}:payee_sans_droit`], ['enregistrer:sub_opt:2']]);

@@ -21,3 +21,17 @@ export function formulePayee(
   if (e.pro.finiLe !== null || e.pro.statut !== 'actif') return false;
   return e.pro.essaiFinLe === null || e.pro.essaiFinLe.getTime() <= maintenant;
 }
+
+/**
+ * L'OPTION SE REPRENDRAIT-ELLE MAINTENANT ? Ce que l'e-mail de l'arrêt lit avant de dire « reprenez l'option » (relecture du
+ * lot C, jaune 5) : la règle de la prise (`formulePayee`), et un Pro dont la fin programmée n'est pas passée. Pro et option
+ * résiliés pour la même fin de période, l'avis de l'option peut passer le premier : le Pro vit encore chez nous, et la
+ * reprise serait refusée une fois son propre avis traité.
+ */
+export function repriseOuverte(
+  e: { offre: Offre; pro: Pick<ResumePro, 'statut' | 'essaiFinLe' | 'finiLe' | 'finPrevueLe'> | null; businessEssaiFinLe: Date | null },
+  maintenant: number,
+): boolean {
+  if (!formulePayee(e, maintenant)) return false;
+  return e.pro === null || e.offre !== 'pro' || e.pro.finPrevueLe === null || e.pro.finPrevueLe.getTime() > maintenant;
+}

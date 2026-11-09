@@ -1,6 +1,6 @@
 ---
 source_section: Les e-mails de Messaging Me aux administrateurs
-source_empreinte: 65f41b
+source_empreinte: c1b9f8
 ---
 # Les e-mails que Messaging Me vous envoie
 
@@ -20,10 +20,9 @@ avant sa libération, sa libération, et la suite du numéro quand votre offre P
 de passer en Pro. Au-delà de votre limite de contacts (au retour en formule Free après la formule Pro, par exemple), une alerte vous
 dit combien en supprimer pour y revenir, en le demandant à Claude. Quand votre espace Free est plein et qu'un nouveau
 client vous écrit, un e-mail vous dit que son message n'est pas entré, une fois par jour au plus. En offre Pro, 80 % puis 100 % de vos contacts : l'alerte renvoie à
-l'offre Entreprise. Quand votre formule devient payée (la fin de l'essai de la formule Pro, ou un Business confirmé), un
-e-mail vous dit que vous pouvez payer vos messages WhatsApp chez Messaging Me, sans carte chez Meta, une seule fois. Si
-l'option Crédit WhatsApp s'arrête (une résiliation, un impayé), un e-mail vous dit que vos envois par le Crédit WhatsApp
-sont arrêtés, votre crédit restant conservé, et comment envoyer de nouveau.
+l'offre Entreprise. Si l'option Crédit WhatsApp s'arrête (une résiliation, un impayé) alors que votre formule permet de
+la reprendre, un e-mail vous dit que vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant conservé, et
+comment envoyer de nouveau.
 
 **Une conversation attend votre équipe.** Quand un agent IA, l'agent de Meta ou un scénario confie à l'équipe une
 conversation dont le client vient d'écrire, vous recevez un e-mail avec le nom du contact (ou son numéro masqué), l'heure
@@ -40,8 +39,11 @@ ni envoyé aucun message après une semaine. Chacune mène à la page de la cons
 écoulée, les conversations, celles confiées à votre équipe, et votre crédit IA restant. Une semaine sans message
 n'envoie rien.
 
+**Le Crédit WhatsApp.** Quand votre formule devient payée (la fin de l'essai de la formule Pro, ou un Business confirmé),
+un e-mail vous dit que vous pouvez payer vos messages WhatsApp chez Messaging Me, sans carte chez Meta, une seule fois.
+
 **Ce qu'on peut couper.** Deux familles d'e-mails se coupent : les conversations qui attendent votre équipe, et les
-e-mails d'information (la bienvenue, les relances, le récapitulatif de la semaine). Chacun porte un lien « Ne plus recevoir ces e-mails » en bas, et « Mon compte » permet de les
+e-mails d'information (la bienvenue, les relances, le récapitulatif de la semaine, le Crédit WhatsApp). Chacun porte un lien « Ne plus recevoir ces e-mails » en bas, et « Mon compte » permet de les
 couper ou de les rétablir. Les alertes de service partent toujours : elles disent quand quelque chose s'arrête si
 personne n'agit.
 

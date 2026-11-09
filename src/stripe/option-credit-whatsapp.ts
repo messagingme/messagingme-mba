@@ -293,10 +293,26 @@ export interface DepsFinDeDroitOption {
    */
   prevenirSansDroit(tenantId: string, abonnementId: string): Promise<void>;
   alerter(texte: string): Promise<void>;
+  /** Une fin de droit à la fois par espace (relecture du correctif de l'e-mail sans droit, jaune 2). */
+  verrous: Pick<VerrousCourts, 'prendre' | 'relacher'>;
   now?: () => Date;
 }
 
-export type IssueFinDeDroitOption = 'sans_option' | 'garde_son_droit' | 'resiliee' | 'a_verifier';
+/** `en_cours` : une autre fin de droit de l'espace tient le verrou, elle fait le travail. */
+export type IssueFinDeDroitOption = 'sans_option' | 'garde_son_droit' | 'resiliee' | 'a_verifier' | 'en_cours';
+
+/** Le verrou d'une fin de droit : une résiliation, sa relecture et quelques écritures, largement. */
+const DUREE_VERROU_FIN_MS = 60_000;
+
+/** Le statut de l'abonnement relu chez Stripe ; `null` quand il ne se lit pas (une panne, un refus) : le doute ne résilie rien. */
+async function statutRelu(s: { cle: string; transport: TransportStripe }, abonnementId: string): Promise<string | null> {
+  try {
+    return (await lireAbonnementStripe(s.transport, { cle: s.cle, abonnementId })).statut;
+  } catch (err) {
+    if (err instanceof StripeError) return null;
+    throw err;
+  }
+}
 
 /**
  * Pourquoi la fin de droit tourne. `fin_de_droit` : une offre qui y donnait droit s'est terminée, le mois entamé n'est pas
@@ -312,19 +328,38 @@ export type CasFinDeDroit = 'fin_de_droit' | 'payee_sans_droit';
  * ou Entreprise retirés dans `/ops`), l'option se résilie tout de suite chez Stripe, sans remboursement du mois entamé (on
  * ne facture pas une option inutilisable), et les envois de ses numéros s'arrêtent le jour même ; ses lignes restent en
  * cours (arrêtées), pour qu'un client qui revient reprenne sans reconnexion. Rejouable : appelée à chaque fin d'offre,
- * rejeux compris. Un refus de Stripe ne lève jamais : les envois s'arrêtent quand même et Julien résilie à la main.
+ * rejeux compris. Rien de Stripe ne lève : une résiliation que Stripe ne confirme pas arrête quand même les envois, et
+ * Julien la résilie à la main. Une seule à la fois par espace (`en_cours` pour la seconde).
  */
 export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string, cas: CasFinDeDroit): Promise<IssueFinDeDroitOption> {
-  const o = await d.options.vivante(tenantId);
-  if (o === null) return 'sans_option';
+  if ((await d.options.vivante(tenantId)) === null) return 'sans_option';
   if (await d.aDroit(tenantId)) return 'garde_son_droit';
+  // 🔴 Une seule fin de droit à la fois par espace (relecture du correctif de l'e-mail sans droit, jaune 2) : la session et
+  // la première facture d'une option payée sans droit arrivent ensemble, et chacune envoyait la consigne de remboursement.
+  // La seconde laisse faire la première ; l'option se relit sous le verrou, finie entre-temps elle n'a plus rien à faire.
+  const prise = await d.verrous.prendre([[`option.fin:${tenantId}`, DUREE_VERROU_FIN_MS]]);
+  if (prise === null) return 'en_cours';
+  try {
+    const o = await d.options.vivante(tenantId);
+    if (o === null) return 'sans_option';
+    return await finirSansDroit(d, tenantId, cas, o);
+  } finally {
+    await d.verrous.relacher(prise);
+  }
+}
+
+/** La fin de droit d'une option vivante, sous le verrou de l'espace : la résiliation chez Stripe, les messages, la fin. */
+async function finirSansDroit(
+  d: DepsFinDeDroitOption, tenantId: string, cas: CasFinDeDroit, o: { abonnementId: string; livemode: boolean },
+): Promise<IssueFinDeDroitOption> {
   const lien = lienTableauStripe('subscriptions', o.abonnementId, o.livemode);
   const payee = cas === 'payee_sans_droit';
   // Une seule consigne de remboursement, la même dans chaque alerte d'un cas (relecture des derniers jaunes d'avant la
   // vente, jaune 1) : jamais « sans remboursement » pour une option payée sans droit. Résiliée à la main, elle n'a pas eu
-  // d'e-mail (il la dirait résiliée) : Julien prévient ses admins (relecture du correctif, jaune 1).
+  // d'e-mail, et aucun ne partira (il la dirait résiliée, et rien ne le rejoue) : Julien prévient ses admins (relecture du
+  // correctif de l'e-mail sans droit, jaune 5).
   const remboursement = payee
-    ? 'payée sans droit, son remboursement est à décider, puis prévenir ses admins : aucun e-mail ne part tant qu’elle court'
+    ? 'payée sans droit : son remboursement est à décider, et ses admins à prévenir à la main, aucun e-mail ne partira'
     : 'sans remboursement';
   let issue: IssueFinDeDroitOption = 'resiliee';
   if (d.stripe === null || d.stripe.livemode !== o.livemode) {
@@ -335,15 +370,16 @@ export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string
       await arreterAbonnementNumeroSeul(d.stripe.transport, { cle: d.stripe.cle, abonnementId: o.abonnementId, avoir: false });
     } catch (err) {
       if (!(err instanceof StripeError)) throw err;
-      // 🔴 Payée sans droit, une panne passagère (réseau, 5xx, 429) LÈVE : ce cas ne vient que du webhook, Stripe rejoue
-      // l'événement et la résiliation se refait, l'e-mail ne partant qu'après elle (relecture du correctif, jaune 1). Une
-      // fin de droit ordinaire garde la résiliation à la main : `/ops` l'appelle aussi, et rien ne l'y rejouerait.
-      if (payee && passagere(err)) throw err;
-      // La même résiliation déjà en cours chez Stripe (deux fins traitées ensemble) : l'autre appel la fait.
-      if (err.code !== 'idempotency_key_in_use') {
+      // 🔴 Une résiliation ne se compte que RELUE (relecture du correctif de l'e-mail sans droit, jaunes 1 à 3). Une réponse
+      // perdue, un 500 rendu après la résiliation, le 409 de la clé d'idempotence, un arrêt déjà fait : l'abonnement relu
+      // dit s'il est résilié. Sinon, ou illisible, à vérifier tout de suite : rien ne lève plus, parce qu'un rejeu de Stripe
+      // retombait sur un abonnement déjà résilié (la session relue n'y repasse plus, ni e-mail ni consigne) ou sur le même
+      // 500, que la clé d'idempotence garde 24 h, sans alerte.
+      const relu = await statutRelu(d.stripe, o.abonnementId);
+      if (relu !== 'canceled') {
         issue = 'a_verifier';
-        journaliser('error', 'option_wa_resiliation_impossible', { tenantId, abonnement: o.abonnementId, status: err.status, code: err.code, err: err.message });
-        await d.alerter(`Fin de droit de l'option Crédit WhatsApp de l'espace ${tenantId} : Stripe refuse de résilier ${o.abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''}). À résilier à la main (${remboursement}) ; ses envois sont arrêtés. ${lien}`);
+        journaliser('error', 'option_wa_resiliation_impossible', { tenantId, abonnement: o.abonnementId, status: err.status, code: err.code, relu, err: err.message });
+        await d.alerter(`Fin de droit de l'option Crédit WhatsApp de l'espace ${tenantId} : Stripe n'a pas résilié ${o.abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''} ; relue : ${relu ?? 'illisible'}). À vérifier chez Stripe, et à résilier à la main (${remboursement}) ; ses envois sont arrêtés. ${lien}`);
       }
     }
   }

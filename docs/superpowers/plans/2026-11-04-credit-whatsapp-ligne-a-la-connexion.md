@@ -355,6 +355,37 @@ lot D. Les retraits de garde à la fin, serveur et console, comme au lot C.
 **Essai réel** : l'essai 231 le couvre ; s'y ajoute, au premier Pro payant, l'e-mail à la fin de l'essai et aucun au
 renouvellement suivant.
 
+### C5. Les jaunes d'avant la vente (accord de Julien du 2026-11-09)
+
+**Méthode** : implémenteur par lot, puis une relecture indépendante du diff : l'e-mail de l'arrêt, la fin de droit et la
+résiliation chez Stripe sont des chemins de la production, et ils portent des invariants invisibles (un seul e-mail, une
+seule consigne de remboursement, une résiliation comptée seulement relue). TDD ; les retraits de garde à la fin. Les
+jaunes 1 à 3 du plan du lot 4 (§ « La relecture du correctif de l'e-mail sans droit ») s'y ferment aussi, dans le code
+qu'ils partagent avec ceux du lot C.
+
+- [x] Lot C, jaune 2 : l'e-mail de l'arrêt se décide sur l'ÉTAT, à chaque passage (un rejeu après une panne, deux
+  traitements de la même fin) : des lignes de l'option arrêtées, aucune autre option vivante, une fin par résiliation ou
+  impayé (jamais une fin de droit) ; la réservation `option:<abonnement>` le garde unique. Tests : un rejeu l'envoie ;
+  deux traitements qui se partagent la fin l'envoient ; une fin de droit, jamais.
+- [x] Lot C, jaune 4 (décision de Julien du 2026-11-09) : l'e-mail suit la règle de l'onglet (`arretDesLignes` : toutes
+  les lignes arrêtées, l'une de l'option) ; un espace qui garde une ligne posée à la main n'en reçoit aucun, et l'alerte à
+  Julien le dit. Test : l'espace mixte.
+- [x] Lot C, jaune 5 : « reprenez l'option » seulement quand la prise l'accepterait (`repriseOuverte` : la formule payée,
+  et un Pro dont la fin programmée n'est pas passée). Tests : un Pro en retard, un Pro qui se termine, un Business en
+  essai : aucun e-mail.
+- [x] Lot C, jaune 11 (décision de Julien du 2026-11-09) : les deux e-mails de la conversion passent en `commercial`,
+  avec le lien de désinscription. Test du catalogue.
+- [x] Lot 4, jaunes 1 à 3 : la résiliation ne se compte que RELUE. Sur toute erreur de Stripe, l'abonnement est relu :
+  résilié, la fin de droit suit (l'e-mail et la consigne) ; sinon, ou illisible, « à vérifier » : Julien la résilie et
+  prévient les admins à la main, la fin écrite et les lignes arrêtées. Plus de levée, donc plus de rejeu qui retombe sur
+  un abonnement déjà résilié ni sur un 500 gardé 24 h par la clé d'idempotence. Une seule fin de droit à la fois par
+  espace (verrou court) : la consigne ne part qu'une fois. Tests : réponse perdue, 500 après la résiliation, 409 :
+  résiliée, relue ; 500 sans résiliation : à vérifier, une alerte ; une fin de droit déjà en cours : rien de plus. Les
+  jaunes 5 et 6 du même passage (la consigne d'un « à vérifier », des commentaires périmés) se ferment avec eux.
+
+**Essai réel** : l'essai 231 s'enrichit (une option résiliée au portail : l'e-mail une fois, même l'événement renvoyé
+depuis le tableau de bord de Stripe) ; l'essai 215, après le prix, couvre l'option payée sans droit.
+
 ## Lot D : le passage du numéro de l'essai sur la ligne
 
 - [ ] **D0, l'essai réel du partage** (spec, « L'essai réel avant toute vente ») : sur un numéro d'essai connecté avec une

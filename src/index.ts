@@ -51,7 +51,7 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
-import { formulePayee } from './offres/formule-payee';
+import { formulePayee, repriseOuverte } from './offres/formule-payee';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
 import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
@@ -1056,6 +1056,16 @@ async function main(): Promise<void> {
   };
 
   /**
+   * Ce que lisent la règle de la prise de l'option (`formulePayee`) et celle de sa reprise (`repriseOuverte`) : l'offre et
+   * le Business relus sans cache, l'abonnement Pro en base (sa fin d'essai, son statut, sa fin programmée). Les MÊMES
+   * lectures, pour que l'e-mail de l'arrêt ne propose jamais une prise que la console refuserait.
+   */
+  const formuleDe = async (tenant: string) => ({
+    offre: (await offresSansCache.offreDe(tenant)).offre,
+    pro: await abonnementsOffre.resume(tenant),
+    businessEssaiFinLe: (await offresSansCache.lireEntreprise(tenant))?.businessEssaiFinLe ?? null,
+  });
+  /**
    * L'option du Crédit WhatsApp (lot 4a, `src/stripe/option-credit-whatsapp.ts`) : le MÊME Stripe, les MÊMES clients et la
    * MÊME règle du mode test que le Pro. Son magasin est écrit par le seul webhook ; les places suivent ce que Stripe rend.
    */
@@ -1067,13 +1077,8 @@ async function main(): Promise<void> {
     prixOption: config.STRIPE_PRIX_OPTION_WA,
     options: optionsCreditWhatsapp,
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
-    // Pas d'option pendant un essai (révision du 2026-11-04) : l'offre et le Business relus sans cache, l'abonnement Pro
-    // en base (sa fin d'essai, son statut).
-    formulePayee: async (tenant) => formulePayee({
-      offre: (await offresSansCache.offreDe(tenant)).offre,
-      pro: await abonnementsOffre.resume(tenant),
-      businessEssaiFinLe: (await offresSansCache.lireEntreprise(tenant))?.businessEssaiFinLe ?? null,
-    }, Date.now()),
+    // Pas d'option pendant un essai (révision du 2026-11-04).
+    formulePayee: async (tenant) => formulePayee(await formuleDe(tenant), Date.now()),
     numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
     reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
@@ -1212,6 +1217,8 @@ async function main(): Promise<void> {
     // L'e-mail aux admins d'une option payée sans droit, une fois par abonnement, sans promesse de remboursement.
     prevenirSansDroit: optionSansDroit,
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
+    // Une fin de droit à la fois par espace : la consigne de remboursement ne part qu'une fois.
+    verrous: verrousCourts,
   };
   /**
    * La résiliation du Pro et les factures de l'espace, depuis la console (2026-10-26, `src/stripe/gestion-pro.ts`) : le
@@ -2280,8 +2287,10 @@ async function main(): Promise<void> {
           finDeDroit: brancherFinDeDroit(finDeDroitDeLOption),
           finieLe: (abonnementId) => optionsCreditWhatsapp.finieLe(abonnementId),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
-          // L'arrêt dit au client (lot C, moment 3) : la règle de droit de sa fin de droit, l'e-mail une fois par abonnement.
-          aDroit: (tenant) => finDeDroitDeLOption.aDroit(tenant),
+          // L'arrêt dit au client (lot C, moment 3) : l'état des lignes après l'arrêt (la règle de l'onglet), la reprise
+          // jugée par les MÊMES lectures que la prise, l'e-mail une fois par abonnement.
+          lignes: (tenant) => lignesCreditWhatsapp.lignesDeLEspace(tenant),
+          repriseOuverte: async (tenant) => repriseOuverte(await formuleDe(tenant), Date.now()),
           prevenirArret: optionArretee,
         },
       },

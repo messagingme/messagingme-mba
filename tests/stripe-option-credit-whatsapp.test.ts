@@ -236,24 +236,51 @@ describe('l’option relue chez Stripe (le webhook)', () => {
 });
 
 describe('la fin de droit', () => {
-  function fin(o: { vivante?: OptionCredit | null; aDroit?: boolean; refus?: ReponseStripe; premiereFin?: boolean; stripe?: null } = {}) {
-    const transport = new FauxStripe({}, o.refus ? [o.refus] : []);
+  function fin(o: {
+    vivante?: OptionCredit | null; aDroit?: boolean; refus?: ReponseStripe; premiereFin?: boolean; stripe?: null;
+    /** L'abonnement relu chez Stripe après une erreur de la résiliation : un objet, un statut HTTP en échec, ou une panne. */
+    relu?: unknown;
+    /** La résiliation part en panne réseau : Stripe a pu la faire, sa réponse est perdue. */
+    reseau?: boolean;
+    /** Une autre fin de droit de l'espace tient le verrou. */
+    verrouTenu?: boolean;
+    /** L'option relue sous le verrou, quand elle a changé depuis la première lecture (finie entre-temps). */
+    vivanteSousVerrou?: OptionCredit | null;
+  } = {}) {
+    const transport = new FauxStripe(o.relu === undefined ? {} : { sub_opt: o.relu }, o.refus ? [o.refus] : []);
+    if (o.reseau) {
+      transport.delete = async (url: string) => { transport.suppressions.push({ url, corps: new URLSearchParams() }); throw new Error('ECONNRESET'); };
+    }
     const journal: string[] = [];
     const alertes: string[] = [];
+    const verrous = { pris: [] as string[], relaches: 0 };
+    let lectures = 0;
     const d: DepsFinDeDroitOption = {
       stripe: o.stripe === null ? null : { cle: 'rk_live_x', livemode: true, transport },
       options: {
-        vivante: async () => (o.vivante === undefined ? OPTION : o.vivante),
+        vivante: async () => {
+          lectures += 1;
+          if (lectures > 1 && o.vivanteSousVerrou !== undefined) return o.vivanteSousVerrou;
+          return o.vivante === undefined ? OPTION : o.vivante;
+        },
         finir: async (id, raison) => { journal.push(`finir:${id}:${raison}`); return { ...OPTION, premiereFin: o.premiereFin ?? true }; },
       },
       aDroit: async () => o.aDroit ?? false,
       arreterLesLignes: async (t) => { journal.push(`arret:${t}`); return 2; },
       prevenirSansDroit: async (t, id) => { journal.push(`courriel:${t}:${id}`); },
       alerter: async (t) => { journal.push(`alerte:${t.slice(0, 20)}`); alertes.push(t); },
+      verrous: {
+        prendre: async (cles) => {
+          verrous.pris.push(...cles.map(([c]) => c));
+          return o.verrouTenu ? null : { jeton: 'j', cles: cles.map(([c]) => c) };
+        },
+        relacher: async () => { verrous.relaches += 1; },
+      },
       now: () => new Date('2026-11-03T20:00:00Z'),
     };
-    return { d, transport, journal, alertes };
+    return { d, transport, journal, alertes, verrous };
   }
+  const RESILIE = abonnement(1, { statut: 'canceled' });
 
   it('🔴 plus aucune offre n’y donne droit : résiliée tout de suite sans avoir, finie, ses lignes arrêtées, Julien prévenu', async () => {
     const { d, transport, journal } = fin();
@@ -308,16 +335,66 @@ describe('la fin de droit', () => {
     expect(journal.some((j) => j.startsWith('courriel'))).toBe(false);
     expect(alertes).toHaveLength(2);
     expect(alertes.join(' ')).not.toMatch(/sans remboursement|résiliée chez Stripe/);
-    expect(alertes[0]).toMatch(/À résilier à la main \(payée sans droit, son remboursement est à décider, puis prévenir ses admins : aucun e-mail ne part tant qu’elle court\)/);
+    // La consigne ne promet plus d'e-mail après une résiliation à la main : aucun chemin ne l'envoie (relecture du
+    // correctif de l'e-mail sans droit, jaune 5).
+    expect(alertes[0]).toMatch(/À vérifier chez Stripe, et à résilier à la main \(payée sans droit : son remboursement est à décider, et ses admins à prévenir à la main, aucun e-mail ne partira\)/);
     expect(alertes[1]).toMatch(/payée sans droit, finie chez nous/);
   });
 
-  it('🔴 payée sans droit, une panne passagère de Stripe lève : ni e-mail, ni fin, ni alerte, Stripe rejouera l’événement', async () => {
-    for (const status of [503, 429]) {
-      const { d, journal, alertes } = fin({ refus: { status, json: { error: { message: 'indisponible' } } } });
-      await expect(finDeDroitOption(d, T1, 'payee_sans_droit'), String(status)).rejects.toThrow();
-      expect([journal, alertes], String(status)).toEqual([[], []]);
+  /**
+   * La relecture du correctif de l'e-mail sans droit (plan du lot 4, jaunes 1 à 3) : une panne passagère faisait lever pour
+   * que Stripe rejoue ; mais le rejeu retombait sur un abonnement déjà résilié (la session relue n'y repasse plus : ni
+   * e-mail ni consigne), ou sur le même 500, que la clé d'idempotence garde 24 h, sans alerte.
+   */
+  it('🔴 payée sans droit, une panne sans résiliation (503, 429, le 500 que la clé garde 24 h) : à vérifier tout de suite, rien ne lève, aucun e-mail', async () => {
+    for (const status of [503, 429, 500]) {
+      const { d, journal, alertes } = fin({ refus: { status, json: { error: { message: 'indisponible' } } }, relu: abonnement(1) });
+      expect(await finDeDroitOption(d, T1, 'payee_sans_droit'), String(status)).toBe('a_verifier');
+      expect(journal.filter((j) => !j.startsWith('alerte')), String(status)).toEqual(['finir:sub_opt:fin_de_droit', `arret:${T1}`]);
+      expect(alertes, String(status)).toHaveLength(2);
+      expect(alertes[0], String(status)).toMatch(new RegExp(`Stripe n'a pas résilié sub_opt \\(${status} ; relue : active\\)\\. À vérifier chez Stripe, et à résilier à la main \\(payée sans droit`));
     }
+    // L'abonnement illisible au relu (une panne de plus) : le doute ne vaut jamais résiliation.
+    for (const relu of [503, new Error('ECONNRESET')]) {
+      const { d, journal, alertes } = fin({ reseau: true, relu });
+      expect(await finDeDroitOption(d, T1, 'payee_sans_droit'), String(relu)).toBe('a_verifier');
+      expect(journal.some((j) => j.startsWith('courriel')), String(relu)).toBe(false);
+      expect(alertes[0], String(relu)).toMatch(/Stripe n'a pas résilié sub_opt \(réseau ; relue : illisible\)/);
+    }
+  });
+
+  it('🔴 une résiliation ne se compte que RELUE : réponse perdue, 500 rendu après elle, 409 d’un appel concurrent, arrêt déjà fait, relue résiliée : l’e-mail et la consigne partent', async () => {
+    const cas: Array<{ nom: string; reseau?: boolean; refus?: ReponseStripe }> = [
+      { nom: 'réseau', reseau: true },
+      { nom: '500', refus: { status: 500, json: { error: { message: 'erreur' } } } },
+      { nom: '409', refus: { status: 409, json: { error: { code: 'idempotency_key_in_use', message: 'en cours' } } } },
+      { nom: '400', refus: { status: 400, json: { error: { code: 'resource_missing', message: 'non' } } } },
+    ];
+    for (const c of cas) {
+      const { d, journal, alertes } = fin({ ...c, relu: RESILIE });
+      expect(await finDeDroitOption(d, T1, 'payee_sans_droit'), c.nom).toBe('resiliee');
+      expect(journal, c.nom).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Crédit WhatsA', 'finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Crédit WhatsA']);
+      expect(alertes[0], c.nom).toMatch(/résiliée chez Stripe, un e-mail part à ses admins/);
+    }
+    // Une fin de droit ordinaire aussi : résiliée, relue, sans alerte « à la main ».
+    const ordinaire = fin({ refus: { status: 500, json: { error: { message: 'erreur' } } }, relu: RESILIE });
+    expect(await finDeDroitOption(ordinaire.d, T1, 'fin_de_droit')).toBe('resiliee');
+    expect(ordinaire.alertes.join(' ')).not.toMatch(/à la main/);
+  });
+
+  it('🔴 une seule fin de droit à la fois par espace : pendant une autre, rien n’est résilié ni dit ; l’option finie entre-temps, rien non plus', async () => {
+    // La relecture du correctif de l'e-mail sans droit (jaune 2) : la session et la première facture arrivent ensemble, et
+    // chacune envoyait la consigne de remboursement.
+    const tenue = fin({ verrouTenu: true });
+    expect(await finDeDroitOption(tenue.d, T1, 'payee_sans_droit')).toBe('en_cours');
+    expect([tenue.transport.suppressions, tenue.journal, tenue.verrous.pris]).toEqual([[], [], [`option.fin:${T1}`]]);
+    // L'option se relit sous le verrou : finie par l'autre appel, rien à faire.
+    const finie = fin({ vivanteSousVerrou: null });
+    expect(await finDeDroitOption(finie.d, T1, 'payee_sans_droit')).toBe('sans_option');
+    expect([finie.transport.suppressions, finie.journal, finie.verrous.relaches]).toEqual([[], [], 1]);
+    const complete = fin();
+    expect(await finDeDroitOption(complete.d, T1, 'payee_sans_droit')).toBe('resiliee');
+    expect([complete.verrous.pris, complete.verrous.relaches]).toEqual([[`option.fin:${T1}`], 1]);
   });
 
   it('une fin de droit ordinaire garde la résiliation à la main sur une panne passagère : /ops ne la rejouerait pas', async () => {

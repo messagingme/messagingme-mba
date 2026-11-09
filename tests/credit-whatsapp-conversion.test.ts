@@ -111,6 +111,12 @@ describe('signalerConversion', () => {
     }
   });
 
+  it('🔴 les deux e-mails sont commerciaux : une proposition payante porte le lien de désinscription (jaune 11 du lot C, décision de Julien du 2026-11-09)', () => {
+    for (const cle of ['ligne_credit_disponible', 'ligne_credit_sur_demande']) {
+      expect(CATALOGUE.find((x) => x.cle === cle)!.categorie, cle).toBe('commercial');
+    }
+  });
+
   it('le prix des deux e-mails et du bandeau de la console est celui de l’option, dans les deux langues', () => {
     const euros = PRIX_OPTION_WA_HT_CENTIMES / 100;
     for (const cle of ['ligne_credit_disponible', 'ligne_credit_sur_demande']) {

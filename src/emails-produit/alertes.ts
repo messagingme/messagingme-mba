@@ -179,9 +179,11 @@ export function creerOptionSansDroit(d: { emettre: Emettre; pageOffre: string })
 }
 
 /**
- * L'option du Crédit WhatsApp ARRÊTÉE (révision du 2026-11-04, lot C, moment 3) : sa première fin annoncée par Stripe (une
- * résiliation, un impayé abandonné), ses lignes arrêtées alors que la formule y donne encore droit. Ses admins savent leurs
- * envois arrêtés, leur crédit conservé, et les deux chemins pour reprendre. Une fois par abonnement. Ne lève jamais.
+ * L'option du Crédit WhatsApp ARRÊTÉE (révision du 2026-11-04, lot C, moment 3) : sa fin annoncée par Stripe (une
+ * résiliation, un impayé abandonné), toutes les lignes de l'espace arrêtées, alors que la formule permet de la reprendre
+ * (le webhook en juge, relecture du lot C, jaunes 2, 4 et 5). Ses admins savent leurs envois arrêtés, leur crédit conservé,
+ * et les deux chemins pour reprendre. Une fois par abonnement : la réservation `option:<abonnement>` absorbe les rejeux.
+ * Ne lève jamais.
  */
 export function creerOptionArretee(d: { emettre: Emettre; pageNumero: string }): (tenantId: string, abonnementId: string) => Promise<void> {
   return async (tenantId, abonnementId) => {

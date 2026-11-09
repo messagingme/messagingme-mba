@@ -364,7 +364,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
    */
   const optionSansDroit = creerOptionSansDroit({ emettre: (e) => emetteurEmails.emettre(e), pageOffre: `${console_}/offre` });
   /**
-   * L'option du Crédit WhatsApp arrêtée alors que la formule y donne encore droit (une résiliation, un impayé ; lot C,
+   * L'option du Crédit WhatsApp arrêtée alors que la formule permet de la reprendre (une résiliation, un impayé ; lot C,
    * moment 3) : l'e-mail aux admins, une fois par abonnement, vers Connecter WhatsApp (reprendre l'option, ou sa carte
    * chez Meta). Le webhook l'envoie, dans l'API.
    */

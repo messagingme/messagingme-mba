@@ -147,7 +147,7 @@ function EmailsDuProduit({ tenantId }: { tenantId: string }) {
           type="checkbox" className="mt-1" checked={prefs.commerciaux} disabled={enCours} data-testid="emails-commerciaux"
           onChange={(e) => { void changer({ commerciaux: e.target.checked }); }}
         />
-        <span>{t('Recevoir les e-mails d’information (bienvenue, conseils, récapitulatif)', 'Receive news e-mails (welcome, tips, summary)')}</span>
+        <span>{t('Recevoir les e-mails d’information (bienvenue, conseils, récapitulatif, offres)', 'Receive news e-mails (welcome, tips, summary, offers)')}</span>
       </label>
       <p className="text-xs text-ink-500">
         {t(
