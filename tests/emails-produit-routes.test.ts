@@ -269,6 +269,17 @@ describe('le lien de désinscription', () => {
     await server.close();
   });
 
+  it('🔴 la page des e-mails d’information cite les offres : la proposition du Crédit WhatsApp en est (relecture du lot C5, jaune 9)', async () => {
+    // Depuis le 2026-11-09, les e-mails de la conversion sont `commercial` : qui se désinscrit depuis l'un d'eux doit lire
+    // qu'il coupe aussi les offres, en français et en anglais.
+    const { server } = monterDesinscription();
+    const url = `/e/desinscription/${encodeURIComponent(jetonDesinscription(IDENTITE, 'commercial', SECRET_SESSIONS))}`;
+    const page = (await server.inject({ method: 'GET', url })).body;
+    expect(page).toContain('(bienvenue, conseils, récapitulatif, offres)');
+    expect(page).toContain('(welcome, tips, weekly summary, offers)');
+    await server.close();
+  });
+
   it('🔴 un jeton forgé ou d’un autre secret : 404, rien n’est désinscrit', async () => {
     const { server, desinscrits } = monterDesinscription();
     const forge = jetonDesinscription(IDENTITE, 'commercial', 'pas-le-secret');

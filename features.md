@@ -3687,10 +3687,11 @@ boîte par sous-menu.
     nombre de clients écartés) : passer en Pro, ou supprimer des contacts en le demandant à Claude ;
   - en offre Pro, 80 % puis 100 % des contacts, à chaque franchissement ; ces alertes renvoient à l'Entreprise ;
   - l'option Crédit WhatsApp arrêtée (une résiliation, un impayé) alors que la formule permet de la reprendre (jamais une
-    formule en retard de paiement ou qui se termine), une fois par option, et seulement quand toutes les lignes de
-    l'espace sont arrêtées : les envois par le Crédit WhatsApp sont arrêtés, le crédit restant conservé, et pour envoyer
-    de nouveau, reprendre l'option ou connecter le numéro avec sa carte chez Meta. Un espace qui garde une ligne posée à
-    la main n'en reçoit pas : notre équipe le prévient.
+    formule en retard de paiement, ni une formule Pro dont la fin programmée est passée), une fois par option, dans les
+    trois jours qui suivent sa fin, et seulement quand toutes les lignes de l'espace sont arrêtées : les envois par le
+    Crédit WhatsApp sont arrêtés, le crédit restant conservé, et pour envoyer de nouveau, reprendre l'option ou connecter
+    le numéro avec sa carte chez Meta. Un espace qui garde une ligne posée à la main n'en reçoit pas, ni une option
+    arrêtée alors qu'elle n'est plus en vente : notre équipe le prévient.
 - ✅ **Une conversation attend l'équipe** : quand un agent IA, l'agent de Meta ou un scénario passe la main à l'équipe
   alors que le contact vient d'écrire, les administrateurs reçoivent un e-mail avec le nom du contact (ou son numéro
   masqué, jamais le texte des messages), l'heure où la fenêtre de 24 heures se ferme, et un bouton vers la conversation.

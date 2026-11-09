@@ -4585,8 +4585,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   ont droit, jamais la Free ; une Entreprise n'en a pas besoin. 🔴 Elle ne s'ouvre qu'à une formule PAYÉE (`formulePayee`,
   `src/offres/formule-payee.ts`, révision du 2026-11-04) : un Pro au statut actif hors essai, un Business confirmé (sa date
   d'essai effacée, `tenants.offre_business_essai_fin_le`, migration 0278, posée et confirmée dans `/ops`, qui refuse
-  en 400 une date sur un espace que l'écriture ne laisse pas en Business) ; sinon 409 `option_apres_essai`, avant toute
-  session Stripe. La vue de l'onglet porte la même règle (`option.formulePayee`, faux hors Pro et Business) : pendant un
+  en 400 une date sur un espace que l'écriture ne laisse pas en Business) ; sinon 409 `option_apres_essai`, ou
+  `formule_en_retard` pour un Pro vivant en retard de paiement (`formuleEnRetard`, la vraie raison, décision du
+  2026-11-09), avant toute session Stripe. La prise reste ouverte jusqu'à la fin programmée d'un Pro résilié (décision du
+  2026-11-09) : la fin de droit résiliera alors l'option sans rembourser le mois entamé. La vue de l'onglet porte la même règle (`option.formulePayee`, faux hors Pro et Business) : pendant un
   essai, l'onglet explique qui facture quoi au lieu de vendre, et ne recalcule rien. Stripe d'abord, sans essai, codes promo fermés, une place
   ajoutée n'existe que relue payée (`pending_if_incomplete`), un retrait s'applique sans prorata et jamais sous les
   numéros couverts. Le webhook l'aiguille par sa marque APRÈS le Pro et AVANT le numéro (qui acquitte en silence ce
@@ -4604,7 +4606,8 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   `places_manquantes`), sauf une pose FORCÉE et signée, dont la ligne reste `'ops'`. La fin : plus aucune offre qui y
   donne droit (la fin d'un Pro sans Business ni Entreprise, le retrait d'une offre posée à la main) la résilie tout de
   suite sans avoir (`finDeDroitOption`), Stripe qui abandonne un impayé la finit (un `unpaid`, qu'il garderait vivant et
-  prélèverait encore, est d'abord résilié chez lui, `resilierOptionChezStripe`) ; ses lignes sont alors arrêtées, pas
+  prélèverait encore, est d'abord résilié chez lui, `resilierOptionChezStripe`, relu sur toute erreur comme la fin de
+  droit : sans confirmation, une alerte « à vérifier » et la fin quand même, sans levée) ; ses lignes sont alors arrêtées, pas
   retirées, 🔴 jamais celles d'une Entreprise (`illimite` du traitement du webhook) : la garde lit l'arrêt d'une ligne
   AVANT l'illimité, et une Entreprise n'a besoin d'aucune option. Chaque enregistrement d'une option relit d'abord le droit
   (`finDeDroitOption`) : une option payée sans offre qui y donne droit (un Checkout ouvert pendant l'essai du Pro, réglé
@@ -4616,8 +4619,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   l'abonnement est relu ; résilié, la suite est la même ; sinon, ou illisible, « à vérifier » : la fin est écrite, les
   lignes arrêtées, et Julien résilie à la main et prévient les admins, sans e-mail. Rien ne lève : un rejeu de Stripe
   retombait sur un abonnement déjà résilié (la session relue n'y repasse plus) ou sur le même 500, que la clé
-  d'idempotence garde 24 h. Une seule fin de droit à la fois par espace (verrou court `option.fin:<espace>`, `en_cours`
-  pour la seconde, qui laisse faire la première) : la consigne ne part qu'une fois. 🔴 La fin de droit prend son cas en paramètre
+  d'idempotence garde 24 h. Une seule fin de droit à la fois par espace ET par cas (verrou court
+  `option.fin:<cas>:<espace>`, `en_cours` pour la seconde, qui laisse faire la première) : la consigne ne part qu'une fois,
+  et une fin du Pro traitée au même instant ne fait pas taire une option payée sans droit. Son bail (3 minutes) reste plus
+  long que le pire cas qu'il protège : la résiliation et sa relecture (deux délais HTTP de 30 s) et trois alertes. 🔴 La fin de droit prend son cas en paramètre
   requis (`fin_de_droit` ou `payee_sans_droit`), et le webhook la reçoit par `brancherFinDeDroit` : une flèche à un
   paramètre avalerait le cas en silence. Avec le droit, il relance les lignes que la fin d'une
   précédente avait arrêtées (`relancerLesLignesDeLOption`), à chaque enregistrement et pas seulement le premier, pour
@@ -4666,9 +4671,13 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   l'espace arrêtées, l'une de l'option (`arretDesLignes`, la règle de l'onglet), aucune autre option vivante, une fin en
   base qui n'est pas une fin de droit, et la reprise ouverte (`repriseOuverte`, `src/offres/formule-payee.ts` : la règle
   de la prise et un Pro dont la fin programmée n'est pas passée, lus par les mêmes lectures que la prise, `formuleDe`).
-  La réservation `option:<abonnement>` le garde unique. Jamais une Entreprise, un Pro en retard ou qui se termine, une
-  option sans ligne, ni l'option payée sans droit, qui a le sien ; un espace qui garde une ligne posée à la main active
-  n'en reçoit pas, et l'alerte à Julien le dit (décision du 2026-11-09). Toutes les lignes arrêtées se lisent par
+  La réservation `option:<abonnement>` le garde unique. 🔴 Seulement dans les `FENETRE_ARRET_JOURS` (3) qui suivent la fin
+  en base, la durée des rejeux de Stripe : un événement plus tardif (une métadonnée retouchée sur l'abonnement résilié,
+  un événement renvoyé à la main) ne le dit plus. Jamais une Entreprise, un Pro en retard ou dont la fin programmée est
+  passée, une option sans ligne, ni l'option payée sans droit, qui a le sien. Un espace qui garde une ligne posée à la
+  main active n'en reçoit pas, ni une option arrêtée hors vente (`optionEnVente` : l'e-mail dirait « reprenez l'option ») ;
+  dans ces deux cas l'alerte à Julien le dit, une fois (décisions du 2026-11-09). L'alerte de fin part avant la lecture
+  des lignes : une panne de cette lecture fait rejouer l'événement sans la perdre. Toutes les lignes arrêtées se lisent par
   une seule règle (`arretDesLignes`, `src/credit-whatsapp/etat-ligne.ts`) : la vue de l'onglet en tire `ligneArretee` et
   `optionArretee` (dont une ligne venue de l'option), `get_credit` en tire `envois_arretes` et `option_arretee`.
   L'onglet dit alors la sortie, « Reprendre l'option » (sa section) et « Connecter avec ma carte chez Meta » ; des lignes

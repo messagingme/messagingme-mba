@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
+import { HTTP_TIMEOUT_DEFAUT_MS } from '../src/meta/http';
 import {
   brancherFinDeDroit, changerPlaces, finDeDroitOption, optionChezStripe, ouvrirOption, PRODUIT_OPTION_WA, resilierOptionChezStripe,
   type DepsFinDeDroitOption, type DepsOptionCredit,
@@ -67,6 +68,8 @@ const OPTION: OptionCredit = {
 function deps(o: {
   offre?: Offre; vivante?: OptionCredit | null; prixOption?: string; objets?: Record<string, unknown>; reponses?: ReponseStripe[]; couverts?: number;
   formulePayee?: boolean;
+  /** La formule Pro en retard de paiement (relecture du lot C5, jaune 7). */
+  formuleEnRetard?: boolean;
   /** Le verrou de la prise déjà tenu par un autre clic (jaune 7 du lot C). */
   verrouTenu?: boolean;
 } = {}) {
@@ -88,6 +91,7 @@ function deps(o: {
     },
     offre: async () => o.offre ?? 'pro',
     formulePayee: async () => o.formulePayee ?? true,
+    formuleEnRetard: async () => o.formuleEnRetard ?? false,
     numerosCouverts: async () => o.couverts ?? 0,
     reprendreCampagnes: async (t) => { reprises.push(t); return 0; },
     alerter: async (t) => { alertes.push(t); },
@@ -162,6 +166,8 @@ describe('ouvrir l’option', () => {
       // Révision du 2026-11-04 (décision 1) : pas d'option pendant un essai, Pro comme Business.
       ['Pro en essai', { formulePayee: false }, 1, 409, 'option_apres_essai'],
       ['Business en essai', { offre: 'business', formulePayee: false }, 1, 409, 'option_apres_essai'],
+      // Relecture du lot C5, jaune 7 (décision de Julien du 2026-11-09) : un Pro en retard lit la vraie raison.
+      ['Pro en retard', { formulePayee: false, formuleEnRetard: true }, 1, 409, 'formule_en_retard'],
       ['déjà prise', { vivante: OPTION }, 1, 409, 'option_deja_prise'],
       ['zéro', {}, 0, 400, 'places_invalides'],
       ['vingt et un', {}, 21, 400, 'places_invalides'],
@@ -171,6 +177,15 @@ describe('ouvrir l’option', () => {
       expect(await ouvrirOption(d, T1, places, 'u1'), nom).toMatchObject({ ok: false, statut, details: { code } });
       expect(transport.posts, nom).toEqual([]);
     }
+  });
+
+  it('🔴 une formule Pro en retard lit la vraie raison du refus, plus « pendant un essai » (relecture du lot C5, jaune 7)', async () => {
+    // Décision de Julien du 2026-11-09 : la prise est la seule porte (l'onglet, les cartes), le refus y dit la raison.
+    const enRetard = JSON.stringify(await ouvrirOption(deps({ formulePayee: false, formuleEnRetard: true }).d, T1, 1, 'u1'));
+    expect(enRetard).toContain('Le paiement de votre formule Pro est en retard : réglez-le, puis prenez l’option.');
+    expect(enRetard).not.toContain('essai');
+    const enEssai = JSON.stringify(await ouvrirOption(deps({ formulePayee: false }).d, T1, 1, 'u1'));
+    expect(enEssai).toContain('pas pendant un essai');
   });
 
   it('🔴 un prix posé chez Stripe qui ne vaut pas 30 € HT par mois : refus lisible, aucune session', async () => {
@@ -244,6 +259,8 @@ describe('la fin de droit', () => {
     reseau?: boolean;
     /** Une autre fin de droit de l'espace tient le verrou. */
     verrouTenu?: boolean;
+    /** Les clés déjà tenues par une autre fin de droit (relecture du lot C5, jaune 1 : un verrou par cas). */
+    clesTenues?: string[];
     /** L'option relue sous le verrou, quand elle a changé depuis la première lecture (finie entre-temps). */
     vivanteSousVerrou?: OptionCredit | null;
   } = {}) {
@@ -253,7 +270,7 @@ describe('la fin de droit', () => {
     }
     const journal: string[] = [];
     const alertes: string[] = [];
-    const verrous = { pris: [] as string[], relaches: 0 };
+    const verrous = { pris: [] as string[], relaches: 0, durees: [] as number[] };
     let lectures = 0;
     const d: DepsFinDeDroitOption = {
       stripe: o.stripe === null ? null : { cle: 'rk_live_x', livemode: true, transport },
@@ -272,7 +289,9 @@ describe('la fin de droit', () => {
       verrous: {
         prendre: async (cles) => {
           verrous.pris.push(...cles.map(([c]) => c));
-          return o.verrouTenu ? null : { jeton: 'j', cles: cles.map(([c]) => c) };
+          verrous.durees.push(...cles.map(([, ms]) => ms));
+          const tenue = o.verrouTenu || cles.some(([c]) => (o.clesTenues ?? []).includes(c));
+          return tenue ? null : { jeton: 'j', cles: cles.map(([c]) => c) };
         },
         relacher: async () => { verrous.relaches += 1; },
       },
@@ -387,14 +406,34 @@ describe('la fin de droit', () => {
     // chacune envoyait la consigne de remboursement.
     const tenue = fin({ verrouTenu: true });
     expect(await finDeDroitOption(tenue.d, T1, 'payee_sans_droit')).toBe('en_cours');
-    expect([tenue.transport.suppressions, tenue.journal, tenue.verrous.pris]).toEqual([[], [], [`option.fin:${T1}`]]);
+    expect([tenue.transport.suppressions, tenue.journal, tenue.verrous.pris]).toEqual([[], [], [`option.fin:payee_sans_droit:${T1}`]]);
     // L'option se relit sous le verrou : finie par l'autre appel, rien à faire.
     const finie = fin({ vivanteSousVerrou: null });
     expect(await finDeDroitOption(finie.d, T1, 'payee_sans_droit')).toBe('sans_option');
     expect([finie.transport.suppressions, finie.journal, finie.verrous.relaches]).toEqual([[], [], 1]);
     const complete = fin();
     expect(await finDeDroitOption(complete.d, T1, 'payee_sans_droit')).toBe('resiliee');
-    expect([complete.verrous.pris, complete.verrous.relaches]).toEqual([[`option.fin:${T1}`], 1]);
+    expect([complete.verrous.pris, complete.verrous.relaches]).toEqual([[`option.fin:payee_sans_droit:${T1}`], 1]);
+  });
+
+  it('🔴 le verrou est par CAS : la fin du Pro en cours ne fait pas taire l’option payée sans droit (relecture du lot C5, jaune 1)', async () => {
+    // La fin du Pro et la session d'une option payée sans droit traitées ensemble : sous un verrou par espace, la seconde
+    // recevait `en_cours`, et l'option partait « sans remboursement », sans e-mail ni consigne.
+    const pendantLaFinDuPro = fin({ clesTenues: [`option.fin:fin_de_droit:${T1}`] });
+    expect(await finDeDroitOption(pendantLaFinDuPro.d, T1, 'payee_sans_droit')).toBe('resiliee');
+    expect(pendantLaFinDuPro.journal).toContain(`courriel:${T1}:sub_opt`);
+    expect(pendantLaFinDuPro.alertes.join(' ')).toMatch(/Remboursement à décider au cas par cas/);
+    // Le même cas reste sérialisé : la session et la première facture.
+    const memeCas = fin({ clesTenues: [`option.fin:payee_sans_droit:${T1}`] });
+    expect(await finDeDroitOption(memeCas.d, T1, 'payee_sans_droit')).toBe('en_cours');
+  });
+
+  it('🔴 le bail du verrou couvre le pire cas qu’il protège : la résiliation et sa relecture (deux délais HTTP), puis trois alertes (jaune 2)', async () => {
+    // Le bail échu avant la fin, un second appel reprenait le verrou et rejouait tout : deux consignes.
+    const c = fin();
+    await finDeDroitOption(c.d, T1, 'payee_sans_droit');
+    // `sendTelegram` attend 5 s au plus (`src/ops/telegram.ts`) ; la fin de droit alerte jusqu'à trois fois.
+    expect(c.verrous.durees[0]).toBeGreaterThan(2 * HTTP_TIMEOUT_DEFAUT_MS + 3 * 5_000);
   });
 
   it('une fin de droit ordinaire garde la résiliation à la main sur une panne passagère : /ops ne la rejouerait pas', async () => {
@@ -442,15 +481,24 @@ describe('la fin de droit', () => {
  * prélèverait au règlement d'une facture en retard, alors que ses lignes sont arrêtées.
  */
 describe('résilier une option impayée', () => {
-  it('🔴 résiliée sans avoir ; un refus durable prévient Julien et rend false ; une panne passagère lève, Stripe rejouera', async () => {
+  it('🔴 résiliée sans avoir ; sur une erreur, relue chez Stripe : résiliée, true ; sinon une alerte « à vérifier » et false, sans jamais lever', async () => {
     const ok = deps();
     expect(await resilierOptionChezStripe(ok.d, 'sub_opt')).toBe(true);
     expect(ok.transport.suppressions.map((s) => [s.url.split('/').pop(), s.corps.toString()])).toEqual([['sub_opt', '']]);
-    const refus = deps({ reponses: [{ status: 400, json: { error: { code: 'resource_missing', message: 'non' } } }] });
-    expect(await resilierOptionChezStripe(refus.d, 'sub_opt')).toBe(false);
-    expect(refus.alertes.join(' ')).toMatch(/À résilier à la main, sans remboursement/);
-    const panne = deps({ reponses: [{ status: 503, json: { error: { message: 'indisponible' } } }] });
-    await expect(resilierOptionChezStripe(panne.d, 'sub_opt')).rejects.toThrow();
-    expect(panne.alertes).toEqual([]);
+    // Relecture du lot C5, jaune 3 : une panne levait pour que Stripe rejoue, et un vrai 500 que la clé d'idempotence
+    // garde 24 h laissait les lignes d'une option impayée actives, sans alerte. La réponse perdue d'une résiliation faite
+    // se relit `canceled`.
+    const faite = deps({ reponses: [{ status: 500, json: { error: { message: 'erreur' } } }], objets: { sub_opt: abonnement(1, { statut: 'canceled' }) } });
+    expect(await resilierOptionChezStripe(faite.d, 'sub_opt')).toBe(true);
+    expect(faite.alertes).toEqual([]);
+    for (const status of [503, 429, 400]) {
+      const r = deps({ reponses: [{ status, json: { error: { message: 'non' } } }], objets: { sub_opt: abonnement(1, { statut: 'unpaid' }) } });
+      expect(await resilierOptionChezStripe(r.d, 'sub_opt'), String(status)).toBe(false);
+      expect(r.alertes.join(' '), String(status)).toMatch(new RegExp(`Stripe n'a pas résilié sub_opt \\(${status} ; relue : unpaid\\)\\. À vérifier chez Stripe, et à résilier à la main, sans remboursement`));
+    }
+    // L'abonnement illisible au relu : le doute ne vaut jamais résiliation.
+    const illisible = deps({ reponses: [{ status: 503, json: { error: { message: 'indisponible' } } }], objets: { sub_opt: 503 } });
+    expect(await resilierOptionChezStripe(illisible.d, 'sub_opt')).toBe(false);
+    expect(illisible.alertes.join(' ')).toMatch(/relue : illisible/);
   });
 });

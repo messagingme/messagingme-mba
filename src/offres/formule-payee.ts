@@ -35,3 +35,14 @@ export function repriseOuverte(
   if (!formulePayee(e, maintenant)) return false;
   return e.pro === null || e.offre !== 'pro' || e.pro.finPrevueLe === null || e.pro.finPrevueLe.getTime() > maintenant;
 }
+
+/**
+ * LA FORMULE PRO EST-ELLE EN RETARD DE PAIEMENT ? Un Pro vivant dont Stripe relance un prélèvement échoué : sa formule
+ * n'est pas payée (`formulePayee`), sans être un essai. Le refus de la prise de l'option le dit (relecture du lot C5,
+ * jaune 7) ; un Business n'est jamais « en retard », Julien le confirme ou non.
+ */
+export function formuleEnRetard(
+  e: { offre: Offre; pro: Pick<ResumePro, 'statut' | 'essaiFinLe' | 'finiLe'> | null; businessEssaiFinLe: Date | null },
+): boolean {
+  return e.offre === 'pro' && e.pro !== null && e.pro.finiLe === null && e.pro.statut === 'en_retard';
+}

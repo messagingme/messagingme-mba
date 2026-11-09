@@ -41,6 +41,11 @@ export interface DepsOptionCredit extends DepsPortail {
    * Business : la ligne du partenaire paie Meta dès le premier message.
    */
   formulePayee(tenantId: string): Promise<boolean>;
+  /**
+   * La formule Pro est-elle en retard de paiement (`formuleEnRetard`) ? Lue seulement quand la formule n'est pas payée,
+   * pour que le refus dise la vraie raison (relecture du lot C5, jaune 7).
+   */
+  formuleEnRetard(tenantId: string): Promise<boolean>;
   /** Les numéros que les lignes `'option'` couvrent déjà : un retrait de places ne passe pas sous leur nombre. */
   numerosCouverts(tenantId: string): Promise<number>;
   /** `PgNumeroDelieStore.leverPausesLigneCredit` : une place en plus fait repartir les campagnes en pause faute de place. */
@@ -66,6 +71,13 @@ export const OPTION_INDISPONIBLE = refus(503, 'L’option Crédit WhatsApp n’e
  * Julien confirme : l'écran propose à un Pro de démarrer sa formule payée tout de suite.
  */
 export const OPTION_APRES_ESSAI = refus(409, 'L’option Crédit WhatsApp s’ouvre avec une formule payée, pas pendant un essai.', { code: 'option_apres_essai' });
+
+/**
+ * Une formule Pro en retard de paiement n'est pas « payée » non plus, mais ce n'est pas un essai : le refus dit la vraie
+ * raison (relecture du lot C5, jaune 7 ; décision de Julien du 2026-11-09). La prise est la seule porte de l'option :
+ * l'onglet et les cartes le lisent tous deux ici.
+ */
+export const OPTION_FORMULE_EN_RETARD = refus(409, 'Le paiement de votre formule Pro est en retard : réglez-le, puis prenez l’option.', { code: 'formule_en_retard' });
 
 const placesValides = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= PLACES_OPTION_MAX;
 const PLACES_INVALIDES = refus(400, `De 1 à ${PLACES_OPTION_MAX} numéros : au-delà, contactez-nous.`, { code: 'places_invalides' });
@@ -104,7 +116,7 @@ export async function ouvrirOption(
   if (offre !== 'pro' && offre !== 'business') {
     return refus(409, 'L’option Crédit WhatsApp se prend avec la formule Pro ou Business.', { code: 'option_avec_le_pro' });
   }
-  if (!(await d.formulePayee(tenantId))) return OPTION_APRES_ESSAI;
+  if (!(await d.formulePayee(tenantId))) return (await d.formuleEnRetard(tenantId)) ? OPTION_FORMULE_EN_RETARD : OPTION_APRES_ESSAI;
   if ((await d.options.vivante(tenantId)) !== null) {
     return refus(409, 'Votre espace a déjà l’option Crédit WhatsApp : changez son nombre de numéros.', { code: 'option_deja_prise' });
   }
@@ -238,8 +250,8 @@ async function noter(
 /**
  * Résilie chez Stripe une option que nous finissons sur un impayé abandonné (`unpaid`, relecture du lot 4a, jaune 3) :
  * Stripe la garde vivante, et prélèverait encore au règlement d'une facture en retard alors que ses lignes sont arrêtées.
- * Sans remboursement. `false` quand Stripe refuse durablement (Julien prévenu) ; une panne passagère (réseau, 5xx, 429)
- * lève, pour que le webhook échoue et que Stripe rejoue.
+ * Sans remboursement. Rend `true` quand elle est résiliée, RELUE au besoin ; `false` sinon, Julien prévenu. Ne lève jamais
+ * sur une erreur de Stripe : la fin s'écrit quand même, et ses envois s'arrêtent.
  */
 export async function resilierOptionChezStripe(d: Pick<DepsOptionCredit, 'stripe' | 'alerter'>, abonnementId: string): Promise<boolean> {
   const s = d.stripe;
@@ -251,9 +263,14 @@ export async function resilierOptionChezStripe(d: Pick<DepsOptionCredit, 'stripe
     await arreterAbonnementNumeroSeul(s.transport, { cle: s.cle, abonnementId, avoir: false });
     return true;
   } catch (err) {
-    if (!(err instanceof StripeError) || passagere(err)) throw err;
-    journaliser('error', 'option_wa_resiliation_impaye_impossible', { abonnement: abonnementId, status: err.status, code: err.code, err: err.message });
-    await d.alerter(`Option Crédit WhatsApp ${abonnementId} impayée : Stripe refuse de la résilier (${err.status}${err.code ? `, ${err.code}` : ''}). À résilier à la main, sans remboursement. ${lienTableauStripe('subscriptions', abonnementId, s.livemode)}`);
+    if (!(err instanceof StripeError)) throw err;
+    // 🔴 Comme la fin de droit (relecture du lot C5, jaune 3) : une résiliation ne se compte que RELUE. Une panne levait
+    // pour que Stripe rejoue, et un vrai 500, que la clé d'idempotence `arret-<abonnement>` garde 24 h, laissait les
+    // lignes d'une option impayée actives tout ce temps, sans alerte.
+    const relu = await statutRelu(s, abonnementId);
+    if (relu === 'canceled') return true;
+    journaliser('error', 'option_wa_resiliation_impaye_impossible', { abonnement: abonnementId, status: err.status, code: err.code, relu, err: err.message });
+    await d.alerter(`Option Crédit WhatsApp ${abonnementId} impayée : Stripe n'a pas résilié ${abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''} ; relue : ${relu ?? 'illisible'}). À vérifier chez Stripe, et à résilier à la main, sans remboursement ; ses envois sont arrêtés. ${lienTableauStripe('subscriptions', abonnementId, s.livemode)}`);
     return false;
   }
 }
@@ -298,11 +315,16 @@ export interface DepsFinDeDroitOption {
   now?: () => Date;
 }
 
-/** `en_cours` : une autre fin de droit de l'espace tient le verrou, elle fait le travail. */
+/** `en_cours` : une autre fin de droit du même cas, pour l'espace, tient le verrou ; elle fait le travail. */
 export type IssueFinDeDroitOption = 'sans_option' | 'garde_son_droit' | 'resiliee' | 'a_verifier' | 'en_cours';
 
-/** Le verrou d'une fin de droit : une résiliation, sa relecture et quelques écritures, largement. */
-const DUREE_VERROU_FIN_MS = 60_000;
+/**
+ * Le bail du verrou d'une fin de droit. 🔴 Plus long que le pire cas qu'il protège (relecture du lot C5, jaune 2) : la
+ * résiliation et sa relecture, chacune jusqu'à `HTTP_TIMEOUT_DEFAUT_MS` (30 s), puis jusqu'à trois alertes Telegram de 5 s
+ * et quelques écritures. Échu avant la fin, un second appel reprenait le verrou et rejouait tout : deux consignes.
+ * `tests/stripe-option-credit-whatsapp.test.ts` tient l'ordre des deux constantes.
+ */
+const DUREE_VERROU_FIN_MS = 180_000;
 
 /** Le statut de l'abonnement relu chez Stripe ; `null` quand il ne se lit pas (une panne, un refus) : le doute ne résilie rien. */
 async function statutRelu(s: { cle: string; transport: TransportStripe }, abonnementId: string): Promise<string | null> {
@@ -329,15 +351,18 @@ export type CasFinDeDroit = 'fin_de_droit' | 'payee_sans_droit';
  * ne facture pas une option inutilisable), et les envois de ses numéros s'arrêtent le jour même ; ses lignes restent en
  * cours (arrêtées), pour qu'un client qui revient reprenne sans reconnexion. Rejouable : appelée à chaque fin d'offre,
  * rejeux compris. Rien de Stripe ne lève : une résiliation que Stripe ne confirme pas arrête quand même les envois, et
- * Julien la résilie à la main. Une seule à la fois par espace (`en_cours` pour la seconde).
+ * Julien la résilie à la main. Une seule à la fois par espace ET par cas (`en_cours` pour la seconde).
  */
 export async function finDeDroitOption(d: DepsFinDeDroitOption, tenantId: string, cas: CasFinDeDroit): Promise<IssueFinDeDroitOption> {
   if ((await d.options.vivante(tenantId)) === null) return 'sans_option';
   if (await d.aDroit(tenantId)) return 'garde_son_droit';
-  // 🔴 Une seule fin de droit à la fois par espace (relecture du correctif de l'e-mail sans droit, jaune 2) : la session et
-  // la première facture d'une option payée sans droit arrivent ensemble, et chacune envoyait la consigne de remboursement.
-  // La seconde laisse faire la première ; l'option se relit sous le verrou, finie entre-temps elle n'a plus rien à faire.
-  const prise = await d.verrous.prendre([[`option.fin:${tenantId}`, DUREE_VERROU_FIN_MS]]);
+  // 🔴 Une seule fin de droit à la fois par espace et par CAS (relecture du correctif de l'e-mail sans droit, jaune 2) : la
+  // session et la première facture d'une option payée sans droit arrivent ensemble, et chacune envoyait la consigne de
+  // remboursement. La seconde laisse faire la première ; l'option se relit sous le verrou, finie entre-temps elle n'a plus
+  // rien à faire. Le cas est dans la clé (relecture du lot C5, jaune 1) : une fin du Pro traitée au même instant ne fait
+  // pas taire l'option payée sans droit, qui partait alors « sans remboursement », sans e-mail ni consigne. Deux cas
+  // différents tournent ensemble ; la relecture absorbe le 409 de leur clé d'idempotence commune.
+  const prise = await d.verrous.prendre([[`option.fin:${cas}:${tenantId}`, DUREE_VERROU_FIN_MS]]);
   if (prise === null) return 'en_cours';
   try {
     const o = await d.options.vivante(tenantId);

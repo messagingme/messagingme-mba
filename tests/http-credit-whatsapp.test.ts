@@ -121,6 +121,7 @@ function achat(o: {
       },
       offre: async () => o.offre ?? 'pro',
       formulePayee: async () => o.formulePayee ?? true,
+      formuleEnRetard: async () => false,
       numerosCouverts: async () => 1,
       reprendreCampagnes: async () => 0,
       alerter: async () => {},

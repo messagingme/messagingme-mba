@@ -24,7 +24,8 @@ export interface DesinscriptionRouteDeps {
 }
 
 const QUOI: Record<CategorieCoupable, { fr: string; en: string }> = {
-  commercial: { fr: 'les e-mails d’information de Messaging Me (bienvenue, conseils, récapitulatif)', en: 'Messaging Me news e-mails (welcome, tips, weekly summary)' },
+  // Les offres en sont depuis le 2026-11-09 (la proposition du Crédit WhatsApp, `commercial`) : qui se désinscrit le lit.
+  commercial: { fr: 'les e-mails d’information de Messaging Me (bienvenue, conseils, récapitulatif, offres)', en: 'Messaging Me news e-mails (welcome, tips, weekly summary, offers)' },
   transfert: { fr: 'les e-mails « une conversation attend votre équipe »', en: '“a conversation is waiting for your team” e-mails' },
 };
 

@@ -673,6 +673,7 @@ export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
     options: { vivante: async () => null, noterPlaces: neDevraitPasEtreAppelee('creditWhatsapp.option.noterPlaces') },
     offre: async () => 'base',
     formulePayee: neDevraitPasEtreAppelee('creditWhatsapp.option.formulePayee'),
+    formuleEnRetard: neDevraitPasEtreAppelee('creditWhatsapp.option.formuleEnRetard'),
     numerosCouverts: async () => 0,
     reprendreCampagnes: neDevraitPasEtreAppelee('creditWhatsapp.option.reprendreCampagnes'),
     alerter: async () => {},
@@ -791,6 +792,7 @@ export const stripeOptionInerte: StripeWebhookRouteDeps['option'] = {
   alerter: async () => {},
   lignes: neDevraitPasEtreAppelee('stripe.option.lignes'),
   repriseOuverte: neDevraitPasEtreAppelee('stripe.option.repriseOuverte'),
+  enVente: neDevraitPasEtreAppelee('stripe.option.enVente'),
   prevenirArret: neDevraitPasEtreAppelee('stripe.option.prevenirArret'),
 };
 

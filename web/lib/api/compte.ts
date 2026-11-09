@@ -1005,7 +1005,7 @@ export function reinitialiserSecondFacteur(tenantId: string, userId: string, mot
 /** La langue des e-mails de la personne connectée, et ses deux abonnements (`/tenants/:tenantId/moi/emails`). */
 export interface PreferencesEmails {
   langue: 'fr' | 'en';
-  /** Les e-mails d'information de Messaging Me (bienvenue, conseils, récapitulatif). */
+  /** Les e-mails d'information de Messaging Me (bienvenue, conseils, récapitulatif, offres). */
   commerciaux: boolean;
   /** Les e-mails « une conversation attend votre équipe ». */
   transferts: boolean;

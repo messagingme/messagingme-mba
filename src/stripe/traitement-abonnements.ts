@@ -10,6 +10,14 @@ import { finPrevueDe } from './client';
 import { lienTableauStripe } from './liens';
 
 /**
+ * L'e-mail de l'arrêt de l'option se dit dans les jours qui suivent sa fin, pas au-delà (relecture du lot C5, jaune 4) :
+ * Stripe rejoue un webhook en échec pendant trois jours, un rejeu doit encore le dire ; un événement plus tardif (une
+ * métadonnée retouchée sur l'abonnement résilié, un événement renvoyé à la main) ne le dit plus.
+ */
+export const FENETRE_ARRET_JOURS = 3;
+const JOUR_MS = 24 * 3600 * 1000;
+
+/**
  * Le traitement des événements Stripe qui décrivent le cycle de vie du Pro ou du numéro fourni. La route garde le
  * protocole HTTP (signature, enveloppe et mode) ; ce module reconnaît les abonnements, interprète leurs objets et
  * applique leurs transitions. Les pannes inattendues remontent : Stripe doit alors rejouer l'événement.
@@ -76,15 +84,16 @@ export interface DepsTraitementAbonnements {
     reprendreCampagnes(tenantId: string): Promise<number>;
     /**
      * `resilierOptionChezStripe` : un impayé que Stripe abandonne en `unpaid` laisse l'abonnement vivant chez lui, qui le
-     * prélèverait encore (jaune 3). `false` si Stripe refuse (Julien prévenu) ; une panne passagère lève, Stripe rejouera.
+     * prélèverait encore (jaune 3). `false` quand Stripe ne l'a pas résilié, relu (Julien prévenu) ; ne lève jamais sur une
+     * erreur de Stripe, la fin s'écrit quand même (relecture du lot C5, jaune 3).
      */
     resilier(abonnementId: string): Promise<boolean>;
     /**
      * `finDeDroitOption` : l'option sans offre qui y donne droit se résilie, ses lignes arrêtées. Jouée après la fin d'un
      * Pro (`fin_de_droit`), et à l'enregistrement d'une option (`payee_sans_droit` : une option payée sans droit ne relance
      * rien ; ses admins le savent par e-mail une fois résiliée, sinon Julien les prévient). Rejouable, une à la fois par
-     * espace ; rend l'issue, `garde_son_droit` quand une offre y donne encore droit, `en_cours` quand une autre la joue.
-     * 🔴 `cas` est transmis tel quel au câblage : une flèche qui ne le recevrait pas l'avalerait en silence.
+     * espace et par cas ; rend l'issue, `garde_son_droit` quand une offre y donne encore droit, `en_cours` quand une autre
+     * la joue. 🔴 `cas` est transmis tel quel au câblage : une flèche qui ne le recevrait pas l'avalerait en silence.
      */
     finDeDroit(tenantId: string, cas: CasFinDeDroit): Promise<IssueFinDeDroitOption>;
     alerter(texte: string): Promise<void>;
@@ -95,9 +104,15 @@ export interface DepsTraitementAbonnements {
     lignes(tenantId: string): Promise<ReadonlyArray<{ origine: 'ops' | 'option'; arreteeLe: Date | string | null }>>;
     /**
      * La prise de l'option serait-elle acceptée maintenant (`repriseOuverte`, l'offre relue SANS cache) ? « Reprenez
-     * l'option » ne se dit qu'alors (lot C, jaune 5) : jamais à un Pro en retard, ni à un Pro qui se termine.
+     * l'option » ne se dit qu'alors (lot C, jaune 5) : jamais à un Pro en retard, ni à un Pro dont la fin programmée est
+     * passée (son avis pas encore traité).
      */
     repriseOuverte(tenantId: string): Promise<boolean>;
+    /**
+     * L'option est-elle en vente (`optionEnVente`) ? Hors vente (son prix retiré), l'e-mail de l'arrêt ne part pas : il
+     * dirait « reprenez l'option » ; l'alerte à Julien le dit (relecture du lot C5, jaune 5).
+     */
+    enVente(): boolean;
     /** L'e-mail de l'arrêt aux admins (lot C, moment 3, `creerOptionArretee`), une fois par abonnement. Ne lève jamais. */
     prevenirArret(tenantId: string, abonnementId: string): Promise<void>;
   };
@@ -624,26 +639,44 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       // option vivante (reprise depuis) garde ses lignes : un rejeu tardif de la fin de l'ancienne ne les coupe pas.
       const seule = !illimite && (await deps.option.vivante(a.tenantId)) === null;
       const n = seule ? await deps.option.arreterLesLignes(a.tenantId) : 0;
+      if (a.premiereFin) {
+        // 🔴 Avant toute autre lecture (relecture du lot C5, jaune 10) : une panne après `finir` fait rejouer l'événement,
+        // qui n'a plus `premiereFin`, et l'alerte se perdait.
+        const suite = illimite ? 'Entreprise : ses lignes restent actives, sous l’illimité' : `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
+        await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}.`);
+      }
+      /** Ce que Julien doit savoir quand l'e-mail ne part pas alors que l'option s'est arrêtée : une fois, à la première fin. */
+      const sansEmail = async (pourquoi: string): Promise<void> => {
+        if (a.premiereFin) await deps.option.alerter(`Option Crédit WhatsApp ${a.abonnementId} de l'espace ${a.tenantId} : ${pourquoi}, à prévenir à la main si besoin.`);
+      };
       // L'ÉTAT des lignes après l'arrêt (lot C, jaunes 2 et 4) : il décide l'e-mail, pas ce que CET appel a arrêté. Un rejeu
       // après une panne (la fin déjà écrite) et deux traitements de la même fin (l'`updated` impayé et le `deleted` qu'il
       // déclenche) le perdaient ; la réservation par abonnement le garde unique.
       const lignes = seule ? await deps.option.lignes(a.tenantId) : [];
       const arret = arretDesLignes(lignes);
-      // Une ligne posée à la main encore active (un essai forcé) : l'e-mail dirait tout arrêté, il ne part pas, et Julien
-      // prévient le client (décision du 2026-11-09).
-      const mixte = !arret.toutes && lignes.some((l) => l.origine === 'option' && l.arreteeLe !== null);
-      if (a.premiereFin) {
-        const suite = illimite ? 'Entreprise : ses lignes restent actives, sous l’illimité' : `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
-        const main = mixte ? ' ; une ligne posée à la main reste active : aucun e-mail au client, à prévenir à la main si besoin' : '';
-        await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}${main}.`);
+      if (!arret.parLOption) {
+        // Une ligne posée à la main encore active (un essai forcé) : l'e-mail dirait tout arrêté, il ne part pas, et Julien
+        // prévient le client (décision du 2026-11-09).
+        if (!arret.toutes && lignes.some((l) => l.origine === 'option' && l.arreteeLe !== null)) {
+          await sansEmail('une ligne posée à la main reste active : aucun e-mail au client');
+        }
+        return;
       }
       // L'arrêt dit au client (lot C, moment 3) : toutes ses lignes arrêtées, l'une de l'option, aucune autre option
-      // vivante, et la prise de l'option ouverte (jaune 5 : jamais « reprenez l'option » à un Pro en retard ou qui se
-      // termine, ni à une Entreprise). Jamais une fin de droit (la raison en base, même quand la formule y redonne droit
-      // depuis) ni une option payée sans droit, que l'avis `deleted` de notre propre résiliation peut amener ici d'abord.
-      if (arret.parLOption && a.finRaison !== 'fin_de_droit' && await deps.option.repriseOuverte(a.tenantId)) {
-        await deps.option.prevenirArret(a.tenantId, a.abonnementId);
+      // vivante. Jamais une fin de droit (la raison en base, même quand la formule y redonne droit depuis) ni une option
+      // payée sans droit, que l'avis `deleted` de notre propre résiliation peut amener ici d'abord. Et seulement à son
+      // MOMENT (relecture du lot C5, jaune 4) : décidé à chaque passage, un `updated` tardif sur l'abonnement résilié (une
+      // métadonnée retouchée, un événement renvoyé) l'envoyait des semaines après, à un admin arrivé depuis compris.
+      if (a.finRaison === 'fin_de_droit' || maintenant() - (a.finiLe ?? fin).getTime() > FENETRE_ARRET_JOURS * JOUR_MS) return;
+      // La prise de l'option ouverte (jaune 5 du lot C) : jamais « reprenez l'option » à un Pro en retard ou dont la fin
+      // programmée est passée, ni à une Entreprise.
+      if (!(await deps.option.repriseOuverte(a.tenantId))) return;
+      // Hors vente, « reprenez l'option » serait faux (relecture du lot C5, jaune 5 ; décision de Julien du 2026-11-09).
+      if (!deps.option.enVente()) {
+        await sansEmail('l’option n’est plus en vente : aucun e-mail au client (il dirait « reprenez l’option »)');
+        return;
       }
+      await deps.option.prevenirArret(a.tenantId, a.abonnementId);
     };
     /**
      * Une facture payée d'une option finie est-elle à rembourser ? Seulement réglée APRÈS la fin chez nous (une facture restée

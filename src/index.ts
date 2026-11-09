@@ -51,7 +51,7 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
-import { formulePayee, repriseOuverte } from './offres/formule-payee';
+import { formuleEnRetard, formulePayee, repriseOuverte } from './offres/formule-payee';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
 import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
@@ -1077,8 +1077,10 @@ async function main(): Promise<void> {
     prixOption: config.STRIPE_PRIX_OPTION_WA,
     options: optionsCreditWhatsapp,
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
-    // Pas d'option pendant un essai (révision du 2026-11-04).
+    // Pas d'option pendant un essai (révision du 2026-11-04) ; un Pro en retard lit la vraie raison du refus (relecture
+    // du lot C5, jaune 7).
     formulePayee: async (tenant) => formulePayee(await formuleDe(tenant), Date.now()),
+    formuleEnRetard: async (tenant) => formuleEnRetard(await formuleDe(tenant)),
     numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
     reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
@@ -2288,9 +2290,10 @@ async function main(): Promise<void> {
           finieLe: (abonnementId) => optionsCreditWhatsapp.finieLe(abonnementId),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
           // L'arrêt dit au client (lot C, moment 3) : l'état des lignes après l'arrêt (la règle de l'onglet), la reprise
-          // jugée par les MÊMES lectures que la prise, l'e-mail une fois par abonnement.
+          // jugée par les MÊMES lectures que la prise, la vente par sa règle unique, l'e-mail une fois par abonnement.
           lignes: (tenant) => lignesCreditWhatsapp.lignesDeLEspace(tenant),
           repriseOuverte: async (tenant) => repriseOuverte(await formuleDe(tenant), Date.now()),
+          enVente: () => optionEnVente(optionDeLaConsole),
           prevenirArret: optionArretee,
         },
       },

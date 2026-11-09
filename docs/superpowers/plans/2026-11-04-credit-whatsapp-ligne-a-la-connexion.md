@@ -421,6 +421,36 @@ sondes, aucune trouvaille). Les dix jaunes partent dans un lot de suite, avant l
 Constat sans défaut : sans levée, une option payée sans droit dont la résiliation n'a pas atteint Stripe passe à la main
 de Julien au lieu d'être rejouée ; la facture suivante réalerte (« finie chez nous, mais Stripe la dit active »).
 
+### C6. Les jaunes de la relecture du lot C5 (accord de Julien du 2026-11-09)
+
+**Méthode** : implémenteur par lot, puis une relecture indépendante du diff : les mêmes chemins de production que C5 (la
+fin de droit, la résiliation chez Stripe, l'e-mail de l'arrêt). TDD ; les retraits de garde à la fin. Trois décisions de
+Julien le même jour : la prise de l'option reste ouverte jusqu'à la fin programmée d'une formule Pro (la doc se
+corrige, pas le code) ; l'option hors vente, l'e-mail de l'arrêt ne part pas et l'alerte à Julien le dit ; une formule
+Pro en retard lit partout la vraie raison du refus.
+
+- [x] Jaunes 1 et 2 : le verrou de la fin de droit par cas (`option.fin:<cas>:<espace>`), et un bail de 3 minutes, plus
+  long que la résiliation et sa relecture (deux délais HTTP de 30 s) et deux alertes (5 s) : un test tient l'ordre des
+  constantes. Tests : un cas tenu ne bloque pas l'autre ; le bail couvre le pire cas.
+- [x] Jaune 3 : la résiliation d'un impayé abandonné relue chez Stripe sur toute erreur ; résiliée, rien de plus ;
+  sinon une alerte « à vérifier, à résilier à la main », et la fin quand même, sans levée. Tests : 503 puis relue
+  `canceled`, résiliée ; 503 puis relue `unpaid`, l'alerte et la fin.
+- [x] Jaunes 4, 5 et 10 : l'e-mail de l'arrêt borné aux trois jours qui suivent la fin (la durée des rejeux de Stripe),
+  jamais hors vente (l'alerte à Julien le dit), et l'alerte de fin envoyée avant la lecture des lignes (la mention de
+  l'espace mixte, après). Tests : une fin de quatre jours, aucun e-mail ; hors vente, aucun e-mail et l'alerte ; une
+  panne de la lecture des lignes après l'alerte.
+- [x] Jaune 6 (décision de Julien) : la doc dit « une formule Pro dont la fin programmée est passée », plus « qui se
+  termine ».
+- [x] Jaune 7 (décision de Julien) : la prise refusée à une formule Pro en retard dit « Le paiement de votre formule Pro
+  est en retard : réglez-le, puis prenez l'option. » (409 `formule_en_retard`), au lieu de « pas pendant un essai ».
+  Tests : un Pro en retard, ce refus ; un Pro en essai, l'ancien.
+- [x] Jaunes 8 et 9 : le cas Entreprise rejoué avec la reprise ouverte ; un test du câblage des dépendances neuves ; la
+  page de désinscription et la JSDoc de `web/lib/api/compte.ts` citent les offres.
+
+**Essai réel** : l'essai 231 s'enrichit : la page qui confirme une désinscription des e-mails d'information cite les
+offres ; après le prix, un événement de fin renvoyé depuis le tableau de bord de Stripe plus de trois jours après la fin
+de l'option n'envoie plus l'e-mail de l'arrêt.
+
 ## Lot D : le passage du numéro de l'essai sur la ligne
 
 - [ ] **D0, l'essai réel du partage** (spec, « L'essai réel avant toute vente ») : sur un numéro d'essai connecté avec une

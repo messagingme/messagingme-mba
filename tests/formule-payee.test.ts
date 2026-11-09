@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formulePayee, repriseOuverte } from '../src/offres/formule-payee';
+import { formuleEnRetard, formulePayee, repriseOuverte } from '../src/offres/formule-payee';
 
 /**
  * CE QUI OUVRE L'OPTION DU CRÉDIT WHATSAPP : une formule payée (révision du 2026-11-04, décisions 1 et 7). Pas pendant
@@ -70,5 +70,20 @@ describe('repriseOuverte', () => {
     expect(repriseOuverte({ offre: 'business', pro: null, businessEssaiFinLe: APRES }, MAINTENANT)).toBe(false);
     expect(repriseOuverte({ offre: 'base', pro: null, businessEssaiFinLe: null }, MAINTENANT)).toBe(false);
     expect(repriseOuverte({ offre: 'entreprise', pro: fin(null), businessEssaiFinLe: null }, MAINTENANT)).toBe(false);
+  });
+});
+
+/**
+ * UNE FORMULE PRO EN RETARD DE PAIEMENT (relecture du lot C5, jaune 7) : elle n'est pas payée, mais ce n'est pas un essai.
+ * Le refus de la prise dit la vraie raison.
+ */
+describe('formuleEnRetard', () => {
+  it('🔴 un Pro vivant en retard de paiement ; jamais un essai, un Pro payé ou fini, ni une autre offre', () => {
+    expect(formuleEnRetard({ offre: 'pro', pro: pro({ statut: 'en_retard', essaiFinLe: AVANT }), businessEssaiFinLe: null })).toBe(true);
+    expect(formuleEnRetard({ offre: 'pro', pro: pro({ essaiFinLe: APRES }), businessEssaiFinLe: null })).toBe(false);
+    expect(formuleEnRetard({ offre: 'pro', pro: pro(), businessEssaiFinLe: null })).toBe(false);
+    expect(formuleEnRetard({ offre: 'pro', pro: pro({ statut: 'en_retard', finiLe: AVANT }), businessEssaiFinLe: null })).toBe(false);
+    expect(formuleEnRetard({ offre: 'business', pro: pro({ statut: 'en_retard' }), businessEssaiFinLe: APRES })).toBe(false);
+    expect(formuleEnRetard({ offre: 'pro', pro: null, businessEssaiFinLe: null })).toBe(false);
   });
 });

@@ -489,7 +489,7 @@ export const CATALOGUE = [
     cle: 'option_wa_arretee',
     categorie: 'service',
     nom: 'Option Crédit WhatsApp arrêtée',
-    quand: 'L’option Crédit WhatsApp se termine (résiliée, ou un impayé que Stripe abandonne) et toutes les lignes de l’espace sont arrêtées, la formule permettant de la reprendre (ni en retard de paiement, ni sur sa fin). Un espace qui garde une ligne posée à la main ne la reçoit pas. Une fois par abonnement.',
+    quand: 'L’option Crédit WhatsApp se termine (résiliée, ou un impayé que Stripe abandonne) et toutes les lignes de l’espace sont arrêtées, la formule permettant de la reprendre (ni en retard de paiement, ni une formule Pro dont la fin programmée est passée) et l’option en vente. Un espace qui garde une ligne posée à la main ne la reçoit pas. Une fois par abonnement, dans les trois jours qui suivent la fin.',
     variables: { lien_numero: LIEN_NUMERO },
     textes: {
       fr: {
