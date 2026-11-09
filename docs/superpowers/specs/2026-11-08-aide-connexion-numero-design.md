@@ -227,6 +227,24 @@ un cas en anglais). Les captures d'aide (`npm run aide:captures`) aussi.
 **Méthode de livraison** : en direct, isolé et réversible. **Essai réel** : ouvrir `/autoriser` depuis un navigateur
 en anglais sans choix mémorisé.
 
+**Livré le 2026-11-09** (`d3902dd6`, puis les jaunes de sa relecture). Décisions de Julien à la relecture : la règle du
+navigateur vaut pour TOUS, y compris un utilisateur déjà installé qui n'a jamais choisi (il repasse en français d'un
+clic dans le menu du compte, mémorisé ensuite) ; et la vitrine française ne pose pas `?lang=fr` sur ses liens : le
+navigateur du visiteur décide (la vitrine anglaise garde son `?lang=en`). Captures d'aide : non touchées, elles posent
+leur langue elles-mêmes.
+
+## Lot 2b : la langue des e-mails apprise à la création du compte
+
+Relevé à la relecture du lot 2 (jaune A1). La langue des e-mails de service (`identities.langue`, migration 0234,
+`fr` par défaut) n'est écrite que quand la personne bascule la langue dans la console (`AccountMenu`, `/compte`). Une
+console qui s'ouvre en anglais sans bascule laisse donc des e-mails en français ; le défaut existait déjà pour une
+arrivée par `?lang=en` et pour l'inscription par lien (`inscriptions_attente.langue` n'est pas reportée sur
+l'identité), le lot 2 l'élargit. À faire : la langue de l'écran voyage jusqu'à la création de l'identité, par Google
+(`/auth/google`, `continuerAvecGoogle`, puis `ensureIdentity`) comme par e-mail (l'insertion de la confirmation reprend
+`inscriptions_attente.langue`). **Méthode de livraison** : implémenteur et revue du diff, parce que le chemin touche
+l'inscription et l'identité. **Essai réel** : créer un espace par Google depuis un navigateur anglais, puis recevoir
+un e-mail de service en anglais.
+
 ## Lot 3 : l'arbre, partout
 
 Le cas 4 (après « Oui, j'ai l'application » : « Voulez-vous utiliser ce numéro-là ? » ; non, numéro fourni par la
@@ -341,6 +359,10 @@ s'invente. Les questions-réponses portent un bloc `FAQPage` (JSON-LD).
   désormais « modèles », ce qui est exact (une réponse dans les 24 heures ne compte pas) ; et la page « Connecter votre
   numéro WhatsApp depuis Claude » (`scripts/vitrine/aide-claude-textes.ts`) dit « le lien, puis les étapes », alors que
   ce qui va se passer et qui paie viennent désormais avant le lien.
+- Et un relevé à la relecture du lot 2 (jaune A5) : la fiche publique « Me repérer dans la console » dit la bascule
+  mémorisée, pas la règle d'ouverture ; une phrase (« sans choix, la console s'ouvre dans la langue de votre
+  navigateur : en français s'il est en français, en anglais sinon »), sa version `en/`, `vitrine:aide` et `aide:charger`,
+  pour que le bot d'aide sache répondre à « pourquoi ma console est en anglais ? ».
 
 **Méthode de livraison** : en direct, page par page, avec relecture de Julien sur captures. Contenu visuel et
 rédactionnel, réversible, qu'aucun test ne juge (le projet n'envoie pas l'UI en feature-loop). **Essai réel** :

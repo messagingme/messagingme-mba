@@ -301,11 +301,12 @@ export function blocAccueil(): string {
     `- In Codex: run \`${AUTORISATION_CODEX}\`.`,
     '',
     // Les trois voies de `/autoriser` (jaune 6 de la relecture du lot 1) : Google crée l'espace sans formulaire, l'adresse
-    // e-mail passe par un formulaire court, un compte à mot de passe se connecte. Et la Free ne se pilote pas par la console.
+    // e-mail passe par un formulaire court puis le lien qu'on lui envoie (inscription par lien, lot B de l'audit), un compte à
+    // mot de passe se connecte. Et la Free ne se pilote pas par la console.
     'A page opens in your browser. Continue with Google: with no account yet, your workspace is created right then, with no',
-    'form. Or create your workspace with your email address (a short form), or sign in with your password if you already',
-    'have one. Then click Authorize. Your email address identifies you and receives the service emails (your number, your',
-    'credit, your plan limits); with Pro, it also signs you in to the console.',
+    'form. Or create your workspace with your email address (a short form, then the link we email you), or sign in with',
+    'your password if you already have one. Then click Authorize. Your email address identifies you and receives the',
+    'service emails (your number, your credit, your plan limits); with Pro, it also signs you in to the console.',
     '',
     '**Then**: your WhatsApp number, an AI agent built from your website, the chat bubble on your site, and a test from your',
     'phone.',

@@ -1,5 +1,22 @@
 import { describe, it, expect } from 'vitest';
-import { langueDeLAdresse, langueDuNavigateur, langueInitiale } from './locale';
+import { adresseSansLangue, langueDeLAdresse, langueDuNavigateur, langueInitiale } from './locale';
+
+// Le paramètre `?lang=` a servi une fois appliqué et mémorisé : resté dans l'adresse, il contredirait une bascule
+// ultérieure (au rechargement, et dans les messages d'erreur, qui lisent l'adresse avant le stockage). Jaune A2 de la
+// relecture du lot 2.
+describe('adresseSansLangue', () => {
+  it('retire `lang` et garde le reste : le chemin, les autres paramètres, le fragment', () => {
+    expect(adresseSansLangue('https://c.test/login?lang=en')).toBe('/login');
+    expect(adresseSansLangue('https://c.test/signup?offre=pro&lang=en')).toBe('/signup?offre=pro');
+    expect(adresseSansLangue('https://c.test/signup?lang=en&offre=pro#haut')).toBe('/signup?offre=pro#haut');
+    expect(adresseSansLangue('https://c.test/autoriser?demande=d1&lang=fr')).toBe('/autoriser?demande=d1');
+  });
+
+  it('rien à retirer : null, l’adresse ne bouge pas', () => {
+    expect(adresseSansLangue('https://c.test/login')).toBeNull();
+    expect(adresseSansLangue('https://c.test/login?offre=pro')).toBeNull();
+  });
+});
 
 // La langue du navigateur (aide à la connexion, lot 2, décision de Julien du 2026-11-08) : en français si le navigateur
 // est en français, en anglais pour toute autre langue. Une personne qui autorise Claude depuis un poste anglais voyait

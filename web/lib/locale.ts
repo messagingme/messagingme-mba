@@ -46,3 +46,16 @@ export function langueInitiale(o: { recherche: string; memorisee: string | null;
   if (o.memorisee === 'fr' || o.memorisee === 'en') return { locale: o.memorisee, memoriser: false };
   return { locale: langueDuNavigateur(o.navigateur), memoriser: false };
 }
+
+/**
+ * L'adresse sans son paramètre `lang` (chemin, autres paramètres et fragment gardés), ou `null` s'il n'y en a pas. Une
+ * fois la langue de l'adresse appliquée et mémorisée, `LocaleProvider` le retire (jaune A2 de la relecture du lot 2) :
+ * resté là, il contredirait une bascule ultérieure, au rechargement comme dans les messages d'erreur de `http.ts`, qui
+ * lisent l'adresse avant le choix mémorisé.
+ */
+export function adresseSansLangue(href: string): string | null {
+  const u = new URL(href);
+  if (!u.searchParams.has('lang')) return null;
+  u.searchParams.delete('lang');
+  return `${u.pathname}${u.search}${u.hash}`;
+}

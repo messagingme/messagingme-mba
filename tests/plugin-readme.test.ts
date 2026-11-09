@@ -119,9 +119,19 @@ describe('l’accueil du plugin (sinon : npm run plugin:generer)', () => {
     expect(b).toMatch(/workspace is\s+created/);
     // Les trois voies de `/autoriser` (jaune 6) : sans formulaire par Google seulement ; et la console avec Pro seulement.
     expect(b).toMatch(/Continue with Google: with no account yet, your workspace is created right then, with no\s+form/);
-    expect(b).toMatch(/email address \(a short form\)/);
-    expect(b).toMatch(/sign in with your password/);
+    expect(b).toMatch(/email address \(a short form, then the link we email you\)/);
+    expect(b).toMatch(/sign in with\s+your password/);
     expect(b).toMatch(/with Pro, it also signs you in to the console/);
     expect(b).not.toMatch(/\) and signs you in to the console/);
+  });
+
+  it('🔴 la page d’autorisation ne se décrit qu’à l’étape 1 de l’accueil : aucune skill ne la redit à la main (jaune B2)', () => {
+    // Une puce écrite à la main de `mise-en-service` disait encore « le workspace est créé » pour la voie e-mail, que le
+    // jaune 6 avait corrigée dans l'accueil seul. Hors du bloc généré, aucune skill ne redit ce que la page propose.
+    const horsAccueil = (md: string) => md.replace(/<!-- accueil:debut[\s\S]*?<!-- accueil:fin -->/, '');
+    for (const p of ['plugin/skills/demarrer/SKILL.md', 'plugin/skills/mise-en-service/SKILL.md']) {
+      const md = horsAccueil(lire(p));
+      expect(md, p).not.toMatch(/workspace is created|with their email address|continue with Google/i);
+    }
   });
 });

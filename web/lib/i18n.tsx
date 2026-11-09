@@ -12,7 +12,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
  * sinon le choix mémorisé par navigateur (menu compte), sinon la langue du navigateur (aide à la connexion, lot 2) :
  * français s'il est en français, anglais pour toute autre langue.
  */
-import { LOCALE_STORAGE_KEY, langueInitiale, type Locale } from './locale';
+import { LOCALE_STORAGE_KEY, adresseSansLangue, langueInitiale, type Locale } from './locale';
 export type { Locale } from './locale';
 const STORAGE_KEY = LOCALE_STORAGE_KEY;
 
@@ -32,8 +32,16 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
     // `window.navigator` et non le `navigator` global : la même lecture que `langue()` de `http.ts`.
     const { locale: l, memoriser } = langueInitiale({ recherche: window.location.search, memorisee, navigateur: window.navigator?.language });
     setLocaleState(l);
-    // Un lien `?lang=` devient le choix mémorisé ; la langue du navigateur, jamais.
-    if (memoriser) { try { window.localStorage.setItem(STORAGE_KEY, l); } catch { /* non bloquant */ } }
+    // Un lien `?lang=` devient le choix mémorisé ; la langue du navigateur, jamais. Mémorisé, le paramètre a servi et
+    // quitte l'adresse (jaune A2 de la relecture du lot 2) : resté, il contredirait une bascule ultérieure. S'il n'a pas
+    // pu être mémorisé (stockage bloqué), il reste : c'est alors le seul porteur de la langue au rechargement.
+    if (memoriser) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, l);
+        const sans = adresseSansLangue(window.location.href);
+        if (sans !== null) window.history.replaceState(null, '', sans);
+      } catch { /* non bloquant */ }
+    }
     // Resynchronise AUSSI <html lang> (le layout SSR pose lang="fr" par défaut) : sans ça, une console en anglais
     // aurait un document déclaré... français.
     try { document.documentElement.lang = l; } catch { /* edge */ }

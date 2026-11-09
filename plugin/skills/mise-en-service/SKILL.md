@@ -33,9 +33,9 @@ your agreement, once.
 - In Codex: run `codex mcp login messagingme`.
 
 A page opens in your browser. Continue with Google: with no account yet, your workspace is created right then, with no
-form. Or create your workspace with your email address (a short form), or sign in with your password if you already
-have one. Then click Authorize. Your email address identifies you and receives the service emails (your number, your
-credit, your plan limits); with Pro, it also signs you in to the console.
+form. Or create your workspace with your email address (a short form, then the link we email you), or sign in with
+your password if you already have one. Then click Authorize. Your email address identifies you and receives the
+service emails (your number, your credit, your plan limits); with Pro, it also signs you in to the console.
 
 **Then**: your WhatsApp number, an AI agent built from your website, the chat bubble on your site, and a test from your
 phone.
@@ -44,9 +44,8 @@ phone.
 ## Before anything
 
 - If the `messagingme` tools are not available, the server is not authorized: it is step 1 of the welcome. In Claude
-  Code, `/mcp`, select `plugin:messagingme:messagingme`, then Authenticate; in Codex, `codex mcp login messagingme`. A
-  browser page opens: they continue with Google or with their email address (no account yet? the workspace is created
-  right then), then click Authorize.
+  Code, `/mcp`, select `plugin:messagingme:messagingme`, then Authenticate; in Codex, `codex mcp login messagingme`.
+  What the browser page offers is said in step 1 of the welcome: say it from there, never from memory.
 - If the user had added the same server by hand before (same address, any name), Claude Code keeps theirs and sets the
   plugin's aside: its tools carry that server's name. If that server uses an API key, the setup tools
   (`start_whatsapp_connection`, `create_agent` and the others that act for a person) are missing from it: when

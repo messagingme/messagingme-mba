@@ -259,9 +259,26 @@ describe('watch_whatsapp_connection', () => {
       // Le rappel reste : il renvoie au lien de start_whatsapp_connection.
       expect(r.suite, JSON.stringify(args)).toMatch(/start_whatsapp_connection t’a rendu/);
     }
-    expect(modeDuLienNeuf({}, 'api', 'coexistence')).toBe('coexistence');
-    expect(modeDuLienNeuf({ destination: 'api' }, 'api', 'fourni')).toBe('fourni');
-    expect(modeDuLienNeuf({ destination: 'application' }, 'api', 'fourni_application')).toBe('fourni_application');
+    expect(modeDuLienNeuf(VIDE, 'api', 'coexistence')).toBe('coexistence');
+    expect(modeDuLienNeuf({ ...VIDE, destination: 'api' }, 'api', 'fourni')).toBe('fourni');
+    expect(modeDuLienNeuf({ ...VIDE, destination: 'application' }, 'api', 'fourni_application')).toBe('fourni_application');
+    // Un numéro fourni mis dans l'application mais sans compte créé (aucun code capté) : la reprise est fourni_application,
+    // pas encore la coexistence.
+    expect(modeDuLienNeuf({ ...VIDE, fourni: '+441235619343', destination: 'application' }, 'api', 'coexistence')).toBeNull();
+  });
+
+  /**
+   * Jaune B1 de la relecture du lot 2 : la reprise que le serveur PRESCRIT (`modeDeReprise`), un numéro fourni déjà dans
+   * l'application dont le compte est créé, se garde par la fenêtre de Meta. La suite de Johan (2026-11-06) : passé
+   * l'heure du lien, l'attente doit pouvoir en redonner un neuf en coexistence.
+   */
+  it('🔴 la reprise prescrite (numéro fourni dans l’application, compte créé) : le lien neuf de la coexistence', async () => {
+    const REPRISE: EtatConnexion = { ...VIDE, fourni: '+441235619343', destination: 'application', codeDejaCapte: true };
+    const { deps } = monter(() => REPRISE);
+    const r = await outil('watch_whatsapp_connection').executer(deps, 't1', { mode: 'coexistence' }, PERSONNE) as { lien: string | null; suite: string };
+    expect(r.lien).toMatch(/\/brancher#/);
+    expect(await verifyLienNumero(r.lien!.split('#')[1]!, SECRET)).toEqual({ tenantId: 't1', userId: 'u-admin', mode: 'coexistence', emisLe: expect.any(Number) });
+    expect(r.suite).toContain(r.lien!);
   });
 
   it('🔴 rien n’a bougé, sans mode (un plugin 0.3.28) : pas de lien neuf, la suite renvoie à celui de start_whatsapp_connection', async () => {

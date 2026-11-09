@@ -436,10 +436,15 @@ const estMode = (m: unknown): m is ModeNumero => typeof m === 'string' && (MODES
  * le mode de la destination RETENUE (migration 0280), celle que la suite de l'attente suit : un lien d'un autre mode
  * ouvrirait la fenêtre de Meta pendant que la suite dit de taper le code dans l'application, et le code serait perdu
  * (une demande de plus sur les dix que Meta tolère en 72 heures). Une destination retenue écarte aussi apporte et
- * coexistence : la personne a choisi un numéro fourni, start_whatsapp_connection seul en change.
+ * coexistence, SAUF la reprise que le serveur prescrit lui-même (`modeDeReprise`, jaune B1 de la relecture du lot 2) : un
+ * numéro fourni déjà dans l'application, son compte créé, se garde par la fenêtre de Meta (`coexistence`) ; c'est la
+ * suite de Johan (2026-11-06), et sans ce cas une attente de plus d'une heure n'y aurait aucun lien neuf.
  */
-export function modeDuLienNeuf(e: Pick<EtatConnexion, 'destination'>, filiere: 'api' | 'application', mode: unknown): ModeNumero | null {
+export function modeDuLienNeuf(
+  e: Pick<EtatConnexion, 'destination' | 'fourni' | 'connecte' | 'codeDejaCapte'>, filiere: 'api' | 'application', mode: unknown,
+): ModeNumero | null {
   if (filiere !== 'api' || !estMode(mode)) return null;
+  if (mode === 'coexistence' && modeDeReprise(e) === 'coexistence') return mode;
   const retenu = e.destination === 'api' ? 'fourni' : e.destination === 'application' ? 'fourni_application' : null;
   if (mode === 'fourni' || mode === 'fourni_application') return mode === retenu ? mode : null;
   return retenu === null ? mode : null;

@@ -32,10 +32,15 @@ test.describe('un navigateur en anglais', () => {
     await expect(page.getByTestId('autoriser-absente')).toContainText(FR);
   });
 
-  test('un lien `?lang=fr` l’emporte aussi, et devient le choix mémorisé', async ({ page }) => {
+  test('un lien `?lang=fr` l’emporte aussi, devient le choix mémorisé, puis quitte l’adresse', async ({ page }) => {
     await ouvrir(page, '/autoriser?lang=fr');
     await expect(page.getByTestId('autoriser-absente')).toContainText(FR);
     expect(await memorisee(page)).toBe('fr');
+    // Resté dans l'adresse, il contredirait une bascule ultérieure (jaune A2 de la relecture du lot 2).
+    await expect(page).toHaveURL(/\/autoriser$/);
+    // Et le français tient au rechargement, porté par le choix mémorisé.
+    await page.reload();
+    await expect(page.getByTestId('autoriser-absente')).toContainText(FR);
   });
 });
 
