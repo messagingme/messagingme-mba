@@ -40,6 +40,8 @@ describe.skipIf(!url)('balayage Inbox HubSpot : le curseur garde la microseconde
       [conversationId, INSTANT],
     )).rows[0]!.id;
     await store.brancher(tenantId, '77');
+    // Lot 1 bis : seules les conversations ENTRÉES dans l'Inbox sont lues par la suite du balayage.
+    await store.ouvrirEntree(tenantId, conversationId);
     // Le curseur posé AVANT le message, pour que le premier tour le trouve.
     await pool.query(`update tenant_settings set hubspot_inbox_curseur_le = '2026-11-06T09:00:00Z' where tenant_id = $1`, [tenantId]);
   });

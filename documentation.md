@@ -3161,7 +3161,7 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   connecteur redemande TOUTES les portées facultatives à chaque grant. 🔴 Le lien est public (quiconque l'a voit le
   devis) : aucun journal ne le porte.
 - **Les conversations WhatsApp dans l'Inbox HubSpot** (lot 1 du plan `~/mm-hubspot/docs/2026-11-06-inbox-hubspot-lot1-plan.md`,
-  migration 0283, `src/hubspot/inbox.ts`, `src/http/hubspot-inbox.ts`). L'admin choisit, dans Tools > Intégrations > HubSpot,
+  migrations 0283 et 0284, `src/hubspot/inbox.ts`, `src/http/hubspot-inbox.ts`). L'admin choisit, dans Tools > Intégrations > HubSpot,
   la boîte de réception où la ligne WhatsApp de l'espace (son PREMIER numéro, la règle de `getEtatPassage`) est branchée ;
   le connecteur crée le compte de canal du canal personnalisé « WhatsApp (Messaging Me) » (`PUT /tenants/:id/hubspot/inbox`,
   qui n'écrit `hubspot_inbox_boite` qu'APRÈS la réponse du connecteur ; brancher exige la fonction `inbox`, débrancher
@@ -3174,6 +3174,15 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   RELECTURE. Sans rattrapage : une ligne non reliée ou en pause, un portail sans portées, ou rien d'arrivé, et le curseur
   avance à la borne. Un contact connu par son seul BSUID n'est pas publié (le canal identifie par numéro). Le connecteur
   qui n'a plus de compte de canal (portail délié) fait débrancher l'espace ici aussi.
+  🔴 **Lot 1 bis (2026-11-09) : SEULES les conversations qui attendent un humain entrent dans l'Inbox**, selon le prédicat
+  de la page « Messaging Me » de l'app (`ATTEND_UN_HUMAIN_SQL`, `src/inbox/a-traiter-hubspot.pg.ts`, partagé, jamais
+  recopié) et actives depuis le branchement (`hubspot_inbox_branche_le`). À chaque tour, par espace : les SORTIES
+  (l'équipe ne tient plus le fil, « Traité », archivée : `inbox_hubspot_entrees.sortie_le`), puis les ENTRÉES (10 au plus :
+  le contexte des 24 dernières heures, 20 messages au plus, est publié AVANT que l'entrée s'inscrive, pour qu'une panne
+  rejoue l'entrée entière), puis la SUITE des conversations entrées par le curseur. Une conversation que l'agent IA règle
+  seule n'y apparaît jamais ; une réponse du conseiller ne la fait pas sortir (elle n'est plus « à traiter » mais l'équipe
+  tient le fil). Débrancher ferme toutes les entrées.
+
 - **Le changement d'étape d'un deal HubSpot** (`POST /hubspot/deal-stage`, `src/http/hubspot-events.ts`, lot 3a du plan
   `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, décisions 5 et 7). Dans l'ordre, après la signature
   et le `safeParse` : 🔴 la ligne « Automations HubSpot » (`tenant_settings.hubspot_automations`, migration 0270, lue

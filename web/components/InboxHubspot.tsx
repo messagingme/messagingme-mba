@@ -10,7 +10,7 @@ import { useInstallationHubspot } from '@/lib/hubspot-installation';
 /**
  * LE BLOC « CONVERSATIONS DANS L'INBOX HUBSPOT » de Tools > Intégrations > HubSpot (lot 1 de l'Inbox, tâche 6 du plan
  * `~/mm-hubspot/docs/2026-11-06-inbox-hubspot-lot1-plan.md`) : l'admin choisit la boîte de réception où les conversations
- * WhatsApp de sa ligne apparaissent. Un portail en Sales Hub ou Service Hub Professionnel ou Entreprise seulement : sans
+ * WhatsApp de sa ligne qui attendent un conseiller apparaissent (lot 1 bis du 2026-11-09). Un portail en Sales Hub ou Service Hub Professionnel ou Entreprise seulement : sans
  * eux, HubSpot n'accorde pas les accès aux conversations, et le bloc le dit avec le bouton qui les redemande.
  *
  * 🔴 Une API trop ancienne n'a pas la route (404) : le bloc ne s'affiche pas, il ne dit jamais « aucune boîte ».
@@ -81,8 +81,8 @@ export function InboxHubspot({ tenantId }: { tenantId: string }) {
       <p className="text-sm font-semibold text-ink-900">{t('Conversations dans l’Inbox HubSpot', 'Conversations in the HubSpot inbox')}</p>
       <p className="mt-1 text-xs text-ink-500">
         {t(
-          'Les messages WhatsApp de votre ligne apparaissent dans une boîte de réception de HubSpot, dans le fil de leur conversation, sur la fiche du contact. Il faut Sales Hub ou Service Hub Professionnel ou Entreprise.',
-          'The WhatsApp messages of your line appear in a HubSpot inbox, in their conversation thread, on the contact record. It requires Sales Hub or Service Hub Professional or Enterprise.',
+          'Les conversations WhatsApp qui attendent un conseiller (le client a demandé un humain, ou il écrit pendant que votre équipe tient la conversation) apparaissent dans une boîte de réception de HubSpot, sur la fiche du contact, avec les échanges des dernières 24 heures. Celles que l’agent IA règle seul n’y apparaissent pas. Il faut Sales Hub ou Service Hub Professionnel ou Entreprise.',
+          'WhatsApp conversations waiting for an advisor (the customer asked for a human, or writes while your team holds the conversation) appear in a HubSpot inbox, on the contact record, with the exchanges of the last 24 hours. Those the AI agent handles alone do not appear. It requires Sales Hub or Service Hub Professional or Enterprise.',
         )}
       </p>
 

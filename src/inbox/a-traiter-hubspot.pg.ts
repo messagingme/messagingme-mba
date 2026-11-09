@@ -28,6 +28,24 @@ import { matchWaIdPredicat } from '../crm/contact-store.pg';
  * la route le trouve parmi les membres de l'espace.
  */
 
+/**
+ * LE PRÉDICAT « ATTEND UN HUMAIN », PARTAGÉ : la page « Messaging Me » de HubSpot (ci-dessous) ET l'Inbox HubSpot
+ * (`src/hubspot/inbox.ts`, lot 1 bis du 2026-11-09 : seules les conversations qui le satisfont y entrent). Un seul texte,
+ * pour que les deux écrans ne divergent jamais. Il suppose `c` (la conversation) et `ct` (sa fiche, en jointure GAUCHE
+ * sur `ct.id = c.contact_id`) ; il ne filtre PAS l'espace, chaque requête qui l'emploie pose `c.tenant_id = $1`.
+ */
+export const ATTEND_UN_HUMAIN_SQL = `c.control_owner = 'app_human'
+            and ${A_TRAITER_SQL}
+            and c.archived_at is null
+            and c.release_mba_apres_message is null
+            and ct.blocked_at is null
+            and ct.opt_in_status is distinct from 'opted_out'
+            and not exists (
+              select 1 from contacts x
+               where x.tenant_id = c.tenant_id and ${matchWaIdPredicat('x.', 'c.wa_id')}
+                 and (x.opt_in_status = 'opted_out' or (x.blocked_at is not null and x.deleted_at is null))
+            )`;
+
 /** Une conversation qui attend, telle que la base la rend. */
 export interface LigneATraiter {
   conversationId: string;
@@ -75,17 +93,7 @@ export class PgATraiterHubspot {
            from conversations c
            left join contacts ct on ct.id = c.contact_id
           where c.tenant_id = $1
-            and c.control_owner = 'app_human'
-            and ${A_TRAITER_SQL}
-            and c.archived_at is null
-            and c.release_mba_apres_message is null
-            and ct.blocked_at is null
-            and ct.opt_in_status is distinct from 'opted_out'
-            and not exists (
-              select 1 from contacts x
-               where x.tenant_id = c.tenant_id and ${matchWaIdPredicat('x.', 'c.wa_id')}
-                 and (x.opt_in_status = 'opted_out' or (x.blocked_at is not null and x.deleted_at is null))
-            )
+            and ${ATTEND_UN_HUMAIN_SQL}
        ), datees as (
          select r.*, coalesce(r.escaladee_le, ${premierSansReponse('r.id')}, r.last_message_at) as attend_depuis
            from retenues r

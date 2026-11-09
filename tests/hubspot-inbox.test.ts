@@ -23,6 +23,12 @@ const message = (over: Partial<LigneMessage> = {}): LigneMessage => ({
 class StoreMemoire implements InboxHubspotStore {
   curseurs = new Map<string, { le: string; id: string }>();
   debranches: string[] = [];
+  /** Le journal des appels qui comptent pour l'ordre : sorties, poussées, entrées. */
+  journal: string[] = [];
+  /** Les conversations à faire entrer, par espace, et leur contexte. */
+  aEntrer: Record<string, string[]> = {};
+  contextes: Record<string, LigneMessage[]> = {};
+  entrees: string[] = [];
   constructor(
     public espaces: EspaceBranche[],
     public messages: Record<string, LigneMessage[]> = {},
@@ -40,6 +46,14 @@ class StoreMemoire implements InboxHubspotStore {
   async borne(): Promise<string> { return BORNE; }
   async messagesApres(e: EspaceBranche, _borne: string, limite: number): Promise<LigneMessage[]> { return (this.messages[e.tenantId] ?? []).slice(0, limite); }
   async avancer(tenantId: string, le: string, id: string): Promise<void> { this.curseurs.set(tenantId, { le, id }); }
+  async fermerSorties(tenantId: string): Promise<number> { this.journal.push(`sorties:${tenantId}`); return 0; }
+  async aFaireEntrer(tenantId: string, limite: number): Promise<string[]> { return (this.aEntrer[tenantId] ?? []).slice(0, limite); }
+  async contexte(_tenantId: string, conversationId: string): Promise<LigneMessage[]> { return this.contextes[conversationId] ?? []; }
+  async ouvrirEntree(_tenantId: string, conversationId: string): Promise<boolean> {
+    this.journal.push(`entree:${conversationId}`);
+    this.entrees.push(conversationId);
+    return true;
+  }
 }
 
 const espace = (tenantId = 't1'): EspaceBranche => ({ tenantId, boite: '77', curseurLe: '2026-11-06T11:00:00.000000Z', curseurId: UUID_ZERO });
@@ -124,6 +138,53 @@ describe('balayerInbox', () => {
     const store = new StoreMemoire([espace()], { t1: [message()] });
     await balayerInbox({ store, pousser: pousseur({ issue: 'refuse', status: 400, code: 'corps invalide' }).pousser });
     expect(store.curseurs.get('t1')?.id).toBe(message().id);
+  });
+
+  it('🔴 lot 1 bis : une conversation qui attend un humain publie son CONTEXTE, puis son entrée s’inscrit (dans cet ordre)', async () => {
+    const store = new StoreMemoire([espace()]);
+    store.aEntrer = { t1: ['conv-9'] };
+    store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' }), message({ id: 'c2', conversationId: 'conv-9', direction: 'out', origin: 'ia' })] };
+    const p = pousseur({ issue: 'fait', publies: 2, refuses: 0 });
+    const pousserTrace = async (corps: Parameters<typeof p.pousser>[0]) => { store.journal.push(`pousse:${corps.messages.map((m) => m.id).join(',')}`); return p.pousser(corps); };
+    expect(await balayerInbox({ store, pousser: pousserTrace })).toBe(2);
+    expect(store.journal).toEqual(['sorties:t1', 'pousse:c1,c2', 'entree:conv-9']);
+  });
+
+  it('🔴 une panne pendant le contexte n’inscrit PAS l’entrée : le tour suivant rejoue l’entrée entière', async () => {
+    const store = new StoreMemoire([espace()]);
+    store.aEntrer = { t1: ['conv-9'] };
+    store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' })] };
+    const enPanne = async (): Promise<IssueInbox> => { throw new Error('connecteur HTTP 503'); };
+    await balayerInbox({ store, pousser: enPanne });
+    expect(store.entrees).toEqual([]);
+  });
+
+  it('un refus du contrat sur le contexte inscrit l’entrée quand même (rejouer rendrait le même refus)', async () => {
+    const store = new StoreMemoire([espace()]);
+    store.aEntrer = { t1: ['conv-9'] };
+    store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' })] };
+    await balayerInbox({ store, pousser: pousseur({ issue: 'refuse', status: 400, code: 'corps invalide' }).pousser });
+    expect(store.entrees).toEqual(['conv-9']);
+  });
+
+  it('un refus qui se répare (401) sur le contexte : ni entrée, ni suite, ni curseur', async () => {
+    const store = new StoreMemoire([espace()], { t1: [message()] });
+    store.aEntrer = { t1: ['conv-9'] };
+    store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' })] };
+    const p = pousseur({ issue: 'refuse', status: 401, code: undefined });
+    await balayerInbox({ store, pousser: p.pousser });
+    expect(store.entrees).toEqual([]);
+    expect(p.lots).toHaveLength(1);
+    expect(store.curseurs.has('t1')).toBe(false);
+  });
+
+  it('une conversation sans message à publier (contexte vide) entre quand même, sans appel au connecteur', async () => {
+    const store = new StoreMemoire([espace()]);
+    store.aEntrer = { t1: ['conv-9'] };
+    const p = pousseur();
+    await balayerInbox({ store, pousser: p.pousser });
+    expect(p.lots).toHaveLength(0);
+    expect(store.entrees).toEqual(['conv-9']);
   });
 
   it(`un lot au plus par espace et par tour (${LOT_INBOX} messages)`, async () => {
