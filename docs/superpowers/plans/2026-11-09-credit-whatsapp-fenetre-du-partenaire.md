@@ -15,7 +15,8 @@ crédit ; seule notre application envoie (« Only me », relu par l'API le 2026-
   solutions multi-partenaires), jamais en coexistence (décision 8 de la spec : le Crédit WhatsApp exclut l'application).
   Sans l'identifiant, la connexion directe (la carte du client chez Meta) reste ce qu'elle est.
 - **La garde est au serveur** : l'identifiant de la solution (`META_SOLUTION_ID`, configuration ; vide, aucun bouton) ne
-  part que vers un espace qui a droit à la ligne et qui n'a encore aucun numéro vivant. Le droit se lit sur l'offre et
+  part que vers un espace qui a droit à la ligne et qui n'a encore aucun numéro rattaché (délié compris, depuis le lot
+  E4). Le droit se lit sur l'offre et
   l'option, jamais sur Stripe ni sur le solde : une Entreprise (illimitée, sans option) ; une formule Pro ou un Business
   avec une option vivante et une place libre ; jamais une Free, ni un essai. Un numéro déjà connecté (celui de l'essai)
   relève du lot D.
@@ -125,5 +126,26 @@ indépendante du diff (la configuration de la connexion et sa fin sont des chemi
   de l'inscription éteinte ; l'alerte muette variable vide. Le test d'une option `en_retard` attend la décision du
   jaune 8.
 
-**Essai réel** : celui du lot E (le 236), sur l'Entreprise de test sans numéro ; en plus, délier puis reconnecter n'y
-rouvre pas la fenêtre tant que le numéro reste rattaché.
+**Essai réel** : celui du lot E (le 236), sur l'Entreprise de test sans numéro ; en plus, une fois le numéro connecté,
+le délier ne rouvre pas la fenêtre (le numéro reste rattaché), le déconnecter la rouvre (« Déconnecter le numéro »
+supprime le numéro de l'espace).
+
+### La relecture du lot E4 (2026-11-09) : aucun rouge, 6 jaunes
+
+Commit `39ecffac` (relu sur `e6d8a9b0`, même contenu avant le report sur un commit de doc). Le lot ne fait que fermer :
+il ne rend jamais l'identifiant à un espace sans droit et ne couche pas l'API au démarrage (la valeur posée est faite
+de chiffres). En production, seul un espace délié voit un changement : sa fenêtre se ferme. Les six jaunes, pour le lot
+suivant (avec les jaunes 1 à 4 du lot E, une fois l'essai 236 fait) :
+1. La sortie tôt variable vide rend muette une vraie connexion : la variable vidée pour fermer la fenêtre, une page de
+   la console lue avant garde son identifiant et ouvre quand même la fenêtre du partenaire ; avant ce lot, l'alerte
+   partait. Un corps forgé ne la justifie pas (chaque fin exige un vrai code de Meta) : alerter avec un texte dédié
+   (« fenêtre fermée ») plutôt que sortir sans trace.
+2. La sonde privée (`docs/prive/credit-whatsapp/sonde-fenetre-partenaire.mjs`) construisait ses dépendances à
+   l'ancienne : mise à jour après le déploiement de ce lot.
+3. Le test du jaune 6 n'épingle pas le journal (`fenetre_partenaire_illisible`) : espionner la sortie d'erreur.
+4. La parité « inscription non configurée » n'est tenue que d'un côté : le test du câblage fige la condition de la
+   fenêtre, pas `configId` et `appId` du bloc `embeddedSignup` d'où la route tire `enabled`.
+5. Un numéro reconnecté sur un compte que la ligne de l'option couvre déjà reçoit « poser la ligne dans /ops », alors que
+   `/ops` répondra « déjà sur la ligne » : à dire dans la réécriture de l'alerte (jaune 2 du lot E).
+6. Ce plan disait encore « aucun numéro vivant » (§ « Ce qui est décidé ») : corrigé.
+

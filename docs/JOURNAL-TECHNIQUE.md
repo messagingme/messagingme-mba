@@ -4,6 +4,29 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : la fenêtre du partenaire, le lot de suite (jaunes 5, 6, 9 et 10 de la relecture du lot E)
+
+Accord de Julien (« Oui, lance-le ») pour les quatre jaunes qui ne dépendent pas de l'essai réel 236 ; plan
+`2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`, § E4. Implémenteur par lot, TDD, une relecture indépendante.
+
+- **Ce qui a changé** (`39ecffac`) : la règle compte les numéros RATTACHÉS, déliés compris, comme `hasNumber` et
+  `linkTenant` (jaune 5) ; une règle qui ne se lit pas ferme la fenêtre, journalisée, au lieu de faire échouer la
+  configuration de la connexion et l'état des cartes (jaune 6) ; la fin écarte des couverts le numéro qui vient
+  d'arriver, un numéro reconnecté sur un compte déjà couvert n'est plus dit « sans droit » (jaune 9) ;
+  `META_SOLUTION_ID` contrôlée au démarrage (des chiffres ou rien, espaces retirées), la fenêtre fermée quand
+  l'inscription n'est pas configurée, variable vide une fin marquée par la ligne n'alerte pas (jaune 10).
+- **Vérifié** : neuf tests neufs vus rouges avant les correctifs, neuf mutations vues rouges après ; suite racine
+  entière sur l'état reporté (978 fichiers, 16 412 tests), tsc, lint, auto-attaque. `tests/api-usage-guard.test.ts` a
+  dépassé ses 5 s sous la charge (lancé avec le test de latence) : mesuré seul, 3 sur 3 sur le lot comme sur la
+  référence.
+- **Relecture** : aucun rouge, six jaunes au plan (§ « La relecture du lot E4 »), dont une régression d'observabilité
+  qu'apporte le jaune 10 lui-même : variable vidée, une page restée ouverte peut encore ouvrir la fenêtre, et sa fin
+  n'alerte plus. À reprendre avec les jaunes 1 à 4 du lot E, après l'essai 236.
+- **En production** : CI racine, CodeQL et console vertes job par job ; run 42669669551 (`migration=aucune`, après le
+  déploiement de `64330acc` par la session voisine) : `mba-api` et les trois conteneurs de la machine sur `39ecffac`,
+  aucune erreur dans leurs journaux, fumée bonne, fiches OAuth conformes ; `META_SOLUTION_ID` relue intacte après le
+  déploiement (le workflow complète les variables). La sonde privée est passée au nouveau format de la règle.
+
 ## 2026-11-09 : le tunnel « Démarrer » en Free donne ses trois étapes en images, la voie e-mail à chaque porte, plugin 0.3.30
 
 Demande de Julien : en Free, avant le texte à coller dans Claude Code, redonner les étapes (le plugin, le MCP, la
