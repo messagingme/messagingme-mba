@@ -1090,15 +1090,16 @@ async function main(): Promise<void> {
   };
   /**
    * La fenêtre du partenaire (lot E du Crédit WhatsApp, `src/credit-whatsapp/fenetre-partenaire.ts`) : l'offre relue sans
-   * cache, l'option, les numéros que ses lignes couvrent et les numéros vivants de l'espace. La carte et la connexion
-   * lisent la MÊME règle.
+   * cache, l'option, les numéros que ses lignes couvrent et les numéros rattachés à l'espace, déliés compris. La carte et
+   * la connexion lisent la MÊME règle. L'inscription non configurée la ferme aussi : la configuration de la connexion ne
+   * rendrait pas l'identifiant, et la carte se dirait ouverte sur un bouton grisé.
    */
   const fenetreDuPartenaire: DepsFenetrePartenaire = {
-    solutionId: config.META_SOLUTION_ID,
+    solutionId: config.META_ES_CONFIG_ID !== '' && config.META_APP_ID !== '' ? config.META_SOLUTION_ID : '',
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
     option: (tenant) => optionsCreditWhatsapp.vivante(tenant),
-    numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
-    numerosVivants: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).filter((n) => !n.delie).length,
+    numerosCouverts: (tenant) => lignesCreditWhatsapp.numerosCouvertsParOption(tenant),
+    numerosRattaches: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).length,
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
   };
   /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */

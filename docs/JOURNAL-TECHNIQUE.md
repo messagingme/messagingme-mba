@@ -41,9 +41,10 @@ validés le même jour). Méthode : implémenteur par lot, TDD, puis une relectu
   des conteneurs remplace la table entière des variables en clair (un `scaleway-cli ... environment-variables.X=...`
   seul aurait effacé `NODE_ENV` et `DRY_RUN`). Relu après : les 14 variables d'avant intactes, les 70 secrets aux mêmes
   noms (l'API v1 les rend en objet), même image, conteneur prêt en 80 s. La fenêtre s'ouvre désormais à tous les espaces
-  qui y ont droit ; ce jour-là, d'après ce qu'on sait (l'option n'est pas en vente, Groupama PJ a son numéro), seulement
-  des espaces de test. Non mesuré : la sonde qui passe la vraie règle sur chaque espace, en lecture seule, a été refusée
-  par le garde-fou du mode auto ; elle reste à lancer par Julien.
+  qui y ont droit. Mesuré le même jour par la vraie règle sur les 16 espaces, en lecture seule (la sonde, refusée à
+  Claude par le garde-fou du mode auto, lancée par Julien : `docs/prive/credit-whatsapp/sonde-fenetre-partenaire.mjs`) :
+  7 en Free, 9 en Entreprise, aucun en formule Pro ni en Business ; la fenêtre s'ouvre à UN espace, une Entreprise de
+  test sans numéro, et les huit autres Entreprises y ont droit mais ont déjà leur numéro (lot D).
 
 ## 2026-11-09 : les jaunes d'avant la vente du Crédit WhatsApp (l'arrêt dit sur l'état, la résiliation comptée relue)
 

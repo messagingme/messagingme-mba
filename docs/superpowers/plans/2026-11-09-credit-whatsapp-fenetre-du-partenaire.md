@@ -98,8 +98,32 @@ l'attache au partenaire ne se défait pas : réserver la fenêtre à une option 
 **À l'ouverture de la vente** : 7. les autres entrées (la zone directe de l'Accueil, `/brancher`, l'onglet Crédit
 WhatsApp, le serveur MCP) ne mènent pas à la fenêtre du partenaire ; la fiche publique « Connecter mon numéro WhatsApp »
 et sa version anglaise disent encore « sur demande ». 11. Poser la variable ouvre la fenêtre à TOUS les espaces qui y
-ont droit : le 2026-11-09, d'après ce qu'on sait, seulement des espaces de test (l'option n'est pas en vente, Groupama
-PJ a son numéro) ; la sonde qui le mesure (la vraie règle sur chaque espace, en lecture seule) reste à lancer.
+ont droit. Mesuré le 2026-11-09 par Julien, la vraie règle passée sur les 16 espaces en lecture seule
+(`docs/prive/credit-whatsapp/sonde-fenetre-partenaire.mjs`) : 7 en Free, 9 en Entreprise, aucun en formule Pro ni en
+Business ; la fenêtre s'ouvre à UN espace, une Entreprise de test sans numéro ; les huit autres Entreprises y ont droit
+mais ont déjà leur numéro (lot D).
 
 **En production le 2026-11-09** (run 42651171128, `01cf6682`) ; `META_SOLUTION_ID` posée dans le conteneur de l'API le
 même jour, avec l'accord de Julien. L'essai réel est le 236 de la liste privée.
+
+### E4. Le lot de suite : les jaunes 5, 6, 9 et 10 (accord de Julien du 2026-11-09)
+
+Sans attendre l'essai 236 : aucun ne dépend de la question 2. Méthode : implémenteur par lot, TDD, puis une relecture
+indépendante du diff (la configuration de la connexion et sa fin sont des chemins de production).
+
+- [x] Jaune 5 : la règle compte les numéros RATTACHÉS, déliés compris (`numerosRattaches`, câblé sur
+  `numerosDeLEspace` sans filtre). Tests : un numéro délié ferme la fenêtre ; le câblage le dit.
+- [x] Jaune 6 : une règle qui ne se lit pas (base) ferme la fenêtre, journalisée, au lieu de faire échouer la
+  configuration de la connexion et l'état des cartes. Test : une lecture qui lève rend `null`.
+- [x] Jaune 9 : la relecture du droit à la fin ne compte pas le numéro qui vient d'arriver (`numerosCouverts` rend la
+  liste, `droitALaLigne` reçoit le numéro à écarter). Test : une option d'une place dont la ligne couvre déjà le compte
+  du numéro reconnecté, l'alerte dit le droit.
+- [x] Jaune 10 : le commentaire de `useConnexionNumero` dit que deux connexions peuvent vivre ensemble ;
+  `META_SOLUTION_ID` dans `.env.example`, des chiffres ou rien, espaces retirées au démarrage ; la fenêtre fermée quand
+  l'inscription n'est pas configurée (la carte ne se dit plus ouverte sur un bouton grisé) ; variable vide, une fin
+  marquée `parLaLigne` n'alerte pas. Tests : la garde de configuration dans les deux sens ; des places à 0 ; le câblage
+  de l'inscription éteinte ; l'alerte muette variable vide. Le test d'une option `en_retard` attend la décision du
+  jaune 8.
+
+**Essai réel** : celui du lot E (le 236), sur l'Entreprise de test sans numéro ; en plus, délier puis reconnecter n'y
+rouvre pas la fenêtre tant que le numéro reste rattaché.

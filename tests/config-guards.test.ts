@@ -97,6 +97,17 @@ describe('gardes de config en production', () => {
     expect(schema.safeParse({ SALESFORCE_PACKAGE_VERSION: 'https://login.salesforce.com/packaging/installPackage.apexp?p0=04t' }).success).toBe(false);
   });
 
+  it('la solution du partenaire (lot E du Crédit WhatsApp) : des chiffres, ou rien ; les espaces d’un copier-coller sont retirées', () => {
+    // Une valeur fausse ouvrirait la fenêtre de Meta avec un identifiant qui n'existe pas : refusée au démarrage.
+    const lue = schema.safeParse({ META_SOLUTION_ID: ' 1234567890123456 \n' });
+    expect(lue.success && lue.data.META_SOLUTION_ID).toBe('1234567890123456');
+    expect(schema.safeParse({ META_SOLUTION_ID: '' }).success).toBe(true);
+    const absente = schema.safeParse({});
+    expect(absente.success && absente.data.META_SOLUTION_ID).toBe('');
+    expect(schema.safeParse({ META_SOLUTION_ID: 'sol-1234' }).success).toBe(false);
+    expect(schema.safeParse({ META_SOLUTION_ID: '1234 5678' }).success).toBe(false);
+  });
+
   it('🔴 la clé du Gateway SANS modèle d’agent -> refusée, en nommant les deux variables', () => {
     // Le piège exact qu'on ferait au déploiement : poser la clé, oublier les modèles. Le code retombe alors
     // sur `LLM_MODEL`, qui est l'identifiant de l'ANALYSE de conversation servie EN DIRECT par Anthropic

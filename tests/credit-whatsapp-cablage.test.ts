@@ -47,12 +47,15 @@ describe('le câblage de l’option du Crédit WhatsApp', () => {
 describe('le câblage de la fenêtre du partenaire (lot E)', () => {
   it('🔴 la carte et la connexion lisent la MÊME règle, sur l’offre sans cache, l’option et la configuration', () => {
     const fenetre = bloc('const fenetreDuPartenaire: DepsFenetrePartenaire = {', '};');
-    expect(fenetre).toMatch(/solutionId: config\.META_SOLUTION_ID,/);
+    // L'inscription éteinte ferme aussi la fenêtre : la carte ne se dit pas ouverte sur un bouton grisé (relecture du lot E, jaune 10).
+    expect(fenetre).toMatch(/solutionId: config\.META_ES_CONFIG_ID !== '' && config\.META_APP_ID !== '' \? config\.META_SOLUTION_ID : '',/);
     expect(fenetre).toMatch(/offre: async \(tenant\) => \(await offresSansCache\.offreDe\(tenant\)\)\.offre,/);
     expect(fenetre).toMatch(/option: \(tenant\) => optionsCreditWhatsapp\.vivante\(tenant\),/);
-    // Une place libre se compte contre les numéros que les lignes de l'option couvrent ; un numéro délié n'est plus vivant.
-    expect(fenetre).toMatch(/numerosCouverts: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosCouvertsParOption\(tenant\)\)\.length,/);
-    expect(fenetre).toMatch(/numerosVivants: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosDeLEspace\(tenant\)\)\.filter\(\(n\) => !n\.delie\)\.length,/);
+    // Une place libre se compte contre les numéros que les lignes de l'option couvrent (la liste : la fin écarte le numéro
+    // qui vient d'arriver, jaune 9) ; un numéro délié reste rattaché, comme pour `hasNumber` et `linkTenant` (jaune 5).
+    expect(fenetre).toMatch(/numerosCouverts: \(tenant\) => lignesCreditWhatsapp\.numerosCouvertsParOption\(tenant\),/);
+    expect(fenetre).toMatch(/numerosRattaches: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosDeLEspace\(tenant\)\)\.length,/);
+    expect(fenetre).not.toMatch(/delie/);
     expect(bloc('const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {', 'vue: {'))
       .toMatch(/fenetrePartenaire: async \(tenant\) => \(await solutionDuPartenaire\(fenetreDuPartenaire, tenant\)\) !== null,/);
     const connexion = bloc('embeddedSignup: (() => {', 'meta: esClient,');

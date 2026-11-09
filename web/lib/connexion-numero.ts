@@ -16,8 +16,10 @@ import { useT } from '@/lib/i18n';
  * lance « la connexion actuelle » (plan du 2026-09-25), et la recopier aurait fait deux fenêtres Meta à tenir
  * alignées, dont une qui aurait raté le prochain correctif.
  *
- * 🔴 UNE SEULE INSTANCE PAR PAGE : elle porte l'écoute des messages de la fenêtre Meta, et les identifiants qui
- * arrivent par là. Deux instances les captureraient chacune de leur côté.
+ * DEUX INSTANCES PEUVENT VIVRE SUR UNE PAGE (lot E du Crédit WhatsApp : le guide de la carte chez Meta et le bouton
+ * « Connecter sans carte chez Meta », resté en second) : chacune écoute les messages de la fenêtre de Meta et en garde
+ * les identifiants, mais seule celle dont `connect` a ouvert la fenêtre envoie la fin au serveur, avec ce qu'elle a
+ * capturé depuis (remis à zéro à l'ouverture).
  */
 export interface ConnexionNumero {
   /** `null` = configuration pas encore lue. `enabled: false` = pas de configuration d'inscription sur l'instance. */
