@@ -336,6 +336,11 @@ s'invente. Les questions-réponses portent un bloc `FAQPage` (JSON-LD).
   commit, `aide:charger` après le push (règle du `CLAUDE.md`).
 - Les fiches qui citent une section de `features.md` portent son empreinte (`tests/aide-proposer.test.ts`).
 - Les pages neuves sont une nouveauté publique : Julien les voit (captures) avant le push.
+- Deux écarts relevés à la relecture du lot 1, à reprendre ici : la vitrine dit « 1 000 messages envoyés par mois » pour
+  la limite de la Free (`scripts/vitrine/cas-textes.ts`, `scripts/vitrine/anglais/tarifs.json`) quand le plugin dit
+  désormais « modèles », ce qui est exact (une réponse dans les 24 heures ne compte pas) ; et la page « Connecter votre
+  numéro WhatsApp depuis Claude » (`scripts/vitrine/aide-claude-textes.ts`) dit « le lien, puis les étapes », alors que
+  ce qui va se passer et qui paie viennent désormais avant le lien.
 
 **Méthode de livraison** : en direct, page par page, avec relecture de Julien sur captures. Contenu visuel et
 rédactionnel, réversible, qu'aucun test ne juge (le projet n'envoie pas l'UI en feature-loop). **Essai réel** :

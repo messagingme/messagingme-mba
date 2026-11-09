@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import { OUTILS, outilsPour, type DepsMcp, type OutilMcp } from '../src/mcp/outils';
-import { DELAI_ATTENTE_MS, PAS_ATTENTE_MS, rappelDeLAbonnement, rappelDeLaSuiteDuPro } from '../src/mcp/outils-numero';
+import { DELAI_ATTENTE_MS, PAS_ATTENTE_MS, modeDuLienNeuf, rappelDeLAbonnement, rappelDeLaSuiteDuPro } from '../src/mcp/outils-numero';
 import type { EtatDeLEspace } from '../src/stripe/abonnements.pg';
 import { RefusOutil } from '../src/mcp/saisie';
 import type { Issue } from '../src/lib/issue';
@@ -214,17 +214,54 @@ describe('watch_whatsapp_connection', () => {
    * a tourné 2 min 30 dans l'attente. Tant que rien n'a bougé, l'attente redonne un lien neuf et exige qu'il soit écrit.
    */
   it('🔴 rien n’a bougé, mode passé : l’attente rend un lien neuf, pour cet espace, cette personne et ce mode', async () => {
-    for (const mode of ['coexistence', 'fourni', 'apporte', 'fourni_application'] as const) {
-      const { deps } = monter(() => VIDE);
+    // Un numéro fourni : start_whatsapp_connection a retenu sa destination (0280), que le lien neuf suit.
+    const cas = [
+      ['coexistence', VIDE], ['apporte', VIDE],
+      ['fourni', { ...VIDE, destination: 'api' }], ['fourni_application', { ...VIDE, destination: 'application' }],
+    ] as const;
+    for (const [mode, etat] of cas) {
+      const { deps } = monter(() => etat);
       const r = await outil('watch_whatsapp_connection').executer(deps, 't1', { mode }, PERSONNE) as { lien: string | null; suite: string };
       expect(r.lien, mode).toMatch(/^https:\/\/console\.exemple\.test\/brancher#/);
       expect(await verifyLienNumero(r.lien!.split('#')[1]!, SECRET), mode)
         .toEqual({ tenantId: 't1', userId: 'u-admin', mode, emisLe: expect.any(Number) });
       expect(r.suite, mode).toContain(r.lien!);
       expect(r.suite, mode).toMatch(/ne voit pas/);
-      // Pas de répétition à chaque tour : seulement si son dernier message ne le contenait pas.
+      // Pas de répétition à chaque tour : seulement si son dernier message ne contenait aucun lien de connexion, et
+      // chaque réponse en porte un neuf qui vaut les précédents.
       expect(r.suite, mode).toMatch(/dernier message/);
+      expect(r.suite, mode).toMatch(/ils se valent/);
     }
+  });
+
+  /**
+   * Jaune 1 de la relecture du lot 1 : l'attente signait des liens que start_whatsapp_connection refuse, ou d'un autre
+   * mode que celui que la suite suit. Un lien de la fenêtre de Meta pendant que la suite dit de taper le code dans
+   * l'application, c'est un code perdu (une demande de plus sur les dix que Meta tolère en 72 heures).
+   */
+  it('🔴 jamais de lien neuf que start refuserait, ni d’un autre mode que la destination retenue : le rappel seul', async () => {
+    const refus: Array<[Record<string, unknown>, EtatConnexion]> = [
+      [{ mode: 'coexistence', filiere: 'application' }, VIDE],
+      [{ mode: 'fourni_application', filiere: 'application' }, VIDE],
+      [{ mode: 'apporte', filiere: 'application' }, VIDE],
+      [{ mode: 'fourni', filiere: 'application' }, VIDE],
+      [{ mode: 'fourni' }, { ...VIDE, destination: 'application' }],
+      [{ mode: 'fourni_application' }, { ...VIDE, destination: 'api' }],
+      [{ mode: 'fourni' }, VIDE],
+      [{ mode: 'coexistence' }, { ...VIDE, destination: 'api' }],
+      [{ mode: 'apporte' }, { ...VIDE, destination: 'application' }],
+      [{ mode: 'inconnu' }, VIDE],
+    ];
+    for (const [args, etat] of refus) {
+      const { deps } = monter(() => etat);
+      const r = await outil('watch_whatsapp_connection').executer(deps, 't1', args, PERSONNE) as { lien: string | null; suite: string };
+      expect(r.lien, JSON.stringify([args, etat.destination])).toBeNull();
+      // Le rappel reste : il renvoie au lien de start_whatsapp_connection.
+      expect(r.suite, JSON.stringify(args)).toMatch(/start_whatsapp_connection t’a rendu/);
+    }
+    expect(modeDuLienNeuf({}, 'api', 'coexistence')).toBe('coexistence');
+    expect(modeDuLienNeuf({ destination: 'api' }, 'api', 'fourni')).toBe('fourni');
+    expect(modeDuLienNeuf({ destination: 'application' }, 'api', 'fourni_application')).toBe('fourni_application');
   });
 
   it('🔴 rien n’a bougé, sans mode (un plugin 0.3.28) : pas de lien neuf, la suite renvoie à celui de start_whatsapp_connection', async () => {
@@ -422,6 +459,8 @@ describe('start_whatsapp_connection en coexistence', () => {
     expect(consigne).toMatch(/bloc de code/);
     // La fenêtre de Meta et l'application : ses cinq temps, dont le profil Facebook, le compte créé en chemin et le QR code.
     for (const e of ETAPES_FENETRE_GARDER) expect(consigne).toContain(e.fr);
+    // Et le numéro y reste (gardé de l'ancienne version de ce test, jaune 8 de la relecture du lot 1).
+    expect(consigne).toMatch(/son numéro reste dans l’application/);
     // Ce qui est facturé : ce qu'elle tape reste gratuit, ce que Messaging Me envoie est facturé par Meta.
     expect(consigne).toContain(CE_QUI_EST_FACTURE.application.fr);
     expect(consigne).toMatch(/watch_whatsapp_connection avec mode égal à « coexistence »/);
@@ -591,6 +630,8 @@ describe('le mode fourni_application', () => {
     // QR code de la FENÊTRE DE META (garder l'application), lui, est annoncé depuis le lot 1 de l'aide à la connexion.
     for (const e of ETAPES_RELIER_APPLICATION) expect(r.consigne).not.toContain(e.fr);
     expect(r.consigne).not.toMatch(/filiere/);
+    // Ni une reformulation du QR code de la PAGE (jaune 8) : seul celui de la fenêtre de Meta est annoncé.
+    expect(r.consigne).not.toMatch(/QR code de la page|Nouveau QR code|Appareils connectés|Connecter un appareil/);
   });
 
   it('🔴 garder l’application, c’est payer Meta avec sa carte (lot C) : la phrase de la console, en fourni_application comme en coexistence', async () => {

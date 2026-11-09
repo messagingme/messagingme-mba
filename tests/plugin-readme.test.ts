@@ -117,5 +117,11 @@ describe('l’accueil du plugin (sinon : npm run plugin:generer)', () => {
     expect(b).toMatch(/Google/);
     expect(b).toMatch(/email address/);
     expect(b).toMatch(/workspace is\s+created/);
+    // Les trois voies de `/autoriser` (jaune 6) : sans formulaire par Google seulement ; et la console avec Pro seulement.
+    expect(b).toMatch(/Continue with Google: with no account yet, your workspace is created right then, with no\s+form/);
+    expect(b).toMatch(/email address \(a short form\)/);
+    expect(b).toMatch(/sign in with your password/);
+    expect(b).toMatch(/with Pro, it also signs you in to the console/);
+    expect(b).not.toMatch(/\) and signs you in to the console/);
   });
 });

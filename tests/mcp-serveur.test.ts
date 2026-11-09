@@ -889,9 +889,10 @@ describe('serveur MCP : cohérence du catalogue', () => {
       // Le répondeur (lot 5) : il peut éteindre l'agent de Meta chez Meta, pour tous les contacts de l'espace.
       set_default_responder: [true, true, true],
       buy_credit: [true, false, true],
-      // La connexion du numéro (lot 3c) : un lien signé de plus à chaque appel, et une attente qui ne change rien.
+      // La connexion du numéro (lot 3c) : un lien signé de plus à chaque appel. L'attente aussi depuis le lot 1 de l'aide
+      // à la connexion (2026-11-09) : tant que rien n'a bougé, chaque réponse signe un lien neuf.
       start_whatsapp_connection: [true, false, false],
-      watch_whatsapp_connection: [true, true, false],
+      watch_whatsapp_connection: [true, false, false],
       // L'abonnement du numéro (lot 3c, livraison B) : une session du portail est créée chez Stripe à chaque appel.
       manage_number_subscription: [true, false, true],
       // Lot 4 : une session de Stripe de plus à chaque appel, comme le portail.

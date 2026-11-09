@@ -38,7 +38,9 @@ const TYPO_FRANCAISE = /[àâäçéèêëîïôöùûüÿœæÀÂÇÉÈÊËÎÏ�
 /** Des mots-outils français qui n'existent pas en anglais. */
 const MOTS_FRANCAIS = /\b(les|des|du|une|est|pour|avec|dans|sur|qui|que|pas|aux|cette|ces|chaque|depuis|sont|ou|et|le|la)\b/i;
 /** Des consignes adressées à Claude, que la revue refuse. */
-const CONSIGNES = /\b(tell the (user|person)|ask the (user|person)|you must|you should|make sure to|do not forget|always call|never call|first call)\b/i;
+// « always pass » et « your last message » (jaune 2 de la relecture du lot 1 de l'aide à la connexion) : une description
+// de watch_whatsapp_connection les avait glissés sans que ce motif les voie.
+const CONSIGNES = /\b(tell the (user|person)|ask the (user|person)|you must|you should|make sure to|do not forget|always call|never call|first call|always pass|your last message)\b/i;
 
 describe('les outils MCP, aux règles du répertoire de Claude', () => {
   it('🔴 chaque outil a un titre, et le bon indice : readOnlyHint pour une lecture, destructiveHint pour une écriture', () => {

@@ -300,9 +300,12 @@ export function blocAccueil(): string {
     `- In Claude Code: type \`/mcp\`, select \`${SERVEUR_PLUGIN_MCP}\`, then Authenticate.`,
     `- In Codex: run \`${AUTORISATION_CODEX}\`.`,
     '',
-    'A page opens in your browser: continue with Google, or with your email address. With no account yet, your workspace is',
-    'created right then, with no form. Then click Authorize. Your email address identifies you, receives the service emails',
-    '(your number, your credit, your plan limits) and signs you in to the console.',
+    // Les trois voies de `/autoriser` (jaune 6 de la relecture du lot 1) : Google crée l'espace sans formulaire, l'adresse
+    // e-mail passe par un formulaire court, un compte à mot de passe se connecte. Et la Free ne se pilote pas par la console.
+    'A page opens in your browser. Continue with Google: with no account yet, your workspace is created right then, with no',
+    'form. Or create your workspace with your email address (a short form), or sign in with your password if you already',
+    'have one. Then click Authorize. Your email address identifies you and receives the service emails (your number, your',
+    'credit, your plan limits); with Pro, it also signs you in to the console.',
     '',
     '**Then**: your WhatsApp number, an AI agent built from your website, the chat bubble on your site, and a test from your',
     'phone.',

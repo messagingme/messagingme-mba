@@ -101,9 +101,16 @@ describe('🔴 ce que la console et la vitrine font taper (lot 10, B) est ce que
     for (const c of [...COMMANDES_CODEX, AUTORISATION_CODEX]) expect(lisezmoi, c).toContain(c);
   });
 
-  it('🔴 la skill de mise en service donne la commande de Codex partout où elle donne /mcp, et fait toujours passer le mode', () => {
+  it('🔴 les skills qui démarrent donnent la commande de Codex à côté de l’autorisation par /mcp, et l’attente reçoit toujours le mode', () => {
     const corps = SKILLS.find((s) => s.nom === 'mise-en-service')!.corps;
-    expect(corps).toContain(AUTORISATION_CODEX);
+    // Chaque section qui fait autoriser le serveur (`/mcp`, puis le serveur, puis Authenticate) donne aussi Codex. La
+    // section du serveur ajouté à la main en garde une de plus : elle est propre à Claude Code (`claude mcp remove`).
+    const sections = (texte: string) => texte.split(/\n## /).filter((s) => /`\/mcp`, select/.test(s));
+    for (const nom of ['mise-en-service', 'demarrer']) {
+      const s = sections(SKILLS.find((x) => x.nom === nom)!.corps);
+      expect(s.length, nom).toBeGreaterThan(0);
+      for (const section of s) expect(section, `${nom} : ${section.slice(0, 40)}`).toContain(AUTORISATION_CODEX);
+    }
     // Le filet du lien (aide à la connexion, lot 1) : l'attente ne signe un lien neuf qu'avec le mode.
     expect(corps).toMatch(/always pass[^.]*`mode`[^.]*watch_whatsapp_connection|watch_whatsapp_connection[^.]*always[^.]*`mode`/i);
   });
