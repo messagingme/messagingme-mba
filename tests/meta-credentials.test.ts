@@ -152,7 +152,7 @@ describe('MetaCredentialsResolver (B1 : token Meta par tenant)', () => {
 
   /**
    * 🔴 Un refus de l'agent de Meta marquait invalide le jeton de tout l'espace (écran MBA en 500, envois coupés ;
-   * soupçonné sur MUTAC le 2026-11-09, après l'onglet « Tester »). La surface de l'agent répond 401 pour autre chose qu'un
+   * mesuré le 2026-11-09, après l'onglet « Tester »). La surface de l'agent répond 401 pour autre chose qu'un
    * jeton mort (« an error is not a negative answer », `src/mba/activation.ts`). L'erreur passe ici par le VRAI client
    * de l'agent, pour que la forme de l'erreur soit celle que la production fabrique.
    */

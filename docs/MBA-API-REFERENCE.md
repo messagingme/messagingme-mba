@@ -512,6 +512,86 @@ depuis un vrai téléphone, lus dans `webhook_events`, puis supprimés.
 | Partage de position | non observé (aucun message de position reçu pendant l'essai) |
 | Notre Inbox | 🔴 n'enregistre QUE la phrase d'accompagnement, jamais le composant : un opérateur lit « See the details below. » puis « 10 h » sans voir la liste. C'est la tâche T4 du plan |
 
+## ⚠️ Relevé du 2026-11-09 : dix pages relues, et ce qu'un espace client a montré
+
+Fait pendant la mise en service de l'agent de Meta d'un espace client (assurance obsèques). L'index `llms.txt` liste désormais les guides que celui du
+7 octobre oubliait (catalogue, recommandations, panier, statut de commande, connexion, OTP) et des pages nouvelles :
+`capabilities`, `delete-agent`, `agent-eval`, `business-agent-usage-insights`, `troubleshooting`, `support`,
+`test-your-agent`. Pages relues : messages interactifs (référence et guide de rédaction), capacités, insights d'usage,
+suppression, évaluation, catalogue, OTP et connexion, dépannage, réglages. Ce qui suit ne reprend que ce qui est neuf ou
+qui contredit ce document.
+
+### 🔴 Mesuré sur un espace client : Meta relit chaque consigne, et en refuse
+
+Le statut d'une consigne (`GET /{pn}/agent_config/skills`, champ `status`) vaut `active`, `pending_review` ou
+`blocked`, et seule `active` s'applique. Sur cet espace, deux consignes sur quatre ont été refusées dans la minute :
+
+- **Une consigne qui faisait demander l'âge** puis citait les tarifs (`tarifs-et-devis`) : refusée ; réécrite sans
+  l'âge ni rien qui fasse demander une donnée personnelle, puis acceptée.
+- **Une consigne qui présentait les garanties d'assurance obsèques** (âges d'adhésion, délai de carence, capitaux) :
+  refusée sous trois formes (orientée vers le choix, purement factuelle, supprimée puis recréée). Le même contenu est
+  ACCEPTÉ en FAQ et en description de l'entreprise. Hypothèse non vérifiée : Meta refuse en consigne ce qui ressemble à
+  un conseil sur un produit financier ; la doc ne dit que « souvent une demande d'information personnelle sensible ».
+
+Le refus est rendu par le statut, jamais par une erreur à l'écriture : le PUT et le POST rendent 200 et 201.
+
+### 🔴 HTTP 401 et 403 selon la doc, et ce que l'espace client a mesuré
+
+- La page de dépannage : **401** = jeton absent, invalide, ou « lacks the `whatsapp_business_messaging` permission » ;
+  **403** = conditions d'utilisation non acceptées, ou jeton non autorisé pour l'entreprise ; **400 `contentRejected`**
+  = contenu d'une FAQ, d'une consigne ou d'un message interactif refusé.
+- Mesuré le 2026-11-09 : un essai dans l'onglet « Tester » de cet espace a rendu un 401, notre garde-fou a marqué invalide
+  le jeton du compte entier (écran MBA en 500, envois coupés), et Meta a déclaré ce même jeton VALIDE juste après
+  (compte, numéro et éligibilité de l'agent en 200). Un 401 de cette surface ne prouve donc pas un jeton mort pour tout
+  le compte ; depuis `64330acc`, seul son code 190 invalide (`MetaAgentApiError`, `src/meta/errors.ts`).
+
+### Messages interactifs (`agent-ui-skills`)
+
+- **Un dixième type : `video`** (MP4 ou 3GPP, H.264 et AAC, 16 Mo au maximum, ou l'identifiant d'une vidéo
+  téléversée, qui expire 30 jours après ; légende de 1 à 1024). Absent de `TYPES_MESSAGE_INTERACTIF`.
+- **Le contenu ne passe que par la consigne** : « There are no fields to fill in ». Seul `flow_id` est un champ, requis
+  pour `flow` et refusé ailleurs. C'est la forme qu'envoie déjà `versMetaCreation`.
+- **Création** : `title`, `component_type`, `status` (`enabled` ou `disabled`) et `instruction`, tous requis.
+  **Modification** : `title`, `status`, `instruction`, tous facultatifs. « Flow skills cannot be enabled unless the
+  corresponding flow is published. » **`GET /agent-ui-skills/{instruction_id}`** lit un message seul. DELETE rend 204.
+- **Bornes par type** (en « characters » selon la doc) : `cta_url` corps 1 à 1024, bouton 1 à 20, URL HTTPS, pied 1 à
+  60 ; `interactive_list` corps 1 à 4096, bouton 1 à 20, 1 à 10 lignes (identifiant 1 à 188, titre 1 à 24 et distinct,
+  description 1 à 72) ; `interactive_reply_buttons` corps 1 à 1024, 1 à 3 boutons de 1 à 20, titres uniques ;
+  `location` latitude et longitude requises ; `location_request` corps 1 à 1024 ; `carousel_url` et
+  `carousel_quick_reply` corps 1 à 1024, 2 à 10 cartes, image par URL seulement, texte 1 à 160, bouton 1 à 20 ;
+  `flow` bouton de 20 au plus, corps requis ; `image` par URL ou par identifiant, jamais les deux.
+- **Contredit par notre mesure du 2026-10-07, qui prime** : la doc parle de caractères et d'un titre « human-readable »,
+  la mesure a montré un comptage en octets UTF-8 et un titre en minuscules, chiffres et tirets.
+
+### Surfaces nouvelles
+
+- **Coût réel** : `GET https://api.facebook.com/{entity_id}/business_agent_insights`, **`X-API-Version: 3.0.0`**,
+  `entity_id` = identifiant du compte de facturation de l'agent (Billing Hub, « Meta Business Agent accounts »), pas le
+  numéro. Droit : `business_management` (ou la capacité `bizai_wa_enterprise_api_3p_access`). Paramètres `start`,
+  `end`, `granularity` (`HOUR`, `DAY`, `MONTH`), `dimensions` (`channel`, `sender_id`), `metric_types`
+  (`billable_messages`, `billable_tokens`, `cost`). Le coût est dans la devise du compte, et absent de la ligne quand il
+  n'y en a pas. Première route qui donne le coût : les quatre insights connus n'en rendaient aucun.
+- **Suppression** : `DELETE /{pn}/delete_agent` rend `{ deleted_agent_id }` ; supprimer le dernier agent du compte
+  « disconnects the integration ».
+- **Évaluations** : `/{pn}/agent-eval` : `GET /cases` (scénarios), `POST /run?eval_case_ids=` (une tâche `QUEUED`),
+  `GET /run?job_id=` (avancement, puis notes moyennes de 1 à 5, résumé, principales catégories d'échec),
+  `GET /details`, `GET /summary`.
+- **Réglages** : `voice` (`status`, `rollout_percentage`), « in early testing and available in limited regions » ;
+  `channel` peut valoir `email`, `instagram`, `line`, `messenger`, `sms`, `tiktok`, `webchat` en plus de `whatsapp` ;
+  le PUT est désormais partiel, et `never_say_phrases` reste un remplacement complet. Activer l'agent ou passer en
+  `EVERYONE` exige un moyen de paiement ; « Conversation routing setup required » peut être rendu à l'activation.
+- **Connecteurs** : `upsertApiKey` et `upsertOAuth` (rotation des identifiants), identification du client par
+  `user_auth_injection_config` et `user_auth_action_config` (guides OTP et connexion), variables `WHATSAPP_BSUID`,
+  `WHATSAPP_PHONE_NUMBER_NATIONAL`, `WHATSAPP_IDENTITY_HASH`, `WHATSAPP_CONVERSATION_ID`, `WHATSAPP_MESSAGE_ID`,
+  `WHATSAPP_CURRENT_STATUS_ID`, `USER_MESSAGE`, et `transformation_spec` (remodeler la réponse d'un outil). Meta attend
+  30 s par appel, puis `TRANSPORT_ERROR`. Pour un tableau, `items` est une chaîne JSON encodée.
+- **Catalogue** : `POST https://graph.facebook.com/{waba_id}/product_catalogs` (`catalog_id`), sur Graph et sur le
+  compte WhatsApp ; un compte porte un catalogue au plus.
+- **Ce que l'agent lit d'un client** : image avec légende, note vocale si la transcription est activée sur le numéro,
+  sticker, réaction, position, réponse à un bouton ou une liste, commande du catalogue. Il ne lit ni les autres audios,
+  ni les vidéos, ni les documents (PDF, CSV, Office) : un PDF se donne à l'agent par Files.
+- **Sans en-tête `X-API-Version`**, une requête prend la plus ancienne version de l'endpoint (souvent 1.0.0).
+
 ## Pourquoi ce document existe
 
 `mba.messagingme.app` est une couche logicielle qui aide les entreprises à **onboarder et piloter finement

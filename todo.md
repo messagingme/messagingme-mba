@@ -1,5 +1,28 @@
 # todo.md : backlog
 
+## 🟡 L'agent de Meta : ce que le relevé du 2026-11-09 laisse à faire (`docs/MBA-API-REFERENCE.md`, relevé du 2026-11-09)
+
+- **Une consigne refusée par Meta passe inaperçue** : l'étape « Consignes » se dit faite dès qu'UNE consigne est
+  active (`src/mba/completion.ts`, `actives > 0`). Sur cet espace, deux consignes sur quatre étaient `blocked` sans qu'aucun
+  écran ne le dise. Montrer le statut de chaque consigne dans l'onglet « Consignes » et compter les refusées dans
+  l'en-tête, même quand d'autres sont actives.
+- **Le coût réel de l'agent** : `business_agent_insights` (version 3.0.0) rend messages facturés, jetons et coût, sur
+  l'identifiant du compte de facturation de l'agent avec `business_management`. À brancher sur `/ops` et sur les
+  statistiques de l'espace, après avoir mesuré que notre jeton porte ce droit et où se lit cet identifiant.
+- **Le type `video` des messages interactifs** : l'ajouter à `TYPES_MESSAGE_INTERACTIF`, à l'écran et à l'assistant,
+  puis le mesurer par un envoi réel comme les autres le 2026-10-07.
+- **Valider les bornes par type** des messages interactifs avant l'envoi (corps, boutons, lignes, cartes), pour un refus
+  lisible plutôt qu'un `contentRejected` de Meta.
+- **Supprimer l'agent de Meta d'un espace** (`DELETE /{pn}/delete_agent`) : utile à la déconnexion d'un numéro ;
+  décider si la console l'offre, car supprimer le dernier agent du compte coupe l'intégration.
+- **Les évaluations de Meta** (`agent-eval`) : à regarder pour l'onglet « Tester », avant de construire nos propres jeux
+  d'essai.
+- **L'espace client du 2026-11-09 (assurance obsèques)** : la consigne `presenter-les-garanties` reste `blocked` (refusée sous trois formes, le même contenu est
+  accepté en FAQ) ; la supprimer, ou comprendre ce que Meta refuse. Le site du client restait `in_progress` avec
+  0 page à 19 h ; relire son statut.
+- **L'agent IA « Conseiller obsèques »** créé par erreur dans l'espace de démo le 2026-11-09 : le garder comme
+  démo ou le désactiver (décision de Julien).
+
 ## 🟡 Les jaunes de la relecture des webhooks muets et de l'annonce des espaces (2026-11-06, `d50f364a`)
 
 Aucun rouge ; à reprendre au lot suivant qui touche ces chemins.
