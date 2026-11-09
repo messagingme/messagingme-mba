@@ -50,11 +50,13 @@ describe.skipIf(!url)('les demandes d’inscription, en base', () => {
       const r = await users.confirmerInscription(jeton, { workspaceName: 'Espace du clic', name: 'Titulaire', passwordHash: 'scrypt$clic$1' });
       expect(r).toMatchObject({ statut: 'cree', email, langue: 'en', offrePro: true, application: true, pubFbc: 'fb.1.1.abc', pubFbp: null });
       if (r.statut !== 'cree') throw new Error('attendu : cree');
-      const identite = await pool.query<{ password_hash: string; adresse_prouvee_le: Date | null }>(
-        'select password_hash, adresse_prouvee_le from identities where lower(email) = lower($1)', [email],
+      const identite = await pool.query<{ password_hash: string; adresse_prouvee_le: Date | null; langue: string }>(
+        'select password_hash, adresse_prouvee_le, langue from identities where lower(email) = lower($1)', [email],
       );
       expect(identite.rows[0]?.password_hash).toBe('scrypt$clic$1');
       expect(identite.rows[0]?.adresse_prouvee_le).toBeInstanceOf(Date);
+      // 🔴 La langue de l'écran qui a demandé le lien (aide à la connexion, lot 2b) : celle de ses e-mails.
+      expect(identite.rows[0]?.langue).toBe('en');
       const compte = await pool.query<{ role: string; name: string; tenant_name: string }>(
         `select u.role, u.name, t.name as tenant_name from users u join tenants t on t.id = u.tenant_id where u.id = $1`, [r.userId],
       );
@@ -84,6 +86,24 @@ describe.skipIf(!url)('les demandes d’inscription, en base', () => {
       expect((await pool.query('select tenant_id from users where lower(email) = lower($1)', [email])).rows).toEqual([{ tenant_id: google.tenantId }]);
       // Rouge si la suppression des demandes sortait de la transaction : l'échec l'aurait déjà faite.
       expect(await demandesDe(email)).toBe(1);
+    } finally {
+      await nettoyer(email);
+    }
+  });
+
+  it('🔴 la langue de l’écran (aide à la connexion, lot 2b) : posée à la naissance de l’identité, jamais sur une identité qui existe', async () => {
+    const users = new PgUserStore(pool);
+    const email = `insc.langue.${Date.now()}@exemple.fr`;
+    const langue = async (): Promise<string | undefined> =>
+      (await pool.query<{ langue: string }>('select langue from identities where lower(email) = lower($1)', [email])).rows[0]?.langue;
+    try {
+      // L'entrée par Google d'un écran anglais.
+      await users.createTenantWithAdmin('Espace anglais', { email, name: null, passwordHash: null, langue: 'en' });
+      expect(await langue()).toBe('en');
+      // Un second espace de la même adresse, depuis un écran français : l'identité garde sa langue (seul le choix de la
+      // personne la change, dans « Mon compte »).
+      await users.createTenantWithAdmin('Espace bis', { email, name: null, passwordHash: null, langue: 'fr' });
+      expect(await langue()).toBe('en');
     } finally {
       await nettoyer(email);
     }

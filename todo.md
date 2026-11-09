@@ -563,6 +563,11 @@ Lot identité C (journal du 2026-11-06). Rien ne bloque.
   et la console vouvoient.
 - **Un bouton « Renvoyer l'invitation »** sur l'écran Équipe : aujourd'hui, une invitation échue (7 jours) se refait en
   supprimant le compte invité, puis en l'invitant de nouveau.
+- **L'invitation, en anglais** (relevé au lot 2b de l'aide à la connexion, 2026-11-09) : l'e-mail d'invitation n'existe
+  qu'en français (`src/http/users.ts`, `renderInvitationEmail`), et l'identité d'un invité naît en `fr` chez l'invitant.
+  Ni l'acceptation (mot de passe ou Google) ni un espace créé par Google ne lui donnent la langue de son écran ; seul le
+  clic d'un lien d'inscription le fait. À trancher : la langue de l'invitant, un choix dans le formulaire d'invitation, ou
+  celle de l'écran d'acceptation.
 - **Les jaunes de la relecture du lot**, s'il en reste, sont notés avec le plan, privé (`docs/prive/`).
 
 ## 🟡 Sans Google sur /autoriser : ce que la relecture laisse (2026-10-27)

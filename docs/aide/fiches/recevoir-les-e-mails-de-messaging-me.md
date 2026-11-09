@@ -1,6 +1,6 @@
 ---
 source_section: Les e-mails de Messaging Me aux administrateurs
-source_empreinte: 447402
+source_empreinte: ef0438
 ---
 # Les e-mails que Messaging Me vous envoie
 
@@ -9,8 +9,10 @@ Messaging Me écrit par e-mail aux administrateurs d'un espace quand un geste de
 **Qui les reçoit.** Les administrateurs de l'espace qui se sont déjà connectés à la console. Une personne invitée qui
 n'a pas encore accepté son invitation ne reçoit rien.
 
-**Dans quelle langue.** Celle que vous avez choisie dans la console (menu de votre compte, en haut à droite, FR ou
-EN), en français par défaut. Vous pouvez aussi la choisir dans « Mon compte », section « E-mails de Messaging Me ».
+**Dans quelle langue.** D'abord celle de l'écran où vous avez commencé votre inscription : celui où vous avez continué
+avec Google, ou celui d'où vous avez demandé le lien par e-mail. Le français pour un compte plus ancien ou né d'une
+invitation. Vous la changez dans la console : menu de votre compte, en haut à droite (FR ou EN), ou « Mon compte »,
+section « E-mails de Messaging Me ».
 
 **Les alertes de service.** Le crédit IA presque épuisé (sous 0,50 €, une fois par recharge), puis épuisé (vos agents
 IA ne répondent plus, une fois par jour au plus). Un paiement refusé de votre offre Pro ou de votre numéro fourni, dès

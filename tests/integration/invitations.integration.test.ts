@@ -48,8 +48,8 @@ describe.skipIf(!url)('les invitations en attente, en base', () => {
   const drapeau = async (userId: string): Promise<boolean> =>
     (await pool.query<{ e: boolean }>('select invitation_en_attente as e from users where id = $1', [userId])).rows[0]!.e;
   const identite = async (email: string) =>
-    (await pool.query<{ id: string; password_hash: string | null; sessions_depuis: Date | null; adresse_prouvee_le: Date | null }>(
-      'select id, password_hash, sessions_depuis, adresse_prouvee_le from identities where lower(email) = lower($1)', [email],
+    (await pool.query<{ id: string; password_hash: string | null; sessions_depuis: Date | null; adresse_prouvee_le: Date | null; langue: string }>(
+      'select id, password_hash, sessions_depuis, adresse_prouvee_le, langue from identities where lower(email) = lower($1)', [email],
     )).rows[0];
 
   beforeAll(() => {
@@ -150,7 +150,9 @@ describe.skipIf(!url)('les invitations en attente, en base', () => {
     const invite = await users.createPending(t.tenantId, v, 'admin', '', t.userId);
     const nee = await identite(v);
     expect(nee?.password_hash).toBeNull();
-    const lien = await users.demanderInscription({ email: v, langue: 'fr', offrePro: false, application: false, pubFbc: null, pubFbp: null }, JOUR);
+    // Née chez l'invitant, dans la langue par défaut.
+    expect(nee?.langue).toBe('fr');
+    const lien = await users.demanderInscription({ email: v, langue: 'en', offrePro: false, application: false, pubFbc: null, pubFbp: null }, JOUR);
     const r = await users.confirmerInscription(lien, { workspaceName: 'Espace de la victime', name: null, passwordHash: 'scrypt$v6$clic' });
     expect(r.statut).toBe('cree');
     if (r.statut !== 'cree') throw new Error('attendu : cree');
@@ -159,6 +161,8 @@ describe.skipIf(!url)('les invitations en attente, en base', () => {
     expect(apres?.id).toBe(nee?.id);
     expect(apres?.password_hash).toBe('scrypt$v6$clic');
     expect(apres?.adresse_prouvee_le).toBeInstanceOf(Date);
+    // 🔴 Reprise au clic (aide à la connexion, lot 2b) : la langue de l'écran qui a demandé le lien.
+    expect(apres?.langue).toBe('en');
     expect(await drapeau(invite.id)).toBe(true);
     expect((await users.getByEmail(v)).map((c) => c.tenantId)).toEqual([r.tenantId]);
     expect((await auth.findIdentity(v))?.comptes.map((c) => c.tenantId)).toEqual([r.tenantId]);

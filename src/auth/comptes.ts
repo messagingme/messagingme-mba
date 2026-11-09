@@ -13,10 +13,13 @@ export interface CompteParAdresse {
 
 /** Ce que l'authentification lit et écrit des comptes. Chaque méthode absente rend sa route 503. */
 export interface ComptesAuthDep {
-  /** Inscription libre : crée un espace et son admin. `passwordHash` null = compte Google seul. */
+  /**
+   * Inscription libre : crée un espace et son admin. `passwordHash` null = compte Google seul. `langue` : celle de
+   * l'écran, celle des e-mails d'une identité qui naît ici (une identité existante garde la sienne).
+   */
   createTenantWithAdmin?(
     workspaceName: string,
-    admin: { email: string; name: string | null; passwordHash: string | null },
+    admin: { email: string; name: string | null; passwordHash: string | null; langue?: 'fr' | 'en' },
     origine: OrigineEspace,
   ): Promise<{ tenantId: string; userId: string }>;
   /** Pose (écrase) le hash de mot de passe d'un compte (reset / changement). */

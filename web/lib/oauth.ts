@@ -1,5 +1,5 @@
 import type { ChampPub } from './pub';
-import { ApiError, request } from './http';
+import { ApiError, langue, request } from './http';
 import { lireNomEspace } from './api/compte';
 import type { Session } from './session';
 
@@ -64,9 +64,12 @@ export function lireDemande(demande: string): Promise<DemandeAffichee> {
   return poster('/oauth/consentement/demande', { demande });
 }
 
-/** Adresse inconnue : le serveur crée son espace et son admin au passage (`nouveau`). */
+/**
+ * Adresse inconnue : le serveur crée son espace et son admin au passage (`nouveau`), dans la langue de la page, lue au
+ * clic (`langue()`) : le nom de l'espace et ses e-mails (aide à la connexion, lot 2b).
+ */
 export function continuerAvecGoogle(demande: string, idToken: string, pub?: ChampPub): Promise<ChoixOauth> {
-  return poster('/oauth/consentement/google', { demande, idToken, ...(pub ? { pub } : {}) });
+  return poster('/oauth/consentement/google', { demande, idToken, langue: langue(), ...(pub ? { pub } : {}) });
 }
 
 /** Le clic « Autoriser dans <espace> » après Google : rend l'adresse de retour du client, code compris. */

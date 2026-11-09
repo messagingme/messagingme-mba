@@ -56,12 +56,28 @@ describe('entrée Google partagée', () => {
       });
       expect(d.createTenantWithAdmin).toHaveBeenCalledWith(
         'Espace de Alice',
-        { email: identite.email, name: identite.name, passwordHash: null },
+        { email: identite.email, name: identite.name, passwordHash: null, langue: 'fr' },
         origine,
       );
       expect(d.touchLastLogin).toHaveBeenCalledWith('user-new');
     },
   );
+
+  it('🔴 la langue de l’écran (aide à la connexion, lot 2b) passe à la création et nomme l’espace, repli compris', async () => {
+    const d = deps();
+    await entrerParGoogle(d.dependances, 'jeton', 'claude_code', 'en');
+    expect(d.createTenantWithAdmin).toHaveBeenCalledWith(
+      'Alice’s workspace',
+      { email: identite.email, name: identite.name, passwordHash: null, langue: 'en' },
+      'claude_code',
+    );
+    for (const name of [null, 'Alice\nMartin']) {
+      const anglais = deps();
+      anglais.dependances.verifyGoogle.mockResolvedValueOnce({ ...identite, name });
+      await entrerParGoogle(anglais.dependances, 'jeton', 'console', 'en');
+      expect(anglais.createTenantWithAdmin).toHaveBeenCalledWith('My workspace', expect.objectContaining({ langue: 'en' }), 'console');
+    }
+  });
 
   it('retombe sur « Mon espace » quand le nom Google est absent ou refusé', async () => {
     for (const name of [null, 'Alice\nMartin', 'Alice\u202Eevil']) {

@@ -291,16 +291,19 @@ export class PgUserStore {
    * Identité d'une adresse : la trouve, ou la crée. Rend son identifiant. Un deuxième espace avec la même adresse
    * réutilise ainsi le mot de passe existant : une adresse, un mot de passe.
    * `on conflict do nothing` puis relecture : deux inscriptions simultanées convergent vers la même identité.
+   * `langue` (aide à la connexion, lot 2b) : celle de l'écran où le compte se crée, donc de ses e-mails ; posée à la
+   * naissance seulement. Une identité qui existe garde la sienne : seul le choix de la personne la change (`/compte`).
    */
   private async ensureIdentity(
     client: { query: (sql: string, params?: unknown[]) => Promise<{ rows: Array<{ id: string }>; rowCount: number | null }> },
     email: string,
     passwordHash: string | null,
+    langue: 'fr' | 'en' = 'fr',
   ): Promise<string> {
     await client.query(
-      `insert into identities (email, password_hash) values ($1, $2)
+      `insert into identities (email, password_hash, langue) values ($1, $2, $3)
        on conflict (lower(email)) do nothing`,
-      [email, passwordHash],
+      [email, passwordHash, langue],
     );
     const res = await client.query(`select id from identities where lower(email) = lower($1)`, [email]);
     return res.rows[0]!.id;
@@ -448,17 +451,18 @@ export class PgUserStore {
    * `passwordHash` null = compte Google seul. 409 si l'email est déjà pris (rollback, aucun espace créé).
    * 🔴 AUCUN CRÉDIT OFFERT ICI (décision de Julien du 2026-09-29) : offert à chaque espace qui naît, sans preuve,
    * il se récoltait par script. Il s'offre au premier numéro WhatsApp que Meta dit vérifié (`offrirAuNumeroVerifie`).
+   * `admin.langue` : celle de l'écran, écrite sur l'identité si elle naît ici (`ensureIdentity`), sinon sans effet.
    */
   async createTenantWithAdmin(
     workspaceName: string,
-    admin: { email: string; name: string | null; passwordHash: string | null },
+    admin: { email: string; name: string | null; passwordHash: string | null; langue?: 'fr' | 'en' },
     origine: OrigineEspace = 'console',
   ): Promise<{ tenantId: string; userId: string }> {
     let cree: { tenantId: string; userId: string };
     try {
       cree = await enTransaction(this.pool, (client) =>
-        // Même adresse qu'un espace existant : on réutilise son identité, donc son mot de passe.
-        this.creerEspaceEtAdmin(client, workspaceName, admin, origine, () => this.ensureIdentity(client, admin.email, admin.passwordHash)),
+        // Même adresse qu'un espace existant : on réutilise son identité, donc son mot de passe et sa langue.
+        this.creerEspaceEtAdmin(client, workspaceName, admin, origine, () => this.ensureIdentity(client, admin.email, admin.passwordHash, admin.langue)),
       );
     } catch (err) {
       if (estDoublon(err)) throw new DuplicateEmailError();
@@ -602,15 +606,18 @@ export class PgUserStore {
               [deja.id],
             );
             if (deja.password_hash !== null || (ouvert.rowCount ?? 0) > 0) throw new AdresseDejaConnue();
+            // La langue de la demande aussi (lot 2b) : sans mot de passe ni compte ouvert, l'identité n'a plus d'autre
+            // titulaire que la personne qui prouve l'adresse à ce clic, et l'écran d'où elle a demandé le lien dit sa langue.
             await client.query(
-              `update identities set password_hash = $2, adresse_prouvee_le = now(), sessions_depuis = $3 where id = $1`,
-              [deja.id, espace.passwordHash, new Date()],
+              `update identities set password_hash = $2, adresse_prouvee_le = now(), sessions_depuis = $3, langue = $4 where id = $1`,
+              [deja.id, espace.passwordHash, new Date(), demande.langue],
             );
             return deja.id;
           }
+          // Elle naît dans la langue de l'écran qui a demandé le lien (`inscriptions_attente.langue`) : ses e-mails aussi.
           const i = await client.query<{ id: string }>(
-            `insert into identities (email, password_hash, adresse_prouvee_le) values ($1, $2, now()) returning id`,
-            [demande.email, espace.passwordHash],
+            `insert into identities (email, password_hash, adresse_prouvee_le, langue) values ($1, $2, now(), $3) returning id`,
+            [demande.email, espace.passwordHash, demande.langue],
           );
           return i.rows[0]!.id;
         },

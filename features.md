@@ -3670,9 +3670,11 @@ boîte par sous-menu.
 ## Les e-mails de Messaging Me aux administrateurs
 
 - ✅ **Un seul chemin pour tous les e-mails envoyés aux espaces** (2026-10-14) : ils partent aux administrateurs qui
-  se sont déjà connectés (une invitation pas encore acceptée ne reçoit rien), dans la langue de chacun, celle qu'il a
-  choisie dans la console (français par défaut). Un e-mail raté chez le prestataire d'envoi est réessayé, et le même
-  e-mail ne part jamais deux fois pour la même occasion.
+  se sont déjà connectés (une invitation pas encore acceptée ne reçoit rien), dans la langue de chacun : celle de
+  l'écran où il a commencé son inscription, celui où il a continué avec Google ou celui d'où il a demandé le lien par
+  e-mail (depuis le 2026-11-09 ; le français pour un compte plus ancien ou né d'une invitation), puis celle qu'il choisit
+  dans la console. Un e-mail raté chez le prestataire d'envoi est réessayé, et le même e-mail ne part jamais deux fois
+  pour la même occasion.
 - ✅ **Les alertes de service** :
   - le crédit IA presque épuisé (sous 0,50 €, une fois par recharge), puis épuisé (une fois par jour au plus) ;
   - un paiement refusé du Pro ou du numéro fourni, dès le premier échec et une fois par facture, avec la date où les

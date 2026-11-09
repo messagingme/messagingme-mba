@@ -9,7 +9,7 @@
  */
 
 import type { ChampPub } from '../pub';
-import { request, ApiError } from '../http';
+import { request, ApiError, langue } from '../http';
 import { estCorpsCodeRefuse } from '../second-facteur';
 
 export interface LoginResult {
@@ -242,8 +242,9 @@ export interface GoogleResult extends LoginResult {
 /**
  * Se connecter avec Google : envoie le jeton ID au serveur, renvoie une session (login OU nouvel espace), ou un
  * CHOIX quand l'adresse ouvre plusieurs espaces, exactement comme `login`. `pub` : l'accord publicitaire coché (pixel,
- * lot 3), absent sans la case.
+ * lot 3), absent sans la case. `langue` : celle de l'écran, lue au clic (`langue()`, la règle de l'écran) ; le serveur
+ * en nomme l'espace et y écrit les e-mails d'une adresse qui naît (aide à la connexion, lot 2b).
  */
 export function loginWithGoogle(idToken: string, pub?: ChampPub): Promise<GoogleResult | LoginChoice> {
-  return request<GoogleResult | LoginChoice>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken, ...(pub ? { pub } : {}) }) });
+  return request<GoogleResult | LoginChoice>('/auth/google', { method: 'POST', body: JSON.stringify({ idToken, langue: langue(), ...(pub ? { pub } : {}) }) });
 }

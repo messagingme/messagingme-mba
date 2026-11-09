@@ -11,7 +11,7 @@ const SECRET = 'test-secret';
 const j = { headers: { 'content-type': 'application/json' } };
 
 interface Cap {
-  created: Array<{ name: string; email: string; passwordHash: string | null; origine?: string }>;
+  created: Array<{ name: string; email: string; passwordHash: string | null; origine?: string; langue?: string }>;
 }
 
 // Vérificateur Google FAKE : exerce le chemin réel de la route sans dépendre du vrai JWKS Google.
@@ -35,7 +35,7 @@ function app(over: Partial<Omit<AuthRouteDeps, 'comptes'>> & { comptes?: Partial
     comptes: {
       createTenantWithAdmin: async (name, admin, origine) => {
         if (admin.email === 'taken@x.fr') throw new DuplicateEmailError();
-        cap.created.push({ name, email: admin.email, passwordHash: admin.passwordHash, origine });
+        cap.created.push({ name, email: admin.email, passwordHash: admin.passwordHash, origine, langue: admin.langue });
         return { tenantId: 'tNew', userId: 'uNew' };
       },
       getByEmail: async (email) => {
@@ -133,7 +133,22 @@ describe('POST /auth/google', () => {
     expect(body.isNew).toBe(true);
     expect(body.user).toMatchObject({ role: 'admin', tenantId: 'tNew', email: 'new@x.fr' });
     // L'espace né par la connexion Google de la CONSOLE garde l'origine console (0212) : 5 € offerts, pas 1 €.
-    expect(cap.created).toEqual([{ name: 'Espace de Alice', email: 'new@x.fr', passwordHash: null, origine: 'console' }]);
+    expect(cap.created).toEqual([{ name: 'Espace de Alice', email: 'new@x.fr', passwordHash: null, origine: 'console', langue: 'fr' }]);
+    await server.close();
+  });
+
+  it('🔴 la langue de l’écran (aide à la connexion, lot 2b) : `en` nomme l’espace et fait naître l’identité en anglais ; absente ou inconnue, le français, jamais un refus', async () => {
+    const { server, cap } = app();
+    const anglais = await server.inject({ method: 'POST', url: '/auth/google', ...j, payload: { idToken: 'NEW', langue: 'en' } });
+    expect(anglais.statusCode).toBe(201);
+    for (const langue of [undefined, 'de', 42, 'EN']) {
+      const res = await server.inject({ method: 'POST', url: '/auth/google', ...j, payload: { idToken: 'NEW', ...(langue === undefined ? {} : { langue }) } });
+      expect(res.statusCode, String(langue)).toBe(201);
+    }
+    expect(cap.created.map((c) => [c.name, c.langue])).toEqual([
+      ['Alice’s workspace', 'en'],
+      ['Espace de Alice', 'fr'], ['Espace de Alice', 'fr'], ['Espace de Alice', 'fr'], ['Espace de Alice', 'fr'],
+    ]);
     await server.close();
   });
 

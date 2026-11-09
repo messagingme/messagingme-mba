@@ -103,7 +103,9 @@ const Enregistrement = z.object({
 const GRANTS: readonly string[] = ['authorization_code', 'refresh_token'];
 
 const DemandeSeule = z.object({ demande: z.string().min(1) });
-const ParGoogle = z.object({ demande: z.string().min(1), idToken: z.string().min(1) });
+// `langue` (lot 2b de l'aide à la connexion) : celle de la page, pour l'espace et les e-mails d'une adresse qui naît.
+// Absente ou inconnue, `fr` : une console d'avant le lot, ou une valeur faussée, ne fait jamais refuser la connexion.
+const ParGoogle = z.object({ demande: z.string().min(1), idToken: z.string().min(1), langue: z.enum(['fr', 'en']).catch('fr') });
 const ParPreuve = z.object({ demande: z.string().min(1), choix: z.string().min(1), tenantId: z.string().min(1) });
 
 const DROITS: readonly string[] = DROITS_OAUTH;
@@ -393,6 +395,7 @@ export function registerOauth(app: FastifyInstance, deps: OauthRouteDeps, base: 
         deps,
         lu.data.idToken,
         clientConnu(demandeLue.clientId) ? 'claude_code' : 'client_mcp',
+        lu.data.langue,
       );
       if (entree.statut === 'invalide') return reply.code(401).send({ error: 'jeton Google invalide' });
       if (entree.statut === 'revoquee') return reply.code(403).send({ error: 'compte révoqué' });

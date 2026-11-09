@@ -90,7 +90,7 @@ test.describe('L’accord publicitaire à l’inscription', () => {
     await caseMeta(page).check();
     await page.getByTestId('google-simule').click();
     await expect.poll(() => corpsDe(appels, '/auth/google')).not.toBeNull();
-    expect(corpsDe(appels, '/auth/google')).toEqual({ idToken: 'jeton-google-e2e', pub: { accord: true } });
+    expect(corpsDe(appels, '/auth/google')).toEqual({ idToken: 'jeton-google-e2e', langue: 'fr', pub: { accord: true } });
   });
 
   test('🔴 /autoriser : la case est décochée ; cochée, l’accord part avec l’entrée Google du plugin', async ({ page }) => {
@@ -104,7 +104,7 @@ test.describe('L’accord publicitaire à l’inscription', () => {
     await caseMeta(page).check();
     await page.getByTestId('google-simule').click();
     await expect.poll(() => corpsDe(appels, '/oauth/consentement/google')).not.toBeNull();
-    expect(corpsDe(appels, '/oauth/consentement/google')).toEqual({ demande: 'd-e2e', idToken: 'jeton-google-e2e', pub: { accord: true } });
+    expect(corpsDe(appels, '/oauth/consentement/google')).toEqual({ demande: 'd-e2e', idToken: 'jeton-google-e2e', langue: 'fr', pub: { accord: true } });
   });
 });
 

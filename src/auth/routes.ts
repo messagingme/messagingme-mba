@@ -283,7 +283,7 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
   // Se connecter avec Google : vérifie le jeton ID, connecte un compte existant ou crée un espace (inconnu).
   app.post('/auth/google', async (req, reply) => {
     if (!deps.verifyGoogle || !deps.comptes?.getByEmail || !deps.comptes.createTenantWithAdmin) return reply.code(503).send({ error: 'connexion Google indisponible' });
-    const corps = (req.body ?? {}) as { idToken?: unknown; ops?: unknown };
+    const corps = (req.body ?? {}) as { idToken?: unknown; ops?: unknown; langue?: unknown };
     const idToken = str(corps.idToken);
     if (idToken === '') return reply.code(400).send({ error: 'idToken requis' });
     // Clé sur l'idToken Google : borne les tentatives par jeton, plus de blocage transverse.
@@ -300,6 +300,9 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
       },
       idToken,
       corps.ops === true ? undefined : 'console',
+      // La langue de l'écran (lot 2b) : celle de l'espace et des e-mails d'une adresse qui naît ici. Lue comme
+      // l'inscription par lien : tout ce qui n'est pas `en` est `fr`, jamais un refus.
+      corps.langue === 'en' ? 'en' : 'fr',
     );
     if (entree.statut === 'invalide') return reply.code(401).send({ error: 'jeton Google invalide' });
     /**

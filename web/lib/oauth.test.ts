@@ -103,7 +103,17 @@ describe('les gestes de la page : les bonnes routes, et un 401 qui ne vide jamai
     const choix = { choix: 'preuve', nouveau: true, espaces: [{ tenantId: 't9', nom: 'Espace de Léa', admin: true }] };
     const { appels } = api(() => ({ corps: choix }));
     expect(await continuerAvecGoogle('d1', 'jeton-google')).toEqual(choix);
-    expect(appels).toEqual([{ url: '/api/backend/oauth/consentement/google', methode: 'POST', corps: { demande: 'd1', idToken: 'jeton-google' } }]);
+    expect(appels).toEqual([{ url: '/api/backend/oauth/consentement/google', methode: 'POST', corps: { demande: 'd1', idToken: 'jeton-google', langue: 'fr' } }]);
+  });
+
+  it('🔴 Google porte la langue de la page (aide à la connexion, lot 2b) : celle de l’écran, lue au clic', async () => {
+    const { appels } = api(() => ({ corps: { choix: 'preuve', nouveau: true, espaces: [] } }));
+    // Un navigateur anglais sans choix, puis le même avec le français choisi dans la console.
+    vi.stubGlobal('window', { localStorage: { getItem: () => null }, location: { search: '' }, navigator: { language: 'en-GB' } });
+    await continuerAvecGoogle('d1', 'j');
+    vi.stubGlobal('window', { localStorage: { getItem: () => 'fr' }, location: { search: '' }, navigator: { language: 'en-GB' } });
+    await continuerAvecGoogle('d1', 'j');
+    expect(appels.map((a) => (a.corps as { langue?: unknown }).langue)).toEqual(['en', 'fr']);
   });
 
   it('les deux clics « Autoriser » : la preuve et l’espace, ou la session ; l’adresse de retour remonte telle quelle', async () => {

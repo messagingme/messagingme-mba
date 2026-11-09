@@ -298,7 +298,8 @@ test.describe('Autoriser Claude : avec Google', () => {
     await expect(page.getByRole('button', { name: /Agence/ })).toHaveCount(0);
     const bouton = page.getByRole('button', { name: 'Autoriser dans Espace de Léa' });
     await expect(bouton).toBeVisible();
-    expect(appels.find((a) => a.chemin === '/oauth/consentement/google')?.corps).toEqual({ demande: 'd-e2e', idToken: 'jeton-google-e2e' });
+    // La langue de la page part avec (aide à la connexion, lot 2b) : le navigateur des e2e est en `fr-FR`.
+    expect(appels.find((a) => a.chemin === '/oauth/consentement/google')?.corps).toEqual({ demande: 'd-e2e', idToken: 'jeton-google-e2e', langue: 'fr' });
     expect(autorisations(appels)).toEqual([]);
 
     await bouton.click();
@@ -321,5 +322,21 @@ test.describe('Autoriser Claude : avec Google', () => {
     await expect(page.getByTestId('autoriser-refus')).toHaveText('connexion Google expirée : reconnectez-vous');
     await expect(page.getByTestId('autoriser-espaces')).toHaveCount(0);
     await expect(page.getByTestId('google-simule')).toBeVisible();
+  });
+});
+
+test.describe('Autoriser Claude : avec Google, depuis un navigateur anglais', () => {
+  test.use({ locale: 'en-US' });
+
+  test('🔴 la page en anglais envoie `en` avec le jeton : l’espace et les e-mails naissent en anglais (lot 2b)', async ({ page }) => {
+    const appels = await monter(page, (chemin) => {
+      if (chemin === '/oauth/consentement/demande') return { body: DEMANDE };
+      if (chemin === '/oauth/consentement/google') return { body: { choix: 'preuve-e2e', nouveau: true, espaces: [{ tenantId: 't9', nom: 'Lea’s workspace', admin: true }] } };
+      return undefined;
+    });
+    await page.goto('/autoriser?demande=d-e2e');
+    await page.getByTestId('google-simule').click();
+    await expect(page.getByRole('button', { name: /Lea’s workspace/ })).toBeVisible();
+    expect(appels.find((a) => a.chemin === '/oauth/consentement/google')?.corps).toEqual({ demande: 'd-e2e', idToken: 'jeton-google-e2e', langue: 'en' });
   });
 });

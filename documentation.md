@@ -2862,6 +2862,14 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   bail de dix minutes dans `prochain_essai_le`), envoie par l'expéditeur unique (`creerEnvoyeurProduit`, borné à 30 s),
   garde l'identifiant Resend et vide les valeurs. Un 429, un 5xx ou une panne réseau laissent `a_envoyer` avec l'heure
   du prochain essai (5 min, 15 min, 1 h, 3 h) ; un autre 4xx ou le cinquième échec passent `echec`.
+- **La langue** (`identities.langue`, `fr` par défaut) s'apprend à la NAISSANCE de l'identité, depuis l'écran où
+  l'inscription commence : la console l'envoie à `/auth/google` et `/oauth/consentement/google` (`langue()` de
+  `web/lib/http.ts`, lue au clic), et `/signup` la joint à la demande du lien (la langue de la page,
+  `inscriptions_attente.langue`, reprise au clic ; la page de confirmation n'en envoie pas). `ensureIdentity` ne l'écrit
+  qu'à l'insertion : une identité existante garde la sienne, et seul le choix de la personne la change ensuite (menu du
+  compte, `/compte`, par `poserLangue`). Une identité née d'une invitation naît en `fr`. Le clic d'un lien d'inscription
+  qui reprend une identité sans mot de passe ni compte ouvert (née d'une invitation, ou dont tous les comptes ont été
+  supprimés) lui donne la langue de sa demande ; la même identité qui revient par Google garde la sienne.
 - **La reprise** (`emails-produit-reprise`, toutes les cinq minutes) remet en file les lignes `a_envoyer` créées
   depuis plus de cinq minutes dont l'heure est passée : les mises en file perdues, les réessais et les baux échus. Son
   `where` reprend le prédicat de l'index partiel `emails_produit_envois_a_envoyer_idx`.
@@ -5901,7 +5909,8 @@ Ajouté par le lot 4 de l'API publique :
    `\p{Zl}`, `\p{Zp}` ni remplissage hangul, au moins une lettre ou un chiffre. Écriture par `PgUserStore.setTenantName`, sans migration
    (`tenants.name` existe depuis 0001). Un nom inchangé n'écrit rien. Audit `espace.renomme`, cible
    `{ kind: 'tenant', id }`, détail VIDE : un nom d'espace peut être celui d'une personne
-   (« Espace de <nom complet> » à l'inscription Google), et `audit_log` est gardé deux ans. La carte « Espace » de Compte & équipe traduit le 404 d'une API pas encore déployée par un
+   (« Espace de <nom complet> », ou « <nom complet>’s workspace » depuis un écran anglais, à l'inscription Google), et
+   `audit_log` est gardé deux ans. La carte « Espace » de Compte & équipe traduit le 404 d'une API pas encore déployée par un
    message au lieu d'une panne.
 42. **Un numéro fourni dont l'abonnement est SUSPENDU n'envoie rien, au même point que le délié** (lot 4,
    `MetaClientFactory.verifierNumero`). La garde lit d'abord le délié, puis la suspension (le délié prime), et lève
