@@ -188,8 +188,9 @@ et vous le transmettons) ; où le taper (fenêtre de Meta pour D, application Wh
   `apporte`) : tout ce qui part du numéro passe par Messaging Me, donc les modèles, et les réponses au-delà de la
   franchise, sont facturés par Meta. Les phrases sur le Crédit WhatsApp restent (pas possible avec l'application), sans
   dire « Meta facture forcément sur votre carte » comme si tout était payant. La source de ces faits est
-  `brain/MESSAGINGME.md` et les fiches existantes ; aucun prix. `CARTE_AVEC_APPLICATION` et `NOTE_CARTE_APPLICATION`
-  (console) changent ensemble, leur test de parité suit.
+  `brain/MESSAGINGME.md` et les fiches existantes ; aucun prix. `NOTE_CARTE_APPLICATION` (console, questionnaire de la
+  vitrine, FAQ) reste telle quelle, parce qu'elle est vraie et que la changer remuerait ces trois endroits : la nuance
+  se pose AVANT elle, dans la consigne (décidé au plan du lot 1).
 - `get_setup_state` (ou la consigne) indique au lot 4b l'adresse du guide et de la page de dépannage, pour que Claude
   les donne quand la personne bloque.
 
