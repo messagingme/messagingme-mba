@@ -7,9 +7,10 @@ import { RefusOutil } from '../src/mcp/saisie';
 import type { Issue } from '../src/lib/issue';
 import { signLienNumero, verifyLienNumero, DUREE_LIEN_NUMERO_MS } from '../src/auth/token';
 import { empreinteEtat, type EtatConnexion } from '../src/otp/etat-connexion';
-import { PREREQUIS_META } from '../web/lib/partage/etapes-meta';
-import { ETAPES_COMPTE_FOURNI } from '../web/lib/partage/etapes-application';
-import { ETAPES_NUMERO_FOURNI } from '../web/lib/partage/etapes-numero-fourni';
+import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, PREREQUIS_META } from '../web/lib/partage/etapes-meta';
+import { ETAPES_COMPTE_FOURNI, ETAPES_FENETRE_GARDER, ETAPES_RELIER_APPLICATION } from '../web/lib/partage/etapes-application';
+import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI } from '../web/lib/partage/etapes-numero-fourni';
+import { AIDE_GARDER_APPLICATION } from '../web/lib/partage/aide-connexion';
 import { COEXISTENCE_BOUTON } from '../web/lib/fenetre-meta';
 import { NOTE_CARTE_APPLICATION } from '../web/lib/questions-numero';
 
@@ -89,6 +90,33 @@ describe('start_whatsapp_connection', () => {
       expect(r.consigne).toMatch(/bloc de code/);
       expect(r.consigne).toMatch(/ouverte jusqu’au bout/);
       expect(r.consigne).toMatch(/fenêtre de Meta/);
+    }
+  });
+
+  it('🔴 numéro API (fourni, apporte) : la fenêtre de Meta sur le profil Facebook, le compte créé en chemin, qui paie, avant le lien', async () => {
+    for (const mode of ['fourni', 'apporte'] as const) {
+      const { deps } = monter(() => VIDE);
+      const r = await outil('start_whatsapp_connection').executer(deps, 't1', { mode }, PERSONNE) as Record<string, string>;
+      const c = r.consigne!;
+      expect(c, mode).toMatch(/profil Facebook/);
+      expect(c, mode).toMatch(/en chemin/);
+      expect(c, mode).toContain(CE_QUI_EST_FACTURE.api.fr);
+      expect(c.indexOf(CE_QUI_EST_FACTURE.api.fr), mode).toBeLessThan(c.indexOf(r.url!));
+    }
+  });
+
+  it('🔴 numéro fourni : ce qu’est le code de vérification, et pourquoi il arrive chez nous ; pas pour son propre numéro', async () => {
+    const fourni = await outil('start_whatsapp_connection').executer(monter(() => VIDE).deps, 't1', { mode: 'fourni' }, PERSONNE) as Record<string, string>;
+    expect(fourni.consigne).toContain(CODE_VERIFICATION_FOURNI.fr);
+    const apporte = await outil('start_whatsapp_connection').executer(monter(() => VIDE).deps, 't1', { mode: 'apporte' }, PERSONNE) as Record<string, string>;
+    expect(apporte.consigne).not.toContain(CODE_VERIFICATION_FOURNI.fr);
+  });
+
+  it('🔴 onboarding du 2026-11-07 : la consigne porte l’adresse elle-même, dans les quatre modes', async () => {
+    for (const mode of ['fourni', 'apporte', 'coexistence', 'fourni_application'] as const) {
+      const { deps } = monter(() => VIDE);
+      const r = await outil('start_whatsapp_connection').executer(deps, 't1', { mode }, PERSONNE) as Record<string, string>;
+      expect(r.consigne, mode).toContain(r.url!);
     }
   });
 
@@ -179,6 +207,47 @@ describe('watch_whatsapp_connection', () => {
     const r = await outil('watch_whatsapp_connection').executer(deps, 't1', {}, PERSONNE) as Record<string, unknown>;
     expect(String(r.suite)).toMatch(/lien/);
     expect(String(r.suite)).toMatch(/etat_connu/);
+  });
+
+  /**
+   * L'onboarding du 2026-11-07 : Claude a dit « ce lien expire à 19 h 19, je surveille », sans jamais écrire le lien, et
+   * a tourné 2 min 30 dans l'attente. Tant que rien n'a bougé, l'attente redonne un lien neuf et exige qu'il soit écrit.
+   */
+  it('🔴 rien n’a bougé, mode passé : l’attente rend un lien neuf, pour cet espace, cette personne et ce mode', async () => {
+    for (const mode of ['coexistence', 'fourni', 'apporte', 'fourni_application'] as const) {
+      const { deps } = monter(() => VIDE);
+      const r = await outil('watch_whatsapp_connection').executer(deps, 't1', { mode }, PERSONNE) as { lien: string | null; suite: string };
+      expect(r.lien, mode).toMatch(/^https:\/\/console\.exemple\.test\/brancher#/);
+      expect(await verifyLienNumero(r.lien!.split('#')[1]!, SECRET), mode)
+        .toEqual({ tenantId: 't1', userId: 'u-admin', mode, emisLe: expect.any(Number) });
+      expect(r.suite, mode).toContain(r.lien!);
+      expect(r.suite, mode).toMatch(/ne voit pas/);
+      // Pas de répétition à chaque tour : seulement si son dernier message ne le contenait pas.
+      expect(r.suite, mode).toMatch(/dernier message/);
+    }
+  });
+
+  it('🔴 rien n’a bougé, sans mode (un plugin 0.3.28) : pas de lien neuf, la suite renvoie à celui de start_whatsapp_connection', async () => {
+    const { deps } = monter(() => VIDE);
+    const r = await outil('watch_whatsapp_connection').executer(deps, 't1', {}, PERSONNE) as { lien: string | null; suite: string };
+    expect(r.lien).toBeNull();
+    expect(r.suite).toMatch(/start_whatsapp_connection/);
+    expect(r.suite).toMatch(/en entier/i);
+    expect(r.suite).toMatch(/dernier message/);
+  });
+
+  it('🔴 dès qu’un signe arrive (numéro attribué, code, numéro connecté, paiement), plus de lien ni de rappel', async () => {
+    const signes: EtatConnexion[] = [
+      ATTRIBUE, AVEC_CODE,
+      { ...ATTRIBUE, connecte: { chiffres: '441235619343', aActiver: false } },
+      { ...VIDE, abonnement: { statut: 'actif', periodeFin: '2026-11-13T09:00:00.000Z' } },
+    ];
+    for (const etat of signes) {
+      const { deps } = monter(() => etat);
+      const r = await outil('watch_whatsapp_connection').executer(deps, 't1', { mode: 'fourni' }, PERSONNE) as { lien: string | null; suite: string };
+      expect(r.lien).toBeNull();
+      expect(r.suite).not.toMatch(/ne voit pas/);
+    }
   });
 
   it('🔴 relié mais pas encore activé par Meta : ni « connecté » ni « fini », et Claude le dit', async () => {
@@ -351,13 +420,30 @@ describe('start_whatsapp_connection en coexistence', () => {
     const { consigne } = await demarrer(VIDE, { mode: 'coexistence' });
     expect(consigne).toMatch(/en entier/i);
     expect(consigne).toMatch(/bloc de code/);
-    expect(consigne).toContain('Dans la fenêtre de Meta, elle saisit le numéro de son application WhatsApp Business et confirme dans '
-      + 'l’application, sur son téléphone. Son numéro y reste : les messages qu’elle y tape restent gratuits, ceux qui partent par '
-      + 'Messaging Me sont des modèles facturés par Meta. Pas encore de compte Meta Business ? La fenêtre le crée en chemin, avec un '
-      + 'profil Facebook ; avant le premier modèle, Meta demandera un moyen de paiement sur le compte WhatsApp.');
+    // La fenêtre de Meta et l'application : ses cinq temps, dont le profil Facebook, le compte créé en chemin et le QR code.
+    for (const e of ETAPES_FENETRE_GARDER) expect(consigne).toContain(e.fr);
+    // Ce qui est facturé : ce qu'elle tape reste gratuit, ce que Messaging Me envoie est facturé par Meta.
+    expect(consigne).toContain(CE_QUI_EST_FACTURE.application.fr);
     expect(consigne).toMatch(/watch_whatsapp_connection avec mode égal à « coexistence »/);
     // Le prérequis du numéro n'est pas dit : le numéro de l'application est déjà choisi.
     expect(consigne).not.toContain(PREREQUIS_META[2]!.fr);
+  });
+
+  /**
+   * L'onboarding du 2026-11-07 : Claude a dit « avec l'app, Meta facture forcément sur ta carte », comme si tout était
+   * payant, et n'a rien annoncé de la fenêtre de Meta. Julien : expliquer le déroulé AVANT, et nuancer qui paie.
+   */
+  it('🔴 avant le lien : ce qui va se passer, puis qui paie (la nuance AVANT la note sur la carte), puis le mode op', async () => {
+    const r = await demarrer(VIDE, { mode: 'coexistence' });
+    const c = r.consigne!;
+    const lien = c.indexOf(r.url!);
+    expect(c.indexOf(ETAPES_FENETRE_GARDER[0]!.fr)).toBeLessThan(lien);
+    expect(c.indexOf(CE_QUI_EST_FACTURE.application.fr)).toBeLessThan(lien);
+    expect(c.indexOf(CE_QUI_EST_FACTURE.application.fr)).toBeLessThan(c.indexOf(NOTE_CARTE_APPLICATION.fr));
+    expect(c).toContain(AIDE_GARDER_APPLICATION.fr);
+    expect(c).toContain(AIDE_GARDER_APPLICATION.en);
+    // La personne peut demander les étapes de la carte : Claude les a sous la main.
+    expect(c).toContain(ETAPES_CARTE_META[0]!.fr);
   });
 
   it('🔴 refusé avec la filière application : la coexistence est l’API officielle', async () => {
@@ -411,6 +497,12 @@ describe('watch_whatsapp_connection en coexistence', () => {
     const delie = await attendre({ ...QR_CODE, connecte: null, application: { statut: 'deconnecte', numero: '441555479304' } }, { mode: 'coexistence' });
     expect(delie.suite).not.toMatch(/filiere « application »/);
     expect(delie.suite).toMatch(/coexistence vaut true/);
+  });
+
+  it('🔴 un espace relié par QR code qui passe en garder l’application : l’attente porte aussi le lien neuf', async () => {
+    const r = await attendre(QR_CODE, { mode: 'coexistence' }) as unknown as { lien: string | null; suite: string };
+    expect(r.lien).toMatch(/\/brancher#/);
+    expect(r.suite).toContain(r.lien!);
   });
 
   it('hors mode coexistence, la suite du QR code est celle d’aujourd’hui', async () => {
@@ -495,7 +587,10 @@ describe('le mode fourni_application', () => {
     expect(r.consigne).toMatch(/dès le premier jour/i);
     expect(r.consigne).toMatch(/quelques jours/);
     expect(r.consigne).not.toMatch(/\d+ jours/);
-    expect(r.consigne).not.toMatch(/QR/);
+    // Plus aucune voie par QR code (Julien, 2026-10-30) : ni les appareils connectés, ni la filière « application ». Le
+    // QR code de la FENÊTRE DE META (garder l'application), lui, est annoncé depuis le lot 1 de l'aide à la connexion.
+    for (const e of ETAPES_RELIER_APPLICATION) expect(r.consigne).not.toContain(e.fr);
+    expect(r.consigne).not.toMatch(/filiere/);
   });
 
   it('🔴 garder l’application, c’est payer Meta avec sa carte (lot C) : la phrase de la console, en fourni_application comme en coexistence', async () => {
@@ -503,6 +598,15 @@ describe('le mode fourni_application', () => {
       const { consigne } = await demarrer(VIDE, { mode });
       expect(consigne, mode).toContain(`« ${NOTE_CARTE_APPLICATION.fr} »`);
     }
+  });
+
+  it('🔴 fourni dans l’application : le code expliqué, puis la fenêtre de Meta de l’application gardée, qui paie, et le mode op', async () => {
+    const consigne = (await demarrer(VIDE, { mode: 'fourni_application' })).consigne!;
+    expect(consigne).toContain(CODE_VERIFICATION_FOURNI.fr);
+    for (const e of ETAPES_FENETRE_GARDER) expect(consigne).toContain(e.fr);
+    expect(consigne).toContain(CE_QUI_EST_FACTURE.application.fr);
+    expect(consigne.indexOf(CE_QUI_EST_FACTURE.application.fr)).toBeLessThan(consigne.indexOf(NOTE_CARTE_APPLICATION.fr));
+    expect(consigne).toContain(AIDE_GARDER_APPLICATION.fr);
   });
 
   it('en Pro, le numéro est inclus : la consigne ne demande pas de payer', async () => {

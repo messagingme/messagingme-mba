@@ -3,7 +3,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
-import { API_PUBLIQUE, COMMANDE_DEMARRAGE, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
+import { API_PUBLIQUE, AUTORISATION_CODEX, COMMANDE_DEMARRAGE, COMMANDES_CODEX, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
 import { AVERTISSEMENTS, OUTILS_DE_L_ETAPE, etatMiseEnService } from '../src/mcp/mise-en-service';
 import { STATUT_PAR_CODE } from '../src/api/erreurs';
 import { OUTILS_SURS } from '../src/agent/reglages';
@@ -88,6 +88,24 @@ describe('🔴 ce que la console et la vitrine font taper (lot 10, B) est ce que
     // Le README publié dit les mêmes.
     const lisezmoi = readFileSync(resolve(PLUGIN, 'README.md'), 'utf8');
     for (const c of [...COMMANDES_PLUGIN, COMMANDE_DEMARRAGE, SERVEUR_PLUGIN_MCP]) expect(lisezmoi, c).toContain(c);
+  });
+
+  it('🔴 le même plugin dans Codex (mesuré le 2026-11-08) : ses commandes viennent des mêmes manifestes, et le README les dit', () => {
+    const plugin = json<{ name: string; repository: string }>('.claude-plugin/plugin.json');
+    const catalogue = json<{ name: string }>('.claude-plugin/marketplace.json');
+    const [serveur] = Object.keys(json<{ mcpServers: Record<string, unknown> }>('.mcp.json').mcpServers);
+    const depot = new URL(plugin.repository).pathname.replace(/^\/|\.git$/g, '');
+    expect(COMMANDES_CODEX).toEqual([`codex plugin marketplace add ${depot}`, `codex plugin add ${plugin.name}@${catalogue.name}`]);
+    expect(AUTORISATION_CODEX).toBe(`codex mcp login ${serveur}`);
+    const lisezmoi = readFileSync(resolve(PLUGIN, 'README.md'), 'utf8');
+    for (const c of [...COMMANDES_CODEX, AUTORISATION_CODEX]) expect(lisezmoi, c).toContain(c);
+  });
+
+  it('🔴 la skill de mise en service donne la commande de Codex partout où elle donne /mcp, et fait toujours passer le mode', () => {
+    const corps = SKILLS.find((s) => s.nom === 'mise-en-service')!.corps;
+    expect(corps).toContain(AUTORISATION_CODEX);
+    // Le filet du lien (aide à la connexion, lot 1) : l'attente ne signe un lien neuf qu'avec le mode.
+    expect(corps).toMatch(/always pass[^.]*`mode`[^.]*watch_whatsapp_connection|watch_whatsapp_connection[^.]*always[^.]*`mode`/i);
   });
 });
 

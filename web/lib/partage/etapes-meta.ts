@@ -41,6 +41,31 @@ export const PREREQUIS_META: ReadonlyArray<{ fr: string; en: string }> = [
   },
 ];
 
+/**
+ * QUI PAIE QUOI, SELON LE CHEMIN (aide à la connexion, lot 1, 2026-11-09, demande de Julien : « être moins systématique
+ * sur le fait que ça sera payant »). Avec l'application gardée, ce que la personne y tape reste gratuit ; sur un numéro
+ * API, tout passe par Messaging Me. Source des réponses facturées : la page Pricing de Meta, relue le 2026-10-29 (fin du
+ * service gratuit le 2026-10-01, franchise de 1 000 messages livrés par mois et par numéro). Aucun prix ici.
+ */
+export const CE_QUI_EST_FACTURE: {
+  readonly application: { readonly fr: string; readonly en: string };
+  readonly api: { readonly fr: string; readonly en: string };
+} = {
+  application: {
+    fr: 'Ce que vous tapez dans l’application WhatsApp Business reste gratuit. Ce que Messaging Me envoie pour vous (vos '
+      + 'modèles, et les réponses au-delà de la franchise mensuelle de Meta) est facturé par Meta, sur une carte à poser '
+      + 'chez Meta avant votre premier modèle.',
+    en: 'What you type in the WhatsApp Business app stays free. What Messaging Me sends for you (your templates, and '
+      + 'replies beyond Meta’s monthly allowance) is billed by Meta, on a card to add at Meta before your first template.',
+  },
+  api: {
+    fr: 'Tout ce qui part de ce numéro passe par Messaging Me : Meta facture vos modèles, et les réponses au-delà de sa '
+      + 'franchise mensuelle, sur une carte à poser chez Meta juste après la connexion.',
+    en: 'Everything this number sends goes through Messaging Me: Meta bills your templates, and replies beyond its monthly '
+      + 'allowance, on a card to add at Meta right after the connection.',
+  },
+};
+
 /** Après la connexion : la carte chez Meta, sans laquelle les modèles ne partent pas. */
 export const ETAPES_CARTE_META: ReadonlyArray<{ fr: string; en: string }> = [
   {

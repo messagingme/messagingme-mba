@@ -16,6 +16,41 @@ export const ETAPES_COMPTE_FOURNI: ReadonlyArray<{ fr: string; en: string }> = [
   },
 ];
 
+/**
+ * CE QUI VA SE PASSER DANS LA FENÊTRE DE META quand on garde l'application (aide à la connexion, lot 1, 2026-11-09) :
+ * dit par Claude AVANT le lien, pour que la personne sache qu'il lui faut Facebook, que le compte Meta Business se crée
+ * en chemin, et qu'un QR code l'attend. Tiré des neuf écrans de la fiche `garder-mon-application-whatsapp-business`
+ * (essai 161, 2026-10-25) ; les libellés entre guillemets sont ceux de Meta.
+ */
+export const ETAPES_FENETRE_GARDER: ReadonlyArray<{ fr: string; en: string }> = [
+  {
+    fr: 'La fenêtre de Meta s’ouvre : connectez-vous avec votre profil Facebook.',
+    en: 'Meta’s window opens: sign in with your Facebook profile.',
+  },
+  {
+    fr: 'Saisissez le numéro de votre application WhatsApp Business, avec son pays, puis choisissez comment Meta le vérifie '
+      + '(par message ou par appel).',
+    en: 'Enter the number of your WhatsApp Business app, with its country, then choose how Meta verifies it (by text '
+      + 'message or by phone call).',
+  },
+  {
+    fr: 'Choisissez votre compte Meta Business ; s’il n’existe pas, « Créez un portefeuille business » (le nom que Meta lui '
+      + 'donne) : Meta demande le nom de votre entreprise, une adresse e-mail, le pays et votre site.',
+    en: 'Choose your Meta Business account; if you have none, “Create a business portfolio” (the name Meta gives it): Meta '
+      + 'asks for your business name, an email address, the country and your website.',
+  },
+  {
+    fr: 'Dans l’application WhatsApp Business de votre téléphone, scannez le code QR que montre la fenêtre (ou saisissez le '
+      + 'code d’accès qu’elle propose, après avoir appuyé sur « Connect » dans le message reçu dans l’application).',
+    en: 'In the WhatsApp Business app on your phone, scan the QR code the window shows (or enter the access code it '
+      + 'offers, after tapping “Connect” in the message received in the app).',
+  },
+  {
+    fr: 'Confirmez le partage avec Messaging Me, puis « Terminer ».',
+    en: 'Accept sharing with Messaging Me, then “Finish”.',
+  },
+];
+
 /** Relier le compte : le QR code de la page, scanné depuis le téléphone. */
 export const ETAPES_RELIER_APPLICATION: ReadonlyArray<{ fr: string; en: string }> = [
   {

@@ -5,6 +5,19 @@
  * disaient deux choses (la page demandait l'appel). L'ordre et le choix du SMS sont ceux de Julien, qui a fait l'essai.
  */
 
+/**
+ * CE QU'EST LE CODE DE VÉRIFICATION, et pourquoi il arrive chez nous (aide à la connexion, lot 1, 2026-11-09) : Julien
+ * tient cette étape pour « ultra touchy ». Dit par Claude avant le lien d'un numéro fourni.
+ */
+export const CODE_VERIFICATION_FOURNI: { readonly fr: string; readonly en: string } = {
+  fr: 'Le code de vérification : six chiffres que Meta, ou WhatsApp, envoie par SMS ou par appel au numéro, pour prouver '
+    + 'qu’il est à vous. Le numéro fourni est chez nous : nous recevons ce SMS ou cet appel, et vous transmettons le code '
+    + 'sur la page de connexion et dans la conversation avec votre assistant.',
+  en: 'The verification code: six digits that Meta, or WhatsApp, sends by text message or phone call to the number, to '
+    + 'prove it is yours. The provided number is with us: we receive that text or call, and pass the code on to you on the '
+    + 'connection page and in the conversation with your assistant.',
+};
+
 /** Sans code au bout de ce délai, l'autre méthode de vérification. */
 export const SECONDES_SANS_CODE = 45;
 

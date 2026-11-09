@@ -1,6 +1,7 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
-import { ETAPES_NUMERO_FOURNI } from '../../web/lib/partage/etapes-numero-fourni';
-import { ETAPES_CARTE_META, PREREQUIS_META } from '../../web/lib/partage/etapes-meta';
+import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI } from '../../web/lib/partage/etapes-numero-fourni';
+import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, PREREQUIS_META } from '../../web/lib/partage/etapes-meta';
+import { AIDE_GARDER_APPLICATION } from '../../web/lib/partage/aide-connexion';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
 import { RefusOutil, valeurOuRefus } from './saisie';
 import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
@@ -9,7 +10,7 @@ import { DUREE_LIEN_NUMERO_MS, type LienNumero } from '../auth/token';
 import { empreinteEtat, modeDeReprise, type EtatConnexion } from '../otp/etat-connexion';
 import type { DestinationNumeroFourni } from '../otp/store.pg';
 import type { EtatDeLEspace } from '../stripe/abonnements.pg';
-import { ETAPES_COMPTE_FOURNI, ETAPES_RELIER_APPLICATION } from '../../web/lib/partage/etapes-application';
+import { ETAPES_COMPTE_FOURNI, ETAPES_FENETRE_GARDER, ETAPES_RELIER_APPLICATION } from '../../web/lib/partage/etapes-application';
 import type { ComptesApplication } from '../application/comptes';
 import { phraseDuRefusDePreparation } from '../application/connexion';
 
@@ -112,11 +113,28 @@ function signataire(personne: PersonneMcp | null): string {
 /**
  * La personne ne voit pas le résultat d'un outil : le lien n'existe pour elle que recopié. À l'essai réel 99
  * (2026-10-13), Claude a écrit « j'ai généré le lien » sans le lien, puis l'a donné dans un bloc de code, qu'un terminal
- * ne replie pas et coupe au bord de l'écran.
+ * ne replie pas et coupe au bord de l'écran. À l'onboarding du 2026-11-07, il a annoncé le lien et l'heure où il expire
+ * sans l'écrire : l'adresse est donc DANS la phrase qui dit de l'écrire, pas seulement dans le champ `url` d'à côté.
  */
-const LIEN_EN_ENTIER = 'Écris ce lien EN ENTIER à la personne, en texte simple sur sa propre ligne : elle ne voit pas le '
-  + 'résultat de cet outil, un résumé (« j’ai généré le lien ») ne lui donne rien, et un bloc de code le couperait dans '
-  + 'un terminal. Dis-lui de garder la page ouverte jusqu’au bout. ';
+const lienEnEntier = (url: string): string => 'Écris ce lien EN ENTIER à la personne, seul sur sa ligne, en texte simple : '
+  + `${url} . Elle ne voit pas le résultat de cet outil, un résumé (« j’ai généré le lien », « le lien expire à… ») ne lui `
+  + 'donne rien, et un bloc de code le couperait dans un terminal. Dis-lui de garder la page ouverte jusqu’au bout. ';
+
+/** L'adresse du lien de connexion : la page `/brancher` de la console, le jeton après le `#` (jamais envoyé au serveur). */
+const adresseDuLien = (urlConsole: string, jeton: string): string => `${urlConsole.replace(/\/+$/, '')}/brancher#${jeton}`;
+
+/**
+ * LE FILET DU LIEN (onboarding du 2026-11-07) : tant que rien n'a bougé, chaque réponse de l'attente redit d'écrire le
+ * lien, une seule fois. Avec le mode, l'attente en rend un neuf (`lien`, valable une heure) ; sans le mode (un plugin
+ * d'avant 0.3.29), elle renvoie à celui de `start_whatsapp_connection`.
+ */
+export function rappelDuLien(lien: string | null): string {
+  const ou = lien === null
+    ? 'celui que start_whatsapp_connection t’a rendu (ou rappelle start_whatsapp_connection avec le même mode si son heure est passée).'
+    : `celui-ci, valable une heure : ${lien} .`;
+  return ' La personne ne voit pas les résultats de tes outils. Si ton dernier message ne contenait pas le lien de connexion '
+    + `EN ENTIER, écris-lui maintenant, seul sur sa ligne et en texte simple, ${ou} S’il le contenait, ne le répète pas.`;
+}
 
 /** Si la personne revient avant la fin (essai 99) : lui redire où elle en est, puis attendre à nouveau. */
 const SI_ELLE_REVIENT = ' Si elle revient avant la fin, rappelle-lui où elle en est (la page du lien, la fenêtre de Meta, '
@@ -144,13 +162,28 @@ const PREREQUIS_FOURNI = prerequis(PREREQUIS_META.slice(0, 2));
 const PREREQUIS_APPORTE = prerequis(PREREQUIS_META);
 
 /**
+ * CE QUI VA SE PASSER, ET QUI PAIE, DIT AVANT LE LIEN (aide à la connexion, lot 1, 2026-11-09). À l'onboarding du
+ * 2026-11-07, la personne a découvert la fenêtre de Meta en chemin, et Claude lui a dit « Meta facture forcément sur ta
+ * carte » comme si tout était payant. Les textes viennent de `web/lib/partage/` : la page et les fiches disent les mêmes.
+ */
+const CODE_EXPLIQUE = `Dis-lui aussi ce qu’est le code de vérification : « ${CODE_VERIFICATION_FOURNI.fr} » `;
+const QUI_PAIE_API = `Puis qui paie, dans sa langue : « ${CE_QUI_EST_FACTURE.api.fr} » `;
+/** Garder l'application : les cinq temps de la fenêtre de Meta, qui paie (la nuance AVANT la note sur la carte), le mode op. */
+const AVANT_LE_LIEN_GARDER = 'Avant le lien, dis-lui en quelques lignes, dans sa langue, ce qui va se passer dans la fenêtre '
+  + `de Meta, pour qu’elle ne découvre rien en chemin : ${numerotees(ETAPES_FENETRE_GARDER.map((e) => e.fr))} `
+  + `Puis qui paie : « ${CE_QUI_EST_FACTURE.application.fr} »${CARTE_AVEC_APPLICATION} Propose-lui les étapes pour poser `
+  + `sa carte chez Meta, et donne-les-lui si elle le veut : ${numerotees(ETAPES_CARTE_META.map((e) => e.fr))} Donne-lui `
+  + `enfin le mode op, écran par écran, à l’adresse de sa langue : en français ${AIDE_GARDER_APPLICATION.fr} ; dans une `
+  + `autre langue ${AIDE_GARDER_APPLICATION.en} . `;
+
+/**
  * La consigne du numéro fourni : les étapes de la page (`ETAPES_NUMERO_FOURNI`, la même source), encadrées par le lien
  * et le paiement avant, et par le retour vers Claude après « Finish » (essai 99, ordre de Julien). En Pro (J4 de la
  * relecture de B2b), le numéro est inclus : la page l'obtient sans payer, et Claude n'annonce pas un prix qu'elle ne
  * demande pas.
  */
-const consigneFourni = (inclusDansLePro: boolean): string =>
-  PREREQUIS_FOURNI + LIEN_EN_ENTIER + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
+const consigneFourni = (inclusDansLePro: boolean, url: string): string =>
+  PREREQUIS_FOURNI + CODE_EXPLIQUE + QUI_PAIE_API + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
   + 'étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
   + numerotees([
     'Cliquer sur le lien.',
@@ -164,7 +197,7 @@ const consigneFourni = (inclusDansLePro: boolean): string =>
   + SI_ELLE_REVIENT;
 
 const CONSIGNES = {
-  apporte: PREREQUIS_APPORTE + LIEN_EN_ENTIER + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une '
+  apporte: (url: string) => PREREQUIS_APPORTE + QUI_PAIE_API + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une '
     + 'heure. Sur la page : la fenêtre de Meta, son numéro, et le code qu’elle reçoit elle-même. Appelle ensuite '
     + 'watch_whatsapp_connection pour savoir quand le numéro est connecté.' + SI_ELLE_REVIENT,
   /**
@@ -172,14 +205,10 @@ const CONSIGNES = {
    * de Meta : le dernier (un numéro hors de l'application) le contredirait, et le compte Meta Business, la fenêtre le crée
    * en chemin. La page en dit autant (`COEXISTENCE_PHRASES`, `web/lib/fenetre-meta.ts`).
    */
-  coexistence: LIEN_EN_ENTIER + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Dans la '
-    + 'fenêtre de Meta, elle saisit le numéro de son application WhatsApp Business et confirme dans l’application, sur son '
-    + 'téléphone. Son numéro y reste : les messages qu’elle y tape restent gratuits, ceux qui partent par Messaging Me sont '
-    + 'des modèles facturés par Meta. Pas encore de compte Meta Business ? La fenêtre le crée en chemin, avec un profil '
-    + 'Facebook ; avant le premier modèle, Meta demandera un moyen de paiement sur le compte WhatsApp. Appelle ensuite '
+  coexistence: (url: string) => AVANT_LE_LIEN_GARDER + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, '
+    + 'sans se connecter, pendant une heure ; son numéro reste dans l’application. Appelle ensuite '
     + 'watch_whatsapp_connection avec mode égal à « coexistence » pour savoir quand le numéro est relié à l’API, '
     + 'l’application gardée.'
-    + CARTE_AVEC_APPLICATION
     + SI_ELLE_REVIENT,
 } as const;
 
@@ -206,8 +235,10 @@ const GARDER_APRES_COMPTE = 'Une fois le compte créé dans l’application, « 
  * vérification de l'application, mesuré le 2026-10-21), puis la fenêtre de Meta en coexistence sur ce même numéro. Les
  * étapes sont celles de la page (`ETAPES_COMPTE_FOURNI`, puis le bouton de la coexistence).
  */
-const consigneFourniApplication = (inclusDansLePro: boolean): string =>
-  LIEN_EN_ENTIER + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
+const consigneFourniApplication = (inclusDansLePro: boolean, url: string): string =>
+  CODE_EXPLIQUE + 'Le code se tape ici dans l’application WhatsApp Business, pas dans la fenêtre de Meta. '
+  + AVANT_LE_LIEN_GARDER.replace('dans la fenêtre de Meta', 'dans la fenêtre de Meta, une fois le compte de l’application créé')
+  + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
   + 'étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
   + numerotees([
     'Cliquer sur le lien.',
@@ -217,10 +248,9 @@ const consigneFourniApplication = (inclusDansLePro: boolean): string =>
     ...ETAPES_COMPTE_FOURNI.map((e) => e.fr),
     GARDER_APRES_COMPTE,
   ])
-  + ` Dis-lui aussi, avant de commencer : ${NUMERO_NEUF} Pas encore de compte Meta Business ? La fenêtre le crée en chemin, `
-  + 'avec un profil Facebook. Appelle ensuite watch_whatsapp_connection avec mode égal à « fourni_application » : le code '
-  + 'de vérification de l’application arrivera aussi ici, écris-le-lui en entier dès qu’il arrive.' + CARTE_AVEC_APPLICATION
-  + SI_ELLE_REVIENT;
+  + ` Dis-lui aussi, avant de commencer : ${NUMERO_NEUF} Appelle ensuite watch_whatsapp_connection avec mode égal à `
+  + '« fourni_application » : le code de vérification de l’application arrivera aussi ici, écris-le-lui en entier dès '
+  + 'qu’il arrive.' + SI_ELLE_REVIENT;
 
 /**
  * Le compte de l'application est CRÉÉ (un code capté depuis l'attribution, que `codeDeLEspace` ne montre plus après 15
@@ -277,11 +307,11 @@ const COEXISTENCE_EN_COURS = 'Le numéro n’est pas encore relié à l’API, l
  */
 const SUIVRE_APPLICATION = ' Appelle ensuite watch_whatsapp_connection avec filiere égal à « application » pour savoir quand le numéro est relié.';
 const CONSIGNES_APPLICATION = {
-  apporte: LIEN_EN_ENTIER + 'Il ouvre, sur un ordinateur, la page de connexion de son numéro, sans se connecter, pendant une heure : un '
+  apporte: (url: string) => lienEnEntier(url) + 'Il ouvre, sur un ordinateur, la page de connexion de son numéro, sans se connecter, pendant une heure : un '
     + 'QR code. Donne-lui ces étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
     + numerotees(['Ouvrir le lien sur un ordinateur.', ...ETAPES_RELIER_APPLICATION.map((e) => e.fr)])
     + SUIVRE_APPLICATION + SI_ELLE_REVIENT,
-  fourni: (inclusDansLePro: boolean) => LIEN_EN_ENTIER + 'Il ouvre, sur un ordinateur, la page de connexion de son numéro, sans se '
+  fourni: (inclusDansLePro: boolean, url: string) => lienEnEntier(url) + 'Il ouvre, sur un ordinateur, la page de connexion de son numéro, sans se '
     + 'connecter, pendant une heure. Donne-lui ces étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
     + numerotees([
       'Ouvrir le lien sur un ordinateur.',
@@ -321,6 +351,9 @@ function suiteApplication(e: EtatConnexion): string | null {
       return null;
   }
 }
+
+const RIEN_ENCORE = 'Rien n’a encore bougé. Si la personne revient sans avoir avancé, redonne-lui le lien en entier et ses '
+  + `étapes (start_whatsapp_connection en rend un neuf si l’heure est passée). ${RAPPEL_ATTENTE}`;
 
 /** Où va le numéro fourni : la destination retenue (0280), à défaut le mode que Claude a passé (un lien d'avant 0280). */
 function destinationDe(e: EtatConnexion, mode?: string): DestinationNumeroFourni | undefined {
@@ -375,9 +408,18 @@ function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string
     return 'Le paiement est reçu, mais le numéro est encore en préparation : la page l’affichera dès qu’il est prêt. '
       + `Dis-le à la personne, sans lui redonner le lien. ${RAPPEL_ATTENTE}`;
   }
-  return 'Rien n’a encore bougé. Si la personne revient sans avoir avancé, redonne-lui le lien en entier et ses étapes '
-    + `(start_whatsapp_connection en rend un neuf si l’heure est passée). ${RAPPEL_ATTENTE}`;
+  return RIEN_ENCORE;
 }
+
+/**
+ * Les deux suites d'une attente SANS SIGNE de la personne (ni paiement, ni numéro attribué, ni code, ni connexion) : les
+ * seules où elle n'a peut-être jamais eu le lien, donc les seules qui portent le filet (`rappelDuLien`).
+ */
+const sansSigne = (suite: string): boolean => suite === COEXISTENCE_EN_COURS || suite === RIEN_ENCORE;
+
+const MODES = ['fourni', 'apporte', 'coexistence', 'fourni_application'] as const;
+type ModeNumero = (typeof MODES)[number];
+const estMode = (m: unknown): m is ModeNumero => typeof m === 'string' && (MODES as readonly string[]).includes(m);
 
 /** L'état tel que Claude le lit. Le code en clair n'y figure qu'à part (`code`), quand il est arrivé. */
 function vueEtat(e: EtatConnexion): Record<string, unknown> {
@@ -592,13 +634,14 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         if (!p.ok) throw new RefusOutil(phraseDuRefusDePreparation(p.raison));
       }
       const jeton = await deps.numero.signerLien({ tenantId, userId, mode, ...(filiere === 'application' ? { filiere } : {}) });
+      const url = adresseDuLien(deps.numero.urlConsole, jeton);
       return {
-        url: `${deps.numero.urlConsole.replace(/\/+$/, '')}/brancher#${jeton}`,
+        url,
         expire_le: new Date(deps.numero.maintenant() + DUREE_LIEN_NUMERO_MS).toISOString(),
         consigne: filiere === 'application'
-          ? (mode === 'fourni' ? CONSIGNES_APPLICATION.fourni(etat.inclusDansLePro) : CONSIGNES_APPLICATION.apporte)
-          : mode === 'fourni' ? consigneFourni(etat.inclusDansLePro)
-            : mode === 'fourni_application' ? consigneFourniApplication(etat.inclusDansLePro) : CONSIGNES[mode],
+          ? (mode === 'fourni' ? CONSIGNES_APPLICATION.fourni(etat.inclusDansLePro, url) : CONSIGNES_APPLICATION.apporte(url))
+          : mode === 'fourni' ? consigneFourni(etat.inclusDansLePro, url)
+            : mode === 'fourni_application' ? consigneFourniApplication(etat.inclusDansLePro, url) : CONSIGNES[mode](url),
       };
     },
   },
@@ -612,7 +655,9 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       + 'at once. When `code` is present, it is the code the person copies into Meta\'s window. Successive calls follow '
       + 'the connection until `connecte: true`; with mode `coexistence`, until `coexistence: true`, a number linked by QR '
       + 'code staying `connecte` until Meta links it to the API, the WhatsApp Business app kept. With mode '
-      + '`fourni_application`, the code is typed in the WhatsApp Business app, not in Meta\'s window.',
+      + '`fourni_application`, the code is typed in the WhatsApp Business app, not in Meta\'s window. Always pass the mode '
+      + 'given to start_whatsapp_connection: while nothing has moved, the answer carries a fresh link (`lien`) to write to '
+      + 'the person if your last message did not contain the link.',
     // Écriture parce qu'il rend un code de vérification, pas parce qu'il modifie quoi que ce soit.
     annotations: ecriture('Follow the WhatsApp number connection', true),
     entree: {
@@ -625,13 +670,14 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         filiere: { type: 'string', enum: ['api', 'application'], description: 'The filiere chosen with start_whatsapp_connection (default api).' },
         mode: {
           type: 'string', enum: ['fourni', 'apporte', 'coexistence', 'fourni_application'],
-          description: 'The mode chosen with start_whatsapp_connection; coexistence and fourni_application change what is awaited.',
+          description: 'The mode chosen with start_whatsapp_connection, always: coexistence and fourni_application change what '
+            + 'is awaited, and it signs the fresh link given while nothing has moved.',
         },
       },
       additionalProperties: false,
     },
     async executer(deps: DepsMcp, tenantId, args, personne) {
-      signataire(personne);
+      const userId = signataire(personne);
       const filiere = args.filiere === 'application' ? 'application' : 'api';
       const mode = typeof args.mode === 'string' ? args.mode : undefined;
       const connu = args.etat_connu;
@@ -645,12 +691,20 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         const change = connu === undefined || empreinte !== connu;
         // 🔴 Jamais de lecture au-delà du délai : la boucle s'arrête d'elle-même, même si l'appelant a abandonné.
         if (change || deps.numero.maintenant() - debut + PAS_ATTENTE_MS > DELAI_ATTENTE_MS) {
+          const suite = suiteDe(e, filiere, mode);
+          const filet = sansSigne(suite);
+          // Un lien neuf, signé comme celui de start_whatsapp_connection : même personne, même espace, même mode.
+          const lien = filet && estMode(mode)
+            ? adresseDuLien(deps.numero.urlConsole,
+              await deps.numero.signerLien({ tenantId, userId, mode, ...(filiere === 'application' ? { filiere } : {}) }))
+            : null;
           return {
             change,
             etat: vueEtat(e),
             code: e.code?.code ?? null,
             empreinte,
-            suite: suiteDe(e, filiere, mode),
+            lien,
+            suite: filet ? suite + rappelDuLien(lien) : suite,
           };
         }
         await deps.numero.attendre(PAS_ATTENTE_MS);

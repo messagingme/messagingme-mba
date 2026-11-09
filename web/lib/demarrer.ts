@@ -24,6 +24,16 @@ export const COMMANDES_PLUGIN = [
 ] as const;
 export const COMMANDE_DEMARRAGE = '/messagingme:demarrer';
 export const SERVEUR_PLUGIN_MCP = 'plugin:messagingme:messagingme';
+/**
+ * LE MÊME PLUGIN DANS CODEX (mesuré le 2026-11-08, Codex CLI 0.151) : Codex lit notre marketplace telle quelle et montre
+ * nos skills ; seule l'autorisation diffère, par la commande du serveur que `.mcp.json` nomme. `tests/plugin.test.ts`
+ * tient ces commandes égales aux manifestes, comme celles de Claude Code.
+ */
+export const COMMANDES_CODEX = [
+  'codex plugin marketplace add messagingme/messagingme-plugin',
+  'codex plugin add messagingme@messagingme',
+] as const;
+export const AUTORISATION_CODEX = 'codex mcp login messagingme';
 /** Le dépôt public où le plugin se publie : la vitrine y renvoie (le centre d'aide, le bout du guide du numéro). */
 export const DEPOT_PLUGIN = 'https://github.com/messagingme/messagingme-plugin';
 

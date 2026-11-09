@@ -3,7 +3,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CONSTRUIRE } from '../scripts/plugin/construire';
 import { FAMILLES_OUTILS } from '../web/lib/partage/familles-outils';
-import { PAGES_FAQ, blocConstruireVitrine, commandesPubliees, hrefCapacite, pageAvecConstruire, readmeAJour } from '../scripts/plugin/generer';
+import { PAGES_FAQ, blocAccueil, blocConstruireVitrine, commandesPubliees, hrefCapacite, pageAvecConstruire, readmeAJour, skillAvecAccueil } from '../scripts/plugin/generer';
+import { DROITS } from '../src/offres/offres';
+import { AUTORISATION_CODEX, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { PAGES_DOC } from '../web/lib/doc-api-pages';
 import { ENTREES } from '../web/lib/registre-vitrine';
@@ -77,5 +79,43 @@ describe('les copies sont à jour (sinon : npm run plugin:generer)', () => {
     for (const nom of commandesPubliees()) expect(md).toContain(`\`/messagingme:${nom}\``);
     expect(md).toContain('https://app.messagingme.fr/img/plugin-demo.gif');
     expect(existsSync(join(RACINE, 'site/img/plugin-demo.gif'))).toBe(true);
+  });
+});
+
+/**
+ * L'ACCUEIL DU PLUGIN (aide à la connexion, lot 1). À l'onboarding du 2026-11-07, Claude a présenté la formule Free avec
+ * « 1 000 contacts » (c'est 100), en improvisant son intro, et n'a pas dit pourquoi la connexion MCP vient d'abord. Un
+ * accueil écrit par nous, chiffres tirés de la grille, que Claude recopie : dans les deux skills qui démarrent, et le README.
+ */
+describe('l’accueil du plugin (sinon : npm run plugin:generer)', () => {
+  const PORTEURS = ['plugin/skills/demarrer/SKILL.md', 'plugin/skills/mise-en-service/SKILL.md', 'plugin/README.md'];
+
+  it('les deux skills qui démarrent et le README le portent, à jour', () => {
+    for (const p of PORTEURS) {
+      const md = lire(p);
+      expect(md, p).toContain('<!-- accueil:debut');
+      expect(md, p).toContain(blocAccueil());
+      expect(skillAvecAccueil(md), p).toBe(md);
+    }
+  });
+
+  it('🔴 la ligne Free dit les contacts et les modèles de la grille, et aucun autre nombre de contacts', () => {
+    const base = DROITS.base.limites;
+    const free = /^- \*\*Free\*\*:(.*)$/m.exec(blocAccueil())?.[1] ?? '';
+    expect(free).toContain(`${base.contacts} contacts`);
+    expect(free).toContain(`${base.envoisModelesMois!.toLocaleString('en-US')} templates`);
+    const contacts = [...free.matchAll(/([\d,]+) contacts/g)].map((m) => Number(m[1]!.replace(/,/g, '')));
+    expect(contacts).toEqual([base.contacts]);
+  });
+
+  it('🔴 la connexion MCP est l’étape 1, avec son pourquoi, Claude Code et Codex, Google ou l’adresse e-mail', () => {
+    const b = blocAccueil();
+    expect(b).toMatch(/Step 1/);
+    expect(b).toContain('`/mcp`');
+    expect(b).toContain(`\`${SERVEUR_PLUGIN_MCP}\``);
+    expect(b).toContain(`\`${AUTORISATION_CODEX}\``);
+    expect(b).toMatch(/Google/);
+    expect(b).toMatch(/email address/);
+    expect(b).toMatch(/workspace is\s+created/);
   });
 });
