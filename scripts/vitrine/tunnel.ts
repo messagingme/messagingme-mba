@@ -17,14 +17,21 @@ const PLUGIN: Readonly<Record<Langue, string>> = { fr: '/developpeurs/installer-
 /** La page Contact : son formulaire pour la démo (`#formulaire`), la page elle-même pour nous écrire. */
 const CONTACT: Readonly<Record<Langue, string>> = { fr: '/contact/', en: '/en/contact/' };
 /**
- * Les marques `{nom}` d'un texte des étapes de la Free, remplacées par leur commande, échappée, en `<code>`. Toute marque
- * sans commande lève, quelle que soit sa forme (`{Mcp}`, `{c_1}`), et une clé héritée (`{constructor}`) n'en est pas
- * une : une étape publiée avec une marque en clair serait une page cassée que rien d'autre ne verrait.
+ * Une commande en HTML : échappée, et sécable après un `/`, un `@` ou un `:` qui suit un caractère (`<wbr>`). Un écran
+ * étroit la coupe là plutôt qu'au milieu d'un mot, qu'on recopierait de travers ; le texte copié reste la commande exacte,
+ * et un `/` de tête (`/mcp`) ne se détache jamais.
+ */
+export const commandeHtml = (c: string): string => echapper(c).replace(/(\S)([/@:])/g, '$1$2<wbr>');
+
+/**
+ * Les marques `{nom}` d'un texte des étapes de la Free, remplacées par leur commande (`commandeHtml`) en `<code>`. Toute
+ * marque sans commande lève, quelle que soit sa forme (`{Mcp}`, `{c_1}`), et une clé héritée (`{constructor}`) n'en est
+ * pas une : une étape publiée avec une marque en clair serait une page cassée que rien d'autre ne verrait.
  */
 export function avecCommandes(texte: string, commandes: Readonly<Record<string, string>>): string {
   return texte.replace(/\{([^{}\s]+)\}/g, (_, nom: string) => {
     if (!Object.hasOwn(commandes, nom)) throw new Error(`étape de la Free : marque {${nom}} sans commande`);
-    return `<code>${echapper(commandes[nom]!)}</code>`;
+    return `<code>${commandeHtml(commandes[nom]!)}</code>`;
   });
 }
 
@@ -124,14 +131,14 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
   ];
   // Les étapes de la Free (Julien, 2026-11-09), leurs commandes celles des manifestes du plugin (`web/lib/demarrer.ts`).
   const ef = a.etapesFree;
-  // Une commande par ligne : lisible, et copiable, jusqu'au téléphone.
-  const lignes = (cmds: readonly string[]) => `<p class="bt-cmds">${cmds.map((c) => `<code>${echapper(c)}</code>`).join('')}</p>`;
+  // Une commande par ligne : lisible, et copiable, jusqu'au téléphone. Les retours à la ligne autour de chacune ne se
+  // voient pas (la ligne est une colonne flexible) mais la mettent seule sur sa ligne pour qui lit le texte seul (robots,
+  // mode lecture, et `tests/vitrine-developpeurs.test.ts`, qui reconnaît ainsi chaque commande du plugin).
+  const lignes = (cmds: readonly string[]) => `<p class="bt-cmds">\n${cmds.map((c) => `<code>${commandeHtml(c)}</code>`).join('\n')}\n</p>`;
   const relier = { mcp: '/mcp', serveur: SERVEUR_PLUGIN_MCP, login: AUTORISATION_CODEX };
-  // Le titre de la première étape est le premier arrêt du focus en fin de tunnel (`data-premier`, `site.js`) : le
-  // premier lien du bloc viendrait après les commandes, qu'un lecteur d'écran sauterait.
   const etapesFree = (x: IssueBranchement) => [
     '            <ol class="bt-etapes bt-etapes-fin">',
-    `              <li><span class="bt-num">1</span><div><h4 tabindex="-1" data-premier>${ef.installer.titre}</h4><p>${ef.installer.claude}</p>${lignes(COMMANDES_PLUGIN)}<p>${ef.installer.codex}</p>${lignes(COMMANDES_CODEX)}`,
+    `              <li><span class="bt-num">1</span><div><h4>${ef.installer.titre}</h4><p>${ef.installer.claude}</p>${lignes(COMMANDES_PLUGIN)}<p>${ef.installer.codex}</p>${lignes(COMMANDES_CODEX)}`,
     `                <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="${PLUGIN[langue]}">${a.plugin}</a><a class="bouton bouton-trait" href="${DEPOT_PLUGIN}" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>${a.github}</a></div></div></li>`,
     `              <li><span class="bt-num">2</span><div><h4>${ef.relier.titre}</h4>${ef.relier.texte.map((t) => `<p>${avecCommandes(t, relier)}</p>`).join('')}</div></li>`,
     `              <li><span class="bt-num">3</span><div><h4>${ef.coller}</h4>`,
@@ -158,13 +165,15 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
       '          <div class="bt-appels" data-offre="pro">',
       `            <p class="bt-appels-titre">${a.pro}</p>`,
       `            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="${inscriptionPro(langue)}">${a.compte}</a><a class="bouton bouton-trait" href="${x.pasAPas}">${a.pasAPas}</a></div>`,
-      ...demande(x, 'pro', a.demandePro),
+      // Les étapes du plugin sont dans le bloc Free, caché en Pro : le titre de la demande mène à leur pas-à-pas.
+      ...demande(x, 'pro', `${a.demandePro.avant}<a href="${PLUGIN[langue]}">${a.demandePro.lien}</a>${a.demandePro.apres}`),
       '          </div>',
     ]);
   const issue = (x: Issue) => [
     `        <article class="bt-chemin" data-chemin="${x.id}" id="numero-${x.id}">`,
     `          <p class="bt-situation">${x.situation}</p>`,
-    `          <h3>${x.titre}</h3>`,
+    // Le titre reçoit le focus en fin de tunnel (`site.js`) : un lecteur d'écran l'annonce et lit l'issue depuis le début.
+    `          <h3 tabindex="-1">${x.titre}</h3>`,
     ...x.textes.map((p) => `          <p>${p}</p>`),
     ...(x.liens ? liens(x.liens, '          ') : []),
     ...(x.autre ? [`          <p class="bt-autre">${x.autre.question} <a href="#numero-${x.autre.vers}" data-vers-chemin="${x.autre.vers}">${x.autre.lien}</a></p>`] : []),
@@ -190,7 +199,9 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     ...n.questions.flatMap(question),
     `            <button type="button" class="bt-recommencer" data-recommencer hidden>${n.recommencer}</button>`,
     '          </div>',
-    '          <div class="bt-chemins" aria-live="polite">',
+    // Sans région live : le focus va au titre de l'issue montrée (`site.js`), et une région live la relirait en entier
+    // par-dessus, étapes et commandes comprises.
+    '          <div class="bt-chemins">',
     ...n.issues.flatMap(issue),
     '          </div>',
     '        </div>',

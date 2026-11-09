@@ -361,13 +361,10 @@
       choix.addRange(plage);
     };
     var doux = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-    // Le premier arrêt du focus dans une issue : dans le bloc de l'offre choisie (Business et Entreprise : le seul bloc,
-    // sans offre), la cible marquée (`data-premier`, le titre de la première étape de la Free, avant ses commandes), sinon
-    // le premier bouton.
-    var premierArret = function (issue) {
-      var bloc = issue && (issue.querySelector('.bt-appels[data-offre="' + g.getAttribute('data-offre') + '"]') || issue.querySelector('.bt-appels:not([data-offre])'));
-      return bloc && (bloc.querySelector('[data-premier]') || bloc.querySelector('a'));
-    };
+    // Le premier arrêt du focus dans une issue, quelle que soit l'offre : son titre (`tabindex="-1"`). Un lecteur d'écran
+    // l'annonce, puis lit l'issue depuis le début (ce qu'elle dit, puis les étapes ou les boutons de l'offre choisie) ; au
+    // clavier, la touche Tab mène ensuite à ses liens et boutons, dans l'ordre.
+    var premierArret = function (issue) { return issue && issue.querySelector('h3[tabindex]'); };
     // Une réponse donnée : sa question reste affichée, la réponse en évidence, et la suivante (ou l'issue) apparaît
     // dessous. `focus` vaut faux à l'ouverture de la page, quand l'adresse choisit l'offre : le focus et le défilement
     // restent au visiteur.
@@ -406,7 +403,7 @@
         montrer(vers);
         avancer(true);
         if (!focus) return;
-        // L'issue est la fin du tunnel : le focus va à son premier arrêt pour l'offre choisie, et elle se montre en entier.
+        // L'issue est la fin du tunnel : le focus va à son titre (`premierArret`), et elle se montre en entier.
         var issue = g.querySelector('[data-chemin="' + vers + '"]');
         var arret = premierArret(issue);
         if (arret) arret.focus({ preventScroll: true });
@@ -451,7 +448,7 @@
         if (b.getAttribute('aria-pressed') !== 'true') repondre(b, q, true);
         return;
       }
-      // Un lien d'issue vers une autre (« Vous pouvez la garder ») : l'autre issue prend sa place, son premier arrêt le focus.
+      // Un lien d'issue vers une autre (« Vous pouvez la garder ») : l'autre issue prend sa place, son titre le focus.
       var lien = e.target.closest && e.target.closest('[data-vers-chemin]');
       if (lien) {
         e.preventDefault();

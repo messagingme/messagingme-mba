@@ -10,7 +10,7 @@ import { JUMELLES } from '../scripts/vitrine/anglais';
 import { ENTREES } from '../web/lib/registre-vitrine';
 import { fichierDe } from '../scripts/vitrine/cas';
 import { AUTORISATION_CODEX, COMMANDES_CODEX, COMMANDES_PLUGIN, DEPOT_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
-import { avecCommandes } from '../scripts/vitrine/tunnel';
+import { avecCommandes, commandeHtml } from '../scripts/vitrine/tunnel';
 import { FAQ } from '../scripts/plugin/faq';
 import { lire, pagesHtml, texte } from './vitrine-lecture';
 
@@ -37,6 +37,8 @@ const corps = (html: string): string => texte(html
   .replace(/<footer class="pied">[\s\S]*?<\/footer>/, '')
   .replace(/<script\b[\s\S]*?<\/script>|<style\b[\s\S]*?<\/style>|<!--[\s\S]*?-->/g, ''));
 const guide = (html: string): string => html.match(/<div class="bt-guide" data-guide-numero>[\s\S]*?<\/details>\n {6}<\/div>/)?.[0] ?? '';
+/** Les commandes d'un morceau de HTML, dans l'ordre, telles qu'on les copie : balises (`<wbr>`) retirées, entités décodées. */
+const codes = (h: string): string[] => [...h.matchAll(/<code>([\s\S]*?)<\/code>/g)].map((m) => texte(m[1]!));
 /** Le texte que le HTML affiche, entités décodées : une demande se compare à ce que « Copier » met dans le presse-papiers. */
 const affiche = (h: string): string => h.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
 
@@ -295,6 +297,8 @@ describe('le tunnel du numéro WhatsApp', () => {
         expect(free, `${p.adresse} : ${x.id}`).toContain(`href="${DEPOT_PLUGIN}"`);
         expect(pro, `${p.adresse} : ${x.id}`).toContain(`href="https://console.messagingme.app/signup?offre=pro${p.langue === 'en' ? '&amp;lang=en' : ''}"`);
         expect(pro, `${p.adresse} : ${x.id}`).toContain(`href="${x.pasAPas}"`);
+        // Les étapes du plugin sont dans le bloc Free, caché en Pro : le titre de la demande Pro mène à leur pas-à-pas.
+        expect(pro.match(/<p class="bt-demande-titre">[\s\S]*?<\/p>/)?.[0], `${p.adresse} : ${x.id}`).toContain(`<a href="${plugin}">`);
         expect(existsSync(join(process.cwd(), 'site', x.pasAPas, 'index.html')), x.pasAPas).toBe(true);
         for (const [offre, bloc] of [['free', free], ['pro', pro]] as const) {
           const id = `demande-${x.id}-${offre}`;
@@ -327,16 +331,14 @@ describe('le tunnel du numéro WhatsApp', () => {
         const etapes = free.split('<li><span class="bt-num">').slice(1);
         const ou = `${p.adresse} : ${x.id}`;
         expect(etapes.map((e) => e.slice(0, 1)), ou).toEqual(['1', '2', '3']);
-        // 1 : le plugin, dans Claude Code puis dans Codex, avec son pas-à-pas et son dépôt ; son titre est le premier
-        // arrêt du focus en fin de tunnel (`site.js`), avant les commandes, et le seul du bloc.
-        for (const c of [...COMMANDES_PLUGIN, ...COMMANDES_CODEX]) expect(etapes[0], `${ou} : ${c}`).toContain(`<code>${c}</code>`);
+        // 1 : le plugin, dans Claude Code puis dans Codex, avec son pas-à-pas et son dépôt. Une commande se lit telle quelle,
+        // ses coupures permises (`<wbr>`) retirées.
+        expect(codes(etapes[0]!), ou).toEqual([...COMMANDES_PLUGIN, ...COMMANDES_CODEX]);
         expect(etapes[0], ou).toContain(`href="${plugin}"`);
         expect(etapes[0], ou).toContain(`href="${DEPOT_PLUGIN}"`);
-        expect(etapes[0], ou).toMatch(/^1<\/span><div><h4 tabindex="-1" data-premier>/);
-        expect(free.match(/data-premier/g), ou).toHaveLength(1);
         // 2 : la connexion MCP, obligatoire avant toute demande (jamais « la première étape », juste sous l'étape 1), avec
         // le serveur à choisir et la commande de Codex ; la page qui s'ouvre offre Google ET l'adresse e-mail.
-        for (const c of ['/mcp', SERVEUR_PLUGIN_MCP, AUTORISATION_CODEX]) expect(etapes[1], `${ou} : ${c}`).toContain(`<code>${c}</code>`);
+        expect(codes(etapes[1]!), ou).toEqual(['/mcp', SERVEUR_PLUGIN_MCP, AUTORISATION_CODEX]);
         const relier = affiche(etapes[1]!);
         expect(relier, ou).toMatch(p.langue === 'fr' ? /obligatoire/ : /required/);
         expect(relier, ou).not.toMatch(/première étape|first step/i);
@@ -348,12 +350,34 @@ describe('le tunnel du numéro WhatsApp', () => {
         expect(free, ou).not.toMatch(/\{[^{}\s]+\}/);
       }
     }
-    // La fin du tunnel donne le focus à ce premier arrêt, sinon au premier bouton du bloc de l'offre.
-    expect(lire('site.js')).toContain("bloc.querySelector('[data-premier]') || bloc.querySelector('a')");
+  });
+
+  /**
+   * La fin du tunnel donne le focus au titre de l'issue, quelle que soit l'offre : un lecteur d'écran l'annonce et lit
+   * l'issue depuis le début, et aucune région live ne la relit en entier par-dessus. Le comportement se mesure au
+   * navigateur ; ici, ce qui le porte : le titre focalisable de chaque issue, et `site.js` qui le vise aux deux endroits
+   * où une issue se montre, sans plus viser un bouton.
+   */
+  it('la fin du tunnel donne le focus au titre de l’issue, sans région live', () => {
+    for (const p of PAGES) {
+      const html = lire(fichierDe(p.adresse));
+      for (const x of TEXTES_TUNNEL[p.langue].issues) {
+        const article = html.match(new RegExp(`<article class="bt-chemin" data-chemin="${x.id}"[\\s\\S]*?</article>`))?.[0] ?? '';
+        expect(article.match(/<h3 tabindex="-1">/g), `${p.adresse} : ${x.id}`).toHaveLength(1);
+      }
+      expect(guide(html), p.adresse).not.toContain('aria-live');
+    }
+    const js = lire('site.js');
+    expect(js).toContain("var premierArret = function (issue) { return issue && issue.querySelector('h3[tabindex]'); };");
+    expect(js.match(/premierArret\(\w+\)/g)).toEqual(['premierArret(issue)', 'premierArret(autre)']);
+    expect(js).not.toContain('"] a\')');
   });
 
   it('une marque d’étape sans commande ne passe pas en silence, et la commande est échappée', () => {
     expect(avecCommandes('tapez {mcp}', { mcp: '/mcp' })).toBe('tapez <code>/mcp</code>');
+    // Sécable après un « / », un « @ » ou un « : » qui suit un caractère, jamais après le « / » de tête.
+    expect(commandeHtml('/plugin install messagingme@messagingme')).toBe('/plugin install messagingme@<wbr>messagingme');
+    expect(avecCommandes('{s}', { s: 'plugin:messagingme:messagingme' })).toBe('<code>plugin:<wbr>messagingme:<wbr>messagingme</code>');
     // Toute forme de marque lève, et une clé héritée n'est pas une commande.
     for (const m of ['{inconnue}', '{Mcp}', '{c_1}', '{constructor}']) {
       expect(() => avecCommandes(`tapez ${m}`, { mcp: '/mcp' }), m).toThrow(m);
@@ -411,6 +435,11 @@ describe('Free et Pro, sans article, sur la vitrine française', () => {
       const m = lu.match(new RegExp(`.{0,40}${ARTICLE.source}.{0,40}`, 'iu'));
       expect(m?.[0], p).toBeUndefined();
     }
+  });
+
+  it('llms.txt non plus, dans sa partie française', () => {
+    const francais = lire('llms.txt').split('## In English')[0]!.replace(/«[^»]*»/g, '');
+    expect(francais.match(new RegExp(`.{0,40}${ARTICLE.source}.{0,40}`, 'iu'))?.[0]).toBeUndefined();
   });
 });
 

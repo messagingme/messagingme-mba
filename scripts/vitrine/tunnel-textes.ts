@@ -108,7 +108,9 @@ export interface TexteTunnel {
   /** Les mots des boutons de bout de tunnel : le titre de chaque offre, ses boutons, la demande et sa copie. */
   readonly appels: {
     readonly free: string; readonly pro: string; readonly plugin: string; readonly github: string;
-    readonly demandePro: string; readonly copier: string; readonly copie: string;
+    /** Le titre de la demande en Pro : `lien` mène au pas-à-pas du plugin, dont les étapes sont dans le bloc Free, caché. */
+    readonly demandePro: { readonly avant: string; readonly lien: string; readonly apres: string };
+    readonly copier: string; readonly copie: string;
     readonly compte: string; readonly pasAPas: string;
     /** La fin de Business et Entreprise : son titre, la démo et le contact. */
     readonly equipe: string; readonly demo: string; readonly contacter: string;
@@ -314,7 +316,7 @@ const fr = (): TexteTunnel => {
     appels: {
       free: 'En formule Free, depuis votre assistant IA', pro: 'En formule Pro',
       plugin: 'L’installation pas à pas', github: 'Le dépôt GitHub',
-      demandePro: 'Ou votre demande, à coller dans Claude Code ou Codex une fois le plugin installé et relié :',
+      demandePro: { avant: 'Ou votre demande, à coller dans Claude Code ou Codex une fois ', lien: 'le plugin installé et relié', apres: ' :' },
       copier: 'Copier', copie: 'Copié',
       compte: 'Créer mon espace', pasAPas: 'Le pas-à-pas',
       equipe: 'Avec notre équipe', demo: 'Demander une démo', contacter: 'Nous contacter',
@@ -331,8 +333,8 @@ const fr = (): TexteTunnel => {
               + 'accord, une fois. Dans Claude Code, tapez {mcp}, choisissez {serveur}, puis Authenticate ; pour Codex, '
               + 'lancez {login} dans un terminal.',
             'Une page s’ouvre dans votre navigateur : continuez avec Google (sans compte, votre espace naît à ce moment), '
-              + 'créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou '
-              + 'connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur « Autoriser dans… » '
+              + 'créez votre espace avec votre adresse e-mail (nous vous envoyons un lien, où vous nommez votre espace et '
+              + 'choisissez un mot de passe), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur « Autoriser dans… » '
               + 'suivi du nom de votre espace.',
           ],
         },
@@ -523,7 +525,7 @@ const en = (): TexteTunnel => {
     appels: {
       free: 'With the Free plan, from your AI assistant', pro: 'With the Pro plan',
       plugin: 'Installation step by step', github: 'The GitHub repository',
-      demandePro: 'Or your request, to paste into Claude Code or Codex once the plugin is installed and connected:',
+      demandePro: { avant: 'Or your request, to paste into Claude Code or Codex once ', lien: 'the plugin is installed and connected', apres: ':' },
       copier: 'Copy', copie: 'Copied',
       compte: 'Create my workspace', pasAPas: 'The step-by-step guide',
       equipe: 'With our team', demo: 'Request a demo', contacter: 'Contact us',
@@ -540,8 +542,8 @@ const en = (): TexteTunnel => {
               + 'agreement, once. In Claude Code, type {mcp}, select {serveur}, then Authenticate; for Codex, run {login} '
               + 'in a terminal.',
             'A page opens in your browser: continue with Google (with no account yet, your workspace is created right '
-              + 'then), create your workspace with your email address (a short form, then the link we email you), or sign '
-              + 'in with your password if you already have one. Then click “Authorize in…” followed by your workspace’s '
+              + 'then), create your workspace with your email address (we email you a link, where you name your workspace '
+              + 'and choose a password), or sign in with your password if you already have one. Then click “Authorize in…” followed by your workspace’s '
               + 'name.',
           ],
         },

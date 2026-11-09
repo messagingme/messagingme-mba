@@ -329,10 +329,10 @@
           </fieldset>
             <button type="button" class="bt-recommencer" data-recommencer hidden>Recommencer</button>
           </div>
-          <div class="bt-chemins" aria-live="polite">
+          <div class="bt-chemins">
         <article class="bt-chemin" data-chemin="api" id="numero-api">
           <p class="bt-situation">Avec un compte Meta Business</p>
-          <h3>Votre numéro API</h3>
+          <h3 tabindex="-1">Votre numéro API</h3>
           <p>La fenêtre de Meta prend votre compte Meta Business et relie votre numéro à l’API officielle de WhatsApp&nbsp;: il envoie vos messages, et votre agent IA répond.</p>
           <p>Un numéro libre, qui ne sert ni dans WhatsApp ni dans l’application WhatsApp Business, devient votre numéro API. Sans numéro libre, prenez un numéro fourni&nbsp;: 3,50&nbsp;€ HT par mois en formule Free, inclus en formule Pro.</p>
           <p>Meta facture vos messages, et les réponses au-delà d’une franchise mensuelle&nbsp;: un moyen de paiement s’ajoute chez Meta.</p>
@@ -340,9 +340,15 @@
           <div class="bt-appels" data-offre="free">
             <p class="bt-appels-titre">En formule Free, depuis votre assistant IA</p>
             <ol class="bt-etapes bt-etapes-fin">
-              <li><span class="bt-num">1</span><div><h4 tabindex="-1" data-premier>Installez le plugin</h4><p>Dans Claude Code, l’une après l’autre&nbsp;:</p><p class="bt-cmds"><code>/plugin marketplace add messagingme/messagingme-plugin</code><code>/plugin install messagingme@messagingme</code></p><p>Pour Codex, dans un terminal&nbsp;:</p><p class="bt-cmds"><code>codex plugin marketplace add messagingme/messagingme-plugin</code><code>codex plugin add messagingme@messagingme</code></p>
+              <li><span class="bt-num">1</span><div><h4>Installez le plugin</h4><p>Dans Claude Code, l’une après l’autre&nbsp;:</p><p class="bt-cmds">
+<code>/plugin marketplace add messagingme/<wbr>messagingme-plugin</code>
+<code>/plugin install messagingme@<wbr>messagingme</code>
+</p><p>Pour Codex, dans un terminal&nbsp;:</p><p class="bt-cmds">
+<code>codex plugin marketplace add messagingme/<wbr>messagingme-plugin</code>
+<code>codex plugin add messagingme@<wbr>messagingme</code>
+</p>
                 <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="/developpeurs/installer-le-plugin/">L’installation pas à pas</a><a class="bouton bouton-trait" href="https://github.com/messagingme/messagingme-plugin" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>Le dépôt GitHub</a></div></div></li>
-              <li><span class="bt-num">2</span><div><h4>Reliez-le à Messaging Me</h4><p>Cette étape est obligatoire, avant toute demande&nbsp;: votre assistant agit dans votre espace, il lui faut votre accord, une fois. Dans Claude Code, tapez <code>/mcp</code>, choisissez <code>plugin:messagingme:messagingme</code>, puis Authenticate&nbsp;; pour Codex, lancez <code>codex mcp login messagingme</code> dans un terminal.</p><p>Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment), créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur «&nbsp;Autoriser dans…&nbsp;» suivi du nom de votre espace.</p></div></li>
+              <li><span class="bt-num">2</span><div><h4>Reliez-le à Messaging Me</h4><p>Cette étape est obligatoire, avant toute demande&nbsp;: votre assistant agit dans votre espace, il lui faut votre accord, une fois. Dans Claude Code, tapez <code>/mcp</code>, choisissez <code>plugin:<wbr>messagingme:<wbr>messagingme</code>, puis Authenticate&nbsp;; pour Codex, lancez <code>codex mcp login messagingme</code> dans un terminal.</p><p>Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment), créez votre espace avec votre adresse e-mail (nous vous envoyons un lien, où vous nommez votre espace et choisissez un mot de passe), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur «&nbsp;Autoriser dans…&nbsp;» suivi du nom de votre espace.</p></div></li>
               <li><span class="bt-num">3</span><div><h4>Collez votre demande dans Claude Code ou Codex&nbsp;:</h4>
                 <div class="bt-demande"><p id="demande-api-free">Mets en service WhatsApp avec la formule Free de Messaging Me. J’ai un compte Meta Business&nbsp;: relie mon numéro libre par Meta en numéro API, ou, si je n’en ai pas, fournis-m’en un (3,50&nbsp;€ HT par mois). Puis crée mon agent IA à partir de mon site, pour qu’il réponde à mes clients.</p><button type="button" class="bouton bouton-trait" data-copier="demande-api-free" data-copie="Copié" hidden>Copier</button></div>
               </div></li>
@@ -351,13 +357,13 @@
           <div class="bt-appels" data-offre="pro">
             <p class="bt-appels-titre">En formule Pro</p>
             <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="https://console.messagingme.app/signup?offre=pro">Créer mon espace</a><a class="bouton bouton-trait" href="/aide/connecter-mon-numero-whatsapp/">Le pas-à-pas</a></div>
-            <p class="bt-demande-titre">Ou votre demande, à coller dans Claude Code ou Codex une fois le plugin installé et relié&nbsp;:</p>
+            <p class="bt-demande-titre">Ou votre demande, à coller dans Claude Code ou Codex une fois <a href="/developpeurs/installer-le-plugin/">le plugin installé et relié</a>&nbsp;:</p>
             <div class="bt-demande"><p id="demande-api-pro">Mets en service WhatsApp avec la formule Pro de Messaging Me. J’ai un compte Meta Business&nbsp;: relie mon numéro libre par Meta en numéro API, ou, si je n’en ai pas, fournis-m’en un (inclus en formule Pro). Puis crée mon agent IA à partir de mon site, pour qu’il réponde à mes clients.</p><button type="button" class="bouton bouton-trait" data-copier="demande-api-pro" data-copie="Copié" hidden>Copier</button></div>
           </div>
         </article>
         <article class="bt-chemin" data-chemin="garder" id="numero-garder">
           <p class="bt-situation">Avec l’application WhatsApp Business</p>
-          <h3>Gardez votre application WhatsApp Business</h3>
+          <h3 tabindex="-1">Gardez votre application WhatsApp Business</h3>
           <p>Votre numéro reste dans l’application et envoie aussi depuis Messaging Me&nbsp;: vous répondez toujours depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.</p>
           <p>Pas de compte Meta Business&nbsp;? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement. Meta facture les messages partis de Messaging Me, réponses comprises au-delà d’une franchise mensuelle&nbsp;; ceux que vous tapez dans l’application restent gratuits.</p>
           <p>Vous payez Meta avec votre carte&nbsp;: le Crédit WhatsApp n’est pas possible avec l’application.</p>
@@ -365,9 +371,15 @@
           <div class="bt-appels" data-offre="free">
             <p class="bt-appels-titre">En formule Free, depuis votre assistant IA</p>
             <ol class="bt-etapes bt-etapes-fin">
-              <li><span class="bt-num">1</span><div><h4 tabindex="-1" data-premier>Installez le plugin</h4><p>Dans Claude Code, l’une après l’autre&nbsp;:</p><p class="bt-cmds"><code>/plugin marketplace add messagingme/messagingme-plugin</code><code>/plugin install messagingme@messagingme</code></p><p>Pour Codex, dans un terminal&nbsp;:</p><p class="bt-cmds"><code>codex plugin marketplace add messagingme/messagingme-plugin</code><code>codex plugin add messagingme@messagingme</code></p>
+              <li><span class="bt-num">1</span><div><h4>Installez le plugin</h4><p>Dans Claude Code, l’une après l’autre&nbsp;:</p><p class="bt-cmds">
+<code>/plugin marketplace add messagingme/<wbr>messagingme-plugin</code>
+<code>/plugin install messagingme@<wbr>messagingme</code>
+</p><p>Pour Codex, dans un terminal&nbsp;:</p><p class="bt-cmds">
+<code>codex plugin marketplace add messagingme/<wbr>messagingme-plugin</code>
+<code>codex plugin add messagingme@<wbr>messagingme</code>
+</p>
                 <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="/developpeurs/installer-le-plugin/">L’installation pas à pas</a><a class="bouton bouton-trait" href="https://github.com/messagingme/messagingme-plugin" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>Le dépôt GitHub</a></div></div></li>
-              <li><span class="bt-num">2</span><div><h4>Reliez-le à Messaging Me</h4><p>Cette étape est obligatoire, avant toute demande&nbsp;: votre assistant agit dans votre espace, il lui faut votre accord, une fois. Dans Claude Code, tapez <code>/mcp</code>, choisissez <code>plugin:messagingme:messagingme</code>, puis Authenticate&nbsp;; pour Codex, lancez <code>codex mcp login messagingme</code> dans un terminal.</p><p>Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment), créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur «&nbsp;Autoriser dans…&nbsp;» suivi du nom de votre espace.</p></div></li>
+              <li><span class="bt-num">2</span><div><h4>Reliez-le à Messaging Me</h4><p>Cette étape est obligatoire, avant toute demande&nbsp;: votre assistant agit dans votre espace, il lui faut votre accord, une fois. Dans Claude Code, tapez <code>/mcp</code>, choisissez <code>plugin:<wbr>messagingme:<wbr>messagingme</code>, puis Authenticate&nbsp;; pour Codex, lancez <code>codex mcp login messagingme</code> dans un terminal.</p><p>Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment), créez votre espace avec votre adresse e-mail (nous vous envoyons un lien, où vous nommez votre espace et choisissez un mot de passe), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur «&nbsp;Autoriser dans…&nbsp;» suivi du nom de votre espace.</p></div></li>
               <li><span class="bt-num">3</span><div><h4>Collez votre demande dans Claude Code ou Codex&nbsp;:</h4>
                 <div class="bt-demande"><p id="demande-garder-free">Mets en service WhatsApp avec la formule Free de Messaging Me. Mon numéro est dans l’application WhatsApp Business et je veux la garder&nbsp;: relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, et s’il me manque un compte Meta Business, guide-moi pour le créer en chemin. Puis crée mon agent IA à partir de mon site, pour qu’il réponde à mes clients.</p><button type="button" class="bouton bouton-trait" data-copier="demande-garder-free" data-copie="Copié" hidden>Copier</button></div>
               </div></li>
@@ -376,13 +388,13 @@
           <div class="bt-appels" data-offre="pro">
             <p class="bt-appels-titre">En formule Pro</p>
             <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="https://console.messagingme.app/signup?offre=pro">Créer mon espace</a><a class="bouton bouton-trait" href="/aide/garder-mon-application-whatsapp-business/">Le pas-à-pas</a></div>
-            <p class="bt-demande-titre">Ou votre demande, à coller dans Claude Code ou Codex une fois le plugin installé et relié&nbsp;:</p>
+            <p class="bt-demande-titre">Ou votre demande, à coller dans Claude Code ou Codex une fois <a href="/developpeurs/installer-le-plugin/">le plugin installé et relié</a>&nbsp;:</p>
             <div class="bt-demande"><p id="demande-garder-pro">Mets en service WhatsApp avec la formule Pro de Messaging Me. Mon numéro est dans l’application WhatsApp Business et je veux la garder&nbsp;: relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, et s’il me manque un compte Meta Business, guide-moi pour le créer en chemin. Puis crée mon agent IA à partir de mon site, pour qu’il réponde à mes clients.</p><button type="button" class="bouton bouton-trait" data-copier="demande-garder-pro" data-copie="Copié" hidden>Copier</button></div>
           </div>
         </article>
         <article class="bt-chemin" data-chemin="telecharger" id="numero-telecharger">
           <p class="bt-situation">Sans l’application WhatsApp Business, avec un numéro</p>
-          <h3>Téléchargez l’application WhatsApp Business</h3>
+          <h3 tabindex="-1">Téléchargez l’application WhatsApp Business</h3>
           <p>Installez l’application WhatsApp Business sur un téléphone, avec le numéro de votre entreprise, puis branchez-le tout de suite en gardant l’application&nbsp;: votre numéro reste sur votre téléphone et envoie aussi depuis Messaging Me.</p>
           <p>Pas de compte Meta Business&nbsp;? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement.</p>
           <p>Vous payez Meta avec votre carte&nbsp;: le Crédit WhatsApp n’est pas possible avec l’application.</p>
@@ -391,9 +403,15 @@
           <div class="bt-appels" data-offre="free">
             <p class="bt-appels-titre">En formule Free, depuis votre assistant IA</p>
             <ol class="bt-etapes bt-etapes-fin">
-              <li><span class="bt-num">1</span><div><h4 tabindex="-1" data-premier>Installez le plugin</h4><p>Dans Claude Code, l’une après l’autre&nbsp;:</p><p class="bt-cmds"><code>/plugin marketplace add messagingme/messagingme-plugin</code><code>/plugin install messagingme@messagingme</code></p><p>Pour Codex, dans un terminal&nbsp;:</p><p class="bt-cmds"><code>codex plugin marketplace add messagingme/messagingme-plugin</code><code>codex plugin add messagingme@messagingme</code></p>
+              <li><span class="bt-num">1</span><div><h4>Installez le plugin</h4><p>Dans Claude Code, l’une après l’autre&nbsp;:</p><p class="bt-cmds">
+<code>/plugin marketplace add messagingme/<wbr>messagingme-plugin</code>
+<code>/plugin install messagingme@<wbr>messagingme</code>
+</p><p>Pour Codex, dans un terminal&nbsp;:</p><p class="bt-cmds">
+<code>codex plugin marketplace add messagingme/<wbr>messagingme-plugin</code>
+<code>codex plugin add messagingme@<wbr>messagingme</code>
+</p>
                 <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="/developpeurs/installer-le-plugin/">L’installation pas à pas</a><a class="bouton bouton-trait" href="https://github.com/messagingme/messagingme-plugin" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>Le dépôt GitHub</a></div></div></li>
-              <li><span class="bt-num">2</span><div><h4>Reliez-le à Messaging Me</h4><p>Cette étape est obligatoire, avant toute demande&nbsp;: votre assistant agit dans votre espace, il lui faut votre accord, une fois. Dans Claude Code, tapez <code>/mcp</code>, choisissez <code>plugin:messagingme:messagingme</code>, puis Authenticate&nbsp;; pour Codex, lancez <code>codex mcp login messagingme</code> dans un terminal.</p><p>Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment), créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur «&nbsp;Autoriser dans…&nbsp;» suivi du nom de votre espace.</p></div></li>
+              <li><span class="bt-num">2</span><div><h4>Reliez-le à Messaging Me</h4><p>Cette étape est obligatoire, avant toute demande&nbsp;: votre assistant agit dans votre espace, il lui faut votre accord, une fois. Dans Claude Code, tapez <code>/mcp</code>, choisissez <code>plugin:<wbr>messagingme:<wbr>messagingme</code>, puis Authenticate&nbsp;; pour Codex, lancez <code>codex mcp login messagingme</code> dans un terminal.</p><p>Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment), créez votre espace avec votre adresse e-mail (nous vous envoyons un lien, où vous nommez votre espace et choisissez un mot de passe), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur «&nbsp;Autoriser dans…&nbsp;» suivi du nom de votre espace.</p></div></li>
               <li><span class="bt-num">3</span><div><h4>Collez votre demande dans Claude Code ou Codex&nbsp;:</h4>
                 <div class="bt-demande"><p id="demande-telecharger-free">Mets en service WhatsApp avec la formule Free de Messaging Me. Je viens d’installer l’application WhatsApp Business avec mon numéro et je veux la garder&nbsp;: relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi&nbsp;: je reviendrai dans quelques jours. Puis crée mon agent IA à partir de mon site, pour qu’il réponde à mes clients.</p><button type="button" class="bouton bouton-trait" data-copier="demande-telecharger-free" data-copie="Copié" hidden>Copier</button></div>
               </div></li>
@@ -402,13 +420,13 @@
           <div class="bt-appels" data-offre="pro">
             <p class="bt-appels-titre">En formule Pro</p>
             <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="https://console.messagingme.app/signup?offre=pro">Créer mon espace</a><a class="bouton bouton-trait" href="/aide/garder-mon-application-whatsapp-business/">Le pas-à-pas</a></div>
-            <p class="bt-demande-titre">Ou votre demande, à coller dans Claude Code ou Codex une fois le plugin installé et relié&nbsp;:</p>
+            <p class="bt-demande-titre">Ou votre demande, à coller dans Claude Code ou Codex une fois <a href="/developpeurs/installer-le-plugin/">le plugin installé et relié</a>&nbsp;:</p>
             <div class="bt-demande"><p id="demande-telecharger-pro">Mets en service WhatsApp avec la formule Pro de Messaging Me. Je viens d’installer l’application WhatsApp Business avec mon numéro et je veux la garder&nbsp;: relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi&nbsp;: je reviendrai dans quelques jours. Puis crée mon agent IA à partir de mon site, pour qu’il réponde à mes clients.</p><button type="button" class="bouton bouton-trait" data-copier="demande-telecharger-pro" data-copie="Copié" hidden>Copier</button></div>
           </div>
         </article>
         <article class="bt-chemin" data-chemin="fourni" id="numero-fourni">
           <p class="bt-situation">Sans l’application WhatsApp Business ni numéro</p>
-          <h3>Téléchargez l’application, nous vous fournissons le numéro</h3>
+          <h3 tabindex="-1">Téléchargez l’application, nous vous fournissons le numéro</h3>
           <p>Installez l’application WhatsApp Business sur votre téléphone et créez-y votre compte avec le numéro que nous vous fournissons, 3,50&nbsp;€ HT par mois en formule Free, inclus en formule Pro&nbsp;: son code de vérification s’affiche sur la page de Messaging Me.</p>
           <p>Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.</p>
           <p>Pas de compte Meta Business&nbsp;? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement.</p>
@@ -418,9 +436,15 @@
           <div class="bt-appels" data-offre="free">
             <p class="bt-appels-titre">En formule Free, depuis votre assistant IA</p>
             <ol class="bt-etapes bt-etapes-fin">
-              <li><span class="bt-num">1</span><div><h4 tabindex="-1" data-premier>Installez le plugin</h4><p>Dans Claude Code, l’une après l’autre&nbsp;:</p><p class="bt-cmds"><code>/plugin marketplace add messagingme/messagingme-plugin</code><code>/plugin install messagingme@messagingme</code></p><p>Pour Codex, dans un terminal&nbsp;:</p><p class="bt-cmds"><code>codex plugin marketplace add messagingme/messagingme-plugin</code><code>codex plugin add messagingme@messagingme</code></p>
+              <li><span class="bt-num">1</span><div><h4>Installez le plugin</h4><p>Dans Claude Code, l’une après l’autre&nbsp;:</p><p class="bt-cmds">
+<code>/plugin marketplace add messagingme/<wbr>messagingme-plugin</code>
+<code>/plugin install messagingme@<wbr>messagingme</code>
+</p><p>Pour Codex, dans un terminal&nbsp;:</p><p class="bt-cmds">
+<code>codex plugin marketplace add messagingme/<wbr>messagingme-plugin</code>
+<code>codex plugin add messagingme@<wbr>messagingme</code>
+</p>
                 <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="/developpeurs/installer-le-plugin/">L’installation pas à pas</a><a class="bouton bouton-trait" href="https://github.com/messagingme/messagingme-plugin" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>Le dépôt GitHub</a></div></div></li>
-              <li><span class="bt-num">2</span><div><h4>Reliez-le à Messaging Me</h4><p>Cette étape est obligatoire, avant toute demande&nbsp;: votre assistant agit dans votre espace, il lui faut votre accord, une fois. Dans Claude Code, tapez <code>/mcp</code>, choisissez <code>plugin:messagingme:messagingme</code>, puis Authenticate&nbsp;; pour Codex, lancez <code>codex mcp login messagingme</code> dans un terminal.</p><p>Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment), créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur «&nbsp;Autoriser dans…&nbsp;» suivi du nom de votre espace.</p></div></li>
+              <li><span class="bt-num">2</span><div><h4>Reliez-le à Messaging Me</h4><p>Cette étape est obligatoire, avant toute demande&nbsp;: votre assistant agit dans votre espace, il lui faut votre accord, une fois. Dans Claude Code, tapez <code>/mcp</code>, choisissez <code>plugin:<wbr>messagingme:<wbr>messagingme</code>, puis Authenticate&nbsp;; pour Codex, lancez <code>codex mcp login messagingme</code> dans un terminal.</p><p>Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment), créez votre espace avec votre adresse e-mail (nous vous envoyons un lien, où vous nommez votre espace et choisissez un mot de passe), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur «&nbsp;Autoriser dans…&nbsp;» suivi du nom de votre espace.</p></div></li>
               <li><span class="bt-num">3</span><div><h4>Collez votre demande dans Claude Code ou Codex&nbsp;:</h4>
                 <div class="bt-demande"><p id="demande-fourni-free">Mets en service WhatsApp avec la formule Free de Messaging Me. Je n’ai pas de numéro&nbsp;: fournis-m’en un (3,50&nbsp;€ HT par mois), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification&nbsp;; puis relie-le par Meta en gardant l’application, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi&nbsp;: je reviendrai dans quelques jours. Puis crée mon agent IA à partir de mon site, pour qu’il réponde à mes clients.</p><button type="button" class="bouton bouton-trait" data-copier="demande-fourni-free" data-copie="Copié" hidden>Copier</button></div>
               </div></li>
@@ -429,13 +453,13 @@
           <div class="bt-appels" data-offre="pro">
             <p class="bt-appels-titre">En formule Pro</p>
             <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="https://console.messagingme.app/signup?offre=pro">Créer mon espace</a><a class="bouton bouton-trait" href="/aide/garder-mon-application-whatsapp-business/">Le pas-à-pas</a></div>
-            <p class="bt-demande-titre">Ou votre demande, à coller dans Claude Code ou Codex une fois le plugin installé et relié&nbsp;:</p>
+            <p class="bt-demande-titre">Ou votre demande, à coller dans Claude Code ou Codex une fois <a href="/developpeurs/installer-le-plugin/">le plugin installé et relié</a>&nbsp;:</p>
             <div class="bt-demande"><p id="demande-fourni-pro">Mets en service WhatsApp avec la formule Pro de Messaging Me. Je n’ai pas de numéro&nbsp;: fournis-m’en un (inclus en formule Pro), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification&nbsp;; puis relie-le par Meta en gardant l’application, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi&nbsp;: je reviendrai dans quelques jours. Puis crée mon agent IA à partir de mon site, pour qu’il réponde à mes clients.</p><button type="button" class="bouton bouton-trait" data-copier="demande-fourni-pro" data-copie="Copié" hidden>Copier</button></div>
           </div>
         </article>
         <article class="bt-chemin" data-chemin="echange" id="numero-echange">
           <p class="bt-situation">En formule Business ou Entreprise</p>
-          <h3>Parlons de votre projet</h3>
+          <h3 tabindex="-1">Parlons de votre projet</h3>
           <p>Business et Entreprise se mettent en place après un échange avec nous&nbsp;: nous posons la formule sur votre espace, sur facture, sans paiement en ligne, et nous vous accompagnons dans la mise en service.</p>
           <p>Un essai de 14&nbsp;jours de Business est possible sur demande. Entreprise se chiffre sur devis, selon votre volume.</p>
           <div class="bt-appels">

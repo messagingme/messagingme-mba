@@ -120,7 +120,7 @@
 
 ## Tarifs
 
-- [Les tarifs](https://app.messagingme.fr/tarifs/) : la Free gratuite, pilotée depuis votre application ou votre assistant IA ; le Pro pour une équipe dans la console ; le Business pour une équipe qui grandit, à 349 € HT par mois ; l’Entreprise sur devis. Ce que chaque offre comprend, le crédit IA et ce que Meta facture.
+- [Les tarifs](https://app.messagingme.fr/tarifs/) : les formules Free (gratuite, pilotée depuis votre application ou votre assistant IA), Pro (pour une équipe dans la console), Business (pour une équipe qui grandit, à 349 € HT par mois) et Entreprise (sur devis). Ce que chaque offre comprend, le crédit IA et ce que Meta facture.
 - [Pricing](https://app.messagingme.fr/en/pricing/) : the same page in English.
 
 ## Livre blanc

@@ -36,8 +36,8 @@ sur les pages existent dans les deux langues. La page « introuvable » parle an
 ✅ **La vitrine a sa page développeurs** (2026-10-12, lot 18) : `app.messagingme.fr/developpeurs/`, et sa jumelle en
 anglais `/en/developers/`. Pour qui construit avec Claude Code, Cursor ou Lovable :
 une séance Claude Code rejouée (l'agent IA, la lecture du site, la bulle WhatsApp), les trois étapes (installer le
-plugin ; autoriser Claude, avec Google ou l'adresse e-mail, ce qui crée l'espace d'une adresse inconnue, sans formulaire
-par Google, par le lien envoyé par e-mail sinon ; lancer
+plugin ; autoriser Claude, avec Google, l'adresse e-mail ou le mot de passe d'un compte existant, ce qui crée l'espace
+d'une adresse inconnue, sans formulaire par Google, par le lien envoyé par e-mail sinon ; lancer
 `/messagingme:demarrer`, où Meta n'est demandé qu'au moment de relier le numéro), ce que l'on peut construire, en mots de
 métier (répondre à vos clients, leur écrire au bon moment, brancher à votre app, piloter depuis Claude : une ligne par
 usage, qui mène à son cas d'usage ou à la documentation, la même liste que le README du plugin sur GitHub ; depuis le
@@ -196,7 +196,7 @@ compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre ch
 son pas-à-pas et son dépôt GitHub), le relier à Messaging Me (la connexion MCP, obligatoire avant toute demande, avec
 Google, l'adresse e-mail ou le mot de passe d'un compte existant), puis coller la demande dans Claude Code ou Codex ; en
 Pro, « Créer mon espace » (`/signup?offre=pro`), le pas-à-pas et la même demande, à coller une fois le plugin installé
-et relié. La demande reprend l'offre et les réponses, et la page d'origine : générique sur
+et relié (ces mots mènent à son pas-à-pas). La demande reprend l'offre et les réponses, et la page d'origine : générique sur
 « Démarrer », la boutique sur « Boutiques Shopify », l'app sur « SaaS et app builders », qui portent le même tunnel. Les
 mots du guide se déplient sous la carte, un par ligne (le mot et sa phrase courte, le détail au clic), avec des liens
 vers le compte Meta Business et vers l'App Store et Google Play pour l'application WhatsApp Business, liens que les deux

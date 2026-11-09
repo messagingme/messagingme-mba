@@ -64,8 +64,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: `\`/mcp\`, choisissez \`${SERVEUR_PLUGIN_MCP}\`, puis Authenticate`, en: `\`/mcp\`, choose \`${SERVEUR_PLUGIN_MCP}\`, then Authenticate` },
         outils: [],
         reponse: {
-          fr: 'Une page s’ouvre dans votre navigateur : continuez avec Google (sans compte, votre espace naît à ce moment, sans formulaire), créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Puis autorisez.',
-          en: 'A page opens in your browser: continue with Google (with no account yet, your workspace is created right then, with no form), create your workspace with your email address (a short form, then the link we email you), or sign in with your password if you already have one. Then authorize.',
+          fr: 'Une page s’ouvre dans votre navigateur : continuez avec Google (sans compte, votre espace naît à ce moment, sans formulaire), créez votre espace avec votre adresse e-mail (nous vous envoyons un lien, où vous nommez votre espace et choisissez un mot de passe), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Puis autorisez.',
+          en: 'A page opens in your browser: continue with Google (with no account yet, your workspace is created right then, with no form), create your workspace with your email address (we email you a link, where you name your workspace and choose a password), or sign in with your password if you already have one. Then authorize.',
         },
       },
       {
