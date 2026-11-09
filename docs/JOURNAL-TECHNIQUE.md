@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : la doc Shopify dit le ROI des messages
+
+La section Shopify de `features.md` et la fiche publique « Brancher ma boutique Shopify » (français et anglais, pages de
+la vitrine régénérées par `vitrine:aide`, seules ces deux pages ont changé) disent que Quantitatif > Shopify met le
+coût des messages en face du chiffre ramené, avec le ROI en pourcentage (`ed66801c`, CI verte). La page est en ligne
+au push ; le bot d'aide de la console l'apprendra au prochain `aide:charger`, après le prochain déploiement de l'API
+(la fiche « Lire mes résultats », déjà chargée, parle déjà du ROI).
+
+## 2026-11-04 : la skill Shopify du plugin guide le marchand pas à pas (0.3.24)
+
+Question de Julien : le plugin explique-t-il bien, dans Claude Code, comment brancher sa boutique, comme le mode
+opératoire de la console ? Il passe par un autre chemin, voulu (Claude crée l'app avec la CLI Shopify, le marchand ne
+fait que se connecter et cliquer Install), mais il guidait mal un débutant. La skill (`d0a73c10`) annonce désormais le
+parcours avant la première commande (cinq minutes, deux gestes, l'étape en cours), dit avec quel compte se connecter
+et quoi faire si aucune organisation n'a de boutique (`auth logout`), propose d'installer Node.js et, en offre payante,
+la console à la place, prévient de « This app hasn't been reviewed » AVANT le clic, et dit l'attente de Meta pour les
+modèles. Publiée en 0.3.24 (les 17 fichiers de l'étiquette identiques à `plugin/` de `main`). Essai réel 234.
+
 ## 2026-11-09 : les jaunes de la relecture de GA4 sur la vitrine, corrigés
 
 Plan `docs/superpowers/plans/2026-11-06-ga4-vitrine.md`, lot 2. Les six jaunes de la relecture du 2026-11-06 (aucun
