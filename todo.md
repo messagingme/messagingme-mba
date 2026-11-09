@@ -17,19 +17,15 @@ Aucun rouge ; à reprendre au lot suivant qui touche ces chemins.
 
 - **L'essai réel** : fait le 2026-11-06 (rien avant le choix ni après un refus, la visite et `clic_console` vus par
   Julien dans « Temps réel »).
-- **Julien, dans GA4** : marquer `clic_console`, `contact_envoye` et `interet_developpeur` comme « événements clés »
-  (Administration > Affichage des données > Événements, onglet « Événements récents », l'étoile de chacun, une fois
-  remonté). Les quelques visites de test du 2026-11-06 ont le nom d'hôte `localhost`.
-- **Julien, dans GA4** : la mesure améliorée (clics sortants) enregistre l'adresse d'un lien vers la console APRÈS sa
-  décoration par `fbc`/`fbp` quand les deux accords sont donnés, donc des identifiants Meta chez Google. Les masquer
-  dans le flux (Administration > Flux de données > le flux > masquage des données, paramètres de requête `fbc` et
-  `fbp`), sans effet sur www qui ne les porte pas.
-- **Julien, sur www** : vérifier que la Politique de cookies (Complianz) couvre aussi `app.messagingme.fr`, Google
-  Analytics et le pixel de Meta.
+- **Fait par Julien le 2026-11-09, dans GA4** : `clic_console` marqué « événement clé », `fbc` et `fbp` masqués dans
+  le flux (la mesure améliorée lisait l'adresse d'un lien décoré), et la Politique de cookies de www vérifiée.
+  **Reste** : l'étoile de `contact_envoye` et d'`interet_developpeur` à leur première apparition (Administration >
+  Affichage des données > Événements, onglet « Événements récents »). Les visites de test du 2026-11-06 ont le nom
+  d'hôte `localhost`.
 - **La fiche `partager-mes-etapes-avec-meta`**, retouchée pour la bannière à trois boutons, n'entre dans le bot d'aide
   qu'au prochain `aide:charger` (image déployée qui la contient).
-- **Les jaunes de la relecture** : corrigés le 2026-11-09 (lot 2 du plan), sauf la mesure améliorée, réglage de GA4
-  ci-dessus. Le lot 2 n'a pas eu de relecture : la suivante qui touche la bannière le relit.
+- **Les jaunes de la relecture** : corrigés le 2026-11-09 (lot 2 du plan). Le lot 2 n'a pas eu de relecture : la
+  suivante qui touche la bannière le relit.
 
 ## 🟡 La raison d'un envoi refusé : ce qui reste hors du journal (plan `docs/superpowers/plans/2026-11-06-raison-des-refus-en-parcours.md`)
 
