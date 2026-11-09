@@ -47,8 +47,11 @@ export interface CreditWhatsappRouteDeps {
     grille(): Promise<GrilleMeta | null>;
     conditions(tenantId: string): Promise<ConditionsCredit>;
     lignes(tenantId: string): Promise<readonly LigneCredit[]>;
-    /** Les numéros de l'espace : gardent-ils l'application WhatsApp Business (`tousGardentLApplication`, lot B) ? */
-    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean }>>;
+    /**
+     * Les numéros de l'espace : gardent-ils l'application WhatsApp Business (`tousGardentLApplication`, lot B) ? Et
+     * `parLaLigne` : arrivé par la fenêtre du partenaire, ce qui fait attendre sa ligne à une Entreprise (`lireEtatLigne`).
+     */
+    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean; parLaLigne?: boolean }>>;
   };
   /** L'option du Crédit WhatsApp (lot 4a) : la prendre, changer ses places, et ce que l'onglet en montre. */
   option: DepsOptionCredit;

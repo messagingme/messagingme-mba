@@ -6,7 +6,8 @@ import type { StatutOption } from './options.pg';
  * - `free` : jamais de ligne en Free (la carte dit « avec la formule Pro ») ;
  * - `essai` : la formule n'est pas encore payée (`formulePayee`), Pro comme Business : l'option attend ;
  * - `a_prendre` : formule payée, ni option ni ligne (une Entreprise sans ligne aussi : elle se pose sur demande) ;
- * - `en_attente` : l'option est payée, aucune ligne posée encore (« votre ligne s'ouvre sous 24 h ouvrées ») ;
+ * - `en_attente` : l'option est payée, ou une Entreprise a connecté un numéro par la fenêtre du partenaire (relecture du
+ *   lot E, jaune 4), et aucune ligne n'est posée encore (« votre ligne s'ouvre sous 24 h ouvrées ») ;
  * - `active` : au moins une ligne de l'espace non arrêtée ;
  * - `arretee` : toutes ses lignes sont arrêtées (la sortie : reprendre l'option, ou sa carte chez Meta).
  * La console (Connecter WhatsApp, l'Accueil) et `get_setup_state` le lisent ici : il ne se recalcule nulle part ailleurs.
@@ -21,6 +22,11 @@ export interface DepsEtatLigne {
   lignes(tenantId: string): Promise<ReadonlyArray<{ arreteeLe: Date | string | null }>>;
   /** L'option vivante de l'espace, ses places payées et son statut ; `null` sans option. */
   option(tenantId: string): Promise<{ places: number; statut: StatutOption } | null>;
+  /**
+   * Un numéro de l'espace est-il arrivé par la fenêtre du partenaire (`phone_numbers.par_la_ligne_le`) ? Lu pour une
+   * Entreprise seule : ailleurs, l'option payée dit déjà l'attente.
+   */
+  arriveParLaLigne(tenantId: string): Promise<boolean>;
 }
 
 /**
@@ -33,7 +39,14 @@ export interface SourcesEtatLigne {
     formulePayee(tenantId: string): Promise<boolean>;
     options: { vivante(tenantId: string): Promise<{ places: number; statut: StatutOption } | null> };
   };
-  vue: { lignes(tenantId: string): Promise<ReadonlyArray<{ arreteeLe: Date | string | null }>> };
+  vue: {
+    lignes(tenantId: string): Promise<ReadonlyArray<{ arreteeLe: Date | string | null }>>;
+    /**
+     * Les numéros de l'espace, la même lecture que la route et `get_setup_state` (`tousGardentLApplication`) ;
+     * `parLaLigne` : arrivé par la fenêtre du partenaire (`numerosDeLEspace`).
+     */
+    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean; parLaLigne?: boolean }>>;
+  };
 }
 
 /** Les méthodes des magasins s'appellent sur leur objet, jamais détachées (`this`). */
@@ -41,6 +54,7 @@ export function lireEtatLigne(s: SourcesEtatLigne, tenantId: string): Promise<Et
   return etatLigneCredit({
     offre: (t) => s.option.offre(t), formulePayee: (t) => s.option.formulePayee(t), lignes: (t) => s.vue.lignes(t),
     option: (t) => s.option.options.vivante(t),
+    arriveParLaLigne: async (t) => (await s.vue.numeros(t)).some((n) => n.parLaLigne === true),
   }, tenantId);
 }
 
@@ -72,7 +86,9 @@ export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promi
   // Une ligne posée dit l'état, quelle que soit la formule : une Entreprise ou un espace dont l'option a fini y restent.
   const lignes = await d.lignes(tenantId);
   if (lignes.length > 0) return lignes.some((l) => l.arreteeLe === null) ? 'active' : 'arretee';
-  if (offre === 'entreprise') return 'a_prendre';
+  // Une Entreprise sans ligne : sur demande, sauf un numéro arrivé par la fenêtre du partenaire, qui attend sa pose dans
+  // `/ops` (la carte ne lui dit plus « sur demande », ni l'Accueil d'ajouter sa carte chez Meta : `creditPaieMeta`).
+  if (offre === 'entreprise') return (await d.arriveParLaLigne(tenantId)) ? 'en_attente' : 'a_prendre';
   // Une option payée attend sa ligne, la formule payée ou non : un Pro passé en retard ne la remet pas à l'essai (jaune 5
   // de la relecture du lot B).
   const option = await d.option(tenantId);

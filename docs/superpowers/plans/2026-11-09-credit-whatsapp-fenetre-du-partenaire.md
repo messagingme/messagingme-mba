@@ -149,3 +149,34 @@ suivant (avec les jaunes 1 à 4 du lot E, une fois l'essai 236 fait) :
    `/ops` répondra « déjà sur la ligne » : à dire dans la réécriture de l'alerte (jaune 2 du lot E).
 6. Ce plan disait encore « aucun numéro vivant » (§ « Ce qui est décidé ») : corrigé.
 
+### E5. Les jaunes 1 à 4 du lot E et 1, 3, 4, 5 du lot E4 (accord de Julien du 2026-11-09 : « ok avance »)
+
+L'essai 236 a répondu en partie à la question 2 : le compte connecté par la fenêtre est bien partagé avec le partenaire
+(sans le droit d'envoyer), mais **sa ligne ne s'attache pas d'elle-même** (« Missing valid payment method » juste après) :
+Julien la lui demande. Et l'alerte de la connexion n'est jamais arrivée, alors que Telegram est configuré dans l'API.
+Méthode : implémenteur par lot, TDD, puis une relecture indépendante du diff (la fin d'une connexion, l'état des cartes et
+une migration sont des chemins de production).
+
+- [x] Migration (son numéro se lit au moment du push, `npm run migrations` sur une copie à jour) :
+  `phone_numbers.par_la_ligne_le timestamptz`, nullable, `lock_timeout` de 5 s. Elle part en `migration=avant` : le code
+  l'écrit. Elle part avec le numéro à la déconnexion (sa ligne `phone_numbers` est supprimée).
+- [x] Jaune 3, la trace : la fin d'une connexion par la fenêtre marque le numéro arrivé (`marquerParLaLigne`), la trace
+  d'audit `numero.connecte` porte `parLaLigne`, une alerte qui ne part pas est journalisée
+  (`alerte_fenetre_partenaire_perdue`), un droit illisible alerte quand même. Tests : la marque, l'audit, le journal de
+  l'alerte perdue, l'alerte du droit illisible ; en intégration, la marque relue par `numerosDeLEspace`.
+- [x] Jaune 4, l’état : une Entreprise dont un numéro est arrivé par la fenêtre lit `en_attente` tant qu'aucune ligne
+  n'est posée ; la carte, l'Accueil et `get_setup_state` suivent (`creditPaieMeta`). Tests : l'état, sa source câblée.
+- [x] Jaune 2 et 5 du lot E4, l’alerte : « poser la ligne dans /ops tout de suite, puis demander au partenaire
+  d'attacher sa ligne à ce compte WhatsApp » ; un compte déjà couvert par la ligne de l'option, rien à poser ; sans
+  droit, ne pas poser et demander au partenaire de ne rien attacher. Tests : chaque texte.
+- [x] Jaune 1, la fenêtre refusée chez nous : une fin `parLaLigne` qui échoue (compte d'un autre espace, second numéro,
+  échange refusé) alerte aussi, le compte étant peut-être déjà partagé. Test : le cas `ratee` s'inverse.
+- [x] Lot E4 : variable vide, une fin marquée par la ligne alerte (« fenêtre fermée ») au lieu de se taire (jaune 1) ;
+  le journal de la règle illisible épinglé (3) ; la parité de l'inscription des deux côtés du câblage (4).
+
+**Ordre de déploiement** : la migration d'abord (`migration=avant`), l'API dans le même run ; la console ne change pas.
+
+**Essai réel** : l'essai 236 continue (son numéro, connecté avant ce lot, n'a pas la marque : sans effet, sa ligne est
+posée). Une prochaine connexion par la fenêtre doit envoyer l'alerte au nouveau texte, et la carte d'une Entreprise dire
+« Votre ligne s'ouvre sous 24 h ouvrées » avant la pose.
+

@@ -10,6 +10,9 @@ import { journaliser } from '../lib/journal';
  * les messages d'un espace qui ne l'a pas payée. Le droit se lit sur l'offre et l'option, jamais sur Stripe ni sur le
  * solde (décision de Julien) : une Entreprise est illimitée, sans option ; une formule Pro ou un Business prend l'option ;
  * une Free jamais. Le partenaire n'est jamais nommé dans le dépôt.
+ *
+ * Mesuré à l'essai réel 236 (2026-11-09) : le compte est bien partagé avec le partenaire, mais sa ligne ne s'attache PAS
+ * d'elle-même ; Julien la lui demande, et l'alerte le lui dit.
  */
 export interface DepsFenetrePartenaire {
   /**
@@ -31,7 +34,13 @@ export interface DepsFenetrePartenaire {
    * (qui refuse un second numéro). Un numéro déjà là relève du lot D, pas de cette fenêtre.
    */
   numerosRattaches(tenantId: string): Promise<number>;
-  alerter(texte: string): Promise<void>;
+  /**
+   * Marque le numéro arrivé par la fenêtre (`marquerParLaLigne`) : la trace en base de la connexion, et ce qui fait
+   * attendre sa ligne à une Entreprise (relecture du lot E, jaunes 3 et 4).
+   */
+  marquer(tenantId: string, phoneNumberId: string): Promise<void>;
+  /** L'alerte à Julien ; `true` seulement si Telegram l'a reçue. Une alerte perdue se journalise (jaune 3). */
+  alerter(texte: string): Promise<boolean>;
 }
 
 /**
@@ -68,23 +77,62 @@ export async function solutionDuPartenaire(d: DepsFenetrePartenaire, tenantId: s
   }
 }
 
+/** L'alerte à Julien, journalisée si elle ne part pas (Telegram absent, en panne, ou en délai) : jamais perdue en silence. */
+async function alerterSansPerte(d: Pick<DepsFenetrePartenaire, 'alerter'>, tenantId: string, wabaId: string | null, texte: string): Promise<void> {
+  try {
+    if (!(await d.alerter(texte))) journaliser('error', 'alerte_fenetre_partenaire_perdue', { tenantId, wabaId, texte });
+  } catch (err) {
+    journaliser('error', 'alerte_fenetre_partenaire_perdue', { tenantId, wabaId, texte, err });
+  }
+}
+
 /**
- * Un numéro vient d'être connecté par la fenêtre du partenaire. Tant que la façon dont le partenaire branche sa ligne
- * n'est pas connue (question 2 de la note privée), la pose reste à Julien : il est alerté du geste à faire. Le droit se
- * relit SANS la condition « aucun numéro », et sans compter le numéro qui vient d'arriver ; sans lui (l'identifiant
- * réutilisé hors de sa garde), Julien est prévenu de ne pas brancher la ligne. Variable vide, la fenêtre n'a pas pu être
- * ouverte par nous : rien. Ne lève jamais : la connexion est faite.
+ * Un numéro vient d'être connecté par la fenêtre du partenaire : il est marqué (la trace en base), puis Julien est alerté
+ * du geste à faire. La ligne du partenaire ne s'attache pas d'elle-même (essai 236) : poser la nôtre tout de suite (un
+ * envoi que Meta refuse faute de paiement rend sa provision), puis la lui demander. Le droit se relit SANS la condition
+ * « aucun numéro », et sans compter le numéro qui vient d'arriver ; sans lui (l'identifiant réutilisé hors de sa garde),
+ * ne rien poser. Variable vide (fenêtre fermée chez nous, une page restée ouverte), l'alerte le dit au lieu de se taire.
+ * Ne lève jamais : la connexion est faite.
  */
 export async function connexionParLaLigne(
   d: DepsFenetrePartenaire, tenantId: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null },
 ): Promise<void> {
-  if (d.solutionId === '') return;
-  try {
-    const qui = `espace ${tenantId}, ${n.numero ?? n.phoneNumberId ?? 'sans numéro'} (compte ${n.wabaId})`;
-    await d.alerter((await droitALaLigne(d, tenantId, n.phoneNumberId))
-      ? `Numéro connecté par la ligne du partenaire : ${qui}. Vérifier que le partenaire a branché sa ligne sur ce compte, puis poser la ligne dans /ops.`
-      : `Numéro connecté par la solution du partenaire SANS droit à la ligne : ${qui}. Ne pas brancher la ligne du partenaire ; voir avec le client.`);
-  } catch (err) {
-    journaliser('error', 'connexion_par_la_ligne_alerte_impossible', { tenantId, wabaId: n.wabaId, err });
+  const qui = `espace ${tenantId}, ${n.numero ?? n.phoneNumberId ?? 'sans numéro'} (compte ${n.wabaId})`;
+  if (n.phoneNumberId !== null) {
+    try {
+      await d.marquer(tenantId, n.phoneNumberId);
+    } catch (err) {
+      journaliser('error', 'marque_par_la_ligne_impossible', { tenantId, phoneNumberId: n.phoneNumberId, err });
+    }
   }
+  let texte: string;
+  if (d.solutionId === '') {
+    texte = `Numéro connecté par la fenêtre du partenaire alors qu’elle est FERMÉE chez nous (variable vide ou inscription éteinte) : ${qui}. Vérifier chez Meta s’il est partagé avec le partenaire ; ne rien poser sans décision.`;
+  } else {
+    try {
+      if (!(await droitALaLigne(d, tenantId, n.phoneNumberId))) {
+        texte = `Numéro connecté par la fenêtre du partenaire SANS droit à la ligne : ${qui}. Ne pas poser la ligne ; demander au partenaire de ne rien attacher à ce compte, ou de détacher sa ligne ; voir avec le client.`;
+      } else if (n.phoneNumberId !== null && (await d.numerosCouverts(tenantId)).includes(n.phoneNumberId)) {
+        texte = `Numéro connecté par la ligne du partenaire : ${qui}. Son compte WhatsApp est déjà couvert par la ligne de l’option : rien à poser dans /ops ; vérifier que le partenaire a attaché sa ligne à ce compte.`;
+      } else {
+        texte = `Numéro connecté par la ligne du partenaire : ${qui}. Poser la ligne dans /ops tout de suite, puis demander au partenaire d’attacher sa ligne de crédit à ce compte WhatsApp : elle ne s’attache pas d’elle-même.`;
+      }
+    } catch (err) {
+      journaliser('error', 'droit_a_la_ligne_illisible', { tenantId, wabaId: n.wabaId, err });
+      texte = `Numéro connecté par la fenêtre du partenaire, droit illisible : ${qui}. Vérifier l’espace dans /ops avant de poser la ligne.`;
+    }
+  }
+  await alerterSansPerte(d, tenantId, n.wabaId, texte);
+}
+
+/**
+ * La fenêtre du partenaire a fini chez Meta, mais notre serveur a refusé la connexion (compte d'un autre espace, second
+ * numéro, échange ou preuve refusés) : le compte est peut-être déjà partagé avec le partenaire, et rien ne le dirait
+ * (relecture du lot E, jaune 1). Ne lève jamais : la réponse d'erreur part de toute façon.
+ */
+export async function fenetreRefuseeParLaLigne(
+  d: Pick<DepsFenetrePartenaire, 'alerter'>, tenantId: string, i: { statut: number; erreur: string; wabaId: string | null },
+): Promise<void> {
+  await alerterSansPerte(d, tenantId, i.wabaId,
+    `Fenêtre du partenaire passée chez Meta, connexion REFUSÉE chez nous (${i.statut} : ${i.erreur}) : espace ${tenantId}, compte ${i.wabaId ?? 'inconnu'}. Le compte est peut-être déjà partagé avec le partenaire : lui demander de ne rien y attacher, et voir avec le client.`);
 }

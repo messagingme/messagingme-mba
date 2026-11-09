@@ -56,10 +56,19 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     expect(fenetre).toMatch(/numerosCouverts: \(tenant\) => lignesCreditWhatsapp\.numerosCouvertsParOption\(tenant\),/);
     expect(fenetre).toMatch(/numerosRattaches: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosDeLEspace\(tenant\)\)\.length,/);
     expect(fenetre).not.toMatch(/delie/);
+    // La marque du numéro arrivé par la fenêtre, appelée sur son magasin ; l'alerte rend ce que Telegram a répondu, pour
+    // qu'une alerte perdue se journalise (relecture du lot E, jaune 3).
+    expect(fenetre).toMatch(/marquer: async \(tenant, phoneNumberId\) => \{ await lignesCreditWhatsapp\.marquerParLaLigne\(tenant, phoneNumberId\); \},/);
+    expect(fenetre).toMatch(/alerter: \(texte\) => sendTelegram\(`\[mba-\$\{NOM_API\}\] \$\{texte\}`\),/);
     expect(bloc('const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {', 'vue: {'))
       .toMatch(/fenetrePartenaire: async \(tenant\) => \(await solutionDuPartenaire\(fenetreDuPartenaire, tenant\)\) !== null,/);
     const connexion = bloc('embeddedSignup: (() => {', 'meta: esClient,');
     expect(connexion).toMatch(/solutionDuPartenaire: \(tenant: string\) => solutionDuPartenaire\(fenetreDuPartenaire, tenant\),/);
     expect(connexion).toMatch(/connexionParLaLigne\(fenetreDuPartenaire, tenant, n\)/);
+    expect(connexion).toMatch(/fenetreRefuseeParLaLigne\(fenetreDuPartenaire, tenant, i\)/);
+    // La route tire `enabled` des MÊMES variables que la fenêtre (relecture du lot E4, jaune 4) : l'une déplacée seule,
+    // la carte se dirait ouverte sur un bouton grisé.
+    expect(connexion).toMatch(/configId: config\.META_ES_CONFIG_ID,/);
+    expect(connexion).toMatch(/appId: config\.META_APP_ID,/);
   });
 });

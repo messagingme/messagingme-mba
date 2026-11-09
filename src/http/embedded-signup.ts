@@ -37,10 +37,15 @@ export interface EmbeddedSignupRouteDeps extends DepsConnexionNumero, DepsDemand
    */
   solutionDuPartenaire(tenantId: string): Promise<string | null>;
   /**
-   * Un numéro connecté par la fenêtre du partenaire (`connexionParLaLigne`) : le droit relu, Julien alerté du geste à
-   * faire. Ne lève jamais : la connexion est faite.
+   * Un numéro connecté par la fenêtre du partenaire (`connexionParLaLigne`) : le numéro marqué, le droit relu, Julien
+   * alerté du geste à faire. Ne lève jamais : la connexion est faite.
    */
   connexionParLaLigne(tenantId: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null }): Promise<void>;
+  /**
+   * Une fin par la fenêtre du partenaire que notre serveur refuse (`fenetreRefuseeParLaLigne`, relecture du lot E,
+   * jaune 1) : le compte est peut-être déjà partagé avec le partenaire, Julien est alerté. Ne lève jamais.
+   */
+  fenetreRefusee(tenantId: string, i: { statut: number; erreur: string; wabaId: string | null }): Promise<void>;
 
   // ----- « Délier » et « Relier » : l'interrupteur du numéro sur l'Accueil -----
   //
@@ -143,6 +148,8 @@ export function registerEmbeddedSignup(
     if (deps.configId === '') return reply.code(503).send({ error: 'Embedded Signup non configuré (META_ES_CONFIG_ID)' });
     const b = (req.body ?? {}) as { code?: unknown; wabaId?: unknown; phoneNumberId?: unknown; evenement?: unknown; parLaLigne?: unknown };
     if (!nonEmpty(b.code)) return reply.code(400).send({ error: 'code requis' });
+    // Ce que le corps DIT de la fenêtre : la trace d'audit le garde, le droit se relit au serveur (`connexionParLaLigne`).
+    const parLaLigne = b.parLaLigne === true;
     const r = await connecterNumero(deps, {
       tenantId: tenant,
       code: b.code.trim(),
@@ -151,7 +158,7 @@ export function registerEmbeddedSignup(
       ...(typeof b.evenement === 'string' ? { evenement: b.evenement } : {}),
     }, async (trace) => {
       if (trace.action === 'compte.relie_sans_numero') {
-        await journal(tenant, req, trace.action, { kind: 'waba', id: trace.wabaId }, { avertissements: trace.avertissements });
+        await journal(tenant, req, trace.action, { kind: 'waba', id: trace.wabaId }, { avertissements: trace.avertissements, parLaLigne });
         return;
       }
       if (trace.action === 'numero.connecte') {
@@ -159,13 +166,21 @@ export function registerEmbeddedSignup(
           wabaId: trace.wabaId,
           avertissements: trace.avertissements,
           coexistence: trace.coexistence,
+          parLaLigne,
         });
       }
     });
-    if (!r.ok) return reply.code(r.statut).send({ error: r.error });
-    // Une connexion par la fenêtre du partenaire (lot E du Crédit WhatsApp) : le compte est partagé avec lui ; Julien pose
-    // la ligne une fois la sienne branchée. Le droit se relit au serveur : le corps ne fait que le dire.
-    if (b.parLaLigne === true) {
+    if (!r.ok) {
+      // La fenêtre du partenaire a fini chez Meta : le compte est peut-être déjà partagé avec lui, même refusé ici (relecture
+      // du lot E, jaune 1). Julien est alerté ; la réponse d'erreur part de toute façon.
+      if (parLaLigne) {
+        await deps.fenetreRefusee(tenant, { statut: r.statut, erreur: r.error, wabaId: nonEmpty(b.wabaId) ? b.wabaId.trim() : null });
+      }
+      return reply.code(r.statut).send({ error: r.error });
+    }
+    // Une connexion par la fenêtre du partenaire (lot E du Crédit WhatsApp) : le compte est partagé avec lui. Le numéro est
+    // marqué, Julien pose la ligne et demande au partenaire d'attacher la sienne. Le droit se relit au serveur.
+    if (parLaLigne) {
       await deps.connexionParLaLigne(tenant, {
         wabaId: r.wabaId,
         phoneNumberId: r.connected ? r.phoneNumberId : null,

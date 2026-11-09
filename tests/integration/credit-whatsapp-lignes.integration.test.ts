@@ -106,4 +106,23 @@ describe.skipIf(!url)('les numéros sur la ligne du Crédit WhatsApp (0264)', ()
     expect(await lignes.numeroDeLEspace(autre, 'itest-cwa-meta')).toBeNull();
     expect(await lignes.numeroDeLEspace(t, 'itest-cwa-inconnu')).toBeNull();
   });
+
+  it('🔴 la marque d’un numéro arrivé par la fenêtre du partenaire (relecture du lot E, jaunes 3 et 4) : posée dans son espace seul, une fois, et relue par la liste', async () => {
+    const t = await espace();
+    const autre = await espace();
+    await numero(t, 'itest-cwa-pl-1');
+    await numero(t, 'itest-cwa-pl-2');
+    expect(await lignes.marquerParLaLigne(t, 'itest-cwa-pl-1')).toBe(true);
+    // Un espace ne marque jamais le numéro d'un autre (le filtre `tenant_id`, seul contrôle sous le rôle de l'application).
+    expect(await lignes.marquerParLaLigne(autre, 'itest-cwa-pl-2')).toBe(false);
+    const moment = async () => (await pool.query<{ le: Date | null }>(`select par_la_ligne_le as le from phone_numbers where id = 'itest-cwa-pl-1'`)).rows[0]!.le;
+    const premier = await moment();
+    expect(premier).not.toBeNull();
+    // Rejouée, la marque garde son premier moment.
+    expect(await lignes.marquerParLaLigne(t, 'itest-cwa-pl-1')).toBe(true);
+    expect((await moment())?.getTime()).toBe(premier!.getTime());
+    expect((await lignes.numerosDeLEspace(t)).map((n) => [n.phoneNumberId, n.parLaLigne])).toEqual([
+      ['itest-cwa-pl-1', true], ['itest-cwa-pl-2', false],
+    ]);
+  });
 });

@@ -262,7 +262,7 @@ export const historiqueContactInerte: Pick<ContactsRouteDeps['contactHistory'], 
   resumeContact: async () => null,
 };
 
-export const signupInerte: Pick<EmbeddedSignupRouteDeps, 'audit' | 'bilanDeconnexion' | 'deconnecterNumero' | 'retirerCompteApplication' | 'enCoexistence' | 'solutionDuPartenaire' | 'connexionParLaLigne'> = {
+export const signupInerte: Pick<EmbeddedSignupRouteDeps, 'audit' | 'bilanDeconnexion' | 'deconnecterNumero' | 'retirerCompteApplication' | 'enCoexistence' | 'solutionDuPartenaire' | 'connexionParLaLigne' | 'fenetreRefusee'> = {
   audit: journalMuet,
   // « Déconnecter le numéro » a son propre fichier (`tests/numero-deconnexion.test.ts`) : ailleurs, ces deux-là LÈVENT,
   // pour qu'un chemin d'inscription qui se mettrait à les appeler se voie.
@@ -277,6 +277,7 @@ export const signupInerte: Pick<EmbeddedSignupRouteDeps, 'audit' | 'bilanDeconne
   // qu'un chemin qui se mettrait à la signaler se voie (`tests/embedded-signup.test.ts` l'éprouve).
   solutionDuPartenaire: async () => null,
   connexionParLaLigne: async () => { throw new Error('non attendu dans ce test'); },
+  fenetreRefusee: async () => { throw new Error('non attendu dans ce test'); },
 };
 
 export const metaInscriptionInerte: Pick<MetaInscriptionDep, 'wabasForToken' | 'listPhones' | 'surApplication'> = {

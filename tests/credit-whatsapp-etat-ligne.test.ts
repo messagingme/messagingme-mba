@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { arretDesLignes, etatLigneCredit, type DepsEtatLigne } from '../src/credit-whatsapp/etat-ligne';
+import { arretDesLignes, etatLigneCredit, lireEtatLigne, type DepsEtatLigne, type SourcesEtatLigne } from '../src/credit-whatsapp/etat-ligne';
 import { creditPaieMeta } from '../web/lib/partage/credit-whatsapp';
 
 /**
@@ -9,12 +9,14 @@ import { creditPaieMeta } from '../web/lib/partage/credit-whatsapp';
 function deps(o: {
   offre?: 'base' | 'pro' | 'business' | 'entreprise'; payee?: boolean;
   lignes?: Array<{ arreteeLe: Date | null }>; option?: { places: number; statut: 'actif' | 'en_retard' | 'resilie' } | null;
+  parLaLigne?: boolean;
 } = {}): DepsEtatLigne {
   return {
     offre: async () => o.offre ?? 'pro',
     formulePayee: async () => o.payee ?? true,
     lignes: async () => o.lignes ?? [],
     option: async () => (o.option === undefined ? null : o.option),
+    arriveParLaLigne: async () => o.parLaLigne ?? false,
   };
 }
 
@@ -65,6 +67,11 @@ describe('etatLigneCredit', () => {
       // Une Entreprise : la ligne se pose sur demande dans /ops, jamais par l'option ; illimitée une fois posée.
       [{ offre: 'entreprise', payee: false }, 'a_prendre'],
       [{ offre: 'entreprise', payee: false, lignes: [{ arreteeLe: null }] }, 'active'],
+      // Un numéro arrivé par la fenêtre du partenaire : l'Entreprise attend sa ligne (relecture du lot E, jaune 4), puis la
+      // ligne posée dit l'état ; la marque ne change rien hors Entreprise (l'option y dit déjà l'attente).
+      [{ offre: 'entreprise', payee: false, parLaLigne: true }, 'en_attente'],
+      [{ offre: 'entreprise', payee: false, parLaLigne: true, lignes: [{ arreteeLe: null }] }, 'active'],
+      [{ offre: 'pro', parLaLigne: true }, 'a_prendre'],
     ];
     for (const [o, attendu] of cas) expect(await etatLigneCredit(deps(o), 't1'), JSON.stringify(o)).toBe(attendu);
   });
@@ -75,5 +82,21 @@ describe('etatLigneCredit', () => {
     expect(await etatLigneCredit(d, 't1')).toBe('free');
     expect(lus).toBe(0);
     expect(await etatLigneCredit(deps({ offre: 'pro', payee: false, lignes: [{ arreteeLe: null }] }), 't1')).toBe('active');
+  });
+});
+
+describe('lireEtatLigne (les sources de la console et de Claude)', () => {
+  function sources(numeros: ReadonlyArray<{ parLaLigne?: boolean }>): SourcesEtatLigne {
+    return {
+      option: { offre: async () => 'entreprise', formulePayee: async () => false, options: { vivante: async () => null } },
+      vue: { lignes: async () => [], numeros: async () => numeros.map((n) => ({ coexistence: false, delie: false, ...n })) },
+    };
+  }
+
+  it('🔴 une Entreprise dont un numéro est arrivé par la fenêtre du partenaire attend sa ligne : la carte ne dit plus « sur demande » (relecture du lot E, jaune 4)', async () => {
+    expect(await lireEtatLigne(sources([{ parLaLigne: false }, { parLaLigne: true }]), 't1')).toBe('en_attente');
+    expect(await lireEtatLigne(sources([{ parLaLigne: false }]), 't1')).toBe('a_prendre');
+    expect(await lireEtatLigne(sources([{}]), 't1')).toBe('a_prendre');
+    expect(await lireEtatLigne(sources([]), 't1')).toBe('a_prendre');
   });
 });

@@ -49,6 +49,11 @@ export interface NumeroDeLEspace extends NumeroPourLaLigne {
   numero: string | null;
   /** Le nom vérifié chez Meta. */
   nom: string | null;
+  /**
+   * Arrivé par la fenêtre du partenaire (`phone_numbers.par_la_ligne_le`, migration 0285, relecture du lot E, jaunes 3
+   * et 4) : une Entreprise attend alors sa ligne (`etatLigneCredit`).
+   */
+  parLaLigne: boolean;
 }
 
 export class PgLignesCreditStore {
@@ -151,18 +156,31 @@ export class PgLignesCreditStore {
   async numerosDeLEspace(tenantId: string): Promise<NumeroDeLEspace[]> {
     const { rows } = await this.pool.query<{
       id: string; display_phone_number: string | null; verified_name: string | null; waba_id: string | null;
-      fournisseur: string; coexistence: boolean; delie: boolean;
+      fournisseur: string; coexistence: boolean; delie: boolean; par_la_ligne: boolean;
     }>(
       `select p.id, p.display_phone_number, p.verified_name, p.waba_id, coalesce(w.fournisseur, 'meta') as fournisseur,
-              p.coexistence, p.delie_le is not null as delie
+              p.coexistence, p.delie_le is not null as delie, p.par_la_ligne_le is not null as par_la_ligne
          from phone_numbers p left join waba_credentials w on w.waba_id = p.waba_id
         where p.tenant_id = $1 order by p.created_at, p.id`,
       [tenantId],
     );
     return rows.map((r) => ({
       phoneNumberId: r.id, numero: r.display_phone_number, nom: r.verified_name, wabaId: r.waba_id,
-      fournisseur: r.fournisseur, coexistence: r.coexistence, delie: r.delie,
+      fournisseur: r.fournisseur, coexistence: r.coexistence, delie: r.delie, parLaLigne: r.par_la_ligne,
     }));
+  }
+
+  /**
+   * Marque un numéro de CET espace comme arrivé par la fenêtre du partenaire (relecture du lot E, jaunes 3 et 4) : la trace
+   * en base de la connexion, et ce qui fait attendre sa ligne à une Entreprise. Rejouée, la marque garde son premier
+   * moment. `false` si le numéro n'est pas de l'espace (le filtre `tenant_id`, seul contrôle sous le rôle de l'application).
+   */
+  async marquerParLaLigne(tenantId: string, phoneNumberId: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `update phone_numbers set par_la_ligne_le = coalesce(par_la_ligne_le, now()) where tenant_id = $1 and id = $2`,
+      [tenantId, phoneNumberId],
+    );
+    return (rowCount ?? 0) > 0;
   }
 
   /** Un numéro de CET espace, `null` s'il n'en est pas (un numéro d'un autre espace ne se lit pas). */

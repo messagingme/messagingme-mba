@@ -277,10 +277,10 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     const demandes: number[] = [];
     // Le numéro de la ligne, un autre du même compte WhatsApp, un en coexistence et un chez 360dialog.
     const numeros: NumeroDeLEspace[] = [
-      { ...NUMERO, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: 'Messaging Me Tech' },
-      { ...NUMERO, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: 'Messaging Me Tech' },
-      { ...NUMERO, wabaId: 'w2', coexistence: true, phoneNumberId: '106540352243000', numero: '+44 1555 479304', nom: null },
-      { ...NUMERO, wabaId: 'w3', fournisseur: '360dialog', phoneNumberId: '106540352243001', numero: null, nom: null },
+      { ...NUMERO, parLaLigne: false, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: 'Messaging Me Tech' },
+      { ...NUMERO, parLaLigne: false, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: 'Messaging Me Tech' },
+      { ...NUMERO, parLaLigne: false, wabaId: 'w2', coexistence: true, phoneNumberId: '106540352243000', numero: '+44 1555 479304', nom: null },
+      { ...NUMERO, parLaLigne: false, wabaId: 'w3', fournisseur: '360dialog', phoneNumberId: '106540352243001', numero: null, nom: null },
     ];
     const a = app({}, true, {
       numeroDeLEspace: async () => { lu = true; return NUMERO; }, lignesDeLEspace: async () => [LIGNE], numerosDeLEspace: async () => numeros,
@@ -316,8 +316,8 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
   it('🔴 la couverture se lit comme la garde : un compte sur la ligne d’un AUTRE espace, une ligne couvrante arrêtée', async () => {
     const AUTRE = '0d9a3c1e-5b7f-4c2a-9e8d-6f1b2a3c4d5e';
     const numeros: NumeroDeLEspace[] = [
-      { ...NUMERO, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: null },
-      { ...NUMERO, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: null },
+      { ...NUMERO, parLaLigne: false, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: null },
+      { ...NUMERO, parLaLigne: false, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: null },
     ];
     const a = app({}, true, {
       numerosDeLEspace: async () => numeros,
@@ -349,9 +349,9 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
 
   /** Le numéro posé et un second numéro de son compte, puis un délié du même compte (il ne compte pas de place). */
   const COMPTE: NumeroDeLEspace[] = [
-    { ...NUMERO, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: null },
-    { ...NUMERO, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: null },
-    { ...NUMERO, phoneNumberId: '106540352243002', numero: '+33 5 25 68 02 52', nom: null, delie: true },
+    { ...NUMERO, parLaLigne: false, phoneNumberId: PN, numero: '+33 5 25 68 02 50', nom: null },
+    { ...NUMERO, parLaLigne: false, phoneNumberId: '106540352242999', numero: '+33 5 25 68 02 51', nom: null },
+    { ...NUMERO, parLaLigne: false, phoneNumberId: '106540352243002', numero: '+33 5 25 68 02 52', nom: null, delie: true },
   ];
 
   it('🔴 un Pro ou un Business : la pose consomme des places payées, et tout le compte doit y tenir (décision du 2026-11-03)', async () => {

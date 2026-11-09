@@ -52,7 +52,7 @@ import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
 import { formuleEnRetard, formulePayee, repriseOuverte } from './offres/formule-payee';
-import { connexionParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
+import { connexionParLaLigne, fenetreRefuseeParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
 import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
@@ -1100,7 +1100,9 @@ async function main(): Promise<void> {
     option: (tenant) => optionsCreditWhatsapp.vivante(tenant),
     numerosCouverts: (tenant) => lignesCreditWhatsapp.numerosCouvertsParOption(tenant),
     numerosRattaches: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).length,
-    alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
+    marquer: async (tenant, phoneNumberId) => { await lignesCreditWhatsapp.marquerParLaLigne(tenant, phoneNumberId); },
+    // Ce que Telegram a répondu remonte : une alerte perdue se journalise (relecture du lot E, jaune 3 ; essai 236).
+    alerter: (texte) => sendTelegram(`[mba-${NOM_API}] ${texte}`),
   };
   /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */
   const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {
@@ -2858,10 +2860,12 @@ async function main(): Promise<void> {
         appId: config.META_APP_ID,
         graphVersion: config.META_GRAPH_VERSION,
         // La fenêtre du partenaire (lot E du Crédit WhatsApp) : l'identifiant de la solution, seulement à l'espace que sa
-        // règle désigne, et la connexion faite par elle signalée à Julien.
+        // règle désigne, la connexion faite par elle signalée à Julien, et refusée chez nous aussi (relecture, jaune 1).
         solutionDuPartenaire: (tenant: string) => solutionDuPartenaire(fenetreDuPartenaire, tenant),
         connexionParLaLigne: (tenant: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null }) =>
           connexionParLaLigne(fenetreDuPartenaire, tenant, n),
+        fenetreRefusee: (tenant: string, i: { statut: number; erreur: string; wabaId: string | null }) =>
+          fenetreRefuseeParLaLigne(fenetreDuPartenaire, tenant, i),
         meta: esClient,
         inscriptions: {
           linkTenant: (input) => esCredentialsStore.linkTenant(input),
