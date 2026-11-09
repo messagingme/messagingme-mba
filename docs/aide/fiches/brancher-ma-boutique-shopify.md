@@ -2,7 +2,7 @@
 description: Brancher une boutique Shopify à WhatsApp : confirmation de commande, avis d'expédition, relance des paniers abandonnés. Le plus simple : Claude Code.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
-source_empreinte: 7dd4f7
+source_empreinte: bbb9b5
 publique: oui
 rubrique: parler-aux-clients
 rang: 6
@@ -107,6 +107,10 @@ le chiffre d'affaires des commandes payées dans les 5 jours après un message W
 non déduits, et compté par devise. Une part est **prouvée** : le panier relancé lui-même payé, ou une visite venue de
 vos liens WhatsApp. Le reste est une concordance dans le temps, pas une preuve. Les commandes de test de Shopify sont
 annoncées à part, jamais comptées, et seules comptent les commandes payées depuis le branchement de la boutique.
+
+Dans la console, la même page met aussi en face ce que vos messages ont **coûté** : deux courbes cumulées sur la
+période, et votre **ROI en pourcentage**, en tout et pour chaque campagne. Le coût ne compte que ce qui peut amener une
+vente (campagnes, relances de panier, scénarios, agents), jamais les confirmations de commande ni les avis d'expédition.
 
 ## Cibler vos clients par leurs commandes
 

@@ -2835,6 +2835,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   - **Les commandes de test** (passerelle de test de Shopify) sont annoncées à part et jamais comptées.
   - **Depuis le branchement** : seules les commandes payées depuis le branchement de la boutique comptent, d'un client déjà
     dans l'espace, ou, sans fiche, venu par le lien d'une campagne.
+  - **Le ROI des messages** (2026-11-06, console seulement, formule Pro) : sur la même page, ce que les messages ont
+    COÛTÉ en face de ce qu'ils ont ramené, deux courbes cumulées et le ROI en pourcentage, en tout et par source (une
+    campagne qui n'a rien vendu y figure à -100 %). Le coût ne compte que ce qui peut amener une vente, jamais les
+    confirmations ni les avis d'expédition. Le détail : « Analytics », Quantitatif > Shopify.
 - **Cibler les clients par leurs commandes** (2026-11-04, offre Pro) : une fois la boutique branchée, la liste des
   contacts, le choix des destinataires d'une campagne et Claude Code (`find_contacts`) ciblent par nombre de commandes
   payées, montant dépensé et jours depuis la dernière commande, depuis le branchement de la boutique. Sans boutique, ces

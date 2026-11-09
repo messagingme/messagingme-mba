@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp: order confirmation, shipping notice with tracking, abandoned checkout reminders. The simplest way: Claude Code.
 slug: connect-my-shopify-store
-traduit_de: 54f3b0
+traduit_de: 6922cb
 bouton_claude: Connect Shopify from Claude Code, for free
 bouton_console: Connect Shopify in the console
 ---
@@ -99,6 +99,10 @@ reminder, a scenario, an AI agent or Meta’s agent). The figure is gross, refun
 Part of it is **proven**: the reminded checkout itself paid, or a visit that came through your WhatsApp links. The rest
 is a match in time, not a proof. Shopify test orders are shown apart, never counted, and only orders paid since the
 store was connected count.
+
+In the console, the same page also sets what your messages **cost** against it: two cumulative curves over the period,
+and your **ROI as a percentage**, overall and for each campaign. The cost only counts what can bring a sale (campaigns,
+checkout reminders, scenarios, agents), never order confirmations or shipping notices.
 
 ## Targeting your customers by their orders
 
