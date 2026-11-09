@@ -253,9 +253,42 @@ dans l'application WhatsApp Business, puis la garder ; pour `apporte`, un numér
 part plus vers un autre numéro). En même temps dans `scripts/vitrine/tunnel-textes.ts`, `web/lib/questions-numero.ts`
 (et l'écran qui l'affiche), la skill `mise-en-service` et les consignes du serveur ; les tests de parité suivent.
 
+### Ajouts de Julien (2026-11-09)
+
+Donnés avant le lot 2b et rangés ici, parce qu'ils touchent tous l'arbre. Ordre décidé le même jour : le lot 2b, puis ce
+lot élargi.
+
+1. **La console pose aussi la question de l'offre.** Le premier écran d'un espace tout juste créé
+   (`/connecter-whatsapp?suite=demarrer`, `arriveeDUnNouvelEspace`) commence par les quatre cartes de la vitrine (décision
+   du 2026-11-09 : au premier écran après la création, pas à l'inscription) : Free ; Pro, ses 14 jours d'essai gratuit
+   bien visibles (« on comprend rien sinon ») ; Business et Entreprise, qui mènent au formulaire de contact. Pro choisi :
+   la souscription, avec l'essai. La carte Pro de la vitrine montre l'essai aussi visiblement.
+2. **« Ma carte chez Meta » devient « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business »**,
+   avec deux liens : « Pourquoi un moyen de paiement ? » (ce que sont les modèles, pourquoi et quand Meta les facture :
+   la page des modèles du lot 4, en attendant `la-fenetre-de-24-heures`) et « Qu'est-ce qu'un compte Meta Business ? »
+   (`ce-qu-il-faut-chez-meta`). À trois endroits, parité comprise : la vitrine, la console (`QUESTION_PAIEMENT`), la
+   skill.
+3. **Le Crédit WhatsApp n'est plus grisé en Pro** (Julien change sa décision du 2026-11-06). L'option n'est pas encore
+   en vente (prix non posé, jaunes « avant la vente » du chantier du Crédit WhatsApp) : décision du 2026-11-09, c'est un
+   CHOIX ACTIF dont la suite dit qu'elle se prend sur demande (écrivez-nous, par le Support), jamais une promesse
+   d'achat que la console refuserait ; à l'ouverture de la vente, la suite devient l'achat direct. Ce parcours, vérifié
+   par le chantier du Crédit WhatsApp le même jour : une seule page, `/connecter-whatsapp`, dont la carte « Crédit
+   WhatsApp » porte « Prendre l'option » (formule payée), revient de Stripe par `?option=recue`, puis ouvre la fenêtre
+   du partenaire par « Connecter sans carte chez Meta » ; pendant l'essai de la formule Pro, elle propose d'abord
+   « Démarrer la formule Pro maintenant ». Ce qui se dit : jamais en Free (« Avec la formule Pro. »), pas pendant un
+   essai, « Meta ne vous facturera pas » seulement une fois l'option payée, la ligne ouverte sous 24 h ouvrées ; le
+   partenaire n'est JAMAIS nommé. L'arbre après ce choix : « garder l'application ? » devient sans objet (le Crédit
+   WhatsApp exclut l'application), « compte Meta Business » reste (la même fenêtre de Meta, sans la carte), et le
+   numéro fourni n'a pas de chemin par la fenêtre du partenaire : à trancher avec Julien au moment du lot. La carte de
+   la console (`QuiRegleMeta.tsx`) est au chantier du Crédit WhatsApp : la parité de la question se règle avec lui.
+4. **Démarrer, choix Pro : « console ou Claude Code ? » en deuxième question.** Console : créer son espace
+   (`/signup?offre=pro`) et le pas-à-pas de la console (`connecter-mon-numero-whatsapp`), fin du tunnel. Claude Code :
+   la suite de l'arbre, le Crédit WhatsApp choisissable, et au bout les trois étapes de la Free (le plugin, le MCP, la
+   demande), en visuel comme elles (`76a0e2b4`).
+
 **Méthode de livraison** : implémenteur et revue humaine du diff (écran d'onboarding de la console, parité à trois
 endroits). **Essai réel** : parcourir les six cas dans `/demarrer/`, dans la console et avec Claude, et comparer les
-feuilles.
+feuilles ; puis un espace neuf qui voit les offres d'abord, et les parcours Pro par la console et par Claude Code.
 
 ## Lot 4 : le centre d'aide
 
