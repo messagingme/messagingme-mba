@@ -26,7 +26,8 @@ redemander. C'était la deuxième fois après l'essai 99 : une consigne ne suffi
 Relecture indépendante sans rouge ; ses neuf jaunes corrigés dans la foulée (`1da02ef3`) sans relecture propre, relus
 avec le lot suivant. Le plus net : l'attente aurait pu signer un lien d'un autre mode que la destination retenue, et
 faire perdre un code de vérification. CI verte job par job sur `8bbd4cf7` et `1da02ef3`. En service le 2026-11-09 (run
-42599390675, image `1da02ef3`, sans migration). Le plugin 0.3.29 reste à publier par Julien. Essai réel 235.
+42599390675, image `1da02ef3`, sans migration). Le plugin 0.3.29 publié par Julien le même jour (`10196b9b`, identique
+à `plugin/` de `main`). Essai réel 235.
 
 ## 2026-11-09 : la doc Shopify dit le ROI des messages
 
