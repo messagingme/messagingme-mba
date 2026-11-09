@@ -245,6 +245,35 @@ l'identité), le lot 2 l'élargit. À faire : la langue de l'écran voyage jusqu
 l'inscription et l'identité. **Essai réel** : créer un espace par Google depuis un navigateur anglais, puis recevoir
 un e-mail de service en anglais.
 
+**Livré le 2026-11-09** (`f7793ff8`, run 42681198302, plan `2026-11-09-aide-connexion-lot-2b.md`). Le nom de l'espace
+créé par Google suit aussi la langue (« Alice’s workspace »). Une identité sans mot de passe ni compte ouvert, que le
+clic d'un lien reprend, reçoit la langue de la demande. L'invitation reste en `fr` (son e-mail n'existe qu'en
+français, au `todo.md`). L'essai réel se fait avec une adresse Google JAMAIS vue, et se lit d'abord dans « Mon
+compte ». `aide:charger` (fiche des e-mails) par Julien.
+
+## Lot 2c : « Phone call », pas « Text message », pour un numéro fourni
+
+Demande de Julien du 2026-11-09 : « quand les gens nous achètent un numéro, il faut vraiment leur dire dans la
+fenêtre Meta de choisir Voice call et pas Text… il faut lourdement insister ». Les libellés de la fenêtre de Meta (en
+anglais, celle de nos essais) sont « Phone call » et « Text message » ; « Voice call » n'existe pas. La consigne en
+production disait l'inverse : « Text message » (retenu à l'essai 99 du 2026-10-13), puis « l'autre méthode » au bout
+de 45 secondes. Elle vit dans `ETAPES_NUMERO_FOURNI`, que reprennent la page du parcours et les consignes de Claude,
+et dans ses copies : la skill `mise-en-service`, la fiche `connecter-mon-numero-whatsapp` (FR, EN) et sa capture.
+
+Décisions de Julien (2026-11-09) :
+- le lot passe juste après le lot 2b ;
+- « Phone call » (l'appel), surtout pas « Text message ». La page met l'étape en gras et Claude insiste. Au bout de
+  45 secondes sans code, on le redemande, toujours par « Phone call » ;
+- si la fenêtre ne propose que « Text message » : une ligne discrète dit de le prendre (notre ligne reçoit aussi le
+  SMS) ;
+- le visuel attend ses rushes, sans maquette. D'ici là, le texte, et la capture générique de la fiche seulement
+  inversée (« Phone call » coché).
+
+**Méthode de livraison** : en direct, parce que le texte est écrit une fois et que chaque surface se vérifie par un
+test de parité ; une relecture en fin de lot. Plan `2026-11-09-aide-connexion-lot-2c.md`. **Essai réel** : le
+parcours d'un numéro fourni montre l'étape « Phone call » en gras, et la prochaine vraie connexion d'un numéro fourni
+reçoit son code par l'appel.
+
 ## Lot 3 : l'arbre, partout
 
 Le cas 4 (après « Oui, j'ai l'application » : « Voulez-vous utiliser ce numéro-là ? » ; non, numéro fourni par la

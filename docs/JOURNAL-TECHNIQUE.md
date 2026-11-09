@@ -4,6 +4,40 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : la langue des e-mails apprise à la création du compte (aide à la connexion, lot 2b)
+
+Relevé à la relecture du lot 2 : une console ouverte en anglais laissait des e-mails en français, la langue des
+e-mails de service (`identities.langue`) ne s'écrivant qu'à la bascule de la console. Plan
+`2026-11-09-aide-connexion-lot-2b.md`, implémenteur puis une relecture indépendante.
+
+- **Ce qui a changé** (`f7793ff8`) : l'identité naît dans la langue de l'écran où l'inscription commence. Par Google,
+  dans la console comme sur `/autoriser` (la console envoie `langue()`, lue au clic ; l'espace prend aussi un nom
+  anglais, « Alice’s workspace »). Par le lien d'inscription, au clic (`inscriptions_attente.langue`), y compris pour
+  une identité sans mot de passe ni compte ouvert que le clic reprend. Une identité existante garde la sienne ; une
+  valeur absente ou inconnue vaut `fr`, jamais un refus. Aucune migration.
+- **Vérifié** :
+  - onze mutations vues rouges ; l'insertion SQL, gardée en intégration seulement, est verte en CI ;
+  - la suite racine entière, dont 17 fichiers que l'environnement du poste faisait rougir (le client S3 absent, une
+    ancienne version de zod), rejoués verts sur une installation exacte du verrou dans le scratchpad ;
+  - tsc racine et console, lint ;
+  - 28 e2e, dont un neuf : `/autoriser` dans un navigateur anglais envoie `en`.
+  Les e2e qui comparaient le corps exact envoyé à Google (`autoriser`, `partage-meta`) portent désormais `langue`.
+- **Relecture** : aucun rouge. Ses quatre jaunes, dans la doc et le plan, sont corrigés dans le commit : la reprise au
+  clic vaut aussi pour une identité dont les comptes ont été supprimés ; la langue est celle de la page qui demande le
+  lien, pas celle de la confirmation ; `aide:charger` manquait ; l'essai réel exige une adresse jamais vue. Elle a aussi
+  porté la dette de la vitrine : `77b629e5` sans remarque ; `76a0e2b4` laisse deux jaunes au plan du lot (le détour
+  par e-mail sans image, l'encadré « non vérifié » que Codex voit sur `/autoriser`).
+- **Hors du lot** : l'invitation (son e-mail n'existe qu'en français, l'identité de l'invité naît en `fr`), au
+  `todo.md`.
+- **En production** :
+  - le push a attendu la fin d'un incident GitHub Actions (18 h 12 à environ 18 h 40 UTC) ;
+  - CI racine, console et CodeQL vertes job par job ;
+  - run 42681198302 (`migration=aucune`, épinglé sur `f7793ff8`, avant le lot E5 de la session voisine) : `mba-api`
+    sur l'image `f7793ff8`, `mba-worker` et `mba-application` en révision `f7793ff8`, fumée bonne, fiches OAuth
+    conformes ;
+  - `aide:charger` (la fiche des e-mails) confié à Julien.
+- **Essai réel** : une adresse Google jamais vue, un navigateur en anglais, « Mon compte » puis la bienvenue.
+
 ## 2026-11-09 : la fenêtre du partenaire, le lot de suite (jaunes 5, 6, 9 et 10 de la relecture du lot E)
 
 Accord de Julien (« Oui, lance-le ») pour les quatre jaunes qui ne dépendent pas de l'essai réel 236 ; plan
