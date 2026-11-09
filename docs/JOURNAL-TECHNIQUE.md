@@ -4,6 +4,52 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : le tunnel « Démarrer » en Free donne ses trois étapes en images, la voie e-mail à chaque porte, plugin 0.3.30
+
+Demande de Julien : en Free, avant le texte à coller dans Claude Code, redonner les étapes (le plugin, le MCP, la
+demande). Puis, devant la première version vue au téléphone : « c'est illisible tes pavés… faut être visuel, personne
+ne lit le texte ».
+
+- `112ad710` : trois étapes numérotées au bout de chaque issue Free, sur Démarrer, Boutiques Shopify et SaaS, en
+  français et en anglais. Relecture sans rouge, ses jaunes dans le même commit.
+- `4471438a` : cinq endroits ne citaient que Google pour entrer (Installer le plugin, SaaS, Shopify, Développeurs en
+  français et en anglais, `llms.txt`) ; `tests/vitrine-voie-email.test.ts` tient désormais la voie e-mail sur toute la
+  vitrine. Sa relecture, sans rouge, a aussi relu les jaunes de `112ad710` ; tous corrigés en `f13b4c79` sans relecture
+  propre : le focus de fin de tunnel sur le titre de l'issue et plus de région live, les commandes sécables (`<wbr>`),
+  le lien Pro vers le pas-à-pas, le second formulaire du lien e-mail dit, « la Free » retiré de `llms.txt`, le
+  détecteur élargi et le JSON-LD lu en entier.
+- `77b629e5` : « Aucun compte à créer À L'AVANCE » partout, vitrine et README du plugin (décision de Julien : sans ces
+  mots, la promesse était fausse pour la voie e-mail).
+- `76a0e2b4` : aux étapes 1 et 2, le logo de Claude Code et celui de Codex avec la commande en face, `/mcp` puis deux
+  choix en pastilles, et trois captures de la vraie page `/autoriser` (scénario
+  `web/e2e/captures/demarrer-autoriser.capture.ts`, images sous `site/img/demarrer/`, adresse versionnée et dimensions
+  par `scripts/vitrine/images.ts`). Pour capturer « Autorisation accordée », l'adresse de retour de Claude Code répond
+  204 : le navigateur garde la page.
+- `7918109e` : plugin 0.3.30 (la correction B2, l'accueil aligné sur la vitrine, « à l'avance »), publié par Julien
+  (run 42664260459, étiquette v0.3.30, 17 fichiers identiques à `plugin/`).
+- `de6c7e19` : les ajouts de Julien au lot 3 dans la spec (les offres au premier écran de la console, la carte chez
+  Meta reformulée, le Crédit WhatsApp en choix actif « sur demande » en Pro, Pro par la console ou par Claude Code).
+
+Chaque assertion neuve vérifiée dans les deux sens par mutation ; chaque lot mesuré en production par Playwright (focus
+par offre, largeurs à 320, 375, 390 et 1 280 px, aucun débordement). CI verte job par job sur chaque commit.
+`77b629e5` et `76a0e2b4` restent à relire avec le prochain lot de fonctionnalité.
+
+## 2026-11-09 : la console s'ouvre dans la langue du navigateur (aide à la connexion, lot 2)
+
+Question de Julien : un navigateur anglais voit-il la page d'autorisation en anglais ? Non : la console s'ouvrait en
+français pour tous. La règle tient en une fonction, pour ses deux lecteurs (`langueInitiale`, `web/lib/locale.ts`, lue
+par `LocaleProvider` et par `langue()` de `web/lib/http.ts`) : l'adresse (`?lang=`), puis le choix mémorisé, puis la
+langue du navigateur (français s'il est en français, anglais sinon), jamais mémorisée. Décisions de Julien : la règle
+pour tous, comptes installés compris ; la vitrine française ne pose pas `?lang=fr`. Les e2e se figent en `fr-FR`
+(`web/playwright.config.ts`) : sans cela, la suite changeait de langue selon la machine.
+
+- `d3902dd6`, en ligne par Vercel ; mesuré en production par Playwright : en-US et de-DE en anglais, fr-FR en français.
+- Relecture sans rouge ; ses jaunes en `a88a0d9f` : un `?lang=` appliqué et mémorisé quitte l'adresse
+  (`adresseSansLangue`) ; l'attente MCP rend un lien neuf qui suit le mode de reprise en coexistence (en service par le
+  run 42624610430, image `a88a0d9f`, sans migration) ; la skill `mise-en-service` ne redit plus la page d'autorisation
+  (publiée en 0.3.30).
+- Reste le lot 2b : la langue des e-mails, apprise à la création du compte.
+
 ## 2026-11-09 : connecter un numéro sans carte chez Meta, par la fenêtre du partenaire (lot E du Crédit WhatsApp), avec les jaunes du lot C5 (C6)
 
 Accord de Julien pour les deux lots le 2026-11-09 (« Oui, lance-le » pour C6, « Oui, démarre E », les textes du bouton
