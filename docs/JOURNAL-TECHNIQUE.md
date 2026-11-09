@@ -4,6 +4,30 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : la connexion du numéro par Claude, le lien toujours écrit et la suite dite avant (aide à la connexion, lot 1)
+
+Né de l'onboarding du 2026-11-07 d'un proche de Julien, qui gardait son application WhatsApp Business, par Claude
+Desktop. Claude a présenté la formule Free avec « 1 000 contacts » (une intro improvisée : aucun texte du dépôt ni du
+plugin publié ne le disait), n'a pas dit pourquoi la connexion MCP vient d'abord, puis a annoncé le lien de connexion
+(« il expire à 19 h 19, je surveille ») sans jamais l'écrire, et a tourné 2 min 30 dans l'attente : il a fallu le lui
+redemander. C'était la deuxième fois après l'essai 99 : une consigne ne suffisait pas. Spec
+`docs/superpowers/specs/2026-11-08-aide-connexion-numero-design.md` (six lots), plan
+`docs/superpowers/plans/2026-11-09-aide-connexion-lot-1.md`.
+
+- `start_whatsapp_connection` : l'adresse est DANS la phrase qui exige de l'écrire ; avant elle, ce qui va se passer et
+  qui paie, selon le mode, depuis des textes partagés (`ETAPES_FENETRE_GARDER`, `CODE_VERIFICATION_FOURNI`,
+  `CE_QUI_EST_FACTURE`, le mode op « garder l'application »). Ce que la personne tape dans l'application reste gratuit.
+- `watch_whatsapp_connection` : sur une attente sans signe, un lien neuf et le rappel de l'écrire, signé seulement dans
+  le mode que start aurait donné tel quel (`modeDuLienNeuf`) ; l'attente n'est plus marquée idempotente.
+- Le plugin 0.3.29 : un accueil généré depuis la grille des offres (dans `demarrer`, `mise-en-service` et le README), la
+  connexion MCP comme étape 1, et les commandes de Codex. Mesuré le 2026-11-08 dans un Codex jetable : Codex 0.151 lit
+  notre marketplace telle quelle et montre nos skills ; seule l'autorisation diffère (`codex mcp login messagingme`).
+
+Relecture indépendante sans rouge ; ses neuf jaunes corrigés dans la foulée (`1da02ef3`) sans relecture propre, relus
+avec le lot suivant. Le plus net : l'attente aurait pu signer un lien d'un autre mode que la destination retenue, et
+faire perdre un code de vérification. CI verte job par job sur `8bbd4cf7` et `1da02ef3`. En service le 2026-11-09 (run
+42599390675, image `1da02ef3`, sans migration). Le plugin 0.3.29 reste à publier par Julien. Essai réel 235.
+
 ## 2026-11-09 : la doc Shopify dit le ROI des messages
 
 La section Shopify de `features.md` et la fiche publique « Brancher ma boutique Shopify » (français et anglais, pages de

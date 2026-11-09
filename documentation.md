@@ -5056,11 +5056,19 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   lecture pour la page (`GET /tenants/:tenantId/connexion-numero`) et pour `watch_whatsapp_connection`, qui rend la
   main au plus tard à 25 s : le proxy de `api.messagingme.app` coupe une réponse à 45 (`proxy_read_timeout`).
   Ce que les deux outils disent à Claude est écrit pour une personne qui ne voit pas leurs résultats : la `consigne`
-  exige le lien EN ENTIER, en texte simple (un bloc de code est coupé par un terminal), et la page gardée ouverte ; la
-  `suite` (`suiteDe`, `src/mcp/outils-numero.ts`) dit, selon l'étape, où la personne doit être (la page, la fenêtre de
+  porte l'adresse DANS la phrase qui exige le lien EN ENTIER, en texte simple (un bloc de code est coupé par un
+  terminal), avec la page gardée ouverte ; et elle fait dire AVANT le lien ce qui va se passer et qui paie, selon le
+  mode, depuis les textes partagés de `web/lib/partage/` (`ETAPES_FENETRE_GARDER`, `CODE_VERIFICATION_FOURNI`,
+  `CE_QUI_EST_FACTURE`, l'adresse du mode op dans `aide-connexion.ts`, tenue par `tests/aide-connexion-adresses.test.ts`).
+  La `suite` (`suiteDe`, `src/mcp/outils-numero.ts`) dit, selon l'étape, où la personne doit être (la page, la fenêtre de
   Meta, le numéro attribué ; payé sans numéro, « en préparation »), puis, une fois connecté, fait relire
   `get_setup_state` : le crédit offert y apparaît quelques secondes après la liaison, écrit quand Meta dit le numéro
-  vérifié (`offrirCredit`).
+  vérifié (`offrirCredit`). 🔴 **Le filet du lien** : sur les deux suites d'une attente SANS SIGNE de la personne
+  (`COEXISTENCE_EN_COURS`, `RIEN_ENCORE`), la réponse porte un lien neuf (`lien`) et le rappel de l'écrire si le dernier
+  message de Claude n'en contenait aucun. Ce lien ne se signe que dans le mode que `start_whatsapp_connection` aurait
+  donné tel quel (`modeDuLienNeuf` : sur l'API seulement, et pour un numéro fourni dans le mode de la destination
+  retenue, celle que la suite suit) ; sinon `null`, et le rappel renvoie au lien de `start_whatsapp_connection`. D'où
+  `idempotentHint: false` sur l'attente comme sur `start_whatsapp_connection` : chacune signe un lien de plus.
   🔴 **L'abonnement du numéro fourni** (lot 3c, livraison B, migration 0214, `src/stripe/abonnement.ts`,
   `src/stripe/abonnements.pg.ts`). 3,50 € HT par mois en abonnement Stripe (`STRIPE_PRIX_NUMERO`, relu chez Stripe
   avant chaque paiement : récurrent, mensuel, euros, 350 centimes). `POST /tenants/:tenantId/numero-fourni/abonnement`
@@ -6114,7 +6122,10 @@ Ajouté par le lot 4 de l'API publique :
     numéro seulement, sous leur nom complet `mcp__plugin_messagingme_messagingme__<outil>`). La FAQ s'écrit dans
     `scripts/plugin/faq.ts`, chaque réponse avec sa source et les chiffres de nos offres tirés du code, aucun prix de
     Meta ; `npm run plugin:generer` l'écrit dans la skill `faq` (et dans la vitrine quand ses pages portent les marques),
-    et `tests/plugin-faq.test.ts` exige l'égalité. « Ce que vous pouvez construire » s'écrit de même dans
+    et `tests/plugin-faq.test.ts` exige l'égalité. L'accueil du plugin aussi (`blocAccueil`, `scripts/plugin/generer.ts`,
+    entre les marques `accueil` des skills `demarrer` et `mise-en-service` et du README) : les deux offres chiffrées depuis
+    `DROITS`, la connexion MCP comme étape 1 avec la commande de Codex ; Claude le recopie au lieu d'écrire son intro, et
+    `tests/plugin-readme.test.ts` refuse un autre nombre de contacts que celui de la grille. « Ce que vous pouvez construire » s'écrit de même dans
     `scripts/plugin/construire.ts`, publié dans les deux pages développeurs et le README du plugin : chaque ligne que
     Claude fait seul cite ses outils, et l'étiquette d'offre s'en dérive (`offreDeLaCarte`, qui lit la `fonction` de
     l'outil ; elle ne voit pas ce qu'un outil ouvert en Free y rend en moins, `get_message_stats` sans coût ni détail,
