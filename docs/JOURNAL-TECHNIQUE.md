@@ -4,6 +4,40 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : la fenêtre du partenaire, ce que l'essai 236 a appris (lot E5, migration 0285), et le rouge de sa relecture
+
+Accord de Julien (« ok avance ») pour les jaunes 1 à 4 de la relecture du lot E et 1, 3, 4, 5 de celle du lot E4 ; plan
+`2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`, § E5. Implémenteur par lot, TDD, une relecture indépendante.
+
+- **L'essai 236** (Julien, vers 19 h 30) : le compte connecté par « Connecter sans carte chez Meta » est partagé avec le
+  partenaire, qui n'a pas le droit d'envoyer, mais **sa ligne ne s'attache pas d'elle-même** (« Missing valid payment
+  method » juste après) ; et l'alerte Telegram de la connexion n'est jamais arrivée, Telegram étant configuré dans l'API.
+- **Ce qui a changé** (`77f3988c`, puis `2d9943e8`) : le numéro qui attend sa ligne est marqué en base, seulement quand
+  l'alerte dit de poser ; l'attente s'éteint dès qu'une ligne de l'espace a été posée depuis, retirées comprises ; une
+  Entreprise qui attend lit « Votre ligne s'ouvre sous 24 h ouvrées » et ne se voit plus demander sa carte chez Meta ;
+  l'alerte dit de poser la ligne tout de suite puis de demander l'attache au partenaire (compte déjà couvert, sans droit,
+  fenêtre fermée, droit illisible : chacun son texte) ; une fin refusée par notre serveur alerte ; une alerte perdue se
+  journalise ; l'audit `numero.connecte` porte `parLaLigne`.
+- **0285** : `phone_numbers.par_la_ligne_le timestamptz`, nullable, sans défaut, `set local lock_timeout = '5s'`, aucune
+  réécriture. Écrite en 0284, renommée avant le push : une session voisine avait réservé ce numéro pour l'Inbox
+  HubSpot. Déployée `migration=avant` dans le run 42688984174 (épinglé sur `2d9943e8`), avec la 0284 de l'Inbox HubSpot
+  (lot 1 bis, emporté avec l'accord de sa session et celui de Julien) : `0284_inbox_hubspot_entrees.sql ... ok`,
+  `0285_numero_par_la_ligne.sql ... ok` à 20:04:26 UTC, avant la bascule de l'API. La relecture en base passe par la
+  sonde `docs/prive/credit-whatsapp/sonde-0285.mjs`, lancée par Julien (le garde-fou du mode auto la refuse à Claude) :
+  sa première exécution, partie juste après l'approbation et avant l'étape de migration, a rendu 42703 sans conséquence.
+- **La relecture du lot** : un 🔴, corrigé avant tout déploiement (`2d9943e8`). La marque ne disparaissait qu'avec le
+  numéro : une ligne retirée laissait l'Entreprise « en attente » pour toujours, et `creditPaieMeta` taisait « Ajoutez
+  votre carte chez Meta » alors que Meta bloquait ses envois. Ses tests unitaires sont vus rouges sur l'ancien
+  comportement ; la partie SQL (une ligne posée depuis éteint l'attente) n'est tenue que par
+  `tests/integration/credit-whatsapp-lignes.integration.test.ts`, vert en CI, pas vu rouge (aucun Postgres sur le poste).
+  Huit jaunes au plan, dont la cause de l'alerte perdue, toujours inconnue.
+- **Vérifié avant de pousser** : suite racine entière sur l'état final (977 fichiers verts ; `tests/mcp-agent.test.ts` en
+  délai sous la charge, vert seul), tsc, lint, auto-attaque ; treize mutations des correctifs et deux du rouge, chacune vue
+  rouge. CI racine et CodeQL vertes job par job.
+- **En production** : `mba-api` sur l'image `2d9943e8`, `mba-worker`, `mba-worker-analyse` et `mba-application` en
+  REVISION `2d9943e8`, aucune erreur dans leurs journaux, fumée bonne, fiches OAuth conformes, `META_SOLUTION_ID` intacte
+  après le déploiement ; fiches d'aide inchangées, rien à recharger.
+
 ## 2026-11-09 : la langue des e-mails apprise à la création du compte (aide à la connexion, lot 2b)
 
 Relevé à la relecture du lot 2 : une console ouverte en anglais laissait des e-mails en français, la langue des

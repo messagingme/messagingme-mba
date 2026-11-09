@@ -385,9 +385,12 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   fenêtre du partenaire, « Connecter sans carte chez Meta », plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`)
   en production le 2026-11-09 (`01cf6682`), `META_SOLUTION_ID` posée le même jour (une Entreprise de test la voit,
   mesuré) : onze jaunes à son plan ; le lot de suite E4 (jaunes 5, 6, 9 et 10) en production le même jour (`39ecffac`),
-  ses six jaunes au plan ; restent les jaunes 1 à 4 avant un vrai client ou la vente, avec le 1 de E4, après l'essai
-  réel 236 (il tranche la question 2 du partenaire), et le 8 à Julien ; puis le lot D (passage du numéro de l'essai,
-  après l'essai réel du partage). La vente attend D0.
+  ses six jaunes au plan ; l'essai 236 fait en partie (le partage avec le partenaire, sa ligne PAS attachée d'office :
+  Julien la lui demande ; l'alerte de la connexion jamais reçue), d'où le lot E5 (jaunes 1 à 4 du lot E et 1, 3, 4, 5
+  de E4 : la marque de l'attente en base, migration 0285, l'Entreprise en attente, les alertes) en production le même
+  jour (`2d9943e8`, un rouge de sa relecture corrigé avant), ses huit jaunes au plan (§ « La relecture du lot E5 »),
+  dont la cause de l'alerte perdue ; reste le 8 à Julien ; puis le lot D (passage du numéro de l'essai, après l'essai réel
+  du partage). La vente attend D0.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes

@@ -206,3 +206,5 @@ Les huit jaunes, pour le lot suivant :
    partagé : un `catch` qui alerte quand `parLaLigne`.
 8. Le journal d'une alerte perdue garde le numéro affiché dans son texte, quand l'audit refuse de le garder.
 
+
+**En production le 2026-11-09** : run 42688984174 (`2d9943e8`, `migration=avant`, 0284 de l'Inbox HubSpot et 0285 appliquées avant la bascule).
