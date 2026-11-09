@@ -54,7 +54,7 @@ class El {
 type Garde = Record<string, unknown> | undefined;
 
 /** Exécute le bloc sur un faux document : `garde` est le choix déjà gardé dans le navigateur, s'il y en a un. */
-function monter(options: { garde?: Garde; merci?: boolean; cookies?: string } = {}) {
+function monter(options: { garde?: Garde; merci?: boolean; cookies?: string; lang?: string; stockageRefuse?: boolean } = {}) {
   const etat = { actif: null as El | null };
   const tete = new El('head', etat);
   const corps = new El('body', etat);
@@ -70,7 +70,7 @@ function monter(options: { garde?: Garde; merci?: boolean; cookies?: string } = 
   const liens: Array<{ href: string }> = [];
   const fenetre: Record<string, any> = {};
   const document = {
-    documentElement: { lang: 'fr' },
+    documentElement: { lang: options.lang ?? 'fr' },
     head: tete,
     body: corps,
     createElement: (balise: string) => new El(balise, etat),
@@ -86,7 +86,10 @@ function monter(options: { garde?: Garde; merci?: boolean; cookies?: string } = 
     document,
     URL,
     location: { pathname: '/', hostname: 'app.messagingme.fr' },
-    localStorage: { getItem: (k: string) => stockage.get(k) ?? null, setItem: (k: string, v: string) => stockage.set(k, v) },
+    // Navigation privée stricte : le stockage lève à la lecture comme à l'écriture.
+    localStorage: options.stockageRefuse
+      ? { getItem: () => { throw new Error('SecurityError'); }, setItem: () => { throw new Error('SecurityError'); } }
+      : { getItem: (k: string) => stockage.get(k) ?? null, setItem: (k: string, v: string) => stockage.set(k, v) },
   });
   const banniere = () => corps.enfants.find((e) => e.className === 'consentement') ?? null;
   const bouton = (texte: string) => {
@@ -103,7 +106,7 @@ function monter(options: { garde?: Garde; merci?: boolean; cookies?: string } = 
   const cliquerLien = (lien: { hostname: string; pathname: string; href?: string }) =>
     ecouteurs.forEach((f) => f({ target: { closest: (sel: string) => (sel === 'a[href]' ? lien : null) } }));
   return {
-    banniere, bouton, cases, scripts, google, meta, file, gardeEcrite, cliquerLien, fenetre, cookiesEcrits, gerer, pied, etat,
+    banniere, bouton, cases, scripts, google, meta, file, gardeEcrite, cliquerLien, fenetre, cookiesEcrits, gerer, pied, etat, liens,
     poserCookies: (c: string) => { cookies = c; },
   };
 }
@@ -228,10 +231,49 @@ describe('le bloc « Les cookies de la vitrine » de site.js', () => {
     expect(v.etat.actif).toBe(v.gerer);
   });
 
-  it('un refus sans accord donné ici ne touche pas aux _ga, qui peuvent venir de www', () => {
-    const v = monter({ cookies: '_ga=GA1.1.1' });
+  it('un refus sans accord donné ici ne touche ni aux _ga ni aux _fbp, qui peuvent venir de www', () => {
+    const v = monter({ cookies: '_ga=GA1.1.1; _fbp=fb.1.2.3; _fbc=fb.1.2.abc' });
     v.bouton('Tout refuser').cliquer();
+    expect(v.cookiesEcrits).toEqual([]);
+  });
+
+  it('retirer la publicité accordée ici coupe le pixel, efface _fbp et _fbc et rend nus les liens décorés', () => {
+    const v = monter({ garde: { mesure: false, pub: true, le: recent() }, cookies: '_fbp=fb.1.2.3; _fbc=fb.1.2.abc; _ga=GA1.1.1' });
+    const decore = { href: 'https://console.messagingme.app/signup?lang=en&fbp=fb.1.2.3&fbc=fb.1.2.abc' };
+    v.liens.push(decore);
+    v.gerer.cliquer();
+    v.bouton('Tout refuser').cliquer();
+    expect(Array.from(v.fenetre.fbq.queue as ArrayLike<unknown>[], (a) => Array.from(a))).toContainEqual(['consent', 'revoke']);
+    expect(v.cookiesEcrits).toContain('_fbp=; Max-Age=0; path=/; domain=.messagingme.fr');
+    expect(v.cookiesEcrits).toContain('_fbc=; Max-Age=0; path=/; domain=.messagingme.fr');
     expect(v.cookiesEcrits.some((c) => c.startsWith('_ga'))).toBe(false);
+    expect(decore.href).toBe('https://console.messagingme.app/signup?lang=en');
+  });
+
+  it('un stockage refusé (navigation privée) : la bannière s’ouvre, rien ne part, et « Tout accepter » charge quand même', () => {
+    const v = monter({ stockageRefuse: true });
+    expect(v.banniere()).not.toBeNull();
+    expect(v.scripts()).toEqual([]);
+    v.bouton('Tout accepter').cliquer();
+    expect(v.google()).toHaveLength(1);
+    expect(v.meta()).toHaveLength(1);
+  });
+
+  it('un ancien refus puis « Tout accepter » : les deux outils, et le choix gardé au nouveau format', () => {
+    const v = monter({ garde: { choix: 'refuse', le: recent() } });
+    v.bouton('Tout accepter').cliquer();
+    expect(v.google()).toHaveLength(1);
+    expect(v.meta()).toHaveLength(1);
+    const garde = v.gardeEcrite();
+    expect(garde).toMatchObject({ mesure: true, pub: true });
+    expect(garde).not.toHaveProperty('choix');
+  });
+
+  it('en anglais, la bannière parle anglais et mène à la politique anglaise', () => {
+    const v = monter({ lang: 'en' });
+    for (const texte of ['Customize', 'Decline all', 'Accept all', 'Save my choices']) expect(v.bouton(texte)).toBeTruthy();
+    const lien = v.banniere()!.tous().find((e) => e.balise === 'a');
+    expect(lien?.href).toBe('https://www.messagingme.fr/en/politique-de-cookies-ue-messaging-me/');
   });
 
   it('les événements de la mesure ne partent qu’avec son accord', () => {

@@ -584,8 +584,10 @@
     f('init', PIXEL);
     f('track', 'PageView');
   };
-  // Le retrait : plus rien ne part de cette page (le script chargé ne se décharge pas), les cookies de Meta s'effacent,
-  // et les liens déjà décorés redeviennent nus. Les pages suivantes ne chargent plus rien.
+  // Le retrait d'un accord DONNÉ ICI : plus rien ne part de cette page (le script chargé ne se décharge pas), les cookies
+  // de Meta s'effacent, et les liens déjà décorés redeviennent nus. Les pages suivantes ne chargent plus rien. Comme pour
+  // la mesure, un refus sans accord préalable n'y touche pas : `_fbp` et `_fbc` vivent sur messagingme.fr, ils peuvent
+  // venir de l'accord donné sur www.
   var retirerPixel = function () {
     actif.pub = false;
     if (pixelCharge) window.fbq('consent', 'revoke');
@@ -629,7 +631,7 @@
   var decider = function (choix) {
     ecrire(choix);
     if (choix.mesure) chargerMesure(); else if (actif.mesure) couperMesure();
-    if (choix.pub) chargerPixel(); else retirerPixel();
+    if (choix.pub) chargerPixel(); else if (actif.pub) retirerPixel();
     fermer();
   };
   // `actuel` coche d'avance, dans « Personnaliser », ce qui est déjà accordé ; rien n'est coché sans accord.
@@ -647,7 +649,6 @@
 
     var details = document.createElement('div');
     details.className = 'consentement-details';
-    details.id = 'consentement-details';
     details.hidden = true;
     var cases = {};
     T.usages.forEach(function (u) {
@@ -681,7 +682,6 @@
       details.hidden = false; perso.hidden = true; enregistrer.hidden = false;
       cases.mesure.focus();
     });
-    perso.setAttribute('aria-controls', details.id);
     // « Tout refuser » et « Tout accepter » ont exactement le même poids : même classe, même taille, côte à côte.
     bouton(T.refuser, 'bouton bouton-trait', function () { decider({ mesure: false, pub: false }); });
     bouton(T.accepter, 'bouton bouton-trait', function () { decider({ mesure: true, pub: true }); });

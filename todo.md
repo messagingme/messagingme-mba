@@ -15,27 +15,21 @@ Aucun rouge ; à reprendre au lot suivant qui touche ces chemins.
 
 ## 🟡 Google Analytics sur la vitrine : la suite (plan `docs/superpowers/plans/2026-11-06-ga4-vitrine.md`)
 
-- **L'essai réel**, en production : « Tout refuser » n'envoie rien ; la mesure seule fait apparaître la visite dans
-  « Temps réel » de GA4 (nom d'hôte `app.messagingme.fr`) sans charger le pixel ; un clic sur « Démarrer » y fait
-  apparaître `clic_console`.
+- **L'essai réel** : fait le 2026-11-06 (rien avant le choix ni après un refus, la visite et `clic_console` vus par
+  Julien dans « Temps réel »).
 - **Julien, dans GA4** : marquer `clic_console`, `contact_envoye` et `interet_developpeur` comme « événements clés »
-  (Administration > Événements, une fois remontés, sous 24 h). Les quelques visites de test du 2026-11-06 ont le nom
-  d'hôte `localhost`.
+  (Administration > Affichage des données > Événements, onglet « Événements récents », l'étoile de chacun, une fois
+  remonté). Les quelques visites de test du 2026-11-06 ont le nom d'hôte `localhost`.
+- **Julien, dans GA4** : la mesure améliorée (clics sortants) enregistre l'adresse d'un lien vers la console APRÈS sa
+  décoration par `fbc`/`fbp` quand les deux accords sont donnés, donc des identifiants Meta chez Google. Les masquer
+  dans le flux (Administration > Flux de données > le flux > masquage des données, paramètres de requête `fbc` et
+  `fbp`), sans effet sur www qui ne les porte pas.
 - **Julien, sur www** : vérifier que la Politique de cookies (Complianz) couvre aussi `app.messagingme.fr`, Google
   Analytics et le pixel de Meta.
 - **La fiche `partager-mes-etapes-avec-meta`**, retouchée pour la bannière à trois boutons, n'entre dans le bot d'aide
   qu'au prochain `aide:charger` (image déployée qui la contient).
-- **Les jaunes de la relecture** (aucun rouge), pour le lot suivant :
-  - un refus de la publicité efface `_fbp`/`_fbc` même sans accord donné sur app (comportement d'avant le lot) : sur
-    `.messagingme.fr`, ils peuvent venir de l'accord donné sur www. N'appeler `retirerPixel` que si `actif.pub`, comme
-    la mesure ;
-  - la bannière dépliée n'a ni `max-height` ni défilement : sur un écran très bas (téléphone en paysage), ses boutons
-    sortent de l'écran (`max-height:calc(100dvh - 32px);overflow:auto`) ;
-  - le commentaire CSS de `.consentement` parle encore d'« Accepter » ;
-  - la mesure améliorée de GA4 (clics sortants) peut enregistrer l'adresse d'un lien vers la console déjà décorée de
-    `fbc`/`fbp`, quand les deux accords sont donnés : la couper dans le flux, ou retirer ces paramètres ;
-  - le test ne couvre pas un stockage qui lève, le retrait des liens déjà décorés, `fbq('consent', ...)`, la version
-    anglaise, ni le passage d'un ancien refus à « Tout accepter ».
+- **Les jaunes de la relecture** : corrigés le 2026-11-09 (lot 2 du plan), sauf la mesure améliorée, réglage de GA4
+  ci-dessus. Le lot 2 n'a pas eu de relecture : la suivante qui touche la bannière le relit.
 
 ## 🟡 La raison d'un envoi refusé : ce qui reste hors du journal (plan `docs/superpowers/plans/2026-11-06-raison-des-refus-en-parcours.md`)
 

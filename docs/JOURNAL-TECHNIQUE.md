@@ -4,6 +4,16 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-09 : les jaunes de la relecture de GA4 sur la vitrine, corrigés
+
+Plan `docs/superpowers/plans/2026-11-06-ga4-vitrine.md`, lot 2. Les six jaunes de la relecture du 2026-11-06 (aucun
+rouge) : un refus de la publicité sans accord donné sur app n'efface plus les `_fbp`/`_fbc` (ils peuvent venir de
+l'accord donné sur www, comme les `_ga`) ; la bannière dépliée est bornée à la hauteur de l'écran et défile (sur un
+téléphone à l'horizontale, ses boutons en sortaient) ; le commentaire CSS et un `aria-controls` inutile retouchés ; le
+test couvre en plus le stockage refusé, le retrait de la publicité (`fbq('consent', 'revoke')`, liens rendus nus),
+l'ancien refus suivi de « Tout accepter » et l'anglais. Les deux nouvelles gardes vérifiées dans les deux sens par
+mutation. Reste chez Julien : masquer `fbc` et `fbp` dans le flux GA4, que la mesure améliorée lit sur un lien décoré.
+
 ## 2026-11-07 : les jaunes de la relecture du lot C du Crédit WhatsApp (la conversion bornée à son moment)
 
 Accord de Julien (« Oui, lance-le », 2026-11-07) pour le lot de suite écrit au plan (§ C4). Méthode : en direct, en

@@ -451,8 +451,10 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 /* La bannière des cookies (la mesure d'audience et le pixel de Meta) : en bas de l'écran, au-dessus du contenu sans le
    bloquer. « Tout refuser » et « Tout accepter » ont exactement le même poids (même classe, même taille), comme la CNIL
    le demande ; « Personnaliser » montre une case par usage. Elle passe AU-DESSUS de la bulle WhatsApp
-   (`src/widgets/script.ts`, même coin) : en dessous, la bulle couvrait « Accepter » au téléphone. */
-.consentement{position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483001;max-width:720px;margin:0 auto;padding:18px 20px;display:grid;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px var(--ombre);color:var(--ink);font-size:.9rem;line-height:1.55}
+   (`src/widgets/script.ts`, même coin) : en dessous, la bulle couvrait le bouton d'accord au téléphone. Sa hauteur est
+   bornée à l'écran, et elle défile au-delà : dépliée sur un écran bas (téléphone à l'horizontale), ses boutons en
+   sortaient. */
+.consentement{position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483001;max-width:720px;max-height:calc(100vh - 32px);max-height:calc(100dvh - 32px);overflow-y:auto;margin:0 auto;padding:18px 20px;display:grid;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:0 18px 50px var(--ombre);color:var(--ink);font-size:.9rem;line-height:1.55}
 .consentement p{margin:0;color:var(--muted)}
 .consentement p a{color:var(--action-ink)}
 .consentement-choix{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
