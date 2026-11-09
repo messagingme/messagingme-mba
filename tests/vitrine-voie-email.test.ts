@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { lire, pagesHtml, texte } from './vitrine-lecture';
 
 /**
@@ -54,5 +56,20 @@ describe('la vitrine offre la voie e-mail partout où elle dit comment entrer', 
 
   it('🔴 llms.txt non plus', () => {
     expect(lire('llms.txt').split('\n').filter(googleSeul)).toEqual([]);
+  });
+
+  /**
+   * « Aucun compte à créer » est vrai avec Google, faux avec l'adresse e-mail (le lien, le nom de l'espace, le mot de
+   * passe) : la promesse dit « à l'avance », vraie pour les deux portes (Julien, 2026-11-09). Vitrine, `llms.txt` et
+   * README du plugin, publié sur GitHub.
+   */
+  it('la promesse « aucun compte à créer » dit « à l’avance », partout', () => {
+    const promesse = (t: string): boolean => /aucun compte à créer(?! à l['’]avance)|no account to create(?! beforehand)/i.test(t);
+    const readme = readFileSync(join(process.cwd(), 'plugin', 'README.md'), 'utf8');
+    expect([
+      ...pagesHtml().flatMap((p) => blocs(lire(p)).filter(promesse).map((b) => `${p} : ${b.trim().slice(0, 100)}`)),
+      ...lire('llms.txt').split('\n').filter(promesse),
+      ...readme.split('\n').filter(promesse),
+    ]).toEqual([]);
   });
 });

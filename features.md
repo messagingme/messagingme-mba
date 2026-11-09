@@ -44,7 +44,7 @@ usage, qui mène à son cas d'usage ou à la documentation, la même liste que l
 2026-10-30, sous chaque ligne que Claude fait seul, les outils du serveur MCP qu'il appelle, et l'offre qu'elle demande au-delà de
 Free), le branchement par le code (API, SDK,
 webhooks signés) et ce que permet l'offre gratuite. « Développeurs », dans le menu de toutes les pages, y mène. Le titre porte la
-mention « Gratuit et sans abonnement ». Sous le bouton du haut, trois promesses : aucun compte à créer, un numéro
+mention « Gratuit et sans abonnement ». Sous le bouton du haut, trois promesses : aucun compte à créer à l'avance, un numéro
 fourni si l'on n'en a pas, seulement un compte Meta Business ou l'application WhatsApp Business à avoir ; la troisième mène au guide « Votre compte Meta
 Business, pas à pas » (`/developpeurs/compte-meta-business/` et sa jumelle anglaise), dont les étapes sont celles que
 donnent la console et Claude, générées depuis `web/lib/partage/etapes-meta.ts`. En haut de la page, « Installer le plugin » mène aux trois étapes ; sous la séance Claude Code, une bande « Plutôt le

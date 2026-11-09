@@ -3,7 +3,7 @@
 WhatsApp for your app, from Claude Code: your WhatsApp number, an AI agent that answers your customers and a
 chat bubble for your site, set up in one session with [Messaging Me](https://app.messagingme.fr/en/developers/).
 
-**No account to create, no key to copy. No WhatsApp number? We provide one. No Meta Business account? Meta's window
+**No account to create beforehand, no key to copy. No WhatsApp number? We provide one. No Meta Business account? Meta's window
 creates it along the way, and you can keep your WhatsApp Business app.**
 
 [![The plugin installed, the workspace authorized, the number connected and a first message received, in Claude Code](https://app.messagingme.fr/img/plugin-demo.gif)](https://app.messagingme.fr/en/developers/)
