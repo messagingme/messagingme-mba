@@ -52,6 +52,7 @@ import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
 import { formuleEnRetard, formulePayee, repriseOuverte } from './offres/formule-payee';
+import { connexionParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
 import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
@@ -1087,9 +1088,23 @@ async function main(): Promise<void> {
     // Une prise à la fois par espace (jaune 7 de la relecture du lot C).
     verrous: verrousCourts,
   };
+  /**
+   * La fenêtre du partenaire (lot E du Crédit WhatsApp, `src/credit-whatsapp/fenetre-partenaire.ts`) : l'offre relue sans
+   * cache, l'option, les numéros que ses lignes couvrent et les numéros vivants de l'espace. La carte et la connexion
+   * lisent la MÊME règle.
+   */
+  const fenetreDuPartenaire: DepsFenetrePartenaire = {
+    solutionId: config.META_SOLUTION_ID,
+    offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
+    option: (tenant) => optionsCreditWhatsapp.vivante(tenant),
+    numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
+    numerosVivants: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).filter((n) => !n.delie).length,
+    alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
+  };
   /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */
   const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {
     achat: achatCreditWhatsapp,
+    fenetrePartenaire: async (tenant) => (await solutionDuPartenaire(fenetreDuPartenaire, tenant)) !== null,
     vue: {
       solde: (t) => creditWhatsapp.solde(t),
       consommationDuMois: (t) => creditWhatsapp.consommationDuMois(t),
@@ -2841,6 +2856,11 @@ async function main(): Promise<void> {
         configId: config.META_ES_CONFIG_ID,
         appId: config.META_APP_ID,
         graphVersion: config.META_GRAPH_VERSION,
+        // La fenêtre du partenaire (lot E du Crédit WhatsApp) : l'identifiant de la solution, seulement à l'espace que sa
+        // règle désigne, et la connexion faite par elle signalée à Julien.
+        solutionDuPartenaire: (tenant: string) => solutionDuPartenaire(fenetreDuPartenaire, tenant),
+        connexionParLaLigne: (tenant: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null }) =>
+          connexionParLaLigne(fenetreDuPartenaire, tenant, n),
         meta: esClient,
         inscriptions: {
           linkTenant: (input) => esCredentialsStore.linkTenant(input),

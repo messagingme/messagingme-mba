@@ -16,14 +16,23 @@ export type OptionsFenetreMeta = {
   extras: Record<string, unknown>;
 };
 
-export function optionsFenetreMeta(configId: string, coexistence: boolean): OptionsFenetreMeta {
+/**
+ * `solutionId` : la fenêtre du partenaire (lot E du Crédit WhatsApp, plan
+ * `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`). Le compte qu'elle connecte est partagé avec le partenaire de
+ * la ligne de crédit ; la doc de Meta passe la solution à chaque `FB.login`, dans `extras.setup`. Elle l'emporte sur la
+ * coexistence : le Crédit WhatsApp exclut l'application (décision 8 de la spec). Le serveur ne la donne qu'à un espace
+ * qui a droit à la ligne.
+ */
+export function optionsFenetreMeta(configId: string, coexistence: boolean, solutionId: string | null = null): OptionsFenetreMeta {
   return {
     config_id: configId,
     response_type: 'code',
     override_default_response_type: true,
-    extras: coexistence
-      ? { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' }
-      : { setup: {} },
+    extras: solutionId !== null
+      ? { setup: { solutionID: solutionId }, featureType: '', sessionInfoVersion: '3' }
+      : coexistence
+        ? { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' }
+        : { setup: {} },
   };
 }
 

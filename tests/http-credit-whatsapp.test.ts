@@ -79,6 +79,8 @@ function achat(o: {
   optionVivante?: { places: number; statut: 'actif' | 'en_retard' | 'resilie' };
   /** Les numéros de l'espace (lot B, décision 8) : gardent-ils l'application, sont-ils déliés ; aucun par défaut. */
   numeros?: Array<{ coexistence: boolean; delie: boolean }>;
+  /** La fenêtre du partenaire ouverte à l'espace (lot E) ; fermée par défaut. */
+  fenetre?: boolean;
 } = {}) {
   const transport = new FauxStripe([CLIENT_OK, SESSION_OK], o.lesPrix ?? PRIX_JUSTES);
   const deps: CreditWhatsappRouteDeps = {
@@ -127,6 +129,7 @@ function achat(o: {
       alerter: async () => {},
       verrous: { prendre: async (cles) => ({ jeton: 'j', cles: cles.map(([c]) => c) }), relacher: async () => {} },
     },
+    fenetrePartenaire: async () => o.fenetre ?? false,
   };
   const srv = buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET_SESSION }, creditWhatsapp: deps });
   return { srv, transport };
@@ -337,15 +340,15 @@ describe('GET /tenants/:tenantId/credit-whatsapp/etat', () => {
   const etat = (srv: ReturnType<typeof buildServer>, jeton = admin) => srv.inject({ method: 'GET', url: `/tenants/${T1}/credit-whatsapp/etat`, ...h(jeton) });
 
   it('🔴 l’état de la ligne (etatLigneCredit) et la vente ouverte ou non, lus par tout membre', async () => {
-    const cas: Array<[Parameters<typeof achat>[0], { etat: string; enVente: boolean; avecApplication: boolean }]> = [
-      [{ lignes: [] }, { etat: 'a_prendre', enVente: true, avecApplication: false }],
-      [{ lignes: [], optionVivante: { places: 1, statut: 'actif' } }, { etat: 'en_attente', enVente: true, avecApplication: false }],
-      [{}, { etat: 'active', enVente: true, avecApplication: false }],
-      [{ lignes: [], formulePayee: false }, { etat: 'essai', enVente: true, avecApplication: false }],
-      [{ lignes: [], prixOption: '' }, { etat: 'a_prendre', enVente: false, avecApplication: false }],
-      [{ lignes: [], stripe: 'aucun' }, { etat: 'a_prendre', enVente: false, avecApplication: false }],
-      [{ lignes: [], offre: 'base' }, { etat: 'free', enVente: false, avecApplication: false }],
-      [{ lignes: [], offre: 'entreprise' }, { etat: 'a_prendre', enVente: false, avecApplication: false }],
+    const cas: Array<[Parameters<typeof achat>[0], { etat: string; enVente: boolean; avecApplication: boolean; fenetrePartenaire: boolean }]> = [
+      [{ lignes: [] }, { etat: 'a_prendre', enVente: true, avecApplication: false, fenetrePartenaire: false }],
+      [{ lignes: [], optionVivante: { places: 1, statut: 'actif' } }, { etat: 'en_attente', enVente: true, avecApplication: false, fenetrePartenaire: false }],
+      [{}, { etat: 'active', enVente: true, avecApplication: false, fenetrePartenaire: false }],
+      [{ lignes: [], formulePayee: false }, { etat: 'essai', enVente: true, avecApplication: false, fenetrePartenaire: false }],
+      [{ lignes: [], prixOption: '' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false }],
+      [{ lignes: [], stripe: 'aucun' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false }],
+      [{ lignes: [], offre: 'base' }, { etat: 'free', enVente: false, avecApplication: false, fenetrePartenaire: false }],
+      [{ lignes: [], offre: 'entreprise' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false }],
     ];
     for (const [o, attendu] of cas) {
       const a = achat(o);
@@ -354,6 +357,14 @@ describe('GET /tenants/:tenantId/credit-whatsapp/etat', () => {
       expect(r.json(), JSON.stringify(o)).toEqual(attendu);
       await a.srv.close();
     }
+  });
+
+  it('🔴 dit si la fenêtre du partenaire est ouverte à l’espace (lot E) : un booléen, jamais l’identifiant de la solution', async () => {
+    const ouverte = achat({ lignes: [], optionVivante: { places: 1, statut: 'actif' }, fenetre: true });
+    const r = await etat(ouverte.srv, membre);
+    expect(r.json()).toMatchObject({ etat: 'en_attente', fenetrePartenaire: true });
+    expect(JSON.stringify(r.json())).not.toMatch(/solution/i);
+    await ouverte.srv.close();
   });
 
   it('🔴 dit quand TOUS les numéros vivants de l’espace gardent l’application (décision 8) : l’écran de paiement prévient', async () => {

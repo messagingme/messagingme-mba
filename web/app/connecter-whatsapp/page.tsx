@@ -52,6 +52,8 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
   }, []);
 
   const connecte = compte?.hasNumber === true;
+  /** Après une connexion, par la carte chez Meta comme par la ligne du partenaire : ses avertissements, puis le compte relu. */
+  const apresConnexion = (av: string[]) => { setAvertissements(av); chargerCompte(); };
   const parcours = (
     <ParcoursNumero
       tenantId={tenantId}
@@ -59,7 +61,7 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
       choixInitial={null}
       retour="console"
       connecte={false}
-      surConnexion={(av) => { setAvertissements(av); chargerCompte(); }}
+      surConnexion={apresConnexion}
     />
   );
   // Connecté avec un numéro fourni payé : l'abonnement se gère encore d'ici (jaune 1 de la relecture de la livraison B).
@@ -110,7 +112,7 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
       ) : !isAdmin ? (
         <p className="mt-6 text-sm text-ink-500">{t('Réservé aux admins de l’espace.', 'Workspace admins only.')}</p>
       ) : (
-        <QuiRegleMeta tenantId={tenantId} admin lieu="connecter">{parcours}</QuiRegleMeta>
+        <QuiRegleMeta tenantId={tenantId} admin lieu="connecter" api={api} surConnexion={apresConnexion}>{parcours}</QuiRegleMeta>
       )}
       {connecte && <QuiRegleMeta tenantId={tenantId} admin={isAdmin} lieu="connecter" connecte>{isAdmin && parcours}</QuiRegleMeta>}
 

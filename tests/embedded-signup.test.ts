@@ -33,17 +33,19 @@ interface Cap {
   coexistences: boolean[];
   /** Les espaces dont l'appareil lié par QR code a été retiré (passage en coexistence). */
   retraits: string[];
+  /** Les connexions faites par la fenêtre du partenaire (lot E du Crédit WhatsApp), signalées à Julien. */
+  parLaLigne: Array<{ tenantId: string; wabaId: string; phoneNumberId: string | null; numero: string | null }>;
 }
 
 function app(
-  over: Partial<MetaInscriptionDep> & { configId?: string; numeroDuTenant?: EmbeddedSignupRouteDeps['numeroDuTenant'] } = {},
+  over: Partial<MetaInscriptionDep> & { configId?: string; numeroDuTenant?: EmbeddedSignupRouteDeps['numeroDuTenant']; solution?: string | null } = {},
   linkTenant?: EmbeddedSignupRouteDeps['inscriptions']['linkTenant'],
   offrirCredit?: EmbeddedSignupRouteDeps['offrirCredit'],
   lierCompteSansNumero?: EmbeddedSignupRouteDeps['inscriptions']['lierCompteSansNumero'],
   fournisseurDeLEspace?: EmbeddedSignupRouteDeps['fournisseurDeLEspace'],
 ) {
-  const cap: Cap = { exchanged: [], verifiedWaba: [], linked: [], subscribed: [], registered: [], saved: [], offerts: [], sansNumero: [], coexistences: [], retraits: [] };
-  const { configId = 'cfg-123', numeroDuTenant, ...meta } = over;
+  const cap: Cap = { exchanged: [], verifiedWaba: [], linked: [], subscribed: [], registered: [], saved: [], offerts: [], sansNumero: [], coexistences: [], retraits: [], parLaLigne: [] };
+  const { configId = 'cfg-123', numeroDuTenant, solution = null, ...meta } = over;
   const deps: EmbeddedSignupRouteDeps = {
     ...signupInerte,
     configId,
@@ -69,6 +71,8 @@ function app(
     fournisseurDeLEspace: fournisseurDeLEspace ?? (async () => null),
     offrirCredit: offrirCredit ?? (async (tenantId, phoneNumberId) => { cap.offerts.push({ tenantId, phoneNumberId }); }),
     retirerCompteApplication: async (tenantId) => { cap.retraits.push(tenantId); return 'retire'; },
+    solutionDuPartenaire: async () => solution,
+    connexionParLaLigne: async (tenantId, n) => { cap.parLaLigne.push({ tenantId, ...n }); },
     // L'activation du numéro a son propre fichier (`tests/numero-activation.test.ts`). Ici, ces dépendances
     // LÈVENT au lieu de ne rien faire : si un chemin d'inscription se mettait à les appeler, il faut le voir,
     // pas le laisser passer sous un faux silence.
@@ -112,9 +116,40 @@ describe('GET /embedded-signup/config', () => {
     expect(res.statusCode).toBe(403);
     await server.close();
   });
+
+  it('🔴 l’identifiant de la solution du partenaire ne part qu’à l’espace que sa règle désigne (lot E du Crédit WhatsApp)', async () => {
+    // La règle (`solutionDuPartenaire`) a ses tests ; ici, la route ne rend que ce qu'elle dit, et rien sans configuration.
+    const avec = app({ solution: 'sol-1' });
+    expect((await avec.server.inject({ method: 'GET', url: '/tenants/t1/embedded-signup/config', ...h(adminTok) })).json()).toMatchObject({ solutionId: 'sol-1' });
+    await avec.server.close();
+    const sans = app();
+    expect((await sans.server.inject({ method: 'GET', url: '/tenants/t1/embedded-signup/config', ...h(adminTok) })).json().solutionId).toBeNull();
+    await sans.server.close();
+    const inactif = app({ configId: '', solution: 'sol-1' });
+    expect((await inactif.server.inject({ method: 'GET', url: '/tenants/t1/embedded-signup/config', ...h(adminTok) })).json().solutionId).toBeNull();
+    await inactif.server.close();
+  });
 });
 
 describe('POST /embedded-signup/complete', () => {
+  it('🔴 une connexion par la ligne du partenaire est signalée à Julien (lot E) ; une connexion directe ou ratée, jamais', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: { ...BODY, parLaLigne: true } });
+    expect(res.statusCode).toBe(200);
+    expect(cap.parLaLigne).toEqual([{ tenantId: 't1', wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: '+33525680250' }]);
+    await server.close();
+    const directe = app();
+    await directe.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: BODY });
+    expect(directe.cap.parLaLigne).toEqual([]);
+    await directe.server.close();
+    // Le compte ne nous appartient pas (anti-hijack) : rien n'est relié, rien n'est signalé.
+    const ratee = app({ verifyWaba: async () => { throw new Error('pas à vous'); } });
+    const r = await ratee.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: { ...BODY, parLaLigne: true } });
+    expect(r.statusCode).toBe(422);
+    expect(ratee.cap.parLaLigne).toEqual([]);
+    await ratee.server.close();
+  });
+
   it('numéro déjà CONNECTED : échange + link + subscribe + credentials, SANS register', async () => {
     const { server, cap } = app();
     const res = await server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: BODY });

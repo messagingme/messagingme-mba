@@ -28,6 +28,20 @@ export interface EmbeddedSignupRouteDeps extends DepsConnexionNumero, DepsDemand
   appId: string;
   graphVersion: string;
 
+  // ----- La fenêtre du partenaire (lot E du Crédit WhatsApp) -----
+
+  /**
+   * L'identifiant de la solution du partenaire (`solutionDuPartenaire`, `src/credit-whatsapp/fenetre-partenaire.ts`) :
+   * rendu seulement à un espace qui a droit à la ligne et n'a encore aucun numéro ; `null` sinon. 🔴 Jamais dans le
+   * bundle : la ligne du partenaire paierait les messages d'un espace qui ne l'a pas payée.
+   */
+  solutionDuPartenaire(tenantId: string): Promise<string | null>;
+  /**
+   * Un numéro connecté par la fenêtre du partenaire (`connexionParLaLigne`) : le droit relu, Julien alerté du geste à
+   * faire. Ne lève jamais : la connexion est faite.
+   */
+  connexionParLaLigne(tenantId: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null }): Promise<void>;
+
   // ----- « Délier » et « Relier » : l'interrupteur du numéro sur l'Accueil -----
   //
   // Requises, comme les précédentes. Aucune ne parle à Meta : délier est un état de cet espace, le numéro reste
@@ -119,13 +133,15 @@ export function registerEmbeddedSignup(
   app.get('/tenants/:tenantId/embedded-signup/config', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const enabled = deps.configId !== '' && deps.appId !== '';
-    return reply.code(200).send({ enabled, appId: deps.appId, configId: deps.configId, graphVersion: deps.graphVersion });
+    // La solution du partenaire : seulement à l'espace que sa règle désigne (lot E du Crédit WhatsApp).
+    const solutionId = enabled ? await deps.solutionDuPartenaire(tenant) : null;
+    return reply.code(200).send({ enabled, appId: deps.appId, configId: deps.configId, graphVersion: deps.graphVersion, solutionId });
   });
 
   app.post('/tenants/:tenantId/embedded-signup/complete', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     if (deps.configId === '') return reply.code(503).send({ error: 'Embedded Signup non configuré (META_ES_CONFIG_ID)' });
-    const b = (req.body ?? {}) as { code?: unknown; wabaId?: unknown; phoneNumberId?: unknown; evenement?: unknown };
+    const b = (req.body ?? {}) as { code?: unknown; wabaId?: unknown; phoneNumberId?: unknown; evenement?: unknown; parLaLigne?: unknown };
     if (!nonEmpty(b.code)) return reply.code(400).send({ error: 'code requis' });
     const r = await connecterNumero(deps, {
       tenantId: tenant,
@@ -147,6 +163,15 @@ export function registerEmbeddedSignup(
       }
     });
     if (!r.ok) return reply.code(r.statut).send({ error: r.error });
+    // Une connexion par la fenêtre du partenaire (lot E du Crédit WhatsApp) : le compte est partagé avec lui ; Julien pose
+    // la ligne une fois la sienne branchée. Le droit se relit au serveur : le corps ne fait que le dire.
+    if (b.parLaLigne === true) {
+      await deps.connexionParLaLigne(tenant, {
+        wabaId: r.wabaId,
+        phoneNumberId: r.connected ? r.phoneNumberId : null,
+        numero: r.connected ? (r.displayPhoneNumber ?? null) : null,
+      });
+    }
     if (!r.connected) {
       return reply.code(200).send({ connected: false, sansNumero: true, wabaId: r.wabaId, warnings: r.warnings });
     }

@@ -119,6 +119,11 @@ export interface EsConfig {
   appId: string;
   configId: string;
   graphVersion: string;
+  /**
+   * L'identifiant de la solution du partenaire (lot E du Crédit WhatsApp) : seulement pour un espace qui a droit à la
+   * ligne et n'a encore aucun numéro ; `null` ou absent sinon (une API d'avant ce champ).
+   */
+  solutionId?: string | null;
 }
 // --- Le numéro fourni (lot 3b) : un numéro de notre réserve, et le code que l'Asterisk capte quand Meta l'appelle ---
 
@@ -177,7 +182,7 @@ export function connecter360dialog(
  *  le serveur les retrouve alors depuis le token (sinon le client resterait bloqué sans recours). */
 export function completeEmbeddedSignup(
   tenantId: string,
-  input: { code: string; wabaId?: string; phoneNumberId?: string; evenement?: string },
+  input: { code: string; wabaId?: string; phoneNumberId?: string; evenement?: string; parLaLigne?: boolean },
 ): Promise<EsCompleteResult> {
   return request<EsCompleteResult>(`/tenants/${tenantId}/embedded-signup/complete`, { method: 'POST', body: JSON.stringify(input) });
 }

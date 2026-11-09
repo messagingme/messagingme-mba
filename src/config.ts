@@ -32,6 +32,14 @@ export const schema = z.object({
    *  Vide -> bouton « Connecter » inactif au front et route de complétion en 503 (feature OFF). */
   META_ES_CONFIG_ID: z.string().default(''),
   /**
+   * L'identifiant de la solution multi-partenaires du partenaire de la ligne de crédit (lot E du Crédit WhatsApp,
+   * `src/credit-whatsapp/fenetre-partenaire.ts`) : la fenêtre de Meta ouverte avec lui connecte un numéro dont le compte
+   * est partagé avec le partenaire, qui y branche sa ligne. Vide -> la fenêtre du partenaire est fermée à tous, seule la
+   * connexion directe (la carte du client chez Meta) existe. Pas un secret, mais jamais dans le bundle : le serveur ne le
+   * rend qu'à un espace qui a droit à la ligne.
+   */
+  META_SOLUTION_ID: z.string().default(''),
+  /**
    * Id de la seconde configuration Facebook Login for Business, celle des publicités (compte publicitaire et
    * Page). Vide -> écran « Publicités » inactif, avec sa raison.
    * Séparée de l'inscription WhatsApp : sinon on demanderait l'accès aux comptes publicitaires d'un client au

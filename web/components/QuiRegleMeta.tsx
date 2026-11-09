@@ -7,6 +7,9 @@ import { DemarrerPro } from '@/components/DemarrerPro';
 import { MbaNotice } from '@/components/MbaNotice';
 import { estPageDePaiement } from '@/lib/api-credit';
 import { lireEtatLigne, ouvrirOptionWhatsapp, type VueEtatLigne } from '@/lib/api-credit-whatsapp';
+import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
+import { useConnexionNumero } from '@/lib/connexion-numero';
+import { FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
 import { erreurDeChargement } from '@/lib/http';
 import { useT } from '@/lib/i18n';
 import { raisonAttenteOption } from '@/lib/offre';
@@ -16,6 +19,22 @@ import { relireOffre, useFormuleProADemarrer, useOffre } from '@/lib/use-offre';
 /** Après un retour de Stripe ou un démarrage de la formule Pro : combien de fois, et tous les combien, on relit l'état. */
 const RELECTURES = 15;
 const INTERVALLE_MS = 2_000;
+
+/**
+ * La fenêtre du partenaire (lot E du Crédit WhatsApp) : le bouton et ce que la carte dit, textes validés par Julien le
+ * 2026-11-09. Une formule Pro ou un Business l'ont, l'option payée ; une Entreprise, selon son contrat.
+ */
+export const PAR_LA_LIGNE = {
+  bouton: { fr: 'Connecter sans carte chez Meta', en: 'Connect without a card at Meta' },
+  optionPayee: {
+    fr: 'Votre option est payée : connectez votre numéro, Meta ne vous facturera pas. Votre ligne s’ouvre ensuite sous 24 h ouvrées.',
+    en: 'Your option is paid: connect your number, Meta will not bill you. Your line then opens within 24 business hours.',
+  },
+  entreprise: {
+    fr: 'Connectez votre numéro, Meta ne vous facturera pas. Votre ligne s’ouvre ensuite sous 24 h ouvrées.',
+    en: 'Connect your number, Meta will not bill you. Your line then opens within 24 business hours.',
+  },
+} as const;
 
 /**
  * « QUI PAIE VOS MESSAGES À META ? » (révision du Crédit WhatsApp du 2026-11-04, lot B) : deux cartes, chaque bouton sous
@@ -34,7 +53,7 @@ const INTERVALLE_MS = 2_000;
  * 🔴 LE RETOUR DE STRIPE NE PREND RIEN : il relit l'état jusqu'à voir l'option que le webhook écrit, et la prise reste
  * fermée en attendant (sinon le client la paierait deux fois, comme dans l'onglet).
  */
-export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children }: {
+export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children, api, surConnexion }: {
   tenantId: string;
   admin: boolean;
   /** `connecter` : la question du guide, et le retour de Stripe y arrive (`?option=`) ; `accueil` : elle mène au guide. */
@@ -43,6 +62,12 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   connecte?: boolean;
   /** La suite du guide, sous les cartes, quand la voie de la carte chez Meta est prise (Connecter WhatsApp). */
   children?: ReactNode;
+  /**
+   * La connexion de Connecter WhatsApp (lot E du Crédit WhatsApp) : l'autorité de ses appels et ce qui suit une connexion.
+   * Sans elles (l'Accueil), le bouton de la fenêtre du partenaire mène à Connecter WhatsApp.
+   */
+  api?: Pick<ApiConnexionNumero, 'config' | 'completer'>;
+  surConnexion?: (avertissements: string[]) => void;
 }) {
   const t = useT();
   const vueOffre = useOffre(tenantId);
@@ -66,7 +91,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   const offre = vueOffre?.offre;
   useEffect(() => {
     if (vueOffre === undefined) return undefined;
-    if (offre === 'free') { setVue({ etat: 'free', enVente: false, avecApplication: false }); return undefined; }
+    if (offre === 'free') { setVue({ etat: 'free', enVente: false, avecApplication: false, fenetrePartenaire: false }); return undefined; }
     let vivant = true;
     lireEtatLigne(tenantId).then((v) => { if (vivant) setVue(v); }).catch(() => { if (vivant) setVue(null); });
     return () => { vivant = false; };
@@ -113,7 +138,11 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     setRelectures((n) => n + 1);
   }
 
-  const carteActive = carte ?? (!connecte && !lignePayee && !optionPayee && retour !== 'recue');
+  // La fenêtre du partenaire ouverte (lot E) : le Crédit WhatsApp devient la voie active, la carte chez Meta se reprend
+  // d'un clic, et le bouton du partenaire, resté en second, la referme pour ouvrir sa fenêtre sans recharger la page.
+  // Chaque voie porte sa connexion : seule celle dont le bouton a ouvert la fenêtre en envoie la fin au serveur.
+  const fenetrePartenaire = vue?.fenetrePartenaire === true && !connecte;
+  const carteActive = carte ?? (!connecte && !lignePayee && !optionPayee && retour !== 'recue' && !fenetrePartenaire);
   const surDemande = (
     <>
       {t('Sur demande : écrivez-nous depuis le ', 'On request: write to us from ')}
@@ -133,7 +162,20 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     grisee = true;
     ligne = surDemande;
   } else if (vue !== undefined) {
-    if (optionPayee || etat === 'en_attente') {
+    if (fenetrePartenaire) {
+      // La fenêtre du partenaire (lot E) : le serveur l'ouvre à un espace qui a droit à la ligne et n'a encore aucun
+      // numéro. Sur Connecter WhatsApp, le bouton ouvre la fenêtre de Meta par la solution ; sur l'Accueil, il y mène.
+      ligne = offre === 'entreprise' ? t(PAR_LA_LIGNE.entreprise.fr, PAR_LA_LIGNE.entreprise.en) : t(PAR_LA_LIGNE.optionPayee.fr, PAR_LA_LIGNE.optionPayee.en);
+      if (admin && lieu === 'connecter' && api && surConnexion) {
+        action = <BoutonParLaLigne tenantId={tenantId} api={api} surConnexion={surConnexion} enAvant={!carteActive} avant={() => setCarte(false)} />;
+      } else if (admin && lieu === 'accueil') {
+        action = (
+          <Link href="/connecter-whatsapp" data-testid="carte-credit-wa-connecter-ligne" className={classesBouton('principal')}>
+            {t(PAR_LA_LIGNE.bouton.fr, PAR_LA_LIGNE.bouton.en)}
+          </Link>
+        );
+      }
+    } else if (optionPayee || etat === 'en_attente') {
       ligne = ligneOuverte;
     } else if (etat === 'free') {
       grisee = true;
@@ -262,6 +304,39 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
         {erreur && <p className="mt-3 text-sm text-danger" data-testid="carte-credit-wa-erreur">{erreur}</p>}
       </div>
       {lieu === 'connecter' && carteActive && children}
+    </div>
+  );
+}
+
+/**
+ * « Connecter sans carte chez Meta » (lot E du Crédit WhatsApp) : la fenêtre de Meta ouverte avec la solution du
+ * partenaire, dont la configuration ne rend l'identifiant qu'à un espace qui a droit à la ligne. Il porte sa propre
+ * connexion. En second quand la voie de la carte chez Meta est prise : `avant` la referme dans le même clic que la
+ * fenêtre (Safari n'ouvre une fenêtre que dans le geste du clic, `ouvrirFenetreMeta`).
+ */
+function BoutonParLaLigne({ tenantId, api, surConnexion, enAvant, avant }: {
+  tenantId: string;
+  api: Pick<ApiConnexionNumero, 'config' | 'completer'>;
+  surConnexion: (avertissements: string[]) => void;
+  /** Principal tant que la voie de la carte chez Meta est fermée, en second sinon. */
+  enAvant: boolean;
+  /** Referme la voie de la carte chez Meta, au clic. */
+  avant: () => void;
+}) {
+  const t = useT();
+  const connexion = useConnexionNumero(tenantId, api, surConnexion);
+  const pret = connexion.cfg?.enabled === true && (connexion.cfg.solutionId ?? null) !== null;
+  return (
+    <div className="space-y-2">
+      <Bouton
+        type="button" data-testid="carte-credit-wa-connecter-ligne" variante={enAvant ? 'principal' : 'secondaire'}
+        enCours={connexion.busy} disabled={!pret || connexion.busy}
+        onClick={() => { avant(); void connexion.connect({ parLaLigne: true }); }}
+      >
+        {t(PAR_LA_LIGNE.bouton.fr, PAR_LA_LIGNE.bouton.en)}
+      </Bouton>
+      {connexion.peutEtreBloquee && <p className="text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
+      {connexion.error && <p className="text-sm text-danger" data-testid="carte-credit-wa-connecter-ligne-erreur">{connexion.error}</p>}
     </div>
   );
 }

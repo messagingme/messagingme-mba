@@ -11,7 +11,8 @@ import {
  */
 export interface ApiConnexionNumero {
   config(): Promise<EsConfig>;
-  completer(input: { code: string; wabaId?: string; phoneNumberId?: string; evenement?: string }): Promise<EsCompleteResult>;
+  /** `parLaLigne` : la fenêtre ouverte avec la solution du partenaire (lot E du Crédit WhatsApp), que le serveur relit. */
+  completer(input: { code: string; wabaId?: string; phoneNumberId?: string; evenement?: string; parLaLigne?: boolean }): Promise<EsCompleteResult>;
   obtenir(): Promise<{ numero: string }>;
   lire(): Promise<NumeroFourniEtat>;
   remplacer(): Promise<{ numero: string }>;

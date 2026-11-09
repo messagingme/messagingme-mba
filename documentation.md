@@ -4649,6 +4649,22 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   question se pose sur la vitrine (`scripts/vitrine/tunnel-textes.ts`, une réponse grisée par formule, `Reponse.grisee`)
   et dans la skill de mise en service du plugin, aux mêmes mots (`tests/questions-numero-vitrine.test.ts`) ; chaque voie
   qui garde l'application y dit qu'on paie Meta avec sa carte.
+- 🔴 **La fenêtre du partenaire** (lot E, plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`). La fenêtre de Meta
+  ouverte avec la solution multi-partenaires du partenaire de la ligne (`extras: { setup: { solutionID }, featureType: '',
+  sessionInfoVersion: '3' }`, `optionsFenetreMeta`, jamais en coexistence) : le compte qu'elle connecte est partagé avec
+  lui, qui y branche sa ligne ; seule notre application envoie. 🔴 L'identifiant (`META_SOLUTION_ID`, vide = fermée à
+  tous) ne part que par `GET /embedded-signup/config`, réservée à un administrateur ou au lien de Claude Code
+  (`adminOuLien`), et seulement à l'espace que
+  `solutionDuPartenaire` désigne (`src/credit-whatsapp/fenetre-partenaire.ts`) : un droit à la ligne (`droitALaLigne` :
+  une Entreprise ; une formule Pro ou un Business avec une option vivante et une place libre ; jamais une Free ni un
+  essai) et aucun numéro vivant (celui de l'essai relève du lot D). La route de l'état des cartes n'en dit qu'un booléen
+  (`fenetrePartenaire`). La carte « Crédit WhatsApp » de Connecter WhatsApp montre alors « Connecter sans carte chez Meta »
+  et devient la voie active. La carte chez Meta se reprend d'un clic, et le bouton du partenaire, resté en second, referme
+  son guide dans le même clic que la fenêtre, sans recharger la page (chaque voie porte sa connexion ; seule celle dont
+  le bouton a ouvert la fenêtre en envoie la fin). Le crochet refuse d'ouvrir la fenêtre sans identifiant, jamais une connexion
+  directe à sa place. `POST /embedded-signup/complete` reçoit `parLaLigne`, relit le droit (sans la condition « aucun
+  numéro ») et alerte Julien (`connexionParLaLigne`) : poser la ligne dans `/ops` une fois celle du partenaire branchée,
+  ou, sans droit, ne pas la brancher. La pose automatique attend le premier essai réel.
 - 🔴 **La conversion et l'arrêt dits au client** (révision du 2026-11-04, lot C). La conversion
   (`signalerConversion`, `src/credit-whatsapp/conversion.ts`) a trois appelants : le démarrage de la formule Pro avant la
   fin de son essai, APRÈS la fin notée en base ; `/ops`, au passage d'un Business à confirmé ; le webhook, par

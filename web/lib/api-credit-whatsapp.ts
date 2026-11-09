@@ -181,6 +181,11 @@ export interface VueEtatLigne {
   enVente: boolean;
   /** Tous les numéros de l'espace gardent l'application : le paiement de l'option le dit (décision 8). */
   avecApplication: boolean;
+  /**
+   * La fenêtre du partenaire est ouverte à l'espace (lot E du Crédit WhatsApp) : la carte propose « Connecter sans carte
+   * chez Meta ». Faux sur une API d'avant ce champ : aucun bouton.
+   */
+  fenetrePartenaire: boolean;
 }
 
 /**
@@ -193,7 +198,10 @@ export async function lireEtatLigne(tenantId: string): Promise<VueEtatLigne | nu
     const r = await request<Record<string, unknown> | null>(`/tenants/${tenantId}/credit-whatsapp/etat`);
     const etat = r?.etat;
     if (typeof etat !== 'string' || !(ETATS_LIGNE as readonly string[]).includes(etat)) return null;
-    return { etat: etat as EtatLigne, enVente: r?.enVente === true, avecApplication: r?.avecApplication === true };
+    return {
+      etat: etat as EtatLigne, enVente: r?.enVente === true, avecApplication: r?.avecApplication === true,
+      fenetrePartenaire: r?.fenetrePartenaire === true,
+    };
   } catch (err) {
     if (err instanceof ApiError && (err.status === 402 || err.status === 404)) return null;
     throw err;

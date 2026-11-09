@@ -24,6 +24,14 @@ describe('optionsFenetreMeta', () => {
     expect(o.extras).toEqual({ setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' });
     expect({ ...o, extras: undefined }).toEqual({ config_id: 'cfg-1', response_type: 'code', override_default_response_type: true, extras: undefined });
   });
+
+  it('🔴 par la ligne du partenaire (lot E du Crédit WhatsApp) : la solution dans `setup`, comme la doc de Meta, jamais en coexistence', () => {
+    expect(optionsFenetreMeta('cfg-1', false, 'sol-1').extras).toEqual({ setup: { solutionID: 'sol-1' }, featureType: '', sessionInfoVersion: '3' });
+    // Le Crédit WhatsApp exclut l'application (décision 8 de la spec) : la solution l'emporte sur la coexistence.
+    expect(optionsFenetreMeta('cfg-1', true, 'sol-1').extras).toEqual({ setup: { solutionID: 'sol-1' }, featureType: '', sessionInfoVersion: '3' });
+    // Sans identifiant, la connexion directe d'aujourd'hui, au caractère près.
+    expect(optionsFenetreMeta('cfg-1', false, null)).toEqual(optionsFenetreMeta('cfg-1', false));
+  });
 });
 
 /** Le parcours ouvert par un lien de Claude Code en mode `coexistence` : rendu côté serveur, sans navigateur. */

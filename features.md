@@ -4612,6 +4612,11 @@ qu'à un espace dont un numéro est payé ainsi, jamais en Free.
 - ✅ **API publique** : un envoi refusé faute de crédit rend `whatsapp_credit_exhausted` (402), un numéro dont le crédit
   est arrêté `whatsapp_credit_line_inactive` (409) ; `POST /v1/sends` les rend avant de créer quoi que ce soit, dès que
   le solde ne couvre pas son premier message.
+- ✅ **Connecter sans carte chez Meta** (2026-11-09, fermé tant que notre équipe ne l'a pas ouvert) : un espace qui a
+  droit au Crédit WhatsApp (l'option payée en formule Pro ou Business, ou une Entreprise) et n'a encore aucun numéro voit,
+  sur la carte « Crédit WhatsApp » de Connecter WhatsApp, « Connecter sans carte chez Meta » : la fenêtre de Meta connecte
+  son numéro sans lui demander de payer Meta. La carte dit ensuite que sa ligne s'ouvre sous 24 h ouvrées, le temps que
+  notre équipe la pose. Un numéro déjà connecté avec la carte du client passe sur le Crédit WhatsApp par notre équipe.
 - ⛔ À venir : l'option à souscrire (30 € HT par numéro et par mois), la recharge automatique et celle avant une
   campagne, le prix dans le récapitulatif d'une campagne, les écrans de coût lus dans nos débits, la fiche d'aide publique.
 

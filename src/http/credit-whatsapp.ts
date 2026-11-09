@@ -29,6 +29,12 @@ export interface CreditWhatsappRouteDeps {
   /** L'ouverture d'un achat : les MÊMES objets que l'outil MCP `buy_credit` reçoit. */
   achat: DepsAchatWhatsapp;
   /**
+   * La fenêtre du partenaire est-elle ouverte à l'espace (lot E du Crédit WhatsApp, `solutionDuPartenaire`) ? La carte le
+   * lit pour proposer « Connecter sans carte chez Meta » ; l'identifiant de la solution, lui, ne part que par la
+   * configuration de la connexion, réservée à un administrateur ou au lien de Claude Code.
+   */
+  fenetrePartenaire(tenantId: string): Promise<boolean>;
+  /**
    * Ce que lit l'onglet : le solde, la consommation du mois, l'historique, la grille en vigueur, les conditions et les
    * lignes de l'espace.
    */
@@ -118,9 +124,11 @@ export function registerCreditWhatsapp(
   app.get('/tenants/:tenantId/credit-whatsapp/etat', { preHandler: gardeLecture }, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const o = deps.option;
-    const [etat, offre, numeros] = await Promise.all([lireEtatLigne(deps, tenant), o.offre(tenant), deps.vue.numeros(tenant)]);
+    const [etat, offre, numeros, fenetrePartenaire] = await Promise.all([
+      lireEtatLigne(deps, tenant), o.offre(tenant), deps.vue.numeros(tenant), deps.fenetrePartenaire(tenant),
+    ]);
     const enVente = optionEnVente(o) && (offre === 'pro' || offre === 'business');
-    return reply.code(200).send({ etat, enVente, avecApplication: tousGardentLApplication(numeros) });
+    return reply.code(200).send({ etat, enVente, avecApplication: tousGardentLApplication(numeros), fenetrePartenaire });
   });
 
   /** L'onglet : tout membre le lit (un agent y voit le solde et qui peut recharger), seul un administrateur achète. */

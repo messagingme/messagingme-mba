@@ -262,7 +262,7 @@ export const historiqueContactInerte: Pick<ContactsRouteDeps['contactHistory'], 
   resumeContact: async () => null,
 };
 
-export const signupInerte: Pick<EmbeddedSignupRouteDeps, 'audit' | 'bilanDeconnexion' | 'deconnecterNumero' | 'retirerCompteApplication' | 'enCoexistence'> = {
+export const signupInerte: Pick<EmbeddedSignupRouteDeps, 'audit' | 'bilanDeconnexion' | 'deconnecterNumero' | 'retirerCompteApplication' | 'enCoexistence' | 'solutionDuPartenaire' | 'connexionParLaLigne'> = {
   audit: journalMuet,
   // « Déconnecter le numéro » a son propre fichier (`tests/numero-deconnexion.test.ts`) : ailleurs, ces deux-là LÈVENT,
   // pour qu'un chemin d'inscription qui se mettrait à les appeler se voie.
@@ -273,6 +273,10 @@ export const signupInerte: Pick<EmbeddedSignupRouteDeps, 'audit' | 'bilanDeconne
   retirerCompteApplication: async () => 'aucun',
   // Aucun numéro en coexistence : l'activation d'avant la coexistence (`tests/numero-activation.test.ts` porte le refus).
   enCoexistence: async () => false,
+  // La fenêtre du partenaire (lot E du Crédit WhatsApp) : fermée dans ces montages ; une connexion par la ligne LÈVE, pour
+  // qu'un chemin qui se mettrait à la signaler se voie (`tests/embedded-signup.test.ts` l'éprouve).
+  solutionDuPartenaire: async () => null,
+  connexionParLaLigne: async () => { throw new Error('non attendu dans ce test'); },
 };
 
 export const metaInscriptionInerte: Pick<MetaInscriptionDep, 'wabasForToken' | 'listPhones' | 'surApplication'> = {
@@ -647,6 +651,8 @@ export const mcpOffreInerte: Pick<DepsMcp, 'offre' | 'offres' | 'cles'> = {
  * vente. L'onglet ne s'affiche pas et `get_credit` n'en parle pas.
  */
 export const creditWhatsappInerte: DepsMcp['agentIa']['creditWhatsapp'] = {
+  // La fenêtre du partenaire (lot E) : fermée.
+  fenetrePartenaire: async () => false,
   achat: {
     stripe: null,
     clients: { clientDe: async () => null, retenirClient: async (_t, _l, c) => c },

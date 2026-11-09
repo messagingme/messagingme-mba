@@ -43,3 +43,20 @@ describe('le câblage de l’option du Crédit WhatsApp', () => {
     expect(webhook, 'la seule formule payée laisserait partir l’e-mail à un Pro dont la fin est passée').not.toMatch(/formulePayee\(/);
   });
 });
+
+describe('le câblage de la fenêtre du partenaire (lot E)', () => {
+  it('🔴 la carte et la connexion lisent la MÊME règle, sur l’offre sans cache, l’option et la configuration', () => {
+    const fenetre = bloc('const fenetreDuPartenaire: DepsFenetrePartenaire = {', '};');
+    expect(fenetre).toMatch(/solutionId: config\.META_SOLUTION_ID,/);
+    expect(fenetre).toMatch(/offre: async \(tenant\) => \(await offresSansCache\.offreDe\(tenant\)\)\.offre,/);
+    expect(fenetre).toMatch(/option: \(tenant\) => optionsCreditWhatsapp\.vivante\(tenant\),/);
+    // Une place libre se compte contre les numéros que les lignes de l'option couvrent ; un numéro délié n'est plus vivant.
+    expect(fenetre).toMatch(/numerosCouverts: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosCouvertsParOption\(tenant\)\)\.length,/);
+    expect(fenetre).toMatch(/numerosVivants: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosDeLEspace\(tenant\)\)\.filter\(\(n\) => !n\.delie\)\.length,/);
+    expect(bloc('const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {', 'vue: {'))
+      .toMatch(/fenetrePartenaire: async \(tenant\) => \(await solutionDuPartenaire\(fenetreDuPartenaire, tenant\)\) !== null,/);
+    const connexion = bloc('embeddedSignup: (() => {', 'meta: esClient,');
+    expect(connexion).toMatch(/solutionDuPartenaire: \(tenant: string\) => solutionDuPartenaire\(fenetreDuPartenaire, tenant\),/);
+    expect(connexion).toMatch(/connexionParLaLigne\(fenetreDuPartenaire, tenant, n\)/);
+  });
+});

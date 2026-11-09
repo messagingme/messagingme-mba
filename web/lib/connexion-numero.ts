@@ -31,9 +31,10 @@ export interface ConnexionNumero {
   error: string | null;
   /**
    * Ouvre la fenêtre de Meta. `coexistence` : le numéro reste dans l'application WhatsApp Business (plan 2026-10-24,
-   * `optionsFenetreMeta`) ; absent, le parcours d'aujourd'hui.
+   * `optionsFenetreMeta`) ; `parLaLigne` : la fenêtre du partenaire (lot E du Crédit WhatsApp), avec l'identifiant de sa
+   * solution que la configuration rend à cet espace ; absents, le parcours d'aujourd'hui.
    */
-  connect(o?: { coexistence?: boolean }): Promise<void>;
+  connect(o?: { coexistence?: boolean; parLaLigne?: boolean }): Promise<void>;
 }
 
 /** Attend qu'une valeur apparaisse (session info postMessage), sinon null au timeout. */
@@ -121,8 +122,15 @@ export function useConnexionNumero(
     return () => window.removeEventListener('message', onMsg);
   }, []);
 
-  async function connect(o: { coexistence?: boolean } = {}) {
+  async function connect(o: { coexistence?: boolean; parLaLigne?: boolean } = {}) {
     if (!cfg?.enabled || busy) return;
+    // 🔴 La fenêtre du partenaire, jamais une connexion directe à sa place : le client a choisi de ne pas payer Meta avec
+    // sa carte. Sans identifiant de la solution (une configuration lue avant que l'option soit payée), rien ne s'ouvre.
+    const solution = o.parLaLigne === true ? (cfg.solutionId ?? null) : null;
+    if (o.parLaLigne === true && solution === null) {
+      setError(t('La connexion sans carte chez Meta n’est pas encore ouverte : rechargez la page.', 'Connecting without a card at Meta is not open yet: reload the page.'));
+      return;
+    }
     setBusy(true);
     setError(null);
     idsRef.current = undefined;
@@ -143,7 +151,7 @@ export function useConnexionNumero(
               // se retrouvait alors bloqué définitivement, sans aucun recours (mesuré le 2026-08-17). On envoie
               // donc le code seul, et le serveur retrouve le compte et le numéro à partir du token.
               const ids = await waitFor(() => idsRef.current, 6000);
-              const res = await apiRef.current.completer({ code, ...(ids ?? {}) });
+              const res = await apiRef.current.completer({ code, ...(ids ?? {}), ...(solution !== null ? { parLaLigne: true } : {}) });
               // Les avertissements REMONTENT : la zone de connexion est démontée dès que l'espace a un numéro,
               // donc les garder ici reviendrait à les effacer au moment de les afficher.
               onConnected(res.warnings ?? []);
@@ -154,8 +162,8 @@ export function useConnexionNumero(
             }
           })();
         },
-        // Les options de la fenêtre, et la seule différence de la coexistence : `@/lib/fenetre-meta`.
-        optionsFenetreMeta(cfg.configId, o.coexistence === true),
+        // Les options de la fenêtre, la coexistence et la solution du partenaire : `@/lib/fenetre-meta`.
+        optionsFenetreMeta(cfg.configId, o.coexistence === true, solution),
       ));
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Connexion impossible', 'Connection failed'));
