@@ -36,7 +36,8 @@ sur les pages existent dans les deux langues. La page « introuvable » parle an
 ✅ **La vitrine a sa page développeurs** (2026-10-12, lot 18) : `app.messagingme.fr/developpeurs/`, et sa jumelle en
 anglais `/en/developers/`. Pour qui construit avec Claude Code, Cursor ou Lovable :
 une séance Claude Code rejouée (l'agent IA, la lecture du site, la bulle WhatsApp), les trois étapes (installer le
-plugin ; autoriser Claude, ce qui crée l'espace d'une adresse Google inconnue, sans formulaire ; lancer
+plugin ; autoriser Claude, avec Google ou l'adresse e-mail, ce qui crée l'espace d'une adresse inconnue, sans formulaire
+par Google, par le lien envoyé par e-mail sinon ; lancer
 `/messagingme:demarrer`, où Meta n'est demandé qu'au moment de relier le numéro), ce que l'on peut construire, en mots de
 métier (répondre à vos clients, leur écrire au bon moment, brancher à votre app, piloter depuis Claude : une ligne par
 usage, qui mène à son cas d'usage ou à la documentation, la même liste que le README du plugin sur GitHub ; depuis le

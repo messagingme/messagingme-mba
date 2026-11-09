@@ -45,8 +45,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
     adresse: { fr: '/developpeurs/installer-le-plugin/', en: '/en/developers/install-the-plugin/' },
     titre: { fr: 'Installer le plugin et relier votre espace', en: 'Install the plugin and link your workspace' },
     chapeau: {
-      fr: 'Deux commandes dans Claude Code, une autorisation avec Google, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, sans formulaire.',
-      en: 'Two commands in Claude Code, one authorization with Google, and Claude runs your WhatsApp. The workspace is created at authorization, with no form.',
+      fr: 'Deux commandes dans Claude Code, une autorisation, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, avec Google ou votre adresse e-mail.',
+      en: 'Two commands in Claude Code, one authorization, and Claude runs your WhatsApp. The workspace is created at authorization, with Google or your email address.',
     },
     film: 'cas-onboarding',
     etapes: [
@@ -64,8 +64,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: `\`/mcp\`, choisissez \`${SERVEUR_PLUGIN_MCP}\`, puis Authenticate`, en: `\`/mcp\`, choose \`${SERVEUR_PLUGIN_MCP}\`, then Authenticate` },
         outils: [],
         reponse: {
-          fr: 'Une page s’ouvre dans votre navigateur : continuez avec Google, puis autorisez. Sans compte, votre espace naît à ce moment, sans formulaire.',
-          en: 'A page opens in your browser: continue with Google, then authorize. With no account yet, your workspace is created right then, with no form.',
+          fr: 'Une page s’ouvre dans votre navigateur : continuez avec Google (sans compte, votre espace naît à ce moment, sans formulaire), créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Puis autorisez.',
+          en: 'A page opens in your browser: continue with Google (with no account yet, your workspace is created right then, with no form), create your workspace with your email address (a short form, then the link we email you), or sign in with your password if you already have one. Then authorize.',
         },
       },
       {

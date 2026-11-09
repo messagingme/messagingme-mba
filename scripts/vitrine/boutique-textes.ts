@@ -193,7 +193,7 @@ const fr = (): TexteBoutique => {
       titre: ['Quatre étapes,', 'et votre boutique est branchée.'],
       etapes: [
         { titre: 'Installez le plugin', texte: 'Le plugin Messaging Me, dans Claude Code : la page du plugin vous donne la commande.' },
-        { titre: 'Autorisez avec Google', texte: 'Votre espace se crée à l’autorisation, avec l’offre Free.' },
+        { titre: 'Autorisez l’accès', texte: 'Par Google ou par votre adresse e-mail : votre espace se crée à l’autorisation, avec l’offre Free.' },
         { titre: 'Reliez votre numéro WhatsApp', texte: 'Le chemin du guide ci-dessus : Claude vous accompagne.' },
         { titre: 'Demandez « branche ma boutique Shopify »', texte: 'Claude crée l’app dans votre propre organisation Shopify, vous cliquez « Installer », puis il vous propose vos messages et les fait approuver.' },
       ],
@@ -365,7 +365,7 @@ const en = (): TexteBoutique => {
       titre: ['Four steps,', 'and your store is connected.'],
       etapes: [
         { titre: 'Install the plugin', texte: 'The Messaging Me plugin, in Claude Code: the plugin page gives you the command.' },
-        { titre: 'Authorize with Google', texte: 'Your workspace is created when you authorize, with the Free plan.' },
+        { titre: 'Authorize access', texte: 'Through Google or your email address: your workspace is created when you authorize, with the Free plan.' },
         { titre: 'Connect your WhatsApp number', texte: 'The path of the guide above: Claude walks you through it.' },
         { titre: 'Ask “connect my Shopify store”', texte: 'Claude creates the app in your own Shopify organization, you click “Install”, then it suggests your messages and has them approved.' },
       ],

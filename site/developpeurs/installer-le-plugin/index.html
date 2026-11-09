@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Installer le plugin et relier votre espace | Développeurs Messaging Me</title>
-<meta name="description" content="Deux commandes dans Claude Code, une autorisation avec Google, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, sans formulaire.">
+<meta name="description" content="Deux commandes dans Claude Code, une autorisation, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, avec Google ou votre adresse e-mail.">
 <link rel="canonical" href="https://app.messagingme.fr/developpeurs/installer-le-plugin/">
 <link rel="alternate" hreflang="fr" href="https://app.messagingme.fr/developpeurs/installer-le-plugin/">
 <link rel="alternate" hreflang="en" href="https://app.messagingme.fr/en/developers/install-the-plugin/">
@@ -16,7 +16,7 @@
 <meta property="og:locale:alternate" content="en_US">
 <meta property="og:site_name" content="Messaging Me">
 <meta property="og:title" content="Installer le plugin et relier votre espace | Développeurs Messaging Me">
-<meta property="og:description" content="Deux commandes dans Claude Code, une autorisation avec Google, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, sans formulaire.">
+<meta property="og:description" content="Deux commandes dans Claude Code, une autorisation, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, avec Google ou votre adresse e-mail.">
 <meta property="og:image" content="https://app.messagingme.fr/films/cas-onboarding.webp?v=eba78656">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -57,7 +57,7 @@
   {
    "@type": "HowTo",
    "name": "Installer le plugin et relier votre espace",
-   "description": "Deux commandes dans Claude Code, une autorisation avec Google, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, sans formulaire.",
+   "description": "Deux commandes dans Claude Code, une autorisation, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, avec Google ou votre adresse e-mail.",
    "inLanguage": "fr-FR",
    "url": "https://app.messagingme.fr/developpeurs/installer-le-plugin/",
    "step": [
@@ -72,7 +72,7 @@
      "@type": "HowToStep",
      "position": 2,
      "name": "Autoriser l’accès",
-     "text": "Une page s’ouvre dans votre navigateur : continuez avec Google, puis autorisez. Sans compte, votre espace naît à ce moment, sans formulaire.",
+     "text": "Une page s’ouvre dans votre navigateur : continuez avec Google (sans compte, votre espace naît à ce moment, sans formulaire), créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Puis autorisez.",
      "url": "https://app.messagingme.fr/developpeurs/installer-le-plugin/#etape-2"
     },
     {
@@ -261,7 +261,7 @@
   <div>
     <p class="aide-fil"><a href="/developpeurs/">Développeurs</a> › Installer le plugin et relier votre espace</p>
     <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-code"/></svg>Depuis Claude Code</span> Installer le plugin et relier votre espace</h1>
-    <p class="chapeau">Deux commandes dans Claude Code, une autorisation avec Google, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, sans formulaire.</p>
+    <p class="chapeau">Deux commandes dans Claude Code, une autorisation, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, avec Google ou votre adresse e-mail.</p>
     <div class="appels">
       <a class="bouton bouton-plein" href="https://github.com/messagingme/messagingme-plugin">Voir le plugin sur GitHub</a>
     </div>
@@ -287,7 +287,7 @@
         <video class="f-video aide-film" src="/films/cas-onboarding.mp4?v=c92ef9fa" poster="/films/cas-onboarding.webp?v=eba78656" width="1280" height="720" controls muted playsinline preload="none" aria-label="Installer le plugin et relier votre espace"></video>
       </figure>
       <div class="aide-etape sans-capture" id="etape-1"><div><h3>1. Ajouter le plugin</h3><div class="aide-echange"><p class="aide-vous"><span>Vous</span> <code>/plugin marketplace add messagingme/messagingme-plugin</code> puis, séparément, <code>/plugin install messagingme@messagingme</code></p><p class="aide-claude"><span>Claude</span> Claude Code installe le plugin Messaging Me&nbsp;: ses outils et ses consignes. Tapez les deux commandes l’une après l’autre&nbsp;: collées, Claude Code n’en lancerait qu’une.</p></div></div></div>
-      <div class="aide-etape sans-capture" id="etape-2"><div><h3>2. Autoriser l’accès</h3><div class="aide-echange"><p class="aide-vous"><span>Vous</span> <code>/mcp</code>, choisissez <code>plugin:messagingme:messagingme</code>, puis Authenticate</p><p class="aide-claude"><span>Claude</span> Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google, puis autorisez. Sans compte, votre espace naît à ce moment, sans formulaire.</p></div></div></div>
+      <div class="aide-etape sans-capture" id="etape-2"><div><h3>2. Autoriser l’accès</h3><div class="aide-echange"><p class="aide-vous"><span>Vous</span> <code>/mcp</code>, choisissez <code>plugin:messagingme:messagingme</code>, puis Authenticate</p><p class="aide-claude"><span>Claude</span> Une page s’ouvre dans votre navigateur&nbsp;: continuez avec Google (sans compte, votre espace naît à ce moment, sans formulaire), créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Puis autorisez.</p></div></div></div>
       <div class="aide-etape sans-capture" id="etape-3"><div><h3>3. Lancer la mise en service</h3><div class="aide-echange"><p class="aide-vous"><span>Vous</span> <code>/messagingme:demarrer</code></p><p class="aide-outils"><span>Claude appelle</span> <code data-outil="get_setup_state">get_setup_state</code></p><p class="aide-claude"><span>Claude</span> Claude lit où en est votre espace et propose l’étape suivante&nbsp;: connecter le numéro, construire l’agent IA, poser la bulle WhatsApp sur votre site. Une mise en service interrompue reprend où elle s’était arrêtée.</p></div></div></div>
       <div class="aide-pied-page">
         <a class="aide-suivante" href="/developpeurs/connecter-son-numero/">Suivant&nbsp;: Connecter votre numéro WhatsApp depuis Claude</a>
