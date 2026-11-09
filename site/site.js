@@ -361,6 +361,13 @@
       choix.addRange(plage);
     };
     var doux = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    // Le premier arrêt du focus dans une issue : dans le bloc de l'offre choisie (Business et Entreprise : le seul bloc,
+    // sans offre), la cible marquée (`data-premier`, le titre de la première étape de la Free, avant ses commandes), sinon
+    // le premier bouton.
+    var premierArret = function (issue) {
+      var bloc = issue && (issue.querySelector('.bt-appels[data-offre="' + g.getAttribute('data-offre') + '"]') || issue.querySelector('.bt-appels:not([data-offre])'));
+      return bloc && (bloc.querySelector('[data-premier]') || bloc.querySelector('a'));
+    };
     // Une réponse donnée : sa question reste affichée, la réponse en évidence, et la suivante (ou l'issue) apparaît
     // dessous. `focus` vaut faux à l'ouverture de la page, quand l'adresse choisit l'offre : le focus et le défilement
     // restent au visiteur.
@@ -399,10 +406,10 @@
         montrer(vers);
         avancer(true);
         if (!focus) return;
-        // L'issue est la fin du tunnel : le focus va au premier bouton de l'offre choisie, et elle se montre en entier.
+        // L'issue est la fin du tunnel : le focus va à son premier arrêt pour l'offre choisie, et elle se montre en entier.
         var issue = g.querySelector('[data-chemin="' + vers + '"]');
-        var bouton = issue && issue.querySelector('.bt-appels[data-offre="' + g.getAttribute('data-offre') + '"] a');
-        if (bouton) bouton.focus({ preventScroll: true });
+        var arret = premierArret(issue);
+        if (arret) arret.focus({ preventScroll: true });
         if (issue) issue.scrollIntoView({ block: 'nearest', behavior: doux ? 'smooth' : 'auto' });
       }
     };
@@ -444,14 +451,14 @@
         if (b.getAttribute('aria-pressed') !== 'true') repondre(b, q, true);
         return;
       }
-      // Un lien d'issue vers une autre (« Vous pouvez la garder ») : l'autre issue prend sa place, son premier bouton le focus.
+      // Un lien d'issue vers une autre (« Vous pouvez la garder ») : l'autre issue prend sa place, son premier arrêt le focus.
       var lien = e.target.closest && e.target.closest('[data-vers-chemin]');
       if (lien) {
         e.preventDefault();
         var cle = lien.getAttribute('data-vers-chemin');
         montrer(cle);
         var autre = g.querySelector('[data-chemin="' + cle + '"]');
-        var premier = autre && autre.querySelector('.bt-appels[data-offre="' + g.getAttribute('data-offre') + '"] a');
+        var premier = premierArret(autre);
         if (premier) premier.focus({ preventScroll: true });
         if (autre) autre.scrollIntoView({ block: 'nearest' });
         return;

@@ -169,13 +169,16 @@ depuis Claude Code, le prix et une FAQ.
 
 ✅ **La vitrine a sa page « Démarrer » et un tunnel du numéro commun** (2026-10-30) : `app.messagingme.fr/demarrer/`,
 jumelle `/en/get-started/`, au bouton « Démarrer » de l'en-tête de chaque page (à droite sur le bureau, à côté du menu
-au téléphone). L'arbre de Julien du 2026-10-30, complété le 2026-10-31, en quatre questions au plus, dans une carte, sous
+au téléphone). L'arbre de Julien du 2026-10-30, complété le 2026-10-31, en cinq questions au plus, dans une carte, sous
 l'étape et sa jauge ; une question répondue reste affichée, sa réponse en évidence (la carte choisie encadrée, les autres
 estompées, repliées au téléphone), la suivante apparaît dessous, et un clic sur une autre réponse change le chemin :
 **la formule** (un carrousel sur le bureau, Free, Pro, Business et Entreprise, aux chiffres de la page Tarifs, chacune avec son bouton
 dessous, et « Je ne sais pas » qui dit que Free ne marche qu'avec un agent IA comme Claude Code ou Codex, et sinon Pro ;
 Business et Entreprise ne posent pas les questions du numéro, ils mènent à « Parlons de votre projet », avec « Demander
-une démo » et « Nous contacter »), **le compte Meta Business** (Oui mène au numéro API, son numéro libre ou un numéro fourni,
+une démo » et « Nous contacter »), **qui paie Meta** (« Qui paie vos messages à Meta ? » : la carte de l'entreprise chez
+Meta, seule voie ouverte ; le Crédit WhatsApp reste grisé tant qu'il n'est pas en vente en ligne, « Avec la formule Pro. »
+en Free, « Sur demande : écrivez-nous. » en Pro, Julien, 2026-11-06), puis **le compte Meta Business** (Oui mène au
+numéro API, son numéro libre ou un numéro fourni,
 3,50 € HT par mois en formule Free et inclus en formule Pro, avec la ligne « Votre numéro est déjà dans l'application WhatsApp
 Business ? Vous pouvez la garder » ; Non et « Je ne sais pas » mènent à la question suivante, « Je ne sais pas » avec où
 le vérifier), puis **l'application WhatsApp Business** (Oui : la garder, le numéro y reste et envoie aussi depuis
@@ -187,9 +190,12 @@ Meta refuse un numéro trop neuf ; Non : un numéro fourni, 3,50 € HT par mois
 que la personne met dans l'application téléchargée, son code de vérification affiché par Messaging Me : elle répond à
 ses clients dès le premier jour, et l'envoi de ses messages depuis Messaging Me attend quelques jours si Meta refuse
 d'abord le numéro tout neuf, Julien, 2026-10-31). Les voies de l'application disent que la fenêtre de Meta crée le
-compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre choisie : en Free, le plugin, son dépôt
-GitHub et la demande à coller dans Claude Code ou Codex ; en Pro, « Créer mon espace » (`/signup?offre=pro`), le
-pas-à-pas et la même demande. La demande reprend l'offre et les réponses, et la page d'origine : générique sur
+compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre choisie : en Free, trois étapes numérotées
+(Julien, 2026-11-09) : installer le plugin (ses deux commandes pour Claude Code, une par ligne, puis celles de Codex,
+son pas-à-pas et son dépôt GitHub), le relier à Messaging Me (la connexion MCP, obligatoire avant toute demande, avec
+Google, l'adresse e-mail ou le mot de passe d'un compte existant), puis coller la demande dans Claude Code ou Codex ; en
+Pro, « Créer mon espace » (`/signup?offre=pro`), le pas-à-pas et la même demande, à coller une fois le plugin installé
+et relié. La demande reprend l'offre et les réponses, et la page d'origine : générique sur
 « Démarrer », la boutique sur « Boutiques Shopify », l'app sur « SaaS et app builders », qui portent le même tunnel. Les
 mots du guide se déplient sous la carte, un par ligne (le mot et sa phrase courte, le détail au clic), avec des liens
 vers le compte Meta Business et vers l'App Store et Google Play pour l'application WhatsApp Business, liens que les deux

@@ -9,7 +9,8 @@ import { TEXTES_CARREFOUR, type Langue } from '../scripts/vitrine/cas-textes';
 import { JUMELLES } from '../scripts/vitrine/anglais';
 import { ENTREES } from '../web/lib/registre-vitrine';
 import { fichierDe } from '../scripts/vitrine/cas';
-import { DEPOT_PLUGIN } from '../web/lib/demarrer';
+import { AUTORISATION_CODEX, COMMANDES_CODEX, COMMANDES_PLUGIN, DEPOT_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
+import { avecCommandes } from '../scripts/vitrine/tunnel';
 import { FAQ } from '../scripts/plugin/faq';
 import { lire, pagesHtml, texte } from './vitrine-lecture';
 
@@ -308,6 +309,56 @@ describe('le tunnel du numéro WhatsApp', () => {
         }
       }
     }
+  });
+
+  /**
+   * Julien, 2026-11-09 : « quand le mec choisit la Free (et va être dans Claude Code), tout à la fin, avant de lui filer le
+   * texte à copier coller dans Claude Code, il faut lui (re)donner les étapes : 1) télécharger le plugin 2) MCP à
+   * connecter 3) texte en copié collé ». Les commandes sont celles des manifestes du plugin, pour Claude Code et Codex.
+   */
+  it('🔴 en Free, trois étapes avant la demande : installer le plugin, le relier à Messaging Me, coller la demande', () => {
+    for (const p of PAGES) {
+      const html = lire(fichierDe(p.adresse));
+      const plugin = p.langue === 'fr' ? '/developpeurs/installer-le-plugin/' : '/en/developers/install-the-plugin/';
+      for (const x of TEXTES_TUNNEL[p.langue].issues) {
+        if (x.contact) continue;
+        const article = html.match(new RegExp(`<article class="bt-chemin" data-chemin="${x.id}"[\\s\\S]*?</article>`))?.[0] ?? '';
+        const free = article.split('<div class="bt-appels" data-offre="free">')[1]?.split('<div class="bt-appels" data-offre="pro">')[0] ?? '';
+        const etapes = free.split('<li><span class="bt-num">').slice(1);
+        const ou = `${p.adresse} : ${x.id}`;
+        expect(etapes.map((e) => e.slice(0, 1)), ou).toEqual(['1', '2', '3']);
+        // 1 : le plugin, dans Claude Code puis dans Codex, avec son pas-à-pas et son dépôt ; son titre est le premier
+        // arrêt du focus en fin de tunnel (`site.js`), avant les commandes, et le seul du bloc.
+        for (const c of [...COMMANDES_PLUGIN, ...COMMANDES_CODEX]) expect(etapes[0], `${ou} : ${c}`).toContain(`<code>${c}</code>`);
+        expect(etapes[0], ou).toContain(`href="${plugin}"`);
+        expect(etapes[0], ou).toContain(`href="${DEPOT_PLUGIN}"`);
+        expect(etapes[0], ou).toMatch(/^1<\/span><div><h4 tabindex="-1" data-premier>/);
+        expect(free.match(/data-premier/g), ou).toHaveLength(1);
+        // 2 : la connexion MCP, obligatoire avant toute demande (jamais « la première étape », juste sous l'étape 1), avec
+        // le serveur à choisir et la commande de Codex ; la page qui s'ouvre offre Google ET l'adresse e-mail.
+        for (const c of ['/mcp', SERVEUR_PLUGIN_MCP, AUTORISATION_CODEX]) expect(etapes[1], `${ou} : ${c}`).toContain(`<code>${c}</code>`);
+        const relier = affiche(etapes[1]!);
+        expect(relier, ou).toMatch(p.langue === 'fr' ? /obligatoire/ : /required/);
+        expect(relier, ou).not.toMatch(/première étape|first step/i);
+        expect(relier, ou).toMatch(/Google/);
+        expect(relier, ou).toMatch(p.langue === 'fr' ? /créez votre espace avec votre adresse e-mail/ : /create your workspace with your email address/);
+        // 3 : la demande à coller, et elle seule ; aucune marque restée dans les étapes, quelle que soit sa forme.
+        expect(etapes[2], ou).toContain(`data-copier="demande-${x.id}-free"`);
+        for (const e of etapes.slice(0, 2)) expect(e, ou).not.toContain('data-copier');
+        expect(free, ou).not.toMatch(/\{[^{}\s]+\}/);
+      }
+    }
+    // La fin du tunnel donne le focus à ce premier arrêt, sinon au premier bouton du bloc de l'offre.
+    expect(lire('site.js')).toContain("bloc.querySelector('[data-premier]') || bloc.querySelector('a')");
+  });
+
+  it('une marque d’étape sans commande ne passe pas en silence, et la commande est échappée', () => {
+    expect(avecCommandes('tapez {mcp}', { mcp: '/mcp' })).toBe('tapez <code>/mcp</code>');
+    // Toute forme de marque lève, et une clé héritée n'est pas une commande.
+    for (const m of ['{inconnue}', '{Mcp}', '{c_1}', '{constructor}']) {
+      expect(() => avecCommandes(`tapez ${m}`, { mcp: '/mcp' }), m).toThrow(m);
+    }
+    expect(avecCommandes('{x}', { x: 'a<b & c' })).toBe('<code>a&lt;b &amp; c</code>');
   });
 
   it('la page « Démarrer » existe dans les deux langues, déclarée, au plan du site et dans llms.txt', () => {

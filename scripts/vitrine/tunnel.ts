@@ -3,10 +3,10 @@
 // la page « Démarrer » (`pagesDemarrer`, ici), Boutiques Shopify (`boutique.ts`) et SaaS et app builders (`cas.ts`).
 // Textes dans `tunnel-textes.ts` ; `site.js` le rend interactif, et il reste lisible sans script (ses issues en liste).
 // Plan `docs/superpowers/plans/2026-10-30-tunnel-numero-generique.md`.
-import { DEPOT_PLUGIN } from '../../web/lib/demarrer';
+import { AUTORISATION_CODEX, COMMANDES_CODEX, COMMANDES_PLUGIN, DEPOT_PLUGIN, SERVEUR_PLUGIN_MCP } from '../../web/lib/demarrer';
 import { ACCUEIL, fichierDe, fil, page } from './cas';
 import type { Langue } from './cas-textes';
-import { insecables } from './guide-meta';
+import { echapper, insecables } from './guide-meta';
 import {
   lienHtml,
   TEXTES_TUNNEL, demandeDe, type Issue, type IssueBranchement, type Lien, type Mot, type OffreTunnel, type Origine, type Question, type Reponse, type Voie,
@@ -16,6 +16,18 @@ const CONSOLE = 'https://console.messagingme.app';
 const PLUGIN: Readonly<Record<Langue, string>> = { fr: '/developpeurs/installer-le-plugin/', en: '/en/developers/install-the-plugin/' };
 /** La page Contact : son formulaire pour la démo (`#formulaire`), la page elle-même pour nous écrire. */
 const CONTACT: Readonly<Record<Langue, string>> = { fr: '/contact/', en: '/en/contact/' };
+/**
+ * Les marques `{nom}` d'un texte des étapes de la Free, remplacées par leur commande, échappée, en `<code>`. Toute marque
+ * sans commande lève, quelle que soit sa forme (`{Mcp}`, `{c_1}`), et une clé héritée (`{constructor}`) n'en est pas
+ * une : une étape publiée avec une marque en clair serait une page cassée que rien d'autre ne verrait.
+ */
+export function avecCommandes(texte: string, commandes: Readonly<Record<string, string>>): string {
+  return texte.replace(/\{([^{}\s]+)\}/g, (_, nom: string) => {
+    if (!Object.hasOwn(commandes, nom)) throw new Error(`étape de la Free : marque {${nom}} sans commande`);
+    return `<code>${echapper(commandes[nom]!)}</code>`;
+  });
+}
+
 /** La page qui porte le tunnel seul ; `?offre=` (free, pro, business, entreprise) y répond à la première question (`site.js`). */
 export const DEMARRER: Readonly<Record<Langue, string>> = { fr: '/demarrer/', en: '/en/get-started/' };
 /**
@@ -101,11 +113,31 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     ...q.reponses.flatMap((r, k) => (r.note ? [`            <p class="bt-note-reponse" id="note-${q.id}-${k}" role="status" hidden>${r.note}</p>`] : [])),
     '          </fieldset>',
   ];
-  // Le bout du tunnel, par offre : en Free, le plugin, son dépôt et la demande ; en Pro, l'espace, le pas-à-pas et la
-  // même demande, à coller dans Claude Code ou Codex. La demande reprend les réponses et parle de la page d'origine.
+  // Le bout du tunnel, par offre : en Free, trois étapes (installer le plugin, le relier à Messaging Me, coller la
+  // demande) ; en Pro, l'espace, le pas-à-pas et la même demande, à coller dans Claude Code ou Codex. La demande reprend
+  // les réponses et parle de la page d'origine.
+  const boite = (x: IssueBranchement, offre: OffreTunnel, retrait: string) =>
+    `${retrait}<div class="bt-demande"><p id="demande-${x.id}-${offre}">${demandeDe(n, x, offre, origine)}</p><button type="button" class="bouton bouton-trait" data-copier="demande-${x.id}-${offre}" data-copie="${a.copie}" hidden>${a.copier}</button></div>`;
   const demande = (x: IssueBranchement, offre: OffreTunnel, titre: string) => [
     `            <p class="bt-demande-titre">${titre}</p>`,
-    `            <div class="bt-demande"><p id="demande-${x.id}-${offre}">${demandeDe(n, x, offre, origine)}</p><button type="button" class="bouton bouton-trait" data-copier="demande-${x.id}-${offre}" data-copie="${a.copie}" hidden>${a.copier}</button></div>`,
+    boite(x, offre, '            '),
+  ];
+  // Les étapes de la Free (Julien, 2026-11-09), leurs commandes celles des manifestes du plugin (`web/lib/demarrer.ts`).
+  const ef = a.etapesFree;
+  // Une commande par ligne : lisible, et copiable, jusqu'au téléphone.
+  const lignes = (cmds: readonly string[]) => `<p class="bt-cmds">${cmds.map((c) => `<code>${echapper(c)}</code>`).join('')}</p>`;
+  const relier = { mcp: '/mcp', serveur: SERVEUR_PLUGIN_MCP, login: AUTORISATION_CODEX };
+  // Le titre de la première étape est le premier arrêt du focus en fin de tunnel (`data-premier`, `site.js`) : le
+  // premier lien du bloc viendrait après les commandes, qu'un lecteur d'écran sauterait.
+  const etapesFree = (x: IssueBranchement) => [
+    '            <ol class="bt-etapes bt-etapes-fin">',
+    `              <li><span class="bt-num">1</span><div><h4 tabindex="-1" data-premier>${ef.installer.titre}</h4><p>${ef.installer.claude}</p>${lignes(COMMANDES_PLUGIN)}<p>${ef.installer.codex}</p>${lignes(COMMANDES_CODEX)}`,
+    `                <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="${PLUGIN[langue]}">${a.plugin}</a><a class="bouton bouton-trait" href="${DEPOT_PLUGIN}" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>${a.github}</a></div></div></li>`,
+    `              <li><span class="bt-num">2</span><div><h4>${ef.relier.titre}</h4>${ef.relier.texte.map((t) => `<p>${avecCommandes(t, relier)}</p>`).join('')}</div></li>`,
+    `              <li><span class="bt-num">3</span><div><h4>${ef.coller}</h4>`,
+    boite(x, 'free', '                '),
+    '              </div></li>',
+    '            </ol>',
   ];
   const liens = (l: readonly Lien[], retrait: string) =>
     [`${retrait}<p class="bt-liens">${l.map(lienHtml).join('')}</p>`];
@@ -121,8 +153,7 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     : [
       '          <div class="bt-appels" data-offre="free">',
       `            <p class="bt-appels-titre">${a.free}</p>`,
-      `            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="${PLUGIN[langue]}">${a.plugin}</a><a class="bouton bouton-trait" href="${DEPOT_PLUGIN}" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>${a.github}</a></div>`,
-      ...demande(x, 'free', a.demandeFree),
+      ...etapesFree(x),
       '          </div>',
       '          <div class="bt-appels" data-offre="pro">',
       `            <p class="bt-appels-titre">${a.pro}</p>`,

@@ -11,7 +11,7 @@ import {
 /**
  * LA CONSOLE POSE LES QUESTIONS DE LA VITRINE (2026-10-30, plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-plugin.md`).
  * L'arbre de Julien vit dans `scripts/vitrine/tunnel-textes.ts` ; la page « Connecter WhatsApp » en reprend les questions 2
- * et 3 (`web/lib/questions-numero.ts`), qui ne peut pas importer la vitrine. Retoucher l'une sans l'autre ferait poser
+ * à 5 (`web/lib/questions-numero.ts`), qui ne peut pas importer la vitrine. Retoucher l'une sans l'autre ferait poser
  * deux arbres différents : ce test compare au mot près, balises et espaces insécables de la vitrine retirés.
  */
 const texte = (html: string): string => html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ');

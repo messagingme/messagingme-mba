@@ -30,7 +30,8 @@ const TITRES = {
   howTo: { fr: 'Préparer son compte Meta Business pour WhatsApp', en: 'Prepare your Meta Business account for WhatsApp' },
 } as const;
 
-const echapper = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/** Le texte mis dans du HTML (`tunnel.ts` l'importe pour les commandes du plugin). */
+export const echapper = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 /** En français, la ponctuation haute et les guillemets gardent leur espace insécable (le centre d'aide l'importe). */
 export const insecables = (h: string): string =>

@@ -108,10 +108,23 @@ export interface TexteTunnel {
   /** Les mots des boutons de bout de tunnel : le titre de chaque offre, ses boutons, la demande et sa copie. */
   readonly appels: {
     readonly free: string; readonly pro: string; readonly plugin: string; readonly github: string;
-    readonly demandeFree: string; readonly demandePro: string; readonly copier: string; readonly copie: string;
+    readonly demandePro: string; readonly copier: string; readonly copie: string;
     readonly compte: string; readonly pasAPas: string;
     /** La fin de Business et Entreprise : son titre, la démo et le contact. */
     readonly equipe: string; readonly demo: string; readonly contacter: string;
+    /**
+     * LES TROIS ÉTAPES DE LA FREE AVANT LA DEMANDE (Julien, 2026-11-09 : « avant de lui filer le texte à copier coller
+     * dans Claude Code, il faut lui (re)donner les étapes ») : installer le plugin, le relier à Messaging Me (la
+     * connexion MCP, obligatoire avant toute demande), coller la demande. Les commandes viennent de `web/lib/demarrer.ts`,
+     * celles des manifestes du plugin : `tunnel.ts` les pose une par ligne sous `claude` et `codex` (l’étape 1, lisible
+     * et copiable au téléphone), et à la place de `{mcp}`, `{serveur}` et `{login}` (l’étape 2, un paragraphe par entrée
+     * de `texte` : comment se relier, puis ce qui s’ouvre), et refuse une marque restée.
+     */
+    readonly etapesFree: {
+      readonly installer: { readonly titre: string; readonly claude: string; readonly codex: string };
+      readonly relier: { readonly titre: string; readonly texte: readonly string[] };
+      readonly coller: string;
+    };
   };
   /** La demande à coller : son début (la page d'origine et l'offre), la phrase du numéro de l'issue, puis sa fin. */
   readonly demande: { readonly debut: Readonly<Record<Origine, Readonly<Record<OffreTunnel, string>>>>; readonly fin: Readonly<Record<Origine, string>> };
@@ -300,12 +313,31 @@ const fr = (): TexteTunnel => {
     progression: 'Question {n} sur {max} au plus', fin: 'Votre chemin',
     appels: {
       free: 'En formule Free, depuis votre assistant IA', pro: 'En formule Pro',
-      plugin: 'Installer le plugin', github: 'Le dépôt GitHub',
-      demandeFree: 'Votre demande, à coller dans Claude Code ou Codex une fois Messaging Me installé :',
-      demandePro: 'Ou votre demande, à coller dans Claude Code ou Codex :',
+      plugin: 'L’installation pas à pas', github: 'Le dépôt GitHub',
+      demandePro: 'Ou votre demande, à coller dans Claude Code ou Codex une fois le plugin installé et relié :',
       copier: 'Copier', copie: 'Copié',
       compte: 'Créer mon espace', pasAPas: 'Le pas-à-pas',
       equipe: 'Avec notre équipe', demo: 'Demander une démo', contacter: 'Nous contacter',
+      etapesFree: {
+        installer: {
+          titre: 'Installez le plugin',
+          claude: 'Dans Claude Code, l’une après l’autre :',
+          codex: 'Pour Codex, dans un terminal :',
+        },
+        relier: {
+          titre: 'Reliez-le à Messaging Me',
+          texte: [
+            'Cette étape est obligatoire, avant toute demande : votre assistant agit dans votre espace, il lui faut votre '
+              + 'accord, une fois. Dans Claude Code, tapez {mcp}, choisissez {serveur}, puis Authenticate ; pour Codex, '
+              + 'lancez {login} dans un terminal.',
+            'Une page s’ouvre dans votre navigateur : continuez avec Google (sans compte, votre espace naît à ce moment), '
+              + 'créez votre espace avec votre adresse e-mail (un court formulaire, puis le lien que nous vous envoyons), ou '
+              + 'connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur « Autoriser dans… » '
+              + 'suivi du nom de votre espace.',
+          ],
+        },
+        coller: 'Collez votre demande dans Claude Code ou Codex :',
+      },
     },
     demande: {
       debut: {
@@ -490,12 +522,31 @@ const en = (): TexteTunnel => {
     progression: 'Question {n} of {max} at most', fin: 'Your path',
     appels: {
       free: 'With the Free plan, from your AI assistant', pro: 'With the Pro plan',
-      plugin: 'Install the plugin', github: 'The GitHub repository',
-      demandeFree: 'Your request, to paste into Claude Code or Codex once Messaging Me is installed:',
-      demandePro: 'Or your request, to paste into Claude Code or Codex:',
+      plugin: 'Installation step by step', github: 'The GitHub repository',
+      demandePro: 'Or your request, to paste into Claude Code or Codex once the plugin is installed and connected:',
       copier: 'Copy', copie: 'Copied',
       compte: 'Create my workspace', pasAPas: 'The step-by-step guide',
       equipe: 'With our team', demo: 'Request a demo', contacter: 'Contact us',
+      etapesFree: {
+        installer: {
+          titre: 'Install the plugin',
+          claude: 'In Claude Code, one after the other:',
+          codex: 'For Codex, in a terminal:',
+        },
+        relier: {
+          titre: 'Connect it to Messaging Me',
+          texte: [
+            'This step is required before any request: your assistant acts in your own workspace, so it needs your '
+              + 'agreement, once. In Claude Code, type {mcp}, select {serveur}, then Authenticate; for Codex, run {login} '
+              + 'in a terminal.',
+            'A page opens in your browser: continue with Google (with no account yet, your workspace is created right '
+              + 'then), create your workspace with your email address (a short form, then the link we email you), or sign '
+              + 'in with your password if you already have one. Then click “Authorize in…” followed by your workspace’s '
+              + 'name.',
+          ],
+        },
+        coller: 'Paste your request into Claude Code or Codex:',
+      },
     },
     demande: {
       debut: {
