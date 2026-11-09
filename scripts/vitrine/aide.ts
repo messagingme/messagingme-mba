@@ -10,7 +10,6 @@
 // (`web/lib/aide-pages.ts`). `tests/vitrine-aide.test.ts` exige chaque sortie égale à sa génération.
 //
 // 🔴 Une fiche publique retouchée se régénère ici, puis `aide:charger` en production pour le bot (`DEPLOY.md`).
-import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -21,6 +20,7 @@ import { ESSAI_PRO_JOURS } from '../../src/offres/offres';
 import { DEPOT_PLUGIN } from '../../web/lib/demarrer';
 import { ACCUEIL, fichierDe, fil, page } from './cas';
 import { insecables } from './guide-meta';
+import { versionnee } from './images';
 import { PAGES_CLAUDE, type PageClaude } from './aide-claude-textes';
 import { FILMS_AIDE, type FilmAide } from './aide-films';
 import { ACCUEIL_AIDE, NOMS_RUBRIQUES, pagesDuCentre, type Langue, type PageAide } from './aide-pages';
@@ -143,15 +143,6 @@ const bloc = (b: BlocFiche, langue: Langue): string => (b.type === 'paragraphe'
 export const adresseCapture = (cle: string, numero: number, langue: Langue): string =>
   `/img/aide/${cle}/etape-${numero}${langue === 'en' ? '-en' : ''}.webp`;
 const captureExiste = (adresse: string): boolean => existsSync(SITE(adresse.slice(1)));
-/**
- * L'adresse d'une image ou d'un film, suivie de l'empreinte de son contenu : la vitrine les garde un jour en cache chez
- * le visiteur (`site/vercel.json`), et une capture refaite par `npm run aide:captures` garde son nom. L'empreinte change
- * avec le fichier, sans `?v=` à incrémenter à la main ; un fichier pas encore livré garde `?v=1`.
- */
-const versionnee = (adresse: string): string => {
-  const fichier = SITE(adresse.slice(1));
-  return `${adresse}?v=${existsSync(fichier) ? createHash('sha256').update(readFileSync(fichier)).digest('hex').slice(0, 8) : '1'}`;
-};
 
 /** Le film d'une page, livré dans `site/films/` (tâche 11) : `aide-<clé>` et `-en`. */
 const adresseFilm = (cle: string, langue: Langue, extension: 'mp4' | 'webp'): string =>

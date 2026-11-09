@@ -116,15 +116,23 @@ export interface TexteTunnel {
     readonly equipe: string; readonly demo: string; readonly contacter: string;
     /**
      * LES TROIS ÉTAPES DE LA FREE AVANT LA DEMANDE (Julien, 2026-11-09 : « avant de lui filer le texte à copier coller
-     * dans Claude Code, il faut lui (re)donner les étapes ») : installer le plugin, le relier à Messaging Me (la
-     * connexion MCP, obligatoire avant toute demande), coller la demande. Les commandes viennent de `web/lib/demarrer.ts`,
-     * celles des manifestes du plugin : `tunnel.ts` les pose une par ligne sous `claude` et `codex` (l’étape 1, lisible
-     * et copiable au téléphone), et à la place de `{mcp}`, `{serveur}` et `{login}` (l’étape 2, un paragraphe par entrée
-     * de `texte` : comment se relier, puis ce qui s’ouvre), et refuse une marque restée.
+     * dans Claude Code, il faut lui (re)donner les étapes », puis « c'est illisible […] des logos Claude Code ou Codex
+     * avec la commande en face […] puis des copies d'écran des écrans suivants, faut être visuel ») : installer le plugin,
+     * le relier à Messaging Me, coller la demande, presque sans texte. `tunnel.ts` pose le logo de chaque assistant et, en
+     * face, ce qu'on y tape (les commandes de `web/lib/demarrer.ts`, celles des manifestes du plugin), avec un indice de
+     * deux ou trois mots (`claude`, `codex`) ; à l'étape 2, les écrans de la page d'autorisation qui s'ouvre ensuite.
      */
     readonly etapesFree: {
       readonly installer: { readonly titre: string; readonly claude: string; readonly codex: string };
-      readonly relier: { readonly titre: string; readonly texte: readonly string[] };
+      readonly relier: {
+        readonly titre: string; readonly obligatoire: string; readonly claude: string; readonly codex: string;
+        readonly navigateur: string;
+        /**
+         * Les écrans de `/autoriser`, dans l'ordre : `site/img/demarrer/autoriser-<n>[-en].webp`, capturés sur la vraie
+         * page par `web/e2e/captures/demarrer-autoriser.capture.ts` (`npm run aide:captures`).
+         */
+        readonly ecrans: readonly { readonly legende: string; readonly alt: string }[];
+      };
       readonly coller: string;
     };
   };
@@ -321,21 +329,18 @@ const fr = (): TexteTunnel => {
       compte: 'Créer mon espace', pasAPas: 'Le pas-à-pas',
       equipe: 'Avec notre équipe', demo: 'Demander une démo', contacter: 'Nous contacter',
       etapesFree: {
-        installer: {
-          titre: 'Installez le plugin',
-          claude: 'Dans Claude Code, l’une après l’autre :',
-          codex: 'Pour Codex, dans un terminal :',
-        },
+        installer: { titre: 'Installez le plugin', claude: 'une par une', codex: 'dans un terminal' },
         relier: {
-          titre: 'Reliez-le à Messaging Me',
-          texte: [
-            'Cette étape est obligatoire, avant toute demande : votre assistant agit dans votre espace, il lui faut votre '
-              + 'accord, une fois. Dans Claude Code, tapez {mcp}, choisissez {serveur}, puis Authenticate ; pour Codex, '
-              + 'lancez {login} dans un terminal.',
-            'Une page s’ouvre dans votre navigateur : continuez avec Google (sans compte, votre espace naît à ce moment), '
-              + 'créez votre espace avec votre adresse e-mail (nous vous envoyons un lien, où vous nommez votre espace et '
-              + 'choisissez un mot de passe), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Cliquez ensuite sur « Autoriser dans… » '
-              + 'suivi du nom de votre espace.',
+          titre: 'Reliez-le à Messaging Me', obligatoire: 'obligatoire',
+          claude: 'tapez, puis choisissez', codex: 'dans un terminal',
+          navigateur: 'Puis, dans votre navigateur :',
+          ecrans: [
+            {
+              legende: 'Google, ou votre adresse e-mail',
+              alt: 'La page d’autorisation : « Continuer avec Google », « Créer mon espace avec mon adresse e-mail », ou « Connectez-vous » avec un mot de passe.',
+            },
+            { legende: 'Autorisez votre espace', alt: 'Le choix de l’espace : « Autoriser dans Mon entreprise ».' },
+            { legende: 'C’est relié', alt: '« Autorisation accordée » : retour vers Claude Code.' },
           ],
         },
         coller: 'Collez votre demande dans Claude Code ou Codex :',
@@ -530,21 +535,18 @@ const en = (): TexteTunnel => {
       compte: 'Create my workspace', pasAPas: 'The step-by-step guide',
       equipe: 'With our team', demo: 'Request a demo', contacter: 'Contact us',
       etapesFree: {
-        installer: {
-          titre: 'Install the plugin',
-          claude: 'In Claude Code, one after the other:',
-          codex: 'For Codex, in a terminal:',
-        },
+        installer: { titre: 'Install the plugin', claude: 'one at a time', codex: 'in a terminal' },
         relier: {
-          titre: 'Connect it to Messaging Me',
-          texte: [
-            'This step is required before any request: your assistant acts in your own workspace, so it needs your '
-              + 'agreement, once. In Claude Code, type {mcp}, select {serveur}, then Authenticate; for Codex, run {login} '
-              + 'in a terminal.',
-            'A page opens in your browser: continue with Google (with no account yet, your workspace is created right '
-              + 'then), create your workspace with your email address (we email you a link, where you name your workspace '
-              + 'and choose a password), or sign in with your password if you already have one. Then click “Authorize in…” followed by your workspace’s '
-              + 'name.',
+          titre: 'Connect it to Messaging Me', obligatoire: 'required',
+          claude: 'type, then select', codex: 'in a terminal',
+          navigateur: 'Then, in your browser:',
+          ecrans: [
+            {
+              legende: 'Google, or your email address',
+              alt: 'The authorization page: “Continue with Google”, “Create my workspace with my email address”, or “Sign in” with a password.',
+            },
+            { legende: 'Authorize your workspace', alt: 'Choosing the workspace: “Authorize in My company”.' },
+            { legende: 'Connected', alt: '“Authorization granted”: back to Claude Code.' },
           ],
         },
         coller: 'Paste your request into Claude Code or Codex:',

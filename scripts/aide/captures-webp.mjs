@@ -13,6 +13,12 @@ const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SORTIE = join(RACINE, 'web', 'e2e', 'captures', 'sortie');
 const CIBLE = join(RACINE, 'site', 'img', 'aide');
 const NOM = /^etape-\d+(-en)?\.png$/;
+/**
+ * Les scénarios qui ne servent pas une fiche : leurs captures vont ailleurs que dans `site/img/aide/`, que
+ * `tests/vitrine-aide.test.ts` réserve aux étapes des fiches. `demarrer-autoriser` : les écrans de l'étape 2 du tunnel
+ * « Démarrer » (`scripts/vitrine/tunnel.ts`), `site/img/demarrer/autoriser-<n>[-en].webp`.
+ */
+const AILLEURS = { 'demarrer-autoriser': { dossier: join(RACINE, 'site', 'img', 'demarrer'), prefixe: 'autoriser-' } };
 
 if (!existsSync(SORTIE)) {
   console.error(`Aucune capture dans ${SORTIE} : lancez d'abord les scénarios (npm run aide:captures).`);
@@ -22,8 +28,10 @@ if (!existsSync(SORTIE)) {
 let n = 0;
 for (const cle of readdirSync(SORTIE)) {
   for (const fichier of readdirSync(join(SORTIE, cle)).filter((f) => NOM.test(f))) {
-    mkdirSync(join(CIBLE, cle), { recursive: true });
-    const vers = join(CIBLE, cle, fichier.replace(/\.png$/, '.webp'));
+    const ailleurs = AILLEURS[cle];
+    const dossier = ailleurs ? ailleurs.dossier : join(CIBLE, cle);
+    mkdirSync(dossier, { recursive: true });
+    const vers = join(dossier, (ailleurs ? fichier.replace(/^etape-/, ailleurs.prefixe) : fichier).replace(/\.png$/, '.webp'));
     // `-preset text` : des écrans de console, du texte et des aplats, que le réglage photo brouillerait.
     const r = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', join(SORTIE, cle, fichier),
       '-c:v', 'libwebp', '-preset', 'text', '-quality', '85', '-compression_level', '6', vers], { stdio: 'inherit' });
@@ -34,4 +42,4 @@ for (const cle of readdirSync(SORTIE)) {
     n++;
   }
 }
-console.log(`${n} captures écrites sous site/img/aide/. Ensuite : npm run vitrine:aide.`);
+console.log(`${n} captures écrites sous site/img/aide/ et site/img/demarrer/. Ensuite : npm run vitrine:aide et npm run vitrine:cas.`);

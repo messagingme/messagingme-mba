@@ -10,7 +10,7 @@ import { JUMELLES } from '../scripts/vitrine/anglais';
 import { ENTREES } from '../web/lib/registre-vitrine';
 import { fichierDe } from '../scripts/vitrine/cas';
 import { AUTORISATION_CODEX, COMMANDES_CODEX, COMMANDES_PLUGIN, DEPOT_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
-import { avecCommandes, commandeHtml } from '../scripts/vitrine/tunnel';
+import { commandeHtml } from '../scripts/vitrine/tunnel';
 import { FAQ } from '../scripts/plugin/faq';
 import { lire, pagesHtml, texte } from './vitrine-lecture';
 
@@ -39,6 +39,8 @@ const corps = (html: string): string => texte(html
 const guide = (html: string): string => html.match(/<div class="bt-guide" data-guide-numero>[\s\S]*?<\/details>\n {6}<\/div>/)?.[0] ?? '';
 /** Les commandes d'un morceau de HTML, dans l'ordre, telles qu'on les copie : balises (`<wbr>`) retirées, entités décodées. */
 const codes = (h: string): string[] => [...h.matchAll(/<code>([\s\S]*?)<\/code>/g)].map((m) => texte(m[1]!));
+/** Ce qu'on choisit dans une liste plutôt qu'on ne le tape (`.bt-choix`), dans l'ordre et tel qu'on le lit. */
+const choix = (h: string): string[] => [...h.matchAll(/<span class="bt-choix">([\s\S]*?)<\/span>/g)].map((m) => texte(m[1]!));
 /** Le texte que le HTML affiche, entités décodées : une demande se compare à ce que « Copier » met dans le presse-papiers. */
 const affiche = (h: string): string => h.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
 
@@ -331,19 +333,28 @@ describe('le tunnel du numéro WhatsApp', () => {
         const etapes = free.split('<li><span class="bt-num">').slice(1);
         const ou = `${p.adresse} : ${x.id}`;
         expect(etapes.map((e) => e.slice(0, 1)), ou).toEqual(['1', '2', '3']);
+        // Julien, 2026-11-09 : « des logos Claude Code ou Codex avec la commande en face ». Aux étapes 1 et 2, le logo de
+        // Claude Code puis celui de Codex, chacun devant ce qu'on y tape.
+        for (const e of etapes.slice(0, 2)) expect(e.match(/bt-assist-(claude|codex)"/g), ou).toEqual(['bt-assist-claude"', 'bt-assist-codex"']);
         // 1 : le plugin, dans Claude Code puis dans Codex, avec son pas-à-pas et son dépôt. Une commande se lit telle quelle,
         // ses coupures permises (`<wbr>`) retirées.
         expect(codes(etapes[0]!), ou).toEqual([...COMMANDES_PLUGIN, ...COMMANDES_CODEX]);
         expect(etapes[0], ou).toContain(`href="${plugin}"`);
         expect(etapes[0], ou).toContain(`href="${DEPOT_PLUGIN}"`);
-        // 2 : la connexion MCP, obligatoire avant toute demande (jamais « la première étape », juste sous l'étape 1), avec
-        // le serveur à choisir et la commande de Codex ; la page qui s'ouvre offre Google ET l'adresse e-mail.
-        expect(codes(etapes[1]!), ou).toEqual(['/mcp', SERVEUR_PLUGIN_MCP, AUTORISATION_CODEX]);
+        // 2 : la connexion MCP, obligatoire avant toute demande (jamais « la première étape », juste sous l'étape 1) : dans
+        // Claude Code, `/mcp` puis deux CHOIX (le serveur, Authenticate) ; dans Codex, sa commande.
+        expect(codes(etapes[1]!), ou).toEqual(['/mcp', AUTORISATION_CODEX]);
+        expect(choix(etapes[1]!), ou).toEqual([SERVEUR_PLUGIN_MCP, 'Authenticate']);
         const relier = affiche(etapes[1]!);
         expect(relier, ou).toMatch(p.langue === 'fr' ? /obligatoire/ : /required/);
         expect(relier, ou).not.toMatch(/première étape|first step/i);
-        expect(relier, ou).toMatch(/Google/);
-        expect(relier, ou).toMatch(p.langue === 'fr' ? /créez votre espace avec votre adresse e-mail/ : /create your workspace with your email address/);
+        // Puis les écrans de la page d'autorisation, dans l'ordre, chacun présent sur disque, avec ses dimensions et son
+        // texte ; le premier montre Google ET l'adresse e-mail, et sa légende le dit.
+        const ecrans = [...etapes[1]!.matchAll(/<img src="([^"?]+)\?v=[0-9a-f]+" alt="([^"]+)" width="(\d+)" height="(\d+)"/g)];
+        expect(ecrans.map((m) => m[1]), ou).toEqual([1, 2, 3].map((n) => `/img/demarrer/autoriser-${n}${p.langue === 'en' ? '-en' : ''}.webp`));
+        for (const m of ecrans) expect(existsSync(join(process.cwd(), 'site', m[1]!)), m[1]).toBe(true);
+        expect(ecrans[0]![2], ou).toMatch(p.langue === 'fr' ? /Google[^]*adresse e-mail/ : /Google[^]*email address/);
+        expect(relier, ou).toMatch(p.langue === 'fr' ? /Google, ou votre adresse e-mail/ : /Google, or your email address/);
         // 3 : la demande à coller, et elle seule ; aucune marque restée dans les étapes, quelle que soit sa forme.
         expect(etapes[2], ou).toContain(`data-copier="demande-${x.id}-free"`);
         for (const e of etapes.slice(0, 2)) expect(e, ou).not.toContain('data-copier');
@@ -373,16 +384,12 @@ describe('le tunnel du numéro WhatsApp', () => {
     expect(js).not.toContain('"] a\')');
   });
 
-  it('une marque d’étape sans commande ne passe pas en silence, et la commande est échappée', () => {
-    expect(avecCommandes('tapez {mcp}', { mcp: '/mcp' })).toBe('tapez <code>/mcp</code>');
-    // Sécable après un « / », un « @ » ou un « : » qui suit un caractère, jamais après le « / » de tête.
+  it('une commande est échappée, et sécable après un « / », un « @ » ou un « : » qui suit un caractère', () => {
+    // Jamais après le « / » de tête.
+    expect(commandeHtml('/mcp')).toBe('/mcp');
     expect(commandeHtml('/plugin install messagingme@messagingme')).toBe('/plugin install messagingme@<wbr>messagingme');
-    expect(avecCommandes('{s}', { s: 'plugin:messagingme:messagingme' })).toBe('<code>plugin:<wbr>messagingme:<wbr>messagingme</code>');
-    // Toute forme de marque lève, et une clé héritée n'est pas une commande.
-    for (const m of ['{inconnue}', '{Mcp}', '{c_1}', '{constructor}']) {
-      expect(() => avecCommandes(`tapez ${m}`, { mcp: '/mcp' }), m).toThrow(m);
-    }
-    expect(avecCommandes('{x}', { x: 'a<b & c' })).toBe('<code>a&lt;b &amp; c</code>');
+    expect(commandeHtml('plugin:messagingme:messagingme')).toBe('plugin:<wbr>messagingme:<wbr>messagingme');
+    expect(commandeHtml('a<b & c')).toBe('a&lt;b &amp; c');
   });
 
   it('la page « Démarrer » existe dans les deux langues, déclarée, au plan du site et dans llms.txt', () => {

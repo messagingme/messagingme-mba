@@ -959,20 +959,52 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-demande{display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border:1px dashed rgb(111 194 254 / .45);border-radius:14px;background:rgb(0 2 20 / .35)}
 .bt-chemin .bt-demande p{flex:1;margin:0;color:var(--ink);font-size:.95rem}
 .bt-demande .bouton{flex:none;font-family:inherit;cursor:pointer}
-/* Les trois étapes de la Free en bout de tunnel (Julien, 2026-11-09) : la liste numérotée de la page Shopify, resserrée
-   dans la carte ; la demande à coller est dans la troisième. */
-.bt-etapes-fin{margin:4px 0 0;gap:18px;max-width:none}
+/* Les trois étapes de la Free en bout de tunnel (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte ») :
+   la liste numérotée de la page Shopify, resserrée dans la carte ; à chaque étape, le logo de chaque assistant et, en
+   face, ce qu'on y tape ; à la deuxième, les écrans qui s'ouvrent ensuite ; la demande à coller est dans la troisième. */
+.bt-etapes-fin{margin:4px 0 0;gap:24px;max-width:none}
 .bt-etapes-fin li{grid-template-columns:34px minmax(0,1fr);gap:14px}
 .bt-etapes-fin .bt-num{width:34px;height:34px;font-size:.95rem}
-.bt-etapes-fin h4{margin:6px 0 6px;font-size:1rem;color:var(--ink)}
+.bt-etapes-fin h4{margin:6px 0 12px;font-size:1rem;color:var(--ink)}
 .bt-chemin .bt-etapes-fin p{margin:0 0 10px;color:var(--muted)}
 .bt-chemin .bt-etapes-fin .bt-demande p{margin:0;color:var(--ink)}
+.bt-oblig{display:inline-block;margin-left:8px;padding:.2em .6em;border-radius:999px;background:var(--action-wash);color:var(--action-ink);font-size:.7rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;vertical-align:.15em}
+/* Un assistant par ligne : son logo et son nom à gauche (les couleurs des tuiles de la page SaaS), en face ce qu'on y
+   tape ; au téléphone, l'un sous l'autre. */
+.bt-outils{display:grid;gap:10px;margin:0 0 14px;max-width:860px}
+.bt-outil{display:grid;grid-template-columns:168px minmax(0,1fr);gap:16px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:rgb(255 255 255 / .03)}
+.bt-outil-tete{display:flex;align-items:center;gap:10px}
+.bt-assist{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:10px}
+.bt-assist svg{width:22px;height:22px}
+.bt-assist-claude{background:#F0EEE6}
+.bt-assist-claude svg{fill:#D97757}
+.bt-assist-codex{background:#FFFFFF}
+.bt-assist-codex svg{fill:#0B0E24}
+.bt-outil-nom{display:flex;flex-direction:column;font-weight:700;color:var(--ink);line-height:1.25}
+.bt-outil-nom small{font-size:.75rem;font-weight:500;color:var(--muted)}
+/* Ce qu'on tape (`code`) et ce qu'on choisit ensuite dans une liste (`.bt-choix`), à la suite. */
+.bt-chemin .bt-etapes-fin .bt-suite{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0}
+.bt-etapes-fin .bt-suite code{padding:.3em .6em}
+.bt-puis{color:var(--muted);font-weight:700}
+.bt-choix{display:inline-block;max-width:100%;padding:.25em .7em;border:1px solid rgb(111 194 254 / .55);border-radius:999px;font-family:var(--mono);font-size:.85rem;color:var(--ink);overflow-wrap:anywhere}
+/* Les écrans de la page d'autorisation, chacun dans un cadre de navigateur ; au téléphone, ils défilent de côté. */
+.bt-chemin .bt-etapes-fin .bt-ecrans-titre{margin:0 0 8px;color:var(--ink);font-weight:600}
+.bt-ecrans{list-style:none;margin:0 0 4px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;max-width:1080px;align-items:start}
+/* Ses éléments ne sont pas des étapes : ni la grille ni le numéro flottant de `.bt-etapes li` (téléphone compris). */
+.bt-etapes-fin .bt-ecrans > li{display:block;min-width:0}
+.bt-ecran{margin:0}
+.bt-fenetre{display:block;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:#FFFFFF}
+.bt-fenetre::before{content:"";display:block;height:18px;background:radial-gradient(circle at 12px 9px,#FF5F57 3.5px,transparent 4px),radial-gradient(circle at 24px 9px,#FEBC2E 3.5px,transparent 4px),radial-gradient(circle at 36px 9px,#28C840 3.5px,transparent 4px),#E9ECF3}
+.bt-fenetre img{display:block;width:100%;height:auto}
+.bt-ecran figcaption{margin-top:8px;font-size:.85rem;font-weight:600;color:var(--ink)}
+@media (max-width:720px){.bt-ecrans{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:88%;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;padding-bottom:10px}.bt-ecrans > li{scroll-snap-align:start}}
+@media (max-width:520px){.bt-outil{grid-template-columns:minmax(0,1fr);gap:10px;padding:10px 12px}}
 /* Le titre de l'issue reçoit le focus en fin de tunnel (`site.js`) : l'anneau des liens, au clavier seulement. */
 .bt-chemin h3[tabindex]:focus-visible{outline:2px solid var(--action);outline-offset:4px;border-radius:6px}
 /* Les commandes du plugin, une par ligne ; au téléphone, une commande trop longue passe à la ligne à ses espaces, puis
    après un `/`, un `@` ou un `:` (`<wbr>`, `commandeHtml`), et seulement en dernier recours au milieu d'un mot (le code
    des étapes partage la règle de `.bt-avec code`). */
-.bt-chemin .bt-etapes-fin .bt-cmds{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0 0 12px}
+.bt-chemin .bt-etapes-fin .bt-cmds{display:flex;flex-direction:column;align-items:flex-start;gap:6px;margin:0}
 .bt-etapes-fin .bt-cmds code{max-width:100%;padding:.3em .6em}
 /* Au téléphone, le numéro de l'étape se pose à côté de son titre : texte, commandes et demande prennent toute la largeur
    de la carte. */

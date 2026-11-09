@@ -191,10 +191,12 @@ Meta refuse un numéro trop neuf ; Non : un numéro fourni, 3,50 € HT par mois
 que la personne met dans l'application téléchargée, son code de vérification affiché par Messaging Me : elle répond à
 ses clients dès le premier jour, et l'envoi de ses messages depuis Messaging Me attend quelques jours si Meta refuse
 d'abord le numéro tout neuf, Julien, 2026-10-31). Les voies de l'application disent que la fenêtre de Meta crée le
-compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre choisie : en Free, trois étapes numérotées
-(Julien, 2026-11-09) : installer le plugin (ses deux commandes pour Claude Code, une par ligne, puis celles de Codex,
-son pas-à-pas et son dépôt GitHub), le relier à Messaging Me (la connexion MCP, obligatoire avant toute demande, avec
-Google, l'adresse e-mail ou le mot de passe d'un compte existant), puis coller la demande dans Claude Code ou Codex ; en
+compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre choisie : en Free, trois étapes numérotées,
+presque sans texte (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte ») : installer le plugin (le logo
+de Claude Code puis celui de Codex, chacun avec ses deux commandes en face, une par ligne, puis le pas-à-pas et le dépôt
+GitHub), le relier à Messaging Me (obligatoire : dans Claude Code, `/mcp` puis le serveur et Authenticate à choisir ;
+dans Codex, sa commande ; puis les trois écrans de la page d'autorisation, capturés sur la vraie page : Google ou
+l'adresse e-mail, l'espace à autoriser, l'autorisation accordée), puis coller la demande dans Claude Code ou Codex ; en
 Pro, « Créer mon espace » (`/signup?offre=pro`), le pas-à-pas et la même demande, à coller une fois le plugin installé
 et relié (ces mots mènent à son pas-à-pas). La demande reprend l'offre et les réponses, et la page d'origine : générique sur
 « Démarrer », la boutique sur « Boutiques Shopify », l'app sur « SaaS et app builders », qui portent le même tunnel. Les

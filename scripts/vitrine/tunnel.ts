@@ -7,6 +7,8 @@ import { AUTORISATION_CODEX, COMMANDES_CODEX, COMMANDES_PLUGIN, DEPOT_PLUGIN, SE
 import { ACCUEIL, fichierDe, fil, page } from './cas';
 import type { Langue } from './cas-textes';
 import { echapper, insecables } from './guide-meta';
+import { dimensionsWebp, versionnee } from './images';
+import { LOGOS_ASSISTANTS } from './logos-assistants';
 import {
   lienHtml,
   TEXTES_TUNNEL, demandeDe, type Issue, type IssueBranchement, type Lien, type Mot, type OffreTunnel, type Origine, type Question, type Reponse, type Voie,
@@ -23,17 +25,11 @@ const CONTACT: Readonly<Record<Langue, string>> = { fr: '/contact/', en: '/en/co
  */
 export const commandeHtml = (c: string): string => echapper(c).replace(/(\S)([/@:])/g, '$1$2<wbr>');
 
-/**
- * Les marques `{nom}` d'un texte des étapes de la Free, remplacées par leur commande (`commandeHtml`) en `<code>`. Toute
- * marque sans commande lève, quelle que soit sa forme (`{Mcp}`, `{c_1}`), et une clé héritée (`{constructor}`) n'en est
- * pas une : une étape publiée avec une marque en clair serait une page cassée que rien d'autre ne verrait.
- */
-export function avecCommandes(texte: string, commandes: Readonly<Record<string, string>>): string {
-  return texte.replace(/\{([^{}\s]+)\}/g, (_, nom: string) => {
-    if (!Object.hasOwn(commandes, nom)) throw new Error(`étape de la Free : marque {${nom}} sans commande`);
-    return `<code>${commandeHtml(commandes[nom]!)}</code>`;
-  });
-}
+/** Les assistants des étapes de la Free : leur logo (`LOGOS_ASSISTANTS`, celui des tuiles de la page SaaS) et leur nom. */
+const ASSISTANTS = { claude: 'Claude Code', codex: 'Codex' } as const;
+type Assistant = keyof typeof ASSISTANTS;
+const logo = (cle: Assistant): string =>
+  `<span class="bt-assist bt-assist-${cle}"><svg viewBox="${LOGOS_ASSISTANTS[cle].viewBox}" aria-hidden="true">${LOGOS_ASSISTANTS[cle].corps}</svg></span>`;
 
 /** La page qui porte le tunnel seul ; `?offre=` (free, pro, business, entreprise) y répond à la première question (`site.js`). */
 export const DEMARRER: Readonly<Record<Langue, string>> = { fr: '/demarrer/', en: '/en/get-started/' };
@@ -129,18 +125,32 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     `            <p class="bt-demande-titre">${titre}</p>`,
     boite(x, offre, '            '),
   ];
-  // Les étapes de la Free (Julien, 2026-11-09), leurs commandes celles des manifestes du plugin (`web/lib/demarrer.ts`).
+  // Les étapes de la Free (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte »), leurs commandes celles
+  // des manifestes du plugin (`web/lib/demarrer.ts`).
   const ef = a.etapesFree;
   // Une commande par ligne : lisible, et copiable, jusqu'au téléphone. Les retours à la ligne autour de chacune ne se
   // voient pas (la ligne est une colonne flexible) mais la mettent seule sur sa ligne pour qui lit le texte seul (robots,
   // mode lecture, et `tests/vitrine-developpeurs.test.ts`, qui reconnaît ainsi chaque commande du plugin).
   const lignes = (cmds: readonly string[]) => `<p class="bt-cmds">\n${cmds.map((c) => `<code>${commandeHtml(c)}</code>`).join('\n')}\n</p>`;
-  const relier = { mcp: '/mcp', serveur: SERVEUR_PLUGIN_MCP, login: AUTORISATION_CODEX };
+  // Un assistant par ligne : son logo et son nom, un indice de deux ou trois mots, et en face ce qu'on y tape.
+  const outil = (cle: Assistant, indice: string, contenu: string) =>
+    `<div class="bt-outil"><div class="bt-outil-tete">${logo(cle)}<span class="bt-outil-nom">${ASSISTANTS[cle]}<small>${indice}</small></span></div>${contenu}</div>`;
+  // Dans Claude Code, on TAPE `/mcp`, puis on CHOISIT le serveur et Authenticate dans ses listes : deux choix, pas des
+  // commandes, d'où leur forme à part (`.bt-choix`).
+  const suite = `<p class="bt-suite"><code>/mcp</code><span class="bt-puis" aria-hidden="true">›</span><span class="bt-choix">${commandeHtml(SERVEUR_PLUGIN_MCP)}</span><span class="bt-puis" aria-hidden="true">›</span><span class="bt-choix">Authenticate</span></p>`;
+  // Les écrans de la page d'autorisation qui s'ouvre ensuite, capturés sur la vraie page (`ecrans` des textes) : leur
+  // adresse porte l'empreinte du fichier, et leurs dimensions viennent de lui.
+  const ecrans = ef.relier.ecrans.map((e, i) => {
+    const adresse = `/img/demarrer/autoriser-${i + 1}${langue === 'en' ? '-en' : ''}.webp`;
+    const { largeur, hauteur } = dimensionsWebp(adresse);
+    return `<li><figure class="bt-ecran"><span class="bt-fenetre"><img src="${versionnee(adresse)}" alt="${echapper(e.alt).replace(/"/g, '&quot;')}" width="${largeur}" height="${hauteur}" loading="lazy" decoding="async"></span><figcaption>${e.legende}</figcaption></figure></li>`;
+  }).join('');
   const etapesFree = (x: IssueBranchement) => [
     '            <ol class="bt-etapes bt-etapes-fin">',
-    `              <li><span class="bt-num">1</span><div><h4>${ef.installer.titre}</h4><p>${ef.installer.claude}</p>${lignes(COMMANDES_PLUGIN)}<p>${ef.installer.codex}</p>${lignes(COMMANDES_CODEX)}`,
+    `              <li><span class="bt-num">1</span><div><h4>${ef.installer.titre}</h4><div class="bt-outils">${outil('claude', ef.installer.claude, lignes(COMMANDES_PLUGIN))}${outil('codex', ef.installer.codex, lignes(COMMANDES_CODEX))}</div>`,
     `                <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="${PLUGIN[langue]}">${a.plugin}</a><a class="bouton bouton-trait" href="${DEPOT_PLUGIN}" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>${a.github}</a></div></div></li>`,
-    `              <li><span class="bt-num">2</span><div><h4>${ef.relier.titre}</h4>${ef.relier.texte.map((t) => `<p>${avecCommandes(t, relier)}</p>`).join('')}</div></li>`,
+    `              <li><span class="bt-num">2</span><div><h4>${ef.relier.titre} <span class="bt-oblig">${ef.relier.obligatoire}</span></h4><div class="bt-outils">${outil('claude', ef.relier.claude, suite)}${outil('codex', ef.relier.codex, lignes([AUTORISATION_CODEX]))}</div>`,
+    `                <p class="bt-ecrans-titre">${ef.relier.navigateur}</p><ol class="bt-ecrans">${ecrans}</ol></div></li>`,
     `              <li><span class="bt-num">3</span><div><h4>${ef.coller}</h4>`,
     boite(x, 'free', '                '),
     '              </div></li>',
