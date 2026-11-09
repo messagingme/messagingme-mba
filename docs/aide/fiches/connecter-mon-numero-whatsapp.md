@@ -2,7 +2,7 @@
 description: Connecter un numéro WhatsApp à Messaging Me depuis la fenêtre de Meta, en obtenir un si besoin, le faire vérifier, puis lire son état sur l'Accueil.
 ecran: accueil
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 64d54e
+source_empreinte: 729fd3
 publique: oui
 rubrique: demarrer
 rang: 3
@@ -39,10 +39,13 @@ s'affiche. Ensuite, dans l'ordre :
 
 - « Ouvrir la fenêtre de Meta » ;
 - à l'écran du numéro, « Enter a new phone number », le pays GB (+44), puis les chiffres qui suivent +44 ;
-- la vérification par SMS (« Text message ») si Meta vous laisse le choix ;
+- **pour recevoir le code, choisissez « Phone call » (l'appel), surtout pas « Text message »** ;
 - le code s'affiche sur la page en quelques secondes, recopiez-le dans la fenêtre ; sans code au bout de 45
-  secondes, attendez que Meta propose de le renvoyer et essayez l'autre méthode ;
+  secondes, attendez que Meta propose de le renvoyer et redemandez-le, toujours par « Phone call » ;
 - enfin, allez jusqu'au dernier écran de Meta (« Finish »), qui termine la connexion.
+
+Si la fenêtre de Meta ne propose que « Text message », prenez-le : le SMS nous parvient lu à voix haute par un appel,
+et le code s'affiche en général de la même façon.
 
 Si Meta refuse ce numéro, « En obtenir un autre » vous en donne un nouveau. « Gérer mon abonnement », sur cette
 page, ouvre le portail de Stripe (carte, factures, résiliation) ; depuis Claude Code, demandez-le à Claude.

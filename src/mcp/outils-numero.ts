@@ -1,5 +1,5 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
-import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI } from '../../web/lib/partage/etapes-numero-fourni';
+import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '../../web/lib/partage/etapes-numero-fourni';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, PREREQUIS_META } from '../../web/lib/partage/etapes-meta';
 import { AIDE_GARDER_APPLICATION } from '../../web/lib/partage/aide-connexion';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
@@ -182,6 +182,18 @@ const AVANT_LE_LIEN_GARDER = 'Avant le lien, dis-lui en quelques lignes, dans sa
   + `autre langue ${AIDE_GARDER_APPLICATION.en} . `;
 
 /**
+ * L'APPEL, PAS LE SMS (lot 2c, décision de Julien du 2026-11-09 : « il faut lourdement insister ») : l'étape `insiste`
+ * des étapes du numéro fourni, redite à part après elles, puis la seule exception, dite discrètement. Citées après un
+ * deux-points, sans guillemets autour : elles portent déjà les leurs.
+ */
+const ETAPE_APPEL = ETAPES_NUMERO_FOURNI.filter((e) => e.insiste).map((e) => e.fr).join(' ');
+const INSISTE_APPEL = `Insiste lourdement, et redis-le à part après les étapes : ${ETAPE_APPEL} `
+  + `Ajoute seulement ensuite, en passant : ${SI_SEUL_TEXT_MESSAGE.fr} `;
+/** La suite d'une attente revient à chaque tour : l'insistance n'accompagne que des étapes redonnées (jaune 1 du lot). */
+const INSISTE_APPEL_SI_REDONNEES = `Si tu les redonnes, insiste lourdement, et redis-le à part après elles : ${ETAPE_APPEL} `
+  + `Ajoute seulement ensuite, en passant : ${SI_SEUL_TEXT_MESSAGE.fr} `;
+
+/**
  * La consigne du numéro fourni : les étapes de la page (`ETAPES_NUMERO_FOURNI`, la même source), encadrées par le lien
  * et le paiement avant, et par le retour vers Claude après « Finish » (essai 99, ordre de Julien). En Pro (J4 de la
  * relecture de B2b), le numéro est inclus : la page l'obtient sans payer, et Claude n'annonce pas un prix qu'elle ne
@@ -198,7 +210,8 @@ const consigneFourni = (inclusDansLePro: boolean, url: string): string =>
     ...ETAPES_NUMERO_FOURNI.map((e) => e.fr),
     'Revenir te voir seulement une fois l’écran « Finish » passé.',
   ])
-  + ' Appelle ensuite watch_whatsapp_connection : le code arrivera aussi ici, écris-le-lui en entier dès qu’il arrive.'
+  + ` ${INSISTE_APPEL}`
+  + 'Appelle ensuite watch_whatsapp_connection : le code arrivera aussi ici, écris-le-lui en entier dès qu’il arrive.'
   + SI_ELLE_REVIENT;
 
 const CONSIGNES = {
@@ -409,7 +422,7 @@ function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string
   if (e.fourni && e.codeDejaCapte && destination === undefined) return destinationInconnue(e.fourni);
   if (e.fourni) {
     return `Le numéro ${e.fourni} est attribué. Redonne à la personne les étapes de la page si elle ne les a plus : `
-      + `${numerotees(ETAPES_NUMERO_FOURNI.map((x) => x.fr))} Le code arrivera aussi ici. ${RAPPEL_ATTENTE}`;
+      + `${numerotees(ETAPES_NUMERO_FOURNI.map((x) => x.fr))} ${INSISTE_APPEL_SI_REDONNEES}Le code arrivera aussi ici. ${RAPPEL_ATTENTE}`;
   }
   if (e.abonnement?.statut === 'actif') {
     // Payé, mais la réserve s'est vidée entre-temps : la page dit « en préparation », Claude aussi.

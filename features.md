@@ -2602,10 +2602,11 @@ scénario, comment importer des contacts.
   « Fournissez-moi un numéro » se paie d'abord (3,50 € HT par mois, abonnement Stripe, lot 3c) : « Payer » mène à la
   page de paiement de Stripe (code promo accepté), et le numéro britannique dédié de notre réserve n'est attribué qu'une fois le paiement
   confirmé ; la page l'affiche alors, avec un bouton Copier ; le client le tape dans la fenêtre de Meta (« Enter a new phone number », le pays GB +44, puis les chiffres qui
-  suivent +44) et choisit la vérification par SMS (« Text message ») si Meta le laisse choisir, que la ligne fixe
-  britannique lit à voix haute ; par appel comme par SMS, le code est capté par notre serveur et s'affiche sur la page
-  en quelques secondes, et le client le recopie. Sans code au bout de 45 secondes, il le redemande dans la fenêtre de
-  Meta par l'autre méthode. Il va enfin jusqu'au dernier écran de Meta (« Finish »), et le numéro est connecté comme un
+  suivent +44) et reçoit le code par « Phone call » (l'appel), surtout pas par « Text message » (2026-11-09 : la page
+  met l'étape en gras et Claude insiste ; le SMS, que la ligne fixe britannique lit à voix haute, ne se prend que si la
+  fenêtre ne propose rien d'autre) ; le code est capté par notre serveur et s'affiche sur la page en quelques
+  secondes, et le client le recopie. Sans code au bout de 45 secondes, il le redemande dans la fenêtre de Meta,
+  toujours par « Phone call ». Il va enfin jusqu'au dernier écran de Meta (« Finish »), et le numéro est connecté comme un
   autre. La page et Claude donnent les mêmes étapes, écrites une seule fois. Si Meta refuse ce numéro, « En obtenir un autre » en donne un
   nouveau ; « Abandonner » le rend à la réserve (si l'abonnement court encore, la page dit qu'il continue jusqu'à sa
   résiliation), et un numéro rendu va d'abord à un abonné qui attend le sien. Payé mais la réserve vide : la page dit

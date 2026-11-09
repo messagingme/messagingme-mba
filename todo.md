@@ -1,5 +1,16 @@
 # todo.md : backlog
 
+## 🟡 Le lot 2c de l'aide à la connexion : ce qu'il laisse (2026-11-09)
+
+« Phone call », pas « Text message », pour un numéro fourni (plan `2026-11-09-aide-connexion-lot-2c.md`). Rien ne
+bloque.
+
+- **Le film de la fiche « Connecter mon numéro WhatsApp »** (52 s, `scripts/vitrine/aide-films.ts`, publié le
+  2026-10-21) montre sans doute « Text message » choisi, comme la capture générique d'avant le lot : la fiche et le film
+  se contredisent jusqu'à ce qu'il soit refait. À refaire avec les rushes de Julien, comme le visuel de l'étape.
+- **Le visuel de l'étape de l'appel** (décision de Julien du 2026-11-09) : la vraie capture de la fenêtre de Meta,
+  « Phone call » choisi, tirée de ses rushes, pour la console, la fiche et la vitrine.
+
 ## 🟡 L'agent de Meta : ce que le relevé du 2026-11-09 laisse à faire (`docs/MBA-API-REFERENCE.md`, relevé du 2026-11-09)
 
 - **Une consigne refusée par Meta passe inaperçue** : l'étape « Consignes » se dit faite dès qu'UNE consigne est

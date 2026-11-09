@@ -59,7 +59,8 @@ function fenetre(etape: 1 | 2 | 3, t: Record<string, string>): string {
   const corps = etape === 1
     ? `<h4>${echapper(t.portefeuille)}</h4><span class="mradio on"><i></i>${MARQUE}</span><span class="mradio"><i></i>${echapper(t.autre)}</span>`
     : etape === 2
-      ? `<h4>${echapper(t.numero)}</h4><span class="mchamp">${NUMERO}</span><p class="mchoix"><b>● ${echapper(t.sms)}</b><span>○ ${echapper(t.appel)}</span></p>`
+      // L'appel coché, jamais le SMS (lot 2c, décision de Julien du 2026-11-09) : la vraie capture viendra de ses rushes.
+      ? `<h4>${echapper(t.numero)}</h4><span class="mchamp">${NUMERO}</span><p class="mchoix"><span>○ ${echapper(t.sms)}</span><b>● ${echapper(t.appel)}</b></p>`
       : `<h4>${echapper(t.code)}</h4><div class="mcode">${[...CODE].map((c) => `<i>${c}</i>`).join('')}</div>`;
   return `<div class="fen"><div class="nav-barre"><i></i><i></i><i></i><span>Meta</span></div><div class="mcorps">`
     + `<div class="mbarres">${barres}</div><div class="mstep">${corps}</div>`

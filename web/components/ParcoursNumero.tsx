@@ -8,7 +8,7 @@ import { useConnexionNumero } from '@/lib/connexion-numero';
 import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
 import { COEXISTENCE_BOUTON, COEXISTENCE_PHRASES, FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
 import { repriseDuNumeroFourni } from '@/lib/lien-numero';
-import { ETAPES_NUMERO_FOURNI } from '@/lib/partage/etapes-numero-fourni';
+import { ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '@/lib/partage/etapes-numero-fourni';
 import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { QrApplication } from '@/components/QrApplication';
@@ -31,8 +31,9 @@ type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
  * et chaque voie qui garde l'application le dit (`NOTE_CARTE_APPLICATION`).
  *
  * Les trois choix où elles mènent. « Fournissez-moi un numéro » : un numéro de notre réserve s'affiche ; le client le
- * tape dans la fenêtre de Meta, par SMS de préférence (la ligne fixe le lit à voix haute), sinon par la voix ; notre
- * Asterisk capte le code dans les deux cas, et le parcours l'affiche pour qu'il le recopie. Les étapes affichées sont
+ * tape dans la fenêtre de Meta, et reçoit le code par l'appel, l'étape `insiste` mise en gras (lot 2c, décision de
+ * Julien du 2026-11-09) ; le SMS seulement si la fenêtre ne propose rien d'autre (la ligne fixe le lit à voix haute).
+ * Notre Asterisk capte le code dans les deux cas, et le parcours l'affiche pour qu'il le recopie. Les étapes affichées sont
  * celles que Claude redit (`ETAPES_NUMERO_FOURNI`, essai réel 99). « J'ai déjà un numéro » : la fenêtre de Meta, comme depuis l'Accueil.
  * « Garder mon application WhatsApp Business » : la même fenêtre en coexistence (plan 2026-10-24), le numéro reste dans
  * l'application.
@@ -411,8 +412,16 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
             </div>
             {/* Les mêmes étapes que celles que Claude redit (`src/mcp/outils-numero.ts`) : une seule source. */}
             <ol data-testid="etapes-numero-fourni" className="mt-4 list-decimal space-y-1 pl-5 text-sm text-ink-700">
-              {(dansApplication ? ETAPES_COMPTE_FOURNI : ETAPES_NUMERO_FOURNI).map((e) => <li key={e.fr}>{t(e.fr, e.en)}</li>)}
+              {(dansApplication ? ETAPES_COMPTE_FOURNI : ETAPES_NUMERO_FOURNI).map((e) => (
+                // L'étape de l'appel (`insiste`), en gras : celle où tout se joue (lot 2c).
+                <li key={e.fr} className={'insiste' in e && e.insiste ? 'font-semibold text-ink-900' : undefined} data-insiste={'insiste' in e && e.insiste ? '' : undefined}>
+                  {t(e.fr, e.en)}
+                </li>
+              ))}
             </ol>
+            {!dansApplication && (
+              <p data-testid="si-seul-text-message" className="mt-2 pl-5 text-xs text-ink-500">{t(SI_SEUL_TEXT_MESSAGE.fr, SI_SEUL_TEXT_MESSAGE.en)}</p>
+            )}
             <div className="mt-4">
               {/* Mis dans l'application (plan 2026-10-31) : une fois le compte créé, la même fenêtre qu'en coexistence. */}
               {!dansApplication ? boutonFenetre : !application ? boutonCoexistence : !qrDemande ? (

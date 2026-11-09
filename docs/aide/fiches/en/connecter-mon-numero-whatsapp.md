@@ -1,7 +1,7 @@
 ---
 description: Connect a WhatsApp number to Messaging Me from Meta's window, get one if needed, have it verified, then read its status on the Home screen.
 slug: connect-my-whatsapp-number
-traduit_de: 53cd8a
+traduit_de: 3a9b47
 ---
 # Connect my WhatsApp number, and read its status
 
@@ -31,10 +31,13 @@ order:
 
 - “Open the Meta window”;
 - on the number screen, “Enter a new phone number”, the country GB (+44), then the digits that follow +44;
-- verification by SMS (“Text message”) if Meta lets you choose;
+- **to get the code, choose “Phone call”, NOT “Text message”**;
 - the code appears on the page within a few seconds, copy it into the window; with no code after 45 seconds, wait
-  for Meta to offer to resend it and try the other method;
+  for Meta to offer to resend it and ask for it again, still by “Phone call”;
 - finally, go all the way to Meta’s last screen (“Finish”), which completes the connection.
+
+If Meta’s window only offers “Text message”, take it: the text reaches us read aloud by a call, and the code usually
+shows the same way.
 
 If Meta refuses this number, “Get another one” gives you a new one. “Manage my subscription”, on this page, opens
 Stripe’s portal (card, invoices, cancellation); from Claude Code, ask Claude.
