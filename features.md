@@ -288,7 +288,8 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
 (Free, Pro ou Entreprise), qui mène à la page Offre, **Billing**, qui ouvre le portail de Stripe pour les factures
 (un espace qui n'a rien payé par carte le dit), Déconnexion ; depuis le 2026-10-13). RBAC = barrière serveur (preHandler), l'UI ne fait que masquer.
 - ✅ **Interface bilingue FR/EN COMPLÈTE** : un toggle dans le menu Compte bascule TOUTE l'interface en anglais
-  (mémorisé par navigateur, défaut français), **y compris les dates (« Today/Yesterday/12 July 2026 »), les
+  (mémorisé par navigateur ; sans choix, la langue du navigateur depuis le 2026-11-09 : français s'il est en
+  français, anglais pour toute autre langue, jamais mémorisée), **y compris les dates (« Today/Yesterday/12 July 2026 »), les
   nombres (« 1,000 »), les paliers d'envoi (« 1,000 customers / 24 h », « Unlimited ») et les pourcentages**. Le
   toggle est aussi disponible **avant connexion** (login, inscription, mot de passe oublié, invitation). Pour
   les clients internationaux (Dubaï) et le screencast d'App Review Meta.

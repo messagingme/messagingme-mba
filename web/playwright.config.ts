@@ -31,7 +31,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'line' : 'list',
-  use: { baseURL: 'http://localhost:3000', trace: 'on-first-retry' },
+  // 🔴 Un navigateur FRANÇAIS par défaut (aide à la connexion, lot 2) : depuis que la console prend la langue du
+  // navigateur, celle du système (l'anglais sur le Linux de la CI, le français sur un poste Windows français) ferait
+  // basculer toute la suite d'une langue à l'autre selon la machine. Un spec qui veut un autre navigateur le dit
+  // (`test.use({ locale })`, `e2e/langue-navigateur.spec.ts`).
+  use: { baseURL: 'http://localhost:3000', trace: 'on-first-retry', locale: 'fr-FR' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     // `next start` émet un warning avec `output: standalone`, mais sert correctement les pages client-rendues

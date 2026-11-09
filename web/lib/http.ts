@@ -9,7 +9,7 @@
  */
 
 import { getSession, clearSession } from './session';
-import { LOCALE_STORAGE_KEY, type Locale } from './locale';
+import { LOCALE_STORAGE_KEY, langueInitiale, type Locale } from './locale';
 import { estCorpsCodeRefuse } from './second-facteur';
 import { CORPS_OPAQUE_5XX } from './partage/textes-serveur';
 import { ACCES_SUSPENDU_EVENT, OFFRE_REFUSEE_EVENT, estAccesSuspendu, lireRefusOffre, lireSiegeRequis } from './offre';
@@ -33,7 +33,10 @@ import { ACCES_SUSPENDU_EVENT, OFFRE_REFUSEE_EVENT, estAccesSuspendu, lireRefusO
 export const BASE = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/+$/, '') || '/api/backend';
 
 /**
- * Langue de la console, lue à la SOURCE persistée plutôt que par le contexte React.
+ * Langue de la console, lue à la SOURCE (l'adresse, le choix mémorisé, le navigateur) plutôt que par le contexte React,
+ * par la MÊME règle que `LocaleProvider` (`langueInitiale`). Depuis que la console prend la langue du navigateur sans la
+ * mémoriser (aide à la connexion, lot 2), lire le seul choix mémorisé laisserait les erreurs en français sur une console
+ * en anglais. `window.navigator`, jamais le `navigator` global : sous Node, ce dernier dit la langue de la machine.
  *
  * `useT()` est un hook : inappelable ici, et ce module est appelé depuis des fonctions ordinaires. Or les
  * messages jetés ici remontent partout via `err.message` et s'affichaient en français sur une console en
@@ -48,7 +51,11 @@ export const BASE = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/+$/, '') 
 export function langue(): Locale {
   if (typeof window === 'undefined') return 'fr';
   try {
-    return window.localStorage.getItem(LOCALE_STORAGE_KEY) === 'en' ? 'en' : 'fr';
+    return langueInitiale({
+      recherche: window.location?.search ?? '',
+      memorisee: window.localStorage.getItem(LOCALE_STORAGE_KEY),
+      navigateur: window.navigator?.language,
+    }).locale;
   } catch {
     return 'fr';
   }

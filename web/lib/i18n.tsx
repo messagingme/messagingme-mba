@@ -8,9 +8,11 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
  * en parallèle : la traduction est co-localisée avec la chaîne (maintenable, pas de dérive). Anglais absent -> FR.
  *
  * Usage dans un composant :  const t = useT();  ...  {t('Bonjour', 'Hello')}
- * Défaut FR ; le choix (menu compte) est mémorisé par navigateur, et un lien `?lang=en` le pose (lot 18).
+ * À l'ouverture (`langueInitiale`, la même règle que les messages d'erreur de `http.ts`) : un lien `?lang=` (lot 18),
+ * sinon le choix mémorisé par navigateur (menu compte), sinon la langue du navigateur (aide à la connexion, lot 2) :
+ * français s'il est en français, anglais pour toute autre langue.
  */
-import { LOCALE_STORAGE_KEY, langueDeLAdresse, type Locale } from './locale';
+import { LOCALE_STORAGE_KEY, langueInitiale, type Locale } from './locale';
 export type { Locale } from './locale';
 const STORAGE_KEY = LOCALE_STORAGE_KEY;
 
@@ -21,27 +23,20 @@ interface LocaleCtx {
 const Ctx = createContext<LocaleCtx>({ locale: 'fr', setLocale: () => {} });
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  // Défaut 'fr' au 1er rendu (identique serveur/client -> pas de mismatch d'hydratation). Le choix mémorisé
-  // est appliqué APRÈS le montage (effet client), au prix d'un bref flash si l'utilisateur avait choisi EN.
+  // Défaut 'fr' au 1er rendu (identique serveur/client -> pas de mismatch d'hydratation). La langue retenue est
+  // appliquée APRÈS le montage (effet client), au prix d'un bref flash du français pour une console en anglais.
   const [locale, setLocaleState] = useState<Locale>('fr');
   useEffect(() => {
-    // La langue de l'adresse d'abord (`?lang=en`, lot 18), et elle devient le choix mémorisé.
-    const parLAdresse = langueDeLAdresse(window.location.search);
-    if (parLAdresse) {
-      setLocaleState(parLAdresse);
-      try { window.localStorage.setItem(STORAGE_KEY, parLAdresse); } catch { /* non bloquant */ }
-      try { document.documentElement.lang = parLAdresse; } catch { /* edge */ }
-      return;
-    }
-    try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved === 'fr' || saved === 'en') {
-        setLocaleState(saved);
-        // Resynchronise AUSSI <html lang> (le layout SSR pose lang="fr" par défaut) : sans ça, une préférence
-        // EN chargée affichait l'app en anglais avec un document déclaré... français.
-        try { document.documentElement.lang = saved; } catch { /* edge */ }
-      }
-    } catch { /* localStorage indisponible -> reste FR */ }
+    let memorisee: string | null = null;
+    try { memorisee = window.localStorage.getItem(STORAGE_KEY); } catch { /* localStorage indisponible : le navigateur décide */ }
+    // `window.navigator` et non le `navigator` global : la même lecture que `langue()` de `http.ts`.
+    const { locale: l, memoriser } = langueInitiale({ recherche: window.location.search, memorisee, navigateur: window.navigator?.language });
+    setLocaleState(l);
+    // Un lien `?lang=` devient le choix mémorisé ; la langue du navigateur, jamais.
+    if (memoriser) { try { window.localStorage.setItem(STORAGE_KEY, l); } catch { /* non bloquant */ } }
+    // Resynchronise AUSSI <html lang> (le layout SSR pose lang="fr" par défaut) : sans ça, une console en anglais
+    // aurait un document déclaré... français.
+    try { document.documentElement.lang = l; } catch { /* edge */ }
   }, []);
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);

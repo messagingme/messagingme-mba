@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { ApiError, attenteDemandee, messageDErreur, request } from './http';
+import { ApiError, attenteDemandee, langue, messageDErreur, request } from './http';
 import { OFFRE_REFUSEE_EVENT } from './offre';
 
 /**
@@ -99,5 +99,42 @@ describe('un 402 de l’offre', () => {
   it('un autre refus ne prévient personne (un 402 sans code d’offre, un 403)', async () => {
     expect((await appeler(402, { error: 'autre chose' })).recus).toEqual([]);
     expect((await appeler(403, { error: 'interdit', code: 'plan_feature_unavailable' })).recus).toEqual([]);
+  });
+});
+
+/**
+ * LA LANGUE DES MESSAGES D'ERREUR SUIT CELLE DE L'ÉCRAN (aide à la connexion, lot 2) : quand la console prend la langue
+ * du navigateur sans la mémoriser, `langue()` doit la lire aussi, sinon une console affichée en anglais garde ses erreurs
+ * en français. La même règle que `LocaleProvider` (`langueInitiale`), lue sur `window.navigator`, jamais sur le
+ * `navigator` global de Node, qui dirait la langue de la machine qui fait tourner les tests.
+ */
+describe('langue() des messages d’erreur', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  const fenetre = (o: { memorisee?: string | null; navigateur?: string; recherche?: string }) => ({
+    localStorage: { getItem: () => o.memorisee ?? null },
+    location: { search: o.recherche ?? '' },
+    ...(o.navigateur === undefined ? {} : { navigator: { language: o.navigateur } }),
+  });
+
+  it('🔴 sans choix mémorisé, la langue du navigateur', () => {
+    vi.stubGlobal('window', fenetre({ navigateur: 'en-US' }));
+    expect(langue()).toBe('en');
+    vi.stubGlobal('window', fenetre({ navigateur: 'fr-FR' }));
+    expect(langue()).toBe('fr');
+  });
+
+  it('le choix mémorisé l’emporte sur le navigateur, et l’adresse sur les deux', () => {
+    vi.stubGlobal('window', fenetre({ memorisee: 'fr', navigateur: 'en-US' }));
+    expect(langue()).toBe('fr');
+    vi.stubGlobal('window', fenetre({ memorisee: 'fr', navigateur: 'en-US', recherche: '?lang=en' }));
+    expect(langue()).toBe('en');
+  });
+
+  it('une fenêtre sans navigateur, ou sans stockage lisible : le français, jamais une erreur', () => {
+    vi.stubGlobal('window', fenetre({}));
+    expect(langue()).toBe('fr');
+    vi.stubGlobal('window', { localStorage: { getItem: () => { throw new Error('bloqué'); } }, location: { search: '' } });
+    expect(langue()).toBe('fr');
   });
 });
