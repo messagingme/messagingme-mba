@@ -62,6 +62,10 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     expect(fenetre).toMatch(/alerter: \(texte\) => sendTelegram\(`\[mba-\$\{NOM_API\}\] \$\{texte\}`\),/);
     expect(bloc('const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {', 'vue: {'))
       .toMatch(/fenetrePartenaire: async \(tenant\) => \(await solutionDuPartenaire\(fenetreDuPartenaire, tenant\)\) !== null,/);
+    // L'état des cartes lit « attend sa ligne » sur la VRAIE liste des numéros (relecture du lot E5, jaune 4) : une source
+    // qui ne le rendrait pas éteindrait l'attente en silence, `attendLigne` étant facultatif dans le type.
+    expect(bloc('const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {', '\n    },'))
+      .toMatch(/numeros: \(t\) => lignesCreditWhatsapp\.numerosDeLEspace\(t\),/);
     const connexion = bloc('embeddedSignup: (() => {', 'meta: esClient,');
     expect(connexion).toMatch(/solutionDuPartenaire: \(tenant: string\) => solutionDuPartenaire\(fenetreDuPartenaire, tenant\),/);
     expect(connexion).toMatch(/connexionParLaLigne\(fenetreDuPartenaire, tenant, n\)/);

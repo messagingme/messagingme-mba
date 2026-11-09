@@ -26,7 +26,7 @@ export interface DepsEtatLigne {
    * Un numéro de l'espace est-il arrivé par la fenêtre du partenaire (`phone_numbers.par_la_ligne_le`) ? Lu pour une
    * Entreprise seule : ailleurs, l'option payée dit déjà l'attente.
    */
-  arriveParLaLigne(tenantId: string): Promise<boolean>;
+  numeroAttendSaLigne(tenantId: string): Promise<boolean>;
 }
 
 /**
@@ -43,9 +43,9 @@ export interface SourcesEtatLigne {
     lignes(tenantId: string): Promise<ReadonlyArray<{ arreteeLe: Date | string | null }>>;
     /**
      * Les numéros de l'espace, la même lecture que la route et `get_setup_state` (`tousGardentLApplication`) ;
-     * `parLaLigne` : arrivé par la fenêtre du partenaire (`numerosDeLEspace`).
+     * `attendLigne` : arrivé par la fenêtre du partenaire, aucune ligne posée depuis (`numerosDeLEspace`).
      */
-    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean; parLaLigne?: boolean }>>;
+    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean; attendLigne?: boolean }>>;
   };
 }
 
@@ -54,7 +54,7 @@ export function lireEtatLigne(s: SourcesEtatLigne, tenantId: string): Promise<Et
   return etatLigneCredit({
     offre: (t) => s.option.offre(t), formulePayee: (t) => s.option.formulePayee(t), lignes: (t) => s.vue.lignes(t),
     option: (t) => s.option.options.vivante(t),
-    arriveParLaLigne: async (t) => (await s.vue.numeros(t)).some((n) => n.parLaLigne === true),
+    numeroAttendSaLigne: async (t) => (await s.vue.numeros(t)).some((n) => n.attendLigne === true),
   }, tenantId);
 }
 
@@ -88,7 +88,7 @@ export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promi
   if (lignes.length > 0) return lignes.some((l) => l.arreteeLe === null) ? 'active' : 'arretee';
   // Une Entreprise sans ligne : sur demande, sauf un numéro arrivé par la fenêtre du partenaire, qui attend sa pose dans
   // `/ops` (la carte ne lui dit plus « sur demande », ni l'Accueil d'ajouter sa carte chez Meta : `creditPaieMeta`).
-  if (offre === 'entreprise') return (await d.arriveParLaLigne(tenantId)) ? 'en_attente' : 'a_prendre';
+  if (offre === 'entreprise') return (await d.numeroAttendSaLigne(tenantId)) ? 'en_attente' : 'a_prendre';
   // Une option payée attend sa ligne, la formule payée ou non : un Pro passé en retard ne la remet pas à l'essai (jaune 5
   // de la relecture du lot B).
   const option = await d.option(tenantId);

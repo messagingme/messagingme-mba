@@ -93,34 +93,40 @@ describe('la connexion faite par la ligne', () => {
 
   it('🔴 un numéro reconnecté sur un compte déjà couvert par la ligne de l’option : le droit est dit, et rien n’est à poser (relecture du lot E, jaune 9 ; du lot E4, jaune 5)', async () => {
     // « Déconnecter le numéro » ne retire pas la ligne de l'option : le numéro qui revient est couvert par son compte.
-    const { d, alertes } = deps({ offre: 'pro', places: 1, couverts: ['pn-1'], rattaches: 1 });
+    const { d, alertes, marques } = deps({ offre: 'pro', places: 1, couverts: ['pn-1'], rattaches: 1 });
     await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
     expect(alertes).toHaveLength(1);
     expect(alertes[0]).toMatch(/^Numéro connecté par la ligne du partenaire : .*\(compte waba-1\)\. Son compte WhatsApp est déjà couvert par la ligne de l’option : rien à poser dans \/ops ; vérifier que le partenaire a attaché sa ligne à ce compte\.$/);
+    // Rien à poser, rien n'attend : pas de marque (le rouge de la relecture du lot E5).
+    expect(marques).toEqual([]);
   });
 
-  it('🔴 sans le droit (l’identifiant réutilisé hors de sa garde) : ne pas poser, et demander au partenaire de ne rien attacher', async () => {
+  it('🔴 sans le droit (l’identifiant réutilisé hors de sa garde) : ne pas poser, et demander au partenaire de ne rien attacher ; aucune marque', async () => {
     // Le numéro vient d'arriver : le droit se relit SANS la condition « aucun numéro ».
-    const { d, alertes } = deps({ offre: 'base', rattaches: 1 });
-    await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: null, numero: null });
+    const { d, alertes, marques } = deps({ offre: 'base', rattaches: 1 });
+    await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
     expect(alertes[0]).toMatch(/^Numéro connecté par la fenêtre du partenaire SANS droit à la ligne : espace .* \(compte waba-1\)\. Ne pas poser la ligne ; demander au partenaire de ne rien attacher à ce compte, ou de détacher sa ligne ; voir avec le client\.$/);
+    // 🔴 Une marque sans droit attendrait une ligne que personne ne posera, et se réveillerait si l'espace passe en Entreprise.
+    expect(marques).toEqual([]);
   });
 
-  it('🔴 la fenêtre fermée chez nous (variable vidée, page restée ouverte) : la fin alerte quand même, au lieu de se taire (relecture du lot E4, jaune 1)', async () => {
+  it('🔴 la fenêtre fermée chez nous (variable vidée, page restée ouverte) : la fin alerte quand même, au lieu de se taire (relecture du lot E4, jaune 1) ; aucune marque, la décision est à Julien', async () => {
     const { d, alertes, marques } = deps({ offre: 'entreprise', places: null, solutionId: '' });
     await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
-    expect(marques).toEqual(['pn-1']);
+    expect(marques).toEqual([]);
     expect(alertes).toHaveLength(1);
     expect(alertes[0]).toMatch(/^Numéro connecté par la fenêtre du partenaire alors qu’elle est FERMÉE chez nous \(variable vide ou inscription éteinte\) : .*\(compte waba-1\)\. Vérifier chez Meta s’il est partagé avec le partenaire ; ne rien poser sans décision\.$/);
   });
 
   it('🔴 un droit illisible (la base) n’empêche pas l’alerte : Julien vérifie l’espace avant de poser (relecture du lot E, jaune 3)', async () => {
-    const { d, alertes } = deps({ offre: 'entreprise', places: null });
+    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null });
     d.offre = async () => { throw new Error('base indisponible'); };
     const { lignes } = await capturerJournal(() => connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null }));
     expect(alertes).toHaveLength(1);
     expect(alertes[0]).toMatch(/^Numéro connecté par la fenêtre du partenaire, droit illisible : .*\(compte waba-1\)\. Vérifier l’espace dans \/ops avant de poser la ligne\.$/);
     expect(lignes).toEqual(expect.arrayContaining([expect.objectContaining({ msg: 'droit_a_la_ligne_illisible', tenantId: T })]));
+    // Le droit n'est pas su : aucune marque, la décision est à Julien.
+    expect(marques).toEqual([]);
   });
 
   it('🔴 une alerte qui ne part pas laisse une trace dans le journal, avec son texte (relecture du lot E, jaune 3 ; l’alerte de l’essai 236 jamais reçue)', async () => {

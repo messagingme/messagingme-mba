@@ -87,24 +87,22 @@ async function alerterSansPerte(d: Pick<DepsFenetrePartenaire, 'alerter'>, tenan
 }
 
 /**
- * Un numéro vient d'être connecté par la fenêtre du partenaire : il est marqué (la trace en base), puis Julien est alerté
- * du geste à faire. La ligne du partenaire ne s'attache pas d'elle-même (essai 236) : poser la nôtre tout de suite (un
- * envoi que Meta refuse faute de paiement rend sa provision), puis la lui demander. Le droit se relit SANS la condition
- * « aucun numéro », et sans compter le numéro qui vient d'arriver ; sans lui (l'identifiant réutilisé hors de sa garde),
- * ne rien poser. Variable vide (fenêtre fermée chez nous, une page restée ouverte), l'alerte le dit au lieu de se taire.
- * Ne lève jamais : la connexion est faite.
+ * Un numéro vient d'être connecté par la fenêtre du partenaire : Julien est alerté du geste à faire. La ligne du
+ * partenaire ne s'attache pas d'elle-même (essai 236) : poser la nôtre tout de suite (un envoi que Meta refuse faute de
+ * paiement rend sa provision), puis la lui demander. Le droit se relit SANS la condition « aucun numéro », et sans compter
+ * le numéro qui vient d'arriver ; sans lui (l'identifiant réutilisé hors de sa garde), ne rien poser. Variable vide
+ * (fenêtre fermée chez nous, une page restée ouverte), l'alerte le dit au lieu de se taire.
+ *
+ * 🔴 Le numéro n'est marqué (« il attend sa ligne ») QUE quand l'alerte dit de poser : une marque posée sans droit, fenêtre
+ * fermée ou droit illisible attendrait une ligne que personne ne posera, et l'Entreprise ne lirait plus le conseil de sa
+ * carte chez Meta (le rouge de la relecture du lot E5). L'audit `numero.connecte` garde, lui, toute connexion par la
+ * fenêtre. Ne lève jamais : la connexion est faite.
  */
 export async function connexionParLaLigne(
   d: DepsFenetrePartenaire, tenantId: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null },
 ): Promise<void> {
   const qui = `espace ${tenantId}, ${n.numero ?? n.phoneNumberId ?? 'sans numéro'} (compte ${n.wabaId})`;
-  if (n.phoneNumberId !== null) {
-    try {
-      await d.marquer(tenantId, n.phoneNumberId);
-    } catch (err) {
-      journaliser('error', 'marque_par_la_ligne_impossible', { tenantId, phoneNumberId: n.phoneNumberId, err });
-    }
-  }
+  let aPoser = false;
   let texte: string;
   if (d.solutionId === '') {
     texte = `Numéro connecté par la fenêtre du partenaire alors qu’elle est FERMÉE chez nous (variable vide ou inscription éteinte) : ${qui}. Vérifier chez Meta s’il est partagé avec le partenaire ; ne rien poser sans décision.`;
@@ -116,10 +114,19 @@ export async function connexionParLaLigne(
         texte = `Numéro connecté par la ligne du partenaire : ${qui}. Son compte WhatsApp est déjà couvert par la ligne de l’option : rien à poser dans /ops ; vérifier que le partenaire a attaché sa ligne à ce compte.`;
       } else {
         texte = `Numéro connecté par la ligne du partenaire : ${qui}. Poser la ligne dans /ops tout de suite, puis demander au partenaire d’attacher sa ligne de crédit à ce compte WhatsApp : elle ne s’attache pas d’elle-même.`;
+        aPoser = true;
       }
     } catch (err) {
       journaliser('error', 'droit_a_la_ligne_illisible', { tenantId, wabaId: n.wabaId, err });
       texte = `Numéro connecté par la fenêtre du partenaire, droit illisible : ${qui}. Vérifier l’espace dans /ops avant de poser la ligne.`;
+    }
+  }
+  // La marque d'abord, l'alerte ensuite : une alerte perdue laisse la trace ; une marque ratée n'empêche pas l'alerte.
+  if (aPoser && n.phoneNumberId !== null) {
+    try {
+      await d.marquer(tenantId, n.phoneNumberId);
+    } catch (err) {
+      journaliser('error', 'marque_par_la_ligne_impossible', { tenantId, phoneNumberId: n.phoneNumberId, err });
     }
   }
   await alerterSansPerte(d, tenantId, n.wabaId, texte);

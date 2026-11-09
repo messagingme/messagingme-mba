@@ -51,9 +51,11 @@ export interface NumeroDeLEspace extends NumeroPourLaLigne {
   nom: string | null;
   /**
    * Arrivé par la fenêtre du partenaire (`phone_numbers.par_la_ligne_le`, migration 0285, relecture du lot E, jaunes 3
-   * et 4) : une Entreprise attend alors sa ligne (`etatLigneCredit`).
+   * et 4) et AUCUNE ligne de l'espace posée depuis, retirées comprises : une Entreprise attend alors sa ligne
+   * (`etatLigneCredit`). 🔴 Une ligne posée depuis l'éteint pour de bon : retirée ensuite, l'Entreprise relit « sur
+   * demande » et le conseil de sa carte chez Meta (le rouge de la relecture du lot E5).
    */
-  parLaLigne: boolean;
+  attendLigne: boolean;
 }
 
 export class PgLignesCreditStore {
@@ -156,17 +158,21 @@ export class PgLignesCreditStore {
   async numerosDeLEspace(tenantId: string): Promise<NumeroDeLEspace[]> {
     const { rows } = await this.pool.query<{
       id: string; display_phone_number: string | null; verified_name: string | null; waba_id: string | null;
-      fournisseur: string; coexistence: boolean; delie: boolean; par_la_ligne: boolean;
+      fournisseur: string; coexistence: boolean; delie: boolean; attend_ligne: boolean;
     }>(
+      // `attend_ligne` : marqué par la fenêtre du partenaire, et aucune ligne de l'espace posée depuis, retirées comprises.
       `select p.id, p.display_phone_number, p.verified_name, p.waba_id, coalesce(w.fournisseur, 'meta') as fournisseur,
-              p.coexistence, p.delie_le is not null as delie, p.par_la_ligne_le is not null as par_la_ligne
+              p.coexistence, p.delie_le is not null as delie,
+              (p.par_la_ligne_le is not null and not exists (
+                 select 1 from lignes_credit_whatsapp l where l.tenant_id = p.tenant_id and l.depuis >= p.par_la_ligne_le
+              )) as attend_ligne
          from phone_numbers p left join waba_credentials w on w.waba_id = p.waba_id
         where p.tenant_id = $1 order by p.created_at, p.id`,
       [tenantId],
     );
     return rows.map((r) => ({
       phoneNumberId: r.id, numero: r.display_phone_number, nom: r.verified_name, wabaId: r.waba_id,
-      fournisseur: r.fournisseur, coexistence: r.coexistence, delie: r.delie, parLaLigne: r.par_la_ligne,
+      fournisseur: r.fournisseur, coexistence: r.coexistence, delie: r.delie, attendLigne: r.attend_ligne,
     }));
   }
 

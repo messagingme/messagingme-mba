@@ -121,8 +121,24 @@ describe.skipIf(!url)('les numéros sur la ligne du Crédit WhatsApp (0264)', ()
     // Rejouée, la marque garde son premier moment.
     expect(await lignes.marquerParLaLigne(t, 'itest-cwa-pl-1')).toBe(true);
     expect((await moment())?.getTime()).toBe(premier!.getTime());
-    expect((await lignes.numerosDeLEspace(t)).map((n) => [n.phoneNumberId, n.parLaLigne])).toEqual([
+    expect((await lignes.numerosDeLEspace(t)).map((n) => [n.phoneNumberId, n.attendLigne])).toEqual([
       ['itest-cwa-pl-1', true], ['itest-cwa-pl-2', false],
     ]);
+  });
+
+  it('🔴 une ligne posée après la marque l’éteint pour de bon : retirée ensuite, le numéro n’attend plus rien (le rouge de la relecture du lot E5)', async () => {
+    // Sans cela, une Entreprise dont la ligne a été retirée relisait « en attente » pour toujours, et plus personne ne lui
+    // disait d'ajouter sa carte chez Meta, alors que Meta bloquait ses envois.
+    const t = await espace();
+    await numero(t, 'itest-cwa-pl-3');
+    expect(await lignes.marquerParLaLigne(t, 'itest-cwa-pl-3')).toBe(true);
+    expect((await lignes.numerosDeLEspace(t))[0]?.attendLigne).toBe(true);
+    expect(await lignes.poser(t, 'itest-cwa-pl-3', 'waba-itest-cwa-pl-3', 'ops', 'essai 236')).toBe(true);
+    expect((await lignes.numerosDeLEspace(t))[0]?.attendLigne).toBe(false);
+    expect(await lignes.retirer(t, 'itest-cwa-pl-3')).toBe(true);
+    expect((await lignes.numerosDeLEspace(t))[0]?.attendLigne).toBe(false);
+    // Rejouée, la marque garde son premier moment : la ligne posée depuis l'éteint toujours.
+    expect(await lignes.marquerParLaLigne(t, 'itest-cwa-pl-3')).toBe(true);
+    expect((await lignes.numerosDeLEspace(t))[0]?.attendLigne).toBe(false);
   });
 });

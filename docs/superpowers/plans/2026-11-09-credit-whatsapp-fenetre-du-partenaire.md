@@ -180,3 +180,29 @@ une migration sont des chemins de production).
 posée). Une prochaine connexion par la fenêtre doit envoyer l'alerte au nouveau texte, et la carte d'une Entreprise dire
 « Votre ligne s'ouvre sous 24 h ouvrées » avant la pose.
 
+### La relecture du lot E5 (2026-11-09) : un rouge, corrigé ; 8 jaunes
+
+Commit `77f3988c`. **Le rouge** : la marque ne disparaissait qu'avec le numéro ; une ligne retirée (ou jamais posée sur
+décision de Julien) laissait l'Entreprise « en attente » pour toujours, et `creditPaieMeta` taisait « Ajoutez votre
+carte chez Meta » alors que Meta bloquait ses envois. Corrigé avant tout déploiement : le numéro n'est marqué que quand
+l'alerte dit de poser (jamais sans droit, fenêtre fermée ni droit illisible) ; l'attente (`attendLigne`) s'éteint dès
+qu'une ligne de l'espace a été posée depuis la marque, retirées comprises. Tests : quatre cas sans marque et la source de
+l'état, vus rouges sur l'ancien comportement ; l'extinction par une ligne posée puis retirée, en intégration (CI seule).
+Les huit jaunes, pour le lot suivant :
+1. « Poser tout de suite » : entre la pose et l'attache du partenaire, la carte dit « payés par votre Crédit WhatsApp »
+   et une campagne lancée alors échoue en entier ; un compte qui aurait déjà un moyen de paiement chez Meta serait débité
+   deux fois. À Julien : vérifier le moyen de paiement chez Meta avant de poser, et ce que dit la carte pendant l'attente.
+2. Un corps forgé (`code` bidon, `parLaLigne: true`) déclenche l'alerte « connexion REFUSÉE » à volonté, et `wabaId`,
+   ni borné ni validé, part dans le texte : une alerte de refus par espace et par demi-heure, `wabaId` cité s'il est fait
+   de chiffres.
+3. La cause de l'alerte perdue de l'essai 236 reste inconnue : relire les lignes `[telegram]` du conteneur de l'API, ou
+   lister dans `/ops` les espaces dont un numéro attend sa ligne.
+4. `attendLigne` est facultatif dans les types : le câblage réel est désormais épinglé (`tests/credit-whatsapp-cablage`).
+5. « Déjà couvert » ne lit que les lignes de l'option : une Entreprise reconnectée sur un compte couvert par une ligne
+   `ops` reçoit « poser » et `/ops` répond « déjà sur la ligne » ; lire la couverture toute origine.
+6. Un compte relié sans numéro : « poser tout de suite » sans numéro à poser, et le numéro ajouté ensuite n'est jamais
+   marqué.
+7. Une exception après le rattachement (`saveCredentials`) rend 500 sans marque ni alerte, alors que le compte est
+   partagé : un `catch` qui alerte quand `parLaLigne`.
+8. Le journal d'une alerte perdue garde le numéro affiché dans son texte, quand l'audit refuse de le garder.
+

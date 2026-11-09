@@ -4683,16 +4683,18 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   son guide dans le même clic que la fenêtre, sans recharger la page (chaque voie porte sa connexion ; seule celle dont
   le bouton a ouvert la fenêtre en envoie la fin). Le crochet refuse d'ouvrir la fenêtre sans identifiant, jamais une connexion
   directe à sa place. `POST /embedded-signup/complete` reçoit `parLaLigne` (la trace d'audit `numero.connecte` le garde),
-  marque le numéro arrivé (`phone_numbers.par_la_ligne_le`, migration 0285, la trace en base), relit le droit (sans la
-  condition « aucun numéro », et sans compter parmi les couverts le numéro qui vient d'arriver) et alerte Julien
-  (`connexionParLaLigne`). Mesuré à l'essai réel 236 : le compte est bien partagé avec le partenaire, mais **sa ligne ne
+  relit le droit (sans la condition « aucun numéro », et sans compter parmi les couverts le numéro qui vient d'arriver),
+  marque le numéro SEULEMENT quand l'alerte dit de poser (`phone_numbers.par_la_ligne_le`, migration 0285 : il attend sa
+  ligne) et alerte Julien (`connexionParLaLigne`). 🔴 Une ligne de l'espace posée depuis la marque l'éteint pour de bon :
+  retirée ensuite, l'Entreprise relit « sur demande » et le conseil de sa carte chez Meta (`numerosDeLEspace`,
+  `attendLigne` ; le rouge de la relecture du lot E5). Mesuré à l'essai réel 236 : le compte est bien partagé avec le partenaire, mais **sa ligne ne
   s'attache pas d'elle-même** ; l'alerte dit donc de poser la ligne dans `/ops` tout de suite (un envoi refusé par Meta
   faute de paiement rend sa provision) puis de demander l'attache au partenaire ; un compte déjà couvert par la ligne de
   l'option, rien à poser ; sans droit, ne rien poser et demander au partenaire de ne rien attacher ; la fenêtre fermée chez
   nous (variable vide, page restée ouverte) ou un droit illisible, l'alerte le dit. Une fin `parLaLigne` que notre serveur
   refuse alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé. Une alerte que Telegram ne
   reçoit pas se journalise (`alerte_fenetre_partenaire_perdue`) : celle de l'essai 236 n'est jamais arrivée. Une
-  Entreprise dont un numéro est arrivé par la fenêtre lit `en_attente` tant qu'aucune ligne n'est posée (`etatLigneCredit`) :
+  Entreprise dont un numéro attend sa ligne lit `en_attente` (`etatLigneCredit`) :
   la carte dit « Votre ligne s'ouvre sous 24 h ouvrées », l'Accueil et `get_setup_state` ne lui demandent pas sa carte
   chez Meta (`creditPaieMeta`). La pose automatique attend la réponse du partenaire sur son mode d'attache.
 - 🔴 **La conversion et l'arrêt dits au client** (révision du 2026-11-04, lot C). La conversion
