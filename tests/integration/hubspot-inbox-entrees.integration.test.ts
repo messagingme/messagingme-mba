@@ -133,6 +133,15 @@ describe.skipIf(!url)('Inbox HubSpot : seules les conversations qui attendent un
     expect(lus).not.toContain('après la sortie');
   });
 
+  it('🔴 un contact qui dit STOP pendant que sa conversation est dans l’Inbox l’en fait sortir', async () => {
+    await pool.query(`update conversations set traitee_le = null, last_direction = 'in' where id = $1`, [ids['escaladee']]);
+    expect(await store.ouvrirEntree(t1, ids['escaladee']!)).toBe(true);
+    expect(await store.fermerSorties(t1)).toBe(0);
+    await pool.query(`update contacts set opt_in_status = 'opted_out' where id = (select contact_id from conversations where id = $1)`, [ids['escaladee']]);
+    expect(await store.fermerSorties(t1)).toBe(1);
+    await pool.query(`update contacts set opt_in_status = 'unknown' where id = (select contact_id from conversations where id = $1)`, [ids['escaladee']]);
+  });
+
   it('rebrancher (une autre boîte) ferme les entrées ouvertes', async () => {
     await pool.query(`update conversations set traitee_le = null, last_direction = 'in' where id = $1`, [ids['escaladee']]);
     expect(await store.ouvrirEntree(t1, ids['escaladee']!)).toBe(true);

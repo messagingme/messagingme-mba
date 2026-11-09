@@ -34,17 +34,24 @@ import { matchWaIdPredicat } from '../crm/contact-store.pg';
  * pour que les deux écrans ne divergent jamais. Il suppose `c` (la conversation) et `ct` (sa fiche, en jointure GAUCHE
  * sur `ct.id = c.contact_id`) ; il ne filtre PAS l'espace, chaque requête qui l'emploie pose `c.tenant_id = $1`.
  */
-export const ATTEND_UN_HUMAIN_SQL = `c.control_owner = 'app_human'
-            and ${A_TRAITER_SQL}
-            and c.archived_at is null
-            and c.release_mba_apres_message is null
-            and ct.blocked_at is null
+/**
+ * Le contact de la conversation est joignable : ni bloqué ni STOP, sur sa fiche ni sur aucune fiche de son numéro. Jamais
+ * NULL (`is null`, `is distinct from`, `not exists`), donc sa négation est sûre : l'Inbox HubSpot en fait sortir une
+ * conversation dont le contact devient STOP ou bloqué (décision de Julien, 2026-11-09).
+ */
+export const CONTACT_JOIGNABLE_SQL = `ct.blocked_at is null
             and ct.opt_in_status is distinct from 'opted_out'
             and not exists (
               select 1 from contacts x
                where x.tenant_id = c.tenant_id and ${matchWaIdPredicat('x.', 'c.wa_id')}
                  and (x.opt_in_status = 'opted_out' or (x.blocked_at is not null and x.deleted_at is null))
             )`;
+
+export const ATTEND_UN_HUMAIN_SQL = `c.control_owner = 'app_human'
+            and ${A_TRAITER_SQL}
+            and c.archived_at is null
+            and c.release_mba_apres_message is null
+            and ${CONTACT_JOIGNABLE_SQL}`;
 
 /** Une conversation qui attend, telle que la base la rend. */
 export interface LigneATraiter {

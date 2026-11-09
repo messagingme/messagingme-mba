@@ -4,7 +4,7 @@ import { e164DepuisSaisie } from '../crm/phone';
 import { journaliser } from '../lib/journal';
 import type { OrigineMessage } from '../inbox/origine';
 import type { IssueInbox, MessageInboxHubspot } from '../crm/hubspot-service';
-import { ATTEND_UN_HUMAIN_SQL } from '../inbox/a-traiter-hubspot.pg';
+import { ATTEND_UN_HUMAIN_SQL, CONTACT_JOIGNABLE_SQL } from '../inbox/a-traiter-hubspot.pg';
 
 /**
  * LES CONVERSATIONS WHATSAPP DANS L'INBOX HUBSPOT, CÔTÉ mba (lot 1 de l'Inbox, tâche 6 du plan
@@ -73,7 +73,10 @@ export interface InboxHubspotStore {
   messagesApres(e: EspaceBranche, borne: string, limite: number): Promise<LigneMessage[]>;
   /** Avance le curseur, seulement si l'espace est toujours branché et sans jamais le faire reculer. */
   avancer(tenantId: string, le: string, id: string): Promise<void>;
-  /** Ferme les entrées des conversations que l'équipe ne tient plus (robot, « Traité », archivée). Rend leur nombre. */
+  /**
+   * Ferme les entrées des conversations que l'équipe ne tient plus (robot, « Traité », archivée) ou dont le contact a dit
+   * STOP ou a été bloqué. Rend leur nombre.
+   */
   fermerSorties(tenantId: string): Promise<number>;
   /**
    * Les conversations qui attendent un humain (`ATTEND_UN_HUMAIN_SQL`), actives depuis le branchement, sans entrée
@@ -191,13 +194,17 @@ export class PgInboxHubspotStore implements InboxHubspotStore {
   }
 
   async fermerSorties(tenantId: string): Promise<number> {
-    // La sortie : l'équipe ne tient plus le fil (un robot l'a repris), « Traité », ou archivée. PAS le prédicat inverse :
-    // une conversation à laquelle le conseiller vient de répondre n'est plus « à traiter » mais reste à lui, elle reste.
+    // La sortie : l'équipe ne tient plus le fil (un robot l'a repris), « Traité », archivée, ou le contact a dit STOP ou a
+    // été bloqué (décision de Julien, 2026-11-09 : le conseiller n'a plus rien à y faire, comme dans la page). PAS le
+    // prédicat d'entrée inversé : une conversation à laquelle le conseiller vient de répondre n'est plus « à traiter »
+    // mais reste à lui, elle reste.
     const r = await this.pool.query(
       `update inbox_hubspot_entrees e set sortie_le = now()
          from conversations c
+         left join contacts ct on ct.id = c.contact_id
         where e.tenant_id = $1 and e.sortie_le is null and c.id = e.conversation_id and c.tenant_id = $1
-          and (c.control_owner <> 'app_human' or c.traitee_le is not null or c.archived_at is not null)`,
+          and (c.control_owner <> 'app_human' or c.traitee_le is not null or c.archived_at is not null
+               or not (${CONTACT_JOIGNABLE_SQL}))`,
       [tenantId],
     );
     return r.rowCount ?? 0;

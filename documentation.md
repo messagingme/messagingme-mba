@@ -3177,7 +3177,8 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   🔴 **Lot 1 bis (2026-11-09) : SEULES les conversations qui attendent un humain entrent dans l'Inbox**, selon le prédicat
   de la page « Messaging Me » de l'app (`ATTEND_UN_HUMAIN_SQL`, `src/inbox/a-traiter-hubspot.pg.ts`, partagé, jamais
   recopié) et actives depuis le branchement (`hubspot_inbox_branche_le`). À chaque tour, par espace : les SORTIES
-  (l'équipe ne tient plus le fil, « Traité », archivée : `inbox_hubspot_entrees.sortie_le`), puis les ENTRÉES (10 au plus :
+  (l'équipe ne tient plus le fil, « Traité », archivée, ou le contact a dit STOP ou a été bloqué, `CONTACT_JOIGNABLE_SQL` :
+  `inbox_hubspot_entrees.sortie_le` ; la suite lit une conversation jusqu'à l'instant de sa sortie), puis les ENTRÉES (10 au plus :
   le contexte des 24 dernières heures, 20 messages au plus, est publié AVANT que l'entrée s'inscrive, pour qu'une panne
   rejoue l'entrée entière), puis la SUITE des conversations entrées par le curseur. Une conversation que l'agent IA règle
   seule n'y apparaît jamais ; une réponse du conseiller ne la fait pas sortir (elle n'est plus « à traiter » mais l'équipe
