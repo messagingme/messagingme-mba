@@ -242,10 +242,13 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
   ));
 
   /**
-   * « Ne pas poser » (relecture du lot E6, jaune 5) : le partenaire n'attache pas, ou le client renonce. L'attente d'un
-   * numéro de l'espace qui attend vraiment s'efface ; l'Entreprise relit « sur demande » et le conseil de sa carte chez
-   * Meta. 🔴 La note reste au journal du serveur : le journal de l'espace, que son administrateur lit, ne porte que
-   * l'identifiant du numéro (une note peut nommer le partenaire).
+   * « Ne pas poser » (relecture du lot E6, jaune 5) : le partenaire n'attache pas, ou le client renonce, ou l'attache est
+   * vérifiée sur un compte déjà couvert. L'attente d'un numéro de l'espace qui attend vraiment s'efface : il sort de la
+   * liste, et l'espace relit l'état de ses lignes (une Entreprise sans ligne, « sur demande » et le conseil de sa carte
+   * chez Meta ; une option payée sans ligne reste en attente). 🔴 Refusé tant qu'une ligne bloque encore les envois du
+   * compte, celle d'un AUTRE espace ou une ligne ARRÊTÉE de l'espace : l'attente effacée, plus rien ne rappellerait ce
+   * numéro (relecture du lot E7, jaunes 1 et 2). 🔴 La note reste au journal du serveur : le journal de l'espace, que son
+   * administrateur lit, ne porte que l'identifiant du numéro (une note peut nommer le partenaire).
    */
   app.post('/ops/credit-whatsapp/en-attente/:tenantId', opts, async (req, reply) => {
     const { tenantId } = req.params as { tenantId: string };
@@ -255,6 +258,19 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
     const note = c.data.note.trim().slice(0, 500);
     if (note.length < MIN_NOTE) return reply.code(400).send({ error: 'note requise : pourquoi ce numéro n’aura pas sa ligne' });
     const { phoneNumberId } = c.data;
+    const couvrante = await deps.lignes.ligneDuNumero(phoneNumberId);
+    if (couvrante !== null && couvrante.tenantId !== tenantId) {
+      return reply.code(409).send({
+        error: 'le compte WhatsApp de ce numéro est encore sur la ligne d’un autre espace, et la garde refuse ses envois : retirez cette ligne d’abord, sinon plus rien ne rappellera ce numéro',
+        code: 'couvert_autre_espace',
+      });
+    }
+    if (couvrante !== null && couvrante.arreteeLe !== null) {
+      return reply.code(409).send({
+        error: 'le compte WhatsApp de ce numéro est sur une ligne arrêtée de cet espace, et la garde refuse ses envois : retirez-la d’abord, sinon plus rien ne rappellera ce numéro',
+        code: 'couvert_arrete',
+      });
+    }
     if (!(await deps.lignes.abandonnerAttente(tenantId, phoneNumberId))) {
       return reply.code(404).send({ error: 'ce numéro n’attend aucune ligne dans cet espace' });
     }

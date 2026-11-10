@@ -4739,32 +4739,43 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   l'essai réel 236) **et la nôtre se pose APRÈS son attache** (décision de Julien du 2026-11-09) : posée avant, la carte
   dirait « payés par votre Crédit WhatsApp » pendant que Meta refuse les envois, et un compte qui a déjà sa carte chez
   Meta paierait deux fois. L'alerte dit donc de demander l'attache au partenaire, puis de poser la ligne quand il la
-  confirme ; un compte déjà sur une ligne ACTIVE de l'espace, rien à poser, mais vérifier l'attache, sinon retirer la
-  nôtre jusqu'à elle ; sur une ligne ARRÊTÉE de l'espace (la garde refuse ses envois), la retirer et poser la nouvelle
-  quand le partenaire confirme ; sur celle d'un AUTRE espace, nommé avec le numéro de sa ligne (`getTenantName`),
-  vérifier l'attache d'abord, puis retirer et poser dans le même geste ; un compte relié sans numéro, rien à poser (le
-  numéro connecté ensuite par la fenêtre a sa propre alerte) ; sans droit, ne rien poser et demander au partenaire de ne
-  rien attacher ; la fenêtre fermée chez nous (variable vide, page restée ouverte) ou un droit illisible, l'alerte le
-  dit. Le numéro n'est marqué (`phone_numbers.par_la_ligne_le`, migration 0285 : il attend sa ligne) QUE quand une ligne
-  est à poser (les trois cas « à poser », « ligne arrêtée » et « autre espace »). 🔴 Une ligne de l'espace posée depuis
+  confirme ; un compte déjà sur une ligne ACTIVE de l'espace (citée par son numéro), vérifier l'attache : là, « Ne pas
+  poser » lève l'attente ; absente, retirer la nôtre jusqu'à elle, puis la reposer ; sur une ligne ARRÊTÉE de l'espace
+  (citée par son numéro ; la garde refuse ses envois), comme sur celle d'un AUTRE espace, nommé avec le numéro de sa
+  ligne (`getTenantName`), vérifier l'attache d'abord, puis retirer et poser dans le même geste ; un numéro en
+  coexistence (il garde l'application, et la pose le refuse) ne passe pas sur la ligne : rien à poser ; un compte relié
+  sans numéro, rien à poser (le numéro connecté ensuite par la fenêtre a sa propre alerte) ; sans droit, ne rien poser et
+  demander au partenaire de ne rien attacher ; la fenêtre fermée chez nous (variable vide, page restée ouverte) ou un
+  droit illisible, l'alerte le dit. Le numéro n'est marqué (`phone_numbers.par_la_ligne_le`, migration 0285 : il attend
+  sa ligne) QUE dans les cas qui attendent (`CAS_QUI_ATTENDENT` : « à poser », « ligne arrêtée », « autre espace », et la
+  ligne active dont l'attache reste à vérifier). 🔴 Une ligne de l'espace posée depuis
   la marque l'éteint pour de bon : retirée ensuite, l'Entreprise relit « sur demande » et le conseil de sa carte chez
   Meta (`numerosDeLEspace`, `attendLigne`, requis dans les types ; le rouge de la relecture du lot E5). Ce prédicat est
   écrit une fois (`ATTEND_LIGNE_SQL`, `src/credit-whatsapp/lignes.pg.ts`) et sert aussi la liste « En attente de leur
   ligne » de la carte Crédit WhatsApp de `/ops` (`GET /ops/credit-whatsapp/en-attente`, tous espaces) : le geste à faire
-  ne dépend pas de Telegram. Une ligne qui ne viendra pas (le partenaire n'attache pas, le client renonce) se lève par
-  « Ne pas poser » dans cette liste (`POST /ops/credit-whatsapp/en-attente/:tenantId`, une note) : l'attente s'efface,
-  par le même prédicat, et le journal de l'espace en garde la trace sans la note, qui reste au journal du serveur
-  (`ops.attente_ligne_abandonnee` : l'administrateur de l'espace lit ce journal, et une note peut nommer le
-  partenaire). Une fin `parLaLigne` que notre serveur refuse, ou qu'une erreur interrompt (avant de remonter en 500),
-  alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé ; interrompue, la connexion a pu
-  rattacher le numéro du corps, qui est alors marqué selon les règles de la connexion. Le refus et l'interruption ont
+  ne dépend pas de Telegram. Une ligne qui ne viendra pas (le partenaire n'attache pas, le client renonce), ou une
+  attache vérifiée sur un compte déjà couvert, se lève par « Ne pas poser » dans cette liste
+  (`POST /ops/credit-whatsapp/en-attente/:tenantId`, une note) : l'attente s'efface, par le même prédicat, et le journal
+  de l'espace en garde la trace sans la note, qui reste au journal du serveur (`ops.attente_ligne_abandonnee` :
+  l'administrateur de l'espace lit ce journal, et une note peut nommer le partenaire). L'espace relit alors ses lignes :
+  une Entreprise sans ligne, « sur demande » et le conseil de sa carte chez Meta ; une option payée sans ligne reste en
+  attente. 🔴 « Ne pas poser » est refusé (409, `couvert_autre_espace` ou `couvert_arrete`) tant que la ligne d'un AUTRE
+  espace, ou une ligne ARRÊTÉE de l'espace, couvre encore le compte : la garde refuse ses envois, et l'attente effacée,
+  plus rien ne le rappellerait. Une fin `parLaLigne` que notre serveur refuse, ou qu'une erreur interrompt (avant de
+  remonter en 500), alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé ; la cause d'un
+  refus est écrite au journal du serveur (`fenetre_partenaire_refusee`), que l'alerte cite. Interrompue, la connexion a
+  pu rattacher un numéro, annoncé ou non : celui du corps s'il est rattaché à l'espace, sinon le seul rattaché, est
+  marqué selon les règles de la connexion, et l'alerte dit s'il attend dans la liste. Le refus et l'interruption ont
   chacun leur retenue, une alerte par espace et par demi-heure (`RETENUE_ALERTE_REFUS_MS`, des verrous courts ; une
-  alerte retenue se journalise, une alerte que Telegram n'a pas reçue rend la sienne) ; un refus se dit par un libellé
-  fixe par statut, jamais par le message de Meta, et le compte n'est cité que s'il est fait de chiffres : la fin vient du
-  navigateur. Une alerte que Telegram ne reçoit pas se journalise par son cas, jamais par son texte, qui porte le numéro
-  affiché (`alerte_fenetre_partenaire_perdue`). Une Entreprise dont un numéro attend sa ligne lit `en_attente`
-  (`etatLigneCredit`, AVANT ses lignes : seule une ligne d'avant la marque coexiste avec l'attente, celle d'un ancien
-  numéro déconnecté, qui ne couvre pas le numéro qui attend) : la carte dit « Votre ligne s'ouvre sous 24 h ouvrées »,
+  alerte retenue se journalise ; une alerte que Telegram n'a pas reçue rend la sienne, jamais une alerte incertaine,
+  délai dépassé ou panne réseau, qui a pu partir : `envoyerTelegram`, `src/ops/telegram.ts`) ; un refus se dit par un
+  libellé fixe par statut, jamais par le message de Meta, et le compte n'est cité que s'il est fait de chiffres : la fin
+  vient du navigateur. Une alerte que Telegram ne reçoit pas se journalise par son cas, jamais par son texte, qui porte le
+  numéro affiché (`alerte_fenetre_partenaire_perdue` ; `alerte_fenetre_partenaire_incertaine` pour une alerte
+  incertaine). Une Entreprise dont un numéro attend sa ligne lit `en_attente` (`etatLigneCredit`, AVANT ses lignes : une
+  ligne d'avant la marque peut couvrir le compte, arrêtée ou active à vérifier, et l'attente prime ; Claude, par
+  `get_credit`, et l'onglet lisent les lignes seules, et disent `envois_arretes` pour une ligne arrêtée, ce qui est vrai,
+  la garde refusant ses envois jusqu'à la nouvelle) : la carte dit « Votre ligne s'ouvre sous 24 h ouvrées »,
   l'Accueil et `get_setup_state` ne lui demandent pas sa carte chez Meta (`creditPaieMeta`). La pose automatique attend
   la réponse du partenaire sur son mode d'attache.
 - 🔴 **La conversion et l'arrêt dits au client** (révision du 2026-11-04, lot C). La conversion
@@ -4774,7 +4785,9 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   prorata d'un siège) et à chaque mise à jour d'un Pro actif (ce qui rattrape un essai écourté au tableau de bord de
   Stripe, ou une fin d'essai que le démarrage n'a pas pu écrire). 🔴 Le webhook ne la dit qu'à son MOMENT : dans les
   `FENETRE_CONVERSION_JOURS` (25) qui suivent la fin de l'essai du Pro, sinon sa souscription, et jamais avant : une fin
-  d'essai encore à venir veut dire un essai qui court, rien de payé. La réservation de l'occasion `conversion` est par
+  d'essai encore à venir veut dire un essai qui court, rien de payé, à cinq minutes de tolérance près entre l'horloge de
+  Stripe et la nôtre (`TOLERANCE_HORLOGE_MS` : la fin d'un essai écourté vaut l'instant de Stripe, que notre horloge peut
+  suivre de quelques secondes, et rien ne la rattraperait). La réservation de l'occasion `conversion` est par
   personne et purgée à treize mois, et sans cette fenêtre un admin arrivé plus tard, puis tous les admins un an après,
   recevraient l'e-mail à une échéance quelconque. Elle relit ensuite l'offre sans cache et l'état des cartes (`a_prendre`
   seulement : jamais un espace qui a déjà son option ou une ligne, ni une Free ou une Entreprise ; un espace Pro en essai

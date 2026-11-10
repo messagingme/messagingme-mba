@@ -29,10 +29,20 @@ import type { EtatLigne } from './etat-ligne';
 export const FENETRE_CONVERSION_JOURS = 25;
 const JOUR_MS = 86_400_000;
 
+/**
+ * L'écart toléré entre l'horloge de Stripe (la fin d'un essai écourté vaut son instant) et la nôtre (relecture du lot V2,
+ * jaune 7) : sans lui, une horloge en retard de quelques secondes ferait taire la conversion d'un essai écourté au
+ * tableau de bord, que plus rien ne rattraperait. Un essai qui court finit dans des jours, bien au-delà.
+ */
+export const TOLERANCE_HORLOGE_MS = 5 * 60_000;
+
 export interface DepsConversion {
   /** L'offre de l'espace, relue sans cache : elle vient peut-être de changer. */
   offre(tenantId: string): Promise<Offre>;
-  /** L'état des cartes « Qui règle Meta ? » (`lireEtatLigne`), qui porte la règle de la formule payée. */
+  /**
+   * L'état des cartes « Qui règle Meta ? » (`lireEtatLigne`), qui porte la règle de la PRISE (`optionPrenable`) : un espace
+   * Pro en essai y lit `a_prendre`, et seule la date (`proPayeDepuis`) l'écarte du webhook (relecture du lot V2, jaune 2).
+   */
   etat(tenantId: string): Promise<EtatLigne>;
   /** L'option se prend en ligne : son prix posé chez Stripe. */
   enVente: boolean;
@@ -41,7 +51,10 @@ export interface DepsConversion {
   pageNumero: string;
   /** La page Support de la console, où l'option se demande hors vente. */
   pageSupport: string;
-  /** Quand la formule Pro est devenue payée : la fin de son essai, sinon sa souscription ; `null` sans Pro. */
+  /**
+   * Quand la formule Pro est devenue payée : la fin de son essai (à venir tant que l'essai court), sinon sa souscription ;
+   * `null` sans Pro.
+   */
   proPayeDepuis(tenantId: string): Promise<Date | null>;
   maintenant?: () => number;
 }
@@ -63,16 +76,16 @@ export async function signalerConversion(d: DepsConversion, tenantId: string): P
  * Le chemin du webhook (une facture de période payée, la mise à jour d'un Pro actif) : la conversion n'y est dite qu'à son
  * moment, dans les `FENETRE_CONVERSION_JOURS` qui suivent la formule devenue payée. Sinon un admin arrivé depuis
  * l'apprendrait à l'échéance suivante, et tous les admins treize mois plus tard (jaune 1 de la relecture du lot C). Jamais
- * avant : un essai qui court (sa fin à venir) n'a rien payé, et l'état des cartes ne l'écarte plus (relecture de V1,
- * jaune 1). Le démarrage de la formule Pro et `/ops` sont le moment lui-même : ils appellent `signalerConversion`. Ne lève
- * jamais.
+ * avant : un essai qui court (sa fin à venir, au-delà de `TOLERANCE_HORLOGE_MS`) n'a rien payé, et l'état des cartes ne
+ * l'écarte plus (relecture de V1, jaune 1). Le démarrage de la formule Pro et `/ops` sont le moment lui-même : ils
+ * appellent `signalerConversion`. Ne lève jamais.
  */
 export async function signalerConversionDuPro(d: DepsConversion, tenantId: string): Promise<void> {
   try {
     const depuis = await d.proPayeDepuis(tenantId);
     if (depuis === null) return;
     const ecoule = (d.maintenant ?? Date.now)() - depuis.getTime();
-    if (ecoule < 0 || ecoule > FENETRE_CONVERSION_JOURS * JOUR_MS) return;
+    if (ecoule < -TOLERANCE_HORLOGE_MS || ecoule > FENETRE_CONVERSION_JOURS * JOUR_MS) return;
   } catch (err) {
     journaliser('error', 'conversion_ligne_credit_impossible', { err, tenantId });
     return;

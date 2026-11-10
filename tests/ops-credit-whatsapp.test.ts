@@ -147,6 +147,33 @@ describe('POST /ops/credit-whatsapp/en-attente/:tenantId, « Ne pas poser » (re
     await a.close();
   });
 
+  it('🔴 refusé (409) tant qu’une ligne bloque encore les envois du compte : celle d’un AUTRE espace, ou une ligne ARRÊTÉE de l’espace ; une ligne active de l’espace ne bloque pas (relecture du lot E7, jaune 1)', async () => {
+    // L'attente effacée, plus rien ne rappellerait un numéro dont la garde refuse toujours les envois.
+    const AUTRE = '0b8b2a3e-1c4d-4e5f-8a9b-0c1d2e3f4a5b';
+    const ligne = (tenantId: string, arreteeLe: string | null): LigneCredit => ({
+      id: 'l-couvrante', tenantId, phoneNumberId: '106540352242999', wabaId: 'w1', origine: 'ops',
+      depuis: '2026-10-30T10:00:00.000Z', arreteeLe, retireeLe: null,
+    });
+    const ARRETEE = '2026-11-01T10:00:00.000Z';
+    for (const [couvrante, code] of [
+      [ligne(AUTRE, null), 'couvert_autre_espace'], [ligne(AUTRE, ARRETEE), 'couvert_autre_espace'], [ligne(T, ARRETEE), 'couvert_arrete'],
+    ] as const) {
+      let ecrit = false;
+      const traces: Trace[] = [];
+      const a = app({}, true, { ligneDuNumero: async () => couvrante, abandonnerAttente: async () => { ecrit = true; return true; } }, traces);
+      const res = await a.inject({ method: 'POST', url: URL_ATTENTE, ...withTok(OPS), payload: { phoneNumberId: PN, note: NOTE } });
+      expect(res.statusCode, code).toBe(409);
+      expect(res.json().code, code).toBe(code);
+      expect(ecrit, code).toBe(false);
+      expect(traces, code).toEqual([]);
+      await a.close();
+    }
+    // Une ligne ACTIVE de l'espace (« déjà couvert ») ne bloque rien : l'attente se lève.
+    const active = app({}, true, { ligneDuNumero: async () => ligne(T, null), abandonnerAttente: async () => true, numerosEnAttenteDeLigne: async () => [] });
+    expect((await active.inject({ method: 'POST', url: URL_ATTENTE, ...withTok(OPS), payload: { phoneNumberId: PN, note: NOTE } })).statusCode).toBe(200);
+    await active.close();
+  });
+
   it('🔴 un numéro qui n’attend pas (ou plus), ou d’un autre espace : 404, rien n’est tracé', async () => {
     const traces: Trace[] = [];
     const a = app({}, true, { abandonnerAttente: async () => false }, traces);

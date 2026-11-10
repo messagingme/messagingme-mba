@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FENETRE_CONVERSION_JOURS, signalerConversion, signalerConversionDuPro, type DepsConversion } from '../src/credit-whatsapp/conversion';
+import { FENETRE_CONVERSION_JOURS, TOLERANCE_HORLOGE_MS, signalerConversion, signalerConversionDuPro, type DepsConversion } from '../src/credit-whatsapp/conversion';
 import type { Emission } from '../src/emails-produit/emission';
 import type { Offre } from '../src/offres/offres';
 import type { EtatLigne } from '../src/credit-whatsapp/etat-ligne';
@@ -113,6 +113,18 @@ describe('signalerConversion', () => {
     const aLaFin = monter({ etat: 'a_prendre', depuis: new Date(MAINTENANT) });
     await signalerConversionDuPro(aLaFin.d, T);
     expect(aLaFin.emissions.map((e) => e.cle)).toEqual(['ligne_credit_sur_demande']);
+  });
+
+  it('🔴 quelques minutes de tolérance entre l’horloge de Stripe et la nôtre (relecture du lot V2, jaune 7) : une fin d’essai à une minute ne fait pas taire la conversion, une fin à une heure si', async () => {
+    // Un essai écourté au tableau de bord de Stripe : sa fin vaut l'instant de Stripe, que notre horloge peut suivre de
+    // quelques secondes ; sans tolérance, le webhook se tairait, et plus rien ne la rattraperait.
+    expect(TOLERANCE_HORLOGE_MS).toBe(5 * 60_000);
+    const uneMinute = monter({ etat: 'a_prendre', depuis: new Date(MAINTENANT + 60_000) });
+    await signalerConversionDuPro(uneMinute.d, T);
+    expect(uneMinute.emissions).toHaveLength(1);
+    const uneHeure = monter({ etat: 'a_prendre', depuis: new Date(MAINTENANT + 3_600_000) });
+    await signalerConversionDuPro(uneHeure.d, T);
+    expect(uneHeure.emissions).toEqual([]);
   });
 
   it('🔴 les deux e-mails disent ce qu’il advient d’un numéro sans l’application et d’un numéro qui la garde, dans les deux langues (jaune 12 du lot C)', () => {

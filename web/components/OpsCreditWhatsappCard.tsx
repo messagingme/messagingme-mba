@@ -91,8 +91,8 @@ function EnAttenteDeLigne({ token }: { token: string }) {
       <h3 className="text-xs font-semibold text-ink-900">{t('En attente de leur ligne', 'Waiting for their line')}</h3>
       <p className="mt-1 text-xs text-ink-500">
         {t(
-          'Arrivés par la fenêtre du partenaire : lui demander d’attacher sa ligne de crédit, puis poser celle de l’espace (son lien « offre ») quand il confirme l’attache, pas avant. Une ligne qui ne viendra pas se lève par « Ne pas poser » : l’espace repasse sur demande, avec le conseil de sa carte chez Meta.',
-          'Connected through the partner’s window: ask the partner to attach their credit line, then set the workspace’s line (its “plan” link) once they confirm, not before. A line that will not come is cleared with “Do not set”: the workspace goes back to on request, with the advice about its card at Meta.',
+          'Arrivés par la fenêtre du partenaire : lui demander d’attacher sa ligne de crédit, puis poser celle de l’espace (son lien « offre ») quand il confirme l’attache, pas avant. « Ne pas poser » sort un numéro de cette liste, quand la ligne ne viendra pas ou que l’attache est vérifiée sur un compte déjà couvert : une Entreprise sans ligne repasse sur demande, avec le conseil de sa carte chez Meta ; une option payée sans ligne reste en attente. Refusé tant qu’une ligne d’un autre espace, ou arrêtée, bloque encore le compte.',
+          'Connected through the partner’s window: ask the partner to attach their credit line, then set the workspace’s line (its “plan” link) once they confirm, not before. “Do not set” removes a number from this list, when the line will not come or the attachment is checked on an account already covered: an Enterprise with no line goes back to on request, with the advice about its card at Meta; a paid option with no line stays pending. Refused while a line of another workspace, or a stopped line, still blocks the account.',
         )}
       </p>
       {numeros === null && (

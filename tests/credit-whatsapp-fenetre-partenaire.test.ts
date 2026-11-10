@@ -3,6 +3,7 @@ import {
   connexionParLaLigne, droitALaLigne, fenetreRefuseeParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire,
 } from '../src/credit-whatsapp/fenetre-partenaire';
 import type { Offre } from '../src/offres/offres';
+import type { IssueTelegram } from '../src/ops/telegram';
 import { capturerJournal } from './journal';
 import { verrousEnMemoire } from './verrous';
 
@@ -16,9 +17,12 @@ const SOLUTION = 'solution-de-test';
 const NUMERO = '+33 6 12 34 56 78';
 
 function deps(o: {
-  offre?: Offre; places?: number | null; couverts?: string[]; rattaches?: number; solutionId?: string;
-  /** Ce que Telegram répond : toujours, ou appel par appel (une liste consommée dans l'ordre). */
-  alertePart?: boolean | boolean[];
+  offre?: Offre; places?: number | null; couverts?: string[];
+  /** Les numéros rattachés à l'espace, leurs identifiants ; aucun par défaut. */
+  rattaches?: string[];
+  solutionId?: string;
+  /** L'issue de l'alerte chez Telegram : toujours, ou appel par appel (une liste consommée dans l'ordre). */
+  alerte?: IssueTelegram | IssueTelegram[];
   /** La ligne qui couvre le numéro arrivé (`ligneDuNumero`), quelle que soit son origine ; aucune par défaut. */
   couvrante?: { tenantId: string; phoneNumberId?: string; arreteeLe?: string | null } | null;
   /** Les noms des espaces (`getTenantName`) ; inconnu par défaut. */
@@ -28,13 +32,13 @@ function deps(o: {
   const alertes: string[] = [];
   const marques: string[] = [];
   const couvertures: string[] = [];
-  const reponses = Array.isArray(o.alertePart) ? [...o.alertePart] : null;
+  const reponses = Array.isArray(o.alerte) ? [...o.alerte] : null;
   const d: DepsFenetrePartenaire = {
     solutionId: o.solutionId ?? SOLUTION,
     offre: async () => o.offre ?? 'pro',
     option: async () => (o.places === null ? null : { places: o.places ?? 1 }),
     numerosCouverts: async () => o.couverts ?? [],
-    numerosRattaches: async () => o.rattaches ?? 0,
+    numerosRattaches: async () => o.rattaches ?? [],
     ligneDuNumero: async (phoneNumberId) => {
       couvertures.push(phoneNumberId);
       const c = o.couvrante ?? null;
@@ -45,7 +49,7 @@ function deps(o: {
     marquer: async (_tenant, phoneNumberId) => { marques.push(phoneNumberId); },
     alerter: async (texte) => {
       alertes.push(texte);
-      return reponses !== null ? (reponses.shift() ?? true) : ((o.alertePart as boolean | undefined) ?? true);
+      return reponses !== null ? (reponses.shift() ?? 'recue') : ((o.alerte as IssueTelegram | undefined) ?? 'recue');
     },
   };
   return { d, alertes, marques, couvertures };
@@ -58,7 +62,7 @@ describe('le droit à la ligne', () => {
     expect(await droitALaLigne(deps({ offre: 'business', places: 1, couverts: [] }).d, T)).toBe(true);
   });
 
-  it('🔴 jamais une Free, ni un Pro sans option (un essai n’en a pas), ni une option dont toutes les places sont prises', async () => {
+  it('🔴 jamais une Free, ni un Pro sans option, ni une option dont toutes les places sont prises', async () => {
     expect(await droitALaLigne(deps({ offre: 'base', places: 1 }).d, T)).toBe(false);
     expect(await droitALaLigne(deps({ offre: 'pro', places: null }).d, T)).toBe(false);
     expect(await droitALaLigne(deps({ offre: 'business', places: null }).d, T)).toBe(false);
@@ -82,7 +86,7 @@ describe('l’identifiant de la solution', () => {
     expect(await solutionDuPartenaire(deps({ offre: 'entreprise', places: null }).d, T)).toBe(SOLUTION);
     expect(await solutionDuPartenaire(deps({ offre: 'pro', places: 1 }).d, T)).toBe(SOLUTION);
     // Un numéro déjà rattaché, délié compris (celui de l'essai) relève du lot D : pas de fenêtre du partenaire.
-    expect(await solutionDuPartenaire(deps({ offre: 'pro', places: 1, rattaches: 1 }).d, T)).toBeNull();
+    expect(await solutionDuPartenaire(deps({ offre: 'pro', places: 1, rattaches: ['pn-essai'] }).d, T)).toBeNull();
     expect(await solutionDuPartenaire(deps({ offre: 'base' }).d, T)).toBeNull();
     expect(await solutionDuPartenaire(deps({ offre: 'pro', places: null }).d, T)).toBeNull();
   });
@@ -115,29 +119,39 @@ describe('la connexion faite par la ligne', () => {
     ]);
   });
 
-  it('🔴 un compte déjà sur une ligne de l’espace, quelle qu’en soit l’origine (une ligne `ops` d’Entreprise comprise) : rien à poser, aucune marque (relecture du lot E, jaune 9 ; du lot E5, jaune 5)', async () => {
+  it('🔴 un compte déjà sur une ligne active de l’espace, quelle qu’en soit l’origine (une ligne `ops` d’Entreprise comprise) : vérifier l’attache, et le numéro attend dans la liste jusque-là (relecture du lot E, jaune 9 ; du lot E5, jaune 5 ; du lot E7, jaune 6)', async () => {
     // « Déconnecter le numéro » ne retire pas la ligne : le numéro qui revient est couvert par son compte. Lue comme la pose
     // de `/ops` la lit (`ligneDuNumero`) : les seules lignes de l'option faisaient dire « poser » à une Entreprise, que
     // `/ops` refusait ensuite (« déjà couvert »).
-    const { d, alertes, marques, couvertures } = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: T } });
+    const { d, alertes, marques, couvertures } = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: T, phoneNumberId: '106540352242999' } });
     await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
     expect(couvertures).toEqual(['pn-1']);
-    // La ligne active ne prouve pas l'attache : la vérifier, sinon retirer la nôtre jusqu'à elle (relecture du lot E6, jaune 3).
+    // La ligne active ne prouve pas l'attache (relecture du lot E6, jaune 3) : le numéro est marqué, sans quoi rien ne
+    // rappellerait de reposer la nôtre une fois retirée jusqu'à l'attache (relecture du lot E7, jaune 6).
     expect(alertes).toEqual([
-      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est déjà sur la ligne de l’espace : rien à poser. Vérifier auprès du partenaire que sa ligne est attachée à ce compte ; sinon, retirer la nôtre dans /ops jusqu’à son attache.`,
-    ]);
-    // Rien à poser, rien n'attend : pas de marque (le rouge de la relecture du lot E5).
-    expect(marques).toEqual([]);
-  });
-
-  it('🔴 un compte sur une ligne ARRÊTÉE de l’espace : la garde refuse ses envois, le numéro attend sa nouvelle ligne (relecture du lot E6, jaune 3)', async () => {
-    // Avant, « déjà couvert » rassurait Julien alors que la garde refusait chaque envoi du numéro.
-    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: T, arreteeLe: '2026-11-01T10:00:00.000Z' } });
-    await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
-    expect(alertes).toEqual([
-      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est sur une ligne ARRÊTÉE de l’espace, et la garde refuse ses envois. Demander au partenaire d’attacher sa ligne de crédit à ce compte ; quand il confirme, retirer la ligne arrêtée et poser la nouvelle dans /ops. D’ici là, le numéro attend dans la liste de /ops.`,
+      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est déjà sur la ligne de l’espace (numéro 106540352242999). Vérifier auprès du partenaire que sa ligne est attachée à ce compte : si oui, rien à poser, lever l’attente par « Ne pas poser » dans la liste de /ops ; sinon, retirer la nôtre dans /ops jusqu’à son attache, puis la reposer. D’ici là, le numéro attend dans la liste de /ops.`,
     ]);
     expect(marques).toEqual(['pn-1']);
+  });
+
+  it('🔴 un compte sur une ligne ARRÊTÉE de l’espace, citée par son numéro : vérifier l’attache d’abord, puis retirer et poser dans le même geste ; le numéro attend sa nouvelle ligne (relecture du lot E6, jaune 3 ; du lot E7, jaune 6)', async () => {
+    // Avant, « déjà couvert » rassurait Julien alors que la garde refusait chaque envoi du numéro.
+    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: T, phoneNumberId: '106540352242999', arreteeLe: '2026-11-01T10:00:00.000Z' } });
+    await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
+    expect(alertes).toEqual([
+      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est sur une ligne ARRÊTÉE de l’espace (numéro 106540352242999), et la garde refuse ses envois. Vérifier d’abord auprès du partenaire si sa ligne est encore attachée à ce compte : si oui, retirer la ligne arrêtée et poser la nouvelle dans le même geste ; sinon, la lui demander, puis faire les deux quand il confirme. D’ici là, le numéro attend dans la liste de /ops.`,
+    ]);
+    expect(marques).toEqual(['pn-1']);
+  });
+
+  it('🔴 un numéro connecté EN COEXISTENCE par la fenêtre : il garde l’application et ne passe pas sur la ligne, rien à poser ni à marquer (relecture du lot V2, jaune 6)', async () => {
+    // La pose de `/ops` refuse un numéro en coexistence : marqué, il attendrait une ligne que personne ne posera.
+    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null });
+    await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO, coexistence: true });
+    expect(alertes).toEqual([
+      `Numéro connecté par la fenêtre du partenaire EN COEXISTENCE (il garde l’application WhatsApp Business) : espace ${T}, ${NUMERO} (compte waba-1). Il ne passe pas sur la ligne, l’application envoie sans nous : rien à poser. Demander au partenaire de ne rien attacher à ce compte, et voir avec le client.`,
+    ]);
+    expect(marques).toEqual([]);
   });
 
   it('🔴 un compte encore sur la ligne d’un AUTRE espace, NOMMÉ avec le numéro de sa ligne : vérifier l’attache d’abord, puis retirer et poser dans le même geste ; le numéro attend sa ligne (relecture du lot E6, jaune 4)', async () => {
@@ -176,7 +190,7 @@ describe('la connexion faite par la ligne', () => {
 
   it('🔴 sans le droit (l’identifiant réutilisé hors de sa garde) : ne pas poser, et demander au partenaire de ne rien attacher ; aucune marque', async () => {
     // Le numéro vient d'arriver : le droit se relit SANS la condition « aucun numéro ».
-    const { d, alertes, marques } = deps({ offre: 'base', rattaches: 1 });
+    const { d, alertes, marques } = deps({ offre: 'base', rattaches: ['pn-1'] });
     await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
     expect(alertes[0]).toMatch(/^Numéro connecté par la fenêtre du partenaire SANS droit à la ligne : espace .* \(compte waba-1\)\. Ne pas poser la ligne ; demander au partenaire de ne rien attacher à ce compte, ou de détacher sa ligne ; voir avec le client\.$/);
     // 🔴 Une marque sans droit attendrait une ligne que personne ne posera, et se réveillerait si l'espace passe en Entreprise.
@@ -209,11 +223,15 @@ describe('la connexion faite par la ligne', () => {
   });
 
   it('🔴 une alerte qui ne part pas laisse une trace dans le journal, par son CAS et jamais par son texte : le numéro affiché n’y entre pas, comme dans l’audit (relecture du lot E, jaune 3 ; du lot E5, jaune 8)', async () => {
-    const { d } = deps({ offre: 'pro', places: 1, alertePart: false });
+    const { d } = deps({ offre: 'pro', places: 1, alerte: 'non_recue' });
     const { lignes } = await capturerJournal(() => connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO }));
     expect(lignes).toEqual([expect.objectContaining({ lvl: 'error', msg: 'alerte_fenetre_partenaire_perdue', tenantId: T, wabaId: 'waba-1', cas: 'a_poser' })]);
     expect(lignes[0]).not.toHaveProperty('texte');
     expect(JSON.stringify(lignes)).not.toContain('12 34 56 78');
+    // Un délai dépassé ne dit pas que l'alerte est perdue : elle a pu partir (relecture du lot E7, jaune 7).
+    const incertaine = deps({ offre: 'pro', places: 1, alerte: 'incertaine' });
+    const r = await capturerJournal(() => connexionParLaLigne(incertaine.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO }));
+    expect(r.lignes).toEqual([expect.objectContaining({ lvl: 'warn', msg: 'alerte_fenetre_partenaire_incertaine', tenantId: T, wabaId: 'waba-1', cas: 'a_poser' })]);
   });
 
   it('une marque qui échoue ne fait pas taire l’alerte', async () => {
@@ -284,12 +302,20 @@ describe('la fenêtre du partenaire passée chez Meta, la connexion refusée ou 
   });
 
   it('🔴 une alerte que Telegram n’a pas reçue rend sa retenue : la suivante part ; reçue, elle la garde (relecture du lot E6, jaune 1)', async () => {
-    const { d, alertes } = deps({ alertePart: [false, true] });
+    const { d, alertes } = deps({ alerte: ['non_recue', 'recue'] });
     await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
     await fenetreRefuseeParLaLigne(d, T, fin(422));
     expect(alertes).toHaveLength(2);
     await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
     expect(alertes).toHaveLength(2);
+  });
+
+  it('🔴 une alerte INCERTAINE (délai dépassé, panne réseau) garde sa retenue : elle a pu partir, la suivante serait un doublon (relecture du lot E7, jaune 7)', async () => {
+    const { d, alertes } = deps({ alerte: ['incertaine', 'recue'] });
+    const { lignes } = await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
+    expect(lignes).toEqual(expect.arrayContaining([expect.objectContaining({ msg: 'alerte_fenetre_partenaire_incertaine', cas: 'refusee' })]));
+    await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
+    expect(alertes).toHaveLength(1);
   });
 
   it('un verrou illisible n’éteint pas l’alerte : elle part, et le journal le dit', async () => {
@@ -300,41 +326,61 @@ describe('la fenêtre du partenaire passée chez Meta, la connexion refusée ou 
     expect(lignes).toEqual([expect.objectContaining({ lvl: 'error', msg: 'alerte_fenetre_refusee_retenue_illisible', tenantId: T })]);
   });
 
-  it('🔴 une connexion INTERROMPUE a son texte, et le numéro du corps, rattaché à l’espace, est marqué selon les règles de la connexion (relecture du lot E5, jaune 7 ; du lot E6, jaune 1)', async () => {
-    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null });
+  it('🔴 une connexion INTERROMPUE a son texte, et le numéro du corps, rattaché à l’espace, est marqué selon les règles de la connexion ; l’alerte dit qu’il attend dans la liste (relecture du lot E5, jaune 7 ; du lot E6, jaune 1 ; du lot E7, jaune 4)', async () => {
+    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META] });
     await fenetreRefuseeParLaLigne(d, T, fin(500, COMPTE, NUMERO_META));
-    expect(alertes).toEqual([`Fenêtre du partenaire passée chez Meta, connexion INTERROMPUE chez nous par une erreur interne (voir les journaux de l’API) : espace ${T}, compte ${COMPTE}. Le compte est peut-être partagé avec le partenaire et relié à moitié : voir l’espace dans /ops avant toute pose (son numéro, s’il est rattaché et à poser, figure dans la liste « En attente de leur ligne »), et lui demander de ne rien y attacher sans décision.`]);
+    expect(alertes).toEqual([`Fenêtre du partenaire passée chez Meta, connexion INTERROMPUE chez nous par une erreur interne (voir les journaux de l’API) : espace ${T}, compte ${COMPTE}. Le compte est peut-être partagé avec le partenaire et relié à moitié : voir l’espace dans /ops avant toute pose, et lui demander de ne rien y attacher sans décision. Son numéro ${NUMERO_META} est rattaché et attend sa ligne : il figure dans la liste « En attente de leur ligne ».`]);
     expect(marques).toEqual([NUMERO_META]);
     // Retenue, l'alerte ne part pas, mais la marque se pose quand même : elle dit l'état, pas l'alerte.
-    const retenue = deps({ offre: 'entreprise', places: null });
+    const retenue = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META] });
     await fenetreRefuseeParLaLigne(retenue.d, T, fin(500, COMPTE, null));
     await capturerJournal(() => fenetreRefuseeParLaLigne(retenue.d, T, fin(500, COMPTE, NUMERO_META)));
     expect(retenue.alertes).toHaveLength(1);
-    expect(retenue.marques).toEqual([NUMERO_META]);
+    expect(retenue.marques).toEqual([NUMERO_META, NUMERO_META]);
   });
 
-  it('🔴 la marque après une interruption suit les règles : jamais un numéro mal formé, ni sans droit, ni sur un compte déjà couvert, ni après un simple refus', async () => {
+  it('🔴 une interruption retrouve en base le numéro que la fenêtre n’a pas annoncé, comme le serveur l’a fait ; sans numéro rattaché, l’alerte dit que la liste n’a rien (relecture du lot E7, jaune 4)', async () => {
+    const RATTACHE = '106540352242933';
+    // Le corps ne dit rien du numéro, ou en dit un autre : le seul numéro rattaché à l'espace est celui de la connexion.
+    for (const duCorps of [null, NUMERO_META]) {
+      const { d, alertes, marques } = deps({ offre: 'entreprise', places: null, rattaches: [RATTACHE] });
+      await fenetreRefuseeParLaLigne(d, T, fin(500, COMPTE, duCorps));
+      expect(marques, String(duCorps)).toEqual([RATTACHE]);
+      expect(alertes[0], String(duCorps)).toContain(`Son numéro ${RATTACHE} est rattaché et attend sa ligne : il figure dans la liste « En attente de leur ligne ».`);
+    }
+    // Aucun numéro rattaché (la connexion s'est interrompue avant) : rien de marqué, et l'alerte ne promet plus la liste.
+    const aucun = deps({ offre: 'entreprise', places: null });
+    await fenetreRefuseeParLaLigne(aucun.d, T, fin(500, COMPTE, NUMERO_META));
+    expect(aucun.marques).toEqual([]);
+    expect(aucun.alertes[0]).toMatch(/ Aucun numéro rattaché à poser : rien dans la liste « En attente de leur ligne »\.$/);
+    // Plusieurs numéros rattachés, aucun annoncé : on ne devine pas lequel.
+    const plusieurs = deps({ offre: 'entreprise', places: null, rattaches: [RATTACHE, '106540352242944'] });
+    await fenetreRefuseeParLaLigne(plusieurs.d, T, fin(500, COMPTE, null));
+    expect(plusieurs.marques).toEqual([]);
+  });
+
+  it('🔴 la marque après une interruption suit les règles : jamais un numéro mal formé, ni sans droit, ni après un simple refus ; un compte déjà sur une ligne active de l’espace attend la vérification de l’attache (relecture du lot E7, jaune 6)', async () => {
     for (const phoneNumberId of [null, 'pn-x', `${NUMERO_META}\n`]) {
       const { d, marques } = deps({ offre: 'entreprise', places: null });
       await fenetreRefuseeParLaLigne(d, T, fin(500, COMPTE, phoneNumberId));
       expect(marques, String(phoneNumberId)).toEqual([]);
     }
-    const sansDroit = deps({ offre: 'base' });
+    const sansDroit = deps({ offre: 'base', rattaches: [NUMERO_META] });
     await fenetreRefuseeParLaLigne(sansDroit.d, T, fin(500, COMPTE, NUMERO_META));
     expect(sansDroit.marques).toEqual([]);
-    const couvert = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: T } });
+    const couvert = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META], couvrante: { tenantId: T } });
     await fenetreRefuseeParLaLigne(couvert.d, T, fin(500, COMPTE, NUMERO_META));
-    expect(couvert.marques).toEqual([]);
-    const refuse = deps({ offre: 'entreprise', places: null });
+    expect(couvert.marques).toEqual([NUMERO_META]);
+    const refuse = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META] });
     await fenetreRefuseeParLaLigne(refuse.d, T, fin(409, COMPTE, NUMERO_META));
     expect(refuse.marques).toEqual([]);
   });
 
   it('ne lève jamais, et une alerte perdue laisse sa trace, par son cas', async () => {
-    const { d } = deps({ alertePart: false });
+    const { d } = deps({ alerte: 'non_recue' });
     const { lignes } = await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
     expect(lignes).toEqual([expect.objectContaining({ msg: 'alerte_fenetre_partenaire_perdue', tenantId: T, wabaId: COMPTE, cas: 'refusee' })]);
-    const interrompue = deps({ alertePart: false });
+    const interrompue = deps({ alerte: 'non_recue' });
     const r = await capturerJournal(() => fenetreRefuseeParLaLigne(interrompue.d, T, fin(500, null)));
     expect(r.lignes).toEqual([expect.objectContaining({ msg: 'alerte_fenetre_partenaire_perdue', cas: 'interrompue', wabaId: null })]);
     const enPanne = deps();

@@ -82,11 +82,20 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
 
 ### V5. Les jaunes des relectures du lot E7 et de V1
 
-- [ ] Les sept du lot E7, au plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md` (§ « La relecture du lot E7 »).
+- [x] Les sept du lot E7, au plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md` (§ « La relecture du lot E7 ») :
+  « Ne pas poser » refusé (409) tant que la ligne d'un autre espace, ou une ligne arrêtée de l'espace, couvre encore le
+  compte (1) ; la carte de `/ops` et le manuel disent ce que l'espace relit ensuite (2) ; la justification de l'attente
+  avant les lignes réécrite, l'écart de `get_credit` écrit (3) ; une interruption retrouve en base le numéro rattaché,
+  et l'alerte dit s'il attend dans la liste (4) ; la cause d'un refus `parLaLigne` au journal du serveur (5) ; « déjà
+  couvert » marque le numéro, « ligne arrêtée » cite son numéro et suit « autre espace » (6) ; une alerte incertaine
+  (délai dépassé, panne réseau) garde sa retenue, `envoyerTelegram` (7).
 - [x] Les jaunes 1, 5 et 6 de V1 (§ « La relecture du lot V1 »), avec V2 : la conversion du webhook se tait tant que la
   fin de l'essai est à venir ; la vue de l'onglet lit la formule en une lecture (`formuleEtPrise`) ; les commentaires et
   la doc d'avant V1 remis à jour, dont la JSDoc de `prisePossible`.
-- [ ] Les jaunes 1, 2, 5, 6 et 7 de la relecture de V2 (§ « La relecture du lot V2 »).
+- [x] Les jaunes 1, 2, 5, 6 et 7 de la relecture de V2 (§ « La relecture du lot V2 ») : le câblage de la conversion
+  épinglé, vérifié par deux mutations (1) ; les JSDoc de la conversion (2) ; les deux commentaires d'avant V1 (5) ; une
+  connexion en coexistence par la fenêtre n'est ni marquée ni à poser, l'alerte le dit (6) ; cinq minutes de tolérance
+  d'horloge (7).
 
 ## Ordre de déploiement
 
@@ -94,6 +103,10 @@ V1 : l'API seule, sans migration. Tant que le prix n'est pas posé (`enVente` fa
 l'arbre lit `prisePossible` quand l'API le rend, et le lit comme `formulePayee` avant.
 
 V2 et les jaunes de V1 : l'API seule, sans migration, le contrat HTTP inchangé, rien pour la console.
+
+V5 : l'API, sans migration, et le texte de la carte de `/ops` (Vercel au push). Le texte peut précéder l'API : il dit le
+refus de « Ne pas poser » qu'elle apporte, sur un écran interne. Le contrat de `/ops` gagne deux codes de refus
+(`couvert_autre_espace`, `couvert_arrete`), que la carte affiche par leur message.
 
 ## Méthode de livraison
 

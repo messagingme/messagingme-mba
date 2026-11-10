@@ -91,8 +91,11 @@ export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promi
   if (offre === 'base') return 'free';
   // Une Entreprise dont un numéro, arrivé par la fenêtre du partenaire, attend sa pose dans `/ops` : en attente (la carte
   // ne lui dit plus « sur demande », ni l'Accueil d'ajouter sa carte chez Meta : `creditPaieMeta`). Lu AVANT ses lignes :
-  // une ligne posée depuis la marque éteint l'attente, donc seule une ligne d'avant coexiste avec elle (un ancien numéro
-  // déconnecté, sa ligne jamais retirée), qui ne couvre pas le numéro qui attend (relecture du lot E6, jaune 2).
+  // une ligne posée depuis la marque éteint l'attente, et une ligne d'avant qui coexiste avec elle peut couvrir le compte
+  // du numéro, arrêtée (`couvert_arrete`) ou active dont l'attache reste à vérifier (`deja_couvert`) ; l'attente prime,
+  // jamais « payés par votre Crédit WhatsApp » avant la pose ou la vérification. Claude (`get_credit`) et l'onglet lisent
+  // les lignes seules : une ligne arrêtée y dit `envois_arretes`, ce qui est vrai, la garde refusant ses envois jusqu'à la
+  // nouvelle (relecture du lot E7, jaune 3).
   if (offre === 'entreprise' && (await d.numeroAttendSaLigne(tenantId))) return 'en_attente';
   // Une ligne posée dit l'état, quelle que soit la formule : une Entreprise ou un espace dont l'option a fini y restent.
   const lignes = await d.lignes(tenantId);

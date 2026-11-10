@@ -535,7 +535,8 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       }, ouvreUnEssai);
     }
     // La conversion dite au client (lot C du Crédit WhatsApp) : une facture de période payée, jamais la facture à 0 € qui
-    // ouvre un essai ni le prorata d'un siège. Après l'enregistrement : la formule payée se relit sur ce qu'il a écrit.
+    // ouvre un essai ni le prorata d'un siège. Après l'enregistrement : la conversion relit l'état des cartes (la règle de
+    // la prise) et la fin de l'essai sur ce qu'il a écrit.
     if (payeeNonNulle) await deps.signalerConversion(paye?.tenantId ?? meta.data.tenant_id);
     // La conversion de nos publicités : un paiement RÉEL, jamais la facture à 0 € d'un essai ou d'un code promo à 100 %, ni
     // le prorata d'un siège ; l'essai écourté, lui, en est un. Après l'enregistrement : le fait suit le paiement qu'il raconte.

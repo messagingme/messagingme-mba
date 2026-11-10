@@ -185,7 +185,7 @@ export class PgAbonnementsOffreStore {
 
   /**
    * L'ESSAI ÉCOURTÉ (révision du Crédit WhatsApp, 2026-11-04, décision 6) : la console a arrêté l'essai chez Stripe, sa fin
-   * s'avance tout de suite, sans attendre le webhook (l'option s'ouvre dans la foulée). Seulement un essai EN COURS, et
+   * s'avance tout de suite, sans attendre le webhook (la formule se lit payée dans la foulée). Seulement un essai EN COURS, et
    * seulement vers plus tôt : un Pro payé dès le départ n'a rien à écourter. Rend l'espace touché, `null` si rien n'a changé.
    */
   async noterFinEssai(abonnementId: string, finLe: Date): Promise<{ tenantId: string } | null> {

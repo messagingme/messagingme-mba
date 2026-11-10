@@ -1,5 +1,6 @@
 import type { Offre } from '../offres/offres';
 import type { Prise, VerrousCourts } from '../db/verrous-courts';
+import type { IssueTelegram } from '../ops/telegram';
 import { journaliser } from '../lib/journal';
 
 /**
@@ -31,10 +32,11 @@ export interface DepsFenetrePartenaire {
    */
   numerosCouverts(tenantId: string): Promise<string[]>;
   /**
-   * Les numéros RATTACHÉS à l'espace, déliés compris : comme `hasNumber` (la console le dit connecté) et `linkTenant`
-   * (qui refuse un second numéro). Un numéro déjà là relève du lot D, pas de cette fenêtre.
+   * Les numéros RATTACHÉS à l'espace, leurs identifiants, déliés compris : comme `hasNumber` (la console le dit connecté)
+   * et `linkTenant` (qui refuse un second numéro). Un numéro déjà là relève du lot D, pas de cette fenêtre ; une connexion
+   * interrompue y retrouve celui qu'elle a pu rattacher (relecture du lot E7, jaune 4).
    */
-  numerosRattaches(tenantId: string): Promise<number>;
+  numerosRattaches(tenantId: string): Promise<string[]>;
   /**
    * La ligne en cours qui couvre le numéro (la sienne ou celle de son compte WhatsApp), quels que soient son origine
    * (`ops` comprise) et son espace : `ligneDuNumero`, la lecture même de la pose de `/ops`. « Déjà couvert » se lit ici
@@ -58,8 +60,11 @@ export interface DepsFenetrePartenaire {
    * attendre sa ligne à une Entreprise (relecture du lot E, jaunes 3 et 4).
    */
   marquer(tenantId: string, phoneNumberId: string): Promise<void>;
-  /** L'alerte à Julien ; `true` seulement si Telegram l'a reçue. Une alerte perdue se journalise (jaune 3). */
-  alerter(texte: string): Promise<boolean>;
+  /**
+   * L'alerte à Julien, et son issue chez Telegram (`envoyerTelegram`) : une alerte perdue se journalise (jaune 3) ; une
+   * alerte incertaine (délai dépassé, panne réseau) a pu partir, et garde sa retenue (relecture du lot E7, jaune 7).
+   */
+  alerter(texte: string): Promise<IssueTelegram>;
 }
 
 /** La ligne en cours qui couvre un numéro, telle que l'alerte la lit (`LigneCredit` en a tous les champs). */
@@ -93,11 +98,15 @@ const ID_META = /^\d{1,32}$/;
  * affiché, que l'audit refuse lui aussi de garder (relecture du lot E5, jaune 8).
  */
 type CasAlerte =
-  | 'fermee' | 'sans_droit' | 'sans_numero' | 'deja_couvert' | 'couvert_arrete' | 'autre_espace' | 'a_poser'
+  | 'fermee' | 'sans_droit' | 'sans_numero' | 'coexistence' | 'deja_couvert' | 'couvert_arrete' | 'autre_espace' | 'a_poser'
   | 'illisible' | 'refusee' | 'interrompue';
 
-/** Les cas où une ligne est à poser : le numéro est marqué, il attend sa ligne (l'Entreprise le lit, `/ops` le liste). */
-const CAS_QUI_ATTENDENT: ReadonlySet<CasAlerte> = new Set(['a_poser', 'couvert_arrete', 'autre_espace']);
+/**
+ * Les cas où le numéro attend sa ligne, marqué : une ligne est à poser, ou celle de l'espace attend la vérification de
+ * l'attache du partenaire (`deja_couvert`, relecture du lot E7, jaune 6 : sans marque, rien ne rappelait de reposer la
+ * nôtre une fois retirée). L'Entreprise le lit, `/ops` le liste.
+ */
+const CAS_QUI_ATTENDENT: ReadonlySet<CasAlerte> = new Set(['a_poser', 'deja_couvert', 'couvert_arrete', 'autre_espace']);
 
 /**
  * L'espace a-t-il droit à la ligne du partenaire ? Une Entreprise, toujours ; une formule Pro (essai compris, depuis V1
@@ -125,7 +134,7 @@ export async function droitALaLigne(
 export async function solutionDuPartenaire(d: DepsFenetrePartenaire, tenantId: string): Promise<string | null> {
   if (d.solutionId === '') return null;
   try {
-    if ((await d.numerosRattaches(tenantId)) > 0) return null;
+    if ((await d.numerosRattaches(tenantId)).length > 0) return null;
     return (await droitALaLigne(d, tenantId)) ? d.solutionId : null;
   } catch (err) {
     journaliser('error', 'fenetre_partenaire_illisible', { tenantId, err });
@@ -134,27 +143,35 @@ export async function solutionDuPartenaire(d: DepsFenetrePartenaire, tenantId: s
 }
 
 /**
- * L'alerte à Julien, journalisée par son cas si elle ne part pas (Telegram absent, en panne, ou en délai). `true`
- * seulement si Telegram l'a reçue.
+ * L'alerte à Julien, journalisée par son cas quand elle ne part pas (Telegram absent ou qui la refuse : perdue) ou qu'elle
+ * a pu partir sans que Telegram le confirme (délai dépassé, panne réseau : incertaine, relecture du lot E7, jaune 7). Une
+ * alerte qui lève compte pour perdue. Rend son issue.
  */
 async function alerterSansPerte(
   d: Pick<DepsFenetrePartenaire, 'alerter'>, tenantId: string, wabaId: string | null, cas: CasAlerte, texte: string,
-): Promise<boolean> {
+): Promise<IssueTelegram> {
   try {
-    if (await d.alerter(texte)) return true;
-    journaliser('error', 'alerte_fenetre_partenaire_perdue', { tenantId, wabaId, cas });
+    const issue = await d.alerter(texte);
+    if (issue === 'non_recue') journaliser('error', 'alerte_fenetre_partenaire_perdue', { tenantId, wabaId, cas });
+    if (issue === 'incertaine') journaliser('warn', 'alerte_fenetre_partenaire_incertaine', { tenantId, wabaId, cas });
+    return issue;
   } catch (err) {
     journaliser('error', 'alerte_fenetre_partenaire_perdue', { tenantId, wabaId, cas, err });
+    return 'non_recue';
   }
-  return false;
 }
 
-/** Marque le numéro qui attend sa ligne ; une marque ratée se journalise et n'empêche pas l'alerte. */
-async function marquerSansLever(d: Pick<DepsFenetrePartenaire, 'marquer'>, tenantId: string, phoneNumberId: string): Promise<void> {
+/**
+ * Marque le numéro qui attend sa ligne ; une marque ratée se journalise et n'empêche pas l'alerte. `true` si la marque
+ * est écrite.
+ */
+async function marquerSansLever(d: Pick<DepsFenetrePartenaire, 'marquer'>, tenantId: string, phoneNumberId: string): Promise<boolean> {
   try {
     await d.marquer(tenantId, phoneNumberId);
+    return true;
   } catch (err) {
     journaliser('error', 'marque_par_la_ligne_impossible', { tenantId, phoneNumberId, err });
+    return false;
   }
 }
 
@@ -208,11 +225,18 @@ function texteDeConnexion(cas: CasAlerte, qui: string, couvrante: LigneCouvrante
       return `Compte WhatsApp relié SANS numéro par la ligne du partenaire : ${qui}. Demander au partenaire d’attacher sa ligne de crédit à ce compte ; rien à poser dans /ops tant qu’aucun numéro n’y est connecté. Connecté par la fenêtre, le numéro enverra sa propre alerte ; connecté autrement, le poser à son arrivée, une fois l’attache confirmée.`;
     case 'a_poser':
       return `Numéro connecté par la ligne du partenaire : ${qui}. Demander au partenaire d’attacher sa ligne de crédit à ce compte WhatsApp (elle ne s’attache pas d’elle-même), puis poser la ligne dans /ops quand il confirme l’attache, pas avant : Meta refuserait les envois, et un compte qui a déjà sa carte chez Meta paierait deux fois. D’ici là, le numéro attend dans la liste de /ops.`;
+    case 'coexistence':
+      // La pose de `/ops` refuse un numéro en coexistence : l'application envoie sans nous, donc sans provision (relecture
+      // du lot V2, jaune 6). Rien à marquer.
+      return `Numéro connecté par la fenêtre du partenaire EN COEXISTENCE (il garde l’application WhatsApp Business) : ${qui}. Il ne passe pas sur la ligne, l’application envoie sans nous : rien à poser. Demander au partenaire de ne rien attacher à ce compte, et voir avec le client.`;
     case 'deja_couvert':
-      // Une ligne active ne prouve pas l'attache du partenaire (relecture du lot E6, jaune 3).
-      return `Numéro connecté par la ligne du partenaire : ${qui}. Son compte WhatsApp est déjà sur la ligne de l’espace : rien à poser. Vérifier auprès du partenaire que sa ligne est attachée à ce compte ; sinon, retirer la nôtre dans /ops jusqu’à son attache.`;
+      // Une ligne active ne prouve pas l'attache du partenaire (relecture du lot E6, jaune 3) : le numéro attend sa
+      // vérification dans la liste de /ops (relecture du lot E7, jaune 6).
+      return `Numéro connecté par la ligne du partenaire : ${qui}. Son compte WhatsApp est déjà sur la ligne de l’espace (numéro ${couvrante?.phoneNumberId ?? 'inconnu'}). Vérifier auprès du partenaire que sa ligne est attachée à ce compte : si oui, rien à poser, lever l’attente par « Ne pas poser » dans la liste de /ops ; sinon, retirer la nôtre dans /ops jusqu’à son attache, puis la reposer. D’ici là, le numéro attend dans la liste de /ops.`;
     case 'couvert_arrete':
-      return `Numéro connecté par la ligne du partenaire : ${qui}. Son compte WhatsApp est sur une ligne ARRÊTÉE de l’espace, et la garde refuse ses envois. Demander au partenaire d’attacher sa ligne de crédit à ce compte ; quand il confirme, retirer la ligne arrêtée et poser la nouvelle dans /ops. D’ici là, le numéro attend dans la liste de /ops.`;
+      // Le numéro de la ligne arrêtée, et l'attache vérifiée d'abord, comme pour l'autre espace (relecture du lot E7,
+      // jaune 6) : une ligne du partenaire encore attachée paie chez Meta, retirer et poser se font ensemble.
+      return `Numéro connecté par la ligne du partenaire : ${qui}. Son compte WhatsApp est sur une ligne ARRÊTÉE de l’espace (numéro ${couvrante?.phoneNumberId ?? 'inconnu'}), et la garde refuse ses envois. Vérifier d’abord auprès du partenaire si sa ligne est encore attachée à ce compte : si oui, retirer la ligne arrêtée et poser la nouvelle dans le même geste ; sinon, la lui demander, puis faire les deux quand il confirme. D’ici là, le numéro attend dans la liste de /ops.`;
     case 'autre_espace':
       // L'autre espace nommé, avec le numéro de sa ligne ; l'attache d'abord, qui peut être encore là (relecture du lot E6,
       // jaune 4) : retirer avant de la vérifier ouvrirait une fenêtre d'envois payés par le partenaire, sans provision.
@@ -227,20 +251,42 @@ function texteDeConnexion(cas: CasAlerte, qui: string, couvrante: LigneCouvrante
  * ligne du partenaire ne s'attache pas d'elle-même (essai 236) : la lui demander, puis poser la nôtre quand il confirme
  * l'attache. Variable vide (fenêtre fermée chez nous, une page restée ouverte), l'alerte le dit au lieu de se taire.
  *
- * 🔴 Le numéro n'est marqué (« il attend sa ligne ») QUE quand une ligne est à poser : une marque posée sans droit,
- * fenêtre fermée, compte déjà couvert ou droit illisible attendrait une ligne que personne ne posera, et l'Entreprise ne
- * lirait plus le conseil de sa carte chez Meta (le rouge de la relecture du lot E5). L'audit `numero.connecte` garde,
- * lui, toute connexion par la fenêtre. La marque d'abord, l'alerte ensuite : une alerte perdue laisse la trace. Ne lève
- * jamais : la connexion est faite.
+ * 🔴 Le numéro n'est marqué (« il attend sa ligne ») QUE dans les cas qui attendent (`CAS_QUI_ATTENDENT`) : une ligne à
+ * poser, ou celle de l'espace dont l'attache reste à vérifier. Une marque posée sans droit, fenêtre fermée, en coexistence
+ * ou droit illisible attendrait une ligne que personne ne posera, et l'Entreprise ne lirait plus le conseil de sa carte
+ * chez Meta (le rouge de la relecture du lot E5). L'audit `numero.connecte` garde, lui, toute connexion par la fenêtre.
+ * La marque d'abord, l'alerte ensuite : une alerte perdue laisse la trace. Ne lève jamais : la connexion est faite.
  */
 export async function connexionParLaLigne(
-  d: DepsFenetrePartenaire, tenantId: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null },
+  d: DepsFenetrePartenaire, tenantId: string,
+  n: { wabaId: string; phoneNumberId: string | null; numero: string | null; coexistence?: boolean },
 ): Promise<void> {
   const qui = `espace ${tenantId}, ${n.numero ?? n.phoneNumberId ?? 'sans numéro'} (compte ${n.wabaId})`;
-  const { cas, couvrante } = await casDeConnexion(d, tenantId, n.wabaId, n.phoneNumberId);
+  // Un numéro en coexistence garde l'application : il ne passe jamais sur la ligne (relecture du lot V2, jaune 6).
+  const { cas, couvrante } = n.coexistence === true
+    ? { cas: 'coexistence' as const, couvrante: null }
+    : await casDeConnexion(d, tenantId, n.wabaId, n.phoneNumberId);
   const autre = cas === 'autre_espace' && couvrante !== null ? await autreEspace(d, couvrante.tenantId) : '';
   if (CAS_QUI_ATTENDENT.has(cas) && n.phoneNumberId !== null) await marquerSansLever(d, tenantId, n.phoneNumberId);
   await alerterSansPerte(d, tenantId, n.wabaId, cas, texteDeConnexion(cas, qui, couvrante, autre));
+}
+
+/**
+ * Le numéro qu'une connexion interrompue a pu rattacher (relecture du lot E7, jaune 4) : celui que le corps annonce s'il
+ * est rattaché à l'espace, sinon le seul rattaché, que le serveur a pu retrouver sans que la fenêtre l'annonce. Plusieurs
+ * rattachés et aucun annoncé : on ne devine pas. Une lecture en panne se journalise et ne marque rien.
+ */
+async function numeroDeLInterruption(
+  d: Pick<DepsFenetrePartenaire, 'numerosRattaches'>, tenantId: string, annonce: string | null,
+): Promise<string | null> {
+  try {
+    const rattaches = await d.numerosRattaches(tenantId);
+    if (annonce !== null && rattaches.includes(annonce)) return annonce;
+    return rattaches.length === 1 ? (rattaches[0] ?? null) : null;
+  } catch (err) {
+    journaliser('error', 'numero_interrompu_illisible', { tenantId, err });
+    return null;
+  }
 }
 
 /**
@@ -249,11 +295,12 @@ export async function connexionParLaLigne(
  * compte est peut-être déjà partagé avec le partenaire, et rien ne le dirait (relecture du lot E, jaune 1).
  *
  * La fin vient du navigateur (relecture du lot E5, jaune 2) : une alerte de refus, et une d'interruption, par espace et
- * par demi-heure, celle que Telegram n'a pas reçue rendant sa retenue (relecture du lot E6, jaune 1) ; le compte et le
- * numéro ne sont repris que s'ils ont la forme d'un identifiant de Meta ; un refus se dit par un libellé fixe, jamais par
- * le message de Meta, qui peut reprendre le compte du corps (jaune 6). Interrompue, la connexion a pu rattacher le
- * numéro : il est marqué selon les règles de la connexion, retenue ou non, la marque disant l'état et non l'alerte.
- * Ne lève jamais : la réponse d'erreur part de toute façon.
+ * par demi-heure, celle que Telegram n'a pas reçue rendant sa retenue (relecture du lot E6, jaune 1), jamais celle qui a
+ * pu partir (relecture du lot E7, jaune 7) ; le compte et le numéro ne sont repris que s'ils ont la forme d'un
+ * identifiant de Meta ; un refus se dit par un libellé fixe, jamais par le message de Meta, qui peut reprendre le compte
+ * du corps (jaune 6). Interrompue, la connexion a pu rattacher le numéro, annoncé ou non : il est retrouvé en base et
+ * marqué selon les règles de la connexion, retenue ou non, la marque disant l'état et non l'alerte ; l'alerte dit s'il
+ * attend dans la liste (relecture du lot E7, jaune 4). Ne lève jamais : la réponse d'erreur part de toute façon.
  */
 export async function fenetreRefuseeParLaLigne(
   d: DepsFenetrePartenaire, tenantId: string, i: { statut: number; wabaId: string | null; phoneNumberId: string | null },
@@ -261,9 +308,13 @@ export async function fenetreRefuseeParLaLigne(
   const wabaId = i.wabaId !== null && ID_META.test(i.wabaId) ? i.wabaId : null;
   const phoneNumberId = i.phoneNumberId !== null && ID_META.test(i.phoneNumberId) ? i.phoneNumberId : null;
   const interrompue = i.statut >= 500;
-  if (interrompue && phoneNumberId !== null) {
-    const { cas } = await casDeConnexion(d, tenantId, wabaId, phoneNumberId);
-    if (CAS_QUI_ATTENDENT.has(cas)) await marquerSansLever(d, tenantId, phoneNumberId);
+  let marque: string | null = null;
+  if (interrompue) {
+    const numero = await numeroDeLInterruption(d, tenantId, phoneNumberId);
+    if (numero !== null) {
+      const { cas } = await casDeConnexion(d, tenantId, wabaId, numero);
+      if (CAS_QUI_ATTENDENT.has(cas) && await marquerSansLever(d, tenantId, numero)) marque = numero;
+    }
   }
   let prise: Prise | null = null;
   try {
@@ -277,12 +328,17 @@ export async function fenetreRefuseeParLaLigne(
     journaliser('error', 'alerte_fenetre_refusee_retenue_illisible', { tenantId, err });
   }
   const compte = `espace ${tenantId}, compte ${wabaId ?? 'inconnu'}`;
-  const recue = interrompue
+  const liste = marque !== null
+    ? `Son numéro ${marque} est rattaché et attend sa ligne : il figure dans la liste « En attente de leur ligne ».`
+    : 'Aucun numéro rattaché à poser : rien dans la liste « En attente de leur ligne ».';
+  const issue = interrompue
     ? await alerterSansPerte(d, tenantId, wabaId, 'interrompue',
-      `Fenêtre du partenaire passée chez Meta, connexion INTERROMPUE chez nous par une erreur interne (voir les journaux de l’API) : ${compte}. Le compte est peut-être partagé avec le partenaire et relié à moitié : voir l’espace dans /ops avant toute pose (son numéro, s’il est rattaché et à poser, figure dans la liste « En attente de leur ligne »), et lui demander de ne rien y attacher sans décision.`)
+      `Fenêtre du partenaire passée chez Meta, connexion INTERROMPUE chez nous par une erreur interne (voir les journaux de l’API) : ${compte}. Le compte est peut-être partagé avec le partenaire et relié à moitié : voir l’espace dans /ops avant toute pose, et lui demander de ne rien y attacher sans décision. ${liste}`)
     : await alerterSansPerte(d, tenantId, wabaId, 'refusee',
       `Fenêtre du partenaire passée chez Meta, connexion REFUSÉE chez nous (${i.statut} : ${CAUSE_DU_REFUS[i.statut] ?? 'refus'}) : ${compte}. Le compte est peut-être déjà partagé avec le partenaire : lui demander de ne rien y attacher, et voir avec le client. Le détail est dans les journaux de l’API.`);
-  if (!recue && prise !== null) {
+  // Seule une alerte que Telegram n'a pas reçue rend sa retenue : une alerte incertaine a pu partir (relecture du lot E7,
+  // jaune 7), la suivante serait un doublon.
+  if (issue === 'non_recue' && prise !== null) {
     try {
       await d.verrous.relacher(prise);
     } catch (err) {

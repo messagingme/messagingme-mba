@@ -9,7 +9,7 @@ import { lireJetonPiece } from './workflow/piece-lien';
 import type { DepsPubInscription } from './pub/inscription';
 import { puisSignaler } from './pub/declencheurs';
 import { surveillerOps } from './ops/tentatives';
-import { sendTelegram } from './ops/telegram';
+import { envoyerTelegram, sendTelegram } from './ops/telegram';
 import { creerVerificateurTurnstile } from './auth/turnstile';
 import { creerSuiviRetoursInscription } from './auth/retours-inscription';
 import { creerAlertesReserve } from './http/numero-fourni';
@@ -1102,7 +1102,7 @@ async function main(): Promise<void> {
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
     option: (tenant) => optionsCreditWhatsapp.vivante(tenant),
     numerosCouverts: (tenant) => lignesCreditWhatsapp.numerosCouvertsParOption(tenant),
-    numerosRattaches: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).length,
+    numerosRattaches: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).map((n) => n.phoneNumberId),
     // « Déjà couvert » toute origine, comme la pose de `/ops` (relecture du lot E5, jaune 5).
     ligneDuNumero: (phoneNumberId) => lignesCreditWhatsapp.ligneDuNumero(phoneNumberId),
     // Une alerte de refus, et une d'interruption, par espace et par demi-heure, pour toutes les copies (relecture du lot E5,
@@ -1111,8 +1111,9 @@ async function main(): Promise<void> {
     // L'autre espace dont la ligne couvre encore le compte, nommé dans l'alerte (relecture du lot E6, jaune 4).
     nomDeLEspace: (tenant) => opsStore.getTenantName(tenant),
     marquer: async (tenant, phoneNumberId) => { await lignesCreditWhatsapp.marquerParLaLigne(tenant, phoneNumberId); },
-    // Ce que Telegram a répondu remonte : une alerte perdue se journalise (relecture du lot E, jaune 3 ; essai 236).
-    alerter: (texte) => sendTelegram(`[mba-${NOM_API}] ${texte}`),
+    // L'issue chez Telegram remonte : une alerte perdue se journalise (relecture du lot E, jaune 3 ; essai 236), une alerte
+    // incertaine garde sa retenue (relecture du lot E7, jaune 7).
+    alerter: (texte) => envoyerTelegram(`[mba-${NOM_API}] ${texte}`),
   };
   /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */
   const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {

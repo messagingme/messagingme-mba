@@ -6,6 +6,7 @@ import type { UserAuthStore, EmailIdentity } from '../src/auth/store';
 import type { EmbeddedSignupRouteDeps } from '../src/http/embedded-signup';
 import type { MetaInscriptionDep } from '../src/account/connexion-numero';
 import { TenantConflictError, SecondNumeroRefuseError } from '../src/account/es-store.pg';
+import { capturerJournal } from './journal';
 import { metaInscriptionInerte, signupInerte } from './routes-inertes';
 
 const SECRET = 'test-secret';
@@ -142,7 +143,7 @@ describe('POST /embedded-signup/complete', () => {
     const { server, cap } = app();
     const res = await server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: { ...BODY, parLaLigne: true } });
     expect(res.statusCode).toBe(200);
-    expect(cap.parLaLigne).toEqual([{ tenantId: 't1', wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: '+33525680250' }]);
+    expect(cap.parLaLigne).toEqual([{ tenantId: 't1', wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: '+33525680250', coexistence: false }]);
     expect(cap.refusees).toEqual([]);
     expect(cap.audits).toEqual([{ action: 'numero.connecte', detail: expect.objectContaining({ wabaId: 'waba-1', parLaLigne: true }) }]);
     await server.close();
@@ -164,6 +165,18 @@ describe('POST /embedded-signup/complete', () => {
     const directe = app({ verifyWaba: async () => { throw new Error('pas à vous'); } });
     await directe.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: BODY });
     expect(directe.cap.refusees).toEqual([]);
+    await directe.server.close();
+  });
+
+  it('🔴 le refus d’une fin par la fenêtre du partenaire écrit sa cause au journal du serveur, que l’alerte cite (relecture du lot E7, jaune 5) ; une connexion directe refusée, non', async () => {
+    const ratee = app({ verifyWaba: async () => { throw new Error('pas à vous'); } });
+    const { lignes } = await capturerJournal(() => ratee.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: { ...BODY, parLaLigne: true } }));
+    const cause = lignes.filter((l) => l.msg === 'fenetre_partenaire_refusee');
+    expect(cause).toEqual([expect.objectContaining({ lvl: 'warn', tenantId: 't1', statut: 422, error: expect.any(String) })]);
+    await ratee.server.close();
+    const directe = app({ verifyWaba: async () => { throw new Error('pas à vous'); } });
+    const d = await capturerJournal(() => directe.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: BODY }));
+    expect(d.lignes.filter((l) => l.msg === 'fenetre_partenaire_refusee')).toEqual([]);
     await directe.server.close();
   });
 
@@ -663,6 +676,16 @@ describe('POST /embedded-signup/complete : la coexistence', () => {
     expect(cap.saved[0]).toMatchObject({ pin: null });
     expect(cap.retraits).toEqual(['t1']);
     expect(cap.offerts).toEqual([{ tenantId: 't1', phoneNumberId: 'pn-1' }]);
+    await server.close();
+  });
+
+  it('🔴 par la fenêtre du partenaire, la coexistence est transmise à l’alerte : le numéro garde l’application et ne passe pas sur la ligne (relecture du lot V2, jaune 6)', async () => {
+    const { server, cap } = app(PENDING);
+    await server.inject({
+      method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok),
+      payload: { ...BODY, evenement: 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING', parLaLigne: true },
+    });
+    expect(cap.parLaLigne).toEqual([{ tenantId: 't1', wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: '+441555479304', coexistence: true }]);
     await server.close();
   });
 

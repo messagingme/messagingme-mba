@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { sendTelegram } from '../src/ops/telegram';
+import { envoyerTelegram, sendTelegram } from '../src/ops/telegram';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -35,5 +35,24 @@ describe('sendTelegram', () => {
       throw new Error('network down');
     }));
     await expect(sendTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).resolves.toBe(false);
+  });
+});
+
+/**
+ * L'ISSUE D'UN ENVOI (relecture du lot E7 du Crédit WhatsApp, jaune 7) : un délai dépassé ou une panne réseau ne disent
+ * pas que l'alerte n'est pas arrivée, elle a pu partir. Seul un refus net (une réponse d'erreur, ou Telegram non
+ * configuré) dit « non reçue ».
+ */
+describe('envoyerTelegram', () => {
+  it('🔴 reçue sur une réponse 2xx ; non reçue sur un refus net ou sans configuration ; incertaine sur un délai dépassé ou une panne réseau', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, text: async () => '' })));
+    expect(await envoyerTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).toBe('recue');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 400, text: async () => 'chat not found' })));
+    expect(await envoyerTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).toBe('non_recue');
+    expect(await envoyerTelegram('x')).toBe('non_recue');
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new DOMException('The operation was aborted due to timeout', 'TimeoutError'); }));
+    expect(await envoyerTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).toBe('incertaine');
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network down'); }));
+    expect(await envoyerTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).toBe('incertaine');
   });
 });

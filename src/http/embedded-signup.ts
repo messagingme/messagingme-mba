@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { gardeEtendue, type Guard, type PreHandler } from '../auth/middleware';
 import { espaceVerifie, nonEmpty } from './scope';
 import { makeJournal, type AuditSink } from '../audit/journal';
+import { journaliser } from '../lib/journal';
 import type { VerrousCourts } from '../db/verrous-courts';
 import type { BilanDeconnexion, IssueDeconnexion } from '../account/deconnexion-numero';
 import {
@@ -38,9 +39,10 @@ export interface EmbeddedSignupRouteDeps extends DepsConnexionNumero, DepsDemand
   solutionDuPartenaire(tenantId: string): Promise<string | null>;
   /**
    * Un numéro connecté par la fenêtre du partenaire (`connexionParLaLigne`) : le numéro marqué, le droit relu, Julien
-   * alerté du geste à faire. Ne lève jamais : la connexion est faite.
+   * alerté du geste à faire. `coexistence` : le numéro garde l'application, il ne passe pas sur la ligne (relecture du lot
+   * V2, jaune 6). Ne lève jamais : la connexion est faite.
    */
-  connexionParLaLigne(tenantId: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null }): Promise<void>;
+  connexionParLaLigne(tenantId: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null; coexistence: boolean }): Promise<void>;
   /**
    * Une fin par la fenêtre du partenaire que notre serveur refuse (`fenetreRefuseeParLaLigne`, relecture du lot E,
    * jaune 1), ou qu'une erreur interrompt (`statut` 500, relecture du lot E5, jaune 7) : le compte est peut-être déjà
@@ -190,6 +192,9 @@ export function registerEmbeddedSignup(
       // La fenêtre du partenaire a fini chez Meta : le compte est peut-être déjà partagé avec lui, même refusé ici (relecture
       // du lot E, jaune 1). Julien est alerté ; la réponse d'erreur part de toute façon, avec son message.
       if (parLaLigne) {
+        // La cause, au journal du serveur seulement, que l'alerte cite (relecture du lot E7, jaune 5) : le message peut
+        // reprendre le compte du corps, il ne part jamais dans l'alerte.
+        journaliser('warn', 'fenetre_partenaire_refusee', { tenantId: tenant, statut: r.statut, error: r.error });
         await deps.fenetreRefusee(tenant, { statut: r.statut, wabaId: wabaDuCorps, phoneNumberId: numeroDuCorps });
       }
       return reply.code(r.statut).send({ error: r.error });
@@ -201,6 +206,7 @@ export function registerEmbeddedSignup(
         wabaId: r.wabaId,
         phoneNumberId: r.connected ? r.phoneNumberId : null,
         numero: r.connected ? (r.displayPhoneNumber ?? null) : null,
+        coexistence: r.connected && r.coexistence === true,
       });
     }
     if (!r.connected) {

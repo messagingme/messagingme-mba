@@ -45,6 +45,17 @@ describe('le câblage de l’option du Crédit WhatsApp', () => {
     expect(webhook).toMatch(/enVente: \(\) => optionEnVente\(optionDeLaConsole\),/);
     expect(webhook, 'la seule formule payée laisserait partir l’e-mail à un Pro dont la fin est passée').not.toMatch(/formulePayee\(/);
   });
+
+  it('🔴 la conversion dite par le webhook passe par la garde du moment, sur la fin de l’essai ; le démarrage et /ops la disent en direct (relecture du lot V2, jaune 1)', () => {
+    // Depuis V1, un espace Pro en essai lit `a_prendre` : seule la date le tient à l'écart. Le test unitaire de la garde monte
+    // un faux `proPayeDepuis` ; s'il rendait la souscription, ou si le webhook appelait la conversion directe, l'e-mail
+    // partirait pendant l'essai, suite verte.
+    expect(bloc('const conversionDeLaConsole: DepsConversion = {', '\n  };')).toMatch(/return r === null \? null : \(r\.essaiFinLe \?\? r\.creeLe\);/);
+    expect(sansCommentaires).toMatch(/signalerConversion: \(tenantId: string\) => signalerConversionDuPro\(conversionDeLaConsole, tenantId\),/);
+    // Le démarrage de la formule Pro et la confirmation d'un Business dans /ops SONT la conversion : l'appel direct, ces deux-là seulement.
+    expect(sansCommentaires.match(/signalerConversion: \(tenant\) => signalerConversion\(conversionDeLaConsole, tenant\),/g)).toHaveLength(2);
+    expect(sansCommentaires.match(/signalerConversion\(conversionDeLaConsole/g)).toHaveLength(2);
+  });
 });
 
 describe('le câblage de la fenêtre du partenaire (lot E)', () => {
@@ -57,12 +68,13 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     // Une place libre se compte contre les numéros que les lignes de l'option couvrent (la liste : la fin écarte le numéro
     // qui vient d'arriver, jaune 9) ; un numéro délié reste rattaché, comme pour `hasNumber` et `linkTenant` (jaune 5).
     expect(fenetre).toMatch(/numerosCouverts: \(tenant\) => lignesCreditWhatsapp\.numerosCouvertsParOption\(tenant\),/);
-    expect(fenetre).toMatch(/numerosRattaches: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosDeLEspace\(tenant\)\)\.length,/);
+    // Leurs identifiants : une connexion interrompue y retrouve le numéro que la fenêtre n'a pas annoncé (relecture du lot E7, jaune 4).
+    expect(fenetre).toMatch(/numerosRattaches: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosDeLEspace\(tenant\)\)\.map\(\(n\) => n\.phoneNumberId\),/);
     expect(fenetre).not.toMatch(/delie/);
-    // La marque du numéro arrivé par la fenêtre, appelée sur son magasin ; l'alerte rend ce que Telegram a répondu, pour
-    // qu'une alerte perdue se journalise (relecture du lot E, jaune 3).
+    // La marque du numéro arrivé par la fenêtre, appelée sur son magasin ; l'alerte rend l'issue de Telegram, pour qu'une
+    // alerte perdue se journalise (relecture du lot E, jaune 3) et qu'une alerte incertaine garde sa retenue (lot E7, jaune 7).
     expect(fenetre).toMatch(/marquer: async \(tenant, phoneNumberId\) => \{ await lignesCreditWhatsapp\.marquerParLaLigne\(tenant, phoneNumberId\); \},/);
-    expect(fenetre).toMatch(/alerter: \(texte\) => sendTelegram\(`\[mba-\$\{NOM_API\}\] \$\{texte\}`\),/);
+    expect(fenetre).toMatch(/alerter: \(texte\) => envoyerTelegram\(`\[mba-\$\{NOM_API\}\] \$\{texte\}`\),/);
     // « Déjà couvert » se lit comme la pose de `/ops` le lit, toute origine (relecture du lot E5, jaune 5), appelé sur son
     // magasin ; la retenue d'une alerte de refus est partagée par les copies (jaune 2), jamais un verrou par processus.
     expect(fenetre).toMatch(/ligneDuNumero: \(phoneNumberId\) => lignesCreditWhatsapp\.ligneDuNumero\(phoneNumberId\),/);
