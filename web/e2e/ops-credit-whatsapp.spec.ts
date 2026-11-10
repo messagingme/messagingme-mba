@@ -106,6 +106,10 @@ test.describe('Ops : les numéros qui attendent leur ligne (relecture du lot E5,
     const liste = page.getByTestId('ops-credit-whatsapp-en-attente');
     await expect(liste).toContainText('En attente de leur ligne');
     await expect(liste).toContainText('quand il confirme l’attache, pas avant');
+    // Sur un compte déjà couvert, « Ne pas poser » ne vaut que l'attache vérifiée : sans elle, notre ligne resterait, et le
+    // client paierait deux fois ou Meta refuserait ses envois (relecture du lot V7, jaune 3).
+    await expect(liste).toContainText('un compte déjà couvert, l’attache vérifiée, garde sa ligne');
+    await expect(liste).toContainText('sans attache, « Ne pas poser » ne retire pas la nôtre : la retirer plutôt');
     await expect(liste.getByTestId('ops-credit-whatsapp-en-attente-numero')).toHaveText('Essai Dupont : +44 1224 000000, connecté le 09/11/2026');
   });
 

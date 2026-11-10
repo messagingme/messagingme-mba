@@ -129,6 +129,9 @@ V6 et V7 : l'API, sans migration, et le texte de la carte de `/ops` (Vercel au p
 n'affiche que le texte du 409, dont le corps gagne `ligne`, que rien ne lit encore). V6 est en production le 2026-11-10
 (run 42885204406, `6e927b63`).
 
+V8 : l'API, sans migration (des textes d'alerte, un avertissement au journal), et la consigne de la carte de `/ops`
+(Vercel au push, qui peut précéder l'API : elle dit ce que « Ne pas poser » fait déjà).
+
 ## Méthode de livraison
 
 **Implémenteur par lot, puis une relecture indépendante du diff**, parce que la prise de l'option et l'état des cartes
@@ -281,5 +284,11 @@ vont à V8.
 
 ### V8. Les jaunes de la relecture de V7
 
-- [ ] Les cinq (§ « La relecture du lot V7 »), le 3 d'abord : la carte de `/ops` ne doit pas laisser croire que
-  « Ne pas poser » suffit sur un compte couvert sans attache.
+- [x] Les cinq (§ « La relecture du lot V7 »), le 3 d'abord : la carte de `/ops` et le manuel disent que la ligne d'un
+  compte déjà couvert ne couvre son numéro que l'attache vérifiée, et que sans elle « Ne pas poser » ne retire pas la
+  nôtre : la retirer plutôt, le numéro restant dans la liste jusqu'à ce qu'on la repose (3, tenu par l'e2e de la carte) ;
+  l'alerte de connexion dit ce que la marque a fait, relue (`marquerPuisRelire`, partagé avec l'interruption), « autre
+  espace » compris (1) ; en coexistence, les trois cas couverts ont leur texte : ne rien retirer, ne rien poser, ne rien
+  demander au partenaire sans décision (2) ; un test tient l'asymétrie du rejet (4) ; une marque absente se journalise en
+  avertissement, les JSDoc et deux titres de test suivent le code (5). Reste la décision de Julien sur la place des cas
+  bloquants en coexistence dans la liste.

@@ -39,12 +39,12 @@ describe('sendTelegram', () => {
 });
 
 /**
- * L'ISSUE D'UN ENVOI (relecture du lot E7 du Crédit WhatsApp, jaune 7) : un délai dépassé ou une panne réseau ne disent
- * pas que l'alerte n'est pas arrivée, elle a pu partir. Seul un refus net (une réponse d'erreur, ou Telegram non
- * configuré) dit « non reçue ».
+ * L'ISSUE D'UN ENVOI (relecture du lot E7 du Crédit WhatsApp, jaune 7) : un délai dépassé, une coupure en cours ou une
+ * erreur sans cause connue ne disent pas que l'alerte n'est pas arrivée, elle a pu partir. Un refus net (une réponse
+ * d'erreur, ou Telegram non configuré) et une connexion jamais établie (relecture du lot V5, jaune 8) disent « non reçue ».
  */
 describe('envoyerTelegram', () => {
-  it('🔴 reçue sur une réponse 2xx ; non reçue sur un refus net ou sans configuration ; incertaine sur un délai dépassé ou une panne réseau', async () => {
+  it('🔴 reçue sur une réponse 2xx ; non reçue sur un refus net ou sans configuration ; incertaine sur un délai dépassé ou une erreur sans cause connue', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, text: async () => '' })));
     expect(await envoyerTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).toBe('recue');
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 400, text: async () => 'chat not found' })));
