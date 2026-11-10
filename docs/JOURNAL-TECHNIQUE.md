@@ -4,6 +4,32 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : le message rapide à boutons gagne la sortie « Puis, sans attendre »
+
+Demande de Julien (capture du 2026-11-10) : dès qu'un message rapide portait une réponse rapide, il ne se reliait plus
+que par ses boutons ou par « Toute autre réponse ». Plan `2026-11-10-message-rapide-puis-sans-attendre.md` ;
+implémenteur par lot, une relecture indépendante en fin de lot.
+
+- **Ses deux décisions** (AskUserQuestion) : derrière la sortie, seulement des blocs qui n'attendent rien, et sur le
+  message rapide seul, pas sur les modèles à boutons. La raison : un parcours n'a qu'un curseur, et un tap revient en
+  `btn:<i>` sans nommer son message ; un bloc qui attendrait sur la suite prendrait la main, et un tap sur l'ancien
+  bouton serait lu comme une réponse à lui.
+- **Livré** (`d8fc3d15`) : `walk` parcourt la suite en `sansAttente` et rend `waiting` sur le message ; la publication
+  refuse une suite qui attend (422 `suite_qui_attend`) ; la ligne verte sur le canevas, la flèche retirée avec le
+  dernier bouton, la sortie exclue des clics mesurés et nommée sur le canevas d'analyse ; trois jaunes au backlog.
+- **Vérifié** : suite racine entière sur une installation exacte du verrou (16 632 tests) et typecheck, suite console
+  (1 268), lint, 31 e2e de l'éditeur ; cinq mutations, chacune fait tomber son test avec son symptôme.
+- **Incident** : la CI console de `d8fc3d15` est restée rouge une demi-heure. `workflow-sorties-multiples.spec.ts`
+  énumère les points de sortie d'un message rapide, et la nouvelle ligne en ajoutait un ; les e2e lancés en local
+  avaient été choisis à la main. Corrigé par `fc972e88`, puis les 109 e2e `workflow-*` verts en local et la CI verte
+  job par job.
+- **Relecture** : aucun rouge, huit jaunes (trois au backlog : un message à boutons refusé dont la suite part, une
+  réponse rapide vide, la recette MCP qui ne décrit pas cette sortie).
+- **En production** : run 42876900709 (`migration=aucune`, épinglé sur `fc972e88`, approuvé par Julien) : conteneur
+  `mba-api` prêt sur l'image `fc972e88`, workers en `fc972e88`. Le run précédent du même soir (42874666331) avait
+  construit `54f404db`, sans ce lot.
+- **Essai réel** (n° 247) : fait par Julien le soir même depuis son téléphone, sur la SANDBOX : « tout marche ».
+
 ## 2026-11-10 : la fenêtre du partenaire, les jaunes des lots E7, V1 et V2 (lot 3v, V2 et V5)
 
 Accords de Julien (« Oui, enchaîne », deux fois) ; plan `2026-11-10-credit-whatsapp-vente-libre-service.md`, § V2 et
