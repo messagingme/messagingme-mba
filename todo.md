@@ -26,6 +26,12 @@ bloque.
   lisible plutôt qu'un `contentRejected` de Meta.
 - **Supprimer l'agent de Meta d'un espace** (`DELETE /{pn}/delete_agent`) : utile à la déconnexion d'un numéro ;
   décider si la console l'offre, car supprimer le dernier agent du compte coupe l'intégration.
+- **Les horaires de la console ne vont pas chez Meta** : l'agent de Meta ne lit que `contact_info.hours_of_operation`
+  de ses informations, que rien ne remplit depuis les réglages (`settings/business-hours`). Recopiés à la main sur
+  l'espace client du 2026-11-09 ; un changement d'horaires dans la console laisse l'agent sur les anciens. Les
+  recopier chez Meta à chaque enregistrement. Mesuré aussi : l'agent connaît l'heure, mais en UTC, et transférait à
+  20 h 32 (heure de Paris) sans tenir compte des horaires ; le mode `business_hours` n'empêche que la libération du
+  fil, pas l'annonce d'un transfert.
 - **Les évaluations de Meta** (`agent-eval`) : à regarder pour l'onglet « Tester », avant de construire nos propres jeux
   d'essai.
 - **L'espace client du 2026-11-09 (assurance obsèques)** : la consigne `presenter-les-garanties` reste `blocked` (refusée sous trois formes, le même contenu est
