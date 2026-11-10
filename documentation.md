@@ -1935,9 +1935,11 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   fiche. La rétention efface les fils et garde la fiche : un jeu tiré des seuls fils laissait le numéro, ou le BSUID, à
   une demande d'effacement tardive. Une table ajoutée qui porte un `wa_id` entre dans ce jeu, sous `tenant_id = $1`.
   Effacer un parcours (`workflow_runs`) emporte en cascade ses sessions d'agent IA et leurs appels d'outils (0086) :
-  le coût des tours d'agent affiché (`consommationIa`, la somme de `agent_sessions.cout_micro_eur`) et le journal des
-  erreurs système (`listerEchecsSysteme`, sur `agent_tool_calls`) ne comptent plus une personne effacée, quand le crédit
-  débité, lui, reste (`agent_credit_mouvements`, `session_id` en `on delete set null`).
+  les sessions, jetons et tours de « Coût de l'IA » (lus dans `agent_sessions`) et le journal des erreurs système
+  (`listerEchecsSysteme`, sur `agent_tool_calls`) ne comptent plus une personne effacée, quand ses euros, eux, restent :
+  `consommationIa` lit le montant au journal du crédit (`agent_credit_mouvements`, `session_id` en `on delete set null`),
+  par nature (`natureDuMouvement`, `src/agent/natures-credit.ts`), et `getCoutIa` y ajoute le MBA estimé
+  (`messagesMbaSurPeriode` × `estimationMbaMicroEur`, `web/lib/partage/agent-meta.ts`, la base de la carte « MBA »).
 - 🔴 **Bloqué n'est pas supprimé.** `contacts.blocked_at` est une DÉCISION humaine (plus aucun envoi,
   conversation masquée) ; `conversation_analysis.abusive` est un CONSTAT posé par l'analyse, qui ne déclenche
   rien. Les mélanger laisserait un modèle bloquer des clients tout seul. Les messages d'un contact bloqué
@@ -2338,6 +2340,15 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   par la fin du parcours dans le même lot, et un second événement ferait répondre l'agent deux fois. Un
   événement refusé est journalisé, la colonne reste `mba`. « Rendre la main », la fin de parcours et le balayage
   confient SANS événement : l'agent parle au prochain message du client.
+  🔴 **ACCEPTÉ N'EST PAS TRAITÉ.** Chaque `message_sans_suite` accepté est confié au suivi de son issue
+  (`DepsControleDuFil.suiviDesEvenements`, requis) : une tâche de la file `agent-evenement-issue`
+  (`src/mba/issue-evenement.ts`) lit `GET /{numéro}/agent_event/{id}` 20 s plus tard (trois lectures au plus). Sur
+  `failed` passager (`internal_server_error`, `agent_temporarily_unavailable`), l'événement est renvoyé UNE fois ; un
+  échec définitif (renvoi en échec ou refusé, autre cause) passe la conversation à l'équipe
+  (`prendrePourLEquipe`, `CAUSE_FILET`), donc dans « À traiter ». Renvoi et filet sont gardés : fil toujours `mba`,
+  et ni le client ni l'agent n'ont écrit depuis l'envoi (identifiants de message relevés à l'envoi, jamais
+  d'horloge). Toute issue se journalise (`agent_event_issue`). Mesuré : après des messages en texte libre d'un
+  scénario, Meta échoue sur TOUT événement de la conversation jusqu'à ce que le client réécrive.
 - ⚠️ **LA PURGE RGPD RETIRE AUSSI LE CONTACT DE LA LISTE** : `purgeMany` supprime sa ligne de `mba_liste` dans
   sa transaction et la rend, et la route retire l'entrée chez Meta APRÈS avoir répondu (au mieux, journalisé,
   suivi par `TravauxEnVol` pour que l'arrêt de la copie l'attende) : un appel à un tiers ne se fait pas dans une
@@ -6490,7 +6501,7 @@ avec elle) garde son test de parité.
 | `src/lib/erreur.ts` -> `messageDe`, `texteDe` | le message d'une valeur levée : `messageDe` rend la valeur elle-même si ce n'est pas une `Error`, `texteDe` la convertit en texte. Un repli différent (« erreur inconnue ») reste sur place |
 | `src/meta/graph.ts` -> `appelGraph` | l'appel Graph authentifié des clients WhatsApp (modèles, flows, lecture du numéro, ajout et vérification d'un numéro, média entrant) : `Bearer`, `fetch` injectable, `MetaApiError` si non-2xx. ⚠️ Ni `ClientGraph.call` (plafond de durée, `ErreurGraph`), ni `MbaClient`, ni le transport des envois |
 | `src/campaign/enqueue.ts` -> `relanceurDeCampagnes` | l'enfilement d'un run au débit RÉSOLU sur la configuration du process : les relances du worker (hors planification et reprise après plafond, qui résolvent le débit dans leur balayage) et l'envoi de l'API publique |
-| `src/stats/chiffrage.ts` -> `creerChiffrage` | 🔴 toutes les lectures de COÛT de la console (statistiques, fiche de campagne, bilan contact) : le tarif Meta et son cache (60 s, un par process, `null` jamais mémorisé), la marge, la classification RCS simple ou conversationnel (`repartirRcs`) et la lecture des liens tracés d'un scénario (`liensDesTemplates`), écrites une fois. La racine le construit et passe ses membres aux routes ; `tests/chiffrage.test.ts` l'exécute contre de faux dépôts |
+| `src/stats/chiffrage.ts` -> `creerChiffrage` | 🔴 toutes les lectures de COÛT de la console (statistiques, fiche de campagne, bilan contact) : le tarif Meta et son cache (60 s, un par process, `null` jamais mémorisé), la marge, la classification RCS simple ou conversationnel (`repartirRcs`) la lecture des liens tracés d'un scénario (`liensDesTemplates`) et « Coût de l'IA » (`getCoutIa` : le journal du crédit par nature, plus le MBA estimé ; une panne de lecture du MBA rend `mba: null`, jamais une erreur), écrites une fois. La racine le construit et passe ses membres aux routes ; `tests/chiffrage.test.ts` l'exécute contre de faux dépôts |
 | `src/pubs/connexion.ts` -> `creerConnexionPub` | 🔴 la connexion publicitaire d'un espace, et le SEUL endroit où son jeton est lu et déchiffré, pour l'API comme pour le worker (construite une fois par `construireSocle`) : jeton chiffré au repos, connexion concurrente, révocation (Meta d'abord, puis la base), état du compte en cache 2 min, dépôt de jeton par `/ops`. Le jeton ne sort jamais comme donnée : un appelant reçoit `appelerMeta`, une opération qui le consomme et mémorise les vrais refus de Meta. Trois accès : `avecJeton` (le jeton seul), `avecConfiguration` (jeton, compte publicitaire et Page, `ConnexionPubIncomplete` sans eux), `siConnecte` (le worker : seule l'absence de connexion est absorbée) |
 | `src/pubs/acces-publicitaire.ts` -> `creerAccesPublicitaire` | les opérations du compte publicitaire, toutes authentifiées par la connexion ci-dessus : création et publication d'une publicité, pause, vidéos, audiences. `src/index.ts` lui fournit ses dépendances et n'en porte aucune ; les modules métier (`creation.ts`, `video.ts`, `routage.ts`, `suivi.ts`) gardent leurs règles. `tests/pubs-acces-publicitaire.test.ts` |
 | `src/rcs/message-entrant.ts` -> `traiterMessageEntrantRcs` | 🔴 le traitement d'une réponse RCS, une fois le rappel smsmode authentifié par la route, dans cet ordre : STOP (opt-out et signal) avant toute autre écriture, Inbox, fiche contact puis automation, signal de réponse, reprise du scénario. Automations et scénario sont secondaires : leur panne ne fait pas rejouer un rappel dont l'opt-out et l'Inbox sont écrits. `src/index.ts` ne fait que le câbler ; `tests/rcs-message-entrant.test.ts` exécute l'ordre |

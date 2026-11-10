@@ -1,7 +1,7 @@
 ---
 ecran: perf-synthese
 source_section: Analytics (menu Analytics)
-source_empreinte: a80307
+source_empreinte: cc47fd
 ---
 # Lire mes résultats dans le Performance Lab
 
@@ -26,6 +26,10 @@ en gestes et en personnes). Deux choses à savoir : le coût de référence est 
 le premier message envoyé à chaque destinataire, les modèles qu'un scénario renvoie ensuite étant comptés à
 part ; et cette fiche couvre **toute la vie de la campagne**, pas la période choisie en haut, ce qui explique
 qu'elle puisse différer de la ligne du tableau. Les échecs sont montrés séparément.
+
+**La ligne « Coût de l'IA »** additionne tout ce que votre crédit IA a payé sur la période (les réponses des agents
+IA, leurs essais, la mise en fiches de la connaissance, la transcription des vocaux, la traduction), détaillé sous le
+total, plus une estimation du MBA, le répondeur de Meta, au prix public : sa facture chez Meta fait foi.
 
 À droite, le **nuage « urgence et satisfaction »** place une conversation par point, la satisfaction en
 abscisse et l'urgence en ordonnée : le coin qui alarme tombe en haut à gauche. Il se remplit au fil des

@@ -4,6 +4,32 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : le MBA de MUTAC, « Coût de l'IA » complet, et un événement de l'agent que Meta met en échec
+
+**Le MBA de MUTAC (espace d'essai, assurance obsèques).** Rempli depuis sept PDF passés en Markdown et le site :
+informations, quinze FAQ, consignes (ton, tarifs, décès, orientation vers un conseiller), message interactif à deux
+boutons, horaires recopiés dans les consignes (l'agent ne lit pas `hours_of_operation`), outil `prendre_rendez_vous`
+qui lance le scénario « lien de RDV ». Règle de Julien en fin de journée : chaque réponse finit par « Souhaitez-vous
+échanger avec un conseiller MUTAC ? », un oui envoie les boutons, seul « Parler à un agent » passe la main. En route :
+l'écran MBA en 500, un 401 de la surface de l'agent ayant marqué le jeton invalide (corrigé par `MetaAgentApiError`,
+`64330acc`, jeton remis actif par une sonde) ; « âge » bloquant deux consignes ; un libellé de bouton réécrit par le
+modèle et coupé à 20 caractères (`docs/MBA-API-REFERENCE.md`, mesures du jour).
+
+**Lot A du coût de l'IA (`6d419d43`)** : « Coût de l'IA » lit le journal du crédit par nature et ajoute le MBA estimé ;
+la carte « Agent de Meta » devient « MBA ». Plan `2026-11-10-cout-ia-et-mba.md`. Relecture sans rouge, sept jaunes au
+backlog. Le lot B (le coût réel du MBA, par `business_agent_insights`) attend la permission `business_management`.
+
+**L'issue d'un `agent_event`, la relance (`3a4bd96b`) puis le filet (`8e9ef703`).** À 12 h 27, après le bloc « Envoyer
+au MBA » du scénario « devis », Meta a accepté l'événement portant la question du client, puis l'a mis en `failed`
+(`internal_server_error`) : aucune réponse. Lot 1 : la lecture de l'issue 20 s après et un renvoi sur cause passagère.
+En production, la relance est partie et a échoué aussi. Huit sondes (mbaClient par `docker exec`, lancées par Julien)
+ont écarté le contenu, le délai, la liste et le `release` : après des messages en texte libre de notre scénario, Meta
+échoue sur tout événement jusqu'à ce que le client réécrive. Deux hypothèses annoncées puis réfutées par la mesure
+(« la passation de main », « hors liste ») : la seconde sonde, sans `release`, ne prouvait rien sur la première. Lot 2 :
+le filet, un échec définitif passe la conversation dans « À traiter ». Essai 243 fait : frise `rendue_mba` à 16 h 23 min
+17, `escaladee` par le filet 49 s après. Déploiements 42814811581 (lot A et lot 1) et 42834111553 (lot 2), sans
+migration. Deux relectures sans rouge, jaunes au backlog.
+
 ## 2026-11-10 : l'option du Crédit WhatsApp se prend dès le début de l'essai Pro (lot 3v, V1)
 
 Décisions de Julien du 2026-11-10 (spec de l'aide à la connexion, § « Décisions de Julien »), précisées le même jour :

@@ -1,6 +1,6 @@
 ---
 slug: meta-business-agent
-traduit_de: e89f24
+traduit_de: d8b2d2
 description: The Meta Business Agent, WhatsApp’s responder: when it answers, how to set it up, its cap, and how to take back control.
 ---
 # Meta’s responder: what it is for, and how to set it up
@@ -92,9 +92,14 @@ a cap per conversation: it does not cap the total spend. An estimate at Meta’s
 and what shows is what Meta applies, read back from Meta. Meta gives the agent’s usage through no API: its invoice
 is what counts.
 
-**In Performance Lab, the Summary carries a “Meta’s agent” card** over the last 30 days: the conversations it held,
+**In Performance Lab, the Summary carries an “MBA” card** over the last 30 days: the conversations it held,
 those waiting for your team right now, the messages it wrote, a cost estimated at the public price, and the tools
-it called, with their success and their average time.
+it called, with their success and their average time. This estimated cost also goes into the “AI cost” line of the
+“Costs” card.
+
+**If Meta cannot get its agent to answer, the conversation goes to your team.** When a scenario hands a customer to
+it (the “Send to MBA” block), Meta may accept the message and then fail. Messaging Me checks, sends it again once,
+and if the agent still cannot answer, the conversation enters “To handle”: the customer is never left waiting.
 
 Two things this screen does not promise, because they cannot be kept: preventing a human from taking back control
 (no lock exists, neither on our side nor at Meta), and preventing the agent from deciding a handover. “Never” only

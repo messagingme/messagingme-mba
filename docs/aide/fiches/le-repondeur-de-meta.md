@@ -2,7 +2,7 @@
 description: Le Meta Business Agent, le répondeur de WhatsApp : quand il répond, comment le régler, son plafond, et comment reprendre la main.
 ecran: mba-settings
 source_section: MBA, le répondeur de Meta (menu « AI Agent » > MBA)
-source_empreinte: 02b031
+source_empreinte: 80cc63
 publique: oui
 rubrique: parler-aux-clients
 rang: 11
@@ -104,9 +104,15 @@ de l'agent**, c'est un plafond par conversation : il ne borne pas la dépense to
 public de Meta accompagne le chiffre, et ce qui s'affiche est ce que Meta applique, relu chez lui. Meta ne donne
 la consommation de l'agent par aucune API : sa facture fait foi.
 
-**Dans Performance Lab, la Synthèse porte une carte « Agent de Meta »** sur les 30 derniers jours : les
+**Dans Performance Lab, la Synthèse porte une carte « MBA »** sur les 30 derniers jours : les
 conversations qu'il a tenues, celles qui attendent votre équipe en ce moment, les messages qu'il a écrits, un
-coût estimé au prix public, et les outils qu'il a appelés, avec leur réussite et leur temps moyen.
+coût estimé au prix public, et les outils qu'il a appelés, avec leur réussite et leur temps moyen. Ce coût estimé
+entre aussi dans la ligne « Coût de l'IA » de la carte « Coûts ».
+
+**Si Meta n'arrive pas à faire répondre son agent, la conversation va à votre équipe.** Quand un scénario lui
+confie un client (bloc « Envoyer au MBA »), Meta peut accepter le message puis échouer. Messaging Me le vérifie,
+le retransmet une fois, et si l'agent ne peut toujours pas répondre, la conversation entre dans « À traiter » :
+le client n'attend jamais dans le vide.
 
 Deux choses que cet écran ne promet pas, parce qu'elles ne sont pas tenables : empêcher un humain de
 reprendre la main (aucun verrou n'existe, ni chez nous ni chez Meta), et empêcher l'agent de décider un

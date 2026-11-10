@@ -2132,6 +2132,12 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   cartes obligeaient à faire défiler pour comparer une dépense à un ressenti, ce qui est la comparaison que
   cette page existe pour permettre. En dessous d'un grand écran, une seule colonne, dans le même ordre.
   Le titre « Synthèse » a été retiré : l'onglet actif le portait déjà juste au-dessus.
+- ✅ **« Coût de l'IA » compte tout le crédit IA, et le MBA** (2026-11-10, troisième ligne de la carte « Coûts ») : la
+  somme de ce que le crédit IA a payé sur la période, quelle qu'en soit la source, détaillée sous le total (tours des
+  agents IA, essais depuis la console ou le serveur MCP, mise en fiches de la connaissance, transcription des vocaux,
+  traduction, autre), plus le **MBA estimé** : ses messages de la période au prix public de Meta, en fourchette, puisque
+  seule sa facture fait foi. Avant, la ligne ne comptait que les tours d'agent, et un tour dont la conversation avait
+  été purgée en disparaissait ; elle lit désormais le journal du crédit, qui garde chaque débit.
 - ✅ **« Ce que coûte un engagement »** (2026-09-08, sur la page de synthèse) : une ligne par campagne ayant
   envoyé sur la période, avec ses **envoyés**, ses **engagés** et son **coût par engagé**. C'est la question
   qu'on se pose en arrivant sur l'onglet, et elle se lit sur tout l'historique dès le premier jour.
@@ -4909,10 +4915,20 @@ du 2026-10-27.
   chiffre. Le plafond est écrit puis RELU chez Meta : l'écran montre ce que Meta applique. Meta ne donne la
   consommation de l'agent par aucune API : sa facture fait foi.
 
-- ✅ **La carte « Agent de Meta » dans Performance Lab > Synthèse** (2026-10-02), sous la grille, sur les 30
-  derniers jours (Meta ne garde pas ses statistiques plus longtemps) : les conversations tenues par l'agent,
-  celles qui attendent votre équipe en ce moment, les messages qu'il a écrits, un coût estimé au prix public (la
-  facture de Meta fait foi), et les outils qu'il a appelés, avec leur taux de réussite et leur temps moyen.
+- ✅ **La carte « MBA » dans Performance Lab > Synthèse** (2026-10-02, appelée « Agent de Meta » jusqu'au
+  2026-11-10), sous la grille, sur les 30 derniers jours (Meta ne garde pas ses statistiques plus longtemps) : les
+  conversations tenues par l'agent, celles qui attendent votre équipe en ce moment, les messages qu'il a écrits, un
+  coût estimé au prix public (la facture de Meta fait foi ; la même base que la part « MBA » de « Coût de l'IA »), et
+  les outils qu'il a appelés, avec leur taux de réussite et leur temps moyen.
+
+- ✅ **Quand Meta n'arrive pas à faire répondre son agent, la conversation va à l'équipe** (2026-11-10). Le bloc
+  « Envoyer au MBA » et la remise d'un message que personne ne suit transmettent à l'agent le message du client ;
+  Meta peut l'accepter puis échouer, et l'agent se tait. Messaging Me relit ce que Meta en a fait 20 secondes plus
+  tard : sur une panne passagère, le message est retransmis une fois ; si l'échec persiste, la conversation entre
+  dans « À traiter », et la frise le dit (« l'agent de Meta n'a pas pu répondre »). Rien ne bouge si le client ou
+  l'agent a écrit entre-temps. ⚠️ Mesuré : après des messages en texte libre d'un scénario (message rapide, bloc
+  Question), Meta échoue à chaque fois jusqu'à ce que le client réécrive ; un bouton de modèle qui mène au bloc,
+  lui, fait répondre l'agent.
 
 - ✅ **Onglet « Activation »** (2026-08-21) : les deux réglages qui décident **qui parle au client**, réunis au
   même endroit, en deux questions. (1) *Quand le client demande un humain, ou que l'agent ne sait pas* : l'agent

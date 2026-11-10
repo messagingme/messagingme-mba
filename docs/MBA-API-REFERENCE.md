@@ -512,6 +512,39 @@ depuis un vrai téléphone, lus dans `webhook_events`, puis supprimés.
 | Partage de position | non observé (aucun message de position reçu pendant l'essai) |
 | Notre Inbox | 🔴 n'enregistre QUE la phrase d'accompagnement, jamais le composant : un opérateur lit « See the details below. » puis « 10 h » sans voir la liste. C'est la tâche T4 du plan |
 
+## ⚠️ Mesures du 2026-11-10 (espace MUTAC) : `agent_event` accepté puis en échec, et les libellés des boutons
+
+### 🔴 Un `agent_event` accepté peut finir `failed`, et Meta le refait à chaque essai dans certains états
+
+Huit mesures sur la même conversation, par `GET /{numéro}/agent_event/{id}` (statut lu 25 s après le `POST`, traité en
+7 à 10 s chez Meta) :
+- **Échoue** (`failed`, `error_message: internal_server_error`, rien d'autre) : tout `message_sans_suite` envoyé après
+  des messages en TEXTE LIBRE de notre application (message rapide, bloc Question), tant que l'agent n'a pas reparlé.
+  Quel que soit le texte de l'événement (une question, « Vous avez une question »), renvoyé 20 s après, envoyé 20 min
+  après, ou précédé d'un `release` accepté (200, `request_id`) puis 5 s d'attente, quatre minutes après le dernier envoi.
+- **Réussit** (`success`) : après un MODÈLE et l'appui sur un de ses boutons (que Meta route lui-même à l'agent), ou
+  juste après que l'agent a répondu à un message tapé par le client. Un message tapé par le client, lui, arrive
+  toujours à l'agent, qui y répond, même dans l'état où les événements échouent.
+- Le `release` d'une conversation que l'agent tient déjà est refusé (« An unknown error occurred ») sans gêner
+  l'événement qui suit. Un contact hors de la liste (`standby_hors_liste`) puis ajouté n'est PAS la cause : le succès
+  mesuré était lui aussi hors liste.
+- Cause chez Meta non établie ; aucun geste de notre côté ne la contourne. Parade : la lecture de l'issue, une relance,
+  puis le filet « À traiter » (`src/mba/issue-evenement.ts`, `documentation.md`).
+
+### 🟠 Les libellés d'un message interactif sont RÉÉCRITS par le modèle de Meta
+
+Aucun champ structuré : l'agent compose les boutons depuis la consigne. Une consigne qui disait, dans une phrase,
+« deux boutons, « Prendre rendez-vous » et « Parler à un agent » (20 caractères au plus) » a produit « Parler à un
+conseiller », coupé par WhatsApp en « Parler à un conseill » : le titre du message (`choix-rdv-ou-conseiller`) et son
+corps tiraient vers ce mot. Corrigé en posant chaque libellé seul sur sa ligne comme une valeur exacte (« Bouton 2,
+libellé exact : Parler à un agent »), en demandant de le recopier caractère pour caractère, et en retirant le mot
+concurrent du titre (`choix-rdv-ou-agent`).
+
+### 🟡 La revue des consignes bloque encore le mot « âge »
+
+Revécu sur MUTAC (assurance obsèques) : deux consignes passées en `blocked` à cause de « âge », redevenues `active`
+une fois le mot retiré, comme sur Groupama le 2026-10-08 (« race », « âge », « maladie »).
+
 ## ⚠️ Relevé du 2026-11-09 : dix pages relues, et ce qu'un espace client a montré
 
 Fait pendant la mise en service de l'agent de Meta d'un espace client (assurance obsèques). L'index `llms.txt` liste désormais les guides que celui du
