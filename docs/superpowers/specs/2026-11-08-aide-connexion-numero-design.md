@@ -497,6 +497,12 @@ le titre lit le nombre sur l'arbre) et le dépannage. Les pages Claude Code de d
 copie ni redirection (choix de Claude, pour une seule version de chaque étape). Reste 4a-2 : « Ce qu'il faut chez Meta »
 réécrite avec `PREREQUIS_META`, « Payer Meta », « Les modèles WhatsApp », Codex et la mise à jour dans l'installation.
 
+**4a-2 livré le 2026-11-10** (`04b44f78`, la vitrine seule) : « Payer Meta » et « Les modèles WhatsApp », composées de
+sources comme le dépannage (pas des fiches), et Codex et la mise à jour dans « Installer le plugin ». Qui paie Meta s'y dit
+par `CE_QUI_EST_FACTURE`, jamais par la réponse « que facture Meta » de la FAQ, fausse avec le Crédit WhatsApp (rouge de
+la relecture) ; elle se corrige à la source avec 4a-3. « Ce qu'il faut chez Meta », réécrite, devient 4a-3 :
+`PREREQUIS_META` est lu par position par la console et Claude (l'API), la FAQ du plugin, la vitrine et la fiche.
+
 ## Lot 4b : Claude renvoie vers les pages
 
 Le serveur et la skill citent les adresses du guide, du dépannage et du mode op du parcours en cours. Les adresses

@@ -4,6 +4,43 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : « Payer Meta », « Les modèles WhatsApp » et Codex dans « Installer le plugin » (aide à la connexion, lot 4a-2)
+
+Deuxième livraison du lot 4a (plan `2026-11-10-aide-connexion-lot-4a.md`), en direct, une relecture indépendante, les
+captures vues par Julien avant le push.
+
+- **Ce qui a changé** (`04b44f78`) :
+  - « Payer Meta : poser votre carte » (`/aide/payer-meta-poser-votre-carte/`), dans les deux rubriques « Démarrer » :
+    ce que Meta facture selon le numéro, les étapes de la carte et le Crédit WhatsApp « sur demande » ;
+  - « Les modèles WhatsApp : pourquoi, quelle catégorie, combien » (`/aide/les-modeles-whatsapp/`), dans la rubrique
+    Claude Code : pourquoi un modèle, utility ou marketing, le tarif que donne Claude et la grille de Meta, un refus ;
+  - comme le dépannage, ces deux pages se COMPOSENT de sources (`scripts/vitrine/aide-sources-textes.ts`) : seuls les
+    titres de section et les chapeaux y sont écrits ;
+  - « Installer le plugin » : les commandes de Codex aux étapes 1 et 2, et « Comment mettre à jour le plugin ? », la
+    question de la FAQ telle quelle ;
+  - le dépannage « Mes modèles ne partent pas » mène à « Payer Meta », et l'accueil du centre déclare en JSON-LD toutes
+    les pages qu'il range, plus seulement les fiches.
+- **Tranché en chemin** : « Ce qu'il faut chez Meta », réécrite, part en 4a-3. `PREREQUIS_META` est lu PAR POSITION
+  (`slice(0, 1)` pour la coexistence, `slice(0, 2)` pour le numéro fourni, `[2]` dans les tests) par la console, Claude,
+  la FAQ du plugin, la vitrine et la fiche : le réécrire demande l'API, le plugin et une relecture du diff.
+- **Relecture** : un rouge, corrigé avant le push. « Payer Meta » ouvrait sur la réponse « que facture Meta » de la FAQ du
+  plugin : Meta facturerait toujours l'entreprise et Messaging Me ne toucherait pas à ces frais, faux avec le Crédit
+  WhatsApp que la même page propose (Meta facture alors le partenaire, qui nous facture), et toutes les réponses seraient
+  payantes quand la console dit « au-delà de la franchise ». Qui paie se dit désormais par `CE_QUI_EST_FACTURE`, les
+  pages ne gardent de cette réponse que le tarif que donne Claude, et un test refuse la phrase sur ces pages (vu rouge sur
+  l'ancien texte). La réponse elle-même, publique sur `/developpeurs/` et dans le plugin, se corrige à la source avec 4a-3,
+  qui republie déjà le plugin. Huit jaunes : six corrigés avant le push (deux règles sur les réponses, réglé avec le
+  rouge ; un lien construit après les espaces insécables du français ; « Avec Codex » au lieu de « Dans Codex » ;
+  l'adresse de la grille de Meta et le type `Bilingue` importés au lieu de recopiés ; l'adresse française alignée sur le
+  titre avant toute publication ; les pages hors fiches dans le `hasPart` de l'accueil), le choix de deux catégories de
+  modèles écrit au plan. Restent au backlog l'étape 3 et la mise à jour dans Codex (rien ne les établit encore), le lien
+  « Pourquoi un moyen de paiement ? » de la console et du tunnel (lot 4b), la longueur du titre des modèles.
+- **Vérifié** : sept gardes vues rouges (la réponse non coupée, la phrase « toujours l'entreprise », un paragraphe perdu,
+  le menu sans page courante, un lien mort, la ligne de Codex retirée, la mise à jour retirée) ; la suite racine entière
+  sur la copie, puis sur l'arbre fusionné, la vitrine y étant régénérée à l'identique ; tsc.
+- **Ordre** : la vitrine seule, par Vercel, poussée sur `b9eee4bb`. Aucune fiche ne change de texte : rien pour
+  `aide:charger`.
+
 ## 2026-11-10 : les fichiers déposés chez Meta survivent aux redémarrages (migration 0288)
 
 Une alerte « retard des messages entrants » à 19:04 (Paris) : rien n'avait saturé. Les messages de Julien sur LUAS

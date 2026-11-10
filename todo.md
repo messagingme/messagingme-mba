@@ -71,6 +71,25 @@ au lot suivant ; rien ne bloque.
 - **Une redélivrance par Meta APRÈS que le parcours a quitté le bloc Formulaire** retombe sur le seul réglage du
   formulaire : un élément que le bloc rangeait ailleurs y est aussi écrit. Limite acceptée, à fermer si elle se voit.
 
+## 🟡 Le lot 4a-2 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
+
+- **La réponse « ce-que-meta-facture » de la FAQ du plugin** dit que Meta facture toujours l'entreprise et que
+  Messaging Me ne touche pas à ces frais (faux avec le Crédit WhatsApp), et fait payer toutes les réponses (la console
+  dit « au-delà de la franchise ») : rouge de la relecture du lot, écarté des pages du centre, à corriger À LA SOURCE
+  avec 4a-3, qui republie déjà le plugin. Elle est publique sur `/developpeurs/` et dans le plugin d'ici là, comme la
+  même tournure dans `TITRES.apresTexte` de `scripts/vitrine/guide-meta.ts` (aussi pour 4a-3). Les cas d'usage
+  (`scripts/vitrine/cas-textes.ts`) et les tarifs la disent du cas par défaut, la carte chez Meta : à nuancer du
+  Crédit WhatsApp avec 3v-2, le jour du prix.
+- **Codex, ce qui n'est écrit nulle part** : comment mettre le plugin à jour (`codex plugin` a-t-il une mise à jour ?)
+  et ce qu'on y tape pour lancer la mise en service (`/messagingme:demarrer` est une commande de Claude Code ; le tunnel
+  fait coller une demande propre à chaque chemin). À mesurer sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3
+  d'« Installer le plugin ».
+- **« Pourquoi un moyen de paiement ? »** (`web/lib/partage/aide-connexion.ts`) mène encore à la fenêtre de 24 heures,
+  depuis le guide, `/demarrer/` et la console : à repointer vers « Payer Meta » avec le lot 4b (il touche la console).
+- **4a-3, « Ce qu'il faut chez Meta » réécrite** (plan du lot 4a, § « Trois livraisons ») : `PREREQUIS_META` lu par
+  position par la console, Claude, la FAQ du plugin, la vitrine et la fiche ; l'API d'abord.
+- Le titre de « Les modèles WhatsApp » dépasse 60 caractères avec son suffixe : coupé dans les résultats de recherche.
+
 ## 🟡 Le lot 3v-1 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
 
 - **Changer de voie pendant qu'une fenêtre de Meta est ouverte** (jaune 1 de la relecture du lot 3v-1). Sur Connecter
@@ -1137,7 +1156,8 @@ Conceptions : `docs/superpowers/specs/2026-10-23-shopify-numero-qr-design.md` (l
   « Garder ») et l'affiche du film `claude-numero` (FR et EN, aussi `og:image` de la page développeurs « Connecter son
   numéro »). La capture se refait par `npm run aide:captures`, le film dans `~/engageme-motion` ; un fichier remplacé
   sous le même nom prend un `?v=` incrémenté dans chaque page qui le cite.
-- **La carte Codex de `/integrations/`** mène aux pages développeurs, qui n'expliquent pas encore Codex (essai 121 pas
+- **La carte Codex de `/integrations/`** mène aux pages développeurs : « Installer le plugin » y donne depuis le
+  2026-11-10 les commandes de Codex (installer, relier), l'accueil des développeurs n'en dit encore rien (essai 121 pas
   fait ; Julien garde la carte telle quelle en attendant, 2026-10-24).
 - **Remplacer un numéro relié par QR code par un numéro fourni** : `relierApplication` et `preparer` refusent un espace
   déjà relié (`deja_relie`), donc un marchand qui a relié le numéro de sa boutique ne peut pas passer à un numéro fourni
