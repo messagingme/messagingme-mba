@@ -317,7 +317,8 @@ const FIN_ESSAI = 1_791_209_600;
 
 describe('l’essai de 14 jours du Pro', () => {
   it('🔴 la conversion (lot C du Crédit WhatsApp) : une facture de période payée la signale, la facture à 0 € d’un essai ni le prorata d’un siège jamais', async () => {
-    // La règle « formule payée » et l'occasion unique sont relues par signalerConversion (tests/credit-whatsapp-conversion.test.ts).
+    // Le moment (la fin de l'essai passée), l'état des cartes et l'occasion unique sont relus par la conversion
+    // (tests/credit-whatsapp-conversion.test.ts).
     const essai = { type: 'subscription_details', subscription_details: { subscription: 'sub_pro', metadata: META_ESSAI } };
     const payee = monter({ connus: ['sub_pro'] });
     await envoyer(payee.srv, evenement(facturePro({ amount_paid: 4900, billing_reason: 'subscription_cycle', parent: essai }), 'invoice.paid'));

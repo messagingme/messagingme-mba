@@ -104,9 +104,11 @@ export interface VueCreditWhatsapp {
      */
     formulePayee: boolean;
     /**
-     * L'option se prend maintenant, par la MÊME règle que la prise (`optionPrenable`, décisions de Julien du 2026-11-10,
-     * V1) : un Pro dès le début de son essai, un Business confirmé ; jamais un Pro en retard, ni Free ni Entreprise.
-     * L'onglet vend ou explique l'option sur elle, jamais sur `formulePayee`.
+     * La formule de l'espace permet de prendre l'option, par la MÊME règle que la prise (`optionPrenable`, décisions de
+     * Julien du 2026-11-10, V1) : un Pro dès le début de son essai, un Business confirmé ; jamais un Pro en retard, ni Free
+     * ni Entreprise. L'onglet vend ou explique l'option sur elle, jamais sur `formulePayee`. 🔴 Seule, elle ne dit pas
+     * « Prendre l'option » : il y faut aussi la vente ouverte (`disponible`) et aucune option vivante (`statut` nul),
+     * sinon un espace qui a déjà l'option se la verrait proposer (relecture de V1, jaune 6).
      */
     prisePossible: boolean;
     /** Tous les numéros de l'espace gardent l'application (décision 8) : le paiement de l'option prévient. */
@@ -152,9 +154,11 @@ export function registerCreditWhatsapp(
       const prix = prixMessage(grille, 'FR', categorie, conditions.commissionPct);
       return prix === null ? [] : [{ categorie, prixMicroEur: prix }];
     });
-    const formulePayee = (offre === 'pro' || offre === 'business') && await deps.option.formulePayee(tenant);
-    // La règle de la prise (`optionPrenable`) : un Pro en essai prend déjà l'option, sa formule pas encore payée (V1).
-    const prisePossible = (offre === 'pro' || offre === 'business') && await deps.option.optionPrenable(tenant);
+    // La formule payée et la règle de la prise, lues en UNE fois (relecture de V1, jaune 5) : un Pro en essai prend déjà
+    // l'option, sa formule pas encore payée. Ni Free ni Entreprise n'ont d'option : la formule ne se lit pas.
+    const { formulePayee, prisePossible } = offre === 'pro' || offre === 'business'
+      ? await deps.option.formuleEtPrise(tenant)
+      : { formulePayee: false, prisePossible: false };
     const s = deps.achat.stripe;
     const arret = arretDesLignes(lignes);
     const vue: VueCreditWhatsapp = {

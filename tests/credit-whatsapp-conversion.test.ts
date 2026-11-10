@@ -61,7 +61,7 @@ describe('signalerConversion', () => {
     }]);
   });
 
-  it('🔴 un Business confirmé aussi ; jamais une formule pas encore payée (un essai), ni une Free, ni une Entreprise, ni un espace qui a déjà son option ou sa ligne', async () => {
+  it('🔴 un Business confirmé aussi ; jamais un autre état que `a_prendre` (`essai` : un Business en essai, une formule Pro en retard), ni une Free, ni une Entreprise, ni un espace qui a déjà son option ou sa ligne', async () => {
     const business = monter({ offre: 'business' });
     await signalerConversion(business.d, T);
     expect(business.emissions.map((e) => e.cle)).toEqual(['ligne_credit_sur_demande']);
@@ -99,6 +99,20 @@ describe('signalerConversion', () => {
     await signalerConversionDuPro(sansPro.d, T);
     expect(sansPro.emissions).toEqual([]);
     await expect(signalerConversionDuPro(monter({ panne: 'depuis' }).d, T)).resolves.toBeUndefined();
+  });
+
+  it('🔴 jamais pendant l’essai de la formule Pro (relecture de V1, jaune 1) : sans option, l’essai lit `a_prendre`, la fin de l’essai est encore à venir', async () => {
+    // Depuis V1, l'état des cartes n'écarte plus un espace Pro en essai : la garde du webhook est la date, la fin de
+    // l'essai, que `proPayeDepuis` rend dans le futur tant qu'il court.
+    for (const jours of [1, 13]) {
+      const enEssai = monter({ etat: 'a_prendre', depuis: new Date(MAINTENANT + jours * JOUR) });
+      await signalerConversionDuPro(enEssai.d, T);
+      expect(enEssai.emissions, `${jours} jour(s) avant la fin de l’essai`).toEqual([]);
+    }
+    // L'essai fini à l'instant même : la formule est payée, la conversion se dit.
+    const aLaFin = monter({ etat: 'a_prendre', depuis: new Date(MAINTENANT) });
+    await signalerConversionDuPro(aLaFin.d, T);
+    expect(aLaFin.emissions.map((e) => e.cle)).toEqual(['ligne_credit_sur_demande']);
   });
 
   it('🔴 les deux e-mails disent ce qu’il advient d’un numéro sans l’application et d’un numéro qui la garde, dans les deux langues (jaune 12 du lot C)', () => {

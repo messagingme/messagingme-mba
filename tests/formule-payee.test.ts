@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { formuleEnRetard, formulePayee, optionPrenable, repriseOuverte } from '../src/offres/formule-payee';
+import { formuleEnRetard, formuleEtPrise, formulePayee, optionPrenable, repriseOuverte } from '../src/offres/formule-payee';
 
 /**
- * CE QUI OUVRE L'OPTION DU CRÉDIT WHATSAPP : une formule payée (révision du 2026-11-04, décisions 1 et 7). Pas pendant
- * un essai, Pro comme Business ; un Pro qui n'a encore rien réglé (son premier prélèvement après l'essai a échoué) non
- * plus.
+ * LA FORMULE PAYÉE (`formulePayee`) : ce que l'onglet du Crédit WhatsApp en dit (`option.formulePayee`). Pas pendant un
+ * essai, Pro comme Business ; un Pro qui n'a encore rien réglé (son premier prélèvement après l'essai a échoué) non plus.
+ * Elle n'ouvre pas l'option : c'est `optionPrenable` (V1 du plan du 2026-11-10), plus bas.
  */
 const MAINTENANT = new Date('2026-11-05T12:00:00Z').getTime();
 const AVANT = new Date('2026-11-04T12:00:00Z');
@@ -82,7 +82,7 @@ describe('optionPrenable', () => {
 
 /**
  * L'E-MAIL DE L'ARRÊT NE DIT « REPRENEZ L'OPTION » QUE SI LA PRISE L'ACCEPTERAIT (relecture du lot C, jaune 5) : la règle de
- * la prise (`formulePayee`), et un Pro dont la fin programmée n'est pas passée. Les deux fins tombent ensemble (Pro et option
+ * la prise (`optionPrenable`), et un Pro dont la fin programmée n'est pas passée. Les deux fins tombent ensemble (Pro et option
  * résiliés en fin de période) et l'avis de l'option passe le premier : le Pro est encore vivant chez nous.
  */
 describe('repriseOuverte', () => {
@@ -125,5 +125,27 @@ describe('formuleEnRetard', () => {
     expect(formuleEnRetard({ offre: 'pro', pro: pro({ statut: 'en_retard', finiLe: AVANT }), businessEssaiFinLe: null })).toBe(false);
     expect(formuleEnRetard({ offre: 'business', pro: pro({ statut: 'en_retard' }), businessEssaiFinLe: APRES })).toBe(false);
     expect(formuleEnRetard({ offre: 'pro', pro: null, businessEssaiFinLe: null })).toBe(false);
+  });
+});
+
+/**
+ * CE QUE L'ONGLET DIT DE LA FORMULE, EN UNE LECTURE (relecture de V1, jaune 5) : la formule payée et la prise possible,
+ * tirées du même instantané par les deux règles elles-mêmes.
+ */
+describe('formuleEtPrise', () => {
+  it('🔴 les deux règles sur le même instantané : un Pro en essai prend l’option sans avoir payé ; un Business en essai ni l’un ni l’autre', () => {
+    const fin = { finPrevueLe: null };
+    expect(formuleEtPrise({ offre: 'pro', pro: { ...pro({ essaiFinLe: APRES }), ...fin }, businessEssaiFinLe: null }, MAINTENANT))
+      .toEqual({ formulePayee: false, prisePossible: true });
+    expect(formuleEtPrise({ offre: 'pro', pro: { ...pro({ essaiFinLe: AVANT }), ...fin }, businessEssaiFinLe: null }, MAINTENANT))
+      .toEqual({ formulePayee: true, prisePossible: true });
+    expect(formuleEtPrise({ offre: 'pro', pro: { ...pro({ statut: 'en_retard', essaiFinLe: AVANT }), ...fin }, businessEssaiFinLe: null }, MAINTENANT))
+      .toEqual({ formulePayee: false, prisePossible: false });
+    expect(formuleEtPrise({ offre: 'business', pro: null, businessEssaiFinLe: APRES }, MAINTENANT))
+      .toEqual({ formulePayee: false, prisePossible: false });
+    expect(formuleEtPrise({ offre: 'business', pro: null, businessEssaiFinLe: null }, MAINTENANT))
+      .toEqual({ formulePayee: true, prisePossible: true });
+    expect(formuleEtPrise({ offre: 'entreprise', pro: null, businessEssaiFinLe: null }, MAINTENANT))
+      .toEqual({ formulePayee: false, prisePossible: false });
   });
 });

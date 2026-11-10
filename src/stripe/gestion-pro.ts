@@ -31,7 +31,7 @@ export type DepsDemarrerPro = DepsGestionPro & {
   resumeDuPro(tenantId: string): Promise<{ essaiFinLe: Date | null; finPrevueLe: Date | null } | null>;
   /**
    * `PgAbonnementsOffreStore.noterFinEssai` : la fin de l'essai avancée tout de suite, sans attendre le webhook, pour que
-   * l'option s'ouvre dans la foulée. Le webhook réécrit la même fin.
+   * la formule se lise payée dans la foulée (l'onglet, la conversion dite au client). Le webhook réécrit la même fin.
    */
   noterFinEssai(abonnementId: string, finLe: Date): Promise<boolean>;
   /**
@@ -153,8 +153,9 @@ export async function changerResiliationPro(
 
 /**
  * DÉMARRER LA FORMULE PRO MAINTENANT (révision du Crédit WhatsApp, 2026-11-04, décision 6) : un client en essai l'arrête
- * pour prendre la ligne de crédit sans attendre ses 14 jours. Stripe prélève tout de suite la carte prise au début de
- * l'essai ; s'il refuse, rien ne change et l'essai continue. Un verrou par espace garde le double clic.
+ * pour payer sa formule sans attendre ses 14 jours. L'option du Crédit WhatsApp ne l'attend pas : elle se prend dès le
+ * début de l'essai (`optionPrenable`). Stripe prélève tout de suite la carte prise au début de l'essai ; s'il refuse, rien
+ * ne change et l'essai continue. Un verrou par espace garde le double clic.
  * - 🟡 Une résiliation programmée refuse (jaune 2 de la relecture du lot A) : le client a dit ne pas vouloir de premier
  *   paiement, un clic ne le prélève pas. Annuler la résiliation d'abord.
  * - 🟡 Une issue INCONNUE chez Stripe (panne passagère, délai dépassé) GARDE le verrou, qui échoit seul (jaune 1) : le

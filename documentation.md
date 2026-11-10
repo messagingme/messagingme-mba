@@ -4686,8 +4686,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   (`src/credit-whatsapp/achat-permis.ts`), jamais l'onglet, sans quoi le solde à zéro d'un Pro sans ligne passerait pour
   des envois coupés ; l'onglet, de son côté, ne dit jamais « épuisé » à un espace sans numéro sur la ligne.
 - 🔴 **« Qui paie vos messages à Meta ? »** (révision du 2026-11-04, lot B) : l'état du Crédit WhatsApp d'un espace
-  (`etatLigneCredit`, `src/credit-whatsapp/etat-ligne.ts`) vaut `free`, `essai` (la formule n'est pas encore payée),
-  `a_prendre`, `en_attente` (l'option payée, aucune ligne posée), `active` ou `arretee` (toutes ses lignes arrêtées).
+  (`etatLigneCredit`, `src/credit-whatsapp/etat-ligne.ts`) vaut `free`, `essai` (l'option ne se prend pas encore : un
+  Business en essai, ou une formule Pro en retard de prélèvement), `a_prendre` (un espace Pro dès son essai, ou un
+  Business confirmé, sans option), `en_attente` (l'option payée, aucune ligne posée), `active` ou `arretee` (toutes ses
+  lignes arrêtées).
   `GET /tenants/:tenantId/credit-whatsapp/etat`, lisible par tout membre et fermé à la Free comme tout le module, le rend
   avec `enVente` (l'option se prend en ligne) et `avecApplication` (tous les numéros non déliés de l'espace gardent
   l'application, `tousGardentLApplication`, décision 8 ; la vue de l'onglet porte le même champ). La console en tire deux
@@ -4758,11 +4760,12 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   `signalerConversionDuPro`, à chaque facture de période payée de la formule Pro (jamais la facture à 0 € d'un essai ni le
   prorata d'un siège) et à chaque mise à jour d'un Pro actif (ce qui rattrape un essai écourté au tableau de bord de
   Stripe, ou une fin d'essai que le démarrage n'a pas pu écrire). 🔴 Le webhook ne la dit qu'à son MOMENT : dans les
-  `FENETRE_CONVERSION_JOURS` (25) qui suivent la fin de l'essai du Pro, sinon sa souscription ; la réservation de
-  l'occasion `conversion` est par personne et purgée à treize mois, et sans cette fenêtre un admin arrivé plus tard, puis
-  tous les admins un an après, recevraient l'e-mail à une échéance quelconque. Elle relit ensuite l'offre sans cache et
-  l'état des cartes (`a_prendre` seulement : jamais un essai, ni un espace qui a déjà son option ou une ligne, ni une Free
-  ou une Entreprise), puis émet aux admins : `ligne_credit_disponible` quand l'option est en vente,
+  `FENETRE_CONVERSION_JOURS` (25) qui suivent la fin de l'essai du Pro, sinon sa souscription, et jamais avant : une fin
+  d'essai encore à venir veut dire un essai qui court, rien de payé. La réservation de l'occasion `conversion` est par
+  personne et purgée à treize mois, et sans cette fenêtre un admin arrivé plus tard, puis tous les admins un an après,
+  recevraient l'e-mail à une échéance quelconque. Elle relit ensuite l'offre sans cache et l'état des cartes (`a_prendre`
+  seulement : jamais un espace qui a déjà son option ou une ligne, ni une Free ou une Entreprise ; un espace Pro en essai
+  le lit aussi, et c'est la date qui l'écarte), puis émet aux admins : `ligne_credit_disponible` quand l'option est en vente,
   `ligne_credit_sur_demande` sinon. La vente se lit par une seule règle, `optionEnVente`
   (`src/stripe/option-credit-whatsapp.ts`), que lisent la route de l'état, la vue de l'onglet, l'e-mail et la porte de
   l'onglet (`portesCreditWhatsapp`). La prise de l'option tient un verrou court par espace (`option.prendre:<espace>`)

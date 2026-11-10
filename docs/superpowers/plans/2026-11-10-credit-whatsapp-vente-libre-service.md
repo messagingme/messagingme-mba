@@ -53,8 +53,17 @@ Livré par `ea6979ff`, relu (§ « La relecture du lot V1 ») ; **en production 
 
 ### V2. Le numéro fourni par la fenêtre du partenaire
 
-- [ ] Lire le parcours du numéro fourni : il ne doit rien rattacher avant la fenêtre (sinon `solutionDuPartenaire` la
+- [x] Lire le parcours du numéro fourni : il ne doit rien rattacher avant la fenêtre (sinon `solutionDuPartenaire` la
   ferme), et la console doit l'ouvrir avec `parLaLigne`. Corriger côté serveur ce qui l'empêche ; le reste à l'arbre.
+
+**Lu le 2026-11-10 : rien ne l'empêche côté serveur.** Seule la fin de la connexion (`linkTenant`,
+`src/account/es-store.pg.ts`) écrit `phone_numbers`, la table que compte `numerosRattaches` ; un numéro fourni attribué
+vit dans `numeros_fournis`, et un compte de l'application dans ses propres tables. `GET /embedded-signup/config` rend
+donc `solutionId` à un espace qui y a droit, numéro fourni attribué ou non, y compris par le lien de Claude Code (garde
+`adminOuLien`) ; la fin par la fenêtre (`parLaLigne`) passe par `connexionParLaLigne` comme son propre numéro. Ce qui
+reste est à l'arbre, transmis à sa session le même jour : le parcours du numéro fourni (Connecter WhatsApp et `/brancher`)
+ouvre la fenêtre avec `cfg.solutionId` et finit avec `parLaLigne`, en mode `fourni` et jamais `fourni_application` (la
+ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 de V1 partent avec ce lot.
 
 ### V3. La pose automatique (après D0)
 
@@ -73,7 +82,9 @@ Livré par `ea6979ff`, relu (§ « La relecture du lot V1 ») ; **en production 
 ### V5. Les jaunes des relectures du lot E7 et de V1
 
 - [ ] Les sept du lot E7, au plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md` (§ « La relecture du lot E7 »).
-- [ ] Les jaunes 1, 5 et 6 de V1 (§ « La relecture du lot V1 »).
+- [x] Les jaunes 1, 5 et 6 de V1 (§ « La relecture du lot V1 »), avec V2 : la conversion du webhook se tait tant que la
+  fin de l'essai est à venir ; la vue de l'onglet lit la formule en une lecture (`formuleEtPrise`) ; les commentaires et
+  la doc d'avant V1 remis à jour, dont la JSDoc de `prisePossible`.
 
 ## Ordre de déploiement
 

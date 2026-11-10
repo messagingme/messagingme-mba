@@ -13,9 +13,11 @@ import type { EtatLigne } from './etat-ligne';
  * Hors vente (décision de Julien du 2026-11-06, « dès maintenant, sur demande »), le même moment dit que l'option se
  * demande au Support : jamais « prenez l'option » pour une option qui ne se prend pas.
  *
- * 🔴 Relue au moment de l'appel, sur l'état des cartes (`a_prendre`) : jamais pour une formule pas encore payée (un
- * essai), ni pour un espace qui a déjà son option ou une ligne (posée à la main, sur demande : « vous pouvez maintenant »
- * y serait faux), ni pour une Free ou une Entreprise, qui n'ont pas d'option. Ne lève jamais : un e-mail qui tombe ne
+ * 🔴 Relue au moment de l'appel, sur l'état des cartes (`a_prendre`) : jamais pour un espace qui a déjà son option ou une
+ * ligne (posée à la main, sur demande : « vous pouvez maintenant » y serait faux), ni pour une Free ou une Entreprise, qui
+ * n'ont pas d'option. Un espace Pro en essai sans option lit aussi `a_prendre` (il prend l'option, V1 du 2026-11-10) :
+ * c'est le moment de l'appel qui l'écarte, la fin de l'essai pour le webhook (`signalerConversionDuPro`), le démarrage de
+ * la formule Pro et la confirmation dans `/ops` étant la conversion elle-même. Ne lève jamais : un e-mail qui tombe ne
  * fait pas tomber le webhook ni `/ops`.
  */
 /**
@@ -60,14 +62,17 @@ export async function signalerConversion(d: DepsConversion, tenantId: string): P
 /**
  * Le chemin du webhook (une facture de période payée, la mise à jour d'un Pro actif) : la conversion n'y est dite qu'à son
  * moment, dans les `FENETRE_CONVERSION_JOURS` qui suivent la formule devenue payée. Sinon un admin arrivé depuis
- * l'apprendrait à l'échéance suivante, et tous les admins treize mois plus tard (jaune 1 de la relecture du lot C). Le
- * démarrage de la formule Pro et `/ops` sont le moment lui-même : ils appellent `signalerConversion`. Ne lève jamais.
+ * l'apprendrait à l'échéance suivante, et tous les admins treize mois plus tard (jaune 1 de la relecture du lot C). Jamais
+ * avant : un essai qui court (sa fin à venir) n'a rien payé, et l'état des cartes ne l'écarte plus (relecture de V1,
+ * jaune 1). Le démarrage de la formule Pro et `/ops` sont le moment lui-même : ils appellent `signalerConversion`. Ne lève
+ * jamais.
  */
 export async function signalerConversionDuPro(d: DepsConversion, tenantId: string): Promise<void> {
   try {
     const depuis = await d.proPayeDepuis(tenantId);
     if (depuis === null) return;
-    if ((d.maintenant ?? Date.now)() - depuis.getTime() > FENETRE_CONVERSION_JOURS * JOUR_MS) return;
+    const ecoule = (d.maintenant ?? Date.now)() - depuis.getTime();
+    if (ecoule < 0 || ecoule > FENETRE_CONVERSION_JOURS * JOUR_MS) return;
   } catch (err) {
     journaliser('error', 'conversion_ligne_credit_impossible', { err, tenantId });
     return;

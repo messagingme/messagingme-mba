@@ -2,8 +2,8 @@ import type { Offre } from './offres';
 import type { ResumePro } from './abonnements-offre.pg';
 
 /**
- * LA FORMULE EST-ELLE PAYÉE ? Ce qu'en dit l'onglet du Crédit WhatsApp (`option.formulePayee`). Elle a ouvert l'option
- * jusqu'au 2026-11-10 ; depuis, c'est `optionPrenable` qui l'ouvre, essai Pro compris.
+ * LA FORMULE EST-ELLE PAYÉE ? Ce qu'en dit l'onglet du Crédit WhatsApp (`option.formulePayee`). Elle n'ouvre pas l'option
+ * d'un Pro : c'est `optionPrenable`, essai compris.
  *
  * - Un Pro a payé quand son abonnement vit au statut `actif` hors essai : payé dès le départ, ou son essai fini (Stripe
  *   prélève alors la carte prise au début de l'essai ; un échec le fait passer `en_retard`) ou écourté par le client. Une
@@ -40,6 +40,17 @@ export function optionPrenable(
 ): boolean {
   if (e.offre === 'pro') return e.pro !== null && e.pro.finiLe === null && e.pro.statut === 'actif';
   return formulePayee(e, maintenant);
+}
+
+/**
+ * CE QUE L'ONGLET DIT DE LA FORMULE, EN UNE LECTURE (relecture de V1, jaune 5) : la formule payée (`formulePayee`) et la
+ * prise possible (`optionPrenable`, la règle même de la prise), tirées du même instantané.
+ */
+export function formuleEtPrise(
+  e: { offre: Offre; pro: Pick<ResumePro, 'statut' | 'essaiFinLe' | 'finiLe'> | null; businessEssaiFinLe: Date | null },
+  maintenant: number,
+): { formulePayee: boolean; prisePossible: boolean } {
+  return { formulePayee: formulePayee(e, maintenant), prisePossible: optionPrenable(e, maintenant) };
 }
 
 /**

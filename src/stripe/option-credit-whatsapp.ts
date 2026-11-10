@@ -37,10 +37,10 @@ export interface DepsOptionCredit extends DepsPortail {
   options: Pick<PgOptionsCreditStore, 'vivante' | 'noterPlaces'>;
   offre(tenantId: string): Promise<Offre>;
   /**
-   * La formule de l'espace est-elle payée (`formulePayee`) ? Ce que l'onglet en dit (`option.formulePayee`), jamais la
-   * règle de la prise depuis le 2026-11-10 : c'est `optionPrenable`.
+   * Ce que l'onglet dit de la formule, en UNE lecture (`formuleEtPrise`, relecture de V1, jaune 5) : payée
+   * (`option.formulePayee`) et la prise possible (`option.prisePossible`), tirées du même instantané par les deux règles.
    */
-  formulePayee(tenantId: string): Promise<boolean>;
+  formuleEtPrise(tenantId: string): Promise<{ formulePayee: boolean; prisePossible: boolean }>;
   /**
    * L'option se prend-elle maintenant (`optionPrenable`, décisions de Julien du 2026-11-10, V1) ? Un Pro dès le début de
    * son essai, sa fin programmée ou non ; un Business confirmé ; jamais un Pro en retard. La prise, l'état des cartes,

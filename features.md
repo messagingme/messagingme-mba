@@ -5743,8 +5743,8 @@ Les envois WhatsApp ne sont pas concernés : leur débit se règle campagne par 
   résilie d'elle-même, sans remboursement du mois entamé, et ses numéros s'arrêtent ; en Entreprise, illimitée, ses
   numéros continuent d'envoyer. Une option payée alors que la formule n'y donnait plus droit (un essai de la formule Pro
   fini avant le paiement) se résilie aussitôt : ses admins reçoivent un e-mail qui les invite à nous contacter. En
-  vente, la formule devenue payée s'annonce aussi par un bandeau en haut de chaque page, pour un administrateur d'un Pro
-  ou d'un Business qui n'a pas pris l'option (« Voir le Crédit WhatsApp », une croix le masque) ; et une option arrêtée
+  vente, l'option s'annonce aussi par un bandeau en haut de chaque page, pour un administrateur d'un espace Pro (dès son
+  essai) ou d'un Business confirmé qui ne l'a pas prise (« Voir le Crédit WhatsApp », une croix le masque) ; et une option arrêtée
   alors que la formule y donne encore droit, l'onglet dit la sortie (« Reprendre l'option », « Connecter avec ma carte
   chez Meta »), le crédit restant conservé. Des numéros arrêtés à la main gardent l'avis d'avant, qui renvoie au Support.
 - 🔲 **Pool de numéros à l’embarquement** : plus tard. Le parcours Embedded Signup lui-même est **LIVE et

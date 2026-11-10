@@ -92,7 +92,7 @@ function deps(o: {
       noterPlaces: async (id, places, fin) => { notes.push([id, places, fin]); return null; },
     },
     offre: async () => o.offre ?? 'pro',
-    formulePayee: async () => o.formulePayee ?? true,
+    formuleEtPrise: async () => ({ formulePayee: o.formulePayee ?? true, prisePossible: o.optionPrenable ?? true }),
     optionPrenable: async () => o.optionPrenable ?? true,
     formuleEnRetard: async () => o.formuleEnRetard ?? false,
     numerosCouverts: async () => o.couverts ?? 0,

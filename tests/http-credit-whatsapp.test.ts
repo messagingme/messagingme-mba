@@ -85,6 +85,8 @@ function achat(o: {
   fenetre?: boolean;
 } = {}) {
   const transport = new FauxStripe([CLIENT_OK, SESSION_OK], o.lesPrix ?? PRIX_JUSTES);
+  /** Les lectures de la formule (relecture de V1, jaune 5) : la vue la lit en UNE fois. */
+  const lectures = { formuleEtPrise: 0, optionPrenable: 0 };
   const deps: CreditWhatsappRouteDeps = {
     vue: {
       solde: async () => 12_340_000,
@@ -125,8 +127,11 @@ function achat(o: {
         noterPlaces: async () => null,
       },
       offre: async () => o.offre ?? 'pro',
-      formulePayee: async () => o.formulePayee ?? true,
-      optionPrenable: async () => o.optionPrenable ?? true,
+      formuleEtPrise: async () => {
+        lectures.formuleEtPrise++;
+        return { formulePayee: o.formulePayee ?? true, prisePossible: o.optionPrenable ?? true };
+      },
+      optionPrenable: async () => { lectures.optionPrenable++; return o.optionPrenable ?? true; },
       formuleEnRetard: async () => false,
       numerosCouverts: async () => 1,
       reprendreCampagnes: async () => 0,
@@ -136,7 +141,7 @@ function achat(o: {
     fenetrePartenaire: async () => o.fenetre ?? false,
   };
   const srv = buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET_SESSION }, creditWhatsapp: deps });
-  return { srv, transport };
+  return { srv, transport, lectures };
 }
 
 const acheter = (srv: ReturnType<typeof buildServer>, corps: unknown, jeton = admin) =>
@@ -426,6 +431,21 @@ describe('l’option dans l’onglet', () => {
       const a = achat(o);
       const vue = (await lire(a.srv)).json().option;
       expect([vue.prisePossible, vue.formulePayee], JSON.stringify(o)).toEqual([prise, payee]);
+      await a.srv.close();
+    }
+  });
+
+  it('🔴 la vue lit la formule en UNE lecture (relecture de V1, jaune 5) : la formule payée et la prise viennent du même instantané', async () => {
+    const pro = achat({ offre: 'pro', formulePayee: false, optionPrenable: true });
+    const vue = (await lire(pro.srv)).json().option;
+    expect([vue.formulePayee, vue.prisePossible]).toEqual([false, true]);
+    expect(pro.lectures).toEqual({ formuleEtPrise: 1, optionPrenable: 0 });
+    await pro.srv.close();
+    // Une Entreprise ou une Free n'a pas d'option : la formule ne se lit pas.
+    for (const offre of ['entreprise', 'base'] as const) {
+      const a = achat({ offre });
+      await lire(a.srv);
+      expect(a.lectures.formuleEtPrise, offre).toBe(0);
       await a.srv.close();
     }
   });

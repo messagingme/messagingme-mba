@@ -100,9 +100,9 @@ type CasAlerte =
 const CAS_QUI_ATTENDENT: ReadonlySet<CasAlerte> = new Set(['a_poser', 'couvert_arrete', 'autre_espace']);
 
 /**
- * L'espace a-t-il droit à la ligne du partenaire ? Une Entreprise, toujours ; une formule Pro ou un Business, avec une
- * option vivante dont une place est libre (un essai n'a pas d'option) ; jamais une Free. `sauf` : un numéro à ne pas
- * compter parmi les couverts (celui qui vient d'arriver ne prend pas sa propre place).
+ * L'espace a-t-il droit à la ligne du partenaire ? Une Entreprise, toujours ; une formule Pro (essai compris, depuis V1
+ * du 2026-11-10) ou un Business, avec une option vivante dont une place est libre ; jamais une Free. `sauf` : un numéro à
+ * ne pas compter parmi les couverts (celui qui vient d'arriver ne prend pas sa propre place).
  */
 export async function droitALaLigne(
   d: Pick<DepsFenetrePartenaire, 'offre' | 'option' | 'numerosCouverts'>, tenantId: string, sauf: string | null = null,
