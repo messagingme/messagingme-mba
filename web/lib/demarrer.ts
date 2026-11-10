@@ -43,6 +43,8 @@ export { VARIABLE_CLE } from './partage/droits-api';
 /** La valeur de `?suite=` qui fait de `/connecter-whatsapp` une étape du tunnel, et sa clé dans la mémoire de l'onglet. */
 export const SUITE_DEMARRER = 'demarrer';
 export const CLE_SUITE = 'mba.suite';
+/** La formule choisie sur le premier écran (lot 3b) : la Free, gardée dans l'onglet pour ne pas reposer la question. */
+export const CLE_FORMULE = 'mba.formule';
 
 /**
  * La page du numéro est-elle une étape du tunnel ? Par son adresse, ou par la mémoire de l'onglet : le retour de
@@ -53,4 +55,17 @@ export const CLE_SUITE = 'mba.suite';
 export function enSuiteDeDemarrage(recherche: string, memoire: string | null): boolean {
   const p = new URLSearchParams(recherche);
   return p.get('suite') === SUITE_DEMARRER || (p.has('abonnement') && memoire === SUITE_DEMARRER);
+}
+
+/**
+ * LE RETOUR DE STRIPE D'UN PRO PRIS DANS LE TUNNEL (lot 3b, décision de Julien du 2026-11-10 : « Stripe direct, puis le
+ * numéro »). Stripe revient sur `/offre?pro=recu` ou `?pro=abandon` (`src/stripe/abonnement.ts`) ; un onglet dont la
+ * mémoire porte la suite (posée par le premier écran, ou par `/offre?suite=demarrer` à l'arrivée d'un espace venu du
+ * Pro) repart vers la connexion de son numéro, qui dit l'essai commencé ou le paiement abandonné. Sinon `null` : la
+ * page de l'offre reste la page de l'offre.
+ */
+export function suiteApresPro(recherche: string, memoire: string | null): string | null {
+  const pro = new URLSearchParams(recherche).get('pro');
+  if (memoire !== SUITE_DEMARRER || (pro !== 'recu' && pro !== 'abandon')) return null;
+  return `/connecter-whatsapp?suite=${SUITE_DEMARRER}&pro=${pro}`;
 }

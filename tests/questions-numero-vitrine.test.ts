@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
 import { FAQ } from '../scripts/plugin/faq';
 import {
-  ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE,
-  QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_PAIEMENT, WHATSAPP_ORDINAIRE,
+  CARTES_OFFRE, ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION,
+  QUESTION_COMPTE, QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_OFFRE, QUESTION_PAIEMENT, WHATSAPP_ORDINAIRE,
 } from '../web/lib/questions-numero';
 import { VITRINE_AIDE } from '../web/lib/partage/aide-connexion';
 
@@ -23,11 +23,31 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
     const question = (id: string) => v.questions.find((q) => q.id === id)!;
     const issue = (id: string) => v.issues.find((x) => x.id === id)!;
 
+    it(`${langue} : la formule au premier écran de la console, la question et ses quatre cartes au mot près (lot 3b)`, () => {
+      const q = question('offre');
+      expect(QUESTION_OFFRE.texte[langue]).toBe(texte(q.texte));
+      expect(QUESTION_OFFRE.precision[langue]).toBe(texte(q.precision!));
+      expect(QUESTION_OFFRE.aide[langue]).toBe(texte(q.aide!));
+      expect(QUESTION_OFFRE.nsp[langue]).toBe(texte(q.reponses.find((r) => !r.vers)!.libelle));
+      // Les quatre cartes, dans l'ordre de la vitrine, chacune sous la réponse de même formule.
+      const avecFormule = q.reponses.filter((r) => r.offre);
+      expect(CARTES_OFFRE.map((c) => c.offre)).toEqual(avecFormule.map((r) => r.offre));
+      CARTES_OFFRE.forEach((c, i) => {
+        const v = q.voies![i]!;
+        expect(c.libelle[langue], c.offre).toBe(texte(avecFormule[i]!.libelle));
+        expect(c.titre[langue], c.offre).toBe(texte(v.titre));
+        expect(c.badge?.[langue], c.offre).toBe(v.badge === undefined ? undefined : texte(v.badge));
+        expect(c.plus.map((x) => x[langue]), c.offre).toEqual(v.plus.map(texte));
+        expect(c.moins.map((x) => x[langue]), c.offre).toEqual(v.moins.map(texte));
+      });
+    });
+
     it(`${langue} : « Qui paie vos messages à Meta ? » juste après l’offre ; la carte chez Meta mène à l’arbre, le Crédit WhatsApp grisé`, () => {
-      // Révision du Crédit WhatsApp, lot B (Julien, 2026-11-06) : Free et Pro y mènent ; Business et Entreprise, comme avant,
-      // à l'échange.
+      // Révision du Crédit WhatsApp, lot B (Julien, 2026-11-06) : Free y mène ; Pro aussi, par « Claude Code ou Codex » de
+      // la question du pilotage (lot 3c) ; Business et Entreprise, comme avant, à l'échange.
       const offre = question('offre');
-      expect(offre.reponses.filter((r) => r.offre === 'free' || r.offre === 'pro').map((r) => r.vers)).toEqual(['paiement', 'paiement']);
+      expect(offre.reponses.filter((r) => r.offre === 'free' || r.offre === 'pro').map((r) => r.vers)).toEqual(['paiement', 'pilote']);
+      expect(question('pilote').reponses.map((r) => r.vers)).toEqual(['console', 'paiement']);
       const q = question('paiement');
       expect(QUESTION_PAIEMENT.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_PAIEMENT.precision[langue]).toBe(texte(q.precision!));

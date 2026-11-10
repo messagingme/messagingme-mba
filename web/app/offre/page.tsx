@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
@@ -19,6 +19,7 @@ import { useT } from '@/lib/i18n';
 import { oublierOffre, relireOffre, useOffre } from '@/lib/use-offre';
 import { changerSieges, payerPro, portailPro, rendreNumero } from '@/lib/api/offre';
 import { ApiError, erreurDeChargement } from '@/lib/http';
+import { CLE_SUITE, SUITE_DEMARRER, suiteApresPro } from '@/lib/demarrer';
 import { fmtNum } from '@/lib/format';
 import {
   FONCTIONS_OFFRE, NOMS_OFFRES, libelleFonction, nomDeLOffre, offreQuiOuvre,
@@ -61,6 +62,17 @@ function Offre({ session }: { session: Session }) {
   const params = useSearchParams();
   // Avant `useOffre` : le retour d'un paiement du Pro oublie l'offre gardée, que la lecture qui suit refait donc.
   const [retour] = useState(retourDeStripe);
+  // LE TUNNEL D'UN ESPACE NEUF (lot 3b) : venu du Pro (`?suite=demarrer`, `arriveeDUnNouvelEspace`), l'onglet garde la
+  // suite ; au retour de Stripe, un onglet dans le tunnel repart vers la connexion de son numéro (`suiteApresPro`).
+  useEffect(() => {
+    let memoire: string | null = null;
+    try {
+      if (params.get('suite') === SUITE_DEMARRER) window.sessionStorage.setItem(CLE_SUITE, SUITE_DEMARRER);
+      memoire = window.sessionStorage.getItem(CLE_SUITE);
+    } catch { /* mémoire indisponible : la page reste celle de l'offre */ }
+    const suite = suiteApresPro(window.location.search, memoire);
+    if (suite) router.replace(suite);
+  }, [params, router]);
   const vue = useOffre(session.tenantId);
   // La Free n'a pas l'écran du crédit ; une offre inconnue (`null`) garde tout ouvert.
   const avecCredit = vue === null || (vue !== undefined && vue.fonctions.has('console'));

@@ -19,9 +19,9 @@ describe('pageDArrivee', () => {
 });
 
 describe('arriveeDUnNouvelEspace et veutLePro (la fin Pro du guide du numéro, 2026-10-27)', () => {
-  it('🔴 un espace neuf prend le tunnel de la Free, sauf venu du choix du Pro : la souscription du Pro', () => {
+  it('🔴 un espace neuf prend le tunnel de la Free, sauf venu du choix du Pro : la souscription du Pro, dans le tunnel (lot 3b)', () => {
     expect(arriveeDUnNouvelEspace(false)).toBe('/connecter-whatsapp?suite=demarrer');
-    expect(arriveeDUnNouvelEspace(true)).toBe('/offre?fonction=console');
+    expect(arriveeDUnNouvelEspace(true)).toBe('/offre?fonction=console&suite=demarrer');
     // La page de l'offre ne montre son bandeau qu'à une fonction qu'elle connaît : la destination en nomme une.
     const fonction = new URLSearchParams(arriveeDUnNouvelEspace(true).split('?')[1]).get('fonction');
     expect(FONCTIONS_OFFRE as readonly string[]).toContain(fonction);

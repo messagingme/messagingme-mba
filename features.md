@@ -170,13 +170,16 @@ depuis Claude Code, le prix et une FAQ.
 
 ✅ **La vitrine a sa page « Démarrer » et un tunnel du numéro commun** (2026-10-30) : `app.messagingme.fr/demarrer/`,
 jumelle `/en/get-started/`, au bouton « Démarrer » de l'en-tête de chaque page (à droite sur le bureau, à côté du menu
-au téléphone). L'arbre de Julien du 2026-10-30, complété le 2026-10-31, en cinq questions au plus, dans une carte, sous
+au téléphone). L'arbre de Julien du 2026-10-30, complété le 2026-10-31, en six questions au plus (depuis le 2026-11-10), dans une carte, sous
 l'étape et sa jauge ; une question répondue reste affichée, sa réponse en évidence (la carte choisie encadrée, les autres
 estompées, repliées au téléphone), la suivante apparaît dessous, et un clic sur une autre réponse change le chemin :
 **la formule** (un carrousel sur le bureau, Free, Pro, Business et Entreprise, aux chiffres de la page Tarifs, chacune avec son bouton
-dessous, et « Je ne sais pas » qui dit que Free ne marche qu'avec un agent IA comme Claude Code ou Codex, et sinon Pro ;
-Business et Entreprise ne posent pas les questions du numéro, ils mènent à « Parlons de votre projet », avec « Demander
-une démo » et « Nous contacter »), **qui paie Meta** (« Qui paie vos messages à Meta ? » : la carte de l'entreprise chez
+dessous, les 14 jours d'essai gratuit en tête de la carte Pro, et « Je ne sais pas » qui dit que Free ne marche qu'avec
+un agent IA comme Claude Code ou Codex, et sinon Pro ; Business et Entreprise ne posent pas les questions du numéro, ils
+mènent à « Parlons de votre projet », avec « Demander une démo » et « Nous contacter »), en Pro **console ou Claude
+Code** (2026-11-10 : « La console » finit sur « Créez votre espace : la console vous guide », avec « Créer mon espace »
+`/signup?offre=pro` et le pas-à-pas de la console, la console posant elle-même la suite ; « Claude Code ou Codex »
+continue l'arbre), **qui paie Meta** (« Qui paie vos messages à Meta ? » : la carte de l'entreprise chez
 Meta, seule voie ouverte ; le Crédit WhatsApp reste grisé tant qu'il n'est pas en vente en ligne, « Avec la formule Pro. »
 en Free, « Sur demande : écrivez-nous. » en Pro, Julien, 2026-11-06), puis **le compte Meta Business** (Oui mène au
 numéro API, son numéro libre ou un numéro fourni,
@@ -196,10 +199,11 @@ compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre ch
 presque sans texte (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte ») : installer le plugin (le logo
 de Claude Code puis celui de Codex, chacun avec ses deux commandes en face, une par ligne, puis le pas-à-pas et le dépôt
 GitHub), le relier à Messaging Me (obligatoire : dans Claude Code, `/mcp` puis le serveur et Authenticate à choisir ;
-dans Codex, sa commande ; puis les trois écrans de la page d'autorisation, capturés sur la vraie page : Google ou
-l'adresse e-mail, l'espace à autoriser, l'autorisation accordée), puis coller la demande dans Claude Code ou Codex ; en
-Pro, « Créer mon espace » (`/signup?offre=pro`), le pas-à-pas et la même demande, à coller une fois le plugin installé
-et relié (ces mots mènent à son pas-à-pas). La demande reprend l'offre et les réponses, et la page d'origine : générique sur
+dans Codex, sa commande, et la page qui le dit « non vérifié », ce qui est normal ; puis les trois écrans de la page
+d'autorisation, capturés sur la vraie page : Google ou l'adresse e-mail, l'espace à autoriser, l'autorisation
+accordée ; et, sans Google, la page du lien reçu par e-mail, où l'on nomme son espace), puis coller la demande dans
+Claude Code ou Codex ; en Pro par Claude Code ou Codex, les mêmes trois étapes, la demande de la formule Pro à coller
+(2026-11-10). La demande reprend l'offre et les réponses, et la page d'origine : générique sur
 « Démarrer », la boutique sur « Boutiques Shopify », l'app sur « SaaS et app builders », qui portent le même tunnel. Les
 mots du guide se déplient sous la carte, un par ligne (le mot et sa phrase courte, le détail au clic), avec des liens
 vers le compte Meta Business et vers l'App Store et Google Play pour l'application WhatsApp Business, liens que les deux
@@ -432,7 +436,10 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
 
 - ✅ **Inscription libre** (`/signup`) : n'importe qui crée **son propre espace** (nom d'espace + email + mot de
   passe) et en devient l'**admin**. Elle enchaîne sur le **tunnel de l'offre Free** (2026-10-08), sans passer par
-  l'accueil : la page du numéro WhatsApp (le sien ou un numéro fourni, avec « Plus tard » pour la sauter), puis la
+  l'accueil. Son premier écran pose d'abord **la formule** (2026-11-10) : les quatre cartes de la vitrine, aux mêmes
+  mots ; Free continue, « Essayer Pro 14 jours » ouvre la page de Stripe (mensuelle, avec l'essai) puis ramène au
+  numéro, l'essai commencé dit, et Business et Entreprise mènent au formulaire de contact, leur sujet prérempli. Puis
+  la page du numéro WhatsApp (le sien ou un numéro fourni, avec « Plus tard » pour la sauter), puis la
   **page finale `/demarrer`**, qui donne tout pour vivre dans Claude Code : le numéro (affiché, ou « Connecter mon
   numéro »), les **deux commandes qui installent le plugin Claude Code** (sans clé : la connexion à l'espace se valide
   ensuite par `/mcp` dans Claude Code), **« Créer la clé de mon application »** (droits par défaut, montrée une seule
@@ -441,7 +448,7 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   survit au paiement d'un numéro fourni. **Venue du choix du Pro** (`/signup?offre=pro`, le bouton « Créer mon compte »
   de la fin Pro du guide du numéro de la vitrine, 2026-10-27), l'inscription, par mot de passe comme par Google, mène
   à la place à la **souscription du Pro** : la page de l'offre, son bandeau « la console fait partie du Pro », le
-  mensuel ou l'annuel et l'essai de 14 jours.
+  mensuel ou l'annuel et l'essai de 14 jours ; après Stripe, la connexion de son numéro (2026-11-10).
 - ✅ **Se connecter avec Google** (bouton sur `/login`, `/signup`, `/invite`) : vérif du jeton côté serveur ;
   liaison **par email** (compte existant -> connexion ; email inconnu -> crée un espace et prend le même tunnel
   qu'un signup). Une invitation jamais acceptée ne compte pas : une adresse qui n'a qu'elle est, pour Google, une

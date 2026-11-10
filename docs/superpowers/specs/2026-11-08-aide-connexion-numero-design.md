@@ -342,7 +342,8 @@ Elles remplacent, pour le Crédit WhatsApp, le choix actif « sur demande » du 
 3. **L'essai de la formule Pro** :
    - l'option se prend et se paie dès le début des 14 jours ;
    - le reste de la formule reste gratuit pendant l'essai ;
-   - la formule Pro (59 € HT par mois) se facture au bout des 14 jours ;
+   - la formule Pro (49 € HT par mois ; « 59 € » était un lapsus, confirmé par Julien le même jour) se facture au bout
+     des 14 jours ;
    - un essai non payé arrête l'option, sans remboursement.
 
    La règle d'avant, une formule payée d'abord, tombe.

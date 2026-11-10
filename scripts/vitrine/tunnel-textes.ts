@@ -88,7 +88,11 @@ export interface Question { readonly id: string; readonly texte: string; readonl
  * Une carte d'un choix (une offre), avec ce qu'elle apporte et ce qu'elle coûte. `liens` : des liens texte sous ses
  * lignes (la carte du moyen de paiement chez Meta, aide à la connexion, lot 3a).
  */
-export interface Voie { readonly titre: string; readonly plus: readonly string[]; readonly moins: readonly string[]; readonly liens?: readonly Lien[] }
+export interface Voie {
+  readonly titre: string; readonly plus: readonly string[]; readonly moins: readonly string[]; readonly liens?: readonly Lien[];
+  /** Une mention mise en avant au-dessus du titre (l'essai du Pro, Julien, 2026-11-09 : « on comprend rien sinon »). */
+  readonly badge?: string;
+}
 /**
  * Une issue : `situation` se lit sans script, quand toutes les issues s'affichent l'une sous l'autre. `autre` mène à une
  * autre issue (le numéro API rappelle qu'on peut garder son application) ; `liens` : des boutons vers l'extérieur (les
@@ -101,8 +105,10 @@ export type Issue = {
   readonly autre?: { readonly question: string; readonly lien: string; readonly vers: string };
   readonly liens?: readonly Lien[];
 } & (
-  | { readonly contact?: undefined; readonly numero: Readonly<Record<OffreTunnel, string>>; readonly pasAPas: string }
-  | { readonly contact: true; readonly numero?: undefined; readonly pasAPas?: undefined }
+  | { readonly contact?: undefined; readonly console?: undefined; readonly numero: Readonly<Record<OffreTunnel, string>>; readonly pasAPas: string }
+  | { readonly contact: true; readonly console?: undefined; readonly numero?: undefined; readonly pasAPas?: undefined }
+  // Le Pro par la console (lot 3c) : la création de l'espace et le pas-à-pas, sans demande à coller.
+  | { readonly console: true; readonly contact?: undefined; readonly numero?: undefined; readonly pasAPas: string }
 );
 /** Un mot du lexique : le mot et sa phrase courte, visibles ; le détail et ses liens, au clic. */
 export interface Mot { readonly terme: string; readonly court: string; readonly detail: string; readonly liens?: readonly Lien[] }
@@ -123,7 +129,8 @@ export interface TexteTunnel {
   readonly appels: {
     readonly free: string; readonly pro: string; readonly plugin: string; readonly github: string;
     /** Le titre de la demande en Pro : `lien` mène au pas-à-pas du plugin, dont les étapes sont dans le bloc Free, caché. */
-    readonly demandePro: { readonly avant: string; readonly lien: string; readonly apres: string };
+    /** Le titre du bloc Pro au bout de l'arbre : le Pro par Claude Code ou Codex (lot 3c), avec les trois étapes. */
+    readonly proAssistant: string;
     readonly copier: string; readonly copie: string;
     readonly compte: string; readonly pasAPas: string;
     /** La fin de Business et Entreprise : son titre, la démo et le contact. */
@@ -141,6 +148,10 @@ export interface TexteTunnel {
       readonly relier: {
         readonly titre: string; readonly obligatoire: string; readonly claude: string; readonly codex: string;
         readonly navigateur: string;
+        /** Ce que Codex voit sur la page d'autorisation, que le tunnel annonce (jaune de 76a0e2b4). */
+        readonly codexNote: string;
+        /** Le détour par e-mail, sa capture légendée (jaune de 76a0e2b4). */
+        readonly detour: { readonly titre: string; readonly legende: string; readonly alt: string };
         /**
          * Les écrans de `/autoriser`, dans l'ordre : `site/img/demarrer/autoriser-<n>[-en].webp`, capturés sur la vraie
          * page par `web/e2e/captures/demarrer-autoriser.capture.ts` (`npm run aide:captures`).
@@ -164,6 +175,7 @@ const fr = (): TexteTunnel => {
     },
     {
       titre: `Pro, ${euros(PRIX_PRO_HT_CENTIMES.mois, 'fr')} HT par mois`,
+      badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`,
       plus: ['La console : l’Inbox de l’équipe, les campagnes, les tableaux de bord.', 'Un numéro fourni, inclus.', `${ESSAI_PRO_JOURS}&nbsp;jours d’essai la première fois.`],
       moins: ['Une carte demandée dès l’essai.'],
     },
@@ -205,7 +217,7 @@ const fr = (): TexteTunnel => {
   return {
     surtitre: 'Votre numéro WhatsApp',
     titre: ['Votre branchement', 'commence ici.'],
-    chapeau: 'En cinq questions au plus, sur votre formule, qui paie Meta, votre compte Meta Business, votre application WhatsApp Business et votre numéro, vous savez quoi faire.',
+    chapeau: 'En six questions au plus, sur votre formule, qui paie Meta, votre compte Meta Business, votre application WhatsApp Business et votre numéro, vous savez quoi faire.',
     lexique: {
       titre: 'Les mots de ce guide, expliqués',
       termes: [
@@ -239,11 +251,16 @@ const fr = (): TexteTunnel => {
         voies: offres,
         reponses: [
           { libelle: 'Free', vers: 'paiement', offre: 'free' },
-          { libelle: 'Pro', vers: 'paiement', offre: 'pro' },
+          { libelle: 'Pro', vers: 'pilote', offre: 'pro' },
           { libelle: 'Business', vers: 'echange', offre: 'business' },
           { libelle: 'Entreprise', vers: 'echange', offre: 'entreprise' },
           { libelle: 'Je ne sais pas' },
         ],
+      },
+      {
+        // Le Pro a la console ET Claude Code (Julien, 2026-11-09, lot 3c) : la console finit ici, Claude Code suit l'arbre.
+        id: 'pilote', texte: 'Console ou Claude Code ?', precision: 'La formule Pro a les deux : par où voulez-vous commencer ?',
+        reponses: [{ libelle: 'La console', vers: 'console' }, { libelle: 'Claude Code ou Codex', vers: 'paiement' }],
       },
       {
         // Le Crédit WhatsApp grisé tant qu'il n'est pas en vente en ligne (Julien, 2026-11-06) : sa voie, sans
@@ -359,6 +376,15 @@ const fr = (): TexteTunnel => {
         pasAPas: '/aide/garder-mon-application-whatsapp-business/',
       },
       {
+        // Le Pro par la console (lot 3c) : la console pose elle-même les questions du numéro.
+        id: 'console', situation: 'En formule Pro, depuis la console', titre: 'Créez votre espace : la console vous guide', console: true,
+        textes: [
+          'La console vous pose les mêmes questions, puis ouvre la fenêtre de Meta : votre numéro, ou un numéro fourni, inclus en formule Pro.',
+          `Une fois votre espace créé, la page de Stripe ouvre vos ${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit : la carte y est demandée, et rien n’est prélevé avant la fin.`,
+        ],
+        pasAPas: '/aide/connecter-mon-numero-whatsapp/',
+      },
+      {
         // Business et Entreprise ne se branchent pas seuls (Julien, 2026-10-30 : « request a demo ou contact »), et ce
         // que la page Tarifs en dit (sur facture, essai sur demande, devis) se reprend ici mot pour mot.
         id: 'echange', situation: 'En formule Business ou Entreprise', titre: 'Parlons de votre projet', contact: true,
@@ -375,7 +401,7 @@ const fr = (): TexteTunnel => {
     appels: {
       free: 'En formule Free, depuis votre assistant IA', pro: 'En formule Pro',
       plugin: 'L’installation pas à pas', github: 'Le dépôt GitHub',
-      demandePro: { avant: 'Ou votre demande, à coller dans Claude Code ou Codex une fois ', lien: 'le plugin installé et relié', apres: ' :' },
+      proAssistant: 'En formule Pro, depuis votre assistant IA',
       copier: 'Copier', copie: 'Copié',
       compte: 'Créer mon espace', pasAPas: 'Le pas-à-pas',
       equipe: 'Avec notre équipe', demo: 'Demander une démo', contacter: 'Nous contacter',
@@ -385,6 +411,12 @@ const fr = (): TexteTunnel => {
           titre: 'Reliez-le à Messaging Me', obligatoire: 'obligatoire',
           claude: 'tapez, puis choisissez', codex: 'dans un terminal',
           navigateur: 'Puis, dans votre navigateur :',
+          codexNote: 'La page dit « non vérifié » : c’est normal.',
+          detour: {
+            titre: 'Sans Google :',
+            legende: 'Le lien de l’e-mail : nommez votre espace, puis revenez ici',
+            alt: 'La page du lien reçu par e-mail : le nom de l’espace, votre nom et votre mot de passe, puis « Créer mon espace ».',
+          },
           ecrans: [
             {
               legende: 'Google, ou votre adresse e-mail',
@@ -422,6 +454,7 @@ const en = (): TexteTunnel => {
     },
     {
       titre: `Pro, ${euros(PRIX_PRO_HT_CENTIMES.mois, 'en')} excl. VAT a month`,
+      badge: `${ESSAI_PRO_JOURS}-day free trial`,
       plus: ['The console: the team Inbox, campaigns, dashboards.', 'A provided number, included.', `A ${ESSAI_PRO_JOURS}-day trial the first time.`],
       moins: ['A card required from the trial.'],
     },
@@ -459,7 +492,7 @@ const en = (): TexteTunnel => {
   return {
     surtitre: 'Your WhatsApp number',
     titre: ['Your setup', 'starts here.'],
-    chapeau: 'In five questions at most, about your plan, who pays Meta, your Meta Business account, your WhatsApp Business app and your number, you know what to do.',
+    chapeau: 'In six questions at most, about your plan, who pays Meta, your Meta Business account, your WhatsApp Business app and your number, you know what to do.',
     lexique: {
       titre: 'The words of this guide, explained',
       termes: [
@@ -490,11 +523,15 @@ const en = (): TexteTunnel => {
         voies: offres,
         reponses: [
           { libelle: 'Free', vers: 'paiement', offre: 'free' },
-          { libelle: 'Pro', vers: 'paiement', offre: 'pro' },
+          { libelle: 'Pro', vers: 'pilote', offre: 'pro' },
           { libelle: 'Business', vers: 'echange', offre: 'business' },
           { libelle: 'Enterprise', vers: 'echange', offre: 'entreprise' },
           { libelle: 'I don’t know' },
         ],
+      },
+      {
+        id: 'pilote', texte: 'Console or Claude Code?', precision: 'The Pro plan has both: where do you want to start?',
+        reponses: [{ libelle: 'The console', vers: 'console' }, { libelle: 'Claude Code or Codex', vers: 'paiement' }],
       },
       {
         id: 'paiement', texte: 'Who pays Meta for your messages?', precision: 'Meta bills each template you send.',
@@ -597,6 +634,14 @@ const en = (): TexteTunnel => {
         pasAPas: '/en/help/keep-my-whatsapp-business-app/',
       },
       {
+        id: 'console', situation: 'With the Pro plan, from the console', titre: 'Create your workspace: the console guides you', console: true,
+        textes: [
+          'The console asks you the same questions, then opens Meta’s window: your number, or a provided number, included in Pro.',
+          `Once your workspace is created, Stripe’s page opens your ${ESSAI_PRO_JOURS}-day free trial: your card is asked there, and nothing is charged before the end.`,
+        ],
+        pasAPas: '/en/help/connect-my-whatsapp-number/',
+      },
+      {
         id: 'echange', situation: 'With the Business or Enterprise plan', titre: 'Let’s talk about your project', contact: true,
         textes: [
           'Business and Enterprise are set up after a conversation with us: we put the plan on your workspace, invoiced, with no online payment, and we support you through the setup.',
@@ -611,7 +656,7 @@ const en = (): TexteTunnel => {
     appels: {
       free: 'With the Free plan, from your AI assistant', pro: 'With the Pro plan',
       plugin: 'Installation step by step', github: 'The GitHub repository',
-      demandePro: { avant: 'Or your request, to paste into Claude Code or Codex once ', lien: 'the plugin is installed and connected', apres: ':' },
+      proAssistant: 'With the Pro plan, from your AI assistant',
       copier: 'Copy', copie: 'Copied',
       compte: 'Create my workspace', pasAPas: 'The step-by-step guide',
       equipe: 'With our team', demo: 'Request a demo', contacter: 'Contact us',
@@ -621,6 +666,12 @@ const en = (): TexteTunnel => {
           titre: 'Connect it to Messaging Me', obligatoire: 'required',
           claude: 'type, then select', codex: 'in a terminal',
           navigateur: 'Then, in your browser:',
+          codexNote: 'The page says “unverified”: that is expected.',
+          detour: {
+            titre: 'Without Google:',
+            legende: 'The email link: name your workspace, then come back here',
+            alt: 'The page of the link received by email: the workspace name, your name and your password, then “Create my workspace”.',
+          },
           ecrans: [
             {
               legende: 'Google, or your email address',

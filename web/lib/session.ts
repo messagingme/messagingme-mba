@@ -106,11 +106,12 @@ export function pageDArrivee(role: string): '/accueil' | '/inbox' {
  * Où arrive un espace qui VIENT DE NAÎTRE (inscription par e-mail ou par Google). D'ordinaire le tunnel de la Free
  * (lot 19) : son numéro, puis la page finale. Venu du choix du Pro (`?offre=pro`, la fin Pro du guide du numéro de la
  * vitrine, Julien le 2026-10-27), la souscription du Pro : la page de l'offre, son bandeau « la console fait partie du
- * Pro », le mensuel ou l'annuel et l'essai de 14 jours, sans le tunnel de la Free. Une destination fixe : l'adresse ne
- * fait voyager qu'un drapeau, jamais une page.
+ * Pro », le mensuel ou l'annuel et l'essai de 14 jours ; `suite=demarrer` (lot 3b) l'inscrit dans le tunnel, pour que le
+ * retour de Stripe ramène à la connexion du numéro (`suiteApresPro`). Une destination fixe : l'adresse ne fait voyager
+ * qu'un drapeau, jamais une page.
  */
-export function arriveeDUnNouvelEspace(pro: boolean): '/offre?fonction=console' | '/connecter-whatsapp?suite=demarrer' {
-  return pro ? '/offre?fonction=console' : '/connecter-whatsapp?suite=demarrer';
+export function arriveeDUnNouvelEspace(pro: boolean): '/offre?fonction=console&suite=demarrer' | '/connecter-whatsapp?suite=demarrer' {
+  return pro ? '/offre?fonction=console&suite=demarrer' : '/connecter-whatsapp?suite=demarrer';
 }
 
 /** L'inscription vient-elle du choix du Pro ? Seule la valeur `pro` de `?offre=` compte. */

@@ -274,7 +274,7 @@ test.describe('Enrôlement obligatoire d’un administrateur', () => {
     });
     await page.goto('/signup?offre=pro');
     await inscrireUneAdresseConnue(page, { email: 'a@b.co', motDePasse: 'motdepasse-long', espace: 'Mon espace' });
-    await page.waitForURL('**/offre?fonction=console', { timeout: 15_000 });
+    await page.waitForURL('**/offre?fonction=console&suite=demarrer', { timeout: 15_000 });
     expect(await sessionEnregistree(page)).not.toBeNull();
     expect(appelsVers(appels, '/auth/signup')).toHaveLength(2);
   });
@@ -314,7 +314,7 @@ test.describe('Enrôlement obligatoire d’un administrateur', () => {
     await page.getByRole('button', { name: /^(Activer|Activate)$/ }).click();
     await page.getByTestId('codes-secours-conserves').check();
     await page.getByTestId('codes-secours-continuer').click();
-    await page.waitForURL('**/offre?fonction=console', { timeout: 15_000 });
+    await page.waitForURL('**/offre?fonction=console&suite=demarrer', { timeout: 15_000 });
   });
 
   test('inscription : une étape expirée renvoie à la connexion, jamais au formulaire (l’espace existe déjà)', async ({ page }) => {

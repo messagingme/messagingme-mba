@@ -6,12 +6,15 @@ import { AppShell } from '@/components/AppShell';
 import { TitrePage, IntroPage } from '@/components/TitrePage';
 import { ParcoursNumero, BoutonPortail } from '@/components/ParcoursNumero';
 import { QuiRegleMeta } from '@/components/QuiRegleMeta';
+import { ChoixOffre } from '@/components/ChoixOffre';
+import { MbaNotice } from '@/components/MbaNotice';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import type { Session } from '@/lib/session';
 import { useT } from '@/lib/i18n';
 import { getAccountStatus, type AccountStatusResponse } from '@/lib/api';
 import { apiDeLaSession } from '@/lib/api/connexion-numero';
-import { CLE_SUITE, enSuiteDeDemarrage, SUITE_DEMARRER } from '@/lib/demarrer';
+import { CLE_FORMULE, CLE_SUITE, enSuiteDeDemarrage, SUITE_DEMARRER } from '@/lib/demarrer';
+import { useOffre } from '@/lib/use-offre';
 
 /**
  * « CONNECTER WHATSAPP » dans la console (lot 3b, spec `docs/superpowers/specs/2026-10-05-numero-fourni-design.md`).
@@ -52,6 +55,27 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
   }, []);
 
   const connecte = compte?.hasNumber === true;
+
+  // LA FORMULE D'ABORD (lot 3b, Julien, 2026-11-09) : un espace en Free, dans le tunnel, choisit sa formule avant son
+  // numéro (`ChoixOffre`). Le retour de Stripe d'un Pro (`pro=recu`, `suiteApresPro`) dit l'essai commencé et ne repose
+  // pas la question, même si le webhook n'a pas encore fait passer l'offre en Pro ; un paiement abandonné la repose. La
+  // Free choisie est gardée dans l'onglet.
+  const vue = useOffre(tenantId);
+  const [proRetour, setProRetour] = useState<'recu' | 'abandon' | null>(null);
+  const [freeChoisie, setFreeChoisie] = useState(false);
+  useEffect(() => {
+    const r = new URLSearchParams(window.location.search).get('pro');
+    setProRetour(r === 'recu' || r === 'abandon' ? r : null);
+    try { setFreeChoisie(window.sessionStorage.getItem(CLE_FORMULE) === 'free'); } catch { /* mémoire indisponible : la question revient */ }
+  }, []);
+  const choisirFree = () => {
+    try { window.sessionStorage.setItem(CLE_FORMULE, 'free'); } catch { /* idem */ }
+    setFreeChoisie(true);
+  };
+  const formuleAChoisir = tunnel && isAdmin && compte !== null && !connecte && vue !== undefined && vue !== null
+    && vue.offre === 'free' && proRetour !== 'recu' && !freeChoisie;
+  // Le temps de lire le compte et l'offre, rien : ni la question, ni « Qui paie vos messages à Meta ? » qu'elle précède.
+  const formuleEnLecture = tunnel && isAdmin && !connecte && (compte === null || vue === undefined);
   /** Après une connexion, par la carte chez Meta comme par la ligne du partenaire : ses avertissements, puis le compte relu. */
   const apresConnexion = (av: string[]) => { setAvertissements(av); chargerCompte(); };
   const parcours = (
@@ -90,6 +114,16 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
     <div className="mx-auto max-w-formulaire">
       <TitrePage>{t('Connecter WhatsApp', 'Connect WhatsApp')}</TitrePage>
       <IntroPage>{t('Un numéro WhatsApp pour votre espace : le vôtre, ou un numéro que nous vous fournissons.', 'A WhatsApp number for your workspace: yours, or one we provide.')}</IntroPage>
+      {proRetour === 'recu' && !connecte && (
+        <div className="mt-4"><MbaNotice kind="success" testid="essai-pro-commence">
+          {t('Votre essai de la formule Pro commence : rien n’est prélevé avant sa fin. Il reste à connecter votre numéro.', 'Your Pro plan trial starts: nothing is charged before it ends. All that is left is to connect your number.')}
+        </MbaNotice></div>
+      )}
+      {proRetour === 'abandon' && formuleAChoisir && (
+        <div className="mt-4"><MbaNotice kind="warning" testid="essai-pro-abandonne">
+          {t('Paiement abandonné : rien n’a été prélevé. Choisissez votre formule.', 'Payment cancelled: nothing was charged. Choose your plan.')}
+        </MbaNotice></div>
+      )}
 
       {connecte ? (
         <div data-testid="numero-connecte" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
@@ -111,6 +145,8 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
         </div>
       ) : !isAdmin ? (
         <p className="mt-6 text-sm text-ink-500">{t('Réservé aux admins de l’espace.', 'Workspace admins only.')}</p>
+      ) : formuleEnLecture ? null : formuleAChoisir && vue ? (
+        <ChoixOffre tenantId={tenantId} vue={vue} surFree={choisirFree} />
       ) : (
         <QuiRegleMeta tenantId={tenantId} admin lieu="connecter" api={api} surConnexion={apresConnexion}>{parcours}</QuiRegleMeta>
       )}

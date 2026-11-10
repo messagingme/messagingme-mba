@@ -6,7 +6,8 @@ import { NAVIGATEUR, type Locale } from './donnees-demo';
  * LES ÉCRANS QUI SUIVENT LA CONNEXION, pour l'étape 2 du tunnel « Démarrer » de la vitrine (Julien, 2026-11-09 : « des
  * copies d'écran des écrans suivants, faut être visuel ») : la VRAIE page `/autoriser`, ses réponses inventées comme
  * dans `e2e/autoriser.spec.ts`, en français et en anglais. 1, les portes (Google, l'adresse e-mail, le mot de passe) ;
- * 2, l'espace à autoriser ; 3, l'autorisation accordée. Chaque capture ne prend que son encadré, en résolution double ;
+ * 2, l'espace à autoriser ; 3, l'autorisation accordée ; 4, le détour par e-mail (lot 3c) : la page du lien reçu, où l'on
+ * nomme son espace avant de revenir à l'onglet de l'application. Chaque capture ne prend que son encadré, en résolution double ;
  * `scripts/aide/captures-webp.mjs` les range dans `site/img/demarrer/`, hors du centre d'aide.
  */
 const CLE = 'demarrer-autoriser';
@@ -109,6 +110,15 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await page.getByTestId('autoriser-espace-t-demo').click();
       await expect(page.getByTestId('autoriser-partie')).toBeVisible();
       await capturer(page, page.getByTestId('autoriser-partie'), 3, locale);
+
+      // 4. Le détour par e-mail (jaune de 76a0e2b4) : la page du lien reçu, remplie, avant « Créer mon espace ».
+      await page.goto('/signup/confirm/jeton-demo');
+      const formulaire = page.locator('form');
+      await expect(formulaire).toBeVisible();
+      await formulaire.locator('input').nth(0).fill(ESPACE[locale]);
+      await formulaire.locator('input').nth(1).fill('Léa Martin');
+      await formulaire.locator('input[type="password"]').fill('mot-de-passe-de-demo');
+      await capturer(page, formulaire, 4, locale);
     });
   });
 }

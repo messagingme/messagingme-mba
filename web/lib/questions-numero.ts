@@ -12,6 +12,72 @@ type Texte = { readonly fr: string; readonly en: string };
 export const META_BUSINESS_URL = 'https://business.facebook.com/';
 
 /**
+ * LA PREMIÈRE QUESTION, LA FORMULE (lot 3b, Julien, 2026-11-09 : le premier écran d'un espace neuf « commence par les
+ * quatre cartes de la vitrine », l'essai du Pro « bien visible »). La question, son aide et les quatre cartes, aux mots de
+ * la vitrine (`scripts/vitrine/tunnel-textes.ts`, `tests/questions-numero-vitrine.test.ts`) ; les prix sont ceux du
+ * code, que la vitrine lit, et le test les tient égaux. Les boutons, eux, sont ceux de la console (`ChoixOffre`).
+ */
+export const QUESTION_OFFRE = {
+  texte: { fr: 'Quelle formule voulez-vous ?', en: 'Which plan do you want?' },
+  precision: { fr: 'Vous pourrez en changer plus tard.', en: 'You can change it later.' },
+  aide: {
+    fr: 'Free se pilote uniquement depuis un agent IA comme Claude Code ou Codex : sans lui, Free ne marche pas. Sans agent IA, choisissez Pro : la console, pour vous et votre équipe, avec un numéro fourni.',
+    en: 'Free is driven only from an AI agent such as Claude Code or Codex: without one, Free does not work. Without an AI agent, choose Pro: the console, for you and your team, with a provided number.',
+  },
+  nsp: { fr: 'Je ne sais pas', en: 'I don’t know' },
+} as const satisfies Record<string, Texte>;
+
+/** Les quatre formules d'un espace, dans l'ordre de la vitrine. */
+export type FormuleChoisie = 'free' | 'pro' | 'business' | 'entreprise';
+
+export const CARTES_OFFRE: ReadonlyArray<{
+  readonly offre: FormuleChoisie; readonly libelle: Texte; readonly titre: Texte; readonly badge?: Texte;
+  readonly plus: readonly Texte[]; readonly moins: readonly Texte[];
+}> = [
+  {
+    offre: 'free', libelle: { fr: 'Free', en: 'Free' },
+    titre: { fr: 'Free, 0 € d’abonnement', en: 'Free, €0 a month' },
+    plus: [
+      { fr: 'Tout se fait en parlant à Claude Code ou Codex : votre numéro, votre agent IA, vos messages.', en: 'Everything happens by talking to Claude Code or Codex: your number, your AI agent, your messages.' },
+      { fr: 'Sans limite de durée.', en: 'With no time limit.' },
+    ],
+    moins: [
+      { fr: 'Pas de console : il faut un agent IA comme Claude Code ou Codex.', en: 'No console: you need an AI agent such as Claude Code or Codex.' },
+      { fr: '100 contacts et 1 000 messages envoyés par mois.', en: '100 contacts and 1,000 messages sent a month.' },
+    ],
+  },
+  {
+    offre: 'pro', libelle: { fr: 'Pro', en: 'Pro' },
+    titre: { fr: 'Pro, 49 € HT par mois', en: 'Pro, €49 excl. VAT a month' },
+    badge: { fr: '14 jours d’essai gratuit', en: '14-day free trial' },
+    plus: [
+      { fr: 'La console : l’Inbox de l’équipe, les campagnes, les tableaux de bord.', en: 'The console: the team Inbox, campaigns, dashboards.' },
+      { fr: 'Un numéro fourni, inclus.', en: 'A provided number, included.' },
+      { fr: '14 jours d’essai la première fois.', en: 'A 14-day trial the first time.' },
+    ],
+    moins: [{ fr: 'Une carte demandée dès l’essai.', en: 'A card required from the trial.' }],
+  },
+  {
+    offre: 'business', libelle: { fr: 'Business', en: 'Business' },
+    titre: { fr: 'Business, 349 € HT par mois', en: 'Business, €349 excl. VAT a month' },
+    plus: [
+      { fr: 'Tout Pro, plus le Meta Business Agent et HubSpot.', en: 'Everything in Pro, plus the Meta Business Agent and HubSpot.' },
+      { fr: '5 utilisateurs et un accompagnement les deux premiers mois.', en: '5 users and dedicated support for the first two months.' },
+    ],
+    moins: [{ fr: 'Sur facture, après un échange avec nous.', en: 'Invoiced, after a conversation with us.' }],
+  },
+  {
+    offre: 'entreprise', libelle: { fr: 'Entreprise', en: 'Enterprise' },
+    titre: { fr: 'Entreprise, sur devis', en: 'Enterprise, on quote' },
+    plus: [
+      { fr: 'Tout Business, plus le RCS, Salesforce et Dynamics, l’analyse des conversations et les publicités Click-to-WhatsApp.', en: 'Everything in Business, plus RCS, Salesforce and Dynamics, conversation analysis and Click-to-WhatsApp ads.' },
+      { fr: 'Contacts, utilisateurs et webhooks à votre mesure.', en: 'Contacts, users and webhooks sized for you.' },
+    ],
+    moins: [{ fr: 'Un devis selon votre volume.', en: 'A quote based on your volume.' }],
+  },
+];
+
+/**
  * QUI PAIE META, juste après l'offre (révision du Crédit WhatsApp, lot B, textes validés par Julien le 2026-11-06) : deux
  * cartes, chaque bouton sous la sienne. La carte du moyen de paiement chez Meta (son libellé et ses deux liens, Julien,
  * 2026-11-09, lot 3a) mène à l'arbre du numéro ; la carte du Crédit WhatsApp est

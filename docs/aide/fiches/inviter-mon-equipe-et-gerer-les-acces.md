@@ -1,6 +1,6 @@
 ---
 source_section: Comptes & authentification
-source_empreinte: 114b49
+source_empreinte: 32b41b
 ---
 # Inviter mon équipe, et gérer les accès
 
@@ -46,7 +46,8 @@ arrive par e-mail (valable 24 heures, il ne sert qu'une fois), et c'est sur la p
 l'espace et choisissez votre mot de passe ; vous en êtes l'administrateur. Si votre adresse a déjà un compte, la
 page vous demande son mot de passe et ajoute l'espace tout de suite. Vous pouvez aussi passer par Google, à
 l'inscription comme à la connexion : le rapprochement se fait sur l'adresse e-mail, donc un compte qui existe déjà
-est simplement reconnu. Un espace qui vient de naître passe ensuite par son numéro WhatsApp (« Plus tard » le saute), puis par une
+est simplement reconnu. Un espace qui vient de naître choisit d'abord sa formule (Free, l'essai de la formule Pro, ou un
+échange pour Business et Entreprise), passe ensuite par son numéro WhatsApp (« Plus tard » le saute), puis par une
 page qui donne tout pour piloter l'espace depuis Claude Code : les deux commandes qui installent le plugin Messaging Me
 (puis /mcp dans Claude Code pour valider la connexion), la clé de votre application, montrée une seule fois, et
 /messagingme:demarrer, qui lance la mise en service.

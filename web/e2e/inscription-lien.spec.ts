@@ -112,7 +112,7 @@ test.describe('Inscription par e-mail : la page du lien', () => {
     await expect(page.getByRole('button', { name: /Créer mon espace|Create my workspace/ })).toBeVisible();
     expect(appels.filter((a) => a.chemin.startsWith('/auth/signup'))).toEqual([]);
     await remplirLeLien(page);
-    await page.waitForURL('**/offre?fonction=console', { timeout: 15_000 });
+    await page.waitForURL('**/offre?fonction=console&suite=demarrer', { timeout: 15_000 });
     expect(appels.find((a) => a.chemin === '/auth/signup/confirm')?.corps).toMatchObject({
       jeton: 'jeton-e2e', workspaceName: 'Mon espace', password: 'mot-de-passe-du-clic',
     });

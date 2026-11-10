@@ -942,6 +942,8 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-grisee a{color:var(--action-ink)}
 .bt-voie-liens{display:flex;flex-wrap:wrap;gap:4px 16px;margin:12px 0 0;font-size:.95rem}
 .bt-voie-liens a{color:var(--action-ink)}
+/* L'essai du Pro, en tête de sa carte (lot 3b) : visible avant le titre. */
+.bt-badge{display:inline-block;margin:0 0 8px;padding:2px 10px;border-radius:999px;background:var(--action-wash);color:var(--action-ink);font-size:.8rem;font-weight:700}
 .js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}
 /* La page « Démarrer » : le titre, puis le tunnel tout de suite dessous. */
 .demarrer-une{gap:8px}
@@ -957,7 +959,6 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-appels{margin:22px 0 0;padding-top:20px;border-top:1px solid var(--line)}
 .bt-chemin .bt-appels-titre{margin:0 0 12px;font-weight:700;color:var(--ink)}
 .bt-appels-boutons{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
-.bt-chemin .bt-demande-titre{margin:18px 0 8px;font-size:.92rem}
 .bt-demande{display:flex;align-items:flex-start;gap:14px;padding:14px 16px;border:1px dashed rgb(111 194 254 / .45);border-radius:14px;background:rgb(0 2 20 / .35)}
 .bt-chemin .bt-demande p{flex:1;margin:0;color:var(--ink);font-size:.95rem}
 .bt-demande .bouton{flex:none;font-family:inherit;cursor:pointer}
@@ -984,6 +985,8 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-assist-codex svg{fill:#0B0E24}
 .bt-outil-nom{display:flex;flex-direction:column;font-weight:700;color:var(--ink);line-height:1.25}
 .bt-outil-nom small{font-size:.75rem;font-weight:500;color:var(--muted)}
+/* Ce que Codex voit sur la page d'autorisation (« non vérifié »), annoncé sous sa ligne. */
+.bt-outil-note{margin:6px 0 0;font-size:.8rem;color:var(--muted)}
 /* Ce qu'on tape (`code`) et ce qu'on choisit ensuite dans une liste (`.bt-choix`), à la suite. */
 .bt-chemin .bt-etapes-fin .bt-suite{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0}
 .bt-etapes-fin .bt-suite code{padding:.3em .6em}
@@ -991,6 +994,8 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-choix{display:inline-block;max-width:100%;padding:.25em .7em;border:1px solid rgb(111 194 254 / .55);border-radius:999px;font-family:var(--mono);font-size:.85rem;color:var(--ink);overflow-wrap:anywhere}
 /* Les écrans de la page d'autorisation, chacun dans un cadre de navigateur ; au téléphone, ils défilent de côté. */
 .bt-chemin .bt-etapes-fin .bt-ecrans-titre{margin:0 0 8px;color:var(--ink);font-weight:600}
+/* Le détour par e-mail, sous les trois écrans de Google. */
+.bt-chemin .bt-etapes-fin .bt-ecrans + .bt-ecrans-titre{margin-top:16px}
 .bt-ecrans{list-style:none;margin:0 0 4px;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;max-width:1080px;align-items:start}
 /* Ses éléments ne sont pas des étapes : ni la grille ni le numéro flottant de `.bt-etapes li` (téléphone compris). */
 .bt-etapes-fin .bt-ecrans > li{display:block;min-width:0}

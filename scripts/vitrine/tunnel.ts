@@ -77,6 +77,7 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
   // la règle de `site.css`).
   const voie = (v: Voie, r: Reponse) => [
     '                <section class="bt-voie">',
+    ...(v.badge ? [`                  <p class="bt-badge">${v.badge}</p>`] : []),
     `                  <h4>${v.titre}</h4>`,
     '                  <ul>',
     ...v.plus.map(ligne('bt-plus', 'i-check', n.plus)),
@@ -117,15 +118,11 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     ...q.reponses.flatMap((r, k) => (r.note ? [`            <p class="bt-note-reponse" id="note-${q.id}-${k}" role="status" hidden>${r.note}</p>`] : [])),
     '          </fieldset>',
   ];
-  // Le bout du tunnel, par offre : en Free, trois étapes (installer le plugin, le relier à Messaging Me, coller la
-  // demande) ; en Pro, l'espace, le pas-à-pas et la même demande, à coller dans Claude Code ou Codex. La demande reprend
-  // les réponses et parle de la page d'origine.
+  // Le bout de l'arbre, par offre : trois étapes (installer le plugin, le relier à Messaging Me, coller la demande), en
+  // Free comme en Pro par l'assistant (lot 3c) ; le Pro par la console a son issue. La demande reprend les réponses et
+  // parle de la page d'origine.
   const boite = (x: IssueBranchement, offre: OffreTunnel, retrait: string) =>
     `${retrait}<div class="bt-demande"><p id="demande-${x.id}-${offre}">${demandeDe(n, x, offre, origine)}</p><button type="button" class="bouton bouton-trait" data-copier="demande-${x.id}-${offre}" data-copie="${a.copie}" hidden>${a.copier}</button></div>`;
-  const demande = (x: IssueBranchement, offre: OffreTunnel, titre: string) => [
-    `            <p class="bt-demande-titre">${titre}</p>`,
-    boite(x, offre, '            '),
-  ];
   // Les étapes de la Free (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte »), leurs commandes celles
   // des manifestes du plugin (`web/lib/demarrer.ts`).
   const ef = a.etapesFree;
@@ -146,14 +143,22 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     const { largeur, hauteur } = dimensionsWebp(adresse);
     return `<li><figure class="bt-ecran"><span class="bt-fenetre"><img src="${versionnee(adresse)}" alt="${echapper(e.alt).replace(/"/g, '&quot;')}" width="${largeur}" height="${hauteur}" loading="lazy" decoding="async"></span><figcaption>${e.legende}</figcaption></figure></li>`;
   }).join('');
-  const etapesFree = (x: IssueBranchement) => [
+  // Le détour par e-mail : la page du lien reçu, où l'on nomme son espace (jaune de 76a0e2b4), capturée comme les autres.
+  const detour = (() => {
+    const adresse = `/img/demarrer/autoriser-4${langue === 'en' ? '-en' : ''}.webp`;
+    const { largeur, hauteur } = dimensionsWebp(adresse);
+    const d = ef.relier.detour;
+    return `<li><figure class="bt-ecran"><span class="bt-fenetre"><img src="${versionnee(adresse)}" alt="${echapper(d.alt).replace(/"/g, '&quot;')}" width="${largeur}" height="${hauteur}" loading="lazy" decoding="async"></span><figcaption>${d.legende}</figcaption></figure></li>`;
+  })();
+  // Les trois étapes, en Free comme en Pro par l'assistant (lot 3c) : seule la demande collée à l'étape 3 change.
+  const etapes = (x: IssueBranchement, offre: OffreTunnel) => [
     '            <ol class="bt-etapes bt-etapes-fin">',
     `              <li><span class="bt-num">1</span><div><h4>${ef.installer.titre}</h4><div class="bt-outils">${outil('claude', ef.installer.claude, lignes(COMMANDES_PLUGIN))}${outil('codex', ef.installer.codex, lignes(COMMANDES_CODEX))}</div>`,
     `                <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="${PLUGIN[langue]}">${a.plugin}</a><a class="bouton bouton-trait" href="${DEPOT_PLUGIN}" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>${a.github}</a></div></div></li>`,
-    `              <li><span class="bt-num">2</span><div><h4>${ef.relier.titre} <span class="bt-oblig">${ef.relier.obligatoire}</span></h4><div class="bt-outils">${outil('claude', ef.relier.claude, suite)}${outil('codex', ef.relier.codex, lignes([AUTORISATION_CODEX]))}</div>`,
-    `                <p class="bt-ecrans-titre">${ef.relier.navigateur}</p><ol class="bt-ecrans">${ecrans}</ol></div></li>`,
+    `              <li><span class="bt-num">2</span><div><h4>${ef.relier.titre} <span class="bt-oblig">${ef.relier.obligatoire}</span></h4><div class="bt-outils">${outil('claude', ef.relier.claude, suite)}${outil('codex', ef.relier.codex, `${lignes([AUTORISATION_CODEX])}<p class="bt-outil-note">${ef.relier.codexNote}</p>`)}</div>`,
+    `                <p class="bt-ecrans-titre">${ef.relier.navigateur}</p><ol class="bt-ecrans">${ecrans}</ol><p class="bt-ecrans-titre">${ef.relier.detour.titre}</p><ol class="bt-ecrans bt-ecrans-detour">${detour}</ol></div></li>`,
     `              <li><span class="bt-num">3</span><div><h4>${ef.coller}</h4>`,
-    boite(x, 'free', '                '),
+    boite(x, offre, '                '),
     '              </div></li>',
     '            </ol>',
   ];
@@ -168,18 +173,24 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
       `            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="${CONTACT[langue]}#formulaire">${a.demo}</a><a class="bouton bouton-trait" href="${CONTACT[langue]}">${a.contacter}</a></div>`,
       '          </div>',
     ]
-    : [
-      '          <div class="bt-appels" data-offre="free">',
-      `            <p class="bt-appels-titre">${a.free}</p>`,
-      ...etapesFree(x),
-      '          </div>',
-      '          <div class="bt-appels" data-offre="pro">',
-      `            <p class="bt-appels-titre">${a.pro}</p>`,
-      `            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="${inscriptionPro(langue)}">${a.compte}</a><a class="bouton bouton-trait" href="${x.pasAPas}">${a.pasAPas}</a></div>`,
-      // Les étapes du plugin sont dans le bloc Free, caché en Pro : le titre de la demande mène à leur pas-à-pas.
-      ...demande(x, 'pro', `${a.demandePro.avant}<a href="${PLUGIN[langue]}">${a.demandePro.lien}</a>${a.demandePro.apres}`),
-      '          </div>',
-    ]);
+    : x.console
+      // Le Pro par la console (lot 3c) : l'espace en Pro, et le pas-à-pas de la console ; la console pose la suite.
+      ? [
+        '          <div class="bt-appels">',
+        `            <p class="bt-appels-titre">${a.pro}</p>`,
+        `            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="${inscriptionPro(langue)}">${a.compte}</a><a class="bouton bouton-trait" href="${x.pasAPas}">${a.pasAPas}</a></div>`,
+        '          </div>',
+      ]
+      : [
+        '          <div class="bt-appels" data-offre="free">',
+        `            <p class="bt-appels-titre">${a.free}</p>`,
+        ...etapes(x, 'free'),
+        '          </div>',
+        '          <div class="bt-appels" data-offre="pro">',
+        `            <p class="bt-appels-titre">${a.proAssistant}</p>`,
+        ...etapes(x, 'pro'),
+        '          </div>',
+      ]);
   const issue = (x: Issue) => [
     `        <article class="bt-chemin" data-chemin="${x.id}" id="numero-${x.id}">`,
     `          <p class="bt-situation">${x.situation}</p>`,
@@ -254,18 +265,18 @@ export function sectionTunnel(langue: Langue, origine: Origine, classe = 'f-bloc
  */
 export const TEXTES_DEMARRER = {
   fr: {
-    titre: 'Démarrer : votre numéro WhatsApp en cinq questions · Messaging Me',
-    description: 'Free ou Pro, qui paie Meta, compte Meta Business, application WhatsApp Business, numéro : cinq questions au plus, et la demande à coller dans Claude Code.',
+    titre: 'Démarrer : votre numéro WhatsApp en six questions · Messaging Me',
+    description: 'Free ou Pro, qui paie Meta, compte Meta Business, application WhatsApp Business, numéro : six questions au plus, et la demande à coller dans Claude Code.',
     fil: 'Démarrer',
-    h1: ['Branchez votre WhatsApp,', 'en cinq questions.'],
+    h1: ['Branchez votre WhatsApp,', 'en six questions.'],
     chapeau: 'Votre offre, qui paie Meta, votre compte Meta Business, votre application WhatsApp Business, votre numéro : à la fin, vous savez quoi faire, et vous avez la demande à coller dans Claude Code ou Codex.',
     appel: { titre: 'Vous préférez qu’on en parle ?', texte: 'Une démo sur votre cas : vos clients, vos conversations, votre numéro.', bouton: 'Demander une démo', contact: '/contact/#formulaire' },
   },
   en: {
-    titre: 'Get started: your WhatsApp number in five questions · Messaging Me',
-    description: 'Free or Pro, who pays Meta, Meta Business account, WhatsApp Business app, number: five questions at most, then the request to paste into Claude Code.',
+    titre: 'Get started: your WhatsApp number in six questions · Messaging Me',
+    description: 'Free or Pro, who pays Meta, Meta Business account, WhatsApp Business app, number: six questions at most, then the request to paste into Claude Code.',
     fil: 'Get started',
-    h1: ['Connect your WhatsApp,', 'in five questions.'],
+    h1: ['Connect your WhatsApp,', 'in six questions.'],
     chapeau: 'Your plan, who pays Meta, your Meta Business account, your WhatsApp Business app, your number: at the end, you know what to do, and you have the request to paste into Claude Code or Codex.',
     appel: { titre: 'Would you rather talk it through?', texte: 'A demo on your case: your customers, your conversations, your number.', bouton: 'Request a demo', contact: '/en/contact/#formulaire' },
   },

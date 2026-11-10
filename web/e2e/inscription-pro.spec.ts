@@ -48,7 +48,7 @@ test.describe('Inscription venue du choix du Pro', () => {
     const appels = await monter(page, (chemin) => (chemin === '/auth/google' ? { status: 201, body: { ...SESSION_ADMIN, isNew: true } } : undefined));
     await page.goto('/signup?offre=pro');
     await page.getByTestId('google-simule').click();
-    await page.waitForURL('**/offre?fonction=console', { timeout: 15_000 });
+    await page.waitForURL('**/offre?fonction=console&suite=demarrer', { timeout: 15_000 });
     expect(appels.filter((a) => a.chemin === '/auth/google')).toHaveLength(1);
   });
 

@@ -92,15 +92,17 @@ describe('le tunnel du numéro WhatsApp', () => {
     expect(TEXTES_TUNNEL.en.issues.map((x) => `${x.id}>${x.autre?.vers ?? ''}`)).toEqual(TEXTES_TUNNEL.fr.issues.map((x) => `${x.id}>${x.autre?.vers ?? ''}`));
   });
 
-  it('🔴 suit l’arbre de Julien : l’offre, qui paie Meta, le compte Meta Business, l’application WhatsApp Business, puis le numéro', () => {
+  it('🔴 suit l’arbre de Julien : l’offre, en Pro la console ou Claude Code, qui paie Meta, le compte Meta Business, l’application WhatsApp Business, puis le numéro', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { questions } = TEXTES_TUNNEL[langue];
       const q = (id: string) => questions.find((x) => x.id === id)!;
-      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'paiement', 'compte', 'application', 'meme-numero', 'numero']);
-      // Free ou Pro, les deux vers la même question : l'offre ne change pas le chemin du numéro, seulement le bout.
-      // Business et Entreprise mènent à la démo et au contact, jamais aux questions du numéro (Julien, 2026-10-30).
+      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'pilote', 'paiement', 'compte', 'application', 'meme-numero', 'numero']);
+      // Free mène à « Qui paie vos messages à Meta ? » ; Pro d'abord à « Console ou Claude Code ? » (lot 3c), dont la
+      // console finit sur son issue et Claude Code rejoint la même question. Business et Entreprise mènent à la démo et au
+      // contact, jamais aux questions du numéro (Julien, 2026-10-30).
       expect(q('offre').reponses.filter((r) => r.vers).map((r) => `${r.offre}>${r.vers}`), langue)
-        .toEqual(['free>paiement', 'pro>paiement', 'business>echange', 'entreprise>echange']);
+        .toEqual(['free>paiement', 'pro>pilote', 'business>echange', 'entreprise>echange']);
+      expect(q('pilote').reponses.map((r) => r.vers), langue).toEqual(['console', 'paiement']);
       // Qui paie Meta (2026-11-06) : la carte chez Meta mène au compte Meta Business ; le Crédit WhatsApp, grisé tant
       // qu'il n'est pas en vente en ligne, ne mène nulle part.
       expect(q('paiement').reponses.map((r) => r.vers ?? (r.grisee ? 'grisee' : '?')), langue).toEqual(['compte', 'grisee']);
@@ -200,10 +202,22 @@ describe('le tunnel du numéro WhatsApp', () => {
     expect(css).not.toMatch(/\.bt-question\.repondue :is\([^)]*\.bt-(voies|reponses)\b[^)]*\)\{display:none/);
   });
 
-  it('🔴 le plus long parcours fait cinq questions, et le chapeau, l’étape et la page « Démarrer » le disent', () => {
-    for (const [langue, trois] of [['fr', 'cinq question'], ['en', 'five question']] as const) {
+  it('🔴 la carte Pro dit son essai en tête, avant son titre (lot 3b)', () => {
+    for (const [langue, essai] of [['fr', /^14&nbsp;jours d’essai gratuit$/], ['en', /^14-day free trial$/]] as const) {
+      const cartes = TEXTES_TUNNEL[langue].questions.find((x) => x.id === 'offre')!.voies!;
+      expect(cartes.map((c) => Boolean(c.badge)), langue).toEqual([false, true, false, false]);
+      expect(cartes[1]!.badge, langue).toMatch(essai);
+    }
+    for (const p of PAGES) {
+      const html = lire(fichierDe(p.adresse));
+      expect(html, p.adresse).toMatch(/<p class="bt-badge">[^<]+<\/p>\s*<h4>Pro, /);
+    }
+  });
+
+  it('🔴 le plus long parcours fait six questions (Pro par Claude Code), et le chapeau, l’étape et la page « Démarrer » le disent', () => {
+    for (const [langue, trois] of [['fr', 'six question'], ['en', 'six question']] as const) {
       const max = profondeurTunnel(TEXTES_TUNNEL[langue].questions);
-      expect(max).toBe(5);
+      expect(max).toBe(6);
       expect(TEXTES_TUNNEL[langue].chapeau, langue).toContain(trois);
       expect(TEXTES_DEMARRER[langue].h1.join(' '), langue).toContain(trois);
       expect(TEXTES_DEMARRER[langue].titre, langue).toContain(trois);
@@ -329,17 +343,27 @@ describe('le tunnel du numéro WhatsApp', () => {
       for (const x of t.issues) {
         if (x.contact) continue;
         const article = html.match(new RegExp(`<article class="bt-chemin" data-chemin="${x.id}"[\\s\\S]*?</article>`))?.[0] ?? '';
+        if (x.console) {
+          // Le Pro par la console (lot 3c) : l'inscription qui mène à la souscription du Pro, et le pas-à-pas de la
+          // console ; ni demande à coller, ni bloc par offre.
+          expect(article, `${p.adresse} : ${x.id}`).toContain(`href="https://console.messagingme.app/signup?offre=pro${p.langue === 'en' ? '&amp;lang=en' : ''}"`);
+          expect(article, `${p.adresse} : ${x.id}`).toContain(`href="${x.pasAPas}"`);
+          expect(article, `${p.adresse} : ${x.id}`).not.toContain('data-copier');
+          expect(article, `${p.adresse} : ${x.id}`).not.toContain('data-offre=');
+          expect(existsSync(join(process.cwd(), 'site', x.pasAPas, 'index.html')), x.pasAPas).toBe(true);
+          continue;
+        }
         const blocs = new Map(article.split('<div class="bt-appels" data-offre="').slice(1).map((b) => [b.slice(0, b.indexOf('"')), b] as const));
         expect([...blocs.keys()], `${p.adresse} : ${x.id}`).toEqual(['free', 'pro']);
         const free = blocs.get('free')!;
         const pro = blocs.get('pro')!;
-        // En Free, le plugin et son dépôt ; en Pro, l'inscription qui mène à la souscription du Pro, et le pas-à-pas.
-        expect(free, `${p.adresse} : ${x.id}`).toContain(`href="${plugin}"`);
-        expect(free, `${p.adresse} : ${x.id}`).toContain(`href="${DEPOT_PLUGIN}"`);
-        expect(pro, `${p.adresse} : ${x.id}`).toContain(`href="https://console.messagingme.app/signup?offre=pro${p.langue === 'en' ? '&amp;lang=en' : ''}"`);
-        expect(pro, `${p.adresse} : ${x.id}`).toContain(`href="${x.pasAPas}"`);
-        // Les étapes du plugin sont dans le bloc Free, caché en Pro : le titre de la demande Pro mène à leur pas-à-pas.
-        expect(pro.match(/<p class="bt-demande-titre">[\s\S]*?<\/p>/)?.[0], `${p.adresse} : ${x.id}`).toContain(`<a href="${plugin}">`);
+        // En Free comme en Pro par l'assistant (lot 3c) : le plugin et son dépôt, à l'étape 1 ; l'inscription à la console
+        // n'est plus ici, elle est l'issue de la console.
+        for (const bloc of [free, pro]) {
+          expect(bloc, `${p.adresse} : ${x.id}`).toContain(`href="${plugin}"`);
+          expect(bloc, `${p.adresse} : ${x.id}`).toContain(`href="${DEPOT_PLUGIN}"`);
+          expect(bloc, `${p.adresse} : ${x.id}`).not.toContain('signup?offre=pro');
+        }
         expect(existsSync(join(process.cwd(), 'site', x.pasAPas, 'index.html')), x.pasAPas).toBe(true);
         for (const [offre, bloc] of [['free', free], ['pro', pro]] as const) {
           const id = `demande-${x.id}-${offre}`;
@@ -361,16 +385,17 @@ describe('le tunnel du numéro WhatsApp', () => {
    * texte à copier coller dans Claude Code, il faut lui (re)donner les étapes : 1) télécharger le plugin 2) MCP à
    * connecter 3) texte en copié collé ». Les commandes sont celles des manifestes du plugin, pour Claude Code et Codex.
    */
-  it('🔴 en Free, trois étapes avant la demande : installer le plugin, le relier à Messaging Me, coller la demande', () => {
+  it('🔴 en Free comme en Pro par l’assistant, trois étapes avant la demande : installer le plugin, le relier à Messaging Me, coller la demande', () => {
     for (const p of PAGES) {
       const html = lire(fichierDe(p.adresse));
       const plugin = p.langue === 'fr' ? '/developpeurs/installer-le-plugin/' : '/en/developers/install-the-plugin/';
       for (const x of TEXTES_TUNNEL[p.langue].issues) {
-        if (x.contact) continue;
+        if (x.contact || x.console) continue;
         const article = html.match(new RegExp(`<article class="bt-chemin" data-chemin="${x.id}"[\\s\\S]*?</article>`))?.[0] ?? '';
-        const free = article.split('<div class="bt-appels" data-offre="free">')[1]?.split('<div class="bt-appels" data-offre="pro">')[0] ?? '';
+        for (const offre of ['free', 'pro'] as const) {
+        const free = article.split(`<div class="bt-appels" data-offre="${offre}">`)[1]?.split('<div class="bt-appels" data-offre=')[0] ?? '';
         const etapes = free.split('<li><span class="bt-num">').slice(1);
-        const ou = `${p.adresse} : ${x.id}`;
+        const ou = `${p.adresse} : ${x.id} ${offre}`;
         expect(etapes.map((e) => e.slice(0, 1)), ou).toEqual(['1', '2', '3']);
         // Julien, 2026-11-09 : « des logos Claude Code ou Codex avec la commande en face ». Aux étapes 1 et 2, le logo de
         // Claude Code puis celui de Codex, chacun devant ce qu'on y tape.
@@ -390,14 +415,19 @@ describe('le tunnel du numéro WhatsApp', () => {
         // Puis les écrans de la page d'autorisation, dans l'ordre, chacun présent sur disque, avec ses dimensions et son
         // texte ; le premier montre Google ET l'adresse e-mail, et sa légende le dit.
         const ecrans = [...etapes[1]!.matchAll(/<img src="([^"?]+)\?v=[0-9a-f]+" alt="([^"]+)" width="(\d+)" height="(\d+)"/g)];
-        expect(ecrans.map((m) => m[1]), ou).toEqual([1, 2, 3].map((n) => `/img/demarrer/autoriser-${n}${p.langue === 'en' ? '-en' : ''}.webp`));
+        // Les trois écrans de Google, puis le détour par e-mail (jaune de 76a0e2b4) : la page du lien reçu.
+        expect(ecrans.map((m) => m[1]), ou).toEqual([1, 2, 3, 4].map((n) => `/img/demarrer/autoriser-${n}${p.langue === 'en' ? '-en' : ''}.webp`));
+        expect(relier, ou).toMatch(p.langue === 'fr' ? /Sans Google\s:\s*Le lien de l’e-mail/ : /Without Google:\s*The email link/);
+        // Codex voit « non vérifié » sur la page d'autorisation : le tunnel l'annonce sous sa ligne (jaune de 76a0e2b4).
+        expect(relier, ou).toMatch(p.langue === 'fr' ? /«\snon vérifié\s»\s:\sc’est normal/ : /“unverified”: that is expected/);
         for (const m of ecrans) expect(existsSync(join(process.cwd(), 'site', m[1]!)), m[1]).toBe(true);
         expect(ecrans[0]![2], ou).toMatch(p.langue === 'fr' ? /Google[^]*adresse e-mail/ : /Google[^]*email address/);
         expect(relier, ou).toMatch(p.langue === 'fr' ? /Google, ou votre adresse e-mail/ : /Google, or your email address/);
         // 3 : la demande à coller, et elle seule ; aucune marque restée dans les étapes, quelle que soit sa forme.
-        expect(etapes[2], ou).toContain(`data-copier="demande-${x.id}-free"`);
+        expect(etapes[2], ou).toContain(`data-copier="demande-${x.id}-${offre}"`);
         for (const e of etapes.slice(0, 2)) expect(e, ou).not.toContain('data-copier');
         expect(free, ou).not.toMatch(/\{[^{}\s]+\}/);
+        }
       }
     }
   });
