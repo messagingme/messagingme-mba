@@ -3215,11 +3215,13 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   tient le fil). Débrancher ferme toutes les entrées.
   🔴 **Lot 3 (2026-11-10) : le conseiller qui a la main est posé sur le fil HubSpot**, dans un seul sens (mba fait foi ;
   une réaffectation faite dans HubSpot ne remonte pas). Entre les entrées et la suite, chaque tour pousse au connecteur
-  (`POST /service/inbox/affecter`, 50 au plus par espace) les entrées ouvertes dont l'affecté (son adresse en minuscules,
-  `conversations.assigned_to`) diffère de `inbox_hubspot_entrees.affectation_poussee` (migration 0287 ; `''` pour
-  « personne », NULL tant que rien n'a été posé). Sans affecté à l'entrée, rien ne part (les règles de répartition de
-  HubSpot jouent) ; une désaffectation retire l'affectation du fil. `fait`, `inconnu` (adresse sans utilisateur dans le
-  portail) et `refuse` retiennent la valeur poussée ; `fil_inconnu` est rejoué au tour suivant. 🔴 Cette étape ne lève
+  (`POST /service/inbox/affecter`, 10 au plus par espace, un essai sous 20 s) les entrées ouvertes dont l'affecté (son
+  adresse en minuscules, `conversations.assigned_to`) diffère de `inbox_hubspot_entrees.affectation_poussee` (migration
+  0287 ; `''` pour « personne », NULL tant que rien n'a été posé). Personne n'a la main dans mba (à l'entrée, ou après une
+  désaffectation) : le connecteur pose le PROPRIÉTAIRE de la fiche HubSpot du contact, retrouvée par son numéro (décision
+  de Julien du 2026-11-10) ; sans propriétaire, il retire l'affectation si quelqu'un avait été posé, sinon il laisse le
+  fil aux règles de HubSpot. `fait`, `inconnu` (adresse sans utilisateur dans le portail) et `refuse` retiennent la
+  valeur poussée ; `fil_inconnu` est rejoué, derrière les entrées jamais tentées (`affectation_tentee_le`). 🔴 Cette étape ne lève
   jamais : une portée absente (`conversations.write`, facultative), un refus ou une panne laissent partir les messages.
   La console propose la réautorisation tant que le portail ne l'a pas accordée (`affectation: false` dans
   `GET /tenants/:id/hubspot/inbox`).

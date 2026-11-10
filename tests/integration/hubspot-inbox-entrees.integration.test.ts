@@ -160,13 +160,18 @@ describe.skipIf(!url)('Inbox HubSpot : seules les conversations qui attendent un
     await pool.query(`delete from conversation_messages where meta_message_id = 'wamid.itest-inbox-1'`);
   });
 
-  it('🔴 lot 3 : l’affecté part une fois, « personne » à l’entrée ne part pas, une désaffectation part, un autre espace jamais', async () => {
+  it('🔴 lot 3 : « personne » à l’entrée part (pour le propriétaire HubSpot), l’affecté part une fois, une désaffectation part, un autre espace jamais', async () => {
     await pool.query(`update conversations set traitee_le = null, last_direction = 'in', assigned_to = null where id = $1`, [ids['escaladee']]);
     await store.ouvrirEntree(t1, ids['escaladee']!);
     const entree = (await pool.query<{ id: string }>(
       `select id from inbox_hubspot_entrees where conversation_id = $1 and sortie_le is null`, [ids['escaladee']],
     )).rows[0]!.id;
-    // Personne n'a la main, rien n'a été posé : le fil reste aux règles de HubSpot.
+    // Personne n'a la main, rien n'a été posé : « personne » part, avec le numéro du contact (le connecteur pose le
+    // propriétaire de la fiche HubSpot), puis plus rien une fois noté.
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([
+      { entreeId: entree, conversationId: ids['escaladee'], email: null, contactE164: '+33600009201', dejaPose: false },
+    ]);
+    await store.noterAffectation(t1, entree, '');
     expect(await store.affectationsAPousser(t1, 50)).toEqual([]);
 
     const membre = (await pool.query<{ id: string }>(
@@ -174,7 +179,9 @@ describe.skipIf(!url)('Inbox HubSpot : seules les conversations qui attendent un
     )).rows[0]!.id;
     await pool.query(`update conversations set assigned_to = $2 where id = $1`, [ids['escaladee'], membre]);
     // L'adresse en minuscules ; un autre espace ne voit rien.
-    expect(await store.affectationsAPousser(t1, 50)).toEqual([{ entreeId: entree, conversationId: ids['escaladee'], email: 'itest-inbox-affecte@example.test' }]);
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([
+      { entreeId: entree, conversationId: ids['escaladee'], email: 'itest-inbox-affecte@example.test', contactE164: '+33600009201', dejaPose: false },
+    ]);
     expect(await store.affectationsAPousser(t2, 50)).toEqual([]);
 
     await store.noterAffectation(t2, entree, 'itest-inbox-affecte@example.test');
@@ -188,7 +195,9 @@ describe.skipIf(!url)('Inbox HubSpot : seules les conversations qui attendent un
 
     // Désaffectée dans mba : le retrait part, puis plus rien une fois noté.
     await pool.query(`update conversations set assigned_to = null where id = $1`, [ids['escaladee']]);
-    expect(await store.affectationsAPousser(t1, 50)).toEqual([{ entreeId: entree, conversationId: ids['escaladee'], email: null }]);
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([
+      { entreeId: entree, conversationId: ids['escaladee'], email: null, contactE164: '+33600009201', dejaPose: true },
+    ]);
 
     // Une entrée jamais tentée passe devant une entrée déjà tentée (un fil inconnu rejoué ne garde pas la tête).
     await pool.query(`update conversations set assigned_to = $2 where id = $1`, [ids['avant'], membre]);

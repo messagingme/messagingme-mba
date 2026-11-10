@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  balayerInbox, expediteur, versConnecteur, ligneE164, UUID_ZERO, LOT_INBOX, AFFECTATIONS_PAR_TOUR,
+  balayerInbox, expediteur, versConnecteur, ligneE164, e164Accepte, UUID_ZERO, LOT_INBOX, AFFECTATIONS_PAR_TOUR,
   type InboxHubspotStore, type EspaceBranche, type LigneEspace, type LigneMessage, type AffectationAPousser,
 } from '../src/hubspot/inbox';
 import type { AffectationInbox, IssueAffectations, IssueInbox, MessageInboxHubspot } from '../src/crm/hubspot-service';
@@ -223,15 +223,19 @@ describe('balayerInbox', () => {
 });
 
 describe('balayerInbox : l’affectation du fil (lot 3)', () => {
-  const a = (n: number, email: string | null = 'conseil@mutac.fr'): AffectationAPousser => ({ entreeId: `e${n}`, conversationId: `conv-${n}`, email });
+  const a = (n: number, email: string | null = 'conseil@mutac.fr', dejaPose = false): AffectationAPousser => ({
+    entreeId: `e${n}`, conversationId: `conv-${n}`, email, contactE164: '+33612345678', dejaPose,
+  });
 
   it('pousse les affectations qui ont changé, avec la ligne, et note ce qui a été posé (`` pour personne)', async () => {
     const store = new StoreMemoire([espace()]);
-    store.aAffecter = { t1: [a(1), a(2, null)] };
+    store.aAffecter = { t1: [a(1), a(2, null, true)] };
     const af = affecteur();
     await balayerInbox({ store, pousser: pousseur().pousser, affecter: af.affecter });
+    // Le numéro du contact et `dejaPose` partent avec chaque affectation : le connecteur en tire le propriétaire de la fiche.
     expect(af.lots).toEqual([{ tenantId: 't1', ligne: '+33100000000', affectations: [
-      { conversationId: 'conv-1', email: 'conseil@mutac.fr' }, { conversationId: 'conv-2', email: null },
+      { conversationId: 'conv-1', email: 'conseil@mutac.fr', contactE164: '+33612345678', dejaPose: false },
+      { conversationId: 'conv-2', email: null, contactE164: '+33612345678', dejaPose: true },
     ] }]);
     expect(store.notees).toEqual([{ entreeId: 'e1', valeur: 'conseil@mutac.fr' }, { entreeId: 'e2', valeur: '' }]);
   });
@@ -291,6 +295,16 @@ describe('balayerInbox : l’affectation du fil (lot 3)', () => {
     const af = affecteur();
     await balayerInbox({ store, pousser: pousseur().pousser, affecter: af.affecter });
     expect(af.lots[0]?.affectations).toHaveLength(AFFECTATIONS_PAR_TOUR);
+  });
+});
+
+describe('e164Accepte (lot 3)', () => {
+  it('ne laisse passer que ce que le connecteur accepte', () => {
+    expect(e164Accepte('+33612345678')).toBe('+33612345678');
+    expect(e164Accepte('+0612345678')).toBeNull();
+    expect(e164Accepte('+123')).toBeNull();
+    expect(e164Accepte(null)).toBeNull();
+    expect(e164Accepte(undefined)).toBeNull();
   });
 });
 

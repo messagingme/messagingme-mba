@@ -28,7 +28,7 @@ import { ATTEND_UN_HUMAIN_SQL, CONTACT_JOIGNABLE_SQL } from '../inbox/a-traiter-
  * conversation rendue à un robot, « Traité » ou archivée sort (`inbox_hubspot_entrees.sortie_le`) : plus rien ne part.
  *
  * 🔴 LOT 3 (2026-11-10) : LE CONSEILLER QUI A LA MAIN DANS mba EST POSÉ SUR LE FIL HUBSPOT (`affecter`), dans un seul
- * sens (mba fait foi). Une étape à part, après les entrées : sa panne ou une portée absente n'arrêtent JAMAIS la
+ * sens (mba fait foi) ; personne dans mba, c'est le propriétaire de la fiche HubSpot. Une étape à part, après les entrées : sa panne ou une portée absente n'arrêtent JAMAIS la
  * publication des messages.
  *
  * La ligne WhatsApp est le premier numéro de l'espace, la règle de la poussée d'analyse et du passage à l'équipe
@@ -45,15 +45,24 @@ export const ENTREES_PAR_TOUR = 10;
 /** Un identifiant plus petit que tout uuid : le curseur « tout ce qui suit cet instant ». */
 export const UUID_ZERO = '00000000-0000-0000-0000-000000000000';
 /**
- * Au plus autant d'affectations par espace et par tour : deux appels HubSpot chacune au pire, faits en série par le
- * connecteur sous le délai de `affecterInbox` (20 s). Le connecteur en accepte 50 ; on reste loin du délai.
+ * Au plus autant d'affectations par espace et par tour : trois appels HubSpot chacune au pire (la fiche, son propriétaire,
+ * l'affectation ; quatre si un propriétaire refusé fait retirer l'affectation), faits en série par le connecteur sous le
+ * délai de `affecterInbox` (20 s). Le connecteur en accepte 50 ; on reste loin du délai.
  */
 export const AFFECTATIONS_PAR_TOUR = 10;
 
 /**
- * Une affectation à pousser (lot 3) : l'entrée ouverte, sa conversation, et l'adresse de l'affecté (`null` : personne).
+ * Une affectation à pousser (lot 3) : l'entrée ouverte, sa conversation, l'adresse de l'affecté (`null` : personne n'a la
+ * main dans mba, le connecteur pose alors le propriétaire de la fiche HubSpot), le numéro du contact (sa fiche se retrouve
+ * par lui) et si quelqu'un avait déjà été posé sur le fil.
  */
-export interface AffectationAPousser { entreeId: string; conversationId: string; email: string | null }
+export interface AffectationAPousser {
+  entreeId: string;
+  conversationId: string;
+  email: string | null;
+  contactE164: string | null;
+  dejaPose: boolean;
+}
 
 /** `curseurLe` : un instant UTC à la MICROSECONDE (`2026-11-06T12:00:00.043689Z`), jamais un `Date`. */
 export interface EspaceBranche { tenantId: string; boite: string; curseurLe: string; curseurId: string }
@@ -102,8 +111,9 @@ export interface InboxHubspotStore {
   /** Ouvre l'entrée ; faux si une entrée ouverte existait déjà (une autre copie du balayage). */
   ouvrirEntree(tenantId: string, conversationId: string): Promise<boolean>;
   /**
-   * Lot 3 : les entrées ouvertes dont l'affecté diffère de ce qui a été posé sur le fil. Jamais « personne » sur une entrée
-   * où rien n'a encore été posé : à l'entrée, sans affecté, le fil reste aux règles de HubSpot (décision 3).
+   * Lot 3 : les entrées ouvertes dont l'affecté diffère de ce qui a été posé sur le fil, y compris une entrée où rien n'a
+   * encore été posé et où personne n'a la main : le fil va alors au propriétaire de la fiche HubSpot (décision de Julien
+   * du 2026-11-10, qui remplace la décision 3 du plan).
    */
   affectationsAPousser(tenantId: string, limite: number): Promise<AffectationAPousser[]>;
   /**
@@ -139,6 +149,15 @@ const versLigne = (x: RangeeMessage): LigneMessage => ({
   id: x.id, conversationId: x.conversation_id, direction: x.direction, type: x.type, body: x.body, buttonPayload: x.button_payload,
   origin: x.origin, createdAt: x.created_at, waId: x.wa_id, nom: x.nom, membre: x.membre,
 });
+
+/**
+ * Le numéro tel que le connecteur l'accepte (`^\+[1-9]\d{6,14}$`), sinon `null` : un seul numéro refusé ferait refuser
+ * tout le lot, jamais noté, donc toutes les affectations de l'espace bloquées à chaque tour. Sans numéro, pas de
+ * propriétaire : c'est tout.
+ */
+export function e164Accepte(numero: string | null | undefined): string | null {
+  return numero && /^\+[1-9]\d{6,14}$/.test(numero) ? numero : null;
+}
 
 export class PgInboxHubspotStore implements InboxHubspotStore, MarqueurReponsesInbox {
   constructor(private readonly pool: Pool) {}
@@ -280,18 +299,22 @@ export class PgInboxHubspotStore implements InboxHubspotStore, MarqueurReponsesI
   async affectationsAPousser(tenantId: string, limite: number): Promise<AffectationAPousser[]> {
     // L'adresse en minuscules, comme le connecteur la compare : une casse différente ne repousse pas sans fin. Un affecté
     // d'un AUTRE espace (incohérence) compte pour personne.
-    const r = await this.pool.query<{ id: string; conversation_id: string; email: string }>(
-      `select e.id, e.conversation_id, coalesce(lower(u.email), '') as email
+    const r = await this.pool.query<{ id: string; conversation_id: string; email: string; wa_id: string; deja_pose: boolean }>(
+      `select e.id, e.conversation_id, coalesce(lower(u.email), '') as email, c.wa_id,
+              coalesce(e.affectation_poussee, '') <> '' as deja_pose
          from inbox_hubspot_entrees e
          join conversations c on c.id = e.conversation_id and c.tenant_id = e.tenant_id
          left join users u on u.id = c.assigned_to and u.tenant_id = c.tenant_id
         where e.tenant_id = $1 and e.sortie_le is null
-          and coalesce(lower(u.email), '') is distinct from coalesce(e.affectation_poussee, '')
+          and coalesce(lower(u.email), '') is distinct from e.affectation_poussee
         order by e.affectation_tentee_le nulls first, e.entree_le, e.id
         limit $2`,
       [tenantId, limite],
     );
-    return r.rows.map((x) => ({ entreeId: x.id, conversationId: x.conversation_id, email: x.email === '' ? null : x.email }));
+    return r.rows.map((x) => ({
+      entreeId: x.id, conversationId: x.conversation_id, email: x.email === '' ? null : x.email,
+      contactE164: e164Accepte(classifyWaId(x.wa_id).phoneE164), dejaPose: x.deja_pose,
+    }));
   }
 
   async noterAffectation(tenantId: string, entreeId: string, valeur: string | null): Promise<void> {
@@ -383,7 +406,8 @@ async function affecter(deps: BalayageInboxDeps, tenantId: string, ligne: string
     const aPousser = await deps.store.affectationsAPousser(tenantId, AFFECTATIONS_PAR_TOUR);
     if (aPousser.length === 0) return;
     const issue = await deps.affecter({
-      tenantId, ligne, affectations: aPousser.map((a) => ({ conversationId: a.conversationId, email: a.email })),
+      tenantId, ligne,
+      affectations: aPousser.map((a) => ({ conversationId: a.conversationId, email: a.email, contactE164: a.contactE164, dejaPose: a.dejaPose })),
     });
     // Sans la portée, le portail n'a pas été réautorisé : la console le dit, le journal se tait (un tour toutes les 15 s).
     if (issue.issue === 'portees') return;

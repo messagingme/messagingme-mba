@@ -533,9 +533,10 @@ export async function pousserMessagesInbox(
 
 /**
  * Lot 3 de l'Inbox : une affectation à poser sur le fil HubSpot d'une conversation. `email` : l'adresse du conseiller qui
- * a la main dans mba ; `null` : personne, le connecteur retire l'affectation du fil.
+ * a la main dans mba ; `null` : personne, le connecteur pose le propriétaire de la fiche HubSpot du contact (retrouvée par
+ * `contactE164`), et sans propriétaire retire l'affectation si `dejaPose`, sinon laisse le fil aux règles de HubSpot.
  */
-export interface AffectationInbox { conversationId: string; email: string | null }
+export interface AffectationInbox { conversationId: string; email: string | null; contactE164: string | null; dejaPose: boolean }
 
 /**
  * L'issue d'une affectation chez le connecteur. `fait` : posée ou retirée. `fil_inconnu` : aucun message de la
