@@ -122,7 +122,8 @@ test.describe('Éditeur : viser un point de sortie, et voir la flèche partir de
       { id: 'e3', source: 'n1', target: 'n4' },
     ]), saved);
     const points = await pointsDeSortie(page);
-    expect(points.map((p) => p.id)).toEqual(['btn:0', 'btn:1', 'libre']);
+    // « Puis, sans attendre » (2026-11-10) suit la sortie libre, sur sa propre ligne : elle ne change rien aux trois autres.
+    expect(points.map((p) => p.id)).toEqual(['btn:0', 'btn:1', 'libre', 'ensuite']);
     const departs = await departsDesFleches(page);
     // Trois flèches, trois ordonnées DISTINCTES, dans l'ordre des trois lignes.
     const ys = departs.map((d) => Math.round(d.y!));
