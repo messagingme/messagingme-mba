@@ -328,9 +328,11 @@ describe('la connexion faite par la ligne', () => {
     // La relecture en panne : la marque est posée, mais ce qu'en sait la liste ne se lit pas.
     const relue = deps({ offre: 'pro', places: 1, rattaches: ['pn-1'] });
     relue.d.numerosRattaches = async () => { throw new Error('base indisponible'); };
-    await capturerJournal(() => connexionParLaLigne(relue.d, T, connexion));
+    const r = await capturerJournal(() => connexionParLaLigne(relue.d, T, connexion));
     expect(apres(relue.alertes[0])).toBe(ILLISIBLE);
     expect(relue.marques).toEqual(['pn-1']);
+    // L'alerte renvoie aux journaux de l'API : la relecture en panne y est (relecture du lot V8, jaune 2).
+    expect(r.lignes).toEqual([expect.objectContaining({ lvl: 'error', msg: 'numero_marque_illisible', tenantId: T, phoneNumberId: 'pn-1' })]);
     // Un compte déjà couvert dont la marque est en panne : pas de « Ne pas poser » dans une liste où il n'est pas.
     const couvert = deps({ offre: 'entreprise', places: null, rattaches: ['pn-1'], couvrante: { tenantId: T } });
     couvert.d.marquer = async () => { throw new Error('base indisponible'); };
@@ -338,6 +340,16 @@ describe('la connexion faite par la ligne', () => {
     expect(couvert.alertes[0]).not.toContain('« Ne pas poser »');
     expect(couvert.alertes[0]).not.toContain('attend dans la liste');
     expect(couvert.alertes[0]).toContain(ILLISIBLE);
+    // Ni pour une marque éteinte, ni pour un numéro que la marque ne trouve pas : « Ne pas poser » ne se promet que dans la
+    // liste (relecture du lot V8, jaune 1).
+    const variantes: Array<[string, Parameters<typeof deps>[0]]> = [['éteinte', { marqueEteinte: ['pn-1'] }], ['absente', { marqueAbsente: ['pn-1'] }]];
+    for (const [nom, o] of variantes) {
+      const v = deps({ offre: 'entreprise', places: null, rattaches: ['pn-1'], couvrante: { tenantId: T }, ...o });
+      await capturerJournal(() => connexionParLaLigne(v.d, T, connexion));
+      expect(v.alertes[0], nom).toContain('Son compte WhatsApp est déjà sur la ligne de l’espace');
+      expect(v.alertes[0], nom).not.toContain('« Ne pas poser »');
+      expect(v.alertes[0], nom).not.toContain('attend dans la liste');
+    }
   });
 
   it('ne lève jamais : la connexion est faite, une alerte en panne ne la défait pas', async () => {

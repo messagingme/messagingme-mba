@@ -132,6 +132,9 @@ n'affiche que le texte du 409, dont le corps gagne `ligne`, que rien ne lit enco
 V8 : l'API, sans migration (des textes d'alerte, un avertissement au journal), et la consigne de la carte de `/ops`
 (Vercel au push, qui peut précéder l'API : elle dit ce que « Ne pas poser » fait déjà).
 
+V9 (jaunes 1 à 3) : rien à déployer côté API (des tests et une JSDoc) ; l'exemple du champ de note part avec la console,
+au push.
+
 ## Méthode de livraison
 
 **Implémenteur par lot, puis une relecture indépendante du diff**, parce que la prise de l'option et l'état des cartes
@@ -314,5 +317,8 @@ sort le numéro de la liste). Le lot part tel quel ; ses jaunes vont à V9.
 
 ### V9. Les jaunes de la relecture de V8
 
-- [ ] Les quatre (§ « La relecture du lot V8 »), le 3 d'abord : le champ de note ne doit pas souffler « le partenaire
-  n'attache pas » sur un compte couvert sans attache ; le 4 après la décision de Julien sur la coexistence dans la liste.
+- [x] Jaunes 1 à 3 (§ « La relecture du lot V8 ») : « Ne pas poser » n'est promis que dans la liste, marque éteinte et
+  absente comprises (1) ; la relecture en panne se vérifie au journal (2) ; l'exemple du champ de note est neutre (« la
+  ligne ne viendra pas »), et les JSDoc de la route et de `NePasPoser` portent la réserve du compte couvert sans attache
+  (3, tenu par l'e2e de la carte).
+- [ ] Jaune 4, après la décision de Julien sur la place de la coexistence dans la liste.

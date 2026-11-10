@@ -259,7 +259,9 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
 
   /**
    * « Ne pas poser » (relecture du lot E6, jaune 5) : le partenaire n'attache pas, ou le client renonce, ou l'attache est
-   * vérifiée sur un compte déjà couvert. L'attente d'un numéro de l'espace qui attend vraiment s'efface : il sort de la
+   * vérifiée sur un compte déjà couvert. Sur un compte déjà couvert SANS attache, ce n'est pas le geste : notre ligne
+   * resterait, et le client paierait deux fois ou Meta refuserait ses envois ; on la retire plutôt, et le numéro attend
+   * qu'on la repose (relecture du lot V8, jaune 3). L'attente d'un numéro de l'espace qui attend vraiment s'efface : il sort de la
    * liste, et l'espace relit l'état de ses lignes (une Entreprise sans ligne, « sur demande » et le conseil de sa carte
    * chez Meta ; une option payée sans ligne reste en attente). 🔴 Refusé tant qu'une ligne bloque encore les envois du
    * compte, celle d'un AUTRE espace ou une ligne ARRÊTÉE de l'espace : l'attente effacée, plus rien ne rappellerait ce

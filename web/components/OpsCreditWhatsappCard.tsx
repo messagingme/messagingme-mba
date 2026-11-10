@@ -26,8 +26,10 @@ function dateLisible(iso: string): string {
 
 /**
  * « NE PAS POSER » (relecture du lot E6, jaune 5) : la ligne attendue ne viendra pas (le partenaire n'attache pas, le
- * client renonce). Une note dit pourquoi ; le serveur efface l'attente et rend la liste relue. Rien n'est dit fait avant
- * sa réponse.
+ * client renonce), ou l'attache est vérifiée sur un compte déjà couvert. Sur un compte déjà couvert SANS attache, ce n'est
+ * pas le geste : notre ligne resterait, et le client paierait deux fois ; la retirer plutôt (relecture du lot V8, jaune 3).
+ * L'exemple du champ reste donc neutre. Une note dit pourquoi ; le serveur efface l'attente et rend la liste relue. Rien
+ * n'est dit fait avant sa réponse.
  */
 function NePasPoser({ token, n, surListe }: { token: string; n: NumeroEnAttenteOps; surListe: (l: NumeroEnAttenteOps[]) => void }) {
   const t = useT();
@@ -48,7 +50,7 @@ function NePasPoser({ token, n, surListe }: { token: string; n: NumeroEnAttenteO
       <input
         value={note} onChange={(e) => { setNote(e.target.value); setEtat({ statut: 'idle' }); }} className={`${inputCls} max-w-xs`}
         aria-label={t('Pourquoi sa ligne ne sera pas posée', 'Why its line will not be set')}
-        placeholder={t('pourquoi : le partenaire n’attache pas…', 'why: the partner does not attach…')}
+        placeholder={t('pourquoi : la ligne ne viendra pas…', 'why: the line will not come…')}
         data-testid="ops-credit-whatsapp-en-attente-note"
       />
       <Bouton
