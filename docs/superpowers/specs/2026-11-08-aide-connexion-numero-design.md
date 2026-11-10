@@ -492,6 +492,11 @@ s'invente. Les questions-réponses portent un bloc `FAQPage` (JSON-LD).
 rédactionnel, réversible, qu'aucun test ne juge (le projet n'envoie pas l'UI en feature-loop). **Essai réel** :
 quelqu'un qui ne connaît pas le produit trouve son mode op par le guide sur un téléphone, et le suit.
 
+**4a-1 livré le 2026-11-10** (`d13c3efc`, la vitrine seule) : les deux rubriques, le guide (quatre questions, pas cinq :
+le titre lit le nombre sur l'arbre) et le dépannage. Les pages Claude Code de démarrage entrent dans la rubrique sans
+copie ni redirection (choix de Claude, pour une seule version de chaque étape). Reste 4a-2 : « Ce qu'il faut chez Meta »
+réécrite avec `PREREQUIS_META`, « Payer Meta », « Les modèles WhatsApp », Codex et la mise à jour dans l'installation.
+
 ## Lot 4b : Claude renvoie vers les pages
 
 Le serveur et la skill citent les adresses du guide, du dépannage et du mode op du parcours en cours. Les adresses

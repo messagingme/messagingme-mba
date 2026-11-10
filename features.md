@@ -2359,8 +2359,10 @@ scénario, comment importer des contacts.
 ## Le centre d'aide public et « Comment faire » (vitrine et console)
 
 - ✅ **Le centre d'aide** (`app.messagingme.fr/aide/`, en anglais `/en/help/`, depuis le 2026-10-21) : un mode
-  opératoire par geste, pas à pas. Démarrer : choisir son offre, ce qu'il faut chez Meta, connecter son numéro,
-  garder son application WhatsApp Business, se repérer dans la console, relier HubSpot. Parler aux clients : répondre
+  opératoire par geste, pas à pas. Démarrer, en deux rubriques depuis le 2026-11-10 : avec Claude Code ou Codex
+  (installer le plugin, connecter son numéro depuis Claude, ce qu'il faut chez Meta, le guide, garder son application, le
+  dépannage) et avec la console (choisir son offre, ce qu'il faut chez Meta, connecter son numéro, le guide, garder son
+  application, se repérer dans la console, relier HubSpot, brancher sa boutique, le dépannage). Parler aux clients : répondre
   dans l'Inbox, la fenêtre de 24 heures, faire approuver un modèle, importer ses contacts, lancer une campagne,
   brancher sa boutique Shopify (depuis le 2026-10-24 : le chemin de la console, et sa dernière section dit celui de
   Claude Code), poser une bulle WhatsApp sur son site, publier sur sa chaîne, envoyer un message RCS, construire un
@@ -2372,6 +2374,13 @@ scénario, comment importer des contacts.
     de la console (d'abord au plugin de Claude Code, gratuit, quand le geste s'y fait aussi : Shopify), et son lien « Une question sans réponse ? » ouvre le formulaire de contact en citant la page.
   - **Les mêmes textes que l'aide de la console** : une page est une fiche du mode d'emploi publiée, corriger l'une
     corrige l'autre.
+- ✅ **Le guide du numéro** (2026-11-10, `/aide/guide-du-numero-whatsapp/`) : les questions de « Démarrer », à partir de
+  « Qui paie vos messages à Meta ? », une à la fois, puis le pas-à-pas de la situation, la console, et la phrase à
+  copier pour Claude. En tête, les cinq points à vérifier.
+- ✅ **Le dépannage** (2026-11-10, `/aide/depanner-la-connexion-du-numero/`) : « Je n'arrive pas à connecter mon
+  numéro », puis ce qui bloque le plus souvent (pas de lien, numéro fourni à saisir, code qui n'arrive pas, numéro non
+  éligible, WhatsApp ordinaire, fenêtre de Meta bloquée, numéro non vérifié, modèles qui ne partent pas), filtré par
+  « Claude Code ou Codex, ou la console ? », chaque fois la cause, quoi faire et la page qui va plus loin.
 - ✅ **Depuis Claude Code** : quatre pages développeurs (installer le plugin et relier son espace, connecter son
   numéro, répondre à un client, préparer et lancer une campagne) disent quoi demander à Claude, les outils qu'il
   appelle et ce qu'il répond. La page des campagnes dit que l'offre Pro est demandée ; l'accueil du centre aussi.

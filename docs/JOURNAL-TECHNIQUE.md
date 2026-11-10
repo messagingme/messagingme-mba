@@ -4,6 +4,32 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : le centre d'aide coupe « Démarrer » en deux, le guide du numéro et le dépannage (aide à la connexion, lot 4a-1)
+
+Première livraison du lot 4a (plan `2026-11-10-aide-connexion-lot-4a.md`), en direct, une relecture indépendante, les
+captures vues par Julien avant le push.
+
+- **Ce qui a changé** (`d13c3efc`) :
+  - « Démarrer » devient deux rubriques, « avec Claude Code ou Codex » et « avec la console » ; une fiche peut paraître
+    dans les deux (`rubrique: a, b` et `rang: x, y`, la première sert au fil d'Ariane). Les deux pages Claude Code de
+    démarrage y entrent telles quelles, à leur rang : les recopier en fiches puis les rediriger, comme la spec le
+    prévoyait, aurait fait deux versions de chaque étape ;
+  - le guide du numéro (`/aide/guide-du-numero-whatsapp/`) : le tunnel de `/demarrer/` en mode `guide`, à partir de
+    « Qui paie vos messages à Meta ? », quatre questions au plus (la spec en annonçait cinq ; le titre lit le nombre sur
+    l'arbre). Chaque fin donne le pas-à-pas, la console, et une phrase pour Claude sans prix ;
+  - le dépannage (`/aide/depanner-la-connexion-du-numero/`) : l'entrée « Je n'arrive pas à connecter mon numéro », puis
+    huit symptômes au format FAQ de la vitrine, filtrés par lieu ; chaque remède tiré du produit reprend sa constante.
+- **Vérifié** : quatre gardes vues rouges (le guide qui repartirait de la formule, une phrase avec son prix, un remède
+  réécrit à la main, un lien vers une page absente) ; la suite racine entière, sur la copie puis sur l'arbre fusionné ;
+  la console ; tsc, lint ; `/demarrer/`, Shopify et SaaS régénérées à l'identique.
+- **Relecture** : aucun rouge, huit jaunes, six corrigés avant le push (les raisons de la carte grisée dans le guide, « sur
+  demande » pour le Crédit WhatsApp, l'exception du Crédit WhatsApp pour les modèles, « le plus souvent » pour la fenêtre
+  bloquée, le libellé de la console pour un numéro non vérifié, un filtre en vrais boutons avec son compte annoncé). Gardés :
+  « 48 heures sans code » (décision de Julien du 2026-11-08), et le fil d'Ariane d'une fiche double sur sa rubrique
+  principale.
+- **Ordre** : la vitrine seule, par Vercel, poussée sur `c1ad1b1b`. Le bot d'aide lira les fiches rangées et la fiche
+  « Me repérer » à la prochaine image de l'API (`aide:charger`).
+
 ## 2026-11-10 : le message rapide à boutons gagne la sortie « Puis, sans attendre »
 
 Demande de Julien (capture du 2026-11-10) : dès qu'un message rapide portait une réponse rapide, il ne se reliait plus
