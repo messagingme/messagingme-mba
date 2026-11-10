@@ -1,5 +1,18 @@
 # todo.md : backlog
 
+## 🟡 « Puis, sans attendre » d'un message rapide : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-10-message-rapide-puis-sans-attendre.md`)
+
+- **Le message à boutons refusé, sa suite partie.** `apply` compte ensemble les envois du message et de sa suite :
+  si Meta refuse le message (fichier invalide, erreur 131xxx) et que le texte de la suite part, `partis > 0` et le
+  parcours reste en attente sur un message jamais reçu, au lieu de se clore et de passer à l'équipe comme quand rien
+  ne part. La raison est journalisée. Piste : ne pas jouer la suite quand le premier envoi de la liste est refusé.
+- **Une réponse rapide au libellé vide.** Le bloc montre la ligne « Puis, sans attendre » dès qu'une ligne de réponse
+  existe, même vide ; le moteur tient un message dont toutes les réponses sont vides pour un message sans choix, qui
+  suit sa première arête, peut-être `ensuite`. Ancien écart (les lignes de bouton aussi), plus visible avec cette
+  sortie. Piste : refuser à la publication une réponse rapide vide.
+- **La recette MCP** décrit ce bloc comme indescriptible (« une sortie de message inconnue ») : `get_scenario` ne sait
+  pas le relire, la console oui. À ajouter à la recette si un client la demande.
+
 ## 🟡 La relance d'un événement que Meta met en échec : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-10-relance-evenement-agent.md`)
 
 Aucun rouge. À reprendre au prochain lot qui touche `src/mba/issue-evenement.ts`.

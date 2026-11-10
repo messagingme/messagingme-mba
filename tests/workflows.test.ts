@@ -538,6 +538,43 @@ describe('POST /tenants/:t/workflows/:id/publish', () => {
     await server.close();
   });
 
+  /**
+   * 🔴 « PUIS, SANS ATTENDRE » NE MÈNE QU'À DES BLOCS QUI N'ATTENDENT RIEN (décision de Julien du 2026-11-10). La règle est
+   * tenue par `tests/workflow-puis-sans-attendre.test.ts` (`refusSuiteQuiAttend`) ; ici, que la route la pose AVANT
+   * `publish`, sur le BROUILLON : sans elle, le moteur s'arrêterait en silence devant la Question.
+   */
+  it('🔴 « Puis, sans attendre » qui mène à une Question : 422, rien n’est publié', async () => {
+    const brouillon = {
+      nodes: [
+        { id: 'm', type: 'quick_message' as const, position: { x: 0, y: 0 }, data: { body: 'Merci', quickReplies: ['Main menu'] } },
+        { id: 'q', type: 'question' as const, position: { x: 0, y: 0 }, data: { body: 'Votre âge ?' } },
+      ],
+      edges: [{ id: 'e', source: 'm', target: 'q', sourceHandle: 'ensuite' }],
+    };
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? sampleRow({ draftGraph: brouillon }) : null) } });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ code: string }>().code).toBe('suite_qui_attend');
+    expect(res.json<{ error: string }>().error).toContain('Publication refusée : la sortie « Puis, sans attendre » du message « Merci » mène à un bloc Question, qui attend');
+    expect(cap.publies).toEqual([]);
+    await server.close();
+  });
+
+  it('la même sortie vers un message sans bouton : publiée', async () => {
+    const brouillon = {
+      nodes: [
+        { id: 'm', type: 'quick_message' as const, position: { x: 0, y: 0 }, data: { body: 'Merci', quickReplies: ['Main menu'] } },
+        { id: 't', type: 'quick_message' as const, position: { x: 0, y: 0 }, data: { body: 'Bonne journée' } },
+      ],
+      edges: [{ id: 'e', source: 'm', target: 't', sourceHandle: 'ensuite' }],
+    };
+    const { server, cap } = app({ scenarios: { getById: async (id) => (id === W1 ? sampleRow({ draftGraph: brouillon }) : null) } });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(200);
+    expect(cap.publies).toEqual([W1]);
+    await server.close();
+  });
+
   it('le PATCH dit s’il reste un brouillon à publier : c’est lui qui allume le bouton', async () => {
     const { server } = app();
     const avec = await server.inject({ method: 'PATCH', url: `/tenants/t1/workflows/${W1}`, ...h(adminTok), payload: { graph: validGraph } });

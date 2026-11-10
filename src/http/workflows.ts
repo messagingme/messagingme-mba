@@ -14,6 +14,7 @@ import { executerFonctionJs } from '../workflow/fonction-js';
 import { normaliserEtiquette } from '../crm/poser-etiquette';
 import { refusDePublication, sautsDeLaCopie } from '../workflow/aller-a';
 import { refusFichierSansSuite } from '../workflow/question-piece';
+import { refusSuiteQuiAttend } from '../workflow/engine';
 
 /**
  * La sauvegarde n'exige pas qu'un scénario commence par un template : un scénario qui ouvre sur un message de
@@ -228,6 +229,10 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     // pièce d'identité reçue n'irait nulle part. Lu sur le brouillon, sans aucune lecture de plus.
     const sansSuite = avant?.draftGraph ? refusFichierSansSuite(avant.draftGraph) : null;
     if (sansSuite !== null) return reply.code(422).send({ error: `Publication refusée : ${sansSuite}.`, code: 'fichier_sans_suite' });
+    // 🔴 « Puis, sans attendre » ne mène qu'à des blocs qui n'attendent rien (décision de Julien du 2026-11-10) : le moteur
+    // s'arrêterait en silence devant le premier qui attend. Même lecture du brouillon.
+    const suiteQuiAttend = avant?.draftGraph ? refusSuiteQuiAttend(avant.draftGraph) : null;
+    if (suiteQuiAttend !== null) return reply.code(422).send({ error: `Publication refusée : ${suiteQuiAttend}.`, code: 'suite_qui_attend' });
     if (avant?.draftGraph && avant.draftGraph.nodes.some((n) => n.type === 'aller_a')) {
       const refus = refusDePublication(avant.draftGraph, id, await deps.scenarios.list(tenant));
       if (refus !== null) return reply.code(422).send({ error: `Publication refusée : ${refus}.`, code: 'aller_a_invalide' });

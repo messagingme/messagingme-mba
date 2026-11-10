@@ -14,6 +14,7 @@ import { NODE_META } from './nodeMeta';
 import { sortiesDeCondition } from './condition-familles';
 import { SORTIE_FORMULAIRE_REMPLI } from './partage/sorties-formulaire';
 import { SORTIE_FICHIER } from './partage/question-piece';
+import { SORTIE_ENSUITE } from './partage/sortie-ensuite';
 import type { WorkflowNodeType } from './api';
 
 /** Libellé du TYPE de bloc, dans la langue voulue. Une seule source : `NODE_META`, déjà en paires [fr, en]. */
@@ -275,7 +276,8 @@ export function blocsDuScenario(
     // d'une Condition se lisent dans `sortiesDeCondition` (une par famille, puis « Sinon »), jamais en dur : une
     // famille ajoutée apparaîtrait sinon comme un bouton que le contact aurait « cliqué ».
     // « Fichier reçu » d'une Question non plus : c'est une pièce envoyée, mesurée à part (`attendFichier`).
-    const typees = new Set(['sent', 'unreachable', 'timeout', SORTIE_FICHIER, ...(n.type === 'condition' ? sortiesDeCondition(n) : [])]);
+    // « Puis, sans attendre » d'un message rapide non plus : la suite part sans que le contact ait rien choisi.
+    const typees = new Set(['sent', 'unreachable', 'timeout', SORTIE_FICHIER, SORTIE_ENSUITE, ...(n.type === 'condition' ? sortiesDeCondition(n) : [])]);
     const tous = [...new Set([...desBoutons, ...desAretes, ...(handlesMesures[id] ?? [])])]
       .filter((h) => !typees.has(h));
     const { titre, propre } = titreDe(n, locale);

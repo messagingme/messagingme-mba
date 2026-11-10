@@ -6,6 +6,7 @@ import { ReactFlow, Background, Controls, Handle, Position, MarkerType, type Nod
 import { useLocale, useT } from '@/lib/i18n';
 import { nodeMetaOf } from '@/lib/nodeMeta';
 import { libelleSortieDeCondition } from '@/lib/condition-familles';
+import { SORTIE_ENSUITE } from '@/lib/partage/sortie-ensuite';
 import type { WorkflowNodeType } from '@/lib/api';
 import type { BlocMesurable } from '@/lib/mesures-scenario';
 import { ink } from '@/lib/couleurs';
@@ -137,6 +138,7 @@ export function ScenarioCanvas({ graph, blocs, selectionne, onSelect, retenuesPa
     }
     const typees: Record<string, string> = {
       sent: t('envoyé', 'sent'), unreachable: t('non joignable', 'unreachable'),
+      [SORTIE_ENSUITE]: t('puis, sans attendre', 'then, without waiting'),
     };
     if (typees[handle]) return typees[handle];
     return parId.get(source)?.choix.find((c) => c.handle === handle)?.label ?? handle;

@@ -1,4 +1,4 @@
-import type { WorkflowGraph, WorkflowNode } from './graph';
+import type { WorkflowGraph, WorkflowNode, WorkflowNodeType } from './graph';
 import { parseInstant, sortieDeCondition, sortiesDeCondition, SORTIE_SINON } from './conditions';
 import type { EvalContext } from './conditions';
 // « Quand est le prochain créneau ouvert ? » vit à un seul endroit : le bloc Attente, l'envoi de campagne et
@@ -16,6 +16,7 @@ import { encoder } from '../links/champs-url';
 import { MAX_DESTINATAIRES_EMAIL } from '../../web/lib/partage/blocs';
 import { blocDuCode as blocDuCodePartage, cibleDuSaut as cibleDuSautPartage, entreeDuGraphe, scannerOuverture } from '../../web/lib/partage/ouverture-scenario';
 import type { AnalyseOuverture } from '../../web/lib/partage/ouverture-scenario';
+import { SORTIE_ENSUITE } from '../../web/lib/partage/sortie-ensuite';
 
 /**
  * Moteur d'exécution d'un workflow, pur (aucune IO). Un run avance de bloc en bloc : les blocs synchrones
@@ -128,6 +129,78 @@ export function scanOpening(graph: WorkflowGraph, depuis?: string): OpeningScan 
  */
 function quickMessageNonBloquant(a: WorkflowAction | null): boolean {
   return a?.kind === 'sendQuickMessage' && !etapeOffreUnChoix(a);
+}
+
+/**
+ * Les blocs que `walk` traverse sans jamais s'arrêter : ils agissent (ou ne font rien) et le parcours continue. Les
+ * blocs MBA retirés sont des passe-plats. Tout autre type attend, rend la main ou clôt le parcours.
+ */
+const BLOCS_SANS_ATTENTE: ReadonlySet<WorkflowNodeType> = new Set<WorkflowNodeType>([
+  'tag', 'field', 'action', 'condition', 'email', 'http', 'js', 'mba_handoff', 'mba_disable',
+]);
+
+/**
+ * Ce bloc peut-il suivre la sortie « Puis, sans attendre » (`SORTIE_ENSUITE`) d'un message rapide à boutons ?
+ *
+ * 🔴 POURQUOI SEULEMENT LES BLOCS QUI N'ATTENDENT RIEN (décision de Julien, 2026-11-10). Un parcours n'a qu'UN curseur
+ * (`run.currentNode`), et un tap revient en `btn:<i>`, sans dire de quel message il vient. La suite part pendant que le
+ * curseur reste sur le message : un bloc qui attendrait à son tour prendrait ce curseur, et un tap sur l'ancien bouton
+ * serait lu comme une réponse au nouveau bloc, par position. Un message rapide sans choix passe, comme dans `walk` ; un
+ * message rapide sans texte attend (historique de `walk`), il ne passe donc pas.
+ */
+export function passeSansAttente(node: WorkflowNode, ctx?: EvalContext): boolean {
+  if (node.type === 'quick_message') return quickMessageNonBloquant(actionOf(node, ctx));
+  return BLOCS_SANS_ATTENTE.has(node.type);
+}
+
+/** Le nom d'un bloc qui attend, dans le refus de publication. Les libellés de la console (`web/lib/nodeMeta.ts`). */
+const NOM_DU_BLOC: Partial<Record<WorkflowNodeType, string>> = {
+  template: 'Envoi template', quick_message: 'Message rapide', inbox: 'Assigner à un agent', flow: 'Formulaire',
+  question: 'Question', wait: 'Attente', rcs_message: 'Message RCS', agent: 'Agent IA', aller_a: 'Aller à',
+  vers_mba: 'Envoyer au MBA',
+};
+
+/**
+ * La raison de refuser la publication, ou `null` : la sortie « Puis, sans attendre » d'un message rapide à boutons mène
+ * à un bloc qui attend (`passeSansAttente`). Suit les arêtes que `walk` suivrait : toutes les sorties d'une condition
+ * (et sa première arête si aucune n'est typée), la première arête des autres. `walk` s'arrête AVANT un tel bloc, sans
+ * l'envoyer : ce refus dit le montage au lieu de le laisser se taire en production.
+ */
+export function refusSuiteQuiAttend(graph: WorkflowGraph): string | null {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  for (const message of graph.nodes) {
+    if (message.type !== 'quick_message' || !etapeOffreUnChoix(actionOf(message))) continue;
+    const depart = nextNodeByHandle(graph, message.id, SORTIE_ENSUITE);
+    const vus = new Set<string>();
+    const pile = depart ? [depart] : [];
+    while (pile.length > 0) {
+      const id = pile.pop()!;
+      if (vus.has(id)) continue;
+      vus.add(id);
+      const n = byId.get(id);
+      if (!n) continue;
+      if (!passeSansAttente(n)) {
+        const corps = String(message.data.body ?? '').trim();
+        const nom = corps.length > 60 ? `${corps.slice(0, 60)}…` : corps;
+        const sansTexte = n.type === 'quick_message' && String(n.data.body ?? '').trim() === '';
+        const bloc = sansTexte ? 'un Message rapide sans texte' : `un bloc ${NOM_DU_BLOC[n.type] ?? n.type}`;
+        return `la sortie « Puis, sans attendre » du message « ${nom} » mène à ${bloc}, qui attend. Seuls des blocs qui n’attendent rien peuvent la suivre : message sans bouton, action, condition, envoi de mail, appel API, fonction JS`;
+      }
+      if (n.type === 'condition') {
+        const sorties = sortiesDeCondition(n);
+        for (const h of sorties) {
+          const cible = nextNodeByHandle(graph, id, h);
+          if (cible) pile.push(cible);
+        }
+        const repli = nextNode(graph, id);
+        if (repli && !graph.edges.some((e) => e.source === id && e.sourceHandle !== undefined && sorties.includes(e.sourceHandle))) pile.push(repli);
+        continue;
+      }
+      const suivant = nextNode(graph, id);
+      if (suivant) pile.push(suivant);
+    }
+  }
+  return null;
 }
 
 /** Le bouton de lien d'un message rapide : un libellé, une adresse. */
@@ -808,6 +881,12 @@ export interface WalkOptions {
    * continuent. Sans lui, un template attend la réponse, comme toujours.
    */
   mbaActif?: boolean;
+  /**
+   * La suite « Puis, sans attendre » d'un message rapide à boutons : le parcours s'arrête AVANT le premier bloc qui
+   * attendrait (`passeSansAttente`), sans l'envoyer, et son repos est alors `done`. Posée par `walk` lui-même, jamais
+   * par un appelant : le curseur reste sur le message, c'est lui qui attend la réponse.
+   */
+  sansAttente?: boolean;
 }
 
 export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContext, opts?: WalkOptions): WalkResult {
@@ -824,6 +903,8 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
     visited.add(current);
     const node = byId.get(current);
     if (!node) return { actions, rest: { status: 'done' } };
+    // La publication refuse ce montage (`refusSuiteQuiAttend`) ; ceci tient le moteur sur un graphe qui y aurait échappé.
+    if (opts?.sansAttente === true && !passeSansAttente(node, work)) return { actions, rest: { status: 'done' } };
 
     if (node.type === 'inbox') {
       const a = typeof node.data.assigneA === 'string' ? node.data.assigneA.trim() : '';
@@ -900,6 +981,12 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
         current = node.type === 'flow' ? nextNodeSansHandle(graph, current) : nextNode(graph, current);
         continue;
       }
+      // « Puis, sans attendre » (2026-11-10) : la suite d'un message rapide à boutons part avec lui, ses actions à la
+      // suite des siennes, et le parcours attend sur LE MESSAGE, dont les boutons restent la seule réponse attendue.
+      // La suite voit la copie de travail telle que les blocs d'avant l'ont laissée.
+      // Un message sans texte n'est pas parti : sa suite non plus (`refusSuiteQuiAttend` ne la regarde pas davantage).
+      const ensuite = node.type === 'quick_message' && etapeOffreUnChoix(a) ? nextNodeByHandle(graph, current, SORTIE_ENSUITE) : null;
+      if (ensuite) actions.push(...walk(graph, ensuite, work, { ...opts, sansAttente: true }).actions);
       return { actions, rest: { status: 'waiting', nodeId: current } };
     }
     if (node.type === 'wait') {

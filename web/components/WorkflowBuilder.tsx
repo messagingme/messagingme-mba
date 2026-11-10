@@ -18,7 +18,7 @@ import { NODE_META, NODE_ORDER, RCS_NODE_ORDER, EMAIL_NODE_ORDER, AGENT_NODE_ORD
 import { isCampaignEligible, waitBeforeSessionMessage, sessionMessageAfterRcs, entryNodeOf, canalDOuvertureDuGraphe } from '@/lib/campaign-eligibility';
 import { autoLayoutHorizontal } from '@/lib/workflow-layout';
 import { EDGE_OPTS, toRF, fromRF, type RFNode, type RFEdge } from '@/lib/workflow-canevas';
-import { sansSortieFichier } from '@/lib/workflow-sorties';
+import { sansSortieEnsuite, sansSortieFichier } from '@/lib/workflow-sorties';
 import { estPoigneeDeFamille } from '@/lib/condition-familles';
 import { useEnregistrementScenario } from '@/lib/use-enregistrement-scenario';
 import { TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
@@ -371,7 +371,10 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
 
   const patchSelected = useCallback((p: Record<string, unknown>) => {
     setNodes((ns) => ns.map((n) => (n.id === selectedId ? { ...n, data: { ...n.data, ...p } } : n)));
-  }, [selectedId, setNodes]);
+    // Plus aucun bouton (le dernier retiré, ou le bouton de lien coché, qui vide la liste) : « Puis, sans attendre »
+    // disparaît du bloc, son arête avec (`sansSortieEnsuite`). `quickReplies` n'existe que sur un message rapide.
+    if (selectedId && Array.isArray(p.quickReplies) && p.quickReplies.length === 0) setEdges((eds) => sansSortieEnsuite(eds, selectedId));
+  }, [selectedId, setNodes, setEdges]);
 
   const deleteSelected = useCallback(() => {
     if (!selectedId) return;

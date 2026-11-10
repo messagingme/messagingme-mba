@@ -1,7 +1,7 @@
 ---
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 5a30e7
+source_empreinte: f8cd3b
 ---
 # Créer un scénario
 
@@ -28,7 +28,10 @@ Les blocs que vous utiliserez le plus :
   (MOV, ou HEVC) est refusée au dépôt : convertissez-la en MP4 H.264. Le fichier vient de votre ordinateur
   (« Choisir un fichier ») ou de ceux que vous avez déjà déposés (« Depuis la médiathèque », qui ne propose que ce que
   le bloc peut envoyer). Vos fichiers et le quota de votre offre se gèrent dans Paramètres > Médiathèque, où vous
-  pouvez aussi en ajouter directement.
+  pouvez aussi en ajouter directement. Avec des boutons de réponse, il a aussi la sortie « Puis, sans attendre » : ce
+  que vous y reliez part juste après lui, et ses boutons restent proposés au contact. Seuls des blocs qui n'attendent
+  rien peuvent la suivre (message sans bouton, action, condition, envoi de mail, appel API) ; un bloc qui attend une
+  réponse empêche de publier.
 - **Question** : une question avec un menu de réponses, ou une question ouverte. Le scénario attend la
   réponse avant de continuer. Elle peut ranger la réponse dans un de vos champs, et attendre un fichier (une pièce
   d'identité, par exemple) : cochez « Attendre un fichier » et ses types, et le fichier part par la sortie « Fichier

@@ -15,6 +15,7 @@
  */
 
 import { SORTIE_FICHIER } from './partage/question-piece';
+import { SORTIE_ENSUITE } from './partage/sortie-ensuite';
 
 /** Le nom de la poignée de sortie libre, CÔTÉ CANEVAS uniquement. Jamais enregistré. */
 export const SORTIE_LIBRE = 'libre';
@@ -36,6 +37,15 @@ export function poigneeGraphe(sourceHandle?: string | null): string | undefined 
  */
 export function sansSortieFichier<E extends { source: string; sourceHandle?: string | null }>(edges: E[], nodeId: string): E[] {
   return edges.filter((e) => !(e.source === nodeId && e.sourceHandle === SORTIE_FICHIER));
+}
+
+/**
+ * Un message rapide qui perd son dernier bouton (retiré, ou remplacé par le bouton de lien) perd sa sortie « Puis, sans
+ * attendre » : sa poignée n'est dessinée que sur un bloc à boutons. Sans ça, l'arête resterait en base, invisible, et le
+ * moteur la suivrait comme la suite d'un message sans bouton (`nextNode` prend la première arête venue).
+ */
+export function sansSortieEnsuite<E extends { source: string; sourceHandle?: string | null }>(edges: E[], nodeId: string): E[] {
+  return edges.filter((e) => !(e.source === nodeId && e.sourceHandle === SORTIE_ENSUITE));
 }
 
 /**

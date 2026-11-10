@@ -1027,6 +1027,14 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   lead recevrait deux réponses, dont une qui n'a rien à voir. Les leads des publicités que vous continuez de
   gérer dans le Gestionnaire de Meta, eux, ne changent pas d'un iota. Et quand la publicité confie ses leads
   à l'agent de Meta, **aucune** automation ne part : c'est lui qui répond.
+- ✅ **Le message rapide à boutons a une sortie « Puis, sans attendre »** (2026-11-10). Sous « Toute autre réponse »,
+  une ligne verte : ce qu'on y relie part juste après le message, sans attendre que le contact réponde, et ses boutons
+  restent la réponse attendue (un tap suit sa branche, un texte « Toute autre réponse »). Derrière elle, seulement des
+  blocs qui n'attendent rien : message sans bouton, action, condition, envoi de mail, appel API, fonction JS. Un bloc
+  qui attend (question, formulaire, message à boutons, modèle, agent IA, attente, assignation, RCS, « Aller à ») fait
+  **refuser la publication**, en nommant le message : il prendrait la main, et un tap sur l'ancien bouton serait lu
+  comme une réponse à lui. Retirer le dernier bouton, ou cocher le bouton de lien, retire la sortie et sa flèche. Les
+  modèles à boutons ne l'ont pas.
 - ✅ **Le bloc « message rapide » peut porter un BOUTON DE LIEN** (2026-09-11). Une case « ce message porte
   un bouton de lien », puis un libellé (20 caractères) et une adresse : le contact reçoit un bouton qui ouvre
   la page dans son navigateur. ⚠️ **Il exclut les réponses rapides, et ce n'est pas notre choix** : chez Meta,

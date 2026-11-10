@@ -668,6 +668,15 @@ bloc, `advance` ignore tout autre payload (un bouton d'un ancien message ne nomm
 sinon l'arête libre, sinon l'arrêt. Un formulaire renvoyé passe donc par l'arête libre quand `rempli` n'est pas
 reliée, ce qui garde intacts les montages d'une seule flèche. Sa mesure porte `rempli`, pas le JSON.
 
+🔴 **Un message rapide à boutons a une sortie `ensuite`, « Puis, sans attendre »** (`SORTIE_ENSUITE`,
+`web/lib/partage/sortie-ensuite.ts`, 2026-11-10). `walk` parcourt sa suite APRÈS avoir posé l'envoi du message, en
+`sansAttente`, puis rend `waiting` sur LE MESSAGE : un parcours n'a qu'un curseur, et un tap revient en `btn:<i>` sans
+nommer son message. La suite ne contient donc que des blocs qui n'attendent rien (`passeSansAttente`) : le moteur
+s'arrête AVANT le premier qui attendrait, sans l'envoyer, et la publication le refuse (422 `suite_qui_attend`,
+`refusSuiteQuiAttend`). `advance` ne la prend jamais : un tap suit `btn:<i>`, un texte l'arête libre (`ensuite` porte
+une poignée). Un message sans bouton n'a pas cette sortie, et le builder retire l'arête quand la liste des réponses
+devient vide (`sansSortieEnsuite`) : `nextNode` la suivrait sinon, invisible. Un modèle à boutons ne l'a pas.
+
 🔴 **Le bloc Formulaire RANGE les éléments qu'il cite, pour son scénario** (2026-11-10). `data.rangement` :
 `{ <clé de l'élément>: <clé du champ> }`, `''` = ne pas enregistrer, lu défensivement (`rangementDuBloc`,
 `web/lib/partage/rangement-formulaire.ts`). La console n'y garde que les EXCEPTIONS au réglage du formulaire ; elle lit

@@ -146,6 +146,15 @@ describe('les mesures proposées sur un bloc', () => {
     expect(mesuresDisponibles(sansAttente, 'fr').some((m) => m.handle === 'fichier')).toBe(false);
   });
 
+  it('🔴 « Puis, sans attendre » n’est pas un clic : la suite part sans que le contact ait rien choisi', () => {
+    // Proposée comme un choix, sa case resterait à zéro pour toujours (2026-11-10).
+    const message = blocsDuScenario({
+      nodes: [n('m', 'quick_message', { body: 'Merci', quickReplies: ['Main menu'] }), n('t', 'quick_message', { body: 'Suite' })],
+      edges: [{ source: 'm', target: 't', sourceHandle: 'ensuite' }],
+    }, 'fr')[0]!;
+    expect(message.choix.map((c) => c.handle)).toEqual(['btn:0']);
+  });
+
   it('un choix donne une mesure par bouton', () => {
     const clics = mesuresDisponibles(bloc, 'fr').filter((m) => m.kind === 'reply_button');
     expect(clics).toEqual([{ cle: 'a|reply_button|btn:0', label: 'A cliqué « Oui »', kind: 'reply_button', handle: 'btn:0' }]);

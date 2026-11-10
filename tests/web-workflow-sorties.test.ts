@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SORTIE_LIBRE, poigneeCanevas, poigneeGraphe, sansSortieFichier, uneAreteParSortie } from '../web/lib/workflow-sorties';
+import { SORTIE_LIBRE, poigneeCanevas, poigneeGraphe, sansSortieEnsuite, sansSortieFichier, uneAreteParSortie } from '../web/lib/workflow-sorties';
 
 /**
  * La SORTIE LIBRE d'un bloc, et la traduction entre le canevas et le graphe enregistré.
@@ -76,5 +76,24 @@ describe('la sortie « Fichier reçu » d’un bloc Question (2026-11-02)', () =
       { id: 'autre', source: 'q2', target: 'x', sourceHandle: 'fichier' },
     ];
     expect(sansSortieFichier(edges, 'q').map((e) => e.id)).toEqual(['l', 'r', 'autre']);
+  });
+});
+
+describe('la sortie « Puis, sans attendre » d’un message rapide (2026-11-10)', () => {
+  it('🔴 le dernier bouton retiré emporte l’arête « Puis, sans attendre » de CE bloc, et aucune autre', () => {
+    // Sa poignée n'est dessinée que sur un bloc à boutons : restée en base, l'arête serait invisible, et le moteur la
+    // suivrait comme la suite d'un message sans bouton (`nextNode` prend la première arête venue).
+    const edges = [
+      { id: 's', source: 'm', target: 'x', sourceHandle: 'ensuite' },
+      { id: 'l', source: 'm', target: 'y' },
+      { id: 'b', source: 'm', target: 'z', sourceHandle: 'btn:0' },
+      { id: 'autre', source: 'm2', target: 'x', sourceHandle: 'ensuite' },
+    ];
+    expect(sansSortieEnsuite(edges, 'm').map((e) => e.id)).toEqual(['l', 'b', 'autre']);
+  });
+
+  it('elle reste elle-même entre le canevas et le graphe : ce n’est pas la sortie libre', () => {
+    expect(poigneeCanevas('ensuite')).toBe('ensuite');
+    expect(poigneeGraphe('ensuite')).toBe('ensuite');
   });
 });

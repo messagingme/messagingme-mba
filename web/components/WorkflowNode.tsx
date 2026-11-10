@@ -13,6 +13,7 @@ import { carouselOutputs } from '@/lib/carousel-outputs';
 import { SORTIE_LIBRE } from '@/lib/workflow-sorties';
 import { SORTIE_FICHIER } from '@/lib/partage/question-piece';
 import { SORTIE_FORMULAIRE_REMPLI } from '@/lib/partage/sorties-formulaire';
+import { SORTIE_ENSUITE } from '@/lib/partage/sortie-ensuite';
 import { ouvreUneSortie } from '@/lib/rcs-boutons';
 import { sortiesDuBloc, type EmailRecipientData } from '@/lib/workflow-canevas';
 import { brand, ink } from '@/lib/couleurs';
@@ -605,6 +606,16 @@ function WFNode({ id, data, selected }: NodeProps) {
                 `lib/workflow-sorties.ts`. */}
             <Handle type="source" id={SORTIE_LIBRE} position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-brand-500" title={t('Le contact écrit au lieu de taper un bouton : reliez ce point pour prévoir ce cas', 'The contact writes instead of tapping a button: connect this dot to handle that case')} />
           </div>
+          {/* « Puis, sans attendre » (Julien, 2026-11-10) : la suite part juste après le message, et ses boutons restent
+              la réponse attendue. Message rapide seulement : un modèle à boutons garde son comportement. Une seule
+              couleur pour le distinguer des réponses du contact, qui sont des choix. */}
+          {wfType === 'quick_message' && (
+            <div className="relative flex items-center gap-1 border-t border-ink-100 px-2 py-1 text-[10px] font-medium text-succes-700">
+              <Icone nom="suivant" taille="mini" />
+              <span className="truncate">{t('Puis, sans attendre', 'Then, without waiting')}</span>
+              <Handle type="source" id={SORTIE_ENSUITE} position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !border-white !bg-succes-500" title={t('Part juste après ce message, sans attendre la réponse : message sans bouton, action, condition, e-mail, appel API. Les boutons restent actifs.', 'Sent right after this message, without waiting for a reply: message without buttons, action, condition, email, API call. The buttons stay active.')} />
+            </div>
+          )}
         </div>
       ) : isCondition ? (
         // Node condition : une sortie par FAMILLE, à son nom, puis « Sinon », à droite. Les poignées sont celles que

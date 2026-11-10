@@ -1963,3 +1963,44 @@ describe('advance : le bloc Formulaire, « Formulaire rempli » et « Toute autr
     expect(mesures[0]).toEqual({ kind: 'reply_button', handle: 'rempli' });
   });
 });
+
+/**
+ * « PUIS, SANS ATTENDRE » SUR LE VRAI EXÉCUTEUR (Julien, 2026-11-10). Le moteur est tenu par
+ * `tests/workflow-puis-sans-attendre.test.ts` ; ici, que le démarrage envoie la suite avec le message, que le parcours
+ * attende sur LE MESSAGE, et qu'aucune réponse du contact, tap ou texte, ne reprenne la suite.
+ */
+describe('« Puis, sans attendre » : la suite part avec le message, qui garde la main', () => {
+  const blocs = [
+    n('qm', 'quick_message', { body: 'Merci', quickReplies: ['Main menu'] }),
+    n('txt', 'quick_message', { body: 'Bonne journée' }), n('vu', 'tag', { tag: 'vu' }),
+    n('menu', 'tag', { tag: 'menu' }), n('autre', 'tag', { tag: 'autre' }),
+  ];
+  const suite = [eh('a', 'qm', 'txt', 'ensuite'), e('b', 'txt', 'vu')];
+  const complet: WorkflowGraph = { nodes: blocs, edges: [...suite, eh('c', 'qm', 'menu', 'btn:0'), e('d', 'qm', 'autre')] };
+  const demarrer = async (g: WorkflowGraph) => {
+    const m = make(g);
+    await m.ex.demarrer('automatisme_ordinaire', 't1', 'wf1', g, { waId: '33600', contactId: 'c1' }, { depuis: 'entree', fenetreOuverte: true });
+    return m;
+  };
+
+  it('🔴 les deux messages partent, le parcours attend sur le premier, et un tap suit SA branche', async () => {
+    const { ex, runs, calls } = await demarrer(complet);
+    expect(calls).toEqual(['qm:Merci', 'qm:Bonne journée', 'tag:vu']);
+    expect(runs.run).toMatchObject({ status: 'waiting', currentNode: 'qm' });
+    await ex.advance('t1', '33600', 'm1', 'btn:0');
+    expect(calls).toEqual(['qm:Merci', 'qm:Bonne journée', 'tag:vu', 'tag:menu']);
+  });
+
+  it('🔴 un texte prend « Toute autre réponse », jamais la suite', async () => {
+    const { ex, calls } = await demarrer(complet);
+    await ex.advance('t1', '33600', 'm1', null);
+    expect(calls).toEqual(['qm:Merci', 'qm:Bonne journée', 'tag:vu', 'tag:autre']);
+  });
+
+  it('🔴 « Toute autre réponse » non reliée : un texte ne prend pas la suite pour autant, le parcours s’arrête', async () => {
+    const { ex, runs, calls } = await demarrer({ nodes: blocs, edges: [...suite, eh('c', 'qm', 'menu', 'btn:0')] });
+    await ex.advance('t1', '33600', 'm1', null);
+    expect(calls).toEqual(['qm:Merci', 'qm:Bonne journée', 'tag:vu']);
+    expect(runs.run).toMatchObject({ status: 'done', currentNode: null });
+  });
+});
