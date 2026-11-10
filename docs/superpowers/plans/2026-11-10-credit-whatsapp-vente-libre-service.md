@@ -322,3 +322,23 @@ sort le numéro de la liste). Le lot part tel quel ; ses jaunes vont à V9.
   ligne ne viendra pas »), et les JSDoc de la route et de `NePasPoser` portent la réserve du compte couvert sans attache
   (3, tenu par l'e2e de la carte).
 - [ ] Jaune 4, après la décision de Julien sur la place de la coexistence dans la liste.
+
+## La relecture du lot V9 (2026-11-10)
+
+Un relecteur indépendant, sur le diff de `6dd4a69f` : **aucun rouge, deux jaunes**. Les jaunes 1 à 3 de V8 sont
+corrigés, chacun tenu par un test qui échoue sous trois mutations ; les textes disent vrai au regard de
+`abandonnerAttente` (qui n'efface que la marque) et de `ATTEND_LIGNE_SQL`. Le lot part tel quel ; ses jaunes vont à V10.
+
+1. **Deux autres JSDoc de « Ne pas poser » n'ont pas suivi** : `abandonnerAttenteOps` (`web/lib/api/compte.ts`) et
+   `abandonnerAttente` (`src/credit-whatsapp/lignes.pg.ts`) donnent encore « le partenaire n'attache pas » sans la
+   réserve du compte couvert (la seconde dit même « l'Entreprise relit sur demande », faux pour un compte couvert, qui
+   garde sa ligne), et la première ne cite pas les deux 409 ; celle de `NePasPoser` omet « ou Meta refuserait ses
+   envois ».
+2. **Le journal d'une interruption illisible (`numero_interrompu_illisible`) n'est vérifié nulle part**, alors que son
+   alerte renvoie aux journaux ; et le cas « absent » de l'interruption n'est pas capturé, son avertissement s'affiche à
+   chaque exécution.
+
+### V10. Les jaunes de la relecture de V9, et le jaune 4 de V8
+
+- [ ] Les deux (§ « La relecture du lot V9 »), et le jaune 4 de V8 après la décision de Julien sur la coexistence dans
+  la liste.
