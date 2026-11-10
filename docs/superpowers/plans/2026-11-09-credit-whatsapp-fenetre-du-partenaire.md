@@ -217,28 +217,28 @@ Meta paierait deux fois) ; **la liste dans `/ops`** (jaune 3 : le geste à faire
 d'essai Telegram ni lecture de Cockpit. Méthode : implémenteur par lot, TDD, puis une relecture indépendante du diff
 (l'alerte de la connexion, une route de `/ops` et l'état des cartes sont des chemins de production). Aucune migration.
 
-- [ ] Jaune 1, l'ordre des gestes : l'alerte d'un numéro à poser dit « demander au partenaire d'attacher sa ligne,
+- [x] Jaune 1, l'ordre des gestes : l'alerte d'un numéro à poser dit « demander au partenaire d'attacher sa ligne,
   puis poser la nôtre quand il confirme l'attache, pas avant » ; la marque reste, l'Entreprise lit « Votre ligne s'ouvre
   sous 24 h ouvrées. » jusqu'à la pose. Test : le texte.
-- [ ] Jaune 2, le refus forgé : une alerte de refus par espace et par demi-heure (verrou court jamais relâché, le refus
+- [x] Jaune 2, le refus forgé : une alerte de refus par espace et par demi-heure (verrou court jamais relâché, le refus
   retenu journalisé) ; le compte n'est cité que s'il est fait de chiffres. Tests : deux refus, une alerte ; un compte
   `waba-x` dit « inconnu » ; un verrou illisible alerte quand même.
-- [ ] Jaune 3, la liste : `GET /ops/credit-whatsapp/en-attente`, les numéros marqués sans ligne posée depuis, tous
+- [x] Jaune 3, la liste : `GET /ops/credit-whatsapp/en-attente`, les numéros marqués sans ligne posée depuis, tous
   espaces, par le MÊME prédicat que `numerosDeLEspace` (un fragment SQL écrit une fois) ; sa section dans la carte
   Crédit WhatsApp de `/ops`, qui tolère une API sans la route. Tests : la route sous la garde de `/ops`, le prédicat en
   intégration, l'e2e de la carte.
-- [ ] Jaune 4 : `attendLigne` requis dans les types (`SourcesEtatLigne`, la route de l'onglet) ; les fixtures le disent.
-- [ ] Jaune 5, la couverture toute origine : « déjà couvert » lit la ligne qui couvre le numéro (`ligneDuNumero`, une
+- [x] Jaune 4 : `attendLigne` requis dans les types (`SourcesEtatLigne`, la route de l'onglet) ; les fixtures le disent.
+- [x] Jaune 5, la couverture toute origine : « déjà couvert » lit la ligne qui couvre le numéro (`ligneDuNumero`, une
   ligne `ops` comprise) ; celle d'un AUTRE espace a son texte (la retirer dans `/ops` avant de poser) et marque le
   numéro, qui attend sa ligne. Tests : une ligne `ops` de l'espace, une ligne d'un autre espace.
-- [ ] Jaune 6, le compte relié sans numéro : l'alerte ne dit plus de poser (rien à poser sans numéro) mais de demander
+- [x] Jaune 6, le compte relié sans numéro : l'alerte ne dit plus de poser (rien à poser sans numéro) mais de demander
   l'attache ; le numéro connecté ensuite par la fenêtre enverra sa propre alerte, connecté autrement il se pose à son
   arrivée. Décidé : pas de marque au niveau du compte, une migration pour un cas rare (dans le parcours ordinaire, le
   numéro arrive par la fenêtre, qui le marque). Test : le texte, et aucune marque.
-- [ ] Jaune 7, l'exception : une connexion par la fenêtre qui lève en route (le rattachement, le jeton, la trace)
+- [x] Jaune 7, l'exception : une connexion par la fenêtre qui lève en route (le rattachement, le jeton, la trace)
   alerte (« connexion INTERROMPUE ») avant de remonter en 500, sous la même retenue que le refus. Test : le rattachement
   qui lève (la base), par la fenêtre et en connexion directe.
-- [ ] Jaune 8, le journal : une alerte perdue se journalise par son cas, jamais par son texte (le numéro affiché).
+- [x] Jaune 8, le journal : une alerte perdue se journalise par son cas, jamais par son texte (le numéro affiché).
   Test : le journal sans le numéro.
 
 **Ordre de déploiement** : l'API seule (`migration=aucune`) ; la carte de `/ops` part au push et dit la liste
@@ -246,3 +246,23 @@ illisible le temps du déploiement.
 
 **Essai réel** : à la prochaine connexion par la fenêtre (un espace Entreprise de test SANS numéro), l'alerte dit de
 demander l'attache puis de poser, et le numéro figure dans la liste de `/ops` jusqu'à la pose.
+
+### La relecture du lot E6 (2026-11-10) : aucun rouge, 7 jaunes
+
+Commit `1c7cdec0`. Aucun rouge : le lot part, ses jaunes attendent le lot suivant.
+1. La retenue tient UNE clé par espace, prise avant de distinguer le refus de l'interruption : un refus (forgé ou
+   légitime) tait 30 min l'alerte « INTERROMPUE », seul signal d'un compte relié à moitié, dont le numéro reste sans
+   marque et hors de la liste. Une clé à part pour l'interruption, et la marque tentée dans le `catch`.
+2. Une ligne de l'espace encore en cours (un ancien numéro déconnecté, sa ligne jamais retirée) fait dire `active` aux
+   cartes pendant que la liste de `/ops` montre le nouveau numéro en attente : pour une Entreprise, lire l'attente avant
+   les lignes, ou ne compter que les lignes qui couvrent un numéro rattaché.
+3. « Déjà couvert » ne regarde pas `arreteeLe` : une ligne arrêtée de l'espace (la garde refuse les envois) fait dire
+   « rien à poser ». Lui donner son cas, avec la marque.
+4. Le texte « autre espace » ne nomme ni l'espace ni le numéro de la ligne à retirer, et son ordre (retirer, demander,
+   poser) ouvre une fenêtre d'envois non comptés si la ligne du partenaire est encore attachée : les citer, et vérifier
+   l'attache d'abord.
+5. Rien n'éteint une attente jamais posée (un partenaire qui n'attache pas) : la seule sortie est de poser puis retirer
+   la ligne, écrite désormais dans le manuel ; un geste « ne pas poser » signé dans la liste serait meilleur.
+6. L'alerte de refus cite le message de Graph tel quel, qui peut reprendre le compte forgé du corps : un libellé fixe par
+   cause, le message de Meta au journal.
+7. Les cases du lot, cochées avec cette relecture.

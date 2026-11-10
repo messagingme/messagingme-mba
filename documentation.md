@@ -4702,10 +4702,12 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   en 500), alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé. Une alerte par espace et par
   demi-heure (`RETENUE_ALERTE_REFUS_MS`, un verrou court ; le refus retenu se journalise), le compte cité seulement s'il
   est fait de chiffres : la fin vient du navigateur. Une alerte que Telegram ne reçoit pas se journalise par son cas,
-  jamais par son texte, qui porte le numéro affiché (`alerte_fenetre_partenaire_perdue`). Une Entreprise dont un numéro
-  attend sa ligne lit `en_attente` (`etatLigneCredit`) : la carte dit « Votre ligne s'ouvre sous 24 h ouvrées »,
-  l'Accueil et `get_setup_state` ne lui demandent pas sa carte chez Meta (`creditPaieMeta`). La pose automatique attend
-  la réponse du partenaire sur son mode d'attache.
+  jamais par son texte, qui porte le numéro affiché (`alerte_fenetre_partenaire_perdue`). Une Entreprise SANS ligne en
+  cours dont un numéro attend sa ligne lit `en_attente` (`etatLigneCredit`, qui lit les lignes d'abord : une ligne
+  encore en cours, celle d'un ancien numéro déconnecté comprise, dit `active`) : la carte dit « Votre ligne s'ouvre sous
+  24 h ouvrées », l'Accueil et `get_setup_state` ne lui demandent pas sa carte chez Meta (`creditPaieMeta`). Une attente
+  qui ne sera jamais posée (le partenaire n'attache pas) s'éteint en posant puis retirant la ligne de l'espace dans
+  `/ops` : aucun geste dédié. La pose automatique attend la réponse du partenaire sur son mode d'attache.
 - 🔴 **La conversion et l'arrêt dits au client** (révision du 2026-11-04, lot C). La conversion
   (`signalerConversion`, `src/credit-whatsapp/conversion.ts`) a trois appelants : le démarrage de la formule Pro avant la
   fin de son essai, APRÈS la fin notée en base ; `/ops`, au passage d'un Business à confirmé ; le webhook, par
