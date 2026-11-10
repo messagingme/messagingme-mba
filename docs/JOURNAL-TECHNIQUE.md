@@ -4,6 +4,32 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : la fenêtre du partenaire, les neuf jaunes de la relecture de V5 (lot 3v, V6)
+
+Accord de Julien (« Oui, enchaîne ») ; plan `2026-11-10-credit-whatsapp-vente-libre-service.md`, § V6. Implémenteur
+par lot, TDD, une relecture indépendante.
+
+- **Ce qui a changé** (`731487eb`) :
+  - une connexion interrompue ne retrouve que le numéro annoncé, et nul autre ; sans annonce, le seul rattaché du compte
+    du corps (`numeroDeLaConnexion`), jamais un numéro étranger à la connexion ;
+  - l'alerte d'une interruption dit ce qu'elle sait de la liste de `/ops`, relue après la marque, et « illisible »
+    quand elle ne sait pas ; un numéro en coexistence n'y est jamais marqué ;
+  - « Ne pas poser » : les 409 nomment la ligne qui bloque (`ligne`) et disent de ne la retirer qu'une fois la ligne du
+    partenaire détachée, ou en posant la nouvelle dans le même geste ;
+  - la coexistence ne remplace plus que « à poser » : ailleurs, l'alerte dit la ligne qui couvre ET la coexistence ;
+    `coexistence` requis jusque dans le câblage ;
+  - une connexion Telegram jamais établie compte pour non reçue (la retenue se rend) ;
+  - le commentaire de l'état, la carte de `/ops` et le manuel disent ce que lit une Entreprise déjà couverte.
+- **Vérifié** : les tests neufs vus rouges avant le code ; la suite racine, 985 fichiers verts (16 632 tests) ; la
+  console, 104 fichiers verts ; tsc, lint, auto-attaque sans trouvaille. CI racine (intégration comprise), console et
+  CodeQL vertes job par job sur `6e927b63`.
+- **Relecture** : aucun rouge, six jaunes au plan, pour V7 ; le plus net, une phrase de la carte de `/ops` qui pouvait
+  faire retirer une ligne couvrant encore le compte (signalé à Julien avant l'approbation).
+- **En production** : run 42885204406 (`migration=aucune`, épinglé sur `6e927b63`, avec le lot 4a-1 de l'aide sans
+  effet sur l'API) : `mba-api` sur l'image `6e927b63`, les trois workers en révision `6e927b63`, aucune erreur dans leurs
+  journaux ; « Ne pas poser » répond 401 sans session ; fumée bonne, fiches OAuth conformes, `META_SOLUTION_ID` intacte.
+  L'image porte les fiches d'aide des lots 3b, 3c et 4a-1 : `aide:charger` peut se lancer avec elle.
+
 ## 2026-11-10 : le centre d'aide coupe « Démarrer » en deux, le guide du numéro et le dépannage (aide à la connexion, lot 4a-1)
 
 Première livraison du lot 4a (plan `2026-11-10-aide-connexion-lot-4a.md`), en direct, une relecture indépendante, les
