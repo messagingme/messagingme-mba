@@ -41,6 +41,8 @@ function app(
   credit: Partial<OpsCreditWhatsappDeps['credit']> = {},
   /** L'option (lot 4a) : une Entreprise par défaut, qui pose sans compter de places (le comportement d'avant). */
   option: Partial<OpsCreditWhatsappDeps['option']> = {},
+  /** Le nom d'un espace (relecture du lot V5, jaune 2) : inconnu par défaut. */
+  nomDeLEspace: OpsCreditWhatsappDeps['nomDeLEspace'] = async () => null,
 ) {
   const creditWhatsapp: OpsCreditWhatsappDeps = {
     reglages: {
@@ -66,6 +68,7 @@ function app(
     audit: async (tenant, acteur, action, _cible, detail) => { traces.push({ tenant, email: acteur.email, action, detail }); },
     credit: { solde: async () => 0, consommationDuMois: async () => 0, dernieresProvisions: async () => [], ...credit },
     option: { entreprise: async () => true, placesPayees: async () => 0, reprendreCampagnes: async () => 0, ...option },
+    nomDeLEspace,
   };
   const deps: OpsRouteDeps = {
     ...opsInerte,
@@ -155,15 +158,22 @@ describe('POST /ops/credit-whatsapp/en-attente/:tenantId, « Ne pas poser » (re
       depuis: '2026-10-30T10:00:00.000Z', arreteeLe, retireeLe: null,
     });
     const ARRETEE = '2026-11-01T10:00:00.000Z';
-    for (const [couvrante, code] of [
-      [ligne(AUTRE, null), 'couvert_autre_espace'], [ligne(AUTRE, ARRETEE), 'couvert_autre_espace'], [ligne(T, ARRETEE), 'couvert_arrete'],
+    for (const [couvrante, code, espace] of [
+      [ligne(AUTRE, null), 'couvert_autre_espace', 'Espace Dupont'], [ligne(AUTRE, ARRETEE), 'couvert_autre_espace', 'Espace Dupont'],
+      [ligne(T, ARRETEE), 'couvert_arrete', null],
     ] as const) {
       let ecrit = false;
       const traces: Trace[] = [];
-      const a = app({}, true, { ligneDuNumero: async () => couvrante, abandonnerAttente: async () => { ecrit = true; return true; } }, traces);
+      const a = app({}, true, { ligneDuNumero: async () => couvrante, abandonnerAttente: async () => { ecrit = true; return true; } }, traces, {}, {},
+        async (t) => (t === AUTRE ? 'Espace Dupont' : null));
       const res = await a.inject({ method: 'POST', url: URL_ATTENTE, ...withTok(OPS), payload: { phoneNumberId: PN, note: NOTE } });
       expect(res.statusCode, code).toBe(409);
       expect(res.json().code, code).toBe(code);
+      // La ligne qui bloque, nommée : la retrouver ne demande plus la base (relecture du lot V5, jaune 2).
+      expect(res.json().ligne, code).toEqual({ tenantId: couvrante.tenantId, espace, phoneNumberId: '106540352242999' });
+      // Retirer une ligne qui paie peut-être encore chez Meta : seulement la ligne du partenaire détachée, ou la nouvelle
+      // posée dans le même geste (relecture du lot V5, jaune 2).
+      expect(res.json().error, code).toContain('une fois la ligne du partenaire détachée de ce compte, ou en posant la nouvelle dans le même geste');
       expect(ecrit, code).toBe(false);
       expect(traces, code).toEqual([]);
       await a.close();

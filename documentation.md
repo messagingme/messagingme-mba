@@ -4757,7 +4757,8 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   poser » lève l'attente ; absente, retirer la nôtre jusqu'à elle, puis la reposer ; sur une ligne ARRÊTÉE de l'espace
   (citée par son numéro ; la garde refuse ses envois), comme sur celle d'un AUTRE espace, nommé avec le numéro de sa
   ligne (`getTenantName`), vérifier l'attache d'abord, puis retirer et poser dans le même geste ; un numéro en
-  coexistence (il garde l'application, et la pose le refuse) ne passe pas sur la ligne : rien à poser ; un compte relié
+  coexistence (il garde l'application, et la pose le refuse) ne passe pas sur la ligne et n'est jamais marqué : rien à
+  poser, et dans les autres cas l'alerte le dit en plus de la ligne qui couvre ou de l'absence de droit ; un compte relié
   sans numéro, rien à poser (le numéro connecté ensuite par la fenêtre a sa propre alerte) ; sans droit, ne rien poser et
   demander au partenaire de ne rien attacher ; la fenêtre fermée chez nous (variable vide, page restée ouverte) ou un
   droit illisible, l'alerte le dit. Le numéro n'est marqué (`phone_numbers.par_la_ligne_le`, migration 0285 : il attend
@@ -4772,24 +4773,34 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   (`POST /ops/credit-whatsapp/en-attente/:tenantId`, une note) : l'attente s'efface, par le même prédicat, et le journal
   de l'espace en garde la trace sans la note, qui reste au journal du serveur (`ops.attente_ligne_abandonnee` :
   l'administrateur de l'espace lit ce journal, et une note peut nommer le partenaire). L'espace relit alors ses lignes :
-  une Entreprise sans ligne, « sur demande » et le conseil de sa carte chez Meta ; une option payée sans ligne reste en
-  attente. 🔴 « Ne pas poser » est refusé (409, `couvert_autre_espace` ou `couvert_arrete`) tant que la ligne d'un AUTRE
-  espace, ou une ligne ARRÊTÉE de l'espace, couvre encore le compte : la garde refuse ses envois, et l'attente effacée,
-  plus rien ne le rappellerait. Une fin `parLaLigne` que notre serveur refuse, ou qu'une erreur interrompt (avant de
-  remonter en 500), alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé ; la cause d'un
-  refus est écrite au journal du serveur (`fenetre_partenaire_refusee`), que l'alerte cite. Interrompue, la connexion a
-  pu rattacher un numéro, annoncé ou non : celui du corps s'il est rattaché à l'espace, sinon le seul rattaché, est
-  marqué selon les règles de la connexion, et l'alerte dit s'il attend dans la liste. Le refus et l'interruption ont
-  chacun leur retenue, une alerte par espace et par demi-heure (`RETENUE_ALERTE_REFUS_MS`, des verrous courts ; une
-  alerte retenue se journalise ; une alerte que Telegram n'a pas reçue rend la sienne, jamais une alerte incertaine,
-  délai dépassé ou panne réseau, qui a pu partir : `envoyerTelegram`, `src/ops/telegram.ts`) ; un refus se dit par un
+  une Entreprise sans ligne, « sur demande » et le conseil de sa carte chez Meta ; une Entreprise qui garde la ligne
+  active d'un ancien numéro, « payés par votre Crédit WhatsApp », sans que son numéro soit couvert ; une option payée
+  sans ligne reste en attente. 🔴 « Ne pas poser » est refusé (409, `couvert_autre_espace` ou `couvert_arrete`) tant que
+  la ligne d'un AUTRE espace, ou une ligne ARRÊTÉE de l'espace, couvre encore le compte : la garde refuse ses envois, et
+  l'attente effacée, plus rien ne le rappellerait. Le refus nomme la ligne qui bloque (`ligne` : l'espace, son nom, le
+  numéro de la ligne) et dit de ne la retirer qu'une fois la ligne du partenaire détachée, ou en posant la nouvelle
+  dans le même geste : retirée seule, elle ouvrirait des envois payés par le partenaire sans provision. Une fin
+  `parLaLigne` que notre serveur refuse, ou qu'une erreur interrompt (avant de remonter en 500), alerte aussi
+  (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé ; la cause d'un refus est écrite au journal du
+  serveur (`fenetre_partenaire_refusee`), que l'alerte cite. Interrompue, la connexion a pu rattacher son numéro : le
+  numéro annoncé s'il est rattaché, et nul autre (`linkTenant` refuse un second numéro : un autre rattaché est étranger à
+  cette connexion) ; sans annonce, le seul rattaché du compte du corps (`numeroDeLaConnexion`). Il est marqué selon les
+  règles de la connexion, jamais en coexistence, puis relu (rejouée, la marque garde son premier moment, qu'une ligne
+  posée depuis a pu éteindre), et l'alerte dit ce qu'en sait la liste : il y figure, il n'y est pas (marque éteinte,
+  rien à poser, coexistence), aucun numéro de cette connexion, ou une lecture en panne qu'elle ne prétend pas savoir.
+  Le refus et l'interruption ont chacun leur retenue, une alerte par espace et par demi-heure (`RETENUE_ALERTE_REFUS_MS`,
+  des verrous courts ; une alerte retenue se journalise ; une alerte que Telegram n'a pas reçue rend la sienne, jamais
+  une alerte incertaine, délai dépassé ou coupure en cours, qui a pu partir ; une connexion jamais établie, adresse
+  introuvable ou refusée, compte pour non reçue : `envoyerTelegram`, `src/ops/telegram.ts`) ; un refus se dit par un
   libellé fixe par statut, jamais par le message de Meta, et le compte n'est cité que s'il est fait de chiffres : la fin
   vient du navigateur. Une alerte que Telegram ne reçoit pas se journalise par son cas, jamais par son texte, qui porte le
   numéro affiché (`alerte_fenetre_partenaire_perdue` ; `alerte_fenetre_partenaire_incertaine` pour une alerte
   incertaine). Une Entreprise dont un numéro attend sa ligne lit `en_attente` (`etatLigneCredit`, AVANT ses lignes : une
   ligne d'avant la marque peut couvrir le compte, arrêtée ou active à vérifier, et l'attente prime ; Claude, par
   `get_credit`, et l'onglet lisent les lignes seules, et disent `envois_arretes` pour une ligne arrêtée, ce qui est vrai,
-  la garde refusant ses envois jusqu'à la nouvelle) : la carte dit « Votre ligne s'ouvre sous 24 h ouvrées »,
+  la garde refusant ses envois jusqu'à la nouvelle ; une ligne active les y dit sur la ligne, ses envois partant et se
+  provisionnant pendant que seule la carte attend, jusqu'au « Ne pas poser » ou à une ligne reposée) : la carte dit
+  « Votre ligne s'ouvre sous 24 h ouvrées »,
   l'Accueil et `get_setup_state` ne lui demandent pas sa carte chez Meta (`creditPaieMeta`). La pose automatique attend
   la réponse du partenaire sur son mode d'attache.
 - 🔴 **La conversion et l'arrêt dits au client** (révision du 2026-11-04, lot C). La conversion

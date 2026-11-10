@@ -95,7 +95,9 @@ export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promi
   // du numéro, arrêtée (`couvert_arrete`) ou active dont l'attache reste à vérifier (`deja_couvert`) ; l'attente prime,
   // jamais « payés par votre Crédit WhatsApp » avant la pose ou la vérification. Claude (`get_credit`) et l'onglet lisent
   // les lignes seules : une ligne arrêtée y dit `envois_arretes`, ce qui est vrai, la garde refusant ses envois jusqu'à la
-  // nouvelle (relecture du lot E7, jaune 3).
+  // nouvelle (relecture du lot E7, jaune 3) ; une ligne ACTIVE (`deja_couvert`) les y dit sur la ligne pendant que la carte
+  // dit « en attente », jusqu'au « Ne pas poser » de Julien, l'attache vérifiée, ou une ligne reposée. Les envois partent
+  // et se provisionnent sur la ligne entre-temps : seule la carte attend (relecture du lot V5, jaune 5).
   if (offre === 'entreprise' && (await d.numeroAttendSaLigne(tenantId))) return 'en_attente';
   // Une ligne posée dit l'état, quelle que soit la formule : une Entreprise ou un espace dont l'option a fini y restent.
   const lignes = await d.lignes(tenantId);

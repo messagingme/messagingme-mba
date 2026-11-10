@@ -105,7 +105,14 @@ déploiement de l'Inbox HubSpot (run 42858518482, `1b9a9a23`, approuvé par Juli
 
 ### V6. Les jaunes de la relecture de V5
 
-- [ ] Les neuf (§ « La relecture du lot V5 »), le 1 d'abord : l'interruption ne retrouve plus un numéro étranger.
+- [x] Les neuf (§ « La relecture du lot V5 ») : une interruption ne retrouve que le numéro annoncé, ou sans annonce le
+  seul du compte du corps (1) ; les 409 de « Ne pas poser » nomment la ligne qui bloque et disent de ne la retirer
+  qu'une fois la ligne du partenaire détachée, ou en posant la nouvelle dans le même geste (2) ; la coexistence ne
+  remplace plus que « à poser », l'alerte dit les deux ailleurs (3) ; un numéro en coexistence n'est jamais marqué après
+  une interruption (4) ; le commentaire de l'état et le manuel disent ce que lit une Entreprise déjà couverte (5) ;
+  `coexistence` requis jusque dans le câblage (6) ; l'alerte d'une interruption dit ce qu'elle sait de la liste, relue
+  après la marque, et « illisible » quand elle ne sait pas (7) ; une connexion jamais établie compte pour non reçue (8) ;
+  la carte de `/ops` et le manuel disent ce que relit une Entreprise qui garde la ligne d'un ancien numéro (9).
 
 ## Ordre de déploiement
 

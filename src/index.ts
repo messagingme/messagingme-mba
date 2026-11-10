@@ -1102,7 +1102,7 @@ async function main(): Promise<void> {
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
     option: (tenant) => optionsCreditWhatsapp.vivante(tenant),
     numerosCouverts: (tenant) => lignesCreditWhatsapp.numerosCouvertsParOption(tenant),
-    numerosRattaches: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).map((n) => n.phoneNumberId),
+    numerosRattaches: (tenant) => lignesCreditWhatsapp.numerosDeLEspace(tenant),
     // « Déjà couvert » toute origine, comme la pose de `/ops` (relecture du lot E5, jaune 5).
     ligneDuNumero: (phoneNumberId) => lignesCreditWhatsapp.ligneDuNumero(phoneNumberId),
     // Une alerte de refus, et une d'interruption, par espace et par demi-heure, pour toutes les copies (relecture du lot E5,
@@ -2875,7 +2875,7 @@ async function main(): Promise<void> {
         // La fenêtre du partenaire (lot E du Crédit WhatsApp) : l'identifiant de la solution, seulement à l'espace que sa
         // règle désigne, la connexion faite par elle signalée à Julien, et refusée chez nous aussi (relecture, jaune 1).
         solutionDuPartenaire: (tenant: string) => solutionDuPartenaire(fenetreDuPartenaire, tenant),
-        connexionParLaLigne: (tenant: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null }) =>
+        connexionParLaLigne: (tenant: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null; coexistence: boolean }) =>
           connexionParLaLigne(fenetreDuPartenaire, tenant, n),
         fenetreRefusee: (tenant: string, i: { statut: number; wabaId: string | null; phoneNumberId: string | null }) =>
           fenetreRefuseeParLaLigne(fenetreDuPartenaire, tenant, i),
@@ -3284,6 +3284,8 @@ async function main(): Promise<void> {
           placesPayees: (tenant) => optionsCreditWhatsapp.placesPayees(tenant),
           reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
         },
+        // « Ne pas poser » nomme l'espace dont la ligne bloque encore le compte (relecture du lot V5, jaune 2).
+        nomDeLEspace: (tenant) => opsStore.getTenantName(tenant),
       },
       // Les jobs morts et leur rejeu : un geste d'exploitation cross-espace, qui suppose qu'on ait corrigé la
       // cause de l'échec.

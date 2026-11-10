@@ -73,6 +73,11 @@ export interface OpsCreditWhatsappDeps {
     consommationDuMois(tenantId: string): Promise<number>;
     dernieresProvisions(tenantId: string, n?: number): Promise<ProvisionVue[]>;
   };
+  /**
+   * Le nom d'un espace (`getTenantName` du magasin de `/ops`) : « Ne pas poser » nomme l'espace dont la ligne bloque encore
+   * le compte (relecture du lot V5, jaune 2) ; `null` s'il n'est pas connu.
+   */
+  nomDeLEspace(tenantId: string): Promise<string | null>;
 }
 
 /** Pourquoi un numéro ne peut pas être posé sur la ligne : les mêmes refus que la pose, dits avant le clic. */
@@ -95,6 +100,17 @@ function couverture(tenantId: string, n: NumeroDeLEspace, l: LigneCredit | null)
   if (l === null) return null;
   if (l.tenantId !== tenantId) return 'autre_espace';
   return l.phoneNumberId === n.phoneNumberId ? 'ligne' : 'compte';
+}
+
+/** Le nom d'un espace, `null` s'il n'est pas connu ou ne se lit pas : une lecture en panne ne fait pas tomber le refus. */
+async function nomLisible(deps: Pick<OpsCreditWhatsappDeps, 'nomDeLEspace'>, tenantId: string): Promise<string | null> {
+  try {
+    const nom = await deps.nomDeLEspace(tenantId);
+    return nom !== null && nom.trim() !== '' ? nom : null;
+  } catch (err) {
+    journaliser('error', 'ops_nom_espace_illisible', { tenantId, err: err instanceof Error ? err.message : String(err) });
+    return null;
+  }
 }
 
 const CORPS_GRILLE = z.object({
@@ -259,16 +275,23 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
     if (note.length < MIN_NOTE) return reply.code(400).send({ error: 'note requise : pourquoi ce numéro n’aura pas sa ligne' });
     const { phoneNumberId } = c.data;
     const couvrante = await deps.lignes.ligneDuNumero(phoneNumberId);
+    // La ligne qui bloque, nommée ; et la retirer seulement une fois la ligne du partenaire détachée, ou en posant la
+    // nouvelle dans le même geste : retirée seule, elle ouvrirait des envois payés par le partenaire sans provision
+    // (relecture du lot V5, jaune 2).
+    const quand = 'une fois la ligne du partenaire détachée de ce compte, ou en posant la nouvelle dans le même geste';
     if (couvrante !== null && couvrante.tenantId !== tenantId) {
+      const espace = await nomLisible(deps, couvrante.tenantId);
       return reply.code(409).send({
-        error: 'le compte WhatsApp de ce numéro est encore sur la ligne d’un autre espace, et la garde refuse ses envois : retirez cette ligne d’abord, sinon plus rien ne rappellera ce numéro',
+        error: `le compte WhatsApp de ce numéro est encore sur la ligne d’un autre espace (${espace ?? couvrante.tenantId}, numéro ${couvrante.phoneNumberId}), et la garde refuse ses envois : retirez cette ligne ${quand} ; sinon plus rien ne rappellera ce numéro`,
         code: 'couvert_autre_espace',
+        ligne: { tenantId: couvrante.tenantId, espace, phoneNumberId: couvrante.phoneNumberId },
       });
     }
     if (couvrante !== null && couvrante.arreteeLe !== null) {
       return reply.code(409).send({
-        error: 'le compte WhatsApp de ce numéro est sur une ligne arrêtée de cet espace, et la garde refuse ses envois : retirez-la d’abord, sinon plus rien ne rappellera ce numéro',
+        error: `le compte WhatsApp de ce numéro est sur une ligne arrêtée de cet espace (numéro ${couvrante.phoneNumberId}), et la garde refuse ses envois : retirez-la ${quand} ; sinon plus rien ne rappellera ce numéro`,
         code: 'couvert_arrete',
+        ligne: { tenantId: couvrante.tenantId, espace: null, phoneNumberId: couvrante.phoneNumberId },
       });
     }
     if (!(await deps.lignes.abandonnerAttente(tenantId, phoneNumberId))) {

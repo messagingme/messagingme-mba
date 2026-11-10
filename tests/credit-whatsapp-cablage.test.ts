@@ -68,8 +68,9 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     // Une place libre se compte contre les numéros que les lignes de l'option couvrent (la liste : la fin écarte le numéro
     // qui vient d'arriver, jaune 9) ; un numéro délié reste rattaché, comme pour `hasNumber` et `linkTenant` (jaune 5).
     expect(fenetre).toMatch(/numerosCouverts: \(tenant\) => lignesCreditWhatsapp\.numerosCouvertsParOption\(tenant\),/);
-    // Leurs identifiants : une connexion interrompue y retrouve le numéro que la fenêtre n'a pas annoncé (relecture du lot E7, jaune 4).
-    expect(fenetre).toMatch(/numerosRattaches: async \(tenant\) => \(await lignesCreditWhatsapp\.numerosDeLEspace\(tenant\)\)\.map\(\(n\) => n\.phoneNumberId\),/);
+    // Leur compte, leur coexistence et leur attente : une connexion interrompue y retrouve le numéro que la fenêtre n'a pas
+    // annoncé, et l'alerte dit ce qu'en sait la liste (relecture du lot E7, jaune 4 ; du lot V5, jaunes 1, 4 et 7).
+    expect(fenetre).toMatch(/numerosRattaches: \(tenant\) => lignesCreditWhatsapp\.numerosDeLEspace\(tenant\),/);
     expect(fenetre).not.toMatch(/delie/);
     // La marque du numéro arrivé par la fenêtre, appelée sur son magasin ; l'alerte rend l'issue de Telegram, pour qu'une
     // alerte perdue se journalise (relecture du lot E, jaune 3) et qu'une alerte incertaine garde sa retenue (lot E7, jaune 7).
@@ -90,6 +91,10 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     const connexion = bloc('embeddedSignup: (() => {', 'meta: esClient,');
     expect(connexion).toMatch(/solutionDuPartenaire: \(tenant: string\) => solutionDuPartenaire\(fenetreDuPartenaire, tenant\),/);
     expect(connexion).toMatch(/connexionParLaLigne\(fenetreDuPartenaire, tenant, n\)/);
+    // La coexistence voyage avec le numéro, typée : un littéral reconstruit sans elle ne compilerait pas (relecture du lot V5, jaune 6).
+    expect(connexion).toMatch(/connexionParLaLigne: \(tenant: string, n: \{ wabaId: string; phoneNumberId: string \| null; numero: string \| null; coexistence: boolean \}\) =>/);
+    // « Ne pas poser » nomme l'espace dont la ligne bloque, par la lecture de `/ops` (relecture du lot V5, jaune 2).
+    expect(sansCommentaires).toMatch(/reglages: reglagesCreditWhatsapp, lignes: lignesCreditWhatsapp,[\s\S]{0,800}?nomDeLEspace: \(tenant\) => opsStore\.getTenantName\(tenant\),\s*\},/);
     expect(connexion).toMatch(/fenetreRefuseeParLaLigne\(fenetreDuPartenaire, tenant, i\)/);
     // La route tire `enabled` des MÊMES variables que la fenêtre (relecture du lot E4, jaune 4) : l'une déplacée seule,
     // la carte se dirait ouverte sur un bouton grisé.

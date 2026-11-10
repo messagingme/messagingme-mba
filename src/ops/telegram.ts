@@ -2,11 +2,26 @@ import { config } from '../config';
 import { messageDe } from '../lib/erreur';
 
 /**
- * L'issue d'un envoi à Telegram : `recue` sur un 2xx ; `non_recue` sur un refus net (une réponse d'erreur) ou sans
- * configuration ; `incertaine` sur un délai dépassé ou une panne réseau, quand l'alerte a pu partir (relecture du lot E7
- * du Crédit WhatsApp, jaune 7).
+ * L'issue d'un envoi à Telegram : `recue` sur un 2xx ; `non_recue` sur un refus net (une réponse d'erreur), sans
+ * configuration, ou une connexion jamais établie ; `incertaine` sur un délai dépassé ou une coupure en cours, quand
+ * l'alerte a pu partir (relecture du lot E7 du Crédit WhatsApp, jaune 7 ; du lot V5, jaune 8).
  */
 export type IssueTelegram = 'recue' | 'non_recue' | 'incertaine';
+
+/**
+ * Les échecs d'établissement de la connexion (le code de la cause d'un `fetch failed` d'undici) : la requête n'est
+ * jamais partie, l'alerte n'a pas pu arriver.
+ */
+const CONNEXION_JAMAIS_ETABLIE: ReadonlySet<string> = new Set([
+  'ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ENETUNREACH', 'EHOSTUNREACH', 'UND_ERR_CONNECT_TIMEOUT',
+]);
+
+/** Le code de la cause d'une erreur de `fetch` (undici la porte en `cause.code`), `null` sans cause codée. */
+function codeDeLaCause(err: unknown): string | null {
+  const cause = err instanceof Error ? (err as Error & { cause?: unknown }).cause : undefined;
+  const code = typeof cause === 'object' && cause !== null ? (cause as { code?: unknown }).code : undefined;
+  return typeof code === 'string' ? code : null;
+}
 
 /**
  * Petit client d'alerte Telegram (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID). Il ne bloque ni ne lève jamais :
@@ -37,7 +52,8 @@ export async function envoyerTelegram(
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error('[telegram] envoi erreur:', messageDe(err));
-    return 'incertaine';
+    const code = codeDeLaCause(err);
+    return code !== null && CONNEXION_JAMAIS_ETABLIE.has(code) ? 'non_recue' : 'incertaine';
   }
 }
 

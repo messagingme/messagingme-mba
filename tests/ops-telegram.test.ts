@@ -55,4 +55,17 @@ describe('envoyerTelegram', () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('network down'); }));
     expect(await envoyerTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 })).toBe('incertaine');
   });
+
+  it('🔴 une connexion jamais établie (adresse introuvable, refusée, injoignable) : non reçue ; une coupure en cours : incertaine (relecture du lot V5, jaune 8)', async () => {
+    // undici : `TypeError('fetch failed')`, sa cause porte le code de l'échec.
+    const echec = (code: string) => Object.assign(new TypeError('fetch failed'), { cause: Object.assign(new Error(code), { code }) });
+    for (const code of ['ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ENETUNREACH', 'EHOSTUNREACH', 'UND_ERR_CONNECT_TIMEOUT']) {
+      vi.stubGlobal('fetch', vi.fn(async () => { throw echec(code); }));
+      expect(await envoyerTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 }), code).toBe('non_recue');
+    }
+    for (const code of ['ECONNRESET', 'UND_ERR_SOCKET', 'EPIPE']) {
+      vi.stubGlobal('fetch', vi.fn(async () => { throw echec(code); }));
+      expect(await envoyerTelegram('x', { token: 'T', chatId: 'C', timeoutMs: 100 }), code).toBe('incertaine');
+    }
+  });
 });
