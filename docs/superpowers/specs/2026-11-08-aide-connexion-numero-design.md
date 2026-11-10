@@ -370,6 +370,12 @@ La relecture a trouvé un rouge, la FAQ du plugin qui envoyait WhatsApp ordinair
 lien « Pourquoi un moyen de paiement ? » mène à la fiche de la fenêtre de 24 heures jusqu'à la page des modèles du lot
 4. Puis `aide:charger` et la publication du plugin 0.3.33, par Julien.
 
+**3b et 3c livrés le 2026-11-10** (`2307eeb6`, puis les jaunes de sa relecture ; la console et la vitrine seules, par
+Vercel, sans déploiement de l'API). Décisions de Julien du même jour : la formule Pro à 49 € HT par mois, et la carte
+Pro du premier écran qui ouvre Stripe en mensuel, puis ramène à la connexion du numéro. En plus du plan : l'issue « La
+console » de Démarrer et son bouton « Créer mon espace », la pastille de l'essai, et sept des huit jaunes de la
+relecture ; le huitième, les étapes du tunnel en double dans chaque page, est au backlog. Le lot 3v suit.
+
 ## Lot 4 : le centre d'aide
 
 Il part en deux temps. **4a**, tout de suite : les rubriques, le guide, le dépannage, installer le plugin, la connexion

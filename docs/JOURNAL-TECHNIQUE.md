@@ -4,6 +4,47 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : la formule au premier écran de la console, et Démarrer en Pro par la console ou Claude Code (aide à la connexion, lots 3b et 3c)
+
+Deux décisions de Julien du même jour : la formule Pro coûte 49 € HT par mois (« 59 € » était un lapsus), et la carte
+Pro du premier écran ouvre directement la page de Stripe, puis ramène à la connexion du numéro. Plan
+`2026-11-10-aide-connexion-lot-3bc.md`, en direct, une relecture indépendante.
+
+- **Ce qui a changé** (`2307eeb6`) :
+  - 3b, la console : un espace neuf en Free voit d'abord quatre cartes (Free, Pro, Business, Entreprise), avant « Qui
+    paie vos messages à Meta ? ». Free continue le tunnel ; Pro ouvre Stripe en mensuel avec l'essai de 14 jours, et le
+    retour de Stripe ramène à la page du numéro (`suiteApresPro`, par la mémoire `mba.suite` de l'onglet) ; Business et
+    Entreprise mènent au formulaire de contact de la console, sujet prérempli ; un Pro pas en vente se demande au
+    Support ;
+  - l'inscription venue du choix du Pro arrive sur la page de l'offre DANS le tunnel
+    (`/offre?fonction=console&suite=demarrer`) : après Stripe, la connexion du numéro ;
+  - 3c, Démarrer : en formule Pro, une question de plus, « Console ou Claude Code ? ». La console mène à l'issue « La
+    console » et à son bouton « Créer mon espace » ; Claude Code ou Codex, aux étapes du Pro par l'assistant. Six
+    questions au plus, et la carte Pro porte la pastille « 14 jours d'essai gratuit » ;
+  - les deux jaunes de la vitrine relevés par la relecture du lot 2b : la note de Codex (« non vérifié » est normal) et
+    le détour sans Google (le lien de l'e-mail, sa capture `autoriser-4`).
+- **Vérifié** :
+  - quatorze mutations vues rouges (onze unitaires, trois e2e sur un build muté) ;
+  - la suite racine entière, sur la copie puis sur l'arbre fusionné avec l'origin ; la console, ses unitaires et ses
+    e2e (1 890 : quatre attendaient encore l'ancienne adresse d'arrivée du Pro, mises à jour ; une instabilité de
+    charge, verte seule) ;
+  - tsc, lint, sondes d'attaque.
+- **Relecture** : aucun rouge, huit jaunes, sept corrigés au commit suivant (`7c941226`, trois gardes e2e vues rouges,
+  chacune à l'assertion de son symptôme) :
+  - un statut du compte illisible laissait un écran vide : il rend l'écran d'avant ;
+  - la pastille et le retour de Stripe promettaient l'essai à un espace qui n'y a plus droit ;
+  - la formule gardée dans l'onglet valait pour tout espace : elle vaut pour un seul ;
+  - un Pro payé revoyait les cartes tant que la vue de l'offre, gardée une minute, le lisait encore Free ;
+  - le manuel, le texte de l'issue « La console » (le mensuel ou l'annuel d'abord) et « Continuer avec Free ».
+
+  Le septième, les étapes portées deux fois par chaque page du tunnel (+54 Ko), est au backlog.
+- **Ordre** : aucun déploiement de l'API, rien côté serveur ; la console et la vitrine partent par Vercel au push. Le
+  lot est poussé sur `8e9ef703`, ses jaunes sur `d46e8b16` (les lots V2 du crédit, 3 de l'Inbox HubSpot et la
+  synchronisation de MUTAC entre les deux).
+- **En production** : CI racine, console et CodeQL vertes job par job pour les deux commits ; la page Démarrer publique
+  pose « Console ou Claude Code ? ». La fiche de l'équipe, retouchée (la formule d'abord), n'atteint le bot d'aide qu'au
+  prochain `aide:charger` avec une image qui la porte.
+
 ## 2026-11-10 : le MBA de MUTAC, « Coût de l'IA » complet, et un événement de l'agent que Meta met en échec
 
 **Le MBA de MUTAC (espace d'essai, assurance obsèques).** Rempli depuis sept PDF passés en Markdown et le site :
