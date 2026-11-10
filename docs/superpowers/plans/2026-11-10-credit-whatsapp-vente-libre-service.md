@@ -97,6 +97,12 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
   connexion en coexistence par la fenêtre n'est ni marquée ni à poser, l'alerte le dit (6) ; cinq minutes de tolérance
   d'horloge (7).
 
+Livré par `f131d9a3`, relu (§ « La relecture du lot V5 »).
+
+### V6. Les jaunes de la relecture de V5
+
+- [ ] Les neuf (§ « La relecture du lot V5 »), le 1 d'abord : l'interruption ne retrouve plus un numéro étranger.
+
 ## Ordre de déploiement
 
 V1 : l'API seule, sans migration. Tant que le prix n'est pas posé (`enVente` faux), rien ne se voit ; la console de
@@ -168,3 +174,32 @@ jaunes 3, 4 et 8 (le manuel et ce plan) sont corrigés dans le commit qui inscri
    du webhook ferait taire la conversion d'un essai écourté au tableau de bord, ou d'un Pro sans essai. Très improbable
    avec NTP ; une tolérance de quelques minutes, ou l'écrire.
 8. L'ordre de déploiement ne parlait que de V1 : corrigé.
+
+## La relecture du lot V5 (2026-11-10)
+
+Un relecteur indépendant, sur le diff de `f131d9a3` : **aucun rouge, neuf jaunes**. Le lot part tel quel ; ses jaunes vont
+à V6.
+
+1. **L'interruption peut retrouver un numéro étranger** : quand le corps annonce un numéro qui n'est pas rattaché, le
+   seul rattaché est étranger à cette connexion (`connecterNumero` prend le numéro annoncé tel quel, `linkTenant` refuse
+   un second numéro). Une page restée ouverte et un autre numéro connecté entre-temps : ce numéro serait marqué, et
+   l'alerte inviterait à poser sa ligne sur une attache vue sur un autre compte. Rare. Le repli seulement sans annonce,
+   et vers un numéro du compte du corps ; le cas « ou en dit un autre » du test est à réécrire.
+2. **Les deux 409 de « Ne pas poser »** disent de retirer la ligne sans condition, alors qu'une ligne arrêtée, ou celle
+   d'un autre espace, peut encore payer chez Meta : « une fois la ligne du partenaire détachée, ou la nouvelle posée
+   dans le même geste ». Et nommer l'espace et le numéro de la ligne couvrante dans le corps du 409.
+3. **La coexistence jugée avant tout** : un compte sur la ligne d'un autre espace, sur une ligne arrêtée, ou sans droit,
+   perd sa mention dans l'alerte. Lire `casDeConnexion` dans tous les cas ; la coexistence ne remplace que `a_poser`.
+4. **L'interruption d'une connexion en coexistence** marque son numéro, que la pose refusera : `numerosRattaches` rend
+   aussi la coexistence, et un numéro en coexistence n'est pas marqué.
+5. **Une Entreprise déjà couverte dont l'attache est faite** lit « Votre ligne s'ouvre sous 24 h ouvrées » jusqu'au
+   « Ne pas poser », pendant que l'onglet et `get_credit` la disent sur la ligne : l'écrire au commentaire et au manuel,
+   ou lire `active` quand une ligne active couvre le numéro qui attend.
+6. **Le câblage annote `n` sans `coexistence`** (`src/index.ts`, l'inscription) : retirer l'annotation, ou rendre
+   `coexistence` requis dans `connexionParLaLigne`.
+7. **« Aucun numéro rattaché à poser »** se dit aussi après une lecture ou une marque ratée, ou pour un numéro rattaché
+   sans droit : trois textes, dont « illisible ».
+8. **`envoyerTelegram` rend `incertaine`** sur une connexion jamais établie (ENOTFOUND, EAI_AGAIN, ECONNREFUSED) :
+   `non_recue` sur ces codes, `incertaine` sur le délai et une coupure en cours.
+9. **La carte de `/ops` tait l'Entreprise qui garde la ligne d'un ancien numéro**, qui lit `active` après « Ne pas
+   poser » (préexistant) : le dire, ou ne compter pour `active` que les lignes qui couvrent un numéro rattaché.
