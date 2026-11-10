@@ -266,3 +266,5 @@ Commit `1c7cdec0`. Aucun rouge : le lot part, ses jaunes attendent le lot suivan
 6. L'alerte de refus cite le message de Graph tel quel, qui peut reprendre le compte forgé du corps : un libellé fixe par
    cause, le message de Meta au journal.
 7. Les cases du lot, cochées avec cette relecture.
+
+**En production le 2026-11-10** : run 42791085691 (`3b14741d`, `migration=aucune`).

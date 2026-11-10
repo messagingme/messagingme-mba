@@ -4,6 +4,43 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : la fenêtre du partenaire, la ligne posée APRÈS l'attache et la liste de /ops (lot E6)
+
+Accord de Julien (« Oui, enchaîne ») pour les huit jaunes de la relecture du lot E5 ; plan
+`2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`, § E6. Deux décisions de Julien du 2026-11-09 : la ligne se pose
+APRÈS l'attache du partenaire ; la liste dans `/ops`, sans bouton d'essai Telegram ni lecture de Cockpit. Implémenteur
+par lot, TDD, une relecture indépendante.
+
+- **Ce qui a changé** (`70a9f649`) :
+  - l'alerte d'un numéro arrivé par la fenêtre dit de demander l'attache au partenaire, puis de poser la ligne quand il
+    la confirme, pas avant ; un compte relié sans numéro n'est plus « à poser » ;
+  - « déjà couvert » lit la ligne qui couvre le numéro, toute origine (`ligneDuNumero`) ; celle d'un autre espace a son
+    texte et marque le numéro ;
+  - une alerte de refus par espace et par demi-heure (verrou court), le compte cité seulement s'il est fait de
+    chiffres ; une erreur en route d'une connexion par la fenêtre alerte avant de remonter en 500 ;
+  - une alerte perdue se journalise par son cas, jamais par son texte (le numéro affiché) ;
+  - `GET /ops/credit-whatsapp/en-attente` et la liste « En attente de leur ligne » de la carte Crédit WhatsApp de
+    `/ops`, par le même prédicat SQL que l'état des cartes (`ATTEND_LIGNE_SQL`) ;
+  - `attendLigne` requis dans les types, gardé par un `@ts-expect-error`.
+- **Vérifié** :
+  - chaque test neuf vu rouge avant le code : onze de la fenêtre, la route, le câblage, trois fixtures au typecheck, et
+    la garde du type remise en facultatif (TS2578) ;
+  - la suite racine entière sur l'état final : 976 fichiers verts sur 978, `api-usage-guard` et
+    `agent-connaissance-texte` en délai de 5 s sous la charge, verts seuls et sans lien avec le lot ;
+  - la console : 1 263 tests unitaires, et 13 e2e de la carte sur une construction de production ;
+  - tsc et lint des deux côtés, auto-attaque sans trouvaille ;
+  - le prédicat de la liste ne se vérifie qu'en CI (aucun Postgres sur le poste) : vert.
+- **Relecture** : aucun rouge, sept jaunes au plan (§ « La relecture du lot E6 »), dont l'attente qu'aucun geste
+  n'éteint quand le partenaire n'attache pas (la sortie, poser puis retirer la ligne, est écrite au manuel).
+- **Ordre** : poussé après le déploiement du lot 2 de l'Inbox HubSpot (`aa5baf90`, 0286 appliquée), annoncé à sa
+  session ; la console est partie au push, sa liste se disant illisible jusqu'au déploiement de l'API.
+- **En production** :
+  - CI racine, console et CodeQL vertes job par job sur `3b14741d` ;
+  - run 42791085691 (`migration=aucune`, épinglé sur `3b14741d`) : `mba-api` sur l'image `3b14741d`, `mba-worker`,
+    `mba-worker-analyse` et `mba-application` en révision `3b14741d`, aucune erreur dans leurs journaux ;
+  - la route neuve répond 401 sans session (une route inconnue, 404) ; fumée bonne, fiches OAuth conformes,
+    `META_SOLUTION_ID` intacte ; fiches d'aide inchangées, rien à recharger.
+
 ## 2026-11-09 : « Phone call », pas « Text message », pour un numéro fourni (aide à la connexion, lot 2c)
 
 Demande de Julien, le même soir : « il faut lourdement insister » pour que la personne qui nous achète un numéro
@@ -60,7 +97,9 @@ Accord de Julien (« ok avance ») pour les jaunes 1 à 4 de la relecture du lot
   (lot 1 bis, emporté avec l'accord de sa session et celui de Julien) : `0284_inbox_hubspot_entrees.sql ... ok`,
   `0285_numero_par_la_ligne.sql ... ok` à 20:04:26 UTC, avant la bascule de l'API. La relecture en base passe par la
   sonde `docs/prive/credit-whatsapp/sonde-0285.mjs`, lancée par Julien (le garde-fou du mode auto la refuse à Claude) :
-  sa première exécution, partie juste après l'approbation et avant l'étape de migration, a rendu 42703 sans conséquence.
+  sa première exécution, partie juste après l'approbation et avant l'étape de migration, a rendu 42703 sans conséquence ;
+  relancée le même soir, elle a relu 0285 appliquée, `par_la_ligne_le` en timestamptz nullable sans défaut, aucune
+  marque, et les douze numéros par le vrai code `numerosDeLEspace`, sans erreur.
 - **La relecture du lot** : un 🔴, corrigé avant tout déploiement (`2d9943e8`). La marque ne disparaissait qu'avec le
   numéro : une ligne retirée laissait l'Entreprise « en attente » pour toujours, et `creditPaieMeta` taisait « Ajoutez
   votre carte chez Meta » alors que Meta bloquait ses envois. Ses tests unitaires sont vus rouges sur l'ancien
