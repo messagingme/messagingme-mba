@@ -37,16 +37,18 @@ retard de prélèvement. `GET /credit-whatsapp/etat` garde sa forme ; la vue de 
 
 ### V1. La règle de l'essai
 
-- [ ] `optionPrenable` (`src/offres/formule-payee.ts`) : vraie pour un Pro actif (essai compris, fin programmée ou non,
+- [x] `optionPrenable` (`src/offres/formule-payee.ts`) : vraie pour un Pro actif (essai compris, fin programmée ou non,
   jamais en retard ni fini) et pour un Business confirmé (`formulePayee`) ; jamais une Free ni une Entreprise. Tests :
   chaque cas, dont l'essai avec une fin programmée.
-- [ ] La prise (`ouvrirOption`) et l'état des cartes (`etatLigneCredit`) lisent `optionPrenable` : un Pro en essai prend
+- [x] La prise (`ouvrirOption`) et l'état des cartes (`etatLigneCredit`) lisent `optionPrenable` : un Pro en essai prend
   l'option et lit `a_prendre`. Le refus `option_apres_essai` ne vaut plus que pour un Business en essai, son texte le
   dit ; `formule_en_retard` est inchangé. Tests : la prise d'un Pro en essai, d'un Pro en essai à fin programmée, d'un
   Business en essai (refusée), d'un Pro en retard (refusée) ; l'état de chacun.
-- [ ] La vue de l'onglet gagne `option.prisePossible` ; la reprise après un arrêt (`repriseOuverte`) suit la même règle.
+- [x] La vue de l'onglet gagne `option.prisePossible` ; la reprise après un arrêt (`repriseOuverte`) suit la même règle.
   Tests : la vue, la reprise d'un Pro en essai.
-- [ ] Le câblage (`src/index.ts`, bloc de l'option) épinglé ; le manuel (`documentation.md`) et le journal.
+- [x] Le câblage (`src/index.ts`, bloc de l'option) épinglé ; le manuel (`documentation.md`) et le journal.
+
+Livré par `ea6979ff`, relu (§ « La relecture du lot V1 »).
 
 ### V2. Le numéro fourni par la fenêtre du partenaire
 
@@ -63,10 +65,14 @@ retard de prélèvement. `GET /credit-whatsapp/etat` garde sa forme ; la vue de 
 - [ ] La liste à Julien : `STRIPE_PRIX_OPTION_WA` (il ouvre l'onglet à tous les Pro et Business), la quantité fermée dans
   le portail de Stripe, puis pour 4b la clé restreinte élargie aux factures et les secrets Stripe du worker ; les jaunes
   « avant la vente » des lots B et C.
+- [ ] Trois préalables venus de la relecture de V1 (jaunes 2 à 4) : la console qui lit `option.prisePossible` est en
+  production ; le numéro d'essai déjà connecté a sa réponse (le lot D, ou une décision de Julien) ; le texte de l'e-mail
+  du paiement refusé de la formule Pro, qui doit parler de l'option, soumis à Julien.
 
-### V5. Les jaunes de la relecture du lot E7
+### V5. Les jaunes des relectures du lot E7 et de V1
 
-- [ ] Les sept, au plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md` (§ « La relecture du lot E7 »).
+- [ ] Les sept du lot E7, au plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md` (§ « La relecture du lot E7 »).
+- [ ] Les jaunes 1, 5 et 6 de V1 (§ « La relecture du lot V1 »).
 
 ## Ordre de déploiement
 
@@ -83,3 +89,29 @@ ce que le serveur refuse. TDD.
 **Essai réel** : à l'ouverture de la vente, sur un espace Pro de TEST dans ses 14 jours, l'option se prend depuis la
 carte, se paie, la fenêtre du partenaire s'ouvre et connecte un numéro ; la carte lit `a_prendre`, puis `en_attente`,
 puis `active` à la pose.
+
+## La relecture du lot V1 (2026-11-10)
+
+Un relecteur indépendant, sur le diff de `ea6979ff` : **aucun rouge, six jaunes**. V1 part tel quel ; chaque jaune va au
+lot qui le porte.
+
+1. **L'e-mail de la conversion pendant l'essai** (`signalerConversionDuPro`). Un espace Pro en essai sans option lit
+   désormais `a_prendre`, la garde de l'e-mail, et sa fenêtre de 25 jours se compte depuis la fin de l'essai, dans le
+   futur pendant l'essai : rien ne l'arrête. Aucun chemin ne l'appelle aujourd'hui pendant un essai (la facture à 0 €
+   n'est pas une période payée, la mise à jour ne vaut que pour un abonnement `active`), mais la garde ne doit pas
+   reposer sur Stripe : sortir quand `depuis` est dans le futur, et le cas du test devient un espace Pro en essai. V5.
+2. **La console qui lit `prisePossible`, en production AVANT le prix.** Tant que l'onglet décide sur `formulePayee`, un
+   espace Pro en essai lirait « Prendre l'option » sur les cartes et le bandeau, et l'onglet lui proposerait de démarrer
+   la formule Pro tout de suite (49 € HT prélevés). `prisePossible` se combine avec `option.disponible` et l'absence
+   d'option vivante : contrat précisé à la session de l'aide à la connexion le même jour, qui l'a pris. V4.
+3. **Le numéro d'essai déjà connecté.** La fenêtre du partenaire se ferme dès qu'un numéro est rattaché : un espace Pro
+   qui a connecté son numéro en direct (sa carte chez Meta), puis prend l'option, reste en `en_attente` sans fenêtre.
+   Le lot D (la migration du numéro) ou une décision de Julien, avant le prix. V4.
+4. **L'e-mail du paiement refusé de la formule Pro** (`paiement_refuse_pro`) ne dit pas que l'option s'arrêtera avec la
+   formule : un texte à soumettre à Julien, avant le prix. V4.
+5. **La vue de l'onglet lit la formule deux fois** (`formulePayee` puis `prisePossible`, chacune par `formuleDe`) : une
+   seule lecture suffit. V5.
+6. **Des commentaires et des passages écrits avant V1** : deux passages de `documentation.md` sur la règle de la prise,
+   l'onglet dans `features.md`, des commentaires de `fenetre-partenaire.ts`, `index.ts` et `gestion-pro.ts`, l'en-tête
+   de `formule-payee.test.ts` et un commentaire de `webhook-pro.test.ts` ; la JSDoc de `prisePossible` doit dire qu'il se
+   combine avec `disponible` et l'absence d'option vivante. V5.
