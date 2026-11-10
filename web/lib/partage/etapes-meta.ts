@@ -22,38 +22,55 @@ export const WHATSAPP_ORDINAIRE: { readonly fr: string; readonly en: string } = 
     + 'over that number, with your chats.',
 };
 
-/** Avant de connecter un numéro. */
+/**
+ * Avant de connecter un numéro. 🔴 LUES PAR POSITION, ET C'EST UN CONTRAT : la console (`ParcoursNumero`) montre [0]
+ * en gardant l'application, [0] et [1] au numéro fourni, tout au numéro apporté ; Claude (`start_whatsapp_connection`)
+ * dit [0] et [1] au numéro fourni, tout au numéro apporté ; les tests visent [2], le numéro. Les reprennent EN ENTIER la
+ * FAQ du plugin (`compte-meta`), le guide « compte Meta Business » de la vitrine (`scripts/vitrine/guide-meta.ts`) et la
+ * fiche `ce-qu-il-faut-chez-meta` ; `PREREQUIS_LIGNE` (`web/lib/questions-numero.ts`) en est la version sans carte. Une
+ * condition ajoutée, retirée ou déplacée change ce que chaque chemin montre : relire tous ces lecteurs avant.
+ *
+ * Réécrites au lot 4a-3 de l'aide à la connexion (spec, « Ce qu'il faut chez Meta, réécrite ») : plus de « portefeuille »
+ * sans explication. Le compte Meta Business est l'ancien Business Manager, que Meta appelle « portefeuille business »
+ * dans ses écrans ; on y entre par Facebook ([0]), il se crée en chemin ([1]) ; le téléphone sert au numéro qui reçoit
+ * le code ([2]), jamais au numéro fourni. En gardant l'application, la console ne montre que [0] et Claude ne lit aucune
+ * condition : le téléphone s'y dit par les étapes de la fenêtre (`ETAPES_FENETRE_GARDER`, le code QR). L'après, la
+ * carte, est `ETAPES_CARTE_META`.
+ */
 export const PREREQUIS_META: ReadonlyArray<{ fr: string; en: string }> = [
   {
-    fr: 'Un compte Meta Business, c’est-à-dire un portefeuille d’entreprise (l’ancien Business Manager) : c’est lui qui '
-      + 'portera votre compte WhatsApp, votre numéro et votre carte. Vous y entrez avec votre profil Facebook, ou avec '
-      + 'un compte Meta géré par votre organisation.',
-    en: 'A Meta Business account, that is a business portfolio (formerly Business Manager): it will hold your WhatsApp '
-      + 'account, your number and your card. You sign in with your Facebook profile, or with a managed Meta account from '
-      + 'your organization.',
+    fr: 'Un compte Meta Business : l’ancien Business Manager, que Meta appelle aujourd’hui « portefeuille business » '
+      + 'dans ses écrans. C’est lui qui portera votre compte WhatsApp, votre numéro et votre carte. Vous y entrez avec '
+      + 'votre profil Facebook, ou avec un compte Meta géré par votre organisation.',
+    en: 'A Meta Business account: formerly Business Manager, which Meta now calls a “business portfolio” in its screens. '
+      + 'It will hold your WhatsApp account, your number and your card. You sign in with your Facebook profile, or with '
+      + 'a managed Meta account from your organization.',
   },
   {
     // Mesuré à l'essai 161 (2026-10-25) : la fenêtre de Meta fait créer le portefeuille en chemin (« Créez un
     // portefeuille business » : nom, e-mail, pays, site), puis propose « Ajouter un moyen de paiement ».
-    fr: 'Pas encore de portefeuille ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre '
-      + 'profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen '
-      + 'de paiement. Vous pouvez aussi le créer avant, sur business.facebook.com : ouvrez le menu sous « Accueil » en '
-      + 'haut à gauche, puis créez un portefeuille business.',
-    en: 'No portfolio yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook profile '
-      + '(your business name, an email address, the country and the website), then offers a payment method. You can '
-      + 'also create it beforehand on business.facebook.com: open the menu under “Home” at the top left, then create a '
-      + 'business portfolio.',
+    fr: 'Pas encore de compte Meta Business ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec '
+      + 'votre profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un '
+      + 'moyen de paiement. Vous pouvez aussi le créer avant, sur business.facebook.com : ouvrez le menu sous « Accueil » '
+      + 'en haut à gauche, puis créez un portefeuille business.',
+    en: 'No Meta Business account yet? Nothing to prepare: Meta’s window has you create it along the way, with your '
+      + 'Facebook profile (your business name, an email address, the country and the website), then offers a payment '
+      + 'method. You can also create it beforehand on business.facebook.com: open the menu under “Home” at the top left, '
+      + 'then create a business portfolio.',
   },
   {
     // Le numéro de l'application WhatsApp Business peut y rester (la coexistence de Meta, en production depuis le
     // 2026-10-25) : c'est le bouton de la page, `COEXISTENCE_BOUTON` (`web/lib/fenetre-meta.ts`), dont le nom est cité.
     // Celui de WhatsApp ordinaire y passe d'abord (lot 3a) : le numéro fourni ne vaut que SANS numéro, jamais pour un
-    // numéro qui sert dans WhatsApp.
+    // numéro qui sert dans WhatsApp. Le téléphone (4a-3) : Meta envoie le code au numéro apporté comme à celui de
+    // l'application (`CODE_VERIFICATION_FOURNI`, `ETAPES_FENETRE_GARDER`) ; au numéro fourni, il s'affiche sur la page.
     fr: 'Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, '
-      + `qui y reste avec « Garder mon application WhatsApp Business ». ${WHATSAPP_ORDINAIRE.fr} Sans numéro, nous vous en `
-      + 'fournissons un.',
+      + `qui y reste avec « Garder mon application WhatsApp Business ». ${WHATSAPP_ORDINAIRE.fr} Meta envoie un code à `
+      + 'votre numéro, par SMS ou par appel : gardez à portée de main le téléphone qui le porte. Sans numéro, nous vous '
+      + 'en fournissons un.',
     en: 'A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it '
-      + `with “Keep my WhatsApp Business app”. ${WHATSAPP_ORDINAIRE.en} No number? We provide one.`,
+      + `with “Keep my WhatsApp Business app”. ${WHATSAPP_ORDINAIRE.en} Meta sends a code to your number, by text message `
+      + 'or phone call: keep the phone that holds it at hand. No number? We provide one.',
   },
 ];
 

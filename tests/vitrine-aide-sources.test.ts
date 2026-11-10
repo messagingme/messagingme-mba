@@ -60,9 +60,8 @@ describe('les pages du centre composées de sources', () => {
     });
 
     it(`🔴 ${langue} : qui paie Meta ne se dit jamais sans le Crédit WhatsApp, sur ces pages qui le proposent ou y mènent`, () => {
-      // Rouge de la relecture du lot : la réponse « que facture Meta » de la FAQ dit que Meta facture toujours
-      // l'entreprise et que Messaging Me ne touche pas à ces frais, faux avec le Crédit WhatsApp que « Payer Meta »
-      // propose. Ni dans le texte, ni dans la description que lisent les moteurs.
+      // Rouge de la relecture du lot 4a-2 : « Meta facture toujours l'entreprise » est faux avec le Crédit WhatsApp, que
+      // « Payer Meta » propose. Ni dans le texte, ni dans la description que lisent les moteurs.
       const toujoursLEntreprise = /ne touche pas à ces frais|never touches these fees|Meta facture directement votre entreprise|Meta bills your business directly|Meta facture vos messages à votre entreprise|Meta bills your messages to your business/;
       for (const p of PAGES_SOURCES) expect(plat(lire(p.adresse[langue])), p.cle).not.toMatch(toujoursLEntreprise);
       // Et « Payer Meta » dit l'exception là où elle dit qui paie : la source la porte, la page la reprend.

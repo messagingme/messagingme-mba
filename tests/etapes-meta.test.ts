@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { ETAPES_CARTE_META, PREREQUIS_META, WHATSAPP_ORDINAIRE } from '../web/lib/partage/etapes-meta';
+import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, PREREQUIS_META, WHATSAPP_ORDINAIRE } from '../web/lib/partage/etapes-meta';
+import { FAQ } from '../scripts/plugin/faq';
+import { PREREQUIS_LIGNE } from '../web/lib/questions-numero';
+import { blocGuideMeta } from '../scripts/vitrine/guide-meta';
 import { etatMiseEnService, type LecturesMiseEnService } from '../src/mcp/mise-en-service';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import { signLienNumero } from '../src/auth/token';
@@ -59,6 +62,58 @@ describe('ce qu’il faut chez Meta', () => {
     // L'ancienne phrase envoyait vers un numéro fourni tout numéro qui sert dans WhatsApp : il ne vaut que SANS numéro.
     expect(numero.fr).not.toMatch(/Pas de numéro libre/);
     expect(numero.en).not.toMatch(/No spare number/);
+  });
+
+  it('🔴 le portefeuille s’explique une fois, et le téléphone ne sert qu’au numéro qui reçoit le code (lot 4a-3)', () => {
+    // La spec : plus de « portefeuille » sans explication. Il se nomme dans [0], comme Meta l'appelle dans ses écrans.
+    expect(PREREQUIS_META[0]!.fr).toContain('l’ancien Business Manager, que Meta appelle aujourd’hui « portefeuille business »');
+    expect(PREREQUIS_META[0]!.en).toContain('formerly Business Manager, which Meta now calls a “business portfolio”');
+    expect(PREREQUIS_META[1]!.fr).not.toMatch(/^Pas encore de portefeuille/);
+    // Le téléphone vit dans [2], le numéro : la console et Claude ne le disent jamais au numéro fourni ([0] et [1]), dont
+    // le code s'affiche sur la page.
+    expect(PREREQUIS_META[2]!.fr).toContain('le téléphone qui le porte');
+    expect(PREREQUIS_META[2]!.en).toContain('the phone that holds it');
+    expect(PREREQUIS_META.slice(0, 2).map((e) => `${e.fr} ${e.en}`).join(' ')).not.toMatch(/téléphone|phone/);
+  });
+
+  it('🔴 qui paie Meta ne se dit nulle part sans le Crédit WhatsApp (rouge de la relecture du lot 4a-2)', () => {
+    // « Meta facture directement votre entreprise », « Messaging Me ne touche pas à ces frais » : faux avec le Crédit
+    // WhatsApp, qui prépaie ces frais chez Messaging Me. Ici, ce que lisent Claude (la FAQ, les prérequis, qui paie), la
+    // console, la fiche et le guide « compte Meta » ; les cas d'usage et les tarifs de la vitrine, qui parlent de la carte
+    // par défaut, se reprennent avec le lot 3v-2.
+    const faux = /ne touche pas à ces frais|never touches these fees|facture directement votre entreprise|bills your business directly|bills the business directly|facture votre entreprise directement/;
+    const plat = (t: string): string => t.replace(/\s+/g, ' ');
+    const lire = (f: string): string => plat(readFileSync(f, 'utf8'));
+    // Les skills du plugin comprises : `regles-whatsapp` est celle que Claude charge pour « que coûte un message »
+    // (rouge de la relecture du lot 4a-3, qu'un corpus sans elles ne voyait pas).
+    const skills = readdirSync('plugin/skills').map((s) => `plugin/skills/${s}/SKILL.md`);
+    const textes = [
+      ...FAQ.flatMap((e) => [e.reponse.fr, e.reponse.en]),
+      ...[...PREREQUIS_META, ...PREREQUIS_LIGNE, ...ETAPES_CARTE_META, CE_QUI_EST_FACTURE.api, CE_QUI_EST_FACTURE.application].flatMap((e) => [e.fr, e.en]),
+      ...['docs/aide/fiches/ce-qu-il-faut-chez-meta.md', 'docs/aide/fiches/en/ce-qu-il-faut-chez-meta.md', 'plugin/README.md', ...skills].map(lire),
+      blocGuideMeta('fr'), blocGuideMeta('en'),
+    ];
+    expect(skills.length).toBeGreaterThan(3);
+    for (const t of textes) expect(plat(t)).not.toMatch(faux);
+    // Et chaque texte qui dit qui paie Meta nomme l'exception, dans sa langue.
+    const meta = FAQ.find((e) => e.id === 'ce-que-meta-facture')!;
+    const exception = { fr: 'sauf avec le Crédit WhatsApp', en: 'except with WhatsApp credit' };
+    const quiPaie: Array<[string, string, 'fr' | 'en']> = [
+      ['FAQ « que facture Meta »', meta.reponse.fr, 'fr'], ['FAQ « what Meta bills »', meta.reponse.en, 'en'],
+      ['fiche', lire('docs/aide/fiches/ce-qu-il-faut-chez-meta.md'), 'fr'], ['fiche en', lire('docs/aide/fiches/en/ce-qu-il-faut-chez-meta.md'), 'en'],
+      ['guide Meta', plat(blocGuideMeta('fr')), 'fr'], ['guide Meta en', plat(blocGuideMeta('en')), 'en'],
+      ['skill regles-whatsapp', lire('plugin/skills/regles-whatsapp/SKILL.md'), 'en'], ['README du plugin', lire('plugin/README.md'), 'en'],
+    ];
+    for (const [nom, t, langue] of quiPaie) expect(t, nom).toContain(exception[langue]);
+  });
+
+  it('🔴 la voie du Crédit WhatsApp (« Le vôtre ») dit les mêmes conditions, sans la carte (lot 4a-3)', () => {
+    // `PREREQUIS_LIGNE` est la version sans carte de [0] et [1] : même nom du compte, même question.
+    const premiere = (t: string): string => t.slice(0, t.indexOf('. '));
+    for (const langue of ['fr', 'en'] as const) {
+      expect(premiere(PREREQUIS_LIGNE[0]![langue]), langue).toBe(premiere(PREREQUIS_META[0]![langue]));
+      expect(PREREQUIS_META[1]![langue].startsWith(PREREQUIS_LIGNE[1]![langue].replace(/\.$/, '')), langue).toBe(true);
+    }
   });
 
   it('🔴 la fiche du bot d’aide reprend ces textes mot pour mot (elle ne peut pas importer la source)', () => {

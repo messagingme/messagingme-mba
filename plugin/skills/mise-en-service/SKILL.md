@@ -163,7 +163,8 @@ come back, and you will give them a new link. Never give a number of days (Meta 
 them to another way on your own.
 
 **The connection**, steps 1 to 4. The `consigne` of `start_whatsapp_connection` for `fourni` and `apporte` starts with
-what Meta requires (a Meta Business account, that is a business portfolio, which Meta's window can create, and for
+what Meta requires (a Meta Business account, formerly Business Manager, which Meta calls a business portfolio in its
+screens and its window can create, and for
 their own number one used in no WhatsApp app): relay it once, before the link.
 
 1. The mode the questions settled:

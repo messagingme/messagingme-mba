@@ -1,5 +1,5 @@
 ---
-description: Ce qu'il faut chez Meta pour brancher WhatsApp : un compte Meta Business, un portefeuille, un numéro, puis un moyen de paiement après la connexion.
+description: Ce qu'il faut chez Meta pour WhatsApp : avant, un compte Meta Business (il se crée en chemin) et un numéro ; après, la carte, sauf avec le Crédit WhatsApp.
 ecran: accueil
 source_section: Ce qu'il faut chez Meta (avant de connecter un numéro)
 source_empreinte: 6ae5ba
@@ -14,24 +14,39 @@ offre: non
 WhatsApp passe par Meta : votre compte WhatsApp, votre numéro et la facturation des messages vivent chez eux. Voici
 ce qu'il faut, dans l'ordre. La page « Connecter WhatsApp » et Claude vous disent exactement la même chose.
 
-**1. Un compte Meta Business.** Un compte Meta Business, c’est-à-dire un portefeuille d’entreprise (l’ancien
-Business Manager) : c’est lui qui portera votre compte WhatsApp, votre numéro et votre carte. Vous y entrez avec
-votre profil Facebook, ou avec un compte Meta géré par votre organisation.
+## Avant la connexion
 
-**2. Un portefeuille, s'il n'existe pas encore.** Il se crée en chemin, pendant la connexion de votre numéro.
+Vos identifiants Facebook, un compte Meta Business, qui se crée en chemin si vous n'en avez pas, et un numéro : le
+vôtre, ou un numéro que nous vous fournissons.
 
-Pas encore de portefeuille ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre
-profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen
-de paiement. Vous pouvez aussi le créer avant, sur business.facebook.com : ouvrez le menu sous « Accueil » en
-haut à gauche, puis créez un portefeuille business.
+**1. Un compte Meta Business.** Un compte Meta Business : l’ancien Business Manager, que Meta appelle aujourd’hui
+« portefeuille business » dans ses écrans. C’est lui qui portera votre compte WhatsApp, votre numéro et votre carte.
+Vous y entrez avec votre profil Facebook, ou avec un compte Meta géré par votre organisation.
 
-**3. Un numéro.** Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application
-WhatsApp Business, qui y reste avec « Garder mon application WhatsApp Business ». Votre numéro sert dans WhatsApp,
-l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce
-numéro, avec vos conversations. Sans numéro, nous vous en fournissons un.
+**2. Rien à préparer s'il n'existe pas encore.** Il se crée en chemin, pendant la connexion de votre numéro.
 
-**4. Juste après la connexion, la carte chez Meta.** Meta facture votre entreprise directement, pas Messaging Me :
-ajoutez votre carte dans votre portefeuille, comme suit.
+Pas encore de compte Meta Business ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre
+profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen de
+paiement. Vous pouvez aussi le créer avant, sur business.facebook.com : ouvrez le menu sous « Accueil » en haut à
+gauche, puis créez un portefeuille business.
+
+**3. Un numéro.** Le vôtre, avec le téléphone qui le porte, ou un numéro que nous vous fournissons, sans téléphone à
+prévoir.
+
+Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, qui
+y reste avec « Garder mon application WhatsApp Business ». Votre numéro sert dans WhatsApp, l’application ordinaire ?
+Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations.
+Meta envoie un code à votre numéro, par SMS ou par appel : gardez à portée de main le téléphone qui le porte. Sans
+numéro, nous vous en fournissons un.
+
+## Après la connexion
+
+Meta facture vos modèles, et les réponses au-delà de sa franchise mensuelle, sur la carte de votre compte Meta
+Business, sauf avec le Crédit WhatsApp, qui les prépaie chez Messaging Me. Avec l’application WhatsApp Business, c’est
+toujours la carte : le Crédit WhatsApp n’y est pas possible.
+
+**4. Poser votre carte, sauf avec le Crédit WhatsApp.** Juste après la connexion, ajoutez-la dans votre compte Meta
+Business, comme suit.
 
 - Sur business.facebook.com, ouvrez le Gestionnaire WhatsApp, page « Vue d’ensemble ».
 - Sur votre compte WhatsApp, cliquez sur les trois points, puis sur « Gérer les paramètres du compte ».

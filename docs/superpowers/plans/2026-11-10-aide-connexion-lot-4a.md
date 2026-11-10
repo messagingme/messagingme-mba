@@ -68,6 +68,14 @@ Chaque page : sa version anglaise, le plan du site, `llms.txt`, son fil d'Ariane
   y fait coller une demande propre à chaque chemin) : on ne l'invente pas (backlog, à mesurer).
 - **« Ce qu'il faut chez Meta » réécrite part dans un lot à elle (4a-3)** : elle change `PREREQUIS_META`, donc la console
   et Claude, et demande un déploiement de l'API, quand le reste de 4a-2 ne touche que la vitrine.
+- **4a-3 garde trois conditions, dans le même ordre** : la console et Claude lisent `PREREQUIS_META` par position. Le
+  compte Meta Business se nomme comme Meta l'écrit (« portefeuille business »), Facebook est dans [0], le téléphone dans
+  [2] avec le numéro (jamais dit au numéro fourni). `PREREQUIS_LIGNE`, sa version sans carte, suit la même écriture.
+- **Qui paie Meta se dit partout avec la franchise et l'exception du Crédit WhatsApp** (rouges des relectures de 4a-2 et
+  4a-3) : la FAQ du plugin, sa skill `regles-whatsapp` et son README, le guide « compte Meta Business », la fiche. Restent
+  hors du lot, au backlog : le guide « Pièges de Meta » de la console, les cas d'usage et les tarifs de la vitrine (3v-2).
+- **La page « compte Meta Business » des Développeurs reste** : la spec la voyait rediriger vers la fiche ; elle se génère
+  des mêmes textes (`guide-meta.ts`), ne double donc rien, et les liens déjà donnés vers elle continuent de servir.
 
 ## Trois livraisons
 
@@ -78,5 +86,7 @@ console et Claude : un déploiement de l'API).
 ## Ordre de déploiement
 
 4a-1 : la vitrine seule, par Vercel, puis `aide:charger` par Julien à la prochaine image de l'API (le bot y lit les fiches
-rangées). 4a-2 : la vitrine seule, par Vercel ; aucune fiche ne change, rien pour `aide:charger`. 4a-3 : l'API d'abord
-(`PREREQUIS_META`), puis la vitrine, puis `aide:charger`.
+rangées). 4a-2 : la vitrine seule, par Vercel ; aucune fiche ne change, rien pour `aide:charger`. 4a-3 : le push publie
+la console et la vitrine (Vercel) ; l'API suit aussitôt, pour que Claude dise les mêmes conditions que la console
+(`PREREQUIS_META` dans sa consigne ; les deux restent justes entre-temps, seule la tournure diffère), puis `aide:charger`
+(la fiche) et la publication du plugin 0.3.34 (sa FAQ, sa skill `regles-whatsapp`, son README), par Julien.

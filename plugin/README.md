@@ -196,8 +196,8 @@ remote server, the Messaging Me MCP server at `https://api.messagingme.app/mcp`.
   templates, AI agents, statistics. Actions that change your workspace (sending a message, activating an agent,
   opening a payment page) are marked as such, and payments always happen on Stripe's page, by you.
 - **Before you start.** A Messaging Me account (created during the setup). For the official API, a Facebook profile:
-  Meta's window offers to create your Meta business portfolio during the setup; messages that Meta bills are charged
-  by Meta to your WhatsApp Business account. To keep your WhatsApp Business app, the app on your phone.
+  Meta's window offers to create your Meta Business account (a business portfolio, in Meta's screens) during the setup;
+  messages that Meta bills are charged on its card, except with WhatsApp credit, prepaid at Messaging Me. To keep your WhatsApp Business app, the app on your phone.
 
 Messaging Me is published by Messaging Me SAS (SmartLink), Paris. Privacy policy:
 https://www.messagingme.fr/en/politique-de-confidentialite-messaging-me/. Terms of use: https://www.messagingme.fr/en/conditions-d-utilisation/. Support:

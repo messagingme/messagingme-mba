@@ -68,9 +68,10 @@ Meta keeps a received file only 7 days: download it as soon as it arrives if the
 
 ## Money
 
-- Meta bills the business directly, on the card of its Meta Business account, per delivered message: templates by
-  category, and replies within the 24-hour window beyond a monthly allowance. No Messaging Me plan, Free included,
-  includes these fees. Who pays and where to add the card: the `faq` skill.
+- Meta bills per delivered message: templates by category, and replies within the 24-hour window beyond a monthly
+  allowance. It bills them on the card of the business's Meta Business account, except with WhatsApp credit, prepaid at
+  Messaging Me (not possible with the WhatsApp Business app). No Messaging Me plan, Free included, includes these fees.
+  Who pays and where to add the card: the `faq` skill.
 - The price comes from a tool, never from memory: `list_templates` returns `prix_meta`, Meta's base price per delivered
   message for a recipient in France, for each category (`service` is a reply within the window), read from Meta's rate
   card in force (`grille_du`), in euros excluding tax; `create_template` returns the one of its category. Say it is

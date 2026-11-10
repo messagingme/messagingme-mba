@@ -1,30 +1,44 @@
 ---
-description: What you need at Meta to connect WhatsApp: a Meta Business account, a portfolio, a number, then a payment method after connecting.
+description: What you need at Meta to connect WhatsApp: before, a Meta Business account (created along the way) and a number; after, your card, except with WhatsApp credit.
 slug: what-you-need-at-meta
-traduit_de: d02812
+traduit_de: 714486
 ---
 # What you need at Meta, before and after connecting
 
 WhatsApp goes through Meta: your WhatsApp account, your number and the billing of messages live with them. Here is
 what you need, in order. The “Connect WhatsApp” page and Claude tell you exactly the same thing.
 
-**1. A Meta Business account.** A Meta Business account, that is a business portfolio (formerly Business Manager):
-it will hold your WhatsApp account, your number and your card. You sign in with your Facebook profile, or with a
-managed Meta account from your organization.
+## Before connecting
 
-**2. A portfolio, if you do not have one yet.** It is created along the way, while your number connects.
+Your Facebook login, a Meta Business account, created along the way if you do not have one, and a number: yours, or
+a number we provide.
 
-No portfolio yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook profile
-(your business name, an email address, the country and the website), then offers a payment method. You can also
-create it beforehand on business.facebook.com: open the menu under “Home” at the top left, then create a business
-portfolio.
+**1. A Meta Business account.** A Meta Business account: formerly Business Manager, which Meta now calls a “business
+portfolio” in its screens. It will hold your WhatsApp account, your number and your card. You sign in with your
+Facebook profile, or with a managed Meta account from your organization.
 
-**3. A number.** A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which
-stays in it with “Keep my WhatsApp Business app”. Is your number used in WhatsApp, the regular app? Install WhatsApp
-Business on the same phone: it offers to take over that number, with your chats. No number? We provide one.
+**2. Nothing to prepare if you do not have one yet.** It is created along the way, while your number connects.
 
-**4. Right after connecting, your card at Meta.** Meta bills your business directly, not Messaging Me: add your card
-to your portfolio, as follows.
+No Meta Business account yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook
+profile (your business name, an email address, the country and the website), then offers a payment method. You can
+also create it beforehand on business.facebook.com: open the menu under “Home” at the top left, then create a
+business portfolio.
+
+**3. A number.** Yours, with the phone that holds it, or a number we provide, with no phone needed.
+
+A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it with
+“Keep my WhatsApp Business app”. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the
+same phone: it offers to take over that number, with your chats. Meta sends a code to your number, by text message or
+phone call: keep the phone that holds it at hand. No number? We provide one.
+
+## After connecting
+
+Meta bills your templates, and replies beyond its monthly allowance, on the card of your Meta Business account,
+except with WhatsApp credit, which prepays them at Messaging Me. With the WhatsApp Business app, it is always the card:
+WhatsApp credit is not possible there.
+
+**4. Add your card, except with WhatsApp credit.** Right after connecting, add it to your Meta Business account, as
+follows.
 
 - On business.facebook.com, open WhatsApp Manager, “Overview” page.
 - On your WhatsApp account, click the three dots, then “Manage account settings”.

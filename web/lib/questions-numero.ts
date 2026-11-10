@@ -139,20 +139,21 @@ export const QUESTION_LIGNE_NUMERO = {
 /**
  * Avant la fenêtre du partenaire (« Le vôtre », lot 3v) : les conditions chez Meta de `PREREQUIS_META`, sans la carte que
  * la ligne remplace (jaune 4 de la relecture du lot 3v). La console seule les dit ; Claude n'a pas encore ce parcours.
+ * Même écriture que `PREREQUIS_META` (lot 4a-3) : `tests/etapes-meta.test.ts` tient leurs débuts égaux.
  */
 export const PREREQUIS_LIGNE: ReadonlyArray<Texte> = [
   {
-    fr: 'Un compte Meta Business, c’est-à-dire un portefeuille d’entreprise (l’ancien Business Manager) : c’est lui qui '
-      + 'portera votre compte WhatsApp et votre numéro, sans carte chez Meta. Vous y entrez avec votre profil Facebook, ou '
+    fr: 'Un compte Meta Business : l’ancien Business Manager, que Meta appelle aujourd’hui « portefeuille business » dans '
+      + 'ses écrans. C’est lui qui portera votre compte WhatsApp et votre numéro, sans carte chez Meta. Vous y entrez avec votre profil Facebook, ou '
       + 'avec un compte Meta géré par votre organisation.',
-    en: 'A Meta Business account, that is a business portfolio (formerly Business Manager): it will hold your WhatsApp '
-      + 'account and your number, with no card at Meta. You sign in with your Facebook profile, or with a managed Meta '
+    en: 'A Meta Business account: formerly Business Manager, which Meta now calls a “business portfolio” in its screens. '
+      + 'It will hold your WhatsApp account and your number, with no card at Meta. You sign in with your Facebook profile, or with a managed Meta '
       + 'account from your organization.',
   },
   {
-    fr: 'Pas encore de portefeuille ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre '
+    fr: 'Pas encore de compte Meta Business ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre '
       + 'profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site).',
-    en: 'No portfolio yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook profile '
+    en: 'No Meta Business account yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook profile '
       + '(your business name, an email address, the country and the website).',
   },
 ];

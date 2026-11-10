@@ -7,10 +7,9 @@
 // des sections et les chapeaux sont écrits ici. `tests/vitrine-aide-sources.test.ts` tient chaque citation égale à sa
 // source.
 //
-// 🔴 QUI FACTURE QUOI SE DIT PAR `CE_QUI_EST_FACTURE`, JAMAIS PAR LA RÉPONSE « que facture Meta » DE LA FAQ (rouge de la
-// relecture du lot, 2026-11-10). Celle-ci dit que Meta facture toujours l'entreprise et que Messaging Me ne touche pas à
-// ces frais : c'est faux avec le Crédit WhatsApp, que « Payer Meta » propose, et elle fait payer toutes les réponses quand
-// la console dit « au-delà de la franchise ». On n'en garde que ce qui reste vrai, le tarif que donne Claude.
+// 🔴 QUI FACTURE QUOI SE DIT PAR `CE_QUI_EST_FACTURE`, la seule source qui distingue le numéro passé par Messaging Me de
+// l'application gardée, avec la franchise et l'exception du Crédit WhatsApp (rouge de la relecture du lot 4a-2). De la
+// réponse « que facture Meta » de la FAQ, ces pages ne gardent que le tarif que donne Claude.
 import type { Rubrique } from '../../src/aide/fiches';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META } from '../../web/lib/partage/etapes-meta';
 import { NOTE_CARTE_APPLICATION, QUESTION_PAIEMENT } from '../../web/lib/questions-numero';

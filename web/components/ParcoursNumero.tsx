@@ -208,8 +208,9 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const boutonRetour = choixInitial === null
     ? <Bouton type="button" variante="discret" onClick={() => setChoix(null)}>{t('Retour', 'Back')}</Bouton>
     : null;
-  // En coexistence, le numéro RESTE dans l'application : le prérequis d'un numéro hors de l'application la contredirait,
-  // et le compte Meta Business, sa carte le dit elle-même, la fenêtre de Meta le crée en chemin. Reste ce qu'il est.
+  // En coexistence, le numéro RESTE dans l'application : la 3e condition (un numéro, le nôtre sinon) n'y apprend rien,
+  // et le compte Meta Business, sa carte le dit elle-même, la fenêtre de Meta le crée en chemin. Reste ce qu'il est ;
+  // le téléphone, qui scanne le code QR, se dit dans les étapes de la fenêtre (`ETAPES_FENETRE_GARDER`).
   // Le numéro fourni mis dans l'application y reste aussi : même chose. Au numéro fourni par la fenêtre de Meta, la
   // condition d'un numéro à soi n'a plus de sens : il vient d'en choisir un, comme Claude le tait (jaune 10 du lot 3a).
   // Par la fenêtre du partenaire (lot 3v), ni carte ni moyen de paiement : les mêmes conditions sans eux.
