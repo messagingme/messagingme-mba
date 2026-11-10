@@ -4683,20 +4683,29 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   son guide dans le même clic que la fenêtre, sans recharger la page (chaque voie porte sa connexion ; seule celle dont
   le bouton a ouvert la fenêtre en envoie la fin). Le crochet refuse d'ouvrir la fenêtre sans identifiant, jamais une connexion
   directe à sa place. `POST /embedded-signup/complete` reçoit `parLaLigne` (la trace d'audit `numero.connecte` le garde),
-  relit le droit (sans la condition « aucun numéro », et sans compter parmi les couverts le numéro qui vient d'arriver),
-  marque le numéro SEULEMENT quand l'alerte dit de poser (`phone_numbers.par_la_ligne_le`, migration 0285 : il attend sa
-  ligne) et alerte Julien (`connexionParLaLigne`). 🔴 Une ligne de l'espace posée depuis la marque l'éteint pour de bon :
-  retirée ensuite, l'Entreprise relit « sur demande » et le conseil de sa carte chez Meta (`numerosDeLEspace`,
-  `attendLigne` ; le rouge de la relecture du lot E5). Mesuré à l'essai réel 236 : le compte est bien partagé avec le partenaire, mais **sa ligne ne
-  s'attache pas d'elle-même** ; l'alerte dit donc de poser la ligne dans `/ops` tout de suite (un envoi refusé par Meta
-  faute de paiement rend sa provision) puis de demander l'attache au partenaire ; un compte déjà couvert par la ligne de
-  l'option, rien à poser ; sans droit, ne rien poser et demander au partenaire de ne rien attacher ; la fenêtre fermée chez
-  nous (variable vide, page restée ouverte) ou un droit illisible, l'alerte le dit. Une fin `parLaLigne` que notre serveur
-  refuse alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé. Une alerte que Telegram ne
-  reçoit pas se journalise (`alerte_fenetre_partenaire_perdue`) : celle de l'essai 236 n'est jamais arrivée. Une
-  Entreprise dont un numéro attend sa ligne lit `en_attente` (`etatLigneCredit`) :
-  la carte dit « Votre ligne s'ouvre sous 24 h ouvrées », l'Accueil et `get_setup_state` ne lui demandent pas sa carte
-  chez Meta (`creditPaieMeta`). La pose automatique attend la réponse du partenaire sur son mode d'attache.
+  relit le droit (sans la condition « aucun numéro », et sans compter parmi les couverts le numéro qui vient d'arriver)
+  et la ligne qui couvre déjà le compte, toute origine et tout espace (`ligneDuNumero`, la lecture de la pose de `/ops`),
+  puis alerte Julien (`connexionParLaLigne`). 🔴 **La ligne du partenaire ne s'attache pas d'elle-même** (mesuré à
+  l'essai réel 236) **et la nôtre se pose APRÈS son attache** (décision de Julien du 2026-11-09) : posée avant, la carte
+  dirait « payés par votre Crédit WhatsApp » pendant que Meta refuse les envois, et un compte qui a déjà sa carte chez
+  Meta paierait deux fois. L'alerte dit donc de demander l'attache au partenaire, puis de poser la ligne quand il la
+  confirme ; un compte déjà sur une ligne de l'espace, rien à poser ; sur celle d'un AUTRE espace, la retirer d'abord ; un
+  compte relié sans numéro, rien à poser (le numéro connecté ensuite par la fenêtre a sa propre alerte) ; sans droit, ne
+  rien poser et demander au partenaire de ne rien attacher ; la fenêtre fermée chez nous (variable vide, page restée
+  ouverte) ou un droit illisible, l'alerte le dit. Le numéro n'est marqué (`phone_numbers.par_la_ligne_le`, migration
+  0285 : il attend sa ligne) QUE quand une ligne est à poser. 🔴 Une ligne de l'espace posée depuis la marque l'éteint
+  pour de bon : retirée ensuite, l'Entreprise relit « sur demande » et le conseil de sa carte chez Meta
+  (`numerosDeLEspace`, `attendLigne`, requis dans les types ; le rouge de la relecture du lot E5). Ce prédicat est écrit
+  une fois (`ATTEND_LIGNE_SQL`, `src/credit-whatsapp/lignes.pg.ts`) et sert aussi la liste « En attente de leur ligne »
+  de la carte Crédit WhatsApp de `/ops` (`GET /ops/credit-whatsapp/en-attente`, tous espaces) : le geste à faire ne
+  dépend pas de Telegram. Une fin `parLaLigne` que notre serveur refuse, ou qu'une erreur interrompt (avant de remonter
+  en 500), alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé. Une alerte par espace et par
+  demi-heure (`RETENUE_ALERTE_REFUS_MS`, un verrou court ; le refus retenu se journalise), le compte cité seulement s'il
+  est fait de chiffres : la fin vient du navigateur. Une alerte que Telegram ne reçoit pas se journalise par son cas,
+  jamais par son texte, qui porte le numéro affiché (`alerte_fenetre_partenaire_perdue`). Une Entreprise dont un numéro
+  attend sa ligne lit `en_attente` (`etatLigneCredit`) : la carte dit « Votre ligne s'ouvre sous 24 h ouvrées »,
+  l'Accueil et `get_setup_state` ne lui demandent pas sa carte chez Meta (`creditPaieMeta`). La pose automatique attend
+  la réponse du partenaire sur son mode d'attache.
 - 🔴 **La conversion et l'arrêt dits au client** (révision du 2026-11-04, lot C). La conversion
   (`signalerConversion`, `src/credit-whatsapp/conversion.ts`) a trois appelants : le démarrage de la formule Pro avant la
   fin de son essai, APRÈS la fin notée en base ; `/ops`, au passage d'un Business à confirmé ; le webhook, par

@@ -208,3 +208,41 @@ Les huit jaunes, pour le lot suivant :
 
 
 **En production le 2026-11-09** : run 42688984174 (`2d9943e8`, `migration=avant`, 0284 de l'Inbox HubSpot et 0285 appliquées avant la bascule).
+
+### E6. Les huit jaunes du lot E5 (accord de Julien du 2026-11-09 : « Oui, enchaîne »)
+
+Deux décisions de Julien du même jour : **la ligne se pose APRÈS l'attache du partenaire** (jaune 1 : avant, Meta
+refuse les envois pendant que la carte dit « payés par votre Crédit WhatsApp », et un compte qui a déjà sa carte chez
+Meta paierait deux fois) ; **la liste dans `/ops`** (jaune 3 : le geste à faire ne dépend plus de Telegram), sans bouton
+d'essai Telegram ni lecture de Cockpit. Méthode : implémenteur par lot, TDD, puis une relecture indépendante du diff
+(l'alerte de la connexion, une route de `/ops` et l'état des cartes sont des chemins de production). Aucune migration.
+
+- [ ] Jaune 1, l'ordre des gestes : l'alerte d'un numéro à poser dit « demander au partenaire d'attacher sa ligne,
+  puis poser la nôtre quand il confirme l'attache, pas avant » ; la marque reste, l'Entreprise lit « Votre ligne s'ouvre
+  sous 24 h ouvrées. » jusqu'à la pose. Test : le texte.
+- [ ] Jaune 2, le refus forgé : une alerte de refus par espace et par demi-heure (verrou court jamais relâché, le refus
+  retenu journalisé) ; le compte n'est cité que s'il est fait de chiffres. Tests : deux refus, une alerte ; un compte
+  `waba-x` dit « inconnu » ; un verrou illisible alerte quand même.
+- [ ] Jaune 3, la liste : `GET /ops/credit-whatsapp/en-attente`, les numéros marqués sans ligne posée depuis, tous
+  espaces, par le MÊME prédicat que `numerosDeLEspace` (un fragment SQL écrit une fois) ; sa section dans la carte
+  Crédit WhatsApp de `/ops`, qui tolère une API sans la route. Tests : la route sous la garde de `/ops`, le prédicat en
+  intégration, l'e2e de la carte.
+- [ ] Jaune 4 : `attendLigne` requis dans les types (`SourcesEtatLigne`, la route de l'onglet) ; les fixtures le disent.
+- [ ] Jaune 5, la couverture toute origine : « déjà couvert » lit la ligne qui couvre le numéro (`ligneDuNumero`, une
+  ligne `ops` comprise) ; celle d'un AUTRE espace a son texte (la retirer dans `/ops` avant de poser) et marque le
+  numéro, qui attend sa ligne. Tests : une ligne `ops` de l'espace, une ligne d'un autre espace.
+- [ ] Jaune 6, le compte relié sans numéro : l'alerte ne dit plus de poser (rien à poser sans numéro) mais de demander
+  l'attache ; le numéro connecté ensuite par la fenêtre enverra sa propre alerte, connecté autrement il se pose à son
+  arrivée. Décidé : pas de marque au niveau du compte, une migration pour un cas rare (dans le parcours ordinaire, le
+  numéro arrive par la fenêtre, qui le marque). Test : le texte, et aucune marque.
+- [ ] Jaune 7, l'exception : une connexion par la fenêtre qui lève en route (le rattachement, le jeton, la trace)
+  alerte (« connexion INTERROMPUE ») avant de remonter en 500, sous la même retenue que le refus. Test : le rattachement
+  qui lève (la base), par la fenêtre et en connexion directe.
+- [ ] Jaune 8, le journal : une alerte perdue se journalise par son cas, jamais par son texte (le numéro affiché).
+  Test : le journal sans le numéro.
+
+**Ordre de déploiement** : l'API seule (`migration=aucune`) ; la carte de `/ops` part au push et dit la liste
+illisible le temps du déploiement.
+
+**Essai réel** : à la prochaine connexion par la fenêtre (un espace Entreprise de test SANS numéro), l'alerte dit de
+demander l'attache puis de poser, et le numéro figure dans la liste de `/ops` jusqu'à la pose.

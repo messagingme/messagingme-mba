@@ -86,7 +86,7 @@ describe('etatLigneCredit', () => {
 });
 
 describe('lireEtatLigne (les sources de la console et de Claude)', () => {
-  function sources(numeros: ReadonlyArray<{ attendLigne?: boolean }>): SourcesEtatLigne {
+  function sources(numeros: ReadonlyArray<{ attendLigne: boolean }>): SourcesEtatLigne {
     return {
       option: { offre: async () => 'entreprise', formulePayee: async () => false, options: { vivante: async () => null } },
       vue: { lignes: async () => [], numeros: async () => numeros.map((n) => ({ coexistence: false, delie: false, ...n })) },
@@ -96,7 +96,14 @@ describe('lireEtatLigne (les sources de la console et de Claude)', () => {
   it('🔴 une Entreprise dont un numéro est arrivé par la fenêtre du partenaire attend sa ligne : la carte ne dit plus « sur demande » (relecture du lot E, jaune 4)', async () => {
     expect(await lireEtatLigne(sources([{ attendLigne: false }, { attendLigne: true }]), 't1')).toBe('en_attente');
     expect(await lireEtatLigne(sources([{ attendLigne: false }]), 't1')).toBe('a_prendre');
-    expect(await lireEtatLigne(sources([{}]), 't1')).toBe('a_prendre');
     expect(await lireEtatLigne(sources([]), 't1')).toBe('a_prendre');
+  });
+
+  it('🔴 `attendLigne` est REQUIS : une source qui ne le rend pas ne compile plus, au lieu d’éteindre l’attente en silence (relecture du lot E5, jaune 4)', () => {
+    // Le cas qu'exerçait `sources([{}])` (un numéro sans le champ lu « n'attend pas ») est désormais refusé par le
+    // compilateur : rendu facultatif, cette directive deviendrait inutile et `tsc` échouerait.
+    // @ts-expect-error `attendLigne` manque
+    const sansAttente: SourcesEtatLigne['vue']['numeros'] = async () => [{ coexistence: false, delie: false }];
+    expect(typeof sansAttente).toBe('function');
   });
 });

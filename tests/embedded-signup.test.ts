@@ -167,6 +167,20 @@ describe('POST /embedded-signup/complete', () => {
     await directe.server.close();
   });
 
+  it('🔴 une fin par la fenêtre du partenaire qui LÈVE en route est signalée à Julien avant de remonter en 500 : le compte est peut-être partagé et relié à moitié (relecture du lot E5, jaune 7) ; une connexion directe, jamais', async () => {
+    // Le rattachement lève (la base) : la fenêtre a fini chez Meta, le partage s'est peut-être fait.
+    const enPanne = app({}, async () => { throw new Error('base indisponible'); });
+    const r = await enPanne.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: { ...BODY, parLaLigne: true } });
+    expect(r.statusCode).toBe(500);
+    expect(enPanne.cap.refusees).toEqual([{ tenantId: 't1', statut: 500, erreur: 'erreur interne', wabaId: 'waba-1' }]);
+    expect(enPanne.cap.parLaLigne).toEqual([]);
+    await enPanne.server.close();
+    const directe = app({}, async () => { throw new Error('base indisponible'); });
+    expect((await directe.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: BODY })).statusCode).toBe(500);
+    expect(directe.cap.refusees).toEqual([]);
+    await directe.server.close();
+  });
+
   it('numéro déjà CONNECTED : échange + link + subscribe + credentials, SANS register', async () => {
     const { server, cap } = app();
     const res = await server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: BODY });

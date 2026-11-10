@@ -43,9 +43,10 @@ export interface SourcesEtatLigne {
     lignes(tenantId: string): Promise<ReadonlyArray<{ arreteeLe: Date | string | null }>>;
     /**
      * Les numéros de l'espace, la même lecture que la route et `get_setup_state` (`tousGardentLApplication`) ;
-     * `attendLigne` : arrivé par la fenêtre du partenaire, aucune ligne posée depuis (`numerosDeLEspace`).
+     * `attendLigne` : arrivé par la fenêtre du partenaire, aucune ligne posée depuis (`numerosDeLEspace`). Requis
+     * (relecture du lot E5, jaune 4) : facultatif, une source qui ne le rendrait pas éteindrait l'attente en silence.
      */
-    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean; attendLigne?: boolean }>>;
+    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean; attendLigne: boolean }>>;
   };
 }
 
@@ -54,7 +55,7 @@ export function lireEtatLigne(s: SourcesEtatLigne, tenantId: string): Promise<Et
   return etatLigneCredit({
     offre: (t) => s.option.offre(t), formulePayee: (t) => s.option.formulePayee(t), lignes: (t) => s.vue.lignes(t),
     option: (t) => s.option.options.vivante(t),
-    numeroAttendSaLigne: async (t) => (await s.vue.numeros(t)).some((n) => n.attendLigne === true),
+    numeroAttendSaLigne: async (t) => (await s.vue.numeros(t)).some((n) => n.attendLigne),
   }, tenantId);
 }
 

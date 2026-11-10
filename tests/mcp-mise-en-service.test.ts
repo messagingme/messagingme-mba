@@ -201,7 +201,8 @@ describe('la lecture, sur des faux', () => {
           vue: {
             solde: async () => o.soldeWa ?? 0, conditions: async () => ({ openBar: o.illimite === true }),
             lignes: lu('lignes_credit', []),
-            numeros: lu('numeros_credit', o.numeros ?? []),
+            // Aucun numéro arrivé par la fenêtre du partenaire : l'hypothèse dite (`attendLigne` est requis).
+            numeros: lu('numeros_credit', (o.numeros ?? []).map((n) => ({ ...n, attendLigne: false }))),
           },
           // L'état de la ligne (lot B) : un Pro payé, son option seulement si le test la donne.
           option: {

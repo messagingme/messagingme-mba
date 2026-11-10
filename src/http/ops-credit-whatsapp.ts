@@ -6,7 +6,7 @@ import { lireGrilleCsv } from '../credit-whatsapp/grille-csv';
 import type { ChargementGrille, ResumeGrille } from '../credit-whatsapp/reglages.pg';
 import { prixClient, type GrilleMeta } from '../credit-whatsapp/grille';
 import { MARCHES_META } from '../credit-whatsapp/marches-meta';
-import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from '../credit-whatsapp/lignes.pg';
+import type { LigneCredit, NumeroDeLEspace, NumeroEnAttente, NumeroPourLaLigne } from '../credit-whatsapp/lignes.pg';
 import type { ProvisionVue } from '../credit-whatsapp/credit';
 import { makeTraceOps, type AuditSink } from '../audit/journal';
 import { estUuid } from './scope';
@@ -43,6 +43,11 @@ export interface OpsCreditWhatsappDeps {
     retirer(tenantId: string, phoneNumberId: string): Promise<boolean>;
     /** Les numéros couverts par les lignes `'option'`, rangés : ceux que comptent les places (`numerosCouvertsParOption`). */
     numerosCouvertsParOption(tenantId: string): Promise<string[]>;
+    /**
+     * Les numéros arrivés par la fenêtre du partenaire qui attendent leur ligne, tous espaces (relecture du lot E5,
+     * jaune 3) : le geste à faire ne dépend plus d'une alerte Telegram.
+     */
+    numerosEnAttenteDeLigne(): Promise<NumeroEnAttente[]>;
   };
   /**
    * L'option du Crédit WhatsApp (lot 4a, décision de Julien du 2026-11-03) : une pose pour un Pro ou un Business consomme
@@ -215,6 +220,15 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
     journaliser('warn', 'ops_commission_messages', { commissionPct: c.data.commissionPct, par, note });
     return reply.code(200).send({ commissionPct: c.data.commissionPct });
   });
+
+  /**
+   * Les numéros arrivés par la fenêtre du partenaire qui attendent leur ligne, TOUS ESPACES (relecture du lot E5, jaune 3 ;
+   * décision de Julien du 2026-11-09) : l'alerte de l'essai 236 s'est perdue, la liste reste. Délibérément transverse,
+   * comme toute `/ops`.
+   */
+  app.get('/ops/credit-whatsapp/en-attente', opts, async (_req, reply) => (
+    reply.code(200).send({ numeros: await deps.lignes.numerosEnAttenteDeLigne() })
+  ));
 
   app.get('/ops/credit-whatsapp/ligne/:tenantId', opts, async (req, reply) => {
     const { tenantId } = req.params as { tenantId: string };

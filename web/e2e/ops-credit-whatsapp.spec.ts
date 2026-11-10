@@ -38,7 +38,14 @@ const GRILLE = {
   ],
 };
 
-async function reglages(page: import('@playwright/test').Page, grille: typeof GRILLE | null) {
+/** Un numéro arrivé par la fenêtre du partenaire qui attend sa ligne (relecture du lot E5, jaune 3). */
+const EN_ATTENTE = {
+  tenantId: 't-essai', espace: 'Essai Dupont', phoneNumberId: '106540352242922', numero: '+44 1224 000000',
+  depuis: '2026-11-09T18:30:00.000Z',
+};
+
+/** `enAttente` : la liste des numéros qui attendent leur ligne ; `null`, une API d'avant la route (404). */
+async function reglages(page: import('@playwright/test').Page, grille: typeof GRILLE | null, enAttente: Array<typeof EN_ATTENTE> | null = []) {
   await page.addInitScript((s) => window.localStorage.setItem('mba.sessionOps', JSON.stringify(s)), SESSION_OPS);
   await page.route('**/api/backend/**', async (route) => {
     const chemin = route.request().url().split('?')[0]!;
@@ -47,6 +54,10 @@ async function reglages(page: import('@playwright/test').Page, grille: typeof GR
     if (chemin.endsWith('/ops/credit-whatsapp/grille')) {
       if (grille === null) return route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"inconnu"}' });
       return json(grille);
+    }
+    if (chemin.endsWith('/ops/credit-whatsapp/en-attente')) {
+      if (enAttente === null) return route.fulfill({ status: 404, contentType: 'application/json', body: '{"error":"inconnu"}' });
+      return json({ numeros: enAttente });
     }
     if (chemin.endsWith('/ops/overview')) return json({ tenants: [], daily: [], queues: [], worker: null });
     // Les cartes voisines se masquent d'elles-mêmes sans leur route.
@@ -85,6 +96,29 @@ test.describe('Ops : la grille de Meta, prix par prix', () => {
     await reglages(page, null);
     await expect(page.getByTestId('ops-grille-meta-prix-absente')).toBeVisible();
     await expect(page.getByTestId('ops-grille-meta-table')).toHaveCount(0);
+  });
+});
+
+test.describe('Ops : les numéros qui attendent leur ligne (relecture du lot E5, jaune 3 ; décision de Julien du 2026-11-09)', () => {
+  test('🔴 un numéro arrivé par la fenêtre du partenaire est listé avec son espace, son numéro, le jour de sa connexion, et le geste à faire dans l’ordre', async ({ page }) => {
+    // L'alerte Telegram de l'essai 236 s'est perdue : la liste reste, le geste ne dépend plus d'elle.
+    await reglages(page, GRILLE, [EN_ATTENTE]);
+    const liste = page.getByTestId('ops-credit-whatsapp-en-attente');
+    await expect(liste).toContainText('En attente de leur ligne');
+    await expect(liste).toContainText('quand il confirme l’attache, pas avant');
+    await expect(liste.getByTestId('ops-credit-whatsapp-en-attente-numero')).toHaveText('Essai Dupont : +44 1224 000000, connecté le 09/11/2026');
+  });
+
+  test('aucun numéro n’attend : la liste le dit', async ({ page }) => {
+    await reglages(page, GRILLE);
+    await expect(page.getByTestId('ops-credit-whatsapp-en-attente')).toContainText('Aucun numéro n’attend sa ligne.');
+    await expect(page.getByTestId('ops-credit-whatsapp-en-attente-numero')).toHaveCount(0);
+  });
+
+  test('une API d’avant la route : la liste se dit illisible, le reste de la carte demeure (la console part au push, l’API au déploiement)', async ({ page }) => {
+    await reglages(page, GRILLE, null);
+    await expect(page.getByTestId('ops-credit-whatsapp-en-attente-illisible')).toBeVisible();
+    await expect(page.getByTestId('ops-grille-meta-etat')).toBeVisible();
   });
 });
 

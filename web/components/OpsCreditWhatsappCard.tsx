@@ -6,7 +6,8 @@ import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
 import { OpsGrilleMeta } from '@/components/OpsGrilleMeta';
 import {
-  chargerGrilleMetaOps, lireReglagesCreditWhatsappOps, reglerCommissionMessagesOps, type ResumeGrilleMeta,
+  chargerGrilleMetaOps, lireNumerosEnAttenteOps, lireReglagesCreditWhatsappOps, reglerCommissionMessagesOps,
+  type NumeroEnAttenteOps, type ResumeGrilleMeta,
 } from '@/lib/api';
 
 /**
@@ -21,6 +22,57 @@ const champ = `mt-1 ${inputCls}`;
 
 function dateLisible(iso: string): string {
   return new Date(iso.length === 10 ? `${iso}T12:00:00Z` : iso).toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
+}
+
+/**
+ * LES NUMÉROS QUI ATTENDENT LEUR LIGNE (relecture du lot E5, jaune 3 ; décision de Julien du 2026-11-09) : arrivés par la
+ * fenêtre du partenaire, sans ligne posée depuis, tous espaces. Le geste (demander l'attache au partenaire, puis poser la
+ * ligne de l'espace quand il la confirme) ne dépend plus d'une alerte Telegram, qui peut se perdre (essai 236). Une API
+ * d'avant la route : la liste se dit illisible, le reste de la carte demeure.
+ */
+function EnAttenteDeLigne({ token }: { token: string }) {
+  const t = useT();
+  const [numeros, setNumeros] = useState<NumeroEnAttenteOps[] | null | undefined>(undefined);
+
+  useEffect(() => {
+    let vivant = true;
+    lireNumerosEnAttenteOps(token)
+      .then((r) => { if (vivant) setNumeros(r.numeros); })
+      .catch(() => { if (vivant) setNumeros(null); });
+    return () => { vivant = false; };
+  }, [token]);
+
+  return (
+    <div className="mt-4 rounded-carte border border-ink-200 p-3" data-testid="ops-credit-whatsapp-en-attente">
+      <h3 className="text-xs font-semibold text-ink-900">{t('En attente de leur ligne', 'Waiting for their line')}</h3>
+      <p className="mt-1 text-xs text-ink-500">
+        {t(
+          'Arrivés par la fenêtre du partenaire : lui demander d’attacher sa ligne de crédit, puis poser celle de l’espace (son lien « offre ») quand il confirme l’attache, pas avant.',
+          'Connected through the partner’s window: ask the partner to attach their credit line, then set the workspace’s line (its “plan” link) once they confirm, not before.',
+        )}
+      </p>
+      {numeros === null && (
+        <p className="mt-2 text-xs text-ink-500" data-testid="ops-credit-whatsapp-en-attente-illisible">
+          {t('Liste illisible : l’API n’a peut-être pas encore la route.', 'List unreadable: the API may not have the route yet.')}
+        </p>
+      )}
+      {numeros !== null && numeros !== undefined && numeros.length === 0 && (
+        <p className="mt-2 text-sm text-ink-900">{t('Aucun numéro n’attend sa ligne.', 'No number is waiting for its line.')}</p>
+      )}
+      {numeros !== null && numeros !== undefined && numeros.length > 0 && (
+        <ul className="mt-2 space-y-1 text-sm text-ink-900">
+          {numeros.map((n) => (
+            <li key={n.phoneNumberId} data-testid="ops-credit-whatsapp-en-attente-numero">
+              {t(
+                `${n.espace} : ${n.numero ?? n.phoneNumberId}, connecté le ${dateLisible(n.depuis)}`,
+                `${n.espace}: ${n.numero ?? n.phoneNumberId}, connected on ${dateLisible(n.depuis)}`,
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export function OpsCreditWhatsappCard({ token }: { token: string }) {
@@ -93,6 +145,8 @@ export function OpsCreditWhatsappCard({ token }: { token: string }) {
           'The price of a message on the credit line: Meta’s rate for the country and category, plus the commission. No number can go on the line without a rate card.',
         )}
       </p>
+
+      <EnAttenteDeLigne token={token} />
 
       <div className="mt-4 text-sm text-ink-900" data-testid="ops-grille-meta-etat">
         {grille === null

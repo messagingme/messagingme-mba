@@ -414,6 +414,26 @@ export function lireReglagesCreditWhatsappOps(sessionOps: string): Promise<{ gri
   return appelOps(sessionOps, '/ops/credit-whatsapp/reglages');
 }
 
+/** Un numéro arrivé par la fenêtre du partenaire qui attend sa ligne (`NumeroEnAttente`, `src/credit-whatsapp/lignes.pg.ts`). */
+export interface NumeroEnAttenteOps {
+  tenantId: string;
+  /** Le nom de l'espace. */
+  espace: string;
+  phoneNumberId: string;
+  /** Le numéro tel que Meta l'affiche ; `null` s'il ne l'a pas rendu. */
+  numero: string | null;
+  /** Le moment de la connexion par la fenêtre. */
+  depuis: string;
+}
+
+/**
+ * Les numéros arrivés par la fenêtre du partenaire qui attendent leur ligne, tous espaces (relecture du lot E5, jaune 3) :
+ * le geste à faire ne dépend plus d'une alerte Telegram. Une API d'avant la route rend 404.
+ */
+export function lireNumerosEnAttenteOps(sessionOps: string): Promise<{ numeros: NumeroEnAttenteOps[] }> {
+  return appelOps(sessionOps, '/ops/credit-whatsapp/en-attente');
+}
+
 /**
  * CHARGER LA GRILLE DE META : le fichier en euros que Meta publie, tel quel. Le serveur le lit, refuse un fichier faux
  * et nomme la ligne fautive ; `note` dit d'où vient le fichier.

@@ -92,7 +92,8 @@ function achat(o: {
       conditions: async () => ({ openBar: o.openBar ?? false, commissionPct: 5 }),
       lignes: async () => o.lignes ?? [ligne()],
       serie: async () => [{ jour: '2026-11-02', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
-      numeros: async () => o.numeros ?? [],
+      // Aucun numéro n'est arrivé par la fenêtre du partenaire : l'hypothèse dite, pas cachée (`attendLigne` est requis).
+      numeros: async () => (o.numeros ?? []).map((n) => ({ ...n, attendLigne: false })),
     },
     achat: {
       stripe: o.stripe === 'aucun' ? null : {

@@ -50,8 +50,9 @@ export interface CreditWhatsappRouteDeps {
     /**
      * Les numéros de l'espace : gardent-ils l'application WhatsApp Business (`tousGardentLApplication`, lot B) ? Et
      * `attendLigne` : arrivé par la fenêtre du partenaire sans ligne posée depuis, une Entreprise attend (`lireEtatLigne`).
+     * Requis (relecture du lot E5, jaune 4) : facultatif, une source qui ne le rendrait pas éteindrait l'attente en silence.
      */
-    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean; attendLigne?: boolean }>>;
+    numeros(tenantId: string): Promise<ReadonlyArray<{ coexistence: boolean; delie: boolean; attendLigne: boolean }>>;
   };
   /** L'option du Crédit WhatsApp (lot 4a) : la prendre, changer ses places, et ce que l'onglet en montre. */
   option: DepsOptionCredit;

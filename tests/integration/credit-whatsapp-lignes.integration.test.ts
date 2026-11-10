@@ -141,4 +141,30 @@ describe.skipIf(!url)('les numéros sur la ligne du Crédit WhatsApp (0264)', ()
     expect(await lignes.marquerParLaLigne(t, 'itest-cwa-pl-3')).toBe(true);
     expect((await lignes.numerosDeLEspace(t))[0]?.attendLigne).toBe(false);
   });
+
+  it('🔴 la liste de /ops lit le MÊME prédicat que l’état de l’espace : un numéro marqué sans ligne posée depuis, de tous les espaces, et rien d’autre (relecture du lot E5, jaune 3)', async () => {
+    const t = await espace();
+    const autre = await espace();
+    await numero(t, 'itest-cwa-att-1');
+    await numero(autre, 'itest-cwa-att-2');
+    // Jamais marqué : il n'attend rien, la liste ne le montre pas.
+    await numero(t, 'itest-cwa-att-3');
+    expect(await lignes.marquerParLaLigne(t, 'itest-cwa-att-1')).toBe(true);
+    expect(await lignes.marquerParLaLigne(autre, 'itest-cwa-att-2')).toBe(true);
+    // D'autres tests de la base laissent leurs propres numéros : seuls les nôtres comptent ici.
+    const nos = async () => (await lignes.numerosEnAttenteDeLigne())
+      .filter((n) => n.phoneNumberId.startsWith('itest-cwa-att-')).map((n) => [n.tenantId, n.phoneNumberId, n.espace, n.numero]);
+    expect(await nos()).toEqual([
+      [t, 'itest-cwa-att-1', 'credit-wa-lignes', '+33 6 00 00 00 00'], [autre, 'itest-cwa-att-2', 'credit-wa-lignes', '+33 6 00 00 00 00'],
+    ]);
+    // Une ligne posée depuis l'en sort, retirée ensuite comprise : la même extinction que l'état de l'espace.
+    expect(await lignes.poser(autre, 'itest-cwa-att-2', 'waba-itest-cwa-att-2', 'ops', 'essai')).toBe(true);
+    expect(await lignes.retirer(autre, 'itest-cwa-att-2')).toBe(true);
+    expect(await nos()).toEqual([[t, 'itest-cwa-att-1', 'credit-wa-lignes', '+33 6 00 00 00 00']]);
+    // La parité, numéro par numéro : la liste et l'état de l'espace disent la même chose.
+    const enAttente = new Set((await nos()).map(([, id]) => id));
+    for (const e of [t, autre]) {
+      for (const n of await lignes.numerosDeLEspace(e)) expect(n.attendLigne, n.phoneNumberId).toBe(enAttente.has(n.phoneNumberId));
+    }
+  });
 });

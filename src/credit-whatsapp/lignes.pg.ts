@@ -58,6 +58,34 @@ export interface NumeroDeLEspace extends NumeroPourLaLigne {
   attendLigne: boolean;
 }
 
+/**
+ * Un numéro arrivé par la fenêtre du partenaire qui attend sa ligne, tel que la liste de `/ops` le montre, tous espaces
+ * confondus (relecture du lot E5, jaune 3) : le geste à faire (demander l'attache au partenaire, puis poser la ligne)
+ * ne dépend plus d'une alerte Telegram, qui peut se perdre (essai 236).
+ */
+export interface NumeroEnAttente {
+  tenantId: string;
+  /** Le nom de l'espace. */
+  espace: string;
+  phoneNumberId: string;
+  /** Le numéro tel que Meta l'affiche ; `null` s'il ne l'a pas rendu. */
+  numero: string | null;
+  /** Le moment de la connexion par la fenêtre (la marque). */
+  depuis: string;
+}
+
+/**
+ * « Le numéro `p` attend sa ligne » : marqué par la fenêtre du partenaire, et AUCUNE ligne de son espace posée depuis,
+ * retirées comprises. Écrit UNE fois : l'état des cartes (`numerosDeLEspace`) et la liste de `/ops`
+ * (`numerosEnAttenteDeLigne`) disent la même chose de chaque numéro. `p` est l'alias de `phone_numbers` dans les deux.
+ */
+const ATTEND_LIGNE_SQL = `(p.par_la_ligne_le is not null and not exists (
+  select 1 from lignes_credit_whatsapp l where l.tenant_id = p.tenant_id and l.depuis >= p.par_la_ligne_le
+))`;
+
+/** La liste de `/ops` est bornée : au-delà, ce n'est plus une liste de gestes à faire, c'est une panne à lire en base. */
+const MAX_NUMEROS_EN_ATTENTE = 200;
+
 export class PgLignesCreditStore {
   private readonly cache = new Map<string, { lue: number; valeur: LigneCredit | null }>();
   /** Une lecture en vol par numéro : une rafale d'envois simultanés ne fait qu'une requête. */
@@ -162,10 +190,7 @@ export class PgLignesCreditStore {
     }>(
       // `attend_ligne` : marqué par la fenêtre du partenaire, et aucune ligne de l'espace posée depuis, retirées comprises.
       `select p.id, p.display_phone_number, p.verified_name, p.waba_id, coalesce(w.fournisseur, 'meta') as fournisseur,
-              p.coexistence, p.delie_le is not null as delie,
-              (p.par_la_ligne_le is not null and not exists (
-                 select 1 from lignes_credit_whatsapp l where l.tenant_id = p.tenant_id and l.depuis >= p.par_la_ligne_le
-              )) as attend_ligne
+              p.coexistence, p.delie_le is not null as delie, ${ATTEND_LIGNE_SQL} as attend_ligne
          from phone_numbers p left join waba_credentials w on w.waba_id = p.waba_id
         where p.tenant_id = $1 order by p.created_at, p.id`,
       [tenantId],
@@ -173,6 +198,27 @@ export class PgLignesCreditStore {
     return rows.map((r) => ({
       phoneNumberId: r.id, numero: r.display_phone_number, nom: r.verified_name, wabaId: r.waba_id,
       fournisseur: r.fournisseur, coexistence: r.coexistence, delie: r.delie, attendLigne: r.attend_ligne,
+    }));
+  }
+
+  /**
+   * Les numéros qui attendent leur ligne, TOUS ESPACES (la liste de `/ops`, délibérément transverse, relecture du lot E5,
+   * jaune 3), par le même prédicat que l'état des cartes, les plus anciens d'abord.
+   */
+  async numerosEnAttenteDeLigne(): Promise<NumeroEnAttente[]> {
+    const { rows } = await this.pool.query<{
+      tenant_id: string; nom: string; id: string; display_phone_number: string | null; par_la_ligne_le: Date;
+    }>(
+      `select p.tenant_id, t.name as nom, p.id, p.display_phone_number, p.par_la_ligne_le
+         from phone_numbers p join tenants t on t.id = p.tenant_id
+        where ${ATTEND_LIGNE_SQL}
+        order by p.par_la_ligne_le, p.id
+        limit $1`,
+      [MAX_NUMEROS_EN_ATTENTE],
+    );
+    return rows.map((r) => ({
+      tenantId: r.tenant_id, espace: r.nom, phoneNumberId: r.id, numero: r.display_phone_number,
+      depuis: r.par_la_ligne_le.toISOString(),
     }));
   }
 

@@ -4,7 +4,7 @@ import { FakeQueue } from './fake-queue';
 import type { OpsRouteDeps } from '../src/http/ops';
 import { placesApresPose, type OpsCreditWhatsappDeps } from '../src/http/ops-credit-whatsapp';
 import type { ChargementGrille, ResumeGrille } from '../src/credit-whatsapp/reglages.pg';
-import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from '../src/credit-whatsapp/lignes.pg';
+import type { LigneCredit, NumeroDeLEspace, NumeroEnAttente, NumeroPourLaLigne } from '../src/credit-whatsapp/lignes.pg';
 import type { ProvisionVue } from '../src/credit-whatsapp/credit';
 import { exploitationInerte, opsInerte } from './routes-inertes';
 import { accesOps, ADRESSE_OPS } from './acces-ops';
@@ -57,6 +57,7 @@ function app(
       lignesDeLEspace: async () => [],
       ligneDuNumero: async () => null,
       numerosCouvertsParOption: async () => [],
+      numerosEnAttenteDeLigne: async () => [],
       poser: async () => true,
       retirer: async () => true,
       ...lignes,
@@ -95,6 +96,30 @@ describe('GET /ops/credit-whatsapp/reglages', () => {
     const a = app({}, false);
     const res = await a.inject({ method: 'GET', url: '/ops/credit-whatsapp/reglages', ...withTok(OPS) });
     expect(res.statusCode).toBe(404);
+    await a.close();
+  });
+});
+
+describe('GET /ops/credit-whatsapp/en-attente (relecture du lot E5, jaune 3 ; décision de Julien du 2026-11-09)', () => {
+  const EN_ATTENTE: NumeroEnAttente[] = [{
+    tenantId: '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01', espace: 'Espace de test', phoneNumberId: '106540352242922',
+    numero: '+44 1224 000000', depuis: '2026-11-09T18:30:00.000Z',
+  }];
+
+  it('🔴 rend les numéros arrivés par la fenêtre du partenaire dont la ligne n’est pas posée, tous espaces : le geste à faire ne dépend plus de Telegram', async () => {
+    const a = app({}, true, { numerosEnAttenteDeLigne: async () => EN_ATTENTE });
+    const res = await a.inject({ method: 'GET', url: '/ops/credit-whatsapp/en-attente', ...withTok(OPS) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ numeros: EN_ATTENTE });
+    await a.close();
+  });
+
+  it('🔴 sans la session d’exploitation : refus avant toute lecture (la liste est délibérément de tous les espaces)', async () => {
+    let lu = false;
+    const a = app({}, true, { numerosEnAttenteDeLigne: async () => { lu = true; return []; } });
+    const res = await a.inject({ method: 'GET', url: '/ops/credit-whatsapp/en-attente' });
+    expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(lu).toBe(false);
     await a.close();
   });
 });

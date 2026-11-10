@@ -1100,6 +1100,10 @@ async function main(): Promise<void> {
     option: (tenant) => optionsCreditWhatsapp.vivante(tenant),
     numerosCouverts: (tenant) => lignesCreditWhatsapp.numerosCouvertsParOption(tenant),
     numerosRattaches: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).length,
+    // « Déjà couvert » toute origine, comme la pose de `/ops` (relecture du lot E5, jaune 5).
+    ligneDuNumero: (phoneNumberId) => lignesCreditWhatsapp.ligneDuNumero(phoneNumberId),
+    // Une alerte de refus par espace et par demi-heure, pour toutes les copies (relecture du lot E5, jaune 2).
+    verrous: verrousCourts,
     marquer: async (tenant, phoneNumberId) => { await lignesCreditWhatsapp.marquerParLaLigne(tenant, phoneNumberId); },
     // Ce que Telegram a répondu remonte : une alerte perdue se journalise (relecture du lot E, jaune 3 ; essai 236).
     alerter: (texte) => sendTelegram(`[mba-${NOM_API}] ${texte}`),

@@ -60,6 +60,10 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     // qu'une alerte perdue se journalise (relecture du lot E, jaune 3).
     expect(fenetre).toMatch(/marquer: async \(tenant, phoneNumberId\) => \{ await lignesCreditWhatsapp\.marquerParLaLigne\(tenant, phoneNumberId\); \},/);
     expect(fenetre).toMatch(/alerter: \(texte\) => sendTelegram\(`\[mba-\$\{NOM_API\}\] \$\{texte\}`\),/);
+    // « Déjà couvert » se lit comme la pose de `/ops` le lit, toute origine (relecture du lot E5, jaune 5), appelé sur son
+    // magasin ; la retenue d'une alerte de refus est partagée par les copies (jaune 2), jamais un verrou par processus.
+    expect(fenetre).toMatch(/ligneDuNumero: \(phoneNumberId\) => lignesCreditWhatsapp\.ligneDuNumero\(phoneNumberId\),/);
+    expect(fenetre).toMatch(/verrous: verrousCourts,/);
     expect(bloc('const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {', 'vue: {'))
       .toMatch(/fenetrePartenaire: async \(tenant\) => \(await solutionDuPartenaire\(fenetreDuPartenaire, tenant\)\) !== null,/);
     // L'état des cartes lit « attend sa ligne » sur la VRAIE liste des numéros (relecture du lot E5, jaune 4) : une source
