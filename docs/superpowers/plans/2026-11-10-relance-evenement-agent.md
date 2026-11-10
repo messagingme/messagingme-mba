@@ -36,12 +36,26 @@ s'ils montrent le même échec.
 
 Aucune migration. Une seule image : l'API et le worker partent ensemble, la file est créée au démarrage.
 
+## Lot 2 (même jour) : le filet « À traiter »
+
+Mesuré en production l'après-midi, sur la conversation de Julien : la relance part, et échoue aussi. Après des messages
+en texte libre de notre scénario (message rapide, bloc Question), Meta met en échec TOUT événement
+(`internal_server_error`), quel que soit son texte, même après un `release` et quatre minutes d'attente, jusqu'à ce que
+le client réécrive et que l'agent lui réponde. Huit mesures ; la cause est chez Meta et aucun geste de notre côté ne la
+contourne.
+
+Donc : un échec définitif (renvoi en échec ou refusé, cause qui ne passera pas mieux) fait passer la conversation à
+l'équipe, dans « À traiter » (`ControleDuFil.prendrePourLEquipe`, cause `CAUSE_FILET`), sous les mêmes trois gardes que
+le renvoi. Le premier échec passager se renvoie toujours d'abord. Tests : le filet sur chaque échec définitif, jamais
+quand quelqu'un a parlé, jamais au premier échec passager, un refus de Meta qui ne lève pas ; vérifié dans les deux sens.
+
 ## Méthode de livraison
 
 **Implémenteur par lot, puis revue humaine du diff**, parce que le lot touche un chemin que la production emprunte (la
 remise d'une conversation à l'agent de Meta) et peut faire écrire l'agent deux fois à un client si une garde est fausse.
 Une relecture indépendante en fin de lot, sur le diff.
 
-Essai réel qui clôt le lot : sur MUTAC, le scénario « devis » jusqu'au bloc Question, une question, puis lire dans les
+Essai réel qui clôt le lot 2 : le même parcours (message rapide, bloc Question, question) ; la conversation doit entrer
+dans « À traiter » environ 45 s après la question, avec la cause dans la frise. Essai réel qui clôt le lot 1 : sur MUTAC, le scénario « devis » jusqu'au bloc Question, une question, puis lire dans les
 journaux du worker la ligne `agent_event_issue` de l'événement (et, s'il échoue, celle de sa relance et la réponse de
 l'agent sur le téléphone).

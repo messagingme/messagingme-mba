@@ -630,6 +630,9 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     lireStatut: async (t, pn, id) => (await metaFactory.mbaClientForTenant(t)).agentEventStatut(pn, id, AbortSignal.timeout(10_000)),
     envoyer: async (t, pn, waId, ev) =>
       (await metaFactory.mbaClientForTenant(t)).agentEvent(pn, destinataireAgentEvent(waId), ev, AbortSignal.timeout(10_000)),
+    // Le filet d'un échec définitif : « À traiter ». Liaison tardive vers le fil, construit juste après ; elle ne sert
+    // qu'au job de la file, jamais pendant la construction.
+    passerALEquipe: (t, waId, cause) => fil.prendrePourLEquipe(t, waId, cause),
     inbox: inboxStore,
   };
 

@@ -15,6 +15,14 @@ Aucun rouge. À reprendre au prochain lot qui touche `src/mba/issue-evenement.ts
   dix secondes de traitement mesurées chez Meta.
 - **Les autres événements** (`reponse_hors_parcours`, `envoi_echoue`, `lien_de_test`) ne sont ni relus ni relancés : les
   brancher si les journaux `agent_event_issue` montrent le même échec sur eux.
+- **Le filet (lot 2) passe par `prendrePourLEquipe`, qui ne pose pas la marque d'escalade** : l'entrée dans « À traiter »
+  tient au dernier message entrant. Un sortant enregistré après la question du client (écho tardif, modèle d'un autre
+  chemin) laisserait le fil à l'équipe hors de la liste. Poser l'escalade, ou une variante dédiée du fil.
+- **Le filet n'a pas de garde `only: ['mba']`** : entre la relecture des gardes et l'écriture (un appel à Meta pour
+  retirer le contact), un scénario qui reprend le fil se le ferait retirer. Fenêtre d'une seconde environ.
+- **Le test « un filet que Meta refuse »** ne vérifie ni la ligne `agent_event_filet_refuse` ni l'absence de nouvel essai.
+- **Toute cause `failed` non passagère** (facturation absente, audience) met désormais le fil dans « À traiter » : une
+  panne de facturation chez Meta remplirait la liste. Voulu, à surveiller dans les journaux.
 
 ## 🟡 Le coût de l'IA complet : ce que la relecture du lot A laisse (plan `docs/superpowers/plans/2026-11-10-cout-ia-et-mba.md`)
 

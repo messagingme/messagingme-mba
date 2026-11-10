@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
-  programmerLecture, traiterIssueEvenement, DELAI_LECTURE_MS, LECTURES_MAX, type DepsIssueEvenement, type JobIssue,
+  programmerLecture, traiterIssueEvenement, CAUSE_FILET, DELAI_LECTURE_MS, LECTURES_MAX, type DepsIssueEvenement, type JobIssue,
 } from '../src/mba/issue-evenement';
 import { evenementMessageSansSuite, evenementHorsParcours, type EvenementAgent } from '../src/mba/evenement';
 
@@ -17,10 +17,11 @@ const MAINTENANT = new Date('2026-11-10T11:27:24Z');
 
 function faux(o: {
   statut?: unknown; lireLeve?: boolean; detenteur?: string; client?: string | null; agent?: string | null;
-  envoyerLeve?: boolean; programmerLeve?: boolean;
+  envoyerLeve?: boolean; programmerLeve?: boolean; equipeRefuse?: boolean;
 } = {}) {
   const programmes: Array<{ job: JobIssue; quand: Date }> = [];
   const envoyes: EvenementAgent[] = [];
+  const aLEquipe: Array<{ waId: string; cause: string }> = [];
   const deps: DepsIssueEvenement = {
     programmer: vi.fn(async (job: JobIssue, quand: Date) => {
       if (o.programmerLeve) throw new Error('file en panne');
@@ -35,6 +36,7 @@ function faux(o: {
       envoyes.push(ev);
       return { status: 'accepted', agent_event_id: 'evt-2' };
     }),
+    passerALEquipe: async (_t: string, waId: string, cause: string) => { aLEquipe.push({ waId, cause }); return o.equipeRefuse !== true; },
     inbox: {
       getControlOwner: async () => o.detenteur ?? 'mba',
       dernierMessageDuClient: async () => (o.client === undefined ? 'msg-client-1' : o.client),
@@ -42,7 +44,7 @@ function faux(o: {
     },
     maintenant: () => MAINTENANT,
   };
-  return { deps, programmes, envoyes };
+  return { deps, programmes, envoyes, aLEquipe };
 }
 
 const EVT = evenementMessageSansSuite('Est ce que il y a de la carence');
@@ -96,27 +98,43 @@ describe('traiterIssueEvenement : la lecture de l’issue', () => {
     expect(envoyes).toHaveLength(1);
   });
 
-  it('🔴 un renvoi qui échoue n’est jamais renvoyé', async () => {
-    const { deps, envoyes, programmes } = faux({ statut: { status: 'failed', error_message: 'internal_server_error' } });
+  it('🔴 un renvoi qui échoue n’est jamais renvoyé : la conversation passe à l’équipe (le filet)', async () => {
+    const { deps, envoyes, programmes, aLEquipe } = faux({ statut: { status: 'failed', error_message: 'internal_server_error' } });
     await traiterIssueEvenement(deps, job({ renvoi: true }));
     expect(envoyes).toEqual([]);
     expect(programmes).toEqual([]);
+    expect(aLEquipe).toEqual([{ waId: WA, cause: CAUSE_FILET }]);
   });
 
-  it('une cause qui ne passera pas mieux au second essai ne se renvoie pas', async () => {
+  it('le premier échec passager se renvoie, il ne passe PAS encore à l’équipe', async () => {
+    const { deps, aLEquipe } = faux({ statut: { status: 'failed', error_message: 'internal_server_error' } });
+    await traiterIssueEvenement(deps, job());
+    expect(aLEquipe).toEqual([]);
+  });
+
+  it('un filet que Meta refuse (contact gardé sur la liste) ne lève pas', async () => {
+    const { deps, aLEquipe } = faux({ statut: { status: 'failed', error_message: 'internal_server_error' }, equipeRefuse: true });
+    await expect(traiterIssueEvenement(deps, job({ renvoi: true }))).resolves.toBeUndefined();
+    expect(aLEquipe).toHaveLength(1);
+  });
+
+  it('une cause qui ne passera pas mieux au second essai ne se renvoie pas : elle passe à l’équipe', async () => {
     for (const cause of ['consumer_not_in_agent_audience', 'thread_not_owned_by_agent', 'event_content_rejected', 'billing_not_configured', undefined]) {
-      const { deps, envoyes } = faux({ statut: { status: 'failed', ...(cause ? { error_message: cause } : {}) } });
+      const { deps, envoyes, aLEquipe } = faux({ statut: { status: 'failed', ...(cause ? { error_message: cause } : {}) } });
       await traiterIssueEvenement(deps, job());
       expect(envoyes, String(cause)).toEqual([]);
+      expect(aLEquipe, String(cause)).toEqual([{ waId: WA, cause: CAUSE_FILET }]);
     }
   });
 
   it('🔴 les trois gardes : fil repris, client qui a réécrit, agent qui a parlé -> aucun renvoi', async () => {
     const echec = { status: 'failed', error_message: 'internal_server_error' };
     for (const o of [{ detenteur: 'app_human' }, { detenteur: 'app_workflow' }, { client: 'msg-client-2' }, { agent: 'msg-agent-2' }, { agent: null }]) {
-      const { deps, envoyes } = faux({ statut: echec, ...o });
+      const { deps, envoyes, aLEquipe } = faux({ statut: echec, ...o });
       await traiterIssueEvenement(deps, job());
       expect(envoyes, JSON.stringify(o)).toEqual([]);
+      // Quelqu'un a parlé, ou le fil n'est plus à l'agent : ni renvoi ni filet.
+      expect(aLEquipe, JSON.stringify(o)).toEqual([]);
     }
   });
 
@@ -128,10 +146,11 @@ describe('traiterIssueEvenement : la lecture de l’issue', () => {
 
   it('succès, envoi, saut : rien n’est renvoyé ni relu', async () => {
     for (const statut of [{ status: 'success' }, { status: 'sent' }, { status: 'skipped', skipped_reason: 'no_phone_settings' }]) {
-      const { deps, envoyes, programmes } = faux({ statut });
+      const { deps, envoyes, programmes, aLEquipe } = faux({ statut });
       await traiterIssueEvenement(deps, job());
       expect(envoyes).toEqual([]);
       expect(programmes).toEqual([]);
+      expect(aLEquipe).toEqual([]);
     }
   });
 
@@ -147,9 +166,10 @@ describe('traiterIssueEvenement : la lecture de l’issue', () => {
     }
   });
 
-  it('un renvoi refusé par Meta ne lève pas (un rejeu du job renverrait une seconde fois)', async () => {
-    const { deps } = faux({ statut: { status: 'failed', error_message: 'internal_server_error' }, envoyerLeve: true });
+  it('un renvoi refusé par Meta ne lève pas (un rejeu du job renverrait une seconde fois), et passe à l’équipe', async () => {
+    const { deps, aLEquipe } = faux({ statut: { status: 'failed', error_message: 'internal_server_error' }, envoyerLeve: true });
     await expect(traiterIssueEvenement(deps, job())).resolves.toBeUndefined();
+    expect(aLEquipe).toEqual([{ waId: WA, cause: CAUSE_FILET }]);
   });
 
   it('un job illisible ne fait rien', async () => {

@@ -14,7 +14,8 @@ import { TYPE_MESSAGE_SANS_SUITE, type EvenementAgent } from './evenement';
  * 🔴 LE RENVOI NE DOIT JAMAIS FAIRE ÉCRIRE L'AGENT DEUX FOIS. Trois gardes, relues juste avant : le fil est toujours à
  * l'agent (`mba`), le client n'a rien écrit depuis l'envoi (sinon l'agent répond à ce message-là), l'agent n'a rien
  * écrit depuis (sinon il a répondu malgré le statut). Les deux dernières comparent des IDENTIFIANTS de message relevés
- * à l'envoi, jamais deux horloges. Un renvoi est lui-même relu, mais jamais renvoyé.
+ * à l'envoi, jamais deux horloges. Un renvoi est lui-même relu, mais jamais renvoyé : son échec, comme une cause qui
+ * ne passera pas mieux, fait passer la conversation à l'équipe (le filet, `CAUSE_FILET`).
  */
 
 export const FILE_ISSUE_EVENEMENT = 'agent-evenement-issue';
@@ -58,6 +59,11 @@ export interface DepsIssueEvenement {
   lireStatut(tenantId: string, phoneNumberId: string, agentEventId: string): Promise<unknown>;
   /** Le `POST` de l'événement, brut. */
   envoyer(tenantId: string, phoneNumberId: string, waId: string, evenement: EvenementAgent): Promise<unknown>;
+  /**
+   * Le filet : passer la conversation à l'équipe, dans « À traiter » (`ControleDuFil.prendrePourLEquipe`). `false` :
+   * Meta a refusé de retirer le contact de la liste de son agent.
+   */
+  passerALEquipe(tenantId: string, waId: string, cause: string): Promise<boolean>;
   inbox: {
     getControlOwner(tenantId: string, waId: string): Promise<string>;
     dernierMessageDuClient(tenantId: string, waId: string): Promise<string | null>;
@@ -125,9 +131,9 @@ export async function traiterIssueEvenement(deps: DepsIssueEvenement, data: unkn
   if (status === 'request_received' || status === 'processing') return relire(deps, job, trace, status);
 
   journaliser(status === 'failed' ? 'warn' : 'info', 'agent_event_issue', { ...trace, status, cause: cause ?? null, raison: raison ?? null, lecture: job.lecture });
-  if (status !== 'failed' || job.renvoi || !CAUSES_PASSAGERES.has(cause ?? '')) return;
+  if (status !== 'failed') return;
 
-  // Les gardes, relues maintenant : un renvoi ne part que si personne n'a parlé depuis et que le fil est à l'agent.
+  // Les gardes, relues maintenant : ni renvoi ni filet si quelqu'un a parlé depuis ou que le fil n'est plus à l'agent.
   const [detenteur, dernierDuClient, dernierDeLAgent] = await Promise.all([
     deps.inbox.getControlOwner(job.tenantId, job.waId),
     deps.inbox.dernierMessageDuClient(job.tenantId, job.waId),
@@ -142,12 +148,33 @@ export async function traiterIssueEvenement(deps: DepsIssueEvenement, data: unkn
     return;
   }
 
+  if (!job.renvoi && CAUSES_PASSAGERES.has(cause ?? '')) {
+    try {
+      const reponse = await deps.envoyer(job.tenantId, job.phoneNumberId, job.waId, job.evenement);
+      journaliser('info', 'agent_event_renvoye', { ...trace });
+      await programmerLecture(deps, job.tenantId, job.phoneNumberId, job.waId, job.evenement, reponse, true);
+      return;
+    } catch (err) {
+      journaliser('error', 'agent_event_renvoi_refuse', { ...trace, err });
+    }
+  }
+  await filet(deps, job, trace);
+}
+
+/**
+ * L'échec est définitif (renvoi échoué ou refusé, cause qui ne passera pas mieux) : le client attend une réponse que
+ * l'agent ne donnera pas. Mesuré le 2026-11-10 sur MUTAC : après des messages en texte libre de notre scénario, Meta
+ * met en échec TOUT événement (`internal_server_error`), renvoi compris, jusqu'à ce que le client réécrive. La
+ * conversation passe donc à l'équipe, dans « À traiter », pour qu'un humain réponde. Ne lève pas.
+ */
+export const CAUSE_FILET = 'automatique : l’agent de Meta n’a pas pu répondre (échec chez Meta)';
+
+async function filet(deps: DepsIssueEvenement, job: JobIssue, trace: Record<string, unknown>): Promise<void> {
   try {
-    const reponse = await deps.envoyer(job.tenantId, job.phoneNumberId, job.waId, job.evenement);
-    journaliser('info', 'agent_event_renvoye', { ...trace });
-    await programmerLecture(deps, job.tenantId, job.phoneNumberId, job.waId, job.evenement, reponse, true);
+    const pris = await deps.passerALEquipe(job.tenantId, job.waId, CAUSE_FILET);
+    journaliser(pris ? 'warn' : 'error', pris ? 'agent_event_filet_equipe' : 'agent_event_filet_refuse', { ...trace });
   } catch (err) {
-    journaliser('error', 'agent_event_renvoi_refuse', { ...trace, err });
+    journaliser('error', 'agent_event_filet_refuse', { ...trace, err });
   }
 }
 
