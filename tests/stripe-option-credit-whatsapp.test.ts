@@ -68,6 +68,8 @@ const OPTION: OptionCredit = {
 function deps(o: {
   offre?: Offre; vivante?: OptionCredit | null; prixOption?: string; objets?: Record<string, unknown>; reponses?: ReponseStripe[]; couverts?: number;
   formulePayee?: boolean;
+  /** La règle de la prise (`optionPrenable`, V1 du plan du 2026-11-10) : un Pro en essai la prend. Vraie par défaut. */
+  optionPrenable?: boolean;
   /** La formule Pro en retard de paiement (relecture du lot C5, jaune 7). */
   formuleEnRetard?: boolean;
   /** Le verrou de la prise déjà tenu par un autre clic (jaune 7 du lot C). */
@@ -91,6 +93,7 @@ function deps(o: {
     },
     offre: async () => o.offre ?? 'pro',
     formulePayee: async () => o.formulePayee ?? true,
+    optionPrenable: async () => o.optionPrenable ?? true,
     formuleEnRetard: async () => o.formuleEnRetard ?? false,
     numerosCouverts: async () => o.couverts ?? 0,
     reprendreCampagnes: async (t) => { reprises.push(t); return 0; },
@@ -163,11 +166,10 @@ describe('ouvrir l’option', () => {
       ['sans prix', { prixOption: '' }, 1, 503, 'option_indisponible'],
       ['Free', { offre: 'base' }, 1, 409, 'option_avec_le_pro'],
       ['Entreprise', { offre: 'entreprise' }, 1, 409, 'option_inutile'],
-      // Révision du 2026-11-04 (décision 1) : pas d'option pendant un essai, Pro comme Business.
-      ['Pro en essai', { formulePayee: false }, 1, 409, 'option_apres_essai'],
-      ['Business en essai', { offre: 'business', formulePayee: false }, 1, 409, 'option_apres_essai'],
+      // Un Business en essai attend la confirmation de Julien (AskUserQuestion du 2026-11-10) ; un Pro en essai, non (V1).
+      ['Business en essai', { offre: 'business', formulePayee: false, optionPrenable: false }, 1, 409, 'option_apres_essai'],
       // Relecture du lot C5, jaune 7 (décision de Julien du 2026-11-09) : un Pro en retard lit la vraie raison.
-      ['Pro en retard', { formulePayee: false, formuleEnRetard: true }, 1, 409, 'formule_en_retard'],
+      ['Pro en retard', { formulePayee: false, optionPrenable: false, formuleEnRetard: true }, 1, 409, 'formule_en_retard'],
       ['déjà prise', { vivante: OPTION }, 1, 409, 'option_deja_prise'],
       ['zéro', {}, 0, 400, 'places_invalides'],
       ['vingt et un', {}, 21, 400, 'places_invalides'],
@@ -179,13 +181,23 @@ describe('ouvrir l’option', () => {
     }
   });
 
-  it('🔴 une formule Pro en retard lit la vraie raison du refus, plus « pendant un essai » (relecture du lot C5, jaune 7)', async () => {
+  it('🔴 un Pro en essai prend l’option et la paie tout de suite, sa formule pas encore payée (décisions de Julien du 2026-11-10, V1)', async () => {
+    // La règle de la prise (`optionPrenable`), jamais celle du paiement de la formule : l'essai de 14 jours ne la ferme plus.
+    const { d, transport } = deps({ formulePayee: false, optionPrenable: true });
+    expect(await ouvrirOption(d, T1, 1, 'u1')).toEqual({ ok: true, valeur: { url: 'https://checkout.stripe.com/c/1' } });
+    // Sans essai pour l'option, qui se paie dès sa prise : seule la formule Pro attend la fin des 14 jours.
+    const session = transport.posts.find((p) => p.url.endsWith('/checkout/sessions'))!.corps;
+    expect([...session.keys()].some((k) => k.includes('trial'))).toBe(false);
+  });
+
+  it('🔴 une formule Pro en retard lit la vraie raison du refus ; un Business en essai, la sienne (relecture du lot C5, jaune 7 ; V1)', async () => {
     // Décision de Julien du 2026-11-09 : la prise est la seule porte (l'onglet, les cartes), le refus y dit la raison.
-    const enRetard = JSON.stringify(await ouvrirOption(deps({ formulePayee: false, formuleEnRetard: true }).d, T1, 1, 'u1'));
+    const enRetard = JSON.stringify(await ouvrirOption(deps({ formulePayee: false, optionPrenable: false, formuleEnRetard: true }).d, T1, 1, 'u1'));
     expect(enRetard).toContain('Le paiement de votre formule Pro est en retard : réglez-le, puis prenez l’option.');
     expect(enRetard).not.toContain('essai');
-    const enEssai = JSON.stringify(await ouvrirOption(deps({ formulePayee: false }).d, T1, 1, 'u1'));
-    expect(enEssai).toContain('pas pendant un essai');
+    const business = JSON.stringify(await ouvrirOption(deps({ offre: 'business', formulePayee: false, optionPrenable: false }).d, T1, 1, 'u1'));
+    expect(business).toContain('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.');
+    expect(business).not.toContain('pas pendant un essai');
   });
 
   it('🔴 un prix posé chez Stripe qui ne vaut pas 30 € HT par mois : refus lisible, aucune session', async () => {

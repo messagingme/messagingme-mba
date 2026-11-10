@@ -99,11 +99,16 @@ export interface VueCreditWhatsapp {
     statut: StatutOption | null;
     finPrevueLe: string | null;
     /**
-     * La formule de l'espace est payée, par la MÊME règle que la prise de l'option (`formulePayee`, révision du
-     * 2026-11-04) : faux pendant un essai, Pro comme Business, et hors d'eux. L'onglet explique alors l'essai au lieu de
-     * vendre une option que la prise refuserait.
+     * La formule de l'espace est payée (`formulePayee`) : faux pendant un essai, Pro comme Business, et hors d'eux. Elle ne
+     * dit plus si l'option se prend depuis le 2026-11-10 : c'est `prisePossible`.
      */
     formulePayee: boolean;
+    /**
+     * L'option se prend maintenant, par la MÊME règle que la prise (`optionPrenable`, décisions de Julien du 2026-11-10,
+     * V1) : un Pro dès le début de son essai, un Business confirmé ; jamais un Pro en retard, ni Free ni Entreprise.
+     * L'onglet vend ou explique l'option sur elle, jamais sur `formulePayee`.
+     */
+    prisePossible: boolean;
     /** Tous les numéros de l'espace gardent l'application (décision 8) : le paiement de l'option prévient. */
     avecApplication: boolean;
   };
@@ -148,6 +153,8 @@ export function registerCreditWhatsapp(
       return prix === null ? [] : [{ categorie, prixMicroEur: prix }];
     });
     const formulePayee = (offre === 'pro' || offre === 'business') && await deps.option.formulePayee(tenant);
+    // La règle de la prise (`optionPrenable`) : un Pro en essai prend déjà l'option, sa formule pas encore payée (V1).
+    const prisePossible = (offre === 'pro' || offre === 'business') && await deps.option.optionPrenable(tenant);
     const s = deps.achat.stripe;
     const arret = arretDesLignes(lignes);
     const vue: VueCreditWhatsapp = {
@@ -174,6 +181,7 @@ export function registerCreditWhatsapp(
         statut: option?.statut ?? null,
         finPrevueLe: option?.finPrevueLe?.toISOString() ?? null,
         formulePayee,
+        prisePossible,
         avecApplication: tousGardentLApplication(numeros),
       },
     };

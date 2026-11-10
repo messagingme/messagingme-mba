@@ -75,6 +75,8 @@ function achat(o: {
   prixOption?: string; offre?: 'base' | 'pro' | 'business' | 'entreprise';
   /** La formule payée (`formulePayee`, révision du 2026-11-04) : fausse pendant un essai. */
   formulePayee?: boolean;
+  /** La règle de la prise (`optionPrenable`, V1 du plan du 2026-11-10) : un Pro en essai la prend ; vraie par défaut. */
+  optionPrenable?: boolean;
   /** L'option vivante de l'espace (lot B) : ses places et son statut ; aucune par défaut. */
   optionVivante?: { places: number; statut: 'actif' | 'en_retard' | 'resilie' };
   /** Les numéros de l'espace (lot B, décision 8) : gardent-ils l'application, sont-ils déliés ; aucun par défaut. */
@@ -124,6 +126,7 @@ function achat(o: {
       },
       offre: async () => o.offre ?? 'pro',
       formulePayee: async () => o.formulePayee ?? true,
+      optionPrenable: async () => o.optionPrenable ?? true,
       formuleEnRetard: async () => false,
       numerosCouverts: async () => 1,
       reprendreCampagnes: async () => 0,
@@ -345,7 +348,10 @@ describe('GET /tenants/:tenantId/credit-whatsapp/etat', () => {
       [{ lignes: [] }, { etat: 'a_prendre', enVente: true, avecApplication: false, fenetrePartenaire: false }],
       [{ lignes: [], optionVivante: { places: 1, statut: 'actif' } }, { etat: 'en_attente', enVente: true, avecApplication: false, fenetrePartenaire: false }],
       [{}, { etat: 'active', enVente: true, avecApplication: false, fenetrePartenaire: false }],
-      [{ lignes: [], formulePayee: false }, { etat: 'essai', enVente: true, avecApplication: false, fenetrePartenaire: false }],
+      // L'option ne se prend pas encore (un Business en essai, un Pro en retard) : la carte attend.
+      [{ lignes: [], formulePayee: false, optionPrenable: false }, { etat: 'essai', enVente: true, avecApplication: false, fenetrePartenaire: false }],
+      // 🔴 Un Pro dans son essai de 14 jours : sa formule n'est pas payée, l'option se prend déjà (V1 du 2026-11-10).
+      [{ lignes: [], formulePayee: false, optionPrenable: true }, { etat: 'a_prendre', enVente: true, avecApplication: false, fenetrePartenaire: false }],
       [{ lignes: [], prixOption: '' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false }],
       [{ lignes: [], stripe: 'aucun' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false }],
       [{ lignes: [], offre: 'base' }, { etat: 'free', enVente: false, avecApplication: false, fenetrePartenaire: false }],
@@ -392,7 +398,7 @@ describe('l’option dans l’onglet', () => {
     const enVente = achat();
     expect((await lire(enVente.srv)).json().option).toEqual({
       disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 1, statut: null, finPrevueLe: null,
-      formulePayee: true, avecApplication: false,
+      formulePayee: true, prisePossible: true, avecApplication: false,
     });
     await enVente.srv.close();
     // La même règle que l'état de la ligne : l'onglet prévient aussi au moment de payer.
@@ -406,8 +412,26 @@ describe('l’option dans l’onglet', () => {
     }
   });
 
-  it('🔴 la vue dit si la formule est payée, par la règle de la prise (`formulePayee`) : faux pendant un essai, Pro comme Business, et hors d’eux', async () => {
-    // Révision du 2026-11-04 : l'onglet explique l'essai au lieu de vendre une option que la prise refuserait.
+  it('🔴 la vue dit si l’option se PREND (`prisePossible`, la règle de la prise) : un Pro en essai oui, un Business en essai non, ni Free ni Entreprise (V1 du 2026-11-10)', async () => {
+    // L'onglet vend ou explique l'option par la règle même de la prise : jamais une option qu'elle refuserait, ni le silence
+    // sur une option qu'elle accepte (un Pro dans ses 14 jours, sa formule pas encore payée).
+    for (const [o, prise, payee] of [
+      [{ offre: 'pro' as const, formulePayee: false, optionPrenable: true }, true, false],
+      [{ offre: 'pro' as const, formulePayee: false, optionPrenable: false }, false, false],
+      [{ offre: 'business' as const, formulePayee: false, optionPrenable: false }, false, false],
+      [{ offre: 'business' as const, formulePayee: true, optionPrenable: true }, true, true],
+      [{ offre: 'entreprise' as const, formulePayee: true, optionPrenable: true }, false, false],
+      [{ offre: 'base' as const, formulePayee: true, optionPrenable: true }, false, false],
+    ] as const) {
+      const a = achat(o);
+      const vue = (await lire(a.srv)).json().option;
+      expect([vue.prisePossible, vue.formulePayee], JSON.stringify(o)).toEqual([prise, payee]);
+      await a.srv.close();
+    }
+  });
+
+  it('🔴 la vue dit si la formule est payée (`formulePayee`) : faux pendant un essai, Pro comme Business, et hors d’eux', async () => {
+    // Ce que la formule a réglé, gardé pour l'onglet ; la prise de l'option, elle, se lit sur `prisePossible`.
     for (const [o, attendu] of [
       [{ offre: 'pro' as const, formulePayee: false }, false], [{ offre: 'business' as const, formulePayee: false }, false],
       [{ offre: 'business' as const, formulePayee: true }, true], [{ offre: 'entreprise' as const, formulePayee: true }, false],

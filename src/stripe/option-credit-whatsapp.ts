@@ -37,13 +37,19 @@ export interface DepsOptionCredit extends DepsPortail {
   options: Pick<PgOptionsCreditStore, 'vivante' | 'noterPlaces'>;
   offre(tenantId: string): Promise<Offre>;
   /**
-   * La formule de l'espace est-elle payée (`formulePayee`, révision du 2026-11-04) ? Pas pendant un essai, Pro comme
-   * Business : la ligne du partenaire paie Meta dès le premier message.
+   * La formule de l'espace est-elle payée (`formulePayee`) ? Ce que l'onglet en dit (`option.formulePayee`), jamais la
+   * règle de la prise depuis le 2026-11-10 : c'est `optionPrenable`.
    */
   formulePayee(tenantId: string): Promise<boolean>;
   /**
-   * La formule Pro est-elle en retard de paiement (`formuleEnRetard`) ? Lue seulement quand la formule n'est pas payée,
-   * pour que le refus dise la vraie raison (relecture du lot C5, jaune 7).
+   * L'option se prend-elle maintenant (`optionPrenable`, décisions de Julien du 2026-11-10, V1) ? Un Pro dès le début de
+   * son essai, sa fin programmée ou non ; un Business confirmé ; jamais un Pro en retard. La prise, l'état des cartes,
+   * l'onglet (`option.prisePossible`) et la reprise la lisent : une seule règle.
+   */
+  optionPrenable(tenantId: string): Promise<boolean>;
+  /**
+   * La formule Pro est-elle en retard de paiement (`formuleEnRetard`) ? Lue seulement quand l'option ne se prend pas, pour
+   * que le refus dise la vraie raison (relecture du lot C5, jaune 7).
    */
   formuleEnRetard(tenantId: string): Promise<boolean>;
   /** Les numéros que les lignes `'option'` couvrent déjà : un retrait de places ne passe pas sous leur nombre. */
@@ -67,10 +73,11 @@ export const optionEnVente = (d: Pick<DepsOptionCredit, 'stripe' | 'prixOption'>
 export const OPTION_INDISPONIBLE = refus(503, 'L’option Crédit WhatsApp n’est pas encore en vente : contactez-nous.', { code: 'option_indisponible' });
 
 /**
- * Pas d'option pendant un essai (révision du 2026-11-04, décision 1). Le même texte vaut pour un Business en essai, que
- * Julien confirme : l'écran propose à un Pro de démarrer sa formule payée tout de suite.
+ * Un Business en essai attend la confirmation de Julien (AskUserQuestion du 2026-11-10) : le seul refus « d'essai » qui
+ * reste, un Pro prenant l'option dès le début de son essai (V1 du plan du 2026-11-10). Le code ne change pas, la console
+ * le lit.
  */
-export const OPTION_APRES_ESSAI = refus(409, 'L’option Crédit WhatsApp s’ouvre avec une formule payée, pas pendant un essai.', { code: 'option_apres_essai' });
+export const OPTION_APRES_ESSAI = refus(409, 'L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.', { code: 'option_apres_essai' });
 
 /**
  * Une formule Pro en retard de paiement n'est pas « payée » non plus, mais ce n'est pas un essai : le refus dit la vraie
@@ -116,7 +123,7 @@ export async function ouvrirOption(
   if (offre !== 'pro' && offre !== 'business') {
     return refus(409, 'L’option Crédit WhatsApp se prend avec la formule Pro ou Business.', { code: 'option_avec_le_pro' });
   }
-  if (!(await d.formulePayee(tenantId))) return (await d.formuleEnRetard(tenantId)) ? OPTION_FORMULE_EN_RETARD : OPTION_APRES_ESSAI;
+  if (!(await d.optionPrenable(tenantId))) return (await d.formuleEnRetard(tenantId)) ? OPTION_FORMULE_EN_RETARD : OPTION_APRES_ESSAI;
   if ((await d.options.vivante(tenantId)) !== null) {
     return refus(409, 'Votre espace a déjà l’option Crédit WhatsApp : changez son nombre de numéros.', { code: 'option_deja_prise' });
   }

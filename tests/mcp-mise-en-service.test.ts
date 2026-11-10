@@ -204,9 +204,10 @@ describe('la lecture, sur des faux', () => {
             // Aucun numéro arrivé par la fenêtre du partenaire : l'hypothèse dite (`attendLigne` est requis).
             numeros: lu('numeros_credit', (o.numeros ?? []).map((n) => ({ ...n, attendLigne: false }))),
           },
-          // L'état de la ligne (lot B) : un Pro payé, son option seulement si le test la donne.
+          // L'état de la ligne (lot B) : un Pro dont l'option se prend (V1 du 2026-11-10), son option seulement si le test
+          // la donne.
           option: {
-            offre: lu('offre_ligne', 'pro' as const), formulePayee: lu('formule_payee', true),
+            offre: lu('offre_ligne', 'pro' as const), optionPrenable: lu('option_prenable', true),
             options: { vivante: lu('option_credit', o.option ?? null) },
           },
         },
@@ -219,8 +220,8 @@ describe('la lecture, sur des faux', () => {
     const lus: string[] = [];
     await lireMiseEnService(deps({ lus }), 't1');
     expect(lus.sort()).toEqual([
-      'agents:t1', 'bulles:t1', 'credit:t1', 'formule_payee:t1', 'lignes_credit:t1', 'manques:t1', 'numero:t1', 'numeros_credit:t1',
-      'offre:t1', 'offre_ligne:t1', 'option_credit:t1', 'repondeur:t1',
+      'agents:t1', 'bulles:t1', 'credit:t1', 'lignes_credit:t1', 'manques:t1', 'numero:t1', 'numeros_credit:t1',
+      'offre:t1', 'offre_ligne:t1', 'option_credit:t1', 'option_prenable:t1', 'repondeur:t1',
     ]);
   });
 
@@ -310,7 +311,7 @@ describe('l’outil get_setup_state', () => {
         creditWhatsapp: {
           surLaLigne: async () => false,
           vue: { solde: async () => 0, conditions: async () => ({ openBar: false }), lignes: async () => [], numeros: async () => [] },
-          option: { offre: async () => 'base' as const, formulePayee: async () => false, options: { vivante: async () => null } },
+          option: { offre: async () => 'base' as const, optionPrenable: async () => false, options: { vivante: async () => null } },
         },
       },
       widgets: { gestion: { widgets: { lister: async () => [] } } },

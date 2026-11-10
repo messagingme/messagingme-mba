@@ -51,7 +51,7 @@ import { PgOffresStore } from './offres/offre.pg';
 import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
-import { formuleEnRetard, formulePayee, repriseOuverte } from './offres/formule-payee';
+import { formuleEnRetard, formulePayee, optionPrenable, repriseOuverte } from './offres/formule-payee';
 import { connexionParLaLigne, fenetreRefuseeParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
@@ -1079,9 +1079,10 @@ async function main(): Promise<void> {
     prixOption: config.STRIPE_PRIX_OPTION_WA,
     options: optionsCreditWhatsapp,
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
-    // Pas d'option pendant un essai (révision du 2026-11-04) ; un Pro en retard lit la vraie raison du refus (relecture
-    // du lot C5, jaune 7).
+    // Ce que l'onglet dit de la formule ; l'option, elle, se prend dès le début de l'essai Pro (V1 du plan du 2026-11-10).
+    // Un Pro en retard lit la vraie raison du refus (relecture du lot C5, jaune 7).
     formulePayee: async (tenant) => formulePayee(await formuleDe(tenant), Date.now()),
+    optionPrenable: async (tenant) => optionPrenable(await formuleDe(tenant), Date.now()),
     formuleEnRetard: async (tenant) => formuleEnRetard(await formuleDe(tenant)),
     numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
     reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),

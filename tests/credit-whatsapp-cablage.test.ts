@@ -27,6 +27,8 @@ describe('le câblage de l’option du Crédit WhatsApp', () => {
     expect(formule).toMatch(/businessEssaiFinLe: \(await offresSansCache\.lireEntreprise\(tenant\)\)\?\.businessEssaiFinLe \?\? null,/);
     const option = bloc('const optionDeLaConsole: DepsOptionCredit = {', '};');
     expect(option).toMatch(/formulePayee: async \(tenant\) => formulePayee\(await formuleDe\(tenant\), Date\.now\(\)\),/);
+    // La règle de la prise (V1 du plan du 2026-11-10) lit la MÊME formule, sans cache : un Pro en essai prend l'option.
+    expect(option).toMatch(/optionPrenable: async \(tenant\) => optionPrenable\(await formuleDe\(tenant\), Date\.now\(\)\),/);
     // Un Pro en retard lit la vraie raison du refus (jaune 7).
     expect(option).toMatch(/formuleEnRetard: async \(tenant\) => formuleEnRetard\(await formuleDe\(tenant\)\),/);
   });

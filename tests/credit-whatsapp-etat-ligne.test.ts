@@ -7,13 +7,13 @@ import { creditPaieMeta } from '../web/lib/partage/credit-whatsapp';
  * console de Connecter WhatsApp et de l'Accueil, et `get_setup_state`, le lisent ici, jamais recalculé ailleurs.
  */
 function deps(o: {
-  offre?: 'base' | 'pro' | 'business' | 'entreprise'; payee?: boolean;
+  offre?: 'base' | 'pro' | 'business' | 'entreprise'; prenable?: boolean;
   lignes?: Array<{ arreteeLe: Date | null }>; option?: { places: number; statut: 'actif' | 'en_retard' | 'resilie' } | null;
   attendLigne?: boolean;
 } = {}): DepsEtatLigne {
   return {
     offre: async () => o.offre ?? 'pro',
-    formulePayee: async () => o.payee ?? true,
+    optionPrenable: async () => o.prenable ?? true,
     lignes: async () => o.lignes ?? [],
     option: async () => (o.option === undefined ? null : o.option),
     numeroAttendSaLigne: async () => o.attendLigne ?? false,
@@ -44,18 +44,18 @@ describe('arretDesLignes (lot C, moment 3)', () => {
 
 describe('etatLigneCredit', () => {
   it('🔴 une option payée sur une formule qui ne l’est plus (un Pro passé en retard) se lit en attente de sa ligne, jamais en essai (jaune 5 du lot B)', async () => {
-    expect(await etatLigneCredit(deps({ payee: false, option: { places: 1, statut: 'actif' } }), 't1')).toBe('en_attente');
-    expect(await etatLigneCredit(deps({ payee: false, option: { places: 1, statut: 'en_retard' } }), 't1')).toBe('en_attente');
+    expect(await etatLigneCredit(deps({ prenable: false, option: { places: 1, statut: 'actif' } }), 't1')).toBe('en_attente');
+    expect(await etatLigneCredit(deps({ prenable: false, option: { places: 1, statut: 'en_retard' } }), 't1')).toBe('en_attente');
     // Résiliée, elle ne compte plus : la formule non payée reste un essai.
-    expect(await etatLigneCredit(deps({ payee: false, option: { places: 1, statut: 'resilie' } }), 't1')).toBe('essai');
+    expect(await etatLigneCredit(deps({ prenable: false, option: { places: 1, statut: 'resilie' } }), 't1')).toBe('essai');
   });
 
   it('🔴 chaque état depuis ses données : Free, essai, à prendre, en attente, active, arrêtée', async () => {
     const ARRETEE = new Date('2026-11-01T00:00:00Z');
     const cas: Array<[Parameters<typeof deps>[0], string]> = [
       [{ offre: 'base' }, 'free'],
-      [{ offre: 'pro', payee: false }, 'essai'],
-      [{ offre: 'business', payee: false }, 'essai'],
+      [{ offre: 'pro', prenable: false }, 'essai'],
+      [{ offre: 'business', prenable: false }, 'essai'],
       [{ offre: 'pro' }, 'a_prendre'],
       [{ offre: 'pro', option: { places: 0, statut: 'actif' } }, 'a_prendre'],
       [{ offre: 'pro', option: { places: 1, statut: 'resilie' } }, 'a_prendre'],
@@ -65,16 +65,16 @@ describe('etatLigneCredit', () => {
       [{ offre: 'pro', lignes: [{ arreteeLe: ARRETEE }, { arreteeLe: null }] }, 'active'],
       [{ offre: 'pro', lignes: [{ arreteeLe: ARRETEE }] }, 'arretee'],
       // Une Entreprise : la ligne se pose sur demande dans /ops, jamais par l'option ; illimitée une fois posée.
-      [{ offre: 'entreprise', payee: false }, 'a_prendre'],
-      [{ offre: 'entreprise', payee: false, lignes: [{ arreteeLe: null }] }, 'active'],
+      [{ offre: 'entreprise', prenable: false }, 'a_prendre'],
+      [{ offre: 'entreprise', prenable: false, lignes: [{ arreteeLe: null }] }, 'active'],
       // Un numéro arrivé par la fenêtre du partenaire : l'Entreprise attend sa ligne (relecture du lot E, jaune 4) ; la marque
       // ne change rien hors Entreprise (l'option y dit déjà l'attente).
-      [{ offre: 'entreprise', payee: false, attendLigne: true }, 'en_attente'],
+      [{ offre: 'entreprise', prenable: false, attendLigne: true }, 'en_attente'],
       // 🔴 Une ligne posée DEPUIS la marque éteint l'attente (`attendLigne` faux) : seule une ligne d'AVANT coexiste avec
       // elle, celle d'un ancien numéro déconnecté et jamais retirée, active ou arrêtée. Elle ne couvre pas le numéro qui
       // attend : l'Entreprise attend, au lieu de lire « payés par votre Crédit WhatsApp » (relecture du lot E6, jaune 2).
-      [{ offre: 'entreprise', payee: false, attendLigne: true, lignes: [{ arreteeLe: null }] }, 'en_attente'],
-      [{ offre: 'entreprise', payee: false, attendLigne: true, lignes: [{ arreteeLe: ARRETEE }] }, 'en_attente'],
+      [{ offre: 'entreprise', prenable: false, attendLigne: true, lignes: [{ arreteeLe: null }] }, 'en_attente'],
+      [{ offre: 'entreprise', prenable: false, attendLigne: true, lignes: [{ arreteeLe: ARRETEE }] }, 'en_attente'],
       [{ offre: 'pro', attendLigne: true }, 'a_prendre'],
       [{ offre: 'pro', attendLigne: true, lignes: [{ arreteeLe: null }] }, 'active'],
     ];
@@ -86,14 +86,14 @@ describe('etatLigneCredit', () => {
     const d: DepsEtatLigne = { ...deps({ offre: 'base' }), lignes: async () => { lus += 1; return [{ arreteeLe: null }]; } };
     expect(await etatLigneCredit(d, 't1')).toBe('free');
     expect(lus).toBe(0);
-    expect(await etatLigneCredit(deps({ offre: 'pro', payee: false, lignes: [{ arreteeLe: null }] }), 't1')).toBe('active');
+    expect(await etatLigneCredit(deps({ offre: 'pro', prenable: false, lignes: [{ arreteeLe: null }] }), 't1')).toBe('active');
   });
 });
 
 describe('lireEtatLigne (les sources de la console et de Claude)', () => {
   function sources(numeros: ReadonlyArray<{ attendLigne: boolean }>): SourcesEtatLigne {
     return {
-      option: { offre: async () => 'entreprise', formulePayee: async () => false, options: { vivante: async () => null } },
+      option: { offre: async () => 'entreprise', optionPrenable: async () => false, options: { vivante: async () => null } },
       vue: { lignes: async () => [], numeros: async () => numeros.map((n) => ({ coexistence: false, delie: false, ...n })) },
     };
   }
@@ -110,5 +110,20 @@ describe('lireEtatLigne (les sources de la console et de Claude)', () => {
     // @ts-expect-error `attendLigne` manque
     const sansAttente: SourcesEtatLigne['vue']['numeros'] = async () => [{ coexistence: false, delie: false }];
     expect(typeof sansAttente).toBe('function');
+  });
+
+  it('🔴 un Pro dans son essai de 14 jours, sans option, lit « à prendre » : l’état lit la règle de la PRISE, jamais celle du paiement de la formule (décisions de Julien du 2026-11-10, V1)', async () => {
+    // Un Pro en essai : sa formule n'est pas encore payée, mais l'option se prend déjà. Une carte qui lirait le paiement
+    // dirait « essai » et cacherait une option que la prise accepte.
+    const proEnEssai = (prenable: boolean): SourcesEtatLigne & { option: { formulePayee(t: string): Promise<boolean> } } => ({
+      option: {
+        offre: async () => 'pro', formulePayee: async () => false, optionPrenable: async () => prenable,
+        options: { vivante: async () => null },
+      },
+      vue: { lignes: async () => [], numeros: async () => [] },
+    });
+    expect(await lireEtatLigne(proEnEssai(true), 't1')).toBe('a_prendre');
+    // Un Pro en retard de prélèvement : la prise refuse, la carte attend.
+    expect(await lireEtatLigne(proEnEssai(false), 't1')).toBe('essai');
   });
 });

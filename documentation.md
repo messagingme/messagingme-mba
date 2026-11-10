@@ -4619,14 +4619,19 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
 - 🔴 **L'option, 30 € HT par numéro et par mois** (lot 4a, `src/stripe/option-credit-whatsapp.ts`, migration 0276) : un
   abonnement Stripe mensuel à part, dont la quantité est le nombre de PLACES ; une place est un NUMÉRO couvert par une
   ligne `'option'` (décision de Julien du 2026-11-03), alors qu'une ligne couvre tout son compte. Le Pro et le Business y
-  ont droit, jamais la Free ; une Entreprise n'en a pas besoin. 🔴 Elle ne s'ouvre qu'à une formule PAYÉE (`formulePayee`,
-  `src/offres/formule-payee.ts`, révision du 2026-11-04) : un Pro au statut actif hors essai, un Business confirmé (sa date
-  d'essai effacée, `tenants.offre_business_essai_fin_le`, migration 0278, posée et confirmée dans `/ops`, qui refuse
-  en 400 une date sur un espace que l'écriture ne laisse pas en Business) ; sinon 409 `option_apres_essai`, ou
-  `formule_en_retard` pour un Pro vivant en retard de paiement (`formuleEnRetard`, la vraie raison, décision du
-  2026-11-09), avant toute session Stripe. La prise reste ouverte jusqu'à la fin programmée d'un Pro résilié (décision du
-  2026-11-09) : la fin de droit résiliera alors l'option sans rembourser le mois entamé. La vue de l'onglet porte la même règle (`option.formulePayee`, faux hors Pro et Business) : pendant un
-  essai, l'onglet explique qui facture quoi au lieu de vendre, et ne recalcule rien. Stripe d'abord, sans essai, codes promo fermés, une place
+  ont droit, jamais la Free ; une Entreprise n'en a pas besoin. 🔴 Elle se prend par UNE règle (`optionPrenable`,
+  `src/offres/formule-payee.ts`, décisions de Julien du 2026-11-10, plan `2026-11-10-credit-whatsapp-vente-libre-service.md`) :
+  un Pro au statut actif DÈS LE DÉBUT de son essai de 14 jours, même quand l'arrêt de sa formule est déjà programmé (il la
+  paie tout de suite, la formule se facture au bout de l'essai), et un Business confirmé (sa date d'essai effacée,
+  `tenants.offre_business_essai_fin_le`, migration 0278, posée et confirmée dans `/ops`, qui refuse en 400 une date sur un
+  espace que l'écriture ne laisse pas en Business) ; sinon 409 `option_apres_essai` (un Business en essai, que Julien
+  confirme), ou `formule_en_retard` pour un Pro vivant en retard de paiement (`formuleEnRetard`, la vraie raison, décision
+  du 2026-11-09), avant toute session Stripe. Un essai non payé arrête l'option à la clôture de la formule par Stripe, sans
+  remboursement : la fin de droit, le mois payé de l'option couvrant les relances. La prise reste ouverte jusqu'à la fin
+  programmée d'un Pro résilié (décision du 2026-11-09) : la fin de droit résiliera alors l'option sans rembourser le mois
+  entamé. La prise, l'état des cartes (`a_prendre` pour un Pro en essai), la vue de l'onglet (`option.prisePossible` ;
+  `option.formulePayee` dit seulement la formule payée) et la reprise après un arrêt (`repriseOuverte`) lisent cette même
+  règle : un écran ne vend jamais ce que la prise refuse. Stripe d'abord, sans essai, codes promo fermés, une place
   ajoutée n'existe que relue payée (`pending_if_incomplete`), un retrait s'applique sans prorata et jamais sous les
   numéros couverts. Le webhook l'aiguille par sa marque APRÈS le Pro et AVANT le numéro (qui acquitte en silence ce
   qu'il ne reconnaît pas), et relit ses places chez Stripe à chaque événement ; un paiement qu'il ne peut ni relire ni
