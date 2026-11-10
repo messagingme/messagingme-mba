@@ -380,7 +380,7 @@ const fr = (): TexteTunnel => {
         id: 'console', situation: 'En formule Pro, depuis la console', titre: 'Créez votre espace : la console vous guide', console: true,
         textes: [
           'La console vous pose les mêmes questions, puis ouvre la fenêtre de Meta : votre numéro, ou un numéro fourni, inclus en formule Pro.',
-          `Une fois votre espace créé, la page de Stripe ouvre vos ${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit : la carte y est demandée, et rien n’est prélevé avant la fin.`,
+          `Une fois votre espace créé, choisissez le mensuel ou l’annuel : la page de Stripe ouvre vos ${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit, la carte y est demandée, et rien n’est prélevé avant la fin.`,
         ],
         pasAPas: '/aide/connecter-mon-numero-whatsapp/',
       },
@@ -637,7 +637,7 @@ const en = (): TexteTunnel => {
         id: 'console', situation: 'With the Pro plan, from the console', titre: 'Create your workspace: the console guides you', console: true,
         textes: [
           'The console asks you the same questions, then opens Meta’s window: your number, or a provided number, included in Pro.',
-          `Once your workspace is created, Stripe’s page opens your ${ESSAI_PRO_JOURS}-day free trial: your card is asked there, and nothing is charged before the end.`,
+          `Once your workspace is created, choose monthly or yearly: Stripe’s page opens your ${ESSAI_PRO_JOURS}-day free trial, your card is asked there, and nothing is charged before the end.`,
         ],
         pasAPas: '/en/help/connect-my-whatsapp-number/',
       },

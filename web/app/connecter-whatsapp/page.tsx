@@ -37,8 +37,11 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
   const [avertissements, setAvertissements] = useState<string[]>([]);
   const api = useMemo(() => apiDeLaSession(tenantId), [tenantId]);
 
+  // Sans le statut (une panne de l'API), l'écran reste utilisable : la question de la formule s'efface alors devant la
+  // suite d'avant (jaune 1 de la relecture des lots 3b et 3c), au lieu d'attendre une lecture qui ne viendra pas.
+  const [compteIllisible, setCompteIllisible] = useState(false);
   const chargerCompte = useCallback(() => {
-    getAccountStatus(tenantId).then(setCompte).catch(() => { /* l'écran reste utilisable sans le statut */ });
+    getAccountStatus(tenantId).then((c) => { setCompte(c); setCompteIllisible(false); }).catch(() => { setCompteIllisible(true); });
   }, [tenantId]);
   useEffect(() => { chargerCompte(); }, [chargerCompte]);
 
@@ -62,20 +65,27 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
   // Free choisie est gardée dans l'onglet.
   const vue = useOffre(tenantId);
   const [proRetour, setProRetour] = useState<'recu' | 'abandon' | null>(null);
-  const [freeChoisie, setFreeChoisie] = useState(false);
+  const [formuleGardee, setFormuleGardee] = useState<'free' | 'pro' | null>(null);
   useEffect(() => {
     const r = new URLSearchParams(window.location.search).get('pro');
-    setProRetour(r === 'recu' || r === 'abandon' ? r : null);
-    try { setFreeChoisie(window.sessionStorage.getItem(CLE_FORMULE) === 'free'); } catch { /* mémoire indisponible : la question revient */ }
-  }, []);
+    const retour = r === 'recu' || r === 'abandon' ? r : null;
+    setProRetour(retour);
+    try {
+      // La formule gardée vaut pour CET espace (jaune 3) ; un Pro payé ne revoit plus les cartes dans cet onglet, même si
+      // la vue de l'offre, gardée une minute, dit encore Free le temps du webhook (jaune 4).
+      if (retour === 'recu') window.sessionStorage.setItem(CLE_FORMULE, `${tenantId}:pro`);
+      const g = window.sessionStorage.getItem(CLE_FORMULE);
+      setFormuleGardee(g === `${tenantId}:free` ? 'free' : g === `${tenantId}:pro` ? 'pro' : null);
+    } catch { /* mémoire indisponible : la question revient */ }
+  }, [tenantId]);
   const choisirFree = () => {
-    try { window.sessionStorage.setItem(CLE_FORMULE, 'free'); } catch { /* idem */ }
-    setFreeChoisie(true);
+    try { window.sessionStorage.setItem(CLE_FORMULE, `${tenantId}:free`); } catch { /* idem */ }
+    setFormuleGardee('free');
   };
   const formuleAChoisir = tunnel && isAdmin && compte !== null && !connecte && vue !== undefined && vue !== null
-    && vue.offre === 'free' && proRetour !== 'recu' && !freeChoisie;
+    && vue.offre === 'free' && proRetour !== 'recu' && formuleGardee === null;
   // Le temps de lire le compte et l'offre, rien : ni la question, ni « Qui paie vos messages à Meta ? » qu'elle précède.
-  const formuleEnLecture = tunnel && isAdmin && !connecte && (compte === null || vue === undefined);
+  const formuleEnLecture = tunnel && isAdmin && !connecte && ((compte === null && !compteIllisible) || vue === undefined);
   /** Après une connexion, par la carte chez Meta comme par la ligne du partenaire : ses avertissements, puis le compte relu. */
   const apresConnexion = (av: string[]) => { setAvertissements(av); chargerCompte(); };
   const parcours = (
@@ -116,7 +126,7 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
       <IntroPage>{t('Un numéro WhatsApp pour votre espace : le vôtre, ou un numéro que nous vous fournissons.', 'A WhatsApp number for your workspace: yours, or one we provide.')}</IntroPage>
       {proRetour === 'recu' && !connecte && (
         <div className="mt-4"><MbaNotice kind="success" testid="essai-pro-commence">
-          {t('Votre essai de la formule Pro commence : rien n’est prélevé avant sa fin. Il reste à connecter votre numéro.', 'Your Pro plan trial starts: nothing is charged before it ends. All that is left is to connect your number.')}
+          {t('Votre formule Pro est souscrite. Il reste à connecter votre numéro.', 'Your Pro plan is set up. All that is left is to connect your number.')}
         </MbaNotice></div>
       )}
       {proRetour === 'abandon' && formuleAChoisir && (

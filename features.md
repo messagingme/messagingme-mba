@@ -445,8 +445,8 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   ensuite par `/mcp` dans Claude Code), **« Créer la clé de mon application »** (droits par défaut, montrée une seule
   fois, en ligne de `.env` sous `MESSAGINGME_API_KEY`), et **`/messagingme:demarrer`**, qui lance la mise en service
   (lot 10, 2026-10-13 : le plugin remplace la commande `claude mcp add` et le premier message à coller). La suite
-  survit au paiement d'un numéro fourni. **Venue du choix du Pro** (`/signup?offre=pro`, le bouton « Créer mon compte »
-  de la fin Pro du guide du numéro de la vitrine, 2026-10-27), l'inscription, par mot de passe comme par Google, mène
+  survit au paiement d'un numéro fourni. **Venue du choix du Pro** (`/signup?offre=pro`, le bouton « Créer mon espace »
+  de l'issue « La console » du guide du numéro de la vitrine, 2026-11-10), l'inscription, par mot de passe comme par Google, mène
   à la place à la **souscription du Pro** : la page de l'offre, son bandeau « la console fait partie du Pro », le
   mensuel ou l'annuel et l'essai de 14 jours ; après Stripe, la connexion de son numéro (2026-11-10).
 - ✅ **Se connecter avec Google** (bouton sur `/login`, `/signup`, `/invite`) : vérif du jeton côté serveur ;

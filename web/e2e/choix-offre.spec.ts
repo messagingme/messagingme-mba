@@ -84,8 +84,9 @@ test('Business et Entreprise mènent au formulaire de contact de la console, leu
   await monter(page);
   await page.goto('/connecter-whatsapp?suite=demarrer');
   await expect(page.getByTestId('offre-choisir-entreprise')).toHaveAttribute('href', '/support?sujet=entreprise');
-  await page.getByTestId('offre-choisir-business').click();
-  await expect(page).toHaveURL(/\/support\?sujet=business/);
+  await expect(page.getByTestId('offre-choisir-business')).toHaveAttribute('href', '/support?sujet=business');
+  // Le formulaire de contact, à l'adresse du lien : son sujet prérempli.
+  await page.goto('/support?sujet=business');
   await expect(page.getByTestId('support-sujet')).toHaveValue('Passer en Business');
 });
 
@@ -100,6 +101,8 @@ test('un espace qui a déjà eu son essai lit « Passer en Pro », et un refus d
   await monter(page, { essaiPossible: false, paiement: { status: 409, body: { error: 'Votre espace est en offre Business : la formule Pro ne lui ajouterait rien.', code: 'deja_business' } } });
   await page.goto('/connecter-whatsapp?suite=demarrer');
   await expect(page.getByTestId('offre-choisir-pro')).toHaveText('Passer en Pro');
+  // Sans droit à l'essai, ni pastille ni promesse (jaune 2 de la relecture).
+  await expect(page.getByTestId('carte-offre-essai')).toHaveCount(0);
   await page.getByTestId('offre-choisir-pro').click();
   await expect(page.getByTestId('choix-offre')).toContainText('Votre espace est en offre Business : la formule Pro ne lui ajouterait rien.');
   await expect(page).toHaveURL(/\/connecter-whatsapp/);
@@ -112,7 +115,7 @@ test('🔴 le retour de Stripe ramène au numéro, l’essai dit, même si l’o
   await expect(page.getByTestId('choix-offre')).toBeVisible();
   await page.goto('/offre?pro=recu');
   await expect(page).toHaveURL(/\/connecter-whatsapp\?suite=demarrer&pro=recu/);
-  await expect(page.getByTestId('essai-pro-commence')).toContainText('Votre essai de la formule Pro commence');
+  await expect(page.getByTestId('essai-pro-commence')).toContainText('Votre formule Pro est souscrite');
   await expect(page.getByTestId('choix-offre')).toHaveCount(0);
   await expect(page.getByTestId('qui-regle-meta')).toBeVisible();
 });
@@ -147,6 +150,27 @@ test('hors du tunnel, ni la question ni le renvoi : la page de l’offre reste l
 
 test('un espace déjà en Pro, dans le tunnel, ne repasse pas par la formule', async ({ page }) => {
   await monter(page, { offre: 'pro' });
+  await page.goto('/connecter-whatsapp?suite=demarrer');
+  await expect(page.getByTestId('qui-regle-meta')).toBeVisible();
+  await expect(page.getByTestId('choix-offre')).toHaveCount(0);
+});
+
+test('🔴 un statut de compte illisible rend l’écran d’avant, jamais un écran vide (jaune 1 de la relecture)', async ({ page }) => {
+  await monter(page);
+  await page.route((url) => url.pathname.endsWith('/account-status'), (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"panne"}' }));
+  await page.goto('/connecter-whatsapp?suite=demarrer');
+  await expect(page.getByTestId('qui-regle-meta')).toBeVisible();
+  await expect(page.getByTestId('choix-offre')).toHaveCount(0);
+});
+
+test('🔴 un Pro payé ne revoit pas les cartes dans l’onglet, même si l’offre se lit encore Free (jaune 4 de la relecture)', async ({ page }) => {
+  await monter(page);
+  await page.goto('/connecter-whatsapp?suite=demarrer');
+  // Le premier écran a posé la suite dans l'onglet avant que Stripe ne revienne sur la page de l'offre.
+  await expect(page.getByTestId('choix-offre')).toBeVisible();
+  await page.goto('/offre?pro=recu');
+  await expect(page.getByTestId('essai-pro-commence')).toBeVisible();
+  // « Plus tard », puis « Connecter mon numéro » : le tunnel sans le retour de Stripe, l'offre toujours lue Free.
   await page.goto('/connecter-whatsapp?suite=demarrer');
   await expect(page.getByTestId('qui-regle-meta')).toBeVisible();
   await expect(page.getByTestId('choix-offre')).toHaveCount(0);

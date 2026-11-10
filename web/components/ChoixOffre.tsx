@@ -41,7 +41,7 @@ export function ChoixOffre({ tenantId, vue, surFree }: { tenantId: string; vue: 
 
   const geste = (offre: FormuleChoisie) => {
     if (offre === 'free') {
-      return <Bouton type="button" variante="secondaire" className="w-full" onClick={surFree} data-testid="offre-choisir-free">{t('Continuer en Free', 'Continue with Free')}</Bouton>;
+      return <Bouton type="button" variante="secondaire" className="w-full" onClick={surFree} data-testid="offre-choisir-free">{t('Continuer avec Free', 'Continue with Free')}</Bouton>;
     }
     if (offre === 'pro') {
       return proIndisponible ? (
@@ -67,7 +67,8 @@ export function ChoixOffre({ tenantId, vue, surFree }: { tenantId: string; vue: 
         {CARTES_OFFRE.map((c) => (
           <div key={c.offre} className="grid grid-rows-[1fr_auto] gap-3">
             <div data-testid={`carte-offre-${c.offre}`} className={`rounded-carte border p-4 ${c.offre === 'pro' ? 'border-ink-900' : 'border-ink-200'}`}>
-              {c.badge && (
+              {/* L'essai, seulement à un espace qui y a droit (jaune 2 de la relecture). */}
+              {c.badge && (c.offre !== 'pro' || essai) && (
                 <p data-testid="carte-offre-essai" className="mb-2 inline-block rounded-full bg-brand-50 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
                   {t(c.badge.fr, c.badge.en)}
                 </p>

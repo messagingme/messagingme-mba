@@ -1,6 +1,6 @@
 ---
 source_section: Comptes & authentification
-source_empreinte: 32b41b
+source_empreinte: 9e3992
 ---
 # Inviter mon équipe, et gérer les accès
 

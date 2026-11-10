@@ -58,6 +58,13 @@ au lot suivant ; rien ne bloque.
 - **Une redélivrance par Meta APRÈS que le parcours a quitté le bloc Formulaire** retombe sur le seul réglage du
   formulaire : un élément que le bloc rangeait ailleurs y est aussi écrit. Limite acceptée, à fermer si elle se voit.
 
+## 🟡 Les lots 3b et 3c de l'aide à la connexion : ce qu'ils laissent (2026-11-10)
+
+- **Pages du tunnel de la vitrine : les étapes en double** (jaune 7 de la relecture des lots 3b et 3c, 2026-11-10). Chaque
+  issue de l'arbre porte les trois étapes deux fois, dans le bloc Free et dans le bloc Pro par l'assistant : +54 Ko sur
+  chacune des quatre pages du tunnel, et sans script les mêmes étapes se lisent deux fois. Un seul bloc d'étapes, la
+  demande seule changeant selon l'offre (`scripts/vitrine/tunnel.ts`, `fin`).
+
 ## 🟡 Le lot 2c de l'aide à la connexion : ce qu'il laisse (2026-11-09)
 
 « Phone call », pas « Text message », pour un numéro fourni (plan `2026-11-09-aide-connexion-lot-2c.md`). Rien ne

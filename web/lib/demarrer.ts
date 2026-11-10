@@ -43,14 +43,18 @@ export { VARIABLE_CLE } from './partage/droits-api';
 /** La valeur de `?suite=` qui fait de `/connecter-whatsapp` une étape du tunnel, et sa clé dans la mémoire de l'onglet. */
 export const SUITE_DEMARRER = 'demarrer';
 export const CLE_SUITE = 'mba.suite';
-/** La formule choisie sur le premier écran (lot 3b) : la Free, gardée dans l'onglet pour ne pas reposer la question. */
+/**
+ * La formule choisie sur le premier écran (lot 3b), gardée dans l'onglet sous la forme `<espace>:free` ou `<espace>:pro`
+ * (le Pro au retour de Stripe) : la question ne revient pas pour CET espace, et revient pour un autre espace neuf.
+ */
 export const CLE_FORMULE = 'mba.formule';
 
 /**
  * La page du numéro est-elle une étape du tunnel ? Par son adresse, ou par la mémoire de l'onglet : le retour de
  * paiement d'un numéro fourni arrive sur `/connecter-whatsapp?abonnement=recu` (`src/stripe/abonnement.ts`), sans la
- * suite, et l'espace perdrait la page finale. La mémoire ne sert QUE ce retour : un onglet quitté en route, puis la page
- * rouverte depuis l'Accueil, ne doit pas se croire encore dans le tunnel.
+ * suite, et l'espace perdrait la page finale. La mémoire ne sert QU'AUX retours de Stripe : celui d'un numéro fourni, ici,
+ * et celui du Pro, sur la page de l'offre (`suiteApresPro`, lot 3b) ; un onglet quitté en route, puis la page rouverte
+ * depuis l'Accueil, ne doit pas se croire encore dans le tunnel. La page finale l'efface.
  */
 export function enSuiteDeDemarrage(recherche: string, memoire: string | null): boolean {
   const p = new URLSearchParams(recherche);
