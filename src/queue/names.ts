@@ -7,7 +7,7 @@
  * Les files travaillées par le worker. `analyze-conversation` et `push-analysis` ne sont enregistrées que si la
  * fonction est activée, mais la file existe côté /ops même désactivée : on les liste inconditionnellement.
  */
-export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta'] as const;
+export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta', 'agent-evenement-issue'] as const;
 
 /**
  * Le nom de la DLQ d'une file, défini une seule fois : `PgBossQueue.ensure()` l'importe pour la créer, donc le nom
@@ -63,6 +63,9 @@ export const QUEUE_POLLING_SECONDS: Record<(typeof BASE_QUEUES)[number], number>
   'application-premier-message': 5,
   // Les conversions de nos publicités envoyées à Meta (pixel, lot 2) : personne n'attend, Meta accepte sept jours.
   'conversions-meta': 60,
+  // L'issue d'un événement envoyé à l'agent de Meta (2026-11-10) : relue 20 s après l'envoi, une relance éventuelle
+  // fait répondre un client qui attend -> 5 s.
+  'agent-evenement-issue': 5,
 };
 
 /**
@@ -94,6 +97,7 @@ export const FILES_NOTIFIEES: Record<(typeof BASE_QUEUES)[number], boolean> = {
   'shopify-preuve-utm': false, // la preuve par UTM d'une vente, relue 30 minutes après la commande : personne n'attend (2026-10-28)
   'application-premier-message': false, // un premier message part à son créneau (`startAfter`), qu'aucun réveil n'avance (2026-10-23)
   'conversions-meta': false, // une conversion de nos publicités : Meta l'accepte pendant sept jours, personne n'attend (pixel, lot 2)
+  'agent-evenement-issue': false, // relue à son heure (`startAfter`, 20 s après l'envoi), qu'aucun réveil n'avance (2026-11-10)
 };
 
 /**

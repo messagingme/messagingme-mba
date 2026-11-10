@@ -110,6 +110,8 @@ import { PgComptesApplication } from './application/comptes.pg';
 import { creerClientApplication } from './application/client';
 import { creerEnvoiApplication } from './application/envoi';
 import { creerMagasinObjets, configObjets } from './lib/magasin-objets';
+import { FILE_ISSUE_EVENEMENT, programmerLecture, type DepsIssueEvenement } from './mba/issue-evenement';
+import { destinataireAgentEvent } from './mba/evenement';
 
 /**
  * Ce que le socle lit de la configuration qu'on lui passe. Les autres réglages restent aux racines qui les consomment ;
@@ -618,6 +620,20 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
   let demarreurScenario: DemarreurScenario | null = null;
 
   /**
+   * L'issue d'un événement envoyé à l'agent de Meta, relue 20 s après (`src/mba/issue-evenement.ts`, plan
+   * `2026-11-10-relance-evenement-agent.md`) : Meta peut accepter un événement puis le mettre en échec, et le client
+   * n'a alors aucune réponse. La lecture part dans la file `agent-evenement-issue`, que le worker consomme ; le magasin
+   * de l'Inbox est passé entier (ses méthodes lisent `this.pool`).
+   */
+  const issueEvenement: DepsIssueEvenement = {
+    programmer: (job, quand) => queue.enqueue(FILE_ISSUE_EVENEMENT, job, { groupId: job.tenantId, startAfter: quand }),
+    lireStatut: async (t, pn, id) => (await metaFactory.mbaClientForTenant(t)).agentEventStatut(pn, id, AbortSignal.timeout(10_000)),
+    envoyer: async (t, pn, waId, ev) =>
+      (await metaFactory.mbaClientForTenant(t)).agentEvent(pn, destinataireAgentEvent(waId), ev, AbortSignal.timeout(10_000)),
+    inbox: inboxStore,
+  };
+
+  /**
    * Le contrôle du fil (`src/inbox/fil.ts`) : le seul endroit qui confie une conversation à l'agent de Meta ou la
    * lui reprend (sa liste, `thread_control`) et écrit qui détient une conversation. Ici parce que les deux processus
    * s'en servent : l'Inbox de l'API (« Reprendre la main », « Rendre la main », un opérateur qui écrit), le worker
@@ -638,6 +654,8 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
       estBloque: (t, waId) => contactStore.isBlockedByWaId(t, waId),
     },
     meta: metaFactory,
+    // L'événement que le fil envoie à l'agent (`prevenir`) fait programmer la lecture de son issue.
+    suiviDesEvenements: { apresEnvoi: (t, pn, waId, ev, reponse) => programmerLecture(issueEvenement, t, pn, waId, ev, reponse) },
     repondeur: {
       demarrer: (t, waId, o) => {
         if (!demarreurRepondeur) throw new Error('répondeur : le démarreur n’est pas branché (src/socle.ts)');
@@ -766,7 +784,7 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     emailsProduit, emetteurEmails, envoisResend, paiementRefuse, optionSansDroit, optionArretee, prevenirEquipe, lienConversation,
     conversionsMeta, emetteurConversions,
     comptesApplication, clientApplication, envoiApplication,
-    magasinObjets,
+    magasinObjets, issueEvenement,
   };
 }
 

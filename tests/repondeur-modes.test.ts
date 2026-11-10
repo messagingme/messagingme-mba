@@ -365,9 +365,18 @@ describe('🔴 A4 : le bloc « Envoyer au MBA » (`vers_mba`)', () => {
     expect(await b.fil.envoyerAuMba(T, W, { contenu: MSG, cause: 'automatique : bloc « Envoyer au MBA », scénario Devis' })).toBe('confie');
     expect(b.appels).toEqual([`ajout:${W}`, `release:${W}`, `evenement:${W}`]);
     expect(b.evenements).toEqual([{ waId: W, event: evenementMessageSansSuite(MSG) }]);
+    // 🔴 Accepté ne veut pas dire traité : l'événement est confié au suivi de son issue, avec la réponse de Meta (2026-11-10).
+    expect(b.suivis).toEqual([{ waId: W, type: evenementMessageSansSuite(MSG).type, reponse: { id: 'ev-1' } }]);
     expect([...b.table.keys()]).toEqual([W]);
     expect(b.etat(W)?.owner).toBe('mba');
     expect(b.indisponibles).toEqual([]);
+  });
+
+  it('un événement que Meta REFUSE n’est confié à aucun suivi (rien à relire), et le geste reste confié', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const b = bancDuFil({ ...libre, mode: 'agent', repondeurAgentId: AG, mbaEnabled: true, evenement: ['refuse'] });
+    expect(await b.fil.envoyerAuMba(T, W, { contenu: MSG, cause: 'x' })).toBe('confie');
+    expect(b.suivis).toEqual([]);
   });
 
   it('🔴 MBA éteint : le fil à l’équipe (demande ouverte), la frise le dit, aucun appel à Meta', async () => {
@@ -392,5 +401,6 @@ describe('🔴 A4 : le bloc « Envoyer au MBA » (`vers_mba`)', () => {
     expect(await refus.fil.envoyerAuMba(T, W, { contenu: MSG, cause: 'x' })).toBe('non_confie');
     expect(refus.etat(W)?.owner).toBe('app_human');
     expect(refus.evenements).toEqual([]);
+    expect(refus.suivis).toEqual([]);
   });
 });

@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { construireSocle, type ConfigSocle } from '../src/socle';
 import { FILE_POUSSEE_OPTOUT } from '../src/crm/poussee-optout';
 import { FILE_SIGNAUX_BATCH } from '../src/signaux/batch';
+import { FILE_ISSUE_EVENEMENT } from '../src/mba/issue-evenement';
 import { SOURCE_STOP_WHATSAPP } from '../src/crm/consentement';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -114,6 +115,18 @@ describe('le socle commun aux deux processus', () => {
     const sans = banc();
     await sans.socle.prevenirEquipe(TENANT, WA_ID);
     expect(sans.enfiles.filter((e) => e.file === 'push-handoff')).toEqual([]);
+  });
+
+  it('🔴 la lecture de l’issue d’un événement de l’agent part dans SA file, à son heure, groupée par espace ; l’Inbox est le magasin entier', async () => {
+    const enfiles: Array<{ file: string; job: unknown; opts: unknown }> = [];
+    const pool = { query: async () => ({ rows: [] }) } as unknown as Pool;
+    const queue = { enqueue: async (file: string, job: unknown, opts?: unknown): Promise<void> => { enfiles.push({ file, job, opts }); } };
+    const socle = construireSocle({ pool, queue, config: configuration });
+    const quand = new Date('2026-11-10T11:27:44Z');
+    const job = { tenantId: TENANT } as Parameters<typeof socle.issueEvenement.programmer>[0];
+    await socle.issueEvenement.programmer(job, quand);
+    expect(enfiles).toEqual([{ file: FILE_ISSUE_EVENEMENT, job, opts: { groupId: TENANT, startAfter: quand } }]);
+    expect(socle.issueEvenement.inbox).toBe(socle.inboxStore);
   });
 
   it('🔴 une file qui refuse l’enfilement ne fait JAMAIS échouer l’appelant qui vient de passer la main', async () => {

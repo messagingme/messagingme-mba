@@ -24,6 +24,7 @@ import { PgCampaignStore, PgQualityProvider } from './campaign/store.pg';
 import { PgShopifyStore } from './shopify/store.pg';
 import { PgVentesStore } from './shopify/ventes.pg';
 import { FILE_PREUVE_UTM, traiterPreuveUtm, type DepsPreuveUtm } from './shopify/preuve-utm';
+import { FILE_ISSUE_EVENEMENT, traiterIssueEvenement } from './mba/issue-evenement';
 import { activerSelonStatut, FILE_OUBLI_MODELE, suppressionDesModeles, traiterOubli, type DepsActivation, type ProgrammerOubli } from './shopify/preparation';
 import { PgTemplateHintStore } from './crm/template-hints.pg';
 import { campaignRunJob, type CapacitesMoteur } from './campaign/run-job';
@@ -245,7 +246,7 @@ export async function demarrerWorker(): Promise<void> {
     publicites, clientPubs, clientCreationPubs, workflowRuntime, clesGateway, provisionCle, accesCreditIa, fil, listeDeLAgent, alerteCredit, numeroBloqueDeLEspace, creditWhatsappBloque, ajustementCreditWhatsapp, estimerCreditCampagne, offres,
     reglagesCreditWhatsapp, conditionsCreditWhatsapp, alertesCreditWhatsapp,
     emailsProduit, emetteurEmails, envoisResend, prevenirEquipe, lienConversation, quotaModeles, comptesApplication, clientApplication,
-    magasinObjets, conversionsMeta,
+    magasinObjets, conversionsMeta, issueEvenement,
   } = construireSocle({ pool, queue, config });
   // La commission sur le crédit IA, celle de l'offre de l'espace (lot 6, C) : le cerveau des tours d'agent la lit.
   const commissionDeLEspace = commissionPour(offres);
@@ -527,6 +528,12 @@ export async function demarrerWorker(): Promise<void> {
     programmer: (job, quand) => queue.enqueue(FILE_PREUVE_UTM, job, { groupId: job.tenantId, startAfter: quand }),
   };
   await queue.work(FILE_PREUVE_UTM, async (data) => { await traiterPreuveUtm(preuveUtm, data); });
+
+  /**
+   * L'issue d'un événement envoyé à l'agent de Meta, relue 20 s après, et une relance sur une panne passagère de Meta
+   * (`src/mba/issue-evenement.ts`). Le socle programme la lecture ; seule une panne de notre base AVANT le renvoi lève.
+   */
+  await queue.work(FILE_ISSUE_EVENEMENT, async (data) => { await traiterIssueEvenement(issueEvenement, data); });
 
   /**
    * 🔴 LA PORTE D'UNE FREE PLEINE (décision de Julien du 2026-10-25, `src/webhooks/espace-plein.ts`), sur les deux files

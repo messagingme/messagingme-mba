@@ -8,7 +8,7 @@ import { addDays, todayParis } from '../../src/stats/range';
 import type { DemandeBrute } from '../../src/stats/performance';
 import { CAUSE_REOUVERTURE, creerControleDuFil } from '../../src/inbox/fil';
 import { creerListeDeLAgent } from '../../src/mba/liste';
-import { DELAI_REPRISE_DEFAUT_MS, aucunRepondeur, aucuneCampagneNeDesigne, listeEnMemoire, metaFactice } from '../banc-du-fil';
+import { DELAI_REPRISE_DEFAUT_MS, aucunRepondeur, aucuneCampagneNeDesigne, listeEnMemoire, metaFactice, sansSuiviDesEvenements } from '../banc-du-fil';
 import { jamaisBloque, jamaisDesabonne, numeroJamaisBloque } from '../consentement';
 import { offresToutOuvert } from '../gardes';
 
@@ -404,6 +404,7 @@ describe.skipIf(!url)('les demandes du Quantitatif > Performance', () => {
       liste: creerListeDeLAgent({ store: listeEnMemoire().store, clientMba: async () => faux.client, attendre: async () => {} }),
       consentement: { estDesabonne: jamaisDesabonne, estBloque: jamaisBloque },
       meta: faux.meta,
+      suiviDesEvenements: sansSuiviDesEvenements,
       offres: offresToutOuvert,
       campagnes: aucuneCampagneNeDesigne,
     });

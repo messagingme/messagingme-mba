@@ -245,6 +245,14 @@ export class MbaClient {
     return this.appel<unknown>('POST', `${phoneNumberId}/agent_event`, { to, event }, VERSION_AGENT_CONFIG, signal);
   }
 
+  /**
+   * Ce que Meta a fait d'un événement accepté : `request_received`, `processing`, `sent`, `success`, `failed` (et
+   * `error_message`) ou `skipped` (et `skipped_reason`). Rendu brut : le lecteur le valide (`src/mba/issue-evenement.ts`).
+   */
+  async agentEventStatut(phoneNumberId: string, agentEventId: string, signal?: AbortSignal): Promise<unknown> {
+    return this.appel<unknown>('GET', `${phoneNumberId}/agent_event/${encodeURIComponent(agentEventId)}`, undefined, VERSION_AGENT_CONFIG, signal);
+  }
+
   // ---------- Informations business (singleton) ----------
 
   async getBusinessInfo(phoneNumberId: string): Promise<BusinessInfo> {

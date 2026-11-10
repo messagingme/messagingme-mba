@@ -217,6 +217,15 @@ export interface DepsControleDuFil {
     }>;
   };
   /**
+   * Après un événement ACCEPTÉ par Meta (`prevenir`) : la lecture de son issue, et sa relance sur une panne passagère
+   * (`src/mba/issue-evenement.ts`). Meta peut accepter puis échouer, et le client reste alors sans réponse (mesuré le
+   * 2026-11-10). 🔴 REQUIS : optionnel, un câblage qui l'oublierait compilerait et l'échec redeviendrait muet. Ne lève
+   * jamais. Fixtures : `sansSuiviDesEvenements` (`tests/banc-du-fil.ts`).
+   */
+  suiviDesEvenements: {
+    apresEnvoi(tenantId: string, phoneNumberId: string, waId: string, event: EvenementAgent, reponse: unknown): Promise<void>;
+  };
+  /**
    * Les démarreurs du répondeur : l'agent IA (`src/repondeur/demarrer.ts`) et le scénario (`src/repondeur/scenario.ts`,
    * RC6). 🔴 REQUIS : optionnels, un câblage qui les oublierait compilerait, et chaque message d'un espace à répondeur
    * resterait sans réponse, hors d'« À traiter ». Le fil est construit AVANT l'exécuteur dont les démarreurs dépendent :
@@ -533,10 +542,13 @@ export function creerControleDuFil(deps: DepsControleDuFil): ControleDuFil {
     }
     try {
       const client = await deps.meta.mbaClientForTenant(tenantId);
-      const reponse = await client.agentEvent(numero, destinataireAgentEvent(waId), evenementMessageSansSuite(contenu), AbortSignal.timeout(10_000));
+      const evenement = evenementMessageSansSuite(contenu);
+      const reponse = await client.agentEvent(numero, destinataireAgentEvent(waId), evenement, AbortSignal.timeout(10_000));
       // La réponse porte l'identifiant de l'événement, seul moyen de demander ensuite à Meta ce qu'il en a fait.
       // eslint-disable-next-line no-console
       console.log(`agent_event sans suite envoyé pour ${waId} : ${traceReponse(reponse)}`);
+      // Ce qu'il en a fait se relit 20 s plus tard : accepté ne veut pas dire traité.
+      await deps.suiviDesEvenements.apresEnvoi(tenantId, numero, waId, evenement, reponse);
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(`agent_event sans suite REFUSÉ pour ${waId} (${tenantId}), l’agent répondra au prochain message :`, messageDe(err));

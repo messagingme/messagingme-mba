@@ -333,6 +333,8 @@ export function bancDuFil(o: OptionsBanc = {}): {
   indisponibles: Array<{ waId: string; cause: string }>;
   /** Les lectures du répondeur de campagne, par `waId`, dans l'ordre : vide = la remise n'a pas atteint la lecture. */
   lecturesCampagne: string[];
+  /** Les événements ACCEPTÉS confiés au suivi de leur issue (`suiviDesEvenements.apresEnvoi`), avec la réponse de Meta. */
+  suivis: Array<{ waId: string; type: string; reponse: unknown }>;
 } {
   const memoire = depotEnMemoire(o.conversations);
   const table = listeEnMemoire(o.surLaListe, { poserEchoue: o.poserEchoue === true });
@@ -354,6 +356,7 @@ export function bancDuFil(o: OptionsBanc = {}): {
   const lancementsScenario: Array<{ waId: string; workflowId: string; messageDeclencheur: string | null }> = [];
   const demandesApplication: Array<{ waId: string; adresseId: string; messageDeclencheur: string | null; contenu: string }> = [];
   const lecturesCampagne: string[] = [];
+  const suivis: Array<{ waId: string; type: string; reponse: unknown }> = [];
   const mbaEnabled = o.mbaEnabled ?? true;
   const repondeurAgentId = o.repondeurAgentId ?? null;
   const mode: ModeRepondeur = o.mode ?? (repondeurAgentId !== null ? 'agent' : (mbaEnabled ? 'mba' : 'equipe'));
@@ -379,6 +382,7 @@ export function bancDuFil(o: OptionsBanc = {}): {
       estBloque: async (_t, waId) => (o.bloques ?? []).includes(waId),
     },
     meta: faux.meta,
+    suiviDesEvenements: { apresEnvoi: async (_t, _pn, waId, ev, reponse) => { suivis.push({ waId, type: ev.type, reponse }); } },
     repondeur: {
       demarrer: async (t, waId, d) => {
         demarrages.push({ waId, agentId: d.agentId, messageDeclencheur: d.messageDeclencheur });
@@ -416,7 +420,13 @@ export function bancDuFil(o: OptionsBanc = {}): {
   });
   return {
     fil, liste, etat: memoire.etat, lignes: memoire.lignes, table: table.lignes, ecritures: memoire.ecritures, demandes: memoire.demandes,
-    appels: faux.appels, evenements: faux.evenements, attentes, client: faux.client, demarrages,
+    appels: faux.appels, evenements: faux.evenements, suivis, attentes, client: faux.client, demarrages,
     reclamations, lancementsScenario, demandesApplication, indisponibles: memoire.indisponibles, lecturesCampagne,
   };
 }
+
+/**
+ * Le suivi de l'issue des événements, éteint (`DepsControleDuFil.suiviDesEvenements`) : pour un banc qui ne regarde pas
+ * ce que Meta fait d'un événement après l'avoir accepté. Le dit, au lieu de le cacher.
+ */
+export const sansSuiviDesEvenements = { apresEnvoi: async (): Promise<void> => {} };

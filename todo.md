@@ -1,5 +1,21 @@
 # todo.md : backlog
 
+## 🟡 La relance d'un événement que Meta met en échec : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-10-relance-evenement-agent.md`)
+
+Aucun rouge. À reprendre au prochain lot qui touche `src/mba/issue-evenement.ts`.
+
+- **Un worker tué entre le renvoi et la fin du job** : le job est rejoué, relit le même `failed`, et les gardes passent
+  encore si l'écho de l'agent n'est pas arrivé : second renvoi. Fenêtre de quelques centaines de millisecondes. Parade :
+  enfiler la lecture du renvoi AVANT de l'envoyer, ou marquer le job comme déjà renvoyé.
+- **Un écho de l'agent arrivé plus de 20 s après** un `failed` qui l'a quand même fait écrire échappe à la garde
+  « l'agent a écrit depuis » (comparaison par identifiant). Rare sur `internal_server_error`.
+- **Le câblage du socle n'est pas éprouvé de bout en bout** : `tests/socle.test.ts` appelle `issueEvenement.programmer`
+  directement. Ajouter un cas `socle.fil.envoyerAuMba` avec un faux `mbaClientForTenant` qui rend un `agent_event_id`.
+- **Le relevé de référence se prend après le `POST`** : un message de l'agent écrit avant y entrerait. Sans effet vu les
+  dix secondes de traitement mesurées chez Meta.
+- **Les autres événements** (`reponse_hors_parcours`, `envoi_echoue`, `lien_de_test`) ne sont ni relus ni relancés : les
+  brancher si les journaux `agent_event_issue` montrent le même échec sur eux.
+
 ## 🟡 Le coût de l'IA complet : ce que la relecture du lot A laisse (plan `docs/superpowers/plans/2026-11-10-cout-ia-et-mba.md`)
 
 Aucun rouge ; à reprendre au lot B ou au prochain lot qui touche ces chemins.
