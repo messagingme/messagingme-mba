@@ -1,5 +1,6 @@
 import type { NomOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import { ETAPES_CARTE_META } from '../../web/lib/partage/etapes-meta';
+import { AIDE_COMPTE_META_BUSINESS, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_POURQUOI_PAIEMENT } from '../../web/lib/partage/aide-connexion';
 import { modeEffectif, sousLOffre, type ModeRepondeur, type ReglageDuRepondeur } from '../repondeur/mode';
 import { manquesDeLAgent, type DepsGestionAgents } from '../agent/gestion';
 import { eurosDepuisMicro } from '../agent/devise';
@@ -43,6 +44,18 @@ export const OUTILS_DE_L_ETAPE = {
 } as const satisfies Record<string, readonly NomOutilMcp[]>;
 
 export type EtapeMiseEnService = keyof typeof OUTILS_DE_L_ETAPE;
+
+/**
+ * LES PAGES D'AIDE DU NUMÉRO (aide à la connexion, lot 4b), rendues aux deux étapes du numéro : Claude donne celle qui
+ * convient quand la personne hésite ou bloque, à l'adresse de sa langue, et la skill n'en tape aucune. Elles viennent de
+ * la constante que la console et la vitrine lisent aussi, vérifiée sur le site par `tests/aide-connexion-adresses.test.ts`.
+ */
+export const AIDE_NUMERO = {
+  guide: AIDE_GUIDE,
+  depannage: AIDE_DEPANNAGE,
+  payer_meta: AIDE_POURQUOI_PAIEMENT,
+  compte_meta_business: AIDE_COMPTE_META_BUSINESS,
+} as const;
 
 /** Les avertissements que l'outil peut rendre ; `lecture_manquee` porte la source après un deux-points. */
 export const AVERTISSEMENTS = [
@@ -119,6 +132,8 @@ export interface EtatMiseEnService {
   avertissements: string[];
   /** Avec `carte_meta_a_regler` seulement : le chemin chez Meta, la même source que l'Accueil (`ETAPES_CARTE_META`). */
   etapes_carte_meta?: string[];
+  /** Aux deux étapes du numéro seulement (`connecter_numero`, `activer_numero`) : les pages d'aide (`AIDE_NUMERO`). */
+  aide?: typeof AIDE_NUMERO;
 }
 
 export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
@@ -201,6 +216,7 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
     outils_suggeres: OUTILS_DE_L_ETAPE[etape],
     avertissements,
     ...(carteARegler ? { etapes_carte_meta: ETAPES_CARTE_META.map((e) => e.fr) } : {}),
+    ...(etape === 'connecter_numero' || etape === 'activer_numero' ? { aide: AIDE_NUMERO } : {}),
   };
 }
 

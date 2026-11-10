@@ -10,7 +10,7 @@ import { empreinteEtat, type EtatConnexion } from '../src/otp/etat-connexion';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, PREREQUIS_META } from '../web/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI, ETAPES_FENETRE_GARDER, ETAPES_RELIER_APPLICATION } from '../web/lib/partage/etapes-application';
 import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI } from '../web/lib/partage/etapes-numero-fourni';
-import { AIDE_GARDER_APPLICATION } from '../web/lib/partage/aide-connexion';
+import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION } from '../web/lib/partage/aide-connexion';
 import { COEXISTENCE_BOUTON } from '../web/lib/fenetre-meta';
 import { NOTE_CARTE_APPLICATION } from '../web/lib/questions-numero';
 
@@ -513,6 +513,17 @@ describe('start_whatsapp_connection en coexistence', () => {
     expect(c).toContain(AIDE_GARDER_APPLICATION.en);
     // La personne peut demander les étapes de la carte : Claude les a sous la main.
     expect(c).toContain(ETAPES_CARTE_META[0]!.fr);
+  });
+
+  /** Claude renvoie vers les pages (lot 4b) : la page de dépannage, si ça bloque, après le lien, dans chaque mode. */
+  it('🔴 la page de dépannage finit la consigne des quatre modes de la fenêtre de Meta, en français et en anglais', async () => {
+    for (const mode of ['fourni', 'apporte', 'coexistence', 'fourni_application']) {
+      const r = await demarrer(VIDE, { mode });
+      const c = r.consigne!;
+      expect(c, mode).toContain(AIDE_DEPANNAGE.fr);
+      expect(c, mode).toContain(AIDE_DEPANNAGE.en);
+      expect(c.indexOf(AIDE_DEPANNAGE.fr), mode).toBeGreaterThan(c.indexOf(r.url!));
+    }
   });
 
   it('🔴 refusé avec la filière application : la coexistence est l’API officielle', async () => {

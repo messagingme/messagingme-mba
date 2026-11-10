@@ -16,8 +16,12 @@
 
 import { DROITS, ESSAI_PRO_JOURS, PRIX_BUSINESS_HT_CENTIMES, PRIX_PRO_HT_CENTIMES } from '../../src/offres/offres';
 import { PRIX_OPTION_WA_HT_CENTIMES } from '../../src/stripe/option-credit-whatsapp';
+import { AIDE_COMPTE_META_BUSINESS, AIDE_POURQUOI_PAIEMENT } from '../../web/lib/partage/aide-connexion';
 import { ETAPES_NUMERO_FOURNI } from '../../web/lib/partage/etapes-numero-fourni';
 import type { Langue } from './cas-textes';
+
+/** Le chemin d'une page de la vitrine, depuis son adresse partagée avec la console et Claude (lot 4b). */
+const chemin = (adresse: string): string => new URL(adresse).pathname;
 
 /**
  * Le code du numéro fourni par la fenêtre de Meta, en deux phrases de la source unique (aide à la connexion, lots 2c
@@ -213,8 +217,8 @@ const fr = (): TexteTunnel => {
       plus: ['Meta vous facture vos modèles sur ce moyen de paiement.'],
       moins: [],
       liens: [
-        { libelle: 'Pourquoi un moyen de paiement ?', href: '/aide/la-fenetre-de-24-heures/' },
-        { libelle: 'Qu’est-ce qu’un compte Meta Business ?', href: '/aide/ce-qu-il-faut-chez-meta/' },
+        { libelle: 'Pourquoi un moyen de paiement ?', href: chemin(AIDE_POURQUOI_PAIEMENT.fr) },
+        { libelle: 'Qu’est-ce qu’un compte Meta Business ?', href: chemin(AIDE_COMPTE_META_BUSINESS.fr) },
       ],
     },
     {
@@ -508,8 +512,8 @@ const en = (): TexteTunnel => {
       plus: ['Meta bills your templates to this payment method.'],
       moins: [],
       liens: [
-        { libelle: 'Why a payment method?', href: '/en/help/the-24-hour-window/' },
-        { libelle: 'What is a Meta Business account?', href: '/en/help/what-you-need-at-meta/' },
+        { libelle: 'Why a payment method?', href: chemin(AIDE_POURQUOI_PAIEMENT.en) },
+        { libelle: 'What is a Meta Business account?', href: chemin(AIDE_COMPTE_META_BUSINESS.en) },
       ],
     },
     {

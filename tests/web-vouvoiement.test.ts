@@ -97,11 +97,18 @@ const MARQUES: RegExp[] = [
   /(?<![\p{L}])(réessaie|rafraîchis|reconnecte)(?![\p{L}])/iu,
 ];
 
+/**
+ * Une adresse ou un chemin, seul dans son littéral, n'est pas du texte qu'une personne lit : le chemin du dépannage
+ * (`/aide/depanner-la-connexion-du-numero/`, `lib/partage/aide-connexion.ts`) n'est pas l'impératif « dépanne-la ».
+ */
+const ADRESSE = /^(?:https?:\/\/\S*|\/[\p{L}0-9/._-]*)$/u;
+
 describe('La console vouvoie', () => {
   it('🔴 aucune marque du tutoiement dans le texte français affiché', () => {
     const fautifs: string[] = [];
     for (const f of ['app', 'components', 'lib'].flatMap((d) => fichiers(join(RACINE, d)))) {
       for (const { ligne, texte } of textesFrancais(f)) {
+        if (ADRESSE.test(texte.trim())) continue;
         const m = MARQUES.map((r) => texte.match(r)).find((x) => x !== null);
         if (m) fautifs.push(`${rel(f)}:${ligne} « ${m[0].trim()} » dans : ${texte.trim().slice(0, 90)}`);
       }
@@ -123,5 +130,10 @@ describe('La console vouvoie', () => {
       'Au-delà, chaque message est facturé.', 'Réessayez dans un instant.', 'Tapez SUPPRIMER pour confirmer', 'statut',
       'Refaites-le depuis le début.', 'Entre parenthèses, le prix.', 'un prospect qui clique n’aurait aucune réponse',
     ]) expect(attrape(s), s).toBe(false);
+    // Une adresse seule est écartée avant les marques ; une phrase qui en contient une reste jugée.
+    for (const s of ['/aide/depanner-la-connexion-du-numero/', 'https://app.messagingme.fr/aide/depanner-la-connexion-du-numero/']) {
+      expect(ADRESSE.test(s), s).toBe(true);
+    }
+    for (const s of ['Connecte-le sur /connecter-whatsapp', 'Réessaie dans un instant.']) expect(ADRESSE.test(s), s).toBe(false);
   });
 });

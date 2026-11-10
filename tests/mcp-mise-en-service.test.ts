@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AVERTISSEMENTS, OUTILS_DE_L_ETAPE, etatMiseEnService, lireMiseEnService, type DepsMiseEnService, type LecturesMiseEnService,
 } from '../src/mcp/mise-en-service';
+import { AIDE_COMPTE_META_BUSINESS, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_POURQUOI_PAIEMENT } from '../web/lib/partage/aide-connexion';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import type { EtatConnexion } from '../src/otp/etat-connexion';
@@ -61,6 +62,22 @@ describe('l’étape suivante', () => {
     expect(e.etape_suivante).toBe('activer_numero');
     expect(e.outils_suggeres).toEqual([]);
     expect(e.avertissements).toContain('numero_a_activer');
+  });
+
+  /**
+   * CLAUDE RENVOIE VERS LES PAGES (aide à la connexion, lot 4b) : aux deux étapes du numéro, les pages d'aide de la
+   * constante partagée, que la skill nomme par leur champ au lieu de les taper ; ailleurs, rien, pour ne pas alourdir.
+   */
+  it('🔴 aux deux étapes du numéro, les pages d’aide (guide, dépannage, Payer Meta, compte Meta Business) ; ailleurs, aucune', () => {
+    const sansNumero = etatMiseEnService({ ...PRET, numero: SANS_NUMERO, agents: [] });
+    const aActiver = etatMiseEnService({ ...PRET, numero: { ...NUMERO_CONNECTE, connecte: { chiffres: '336', aActiver: true } } });
+    for (const e of [sansNumero, aActiver]) {
+      expect(e.aide, e.etape_suivante).toEqual({
+        guide: AIDE_GUIDE, depannage: AIDE_DEPANNAGE, payer_meta: AIDE_POURQUOI_PAIEMENT, compte_meta_business: AIDE_COMPTE_META_BUSINESS,
+      });
+    }
+    expect(etatMiseEnService(PRET).aide).toBeUndefined();
+    expect(etatMiseEnService({ ...PRET, agents: [] }).aide).toBeUndefined();
   });
 
   it('🔴 le code de vérification n’est jamais rendu : l’outil est ouvert aux clés d’API, le code est réservé à une personne', () => {

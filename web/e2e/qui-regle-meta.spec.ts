@@ -68,10 +68,10 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('qui-regle-meta')).toContainText('Qui paie vos messages à Meta ?');
     await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'true');
-    // Le libellé de la carte et ses deux liens vers la vitrine (lot 3a).
+    // Le libellé de la carte et ses deux liens vers la vitrine (lot 3a ; « Payer Meta » depuis le lot 4b).
     const carteMeta = page.getByTestId('carte-meta');
     await expect(carteMeta).toContainText('Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business');
-    await expect(carteMeta.getByRole('link', { name: 'Pourquoi un moyen de paiement ?' })).toHaveAttribute('href', /\/aide\/la-fenetre-de-24-heures\/$/);
+    await expect(carteMeta.getByRole('link', { name: 'Pourquoi un moyen de paiement ?' })).toHaveAttribute('href', /\/aide\/payer-meta-poser-votre-carte\/$/);
     await expect(carteMeta.getByRole('link', { name: 'Qu’est-ce qu’un compte Meta Business ?' })).toHaveAttribute('href', /\/aide\/ce-qu-il-faut-chez-meta\/$/);
     await expect(page.getByTestId('question-compte')).toBeVisible();
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');

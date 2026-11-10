@@ -8,6 +8,7 @@ import {
   QUESTION_COMPTE, QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_OFFRE, QUESTION_PAIEMENT, WHATSAPP_ORDINAIRE,
 } from '../web/lib/questions-numero';
 import { VITRINE_AIDE } from '../web/lib/partage/aide-connexion';
+import { AIDE_NUMERO } from '../src/mcp/mise-en-service';
 
 /**
  * LA CONSOLE POSE LES QUESTIONS DE LA VITRINE (2026-10-30, plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-plugin.md`).
@@ -164,10 +165,14 @@ describe('le plugin pose les mêmes questions, sans QR code', () => {
     expect(skill).not.toMatch(/On the QR code track|By QR code, to answer/);
   });
 
-  it('🔴 la carte du moyen de paiement, dans la skill : son libellé et ses quatre adresses (jaune 8 du lot 3a)', () => {
+  it('🔴 la carte du moyen de paiement, dans la skill : son libellé et ses deux pages (jaune 8 du lot 3a)', () => {
     const skill = lire('plugin/skills/mise-en-service/SKILL.md');
     expect(skill).toContain(QUESTION_PAIEMENT.carte.titre.en);
-    for (const l of QUESTION_PAIEMENT.carte.liens) for (const adresse of [l.href.fr, l.href.en]) expect(skill).toContain(adresse);
+    // Depuis le lot 4b, la skill ne tape plus les adresses : elle nomme les champs `aide` de get_setup_state, qui portent
+    // les mêmes pages que les deux liens de la carte, dans le même ordre.
+    expect(skill).toContain('`aide.payer_meta`');
+    expect(skill).toContain('`aide.compte_meta_business`');
+    expect(QUESTION_PAIEMENT.carte.liens.map((l) => l.href)).toEqual([AIDE_NUMERO.payer_meta, AIDE_NUMERO.compte_meta_business]);
   });
 
   it('🔴 ni le README ni la FAQ ne proposent le QR code ou l’appareil lié', () => {

@@ -1,7 +1,7 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '../../web/lib/partage/etapes-numero-fourni';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, PREREQUIS_META } from '../../web/lib/partage/etapes-meta';
-import { AIDE_GARDER_APPLICATION } from '../../web/lib/partage/aide-connexion';
+import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION } from '../../web/lib/partage/aide-connexion';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
 import { RefusOutil, valeurOuRefus } from './saisie';
 import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
@@ -142,6 +142,15 @@ export function rappelDuLien(lien: string | null): string {
 /** Si la personne revient avant la fin (essai 99) : lui redire où elle en est, puis attendre à nouveau. */
 const SI_ELLE_REVIENT = ' Si elle revient avant la fin, rappelle-lui où elle en est (la page du lien, la fenêtre de Meta, '
   + 'le numéro) avant d’attendre à nouveau.';
+
+/**
+ * LA PAGE DE DÉPANNAGE, SI ELLE BLOQUE (aide à la connexion, lot 4b) : la fin de chaque consigne de la fenêtre de Meta,
+ * à l'adresse de sa langue. Le mode op du parcours n'existe encore que pour garder l'application (A, cité dans
+ * `AVANT_LE_LIEN_GARDER`) ; ceux du numéro fourni et de son propre numéro viendront avec leurs pages (lot 4c).
+ */
+const SI_ELLE_BLOQUE = ' Si elle bloque (pas de code, une fenêtre de Meta qui refuse son numéro ou ne s’ouvre pas), donne-lui '
+  + `la page de dépannage, à l’adresse de sa langue : en français ${AIDE_DEPANNAGE.fr} ; dans une autre langue `
+  + `${AIDE_DEPANNAGE.en} .`;
 
 /**
  * Garder l'application, c'est payer Meta avec sa carte (révision du Crédit WhatsApp, lot C) : la phrase de la console
@@ -692,8 +701,9 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         expire_le: new Date(deps.numero.maintenant() + DUREE_LIEN_NUMERO_MS).toISOString(),
         consigne: filiere === 'application'
           ? (mode === 'fourni' ? CONSIGNES_APPLICATION.fourni(etat.inclusDansLePro, url) : CONSIGNES_APPLICATION.apporte(url))
-          : mode === 'fourni' ? consigneFourni(etat.inclusDansLePro, url)
-            : mode === 'fourni_application' ? consigneFourniApplication(etat.inclusDansLePro, url) : CONSIGNES[mode](url),
+          : (mode === 'fourni' ? consigneFourni(etat.inclusDansLePro, url)
+            : mode === 'fourni_application' ? consigneFourniApplication(etat.inclusDansLePro, url) : CONSIGNES[mode](url))
+            + SI_ELLE_BLOQUE,
       };
     },
   },
