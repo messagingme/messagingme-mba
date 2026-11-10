@@ -332,7 +332,7 @@ test('« Je ne sais pas » : où le vérifier, puis l’application gardée, san
   await expect(page.getByTestId('numero-trop-neuf')).toHaveCount(0);
 });
 
-test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous pouvez la garder »', async ({ page }) => {
+test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous pouvez le garder »', async ({ page }) => {
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
@@ -345,6 +345,8 @@ test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous
   await page.getByTestId('choix-coexistence').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('whatsapp-ordinaire')).toContainText('elle vous propose de reprendre ce numéro, avec vos conversations');
+  // Repris de WhatsApp à l'instant, le compte de l'application peut être trop neuf pour Meta (jaune 5 du lot 3a).
+  await expect(page.getByTestId('numero-trop-neuf')).toContainText('revenez le brancher');
   await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
   // « Retour » ramène aux questions, la réponse gardée en évidence ; une autre réponse change la suite.
   await page.getByRole('button', { name: 'Retour' }).click();
@@ -384,7 +386,7 @@ test('🔴 sans compte, sans application, sans numéro : le numéro fourni va da
   await expect(page.getByTestId('ouvrir-fenetre-meta')).toHaveCount(0);
 });
 
-test('🟡 avec l’application, aucune 4e question ni numéro proposé', async ({ page }) => {
+test('🟡 avec l’application et ce numéro-là, aucune 4e question ni numéro proposé', async ({ page }) => {
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
@@ -421,6 +423,8 @@ test('🔴 le cas 4 : l’application, pas ce numéro-là, donc un numéro de ch
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await page.getByTestId('question-meme-numero-non').click();
   await page.getByTestId('choix-autre-numero').click();
+  // Au numéro fourni, la condition d'un numéro à soi se tait, comme chez Claude (jaune 10 du lot 3a).
+  await expect(page.getByTestId('prerequis-meta').locator('li')).toHaveCount(2);
   await page.getByTestId('obtenir-numero').click();
   await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
   // Par la fenêtre de Meta, le code par l'appel (lot 2c), jamais dans l'application.

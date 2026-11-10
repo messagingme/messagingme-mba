@@ -25,8 +25,11 @@ type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
  *
  * Sans choix déjà fait, il pose d'abord les questions du tunnel de la vitrine (2026-10-30, `@/lib/questions-numero`) :
  * « Avez-vous un compte Meta Business ? », Oui menant aux deux choix du numéro API ; Non ou « Je ne sais pas » à
- * « Avez-vous déjà l'application WhatsApp Business ? », dont les deux réponses mènent à la garder (Non : après l'avoir
- * téléchargée), la carte s'affichant sous la question. Plus aucune voie par QR code. « Qui paie vos messages à Meta ? »
+ * « Avez-vous déjà l'application WhatsApp Business ? ». Oui demande « Voulez-vous utiliser ce numéro-là ? » (le cas 4,
+ * lot 3a) : Oui la garde, Non mène à un numéro de chez nous, relié par la fenêtre de Meta. Non la fait télécharger, puis
+ * demande un numéro à y mettre, sinon nous en fournissons un. Un numéro qui sert dans WhatsApp, l'application ordinaire,
+ * passe dans WhatsApp Business et se garde, jamais vers un autre numéro. La carte s'affiche sous la question. Plus
+ * aucune voie par QR code. « Qui paie vos messages à Meta ? »
  * vient avant, posée par la page (`QuiRegleMeta`, lot B du Crédit WhatsApp) : ce guide est la voie de la carte chez Meta,
  * et chaque voie qui garde l'application le dit (`NOTE_CARTE_APPLICATION`).
  *
@@ -200,8 +203,11 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     : null;
   // En coexistence, le numéro RESTE dans l'application : le prérequis d'un numéro hors de l'application la contredirait,
   // et le compte Meta Business, sa carte le dit elle-même, la fenêtre de Meta le crée en chemin. Reste ce qu'il est.
-  // Le numéro fourni mis dans l'application y reste aussi : même chose.
-  const prerequis = choix === 'coexistence' || choix === 'fourni_application' ? PREREQUIS_META.slice(0, 1) : PREREQUIS_META;
+  // Le numéro fourni mis dans l'application y reste aussi : même chose. Au numéro fourni par la fenêtre de Meta, la
+  // condition d'un numéro à soi n'a plus de sens : il vient d'en choisir un, comme Claude le tait (jaune 10 du lot 3a).
+  const prerequis = choix === 'coexistence' || choix === 'fourni_application'
+    ? PREREQUIS_META.slice(0, 1)
+    : choix === 'fourni' ? PREREQUIS_META.slice(0, 2) : PREREQUIS_META;
   const boutonCoexistence = (
     <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect({ coexistence: true }); }} data-testid="ouvrir-fenetre-coexistence">
       {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}
@@ -218,7 +224,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     </div>
   );
   /**
-   * La carte qui garde l'application WhatsApp Business : ouverte par un lien de Claude, par « Vous pouvez la garder », ou
+   * La carte qui garde l'application WhatsApp Business : ouverte par un lien de Claude, par « Vous pouvez le garder », ou
    * sous la question de l'application. Après « Non », elle dit d'abord de la télécharger, avec les deux magasins.
    * `ordinaire` : le numéro peut servir dans WhatsApp, l'application ordinaire (lot 3a) ; la carte dit qu'il passe dans
    * WhatsApp Business. Sans objet quand on vient de répondre que le numéro est déjà dans WhatsApp Business.
@@ -240,8 +246,9 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       {COEXISTENCE_PHRASES.map((p) => <p key={p.fr} className="mt-3 text-sm text-ink-700">{t(p.fr, p.en)}</p>)}
       {/* Garder l'application, c'est payer Meta avec sa carte (révision du Crédit WhatsApp, décision 8). */}
       <p data-testid="note-carte-application" className="mt-3 text-sm text-ink-700">{t(NOTE_CARTE_APPLICATION.fr, NOTE_CARTE_APPLICATION.en)}</p>
-      {/* Un numéro qu'on vient de mettre dans l'application peut être refusé par Meta : on le dit avant qu'il le soit. */}
-      {apresTelechargement && <p data-testid="numero-trop-neuf" className="mt-3 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[1].fr, ISSUE_TELECHARGER.textes[1].en)}</p>}
+      {/* Un numéro qu'on vient de mettre dans l'application, ou de reprendre de WhatsApp (jaune 5 du lot 3a), peut être
+          refusé par Meta : on le dit avant qu'il le soit. */}
+      {(apresTelechargement || ordinaire) && <p data-testid="numero-trop-neuf" className="mt-3 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[1].fr, ISSUE_TELECHARGER.textes[1].en)}</p>}
     </div>
   );
   /**

@@ -164,12 +164,13 @@ them to another way on your own.
 
 **The connection**, steps 1 to 4. The `consigne` of `start_whatsapp_connection` for `fourni` and `apporte` starts with
 what Meta requires (a Meta Business account, that is a business portfolio, which Meta's window can create, and for
-their own number one that is not used in the WhatsApp app): relay it once, before the link.
+their own number one used in no WhatsApp app): relay it once, before the link.
 
 1. The mode the questions settled:
    - **a number we provide** (`fourni`): a dedicated number, paid on the page before it is assigned, included in Pro;
-   - **their own number** (`apporte`): check that it is not used in the WhatsApp app. A number connected to the API
-     leaves the WhatsApp app; Meta's window refuses it until it is removed from the app;
+   - **their own number** (`apporte`): check that it is used in no WhatsApp app. One used in WhatsApp, the regular
+     app, or in the WhatsApp Business app is kept with `coexistence` (in the regular app, they first install WhatsApp
+     Business on the same phone, which takes it over with its chats): never send it to another number;
    - **their WhatsApp Business app, kept** (`coexistence`): in Meta's window they enter the number of their app and
      confirm in the app, on their phone;
    - **a number we provide, put in the WhatsApp Business app** (`fourni_application`): paid or obtained on the page,

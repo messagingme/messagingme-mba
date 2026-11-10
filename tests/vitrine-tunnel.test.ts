@@ -132,6 +132,9 @@ describe('le tunnel du numéro WhatsApp', () => {
       const api = issue('api');
       expect(api.textes.join(' '), langue).not.toMatch(/Sans numéro libre|Without an available number/);
       expect(api.autre!.question, langue).toMatch(/WhatsApp ou dans l’application|WhatsApp or in the WhatsApp Business app/);
+      // Sa demande à coller aussi : le numéro fourni ne vaut que sans numéro (jaune 2 de la relecture).
+      expect(Object.values(api.numero ?? {}).join(' '), langue).toMatch(/si je n’ai aucun numéro|if I have no number at all/);
+      expect(Object.values(api.numero ?? {}).join(' '), langue).not.toMatch(/si je n’en ai pas|if I have none/);
       for (const id of ['garder', 'telecharger']) {
         expect(issue(id).textes.join(' '), `${langue} ${id}`).toMatch(/reprendre ce numéro, avec vos conversations|take over that number, with your chats/);
       }
@@ -140,10 +143,17 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect(carte.titre, langue).toMatch(/Visa \/ Mastercard/);
       for (const l of carte.liens ?? []) expect(existsSync(join('site', l.href, 'index.html')), `${langue} ${l.href}`).toBe(true);
       expect(carte.liens?.length, langue).toBe(2);
+      // Un compte de l'application tout juste repris de WhatsApp peut être trop neuf pour Meta (jaune 5).
+      expect(issue('garder').textes.join(' '), langue).toMatch(/Meta refuse parfois un numéro trop neuf|Meta sometimes refuses a number that is too new/);
+    }
+    // Un lien de la carte s'ouvre dans un autre onglet sans la choisir (jaune 1) : le clic ne vaut pas choix.
+    expect(lire('site.js')).toContain("closest('.bt-voie-liens a[href]')");
+    for (const adresse of [DEMARRER.fr, DEMARRER.en]) {
+      expect(lire(fichierDe(adresse)), adresse).toMatch(/<p class="bt-voie-liens"><a href="[^"]+" target="_blank" rel="noopener">/);
     }
   });
 
-  it('🔴 avec l’application, on la garde, et le numéro fourni n’y est jamais proposé (Julien, 2026-10-31)', () => {
+  it('🔴 avec l’application et ce numéro-là, on la garde, et le numéro fourni n’y est jamais proposé (Julien, 2026-10-31)', () => {
     for (const langue of ['fr', 'en'] as const) {
       const garder = TEXTES_TUNNEL[langue].issues.find((x) => x.id === 'garder')!;
       expect([...garder.textes, ...Object.values(garder.numero ?? {})].join(' '), langue).not.toMatch(/fourni|provide|\d+[,.]\d+/i);

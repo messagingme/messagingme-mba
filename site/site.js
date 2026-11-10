@@ -439,6 +439,9 @@
         aide.setAttribute('aria-expanded', String(Boolean(texte) && !texte.hidden));
         return;
       }
+      // Un lien de la carte (« Pourquoi un moyen de paiement ? ») s'ouvre dans un autre onglet sans la choisir (jaune 1 de
+      // la relecture du lot 3a) : sans ce retour, le clic la choisissait puis quittait la page.
+      if (e.target.closest && e.target.closest('.bt-voie-liens a[href]')) return;
       // Une carte se choisit d'un clic n'importe où sur elle, comme son bouton (le texte reste sélectionnable au clavier).
       var carte = e.target.closest && e.target.closest('.bt-voie-choix');
       var b = (e.target.closest && e.target.closest('[data-vers]')) || (carte && carte.querySelector('[data-vers]'));
@@ -448,7 +451,7 @@
         if (b.getAttribute('aria-pressed') !== 'true') repondre(b, q, true);
         return;
       }
-      // Un lien d'issue vers une autre (« Vous pouvez la garder ») : l'autre issue prend sa place, son titre le focus.
+      // Un lien d'issue vers une autre (« Vous pouvez le garder ») : l'autre issue prend sa place, son titre le focus.
       var lien = e.target.closest && e.target.closest('[data-vers-chemin]');
       if (lien) {
         e.preventDefault();

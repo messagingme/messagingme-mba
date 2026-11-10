@@ -19,7 +19,8 @@ export const META_BUSINESS_URL = 'https://business.facebook.com/';
  * mots que la vitrine (`tests/questions-numero-vitrine.test.ts`) ; la console y ajoute l'état de l'espace (`QuiRegleMeta`).
  *
  * ⚠️ `carte.texte` et `grisee` sont les mots de la VITRINE, tenus égaux par le test de parité : la console dit ses
- * variantes validées (`QuiRegleMeta` : « Vous connectez votre numéro avec votre carte chez Meta… », « Sur demande :
+ * variantes validées (`QuiRegleMeta` : « Vous connectez votre numéro, et Meta vous facture vos modèles sur ce moyen de
+ * paiement. », « Sur demande :
  * écrivez-nous depuis le Support. ») ; le titre, la question, sa précision et le texte du Crédit WhatsApp sont communs
  * (jaune 8 de la relecture du lot B).
  */
@@ -127,7 +128,7 @@ export const QUESTION_NUMERO = {
 export const ISSUE_API = {
   titre: { fr: 'Votre numéro API', en: 'Your API number' },
   garder: { fr: 'Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?', en: 'Is your number already used in WhatsApp or in the WhatsApp Business app?' },
-  lien: { fr: 'Vous pouvez la garder', en: 'You can keep it' },
+  lien: { fr: 'Vous pouvez le garder', en: 'You can keep it' },
 } as const satisfies Record<string, Texte>;
 
 /**

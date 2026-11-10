@@ -180,10 +180,11 @@ une démo » et « Nous contacter »), **qui paie Meta** (« Qui paie vos messag
 Meta, seule voie ouverte ; le Crédit WhatsApp reste grisé tant qu'il n'est pas en vente en ligne, « Avec la formule Pro. »
 en Free, « Sur demande : écrivez-nous. » en Pro, Julien, 2026-11-06), puis **le compte Meta Business** (Oui mène au
 numéro API, son numéro libre ou un numéro fourni,
-3,50 € HT par mois en formule Free et inclus en formule Pro, avec la ligne « Votre numéro est déjà dans l'application WhatsApp
-Business ? Vous pouvez la garder » ; Non et « Je ne sais pas » mènent à la question suivante, « Je ne sais pas » avec où
-le vérifier), puis **l'application WhatsApp Business** (Oui : la garder, le numéro y reste et envoie aussi depuis
-Messaging Me, et aucun numéro n'est proposé ; Non dit qu'il faudra la télécharger, avec les liens App Store et Google
+3,50 € HT par mois en formule Free et inclus en formule Pro, avec la ligne « Votre numéro sert déjà dans WhatsApp ou
+dans l'application WhatsApp Business ? Vous pouvez le garder » ; Non et « Je ne sais pas » mènent à la question
+suivante, « Je ne sais pas » avec où le vérifier), puis **l'application WhatsApp Business** (Oui : « Voulez-vous
+utiliser ce numéro-là ? », Oui la garde, le numéro y reste et envoie aussi depuis Messaging Me, Non mène à un numéro de
+chez nous, relié par la fenêtre de Meta, 2026-11-10 ; Non dit qu'il faudra la télécharger, avec les liens App Store et Google
 Play et leurs icônes, et mène à la question suivante), puis **le numéro** (« Avez-vous déjà un numéro que vous pourriez
 utiliser ? » ; Oui : télécharger
 l'application, y mettre son numéro et le brancher tout de suite en la gardant, et revenir quelques jours plus tard si
@@ -2388,9 +2389,10 @@ scénario, comment importer des contacts.
   et sa FAQ.
 - ✅ **Puis les questions du tunnel de la vitrine** (2026-10-30) : sous l'encadré, la page pose « Avez-vous un compte
   Meta Business ? ». Oui : le numéro API, « Fournissez-moi un numéro » ou « J'ai déjà un numéro », avec « Votre numéro
-  est déjà dans l'application WhatsApp Business ? Vous pouvez la garder ». Non, ou « Je ne sais pas » (avec où le
-  vérifier, business.facebook.com) : « Avez-vous déjà l'application WhatsApp Business ? », Oui menant à « Garder mon
-  application WhatsApp Business », sans numéro proposé, Non à « Vous allez devoir télécharger l'application WhatsApp
+  sert déjà dans WhatsApp ou dans l'application WhatsApp Business ? Vous pouvez le garder ». Non, ou « Je ne sais pas »
+  (avec où le vérifier, business.facebook.com) : « Avez-vous déjà l'application WhatsApp Business ? », Oui menant à
+  « Voulez-vous utiliser ce numéro-là ? » (Oui : « Garder mon application WhatsApp Business » ; Non : un numéro de chez
+  nous, relié par la fenêtre de Meta, 2026-11-10), Non à « Vous allez devoir télécharger l'application WhatsApp
   Business » (liens App Store et Google Play), puis « Avez-vous déjà un numéro que vous pourriez utiliser ? » (2026-10-31).
   Oui : la même fenêtre après avoir téléchargé l'application (liens App Store et Google Play), avec le numéro trop neuf
   que Meta peut refuser (revenir quelques jours plus tard). Non : « nous vous fournissons le numéro », qui va DANS

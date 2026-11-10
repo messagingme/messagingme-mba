@@ -105,6 +105,19 @@ describe('start_whatsapp_connection', () => {
     }
   });
 
+  it('🔴 WhatsApp ordinaire au mode apporte (jaune 3 du lot 3a) : un numéro qui sert dans WhatsApp va en coexistence, dit avant le lien', async () => {
+    const apporte = await outil('start_whatsapp_connection').executer(monter(() => VIDE).deps, 't1', { mode: 'apporte' }, PERSONNE) as Record<string, string>;
+    const c = apporte.consigne!;
+    expect(c).toMatch(/rappelle start_whatsapp_connection avec mode égal à « coexistence »/);
+    expect(c).toMatch(/ne l’envoie jamais vers un autre numéro/);
+    expect(c.indexOf('« coexistence »')).toBeLessThan(c.indexOf(apporte.url!));
+    const fourni = await outil('start_whatsapp_connection').executer(monter(() => VIDE).deps, 't1', { mode: 'fourni' }, PERSONNE) as Record<string, string>;
+    expect(fourni.consigne).not.toMatch(/rappelle start_whatsapp_connection avec mode égal à « coexistence »/);
+    const description = outil('start_whatsapp_connection').description;
+    expect(description).not.toMatch(/until it is removed from it/);
+    expect(description).toMatch(/goes through `coexistence`, never to another number/);
+  });
+
   it('🔴 numéro fourni : ce qu’est le code de vérification, et pourquoi il arrive chez nous ; pas pour son propre numéro', async () => {
     const fourni = await outil('start_whatsapp_connection').executer(monter(() => VIDE).deps, 't1', { mode: 'fourni' }, PERSONNE) as Record<string, string>;
     expect(fourni.consigne).toContain(CODE_VERIFICATION_FOURNI.fr);

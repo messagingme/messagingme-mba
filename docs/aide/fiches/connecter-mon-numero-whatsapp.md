@@ -35,6 +35,10 @@ s'affiche (code expiré, compte non partagé, plusieurs numéros à départager)
 « Connecter WhatsApp » : répondez « Oui » à « Avez-vous un compte Meta Business ? », puis « Fournissez-moi un
 numéro » vous propose un numéro britannique dédié, inclus dans l'offre Pro, et à 3,50 € HT par mois sans elle.
 
+Sans compte Meta Business, avec l'application WhatsApp Business pour un autre numéro : « Oui » à « Avez-vous déjà
+l'application WhatsApp Business ? », « Non » à « Voulez-vous utiliser ce numéro-là ? », puis « Fournissez-moi un
+numéro ».
+
 Vous payez sur la page de Stripe (un code promo s'y saisit, si nous vous en avons remis un), puis le numéro
 s'affiche. Ensuite, dans l'ordre :
 

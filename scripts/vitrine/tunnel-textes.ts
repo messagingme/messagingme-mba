@@ -287,10 +287,10 @@ const fr = (): TexteTunnel => {
           `Un numéro libre, qui ne sert dans aucune application WhatsApp, devient votre numéro API ; un numéro qui sert déjà dans WhatsApp ou dans l’application WhatsApp Business se garde dans l’application (ci-dessous). Sans numéro, prenez un numéro fourni : ${numero} HT par mois en formule Free, inclus en formule Pro.`,
           'Meta facture vos messages, et les réponses au-delà d’une franchise mensuelle : un moyen de paiement s’ajoute chez Meta.',
         ],
-        autre: { question: 'Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?', lien: 'Vous pouvez la garder', vers: 'garder' },
+        autre: { question: 'Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?', lien: 'Vous pouvez le garder', vers: 'garder' },
         numero: {
-          free: `J’ai un compte Meta Business : relie mon numéro libre par Meta en numéro API, ou, si je n’en ai pas, fournis-m’en un (${numero} HT par mois).`,
-          pro: 'J’ai un compte Meta Business : relie mon numéro libre par Meta en numéro API, ou, si je n’en ai pas, fournis-m’en un (inclus en formule Pro).',
+          free: `J’ai un compte Meta Business : relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (${numero} HT par mois).`,
+          pro: 'J’ai un compte Meta Business : relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (inclus en formule Pro).',
         },
         pasAPas: '/aide/connecter-mon-numero-whatsapp/',
       },
@@ -299,6 +299,8 @@ const fr = (): TexteTunnel => {
         textes: [
           'Votre numéro reste dans l’application et envoie aussi depuis Messaging Me : vous répondez toujours depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.',
           whatsappOrdinaire,
+          // Un compte de l'application tout juste repris de WhatsApp peut être trop neuf pour Meta (jaune 5 du lot 3a).
+          'Meta refuse parfois un numéro trop neuf : servez-vous alors de l’application quelques jours, puis revenez le brancher.',
           `${garder} Meta facture les messages partis de Messaging Me, réponses comprises au-delà d’une franchise mensuelle ; ceux que vous tapez dans l’application restent gratuits.`,
           carteAvecApplication,
           'Quelques fonctions de l’application s’arrêtent, comme les listes de diffusion et le message d’absence, et il faut l’ouvrir au moins toutes les deux semaines. Ce que vous y tapez n’apparaît pas dans Messaging Me : votre agent IA ne voit pas vos réponses.',
@@ -533,8 +535,8 @@ const en = (): TexteTunnel => {
         ],
         autre: { question: 'Is your number already used in WhatsApp or in the WhatsApp Business app?', lien: 'You can keep it', vers: 'garder' },
         numero: {
-          free: `I have a Meta Business account: connect my available number through Meta as an API number, or, if I have none, provide one (${numero} excl. VAT a month).`,
-          pro: 'I have a Meta Business account: connect my available number through Meta as an API number, or, if I have none, provide one (included in Pro).',
+          free: `I have a Meta Business account: connect my available number through Meta as an API number, or, if I have no number at all, provide one (${numero} excl. VAT a month).`,
+          pro: 'I have a Meta Business account: connect my available number through Meta as an API number, or, if I have no number at all, provide one (included in Pro).',
         },
         pasAPas: '/en/help/connect-my-whatsapp-number/',
       },
@@ -543,6 +545,7 @@ const en = (): TexteTunnel => {
         textes: [
           'Your number stays in the app and also sends from Messaging Me: you still reply from your phone, and your confirmations, reminders and follow-ups go out from Messaging Me.',
           whatsappOrdinaire,
+          'Meta sometimes refuses a number that is too new: then use the app for a few days, and come back to connect it.',
           `${garder} Meta bills the messages sent from Messaging Me, replies included beyond a monthly allowance; those you type in the app stay free.`,
           carteAvecApplication,
           'A few app features stop, such as broadcast lists and the away message, and you need to open the app at least every two weeks. What you type there does not show in Messaging Me: your AI agent does not see your replies.',

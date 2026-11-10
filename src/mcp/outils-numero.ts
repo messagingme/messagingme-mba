@@ -214,8 +214,17 @@ const consigneFourni = (inclusDansLePro: boolean, url: string): string =>
   + 'Appelle ensuite watch_whatsapp_connection : le code arrivera aussi ici, écris-le-lui en entier dès qu’il arrive.'
   + SI_ELLE_REVIENT;
 
+/**
+ * WHATSAPP ORDINAIRE AU MODE APPORTE (jaune 3 de la relecture du lot 3a) : la 3e condition dit de faire passer le numéro
+ * dans WhatsApp Business ; il se garde alors en coexistence, que ce lien n'ouvre pas.
+ */
+const SI_NUMERO_DANS_WHATSAPP = 'Si son numéro sert dans WhatsApp ou dans l’application WhatsApp Business, ne lui donne pas '
+  + 'ce lien : rappelle start_whatsapp_connection avec mode égal à « coexistence » (dans WhatsApp, l’application '
+  + 'ordinaire, elle installe d’abord WhatsApp Business sur le même téléphone, qui reprend le numéro avec ses '
+  + 'conversations), et ne l’envoie jamais vers un autre numéro. ';
+
 const CONSIGNES = {
-  apporte: (url: string) => PREREQUIS_APPORTE + QUI_PAIE_API + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une '
+  apporte: (url: string) => PREREQUIS_APPORTE + SI_NUMERO_DANS_WHATSAPP + QUI_PAIE_API + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une '
     + 'heure. Sur la page : la fenêtre de Meta, son numéro, et le code qu’elle reçoit elle-même. Appelle ensuite '
     + 'watch_whatsapp_connection pour savoir quand le numéro est connecté.' + SI_ELLE_REVIENT,
   /**
@@ -593,8 +602,9 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       + 'console, valid for one hour: the person goes through Meta\'s window there. `fourni`: a dedicated number is '
       + 'provided (€3.50 excl. VAT a month, paid on the page before it is assigned; included, with nothing to pay, for '
       + 'a workspace on Pro), whose verification code arrives here through watch_whatsapp_connection. `apporte`: the '
-      + 'person\'s own number; Meta\'s window refuses a number still used in the WhatsApp app until it is removed from '
-      + 'it. `coexistence`: the person\'s own number, kept in the WhatsApp Business app on their phone; messages sent '
+      + 'person\'s own number, used in no WhatsApp app; a number used in WhatsApp (the regular app, once the person '
+      + 'installed WhatsApp Business on the same phone, which takes it over with its chats) or in the WhatsApp Business '
+      + 'app goes through `coexistence`, never to another number. `coexistence`: the person\'s own number, kept in the WhatsApp Business app on their phone; messages sent '
       + 'through Messaging Me are official templates billed by Meta, those typed in the app stay free (filiere api only). '
       + '`fourni_application`: a number we provide (same price), which the person puts IN the WhatsApp Business app (its '
       + 'verification code arrives here), then keeps the app and connects it through Meta\'s window, like coexistence; a '

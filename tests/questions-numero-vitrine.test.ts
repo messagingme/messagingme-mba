@@ -144,6 +144,12 @@ describe('le plugin pose les mêmes questions, sans QR code', () => {
     expect(skill).not.toMatch(/On the QR code track|By QR code, to answer/);
   });
 
+  it('🔴 la carte du moyen de paiement, dans la skill : son libellé et ses quatre adresses (jaune 8 du lot 3a)', () => {
+    const skill = lire('plugin/skills/mise-en-service/SKILL.md');
+    expect(skill).toContain(QUESTION_PAIEMENT.carte.titre.en);
+    for (const l of QUESTION_PAIEMENT.carte.liens) for (const adresse of [l.href.fr, l.href.en]) expect(skill).toContain(adresse);
+  });
+
   it('🔴 ni le README ni la FAQ ne proposent le QR code ou l’appareil lié', () => {
     expect(lire('plugin/README.md')).not.toMatch(/QR|linked device/i);
     for (const e of FAQ) {
