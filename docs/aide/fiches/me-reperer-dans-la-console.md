@@ -39,7 +39,8 @@ Offre, et **Billing** ouvre le portail de Stripe, où vous retrouvez vos facture
 
 **La bascule FR/EN change toute l'interface**, y compris les dates, les nombres et les pourcentages. Elle est
 mémorisée par navigateur, elle vaut donc pour vous et pas pour vos collègues, et elle est aussi disponible avant
-de vous connecter.
+de vous connecter. Sans choix, la console s'ouvre dans la langue de votre navigateur : en français s'il est en
+français, en anglais sinon.
 
 **5. Les Paramètres, en bas de la barre.** Paramètres > Général porte le fuseau horaire de votre espace et vos
 heures d'ouverture ; l'onglet Crédit IA de Paramètres > Offre montre le crédit prépayé de l'espace, permet à un

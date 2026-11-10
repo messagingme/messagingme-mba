@@ -1,5 +1,5 @@
 [
- {"contexte":"<li><strong><span data-offre=\"base.envois-modeles-mois\">1&nbsp;000</span> messages</strong> envoyés par mois</li>","en":"<li><strong><span data-offre=\"base.envois-modeles-mois\">1,000</span> messages</strong> sent per month</li>"},
+ {"contexte":"<li><strong><span data-offre=\"base.envois-modeles-mois\">1&nbsp;000</span> modèles</strong> envoyés par mois</li>","en":"<li><strong><span data-offre=\"base.envois-modeles-mois\">1,000</span> templates</strong> sent per month</li>"},
  {"contexte":"<li><strong><span data-offre=\"base.contacts\">100</span> contacts</strong>, ceux qui vous écrivent compris</li>","en":"<li><strong><span data-offre=\"base.contacts\">100</span> contacts</strong>, including those who write to you</li>"},
  {"fr":"Contacts entrants illimités","en":"Unlimited inbound contacts"},
  {"contexte":"<li><strong><span data-offre=\"credit.offert-euros\">1</span>&nbsp;€ de crédit IA offert</strong> au premier numéro relié</li>","en":"<li><strong>€<span data-offre=\"credit.offert-euros\">1</span> of AI credit offered</strong> when your first number is connected</li>"},

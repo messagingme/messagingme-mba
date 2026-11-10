@@ -43,7 +43,7 @@ export const CARTES_OFFRE: ReadonlyArray<{
     ],
     moins: [
       { fr: 'Pas de console : il faut un agent IA comme Claude Code ou Codex.', en: 'No console: you need an AI agent such as Claude Code or Codex.' },
-      { fr: '100 contacts et 1 000 messages envoyés par mois.', en: '100 contacts and 1,000 messages sent a month.' },
+      { fr: '100 contacts et 1 000 modèles envoyés par mois.', en: '100 contacts and 1,000 templates sent a month.' },
     ],
   },
   {

@@ -1,7 +1,7 @@
 ---
 description: Console, Inbox and Performance Lab: the three tabs of the Messaging Me console, what each one holds, and where the account and settings are.
 slug: find-your-way-around-the-console
-traduit_de: d2824f
+traduit_de: 0d4ea1
 ---
 # Find your way around the console
 
@@ -32,7 +32,8 @@ For an administrator, **Subscription** shows the workspace’s plan (Free, Pro o
 and **Billing** opens Stripe’s portal, where you find your invoices.
 
 **The FR/EN switch changes the whole interface**, including dates, numbers and percentages. It is remembered per
-browser, so it applies to you and not to your colleagues, and it is also available before you sign in.
+browser, so it applies to you and not to your colleagues, and it is also available before you sign in. Without a
+choice, the console opens in your browser’s language: in French if it is in French, in English otherwise.
 
 **5. Settings, at the bottom of the bar.** Settings > General holds your workspace’s time zone and your opening
 hours; the AI credit tab of Settings > Plan shows the workspace’s prepaid credit, lets an administrator top it up, and

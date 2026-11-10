@@ -103,8 +103,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         dire: { fr: 'Un numéro fourni, s’il te plaît.', en: 'A provided number, please.' },
         outils: ['start_whatsapp_connection'],
         reponse: {
-          fr: 'Claude écrit le lien, valable une heure, puis les étapes de la fenêtre de Meta, une par ligne : les mêmes que sur la page.',
-          en: 'Claude writes the link, valid for one hour, then the steps of Meta’s window, one per line: the same as on the page.',
+          fr: 'Claude dit d’abord ce qu’il faut chez Meta, comment arrive le code et qui paie vos messages, puis écrit le lien, valable une heure, et les étapes de la fenêtre de Meta, une par ligne : les mêmes que sur la page.',
+          en: 'Claude first says what you need at Meta, how the code arrives and who pays for your messages, then writes the link, valid for one hour, and the steps of Meta’s window, one per line: the same as on the page.',
         },
       },
       {

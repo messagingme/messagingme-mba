@@ -208,7 +208,7 @@ const fr = (): TexteBoutique => {
           nom: 'Free', prix: '0&nbsp;€', detail: 'sans limite de durée',
           liste: [
             'Votre boutique branchée par Claude Code : les trois messages et l’import',
-            `${milliers(limite('base', 'contacts'), 'fr')} contacts (chaque nouveau client de la boutique en compte un, chaque personne qui vous écrit aussi), ${milliers(limite('base', 'envoisModelesMois'), 'fr')} messages envoyés par mois`,
+            `${milliers(limite('base', 'contacts'), 'fr')} contacts (chaque nouveau client de la boutique en compte un, chaque personne qui vous écrit aussi), ${milliers(limite('base', 'envoisModelesMois'), 'fr')} modèles envoyés par mois`,
             'Votre agent IA',
             `Votre numéro relié par Meta, ou un numéro fourni à ${numero} HT par mois`,
           ],
@@ -380,7 +380,7 @@ const en = (): TexteBoutique => {
           nom: 'Free', prix: '€0', detail: 'with no time limit',
           liste: [
             'Your store connected by Claude Code: the three messages and the import',
-            `${milliers(limite('base', 'contacts'), 'en')} contacts (each new store customer counts as one, and so does each person who writes to you), ${milliers(limite('base', 'envoisModelesMois'), 'en')} messages sent a month`,
+            `${milliers(limite('base', 'contacts'), 'en')} contacts (each new store customer counts as one, and so does each person who writes to you), ${milliers(limite('base', 'envoisModelesMois'), 'en')} templates sent a month`,
             'Your AI agent',
             `Your number connected through Meta, or a provided number at ${numero} excl. VAT a month`,
           ],
