@@ -300,3 +300,27 @@ le temps du déploiement (le message d'erreur le dit).
 
 **Essai réel** : à la prochaine connexion par la fenêtre, le numéro figure dans la liste de `/ops` ; « Ne pas poser »
 avec une note l'en retire, et la carte de l'Entreprise repasse à « Sur demande ».
+
+### La relecture du lot E7 (2026-11-10) : aucun rouge, 7 jaunes
+
+Commit `ed789e7b`. Aucun rouge : le lot part, ses jaunes attendent le lot suivant.
+1. « Ne pas poser » efface l'attente sans relire la ligne qui couvre encore le compte (celle d'un autre espace, ou une
+   ligne arrêtée de l'espace) : la garde refuse toujours ses envois, et plus rien ne le rappelle. Refuser (409) tant
+   qu'une telle ligne couvre le numéro, comme la pose.
+2. La promesse de la carte de `/ops` (« sur demande, avec le conseil de sa carte chez Meta ») n'est vraie que pour une
+   Entreprise sans ligne : la ligne d'un ancien numéro fait dire `active`, un Pro ou un Business marqué reste
+   `en_attente`. Dire ce que l'espace lira vraiment, ou ne compter pour `active` que les lignes qui couvrent un numéro
+   rattaché.
+3. La justification « seule une ligne d'avant la marque coexiste, qui ne couvre pas le numéro » est démentie par
+   `couvert_arrete`, et `get_credit` comme l'onglet lisent encore les lignes seules (`envois_arretes`) : réécrire la
+   justification, aligner `get_credit` pour une Entreprise en attente ou documenter l'écart.
+4. L'interruption ne marque que le numéro du corps, alors que le serveur retrouve seul le numéro que la fenêtre n'annonce
+   pas, et l'alerte affirme qu'il « figure dans la liste » : lire en base le numéro rattaché de l'espace, et dire dans
+   l'alerte si la marque est posée.
+5. « Le détail est dans les journaux de l'API » est faux pour un 409, dont aucune cause n'y est écrite : journaliser
+   `{ tenantId, statut, error }` dans la route quand `parLaLigne`, au journal du serveur seulement.
+6. `deja_couvert` conseille de retirer la nôtre sans marquer le numéro (rien ne rappelle de la reposer) ; `couvert_arrete`
+   ne cite pas le numéro de la ligne arrêtée et retire puis pose en deux temps, alors qu'une ligne arrêtée paie encore
+   chez Meta : les aligner sur `autre_espace`.
+7. Un délai dépassé de Telegram (5 s) compte comme « non reçue » et rend la retenue, alors que l'alerte a pu partir :
+   ne la rendre que sur un refus net de Telegram, ou la raccourcir.
