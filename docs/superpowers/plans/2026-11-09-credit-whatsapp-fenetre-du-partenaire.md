@@ -324,3 +324,5 @@ Commit `ed789e7b`. Aucun rouge : le lot part, ses jaunes attendent le lot suivan
    chez Meta : les aligner sur `autre_espace`.
 7. Un délai dépassé de Telegram (5 s) compte comme « non reçue » et rend la retenue, alors que l'alerte a pu partir :
    ne la rendre que sur un refus net de Telegram, ou la raccourcir.
+
+**En production le 2026-11-10** : run 42809305010 (`d8a2da58`, `migration=aucune`).

@@ -91,6 +91,35 @@ attrapée, dont l'e2e de la pastille contre une console reconstruite sans le cor
 session en production (un chemin voisin inexistant rend 404), la fumée est verte. L'essai réel reste à faire
 (essais 239 et 240).
 
+## 2026-11-10 : la fenêtre du partenaire, « Ne pas poser » et les jaunes du lot E6 (lot E7)
+
+Accord de Julien (« Oui, enchaîne ») pour les jaunes 1 à 6 de la relecture du lot E6 (le 7, les cases du plan, était
+fait) ; plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`, § E7. Implémenteur par lot, TDD, une relecture
+indépendante.
+
+- **Ce qui a changé** (`1f46258b`) :
+  - l'interruption d'une connexion par la fenêtre a sa propre retenue, qu'un refus ne tait plus ; une alerte que
+    Telegram n'a pas reçue rend la sienne ; interrompue, la connexion marque le numéro du corps selon les règles ;
+  - une Entreprise dont un numéro attend sa ligne lit « en attente » avant ses lignes ;
+  - une ligne ARRÊTÉE de l'espace a son cas, avec la marque ; l'autre espace est nommé (`getTenantName`) avec le numéro
+    de sa ligne, l'attache vérifiée d'abord ;
+  - « Ne pas poser » dans la liste de `/ops` (`POST /ops/credit-whatsapp/en-attente/:tenantId`) : l'attente s'efface,
+    le journal de l'espace en garde la trace sans la note, qui reste au journal du serveur ;
+  - un refus se dit par un libellé fixe par statut, jamais par le message de Meta.
+- **Vérifié** : vingt-quatre tests neufs vus rouges avant le code, et trois mutations vues rouges (la garde du type, la
+  marque après une interruption, le 404 de « Ne pas poser ») ; la suite racine sur l'état final, 981 fichiers verts sur
+  982 (`mcp-agent` en délai sous la charge, vert seul) ; la console, 104 fichiers verts et 15 e2e de la carte sur une
+  construction de production ; tsc, lint, auto-attaque sans trouvaille. CI racine (intégration comprise), console et
+  CodeQL vertes job par job sur `d8a2da58`.
+- **Relecture** : aucun rouge, sept jaunes au plan (§ « La relecture du lot E7 »), dont « Ne pas poser » qui ne relit pas
+  la ligne d'un autre espace ou arrêtée, et un délai de Telegram qui rend la retenue.
+- **Ordre** : poussé après la CI du lot 3a de l'aide à la connexion (`c9f986a6`), déployé après son « en service » ;
+  la session du coût de l'IA (MUTAC) déploie ensuite.
+- **En production** : run 42809305010 (`migration=aucune`, épinglé sur `d8a2da58`) : `mba-api` sur l'image `d8a2da58`,
+  `mba-worker`, `mba-worker-analyse` et `mba-application` en révision `d8a2da58`, aucune erreur dans leurs journaux ;
+  la route neuve répond 401 sans session ; fumée bonne, fiches OAuth conformes, `META_SOLUTION_ID` intacte ; fiches
+  d'aide inchangées.
+
 ## 2026-11-10 : la fenêtre du partenaire, la ligne posée APRÈS l'attache et la liste de /ops (lot E6)
 
 Accord de Julien (« Oui, enchaîne ») pour les huit jaunes de la relecture du lot E5 ; plan

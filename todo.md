@@ -457,9 +457,13 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   de E4 : la marque de l'attente en base, migration 0285, l'Entreprise en attente, les alertes) en production le même
   jour (`2d9943e8`, un rouge de sa relecture corrigé avant), ses huit jaunes fermés par le lot E6 (`70a9f649`, en
   production le 2026-11-10 : la ligne se pose APRÈS l'attache du partenaire, décision de Julien ; la liste « En attente
-  de leur ligne » dans `/ops`, d'où le geste ne dépend plus de Telegram), ses sept jaunes au plan (§ « La relecture du
-  lot E6 », dont l'attente jamais posée, sans geste pour l'éteindre) ; reste le 8 à Julien ; puis le lot D (passage du
-  numéro de l'essai, après l'essai réel du partage). La vente attend D0.
+  de leur ligne » dans `/ops`, d'où le geste ne dépend plus de Telegram), ses sept jaunes fermés par le lot E7
+  (`1f46258b`, en production le 2026-11-10 : « Ne pas poser » dans la liste de `/ops`, l'Entreprise en attente avant ses
+  lignes, la ligne arrêtée et l'autre espace nommé), ses sept jaunes au plan (§ « La relecture du lot E7 ») ; reste le 8
+  à Julien ; puis le lot D (passage du numéro de l'essai, après l'essai réel du partage). La vente attend D0. 🔴 Le
+  découpage de la vente en libre-service (lot 3v, décisions de Julien du 2026-11-10, spec de l'aide à la connexion) : ce
+  chantier porte le serveur (la règle de l'essai, la pose automatique une fois l'attache du partenaire PROUVÉE, la
+  fenêtre du numéro fourni, la liste avant le prix), la session de l'aide à la connexion l'arbre.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes
