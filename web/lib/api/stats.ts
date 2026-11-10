@@ -926,6 +926,8 @@ export interface InboxHubspot {
   boite: string | null;
   ligne: string | null;
   boites: Array<{ id: string; nom: string; type: string | null }> | null;
+  /** Lot 3 : faux tant que le portail n'a pas autorisé l'affectation des fils ; absent d'une API plus ancienne. */
+  affectation?: boolean | null;
   raison: RaisonInboxHubspot | null;
 }
 

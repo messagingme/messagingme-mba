@@ -29,7 +29,7 @@ export interface HubspotInboxRouteDeps {
   fonctions(tenantId: string): Promise<ReadonlySet<Fonction>>;
   /** Les quatre appels du connecteur (`src/crm/hubspot-service.ts`), déjà liés à ses dépendances. */
   connecteur: {
-    boites(tenantId: string): Promise<BoiteInbox[]>;
+    boites(tenantId: string): Promise<{ boites: BoiteInbox[]; affectation: boolean | null }>;
     brancher(corps: { tenantId: string; ligne: string; inboxId: string; nom: string }): Promise<void>;
     debrancher(corps: { tenantId: string; ligne: string }): Promise<void>;
   };
@@ -61,14 +61,16 @@ export function registerHubspotInbox(app: FastifyInstance, deps: HubspotInboxRou
     const tenant = espaceVerifie(req);
     const [boite, l] = await Promise.all([deps.store.lireBoite(tenant), deps.store.ligne(tenant)]);
     const ligne = ligneE164(l);
-    if (!ligne) return reply.code(200).send({ boite, ligne: null, boites: null, raison: 'sans_numero' satisfies RaisonInbox });
+    if (!ligne) return reply.code(200).send({ boite, ligne: null, boites: null, affectation: null, raison: 'sans_numero' satisfies RaisonInbox });
     try {
-      return reply.code(200).send({ boite, ligne, boites: await deps.connecteur.boites(tenant), raison: null });
+      // `affectation` (lot 3) : faux tant que le portail n'a pas autorisé l'affectation des fils, la console le propose.
+      const { boites, affectation } = await deps.connecteur.boites(tenant);
+      return reply.code(200).send({ boite, ligne, boites, affectation, raison: null });
     } catch (err) {
       const r = raison(err);
       if (r === null) throw err;
       if (r === 'connecteur_indisponible') journaliser('error', 'hubspot_inbox_boites_illisibles', { err, tenantId: tenant });
-      return reply.code(200).send({ boite, ligne, boites: null, raison: r });
+      return reply.code(200).send({ boite, ligne, boites: null, affectation: null, raison: r });
     }
   });
 

@@ -122,6 +122,19 @@ export function InboxHubspot({ tenantId }: { tenantId: string }) {
               {t('Branchée sur la boîte', 'Connected to the inbox')} « {nomBranchee ?? branchee} ».
             </p>
           )}
+          {branchee && inbox.affectation === false && (
+            <div className="mt-2" data-testid="integration-hubspot-inbox-affectation">
+              <p className="text-sm text-ink-700">
+                {t(
+                  'Pour que chaque conversation soit affectée, dans HubSpot, au conseiller qui la tient dans Messaging Me, autorisez l’accès en écriture aux conversations.',
+                  'To have each conversation assigned, in HubSpot, to the advisor who holds it in Messaging Me, authorize write access to conversations.',
+                )}
+              </p>
+              <button type="button" onClick={() => void ouvrir('lists')} disabled={enCours} className="mt-1 text-sm text-brand-600 hover:underline disabled:opacity-60">
+                {t('Autoriser l’affectation des conversations', 'Authorize conversation assignment')}
+              </button>
+            </div>
+          )}
           {inbox.boites.length === 0 ? (
             <p className="mt-2 text-sm text-ink-700">{t('Votre portail n’a aucune boîte de réception : créez-en une dans HubSpot, puis rechargez la page.', 'Your portal has no inbox: create one in HubSpot, then reload the page.')}</p>
           ) : (

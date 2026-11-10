@@ -3,7 +3,7 @@ import { classifyWaId } from '../crm/identity';
 import { e164DepuisSaisie } from '../crm/phone';
 import { journaliser } from '../lib/journal';
 import type { OrigineMessage } from '../inbox/origine';
-import type { IssueInbox, MessageInboxHubspot } from '../crm/hubspot-service';
+import type { AffectationInbox, IssueAffectations, IssueInbox, MessageInboxHubspot } from '../crm/hubspot-service';
 import { ATTEND_UN_HUMAIN_SQL, CONTACT_JOIGNABLE_SQL } from '../inbox/a-traiter-hubspot.pg';
 
 /**
@@ -27,6 +27,10 @@ import { ATTEND_UN_HUMAIN_SQL, CONTACT_JOIGNABLE_SQL } from '../inbox/a-traiter-
  * contexte part (24 h, 20 messages au plus) ; ensuite tout ce qu'elles écrivent, tant que l'équipe les tient. Une
  * conversation rendue à un robot, « Traité » ou archivée sort (`inbox_hubspot_entrees.sortie_le`) : plus rien ne part.
  *
+ * 🔴 LOT 3 (2026-11-10) : LE CONSEILLER QUI A LA MAIN DANS mba EST POSÉ SUR LE FIL HUBSPOT (`affecter`), dans un seul
+ * sens (mba fait foi). Une étape à part, après les entrées : sa panne ou une portée absente n'arrêtent JAMAIS la
+ * publication des messages.
+ *
  * La ligne WhatsApp est le premier numéro de l'espace, la règle de la poussée d'analyse et du passage à l'équipe
  * (`getEnrichment`, `getEtatPassage`) : une conversation ne porte pas son numéro.
  */
@@ -40,6 +44,16 @@ export const CONTEXTE_MAX = 20;
 export const ENTREES_PAR_TOUR = 10;
 /** Un identifiant plus petit que tout uuid : le curseur « tout ce qui suit cet instant ». */
 export const UUID_ZERO = '00000000-0000-0000-0000-000000000000';
+/**
+ * Au plus autant d'affectations par espace et par tour : deux appels HubSpot chacune au pire, faits en série par le
+ * connecteur sous le délai de `affecterInbox` (20 s). Le connecteur en accepte 50 ; on reste loin du délai.
+ */
+export const AFFECTATIONS_PAR_TOUR = 10;
+
+/**
+ * Une affectation à pousser (lot 3) : l'entrée ouverte, sa conversation, et l'adresse de l'affecté (`null` : personne).
+ */
+export interface AffectationAPousser { entreeId: string; conversationId: string; email: string | null }
 
 /** `curseurLe` : un instant UTC à la MICROSECONDE (`2026-11-06T12:00:00.043689Z`), jamais un `Date`. */
 export interface EspaceBranche { tenantId: string; boite: string; curseurLe: string; curseurId: string }
@@ -87,6 +101,16 @@ export interface InboxHubspotStore {
   contexte(tenantId: string, conversationId: string): Promise<LigneMessage[]>;
   /** Ouvre l'entrée ; faux si une entrée ouverte existait déjà (une autre copie du balayage). */
   ouvrirEntree(tenantId: string, conversationId: string): Promise<boolean>;
+  /**
+   * Lot 3 : les entrées ouvertes dont l'affecté diffère de ce qui a été posé sur le fil. Jamais « personne » sur une entrée
+   * où rien n'a encore été posé : à l'entrée, sans affecté, le fil reste aux règles de HubSpot (décision 3).
+   */
+  affectationsAPousser(tenantId: string, limite: number): Promise<AffectationAPousser[]>;
+  /**
+   * Note une tentative sur l'entrée, si elle est toujours ouverte, et ce qui a été posé sur le fil (`''` pour
+   * « personne ») ; `null` : rien de posé (fil pas encore connu), seule la tentative compte.
+   */
+  noterAffectation(tenantId: string, entreeId: string, valeur: string | null): Promise<void>;
 }
 
 /**
@@ -253,6 +277,31 @@ export class PgInboxHubspotStore implements InboxHubspotStore, MarqueurReponsesI
     return r.rows.map(versLigne);
   }
 
+  async affectationsAPousser(tenantId: string, limite: number): Promise<AffectationAPousser[]> {
+    // L'adresse en minuscules, comme le connecteur la compare : une casse différente ne repousse pas sans fin. Un affecté
+    // d'un AUTRE espace (incohérence) compte pour personne.
+    const r = await this.pool.query<{ id: string; conversation_id: string; email: string }>(
+      `select e.id, e.conversation_id, coalesce(lower(u.email), '') as email
+         from inbox_hubspot_entrees e
+         join conversations c on c.id = e.conversation_id and c.tenant_id = e.tenant_id
+         left join users u on u.id = c.assigned_to and u.tenant_id = c.tenant_id
+        where e.tenant_id = $1 and e.sortie_le is null
+          and coalesce(lower(u.email), '') is distinct from coalesce(e.affectation_poussee, '')
+        order by e.affectation_tentee_le nulls first, e.entree_le, e.id
+        limit $2`,
+      [tenantId, limite],
+    );
+    return r.rows.map((x) => ({ entreeId: x.id, conversationId: x.conversation_id, email: x.email === '' ? null : x.email }));
+  }
+
+  async noterAffectation(tenantId: string, entreeId: string, valeur: string | null): Promise<void> {
+    await this.pool.query(
+      `update inbox_hubspot_entrees set affectation_poussee = coalesce($3, affectation_poussee), affectation_tentee_le = now()
+        where id = $2 and tenant_id = $1 and sortie_le is null`,
+      [tenantId, entreeId, valeur],
+    );
+  }
+
   async marquerReponseInbox(tenantId: string, messageWhatsapp: string, messageHubspot: string): Promise<boolean> {
     const r = await this.pool.query(
       `update conversation_messages m set hubspot_inbox_message_id = $3
@@ -318,6 +367,42 @@ export interface BalayageInboxDeps {
   store: InboxHubspotStore;
   /** `pousserMessagesInbox` : rend une issue, LÈVE sur 429, 5xx et réseau. */
   pousser(corps: { tenantId: string; ligne: string; messages: MessageInboxHubspot[] }): Promise<IssueInbox>;
+  /** `affecterInbox` (lot 3) : rend une issue, LÈVE sur 429, 5xx et réseau. */
+  affecter(corps: { tenantId: string; ligne: string; affectations: AffectationInbox[] }): Promise<IssueAffectations>;
+}
+
+/**
+ * L'étape 4 d'un tour, pour un espace (lot 3) : les affectations qui ont changé partent au connecteur. `fait`, `inconnu`
+ * et `refuse` retiennent ce qui a été posé (un membre inconnu de HubSpot n'est pas redemandé à chaque tour) ;
+ * `fil_inconnu` est rejoué (le fil sera connu au prochain message publié), mais sa tentative est notée : il passe derrière
+ * les affectations neuves. Toute autre issue, ou une panne, laisse tout en l'état. 🔴 Ne lève jamais : les messages
+ * passent avant.
+ */
+async function affecter(deps: BalayageInboxDeps, tenantId: string, ligne: string): Promise<void> {
+  try {
+    const aPousser = await deps.store.affectationsAPousser(tenantId, AFFECTATIONS_PAR_TOUR);
+    if (aPousser.length === 0) return;
+    const issue = await deps.affecter({
+      tenantId, ligne, affectations: aPousser.map((a) => ({ conversationId: a.conversationId, email: a.email })),
+    });
+    // Sans la portée, le portail n'a pas été réautorisé : la console le dit, le journal se tait (un tour toutes les 15 s).
+    if (issue.issue === 'portees') return;
+    if (issue.issue !== 'fait') {
+      journaliser('warn', 'hubspot_inbox_affectations_en_attente', { tenantId, issue: issue.issue, ...(issue.issue === 'refuse' ? { status: issue.status, code: issue.code } : {}) });
+      return;
+    }
+    const parConversation = new Map(aPousser.map((a) => [a.conversationId, a]));
+    const compte = { fait: 0, fil_inconnu: 0, inconnu: 0, refuse: 0 };
+    for (const r of issue.resultats) {
+      compte[r.issue] += 1;
+      const a = parConversation.get(r.conversationId);
+      if (!a) continue;
+      await deps.store.noterAffectation(tenantId, a.entreeId, r.issue === 'fil_inconnu' ? null : a.email ?? '');
+    }
+    if (compte.inconnu + compte.refuse > 0) journaliser('warn', 'hubspot_inbox_affectations_non_posees', { tenantId, ...compte });
+  } catch (err) {
+    journaliser('error', 'hubspot_inbox_affectation_impossible', { err, tenantId });
+  }
 }
 
 /**
@@ -359,7 +444,8 @@ async function reagir(deps: BalayageInboxDeps, tenantId: string, issue: IssueInb
  *  2. les ENTRÉES : les conversations qui attendent un humain (`aFaireEntrer`, `ENTREES_PAR_TOUR` au plus) publient leur
  *     contexte, PUIS leur entrée s'inscrit. Dans cet ordre : une panne fait rejouer l'entrée entière au tour suivant, jamais
  *     une conversation « entrée » sans contexte ; le contexte rejoué, HubSpot le déduplique par l'identifiant du message ;
- *  3. la SUITE : les messages des conversations entrées, après le curseur, un lot au plus.
+ *  3. les AFFECTATIONS (lot 3) : le conseiller qui a la main est posé sur le fil HubSpot, sans jamais bloquer la suite ;
+ *  4. la SUITE : les messages des conversations entrées, après le curseur, un lot au plus.
  * Rend le nombre de messages publiés. Un échec sur un espace est journalisé et n'arrête pas le tour ; son curseur ne
  * bouge pas, le tour suivant rejoue.
  *
@@ -400,6 +486,8 @@ export async function balayerInbox(deps: BalayageInboxDeps): Promise<number> {
         await deps.store.ouvrirEntree(e.tenantId, conversationId);
       }
       if (arret) continue;
+
+      await affecter(deps, e.tenantId, ligne);
 
       const lignes = await deps.store.messagesApres(e, borne, LOT_INBOX);
       if (lignes.length === 0) {

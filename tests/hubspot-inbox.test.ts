@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  balayerInbox, expediteur, versConnecteur, ligneE164, UUID_ZERO, LOT_INBOX,
-  type InboxHubspotStore, type EspaceBranche, type LigneEspace, type LigneMessage,
+  balayerInbox, expediteur, versConnecteur, ligneE164, UUID_ZERO, LOT_INBOX, AFFECTATIONS_PAR_TOUR,
+  type InboxHubspotStore, type EspaceBranche, type LigneEspace, type LigneMessage, type AffectationAPousser,
 } from '../src/hubspot/inbox';
-import type { IssueInbox, MessageInboxHubspot } from '../src/crm/hubspot-service';
+import type { AffectationInbox, IssueAffectations, IssueInbox, MessageInboxHubspot } from '../src/crm/hubspot-service';
 
 /**
  * Le balayage `hubspot-inbox` (lot 1 de l'Inbox HubSpot, tâche 6). Ce qu'il garantit : il ne pousse que les messages
@@ -29,6 +29,10 @@ class StoreMemoire implements InboxHubspotStore {
   aEntrer: Record<string, string[]> = {};
   contextes: Record<string, LigneMessage[]> = {};
   entrees: string[] = [];
+  /** Lot 3 : les affectations à pousser, par espace, et ce qui a été noté. */
+  aAffecter: Record<string, AffectationAPousser[]> = {};
+  notees: { entreeId: string; valeur: string | null }[] = [];
+  panneAffectations = false;
   constructor(
     public espaces: EspaceBranche[],
     public messages: Record<string, LigneMessage[]> = {},
@@ -54,7 +58,29 @@ class StoreMemoire implements InboxHubspotStore {
     this.entrees.push(conversationId);
     return true;
   }
+  async affectationsAPousser(tenantId: string, limite: number): Promise<AffectationAPousser[]> {
+    if (this.panneAffectations) throw new Error('base indisponible');
+    this.journal.push(`affectations:${tenantId}`);
+    return (this.aAffecter[tenantId] ?? []).slice(0, limite);
+  }
+  async noterAffectation(_tenantId: string, entreeId: string, valeur: string | null): Promise<void> { this.notees.push({ entreeId, valeur }); }
 }
+
+/** Le connecteur d'affectation (lot 3) : rend `issue`, et retient les lots reçus. */
+function affecteur(issue: IssueAffectations | ((corps: { affectations: AffectationInbox[] }) => IssueAffectations) = (c) => ({
+  issue: 'fait', resultats: c.affectations.map((a) => ({ conversationId: a.conversationId, issue: 'fait' as const })),
+})) {
+  const lots: { tenantId: string; ligne: string; affectations: AffectationInbox[] }[] = [];
+  return {
+    lots,
+    affecter: async (corps: { tenantId: string; ligne: string; affectations: AffectationInbox[] }): Promise<IssueAffectations> => {
+      lots.push(corps);
+      return typeof issue === 'function' ? issue(corps) : issue;
+    },
+  };
+}
+/** Aucun appel attendu : les tests des lots 1 et 1 bis n'ont rien à affecter. */
+const sansAffectation = affecteur().affecter;
 
 const espace = (tenantId = 't1'): EspaceBranche => ({ tenantId, boite: '77', curseurLe: '2026-11-06T11:00:00.000000Z', curseurId: UUID_ZERO });
 
@@ -74,7 +100,7 @@ describe('balayerInbox', () => {
     const m2 = message({ id: '22222222-2222-2222-2222-222222222222', createdAt: '2026-11-06T11:59:30.123456Z' });
     const store = new StoreMemoire([espace()], { t1: [message(), m2] });
     const p = pousseur({ issue: 'fait', publies: 2, refuses: 0 });
-    expect(await balayerInbox({ store, pousser: p.pousser })).toBe(2);
+    expect(await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation })).toBe(2);
     expect(p.lots).toHaveLength(1);
     expect(p.lots[0]).toMatchObject({ tenantId: 't1', ligne: '+33100000000' });
     expect(store.curseurs.get('t1')).toEqual({ le: m2.createdAt, id: m2.id });
@@ -83,21 +109,21 @@ describe('balayerInbox', () => {
   it('🔴 une panne du connecteur (le pousseur LÈVE) : le curseur ne bouge pas, le tour suivant rejoue le même lot', async () => {
     const store = new StoreMemoire([espace()], { t1: [message()] });
     const enPanne = async (): Promise<IssueInbox> => { throw new Error('connecteur HTTP 503'); };
-    await balayerInbox({ store, pousser: enPanne });
+    await balayerInbox({ store, pousser: enPanne, affecter: sansAffectation });
     expect(store.curseurs.has('t1')).toBe(false);
   });
 
   it('🔴 un espace en panne n’arrête pas les autres', async () => {
     const store = new StoreMemoire([espace('t1'), espace('t2')], { t2: [message()] }, {}, 't1');
     const p = pousseur();
-    await balayerInbox({ store, pousser: p.pousser });
+    await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation });
     expect(p.lots.map((l) => l.tenantId)).toEqual(['t2']);
   });
 
   it('rien d’arrivé : le curseur avance à la borne, pour qu’un espace silencieux ne relise pas demain tout ce qui précède', async () => {
     const store = new StoreMemoire([espace()]);
     const p = pousseur();
-    await balayerInbox({ store, pousser: p.pousser });
+    await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation });
     expect(p.lots).toHaveLength(0);
     expect(store.curseurs.get('t1')).toEqual({ le: BORNE, id: UUID_ZERO });
   });
@@ -106,7 +132,7 @@ describe('balayerInbox', () => {
     for (const ligne of [{ ...LIGNE, connectee: false }, { ...LIGNE, enPause: true }, null]) {
       const store = new StoreMemoire([espace()], { t1: [message()] }, { t1: ligne });
       const p = pousseur();
-      await balayerInbox({ store, pousser: p.pousser });
+      await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation });
       expect(p.lots).toHaveLength(0);
       expect(store.curseurs.get('t1')).toEqual({ le: BORNE, id: UUID_ZERO });
     }
@@ -115,7 +141,7 @@ describe('balayerInbox', () => {
   it('le connecteur n’a plus de compte de canal ou de portail : l’espace est débranché ici aussi', async () => {
     for (const issue of [{ issue: 'non_branche' }, { issue: 'non_relie' }] as IssueInbox[]) {
       const store = new StoreMemoire([espace()], { t1: [message()] });
-      await balayerInbox({ store, pousser: pousseur(issue).pousser });
+      await balayerInbox({ store, pousser: pousseur(issue).pousser, affecter: sansAffectation });
       expect(store.debranches).toEqual(['t1']);
     }
   });
@@ -124,7 +150,7 @@ describe('balayerInbox', () => {
     const seul = message({ waId: 'FR.1234567890abcdef' });
     const store = new StoreMemoire([espace()], { t1: [seul] });
     const p = pousseur();
-    await balayerInbox({ store, pousser: p.pousser });
+    await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation });
     expect(p.lots).toHaveLength(0);
     expect(store.curseurs.get('t1')).toEqual({ le: seul.createdAt, id: seul.id });
   });
@@ -132,11 +158,11 @@ describe('balayerInbox', () => {
   it('🔴 un refus qui se répare (401 signature, 404 sans code) garde le curseur ; seul un refus du contrat (400) saute le lot', async () => {
     for (const status of [401, 403, 404]) {
       const store = new StoreMemoire([espace()], { t1: [message()] });
-      await balayerInbox({ store, pousser: pousseur({ issue: 'refuse', status, code: undefined }).pousser });
+      await balayerInbox({ store, pousser: pousseur({ issue: 'refuse', status, code: undefined }).pousser, affecter: sansAffectation });
       expect(store.curseurs.has('t1')).toBe(false);
     }
     const store = new StoreMemoire([espace()], { t1: [message()] });
-    await balayerInbox({ store, pousser: pousseur({ issue: 'refuse', status: 400, code: 'corps invalide' }).pousser });
+    await balayerInbox({ store, pousser: pousseur({ issue: 'refuse', status: 400, code: 'corps invalide' }).pousser, affecter: sansAffectation });
     expect(store.curseurs.get('t1')?.id).toBe(message().id);
   });
 
@@ -146,8 +172,8 @@ describe('balayerInbox', () => {
     store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' }), message({ id: 'c2', conversationId: 'conv-9', direction: 'out', origin: 'ia' })] };
     const p = pousseur({ issue: 'fait', publies: 2, refuses: 0 });
     const pousserTrace = async (corps: Parameters<typeof p.pousser>[0]) => { store.journal.push(`pousse:${corps.messages.map((m) => m.id).join(',')}`); return p.pousser(corps); };
-    expect(await balayerInbox({ store, pousser: pousserTrace })).toBe(2);
-    expect(store.journal).toEqual(['sorties:t1', 'pousse:c1,c2', 'entree:conv-9']);
+    expect(await balayerInbox({ store, pousser: pousserTrace, affecter: sansAffectation })).toBe(2);
+    expect(store.journal).toEqual(['sorties:t1', 'pousse:c1,c2', 'entree:conv-9', 'affectations:t1']);
   });
 
   it('🔴 une panne pendant le contexte n’inscrit PAS l’entrée : le tour suivant rejoue l’entrée entière', async () => {
@@ -155,7 +181,7 @@ describe('balayerInbox', () => {
     store.aEntrer = { t1: ['conv-9'] };
     store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' })] };
     const enPanne = async (): Promise<IssueInbox> => { throw new Error('connecteur HTTP 503'); };
-    await balayerInbox({ store, pousser: enPanne });
+    await balayerInbox({ store, pousser: enPanne, affecter: sansAffectation });
     expect(store.entrees).toEqual([]);
   });
 
@@ -163,7 +189,7 @@ describe('balayerInbox', () => {
     const store = new StoreMemoire([espace()]);
     store.aEntrer = { t1: ['conv-9'] };
     store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' })] };
-    await balayerInbox({ store, pousser: pousseur({ issue: 'refuse', status: 400, code: 'corps invalide' }).pousser });
+    await balayerInbox({ store, pousser: pousseur({ issue: 'refuse', status: 400, code: 'corps invalide' }).pousser, affecter: sansAffectation });
     expect(store.entrees).toEqual(['conv-9']);
   });
 
@@ -172,7 +198,7 @@ describe('balayerInbox', () => {
     store.aEntrer = { t1: ['conv-9'] };
     store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' })] };
     const p = pousseur({ issue: 'refuse', status: 401, code: undefined });
-    await balayerInbox({ store, pousser: p.pousser });
+    await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation });
     expect(store.entrees).toEqual([]);
     expect(p.lots).toHaveLength(1);
     expect(store.curseurs.has('t1')).toBe(false);
@@ -182,7 +208,7 @@ describe('balayerInbox', () => {
     const store = new StoreMemoire([espace()]);
     store.aEntrer = { t1: ['conv-9'] };
     const p = pousseur();
-    await balayerInbox({ store, pousser: p.pousser });
+    await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation });
     expect(p.lots).toHaveLength(0);
     expect(store.entrees).toEqual(['conv-9']);
   });
@@ -191,8 +217,80 @@ describe('balayerInbox', () => {
     const beaucoup = Array.from({ length: LOT_INBOX + 10 }, (_, i) => message({ id: `00000000-0000-0000-0000-${String(i).padStart(12, '0')}` }));
     const store = new StoreMemoire([espace()], { t1: beaucoup });
     const p = pousseur();
-    await balayerInbox({ store, pousser: p.pousser });
+    await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation });
     expect(p.lots[0]?.messages).toHaveLength(LOT_INBOX);
+  });
+});
+
+describe('balayerInbox : l’affectation du fil (lot 3)', () => {
+  const a = (n: number, email: string | null = 'conseil@mutac.fr'): AffectationAPousser => ({ entreeId: `e${n}`, conversationId: `conv-${n}`, email });
+
+  it('pousse les affectations qui ont changé, avec la ligne, et note ce qui a été posé (`` pour personne)', async () => {
+    const store = new StoreMemoire([espace()]);
+    store.aAffecter = { t1: [a(1), a(2, null)] };
+    const af = affecteur();
+    await balayerInbox({ store, pousser: pousseur().pousser, affecter: af.affecter });
+    expect(af.lots).toEqual([{ tenantId: 't1', ligne: '+33100000000', affectations: [
+      { conversationId: 'conv-1', email: 'conseil@mutac.fr' }, { conversationId: 'conv-2', email: null },
+    ] }]);
+    expect(store.notees).toEqual([{ entreeId: 'e1', valeur: 'conseil@mutac.fr' }, { entreeId: 'e2', valeur: '' }]);
+  });
+
+  it('`inconnu` et `refuse` sont notés (pas redemandés à chaque tour) ; `fil_inconnu` ne note que sa tentative (rejoué)', async () => {
+    const store = new StoreMemoire([espace()]);
+    store.aAffecter = { t1: [a(1), a(2), a(3)] };
+    const af = affecteur({ issue: 'fait', resultats: [
+      { conversationId: 'conv-1', issue: 'inconnu' }, { conversationId: 'conv-2', issue: 'refuse' }, { conversationId: 'conv-3', issue: 'fil_inconnu' },
+    ] });
+    await balayerInbox({ store, pousser: pousseur().pousser, affecter: af.affecter });
+    expect(store.notees).toEqual([
+      { entreeId: 'e1', valeur: 'conseil@mutac.fr' }, { entreeId: 'e2', valeur: 'conseil@mutac.fr' }, { entreeId: 'e3', valeur: null },
+    ]);
+  });
+
+  it('rien à affecter : le connecteur n’est pas appelé', async () => {
+    const store = new StoreMemoire([espace()]);
+    const af = affecteur();
+    await balayerInbox({ store, pousser: pousseur().pousser, affecter: af.affecter });
+    expect(af.lots).toHaveLength(0);
+  });
+
+  it('🔴 portée absente, refus, panne du connecteur ou de la base : rien n’est noté, et les MESSAGES partent quand même', async () => {
+    const pannes: (() => Promise<IssueAffectations>)[] = [
+      async () => ({ issue: 'portees' }),
+      async () => ({ issue: 'refuse', status: 400, code: 'corps invalide' }),
+      async () => { throw new Error('connecteur HTTP 503'); },
+    ];
+    for (const affecter of pannes) {
+      const store = new StoreMemoire([espace()], { t1: [message()] });
+      store.aAffecter = { t1: [a(1)] };
+      const p = pousseur();
+      await balayerInbox({ store, pousser: p.pousser, affecter });
+      expect(store.notees).toEqual([]);
+      expect(p.lots).toHaveLength(1);
+      expect(store.curseurs.get('t1')?.id).toBe(message().id);
+    }
+    const store = new StoreMemoire([espace()], { t1: [message()] });
+    store.panneAffectations = true;
+    const p = pousseur();
+    await balayerInbox({ store, pousser: p.pousser, affecter: sansAffectation });
+    expect(p.lots).toHaveLength(1);
+  });
+
+  it('l’affectation passe APRÈS les entrées (le fil d’une conversation qui entre est déjà connu du connecteur)', async () => {
+    const store = new StoreMemoire([espace()]);
+    store.aEntrer = { t1: ['conv-9'] };
+    store.contextes = { 'conv-9': [message({ id: 'c1', conversationId: 'conv-9' })] };
+    await balayerInbox({ store, pousser: pousseur().pousser, affecter: sansAffectation });
+    expect(store.journal).toEqual(['sorties:t1', 'entree:conv-9', 'affectations:t1']);
+  });
+
+  it(`au plus ${AFFECTATIONS_PAR_TOUR} affectations par espace et par tour`, async () => {
+    const store = new StoreMemoire([espace()]);
+    store.aAffecter = { t1: Array.from({ length: AFFECTATIONS_PAR_TOUR + 5 }, (_, i) => a(i)) };
+    const af = affecteur();
+    await balayerInbox({ store, pousser: pousseur().pousser, affecter: af.affecter });
+    expect(af.lots[0]?.affectations).toHaveLength(AFFECTATIONS_PAR_TOUR);
   });
 });
 

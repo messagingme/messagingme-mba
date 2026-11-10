@@ -45,7 +45,7 @@ function app(o: {
     },
     fonctions: async () => o.fonctions ?? PRO,
     connecteur: {
-      boites: async () => { if (o.echec) throw o.echec; return [{ id: '77', nom: 'Boîte générale', type: 'INBOX' }]; },
+      boites: async () => { if (o.echec) throw o.echec; return { boites: [{ id: '77', nom: 'Boîte générale', type: 'INBOX' }], affectation: false }; },
       brancher: async (c) => { if (o.echec) throw o.echec; b.branchements.push(c); },
       debrancher: async (c) => { if (o.echec) throw o.echec; b.debranchements.push(c); },
     },
@@ -73,7 +73,7 @@ describe('/tenants/:t/hubspot/inbox', () => {
   it('GET rend la boîte branchée, la ligne en E.164 et les boîtes du portail', async () => {
     const { server } = app({ boite: '77' });
     const res = await server.inject(req('GET', adminTok));
-    expect(res.json()).toEqual({ boite: '77', ligne: '+33100000000', boites: [{ id: '77', nom: 'Boîte générale', type: 'INBOX' }], raison: null });
+    expect(res.json()).toEqual({ boite: '77', ligne: '+33100000000', boites: [{ id: '77', nom: 'Boîte générale', type: 'INBOX' }], affectation: false, raison: null });
     await server.close();
   });
 
@@ -81,7 +81,7 @@ describe('/tenants/:t/hubspot/inbox', () => {
     const { server } = app({ echec: new HubspotServiceError(409, 'portees_inbox_manquantes', false) });
     const res = await server.inject(req('GET', adminTok));
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ boites: null, raison: 'portees_inbox_manquantes' });
+    expect(res.json()).toMatchObject({ boites: null, affectation: null, raison: 'portees_inbox_manquantes' });
     await server.close();
   });
 

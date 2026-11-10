@@ -451,13 +451,20 @@ export async function ecrireChampContactHubspot(
 /** Une boîte de réception du portail, pour le menu de la console. */
 export interface BoiteInbox { id: string; nom: string; type: string | null }
 
-const reponseBoites = z.object({ boites: z.array(z.object({ id: z.string(), nom: z.string(), type: z.string().nullable() })) });
+const reponseBoites = z.object({
+  boites: z.array(z.object({ id: z.string(), nom: z.string(), type: z.string().nullable() })),
+  // Lot 3 : absent d'un connecteur plus ancien, lu comme « on ne sait pas » (la console ne propose rien).
+  affectation: z.boolean().optional(),
+});
 
-/** Les boîtes du portail. Un seul essai sous 8 s (un affichage n'attend pas les reprises) ; tout échec LÈVE. */
-export async function lireBoitesInbox(deps: ConnectorDeps, tenantId: string): Promise<BoiteInbox[]> {
+/**
+ * Les boîtes du portail, et si le portail permet d'y affecter les fils (lot 3, `null` si le connecteur ne le dit pas). Un
+ * seul essai sous 8 s (un affichage n'attend pas les reprises) ; tout échec LÈVE.
+ */
+export async function lireBoitesInbox(deps: ConnectorDeps, tenantId: string): Promise<{ boites: BoiteInbox[]; affectation: boolean | null }> {
   const r = reponseBoites.safeParse(await callService<unknown>(deps, '/service/inbox/boites', { tenantId }, 8_000));
   if (!r.success) throw new HubspotServiceError(502, 'reponse_illisible', false);
-  return r.data.boites;
+  return { boites: r.data.boites, affectation: r.data.affectation ?? null };
 }
 
 /**
@@ -522,4 +529,57 @@ export async function pousserMessagesInbox(
   }
   const r = reponseMessages.safeParse(reponse);
   return r.success ? { issue: 'fait', publies: r.data.publies, refuses: r.data.refuses.length } : { issue: 'fait', publies: 0, refuses: 0 };
+}
+
+/**
+ * Lot 3 de l'Inbox : une affectation à poser sur le fil HubSpot d'une conversation. `email` : l'adresse du conseiller qui
+ * a la main dans mba ; `null` : personne, le connecteur retire l'affectation du fil.
+ */
+export interface AffectationInbox { conversationId: string; email: string | null }
+
+/**
+ * L'issue d'une affectation chez le connecteur. `fait` : posée ou retirée. `fil_inconnu` : aucun message de la
+ * conversation n'est encore publié dans le portail (à rejouer). `inconnu` : l'adresse n'est celle d'aucun utilisateur du
+ * portail. `refuse` : HubSpot a refusé ce fil (rejouer rendrait le même refus).
+ */
+export type IssueAffectation = 'fait' | 'fil_inconnu' | 'inconnu' | 'refuse';
+
+/**
+ * L'issue d'un lot d'affectations. `portees` : le portail n'a pas `conversations.write` (ou plus les portées de l'Inbox) ;
+ * `non_branche`, `non_relie`, `refuse` : comme pour les messages. Rien de tout cela n'arrête la publication des messages.
+ */
+export type IssueAffectations =
+  | { issue: 'fait'; resultats: { conversationId: string; issue: IssueAffectation }[] }
+  | { issue: 'portees' }
+  | { issue: 'non_branche' }
+  | { issue: 'non_relie' }
+  | { issue: 'refuse'; status: number; code: string | undefined };
+
+const reponseAffecter = z.object({
+  resultats: z.array(z.object({ conversationId: z.string(), issue: z.enum(['fait', 'fil_inconnu', 'inconnu', 'refuse']) })),
+});
+
+/**
+ * Pousse un lot d'affectations. UN seul essai sous 20 s, sans reprise : le balayage traite les espaces en série, une
+ * reprise longue retarderait les messages de tous ; le tour suivant (15 s) rejoue. Tout échec réseau, 429 ou 5xx LÈVE.
+ */
+export async function affecterInbox(
+  deps: ConnectorDeps,
+  corps: { tenantId: string; ligne: string; affectations: AffectationInbox[] },
+): Promise<IssueAffectations> {
+  let reponse: unknown;
+  try {
+    reponse = await callService<unknown>(deps, '/service/inbox/affecter', corps, 20_000);
+  } catch (err) {
+    if (err instanceof HubspotServiceError && !err.retryable) {
+      if (err.status === 404 && err.code === 'ligne_non_branchee') return { issue: 'non_branche' };
+      if (err.status === 404 && err.code === 'tenant_not_connected') return { issue: 'non_relie' };
+      if (err.status === 409 && (err.code === 'portee_affectation_manquante' || err.code === 'portees_inbox_manquantes')) return { issue: 'portees' };
+      return { issue: 'refuse', status: err.status, code: err.code };
+    }
+    throw err;
+  }
+  const r = reponseAffecter.safeParse(reponse);
+  if (!r.success) return { issue: 'refuse', status: 502, code: 'reponse_illisible' };
+  return { issue: 'fait', resultats: r.data.resultats };
 }

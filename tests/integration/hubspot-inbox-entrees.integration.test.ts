@@ -160,6 +160,56 @@ describe.skipIf(!url)('Inbox HubSpot : seules les conversations qui attendent un
     await pool.query(`delete from conversation_messages where meta_message_id = 'wamid.itest-inbox-1'`);
   });
 
+  it('🔴 lot 3 : l’affecté part une fois, « personne » à l’entrée ne part pas, une désaffectation part, un autre espace jamais', async () => {
+    await pool.query(`update conversations set traitee_le = null, last_direction = 'in', assigned_to = null where id = $1`, [ids['escaladee']]);
+    await store.ouvrirEntree(t1, ids['escaladee']!);
+    const entree = (await pool.query<{ id: string }>(
+      `select id from inbox_hubspot_entrees where conversation_id = $1 and sortie_le is null`, [ids['escaladee']],
+    )).rows[0]!.id;
+    // Personne n'a la main, rien n'a été posé : le fil reste aux règles de HubSpot.
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([]);
+
+    const membre = (await pool.query<{ id: string }>(
+      `insert into users (tenant_id, email, role, password_hash) values ($1, 'Itest-Inbox-Affecte@Example.Test', 'admin', 'x') returning id`, [t1],
+    )).rows[0]!.id;
+    await pool.query(`update conversations set assigned_to = $2 where id = $1`, [ids['escaladee'], membre]);
+    // L'adresse en minuscules ; un autre espace ne voit rien.
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([{ entreeId: entree, conversationId: ids['escaladee'], email: 'itest-inbox-affecte@example.test' }]);
+    expect(await store.affectationsAPousser(t2, 50)).toEqual([]);
+
+    await store.noterAffectation(t2, entree, 'itest-inbox-affecte@example.test');
+    expect(await store.affectationsAPousser(t1, 50)).toHaveLength(1);
+    await store.noterAffectation(t1, entree, 'itest-inbox-affecte@example.test');
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([]);
+
+    // Une tentative sans valeur (fil pas encore connu) garde ce qui a été posé.
+    await store.noterAffectation(t1, entree, null);
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([]);
+
+    // Désaffectée dans mba : le retrait part, puis plus rien une fois noté.
+    await pool.query(`update conversations set assigned_to = null where id = $1`, [ids['escaladee']]);
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([{ entreeId: entree, conversationId: ids['escaladee'], email: null }]);
+
+    // Une entrée jamais tentée passe devant une entrée déjà tentée (un fil inconnu rejoué ne garde pas la tête).
+    await pool.query(`update conversations set assigned_to = $2 where id = $1`, [ids['avant'], membre]);
+    await store.ouvrirEntree(t1, ids['avant']!);
+    expect((await store.affectationsAPousser(t1, 1)).map((x) => x.conversationId)).toEqual([ids['avant']]);
+    await pool.query(`update inbox_hubspot_entrees set sortie_le = now() where conversation_id = $1 and sortie_le is null`, [ids['avant']]);
+    await pool.query(`update conversations set assigned_to = null where id = $1`, [ids['avant']]);
+
+    await store.noterAffectation(t1, entree, '');
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([]);
+
+    // Une entrée sortie n'est jamais affectée, ni notée.
+    await pool.query(`update conversations set assigned_to = $2 where id = $1`, [ids['escaladee'], membre]);
+    await pool.query(`update inbox_hubspot_entrees set sortie_le = now() where id = $1`, [entree]);
+    expect(await store.affectationsAPousser(t1, 50)).toEqual([]);
+    await store.noterAffectation(t1, entree, 'autre@example.test');
+    expect((await pool.query(`select affectation_poussee from inbox_hubspot_entrees where id = $1`, [entree])).rows[0]!.affectation_poussee).toBe('');
+    await pool.query(`update conversations set assigned_to = null where id = $1`, [ids['escaladee']]);
+    await pool.query(`delete from users where id = $1`, [membre]);
+  });
+
   it('rebrancher (une autre boîte) ferme les entrées ouvertes', async () => {
     await pool.query(`update conversations set traitee_le = null, last_direction = 'in' where id = $1`, [ids['escaladee']]);
     expect(await store.ouvrirEntree(t1, ids['escaladee']!)).toBe(true);

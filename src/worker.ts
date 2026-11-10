@@ -45,7 +45,7 @@ import { assignerReponse } from './inbox/assignation-campagne';
 import { arriveeParWidget } from './widgets/arrivee';
 import { relanceurDeCampagnes } from './campaign/enqueue';
 import { plafondDuCanal, plafondLePlusBas } from './campaign/pacing';
-import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff, pousserMessagesInbox } from './crm/hubspot-service';
+import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff, pousserMessagesInbox, affecterInbox } from './crm/hubspot-service';
 import { balayerInbox, PgInboxHubspotStore } from './hubspot/inbox';
 import { DUREE_CLE_IDEMPOTENCE_MS } from './api/idempotence';
 import { PgArriveesPubStore } from './pubs/arrivees.pg';
@@ -1220,6 +1220,7 @@ export async function demarrerWorker(): Promise<void> {
     taches.programmer('hubspot-inbox', 15_000, () => balayerInbox({
       store: new PgInboxHubspotStore(pool),
       pousser: (corps) => pousserMessagesInbox(connecteurHubspot, corps),
+      affecter: (corps) => affecterInbox(connecteurHubspot, corps),
     }), { enEchec: echecDeBalayage('hubspot-inbox', 'sweeper:hubspot-inbox') });
   }
 

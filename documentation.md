@@ -3202,6 +3202,16 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   rejoue l'entrée entière), puis la SUITE des conversations entrées par le curseur. Une conversation que l'agent IA règle
   seule n'y apparaît jamais ; une réponse du conseiller ne la fait pas sortir (elle n'est plus « à traiter » mais l'équipe
   tient le fil). Débrancher ferme toutes les entrées.
+  🔴 **Lot 3 (2026-11-10) : le conseiller qui a la main est posé sur le fil HubSpot**, dans un seul sens (mba fait foi ;
+  une réaffectation faite dans HubSpot ne remonte pas). Entre les entrées et la suite, chaque tour pousse au connecteur
+  (`POST /service/inbox/affecter`, 50 au plus par espace) les entrées ouvertes dont l'affecté (son adresse en minuscules,
+  `conversations.assigned_to`) diffère de `inbox_hubspot_entrees.affectation_poussee` (migration 0287 ; `''` pour
+  « personne », NULL tant que rien n'a été posé). Sans affecté à l'entrée, rien ne part (les règles de répartition de
+  HubSpot jouent) ; une désaffectation retire l'affectation du fil. `fait`, `inconnu` (adresse sans utilisateur dans le
+  portail) et `refuse` retiennent la valeur poussée ; `fil_inconnu` est rejoué au tour suivant. 🔴 Cette étape ne lève
+  jamais : une portée absente (`conversations.write`, facultative), un refus ou une panne laissent partir les messages.
+  La console propose la réautorisation tant que le portail ne l'a pas accordée (`affectation: false` dans
+  `GET /tenants/:id/hubspot/inbox`).
 
 - **Le changement d'étape d'un deal HubSpot** (`POST /hubspot/deal-stage`, `src/http/hubspot-events.ts`, lot 3a du plan
   `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, décisions 5 et 7). Dans l'ordre, après la signature
