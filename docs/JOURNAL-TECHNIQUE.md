@@ -4,6 +4,53 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : le cas 4, WhatsApp ordinaire et la carte du moyen de paiement, partout (aide à la connexion, lot 3a)
+
+Trois décisions de Julien appliquées à l'arbre du numéro, aux quatre endroits qui l'écrivent (la vitrine, la console,
+la skill du plugin, les consignes de Claude) et aux fiches. Plan `2026-11-10-aide-connexion-lot-3a.md`, en direct,
+une relecture indépendante.
+
+- **Ce qui a changé** (`f4af6e3f`) :
+  - le cas 4 : avec l'application WhatsApp Business, « Voulez-vous utiliser ce numéro-là ? ». Oui la garde ; Non mène
+    à un numéro de chez nous, relié par la fenêtre de Meta (le mode `fourni`, son code par l'appel) ;
+  - WhatsApp ordinaire : un numéro qui y sert passe dans WhatsApp Business, installée sur le même téléphone, qui le
+    reprend avec ses conversations ; il n'est plus envoyé vers un autre numéro. La phrase de Julien vit dans
+    `etapes-meta.ts` ;
+  - « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business » remplace « Ma carte chez Meta »,
+    avec deux liens : pourquoi un moyen de paiement, ce qu'est un compte Meta Business ;
+  - hors du plan, trouvé en chemin : la 3e condition « Avant de commencer, chez Meta » (`PREREQUIS_META`, lue aussi par
+    Claude au mode `apporte`) disait « Pas de numéro libre ? Nous vous en fournissons un ». Elle dit WhatsApp ordinaire,
+    et le numéro fourni ne vaut que sans numéro. D'où un déploiement de l'API que le plan n'attendait pas ;
+  - la capture n° 2 de la fiche du numéro datait d'avant la carte « Qui paie vos messages à Meta ? » : refaite telle
+    quelle, elle ne montrait plus son sujet (« Fournissez-moi un numéro », sous la ligne de flottaison). Recadrée.
+- **Vérifié** :
+  - quinze mutations vues rouges (douze de parité, deux e2e sur un build muté, une sur la 3e condition), puis trois sur
+    la FAQ ;
+  - la suite racine entière, sur la copie puis sur l'arbre fusionné avec l'origin ; la console (unitaires, 1 866 e2e) ;
+  - tsc, lint, sondes d'attaque.
+- **Relecture** : un rouge, la FAQ du plugin (et la page Développeurs qu'elle génère) qui envoyait encore WhatsApp
+  ordinaire vers « un numéro dédié, le vôtre ou un numéro fourni ». Corrigé dans le commit, gardé par
+  `tests/plugin-faq.test.ts`. Onze jaunes, dix corrigés au commit suivant (`c9f986a6`, neuf gardes vues rouges) :
+  - le lien de la carte de la vitrine choisissait la carte puis quittait la page : il s'ouvre dans un autre onglet
+    (mesuré avant et après dans Chromium) ;
+  - au mode `apporte`, Claude renvoie un numéro qui sert dans WhatsApp vers la coexistence, avant le lien ;
+  - le numéro trop neuf est dit aussi après la reprise depuis WhatsApp ; la 3e condition se tait au numéro fourni ;
+  - « Vous pouvez le garder », la demande du numéro API, la page Développeurs, la fiche (le chemin du cas 4), la
+    capture sans bouton coupé, la skill tenue à la console (plugin 0.3.33).
+
+  Le onzième, le lien « Pourquoi un moyen de paiement ? » vers la fiche de la fenêtre de 24 heures, attend la page des
+  modèles du lot 4.
+- **Ordre** : poussé sur l'origin du moment (le lot E6 du crédit et le constructeur déjà dessus). Le déploiement de
+  `f4af6e3f` est parti après celui du constructeur ; celui des jaunes, juste après, avant le lot E7 du crédit et le lot A
+  du coût de l'IA, qui l'attendaient.
+- **En production** :
+  - CI racine, console et CodeQL vertes job par job, pour chacun des deux commits ;
+  - run 42801587444 (`migration=aucune`, épinglé sur `f4af6e3f`), puis run 42807034952 (épinglé sur `c9f986a6`) :
+    `mba-api` sur l'image `c9f986a6`, et `mba-worker`, `mba-worker-analyse` et `mba-application` en révision `c9f986a6` ;
+  - fumée bonne, fiches OAuth conformes ;
+  - `aide:charger` (avec l'image `c9f986a6`, `docs/aide` identique à l'origin) et la publication du plugin 0.3.33
+    confiés à Julien.
+
 ## 2026-11-10 : le constructeur propose Prénom, Nom et Email, le bloc Formulaire range ses réponses, l'Inbox montre le statut
 
 Trois retours de Julien sur le constructeur et l'Inbox. Plan `2026-11-10-constructeur-champs-formulaire-statuts.md`, en

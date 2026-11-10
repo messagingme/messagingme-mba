@@ -351,12 +351,23 @@ Elles remplacent, pour le Crédit WhatsApp, le choix actif « sur demande » du 
      WhatsApp y reste tel qu'il est jusqu'à la vente.
    - **3v, la vente du Crédit WhatsApp en libre-service** : la branche du crédit dans l'arbre, le numéro fourni par la
      fenêtre du partenaire, la règle de l'essai, la pose automatique de la ligne, l'inventaire de ce qui reste avant la
-     vente au chantier du crédit, et le prix Stripe que pose Julien. Cette session la mène : celle du chantier du crédit
-     n'est plus joignable.
+     vente au chantier du crédit, et le prix Stripe que pose Julien. Découpage validé par Julien le 2026-11-10 : la
+     session du chantier du crédit porte le serveur (la règle de l'essai, la pose automatique, la fenêtre du numéro
+     fourni côté serveur, la liste avant le prix) ; cette session porte l'arbre (vitrine, console, skill, consignes de
+     Claude, la phrase « sur demande » de la fiche et de la FAQ). 🔴 La pose automatique attend la preuve que le
+     partenaire attache sa ligne de lui-même (« le bon lien », puis un essai réel) : à l'essai 236, avec le lien
+     actuel, il ne l'a pas fait, et poser avant l'attache fait refuser les envois par Meta.
    - **3b, la console** : les offres au premier écran ; Business et Entreprise vont vers `/support?sujet=…`, le
      formulaire de contact de la console.
    - **3c, Démarrer** : la formule Pro, « console ou Claude Code », avec les deux jaunes de la vitrine relevés par la
      relecture du lot 2b.
+
+**3a livré le 2026-11-10** (`f4af6e3f`, run 42801587444 ; les jaunes de sa relecture, `c9f986a6`, run 42807034952).
+En plus du plan, la 3e condition chez Meta (`PREREQUIS_META`, lue aussi par Claude au mode `apporte`) disait « Pas de
+numéro libre ? Nous vous en fournissons un » : elle dit WhatsApp ordinaire, et le numéro fourni ne vaut que sans numéro.
+La relecture a trouvé un rouge, la FAQ du plugin qui envoyait WhatsApp ordinaire vers « un numéro dédié ou fourni ». Le
+lien « Pourquoi un moyen de paiement ? » mène à la fiche de la fenêtre de 24 heures jusqu'à la page des modèles du lot
+4. Puis `aide:charger` et la publication du plugin 0.3.33, par Julien.
 
 ## Lot 4 : le centre d'aide
 
