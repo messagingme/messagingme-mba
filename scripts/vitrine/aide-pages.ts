@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { champDeFiche, lireFicheDuDepot, publicationDe, RUBRIQUES, type PublicationFiche, type Rubrique } from '../../src/aide/fiches';
 import { PAGES_CLAUDE } from './aide-claude-textes';
+import { PAGES_SOURCES } from './aide-sources-textes';
 import { DEPANNAGE } from './depannage-textes';
 import { TEXTES_TUNNEL } from './tunnel-textes';
 
@@ -121,6 +122,7 @@ export function jumellesAide(): Record<string, string> {
     [ACCUEIL_AIDE.fr, ACCUEIL_AIDE.en],
     [GUIDE_NUMERO.fr, GUIDE_NUMERO.en],
     [DEPANNAGE.adresse.fr, DEPANNAGE.adresse.en],
+    ...PAGES_SOURCES.map((s) => [s.adresse.fr, s.adresse.en]),
     ...pagesDuCentre().map((p) => [p.fr.adresse, p.en.adresse]),
     ...PAGES_CLAUDE.map((p) => [p.adresse.fr, p.adresse.en]),
   ]);

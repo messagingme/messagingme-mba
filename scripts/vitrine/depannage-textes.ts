@@ -9,6 +9,7 @@ import { FENETRE_BLOQUEE } from '../../web/lib/fenetre-meta';
 import { ETAPES_CARTE_META, WHATSAPP_ORDINAIRE } from '../../web/lib/partage/etapes-meta';
 import { ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '../../web/lib/partage/etapes-numero-fourni';
 import { ISSUE_TELECHARGER } from '../../web/lib/questions-numero';
+import { PAGES_SOURCES } from './aide-sources-textes';
 import { TEXTES_TUNNEL } from './tunnel-textes';
 
 export interface Bilingue { readonly fr: string; readonly en: string }
@@ -29,8 +30,13 @@ const GUIDE: Bilingue = { fr: TEXTES_TUNNEL.fr.guide.adresse, en: TEXTES_TUNNEL.
 const NUMERO_CONSOLE: Bilingue = { fr: '/aide/connecter-mon-numero-whatsapp/', en: '/en/help/connect-my-whatsapp-number/' };
 const NUMERO_CLAUDE: Bilingue = { fr: '/developpeurs/connecter-son-numero/', en: '/en/developers/connect-your-number/' };
 const GARDER: Bilingue = { fr: '/aide/garder-mon-application-whatsapp-business/', en: '/en/help/keep-my-whatsapp-business-app/' };
-const CHEZ_META: Bilingue = { fr: '/aide/ce-qu-il-faut-chez-meta/', en: '/en/help/what-you-need-at-meta/' };
 const CONTACT: Bilingue = { fr: '/contact/', en: '/en/contact/' };
+/** « Payer Meta » (lot 4a-2) : les étapes de la carte et qui paie quoi ; son titre et son adresse se lisent chez elle. */
+const PAYER_META = (() => {
+  const p = PAGES_SOURCES.find((x) => x.cle === 'payer-meta');
+  if (!p) throw new Error('dépannage : plus de page « payer-meta » dans aide-sources-textes.ts');
+  return p;
+})();
 
 /** L'étape du numéro fourni dont parle le symptôme, telle que la page de connexion et Claude la disent. */
 const etapeFournie = (debut: string): Bilingue => {
@@ -133,7 +139,8 @@ export const DEPANNAGE = {
       titre: { fr: 'Mes modèles ne partent pas', en: 'My templates do not go out' },
       cause: { fr: 'Meta facture les modèles à votre entreprise : sans moyen de paiement sur votre compte Meta Business, ils ne partent pas, sauf avec le Crédit WhatsApp, qui les paie.', en: 'Meta bills templates to your business: without a payment method on your Meta Business account, they do not go out, except with WhatsApp credit, which pays for them.' },
       remede: ETAPES_CARTE_META.map((e) => ({ fr: e.fr, en: e.en })),
-      lien: { libelle: { fr: 'Ce qu’il faut chez Meta', en: 'What you need at Meta' }, href: CHEZ_META },
+      // Vers « Payer Meta », qui donne les mêmes étapes et qui paie quoi (jaune 6 de la relecture du lot 4a-2).
+      lien: { libelle: PAYER_META.titre, href: PAYER_META.adresse },
     },
   ] satisfies readonly Symptome[],
 } as const;

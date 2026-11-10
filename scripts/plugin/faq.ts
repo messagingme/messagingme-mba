@@ -49,7 +49,8 @@ const UTILISATEURS_BUSINESS = DROITS.business.limites.utilisateurs;
 const SIEGE_BUSINESS_MOIS = PRIX_SIEGE_BUSINESS_HT_CENTIMES.mois / 100;
 const INCLUS_FR = DROITS.pro.limites.numeroInclus ? ', inclus en formule Pro' : '';
 const INCLUS_EN = DROITS.pro.limites.numeroInclus ? ', included in Pro' : '';
-const GRILLE_META = 'https://developers.facebook.com/docs/whatsapp/pricing';
+/** La grille officielle de Meta : la FAQ la cite, les pages du centre composées de sources en font un bouton. */
+export const GRILLE_META = 'https://developers.facebook.com/docs/whatsapp/pricing';
 /** Les étapes chez Meta, de la même source que la console et que Claude (`web/lib/partage/etapes-meta.ts`). */
 const enUnBloc = (etapes: ReadonlyArray<{ fr: string; en: string }>, langue: 'fr' | 'en'): string =>
   etapes.map((e, i) => `${i + 1}) ${e[langue]}`).join(' ');

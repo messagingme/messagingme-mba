@@ -7,6 +7,7 @@ import { adresseCapture, adressesAide, fichierCommentFaire, llmsAvecAide, motsDe
 import { pagesDuCentre } from '../scripts/vitrine/aide-pages';
 import { structureFiche } from '../src/aide/structure';
 import { PAGES_CLAUDE } from '../scripts/vitrine/aide-claude-textes';
+import { PAGES_SOURCES } from '../scripts/vitrine/aide-sources-textes';
 import { FILMS_AIDE } from '../scripts/vitrine/aide-films';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { page } from '../scripts/vitrine/cas';
@@ -26,8 +27,9 @@ const centre = pagesDuCentre();
 describe('le centre d’aide de la vitrine', () => {
   it('l’accueil et une page par fiche publique, dans les deux langues', () => {
     expect(centre.length).toBe(18);
-    // L’accueil, le guide du numéro et le dépannage (lot 4a), une page par fiche, une par page Claude Code : dans chaque langue.
-    expect(generees.length).toBe(2 * (1 + 2 + centre.length + PAGES_CLAUDE.length));
+    // L’accueil, le guide du numéro et le dépannage (lot 4a), les pages composées de sources (4a-2), une page par fiche,
+    // une par page Claude Code : dans chaque langue.
+    expect(generees.length).toBe(2 * (1 + 2 + PAGES_SOURCES.length + centre.length + PAGES_CLAUDE.length));
   });
 
   for (const { chemin, contenu } of generees) {

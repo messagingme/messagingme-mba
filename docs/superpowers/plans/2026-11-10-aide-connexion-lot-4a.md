@@ -32,7 +32,7 @@ son chemin par le guide, et connecte son numéro en suivant la page où le guide
    `aide:captures`).
 5. **Ce qu'il faut chez Meta**, réécrite (le compte Meta Business expliqué, l'avant et l'après) : `PREREQUIS_META`
    change avec elle, donc la console et Claude aussi (déploiement de l'API).
-6. **Payer Meta : poser ma carte** (`ETAPES_CARTE_META`) et **les modèles WhatsApp** (une source avec la FAQ du plugin).
+6. **Payer Meta : poser votre carte** (`ETAPES_CARTE_META`) et **les modèles WhatsApp** (une source avec la FAQ du plugin).
 7. Les fiches de la console rangées dans « Démarrer avec la console » ; le mode op A dans les deux rubriques.
 8. Les trois pages Développeurs qui doublonnent (`installer-le-plugin`, `connecter-son-numero`, `compte-meta-business`,
    et leurs jumelles) redirigent en 301 vers les nouvelles fiches (`site/vercel.json`).
@@ -51,14 +51,32 @@ Chaque page : sa version anglaise, le plan du site, `llms.txt`, son fil d'Ariane
   plus ; le titre lit le nombre sur l'arbre. Ses cinq points restent cinq (ce sont des points, pas des questions).
 - **Le dépannage suit le format FAQ de la vitrine** (`.dev-faq`, une question une fois, la réponse affichée égale à la
   réponse balisée) : « Claude Code ou Codex, ou la console ? » y est un filtre ; sans script, tout se lit.
+- **« Payer Meta » et « Les modèles WhatsApp » ne sont pas des fiches** : comme le dépannage, des pages composées de
+  sources (`scripts/vitrine/aide-sources-textes.ts`), dont seuls les titres de section et les chapeaux sont écrits. La
+  réponse de la FAQ « que facture Meta » porte aussi les étapes de la carte : elle se coupe avant, pour que la page ne les
+  donne qu'une fois, et, sur « Payer Meta » qui sert aussi la console, avant le tarif que donne Claude.
+- **Qui paie Meta se dit par `CE_QUI_EST_FACTURE`, jamais par la réponse « que facture Meta » de la FAQ** (rouge de la
+  relecture de 4a-2) : celle-ci dit que Meta facture toujours l'entreprise et que Messaging Me ne touche pas à ces frais,
+  faux avec le Crédit WhatsApp que « Payer Meta » propose, et fait payer toutes les réponses quand la console dit « au-delà
+  de la franchise ». Les pages n'en gardent que le tarif que donne Claude ; la réponse elle-même se corrige à la source
+  avec 4a-3, qui republie déjà le plugin.
+- **Deux catégories de modèles, pas trois** : la spec nommait aussi « authentication » ; la page s'en tient à utility et
+  marketing, les deux seules que `create_template` accepte (`src/mcp/outils-modeles.ts`) et que la FAQ du plugin décrit.
+- **Codex dans « Installer le plugin »** : ses commandes viennent de `web/lib/demarrer.ts`, « dans un terminal » et la
+  note de la page d'autorisation de la fin du tunnel ; la mise à jour est la question de la FAQ, telle quelle. Rien
+  n'écrit encore comment mettre le plugin à jour dans Codex, ni ce qu'on y tape pour lancer la mise en service (le tunnel
+  y fait coller une demande propre à chaque chemin) : on ne l'invente pas (backlog, à mesurer).
+- **« Ce qu'il faut chez Meta » réécrite part dans un lot à elle (4a-3)** : elle change `PREREQUIS_META`, donc la console
+  et Claude, et demande un déploiement de l'API, quand le reste de 4a-2 ne touche que la vitrine.
 
-## Deux livraisons
+## Trois livraisons
 
-**4a-1** : les deux rubriques, le guide, le dépannage. **4a-2** : « Ce qu'il faut chez Meta » réécrite (avec
-`PREREQUIS_META`, donc la console et Claude : un déploiement de l'API), « Payer Meta », « Les modèles WhatsApp », Codex et
-la mise à jour dans « Installer le plugin ».
+**4a-1** : les deux rubriques, le guide, le dépannage. **4a-2** : « Payer Meta », « Les modèles WhatsApp », Codex et la
+mise à jour dans « Installer le plugin ». **4a-3** : « Ce qu'il faut chez Meta » réécrite (avec `PREREQUIS_META`, donc la
+console et Claude : un déploiement de l'API).
 
 ## Ordre de déploiement
 
 4a-1 : la vitrine seule, par Vercel, puis `aide:charger` par Julien à la prochaine image de l'API (le bot y lit les fiches
-rangées). 4a-2 : l'API d'abord (`PREREQUIS_META`), puis la vitrine, puis `aide:charger`.
+rangées). 4a-2 : la vitrine seule, par Vercel ; aucune fiche ne change, rien pour `aide:charger`. 4a-3 : l'API d'abord
+(`PREREQUIS_META`), puis la vitrine, puis `aide:charger`.

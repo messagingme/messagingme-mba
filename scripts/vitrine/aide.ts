@@ -21,9 +21,11 @@ import { DEPOT_PLUGIN } from '../../web/lib/demarrer';
 import { ACCUEIL, fichierDe, fil, page } from './cas';
 import { insecables } from './guide-meta';
 import { versionnee } from './images';
+import { FAQ } from '../plugin/faq';
 import { PAGES_CLAUDE, type PageClaude } from './aide-claude-textes';
 import { FILMS_AIDE, type FilmAide } from './aide-films';
 import { ACCUEIL_AIDE, GUIDE_NUMERO, NOMS_RUBRIQUES, PLACES_DEPANNAGE, PLACES_GUIDE, pagesDeLaRubrique, pagesDuCentre, type Langue, type PageAide } from './aide-pages';
+import { PAGES_SOURCES, type LienSource, type PageSource } from './aide-sources-textes';
 import { DEPANNAGE, type Symptome } from './depannage-textes';
 import { titreGuide, tunnel } from './tunnel';
 import { TEXTES_TUNNEL } from './tunnel-textes';
@@ -173,8 +175,8 @@ function corps(p: PageAide, langue: Langue): string {
 /** Le rang d'une fiche dans une rubrique où elle paraît (`places`, lot 4a). */
 const rangDans = (p: PageAide, r: Rubrique): number => p.publication.places.find((x) => x.rubrique === r)?.rang ?? 0;
 /**
- * Les pages du centre qui ne sont pas des fiches (lot 4a) : le guide du numéro et le dépannage, chacune à sa place dans
- * les rubriques « Démarrer », avec ce que la recherche du menu lit d'elle.
+ * Les pages du centre qui ne sont pas des fiches (lot 4a) : le guide du numéro, le dépannage et les pages composées de
+ * sources (4a-2), chacune à sa place dans les rubriques, avec ce que la recherche du menu lit d'elle.
  */
 interface Extra { places: ReadonlyArray<{ rubrique: Rubrique; rang: number }>; adresse: string; titre: string; chapeau: string; mots: string }
 function extras(langue: Langue): Extra[] {
@@ -186,13 +188,17 @@ function extras(langue: Langue): Extra[] {
       places: PLACES_DEPANNAGE, adresse: DEPANNAGE.adresse[langue], titre: DEPANNAGE.titre[langue], chapeau: DEPANNAGE.chapeau[langue],
       mots: `${DEPANNAGE.titre[langue]} ${DEPANNAGE.chapeau[langue]} ${DEPANNAGE.symptomes.map((s) => s.titre[langue]).join(' ')}`,
     },
+    ...PAGES_SOURCES.map((s) => ({
+      places: s.places, adresse: s.adresse[langue], titre: s.titre[langue], chapeau: s.chapeau[langue],
+      mots: `${s.titre[langue]} ${s.chapeau[langue]} ${s.sections.map((x) => x.titre[langue]).join(' ')}`,
+    })),
   ];
 }
 /** Les pages Claude Code rangées dans une rubrique de démarrage (`demarrer`, lot 4a). */
 const claudeDeLaRubrique = (r: Rubrique): PageClaude[] => (r === 'demarrer-claude' ? PAGES_CLAUDE.filter((p) => p.demarrer !== undefined) : []);
 
 /** Le menu du centre, à gauche de chaque page : la recherche, puis les rubriques et leurs pages. */
-function menu(pages: PageAide[], courante: PageAide | null, langue: Langue): string {
+function menu(pages: PageAide[], courante: PageAide | null, langue: Langue, ici?: string): string {
   const lignes = [
     `    <nav class="aide-nav" aria-label="${T[langue].centre}">`,
     `      <input class="aide-recherche" type="search" placeholder="${T[langue].recherche}" aria-label="${T[langue].recherche}">`,
@@ -211,7 +217,8 @@ function menu(pages: PageAide[], courante: PageAide | null, langue: Langue): str
     }
     for (const x of extras(langue)) {
       const place = x.places.find((y) => y.rubrique === r);
-      if (place) liens.push({ rang: place.rang, ligne: `        <a href="${x.adresse}" data-mots="${motsDeRecherche(x.mots)}">${texte(x.titre, langue)}</a>` });
+      const actif = x.adresse === ici ? ' class="actif" aria-current="page"' : '';
+      if (place) liens.push({ rang: place.rang, ligne: `        <a href="${x.adresse}" data-mots="${motsDeRecherche(x.mots)}"${actif}>${texte(x.titre, langue)}</a>` });
     }
     lignes.push(...liens.sort((x, y) => x.rang - y.rang).map((x) => x.ligne), '      </div>');
   }
@@ -442,7 +449,13 @@ function accueilAide(pages: PageAide[], langue: Langue): { chemin: string; conte
       {
         '@type': 'CollectionPage', name: T[langue].centre, description: T[langue].accueilChapeau, url: ORIGINE + adresse,
         inLanguage: langue === 'fr' ? 'fr-FR' : 'en-US', publisher: ORGANISATION,
-        hasPart: pages.map((p) => ({ '@type': 'WebPage', name: p[langue].titre, url: ORIGINE + p[langue].adresse })),
+        // Toutes les pages que l'accueil range : les fiches, les pages Claude Code de démarrage, et celles qui ne sont pas
+        // des fiches (le guide, le dépannage, les pages composées de sources ; jaune 9 de la relecture du lot 4a-2).
+        hasPart: [
+          ...pages.map((p) => ({ '@type': 'WebPage', name: p[langue].titre, url: ORIGINE + p[langue].adresse })),
+          ...claudeDeLaRubrique('demarrer-claude').map((p) => ({ '@type': 'WebPage', name: p.titre[langue], url: ORIGINE + p.adresse[langue] })),
+          ...extras(langue).map((x) => ({ '@type': 'WebPage', name: x.titre, url: ORIGINE + x.adresse })),
+        ],
       },
     ],
   };
@@ -460,6 +473,7 @@ const TC = {
     developpeurs: 'Développeurs',
     guideMeta: 'Votre compte Meta Business',
     vous: 'Vous',
+    codex: 'Avec Codex',
     appelle: 'Claude appelle',
     claude: 'Claude',
     plugin: 'Voir le plugin sur GitHub',
@@ -470,6 +484,7 @@ const TC = {
     developpeurs: 'Developers',
     guideMeta: 'Your Meta Business account',
     vous: 'You',
+    codex: 'With Codex',
     appelle: 'Claude calls',
     claude: 'Claude',
     plugin: 'See the plugin on GitHub',
@@ -506,7 +521,9 @@ function pageClaude(p: PageClaude, langue: Langue): { chemin: string; contenu: s
     const outils = e.outils.length === 0 ? ''
       : `<p class="aide-outils"><span>${TC[langue].appelle}</span> ${e.outils.map((o) => `<code data-outil="${o}">${o}</code>`).join(', ')}</p>`;
     return `      <div class="aide-etape sans-capture" id="etape-${n + 1}"><div><h3>${n + 1}. ${enLigne(e.titre[langue], langue)}</h3>`
-      + `<div class="aide-echange"><p class="aide-vous"><span>${TC[langue].vous}</span> ${dire(e.dire[langue], langue)}</p>${outils}`
+      + `<div class="aide-echange"><p class="aide-vous"><span>${TC[langue].vous}</span> ${dire(e.dire[langue], langue)}</p>`
+      + (e.codex ? `<p class="aide-vous aide-codex"><span>${TC[langue].codex}</span> ${dire(e.codex[langue], langue)}</p>` : '')
+      + outils
       + `<p class="aide-claude"><span>${TC[langue].claude}</span> ${enLigne(e.reponse[langue], langue)}</p></div></div></div>`;
   });
   const main = [
@@ -533,6 +550,12 @@ function pageClaude(p: PageClaude, langue: Langue): { chemin: string; contenu: s
       '      </figure>',
     ] : []),
     ...etapes,
+    // Les questions de la FAQ du plugin que la page reprend (la mise à jour, sur « Installer le plugin ») : telles quelles.
+    ...(p.faq ?? []).map((id) => {
+      const q = FAQ.find((x) => x.id === id);
+      if (!q) throw new Error(`${p.cle} : la FAQ du plugin n'a pas de question « ${id} »`);
+      return `      <div class="aide-prose" id="${id}"><h2>${texte(q.question[langue], langue)}</h2><p>${texte(q.reponse[langue], langue)}</p></div>`;
+    }),
     ...(p.bonASavoir ? [`      <div class="aide-encadre"><strong>${T[langue].bonASavoir}</strong> ${enLigne(p.bonASavoir[langue], langue)}</div>`] : []),
     '      <div class="aide-pied-page">',
     ...(avant ? [`        <a class="aide-precedente" href="${avant.adresse[langue]}">${texte(`${T[langue].precedent} ${avant.titre[langue]}`, langue)}</a>`] : []),
@@ -667,6 +690,72 @@ function pageDepannage(langue: Langue): { chemin: string; contenu: string } {
 }
 
 /**
+ * UNE PAGE COMPOSÉE DE SOURCES (lot 4a-2) : le gabarit d'une fiche, le menu du centre à gauche, chaque section numérotée
+ * comme une étape, ses textes tirés tels quels de la FAQ du plugin et des textes du produit (`aide-sources-textes.ts`).
+ */
+function pageSource(pages: PageAide[], s: PageSource, langue: Langue): { chemin: string; contenu: string } {
+  const principale = s.places[0]!.rubrique;
+  // Une adresse citée par une réponse (la grille de Meta) devient un lien, sans sa ponctuation finale. Le découpage se
+  // fait sur le texte BRUT, avant les espaces insécables du français : après eux, un « ; » ou un « : » qui suit
+  // l'adresse ferait entrer `&nbsp` dans le lien (jaune 3 de la relecture du lot).
+  const cite = (t: { fr: string; en: string }): string => t[langue].split(/(https:\/\/[^\s<]*[^\s<.,;:!?)»])/)
+    .map((morceau, i) => (i % 2 === 1 ? `<a href="${echapper(morceau)}" rel="noopener">${echapper(morceau)}</a>` : texte(morceau, langue)))
+    .join('');
+  const voir = (adresse: string, titre: string): string => `<p>${texte(DEPANNAGE.voir[langue], langue)} <a href="${adresse}">${texte(titre, langue)}</a></p>`;
+  const lien = (l: LienSource): string => {
+    if ('fiche' in l) {
+      const f = pages.find((p) => p.cle === l.fiche);
+      if (!f) throw new Error(`${s.cle} : la fiche « ${l.fiche} » n'est pas une page du centre`);
+      return voir(f[langue].adresse, f[langue].titre);
+    }
+    if ('page' in l) {
+      const autre = PAGES_SOURCES.find((p) => p.cle === l.page);
+      if (!autre) throw new Error(`${s.cle} : aucune page « ${l.page} » dans aide-sources-textes.ts`);
+      return voir(autre.adresse[langue], autre.titre[langue]);
+    }
+    return `<p><a href="${l.href[langue]}">${texte(l.libelle[langue], langue)}</a></p>`;
+  };
+  const sections = s.sections.map((x, i) => `      <div class="aide-etape sans-capture" id="etape-${i + 1}"><div><h3>${i + 1}. ${texte(x.titre[langue], langue)}</h3>`
+    + x.textes.map((t) => `<p>${cite(t)}</p>`).join('')
+    + (x.etapes ? `<ol>${x.etapes.map((e) => `<li>${cite(e)}</li>`).join('')}</ol>` : '')
+    + (x.lien ? lien(x.lien) : '')
+    + '</div></div>');
+  const main = [
+    '<main>',
+    '<section class="cadre f-une guide-une aide-une">',
+    '  <div>',
+    `    <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${principale}">${NOMS_RUBRIQUES[principale][langue]}</a> › ${texte(s.titre[langue], langue)}</p>`,
+    `    <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(s.titre[langue], langue)}</h1>`,
+    `    <p class="chapeau">${texte(s.chapeau[langue], langue)}</p>`,
+    ...(s.lien ? ['    <div class="appels">', `      <a class="bouton bouton-trait" href="${s.lien.href[langue]}" rel="noopener">${texte(s.lien.libelle[langue], langue)}</a>`, '    </div>'] : []),
+    '  </div>',
+    '</section>',
+    '',
+    '<section class="f-bloc bande-claire">',
+    '  <div class="cadre aide-grille">',
+    menu(pages, null, langue, s.adresse[langue]),
+    '    <article class="aide-article">',
+    ...sections,
+    '    </article>',
+    '  </div>',
+    '</section>',
+    '</main>',
+  ].join('\n');
+  const ld = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      fil(langue, [ACCUEIL[langue], [T[langue].centre, ACCUEIL_AIDE[langue]], [s.titre[langue], s.adresse[langue]]]),
+      { '@type': 'TechArticle', headline: s.titre[langue], description: s.chapeau[langue], inLanguage: langue === 'fr' ? 'fr-FR' : 'en-US', url: ORIGINE + s.adresse[langue], publisher: ORGANISATION },
+    ],
+  };
+  const contenu = page(langue, {
+    adresse: s.adresse[langue], jumelle: s.adresse[langue === 'fr' ? 'en' : 'fr'], titre: `${s.titre[langue]} | ${T[langue].titreSite}`,
+    description: s.chapeau[langue], ldJson: ld,
+  }, main, `Centre d’aide, « ${s.titre.fr} », GÉNÉRÉ par npm run vitrine:aide depuis scripts/vitrine/aide-sources-textes.ts : ne pas modifier à la main.`);
+  return { chemin: fichierDe(s.adresse[langue]), contenu };
+}
+
+/**
  * Toutes les pages générées ici, dans les deux langues : l'accueil du centre d'aide, une page par fiche publique, et les
  * pages « Depuis Claude Code » de la doc développeurs.
  */
@@ -676,6 +765,7 @@ export function pagesAide(): Array<{ chemin: string; contenu: string }> {
     accueilAide(pages, langue),
     pageGuide(langue),
     pageDepannage(langue),
+    ...PAGES_SOURCES.map((s) => pageSource(pages, s, langue)),
     ...pages.map((p) => pageAide(pages, p, langue)),
     ...PAGES_CLAUDE.map((p) => pageClaude(p, langue)),
   ]);
@@ -685,7 +775,7 @@ export function pagesAide(): Array<{ chemin: string; contenu: string }> {
 export function adressesAide(): string[] {
   const pages = pagesDuCentre();
   return (['fr', 'en'] as const)
-    .flatMap((l) => [ACCUEIL_AIDE[l], GUIDE_NUMERO[l], DEPANNAGE.adresse[l], ...pages.map((p) => p[l].adresse), ...PAGES_CLAUDE.map((p) => p.adresse[l])])
+    .flatMap((l) => [ACCUEIL_AIDE[l], GUIDE_NUMERO[l], DEPANNAGE.adresse[l], ...PAGES_SOURCES.map((s) => s.adresse[l]), ...pages.map((p) => p[l].adresse), ...PAGES_CLAUDE.map((p) => p.adresse[l])])
     .map((a) => ORIGINE + a);
 }
 
@@ -709,6 +799,7 @@ export function llmsAvecAide(contenu: string): string {
     `- [Help center](${ORIGINE}${ACCUEIL_AIDE.en}) : the same pages in English.`,
     ...(['fr', 'en'] as const).map((l) => `- [${titreGuide(l).titre}](${ORIGINE}${GUIDE_NUMERO[l]}) : ${TEXTES_TUNNEL[l].guide.chapeau}`),
     ...(['fr', 'en'] as const).map((l) => `- [${DEPANNAGE.titre[l]}](${ORIGINE}${DEPANNAGE.adresse[l]}) : ${DEPANNAGE.chapeau[l]}`),
+    ...PAGES_SOURCES.flatMap((s) => (['fr', 'en'] as const).map((l) => `- [${s.titre[l]}](${ORIGINE}${s.adresse[l]}) : ${s.chapeau[l]}`)),
     ...pages.flatMap((p) => (['fr', 'en'] as const).map((l) =>
       `- [${p[l].titre}](${ORIGINE}${p[l].adresse}) : ${brut(structureFiche(p[l].corps, l).chapeau)}`)),
     ...PAGES_CLAUDE.flatMap((p) => (['fr', 'en'] as const).map((l) => `- [${p.titre[l]}](${ORIGINE}${p.adresse[l]}) : ${p.chapeau[l]}`)),

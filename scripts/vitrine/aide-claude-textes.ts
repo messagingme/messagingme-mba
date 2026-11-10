@@ -6,7 +6,8 @@
 // 🔴 Chaque étape dit ce qu'on dit à Claude, les outils qu'il appelle (leurs vrais noms, `web/lib/partage/catalogue-mcp.ts`)
 // et ce qu'il répond, relus dans `src/mcp/` et dans les skills du plugin. Les commandes viennent de `web/lib/demarrer.ts`.
 import { DUREE_CODE_MS } from '../../src/campaign/confirmation';
-import { COMMANDE_DEMARRAGE, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../../web/lib/demarrer';
+import { AUTORISATION_CODEX, COMMANDE_DEMARRAGE, COMMANDES_CODEX, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../../web/lib/demarrer';
+import { TEXTES_TUNNEL } from './tunnel-textes';
 
 export interface Bilingue {
   readonly fr: string;
@@ -22,6 +23,8 @@ export interface EtapeClaude {
   readonly dire: Bilingue;
   readonly outils: readonly string[];
   readonly reponse: Bilingue;
+  /** Ce qu'on tape dans Codex à la place, quand ça diffère (le même plugin, lot 4a-2 de l'aide à la connexion). */
+  readonly codex?: Bilingue;
 }
 
 export interface PageClaude {
@@ -41,9 +44,14 @@ export interface PageClaude {
    * dans « Depuis Claude Code ».
    */
   readonly demarrer?: number;
+  /** Des questions de la FAQ du plugin (`scripts/plugin/faq.ts`), par leur identifiant, données telles quelles après les étapes. */
+  readonly faq?: readonly string[];
 }
 
 const MINUTES_CODE = Math.round(DUREE_CODE_MS / 60_000);
+/** « Dans un terminal » et la note de la page d'autorisation de Codex : les mots de la fin du tunnel, jamais recopiés. */
+const CODEX = { fr: TEXTES_TUNNEL.fr.appels.etapesFree, en: TEXTES_TUNNEL.en.appels.etapesFree };
+const majuscule = (t: string): string => t.charAt(0).toUpperCase() + t.slice(1);
 
 export const PAGES_CLAUDE: readonly PageClaude[] = [
   {
@@ -52,8 +60,8 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
     adresse: { fr: '/developpeurs/installer-le-plugin/', en: '/en/developers/install-the-plugin/' },
     titre: { fr: 'Installer le plugin et relier votre espace', en: 'Install the plugin and link your workspace' },
     chapeau: {
-      fr: 'Deux commandes dans Claude Code, une autorisation, et Claude pilote votre WhatsApp. L’espace se crée à l’autorisation, avec Google ou votre adresse e-mail.',
-      en: 'Two commands in Claude Code, one authorization, and Claude runs your WhatsApp. The workspace is created at authorization, with Google or your email address.',
+      fr: 'Deux commandes, une autorisation, et Claude Code ou Codex pilote votre WhatsApp. L’espace se crée à l’autorisation, avec Google ou votre adresse e-mail.',
+      en: 'Two commands, one authorization, and Claude Code or Codex runs your WhatsApp. The workspace is created at authorization, with Google or your email address.',
     },
     film: 'cas-onboarding',
     etapes: [
@@ -65,6 +73,10 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
           fr: 'Claude Code installe le plugin Messaging Me : ses outils et ses consignes. Tapez les deux commandes l’une après l’autre : collées, Claude Code n’en lancerait qu’une.',
           en: 'Claude Code installs the Messaging Me plugin: its tools and its instructions. Type the two commands one after the other: pasted together, Claude Code would only run one.',
         },
+        codex: {
+          fr: `${majuscule(CODEX.fr.installer.codex)}, \`${COMMANDES_CODEX[0]}\` puis \`${COMMANDES_CODEX[1]}\``,
+          en: `${majuscule(CODEX.en.installer.codex)}, \`${COMMANDES_CODEX[0]}\` then \`${COMMANDES_CODEX[1]}\``,
+        },
       },
       {
         titre: { fr: 'Autoriser l’accès', en: 'Authorize access' },
@@ -73,6 +85,10 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         reponse: {
           fr: 'Une page s’ouvre dans votre navigateur : continuez avec Google (sans compte, votre espace naît à ce moment, sans formulaire), créez votre espace avec votre adresse e-mail (nous vous envoyons un lien, où vous nommez votre espace et choisissez un mot de passe), ou connectez-vous avec votre mot de passe si vous en avez déjà un. Puis autorisez.',
           en: 'A page opens in your browser: continue with Google (with no account yet, your workspace is created right then, with no form), create your workspace with your email address (we email you a link, where you name your workspace and choose a password), or sign in with your password if you already have one. Then authorize.',
+        },
+        codex: {
+          fr: `${majuscule(CODEX.fr.relier.codex)}, \`${AUTORISATION_CODEX}\`. ${CODEX.fr.relier.codexNote}`,
+          en: `${majuscule(CODEX.en.relier.codex)}, \`${AUTORISATION_CODEX}\`. ${CODEX.en.relier.codexNote}`,
         },
       },
       {
@@ -85,6 +101,7 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
         },
       },
     ],
+    faq: ['mettre-a-jour-le-plugin'],
   },
   {
     cle: 'connecter-son-numero',
