@@ -83,6 +83,15 @@ export interface FlowSummary {
 export function listFlows(tenantId: string): Promise<{ flows: FlowSummary[] }> {
   return request<{ flows: FlowSummary[] }>(`/tenants/${tenantId}/flows`);
 }
+/** Un élément qu'un formulaire renvoie, et le champ où le formulaire le range (`''` : nulle part). */
+export interface SortieDeFormulaire { cle: string; libelle: string; cible: string }
+/**
+ * Les éléments d'un formulaire et leur champ, pour le panneau du bloc Formulaire (2026-11-10). `source: 'meta'` = un
+ * formulaire du Business Manager, lu chez Meta, que rien ne range. 404 tant que l'API n'a pas cette route.
+ */
+export function listSortiesFormulaire(tenantId: string, flowId: string): Promise<{ source: 'messagingme' | 'meta'; sorties: SortieDeFormulaire[] }> {
+  return request(`/tenants/${tenantId}/flows/${encodeURIComponent(flowId)}/sorties`);
+}
 export function createFlow(tenantId: string, input: { name: string; screens: FlowScreenInput[]; cta?: string }): Promise<{ id: string; status: string; name: string; fields: FlowField[] }> {
   return request(`/tenants/${tenantId}/flows`, { method: 'POST', body: JSON.stringify(input) });
 }

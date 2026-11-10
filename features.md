@@ -861,9 +861,10 @@ En haut de l'onglet **Historique** d'une fiche contact, deux chiffres face à fa
 - ✅ Chaque **champ de saisie se range dans un user field du contact** (« Nouveau champ » d'après le libellé,
   ou un user field existant). À la réception du formulaire rempli, les valeurs atterrissent dans la fiche contact
   + la réponse apparaît dans l'inbox. **Champs de base proposés** (2026-07-28) : le menu « Enregistrer dans »
-  propose désormais les champs de BASE (**Nom, Prénom, Email**) en plus des champs perso, et **suggère** celui qui
-  correspond au libellé du champ (« Email » → Email, « Nom » → Nom…), insensible casse/accents. Le champ de base
-  « Nom » alimente le nom d'affichage du contact (profile_name), les autres la fiche.
+  propose désormais les champs de BASE (**Prénom, Nom, Email**) en plus des champs perso, et **suggère** celui qui
+  correspond au libellé du champ (« Email » → Email, « Nom » → Nom…), insensible casse/accents. Les trois vont sur
+  la fiche. « Nom » est le **nom de famille** depuis le 2026-11-10 : il visait le nom du profil WhatsApp, que chaque
+  message reçu réécrit. Un formulaire déjà réglé ainsi le garde, affiché « Nom WhatsApp ».
 - ✅ **Consentement (OptIn) exploitable** (2026-07-17) : dans le constructeur, un champ « Consentement » se range
   dans le **champ Oui/Non de ton choix** (par défaut « Consentement WhatsApp », créé automatiquement). Quand le
   contact coche la case et envoie, on enregistre le champ ET **on passe son statut opt-in à « accepté »** : il
@@ -1155,6 +1156,10 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   **ajouter un tag**, **retirer un tag**, **mettre à jour un champ** (valeur fixe, ou « maintenant » = la date et
   l'heure du passage du contact), **vider un champ**. Il remplace dans la palette les anciens blocs « ajout de
   tag » et « ajout de champ ». Un tag saisi ici apparaît dans Contenu > Tags dès qu'on quitte le champ.
+  - **Prénom, Nom et Email sont toujours proposés** (2026-11-10), même sur un espace où personne ne les a encore
+    remplis, dans tous les choix de champ du constructeur qui écrivent sur la fiche (Action, réponse rangée d'une
+    Question, Appel API, Fonction JS, rangement d'un formulaire). Avant, ils n'apparaissaient qu'après une première
+    écriture. Le nom WhatsApp et le téléphone n'y sont pas : le premier est réécrit à chaque message reçu.
 - ✅ **Bloc « Condition »** (2026-08-02) : aiguille le contact selon son état, avec **deux sorties à relier**,
   « Si réunie » (verte) et « Sinon » (rouge). On empile plusieurs conditions, combinées en **toutes** ou
   **au moins une** : **tag** (possède / n'a pas), **champ** (texte : contient, ne contient pas, est exactement,
@@ -1261,6 +1266,13 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   l'enregistrement n'est plus refusé. Le constructeur se contente d'un avertissement jaune sur le **premier bloc**
   du scénario, qui rappelle qu'un scénario n'ouvrant pas par un envoi de template ne pourra pas partir en
   campagne (mais reste parfaitement utilisable quand le contact vient d'écrire).
+  - **Où s'enregistre chaque réponse, pour CE scénario** (2026-11-10). Une fois le formulaire choisi, le panneau
+    liste chaque élément qu'il renvoie, avec le champ de la fiche où il s'enregistre. Pour un formulaire construit
+    dans Messaging Me, c'est le réglage du formulaire (Contenu > Formulaires). Pour un formulaire créé en JSON dans
+    le Business Manager, les éléments sont lus chez Meta et le champ est vide : **rien n'était enregistré** avant
+    qu'on en choisisse un ici. Changer une ligne ne vaut que pour ce bloc et remplace, pour cet élément, le réglage du
+    formulaire ; « Ne pas enregistrer » est possible, et revenir au champ du formulaire efface l'exception. Changer
+    de formulaire efface le rangement du bloc. Le consentement (case OptIn) reste géré par le formulaire.
   - **Tirer une flèche dans le vide crée un bloc** à cet endroit (relié), puis on choisit son type dans le
     panneau de droite. Un **✕** en coin de chaque bloc le supprime directement (avec ses flèches).
 - ✅ **Variables du template collées automatiquement** : quand un bloc « envoi template » part (au lancement OU
@@ -1779,6 +1791,10 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   Traité la laisse visible dans « Tout ». Un message du client sort des deux (une réaction, elle, sort
   seulement d'Archivé). « Ne plus marquer traité » rend la conversation au dossier que son dernier message
   désigne : si c'est vous qui avez écrit en dernier, elle ne revient donc pas dans « À traiter ».
+- ✅ **LE STATUT SE VOIT DANS L'EN-TÊTE DE LA CONVERSATION** (2026-11-10). Une pastille par statut, à côté du nom du
+  contact : **Traité**, **Urgent**, **Signalé** (posé à la main), **Archivé**. Elle apparaît dès le geste, même quand
+  la conversation quitte le dossier affiché (« Traité » depuis « À traiter »), et le menu « Ranger dans… » propose
+  aussitôt le geste inverse. Avant, rien ne bougeait à l'écran : on croyait qu'il ne s'était rien passé.
 - ✅ **LES PHOTOS ET FICHIERS REÇUS S'AFFICHENT** (2026-09-19, déployé le jour même, essai réel à faire). Une
   photo (ou un sticker) envoyée par le client apparaît dans la bulle, avec sa légende ; un document ou une
   vidéo devient un bouton **« Télécharger »** qui enregistre le fichier sous le nom que le client lui a donné.

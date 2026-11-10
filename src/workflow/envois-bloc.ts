@@ -18,6 +18,7 @@ import { logTemplateSent, type OutboundLogger } from '../inbox/outbound-log';
 // bouton, quel que soit le chemin d'envoi. On importe la règle plutôt que d'en écrire une seconde.
 import { suffixesPourUnEnvoi } from '../links/suffixes-envoi';
 import { messageDe } from '../lib/erreur';
+import { jetonDeFormulaire } from '../../web/lib/partage/rangement-formulaire';
 
 /**
  * Les quatre envois WhatsApp d'un bloc de scénario : modèle (`sendTemplate`), message rapide
@@ -375,8 +376,10 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
         // eslint-disable-next-line no-console
         console.error(`workflow sendFlow: écran d'ouverture du formulaire ${flowId} illisible, envoi sur « ${FLOW_ENTRY_SCREEN} » :`, messageDe(err));
       }
-      // flow_token jamais vide (exigence Meta #131009) mais jetable : la corrélation passe par le _ref du flow_json.
-      const res = await client.sendFlowMessage(waId, { body, flowId, cta, flowToken: `${waId}-${Date.now()}`, screen });
+      // flow_token jamais vide (exigence Meta #131009). Le rangement du formulaire passe par le _ref du flow_json ; le
+      // jeton, que Meta renvoie avec la réponse, nomme le formulaire envoyé : le bloc ne range que la réponse à CELUI-LÀ
+      // (`jetonDeFormulaire`, 2026-11-10).
+      const res = await client.sendFlowMessage(waId, { body, flowId, cta, flowToken: jetonDeFormulaire(waId, flowId, Date.now()), screen });
       // Journalise l'envoi dans le fil (best-effort). Le corps = l'accroche visible par le contact.
       try { await inboxStore.recordOutboundByWaId(tenant, waId, { body, messageId: res.messageId, type: 'text', origine: 'scenario' }); } catch { /* best-effort */ }
       return { messageId: res.messageId };

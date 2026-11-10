@@ -4,6 +4,42 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : le constructeur propose Prénom, Nom et Email, le bloc Formulaire range ses réponses, l'Inbox montre le statut
+
+Trois retours de Julien sur le constructeur et l'Inbox. Plan `2026-11-10-constructeur-champs-formulaire-statuts.md`, en
+direct, une relecture indépendante. Le quatrième, un bloc « List button », existait déjà : c'est le bloc Question
+(liste WhatsApp de dix choix, une sortie par choix), que Julien avait raté.
+
+**Prénom, Nom et Email absents de « Mettre à jour un champ ».** La liste venait de `GET /user-fields`, où un champ socle
+n'entre qu'à sa première écriture : sur un espace neuf, les trois champs qu'on veut le plus souvent remplir manquaient,
+alors que le moteur les écrit sans condition. `champsEcrivables` les met en tête de chaque choix de champ du
+constructeur qui écrit.
+
+**Le rangement d'un formulaire, par le bloc.** Un formulaire créé en JSON dans le Business Manager n'a ni `_ref` ni
+`mapping` : ses réponses n'allaient nulle part (`extractFlowCompletions` les écartait). Le panneau du bloc liste
+désormais ses éléments, lus dans le flow_json chez Meta (le `payload` des actions `complete`, seul contenu de la
+réponse), et chacun se range dans un champ, pour ce scénario. Pour un formulaire de Messaging Me, le panneau part du
+réglage du formulaire et ne garde que les exceptions. Le choix d'architecture : l'écriture se fait dans le job du
+webhook, avant l'avance, et pas dans l'exécuteur. Écrite à l'avance, elle aurait dépendu de conditions (fil tenu par un
+opérateur, tour pris) qui, réunies, laissaient un élément retiré au réglage du formulaire écrit nulle part. Décider et
+écrire au même endroit tient « jamais deux fois, jamais nulle part ».
+
+**Le statut dans l'en-tête.** La conversation ouverte suivait la liste rechargée : depuis « À traiter », un « Traité »
+la faisait sortir de la liste, et l'écran gardait sa copie d'avant, sans pastille et avec « Traité » encore proposé. Le
+geste réussi pose désormais lui-même l'état (`apresRangement`), et l'en-tête montre une pastille par statut.
+
+**En passant.** Dans l'éditeur de formulaires, la destination de base « Nom » écrivait le nom du profil WhatsApp,
+réécrit à chaque message reçu. Elle vise le vrai Nom (`nom_de_famille`) ; un formulaire réglé sur l'ancienne cible la
+garde, affichée « Nom WhatsApp » (choix de Julien).
+
+**La relecture**, indépendante, sans rouge. Son jaune le plus utile : le bloc rangeait n'importe quel formulaire rempli
+pendant l'attente, alors que les clés de nos formulaires sont des mots courants (`email`, `nom`) ; le formulaire d'une
+campagne rempli à ce moment-là aurait été rangé selon le bloc. Le formulaire envoyé par le bloc porte désormais son
+identifiant dans son `flow_token`, que Meta renvoie avec la réponse, et le bloc ne range que celle-là. Les autres jaunes
+(câblage sans test, une course dans l'Inbox, deux « Nom » identiques, une borne de clé trop courte, des textes faux)
+sont corrigés dans le même commit ; le détail est dans le plan. Vérifié dans les deux sens : dix mutations, chacune
+attrapée, dont l'e2e de la pastille contre une console reconstruite sans le correctif.
+
 ## 2026-11-10 : la fenêtre du partenaire, la ligne posée APRÈS l'attache et la liste de /ops (lot E6)
 
 Accord de Julien (« Oui, enchaîne ») pour les huit jaunes de la relecture du lot E5 ; plan

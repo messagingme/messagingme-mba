@@ -404,7 +404,8 @@ Meta -> POST /webhooks/meta (mba-api)
           (le contact quitte sa liste) quand la publicité confie ses prospects à un
           scénario (jamais à un opérateur)
         puis, DANS CET ORDRE et chacun isolé en try/catch :
-          1. mapping de formulaire  (nfm_reply -> champs de la fiche)
+          1. mapping de formulaire  (nfm_reply -> champs de la fiche) : d'abord ce que le bloc
+             Formulaire en attente range, puis le réglage du formulaire, qui le saute
           2. jeton de test          (CONSOMME le message, personne d'autre ne le voit)
           3. automations            (mot-clé, tag, lien de chaîne) -- CONSOMMENT aussi,
              et le routage publicitaire peut n'en autoriser QU'UNE, ou aucune
@@ -666,6 +667,21 @@ déduit du `buttonPayload`, qui porte alors le JSON de la réponse ; n'importe q
 bloc, `advance` ignore tout autre payload (un bouton d'un ancien message ne nomme aucune de ses sorties) : `rempli`,
 sinon l'arête libre, sinon l'arrêt. Un formulaire renvoyé passe donc par l'arête libre quand `rempli` n'est pas
 reliée, ce qui garde intacts les montages d'une seule flèche. Sa mesure porte `rempli`, pas le JSON.
+
+🔴 **Le bloc Formulaire RANGE les éléments qu'il cite, pour son scénario** (2026-11-10). `data.rangement` :
+`{ <clé de l'élément>: <clé du champ> }`, `''` = ne pas enregistrer, lu défensivement (`rangementDuBloc`,
+`web/lib/partage/rangement-formulaire.ts`). La console n'y garde que les EXCEPTIONS au réglage du formulaire ; elle lit
+les éléments sur `GET /flows/:id/sorties` (en base pour un formulaire de Messaging Me, dans le flow_json chez Meta pour
+un formulaire du Business Manager, qui n'a ni `_ref` ni `mapping` : `sortiesDuFlowJson` lit le `payload` des actions
+`complete`, seul contenu de `response_json`). L'écriture se fait dans le job du webhook, AVANT l'avance qui quitte le
+bloc (`rangerParLesParcours`, `src/webhooks/rangement-par-le-parcours.ts`), sur la réponse COMPLÈTE
+(`InboundMessage.reponseFormulaire`, le `buttonPayload` étant tronqué à 2 000 caractères), par l'écriture de fiche du
+parcours (HubSpot compris). Le bloc ne range que la réponse au formulaire QU'IL a envoyé : son `flow_token` le nomme
+(`jetonDeFormulaire`, `formulaireDuJeton`), parce que n'importe quel formulaire renvoyé fait avancer le bloc et que nos
+clés sont des mots courants. Ses clés reviennent à `processFlowCompletions`, qui les SAUTE : un élément ne s'écrit
+jamais à deux endroits, et décider et écrire au même endroit fait qu'une avance gelée (fil tenu par un opérateur) ne
+le perd pas. Le consentement reste au formulaire (il tient au composant OptIn). ⚠️ Limite acceptée : une redélivrance
+APRÈS que le parcours a quitté le bloc retombe sur le seul réglage du formulaire.
 
 🔴 **Le bloc Condition a des FAMILLES** (RC5, `src/workflow/conditions.ts`). `data.familles` : 10 au plus, chacune
 `{ code, nom, groupe }`, son groupe de clauses en ET ou en OU. Le moteur les teste dans l'ordre et suit la PREMIÈRE
@@ -1448,8 +1464,11 @@ connecteurs (`contact:nom`, `fiche:nom`), les paramètres d'outils et les adress
 réutiliser aurait changé en silence ce qui part chez des tiers. Le champ de base `name` s'affiche « Nom WhatsApp ».
 Le sélecteur de champ des outils d'agent (`CibleChamp`) propose les champs socle en tête, puis les champs créés par
 ordre alphabétique ; l'agent de Meta tient un champ socle pour existant avant sa première écriture (`socleField`, à la
-création, sur la ligne de l'onglet et à chaque appel). ⚠️ Les formulaires WhatsApp et l'import CSV envoient encore
-« Nom de famille » vers `profile_name` (`web/lib/flow-mapping.ts`, `src/crm/recognize.ts`).
+création, sur la ligne de l'onglet et à chaque appel). Les choix de champ du constructeur de scénarios qui ÉCRIVENT
+proposent les trois socles avant leur première écriture (`champsEcrivables`, `web/lib/fields.ts`, 2026-11-10), comme
+l'éditeur de formulaires, où « Nom » vise `nom_de_famille` depuis le même jour (l'ancienne cible `@profile_name` reste
+routée et s'affiche « Nom WhatsApp », `NOM_WHATSAPP`). ⚠️ L'import CSV envoie encore « Nom de famille » vers
+`profile_name` (`src/crm/recognize.ts`).
 
 🔴 **Le modèle ne choisit jamais une cible.** Sur un connecteur API client, l'adresse est figée sur la source,
 le gabarit est écrit par un administrateur, et `construireCible` vérifie que l'URL finale reste SOUS l'adresse
@@ -6536,7 +6555,8 @@ avec elle) garde son test de parité.
 | `web/lib/fil-synchro.ts` -> `tourDuFil` | 🔴 la synchronisation du fil de l'Inbox, sans React : l'ajout dédoublonné ou le remplacement, le curseur du delta, le « lu », la reprise du fil entier quand la langue de lecture change ou que la traduction redevient possible. La page garde la requête en vol (la garde qui empêche de payer une traduction en boucle), l'annulation et le minuteur |
 | `web/components/RcsPhoneFrame.tsx` | le cadre de téléphone des aperçus RCS, pendant de `PhoneFrame` (nom de marque de l'agent, une requête par espace) |
 | `web/lib/flow-mapping.ts` | la cible d'un champ de formulaire, avec la sentinelle `@profile_name` |
-| `web/lib/inbox-rangement.ts` | les gestes de rangement de l'Inbox : leurs libellés, et les destinations qu'une SÉLECTION peut prendre selon le dossier |
+| `web/lib/inbox-rangement.ts` | les gestes de rangement de l'Inbox : leurs libellés, les destinations qu'une SÉLECTION peut prendre selon le dossier, et l'état que pose un geste réussi sur la conversation ouverte (`apresRangement`, ses pastilles d'en-tête `pastillesStatut`), qui ne suit pas la liste quand elle en sort |
+| `web/lib/partage/rangement-formulaire.ts` | le rangement d'un bloc Formulaire (`rangementDuBloc`, `valeurEnTexte`), lu par le panneau et par le webhook |
 | `web/lib/inbox-detail.ts` | le panneau Détail de l'Inbox : la validation de sa réponse (`lireDetail`, une réponse mal formée replie le panneau), les phrases de la frise, et son repli retenu par navigateur (dans un try/catch) |
 | `web/components/VariableBodyEditor.tsx` | l'éditeur à chips, partagé par les variables Meta (positionnelles) et RCS (nommées) |
 | `web/lib/session.ts` -> `pageDArrivee` | où atterrit un compte après connexion, selon son rôle |

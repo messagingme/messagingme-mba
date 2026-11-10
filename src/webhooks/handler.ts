@@ -3,6 +3,7 @@ import { processStatuses } from './delivery';
 import type { EchecsLibresSink, NodeStatusSink, RemiseMbaSurAccuse } from './delivery';
 import { extractInbound, processInbound } from './inbound';
 import { processFlowCompletions } from './flow-mapping';
+import { rangerParLesParcours, type RangementParLesParcours } from './rangement-par-le-parcours';
 import { processWorkflowAdvance } from './workflow-advance';
 import { processRemiseMbaEntrant, type RemiseMbaEntrantDeps } from './remise-mba-entrant';
 import { lireLesBascules, processHandovers } from './handover';
@@ -37,6 +38,12 @@ import { messageDe } from '../lib/erreur';
 export interface FlowMappingDeps {
   lookup: FlowMappingLookup;
   writer: ContactFieldWriter;
+  /**
+   * Le rangement des éléments que le bloc Formulaire en attente range lui-même (2026-11-10), fait AVANT celui du
+   * formulaire, qui les saute. Requis : un câblage qui l'oublierait laisserait ces éléments au réglage du formulaire,
+   * c'est-à-dire là où le scénario a demandé de ne pas les écrire.
+   */
+  parcours: RangementParLesParcours;
   /** Journal d'audit du consentement capté par le Flow. Optionnel -> aucune trace (câblages de test). */
   audit?: AuditSink;
 }
@@ -260,9 +267,15 @@ export async function handleWebhookJob(recu: unknown, deps: WebhookJobDeps): Pro
       console.error('handleWebhookJob: routage publicitaire ignoré:', messageDe(err));
     }
   }
-  // Report Flow -> user fields, isolé : un throw rejouerait tout le webhook, statuts déjà traités compris.
+  // Report Flow -> user fields, isolé : un throw rejouerait tout le webhook, statuts déjà traités compris. D'abord ce que
+  // le bloc Formulaire en attente range lui-même, AVANT l'avance qui le quitte ; puis le réglage du formulaire, qui le
+  // saute. Une panne du premier laisse tout au second (aucune entrée), comme avant le 2026-11-10.
   if (flowMapping) {
-    await tenter('handleWebhookJob: mapping flow ignoré:', () => processFlowCompletions(raw, flowMapping.lookup, flowMapping.writer, flowMapping.audit));
+    let parLesParcours: ReadonlyMap<string, ReadonlySet<string>> = new Map();
+    await tenter('handleWebhookJob: rangement de formulaire par le parcours ignoré:', async () => {
+      parLesParcours = await rangerParLesParcours(entrants, flowMapping.parcours);
+    });
+    await tenter('handleWebhookJob: mapping flow ignoré:', () => processFlowCompletions(raw, flowMapping.lookup, flowMapping.writer, parLesParcours, flowMapping.audit));
   }
   // Jetons de test d'un scénario, en premier : un jeton n'est ni une réponse à un parcours ni un mot-clé. Ordre :
   // jetons -> automations -> avance, chacune retirant à la suivante les messages qu'elle a consommés. Isolé.

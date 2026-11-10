@@ -63,6 +63,55 @@ export function libelleRangement(a: ActionRangement, t: (fr: string, en?: string
   }
 }
 
+/** Les statuts qu'une conversation affiche, en type STRUCTURAL local (même raison que `DossierLike`). */
+export interface StatutsConversation {
+  traitee?: boolean;
+  urgente?: boolean;
+  signaleeMain?: boolean;
+  /** Absent du serveur : seul le dossier « Archivé » le dit. L'écran le pose après un geste, voir `apresRangement`. */
+  archivee?: boolean;
+}
+
+/**
+ * L'état d'une conversation JUSTE APRÈS un geste réussi, tel que le serveur l'a écrit.
+ *
+ * 🔴 Demandé par Julien le 2026-11-10 : « quand on met Traité, il faut qu'on voie un badge, sinon on a l'impression
+ * qu'il ne s'est rien passé ». La conversation ouverte suivait la liste RECHARGÉE (`setSelected`, page Inbox) : depuis
+ * « À traiter », un « Traité » la fait QUITTER la liste, et l'écran gardait sa copie d'avant, sans pastille et avec
+ * « Traité » encore proposé. Le geste réussi pose donc lui-même le nouvel état.
+ *
+ * Les effets de bord du serveur sont repris : « Traité » et « Archivé » lèvent l'urgence. « À traiter » ne change
+ * aucun statut (il prend le fil, ce que l'écran suit à part).
+ */
+export function apresRangement<T extends StatutsConversation>(c: T, a: ActionRangement): T {
+  switch (a) {
+    case 'a-traiter': return c;
+    case 'traiter': return { ...c, traitee: true, urgente: false };
+    case 'ne-plus-traiter': return { ...c, traitee: false };
+    case 'urgent': return { ...c, urgente: true };
+    case 'ne-plus-urgent': return { ...c, urgente: false };
+    case 'signaler': return { ...c, signaleeMain: true };
+    case 'ne-plus-signaler': return { ...c, signaleeMain: false };
+    case 'archiver': return { ...c, archivee: true, urgente: false };
+    case 'desarchiver': return { ...c, archivee: false };
+  }
+}
+
+/**
+ * Les pastilles de l'EN-TÊTE de la conversation ouverte, dans un ordre fixe. `archivee` absent se lit sur le dossier.
+ * Le signalement affiché est celui posé À LA MAIN : celui du modèle se lit sur le dossier « Signalé », et le
+ * serveur ne le rend pas par conversation.
+ */
+export type PastilleStatut = 'traitee' | 'urgente' | 'signalee' | 'archivee';
+export function pastillesStatut(c: StatutsConversation, dossier: DossierLike): PastilleStatut[] {
+  const p: PastilleStatut[] = [];
+  if (c.archivee ?? dossier === 'archivees') p.push('archivee');
+  if (c.traitee === true) p.push('traitee');
+  if (c.urgente === true) p.push('urgente');
+  if (c.signaleeMain === true) p.push('signalee');
+  return p;
+}
+
 /**
  * Les destinations proposées à une SÉLECTION de conversations.
  *

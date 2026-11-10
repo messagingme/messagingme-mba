@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  destinationsEnLot, estActionRangement, libelleRangement,
+  apresRangement, destinationsEnLot, estActionRangement, libelleRangement, pastillesStatut,
   type ActionRangement, type DossierLike,
 } from '../web/lib/inbox-rangement';
 
@@ -126,5 +126,51 @@ describe('Inbox, le vocabulaire du rangement', () => {
     // Deux gestes ne partagent jamais un libellé : « Signalé » et « Ne plus signaler » sont proposés au même
     // endroit, les confondre rendrait le menu illisible.
     expect(new Set(actions.map((a) => libelleRangement(a, t))).size).toBe(actions.length);
+  });
+});
+
+/**
+ * L'état de la conversation ouverte juste après un geste (Julien, 2026-11-10 : « quand on met Traité, il faut qu'on
+ * voie un badge »). Depuis « À traiter », « Traité » fait quitter la liste : seul le geste peut poser la pastille.
+ */
+describe('apresRangement et les pastilles de l’en-tête', () => {
+  const vierge = { traitee: false, urgente: false, signaleeMain: false };
+
+  it('chaque geste pose son statut, et « Traité » comme « Archivé » lèvent l’urgence (comme le serveur)', () => {
+    expect(apresRangement({ ...vierge, urgente: true }, 'traiter')).toEqual({ traitee: true, urgente: false, signaleeMain: false });
+    expect(apresRangement({ ...vierge, traitee: true }, 'ne-plus-traiter').traitee).toBe(false);
+    expect(apresRangement(vierge, 'urgent').urgente).toBe(true);
+    expect(apresRangement({ ...vierge, urgente: true }, 'ne-plus-urgent').urgente).toBe(false);
+    expect(apresRangement(vierge, 'signaler').signaleeMain).toBe(true);
+    expect(apresRangement({ ...vierge, signaleeMain: true }, 'ne-plus-signaler').signaleeMain).toBe(false);
+    expect(apresRangement({ ...vierge, urgente: true }, 'archiver')).toMatchObject({ archivee: true, urgente: false });
+    expect(apresRangement({ ...vierge, archivee: true }, 'desarchiver').archivee).toBe(false);
+    expect(apresRangement(vierge, 'a-traiter')).toEqual(vierge);
+  });
+
+  it('ne touche pas au reste de la conversation', () => {
+    const c = { id: 'c1', profileName: 'Alice', ...vierge };
+    expect(apresRangement(c, 'traiter')).toMatchObject({ id: 'c1', profileName: 'Alice' });
+  });
+
+  it('une pastille par statut posé, dans un ordre fixe', () => {
+    expect(pastillesStatut(vierge, 'toutes')).toEqual([]);
+    expect(pastillesStatut({ traitee: true, urgente: true, signaleeMain: true, archivee: true }, 'toutes'))
+      .toEqual(['archivee', 'traitee', 'urgente', 'signalee']);
+  });
+
+  it('« Archivé » se lit sur le dossier tant que le geste ne l’a pas posé, et le geste prime', () => {
+    expect(pastillesStatut(vierge, 'archivees')).toEqual(['archivee']);
+    expect(pastillesStatut({ ...vierge, archivee: false }, 'archivees')).toEqual([]);
+    expect(pastillesStatut({ ...vierge, archivee: true }, 'aTraiter')).toEqual(['archivee']);
+  });
+
+  it('chaque geste qui pose un statut le fait apparaître dans l’en-tête', () => {
+    const attendu: Partial<Record<ActionRangement, string>> = {
+      traiter: 'traitee', urgent: 'urgente', signaler: 'signalee', archiver: 'archivee',
+    };
+    for (const [geste, pastille] of Object.entries(attendu)) {
+      expect(pastillesStatut(apresRangement(vierge, geste as ActionRangement), 'aTraiter')).toContain(pastille);
+    }
   });
 });

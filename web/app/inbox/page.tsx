@@ -27,7 +27,7 @@ import { DUREE_MEDIA_RECU_JOURS_AFFICHEE, legendeDePieceJointe, natureDePieceJoi
 import { InboxRcsPanel } from '@/components/InboxRcsPanel';
 import { InboxDossiers, libelleDossier, type DossierInbox } from '@/components/InboxDossiers';
 import {
-  destinationsEnLot, estActionRangement, libelleRangement, type ActionRangement,
+  apresRangement, destinationsEnLot, estActionRangement, libelleRangement, pastillesStatut, type ActionRangement,
 } from '@/lib/inbox-rangement';
 import {
   listConversations,
@@ -790,7 +790,16 @@ function InboxInner({ session }: { session: Session }) {
 
       <section className="lg:min-h-0">
         {selected ? (
-          <Thread key={selected.id} session={session} conversation={selected} dossier={dossier} peutPrendre={peutPrendre} onSent={apresGeste} />
+          <Thread
+            key={selected.id} session={session} conversation={selected} dossier={dossier} peutPrendre={peutPrendre} onSent={apresGeste}
+            // Le geste réussi pose lui-même le nouvel état : la liste rechargée ne le rendrait pas si la conversation
+            // vient de quitter le dossier affiché (`apresRangement`). Sur CETTE conversation seulement : si une autre a été
+            // ouverte avant la réponse, le geste ne la touche pas.
+            onRange={(action) => {
+              const id = selected.id;
+              setSelected((prev) => (prev && prev.id === id ? apresRangement(prev, action) : prev));
+            }}
+          />
         ) : (
           <div className="flex h-full min-h-[300px] items-center justify-center rounded-carte border border-ink-200 bg-white text-sm text-ink-500">
             {t('Sélectionnez une conversation', 'Select a conversation')}
@@ -915,11 +924,13 @@ function RangerDans({ session, conversation, dossier, controlOwner, onFait }: {
   conversation: Conversation;
   dossier: DossierInbox;
   controlOwner: ControlOwner;
-  onFait: (owner: ControlOwner | null) => void;
+  /** `action` : le geste qui vient de réussir, pour que la conversation ouverte en prenne l'état (`apresRangement`). */
+  onFait: (owner: ControlOwner | null, action: ActionRangement) => void;
 }) {
   const t = useT();
   const [busy, setBusy] = useState(false);
-  const archivee = dossier === 'archivees';
+  // Posé par le geste quand la conversation vient d'être (dés)archivée hors du dossier « Archivé » ; sinon, le dossier.
+  const archivee = conversation.archivee ?? dossier === 'archivees';
   const signaleeMain = conversation.signaleeMain === true;
   const traitee = conversation.traitee === true;
   const urgente = conversation.urgente === true;
@@ -935,7 +946,7 @@ function RangerDans({ session, conversation, dossier, controlOwner, onFait }: {
   async function ranger(action: ActionRangement): Promise<void> {
     setBusy(true);
     try {
-      onFait(await appliquerRangement(session.tenantId, conversation.id, action));
+      onFait(await appliquerRangement(session.tenantId, conversation.id, action), action);
     } catch {
       /* L'échec se voit à l'absence de changement dans la liste, comme pour l'affectation : une alerte au
          milieu d'une conversation coûte plus qu'elle n'apprend. */
@@ -1256,13 +1267,15 @@ function AffectationControl({ session, conversation, peutPrendre, onChange }: {
   );
 }
 
-function Thread({ session, conversation, dossier, peutPrendre, onSent }: {
+function Thread({ session, conversation, dossier, peutPrendre, onSent, onRange }: {
   session: Session; conversation: Conversation;
   /** Le dossier OUVERT. Sert au menu de rangement : « Désarchiver » ne se propose que depuis Archivé. */
   dossier: DossierInbox;
   /** Je peux PRENDRE une conversation du pot commun (rendu par le serveur avec la liste). */
   peutPrendre: boolean;
   onSent: () => void;
+  /** Un rangement vient de réussir sur cette conversation : la page en pose l'état (`apresRangement`). */
+  onRange: (action: ActionRangement) => void;
 }) {
   const t = useT();
   const confirmer = useConfirmation();
@@ -1667,15 +1680,27 @@ function Thread({ session, conversation, dossier, peutPrendre, onSent }: {
         <div className="min-w-0">
           <span className="text-sm font-semibold">{conversation.profileName ?? `+${conversation.waId}`}</span>
           <span className="ml-2 font-mono text-xs text-ink-500">+{conversation.waId}</span>
-          {/* La même pastille que sur la ligne (RC2) : elle suit la liste rechargée après chaque geste. */}
-          {conversation.urgente === true && (
+          {/* 🔴 UNE PASTILLE PAR STATUT, DANS L'EN-TÊTE (Julien, 2026-11-10 : « quand on met Traité, il faut qu'on voie
+              un badge, sinon on a l'impression qu'il ne s'est rien passé »). Le menu « Ranger dans… » retombe sur son
+              libellé après chaque geste : c'est ici que le geste se voit, tout de suite (`apresRangement`), même quand la
+              conversation quitte le dossier affiché. Mêmes couleurs que les deux pastilles de la liste. */}
+          {pastillesStatut(conversation, dossier).map((p) => (
             <span
-              data-testid="thread-urgente"
-              className="ml-2 rounded-full bg-danger-50 px-1.5 py-px text-xs font-medium text-danger-700"
+              key={p}
+              data-testid={`thread-${p}`}
+              className={`ml-2 rounded-full px-1.5 py-px text-xs font-medium ${
+                p === 'urgente' ? 'bg-danger-50 text-danger-700'
+                  : p === 'traitee' ? 'bg-succes-100 text-ink-500'
+                    : p === 'signalee' ? 'bg-alerte-50 text-alerte-700'
+                      : 'bg-ink-100 text-ink-500'
+              }`}
             >
-              {t('Urgent', 'Urgent')}
+              {p === 'urgente' ? t('Urgent', 'Urgent')
+                : p === 'traitee' ? t('Traité', 'Done')
+                  : p === 'signalee' ? t('Signalé', 'Flagged')
+                    : t('Archivé', 'Archived')}
             </span>
-          )}
+          ))}
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1">
           {/*
@@ -1717,7 +1742,7 @@ function Thread({ session, conversation, dossier, peutPrendre, onSent }: {
             conversation={conversation}
             dossier={dossier}
             controlOwner={controlOwner}
-            onFait={(owner) => { if (owner) setControlOwner(owner); onSent(); }}
+            onFait={(owner, action) => { if (owner) setControlOwner(owner); onRange(action); onSent(); }}
           />
           <ControlBadge owner={controlOwner} />
           {/*

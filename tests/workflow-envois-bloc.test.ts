@@ -702,7 +702,7 @@ describe('sendFlow', () => {
     const { envois, appels } = monter();
     await envois.sendFlow(T, W, 'flow-1', 'Remplissez le formulaire', 'Ouvrir');
     expect(appels).toEqual([['sendFlowMessage', W, {
-      body: 'Remplissez le formulaire', flowId: 'flow-1', cta: 'Ouvrir', flowToken: expect.stringMatching(new RegExp(`^${W}-\\d+$`)), screen: 'FORM',
+      body: 'Remplissez le formulaire', flowId: 'flow-1', cta: 'Ouvrir', flowToken: expect.stringMatching(new RegExp(`^${W}-\\d+~flow-1$`)), screen: 'FORM',
     }]]);
   });
 

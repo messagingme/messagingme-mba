@@ -1,7 +1,7 @@
 ---
 ecran: flows
 source_section: Formulaires WhatsApp (WhatsApp Flows, menu Contenu)
-source_empreinte: d050f4
+source_empreinte: 2473a2
 ---
 # Créer un formulaire WhatsApp
 

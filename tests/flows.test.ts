@@ -753,3 +753,63 @@ describe('POST /flows/refresh — réconciliation avec le compte WhatsApp Manage
     await server.close();
   });
 });
+
+/**
+ * 🔴 LES ÉLÉMENTS D'UN FORMULAIRE ET LEUR CHAMP, pour le panneau du bloc Formulaire (Julien, 2026-11-10). Un formulaire
+ * de Messaging Me se lit en base, sans appel à Meta ; un formulaire du Business Manager, qui n'a ni `ref` ni structure
+ * chez nous, se lit dans son flow_json chez Meta, et son champ part vide.
+ */
+describe('GET /tenants/:tenantId/flows/:flowId/sorties', () => {
+  const ASSETS = { data: [{ asset_type: 'FLOW_JSON', download_url: 'https://lookaside.fbsbx.com/flow.json?sig=1' }] };
+  const FLOW_BM = {
+    screens: [{
+      id: 'CIVILITE',
+      layout: { children: [{ type: 'Form', name: 'form', children: [
+        { type: 'TextInput', name: 'prenom_bm', label: 'Votre prénom' },
+        { type: 'Footer', label: 'Envoyer', 'on-click-action': { name: 'complete', payload: { prenom_bm: '${form.prenom_bm}' } } },
+      ] }] },
+    }],
+  };
+
+  it('formulaire de Messaging Me : ses champs et leur rangement, sans aucun appel à Meta', async () => {
+    const { server, cap } = app({}, { flow: draftFlow({ status: 'PUBLISHED', mapping: { nom: '@profile_name' } }) });
+    const res = await server.inject({ method: 'GET', url: '/tenants/t1/flows/fdraft/sorties', ...h(adminTok) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ source: 'messagingme', sorties: [{ cle: 'nom', libelle: 'Nom', cible: '@profile_name' }] });
+    expect(cap.metaCalls).toEqual([]);
+    await server.close();
+  });
+
+  it('formulaire du Business Manager : ses éléments lus chez Meta, sans champ', async () => {
+    const { fn, calls } = makeFetch([{ ok: true, status: 200, json: ASSETS }, { ok: true, status: 200, json: FLOW_BM }]);
+    const { server } = app(
+      { meta: { flowClientForTenant: async () => new MetaFlowClient('tok', 'v25.0', '7.2', fn) } },
+      { flow: draftFlow({ id: '1835', status: 'PUBLISHED', ref: null, mapping: null, fields: [], screens: null }) },
+    );
+    const res = await server.inject({ method: 'GET', url: '/tenants/t1/flows/1835/sorties', ...h(adminTok) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ source: 'meta', sorties: [{ cle: 'prenom_bm', libelle: 'Votre prénom', cible: '' }] });
+    expect(calls.map((c) => c.url)).toEqual(['https://graph.facebook.com/v25.0/1835/assets', 'https://lookaside.fbsbx.com/flow.json?sig=1']);
+    await server.close();
+  });
+
+  it('Meta refuse la lecture : 422 avec une raison lisible, jamais un 5xx', async () => {
+    const { fn } = makeFetch([{ ok: false, status: 400, json: { error: { message: 'no', code: 100, type: 'OAuthException' } } }]);
+    const { server } = app(
+      { meta: { flowClientForTenant: async () => new MetaFlowClient('tok', 'v25.0', '7.2', fn) } },
+      { flow: draftFlow({ ref: null, mapping: null, fields: [], screens: null }) },
+    );
+    const res = await server.inject({ method: 'GET', url: '/tenants/t1/flows/fdraft/sorties', ...h(adminTok) });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ error: string }>().error).toContain('Impossible de lire ce formulaire chez Meta');
+    await server.close();
+  });
+
+  it('formulaire inconnu de l’espace : 404, aucun appel à Meta', async () => {
+    const { server, cap } = app({}, { flow: null });
+    const res = await server.inject({ method: 'GET', url: '/tenants/t1/flows/ailleurs/sorties', ...h(adminTok) });
+    expect(res.statusCode).toBe(404);
+    expect(cap.metaCalls).toEqual([]);
+    await server.close();
+  });
+});

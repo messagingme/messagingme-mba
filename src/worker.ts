@@ -17,6 +17,7 @@ import { viderMesuresTachesVersLaBase } from './ops/mesure-taches.pg';
 import { PgConversationStatsStore } from './stats/conversation-stats.pg';
 import { todayParis, addDays } from './stats/range';
 import { handleWebhookJob } from './webhooks/handler';
+import { creerRangementParLesParcours } from './webhooks/rangement-par-le-parcours';
 import { creerApresLAgent } from './mba/lien-de-test';
 import { PgEventStore } from './webhooks/store';
 import { PgCampaignStore, PgQualityProvider } from './campaign/store.pg';
@@ -372,7 +373,7 @@ export async function demarrerWorker(): Promise<void> {
   // l'Inbox avec la même sémantique. Tout lancement passe par `lancements` (`src/workflow/lancements.ts`) : un
   // câblage choisit un TYPE, jamais un réglage de démarrage.
   const {
-    executor: workflowExecutor, reveilCourt, lancements, runStore, templateVarInfo, prepareCarouselMedia, prepareHeaderMedia, buildEvalContext, rcsStack,
+    executor: workflowExecutor, reveilCourt, lancements, runStore, templateVarInfo, prepareCarouselMedia, prepareHeaderMedia, buildEvalContext, rcsStack, ecrituresDeFiche,
     agentSessions, envoyerTexteAgent, poserTagDepuisAgent, etiquettes,
   } = workflowRuntime;
 
@@ -624,7 +625,15 @@ export async function demarrerWorker(): Promise<void> {
       },
       // Acteur `null` : c'est le contact lui-même qui a coché, via WhatsApp. Aucun humain de l'équipe n'a agi, et
       // le journal doit le dire plutôt que d'attribuer le geste à personne en silence.
-      flowMapping: { lookup: flowStore, writer: contactStore, audit: (tenant, actor, action, target, detail) => auditStore.record(tenant, actor, action, target, detail) },
+      flowMapping: {
+        lookup: flowStore, writer: contactStore, audit: (tenant, actor, action, target, detail) => auditStore.record(tenant, actor, action, target, detail),
+        // Le bloc Formulaire en attente range ce qu'il cite (2026-11-10) : le même graphe que l'exécuteur, la même écriture.
+        parcours: creerRangementParLesParcours({
+          trouverEnAttente: (t, w) => runStore.findWaitingByWaId(t, w),
+          graphe: async (t, id) => (await workflowStore.getById(id, t))?.graph ?? null,
+          ecrire: (t, w, cle, valeur) => ecrituresDeFiche.setField(t, w, cle, valeur),
+        }),
+      },
       workflowAdvance: avanceDesParcours,
       // Auto-création de fiche depuis l'inbound (par numéro ou BSUID) : les clients qui écrivent sans partager
       // leur numéro atterrissent dans le CRM. Le résultat ('created') signale le 1er message d'un contact inconnu,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isDefaultSaveTo, defaultSaveTo, suggestBaseField, BASE_SAVE_FIELDS, PROFILE_NAME_SAVE_KEY } from '../web/lib/flow-mapping';
+import { isDefaultSaveTo, defaultSaveTo, suggestBaseField, BASE_SAVE_FIELDS, NOM_WHATSAPP, PROFILE_NAME_SAVE_KEY } from '../web/lib/flow-mapping';
 
 /**
  * Helper PUR du builder de formulaires (web/lib/flow-mapping.ts), testé depuis la suite racine par import
@@ -60,14 +60,19 @@ describe('suggestBaseField', () => {
     expect(suggestBaseField('First name')).toEqual({ key: 'prenom', label: 'Prénom' });
   });
 
-  it('« Nom » / « Name » / « Nom de famille » -> sentinelle profile_name', () => {
-    expect(suggestBaseField('Nom')).toEqual({ key: PROFILE_NAME_SAVE_KEY, label: 'Nom' });
-    expect(suggestBaseField('name')).toEqual({ key: PROFILE_NAME_SAVE_KEY, label: 'Nom' });
-    expect(suggestBaseField('Nom de famille')).toEqual({ key: PROFILE_NAME_SAVE_KEY, label: 'Nom' });
+  it('🔴 « Nom » / « Nom de famille » / « Last name » -> le vrai champ Nom, plus jamais le profil WhatsApp (2026-11-10)', () => {
+    // Le profil WhatsApp est réécrit à chaque message reçu : la valeur saisie y disparaissait au message suivant.
+    expect(suggestBaseField('Nom')).toEqual({ key: 'nom_de_famille', label: 'Nom' });
+    expect(suggestBaseField('Last name')).toEqual({ key: 'nom_de_famille', label: 'Nom' });
+    expect(suggestBaseField('Nom de famille')).toEqual({ key: 'nom_de_famille', label: 'Nom' });
+  });
+
+  it('« Name » seul ne suggère rien : en anglais, c’est le plus souvent le nom complet', () => {
+    expect(suggestBaseField('name')).toBeNull();
   });
 
   it('« nom » ne matche PAS prenom (pas de piège de sous-chaîne)', () => {
-    expect(suggestBaseField('Nom')!.key).toBe(PROFILE_NAME_SAVE_KEY);
+    expect(suggestBaseField('Nom')!.key).toBe('nom_de_famille');
     expect(suggestBaseField('Prénom')!.key).toBe('prenom');
   });
 
@@ -82,7 +87,12 @@ describe('suggestBaseField', () => {
     expect(suggestBaseField('   ')).toBeNull();
   });
 
-  it('BASE_SAVE_FIELDS expose Nom/Prénom/Email avec les bonnes clés', () => {
-    expect(BASE_SAVE_FIELDS.map((f) => f.key)).toEqual([PROFILE_NAME_SAVE_KEY, 'prenom', 'email']);
+  it('BASE_SAVE_FIELDS expose Prénom/Nom/Email, les trois champs socle, et plus le profil WhatsApp', () => {
+    expect(BASE_SAVE_FIELDS.map((f) => f.key)).toEqual(['prenom', 'nom_de_famille', 'email']);
+    expect(BASE_SAVE_FIELDS.map((f) => f.key)).not.toContain(PROFILE_NAME_SAVE_KEY);
+  });
+
+  it('l’ancienne cible reste nommable, sous « Nom WhatsApp », pour les formulaires qui la portent', () => {
+    expect(NOM_WHATSAPP).toEqual({ key: PROFILE_NAME_SAVE_KEY, label: 'Nom WhatsApp' });
   });
 });

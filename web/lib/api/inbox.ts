@@ -85,6 +85,11 @@ export interface Conversation {
    * antérieur) = lu comme `false`.
    */
   urgente?: boolean;
+  /**
+   * Archivée. JAMAIS rendu par le serveur (le dossier « Archivé » le dit) : l'Inbox le pose sur la conversation
+   * ouverte après un geste (`apresRangement`), pour que sa pastille suive même quand elle quitte le dossier affiché.
+   */
+  archivee?: boolean;
 }
 export interface InboxMessage {
   id: string;

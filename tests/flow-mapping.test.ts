@@ -3,12 +3,12 @@ import { extractFlowCompletions } from '../src/webhooks/inbound';
 import { processFlowCompletions, PROFILE_NAME_TARGET } from '../src/webhooks/flow-mapping';
 import type { FlowMappingLookup, ContactFieldWriter } from '../src/webhooks/flow-mapping';
 import type { FlowFieldType } from '../src/meta/flow-json';
-import { PROFILE_NAME_SAVE_KEY, BASE_SAVE_FIELDS } from '../web/lib/flow-mapping';
+import { PROFILE_NAME_SAVE_KEY, NOM_WHATSAPP } from '../web/lib/flow-mapping';
 
 describe('anti-drift : sentinelle profile_name web <-> serveur', () => {
-  it('PROFILE_NAME_SAVE_KEY (web) === PROFILE_NAME_TARGET (serveur) === clé du champ de base « Nom »', () => {
+  it('PROFILE_NAME_SAVE_KEY (web) === PROFILE_NAME_TARGET (serveur) === clé de l’ancienne cible « Nom WhatsApp »', () => {
     expect(PROFILE_NAME_SAVE_KEY).toBe(PROFILE_NAME_TARGET);
-    expect(BASE_SAVE_FIELDS.find((f) => f.label === 'Nom')!.key).toBe(PROFILE_NAME_TARGET);
+    expect(NOM_WHATSAPP.key).toBe(PROFILE_NAME_TARGET);
   });
 });
 
@@ -98,11 +98,14 @@ class FakeWriter implements ContactFieldWriter {
   }
 }
 
+/** Aucun bloc Formulaire en attente n'a rangé quoi que ce soit : le réglage du formulaire s'applique seul. */
+const AUCUN: ReadonlyMap<string, ReadonlySet<string>> = new Map();
+
 describe('processFlowCompletions', () => {
   it('mappe clé champ -> clé user field et écrit sur le contact ; _ref/flow_token jamais écrits', async () => {
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { nom: 'prenom', date_rdv: 'date_rendez_vous' } });
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc', date_rdv: '2026-08-01', flow_token: 'tok' }, { from: '33611' }), lookup, writer);
+    await processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc', date_rdv: '2026-08-01', flow_token: 'tok' }, { from: '33611' }), lookup, writer, AUCUN);
     expect(writer.writes).toHaveLength(1);
     expect(writer.writes[0]).toEqual({ tenantId: 't1', waId: '33611', values: { prenom: 'Marc', date_rendez_vous: '2026-08-01' } });
     expect(writer.writes[0]!.values).not.toHaveProperty('flow_token');
@@ -113,7 +116,7 @@ describe('processFlowCompletions', () => {
   it('cible « @profile_name » (champ de base Nom) -> setProfileNameByPhone, PAS dans le merge fields', async () => {
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { nom_famille: PROFILE_NAME_TARGET, mail: 'email' } });
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'R', nom_famille: 'Dupont', mail: 'a@b.fr' }, { from: '33611' }), lookup, writer);
+    await processFlowCompletions(nfm({ _ref: 'R', nom_famille: 'Dupont', mail: 'a@b.fr' }, { from: '33611' }), lookup, writer, AUCUN);
     // email -> fields ; @profile_name -> profile_name (jamais dans le merge)
     expect(writer.writes).toEqual([{ tenantId: 't1', waId: '33611', values: { email: 'a@b.fr' } }]);
     expect(writer.writes[0]!.values).not.toHaveProperty(PROFILE_NAME_TARGET);
@@ -123,7 +126,7 @@ describe('processFlowCompletions', () => {
   it('cible « @profile_name » seule -> aucun merge fields (pas de merge vide), juste le nom', async () => {
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { nom_famille: PROFILE_NAME_TARGET } });
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'R', nom_famille: 'Dupont' }, { from: '33611' }), lookup, writer);
+    await processFlowCompletions(nfm({ _ref: 'R', nom_famille: 'Dupont' }, { from: '33611' }), lookup, writer, AUCUN);
     expect(writer.writes).toHaveLength(0);
     expect(writer.names).toEqual([{ tenantId: 't1', waId: '33611', name: 'Dupont' }]);
   });
@@ -133,7 +136,7 @@ describe('processFlowCompletions', () => {
     // '@profile_name'). Il ne doit PAS détourner profile_name : la valeur va dans fields comme avant.
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { name: 'name' } });
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'R', name: 'Dupont' }, { from: '33611' }), lookup, writer);
+    await processFlowCompletions(nfm({ _ref: 'R', name: 'Dupont' }, { from: '33611' }), lookup, writer, AUCUN);
     expect(writer.writes).toEqual([{ tenantId: 't1', waId: '33611', values: { name: 'Dupont' } }]);
     expect(writer.names).toHaveLength(0); // profile_name JAMAIS touché
   });
@@ -141,7 +144,7 @@ describe('processFlowCompletions', () => {
   it('OptIn coché (true) -> champ booléen canonique « true » + markOptedIn(source=flow) une fois', async () => {
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { consent: 'whatsapp_optin' }, fieldTypes: { consent: 'optin' }, optinFieldKeys: ['consent'] });
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'R', consent: true }, { from: '33611' }), lookup, writer);
+    await processFlowCompletions(nfm({ _ref: 'R', consent: true }, { from: '33611' }), lookup, writer, AUCUN);
     expect(writer.writes).toEqual([{ tenantId: 't1', waId: '33611', values: { whatsapp_optin: 'true' } }]);
     expect(writer.optIns).toEqual([{ tenantId: 't1', waId: '33611', source: 'flow' }]);
   });
@@ -153,7 +156,7 @@ describe('processFlowCompletions', () => {
     const writer = new FakeWriter();
     const traces: unknown[] = [];
     await processFlowCompletions(
-      nfm({ _ref: 'R', consent: true }, { from: '33611' }), lookup, writer,
+      nfm({ _ref: 'R', consent: true }, { from: '33611' }), lookup, writer, AUCUN,
       async (tenantId, actor, action, target, detail) => { traces.push({ tenantId, actor, action, target, detail }); },
     );
     expect(traces).toEqual([{ tenantId: 't1', actor: { userId: null, email: null }, action: 'contact.optin', target: { kind: 'contact', id: 'c-123' }, detail: { source: 'flow' } }]);
@@ -166,7 +169,7 @@ describe('processFlowCompletions', () => {
     writer.contactIdConnu = null;
     const traces: unknown[] = [];
     await processFlowCompletions(
-      nfm({ _ref: 'R', consent: true }, { from: '33611' }), lookup, writer,
+      nfm({ _ref: 'R', consent: true }, { from: '33611' }), lookup, writer, AUCUN,
       async (...args: unknown[]) => { traces.push(args); },
     );
     expect(writer.optIns).toHaveLength(1); // la bascule a bien été tentée
@@ -176,7 +179,7 @@ describe('processFlowCompletions', () => {
   it('OptIn décoché (false) -> champ « false », markOptedIn JAMAIS appelé', async () => {
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { consent: 'whatsapp_optin' }, fieldTypes: { consent: 'optin' }, optinFieldKeys: ['consent'] });
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'R', consent: false }, { from: '33611' }), lookup, writer);
+    await processFlowCompletions(nfm({ _ref: 'R', consent: false }, { from: '33611' }), lookup, writer, AUCUN);
     expect(writer.writes).toEqual([{ tenantId: 't1', waId: '33611', values: { whatsapp_optin: 'false' } }]);
     expect(writer.optIns).toHaveLength(0);
   });
@@ -184,7 +187,7 @@ describe('processFlowCompletions', () => {
   it('OptIn absent du payload -> ni champ ni consentement (le contact n\'a pas répondu à cet écran)', async () => {
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { consent: 'whatsapp_optin', nom: 'prenom' }, fieldTypes: { consent: 'optin', nom: 'text' }, optinFieldKeys: ['consent'] });
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc' }, { from: '33611' }), lookup, writer);
+    await processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc' }, { from: '33611' }), lookup, writer, AUCUN);
     expect(writer.writes).toEqual([{ tenantId: 't1', waId: '33611', values: { prenom: 'Marc' } }]);
     expect(writer.optIns).toHaveLength(0);
   });
@@ -193,21 +196,21 @@ describe('processFlowCompletions', () => {
     // Seul le composant OptIn de Meta a la portée « consentement ». Un champ texte « true » ne compte pas.
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { agree: 'a_accepte' }, fieldTypes: { agree: 'text' }, optinFieldKeys: [] });
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'R', agree: 'true' }, { from: '33611' }), lookup, writer);
+    await processFlowCompletions(nfm({ _ref: 'R', agree: 'true' }, { from: '33611' }), lookup, writer, AUCUN);
     expect(writer.writes).toEqual([{ tenantId: 't1', waId: '33611', values: { a_accepte: 'true' } }]);
     expect(writer.optIns).toHaveLength(0);
   });
 
   it('ref inconnu (findByRef null) -> aucune écriture', async () => {
     const writer = new FakeWriter();
-    await processFlowCompletions(nfm({ _ref: 'ghost', nom: 'X' }, { from: '33611' }), new FakeLookup(null), writer);
+    await processFlowCompletions(nfm({ _ref: 'ghost', nom: 'X' }, { from: '33611' }), new FakeLookup(null), writer, AUCUN);
     expect(writer.writes).toHaveLength(0);
   });
 
   it('aucun champ mappé présent -> aucune écriture (pas de merge vide)', async () => {
     const writer = new FakeWriter();
     // le mapping cible 'email' mais la complétion ne renvoie que 'nom'
-    await processFlowCompletions(nfm({ _ref: 'R', nom: 'X' }, { from: '33611' }), new FakeLookup({ tenantId: 't1', mapping: { email: 'email' } }), writer);
+    await processFlowCompletions(nfm({ _ref: 'R', nom: 'X' }, { from: '33611' }), new FakeLookup({ tenantId: 't1', mapping: { email: 'email' } }), writer, AUCUN);
     expect(writer.writes).toHaveLength(0);
   });
 
@@ -215,7 +218,43 @@ describe('processFlowCompletions', () => {
     const lookup = new FakeLookup({ tenantId: 't1', mapping: { nom: 'nom' } });
     const writer = new FakeWriter(true);
     await expect(
-      processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc' }, { from: '33611' }), lookup, writer),
+      processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc' }, { from: '33611' }), lookup, writer, AUCUN),
     ).resolves.toBeUndefined(); // ne rejette pas
+  });
+});
+
+/**
+ * 🔴 LE BLOC FORMULAIRE EN ATTENTE RANGE LUI-MÊME CE QU'IL CITE (Julien, 2026-11-10) : ces éléments-là, le réglage du
+ * formulaire les saute, pour cette réponse seulement (`wamid.f1`, le message de `nfm`). Un élément ne s'écrit jamais à
+ * deux endroits ; le consentement reste au formulaire.
+ */
+describe('processFlowCompletions : ce que le bloc en attente range', () => {
+  it('saute les éléments rangés par le bloc, écrit les autres selon le formulaire', async () => {
+    const lookup = new FakeLookup({ tenantId: 't1', mapping: { nom: 'prenom', mail: 'email' } });
+    const writer = new FakeWriter();
+    await processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc', mail: 'a@b.fr' }, { from: '33611' }), lookup, writer, new Map([['wamid.f1', new Set(['nom'])]]));
+    expect(writer.writes).toEqual([{ tenantId: 't1', waId: '33611', values: { email: 'a@b.fr' } }]);
+  });
+
+  it('tout rangé par le bloc -> aucune écriture du formulaire, pas de merge vide', async () => {
+    const lookup = new FakeLookup({ tenantId: 't1', mapping: { nom: 'prenom' } });
+    const writer = new FakeWriter();
+    await processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc' }, { from: '33611' }), lookup, writer, new Map([['wamid.f1', new Set(['nom'])]]));
+    expect(writer.writes).toHaveLength(0);
+  });
+
+  it('le consentement reste au formulaire, même quand le bloc range la case OptIn ailleurs', async () => {
+    const lookup = new FakeLookup({ tenantId: 't1', mapping: { consent: 'whatsapp_optin' }, fieldTypes: { consent: 'optin' }, optinFieldKeys: ['consent'] });
+    const writer = new FakeWriter();
+    await processFlowCompletions(nfm({ _ref: 'R', consent: true }, { from: '33611' }), lookup, writer, new Map([['wamid.f1', new Set(['consent'])]]));
+    expect(writer.writes).toHaveLength(0);
+    expect(writer.optIns).toEqual([{ tenantId: 't1', waId: '33611', source: 'flow' }]);
+  });
+
+  it('le rangement d’un AUTRE message ne retire rien à celui-ci', async () => {
+    const lookup = new FakeLookup({ tenantId: 't1', mapping: { nom: 'prenom' } });
+    const writer = new FakeWriter();
+    await processFlowCompletions(nfm({ _ref: 'R', nom: 'Marc' }, { from: '33611' }), lookup, writer, new Map([['wamid.autre', new Set(['nom'])]]));
+    expect(writer.writes).toEqual([{ tenantId: 't1', waId: '33611', values: { prenom: 'Marc' } }]);
   });
 });

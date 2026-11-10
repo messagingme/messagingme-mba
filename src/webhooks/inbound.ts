@@ -23,6 +23,12 @@ export interface InboundMessage {
   /** Un formulaire renvoyé (`nfm_reply`) : sur un bloc Formulaire, il prend la sortie « Formulaire rempli ». Lu sur
    *  le contenu, jamais deviné depuis `buttonPayload`, qui porte alors le JSON de la réponse. Absent sinon. */
   formulaire?: true;
+  /**
+   * La réponse COMPLÈTE d'un formulaire renvoyé (`response_json` parsé), là où `buttonPayload` est tronqué à 2 000
+   * caractères. Sert le rangement du bloc Formulaire en attente (`./rangement-par-le-parcours.ts`). Absent sinon, ou si
+   * la réponse n'est pas un objet JSON.
+   */
+  reponseFormulaire?: Record<string, unknown>;
   profileName: string | null;
   /**
    * `field` du change source : `'messages'` pour un vrai entrant, `'standby'` quand une autre app (le Meta
@@ -90,6 +96,8 @@ function referralOf(msg: Record<string, unknown>): InboundReferral | undefined {
 export interface FlowCompletion {
   phoneNumberId: string;
   waId: string;
+  /** Le wamid du message : relie la complétion au rangement que le bloc Formulaire en attente a déjà fait. */
+  messageId: string;
   ref: string;
   values: Record<string, unknown>;
 }
@@ -124,7 +132,18 @@ function str(v: unknown): string | null {
  * est rendu à part de `body`, qui garde la légende ou un libellé de type (lu par l'aperçu de l'Inbox,
  * l'historique de l'agent et l'analyse).
  */
-function contentOf(msg: Record<string, unknown>): { body: string | null; buttonPayload: string | null; formulaire?: true; media?: { id: string; mime: string | null; nom?: string | null } } {
+/** La réponse d'un formulaire, si `response_json` est un objet JSON ; sinon rien. */
+function reponseDuFormulaire(rj: unknown): Record<string, unknown> | undefined {
+  if (typeof rj !== 'string') return undefined;
+  try {
+    const v: unknown = JSON.parse(rj);
+    return v !== null && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function contentOf(msg: Record<string, unknown>): { body: string | null; buttonPayload: string | null; formulaire?: true; reponseFormulaire?: Record<string, unknown>; media?: { id: string; mime: string | null; nom?: string | null } } {
   const type = str(msg['type']) ?? '';
   if (type === 'text') return { body: str(asRecord(msg['text'])['body']), buttonPayload: null };
   if (type === 'button') {
@@ -141,10 +160,12 @@ function contentOf(msg: Record<string, unknown>): { body: string | null; buttonP
     // Fin de WhatsApp Flow (nfm_reply) : garder le libellé + la réponse structurée en payload.
     if (nfm['name'] || nfm['body'] || nfm['response_json']) {
       const rj = nfm['response_json'];
+      const reponse = reponseDuFormulaire(rj);
       return {
         body: str(nfm['body']) ?? str(nfm['name']) ?? '[formulaire]',
         buttonPayload: typeof rj === 'string' ? rj.slice(0, 2000) : str(nfm['name']),
         formulaire: true,
+        ...(reponse ? { reponseFormulaire: reponse } : {}),
       };
     }
     // Sous-type interactif inconnu : ne pas perdre le fait qu'il y a eu une interaction.
@@ -191,7 +212,7 @@ export function extractInbound(payload: unknown): InboundMessage[] {
         const messageId = str(msg['id']);
         const waId = str(msg['from']) ?? fallbackWaId;
         if (!messageId || !waId) continue;
-        const { body, buttonPayload, formulaire, media } = contentOf(msg);
+        const { body, buttonPayload, formulaire, reponseFormulaire, media } = contentOf(msg);
         // `timestamp` est une chaîne de secondes chez Meta. Illisible ou absent : on n'invente pas de date.
         const secondes = Number(str(msg['timestamp']) ?? '');
         const envoyeLe = Number.isFinite(secondes) && secondes > 0 ? new Date(secondes * 1000) : undefined;
@@ -203,6 +224,7 @@ export function extractInbound(payload: unknown): InboundMessage[] {
           body,
           buttonPayload,
           ...(formulaire ? { formulaire } : {}),
+          ...(reponseFormulaire ? { reponseFormulaire } : {}),
           profileName,
           field,
           ...(referralOf(msg) ? { referral: referralOf(msg)! } : {}),
@@ -248,7 +270,7 @@ export function extractFlowCompletions(payload: unknown): FlowCompletion[] {
         if (!waId) continue;
         const values: Record<string, unknown> = {};
         for (const [k, v] of Object.entries(obj)) if (k !== FLOW_REF_KEY) values[k] = v;
-        out.push({ phoneNumberId, waId, ref, values });
+        out.push({ phoneNumberId, waId, messageId: str(msg['id']) ?? '', ref, values });
       }
     }
   }

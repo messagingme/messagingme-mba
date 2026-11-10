@@ -294,6 +294,35 @@ export function registerFlows(app: FastifyInstance, deps: FlowRouteDeps, garde: 
     return reply.code(200).send({ importes, majs, ignores, absents });
   });
 
+  /**
+   * Les éléments qu'un formulaire renvoie et le champ où chacun s'enregistre : le panneau du bloc Formulaire d'un
+   * scénario (Julien, 2026-11-10), où le rangement se change pour ce scénario (`web/lib/partage/rangement-formulaire.ts`).
+   *  - formulaire construit dans Messaging Me : sa structure et son rangement sont en base, aucun appel à Meta ;
+   *  - formulaire créé dans le Business Manager (aucun `ref`) : ses éléments se lisent dans son flow_json chez Meta, et
+   *    son champ est vide, puisque rien ne le range.
+   * Lecture refusée par Meta : 422 et pas 5xx (Cloudflare remplace le corps d'un 5xx, et la raison serait perdue).
+   */
+  app.get('/tenants/:tenantId/flows/:flowId/sorties', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const { flowId } = req.params as { flowId: string };
+    const flow = await deps.flows.getById(flowId, tenant);
+    if (!flow) return reply.code(404).send({ error: 'flow inconnu' });
+    if (flow.ref !== null && Array.isArray(flow.fields) && flow.fields.length > 0) {
+      const mapping = flow.mapping ?? {};
+      return reply.code(200).send({
+        source: 'messagingme',
+        sorties: flow.fields.map((f) => ({ cle: f.key, libelle: f.label, cible: mapping[f.key] ?? '' })),
+      });
+    }
+    try {
+      const sorties = await (await deps.meta.flowClientForTenant(tenant)).sortiesDuFormulaire(flowId);
+      return reply.code(200).send({ source: 'meta', sorties: sorties.map((s) => ({ ...s, cible: '' })) });
+    } catch (err) {
+      journaliser('warn', 'formulaire_sorties_illisibles', { tenantId: tenant, flowId, err });
+      return reply.code(422).send({ error: 'Impossible de lire ce formulaire chez Meta. Réessayez dans un instant.' });
+    }
+  });
+
   app.post('/tenants/:tenantId/flows/:flowId/publish', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const { flowId } = req.params as { flowId: string };

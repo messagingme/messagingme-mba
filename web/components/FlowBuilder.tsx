@@ -17,7 +17,7 @@ import {
   type UserFieldDef,
 } from '@/lib/api';
 import { resizeToDataUrl, dataUrlBase64Length } from '@/lib/image';
-import { isDefaultSaveTo, suggestBaseField, BASE_SAVE_FIELDS } from '@/lib/flow-mapping';
+import { isDefaultSaveTo, suggestBaseField, BASE_SAVE_FIELDS, NOM_WHATSAPP } from '@/lib/flow-mapping';
 import { FlowScreen, conditionText, type FlowScreenElement } from '@/components/FlowScreen';
 import { useT } from '@/lib/i18n';
 import { inputClsAuto } from '@/lib/ui';
@@ -557,6 +557,9 @@ export function FlowBuilder({
                             {BASE_SAVE_FIELDS.map((bf) => (
                               <option key={bf.key} value={bf.key}>{bf.label}</option>
                             ))}
+                            {/* L'ancienne cible « Nom » (le profil WhatsApp), montrée seulement là où elle est encore réglée :
+                                sans elle, le sélecteur afficherait une autre option que ce que le formulaire fait. */}
+                            {e.saveTo === NOM_WHATSAPP.key && <option value={NOM_WHATSAPP.key}>{NOM_WHATSAPP.label}</option>}
                           </optgroup>
                           {userFields.some((uf) => !BASE_SAVE_FIELDS.some((bf) => bf.key === uf.key)) && (
                             <optgroup label={t('Mes champs', 'My fields')}>

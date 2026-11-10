@@ -7,6 +7,7 @@ import type { Fournisseur } from './credentials';
 import { messageDe } from '../lib/erreur';
 import { buildFlowScreens } from './flow-json';
 import type { FlowScreenDef } from './flow-json';
+import { sortiesDuFlowJson, type SortieFormulaire } from './flow-sorties';
 
 export interface CreateFlowInput {
   name: string;
@@ -149,6 +150,26 @@ export class MetaFlowClient {
    * (`navigate` sans `data`).
    */
   async ecranDEntree(flowId: string): Promise<string> {
+    const { json, status } = await this.lireFlowJson(flowId);
+    const lu = flowJsonSchema.safeParse(json);
+    const ecran = lu.success ? lu.data.screens[0]?.id : undefined;
+    if (!ecran) throw new Error(`flow ${flowId} : flow_json illisible (HTTP ${status})`);
+    return ecran;
+  }
+
+  /**
+   * Les éléments que le flow renvoie quand il est rempli, lus dans son flow_json (`sortiesDuFlowJson`). Sert le panneau
+   * du bloc Formulaire pour un formulaire créé dans le Business Manager, dont nous ne connaissons pas la structure.
+   * Mêmes erreurs que `ecranDEntree`, jamais une `MetaApiError` : une lecture n'a pas à juger le jeton de l'espace.
+   */
+  async sortiesDuFormulaire(flowId: string): Promise<SortieFormulaire[]> {
+    const { json, status } = await this.lireFlowJson(flowId);
+    if (json === null || typeof json !== 'object') throw new Error(`flow ${flowId} : flow_json illisible (HTTP ${status})`);
+    return sortiesDuFlowJson(json);
+  }
+
+  /** Le flow_json d'un flow, par `GET /{flow}/assets` puis le fichier désigné ; `json` nul s'il est illisible. */
+  private async lireFlowJson(flowId: string): Promise<{ json: unknown; status: number }> {
     // Plafond par lecture : elle précède l'envoi d'un formulaire, qu'une lecture pendue retiendrait sans fin.
     const lus = await this.call(this.fournisseur === '360dialog' ? this.urlFlow(flowId, '/assets') : `${this.baseUrl}/${this.version}/${encodeURIComponent(flowId)}/assets`, { method: 'GET', signal: AbortSignal.timeout(DELAI_LECTURE_FLOW_MS) })
       .catch((err: unknown) => {
@@ -164,10 +185,7 @@ export class MetaFlowClient {
     // Une adresse signée du CDN de Meta, servie sans jeton, chez 360dialog aussi (`mmg.whatsapp.net`, mesuré) : la clé
     // n'y va jamais.
     const res = await this.fetchImpl(url, { method: 'GET', signal: AbortSignal.timeout(DELAI_LECTURE_FLOW_MS) });
-    const lu = flowJsonSchema.safeParse(res.ok ? await res.json().catch(() => null) : null);
-    const ecran = lu.success ? lu.data.screens[0]?.id : undefined;
-    if (!ecran) throw new Error(`flow ${flowId} : flow_json illisible (HTTP ${res.status})`);
-    return ecran;
+    return { json: res.ok ? await res.json().catch(() => null) : null, status: res.status };
   }
 
   /** GET /{waba}/flows, en suivant paging.next. Non branché sur la route GET, qui sert le store local. */

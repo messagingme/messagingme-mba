@@ -120,6 +120,34 @@ export function emailVariableFields(fields: UserFieldDef[], t: (fr: string, en: 
   return [...base, ...perso];
 }
 
+/**
+ * Les champs qu'un bloc de scénario peut ÉCRIRE : les champs SOCLE (Prénom, Nom, Email), même jamais remplis, puis les
+ * champs de l'espace.
+ *
+ * 🔴 Signalé par Julien le 2026-11-10 : « Mettre à jour un champ » ne proposait ni le prénom ni le nom. La liste venait
+ * de `GET /user-fields`, où un champ socle n'existe qu'après sa première écriture (`SOCLE_CLES`) : sur un espace neuf,
+ * les trois champs que l'on veut le plus souvent remplir étaient absents. Le moteur, lui, les écrit sans condition
+ * (`mergeFieldsByPhone` range la clé dans `contacts.fields`, que la fiche lit).
+ *
+ * « Nom WhatsApp » (`name`) et le téléphone n'y sont PAS : ce sont des attributs, hors de `contacts.fields`, et le
+ * premier est réécrit à chaque message reçu. Un socle déjà créé garde sa ligne de `user_fields`, sans doublon.
+ *
+ * ⚠️ Un champ de l'espace peut porter le MÊME libellé qu'un socle : un formulaire réglé par défaut crée `nom`,
+ * libellé « Nom », à côté du socle `nom_de_famille`, libellé « Nom » aussi. Le socle se dit alors « (champ de base) »,
+ * sinon deux options identiques laisseraient écrire dans le mauvais (relecture du 2026-11-10).
+ */
+export function champsEcrivables(fields: UserFieldDef[], t: (fr: string, en: string) => string): UserFieldDef[] {
+  const dejaLa = new Set(fields.map((f) => f.key));
+  const libellesPris = new Set(fields.map((f) => f.label.trim().toLowerCase()));
+  const socle: UserFieldDef[] = SOCLE_FIELDS
+    .filter((s) => !dejaLa.has(s.key))
+    .map((s) => {
+      const label = t(...SYSTEM_FIELD_LABELS[s.key]);
+      return { key: s.key, label: libellesPris.has(label.trim().toLowerCase()) ? `${label} ${t('(champ de base)', '(base field)')}` : label, type: s.type };
+    });
+  return [...socle, ...fields];
+}
+
 /** Code public DÉTERMINISTE d'un champ SYSTÈME. Défini dans `./codes` (module PUR, testé depuis la suite
  *  racine) et ré-exporté ici pour rester avec les autres helpers de champs. */
 export { systemFieldCode } from './codes';

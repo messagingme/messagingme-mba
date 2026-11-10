@@ -1,7 +1,7 @@
 ---
 ecran: inbox
 source_section: Inbox
-source_empreinte: 91b658
+source_empreinte: 7061e4
 publique: oui
 rubrique: parler-aux-clients
 rang: 1

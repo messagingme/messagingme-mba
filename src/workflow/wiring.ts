@@ -650,5 +650,6 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
    */
   const lancements = creerLancements({ executor: workflowExecutor, scenarios: workflowStore, contacts: contactStore, offres });
 
-  return { executor: workflowExecutor, reveilCourt, lancements, runStore, templateVarInfo, prepareCarouselMedia, prepareHeaderMedia, buildEvalContext, rcsStack, agentSessions, envoyerTexteAgent, poserTagDepuisAgent, etiquettes };
+  // `ecrituresDeFiche` : le rangement d'un formulaire par le bloc qui l'a envoyé écrit comme l'exécuteur, HubSpot compris.
+  return { executor: workflowExecutor, reveilCourt, lancements, runStore, templateVarInfo, prepareCarouselMedia, prepareHeaderMedia, buildEvalContext, rcsStack, agentSessions, envoyerTexteAgent, poserTagDepuisAgent, etiquettes, ecrituresDeFiche };
 }

@@ -69,6 +69,21 @@ test.describe('Builder : node Action', () => {
     await expect.poll(() => persiste(saved, 'set_optout'), { timeout: 10_000 }).toBe(true);
   });
 
+  test('🔴 « Mettre à jour un champ » propose Prénom, Nom et Email sur un espace qui n’a encore aucun champ', async ({ page }) => {
+    // Julien, 2026-11-10 : la liste venait des seuls champs déjà créés en base, où un champ socle n'entre qu'à sa première
+    // écriture. Sur un espace neuf, les trois champs qu'on veut le plus souvent remplir étaient absents.
+    const { saved } = await ouvrirBuilder(page);
+    await page.getByTestId('action-kind').selectOption('set_field');
+    const champ = page.locator('select:has(option[value="nom_de_famille"])');
+    const valeurs = await champ.locator('option').evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).value));
+    expect(valeurs).toEqual(['', 'prenom', 'nom_de_famille', 'email']);
+    await champ.selectOption('nom_de_famille');
+    await page.getByPlaceholder('valeur à poser').fill('Dupont');
+    await expect.poll(() => saved.some((g) => g.nodes.some((nd) => nd.type === 'action'
+      && (nd.data as { fieldKey?: unknown; value?: unknown }).fieldKey === 'nom_de_famille'
+      && (nd.data as { value?: unknown }).value === 'Dupont')), { timeout: 10_000 }).toBe(true);
+  });
+
   test('« passer en opt-in » se persiste aussi, et annonce ce qu’elle fait', async ({ page }) => {
     const { saved } = await ouvrirBuilder(page);
     await page.getByTestId('action-kind').selectOption('set_optin');

@@ -39,11 +39,16 @@ export interface ContactFieldWriter {
  * canonicalisés, le reste garde la valeur brute. 🔴 Seul un champ Flow `optin` à `'true'` ouvre le gate
  * marketing (`markOptedIn`) ; un booléen ordinaire n'ouvre rien. Chaque complétion est isolée : cette étape
  * partage le job des statuts de livraison, qu'un throw rejouerait en DLQ.
+ *
+ * `rangeesParLeParcours` : par wamid, les éléments que le bloc Formulaire en attente a déjà rangés lui-même
+ * (`./rangement-par-le-parcours.ts`, 2026-11-10). Ils sont SAUTÉS ici : un élément ne s'écrit jamais à deux endroits.
+ * Le consentement, lui, reste au formulaire : il tient au composant OptIn, pas au champ où la réponse s'écrit.
  */
 export async function processFlowCompletions(
   payload: unknown,
   lookup: FlowMappingLookup,
   writer: ContactFieldWriter,
+  rangeesParLeParcours: ReadonlyMap<string, ReadonlySet<string>>,
   audit?: AuditSink,
 ): Promise<void> {
   for (const c of extractFlowCompletions(payload)) {
@@ -52,14 +57,16 @@ export async function processFlowCompletions(
       if (!flow) continue;
       const mapped: Record<string, unknown> = {};
       let consented = false;
+      const parLeBloc = rangeesParLeParcours.get(c.messageId);
       for (const [fieldKey, target] of Object.entries(flow.mapping)) {
         if (!Object.prototype.hasOwnProperty.call(c.values, fieldKey)) continue;
         const userType = flowFieldToUserFieldType(flow.fieldTypes[fieldKey] ?? 'text');
         const value = userType === 'boolean'
           ? canonicalizeFieldValue('boolean', String(c.values[fieldKey]))
           : c.values[fieldKey];
-        mapped[target] = value;
         if (flow.optinFieldKeys.includes(fieldKey) && value === 'true') consented = true;
+        if (parLeBloc?.has(fieldKey)) continue;
+        mapped[target] = value;
       }
       // Le champ de base « Nom » (target 'name') est un attribut (profile_name), pas une clé de contacts.fields :
       // on le sort du merge et on le route à part. Le reste est mergé dans fields comme d'habitude.

@@ -30,7 +30,8 @@ export function isDefaultSaveTo(type: string, target: string | undefined, fieldK
 }
 
 /**
- * Cible du champ de base « Nom » (profile_name). SENTINELLE `@profile_name` : le `@` ne peut JAMAIS être produit
+ * Cible « Nom WhatsApp » (profile_name), l'ancienne cible « Nom » (voir `BASE_SAVE_FIELDS`), qui n'est plus proposée
+ * mais reste routée pour les formulaires qui la portent. SENTINELLE `@profile_name` : le `@` ne peut JAMAIS être produit
  * par `slugify` (qui n'émet que `[a-z0-9]` séparés par `_`), donc la cible « Nom » est IMPOSSIBLE à obtenir par
  * collision de slug d'un libellé quelconque. Le routage report vers profile_name (src/webhooks/flow-mapping.ts,
  * PROFILE_NAME_TARGET) ne se déclenche donc QUE sur le choix EXPLICITE du champ de base, jamais par défaut.
@@ -38,14 +39,24 @@ export function isDefaultSaveTo(type: string, target: string | undefined, fieldK
  */
 export const PROFILE_NAME_SAVE_KEY = '@profile_name';
 
-/** Un champ de BASE ciblable comme destination d'un champ de formulaire. `key` = cible serveur : `email`/`prenom`
- *  -> contacts.fields ; PROFILE_NAME_SAVE_KEY (« Nom ») -> profile_name (routé au report, sentinelle anti-collision). */
+/**
+ * Un champ de BASE ciblable comme destination d'un champ de formulaire : les trois champs socle, rangés dans
+ * `contacts.fields` (`SOCLE_FIELDS`).
+ *
+ * 🔴 « Nom » est le NOM DE FAMILLE (`nom_de_famille`) depuis le 2026-11-10 (choix de Julien). Il visait le nom du
+ * PROFIL WhatsApp (`PROFILE_NAME_SAVE_KEY`), que chaque message reçu réécrit : la valeur saisie disparaissait au message
+ * suivant, et le vrai champ « Nom », créé le 2026-10-21, n'était pas proposé. Un formulaire déjà réglé sur le profil
+ * le garde (le serveur route toujours la sentinelle) : l'éditeur l'affiche alors sous `NOM_WHATSAPP`.
+ */
 export interface BaseSaveField { key: string; label: string }
 export const BASE_SAVE_FIELDS: BaseSaveField[] = [
-  { key: PROFILE_NAME_SAVE_KEY, label: 'Nom' },
   { key: 'prenom', label: 'Prénom' },
+  { key: 'nom_de_famille', label: 'Nom' },
   { key: 'email', label: 'Email' },
 ];
+
+/** L'ancienne cible « Nom », le profil WhatsApp : plus proposée, seulement affichée sur un formulaire qui l'a gardée. */
+export const NOM_WHATSAPP: BaseSaveField = { key: PROFILE_NAME_SAVE_KEY, label: 'Nom WhatsApp' };
 
 const normalizeLabel = normalizeText;
 
@@ -54,12 +65,13 @@ const normalizeLabel = normalizeText;
 const SYNONYMS: Record<string, string[]> = {
   email: ['email', 'e-mail', 'mail', 'courriel', 'adresse email', 'adresse e-mail', 'adresse mail'],
   prenom: ['prenom', 'first name', 'firstname', 'given name'],
-  [PROFILE_NAME_SAVE_KEY]: ['nom', 'name', 'nom de famille', 'last name', 'lastname', 'surname', 'family name'],
+  // « name » seul n'y est pas : en anglais, il désigne le plus souvent le nom COMPLET, pas le nom de famille.
+  nom_de_famille: ['nom', 'nom de famille', 'last name', 'lastname', 'surname', 'family name'],
 };
 
 /**
  * Suggère le champ de BASE correspondant au libellé d'un champ de formulaire (ex. « Email » -> email, « Nom » ->
- * name, « Prénom » -> prenom), insensible à la casse et aux accents. null si le libellé ne correspond à aucun
+ * nom_de_famille, « Prénom » -> prenom), insensible à la casse et aux accents. null si le libellé ne correspond à aucun
  * champ de base. Sert à proposer « enregistrer sur le champ de base » dans le builder (jamais imposé).
  */
 export function suggestBaseField(label: string): BaseSaveField | null {

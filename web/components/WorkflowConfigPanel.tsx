@@ -6,7 +6,7 @@ import { useT } from '@/lib/i18n';
 import { nodeMetaOf } from '@/lib/nodeMeta';
 import { MAX_DESTINATAIRES_EMAIL } from '@/lib/partage/blocs';
 import { MAX_REPONSES_RAPIDES, MAX_TEXTE_REPONSE_RAPIDE, TEXTE_MAX_AVEC_FICHIER_OU_BOUTON, TEXTE_MAX_SIMPLE } from '@/lib/partage/message-rapide';
-import { emailResolvableFields, emailVariableFields, varCountOf } from '@/lib/fields';
+import { champsEcrivables, emailResolvableFields, emailVariableFields, varCountOf } from '@/lib/fields';
 import { SelecteurVariable } from '@/components/SelecteurVariable';
 import { carouselOutputs } from '@/lib/carousel-outputs';
 import { versBrouillonRcs, maxTexteRcs, MAX_BOUTONS_CARTE, MAX_BOUTONS_RCS } from '@/lib/rcs';
@@ -19,7 +19,10 @@ import { ChampCompte } from '@/components/ChampCompte';
 import { EditeurFamilles } from '@/components/ConditionBuilder';
 import { PanneauAllerA } from '@/components/PanneauAllerA';
 import { sortiesDuBloc, type EmailRecipientData, type RFNode } from '@/lib/workflow-canevas';
-import { essayerFonctionJs, getTemplateHints, type EssaiJs, type TemplateParamHint } from '@/lib/api';
+import { essayerFonctionJs, getTemplateHints, listSortiesFormulaire, type EssaiJs, type SortieDeFormulaire, type TemplateParamHint } from '@/lib/api';
+import { ApiError } from '@/lib/http';
+import { rangementDuBloc } from '@/lib/partage/rangement-formulaire';
+import { PROFILE_NAME_SAVE_KEY } from '@/lib/flow-mapping';
 import { SourceDeVariable } from '@/components/SourceDeVariable';
 import { SEL_AUCUN, lignesDuBloc, lireSourcesDuBloc, versSourcesDuBloc } from '@/lib/variables-bloc-template';
 import type { VarRow } from '@/lib/variables-template';
@@ -77,13 +80,15 @@ function TagPicker({ label, value, tags, onChange, onCommit }: {
  * Choix d'un champ de contact, et (si `avecValeur`) de la valeur à y poser : fixe, ou l'instant du passage.
  * Partagé par le bloc Action (`set_field` / `clear_field`) et par le bloc `field` LEGACY.
  */
-function FieldValueEditor({ d, fields, onPatch, avecValeur }: {
+function FieldValueEditor({ d, fields: champsDeLEspace, onPatch, avecValeur }: {
   d: Record<string, unknown>;
   fields: UserFieldDef[];
   onPatch: (p: Record<string, unknown>) => void;
   avecValeur: boolean;
 }) {
   const t = useT();
+  // Prénom, Nom et Email, même jamais remplis sur cet espace (`champsEcrivables`).
+  const fields = champsEcrivables(champsDeLEspace, t);
   return (
     <div className="space-y-2">
       <div>
@@ -118,6 +123,92 @@ function FieldValueEditor({ d, fields, onPatch, avecValeur }: {
             <input value={(d.value as string) ?? ''} onChange={(e) => onPatch({ value: e.target.value })} className={`${cls} mt-1.5`} placeholder={t('valeur à poser', 'value to set')} />
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 🔴 OÙ S'ENREGISTRE CHAQUE ÉLÉMENT DU FORMULAIRE, POUR CE SCÉNARIO (Julien, 2026-11-10). Une ligne par élément que le
+ * formulaire renvoie, avec son champ : celui du formulaire (Contenu > Formulaires), ou vide pour un formulaire créé dans
+ * le Business Manager, que rien ne range. Changer une ligne ne vaut que pour ce bloc et remplace, pour cet élément, le
+ * réglage du formulaire (`web/lib/partage/rangement-formulaire.ts`). Le bloc ne garde que les lignes changées : revenir
+ * au champ du formulaire efface l'exception.
+ */
+function RangementDuFormulaire({ tenantId, flowId, d, fields: champsDeLEspace, onPatch }: {
+  tenantId: string;
+  flowId: string;
+  d: Record<string, unknown>;
+  fields: UserFieldDef[];
+  onPatch: (p: Record<string, unknown>) => void;
+}) {
+  const t = useT();
+  const fields = champsEcrivables(champsDeLEspace, t);
+  const [lu, setLu] = useState<{ source: 'messagingme' | 'meta'; sorties: SortieDeFormulaire[] } | { erreur: string } | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    listSortiesFormulaire(tenantId, flowId)
+      .then((r) => { if (vivant) setLu({ source: r.source, sorties: Array.isArray(r.sorties) ? r.sorties : [] }); })
+      .catch((err: unknown) => {
+        if (!vivant) return;
+        // 404 : la console est partie avant l'API qui porte la route, ou le formulaire n'est plus là. Le bloc reste
+        // utilisable, seul le rangement attend.
+        setLu({
+          erreur: err instanceof ApiError && err.status === 404
+            ? t('Le rangement de ce formulaire n’est pas encore disponible. Réessayez dans quelques minutes.', 'This form’s field mapping is not available yet. Try again in a few minutes.')
+            : err instanceof Error ? err.message : t('Lecture impossible.', 'Could not read it.'),
+        });
+      });
+    return () => { vivant = false; };
+  }, [tenantId, flowId, t]);
+
+  const rangement = rangementDuBloc(d);
+  const libelleDe = (cle: string): string => (cle === PROFILE_NAME_SAVE_KEY
+    ? t('Nom WhatsApp', 'WhatsApp name')
+    : fields.find((f) => f.key === cle)?.label ?? cle);
+
+  return (
+    <div className="space-y-2 rounded-controle border border-ink-200 bg-ink-50/50 p-2" data-testid="formulaire-rangement">
+      <p className="text-xs font-medium text-ink-500">{t('Enregistrer les réponses dans', 'Save the answers to')}</p>
+      {lu === null && <p className="text-xs text-ink-500">{t('Lecture du formulaire…', 'Reading the form…')}</p>}
+      {lu !== null && 'erreur' in lu && <p className="text-xs text-danger" data-testid="formulaire-rangement-erreur">{lu.erreur}</p>}
+      {lu !== null && 'sorties' in lu && lu.sorties.length === 0 && (
+        <p className="text-xs text-ink-500">{t('Ce formulaire ne renvoie aucun élément.', 'This form returns no element.')}</p>
+      )}
+      {lu !== null && 'sorties' in lu && lu.sorties.map((s) => {
+        const exception = Object.prototype.hasOwnProperty.call(rangement, s.cle);
+        const valeur = exception ? rangement[s.cle]! : s.cible;
+        const changer = (v: string) => {
+          const suivant = { ...rangement };
+          if (v === s.cible) delete suivant[s.cle];
+          else suivant[s.cle] = v;
+          onPatch({ rangement: suivant });
+        };
+        // Une cible qu'aucune option ne porte (le nom WhatsApp d'un ancien réglage, un champ supprimé) reste affichée :
+        // un sélecteur qui montrerait « Ne pas enregistrer » mentirait sur ce qui se passe.
+        const horsListe = [s.cible, valeur].filter((c, i, tous) => c !== '' && tous.indexOf(c) === i && !fields.some((f) => f.key === c));
+        return (
+          <div key={s.cle}>
+            <label className="mb-1 block text-xs text-ink-900" title={s.cle}>{s.libelle}</label>
+            <select value={valeur} onChange={(e) => changer(e.target.value)} data-testid={`formulaire-rangement-${s.cle}`} className={`${cls} bg-white`}>
+              <option value="">{t('Ne pas enregistrer', 'Do not save')}</option>
+              {horsListe.map((c) => <option key={c} value={c}>{libelleDe(c)}</option>)}
+              {fields.map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}
+            </select>
+            {exception && (
+              <p className="mt-0.5 text-xs text-ink-500" data-testid={`formulaire-rangement-exception-${s.cle}`}>
+                {s.cible === ''
+                  ? t('Pour ce scénario seulement.', 'For this scenario only.')
+                  : t(`Pour ce scénario seulement : le formulaire range ailleurs dans « ${libelleDe(s.cible)} ».`, `For this scenario only: the form otherwise saves to “${libelleDe(s.cible)}”.`)}
+              </p>
+            )}
+          </div>
+        );
+      })}
+      {lu !== null && 'sorties' in lu && lu.source === 'meta' && lu.sorties.length > 0 && (
+        <p className="text-xs text-ink-500">
+          {t('Formulaire créé dans le Business Manager : rien n’est enregistré tant qu’aucun champ n’est choisi ici. Une case de consentement s’y enregistre comme une autre réponse, mais n’inscrit pas le contact aux campagnes marketing : seul un formulaire construit dans Messaging Me le fait.', 'Form created in Business Manager: nothing is saved until a field is chosen here. A consent checkbox is saved like any other answer, but does not opt the contact in to marketing campaigns: only a form built in Messaging Me does.')}
+        </p>
       )}
     </div>
   );
@@ -701,7 +792,8 @@ export function ConfigPanel({
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-500">{t('Formulaire (publié)', 'Form (published)')}</label>
             {/* La sélection pré-remplit le libellé du bouton avec le cta du formulaire (modifiable ensuite). */}
-            <select value={(d.flowId as string) ?? ''} onChange={(e) => { const f = flows.find((x) => x.id === e.target.value); onPatch({ flowId: e.target.value, flowName: f?.name ?? '', cta: (f?.cta ?? '') || 'Envoyer' }); }} className={`${cls} bg-white`}>
+            {/* Changer de formulaire EFFACE le rangement : ses clés désignaient les éléments de l'ancien. */}
+            <select value={(d.flowId as string) ?? ''} onChange={(e) => { const f = flows.find((x) => x.id === e.target.value); onPatch({ flowId: e.target.value, flowName: f?.name ?? '', cta: (f?.cta ?? '') || 'Envoyer', rangement: {} }); }} className={`${cls} bg-white`}>
               <option value="">{t('Choisir…', 'Choose…')}</option>
               {flows.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
@@ -715,6 +807,9 @@ export function ConfigPanel({
             <label className="mb-1 block text-xs font-medium text-ink-500">{t('Libellé du bouton', 'Button label')}</label>
             <input value={(d.cta as string) ?? ''} maxLength={30} onChange={(e) => onPatch({ cta: e.target.value })} className={cls} placeholder={t('Envoyer', 'Send')} />
           </div>
+          {typeof d.flowId === 'string' && d.flowId !== '' && (
+            <RangementDuFormulaire key={d.flowId} tenantId={tenantId} flowId={d.flowId} d={d} fields={fields} onPatch={onPatch} />
+          )}
         </div>
       )}
       {/* Blocs `tag` et `field` : LEGACY (hors palette depuis le bloc Action), mais rendus à vie pour les
@@ -899,7 +994,7 @@ export function ConfigPanel({
             onChange={(e) => onPatch({ champCible: e.target.value })}
           >
             <option value="">{t('ne rien ranger : l’appel envoie seulement', 'store nothing: the call only sends')}</option>
-            {fields.map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}
+            {champsEcrivables(fields, t).map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}
           </select>
 
           {/* 🔴 CE QUE PERSONNE NE DEVINE, ET QUI DÉCIDE DE LA SUITE DU SCÉNARIO. */}
@@ -1162,7 +1257,7 @@ const LIBELLES_GENRE: Readonly<Record<GenrePiece, readonly [string, string]>> = 
  * et l'attente d'un fichier avec ses types. Tout est facultatif. Décocher l'attente passe par le parent
  * (`wf-fichier-off`) : son arête « Fichier reçu » doit partir avec elle, et le panneau ne voit pas les arêtes.
  */
-function ReglagesReponseRangee({ node, d, fields, onPatch, avecMenu }: {
+function ReglagesReponseRangee({ node, d, fields: champsDeLEspace, onPatch, avecMenu }: {
   node: RFNode;
   d: Record<string, unknown>;
   fields: UserFieldDef[];
@@ -1170,6 +1265,7 @@ function ReglagesReponseRangee({ node, d, fields, onPatch, avecMenu }: {
   avecMenu: boolean;
 }) {
   const t = useT();
+  const fields = champsEcrivables(champsDeLEspace, t);
   const champ = typeof d.champReponse === 'string' ? d.champReponse : '';
   const attendre = d.attendreFichier === true;
   const lus = Array.isArray(d.genresFichier) ? GENRES_PIECE.filter((g) => (d.genresFichier as unknown[]).includes(g)) : [];
@@ -1329,7 +1425,7 @@ function VariablesDuTemplate({ tenantId, template, variables, fields, onPatch }:
  * serveur (QuickJS en WebAssembly) : l'éprouver dans le navigateur, où il aurait accès au DOM et au réseau,
  * ferait réussir des essais que l'exécution ne saurait pas reproduire.
  */
-function FonctionJs({ tenantId, code, champSource, champCible, fields, onPatch, onCreerChamp }: {
+function FonctionJs({ tenantId, code, champSource, champCible, fields: champsDeLEspace, onPatch, onCreerChamp }: {
   tenantId: string;
   code: string;
   champSource: string;
@@ -1339,6 +1435,7 @@ function FonctionJs({ tenantId, code, champSource, champCible, fields, onPatch, 
   onCreerChamp?: (label: string) => Promise<string | null>;
 }) {
   const t = useT();
+  const fields = champsEcrivables(champsDeLEspace, t);
   const [valeurEssai, setValeurEssai] = useState('');
   const [resultat, setResultat] = useState<EssaiJs | null>(null);
   const [enCours, setEnCours] = useState(false);
