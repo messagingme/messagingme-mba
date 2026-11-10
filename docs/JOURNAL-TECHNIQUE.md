@@ -40,6 +40,10 @@ identifiant dans son `flow_token`, que Meta renvoie avec la réponse, et le bloc
 sont corrigés dans le même commit ; le détail est dans le plan. Vérifié dans les deux sens : dix mutations, chacune
 attrapée, dont l'e2e de la pastille contre une console reconstruite sans le correctif.
 
+**En production** le 2026-11-10 (run 42796632203, image de `57637500`, sans migration) : la route `/sorties` répond 401 sans
+session en production (un chemin voisin inexistant rend 404), la fumée est verte. L'essai réel reste à faire
+(essais 239 et 240).
+
 ## 2026-11-10 : la fenêtre du partenaire, la ligne posée APRÈS l'attache et la liste de /ops (lot E6)
 
 Accord de Julien (« Oui, enchaîne ») pour les huit jaunes de la relecture du lot E5 ; plan

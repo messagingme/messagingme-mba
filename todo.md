@@ -1,5 +1,20 @@
 # todo.md : backlog
 
+## 🟡 Le constructeur et l'Inbox du 2026-11-10 : ce qu'ils laissent
+
+Prénom, Nom et Email dans le constructeur, le rangement d'un formulaire par son bloc, les pastilles de statut (plan
+`2026-11-10-constructeur-champs-formulaire-statuts.md`, en production le 2026-11-10). Jaunes de la relecture laissés
+au lot suivant ; rien ne bloque.
+
+- **Les fiches d'aide ne disent pas encore ce lot** : la fiche publique `repondre-dans-l-inbox` (les pastilles de
+  l'en-tête ; sa version anglaise et la vitrine, `npm run vitrine:aide`), `creer-un-scenario` (le panneau de rangement
+  du bloc Formulaire) et `creer-un-formulaire-whatsapp` (« Nom » est le nom de famille). Puis `aide:charger` en
+  production, un geste de Julien.
+- **Un e2e qui exige Prénom, Nom et Email** dans les sélecteurs de la réponse rangée d'une Question, de l'Appel API et
+  de la Fonction JS : seuls le bloc Action et le rangement du formulaire en ont un.
+- **Une redélivrance par Meta APRÈS que le parcours a quitté le bloc Formulaire** retombe sur le seul réglage du
+  formulaire : un élément que le bloc rangeait ailleurs y est aussi écrit. Limite acceptée, à fermer si elle se voit.
+
 ## 🟡 Le lot 2c de l'aide à la connexion : ce qu'il laisse (2026-11-09)
 
 « Phone call », pas « Text message », pour un numéro fourni (plan `2026-11-09-aide-connexion-lot-2c.md`). Rien ne
