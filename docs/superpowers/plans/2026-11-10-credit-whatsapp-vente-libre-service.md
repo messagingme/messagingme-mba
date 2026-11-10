@@ -48,7 +48,8 @@ retard de prélèvement. `GET /credit-whatsapp/etat` garde sa forme ; la vue de 
   Tests : la vue, la reprise d'un Pro en essai.
 - [x] Le câblage (`src/index.ts`, bloc de l'option) épinglé ; le manuel (`documentation.md`) et le journal.
 
-Livré par `ea6979ff`, relu (§ « La relecture du lot V1 »).
+Livré par `ea6979ff`, relu (§ « La relecture du lot V1 ») ; **en production le 2026-11-10** (run 42826757148,
+`migration=aucune`, épinglé sur `200f7250` : `mba-api` et les workers en `200f7250`, sans erreur, fumée bonne).
 
 ### V2. Le numéro fourni par la fenêtre du partenaire
 

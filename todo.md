@@ -463,7 +463,12 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   à Julien ; puis le lot D (passage du numéro de l'essai, après l'essai réel du partage). La vente attend D0. 🔴 Le
   découpage de la vente en libre-service (lot 3v, décisions de Julien du 2026-11-10, spec de l'aide à la connexion) : ce
   chantier porte le serveur (la règle de l'essai, la pose automatique une fois l'attache du partenaire PROUVÉE, la
-  fenêtre du numéro fourni, la liste avant le prix), la session de l'aide à la connexion l'arbre.
+  fenêtre du numéro fourni, la liste avant le prix), la session de l'aide à la connexion l'arbre. V1 (la règle de
+  l'essai : un espace Pro en essai prend l'option et lit `a_prendre`, `option.prisePossible` dans la vue) EN PRODUCTION
+  le 2026-11-10 (`ea6979ff`, run 42826757148) ; relu sans rouge, six jaunes au plan
+  `2026-11-10-credit-whatsapp-vente-libre-service.md`, dont trois préalables au prix (V4 : la console qui lit
+  `prisePossible`, le numéro d'essai déjà connecté, l'e-mail du paiement refusé de la formule Pro). Restent V2 (le numéro
+  fourni par la fenêtre), V3 (la pose automatique, après D0), V4 et V5.
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes

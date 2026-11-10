@@ -4,6 +4,34 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : l'option du Crédit WhatsApp se prend dès le début de l'essai Pro (lot 3v, V1)
+
+Décisions de Julien du 2026-11-10 (spec de l'aide à la connexion, § « Décisions de Julien »), précisées le même jour :
+un espace Pro en essai prend l'option même s'il a programmé l'arrêt de sa formule ; un Business en essai attend la
+confirmation de Julien, comme avant ; un essai non payé arrête l'option à la clôture de la formule par Stripe, ce que
+faisait déjà la fin de droit. Plan `2026-11-10-credit-whatsapp-vente-libre-service.md`, § V1. Implémenteur par lot,
+TDD, une relecture indépendante.
+
+- **Ce qui a changé** (`ea6979ff`) :
+  - une seule règle de la prise, `optionPrenable` (`src/offres/formule-payee.ts`) : un espace Pro actif, essai compris,
+    fin programmée ou non, jamais en retard ni fini ; un Business confirmé ; jamais une Free ni une Entreprise ;
+  - la prise (`ouvrirOption`), l'état des cartes, la reprise après un arrêt et la vue de l'onglet la lisent ; la vue
+    gagne `option.prisePossible` ; un espace Pro en essai sans option lit `a_prendre`, et `essai` ne vaut plus que pour
+    un Business en essai et un Pro en retard ;
+  - le refus `option_apres_essai` ne vaut plus que pour un Business en essai, et son texte le dit.
+- **Vérifié** : onze tests écrits ou réécrits, vus rouges avant le code ; la suite racine sur l'état final, 984 fichiers
+  verts (16 571 tests) ; tsc, lint, auto-attaque sans trouvaille.
+- **Relecture** : aucun rouge, six jaunes au plan (§ « La relecture du lot V1 ») ; trois deviennent des préalables au
+  prix (la console qui lit `prisePossible` en production, le numéro d'essai déjà connecté, l'e-mail du paiement refusé
+  de la formule Pro), trois vont au lot V5.
+- **Ordre** : sans migration, l'API seule. Rien ne se voit tant que le prix n'est pas posé : hors vente, la carte d'un
+  espace Pro en essai dit la même chose en `essai` et en `a_prendre`. La console de l'arbre (session de l'aide à la
+  connexion) lira `prisePossible`, avec `disponible` et l'absence d'option vivante, avant le prix.
+- **En production** : run 42826757148 (`migration=aucune`, épinglé sur `200f7250`) : `mba-api` sur l'image `200f7250`,
+  `mba-worker`, `mba-worker-analyse` et `mba-application` en révision `200f7250`, aucune erreur dans leurs journaux ; la
+  route de l'onglet répond 401 sans session ; fumée bonne, fiches OAuth conformes, `META_SOLUTION_ID` intacte ; fiches
+  d'aide inchangées. CI racine (intégration comprise) et CodeQL vertes job par job sur `200f7250`.
+
 ## 2026-11-10 : le cas 4, WhatsApp ordinaire et la carte du moyen de paiement, partout (aide à la connexion, lot 3a)
 
 Trois décisions de Julien appliquées à l'arbre du numéro, aux quatre endroits qui l'écrivent (la vitrine, la console,
