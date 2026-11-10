@@ -4773,9 +4773,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   (`POST /ops/credit-whatsapp/en-attente/:tenantId`, une note) : l'attente s'efface, par le même prédicat, et le journal
   de l'espace en garde la trace sans la note, qui reste au journal du serveur (`ops.attente_ligne_abandonnee` :
   l'administrateur de l'espace lit ce journal, et une note peut nommer le partenaire). L'espace relit alors ses lignes :
-  une Entreprise sans ligne, « sur demande » et le conseil de sa carte chez Meta ; une Entreprise qui garde la ligne
-  active d'un ancien numéro, « payés par votre Crédit WhatsApp », sans que son numéro soit couvert ; une option payée
-  sans ligne reste en attente. 🔴 « Ne pas poser » est refusé (409, `couvert_autre_espace` ou `couvert_arrete`) tant que
+  une Entreprise sans ligne, « sur demande » et le conseil de sa carte chez Meta ; un compte déjà couvert, sa ligne, qui
+  couvre bien son numéro (« payés par votre Crédit WhatsApp », à juste titre) ; une Entreprise qui ne garde que la ligne
+  active d'un ancien numéro d'un AUTRE compte WhatsApp, « payés par votre Crédit WhatsApp » aussi, sans que son numéro
+  soit couvert ; une option payée sans ligne reste en attente. 🔴 « Ne pas poser » est refusé (409, `couvert_autre_espace` ou `couvert_arrete`) tant que
   la ligne d'un AUTRE espace, ou une ligne ARRÊTÉE de l'espace, couvre encore le compte : la garde refuse ses envois, et
   l'attente effacée, plus rien ne le rappellerait. Le refus nomme la ligne qui bloque (`ligne` : l'espace, son nom, le
   numéro de la ligne) et dit de ne la retirer qu'une fois la ligne du partenaire détachée, ou en posant la nouvelle
@@ -4784,10 +4785,13 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé ; la cause d'un refus est écrite au journal du
   serveur (`fenetre_partenaire_refusee`), que l'alerte cite. Interrompue, la connexion a pu rattacher son numéro : le
   numéro annoncé s'il est rattaché, et nul autre (`linkTenant` refuse un second numéro : un autre rattaché est étranger à
-  cette connexion) ; sans annonce, le seul rattaché du compte du corps (`numeroDeLaConnexion`). Il est marqué selon les
-  règles de la connexion, jamais en coexistence, puis relu (rejouée, la marque garde son premier moment, qu'une ligne
-  posée depuis a pu éteindre), et l'alerte dit ce qu'en sait la liste : il y figure, il n'y est pas (marque éteinte,
-  rien à poser, coexistence), aucun numéro de cette connexion, ou une lecture en panne qu'elle ne prétend pas savoir.
+  cette connexion) ; sans annonce, le seul rattaché du compte du corps, et sans compte non plus, le seul de l'espace
+  (`numeroDeLaConnexion`) ; une annonce mal formée, numéro ou compte, n'est pas une annonce absente et ne retombe sur
+  aucun de ces replis. Il est marqué selon les règles de la connexion, jamais en coexistence, puis relu (rejouée, la
+  marque garde son premier moment, qu'une ligne posée depuis a pu éteindre), et l'alerte dit ce qu'en sait la liste : il
+  y figure, il n'y est pas (marque éteinte ou attente levée, rien à poser, coexistence), aucun numéro de cette connexion
+  (dont un numéro parti de l'espace avant la relecture), ou une lecture en panne qu'elle ne prétend pas savoir. Une
+  alerte de connexion en coexistence ne promet jamais la liste.
   Le refus et l'interruption ont chacun leur retenue, une alerte par espace et par demi-heure (`RETENUE_ALERTE_REFUS_MS`,
   des verrous courts ; une alerte retenue se journalise ; une alerte que Telegram n'a pas reçue rend la sienne, jamais
   une alerte incertaine, délai dépassé ou coupure en cours, qui a pu partir ; une connexion jamais établie, adresse

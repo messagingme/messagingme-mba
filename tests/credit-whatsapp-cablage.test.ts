@@ -74,7 +74,8 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     expect(fenetre).not.toMatch(/delie/);
     // La marque du numéro arrivé par la fenêtre, appelée sur son magasin ; l'alerte rend l'issue de Telegram, pour qu'une
     // alerte perdue se journalise (relecture du lot E, jaune 3) et qu'une alerte incertaine garde sa retenue (lot E7, jaune 7).
-    expect(fenetre).toMatch(/marquer: async \(tenant, phoneNumberId\) => \{ await lignesCreditWhatsapp\.marquerParLaLigne\(tenant, phoneNumberId\); \},/);
+    // La marque rend ce qu'elle a écrit : un numéro qui n'est plus dans l'espace ne se dit pas marqué (relecture du lot V6, jaune 4).
+    expect(fenetre).toMatch(/marquer: \(tenant, phoneNumberId\) => lignesCreditWhatsapp\.marquerParLaLigne\(tenant, phoneNumberId\),/);
     expect(fenetre).toMatch(/alerter: \(texte\) => envoyerTelegram\(`\[mba-\$\{NOM_API\}\] \$\{texte\}`\),/);
     // « Déjà couvert » se lit comme la pose de `/ops` le lit, toute origine (relecture du lot E5, jaune 5), appelé sur son
     // magasin ; la retenue d'une alerte de refus est partagée par les copies (jaune 2), jamais un verrou par processus.

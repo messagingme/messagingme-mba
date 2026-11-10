@@ -125,6 +125,10 @@ V5 : l'API, sans migration, et le texte de la carte de `/ops` (Vercel au push). 
 refus de « Ne pas poser » qu'elle apporte, sur un écran interne. Le contrat de `/ops` gagne deux codes de refus
 (`couvert_autre_espace`, `couvert_arrete`), que la carte affiche par leur message.
 
+V6 et V7 : l'API, sans migration, et le texte de la carte de `/ops` (Vercel au push, qui peut précéder l'API : la carte
+n'affiche que le texte du 409, dont le corps gagne `ligne`, que rien ne lit encore). V6 est en production le 2026-11-10
+(run 42885204406, `6e927b63`).
+
 ## Méthode de livraison
 
 **Implémenteur par lot, puis une relecture indépendante du diff**, parce que la prise de l'option et l'état des cartes
@@ -244,5 +248,9 @@ Un relecteur indépendant, sur le diff de `66e5b8e1` : **aucun rouge, six jaunes
 
 ### V7. Les jaunes de la relecture de V6
 
-- [ ] Les six (§ « La relecture du lot V6 »), le 3 d'abord : la carte de `/ops` ne doit pas faire retirer une ligne qui
-  couvre le compte.
+- [x] Les six (§ « La relecture du lot V6 ») : en coexistence, l'alerte ne promet plus la liste ni « Ne pas poser » (1) ;
+  une annonce mal formée, numéro ou compte, ne retombe sur aucun repli (2) ; la carte de `/ops` et le manuel distinguent
+  le compte déjà couvert, dont la ligne couvre bien le numéro, de la ligne d'un ancien numéro d'un AUTRE compte (3) ; la
+  marque rend ce qu'elle a écrit, un numéro parti avant la relecture dit « aucun », et « hors liste » ne choisit plus la
+  cause (4) ; les JSDoc de l'alerte (5) ; l'ordre de déploiement de V6 et V7 (6). Reste une décision à Julien : les deux
+  cas bloquants en coexistence (ligne arrêtée, ligne d'un autre espace) méritent-ils une place dans la liste ?

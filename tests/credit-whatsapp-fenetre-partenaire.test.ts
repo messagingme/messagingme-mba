@@ -27,6 +27,10 @@ function deps(o: {
   rattaches?: Rattache[];
   /** Les numéros dont la marque, rejouée, garde un premier moment déjà éteint par une ligne posée depuis. */
   marqueEteinte?: string[];
+  /** Les numéros que la marque ne trouve plus dans l'espace (`marquerParLaLigne` rend `false`). */
+  marqueAbsente?: string[];
+  /** Les numéros qui quittent l'espace une fois marqués (déconnectés entre la marque et la relecture). */
+  partentApresMarque?: string[];
   solutionId?: string;
   /** L'issue de l'alerte chez Telegram : toujours, ou appel par appel (une liste consommée dans l'ordre). */
   alerte?: IssueTelegram | IssueTelegram[];
@@ -52,7 +56,7 @@ function deps(o: {
         coexistence: n.coexistence ?? false,
         attendLigne: marques.includes(n.phoneNumberId) && !(o.marqueEteinte ?? []).includes(n.phoneNumberId),
       };
-    }),
+    }).filter((n) => !(marques.includes(n.phoneNumberId) && (o.partentApresMarque ?? []).includes(n.phoneNumberId))),
     ligneDuNumero: async (phoneNumberId) => {
       couvertures.push(phoneNumberId);
       const c = o.couvrante ?? null;
@@ -60,7 +64,11 @@ function deps(o: {
     },
     nomDeLEspace: async (tenantId) => o.noms?.[tenantId] ?? null,
     verrous: verrousEnMemoire(o.maintenant),
-    marquer: async (_tenant, phoneNumberId) => { marques.push(phoneNumberId); },
+    marquer: async (_tenant, phoneNumberId) => {
+      if ((o.marqueAbsente ?? []).includes(phoneNumberId)) return false;
+      marques.push(phoneNumberId);
+      return true;
+    },
     alerter: async (texte) => {
       alertes.push(texte);
       return reponses !== null ? (reponses.shift() ?? 'recue') : ((o.alerte as IssueTelegram | undefined) ?? 'recue');
@@ -168,12 +176,13 @@ describe('la connexion faite par la ligne', () => {
     expect(marques).toEqual([]);
   });
 
-  it('🔴 la coexistence ne remplace que « à poser » : sur la ligne d’un autre espace, une ligne arrêtée ou sans droit, l’alerte dit les deux, et le numéro n’est jamais marqué (relecture du lot V5, jaune 3)', async () => {
-    const PRECISION = 'Mais ce numéro est EN COEXISTENCE (il garde l’application WhatsApp Business) : la pose de /ops le refusera, ne rien poser sans voir avec le client.';
+  it('🔴 la coexistence ne remplace que « à poser » : sur la ligne d’un autre espace, une ligne arrêtée ou active, ou sans droit, l’alerte dit les deux, le numéro n’est jamais marqué, et l’alerte ne promet pas la liste (relecture du lot V5, jaune 3 ; du lot V6, jaune 1)', async () => {
+    const PRECISION = 'Mais ce numéro est EN COEXISTENCE (il garde l’application WhatsApp Business) : la pose de /ops le refusera, ne rien poser sans voir avec le client ; il n’est pas dans la liste de /ops.';
     const AUTRE = '0b8b2a3e-1c4d-4e5f-8a9b-0c1d2e3f4a5b';
     const cas: Array<[string, Parameters<typeof deps>[0], string]> = [
       ['autre espace', { offre: 'entreprise', places: null, couvrante: { tenantId: AUTRE, phoneNumberId: '106540352242999' } }, 'Son compte WhatsApp est encore sur la ligne d’un AUTRE espace'],
       ['ligne arrêtée', { offre: 'entreprise', places: null, couvrante: { tenantId: T, phoneNumberId: '106540352242999', arreteeLe: '2026-11-01T10:00:00.000Z' } }, 'Son compte WhatsApp est sur une ligne ARRÊTÉE de l’espace'],
+      ['ligne active', { offre: 'entreprise', places: null, couvrante: { tenantId: T, phoneNumberId: '106540352242999' } }, 'Son compte WhatsApp est déjà sur la ligne de l’espace'],
       ['sans droit', { offre: 'base' }, 'SANS droit à la ligne'],
     ];
     for (const [nom, o, motif] of cas) {
@@ -181,6 +190,9 @@ describe('la connexion faite par la ligne', () => {
       await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null, coexistence: true });
       expect(alertes[0], nom).toContain(motif);
       expect(alertes[0]?.endsWith(` ${PRECISION}`), nom).toBe(true);
+      // Jamais marqué, donc jamais dans la liste : l'alerte ne le promet pas, ni « Ne pas poser » (relecture du lot V6, jaune 1).
+      expect(alertes[0], nom).not.toContain('attend dans la liste');
+      expect(alertes[0], nom).not.toContain('« Ne pas poser »');
       expect(marques, nom).toEqual([]);
     }
   });
@@ -408,9 +420,18 @@ describe('la fenêtre du partenaire passée chez Meta, la connexion refusée ou 
     expect(coexistence.marques).toEqual([]);
     expect(liste(coexistence.alertes[0])).toBe(`Son numéro ${NUMERO_META} est rattaché EN COEXISTENCE (il garde l’application) : il ne passe pas sur la ligne, et n’est pas dans la liste « En attente de leur ligne ».`);
     // Rejouée, la marque garde son premier moment, déjà éteint par une ligne posée depuis : le numéro n'attend pas.
+    // Le texte ne choisit pas la cause : une ligne posée depuis la première marque, ou l'attente levée (relecture du lot V6, jaune 4).
     const eteinte = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META], marqueEteinte: [NUMERO_META] });
     await fenetreRefuseeParLaLigne(eteinte.d, T, fin(500, COMPTE, NUMERO_META));
-    expect(liste(eteinte.alertes[0])).toBe(`Son numéro ${NUMERO_META} est rattaché et marqué, mais une ligne a été posée depuis sa première marque : il n’est pas dans la liste « En attente de leur ligne », voir l’espace dans /ops.`);
+    expect(liste(eteinte.alertes[0])).toBe(`Son numéro ${NUMERO_META} est rattaché et marqué, mais il n’attend pas sa ligne (une ligne posée depuis sa première marque, ou son attente levée) : il n’est pas dans la liste « En attente de leur ligne », voir l’espace dans /ops.`);
+    // Un numéro que la marque ne trouve plus, ou qui a quitté l'espace avant la relecture : aucun numéro de cette connexion.
+    const aucun = 'Aucun numéro de cette connexion n’est rattaché : rien dans la liste « En attente de leur ligne ».';
+    const absent = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META], marqueAbsente: [NUMERO_META] });
+    await fenetreRefuseeParLaLigne(absent.d, T, fin(500, COMPTE, NUMERO_META));
+    expect(liste(absent.alertes[0])).toBe(aucun);
+    const parti = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META], partentApresMarque: [NUMERO_META] });
+    await fenetreRefuseeParLaLigne(parti.d, T, fin(500, COMPTE, NUMERO_META));
+    expect(liste(parti.alertes[0])).toBe(aucun);
     // Une lecture ou une marque en panne : l'alerte ne prétend rien.
     const illisible = 'Le numéro de cette connexion n’a pas pu se lire ou se marquer (voir les journaux de l’API) : vérifier la liste « En attente de leur ligne » dans /ops.';
     const lecture = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META] });
@@ -428,6 +449,15 @@ describe('la fenêtre du partenaire passée chez Meta, la connexion refusée ou 
       const { d, marques } = deps({ offre: 'entreprise', places: null });
       await fenetreRefuseeParLaLigne(d, T, fin(500, COMPTE, phoneNumberId));
       expect(marques, String(phoneNumberId)).toEqual([]);
+    }
+    // Une annonce REJETÉE (mal formée) n'est pas une annonce absente : elle n'a rien pu rattacher, et ne retombe pas sur le
+    // seul rattaché du compte ; un compte rejeté ne retombe pas sur tout l'espace (relecture du lot V6, jaune 2).
+    const RATTACHE = '106540352242933';
+    for (const [numero, compte] of [['pn-x', COMPTE], [`${NUMERO_META}\n`, COMPTE], [null, 'waba-x']] as const) {
+      const { d, alertes, marques } = deps({ offre: 'entreprise', places: null, rattaches: [{ phoneNumberId: RATTACHE, wabaId: compte }] });
+      await fenetreRefuseeParLaLigne(d, T, fin(500, compte, numero));
+      expect(marques, `${String(numero)} ${compte}`).toEqual([]);
+      expect(alertes[0], `${String(numero)} ${compte}`).toMatch(/ Aucun numéro de cette connexion n’est rattaché : rien dans la liste « En attente de leur ligne »\.$/);
     }
     const sansDroit = deps({ offre: 'base', rattaches: [NUMERO_META] });
     await fenetreRefuseeParLaLigne(sansDroit.d, T, fin(500, COMPTE, NUMERO_META));

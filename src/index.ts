@@ -1110,7 +1110,7 @@ async function main(): Promise<void> {
     verrous: verrousCourts,
     // L'autre espace dont la ligne couvre encore le compte, nommé dans l'alerte (relecture du lot E6, jaune 4).
     nomDeLEspace: (tenant) => opsStore.getTenantName(tenant),
-    marquer: async (tenant, phoneNumberId) => { await lignesCreditWhatsapp.marquerParLaLigne(tenant, phoneNumberId); },
+    marquer: (tenant, phoneNumberId) => lignesCreditWhatsapp.marquerParLaLigne(tenant, phoneNumberId),
     // L'issue chez Telegram remonte : une alerte perdue se journalise (relecture du lot E, jaune 3 ; essai 236), une alerte
     // incertaine garde sa retenue (relecture du lot E7, jaune 7).
     alerter: (texte) => envoyerTelegram(`[mba-${NOM_API}] ${texte}`),
