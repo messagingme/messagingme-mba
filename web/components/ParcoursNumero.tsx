@@ -13,8 +13,8 @@ import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { QrApplication } from '@/components/QrApplication';
 import {
-  ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE,
-  QUESTION_MEME_NUMERO, QUESTION_NUMERO, WHATSAPP_ORDINAIRE, type ReponseCompte,
+  ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, PREREQUIS_LIGNE, QUESTION_APPLICATION,
+  QUESTION_COMPTE, QUESTION_MEME_NUMERO, QUESTION_NUMERO, WHATSAPP_ORDINAIRE, type ReponseCompte,
 } from '@/lib/questions-numero';
 
 /** Les choix du parcours : le mode du lien de Claude Code, ou celui que les questions de la console ont fait. */
@@ -47,9 +47,15 @@ type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
  * ⚠️ EN v4, RIEN NE FAIT SAUTER L'ÉCRAN DU NUMÉRO DE LA FENÊTRE DE META (mesuré le 2026-10-06) : le client y tape donc
  * le numéro, d'où les consignes. La fenêtre vérifie le code, puis la suite actuelle relie et active le numéro.
  */
-export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, surConnexion, filiere = 'api' }: {
+export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, surConnexion, filiere = 'api', parLaLigne = false }: {
   tenantId: string;
   api: ApiConnexionNumero;
+  /**
+   * Le numéro fourni du Crédit WhatsApp (« Le vôtre », lot 3v) : la fenêtre de Meta s'ouvre avec la solution du
+   * partenaire, que la configuration ne rend qu'à un espace qui a droit à la ligne, et la fin passe par la ligne
+   * (`connect({ parLaLigne: true })`). Seulement avec `choixInitial` à `fourni`, jamais `fourni_application`.
+   */
+  parLaLigne?: boolean;
   /**
    * `application` : la filière de l'application WhatsApp Business (2026-10-22), ouverte par le lien de Claude Code. Le
    * numéro se relie par un QR code scanné depuis le téléphone, à la place de la fenêtre de Meta. Absente : l'API.
@@ -191,9 +197,10 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     try { await navigator.clipboard.writeText(numero); setCopie(true); } catch { setCopie(false); }
   };
 
-  const pret = connexion.cfg?.enabled === true;
+  // Par la ligne (lot 3v), la fenêtre attend la solution du partenaire : sans elle, rien ne s'ouvre par la carte chez Meta.
+  const pret = connexion.cfg?.enabled === true && (!parLaLigne || (connexion.cfg.solutionId ?? null) !== null);
   const boutonFenetre = (
-    <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect(); }} data-testid="ouvrir-fenetre-meta">
+    <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect(parLaLigne ? { parLaLigne: true } : {}); }} data-testid="ouvrir-fenetre-meta">
       {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t('Ouvrir la fenêtre de Meta', 'Open the Meta window')}
     </Bouton>
   );
@@ -205,9 +212,10 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   // et le compte Meta Business, sa carte le dit elle-même, la fenêtre de Meta le crée en chemin. Reste ce qu'il est.
   // Le numéro fourni mis dans l'application y reste aussi : même chose. Au numéro fourni par la fenêtre de Meta, la
   // condition d'un numéro à soi n'a plus de sens : il vient d'en choisir un, comme Claude le tait (jaune 10 du lot 3a).
-  const prerequis = choix === 'coexistence' || choix === 'fourni_application'
-    ? PREREQUIS_META.slice(0, 1)
-    : choix === 'fourni' ? PREREQUIS_META.slice(0, 2) : PREREQUIS_META;
+  // Par la fenêtre du partenaire (lot 3v), ni carte ni moyen de paiement : les mêmes conditions sans eux.
+  const prerequis = parLaLigne ? PREREQUIS_LIGNE
+    : choix === 'coexistence' || choix === 'fourni_application' ? PREREQUIS_META.slice(0, 1)
+      : choix === 'fourni' ? PREREQUIS_META.slice(0, 2) : PREREQUIS_META;
   const boutonCoexistence = (
     <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect({ coexistence: true }); }} data-testid="ouvrir-fenetre-coexistence">
       {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}

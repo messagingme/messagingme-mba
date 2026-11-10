@@ -1,5 +1,4 @@
 import { test, expect, type Page } from './aide/test';
-import { repondre } from './aide/confirmation';
 
 /**
  * L'ONGLET CRÉDIT WHATSAPP DE LA PAGE OFFRE (plan du Crédit WhatsApp, tâche 11) : il n'apparaît que quand la vue de l'offre
@@ -50,8 +49,6 @@ interface Options {
   places?: { status: number; body: unknown };
   /** Ce que la vue de l'offre change (l'offre, l'abonnement en essai, ses prix). */
   vueOffre?: Record<string, unknown>;
-  /** La réponse à « Démarrer la formule Pro maintenant » ; par défaut, un paiement fait. */
-  demarrer?: { status: number; body: unknown };
 }
 
 /** L'option en vente, pas encore prise (lot 4a) : 30 € HT par numéro et par mois, de 1 à 20 numéros. */
@@ -91,10 +88,10 @@ async function monter(page: Page, o: Options = {}) {
       return json(a.body, a.status);
     }
     if (chemin.endsWith('/offre/portail') && req.method() === 'POST') return json({ url: PORTAIL });
+    // Plus aucun écran de l'option ne démarre la formule Pro (lot 3v) : un appel ici serait compté, et refusé par le test.
     if (chemin.endsWith('/offre/pro/demarrer') && req.method() === 'POST') {
       demarrages += 1;
-      const a = o.demarrer ?? { status: 200, body: { essaiFini: true, paye: true } };
-      return json(a.body, a.status);
+      return json({ essaiFini: true, paye: true });
     }
     if (chemin.endsWith('/offre/tarif')) return json({ proHtCentimes: 4900, siegeHtCentimes: null, remise: false });
     if (chemin.endsWith('/credit-whatsapp')) {
@@ -419,90 +416,68 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
 });
 
 /**
- * PENDANT UN ESSAI (révision du Crédit WhatsApp, 2026-11-04) : l'option attend une formule payée. L'onglet explique qui
- * facture quoi, jamais « Prendre l'option » ; un Pro peut démarrer sa formule maintenant, ce qui enchaîne sur le paiement
- * de l'option. La règle est celle du serveur (`option.formulePayee`), l'abonnement ne choisit que les mots.
+ * LA PRISE DE L'OPTION SELON LE SERVEUR (lot 3v, V1 du 2026-11-10) : la règle est `option.prisePossible`, lue telle
+ * quelle. Un Pro la prend dès le début de son essai, sa formule pas encore payée ; un Business en essai et un Pro en
+ * retard de paiement attendent, et l'onglet dit pourquoi dans les mots du refus du serveur. Plus de « Démarrer la formule
+ * Pro maintenant ». L'abonnement ne choisit que les mots.
  */
-test.describe('Paramètres > Offre > Crédit WhatsApp : l’option pendant un essai', () => {
+test.describe('Paramètres > Offre > Crédit WhatsApp : la prise de l’option, essai compris', () => {
   const ESSAI = {
     statut: 'essai', periodicite: 'mois', debutLe: '2026-11-01T09:00:00.000Z', prochaineEcheanceLe: '2099-11-15T09:00:00.000Z',
     finPrevueLe: null, essaiFinLe: '2099-11-15T09:00:00.000Z', finiLe: null, finRaison: null,
   };
   const EN_ESSAI = { abonnement: ESSAI, prixPro: { moisCentimes: 4900, anCentimes: 49000 } };
-  const OPTION_EN_ESSAI = credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: false } });
+  const EN_RETARD = { abonnement: { ...ESSAI, statut: 'en_retard', essaiFinLe: null }, prixPro: EN_ESSAI.prixPro };
+  const PRISE_EN_ESSAI = credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: false, prisePossible: true } });
+  const ATTENTE = (formulePayee: boolean) => credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee, prisePossible: false } });
 
-  test('🔴 un Pro en essai : l’explication et « Démarrer la formule Pro maintenant », jamais « Prendre l’option » ; confirmé avec son prix, il démarre puis ouvre le paiement de l’option', async ({ page }) => {
-    const m = await monter(page, { vues: [OPTION_EN_ESSAI], vueOffre: EN_ESSAI });
+  test('🔴 un Pro en essai prend l’option tout de suite : « Prendre l’option » pour ses numéros, sans démarrer sa formule', async ({ page }) => {
+    const m = await monter(page, { vues: [PRISE_EN_ESSAI], vueOffre: EN_ESSAI });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-essai')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
+    await page.getByTestId('credit-wa-option-places').selectOption('2');
+    await expect(page.getByTestId('credit-wa-option-prendre')).toHaveText(/Prendre l’option, 60 € HT par mois/);
+    await page.getByTestId('credit-wa-option-prendre').click();
+    await expect(page).toHaveURL(PAGE_STRIPE);
+    expect([m.demarrages(), m.options]).toEqual([0, [{ places: 2 }]]);
+  });
+
+  test('🔴 un Business en essai : l’explication et la raison du serveur, ni démarrage ni prise', async ({ page }) => {
+    const m = await monter(page, { vues: [ATTENTE(false)], vueOffre: { offre: 'business' } });
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-essai')).toContainText('vient avec la formule payante');
-    await expect(page.getByTestId('credit-wa-option-essai')).toContainText('votre carte chez Meta, qui vous facture vos modèles');
+    await expect(page.getByTestId('credit-wa-option-attente')).toHaveText('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.');
+    await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
     await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
-    await page.getByTestId('credit-wa-option-places').selectOption('2');
-    await page.getByTestId('credit-wa-option-demarrer').click();
-    await repondre(page, true, /Votre essai gratuit s’arrête aujourd’hui : votre formule Pro \(Mensuel, 49 € HT par mois\)[\s\S]*pour 2 numéros, 60 € HT par mois/);
-    await expect(page).toHaveURL(PAGE_STRIPE);
-    expect([m.demarrages(), m.options]).toEqual([1, [{ places: 2 }]]);
-  });
-
-  test('🔴 une carte refusée : le message du serveur, l’essai continue, aucun paiement de l’option', async ({ page }) => {
-    const m = await monter(page, {
-      vues: [OPTION_EN_ESSAI], vueOffre: EN_ESSAI,
-      demarrer: { status: 402, body: { error: 'Le paiement n’a pas abouti : votre essai continue. Mettez à jour votre carte depuis « Gérer mon abonnement », puis réessayez.', code: 'paiement_refuse' } },
-    });
-    await page.goto('/offre?tab=whatsapp');
-    await page.getByTestId('credit-wa-option-demarrer').click();
-    await repondre(page, true);
-    await expect(page.getByTestId('credit-wa-option-demarrer-erreur')).toContainText('votre essai continue');
     expect(m.options).toEqual([]);
   });
 
-  test('🔴 un prélèvement différé (SEPA) : le paiement dit en cours, rien n’enchaîne sur l’option', async ({ page }) => {
-    const m = await monter(page, { vues: [OPTION_EN_ESSAI], vueOffre: EN_ESSAI, demarrer: { status: 200, body: { essaiFini: true, paye: false } } });
+  test('🔴 un Pro en retard de paiement : la raison du serveur, sans parler d’essai, ni prise', async ({ page }) => {
+    await monter(page, { vues: [ATTENTE(true)], vueOffre: EN_RETARD });
     await page.goto('/offre?tab=whatsapp');
-    await page.getByTestId('credit-wa-option-demarrer').click();
-    await repondre(page, true);
-    await expect(page.getByTestId('credit-wa-option-demarrage-attente')).toContainText('en cours chez votre banque');
-    expect(m.options).toEqual([]);
-  });
-
-  test('🔴 un Business en essai : l’explication et sa confirmation, ni démarrage ni prise', async ({ page }) => {
-    await monter(page, { vues: [OPTION_EN_ESSAI], vueOffre: { offre: 'business' } });
-    await page.goto('/offre?tab=whatsapp');
-    await expect(page.getByTestId('credit-wa-option-attente')).toContainText('dès que votre formule Business est confirmée');
-    await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-attente')).toHaveText('Le paiement de votre formule Pro est en retard : réglez-le, puis prenez l’option. Mettez à jour votre carte dans l’onglet Offre.');
+    await expect(page.getByTestId('credit-wa-option-essai')).not.toContainText('Pendant l’essai');
     await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
   });
 
-  test('🔴 une résiliation programmée pendant l’essai : la raison, sans bouton de démarrage', async ({ page }) => {
-    await monter(page, { vues: [OPTION_EN_ESSAI], vueOffre: { ...EN_ESSAI, abonnement: { ...ESSAI, statut: 'resiliation_programmee', finPrevueLe: ESSAI.essaiFinLe } } });
+  test('🔴 une API d’avant V1, sans la prise possible : la formule pas payée attend, comme avant, sans démarrage', async ({ page }) => {
+    await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: false } })], vueOffre: { offre: 'business' } });
     await page.goto('/offre?tab=whatsapp');
-    await expect(page.getByTestId('credit-wa-option-attente')).toContainText('annulez la résiliation');
-    await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-attente')).toBeVisible();
     await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
-  });
-
-  test('🔴 démarrée et payée, une prise encore refusée (la formule pas encore écrite) : « Démarrer » ne revient pas (jaune 11 de la relecture du lot A5)', async ({ page }) => {
-    const m = await monter(page, {
-      vues: [OPTION_EN_ESSAI], vueOffre: EN_ESSAI,
-      option: { status: 409, body: { error: 'Le Crédit WhatsApp s’ouvre avec votre formule payée.', code: 'formule_non_payee' } },
-    });
-    await page.goto('/offre?tab=whatsapp');
-    await page.getByTestId('credit-wa-option-demarrer').click();
-    await repondre(page, true);
-    await expect(page.getByTestId('credit-wa-option-demarree')).toContainText('Votre formule Pro démarre');
     await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
-    expect([m.demarrages(), m.options]).toEqual([1, [{ places: 1 }]]);
   });
 
   test('🔴 tous les numéros gardent l’application : l’avertissement avant « Prendre l’option » (décision 8)', async ({ page }) => {
-    await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: true, avecApplication: true } })], vueOffre: EN_ESSAI });
+    await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: false, prisePossible: true, avecApplication: true } })], vueOffre: EN_ESSAI });
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-avertissement')).toContainText('le Crédit WhatsApp n’est pas possible avec l’application');
     await expect(page.getByTestId('credit-wa-option-prendre')).toBeVisible();
   });
 
-  test('🔴 la formule payée : « Prendre l’option », sans explication de l’essai', async ({ page }) => {
-    await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: true } })], vueOffre: EN_ESSAI });
+  test('🔴 la formule payée : « Prendre l’option », sans explication de l’attente', async ({ page }) => {
+    await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: true, prisePossible: true } })], vueOffre: EN_ESSAI });
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-prendre')).toBeVisible();
     await expect(page.getByTestId('credit-wa-option-essai')).toHaveCount(0);

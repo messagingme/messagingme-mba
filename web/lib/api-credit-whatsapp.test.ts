@@ -35,7 +35,7 @@ describe('getCreditWhatsapp', () => {
       optionArretee: false,
       historique: [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
       serie: [{ jour: '2026-10-31', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
-      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null, formulePayee: true, avecApplication: false },
+      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null, formulePayee: true, prisePossible: true, avecApplication: false },
     };
     const appels = repondre(200, vue);
     expect(await getCreditWhatsapp('t1')).toEqual(vue);
@@ -78,6 +78,23 @@ describe('getCreditWhatsapp', () => {
       repondre(200, { soldeMicroEur: 0, option: { ...option, formulePayee } });
       expect((await getCreditWhatsapp('t1')).option.formulePayee, String(formulePayee)).toBe(true);
     }
+  });
+
+  it('🔴 la prise possible (lot 3v V1) : lue telle que le serveur la rend, formule payée ou non ; absente (une API d’avant V1), elle vaut la formule payée', async () => {
+    const option = { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 0, statut: null, finPrevueLe: null };
+    // Un Pro en essai : sa formule n'est pas encore payée, l'option se prend quand même.
+    repondre(200, { soldeMicroEur: 0, option: { ...option, formulePayee: false, prisePossible: true } });
+    expect((await getCreditWhatsapp('t1')).option).toMatchObject({ formulePayee: false, prisePossible: true });
+    // Un Pro en retard de paiement : une échéance a été payée, la prise est refusée.
+    repondre(200, { soldeMicroEur: 0, option: { ...option, formulePayee: true, prisePossible: false } });
+    expect((await getCreditWhatsapp('t1')).option.prisePossible).toBe(false);
+    for (const [formulePayee, attendue] of [[false, false], [true, true], [undefined, true]] as const) {
+      repondre(200, { soldeMicroEur: 0, option: { ...option, formulePayee } });
+      expect((await getCreditWhatsapp('t1')).option.prisePossible, String(formulePayee)).toBe(attendue);
+    }
+    // Un corps illisible ne vaut pas une prise refusée : la règle d'avant, la formule payée.
+    repondre(200, { soldeMicroEur: 0, option: { ...option, formulePayee: true, prisePossible: 'non' } });
+    expect((await getCreditWhatsapp('t1')).option.prisePossible).toBe(true);
   });
 
   it('🔴 les numéros qui gardent tous l’application (lot B, décision 8) : vrai seulement quand le serveur le dit', async () => {

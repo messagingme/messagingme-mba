@@ -3852,8 +3852,8 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   facture à 0 € d'un essai, qui ne disent pas sa fin, en portent une PROVISOIRE (maintenant plus les jours de la marque
   `essai`, ou la fin de la facture) qui ne remplit qu'un vide ; la création de l'abonnement écrit l'exacte. Sans elle,
   un essai enregistré avant la création de son abonnement était lu « payé dès le départ ». La console porte le geste
-  dans le bloc de l'abonnement Pro et dans l'onglet Crédit WhatsApp (`DemarrerPro`), confirmé avec la fin de l'essai
-  aujourd'hui et le prix de la formule ; depuis l'onglet, un démarrage payé enchaîne sur le paiement de l'option.
+  dans le bloc de l'abonnement Pro seulement (`DemarrerPro`), confirmé avec la fin de l'essai aujourd'hui et le prix de
+  la formule : l'option Crédit WhatsApp se prend dès le début de l'essai, plus rien ne démarre la formule pour elle.
   🔴 La facture de l'écourtement est une
   `subscription_update`, le motif du prorata d'un siège, mais du plein prix et sans aucune ligne de prorata : une
   `subscription_update` ne compte comme période payée que si TOUTES ses lignes portent
@@ -4710,8 +4710,13 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   l'Accueil tant qu'aucun numéro n'est connecté. La carte du moyen de paiement chez Meta (« Je mets un moyen de
   paiement (Visa / Mastercard) sur mon compte Meta Business », avec ses deux liens, `QUESTION_PAIEMENT.carte`) est la
   voie active et ouvre le guide ; elle cède la place quand une ligne est payée ou posée. 🔴 « Crédit WhatsApp » reste grisée « sur demande » tant que l'option n'est
-  pas en vente, dans TOUS les états, essai compris : jamais « Démarrer la formule Pro maintenant » pour une option qui ne
-  se prend pas. Une Free l'est sans lire la route (402), par la vue de l'offre. Prise depuis une carte, l'option compte
+  pas en vente, dans TOUS les états, essai compris : jamais « Prendre l'option » pour une option qui ne se prend pas en
+  ligne. En vente, un Pro la prend dès le début de son essai (`a_prendre`) ; un Business en essai et un Pro en retard
+  lisent la raison du refus du serveur (`raisonAttenteOption`, `web/lib/offre.ts`), et l'onglet décide sur
+  `option.prisePossible`, jamais sur `formulePayee`. L'option payée, la fenêtre du partenaire demande « Votre numéro, ou
+  le nôtre ? » (`QUESTION_LIGNE_NUMERO`) : le sien après la phrase validée de Julien, le nôtre par le parcours du numéro
+  fourni ouvert par la même fenêtre (`ParcoursNumero` avec `parLaLigne` : la solution du partenaire, la fin par la ligne,
+  ses conditions chez Meta sans carte, jamais `fourni_application`). Une Free l'est sans lire la route (402), par la vue de l'offre. Prise depuis une carte, l'option compte
   un numéro et ramène sur Connecter WhatsApp (`origine: 'connecter'`, le corps d'avant sans elle), dont le retour garde la
   prise fermée jusqu'à relire l'option. `get_setup_state` tait `carte_meta_a_regler` en `en_attente` et `active`. La même
   question se pose sur la vitrine (`scripts/vitrine/tunnel-textes.ts`, une réponse grisée par formule, `Reponse.grisee`)

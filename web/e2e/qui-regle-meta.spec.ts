@@ -1,5 +1,4 @@
 import { test, expect, type Page } from './aide/test';
-import { repondre } from './aide/confirmation';
 import { mockAccueil } from './support/accueil';
 
 /**
@@ -28,7 +27,7 @@ const vueOffre = (offre: string, abonnement: unknown = null) => ({
 type Etat = { etat: string; enVente: boolean; avecApplication?: boolean; fenetrePartenaire?: boolean };
 
 /** Le serveur des cartes : l'offre, l'état de la ligne (une suite, la dernière répétée), l'option et le démarrage du Pro. */
-async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; etats?: Etat[]; demarrer?: unknown; solution?: string } = {}) {
+async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; etats?: Etat[]; solution?: string } = {}) {
   const options: unknown[] = [];
   const etats = [...(o.etats ?? [{ etat: 'a_prendre', enVente: false }])];
   let lecturesEtat = 0;
@@ -48,7 +47,8 @@ async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; et
     }
     if (chemin.endsWith('/offre/pro/demarrer') && req.method() === 'POST') {
       demarrages += 1;
-      return json(o.demarrer ?? { essaiFini: true, paye: true });
+      // Plus aucune carte ne démarre la formule Pro (lot 3v) : un appel ici serait compté, et refusé par le test.
+      return json({ essaiFini: true, paye: true });
     }
     // La fenêtre du partenaire (lot E) : la configuration de la connexion rend l'identifiant de la solution.
     if (o.solution !== undefined && chemin.endsWith('/embedded-signup/config')) {
@@ -89,25 +89,43 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     expect(s.lecturesEtat()).toBe(0);
   });
 
-  test('🔴 un Pro en essai : l’explication, puis « Démarrer la formule Pro maintenant » enchaîne sur le paiement de l’option, retour sur Connecter WhatsApp', async ({ page }) => {
+  test('🔴 un Pro en essai prend l’option tout de suite (lot 3v) : « Prendre l’option », jamais « Démarrer la formule Pro maintenant »', async ({ page }) => {
+    // Le serveur dit un Pro dans ses 14 jours `a_prendre` (V1) : l'option se paie dès le début de l'essai.
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
-    const s = await simuler(page, { abonnement: ESSAI, etats: [{ etat: 'essai', enVente: true }] });
+    const s = await simuler(page, { abonnement: ESSAI, etats: [{ etat: 'a_prendre', enVente: true }] });
     await page.goto('/connecter-whatsapp');
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Il vient avec la formule Pro payante : à la fin de l’essai, ou tout de suite.');
-    await page.getByTestId('carte-credit-wa-demarrer').click();
-    await repondre(page, true, /Votre essai gratuit s’arrête aujourd’hui : votre formule Pro \(Mensuel, 49 € HT par mois\)[\s\S]*l’option Crédit WhatsApp pour un numéro/);
+    await expect(page.getByTestId('carte-credit-wa-demarrer')).toHaveCount(0);
+    await page.getByTestId('carte-credit-wa-prendre').click();
     await expect(page).toHaveURL(PAGE_STRIPE);
-    expect([s.demarrages(), s.options]).toEqual([1, [{ places: 1, origine: 'connecter' }]]);
+    expect([s.demarrages(), s.options]).toEqual([0, [{ places: 1, origine: 'connecter' }]]);
+  });
+
+  test('🔴 un Business en essai, l’option en vente : la raison du serveur, jamais « Prendre l’option » (lot 3v)', async ({ page }) => {
+    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+    const s = await simuler(page, { offre: 'business', etats: [{ etat: 'essai', enVente: true }] });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.');
+    await expect(page.getByTestId('carte-credit-wa-prendre')).toHaveCount(0);
+    expect(s.options).toEqual([]);
+  });
+
+  test('🔴 un Pro en retard de paiement, l’option en vente : la raison du serveur, jamais « Prendre l’option » (lot 3v)', async ({ page }) => {
+    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+    await simuler(page, { abonnement: { ...ESSAI, statut: 'en_retard', essaiFinLe: null }, etats: [{ etat: 'essai', enVente: true }] });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Le paiement de votre formule Pro est en retard : réglez-le, puis prenez l’option. Mettez à jour votre carte dans l’onglet Offre.');
+    await expect(page.getByTestId('carte-credit-wa-prendre')).toHaveCount(0);
   });
 
   test('🔴 un Pro en essai, l’option hors vente : la carte grisée, sur demande, jamais « Démarrer la formule Pro maintenant » (rouge de la relecture du lot B)', async ({ page }) => {
     // Démarrer la formule Pro pour une option qui ne se prend pas : un prélèvement sur une promesse que rien ne tient.
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
-    const s = await simuler(page, { abonnement: ESSAI, etats: [{ etat: 'essai', enVente: false }] });
+    const s = await simuler(page, { abonnement: ESSAI, etats: [{ etat: 'a_prendre', enVente: false }] });
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
     await expect(page.getByTestId('carte-credit-wa-grisee')).toBeDisabled();
     await expect(page.getByTestId('carte-credit-wa-demarrer')).toHaveCount(0);
+    await expect(page.getByTestId('carte-credit-wa-prendre')).toHaveCount(0);
     expect(s.demarrages()).toBe(0);
   });
 
@@ -237,6 +255,12 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     // La voie de la carte chez Meta est fermée : son guide n'est pas monté, une seule connexion écoute la fenêtre.
     await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
+    // « Votre numéro, ou le nôtre ? » (lot 3v) : le sien reçoit la phrase validée de Julien AVANT la fenêtre.
+    await expect(page.getByTestId('ligne-numero')).toContainText('Votre numéro, ou le nôtre ?');
+    await expect(page.getByTestId('carte-credit-wa-connecter-ligne')).toHaveCount(0);
+    await page.getByTestId('ligne-numero-mien').click();
+    await expect(page.getByTestId('ligne-numero-application')).toHaveText('Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ? Avec le Crédit WhatsApp, il n’y marchera plus : vos clients vous écriront dans Messaging Me, et vous leur répondrez là (la console ou Claude). Pour garder l’application : « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business », ou un numéro de chez nous.');
+    await expect(page.getByTestId('ligne-numero-application')).not.toContainText('quitter');
     const bouton = page.getByTestId('carte-credit-wa-connecter-ligne');
     await expect(bouton).toHaveText('Connecter sans carte chez Meta');
     await expect(bouton).toBeEnabled();
@@ -248,28 +272,83 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
   });
 
-  test('🔴 une Entreprise sans numéro : son texte, le même bouton ; la carte chez Meta se reprend d’un clic, et le bouton, resté en second, la referme et ouvre la fenêtre du partenaire', async ({ page }) => {
+  test('🔴 une Entreprise sans numéro : son texte, la même question ; la carte chez Meta se reprend d’un clic, et « Le mien » la referme avant la fenêtre du partenaire', async ({ page }) => {
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
     const posts: unknown[] = [];
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts } });
     await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false, fenetrePartenaire: true }], solution: 'sol-e2e' });
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Connectez votre numéro, Meta ne vous facturera pas. Votre ligne s’ouvre ensuite sous 24 h ouvrées.');
-    const bouton = page.getByTestId('carte-credit-wa-connecter-ligne');
-    await expect(bouton).toBeVisible();
+    await expect(page.getByTestId('ligne-numero')).toBeVisible();
     await expect(page.getByTestId('carte-credit-wa-grisee')).toHaveCount(0);
     // Une Entreprise n'a pas de ligne en attente : sans la fenêtre du partenaire, la carte chez Meta serait la voie active.
     await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
     await page.getByTestId('carte-meta-choisir').click();
     await expect(page.getByTestId('question-compte')).toBeVisible();
-    // Sans recharger la page : le bouton du partenaire reste, et son clic referme le guide de la carte avant d'ouvrir sa fenêtre.
+    // Sans recharger la page : « Le mien » referme le guide de la carte, puis le bouton du partenaire ouvre sa fenêtre.
+    await page.getByTestId('ligne-numero-mien').click();
+    await expect(page.getByTestId('question-compte')).toHaveCount(0);
+    const bouton = page.getByTestId('carte-credit-wa-connecter-ligne');
     await expect(bouton).toBeEnabled();
     await bouton.click();
-    await expect(page.getByTestId('question-compte')).toHaveCount(0);
     await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(1);
     expect(posts[0]).toEqual({ code: 'code-e2e', parLaLigne: true });
   });
+});
+
+test.describe('Connecter WhatsApp : le numéro fourni par la fenêtre du partenaire (lot 3v)', () => {
+  test('🔴 « Le vôtre » : le numéro fourni, la fenêtre de Meta ouverte par la solution du partenaire, la fin par la ligne', async ({ page }) => {
+    await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
+    const posts: unknown[] = [];
+    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts } });
+    await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }], solution: 'sol-e2e' });
+    // Le numéro fourni, déjà attribué (inclus en Pro), et le code que l'Asterisk a capté.
+    const json = (b: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+    await page.route('**/api/backend/tenants/*/connexion-numero', (route) => route.fulfill(json({
+      etat: { fourni: '+441235619343', code: null, connecte: null, abonnement: null, inclusDansLePro: true }, empreinte: '0123456789abcdef',
+    })));
+    await page.route('**/api/backend/tenants/*/numero-fourni**', (route) => route.fulfill(json({ numero: '+441235619343', code: '345679', codeRecuLe: '2026-11-10T10:00:00.000Z' })));
+    await page.goto('/connecter-whatsapp');
+    await page.getByTestId('ligne-numero-notre').click();
+    await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
+    // Ni la phrase du sien, ni la voie de la carte chez Meta : un seul parcours écoute la fenêtre.
+    await expect(page.getByTestId('ligne-numero-application')).toHaveCount(0);
+    await expect(page.getByTestId('question-compte')).toHaveCount(0);
+    // Les conditions chez Meta, sans la carte que la ligne remplace (jaune 4 de la relecture du lot 3v).
+    const prerequis = page.getByTestId('prerequis-meta');
+    await expect(prerequis).toContainText('sans carte chez Meta');
+    await expect(prerequis).not.toContainText('votre carte');
+    await expect(prerequis).not.toContainText('moyen de paiement');
+    const bouton = page.getByTestId('ouvrir-fenetre-meta');
+    await expect(bouton).toBeEnabled();
+    await bouton.click();
+    await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(1);
+    expect(posts[0]).toEqual({ code: 'code-e2e', parLaLigne: true });
+    const options = await page.evaluate(() => (window as unknown as { __optionsFb?: { extras?: unknown } }).__optionsFb);
+    expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
+  });
+});
+
+test('🔴 au retour de Stripe d’un numéro fourni payé, « Le vôtre » reprend, par la ligne (jaune 6 de la relecture du lot 3v)', async ({ page }) => {
+  await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
+  const posts: unknown[] = [];
+  await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts } });
+  await simuler(page, { offre: 'business', etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }], solution: 'sol-e2e' });
+  const json = (b: unknown) => ({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+  await page.route('**/api/backend/tenants/*/connexion-numero', (route) => route.fulfill(json({
+    etat: { fourni: '+441235619343', code: null, connecte: null, abonnement: { statut: 'actif', periodeFin: null } }, empreinte: '0123456789abcdef',
+  })));
+  await page.route('**/api/backend/tenants/*/numero-fourni**', (route) => route.fulfill(json({ numero: '+441235619343', code: '345679', codeRecuLe: '2026-11-10T10:00:00.000Z' })));
+  // Une variante d'avant gardée dans l'onglet ne fait pas sortir le numéro par l'application.
+  await page.addInitScript(() => { try { window.localStorage.setItem('mba.numero-variante.t-e2e', 'fourni_application'); } catch { /* rien */ } });
+  await page.goto('/connecter-whatsapp?abonnement=recu');
+  await expect(page.getByTestId('ligne-numero-notre')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
+  await expect(page.getByTestId('question-compte')).toHaveCount(0);
+  await page.getByTestId('ouvrir-fenetre-meta').click();
+  await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(1);
+  expect(posts[0]).toEqual({ code: 'code-e2e', parLaLigne: true });
 });
 
 test.describe('Accueil : « Qui paie vos messages à Meta ? »', () => {

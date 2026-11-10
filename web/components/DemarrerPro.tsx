@@ -9,8 +9,8 @@ import { demarrerPro } from '@/lib/api/offre';
 
 /**
  * « DÉMARRER LA FORMULE PRO MAINTENANT » (révision du Crédit WhatsApp, 2026-11-04, décision 6) : un client en essai l'arrête
- * pour que Stripe prélève tout de suite la carte prise au début de l'essai. Dans le bloc de l'abonnement Pro, et dans
- * l'onglet Crédit WhatsApp, qui enchaîne ensuite sur le paiement de l'option.
+ * pour que Stripe prélève tout de suite la carte prise au début de l'essai. Dans le bloc de l'abonnement Pro seulement :
+ * l'option Crédit WhatsApp se prend dès le début de l'essai (lot 3v), plus rien ne démarre la formule pour elle.
  *
  * 🔴 CONFIRMÉ AVANT TOUT PRÉLÈVEMENT : l'essai gratuit s'arrête aujourd'hui, et le prix de la formule.
  * 🔴 UN REFUS LAISSE L'ESSAI TEL QUEL : le message du serveur s'affiche (carte refusée, résiliation programmée).

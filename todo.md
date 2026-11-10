@@ -58,6 +58,18 @@ au lot suivant ; rien ne bloque.
 - **Une redélivrance par Meta APRÈS que le parcours a quitté le bloc Formulaire** retombe sur le seul réglage du
   formulaire : un élément que le bloc rangeait ailleurs y est aussi écrit. Limite acceptée, à fermer si elle se voit.
 
+## 🟡 Le lot 3v-1 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
+
+- **Changer de voie pendant qu'une fenêtre de Meta est ouverte** (jaune 1 de la relecture du lot 3v-1). Sur Connecter
+  WhatsApp, la fenêtre du partenaire ouverte, un clic sur « Je mets un moyen de paiement… » ou sur l'autre réponse de
+  « Votre numéro, ou le nôtre ? » démonte la connexion en cours, dont la fin part quand même par la ligne ; la voie montée
+  à la place peut ouvrir sa propre fenêtre. Remonter l'état `busy` de la connexion dans `QuiRegleMeta` et fermer ces
+  gestes tant qu'une fenêtre est ouverte (`web/components/QuiRegleMeta.tsx`).
+- **3v-2, le jour du prix** : la vitrine, la skill, les consignes de Claude, la fiche du numéro et la FAQ disent encore
+  « sur demande » ; la branche du crédit, « Votre numéro, ou le nôtre ? » et le lien de Claude (`/brancher`) qui ouvre la
+  fenêtre du partenaire au numéro fourni changent ensemble, avant que Julien pose le prix (plan
+  `2026-11-10-aide-connexion-lot-3v.md`).
+
 ## 🟡 Les lots 3b et 3c de l'aide à la connexion : ce qu'ils laissent (2026-11-10)
 
 - **Pages du tunnel de la vitrine : les étapes en double** (jaune 7 de la relecture des lots 3b et 3c, 2026-11-10). Chaque

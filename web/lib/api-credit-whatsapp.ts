@@ -48,11 +48,16 @@ export interface OptionCreditWhatsapp {
   /** La fin programmée (une résiliation demandée au portail de Stripe), ISO ; `null` sinon. */
   finPrevueLe: string | null;
   /**
-   * La formule de l'espace est payée, par la règle du serveur qui garde la prise de l'option (révision du 2026-11-04) :
-   * faux pendant un essai, Pro comme Business, et l'onglet explique alors l'essai au lieu de vendre. Une API d'avant ce
-   * champ le rend absent : lu vrai, l'ancien écran (sa prise refuserait de toute façon pendant un essai).
+   * La formule de l'espace est payée (révision du 2026-11-04) : faux pendant un essai, Pro comme Business. Il ne dit plus
+   * si l'option se prend, depuis le 2026-11-10 : c'est `prisePossible`. Absent sur une API d'avant ce champ : lu vrai.
    */
   formulePayee: boolean;
+  /**
+   * L'option se prend-elle (la règle du serveur, `optionPrenable`, lot 3v V1) : un Pro actif, essai compris, ou un Business
+   * confirmé ; jamais un Pro en retard, ni un Business en essai. Elle se combine avec `disponible` et l'absence d'option
+   * vivante, jamais recalculée ici. Absente sur une API d'avant V1 : elle vaut `formulePayee`, la règle d'alors.
+   */
+  prisePossible: boolean;
   /**
    * Tous les numéros de l'espace gardent l'application WhatsApp Business (lot B, décision 8) : aucun ne passera sur le
    * Crédit WhatsApp, et le paiement de l'option le dit. Faux sur une API d'avant ce champ.
@@ -63,7 +68,7 @@ export interface OptionCreditWhatsapp {
 /** Une API d'avant l'option (la console part avant l'API) : rien en vente, rien de pris. */
 export const SANS_OPTION: OptionCreditWhatsapp = {
   disponible: false, prixHtCentimes: 0, placesMax: 0, places: 0, couverts: 0, statut: null, finPrevueLe: null, formulePayee: true,
-  avecApplication: false,
+  prisePossible: true, avecApplication: false,
 };
 
 /** Ce que lit l'onglet. Montants en micro-euros ; un prix se montre tout compris, jamais un taux. */
@@ -116,6 +121,7 @@ function lireOption(v: unknown): OptionCreditWhatsapp {
     statut: o.statut === 'actif' || o.statut === 'en_retard' || o.statut === 'resilie' ? o.statut : null,
     finPrevueLe: typeof o.finPrevueLe === 'string' ? o.finPrevueLe : null,
     formulePayee: o.formulePayee !== false,
+    prisePossible: typeof o.prisePossible === 'boolean' ? o.prisePossible : o.formulePayee !== false,
     avecApplication: o.avecApplication === true,
   };
 }

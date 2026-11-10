@@ -11,8 +11,9 @@ const cleMasque = (tenantId: string): string => `mba.bandeau-ligne-credit.${tena
 
 /**
  * LE BANDEAU DE LA CONVERSION (révision du Crédit WhatsApp du 2026-11-04, lot C, moment 2 ; texte validé par Julien le
- * 2026-11-06) : la formule de l'espace est payée et l'option se prend en ligne, ni prise ni payée (`a_prendre`, l'état des
- * cartes « Qui règle Meta ? »). Sur toutes les pages, pour un administrateur d'un Pro ou d'un Business (l'AppShell ne le
+ * 2026-11-06) : la vente ouverte, l'option se prend en ligne et n'est ni prise ni payée (`a_prendre`, l'état des cartes
+ * « Qui paie vos messages à Meta ? »), donc pour un Pro dès le début de son essai ou un Business confirmé (la règle de la
+ * prise du serveur, lot 3v V1). Sur toutes les pages, pour un administrateur d'un Pro ou d'un Business (l'AppShell ne le
  * monte que pour eux, ce qui épargne la lecture aux autres) ; l'e-mail du même moment va aux mêmes. Masqué d'un clic. Une
  * API sans la route, ou une lecture qui échoue : aucun bandeau.
  */

@@ -4653,9 +4653,12 @@ qu'à un espace dont un numéro est payé ainsi, jamais en Free.
   le solde ne couvre pas son premier message.
 - ✅ **Connecter sans carte chez Meta** (2026-11-09, fermé tant que notre équipe ne l'a pas ouvert) : un espace qui a
   droit au Crédit WhatsApp (l'option payée en formule Pro ou Business, ou une Entreprise) et n'a encore aucun numéro voit,
-  sur la carte « Crédit WhatsApp » de Connecter WhatsApp, « Connecter sans carte chez Meta » : la fenêtre de Meta connecte
-  son numéro sans lui demander de payer Meta. La carte dit ensuite que sa ligne s'ouvre sous 24 h ouvrées, le temps que
-  notre équipe la pose. Un numéro déjà connecté avec la carte du client passe sur le Crédit WhatsApp par notre équipe.
+  sur la carte « Crédit WhatsApp » de Connecter WhatsApp, « Votre numéro, ou le nôtre ? » (2026-11-10). « Le mien » dit
+  d'abord qu'un numéro qui sert dans l'application WhatsApp n'y marchera plus (vos clients vous écriront dans Messaging
+  Me), puis « Connecter sans carte chez Meta » ; « Le vôtre » donne un numéro de chez nous, inclus en formule Pro, que la
+  même fenêtre relie. La fenêtre de Meta connecte le numéro sans lui demander de payer Meta. La carte dit ensuite que sa
+  ligne s'ouvre sous 24 h ouvrées, le temps que notre équipe la pose. Un numéro déjà connecté avec la carte du client
+  passe sur le Crédit WhatsApp par notre équipe.
 - ⛔ À venir : l'option à souscrire (30 € HT par numéro et par mois), la recharge automatique et celle avant une
   campagne, le prix dans le récapitulatif d'une campagne, les écrans de coût lus dans nos débits, la fiche d'aide publique.
 
@@ -5748,7 +5751,8 @@ Les envois WhatsApp ne sont pas concernés : leur débit se règle campagne par 
 
 - 🚧 **L'option Crédit WhatsApp, 30 € HT par numéro et par mois** (lot 4a du plan `2026-11-03-credit-whatsapp-lot-4.md`) :
   prête, serveur et écrans, pas encore en vente ; elle ne se montre qu'une fois son prix posé chez Stripe, et sa fiche
-  d'aide arrive avec l'ouverture. Un client Pro ou Business la prendra dans l'onglet Crédit WhatsApp, qui paraît alors
+  d'aide arrive avec l'ouverture. Un client Pro, dès le début de son essai, ou Business confirmé la prendra dans l'onglet
+  Crédit WhatsApp (un Business en essai ou un Pro en retard de paiement y lit pourquoi elle attend), qui paraît alors
   même sans numéro sur le Crédit WhatsApp : il choisit de 1 à 20 numéros, voit le prix du mois, et paie tout de suite sur
   la page de Stripe (sans essai ni code promo). L'option prise, l'onglet dit les numéros payés et ceux sur le Crédit
   WhatsApp, ajoute ou retire un numéro à la fois, le prix dit avant toute facture, et renvoie au portail de Stripe pour la

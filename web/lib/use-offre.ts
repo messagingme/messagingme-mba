@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { lireOffre, lireTarifPro, type TarifPro } from './api/offre';
-import { useLocale, useT } from './i18n';
-import { OFFRE_REFUSEE_EVENT, phraseFormulePro, type FonctionOffre, type VueOffre } from './offre';
+import { lireOffre } from './api/offre';
+import { OFFRE_REFUSEE_EVENT, type FonctionOffre, type VueOffre } from './offre';
 
 /**
  * L'OFFRE DE L'ESPACE, LUE UNE FOIS PAR MINUTE AU PLUS (lot 6). La coquille se remonte à chaque page : sans mémoire,
@@ -73,26 +72,4 @@ export function useOffre(tenantId: string | null): VueOffre | null | undefined {
     };
   }, [tenantId]);
   return vue;
-}
-
-/**
- * LA FORMULE PRO ET SON PRIX POUR « DÉMARRER LA FORMULE PRO MAINTENANT » (`DemarrerPro`), dits par l'onglet Crédit
- * WhatsApp et par la carte « Crédit WhatsApp » (`QuiRegleMeta`) : le tarif de l'abonné, lu chez Stripe seulement quand
- * `actif` (un administrateur pendant l'essai : la route le refuse à un membre, jaune 14 de la relecture du lot A5), la
- * grille tant qu'il n'est pas lu. `null` sans abonnement Pro.
- */
-export function useFormuleProADemarrer(tenantId: string, vue: VueOffre | null | undefined, actif: boolean): string | null {
-  const t = useT();
-  const { locale } = useLocale();
-  const [tarif, setTarif] = useState<TarifPro | null>(null);
-  useEffect(() => {
-    if (!actif) return undefined;
-    let vivant = true;
-    lireTarifPro(tenantId).then((r) => { if (vivant) setTarif(r); }).catch(() => undefined);
-    return () => { vivant = false; };
-  }, [tenantId, actif]);
-  const a = vue?.abonnement ?? null;
-  if (a === null) return null;
-  const grille = vue?.prixPro ? (a.periodicite === 'an' ? vue.prixPro.anCentimes : vue.prixPro.moisCentimes) : null;
-  return phraseFormulePro(a.periodicite, tarif?.proHtCentimes ?? grille, (fr, en) => t(fr, en), locale);
 }

@@ -118,6 +118,45 @@ export const QUESTION_PAIEMENT = {
   },
 } as const;
 
+/**
+ * « VOTRE NUMÉRO, OU LE NÔTRE ? » (Julien, 2026-11-10, lot 3v) : l'option du Crédit WhatsApp payée, le numéro passe par
+ * la fenêtre du partenaire, le nôtre (le numéro fourni) comme le sien. Le sien, s'il sert déjà dans l'application
+ * WhatsApp du téléphone, reçoit AVANT la fenêtre la phrase validée (`application`, précédée d'`ISSUE_API.garder`).
+ * 🔴 Jamais « quitter l'application » : personne ne le comprend.
+ */
+export const QUESTION_LIGNE_NUMERO = {
+  texte: { fr: 'Votre numéro, ou le nôtre ?', en: 'Your number, or ours?' },
+  mien: { fr: 'Le mien', en: 'Mine' },
+  notre: { fr: 'Le vôtre', en: 'Yours' },
+  // Le titre de la carte chez Meta s'y cite tel quel : il se lit dans `QUESTION_PAIEMENT`, jamais recopié (jaune 5 de la
+  // relecture du lot 3v).
+  application: {
+    fr: `Avec le Crédit WhatsApp, il n’y marchera plus : vos clients vous écriront dans Messaging Me, et vous leur répondrez là (la console ou Claude). Pour garder l’application : « ${QUESTION_PAIEMENT.carte.titre.fr} », ou un numéro de chez nous.`,
+    en: `With WhatsApp credit, it will no longer work there: your customers will write to you in Messaging Me, and you will reply there (the console or Claude). To keep the app: “${QUESTION_PAIEMENT.carte.titre.en}”, or a number from us.`,
+  },
+} as const satisfies Record<string, Texte>;
+
+/**
+ * Avant la fenêtre du partenaire (« Le vôtre », lot 3v) : les conditions chez Meta de `PREREQUIS_META`, sans la carte que
+ * la ligne remplace (jaune 4 de la relecture du lot 3v). La console seule les dit ; Claude n'a pas encore ce parcours.
+ */
+export const PREREQUIS_LIGNE: ReadonlyArray<Texte> = [
+  {
+    fr: 'Un compte Meta Business, c’est-à-dire un portefeuille d’entreprise (l’ancien Business Manager) : c’est lui qui '
+      + 'portera votre compte WhatsApp et votre numéro, sans carte chez Meta. Vous y entrez avec votre profil Facebook, ou '
+      + 'avec un compte Meta géré par votre organisation.',
+    en: 'A Meta Business account, that is a business portfolio (formerly Business Manager): it will hold your WhatsApp '
+      + 'account and your number, with no card at Meta. You sign in with your Facebook profile, or with a managed Meta '
+      + 'account from your organization.',
+  },
+  {
+    fr: 'Pas encore de portefeuille ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre '
+      + 'profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site).',
+    en: 'No portfolio yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook profile '
+      + '(your business name, an email address, the country and the website).',
+  },
+];
+
 /** Les voies qui gardent l'application WhatsApp Business : le Crédit WhatsApp n'y est pas possible (spec, décision 8). */
 export const NOTE_CARTE_APPLICATION: Texte = {
   fr: 'Vous payez Meta avec votre carte : le Crédit WhatsApp n’est pas possible avec l’application.',

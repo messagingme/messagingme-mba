@@ -328,24 +328,24 @@ export function phraseFormulePro(
 }
 
 /**
- * POURQUOI L'OPTION CRÉDIT WHATSAPP ATTEND (révision du 2026-11-04) : la formule de l'espace n'est pas encore payée, hors de
- * l'essai du Pro, qui propose de la démarrer maintenant. L'onglet Crédit WhatsApp et la carte « Crédit WhatsApp »
- * (`QuiRegleMeta`) le disent avec les mêmes mots. Un Pro en retard de paiement : « le dernier paiement », vrai à la
- * première échéance comme à un renouvellement (jaune 7 de la relecture du lot A5).
+ * POURQUOI L'OPTION CRÉDIT WHATSAPP ATTEND (lot 3v, la règle de la prise du 2026-11-10) : un Pro actif la prend dès le
+ * début de son essai, fin programmée ou non ; elle n'attend plus qu'un Business en essai et un Pro en retard de paiement.
+ * Leurs mots sont ceux des refus du serveur (`OPTION_APRES_ESSAI`, `OPTION_FORMULE_EN_RETARD`,
+ * `src/stripe/option-credit-whatsapp.ts`), et l'onglet Crédit WhatsApp et la carte « Crédit WhatsApp » (`QuiRegleMeta`)
+ * les disent pareil. Le retard ne parle ni du premier paiement ni de l'essai : il vaut à une échéance comme à un
+ * renouvellement (jaune 7 de la relecture du lot A5).
  */
 export function raisonAttenteOption(
   offre: NomOffre | undefined, statut: StatutAbonnementPro | undefined, t: (fr: string, en: string) => string,
 ): string {
-  if (offre === 'business') return t('Il s’ouvre dès que votre formule Business est confirmée, à la fin de son essai.', 'It opens as soon as your Business plan is confirmed, at the end of its trial.');
-  if (statut === 'resiliation_programmee') {
-    return t('Votre formule Pro est programmée pour s’arrêter : annulez la résiliation dans l’onglet Offre pour pouvoir la démarrer maintenant.',
-      'Your Pro plan is set to stop: cancel the cancellation in the Plan tab to be able to start it now.');
+  if (offre === 'business') return t('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.', 'The WhatsApp credit option opens once your Business plan is confirmed.');
+  // Un Pro qui attend est en retard, quel que soit le statut que la vue de l'offre, gardée une minute, dit encore
+  // (jaune 3 de la relecture du lot 3v) : un Pro actif, essai compris, prend l'option.
+  if (offre === 'pro' || statut === 'en_retard') {
+    return t('Le paiement de votre formule Pro est en retard : réglez-le, puis prenez l’option. Mettez à jour votre carte dans l’onglet Offre.',
+      'Your Pro plan payment is overdue: settle it, then take the option. Update your card in the Plan tab.');
   }
-  if (statut === 'en_retard') {
-    return t('Le dernier paiement de votre formule Pro n’est pas passé : il s’ouvre une fois la formule réglée. Mettez à jour votre carte dans l’onglet Offre.',
-      'The last payment of your Pro plan did not go through: it opens once the plan is paid. Update your card in the Plan tab.');
-  }
-  return t('Il s’ouvre avec le premier paiement de votre formule.', 'It opens with the first payment of your plan.');
+  return t('L’option s’ouvre avec le premier paiement de votre formule.', 'The option opens with the first payment of your plan.');
 }
 
 /** Le nom de l'offre, tel que l'écran le montre. */

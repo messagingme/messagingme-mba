@@ -14,7 +14,7 @@ import {
 import { portailPro } from '@/lib/api/offre';
 import { raisonAttenteOption } from '@/lib/offre';
 import { AVERTISSEMENT_APPLICATION } from '@/lib/questions-numero';
-import { relireOffre, useFormuleProADemarrer, useOffre } from '@/lib/use-offre';
+import { useOffre } from '@/lib/use-offre';
 import { SEUIL_CREDIT_WHATSAPP_BAS_MICRO_EUR, SOLDE_REPRISE_CREDIT_MICRO_EUR } from '@/lib/partage/credit-whatsapp';
 import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { erreurDeChargement } from '@/lib/http';
@@ -29,7 +29,6 @@ import { Squelette } from '@/components/Squelette';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import { MbaNotice } from '@/components/MbaNotice';
 import { CourbeCredit } from '@/components/CourbeCredit';
-import { DemarrerPro } from '@/components/DemarrerPro';
 
 /**
  * LE CRÉDIT WHATSAPP DE L'ESPACE (plan du Crédit WhatsApp, tâche 11) : troisième onglet de Paramètres > Offre, ouvert à
@@ -463,25 +462,15 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   const prixMois = (n: number): string => fmtNum((option.prixHtCentimes * n) / 100, locale);
   const s = (n: number): string => (n > 1 ? 's' : '');
 
-  // 🔴 L'OPTION ATTEND UNE FORMULE PAYÉE (révision du 2026-11-04) : la règle du serveur (`formulePayee`), lue telle quelle,
-  // jamais recalculée ici. Pendant l'essai, l'onglet explique au lieu de vendre, et propose à un Pro de démarrer sa formule
-  // maintenant, puis enchaîne sur le paiement de l'option. Le statut de l'abonnement ne sert qu'à choisir les mots.
-  const attend = !prise && option.disponible && !option.formulePayee;
+  // 🔴 L'OPTION SE PREND SELON LA RÈGLE DU SERVEUR (`prisePossible`, lot 3v V1), lue telle quelle, jamais recalculée ici :
+  // un Pro la prend dès le début de son essai. Elle n'attend plus qu'un Business en essai et un Pro en retard de paiement,
+  // et l'onglet explique alors au lieu de vendre. Le statut de l'abonnement ne sert qu'à choisir les mots.
+  const attend = !prise && option.disponible && !option.prisePossible;
   const vueOffre = useOffre(tenantId);
   const abonnement = vueOffre?.abonnement ?? null;
-  const essaiPro = attend && vueOffre?.offre === 'pro' && abonnement?.statut === 'essai';
-  // Le tarif réel de l'abonné (un code promo le baisse) pour la confirmation, lu pour un administrateur seulement (jaune 14
-  // de la relecture du lot A5) ; la grille sert tant qu'il n'est pas lu. La carte « Crédit WhatsApp » dit la même chose.
-  const formulePro = useFormuleProADemarrer(tenantId, vueOffre, essaiPro && admin);
-  const [demarrageEnAttente, setDemarrageEnAttente] = useState(false);
-  /**
-   * Démarrée et payée : la formule s'écrit chez nous en quelques secondes. « Démarrer » ne revient pas entre-temps, même
-   * si la prise de l'option est refusée tant qu'elle n'est pas écrite (jaune 11 de la relecture du lot A5).
-   */
-  const [demarree, setDemarree] = useState(false);
   const raisonAttente = raisonAttenteOption(vueOffre?.offre, abonnement?.statut, t);
 
-  /** Le nombre de numéros de l'option : avant de la prendre, ou avant de démarrer la formule Pro qui y mène. */
+  /** Le nombre de numéros de l'option, avant de la prendre. */
   const choixPlaces = (
     <label className="grid gap-1">
       <span className="text-xs font-medium text-ink-500">{t('Nombre de numéros', 'How many numbers')}</span>
@@ -496,16 +485,6 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
     </label>
   );
 
-  /** Après le démarrage de la formule Pro : un paiement fait enchaîne sur l'option ; sinon l'offre et l'onglet sont relus. */
-  async function apresDemarrage(paye: boolean): Promise<void> {
-    if (paye) {
-      setDemarree(true);
-      await prendre();
-    } else setDemarrageEnAttente(true);
-    // Encore ici (un paiement en cours, ou une prise refusée) : l'écran suit l'offre et l'onglet relus.
-    await relireOffre(tenantId).catch(() => undefined);
-    await relire().catch(() => undefined);
-  }
   // Une ligne couvre tout le compte WhatsApp : au-delà des places, un numéro du compte n'envoie pas.
   const enService = Math.min(option.couverts, option.places);
   const enTrop = Math.max(0, option.couverts - option.places);
@@ -597,8 +576,8 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
           {t('L’option n’est pas encore disponible en ligne. Contactez-nous depuis le Support.', 'The option isn’t available online yet. Contact us from Support.')}
         </p>
       )}
-      {/* Pendant un essai (moment 1 de la révision du 2026-11-04) : qui facture quoi, et quand l'option s'ouvre. Jamais
-          « Prendre l'option » : la prise la refuserait. */}
+      {/* Un Business en essai, un Pro en retard de paiement : qui facture quoi, et quand l'option s'ouvre. Jamais « Prendre
+          l'option » : la prise la refuserait. */}
       {!prise && !enAttenteDuRetour && attend && (
         <div className="mt-3 space-y-3" data-testid="credit-wa-option-essai">
           <p className="text-sm text-ink-700">
@@ -608,47 +587,7 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
             {abonnement?.statut !== 'en_retard' && ` ${t('Pendant l’essai, vous connectez votre numéro avec votre carte chez Meta, qui vous facture vos modèles.',
               'During the trial, you connect your number with your card at Meta, which bills your templates.')}`}
           </p>
-          {essaiPro && demarree ? (
-            <p className="text-sm text-ink-700" data-testid="credit-wa-option-demarree">
-              {t('Votre formule Pro démarre : l’option s’ouvre dans quelques secondes. Rechargez la page si elle tarde.',
-                'Your Pro plan is starting: the option opens in a few seconds. Reload the page if it takes a while.')}
-            </p>
-          ) : essaiPro ? (
-            <>
-              <p className="text-sm text-ink-700">
-                {t('Il s’ouvre à la fin de l’essai, ou tout de suite si vous démarrez votre formule Pro maintenant.',
-                  'It opens at the end of the trial, or right away if you start your Pro plan now.')}
-              </p>
-              {admin ? (
-                <div className="flex flex-wrap items-end gap-3">
-                  {choixPlaces}
-                  <DemarrerPro
-                    tenantId={tenantId}
-                    formule={formulePro}
-                    suite={t(`Ensuite, vous réglez l’option Crédit WhatsApp pour ${voulues} numéro${s(voulues)}, ${prixMois(voulues)} € HT par mois, sur la page de paiement de Stripe.`,
-                      `Then you pay for the WhatsApp credit option for ${voulues} number${s(voulues)}, €${prixMois(voulues)} excl. VAT per month, on Stripe’s payment page.`)}
-                    onDemarre={apresDemarrage}
-                    testid="credit-wa-option-demarrer"
-                  />
-                </div>
-              ) : (
-                <p className="text-sm text-ink-500" data-testid="credit-wa-option-non-admin">
-                  {t('Un administrateur de votre espace peut démarrer la formule Pro maintenant.', 'An administrator of your workspace can start the Pro plan now.')}
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-ink-700" data-testid="credit-wa-option-attente">{raisonAttente}</p>
-          )}
-        </div>
-      )}
-      {/* Hors du bloc de l'essai : la relecture qui suit le démarrage le fait disparaître. */}
-      {demarrageEnAttente && (
-        <div className="mt-3">
-          <MbaNotice kind="warning" testid="credit-wa-option-demarrage-attente">
-            {t('Votre essai est arrêté et le premier paiement de votre formule Pro est en cours chez votre banque, qui le confirme sous quelques jours.',
-              'Your trial is over and the first payment of your Pro plan is being processed by your bank, which confirms it within a few days.')}
-          </MbaNotice>
+          <p className="text-sm text-ink-700" data-testid="credit-wa-option-attente">{raisonAttente}</p>
         </div>
       )}
       {/* Tous les numéros gardent l'application : ils restent sur la carte chez Meta (décision 8), dit avant de payer. */}
