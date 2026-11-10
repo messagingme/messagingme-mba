@@ -254,3 +254,32 @@ Un relecteur indépendant, sur le diff de `66e5b8e1` : **aucun rouge, six jaunes
   marque rend ce qu'elle a écrit, un numéro parti avant la relecture dit « aucun », et « hors liste » ne choisit plus la
   cause (4) ; les JSDoc de l'alerte (5) ; l'ordre de déploiement de V6 et V7 (6). Reste une décision à Julien : les deux
   cas bloquants en coexistence (ligne arrêtée, ligne d'un autre espace) méritent-ils une place dans la liste ?
+
+## La relecture du lot V7 (2026-11-10)
+
+Un relecteur indépendant, sur le diff de `99926008` : **aucun rouge, cinq jaunes**. Le lot part tel quel ; ses jaunes
+vont à V8.
+
+1. **`enListe` suit la décision de marquer, pas son résultat** : une marque en panne, absente, ou rejouée sur un premier
+   moment déjà éteint laisse l'alerte de connexion promettre la liste de /ops. Le fond est d'avant, mais la JSDoc neuve
+   dit plus que le code : lire le résultat de `marquerSansLever` (et le dire), ou corriger la JSDoc ; un test qui fait
+   lever `marquer`.
+2. **En coexistence, les gestes de « ligne arrêtée », « autre espace » et « déjà couvert » ne se font qu'à moitié** :
+   « retirer et poser », puis « la pose de /ops le refusera » ; retirer seul ouvrirait des envois payés par le partenaire
+   sans provision. Chemin improbable (la fenêtre ne s'ouvre pas en coexistence). Un texte propre à ces trois cas en
+   coexistence (ne rien retirer, ne rien poser, ne rien demander au partenaire sans décision), avec la décision laissée à
+   Julien sur leur place dans la liste.
+3. **La carte de `/ops` : « un compte déjà couvert garde sa ligne, qui couvre bien son numéro » ne vaut que l'attache
+   vérifiée** : sur un compte couvert dont le partenaire n'attache pas, « Ne pas poser » seul garde notre ligne, et le
+   client paierait deux fois (sa carte chez Meta et notre provision) ou Meta refuserait ses envois. Écrire « l'attache
+   vérifiée », et « sans attache, retirer d'abord la nôtre (Ne pas poser ne la retire pas) ».
+4. **L'asymétrie du rejet d'une annonce n'est tenue par aucun test** : un numéro valide avec un compte mal formé doit
+   rester retrouvé et marqué.
+5. **Des commentaires derrière le code** : celui de `deja_couvert` (faux en coexistence), la JSDoc de
+   `fenetreRefuseeParLaLigne` (l'annonce rejetée, le repli sur l'espace), celle de `marquerSansLever` (`absente` ne se
+   journalise pas : un `warn` aiderait), un titre de test (« délai dépassé, panne réseau »).
+
+### V8. Les jaunes de la relecture de V7
+
+- [ ] Les cinq (§ « La relecture du lot V7 »), le 3 d'abord : la carte de `/ops` ne doit pas laisser croire que
+  « Ne pas poser » suffit sur un compte couvert sans attache.
