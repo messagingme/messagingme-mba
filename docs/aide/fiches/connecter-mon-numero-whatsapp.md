@@ -4,7 +4,7 @@ ecran: accueil
 source_section: Accueil (1re entrée du menu)
 source_empreinte: ec64a9
 publique: oui
-rubrique: demarrer
+rubrique: demarrer-console
 rang: 3
 offre: non
 comment_faire: oui

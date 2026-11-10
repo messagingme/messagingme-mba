@@ -3,8 +3,8 @@ description: Garder votre application WhatsApp Business et relier le même numé
 source_section: Garder son application WhatsApp Business (2026-10-25)
 source_empreinte: 7ccb5a
 publique: oui
-rubrique: demarrer
-rang: 4
+rubrique: demarrer-claude, demarrer-console
+rang: 5, 5
 offre: non
 claude_code: oui
 bouton_claude: Garder mon application depuis Claude Code, gratuitement

@@ -3,8 +3,8 @@ description: Console, Inbox et Performance Lab : les trois onglets de la console
 source_section: Navigation (trois onglets en haut, barre latérale par onglet)
 source_empreinte: 0f4a65
 publique: oui
-rubrique: demarrer
-rang: 5
+rubrique: demarrer-console
+rang: 6
 video: oui
 ---
 # Me repérer dans la console

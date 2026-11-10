@@ -8,6 +8,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { champDeFiche, lireFicheDuDepot, publicationDe, RUBRIQUES, type PublicationFiche, type Rubrique } from '../../src/aide/fiches';
 import { PAGES_CLAUDE } from './aide-claude-textes';
+import { DEPANNAGE } from './depannage-textes';
+import { TEXTES_TUNNEL } from './tunnel-textes';
 
 export type Langue = 'fr' | 'en';
 
@@ -16,11 +18,36 @@ const DOSSIER = fileURLToPath(new URL('../../docs/aide/fiches/', import.meta.url
 /** L'accueil du centre d'aide, par langue. */
 export const ACCUEIL_AIDE: Readonly<Record<Langue, string>> = { fr: '/aide/', en: '/en/help/' };
 
+/**
+ * LE GUIDE DU NUMÉRO (lot 4a de l'aide à la connexion) : le tunnel de `/demarrer/` à partir de « Qui paie vos messages
+ * à Meta ? », sur le gabarit du centre (`aide.ts`). Il paraît dans les deux rubriques « Démarrer », au rang que la spec
+ * lui donne ; ses textes et son adresse vivent avec ceux de l'arbre (`tunnel-textes.ts`, `guide`).
+ */
+export const GUIDE_NUMERO: Readonly<Record<Langue, string>> = { fr: TEXTES_TUNNEL.fr.guide.adresse, en: TEXTES_TUNNEL.en.guide.adresse };
+export const PLACES_GUIDE: ReadonlyArray<{ rubrique: Rubrique; rang: number }> = [
+  { rubrique: 'demarrer-claude', rang: 4 }, { rubrique: 'demarrer-console', rang: 4 },
+];
+
+/** Le dépannage (lot 4a) : en dernier de chaque rubrique « Démarrer », comme la spec le range. */
+export const PLACES_DEPANNAGE: ReadonlyArray<{ rubrique: Rubrique; rang: number }> = [
+  { rubrique: 'demarrer-claude', rang: 8 }, { rubrique: 'demarrer-console', rang: 10 },
+];
+
 /** Le nom de chaque rubrique, dans l'ordre du menu (`RUBRIQUES`). */
 export const NOMS_RUBRIQUES: Readonly<Record<Rubrique, Readonly<Record<Langue, string>>>> = {
-  demarrer: { fr: 'Démarrer', en: 'Get started' },
+  'demarrer-claude': { fr: 'Démarrer avec Claude Code ou Codex', en: 'Get started with Claude Code or Codex' },
+  'demarrer-console': { fr: 'Démarrer avec la console', en: 'Get started with the console' },
   'parler-aux-clients': { fr: 'Parler aux clients', en: 'Talk to customers' },
 };
+
+/**
+ * Les pages d'une rubrique, dans l'ordre de leur rang DANS cette rubrique : une fiche placée dans deux rubriques
+ * (`places`, lot 4a) paraît dans les deux, chacune à son rang.
+ */
+export function pagesDeLaRubrique<P extends { publication: PublicationFiche }>(pages: readonly P[], r: Rubrique): P[] {
+  const rang = (p: P): number => p.publication.places.find((x) => x.rubrique === r)?.rang ?? 0;
+  return pages.filter((p) => p.publication.places.some((x) => x.rubrique === r)).sort((a, b) => rang(a) - rang(b));
+}
 
 export interface VersionPage {
   adresse: string;
@@ -92,6 +119,8 @@ export function pagesDuCentre(dossier: string = DOSSIER): PageAide[] {
 export function jumellesAide(): Record<string, string> {
   return Object.fromEntries([
     [ACCUEIL_AIDE.fr, ACCUEIL_AIDE.en],
+    [GUIDE_NUMERO.fr, GUIDE_NUMERO.en],
+    [DEPANNAGE.adresse.fr, DEPANNAGE.adresse.en],
     ...pagesDuCentre().map((p) => [p.fr.adresse, p.en.adresse]),
     ...PAGES_CLAUDE.map((p) => [p.adresse.fr, p.adresse.en]),
   ]);

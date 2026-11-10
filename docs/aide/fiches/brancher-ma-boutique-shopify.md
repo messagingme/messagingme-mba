@@ -4,8 +4,8 @@ ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
 source_empreinte: bbb9b5
 publique: oui
-rubrique: parler-aux-clients
-rang: 6
+rubrique: parler-aux-clients, demarrer-console
+rang: 6, 8
 prerequis: connecter-mon-numero-whatsapp
 claude_code: oui
 bouton_claude: Brancher Shopify depuis Claude Code, gratuitement

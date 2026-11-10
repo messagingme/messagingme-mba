@@ -146,8 +146,11 @@ export function decouperFiche(f: FicheFichier): FicheFichier[] {
   return textes.map((corps, i) => ({ ...f, cle: `${f.cle}#${i + 1}`, corps }));
 }
 
-/** Les rubriques du centre d'aide public, dans l'ordre du menu. */
-export const RUBRIQUES = ['demarrer', 'parler-aux-clients'] as const;
+/**
+ * Les rubriques du centre d'aide public, dans l'ordre du menu. « Démarrer » s'est coupée en deux (lot 4a de l'aide à la
+ * connexion, spec `2026-11-08-aide-connexion-numero-design.md`) : depuis Claude Code ou Codex, et depuis la console.
+ */
+export const RUBRIQUES = ['demarrer-claude', 'demarrer-console', 'parler-aux-clients'] as const;
 export type Rubrique = (typeof RUBRIQUES)[number];
 
 /**
@@ -155,9 +158,15 @@ export type Rubrique = (typeof RUBRIQUES)[number];
  * d'aide, tâche 3). Le bot n'en lit rien : ces champs ne servent qu'aux pages et au lien « Comment faire ».
  */
 export interface PublicationFiche {
+  /** Sa rubrique principale : celle du fil d'Ariane, et de l'ordre des pages. */
   rubrique: Rubrique;
-  /** Sa place dans la rubrique, à partir de 1. */
+  /** Sa place dans la rubrique principale, à partir de 1. */
   rang: number;
+  /**
+   * Toutes ses places, la principale en tête : une fiche peut paraître dans deux rubriques (lot 4a), écrit
+   * `rubrique: demarrer-claude, demarrer-console` et `rang: 3, 2`, un rang par rubrique, dans le même ordre.
+   */
+  places: ReadonlyArray<{ rubrique: Rubrique; rang: number }>;
   /** La page « Comment faire » de son écran (`ecran`), dans la console. */
   commentFaire: boolean;
   /** Ses étapes ont une capture de la console ; `captures: non` pour des étapes qui se passent ailleurs. */
@@ -204,17 +213,30 @@ export function publicationDe(texte: string): PublicationFiche | null {
     if (v !== 'oui' && v !== 'non') throw new Error(`${nom}: « ${v} », attendu oui ou non`);
     return v === 'oui';
   };
-  const rubrique = champDeFiche(texte, 'rubrique');
-  if (!RUBRIQUES.includes(rubrique as Rubrique)) throw new Error(`rubrique: « ${rubrique} », attendu ${RUBRIQUES.join(' ou ')}`);
+  // Une rubrique, ou deux séparées d'une virgule, chacune avec son rang au même rang de la liste `rang`.
+  const liste = (nom: string): string[] => (champDeFiche(texte, nom) ?? '').split(',').map((x) => x.trim());
+  const rubriques = liste('rubrique');
+  const rangs = liste('rang');
+  for (const r of rubriques) {
+    if (!RUBRIQUES.includes(r as Rubrique)) throw new Error(`rubrique: « ${r} », attendu ${RUBRIQUES.join(' ou ')}`);
+  }
+  if (new Set(rubriques).size !== rubriques.length) throw new Error(`rubrique: « ${champDeFiche(texte, 'rubrique')} », une rubrique en double`);
+  if (rangs.length !== rubriques.length) throw new Error(`rang: « ${champDeFiche(texte, 'rang')} », attendu un rang par rubrique`);
+  const places = rubriques.map((r, i) => {
+    const rang = Number(rangs[i]);
+    if (!/^\d+$/.test(rangs[i] ?? '') || !Number.isInteger(rang) || rang < 1) {
+      throw new Error(`rang: « ${champDeFiche(texte, 'rang')} », attendu un entier dès 1`);
+    }
+    return { rubrique: r as Rubrique, rang };
+  });
   const offre = champDeFiche(texte, 'offre');
   if (offre !== null && offre !== 'non' && !(OFFRES_FICHE as readonly string[]).includes(offre)) {
     throw new Error(`offre: « ${offre} », attendu ${OFFRES_FICHE.join(', ')} ou non`);
   }
-  const rang = Number(champDeFiche(texte, 'rang'));
-  if (!Number.isInteger(rang) || rang < 1) throw new Error(`rang: « ${champDeFiche(texte, 'rang')} », attendu un entier dès 1`);
   return {
-    rubrique: rubrique as Rubrique,
-    rang,
+    rubrique: places[0]!.rubrique,
+    rang: places[0]!.rang,
+    places,
     commentFaire: oui('comment_faire', false),
     captures: oui('captures', true),
     video: oui('video', false),

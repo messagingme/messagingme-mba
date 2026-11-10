@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { GUIDE_NUMERO } from '../scripts/vitrine/aide-pages';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PRIX_NUMERO_HT_CENTIMES } from '../src/stripe/abonnement';
@@ -55,7 +56,10 @@ describe('le tunnel du numéro WhatsApp', () => {
   it('est posé, une seule fois, sur chaque page qui le porte, et nulle part ailleurs', () => {
     for (const p of PAGES) expect(lire(fichierDe(p.adresse)).split('data-guide-numero').length - 1, p.adresse).toBe(1);
     const avec = pagesHtml().filter((x) => lire(x).includes('data-guide-numero')).sort();
-    expect(avec).toEqual(PAGES.map((p) => fichierDe(p.adresse)).sort());
+    // Le guide du centre d'aide (lot 4a) le porte aussi, à partir de « Qui paie vos messages à Meta ? », dans ses deux langues.
+    const guide = (['fr', 'en'] as const).map((l) => fichierDe(GUIDE_NUMERO[l]));
+    for (const g of guide) expect(lire(g).split('data-guide-numero').length - 1, g).toBe(1);
+    expect(avec).toEqual([...PAGES.map((p) => fichierDe(p.adresse)), ...guide].sort());
   });
 
   it('est un arbre : chaque réponse mène quelque part, tout se rejoint, rien ne boucle, et les deux langues ont le même', () => {

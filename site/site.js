@@ -298,6 +298,29 @@
   });
 })();
 
+// Le dépannage du numéro (lot 4a de l'aide à la connexion) : « Claude Code ou Codex, ou la console ? » ne laisse que les
+// symptômes du lieu choisi (`data-ou-pour`, la règle de `site.css`), « Tout voir » les rend tous, et le compte s'annonce.
+// Sans script, le filtre reste caché et la liste entière se lit.
+(function () {
+  [].slice.call(document.querySelectorAll('[data-depannage]')).forEach(function (d) {
+    var filtre = d.querySelector('[data-filtre]');
+    if (!filtre) return;
+    filtre.hidden = false;
+    var choix = [].slice.call(filtre.querySelectorAll('[data-ou-choix]'));
+    var compte = filtre.querySelector('[data-compte]');
+    var symptomes = [].slice.call(d.querySelectorAll('[data-ou-pour]'));
+    choix.forEach(function (b) {
+      b.addEventListener('click', function () {
+        var ou = b.getAttribute('data-ou-choix');
+        if (ou) d.setAttribute('data-ou', ou); else d.removeAttribute('data-ou');
+        choix.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+        var n = symptomes.filter(function (s) { return !ou || (' ' + s.getAttribute('data-ou-pour') + ' ').indexOf(' ' + ou + ' ') >= 0; }).length;
+        if (compte) compte.textContent = compte.getAttribute('data-compte').replace('{n}', n).replace('{total}', symptomes.length);
+      });
+    });
+  });
+})();
+
 // Le tunnel du numéro WhatsApp (la page « Démarrer », Boutiques Shopify, SaaS) : l'arbre de Julien (2026-10-30). Sans script,
 // les questions restent cachées et toutes les issues se lisent en liste, chacune avec la situation qu'elle sert et les
 // boutons de chaque offre. Avec lui, la question en cours s'affiche en grand sous l'étape et sa jauge ; chaque réponse

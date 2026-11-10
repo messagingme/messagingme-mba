@@ -181,11 +181,12 @@ describe('les fiches publiques', () => {
    * Business » (demandé par Julien le 2026-10-25), juste après la connexion du numéro.
    */
   const VAGUE: Record<string, [Rubrique, number]> = {
-    'choisir-mon-offre': ['demarrer', 1],
-    'ce-qu-il-faut-chez-meta': ['demarrer', 2],
-    'connecter-mon-numero-whatsapp': ['demarrer', 3],
-    'garder-mon-application-whatsapp-business': ['demarrer', 4],
-    'me-reperer-dans-la-console': ['demarrer', 5],
+    // « Démarrer » coupée en deux au lot 4a de l'aide à la connexion : la rubrique principale de chaque fiche, et son rang.
+    'choisir-mon-offre': ['demarrer-console', 1],
+    'ce-qu-il-faut-chez-meta': ['demarrer-claude', 3],
+    'connecter-mon-numero-whatsapp': ['demarrer-console', 3],
+    'garder-mon-application-whatsapp-business': ['demarrer-claude', 5],
+    'me-reperer-dans-la-console': ['demarrer-console', 6],
     'repondre-dans-l-inbox': ['parler-aux-clients', 1],
     'la-fenetre-de-24-heures': ['parler-aux-clients', 2],
     'faire-approuver-un-modele': ['parler-aux-clients', 3],
@@ -193,7 +194,7 @@ describe('les fiches publiques', () => {
     'lancer-une-campagne': ['parler-aux-clients', 5],
     'brancher-ma-boutique-shopify': ['parler-aux-clients', 6],
     // Quatre fiches choisies par Julien le 2026-10-26 (plan SEO, C6, D5), publiées sans capture.
-    'integrer-whatsapp-a-hubspot': ['demarrer', 6],
+    'integrer-whatsapp-a-hubspot': ['demarrer-console', 7],
     'poser-une-bulle-whatsapp-sur-mon-site': ['parler-aux-clients', 7],
     'publier-sur-ma-chaine-whatsapp': ['parler-aux-clients', 8],
     'envoyer-un-message-rcs': ['parler-aux-clients', 9],
@@ -261,7 +262,7 @@ describe('les fiches publiques', () => {
     // HubSpot dit le Business, comme la vitrine (décision de Julien, 2026-10-28), alors que la grille le ferme encore sous
     // `crm`, à l'Entreprise : le lot 2 scinde `crm` (spec, § HubSpot seul), et ce cas redevient alors dérivé de `DROITS`.
     expect(publiques.find((f) => f.cle === 'integrer-whatsapp-a-hubspot')?.publication.offre).toBe('business');
-    expect(() => publicationDe('---\npublique: oui\nrubrique: demarrer\nrang: 1\noffre: oui\n---\n# T')).toThrow(/offre/);
+    expect(() => publicationDe('---\npublique: oui\nrubrique: demarrer-console\nrang: 1\noffre: oui\n---\n# T')).toThrow(/offre/);
   });
 
   it('un prérequis désigne une autre fiche publique', () => {
@@ -275,14 +276,34 @@ describe('les fiches publiques', () => {
   it('publicationDe lève sur un champ mal écrit, en le nommant', () => {
     const fiche = (entete: string) => `---\npublique: oui\n${entete}\n---\n# T\n\nC.`;
     expect(() => publicationDe(fiche('rubrique: autre\nrang: 1'))).toThrow(/rubrique/);
-    expect(() => publicationDe(fiche('rubrique: demarrer\nrang: 0'))).toThrow(/rang/);
-    expect(() => publicationDe(fiche('rubrique: demarrer\nrang: 2\ncaptures: peut-etre'))).toThrow(/captures/);
+    expect(() => publicationDe(fiche('rubrique: demarrer\nrang: 1'))).toThrow(/rubrique/);
+    expect(() => publicationDe(fiche('rubrique: demarrer-console\nrang: 0'))).toThrow(/rang/);
+    expect(() => publicationDe(fiche('rubrique: demarrer-console\nrang: 2\ncaptures: peut-etre'))).toThrow(/captures/);
     expect(publicationDe('---\necran: offre\n---\n# T\n\nC.')).toBeNull();
-    expect(() => publicationDe(fiche('rubrique: demarrer\nrang: 2\nclaude_code: si'))).toThrow(/claude_code/);
-    expect(publicationDe(fiche('rubrique: demarrer\nrang: 2'))).toEqual({
-      rubrique: 'demarrer', rang: 2, commentFaire: false, captures: true, video: false, prerequis: null, offre: 'pro',
-      claudeCode: false,
+    expect(() => publicationDe(fiche('rubrique: demarrer-console\nrang: 2\nclaude_code: si'))).toThrow(/claude_code/);
+    expect(publicationDe(fiche('rubrique: demarrer-console\nrang: 2'))).toEqual({
+      rubrique: 'demarrer-console', rang: 2, places: [{ rubrique: 'demarrer-console', rang: 2 }], commentFaire: false,
+      captures: true, video: false, prerequis: null, offre: 'pro', claudeCode: false,
     });
-    expect(publicationDe(fiche('rubrique: demarrer\nrang: 2\nclaude_code: oui'))?.claudeCode).toBe(true);
+    expect(publicationDe(fiche('rubrique: demarrer-console\nrang: 2\nclaude_code: oui'))?.claudeCode).toBe(true);
+  });
+
+  it('🔴 une fiche dans deux rubriques : un rang par rubrique, dans le même ordre, la première est la principale (lot 4a)', () => {
+    const fiche = (entete: string) => `---\npublique: oui\n${entete}\n---\n# T\n\nC.`;
+    expect(publicationDe(fiche('rubrique: demarrer-claude, demarrer-console\nrang: 3, 2'))).toMatchObject({
+      rubrique: 'demarrer-claude', rang: 3,
+      places: [{ rubrique: 'demarrer-claude', rang: 3 }, { rubrique: 'demarrer-console', rang: 2 }],
+    });
+    expect(() => publicationDe(fiche('rubrique: demarrer-claude, demarrer-console\nrang: 3'))).toThrow(/un rang par rubrique/);
+    expect(() => publicationDe(fiche('rubrique: demarrer-claude, demarrer-claude\nrang: 3, 4'))).toThrow(/en double/);
+    expect(() => publicationDe(fiche('rubrique: demarrer-claude, autre\nrang: 3, 4'))).toThrow(/rubrique/);
+    expect(() => publicationDe(fiche('rubrique: demarrer-claude, demarrer-console\nrang: 3, deux'))).toThrow(/rang/);
+  });
+
+  it('🔴 les places de la vague : les fiches de « Démarrer » partagées entre Claude Code et la console (lot 4a)', () => {
+    const places = (cle: string) => publiques.find((f) => f.cle === cle)?.publication.places;
+    expect(places('ce-qu-il-faut-chez-meta')).toEqual([{ rubrique: 'demarrer-claude', rang: 3 }, { rubrique: 'demarrer-console', rang: 2 }]);
+    expect(places('garder-mon-application-whatsapp-business')).toEqual([{ rubrique: 'demarrer-claude', rang: 5 }, { rubrique: 'demarrer-console', rang: 5 }]);
+    expect(places('brancher-ma-boutique-shopify')).toEqual([{ rubrique: 'parler-aux-clients', rang: 6 }, { rubrique: 'demarrer-console', rang: 8 }]);
   });
 });

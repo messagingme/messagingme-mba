@@ -4,7 +4,7 @@ ecran: offre
 source_section: Offres (menu « Paramètres » > Offre)
 source_empreinte: d8e810
 publique: oui
-rubrique: demarrer
+rubrique: demarrer-console
 rang: 1
 comment_faire: oui
 offre: non

@@ -163,6 +163,19 @@ export interface TexteTunnel {
   };
   /** La demande à coller : son début (la page d'origine et l'offre), la phrase du numéro de l'issue, puis sa fin. */
   readonly demande: { readonly debut: Readonly<Record<Origine, Readonly<Record<OffreTunnel, string>>>>; readonly fin: Readonly<Record<Origine, string>> };
+  /**
+   * LE GUIDE DU CENTRE D'AIDE (lot 4a de l'aide à la connexion) : le même arbre, à partir de « Qui paie vos messages à
+   * Meta ? », pour qui a déjà son offre. `{n}` : le plus long parcours depuis cette question, que `tunnel.ts` calcule.
+   * Ses cinq points se lisent en tête, HORS du tunnel : c'est le seul endroit de la page qui nomme la coexistence, le mot
+   * que l'on cherche (spec, choix de Claude). Sa fin : le pas-à-pas, la console, et la phrase à dire à Claude, sans le
+   * prix (`retirer`), que Claude lit dans l'offre de l'espace.
+   */
+  readonly guide: {
+    readonly adresse: string; readonly titre: string; readonly description: string; readonly chapeau: string;
+    readonly points: { readonly titre: string; readonly liste: readonly string[] };
+    readonly fin: { readonly pasAPas: string; readonly claude: string; readonly console: string };
+    readonly demande: string; readonly retirer: string;
+  };
 }
 
 const fr = (): TexteTunnel => {
@@ -441,6 +454,25 @@ const fr = (): TexteTunnel => {
         saas: 'Puis crée la clé d’API de mon app, et mon agent IA à partir de mon site.',
       },
     },
+    guide: {
+      adresse: '/aide/guide-du-numero-whatsapp/',
+      titre: 'Connecter son numéro WhatsApp, quelle que soit votre situation : le guide en {n} questions',
+      description: 'WhatsApp Business, coexistence ou API : trouvez en {n} questions comment connecter votre numéro WhatsApp, et le pas-à-pas de votre cas.',
+      chapeau: 'Répondez aux questions, une à la fois : le guide vous mène au pas-à-pas de votre situation, à la console, et à la phrase à dire à Claude. Ce sont les questions que la page « Connecter WhatsApp » et Claude vous posent.',
+      points: {
+        titre: 'Les cinq points à vérifier',
+        liste: [
+          'Qui paie vos messages à Meta : votre carte chez Meta, ou le Crédit WhatsApp, prépayé chez Messaging Me, sur demande, avec la formule Pro ou Business.',
+          'Un compte Meta Business : avec, votre numéro se relie en numéro API ; sans, la fenêtre de Meta vous le fait créer en chemin.',
+          'L’application WhatsApp Business : vous la gardez, et Messaging Me envoie les messages automatiques à côté. Meta appelle cela la coexistence.',
+          'Un numéro : le vôtre, ou un numéro que nous vous fournissons.',
+          'Où sert votre numéro : dans WhatsApp Business, il y reste ; dans WhatsApp, l’application ordinaire, il passe d’abord dans WhatsApp Business ; nulle part, il se relie tel quel.',
+        ],
+      },
+      fin: { pasAPas: 'Le pas-à-pas', claude: 'Depuis Claude Code ou Codex, dites-lui :', console: 'Connecter mon numéro dans la console' },
+      demande: 'Connecte mon numéro WhatsApp à Messaging Me.',
+      retirer: ' (inclus en formule Pro)',
+    },
   };
 };
 
@@ -695,6 +727,25 @@ const en = (): TexteTunnel => {
         shopify: 'Send the order confirmation, the shipping notice and the checkout reminder, and create my AI agent from my website.',
         saas: 'Then create my app’s API key, and my AI agent from my website.',
       },
+    },
+    guide: {
+      adresse: '/en/help/whatsapp-number-guide/',
+      titre: 'Connect your WhatsApp number, whatever your situation: the guide in {n} questions',
+      description: 'WhatsApp Business, coexistence or API: find out in {n} questions how to connect your WhatsApp number, and the walkthrough for your case.',
+      chapeau: 'Answer the questions, one at a time: the guide leads you to the walkthrough for your situation, to the console, and to the sentence to tell Claude. They are the questions the “Connect WhatsApp” page and Claude ask you.',
+      points: {
+        titre: 'The five points to check',
+        liste: [
+          'Who pays Meta for your messages: your card at Meta, or WhatsApp credit, prepaid at Messaging Me, on request, with the Pro or Business plan.',
+          'A Meta Business account: with one, your number connects as an API number; without one, Meta’s window has you create it along the way.',
+          'The WhatsApp Business app: you keep it, and Messaging Me sends the automated messages alongside. Meta calls this coexistence.',
+          'A number: yours, or a number we provide.',
+          'Where your number is used: in WhatsApp Business, it stays there; in WhatsApp, the regular app, it first moves to WhatsApp Business; nowhere, it connects as it is.',
+        ],
+      },
+      fin: { pasAPas: 'The walkthrough', claude: 'From Claude Code or Codex, tell it:', console: 'Connect my number in the console' },
+      demande: 'Connect my WhatsApp number to Messaging Me.',
+      retirer: ' (included in Pro)',
     },
   };
 };

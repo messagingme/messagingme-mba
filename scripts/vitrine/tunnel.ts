@@ -11,7 +11,8 @@ import { dimensionsWebp, versionnee } from './images';
 import { LOGOS_ASSISTANTS } from './logos-assistants';
 import {
   lienHtml,
-  TEXTES_TUNNEL, demandeDe, type Issue, type IssueBranchement, type Lien, type Mot, type OffreTunnel, type Origine, type Question, type Reponse, type Voie,
+  TEXTES_TUNNEL, demandeDe, type Issue, type IssueBranchement, type Lien, type Mot, type OffreTunnel, type Origine, type Question, type Reponse, type TexteTunnel,
+  type Voie,
 } from './tunnel-textes';
 
 const CONSOLE = 'https://console.messagingme.app';
@@ -41,6 +42,37 @@ export const inscriptionPro = (langue: Langue): string => `${CONSOLE}/signup?off
 
 const deux = (l: readonly [string, string]) => `${l[0]} <span class="sec-accent">${l[1]}</span>`;
 
+/** La question d'où part le guide du centre d'aide (lot 4a) : « Qui paie vos messages à Meta ? », comme la console. */
+export const DEPART_GUIDE = 'paiement';
+
+/** Les questions et les issues qu'on atteint depuis une question, dans l'ordre de l'arbre : le guide en garde ce bout-là. */
+export function arbreDepuis(n: TexteTunnel, depart: string): { questions: Question[]; issues: Issue[] } {
+  const vues = new Set<string>();
+  const aVoir = [depart];
+  while (aVoir.length > 0) {
+    const id = aVoir.pop()!;
+    if (vues.has(id)) continue;
+    vues.add(id);
+    for (const r of n.questions.find((q) => q.id === id)?.reponses ?? []) if (r.vers) aVoir.push(r.vers);
+  }
+  const questions = n.questions.filter((q) => vues.has(q.id));
+  if (questions[0]?.id !== depart) throw new Error(`tunnel : le guide doit commencer par ${depart}`);
+  return { questions, issues: n.issues.filter((x) => vues.has(x.id)) };
+}
+
+/** Le titre et la description du guide, son nombre de questions calculé sur l'arbre (`{n}`). */
+export const titreGuide = (langue: Langue): { titre: string; description: string } => {
+  const n = TEXTES_TUNNEL[langue];
+  const max = String(profondeurTunnel(arbreDepuis(n, DEPART_GUIDE).questions));
+  return { titre: n.guide.titre.replace('{n}', max), description: n.guide.description.replace('{n}', max) };
+};
+
+/**
+ * La phrase à dire à Claude au bout du guide : celle du numéro de l'issue, sans son prix (Claude lit l'offre de l'espace,
+ * le guide ne la connaît pas).
+ */
+export const phraseGuide = (n: TexteTunnel, x: IssueBranchement): string => `${n.guide.demande} ${x.numero.pro.replace(n.guide.retirer, '')}`;
+
 /** Le plus long parcours de l'arbre, en questions : la jauge, « Question n sur … » et le chapeau le lisent ici. */
 export function profondeurTunnel(questions: readonly Question[]): number {
   const profondeur = (id: string): number => {
@@ -59,10 +91,12 @@ export function profondeurTunnel(questions: readonly Question[]): number {
  * sélectionné et on passe à la question suivante plus bas »), et une autre réponse cliquée change le chemin ; l'offre
  * choisie (`data-offre`) ne laisse que ses boutons, et un lien d'issue (`data-vers-chemin`) en montre une autre.
  */
-export function tunnel(langue: Langue, origine: Origine): string[] {
+export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'guide' = 'demarrer'): string[] {
   const n = TEXTES_TUNNEL[langue];
   const a = n.appels;
-  const max = profondeurTunnel(n.questions);
+  // Le guide du centre d'aide (lot 4a) ne garde que l'arbre atteint depuis « Qui paie vos messages à Meta ? ».
+  const arbre = mode === 'guide' ? arbreDepuis(n, DEPART_GUIDE) : { questions: n.questions, issues: n.issues };
+  const max = profondeurTunnel(arbre.questions);
   const progression = n.progression.replace('{max}', String(max));
   // Une réponse grisée (le Crédit WhatsApp, pas encore en vente en ligne) : un bouton qui ne se choisit pas, et sa carte
   // dit pourquoi.
@@ -166,7 +200,18 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     [`${retrait}<p class="bt-liens">${l.map(lienHtml).join('')}</p>`];
   // Business et Entreprise : la démo et le contact, sans demande à coller (Julien, 2026-10-30) ; les autres issues, les
   // boutons de Free et de Pro.
-  const fin = (x: Issue): string[] => (x.contact
+  const finGuide = (x: Issue): string[] => {
+    if (!x.numero) throw new Error(`tunnel : l’issue ${x.id} n’a rien à faire dans le guide`);
+    const g = n.guide;
+    return [
+      '          <div class="bt-appels">',
+      `            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="${x.pasAPas}">${g.fin.pasAPas}</a><a class="bouton bouton-trait" href="${CONSOLE}/connecter-whatsapp${langue === 'en' ? '?lang=en' : ''}">${g.fin.console}</a></div>`,
+      `            <p class="bt-appels-titre bt-guide-claude">${g.fin.claude}</p>`,
+      `            <div class="bt-demande"><p id="demande-${x.id}-guide">${phraseGuide(n, x)}</p><button type="button" class="bouton bouton-trait" data-copier="demande-${x.id}-guide" data-copie="${a.copie}" hidden>${a.copier}</button></div>`,
+      '          </div>',
+    ];
+  };
+  const fin = (x: Issue): string[] => (mode === 'guide' ? finGuide(x) : x.contact
     ? [
       '          <div class="bt-appels">',
       `            <p class="bt-appels-titre">${a.equipe}</p>`,
@@ -211,20 +256,21 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     '            </details></li>',
   ];
   const html = [
-    '      <div class="bt-guide" data-guide-numero>',
+    // Le guide (lot 4a) ne pose pas la question de l'offre : `data-mode` y laisse lire chaque raison d'une carte grisée.
+    `      <div class="bt-guide" data-guide-numero${mode === 'guide' ? ' data-mode="guide"' : ''}>`,
     '        <div class="bt-tunnel">',
     `          <div class="bt-progression" data-progression="${progression}" data-max="${max}" data-fin="${n.fin}" hidden>`,
     `            <p class="bt-etape" data-etape>${progression.replace('{n}', '1')}</p>`,
     '            <div class="bt-piste" aria-hidden="true"><span class="bt-jauge" data-jauge></span></div>',
     '          </div>',
     '          <div class="bt-questions" hidden>',
-    ...n.questions.flatMap(question),
+    ...arbre.questions.flatMap(question),
     `            <button type="button" class="bt-recommencer" data-recommencer hidden>${n.recommencer}</button>`,
     '          </div>',
     // Sans région live : le focus va au titre de l'issue montrée (`site.js`), et une région live la relirait en entier
     // par-dessus, étapes et commandes comprises.
     '          <div class="bt-chemins">',
-    ...n.issues.flatMap(issue),
+    ...arbre.issues.flatMap(issue),
     '          </div>',
     '        </div>',
     '        <details class="bt-lexique">',

@@ -4,8 +4,8 @@ ecran: accueil
 source_section: Ce qu'il faut chez Meta (avant de connecter un numéro)
 source_empreinte: 6ae5ba
 publique: oui
-rubrique: demarrer
-rang: 2
+rubrique: demarrer-claude, demarrer-console
+rang: 3, 2
 captures: non
 offre: non
 ---

@@ -26,7 +26,8 @@ const centre = pagesDuCentre();
 describe('le centre d’aide de la vitrine', () => {
   it('l’accueil et une page par fiche publique, dans les deux langues', () => {
     expect(centre.length).toBe(18);
-    expect(generees.length).toBe(2 * (1 + centre.length + PAGES_CLAUDE.length));
+    // L’accueil, le guide du numéro et le dépannage (lot 4a), une page par fiche, une par page Claude Code : dans chaque langue.
+    expect(generees.length).toBe(2 * (1 + 2 + centre.length + PAGES_CLAUDE.length));
   });
 
   for (const { chemin, contenu } of generees) {
@@ -310,8 +311,13 @@ describe('le centre d’aide de la vitrine', () => {
   it('🔴 l’accueil du centre mène à chaque page Claude Code, avec la mention Pro sur celles qui la demandent', () => {
     for (const langue of ['fr', 'en'] as const) {
       const accueil = lire(`${langue === 'fr' ? 'aide' : 'en/help'}/index.html`);
-      const section = accueil.slice(accueil.indexOf('id="claude-code"'));
+      // Une page de démarrage vit dans la rubrique « Démarrer avec Claude Code ou Codex » (lot 4a), les autres dans
+      // « Depuis Claude Code » : chacune dans la sienne, et une seule fois sur l'accueil.
+      const debut = (id: string) => accueil.indexOf(`id="${id}"`);
+      const demarrer = accueil.slice(debut('demarrer-claude'), accueil.indexOf('</section>', debut('demarrer-claude')));
       for (const p of PAGES_CLAUDE) {
+        const section = p.demarrer !== undefined ? demarrer : accueil.slice(debut('claude-code'));
+        expect(accueil.split(`<a class="aide-carte-lien" href="${p.adresse[langue]}">`).length - 1, `${langue} ${p.cle} une fois`).toBe(1);
         // La carte est un accordéon depuis le 2026-10-22 : la mention Pro vit dans son lien, avant les étapes.
         const carte = section.match(new RegExp(`<li class="aide-carte" data-mots="[^"]*"><a class="aide-carte-lien" href="${p.adresse[langue]}">[\\s\\S]*?</a>`))?.[0];
         expect(carte, `${langue} ${p.cle}`).toBeDefined();

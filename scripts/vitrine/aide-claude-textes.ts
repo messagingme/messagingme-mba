@@ -35,6 +35,12 @@ export interface PageClaude {
   readonly offrePro?: boolean;
   /** Un film de `site/films/` (et sa version `-en`), 16:9. */
   readonly film?: string;
+  /**
+   * Son rang dans la rubrique « Démarrer avec Claude Code ou Codex » du centre d'aide (lot 4a de l'aide à la connexion) :
+   * la page y paraît telle quelle, à côté des fiches, au lieu d'être recopiée en fiche. Absent : une page d'usage, rangée
+   * dans « Depuis Claude Code ».
+   */
+  readonly demarrer?: number;
 }
 
 const MINUTES_CODE = Math.round(DUREE_CODE_MS / 60_000);
@@ -42,6 +48,7 @@ const MINUTES_CODE = Math.round(DUREE_CODE_MS / 60_000);
 export const PAGES_CLAUDE: readonly PageClaude[] = [
   {
     cle: 'installer-le-plugin',
+    demarrer: 1,
     adresse: { fr: '/developpeurs/installer-le-plugin/', en: '/en/developers/install-the-plugin/' },
     titre: { fr: 'Installer le plugin et relier votre espace', en: 'Install the plugin and link your workspace' },
     chapeau: {
@@ -81,6 +88,7 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
   },
   {
     cle: 'connecter-son-numero',
+    demarrer: 2,
     adresse: { fr: '/developpeurs/connecter-son-numero/', en: '/en/developers/connect-your-number/' },
     titre: { fr: 'Connecter votre numéro WhatsApp depuis Claude', en: 'Connect your WhatsApp number from Claude' },
     chapeau: {

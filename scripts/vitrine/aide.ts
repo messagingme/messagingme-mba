@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CARTE_CONSOLE } from '../../src/aide/carte-console';
-import { RUBRIQUES, type OffreFiche } from '../../src/aide/fiches';
+import { RUBRIQUES, type OffreFiche, type Rubrique } from '../../src/aide/fiches';
 import { structureFiche, type BlocFiche } from '../../src/aide/structure';
 import { ESSAI_PRO_JOURS } from '../../src/offres/offres';
 import { DEPOT_PLUGIN } from '../../web/lib/demarrer';
@@ -23,7 +23,10 @@ import { insecables } from './guide-meta';
 import { versionnee } from './images';
 import { PAGES_CLAUDE, type PageClaude } from './aide-claude-textes';
 import { FILMS_AIDE, type FilmAide } from './aide-films';
-import { ACCUEIL_AIDE, NOMS_RUBRIQUES, pagesDuCentre, type Langue, type PageAide } from './aide-pages';
+import { ACCUEIL_AIDE, GUIDE_NUMERO, NOMS_RUBRIQUES, PLACES_DEPANNAGE, PLACES_GUIDE, pagesDeLaRubrique, pagesDuCentre, type Langue, type PageAide } from './aide-pages';
+import { DEPANNAGE, type Symptome } from './depannage-textes';
+import { titreGuide, tunnel } from './tunnel';
+import { TEXTES_TUNNEL } from './tunnel-textes';
 
 const ORIGINE = 'https://app.messagingme.fr';
 const CONSOLE = 'https://console.messagingme.app';
@@ -167,6 +170,27 @@ function corps(p: PageAide, langue: Langue): string {
   }).join('\n');
 }
 
+/** Le rang d'une fiche dans une rubrique où elle paraît (`places`, lot 4a). */
+const rangDans = (p: PageAide, r: Rubrique): number => p.publication.places.find((x) => x.rubrique === r)?.rang ?? 0;
+/**
+ * Les pages du centre qui ne sont pas des fiches (lot 4a) : le guide du numéro et le dépannage, chacune à sa place dans
+ * les rubriques « Démarrer », avec ce que la recherche du menu lit d'elle.
+ */
+interface Extra { places: ReadonlyArray<{ rubrique: Rubrique; rang: number }>; adresse: string; titre: string; chapeau: string; mots: string }
+function extras(langue: Langue): Extra[] {
+  const g = TEXTES_TUNNEL[langue].guide;
+  const tg = titreGuide(langue).titre;
+  return [
+    { places: PLACES_GUIDE, adresse: GUIDE_NUMERO[langue], titre: tg, chapeau: g.chapeau, mots: `${tg} ${g.chapeau} ${g.points.liste.join(' ')}` },
+    {
+      places: PLACES_DEPANNAGE, adresse: DEPANNAGE.adresse[langue], titre: DEPANNAGE.titre[langue], chapeau: DEPANNAGE.chapeau[langue],
+      mots: `${DEPANNAGE.titre[langue]} ${DEPANNAGE.chapeau[langue]} ${DEPANNAGE.symptomes.map((s) => s.titre[langue]).join(' ')}`,
+    },
+  ];
+}
+/** Les pages Claude Code rangées dans une rubrique de démarrage (`demarrer`, lot 4a). */
+const claudeDeLaRubrique = (r: Rubrique): PageClaude[] => (r === 'demarrer-claude' ? PAGES_CLAUDE.filter((p) => p.demarrer !== undefined) : []);
+
 /** Le menu du centre, à gauche de chaque page : la recherche, puis les rubriques et leurs pages. */
 function menu(pages: PageAide[], courante: PageAide | null, langue: Langue): string {
   const lignes = [
@@ -175,13 +199,21 @@ function menu(pages: PageAide[], courante: PageAide | null, langue: Langue): str
   ];
   for (const r of RUBRIQUES) {
     lignes.push(`      <div class="aide-rubrique"><p class="aide-nav-titre">${NOMS_RUBRIQUES[r][langue]}</p>`);
-    for (const p of pages.filter((x) => x.publication.rubrique === r)) {
+    const liens = pagesDeLaRubrique(pages, r).map((p) => {
       const v = p[langue];
       const mots = motsDeRecherche(`${v.titre} ${structureFiche(v.corps, langue).chapeau}`);
       const actif = p === courante ? ' class="actif" aria-current="page"' : '';
-      lignes.push(`        <a href="${v.adresse}" data-mots="${mots}"${actif}>${texte(v.titre, langue)}</a>`);
+      return { rang: rangDans(p, r), ligne: `        <a href="${v.adresse}" data-mots="${mots}"${actif}>${texte(v.titre, langue)}</a>` };
+    });
+    for (const p of claudeDeLaRubrique(r)) {
+      const mots = motsDeRecherche(`${p.titre[langue]} ${p.chapeau[langue]}`);
+      liens.push({ rang: p.demarrer!, ligne: `        <a href="${p.adresse[langue]}" data-mots="${mots}">${texte(p.titre[langue], langue)}</a>` });
     }
-    lignes.push('      </div>');
+    for (const x of extras(langue)) {
+      const place = x.places.find((y) => y.rubrique === r);
+      if (place) liens.push({ rang: place.rang, ligne: `        <a href="${x.adresse}" data-mots="${motsDeRecherche(x.mots)}">${texte(x.titre, langue)}</a>` });
+    }
+    lignes.push(...liens.sort((x, y) => x.rang - y.rang).map((x) => x.ligne), '      </div>');
   }
   lignes.push('    </nav>');
   return lignes.join('\n');
@@ -343,6 +375,14 @@ function carte(adresse: string, titre: string, chapeau: string, offre: string, m
   return `          <li class="aide-carte" data-mots="${mots}"><a class="aide-carte-lien" href="${adresse}"><strong>${titre}</strong><small>${chapeau}</small>${offre}</a>${accordeon}</li>`;
 }
 
+/** La carte d'une page Claude Code, et l'offre quand ses outils la demandent. */
+function carteClaude(p: PageClaude, langue: Langue): string {
+  return carte(p.adresse[langue], texte(p.titre[langue], langue), enLigne(p.chapeau[langue], langue),
+    p.offrePro ? `<small class="aide-carte-offre">${langue === 'fr' ? insecables(T.fr.offre('pro')) : T.en.offre('pro')}</small>` : '',
+    motsDeRecherche(`${p.titre[langue]} ${p.chapeau[langue]} ${p.etapes.map((e) => e.titre[langue]).join(' ')}`),
+    p.etapes.map((e, n) => ({ numero: n + 1, titre: enLigne(e.titre[langue], langue) })), langue);
+}
+
 function accueilAide(pages: PageAide[], langue: Langue): { chemin: string; contenu: string } {
   const adresse = ACCUEIL_AIDE[langue];
   const lignes = [
@@ -363,15 +403,20 @@ function accueilAide(pages: PageAide[], langue: Langue): { chemin: string; conte
   ];
   for (const r of RUBRIQUES) {
     lignes.push(`      <section class="aide-rubrique" id="${r}">`, `        <h2>${NOMS_RUBRIQUES[r][langue]}</h2>`, '        <ul class="aide-cartes">');
-    for (const p of pages.filter((x) => x.publication.rubrique === r)) {
+    const cartes = pagesDeLaRubrique(pages, r).map((p) => {
       const v = p[langue];
       const s = structureFiche(v.corps, langue);
       const etapes = s.sections.flatMap((x) => (x.type === 'etape' ? [{ numero: x.numero, titre: x.titre }] : []));
-      lignes.push(carte(v.adresse, texte(v.titre, langue), enLigne(s.chapeau, langue), '',
+      return { rang: rangDans(p, r), ligne: carte(v.adresse, texte(v.titre, langue), enLigne(s.chapeau, langue), '',
         motsDeRecherche(`${v.titre} ${s.chapeau} ${etapes.map((e) => e.titre).join(' ')}`),
-        etapes.map((e) => ({ ...e, titre: enLigne(e.titre, langue) })), langue));
+        etapes.map((e) => ({ ...e, titre: enLigne(e.titre, langue) })), langue) };
+    });
+    cartes.push(...claudeDeLaRubrique(r).map((p) => ({ rang: p.demarrer!, ligne: carteClaude(p, langue) })));
+    for (const x of extras(langue)) {
+      const place = x.places.find((y) => y.rubrique === r);
+      if (place) cartes.push({ rang: place.rang, ligne: carte(x.adresse, texte(x.titre, langue), texte(x.chapeau, langue), '', motsDeRecherche(x.mots), [], langue) });
     }
-    lignes.push('        </ul>', '      </section>');
+    lignes.push(...cartes.sort((x, y) => x.rang - y.rang).map((x) => x.ligne), '        </ul>', '      </section>');
   }
   lignes.push(
     '      <section class="aide-rubrique" id="claude-code">',
@@ -380,10 +425,7 @@ function accueilAide(pages: PageAide[], langue: Langue): { chemin: string; conte
     // Chaque page Claude Code, et l'offre quand ses outils la demandent (relecture du lot 3 : l'accueil promettait
     // « tout en Free » alors que les outils de campagne sont fermés en Free ; `tests/vitrine-aide.test.ts` tient les deux).
     '        <ul class="aide-cartes">',
-    ...PAGES_CLAUDE.map((p) => carte(p.adresse[langue], texte(p.titre[langue], langue), enLigne(p.chapeau[langue], langue),
-      p.offrePro ? `<small class="aide-carte-offre">${langue === 'fr' ? insecables(T.fr.offre('pro')) : T.en.offre('pro')}</small>` : '',
-      motsDeRecherche(`${p.titre[langue]} ${p.chapeau[langue]} ${p.etapes.map((e) => e.titre[langue]).join(' ')}`),
-      p.etapes.map((e, n) => ({ numero: n + 1, titre: enLigne(e.titre[langue], langue) })), langue)),
+    ...PAGES_CLAUDE.filter((p) => p.demarrer === undefined).map((p) => carteClaude(p, langue)),
     '        </ul>',
     `        <p><a href="${T[langue].developpeursAdresse}">${T[langue].developpeursLien}</a></p>`,
     '      </section>',
@@ -523,6 +565,108 @@ function pageClaude(p: PageClaude, langue: Langue): { chemin: string; contenu: s
 }
 
 /**
+ * LE GUIDE DU NUMÉRO (lot 4a) : le menu du centre, les cinq points à vérifier (le seul endroit qui nomme la coexistence),
+ * puis le tunnel à partir de « Qui paie vos messages à Meta ? », dont chaque fin mène au pas-à-pas, à la console, et à la
+ * phrase à dire à Claude. Sans script, toutes les fins se lisent l'une sous l'autre, comme sur `/demarrer/`.
+ */
+function pageGuide(langue: Langue): { chemin: string; contenu: string } {
+  const g = TEXTES_TUNNEL[langue].guide;
+  const { titre, description } = titreGuide(langue);
+  const principale = PLACES_GUIDE[0]!.rubrique;
+  // La mise en page de `/demarrer/` (le tunnel veut toute la largeur) : le fil d'Ariane, le titre, le chapeau et les
+  // cinq points en tête, puis le tunnel, sans le menu du centre, qui l'écraserait dans une colonne.
+  const main = [
+    '<main>',
+    '  <section class="cadre f-une-large demarrer-une" id="numero">',
+    '    <div>',
+    `      <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${principale}">${NOMS_RUBRIQUES[principale][langue]}</a> › ${texte(titre, langue)}</p>`,
+    `      <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(titre, langue)}</h1>`,
+    `      <p class="chapeau">${texte(g.chapeau, langue)}</p>`,
+    `      <div class="guide-points"><p><strong>${texte(g.points.titre, langue)}</strong></p><ol>${g.points.liste.map((x) => `<li>${texte(x, langue)}</li>`).join('')}</ol></div>`,
+    '    </div>',
+    ...tunnel(langue, 'generique', 'guide'),
+    '  </section>',
+    '</main>',
+  ].join('\n');
+  const ld = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      fil(langue, [ACCUEIL[langue], [T[langue].centre, ACCUEIL_AIDE[langue]], [titre, GUIDE_NUMERO[langue]]]),
+      { '@type': 'WebPage', name: titre, description, inLanguage: langue === 'fr' ? 'fr-FR' : 'en-US', url: ORIGINE + GUIDE_NUMERO[langue] },
+    ],
+  };
+  const contenu = page(langue, {
+    adresse: GUIDE_NUMERO[langue], jumelle: GUIDE_NUMERO[langue === 'fr' ? 'en' : 'fr'], titre: `${titre} | ${T[langue].titreSite}`, description, ldJson: ld,
+  }, main, 'Centre d’aide, le guide du numéro, GÉNÉRÉ par npm run vitrine:aide depuis scripts/vitrine/tunnel-textes.ts : ne pas modifier à la main.');
+  return { chemin: fichierDe(GUIDE_NUMERO[langue]), contenu };
+}
+
+/**
+ * LE DÉPANNAGE (lot 4a) : « Claude Code ou Codex, ou la console ? », l'entrée « Je n'arrive pas à connecter mon numéro »,
+ * puis les symptômes de chaque lieu en cartes dépliables (la cause se lit sans ouvrir, le remède et la page au clic), et
+ * leurs questions-réponses en `FAQPage`. Sans script, tout se lit ; les deux réponses de la première question mènent à
+ * leur section par une ancre.
+ */
+function pageDepannage(langue: Langue): { chemin: string; contenu: string } {
+  const d = DEPANNAGE;
+  const principale = PLACES_DEPANNAGE[0]!.rubrique;
+  // La réponse d'un symptôme, telle qu'elle s'affiche ET telle que la balise le dit (`tests/vitrine-seo.test.ts`).
+  const reponse = (s: Symptome): string[] => [s.cause[langue], ...s.remede.map((x) => x[langue]), `${d.voir[langue]} ${s.lien.libelle[langue]}`];
+  const symptome = (s: Symptome): string[] => [
+    `        <details id="${s.id}" data-ou-pour="${s.ou.join(' ')}"><summary>${texte(s.titre[langue], langue)}</summary>`,
+    `          <p>${texte(s.cause[langue], langue)}</p>`,
+    ...s.remede.map((x) => `          <p>${texte(x[langue], langue)}</p>`),
+    `          <p>${texte(d.voir[langue], langue)} <a href="${s.lien.href[langue]}">${texte(s.lien.libelle[langue], langue)}</a></p>`,
+    '        </details>',
+  ];
+  const main = [
+    '<main>',
+    '  <section class="cadre f-une-large demarrer-une" id="depannage">',
+    '    <div>',
+    `      <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${principale}">${NOMS_RUBRIQUES[principale][langue]}</a> › ${texte(d.titre[langue], langue)}</p>`,
+    `      <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(d.titre[langue], langue)}</h1>`,
+    `      <p class="chapeau">${texte(d.chapeau[langue], langue)}</p>`,
+    `      <h2 class="depannage-titre">${texte(d.macro.titre[langue], langue)}</h2>`,
+    `      <p class="bt-liens">${d.macro.choix.map((c) => `<a class="bouton bouton-trait" href="${c.href[langue]}">${texte(c.libelle[langue], langue)}</a>`).join('')}</p>`,
+    '    </div>',
+    '  </section>',
+    '',
+    '  <section class="f-bloc cas-faq" id="symptomes" data-depannage>',
+    '    <div class="cadre">',
+    `      <h2 class="f-titre">${texte(d.liste[langue], langue)}</h2>`,
+    // La première question : un filtre, que `site.js` branche ; sans script, chaque bouton mène à la liste entière.
+    '      <div class="depannage-filtre" data-filtre hidden>',
+    `        <p class="depannage-question"><strong>${texte(d.ou.question[langue], langue)}</strong></p>`,
+    `        <p class="bt-liens">${(['claude', 'console', ''] as const).map((ou) => `<button type="button" class="bouton bouton-trait" data-ou-choix="${ou}" aria-pressed="false">${texte(ou === '' ? d.ou.tout[langue] : d.ou[ou][langue], langue)}</button>`).join('')}</p>`,
+    `        <p class="depannage-compte" role="status" data-compte="${attribut(d.ou.compte[langue])}"></p>`,
+    '      </div>',
+    '      <div class="dev-faq">',
+    ...d.symptomes.flatMap(symptome),
+    '      </div>',
+    '    </div>',
+    '  </section>',
+    '</main>',
+  ].join('\n');
+  const ld = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      fil(langue, [ACCUEIL[langue], [T[langue].centre, ACCUEIL_AIDE[langue]], [d.titre[langue], d.adresse[langue]]]),
+      {
+        '@type': 'FAQPage', inLanguage: langue === 'fr' ? 'fr-FR' : 'en-US', url: ORIGINE + d.adresse[langue],
+        mainEntity: d.symptomes.map((s) => ({
+          '@type': 'Question', name: s.titre[langue], acceptedAnswer: { '@type': 'Answer', text: reponse(s).join(' ') },
+        })),
+      },
+    ],
+  };
+  const contenu = page(langue, {
+    adresse: d.adresse[langue], jumelle: d.adresse[langue === 'fr' ? 'en' : 'fr'], titre: `${d.titre[langue]} | ${T[langue].titreSite}`,
+    description: d.description[langue], ldJson: ld,
+  }, main, 'Centre d’aide, le dépannage du numéro, GÉNÉRÉ par npm run vitrine:aide depuis scripts/vitrine/depannage-textes.ts : ne pas modifier à la main.');
+  return { chemin: fichierDe(d.adresse[langue]), contenu };
+}
+
+/**
  * Toutes les pages générées ici, dans les deux langues : l'accueil du centre d'aide, une page par fiche publique, et les
  * pages « Depuis Claude Code » de la doc développeurs.
  */
@@ -530,6 +674,8 @@ export function pagesAide(): Array<{ chemin: string; contenu: string }> {
   const pages = pagesDuCentre();
   return (['fr', 'en'] as const).flatMap((langue) => [
     accueilAide(pages, langue),
+    pageGuide(langue),
+    pageDepannage(langue),
     ...pages.map((p) => pageAide(pages, p, langue)),
     ...PAGES_CLAUDE.map((p) => pageClaude(p, langue)),
   ]);
@@ -539,7 +685,7 @@ export function pagesAide(): Array<{ chemin: string; contenu: string }> {
 export function adressesAide(): string[] {
   const pages = pagesDuCentre();
   return (['fr', 'en'] as const)
-    .flatMap((l) => [ACCUEIL_AIDE[l], ...pages.map((p) => p[l].adresse), ...PAGES_CLAUDE.map((p) => p.adresse[l])])
+    .flatMap((l) => [ACCUEIL_AIDE[l], GUIDE_NUMERO[l], DEPANNAGE.adresse[l], ...pages.map((p) => p[l].adresse), ...PAGES_CLAUDE.map((p) => p.adresse[l])])
     .map((a) => ORIGINE + a);
 }
 
@@ -561,6 +707,8 @@ export function llmsAvecAide(contenu: string): string {
     '',
     `- [Centre d’aide](${ORIGINE}${ACCUEIL_AIDE.fr}) : les modes opératoires de la console, pas à pas.`,
     `- [Help center](${ORIGINE}${ACCUEIL_AIDE.en}) : the same pages in English.`,
+    ...(['fr', 'en'] as const).map((l) => `- [${titreGuide(l).titre}](${ORIGINE}${GUIDE_NUMERO[l]}) : ${TEXTES_TUNNEL[l].guide.chapeau}`),
+    ...(['fr', 'en'] as const).map((l) => `- [${DEPANNAGE.titre[l]}](${ORIGINE}${DEPANNAGE.adresse[l]}) : ${DEPANNAGE.chapeau[l]}`),
     ...pages.flatMap((p) => (['fr', 'en'] as const).map((l) =>
       `- [${p[l].titre}](${ORIGINE}${p[l].adresse}) : ${brut(structureFiche(p[l].corps, l).chapeau)}`)),
     ...PAGES_CLAUDE.flatMap((p) => (['fr', 'en'] as const).map((l) => `- [${p.titre[l]}](${ORIGINE}${p.adresse[l]}) : ${p.chapeau[l]}`)),

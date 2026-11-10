@@ -5,8 +5,8 @@ ancre_console: integration-hubspot
 source_section: Accueil (1re entrée du menu)
 source_empreinte: ec64a9
 publique: oui
-rubrique: demarrer
-rang: 6
+rubrique: demarrer-console
+rang: 7
 captures: non
 offre: business
 ---
