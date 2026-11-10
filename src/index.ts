@@ -2190,6 +2190,8 @@ async function main(): Promise<void> {
         // Lot 4 : la page « Messaging Me » de HubSpot. La ligne est le numéro principal de l'espace (`etatLigneHubspot`).
         ligneHubspot: async (t: string) => etatLigneHubspot(await phoneStatusStore.getPhoneNumber(t)),
         aTraiter: new PgATraiterHubspot(pool),
+        // Lot 2 de l'Inbox HubSpot : une réponse tapée dans l'Inbox, marquée, n'est pas republiée par le balayage.
+        inboxHubspot: new PgInboxHubspotStore(pool),
       } satisfies HubspotConversationDeps,
       // L'action de workflow « Envoyer un modèle WhatsApp » (cadrage du 2026-10-27, lot 1) : le cœur d'envoi public, câblé
       // comme pour Shopify (`options` transmises : Service seulement, sans campagne vide), et ses propres plafonds,

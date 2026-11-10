@@ -24,6 +24,7 @@ import {
   type DepsModelesHubspot, type RefusModele,
 } from './hubspot-modeles';
 import type { PgATraiterHubspot } from '../inbox/a-traiter-hubspot.pg';
+import type { MarqueurReponsesInbox } from '../hubspot/inbox';
 import type { PhoneNumberRecord } from '../account/types';
 
 /**
@@ -107,6 +108,11 @@ export interface HubspotConversationDeps {
   ligneHubspot(tenantId: string): Promise<EtatLigneHubspot>;
   /** Les conversations qui attendent un humain (`PgATraiterHubspot`, lot 4, décisions A et B). */
   aTraiter: Pick<PgATraiterHubspot, 'lister'>;
+  /**
+   * Lot 2 de l'Inbox HubSpot : marque une réponse venue de l'Inbox (`PgInboxHubspotStore`), pour que le balayage ne la
+   * republie pas. REQUISE : oubliée, chaque réponse de l'Inbox s'afficherait deux fois dans son fil.
+   */
+  inboxHubspot: MarqueurReponsesInbox;
   now?: () => number;
   windowMs?: number;
 }
@@ -174,7 +180,15 @@ const corpsReponse = z.object({
   auteurEmail: adresse,
   texte: z.string().trim().min(1).max(TEXTE_MAX_CARACTERES),
   cle: cleDeCarte,
-}).strict();
+  /**
+   * Lot 2 de l'Inbox HubSpot : la réponse a été tapée dans l'Inbox (et non dans la carte). Le message envoyé porte alors
+   * l'identifiant HubSpot de son message, pour que le balayage ne le republie pas dans le fil. Les deux vont ensemble.
+   */
+  source: z.literal('inbox').optional(),
+  // La forme n'est pas mesurée (le journal du lot 1 ne garde que les types) : HubSpot montre des ids numériques et des
+  // hexadécimaux de 32 caractères. Un alphabet borné, sans exiger l'un ou l'autre (relecture du lot 2).
+  hubspotMessageId: z.string().regex(/^[A-Za-z0-9._:-]{1,64}$/).optional(),
+}).strict().refine((c) => (c.source === undefined) === (c.hubspotMessageId === undefined), { message: 'source et hubspotMessageId vont ensemble' });
 
 const corpsRendre = z.object({
   tenantId: UUID,
@@ -446,7 +460,7 @@ export function registerHubspotConversation(app: FastifyInstance, deps: HubspotC
     if (!signee(req)) return reply.code(401).send({ error: 'invalid signature' });
     const lu = corpsReponse.safeParse(req.body);
     if (!lu.success) return reply.code(400).send({ error: 'payload invalide' });
-    const { tenantId, conversationId, auteurEmail, texte, cle } = lu.data;
+    const { tenantId, conversationId, auteurEmail, texte, cle, hubspotMessageId } = lu.data;
 
     const g = await gardes(reply, tenantId, conversationId, auteurEmail);
     if (!g) return reply;
@@ -477,6 +491,9 @@ export function registerHubspotConversation(app: FastifyInstance, deps: HubspotC
     if (!pose.claimed) {
       if ('reused' in pose) return reply.code(422).send({ error: 'cette clé a déjà servi pour un autre message', code: 'idempotency_key_reused' });
       if ('pending' in pose) return reply.code(409).send({ error: 'ce message est en cours d’envoi : réessayez dans un instant', code: 'idempotency_key_in_progress' });
+      // Un rejeu du connecteur après un envoi réussi : la marque est reposée (elle a pu échouer au premier passage).
+      const premier = z.object({ messageId: z.string().min(1) }).passthrough().safeParse(pose.response);
+      if (hubspotMessageId && premier.success) await marquerInbox(tenantId, conversationId, premier.data.messageId, hubspotMessageId);
       return reply.code(200).send(pose.response);
     }
     let res: Awaited<ReturnType<typeof repondreDansLaFenetre>>;
@@ -506,9 +523,24 @@ export function registerHubspotConversation(app: FastifyInstance, deps: HubspotC
     const corps = 'differe' in res
       ? { differe: true, prevuLe: res.differe.prevuLe }
       : { messageId: res.messageId, journal: res.journal };
+    // 🔴 Lot 2 de l'Inbox HubSpot : une réponse tapée dans l'Inbox y est déjà ; marquée, le balayage ne la republie pas
+    // (sinon elle s'afficherait deux fois). Le message vient d'être enregistré, et le balayage ne lit qu'avec 30 s de
+    // retard : il ne peut pas le voir avant la marque. Un échec de la marque n'annule pas l'envoi, il est journalisé.
+    if (hubspotMessageId && 'messageId' in res) await marquerInbox(tenantId, conversationId, res.messageId, hubspotMessageId);
     await sceller(tenantId, key, pose.jeton, corps, conversationId, 'repondre');
     return reply.code(200).send(corps);
   });
+
+  /** Pose la marque de l'Inbox ; un échec ou une ligne introuvable n'annule pas l'envoi, il est journalisé (doublon possible). */
+  async function marquerInbox(tenantId: string, conversationId: string, messageId: string, hubspotMessageId: string): Promise<void> {
+    try {
+      if (!(await deps.inboxHubspot.marquerReponseInbox(tenantId, messageId, hubspotMessageId))) {
+        journaliser('warn', 'hubspot_inbox_reponse_introuvable', { tenantId, conversationId });
+      }
+    } catch (err) {
+      journaliser('error', 'hubspot_inbox_reponse_non_marquee', { err, tenantId, conversationId });
+    }
+  }
 
   app.post(`${PREFIXE_CONVERSATION_HUBSPOT}rendre`, async (req, reply) => {
     if (!signee(req)) return reply.code(401).send({ error: 'invalid signature' });

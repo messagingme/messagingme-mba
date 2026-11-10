@@ -142,6 +142,24 @@ describe.skipIf(!url)('Inbox HubSpot : seules les conversations qui attendent un
     await pool.query(`update contacts set opt_in_status = 'unknown' where id = (select contact_id from conversations where id = $1)`, [ids['escaladee']]);
   });
 
+  it('🔴 lot 2 : une réponse tapée dans l’Inbox, MARQUÉE, n’est relue ni par la suite ni par le contexte ; un autre espace ne la marque pas', async () => {
+    await pool.query(`update conversations set traitee_le = null, last_direction = 'in' where id = $1`, [ids['escaladee']]);
+    await store.ouvrirEntree(t1, ids['escaladee']!);
+    await pool.query(
+      `insert into conversation_messages (conversation_id, direction, type, body, created_at, channel, meta_message_id)
+       values ($1, 'out', 'text', 'réponse depuis l’Inbox', now() - interval '1 minute', 'whatsapp', 'wamid.itest-inbox-1')`, [ids['escaladee']],
+    );
+    expect(await store.marquerReponseInbox(t2, 'wamid.itest-inbox-1', '111')).toBe(false);
+    expect(await store.marquerReponseInbox(t1, 'wamid.itest-inbox-1', '987654321')).toBe(true);
+    await pool.query(`update tenant_settings set hubspot_inbox_curseur_le = now() - interval '1 hour' where tenant_id = $1`, [t1]);
+    const [espace] = (await store.espacesBranches()).filter((x) => x.tenantId === t1);
+    expect((await store.messagesApres(espace!, '2100-01-01T00:00:00.000000Z', 50)).map((m) => m.body)).not.toContain('réponse depuis l’Inbox');
+    expect((await store.contexte(t1, ids['escaladee']!)).map((m) => m.body)).not.toContain('réponse depuis l’Inbox');
+    // Rendre l'état aux tests suivants : l'entrée fermée, le message retiré.
+    await pool.query(`update inbox_hubspot_entrees set sortie_le = now() where tenant_id = $1 and sortie_le is null`, [t1]);
+    await pool.query(`delete from conversation_messages where meta_message_id = 'wamid.itest-inbox-1'`);
+  });
+
   it('rebrancher (une autre boîte) ferme les entrées ouvertes', async () => {
     await pool.query(`update conversations set traitee_le = null, last_direction = 'in' where id = $1`, [ids['escaladee']]);
     expect(await store.ouvrirEntree(t1, ids['escaladee']!)).toBe(true);

@@ -303,6 +303,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
     lienConversation: inconnu('hubspotConversation.lienConversation'),
     ligneHubspot: inconnu('hubspotConversation.ligneHubspot'),
     aTraiter: inconnu('hubspotConversation.aTraiter'),
+    inboxHubspot: inconnu('hubspotConversation.inboxHubspot'),
   } satisfies HubspotConversationDeps,
   // L'action de workflow HubSpot : le même vrai secret ; derrière lui, une offre sans `crm` et un réglage éteint, donc
   // rien ne part, même pour une sonde qui passerait la signature.

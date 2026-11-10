@@ -140,6 +140,7 @@ function reluDe(catalogue: TemplateSummary[]) {
 
 /** Une conversation `C1` dans l'espace `T1`, et rien dans `T2` : l'isolation se lit sur ce que `T2` n'obtient pas. */
 function app(o: Options = {}) {
+  const marques: Array<{ tenantId: string; messageWhatsapp: string; messageHubspot: string }> = [];
   const envois: Array<{ to: string; text: string }> = [];
   const traces: Array<{ origine: string; senderUserId: string | null | undefined }> = [];
   const prises: AuteurDuChangement[] = [];
@@ -285,10 +286,16 @@ function app(o: Options = {}) {
         return { total: lignes.length, lignes };
       },
     },
+    inboxHubspot: {
+      marquerReponseInbox: async (tenantId, messageWhatsapp, messageHubspot) => {
+        marques.push({ tenantId, messageWhatsapp, messageHubspot });
+        return true;
+      },
+    },
     now: () => NOW,
   };
   const server = buildServer({ queue: new FakeQueue(), hubspotConversation: deps });
-  return { server, envois, traces, prises, lectures, rendus, cles, liberees, debits, modelesEnvoyes, traceModeles, preparations, debitsModeles, listes };
+  return { server, envois, traces, prises, lectures, rendus, cles, liberees, debits, modelesEnvoyes, traceModeles, preparations, debitsModeles, listes, marques };
 }
 
 /** Signe un corps comme le connecteur (même format canonique, même chemin). */
@@ -409,6 +416,51 @@ describe('lire le fil', () => {
     expect(page2.messages.map((m) => m.id)).toEqual(messages.slice(0, 5).map((m) => m.id));
     expect(page2.avant).toBeNull();
     expect((await server.inject(envoi('fil', { tenantId: T1, conversationId: C1, auteurEmail: null, avant: 'bricole' }))).statusCode).toBe(400);
+    await server.close();
+  });
+});
+
+describe('répondre depuis l’Inbox HubSpot (lot 2 de l’Inbox)', () => {
+  it('🔴 une réponse venue de l’Inbox est MARQUÉE de l’identifiant HubSpot de son message, pour que le balayage ne la republie pas', async () => {
+    const { server, envois, marques } = app();
+    const res = await server.inject(envoi('repondre', { ...REPONSE, source: 'inbox', hubspotMessageId: '987654321' }));
+    expect(res.statusCode).toBe(200);
+    expect(envois).toHaveLength(1);
+    expect(marques).toEqual([{ tenantId: T1, messageWhatsapp: 'wamid.1', messageHubspot: '987654321' }]);
+    await server.close();
+  });
+
+  it('une réponse de la carte n’est pas marquée', async () => {
+    const { server, marques } = app();
+    expect((await server.inject(envoi('repondre', REPONSE))).statusCode).toBe(200);
+    expect(marques).toEqual([]);
+    await server.close();
+  });
+
+  it('un identifiant HubSpot hexadécimal (la forme des messages de l’API Conversations) est accepté', async () => {
+    const { server, marques } = app();
+    const res = await server.inject(envoi('repondre', { ...REPONSE, source: 'inbox', hubspotMessageId: '3ad3474b08dd408ca57a8454e355e942' }));
+    expect(res.statusCode).toBe(200);
+    expect(marques.map((m) => m.messageHubspot)).toEqual(['3ad3474b08dd408ca57a8454e355e942']);
+    await server.close();
+  });
+
+  it('🔴 le rejeu du connecteur après un envoi réussi : UN envoi, et la marque est reposée', async () => {
+    const { server, envois, marques } = app();
+    const corps = { ...REPONSE, source: 'inbox', hubspotMessageId: '987654321' };
+    expect((await server.inject(envoi('repondre', corps))).statusCode).toBe(200);
+    expect((await server.inject(envoi('repondre', corps))).statusCode).toBe(200);
+    expect(envois).toHaveLength(1);
+    expect(marques.map((m) => m.messageWhatsapp)).toEqual(['wamid.1', 'wamid.1']);
+    await server.close();
+  });
+
+  it('`source` sans `hubspotMessageId` (ou l’inverse), ou un identifiant hors de l’alphabet borné : 400, rien ne part', async () => {
+    const { server, envois } = app();
+    for (const corps of [{ ...REPONSE, source: 'inbox' }, { ...REPONSE, hubspotMessageId: '1' }, { ...REPONSE, source: 'inbox', hubspotMessageId: '../x y' }, { ...REPONSE, source: 'inbox', hubspotMessageId: 'a'.repeat(65) }]) {
+      expect((await server.inject(envoi('repondre', corps))).statusCode).toBe(400);
+    }
+    expect(envois).toHaveLength(0);
     await server.close();
   });
 });

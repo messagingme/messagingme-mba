@@ -89,6 +89,15 @@ export interface InboxHubspotStore {
   ouvrirEntree(tenantId: string, conversationId: string): Promise<boolean>;
 }
 
+/**
+ * Lot 2 : une réponse tapée dans l'Inbox HubSpot, une fois envoyée, porte l'identifiant HubSpot de son message ; le
+ * balayage la saute (HubSpot l'a déjà dans le fil). Désignée par son identifiant WhatsApp (`meta_message_id`) dans
+ * l'espace. Faux si aucun message ne correspond.
+ */
+export interface MarqueurReponsesInbox {
+  marquerReponseInbox(tenantId: string, messageWhatsapp: string, messageHubspot: string): Promise<boolean>;
+}
+
 /** Les colonnes d'un message à publier, avec sa conversation, sa fiche et l'auteur d'une réponse humaine. */
 const COLONNES_MESSAGE = `m.id, m.conversation_id, m.direction, m.type, m.body, m.button_payload, m.origin,
               to_char(m.created_at at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as created_at, c.wa_id,
@@ -107,7 +116,7 @@ const versLigne = (x: RangeeMessage): LigneMessage => ({
   origin: x.origin, createdAt: x.created_at, waId: x.wa_id, nom: x.nom, membre: x.membre,
 });
 
-export class PgInboxHubspotStore implements InboxHubspotStore {
+export class PgInboxHubspotStore implements InboxHubspotStore, MarqueurReponsesInbox {
   constructor(private readonly pool: Pool) {}
 
   async espacesBranches(): Promise<EspaceBranche[]> {
@@ -175,6 +184,7 @@ export class PgInboxHubspotStore implements InboxHubspotStore {
           and exists (select 1 from inbox_hubspot_entrees e
                        where e.conversation_id = m.conversation_id and e.tenant_id = $1
                          and (e.sortie_le is null or m.created_at <= e.sortie_le))
+          and m.hubspot_inbox_message_id is null
           and (m.created_at, m.id) > ($2::timestamptz, $3::uuid)
           and m.created_at <= $4::timestamptz
         order by m.created_at, m.id
@@ -233,6 +243,7 @@ export class PgInboxHubspotStore implements InboxHubspotStore {
       `select * from (
          select ${COLONNES_MESSAGE}
           where c.tenant_id = $1 and m.conversation_id = $2 and m.channel = 'whatsapp'
+            and m.hubspot_inbox_message_id is null
             and m.created_at >= now() - make_interval(hours => $3)
           order by m.created_at desc, m.id desc
           limit $4
@@ -240,6 +251,16 @@ export class PgInboxHubspotStore implements InboxHubspotStore {
       [tenantId, conversationId, CONTEXTE_HEURES, CONTEXTE_MAX],
     );
     return r.rows.map(versLigne);
+  }
+
+  async marquerReponseInbox(tenantId: string, messageWhatsapp: string, messageHubspot: string): Promise<boolean> {
+    const r = await this.pool.query(
+      `update conversation_messages m set hubspot_inbox_message_id = $3
+         from conversations c
+        where c.id = m.conversation_id and c.tenant_id = $1 and m.meta_message_id = $2`,
+      [tenantId, messageWhatsapp, messageHubspot],
+    );
+    return (r.rowCount ?? 0) > 0;
   }
 
   async ouvrirEntree(tenantId: string, conversationId: string): Promise<boolean> {
