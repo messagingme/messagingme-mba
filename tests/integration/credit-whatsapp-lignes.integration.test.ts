@@ -167,4 +167,27 @@ describe.skipIf(!url)('les numéros sur la ligne du Crédit WhatsApp (0264)', ()
       for (const n of await lignes.numerosDeLEspace(e)) expect(n.attendLigne, n.phoneNumberId).toBe(enAttente.has(n.phoneNumberId));
     }
   });
+
+  it('🔴 « Ne pas poser » efface l’attente d’un numéro de SON espace qui attend vraiment, et rien d’autre (relecture du lot E6, jaune 5)', async () => {
+    const t = await espace();
+    const autre = await espace();
+    await numero(t, 'itest-cwa-ab-1');
+    await numero(t, 'itest-cwa-ab-2');
+    expect(await lignes.marquerParLaLigne(t, 'itest-cwa-ab-1')).toBe(true);
+    const attend = async (id: string) => (await lignes.numerosDeLEspace(t)).find((n) => n.phoneNumberId === id)?.attendLigne;
+    // Un autre espace n'efface rien (le filtre `tenant_id`) ; un numéro jamais marqué n'attend rien.
+    expect(await lignes.abandonnerAttente(autre, 'itest-cwa-ab-1')).toBe(false);
+    expect(await lignes.abandonnerAttente(t, 'itest-cwa-ab-2')).toBe(false);
+    expect(await attend('itest-cwa-ab-1')).toBe(true);
+    expect(await lignes.abandonnerAttente(t, 'itest-cwa-ab-1')).toBe(true);
+    expect(await attend('itest-cwa-ab-1')).toBe(false);
+    expect((await lignes.numerosEnAttenteDeLigne()).some((n) => n.phoneNumberId === 'itest-cwa-ab-1')).toBe(false);
+    // Rejoué, plus rien n'attend.
+    expect(await lignes.abandonnerAttente(t, 'itest-cwa-ab-1')).toBe(false);
+    // Une attente déjà éteinte par une ligne posée depuis n'attend plus : rien à abandonner.
+    await numero(t, 'itest-cwa-ab-3');
+    expect(await lignes.marquerParLaLigne(t, 'itest-cwa-ab-3')).toBe(true);
+    expect(await lignes.poser(t, 'itest-cwa-ab-3', 'waba-itest-cwa-ab-3', 'ops', 'essai')).toBe(true);
+    expect(await lignes.abandonnerAttente(t, 'itest-cwa-ab-3')).toBe(false);
+  });
 });

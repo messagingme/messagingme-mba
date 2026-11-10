@@ -4709,25 +4709,34 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   l'essai réel 236) **et la nôtre se pose APRÈS son attache** (décision de Julien du 2026-11-09) : posée avant, la carte
   dirait « payés par votre Crédit WhatsApp » pendant que Meta refuse les envois, et un compte qui a déjà sa carte chez
   Meta paierait deux fois. L'alerte dit donc de demander l'attache au partenaire, puis de poser la ligne quand il la
-  confirme ; un compte déjà sur une ligne de l'espace, rien à poser ; sur celle d'un AUTRE espace, la retirer d'abord ; un
-  compte relié sans numéro, rien à poser (le numéro connecté ensuite par la fenêtre a sa propre alerte) ; sans droit, ne
-  rien poser et demander au partenaire de ne rien attacher ; la fenêtre fermée chez nous (variable vide, page restée
-  ouverte) ou un droit illisible, l'alerte le dit. Le numéro n'est marqué (`phone_numbers.par_la_ligne_le`, migration
-  0285 : il attend sa ligne) QUE quand une ligne est à poser. 🔴 Une ligne de l'espace posée depuis la marque l'éteint
-  pour de bon : retirée ensuite, l'Entreprise relit « sur demande » et le conseil de sa carte chez Meta
-  (`numerosDeLEspace`, `attendLigne`, requis dans les types ; le rouge de la relecture du lot E5). Ce prédicat est écrit
-  une fois (`ATTEND_LIGNE_SQL`, `src/credit-whatsapp/lignes.pg.ts`) et sert aussi la liste « En attente de leur ligne »
-  de la carte Crédit WhatsApp de `/ops` (`GET /ops/credit-whatsapp/en-attente`, tous espaces) : le geste à faire ne
-  dépend pas de Telegram. Une fin `parLaLigne` que notre serveur refuse, ou qu'une erreur interrompt (avant de remonter
-  en 500), alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé. Une alerte par espace et par
-  demi-heure (`RETENUE_ALERTE_REFUS_MS`, un verrou court ; le refus retenu se journalise), le compte cité seulement s'il
-  est fait de chiffres : la fin vient du navigateur. Une alerte que Telegram ne reçoit pas se journalise par son cas,
-  jamais par son texte, qui porte le numéro affiché (`alerte_fenetre_partenaire_perdue`). Une Entreprise SANS ligne en
-  cours dont un numéro attend sa ligne lit `en_attente` (`etatLigneCredit`, qui lit les lignes d'abord : une ligne
-  encore en cours, celle d'un ancien numéro déconnecté comprise, dit `active`) : la carte dit « Votre ligne s'ouvre sous
-  24 h ouvrées », l'Accueil et `get_setup_state` ne lui demandent pas sa carte chez Meta (`creditPaieMeta`). Une attente
-  qui ne sera jamais posée (le partenaire n'attache pas) s'éteint en posant puis retirant la ligne de l'espace dans
-  `/ops` : aucun geste dédié. La pose automatique attend la réponse du partenaire sur son mode d'attache.
+  confirme ; un compte déjà sur une ligne ACTIVE de l'espace, rien à poser, mais vérifier l'attache, sinon retirer la
+  nôtre jusqu'à elle ; sur une ligne ARRÊTÉE de l'espace (la garde refuse ses envois), la retirer et poser la nouvelle
+  quand le partenaire confirme ; sur celle d'un AUTRE espace, nommé avec le numéro de sa ligne (`getTenantName`),
+  vérifier l'attache d'abord, puis retirer et poser dans le même geste ; un compte relié sans numéro, rien à poser (le
+  numéro connecté ensuite par la fenêtre a sa propre alerte) ; sans droit, ne rien poser et demander au partenaire de ne
+  rien attacher ; la fenêtre fermée chez nous (variable vide, page restée ouverte) ou un droit illisible, l'alerte le
+  dit. Le numéro n'est marqué (`phone_numbers.par_la_ligne_le`, migration 0285 : il attend sa ligne) QUE quand une ligne
+  est à poser (les trois cas « à poser », « ligne arrêtée » et « autre espace »). 🔴 Une ligne de l'espace posée depuis
+  la marque l'éteint pour de bon : retirée ensuite, l'Entreprise relit « sur demande » et le conseil de sa carte chez
+  Meta (`numerosDeLEspace`, `attendLigne`, requis dans les types ; le rouge de la relecture du lot E5). Ce prédicat est
+  écrit une fois (`ATTEND_LIGNE_SQL`, `src/credit-whatsapp/lignes.pg.ts`) et sert aussi la liste « En attente de leur
+  ligne » de la carte Crédit WhatsApp de `/ops` (`GET /ops/credit-whatsapp/en-attente`, tous espaces) : le geste à faire
+  ne dépend pas de Telegram. Une ligne qui ne viendra pas (le partenaire n'attache pas, le client renonce) se lève par
+  « Ne pas poser » dans cette liste (`POST /ops/credit-whatsapp/en-attente/:tenantId`, une note) : l'attente s'efface,
+  par le même prédicat, et le journal de l'espace en garde la trace sans la note, qui reste au journal du serveur
+  (`ops.attente_ligne_abandonnee` : l'administrateur de l'espace lit ce journal, et une note peut nommer le
+  partenaire). Une fin `parLaLigne` que notre serveur refuse, ou qu'une erreur interrompt (avant de remonter en 500),
+  alerte aussi (`fenetreRefuseeParLaLigne`) : le compte est peut-être déjà partagé ; interrompue, la connexion a pu
+  rattacher le numéro du corps, qui est alors marqué selon les règles de la connexion. Le refus et l'interruption ont
+  chacun leur retenue, une alerte par espace et par demi-heure (`RETENUE_ALERTE_REFUS_MS`, des verrous courts ; une
+  alerte retenue se journalise, une alerte que Telegram n'a pas reçue rend la sienne) ; un refus se dit par un libellé
+  fixe par statut, jamais par le message de Meta, et le compte n'est cité que s'il est fait de chiffres : la fin vient du
+  navigateur. Une alerte que Telegram ne reçoit pas se journalise par son cas, jamais par son texte, qui porte le numéro
+  affiché (`alerte_fenetre_partenaire_perdue`). Une Entreprise dont un numéro attend sa ligne lit `en_attente`
+  (`etatLigneCredit`, AVANT ses lignes : seule une ligne d'avant la marque coexiste avec l'attente, celle d'un ancien
+  numéro déconnecté, qui ne couvre pas le numéro qui attend) : la carte dit « Votre ligne s'ouvre sous 24 h ouvrées »,
+  l'Accueil et `get_setup_state` ne lui demandent pas sa carte chez Meta (`creditPaieMeta`). La pose automatique attend
+  la réponse du partenaire sur son mode d'attache.
 - 🔴 **La conversion et l'arrêt dits au client** (révision du 2026-11-04, lot C). La conversion
   (`signalerConversion`, `src/credit-whatsapp/conversion.ts`) a trois appelants : le démarrage de la formule Pro avant la
   fin de son essai, APRÈS la fin notée en base ; `/ops`, au passage d'un Business à confirmé ; le webhook, par

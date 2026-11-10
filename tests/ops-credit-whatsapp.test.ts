@@ -58,6 +58,7 @@ function app(
       ligneDuNumero: async () => null,
       numerosCouvertsParOption: async () => [],
       numerosEnAttenteDeLigne: async () => [],
+      abandonnerAttente: async () => false,
       poser: async () => true,
       retirer: async () => true,
       ...lignes,
@@ -120,6 +121,53 @@ describe('GET /ops/credit-whatsapp/en-attente (relecture du lot E5, jaune 3 ; d�
     const res = await a.inject({ method: 'GET', url: '/ops/credit-whatsapp/en-attente' });
     expect(res.statusCode).toBeGreaterThanOrEqual(400);
     expect(lu).toBe(false);
+    await a.close();
+  });
+});
+
+describe('POST /ops/credit-whatsapp/en-attente/:tenantId, « Ne pas poser » (relecture du lot E6, jaune 5)', () => {
+  const T = '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01';
+  const PN = '106540352242922';
+  const URL_ATTENTE = `/ops/credit-whatsapp/en-attente/${T}`;
+  const NOTE = 'le partenaire n’attache pas sa ligne';
+
+  it('🔴 efface l’attente d’un numéro qui attend vraiment, tracée dans le journal de l’espace SANS la note (le client le lit), et rend la liste relue', async () => {
+    const appels: string[] = [];
+    const traces: Trace[] = [];
+    const a = app({}, true, {
+      abandonnerAttente: async (t, pn) => { appels.push(`${t}:${pn}`); return true; },
+      numerosEnAttenteDeLigne: async () => [],
+    }, traces);
+    const res = await a.inject({ method: 'POST', url: URL_ATTENTE, ...withTok(OPS), payload: { phoneNumberId: PN, note: NOTE } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ numeros: [] });
+    expect(appels).toEqual([`${T}:${PN}`]);
+    // La note peut nommer le partenaire : elle reste au journal du serveur, jamais dans le journal que l'espace affiche.
+    expect(traces).toEqual([{ tenant: T, email: ADRESSE_OPS, action: 'ops.attente_ligne_abandonnee', detail: { phoneNumberId: PN } }]);
+    await a.close();
+  });
+
+  it('🔴 un numéro qui n’attend pas (ou plus), ou d’un autre espace : 404, rien n’est tracé', async () => {
+    const traces: Trace[] = [];
+    const a = app({}, true, { abandonnerAttente: async () => false }, traces);
+    const res = await a.inject({ method: 'POST', url: URL_ATTENTE, ...withTok(OPS), payload: { phoneNumberId: PN, note: NOTE } });
+    expect(res.statusCode).toBe(404);
+    expect(traces).toEqual([]);
+    await a.close();
+  });
+
+  it('refuse sans note, un identifiant qui n’est pas de Meta, un champ de trop, un espace mal formé ; sans la session, avant toute écriture', async () => {
+    let ecrit = false;
+    const a = app({}, true, { abandonnerAttente: async () => { ecrit = true; return true; } });
+    for (const payload of [
+      { phoneNumberId: PN, note: '' }, { phoneNumberId: PN }, { phoneNumberId: 'pn-x', note: NOTE }, { phoneNumberId: PN, note: NOTE, forcer: true },
+    ]) {
+      const res = await a.inject({ method: 'POST', url: URL_ATTENTE, ...withTok(OPS), payload });
+      expect(res.statusCode, JSON.stringify(payload)).toBe(400);
+    }
+    expect((await a.inject({ method: 'POST', url: '/ops/credit-whatsapp/en-attente/pas-un-espace', ...withTok(OPS), payload: { phoneNumberId: PN, note: NOTE } })).statusCode).toBe(404);
+    expect((await a.inject({ method: 'POST', url: URL_ATTENTE, headers: { 'content-type': 'application/json' }, payload: { phoneNumberId: PN, note: NOTE } })).statusCode).toBeGreaterThanOrEqual(400);
+    expect(ecrit).toBe(false);
     await a.close();
   });
 });

@@ -64,6 +64,8 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     // magasin ; la retenue d'une alerte de refus est partagée par les copies (jaune 2), jamais un verrou par processus.
     expect(fenetre).toMatch(/ligneDuNumero: \(phoneNumberId\) => lignesCreditWhatsapp\.ligneDuNumero\(phoneNumberId\),/);
     expect(fenetre).toMatch(/verrous: verrousCourts,/);
+    // L'autre espace se nomme par la lecture de `/ops`, appelée sur son magasin (relecture du lot E6, jaune 4).
+    expect(fenetre).toMatch(/nomDeLEspace: \(tenant\) => opsStore\.getTenantName\(tenant\),/);
     expect(bloc('const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {', 'vue: {'))
       .toMatch(/fenetrePartenaire: async \(tenant\) => \(await solutionDuPartenaire\(fenetreDuPartenaire, tenant\)\) !== null,/);
     // L'état des cartes lit « attend sa ligne » sur la VRAIE liste des numéros (relecture du lot E5, jaune 4) : une source

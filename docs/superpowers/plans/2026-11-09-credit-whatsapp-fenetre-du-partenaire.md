@@ -268,3 +268,35 @@ Commit `1c7cdec0`. Aucun rouge : le lot part, ses jaunes attendent le lot suivan
 7. Les cases du lot, cochées avec cette relecture.
 
 **En production le 2026-11-10** : run 42791085691 (`3b14741d`, `migration=aucune`).
+
+### E7. Les jaunes 1 à 6 du lot E6 (accord de Julien du 2026-11-10 : « Oui, enchaîne »)
+
+Méthode : implémenteur par lot, TDD, puis une relecture indépendante du diff (l'alerte de la connexion, l'état des
+cartes et une écriture de `/ops` sont des chemins de production). Aucune migration.
+
+- [x] Jaune 1, l'interruption : sa propre retenue (`fenetre-partenaire.interruption:<espace>`), qu'un refus ne tait
+  plus ; une alerte que Telegram n'a pas reçue rend sa retenue ; dans le `catch`, le numéro du corps (des chiffres) est
+  marqué selon les règles de la connexion, s'il est rattaché à l'espace. Tests : un refus puis une interruption, deux
+  alertes ; une alerte perdue n'empêche pas la suivante ; l'interruption marque le numéro à poser, jamais un numéro
+  invalide.
+- [x] Jaune 2, l'état : une Entreprise dont un numéro attend sa ligne lit `en_attente` avant ses lignes (celle d'un
+  ancien numéro déconnecté ne dit plus `active`). Test : l'état avec une ligne en cours et une attente.
+- [x] Jaune 3, la ligne arrêtée : « déjà couvert » lit `arreteeLe` ; une ligne arrêtée de l'espace a son cas (la garde
+  refuse les envois : la retirer et poser la nouvelle quand le partenaire confirme) et marque le numéro ; une ligne
+  active dit de vérifier l'attache, sinon de retirer la nôtre jusqu'à elle. Tests : les deux textes, la marque.
+- [x] Jaune 4, l'autre espace : l'alerte le nomme (`getTenantName`, l'identifiant à défaut) avec le numéro de sa ligne,
+  et dit de vérifier l'attache d'abord : déjà là, retirer et poser dans le même geste. Tests : le nom, l'identifiant à
+  défaut (absent ou illisible).
+- [x] Jaune 5, l'attente jamais posée : un geste « Ne pas poser » dans la liste de `/ops`
+  (`POST /ops/credit-whatsapp/en-attente/:tenantId`, une note, tracé dans le journal de l'espace) efface la marque d'un
+  numéro qui attend vraiment, par le prédicat de la liste ; l'Entreprise relit « sur demande » et le conseil de sa carte
+  chez Meta. Tests : la route (note, corps strict, 404, garde de `/ops`), le magasin en intégration (son espace seul),
+  l'e2e du geste.
+- [x] Jaune 6, le refus : l'alerte dit un libellé fixe par statut, jamais le message de Meta, qui peut reprendre le
+  compte forgé du corps (le détail reste dans les journaux de la connexion). Test : le message absent de l'alerte.
+
+**Ordre de déploiement** : l'API seule (`migration=aucune`) ; la carte de `/ops` part au push, son geste rendant 404
+le temps du déploiement (le message d'erreur le dit).
+
+**Essai réel** : à la prochaine connexion par la fenêtre, le numéro figure dans la liste de `/ops` ; « Ne pas poser »
+avec une note l'en retire, et la carte de l'Entreprise repasse à « Sur demande ».

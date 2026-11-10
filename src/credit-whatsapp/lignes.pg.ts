@@ -223,6 +223,19 @@ export class PgLignesCreditStore {
   }
 
   /**
+   * « Ne pas poser » (relecture du lot E6, jaune 5) : efface la marque d'un numéro de CET espace qui attend VRAIMENT sa
+   * ligne (le prédicat de la liste), quand le partenaire n'attache pas ou que le client renonce. L'Entreprise relit
+   * « sur demande » et le conseil de sa carte chez Meta. `false` sinon (un autre espace, une attente déjà éteinte).
+   */
+  async abandonnerAttente(tenantId: string, phoneNumberId: string): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `update phone_numbers p set par_la_ligne_le = null where p.tenant_id = $1 and p.id = $2 and ${ATTEND_LIGNE_SQL}`,
+      [tenantId, phoneNumberId],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
+  /**
    * Marque un numéro de CET espace comme arrivé par la fenêtre du partenaire (relecture du lot E, jaunes 3 et 4) : la trace
    * en base de la connexion, et ce qui fait attendre sa ligne à une Entreprise. Rejouée, la marque garde son premier
    * moment. `false` si le numéro n'est pas de l'espace (le filtre `tenant_id`, seul contrôle sous le rôle de l'application).

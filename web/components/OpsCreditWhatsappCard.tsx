@@ -6,8 +6,8 @@ import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
 import { OpsGrilleMeta } from '@/components/OpsGrilleMeta';
 import {
-  chargerGrilleMetaOps, lireNumerosEnAttenteOps, lireReglagesCreditWhatsappOps, reglerCommissionMessagesOps,
-  type NumeroEnAttenteOps, type ResumeGrilleMeta,
+  abandonnerAttenteOps, chargerGrilleMetaOps, lireNumerosEnAttenteOps, lireReglagesCreditWhatsappOps,
+  reglerCommissionMessagesOps, type NumeroEnAttenteOps, type ResumeGrilleMeta,
 } from '@/lib/api';
 
 /**
@@ -25,10 +25,54 @@ function dateLisible(iso: string): string {
 }
 
 /**
+ * « NE PAS POSER » (relecture du lot E6, jaune 5) : la ligne attendue ne viendra pas (le partenaire n'attache pas, le
+ * client renonce). Une note dit pourquoi ; le serveur efface l'attente et rend la liste relue. Rien n'est dit fait avant
+ * sa réponse.
+ */
+function NePasPoser({ token, n, surListe }: { token: string; n: NumeroEnAttenteOps; surListe: (l: NumeroEnAttenteOps[]) => void }) {
+  const t = useT();
+  const [note, setNote] = useState('');
+  const [etat, setEtat] = useState<{ statut: 'idle' | 'saving' | 'error'; msg?: string }>({ statut: 'idle' });
+
+  async function abandonner() {
+    setEtat({ statut: 'saving' });
+    try {
+      surListe((await abandonnerAttenteOps(token, n.tenantId, n.phoneNumberId, note)).numeros);
+    } catch (err) {
+      setEtat({ statut: 'error', msg: err instanceof Error ? err.message : undefined });
+    }
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-2">
+      <input
+        value={note} onChange={(e) => { setNote(e.target.value); setEtat({ statut: 'idle' }); }} className={`${inputCls} max-w-xs`}
+        aria-label={t('Pourquoi sa ligne ne sera pas posée', 'Why its line will not be set')}
+        placeholder={t('pourquoi : le partenaire n’attache pas…', 'why: the partner does not attach…')}
+        data-testid="ops-credit-whatsapp-en-attente-note"
+      />
+      <Bouton
+        type="button" variante="secondaire" taille="petite" onClick={() => { void abandonner(); }}
+        disabled={etat.statut === 'saving' || note.trim().length < 3} enCours={etat.statut === 'saving'}
+        data-testid="ops-credit-whatsapp-en-attente-ne-pas-poser"
+      >
+        {t('Ne pas poser', 'Do not set')}
+      </Bouton>
+      {etat.statut === 'error' && (
+        <span className="text-xs text-danger-700" data-testid="ops-credit-whatsapp-en-attente-erreur">
+          {etat.msg ?? t('Impossible pour l’instant.', 'Not possible right now.')}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
  * LES NUMÉROS QUI ATTENDENT LEUR LIGNE (relecture du lot E5, jaune 3 ; décision de Julien du 2026-11-09) : arrivés par la
  * fenêtre du partenaire, sans ligne posée depuis, tous espaces. Le geste (demander l'attache au partenaire, puis poser la
- * ligne de l'espace quand il la confirme) ne dépend plus d'une alerte Telegram, qui peut se perdre (essai 236). Une API
- * d'avant la route : la liste se dit illisible, le reste de la carte demeure.
+ * ligne de l'espace quand il la confirme) ne dépend plus d'une alerte Telegram, qui peut se perdre (essai 236) ; une
+ * ligne qui ne viendra pas se lève par « Ne pas poser ». Une API d'avant la route : la liste se dit illisible, le reste
+ * de la carte demeure.
  */
 function EnAttenteDeLigne({ token }: { token: string }) {
   const t = useT();
@@ -47,8 +91,8 @@ function EnAttenteDeLigne({ token }: { token: string }) {
       <h3 className="text-xs font-semibold text-ink-900">{t('En attente de leur ligne', 'Waiting for their line')}</h3>
       <p className="mt-1 text-xs text-ink-500">
         {t(
-          'Arrivés par la fenêtre du partenaire : lui demander d’attacher sa ligne de crédit, puis poser celle de l’espace (son lien « offre ») quand il confirme l’attache, pas avant.',
-          'Connected through the partner’s window: ask the partner to attach their credit line, then set the workspace’s line (its “plan” link) once they confirm, not before.',
+          'Arrivés par la fenêtre du partenaire : lui demander d’attacher sa ligne de crédit, puis poser celle de l’espace (son lien « offre ») quand il confirme l’attache, pas avant. Une ligne qui ne viendra pas se lève par « Ne pas poser » : l’espace repasse sur demande, avec le conseil de sa carte chez Meta.',
+          'Connected through the partner’s window: ask the partner to attach their credit line, then set the workspace’s line (its “plan” link) once they confirm, not before. A line that will not come is cleared with “Do not set”: the workspace goes back to on request, with the advice about its card at Meta.',
         )}
       </p>
       {numeros === null && (
@@ -60,13 +104,16 @@ function EnAttenteDeLigne({ token }: { token: string }) {
         <p className="mt-2 text-sm text-ink-900">{t('Aucun numéro n’attend sa ligne.', 'No number is waiting for its line.')}</p>
       )}
       {numeros !== null && numeros !== undefined && numeros.length > 0 && (
-        <ul className="mt-2 space-y-1 text-sm text-ink-900">
+        <ul className="mt-2 space-y-2 text-sm text-ink-900">
           {numeros.map((n) => (
-            <li key={n.phoneNumberId} data-testid="ops-credit-whatsapp-en-attente-numero">
-              {t(
-                `${n.espace} : ${n.numero ?? n.phoneNumberId}, connecté le ${dateLisible(n.depuis)}`,
-                `${n.espace}: ${n.numero ?? n.phoneNumberId}, connected on ${dateLisible(n.depuis)}`,
-              )}
+            <li key={n.phoneNumberId}>
+              <span data-testid="ops-credit-whatsapp-en-attente-numero">
+                {t(
+                  `${n.espace} : ${n.numero ?? n.phoneNumberId}, connecté le ${dateLisible(n.depuis)}`,
+                  `${n.espace}: ${n.numero ?? n.phoneNumberId}, connected on ${dateLisible(n.depuis)}`,
+                )}
+              </span>
+              <NePasPoser token={token} n={n} surListe={setNumeros} />
             </li>
           ))}
         </ul>

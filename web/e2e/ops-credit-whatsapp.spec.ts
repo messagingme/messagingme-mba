@@ -120,6 +120,33 @@ test.describe('Ops : les numéros qui attendent leur ligne (relecture du lot E5,
     await expect(page.getByTestId('ops-credit-whatsapp-en-attente-illisible')).toBeVisible();
     await expect(page.getByTestId('ops-grille-meta-etat')).toBeVisible();
   });
+
+  test('🔴 « Ne pas poser » : une note requise, l’attente levée par le serveur, la liste relue de sa réponse (relecture du lot E6, jaune 5)', async ({ page }) => {
+    await reglages(page, GRILLE, [EN_ATTENTE]);
+    const corps: unknown[] = [];
+    await page.route('**/api/backend/ops/credit-whatsapp/en-attente/t-essai', async (route) => {
+      corps.push(route.request().postDataJSON());
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ numeros: [] }) });
+    });
+    const bouton = page.getByTestId('ops-credit-whatsapp-en-attente-ne-pas-poser');
+    // Sans note, rien ne part : la raison se dit avant le geste.
+    await expect(bouton).toBeDisabled();
+    await page.getByTestId('ops-credit-whatsapp-en-attente-note').fill('le partenaire n’attache pas');
+    await bouton.click();
+    await expect(page.getByTestId('ops-credit-whatsapp-en-attente')).toContainText('Aucun numéro n’attend sa ligne.');
+    expect(corps).toEqual([{ phoneNumberId: '106540352242922', note: 'le partenaire n’attache pas' }]);
+  });
+
+  test('« Ne pas poser » refusé (le numéro n’attend plus, ou une API d’avant la route) : le message du serveur, et le numéro reste listé', async ({ page }) => {
+    await reglages(page, GRILLE, [EN_ATTENTE]);
+    await page.route('**/api/backend/ops/credit-whatsapp/en-attente/t-essai', (route) => route.fulfill({
+      status: 404, contentType: 'application/json', body: JSON.stringify({ error: 'ce numéro n’attend aucune ligne dans cet espace' }),
+    }));
+    await page.getByTestId('ops-credit-whatsapp-en-attente-note').fill('le partenaire n’attache pas');
+    await page.getByTestId('ops-credit-whatsapp-en-attente-ne-pas-poser').click();
+    await expect(page.getByTestId('ops-credit-whatsapp-en-attente-erreur')).toContainText('n’attend aucune ligne');
+    await expect(page.getByTestId('ops-credit-whatsapp-en-attente-numero')).toHaveCount(1);
+  });
 });
 
 /**

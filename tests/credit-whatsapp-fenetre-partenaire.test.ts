@@ -16,24 +16,37 @@ const SOLUTION = 'solution-de-test';
 const NUMERO = '+33 6 12 34 56 78';
 
 function deps(o: {
-  offre?: Offre; places?: number | null; couverts?: string[]; rattaches?: number; solutionId?: string; alertePart?: boolean;
+  offre?: Offre; places?: number | null; couverts?: string[]; rattaches?: number; solutionId?: string;
+  /** Ce que Telegram répond : toujours, ou appel par appel (une liste consommée dans l'ordre). */
+  alertePart?: boolean | boolean[];
   /** La ligne qui couvre le numéro arrivé (`ligneDuNumero`), quelle que soit son origine ; aucune par défaut. */
-  couvrante?: { tenantId: string } | null;
+  couvrante?: { tenantId: string; phoneNumberId?: string; arreteeLe?: string | null } | null;
+  /** Les noms des espaces (`getTenantName`) ; inconnu par défaut. */
+  noms?: Record<string, string>;
   maintenant?: () => number;
 } = {}) {
   const alertes: string[] = [];
   const marques: string[] = [];
   const couvertures: string[] = [];
+  const reponses = Array.isArray(o.alertePart) ? [...o.alertePart] : null;
   const d: DepsFenetrePartenaire = {
     solutionId: o.solutionId ?? SOLUTION,
     offre: async () => o.offre ?? 'pro',
     option: async () => (o.places === null ? null : { places: o.places ?? 1 }),
     numerosCouverts: async () => o.couverts ?? [],
     numerosRattaches: async () => o.rattaches ?? 0,
-    ligneDuNumero: async (phoneNumberId) => { couvertures.push(phoneNumberId); return o.couvrante ?? null; },
+    ligneDuNumero: async (phoneNumberId) => {
+      couvertures.push(phoneNumberId);
+      const c = o.couvrante ?? null;
+      return c === null ? null : { tenantId: c.tenantId, phoneNumberId: c.phoneNumberId ?? 'pn-couvrant', arreteeLe: c.arreteeLe ?? null };
+    },
+    nomDeLEspace: async (tenantId) => o.noms?.[tenantId] ?? null,
     verrous: verrousEnMemoire(o.maintenant),
     marquer: async (_tenant, phoneNumberId) => { marques.push(phoneNumberId); },
-    alerter: async (texte) => { alertes.push(texte); return o.alertePart ?? true; },
+    alerter: async (texte) => {
+      alertes.push(texte);
+      return reponses !== null ? (reponses.shift() ?? true) : ((o.alertePart as boolean | undefined) ?? true);
+    },
   };
   return { d, alertes, marques, couvertures };
 }
@@ -109,20 +122,46 @@ describe('la connexion faite par la ligne', () => {
     const { d, alertes, marques, couvertures } = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: T } });
     await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
     expect(couvertures).toEqual(['pn-1']);
+    // La ligne active ne prouve pas l'attache : la vérifier, sinon retirer la nôtre jusqu'à elle (relecture du lot E6, jaune 3).
     expect(alertes).toEqual([
-      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est déjà sur la ligne de l’espace : rien à poser dans /ops ; vérifier que le partenaire a attaché sa ligne à ce compte.`,
+      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est déjà sur la ligne de l’espace : rien à poser. Vérifier auprès du partenaire que sa ligne est attachée à ce compte ; sinon, retirer la nôtre dans /ops jusqu’à son attache.`,
     ]);
     // Rien à poser, rien n'attend : pas de marque (le rouge de la relecture du lot E5).
     expect(marques).toEqual([]);
   });
 
-  it('🔴 un compte encore sur la ligne d’un AUTRE espace : la retirer avant de poser, et le numéro attend sa ligne (relecture du lot E5, jaune 5)', async () => {
-    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: 'un-autre-espace' } });
+  it('🔴 un compte sur une ligne ARRÊTÉE de l’espace : la garde refuse ses envois, le numéro attend sa nouvelle ligne (relecture du lot E6, jaune 3)', async () => {
+    // Avant, « déjà couvert » rassurait Julien alors que la garde refusait chaque envoi du numéro.
+    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: T, arreteeLe: '2026-11-01T10:00:00.000Z' } });
     await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
     expect(alertes).toEqual([
-      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est encore sur la ligne d’un AUTRE espace, et la garde refuse ses envois : retirer cette ligne dans /ops, demander au partenaire d’attacher sa ligne à ce compte, puis poser celle de l’espace quand il confirme l’attache.`,
+      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est sur une ligne ARRÊTÉE de l’espace, et la garde refuse ses envois. Demander au partenaire d’attacher sa ligne de crédit à ce compte ; quand il confirme, retirer la ligne arrêtée et poser la nouvelle dans /ops. D’ici là, le numéro attend dans la liste de /ops.`,
     ]);
     expect(marques).toEqual(['pn-1']);
+  });
+
+  it('🔴 un compte encore sur la ligne d’un AUTRE espace, NOMMÉ avec le numéro de sa ligne : vérifier l’attache d’abord, puis retirer et poser dans le même geste ; le numéro attend sa ligne (relecture du lot E6, jaune 4)', async () => {
+    const AUTRE = '0b8b2a3e-1c4d-4e5f-8a9b-0c1d2e3f4a5b';
+    const { d, alertes, marques } = deps({
+      offre: 'entreprise', places: null, couvrante: { tenantId: AUTRE, phoneNumberId: '106540352242999' }, noms: { [AUTRE]: 'Espace Dupont' },
+    });
+    await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
+    expect(alertes).toEqual([
+      `Numéro connecté par la ligne du partenaire : espace ${T}, pn-1 (compte waba-1). Son compte WhatsApp est encore sur la ligne d’un AUTRE espace (« Espace Dupont », numéro 106540352242999), et la garde refuse ses envois. Vérifier d’abord auprès du partenaire si sa ligne est encore attachée à ce compte : si oui, retirer cette ligne et poser celle de l’espace dans le même geste ; sinon, la lui demander, puis faire les deux quand il confirme.`,
+    ]);
+    expect(marques).toEqual(['pn-1']);
+  });
+
+  it('un autre espace sans nom lisible est cité par son identifiant : un nom inconnu ou une lecture en panne n’éteignent pas l’alerte', async () => {
+    const AUTRE = '0b8b2a3e-1c4d-4e5f-8a9b-0c1d2e3f4a5b';
+    const inconnu = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: AUTRE, phoneNumberId: '106540352242999' } });
+    await connexionParLaLigne(inconnu.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null });
+    expect(inconnu.alertes[0]).toContain(`(espace ${AUTRE}, numéro 106540352242999)`);
+    const enPanne = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: AUTRE, phoneNumberId: '106540352242999' } });
+    enPanne.d.nomDeLEspace = async () => { throw new Error('base indisponible'); };
+    await capturerJournal(() => connexionParLaLigne(enPanne.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null }));
+    expect(enPanne.alertes[0]).toContain(`(espace ${AUTRE}, numéro 106540352242999)`);
+    expect(enPanne.marques).toEqual(['pn-1']);
   });
 
   it('🔴 un compte relié SANS numéro : demander l’attache, rien à poser, aucune marque ni lecture de couverture (relecture du lot E5, jaune 6)', async () => {
@@ -192,19 +231,28 @@ describe('la connexion faite par la ligne', () => {
   });
 });
 
-describe('la fenêtre du partenaire passée chez Meta, la connexion refusée chez nous (relecture du lot E, jaune 1)', () => {
-  const COMPTE = '1815162959535129';
 
-  it('🔴 Julien est alerté : le compte est peut-être déjà partagé avec le partenaire', async () => {
+describe('la fenêtre du partenaire passée chez Meta, la connexion refusée ou interrompue chez nous (relecture du lot E, jaune 1)', () => {
+  const COMPTE = '1815162959535129';
+  const NUMERO_META = '106540352242922';
+  const fin = (statut: number, wabaId: string | null = COMPTE, phoneNumberId: string | null = null) => ({ statut, wabaId, phoneNumberId });
+
+  it('🔴 Julien est alerté par un libellé FIXE par statut, jamais par le message de Meta, qui peut reprendre le compte forgé du corps (relecture du lot E6, jaune 6)', async () => {
     const { d, alertes } = deps({ offre: 'pro', places: 1 });
-    await fenetreRefuseeParLaLigne(d, T, { statut: 409, erreur: 'Ce compte WhatsApp appartient à un autre espace', wabaId: COMPTE });
-    expect(alertes).toEqual([`Fenêtre du partenaire passée chez Meta, connexion REFUSÉE chez nous (409 : Ce compte WhatsApp appartient à un autre espace) : espace ${T}, compte ${COMPTE}. Le compte est peut-être déjà partagé avec le partenaire : lui demander de ne rien y attacher, et voir avec le client.`]);
+    await fenetreRefuseeParLaLigne(d, T, fin(409));
+    expect(alertes).toEqual([`Fenêtre du partenaire passée chez Meta, connexion REFUSÉE chez nous (409 : conflit, compte ou numéro rattaché à un autre espace, second numéro, plusieurs comptes ou numéros, ou numéro 360dialog) : espace ${T}, compte ${COMPTE}. Le compte est peut-être déjà partagé avec le partenaire : lui demander de ne rien y attacher, et voir avec le client. Le détail est dans les journaux de l’API.`]);
+    const meta = deps();
+    await fenetreRefuseeParLaLigne(meta.d, T, fin(422));
+    expect(meta.alertes).toEqual([expect.stringContaining('(422 : refus de Meta, échange du code, preuve d’appartenance ou lecture du compte)')]);
+    const autre = deps();
+    await fenetreRefuseeParLaLigne(autre.d, T, fin(400));
+    expect(autre.alertes).toEqual([expect.stringContaining('(400 : refus)')]);
   });
 
   it('🔴 le compte n’est cité que s’il est fait de chiffres : le corps le dit, rien ne le borne (relecture du lot E5, jaune 2)', async () => {
     for (const wabaId of [null, 'waba-x', '1'.repeat(33), `${COMPTE}\nAlerte forgée`]) {
       const { d, alertes } = deps();
-      await fenetreRefuseeParLaLigne(d, T, { statut: 422, erreur: 'échange refusé', wabaId });
+      await fenetreRefuseeParLaLigne(d, T, fin(422, wabaId));
       expect(alertes, String(wabaId)).toEqual([expect.stringMatching(/: espace [^,]+, compte inconnu\. Le compte est peut-être/)]);
     }
   });
@@ -212,42 +260,86 @@ describe('la fenêtre du partenaire passée chez Meta, la connexion refusée che
   it('🔴 une alerte de refus par espace et par demi-heure : un corps forgé ne la déclenche pas à volonté, et le refus retenu se journalise (relecture du lot E5, jaune 2)', async () => {
     let maintenant = 1_000_000;
     const { d, alertes } = deps({ maintenant: () => maintenant });
-    const refus = { statut: 422, erreur: 'échange refusé', wabaId: COMPTE };
-    await fenetreRefuseeParLaLigne(d, T, refus);
-    const { lignes } = await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, refus));
+    await fenetreRefuseeParLaLigne(d, T, fin(422));
+    const { lignes } = await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
     expect(alertes).toHaveLength(1);
     expect(lignes).toEqual([expect.objectContaining({ lvl: 'warn', msg: 'alerte_fenetre_refusee_retenue', tenantId: T, statut: 422, wabaId: COMPTE })]);
     // Un autre espace a la sienne ; la demi-heure passée, l'espace aussi.
-    await fenetreRefuseeParLaLigne(d, 'un-autre-espace', refus);
+    await fenetreRefuseeParLaLigne(d, 'un-autre-espace', fin(422));
     expect(alertes).toHaveLength(2);
     maintenant += 30 * 60_000;
-    await fenetreRefuseeParLaLigne(d, T, refus);
+    await fenetreRefuseeParLaLigne(d, T, fin(422));
     expect(alertes).toHaveLength(3);
+  });
+
+  it('🔴 un refus ne tait plus l’alerte d’une INTERRUPTION, seul signal d’un compte relié à moitié : chacune a sa retenue (relecture du lot E6, jaune 1)', async () => {
+    const { d, alertes } = deps();
+    await fenetreRefuseeParLaLigne(d, T, fin(422));
+    await fenetreRefuseeParLaLigne(d, T, fin(500));
+    expect(alertes).toHaveLength(2);
+    expect(alertes[1]).toMatch(/connexion INTERROMPUE/);
+    // Une seconde interruption dans la demi-heure est retenue, comme un second refus.
+    await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(500)));
+    expect(alertes).toHaveLength(2);
+  });
+
+  it('🔴 une alerte que Telegram n’a pas reçue rend sa retenue : la suivante part ; reçue, elle la garde (relecture du lot E6, jaune 1)', async () => {
+    const { d, alertes } = deps({ alertePart: [false, true] });
+    await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
+    await fenetreRefuseeParLaLigne(d, T, fin(422));
+    expect(alertes).toHaveLength(2);
+    await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
+    expect(alertes).toHaveLength(2);
   });
 
   it('un verrou illisible n’éteint pas l’alerte : elle part, et le journal le dit', async () => {
     const { d, alertes } = deps();
-    d.verrous = { prendre: async () => { throw new Error('base indisponible'); } };
-    const { lignes } = await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, { statut: 422, erreur: 'x', wabaId: null }));
+    d.verrous = { prendre: async () => { throw new Error('base indisponible'); }, relacher: async () => undefined };
+    const { lignes } = await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422, null)));
     expect(alertes).toHaveLength(1);
     expect(lignes).toEqual([expect.objectContaining({ lvl: 'error', msg: 'alerte_fenetre_refusee_retenue_illisible', tenantId: T })]);
   });
 
-  it('🔴 une connexion INTERROMPUE par une erreur chez nous a son texte : le compte est peut-être partagé et relié à moitié (relecture du lot E5, jaune 7)', async () => {
-    const { d, alertes } = deps();
-    await fenetreRefuseeParLaLigne(d, T, { statut: 500, erreur: 'erreur interne', wabaId: COMPTE });
-    expect(alertes).toEqual([`Fenêtre du partenaire passée chez Meta, connexion INTERROMPUE chez nous par une erreur interne (voir les journaux de l’API) : espace ${T}, compte ${COMPTE}. Le compte est peut-être partagé avec le partenaire et relié à moitié : voir l’espace dans /ops avant toute pose, et lui demander de ne rien y attacher sans décision.`]);
+  it('🔴 une connexion INTERROMPUE a son texte, et le numéro du corps, rattaché à l’espace, est marqué selon les règles de la connexion (relecture du lot E5, jaune 7 ; du lot E6, jaune 1)', async () => {
+    const { d, alertes, marques } = deps({ offre: 'entreprise', places: null });
+    await fenetreRefuseeParLaLigne(d, T, fin(500, COMPTE, NUMERO_META));
+    expect(alertes).toEqual([`Fenêtre du partenaire passée chez Meta, connexion INTERROMPUE chez nous par une erreur interne (voir les journaux de l’API) : espace ${T}, compte ${COMPTE}. Le compte est peut-être partagé avec le partenaire et relié à moitié : voir l’espace dans /ops avant toute pose (son numéro, s’il est rattaché et à poser, figure dans la liste « En attente de leur ligne »), et lui demander de ne rien y attacher sans décision.`]);
+    expect(marques).toEqual([NUMERO_META]);
+    // Retenue, l'alerte ne part pas, mais la marque se pose quand même : elle dit l'état, pas l'alerte.
+    const retenue = deps({ offre: 'entreprise', places: null });
+    await fenetreRefuseeParLaLigne(retenue.d, T, fin(500, COMPTE, null));
+    await capturerJournal(() => fenetreRefuseeParLaLigne(retenue.d, T, fin(500, COMPTE, NUMERO_META)));
+    expect(retenue.alertes).toHaveLength(1);
+    expect(retenue.marques).toEqual([NUMERO_META]);
+  });
+
+  it('🔴 la marque après une interruption suit les règles : jamais un numéro mal formé, ni sans droit, ni sur un compte déjà couvert, ni après un simple refus', async () => {
+    for (const phoneNumberId of [null, 'pn-x', `${NUMERO_META}\n`]) {
+      const { d, marques } = deps({ offre: 'entreprise', places: null });
+      await fenetreRefuseeParLaLigne(d, T, fin(500, COMPTE, phoneNumberId));
+      expect(marques, String(phoneNumberId)).toEqual([]);
+    }
+    const sansDroit = deps({ offre: 'base' });
+    await fenetreRefuseeParLaLigne(sansDroit.d, T, fin(500, COMPTE, NUMERO_META));
+    expect(sansDroit.marques).toEqual([]);
+    const couvert = deps({ offre: 'entreprise', places: null, couvrante: { tenantId: T } });
+    await fenetreRefuseeParLaLigne(couvert.d, T, fin(500, COMPTE, NUMERO_META));
+    expect(couvert.marques).toEqual([]);
+    const refuse = deps({ offre: 'entreprise', places: null });
+    await fenetreRefuseeParLaLigne(refuse.d, T, fin(409, COMPTE, NUMERO_META));
+    expect(refuse.marques).toEqual([]);
   });
 
   it('ne lève jamais, et une alerte perdue laisse sa trace, par son cas', async () => {
     const { d } = deps({ alertePart: false });
-    const { lignes } = await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, { statut: 422, erreur: 'échange refusé', wabaId: COMPTE }));
+    const { lignes } = await capturerJournal(() => fenetreRefuseeParLaLigne(d, T, fin(422)));
     expect(lignes).toEqual([expect.objectContaining({ msg: 'alerte_fenetre_partenaire_perdue', tenantId: T, wabaId: COMPTE, cas: 'refusee' })]);
     const interrompue = deps({ alertePart: false });
-    const r = await capturerJournal(() => fenetreRefuseeParLaLigne(interrompue.d, T, { statut: 500, erreur: 'erreur interne', wabaId: null }));
+    const r = await capturerJournal(() => fenetreRefuseeParLaLigne(interrompue.d, T, fin(500, null)));
     expect(r.lignes).toEqual([expect.objectContaining({ msg: 'alerte_fenetre_partenaire_perdue', cas: 'interrompue', wabaId: null })]);
     const enPanne = deps();
     enPanne.d.alerter = async () => { throw new Error('Telegram indisponible'); };
-    await expect(capturerJournal(() => fenetreRefuseeParLaLigne(enPanne.d, T, { statut: 422, erreur: 'x', wabaId: null })).then((r2) => r2.resultat)).resolves.toBeUndefined();
+    enPanne.d.marquer = async () => { throw new Error('base indisponible'); };
+    await expect(capturerJournal(() => fenetreRefuseeParLaLigne(enPanne.d, T, fin(500, null, NUMERO_META))).then((r2) => r2.resultat)).resolves.toBeUndefined();
   });
 });

@@ -44,9 +44,11 @@ export interface EmbeddedSignupRouteDeps extends DepsConnexionNumero, DepsDemand
   /**
    * Une fin par la fenêtre du partenaire que notre serveur refuse (`fenetreRefuseeParLaLigne`, relecture du lot E,
    * jaune 1), ou qu'une erreur interrompt (`statut` 500, relecture du lot E5, jaune 7) : le compte est peut-être déjà
-   * partagé avec le partenaire, Julien est alerté (une fois par espace et par demi-heure). Ne lève jamais.
+   * partagé avec le partenaire, Julien est alerté (une fois par espace et par demi-heure, par un libellé fixe : jamais le
+   * message de Meta, relecture du lot E6, jaune 6). Le compte et le numéro sont ceux que le corps dit : interrompue, la
+   * connexion a pu rattacher le numéro, qui est alors marqué selon les règles de la connexion. Ne lève jamais.
    */
-  fenetreRefusee(tenantId: string, i: { statut: number; erreur: string; wabaId: string | null }): Promise<void>;
+  fenetreRefusee(tenantId: string, i: { statut: number; wabaId: string | null; phoneNumberId: string | null }): Promise<void>;
 
   // ----- « Délier » et « Relier » : l'interrupteur du numéro sur l'Accueil -----
   //
@@ -151,15 +153,17 @@ export function registerEmbeddedSignup(
     if (!nonEmpty(b.code)) return reply.code(400).send({ error: 'code requis' });
     // Ce que le corps DIT de la fenêtre : la trace d'audit le garde, le droit se relit au serveur (`connexionParLaLigne`).
     const parLaLigne = b.parLaLigne === true;
-    // Le compte tel que le corps le dit : `fenetreRefuseeParLaLigne` ne le cite que s'il a la forme d'un identifiant de Meta.
+    // Le compte et le numéro tels que le corps les dit : `fenetreRefuseeParLaLigne` ne les reprend que s'ils ont la forme
+    // d'un identifiant de Meta.
     const wabaDuCorps = nonEmpty(b.wabaId) ? b.wabaId.trim() : null;
+    const numeroDuCorps = nonEmpty(b.phoneNumberId) ? b.phoneNumberId.trim() : null;
     let r: Awaited<ReturnType<typeof connecterNumero>>;
     try {
       r = await connecterNumero(deps, {
         tenantId: tenant,
         code: b.code.trim(),
         ...(wabaDuCorps !== null ? { wabaId: wabaDuCorps } : {}),
-        ...(nonEmpty(b.phoneNumberId) ? { phoneNumberId: b.phoneNumberId.trim() } : {}),
+        ...(numeroDuCorps !== null ? { phoneNumberId: numeroDuCorps } : {}),
         ...(typeof b.evenement === 'string' ? { evenement: b.evenement } : {}),
       }, async (trace) => {
         if (trace.action === 'compte.relie_sans_numero') {
@@ -177,16 +181,16 @@ export function registerEmbeddedSignup(
       });
     } catch (err) {
       // Une erreur en route (le rattachement, le jeton, la trace) : la fenêtre du partenaire a fini chez Meta, le compte est
-      // peut-être partagé avec lui et relié à moitié chez nous (relecture du lot E5, jaune 7). Julien est alerté, l'erreur
-      // remonte telle quelle.
-      if (parLaLigne) await deps.fenetreRefusee(tenant, { statut: 500, erreur: 'erreur interne', wabaId: wabaDuCorps });
+      // peut-être partagé avec lui et relié à moitié chez nous (relecture du lot E5, jaune 7). Julien est alerté, le numéro
+      // rattaché attend sa ligne s'il est à poser (relecture du lot E6, jaune 1), l'erreur remonte telle quelle.
+      if (parLaLigne) await deps.fenetreRefusee(tenant, { statut: 500, wabaId: wabaDuCorps, phoneNumberId: numeroDuCorps });
       throw err;
     }
     if (!r.ok) {
       // La fenêtre du partenaire a fini chez Meta : le compte est peut-être déjà partagé avec lui, même refusé ici (relecture
-      // du lot E, jaune 1). Julien est alerté ; la réponse d'erreur part de toute façon.
+      // du lot E, jaune 1). Julien est alerté ; la réponse d'erreur part de toute façon, avec son message.
       if (parLaLigne) {
-        await deps.fenetreRefusee(tenant, { statut: r.statut, erreur: r.error, wabaId: wabaDuCorps });
+        await deps.fenetreRefusee(tenant, { statut: r.statut, wabaId: wabaDuCorps, phoneNumberId: numeroDuCorps });
       }
       return reply.code(r.statut).send({ error: r.error });
     }

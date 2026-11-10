@@ -1102,8 +1102,11 @@ async function main(): Promise<void> {
     numerosRattaches: async (tenant) => (await lignesCreditWhatsapp.numerosDeLEspace(tenant)).length,
     // « Déjà couvert » toute origine, comme la pose de `/ops` (relecture du lot E5, jaune 5).
     ligneDuNumero: (phoneNumberId) => lignesCreditWhatsapp.ligneDuNumero(phoneNumberId),
-    // Une alerte de refus par espace et par demi-heure, pour toutes les copies (relecture du lot E5, jaune 2).
+    // Une alerte de refus, et une d'interruption, par espace et par demi-heure, pour toutes les copies (relecture du lot E5,
+    // jaune 2 ; du lot E6, jaune 1).
     verrous: verrousCourts,
+    // L'autre espace dont la ligne couvre encore le compte, nommé dans l'alerte (relecture du lot E6, jaune 4).
+    nomDeLEspace: (tenant) => opsStore.getTenantName(tenant),
     marquer: async (tenant, phoneNumberId) => { await lignesCreditWhatsapp.marquerParLaLigne(tenant, phoneNumberId); },
     // Ce que Telegram a répondu remonte : une alerte perdue se journalise (relecture du lot E, jaune 3 ; essai 236).
     alerter: (texte) => sendTelegram(`[mba-${NOM_API}] ${texte}`),
@@ -2870,7 +2873,7 @@ async function main(): Promise<void> {
         solutionDuPartenaire: (tenant: string) => solutionDuPartenaire(fenetreDuPartenaire, tenant),
         connexionParLaLigne: (tenant: string, n: { wabaId: string; phoneNumberId: string | null; numero: string | null }) =>
           connexionParLaLigne(fenetreDuPartenaire, tenant, n),
-        fenetreRefusee: (tenant: string, i: { statut: number; erreur: string; wabaId: string | null }) =>
+        fenetreRefusee: (tenant: string, i: { statut: number; wabaId: string | null; phoneNumberId: string | null }) =>
           fenetreRefuseeParLaLigne(fenetreDuPartenaire, tenant, i),
         meta: esClient,
         inscriptions: {

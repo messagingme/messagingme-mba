@@ -48,6 +48,11 @@ export interface OpsCreditWhatsappDeps {
      * jaune 3) : le geste à faire ne dépend plus d'une alerte Telegram.
      */
     numerosEnAttenteDeLigne(): Promise<NumeroEnAttente[]>;
+    /**
+     * « Ne pas poser » (relecture du lot E6, jaune 5) : efface l'attente d'un numéro de CET espace qui attend vraiment ;
+     * `false` sinon (`abandonnerAttente`).
+     */
+    abandonnerAttente(tenantId: string, phoneNumberId: string): Promise<boolean>;
   };
   /**
    * L'option du Crédit WhatsApp (lot 4a, décision de Julien du 2026-11-03) : une pose pour un Pro ou un Business consomme
@@ -110,6 +115,12 @@ const CORPS_LIGNE = z.object({
   note: z.string(),
   /** Poser sans place payée (un essai, décision de Julien du 2026-11-03) : la ligne est `'ops'`, signée, hors des places. */
   forcer: z.boolean().optional(),
+}).strict();
+
+/** « Ne pas poser » un numéro qui attend sa ligne : son identifiant de Meta, et pourquoi. */
+const CORPS_ABANDON = z.object({
+  phoneNumberId: z.string().regex(/^[0-9]{5,32}$/),
+  note: z.string(),
 }).strict();
 
 /**
@@ -229,6 +240,29 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
   app.get('/ops/credit-whatsapp/en-attente', opts, async (_req, reply) => (
     reply.code(200).send({ numeros: await deps.lignes.numerosEnAttenteDeLigne() })
   ));
+
+  /**
+   * « Ne pas poser » (relecture du lot E6, jaune 5) : le partenaire n'attache pas, ou le client renonce. L'attente d'un
+   * numéro de l'espace qui attend vraiment s'efface ; l'Entreprise relit « sur demande » et le conseil de sa carte chez
+   * Meta. 🔴 La note reste au journal du serveur : le journal de l'espace, que son administrateur lit, ne porte que
+   * l'identifiant du numéro (une note peut nommer le partenaire).
+   */
+  app.post('/ops/credit-whatsapp/en-attente/:tenantId', opts, async (req, reply) => {
+    const { tenantId } = req.params as { tenantId: string };
+    if (!estUuid(tenantId)) return reply.code(404).send({ error: 'espace inconnu' });
+    const c = CORPS_ABANDON.safeParse(req.body);
+    if (!c.success) return reply.code(400).send({ error: 'corps invalide : phoneNumberId (l’identifiant Meta du numéro) et une note sont attendus' });
+    const note = c.data.note.trim().slice(0, 500);
+    if (note.length < MIN_NOTE) return reply.code(400).send({ error: 'note requise : pourquoi ce numéro n’aura pas sa ligne' });
+    const { phoneNumberId } = c.data;
+    if (!(await deps.lignes.abandonnerAttente(tenantId, phoneNumberId))) {
+      return reply.code(404).send({ error: 'ce numéro n’attend aucune ligne dans cet espace' });
+    }
+    const par = auteurOps(req);
+    journaliser('warn', 'ops_attente_ligne_abandonnee', { tenantId, phoneNumberId, par, note });
+    await tracer(tenantId, par, 'ops.attente_ligne_abandonnee', { phoneNumberId });
+    return reply.code(200).send({ numeros: await deps.lignes.numerosEnAttenteDeLigne() });
+  });
 
   app.get('/ops/credit-whatsapp/ligne/:tenantId', opts, async (req, reply) => {
     const { tenantId } = req.params as { tenantId: string };

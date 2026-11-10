@@ -435,6 +435,19 @@ export function lireNumerosEnAttenteOps(sessionOps: string): Promise<{ numeros: 
 }
 
 /**
+ * « Ne pas poser » (relecture du lot E6, jaune 5) : la ligne attendue ne viendra pas (le partenaire n'attache pas, le
+ * client renonce). Le serveur efface l'attente et rend la liste relue ; `note` dit pourquoi (404 si le numéro n'attend
+ * plus, ou sur une API d'avant la route).
+ */
+export function abandonnerAttenteOps(
+  sessionOps: string, tenantId: string, phoneNumberId: string, note: string,
+): Promise<{ numeros: NumeroEnAttenteOps[] }> {
+  return appelOps(sessionOps, `/ops/credit-whatsapp/en-attente/${encodeURIComponent(tenantId)}`, {
+    method: 'POST', corps: { phoneNumberId, note },
+  });
+}
+
+/**
  * CHARGER LA GRILLE DE META : le fichier en euros que Meta publie, tel quel. Le serveur le lit, refuse un fichier faux
  * et nomme la ligne fautive ; `note` dit d'où vient le fichier.
  */

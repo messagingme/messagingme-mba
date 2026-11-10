@@ -67,11 +67,16 @@ describe('etatLigneCredit', () => {
       // Une Entreprise : la ligne se pose sur demande dans /ops, jamais par l'option ; illimitée une fois posée.
       [{ offre: 'entreprise', payee: false }, 'a_prendre'],
       [{ offre: 'entreprise', payee: false, lignes: [{ arreteeLe: null }] }, 'active'],
-      // Un numéro arrivé par la fenêtre du partenaire : l'Entreprise attend sa ligne (relecture du lot E, jaune 4), puis la
-      // ligne posée dit l'état ; la marque ne change rien hors Entreprise (l'option y dit déjà l'attente).
+      // Un numéro arrivé par la fenêtre du partenaire : l'Entreprise attend sa ligne (relecture du lot E, jaune 4) ; la marque
+      // ne change rien hors Entreprise (l'option y dit déjà l'attente).
       [{ offre: 'entreprise', payee: false, attendLigne: true }, 'en_attente'],
-      [{ offre: 'entreprise', payee: false, attendLigne: true, lignes: [{ arreteeLe: null }] }, 'active'],
+      // 🔴 Une ligne posée DEPUIS la marque éteint l'attente (`attendLigne` faux) : seule une ligne d'AVANT coexiste avec
+      // elle, celle d'un ancien numéro déconnecté et jamais retirée, active ou arrêtée. Elle ne couvre pas le numéro qui
+      // attend : l'Entreprise attend, au lieu de lire « payés par votre Crédit WhatsApp » (relecture du lot E6, jaune 2).
+      [{ offre: 'entreprise', payee: false, attendLigne: true, lignes: [{ arreteeLe: null }] }, 'en_attente'],
+      [{ offre: 'entreprise', payee: false, attendLigne: true, lignes: [{ arreteeLe: ARRETEE }] }, 'en_attente'],
       [{ offre: 'pro', attendLigne: true }, 'a_prendre'],
+      [{ offre: 'pro', attendLigne: true, lignes: [{ arreteeLe: null }] }, 'active'],
     ];
     for (const [o, attendu] of cas) expect(await etatLigneCredit(deps(o), 't1'), JSON.stringify(o)).toBe(attendu);
   });

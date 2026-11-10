@@ -36,7 +36,7 @@ interface Cap {
   /** Les connexions faites par la fenêtre du partenaire (lot E du Crédit WhatsApp), signalées à Julien. */
   parLaLigne: Array<{ tenantId: string; wabaId: string; phoneNumberId: string | null; numero: string | null }>;
   /** Les fins par la fenêtre du partenaire refusées chez nous (relecture du lot E, jaune 1), signalées à Julien. */
-  refusees: Array<{ tenantId: string; statut: number; erreur: string; wabaId: string | null }>;
+  refusees: Array<{ tenantId: string; statut: number; wabaId: string | null; phoneNumberId: string | null }>;
   /** Le journal d'audit de la route. */
   audits: Array<{ action: string; detail: unknown }>;
 }
@@ -159,7 +159,7 @@ describe('POST /embedded-signup/complete', () => {
     const r = await ratee.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: { ...BODY, parLaLigne: true } });
     expect(r.statusCode).toBe(422);
     expect(ratee.cap.parLaLigne).toEqual([]);
-    expect(ratee.cap.refusees).toEqual([{ tenantId: 't1', statut: 422, erreur: r.json().error, wabaId: 'waba-1' }]);
+    expect(ratee.cap.refusees).toEqual([{ tenantId: 't1', statut: 422, wabaId: 'waba-1', phoneNumberId: 'pn-1' }]);
     await ratee.server.close();
     const directe = app({ verifyWaba: async () => { throw new Error('pas à vous'); } });
     await directe.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: BODY });
@@ -172,7 +172,7 @@ describe('POST /embedded-signup/complete', () => {
     const enPanne = app({}, async () => { throw new Error('base indisponible'); });
     const r = await enPanne.server.inject({ method: 'POST', url: '/tenants/t1/embedded-signup/complete', ...h(adminTok), payload: { ...BODY, parLaLigne: true } });
     expect(r.statusCode).toBe(500);
-    expect(enPanne.cap.refusees).toEqual([{ tenantId: 't1', statut: 500, erreur: 'erreur interne', wabaId: 'waba-1' }]);
+    expect(enPanne.cap.refusees).toEqual([{ tenantId: 't1', statut: 500, wabaId: 'waba-1', phoneNumberId: 'pn-1' }]);
     expect(enPanne.cap.parLaLigne).toEqual([]);
     await enPanne.server.close();
     const directe = app({}, async () => { throw new Error('base indisponible'); });

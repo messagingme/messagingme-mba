@@ -6,8 +6,9 @@ import type { StatutOption } from './options.pg';
  * - `free` : jamais de ligne en Free (la carte dit « avec la formule Pro ») ;
  * - `essai` : la formule n'est pas encore payée (`formulePayee`), Pro comme Business : l'option attend ;
  * - `a_prendre` : formule payée, ni option ni ligne (une Entreprise sans ligne aussi : elle se pose sur demande) ;
- * - `en_attente` : l'option est payée, ou une Entreprise a connecté un numéro par la fenêtre du partenaire (relecture du
- *   lot E, jaune 4), et aucune ligne n'est posée encore (« votre ligne s'ouvre sous 24 h ouvrées ») ;
+ * - `en_attente` : l'option est payée et aucune ligne n'est posée encore, ou une Entreprise a un numéro arrivé par la
+ *   fenêtre du partenaire qui attend la sienne (relecture du lot E, jaune 4), même avec la ligne d'un ancien numéro
+ *   (relecture du lot E6, jaune 2) : « votre ligne s'ouvre sous 24 h ouvrées » ;
  * - `active` : au moins une ligne de l'espace non arrêtée ;
  * - `arretee` : toutes ses lignes sont arrêtées (la sortie : reprendre l'option, ou sa carte chez Meta).
  * La console (Connecter WhatsApp, l'Accueil) et `get_setup_state` le lisent ici : il ne se recalcule nulle part ailleurs.
@@ -84,12 +85,16 @@ export function arretDesLignes(
 export async function etatLigneCredit(d: DepsEtatLigne, tenantId: string): Promise<EtatLigne> {
   const offre = await d.offre(tenantId);
   if (offre === 'base') return 'free';
+  // Une Entreprise dont un numéro, arrivé par la fenêtre du partenaire, attend sa pose dans `/ops` : en attente (la carte
+  // ne lui dit plus « sur demande », ni l'Accueil d'ajouter sa carte chez Meta : `creditPaieMeta`). Lu AVANT ses lignes :
+  // une ligne posée depuis la marque éteint l'attente, donc seule une ligne d'avant coexiste avec elle (un ancien numéro
+  // déconnecté, sa ligne jamais retirée), qui ne couvre pas le numéro qui attend (relecture du lot E6, jaune 2).
+  if (offre === 'entreprise' && (await d.numeroAttendSaLigne(tenantId))) return 'en_attente';
   // Une ligne posée dit l'état, quelle que soit la formule : une Entreprise ou un espace dont l'option a fini y restent.
   const lignes = await d.lignes(tenantId);
   if (lignes.length > 0) return lignes.some((l) => l.arreteeLe === null) ? 'active' : 'arretee';
-  // Une Entreprise sans ligne : sur demande, sauf un numéro arrivé par la fenêtre du partenaire, qui attend sa pose dans
-  // `/ops` (la carte ne lui dit plus « sur demande », ni l'Accueil d'ajouter sa carte chez Meta : `creditPaieMeta`).
-  if (offre === 'entreprise') return (await d.numeroAttendSaLigne(tenantId)) ? 'en_attente' : 'a_prendre';
+  // Une Entreprise sans ligne ni attente : sur demande.
+  if (offre === 'entreprise') return 'a_prendre';
   // Une option payée attend sa ligne, la formule payée ou non : un Pro passé en retard ne la remet pas à l'essai (jaune 5
   // de la relecture du lot B).
   const option = await d.option(tenantId);
