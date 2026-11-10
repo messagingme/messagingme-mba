@@ -292,3 +292,27 @@ vont à V8.
   demander au partenaire sans décision (2) ; un test tient l'asymétrie du rejet (4) ; une marque absente se journalise en
   avertissement, les JSDoc et deux titres de test suivent le code (5). Reste la décision de Julien sur la place des cas
   bloquants en coexistence dans la liste.
+
+## La relecture du lot V8 (2026-11-10)
+
+Un relecteur indépendant, sur le diff de `74aedc43` : **aucun rouge, quatre jaunes**. Les cinq jaunes de V7 sont
+corrigés ; la consigne de la carte est exacte au regard de `ATTEND_LIGNE_SQL` (retirer ne touche pas `depuis`, reposer
+sort le numéro de la liste). Le lot part tel quel ; ses jaunes vont à V9.
+
+1. **« Ne pas poser » n'est promis que dans la liste, mais seule la marque en panne le prouve** : sur un compte déjà
+   couvert, rien ne tient son absence pour une marque éteinte ou absente (une mutation l'a laissé passer). Ajouter ces
+   deux variantes au test du jaune 1 de V7.
+2. **Le journal d'une relecture en panne (`numero_marque_illisible`) n'est vérifié nulle part**, alors que l'alerte y
+   renvoie : l'asserter dans le cas déjà capturé.
+3. **Le champ de note de « Ne pas poser » et deux JSDoc donnent encore « le partenaire n'attache pas » pour raison** :
+   sur un compte déjà couvert sans attache, c'est le geste que la carte dit désormais de ne pas faire. Un exemple neutre
+   (« la ligne ne viendra pas »), et la réserve dans la JSDoc de la route et dans celle de `NePasPoser`.
+4. **En coexistence, « Il n'est pas dans la liste de /ops » vient de la décision de ne pas marquer, pas d'une
+   relecture** : `linkTenant` garde la marque d'une connexion antérieure et réécrit la coexistence, et la liste ignore
+   la coexistence. Relire la liste en coexistence, ou dire « cette connexion ne l'a pas marqué ». Lié à la décision de
+   Julien sur la place de la coexistence dans la liste.
+
+### V9. Les jaunes de la relecture de V8
+
+- [ ] Les quatre (§ « La relecture du lot V8 »), le 3 d'abord : le champ de note ne doit pas souffler « le partenaire
+  n'attache pas » sur un compte couvert sans attache ; le 4 après la décision de Julien sur la coexistence dans la liste.
