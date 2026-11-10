@@ -507,8 +507,12 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   l'essai : un espace Pro en essai prend l'option et lit `a_prendre`, `option.prisePossible` dans la vue) EN PRODUCTION
   le 2026-11-10 (`ea6979ff`, run 42826757148) ; relu sans rouge, six jaunes au plan
   `2026-11-10-credit-whatsapp-vente-libre-service.md`, dont trois préalables au prix (V4 : la console qui lit
-  `prisePossible`, le numéro d'essai déjà connecté, l'e-mail du paiement refusé de la formule Pro). Restent V2 (le numéro
-  fourni par la fenêtre), V3 (la pose automatique, après D0), V4 et V5.
+  `prisePossible`, le numéro d'essai déjà connecté, l'e-mail du paiement refusé de la formule Pro). V2 (le numéro fourni
+  par la fenêtre, rien à corriger côté serveur ; les jaunes 1, 5 et 6 de V1) EN PRODUCTION le 2026-11-10 (`c7ab5b51`,
+  emporté par le déploiement `1b9a9a23` de l'Inbox HubSpot) ; V5 (les jaunes de E7 et de V2) EN PRODUCTION le même jour
+  (`7c81f9ba`, run 42874666331) ; la console qui lit `prisePossible` livrée par l'arbre (`a830bece`). Restent V6 (les
+  neuf jaunes de V5, en cours), V3 (la pose automatique, après D0) et V4 (le numéro d'essai déjà connecté, l'e-mail du
+  paiement refusé, la liste à Julien).
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes

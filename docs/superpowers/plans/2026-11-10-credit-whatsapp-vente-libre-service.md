@@ -77,8 +77,9 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
   le portail de Stripe, puis pour 4b la clé restreinte élargie aux factures et les secrets Stripe du worker ; les jaunes
   « avant la vente » des lots B et C.
 - [ ] Trois préalables venus de la relecture de V1 (jaunes 2 à 4) : la console qui lit `option.prisePossible` est en
-  production ; le numéro d'essai déjà connecté a sa réponse (le lot D, ou une décision de Julien) ; le texte de l'e-mail
-  du paiement refusé de la formule Pro, qui doit parler de l'option, soumis à Julien.
+  production (fait : `a830bece`, lot 3v-1 de la session de l'aide à la connexion, le 2026-11-10) ; le numéro d'essai
+  déjà connecté a sa réponse (le lot D, ou une décision de Julien) ; le texte de l'e-mail du paiement refusé de la
+  formule Pro, qui doit parler de l'option, soumis à Julien.
 
 ### V5. Les jaunes des relectures du lot E7 et de V1
 
@@ -97,7 +98,10 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
   connexion en coexistence par la fenêtre n'est ni marquée ni à poser, l'alerte le dit (6) ; cinq minutes de tolérance
   d'horloge (7).
 
-Livré par `f131d9a3`, relu (§ « La relecture du lot V5 »).
+Livré par `7c81f9ba` (relu sous `f131d9a3`, avant un rebase sans conflit ; § « La relecture du lot V5 ») ; **en
+production le 2026-11-10** (run 42874666331, `migration=aucune`, épinglé sur `54f404db` : `mba-api` et les workers en
+`54f404db`, sans erreur, fumée bonne). V2 (`c7ab5b51`, relu sous `725eebea`) était parti avant, emporté par le
+déploiement de l'Inbox HubSpot (run 42858518482, `1b9a9a23`, approuvé par Julien), vérifié en service le même soir.
 
 ### V6. Les jaunes de la relecture de V5
 

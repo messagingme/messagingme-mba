@@ -4,6 +4,39 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : la fenêtre du partenaire, les jaunes des lots E7, V1 et V2 (lot 3v, V2 et V5)
+
+Accords de Julien (« Oui, enchaîne », deux fois) ; plan `2026-11-10-credit-whatsapp-vente-libre-service.md`, § V2 et
+V5. Implémenteur par lot, TDD, une relecture indépendante par lot.
+
+- **V2, le numéro fourni par la fenêtre du partenaire, et les jaunes 1, 5, 6 de V1** (`c7ab5b51`) :
+  - côté serveur, rien n'attache un numéro fourni avant la fenêtre : seul `linkTenant` ajoute une ligne à
+    `phone_numbers` ; le parcours de la console (mode `fourni`, jamais `fourni_application`) est à l'arbre, livré par
+    sa session (`a830bece`) ;
+  - la conversion dite par le webhook se tait tant que la fin de l'essai est à venir ; la vue de l'onglet lit la formule
+    en une lecture (`formuleEtPrise`) ; commentaires et manuel d'avant V1 remis à jour.
+- **V5, les sept jaunes de E7 et cinq de V2** (`7c81f9ba`) :
+  - « Ne pas poser » refusé (409) tant que la ligne d'un autre espace, ou une ligne arrêtée de l'espace, couvre encore
+    le compte ;
+  - une connexion interrompue retrouve en base le numéro rattaché, et l'alerte dit s'il attend dans la liste ;
+  - « déjà couvert » marque le numéro ; « ligne arrêtée » cite son numéro et suit « autre espace » ; une connexion en
+    coexistence par la fenêtre n'est ni marquée ni à poser ;
+  - `envoyerTelegram` rend l'issue à trois états : une alerte incertaine garde sa retenue ;
+  - la cause d'un refus par la fenêtre au journal du serveur ; le câblage de la conversion épinglé ; cinq minutes de
+    tolérance d'horloge.
+- **Vérifié** : tous les tests neufs vus rouges avant le code ; l'épinglage de la conversion vérifié par deux
+  mutations ; la suite racine sur l'état final, 984 fichiers verts à chaque lot (16 598 tests pour V5) ; la console, 104
+  fichiers verts ; tsc, lint, auto-attaque sans trouvaille. CI racine (intégration comprise), console et CodeQL vertes
+  job par job sur `fb98c4f6` et `54f404db`.
+- **Relectures** : V2, aucun rouge, huit jaunes (trois corrigés dans la doc, les autres à V5) ; V5, aucun rouge, neuf
+  jaunes au plan, pour V6.
+- **Ordre** : V2 est parti avec le déploiement de l'Inbox HubSpot (run 42858518482, `1b9a9a23`, approuvé par Julien),
+  ses commits étant posés sous le leur ; vérifié en service le même soir (workers en `1b9a9a23`, aucune erreur). V5 après.
+- **En production** : V5 par le run 42874666331 (`migration=aucune`, épinglé sur `54f404db`) : `mba-api` sur l'image
+  `54f404db`, `mba-worker`, `mba-worker-analyse` et `mba-application` en révision `54f404db`, aucune erreur dans leurs
+  journaux ; « Ne pas poser » et la route de l'onglet répondent 401 sans session ; fumée bonne, fiches OAuth conformes,
+  `META_SOLUTION_ID` intacte.
+
 ## 2026-11-10 : la console vend l'option comme le serveur, et « Votre numéro, ou le nôtre ? » (aide à la connexion, lot 3v-1)
 
 L'arbre du lot 3v, côté console : la session du crédit porte le serveur (V1, la règle de la prise, et V2, le numéro
