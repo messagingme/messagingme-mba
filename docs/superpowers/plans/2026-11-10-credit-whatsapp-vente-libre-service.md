@@ -56,9 +56,10 @@ Livré par `ea6979ff`, relu (§ « La relecture du lot V1 ») ; **en production 
 - [x] Lire le parcours du numéro fourni : il ne doit rien rattacher avant la fenêtre (sinon `solutionDuPartenaire` la
   ferme), et la console doit l'ouvrir avec `parLaLigne`. Corriger côté serveur ce qui l'empêche ; le reste à l'arbre.
 
-**Lu le 2026-11-10 : rien ne l'empêche côté serveur.** Seule la fin de la connexion (`linkTenant`,
-`src/account/es-store.pg.ts`) écrit `phone_numbers`, la table que compte `numerosRattaches` ; un numéro fourni attribué
-vit dans `numeros_fournis`, et un compte de l'application dans ses propres tables. `GET /embedded-signup/config` rend
+**Lu le 2026-11-10 : rien ne l'empêche côté serveur.** Seul `linkTenant` (`src/account/es-store.pg.ts`) ajoute une
+ligne à `phone_numbers`, la table que compte `numerosRattaches` : la fin de la connexion, et le rattachement d'un compte
+360dialog, qui n'est pas un parcours du numéro fourni (les autres écrivains changent des colonnes ou suppriment). Un
+numéro fourni attribué vit dans `numeros_fournis`, et un compte de l'application dans ses propres tables. `GET /embedded-signup/config` rend
 donc `solutionId` à un espace qui y a droit, numéro fourni attribué ou non, y compris par le lien de Claude Code (garde
 `adminOuLien`) ; la fin par la fenêtre (`parLaLigne`) passe par `connexionParLaLigne` comme son propre numéro. Ce qui
 reste est à l'arbre, transmis à sa session le même jour : le parcours du numéro fourni (Connecter WhatsApp et `/brancher`)
@@ -85,11 +86,14 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
 - [x] Les jaunes 1, 5 et 6 de V1 (§ « La relecture du lot V1 »), avec V2 : la conversion du webhook se tait tant que la
   fin de l'essai est à venir ; la vue de l'onglet lit la formule en une lecture (`formuleEtPrise`) ; les commentaires et
   la doc d'avant V1 remis à jour, dont la JSDoc de `prisePossible`.
+- [ ] Les jaunes 1, 2, 5, 6 et 7 de la relecture de V2 (§ « La relecture du lot V2 »).
 
 ## Ordre de déploiement
 
 V1 : l'API seule, sans migration. Tant que le prix n'est pas posé (`enVente` faux), rien ne se voit ; la console de
 l'arbre lit `prisePossible` quand l'API le rend, et le lit comme `formulePayee` avant.
+
+V2 et les jaunes de V1 : l'API seule, sans migration, le contrat HTTP inchangé, rien pour la console.
 
 ## Méthode de livraison
 
@@ -127,3 +131,27 @@ lot qui le porte.
    l'onglet dans `features.md`, des commentaires de `fenetre-partenaire.ts`, `index.ts` et `gestion-pro.ts`, l'en-tête
    de `formule-payee.test.ts` et un commentaire de `webhook-pro.test.ts` ; la JSDoc de `prisePossible` doit dire qu'il se
    combine avec `disponible` et l'absence d'option vivante. V5.
+
+## La relecture du lot V2 (2026-11-10)
+
+Un relecteur indépendant, sur le diff de `725eebea` : **aucun rouge, huit jaunes**. Le constat de V2 est confirmé : seul
+`linkTenant` ajoute une ligne à `phone_numbers`, et rien côté serveur ne ferme la fenêtre à un numéro fourni. Les
+jaunes 3, 4 et 8 (le manuel et ce plan) sont corrigés dans le commit qui inscrit cette relecture ; les autres vont à V5.
+
+1. **La garde de la conversion ne tient que par le câblage** : `proPayeDepuis` doit rendre la fin de l'essai
+   (`essaiFinLe ?? creeLe`), et le webhook passer par `signalerConversionDuPro`. Aucun test ne lit ce câblage : trois
+   expressions de plus au test de câblage, vérifiées dans les deux sens.
+2. **La JSDoc de `DepsConversion.etat`** dit encore « la règle de la formule payée », alors que c'est celle de la prise
+   (`optionPrenable`) ; celle de `proPayeDepuis` doit dire que la date est à venir tant que l'essai court.
+3. Le manuel disait `droitALaLigne` « jamais un essai » : corrigé, un espace Pro en essai avec son option y a droit.
+4. Le manuel oubliait, dans `a_prendre`, l'Entreprise sans ligne ni numéro qui attend : corrigé.
+5. **Des commentaires d'avant V1 hors du lot** : `noterFinEssai` dans `src/offres/abonnements-offre.pg.ts` (« l'option
+   s'ouvre dans la foulée ») et `src/stripe/traitement-abonnements.ts` (« la formule payée se relit ») ; côté arbre,
+   l'en-tête de `web/components/BandeauLigneCredit.tsx`, transmis à sa session.
+6. **Défense en profondeur autour de V2** : un corps `parLaLigne: true` qui porte la coexistence aboutit côté serveur ;
+   `connexionParLaLigne` ne reçoit pas `coexistence`, marque le numéro « à poser », et l'alerte ne dit pas qu'il garde
+   l'application. Passer `coexistence` et le dire dans l'alerte, ou ne pas marquer le numéro.
+7. **Trois horloges sans tolérance** dans `ecoule < 0` (Stripe, la base, le conteneur) : un écart plus grand que le délai
+   du webhook ferait taire la conversion d'un essai écourté au tableau de bord, ou d'un Pro sans essai. Très improbable
+   avec NTP ; une tolérance de quelques minutes, ou l'écrire.
+8. L'ordre de déploiement ne parlait que de V1 : corrigé.

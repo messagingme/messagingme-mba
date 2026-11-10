@@ -4688,8 +4688,8 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
 - 🔴 **« Qui paie vos messages à Meta ? »** (révision du 2026-11-04, lot B) : l'état du Crédit WhatsApp d'un espace
   (`etatLigneCredit`, `src/credit-whatsapp/etat-ligne.ts`) vaut `free`, `essai` (l'option ne se prend pas encore : un
   Business en essai, ou une formule Pro en retard de prélèvement), `a_prendre` (un espace Pro dès son essai, ou un
-  Business confirmé, sans option), `en_attente` (l'option payée, aucune ligne posée), `active` ou `arretee` (toutes ses
-  lignes arrêtées).
+  Business confirmé, sans option ; une Entreprise sans ligne ni numéro qui attend la sienne, sur demande), `en_attente`
+  (l'option payée, aucune ligne posée), `active` ou `arretee` (toutes ses lignes arrêtées).
   `GET /tenants/:tenantId/credit-whatsapp/etat`, lisible par tout membre et fermé à la Free comme tout le module, le rend
   avec `enVente` (l'option se prend en ligne) et `avecApplication` (tous les numéros non déliés de l'espace gardent
   l'application, `tousGardentLApplication`, décision 8 ; la vue de l'onglet porte le même champ). La console en tire deux
@@ -4711,8 +4711,8 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   rien, contrôlé au démarrage ; vide, ou l'inscription non configurée = fermée à tous) ne part que par
   `GET /embedded-signup/config`, réservée à un administrateur ou au lien de Claude Code (`adminOuLien`), et seulement à
   l'espace que `solutionDuPartenaire` désigne (`src/credit-whatsapp/fenetre-partenaire.ts`) : un droit à la ligne
-  (`droitALaLigne` : une Entreprise ; une formule Pro ou un Business avec une option vivante et une place libre ; jamais
-  une Free ni un essai) et aucun numéro rattaché, délié compris, comme pour `hasNumber` et `linkTenant` (celui de l'essai
+  (`droitALaLigne` : une Entreprise ; une formule Pro, essai compris, ou un Business, avec une option vivante et une place
+  libre ; jamais une Free) et aucun numéro rattaché, délié compris, comme pour `hasNumber` et `linkTenant` (celui de l'essai
   relève du lot D). Une règle qui ne se lit pas ferme la fenêtre, journalisée (`fenetre_partenaire_illisible`), sans
   faire échouer la configuration ni l'état des cartes. La route de l'état des cartes n'en dit qu'un booléen
   (`fenetrePartenaire`). La carte « Crédit WhatsApp » de Connecter WhatsApp montre alors « Connecter sans carte chez Meta »
