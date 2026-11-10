@@ -73,21 +73,23 @@ au lot suivant ; rien ne bloque.
 
 ## 🟡 Le lot 4a-2 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
 
-- **La réponse « ce-que-meta-facture » de la FAQ du plugin** dit que Meta facture toujours l'entreprise et que
-  Messaging Me ne touche pas à ces frais (faux avec le Crédit WhatsApp), et fait payer toutes les réponses (la console
-  dit « au-delà de la franchise ») : rouge de la relecture du lot, écarté des pages du centre, à corriger À LA SOURCE
-  avec 4a-3, qui republie déjà le plugin. Elle est publique sur `/developpeurs/` et dans le plugin d'ici là, comme la
-  même tournure dans `TITRES.apresTexte` de `scripts/vitrine/guide-meta.ts` (aussi pour 4a-3). Les cas d'usage
-  (`scripts/vitrine/cas-textes.ts`) et les tarifs la disent du cas par défaut, la carte chez Meta : à nuancer du
-  Crédit WhatsApp avec 3v-2, le jour du prix.
+- **« Meta facture directement »** décrit encore la carte par défaut dans les cas d'usage (`scripts/vitrine/
+  cas-textes.ts`) et les tarifs : à nuancer du Crédit WhatsApp avec 3v-2, le jour du prix (la FAQ du plugin, sa skill
+  `regles-whatsapp`, son README, le guide « compte Meta Business » et la fiche le font depuis 4a-3).
+- **Le guide « Pièges de Meta » de la console** (`web/app/developers/api/guides/meta-pitfalls/page.tsx`, repris dans
+  `web/public/developers/api/guides/meta-pitfalls*.md` et `llms-full*.txt`) dit qu'il faut un moyen de paiement chez
+  Meta « quelle que soit l'offre » : à nuancer du Crédit WhatsApp (relecture du lot 4a-3).
+- **La capture de l'encadré « Avant de commencer, chez Meta »** (`site/img/aide/connecter-mon-numero-whatsapp/
+  etape-2.webp` et `-en`) montre les prérequis d'avant le lot 4a-3 : `npm run aide:captures` pour cette fiche, puis
+  sa page.
+- **La voie « Le mien » du Crédit WhatsApp** (`web/components/QuiRegleMeta.tsx`) n'affiche aucune condition chez
+  Meta : ni Facebook, ni le compte Meta Business, ni le code envoyé à son propre numéro (relecture du lot 4a-3).
 - **Codex, ce qui n'est écrit nulle part** : comment mettre le plugin à jour (`codex plugin` a-t-il une mise à jour ?)
   et ce qu'on y tape pour lancer la mise en service (`/messagingme:demarrer` est une commande de Claude Code ; le tunnel
   fait coller une demande propre à chaque chemin). À mesurer sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3
   d'« Installer le plugin ».
 - **« Pourquoi un moyen de paiement ? »** (`web/lib/partage/aide-connexion.ts`) mène encore à la fenêtre de 24 heures,
   depuis le guide, `/demarrer/` et la console : à repointer vers « Payer Meta » avec le lot 4b (il touche la console).
-- **4a-3, « Ce qu'il faut chez Meta » réécrite** (plan du lot 4a, § « Trois livraisons ») : `PREREQUIS_META` lu par
-  position par la console, Claude, la FAQ du plugin, la vitrine et la fiche ; l'API d'abord.
 - Le titre de « Les modèles WhatsApp » dépasse 60 caractères avec son suffixe : coupé dans les résultats de recherche.
 
 ## 🟡 Le lot 3v-1 de l'aide à la connexion : ce qu'il laisse (2026-11-10)

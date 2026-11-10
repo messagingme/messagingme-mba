@@ -503,6 +503,11 @@ par `CE_QUI_EST_FACTURE`, jamais par la réponse « que facture Meta » de la FA
 la relecture) ; elle se corrige à la source avec 4a-3. « Ce qu'il faut chez Meta », réécrite, devient 4a-3 :
 `PREREQUIS_META` est lu par position par la console et Claude (l'API), la FAQ du plugin, la vitrine et la fiche.
 
+**4a-3 livré le 2026-11-10** (`67560d02`) : « Ce qu'il faut chez Meta » réécrite, avant et après, avec `PREREQUIS_META`
+(trois conditions dans le même ordre, lues par position) ; qui paie Meta dit partout la franchise et l'exception du Crédit
+WhatsApp (FAQ, skill `regles-whatsapp` et README du plugin, guide « compte Meta Business », fiche). La page « compte
+Meta Business » reste, générée des mêmes textes, au lieu d'une redirection. Restent du lot 4 : 4b, et 4c après les rushes.
+
 ## Lot 4b : Claude renvoie vers les pages
 
 Le serveur et la skill citent les adresses du guide, du dépannage et du mode op du parcours en cours. Les adresses

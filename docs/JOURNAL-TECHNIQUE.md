@@ -4,6 +4,37 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : « Ce qu'il faut chez Meta » réécrite, et qui paie Meta avec le Crédit WhatsApp, partout (aide à la connexion, lot 4a-3)
+
+Troisième livraison du lot 4a (plan `2026-11-10-aide-connexion-lot-4a.md`), implémentée en direct, une relecture
+indépendante, les textes vus par Julien avant le push.
+
+- **Ce qui a changé** (`67560d02`) :
+  - `PREREQUIS_META`, que lisent la console, Claude, la FAQ du plugin, la page « compte Meta Business » et la fiche :
+    plus de « portefeuille » sans explication (le compte Meta Business est l'ancien Business Manager, « portefeuille
+    business » dans les écrans de Meta), et le téléphone dit avec le numéro qui reçoit le code, jamais au numéro
+    fourni. Toujours trois conditions, dans le même ordre : la console et Claude les lisent PAR POSITION, aucune tranche
+    n'a bougé. `PREREQUIS_LIGNE`, leur version sans carte, suit la même écriture, tenue par un test ;
+  - la fiche (fr et en) se range en « Avant la connexion » et « Après la connexion » ;
+  - qui paie Meta, avec la franchise des réponses et l'exception du Crédit WhatsApp (pas avec l'application) : la
+    réponse « que facture Meta » de la FAQ du plugin, sa skill `regles-whatsapp` et son README, le guide « compte Meta
+    Business », la fiche. Le plugin passe en 0.3.34.
+- **Relecture** : un rouge, corrigé avant le push. La skill `regles-whatsapp`, que Claude charge pour « que coûte un
+  message », disait encore « Meta bills the business directly » : le lot l'aurait republiée à côté de la FAQ corrigée,
+  et sa garde ne lisait pas les skills. Elle lit désormais toutes les skills et le README, et exige l'exception dans
+  chaque texte qui dit qui paie (vu rouge sur l'ancien texte). Onze jaunes : huit corrigés avant le push (le titre de
+  l'étape 3 qui promettait un téléphone au numéro fourni, l'exception de l'étape 4, « hors Crédit WhatsApp » dans le
+  guide, `PREREQUIS_LIGNE`, les commentaires qui racontaient l'ancienne FAQ ou un contrat incomplet, le nom du compte
+  dans le README et la skill de mise en service, le plan qui garde la page « compte Meta Business ») ; `features.md`
+  dans ce commit ; trois au backlog (le guide « Pièges de Meta » de la console, la capture de l'encadré, la voie « Le
+  mien »).
+- **Vérifié** : la suite racine et celle de la console entières, sur la copie puis sur l'arbre fusionné ; les gardes vues
+  rouges (la phrase « toujours l'entreprise » dans la FAQ puis dans la skill, le portefeuille sans explication, le
+  téléphone dit au numéro fourni ou retiré du numéro, la voie du Crédit WhatsApp dans l'ancienne écriture) ; le
+  découpage de la fiche pour le bot (un intertitre suivi d'une étape s'y perdait : chaque partie a sa phrase).
+- **Ordre** : poussé sur `ba418675` (console et vitrine par Vercel), puis l'API (la consigne de Claude), puis
+  `aide:charger` (la fiche) et la publication du plugin 0.3.34, par Julien.
+
 ## 2026-11-10 : « Payer Meta », « Les modèles WhatsApp » et Codex dans « Installer le plugin » (aide à la connexion, lot 4a-2)
 
 Deuxième livraison du lot 4a (plan `2026-11-10-aide-connexion-lot-4a.md`), en direct, une relecture indépendante, les

@@ -2413,14 +2413,17 @@ scénario, comment importer des contacts.
 
 - ✅ **Les prérequis, dits avant toute fenêtre de Meta** (le guide « compte Meta », 2026-10-13) : sur la page
   « Connecter WhatsApp », un encadré « Avant de commencer, chez Meta » donne les trois conditions : un compte Meta
-  Business (le portefeuille d'entreprise, où l'on entre par un profil Facebook ou un compte Meta géré), rien à préparer
+  Business (l'ancien Business Manager, « portefeuille business » dans les écrans de Meta, où l'on entre par un profil
+  Facebook ou un compte Meta géré), rien à préparer
   pour le créer (la fenêtre de Meta le fait créer en chemin, mesuré à l'essai 161, ou on le crée avant, pas à pas, sur
   business.facebook.com), et un numéro : un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de
   l'application WhatsApp Business, qui y reste (« Garder mon application WhatsApp Business ») ; un numéro qui sert dans
   WhatsApp, l'application ordinaire, y passe d'abord en installant WhatsApp Business sur le même téléphone, qui le
-  reprend avec ses conversations (2026-11-10), et le numéro fourni ne vaut que sans numéro. Claude Code dit
+  reprend avec ses conversations (2026-11-10), et le numéro fourni ne vaut que sans numéro ; Meta envoie un code au numéro
+  apporté, d'où le téléphone qui le porte, jamais demandé au numéro fourni (2026-11-10). Claude Code dit
   la même chose avant de donner le lien de connexion, sans poser de question, et la vitrine le rappelle dans ses étapes
-  et sa FAQ.
+  et sa FAQ. Depuis le 2026-11-10, la fiche se range en « Avant la connexion » et « Après la connexion », et elle, la FAQ
+  du plugin et la vitrine disent qui paie Meta avec la franchise des réponses et l'exception du Crédit WhatsApp.
 - ✅ **Puis les questions du tunnel de la vitrine** (2026-10-30) : sous l'encadré, la page pose « Avez-vous un compte
   Meta Business ? ». Oui : le numéro API, « Fournissez-moi un numéro » ou « J'ai déjà un numéro », avec « Votre numéro
   sert déjà dans WhatsApp ou dans l'application WhatsApp Business ? Vous pouvez le garder ». Non, ou « Je ne sais pas »

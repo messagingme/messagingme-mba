@@ -5203,7 +5203,9 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   `phone_numbers.waba_paiement_bloque` (null = pas encore lu), au balayage des statuts et à chaque Accueil.
   L'Accueil en fait un bandeau, `get_setup_state` l'avertissement `carte_meta_a_regler` avec `etapes_carte_meta`. Les
   textes viennent de `web/lib/partage/etapes-meta.ts` (`PREREQUIS_META`, dits aussi par la page « Connecter WhatsApp »
-  et la consigne de `start_whatsapp_connection` ; `ETAPES_CARTE_META`), et la fiche `ce-qu-il-faut-chez-meta` les
+  et la consigne de `start_whatsapp_connection`, lus PAR POSITION : la console
+  montre [0] en gardant l'application, [0] et [1] au numéro fourni, tout au numéro apporté, Claude [0] et [1] au numéro
+  fourni et tout au numéro apporté ; `PREREQUIS_LIGNE` en est la version sans carte ; `ETAPES_CARTE_META`), et la fiche `ce-qu-il-faut-chez-meta` les
   reprend mot pour mot (`tests/etapes-meta.test.ts`).
 - 🔴 **Le numéro fourni côté client** (lot 3b, `src/http/numero-fourni.ts`, page `/connecter-whatsapp`). En
   Embedded Signup v4, rien ne fait sauter l'écran du numéro de la fenêtre de Meta : le client y TAPE le numéro que la
