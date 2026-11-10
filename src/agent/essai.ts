@@ -4,6 +4,7 @@ import type { ContexteTour, DecisionTracee, GatewayBrainDeps } from './brain.gat
 import { AgentIntrouvable, TEXTE_WHATSAPP_MAX, penserTrace } from './brain.gateway';
 import { TourInterrompu, type UsageTour } from './brain';
 import type { TestRunStore } from './test-runs';
+import { NOTE_ESSAI } from './natures-credit';
 import { direPanneModele } from '../llm/errors';
 import { journaliser } from '../lib/journal';
 import { messageDe } from '../lib/erreur';
@@ -81,10 +82,7 @@ const TOUR_BAC_A_SABLE: Omit<ContexteTour, 'appelsDejaFaits' | 'coutDejaMicroEur
 };
 
 /** La note du mouvement de crédit, par porte : c'est la seule explication du débit dans le journal du solde. */
-const NOTE_DU_DEBIT: Readonly<Record<Exclude<Origine, 'assistant'>, string>> = {
-  formulaire: 'essai depuis la console',
-  mcp: 'essai depuis le serveur MCP',
-};
+const NOTE_DU_DEBIT: Readonly<Record<Exclude<Origine, 'assistant'>, string>> = NOTE_ESSAI;
 
 /** Ce qu'un essai rend : la réponse, sa sortie, sa trace d'appels et ce qu'il a consommé. */
 export interface ReponseEssai {

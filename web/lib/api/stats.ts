@@ -580,7 +580,15 @@ export interface TourIa {
   at: string;
 }
 export interface CoutIa {
+  /** Le crédit IA débité sur la période (tours d'agent, essais, connaissance, transcription, traduction). */
   coutMicroEur: number;
+  /**
+   * Le débité par nature. ⚠️ Facultatif côté console : une API d'avant le lot du 2026-11-10 ne le rend pas, et la
+   * console part au push quand l'API attend son déploiement.
+   */
+  parNature?: { agent: number; essai: number; connaissance: number; transcription: number; traduction: number; autre: number };
+  /** Le MBA ESTIMÉ, hors du débité ; `null` sans message du MBA sur la période. Absent d'une API d'avant ce lot. */
+  mba?: { messages: number; estimeMinMicroEur: number; estimeMaxMicroEur: number } | null;
   tokensEntree: number;
   tokensSortie: number;
   sessions: number;

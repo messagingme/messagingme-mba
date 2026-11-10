@@ -15,6 +15,8 @@ import type { NodeEventCount } from '../workflow/node-events.pg';
 import type { EnvoisCampagneRow } from './cout-campagne';
 import type { CanalEtage } from '../campaign/etages';
 import { TYPES_OUVERTURE } from './performance';
+import type { CoutIa } from './cout-ia';
+import { natureDuMouvement, ventilationVide } from '../agent/natures-credit';
 
 export interface DailyPoint {
   date: string; // 'YYYY-MM-DD' (Europe/Paris)
@@ -664,6 +666,27 @@ export class PgStatsStore {
           -- La fenêtre facultative du tableau de l'agent (Performance lab) ; absente = depuis toujours.
           and ($2::timestamptz is null or m.created_at >= $2::timestamptz)`,
       [tenantId, depuis ?? null],
+    );
+    return Number(rows[0]?.n ?? 0);
+  }
+
+  /**
+   * Les messages écrits par le MBA sur une PÉRIODE de l'écran (jours de Paris), pour son coût estimé dans « Coût de
+   * l'IA ». Mêmes règles que `messagesEcritsParMba` (fils de test écartés, origine effective `mba`).
+   * 🔴 `c.tenant_id = $1` est le seul contrôle d'isolation.
+   */
+  async messagesMbaSurPeriode(tenantId: string, range: DateRange): Promise<number> {
+    const { rows } = await this.pool.query<{ n: string }>(
+      `with ${BOUNDS_CTE}
+       select count(*)::text as n
+         from conversation_messages m
+         join conversations c on c.id = m.conversation_id, bounds b
+        where c.tenant_id = $1
+          and not c.is_test
+          and m.direction = 'out'
+          and ${ORIGINE_EFFECTIVE_SQL} = 'mba'
+          and m.created_at >= b.start_ts and m.created_at < b.end_ts`,
+      [tenantId, range.from, range.to, TZ],
     );
     return Number(rows[0]?.n ?? 0);
   }
@@ -1369,19 +1392,27 @@ export class PgStatsStore {
   }
 
   /**
-   * Ce que les TOURS D'AGENT ont coûté au client sur la période, et leur détail : `agent_sessions` porte ce que
-   * chaque tour a débité de son crédit, au prix client depuis le 2026-09-28. ⚠️ Ce n'est pas tout le crédit
-   * consommé : les essais du bac à sable et les traductions débitent sans session, et n'apparaissent qu'au journal
-   * des mouvements (`agent_credit_mouvements`). Ce que coûte notre propre clé n'a rien à faire ici, et le Meta
-   * Business Agent est facturé par Meta au message de service. La liste est plafonnée et le dit.
+   * Ce que l'IA a DÉBITÉ du crédit du client sur la période, par nature, et le détail de ses sessions d'agent.
+   *
+   * 🔴 LE TOTAL SE LIT AU JOURNAL (`agent_credit_mouvements`), plus dans `agent_sessions` : seul le journal voit les
+   * essais, la connaissance, la transcription et la traduction, qui débitent sans session. Débits seulement
+   * (`delta < 0`), raisons `conso` et `traduction` ; ceux d'une Entreprise illimitée y sont aussi (`illimite`). Le
+   * regroupement par note est borné : les notes viennent de `src/agent/natures-credit.ts`. L'index
+   * `(tenant_id, at desc)` sert la fenêtre. Les sessions, jetons et tours restent lus dans `agent_sessions`. Le MBA
+   * (estimé) est ajouté par le chiffrage, pas ici. La liste des tours est plafonnée et le dit.
    */
-  async consommationIa(tenantId: string, range: DateRange, plafond: number): Promise<{
-    coutMicroEur: number; tokensEntree: number; tokensSortie: number; sessions: number;
-    tours: { id: string; agentId: string; tours: number; tokensEntree: number; tokensSortie: number; coutMicroEur: number; at: string }[];
-    tronque: boolean;
-  }> {
+  async consommationIa(tenantId: string, range: DateRange, plafond: number): Promise<Omit<CoutIa, 'mba'>> {
     const { from, to } = range;
-    const [total, liste] = await Promise.all([
+    const [journal, total, liste] = await Promise.all([
+      this.pool.query<{ raison: string; note: string | null; cout: string }>(
+        `with ${BOUNDS_CTE}
+         select m.raison, m.note, sum(-m.delta_micro_eur)::text as cout
+           from agent_credit_mouvements m, bounds b
+          where m.tenant_id = $1 and m.at >= b.start_ts and m.at < b.end_ts
+            and m.delta_micro_eur < 0 and m.raison in ('conso', 'traduction')
+          group by m.raison, m.note`,
+        [tenantId, from, to, TZ],
+      ),
       this.pool.query<{ sessions: string; tin: string; tout: string; cout: string }>(
         `with ${BOUNDS_CTE}
          select count(*)::text as sessions,
@@ -1415,8 +1446,14 @@ export class PgStatsStore {
       coutMicroEur: Number(r.cout),
       at: r.at,
     }));
+    const parNature = ventilationVide();
+    for (const r of journal.rows) {
+      const nature = natureDuMouvement(r.raison, r.note);
+      if (nature !== null) parNature[nature] += Number(r.cout);
+    }
     return {
-      coutMicroEur: Number(t?.cout ?? 0),
+      coutMicroEur: Object.values(parNature).reduce((s, n) => s + n, 0),
+      parNature,
       tokensEntree: Number(t?.tin ?? 0),
       tokensSortie: Number(t?.tout ?? 0),
       sessions: Number(t?.sessions ?? 0),

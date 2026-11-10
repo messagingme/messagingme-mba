@@ -1,18 +1,27 @@
+import type { NatureIa } from '../agent/natures-credit';
+
 /**
- * Ce que les AGENTS IA du client ont consommé sur son crédit prépayé : ses sessions d'agent en production
- * (`agent_sessions.cout_micro_eur`, commission comprise). Ce que MessagingMe absorbe sur sa propre clé
- * (transcription, bot d'aide, assistants de configuration) n'a rien à faire sur son écran.
+ * TOUT CE QUE L'IA A COÛTÉ AU CLIENT sur la période (plan `docs/superpowers/plans/2026-11-10-cout-ia-et-mba.md`).
  *
- * ⚠️ CE N'EST PAS TOUT CE QUE LE CRÉDIT PAIE, et le dire complet serait faux depuis le 2026-09-28 : la traduction des
- * conversations et les essais « Tester » de la console sont débités du même crédit sans ouvrir de session d'agent.
- * Ils se lisent dans l'historique du crédit (`PgCreditStore.historique`, page Crédit IA), pas ici.
+ * - `coutMicroEur` : ce qui a été DÉBITÉ de son crédit, lu au journal (`agent_credit_mouvements`) : tours d'agent,
+ *   essais, connaissance, transcription, traduction (`parNature`), débits d'une Entreprise illimitée compris. Ce que
+ *   MessagingMe absorbe sur sa propre clé (bot d'aide, assistants de configuration) n'est pas au journal du client.
+ * - `mba` : le Meta Business Agent, ESTIMÉ (messages écrits × prix public de Meta, converti en euros). Meta le
+ *   facture au client directement ; aucune API ne nous rend son coût tant que la permission `business_management`
+ *   n'est pas accordée (lot B). 🔴 Il reste HORS de `coutMicroEur` : un chiffre estimé ne se mêle jamais sans le dire
+ *   à un chiffre débité.
+ * - `tours`, `sessions`, jetons : le détail des sessions d'agent (`agent_sessions`), comme avant.
  *
- * Le Meta Business Agent n'est pas une mesure manquante : il tourne chez Meta, qui le facture au message de
- * service, donc son coût est déjà dans la ligne « messages ». L'écran doit le dire.
- *
- * 🔴 Tout est en micro-euros, comme en base (`agent_sessions.cout_micro_eur`), sans arrondi : un arrondi côté
- * serveur ferait diverger le total de la somme de ses lignes. La conversion en euros est un geste d'affichage.
+ * 🔴 Tout est en micro-euros, sans arrondi : un arrondi côté serveur ferait diverger le total de la somme de ses
+ * parts. La conversion en euros est un geste d'affichage.
  */
+
+/** Le MBA estimé : `null` quand l'espace n'a écrit aucun message par le MBA sur la période. */
+export interface EstimationMba {
+  messages: number;
+  estimeMinMicroEur: number;
+  estimeMaxMicroEur: number;
+}
 
 /** Un tour d'agent, tel que l'accordéon de la carte le montre. */
 export interface TourIa {
@@ -28,7 +37,12 @@ export interface TourIa {
 }
 
 export interface CoutIa {
+  /** Le total débité du crédit sur la période, égal à la somme de `parNature`. */
   coutMicroEur: number;
+  /** Le total débité, par nature (`src/agent/natures-credit.ts`). Chaque nature est présente, à zéro au besoin. */
+  parNature: Record<NatureIa, number>;
+  /** Le MBA, estimé et hors du total débité. */
+  mba: EstimationMba | null;
   tokensEntree: number;
   tokensSortie: number;
   /** Nombre de sessions d'agent sur la période. Zéro est un état normal, pas une panne. */

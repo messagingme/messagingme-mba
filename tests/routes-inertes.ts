@@ -1,5 +1,6 @@
 import type { AuditSink } from '../src/audit/journal';
 import { SEUILS_DEFAUT } from '../src/ops/seuils';
+import { ventilationVide } from '../src/agent/natures-credit';
 import type { AccountRouteDeps } from '../src/http/account';
 import type { AgentKnowledgeRouteDeps } from '../src/http/agent-knowledge';
 import type { AgentRequetesRouteDeps } from '../src/http/agent-requetes';
@@ -848,7 +849,7 @@ export const mcpChiffresInertes: Pick<DepsMcp, 'chiffres'> = {
       joursAnalyse: async () => [],
     },
     getCoutParCampagne: async () => ({ lignes: [], tronque: false, currency: null, hasRates: false }),
-    getCoutIa: async () => ({ coutMicroEur: 0, tokensEntree: 0, tokensSortie: 0, sessions: 0, tours: [], tronque: false }),
+    getCoutIa: async () => ({ coutMicroEur: 0, parNature: ventilationVide(), mba: null, tokensEntree: 0, tokensSortie: 0, sessions: 0, tours: [], tronque: false }),
     getCostSeries: async () => ({
       marketing: [], utility: [], total: 0, hasRates: false, currency: null, nonChiffrables: 0, sansCategorie: 0, sansTarif: 0,
     }),

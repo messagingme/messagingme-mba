@@ -1,6 +1,7 @@
 import { transcrire, TranscriptionError } from '../agent/llm/transcription';
 import type { AccesCreditIa } from '../agent/acces-credit';
 import { prixClientMicroEur } from '../agent/devise';
+import { NOTE_TRANSCRIPTION } from '../agent/natures-credit';
 import { journaliser } from '../lib/journal';
 import { MediaExpire, estMediaExpireChezMeta } from './media-entrant';
 import type { HttpTransport } from '../meta/http';
@@ -182,7 +183,7 @@ export async function transcrireMessage(
 async function facturer(deps: DepsTranscrire, tenantId: string, messageId: string, coutDollars: number | null): Promise<void> {
   try {
     const montant = prixClientMicroEur(coutDollars ?? 0, deps.facturation.tauxEurParDollar, await deps.facturation.commissionPour(tenantId));
-    if (montant > 0) await deps.facturation.debiter(tenantId, montant, 'transcription d’un vocal');
+    if (montant > 0) await deps.facturation.debiter(tenantId, montant, NOTE_TRANSCRIPTION);
   } catch (err) {
     journaliser('error', 'transcription_debit_impossible', { err, tenantId, messageId, coutDollars });
   }

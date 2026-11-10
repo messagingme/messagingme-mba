@@ -431,7 +431,9 @@ export const OUTILS_CHIFFRES: OutilMcp[] = [
       return {
         periode: { du: range.from, au: range.to, maille, fuseau: STATS_TZ },
         credit_des_tours_d_agent: {
-          eur: eurosDepuisMicro(coutIa.coutMicroEur), sessions: coutIa.sessions,
+          // La part des tours d'agent seule : `coutMicroEur` est désormais le total de tout le crédit IA (essais,
+          // connaissance, traduction compris), et ce champ promet les tours d'agent.
+          eur: eurosDepuisMicro(coutIa.parNature.agent), sessions: coutIa.sessions,
           jetons_entree: coutIa.tokensEntree, jetons_sortie: coutIa.tokensSortie,
         },
         messages_ia: { ...tableau.serviceIaDetail, total: tableau.serviceParOrigine.ia },

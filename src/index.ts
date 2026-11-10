@@ -689,6 +689,7 @@ async function main(): Promise<void> {
     liens: trackedLinkStore,
     evenements: nodeEventStore,
     retentionJours: config.CONVERSATION_RETENTION_DAYS,
+    tauxEurParDollar: config.EUR_PER_USD,
   });
 
   /** Micro-cache de la pastille du numéro : dix minutes, très en deçà de la durée de vie de l'URL signée. */

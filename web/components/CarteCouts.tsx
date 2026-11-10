@@ -11,7 +11,7 @@ import { formatDate } from '@/lib/day';
 import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { coutMoyenParEngagement, coutToutConfondu } from '@/lib/cout-moyen';
 import { DetailCampagneModale } from '@/components/DetailCampagneModale';
-import { useT, useLocale } from '@/lib/i18n';
+import { useT, useLocale, type Locale } from '@/lib/i18n';
 import { Icone } from '@/components/Icone';
 import { Nd, useErreurRegroupee } from '@/components/Nd';
 
@@ -38,6 +38,29 @@ import { Nd, useErreurRegroupee } from '@/components/Nd';
 const CARD = 'rounded-carte border border-ink-200 bg-white p-5';
 const TH = 'px-2 py-1.5 text-left text-xs font-medium text-ink-500';
 const TD = 'px-2 py-1.5 text-sm text-ink-900';
+
+/** Les parts du crédit IA débité, dans l'ordre de l'écran (`src/agent/natures-credit.ts`). */
+const NATURES_AFFICHEES = [
+  { cle: 'agent', fr: 'Agents IA', en: 'AI agents' },
+  { cle: 'essai', fr: 'Essais du bac à sable', en: 'Sandbox tests' },
+  { cle: 'connaissance', fr: 'Préparation de la connaissance', en: 'Knowledge preparation' },
+  { cle: 'transcription', fr: 'Transcription des vocaux', en: 'Voice message transcription' },
+  { cle: 'traduction', fr: 'Traduction des conversations', en: 'Conversation translation' },
+  { cle: 'autre', fr: 'Autres', en: 'Other' },
+] as const satisfies ReadonlyArray<{ cle: keyof NonNullable<CoutIa['parNature']>; fr: string; en: string }>;
+
+/**
+ * Le chiffre de la ligne « Coût de l'IA » : le crédit débité, plus le MBA estimé quand il y en a. 🔴 Avec le MBA, le
+ * chiffre devient une FOURCHETTE : additionner une estimation à un débit et afficher un seul nombre ferait passer
+ * l'estimation pour une mesure.
+ */
+function valeurCoutIa(ia: CoutIa, locale: Locale, t: (fr: string, en: string) => string): string {
+  const debite = ia.coutMicroEur;
+  if (!ia.mba) return fmtCost(eurosDepuisMicro(debite), locale, 'EUR');
+  const min = fmtCost(eurosDepuisMicro(debite + ia.mba.estimeMinMicroEur), locale, 'EUR');
+  const max = fmtCost(eurosDepuisMicro(debite + ia.mba.estimeMaxMicroEur), locale, 'EUR');
+  return t(`${min} à ${max}`, `${min} to ${max}`);
+}
 
 export function CarteCouts({ tenantId, range }: { tenantId: string; range: StatsRange }) {
   const t = useT();
@@ -408,29 +431,53 @@ export function CarteCouts({ tenantId, range }: { tenantId: string; range: Stats
           onBascule={() => setOuverte((v) => (v === 'ia' ? null : 'ia'))}
           titre={t('Coût de l’IA', 'AI cost')}
           etat={ia === 'erreur' ? 'erreur' : ia === null ? 'charge' : 'pret'}
-          valeur={ia !== null && ia !== 'erreur' ? fmtCost(eurosDepuisMicro(ia.coutMicroEur), locale, 'EUR') : null}
+          valeur={ia !== null && ia !== 'erreur' ? valeurCoutIa(ia, locale, t) : null}
           vide={t('Aucune consommation sur cette période.', 'No usage over this period.')}
         >
           {ia !== null && ia !== 'erreur' && (
             <>
-              {/* 🔴 CE QUE CETTE LIGNE NE COMPTE PAS, DIT PLUTOT QUE LAISSE DEVINER. Le Meta Business Agent
-                  tourne CHEZ Meta : nous ne payons aucun token pour lui, et Meta le facture au message de
-                  service. Son coût est donc dans la ligne du dessus. Sans cette phrase, un lecteur qui voit
-                  son agent Meta répondre toute la journée conclura que la mesure est fausse.
-
-                  🔴 ET « LA TRADUCTION » A ÉTÉ RETIRÉE DE CETTE PHRASE, parce qu'elle était FAUSSE. La
-                  traduction tombe bien sur le crédit du client, mais elle n'enregistre AUCUN coût :
-                  `consommationIa` ne lit que `agent_sessions`, et `src/traduction/traduire.pg.ts` n'écrit
-                  ni débit ni compteur. Un client dont l'Inbox traduit toute la journée lisait donc « 0 € »
-                  sous un libellé qui lui promettait que la traduction était dedans. Relevé en revue finale
-                  le 2026-09-17. Le dire au lieu de le promettre coûte une phrase ; compter la traduction
-                  pour de vrai est un lot à part, il est dans `todo.md`. */}
+              {/* 🔴 TOUT CE QUE L'IA A COÛTÉ, ET CE QUI EST ESTIMÉ EST DIT ESTIMÉ (plan 2026-11-10-cout-ia-et-mba.md).
+                  Le crédit débité se lit au journal (tours d'agent, essais, connaissance, transcription, traduction) ;
+                  le MBA est facturé par Meta directement, et son coût ne nous est pas lisible : il est ajouté à
+                  part, estimé au prix public. ⚠️ Une API d'avant ce lot ne rend ni `parNature` ni `mba` : la ligne
+                  garde alors son total, sans parts (la console part au push, l'API à son déploiement). */}
               <p className="text-xs text-ink-500" data-testid="cout-ia-perimetre">
                 {t(
-                  'Votre crédit prépayé : les tours d’agent IA. La traduction des conversations tombe sur le même crédit mais n’est pas encore chiffrée ici. Le Meta Business Agent n’y est pas non plus, il tourne chez Meta, qui le facture au message de service (ligne ci-dessus).',
-                  'Your prepaid credit: AI agent turns. Conversation translation draws on the same credit but is not costed here yet. The Meta Business Agent is not here either, it runs at Meta, which bills it per service message (line above).',
+                  'Tout ce que l’IA vous a coûté sur la période : votre crédit IA débité, et le Meta Business Agent (MBA) estimé au prix public. Meta facture le MBA directement, sa facture fait foi.',
+                  'Everything AI cost you over the period: your debited AI credit, and the Meta Business Agent (MBA) estimated at public price. Meta bills the MBA directly, its invoice prevails.',
                 )}
               </p>
+              {ia.parNature !== undefined && (
+                <table className="mt-2 w-full border-collapse" data-testid="cout-ia-parts">
+                  <tbody>
+                    {NATURES_AFFICHEES.filter((n) => n.cle !== 'autre' || ia.parNature!.autre > 0).map((n) => (
+                      <tr key={n.cle} className="border-b border-ink-50" data-testid={`cout-ia-part-${n.cle}`}>
+                        <td className={TD}>{t(n.fr, n.en)}</td>
+                        <td className={`${TD} text-right tabular-nums`}>
+                          {fmtCost(eurosDepuisMicro(ia.parNature![n.cle]), locale, 'EUR')}
+                        </td>
+                      </tr>
+                    ))}
+                    {ia.mba && (
+                      <tr className="border-b border-ink-50" data-testid="cout-ia-part-mba">
+                        <td className={TD}>
+                          {t(
+                            `MBA, estimé (${fmtNum(ia.mba.messages, locale)} messages au prix public)`,
+                            `MBA, estimated (${fmtNum(ia.mba.messages, locale)} messages at public price)`,
+                          )}
+                        </td>
+                        <td className={`${TD} text-right tabular-nums`}>
+                          {t(
+                            `${fmtCost(eurosDepuisMicro(ia.mba.estimeMinMicroEur), locale, 'EUR')} à ${fmtCost(eurosDepuisMicro(ia.mba.estimeMaxMicroEur), locale, 'EUR')}`,
+                            `${fmtCost(eurosDepuisMicro(ia.mba.estimeMinMicroEur), locale, 'EUR')} to ${fmtCost(eurosDepuisMicro(ia.mba.estimeMaxMicroEur), locale, 'EUR')}`,
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+              <h4 className="mt-3 text-xs font-medium text-ink-500">{t('Tours d’agent IA', 'AI agent turns')}</h4>
               {ia.tours.length === 0 ? (
                 <p className="mt-2 text-xs text-ink-500" data-testid="cout-ia-vide">
                   {t('Aucun tour d’agent sur cette période.', 'No agent turn over this period.')}

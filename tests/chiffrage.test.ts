@@ -5,6 +5,8 @@ import { rangeToUnix, addDays, todayParis, type DateRange } from '../src/stats/r
 import { GRILLE_DEFAUT, coutRcsEuros, grilleDepuisLigne } from '../src/stats/prix';
 import { estimateCoutParCampagne, type VolumeCampagneRow } from '../src/stats/cost';
 import { PLAFOND_TOURS_IA } from '../src/stats/cout-ia';
+import { ventilationVide } from '../src/agent/natures-credit';
+import { estimationMbaMicroEur } from '../web/lib/partage/agent-meta';
 import type { PricingSummary } from '../src/meta/pricing';
 import type { LienTrace } from '../src/links/tracked-links.pg';
 
@@ -82,8 +84,9 @@ function monter(o: {
     mesuresScenarioParCampagne: async (...a) => { note('mesuresScenarioParCampagne')(...a); return []; },
     consommationIa: async (...a) => {
       note('consommationIa')(...a);
-      return { coutMicroEur: 0, tokensEntree: 0, tokensSortie: 0, sessions: 0, tours: [], tronque: false };
+      return { coutMicroEur: 0, parNature: ventilationVide(), tokensEntree: 0, tokensSortie: 0, sessions: 0, tours: [], tronque: false };
     },
+    messagesMbaSurPeriode: async (...a) => { note('messagesMbaSurPeriode')(...a); return 0; },
     ...o.stats,
   };
   const deps: DepsChiffrage = {
@@ -111,6 +114,7 @@ function monter(o: {
     },
     evenements: { countByNode: async () => [{ nodeId: 'n1', kind: 'sent', handle: null, count: 9, contacts: 9 }] },
     retentionJours: o.retentionJours ?? 90,
+    tauxEurParDollar: 0.92,
   };
   const argsDe = (m: string): unknown[][] => appels.filter((a) => a.m === m).map((a) => a.args);
   return { chiffrage: creerChiffrage(deps), argsDe, tarifs };
@@ -460,5 +464,33 @@ describe('la dépense IA', () => {
     const { chiffrage, argsDe } = monter();
     await chiffrage.getCoutIa(T, PLAGE);
     expect(argsDe('consommationIa')).toEqual([[T, PLAGE, PLAFOND_TOURS_IA]]);
+  });
+
+  it('le MBA est estimé sur la période de l’écran, converti en euros, et reste HORS du total débité', async () => {
+    const parNature = { ...ventilationVide(), agent: 500_000, traduction: 260_000 };
+    const { chiffrage, argsDe } = monter({ stats: {
+      consommationIa: async () => ({ coutMicroEur: 760_000, parNature, tokensEntree: 0, tokensSortie: 0, sessions: 0, tours: [], tronque: false }),
+      messagesMbaSurPeriode: async (...a) => { argsMba.push(a); return 10; },
+    } });
+    const argsMba: unknown[][] = [];
+    const c = await chiffrage.getCoutIa(T, PLAGE);
+    expect(argsMba).toEqual([[T, PLAGE]]);
+    expect(argsDe('consommationIa')).toEqual([]);
+    expect(c.coutMicroEur).toBe(760_000);
+    expect(c.parNature).toEqual(parNature);
+    // 10 messages × 0,04 $ à 0,05 $ × 0,92 : la fonction partagée avec la carte MBA.
+    const e = estimationMbaMicroEur(10, 0.92);
+    expect(c.mba).toEqual({ messages: 10, estimeMinMicroEur: e.min, estimeMaxMicroEur: e.max });
+    expect(e).toEqual({ min: 368_000, max: 460_000 });
+  });
+
+  it('sans message du MBA, ou si sa lecture tombe en panne, mba vaut null et le reste est rendu', async () => {
+    const vide = await monter().chiffrage.getCoutIa(T, PLAGE);
+    expect(vide.mba).toBeNull();
+    const erreur = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const panne = await monter({ stats: { messagesMbaSurPeriode: async () => { throw new Error('base'); } } }).chiffrage.getCoutIa(T, PLAGE);
+    expect(panne.mba).toBeNull();
+    expect(panne.parNature).toEqual(ventilationVide());
+    erreur.mockRestore();
   });
 });

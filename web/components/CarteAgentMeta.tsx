@@ -5,17 +5,20 @@ import { useLocale, useT } from '@/lib/i18n';
 import { fmtCost, fmtNum } from '@/lib/format';
 import { getInsightsMba, type InsightsMba } from '@/lib/api-mba';
 import { Nd } from '@/components/Nd';
+import { estimationMbaUsd } from '@/lib/partage/agent-meta';
 
 const CARD = 'rounded-carte border border-ink-200 bg-white p-5';
 const TH = 'px-2 py-1.5 text-left text-xs font-medium text-ink-500';
 const TD = 'px-2 py-1.5 text-sm text-ink-900';
 
 /**
- * LA CARTE « AGENT DE META » DE PERFORMANCE LAB (2026-10-02) : ce que l'agent a fait sur les 30 derniers jours, d'après
- * Meta (conversations, outils, événements), et ses messages comptés chez nous avec un coût ESTIMÉ au prix public.
+ * LA CARTE « MBA » DE PERFORMANCE LAB (2026-10-02, renommée le 2026-11-10) : ce que le Meta Business Agent a fait sur les
+ * 30 derniers jours, d'après Meta (conversations, outils, événements), et ses messages comptés chez nous avec un coût
+ * ESTIMÉ au prix public.
  *
- * 🔴 LE COÛT EST UNE ESTIMATION, ET LA CARTE LE DIT. Aucune API de Meta ne rend le coût ni les jetons de son agent
- * (mesuré le 2026-10-01) : la facture du Billing Hub fait foi.
+ * 🔴 LE COÛT EST UNE ESTIMATION, ET LA CARTE LE DIT. Le coût réel ne nous est lisible qu'avec la permission
+ * `business_management` (mesuré le 2026-11-10, plan `2026-11-10-cout-ia-et-mba.md`, lot B) : la facture du Billing Hub
+ * fait foi.
  *
  * ⚠️ ELLE SE TAIT SANS NUMÉRO, et aussi quand la route ne répond pas (API d'avant cette route, compte qui n'est pas
  * administrateur) : c'est une carte de plus sur la page, pas un chiffre que le reste attend. Une absence de valeur
@@ -43,18 +46,21 @@ export function CarteAgentMeta({ tenantId }: { tenantId: string }) {
   const nombre = (v: number | null | undefined) => (v === null || v === undefined ? <Nd /> : fmtNum(v, locale));
   const pourcent = (v: number | null) => (v === null ? <Nd /> : `${Math.round(v * 100)} %`);
   const secondes = (ms: number | null) => (ms === null ? <Nd /> : `${(ms / 1000).toFixed(1)} s`);
-  const cout = d.messages === null || d.messages === undefined
+  // La même base que la part « MBA estimé » de « Coût de l'IA » (`estimationMbaUsd`), ici dans la devise du prix public.
+  const usd = d.messages === null || d.messages === undefined ? null : estimationMbaUsd(d.messages);
+  const cout = usd === null
     ? null
     : t(
-      `${fmtCost(d.messages * d.prixParMessageUsd.min, locale, 'USD')} à ${fmtCost(d.messages * d.prixParMessageUsd.max, locale, 'USD')}`,
-      `${fmtCost(d.messages * d.prixParMessageUsd.min, locale, 'USD')} to ${fmtCost(d.messages * d.prixParMessageUsd.max, locale, 'USD')}`,
+      `${fmtCost(usd.min, locale, 'USD')} à ${fmtCost(usd.max, locale, 'USD')}`,
+      `${fmtCost(usd.min, locale, 'USD')} to ${fmtCost(usd.max, locale, 'USD')}`,
     );
 
   return (
     <section className={CARD} data-testid="carte-agent-meta">
       <header className="mb-4">
-        <h2 className="text-sm font-semibold text-ink-900">{t('Agent de Meta', 'Meta agent')}</h2>
-        <p className="mt-0.5 text-xs text-ink-500">{t('Les 30 derniers jours.', 'The last 30 days.')}</p>
+        {/* « MBA » et « Meta Business Agent » restent tels quels partout (CLAUDE.md) : c'est le nom du produit de Meta. */}
+        <h2 className="text-sm font-semibold text-ink-900">MBA</h2>
+        <p className="mt-0.5 text-xs text-ink-500">{t('Meta Business Agent, les 30 derniers jours.', 'Meta Business Agent, the last 30 days.')}</p>
       </header>
 
       <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">

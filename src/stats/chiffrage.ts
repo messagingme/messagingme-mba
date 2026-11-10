@@ -14,6 +14,7 @@ import {
 import { assemblerDetailCampagne, type DetailCoutCampagne, type EnvoisCampagneRow } from './cout-campagne';
 import { coutMessages, prixServiceEffectif, type CoutMessages, type MoisService } from './cout-messages';
 import { PLAFOND_TOURS_IA, type CoutIa } from './cout-ia';
+import { estimationMbaMicroEur } from '../../web/lib/partage/agent-meta';
 import { grilleDepuisLigne, tarifsFactures, pricingFacture, type GrillePrix } from './prix';
 import { basculesRcs, FENETRE_BASCULE_MS } from './rcs-conversationnel';
 import { rangeToUnix, addDays, todayParis, type DateRange } from './range';
@@ -56,7 +57,9 @@ export interface StatsDuChiffrage {
   envoisDeLaCampagne(tenantId: string, campaignId: string): Promise<EnvoisCampagneRow[]>;
   getCampaignFunnel(tenantId: string, campaignId: string): Promise<CampaignFunnel>;
   mesuresScenarioParCampagne(tenantId: string, campaignId: string): Promise<NodeEventCount[]>;
-  consommationIa(tenantId: string, range: DateRange, plafond: number): Promise<CoutIa>;
+  consommationIa(tenantId: string, range: DateRange, plafond: number): Promise<Omit<CoutIa, 'mba'>>;
+  /** Les messages écrits par le MBA sur la période, pour son coût estimé. */
+  messagesMbaSurPeriode(tenantId: string, range: DateRange): Promise<number>;
 }
 
 /** Les envois RCS de la période, regroupés par échange, et les réactions des contacts. */
@@ -97,6 +100,8 @@ export interface DepsChiffrage {
    * purgés garde une case vide plutôt qu'un 0,00 € qui se lirait « gratuit ».
    */
   retentionJours: number;
+  /** Le taux de la plateforme (`EUR_PER_USD`), pour convertir l'estimation du MBA, publiée par Meta en dollars. */
+  tauxEurParDollar: number;
 }
 
 /** Ce que le chiffrage rend. Les noms sont ceux des contrats de route qui les consomment. */
@@ -336,7 +341,23 @@ export function creerChiffrage(d: DepsChiffrage): LecturesDeCout {
      * notre clé n'y entre (transcription, bot d'aide, assistants), ni le Meta Business Agent, facturé au
      * message de service (`getCoutMessages`).
      */
-    getCoutIa: async (tenant, range) => d.stats.consommationIa(tenant, range, PLAFOND_TOURS_IA),
+    /**
+     * Le débité au journal du crédit, et le MBA ESTIMÉ à côté, jamais dedans (`src/stats/cout-ia.ts`). Une lecture du
+     * MBA en panne rend `mba: null` sans priver l'écran du reste.
+     */
+    getCoutIa: async (tenant, range) => {
+      const [ia, messagesMba] = await Promise.all([
+        d.stats.consommationIa(tenant, range, PLAFOND_TOURS_IA),
+        d.stats.messagesMbaSurPeriode(tenant, range).catch((err: unknown) => {
+          // eslint-disable-next-line no-console
+          console.error(`cout-ia: messages du MBA illisibles pour ${tenant}:`, messageDe(err));
+          return null;
+        }),
+      ]);
+      if (messagesMba === null || messagesMba === 0) return { ...ia, mba: null };
+      const e = estimationMbaMicroEur(messagesMba, d.tauxEurParDollar);
+      return { ...ia, mba: { messages: messagesMba, estimeMinMicroEur: e.min, estimeMaxMicroEur: e.max } };
+    },
 
     /**
      * Les prix du ROI des messages : le même `prixFactures` que tous les écrans de coût, et le même prix de service que

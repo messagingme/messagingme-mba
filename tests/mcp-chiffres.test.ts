@@ -7,6 +7,7 @@ import { adresseOffre } from '../src/offres/refus';
 import type { DepsMcp } from '../src/mcp/outils';
 import type { StatutsModelesJour } from '../src/stats/store.pg';
 import { mcpChiffresInertes } from './routes-inertes';
+import { ventilationVide } from '../src/agent/natures-credit';
 
 const INERTES = mcpChiffresInertes.chiffres;
 /** Appelle un outil de chiffres sur un espace de l'offre donnée, avec les dépendances données (le reste inerte). */
@@ -236,7 +237,11 @@ describe('aLaMaille', () => {
 describe('get_ai_stats', () => {
   it('🔴 le coût des tours d’agent, les messages de l’IA, les demandes par maille, les actions par maille et par action', async () => {
     const appeler = appelerOutil('get_ai_stats', {
-      getCoutIa: async () => ({ coutMicroEur: 2_345_000, tokensEntree: 1000, tokensSortie: 200, sessions: 4, tours: [], tronque: false }),
+      // Total plus grand que la part des agents : le champ « tours d'agent » ne doit lire que la sienne.
+      getCoutIa: async () => ({
+        coutMicroEur: 3_000_000, parNature: { ...ventilationVide(), agent: 2_345_000, traduction: 655_000 }, mba: null,
+        tokensEntree: 1000, tokensSortie: 200, sessions: 4, tours: [], tronque: false,
+      }),
       stats: {
         getDashboard: async () => ({
           contacts: [], contactsActifs: [], templates: { utility: [], marketing: [] }, exchanged: [], service: [],

@@ -48,8 +48,28 @@ export function titreSkillValide(titre: string): boolean {
 
 /**
  * Les prix publics de Meta, en dollars, pour une ESTIMATION : 2 $ le million de jetons, et 20 000 à 25 000 jetons
- * annoncés par message (doc « non-template messages », relue le 2026-10-01). Aucune API ne rend le coût réel (mesuré
- * le 2026-10-01) : la facture du Billing Hub fait foi, et l'écran le dit.
+ * annoncés par message (doc « non-template messages », relue le 2026-10-01). Le coût réel ne nous est lisible qu'avec
+ * la permission `business_management` (mesuré le 2026-11-10, plan `2026-11-10-cout-ia-et-mba.md`, lot B) : d'ici là,
+ * la facture du Billing Hub fait foi, et l'écran le dit.
  */
 export const PRIX_JETONS_USD_PAR_MILLION = 2;
 export const PRIX_MESSAGE_AGENT_USD = { min: 0.04, max: 0.05 } as const;
+
+/**
+ * Le coût ESTIMÉ du MBA en dollars, la devise du prix public de Meta : messages écrits × prix par message. La carte
+ * « MBA » l'affiche tel quel ; la ligne « Coût de l'IA » le convertit (`estimationMbaMicroEur`). Une seule base, donc
+ * les deux ne peuvent pas se contredire.
+ */
+export function estimationMbaUsd(messages: number): { min: number; max: number } {
+  const n = Math.max(0, messages);
+  return { min: n * PRIX_MESSAGE_AGENT_USD.min, max: n * PRIX_MESSAGE_AGENT_USD.max };
+}
+
+/** La même estimation en micro-euros, au taux de la plateforme (`EUR_PER_USD`), pour la sommer au crédit débité. */
+export function estimationMbaMicroEur(messages: number, tauxEurParDollar: number): { min: number; max: number } {
+  const usd = estimationMbaUsd(messages);
+  return {
+    min: Math.round(usd.min * tauxEurParDollar * 1_000_000),
+    max: Math.round(usd.max * tauxEurParDollar * 1_000_000),
+  };
+}

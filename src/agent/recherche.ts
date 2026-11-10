@@ -1,6 +1,7 @@
 import { config } from '../config';
 import { journaliser } from '../lib/journal';
 import { prixClientMicroEur } from './devise';
+import { noteVectorisation } from './natures-credit';
 import { GatewayRechercheClient } from './llm/recherche-client';
 import type { RechercheSemantique } from './resolvers/connaissance';
 
@@ -131,7 +132,7 @@ export async function balayerVectorisationPayee(
     try {
       const montant = prixClientMicroEur(coutDollars, facturation.tauxEurParDollar, await facturation.commissionPour(tenantId));
       if (montant > 0) {
-        await facturation.debiter(tenantId, montant, `vectorisation de ${lot.length} fiche${lot.length > 1 ? 's' : ''} de connaissance`);
+        await facturation.debiter(tenantId, montant, noteVectorisation(lot.length));
       }
     } catch (err) {
       journaliser('error', 'vectorisation_debit_impossible', { err, tenantId, coutDollars });

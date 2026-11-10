@@ -1,5 +1,24 @@
 # todo.md : backlog
 
+## 🟡 Le coût de l'IA complet : ce que la relecture du lot A laisse (plan `docs/superpowers/plans/2026-11-10-cout-ia-et-mba.md`)
+
+Aucun rouge ; à reprendre au lot B ou au prochain lot qui touche ces chemins.
+
+- **L'outil MCP `get_ai_stats`** dit « translation is not included » : vrai pour `credit_des_tours_d_agent`, mais la
+  console compte désormais tout le crédit IA. Ajouter au `a_savoir` que le total du crédit IA est dans la console.
+- **La fiche d'aide `le-repondeur-de-meta.md`** parle encore de la carte « Agent de Meta », renommée « MBA » ; fiche et
+  empreinte dans le même commit, `aide-proposer` avant de pousser, et relire `features.md`.
+- **`documentation.md`** décrit `consommationIa` comme la somme de `agent_sessions.cout_micro_eur` : le total vient
+  désormais du journal du crédit. Après une purge, sessions, jetons et tours baissent, les euros « agent » restent.
+- **Shopify (`src/shopify/roi.ts`, `src/shopify/cout-leviers.pg.ts`)** lit encore son coût d'IA dans `agent_sessions` :
+  il peut diverger de « Coût de l'IA ». Aligner sur le journal.
+- **La garde des notes en dur** (`tests/natures-credit.test.ts`) ne voit qu'un appel de `debiter` écrit sur une seule
+  ligne ; la rendre multiligne, ou typer la note en union des constantes de `natures-credit.ts`.
+- **`messagesMbaSurPeriode`** balaye les messages de l'espace sur la période, sans délai maximal (une panne rend
+  seulement `mba: null`) ; poser un `statement_timeout` ou borner la période.
+- **Une note d'essai ou de transcription d'un ancien libellé** tomberait en « autre » (total juste) ; vérifier
+  l'historique git des libellés.
+
 ## 🟡 Le constructeur et l'Inbox du 2026-11-10 : ce qu'ils laissent
 
 Prénom, Nom et Email dans le constructeur, le rangement d'un formulaire par son bloc, les pastilles de statut (plan

@@ -176,6 +176,8 @@ test.describe('Performance Lab : la carte des couts', () => {
     await page.goto('/performance');
     const carte = page.getByTestId('carte-agent-meta');
     await expect(carte).toBeVisible();
+    // Le nom du produit de Meta, tel quel (CLAUDE.md) : « MBA », et plus « Agent de Meta ».
+    await expect(carte.getByRole('heading', { level: 2 })).toHaveText('MBA');
     await expect(page.getByTestId('agent-meta-conversations')).toContainText('4');
     // 🔴 « n/d », jamais zéro, quand Meta n'a pas rendu le chiffre.
     await expect(page.getByTestId('agent-meta-attente')).not.toContainText('0');
@@ -470,10 +472,9 @@ test.describe('Performance Lab : le cout de l IA', () => {
     await expect(page.getByTestId('cout-valeur-ia')).toContainText('1,25');
   });
 
-  test('🔴 la ligne DIT ce qu elle ne compte pas : le Meta Business Agent', async ({ page }) => {
-    // Il tourne CHEZ Meta, qui le facture au message de service : son cout est dans la ligne du dessus.
-    // Sans cette phrase, un client qui voit son agent Meta repondre toute la journee conclura que la mesure
-    // est fausse.
+  test('🔴 la ligne DIT que le Meta Business Agent y est ESTIME, et que la facture de Meta fait foi', async ({ page }) => {
+    // Meta facture le MBA directement et son cout ne nous est pas lisible (lot B du plan du 2026-11-10) : la
+    // ligne l ajoute estime, et le dit, sinon une estimation se lirait comme une mesure.
     await mock(page);
     await page.goto('/performance');
     await page.getByTestId('cout-bascule-ia').click();
@@ -487,6 +488,35 @@ test.describe('Performance Lab : le cout de l IA', () => {
     await expect(page.getByTestId('cout-ia-ligne')).toHaveCount(2);
     // 2500 + 600 = 3100 tokens sur le premier tour.
     await expect(page.getByTestId('cout-ia-ligne').first()).toContainText('3');
+  });
+
+  test('🔴 le total somme tout le credit IA, et le MBA estime en fait une FOURCHETTE dite estimee', async ({ page }) => {
+    // Debite : 1,00 + 0,20 + 0,05 = 1,25 euro. MBA estime : 0,368 a 0,46 euro. Total : 1,62 a 1,71 euro.
+    await mock(page, { ia: {
+      ...IA,
+      parNature: { agent: 1_000_000, essai: 0, connaissance: 50_000, transcription: 0, traduction: 200_000, autre: 0 },
+      mba: { messages: 10, estimeMinMicroEur: 368_000, estimeMaxMicroEur: 460_000 },
+    } });
+    await page.goto('/performance');
+    await expect(page.getByTestId('cout-valeur-ia')).toContainText('1,62');
+    await expect(page.getByTestId('cout-valeur-ia')).toContainText('1,71');
+    await page.getByTestId('cout-bascule-ia').click();
+    await expect(page.getByTestId('cout-ia-part-agent')).toContainText('1,00');
+    await expect(page.getByTestId('cout-ia-part-traduction')).toContainText('0,20');
+    await expect(page.getByTestId('cout-ia-part-connaissance')).toContainText('0,05');
+    // Une part « autres » vide ne s affiche pas ; le MBA dit qu il est estime.
+    await expect(page.getByTestId('cout-ia-part-autre')).toHaveCount(0);
+    await expect(page.getByTestId('cout-ia-part-mba')).toContainText(/estimé|estimated/);
+  });
+
+  test('une API d avant le lot (ni parts ni MBA) garde son total, sans parts', async ({ page }) => {
+    // La console part au push, l API a son deploiement : la fenetre ne doit rien casser.
+    await mock(page);
+    await page.goto('/performance');
+    await expect(page.getByTestId('cout-valeur-ia')).toContainText('1,25');
+    await expect(page.getByTestId('cout-valeur-ia')).not.toContainText(/ à | to /);
+    await page.getByTestId('cout-bascule-ia').click();
+    await expect(page.getByTestId('cout-ia-parts')).toHaveCount(0);
   });
 
   test('🔴 aucune consommation n est un etat NORMAL, pas une panne', async ({ page }) => {
