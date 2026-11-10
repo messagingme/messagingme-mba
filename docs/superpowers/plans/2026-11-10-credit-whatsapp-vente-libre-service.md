@@ -214,3 +214,35 @@ Un relecteur indépendant, sur le diff de `f131d9a3` : **aucun rouge, neuf jaune
    `non_recue` sur ces codes, `incertaine` sur le délai et une coupure en cours.
 9. **La carte de `/ops` tait l'Entreprise qui garde la ligne d'un ancien numéro**, qui lit `active` après « Ne pas
    poser » (préexistant) : le dire, ou ne compter pour `active` que les lignes qui couvrent un numéro rattaché.
+
+## La relecture du lot V6 (2026-11-10)
+
+Un relecteur indépendant, sur le diff de `66e5b8e1` : **aucun rouge, six jaunes**. Le lot part tel quel ; ses jaunes vont
+à V7.
+
+1. **L'alerte en coexistence promet une liste où le numéro n'est pas** : sur une ligne déjà active ou arrêtée de
+   l'espace, le texte du cas garde « le numéro attend dans la liste de /ops » (et « Ne pas poser » pour la ligne active),
+   alors qu'un numéro en coexistence n'est jamais marqué, et le suffixe ne le dément pas. Retirer la phrase de la liste
+   en coexistence, et le tester par `not.toContain` ; décider à part si ces deux cas bloquants méritent la liste.
+2. **Une annonce mal formée retombe sur le repli « sans annonce »** : un numéro annoncé qui n'a pas la forme d'un
+   identifiant de Meta devient « aucun numéro annoncé », et le seul rattaché du compte du corps est marqué. Distinguer
+   une annonce rejetée d'une annonce absente ; un rattaché dans le test du mal formé ; le repli « ni numéro ni compte »
+   au manuel.
+3. **La carte de `/ops` et le manuel confondent deux lignes actives** : « une Entreprise qui garde la ligne active d'un
+   ancien numéro lit payés par votre Crédit WhatsApp, sans que son numéro soit couvert » n'est vrai que pour une ligne
+   d'un AUTRE compte WhatsApp ; sur le même compte (« déjà couvert »), la ligne couvre bien le numéro. Lu à l'envers, le
+   texte ferait retirer une ligne qui couvre le compte, l'attache vérifiée, et les envois partiraient payés par le
+   partenaire sans provision. Écrire « d'un AUTRE compte WhatsApp », et l'issue du cas déjà couvert.
+4. **`hors_liste` invente une cause** : il sort aussi pour un numéro qui n'est plus relu (déconnecté entre la marque et
+   la relecture) ou dont l'attente vient d'être levée, et l'alerte dit « une ligne a été posée depuis sa première
+   marque » ; le câblage de `marquer` jette le `false` de `marquerParLaLigne`. Un numéro absent à la relecture rend
+   `aucun` ou `illisible`, et `hors_liste` un texte qui ne choisit pas la cause.
+5. **Deux commentaires d'avant le jaune 8** : les JSDoc d'`alerter` et d'`alerterSansPerte` disent encore « incertaine
+   (délai dépassé, panne réseau) ».
+6. **L'ordre de déploiement n'a pas de ligne V6** : l'API sans migration, la carte au push (elle n'affiche que le texte
+   du 409).
+
+### V7. Les jaunes de la relecture de V6
+
+- [ ] Les six (§ « La relecture du lot V6 »), le 3 d'abord : la carte de `/ops` ne doit pas faire retirer une ligne qui
+  couvre le compte.
