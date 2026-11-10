@@ -37,8 +37,9 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await communs(page);
       await page.goto('/connecter-whatsapp');
       // 2. Pas de numéro ? « Oui » au compte Meta Business, puis « Fournissez-moi un numéro » (les questions du tunnel).
+      // La carte « Qui paie vos messages à Meta ? » est au-dessus (lot B du Crédit WhatsApp) : la vue descend à la question.
       await page.getByTestId('question-compte-oui').click();
-      await capturer(page, CLE, 2, locale, undefined, 'haut', page.getByTestId('choix-fourni'));
+      await capturer(page, CLE, 2, locale, page.getByTestId('question-compte'), 'haut', page.getByTestId('choix-fourni'));
     });
 
     test(`${CLE} (${locale}) : numéro à vérifier`, async ({ page }) => {

@@ -324,6 +324,40 @@ lot élargi.
 endroits). **Essai réel** : parcourir les six cas dans `/demarrer/`, dans la console et avec Claude, et comparer les
 feuilles ; puis un espace neuf qui voit les offres d'abord, et les parcours Pro par la console et par Claude Code.
 
+### Décisions de Julien (2026-11-10)
+
+Elles remplacent, pour le Crédit WhatsApp, le choix actif « sur demande » du 2026-11-09 (ajout 3).
+
+1. **La personne prend le Crédit WhatsApp SEULE, jamais par le contact** : la vente s'ouvre. Dans l'ordre :
+   1. l'option ;
+   2. dans la foulée, la fenêtre du partenaire, qui attache sa ligne automatiquement (Julien : « pousser le bon lien ») ;
+   3. pour envoyer des modèles, du Crédit WhatsApp.
+
+   De notre côté, la pose de la ligne ne se fait plus à la main dans `/ops`.
+2. **« Votre numéro, ou le nôtre ? »** Le numéro fourni passe aussi par la fenêtre du partenaire. Son propre numéro,
+   déjà dans l'application WhatsApp du téléphone, reçoit avant la fenêtre la phrase validée : « Avec le Crédit
+   WhatsApp, il n'y marchera plus : vos clients vous écriront dans Messaging Me, et vous leur répondrez là (la console ou
+   Claude). Pour garder l'application : « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta
+   Business », ou un numéro de chez nous. » Jamais « quitter l'application » : personne ne le comprend.
+3. **L'essai de la formule Pro** :
+   - l'option se prend et se paie dès le début des 14 jours ;
+   - le reste de la formule reste gratuit pendant l'essai ;
+   - la formule Pro (59 € HT par mois) se facture au bout des 14 jours ;
+   - un essai non payé arrête l'option, sans remboursement.
+
+   La règle d'avant, une formule payée d'abord, tombe.
+4. **Le découpage** :
+   - **3a, l'arbre** : le cas 4, WhatsApp ordinaire, « Je mets un moyen de paiement (Visa / Mastercard)… ». Le Crédit
+     WhatsApp y reste tel qu'il est jusqu'à la vente.
+   - **3v, la vente du Crédit WhatsApp en libre-service** : la branche du crédit dans l'arbre, le numéro fourni par la
+     fenêtre du partenaire, la règle de l'essai, la pose automatique de la ligne, l'inventaire de ce qui reste avant la
+     vente au chantier du crédit, et le prix Stripe que pose Julien. Cette session la mène : celle du chantier du crédit
+     n'est plus joignable.
+   - **3b, la console** : les offres au premier écran ; Business et Entreprise vont vers `/support?sujet=…`, le
+     formulaire de contact de la console.
+   - **3c, Démarrer** : la formule Pro, « console ou Claude Code », avec les deux jaunes de la vitrine relevés par la
+     relecture du lot 2b.
+
 ## Lot 4 : le centre d'aide
 
 Il part en deux temps. **4a**, tout de suite : les rubriques, le guide, le dépannage, installer le plugin, la connexion

@@ -4,9 +4,10 @@ import { join } from 'node:path';
 import { TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
 import { FAQ } from '../scripts/plugin/faq';
 import {
-  ISSUE_API, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE,
-  QUESTION_NUMERO, QUESTION_PAIEMENT,
+  ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE,
+  QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_PAIEMENT, WHATSAPP_ORDINAIRE,
 } from '../web/lib/questions-numero';
+import { VITRINE_AIDE } from '../web/lib/partage/aide-connexion';
 
 /**
  * LA CONSOLE POSE LES QUESTIONS DE LA VITRINE (2026-10-30, plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-plugin.md`).
@@ -35,6 +36,9 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(q.voies!.map((x) => texte(x.plus[0]!))).toEqual(cartes.map((c) => c.texte[langue]));
       expect(q.reponses.map((r) => r.libelle)).toEqual(cartes.map((c) => c.titre[langue]));
       expect(q.reponses[0]!.vers).toBe('compte');
+      // Les deux liens de la carte chez Meta (lot 3a) : les mêmes mots, les mêmes fiches (la console les vise sur la vitrine).
+      expect(q.voies![0]!.liens?.map((l) => ({ libelle: texte(l.libelle), href: l.href })))
+        .toEqual(QUESTION_PAIEMENT.carte.liens.map((l) => ({ libelle: l.libelle[langue], href: l.href[langue].replace(VITRINE_AIDE, '') })));
       // Grisée tant que la vente n'est pas ouverte : en Free, avec la formule Pro ; en Pro, sur demande, et sur la vitrine
       // « écrivez-nous » mène à la page Contact.
       const g = q.reponses[1]!.grisee!;
@@ -61,17 +65,32 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(q.reponses[2]!.note).toContain(`href="${META_BUSINESS_URL}"`);
     });
 
-    it(`${langue} : « Avez-vous déjà l’application WhatsApp Business ? », Oui la garde, Non la fait télécharger`, () => {
+    it(`${langue} : « Avez-vous déjà l’application WhatsApp Business ? », Oui demande si c’est ce numéro-là, Non la fait télécharger`, () => {
       const q = question('application');
       expect(QUESTION_APPLICATION.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_APPLICATION.precision[langue]).toBe(texte(q.precision!));
       expect([QUESTION_APPLICATION.oui, QUESTION_APPLICATION.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
       // Avec l'application, on la garde ; sans elle, la 4e question (Julien, 2026-10-31).
-      expect(q.reponses.map((r) => r.vers)).toEqual(['garder', 'numero']);
+      expect(q.reponses.map((r) => r.vers)).toEqual(['meme-numero', 'numero']);
       // Avant elle, « il faudra la télécharger », avec les deux magasins : le texte au mot près, les liens à l'adresse près.
       const note = q.reponses[1]!.note!;
       expect(QUESTION_APPLICATION.noteNon[langue]).toBe(texte(note.replace(/<span class="bt-liens">[\s\S]*<\/span>$/, '')));
       expect([...note.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(ISSUE_TELECHARGER.magasins.map((m) => m.href));
+    });
+
+    it(`${langue} : le cas 4, « Voulez-vous utiliser ce numéro-là ? » : Oui la garde, Non mène à un numéro de chez nous (lot 3a)`, () => {
+      const q = question('meme-numero');
+      expect(QUESTION_MEME_NUMERO.texte[langue]).toBe(texte(q.texte));
+      expect(QUESTION_MEME_NUMERO.precision[langue]).toBe(texte(q.precision!));
+      expect([QUESTION_MEME_NUMERO.oui, QUESTION_MEME_NUMERO.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
+      expect(q.reponses.map((r) => r.vers)).toEqual(['garder', 'autre-numero']);
+      const x = issue('autre-numero');
+      expect(ISSUE_AUTRE_NUMERO.titre[langue]).toBe(texte(x.titre));
+      expect(ISSUE_AUTRE_NUMERO.texte[langue]).toBe(texte(x.textes[0]!));
+    });
+
+    it(`${langue} : WhatsApp ordinaire, dit au mot près là où le numéro peut servir dans WhatsApp (lot 3a)`, () => {
+      for (const id of ['garder', 'telecharger']) expect(issue(id).textes.map(texte), id).toContain(WHATSAPP_ORDINAIRE[langue]);
     });
 
     it(`${langue} : « Avez-vous déjà un numéro que vous pourriez utiliser ? », Oui le met dans l’application, Non le fait fournir`, () => {
@@ -114,9 +133,9 @@ describe('le plugin pose les mêmes questions, sans QR code', () => {
   const en = TEXTES_TUNNEL.en;
   const q = (id: string) => texte(en.questions.find((x) => x.id === id)!.texte);
 
-  it('🔴 la skill de mise en service : l’offre, le compte Meta Business, puis l’application, dans cet ordre', () => {
+  it('🔴 la skill de mise en service : l’offre, le compte Meta Business, l’application, puis ce numéro-là, dans cet ordre', () => {
     const skill = lire('plugin/skills/mise-en-service/SKILL.md');
-    const rangs = ['**The plan: Free or Pro?**', `**"${q('paiement')}"**`, `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
+    const rangs = ['**The plan: Free or Pro?**', `**"${q('paiement')}"**`, `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('meme-numero')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
     expect(rangs.every((r) => r > 0), rangs.join(',')).toBe(true);
     expect([...rangs].sort((a, b) => a - b)).toEqual(rangs);
     // Le numéro trop neuf se dit sans chiffre, et le QR code n'est plus nommé que pour dire qu'il n'est plus proposé.

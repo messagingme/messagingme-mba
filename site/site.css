@@ -940,6 +940,8 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-question .bt-voie-grisee .bouton-trait:disabled,.bt-question .bt-voie-grisee .bouton-trait:disabled:hover{opacity:.45;cursor:not-allowed;border-color:var(--line);background:transparent;color:var(--ink)}
 .bt-grisee{margin:12px 0 0;color:var(--ink);font-size:.95rem;font-weight:600}
 .bt-grisee a{color:var(--action-ink)}
+.bt-voie-liens{display:flex;flex-wrap:wrap;gap:4px 16px;margin:12px 0 0;font-size:.95rem}
+.bt-voie-liens a{color:var(--action-ink)}
 .js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}
 /* La page « Démarrer » : le titre, puis le tunnel tout de suite dessous. */
 .demarrer-une{gap:8px}

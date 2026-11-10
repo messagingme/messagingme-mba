@@ -4677,8 +4677,9 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   avec `enVente` (l'option se prend en ligne) et `avecApplication` (tous les numéros non déliés de l'espace gardent
   l'application, `tousGardentLApplication`, décision 8 ; la vue de l'onglet porte le même champ). La console en tire deux
   cartes (`web/components/QuiRegleMeta.tsx`) : sur Connecter WhatsApp, la première question du guide du numéro, et sur
-  l'Accueil tant qu'aucun numéro n'est connecté. « Ma carte chez Meta » est la voie active et ouvre le guide ; elle cède
-  la place quand une ligne est payée ou posée. 🔴 « Crédit WhatsApp » reste grisée « sur demande » tant que l'option n'est
+  l'Accueil tant qu'aucun numéro n'est connecté. La carte du moyen de paiement chez Meta (« Je mets un moyen de
+  paiement (Visa / Mastercard) sur mon compte Meta Business », avec ses deux liens, `QUESTION_PAIEMENT.carte`) est la
+  voie active et ouvre le guide ; elle cède la place quand une ligne est payée ou posée. 🔴 « Crédit WhatsApp » reste grisée « sur demande » tant que l'option n'est
   pas en vente, dans TOUS les états, essai compris : jamais « Démarrer la formule Pro maintenant » pour une option qui ne
   se prend pas. Une Free l'est sans lire la route (402), par la vue de l'offre. Prise depuis une carte, l'option compte
   un numéro et ramène sur Connecter WhatsApp (`origine: 'connecter'`, le corps d'avant sans elle), dont le retour garde la

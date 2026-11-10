@@ -2380,8 +2380,10 @@ scénario, comment importer des contacts.
   « Connecter WhatsApp », un encadré « Avant de commencer, chez Meta » donne les trois conditions : un compte Meta
   Business (le portefeuille d'entreprise, où l'on entre par un profil Facebook ou un compte Meta géré), rien à préparer
   pour le créer (la fenêtre de Meta le fait créer en chemin, mesuré à l'essai 161, ou on le crée avant, pas à pas, sur
-  business.facebook.com), et un numéro : un numéro libre, qui ne sert pas dans l'application WhatsApp, ou celui de
-  l'application WhatsApp Business, qui y reste (« Garder mon application WhatsApp Business »). Claude Code dit
+  business.facebook.com), et un numéro : un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de
+  l'application WhatsApp Business, qui y reste (« Garder mon application WhatsApp Business ») ; un numéro qui sert dans
+  WhatsApp, l'application ordinaire, y passe d'abord en installant WhatsApp Business sur le même téléphone, qui le
+  reprend avec ses conversations (2026-11-10), et le numéro fourni ne vaut que sans numéro. Claude Code dit
   la même chose avant de donner le lien de connexion, sans poser de question, et la vitrine le rappelle dans ses étapes
   et sa FAQ.
 - ✅ **Puis les questions du tunnel de la vitrine** (2026-10-30) : sous l'encadré, la page pose « Avez-vous un compte
@@ -2581,9 +2583,10 @@ scénario, comment importer des contacts.
 - 🗑️ **« À la reprise, le fil… » : SUPPRIMÉ le 2026-08-18** (voir la section Inbox). Ce réglage d’espace
   n’existe plus, et le sélecteur par conversation non plus.
 - ✅ **« Qui paie vos messages à Meta ? »** (révision du Crédit WhatsApp, lot B, 2026-11-06) : tant qu'aucun numéro n'est
-  rattaché, l'Accueil pose la question, comme la page « Connecter WhatsApp » juste après l'offre. « Ma carte chez Meta » :
-  le numéro se connecte avec la carte du client chez Meta, qui lui facture ses modèles (le bouton mène au guide du
-  numéro). « Crédit WhatsApp » : il prépaie ses messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et
+  rattaché, l'Accueil pose la question, comme la page « Connecter WhatsApp » juste après l'offre. « Je mets un moyen de paiement
+  (Visa / Mastercard) sur mon compte Meta Business » (2026-11-10) : le numéro se connecte, et Meta facture les modèles
+  sur ce moyen de paiement (le bouton mène au guide du numéro ; deux liens : pourquoi un moyen de paiement, ce qu'est un
+  compte Meta Business). « Crédit WhatsApp » : il prépaie ses messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et
   par mois, avec la formule Pro ou Business ; grisé tant que l'option n'est pas en vente (en Free, « avec la formule
   Pro » ; ailleurs, sur demande au Support), et pendant un essai la carte chez Meta. Un numéro qui garde l'application
   WhatsApp Business reste sur la carte chez Meta : le Crédit WhatsApp n'est pas possible avec l'application. La carte

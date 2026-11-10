@@ -41,8 +41,10 @@ export const PAR_LA_LIGNE = {
  * la sienne. Sur Connecter WhatsApp, c'est la première question du guide du numéro, et la voie de la carte chez Meta y
  * ouvre la suite (`children`) ; sur l'Accueil, tant qu'aucun numéro n'est connecté, elle y mène.
  *
- * « Ma carte chez Meta » est la voie active (spec, moment 1) : le numéro se connecte par notre application, et Meta le
- * facture. Elle cède la place quand une ligne est payée ou posée (`en_attente`, `active`), et se reprend d'un clic.
+ * La carte du moyen de paiement chez Meta (« Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta
+ * Business », Julien, 2026-11-09, lot 3a, avec ses deux liens) est la voie active (spec, moment 1) : le numéro se connecte
+ * par notre application, et Meta le facture. Elle cède la place quand une ligne est payée ou posée (`en_attente`,
+ * `active`), et se reprend d'un clic.
  *
  * « Crédit WhatsApp » dit ce que l'état de la ligne permet (`GET /credit-whatsapp/etat`, `etatLigneCredit` du serveur) :
  * grisée en Free et, tant que l'option n'est pas en vente en ligne, pendant l'essai comme après (« sur demande ») ; une
@@ -273,7 +275,15 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
             <div data-testid="carte-meta" className={`rounded-carte border p-4 ${metaEnAvant ? 'border-ink-900' : 'border-ink-200'}`}>
               <div className="text-sm font-semibold text-ink-900">{t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}</div>
               <p className="mt-1 text-sm text-ink-700">
-                {t('Vous connectez votre numéro avec votre carte chez Meta, qui vous facture vos modèles.', 'You connect your number with your card at Meta, which bills your templates.')}
+                {t('Vous connectez votre numéro, et Meta vous facture vos modèles sur ce moyen de paiement.', 'You connect your number, and Meta bills your templates to this payment method.')}
+              </p>
+              {/* Ses deux liens (lot 3a) : pourquoi un moyen de paiement, et ce qu'est un compte Meta Business. */}
+              <p data-testid="carte-meta-liens" className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                {QUESTION_PAIEMENT.carte.liens.map((l) => (
+                  <a key={l.href.fr} href={t(l.href.fr, l.href.en)} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink-900 underline">
+                    {t(l.libelle.fr, l.libelle.en)}
+                  </a>
+                ))}
               </p>
             </div>
             {boutonCarte && <div>{boutonCarte}</div>}

@@ -12,6 +12,7 @@ import { fichierDe } from '../scripts/vitrine/cas';
 import { AUTORISATION_CODEX, COMMANDES_CODEX, COMMANDES_PLUGIN, DEPOT_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
 import { commandeHtml } from '../scripts/vitrine/tunnel';
 import { FAQ } from '../scripts/plugin/faq';
+import { ETAPES_NUMERO_FOURNI } from '../web/lib/partage/etapes-numero-fourni';
 import { lire, pagesHtml, texte } from './vitrine-lecture';
 
 /**
@@ -95,7 +96,7 @@ describe('le tunnel du numéro WhatsApp', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { questions } = TEXTES_TUNNEL[langue];
       const q = (id: string) => questions.find((x) => x.id === id)!;
-      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'paiement', 'compte', 'application', 'numero']);
+      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'paiement', 'compte', 'application', 'meme-numero', 'numero']);
       // Free ou Pro, les deux vers la même question : l'offre ne change pas le chemin du numéro, seulement le bout.
       // Business et Entreprise mènent à la démo et au contact, jamais aux questions du numéro (Julien, 2026-10-30).
       expect(q('offre').reponses.filter((r) => r.vers).map((r) => `${r.offre}>${r.vers}`), langue)
@@ -107,10 +108,38 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect(q('compte').reponses.map((r) => r.vers), langue).toEqual(['api', 'application', 'application']);
       expect(q('compte').reponses[2]!.note, langue).toContain('business.facebook.com');
       expect(q('compte').reponses[2]!.note, langue).toMatch(/Facebook ou Instagram|Facebook or Instagram/);
-      // Avec l'application, on la garde, sans numéro à proposer ; sans elle, la question du numéro (Julien, 2026-10-31).
-      expect(q('application').reponses.map((r) => r.vers), langue).toEqual(['garder', 'numero']);
+      // Avec l'application, ce numéro-là ? (le cas 4, lot 3a) Oui, on la garde ; Non, un numéro de chez nous par la
+      // fenêtre de Meta. Sans elle, la question du numéro (Julien, 2026-10-31).
+      expect(q('application').reponses.map((r) => r.vers), langue).toEqual(['meme-numero', 'numero']);
+      expect(q('meme-numero').reponses.map((r) => r.vers), langue).toEqual(['garder', 'autre-numero']);
       // Un numéro : l'application à télécharger ; aucun : le numéro fourni, qui va dans l'application.
       expect(q('numero').reponses.map((r) => r.vers), langue).toEqual(['telecharger', 'fourni']);
+    }
+  });
+
+  it('🔴 le cas 4, WhatsApp ordinaire et la carte chez Meta (aide à la connexion, lot 3a)', () => {
+    for (const langue of ['fr', 'en'] as const) {
+      const { questions, issues } = TEXTES_TUNNEL[langue];
+      const issue = (id: string) => issues.find((x) => x.id === id)!;
+      // Le cas 4 : un numéro de chez nous relié par la fenêtre de Meta, son code par l'appel (la source du lot 2c).
+      const autre = issue('autre-numero');
+      const appel = ETAPES_NUMERO_FOURNI.find((e) => e.insiste)!;
+      expect(autre.textes.join(' '), langue).toContain(appel[langue]);
+      expect(autre.pasAPas, langue).toBe(langue === 'fr' ? '/aide/connecter-mon-numero-whatsapp/' : '/en/help/connect-my-whatsapp-number/');
+      expect(Object.values(autre.numero ?? {}).join(' '), langue).toMatch(/fournis-m’en un|provide one/);
+      // WhatsApp ordinaire : plus aucun texte n'envoie un numéro qui sert dans WhatsApp vers un autre numéro ; il passe
+      // dans WhatsApp Business, gardée, que disent l'issue de l'application et celle du téléchargement.
+      const api = issue('api');
+      expect(api.textes.join(' '), langue).not.toMatch(/Sans numéro libre|Without an available number/);
+      expect(api.autre!.question, langue).toMatch(/WhatsApp ou dans l’application|WhatsApp or in the WhatsApp Business app/);
+      for (const id of ['garder', 'telecharger']) {
+        expect(issue(id).textes.join(' '), `${langue} ${id}`).toMatch(/reprendre ce numéro, avec vos conversations|take over that number, with your chats/);
+      }
+      // La carte chez Meta (Julien, 2026-11-09) : son libellé, et ses deux liens vers des fiches publiées.
+      const carte = questions.find((x) => x.id === 'paiement')!.voies![0]!;
+      expect(carte.titre, langue).toMatch(/Visa \/ Mastercard/);
+      for (const l of carte.liens ?? []) expect(existsSync(join('site', l.href, 'index.html')), `${langue} ${l.href}`).toBe(true);
+      expect(carte.liens?.length, langue).toBe(2);
     }
   });
 

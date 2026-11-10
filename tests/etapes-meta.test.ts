@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { ETAPES_CARTE_META, PREREQUIS_META } from '../web/lib/partage/etapes-meta';
+import { ETAPES_CARTE_META, PREREQUIS_META, WHATSAPP_ORDINAIRE } from '../web/lib/partage/etapes-meta';
 import { etatMiseEnService, type LecturesMiseEnService } from '../src/mcp/mise-en-service';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import { signLienNumero } from '../src/auth/token';
@@ -50,6 +50,15 @@ describe('ce qu’il faut chez Meta', () => {
     expect(carte).toMatch(/Paramètres de paiement/);
     expect(carte).toMatch(/Visa ou Mastercard/);
     expect([...PREREQUIS_META, ...ETAPES_CARTE_META].every((e) => e.fr.length > 0 && e.en.length > 0)).toBe(true);
+  });
+
+  it('🔴 WhatsApp ordinaire (lot 3a) : la 3e condition fait passer le numéro dans WhatsApp Business, jamais vers un autre numéro', () => {
+    const numero = PREREQUIS_META[2]!;
+    expect(numero.fr).toContain(WHATSAPP_ORDINAIRE.fr);
+    expect(numero.en).toContain(WHATSAPP_ORDINAIRE.en);
+    // L'ancienne phrase envoyait vers un numéro fourni tout numéro qui sert dans WhatsApp : il ne vaut que SANS numéro.
+    expect(numero.fr).not.toMatch(/Pas de numéro libre/);
+    expect(numero.en).not.toMatch(/No spare number/);
   });
 
   it('🔴 la fiche du bot d’aide reprend ces textes mot pour mot (elle ne peut pas importer la source)', () => {

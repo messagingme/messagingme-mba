@@ -8,6 +8,7 @@ import { PRIX_NUMERO_HT_CENTIMES } from '../src/stripe/abonnement';
 import { QUOTAS_API_DEFAUT } from '../src/api/quotas';
 import { STATUT_PAR_CODE } from '../src/api/erreurs';
 import { DROITS } from '../src/offres/offres';
+import { WHATSAPP_ORDINAIRE } from '../web/lib/partage/etapes-meta';
 
 /**
  * LA FAQ A UNE SEULE SOURCE (lot 10) : `scripts/plugin/faq.ts`. Ses copies (la skill du plugin, le bloc des pages
@@ -51,6 +52,31 @@ describe('la source', () => {
     expect(e.reponse.fr.includes('illimités en formule Pro')).toBe(DROITS.pro.limites.envoisModelesMois === null);
     expect(e.reponse.en.includes('unlimited on Pro')).toBe(DROITS.pro.limites.envoisModelesMois === null);
     expect(`${e.reponse.fr} ${e.reponse.en}`).not.toMatch(/de notre part|from us/);
+  });
+
+  it('🔴 WhatsApp ordinaire (lot 3a) : aucune réponse ne l’envoie vers un autre numéro, celle qui en parle dit la reprise par WhatsApp Business', () => {
+    const ordinaire = { fr: /WhatsApp ordinaire|WhatsApp, l’application ordinaire/, en: /regular WhatsApp|WhatsApp, the regular app/ };
+    const reprise = {
+      fr: [/installez (d’abord )?WhatsApp Business/i, /reprend(re)? ce numéro/],
+      en: [/install WhatsApp Business/i, /takes? over that number/],
+    };
+    // La phrase entière, là où elle se dit d'un bloc : l'entrée du numéro dans l'application.
+    const application = FAQ.find((e) => e.id === 'numero-dans-l-application')!;
+    for (const langue of ['fr', 'en'] as const) expect(application.reponse[langue]).toContain(WHATSAPP_ORDINAIRE[langue]);
+    const autreNumero = { fr: /la quitte|prenez alors un numéro|numéro dédié, le vôtre ou/, en: /leaves it|then use a dedicated number|dedicated number, your own or/ };
+    let citee = 0;
+    for (const e of FAQ) {
+      for (const langue of ['fr', 'en'] as const) {
+        const r = e.reponse[langue];
+        expect(r, `${e.id} ${langue}`).not.toMatch(autreNumero[langue]);
+        if (!ordinaire[langue].test(r)) continue;
+        // La phrase de Julien, ou sa forme abrégée de l'arbre (« installez d'abord WhatsApp Business, qui reprend ce numéro »).
+        for (const motif of reprise[langue]) expect(r, `${e.id} ${langue}`).toMatch(motif);
+        citee++;
+      }
+    }
+    // Au moins l'entrée du numéro dans l'application et celle de l'arbre, dans les deux langues : sinon la garde ne garde rien.
+    expect(citee).toBeGreaterThanOrEqual(4);
   });
 
   it('le prix du numéro fourni vient du code', () => {

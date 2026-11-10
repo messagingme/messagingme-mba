@@ -299,6 +299,8 @@ test('🔴 sans compte Meta Business ni application : la télécharger, brancher
   await expect(page.getByTestId('question-numero')).toContainText('Avez-vous déjà un numéro que vous pourriez utiliser ?');
   await page.getByTestId('question-numero-oui').click();
   await expect(page.getByTestId('issue-telecharger')).toContainText('branchez-le tout de suite');
+  // WhatsApp ordinaire (lot 3a) : le numéro qui y sert passe dans WhatsApp Business, sur le même téléphone.
+  await expect(page.getByTestId('whatsapp-ordinaire')).toContainText('Installez WhatsApp Business sur le même téléphone');
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('numero-trop-neuf')).toContainText('revenez le brancher');
   await expect(page.getByTestId('issue-telecharger').getByRole('link', { name: 'Google Play (Android)' })).toHaveAttribute('href', /com\.whatsapp\.w4b/);
@@ -309,7 +311,11 @@ test('🔴 sans compte Meta Business ni application : la télécharger, brancher
   await expect(page.getByTestId('question-application-non')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('question-application-oui').click();
   await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
+  // Avec l'application, ce numéro-là ? (le cas 4, lot 3a) : rien ne s'ouvre avant la réponse.
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toHaveCount(0);
+  await page.getByTestId('question-meme-numero-oui').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
+  await expect(page.getByTestId('whatsapp-ordinaire')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Retour' })).toHaveCount(0);
 });
 
@@ -320,6 +326,7 @@ test('« Je ne sais pas » : où le vérifier, puis l’application gardée, san
   await page.getByTestId('question-compte-nsp').click();
   await expect(page.getByTestId('note-compte').getByRole('link', { name: 'business.facebook.com' })).toHaveAttribute('href', 'https://business.facebook.com/');
   await page.getByTestId('question-application-oui').click();
+  await page.getByTestId('question-meme-numero-oui').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
   await expect(page.getByTestId('numero-trop-neuf')).toHaveCount(0);
@@ -334,8 +341,10 @@ test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous
   await expect(page.getByTestId('choix-fourni')).toBeVisible();
   await expect(page.getByTestId('choix-apporte')).toBeVisible();
   await expect(page.getByTestId('question-application')).toHaveCount(0);
+  await expect(page.getByTestId('issue-api')).toContainText('Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?');
   await page.getByTestId('choix-coexistence').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
+  await expect(page.getByTestId('whatsapp-ordinaire')).toContainText('elle vous propose de reprendre ce numéro, avec vos conversations');
   await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
   // « Retour » ramène aux questions, la réponse gardée en évidence ; une autre réponse change la suite.
   await page.getByRole('button', { name: 'Retour' }).click();
@@ -381,7 +390,42 @@ test('🟡 avec l’application, aucune 4e question ni numéro proposé', async 
   await page.goto('/connecter-whatsapp');
   await page.getByTestId('question-compte-nsp').click();
   await page.getByTestId('question-application-oui').click();
+  await page.getByTestId('question-meme-numero-oui').click();
   await expect(page.getByTestId('question-numero')).toHaveCount(0);
   await expect(page.getByTestId('issue-fourni')).toHaveCount(0);
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
+});
+
+/**
+ * LE CAS 4 (Julien, 2026-11-08, lot 3a) : l'application WhatsApp Business, mais pas pour ce numéro-là. Aucun numéro ne
+ * part vers la coexistence : un numéro de chez nous, relié par la fenêtre de Meta, et l'application garde le sien.
+ */
+test('🔴 le cas 4 : l’application, pas ce numéro-là, donc un numéro de chez nous par la fenêtre de Meta (lot 3a)', async ({ page }) => {
+  await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+  const etat = await simulerNumeroFourni(page, { lecturesAvantCode: 100 });
+  await page.goto('/connecter-whatsapp');
+  await page.getByTestId('question-compte-non').click();
+  await page.getByTestId('question-application-oui').click();
+  await expect(page.getByTestId('question-meme-numero')).toContainText('Voulez-vous utiliser ce numéro-là ?');
+  await expect(page.getByTestId('question-meme-numero')).toContainText('Celui de votre application WhatsApp Business.');
+  await page.getByTestId('question-meme-numero-non').click();
+  const issue = page.getByTestId('issue-autre-numero');
+  await expect(issue).toContainText('Un numéro de chez nous, relié par Meta');
+  await expect(issue).toContainText('Votre application WhatsApp Business garde le sien.');
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toHaveCount(0);
+  await expect(page.getByTestId('question-numero')).toHaveCount(0);
+  // Les questions restent : « Oui » rouvre la carte de l'application, « Non » rend le numéro de chez nous.
+  await expect(page.getByTestId('question-meme-numero-non')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('question-meme-numero-oui').click();
+  await expect(page.getByTestId('issue-autre-numero')).toHaveCount(0);
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
+  await page.getByTestId('question-meme-numero-non').click();
+  await page.getByTestId('choix-autre-numero').click();
+  await page.getByTestId('obtenir-numero').click();
+  await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
+  // Par la fenêtre de Meta, le code par l'appel (lot 2c), jamais dans l'application.
+  await expect(page.getByTestId('etapes-numero-fourni').locator('li[data-insiste]')).toContainText('Phone call');
+  await expect(page.getByTestId('code-capte')).toContainText('En attente du code de Meta');
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toHaveCount(0);
+  expect(etat.gestes).toEqual(['obtenir']);
 });

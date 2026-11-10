@@ -13,8 +13,8 @@ import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { QrApplication } from '@/components/QrApplication';
 import {
-  ISSUE_API, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_NUMERO,
-  type ReponseCompte,
+  ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE,
+  QUESTION_MEME_NUMERO, QUESTION_NUMERO, WHATSAPP_ORDINAIRE, type ReponseCompte,
 } from '@/lib/questions-numero';
 
 /** Les choix du parcours : le mode du lien de Claude Code, ou celui que les questions de la console ont fait. */
@@ -86,8 +86,10 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const [appli, setAppli] = useState<'oui' | 'non' | null>(null);
   /** La réponse à « Avez-vous déjà un numéro que vous pourriez utiliser ? » (après « Non » à l'application, 2026-10-31). */
   const [numeroPerso, setNumeroPerso] = useState<'oui' | 'non' | null>(null);
-  const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); setNumeroPerso(null); };
-  const repondreAppli = (r: 'oui' | 'non') => { setAppli(r); setNumeroPerso(null); };
+  /** La réponse à « Voulez-vous utiliser ce numéro-là ? » (après « Oui » à l'application, le cas 4, lot 3a). */
+  const [memeNumero, setMemeNumero] = useState<'oui' | 'non' | null>(null);
+  const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); setNumeroPerso(null); setMemeNumero(null); };
+  const repondreAppli = (r: 'oui' | 'non') => { setAppli(r); setNumeroPerso(null); setMemeNumero(null); };
   /** Ouvre le numéro fourni, et garde sa variante pour le retour de Stripe et le rechargement (`varianteGardee`). */
   const choisirFourni = (v: 'fourni' | 'fourni_application') => { garderVariante(tenantId, v); setChoix(v); };
   const application = filiere === 'application';
@@ -218,8 +220,10 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   /**
    * La carte qui garde l'application WhatsApp Business : ouverte par un lien de Claude, par « Vous pouvez la garder », ou
    * sous la question de l'application. Après « Non », elle dit d'abord de la télécharger, avec les deux magasins.
+   * `ordinaire` : le numéro peut servir dans WhatsApp, l'application ordinaire (lot 3a) ; la carte dit qu'il passe dans
+   * WhatsApp Business. Sans objet quand on vient de répondre que le numéro est déjà dans WhatsApp Business.
    */
-  const carteCoexistence = (apresTelechargement: boolean, retour: ReactNode) => (
+  const carteCoexistence = (apresTelechargement: boolean, retour: ReactNode, ordinaire: boolean) => (
     <div data-testid="choix-coexistence-ouvert" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
       {apresTelechargement && (
         <div data-testid="issue-telecharger" className="mb-4">
@@ -228,6 +232,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
           {magasins}
         </div>
       )}
+      {ordinaire && <p data-testid="whatsapp-ordinaire" className="mb-4 text-sm text-ink-700">{t(WHATSAPP_ORDINAIRE.fr, WHATSAPP_ORDINAIRE.en)}</p>}
       <div className="flex items-center gap-3">
         {boutonCoexistence}
         {retour}
@@ -250,6 +255,19 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       <p data-testid="note-carte-application" className="mt-2 text-sm text-ink-700">{t(NOTE_CARTE_APPLICATION.fr, NOTE_CARTE_APPLICATION.en)}</p>
       {magasins}
       <Bouton type="button" className="mt-4" onClick={() => choisirFourni('fourni_application')} data-testid="choix-fourni-application">
+        {t('Fournissez-moi un numéro', 'Provide me a number')}
+      </Bouton>
+    </div>
+  );
+  /**
+   * Le cas 4 (Julien, 2026-11-08, lot 3a) : l'application WhatsApp Business, mais pas pour ce numéro-là. Un numéro de
+   * chez nous, relié par la fenêtre de Meta : le même parcours que « Fournissez-moi un numéro » du numéro API.
+   */
+  const carteAutreNumero = (
+    <div data-testid="issue-autre-numero" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
+      <div className="text-base font-semibold text-ink-900">{t(ISSUE_AUTRE_NUMERO.titre.fr, ISSUE_AUTRE_NUMERO.titre.en)}</div>
+      <p className="mt-2 text-sm text-ink-700">{t(ISSUE_AUTRE_NUMERO.texte.fr, ISSUE_AUTRE_NUMERO.texte.en)}</p>
+      <Bouton type="button" className="mt-4" onClick={() => choisirFourni('fourni')} data-testid="choix-autre-numero">
         {t('Fournissez-moi un numéro', 'Provide me a number')}
       </Bouton>
     </div>
@@ -322,8 +340,21 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                 reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_APPLICATION[r], choisir: () => repondreAppli(r) }))}
               />
               {/* La suite s'affiche dessous, les questions restent : on change de réponse en en cliquant une autre. Avec
-                  l'application, on la garde, sans proposer de numéro ; sans elle, la 4e question (Julien, 2026-10-31). */}
-              {appli === 'oui' && carteCoexistence(false, null)}
+                  l'application, ce numéro-là ? (le cas 4, lot 3a) Oui, on la garde ; Non, un numéro de chez nous. Sans
+                  elle, la 4e question (Julien, 2026-10-31). */}
+              {appli === 'oui' && (
+                <>
+                  <Question
+                    testid="question-meme-numero"
+                    texte={QUESTION_MEME_NUMERO.texte}
+                    precision={QUESTION_MEME_NUMERO.precision}
+                    choisie={memeNumero}
+                    reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_MEME_NUMERO[r], choisir: () => setMemeNumero(r) }))}
+                  />
+                  {memeNumero === 'oui' && carteCoexistence(false, null, false)}
+                  {memeNumero === 'non' && carteAutreNumero}
+                </>
+              )}
               {appli === 'non' && (
                 <>
                   <div data-testid="note-application">
@@ -337,7 +368,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                     choisie={numeroPerso}
                     reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_NUMERO[r], choisir: () => setNumeroPerso(r) }))}
                   />
-                  {numeroPerso === 'oui' && carteCoexistence(true, null)}
+                  {numeroPerso === 'oui' && carteCoexistence(true, null, true)}
                   {numeroPerso === 'non' && carteFourniApplication}
                 </>
               )}
@@ -345,7 +376,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
           )}
         </div>
       ) : choix === 'coexistence' ? (
-        carteCoexistence(false, boutonRetour)
+        carteCoexistence(false, boutonRetour, true)
       ) : choix === 'apporte' && application ? (
         <QrApplication api={api} />
       ) : choix === 'apporte' ? (

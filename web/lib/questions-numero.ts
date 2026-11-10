@@ -4,6 +4,8 @@
  * l'espace a déjà son offre. `tests/questions-numero-vitrine.test.ts` les tient égales à la vitrine, au mot près, et la
  * skill `mise-en-service` du plugin pose les mêmes. Plus aucune voie par QR code.
  */
+import { AIDE_COMPTE_META_BUSINESS, AIDE_POURQUOI_PAIEMENT } from './partage/aide-connexion';
+
 type Texte = { readonly fr: string; readonly en: string };
 
 /** Où vérifier qu'on a un compte Meta Business : la console en fait un lien, la vitrine aussi. */
@@ -11,7 +13,8 @@ export const META_BUSINESS_URL = 'https://business.facebook.com/';
 
 /**
  * QUI PAIE META, juste après l'offre (révision du Crédit WhatsApp, lot B, textes validés par Julien le 2026-11-06) : deux
- * cartes, chaque bouton sous la sienne. « Ma carte chez Meta » mène à l'arbre du numéro ; la carte du Crédit WhatsApp est
+ * cartes, chaque bouton sous la sienne. La carte du moyen de paiement chez Meta (son libellé et ses deux liens, Julien,
+ * 2026-11-09, lot 3a) mène à l'arbre du numéro ; la carte du Crédit WhatsApp est
  * grisée tant qu'il n'est pas en vente en ligne (en Free, il vient avec la formule Pro ; ailleurs, sur demande). Les mêmes
  * mots que la vitrine (`tests/questions-numero-vitrine.test.ts`) ; la console y ajoute l'état de l'espace (`QuiRegleMeta`).
  *
@@ -24,8 +27,16 @@ export const QUESTION_PAIEMENT = {
   texte: { fr: 'Qui paie vos messages à Meta ?', en: 'Who pays Meta for your messages?' },
   precision: { fr: 'Meta facture chaque modèle que vous envoyez.', en: 'Meta bills each template you send.' },
   carte: {
-    titre: { fr: 'Ma carte chez Meta', en: 'My card at Meta' },
-    texte: { fr: 'Vous enregistrez votre carte bancaire chez Meta, qui vous facture vos modèles.', en: 'You register your bank card at Meta, which bills your templates.' },
+    titre: {
+      fr: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business',
+      en: 'I add a payment method (Visa / Mastercard) to my Meta Business account',
+    },
+    texte: { fr: 'Meta vous facture vos modèles sur ce moyen de paiement.', en: 'Meta bills your templates to this payment method.' },
+    /** Ses deux liens, les fiches de la vitrine (`AIDE_POURQUOI_PAIEMENT`, `AIDE_COMPTE_META_BUSINESS`). */
+    liens: [
+      { libelle: { fr: 'Pourquoi un moyen de paiement ?', en: 'Why a payment method?' }, href: AIDE_POURQUOI_PAIEMENT },
+      { libelle: { fr: 'Qu’est-ce qu’un compte Meta Business ?', en: 'What is a Meta Business account?' }, href: AIDE_COMPTE_META_BUSINESS },
+    ],
   },
   credit: {
     titre: { fr: 'Crédit WhatsApp', en: 'WhatsApp credit' },
@@ -81,6 +92,29 @@ export const QUESTION_APPLICATION = {
   noteNon: { fr: 'Vous allez devoir télécharger l’application WhatsApp Business.', en: 'You will need to download the WhatsApp Business app.' },
 } as const satisfies Record<string, Texte>;
 
+/**
+ * LE CAS 4 (Julien, 2026-11-08, lot 3a) : l'application WhatsApp Business, mais pour un autre numéro. Oui, on la garde ;
+ * Non, un numéro de chez nous, relié par la fenêtre de Meta (`ISSUE_AUTRE_NUMERO`), l'application gardant le sien.
+ */
+export const QUESTION_MEME_NUMERO = {
+  texte: { fr: 'Voulez-vous utiliser ce numéro-là ?', en: 'Do you want to use that number?' },
+  precision: { fr: 'Celui de votre application WhatsApp Business.', en: 'The one in your WhatsApp Business app.' },
+  oui: { fr: 'Oui', en: 'Yes' },
+  non: { fr: 'Non', en: 'No' },
+} as const satisfies Record<string, Texte>;
+
+/** Le cas 4, Non : le titre et la première phrase de l'issue de la vitrine ; le bouton ouvre le numéro fourni (`fourni`). */
+export const ISSUE_AUTRE_NUMERO = {
+  titre: { fr: 'Un numéro de chez nous, relié par Meta', en: 'A number from us, connected through Meta' },
+  texte: {
+    fr: 'Nous vous fournissons un numéro, 3,50 € HT par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond. Votre application WhatsApp Business garde le sien.',
+    en: 'We provide a number, €3.50 excl. VAT a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers. Your WhatsApp Business app keeps its own.',
+  },
+} as const satisfies Record<string, Texte>;
+
+/** WHATSAPP ORDINAIRE (lot 3a) : la phrase vit dans la source partagée, que lisent aussi la 3e condition chez Meta et Claude. */
+export { WHATSAPP_ORDINAIRE } from './partage/etapes-meta';
+
 /** Sans compte Meta Business ni application (Julien, 2026-10-31) : a-t-on un numéro à mettre dans l'application ? */
 export const QUESTION_NUMERO = {
   texte: { fr: 'Avez-vous déjà un numéro que vous pourriez utiliser ?', en: 'Do you already have a number you could use?' },
@@ -92,7 +126,7 @@ export const QUESTION_NUMERO = {
 /** Avec un compte Meta Business : le numéro API, et la ligne qui rappelle qu'on peut garder son application. */
 export const ISSUE_API = {
   titre: { fr: 'Votre numéro API', en: 'Your API number' },
-  garder: { fr: 'Votre numéro est déjà dans l’application WhatsApp Business ?', en: 'Is your number already in the WhatsApp Business app?' },
+  garder: { fr: 'Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?', en: 'Is your number already used in WhatsApp or in the WhatsApp Business app?' },
   lien: { fr: 'Vous pouvez la garder', en: 'You can keep it' },
 } as const satisfies Record<string, Texte>;
 

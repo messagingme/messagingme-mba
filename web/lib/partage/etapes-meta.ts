@@ -9,6 +9,19 @@
  * plateforme WhatsApp Business » (488291839463771). Les libellés entre guillemets sont ceux des écrans de Meta.
  */
 
+/**
+ * WHATSAPP ORDINAIRE (Julien, 2026-11-08, lot 3a) : un numéro qui sert dans WhatsApp ne part plus vers un autre numéro ;
+ * il passe dans WhatsApp Business, qui le reprend avec ses conversations, et l'application se garde. Dite là où le numéro
+ * peut servir dans WhatsApp : la 3e condition ci-dessous, et dans la console (`questions-numero.ts`, qui la reprend) en
+ * gardant l'application depuis le numéro API, et en la téléchargeant.
+ */
+export const WHATSAPP_ORDINAIRE: { readonly fr: string; readonly en: string } = {
+  fr: 'Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : '
+    + 'elle vous propose de reprendre ce numéro, avec vos conversations.',
+  en: 'Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take '
+    + 'over that number, with your chats.',
+};
+
 /** Avant de connecter un numéro. */
 export const PREREQUIS_META: ReadonlyArray<{ fr: string; en: string }> = [
   {
@@ -34,10 +47,13 @@ export const PREREQUIS_META: ReadonlyArray<{ fr: string; en: string }> = [
   {
     // Le numéro de l'application WhatsApp Business peut y rester (la coexistence de Meta, en production depuis le
     // 2026-10-25) : c'est le bouton de la page, `COEXISTENCE_BOUTON` (`web/lib/fenetre-meta.ts`), dont le nom est cité.
-    fr: 'Un numéro libre, qui ne sert pas dans l’application WhatsApp, ou celui de votre application WhatsApp Business, '
-      + 'qui y reste avec « Garder mon application WhatsApp Business ». Pas de numéro libre ? Nous vous en fournissons un.',
-    en: 'A spare number, not used in the WhatsApp app, or the number of your WhatsApp Business app, which stays in it '
-      + 'with “Keep my WhatsApp Business app”. No spare number? We provide one.',
+    // Celui de WhatsApp ordinaire y passe d'abord (lot 3a) : le numéro fourni ne vaut que SANS numéro, jamais pour un
+    // numéro qui sert dans WhatsApp.
+    fr: 'Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, '
+      + `qui y reste avec « Garder mon application WhatsApp Business ». ${WHATSAPP_ORDINAIRE.fr} Sans numéro, nous vous en `
+      + 'fournissons un.',
+    en: 'A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it '
+      + `with “Keep my WhatsApp Business app”. ${WHATSAPP_ORDINAIRE.en} No number? We provide one.`,
   },
 ];
 

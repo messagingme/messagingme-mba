@@ -82,6 +82,7 @@ export function tunnel(langue: Langue, origine: Origine): string[] {
     ...v.plus.map(ligne('bt-plus', 'i-check', n.plus)),
     ...v.moins.map(ligne('bt-moins', 'i-x', n.moins)),
     '                  </ul>',
+    ...(v.liens ? [`                  <p class="bt-voie-liens">${v.liens.map((l) => `<a href="${l.href}">${l.libelle}</a>`).join('')}</p>`] : []),
     ...Object.entries(r.grisee ?? {}).map(([offre, raison]) => `                  <p class="bt-grisee" data-pour="${offre}">${raison}</p>`),
     '                </section>',
   ];
