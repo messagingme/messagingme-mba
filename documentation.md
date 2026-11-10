@@ -5910,7 +5910,14 @@ suit est la règle, en une formulation courte.
    `media id`, jamais un `link` : l'URL du CDN de Meta est ACCEPTÉE puis échoue deux secondes plus tard en
    `131053`, son propre téléchargeur se prenant un 403. Le piège est invisible à une sonde qui se contente de
    lire l'URL. ⚠️ La clé du cache de préparation porte le NUMÉRO d'envoi : un `media id` est scopé au numéro
-   qui l'a téléversé.
+   qui l'a téléversé. Ce cache vit en mémoire ET en base (`medias_meta`, migration 0288, `PgMemoireDesMedias`) :
+   espace, numéro, fournisseur, usage (`visuel` d'un modèle ou `fichier` d'un bloc) et empreinte de l'adresse,
+   7 jours depuis le DÉPÔT, partagé par les redémarrages. Sans lui, chaque déploiement faisait relire le bucket
+   (1,1 à 7,7 s par fichier, mesuré) et redéposer chez Meta. Il échoue OUVERT (base en panne, table absente : on
+   dépose comme avant), la suppression d'un fichier de la médiathèque l'oublie, la suppression d'un espace
+   l'emporte par la cascade. ⚠️ Un identifiant refusé par Meta APRÈS l'envoi (message parti, jamais livré) n'est
+   plus guéri par un redémarrage : `delete from medias_meta where tenant_id = '<espace>'` (puis un redémarrage du
+   worker, qui garde aussi sa mémoire) force le redépôt de tous les fichiers de l'espace.
 10. **Le refus d'un visuel est AVANT la boucle** : y passer dans la boucle ferait voir 100 % d'échecs au
     quality gate, qui mettrait la campagne en pause avec un diagnostic trompeur.
 11. **Un envoi qui n'a rien montré au contact ne se journalise pas** ; un envoi qui est parti se journalise

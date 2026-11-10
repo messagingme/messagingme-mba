@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { TemplateMediaPreparer } from '../src/meta/template-media';
-import type { TemplateMediaDeps } from '../src/meta/template-media';
+import type { CleMediaMeta, MediaMemorise, MemoireDesMedias, TemplateMediaDeps } from '../src/meta/template-media';
 
 /**
  * Ce module est le point d'entrée PARTAGÉ des visuels d'un template (cartes de carousel et en-tête média), et
@@ -19,10 +19,32 @@ interface Journal {
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
 
+/**
+ * Une mémoire durable en mémoire, partageable entre deux préparateurs (un redémarrage). Elle applique l'âge comme la
+ * requête du vrai magasin (`televerse_le > now() - maxJours`) sur l'horloge qu'on lui passe.
+ */
+function fausseMemoire(horloge: () => number) {
+  const lignes = new Map<string, MediaMemorise & { televerseLe: number }>();
+  const notes: Array<{ cle: CleMediaMeta; code: string | null }> = [];
+  const memoire: MemoireDesMedias = {
+    lire: async (cle, maxJours) => {
+      const l = lignes.get(JSON.stringify(cle));
+      return l && horloge() - l.televerseLe < maxJours * 86_400_000 ? l : null;
+    },
+    noter: async (cle, media, code) => {
+      notes.push({ cle, code });
+      lignes.set(JSON.stringify(cle), { ...media, televerseLe: horloge() });
+    },
+  };
+  return { memoire, notes, lignes };
+}
+
 function preparer(over: Partial<TemplateMediaDeps> & { pn?: string | null } = {}) {
   const j: Journal = { numeros: 0, telecharges: [], gardes: [], televerses: [] };
   let horloge = 1_000_000;
   const deps: TemplateMediaDeps = {
+    memoire: fausseMemoire(() => horloge).memoire,
+    fournisseurDe: async () => 'meta',
     getPhoneNumberId: async () => { j.numeros += 1; return over.pn === undefined ? 'PN-1' : over.pn; },
     mediaClientFor: async () => ({
       uploadForSend: async (pn: string, _bytes: Buffer, mime: string) => {
@@ -241,5 +263,97 @@ describe('TemplateMediaPreparer.prepareFichier (le fichier du bloc « message ra
     await p.prepareFichier('t1', `https://api.messagingme.app/m/${CODE}.mp4`);
     expect(await p.prepareFichier('t1', `https://api.messagingme.app/m/${CODE}.mp4`)).toEqual({ mediaId: 'MID-1', type: 'video', nom: 'demo.mp4' });
     expect(j.televerses).toHaveLength(1);
+  });
+});
+
+/**
+ * LA MÉMOIRE DURABLE DES DÉPÔTS (plan 2026-11-10, migration 0288). Mesuré ce jour-là : lire un fichier de la médiathèque
+ * au bucket prend 1,1 à 7,7 s, le déposer chez Meta environ une seconde, et la mémoire du processus se perdait à chaque
+ * déploiement. Deux préparateurs qui partagent une mémoire durable figurent un redémarrage.
+ */
+describe('TemplateMediaPreparer : la mémoire durable survit au redémarrage', () => {
+  const CODE = 'abcdefghjkmnpqrstvwxyz0123';
+  const ADRESSE = `https://api.messagingme.app/m/${CODE}.png`;
+  const lireFichier = async (tenant: string, code: string) => (tenant === 't1' && code === CODE ? { bytes: PNG, mime: 'image/png', nom: 'photo.png' } : null);
+
+  function redemarrage(over: Partial<TemplateMediaDeps> = {}) {
+    let horloge = 5_000_000;
+    const partagee = fausseMemoire(() => horloge);
+    const lus: string[] = [];
+    const lire = async (t: string, c: string) => { lus.push(c); return lireFichier(t, c); };
+    const avant = preparer({ memoire: partagee.memoire, lireFichier: lire, now: () => horloge, ...over });
+    const apres = preparer({ memoire: partagee.memoire, lireFichier: lire, now: () => horloge, ...over });
+    return { avant, apres, partagee, lus, avance: (ms: number) => { horloge += ms; } };
+  }
+
+  it('🔴 le fichier d’un bloc déposé avant le redémarrage ne se relit ni ne se redépose après', async () => {
+    const { avant, apres, lus, partagee } = redemarrage();
+    expect(await avant.p.prepareFichier('t1', ADRESSE)).toEqual({ mediaId: 'MID-1', type: 'image', nom: 'photo.png' });
+    expect(await apres.p.prepareFichier('t1', ADRESSE)).toEqual({ mediaId: 'MID-1', type: 'image', nom: 'photo.png' });
+    expect(lus).toEqual([CODE]);
+    expect(apres.j.televerses).toEqual([]);
+    // La clé porte l'espace, le numéro, le fournisseur, l'usage ; le code de la médiathèque permet de l'oublier.
+    expect(partagee.notes).toEqual([{ cle: { tenantId: 't1', numero: 'PN-1', fournisseur: 'meta', usage: 'fichier', adresse: ADRESSE }, code: CODE }]);
+  });
+
+  it('🔴 le visuel d’un modèle déposé avant le redémarrage ne se retélécharge ni ne se redépose après', async () => {
+    const { avant, apres, partagee } = redemarrage();
+    expect(await avant.p.prepareOne('t1', 'https://scontent.whatsapp.net/a.jpg?sig=1')).toBe('MID-1');
+    // Usage `visuel`, adresse sans la signature du CDN : un fichier de bloc à la même adresse ne la reprend pas.
+    expect(partagee.notes).toEqual([{ cle: { tenantId: 't1', numero: 'PN-1', fournisseur: 'meta', usage: 'visuel', adresse: 'https://scontent.whatsapp.net/a.jpg' }, code: null }]);
+    expect(await apres.p.prepareOne('t1', 'https://scontent.whatsapp.net/a.jpg?sig=2')).toBe('MID-1');
+    expect(apres.j.telecharges).toEqual([]);
+    expect(apres.j.televerses).toEqual([]);
+  });
+
+  it('🔴 un dépôt d’un autre espace, d’un autre numéro ou d’un autre fournisseur n’est jamais repris', async () => {
+    const { partagee, avance } = redemarrage();
+    const base = { memoire: partagee.memoire, now: () => 5_000_000 };
+    await preparer({ ...base, lireFichier }).p.prepareFichier('t1', ADRESSE);
+    avance(0);
+    const autreNumero = preparer({ ...base, lireFichier, pn: 'PN-2' });
+    expect(await autreNumero.p.prepareFichier('t1', ADRESSE)).toMatchObject({ mediaId: 'MID-1' });
+    expect(autreNumero.j.televerses).toEqual([{ pn: 'PN-2', mime: 'image/png' }]);
+    const autreFournisseur = preparer({ ...base, lireFichier, fournisseurDe: async () => '360dialog' });
+    await autreFournisseur.p.prepareFichier('t1', ADRESSE);
+    expect(autreFournisseur.j.televerses).toHaveLength(1);
+    const autreEspace = preparer({ ...base, lireFichier: async (_t, c) => lireFichier('t1', c) });
+    await autreEspace.p.prepareFichier('t2', ADRESSE);
+    expect(autreEspace.j.televerses).toHaveLength(1);
+  });
+
+  it('🔴 au-delà de 7 jours après le DÉPÔT, le fichier se redépose, même relu entre-temps par un autre processus', async () => {
+    const { avant, apres, avance } = redemarrage();
+    await avant.p.prepareFichier('t1', ADRESSE);
+    avance(6 * 86_400_000);
+    await apres.p.prepareFichier('t1', ADRESSE);
+    expect(apres.j.televerses).toEqual([]);
+    // Relu au 6e jour : la mémoire du processus garde la date du dépôt, pas celle de la relecture.
+    avance(2 * 86_400_000);
+    await apres.p.prepareFichier('t1', ADRESSE);
+    expect(apres.j.televerses).toHaveLength(1);
+  });
+
+  it('🔴 une mémoire durable en panne n’empêche jamais l’envoi : le fichier se lit et se dépose comme avant', async () => {
+    const panne: MemoireDesMedias = {
+      lire: async () => { throw new Error('relation "medias_meta" does not exist'); },
+      noter: async () => { throw new Error('relation "medias_meta" does not exist'); },
+    };
+    const { p, j } = preparer({ memoire: panne, lireFichier });
+    expect(await p.prepareFichier('t1', ADRESSE)).toEqual({ mediaId: 'MID-1', type: 'image', nom: 'photo.png' });
+    expect(await p.prepareOne('t1', 'https://scontent.whatsapp.net/a.jpg')).toBe('MID-2');
+    expect(j.televerses).toHaveLength(2);
+  });
+
+  it('un fournisseur illisible saute la mémoire durable, l’envoi suit son chemin d’avant', async () => {
+    const { p, j } = preparer({ lireFichier, fournisseurDe: async () => { throw new Error('jeton invalide'); } });
+    expect(await p.prepareFichier('t1', ADRESSE)).toMatchObject({ mediaId: 'MID-1' });
+    expect(j.televerses).toHaveLength(1);
+  });
+
+  it('en production, le câblage branche la mémoire durable et le fournisseur de la résolution d’envoi', () => {
+    const cablage = readFileSync(new URL('../src/workflow/wiring.ts', import.meta.url), 'utf8');
+    expect(cablage).toMatch(/memoire: new PgMemoireDesMedias\(pool\)/);
+    expect(cablage).toMatch(/fournisseurDe: async \(tenant\) => \(await metaCredentials\.resolvePourEnvoi\(tenant\)\)\.fournisseur/);
   });
 });

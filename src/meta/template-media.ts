@@ -26,14 +26,51 @@ export interface TemplateMediaDeps {
    * `fetchPublic`, `resolutionPublique`, sans redirection, lecture bornée au plafond du format). Un refus est une réponse.
    */
   telecharger(format: 'IMAGE' | 'VIDEO' | 'DOCUMENT', url: string): Promise<{ octets: Buffer; mime: string } | { refus: string }>;
+  /**
+   * La mémoire DURABLE des fichiers déposés (`medias_meta`, `PgMemoireDesMedias`), partagée par les redémarrages : sans
+   * elle, chaque déploiement faisait relire le bucket (1,1 à 7,7 s mesurés le 2026-11-10) et redéposer chaque fichier.
+   */
+  memoire: MemoireDesMedias;
+  /** Le fournisseur d'envoi de l'espace (`meta`, `360dialog`) : un identifiant déposé chez l'un n'est pas repris chez l'autre. */
+  fournisseurDe(tenantId: string): Promise<string>;
   /** Téléchargement du visuel chez Meta. Injecté par les tests ; défaut : `fetch` global. */
   fetchImpl?: (url: string) => Promise<Response>;
   /** Horloge (tests du cache). Défaut : Date.now. */
   now?: () => number;
 }
 
-/** Un media id vit 30 jours côté Meta : on le garde 7, large marge, et jamais au-delà d'un redémarrage. */
-const MEDIA_CACHE_MS = 7 * 86_400_000;
+/**
+ * Un media id vit 30 jours côté Meta : on le garde 7, large marge. 🔴 Pas plus : un identifiant que Meta ne connaît plus
+ * peut être refusé APRÈS l'envoi (le message part puis n'est jamais livré), et rien ne le rattrape.
+ */
+export const MEDIA_CACHE_JOURS = 7;
+const MEDIA_CACHE_MS = MEDIA_CACHE_JOURS * 86_400_000;
+
+/** Ce qui identifie un fichier déposé : l'espace, le numéro et le fournisseur qui l'ont déposé, l'usage et l'adresse. */
+export interface CleMediaMeta {
+  tenantId: string;
+  numero: string;
+  fournisseur: string;
+  /** `visuel` : en-tête ou carte d'un modèle (`prepareOne`, `prepare`) ; `fichier` : bloc « message rapide ». */
+  usage: 'visuel' | 'fichier';
+  /** L'adresse telle que la mémoire du processus la compare (sans la signature d'une URL du CDN de Meta). */
+  adresse: string;
+}
+
+/** Un fichier déposé, tel que la mémoire le rend : le `type` et le `nom` ne valent que pour l'usage `fichier`. */
+export interface MediaMemorise {
+  mediaId: string;
+  type: FichierPrepare['type'] | null;
+  nom: string | null;
+}
+
+/** La mémoire durable des fichiers déposés (`PgMemoireDesMedias`). */
+export interface MemoireDesMedias {
+  /** Le dépôt de moins de `maxJours`, avec sa date (ms), ou null. */
+  lire(cle: CleMediaMeta, maxJours: number): Promise<(MediaMemorise & { televerseLe: number }) | null>;
+  /** Note un dépôt ; `codeMediatheque` permet de l'oublier quand le fichier est supprimé de la médiathèque. */
+  noter(cle: CleMediaMeta, media: MediaMemorise, codeMediatheque: string | null): Promise<void>;
+}
 
 /** Le fichier d'un bloc prêt pour l'envoi : son identifiant chez Meta, la forme de l'en-tête, et le nom d'un document. */
 export interface FichierPrepare {
@@ -44,7 +81,7 @@ export interface FichierPrepare {
 
 /** Le chemin d'une adresse de la médiathèque, quel que soit son nom d'hôte (`api.`, `mba.`, anciens noms) : le code. */
 const CHEMIN_MEDIATHEQUE = /^\/m\/([0-9a-hjkmnp-tv-z]{26})\.[a-z0-9]+$/i;
-function codeDeMediatheque(url: string): string | null {
+export function codeDeMediatheque(url: string): string | null {
   try {
     const m = CHEMIN_MEDIATHEQUE.exec(new URL(url).pathname);
     return m ? m[1]!.toLowerCase() : null;
@@ -138,22 +175,65 @@ export class TemplateMediaPreparer {
   }
 
   /**
+   * La clé durable d'un fichier, ou null quand le fournisseur ne se lit pas (jeton invalide, base) : la mémoire durable
+   * est alors sautée, et le dépôt qui suit lèvera de lui-même s'il ne peut pas se faire.
+   */
+  private async cleDurable(tenantId: string, numero: string, usage: CleMediaMeta['usage'], adresse: string): Promise<CleMediaMeta | null> {
+    try {
+      return { tenantId, numero, fournisseur: await this.deps.fournisseurDe(tenantId), usage, adresse };
+    } catch {
+      return null;
+    }
+  }
+
+  /** 🔴 La mémoire durable n'empêche JAMAIS un envoi : en panne (base, table absente), on lit et on dépose comme avant. */
+  private async relire(cle: CleMediaMeta | null): Promise<(MediaMemorise & { televerseLe: number }) | null> {
+    if (!cle) return null;
+    try {
+      return await this.deps.memoire.lire(cle, MEDIA_CACHE_JOURS);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('mémoire des médias : lecture impossible, le fichier sera redéposé :', texteDe(err));
+      return null;
+    }
+  }
+
+  private async noter(cle: CleMediaMeta | null, media: MediaMemorise): Promise<void> {
+    if (!cle) return;
+    try {
+      await this.deps.memoire.noter(cle, media, codeDeMediatheque(cle.adresse));
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('mémoire des médias : dépôt non noté :', texteDe(err));
+    }
+  }
+
+  /**
    * Téléverse (ou relit du cache) un visuel pour un numéro d'envoi déjà résolu. La clé de cache porte le numéro :
    * un `media id` est scopé au numéro qui l'a téléversé, et un numéro remplacé réutiliserait sinon un identifiant
-   * inutilisable.
+   * inutilisable. La mémoire du processus d'abord, la mémoire durable ensuite, le dépôt enfin.
    */
   private async televerse(tenantId: string, pn: string, mediaUrl: string): Promise<string | null> {
     // Le chemin seul pour le CDN de Meta, dont la query n'est qu'une signature ; l'URL ENTIÈRE ailleurs (modèle
     // 360dialog), où la query peut être ce qui distingue deux images.
-    const cle = `${pn}|${estCdnDeMeta(mediaUrl) ? mediaUrl.split('?')[0]! : mediaUrl}`;
+    const adresse = estCdnDeMeta(mediaUrl) ? mediaUrl.split('?')[0]! : mediaUrl;
+    const cle = `${pn}|${adresse}`;
     const hit = this.cache.get(cle);
     if (hit && this.now() - hit.at < MEDIA_CACHE_MS) return hit.id;
+    const durable = await this.cleDurable(tenantId, pn, 'visuel', adresse);
+    const relu = await this.relire(durable);
+    if (relu) {
+      // La date du DÉPÔT, pas celle de la relecture : la mémoire du processus ne prolonge pas les 7 jours.
+      this.cache.set(cle, { at: relu.televerseLe, id: relu.mediaId });
+      return relu.mediaId;
+    }
     const get = this.deps.fetchImpl ?? ((url: string) => fetch(url));
     try {
       const media = await this.deps.mediaClientFor(tenantId);
       const { bytes, mime } = await this.lireVisuel(tenantId, mediaUrl, get);
       const id = await media.uploadForSend(pn, bytes, mime);
       this.cache.set(cle, { at: this.now(), id });
+      await this.noter(durable, { mediaId: id, type: null, nom: null });
       return id;
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -220,9 +300,17 @@ export class TemplateMediaPreparer {
       console.error('fichier du bloc : aucun numéro d’envoi pour le tenant, fichier non préparé');
       return null;
     }
-    const cle = `${tenantId}|${pn}|${url.split('?')[0]!}`;
+    const adresse = url.split('?')[0]!;
+    const cle = `${tenantId}|${pn}|${adresse}`;
     const hit = this.fichiers.get(cle);
     if (hit && this.now() - hit.at < MEDIA_CACHE_MS) return { mediaId: hit.mediaId, type: hit.type, nom: hit.nom };
+    const durable = await this.cleDurable(tenantId, pn, 'fichier', adresse);
+    const relu = await this.relire(durable);
+    if (relu?.type) {
+      const pret: FichierPrepare = { mediaId: relu.mediaId, type: relu.type, nom: relu.nom };
+      this.fichiers.set(cle, { at: relu.televerseLe, ...pret });
+      return pret;
+    }
     try {
       const fichier = await lireFichierDuBloc(this.deps, tenantId, url);
       if ('refus' in fichier) throw new Error(fichier.refus);
@@ -231,6 +319,7 @@ export class TemplateMediaPreparer {
       const mediaId = await media.uploadForSend(pn, lu.bytes, lu.mime);
       const pret: FichierPrepare = { mediaId, type, nom: lu.nom };
       this.fichiers.set(cle, { at: this.now(), ...pret });
+      await this.noter(durable, pret);
       return pret;
     } catch (err) {
       // eslint-disable-next-line no-console

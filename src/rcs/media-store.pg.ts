@@ -6,6 +6,7 @@ import { enTransaction } from '../db/transaction';
 import { LimiteOffreError } from '../offres/refus';
 import { prefixeEspace, type MagasinObjets } from '../lib/magasin-objets';
 import { texteDe } from '../lib/erreur';
+import { oublierFichierDeLaMediatheque } from '../meta/memoire-medias.pg';
 
 /** Un visuel, sans ses octets : ce que le téléversement rend. */
 export interface RcsMediaResume {
@@ -212,7 +213,7 @@ export class PgRcsMediaStore {
    * du quota, et reste servi `GRACE_SUPPRESSION_JOURS` jours. Sous le même verrou que le dépôt.
    */
   async supprimer(tenantId: string, code: string): Promise<IssueSuppression> {
-    return enTransaction(this.pool, async (client) => {
+    const issue = await enTransaction(this.pool, async (client): Promise<IssueSuppression> => {
       await client.query(`select pg_advisory_xact_lock(hashtext('rcs_media:' || $1))`, [tenantId]);
       const vivant = await client.query('select 1 from rcs_media where tenant_id = $1 and code = $2 and supprime_le is null', [tenantId, code]);
       if (vivant.rowCount === 0) return { issue: 'introuvable' } as const;
@@ -221,6 +222,14 @@ export class PgRcsMediaStore {
       await client.query('update rcs_media set supprime_le = now() where tenant_id = $1 and code = $2 and supprime_le is null', [tenantId, code]);
       return { issue: 'supprime' } as const;
     });
+    // Après la transaction, au mieux : son échec ne défait pas la suppression (`oublierFichierDeLaMediatheque`).
+    if (issue.issue === 'supprime') {
+      await oublierFichierDeLaMediatheque(this.pool, tenantId, code).catch((err: unknown) => {
+        // eslint-disable-next-line no-console
+        console.error('médiathèque : dépôts chez Meta non oubliés après la suppression :', texteDe(err));
+      });
+    }
+    return issue;
   }
 
   /**

@@ -21,6 +21,7 @@ import { Media360dialogClient } from '../meta/media-360dialog';
 import { MetaClientFactory } from '../meta/factory';
 import { MetaCredentialsResolver } from '../meta/credentials';
 import { TemplateMediaPreparer } from '../meta/template-media';
+import { PgMemoireDesMedias } from '../meta/memoire-medias.pg';
 import { PgRcsMediaStore } from '../rcs/media-store.pg';
 import { telechargerEnteteProduction } from '../api/entete-par-url';
 import type { OutboundCarouselCard } from '../meta/template-components';
@@ -236,6 +237,9 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
       const { token, fournisseur } = await metaCredentials.resolvePourEnvoi(tenant);
       return fournisseur === '360dialog' ? new Media360dialogClient(token) : new MetaMediaClient(token, config.META_APP_ID, config.META_GRAPH_VERSION);
     },
+    // Les dépôts survivent aux redémarrages (migration 0288) ; la même résolution d'envoi dit chez qui ils ont été faits.
+    memoire: new PgMemoireDesMedias(pool),
+    fournisseurDe: async (tenant) => (await metaCredentials.resolvePourEnvoi(tenant)).fournisseur,
   });
   const prepareCarouselMedia = (tenant: string, cards: OutboundCarouselCard[]): Promise<OutboundCarouselCard[]> =>
     templateMedia.prepare(tenant, cards);

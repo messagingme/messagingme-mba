@@ -4,6 +4,26 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : les fichiers déposés chez Meta survivent aux redémarrages (migration 0288)
+
+Une alerte « retard des messages entrants » à 19:04 (Paris) : rien n'avait saturé. Les messages de Julien sur LUAS
+étaient pris en charge en 0,01 s, mais la première réponse du scénario portait une image et a mis 8,2 s à partir ; la
+mesure de Santé compte le traitement, et huit messages en un quart d'heure suffisaient pour l'orange.
+
+- **Mesuré en production** (code de l'application, dans le conteneur du worker) : la lecture d'un fichier de la
+  médiathèque au bucket Scaleway prend 1,1 à 2,3 s, jusqu'à 7,7 s, pour 25 Ko comme pour 870 Ko (une simple
+  consultation de l'objet, 0,3 à 1,2 s ; la connexion au bucket, 5 à 15 ms ; le corps, moins de 50 ms). Le dépôt chez
+  Meta, 0,7 à 1,1 s (quatre fichiers déposés sur le numéro de LUAS pour la mesure, jamais envoyés). L'envoi, environ 1 s.
+- **Le correctif** : le `media id` rendu par Meta est gardé en base (`medias_meta`), plus seulement dans la mémoire du
+  processus, perdue à chaque déploiement. Plan `docs/superpowers/plans/2026-11-10-memoire-des-medias-meta.md`.
+  Écartés : Redis (même lecture, un serveur de plus ; l'audit du 2026-10-17 tient), le dépôt dès la publication d'un
+  scénario (une file de plus pour le seul premier envoi), réduire les images (la taille ne joue pas).
+- **La relecture** : aucun rouge, neuf jaunes. Corrigés dans le lot : le commentaire du verrou de la migration (la clé
+  étrangère verrouille `tenants` le temps de l'instruction), l'usage `visuel` asserté, la purge manuelle d'un espace au
+  manuel. Ouverts : pas de borne de temps propre sur la mémoire durable (une base lente retarde un envoi), une
+  journalisation par envoi tant que la table manque, un fichier `/m/` d'un autre espace non oublié à sa suppression
+  (7 jours au plus), pas de garde unitaire de l'oubli dans `supprimer` (l'intégration le tient).
+
 ## 2026-11-10 : la fenêtre du partenaire, les neuf jaunes de la relecture de V5 (lot 3v, V6)
 
 Accord de Julien (« Oui, enchaîne ») ; plan `2026-11-10-credit-whatsapp-vente-libre-service.md`, § V6. Implémenteur
