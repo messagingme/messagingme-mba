@@ -1416,6 +1416,19 @@ jetable, copie identique à la production). Restent :
   (`pg_terminate_backend`) et mesure le réveil garderait une montée de version de pg-boss ; il ne tourne qu'en CI.
   Même chose pour l'arrêt puis le redémarrage d'une même instance, sur lequel repose la nouvelle tentative au
   démarrage (`PgBossQueue.start`) : sûr à la lecture de pg-boss 12.25.1, jamais exécuté sur un vrai Postgres.
+  ⚠️ Vécu le 2026-11-05 : un écouteur coupé d'un SEUL côté ne produit aucune erreur, pg-boss ne le voit pas. La sonde
+  TCP (`SONDE_TCP`, `5aca4c54`) en fait une erreur ; le test à écrire couvre donc aussi ce cas, pas seulement
+  `pg_terminate_backend` (qui envoie une erreur au client, et que pg-boss gérait déjà).
+- 🟡 **Une garde de Santé qui passe au ROUGE quand l'écouteur manque en base** (relecture du lot `5aca4c54`). Sans
+  écouteur, chaque entrant attend le filet de 5 s : la carte « Messages entrants » plafonne à l'ORANGE (seuil rouge
+  30 s), et la panne du 2026-11-05 a duré de la nuit au lendemain midi. La veille de Santé lirait
+  `pg_stat_activity` (une connexion `LISTEN` attendue tant qu'un rôle consomme une file notifiée, `ecouteLesFiles`).
+- 🟡 **Un test d'intégration du vidage de l'analyse** (relecture du lot `5aca4c54`) : trois boucles enregistrées, un seul
+  espace, jamais plus d'une analyse en vol. Le plafond par espace partagé entre les boucles vit dans pg-boss (suivi par
+  NOM de file, lu dans `manager.js`), et `queue-group-concurrency.integration.test.ts` ne couvre pas le cas vidé.
+- 🟡 **Décider d'un plafond de dépense de l'analyse sur NOTRE clé Anthropic** : le vidage continu (`5aca4c54`) a retiré
+  le frein involontaire d'une analyse par tour de 30 s (environ 6 par minute pour toute la plateforme, 70 désormais).
+  Le total d'une rafale ne change pas, elle se paie seulement plus vite ; aucun plafond n'a jamais existé.
 
 ## 🟠 Lot 6 du bilan des audits : ce qui reste après la CSP de la console (2026-10-14)
 

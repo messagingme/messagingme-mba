@@ -1331,6 +1331,35 @@ Lot A5 du plan `2026-11-04-credit-whatsapp-ligne-a-la-connexion.md`.
   la console publiée par Vercel. Le SQL du jaune 3 n'a tourné que dans l'intégration de la CI, sur sa base jetable ;
   le reste se vérifie par l'essai réel 219 (`docs/prive/ESSAIS-REELS.md`).
 
+## 2026-11-05 : l'écouteur de pg-boss mort d'un seul côté, et l'analyse à une conversation par 30 s (`5aca4c54`)
+
+Deux attentes signalées par Julien : la carte « Messages entrants » de `/ops` à l'orange (5 s), et une analyse de
+conversations très lente la veille. Mesuré en production, en lecture seule (`pgboss.job`, `pg_stat_activity`,
+`/proc/net/tcp` du conteneur).
+
+- **Les entrants** : 0,01 à 0,05 s d'attente chaque jour du 29 octobre au 4 novembre, puis 0,6 à 4,3 s le 5 au matin.
+  Aucune connexion `LISTEN` en base depuis le déploiement de la veille (`fadd2569`, 23:24 UTC), alors que le worker
+  principal gardait la socket de son écouteur à l'état ESTABLISHED (port 36702, ouvert au démarrage, absent des
+  `client_port` de la base). pg-boss ne rouvre son écouteur que sur une erreur ; une connexion qui ne fait qu'attendre
+  n'en produit jamais. Chaque entrant attendait donc le filet de 5 s. Le coupable de la coupure n'est pas établi : ni un
+  redémarrage de la base (en service depuis le 27 octobre, les autres connexions de 23:24 vivantes), ni la NAT de Docker
+  (cinq jours), ni un événement Docker après 23:24, ni un délai d'inactivité de la base (désactivé). La base compte 14
+  sessions terminées de force depuis le 27 octobre, sans auteur connu.
+- **L'analyse** : vingt conversations d'un espace prêtes à 11:43:54 UTC le 4, analysées une toutes les 30 s jusqu'à
+  11:53:46, pour 2,5 s de travail chacune (une à la fois par espace, puis le tour de sondage suivant) ; même schéma à
+  13 h avec dix-huit. Plafond de fait : environ 6 analyses par minute pour toute la plateforme.
+- **Le correctif** : la sonde TCP des pools de l'application (keepAlive à 60 s, posée le 2026-10-27 par `706dd0d8`, qui
+  avait fait passer les ouvertures de connexion de 21 à 4 par minute) sort dans `src/db/sonde-tcp.ts` et s'applique aux
+  connexions propres de pg-boss, écouteur compris ; `analyze-conversation` rejoint les files vidées en continu.
+  Relecture indépendante : aucun rouge, cinq jaunes (deux écrits dans le manuel : le rythme des automations
+  « conversation analysée » et le passage de l'arriéré en file d'échec pendant une panne d'Anthropic ; trois dans
+  `todo.md`). Tests vérifiés dans les deux sens.
+- **En production le 2026-11-05** (run 42035584064, `migration=avant` pour la 0278 du lot voisin, pendant la
+  maintenance de Scaleway, sur l'accord de Julien) : l'écouteur revenu à 13:37:39, la minuterie keepalive armée sur
+  toutes les sockets des workers vers la base, le message de test de Julien sur la SANDBOX pris en charge en 0,01 s.
+  Une heure après : aucune erreur dans les journaux, aucune tâche en échec ni rejouée, aucune attente de pool, aucun 5xx
+  sur 476 réponses. Restent à voir : la tenue de l'écouteur après une nuit sans trafic, et une rafale d'analyses.
+
 ## 2026-11-05 : la ligne de crédit prise à la connexion, lot A (le serveur)
 
 La révision du Crédit WhatsApp validée par Julien le 2026-11-04 (spec hors du dépôt, plan
