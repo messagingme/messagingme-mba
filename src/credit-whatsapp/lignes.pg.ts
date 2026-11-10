@@ -224,8 +224,12 @@ export class PgLignesCreditStore {
 
   /**
    * « Ne pas poser » (relecture du lot E6, jaune 5) : efface la marque d'un numéro de CET espace qui attend VRAIMENT sa
-   * ligne (le prédicat de la liste), quand le partenaire n'attache pas ou que le client renonce. L'Entreprise relit
-   * « sur demande » et le conseil de sa carte chez Meta. `false` sinon (un autre espace, une attente déjà éteinte).
+   * ligne (le prédicat de la liste), quand le partenaire n'attache pas, que le client renonce, ou que l'attache est
+   * vérifiée sur un compte déjà couvert. N'efface QUE la marque, jamais une ligne : l'espace relit ensuite l'état de ses
+   * lignes (une Entreprise sans autre ligne, « sur demande » et le conseil de sa carte chez Meta ; une option payée sans
+   * ligne, en attente ; un compte déjà couvert garde la sienne). Sur un compte déjà couvert SANS attache, ce n'est pas le
+   * geste, notre ligne resterait : la route le dit (relecture du lot V9, jaune 1). `false` sinon (un autre espace, une
+   * attente déjà éteinte).
    */
   async abandonnerAttente(tenantId: string, phoneNumberId: string): Promise<boolean> {
     const { rowCount } = await this.pool.query(

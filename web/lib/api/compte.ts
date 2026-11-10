@@ -436,8 +436,12 @@ export function lireNumerosEnAttenteOps(sessionOps: string): Promise<{ numeros: 
 
 /**
  * « Ne pas poser » (relecture du lot E6, jaune 5) : la ligne attendue ne viendra pas (le partenaire n'attache pas, le
- * client renonce). Le serveur efface l'attente et rend la liste relue ; `note` dit pourquoi (404 si le numéro n'attend
- * plus, ou sur une API d'avant la route).
+ * client renonce), ou l'attache est vérifiée sur un compte déjà couvert. Sur un compte déjà couvert SANS attache, ce
+ * n'est pas le geste : notre ligne resterait, et le client paierait deux fois ou Meta refuserait ses envois ; la retirer
+ * plutôt (relecture du lot V9, jaune 1). Le serveur efface l'attente et rend la liste relue ; `note` dit pourquoi. 409
+ * (`couvert_autre_espace`, `couvert_arrete`) tant qu'une ligne d'un autre espace, ou une ligne arrêtée de l'espace,
+ * couvre le compte : le message nomme la ligne qui bloque. 404 si le numéro n'attend plus, ou sur une API d'avant la
+ * route.
  */
 export function abandonnerAttenteOps(
   sessionOps: string, tenantId: string, phoneNumberId: string, note: string,

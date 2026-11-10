@@ -135,6 +135,8 @@ V8 : l'API, sans migration (des textes d'alerte, un avertissement au journal), e
 V9 (jaunes 1 à 3) : rien à déployer côté API (des tests et une JSDoc) ; l'exemple du champ de note part avec la console,
 au push.
 
+V10 : rien à déployer (des JSDoc et des tests) ; il ne pousse qu'après la CI de V9 et celle du lot de l'aide qui la suit.
+
 ## Méthode de livraison
 
 **Implémenteur par lot, puis une relecture indépendante du diff**, parce que la prise de l'option et l'état des cartes
@@ -340,5 +342,9 @@ corrigés, chacun tenu par un test qui échoue sous trois mutations ; les textes
 
 ### V10. Les jaunes de la relecture de V9, et le jaune 4 de V8
 
-- [ ] Les deux (§ « La relecture du lot V9 »), et le jaune 4 de V8 après la décision de Julien sur la coexistence dans
-  la liste.
+- [x] Les deux (§ « La relecture du lot V9 ») : les JSDoc de « Ne pas poser » du client d'API de la console (la réserve
+  du compte couvert sans attache, les deux 409) et du magasin (il n'efface que la marque, un compte couvert garde sa
+  ligne), et « ou Meta refuserait ses envois » dans celle de `NePasPoser` (1) ; les journaux d'une interruption tenus par
+  le test, lecture en panne, marque en panne et marque absente, qui ne s'affiche plus à chaque exécution (2, chaque
+  assertion vue rouge sous la mutation de son journal, le fichier restauré à l'identique).
+- [ ] Le jaune 4 de V8, après la décision de Julien sur la coexistence dans la liste.

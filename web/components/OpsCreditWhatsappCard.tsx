@@ -27,9 +27,9 @@ function dateLisible(iso: string): string {
 /**
  * « NE PAS POSER » (relecture du lot E6, jaune 5) : la ligne attendue ne viendra pas (le partenaire n'attache pas, le
  * client renonce), ou l'attache est vérifiée sur un compte déjà couvert. Sur un compte déjà couvert SANS attache, ce n'est
- * pas le geste : notre ligne resterait, et le client paierait deux fois ; la retirer plutôt (relecture du lot V8, jaune 3).
- * L'exemple du champ reste donc neutre. Une note dit pourquoi ; le serveur efface l'attente et rend la liste relue. Rien
- * n'est dit fait avant sa réponse.
+ * pas le geste : notre ligne resterait, et le client paierait deux fois ou Meta refuserait ses envois ; la retirer plutôt
+ * (relecture des lots V8, jaune 3, et V9, jaune 1). L'exemple du champ reste donc neutre. Une note dit pourquoi ; le
+ * serveur efface l'attente et rend la liste relue. Rien n'est dit fait avant sa réponse.
  */
 function NePasPoser({ token, n, surListe }: { token: string; n: NumeroEnAttenteOps; surListe: (l: NumeroEnAttenteOps[]) => void }) {
   const t = useT();

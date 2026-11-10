@@ -493,22 +493,33 @@ describe('la fenêtre du partenaire passée chez Meta, la connexion refusée ou 
     expect(liste(eteinte.alertes[0])).toBe(`Son numéro ${NUMERO_META} est rattaché et marqué, mais il n’attend pas sa ligne (une ligne posée depuis sa première marque, ou son attente levée) : il n’est pas dans la liste « En attente de leur ligne », voir l’espace dans /ops.`);
     // Un numéro que la marque ne trouve plus, ou qui a quitté l'espace avant la relecture : aucun numéro de cette connexion.
     const aucun = 'Aucun numéro de cette connexion n’est rattaché : rien dans la liste « En attente de leur ligne ».';
+    // La marque qui ne trouve plus le numéro le dit au journal, en avertissement (relecture du lot V9, jaune 2).
     const absent = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META], marqueAbsente: [NUMERO_META] });
-    await fenetreRefuseeParLaLigne(absent.d, T, fin(500, COMPTE, NUMERO_META));
+    const journalAbsent = await capturerJournal(() => fenetreRefuseeParLaLigne(absent.d, T, fin(500, COMPTE, NUMERO_META)));
     expect(liste(absent.alertes[0])).toBe(aucun);
+    expect(journalAbsent.lignes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ lvl: 'warn', msg: 'marque_par_la_ligne_absente', tenantId: T, phoneNumberId: NUMERO_META }),
+    ]));
     const parti = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META], partentApresMarque: [NUMERO_META] });
     await fenetreRefuseeParLaLigne(parti.d, T, fin(500, COMPTE, NUMERO_META));
     expect(liste(parti.alertes[0])).toBe(aucun);
-    // Une lecture ou une marque en panne : l'alerte ne prétend rien.
+    // Une lecture ou une marque en panne : l'alerte ne prétend rien, et renvoie aux journaux de l'API, qui portent la
+    // panne (relecture du lot V9, jaune 2).
     const illisible = 'Le numéro de cette connexion n’a pas pu se lire ou se marquer (voir les journaux de l’API) : vérifier la liste « En attente de leur ligne » dans /ops.';
     const lecture = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META] });
     lecture.d.numerosRattaches = async () => { throw new Error('base indisponible'); };
-    await capturerJournal(() => fenetreRefuseeParLaLigne(lecture.d, T, fin(500, COMPTE, NUMERO_META)));
+    const journalLecture = await capturerJournal(() => fenetreRefuseeParLaLigne(lecture.d, T, fin(500, COMPTE, NUMERO_META)));
     expect(liste(lecture.alertes[0])).toBe(illisible);
+    expect(journalLecture.lignes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ lvl: 'error', msg: 'numero_interrompu_illisible', tenantId: T }),
+    ]));
     const marque = deps({ offre: 'entreprise', places: null, rattaches: [NUMERO_META] });
     marque.d.marquer = async () => { throw new Error('base indisponible'); };
-    await capturerJournal(() => fenetreRefuseeParLaLigne(marque.d, T, fin(500, COMPTE, NUMERO_META)));
+    const journalMarque = await capturerJournal(() => fenetreRefuseeParLaLigne(marque.d, T, fin(500, COMPTE, NUMERO_META)));
     expect(liste(marque.alertes[0])).toBe(illisible);
+    expect(journalMarque.lignes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ lvl: 'error', msg: 'marque_par_la_ligne_impossible', tenantId: T, phoneNumberId: NUMERO_META }),
+    ]));
   });
 
   it('🔴 la marque après une interruption suit les règles : jamais un numéro mal formé, ni sans droit, ni après un simple refus ; un compte déjà sur une ligne active de l’espace attend la vérification de l’attache (relecture du lot E7, jaune 6)', async () => {
