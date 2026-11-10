@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-10 : la console vend l'option comme le serveur, et « Votre numéro, ou le nôtre ? » (aide à la connexion, lot 3v-1)
+
+L'arbre du lot 3v, côté console : la session du crédit porte le serveur (V1, la règle de la prise, et V2, le numéro
+fourni par la fenêtre du partenaire, en production). Plan `2026-11-10-aide-connexion-lot-3v.md`, en direct, une
+relecture indépendante.
+
+- **Ce qui a changé** (`a830bece`) :
+  - l'onglet Crédit WhatsApp décide sur `option.prisePossible` (absente sur une API d'avant V1, elle vaut
+    `formulePayee`) : un Pro prend l'option dès le début de son essai. « Démarrer la formule Pro maintenant » quitte
+    l'onglet et la carte « Crédit WhatsApp », et le hook qui ne servait qu'à lui est retiré ;
+  - un Business en essai et un Pro en retard lisent la raison dans les mots du refus du serveur
+    (`raisonAttenteOption`) ;
+  - l'option payée, la fenêtre du partenaire demande « Votre numéro, ou le nôtre ? » : le sien reçoit la phrase validée
+    de Julien avant « Connecter sans carte chez Meta » ; le nôtre ouvre le parcours du numéro fourni, relié par la même
+    fenêtre (`ParcoursNumero` avec `parLaLigne`), jamais en `fourni_application`.
+- **Ce qui ne change pas encore** : hors vente, la carte reste grisée, « sur demande ». La vitrine, la skill, les
+  consignes de Claude, la fiche du numéro et la FAQ disent la même chose, vraie tant que le prix n'est pas posé ; elles
+  changent le jour du prix (3v-2), avec le lien de Claude (`/brancher`) au numéro fourni par la ligne.
+- **Vérifié** :
+  - huit gardes vues rouges, correctif défait (cinq du lot, unitaires et e2e sur un build muté, trois des jaunes) ;
+  - la suite racine entière, sur la copie puis sur l'arbre fusionné ; la console, ses unitaires et les e2e de chaque
+    écran touché (166) ; tsc, lint.
+- **Relecture** : aucun rouge, sept jaunes, six corrigés dans le commit (la vue gardée quand une relecture échoue, un
+  Pro qui attend toujours dit en retard, les conditions chez Meta sans carte par la fenêtre du partenaire, la phrase
+  reliée au titre de la carte, l'e2e du retour de Stripe d'un numéro fourni, la doc et l'en-tête du bandeau). Le premier,
+  changer de voie pendant qu'une fenêtre de Meta est ouverte, est au backlog.
+- **Ordre** : la console seule, par Vercel ; l'API rendait `prisePossible` depuis V1. Poussé sur `54f404db`.
+- **En production** : CI racine, console et CodeQL vertes job par job. C'est le premier préalable au prix (V4 du plan du
+  crédit) : la console qui lit `prisePossible` est en ligne.
+
 ## 2026-11-10 : la formule au premier écran de la console, et Démarrer en Pro par la console ou Claude Code (aide à la connexion, lots 3b et 3c)
 
 Deux décisions de Julien du même jour : la formule Pro coûte 49 € HT par mois (« 59 € » était un lapsus), et la carte

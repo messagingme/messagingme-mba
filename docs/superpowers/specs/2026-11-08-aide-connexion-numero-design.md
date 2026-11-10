@@ -376,6 +376,11 @@ Pro du premier écran qui ouvre Stripe en mensuel, puis ramène à la connexion 
 console » de Démarrer et son bouton « Créer mon espace », la pastille de l'essai, et sept des huit jaunes de la
 relecture ; le huitième, les étapes du tunnel en double dans chaque page, est au backlog. Le lot 3v suit.
 
+**3v-1 livré le 2026-11-10** (`a830bece`, la console seule, par Vercel). L'onglet et la carte suivent la règle de la
+prise du serveur, « Démarrer la formule Pro maintenant » disparaît, et la fenêtre du partenaire demande « Votre numéro,
+ou le nôtre ? ». **3v-2 attend le jour du prix** : la vitrine, la skill, les consignes de Claude, la fiche et la FAQ
+disent « sur demande », vrai jusque-là.
+
 ## Lot 4 : le centre d'aide
 
 Il part en deux temps. **4a**, tout de suite : les rubriques, le guide, le dépannage, installer le plugin, la connexion
