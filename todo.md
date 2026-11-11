@@ -1,5 +1,19 @@
 # todo.md : backlog
 
+## 🟡 Trois pièges de l'éditeur de scénario, vus en déboguant LUAS (2026-11-11)
+
+Chacun a arrêté un vrai parcours en silence, sans rien dans la console pour le dire.
+
+- **Insérer une Condition avec « + » sur une flèche lui donne une sortie SANS poignée.** `insertOnEdge`
+  (`web/components/WorkflowBuilder.tsx`) fait partir la moitié aval du bloc inséré sans `sourceHandle`. Pour une
+  Condition, le moteur ne suit jamais cette arête dès qu'une sortie typée existe (« Sinon » reliée) : le parcours finit
+  sur la Condition. Piste : rattacher la moitié aval à la première famille (`true`), et signaler à la publication une
+  arête libre sortant d'une Condition. Relevé en prod : le seul cas était LUAS, corrigé à la main.
+- **Un message rapide dont le texte n'est qu'un retour à la ligne ne part pas, image comprise**, et le parcours
+  attend dessus (`actionOf` le juge vide). Piste : le refuser à la publication, comme un bloc sans texte.
+- **Un bloc Appel API qui range la réponse sans champ coché** dans l'appel échoue en `outputPaths vide`, lisible
+  seulement dans le journal des appels. Piste : le dire dans le panneau du bloc, et refuser la publication.
+
 ## 🟡 La mémoire des fichiers déposés chez Meta : ce qu'elle laisse (plan `docs/superpowers/plans/2026-11-10-memoire-des-medias-meta.md`, migration 0288)
 
 - **Pas de borne de temps propre sur la lecture de `medias_meta`.** Elle échoue ouvert sur une erreur, pas sur une
