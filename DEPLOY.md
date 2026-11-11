@@ -208,15 +208,17 @@ n'ont pas été relues. Une fiche relue est une fiche à recharger.
 Pour la charger SANS déployer le code d'autres lots, monter le `docs/aide` du commit voulu dans l'image en service,
 à une condition : `git diff --stat <révision en service> <sha> -- docs/aide src/aide db/charger-aide.ts` ne montre que
 des fiches (si le chargeur ou `src/aide` ont bougé, on déploie ; et si une fiche d'un autre lot y décrit un code pas
-encore déployé, le bot en parlerait trop tôt). La machine n'a pas le dépôt : l'archive se fabrique sur le poste
-(`git archive --format=tar.gz -o aide-<sha>.tar.gz <sha> docs/aide`), voyage par l'entrée standard du `ssh`, et se
-monte dans l'image EN SERVICE (son SHA complet) :
+encore déployé, le bot en parlerait trop tôt). La machine n'a pas le dépôt, mais il est PUBLIC : elle tire l'archive du commit chez GitHub (`codeload`),
+en extrait `docs/aide` et le monte dans l'image EN SERVICE (son SHA complet). Rien ne passe par l'entrée standard,
+donc la commande part telle quelle du PowerShell 5.1 de Julien (fait le 2026-11-11 : 206 lignes, 0 retirée) :
 
 ```bash
-ssh -J bastion@<ip de la passerelle>:61000 root@<ip privée> "rm -rf /tmp/aide-x && mkdir -p /tmp/aide-x && tar -xz -C /tmp/aide-x && chmod -R a+rX /tmp/aide-x && docker run --rm --env-file /opt/messagingme/.env.prod -v /tmp/aide-x/docs/aide:/app/docs/aide:ro rg.nl-ams.scw.cloud/messagingme/mba:<sha complet en service> npm run aide:charger; rm -rf /tmp/aide-x" < aide-<sha>.tar.gz
+ssh -o BatchMode=yes -J bastion@<ip de la passerelle>:61000 root@<ip privée> 'set -eo pipefail; S=<sha complet du commit des fiches>; D=/tmp/aide-$S; rm -rf $D; mkdir -p $D; U=https://codeload.github.com/messagingme/messagingme-mba/tar.gz/$S; (curl -fsSL $U || wget -qO- $U) | tar -xz -C $D --strip-components=1 messagingme-mba-$S/docs/aide; chmod -R a+rX $D; docker run --rm --env-file /opt/messagingme/.env.prod -v $D/docs/aide:/app/docs/aide:ro rg.nl-ams.scw.cloud/messagingme/mba:<sha complet en service> npm run aide:charger; rm -rf $D'
 ```
 
-⚠️ Le PowerShell 5.1 de Julien refuse le `<` (« réservé à une utilisation future ») : la même commande s'enveloppe
+⚠️ Si le dépôt redevient privé, l'archive se fabrique sur le poste (`git archive --format=tar.gz -o aide-<sha>.tar.gz
+<sha> docs/aide`) et voyage par l'entrée standard du `ssh` (`... < aide-<sha>.tar.gz`, `tar -xz -C /tmp/aide-x` sur
+la machine) ; le PowerShell 5.1 refuse alors le `<` (« réservé à une utilisation future ») : la commande s'enveloppe
 dans `cmd /c '...'`, guillemets doubles autour de la commande distante (vécu le 2026-11-03).
 
 ⚠️ **Exception — migration qui DROP (ou renomme) une colonne encore lue par l'ANCIEN code** (ex. `0030_drop_workflow_status.sql`) : **ordre INVERSÉ**, deploy le code D'ABORD, migrate ENSUITE. Sinon la colonne disparaît pendant que l'ancien conteneur (qui la lit encore) tourne toujours -> 500 « column … does not exist » le temps du rebuild. Règle générale : une migration qui AJOUTE une colonne se fait avant le deploy (le code neuf en a besoin) ; une migration qui RETIRE une colonne se fait après (le code neuf a cessé de la lire, l'ancien en a encore besoin).

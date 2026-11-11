@@ -2366,8 +2366,8 @@ scénario, comment importer des contacts.
 - ✅ **Le centre d'aide** (`app.messagingme.fr/aide/`, en anglais `/en/help/`, depuis le 2026-10-21) : un mode
   opératoire par geste, pas à pas. Démarrer, en deux rubriques depuis le 2026-11-10 : avec Claude Code ou Codex
   (installer le plugin, connecter son numéro depuis Claude, ce qu'il faut chez Meta, le guide, garder son application, payer
-  Meta, les modèles WhatsApp, le dépannage) et avec la console (choisir son offre, ce qu'il faut chez Meta, connecter son numéro, le guide, garder son
-  application, se repérer dans la console, relier HubSpot, brancher sa boutique, payer Meta, le dépannage). Parler aux clients : répondre
+  Meta, les modèles WhatsApp, le dépannage) et avec la console (choisir son offre, ce qu'il faut chez Meta, connecter son numéro, payer ses
+  messages sans carte chez Meta (le Crédit WhatsApp), le guide, garder son application, se repérer dans la console, relier HubSpot, brancher sa boutique, payer Meta, le dépannage). Parler aux clients : répondre
   dans l'Inbox, la fenêtre de 24 heures, faire approuver un modèle, importer ses contacts, lancer une campagne,
   brancher sa boutique Shopify (depuis le 2026-10-24 : le chemin de la console, et sa dernière section dit celui de
   Claude Code), poser une bulle WhatsApp sur son site, publier sur sa chaîne, envoyer un message RCS, construire un

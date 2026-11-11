@@ -149,6 +149,9 @@ au lot suivant ; rien ne bloque.
 
 ## 🟡 Les lots 3v-2a à 3v-2d de l'aide à la connexion : ce qu'ils laissent (2026-11-11)
 
+- **Une capture dont le pointeur sort du cadre** (vu en 3v-2d) : `capturer` (`web/e2e/captures/donnees-demo.ts`)
+  écrit la boîte du pointeur même hors de la fenêtre (y=847 pour 800, la capture 2 avant son recadrage) ; la refuser
+  là, les `.json` de sortie n'étant pas versionnés.
 - **Le bouton de la fiche « Payer ses messages sans carte chez Meta »** (jaune 8 de 3v-2d) : il ouvre `/offre`, pas
   l'onglet Crédit WhatsApp (`?tab=whatsapp`) ; le générateur ne vise qu'un écran (`ecran: offre`).
 - **Un espace relié par QR code, l'option prise** (jaune 7 de 3v-2b) : la consigne de la coexistence lui propose

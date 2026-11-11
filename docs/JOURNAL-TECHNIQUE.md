@@ -4,6 +4,18 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : la CI front rouge sur une panne du miroir apt de GitHub, et son repli
+
+- **Ce qui s'est passé** : de 14 h 53 à environ 18 h 30 UTC, `azure.archive.ubuntu.com` ne se résolvait plus sur les
+  machines de GitHub. « Installer le navigateur E2E » (`npx playwright install --with-deps chromium`) échouait en 100
+  avant le navigateur, et la CI front de trois commits (`3e3205dd`, `64c2db54`, `3103aff1`) était rouge sans rapport
+  avec leur code. Une relance de `64c2db54` a ANNULÉ celle de `3103aff1`, lancée juste avant : `ci-web.yml` est en
+  `cancel-in-progress` sur `ci-web-<ref>`, donc une relance à la fois.
+- **Le repli** (`cdc95720`) : si `--with-deps` échoue, Chromium s'installe sans les paquets système, que les machines
+  de GitHub portent déjà. Sa CI est verte, mais le miroir était revenu : le repli n'a pas encore servi.
+- **Les fiches** de 3v-2d et de l'Inbox HubSpot chargées le même soir par montage sur l'image `64c2db54` (206 lignes,
+  0 retirée), l'archive tirée de `codeload` par la machine (`DEPLOY.md`).
+
 ## 2026-11-11 : le Crédit WhatsApp sur la page Tarifs et dans le centre d'aide (lot 3v-2d)
 
 Plan `2026-11-11-aide-connexion-3v2d.md`, implémenté en direct, une relecture indépendante du diff, captures et rendu
