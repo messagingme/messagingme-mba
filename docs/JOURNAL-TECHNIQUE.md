@@ -4,6 +4,30 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : le Crédit WhatsApp sur la page Tarifs et dans le centre d'aide (lot 3v-2d)
+
+Plan `2026-11-11-aide-connexion-3v2d.md`, implémenté en direct, une relecture indépendante du diff, captures et rendu
+montrés à Julien avant le push.
+
+- **Ce qui a changé** (`3103aff1`) : les cartes Pro et Business de la page Tarifs portent « Crédit WhatsApp en option,
+  30 € HT par numéro et par mois », en français et en anglais, le prix tenu par `PRIX_OPTION_WA_HT_CENTIMES`
+  (`tests/vitrine-pages.test.ts`). Le centre d'aide public a sa fiche « Payer ses messages sans carte chez Meta »
+  (« Démarrer avec la console », rang 4, hors « Comment faire ») : prendre l'option, connecter son numéro sans carte
+  (« Le mien » par « Connecter sans carte chez Meta », « Le vôtre » par « Ouvrir la fenêtre de Meta »), recharger, avec
+  trois captures par langue (`web/e2e/captures/payer-ses-messages-sans-carte-chez-meta.capture.ts`).
+- **Relecture** : aucun rouge, huit jaunes. Repris dans le lot : « Obtenir mon numéro » avant la fenêtre pour
+  « Le vôtre » (et, vu avant la relecture dans le backlog de 3v-2b, « Ouvrir la fenêtre de Meta » et non « Connecter
+  sans carte chez Meta »), le prix d'une réponse de la capture 1 ramené sur la grille de démo, l'option prise pendant
+  l'essai qui s'arrête sans remboursement et le Business confirmé, « réservé aux administrateurs » pour toute la fiche,
+  la courbe de la capture 3, « how many numbers », `features.md` qui annonçait encore la fiche (empreinte de la section
+  à `5c2c51`, sur la fiche « Recharger » aussi). Vérifié vrai : « à zéro, plus aucun message ne part, réponses
+  comprises » (le refus passe avant la franchise des 1 000 réponses). Au backlog : le bouton de la page vers `/offre`
+  sans l'onglet ; l'attache du partenaire, que la fiche promet comme la console, attend l'essai 252.
+- **Vérifié** : la suite racine entière, les tests du centre d'aide et de la vitrine, les pages régénérées à l'identique
+  sur la fusion ; la grammaire des fiches a refusé une étape et un chapeau trop longs, la traduction a dû suivre.
+- **Ordre** : poussé sur `1f210ffe` (la vitrine par Vercel) ; à Julien, `aide:charger` par montage des fiches du lot
+  sur l'image en service, qui ne les contient pas.
+
 ## 2026-11-11 : le lien de Claude ouvre la fenêtre du partenaire (lot 3v-2b)
 
 Plan `2026-11-11-aide-connexion-3v2b.md`, implémenté en direct, une relecture indépendante du diff.

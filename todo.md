@@ -147,28 +147,22 @@ au lot suivant ; rien ne bloque.
   fait coller une demande propre à chaque chemin). À mesurer sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3
   d'« Installer le plugin ».
 
-## 🟡 Les lots 3v-2a à 3v-2b de l'aide à la connexion : ce qu'ils laissent (2026-11-11)
+## 🟡 Les lots 3v-2a à 3v-2d de l'aide à la connexion : ce qu'ils laissent (2026-11-11)
 
+- **Le bouton de la fiche « Payer ses messages sans carte chez Meta »** (jaune 8 de 3v-2d) : il ouvre `/offre`, pas
+  l'onglet Crédit WhatsApp (`?tab=whatsapp`) ; le générateur ne vise qu'un écran (`ecran: offre`).
 - **Un espace relié par QR code, l'option prise** (jaune 7 de 3v-2b) : la consigne de la coexistence lui propose
   `apporte` ou `fourni`, que `start_whatsapp_connection` refuse (l'espace est connecté). Rare.
 - **« Le vôtre » dans la fiche du numéro** (jaune 12 de 3v-2b) : « Connecter sans carte chez Meta » est le bouton de
   « Le mien » ; le numéro fourni passe par son parcours (« Ouvrir la fenêtre de Meta »).
 - **La consigne lue au lien, la page au chargement** (jaune 6 de 3v-2b) : un `start` lancé avant le webhook de Stripe
   donne la consigne de la carte quand la page ouvre la fenêtre du partenaire ; la suite après connexion rattrape.
-- **La page Tarifs cite l'option sans son prix** (jaune 3 de 3v-2c) : « (formule Pro ou Business) » se lit « inclus » ;
-  avec la ligne « Crédit WhatsApp » des cartes, 30 € HT par numéro et par mois (`PRIX_OPTION_WA_HT_CENTIMES`).
 - **L'Entreprise oubliée de l'exception** (jaune 4 de 3v-2c) : elle comprend le Crédit WhatsApp, selon son contrat ;
   « (formule Pro ou Business) » ne la nomme pas (accueil, cas, tarifs).
 - **`QUESTION_PAIEMENT.grisee.pro` est mort** (jaune 7) : la console a ses propres littéraux (`QuiRegleMeta.tsx`) ; le
   retirer avec son commentaire et celui de `site/site.css`, et tester `/sur demande|on request/i` sur « Payer Meta ».
 - **L'adresse de l'onglet n'est tenue à rien côté console** (jaune 8) : une clé d'onglet partagée (`web/lib/partage`),
   la constante nommée `…_HTML`, et un test qui exige l'adresse dans la skill.
-
-## 🟡 Le lot 3v-1 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
-
-- **3v-2, la suite** (la vente ouverte le 2026-11-11 ; 3v-2a, 3v-2c et 3v-2b faits) : la fiche publique « Payer ses
-  messages sans carte chez Meta » et la ligne « Crédit WhatsApp » des cartes Pro et Business de la vitrine, avec le prix
-  de l'option sur la page Tarifs et l'Entreprise dans l'exception, montrées à Julien avant le push.
 
 ## 🟡 Le lot 2c de l'aide à la connexion : ce qu'il laisse (2026-11-09)
 
@@ -596,8 +590,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   numéro de l'essai par l'onglet (« V4, suite ») EN PRODUCTION le 2026-11-11 (`87217294`, run 43020409536, avec V12 et
   V13). Restent : l'essai réel
   de bout en bout par Julien (prendre l'option, connecter par la fenêtre, la ligne posée seule, un modèle payant accepté
-  par Meta, le moyen de paiement du compte relu chez Meta) ; la fiche publique « Payer ses messages sans carte chez Meta »
-  et la ligne de la vitrine (lot 3v-2 de la session de l'aide, qui a repris les textes « sur demande » le 2026-11-11).
+  par Meta, le moyen de paiement du compte relu chez Meta). La fiche publique « Payer ses
+  messages sans carte chez Meta » et la ligne de la vitrine sont en ligne (lot 3v-2d de la session de l'aide, 2026-11-11).
 - 🟡 **Les jaunes de la relecture de V3 (2026-11-11, aucun rouge)** :
   - la ligne posée à la connexion n'est plus marquée : vérifier l'attache ne tient qu'à l'alerte Telegram, et sur un
     compte qui garde sa carte chez Meta, une attache absente fait payer deux fois sans que rien ne refuse ; l'alerte doit
@@ -687,7 +681,7 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   nôtre, relevé le 2026-11-03) : compte retiré ou partage révoqué ? À regarder avant qu'il ne serve.
 - Lot 5, avec le partenaire : l'Embedded Signup sur sa ligne de crédit (rien ne lui est écrit sans Julien) ; et, à
   l'ouverture, ce que le lot 2 lui a laissé (écarts 4 et 5 du lot 2) : le prix en euros du récapitulatif d'une campagne,
-  les cartes de coût lues dans les provisions, la fiche d'aide publique, la FAQ du plugin, la vitrine, et les fiches de
+  les cartes de coût lues dans les provisions, la FAQ du plugin, la vitrine, et les fiches de
   l'offre et des e-mails.
 
 ## 🟡 Le chiffre d'affaires attribué : ce que la v1 laisse (spec du 2026-10-28)
