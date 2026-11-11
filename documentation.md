@@ -4751,11 +4751,18 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   `GET /embedded-signup/config`, réservée à un administrateur ou au lien de Claude Code (`adminOuLien`), et seulement à
   l'espace que `solutionDuPartenaire` désigne (`src/credit-whatsapp/fenetre-partenaire.ts`) : un droit à la ligne
   (`droitALaLigne` : une Entreprise ; une formule Pro, essai compris, ou un Business, avec une option vivante et une place
-  libre ; jamais une Free) et aucun numéro rattaché, délié compris, comme pour `hasNumber` et `linkTenant` (celui de l'essai
-  relève du lot D). Une règle qui ne se lit pas ferme la fenêtre, journalisée (`fenetre_partenaire_illisible`), sans
+  libre ; jamais une Free) et aucun numéro rattaché, délié compris, comme pour `hasNumber` et `linkTenant`, OU, depuis
+  le 2026-11-11 (décision de Julien), l'unique numéro de l'espace qui s'y RECONNECTE (`seReconnecte`) : celui de l'essai,
+  connecté avec la carte chez Meta avant l'option, que la pose de `/ops` ne servirait pas (son compte n'est pas partagé
+  avec le partenaire). Il doit être chez Meta, hors coexistence, relié, couvert par aucune ligne (`ligneDuNumero`, toute
+  origine, tout espace, arrêtée comprise) et ne pas attendre déjà la sienne ; `linkTenant` rejoue le même numéro, et la fin
+  le pose (V3). Une règle qui ne se lit pas ferme la fenêtre, journalisée (`fenetre_partenaire_illisible`), sans
   faire échouer la configuration ni l'état des cartes. La route de l'état des cartes n'en dit qu'un booléen
-  (`fenetrePartenaire`). La carte « Crédit WhatsApp » de Connecter WhatsApp montre alors « Connecter sans carte chez Meta »
-  et devient la voie active. La carte chez Meta se reprend d'un clic, et le bouton du partenaire, resté en second, referme
+  (`fenetrePartenaire`). Sans numéro, la carte « Crédit WhatsApp » de Connecter WhatsApp montre alors « Connecter sans
+  carte chez Meta » et devient la voie active ; numéro connecté, en `en_attente`, elle mène à l'onglet Crédit WhatsApp,
+  où une place payée sans numéro (`PlaceLibre`, un administrateur) offre « Reconnecter mon numéro sans carte chez Meta »
+  (la même fenêtre, `parLaLigne`), ou le lien vers Connecter WhatsApp sans numéro, et renvoie au Support seulement
+  quand la fenêtre est fermée. La carte chez Meta se reprend d'un clic, et le bouton du partenaire, resté en second, referme
   son guide dans le même clic que la fenêtre, sans recharger la page (chaque voie porte sa connexion ; seule celle dont
   le bouton a ouvert la fenêtre en envoie la fin). Le crochet refuse d'ouvrir la fenêtre sans identifiant, jamais une connexion
   directe à sa place. `POST /embedded-signup/complete` reçoit `parLaLigne` (la trace d'audit `numero.connecte` le garde),

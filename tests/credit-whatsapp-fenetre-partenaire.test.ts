@@ -19,13 +19,15 @@ const NUMERO = '+33 6 12 34 56 78';
 /** Le compte WhatsApp que la fin d'une fenêtre annonce, et celui des numéros rattachés par défaut. */
 const COMPTE_DU_CORPS = '1815162959535129';
 
-/** Un numéro rattaché : son identifiant seul (du compte du corps, hors coexistence), ou le détail. */
-type Rattache = string | { phoneNumberId: string; wabaId?: string | null; coexistence?: boolean };
+/** Un numéro rattaché : son identifiant seul (du compte du corps, chez Meta, hors coexistence, relié), ou le détail. */
+type Rattache = string | { phoneNumberId: string; wabaId?: string | null; coexistence?: boolean; delie?: boolean; fournisseur?: string };
 
 function deps(o: {
   offre?: Offre; places?: number | null; couverts?: string[];
   /** Les numéros rattachés à l'espace ; aucun par défaut. Un numéro marqué attend sa ligne, sauf marque éteinte. */
   rattaches?: Rattache[];
+  /** Les numéros rattachés qui attendent déjà leur ligne avant toute marque de ce test (passés par la fenêtre). */
+  attendent?: string[];
   /** Les numéros dont la marque, rejouée, garde un premier moment déjà éteint par une ligne posée depuis. */
   marqueEteinte?: string[];
   /** Les numéros que la marque ne trouve plus dans l'espace (`marquerParLaLigne` rend `false`). */
@@ -61,7 +63,10 @@ function deps(o: {
       return {
         phoneNumberId: n.phoneNumberId, wabaId: n.wabaId === undefined ? COMPTE_DU_CORPS : n.wabaId,
         coexistence: n.coexistence ?? false,
-        attendLigne: marques.includes(n.phoneNumberId) && !(o.marqueEteinte ?? []).includes(n.phoneNumberId),
+        delie: n.delie ?? false,
+        fournisseur: n.fournisseur ?? 'meta',
+        attendLigne: (o.attendent ?? []).includes(n.phoneNumberId)
+          || (marques.includes(n.phoneNumberId) && !(o.marqueEteinte ?? []).includes(n.phoneNumberId)),
       };
     }).filter((n) => !(marques.includes(n.phoneNumberId) && (o.partentApresMarque ?? []).includes(n.phoneNumberId))),
     ligneDuNumero: async (phoneNumberId) => {
@@ -117,13 +122,41 @@ describe('le droit à la ligne', () => {
 });
 
 describe('l’identifiant de la solution', () => {
-  it('🔴 rendu seulement à un espace qui a droit à la ligne ET n’a encore aucun numéro rattaché', async () => {
+  it('🔴 rendu seulement à un espace qui a droit à la ligne, sans numéro ou pour reconnecter le sien (V4)', async () => {
     expect(await solutionDuPartenaire(deps({ offre: 'entreprise', places: null }).d, T)).toBe(SOLUTION);
     expect(await solutionDuPartenaire(deps({ offre: 'pro', places: 1 }).d, T)).toBe(SOLUTION);
-    // Un numéro déjà rattaché, délié compris (celui de l'essai) relève du lot D : pas de fenêtre du partenaire.
-    expect(await solutionDuPartenaire(deps({ offre: 'pro', places: 1, rattaches: ['pn-essai'] }).d, T)).toBeNull();
     expect(await solutionDuPartenaire(deps({ offre: 'base' }).d, T)).toBeNull();
     expect(await solutionDuPartenaire(deps({ offre: 'pro', places: null }).d, T)).toBeNull();
+  });
+
+  it('🔴 V4 : le numéro de l’essai, connecté avec la carte chez Meta puis l’option prise, se reconnecte par la fenêtre (décision de Julien du 2026-11-11)', async () => {
+    // La pose de /ops ne lui suffit pas : son compte n'est pas partagé avec le partenaire, qui ne peut pas y attacher sa
+    // ligne. Reconnecté par la fenêtre (le même compte, le même numéro), sa fin pose la ligne (V3).
+    const { d, couvertures } = deps({ offre: 'pro', places: 1, rattaches: ['pn-essai'] });
+    expect(await solutionDuPartenaire(d, T)).toBe(SOLUTION);
+    // La couverture se lit comme la pose la lit (`ligneDuNumero`) : toute ligne, toute origine, tout espace.
+    expect(couvertures).toEqual(['pn-essai']);
+  });
+
+  it('🔴 V4 : jamais pour un numéro que la pose refuserait, déjà couvert, ou qui attend déjà sa ligne', async () => {
+    const ouverte = async (o: Parameters<typeof deps>[0]) => solutionDuPartenaire(deps({ offre: 'pro', places: 1, ...o }).d, T);
+    // Couvert par une ligne active, arrêtée, ou celle d'un autre espace : la fin dirait « déjà couvert », rien à reconnecter.
+    expect(await ouverte({ rattaches: ['pn-1'], couvrante: { tenantId: T } })).toBeNull();
+    expect(await ouverte({ rattaches: ['pn-1'], couvrante: { tenantId: T, arreteeLe: '2026-11-01T00:00:00.000Z' } })).toBeNull();
+    expect(await ouverte({ rattaches: ['pn-1'], couvrante: { tenantId: 'autre-espace' } })).toBeNull();
+    // La pose refuse la coexistence, un numéro délié et un numéro 360dialog.
+    expect(await ouverte({ rattaches: [{ phoneNumberId: 'pn-1', coexistence: true }] })).toBeNull();
+    expect(await ouverte({ rattaches: [{ phoneNumberId: 'pn-1', delie: true }] })).toBeNull();
+    expect(await ouverte({ rattaches: [{ phoneNumberId: 'pn-1', fournisseur: '360dialog' }] })).toBeNull();
+    // Passé par la fenêtre, il attend sa ligne : sa pose est à Julien, pas à une seconde fenêtre.
+    expect(await ouverte({ rattaches: ['pn-1'], attendent: ['pn-1'] })).toBeNull();
+    // Deux numéros : aucun n'est désigné, et `linkTenant` refuse un second numéro.
+    expect(await ouverte({ rattaches: ['pn-1', 'pn-2'] })).toBeNull();
+    // Sans droit (la place prise par un autre numéro, aucune option) : fermée, comme sans numéro.
+    expect(await ouverte({ rattaches: ['pn-1'], couverts: ['pn-autre'] })).toBeNull();
+    expect(await ouverte({ rattaches: ['pn-1'], places: null })).toBeNull();
+    // Le témoin : le même numéro, rien de tout cela, l'ouvre.
+    expect(await ouverte({ rattaches: ['pn-1'] })).toBe(SOLUTION);
   });
 
   it('la solution non configurée (`META_SOLUTION_ID` vide, ou l’inscription éteinte) : rien, pour personne', async () => {

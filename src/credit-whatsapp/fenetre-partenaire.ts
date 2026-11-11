@@ -14,8 +14,9 @@ import type { IssuePose } from './pose';
  * solde (décision de Julien) : une Entreprise est illimitée, sans option ; une formule Pro ou un Business prend l'option ;
  * une Free jamais. Le partenaire n'est jamais nommé dans le dépôt.
  *
- * Mesuré à l'essai réel 236 (2026-11-09) : le compte est bien partagé avec le partenaire, mais sa ligne ne s'attache PAS
- * d'elle-même ; Julien la lui demande, et l'alerte le lui dit.
+ * Mesuré à l'essai réel 236 (2026-11-09) : le compte est bien partagé avec le partenaire, mais sa ligne ne s'attachait PAS
+ * d'elle-même. Depuis V3 (2026-11-11), Julien tient cette attache pour automatique (le partenaire l'automatise) : la nôtre
+ * se pose à la connexion (`connexionParLaLigne`), et le numéro de l'essai connecté avec la carte s'y reconnecte (V4).
  */
 export interface DepsFenetrePartenaire {
   /**
@@ -34,9 +35,9 @@ export interface DepsFenetrePartenaire {
   numerosCouverts(tenantId: string): Promise<string[]>;
   /**
    * Les numéros RATTACHÉS à l'espace, déliés compris : comme `hasNumber` (la console le dit connecté) et `linkTenant` (qui
-   * refuse un second numéro). Un numéro déjà là relève du lot D, pas de cette fenêtre ; une connexion interrompue y
-   * retrouve celui qu'elle a pu rattacher, dans le compte du corps, et l'alerte dit ce qu'en sait la liste (relecture du
-   * lot E7, jaune 4 ; du lot V5, jaunes 1, 4 et 7).
+   * refuse un second numéro). Un numéro déjà là ne rouvre la fenêtre que pour s'y reconnecter (`seReconnecte`, V4) ; une
+   * connexion interrompue y retrouve celui qu'elle a pu rattacher, dans le compte du corps, et l'alerte dit ce qu'en sait
+   * la liste (relecture du lot E7, jaune 4 ; du lot V5, jaunes 1, 4 et 7).
    */
   numerosRattaches(tenantId: string): Promise<NumeroRattache[]>;
   /**
@@ -80,12 +81,16 @@ export interface DepsFenetrePartenaire {
 
 /**
  * Un numéro rattaché à l'espace, tel que la fenêtre le lit (`NumeroDeLEspace` en a tous les champs) : son compte, sa
- * coexistence (la pose la refuse), et s'il attend sa ligne (`ATTEND_LIGNE_SQL`, la liste de `/ops`).
+ * coexistence, s'il est délié et chez qui il est (la pose refuse la coexistence, un numéro délié et 360dialog), et s'il
+ * attend sa ligne (`ATTEND_LIGNE_SQL`, la liste de `/ops`).
  */
 export interface NumeroRattache {
   phoneNumberId: string;
   wabaId: string | null;
   coexistence: boolean;
+  delie: boolean;
+  /** `waba_credentials.fournisseur` : `meta`, ou `360dialog`. */
+  fournisseur: string;
   attendLigne: boolean;
 }
 
@@ -148,20 +153,37 @@ export async function droitALaLigne(
 }
 
 /**
- * L'identifiant de la solution, pour la fenêtre de Meta : seulement à un espace qui a droit à la ligne ET n'a encore aucun
- * numéro rattaché (un numéro de l'essai passe sur la ligne par le lot D). `null` sinon, et pour tous si rien n'est
- * configuré. Une règle qui ne se lit pas (la base) ferme la fenêtre, journalisée : la configuration de la connexion et
- * l'état des cartes restent servis, et la connexion directe avec eux.
+ * L'identifiant de la solution, pour la fenêtre de Meta : seulement à un espace qui a droit à la ligne, et qui n'a encore
+ * aucun numéro rattaché OU dont l'unique numéro s'y reconnecte (`seReconnecte`, V4). `null` sinon, et pour tous si rien
+ * n'est configuré. Une règle qui ne se lit pas (la base) ferme la fenêtre, journalisée : la configuration de la connexion
+ * et l'état des cartes restent servis, et la connexion directe avec eux.
  */
 export async function solutionDuPartenaire(d: DepsFenetrePartenaire, tenantId: string): Promise<string | null> {
   if (d.solutionId === '') return null;
   try {
-    if ((await d.numerosRattaches(tenantId)).length > 0) return null;
+    const rattaches = await d.numerosRattaches(tenantId);
+    if (rattaches.length > 0 && !(await seReconnecte(d, rattaches))) return null;
     return (await droitALaLigne(d, tenantId)) ? d.solutionId : null;
   } catch (err) {
     journaliser('error', 'fenetre_partenaire_illisible', { tenantId, err });
     return null;
   }
+}
+
+/**
+ * V4 (décision de Julien du 2026-11-11) : le numéro de l'essai, connecté avec la carte chez Meta avant que l'option soit
+ * prise, se RECONNECTE par la fenêtre du partenaire. La pose de `/ops` ne lui suffit pas : son compte n'est pas partagé
+ * avec le partenaire, qui ne peut pas y attacher sa ligne. Reconnecté (le même compte, le même numéro : `linkTenant` le
+ * rejoue), il arrive dans `connexionParLaLigne` au cas « à poser », qui pose sa ligne (V3). Seulement l'UNIQUE numéro de
+ * l'espace (`linkTenant` refuse un second numéro), que la pose accepterait (chez Meta, hors coexistence, relié), couvert
+ * par aucune ligne (`ligneDuNumero` : toute origine, tout espace, arrêtée comprise ; couvert, la fin dirait « déjà
+ * couvert ») et qui n'attend pas déjà sa ligne (passé par la fenêtre, sa pose est à Julien, pas à une seconde fenêtre).
+ */
+async function seReconnecte(d: Pick<DepsFenetrePartenaire, 'ligneDuNumero'>, rattaches: readonly NumeroRattache[]): Promise<boolean> {
+  const [numero, ...autres] = rattaches;
+  if (numero === undefined || autres.length > 0) return false;
+  if (numero.fournisseur !== 'meta' || numero.coexistence || numero.delie || numero.attendLigne) return false;
+  return (await d.ligneDuNumero(numero.phoneNumberId)) === null;
 }
 
 /**

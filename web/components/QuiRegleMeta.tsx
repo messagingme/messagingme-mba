@@ -39,6 +39,18 @@ export const PAR_LA_LIGNE = {
 } as const;
 
 /**
+ * Le numéro de l'essai, connecté avec la carte chez Meta, l'option payée (V4, décision de Julien du 2026-11-11) : il se
+ * reconnecte sans carte par la fenêtre du partenaire, depuis l'onglet Crédit WhatsApp.
+ */
+export const RECONNEXION = {
+  texte: {
+    fr: 'Votre option est payée, mais votre numéro est connecté avec votre carte chez Meta : reconnectez-le sans carte depuis l’onglet Crédit WhatsApp.',
+    en: 'Your option is paid, but your number is connected with your card at Meta: reconnect it without a card from the WhatsApp credit tab.',
+  },
+  bouton: { fr: 'Ouvrir l’onglet Crédit WhatsApp', en: 'Open the WhatsApp credit tab' },
+} as const;
+
+/**
  * « QUI PAIE VOS MESSAGES À META ? » (révision du Crédit WhatsApp du 2026-11-04, lot B) : deux cartes, chaque bouton sous
  * la sienne. Sur Connecter WhatsApp, c'est la première question du guide du numéro, et la voie de la carte chez Meta y
  * ouvre la suite (`children`) ; sur l'Accueil, tant qu'aucun numéro n'est connecté, elle y mène.
@@ -203,6 +215,16 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
           </Link>
         );
       }
+    } else if (connecte && etat === 'en_attente' && vue.fenetrePartenaire) {
+      // V4 (décision de Julien du 2026-11-11) : le numéro de l'essai, connecté avec la carte chez Meta, l'option payée. Le
+      // serveur ne rouvre la fenêtre du partenaire à un espace connecté que pour l'y reconnecter (`seReconnecte`) : sans
+      // elle, personne ne poserait sa ligne, et « sous 24 h ouvrées » serait faux. L'onglet Crédit WhatsApp la porte.
+      ligne = t(RECONNEXION.texte.fr, RECONNEXION.texte.en);
+      action = admin ? (
+        <Link href="/offre?tab=whatsapp" data-testid="carte-credit-wa-reconnecter" className={classesBouton('principal')}>
+          {t(RECONNEXION.bouton.fr, RECONNEXION.bouton.en)}
+        </Link>
+      ) : nonAdmin(t('Un administrateur de votre espace peut le reconnecter.', 'An administrator of your workspace can reconnect it.'));
     } else if (optionPayee || etat === 'en_attente') {
       ligne = ligneOuverte;
     } else if (etat === 'free') {

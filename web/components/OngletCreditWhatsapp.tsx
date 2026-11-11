@@ -1,8 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { getAccountStatus } from '@/lib/api';
+import { apiDeLaSession } from '@/lib/api/connexion-numero';
+import { useConnexionNumero } from '@/lib/connexion-numero';
+import { FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
 import {
   achatArriveDepuis, estPageDePaiement, lireDepartPaiement, oublierDepartPaiement, ouvrirFacture, retenirDepartPaiement,
   seuilDuRetour,
@@ -454,6 +458,8 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   const [indisponible, setIndisponible] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [facture, setFacture] = useState<string | null>(null);
+  /** Le numéro reconnecté par la fenêtre du partenaire (V4), et les avertissements de sa fin ; `null` avant. */
+  const [reconnecte, setReconnecte] = useState<string[] | null>(null);
 
   const prise = option.places > 0 || option.statut !== null;
   // 🔴 Payée, pas encore arrivée (le webhook n'est pas passé) : la prise reste fermée, sinon le client la paierait deux fois
@@ -489,6 +495,10 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   const enService = Math.min(option.couverts, option.places);
   const enTrop = Math.max(0, option.couverts - option.places);
   const libres = Math.max(0, option.places - option.couverts);
+  const placeLibre = t(
+    `${libres} numéro${s(libres)} payé${s(libres)} pas encore sur le Crédit WhatsApp`,
+    `${libres} paid number${s(libres)} not yet on WhatsApp credit`,
+  );
   const modifiable = admin && option.disponible && option.statut === 'actif' && option.finPrevueLe === null;
   const retraitPossible = option.places - 1 >= Math.max(1, option.couverts);
 
@@ -627,14 +637,25 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
               )}
             </p>
           )}
-          {libres > 0 && option.statut === 'actif' && (
-            <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-libre">
+          {reconnecte !== null && (
+            <MbaNotice kind="success" testid="credit-wa-reconnexion-faite">
               {t(
-                `${libres} numéro${s(libres)} payé${s(libres)} pas encore sur le Crédit WhatsApp : contactez-nous depuis le Support pour y mettre votre numéro.`,
-                `${libres} paid number${s(libres)} not yet on WhatsApp credit: contact us from Support to put your number on it.`,
+                'Votre numéro est reconnecté sans carte chez Meta : il passe sur le Crédit WhatsApp dès que sa ligne est posée.',
+                'Your number is reconnected without a card at Meta: it moves onto WhatsApp credit as soon as its line is set up.',
               )}
-            </p>
+              {reconnecte.length > 0 && ` ${t('À savoir', 'Note')} : ${reconnecte.join(' · ')}`}
+            </MbaNotice>
           )}
+          {libres > 0 && option.statut === 'actif' && (admin ? (
+            <PlaceLibre
+              tenantId={tenantId}
+              debut={placeLibre}
+              reconnecte={reconnecte !== null}
+              surReconnexion={(avertissements) => { setReconnecte(avertissements); void relire().catch(() => undefined); }}
+            />
+          ) : (
+            <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-libre">{placeLibre}{t(SUPPORT_PLACE_LIBRE.fr, SUPPORT_PLACE_LIBRE.en)}</p>
+          ))}
           {option.statut === 'en_retard' && (
             <p className="mt-2 text-sm text-danger" data-testid="credit-wa-option-retard">
               {t(
@@ -704,6 +725,78 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
       )}
     </section>
   );
+}
+
+/** La suite d'une place payée sans numéro, quand rien ne s'y fait en ligne : le Support. */
+const SUPPORT_PLACE_LIBRE = {
+  fr: ' : contactez-nous depuis le Support pour y mettre votre numéro.',
+  en: ': contact us from Support to put your number on it.',
+} as const;
+
+/**
+ * Une place payée de l'option sans numéro sur le Crédit WhatsApp, vue d'un administrateur (V4, décision de Julien du
+ * 2026-11-11). Le serveur ouvre la fenêtre du partenaire (`solutionId` de la configuration, `solutionDuPartenaire`) à
+ * l'espace qui y a droit : sans numéro, la page Connecter WhatsApp la porte ; avec le numéro de l'essai, connecté avec la
+ * carte chez Meta, l'onglet le RECONNECTE par elle (le même compte et le même numéro), et la fin pose sa ligne (V3).
+ * Fenêtre fermée (le numéro attend déjà sa ligne, garde l'application, rien n'est configuré), configuration ou compte
+ * illisibles : le texte d'avant, qui renvoie au Support, jamais un bouton deviné.
+ */
+function PlaceLibre({ tenantId, debut, reconnecte, surReconnexion }: {
+  tenantId: string;
+  /** « 1 numéro payé pas encore sur le Crédit WhatsApp », que chaque cas complète. */
+  debut: string;
+  /** La reconnexion est faite : plus de bouton (la configuration, lue avant, rouvrirait la fenêtre), l'onglet dit la suite. */
+  reconnecte: boolean;
+  surReconnexion: (avertissements: string[]) => void;
+}) {
+  const t = useT();
+  const api = useMemo(() => apiDeLaSession(tenantId), [tenantId]);
+  const connexion = useConnexionNumero(tenantId, api, surReconnexion);
+  // `null` : pas encore lu ; `illisible` : le texte d'avant.
+  const [connecte, setConnecte] = useState<boolean | 'illisible' | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    getAccountStatus(tenantId)
+      .then((c) => { if (vivant) setConnecte(c.hasNumber === true); })
+      .catch(() => { if (vivant) setConnecte('illisible'); });
+    return () => { vivant = false; };
+  }, [tenantId]);
+  const cfg = connexion.cfg;
+  const fenetre = cfg !== null && cfg.enabled && (cfg.solutionId ?? null) !== null;
+
+  // En lecture, ou déjà reconnecté : le constat seul, sans geste.
+  if (reconnecte || cfg === null || (fenetre && connecte === null)) {
+    return <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-libre">{debut}.</p>;
+  }
+  if (fenetre && connecte === true) {
+    return (
+      <div className="mt-2 space-y-2" data-testid="credit-wa-option-libre">
+        <p className="text-sm text-ink-700">
+          {debut}{t(
+            ' : votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages. Reconnectez-le sans carte chez Meta : dans la fenêtre de Meta, choisissez le même compte WhatsApp et le même numéro.',
+            ': your number is connected with your card at Meta, which still bills its messages. Reconnect it without a card at Meta: in Meta’s window, choose the same WhatsApp account and the same number.',
+          )}
+        </p>
+        <Bouton data-testid="credit-wa-reconnecter" onClick={() => { void connexion.connect({ parLaLigne: true }); }}
+          disabled={connexion.busy} enCours={connexion.busy}>
+          {t('Reconnecter mon numéro sans carte chez Meta', 'Reconnect my number without a card at Meta')}
+        </Bouton>
+        {connexion.peutEtreBloquee && <p className="text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
+        {connexion.error && <p className="text-sm text-danger" data-testid="credit-wa-reconnecter-erreur">{connexion.error}</p>}
+      </div>
+    );
+  }
+  if (fenetre && connecte === false) {
+    return (
+      <div className="mt-2 space-y-2" data-testid="credit-wa-option-libre">
+        <p className="text-sm text-ink-700">{debut}{t(' : connectez votre numéro sans carte chez Meta.', ': connect your number without a card at Meta.')}</p>
+        <Link href="/connecter-whatsapp" data-testid="credit-wa-connecter" className={classesBouton('principal', 'petite')}>
+          {t('Connecter mon numéro', 'Connect my number')}
+        </Link>
+      </div>
+    );
+  }
+  return <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-libre">{debut}{t(SUPPORT_PLACE_LIBRE.fr, SUPPORT_PLACE_LIBRE.en)}</p>;
 }
 
 /** Un solde en euros, au centime : c'est un total, pas un tarif. */

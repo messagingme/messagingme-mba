@@ -216,6 +216,27 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     expect(s.options).toEqual([{ places: 1, origine: 'connecter' }]);
   });
 
+  test('🔴 V4 : le numéro de l’essai, connecté avec la carte chez Meta, l’option payée : la carte mène à sa reconnexion dans l’onglet Crédit WhatsApp', async ({ page }) => {
+    // Le serveur ne rouvre la fenêtre du partenaire à un espace connecté que pour l'y reconnecter (`seReconnecte`) : sans
+    // elle, personne ne poserait sa ligne, et « sous 24 h ouvrées » serait faux.
+    await mockAccueil(page, { inscription: { complete: {} } });
+    await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }] });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('numero-connecte')).toBeVisible();
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre option est payée, mais votre numéro est connecté avec votre carte chez Meta : reconnectez-le sans carte depuis l’onglet Crédit WhatsApp.');
+    await expect(page.getByTestId('carte-credit-wa-reconnecter')).toHaveAttribute('href', '/offre?tab=whatsapp');
+    // La fenêtre ne s'ouvre pas d'ici : la question de la voie de la ligne est celle d'un espace sans numéro.
+    await expect(page.getByTestId('ligne-numero')).toHaveCount(0);
+  });
+
+  test('un numéro connecté, l’option payée, sans fenêtre à rouvrir : la ligne s’ouvre sous 24 h, comme avant', async ({ page }) => {
+    await mockAccueil(page, { inscription: { complete: {} } });
+    await simuler(page, { etats: [{ etat: 'en_attente', enVente: true }] });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre ligne s’ouvre sous 24 h ouvrées.');
+    await expect(page.getByTestId('carte-credit-wa-reconnecter')).toHaveCount(0);
+  });
+
   test('un numéro connecté sur une ligne active : le Crédit WhatsApp paie, aucun guide ni bouton de la carte chez Meta', async ({ page }) => {
     await mockAccueil(page, { inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'active', enVente: true }] });

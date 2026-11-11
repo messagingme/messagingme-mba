@@ -81,10 +81,10 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
   le portail déjà fermé au changement d'offre et de quantité ; la clé restreinte élargie (Invoices en écriture,
   PaymentMethods en lecture) ; les secrets Stripe du worker présents. Les jaunes « avant la vente » des lots B et C,
   fermés par les lots C4 à C6.
-- [ ] Trois préalables venus de la relecture de V1 (jaunes 2 à 4) : la console qui lit `option.prisePossible` est en
+- [x] Trois préalables venus de la relecture de V1 (jaunes 2 à 4) : la console qui lit `option.prisePossible` est en
   production (fait : `a830bece`, lot 3v-1 de la session de l'aide à la connexion, le 2026-11-10) ; le numéro d'essai
   déjà connecté a sa réponse : décision de Julien du 2026-11-11, il se RECONNECTE PAR LA FENÊTRE du partenaire (l'onglet
-  le guidera) ; le texte de l'e-mail du paiement refusé de la formule Pro, qui doit parler de l'option : VALIDÉ par
+  le guide : § « V4, suite ») ; le texte de l'e-mail du paiement refusé de la formule Pro, qui doit parler de l'option : VALIDÉ par
   Julien le 2026-11-11, en production avec V11.
 
 ### V5. Les jaunes des relectures du lot E7 et de V1
@@ -151,6 +151,10 @@ JSDoc avec elle.
 
 V3 : l'API seule, sans migration (une variable allumée par défaut, que personne ne pose) ; elle emporte V12 et V13,
 poussés le 2026-11-11 sans être déployés.
+
+La reconnexion (V4, suite) : l'API (sans migration) et la console (Vercel au push), dans n'importe quel ordre : une console en avance ne lit
+aucun identifiant pour un espace connecté (le texte d'avant), une API en avance ne change rien aux écrans d'avant (la
+carte connectée ne lisait pas `fenetrePartenaire`, l'onglet ne lisait pas la configuration).
 
 ## Méthode de livraison
 
@@ -489,3 +493,33 @@ réservée comprise ; cinq mutations rougissent. V12 et V13 partent ensemble.
 JAUNES. Les trois jaunes de V13 (l'alerte « Pro terminé » jumelle, l'alerte statique, un commentaire du banc) et le 6 de
 V11 vont au backlog (`todo.md`), et partiront avec le prochain lot de fonctionnalité. Restent au plan V3 (après D0) et
 V4 (le numéro d'essai déjà connecté, la liste à Julien).
+
+### V4, suite : le numéro de l'essai se reconnecte par la fenêtre du partenaire (décision de Julien du 2026-11-11)
+
+Pas un lot de jaunes : le préalable de V4 que Julien a tranché le 2026-11-11 (« l'onglet le guidera »).
+
+Un Pro qui a connecté son numéro en direct pendant l'essai (sa carte chez Meta), puis pris l'option, restait en
+`en_attente` sans fenêtre : `solutionDuPartenaire` la fermait dès qu'un numéro était rattaché, et la pose de `/ops` ne
+lui suffit pas (son compte n'est pas partagé avec le partenaire, qui ne peut pas y attacher sa ligne). Julien : il se
+reconnecte par la fenêtre, et l'onglet le guide.
+
+- [x] Serveur : `solutionDuPartenaire` rend aussi l'identifiant pour une RECONNEXION (`seReconnecte`) : l'unique numéro
+  de l'espace (`linkTenant` refuse un second numéro, et rejoue le même), que la pose accepterait (chez Meta, hors
+  coexistence, relié), couvert par aucune ligne (`ligneDuNumero`, toute origine, tout espace, arrêtée comprise), et qui
+  n'attend pas déjà sa ligne (passé par la fenêtre, sa pose est à Julien) ; le droit (`droitALaLigne`) inchangé.
+  `NumeroRattache` gagne `delie` et `fournisseur`, que `numerosDeLEspace` rend déjà. La fin passe par
+  `connexionParLaLigne` (cas `a_poser`), qui pose (V3). Tests : le numéro de l'essai ouvre la fenêtre ; chaque exclusion
+  (couvert actif, arrêté, d'un autre espace, coexistence, délié, 360dialog, en attente, deux numéros, sans droit) la
+  ferme ; le cas « un numéro rattaché, pas de fenêtre » réécrit ; six mutations rougissent.
+- [x] Console : l'onglet Crédit WhatsApp, à la place de « contactez-nous depuis le Support » (une place libre, l'option
+  active, un administrateur, `PlaceLibre`) : la fenêtre ouverte (`solutionId` de la configuration) et un numéro connecté,
+  « Reconnecter mon numéro sans carte chez Meta » (le même compte et le même numéro dans la fenêtre ; `useConnexionNumero`,
+  `parLaLigne`), qui relit la vue à la fin ; sans numéro, le lien vers Connecter WhatsApp ; fenêtre fermée ou illisible,
+  le texte d'avant. La carte connectée de `QuiRegleMeta` en `en_attente`, fenêtre ouverte : « reconnectez-le sans carte
+  depuis l'onglet Crédit WhatsApp » au lieu des 24 h, que personne ne tiendrait. Les textes validés de la fenêtre sans
+  numéro (« sous 24 h ouvrées ») restent : ils bornent, et V3 fait plus vite. Tests : e2e de l'onglet (la reconnexion
+  envoie `parLaLigne` avec la solution et relit ; sans numéro, le lien ; fenêtre fermée, le texte d'avant ; un membre
+  non administrateur n'entre pas sur la page Offre, déjà tenu), e2e de la carte connectée (fenêtre ouverte ou non).
+- Essai réel : sur un espace Pro de TEST dans ses 14 jours, connecter un numéro avec la carte chez Meta, prendre
+  l'option ; l'onglet propose la reconnexion ; la fenêtre de Meta s'ouvre avec la solution du partenaire ; le même
+  compte et le même numéro choisis, la ligne se pose (V3) et l'onglet compte le numéro sur le Crédit WhatsApp.
