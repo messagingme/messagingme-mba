@@ -116,6 +116,12 @@ export interface VerdictResolution {
   ok: boolean;
   /** Lisible, sans jamais citer l'adresse trouvée : elle renseignerait sur la topologie interne. */
   raison?: string;
+  /**
+   * Le refus vient d'un nom qu'on n'a pas pu résoudre (échec, délai, réponse vide), pas d'une adresse interne. Le
+   * refus reste un refus ; seul l'appelant qui journalise en a besoin, pour ne pas écrire « adresse interne » sur un
+   * raté DNS (vécu le 2026-11-11 : un appel de scénario journalisé ainsi, puis passé en 200 au même nom).
+   */
+  introuvable?: true;
 }
 
 /**
@@ -154,9 +160,9 @@ export async function resolutionPublique(url: string, resoudre: Resolveur = reso
       resoudre(hote).then(tenir, rejeter).finally(() => { clearTimeout(t); });
     });
   } catch {
-    return { ok: false, raison: 'nom introuvable' };
+    return { ok: false, raison: 'nom introuvable', introuvable: true };
   }
-  if (adresses.length === 0) return { ok: false, raison: 'nom introuvable' };
+  if (adresses.length === 0) return { ok: false, raison: 'nom introuvable', introuvable: true };
   if (adresses.some(estAdressePrivee)) return { ok: false, raison: 'ce nom pointe vers une adresse interne' };
   return { ok: true };
 }

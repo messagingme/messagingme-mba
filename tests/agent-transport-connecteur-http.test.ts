@@ -47,6 +47,18 @@ describe('transport d’un Connecteur HTTP', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('un nom introuvable est une panne réseau, pas une adresse interne, et ne part pas non plus', async () => {
+    // Vécu le 2026-11-11 : un raté DNS passager journalisé « adresse_interne », le même appel passé en 200 ensuite.
+    const fetch = vi.fn();
+    const transport = creerTransportConnecteurHttp({
+      fetch: fetch as unknown as typeof globalThis.fetch,
+      verifierResolution: async () => ({ ok: false, raison: 'nom introuvable', introuvable: true }),
+    });
+
+    expect(await transport.executer(APPEL())).toMatchObject({ nature: 'reseau' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('transporte l’appel préparé avec redirections refusées et lit son corps dans la limite', async () => {
     const fetch = vi.fn(async () => new Response('{"ok":true}', { status: 201 }));
     const transport = creerTransportConnecteurHttp({

@@ -111,6 +111,12 @@ describe('résolution d’un nom avant un appel sortant', () => {
     expect(v.ok).toBe(false);
     const vide = await resolutionPublique('https://vide.exemple/x', async () => []);
     expect(vide.ok).toBe(false);
+    // Le refus dit qu'il vient du nom, pour que le journal n'écrive pas « adresse interne » sur un raté DNS.
+    expect(v.introuvable).toBe(true);
+    expect(vide.introuvable).toBe(true);
+    // Et une adresse interne ne le dit jamais : sinon elle se ferait journaliser en simple panne réseau.
+    const interne = await resolutionPublique('https://crm.exemple.fr/x', async () => ['10.1.2.3']);
+    expect(interne).toEqual({ ok: false, raison: 'ce nom pointe vers une adresse interne' });
   });
 
   it('un LITTÉRAL est jugé sans résoudre, et la fonction reste juste toute seule', async () => {

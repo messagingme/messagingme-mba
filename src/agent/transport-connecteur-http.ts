@@ -69,7 +69,9 @@ export function creerTransportConnecteurHttp(
         return { nature: 'reseau', dureeMs: dureeDepuis(debut) };
       }
       if (appel.signal.aborted) return { nature: 'abandon', dureeMs: dureeDepuis(debut) };
-      if (!resolution.ok) return { nature: 'adresse_refusee', dureeMs: dureeDepuis(debut) };
+      // Un nom introuvable est une panne réseau, pas une adresse interne : refusé pareil, sans appel, mais journalisé
+      // comme la même panne vue pendant `fetch` (`ENOTFOUND` ci-dessous rend aussi `reseau`).
+      if (!resolution.ok) return { nature: resolution.introuvable ? 'reseau' : 'adresse_refusee', dureeMs: dureeDepuis(debut) };
 
       let res: Response;
       try {
