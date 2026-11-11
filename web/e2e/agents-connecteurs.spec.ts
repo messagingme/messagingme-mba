@@ -78,7 +78,8 @@ async function mock(page: import('@playwright/test').Page, capture: { posts: Arr
       if (url.includes('/agent-sources')) {
         // La source créée entre dans la liste : c'est ce qui permet de vérifier qu'à la relecture, le champ
         // du secret est VIDE. Le serveur ne le renvoie jamais.
-        (over.sources as unknown[] | undefined)?.push(SOURCE);
+        // À la CRÉATION seulement : une modification (PATCH) ferait sinon paraître le système deux fois.
+        if (req.method() === 'POST') (over.sources as unknown[] | undefined)?.push(SOURCE);
         return route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ source: SOURCE }) });
       }
       if (url.includes('/tools/connecteur')) {
@@ -211,6 +212,47 @@ test.describe('Agent : brancher le système du client', () => {
     await expect(page.getByTestId(`source-epreuve-a-quoi-${SRC}`)).toContainText('avec votre authentification');
     await page.getByTestId(`source-eprouver-${SRC}`).click();
     await expect(page.getByTestId(`source-epreuve-${SRC}`)).toContainText(/authentification/i);
+  });
+
+  test('🔴 l’adresse et l’en-tête d’un système branché se MODIFIENT, et seul ce qui change part', async ({ page }) => {
+    /**
+     * Julien, 2026-11-11 : un système branché sur une adresse provisoire (`xxxx`) ne se corrigeait qu'en le
+     * supprimant, ce que ses appels et ses scénarios interdisent. La route acceptait la modification depuis le
+     * lot L2 ; l'écran ne l'offrait pas.
+     */
+    const capture = { posts: [] as Array<{ url: string; body: unknown; method?: string }> };
+    const enTete = { ...SOURCE, authKind: 'header', authHeaderName: 'ApiKey' };
+    await mock(page, capture, { sources: [enTete] });
+    await page.goto('/connecteurs');
+    await deplier(page, SRC);
+    await page.getByTestId(`source-modifier-${SRC}`).click();
+    await expect(page.getByTestId(`source-edition-portee-${SRC}`)).toContainText('vos scénarios');
+    // Rien de changé : rien à enregistrer.
+    await expect(page.getByTestId(`source-edition-enregistrer-${SRC}`)).toBeDisabled();
+    await page.getByTestId(`source-edition-url-${SRC}`).fill('https://api.client.fr/v2');
+    await page.getByTestId(`source-edition-entete-${SRC}`).fill('X-Api-Key');
+    await page.getByTestId(`source-edition-enregistrer-${SRC}`).click();
+
+    await expect.poll(() => capture.posts.filter((p) => p.method === 'PATCH').length).toBe(1);
+    const envoi = capture.posts.find((p) => p.method === 'PATCH')!;
+    expect(envoi.url).toContain(`/agent-sources/${SRC}`);
+    // Le nom n'a pas bougé : il ne part pas.
+    expect(envoi.body).toEqual({ baseUrl: 'https://api.client.fr/v2', authHeaderName: 'X-Api-Key' });
+    await expect(page.getByTestId(`source-edition-${SRC}`)).toHaveCount(0);
+    // Le verdict affiché était celui de l'ancienne adresse : il cède la place à ce qui reste à faire.
+    await expect(page.getByTestId(`source-epreuve-${SRC}`)).toContainText('pas encore éprouvé');
+  });
+
+  test('🔴 une adresse refusée par le serveur se lit DANS le formulaire, qui reste ouvert', async ({ page }) => {
+    const capture = { posts: [] as Array<{ url: string; body: unknown; method?: string }> };
+    await mock(page, capture, { refus: { methode: 'PATCH', status: 400, error: 'adresse refusée : elle doit être publique et en HTTPS' } });
+    await page.goto('/connecteurs');
+    await deplier(page, SRC);
+    await page.getByTestId(`source-modifier-${SRC}`).click();
+    await page.getByTestId(`source-edition-url-${SRC}`).fill('http://10.0.0.1');
+    await page.getByTestId(`source-edition-enregistrer-${SRC}`).click();
+    await expect(page.getByTestId(`source-edition-erreur-${SRC}`)).toContainText('publique et en HTTPS');
+    await expect(page.getByTestId(`source-edition-url-${SRC}`)).toHaveValue('http://10.0.0.1');
   });
 
   test('🔴 brancher un appel : on ne saisit QUE les mots, et il naît INACTIF', async ({ page }) => {

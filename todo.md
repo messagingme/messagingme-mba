@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 Modifier un système branché : ce que la relecture laisse (2026-11-11)
+
+- **La dernière épreuve en base survit à un changement d'adresse ou d'en-tête.** L'écran remplace le verdict affiché
+  par « pas encore éprouvé » juste après l'enregistrement, mais au rechargement il relit `last_ok_at` et `last_error`,
+  qui parlent de l'ancienne adresse : un vert qui n'a jamais été mesuré. Piste : `patch` (`src/agent/sources.pg.ts`)
+  remet les deux à null quand `base_url` ou `auth_header_name` change, comme il remet déjà `secret_publie_le`.
+
 ## 🟡 Le champ JSON, lot 1 : ce que la relecture laisse (spec `docs/superpowers/specs/2026-11-11-champ-json-appel-api-design.md`)
 
 - **Trois écritures hors de la garde `avecGardeJson`** : un Flow complété hors scénario (`src/webhooks/flow-mapping.ts`)

@@ -3293,6 +3293,10 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
 - ✅ **Déclarer un système** : un nom, une adresse de base en HTTPS, et son mode d'authentification (jeton,
   en-tête nommé, ou aucune). Le secret est chiffré chez nous et **n'est jamais réaffiché** : un champ laissé
   vide veut dire « inchangé ».
+- ✅ **Modifier un système branché** (2026-11-11) : son nom, son adresse de base et le nom de son en-tête, par
+  « Modifier » dans sa fiche, sans le supprimer (ce que ses appels et ses scénarios interdiraient). Une nouvelle
+  adresse est revérifiée (publique, en HTTPS) et vaut **tout de suite pour chaque appel** de ce système, agents et
+  scénarios compris ; l'écran le dit avant d'enregistrer, et invite à l'éprouver ensuite. Le secret reste le même.
 - ✅ **Éprouver la connexion** : un bouton, un chemin, et le verdict avec sa date. C'est le seul endroit où un
   jeton expiré se voit AVANT qu'un contact ne le découvre : un jeton mort ne produit aucune erreur visible
   côté client, l'agent se contenterait de ne plus savoir répondre.

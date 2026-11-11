@@ -201,6 +201,16 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
                   }));
                 })}
                 onPatch={(patch) => agir(async () => { await patchSource(tenantId, s.id, patch); })}
+                onModifier={async (patch) => {
+                  await patchSource(tenantId, s.id, patch);
+                  // Le verdict affiché, vert ou rouge, était celui de l'ANCIENNE adresse ou de l'ancien en-tête :
+                  // il cède la place à ce qui reste à faire. (La dernière épreuve en base, elle, reste à l'écran
+                  // après un rechargement : la remettre à zéro est l'affaire de la route, `todo.md`.)
+                  if (patch.baseUrl !== undefined || patch.authHeaderName !== undefined) {
+                    setEpreuves((e) => ({ ...e, [s.id]: t('Réglage modifié, pas encore éprouvé : éprouvez-le ci-dessous.', 'Settings changed, not tested yet: test them below.') }));
+                  }
+                  await charger();
+                }}
                 onSupprimer={() => agir(async () => { await supprimerSource(tenantId, s.id); setOuvert(null); })}
               />
 
@@ -217,18 +227,60 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
   );
 }
 
-function Source({ source, busy, epreuve, onEprouver, onPatch, onSupprimer }: {
+interface ModificationSource { label?: string; baseUrl?: string; authHeaderName?: string }
+
+function Source({ source, busy, epreuve, onEprouver, onPatch, onModifier, onSupprimer }: {
   source: SourceAgent;
   busy: boolean;
   epreuve?: string;
   onEprouver: (chemin: string) => void;
   onPatch: (patch: { status?: SourceAgent['status']; authSecret?: string }) => void;
+  /** Lève l'erreur du serveur : le formulaire l'affiche sous ses champs et reste ouvert. */
+  onModifier: (patch: ModificationSource) => Promise<void>;
   onSupprimer: () => void;
 }) {
   const t = useT();
   const { locale } = useLocale();
   const [chemin, setChemin] = useState('/');
   const [secret, setSecret] = useState('');
+  /**
+   * 🔴 LE NOM, L'ADRESSE ET L'EN-TÊTE SE MODIFIENT (Julien, 2026-11-11 : un système branché avec une adresse
+   * provisoire, `xxxx`, ne se corrigeait qu'en le supprimant, ce que ses appels et ses scénarios interdisent).
+   * La route le savait depuis le lot L2 (adresse revérifiée publique et en HTTPS, changement journalisé) ;
+   * seul l'écran manquait. Le formulaire est REPLIÉ derrière « Modifier » : le nom et l'adresse sont déjà
+   * dans la ligne au-dessus, les répéter en permanence repousserait l'épreuve hors de vue.
+   */
+  const [edition, setEdition] = useState<{ label: string; baseUrl: string; entete: string } | null>(null);
+  const [erreurEdition, setErreurEdition] = useState<string | null>(null);
+  const [enregistrement, setEnregistrement] = useState(false);
+  /** Pendant l'enregistrement, rien d'autre ne part : une épreuve lancée là viserait encore l'ancienne adresse. */
+  const occupe = busy || enregistrement;
+
+  /** Seulement ce qui a changé : un champ renvoyé tel quel ne ferait que rejouer la vérification de l'adresse. */
+  const modification: ModificationSource = {};
+  if (edition) {
+    if (edition.label.trim() !== source.label) modification.label = edition.label.trim();
+    if (edition.baseUrl.trim() !== source.baseUrl) modification.baseUrl = edition.baseUrl.trim();
+    if (source.authKind === 'header' && edition.entete.trim() !== (source.authHeaderName ?? '')) {
+      modification.authHeaderName = edition.entete.trim();
+    }
+  }
+  const editionValide = edition !== null && edition.label.trim() !== '' && edition.baseUrl.trim() !== ''
+    && (source.authKind !== 'header' || edition.entete.trim() !== '');
+
+  async function enregistrer() {
+    if (enregistrement) return;
+    setEnregistrement(true);
+    setErreurEdition(null);
+    try {
+      await onModifier(modification);
+      setEdition(null);
+    } catch (err) {
+      setErreurEdition(err instanceof Error ? err.message : t('Modification impossible', 'Update failed'));
+    } finally {
+      setEnregistrement(false);
+    }
+  }
 
   return (
     <div className={`${cardCls} flex flex-col gap-3`} data-testid={`source-${source.id}`}>
@@ -245,10 +297,22 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onSupprimer }: {
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          {/* Activer et désactiver vivent dans la LIGNE, au-dessus : ici ne reste que la suppression. */}
+          {/* Activer et désactiver vivent dans la LIGNE, au-dessus : ici restent la modification et la suppression. */}
+          {edition === null && (
+            <Bouton variante="secondaire" taille="petite"
+              data-testid={`source-modifier-${source.id}`}
+              disabled={occupe}
+              onClick={() => {
+                setErreurEdition(null);
+                setEdition({ label: source.label, baseUrl: source.baseUrl, entete: source.authHeaderName ?? '' });
+              }}
+            >
+              {t('Modifier', 'Edit')}
+            </Bouton>
+          )}
           <button
             data-testid={`source-supprimer-${source.id}`}
-            disabled={busy}
+            disabled={occupe}
             onClick={onSupprimer}
             className="rounded-controle border border-ink-300 px-3 py-1.5 text-sm text-danger hover:bg-danger-50 disabled:opacity-40"
           >
@@ -256,6 +320,52 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onSupprimer }: {
           </button>
         </div>
       </div>
+
+      {edition && (
+        <div className="flex flex-col gap-3 rounded-controle border border-brand-200 px-3 py-3" data-testid={`source-edition-${source.id}`}>
+          <label className="text-xs text-ink-500">
+            {t('Nom (pour vous)', 'Name (for you)')}
+            <input className={`${inputCls} mt-1`} data-testid={`source-edition-label-${source.id}`}
+              value={edition.label} onChange={(e) => setEdition({ ...edition, label: e.target.value })} />
+          </label>
+          <label className="text-xs text-ink-500">
+            {t('Adresse de base (HTTPS, publique)', 'Base address (HTTPS, public)')}
+            <input className={`${inputCls} mt-1`} data-testid={`source-edition-url-${source.id}`}
+              value={edition.baseUrl} onChange={(e) => setEdition({ ...edition, baseUrl: e.target.value })} />
+            {/* 🔴 CE QUE LE GESTE CHANGE, DIT AVANT DE LE FAIRE : l'adresse est relue à chaque appel, donc tout ce
+                qui passe par ce système part aussitôt ailleurs, appels des agents comme ceux des scénarios. */}
+            <span className="mt-1 block text-xs text-ink-500" data-testid={`source-edition-portee-${source.id}`}>
+              {t(
+                'Une nouvelle adresse vaut tout de suite pour chaque appel de ce système, ceux de vos agents comme ceux de vos scénarios. Éprouvez-la ensuite.',
+                'A new address applies at once to every call of this system, from your agents and your scenarios alike. Test it afterwards.',
+              )}
+            </span>
+          </label>
+          {source.authKind === 'header' && (
+            <label className="text-xs text-ink-500">
+              {t('Nom de l’en-tête', 'Header name')}
+              <input className={`${inputCls} mt-1`} data-testid={`source-edition-entete-${source.id}`}
+                value={edition.entete} onChange={(e) => setEdition({ ...edition, entete: e.target.value })} />
+              <span className="mt-1 block text-xs text-ink-500">
+                {t('Le secret enregistré reste le même : il part désormais sous ce nom.', 'The stored secret stays the same: it is now sent under this name.')}
+              </span>
+            </label>
+          )}
+          {erreurEdition && <MbaNotice kind="error" testid={`source-edition-erreur-${source.id}`}>{erreurEdition}</MbaNotice>}
+          <div className="flex gap-2">
+            <Bouton
+              data-testid={`source-edition-enregistrer-${source.id}`}
+              disabled={occupe || !editionValide || Object.keys(modification).length === 0}
+              onClick={() => { void enregistrer(); }}
+            >
+              {t('Enregistrer', 'Save')}
+            </Bouton>
+            <Bouton variante="secondaire" data-testid={`source-edition-annuler-${source.id}`} disabled={enregistrement} onClick={() => { setEdition(null); setErreurEdition(null); }}>
+              {t('Annuler', 'Cancel')}
+            </Bouton>
+          </div>
+        </div>
+      )}
 
       {/*
         🔴 LES DEUX GESTES NE FONT PAS LA MÊME CHOSE, ET L'ÉCRAN NE LE DISAIT PAS (Julien, 2026-09-24 :
@@ -284,7 +394,7 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onSupprimer }: {
         </label>
         <Bouton variante="secondaire"
           data-testid={`source-eprouver-${source.id}`}
-          disabled={busy}
+          disabled={occupe}
           onClick={() => onEprouver(chemin)}
         >
           {t('Éprouver', 'Test')}
@@ -339,7 +449,7 @@ function Source({ source, busy, epreuve, onEprouver, onPatch, onSupprimer }: {
               />
             </label>
             <Bouton variante="secondaire"
-              disabled={busy || secret.trim() === ''}
+              disabled={occupe || secret.trim() === ''}
               title={secret.trim() === ''
                 ? t('Tapez le nouveau secret pour activer ce bouton.', 'Type the new secret to enable this button.')
                 : undefined}
