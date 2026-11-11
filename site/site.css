@@ -1727,6 +1727,26 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 /* Le second chemin d'une page qui se fait aussi depuis Claude Code (la console) : la taille du premier, en trait. */
 .aide-une .bouton-trait{padding:.85em 1.45em;font-size:1rem}
 .aide-offre{font-size:.95rem;color:var(--muted);margin:-18px 0 30px;max-width:34em}
+/* Le centre d'aide ne met ni image ni icône à côté de son titre : sa tête prend toute la largeur (Julien, 2026-11-11). */
+.aide-une{grid-template-columns:minmax(0,1fr)}
+.aide-une > div,.aide-une .chapeau,.aide-une .aide-offre{max-width:none}
+.aide-une h1{text-wrap:pretty}
+/* Les cinq points du guide du numéro : un point par paragraphe, aéré. */
+.guide-points ol{padding-left:1.3em}
+.guide-points li{margin:0 0 14px;line-height:1.55}
+.guide-points li:last-child{margin-bottom:0}
+/* Le guide du numéro et le dépannage dans le gabarit commun (2026-11-11) : le tunnel reste dans la colonne de l'article
+   au lieu de sortir du cadre, et le dépannage garde ses boutons alignés sur le texte. */
+.aide-article .bt-guide{max-width:none;width:auto;margin:32px 0 0}
+.aide-article > .bt-liens,.aide-article .depannage-filtre .bt-liens{padding:0 0 8px}
+.aide-article > .depannage-titre:first-child{margin-top:0}
+.bande-claire .dev-faq code{color:#0B0E24;background:#E7EAF3}
+/* Leurs boutons à trait sont dessinés pour un fond sombre : sur la bande claire, ils en prennent les couleurs, et un long
+   libellé passe à la ligne au lieu de déborder sur le menu. */
+.aide-article .bouton{white-space:normal;text-align:center}
+.aide-article .bt-demande{background:#E7EAF3}
+.aide-article .bouton-trait:not([aria-pressed="true"]):not(:disabled){border-color:var(--line);background:var(--surface);color:var(--ink)}
+.aide-article .bouton-trait:not([aria-pressed="true"]):not(:disabled):hover{border-color:var(--action-ink);background:var(--action-wash)}
 .aide-grille{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;align-items:start}
 .aide-nav{position:sticky;top:90px;font-size:.92rem}
 .aide-nav h3,.aide-nav-titre{font-size:.8rem;font-weight:600;color:var(--muted);margin:18px 0 6px}
@@ -1802,6 +1822,15 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .aide-carte-etapes ol a:hover{color:var(--action-ink)}
 .aide-carte-guide{display:inline-flex;align-items:center;gap:6px;font-size:.9rem;font-weight:600;color:var(--action-ink);text-decoration:none}
 .aide-aucun{color:var(--muted)}
+/* La barre de l'accueil (2026-11-11) : deux groupes, Claude Code ou Codex puis la console ; chaque section déplie la
+   liste de ses guides quand on la choisit (`site.js`). Elle défile seule si la liste dépasse l'écran. */
+.aide-nav-accueil{max-height:calc(100vh - 110px);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.aide-nav-groupe{font-size:.75rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink);margin:22px 0 4px;padding:14px 10px 0;border-top:1px solid var(--line)}
+.aide-section-lien[aria-expanded="true"]{font-weight:600;color:var(--action-ink)}
+.aide-section-liste{list-style:none;margin:2px 0 8px 12px;padding:0 0 0 8px;border-left:2px solid var(--line);font-size:.86rem}
+.aide-nav .aide-section-liste a{padding:4px 8px;color:var(--muted);line-height:1.35}
+.aide-nav .aide-section-liste a:hover{color:var(--ink)}
+.js .aide-section:not(.ouverte) .aide-section-liste{display:none}
 @media (max-width:860px){.aide-sections{display:none}}
 @media (max-width:640px){.aide-carrousel{grid-auto-columns:88%;gap:14px}}
 @media (prefers-reduced-motion:reduce){.aide-carrousel{scroll-behavior:auto}.aide-carte-etapes summary .ic{transition:none}}

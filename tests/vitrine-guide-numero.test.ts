@@ -54,7 +54,11 @@ describe('le guide du numéro', () => {
     });
 
     it(`🔴 ${langue} : « coexistence » une seule fois dans la page, dans les cinq points, jamais dans le tunnel`, () => {
-      expect(corps(html).match(/coexist/gi) ?? []).toHaveLength(1);
+      // Hors du menu du centre (2026-11-11, le guide prend le gabarit commun) : l'entrée du guide y porte les cinq points
+      // dans ses mots de recherche, un attribut que le visiteur ne lit pas.
+      const lu = corps(html).replace(/<nav class="aide-nav"[\s\S]*?<\/nav>/, '');
+      expect(lu).not.toContain('class="aide-nav"');
+      expect(lu.match(/coexist/gi) ?? []).toHaveLength(1);
       expect(tunnelDe(html)).not.toMatch(/coexist|QR/i);
       expect(n.guide.points.liste).toHaveLength(5);
     });

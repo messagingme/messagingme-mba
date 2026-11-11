@@ -71,7 +71,10 @@ const T = {
     developpeursLien: 'Les pages développeurs',
     developpeursAdresse: '/developpeurs/',
     videos: 'Les guides en vidéo',
-    sections: 'Sections',
+    groupeClaude: 'Claude Code / Codex',
+    groupeConsole: 'Console',
+    parlerClaude: 'Parler aux clients depuis Claude Code',
+    parlerConsole: 'Parler aux clients via la console',
     filmPrecedent: 'Film précédent',
     filmSuivant: 'Film suivant',
     etapes: (n: number) => `Les ${n} étapes`,
@@ -108,7 +111,10 @@ const T = {
     developpeursLien: 'The developer pages',
     developpeursAdresse: '/en/developers/',
     videos: 'Video guides',
-    sections: 'Sections',
+    groupeClaude: 'Claude Code / Codex',
+    groupeConsole: 'Console',
+    parlerClaude: 'Talk to customers from Claude Code',
+    parlerConsole: 'Talk to customers in the console',
     filmPrecedent: 'Previous video',
     filmSuivant: 'Next video',
     etapes: (n: number) => `The ${n} steps`,
@@ -324,21 +330,49 @@ function pageAide(pages: PageAide[], p: PageAide, langue: Langue): { chemin: str
   return { chemin: fichierDe(v.adresse), contenu };
 }
 
-/** La barre latérale de l'accueil : la recherche, qui filtre les cartes, puis les grandes sections de la page. */
-function menuAccueil(langue: Langue): string {
-  const sections: Array<[string, string]> = [
-    ['videos', T[langue].videos],
-    ...RUBRIQUES.map((r): [string, string] => [r, NOMS_RUBRIQUES[r][langue]]),
-    ['claude-code', T[langue].developpeurs],
-  ];
-  return [
-    `    <nav class="aide-nav" aria-label="${T[langue].centre}">`,
+/** Une section de l'accueil : une rubrique, ou les pages « Depuis Claude Code » (`claude-code`). */
+type SectionAccueil = Rubrique | 'claude-code';
+/** Une carte de l'accueil, avec ce que la barre latérale en reprend (l'adresse et le titre déjà échappé). */
+interface CarteAccueil { rang: number; adresse: string; titre: string; ligne: string }
+
+/**
+ * Les sections de l'accueil en deux groupes, Claude Code ou Codex puis la console (Julien, 2026-11-11) : la barre
+ * latérale les sépare, et la page les range dans le même ordre, pour que le défilement suive la barre.
+ */
+const GROUPES_ACCUEIL = (langue: Langue): ReadonlyArray<{ nom: string; sections: ReadonlyArray<{ id: SectionAccueil; nom: string }> }> => [
+  {
+    nom: T[langue].groupeClaude,
+    sections: [{ id: 'demarrer-claude', nom: NOMS_RUBRIQUES['demarrer-claude'][langue] }, { id: 'claude-code', nom: T[langue].parlerClaude }],
+  },
+  {
+    nom: T[langue].groupeConsole,
+    sections: [{ id: 'demarrer-console', nom: NOMS_RUBRIQUES['demarrer-console'][langue] }, { id: 'parler-aux-clients', nom: T[langue].parlerConsole }],
+  },
+];
+
+/**
+ * La barre latérale de l'accueil : la recherche, qui filtre les cartes, puis les sections par groupe. Chaque section
+ * porte la liste de ses guides ; un clic sur la section la fait défiler ET déplie sa liste (`site.js`). Sans script,
+ * toutes les listes restent ouvertes.
+ */
+function menuAccueil(cartes: ReadonlyMap<SectionAccueil, CarteAccueil[]>, langue: Langue): string {
+  const lignes = [
+    `    <nav class="aide-nav aide-nav-accueil" aria-label="${T[langue].centre}">`,
     `      <input class="aide-recherche" type="search" placeholder="${T[langue].recherche}" aria-label="${T[langue].recherche}">`,
-    `      <div class="aide-sections"><p class="aide-nav-titre">${T[langue].sections}</p>`,
-    ...sections.map(([ancre, nom]) => `        <a href="#${ancre}">${nom}</a>`),
-    '      </div>',
-    '    </nav>',
-  ].join('\n');
+    '      <div class="aide-sections">',
+    `        <a class="aide-section-lien" href="#videos">${T[langue].videos}</a>`,
+  ];
+  for (const g of GROUPES_ACCUEIL(langue)) {
+    lignes.push(`        <p class="aide-nav-groupe">${g.nom}</p>`);
+    for (const s of g.sections) {
+      lignes.push(
+        `        <div class="aide-section"><a class="aide-section-lien" href="#${s.id}" aria-controls="menu-${s.id}">${texte(s.nom, langue)}</a>`,
+        `          <ul class="aide-section-liste" id="menu-${s.id}">${(cartes.get(s.id) ?? []).map((c) => `<li><a href="${c.adresse}">${c.titre}</a></li>`).join('')}</ul></div>`,
+      );
+    }
+  }
+  lignes.push('      </div>', '    </nav>');
+  return lignes.join('\n');
 }
 
 /**
@@ -390,8 +424,32 @@ function carteClaude(p: PageClaude, langue: Langue): string {
     p.etapes.map((e, n) => ({ numero: n + 1, titre: enLigne(e.titre[langue], langue) })), langue);
 }
 
+/** Les cartes d'une section de l'accueil, dans leur ordre. */
+function cartesDeLaSection(pages: PageAide[], r: SectionAccueil, langue: Langue): CarteAccueil[] {
+  if (r === 'claude-code') {
+    return PAGES_CLAUDE.filter((p) => p.demarrer === undefined)
+      .map((p, i) => ({ rang: i, adresse: p.adresse[langue], titre: texte(p.titre[langue], langue), ligne: carteClaude(p, langue) }));
+  }
+  const cartes: CarteAccueil[] = pagesDeLaRubrique(pages, r).map((p) => {
+    const v = p[langue];
+    const s = structureFiche(v.corps, langue);
+    const etapes = s.sections.flatMap((x) => (x.type === 'etape' ? [{ numero: x.numero, titre: x.titre }] : []));
+    return { rang: rangDans(p, r), adresse: v.adresse, titre: texte(v.titre, langue), ligne: carte(v.adresse, texte(v.titre, langue), enLigne(s.chapeau, langue), '',
+      motsDeRecherche(`${v.titre} ${s.chapeau} ${etapes.map((e) => e.titre).join(' ')}`),
+      etapes.map((e) => ({ ...e, titre: enLigne(e.titre, langue) })), langue) };
+  });
+  cartes.push(...claudeDeLaRubrique(r).map((p) => ({ rang: p.demarrer!, adresse: p.adresse[langue], titre: texte(p.titre[langue], langue), ligne: carteClaude(p, langue) })));
+  for (const x of extras(langue)) {
+    const place = x.places.find((y) => y.rubrique === r);
+    if (place) cartes.push({ rang: place.rang, adresse: x.adresse, titre: texte(x.titre, langue), ligne: carte(x.adresse, texte(x.titre, langue), texte(x.chapeau, langue), '', motsDeRecherche(x.mots), [], langue) });
+  }
+  return cartes.sort((x, y) => x.rang - y.rang);
+}
+
 function accueilAide(pages: PageAide[], langue: Langue): { chemin: string; contenu: string } {
   const adresse = ACCUEIL_AIDE[langue];
+  const groupes = GROUPES_ACCUEIL(langue);
+  const cartes = new Map(groupes.flatMap((g) => g.sections).map((s) => [s.id, cartesDeLaSection(pages, s.id, langue)] as const));
   const lignes = [
     '<main>',
     '<section class="cadre f-une guide-une aide-une">',
@@ -404,38 +462,20 @@ function accueilAide(pages: PageAide[], langue: Langue): { chemin: string; conte
     '',
     '<section class="f-bloc bande-claire">',
     '  <div class="cadre aide-grille">',
-    menuAccueil(langue),
+    menuAccueil(cartes, langue),
     '    <div class="aide-accueil">',
     carrousel(pages, langue),
   ];
-  for (const r of RUBRIQUES) {
-    lignes.push(`      <section class="aide-rubrique" id="${r}">`, `        <h2>${NOMS_RUBRIQUES[r][langue]}</h2>`, '        <ul class="aide-cartes">');
-    const cartes = pagesDeLaRubrique(pages, r).map((p) => {
-      const v = p[langue];
-      const s = structureFiche(v.corps, langue);
-      const etapes = s.sections.flatMap((x) => (x.type === 'etape' ? [{ numero: x.numero, titre: x.titre }] : []));
-      return { rang: rangDans(p, r), ligne: carte(v.adresse, texte(v.titre, langue), enLigne(s.chapeau, langue), '',
-        motsDeRecherche(`${v.titre} ${s.chapeau} ${etapes.map((e) => e.titre).join(' ')}`),
-        etapes.map((e) => ({ ...e, titre: enLigne(e.titre, langue) })), langue) };
-    });
-    cartes.push(...claudeDeLaRubrique(r).map((p) => ({ rang: p.demarrer!, ligne: carteClaude(p, langue) })));
-    for (const x of extras(langue)) {
-      const place = x.places.find((y) => y.rubrique === r);
-      if (place) cartes.push({ rang: place.rang, ligne: carte(x.adresse, texte(x.titre, langue), texte(x.chapeau, langue), '', motsDeRecherche(x.mots), [], langue) });
-    }
-    lignes.push(...cartes.sort((x, y) => x.rang - y.rang).map((x) => x.ligne), '        </ul>', '      </section>');
+  for (const s of groupes.flatMap((g) => g.sections)) {
+    lignes.push(`      <section class="aide-rubrique" id="${s.id}">`, `        <h2>${texte(s.nom, langue)}</h2>`);
+    // Les pages Claude Code disent l'offre quand leurs outils la demandent (relecture du lot 3 : l'accueil promettait
+    // « tout en Free » alors que les outils de campagne sont fermés en Free ; `tests/vitrine-aide.test.ts` tient les deux).
+    if (s.id === 'claude-code') lignes.push(`        <p>${langue === 'fr' ? insecables(T.fr.developpeursTexte) : T.en.developpeursTexte}</p>`);
+    lignes.push('        <ul class="aide-cartes">', ...cartes.get(s.id)!.map((x) => x.ligne), '        </ul>');
+    if (s.id === 'claude-code') lignes.push(`        <p><a href="${T[langue].developpeursAdresse}">${T[langue].developpeursLien}</a></p>`);
+    lignes.push('      </section>');
   }
   lignes.push(
-    '      <section class="aide-rubrique" id="claude-code">',
-    `        <h2>${T[langue].developpeurs}</h2>`,
-    `        <p>${langue === 'fr' ? insecables(T.fr.developpeursTexte) : T.en.developpeursTexte}</p>`,
-    // Chaque page Claude Code, et l'offre quand ses outils la demandent (relecture du lot 3 : l'accueil promettait
-    // « tout en Free » alors que les outils de campagne sont fermés en Free ; `tests/vitrine-aide.test.ts` tient les deux).
-    '        <ul class="aide-cartes">',
-    ...PAGES_CLAUDE.filter((p) => p.demarrer === undefined).map((p) => carteClaude(p, langue)),
-    '        </ul>',
-    `        <p><a href="${T[langue].developpeursAdresse}">${T[langue].developpeursLien}</a></p>`,
-    '      </section>',
     `      <p class="aide-aucun" hidden>${langue === 'fr' ? insecables(T.fr.aucun) : T.en.aucun}</p>`,
     '    </div>',
     '  </div>',
@@ -587,28 +627,43 @@ function pageClaude(p: PageClaude, langue: Langue): { chemin: string; contenu: s
   return { chemin: fichierDe(p.adresse[langue]), contenu };
 }
 
+/** La tête d'une page du centre qui n'est pas une fiche : le fil d'Ariane, le titre et le chapeau, en pleine largeur. */
+function teteAide(langue: Langue, rubrique: Rubrique, titre: string, chapeau: string): string[] {
+  return [
+    '<section class="cadre f-une guide-une aide-une">',
+    '  <div>',
+    `    <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${rubrique}">${NOMS_RUBRIQUES[rubrique][langue]}</a> › ${texte(titre, langue)}</p>`,
+    `    <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(titre, langue)}</h1>`,
+    `    <p class="chapeau">${texte(chapeau, langue)}</p>`,
+    '  </div>',
+    '</section>',
+    '',
+  ];
+}
+
 /**
  * LE GUIDE DU NUMÉRO (lot 4a) : le menu du centre, les cinq points à vérifier (le seul endroit qui nomme la coexistence),
  * puis le tunnel à partir de « Qui paie vos messages à Meta ? », dont chaque fin mène au pas-à-pas, à la console, et à la
  * phrase à dire à Claude. Sans script, toutes les fins se lisent l'une sous l'autre, comme sur `/demarrer/`.
  */
-function pageGuide(langue: Langue): { chemin: string; contenu: string } {
+function pageGuide(pages: PageAide[], langue: Langue): { chemin: string; contenu: string } {
   const g = TEXTES_TUNNEL[langue].guide;
   const { titre, description } = titreGuide(langue);
   const principale = PLACES_GUIDE[0]!.rubrique;
-  // La mise en page de `/demarrer/` (le tunnel veut toute la largeur) : le fil d'Ariane, le titre, le chapeau et les
-  // cinq points en tête, puis le tunnel, sans le menu du centre, qui l'écraserait dans une colonne.
+  // Le gabarit de toutes les pages du centre (Julien, 2026-11-11 : toutes les pages d'aide ont la même forme) : la tête,
+  // puis la bande claire avec le menu à gauche ; les cinq points, puis le tunnel, dans l'article.
   const main = [
     '<main>',
-    '  <section class="cadre f-une-large demarrer-une" id="numero">',
-    '    <div>',
-    `      <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${principale}">${NOMS_RUBRIQUES[principale][langue]}</a> › ${texte(titre, langue)}</p>`,
-    `      <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(titre, langue)}</h1>`,
-    `      <p class="chapeau">${texte(g.chapeau, langue)}</p>`,
+    ...teteAide(langue, principale, titre, g.chapeau),
+    '<section class="f-bloc bande-claire">',
+    '  <div class="cadre aide-grille">',
+    menu(pages, null, langue, GUIDE_NUMERO[langue]),
+    '    <article class="aide-article" id="numero">',
     `      <div class="guide-points"><p><strong>${texte(g.points.titre, langue)}</strong></p><ol>${g.points.liste.map((x) => `<li>${texte(x, langue)}</li>`).join('')}</ol></div>`,
-    '    </div>',
     ...tunnel(langue, 'generique', 'guide'),
-    '  </section>',
+    '    </article>',
+    '  </div>',
+    '</section>',
     '</main>',
   ].join('\n');
   const ld = {
@@ -630,7 +685,7 @@ function pageGuide(langue: Langue): { chemin: string; contenu: string } {
  * leurs questions-réponses en `FAQPage`. Sans script, tout se lit ; les deux réponses de la première question mènent à
  * leur section par une ancre.
  */
-function pageDepannage(langue: Langue): { chemin: string; contenu: string } {
+function pageDepannage(pages: PageAide[], langue: Langue): { chemin: string; contenu: string } {
   const d = DEPANNAGE;
   const principale = PLACES_DEPANNAGE[0]!.rubrique;
   // La réponse d'un symptôme, telle qu'elle s'affiche ET telle que la balise le dit (`tests/vitrine-seo.test.ts`).
@@ -644,19 +699,15 @@ function pageDepannage(langue: Langue): { chemin: string; contenu: string } {
   ];
   const main = [
     '<main>',
-    '  <section class="cadre f-une-large demarrer-une" id="depannage">',
-    '    <div>',
-    `      <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${principale}">${NOMS_RUBRIQUES[principale][langue]}</a> › ${texte(d.titre[langue], langue)}</p>`,
-    `      <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(d.titre[langue], langue)}</h1>`,
-    `      <p class="chapeau">${texte(d.chapeau[langue], langue)}</p>`,
+    ...teteAide(langue, principale, d.titre[langue], d.chapeau[langue]),
+    '<section class="f-bloc bande-claire">',
+    '  <div class="cadre aide-grille">',
+    menu(pages, null, langue, d.adresse[langue]),
+    '    <article class="aide-article" id="depannage">',
     `      <h2 class="depannage-titre">${texte(d.macro.titre[langue], langue)}</h2>`,
     `      <p class="bt-liens">${d.macro.choix.map((c) => `<a class="bouton bouton-trait" href="${c.href[langue]}">${texte(c.libelle[langue], langue)}</a>`).join('')}</p>`,
-    '    </div>',
-    '  </section>',
-    '',
-    '  <section class="f-bloc cas-faq" id="symptomes" data-depannage>',
-    '    <div class="cadre">',
-    `      <h2 class="f-titre">${texte(d.liste[langue], langue)}</h2>`,
+    '      <div id="symptomes" data-depannage>',
+    `      <h2 class="depannage-titre">${texte(d.liste[langue], langue)}</h2>`,
     // La première question : un filtre, que `site.js` branche ; sans script, chaque bouton mène à la liste entière.
     '      <div class="depannage-filtre" data-filtre hidden>',
     `        <p class="depannage-question"><strong>${texte(d.ou.question[langue], langue)}</strong></p>`,
@@ -666,8 +717,10 @@ function pageDepannage(langue: Langue): { chemin: string; contenu: string } {
     '      <div class="dev-faq">',
     ...d.symptomes.flatMap(symptome),
     '      </div>',
-    '    </div>',
-    '  </section>',
+    '      </div>',
+    '    </article>',
+    '  </div>',
+    '</section>',
     '</main>',
   ].join('\n');
   const ld = {
@@ -763,8 +816,8 @@ export function pagesAide(): Array<{ chemin: string; contenu: string }> {
   const pages = pagesDuCentre();
   return (['fr', 'en'] as const).flatMap((langue) => [
     accueilAide(pages, langue),
-    pageGuide(langue),
-    pageDepannage(langue),
+    pageGuide(pages, langue),
+    pageDepannage(pages, langue),
     ...PAGES_SOURCES.map((s) => pageSource(pages, s, langue)),
     ...pages.map((p) => pageAide(pages, p, langue)),
     ...PAGES_CLAUDE.map((p) => pageClaude(p, langue)),

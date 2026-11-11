@@ -264,6 +264,25 @@
   });
 })();
 
+// Accueil du centre d'aide : la barre latérale. Choisir une section garde son ancre (la page défile jusqu'à elle) et
+// déplie la liste de ses guides en repliant les autres ; une adresse arrivée avec une ancre déplie la sienne.
+(function () {
+  var liens = [].slice.call(document.querySelectorAll('.aide-sections .aide-section-lien'));
+  if (!liens.length) return;
+  var ouvrir = function (ancre) {
+    liens.forEach(function (a) {
+      var section = a.parentNode.classList.contains('aide-section') ? a.parentNode : null;
+      if (!section) return;
+      var ouverte = a.getAttribute('href') === ancre;
+      section.classList.toggle('ouverte', ouverte);
+      a.setAttribute('aria-expanded', String(ouverte));
+    });
+  };
+  liens.forEach(function (a) { a.addEventListener('click', function () { ouvrir(a.getAttribute('href')); }); });
+  window.addEventListener('hashchange', function () { ouvrir(location.hash); });
+  ouvrir(location.hash);
+})();
+
 // Accueil du centre d'aide : le carrousel des films. Les boutons avancent d'un film, s'éteignent aux deux bouts ; un
 // seul film joue à la fois, et celui qui sort de l'écran s'arrête.
 (function () {
