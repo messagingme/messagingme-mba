@@ -53,6 +53,7 @@ import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
 import { formuleEnRetard, formuleEtPrise, optionPrenable, repriseOuverte } from './offres/formule-payee';
 import { connexionParLaLigne, fenetreRefuseeParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
+import { poserLaLigne, type DepsPose } from './credit-whatsapp/pose';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
 import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
@@ -1092,6 +1093,21 @@ async function main(): Promise<void> {
     verrous: verrousCourts,
   };
   /**
+   * Ce que lit la pose d'un numéro sur la ligne du Crédit WhatsApp (`poserLaLigne`, V3) : UN objet pour la pose de /ops et
+   * pour celle de la connexion par la fenêtre du partenaire, qui ne peuvent donc pas diverger. Les magasins passés
+   * entiers (leurs méthodes lisent `this.pool`), les autres méthodes appelées sur leur magasin.
+   */
+  const depsPoseDeLaLigne: DepsPose = {
+    lignes: lignesCreditWhatsapp,
+    grilleEnVigueur: () => reglagesCreditWhatsapp.grilleEnVigueur(),
+    // Les places de l'option (lot 4a) : une pose pour un Pro ou un Business en consomme ; une Entreprise, illimitée, non.
+    option: {
+      entreprise: async (tenant) => (await conditionsCreditWhatsapp.conditions(tenant)).openBar,
+      placesPayees: (tenant) => optionsCreditWhatsapp.placesPayees(tenant),
+      reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
+    },
+  };
+  /**
    * La fenêtre du partenaire (lot E du Crédit WhatsApp, `src/credit-whatsapp/fenetre-partenaire.ts`) : l'offre relue sans
    * cache, l'option, les numéros que ses lignes couvrent et les numéros rattachés à l'espace, déliés compris. La carte et
    * la connexion lisent la MÊME règle. L'inscription non configurée la ferme aussi : la configuration de la connexion ne
@@ -1114,6 +1130,12 @@ async function main(): Promise<void> {
     // L'issue chez Telegram remonte : une alerte perdue se journalise (relecture du lot E, jaune 3 ; essai 236), une alerte
     // incertaine garde sa retenue (relecture du lot E7, jaune 7).
     alerter: (texte) => envoyerTelegram(`[mba-${NOM_API}] ${texte}`),
+    // V3 : la ligne posée à la connexion, par la MÊME pose que /ops (ses contrôles, ses places), jamais forcée ; 'false'
+    // coupe (levier d'urgence, `CREDIT_WA_POSE_AUTOMATIQUE`).
+    poseAutomatique: config.CREDIT_WA_POSE_AUTOMATIQUE !== 'false',
+    poserLaLigne: (tenant, phoneNumberId) => poserLaLigne(depsPoseDeLaLigne, tenant, phoneNumberId, {
+      forcer: false, note: 'Posée à la connexion par la fenêtre du partenaire (pose automatique)',
+    }),
   };
   /** L'onglet Crédit WhatsApp de la console et ses outils côté Claude : les MÊMES objets. */
   const creditWhatsappDeLaConsole: CreditWhatsappRouteDeps = {
@@ -3278,12 +3300,8 @@ async function main(): Promise<void> {
       // socle, ceux que lit la garde (une pose s'y voit en moins de 5 s, le cache de la ligne).
       creditWhatsapp: {
         reglages: reglagesCreditWhatsapp, lignes: lignesCreditWhatsapp, audit: auditSink, credit: creditWhatsapp,
-        // Les places de l'option (lot 4a) : une pose pour un Pro ou un Business en consomme ; une Entreprise, illimitée, non.
-        option: {
-          entreprise: async (tenant) => (await conditionsCreditWhatsapp.conditions(tenant)).openBar,
-          placesPayees: (tenant) => optionsCreditWhatsapp.placesPayees(tenant),
-          reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
-        },
+        // Les places de l'option, les MÊMES que la pose à la connexion (V3) : un seul objet pour les deux poses.
+        option: depsPoseDeLaLigne.option,
         // « Ne pas poser » nomme l'espace dont la ligne bloque encore le compte (relecture du lot V5, jaune 2).
         nomDeLEspace: (tenant) => opsStore.getTenantName(tenant),
       },

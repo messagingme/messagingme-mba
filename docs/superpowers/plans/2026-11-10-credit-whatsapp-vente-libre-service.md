@@ -68,8 +68,11 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
 
 ### V3. La pose automatique (après D0)
 
-- [ ] Bloquée tant que l'attache automatique n'est pas prouvée. Ensuite : `connexionParLaLigne` pose la ligne (origine
-  `option` avec ses places, `ops` pour une Entreprise) au lieu de marquer l'attente, qui reste en repli.
+- [x] FAITE le 2026-11-11 sans attendre la preuve : Julien tient l'attache du partenaire pour automatique (« ça va être
+  fait automatiquement »). `connexionParLaLigne` pose la ligne par `poserLaLigne` (`src/credit-whatsapp/pose.ts`, extraite
+  de la route de `/ops` : origine `option` avec ses places, `ops` pour une Entreprise, jamais forcée) au lieu de marquer
+  l'attente, qui reste en repli (pose refusée ou en panne, la cause dite dans l'alerte) ; `CREDIT_WA_POSE_AUTOMATIQUE=false`
+  l'éteint sans déployer.
 
 ### V4. Avant le prix
 
@@ -146,6 +149,9 @@ V10 : rien à déployer (des JSDoc et des tests) ; il ne pousse qu'après la CI 
 V11 : l'API, sans migration (l'e-mail part du webhook de Stripe, le texte d'alerte de la fenêtre du partenaire) ; ses
 JSDoc avec elle.
 
+V3 : l'API seule, sans migration (une variable allumée par défaut, que personne ne pose) ; elle emporte V12 et V13,
+poussés le 2026-11-11 sans être déployés.
+
 ## Méthode de livraison
 
 **Implémenteur par lot, puis une relecture indépendante du diff**, parce que la prise de l'option et l'état des cartes
@@ -155,7 +161,7 @@ ce que le serveur refuse. TDD.
 
 **Essai réel** : à l'ouverture de la vente, sur un espace Pro de TEST dans ses 14 jours, l'option se prend depuis la
 carte, se paie, la fenêtre du partenaire s'ouvre et connecte un numéro ; la carte lit `a_prendre`, puis `en_attente`,
-puis `active` à la pose.
+puis `active` à la pose (dès la connexion depuis V3).
 
 ## La relecture du lot V1 (2026-11-10)
 

@@ -102,4 +102,20 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     expect(connexion).toMatch(/configId: config\.META_ES_CONFIG_ID,/);
     expect(connexion).toMatch(/appId: config\.META_APP_ID,/);
   });
+
+  it('🔴 V3 : la pose de la connexion est CELLE de /ops (un seul objet de dépendances), jamais forcée, et son levier d’urgence la coupe', () => {
+    const fenetre = bloc('const fenetreDuPartenaire: DepsFenetrePartenaire = {', '};');
+    // Jamais forcée : une pose forcée passerait outre les places, et un Pro sans place payée aurait sa ligne.
+    expect(fenetre).toMatch(/poserLaLigne: \(tenant, phoneNumberId\) => poserLaLigne\(depsPoseDeLaLigne, tenant, phoneNumberId, \{\s*forcer: false,/);
+    // Le levier d'urgence : seule la valeur 'false' la coupe.
+    expect(fenetre).toMatch(/poseAutomatique: config\.CREDIT_WA_POSE_AUTOMATIQUE !== 'false',/);
+    // Les deux poses lisent le MÊME objet : magasins entiers, places et campagnes sur leur magasin.
+    const deps = bloc('const depsPoseDeLaLigne: DepsPose = {', '  };');
+    expect(deps).toMatch(/lignes: lignesCreditWhatsapp,/);
+    expect(deps).toMatch(/grilleEnVigueur: \(\) => reglagesCreditWhatsapp\.grilleEnVigueur\(\),/);
+    expect(deps).toMatch(/entreprise: async \(tenant\) => \(await conditionsCreditWhatsapp\.conditions\(tenant\)\)\.openBar,/);
+    expect(deps).toMatch(/placesPayees: \(tenant\) => optionsCreditWhatsapp\.placesPayees\(tenant\),/);
+    expect(deps).toMatch(/reprendreCampagnes: \(tenant\) => numeroDelieStore\.leverPausesLigneCredit\(tenant\),/);
+    expect(sansCommentaires).toMatch(/lignes: lignesCreditWhatsapp, audit: auditSink, credit: creditWhatsapp,\s*option: depsPoseDeLaLigne\.option,/);
+  });
 });

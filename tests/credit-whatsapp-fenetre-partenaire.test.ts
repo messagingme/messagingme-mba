@@ -3,6 +3,7 @@ import {
   connexionParLaLigne, droitALaLigne, fenetreRefuseeParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire,
 } from '../src/credit-whatsapp/fenetre-partenaire';
 import type { Offre } from '../src/offres/offres';
+import type { IssuePose } from '../src/credit-whatsapp/pose';
 import type { IssueTelegram } from '../src/ops/telegram';
 import { capturerJournal } from './journal';
 import { verrousEnMemoire } from './verrous';
@@ -39,10 +40,16 @@ function deps(o: {
   /** Les noms des espaces (`getTenantName`) ; inconnu par défaut. */
   noms?: Record<string, string>;
   maintenant?: () => number;
+  /**
+   * La pose automatique à la connexion (V3) : éteinte par défaut, pour que les cas d'avant se lisent tels quels ; son
+   * issue (posée par défaut), ou une fonction qui lève.
+   */
+  pose?: { auto?: boolean; issue?: IssuePose | (() => Promise<IssuePose>) };
 } = {}) {
   const alertes: string[] = [];
   const marques: string[] = [];
   const couvertures: string[] = [];
+  const poses: string[] = [];
   const reponses = Array.isArray(o.alerte) ? [...o.alerte] : null;
   const d: DepsFenetrePartenaire = {
     solutionId: o.solutionId ?? SOLUTION,
@@ -73,8 +80,14 @@ function deps(o: {
       alertes.push(texte);
       return reponses !== null ? (reponses.shift() ?? 'recue') : ((o.alerte as IssueTelegram | undefined) ?? 'recue');
     },
+    poseAutomatique: o.pose?.auto ?? false,
+    poserLaLigne: async (_tenant, phoneNumberId) => {
+      poses.push(phoneNumberId);
+      const issue = o.pose?.issue;
+      return typeof issue === 'function' ? issue() : (issue ?? { ok: true, origine: 'option' });
+    },
   };
-  return { d, alertes, marques, couvertures };
+  return { d, alertes, marques, couvertures, poses };
 }
 
 describe('le droit à la ligne', () => {
@@ -225,6 +238,49 @@ describe('la connexion faite par la ligne', () => {
       expect(avant.alertes[0], nom).not.toMatch(/n’est pas dans la liste/i);
       expect(avant.alertes[0], nom).toMatch(/cette connexion ne l’a pas mis dans la liste de \/ops/i);
     }
+  });
+
+  it('🔴 V3 : la pose automatique allumée, un numéro à poser a sa ligne POSÉE à la connexion, sans marque ; l’alerte le dit, et dit quoi faire si le partenaire n’a pas attaché (décision de Julien du 2026-11-11)', async () => {
+    for (const [nom, o, origine] of [
+      ['Pro avec une place', { offre: 'pro', places: 1 }, 'option'],
+      ['Entreprise', { offre: 'entreprise', places: null }, 'ops'],
+    ] as const) {
+      const { d, alertes, marques, poses } = deps({ ...o, rattaches: ['pn-1'], pose: { auto: true, issue: { ok: true, origine } } });
+      await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO, coexistence: false });
+      expect(poses, nom).toEqual(['pn-1']);
+      expect(marques, nom).toEqual([]);
+      expect(alertes, nom).toHaveLength(1);
+      expect(alertes[0], nom).toContain(`Numéro connecté par la fenêtre du partenaire : espace ${T}, ${NUMERO} (compte waba-1). Sa ligne est POSÉE automatiquement`);
+      expect(alertes[0], nom).toMatch(/si le partenaire n’a pas attaché sa ligne à ce compte, Meta refusera ses envois : retirer la nôtre dans \/ops/);
+      expect(alertes[0], nom).not.toContain('« Ne pas poser »');
+    }
+  });
+
+  it('🔴 V3 : une pose refusée (places manquantes, grille absente) ou en panne retombe sur l’attente d’avant, la raison dite ; jamais en coexistence, ni sur un compte déjà couvert ; éteinte, rien ne change', async () => {
+    const refus: IssuePose = { ok: false, statut: 409, error: 'il faut 1 place payée pour couvrir ce compte, l’espace en a 0', code: 'places_manquantes' };
+    const refusee = deps({ offre: 'pro', places: 1, rattaches: ['pn-1'], pose: { auto: true, issue: refus } });
+    await connexionParLaLigne(refusee.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO, coexistence: false });
+    expect(refusee.poses).toEqual(['pn-1']);
+    expect(refusee.marques).toEqual(['pn-1']);
+    expect(refusee.alertes[0]).toContain('La pose automatique a été refusée : il faut 1 place payée pour couvrir ce compte, l’espace en a 0.');
+    expect(refusee.alertes[0]).toContain('D’ici là, le numéro attend dans la liste de /ops.');
+    // Une pose qui lève : la même attente, et le journal.
+    const enPanne = deps({ offre: 'entreprise', places: null, rattaches: ['pn-1'], pose: { auto: true, issue: async () => { throw new Error('base indisponible'); } } });
+    const { lignes } = await capturerJournal(() => connexionParLaLigne(enPanne.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null, coexistence: false }));
+    expect(enPanne.marques).toEqual(['pn-1']);
+    expect(enPanne.alertes[0]).toContain('La pose automatique a échoué (voir les journaux de l’API).');
+    expect(lignes).toEqual(expect.arrayContaining([expect.objectContaining({ lvl: 'error', msg: 'pose_a_la_connexion_impossible', tenantId: T, phoneNumberId: 'pn-1', err: 'base indisponible' })]));
+    // Jamais en coexistence (la pose le refuse), ni sur un compte déjà sur une ligne de l'espace : rien n'est tenté.
+    const coexistence = deps({ offre: 'entreprise', places: null, rattaches: [{ phoneNumberId: 'pn-1', coexistence: true }], pose: { auto: true } });
+    await connexionParLaLigne(coexistence.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null, coexistence: true });
+    const couvert = deps({ offre: 'entreprise', places: null, rattaches: ['pn-1'], couvrante: { tenantId: T, phoneNumberId: '106540352242999' }, pose: { auto: true } });
+    await connexionParLaLigne(couvert.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null, coexistence: false });
+    expect([coexistence.poses, couvert.poses]).toEqual([[], []]);
+    // L'interrupteur d'urgence éteint : la marque et l'alerte d'avant, aucune pose tentée.
+    const eteinte = deps({ offre: 'pro', places: 1, rattaches: ['pn-1'], pose: { auto: false } });
+    await connexionParLaLigne(eteinte.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: null, coexistence: false });
+    expect([eteinte.poses, eteinte.marques]).toEqual([[], ['pn-1']]);
+    expect(eteinte.alertes[0]).not.toContain('POSÉE');
   });
 
   it('🔴 un compte encore sur la ligne d’un AUTRE espace, NOMMÉ avec le numéro de sa ligne : vérifier l’attache d’abord, puis retirer et poser dans le même geste ; le numéro attend sa ligne (relecture du lot E6, jaune 4)', async () => {

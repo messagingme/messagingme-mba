@@ -7,6 +7,7 @@ import type { ChargementGrille, ResumeGrille } from '../credit-whatsapp/reglages
 import { prixClient, type GrilleMeta } from '../credit-whatsapp/grille';
 import { MARCHES_META } from '../credit-whatsapp/marches-meta';
 import type { LigneCredit, NumeroDeLEspace, NumeroEnAttente, NumeroPourLaLigne } from '../credit-whatsapp/lignes.pg';
+import { placesApresPose, poserLaLigne, type DepsPose } from '../credit-whatsapp/pose';
 import type { ProvisionVue } from '../credit-whatsapp/credit';
 import { makeTraceOps, type AuditSink } from '../audit/journal';
 import { estUuid } from './scope';
@@ -139,21 +140,9 @@ const CORPS_ABANDON = z.object({
   note: z.string(),
 }).strict();
 
-/**
- * Les places qu'une pose sur ce numéro demanderait : les numéros déjà couverts par l'option, plus ceux que la nouvelle ligne
- * couvrirait (le numéro et les autres de son compte WhatsApp, déliés exclus). Une ligne couvre tout son compte.
- */
-export function placesApresPose(
-  couverts: readonly string[], numeros: readonly NumeroDeLEspace[], numero: { phoneNumberId: string; wabaId: string | null },
-): number {
-  const apres = new Set(couverts);
-  for (const n of numeros) {
-    if (n.delie) continue;
-    if (n.phoneNumberId === numero.phoneNumberId || (numero.wabaId !== null && n.wabaId === numero.wabaId)) apres.add(n.phoneNumberId);
-  }
-  apres.add(numero.phoneNumberId);
-  return apres.size;
-}
+// Les places qu'une pose demanderait vivent avec la pose (`src/credit-whatsapp/pose.ts`, V3) : réexportées ici pour les
+// lecteurs d'avant.
+export { placesApresPose };
 
 /** Une date du calendrier, vraie : '2026-02-30' a la bonne forme et n'existe pas. */
 function dateValide(jour: string): boolean {
@@ -164,6 +153,8 @@ function dateValide(jour: string): boolean {
 export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditWhatsappDeps, garde: PreHandler): void {
   const opts = { preHandler: garde };
   const tracer = makeTraceOps(deps.audit);
+  // Ce que la pose lit : les magasins passés entiers (leurs méthodes lisent `this`), la grille appelée sur son magasin.
+  const depsPose: DepsPose = { lignes: deps.lignes, grilleEnVigueur: () => deps.reglages.grilleEnVigueur(), option: deps.option };
   /**
    * Ce que la fenêtre de l'offre montre d'un espace : ses numéros (couverts ou non par la ligne, et pourquoi l'un ne peut
    * pas l'être), ses lignes, son solde, ce qu'il a consommé ce mois en illimité, ses dernières provisions.
@@ -332,50 +323,12 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
     const par = auteurOps(req);
     let origine: 'ops' | 'option' = 'ops';
     if (poser) {
-      const numero = await deps.lignes.numeroDeLEspace(tenantId, phoneNumberId);
-      if (numero === null) return reply.code(404).send({ error: 'numéro inconnu dans cet espace' });
-      if (numero.fournisseur !== 'meta') return reply.code(409).send({ error: 'un numéro 360dialog ne passe pas sur la ligne : ses messages sont facturés chez 360dialog' });
-      if (numero.coexistence) return reply.code(409).send({ error: 'un numéro en coexistence ne passe pas sur la ligne : l’application WhatsApp Business envoie sans passer par nous' });
-      if (numero.delie) return reply.code(409).send({ error: 'numéro délié : il n’envoie plus rien, rien à mettre sur la ligne' });
-      if ((await deps.reglages.grilleEnVigueur()) === null) {
-        return reply.code(409).send({ error: 'aucune grille de Meta en vigueur : chargez-la avant de poser un numéro sur la ligne' });
-      }
-      // 🔴 Une ligne par compte WhatsApp (Meta attache la ligne au compte) : un numéro que la ligne d'un autre espace
-      // couvre, ou qu'un autre numéro de son compte couvre déjà, ne pose pas une seconde ligne (relecture du lot D).
-      const couvrante = await deps.lignes.ligneDuNumero(phoneNumberId);
-      if (couvrante !== null && couvrante.tenantId !== tenantId) {
-        return reply.code(409).send({ error: 'le compte WhatsApp de ce numéro est sur la ligne d’un autre espace : retirez-la d’abord' });
-      }
-      if (couvrante !== null && couvrante.phoneNumberId !== phoneNumberId) {
-        return reply.code(409).send({ error: 'déjà couvert : un autre numéro de son compte WhatsApp est sur la ligne, qui couvre tout le compte' });
-      }
-      // Les places (décision de Julien du 2026-11-03) : hors Entreprise, la pose consomme des places payées, le compte entier
-      // devant y tenir ; un essai se FORCE, signé, et sa ligne `'ops'` reste hors des places. Une Entreprise n'en compte pas.
-      if (!forcer && !(await deps.option.entreprise(tenantId))) {
-        const [places, couverts, numeros] = await Promise.all([
-          deps.option.placesPayees(tenantId), deps.lignes.numerosCouvertsParOption(tenantId), deps.lignes.numerosDeLEspace(tenantId),
-        ]);
-        const requises = placesApresPose(couverts, numeros, { phoneNumberId, wabaId: numero.wabaId });
-        if (requises > places) {
-          return reply.code(409).send({
-            error: `il faut ${requises} place${requises > 1 ? 's' : ''} payée${requises > 1 ? 's' : ''} pour couvrir ce compte, l’espace en a ${places} : prendre l’option, ou forcer la pose pour un essai`,
-            code: 'places_manquantes',
-          });
-        }
-        origine = 'option';
-      }
+      // Les contrôles et la pose vivent dans `poserLaLigne` (V3), que la connexion par la fenêtre du partenaire partage :
+      // les mêmes refus, les mêmes places (un essai se FORCE, signé, et sa ligne `'ops'` reste hors des places).
       const signee = noteSignee(par, forcer ? `${note} (pose forcée, sans place)` : note);
-      if (!(await deps.lignes.poser(tenantId, phoneNumberId, numero.wabaId, origine, signee))) {
-        return reply.code(409).send({ error: 'numéro déjà sur la ligne' });
-      }
-      // La ligne posée : les campagnes de l'espace en pause faute de ligne active repartent (relecture du lot 4a, jaune 6).
-      // Non bloquant : la pose est faite, une panne ici ne doit pas la faire passer pour un échec (une seconde pose rendrait
-      // « déjà sur la ligne ») ; les pauses se lèveront au prochain geste qui les lève.
-      try {
-        await deps.option.reprendreCampagnes(tenantId);
-      } catch (err) {
-        journaliser('error', 'ops_ligne_credit_reprise_impossible', { tenantId, phoneNumberId, err: err instanceof Error ? err.message : String(err) });
-      }
+      const pose = await poserLaLigne(depsPose, tenantId, phoneNumberId, { forcer, note: signee });
+      if (!pose.ok) return reply.code(pose.statut).send(pose.code ? { error: pose.error, code: pose.code } : { error: pose.error });
+      origine = pose.origine;
     } else if (!(await deps.lignes.retirer(tenantId, phoneNumberId))) {
       return reply.code(404).send({ error: 'numéro pas sur la ligne de cet espace' });
     }

@@ -4761,11 +4761,17 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   directe à sa place. `POST /embedded-signup/complete` reçoit `parLaLigne` (la trace d'audit `numero.connecte` le garde),
   relit le droit (sans la condition « aucun numéro », et sans compter parmi les couverts le numéro qui vient d'arriver)
   et la ligne qui couvre déjà le compte, toute origine et tout espace (`ligneDuNumero`, la lecture de la pose de `/ops`),
-  puis alerte Julien (`connexionParLaLigne`). 🔴 **La ligne du partenaire ne s'attache pas d'elle-même** (mesuré à
-  l'essai réel 236) **et la nôtre se pose APRÈS son attache** (décision de Julien du 2026-11-09) : posée avant, la carte
-  dirait « payés par votre Crédit WhatsApp » pendant que Meta refuse les envois, et un compte qui a déjà sa carte chez
-  Meta paierait deux fois. L'alerte dit donc de demander l'attache au partenaire, puis de poser la ligne quand il la
-  confirme ; un compte déjà sur une ligne ACTIVE de l'espace (citée par son numéro), vérifier l'attache : là, « Ne pas
+  puis alerte Julien (`connexionParLaLigne`). 🔴 **Depuis V3, la nôtre se pose À LA CONNEXION** (décision de Julien du
+  2026-11-11) : l'attache de la ligne du partenaire est tenue pour automatique (elle ne se faisait pas d'elle-même à
+  l'essai réel 236, le partenaire l'automatise chez lui). Dans le cas « à poser » (un droit, aucun compte déjà couvert,
+  hors coexistence), `poserLaLigne` (`src/credit-whatsapp/pose.ts`, la fonction de la route de `/ops` : mêmes contrôles,
+  mêmes places, mêmes refus, jamais forcée) pose la ligne ; le numéro n'est pas marqué (il n'attend rien) et l'alerte dit
+  la pose, avec le geste si l'attache manque : Meta refuse alors les envois du compte, retirer la nôtre dans `/ops`.
+  `CREDIT_WA_POSE_AUTOMATIQUE=false` (défaut `true`, sans déployer) est le levier d'urgence : il rend la pose APRÈS
+  l'attache du 2026-11-09 (posée avant une attache qui ne vient pas, la carte dirait « payés par votre Crédit WhatsApp »
+  pendant que Meta refuse les envois, et un compte qui garde sa carte chez Meta paierait deux fois). Une pose refusée, ou
+  en panne (`pose_a_la_connexion_impossible`), y retombe aussi, et l'alerte en ajoute la cause. Sur ce chemin, l'alerte
+  dit de demander l'attache au partenaire, puis de poser la ligne quand il la confirme ; un compte déjà sur une ligne ACTIVE de l'espace (citée par son numéro), vérifier l'attache : là, « Ne pas
   poser » lève l'attente ; absente, retirer la nôtre jusqu'à elle, puis la reposer ; sur une ligne ARRÊTÉE de l'espace
   (citée par son numéro ; la garde refuse ses envois), comme sur celle d'un AUTRE espace, nommé avec le numéro de sa
   ligne (`getTenantName`), vérifier l'attache d'abord, puis retirer et poser dans le même geste ; un numéro en

@@ -656,6 +656,12 @@ export const schema = z.object({
    */
   STRIPE_PRIX_OPTION_WA: z.string().default(''),
   /**
+   * V3 du Crédit WhatsApp (décision de Julien du 2026-11-11) : la ligne d'un numéro connecté par la fenêtre du partenaire
+   * se POSE à la connexion, l'attache du partenaire tenue pour automatique. 🔴 Levier d'urgence : 'false' la coupe sans
+   * déployer (le numéro attend alors dans la liste de /ops, et sa ligne se pose à la main, comme avant). Allumée par défaut.
+   */
+  CREDIT_WA_POSE_AUTOMATIQUE: z.string().default('true'),
+  /**
    * Les prix du Pro (lot 6, livraison B1) : 49 € HT par mois et 490 € HT par an, taxe en sus, relus chez Stripe avant
    * chaque paiement (`PRIX_PRO_HT_CENTIMES`, `src/offres/offres.ts`). Posés ensemble ou pas du tout (garde plus bas) ; vides :
    * le Pro n'est pas en vente, la route rend 503 et la page de l'offre renvoie au Support.

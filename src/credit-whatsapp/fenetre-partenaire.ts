@@ -2,6 +2,7 @@ import type { Offre } from '../offres/offres';
 import type { Prise, VerrousCourts } from '../db/verrous-courts';
 import type { IssueTelegram } from '../ops/telegram';
 import { journaliser } from '../lib/journal';
+import type { IssuePose } from './pose';
 
 /**
  * LA FENÊTRE DU PARTENAIRE (lot E du Crédit WhatsApp, plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`) : la
@@ -67,6 +68,14 @@ export interface DepsFenetrePartenaire {
    * alerte incertaine (délai dépassé, coupure en cours) a pu partir, et garde sa retenue (relecture du lot E7, jaune 7).
    */
   alerter(texte: string): Promise<IssueTelegram>;
+  /**
+   * V3, la pose automatique à la connexion (décision de Julien du 2026-11-11 : l'attache de la ligne du partenaire est
+   * automatique). Interrupteur d'urgence (`CREDIT_WA_POSE_AUTOMATIQUE`) : faux, le numéro attend dans la liste de /ops
+   * et sa ligne se pose à la main, comme avant.
+   */
+  poseAutomatique: boolean;
+  /** La pose de /ops (`poserLaLigne`, `src/credit-whatsapp/pose.ts`) : ses contrôles et ses places, jamais forcée. */
+  poserLaLigne(tenantId: string, phoneNumberId: string): Promise<IssuePose>;
 }
 
 /**
@@ -298,8 +307,11 @@ function texteDeConnexion(cas: CasAlerte, qui: string, couvrante: LigneCouvrante
 }
 
 /**
- * Un numéro vient d'être connecté par la fenêtre du partenaire : Julien est alerté des gestes à faire, dans l'ordre. La
- * ligne du partenaire ne s'attache pas d'elle-même (essai 236) : la lui demander, puis poser la nôtre quand il confirme
+ * Un numéro vient d'être connecté par la fenêtre du partenaire : Julien est alerté des gestes à faire, dans l'ordre.
+ * 🔴 Depuis V3 (décision de Julien du 2026-11-11 : l'attache de la ligne du partenaire est automatique), un numéro à
+ * poser a sa ligne POSÉE tout de suite, par la pose de /ops (`poserLaLigne`) ; l'interrupteur d'urgence `poseAutomatique`
+ * éteint, ou la pose refusée ou en panne, il attend sa ligne comme avant, la raison dite. Avant V3, la ligne du
+ * partenaire ne s'attachait pas d'elle-même (essai 236) : la lui demander, puis poser la nôtre quand il confirmait
  * l'attache. Variable vide (fenêtre fermée chez nous, une page restée ouverte), l'alerte le dit au lieu de se taire.
  *
  * 🔴 Le numéro n'est marqué (« il attend sa ligne ») QUE dans les cas qui attendent (`CAS_QUI_ATTENDENT`) : une ligne à
@@ -319,12 +331,45 @@ export async function connexionParLaLigne(
   // lot V2, jaune 6 ; une connexion antérieure a pu le faire : relecture du lot V11, jaune 5), et son alerte a son texte
   // (`texteEnCoexistence`).
   const cas: CasAlerte = n.coexistence && lu.cas === 'a_poser' ? 'coexistence' : lu.cas;
+  // V3 : un numéro à poser (droit à la ligne, aucun compte déjà couvert, hors coexistence) a sa ligne posée tout de suite,
+  // par la pose de /ops ; refusée ou en panne, il retombe sur l'attente d'avant, la raison dite.
+  let apresPose = '';
+  if (d.poseAutomatique && cas === 'a_poser' && n.phoneNumberId !== null) {
+    const pose = await poserSansLever(d, tenantId, n.phoneNumberId);
+    if (pose !== null && pose.ok) {
+      journaliser('warn', 'ligne_credit_posee_a_la_connexion', { tenantId, phoneNumberId: n.phoneNumberId, origine: pose.origine });
+      await alerterSansPerte(d, tenantId, n.wabaId, cas, textePosee(qui, pose.origine));
+      return;
+    }
+    apresPose = pose === null
+      ? ' La pose automatique a échoué (voir les journaux de l’API).'
+      : ` La pose automatique a été refusée : ${pose.error}.`;
+  }
   const autre = cas === 'autre_espace' && lu.couvrante !== null ? await autreEspace(d, lu.couvrante.tenantId) : '';
   const liste = !n.coexistence && CAS_QUI_ATTENDENT.has(cas) && n.phoneNumberId !== null
     ? await marquerPuisRelire(d, tenantId, n.phoneNumberId)
     : null;
   const texte = n.coexistence ? texteEnCoexistence(cas, qui, lu.couvrante, autre) : texteDeConnexion(cas, qui, lu.couvrante, autre, liste);
-  await alerterSansPerte(d, tenantId, n.wabaId, cas, texte);
+  await alerterSansPerte(d, tenantId, n.wabaId, cas, `${texte}${apresPose}`);
+}
+
+/** La pose de la connexion, qui ne lève jamais : une panne se journalise et rend `null` (l'attente d'avant prend le relais). */
+async function poserSansLever(d: Pick<DepsFenetrePartenaire, 'poserLaLigne'>, tenantId: string, phoneNumberId: string): Promise<IssuePose | null> {
+  try {
+    return await d.poserLaLigne(tenantId, phoneNumberId);
+  } catch (err) {
+    journaliser('error', 'pose_a_la_connexion_impossible', { tenantId, phoneNumberId, err });
+    return null;
+  }
+}
+
+/**
+ * Ce que dit l'alerte d'une ligne posée à la connexion (V3). L'attache du partenaire est TENUE pour automatique (décision
+ * de Julien du 2026-11-11) : si elle manque, Meta refuse les envois du compte, et retirer notre ligne est le geste.
+ */
+function textePosee(qui: string, origine: 'ops' | 'option'): string {
+  const comment = origine === 'option' ? 'une place de l’option' : 'Entreprise, hors places';
+  return `Numéro connecté par la fenêtre du partenaire : ${qui}. Sa ligne est POSÉE automatiquement (${comment}) : ses envois passent sur le Crédit WhatsApp. L’attache du partenaire est tenue pour automatique : si le partenaire n’a pas attaché sa ligne à ce compte, Meta refusera ses envois : retirer la nôtre dans /ops.`;
 }
 
 /**
