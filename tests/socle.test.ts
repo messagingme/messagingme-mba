@@ -209,6 +209,37 @@ describe('le socle commun aux deux processus', () => {
     const bascule = requetes.find((q) => /update conversations/.test(q.sql) && q.params.includes('app_human'));
     expect(bascule?.params, 'la cause du répondeur, pas celle du mode « Équipe »').toContain('automatique : le répondeur automatique ne peut pas répondre');
   });
+
+  it('🔴 le socle BRANCHE l’e-mail du paiement refusé de la formule Pro : l’option vivante choisit la variante, l’autre version se cherche par (espace, modèle, occasion), et une Entreprise n’en reçoit aucun (relecture du lot V11, jaunes 1 et 3)', async () => {
+    const ADMIN = '22222222-2222-4222-8222-222222222222';
+    const OPTION = {
+      stripe_subscription_id: 'sub_opt', tenant_id: TENANT, livemode: false, statut: 'actif', places: 1,
+      periode_fin: new Date('2026-12-01T00:00:00Z'), fin_prevue_le: null, fini_le: null, fin_raison: null,
+    };
+    const cas = [
+      ['Pro avec option', 'pro', true, 'paiement_refuse_pro_option', 'paiement_refuse_pro'],
+      ['Pro sans option', 'pro', false, 'paiement_refuse_pro', 'paiement_refuse_pro_option'],
+      ['Entreprise', 'entreprise', true, null, null],
+    ] as const;
+    for (const [nom, offre, avecOption, attendu, autre] of cas) {
+      const inserees: unknown[][] = [];
+      const recherches: unknown[][] = [];
+      const pool = {
+        query: async (sql: string, params: unknown[] = []) => {
+          if (sql.includes('offre_de_l_espace')) return { rows: [{ offre }] };
+          if (/from options_credit_whatsapp where tenant_id = \$1 and fini_le is null/.test(sql)) return { rows: avecOption ? [OPTION] : [] };
+          if (/select 1 from emails_produit_envois/.test(sql)) { recherches.push(params); return { rows: [], rowCount: 0 }; }
+          if (/from users u/.test(sql)) return { rows: [{ identity_id: ADMIN }] };
+          if (/insert into emails_produit_envois/.test(sql)) { inserees.push(params); return { rows: [] }; }
+          return { rows: [] };
+        },
+      } as unknown as Pool;
+      const socle = construireSocle({ pool, queue: { enqueue: async () => {} }, config: configuration });
+      await socle.paiementRefuse({ tenantId: TENANT, offre: 'pro', factureId: 'in_1' });
+      expect(inserees.map((p) => [p[0], p[1], p[2]]), nom).toEqual(attendu === null ? [] : [[TENANT, attendu, 'facture:in_1']]);
+      expect(recherches, nom).toEqual(autre === null ? [] : [[TENANT, autre, 'facture:in_1']]);
+    }
+  });
 });
 
 /** Les fichiers de `src/`, sans leurs commentaires : une explication qui cite le code ne compte pas. */

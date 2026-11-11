@@ -428,4 +428,14 @@ vraie partout où elle s'affiche. Suite unitaire entière verte chez le relecteu
 
 ### V12. Les jaunes de la relecture de V11
 
-- [ ] Les six (§ « La relecture du lot V11 »), le 3 et le 1 d'abord.
+- [x] Les six (§ « La relecture du lot V11 ») : l'e-mail du Pro ne part qu'à un espace effectivement en Pro
+  (`offreEffective`, `offre_de_l_espace` ; une Entreprise ou un Business n'en reçoivent aucun, une offre illisible le
+  laisse partir) (3) ; un cas du banc de `tests/socle.test.ts` tient le câblage, rouge sous l'option inversée, les
+  arguments d'`occasionReservee` intervertis ou l'offre effective ignorée (1) ; le sceau de la facture et le silence par
+  espace, dans la JSDoc et le manuel (2) ; les `quand` des deux modèles, que lit `/ops` : chacun dit son cas et que l'un
+  se coupe à part de l'autre (4) ; le commentaire de `connexionParLaLigne` (5).
+- [ ] Le 6 (la fiche des e-mails et `features.md` ne citent pas l'e-mail du paiement refusé de l'option elle-même, ni
+  l'exclusion de l'Entreprise et du Business) : reporté au prochain lot qui touche cette fiche, pour ne pas demander un
+  second `aide:charger` à Julien pour une phrase.
+
+V12 : l'API, sans migration (l'e-mail du Pro et son câblage), après V11 ; aucune fiche d'aide.

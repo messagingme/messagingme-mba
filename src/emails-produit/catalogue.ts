@@ -384,7 +384,7 @@ export const CATALOGUE = [
     cle: 'paiement_refuse_pro',
     categorie: 'service',
     nom: 'Paiement refusé : offre Pro',
-    quand: 'Le paiement du renouvellement de l’offre Pro échoue. Une fois par facture.',
+    quand: 'Le paiement du renouvellement de l’offre Pro échoue, dans un espace effectivement en Pro (ni Entreprise ni Business) et sans option Crédit WhatsApp en cours ou en retard : avec elle, c’est « Paiement refusé : offre Pro avec l’option Crédit WhatsApp », qui se coupe à part. Une fois par facture.',
     variables: {
       lien_offre: { description: 'La page Offre de la console', forme: 'lien', exemple: 'https://console.messagingme.app/offre' },
     },
@@ -413,7 +413,7 @@ export const CATALOGUE = [
     cle: 'paiement_refuse_pro_option',
     categorie: 'service',
     nom: 'Paiement refusé : offre Pro avec l’option Crédit WhatsApp',
-    quand: 'Le paiement du renouvellement de l’offre Pro échoue alors que l’espace a une option Crédit WhatsApp en cours ou en retard : elle s’arrêtera avec l’offre. À la place de « Paiement refusé : offre Pro ». Une fois par facture.',
+    quand: 'Le paiement du renouvellement de l’offre Pro échoue, dans un espace effectivement en Pro (ni Entreprise ni Business) qui a une option Crédit WhatsApp en cours ou en retard : elle s’arrêtera avec l’offre. À la place de « Paiement refusé : offre Pro », et se coupe à part de lui. Une fois par facture.',
     variables: {
       lien_offre: { description: 'La page Offre de la console', forme: 'lien', exemple: 'https://console.messagingme.app/offre' },
     },

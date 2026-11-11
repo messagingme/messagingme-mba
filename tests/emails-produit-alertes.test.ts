@@ -160,7 +160,7 @@ describe('le paiement refusé', () => {
     const e = emetteur();
     const p = creerPaiementRefuse({
       emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre',
-      coupureDuNumero: async () => new Date('2026-10-21T10:00:00Z'), optionVivante: async () => false, dejaPrevenu: async () => false,
+      coupureDuNumero: async () => new Date('2026-10-21T10:00:00Z'), optionVivante: async () => false, dejaPrevenu: async () => false, offreEffective: async () => 'pro',
     });
     await p({ tenantId: 't1', offre: 'numero', factureId: 'in_1' });
     await p({ tenantId: 't1', offre: 'pro', factureId: 'in_2' });
@@ -175,7 +175,7 @@ describe('le paiement refusé', () => {
     const e = emetteur();
     const p = creerPaiementRefuse({
       emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre', coupureDuNumero: async () => null,
-      optionVivante: async (t) => t === 't1', dejaPrevenu: async () => false,
+      optionVivante: async (t) => t === 't1', dejaPrevenu: async () => false, offreEffective: async () => 'pro',
     });
     await p({ tenantId: 't1', offre: 'pro', factureId: 'in_2' });
     await p({ tenantId: 't2', offre: 'pro', factureId: 'in_4' });
@@ -187,7 +187,7 @@ describe('le paiement refusé', () => {
     const panne = emetteur();
     const illisible = creerPaiementRefuse({
       emettre: panne.emettre, pageNumero: 'x', pageOffre: 'https://c/offre', coupureDuNumero: async () => null,
-      optionVivante: async () => { throw new Error('base indisponible'); }, dejaPrevenu: async () => false,
+      optionVivante: async () => { throw new Error('base indisponible'); }, dejaPrevenu: async () => false, offreEffective: async () => 'pro',
     });
     const { lignes } = await capturerJournal(() => illisible({ tenantId: 't1', offre: 'pro', factureId: 'in_5' }));
     expect(panne.emissions).toEqual([
@@ -201,7 +201,7 @@ describe('le paiement refusé', () => {
       const reservees = new Set([`t1|${dejaParti}|facture:in_6`]);
       const q = creerPaiementRefuse({
         emettre: deja.emettre, pageNumero: 'x', pageOffre: 'https://c/offre', coupureDuNumero: async () => null,
-        optionVivante: async () => avecOption, dejaPrevenu: async (t, cle, occasion) => reservees.has(`${t}|${cle}|${occasion}`),
+        optionVivante: async () => avecOption, dejaPrevenu: async (t, cle, occasion) => reservees.has(`${t}|${cle}|${occasion}`), offreEffective: async () => 'pro',
       });
       await q({ tenantId: 't1', offre: 'pro', factureId: 'in_6' });
       await q({ tenantId: 't1', offre: 'pro', factureId: 'in_7' });
@@ -222,9 +222,32 @@ describe('le paiement refusé', () => {
     }
   });
 
+  it('🔴 un Pro qui échoue dans un espace Entreprise ou Business (qui priment sur lui) : aucun e-mail, ni « repassera en offre Free » ni l’arrêt de l’option n’y seraient vrais ; une offre illisible, l’e-mail part comme avant (relecture du lot V11, jaune 3)', async () => {
+    for (const offre of ['entreprise', 'business'] as const) {
+      const e = emetteur();
+      const p = creerPaiementRefuse({
+        emettre: e.emettre, pageNumero: 'x', pageOffre: 'https://c/offre', coupureDuNumero: async () => null,
+        optionVivante: async () => true, dejaPrevenu: async () => false, offreEffective: async () => offre,
+      });
+      const { lignes } = await capturerJournal(() => p({ tenantId: 't1', offre: 'pro', factureId: 'in_8' }));
+      expect(e.emissions, offre).toEqual([]);
+      expect(lignes, offre).toEqual([expect.objectContaining({ lvl: 'info', msg: 'paiement_refuse_pro_hors_pro', tenantId: 't1', offre })]);
+    }
+    const e = emetteur();
+    const p = creerPaiementRefuse({
+      emettre: e.emettre, pageNumero: 'x', pageOffre: 'https://c/offre', coupureDuNumero: async () => null,
+      optionVivante: async () => false, dejaPrevenu: async () => false, offreEffective: async () => { throw new Error('base indisponible'); },
+    });
+    const { lignes } = await capturerJournal(() => p({ tenantId: 't1', offre: 'pro', factureId: 'in_9' }));
+    expect(e.emissions).toEqual([
+      { cle: 'paiement_refuse_pro', tenantId: 't1', occasion: 'facture:in_9', a: 'admins', valeurs: { lien_offre: 'https://c/offre' } },
+    ]);
+    expect(lignes).toEqual([expect.objectContaining({ lvl: 'error', msg: 'paiement_refuse_offre_illisible', tenantId: 't1', err: 'base indisponible' })]);
+  });
+
   it('🔴 l’option du Crédit WhatsApp (lot 4a) : son e-mail, avec l’onglet Crédit WhatsApp de la page Offre, une fois par facture', async () => {
     const e = emetteur();
-    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre', coupureDuNumero: async () => null, optionVivante: async () => true, dejaPrevenu: async () => false });
+    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre', coupureDuNumero: async () => null, optionVivante: async () => true, dejaPrevenu: async () => false, offreEffective: async () => 'pro' });
     await p({ tenantId: 't1', offre: 'option_credit_whatsapp', factureId: 'in_3' });
     expect(e.emissions).toEqual([
       { cle: 'paiement_refuse_option_wa', tenantId: 't1', occasion: 'facture:in_3', a: 'admins', valeurs: { lien_credit_whatsapp: 'https://c/offre?tab=whatsapp' } },
@@ -264,7 +287,7 @@ describe('le paiement refusé', () => {
 
   it('🔴 un numéro qui ne sera pas coupé (un numéro apporté envoie) : aucun e-mail, il annoncerait une coupure fausse', async () => {
     const e = emetteur();
-    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'x', pageOffre: 'y', coupureDuNumero: async () => null, optionVivante: async () => false, dejaPrevenu: async () => false });
+    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'x', pageOffre: 'y', coupureDuNumero: async () => null, optionVivante: async () => false, dejaPrevenu: async () => false, offreEffective: async () => 'pro' });
     await p({ tenantId: 't1', offre: 'numero', factureId: 'in_1' });
     expect(e.emissions).toEqual([]);
   });

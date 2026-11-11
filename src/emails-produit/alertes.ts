@@ -138,9 +138,19 @@ export function creerPaiementRefuse(d: {
   /**
    * Ce modèle est-il déjà parti pour cette occasion dans l'espace (`occasionReservee`) ? L'anti-doublon du journal est
    * compté par modèle : sans cette lecture, une option prise ou résiliée entre deux essais de Stripe sur la même facture
-   * ferait partir les deux versions de l'e-mail du Pro.
+   * ferait partir les deux versions de l'e-mail du Pro. Le silence se décide par ESPACE, pas par personne : un admin
+   * arrivé entre deux essais ne reçoit rien. Et la première version partie scelle la facture : une option illisible au
+   * premier essai fait partir l'e-mail d'avant, et la variante, relue vivante aux essais suivants, se tait (relecture du
+   * lot V11, jaune 2 ; le journal `paiement_refuse_option_illisible` en garde la trace).
    */
   dejaPrevenu(tenantId: string, cle: string, occasion: string): Promise<boolean>;
+  /**
+   * L'offre EFFECTIVE de l'espace (`offre_de_l_espace`, 0257) : une Entreprise ou un Business y priment sur un Pro
+   * vivant. L'e-mail du Pro ne part que pour un espace effectivement en Pro (un Pro en retard l'est encore) : ailleurs, ni
+   * « repassera en offre Free » ni l'arrêt de l'option ne seraient vrais (relecture du lot V11, jaune 3). Illisible, l'e-mail
+   * part comme avant, et le journal le dit.
+   */
+  offreEffective(tenantId: string): Promise<Offre>;
 }): (p: PaiementRefuse) => Promise<void> {
   const avecOption = async (tenantId: string): Promise<boolean> => {
     try {
@@ -148,6 +158,14 @@ export function creerPaiementRefuse(d: {
     } catch (err) {
       journaliser('error', 'paiement_refuse_option_illisible', { err, tenantId });
       return false;
+    }
+  };
+  const offreLue = async (tenantId: string): Promise<Offre | null> => {
+    try {
+      return await d.offreEffective(tenantId);
+    } catch (err) {
+      journaliser('error', 'paiement_refuse_offre_illisible', { err, tenantId });
+      return null;
     }
   };
   return async (p) => {
@@ -169,6 +187,11 @@ export function creerPaiementRefuse(d: {
           valeurs: { lien_credit_whatsapp: `${d.pageOffre}?tab=whatsapp` },
         });
       } else {
+        const effective = await offreLue(p.tenantId);
+        if (effective !== null && effective !== 'pro') {
+          journaliser('info', 'paiement_refuse_pro_hors_pro', { tenantId: p.tenantId, facture: p.factureId, offre: effective });
+          return;
+        }
         const occasion = `facture:${p.factureId}`;
         const option = await avecOption(p.tenantId);
         const autre = option ? 'paiement_refuse_pro' : 'paiement_refuse_pro_option';

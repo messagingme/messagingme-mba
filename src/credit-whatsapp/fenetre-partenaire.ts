@@ -315,8 +315,9 @@ export async function connexionParLaLigne(
 ): Promise<void> {
   const qui = `espace ${tenantId}, ${n.numero ?? n.phoneNumberId ?? 'sans numéro'} (compte ${n.wabaId})`;
   const lu = await casDeConnexion(d, tenantId, n.wabaId, n.phoneNumberId);
-  // Un numéro en coexistence garde l'application : la pose le refuse, il n'est jamais marqué (relecture du lot V2, jaune 6),
-  // et son alerte a son texte (`texteEnCoexistence`).
+  // Un numéro en coexistence garde l'application : la pose le refuse, cette connexion ne le marque jamais (relecture du
+  // lot V2, jaune 6 ; une connexion antérieure a pu le faire : relecture du lot V11, jaune 5), et son alerte a son texte
+  // (`texteEnCoexistence`).
   const cas: CasAlerte = n.coexistence && lu.cas === 'a_poser' ? 'coexistence' : lu.cas;
   const autre = cas === 'autre_espace' && lu.couvrante !== null ? await autreEspace(d, lu.couvrante.tenantId) : '';
   const liste = !n.coexistence && CAS_QUI_ATTENDENT.has(cas) && n.phoneNumberId !== null
