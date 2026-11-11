@@ -4,6 +4,28 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : le Crédit WhatsApp se prend dans la console, et la vitrine, Claude et l'aide le disent (lot 3v-2a)
+
+Plan `2026-11-11-aide-connexion-3v2a.md`, implémenté en direct, une relecture indépendante, le jour où la vente de
+l'option est ouverte en production.
+
+- **Ce qui a changé** (`03d2da47`) : le tunnel de la vitrine mène, en Pro, la réponse « Crédit WhatsApp » à l'onglet de la
+  page Offre de la console (dès l'essai de la formule Pro), et son guide ne dit plus « sur demande » ; « Payer Meta »
+  mène à la console au lieu de la page Contact ; la FAQ du plugin et la skill `mise-en-service` disent où l'option se
+  prend, et que Claude ne lance pas la fenêtre de Meta pour un numéro qui la prend (plugin 0.3.36) ; la fiche
+  « Connecter mon numéro WhatsApp » et `features.md` ne disent plus qu'un Pro en essai passe par sa carte chez Meta,
+  faux depuis le 2026-11-10.
+- **Relecture** : aucun rouge, dix jaunes. L'onglet du Crédit WhatsApp encore décrit fermé (`features.md`, la fiche
+  « Recharger le Crédit WhatsApp ») part avec 3v-2c ; le backlog, avec ce commit ; les huit autres attendent 3v-2b (au
+  backlog) : la skill qui envoie aussi une Entreprise ou un Business en essai vers l'onglet, et sa reprise qui
+  relancerait la fenêtre de Meta pour un numéro commencé par la fenêtre du partenaire ; « partenaire » et « sur la
+  carte » dans la fiche ; « dès l'essai » qui ne dit pas que l'option se paie à sa prise ; `grisee.pro` mort ;
+  l'adresse de l'onglet tenue à rien côté console ; le prospect sans espace que le lien mène à la connexion.
+- **Vérifié** : les suites racine et console, le lint, les pages et le plugin régénérés à l'identique, sur la copie puis
+  sur l'arbre fusionné ; vus rouges sur l'ancien lien : la parité de la question du paiement et « Payer Meta ».
+- **Ordre** : poussé sur `7c94206f` (la vitrine par Vercel), sans déploiement d'API ; à Julien, `aide:charger` (la
+  fiche) et la publication du plugin.
+
 ## 2026-11-11 : l'écran des connecteurs, chaque appel chez son système
 
 Remonté par Julien en branchant un système de production à côté de son système d'essai (LUAS) : les appels du

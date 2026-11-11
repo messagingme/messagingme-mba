@@ -115,12 +115,33 @@ au lot suivant ; rien ne bloque.
   fait coller une demande propre à chaque chemin). À mesurer sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3
   d'« Installer le plugin ».
 
+## 🟡 Le lot 3v-2a de l'aide à la connexion : ce qu'il laisse (2026-11-11), pour 3v-2b
+
+- **La skill `mise-en-service` et le Crédit WhatsApp** (jaunes 1 et 2) : son « Otherwise » envoie aussi vers l'onglet
+  une Entreprise (le crédit est compris : « Connecter sans carte chez Meta »), un Business en essai et un Pro en retard
+  (lire la raison que l'onglet donne) ; en Free, redire la question 3. Sa reprise, qui ne repose pas les questions, ne
+  sait rien de l'option : un numéro fourni commencé par la fenêtre du partenaire, repris par Claude, partirait par la
+  fenêtre de Meta, hors de la ligne (`get_setup_state` lit l'état de la ligne sans le rendre). Avec `/brancher`.
+- **La fiche « Connecter mon numéro WhatsApp »** (jaunes 3 et 4) : « par la fenêtre de notre partenaire » devient le
+  bouton « Connecter sans carte chez Meta » ; « sur la carte » devient « sur la carte « Crédit WhatsApp » » (le même
+  paragraphe parle de la carte de paiement) ; dire la suite (la ligne, puis recharger : le solde part de zéro).
+- **« Dès l'essai »** (jaune 5 ; le tunnel, la FAQ du plugin, la fiche) : dire que l'option se paie à sa prise, même
+  pendant l'essai de la formule Pro, et qu'elle s'arrête sans remboursement si l'essai n'est pas payé.
+- **`QUESTION_PAIEMENT.grisee.pro` est mort** (jaune 7) : la console a ses propres littéraux (`QuiRegleMeta.tsx`) ; le
+  retirer avec son commentaire et celui de `site/site.css`, et tester `/sur demande|on request/i` sur « Payer Meta ».
+- **L'adresse de l'onglet n'est tenue à rien côté console** (jaune 8) : une clé d'onglet partagée (`web/lib/partage`),
+  la constante nommée `…_HTML`, et un test qui exige l'adresse dans la skill.
+- **Le prospect du tunnel** (jaune 9) : sans espace, le lien de l'onglet mène à la connexion, et l'inscription crée une
+  Free ; dire « créez votre espace en formule Pro, puis Offre, onglet Crédit WhatsApp » (`inscriptionPro`).
+
 ## 🟡 Le lot 3v-1 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
 
-- **3v-2, le jour du prix** : la vitrine, la skill, les consignes de Claude, la fiche du numéro et la FAQ disent encore
-  « sur demande » ; la branche du crédit, « Votre numéro, ou le nôtre ? » et le lien de Claude (`/brancher`) qui ouvre la
-  fenêtre du partenaire au numéro fourni changent ensemble, avant que Julien pose le prix (plan
-  `2026-11-10-aide-connexion-lot-3v.md`).
+- **3v-2, la suite** (la vente ouverte le 2026-11-11 ; 3v-2a fait, la vitrine, la FAQ, la skill et la fiche disent où
+  l'option se prend) : 3v-2c, « Meta facture directement à votre entreprise » des cas d'usage, des tarifs, de l'accueil,
+  de « Pilotage des coûts » et des développeurs, et l'onglet de la fiche « Recharger le Crédit WhatsApp », qui
+  n'apparaîtrait qu'à un numéro déjà payé ainsi ; 3v-2b, le lien de Claude (`/brancher`) qui ouvre la fenêtre du
+  partenaire, sa consigne et la branche du crédit de la vitrine ; puis la fiche publique « Payer ses messages sans carte
+  chez Meta » et la ligne « Crédit WhatsApp » des cartes Pro et Business de la vitrine, montrées à Julien avant le push.
 
 ## 🟡 Le lot 2c de l'aide à la connexion : ce qu'il laisse (2026-11-09)
 
@@ -519,8 +540,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   bandeau gardé par l'onglet) en production le 2026-11-07 (`67aa1324`) ; le lot C5 (2, 4, 5 et 11,
   décisions de Julien du 2026-11-09) en production le 2026-11-09 (`5427ec44`), ses dix jaunes au plan (§ « La relecture du lot C5 »)
   fermés par le lot C6 sauf le 10 (`f5a6b3cd`, en production le 2026-11-09 avec le lot E), ses huit jaunes au plan
-  (§ « La relecture du lot C6 ») ; reste 10, à l'ouverture de la vente ; l'essai réel 231 à faire ; à l'ouverture de la
-  vente, « il se prend sur demande » de la fiche « Connecter mon numéro WhatsApp » et de la FAQ se reprend ; le lot E (la
+  (§ « La relecture du lot C6 ») ; reste 10, à l'ouverture de la vente ; l'essai réel 231 à faire ; « il se prend sur demande » de la
+  fiche « Connecter mon numéro WhatsApp » et de la FAQ repris le 2026-11-11 (3v-2a) ; le lot E (la
   fenêtre du partenaire, « Connecter sans carte chez Meta », plan `2026-11-09-credit-whatsapp-fenetre-du-partenaire.md`)
   en production le 2026-11-09 (`01cf6682`), `META_SOLUTION_ID` posée le même jour (une Entreprise de test la voit,
   mesuré) : onze jaunes à son plan ; le lot de suite E4 (jaunes 5, 6, 9 et 10) en production le même jour (`39ecffac`),
@@ -555,8 +576,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   V3 (la ligne posée à la connexion par la fenêtre, interrupteur `CREDIT_WA_POSE_AUTOMATIQUE`) et la reconnexion du
   numéro de l'essai par l'onglet (« V4, suite ») poussés le 2026-11-11 (`87217294`), à déployer. Restent : l'essai réel
   de bout en bout par Julien (prendre l'option, connecter par la fenêtre, la ligne posée seule, un modèle payant accepté
-  par Meta, le moyen de paiement du compte relu chez Meta) ; les textes « sur demande » à remplacer, la fiche publique
-  « Payer ses messages sans carte chez Meta » et la ligne de la vitrine (lot 3v-2 de la session de l'aide).
+  par Meta, le moyen de paiement du compte relu chez Meta) ; la fiche publique « Payer ses messages sans carte chez Meta »
+  et la ligne de la vitrine (lot 3v-2 de la session de l'aide, qui a repris les textes « sur demande » le 2026-11-11).
 - 🟡 **Les jaunes de la relecture de V3 (2026-11-11, aucun rouge)** :
   - la ligne posée à la connexion n'est plus marquée : vérifier l'attache ne tient qu'à l'alerte Telegram, et sur un
     compte qui garde sa carte chez Meta, une attache absente fait payer deux fois sans que rien ne refuse ; l'alerte doit
