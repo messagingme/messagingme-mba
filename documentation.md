@@ -2925,7 +2925,12 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
 - **Les alertes** (`src/emails-produit/alertes.ts`) décident qu'un e-mail part, et de son occasion :
   - le crédit bas, par le crochet `surDebit` du magasin du crédit (tous les débits y passent), sur le seul débit qui
     franchit 0,50 € ; occasion : le dernier mouvement positif du crédit, qu'une recharge renouvelle ;
-  - le paiement refusé, par le traitement des abonnements de Stripe (`paiementRefuse`) ; occasion : la facture ;
+  - le paiement refusé, par le traitement des abonnements de Stripe (`paiementRefuse`) ; occasion : la facture. Le Pro
+    d'un espace qui a une option Crédit WhatsApp vivante (en cours ou en retard) reçoit sa variante
+    (`paiement_refuse_pro_option`), qui dit l'arrêt de l'option avec l'offre : repassée en Free, la formule la résilie
+    d'office, sans `option_wa_arretee`. Une option illisible fait partir l'e-mail d'avant, et le journal le dit. L'anti-doublon
+    étant compté par modèle, une version déjà partie pour la facture fait taire l'autre (`occasionReservee`) : une option
+    prise ou résiliée entre deux essais de Stripe n'envoie pas les deux ;
   - les limites de la Free et du Pro, par le balayage `emails-produit-limites` (trente minutes) : les modèles du mois
     (occasion : le mois de Paris) et les contacts (occasion : la génération du franchissement, `emails_produit_seuils`,
     migration 0235, posée par une instruction gardée par `not atteint`) ; seul le seuil le plus haut franchi s'écrit.

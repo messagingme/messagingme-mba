@@ -3737,7 +3737,8 @@ boîte par sous-menu.
 - ✅ **Les alertes de service** :
   - le crédit IA presque épuisé (sous 0,50 €, une fois par recharge), puis épuisé (une fois par jour au plus) ;
   - un paiement refusé du Pro ou du numéro fourni, dès le premier échec et une fois par facture, avec la date où les
-    envois du numéro seraient coupés ;
+    envois du numéro seraient coupés ; celui du Pro, quand l'espace a l'option Crédit WhatsApp, dit qu'elle s'arrêtera
+    avec l'offre, réponses aux clients comprises, le crédit restant conservé ;
   - le numéro fourni suspendu, le rappel deux jours avant sa libération, sa libération, et l'annonce de la suite du
     numéro à la fin du Pro ;
   - en offre Free, 80 % puis 100 % des modèles du mois (une fois par mois) et des contacts, ceux qui ont écrit les

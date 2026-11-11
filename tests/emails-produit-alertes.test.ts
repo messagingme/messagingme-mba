@@ -11,6 +11,7 @@ import { rendre } from '../src/emails-produit/rendu';
 import { PgEmailsProduitStore } from '../src/emails-produit/store.pg';
 import type { Pool } from 'pg';
 import { DROITS } from '../src/offres/offres';
+import { capturerJournal } from './journal';
 
 /**
  * LES ALERTES DE LA LIVRAISON B (lot 7) : ce qui décide qu'un e-mail part, et son occasion. Ce que le journal fait de
@@ -159,7 +160,7 @@ describe('le paiement refusé', () => {
     const e = emetteur();
     const p = creerPaiementRefuse({
       emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre',
-      coupureDuNumero: async () => new Date('2026-10-21T10:00:00Z'),
+      coupureDuNumero: async () => new Date('2026-10-21T10:00:00Z'), optionVivante: async () => false, dejaPrevenu: async () => false,
     });
     await p({ tenantId: 't1', offre: 'numero', factureId: 'in_1' });
     await p({ tenantId: 't1', offre: 'pro', factureId: 'in_2' });
@@ -169,9 +170,61 @@ describe('le paiement refusé', () => {
     ]);
   });
 
+  it('🔴 le Pro d’un espace qui a une option Crédit WhatsApp vivante : la variante qui dit l’arrêt de l’option avec l’offre (texte validé par Julien le 2026-11-11, V11) ; une option illisible, le texte d’avant et le journal', async () => {
+    // L'option résiliée d'office avec la formule n'envoie pas `option_wa_arretee` : cet e-mail est le seul avertissement.
+    const e = emetteur();
+    const p = creerPaiementRefuse({
+      emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre', coupureDuNumero: async () => null,
+      optionVivante: async (t) => t === 't1', dejaPrevenu: async () => false,
+    });
+    await p({ tenantId: 't1', offre: 'pro', factureId: 'in_2' });
+    await p({ tenantId: 't2', offre: 'pro', factureId: 'in_4' });
+    expect(e.emissions).toEqual([
+      { cle: 'paiement_refuse_pro_option', tenantId: 't1', occasion: 'facture:in_2', a: 'admins', valeurs: { lien_offre: 'https://c/offre' } },
+      { cle: 'paiement_refuse_pro', tenantId: 't2', occasion: 'facture:in_4', a: 'admins', valeurs: { lien_offre: 'https://c/offre' } },
+    ]);
+    // Une lecture de l'option en panne n'empêche pas l'e-mail : le texte d'avant part, et le journal le dit.
+    const panne = emetteur();
+    const illisible = creerPaiementRefuse({
+      emettre: panne.emettre, pageNumero: 'x', pageOffre: 'https://c/offre', coupureDuNumero: async () => null,
+      optionVivante: async () => { throw new Error('base indisponible'); }, dejaPrevenu: async () => false,
+    });
+    const { lignes } = await capturerJournal(() => illisible({ tenantId: 't1', offre: 'pro', factureId: 'in_5' }));
+    expect(panne.emissions).toEqual([
+      { cle: 'paiement_refuse_pro', tenantId: 't1', occasion: 'facture:in_5', a: 'admins', valeurs: { lien_offre: 'https://c/offre' } },
+    ]);
+    expect(lignes).toEqual([expect.objectContaining({ lvl: 'error', msg: 'paiement_refuse_option_illisible', tenantId: 't1', err: 'base indisponible' })]);
+    // Stripe réessaie la même facture, et l'anti-doublon du journal est compté par modèle : une option prise ou résiliée
+    // entre deux essais ne fait pas partir la seconde version, l'autre déjà partie suffit (dans les deux sens).
+    for (const [avecOption, dejaParti] of [[true, 'paiement_refuse_pro'], [false, 'paiement_refuse_pro_option']] as const) {
+      const deja = emetteur();
+      const reservees = new Set([`t1|${dejaParti}|facture:in_6`]);
+      const q = creerPaiementRefuse({
+        emettre: deja.emettre, pageNumero: 'x', pageOffre: 'https://c/offre', coupureDuNumero: async () => null,
+        optionVivante: async () => avecOption, dejaPrevenu: async (t, cle, occasion) => reservees.has(`${t}|${cle}|${occasion}`),
+      });
+      await q({ tenantId: 't1', offre: 'pro', factureId: 'in_6' });
+      await q({ tenantId: 't1', offre: 'pro', factureId: 'in_7' });
+      expect(deja.emissions, dejaParti).toEqual([{
+        cle: avecOption ? 'paiement_refuse_pro_option' : 'paiement_refuse_pro', tenantId: 't1', occasion: 'facture:in_7', a: 'admins',
+        valeurs: { lien_offre: 'https://c/offre' },
+      }]);
+    }
+    // Le texte validé, mot pour mot ; le reste suit l'e-mail d'avant (sujet, bouton, premier paragraphe).
+    const m = modeleDe('paiement_refuse_pro_option')!;
+    expect(m.textes.fr.corps.split('\n\n')[2]).toBe('Sans paiement, l’espace repassera en offre Free, avec ses limites, et son option Crédit WhatsApp s’arrêtera avec elle : les messages WhatsApp des numéros de l’option s’arrêteront, réponses à vos clients comprises. Votre crédit restant est conservé. Mettez à jour votre carte depuis la page « Offre » de la console, ou demandez-le à Claude.');
+    expect(m.textes.en.corps.split('\n\n')[2]).toBe('Without payment, the workspace will go back to the Free plan, with its limits, and its WhatsApp credit option will stop with it: the WhatsApp messages of the option’s numbers will stop, replies to your customers included. Your remaining credit is kept. Update your card from the “Plan” page of the console, or ask Claude.');
+    const avant = modeleDe('paiement_refuse_pro')!;
+    for (const l of ['fr', 'en'] as const) {
+      expect(m.textes[l].sujet, l).toBe(avant.textes[l].sujet);
+      expect(m.textes[l].bouton, l).toEqual(avant.textes[l].bouton);
+      expect(m.textes[l].corps.split('\n\n').slice(0, 2), l).toEqual(avant.textes[l].corps.split('\n\n').slice(0, 2));
+    }
+  });
+
   it('🔴 l’option du Crédit WhatsApp (lot 4a) : son e-mail, avec l’onglet Crédit WhatsApp de la page Offre, une fois par facture', async () => {
     const e = emetteur();
-    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre', coupureDuNumero: async () => null });
+    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'https://c/numero', pageOffre: 'https://c/offre', coupureDuNumero: async () => null, optionVivante: async () => true, dejaPrevenu: async () => false });
     await p({ tenantId: 't1', offre: 'option_credit_whatsapp', factureId: 'in_3' });
     expect(e.emissions).toEqual([
       { cle: 'paiement_refuse_option_wa', tenantId: 't1', occasion: 'facture:in_3', a: 'admins', valeurs: { lien_credit_whatsapp: 'https://c/offre?tab=whatsapp' } },
@@ -211,7 +264,7 @@ describe('le paiement refusé', () => {
 
   it('🔴 un numéro qui ne sera pas coupé (un numéro apporté envoie) : aucun e-mail, il annoncerait une coupure fausse', async () => {
     const e = emetteur();
-    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'x', pageOffre: 'y', coupureDuNumero: async () => null });
+    const p = creerPaiementRefuse({ emettre: e.emettre, pageNumero: 'x', pageOffre: 'y', coupureDuNumero: async () => null, optionVivante: async () => false, dejaPrevenu: async () => false });
     await p({ tenantId: 't1', offre: 'numero', factureId: 'in_1' });
     expect(e.emissions).toEqual([]);
   });

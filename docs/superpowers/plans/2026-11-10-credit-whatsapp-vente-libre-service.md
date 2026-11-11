@@ -379,13 +379,18 @@ sous un `warn` passé en `error` ou un journal sans `tenantId`). Le lot part tel
 Après le lot 5 de la session de l'aide sur `origin` : il touche `src/emails-produit/` (`aide?` dans `ModeleEmail`,
 `LIGNES_AIDE`), et `tests/emails-produit.test.ts` exige de chaque modèle une `aide` ou une place dans `SANS_PAGE_D_AIDE`.
 
-- [ ] **L'e-mail** (texte validé par Julien le 2026-11-11) : un espace Pro dont le renouvellement échoue alors qu'il a une
+- [x] **L'e-mail** (texte validé par Julien le 2026-11-11) : un espace Pro dont le renouvellement échoue alors qu'il a une
   option Crédit WhatsApp vivante reçoit une variante de `paiement_refuse_pro`, dont le second paragraphe dit « Sans
   paiement, l’espace repassera en offre Free, avec ses limites, et son option Crédit WhatsApp s’arrêtera avec elle : les
   messages WhatsApp des numéros de l’option s’arrêteront, réponses à vos clients comprises. Votre crédit restant est
   conservé. Mettez à jour votre carte depuis la page « Offre » de la console, ou demandez-le à Claude. », et sa version
   anglaise ; les autres espaces gardent le texte actuel. La raison : l'option résiliée d'office avec la formule
   n'envoie pas `option_wa_arretee`, cet e-mail est le seul avertissement. Le modèle entre dans `SANS_PAGE_D_AIDE`.
+  Fait (`paiement_refuse_pro_option`) : l'option se lit par `vivante` (en cours ou en retard) ; illisible, l'e-mail
+  d'avant part, et le journal le dit ; l'anti-doublon du journal étant compté par modèle, une version déjà partie pour la
+  facture fait taire l'autre (`occasionReservee`), sans quoi une option prise ou résiliée entre deux essais de Stripe
+  enverrait les deux. Chaque branche vue rouge sous sa mutation ; le manuel, `features.md` et la fiche « Les e-mails que
+  Messaging Me vous envoie » suivent (sa nouvelle empreinte : `aide:charger` après le déploiement).
 - [x] **Le jaune 4 de V8** : en coexistence, et sans ligne à poser après une interruption, l'alerte dit que cette
   connexion ne l'a pas mis dans la liste, au lieu d'affirmer qu'il n'y est pas (une connexion antérieure a pu l'y mettre) ;
   un test le tient avec un numéro marqué avant (rouge sous chacune des quatre anciennes phrases) ; le manuel suit.

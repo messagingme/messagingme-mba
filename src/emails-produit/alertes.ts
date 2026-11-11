@@ -129,7 +129,27 @@ export function creerPaiementRefuse(d: {
    * coupé) : l'e-mail ne promet alors pas de coupure, il ne part pas.
    */
   coupureDuNumero(tenantId: string): Promise<Date | null>;
+  /**
+   * L'espace a-t-il une option Crédit WhatsApp vivante (en cours ou en retard) ? Le Pro repassé en Free la résilie
+   * d'office, sans `option_wa_arretee` : l'e-mail du Pro le dit alors (`paiement_refuse_pro_option`, V11 du plan
+   * `2026-11-10-credit-whatsapp-vente-libre-service.md`). Illisible, l'e-mail d'avant part, et le journal le dit.
+   */
+  optionVivante(tenantId: string): Promise<boolean>;
+  /**
+   * Ce modèle est-il déjà parti pour cette occasion dans l'espace (`occasionReservee`) ? L'anti-doublon du journal est
+   * compté par modèle : sans cette lecture, une option prise ou résiliée entre deux essais de Stripe sur la même facture
+   * ferait partir les deux versions de l'e-mail du Pro.
+   */
+  dejaPrevenu(tenantId: string, cle: string, occasion: string): Promise<boolean>;
 }): (p: PaiementRefuse) => Promise<void> {
+  const avecOption = async (tenantId: string): Promise<boolean> => {
+    try {
+      return await d.optionVivante(tenantId);
+    } catch (err) {
+      journaliser('error', 'paiement_refuse_option_illisible', { err, tenantId });
+      return false;
+    }
+  };
   return async (p) => {
     try {
       if (p.offre === 'numero') {
@@ -149,8 +169,15 @@ export function creerPaiementRefuse(d: {
           valeurs: { lien_credit_whatsapp: `${d.pageOffre}?tab=whatsapp` },
         });
       } else {
+        const occasion = `facture:${p.factureId}`;
+        const option = await avecOption(p.tenantId);
+        const autre = option ? 'paiement_refuse_pro' : 'paiement_refuse_pro_option';
+        if (await d.dejaPrevenu(p.tenantId, autre, occasion)) {
+          journaliser('info', 'paiement_refuse_pro_deja_prevenu', { tenantId: p.tenantId, facture: p.factureId, cle: autre });
+          return;
+        }
         await d.emettre({
-          cle: 'paiement_refuse_pro', tenantId: p.tenantId, occasion: `facture:${p.factureId}`, a: 'admins',
+          cle: option ? 'paiement_refuse_pro_option' : 'paiement_refuse_pro', tenantId: p.tenantId, occasion, a: 'admins',
           valeurs: { lien_offre: d.pageOffre },
         });
       }

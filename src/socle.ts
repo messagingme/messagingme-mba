@@ -359,6 +359,9 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     pageOffre: `${console_}/offre`,
     // Lu à l'appel (le magasin des abonnements est construit plus bas) : la coupure que montre aussi le bandeau.
     coupureDuNumero: async (t) => (await abonnementsDuNumero.etatDeLEspace(t))?.coupureLe ?? null,
+    // Lu à l'appel aussi (le magasin des options est construit plus bas) : l'option vivante, en cours ou en retard.
+    optionVivante: async (t) => (await optionsCreditWhatsapp.vivante(t)) !== null,
+    dejaPrevenu: (t, cle, occasion) => emailsProduit.occasionReservee(t, cle, occasion),
   });
   /**
    * L'option du Crédit WhatsApp payée sans offre qui y donne droit, résiliée aussitôt : l'e-mail aux admins, une fois par

@@ -406,6 +406,39 @@ export const CATALOGUE = [
     },
   },
   {
+    // La variante du Pro quand l'espace a une option Crédit WhatsApp vivante (V11 du plan
+    // `2026-11-10-credit-whatsapp-vente-libre-service.md`, texte validé par Julien le 2026-11-11) : la formule repassée en
+    // Free résilie l'option d'office, sans `option_wa_arretee`, donc cet e-mail est le seul avertissement. Le reste suit
+    // `paiement_refuse_pro` mot pour mot (tenu par `tests/emails-produit-alertes.test.ts`).
+    cle: 'paiement_refuse_pro_option',
+    categorie: 'service',
+    nom: 'Paiement refusé : offre Pro avec l’option Crédit WhatsApp',
+    quand: 'Le paiement du renouvellement de l’offre Pro échoue alors que l’espace a une option Crédit WhatsApp en cours ou en retard : elle s’arrêtera avec l’offre. À la place de « Paiement refusé : offre Pro ». Une fois par facture.',
+    variables: {
+      lien_offre: { description: 'La page Offre de la console', forme: 'lien', exemple: 'https://console.messagingme.app/offre' },
+    },
+    textes: {
+      fr: {
+        sujet: 'Le paiement de votre offre Pro a échoué',
+        corps: 'Bonjour,\n\nLe paiement du renouvellement de l’offre Pro de l’espace {{espace}} a échoué. Notre prestataire '
+          + 'de paiement va réessayer dans les prochains jours.\n\nSans paiement, l’espace repassera en offre Free, avec '
+          + 'ses limites, et son option Crédit WhatsApp s’arrêtera avec elle : les messages WhatsApp des numéros de '
+          + 'l’option s’arrêteront, réponses à vos clients comprises. Votre crédit restant est conservé. Mettez à jour '
+          + 'votre carte depuis la page « Offre » de la console, ou demandez-le à Claude.',
+        bouton: { libelle: 'Mettre à jour ma carte', lien: '{{lien_offre}}' },
+      },
+      en: {
+        sujet: 'The payment for your Pro plan failed',
+        corps: 'Hello,\n\nThe renewal payment for the Pro plan of the {{espace}} workspace failed. Our payment provider '
+          + 'will try again over the next few days.\n\nWithout payment, the workspace will go back to the Free plan, with '
+          + 'its limits, and its WhatsApp credit option will stop with it: the WhatsApp messages of the option’s numbers '
+          + 'will stop, replies to your customers included. Your remaining credit is kept. Update your card from the '
+          + '“Plan” page of the console, or ask Claude.',
+        bouton: { libelle: 'Update my card', lien: '{{lien_offre}}' },
+      },
+    },
+  },
+  {
     cle: 'paiement_refuse_option_wa',
     categorie: 'service',
     nom: 'Paiement refusé : option Crédit WhatsApp',

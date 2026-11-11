@@ -46,6 +46,9 @@ describe('le catalogue', () => {
     'paiement_refuse_numero', 'paiement_refuse_pro', 'recap_semaine', 'shopify_demande_donnees',
     // Sa carte est celle de l'option, chez Messaging Me : « Payer Meta » montre celle chez Meta (relecture du lot 5).
     'paiement_refuse_option_wa',
+    // La variante du Pro quand l'espace a l'option (V11 du Crédit WhatsApp) : comme lui, aucune page publique ne montre la
+    // carte de la formule chez nous.
+    'paiement_refuse_pro_option',
   ];
 
   it('🔴 chaque modèle mène à la page publique qui l’aide, ou figure parmi ceux qu’aucune page n’aide', () => {

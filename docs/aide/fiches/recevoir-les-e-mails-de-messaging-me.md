@@ -1,6 +1,6 @@
 ---
 source_section: Les e-mails de Messaging Me aux administrateurs
-source_empreinte: 285370
+source_empreinte: c60412
 ---
 # Les e-mails que Messaging Me vous envoie
 
@@ -16,7 +16,9 @@ section « E-mails de Messaging Me ».
 
 **Les alertes de service.** Le crédit IA presque épuisé (sous 0,50 €, une fois par recharge), puis épuisé (vos agents
 IA ne répondent plus, une fois par jour au plus). Un paiement refusé de votre offre Pro ou de votre numéro fourni, dès
-le premier échec, avec la date où les envois du numéro seraient coupés. Le numéro fourni suspendu, le rappel deux jours
+le premier échec, avec la date où les envois du numéro seraient coupés. Si votre espace a l'option Crédit WhatsApp,
+celui de l'offre Pro vous dit qu'elle s'arrêtera avec l'offre : les messages des numéros de l'option s'arrêteraient,
+réponses à vos clients comprises, votre crédit restant conservé. Le numéro fourni suspendu, le rappel deux jours
 avant sa libération, sa libération, et la suite du numéro quand votre offre Pro se termine. En offre Free, 80 % puis
 100 % des modèles du mois et de vos contacts, ceux qui vous ont écrit les premiers compris : l'alerte de 100 % propose
 de passer en Pro. Au-delà de votre limite de contacts (au retour en formule Free après la formule Pro, par exemple), une alerte vous
