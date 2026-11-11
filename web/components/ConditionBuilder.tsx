@@ -171,6 +171,8 @@ function defaultFieldClause(key: string, type: UserFieldKind): Clause {
   if (type === 'number') return { kind: 'field', key, op: 'gte', value: '', valueType: 'number' };
   if (type === 'boolean') return { kind: 'field', key, op: 'is_true' };
   if (type === 'date' || type === 'datetime') return { kind: 'datetime', key, op: 'after', value: 'now' };
+  // Un champ JSON se teste d'abord sur « l'appel a-t-il réussi » : un échec le vide.
+  if (type === 'json') return { kind: 'field', key, op: 'not_empty' };
   return { kind: 'field', key, op: 'contains', value: '' };
 }
 
@@ -363,6 +365,14 @@ function ClauseOperands({ c, i, patch, allFields, changeField, tags, sel, inp }:
             <option value="gte">{'≥'}</option>
             <option value="not_empty">{t('est renseigné', 'is set')}</option>
             <option value="empty">{t('est vide', 'is empty')}</option>
+          </>
+        ) : type === 'json' ? (
+          // Un champ JSON (spec du 2026-11-11) : vide, renseigné ou « contient » sur le texte brut ; comparer une valeur
+          // est le travail du bloc d'extraction.
+          <>
+            <option value="not_empty">{t('est renseigné', 'is set')}</option>
+            <option value="empty">{t('est vide', 'is empty')}</option>
+            <option value="contains">{t('contient', 'contains')}</option>
           </>
         ) : (
           <>

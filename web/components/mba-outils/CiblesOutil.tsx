@@ -8,7 +8,7 @@ import type { BlocPropose } from '@/lib/partage/outils-mba';
 import { BORNES_OUTIL, METHODES_IRREVERSIBLES, valeursPermises, type ConsommateurOutil } from '@/lib/mba-outils';
 import { inputCls } from '@/lib/ui';
 import { SOCLE_FIELDS, SYSTEM_FIELD_LABELS } from '@/lib/partage/champs';
-import { customFieldsOnly } from '@/lib/fields';
+import { customFieldsOnly, sansJson } from '@/lib/fields';
 import { useT } from '@/lib/i18n';
 import { Bouton } from '@/components/Bouton';
 
@@ -83,7 +83,8 @@ export function CibleChamp({ tenantId, champ, valeurs, onChange, pour = 'mba', s
    * ordre alphabétique. Les autres champs de base (téléphone, identifiants WhatsApp) ne s'écrivent pas : absents.
    */
   const base = SOCLE_FIELDS.map((f) => ({ key: f.key, label: t(...SYSTEM_FIELD_LABELS[f.key]) }));
-  const lus = (Array.isArray(champs) ? customFieldsOnly(champs) : [])
+  // Un champ JSON ne reçoit pas ce qu'un agent écrit : du texte, qui n'en serait pas un JSON valide.
+  const lus = (Array.isArray(champs) ? sansJson(customFieldsOnly(champs)) : [])
     .slice().sort((a, b) => a.label.localeCompare(b.label, 'fr', { sensitivity: 'base' }));
   // 🔴 Un champ supprimé du mini-CRM RESTE affiché, et signalé : le select le montrait « Choisir un champ »
   // pendant que l'état gardait l'ancienne clé, donc l'écran et ce qui partait divergeaient. Un champ de base ne

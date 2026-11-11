@@ -135,8 +135,14 @@ export function emailVariableFields(fields: UserFieldDef[], t: (fr: string, en: 
  * ⚠️ Un champ de l'espace peut porter le MÊME libellé qu'un socle : un formulaire réglé par défaut crée `nom`,
  * libellé « Nom », à côté du socle `nom_de_famille`, libellé « Nom » aussi. Le socle se dit alors « (champ de base) »,
  * sinon deux options identiques laisseraient écrire dans le mauvais (relecture du 2026-11-10).
+ *
+ * 🔴 Un champ JSON n'y est que sur demande (`avecJson`, spec du 2026-11-11) : il ne se remplit que par le bloc « Appel
+ * API » et la Fonction JS. Une valeur tapée ailleurs (Action, Question) le viderait, faute d'être un JSON valide.
  */
-export function champsEcrivables(fields: UserFieldDef[], t: (fr: string, en: string) => string): UserFieldDef[] {
+export function champsEcrivables(
+  fields: UserFieldDef[], t: (fr: string, en: string) => string, opts: { avecJson?: boolean } = {},
+): UserFieldDef[] {
+  if (!opts.avecJson) fields = sansJson(fields);
   const dejaLa = new Set(fields.map((f) => f.key));
   const libellesPris = new Set(fields.map((f) => f.label.trim().toLowerCase()));
   const socle: UserFieldDef[] = SOCLE_FIELDS
@@ -146,6 +152,14 @@ export function champsEcrivables(fields: UserFieldDef[], t: (fr: string, en: str
       return { key: s.key, label: libellesPris.has(label.trim().toLowerCase()) ? `${label} ${t('(champ de base)', '(base field)')}` : label, type: s.type };
     });
   return [...socle, ...fields];
+}
+
+/**
+ * Les champs qu'une SAISIE peut viser : tous sauf ceux de type JSON (spec du 2026-11-11, décision 9). La fiche, l'action
+ * en masse, un formulaire, un webhook entrant ou l'outil « Enregistrer une information » d'un agent ne le proposent pas.
+ */
+export function sansJson<T extends { type: string }>(fields: readonly T[]): T[] {
+  return fields.filter((f) => f.type !== 'json');
 }
 
 /** Code public DÉTERMINISTE d'un champ SYSTÈME. Défini dans `./codes` (module PUR, testé depuis la suite

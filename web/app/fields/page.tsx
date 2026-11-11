@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import type { Session } from '@/lib/session';
 import { listUserFields, createUserField, updateUserField, deleteUserField, type UserFieldDef, type UserFieldKind } from '@/lib/api';
-import { USER_FIELD_KINDS_SAISIS, USER_FIELD_KIND_LABELS } from '@/lib/field-kinds';
+import { USER_FIELD_KINDS, USER_FIELD_KIND_LABELS } from '@/lib/field-kinds';
 import { SYSTEM_FIELDS, customFieldsOnly, systemFieldCode } from '@/lib/fields';
 import { useT } from '@/lib/i18n';
 import { Bouton } from '@/components/Bouton';
@@ -22,11 +22,13 @@ function FieldsInner({ session }: { session: Session }) {
   const confirmer = useConfirmation();
   // Libellés partagés avec l'écran Webhooks (mapping), qui montre la nature du champ visé. Les recopier
   // ferait diverger deux listes que l'utilisateur voit à quelques clics d'écart.
-  // ⚠️ Les types de SAISIE seulement, tant que l'API qui accepte `json` n'est pas en production : la console part au push.
-  const TYPES: { value: UserFieldKind; label: string }[] = USER_FIELD_KINDS_SAISIS.map((value) => ({
+  // Tous les types à la création ; au changement, ceux de saisie seulement : le type JSON se choisit à la création et ne
+  // se change plus, dans aucun sens (le serveur rend 409).
+  const TYPES: { value: UserFieldKind; label: string }[] = USER_FIELD_KINDS.map((value) => ({
     value,
     label: t(...USER_FIELD_KIND_LABELS[value]),
   }));
+  const TYPES_MODIFIABLES = TYPES.filter((opt) => opt.value !== 'json');
   const [fields, setFields] = useState<UserFieldDef[]>([]);
   const [tenantCode, setTenantCode] = useState('');
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -161,13 +163,19 @@ function FieldsInner({ session }: { session: Session }) {
                     />
                   </td>
                   <td className="px-5 py-3">
-                    <select
-                      value={f.type}
-                      onChange={(e) => { const type = e.target.value as UserFieldKind; patchLocal(f.key, { type }); void save(f, { type }); }}
-                      className="rounded-controle border border-ink-300 bg-white px-2 py-1 text-sm text-ink-900"
-                    >
-                      {TYPES.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                    </select>
+                    {f.type === 'json' ? (
+                      <span data-testid="champ-type-json" className="text-sm text-ink-700" title={t('Le type JSON ne se change plus après la création.', 'A JSON type cannot be changed after creation.')}>
+                        {t(...USER_FIELD_KIND_LABELS.json)}
+                      </span>
+                    ) : (
+                      <select
+                        value={f.type}
+                        onChange={(e) => { const type = e.target.value as UserFieldKind; patchLocal(f.key, { type }); void save(f, { type }); }}
+                        className="rounded-controle border border-ink-300 bg-white px-2 py-1 text-sm text-ink-900"
+                      >
+                        {TYPES_MODIFIABLES.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      </select>
+                    )}
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">

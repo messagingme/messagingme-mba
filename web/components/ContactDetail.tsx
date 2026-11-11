@@ -95,6 +95,25 @@ function FieldValueInput({ type, value, onChange }: { type: UserFieldKind; value
 }
 
 /**
+ * La valeur d'un champ JSON (spec du 2026-11-11) : LECTURE SEULE, mise en forme et repliée (jusqu'à 16 Ko). Seule la
+ * suppression reste possible : une saisie à la main n'en ferait pas un JSON valide, le serveur la refuse.
+ */
+function ValeurJson({ valeur, busy, onDelete }: { valeur: string; busy: boolean; onDelete: () => Promise<boolean> }) {
+  const t = useT();
+  let lisible = valeur;
+  try { lisible = JSON.stringify(JSON.parse(valeur), null, 2); } catch { /* une valeur ancienne illisible s'affiche telle quelle */ }
+  return (
+    <span className="flex min-w-0 items-start gap-2">
+      <details className="min-w-0 flex-1" data-testid="champ-json">
+        <summary className="cursor-pointer truncate font-mono text-xs text-ink-900">{valeur.length > 80 ? `${valeur.slice(0, 80)}…` : valeur}</summary>
+        <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-all rounded-controle bg-ink-50 p-2 font-mono text-xs text-ink-900">{lisible}</pre>
+      </details>
+      <button onClick={() => void onDelete()} disabled={busy} data-testid="champ-supprimer" className="shrink-0 text-xs text-ink-500 underline decoration-dotted transition-colors duration-150 hover:text-danger disabled:opacity-50" aria-label={t('Supprimer', 'Delete')}>{t('supprimer', 'delete')}</button>
+    </span>
+  );
+}
+
+/**
  * Valeur éditable EN PLACE (Nom, Prénom, champs perso) : affichage + « modifier »/« supprimer » au survol,
  * bascule en input avec ✓/✗. `type` fourni -> input typé (FieldValueInput) ; sinon input texte simple (Nom).
  * `onDelete` absent -> non supprimable. onSave/onDelete renvoient un booléen de succès (reste en édition si échec).
@@ -194,7 +213,8 @@ export function ContactDetail({
   // l'ajout alors qu'ils sont déjà là. Source unique : `SOCLE_CLES`, dérivée de `SOCLE_FIELDS` (partagé avec le serveur).
   const fieldEntries = Object.entries(contact.fields ?? {}).filter(([k, v]) => !SOCLE_CLES.includes(k) && v != null && String(v).trim() !== '');
   const filledKeys = new Set([...fieldEntries.map(([k]) => k), ...SOCLE_CLES]);
-  const addable = userFields.filter((d) => !filledKeys.has(d.key));
+  // Un champ JSON ne se saisit pas (il se remplit par un scénario, l'API ou le MCP) : il n'est pas proposé à l'ajout.
+  const addable = userFields.filter((d) => !filledKeys.has(d.key) && d.type !== 'json');
 
   /**
    * LE RÉSUMÉ DE LA DERNIÈRE CONVERSATION ANALYSÉE, chargé à l'ouverture de la fiche.
@@ -512,14 +532,18 @@ export function ContactDetail({
             {fieldEntries.map(([k, v], i) => (
               <div key={k} className={`grid grid-cols-[130px_1fr] items-center gap-3 px-3 py-1.5 text-sm ${i % 2 ? 'bg-ink-50' : 'bg-white'}`}>
                 <span className="truncate text-ink-500">{defByKey.get(k)?.label ?? k}</span>
-                <EditableField
-                  value={String(v)}
-                  type={defByKey.get(k)?.type ?? 'text'}
-                  busy={busy}
-                  editable={defByKey.has(k)}
-                  onSave={(nv) => (nv.trim() === '' ? apply({ removeFields: [k] }) : apply({ fields: { [k]: nv.trim() } }))}
-                  onDelete={() => apply({ removeFields: [k] })}
-                />
+                {defByKey.get(k)?.type === 'json' ? (
+                  <ValeurJson valeur={String(v)} busy={busy} onDelete={() => apply({ removeFields: [k] })} />
+                ) : (
+                  <EditableField
+                    value={String(v)}
+                    type={defByKey.get(k)?.type ?? 'text'}
+                    busy={busy}
+                    editable={defByKey.has(k)}
+                    onSave={(nv) => (nv.trim() === '' ? apply({ removeFields: [k] }) : apply({ fields: { [k]: nv.trim() } }))}
+                    onDelete={() => apply({ removeFields: [k] })}
+                  />
+                )}
               </div>
             ))}
           </div>

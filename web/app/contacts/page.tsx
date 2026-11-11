@@ -23,7 +23,7 @@ import { basculerContact, basculerLignesAffichees, cibleContacts, estRetenu, nbR
 import { ContactFilterPanel } from '@/components/ContactFilterPanel';
 import { useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
-import { fieldValue } from '@/lib/fields';
+import { fieldValue, sansJson } from '@/lib/fields';
 import { ContactDetail, OPT_IN_LABEL } from '@/components/ContactDetail';
 import { Bouton } from '@/components/Bouton';
 import { TitrePage } from '@/components/TitrePage';
@@ -507,7 +507,7 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
 }) {
   const t = useT();
   const [tag, setTag] = useState('');
-  const [fieldKey, setFieldKey] = useState(userFields.find((d) => d.key !== 'email')?.key ?? userFields[0]?.key ?? '');
+  const [fieldKey, setFieldKey] = useState(sansJson(userFields).find((d) => d.key !== 'email')?.key ?? sansJson(userFields)[0]?.key ?? '');
   const [fieldVal, setFieldVal] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [busy, setBusy] = useState(false);
@@ -576,7 +576,7 @@ function BulkActionModal({ action, tenantId, target, count, userFields, tagSugge
         {action === 'set_field' && (
           <div className="flex flex-col gap-2">
             <select value={fieldKey} onChange={(e) => setFieldKey(e.target.value)} className={`${inputCls} bg-white`}>
-              {userFields.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+              {sansJson(userFields).map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
             </select>
             <input autoFocus value={fieldVal} onChange={(e) => setFieldVal(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) void submit(); }} placeholder={t('Valeur à poser', 'Value to set')} className={inputCls} />
             <p className="text-xs text-ink-500">{t('La valeur écrase le champ sur tous les contacts sélectionnés.', 'The value overwrites the field on all selected contacts.')}</p>

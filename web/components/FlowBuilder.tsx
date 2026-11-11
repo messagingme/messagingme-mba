@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { sansJson } from '@/lib/fields';
 import {
   createFlow,
   updateFlow,
@@ -561,9 +562,10 @@ export function FlowBuilder({
                                 sans elle, le sélecteur afficherait une autre option que ce que le formulaire fait. */}
                             {e.saveTo === NOM_WHATSAPP.key && <option value={NOM_WHATSAPP.key}>{NOM_WHATSAPP.label}</option>}
                           </optgroup>
-                          {userFields.some((uf) => !BASE_SAVE_FIELDS.some((bf) => bf.key === uf.key)) && (
+                          {/* Un champ JSON ne reçoit pas une réponse de formulaire (texte) : il n'est pas proposé. */}
+                          {sansJson(userFields).some((uf) => !BASE_SAVE_FIELDS.some((bf) => bf.key === uf.key)) && (
                             <optgroup label={t('Mes champs', 'My fields')}>
-                              {userFields.filter((uf) => !BASE_SAVE_FIELDS.some((bf) => bf.key === uf.key)).map((uf) => (
+                              {sansJson(userFields).filter((uf) => !BASE_SAVE_FIELDS.some((bf) => bf.key === uf.key)).map((uf) => (
                                 <option key={uf.key} value={uf.key}>{uf.label}</option>
                               ))}
                             </optgroup>

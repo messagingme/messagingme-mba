@@ -260,7 +260,8 @@ function Detail({
   const cibles: Array<{ valeur: string; label: string }> = [
     { valeur: CIBLE_TELEPHONE, label: t('Téléphone (désigne le contact)', 'Phone (identifies the contact)') },
     { valeur: CIBLE_NOM, label: t('Nom', 'Name') },
-    ...champs.map((f) => ({ valeur: `field:${f.key}`, label: `${f.label} (${t(...USER_FIELD_KIND_LABELS[f.type])})` })),
+    // Un champ JSON ne se remplit pas par un webhook entrant (le serveur refuse l'écriture) : il n'est pas proposé.
+    ...champs.filter((f) => f.type !== 'json').map((f) => ({ valeur: `field:${f.key}`, label: `${f.label} (${t(...USER_FIELD_KIND_LABELS[f.type])})` })),
   ];
 
   /** Ouvre le formulaire de creation pour cette ligne, prerempli d'apres la valeur recue. */

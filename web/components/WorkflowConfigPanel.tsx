@@ -235,7 +235,8 @@ function EtiquettesARetirer({ sa, tags, onPatch }: { sa: SousAction; tags: TagCo
 /** Les champs qu'une action vide, en liste : chacun se choisit dans le menu, qui ne propose plus ceux déjà pris. */
 function ChampsAVider({ sa, fields: champsDeLEspace, onPatch }: { sa: SousAction; fields: UserFieldDef[]; onPatch: (p: Record<string, unknown>) => void }) {
   const t = useT();
-  const fields = champsEcrivables(champsDeLEspace, t);
+  // Vider est toujours permis, un champ JSON compris.
+  const fields = champsEcrivables(champsDeLEspace, t, { avecJson: true });
   const liste = champsAVider(sa);
   const restants = fields.filter((f) => !liste.some((c) => c.key === f.key));
   const libelle = (c: { key: string; label: string }) => fields.find((f) => f.key === c.key)?.label ?? (c.label || c.key);
@@ -276,8 +277,9 @@ function FieldValueEditor({ d, fields: champsDeLEspace, onPatch, avecValeur }: {
   avecValeur: boolean;
 }) {
   const t = useT();
-  // Prénom, Nom et Email, même jamais remplis sur cet espace (`champsEcrivables`).
-  const fields = champsEcrivables(champsDeLEspace, t);
+  // Prénom, Nom et Email, même jamais remplis sur cet espace (`champsEcrivables`). Un champ JSON se VIDE, il ne se pose
+  // pas à la main : une valeur tapée n'en serait pas un JSON valide.
+  const fields = champsEcrivables(champsDeLEspace, t, { avecJson: !avecValeur });
   return (
     <div className="space-y-2">
       <div>
@@ -1139,9 +1141,18 @@ export function ConfigPanel({
             onChange={(e) => onPatch({ champCible: e.target.value })}
           >
             <option value="">{t('ne rien ranger : l’appel envoie seulement', 'store nothing: the call only sends')}</option>
-            {champsEcrivables(fields, t).map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}
+            {champsEcrivables(fields, t, { avecJson: true }).map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}
           </select>
 
+          {/* Vers un champ JSON, la réponse ENTIÈRE est rangée (spec du 2026-11-11) : le dire, sinon on la croit filtrée. */}
+          {fields.some((f) => f.key === d.champCible && f.type === 'json') && (
+            <p className="text-xs text-ink-700" data-testid="http-node-json">
+              {t(
+                'Champ JSON : la réponse entière y est rangée, sans les champs de réponse du connecteur (16 Ko au plus, sinon le champ est vidé).',
+                'JSON field: the whole answer is stored there, without the connector’s answer fields (16 KB at most, otherwise the field is emptied).',
+              )}
+            </p>
+          )}
           {/* 🔴 CE QUE PERSONNE NE DEVINE, ET QUI DÉCIDE DE LA SUITE DU SCÉNARIO. */}
           <p className="text-xs text-ink-500" data-testid="http-node-aide">
             {String(d.champCible ?? '') === ''
@@ -1580,7 +1591,9 @@ function FonctionJs({ tenantId, code, champSource, champCible, fields: champsDeL
   onCreerChamp?: (label: string) => Promise<string | null>;
 }) {
   const t = useT();
-  const fields = champsEcrivables(champsDeLEspace, t);
+  // Un champ JSON est une source naturelle (la réponse d'un Appel API à lire) et une cible permise : la garde du serveur
+  // vide la cible si la fonction ne rend pas un JSON valide.
+  const fields = champsEcrivables(champsDeLEspace, t, { avecJson: true });
   const [valeurEssai, setValeurEssai] = useState('');
   const [resultat, setResultat] = useState<EssaiJs | null>(null);
   const [enCours, setEnCours] = useState(false);
