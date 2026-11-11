@@ -60,6 +60,7 @@
  {"fr":"Commencez gratuitement.","en":"Start for free."},
  {"fr":"La formule Free est gratuite, sans limite de durée.","en":"Free costs nothing, with no time limit."},
  {"contexte":"<li>Un numéro fourni, <span data-offre=\"pro.numero-inclus\">inclus</span></li>","en":"<li>A provided number, <span data-offre=\"pro.numero-inclus\">included</span></li>"},
+ {"contexte":"<li><strong>Crédit WhatsApp</strong> en option, <span data-offre=\"option-wa.prix-mois\">30</span>&nbsp;€&nbsp;HT par numéro et par mois&nbsp;: vos messages prépayés, sans carte chez Meta</li>","en":"<li><strong>WhatsApp credit</strong> as an option, €<span data-offre=\"option-wa.prix-mois\">30</span> excl. VAT per number per month: your messages prepaid, with no card at Meta</li>"},
  {"fr":"Le Performance Lab complet","en":"The full Performance Lab"},
  {"fr":"La formule Free se pilote à 100 % depuis votre application ou votre assistant IA, comme Claude Code ou Codex. La formule Pro ouvre la console complète, pour une équipe.","en":"Free is run 100% from your application or your AI assistant, such as Claude Code or Codex. Pro opens the full console, for a team."},
  {"fr":"Sur un crédit prépayé, à l’usage. Sans crédit, vos agents IA se taisent ; vos envois, eux, continuent.","en":"From prepaid credit, as you use it. Without credit, your AI agents go quiet; your sends carry on."},

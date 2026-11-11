@@ -26,7 +26,7 @@ const centre = pagesDuCentre();
 
 describe('le centre d’aide de la vitrine', () => {
   it('l’accueil et une page par fiche publique, dans les deux langues', () => {
-    expect(centre.length).toBe(18);
+    expect(centre.length).toBe(19);
     // L’accueil, le guide du numéro et le dépannage (lot 4a), les pages composées de sources (4a-2), une page par fiche,
     // une par page Claude Code : dans chaque langue.
     expect(generees.length).toBe(2 * (1 + 2 + PAGES_SOURCES.length + centre.length + PAGES_CLAUDE.length));
@@ -146,7 +146,7 @@ describe('le centre d’aide de la vitrine', () => {
         expect(contenu, `${chemin} ${m[1]}`).toContain(`<a class="aide-capture" href="${m[1]}?v=${empreinte}"`);
       }
     }
-    expect(vues).toBe(92);
+    expect(vues).toBe(98);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {

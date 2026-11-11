@@ -4719,7 +4719,7 @@ posée après sa connexion par la fenêtre du partenaire (l'option prise, ou en 
 - ✅ **L'option à souscrire** (2026-11-11, la vente ouverte) : 30 € HT par numéro et par mois, prise par un administrateur
   sur la carte « Crédit WhatsApp » ou dans cet onglet, en formule Pro dès son essai ou en Business confirmé.
 - ⛔ À venir : la recharge automatique et celle avant une
-  campagne, le prix dans le récapitulatif d'une campagne, les écrans de coût lus dans nos débits, la fiche d'aide publique.
+  campagne, le prix dans le récapitulatif d'une campagne, les écrans de coût lus dans nos débits.
 
 ## Offres (menu « Paramètres » > Offre)
 

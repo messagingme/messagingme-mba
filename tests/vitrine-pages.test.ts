@@ -4,6 +4,7 @@ import {
   PRIX_SIEGE_HT_CENTIMES, type Fonction, type Offre,
 } from '../src/offres/offres';
 import { PRIX_NUMERO_HT_CENTIMES } from '../src/stripe/abonnement';
+import { PRIX_OPTION_WA_HT_CENTIMES } from '../src/stripe/option-credit-whatsapp';
 import { schema } from '../src/config';
 import { JUMELLES } from '../scripts/vitrine/anglais';
 import { lire, parAttribut, texte } from './vitrine-lecture';
@@ -45,6 +46,8 @@ const ATTENDU: Record<string, number> = {
   'business.adresses-webhook': DROITS.business.limites.adressesWebhook ?? NaN,
   'business.conservation-jours': DROITS.business.limites.conservationJours,
   'business.credit-offert-euros': schema.shape.CREDIT_OFFERT_BUSINESS_MICRO_EUR.parse(undefined) / 1_000_000,
+  // L'option Crédit WhatsApp (lot 3v-2d), sur les cartes Pro et Business : le prix que Stripe doit porter.
+  'option-wa.prix-mois': PRIX_OPTION_WA_HT_CENTIMES / 100,
 };
 
 /**

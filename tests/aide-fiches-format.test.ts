@@ -202,6 +202,8 @@ describe('les fiches publiques', () => {
     'construire-un-agent-ia': ['parler-aux-clients', 10],
     'le-repondeur-de-meta': ['parler-aux-clients', 11],
     'creer-une-publicite': ['parler-aux-clients', 12],
+    // Le Crédit WhatsApp, à la vente le 2026-11-11 (aide à la connexion, lot 3v-2d), après la connexion du numéro.
+    'payer-ses-messages-sans-carte-chez-meta': ['demarrer-console', 4],
   };
   /** Les six écrans qui portent « Comment faire », et leur page. */
   const COMMENT_FAIRE: Record<string, string> = {
