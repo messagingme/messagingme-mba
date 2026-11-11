@@ -20,10 +20,12 @@ remboursement. Puis, le même jour (AskUserQuestion) :
 - un essai non payé arrête l'option à la CLÔTURE de la formule par Stripe, ce que fait déjà la fin de droit : le mois
   payé de l'option couvre les relances, et une carte réglée pendant les relances garde son option.
 
-🔴 **La pose automatique attend la preuve de l'attache automatique.** Mesuré à l'essai réel 236 : avec
-`META_SOLUTION_ID`, la ligne du partenaire ne s'attache PAS d'elle-même. Poser la nôtre avant son attache, c'est ce que
-Julien a écarté le 2026-11-09 (Meta refuse les envois, un compte qui a déjà sa carte paierait deux fois). Il faut « le
-bon lien » du partenaire et un essai réel qui le prouve (D0) avant de retirer la pose manuelle.
+🔴 **La pose automatique n'attend plus la preuve de l'attache automatique** (décision de Julien du 2026-11-11 : « on
+peut considérer que ça va être fait automatiquement »). Mesuré à l'essai réel 236 : avec `META_SOLUTION_ID`, la ligne
+du partenaire ne s'attachait PAS d'elle-même, et le 2026-11-09 Julien avait écarté de poser la nôtre avant son attache
+(Meta refuse les envois, un compte qui a déjà sa carte paierait deux fois). V3 pose désormais à la connexion ; le risque
+est assumé, et `CREDIT_WA_POSE_AUTOMATIQUE=false` rend la pose manuelle sans déployer. L'essai réel doit prouver
+l'attache : un modèle payant accepté par Meta après la connexion, et le moyen de paiement du compte relu chez Meta.
 
 ## Le contrat d'état pendant l'essai (envoyé à la session de l'aide à la connexion le 2026-11-10)
 
@@ -165,7 +167,8 @@ ce que le serveur refuse. TDD.
 
 **Essai réel** : à l'ouverture de la vente, sur un espace Pro de TEST dans ses 14 jours, l'option se prend depuis la
 carte, se paie, la fenêtre du partenaire s'ouvre et connecte un numéro ; la carte lit `a_prendre`, puis `en_attente`,
-puis `active` à la pose (dès la connexion depuis V3).
+puis `active` à la pose (dès la connexion depuis V3) ; un modèle payant part ensuite et Meta l'accepte, et le moyen de
+paiement du compte, relu chez Meta, est la ligne du partenaire (la preuve de l'attache, que la pose ne donne pas).
 
 ## La relecture du lot V1 (2026-11-10)
 

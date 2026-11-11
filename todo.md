@@ -552,11 +552,37 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   poussés (`0b1cd733`), à déployer avec le prochain. 🔴 Décision du 2026-11-11 (Julien : « c'est interminable ») : PLUS
   DE LOT DE JAUNES ; les jaunes d'une relecture vont ici, et partent avec le prochain lot de fonctionnalité. 🟢 **LA VENTE
   EST OUVERTE le 2026-11-11** (`STRIPE_PRIX_OPTION_WA` posé par Julien, l'attache du partenaire tenue pour acquise).
-  Restent : l'essai réel de bout en bout par Julien (prendre l'option, connecter par la fenêtre, poser la ligne dans
-  `/ops`, envoyer) ; V3 (la pose automatique à la connexion, derrière un interrupteur) ; l'onglet qui guide la
-  reconnexion par la fenêtre d'un numéro connecté en direct pendant l'essai (décision de Julien du même jour) ; les textes
-  « sur demande » à remplacer, la fiche publique « Payer ses messages sans carte chez Meta » et la ligne de la vitrine
-  (avec le lot 3v-2 de la session de l'aide).
+  V3 (la ligne posée à la connexion par la fenêtre, interrupteur `CREDIT_WA_POSE_AUTOMATIQUE`) et la reconnexion du
+  numéro de l'essai par l'onglet (« V4, suite ») poussés le 2026-11-11 (`87217294`), à déployer. Restent : l'essai réel
+  de bout en bout par Julien (prendre l'option, connecter par la fenêtre, la ligne posée seule, un modèle payant accepté
+  par Meta, le moyen de paiement du compte relu chez Meta) ; les textes « sur demande » à remplacer, la fiche publique
+  « Payer ses messages sans carte chez Meta » et la ligne de la vitrine (lot 3v-2 de la session de l'aide).
+- 🟡 **Les jaunes de la relecture de V3 (2026-11-11, aucun rouge)** :
+  - la ligne posée à la connexion n'est plus marquée : vérifier l'attache ne tient qu'à l'alerte Telegram, et sur un
+    compte qui garde sa carte chez Meta, une attache absente fait payer deux fois sans que rien ne refuse ; l'alerte doit
+    citer ce symptôme et le geste (relire le moyen de paiement du compte chez Meta), et une trace hors Telegram des poses
+    automatiques non vérifiées (marquer après la pose, ou une liste à part) : à trancher par Julien ;
+  - l'alerte de repli (pose refusée ou en panne, interrupteur allumé) dit encore d'attendre l'attache : poser dès que la
+    cause est levée ;
+  - une connexion interrompue après l'enregistrement du jeton laisse un numéro relié, marqué, jamais posé : le dire dans
+    l'alerte d'interruption (poser vite), ou poser aussi sur ce chemin ;
+  - `tests/credit-whatsapp-fenetre-partenaire.test.ts` ne tient pas « seulement à poser » : ajouter `sans_droit`,
+    `fermee`, `illisible`, `autre_espace`, `couvert_arrete` avec `pose: { auto: true }` et `poses` vide ;
+  - `parLaLigne` vient du corps de la requête et pose désormais la ligne : vérifier côté serveur que le compte est partagé
+    avec la solution, ou écrire le risque (seul l'espace qui l'envoie paierait deux fois) ;
+  - la ligne posée, la garde refuse tout envoi à solde nul, réponses de service comprises : la console après connexion et
+    la skill `mise-en-service` doivent pousser la recharge avant l'essai depuis un téléphone ;
+  - textes qui décrivent encore la pose manuelle : `QuiRegleMeta.tsx` (« sous 24 h ouvrées », validés, bornent),
+    `features.md`, l'alerte Stripe (`traitement-abonnements.ts`, « ligne à poser sous 24 h ouvrées »), les commentaires
+    de `embedded-signup.ts`, la JSDoc de `texteDeConnexion` et de `marquer`, l'aide de la liste de `/ops`
+    (`OpsCreditWhatsappCard.tsx`) ;
+  - le levier d'urgence n'accepte que `false` exact : normaliser (`trim().toLowerCase()`, `0`) ou journaliser au démarrage
+    l'état lu ;
+  - la pose automatique n'écrit rien au journal de l'espace (`ops.ligne_credit_posee` n'est écrit que par `/ops`), le
+    journal `ops_ligne_credit_reprise_impossible` garde son préfixe `ops_`, une alerte « posée » perdue se journalise en
+    `a_poser`, et un repli après « déjà sur la ligne » marque un numéro qui a sa ligne ;
+  - `get_setup_state` tait `carte_meta_a_regler` en `en_attente` : le numéro de l'essai reste payé par sa carte jusqu'à
+    sa reconnexion, Claude ne dit pas de le reconnecter.
 - 🟡 **Les jaunes laissés du lot 3v (relectures de V11 et V13, 2026-11-11)** :
   - l'alerte Telegram « Pro terminé (impayé|résiliation) … L'espace revient en Free » (`src/stripe/traitement-abonnements.ts`)
     est fausse pour une Entreprise ou un Business qui garde un Pro : la même tournure que l'alerte du renouvellement
