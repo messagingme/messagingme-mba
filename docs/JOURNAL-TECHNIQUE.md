@@ -4,6 +4,29 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : le champ JSON, lot 1 (migration 0289)
+
+Demande de Julien : garder le retour d'un bloc « Appel API » sans passer par Tools > Connecteurs API pour déclarer ce
+qu'on lit. Cadrage en quatre rondes de questions, spec `docs/superpowers/specs/2026-11-11-champ-json-appel-api-design.md`,
+plan `docs/superpowers/plans/2026-11-11-champ-json-lot-1.md`.
+
+- **Ce qui a changé** : le type de champ `json` (migration 0289, élargissement du CHECK) ; le type du champ cible décide
+  de la lecture du bloc (réponse entière vers un `json`, 16 Ko au plus sur le corps brut) ; la garde `avecGardeJson` sur
+  les écritures d'un parcours ; les saisies refusées (fiche, action en masse, Inbox, import CSV, webhook entrant,
+  création à la main), l'API publique et le MCP acceptés ; le type verrouillé. Serveur `7c94206f`, console `a64533c5`
+  (poussée après le déploiement de l'API).
+- **Écarts au plan** : une condition lit un `json` comme un texte côté serveur (la console restreint les tests) ; trois
+  écritures restent hors garde (Flow hors scénario, outil « Enregistrer une information » d'un agent), documentées au
+  manuel, la console ne les leur propose pas.
+- **La relecture** : aucun rouge, sept jaunes ; les deux qui touchaient le lot (écritures hors garde, plafond mesuré sur
+  le corps brut) traités au manuel et dans le commit console, les autres au backlog.
+- **Vérifié** : suite racine (4 185 fichiers), suite console (104), e2e entière sur un build de production (1 905), lint,
+  auto-attaque ; CI verte job par job sur `7c94206f`.
+- **En production** le 2026-11-11 vers 14 h 30 (Paris), run 43027026261 épinglé sur `7c94206f`, `migration=avant` :
+  `-> 0289_champ_json.sql ... ok`, seule ; workers et API sur l'image `7c94206f`. Contrainte non relue en base (la base
+  ne se lit que par le bastion) : l'essai réel l'exerce en créant un champ JSON. Essai réel à faire (API de démonstration
+  `dummyjson.com/carts/1`, scénario déclenché depuis un téléphone).
+
 ## 2026-11-11 : la ligne posée à la connexion (V3), et le numéro de l'essai reconnecté par l'onglet (lot 3v)
 
 Décisions de Julien du jour : l'attache de la ligne du partenaire tenue pour automatique (« on peut considérer que ça

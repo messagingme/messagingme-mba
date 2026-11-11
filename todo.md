@@ -1,5 +1,21 @@
 # todo.md : backlog
 
+## 🟡 Le champ JSON, lot 1 : ce que la relecture laisse (spec `docs/superpowers/specs/2026-11-11-champ-json-appel-api-design.md`)
+
+- **Trois écritures hors de la garde `avecGardeJson`** : un Flow complété hors scénario (`src/webhooks/flow-mapping.ts`)
+  et l'outil « Enregistrer une information » d'un agent (`src/worker.ts`, `ecrireChamp` et `ecrire_variable`, et le bac
+  à sable de `src/index.ts`). Réglés par l'API, ils peuvent écrire du texte dans un champ `json`. Piste : les faire
+  passer par la garde, ou refuser un `json` à l'enregistrement de leur mapping.
+- **Un champ `json` voyage partout où `contacts.fields` est lu** (liste des contacts, projection de l'agent, exports).
+  Un `{{champ}}` JSON dans un modèle Meta peut dépasser la longueur d'un paramètre et faire échouer l'envoi de ce
+  destinataire. Piste : écarter les champs `json` des sélecteurs de variables d'un modèle.
+- **Deux lectures de `user_fields` pour un même Appel API vers un `json`** (le câblage, puis la garde). Piste : un cache
+  par espace de quelques secondes, si la mesure le justifie.
+- **Un corps vide se range `null`, pas vide** : « le champ est vide » ne détecte pas un 204. À trancher avec le lot 2
+  (bloc d'extraction).
+- **Le plafond de 16 Ko porte sur le corps BRUT** : une réponse indentée de 20 Ko qui ferait 10 Ko compacte est refusée.
+  Piste : lire jusqu'à 64 Ko puis mesurer la forme compacte.
+
 ## 🟡 Trois pièges de l'éditeur de scénario, vus en déboguant LUAS (2026-11-11)
 
 Chacun a arrêté un vrai parcours en silence, sans rien dans la console pour le dire.
