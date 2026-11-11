@@ -73,13 +73,16 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
 
 ### V4. Avant le prix
 
-- [ ] La liste à Julien : `STRIPE_PRIX_OPTION_WA` (il ouvre l'onglet à tous les Pro et Business), la quantité fermée dans
-  le portail de Stripe, puis pour 4b la clé restreinte élargie aux factures et les secrets Stripe du worker ; les jaunes
-  « avant la vente » des lots B et C.
+- [x] La liste à Julien, FAITE le 2026-11-11 : le prix de l'option créé et posé en `STRIPE_PRIX_OPTION_WA` (par
+  `docs/prive/credit-whatsapp/poser-prix-option-wa.cjs`, qui le relit chez Stripe d'abord) : **LA VENTE EST OUVERTE** ;
+  le portail déjà fermé au changement d'offre et de quantité ; la clé restreinte élargie (Invoices en écriture,
+  PaymentMethods en lecture) ; les secrets Stripe du worker présents. Les jaunes « avant la vente » des lots B et C,
+  fermés par les lots C4 à C6.
 - [ ] Trois préalables venus de la relecture de V1 (jaunes 2 à 4) : la console qui lit `option.prisePossible` est en
   production (fait : `a830bece`, lot 3v-1 de la session de l'aide à la connexion, le 2026-11-10) ; le numéro d'essai
-  déjà connecté a sa réponse (le lot D, ou une décision de Julien) ; le texte de l'e-mail du paiement refusé de la
-  formule Pro, qui doit parler de l'option : VALIDÉ par Julien le 2026-11-11, il part avec V11.
+  déjà connecté a sa réponse : décision de Julien du 2026-11-11, il se RECONNECTE PAR LA FENÊTRE du partenaire (l'onglet
+  le guidera) ; le texte de l'e-mail du paiement refusé de la formule Pro, qui doit parler de l'option : VALIDÉ par
+  Julien le 2026-11-11, en production avec V11.
 
 ### V5. Les jaunes des relectures du lot E7 et de V1
 

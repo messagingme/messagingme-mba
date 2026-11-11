@@ -4,6 +4,37 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : la vente du Crédit WhatsApp OUVERTE, et les lots V10 à V13 (lot 3v)
+
+Décisions de Julien du jour : le texte de l'e-mail du paiement refusé de la formule Pro avec l'option ; un numéro en
+coexistence hors de la liste de `/ops` (l'alerte suffit) ; un numéro connecté en direct pendant l'essai qui prend
+l'option se reconnecte par la fenêtre du partenaire ; l'attache automatique du partenaire tenue pour acquise ; et PLUS DE
+LOT DE JAUNES (« c'est interminable » : neuf lots de jaunes d'affilée, V5 à V13, chacun relu, chacun produisant les
+suivants ; les jaunes vont désormais au backlog).
+
+- **Ce qui a changé** :
+  - V10 (`f3303c60`) : les JSDoc de « Ne pas poser » suivent la route, les journaux d'une interruption tenus par le test ;
+  - V11 (`c96e3ab1`, `aec6c0c8`) : `paiement_refuse_pro_option`, l'e-mail du Pro qui dit l'arrêt de l'option (repassée
+    en Free, la formule la résilie d'office sans `option_wa_arretee`), une version réservée faisant taire l'autre ; en
+    coexistence, l'alerte ne prétend plus le numéro absent de la liste ;
+  - V12 (`abf14569`) et V13 (`664e6e1b`) : l'e-mail du Pro seulement à un espace effectivement en Pro (une Entreprise ou
+    un Business qui garde un Pro n'en reçoit aucun), l'offre lue SANS cache (le cache rend l'Entreprise sur une panne, ce
+    qui l'aurait tu), le câblage tenu par le banc de `tests/socle.test.ts`, l'alerte Telegram du renouvellement échoué
+    vraie pour toute offre.
+- **Vérifié** : chaque test vu rouge avant le code ou sous mutation ; suite racine entière verte avant chaque push (989
+  fichiers) ; CI verte job par job sur `111239c5` (V10, V11) et `0b1cd733` (V12, V13). Une relecture par lot, aucun rouge.
+- **En production** : V10 et V11 par le run 42993667539 (`111239c5`, avec les docs des lots 4b et 5 de l'aide) : API et
+  trois workers en `111239c5`, zéro erreur, fumée, fiches OAuth, 401 et `META_SOLUTION_ID` conformes ; `aide:charger`
+  donné à Julien avec cette image. V12 et V13 poussés (`0b1cd733`), sans déploiement à part : ils partent avec le
+  prochain (rien ne presse avant le premier client de l'option).
+- **L'ouverture de la vente** : Julien a créé le prix de l'option (30 € HT par numéro et par mois), élargi la clé
+  restreinte (Invoices en écriture, qui couvre les éléments de facture, PaymentMethods en lecture), vérifié le portail
+  (changer d'offre et modifier la quantité déjà éteints) et les secrets Stripe du worker, puis lancé
+  `docs/prive/credit-whatsapp/poser-prix-option-wa.cjs` : le prix relu chez Stripe (mensuel, à l'unité, taxe en sus,
+  live), posé en `STRIPE_PRIX_OPTION_WA` dans le conteneur de l'API, les autres variables et les secrets inchangés. Le
+  déploiement suivant de l'aide (run 43005379823) l'a conservé, vérifié : le workflow ajoute ses variables à celles du
+  conteneur. Sans V3, la ligne d'un numéro connecté par la fenêtre se pose d'un clic dans `/ops`.
+
 ## 2026-11-11 : les jaunes du chantier de la connexion du numéro (fenêtre ouverte, conditions de « Le mien », tunnel allégé)
 
 Plan `2026-11-11-aide-connexion-jaunes.md`, implémenté en direct, une relecture indépendante (« Oui, vas-y », Julien).

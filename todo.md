@@ -535,9 +535,14 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   coexistence n'entre pas dans la liste de `/ops` (l'alerte suffit). V10 (les jaunes de V9) et V11 (cet e-mail, la phrase
   de l'alerte en coexistence, les jaunes de V10) EN PRODUCTION le 2026-11-11 (`111239c5`, run 42993667539) ; V12 et V13
   (l'e-mail du Pro seulement à un espace en Pro, l'offre lue sans cache, l'alerte Telegram vraie pour toute offre)
-  poussés pour le déploiement suivant. 🔴 Décision du 2026-11-11 (Julien : « c'est interminable ») : PLUS DE LOT DE
-  JAUNES ; les jaunes d'une relecture vont ici, et partent avec le prochain lot de fonctionnalité. Restent V3 (la pose
-  automatique, après D0) et V4 (le numéro d'essai déjà connecté, la liste à Julien).
+  poussés (`0b1cd733`), à déployer avec le prochain. 🔴 Décision du 2026-11-11 (Julien : « c'est interminable ») : PLUS
+  DE LOT DE JAUNES ; les jaunes d'une relecture vont ici, et partent avec le prochain lot de fonctionnalité. 🟢 **LA VENTE
+  EST OUVERTE le 2026-11-11** (`STRIPE_PRIX_OPTION_WA` posé par Julien, l'attache du partenaire tenue pour acquise).
+  Restent : l'essai réel de bout en bout par Julien (prendre l'option, connecter par la fenêtre, poser la ligne dans
+  `/ops`, envoyer) ; V3 (la pose automatique à la connexion, derrière un interrupteur) ; l'onglet qui guide la
+  reconnexion par la fenêtre d'un numéro connecté en direct pendant l'essai (décision de Julien du même jour) ; les textes
+  « sur demande » à remplacer, la fiche publique « Payer ses messages sans carte chez Meta » et la ligne de la vitrine
+  (avec le lot 3v-2 de la session de l'aide).
 - 🟡 **Les jaunes laissés du lot 3v (relectures de V11 et V13, 2026-11-11)** :
   - l'alerte Telegram « Pro terminé (impayé|résiliation) … L'espace revient en Free » (`src/stripe/traitement-abonnements.ts`)
     est fausse pour une Entreprise ou un Business qui garde un Pro : la même tournure que l'alerte du renouvellement
