@@ -4,6 +4,33 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : le centre d'aide, une section un chemin, et plus de mise en garde sur un numéro neuf
+
+Demandes de Julien du jour, sur `/aide/` : voir les guides de chaque section dans la barre, en séparant Claude Code ou
+Codex de la console ; la tête des pages d'aide « élargie au max » ; « toutes les rubriques d'aide doivent avoir la même
+gueule » ; puis, sur le guide du numéro ouvert depuis la console, « tu pousses le copié-collé à mettre dans Claude
+Code », et l'inverse côté Claude ; enfin « on a testé qu'un nouveau numéro peut être coex sans problème, donc on dit pas
+de connerie sur ce sujet ».
+
+- **Ce qui a changé** :
+  - `f87df8fe` : la barre de l'accueil en deux groupes dont chaque section déplie ses guides au clic ; la tête des pages
+    d'aide en pleine largeur ; les cinq points du guide aérés ; le guide du numéro et le dépannage quittent la mise en
+    page de `/demarrer/` pour le gabarit des fiches (le tunnel et les boutons à trait, dessinés pour un fond sombre,
+    prennent les couleurs de la bande claire).
+  - `73ae615d` : la voie `?ou=claude|console` (`data-voie`, `filAide`, `site.js`) ; la mise en garde sur le numéro
+    neuf retirée de la vitrine (tunnel, fiche « Garder mon application », symptôme « non éligible » du dépannage, dont le
+    seul remède était d'attendre) et de la console (`ISSUE_TELECHARGER`, `ISSUE_FOURNI`, `ParcoursNumero`) ; les tests
+    du tunnel exigent désormais son absence.
+  - `10aaa19a` : les mêmes passages dans `features.md`, et l'empreinte des deux fiches qui les citent.
+- **Partagé** : le côté Claude (FAQ, skill et README du plugin dans 3v-2c ; outils MCP et section « Serveur MCP » de
+  `features.md` dans 3v-2b) est porté par la session de l'aide à la connexion ; l'ordre des pushs s'est convenu entre
+  les deux sessions, et la fusion à trois points des fichiers communs est passée sans conflit.
+- **Vérifié** : tests de la vitrine et de l'aide, suite racine (seuls les rouges d'environnement connus du poste),
+  console (typecheck, unitaires), CI verte job par job sur `f87df8fe` et `73ae615d`, e2e de la console compris, pages
+  servies en ligne ; les parcours relus au navigateur dans les deux voies et sans voie.
+- **Reste** : le bot d'aide garde l'ancienne fiche « Garder mon application » jusqu'au prochain `aide:charger` en
+  production (à Julien, avec le lot de l'aide à la connexion).
+
 ## 2026-11-11 : le champ JSON, lot 1 (migration 0289)
 
 Demande de Julien : garder le retour d'un bloc « Appel API » sans passer par Tools > Connecteurs API pour déclarer ce

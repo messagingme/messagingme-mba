@@ -277,10 +277,6 @@ fait ensuite au passage d'un contact, et si la suppression doit refuser comme po
   mené dans la console, qui ne l'écrit pas, hériterait de l'ancienne.
 - 🟡 **`start_whatsapp_connection` retient la destination avant de signer le lien** : un échec de signature la laisse
   changée. Bénin (la prochaine demande la réécrit), à ranger après la signature si on y retouche.
-- **« Meta refuse souvent un numéro tout neuf »** : le numéro neuf de Johan est passé du premier coup (2026-11-06). Un seul
-  cas ne fait pas une règle, mais « souvent » n'est pas mesuré : « peut refuser » suffirait. Le texte vit dans la vitrine
-  (`tunnel-textes.ts`), la console et le plugin, tenus égaux par `tests/questions-numero-vitrine.test.ts` ; décision de
-  Julien.
 
 ## 🟡 La suite du lot vitrine du 2026-11-06 (ROI, Dynamics 365, Salesforce, attribution)
 
@@ -468,10 +464,6 @@ fait ensuite au passage d'un contact, et si la suppression doit refuser comme po
 
 La console, le plugin 0.3.17, la FAQ, la doc MCP et la description de `start_whatsapp_connection` ne proposent plus la
 voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-plugin.md`). Restent :
-- **Le refus d'un numéro trop neuf, vu par Claude lui-même.** Meta refuse dans SA fenêtre ; la skill le reconnaît à ce
-  que la personne rapporte. L'essai 198 relève ce que la fenêtre envoie à la page (`[ES] message reçu` dans la console
-  du navigateur) : si un refus lisible arrive, le faire remonter à `watch_whatsapp_connection`, pour que Claude le dise
-  sans qu'on le lui rapporte.
 - **Les espaces déjà reliés par QR code** : les courriels `application_appareil_retire` et `application_en_sommeil`
   (`src/emails-produit/catalogue.ts`) et la phrase d'un envoi refusé sur un compte endormi ou délié
   (`phraseApplicationIndisponible`, `src/application/envoi.ts`) disent encore « un nouveau lien, scanner le QR code »,

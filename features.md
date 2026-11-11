@@ -2377,14 +2377,23 @@ scénario, comment importer des contacts.
     RCS, agent IA, Meta Business Agent, publicité) sont en texte seul, sans capture.
   - Un menu à gauche, avec une recherche qui ignore les accents ; la page dit l'offre qu'elle demande, mène à l'écran
     de la console (d'abord au plugin de Claude Code, gratuit, quand le geste s'y fait aussi : Shopify), et son lien « Une question sans réponse ? » ouvre le formulaire de contact en citant la page.
+  - **L'accueil** (2026-11-11) : la barre de gauche sépare « Claude Code / Codex » (démarrer, parler aux clients depuis
+    Claude Code) et « Console » (démarrer, parler aux clients via la console), dans l'ordre de la page ; un clic sur une
+    section y fait défiler la page et déplie la liste de ses guides.
+  - **Une section, un chemin** (2026-11-11) : une page ouverte depuis « Démarrer avec Claude Code ou Codex » ne montre
+    pas les boutons de la console, une page ouverte depuis « Démarrer avec la console » ne montre pas la phrase à dire à
+    Claude ; le fil d'Ariane et le menu suivent la section, et ce choix suit d'une page d'aide à l'autre. Arrivée
+    d'ailleurs (un moteur de recherche, un lien partagé), la page montre les deux chemins.
+  - **Toutes les pages ont la même forme** (2026-11-11) : la tête (titre et chapeau) en pleine largeur, puis le menu à
+    gauche et la page sur fond clair, le guide du numéro et le dépannage compris.
   - **Les mêmes textes que l'aide de la console** : une page est une fiche du mode d'emploi publiée, corriger l'une
     corrige l'autre.
 - ✅ **Le guide du numéro** (2026-11-10, `/aide/guide-du-numero-whatsapp/`) : les questions de « Démarrer », à partir de
   « Qui paie vos messages à Meta ? », une à la fois, puis le pas-à-pas de la situation, la console, et la phrase à
   copier pour Claude. En tête, les cinq points à vérifier.
 - ✅ **Le dépannage** (2026-11-10, `/aide/depanner-la-connexion-du-numero/`) : « Je n'arrive pas à connecter mon
-  numéro », puis ce qui bloque le plus souvent (pas de lien, numéro fourni à saisir, code qui n'arrive pas, numéro non
-  éligible, WhatsApp ordinaire, fenêtre de Meta bloquée, numéro non vérifié, modèles qui ne partent pas), filtré par
+  numéro », puis ce qui bloque le plus souvent (pas de lien, numéro fourni à saisir, code qui n'arrive pas,
+  WhatsApp ordinaire, fenêtre de Meta bloquée, numéro non vérifié, modèles qui ne partent pas), filtré par
   « Claude Code ou Codex, ou la console ? », chaque fois la cause, quoi faire et la page qui va plus loin.
 - ✅ **Payer Meta et les modèles WhatsApp** (2026-11-10, `/aide/payer-meta-poser-votre-carte/`,
   `/aide/les-modeles-whatsapp/`) : ce que Meta facture selon le numéro, où poser la carte, et le Crédit WhatsApp sur
