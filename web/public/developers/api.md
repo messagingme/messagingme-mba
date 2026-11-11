@@ -34,7 +34,7 @@ Authorization: Bearer mba_xxxxxxxxxxxxxxxx
 
 > **Attention**
 >
-> Les appels sont réels : il n’y a pas d’espace de test. Un envoi part vraiment sur WhatsApp, et Meta peut le facturer à votre entreprise. Pour essayer, écrivez d’abord à votre propre téléphone.
+> Les appels sont réels : il n’y a pas d’espace de test. Un envoi part vraiment sur WhatsApp, et il peut être facturé : par Meta à votre entreprise, ou débité de votre Crédit WhatsApp. Pour essayer, écrivez d’abord à votre propre téléphone.
 
 <a id="adresse"></a>
 

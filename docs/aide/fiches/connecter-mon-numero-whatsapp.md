@@ -20,8 +20,10 @@ chose : l'état de votre compte WhatsApp, et tant qu'aucun numéro n'est rattach
 « Connecter WhatsApp ». « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business » : vous
 connectez votre numéro, et Meta vous facture vos modèles sur ce moyen de paiement ; la carte dit pourquoi Meta en veut
 un, et ce qu'est un compte Meta Business. « Crédit WhatsApp » : vous prépayez vos messages chez Messaging Me, sans carte chez Meta, 30 € HT
-par numéro et par mois, avec la formule Pro, dès son essai, ou Business ; un administrateur le prend sur la carte
-(« Prendre l'option »), puis connecte votre numéro par la fenêtre de notre partenaire. Un numéro qui garde
+par numéro et par mois, avec la formule Pro ou Business ; l'option se paie dès sa prise, même pendant l'essai de la
+formule Pro. Un administrateur la prend sur la carte « Crédit WhatsApp » (« Prendre l'option »), puis connecte votre
+numéro avec « Connecter sans carte chez Meta » ; sa ligne s'ouvre ensuite (sous 24 h ouvrées au plus), et votre Crédit
+WhatsApp, qui part de zéro, se recharge avant vos premiers modèles. Un numéro qui garde
 l'application WhatsApp Business reste sur votre carte : le Crédit WhatsApp n'est pas possible avec l'application.
 
 **1. Ouvrir la fenêtre de Meta.** Tant qu'aucun numéro n'est rattaché, un bouton de l'Accueil ouvre la fenêtre de

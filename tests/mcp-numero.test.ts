@@ -7,7 +7,7 @@ import { RefusOutil } from '../src/mcp/saisie';
 import type { Issue } from '../src/lib/issue';
 import { signLienNumero, verifyLienNumero, DUREE_LIEN_NUMERO_MS } from '../src/auth/token';
 import { empreinteEtat, type EtatConnexion } from '../src/otp/etat-connexion';
-import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, PREREQUIS_META } from '../web/lib/partage/etapes-meta';
+import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, PREREQUIS_META } from '../web/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI, ETAPES_FENETRE_GARDER, ETAPES_RELIER_APPLICATION } from '../web/lib/partage/etapes-application';
 import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI } from '../web/lib/partage/etapes-numero-fourni';
 import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION } from '../web/lib/partage/aide-connexion';
@@ -25,7 +25,18 @@ const VIDE: EtatConnexion = { fourni: null, code: null, connecte: null, abonneme
 const outil = (nom: string): OutilMcp => OUTILS.find((o) => o.nom === nom)!;
 
 /** Une horloge simulée : `attendre` avance le temps, et chaque lecture de l'état est comptée avec son heure. */
-function monter(etats: (t: number) => EtatConnexion, o: { portail?: Issue<{ url: string }>; abonnement?: EtatDeLEspace | null; proVivant?: boolean } = {}) {
+function monter(etats: (t: number) => EtatConnexion, o: {
+  portail?: Issue<{ url: string }>; abonnement?: EtatDeLEspace | null; proVivant?: boolean;
+  /** La fenêtre du partenaire ouverte à l'espace (lot 3v-2b). */
+  ligne?: boolean | boolean[];
+  /** Une ligne du Crédit WhatsApp active sur un numéro qui ne garde pas l'application (lot 3v-2b). */
+  ligneActive?: boolean;
+  /** L'option payée (ses places), à jour ou en retard ; sans ligne posée, l'état de la ligne est « en attente ». */
+  option?: 'actif' | 'en_retard';
+  offre?: string;
+  /** La lecture des lignes en panne. */
+  lecturePanne?: boolean;
+} = {}) {
   let t = 1_000_000;
   const lectures: Array<{ tenant: string; t: number }> = [];
   const portails: Array<{ tenant: string; payeur: string }> = [];
@@ -52,6 +63,21 @@ function monter(etats: (t: number) => EtatConnexion, o: { portail?: Issue<{ url:
       },
       suiteDuPro: async () => null,
       rendreLeNumero: async (tenant: string, rendre: boolean) => { rendus.push({ tenant, rendre }); return o.proVivant ?? true; },
+      // Une suite de réponses, la dernière répétée : la fenêtre ouverte un instant, puis refermée (la course du lot 3v-2b).
+      fenetrePartenaire: async () => (Array.isArray(o.ligne) ? (o.ligne.length > 1 ? o.ligne.shift()! : o.ligne[0]!) : o.ligne ?? false),
+    },
+    // Les lectures de l'état de la ligne (`lireEtatLigne`) : une ligne active, ou aucune (une option jamais prise).
+    agentIa: {
+      creditWhatsapp: {
+        option: {
+          offre: async () => o.offre ?? 'pro', optionPrenable: async () => true,
+          options: { vivante: async () => (o.option ? { places: 1, statut: o.option } : null) },
+        },
+        vue: {
+          lignes: async () => { if (o.lecturePanne) throw new Error('base injoignable'); return o.ligneActive ? [{ arreteeLe: null }] : []; },
+          numeros: async () => [{ coexistence: false, delie: false, attendLigne: false }],
+        },
+      },
     },
     couteux: { consommer: async (tenant: string) => { couteux.push(tenant); return { accepte: true, attenteMs: 0 }; } },
   } as unknown as DepsMcp;
@@ -663,9 +689,10 @@ describe('le mode fourni_application', () => {
     for (const e of ETAPES_COMPTE_FOURNI) expect(r.consigne).toContain(e.fr);
     expect(r.consigne).toContain(`« ${COEXISTENCE_BOUTON.fr} »`);
     expect(r.consigne).toMatch(/Payer 3,50 € HT par mois/);
-    // Le numéro tout neuf : répondre dès le premier jour, l'envoi attend quelques jours, sans chiffre.
+    // Le numéro neuf (Julien, 2026-11-11 : un numéro neuf passe en coexistence sans problème, mesuré) : répondre dès le
+    // premier jour, et plus aucun refus de Meta ni aucun délai annoncé.
     expect(r.consigne).toMatch(/dès le premier jour/i);
-    expect(r.consigne).toMatch(/quelques jours/);
+    expect(r.consigne).not.toMatch(/quelques jours|refuse souvent|tout neuf/);
     expect(r.consigne).not.toMatch(/\d+ jours/);
     // Plus aucune voie par QR code (Julien, 2026-10-30) : ni les appareils connectés, ni la filière « application ». Le
     // QR code de la FENÊTRE DE META (garder l'application), lui, est annoncé depuis le lot 1 de l'aide à la connexion.
@@ -790,5 +817,96 @@ describe('la reprise d’un numéro fourni (Johan, 2026-11-06)', () => {
     await expect(demarrer(COMPTE_CREE, { mode: 'fourni_application' })).resolves.toBeDefined();
     // Par la fenêtre de Meta, un code capté ne bloque rien.
     await expect(demarrer({ ...FOURNI, destination: 'api', codeDejaCapte: true }, { mode: 'fourni' })).resolves.toBeDefined();
+  });
+});
+
+/**
+ * LA CONNEXION SANS CARTE DEPUIS CLAUDE (lot 3v-2b) : l'espace a pris le Crédit WhatsApp et n'a pas encore de numéro.
+ * `/brancher` ouvre alors d'elle-même la fenêtre du partenaire en `apporte` et en `fourni` ; la consigne le dit, avec les
+ * conditions sans carte et le crédit qui paie. Une fois connecté, la suite ne demande plus la carte chez Meta à un numéro
+ * que le crédit paie, et renvoie à l'onglet le numéro de l'essai encore sur sa carte.
+ */
+describe('la connexion sans carte chez Meta (lot 3v-2b)', () => {
+  const demarrer = (mode: string, ligne: boolean) =>
+    outil('start_whatsapp_connection').executer(monter(() => VIDE, { ligne }).deps, 't1', { mode }, PERSONNE) as Promise<Record<string, string>>;
+  const CONNECTE: EtatConnexion = { ...VIDE, connecte: { chiffres: '33600000000', aActiver: false } };
+  const suite = async (o: Parameters<typeof monter>[1]) =>
+    ((await outil('watch_whatsapp_connection').executer(monter(() => CONNECTE, o).deps, 't1', { mode: 'apporte' }, PERSONNE)) as { suite: string }).suite;
+
+  it('🔴 apporte, l’option prise : les conditions sans carte et le téléphone du numéro, le crédit qui paie, jamais la carte', async () => {
+    const c = (await demarrer('apporte', true)).consigne!;
+    for (const e of [...PREREQUIS_LIGNE, NUMERO_LIGNE_MIEN]) expect(c).toContain(e.fr);
+    expect(c).not.toContain(PREREQUIS_META[0]!.fr);
+    expect(c).not.toContain(CE_QUI_EST_FACTURE.api.fr);
+    expect(c).toMatch(/sans carte chez Meta/);
+    expect(c).toMatch(/Crédit WhatsApp/);
+    expect(c).toMatch(/buy_credit avec credit « whatsapp »/);
+    // Son numéro dans une application WhatsApp : le crédit ne le paiera pas, et garder l'application reste possible.
+    expect(c).toMatch(/il n’y marchera plus/);
+    expect(c).toMatch(/mode « coexistence »/);
+  });
+
+  it('🔴 fourni, l’option prise : les conditions sans carte, sans celle du numéro à soi', async () => {
+    const c = (await demarrer('fourni', true)).consigne!;
+    for (const e of PREREQUIS_LIGNE) expect(c).toContain(e.fr);
+    expect(c).not.toContain(NUMERO_LIGNE_MIEN.fr);
+    expect(c).not.toContain(PREREQUIS_META[0]!.fr);
+    expect(c).toMatch(/aucune carte chez Meta/);
+  });
+
+  it('🔴 sans la fenêtre du partenaire, rien ne change : les conditions de la carte et qui paie chez Meta', async () => {
+    for (const mode of ['apporte', 'fourni']) {
+      const c = (await demarrer(mode, false)).consigne!;
+      expect(c, mode).toContain(PREREQUIS_META[0]!.fr);
+      expect(c, mode).toContain(CE_QUI_EST_FACTURE.api.fr);
+      expect(c, mode).not.toMatch(/aucune carte chez Meta|buy_credit/);
+    }
+  });
+
+  it('🔴 garder l’application, l’option prise : la consigne dit que le crédit ne paiera pas ce numéro', async () => {
+    for (const mode of ['coexistence', 'fourni_application']) {
+      expect((await demarrer(mode, true)).consigne, mode).toMatch(/ne paie pas un numéro qui garde l’application/);
+      expect((await demarrer(mode, false)).consigne, mode).not.toMatch(/ne paie pas un numéro qui garde l’application/);
+    }
+  });
+
+  it('🔴 connecté : la carte chez Meta seulement si elle paie ; le crédit, ou la reconnexion depuis l’onglet', async () => {
+    const carte = await suite({});
+    expect(carte).toContain(ETAPES_CARTE_META[0]!.fr);
+    const credit = await suite({ ligneActive: true });
+    expect(credit).not.toContain(ETAPES_CARTE_META[0]!.fr);
+    expect(credit).toMatch(/ne lui demande aucune carte/);
+    expect(credit).toMatch(/buy_credit avec credit « whatsapp »/);
+    // Le numéro de l'essai connecté avec sa carte, l'option prise : la fenêtre reste ouverte jusqu'au bout de l'attente.
+    const reconnecter = await suite({ ligne: true, option: 'actif' });
+    expect(reconnecter).toMatch(/Reconnecter mon numéro sans carte chez Meta/);
+    expect(reconnecter).not.toMatch(/ne lui demande aucune carte/);
+    for (const s of [carte, credit, reconnecter]) expect(s).toMatch(/Relis ensuite get_setup_state/);
+  });
+
+  it('🔴 la course de la connexion sans carte : relié AVANT la pose de sa ligne, le numéro n’est pas annoncé « à reconnecter »', async () => {
+    // `linkTenant` relie le numéro, puis quelques secondes d'appels à Meta, puis la ligne posée : entre les deux, la
+    // fenêtre du partenaire paraît rouverte (rouge de la relecture du lot).
+    const s = await suite({ ligne: [true, true, false], ligneActive: true, option: 'actif' });
+    expect(s).toMatch(/ne lui demande aucune carte/);
+    expect(s).not.toMatch(/Reconnecter mon numéro|carte chez Meta, qui paie encore/);
+  });
+
+  it('🔴 l’option payée, la ligne pas encore posée : ni carte, ni recharge (refusée avant la ligne)', async () => {
+    const s = await suite({ option: 'actif' });
+    expect(s).toMatch(/ne lui demande aucune carte/);
+    expect(s).toMatch(/s’ouvre sous 24 h ouvrées/);
+    expect(s).not.toMatch(/buy_credit/);
+  });
+
+  it('🟡 la carte paie encore : l’option en retard se règle d’abord ; en Entreprise, le Support', async () => {
+    expect(await suite({ ligne: true, option: 'en_retard' })).toMatch(/n’est pas à jour/);
+    const entreprise = await suite({ ligne: true, offre: 'entreprise' });
+    expect(entreprise).toMatch(/Support de la console/);
+    expect(entreprise).not.toMatch(/Reconnecter mon numéro/);
+  });
+
+  it('🟡 une lecture en panne garde la suite de la carte', async () => {
+    expect(await suite({ lecturePanne: true })).toContain(ETAPES_CARTE_META[0]!.fr);
   });
 });

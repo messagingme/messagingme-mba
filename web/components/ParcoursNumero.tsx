@@ -13,7 +13,7 @@ import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { QrApplication } from '@/components/QrApplication';
 import {
-  ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, PREREQUIS_LIGNE, QUESTION_APPLICATION,
+  ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, QUESTION_APPLICATION,
   QUESTION_COMPTE, QUESTION_MEME_NUMERO, QUESTION_NUMERO, WHATSAPP_ORDINAIRE, type ReponseCompte,
 } from '@/lib/questions-numero';
 
@@ -75,8 +75,10 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
    * Le numéro fourni du Crédit WhatsApp (« Le vôtre », lot 3v) : la fenêtre de Meta s'ouvre avec la solution du
    * partenaire, que la configuration ne rend qu'à un espace qui a droit à la ligne, et la fin passe par la ligne
    * (`connect({ parLaLigne: true })`). Seulement avec `choixInitial` à `fourni`, jamais `fourni_application`.
+   * `si-ouverte` (le lien de Claude, `/brancher`, lot 3v-2b) : la même fenêtre dès que la configuration rend la solution
+   * du partenaire (l'option payée, aucun numéro), en `apporte` comme en `fourni`, jamais en gardant l'application.
    */
-  parLaLigne?: boolean;
+  parLaLigne?: boolean | 'si-ouverte';
   /**
    * `application` : la filière de l'application WhatsApp Business (2026-10-22), ouverte par le lien de Claude Code. Le
    * numéro se relie par un QR code scanné depuis le téléphone, à la place de la fenêtre de Meta. Absente : l'API.
@@ -128,6 +130,10 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   /** Le numéro fourni va dans l'application : relié par le QR code (filière application), ou gardé en coexistence. */
   const dansApplication = application || choix === 'fourni_application';
   const connexion = useConnexionNumero(tenantId, api, surConnexion);
+  const ligne = parLaLigne === true || (parLaLigne === 'si-ouverte' && filiere === 'api'
+    && (connexion.cfg?.solutionId ?? null) !== null && (choix === 'apporte' || choix === 'fourni'));
+  /** Le lien de Claude, la configuration pas encore lue : ni les conditions de la carte, ni celles de la ligne. */
+  const conditionsEnLecture = parLaLigne === 'si-ouverte' && connexion.cfg === null;
   useEffect(() => { surOccupe?.(connexion.busy); }, [connexion.busy, surOccupe]);
   useEffect(() => () => { surOccupe?.(false); }, [surOccupe]);
   /**
@@ -221,9 +227,9 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   };
 
   // Par la ligne (lot 3v), la fenêtre attend la solution du partenaire : sans elle, rien ne s'ouvre par la carte chez Meta.
-  const pret = connexion.cfg?.enabled === true && (!parLaLigne || (connexion.cfg.solutionId ?? null) !== null);
+  const pret = connexion.cfg?.enabled === true && (!ligne || (connexion.cfg.solutionId ?? null) !== null);
   const boutonFenetre = (
-    <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect(parLaLigne ? { parLaLigne: true } : {}); }} data-testid="ouvrir-fenetre-meta">
+    <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect(ligne ? { parLaLigne: true } : {}); }} data-testid="ouvrir-fenetre-meta">
       {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t('Ouvrir la fenêtre de Meta', 'Open the Meta window')}
     </Bouton>
   );
@@ -237,7 +243,8 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   // Le numéro fourni mis dans l'application y reste aussi : même chose. Au numéro fourni par la fenêtre de Meta, la
   // condition d'un numéro à soi n'a plus de sens : il vient d'en choisir un, comme Claude le tait (jaune 10 du lot 3a).
   // Par la fenêtre du partenaire (lot 3v), ni carte ni moyen de paiement : les mêmes conditions sans eux.
-  const prerequis = parLaLigne ? PREREQUIS_LIGNE
+  // « Le mien » par la ligne (lot 3v-2b, comme la carte de `QuiRegleMeta`) : son numéro et le téléphone qui le porte.
+  const prerequis = ligne ? (choix === 'apporte' ? [...PREREQUIS_LIGNE, NUMERO_LIGNE_MIEN] : PREREQUIS_LIGNE)
     : choix === 'coexistence' || choix === 'fourni_application' ? PREREQUIS_META.slice(0, 1)
       : choix === 'fourni' ? PREREQUIS_META.slice(0, 2) : PREREQUIS_META;
   const boutonCoexistence = (
@@ -313,7 +320,13 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     <>
       {/* Ce qu'il faut chez Meta, avant toute fenêtre de Meta : la même source que Claude (guide « compte Meta »). La filière
           application n'a pas de fenêtre de Meta. */}
-      {!application && <EncadreChezMeta prerequis={prerequis} />}
+      {!application && !conditionsEnLecture && <EncadreChezMeta prerequis={prerequis} />}
+      {/* Le lien de Claude ouvre la connexion sans carte d'elle-même (lot 3v-2b) : la page le dit, la console le dit déjà. */}
+      {ligne && parLaLigne === 'si-ouverte' && (
+        <p data-testid="connexion-sans-carte" className="mt-3 text-sm text-ink-700">
+          {t('Sans carte chez Meta : vos messages se paieront par votre Crédit WhatsApp.', 'No card at Meta: your messages will be paid by your WhatsApp credit.')}
+        </p>
+      )}
       {choix === null ? (
         // Les questions du tunnel de la vitrine : seule la page de la console y passe, un lien de Claude Code arrivant
         // avec son choix (donc jamais sur la filière application). Comme sur la vitrine (Julien, 2026-10-30 : « on garde

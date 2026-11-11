@@ -1,6 +1,9 @@
 import { ficheOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '../../web/lib/partage/etapes-numero-fourni';
-import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, PREREQUIS_META } from '../../web/lib/partage/etapes-meta';
+import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, PREREQUIS_META } from '../../web/lib/partage/etapes-meta';
+import { creditPaieMeta } from '../../web/lib/partage/credit-whatsapp';
+import { lireEtatLigne, tousGardentLApplication } from '../credit-whatsapp/etat-ligne';
+import { journaliser } from '../lib/journal';
 import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION } from '../../web/lib/partage/aide-connexion';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
 import { RefusOutil, valeurOuRefus } from './saisie';
@@ -51,6 +54,13 @@ export interface DepsNumeroMcp {
   comptesApplication: Pick<ComptesApplication, 'preparer'>;
   /** Retient où va le numéro fourni (`PgNumerosFournisStore.retenirDestination`, migration 0280), relu par `modeDeReprise`. */
   retenirDestination(tenantId: string, destination: DestinationNumeroFourni): Promise<void>;
+  /**
+   * La fenêtre du partenaire est-elle ouverte à l'espace (`solutionDuPartenaire`, lot E du Crédit WhatsApp, lot 3v-2b) ?
+   * Sans numéro : l'option payée (ou une Entreprise), et `/brancher` ouvre alors d'elle-même la connexion sans carte, en
+   * `apporte` et en `fourni`. Avec un numéro : le numéro de l'essai connecté avec la carte chez Meta, puis l'option prise,
+   * qui se reconnecte depuis l'onglet Crédit WhatsApp (sa carte paie encore Meta d'ici là).
+   */
+  fenetrePartenaire(tenantId: string): Promise<boolean>;
 }
 
 const jour = (d: Date | null): string | null => (d === null ? null : d.toISOString().slice(0, 10));
@@ -174,6 +184,30 @@ const PREREQUIS_FOURNI = prerequis(PREREQUIS_META.slice(0, 2));
 const PREREQUIS_APPORTE = prerequis(PREREQUIS_META);
 
 /**
+ * LA CONNEXION SANS CARTE CHEZ META (lot 3v-2b) : l'espace a pris le Crédit WhatsApp et n'a pas encore de numéro, et
+ * `/brancher` ouvre d'elle-même la fenêtre du partenaire en `apporte` et en `fourni`. Ses conditions sont celles de la
+ * page (`PREREQUIS_LIGNE`, et en `apporte` le téléphone du numéro, `NUMERO_LIGNE_MIEN`) ; qui paie, le crédit, dont le
+ * solde part de zéro. Jamais la carte chez Meta, que le crédit remplace.
+ */
+const SANS_CARTE = 'Cet espace a droit au Crédit WhatsApp (l’option prise, ou en Entreprise) : ce lien ouvre la connexion '
+  + 'sans carte chez Meta, la page s’en charge d’elle-même. ';
+const PREREQUIS_LIGNE_FOURNI = prerequis(PREREQUIS_LIGNE);
+const PREREQUIS_LIGNE_APPORTE = prerequis([...PREREQUIS_LIGNE, NUMERO_LIGNE_MIEN]);
+const QUI_PAIE_LIGNE = 'Puis qui paie, dans sa langue : « Vos messages se paient par votre Crédit WhatsApp : aucune carte '
+  + 'chez Meta. » Hors Entreprise (où il suit son contrat, illimité), ce crédit est prépayé chez Messaging Me et part de '
+  + 'zéro : une fois le numéro connecté et sa ligne ouverte, propose-lui de le recharger (buy_credit avec credit '
+  + '« whatsapp ») avant ses premiers modèles. ';
+/** Le numéro de la personne déjà dans une application WhatsApp : la ligne ne paie pas un numéro qui la garde. */
+const SI_NUMERO_DANS_WHATSAPP_LIGNE = 'Si son numéro sert dans WhatsApp ou dans l’application WhatsApp Business, dis-lui '
+  + 'd’abord qu’avec le Crédit WhatsApp il n’y marchera plus : ses clients lui écriront dans Messaging Me, et elle leur '
+  + 'répondra là (la console, ou toi). Pour garder l’application, rappelle start_whatsapp_connection avec mode '
+  + '« coexistence » : ses messages se paieront alors avec sa carte chez Meta, pas par le crédit. ';
+/** Garder l'application alors que l'espace a pris le Crédit WhatsApp : le dire, pour qu'elle choisisse en connaissance. */
+const CREDIT_SANS_APPLICATION = ' Préviens-la aussi : cet espace a pris le Crédit WhatsApp, qui ne paie pas un numéro qui '
+  + 'garde l’application ; pour qu’il paie, un numéro hors de toute application WhatsApp (start_whatsapp_connection avec '
+  + 'mode « apporte » ou « fourni »).';
+
+/**
  * CE QUI VA SE PASSER, ET QUI PAIE, DIT AVANT LE LIEN (aide à la connexion, lot 1, 2026-11-09). À l'onboarding du
  * 2026-11-07, la personne a découvert la fenêtre de Meta en chemin, et Claude lui a dit « Meta facture forcément sur ta
  * carte » comme si tout était payant. Les textes viennent de `web/lib/partage/` : la page et les fiches disent les mêmes.
@@ -208,8 +242,9 @@ const INSISTE_APPEL_SI_REDONNEES = `Si tu les redonnes, insiste lourdement, et r
  * relecture de B2b), le numéro est inclus : la page l'obtient sans payer, et Claude n'annonce pas un prix qu'elle ne
  * demande pas.
  */
-const consigneFourni = (inclusDansLePro: boolean, url: string): string =>
-  PREREQUIS_FOURNI + CODE_EXPLIQUE + QUI_PAIE_API + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
+const consigneFourni = (inclusDansLePro: boolean, url: string, ligne: boolean): string =>
+  (ligne ? SANS_CARTE + PREREQUIS_LIGNE_FOURNI + CODE_EXPLIQUE + QUI_PAIE_LIGNE : PREREQUIS_FOURNI + CODE_EXPLIQUE + QUI_PAIE_API)
+  + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
   + 'étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
   + numerotees([
     'Cliquer sur le lien.',
@@ -233,7 +268,9 @@ const SI_NUMERO_DANS_WHATSAPP = 'Si son numéro sert dans WhatsApp ou dans l’a
   + 'conversations), et ne l’envoie jamais vers un autre numéro. ';
 
 const CONSIGNES = {
-  apporte: (url: string) => PREREQUIS_APPORTE + SI_NUMERO_DANS_WHATSAPP + QUI_PAIE_API + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une '
+  apporte: (url: string, ligne: boolean) => (ligne
+    ? SANS_CARTE + PREREQUIS_LIGNE_APPORTE + SI_NUMERO_DANS_WHATSAPP_LIGNE + QUI_PAIE_LIGNE
+    : PREREQUIS_APPORTE + SI_NUMERO_DANS_WHATSAPP + QUI_PAIE_API) + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une '
     + 'heure. Sur la page : la fenêtre de Meta, son numéro, et le code qu’elle reçoit elle-même. Appelle ensuite '
     + 'watch_whatsapp_connection pour savoir quand le numéro est connecté.' + SI_ELLE_REVIENT,
   /**
@@ -241,7 +278,8 @@ const CONSIGNES = {
    * de Meta : le dernier (un numéro hors de l'application) le contredirait, et le compte Meta Business, la fenêtre le crée
    * en chemin. La page en dit autant (`COEXISTENCE_PHRASES`, `web/lib/fenetre-meta.ts`).
    */
-  coexistence: (url: string) => AVANT_LE_LIEN_GARDER + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, '
+  coexistence: (url: string, ligne: boolean) => AVANT_LE_LIEN_GARDER + (ligne ? `${CREDIT_SANS_APPLICATION.trim()} ` : '')
+    + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, '
     + 'sans se connecter, pendant une heure ; son numéro reste dans l’application. Appelle ensuite '
     + 'watch_whatsapp_connection avec mode égal à « coexistence » pour savoir quand le numéro est relié à l’API, '
     + 'l’application gardée.'
@@ -251,13 +289,11 @@ const CONSIGNES = {
 const RAPPEL_ATTENTE = 'Rappelle watch_whatsapp_connection avec etat_connu égal à cette empreinte pour attendre la suite.';
 
 /**
- * Ce qu'un numéro tout neuf attend (Julien, 2026-10-31) : Meta le refuse souvent en coexistence les premiers jours, mais
- * la personne répond à ses clients depuis l'application dès le premier jour. Meta ne publie aucun seuil : aucun chiffre.
+ * Ce que le numéro fourni mis dans l'application permet dès le premier jour. 🔴 Plus de « Meta refuse souvent un numéro
+ * tout neuf, revenez dans quelques jours » (Julien, 2026-11-11 : « on a testé qu'un nouveau numéro peut être coex sans
+ * problème, on ne dit pas de connerie sur ce sujet ») : la console, la vitrine et le plugin l'ont retiré aussi.
  */
-const NUMERO_NEUF = 'dès le premier jour, elle répond à ses clients depuis l’application ; Meta refuse souvent un numéro tout '
-  + 'neuf dans sa fenêtre, et l’envoi depuis Messaging Me attend alors quelques jours, le temps de revenir le brancher. Ne '
-  + 'donne aucun nombre de jours. Pour revenir, start_whatsapp_connection en mode « coexistence » : le numéro est déjà '
-  + 'dans l’application (ce mot reste dans ton appel, jamais dans ce que tu lui dis).';
+const NUMERO_NEUF = 'dès le premier jour, elle répond à ses clients depuis l’application.';
 /**
  * La dernière étape du numéro fourni mis dans l'application : le bouton de la page, la même fenêtre qu'en coexistence.
  * Son libellé est celui de `COEXISTENCE_BOUTON` (`web/lib/fenetre-meta.ts`), que `tests/mcp-numero.test.ts` tient égal.
@@ -271,12 +307,13 @@ const GARDER_APRES_COMPTE = 'Une fois le compte créé dans l’application, « 
  * vérification de l'application, mesuré le 2026-10-21), puis la fenêtre de Meta en coexistence sur ce même numéro. Les
  * étapes sont celles de la page (`ETAPES_COMPTE_FOURNI`, puis le bouton de la coexistence).
  */
-const consigneFourniApplication = (inclusDansLePro: boolean, url: string): string =>
+const consigneFourniApplication = (inclusDansLePro: boolean, url: string, ligne: boolean): string =>
   // Borné au code de CRÉATION du compte de l'application (jaune 5) : la vérification que la fenêtre de Meta demande
   // ensuite sur un numéro fourni n'a jamais été mesurée, elle est à l'essai réel du lot.
   CODE_EXPLIQUE + 'Le code de création du compte de l’application se tape dans l’application WhatsApp Business, pas dans '
   + 'la fenêtre de Meta. '
   + AVANT_LE_LIEN_GARDER.replace('dans la fenêtre de Meta', 'dans la fenêtre de Meta, une fois le compte de l’application créé')
+  + (ligne ? `${CREDIT_SANS_APPLICATION.trim()} ` : '')
   + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
   + 'étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
   + numerotees([
@@ -391,6 +428,78 @@ function suiteApplication(e: EtatConnexion): string | null {
   }
 }
 
+/**
+ * QUI PAIE META POUR LE NUMÉRO CONNECTÉ (lot 3v-2b) : sa carte (la suite d'avant), le Crédit WhatsApp (sa ligne posée, ou
+ * l'option payée qui l'attend, pour un numéro qui ne garde pas l'application : `creditPaieMeta`, la règle de
+ * `get_setup_state`), ou sa carte ENCORE, l'option prise sur le numéro de l'essai connecté avec elle, qui se reconnecte
+ * sans carte depuis l'onglet (le serveur ne rouvre la fenêtre du partenaire à un espace connecté que pour ce cas).
+ */
+type PaiementDuNumero = 'carte' | 'credit' | 'attente' | 'reconnecter' | 'regler' | 'support';
+const RELIRE_APRES_CONNEXION = 'Relis ensuite get_setup_state avant d’annoncer la suite : la connexion change l’état de '
+  + 'l’espace. Le crédit IA offert au premier numéro arrive quelques secondes après : s’il est encore à 0, relis une fois '
+  + 'quelques secondes plus tard.';
+const CONNECTE_PAR_LE_CREDIT = 'Le numéro est connecté : le branchement est fini. Ses messages se paient par le Crédit '
+  + 'WhatsApp, sans carte chez Meta : ne lui demande aucune carte. Si le solde de ce Crédit WhatsApp est à zéro (get_credit '
+  + 'le dit, dans credit_whatsapp ; jamais en Entreprise, où il est illimité), propose-lui de le recharger (buy_credit avec '
+  + `credit « whatsapp ») avant ses premiers modèles. ${RELIRE_APRES_CONNEXION}`;
+/** L'option payée, la ligne pas encore posée (pose refusée, ou la pose automatique coupée) : la recharge attend la ligne. */
+const CONNECTE_EN_ATTENTE = 'Le numéro est connecté sans carte chez Meta : ne lui demande aucune carte. Sa ligne de Crédit '
+  + 'WhatsApp s’ouvre sous 24 h ouvrées au plus ; la recharge du Crédit WhatsApp vient ensuite (get_credit le montrera), '
+  + `elle n’est pas possible avant. ${RELIRE_APRES_CONNEXION}`;
+const CONNECTE_A_RECONNECTER = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages : l’espace a '
+  + 'pris le Crédit WhatsApp, et le numéro se reconnecte sans carte depuis l’onglet Crédit WhatsApp de la page Offre de la '
+  + 'console (« Reconnecter mon numéro sans carte chez Meta »). Dis-le-lui ; d’ici là, sans carte chez Meta, ses modèles '
+  + `ne partent pas. ${RELIRE_APRES_CONNEXION}`;
+/** Le bouton de l'onglet n'existe que pour une option à jour : l'option en retard se règle d'abord, au même onglet. */
+const CONNECTE_A_REGLER = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages : le paiement de '
+  + 'l’option Crédit WhatsApp n’est pas à jour. Dis-lui de le régler dans l’onglet Crédit WhatsApp de la page Offre de la '
+  + 'console ; le numéro s’y reconnectera ensuite sans carte. D’ici là, sans carte chez Meta, ses modèles ne partent pas. '
+  + RELIRE_APRES_CONNEXION;
+/** En Entreprise, pas de bouton : notre équipe passe le numéro sur le Crédit WhatsApp. */
+const CONNECTE_PAR_LE_SUPPORT = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages. En '
+  + 'Entreprise, notre équipe le passe sur le Crédit WhatsApp : dis-lui de nous écrire depuis le Support de la console. '
+  + RELIRE_APRES_CONNEXION;
+const SUITES_CONNECTE: Readonly<Record<Exclude<PaiementDuNumero, 'carte'>, string>> = {
+  credit: CONNECTE_PAR_LE_CREDIT, attente: CONNECTE_EN_ATTENTE, reconnecter: CONNECTE_A_RECONNECTER,
+  regler: CONNECTE_A_REGLER, support: CONNECTE_PAR_LE_SUPPORT,
+};
+
+/** Lu seulement quand le numéro est connecté. Une lecture qui échoue garde la suite d'avant, la carte, et se journalise. */
+async function paiementDuNumero(deps: DepsMcp, tenantId: string): Promise<PaiementDuNumero> {
+  try {
+    const wa = deps.agentIa.creditWhatsapp;
+    if (await deps.numero.fenetrePartenaire(tenantId)) {
+      // Le numéro de l'essai connecté avec sa carte, l'option prise (V4 de la session du crédit) : le bouton de
+      // l'onglet n'existe que pour une option à jour, hors Entreprise.
+      const [offre, option] = await Promise.all([wa.option.offre(tenantId), wa.option.options.vivante(tenantId)]);
+      if (offre === 'entreprise') return 'support';
+      return option?.statut === 'actif' ? 'reconnecter' : 'regler';
+    }
+    const [etat, numeros] = await Promise.all([lireEtatLigne(wa, tenantId), wa.vue.numeros(tenantId)]);
+    if (!creditPaieMeta(etat, tousGardentLApplication(numeros))) return 'carte';
+    return etat === 'en_attente' ? 'attente' : 'credit';
+  } catch (err) {
+    journaliser('error', 'mcp_paiement_du_numero_illisible', { tenantId, err });
+    return 'carte';
+  }
+}
+
+/**
+ * 🔴 LA COURSE DE LA CONNEXION SANS CARTE (rouge de la relecture du lot) : le numéro est relié (`linkTenant`) AVANT que sa
+ * ligne soit posée ou qu'il soit marqué arrivé par la fenêtre du partenaire (quelques secondes d'appels à Meta) ; entre
+ * les deux, la règle le lit comme le numéro de l'essai connecté avec sa carte. On relit donc tant qu'elle dit « carte qui
+ * paie encore », jusqu'à la fin de l'attente et au moins cinq pas : un vrai numéro à reconnecter le reste jusqu'au bout.
+ */
+async function paiementStable(deps: DepsMcp, tenantId: string, debut: number): Promise<PaiementDuNumero> {
+  const limite = Math.max(debut + DELAI_ATTENTE_MS, deps.numero.maintenant() + 5 * PAS_ATTENTE_MS);
+  let p = await paiementDuNumero(deps, tenantId);
+  while ((p === 'reconnecter' || p === 'regler' || p === 'support') && deps.numero.maintenant() + PAS_ATTENTE_MS <= limite) {
+    await deps.numero.attendre(PAS_ATTENTE_MS);
+    p = await paiementDuNumero(deps, tenantId);
+  }
+  return p;
+}
+
 const RIEN_ENCORE = 'Rien n’a encore bougé. Si la personne revient sans avoir avancé, redonne-lui le lien en entier et ses '
   + `étapes (start_whatsapp_connection en rend un neuf si l’heure est passée). ${RAPPEL_ATTENTE}`;
 
@@ -411,7 +520,7 @@ function destinationDe(e: EtatConnexion, mode?: string): DestinationNumeroFourni
  * seulement à défaut (plan 2026-11-06) : un appel sans `mode`, ou une session reprise, ne retombe plus sur la fenêtre de
  * Meta d'un numéro neuf.
  */
-function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string): string {
+function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string, paiement: PaiementDuNumero = 'carte'): string {
   if (mode === 'coexistence' && (e.connecte === null || e.application !== undefined)) return COEXISTENCE_EN_COURS;
   const destination = filiere === 'api' ? destinationDe(e, mode) : undefined;
   const fourniApplication = destination === 'application' ? suiteFourniApplication(e) : null;
@@ -427,6 +536,7 @@ function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string
       + 'personne : elle peut la terminer dans l’Accueil de la console (« Activer le numéro »).';
   }
   if (e.connecte) {
+    if (paiement !== 'carte') return SUITES_CONNECTE[paiement];
     // Le crédit offert est écrit après la liaison, une fois Meta interrogé (relecture du lot) : quelques secondes.
     return 'Le numéro est connecté : le branchement est fini. Dis-lui tout de suite d’ajouter sa carte chez Meta, sans '
       + `laquelle les modèles ne partent pas : ${numerotees(ETAPES_CARTE_META.map((e) => e.fr))} Relis ensuite `
@@ -616,9 +726,10 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       + 'app goes through `coexistence`, never to another number. `coexistence`: the person\'s own number, kept in the WhatsApp Business app on their phone; messages sent '
       + 'through Messaging Me are official templates billed by Meta, those typed in the app stay free (filiere api only). '
       + '`fourni_application`: a number we provide (same price), which the person puts IN the WhatsApp Business app (its '
-      + 'verification code arrives here), then keeps the app and connects it through Meta\'s window, like coexistence; a '
-      + 'brand-new number is often refused by Meta at first: the person answers from the app meanwhile and comes back in a '
-      + 'few days with mode coexistence (filiere api only). '
+      + 'verification code arrives here), then keeps the app and connects it through Meta\'s window, like coexistence '
+      + '(filiere api only). When the workspace took WhatsApp credit and has no number yet, the link of `fourni` and '
+      + '`apporte` opens the connection without a card at Meta, and the consigne gives its conditions; the credit never '
+      + 'pays a number that keeps the app. '
       + 'Refused if the workspace already has a connected number, except `coexistence` for a number linked by QR code, '
       + 'which moves to the API on the same number.',
     // Il ne touche rien chez un tiers et ne crée rien : un lien signé de plus à chaque appel.
@@ -694,6 +805,9 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         const p = await deps.numero.comptesApplication.preparer(tenantId, { numero: brut, fourniId: null });
         if (!p.ok) throw new RefusOutil(phraseDuRefusDePreparation(p.raison));
       }
+      // La connexion sans carte (lot 3v-2b) : la règle même de la page, qui l'ouvre d'elle-même en `apporte` et `fourni`
+      // (`solutionDuPartenaire`, que la configuration du lien rend) ; la consigne dit ses conditions, et le crédit qui paie.
+      const ligne = filiere === 'api' && await deps.numero.fenetrePartenaire(tenantId);
       const jeton = await deps.numero.signerLien({ tenantId, userId, mode, ...(filiere === 'application' ? { filiere } : {}) });
       const url = adresseDuLien(deps.numero.urlConsole, jeton);
       return {
@@ -701,8 +815,8 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         expire_le: new Date(deps.numero.maintenant() + DUREE_LIEN_NUMERO_MS).toISOString(),
         consigne: filiere === 'application'
           ? (mode === 'fourni' ? CONSIGNES_APPLICATION.fourni(etat.inclusDansLePro, url) : CONSIGNES_APPLICATION.apporte(url))
-          : (mode === 'fourni' ? consigneFourni(etat.inclusDansLePro, url)
-            : mode === 'fourni_application' ? consigneFourniApplication(etat.inclusDansLePro, url) : CONSIGNES[mode](url))
+          : (mode === 'fourni' ? consigneFourni(etat.inclusDansLePro, url, ligne)
+            : mode === 'fourni_application' ? consigneFourniApplication(etat.inclusDansLePro, url, ligne) : CONSIGNES[mode](url, ligne))
             + SI_ELLE_BLOQUE,
       };
     },
@@ -754,7 +868,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         const change = connu === undefined || empreinte !== connu;
         // 🔴 Jamais de lecture au-delà du délai : la boucle s'arrête d'elle-même, même si l'appelant a abandonné.
         if (change || deps.numero.maintenant() - debut + PAS_ATTENTE_MS > DELAI_ATTENTE_MS) {
-          const suite = suiteDe(e, filiere, mode);
+          const suite = suiteDe(e, filiere, mode, e.connecte && !e.connecte.aActiver ? await paiementStable(deps, tenantId, debut) : 'carte');
           const filet = sansSigne(suite);
           // Un lien neuf, signé comme celui de start_whatsapp_connection (même personne, même espace), dans le seul mode
           // que start aurait donné tel quel et que la suite suit (`modeDuLienNeuf`), sur l'API.

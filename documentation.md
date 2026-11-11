@@ -5447,6 +5447,17 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   `localStorage` (`varianteGardee`) et ne lit pas cette destination.
   ⚠️ Ces attentes de 25 s entrent dans `http_latences` sous la route `/mcp`, avec les autres outils : un p95 de `/mcp`
   qui grimpe sur /ops ne dit pas une régression tant qu'on ne l'a pas lu par outil.
+  **La connexion sans carte par le lien (lot 3v-2b).** La configuration du lien (`GET /embedded-signup/config`, garde
+  `adminOuLien`) rend `solutionId` par la même règle que la console (`solutionDuPartenaire`) ; `/brancher` passe
+  `parLaLigne="si-ouverte"` à `ParcoursNumero`, qui ouvre alors la fenêtre du partenaire en `apporte` (conditions
+  `PREREQUIS_LIGNE` et `NUMERO_LIGNE_MIEN`) et en `fourni`, jamais en gardant l'application. `start_whatsapp_connection`
+  lit la même règle (`fenetrePartenaire` de `DepsNumeroMcp`, câblée dans `src/index.ts`) et dit la connexion sans carte,
+  ses conditions et le crédit à recharger. Connecté, `watch_whatsapp_connection` choisit sa suite par qui paie
+  (`paiementDuNumero`) : la carte chez Meta, le Crédit WhatsApp (ligne active ; en attente de sa ligne, sans recharge,
+  refusée avant), ou la carte encore (le numéro de l'essai connecté avec elle, l'option prise : la reconnexion depuis
+  l'onglet, le règlement de l'option en retard, ou le Support en Entreprise). 🔴 Le numéro est relié (`linkTenant`) AVANT
+  la pose de sa ligne, et la règle le prend un instant pour un numéro à reconnecter : `paiementStable` relit tant qu'elle
+  le dit, jusqu'à la fin de l'attente et au moins cinq pas.
 - **L'origine de l'espace** (`tenants.origine`, migration 0212) : `claude_code` quand l'espace naît par la connexion
   OAuth de Claude Code (`src/http/oauth.ts`), `console` sinon. Elle ne décide plus du crédit offert (1 € pour toutes
   les origines, lot 6) : c'est une donnée d'exploitation. `createTenantWithAdmin` l'exige toujours dans le contrat des

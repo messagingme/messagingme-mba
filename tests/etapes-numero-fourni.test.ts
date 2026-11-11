@@ -27,6 +27,7 @@ function deps(etat: EtatConnexion): DepsMcp {
       maintenant: () => 1_000_000,
       // La destination du numéro fourni (0280), que le lien retient : ces tests ne regardent que les consignes.
       retenirDestination: async () => {},
+      fenetrePartenaire: async () => false,
     },
   } as unknown as DepsMcp;
 }

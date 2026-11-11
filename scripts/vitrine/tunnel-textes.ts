@@ -295,7 +295,7 @@ const fr = (): TexteTunnel => {
         voies: paiement,
         reponses: [
           { libelle: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', vers: 'compte' },
-          { libelle: 'Crédit WhatsApp', grisee: { free: 'Avec la formule Pro.', pro: `Dans la console, dès l’essai de la formule Pro : <a href="${OFFRE_CREDIT_WHATSAPP.fr}">Offre, onglet Crédit WhatsApp</a>.` } },
+          { libelle: 'Crédit WhatsApp', grisee: { free: 'Avec la formule Pro.', pro: `Dans la console, une fois votre espace créé en formule Pro : <a href="${OFFRE_CREDIT_WHATSAPP.fr}">Offre, onglet Crédit WhatsApp</a> ; l’option se paie dès sa prise, même pendant l’essai.` } },
         ],
       },
       {
@@ -470,7 +470,7 @@ const fr = (): TexteTunnel => {
       points: {
         titre: 'Les cinq points à vérifier',
         liste: [
-          'Qui paie vos messages à Meta : votre carte chez Meta, ou le Crédit WhatsApp, prépayé chez Messaging Me, à prendre dans la console avec la formule Pro (dès son essai) ou Business.',
+          'Qui paie vos messages à Meta : votre carte chez Meta, ou le Crédit WhatsApp, prépayé chez Messaging Me, à prendre dans la console avec la formule Pro ou Business (l’option se paie dès sa prise, même pendant l’essai).',
           'Un compte Meta Business : avec, votre numéro se relie en numéro API ; sans, la fenêtre de Meta vous le fait créer en chemin.',
           'L’application WhatsApp Business : vous la gardez, et Messaging Me envoie les messages automatiques à côté. Meta appelle cela la coexistence.',
           'Un numéro : le vôtre, ou un numéro que nous vous fournissons.',
@@ -578,7 +578,7 @@ const en = (): TexteTunnel => {
         voies: paiement,
         reponses: [
           { libelle: 'I add a payment method (Visa / Mastercard) to my Meta Business account', vers: 'compte' },
-          { libelle: 'WhatsApp credit', grisee: { free: 'With the Pro plan.', pro: `In the console, from the Pro plan trial: <a href="${OFFRE_CREDIT_WHATSAPP.en}">Plan, WhatsApp credit tab</a>.` } },
+          { libelle: 'WhatsApp credit', grisee: { free: 'With the Pro plan.', pro: `In the console, once your workspace is created on the Pro plan: <a href="${OFFRE_CREDIT_WHATSAPP.en}">Plan, WhatsApp credit tab</a>; the option is paid when taken, even during the trial.` } },
         ],
       },
       {
@@ -741,7 +741,7 @@ const en = (): TexteTunnel => {
       points: {
         titre: 'The five points to check',
         liste: [
-          'Who pays Meta for your messages: your card at Meta, or WhatsApp credit, prepaid at Messaging Me, taken in the console with the Pro plan (from its trial) or Business.',
+          'Who pays Meta for your messages: your card at Meta, or WhatsApp credit, prepaid at Messaging Me, taken in the console with the Pro or Business plan (the option is paid when taken, even during the trial).',
           'A Meta Business account: with one, your number connects as an API number; without one, Meta’s window has you create it along the way.',
           'The WhatsApp Business app: you keep it, and Messaging Me sends the automated messages alongside. Meta calls this coexistence.',
           'A number: yours, or a number we provide.',

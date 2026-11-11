@@ -3838,6 +3838,8 @@ async function main(): Promise<void> {
           comptesApplication,
           // Où va le numéro fourni (migration 0280) : retenu au lien, relu par la reprise (`modeDeReprise`).
           retenirDestination: (tenant, destination) => numerosFournis.retenirDestination(tenant, destination),
+          // La connexion sans carte (lot 3v-2b) : la MÊME règle que la configuration du lien, que `/brancher` lit.
+          fenetrePartenaire: async (tenant) => (await solutionDuPartenaire(fenetreDuPartenaire, tenant)) !== null,
           ouvrirPortail: (tenant, payeur) => ouvrirPortail(abonnementDuNumero, tenant, 'console', payeur),
           // Lot 4 : la seule lecture de l'état, et le réabonnement du même numéro (retour sur `/paiement-recu`).
           abonnement: (tenant) => abonnementsNumero.etatDeLEspace(tenant),

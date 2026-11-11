@@ -14,8 +14,8 @@ function jeton(mode: 'fourni' | 'apporte' | 'fourni_application' = 'fourni'): st
 }
 
 /** Le serveur de la page : le numéro fourni, la fenêtre de Meta et l'état. Chaque en-tête Authorization est gardé. */
-async function simuler(page: Page, o: { refus401?: boolean; refus403?: boolean; connecte?: boolean; aActiver?: boolean; lecturesAvantCode?: number; abonnement?: 'actif' | null } = {}) {
-  const s = { numero: null as string | null, lectures: 0, autorisations: [] as string[], connecte: o.connecte === true, retours: [] as string[] };
+async function simuler(page: Page, o: { refus401?: boolean; refus403?: boolean; connecte?: boolean; aActiver?: boolean; lecturesAvantCode?: number; abonnement?: 'actif' | null; solution?: string } = {}) {
+  const s = { numero: null as string | null, lectures: 0, autorisations: [] as string[], connecte: o.connecte === true, retours: [] as string[], fins: [] as unknown[] };
   const abonnement = o.abonnement === undefined ? { statut: 'actif', periodeFin: null } : (o.abonnement ? { statut: o.abonnement, periodeFin: null } : null);
   const json = (body: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.route('**/api/backend/**', async (route) => {
@@ -24,7 +24,12 @@ async function simuler(page: Page, o: { refus401?: boolean; refus403?: boolean; 
     s.autorisations.push(req.headers().authorization ?? '(aucune)');
     if (o.refus401) return route.fulfill(json({ error: 'lien révoqué : redemandez-en un à Claude' }, 401));
     if (o.refus403) return route.fulfill(json({ error: 'réservé aux admins de l’espace' }, 403));
-    if (chemin.endsWith('/embedded-signup/config')) return route.fulfill(json({ enabled: true, appId: 'app-e2e', configId: 'cfg-e2e', graphVersion: 'v25.0' }));
+    // La solution du partenaire (lot 3v-2b) : la configuration ne la rend qu'à un espace qui a payé l'option, sans numéro.
+    if (chemin.endsWith('/embedded-signup/config')) return route.fulfill(json({ enabled: true, appId: 'app-e2e', configId: 'cfg-e2e', graphVersion: 'v25.0', ...(o.solution ? { solutionId: o.solution } : {}) }));
+    if (req.method() === 'POST' && chemin.endsWith('/embedded-signup/complete')) {
+      s.fins.push(req.postDataJSON());
+      return route.fulfill(json({ connected: true, wabaId: 'w-e2e', phoneNumberId: 'pn-e2e', displayPhoneNumber: '+33 6 00 00 00 00' }));
+    }
     if (chemin.endsWith('/connexion-numero')) {
       const relie = s.connecte || o.aActiver === true;
       return route.fulfill(json({ etat: { fourni: s.numero, code: null, connecte: relie ? { chiffres: '441235619343', aActiver: o.aActiver === true } : null, abonnement }, empreinte: '0123456789abcdef' }));
@@ -204,4 +209,57 @@ test('🔴 filière application : le QR code à la place de la fenêtre de Meta,
   s.relie = true;
   await expect(page.getByTestId('brancher-connecte')).toBeVisible();
   expect(new Set(s.autorisations)).toEqual(new Set([`Bearer ${j}`]));
+});
+
+/**
+ * LA CONNEXION SANS CARTE DEPUIS LE LIEN DE CLAUDE (lot 3v-2b) : l'espace a payé l'option Crédit WhatsApp et n'a pas de
+ * numéro, la configuration du lien rend la solution du partenaire, et la page ouvre d'elle-même la fenêtre de Meta par
+ * elle, en « apporte » comme en « fourni ». Le faux SDK retient les options de `FB.login`.
+ */
+const SDK_QUI_RETIENT = 'window.FB={init:function(){},login:function(cb,o){window.__optionsFb=o;setTimeout(function(){cb({authResponse:{code:"code-e2e"}})},10)}};';
+const optionsFb = (page: Page) => page.evaluate(() => (window as unknown as { __optionsFb?: { extras?: unknown } }).__optionsFb);
+
+test('🔴 l’option payée, son numéro : les conditions sans carte, la fenêtre par la solution, la fin par la ligne', async ({ page }) => {
+  await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
+  const s = await simuler(page, { solution: 'sol-e2e' });
+  await page.goto(`/brancher#${jeton('apporte')}`);
+  await expect(page.getByTestId('connexion-sans-carte')).toHaveText('Sans carte chez Meta : vos messages se paieront par votre Crédit WhatsApp.');
+  const prerequis = page.getByTestId('prerequis-meta');
+  await expect(prerequis.locator('li')).toHaveCount(3);
+  await expect(prerequis.locator('li').nth(0)).toContainText('sans carte chez Meta');
+  await expect(prerequis.locator('li').nth(2)).toHaveText('Votre numéro, et le téléphone qui le porte : Meta y envoie un code, par SMS ou par appel.');
+  await expect(prerequis).not.toContainText('votre carte');
+  await page.getByTestId('ouvrir-fenetre-meta').click();
+  await expect.poll(() => s.fins.length, { timeout: 15_000 }).toBe(1);
+  expect(s.fins[0]).toEqual({ code: 'code-e2e', parLaLigne: true });
+  expect((await optionsFb(page))?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
+});
+
+test('🔴 l’option payée, le numéro fourni : les conditions sans carte, sans celle d’un numéro à soi', async ({ page }) => {
+  await simuler(page, { solution: 'sol-e2e' });
+  await page.goto(`/brancher#${jeton('fourni')}`);
+  await expect(page.getByTestId('connexion-sans-carte')).toBeVisible();
+  const prerequis = page.getByTestId('prerequis-meta');
+  await expect(prerequis.locator('li')).toHaveCount(2);
+  await expect(prerequis.locator('li').nth(0)).toContainText('sans carte chez Meta');
+});
+
+test('🔴 sans l’option : la fenêtre de Meta et les conditions de la carte, comme avant', async ({ page }) => {
+  await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
+  const s = await simuler(page);
+  await page.goto(`/brancher#${jeton('apporte')}`);
+  await expect(page.getByTestId('prerequis-meta').locator('li').nth(0)).toContainText('votre carte');
+  await expect(page.getByTestId('connexion-sans-carte')).toHaveCount(0);
+  await page.getByTestId('ouvrir-fenetre-meta').click();
+  await expect.poll(() => s.fins.length, { timeout: 15_000 }).toBe(1);
+  expect(s.fins[0]).toEqual({ code: 'code-e2e' });
+  expect((await optionsFb(page))?.extras).toEqual({ setup: {} });
+});
+
+test('🔴 l’option payée, mais le numéro fourni mis dans l’application : la fenêtre de Meta, le crédit ne le paie pas', async ({ page }) => {
+  await simuler(page, { solution: 'sol-e2e' });
+  await page.goto(`/brancher#${jeton('fourni_application')}`);
+  await expect(page.getByTestId('choix-fourni-ouvert')).toBeVisible();
+  await expect(page.getByTestId('connexion-sans-carte')).toHaveCount(0);
+  await expect(page.getByTestId('prerequis-meta')).not.toContainText('sans carte chez Meta');
 });

@@ -100,6 +100,9 @@ export default function BrancherPage() {
               api={api}
               choixInitial={lien.lu.mode}
               filiere={lien.lu.filiere}
+              // L'option Crédit WhatsApp payée, sans numéro (lot 3v-2b) : la fenêtre du partenaire, que la configuration du
+              // lien ouvre (`solutionId`), en `apporte` et en `fourni` ; sinon la fenêtre de Meta, comme avant.
+              parLaLigne="si-ouverte"
               retour="brancher"
               connecte={connecte}
               // « Connecté » vient de l'état relu, pas de la fin de la fenêtre : un compte relié sans numéro n'est pas connecté.

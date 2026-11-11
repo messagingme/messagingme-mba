@@ -620,6 +620,8 @@ export const mcpNumeroInerte: Pick<DepsMcp, 'numero'> = {
     comptesApplication: aucunCompteApplication.comptes,
     // La destination du numéro fourni (0280) : retenue seulement par un lien, que ces montages ne signent pas.
     retenirDestination: neDevraitPasEtreAppelee('numero.retenirDestination'),
+    // Sans fenêtre du partenaire : la connexion par la carte, comme avant le lot 3v-2b.
+    fenetrePartenaire: async () => false,
   },
 };
 

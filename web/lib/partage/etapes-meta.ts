@@ -27,7 +27,7 @@ export const WHATSAPP_ORDINAIRE: { readonly fr: string; readonly en: string } = 
  * en gardant l'application, [0] et [1] au numéro fourni, tout au numéro apporté ; Claude (`start_whatsapp_connection`)
  * dit [0] et [1] au numéro fourni, tout au numéro apporté ; les tests visent [2], le numéro. Les reprennent EN ENTIER la
  * FAQ du plugin (`compte-meta`), le guide « compte Meta Business » de la vitrine (`scripts/vitrine/guide-meta.ts`) et la
- * fiche `ce-qu-il-faut-chez-meta` ; `PREREQUIS_LIGNE` (`web/lib/questions-numero.ts`) en est la version sans carte. Une
+ * fiche `ce-qu-il-faut-chez-meta` ; `PREREQUIS_LIGNE`, plus bas, en est la version sans carte. Une
  * condition ajoutée, retirée ou déplacée change ce que chaque chemin montre : relire tous ces lecteurs avant.
  *
  * Réécrites au lot 4a-3 de l'aide à la connexion (spec, « Ce qu'il faut chez Meta, réécrite ») : plus de « portefeuille »
@@ -73,6 +73,38 @@ export const PREREQUIS_META: ReadonlyArray<{ fr: string; en: string }> = [
       + 'or phone call: keep the phone that holds it at hand. No number? We provide one.',
   },
 ];
+
+/**
+ * Avant la fenêtre du partenaire (« Le vôtre », lot 3v) : les conditions chez Meta de `PREREQUIS_META`, sans la carte que
+ * la ligne remplace (jaune 4 de la relecture du lot 3v). La console les dit, et Claude quand le lien de connexion
+ * ouvre la fenêtre du partenaire (lot 3v-2b, `start_whatsapp_connection`).
+ * Même écriture que `PREREQUIS_META` (lot 4a-3) : `tests/etapes-meta.test.ts` tient leurs débuts égaux.
+ */
+export const PREREQUIS_LIGNE: ReadonlyArray<{ readonly fr: string; readonly en: string }> = [
+  {
+    fr: 'Un compte Meta Business : l’ancien Business Manager, que Meta appelle aujourd’hui « portefeuille business » dans '
+      + 'ses écrans. C’est lui qui portera votre compte WhatsApp et votre numéro, sans carte chez Meta. Vous y entrez avec votre profil Facebook, ou '
+      + 'avec un compte Meta géré par votre organisation.',
+    en: 'A Meta Business account: formerly Business Manager, which Meta now calls a “business portfolio” in its screens. '
+      + 'It will hold your WhatsApp account and your number, with no card at Meta. You sign in with your Facebook profile, or with a managed Meta '
+      + 'account from your organization.',
+  },
+  {
+    fr: 'Pas encore de compte Meta Business ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre '
+      + 'profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site).',
+    en: 'No Meta Business account yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook profile '
+      + '(your business name, an email address, the country and the website).',
+  },
+];
+
+/**
+ * « Le mien », le numéro de la personne par la fenêtre du partenaire (jaune de la relecture du lot 4a-3) : après les
+ * conditions de `PREREQUIS_LIGNE`, celle de son numéro, dont Meta vérifie qu'il est à elle par un code.
+ */
+export const NUMERO_LIGNE_MIEN: { readonly fr: string; readonly en: string } = {
+  fr: 'Votre numéro, et le téléphone qui le porte : Meta y envoie un code, par SMS ou par appel.',
+  en: 'Your number, and the phone that holds it: Meta sends a code to it, by text message or phone call.',
+};
 
 /**
  * QUI PAIE QUOI, SELON LE CHEMIN (aide à la connexion, lot 1, 2026-11-09, demande de Julien : « être moins systématique

@@ -34,7 +34,7 @@ Authorization: Bearer mba_xxxxxxxxxxxxxxxx
 
 > **Caution**
 >
-> Calls are real: there is no test workspace. A send really goes out on WhatsApp, and Meta may bill it to your business. To try things out, write to your own phone first.
+> Calls are real: there is no test workspace. A send really goes out on WhatsApp, and it may be charged: billed by Meta to your business, or debited from your WhatsApp credit. To try things out, write to your own phone first.
 
 <a id="adresse"></a>
 

@@ -5587,9 +5587,13 @@ terminal le code de vérification d'un numéro fourni, et annonce le numéro con
 le compte Meta Business (Oui : numéro libre ou fourni, ou l'application gardée), l'application WhatsApp Business (la
 garder), puis, sans elle, le numéro (2026-10-31) : son propre numéro dans l'application téléchargée, ou un numéro
 fourni mis DANS l'application (`start_whatsapp_connection` en mode `fourni_application` : le numéro, le compte de
-l'application créé avec lui, son code relayé par Claude, puis la fenêtre de Meta en coexistence). Meta vérifie le numéro dans sa propre fenêtre, que Claude ne
-voit pas : si la personne rapporte le refus d'un numéro trop neuf, Claude le dit simplement et propose de revenir
-quelques jours plus tard, sans chiffre.
+l'application créé avec lui, son code relayé par Claude, puis la fenêtre de Meta en coexistence).
+
+**Sans carte chez Meta (2026-11-11, lot 3v-2b).** L'option Crédit WhatsApp payée et aucun numéro encore, le lien ouvre
+de lui-même la connexion sans carte chez Meta (la fenêtre du partenaire), pour un numéro fourni ou apporté ; Claude en
+dit les conditions (le compte Meta Business, sans carte) et le crédit qui paie, à recharger. Le numéro connecté, il ne
+demande la carte chez Meta que si elle paie, et renvoie le numéro de l'essai connecté avec sa carte, l'option prise,
+à l'onglet Crédit WhatsApp, pour s'y reconnecter sans carte.
 
 **Ce qu'il faut savoir.** Le lien vaut une heure, peut se rouvrir pendant ce temps, et cesse de servir dès que le
 numéro est connecté ; passé l'heure, Claude en donne un autre. Il n'ouvre que la connexion du numéro de cet espace,
