@@ -20,6 +20,7 @@ function montage(options: { contact?: ContactRow | null; consentementChange?: bo
   let defs: UserFieldDef[] = [
     { key: 'age', label: 'Âge', type: 'number' },
     { key: 'consent', label: 'Consentement', type: 'boolean' },
+    { key: 'reponse', label: 'Réponse', type: 'json' },
   ];
   const ecritures: Edits[] = [];
   const crees: Array<{ key: string; label: string; type: string }> = [];
@@ -75,6 +76,16 @@ describe('édition opérateur d’une fiche', () => {
     }]);
     expect(m.audits).toEqual([{ action: 'contact.optout', userId: 'u1', detail: { source: 'fiche' } }]);
     expect(m.poses).toEqual([{ posees: ['nouveau', 'vip'], nouvelles: ['nouveau'] }]);
+  });
+
+  it('🔴 refuse une saisie dans un champ JSON, même valide, avant toute écriture', async () => {
+    const m = montage();
+    const issue = await m.edition.editer({
+      tenantId: 't1', contactId: 'c1', acteur: { userId: 'u1', email: null }, entree: { fields: { reponse: '{"a":1}' } },
+    });
+    expect(issue.statut).toBe('invalide');
+    expect(issue.statut === 'invalide' ? issue.erreur : '').toMatch(/champ JSON/);
+    expect(m.ecritures).toEqual([]);
   });
 
   it('refuse un champ inconnu ou une valeur invalide avant toute écriture', async () => {

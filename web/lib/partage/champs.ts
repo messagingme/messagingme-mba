@@ -12,8 +12,37 @@ export const WHATSAPP_OPTIN_FIELD_KEY = 'whatsapp_optin';
 
 /** Les types d'un champ perso : la console les propose, le serveur les accepte (la base les contraint aussi, ce que
  *  `tests/integration/user-fields-types.integration.test.ts` vérifie). */
-export const USER_FIELD_KINDS = ['text', 'number', 'date', 'datetime', 'boolean', 'url'] as const;
+export const USER_FIELD_KINDS = ['text', 'number', 'date', 'datetime', 'boolean', 'url', 'json'] as const;
 export type UserFieldKind = (typeof USER_FIELD_KINDS)[number];
+
+/**
+ * Le type `json` (spec du 2026-11-11) : la réponse ENTIÈRE d'un bloc « Appel API », relue ensuite par un bloc
+ * d'extraction. Il ne se remplit que par un scénario (Appel API, Fonction JS), l'API publique et le MCP : ni la saisie
+ * de la fiche, ni l'import CSV, ni un webhook entrant ou un formulaire. Son type ne change plus après la création, dans
+ * aucun sens.
+ */
+export const TYPE_JSON = 'json' satisfies UserFieldKind;
+
+/** Plafond d'une valeur `json`, en octets UTF-8 de sa forme compacte. Au-delà : refusée, jamais tronquée. */
+export const MAX_OCTETS_CHAMP_JSON = 16 * 1024;
+
+/**
+ * Les types qu'une SAISIE peut viser (fiche, import CSV, webhook entrant, création à la main) : tous sauf `json`.
+ * La console les propose là où une personne tape une valeur.
+ */
+export const USER_FIELD_KINDS_SAISIS = USER_FIELD_KINDS.filter((k) => k !== TYPE_JSON);
+
+/** La forme compacte d'un JSON valide sous le plafond, ou `null` (texte qui n'est pas du JSON, ou trop gros). */
+export function jsonDeChamp(valeur: string): string | null {
+  let lu: unknown;
+  try {
+    lu = JSON.parse(valeur);
+  } catch {
+    return null;
+  }
+  const compact = JSON.stringify(lu);
+  return new TextEncoder().encode(compact).length <= MAX_OCTETS_CHAMP_JSON ? compact : null;
+}
 
 /**
  * Les champs de BASE, dans l'ordre d'affichage : attributs du contact (`name`, `phone`, `bsuid`, `wa_id`, lus hors de

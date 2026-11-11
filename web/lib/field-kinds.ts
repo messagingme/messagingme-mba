@@ -1,7 +1,7 @@
 // Les types de champ perso viennent du dossier partagé avec le serveur ; ce module PUR y ajoute leurs libellés.
 import type { UserFieldKind } from './partage/champs';
 
-export { USER_FIELD_KINDS, type UserFieldKind } from './partage/champs';
+export { USER_FIELD_KINDS, USER_FIELD_KINDS_SAISIS, type UserFieldKind } from './partage/champs';
 
 /**
  * Libellé de chaque type, `[fr, en]`. Même convention que `SYSTEM_FIELDS` : ce module est PUR, `useT()` y
@@ -18,4 +18,5 @@ export const USER_FIELD_KIND_LABELS: Record<UserFieldKind, [string, string]> = {
   datetime: ['Date et heure', 'Date & time'],
   boolean: ['Oui/Non', 'Yes/No'],
   url: ['Lien', 'Link'],
+  json: ['JSON (réponse d’un appel API)', 'JSON (API call answer)'],
 };

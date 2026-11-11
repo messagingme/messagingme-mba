@@ -2692,7 +2692,7 @@ export interface operations {
                 "application/json": {
                     label: string;
                     /** @enum {string} */
-                    type: "text" | "number" | "date" | "datetime" | "boolean" | "url";
+                    type: "text" | "number" | "date" | "datetime" | "boolean" | "url" | "json";
                 };
             };
         };

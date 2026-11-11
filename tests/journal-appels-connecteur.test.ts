@@ -160,7 +160,10 @@ describe('l’appel de connecteur journalise, et le journal dit QUI appelait', (
 
 describe('les deux appelants qui ne journalisaient RIEN le font', () => {
   // La pièce d'un bloc Question (2026-11-02) : aucune pièce notée, aucun lien à fabriquer.
-  const sansPiece = { pieces: { liensPossibles: async () => [] }, secretPiece: 's'.repeat(40), baseApi: 'https://api.messagingme.app' };
+  const sansPiece = {
+    pieces: { liensPossibles: async () => [] }, secretPiece: 's'.repeat(40), baseApi: 'https://api.messagingme.app',
+    typeDuChamp: async () => 'text' as const,
+  };
 
   it('🔴 le bloc « Appel HTTP » d’un scénario', async () => {
     const { journal, ouvertures } = journalEspion();
@@ -171,7 +174,7 @@ describe('les deux appelants qui ne journalisaient RIEN le font', () => {
       journalAppels: journal,
       libelleRequete: async () => 'Chercher une commande',
     });
-    const r = await bloc('t1', '33600', 'rq1', 'integre');
+    const r = await bloc('t1', '33600', 'rq1', 'statut');
     expect(r.ok, 'un 500 vide le champ, comme avant').toBe(false);
     expect(ouvertures[0]).toMatchObject({ source: 'scenario', toolName: 'Chercher une commande' });
   });
@@ -184,7 +187,7 @@ describe('les deux appelants qui ne journalisaient RIEN le font', () => {
       projectionContact: async () => null,
       journalAppels: journal,
     });
-    await bloc('t1', '33600', 'rq1', 'integre');
+    await bloc('t1', '33600', 'rq1', 'statut');
     // Une ligne incomplète vaut mieux que pas de ligne : même doctrine que `workflow_advance_failures`.
     expect(ouvertures[0]).toMatchObject({ source: 'scenario', toolName: 'rq1' });
   });
@@ -215,7 +218,7 @@ describe('les deux appelants qui ne journalisaient RIEN le font', () => {
       ...sansPiece,
       projectionContact: async () => null,
     });
-    expect((await bloc('t1', '33600', 'rq1', 'integre')).ok).toBe(true);
+    expect((await bloc('t1', '33600', 'rq1', 'statut')).ok).toBe(true);
   });
 });
 

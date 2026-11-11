@@ -209,7 +209,7 @@ export function creerServiceContactsV1(deps: DepsServiceContactsV1): ServiceCont
   const maintenant = deps.maintenant ?? ((): Date => new Date());
   // Une construction, partagée avec `/v1/sends` : `depsConsentementDe`.
   const consentement = depsConsentementDe(deps.contacts, deps.audit);
-  const optsChamps = { fields: deps.fields, champInconnu: 'refuser' } as const;
+  const optsChamps = { fields: deps.fields, champInconnu: 'refuser', json: 'accepter' } as const;
 
   /** Vrai si le corps demande `opted_in` pour une fiche désabonnée. Une lecture, et seulement dans ce cas. */
   async function leveraitUnStop(tenantId: string, contactId: string, voulu: 'opted_in' | 'opted_out' | undefined): Promise<boolean> {

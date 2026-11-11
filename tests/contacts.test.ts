@@ -29,6 +29,7 @@ const FIELDS: UserFieldDef[] = [
   { key: 'age', label: 'Âge', type: 'number' },
   { key: 'date_rdv', label: 'Date RDV', type: 'date' },
   { key: 'consent', label: 'Consentement', type: 'boolean' },
+  { key: 'reponse', label: 'Réponse', type: 'json' },
 ];
 
 interface Cap {
@@ -290,6 +291,15 @@ describe('POST /tenants/:t/contacts/bulk — action en masse', () => {
     const { server, cap } = app();
     const res = await server.inject({ method: 'POST', url: '/tenants/t1/contacts/bulk', ...h(adminTok), payload: { target: { ids: ['a'] }, action: { type: 'set_field', key: 'inconnu', value: 'x' } } });
     expect(res.statusCode).toBe(400);
+    expect(cap.bulk).toHaveLength(0);
+    await server.close();
+  });
+
+  it('🔴 set_field vers un champ JSON -> 400, même avec un JSON valide, aucune action', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/contacts/bulk', ...h(adminTok), payload: { target: { ids: ['a'] }, action: { type: 'set_field', key: 'reponse', value: '{"a":1}' } } });
+    expect(res.statusCode).toBe(400);
+    expect(res.json<{ error: string }>().error).toMatch(/champ JSON/);
     expect(cap.bulk).toHaveLength(0);
     await server.close();
   });
@@ -557,6 +567,14 @@ describe('POST /tenants/:t/contacts (ajout a la main)', () => {
 
     await server.inject({ method: 'POST', url: '/tenants/t1/contacts', ...h(adminTok), payload: JSON.stringify({ phone: '0612345679' }) });
     expect(recus[1]).not.toHaveProperty('bsuid'); // absent, pas une chaine vide
+    await server.close();
+  });
+
+  it('🔴 une creation a la main qui remplit un champ JSON -> 400, rien de cree', async () => {
+    const { server, recus } = avecCreation();
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/contacts', ...h(adminTok), payload: JSON.stringify({ phone: '0612345678', fields: { reponse: '{"a":1}' } }) });
+    expect(res.statusCode).toBe(400);
+    expect(recus).toEqual([]);
     await server.close();
   });
 

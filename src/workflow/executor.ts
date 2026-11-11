@@ -361,11 +361,11 @@ export interface WorkflowExecutorDeps {
   /**
    * Joue un appel de la bibliothèque (Tools > Connecteurs API) pour ce contact, et rend ce qu'il faut ranger
    * dans un champ. Injectée, comme tout ce qui touche le réseau. Absente -> le bloc « Appel HTTP » ne fait
-   * rien. `ok: false` = l'appel n'a pas abouti, et l'exécuteur vide le champ cible. `lecture` est REQUIS :
-   * `pousse` quand le bloc n'a pas de champ cible (le corps de la réponse n'est pas lu, seul le succès
-   * compte), `integre` sinon.
+   * rien. `ok: false` = l'appel n'a pas abouti, et l'exécuteur vide le champ cible. `champCible` est REQUIS et
+   * décide de la lecture (`src/workflow/appel-http.ts`) : vide, l'appel pousse (le corps n'est pas lu, seul le succès
+   * compte) ; un champ `json` reçoit la réponse entière ; tout autre, les champs de réponse du connecteur.
    */
-  appelHttp?(tenantId: string, waId: string, requestId: string, lecture: 'pousse' | 'integre'): Promise<{ ok: boolean; valeur: string }>;
+  appelHttp?(tenantId: string, waId: string, requestId: string, champCible: string): Promise<{ ok: boolean; valeur: string }>;
   /**
    * Exécute le JavaScript d'un bloc « Fonction JS » dans un bac à sable. Injectée : elle charge un module
    * WebAssembly que les tests de scénario n'ont pas à payer. Absente -> le bloc ne fait rien.
@@ -853,7 +853,7 @@ export class WorkflowExecutor {
         if (this.deps.appelHttp) {
           // Sans champ cible, l'appel pousse : rien à ranger, et surtout aucun `setField('')` sur une clé vide.
           const pousse = a.champCible === '';
-          const r = await this.deps.appelHttp(tenantId, waId, a.requestId, pousse ? 'pousse' : 'integre');
+          const r = await this.deps.appelHttp(tenantId, waId, a.requestId, a.champCible);
           // Même raté, l'appel a pu créer quelque chose chez le client : le rejouer n'est jamais sans effet.
           irreversibles += 1;
           if (!pousse) await this.deps.setField(tenantId, waId, a.champCible, r.ok ? r.valeur : '');

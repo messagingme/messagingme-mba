@@ -25,15 +25,27 @@ function fields(defs: UserFieldDef[]) {
 describe('preparateurDeChamps', () => {
   it('🔴 un champ créé par un appel est CONNU du suivant : il n’est pas recréé', async () => {
     const { store, etat } = fields([champ('prenom')]);
-    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 0, champInconnu: 'creer' });
+    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 0, champInconnu: 'creer', json: 'refuser' });
     expect(await preparer({ prenom: 'Marc', ville: 'Lyon' })).toEqual({ ok: true, valeurs: { prenom: 'Marc', ville: 'Lyon' } });
     expect(await preparer({ ville: 'Paris' })).toEqual({ ok: true, valeurs: { ville: 'Paris' } });
     expect(etat.crees).toEqual(['ville']);
   });
 
+  it('🔴 un champ JSON : refusé au webhook entrant et à la création à la main, accepté (valide) par l’API publique', async () => {
+    const json = { key: 'reponse', label: 'Réponse', type: 'json' } as UserFieldDef;
+    const { store } = fields([json]);
+    const webhook = await preparateurDeChamps('t1', { fields: store, champInconnu: 'creer', json: 'refuser' });
+    const refus = await webhook({ reponse: '{"a":1}' });
+    expect(refus.ok).toBe(false);
+    expect(refus.ok ? '' : refus.raison).toMatch(/champ JSON/);
+    const api = await preparateurDeChamps('t1', { fields: store, champInconnu: 'refuser', json: 'accepter' });
+    expect(await api({ reponse: '{ "a" : 1 }' })).toEqual({ ok: true, valeurs: { reponse: '{"a":1}' } });
+    expect((await api({ reponse: 'pas du json' })).ok).toBe(false);
+  });
+
   it('🔴 la clé d’un champ FIXE de la fiche ne s’écrit pas par l’API, même en mode « créer »', async () => {
     const { store, etat } = fields([champ('prenom')]);
-    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 0, champInconnu: 'creer' });
+    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 0, champInconnu: 'creer', json: 'refuser' });
     const r = await preparer({ analyse_satisfaction: '10' });
     expect(r.ok).toBe(false);
     expect(!r.ok && r.raison).toMatch(/champ réservé de la fiche/);
@@ -42,7 +54,7 @@ describe('preparateurDeChamps', () => {
 
   it('au plafond, un champ INCONNU est refusé en le disant, et rien n’est créé', async () => {
     const { store, etat } = fields([champ('prenom')]);
-    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 1, champInconnu: 'creer' });
+    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 1, champInconnu: 'creer', json: 'refuser' });
     const r = await preparer({ nouveau: 'x' });
     expect(r.ok).toBe(false);
     expect(!r.ok && r.raison).toMatch(/plafond de 1 champs personnalisés/);
@@ -51,13 +63,13 @@ describe('preparateurDeChamps', () => {
 
   it('un code `fld_` inconnu est refusé : un code ne se devine pas', async () => {
     const { store } = fields([]);
-    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 0, champInconnu: 'creer' });
+    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 0, champInconnu: 'creer', json: 'refuser' });
     expect(await preparer({ fld_inexistant: 'x' })).toEqual({ ok: false, raison: 'champ inconnu : fld_inexistant' });
   });
 
   it('🔴 `refuser` (l’API publique) : un champ inconnu est refusé en disant où le créer, et rien n’est créé', async () => {
     const { store, etat } = fields([champ('prenom')]);
-    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 0, champInconnu: 'refuser' });
+    const preparer = await preparateurDeChamps('t1', { fields: store, maxChampsParEspace: 0, champInconnu: 'refuser', json: 'accepter' });
     expect(await preparer({ prenom: 'Marc' })).toEqual({ ok: true, valeurs: { prenom: 'Marc' } });
     expect(await preparer({ prenom: 'Marc', ville: 'Lyon' })).toEqual({
       ok: false, raison: '« ville » : champ inconnu de cet espace. Créez-le dans la console (Bibliothèque > Champs), puis relancez.',
@@ -67,7 +79,7 @@ describe('preparateurDeChamps', () => {
 
   it('aucun champ : aucune valeur, et c’est un succès', async () => {
     const { store } = fields([]);
-    expect(await (await preparateurDeChamps('t1', { fields: store, champInconnu: 'refuser' }))(undefined)).toEqual({ ok: true, valeurs: {} });
+    expect(await (await preparateurDeChamps('t1', { fields: store, champInconnu: 'refuser', json: 'accepter' }))(undefined)).toEqual({ ok: true, valeurs: {} });
   });
 });
 

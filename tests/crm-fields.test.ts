@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { slugify, ensureField, ensureFieldByKey, isUserFieldType, validateFieldValue, canonicalizeFieldValue } from '../src/crm/fields';
+import {
+  slugify, ensureField, ensureFieldByKey, isUserFieldType, validateFieldValue, canonicalizeFieldValue, MAX_OCTETS_CHAMP_JSON,
+  jsonDeChamp, refusSaisieJson,
+} from '../src/crm/fields';
 import type { UserFieldStore } from '../src/crm/fields';
 import type { UserFieldDef } from '../src/crm/types';
 
@@ -125,5 +128,41 @@ describe('canonicalizeFieldValue', () => {
     expect(canonicalizeFieldValue('number', ' 42 ')).toBe('42');
     expect(canonicalizeFieldValue('date', '2026-07-17')).toBe('2026-07-17');
     expect(canonicalizeFieldValue('url', ' https://a.b ')).toBe('https://a.b');
+  });
+});
+
+/**
+ * LE TYPE `json` (spec du 2026-11-11) : un JSON valide de 16 Ko au plus, compté en OCTETS UTF-8 de sa forme compacte, à
+ * la place des 1 000 caractères des autres types ; stocké compact.
+ */
+describe('champ JSON : validation et forme stockée', () => {
+  it('accepte un objet, une liste, une chaîne JSON, un nombre ; refuse un texte qui n’est pas du JSON', () => {
+    for (const v of ['{"a":1}', '[1,2]', '"OK"', '42', 'null', '{ "a" : [ 1 ] }']) expect(validateFieldValue('json', v)).toBe(true);
+    for (const v of ['OK', '{a:1}', '{"a":1', '']) expect(validateFieldValue('json', v)).toBe(false);
+  });
+
+  it('🔴 le plafond est de 16 384 octets de la forme compacte, pas 1 000 caractères', () => {
+    // `"` + n caractères + `"` = n + 2 octets en ASCII.
+    const ascii = (n: number): string => JSON.stringify('a'.repeat(n));
+    expect(validateFieldValue('json', ascii(MAX_OCTETS_CHAMP_JSON - 2))).toBe(true);
+    expect(validateFieldValue('json', ascii(MAX_OCTETS_CHAMP_JSON - 1))).toBe(false);
+    // Un texte de 1 001 caractères reste refusé pour un champ texte : la borne des autres types n'a pas bougé.
+    expect(validateFieldValue('text', 'a'.repeat(1001))).toBe(false);
+  });
+
+  it('🔴 un idéogramme compte pour ses OCTETS (3 en UTF-8), pas pour un caractère', () => {
+    const n = Math.floor((MAX_OCTETS_CHAMP_JSON - 2) / 3);
+    expect(validateFieldValue('json', JSON.stringify('漢'.repeat(n)))).toBe(true);
+    expect(validateFieldValue('json', JSON.stringify('漢'.repeat(n + 1)))).toBe(false);
+  });
+
+  it('les espaces d’une forme indentée ne comptent pas : c’est la forme compacte qui se mesure et se stocke', () => {
+    expect(canonicalizeFieldValue('json', '{ "a" : [ 1, 2 ] }')).toBe('{"a":[1,2]}');
+    expect(jsonDeChamp('{\n  "a": 1\n}')).toBe('{"a":1}');
+  });
+
+  it('refusSaisieJson ne refuse que le type json', () => {
+    expect(refusSaisieJson('json', 'Réponse')).toContain('Réponse');
+    expect(refusSaisieJson('text', 'Ville')).toBeNull();
   });
 });

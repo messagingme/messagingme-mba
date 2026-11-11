@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { valeurPourChamp, creerAppelHttpScenario } from '../src/workflow/appel-http';
+import { MAX_OCTETS_CHAMP_JSON } from '../src/crm/fields';
 import { creerTransportConnecteurHttp } from '../src/agent/transport-connecteur-http';
 import { walk } from '../src/workflow/engine';
 import type { WorkflowGraph } from '../src/workflow/graph';
@@ -105,6 +106,8 @@ describe('le câblage du bloc', () => {
       }),
       },
       projectionContact: async () => ({ nom: 'Jean', tags: [], champs: {} }),
+      // Le champ `reponse_json` est de type JSON, tout autre est un texte : la lecture d'avant.
+      typeDuChamp: async (_t: string, cle: string) => (cle === 'reponse_json' ? 'json' as const : 'text' as const),
       transportHttp: creerTransportConnecteurHttp({
         fetch: fetchImpl,
         verifierResolution,
@@ -121,7 +124,7 @@ describe('le câblage du bloc', () => {
     const appel = creerAppelHttpScenario(deps({
       fetchImpl: (async () => new Response('{"statut":"expédiée"}', { status: 200 })) as unknown as typeof fetch,
     }) as never);
-    expect(await appel('t1', '33600000001', 'req-1', 'integre')).toEqual({ ok: true, valeur: 'expédiée' });
+    expect(await appel('t1', '33600000001', 'req-1', 'statut')).toEqual({ ok: true, valeur: 'expédiée' });
   });
 
   it('🔴 un connecteur en panne rend `ok: false` et une valeur VIDE, il ne LÈVE pas', async () => {
@@ -130,7 +133,7 @@ describe('le câblage du bloc', () => {
     const appel = creerAppelHttpScenario(deps({
       fetchImpl: (async () => { throw new Error('réseau'); }) as unknown as typeof fetch,
     }) as never);
-    expect(await appel('t1', '33600000001', 'req-1', 'integre')).toEqual({ ok: false, valeur: '' });
+    expect(await appel('t1', '33600000001', 'req-1', 'statut')).toEqual({ ok: false, valeur: '' });
   });
 
   it('🔴 une requête introuvable NE PART PAS sur le réseau', async () => {
@@ -139,7 +142,7 @@ describe('le câblage du bloc', () => {
       requetes: { parId: async () => null },
       fetchImpl: fetchImpl as unknown as typeof fetch,
     }) as never);
-    expect(await appel('t1', '33600000001', 'req-absente', 'integre')).toEqual({ ok: false, valeur: '' });
+    expect(await appel('t1', '33600000001', 'req-absente', 'statut')).toEqual({ ok: false, valeur: '' });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -157,7 +160,7 @@ describe('le câblage du bloc', () => {
       },
       fetchImpl: fetchImpl as unknown as typeof fetch,
     }) as never);
-    expect(await appel('t1', '33600000001', 'req-1', 'integre')).toEqual({ ok: false, valeur: '' });
+    expect(await appel('t1', '33600000001', 'req-1', 'statut')).toEqual({ ok: false, valeur: '' });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -179,14 +182,14 @@ describe('le câblage du bloc', () => {
         ...sansSortie,
         fetchImpl: (async () => new Response(null, { status: 204 })) as unknown as typeof fetch,
       }) as never);
-      expect(await appel('t1', '33600000001', 'req-1', 'pousse')).toEqual({ ok: true, valeur: '' });
+      expect(await appel('t1', '33600000001', 'req-1', '')).toEqual({ ok: true, valeur: '' });
     });
 
     it('🔴 la même requête en INTÈGRE reste refusée : rien à lire, et elle ne part pas', async () => {
       // L'autre sens : c'est bien le bloc sans champ qui ouvre la poussée, pas un assouplissement général.
       const fetchImpl = vi.fn();
       const appel = creerAppelHttpScenario(deps({ ...sansSortie, fetchImpl: fetchImpl as unknown as typeof fetch }) as never);
-      expect(await appel('t1', '33600000001', 'req-1', 'integre')).toEqual({ ok: false, valeur: '' });
+      expect(await appel('t1', '33600000001', 'req-1', 'statut')).toEqual({ ok: false, valeur: '' });
       expect(fetchImpl).not.toHaveBeenCalled();
     });
 
@@ -195,7 +198,7 @@ describe('le câblage du bloc', () => {
         ...sansSortie,
         fetchImpl: (async () => new Response('{"message":"bad"}', { status: 400 })) as unknown as typeof fetch,
       }) as never);
-      expect(await appel('t1', '33600000001', 'req-1', 'pousse')).toEqual({ ok: false, valeur: '' });
+      expect(await appel('t1', '33600000001', 'req-1', '')).toEqual({ ok: false, valeur: '' });
     });
   });
 
@@ -233,7 +236,7 @@ describe('le câblage du bloc', () => {
         pieces: { liensPossibles: async () => [{ cle: 'piece_identite', metaMessageId: 'wamid.P1', mention: MENTION }] },
       }) as never);
       const espace = '11111111-2222-4333-8444-555555555555';
-      expect(await appel(espace, '33600000001', 'req-1', 'pousse')).toEqual({ ok: true, valeur: '' });
+      expect(await appel(espace, '33600000001', 'req-1', '')).toEqual({ ok: true, valeur: '' });
       const lien = (JSON.parse(corps[0]!) as { fichier: string }).fichier;
       expect(lien.startsWith('https://api.messagingme.app/f/')).toBe(true);
       const jeton = decodeURIComponent(lien.slice('https://api.messagingme.app/f/'.length));
@@ -248,7 +251,7 @@ describe('le câblage du bloc', () => {
         projectionContact: async () => ({ nom: 'Jean', tags: [], champs: { piece_identite: 'Pièce reçue le 01/11/2026 à 09 h 00 (photo)' } }),
         pieces: { liensPossibles: async () => [{ cle: 'piece_identite', metaMessageId: 'wamid.P1', mention: MENTION }] },
       }) as never);
-      await appel('t1', '33600000001', 'req-1', 'pousse');
+      await appel('t1', '33600000001', 'req-1', '');
       expect(JSON.parse(corps[0]!)).toEqual({ fichier: 'Pièce reçue le 01/11/2026 à 09 h 00 (photo)' });
     });
 
@@ -260,7 +263,7 @@ describe('le câblage du bloc', () => {
         projectionContact: async () => ({ nom: 'Jean', tags: [], champs: { piece_identite: 'carte d’identité' } }),
         pieces: { liensPossibles: lues },
       }) as never);
-      await appel('t1', '33600000001', 'req-1', 'pousse');
+      await appel('t1', '33600000001', 'req-1', '');
       expect(lues).not.toHaveBeenCalled();
     });
 
@@ -277,11 +280,72 @@ describe('le câblage du bloc', () => {
           clore: async (l: unknown) => { ecrit.push(JSON.stringify(l)); },
         },
       }) as never);
-      expect(await appel('t1', '33600000001', 'req-1', 'pousse')).toEqual({ ok: false, valeur: '' });
+      expect(await appel('t1', '33600000001', 'req-1', '')).toEqual({ ok: false, valeur: '' });
       avertir.mockRestore();
       expect(ecrit.length).toBeGreaterThan(0);
       expect(ecrit.join('\n')).not.toContain('/f/');
       expect(ecrit.join('\n')).not.toContain('wamid.P1');
+    });
+  });
+  /**
+   * 🔴 VERS UN CHAMP `json` (spec du 2026-11-11) : la réponse ENTIÈRE, sans le filtre `outputPaths` du connecteur, en
+   * forme compacte. Un texte non JSON devient une chaîne JSON ; un corps vide, `null` ; au-delà de 16 Ko, un échec.
+   */
+  describe('vers un champ JSON', () => {
+    const repond = (corps: string | null, status = 200) =>
+      (async () => new Response(corps, { status })) as unknown as typeof fetch;
+
+    it('🔴 range la réponse ENTIÈRE, même ce que le connecteur ne déclare pas', async () => {
+      const appel = creerAppelHttpScenario(deps({
+        fetchImpl: repond('{ "statut": "expédiée", "lignes": [ { "id": 1 } ] }'),
+      }) as never);
+      expect(await appel('t1', '33600000001', 'req-1', 'reponse_json'))
+        .toEqual({ ok: true, valeur: '{"statut":"expédiée","lignes":[{"id":1}]}' });
+      // L'autre sens : le même appel vers un champ texte garde la lecture filtrée d'avant.
+      expect(await appel('t1', '33600000001', 'req-1', 'statut')).toEqual({ ok: true, valeur: 'expédiée' });
+    });
+
+    it('un connecteur SANS champ de réponse déclaré suffit', async () => {
+      const appel = creerAppelHttpScenario(deps({
+        requetes: { parId: async () => ({
+          id: 'req-1', tenantId: 't1', sourceId: 's1', label: 'Statut', methode: 'GET' as const, chemin: '/commandes',
+          parametres: [], entetes: [], corps: { mode: 'aucun' as const }, variables: [], outputPaths: [],
+          valeursTest: {}, outils: 0, updatedAt: '2026-11-11T00:00:00.000Z',
+        }) },
+        fetchImpl: repond('[1,2,3]'),
+      }) as never);
+      expect(await appel('t1', '33600000001', 'req-1', 'reponse_json')).toEqual({ ok: true, valeur: '[1,2,3]' });
+    });
+
+    it('un texte qui n’est pas du JSON devient une chaîne JSON ; un corps vide, null', async () => {
+      const texte = creerAppelHttpScenario(deps({ fetchImpl: repond('OK merci') }) as never);
+      expect(await texte('t1', '33600000001', 'req-1', 'reponse_json')).toEqual({ ok: true, valeur: '"OK merci"' });
+      const vide = creerAppelHttpScenario(deps({ fetchImpl: repond(null) }) as never);
+      expect(await vide('t1', '33600000001', 'req-1', 'reponse_json')).toEqual({ ok: true, valeur: 'null' });
+    });
+
+    it('🔴 une réponse de plus de 16 Ko est un ÉCHEC (champ vidé), jamais tronquée', async () => {
+      const gros = JSON.stringify({ x: 'a'.repeat(MAX_OCTETS_CHAMP_JSON) });
+      const appel = creerAppelHttpScenario(deps({ fetchImpl: repond(gros) }) as never);
+      expect(await appel('t1', '33600000001', 'req-1', 'reponse_json')).toEqual({ ok: false, valeur: '' });
+      // Vers un champ texte, le plafond de lecture d'avant (64 Ko) laisse passer le même corps.
+      expect((await appel('t1', '33600000001', 'req-1', 'statut')).ok).toBe(true);
+    });
+
+    it('🔴 un texte qui tient en 16 Ko mais pas une fois échappé est un échec aussi', async () => {
+      // Chaque guillemet devient `\"` : 9 000 guillemets lus en 9 000 octets, rangés en plus de 18 000.
+      const appel = creerAppelHttpScenario(deps({ fetchImpl: repond('"'.repeat(9000) + 'x') }) as never);
+      expect(await appel('t1', '33600000001', 'req-1', 'reponse_json')).toEqual({ ok: false, valeur: '' });
+    });
+
+    it('le type se lit pour le champ CIBLE de cet espace', async () => {
+      const vus: string[] = [];
+      const appel = creerAppelHttpScenario(deps({
+        typeDuChamp: async (t: string, cle: string) => { vus.push(`${t}:${cle}`); return 'json' as const; },
+        fetchImpl: repond('{}'),
+      }) as never);
+      await appel('t1', '33600000001', 'req-1', 'reponse_json');
+      expect(vus).toEqual(['t1:reponse_json']);
     });
   });
 });

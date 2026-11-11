@@ -10,7 +10,7 @@ import {
   listUserFields, createUserField, listWorkflows, estEnLigne,
   type WebhookEntrant, type RegleMappingWebhook, type UserFieldDef, type UserFieldKind, type WorkflowSummary,
 } from '@/lib/api';
-import { USER_FIELD_KINDS, USER_FIELD_KIND_LABELS } from '@/lib/field-kinds';
+import { USER_FIELD_KINDS_SAISIS, USER_FIELD_KIND_LABELS } from '@/lib/field-kinds';
 import { arbreDuPayload, valeursParChemin } from '@/lib/chemin-json';
 import { typeSuggere } from '@/lib/type-suggere';
 import { useT, useLocale } from '@/lib/i18n';
@@ -480,7 +480,7 @@ function Detail({
                       className={`${inputClsAuto} bg-white py-1`}
                       data-testid="nouveau-champ-type"
                     >
-                      {USER_FIELD_KINDS.map((k) => <option key={k} value={k}>{t(...USER_FIELD_KIND_LABELS[k])}</option>)}
+                      {USER_FIELD_KINDS_SAISIS.map((k) => <option key={k} value={k}>{t(...USER_FIELD_KIND_LABELS[k])}</option>)}
                     </select>
                     <Bouton
                       onClick={() => { void creerLeChamp(); }}

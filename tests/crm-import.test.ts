@@ -81,6 +81,22 @@ describe('importContacts', () => {
     expect(contacts.byPhone.size).toBe(0);
   });
 
+  it('🔴 une colonne vers un champ JSON est ignorée, et le rapport le dit (spec du 2026-11-11, décision 9)', async () => {
+    const contacts = new FakeContactStore();
+    const userFields = new FakeFieldStore();
+    userFields.defs.push({ key: 'reponse', label: 'Réponse', type: 'json' });
+    const report = await importContacts(
+      {
+        rows: [{ tel: '0612345678', rep: '{"a":1}', ville: 'Lyon' }],
+        mapping: { columns: { tel: { target: 'phone' }, rep: { target: 'custom', key: 'reponse' }, ville: { target: 'custom', key: 'ville' } } },
+        tenantId: 't1', optIn: false, autorite: 'import',
+      },
+      { contacts, userFields },
+    );
+    expect(contacts.byPhone.get('t1|+33612345678')?.fields).toEqual({ ville: 'Lyon' });
+    expect(report.errors.map((e) => e.reason).join(' ')).toMatch(/reponse.*champ JSON/);
+  });
+
   it('🔴 une colonne qui prendrait la clé d’un champ FIXE de la fiche est écartée, et le rapport le dit', async () => {
     // Sans cette garde, « analyse_sentiment » deviendrait un champ perso homonyme du champ d'analyse (lot 2).
     const contacts = new FakeContactStore();

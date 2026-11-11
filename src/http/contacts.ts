@@ -5,7 +5,7 @@ import type { ContactRow, ContactFilters, BulkTarget, BulkEdits, IssueActionEnMa
 import type { UserFieldDef } from '../crm/types';
 import type { ContactHistory, ContactSend, ResumeContact } from '../crm/contact-history.pg';
 import type { CoutContact, NiveauEngagement } from '../stats/cost';
-import { validateFieldValue, canonicalizeFieldValue, defPourEcriture } from '../crm/fields';
+import { validateFieldValue, canonicalizeFieldValue, defPourEcriture, refusSaisieJson } from '../crm/fields';
 import { classerDemandeArret } from '../crm/consentement';
 import { nettoyerEtiquettes, type PoseEtiquette } from '../crm/poser-etiquette';
 import { espaceVerifie } from './scope';
@@ -336,6 +336,8 @@ export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, 
       if (val === '') continue;
       const def = await defPourEcriture(deps, tenant, key);
       if (!def) return reply.code(400).send({ error: `champ inconnu : ${key}` });
+      const refusJson = refusSaisieJson(def.type, def.label);
+      if (refusJson !== null) return reply.code(400).send({ error: refusJson });
       if (!validateFieldValue(def.type, val)) return reply.code(400).send({ error: `valeur invalide pour « ${def.label} » (${def.type})` });
       fields[key] = canonicalizeFieldValue(def.type, val);
     }
@@ -388,6 +390,8 @@ export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, 
       if (key === '') return reply.code(400).send({ error: 'champ requis (key)' });
       const def = await defPourEcriture(deps, tenant, key);
       if (!def) return reply.code(400).send({ error: `champ inconnu : ${key}` });
+      const refusJson = refusSaisieJson(def.type, def.label);
+      if (refusJson !== null) return reply.code(400).send({ error: refusJson });
       const val = String(action.value ?? '');
       if (!validateFieldValue(def.type, val)) return reply.code(400).send({ error: `valeur invalide pour « ${def.label} » (${def.type})` });
       const { affected } = await deps.contacts.applyEditsMany(tenant, target, { setField: { key, value: canonicalizeFieldValue(def.type, val) } });

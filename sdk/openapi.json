@@ -2867,7 +2867,8 @@
                       "date",
                       "datetime",
                       "boolean",
-                      "url"
+                      "url",
+                      "json"
                     ]
                   }
                 },

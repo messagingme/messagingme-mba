@@ -148,6 +148,11 @@ export async function importContacts(input: ImportInput, deps: ImportDeps): Prom
       defsByKey.set(key, def);
     }
   }
+  // Un champ JSON ne se remplit pas par un import (spec du 2026-11-11, décision 9) : sa colonne est ignorée, et dite.
+  const clesJson = new Set([...keyToHeaders.keys()].filter((k) => defsByKey.get(k)?.type === 'json'));
+  for (const key of clesJson) {
+    signaler(1, `colonne « ${(keyToHeaders.get(key) ?? [key]).join(', ')} » ignorée : « ${key} » est un champ JSON, il se remplit par un scénario, l’API ou le MCP`);
+  }
 
   // 2) Traiter chaque ligne : validation ligne à ligne (elle produit le rapport d'erreurs), puis accumulation.
   //    L'écriture se fait par lots plus bas.
@@ -167,7 +172,7 @@ export async function importContacts(input: ImportInput, deps: ImportDeps): Prom
       } else if (col.target === 'name') {
         if (val && profileName === null) profileName = val;
       } else if (col.target === 'custom') {
-        if (val && fields[col.key] === undefined) {
+        if (val && fields[col.key] === undefined && !clesJson.has(col.key)) {
           // Canonicalise selon le type déclaré ; une valeur non valide pour le type est conservée brute (l'import
           // ne rejette pas une ligne sur un champ perso).
           const type = defsByKey.get(col.key)?.type ?? 'text';

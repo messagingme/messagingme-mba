@@ -2,7 +2,7 @@ import type { AuditSink } from '../audit/journal';
 import { tenter } from '../lib/tenter';
 import { messageDe } from '../lib/erreur';
 import type { ContactRow } from './contact-store.pg';
-import { canonicalizeFieldValue, defPourEcriture, validateFieldValue, type ChampsPourEcriture } from './fields';
+import { canonicalizeFieldValue, defPourEcriture, refusSaisieJson, validateFieldValue, type ChampsPourEcriture } from './fields';
 import { nettoyerEtiquettes, type PoseEtiquette } from './poser-etiquette';
 
 /** L'écriture atomique fournie par le dépôt de contacts au cas d'usage opérateur. */
@@ -83,6 +83,8 @@ export function creerEditionFicheOperateur(deps: DepsEditionFicheOperateur): Edi
       for (const [key, raw] of Object.entries(rawFields)) {
         const def = await defPourEcriture(deps, tenantId, key);
         if (!def) return { statut: 'invalide', erreur: `champ inconnu : ${key}` };
+        const refusJson = refusSaisieJson(def.type, def.label);
+        if (refusJson !== null) return { statut: 'invalide', erreur: refusJson };
         const valeur = String(raw);
         if (!validateFieldValue(def.type, valeur)) {
           return { statut: 'invalide', erreur: `valeur invalide pour « ${def.label} » (${def.type})` };

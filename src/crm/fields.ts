@@ -4,8 +4,19 @@ import { estCleReservee } from './champs-fiche';
 import { slugify } from '../../web/lib/partage/cle-champ';
 export { slugify } from '../../web/lib/partage/cle-champ';
 import {
-  SOCLE_FIELDS, SYSTEM_FIELD_KEYS as CLES_SYSTEME, SYSTEM_FIELD_LABELS, USER_FIELD_KINDS,
+  SOCLE_FIELDS, SYSTEM_FIELD_KEYS as CLES_SYSTEME, SYSTEM_FIELD_LABELS, USER_FIELD_KINDS, jsonDeChamp,
 } from '../../web/lib/partage/champs';
+export { MAX_OCTETS_CHAMP_JSON, TYPE_JSON, jsonDeChamp } from '../../web/lib/partage/champs';
+
+/**
+ * Le refus d'une SAISIE qui vise un champ `json` (fiche, import CSV, webhook entrant, création à la main) : ce type ne
+ * se remplit que par un scénario, l'API publique et le MCP (spec du 2026-11-11, décision 9). `null` = saisie permise.
+ */
+export function refusSaisieJson(type: UserFieldType, libelle: string): string | null {
+  return type === 'json'
+    ? `« ${libelle} » est un champ JSON : il se remplit par un scénario (bloc Appel API), l'API ou le MCP, pas par une saisie.`
+    : null;
+}
 
 export const USER_FIELD_TYPES: readonly UserFieldType[] = USER_FIELD_KINDS;
 
@@ -33,6 +44,8 @@ export const CTWA_AD_TITLE_FIELD_LABEL = 'Pub (titre)';
 export function validateFieldValue(type: UserFieldType, value: string): boolean {
   const v = value.trim();
   if (v === '') return false;
+  // Un `json` a son propre plafond, en octets (`MAX_OCTETS_CHAMP_JSON`), à la place des 1 000 caractères.
+  if (type === 'json') return jsonDeChamp(v) !== null;
   if (v.length > 1000) return false;
   if (type === 'number') return Number.isFinite(Number(v));
   // date et datetime : tout ce qui est non ambigu (voir `date-iso.ts`) est accepté, le reste refusé.
@@ -58,6 +71,9 @@ export function canonicalizeFieldValue(type: UserFieldType, value: string): stri
     const n = normaliserDate(v, type);
     return n.ok ? n.iso : v;
   }
+  // Un JSON est stocké compact : deux réponses identiques donnent la même chaîne, et « contient » cherche dans une
+  // forme stable.
+  if (type === 'json') return jsonDeChamp(v) ?? v;
   if (type !== 'boolean') return v;
   const low = v.toLowerCase();
   if (BOOLEAN_TRUE_TOKENS.has(low)) return 'true';

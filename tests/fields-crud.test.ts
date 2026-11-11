@@ -67,7 +67,7 @@ describe('routes user-fields (CRUD)', () => {
 
   it('POST create field type invalide -> 400 ; agent -> 403', async () => {
     const { server } = app();
-    const bad = await server.inject({ method: 'POST', url: '/tenants/t1/user-fields', ...h(adminTok), payload: { label: 'X', type: 'json' } });
+    const bad = await server.inject({ method: 'POST', url: '/tenants/t1/user-fields', ...h(adminTok), payload: { label: 'X', type: 'tableau' } });
     const agent = await server.inject({ method: 'POST', url: '/tenants/t1/user-fields', ...h(agentTok), payload: { label: 'X', type: 'text' } });
     expect(bad.statusCode).toBe(400);
     expect(agent.statusCode).toBe(403);
@@ -84,7 +84,7 @@ describe('routes user-fields (CRUD)', () => {
 
   it('PATCH type invalide -> 400', async () => {
     const { server } = app();
-    const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/user-fields/ville', ...h(adminTok), payload: { type: 'json' } });
+    const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/user-fields/ville', ...h(adminTok), payload: { type: 'tableau' } });
     expect(res.statusCode).toBe(400);
     await server.close();
   });
@@ -100,6 +100,33 @@ describe('routes user-fields (CRUD)', () => {
     const { server } = app();
     const res = await server.inject({ method: 'PATCH', url: '/tenants/t1/user-fields/ghost', ...h(adminTok), payload: { label: 'X' } });
     expect(res.statusCode).toBe(404);
+    await server.close();
+  });
+
+  it('🔴 le type JSON ne se change plus, dans aucun sens (409, rien d’écrit)', async () => {
+    const { server, cap } = app({
+      fields: {
+        list: async () => [{ key: 'ville', label: 'Ville', type: 'text' }, { key: 'reponse', label: 'Réponse', type: 'json' }],
+        create: async () => 'created',
+        updateField: async (_t, key, patch) => { cap.updated.push({ key, patch }); return true; },
+        deleteField: async () => true,
+      },
+    });
+    const versJson = await server.inject({ method: 'PATCH', url: '/tenants/t1/user-fields/ville', ...h(adminTok), payload: { type: 'json' } });
+    const depuisJson = await server.inject({ method: 'PATCH', url: '/tenants/t1/user-fields/reponse', ...h(adminTok), payload: { type: 'text' } });
+    expect([versJson.statusCode, depuisJson.statusCode]).toEqual([409, 409]);
+    expect(cap.updated).toEqual([]);
+    // Le même type, ou un libellé seul, passe toujours.
+    const memeType = await server.inject({ method: 'PATCH', url: '/tenants/t1/user-fields/reponse', ...h(adminTok), payload: { type: 'json', label: 'Réponse API' } });
+    expect(memeType.statusCode).toBe(200);
+    await server.close();
+  });
+
+  it('POST d’un champ JSON -> 201', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/user-fields', ...h(adminTok), payload: { label: 'Réponse API', type: 'json' } });
+    expect(res.statusCode).toBe(201);
+    expect(cap.created[0]).toMatchObject({ key: 'reponse_api', type: 'json' });
     await server.close();
   });
 

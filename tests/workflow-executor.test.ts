@@ -1857,22 +1857,23 @@ describe('bloc « Appel HTTP » à l’exécution', () => {
     const vus: string[] = [];
     const g = graphe({ requestId: 'req-1' });
     const { ex, calls } = make(g, {
-      appelHttp: async (_t, _w, id, lecture) => { vus.push(`${id}:${lecture}`); return { ok: true, valeur: '' }; },
+      appelHttp: async (_t, _w, id, champ) => { vus.push(`${id}:${champ}`); return { ok: true, valeur: '' }; },
     });
     await ex.demarrer('campagne_scenario', 't1', 'wf1', g, { waId: '33600', contactId: 'c1' });
-    expect(vus).toEqual(['req-1:pousse']);
+    // Le champ cible vide part tel quel : c'est le câblage (`appel-http.ts`) qui en fait un appel qui pousse.
+    expect(vus).toEqual(['req-1:']);
     expect(calls.some((c) => c.startsWith('field:'))).toBe(false);
     expect(calls).toContain('tag:apres');
   });
 
-  it('🔴 avec un champ cible, il INTÈGRE et range la valeur', async () => {
+  it('🔴 avec un champ cible, il le passe au câblage (qui choisit la lecture selon son type) et range la valeur', async () => {
     const vus: string[] = [];
     const g = graphe({ requestId: 'req-1', champCible: 'statut' });
     const { ex, calls } = make(g, {
-      appelHttp: async (_t, _w, id, lecture) => { vus.push(`${id}:${lecture}`); return { ok: true, valeur: 'expédiée' }; },
+      appelHttp: async (_t, _w, id, champ) => { vus.push(`${id}:${champ}`); return { ok: true, valeur: 'expédiée' }; },
     });
     await ex.demarrer('campagne_scenario', 't1', 'wf1', g, { waId: '33600', contactId: 'c1' });
-    expect(vus).toEqual(['req-1:integre']);
+    expect(vus).toEqual(['req-1:statut']);
     expect(calls).toContain('field:statut=expédiée');
   });
 });

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { config } from '../config';
 import { normalizePhone } from '../crm/phone';
-import { validateFieldValue, canonicalizeFieldValue, ensureFieldByKey, type UserFieldStore } from '../crm/fields';
+import { validateFieldValue, canonicalizeFieldValue, ensureFieldByKey, refusSaisieJson, type UserFieldStore } from '../crm/fields';
 import { normaliserDate, raisonDateLisible } from '../crm/date-iso';
 import { resolveFieldKey } from '../ids/resolve';
 import type { FieldLister } from '../ids/resolve';
@@ -164,7 +164,14 @@ export type ChampsPrepares = { ok: true; valeurs: Record<string, string> } | { o
  */
 export async function preparateurDeChamps(
   tenantId: string,
-  deps: { fields: UserFieldStore; maxChampsParEspace?: number; champInconnu: 'creer' | 'refuser' },
+  deps: {
+    fields: UserFieldStore; maxChampsParEspace?: number; champInconnu: 'creer' | 'refuser';
+    /**
+     * Un champ `json` (spec du 2026-11-11, décision 9) : l'API publique l'accepte (JSON valide de 16 Ko au plus), le
+     * webhook entrant et la création à la main le refusent. Requis, comme `champInconnu` : un appelant de plus choisit.
+     */
+    json: 'accepter' | 'refuser';
+  },
 ): Promise<(champs: Record<string, string> | undefined) => Promise<ChampsPrepares>> {
   const defs = await deps.fields.list(tenantId);
   const cache: FieldLister = { list: async () => defs };
@@ -192,6 +199,10 @@ export async function preparateurDeChamps(
         await ensureFieldByKey(deps.fields, tenantId, resolved.key, resolved.key, 'text');
         ensured.add(resolved.key);
         defs.push({ key: resolved.key, label: resolved.key, type: 'text' } as UserFieldDef);
+      }
+      if (deps.json === 'refuser') {
+        const refusJson = refusSaisieJson(resolved.type, resolved.key);
+        if (refusJson !== null) return { ok: false, raison: refusJson };
       }
       const val = String(rawVal);
       if (!validateFieldValue(resolved.type, val)) {
@@ -234,7 +245,7 @@ export async function upsertContactsFromApi(
   // console) ; un item invalide rend `error` sans faire échouer les autres, un outcome par item. La préparation
   // des champs est partagée avec l'API publique (`preparateurDeChamps`) : ici on crée un champ inconnu, l'API
   // refuse.
-  const preparer = await preparateurDeChamps(tenantId, { ...deps, champInconnu: 'creer' });
+  const preparer = await preparateurDeChamps(tenantId, { ...deps, champInconnu: 'creer', json: 'refuser' });
 
   // Deux temps : la validation reste séquentielle (cache de définitions partagé, création possible au
   // passage), les écritures partent par vagues, là où était le coût (un aller-retour par upsert).

@@ -1521,6 +1521,30 @@ qui DESCEND dans l'objet jette tout champ imbriqué, l'enveloppe d'un échec et 
 test du résolveur seul ne le voit pas ; celui qui fait traverser sa sortie réelle dans l'exécuteur, si
 (`tests/agent-resolveur-http-nature.test.ts`).
 
+🔴 **Le filtre ne borne que l'agent IA : vers un champ `json`, le bloc « Appel API » range la réponse ENTIÈRE**
+(spec `docs/superpowers/specs/2026-11-11-champ-json-appel-api-design.md`). Le TYPE du champ cible décide de la lecture,
+dans `creerAppelHttpScenario` (`typeDuChamp`, requise) : aucun champ, l'appel pousse ; un champ `json`, la lecture
+`entier` du résolveur, rangée compacte (un texte non JSON devient une chaîne JSON, un corps vide `null`) ; tout autre
+type, les clés filtrées comme ci-dessus. Le plafond du champ (16 Ko, `MAX_OCTETS_CHAMP_JSON`) borne la LECTURE même, sur
+le corps BRUT (une réponse indentée de 20 Ko qui en ferait 10 compacte est refusée) : une réponse plus grosse est un refus
+du transport, donc une ligne du journal des appels et un champ vidé. Un corps vide se range `null`, pas vide.
+
+🔴 **Un champ `json` ne porte qu'un JSON valide de 16 Ko au plus, et ne se remplit que par un scénario, l'API publique
+et le MCP.** Les écritures de fiche d'un parcours passent toutes par `avecGardeJson` (`src/workflow/garde-json.ts`) :
+une valeur qui n'est pas un JSON valide vide le champ (blocs Action, Question, Fonction JS, rangement d'un formulaire).
+`validateFieldValue('json', …)` remplace pour ce type la borne de 1 000 caractères (recopiée dans
+`src/webhook-entrant/chemin.ts` et `src/hubspot-workflow/champs.ts`, qui ne visent jamais un `json`). Les SAISIES le
+refusent par `refusSaisieJson` : fiche et action en masse de la console, édition par l'Inbox, import CSV (colonne
+ignorée et dite), webhook entrant et création à la main (`preparateurDeChamps`, option `json` requise : `refuser`,
+l'API publique `accepter`). L'API publique le reçoit en CHAÎNE (`valeurDeChamp` refuse un objet). Son type ne change
+plus, dans aucun sens (`PATCH .../user-fields/:key`, 409). Une condition de scénario le lit comme un texte : la console
+ne propose que « vide », « pas vide » et « contient ».
+⚠️ **Trois écritures restent HORS de la garde** : un WhatsApp Flow complété hors scénario (`src/webhooks/flow-mapping.ts`)
+et l'outil « Enregistrer une information » d'un agent IA (`ecrireChamp` et `ecrire_variable`, `src/worker.ts`, et le
+bac à sable dans `src/index.ts`). Ils écrivent le champ que l'administrateur a choisi, et la console ne leur propose
+pas un champ `json` ; un graphe ou un outil réglé par l'API peut quand même en viser un. Le bloc d'extraction doit
+donc tolérer une valeur qui n'est pas du JSON (chemin absent, champ cible vidé).
+
 ⚠️ **La nature et les champs lus d'un appel déjà posé se modifient ENSEMBLE** (`PATCH .../tools/:outilId`,
 2026-10-05) : des champs sans nature sont refusés, `integre` exige au moins un champ, `pousse` n'en lit aucun (la
 même `refusLecture` qu'à la création), et une nature hors d'un connecteur API est refusée. La cohérence se juge donc

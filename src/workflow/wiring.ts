@@ -11,6 +11,9 @@ import { PgWorkflowNodeEventStore } from './node-events.pg';
 import { PgTagStore } from '../crm/tag-store.pg';
 import { PgTemplateHintStore } from '../crm/template-hints.pg';
 import { PgContactStore } from '../crm/contact-store.pg';
+import { PgUserFieldStore } from '../crm/field-store.pg';
+import type { UserFieldType } from '../crm/types';
+import { avecGardeJson } from './garde-json';
 import { PgInboxStore } from '../inbox/store.pg';
 import { automatique } from '../inbox/evenements';
 import { PgTenantSettingsStore } from '../settings/store.pg';
@@ -374,15 +377,19 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
   /**
    * Les écritures de fiche d'un parcours (`setField`, `clearField`). Un champ HubSpot du contact (`hs_contact_<p>`) remonte
    * D'ABORD dans HubSpot ; un refus laisse la fiche telle quelle et va au journal des échecs de scénario. Le store passé
-   * entier dans une flèche : ses méthodes lisent `this`.
+   * entier dans une flèche : ses méthodes lisent `this`. Par-dessus, la garde d'un champ `json` (`garde-json.ts`) : il
+   * ne reçoit qu'un JSON valide, sinon il est vidé.
    */
-  const ecrituresDeFiche = avecRemonteeHubspot({
+  const champsDeLEspace = new PgUserFieldStore(pool);
+  const typeDuChamp = async (tenant: string, cle: string): Promise<UserFieldType | null> =>
+    (await champsDeLEspace.list(tenant)).find((f) => f.key === cle)?.type ?? null;
+  const ecrituresDeFiche = avecGardeJson(avecRemonteeHubspot({
     setField: async (tenant, waId, key, value) => { await contactStore.mergeFieldsByPhone(tenant, waId, { [key]: value }); },
     clearField: async (tenant, waId, key) => { await contactStore.clearFieldsByPhone(tenant, waId, [key]); },
   }, connecteurHubspot === null ? null : {
     ecrire: (corps) => ecrireChampContactHubspot(connecteurHubspot, corps),
     journaliser: (e) => echecsDeScenario.enregistrerEchecAvance({ ...e, workflowId: null, runId: null, messageId: null, canal: null }),
-  });
+  }), typeDuChamp);
 
   // La réponse « à côté » : les gardes vivent dans le module, testé.
   const transmettreHorsParcours = creerTransmettreHorsParcours({
@@ -555,6 +562,8 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
       // Relue à chaque appel, pas portée par le contexte du parcours : le bloc peut suivre un bloc qui vient
       // d'écrire un champ.
       projectionContact: (t, waId) => contactStore.projectionPourTiers(t, waId),
+      // Le type du champ cible décide de la lecture : un champ `json` reçoit la réponse entière.
+      typeDuChamp,
       // 🔴 La pièce d'un bloc Question (spec du 2026-11-02) : SEUL ce câblage fabrique un lien vers le fichier. Le store
       // entier, pour que `liensPossibles` garde son `this` ; le lien vit sous l'API, comme celui de désinscription.
       pieces: piecesQuestion,

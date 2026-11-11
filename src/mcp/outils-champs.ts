@@ -5,7 +5,7 @@ import { CHAMPS_CIBLE_FILTRES, CHAMPS_CIBLE_IDENTIFIANTS, lireCibleMcp } from '.
 import { ecriture, LOURDE, plafondCouteux, signataire } from './outils-agent';
 import { creerChamp, type ChampsDep } from '../http/fields';
 import { defPourEcriture } from '../crm/fields';
-import { USER_FIELD_TYPES, canonicalizeFieldValue, validateFieldValue } from '../crm/fields';
+import { MAX_OCTETS_CHAMP_JSON, USER_FIELD_TYPES, canonicalizeFieldValue, validateFieldValue } from '../crm/fields';
 import type { UserFieldDef } from '../crm/types';
 import { SOCLE_FIELDS } from '../../web/lib/partage/champs';
 
@@ -28,7 +28,11 @@ const lecture = (title: string): AnnotationsMcp => ({ title, readOnlyHint: true,
 export const LONGUEUR_MAX_LIBELLE_CHAMP = 80;
 /** Clé d'un champ (le slug de son libellé) et valeur saisie, bornées comme la console. */
 export const LONGUEUR_MAX_CLE_CHAMP = 120;
-export const LONGUEUR_MAX_VALEUR_CHAMP = 1000;
+/**
+ * Une valeur : celle d'un champ `json` (16 Ko, `MAX_OCTETS_CHAMP_JSON`), la plus longue. Les autres types restent bornés à
+ * 1 000 caractères par `validateFieldValue`, et la description de `value` le dit.
+ */
+export const LONGUEUR_MAX_VALEUR_CHAMP = MAX_OCTETS_CHAMP_JSON;
 
 export const OUTILS_CHAMPS: OutilMcp[] = [
   {
@@ -53,7 +57,9 @@ export const OUTILS_CHAMPS: OutilMcp[] = [
     fonction: null,
     description:
       'Creates a custom contact field, as the console does: its key is derived from the label and never changes. '
-      + 'A label that would duplicate a base field (name, phone…) or an existing field is refused.',
+      + 'A label that would duplicate a base field (name, phone…) or an existing field is refused. '
+      + 'Type "json" holds the whole answer of a scenario API call block (a valid JSON of 16 KB at most); a json field '
+      + 'keeps its type for good, and no field can become json later.',
     annotations: ecriture('Create a contact field', false, false),
     entree: {
       type: 'object',
@@ -84,7 +90,7 @@ export const OUTILS_CHAMPS: OutilMcp[] = [
       type: 'object',
       properties: {
         key: { type: 'string', minLength: 1, maxLength: LONGUEUR_MAX_CLE_CHAMP, description: 'The field key (list_fields).' },
-        value: { type: 'string', minLength: 1, maxLength: LONGUEUR_MAX_VALEUR_CHAMP, description: 'The value, matching the field type (number, date, true or false, https URL…).' },
+        value: { type: 'string', minLength: 1, maxLength: LONGUEUR_MAX_VALEUR_CHAMP, description: 'The value, matching the field type (number, date, true or false, https URL, a valid JSON for a json field…). 1,000 characters at most, 16 KB for a json field.' },
         ...CHAMPS_CIBLE_FILTRES,
         ...CHAMPS_CIBLE_IDENTIFIANTS,
       },

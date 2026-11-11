@@ -4,6 +4,8 @@ import { messageDe } from '../lib/erreur';
 import type { PgPiecesQuestion } from './pieces-question.pg';
 import { DUREE_LIEN_PIECE_MS, jetonPiece, lienPiece } from './piece-lien';
 import { ressembleAUneMention } from './question-piece';
+import { MAX_OCTETS_CHAMP_JSON, jsonDeChamp } from '../crm/fields';
+import type { UserFieldType } from '../crm/types';
 
 /**
  * Le bloc « Appel HTTP » d'un scénario : jouer un appel déjà mis au point dans Tools > Connecteurs API, et
@@ -11,7 +13,8 @@ import { ressembleAUneMention } from './question-piece';
  *
  * Il ne décrit aucun appel, il en désigne un : adresse, méthode, corps, variables et filtre de sortie vivent
  * dans la bibliothèque, éprouvés une fois avec « Essayer ». Une seconde façon de déclarer un appel aurait ses
- * propres gardes à écrire et à oublier.
+ * propres gardes à écrire et à oublier. Seule exception, voulue (spec du 2026-11-11) : vers un champ `json`, la réponse
+ * se range ENTIÈRE, sans le filtre de sortie, qui ne borne plus que l'agent IA.
  *
  * Aucune garde ici : elles sont toutes dans `creerAppelConnecteur`, partagé avec l'agent IA et la poussée
  * d'un opt-out. Il n'y a ici que la traduction « réponse -> valeur de champ ».
@@ -45,8 +48,26 @@ export function valeurPourChamp(contenu: unknown): string {
   return JSON.stringify(contenu);
 }
 
+/**
+ * La réponse ENTIÈRE, telle qu'elle se range dans un champ `json` (spec du 2026-11-11). Pure. La lecture `entier` du
+ * résolveur rend le JSON parsé, le texte tel quel s'il n'en est pas (il devient alors une chaîne JSON), `null` pour un
+ * corps vide. `null` en retour = trop gros pour le champ, traité comme un échec.
+ */
+export function valeurPourChampJson(contenu: unknown): string | null {
+  const reponse = contenu !== null && typeof contenu === 'object' && !Array.isArray(contenu)
+    ? (contenu as { reponse?: unknown }).reponse ?? null
+    : null;
+  return jsonDeChamp(JSON.stringify(reponse));
+}
+
 /** Ce que le câblage doit fournir en plus des dépendances du connecteur. */
 export interface DepsAppelHttpScenario extends DepsResolveurHttp {
+  /**
+   * Le type du champ cible, qui décide de la lecture : `json` range la réponse entière, tout autre type lit les champs
+   * de réponse du connecteur, comme avant. `null` = champ inconnu (lecture d'avant). Requise : sans elle, un champ JSON
+   * recevrait la valeur filtrée sans que rien ne le dise.
+   */
+  typeDuChamp(tenantId: string, cle: string): Promise<UserFieldType | null>;
   /**
    * Le journal des appels de connecteur, où le client voit qu'un connecteur a refusé l'appel d'un scénario.
    * Optionnel : absent, seul un `console.warn` en garde trace.
@@ -104,16 +125,23 @@ async function avecLiensDesPieces(
 export function creerAppelHttpScenario(deps: DepsAppelHttpScenario) {
   const appel = creerAppelConnecteur(deps);
   return async (
-    tenantId: string, waId: string, requestId: string, lecture: 'pousse' | 'integre',
+    tenantId: string, waId: string, requestId: string, champCible: string,
   ): Promise<{ ok: boolean; valeur: string }> => {
     try {
+      /**
+       * La lecture se décide sur le champ cible : aucun -> l'appel pousse ; un champ `json` -> la réponse entière, sans le
+       * filtre du connecteur (qui ne borne plus que l'agent IA) ; tout autre -> les champs de réponse, comme avant.
+       */
+      const lecture = champCible === '' ? 'pousse' : (await deps.typeDuChamp(tenantId, champCible)) === 'json' ? 'entier' : 'integre';
       const contact = await avecLiensDesPieces(deps, tenantId, waId, await deps.projectionContact(tenantId, waId));
       const r = await appel({
         tenantId,
         waId,
         contact,
         requestId,
-        maxBytes: MAX_OCTETS_APPEL_HTTP,
+        // Pour un champ `json`, le plafond du champ borne la LECTURE : une réponse plus grosse est refusée par le transport
+        // (`trop_gros`), donc écrite au journal des appels comme tout refus, au lieu d'être lue puis jetée.
+        maxBytes: lecture === 'entier' ? MAX_OCTETS_CHAMP_JSON : MAX_OCTETS_APPEL_HTTP,
         // Aucun argument de modèle : un scénario n'a pas de modèle qui décide. Une requête qui déclare une
         // variable `modele` requise sera refusée avec sa raison.
         args: {},
@@ -122,7 +150,9 @@ export function creerAppelHttpScenario(deps: DepsAppelHttpScenario) {
          * pas d'outil, donc pas de liste à lui. Sans champ cible, il pousse : le corps n'est pas lu, un 2xx
          * (204 compris) vaut succès, et la requête n'a pas à déclarer de champ de réponse.
          */
-        lecture: lecture === 'pousse' ? { nature: 'pousse' } as const : { nature: 'integre', champs: null } as const,
+        lecture: lecture === 'pousse' ? { nature: 'pousse' } as const
+          : lecture === 'entier' ? { nature: 'entier' } as const
+          : { nature: 'integre', champs: null } as const,
         signal: AbortSignal.timeout(DELAI_APPEL_HTTP_MS),
         journal: deps.journalAppels
           ? {
@@ -143,7 +173,16 @@ export function creerAppelHttpScenario(deps: DepsAppelHttpScenario) {
         return { ok: false, valeur: '' };
       }
       // Un appel qui pousse n'a rien à ranger : son contenu n'est que le verdict (`{ok, statut}`).
-      return { ok: true, valeur: lecture === 'pousse' ? '' : valeurPourChamp(r.contenu) };
+      if (lecture === 'pousse') return { ok: true, valeur: '' };
+      if (lecture === 'integre') return { ok: true, valeur: valeurPourChamp(r.contenu) };
+      // Un texte non JSON devient une chaîne JSON, échappée : il peut dépasser le plafond que son corps tenait.
+      const json = valeurPourChampJson(r.contenu);
+      if (json === null) {
+        // eslint-disable-next-line no-console
+        console.warn(`workflow appelHttp: ${requestId} pour ${waId}, reponse trop grosse pour un champ JSON, le champ est vide`);
+        return { ok: false, valeur: '' };
+      }
+      return { ok: true, valeur: json };
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(`workflow appelHttp: ${requestId} a leve pour ${waId}:`, messageDe(err));

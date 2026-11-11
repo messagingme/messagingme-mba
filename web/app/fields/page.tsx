@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import type { Session } from '@/lib/session';
 import { listUserFields, createUserField, updateUserField, deleteUserField, type UserFieldDef, type UserFieldKind } from '@/lib/api';
-import { USER_FIELD_KINDS, USER_FIELD_KIND_LABELS } from '@/lib/field-kinds';
+import { USER_FIELD_KINDS_SAISIS, USER_FIELD_KIND_LABELS } from '@/lib/field-kinds';
 import { SYSTEM_FIELDS, customFieldsOnly, systemFieldCode } from '@/lib/fields';
 import { useT } from '@/lib/i18n';
 import { Bouton } from '@/components/Bouton';
@@ -22,7 +22,8 @@ function FieldsInner({ session }: { session: Session }) {
   const confirmer = useConfirmation();
   // Libellés partagés avec l'écran Webhooks (mapping), qui montre la nature du champ visé. Les recopier
   // ferait diverger deux listes que l'utilisateur voit à quelques clics d'écart.
-  const TYPES: { value: UserFieldKind; label: string }[] = USER_FIELD_KINDS.map((value) => ({
+  // ⚠️ Les types de SAISIE seulement, tant que l'API qui accepte `json` n'est pas en production : la console part au push.
+  const TYPES: { value: UserFieldKind; label: string }[] = USER_FIELD_KINDS_SAISIS.map((value) => ({
     value,
     label: t(...USER_FIELD_KIND_LABELS[value]),
   }));
