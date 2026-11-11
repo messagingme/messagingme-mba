@@ -45,7 +45,7 @@ import { assignerReponse } from './inbox/assignation-campagne';
 import { arriveeParWidget } from './widgets/arrivee';
 import { relanceurDeCampagnes } from './campaign/enqueue';
 import { plafondDuCanal, plafondLePlusBas } from './campaign/pacing';
-import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff, pousserMessagesInbox, affecterInbox } from './crm/hubspot-service';
+import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff, pousserMessagesInbox, affecterInbox, etatsInbox } from './crm/hubspot-service';
 import { balayerInbox, PgInboxHubspotStore } from './hubspot/inbox';
 import { DUREE_CLE_IDEMPOTENCE_MS } from './api/idempotence';
 import { PgArriveesPubStore } from './pubs/arrivees.pg';
@@ -1221,6 +1221,11 @@ export async function demarrerWorker(): Promise<void> {
       store: new PgInboxHubspotStore(pool),
       pousser: (corps) => pousserMessagesInbox(connecteurHubspot, corps),
       affecter: (corps) => affecterInbox(connecteurHubspot, corps),
+      // Lot 4 : un fil fermé dans l'Inbox HubSpot rend la main au répondeur et range la conversation en « Traité », par les
+      // deux gestes de la console (le contrôle du fil et le store de l'Inbox, appelés sur leur objet).
+      etats: (corps) => etatsInbox(connecteurHubspot, corps),
+      rendreLaMain: (t, waId, par) => fil.rendreLaMainSousConsentement(t, waId, par),
+      marquerTraitee: (t, conversationId, traitee, par) => inboxStore.marquerTraitee(t, conversationId, traitee, par),
     }), { enEchec: echecDeBalayage('hubspot-inbox', 'sweeper:hubspot-inbox') });
   }
 

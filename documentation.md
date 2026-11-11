@@ -3280,7 +3280,16 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   valeur poussée ; `fil_inconnu` est rejoué, derrière les entrées jamais tentées (`affectation_tentee_le`). 🔴 Cette étape ne lève
   jamais : une portée absente (`conversations.write`, facultative), un refus ou une panne laissent partir les messages.
   La console propose la réautorisation tant que le portail ne l'a pas accordée (`affectation: false` dans
-  `GET /tenants/:id/hubspot/inbox`).
+  `GET /tenants/:id/hubspot/inbox`) ; le journal le dit une fois par processus (`hubspot_inbox_affectation_sans_portee`).
+  🔴 **Lot 4 (2026-11-11) : fermer le fil dans l'Inbox HubSpot rend la main au répondeur** (décision de Julien : un
+  conseiller qui répond dans HubSpot n'ouvre jamais la console ; la règle « mba fait foi » cède sur ce seul point). Après
+  les affectations, chaque tour relit au connecteur (`POST /service/inbox/etats`, 10 au plus par espace, chacune au plus
+  une fois par minute, `inbox_hubspot_entrees.etat_lu_le`, migration 0290) l'état du fil des entrées que l'équipe tient
+  (`app_human`, ni « Traité » ni archivée). Un fil fermé APRÈS l'entrée et après le dernier message du CLIENT (les
+  sortants ne comptent pas : le conseiller répond puis ferme), relu juste avant le geste (`toujoursAFermer`), reçoit les
+  deux gestes de la console : « Rendre la main » sous la garde du consentement (`rendreLaMainSousConsentement`), puis
+  « Traité », signés `automatique : fil fermé dans l’Inbox HubSpot`. L'entrée sort au tour suivant. Rouvrir le fil dans
+  HubSpot ne fait rien. 🔴 Cette étape ne lève jamais non plus.
 
 - **Le changement d'étape d'un deal HubSpot** (`POST /hubspot/deal-stage`, `src/http/hubspot-events.ts`, lot 3a du plan
   `~/mm-hubspot/docs/2026-11-02-champs-hubspot-et-accord-plan.md`, décisions 5 et 7). Dans l'ordre, après la signature

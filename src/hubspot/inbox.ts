@@ -3,7 +3,9 @@ import { classifyWaId } from '../crm/identity';
 import { e164DepuisSaisie } from '../crm/phone';
 import { journaliser } from '../lib/journal';
 import type { OrigineMessage } from '../inbox/origine';
-import type { AffectationInbox, IssueAffectations, IssueInbox, MessageInboxHubspot } from '../crm/hubspot-service';
+import type { AffectationInbox, IssueAffectations, IssueEtats, IssueInbox, MessageInboxHubspot } from '../crm/hubspot-service';
+import { parCause, type AuteurDuChangement } from '../inbox/evenements';
+import type { IssueRendreLaMain } from '../inbox/fil';
 import { ATTEND_UN_HUMAIN_SQL, CONTACT_JOIGNABLE_SQL } from '../inbox/a-traiter-hubspot.pg';
 
 /**
@@ -50,6 +52,15 @@ export const UUID_ZERO = '00000000-0000-0000-0000-000000000000';
  * délai de `affecterInbox` (20 s). Le connecteur en accepte 50 ; on reste loin du délai.
  */
 export const AFFECTATIONS_PAR_TOUR = 10;
+/**
+ * Lot 4 : au plus autant de fils relus par espace et par tour (un appel HubSpot chacun, en série, sous le délai de
+ * `etatsInbox`, 20 s), et chacun au plus une fois par `RELECTURE_ETAT_S` : un conseiller qui ferme le fil le voit rendu
+ * dans la minute, sans relire sans fin les mêmes.
+ */
+export const FERMETURES_PAR_TOUR = 10;
+export const RELECTURE_ETAT_S = 60;
+/** Qui rend la main quand un conseiller ferme le fil dans HubSpot : HubSpot ne dit pas lequel, la frise dit la cause. */
+export const PAR_FERMETURE_HUBSPOT: AuteurDuChangement = parCause('fil fermé dans l’Inbox HubSpot');
 
 /**
  * Une affectation à pousser (lot 3) : l'entrée ouverte, sa conversation, l'adresse de l'affecté (`null` : personne n'a la
@@ -63,6 +74,15 @@ export interface AffectationAPousser {
   contactE164: string | null;
   dejaPose: boolean;
 }
+
+/**
+ * Un fil à relire (lot 4) : l'entrée ouverte d'une conversation que l'équipe tient, et `depuis`, le plus récent de son
+ * entrée et du dernier message du CLIENT (ISO 8601). Seule une fermeture PLUS RÉCENTE rend la main : un fil fermé avant
+ * que le client réécrive, que HubSpot n'a pas encore rouvert (le message part avec 30 s de retard), ne rend rien. Les
+ * messages sortants ne comptent pas : le geste naturel du conseiller est de répondre dans HubSpot PUIS de fermer, et sa
+ * réponse, enregistrée par mba à l'envoi, peut être datée après la fermeture (relecture du lot 4).
+ */
+export interface FilALire { entreeId: string; conversationId: string; waId: string; depuis: string }
 
 /** `curseurLe` : un instant UTC à la MICROSECONDE (`2026-11-06T12:00:00.043689Z`), jamais un `Date`. */
 export interface EspaceBranche { tenantId: string; boite: string; curseurLe: string; curseurId: string }
@@ -121,6 +141,19 @@ export interface InboxHubspotStore {
    * « personne ») ; `null` : rien de posé (fil pas encore connu), seule la tentative compte.
    */
   noterAffectation(tenantId: string, entreeId: string, valeur: string | null): Promise<void>;
+  /**
+   * Lot 4 : les entrées ouvertes dont la conversation est tenue par l'équipe (ni rendue, ni « Traité », ni archivée), non
+   * relues depuis `RELECTURE_ETAT_S`, les jamais relues d'abord.
+   */
+  fermeturesALire(tenantId: string, limite: number): Promise<FilALire[]>;
+  /** Note la relecture de ces entrées, si elles sont toujours ouvertes. */
+  noterEtatsLus(tenantId: string, entreeIds: readonly string[]): Promise<void>;
+  /**
+   * Relu JUSTE avant le geste (la lecture de l'état chez HubSpot prend jusqu'à 20 s) : la conversation est toujours tenue
+   * par l'équipe, ni « Traité » ni archivée, et le client n'a rien écrit après `depuis`. Sinon, rien n'est rendu : un
+   * message du client arrivé pendant la lecture ne doit pas finir en « Traité » sans réponse, ni un scénario repris.
+   */
+  toujoursAFermer(tenantId: string, conversationId: string, depuis: string): Promise<boolean>;
 }
 
 /**
@@ -325,6 +358,48 @@ export class PgInboxHubspotStore implements InboxHubspotStore, MarqueurReponsesI
     );
   }
 
+  async fermeturesALire(tenantId: string, limite: number): Promise<FilALire[]> {
+    // `depuis` à la milliseconde : la date de fermeture de HubSpot n'en porte pas plus, et `Date.parse` non plus.
+    const r = await this.pool.query<{ id: string; conversation_id: string; wa_id: string; depuis: string }>(
+      `select e.id, e.conversation_id, c.wa_id,
+              to_char(greatest(e.entree_le,
+                               (select max(m.created_at) from conversation_messages m
+                                 where m.conversation_id = c.id and m.direction = 'in'))
+                      at time zone 'utc', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as depuis
+         from inbox_hubspot_entrees e
+         join conversations c on c.id = e.conversation_id and c.tenant_id = e.tenant_id
+        where e.tenant_id = $1 and e.sortie_le is null
+          and c.control_owner = 'app_human' and c.traitee_le is null and c.archived_at is null
+          and (e.etat_lu_le is null or e.etat_lu_le < now() - make_interval(secs => $3))
+        order by e.etat_lu_le nulls first, e.entree_le, e.id
+        limit $2`,
+      [tenantId, limite, RELECTURE_ETAT_S],
+    );
+    return r.rows.map((x) => ({ entreeId: x.id, conversationId: x.conversation_id, waId: x.wa_id, depuis: x.depuis }));
+  }
+
+  async noterEtatsLus(tenantId: string, entreeIds: readonly string[]): Promise<void> {
+    if (entreeIds.length === 0) return;
+    await this.pool.query(
+      `update inbox_hubspot_entrees set etat_lu_le = now() where tenant_id = $1 and id = any($2::uuid[]) and sortie_le is null`,
+      [tenantId, entreeIds],
+    );
+  }
+
+  async toujoursAFermer(tenantId: string, conversationId: string, depuis: string): Promise<boolean> {
+    const r = await this.pool.query(
+      `select 1 from conversations c
+        where c.id = $2 and c.tenant_id = $1
+          and c.control_owner = 'app_human' and c.traitee_le is null and c.archived_at is null
+          and not exists (select 1 from conversation_messages m
+                           where m.conversation_id = c.id and m.direction = 'in'
+                             -- À la milliseconde, comme la borne : sinon le dernier message lui-même (à la microseconde) la dépasse.
+                             and date_trunc('milliseconds', m.created_at) > $3::timestamptz)`,
+      [tenantId, conversationId, depuis],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
   async marquerReponseInbox(tenantId: string, messageWhatsapp: string, messageHubspot: string): Promise<boolean> {
     const r = await this.pool.query(
       `update conversation_messages m set hubspot_inbox_message_id = $3
@@ -392,7 +467,19 @@ export interface BalayageInboxDeps {
   pousser(corps: { tenantId: string; ligne: string; messages: MessageInboxHubspot[] }): Promise<IssueInbox>;
   /** `affecterInbox` (lot 3) : rend une issue, LÈVE sur 429, 5xx et réseau. */
   affecter(corps: { tenantId: string; ligne: string; affectations: AffectationInbox[] }): Promise<IssueAffectations>;
+  /** `etatsInbox` (lot 4) : rend une issue, LÈVE sur 429, 5xx et réseau. */
+  etats(corps: { tenantId: string; ligne: string; conversationIds: string[] }): Promise<IssueEtats>;
+  /**
+   * Le geste « Rendre la main », SOUS la garde du consentement (`ControleDuFil.rendreLaMainSousConsentement`), comme la
+   * route HubSpot voisine : un contact STOP ou bloqué n'est jamais confié à l'agent de Meta (`contact_muet`).
+   */
+  rendreLaMain(tenantId: string, waId: string, par: AuteurDuChangement): Promise<IssueRendreLaMain | 'contact_muet'>;
+  /** Le geste « Traité » de la console (`PgInboxStore.marquerTraitee`). */
+  marquerTraitee(tenantId: string, conversationId: string, traitee: boolean, par: AuteurDuChangement): Promise<boolean>;
 }
+
+/** Les espaces dont la portée d'affectation manquante est déjà au journal : une ligne par processus, pas une par tour. */
+const porteeAffectationSignalee = new Set<string>();
 
 /**
  * L'étape 4 d'un tour, pour un espace (lot 3) : les affectations qui ont changé partent au connecteur. `fait`, `inconnu`
@@ -409,8 +496,15 @@ async function affecter(deps: BalayageInboxDeps, tenantId: string, ligne: string
       tenantId, ligne,
       affectations: aPousser.map((a) => ({ conversationId: a.conversationId, email: a.email, contactE164: a.contactE164, dejaPose: a.dejaPose })),
     });
-    // Sans la portée, le portail n'a pas été réautorisé : la console le dit, le journal se tait (un tour toutes les 15 s).
-    if (issue.issue === 'portees') return;
+    // Sans la portée, le portail n'a pas été réautorisé : la console le dit, le journal le dit UNE fois par processus (un
+    // tour toutes les 15 s). Muet, il a laissé l'essai réel du 2026-11-11 sans aucune trace.
+    if (issue.issue === 'portees') {
+      if (!porteeAffectationSignalee.has(tenantId)) {
+        porteeAffectationSignalee.add(tenantId);
+        journaliser('warn', 'hubspot_inbox_affectation_sans_portee', { tenantId });
+      }
+      return;
+    }
     if (issue.issue !== 'fait') {
       journaliser('warn', 'hubspot_inbox_affectations_en_attente', { tenantId, issue: issue.issue, ...(issue.issue === 'refuse' ? { status: issue.status, code: issue.code } : {}) });
       return;
@@ -424,8 +518,48 @@ async function affecter(deps: BalayageInboxDeps, tenantId: string, ligne: string
       await deps.store.noterAffectation(tenantId, a.entreeId, r.issue === 'fil_inconnu' ? null : a.email ?? '');
     }
     if (compte.inconnu + compte.refuse > 0) journaliser('warn', 'hubspot_inbox_affectations_non_posees', { tenantId, ...compte });
+    else if (compte.fait > 0) journaliser('info', 'hubspot_inbox_affectations', { tenantId, ...compte });
   } catch (err) {
     journaliser('error', 'hubspot_inbox_affectation_impossible', { err, tenantId });
+  }
+}
+
+/**
+ * L'étape 3 bis d'un tour (lot 4, décision de Julien du 2026-11-11) : un conseiller qui répond depuis l'Inbox HubSpot
+ * n'ouvre jamais la console ; quand il FERME le fil, mba rend la main au répondeur de l'espace et range la conversation en
+ * « Traité », les deux gestes de la console. Seulement pour une conversation que l'équipe tient, et seulement pour une
+ * fermeture plus récente que l'entrée et que le dernier message (`FilALire.depuis`). Rouvrir le fil ne fait rien : c'est
+ * le prochain message du client qui rouvre tout. 🔴 Ne lève jamais : les messages passent avant.
+ */
+async function fermetures(deps: BalayageInboxDeps, tenantId: string, ligne: string): Promise<void> {
+  try {
+    const aLire = await deps.store.fermeturesALire(tenantId, FERMETURES_PAR_TOUR);
+    if (aLire.length === 0) return;
+    const issue = await deps.etats({ tenantId, ligne, conversationIds: aLire.map((f) => f.conversationId) });
+    if (issue.issue !== 'fait') {
+      journaliser('warn', 'hubspot_inbox_etats_en_attente', { tenantId, issue: issue.issue, ...(issue.issue === 'refuse' ? { status: issue.status, code: issue.code } : {}) });
+      return;
+    }
+    await deps.store.noterEtatsLus(tenantId, aLire.map((f) => f.entreeId));
+    const parConversation = new Map(aLire.map((f) => [f.conversationId, f]));
+    let rendues = 0;
+    for (const r of issue.resultats) {
+      const f = parConversation.get(r.conversationId);
+      if (!f || r.etat !== 'ferme' || !(Date.parse(r.fermeLe) > Date.parse(f.depuis))) continue;
+      try {
+        if (!(await deps.store.toujoursAFermer(tenantId, f.conversationId, f.depuis))) continue;
+        // Un mode « agent de Meta » sans numéro, ou un contact STOP, n'écrit rien : la conversation reste à l'équipe.
+        const rendu = await deps.rendreLaMain(tenantId, f.waId, PAR_FERMETURE_HUBSPOT);
+        if (rendu === 'aucun_numero' || rendu === 'contact_muet') continue;
+        await deps.marquerTraitee(tenantId, f.conversationId, true, PAR_FERMETURE_HUBSPOT);
+        rendues += 1;
+      } catch (err) {
+        journaliser('error', 'hubspot_inbox_fermeture_impossible', { err, tenantId, conversationId: f.conversationId });
+      }
+    }
+    if (rendues > 0) journaliser('info', 'hubspot_inbox_fils_fermes', { tenantId, rendues });
+  } catch (err) {
+    journaliser('error', 'hubspot_inbox_etats_impossibles', { err, tenantId });
   }
 }
 
@@ -469,6 +603,8 @@ async function reagir(deps: BalayageInboxDeps, tenantId: string, issue: IssueInb
  *     contexte, PUIS leur entrée s'inscrit. Dans cet ordre : une panne fait rejouer l'entrée entière au tour suivant, jamais
  *     une conversation « entrée » sans contexte ; le contexte rejoué, HubSpot le déduplique par l'identifiant du message ;
  *  3. les AFFECTATIONS (lot 3) : le conseiller qui a la main est posé sur le fil HubSpot, sans jamais bloquer la suite ;
+ *     puis les FERMETURES (lot 4) : un fil fermé dans HubSpot rend la main au répondeur et range la conversation en
+ *     « Traité » (elle sortira au tour suivant), sans jamais bloquer la suite non plus ;
  *  4. la SUITE : les messages des conversations entrées, après le curseur, un lot au plus.
  * Rend le nombre de messages publiés. Un échec sur un espace est journalisé et n'arrête pas le tour ; son curseur ne
  * bouge pas, le tour suivant rejoue.
@@ -512,6 +648,7 @@ export async function balayerInbox(deps: BalayageInboxDeps): Promise<number> {
       if (arret) continue;
 
       await affecter(deps, e.tenantId, ligne);
+      await fermetures(deps, e.tenantId, ligne);
 
       const lignes = await deps.store.messagesApres(e, borne, LOT_INBOX);
       if (lignes.length === 0) {

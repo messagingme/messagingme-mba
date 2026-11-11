@@ -219,6 +219,64 @@ describe.skipIf(!url)('Inbox HubSpot : seules les conversations qui attendent un
     await pool.query(`delete from users where id = $1`, [membre]);
   });
 
+  it('🔴 lot 4 : ne se relisent que les entrées que l’équipe tient, une fois par minute, avec la date de leur dernier message ; un autre espace jamais', async () => {
+    await pool.query(`update conversations set traitee_le = null, archived_at = null, last_direction = 'in', control_owner = 'app_human' where id = $1`, [ids['escaladee']]);
+    await pool.query(`update inbox_hubspot_entrees set sortie_le = now() where tenant_id = $1 and sortie_le is null`, [t1]);
+    await store.ouvrirEntree(t1, ids['escaladee']!);
+    // L'entrée datée APRÈS tous les messages de la conversation (les tests plus haut en écrivent jusqu'à maintenant).
+    const entree = (await pool.query<{ id: string }>(
+      `update inbox_hubspot_entrees set entree_le = '2099-01-01T10:00:00.123456Z' where conversation_id = $1 and sortie_le is null returning id`,
+      [ids['escaladee']],
+    )).rows[0]!;
+    // `depuis` : le plus récent de l'entrée et du dernier message, à la milliseconde.
+    expect(await store.fermeturesALire(t1, 50)).toEqual([
+      { entreeId: entree.id, conversationId: ids['escaladee'], waId: '33600009201', depuis: '2099-01-01T10:00:00.123Z' },
+    ]);
+    expect(await store.fermeturesALire(t2, 50)).toEqual([]);
+    // Un message plus récent que l'entrée devient la borne.
+    await pool.query(
+      `insert into conversation_messages (conversation_id, direction, type, body, created_at, channel)
+       values ($1, 'in', 'text', 'encore', '2099-01-01T10:05:00.987654Z', 'whatsapp')`,
+      [ids['escaladee']],
+    );
+    expect((await store.fermeturesALire(t1, 50))[0]!.depuis).toBe('2099-01-01T10:05:00.987Z');
+    // Relue juste avant le geste : un message du client après la borne l'interdit.
+    expect(await store.toujoursAFermer(t1, ids['escaladee']!, '2099-01-01T10:05:00.987Z')).toBe(true);
+    expect(await store.toujoursAFermer(t1, ids['escaladee']!, '2099-01-01T10:04:00.000Z')).toBe(false);
+    expect(await store.toujoursAFermer(t2, ids['escaladee']!, '2099-01-01T10:05:00.987Z')).toBe(false);
+    await pool.query(`delete from conversation_messages where conversation_id = $1 and body = 'encore'`, [ids['escaladee']]);
+    // 🔴 La réponse du conseiller (sortante), même datée après la fermeture, ne recule pas la borne.
+    await pool.query(
+      `insert into conversation_messages (conversation_id, direction, type, body, created_at, channel)
+       values ($1, 'out', 'text', 'réponse HubSpot', '2099-01-01T10:09:00.000Z', 'whatsapp')`,
+      [ids['escaladee']],
+    );
+    expect((await store.fermeturesALire(t1, 50))[0]!.depuis).toBe('2099-01-01T10:00:00.123Z');
+    expect(await store.toujoursAFermer(t1, ids['escaladee']!, '2099-01-01T10:00:00.123Z')).toBe(true);
+    await pool.query(`delete from conversation_messages where conversation_id = $1 and body = 'réponse HubSpot'`, [ids['escaladee']]);
+
+    // Relue : plus rien pendant une minute ; un autre espace ne note rien.
+    await store.noterEtatsLus(t2, [entree.id]);
+    expect(await store.fermeturesALire(t1, 50)).toHaveLength(1);
+    await store.noterEtatsLus(t1, [entree.id]);
+    expect(await store.fermeturesALire(t1, 50)).toEqual([]);
+    await pool.query(`update inbox_hubspot_entrees set etat_lu_le = now() - interval '61 seconds' where id = $1`, [entree.id]);
+    expect(await store.fermeturesALire(t1, 50)).toHaveLength(1);
+
+    // Rendue à un robot, « Traité » ou archivée : jamais relue, ni rendue au moment du geste.
+    for (const pose of [`control_owner = 'app_workflow'`, `traitee_le = now()`, `archived_at = now()`]) {
+      await pool.query(`update conversations set ${pose} where id = $1`, [ids['escaladee']]);
+      expect(await store.fermeturesALire(t1, 50)).toEqual([]);
+      expect(await store.toujoursAFermer(t1, ids['escaladee']!, '2099-01-01T10:00:00.123Z')).toBe(false);
+      await pool.query(`update conversations set control_owner = 'app_human', traitee_le = null, archived_at = null where id = $1`, [ids['escaladee']]);
+    }
+    // Une entrée sortie n'est ni relue ni notée.
+    await pool.query(`update inbox_hubspot_entrees set sortie_le = now(), etat_lu_le = null where id = $1`, [entree.id]);
+    expect(await store.fermeturesALire(t1, 50)).toEqual([]);
+    await store.noterEtatsLus(t1, [entree.id]);
+    expect((await pool.query(`select etat_lu_le from inbox_hubspot_entrees where id = $1`, [entree.id])).rows[0]!.etat_lu_le).toBeNull();
+  });
+
   it('rebrancher (une autre boîte) ferme les entrées ouvertes', async () => {
     await pool.query(`update conversations set traitee_le = null, last_direction = 'in' where id = $1`, [ids['escaladee']]);
     expect(await store.ouvrirEntree(t1, ids['escaladee']!)).toBe(true);

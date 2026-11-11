@@ -556,6 +556,54 @@ export type IssueAffectations =
   | { issue: 'non_relie' }
   | { issue: 'refuse'; status: number; code: string | undefined };
 
+/**
+ * Lot 4 de l'Inbox : l'état du fil HubSpot d'une conversation entrée. `ferme` : un conseiller l'a fermé, `fermeLe` dit
+ * quand (ISO 8601). `ouvert` : ouvert, ou rien de lisible. `fil_inconnu` : aucun message de la conversation n'est publié.
+ */
+export type EtatFilInbox =
+  | { conversationId: string; etat: 'ouvert' | 'fil_inconnu' }
+  | { conversationId: string; etat: 'ferme'; fermeLe: string };
+
+/** L'issue d'un lot de relectures d'états, de la même forme que celle des affectations. */
+export type IssueEtats =
+  | { issue: 'fait'; resultats: EtatFilInbox[] }
+  | { issue: 'portees' }
+  | { issue: 'non_branche' }
+  | { issue: 'non_relie' }
+  | { issue: 'refuse'; status: number; code: string | undefined };
+
+const reponseEtats = z.object({
+  resultats: z.array(z.discriminatedUnion('etat', [
+    z.object({ conversationId: z.string(), etat: z.enum(['ouvert', 'fil_inconnu']) }),
+    z.object({ conversationId: z.string(), etat: z.literal('ferme'), fermeLe: z.string().refine((v) => Number.isFinite(Date.parse(v))) }),
+  ])),
+});
+
+/**
+ * Lit l'état des fils HubSpot d'un lot de conversations entrées (lot 4). Comme `affecterInbox` : UN essai sous 20 s, et
+ * tout échec réseau, 429 ou 5xx LÈVE (le tour suivant rejoue).
+ */
+export async function etatsInbox(
+  deps: ConnectorDeps,
+  corps: { tenantId: string; ligne: string; conversationIds: string[] },
+): Promise<IssueEtats> {
+  let reponse: unknown;
+  try {
+    reponse = await callService<unknown>(deps, '/service/inbox/etats', corps, 20_000);
+  } catch (err) {
+    if (err instanceof HubspotServiceError && !err.retryable) {
+      if (err.status === 404 && err.code === 'ligne_non_branchee') return { issue: 'non_branche' };
+      if (err.status === 404 && err.code === 'tenant_not_connected') return { issue: 'non_relie' };
+      if (err.status === 409 && err.code === 'portees_inbox_manquantes') return { issue: 'portees' };
+      return { issue: 'refuse', status: err.status, code: err.code };
+    }
+    throw err;
+  }
+  const r = reponseEtats.safeParse(reponse);
+  if (!r.success) return { issue: 'refuse', status: 502, code: 'reponse_illisible' };
+  return { issue: 'fait', resultats: r.data.resultats };
+}
+
 const reponseAffecter = z.object({
   resultats: z.array(z.object({ conversationId: z.string(), issue: z.enum(['fait', 'fil_inconnu', 'inconnu', 'refuse']) })),
 });
