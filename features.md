@@ -191,11 +191,10 @@ utiliser ce numéro-là ? », Oui la garde, le numéro y reste et envoie aussi d
 chez nous, relié par la fenêtre de Meta, 2026-11-10 ; Non dit qu'il faudra la télécharger, avec les liens App Store et Google
 Play et leurs icônes, et mène à la question suivante), puis **le numéro** (« Avez-vous déjà un numéro que vous pourriez
 utiliser ? » ; Oui : télécharger
-l'application, y mettre son numéro et le brancher tout de suite en la gardant, et revenir quelques jours plus tard si
-Meta refuse un numéro trop neuf ; Non : un numéro fourni, 3,50 € HT par mois en formule Free et inclus en formule Pro,
+l'application, y mettre son numéro et le brancher tout de suite en la gardant ; Non : un numéro fourni, 3,50 € HT par mois en formule Free et inclus en formule Pro,
 que la personne met dans l'application téléchargée, son code de vérification affiché par Messaging Me : elle répond à
-ses clients dès le premier jour, et l'envoi de ses messages depuis Messaging Me attend quelques jours si Meta refuse
-d'abord le numéro tout neuf, Julien, 2026-10-31). Les voies de l'application disent que la fenêtre de Meta crée le
+ses clients dès le premier jour, puis le branche en gardant l'application, Julien, 2026-10-31 ; un numéro neuf passe en
+coexistence sans attendre, testé, Julien, 2026-11-11 : aucune mise en garde là-dessus). Les voies de l'application disent que la fenêtre de Meta crée le
 compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre choisie : en Free, trois étapes numérotées,
 presque sans texte (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte ») : installer le plugin (le logo
 de Claude Code puis celui de Codex, chacun avec ses deux commandes en face, une par ligne, puis le pas-à-pas et le dépôt
@@ -2437,12 +2436,11 @@ scénario, comment importer des contacts.
   « Voulez-vous utiliser ce numéro-là ? » (Oui : « Garder mon application WhatsApp Business » ; Non : un numéro de chez
   nous, relié par la fenêtre de Meta, 2026-11-10), Non à « Vous allez devoir télécharger l'application WhatsApp
   Business » (liens App Store et Google Play), puis « Avez-vous déjà un numéro que vous pourriez utiliser ? » (2026-10-31).
-  Oui : la même fenêtre après avoir téléchargé l'application (liens App Store et Google Play), avec le numéro trop neuf
-  que Meta peut refuser (revenir quelques jours plus tard). Non : « nous vous fournissons le numéro », qui va DANS
+  Oui : la même fenêtre après avoir téléchargé l'application (liens App Store et Google Play). Non : « nous vous fournissons le numéro », qui va DANS
   l'application : la page l'attribue (payé, ou inclus en formule Pro), on y crée le compte de l'application avec ce
   numéro (le code de vérification s'affiche sur la page), puis « Garder mon application WhatsApp Business » ; on répond
-  aux clients depuis l'application dès le premier jour, et l'envoi depuis Messaging Me attend quelques jours si Meta
-  refuse ce numéro tout neuf. Un rechargement, le retour de Stripe ou un retour plus tard dans le même navigateur reprend
+  aux clients depuis l'application dès le premier jour, et le numéro se branche aussitôt (un numéro neuf passe en
+  coexistence sans attendre, 2026-11-11). Un rechargement, le retour de Stripe ou un retour plus tard dans le même navigateur reprend
   cette variante. L'offre, la première question de la
   vitrine, est celle de l'espace. Comme sur la vitrine (2026-10-31), une question répondue reste affichée, la réponse
   choisie en évidence et les autres estompées, la suite s'affiche dessous, et cliquer une autre réponse change de chemin ;
@@ -2725,8 +2723,8 @@ scénario, comment importer des contacts.
   WhatsApp Business du téléphone y reste, et passe aussi par l'API officielle : le client continue de répondre depuis son
   téléphone, et ce que son site, son logiciel ou sa boutique envoie part de Messaging Me. Sans compte Meta Business, la
   fenêtre de Meta le fait créer en chemin. Pas encore l'application (2026-10-30) : la télécharger sur un téléphone, y
-  mettre le numéro de l'entreprise et brancher tout de suite ; si Meta refuse un numéro trop neuf, revenir quelques
-  jours plus tard. Face au client, jamais le mot « coexistence » : « garder votre application WhatsApp Business ».
+  mettre le numéro de l'entreprise et brancher tout de suite (un numéro neuf passe en coexistence sans attendre,
+  2026-11-11). Face au client, jamais le mot « coexistence » : « garder votre application WhatsApp Business ».
 - ✅ **Lancer** : depuis Claude (`start_whatsapp_connection` en mode `coexistence`, puis `watch_whatsapp_connection`
   dans le même mode), ou le bouton « Garder mon application WhatsApp Business » de l'Accueil. La fenêtre de Meta demande
   le numéro et sa vérification, montre le profil de l'application, fait choisir ou créer le portefeuille business (nom

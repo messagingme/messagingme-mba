@@ -1,7 +1,7 @@
 ---
 description: Garder votre application WhatsApp Business et relier le même numéro à Messaging Me, écran par écran, avec le compte Meta Business créé en chemin s'il manque.
 source_section: Garder son application WhatsApp Business (2026-10-25)
-source_empreinte: 7ccb5a
+source_empreinte: 30dbbb
 publique: oui
 rubrique: demarrer-claude, demarrer-console
 rang: 5, 5
