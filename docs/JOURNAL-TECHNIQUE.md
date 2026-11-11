@@ -4,6 +4,34 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : Claude renvoie vers les pages du centre d'aide, et « Pourquoi un moyen de paiement ? » mène à « Payer Meta » (aide à la connexion, lot 4b)
+
+Plan `2026-11-10-aide-connexion-lot-4b.md`, implémenté en direct, une relecture indépendante.
+
+- **Ce qui a changé** (`f1d4448f`) :
+  - les adresses d'aide ont une source, `web/lib/partage/aide-connexion.ts` : le guide et le dépannage y entrent, et
+    « Pourquoi un moyen de paiement ? » mène à « Payer Meta » au lieu de la fenêtre de 24 heures, dans la console,
+    `/demarrer/`, le guide et les pages Solutions (les deux liens de la carte, dans `tunnel-textes.ts`, lisent la
+    constante) ;
+  - `get_setup_state` rend `aide` aux deux étapes du numéro : le guide, le dépannage, « Payer Meta » et le compte Meta
+    Business, en français et en anglais ;
+  - la consigne de `start_whatsapp_connection` finit par la page de dépannage dans les quatre modes de la fenêtre de
+    Meta ; le mode op du parcours reste A, seul écrit (C, D et E avec leurs pages, en 4c) ;
+  - la skill `mise-en-service` ne tape plus aucune adresse d'aide, elle nomme les champs `aide` ; le plugin passe en
+    0.3.35.
+- **Relecture** : aucun rouge. Quatre jaunes : deux corrigés avant le push (la garde des adresses tapées attrape aussi
+  « …/aide » sans barre finale ; le test de `aide` compare les quatre pages, compte Meta Business compris), un au
+  backlog (une carte chez Meta à régler ne reçoit pas « Payer Meta »), un sans effet (la filière QR code, plus proposée,
+  n'a pas la fin de dépannage).
+- **Vérifié** : les suites racine et console et le lint, sur la copie puis sur l'arbre fusionné ; chaque garde vue rouge
+  en défaisant sa pièce (la consigne sans dépannage, `aide` retiré, une adresse retapée dans la skill, avec et sans
+  barre finale, « Pourquoi un moyen de paiement ? » remis sur la fenêtre de 24 heures, le lien de la vitrine retapé à
+  la main). Le test du vouvoiement de la console lisait « depanner-la », dans l'adresse du dépannage, comme un impératif :
+  il écarte désormais un littéral qui n'est qu'une adresse ou un chemin, vu dans les deux sens. Le test réécrit du lot 3a
+  (les quatre adresses dans la skill) garde son cas : le libellé de la carte, et ses deux pages par les champs `aide`.
+- **Ordre** : poussé sur `baa1f16e` (console et vitrine par Vercel), puis l'API, puis la publication du plugin 0.3.35
+  par Julien, qui porte aussi 4a-3.
+
 ## 2026-11-10 : « Ce qu'il faut chez Meta » réécrite, et qui paie Meta avec le Crédit WhatsApp, partout (aide à la connexion, lot 4a-3)
 
 Troisième livraison du lot 4a (plan `2026-11-10-aide-connexion-lot-4a.md`), implémentée en direct, une relecture

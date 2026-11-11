@@ -86,6 +86,14 @@ au lot suivant ; rien ne bloque.
 - **Une redélivrance par Meta APRÈS que le parcours a quitté le bloc Formulaire** retombe sur le seul réglage du
   formulaire : un élément que le bloc rangeait ailleurs y est aussi écrit. Limite acceptée, à fermer si elle se voit.
 
+## 🟡 Le lot 4b de l'aide à la connexion : ce qu'il laisse (2026-11-11)
+
+- **Une carte chez Meta à régler ne reçoit pas « Payer Meta »** : `get_setup_state` ne rend `aide` qu'aux deux étapes
+  du numéro, et `carte_meta_a_regler` (à l'étape `pret` ou plus loin) ne donne que les étapes (`etapes_carte_meta`), pas
+  la page qui dit pourquoi (jaune 3 de la relecture du lot 4b, conforme à la spec du lot).
+- **Les modes op C, D et E** n'existent pas encore : la consigne de `start_whatsapp_connection` ne cite que A (garder
+  l'application) ; chacun y entre avec sa page, en 4c, par `web/lib/partage/aide-connexion.ts`.
+
 ## 🟡 Le lot 4a-2 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
 
 - **« Meta facture directement »** décrit encore la carte par défaut dans les cas d'usage (`scripts/vitrine/
@@ -103,8 +111,6 @@ au lot suivant ; rien ne bloque.
   et ce qu'on y tape pour lancer la mise en service (`/messagingme:demarrer` est une commande de Claude Code ; le tunnel
   fait coller une demande propre à chaque chemin). À mesurer sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3
   d'« Installer le plugin ».
-- **« Pourquoi un moyen de paiement ? »** (`web/lib/partage/aide-connexion.ts`) mène encore à la fenêtre de 24 heures,
-  depuis le guide, `/demarrer/` et la console : à repointer vers « Payer Meta » avec le lot 4b (il touche la console).
 - Le titre de « Les modèles WhatsApp » dépasse 60 caractères avec son suffixe : coupé dans les résultats de recherche.
 
 ## 🟡 Le lot 3v-1 de l'aide à la connexion : ce qu'il laisse (2026-11-10)

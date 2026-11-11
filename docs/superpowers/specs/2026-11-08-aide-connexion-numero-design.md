@@ -514,6 +514,11 @@ Le serveur et la skill citent les adresses du guide, du dépannage et du mode op
 viennent du registre des pages (`scripts/vitrine/aide-pages.ts`) ou d'une constante partagée, jamais tapées à la main,
 et un test exige que chaque adresse citée existe dans `site/sitemap.xml`. Plugin publié par Julien ensuite.
 
+**4b livré le 2026-11-11** (`f1d4448f`) : la consigne de `start_whatsapp_connection` finit par le dépannage dans les quatre
+modes, `get_setup_state` rend les pages d'aide (`aide`) aux deux étapes du numéro, la skill n'en tape plus aucune, et
+« Pourquoi un moyen de paiement ? » mène à « Payer Meta ». Le mode op cité reste A ; ceux de C, D et E entreront avec
+leurs pages, en 4c.
+
 ## Lot 5 : les e-mails
 
 - `relance_numero` (« Votre numéro WhatsApp n'est pas encore connecté ») : son bouton mène au guide (« Trouver mon

@@ -5418,7 +5418,9 @@ dans Claude Code (`/plugin marketplace add messagingme/messagingme-plugin`, puis
 messagingme@messagingme`) branchent le serveur sans clé et apportent `/messagingme:demarrer`, qui mène pas à pas
 jusqu'à un agent IA qui répond sur WhatsApp et une bulle sur le site, en reprenant une session coupée là où elle
 s'était arrêtée. Il porte aussi les règles de WhatsApp et la FAQ, la même que celle de la vitrine. Côté serveur, l'outil
-`get_setup_state` dit en un appel où en est la mise en service d'un espace et l'étape suivante, pour tout client MCP.
+`get_setup_state` dit en un appel où en est la mise en service d'un espace et l'étape suivante, pour tout client MCP ;
+aux étapes du numéro, il donne aussi les pages d'aide (le guide, le dépannage, « Payer Meta », le compte Meta Business)
+que Claude cite quand la personne hésite ou bloque (2026-11-11).
 La page `/demarrer`, les pages développeurs de la vitrine et l'écran Serveur MCP montrent ses commandes ; un serveur
 déjà branché à la main à la même adresse est gardé par Claude Code, qui met celui du plugin de côté (aucun outil en
 double). Le plugin ne se met pas à jour tout seul chez les gens : la FAQ dit comment.

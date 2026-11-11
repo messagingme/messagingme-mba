@@ -5251,7 +5251,10 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   porte l'adresse DANS la phrase qui exige le lien EN ENTIER, en texte simple (un bloc de code est coupé par un
   terminal), avec la page gardée ouverte ; et elle fait dire AVANT le lien ce qui va se passer et qui paie, selon le
   mode, depuis les textes partagés de `web/lib/partage/` (`ETAPES_FENETRE_GARDER`, `CODE_VERIFICATION_FOURNI`,
-  `CE_QUI_EST_FACTURE`, l'adresse du mode op dans `aide-connexion.ts`, tenue par `tests/aide-connexion-adresses.test.ts`).
+  `CE_QUI_EST_FACTURE`, l'adresse du mode op et, en fin de consigne, celle du dépannage dans `aide-connexion.ts`). Les
+  adresses d'aide n'ont que cette source : `get_setup_state` en rend quatre aux deux étapes du numéro (`aide`), la
+  skill les nomme par ce champ, et `tests/aide-connexion-adresses.test.ts` vérifie chacune sur le site et refuse une
+  adresse d'aide tapée à la main dans le plugin ou `src/mcp/`.
   La `suite` (`suiteDe`, `src/mcp/outils-numero.ts`) dit, selon l'étape, où la personne doit être (la page, la fenêtre de
   Meta, le numéro attribué ; payé sans numéro, « en préparation »), puis, une fois connecté, fait relire
   `get_setup_state` : le crédit offert y apparaît quelques secondes après la liaison, écrit quand Meta dit le numéro
