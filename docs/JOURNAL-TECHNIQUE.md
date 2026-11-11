@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : fermer le fil dans l'Inbox HubSpot rend la main au répondeur (lot 4 de l'Inbox, migration 0290)
+
+- **Pourquoi** (essai réel du lot 3, Julien) : un conseiller qui répond dans l'Inbox HubSpot n'ouvre jamais la console ;
+  il fermait le fil, la conversation restait à l'équipe dans mba, l'agent IA se taisait jusqu'au délai d'inactivité
+  (2 h). Décision de Julien : quand l'Inbox est branchée, « mba fait foi » cède sur ce point. Plan :
+  `~/mm-hubspot/docs/2026-11-11-inbox-hubspot-lot4-fermeture-plan.md`.
+- **Ce qui a changé** (`1d12c77e`) : l'étape `fermetures` du balayage `hubspot-inbox` (après les affectations), la route
+  `POST /service/inbox/etats` du connecteur (`a4e46be`), le journal de l'affectation (muette pendant l'essai).
+- **Migration 0290** (`inbox_hubspot_entrees.etat_lu_le`, nullable, `lock_timeout` 5 s) : `migration=avant`, run
+  43045859864 épinglé sur `1d12c77e`, approuvé par Julien, `0290_inbox_hubspot_fermetures.sql ... ok`, image
+  `mba:1d12c77e` sur l'API et les workers, `/live` 200. Après `df34d172` (run 43042809989), avant `64c2db54` (onboarding).
+- **La relecture** : aucun rouge. Corrigés dans le lot : la borne ne compte que les messages du CLIENT (le conseiller
+  répond puis ferme, sa réponse est datée à l'envoi), la relecture juste avant le geste (`toujoursAFermer`), la garde du
+  consentement. Le test d'intégration a pris un vrai défaut du correctif : la borne arrondie à la milliseconde, le dernier
+  message (à la microseconde) la dépassait toujours et bloquait tout rendu.
+- **La règle qui en reste** : le `headSha` d'un déploiement épinglé est la tête de `main` au lancement, pas l'image ; un
+  script qui jugeait « déjà en production » sur lui a failli sauter ce déploiement. L'image se lit dans le journal du run.
+
 ## 2026-11-11 : une Condition après un Appel API lit la valeur rangée (le moteur s'endort sur l'appel)
 
 Révélé par l'essai réel du champ JSON : la fiche de Julien portait la réponse de l'API, « Blue Frock » compris, et la
