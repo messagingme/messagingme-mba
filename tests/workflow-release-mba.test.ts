@@ -245,6 +245,21 @@ describe('la réponse « à côté » est transmise à l’agent de Meta', () =>
     expect(ordre).toEqual(['release 33600000001']);
   });
 
+  it('🔴 même quand la saisie est recueillie par la DEUXIÈME action d’un bloc Action (2026-11-11)', async () => {
+    // Un bloc Action joue plusieurs actions : la première pose une étiquette, la suivante range le dernier message.
+    // Ne lire que la première aurait transmis la saisie à l'agent.
+    const recueille = g(
+      [
+        n('n1', 'quick_message', { body: 'Votre e-mail ?', quickReplies: [] }),
+        n('n2', 'action', { actionKind: 'add_tag', tag: 'repondu', suite: [{ actionKind: 'set_field', fieldKey: 'email', valueKind: 'derniere_saisie' }] }),
+      ],
+      [['n1', 'n2']],
+    );
+    const { ex, ordre } = executeur(recueille, { mbaActif: true });
+    await ex.advance('t1', '33600000001', 'msg1', null);
+    expect(ordre).toEqual(['release 33600000001']);
+  });
+
   it('⚠️ mais un bloc qui lit la saisie AILLEURS dans le graphe ne rend pas le reste muet', async () => {
     // On regarde les blocs réellement TRAVERSÉS, pas le graphe entier : sinon un scénario qui recueille une
     // donnée sur une de ses branches cesserait de transmettre sur toutes les autres.

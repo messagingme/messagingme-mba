@@ -4,6 +4,7 @@ import { MAX_NODES } from './graph';
 import { parseParamHints, type ParamSource } from '../crm/template';
 import { entreeDuGraphe } from '../../web/lib/partage/ouverture-scenario';
 import { SORTIE_HUMAIN, SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
+import { sousActions } from '../../web/lib/partage/actions-bloc';
 import { ATTRIBUTS_RECETTE, type Branche, type Etape, type EtapeMessage, type EtapeTemplate, type Lu, type RefusRecette, type SourceRecette } from './recette';
 
 /**
@@ -259,7 +260,7 @@ function lireGraphe(g: WorkflowGraph, chemins: Map<string, WorkflowNode>): Lu<Et
       if (agentId === '' || cibles.size > 1) return indescriptible('un agent IA dont les sorties mènent à des suites');
       for (const c of cibles) {
         const fin = parId.get(c);
-        if (!fin || fin.type !== 'action' || fin.data.actionKind !== undefined || (sortantes.get(c) ?? []).length > 0 || vus.has(c)) {
+        if (!fin || fin.type !== 'action' || sousActions(fin.data).some((sa) => sa.actionKind !== undefined) || (sortantes.get(c) ?? []).length > 0 || vus.has(c)) {
           return indescriptible('un agent IA dont les sorties mènent à des suites');
         }
         vus.add(c);

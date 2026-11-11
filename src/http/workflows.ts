@@ -15,6 +15,7 @@ import { normaliserEtiquette } from '../crm/poser-etiquette';
 import { refusDePublication, sautsDeLaCopie } from '../workflow/aller-a';
 import { refusFichierSansSuite } from '../workflow/question-piece';
 import { refusSuiteQuiAttend } from '../workflow/engine';
+import { sousActions } from '../../web/lib/partage/actions-bloc';
 
 /**
  * La sauvegarde n'exige pas qu'un scénario commence par un template : un scénario qui ouvre sur un message de
@@ -71,13 +72,13 @@ export interface WorkflowRouteDeps {
 function tagsInGraph(graph: WorkflowGraph): string[] {
   const out = new Set<string>();
   for (const n of graph.nodes) {
-    const d = n.data as { tag?: unknown; actionKind?: unknown };
-    // Bloc `tag` legacy OU bloc `action` en mode « ajouter un tag » : on déclare le tag posé dans le référentiel.
-    // Un retrait de tag (remove_tag) ne « dé-déclare » rien -> ignoré ici.
-    const isTagAdd = n.type === 'tag' || (n.type === 'action' && d.actionKind === 'add_tag');
-    if (!isTagAdd) continue;
-    const t = normaliserEtiquette(String(d.tag ?? ''));
-    if (t !== '') out.add(t);
+    // Bloc `tag` legacy OU action « ajouter un tag » d'un bloc `action` (chacune, `sousActions`) : on déclare le tag
+    // posé dans le référentiel. Un retrait de tag (remove_tag) ne « dé-déclare » rien -> ignoré ici.
+    const poses = n.type === 'tag' ? [n.data] : n.type === 'action' ? sousActions(n.data).filter((sa) => sa.actionKind === 'add_tag') : [];
+    for (const sa of poses) {
+      const t = normaliserEtiquette(String(sa.tag ?? ''));
+      if (t !== '') out.add(t);
+    }
   }
   return [...out];
 }

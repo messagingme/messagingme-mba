@@ -17,6 +17,7 @@ import { MAX_DESTINATAIRES_EMAIL } from '../../web/lib/partage/blocs';
 import { blocDuCode as blocDuCodePartage, cibleDuSaut as cibleDuSautPartage, entreeDuGraphe, scannerOuverture } from '../../web/lib/partage/ouverture-scenario';
 import type { AnalyseOuverture } from '../../web/lib/partage/ouverture-scenario';
 import { SORTIE_ENSUITE } from '../../web/lib/partage/sortie-ensuite';
+import { champsAVider, etiquettesARetirer, sousActions, type SousAction } from '../../web/lib/partage/actions-bloc';
 
 /**
  * Moteur d'exécution d'un workflow, pur (aucune IO). Un run avance de bloc en bloc : les blocs synchrones
@@ -714,6 +715,30 @@ export function adressesDestinataires(to: EmailRecipient[], vars: Record<string,
   )];
 }
 
+/**
+ * Ce que produit UNE action d'un bloc « Action » (`sousActions`). Unifiée : add_tag/set_field produisent les mêmes
+ * actions que les blocs legacy tag/field. Retirer des étiquettes ou vider des champs en donne une par élément de la
+ * liste. Action incomplète (étiquette ou champ vide) -> aucune (no-op), comme un bloc non configuré.
+ */
+function actionsDeLaSousAction(sa: SousAction, ctx?: EvalContext): WorkflowAction[] {
+  const kind = String(sa.actionKind ?? '');
+  if (kind === 'add_tag') {
+    const tag = String(sa.tag ?? '').trim();
+    return tag ? [{ kind: 'tag', tag }] : [];
+  }
+  if (kind === 'remove_tag') return etiquettesARetirer(sa).map((tag) => ({ kind: 'removeTag', tag }));
+  if (kind === 'set_field') {
+    const key = String(sa.fieldKey ?? sa.key ?? '').trim();
+    return key ? [{ kind: 'field', key, value: valeurDuChamp(sa, ctx) }] : [];
+  }
+  if (kind === 'clear_field') return champsAVider(sa).map(({ key }) => ({ kind: 'clearField', key }));
+  // Consentement : rien à saisir, donc jamais incomplet. Seul chemin qui pose un opt-out automatiquement
+  // (l'upsert d'import ne fait jamais régresser un statut), typiquement derrière un mot-clé « STOP ».
+  if (kind === 'set_optin') return [{ kind: 'optIn', value: 'opted_in' }];
+  if (kind === 'set_optout') return [{ kind: 'optIn', value: 'opted_out' }];
+  return [];
+}
+
 /** Exportée pour le test unitaire du node email (`actionOf` en isolation). */
 export function actionOf(node: WorkflowNode, ctx?: EvalContext): WorkflowAction | null {
   if (node.type === 'question') {
@@ -766,22 +791,12 @@ export function actionOf(node: WorkflowNode, ctx?: EvalContext): WorkflowAction 
       : null;
   }
   if (node.type === 'action') {
-    // Bloc unifié : la sous-action est portée par `data.actionKind`. add_tag/set_field produisent les mêmes
-    // actions que les blocs legacy tag/field. Bloc incomplet (tag/clé vide) -> null (no-op).
-    const kind = String(node.data.actionKind ?? '');
-    const tag = String(node.data.tag ?? '').trim();
-    const key = String(node.data.fieldKey ?? node.data.key ?? '').trim();
-    if (kind === 'add_tag') return tag ? { kind: 'tag', tag } : null;
-    if (kind === 'remove_tag') return tag ? { kind: 'removeTag', tag } : null;
-    if (kind === 'set_field') {
-      if (!key) return null;
-      return { kind: 'field', key, value: valeurDuChamp(node.data, ctx) };
+    // Le bloc peut porter plusieurs actions (`sousActions`) : `walk` les joue toutes, une à une. Ici, la première
+    // qui produit quelque chose, pour les lecteurs qui ne demandent que « ce bloc fait-il quelque chose ? ».
+    for (const sa of sousActions(node.data)) {
+      const [premiere] = actionsDeLaSousAction(sa, ctx);
+      if (premiere) return premiere;
     }
-    if (kind === 'clear_field') return key ? { kind: 'clearField', key } : null;
-    // Consentement : rien à saisir, donc jamais incomplet. Seul chemin qui pose un opt-out automatiquement
-    // (l'upsert d'import ne fait jamais régresser un statut), typiquement derrière un mot-clé « STOP ».
-    if (kind === 'set_optin') return { kind: 'optIn', value: 'opted_in' };
-    if (kind === 'set_optout') return { kind: 'optIn', value: 'opted_out' };
     return null;
   }
   if (node.type === 'template') {
@@ -996,6 +1011,18 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
       const ms = waitResumeInMs(node, work);
       if (ms > 0) return { actions, rest: { status: 'sleeping', nodeId: current, resumeInMs: ms } };
       current = nextNode(graph, current); // rien à attendre (durée non configurée, échéance passée) -> passe-plat
+      continue;
+    }
+    if (node.type === 'action') {
+      // Ses actions dans l'ordre, chacune répercutée sur la copie de travail AVANT la suivante : une valeur
+      // « dernier message » ou une condition plus loin voit le bloc comme une suite de blocs d'une action chacun.
+      for (const sa of sousActions(node.data)) {
+        for (const a of actionsDeLaSousAction(sa, work)) {
+          actions.push({ nodeId: current, action: a });
+          if (work) applyToWork(work, a);
+        }
+      }
+      current = nextNode(graph, current);
       continue;
     }
     // tag / field / email : bloc synchrone -> action + on continue, effet répercuté dans la copie de travail

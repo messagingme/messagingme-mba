@@ -1,6 +1,7 @@
 import type { WorkflowNodeType } from './graph';
 import type { WorkflowRow } from './store.pg';
 import { famillesDeCondition } from './conditions';
+import { champsAVider, etiquettesARetirer, sousActions } from '../../web/lib/partage/actions-bloc';
 
 /**
  * Un node aplati depuis les graphes de workflows, pour l'affichage « Contenu > Blocs ».
@@ -77,16 +78,20 @@ export function summarize(type: WorkflowNodeType, data: Record<string, unknown>)
       break;
     }
     case 'action': {
-      const kind = String(data.actionKind ?? '');
-      const tag = s(data.tag);
-      const key = s(data.fieldLabel ?? data.fieldKey ?? data.key);
-      if (kind === 'add_tag') out = tag === '' ? '' : `+ ${tag}`;
-      else if (kind === 'remove_tag') out = tag === '' ? '' : `− ${tag}`;
-      else if (kind === 'set_field') { const val = data.valueKind === 'now' ? 'maintenant' : data.valueKind === 'derniere_saisie' ? 'dernier message' : s(data.value); out = key === '' ? '' : val === '' ? key : `${key} = ${val}`; }
-      else if (kind === 'clear_field') out = key === '' ? '' : `${key} (vidé)`;
-      else if (kind === 'set_optin') out = 'passer en opt-in';
-      else if (kind === 'set_optout') out = 'passer en opt-out';
-      else out = '';
+      // Une ligne par action du bloc (`sousActions`), jointes par « · » ; une action incomplète ne dit rien.
+      const resume = (sa: Record<string, unknown>): string => {
+        const kind = String(sa.actionKind ?? '');
+        const tag = s(sa.tag);
+        const key = s(sa.fieldLabel ?? sa.fieldKey ?? sa.key);
+        if (kind === 'add_tag') return tag === '' ? '' : `+ ${tag}`;
+        if (kind === 'remove_tag') return etiquettesARetirer(sa).map((t) => `− ${s(t)}`).join(', ');
+        if (kind === 'set_field') { const val = sa.valueKind === 'now' ? 'maintenant' : sa.valueKind === 'derniere_saisie' ? 'dernier message' : s(sa.value); return key === '' ? '' : val === '' ? key : `${key} = ${val}`; }
+        if (kind === 'clear_field') { const c = Array.isArray(sa.champs) ? champsAVider(sa).map((x) => s(x.label || x.key)) : key === '' ? [] : [key]; return c.length === 0 ? '' : `${c.join(', ')} (vidé${c.length > 1 ? 's' : ''})`; }
+        if (kind === 'set_optin') return 'passer en opt-in';
+        if (kind === 'set_optout') return 'passer en opt-out';
+        return '';
+      };
+      out = sousActions(data).map(resume).filter((x) => x !== '').join(' · ');
       break;
     }
     case 'email': {

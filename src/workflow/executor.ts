@@ -32,6 +32,7 @@ import { genreParAdresse } from '../medias/fichier';
 import { classerPiece, mentionDePiece, reglagesQuestion } from './question-piece';
 import type { PgPiecesQuestion } from './pieces-question.pg';
 import { SORTIE_FICHIER, type GenrePiece } from '../../web/lib/partage/question-piece';
+import { sousActions } from '../../web/lib/partage/actions-bloc';
 
 /**
  * Résultat d'un démarrage : `true` = parti, une chaîne = pas parti, avec la raison exacte (pour que la
@@ -66,6 +67,21 @@ export function messageIdDe(issue: SendRefusal): string | undefined {
  * d'`apply` traite comme des envois. Le RCS y est couvert par `sendQuickMessage`, que le canal du parcours
  * fait partir en RCS (cf. `envoyerQuickEnRcs`).
  */
+/**
+ * La chaîne jouée a-t-elle rangé le dernier message du contact dans un champ (« écrire le champ = dernier message ») ?
+ * Alors il ne part pas au répondeur, qui le commenterait hors contexte. Un bloc Action en compte une par action
+ * (`sousActions`) : la deuxième peut être celle qui recueille la saisie.
+ */
+function aRecueilliLaSaisie(graph: WorkflowGraph, actions: ReadonlyArray<{ nodeId: string }>): boolean {
+  return actions.some(({ nodeId }) => {
+    const n = graph.nodes.find((x) => x.id === nodeId);
+    if (!n) return false;
+    return n.type === 'action'
+      ? sousActions(n.data).some((sa) => sa.actionKind === 'set_field' && sa.valueKind === 'derniere_saisie')
+      : n.data.valueKind === 'derniere_saisie';
+  });
+}
+
 export const EST_UN_ENVOI: ReadonlySet<string> = new Set([
   'sendTemplate', 'sendQuickMessage', 'sendQuestion', 'sendFlow', 'sendEmail',
 ]);
@@ -560,11 +576,15 @@ export class WorkflowExecutor {
    */
   private async buildCtx(tenantId: string, waId: string, graph: WorkflowGraph): Promise<EvalContext | undefined> {
     // Les valeurs dynamiques d'un bloc « poser un champ » : `maintenant` et `derniere_saisie`.
+    // Un bloc Action en compte une par action (`sousActions`) : chacune peut en réclamer une.
     const valeurDynamique = (n: { type: string; data: Record<string, unknown> }): string | null => {
-      const dyn = n.data.valueKind === 'now' || n.data.valueKind === 'derniere_saisie';
-      if (n.type === 'field' && dyn) return String(n.data.valueKind);
-      if (n.type === 'action' && n.data.actionKind === 'set_field' && dyn) return String(n.data.valueKind);
-      return null;
+      const dyn = (d: Record<string, unknown>) => d.valueKind === 'now' || d.valueKind === 'derniere_saisie';
+      if (n.type === 'field' && dyn(n.data)) return String(n.data.valueKind);
+      if (n.type !== 'action') return null;
+      const sa = sousActions(n.data).filter((x) => x.actionKind === 'set_field' && dyn(x));
+      // `derniere_saisie` d'abord : c'est elle qui coûte une requête de plus (`besoins.derniereSaisie`).
+      const choisie = sa.find((x) => x.valueKind === 'derniere_saisie') ?? sa[0];
+      return choisie ? String(choisie.valueKind) : null;
     };
     // Un bloc Attente daté en a besoin aussi : sans contexte, `waitResumeInMs` rend 0, le bloc devient un
     // passe-plat, et « attendre jusqu'aux heures ouvrées » envoie à 1 h du matin.
@@ -2197,7 +2217,7 @@ export class WorkflowExecutor {
         // ordinaire : le message du contact, resté sans réponse, part au répondeur comme à la fin d'une chaîne (mêmes
         // conditions que plus bas, saisie recueillie comprise).
         if (!(await ecrire({ currentNode: null, status: 'done', lastMessageId: messageId }))) return;
-        const aLuLaSaisie = actions.some((a) => graph.nodes.find((n) => n.id === a.nodeId)?.data.valueKind === 'derniere_saisie');
+        const aLuLaSaisie = aRecueilliLaSaisie(graph, actions);
         const unMessage = buttonPayload === null && canalRetour === 'whatsapp' && !entrant.reaction && !aLuLaSaisie;
         await this.rendreLaMainAMba(tenantId, waId, unMessage ? { transmettre: messageId } : {});
         return;
@@ -2252,7 +2272,7 @@ export class WorkflowExecutor {
        * `systeme/derniere_saisie` (portée par la requête d'un bloc « Appel HTTP ») n'est pas vue, et le message
        * part quand même. Une détection incomplète laisse l'agent parler, jamais l'inverse.
        */
-      const aLuLaSaisie = actions.some((a) => graph.nodes.find((n) => n.id === a.nodeId)?.data.valueKind === 'derniere_saisie');
+      const aLuLaSaisie = aRecueilliLaSaisie(graph, actions);
       const sansReponse = buttonPayload === null && canalRetour === 'whatsapp' && !entrant.reaction && partis === 0 && !aLuLaSaisie;
       await this.rendreLaMainAMba(tenantId, waId, sansReponse ? { transmettre: messageId } : {});
     }
