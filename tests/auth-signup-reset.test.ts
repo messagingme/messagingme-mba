@@ -252,9 +252,9 @@ describe('POST /auth/invitations/accept', () => {
     expect(cap.acceptations).toEqual([]);
     await server.close();
   });
-  it('🔴 un mot de passe actuel plus court que le minimum d’aujourd’hui reste bon (posé avant les 12 caractères)', async () => {
-    const { server, cap } = app({ comptes: { getPasswordHash: async () => hashPasswordSync('dix-carac.') } });
-    const res = await server.inject(accepter('dix-carac.'));
+  it('🔴 un mot de passe actuel plus court que le minimum d’aujourd’hui reste bon (posé avant le minimum)', async () => {
+    const { server, cap } = app({ comptes: { getPasswordHash: async () => hashPasswordSync('sept-c.') } });
+    const res = await server.inject(accepter('sept-c.'));
     expect(res.statusCode).toBe(200);
     expect(cap.acceptations).toEqual([{ jeton: 'GOOD', hash: null }]);
     await server.close();

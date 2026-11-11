@@ -4177,7 +4177,8 @@ L'anti-rejeu TOTP tient de la même façon : le pas accepté s'écrit par un `up
 401 ; au-delà de cinq essais par minute et par identité, 429. `mfa.echec` s'écrit au journal sans le code, et
 sans être attendu sur le chemin de réponse.
 
-🔴 **LE MINIMUM DU MOT DE PASSE EST DE 12 CARACTÈRES, SANS RÈGLE DE COMPOSITION** (2026-09-10), et il ne
+🔴 **LE MINIMUM DU MOT DE PASSE EST DE 8 CARACTÈRES, SANS RÈGLE DE COMPOSITION** (décision de Julien du 2026-11-11 ; il
+a été de 12 du 2026-09-10 à cette date), et il ne
 mord que sur les quatre chemins qui en CHOISISSENT un. `/auth/login` compare un hash et ne regarde jamais
 la longueur : un compte existant continue de se connecter, et ne rencontre la règle qu'au prochain
 changement. Le serveur et les quatre écrans la lisent au même endroit (`web/lib/partage/mot-de-passe.ts`) :

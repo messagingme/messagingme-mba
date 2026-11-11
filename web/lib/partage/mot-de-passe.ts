@@ -7,5 +7,7 @@
  * les écrans annonçaient toujours « 8 caractères minimum », avec un `minLength={8}` qui laissait le navigateur accepter
  * avant que le serveur ne refuse. Aucune règle de composition : elles poussent à `Password1!`, la longueur seule laisse
  * passer les phrases de passe.
+ *
+ * Revenu à 8 le 2026-11-11, décision de Julien : 12 rebutait à l'inscription, celle de Claude Code comprise.
  */
-export const MIN_MOT_DE_PASSE = 12;
+export const MIN_MOT_DE_PASSE = 8;
