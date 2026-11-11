@@ -9,8 +9,12 @@
  * toujours (crédit, numéro, limites) ; `transfert` et `commercial` portent un lien de désinscription.
  *
  * 🔴 Les textes sont au VOUVOIEMENT, sans tiret long (règle de rédaction de Julien), et ne citent aucune donnée de
- * contact : seulement l'espace, des dates et des liens de la console.
+ * contact : seulement l'espace, des dates, des liens de la console et des pages publiques du centre d'aide.
  */
+import {
+  AIDE_AGENT_IA, AIDE_BULLE, AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION, AIDE_GUIDE, AIDE_INBOX, AIDE_OFFRE, AIDE_PAYER_META,
+  AIDE_SHOPIFY, type AdresseAide,
+} from '../../web/lib/partage/aide-connexion';
 
 export const LANGUES = ['fr', 'en'] as const;
 export type Langue = (typeof LANGUES)[number];
@@ -58,7 +62,34 @@ export interface ModeleEmail {
   readonly quand: string;
   readonly variables: Readonly<Record<string, Variable>>;
   readonly textes: Readonly<Record<Langue, TexteEmail>>;
+  /** La ligne sous le bouton, vers la page publique qui montre le geste (`LIGNES_AIDE`) ; absente : aucune page ne l'aide. */
+  readonly aide?: LigneAide;
 }
+
+/**
+ * LA LIGNE SOUS LE BOUTON (aide à la connexion, lot 5) : la page publique du centre d'aide qui montre le geste pas à pas,
+ * dans la langue de la personne. Elle vient du code, jamais de `/ops`, qui ne garde que le sujet, le corps et le bouton :
+ * un texte réécrit la garde. Les adresses viennent de `web/lib/partage/aide-connexion.ts`, vérifiées sur le site, et
+ * `tests/emails-produit.test.ts` tient la table : chaque modèle porte sa ligne, ou figure parmi ceux qui n'en ont pas.
+ */
+export interface LigneAide {
+  readonly page: AdresseAide;
+  readonly libelle: Readonly<Record<Langue, string>>;
+}
+
+const ligne = (page: AdresseAide, fr: string, en: string): LigneAide => ({ page, libelle: { fr, en } });
+
+export const LIGNES_AIDE = {
+  depannage: ligne(AIDE_DEPANNAGE, 'Ça bloque ? Le dépannage, pas à pas', 'Stuck? Troubleshooting, step by step'),
+  guide: ligne(AIDE_GUIDE, 'Connecter mon numéro : le guide, en quelques questions', 'Connect my number: the guide, in a few questions'),
+  application: ligne(AIDE_GARDER_APPLICATION, 'Garder mon application WhatsApp Business, pas à pas', 'Keep my WhatsApp Business app, step by step'),
+  agent: ligne(AIDE_AGENT_IA, 'Construire un agent IA, pas à pas', 'Build an AI agent, step by step'),
+  bulle: ligne(AIDE_BULLE, 'Poser une bulle WhatsApp sur mon site, pas à pas', 'Put a WhatsApp bubble on my site, step by step'),
+  inbox: ligne(AIDE_INBOX, 'Répondre à un client dans l’Inbox, pas à pas', 'Reply to a customer in the Inbox, step by step'),
+  payerMeta: ligne(AIDE_PAYER_META, 'Payer Meta : votre carte, ou le Crédit WhatsApp', 'Pay Meta: your card, or WhatsApp credit'),
+  offre: ligne(AIDE_OFFRE, 'Choisir mon offre : ce que chacune comprend', 'Choose my plan: what each one includes'),
+  shopify: ligne(AIDE_SHOPIFY, 'Brancher ma boutique Shopify, pas à pas', 'Connect my Shopify store, step by step'),
+} as const satisfies Record<string, LigneAide>;
 
 /** Les variables que tout texte peut citer. */
 export const VARIABLES_COMMUNES: Readonly<Record<string, Variable>> = {
@@ -185,6 +216,7 @@ export const CATALOGUE = [
   {
     cle: 'numero_libere',
     categorie: 'service',
+    aide: LIGNES_AIDE.guide,
     nom: 'Numéro fourni libéré',
     quand: 'Le numéro fourni est libéré, 7 jours après la fin de son abonnement.',
     variables: { lien_numero: LIEN_NUMERO },
@@ -208,6 +240,7 @@ export const CATALOGUE = [
   {
     cle: 'pro_suite_numero',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Fin de la formule Pro : la suite du numéro fourni',
     quand: 'L’offre Pro arrive à sa fin prévue : le numéro inclus passe à 3,50 € HT par mois, ou se rend.',
     variables: {
@@ -265,6 +298,7 @@ export const CATALOGUE = [
   {
     cle: 'credit_whatsapp_bas',
     categorie: 'service',
+    aide: LIGNES_AIDE.payerMeta,
     nom: 'Crédit WhatsApp presque épuisé',
     quand: 'Un message fait passer le Crédit WhatsApp sous 10 €. Une fois par achat.',
     variables: {
@@ -292,6 +326,7 @@ export const CATALOGUE = [
   {
     cle: 'credit_whatsapp_epuise',
     categorie: 'service',
+    aide: LIGNES_AIDE.payerMeta,
     nom: 'Crédit WhatsApp épuisé',
     quand: 'Un message WhatsApp est refusé faute de Crédit WhatsApp. Une fois par jour au plus.',
     variables: {
@@ -402,6 +437,7 @@ export const CATALOGUE = [
     // le remboursement se décide au cas par cas, il n'est jamais annoncé.
     cle: 'option_wa_sans_droit',
     categorie: 'service',
+    aide: LIGNES_AIDE.payerMeta,
     nom: 'Option Crédit WhatsApp payée sans droit',
     quand: 'L’option Crédit WhatsApp est payée alors que la formule de l’espace n’y donne plus droit (un essai de la formule Pro fini avant le paiement) : elle est résiliée aussitôt. Une fois par abonnement.',
     variables: { lien_offre: LIEN_OFFRE },
@@ -430,6 +466,7 @@ export const CATALOGUE = [
     // (décision de Julien du 2026-11-09, jaune 11 de la relecture du lot C).
     cle: 'ligne_credit_disponible',
     categorie: 'commercial',
+    aide: LIGNES_AIDE.payerMeta,
     nom: 'Crédit WhatsApp disponible',
     quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) et l’option Crédit WhatsApp est en vente. Une fois par administrateur, à ce moment-là (dans les 25 jours qui suivent la fin de l’essai de la formule Pro).',
     variables: { lien_numero: LIEN_NUMERO },
@@ -457,6 +494,7 @@ export const CATALOGUE = [
     // en ligne, elle se demande au Support. Le même prix et la même catégorie que l'e-mail de vente.
     cle: 'ligne_credit_sur_demande',
     categorie: 'commercial',
+    aide: LIGNES_AIDE.payerMeta,
     nom: 'Crédit WhatsApp sur demande',
     quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) alors que l’option Crédit WhatsApp n’est pas en vente en ligne. Une fois par administrateur, à ce moment-là (dans les 25 jours qui suivent la fin de l’essai de la formule Pro).',
     variables: { lien_support: LIEN_SUPPORT },
@@ -488,6 +526,7 @@ export const CATALOGUE = [
     // (`option_wa_sans_droit`), une fin de droit n'en a pas.
     cle: 'option_wa_arretee',
     categorie: 'service',
+    aide: LIGNES_AIDE.payerMeta,
     nom: 'Option Crédit WhatsApp arrêtée',
     quand: 'L’option Crédit WhatsApp se termine (résiliée, ou un impayé que Stripe abandonne) et toutes les lignes de l’espace sont arrêtées, la formule permettant de la reprendre (ni en retard de paiement, ni une formule Pro dont la fin programmée est passée) et l’option en vente. Un espace qui garde une ligne posée à la main ne la reçoit pas. Une fois par abonnement, dans les trois jours qui suivent la fin.',
     variables: { lien_numero: LIEN_NUMERO },
@@ -511,6 +550,7 @@ export const CATALOGUE = [
   {
     cle: 'limite_modeles_80',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Offre Free : 80 % des modèles du mois',
     quand: 'Un espace Free a envoyé 80 % des modèles de son mois. Une fois par mois.',
     variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
@@ -534,6 +574,7 @@ export const CATALOGUE = [
   {
     cle: 'limite_modeles_100',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Offre Free : modèles du mois épuisés',
     quand: 'Un espace Free a envoyé tous les modèles de son mois. Une fois par mois.',
     variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
@@ -560,6 +601,7 @@ export const CATALOGUE = [
   {
     cle: 'limite_contacts_80',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Offre Free : 80 % des contacts',
     quand: 'Un espace Free atteint 80 % de sa limite de contacts, ceux qui lui ont écrit les premiers compris. Une fois à chaque franchissement.',
     variables: { limite: LIMITE, limite_pro: LIMITE_PRO, lien_offre: LIEN_OFFRE },
@@ -585,6 +627,7 @@ export const CATALOGUE = [
   {
     cle: 'limite_contacts_100',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Offre Free : limite de contacts atteinte',
     quand: 'Un espace Free atteint sa limite de contacts, ceux qui lui ont écrit les premiers compris. Une fois à chaque franchissement.',
     variables: { limite: LIMITE, limite_pro: LIMITE_PRO, lien_offre: LIEN_OFFRE },
@@ -614,6 +657,7 @@ export const CATALOGUE = [
     // l'essai, sortie de l'Entreprise). Il remplace l'alerte de 100 % au même balayage : il dit combien supprimer, et comment.
     cle: 'limite_contacts_depassee',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Offre Free : limite de contacts dépassée',
     quand: 'Un espace Free compte plus de contacts que sa limite, par exemple au retour en formule Free après la formule Pro. Une fois à chaque franchissement.',
     variables: {
@@ -651,6 +695,7 @@ export const CATALOGUE = [
   {
     cle: 'limite_contacts_pro_80',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Offre Pro : 80 % des contacts',
     quand: 'Un espace Pro atteint 80 % de sa limite de contacts. Une fois à chaque franchissement.',
     variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
@@ -674,6 +719,7 @@ export const CATALOGUE = [
   {
     cle: 'limite_contacts_pro_100',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Offre Pro : limite de contacts atteinte',
     quand: 'Un espace Pro atteint sa limite de contacts. Une fois à chaque franchissement.',
     variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
@@ -699,6 +745,7 @@ export const CATALOGUE = [
     // inconnu n'est pas entré. Une occasion par jour (`plein:<jour>`), quel que soit le nombre d'inconnus.
     cle: 'espace_plein_entrant',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Offre Free pleine : un nouveau client n’est pas entré',
     quand: 'Un inconnu écrit à un espace Free qui a déjà tous ses contacts : son message n’entre pas dans Messaging Me. Une fois par jour au plus.',
     variables: { limite: LIMITE, lien_offre: LIEN_OFFRE },
@@ -724,6 +771,7 @@ export const CATALOGUE = [
   {
     cle: 'transfert_equipe',
     categorie: 'transfert',
+    aide: LIGNES_AIDE.inbox,
     nom: 'Une conversation attend l’équipe',
     quand: 'Un agent IA, l’agent de Meta ou un scénario passe la main à l’équipe alors que le contact vient d’écrire.',
     variables: {
@@ -753,6 +801,7 @@ export const CATALOGUE = [
     // mènerait à une Inbox fermée. Même catégorie, donc même désabonnement, et même plafond du jour (`CLES_TRANSFERT`).
     cle: 'transfert_equipe_free',
     categorie: 'transfert',
+    aide: LIGNES_AIDE.offre,
     nom: 'Une conversation attend une réponse (sans Inbox)',
     quand: 'Comme « Une conversation attend l’équipe », pour un espace dont l’offre n’ouvre pas l’Inbox : on lui répond depuis Claude ou depuis son application.',
     variables: {
@@ -784,6 +833,7 @@ export const CATALOGUE = [
   {
     cle: 'bienvenue',
     categorie: 'commercial',
+    aide: LIGNES_AIDE.guide,
     nom: 'Bienvenue',
     quand: 'Un espace vient d’être créé : à ses administrateurs connectés, dans les deux jours.',
     variables: { lien_console: LIEN_CONSOLE },
@@ -809,6 +859,7 @@ export const CATALOGUE = [
   {
     cle: 'relance_numero',
     categorie: 'commercial',
+    aide: LIGNES_AIDE.depannage,
     nom: 'Relance : numéro pas connecté',
     quand: 'L’espace existe depuis 24 heures sans numéro WhatsApp. Une fois, dans la semaine qui suit.',
     variables: { lien_numero: LIEN_NUMERO },
@@ -817,21 +868,25 @@ export const CATALOGUE = [
         sujet: 'Votre numéro WhatsApp n’est pas encore connecté',
         corps: 'Bonjour,\n\nL’espace {{espace}} n’a pas encore de numéro WhatsApp. C’est la première étape : sans numéro, '
           + 'vos clients ne peuvent pas vous écrire.\n\nConnectez votre propre numéro, ou prenez un numéro fourni en '
-          + 'quelques minutes, depuis la page « Connecter WhatsApp » de la console, ou demandez-le à Claude.',
-        bouton: { libelle: 'Connecter WhatsApp', lien: '{{lien_numero}}' },
+          + 'quelques minutes, depuis la page « Connecter WhatsApp » de la console, ou demandez-le à Claude. Le guide '
+          + 'vous mène au bon chemin, en quelques questions.',
+        // Le guide plutôt que la console (lot 5 de l'aide à la connexion) : il mène au bon geste dans les deux cas.
+        bouton: { libelle: 'Trouver mon chemin', lien: AIDE_GUIDE.fr },
       },
       en: {
         sujet: 'Your WhatsApp number is not connected yet',
         corps: 'Hello,\n\nThe {{espace}} workspace does not have a WhatsApp number yet. It is the first step: without a '
           + 'number, your customers cannot write to you.\n\nConnect your own number, or take a provided number in a few '
-          + 'minutes, from the “Connect WhatsApp” page of the console, or ask Claude.',
-        bouton: { libelle: 'Connect WhatsApp', lien: '{{lien_numero}}' },
+          + 'minutes, from the “Connect WhatsApp” page of the console, or ask Claude. The guide leads you to the right '
+          + 'way, in a few questions.',
+        bouton: { libelle: 'Find my way', lien: AIDE_GUIDE.en },
       },
     },
   },
   {
     cle: 'relance_repondeur',
     categorie: 'commercial',
+    aide: LIGNES_AIDE.agent,
     nom: 'Relance : aucun répondeur',
     quand: 'Le numéro est connecté depuis 24 heures et aucun répondeur (agent IA, agent de Meta, scénario) n’est en place. Une fois, dans la semaine qui suit.',
     variables: { lien_agents: { description: 'La page Agents IA de la console', forme: 'lien', exemple: 'https://console.messagingme.app/agents' } },
@@ -855,6 +910,7 @@ export const CATALOGUE = [
   {
     cle: 'relance_silence',
     categorie: 'commercial',
+    aide: LIGNES_AIDE.bulle,
     nom: 'Relance : aucun message en une semaine',
     quand: 'Le numéro est en service depuis 7 jours et n’a reçu ni envoyé aucun message. Une fois, dans la semaine qui suit.',
     variables: { lien_widgets: { description: 'La page Widgets de la console (la bulle WhatsApp)', forme: 'lien', exemple: 'https://console.messagingme.app/widgets' } },
@@ -911,6 +967,7 @@ export const CATALOGUE = [
   {
     cle: 'shopify_limite_contacts',
     categorie: 'service',
+    aide: LIGNES_AIDE.offre,
     nom: 'Shopify : messages non partis, limite de contacts',
     quand: 'Un message de commande Shopify ne part pas parce que la limite de contacts de l’offre est atteinte. Une fois par mois civil.',
     variables: { boutique: BOUTIQUE_SHOPIFY, lien_offre: LIEN_OFFRE },
@@ -960,6 +1017,7 @@ export const CATALOGUE = [
   {
     cle: 'shopify_message_actif',
     categorie: 'service',
+    aide: LIGNES_AIDE.shopify,
     nom: 'Shopify : un message réglé dans la console est actif',
     quand: 'Meta approuve le modèle d’un message Shopify préparé dans la console : le message est activé tout seul.',
     variables: { boutique: BOUTIQUE_SHOPIFY, message: MESSAGE_SHOPIFY, lien_parametres: LIEN_PARAMETRES },
@@ -981,6 +1039,7 @@ export const CATALOGUE = [
   {
     cle: 'shopify_modele_refuse',
     categorie: 'service',
+    aide: LIGNES_AIDE.shopify,
     nom: 'Shopify : Meta refuse le texte d’un message réglé dans la console',
     quand: 'Meta refuse le modèle d’un message Shopify préparé dans la console. Le message précédent, s’il y en a un, reste actif.',
     variables: { boutique: BOUTIQUE_SHOPIFY, message: MESSAGE_SHOPIFY, lien_parametres: LIEN_PARAMETRES, raison: RAISON_REFUS },
@@ -1005,6 +1064,7 @@ export const CATALOGUE = [
   {
     cle: 'application_numero_coupe',
     categorie: 'service',
+    aide: LIGNES_AIDE.application,
     nom: 'Numéro de l’application coupé par WhatsApp',
     quand: 'WhatsApp coupe le numéro d’un compte de l’application WhatsApp Business relié à l’espace.',
     variables: { numero: NUMERO_APPLICATION },
@@ -1030,6 +1090,7 @@ export const CATALOGUE = [
   {
     cle: 'application_premiers_geles',
     categorie: 'service',
+    aide: LIGNES_AIDE.application,
     nom: 'Premiers messages de l’application suspendus',
     quand: 'WhatsApp refuse un message écrit en premier par le numéro de l’application WhatsApp Business relié à l’espace.',
     variables: { numero: NUMERO_APPLICATION },
@@ -1053,6 +1114,7 @@ export const CATALOGUE = [
   {
     cle: 'application_appareil_retire',
     categorie: 'service',
+    aide: LIGNES_AIDE.application,
     nom: 'Numéro de l’application délié depuis le téléphone',
     quand: 'L’appareil Messaging Me est retiré depuis le téléphone (Appareils connectés de WhatsApp Business).',
     variables: { numero: NUMERO_APPLICATION },
@@ -1078,6 +1140,7 @@ export const CATALOGUE = [
   {
     cle: 'application_en_sommeil',
     categorie: 'service',
+    aide: LIGNES_AIDE.application,
     nom: 'Numéro de l’application en sommeil',
     quand: 'Un compte de l’application WhatsApp Business relié n’a reçu ni envoyé aucun message depuis le délai réglé (30 jours par défaut).',
     variables: {

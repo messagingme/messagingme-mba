@@ -117,10 +117,13 @@ export function rendre(m: ModeleEmail, texte: TexteEmail, valeurs: Valeurs, lang
     ? { libelle: uneLigne(remplir(texte.bouton.libelle, ecrites)), lien: remplir(texte.bouton.lien, ecrites).trim() }
     : null;
   const boutonUtile = bouton && bouton.libelle !== '' && /^https?:\/\//i.test(bouton.lien) ? bouton : null;
+  // La ligne sous le bouton (lot 5 de l'aide à la connexion) : du modèle, jamais du texte de `/ops`.
+  const aide = m.aide ? { libelle: m.aide.libelle[langue], url: m.aide.page[langue] } : null;
 
   const text = [
     ...paras,
     ...(boutonUtile ? [`${boutonUtile.libelle} : ${boutonUtile.lien}`] : []),
+    ...(aide ? [`${aide.libelle} : ${aide.url}`] : []),
     ...(options.desinscription ? [`${phrases.desinscriptionTexte} ${options.desinscription}`] : []),
   ].join('\n\n');
 
@@ -131,9 +134,13 @@ export function rendre(m: ModeleEmail, texte: TexteEmail, valeurs: Valeurs, lang
     title: sujet,
     bodyHtml,
     ...(boutonUtile ? { ctaLabel: boutonUtile.libelle, ctaUrl: boutonUtile.lien } : {}),
+    ...(aide ? { lienAide: aide } : {}),
     preheader: paras[1] ?? paras[0] ?? sujet,
     phrases: { lang: langue, secours: phrases.secours, pied: phrases.pied },
     ...(options.desinscription ? { desinscription: { texte: phrases.desinscription, url: options.desinscription } } : {}),
+    // Aucune ligne sous « Messaging Me » : « Business Agent » est le nom du produit de Meta, que la console configure
+    // sans le porter (décision de Julien du 2026-11-11, comme l'e-mail d'inscription).
+    sousTitre: null,
   });
   return { sujet, text, html };
 }

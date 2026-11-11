@@ -35,7 +35,12 @@ bouton mène à l'offre Pro.
 
 **Pour bien démarrer.** Un e-mail de bienvenue à la création de l'espace, puis, une fois chacune : une relance si votre numéro WhatsApp n'est pas connecté au bout de 24 heures, si personne ne répond
 automatiquement 24 heures après sa connexion (ni agent IA, ni agent de Meta, ni scénario), et si votre numéro n'a reçu
-ni envoyé aucun message après une semaine. Chacune mène à la page de la console qui règle la question.
+ni envoyé aucun message après une semaine. Chacune mène à la page qui règle la question : la relance du numéro mène au
+guide du numéro, qui trouve votre chemin en quelques questions, et, en dessous, au dépannage de la connexion.
+
+**L'aide pas à pas.** Sous son bouton, la plupart des e-mails qui vous demandent un geste mènent aussi à la page du centre d'aide qui le
+montre pas à pas (construire un agent IA, poser une bulle sur votre site, payer Meta, choisir votre offre...), dans
+votre langue.
 
 **Le récapitulatif de la semaine (offre Free).** Le lundi matin, les messages WhatsApp reçus et envoyés la semaine
 écoulée, les conversations, celles confiées à votre équipe, et votre crédit IA restant. Une semaine sans message

@@ -1,6 +1,6 @@
 import type { NomOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import { ETAPES_CARTE_META } from '../../web/lib/partage/etapes-meta';
-import { AIDE_COMPTE_META_BUSINESS, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_POURQUOI_PAIEMENT } from '../../web/lib/partage/aide-connexion';
+import { AIDE_COMPTE_META_BUSINESS, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_PAYER_META } from '../../web/lib/partage/aide-connexion';
 import { modeEffectif, sousLOffre, type ModeRepondeur, type ReglageDuRepondeur } from '../repondeur/mode';
 import { manquesDeLAgent, type DepsGestionAgents } from '../agent/gestion';
 import { eurosDepuisMicro } from '../agent/devise';
@@ -53,7 +53,7 @@ export type EtapeMiseEnService = keyof typeof OUTILS_DE_L_ETAPE;
 export const AIDE_NUMERO = {
   guide: AIDE_GUIDE,
   depannage: AIDE_DEPANNAGE,
-  payer_meta: AIDE_POURQUOI_PAIEMENT,
+  payer_meta: AIDE_PAYER_META,
   compte_meta_business: AIDE_COMPTE_META_BUSINESS,
 } as const;
 

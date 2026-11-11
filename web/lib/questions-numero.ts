@@ -4,7 +4,7 @@
  * l'espace a déjà son offre. `tests/questions-numero-vitrine.test.ts` les tient égales à la vitrine, au mot près, et la
  * skill `mise-en-service` du plugin pose les mêmes. Plus aucune voie par QR code.
  */
-import { AIDE_COMPTE_META_BUSINESS, AIDE_POURQUOI_PAIEMENT } from './partage/aide-connexion';
+import { AIDE_COMPTE_META_BUSINESS, AIDE_PAYER_META } from './partage/aide-connexion';
 
 type Texte = { readonly fr: string; readonly en: string };
 
@@ -99,9 +99,9 @@ export const QUESTION_PAIEMENT = {
       en: 'I add a payment method (Visa / Mastercard) to my Meta Business account',
     },
     texte: { fr: 'Meta vous facture vos modèles sur ce moyen de paiement.', en: 'Meta bills your templates to this payment method.' },
-    /** Ses deux liens, les fiches de la vitrine (`AIDE_POURQUOI_PAIEMENT`, `AIDE_COMPTE_META_BUSINESS`). */
+    /** Ses deux liens, les fiches de la vitrine (`AIDE_PAYER_META`, `AIDE_COMPTE_META_BUSINESS`). */
     liens: [
-      { libelle: { fr: 'Pourquoi un moyen de paiement ?', en: 'Why a payment method?' }, href: AIDE_POURQUOI_PAIEMENT },
+      { libelle: { fr: 'Pourquoi un moyen de paiement ?', en: 'Why a payment method?' }, href: AIDE_PAYER_META },
       { libelle: { fr: 'Qu’est-ce qu’un compte Meta Business ?', en: 'What is a Meta Business account?' }, href: AIDE_COMPTE_META_BUSINESS },
     ],
   },

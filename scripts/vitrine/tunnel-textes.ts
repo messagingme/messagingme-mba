@@ -16,7 +16,7 @@
 
 import { DROITS, ESSAI_PRO_JOURS, PRIX_BUSINESS_HT_CENTIMES, PRIX_PRO_HT_CENTIMES } from '../../src/offres/offres';
 import { PRIX_OPTION_WA_HT_CENTIMES } from '../../src/stripe/option-credit-whatsapp';
-import { AIDE_COMPTE_META_BUSINESS, AIDE_POURQUOI_PAIEMENT } from '../../web/lib/partage/aide-connexion';
+import { AIDE_COMPTE_META_BUSINESS, AIDE_PAYER_META } from '../../web/lib/partage/aide-connexion';
 import { ETAPES_NUMERO_FOURNI } from '../../web/lib/partage/etapes-numero-fourni';
 import type { Langue } from './cas-textes';
 
@@ -217,7 +217,7 @@ const fr = (): TexteTunnel => {
       plus: ['Meta vous facture vos modèles sur ce moyen de paiement.'],
       moins: [],
       liens: [
-        { libelle: 'Pourquoi un moyen de paiement ?', href: chemin(AIDE_POURQUOI_PAIEMENT.fr) },
+        { libelle: 'Pourquoi un moyen de paiement ?', href: chemin(AIDE_PAYER_META.fr) },
         { libelle: 'Qu’est-ce qu’un compte Meta Business ?', href: chemin(AIDE_COMPTE_META_BUSINESS.fr) },
       ],
     },
@@ -512,7 +512,7 @@ const en = (): TexteTunnel => {
       plus: ['Meta bills your templates to this payment method.'],
       moins: [],
       liens: [
-        { libelle: 'Why a payment method?', href: chemin(AIDE_POURQUOI_PAIEMENT.en) },
+        { libelle: 'Why a payment method?', href: chemin(AIDE_PAYER_META.en) },
         { libelle: 'What is a Meta Business account?', href: chemin(AIDE_COMPTE_META_BUSINESS.en) },
       ],
     },

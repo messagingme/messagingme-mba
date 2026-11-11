@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { CATALOGUE, LANGUES, modeleDe, variablesCitees, variablesDe, variablesInconnues, type TexteEmail } from '../src/emails-produit/catalogue';
+import {
+  CATALOGUE, LANGUES, modeleDe, variablesCitees, variablesDe, variablesInconnues, type ModeleEmail, type TexteEmail,
+} from '../src/emails-produit/catalogue';
+import { ADRESSES_AIDE_CONNEXION, AIDE_DEPANNAGE, AIDE_GUIDE } from '../web/lib/partage/aide-connexion';
 import { dateLisible, rendre, valeursExemple } from '../src/emails-produit/rendu';
 import { jetonDesinscription, lienDesinscription, lireJetonDesinscription } from '../src/emails-produit/desinscription';
 import { creerEmetteurEmails, type JobEmail } from '../src/emails-produit/emission';
@@ -34,6 +37,42 @@ describe('le catalogue', () => {
     }
   });
 
+  /**
+   * LA TABLE DES PAGES D'AIDE (lot 5 de l'aide à la connexion) : chaque modèle porte la ligne vers la page publique qui
+   * montre son geste, ou figure ici, parmi ceux qu'aucune page n'aide. Un modèle ajouté sans décision fait échouer ce test.
+   */
+  const SANS_PAGE_D_AIDE = [
+    'credit_epuise', 'credit_bas', 'numero_suspendu_fin', 'numero_suspendu_impaye', 'numero_rappel_liberation',
+    'paiement_refuse_numero', 'paiement_refuse_pro', 'recap_semaine', 'shopify_demande_donnees',
+    // Sa carte est celle de l'option, chez Messaging Me : « Payer Meta » montre celle chez Meta (relecture du lot 5).
+    'paiement_refuse_option_wa',
+  ];
+
+  it('🔴 chaque modèle mène à la page publique qui l’aide, ou figure parmi ceux qu’aucune page n’aide', () => {
+    for (const m of CATALOGUE as readonly ModeleEmail[]) {
+      if (SANS_PAGE_D_AIDE.includes(m.cle)) {
+        expect(m.aide, m.cle).toBeUndefined();
+        continue;
+      }
+      expect(m.aide, `${m.cle} : sa page d’aide, ou SANS_PAGE_D_AIDE`).toBeDefined();
+      for (const l of LANGUES) {
+        // Une page vérifiée sur le site (`tests/aide-connexion-adresses.test.ts`), jamais une adresse tapée ici.
+        expect(ADRESSES_AIDE_CONNEXION, `${m.cle} ${l}`).toContain(m.aide!.page[l]);
+        expect(m.aide!.libelle[l], `${m.cle} ${l}`).not.toMatch(/[\u2013\u2014]/);
+      }
+    }
+    for (const cle of SANS_PAGE_D_AIDE) expect(modeleDe(cle), cle).not.toBeNull();
+  });
+
+  it('🔴 la relance du numéro : le bouton mène au guide, la ligne au dépannage, et la phrase dit la console et Claude', () => {
+    const m = modeleDe('relance_numero')!;
+    expect(m.aide?.page).toBe(AIDE_DEPANNAGE);
+    for (const l of LANGUES) {
+      expect(m.textes[l].bouton?.lien, l).toBe(AIDE_GUIDE[l]);
+      expect(m.textes[l].corps, l).toMatch(l === 'fr' ? /« Connecter WhatsApp ».*Claude/s : /“Connect WhatsApp”.*Claude/s);
+    }
+  });
+
   it('une variable inconnue se repère, une commune est permise', () => {
     const m = modeleDe('credit_epuise')!;
     expect(variablesInconnues(m, { sujet: '{{espace}} {{ lien_credit }}', corps: '{{solde}}', bouton: { libelle: 'x', lien: '{{pirate}}' } }))
@@ -64,6 +103,46 @@ describe('le rendu', () => {
     const r = rendre(m, { sujet: 'A\nB {{date_liberation}}', corps: 'X{{inconnue}}Y', bouton: null }, valeurs, 'en');
     expect(r.sujet).toBe('A B 13 October 2026');
     expect(r.text).toBe('XY');
+  });
+
+  it('🔴 la ligne d’aide sous le bouton, en HTML et en texte, dans la langue ; et sous un texte réécrit dans /ops', () => {
+    const relance = modeleDe('relance_numero')!;
+    const v = { ...valeursExemple(relance), espace: 'Atelier' };
+    for (const l of LANGUES) {
+      const r = rendre(relance, relance.textes[l], v, l);
+      const { libelle, page } = { libelle: relance.aide!.libelle[l], page: relance.aide!.page[l] };
+      expect(r.html, l).toContain(`href="${page}"`);
+      expect(r.html, l).toContain(libelle);
+      // Sous le bouton : son lien vient avant celui de la page d'aide.
+      expect(r.html.indexOf(`href="${page}"`), l).toBeGreaterThan(r.html.indexOf(`href="${AIDE_GUIDE[l]}"`));
+      expect(r.text, l).toContain(`${libelle} : ${page}`);
+      expect(r.text.indexOf(page), l).toBeGreaterThan(r.text.indexOf(AIDE_GUIDE[l]));
+    }
+    // Un texte réécrit dans /ops ne porte que sujet, corps et bouton : la ligne vient du modèle et reste.
+    const reecrit = rendre(relance, { sujet: 'Modifié', corps: 'Corps', bouton: null }, v, 'fr');
+    expect(reecrit.text).toBe(`Corps\n\n${relance.aide!.libelle.fr} : ${relance.aide!.page.fr}`);
+    expect(reecrit.html).toContain(`href="${relance.aide!.page.fr}"`);
+  });
+
+  it('🔴 un modèle sans page d’aide ne porte aucune ligne d’aide', () => {
+    const r = rendre(m, m.textes.fr, valeurs, 'fr');
+    expect(m.aide).toBeUndefined();
+    expect(r.html).not.toContain('Aide pas à pas');
+    expect(r.text.endsWith('\n\nOuvrir « Connecter WhatsApp » : https://console.test/connecter')).toBe(true);
+  });
+
+  /**
+   * « Business Agent » est le nom du produit de Meta, que la console configure sans le porter : aucun e-mail du produit
+   * ne l'écrit sous le logo (décision de Julien du 2026-11-11), comme l'e-mail d'inscription.
+   */
+  it('🔴 aucun e-mail du produit n’écrit « Business Agent » sous le logo', () => {
+    for (const modele of CATALOGUE as readonly ModeleEmail[]) {
+      for (const l of LANGUES) {
+        const html = rendre(modele, modele.textes[l], valeursExemple(modele), l).html;
+        expect(html, `${modele.cle} ${l}`).toContain('>Messaging Me<');
+        expect(html, `${modele.cle} ${l}`).not.toContain('>Business Agent<');
+      }
+    }
   });
 
   it('🔴 un bouton dont le lien est vide ou n’est pas une adresse ne s’affiche pas', () => {

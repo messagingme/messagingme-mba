@@ -46,6 +46,11 @@ export interface BrandedEmailInput {
   /** Un lien de désinscription en pied (e-mails commerciaux et de transfert, lot 7). Texte et adresse échappés. */
   desinscription?: { texte: string; url: string };
   /**
+   * Une ligne sous le bouton, vers la page publique qui montre le geste pas à pas (e-mails du produit, lot 5 de l'aide à
+   * la connexion). Libellé et adresse échappés. Absente : rien ne change.
+   */
+  lienAide?: { libelle: string; url: string };
+  /**
    * La ligne sous « Messaging Me » dans l'en-tête, échappée. Absente : « Business Agent », celle des e-mails d'avant le
    * lot identité B ; `null` : aucune ligne. Le lien d'inscription part vers une adresse qui ne nous connaît pas encore, et
    * ce nom est celui du produit de Meta, que notre console configure sans le porter.
@@ -72,6 +77,7 @@ export function renderBrandedEmail(input: BrandedEmailInput): string {
   const pre = preheader ? escapeHtml(preheader) : '';
   const foot = footnoteBlock(footnote);
   const bouton = ctaLabel && ctaUrl ? blocBouton(escapeHtml(ctaLabel), escapeHtml(ctaUrl), escapeHtml(phrases.secours)) : '';
+  const aide = input.lienAide ? blocAide(escapeHtml(input.lienAide.libelle), escapeHtml(input.lienAide.url)) : '';
   const desinscription = input.desinscription
     ? `<p style="margin:8px 0 0 0;font-family:${FONT};font-size:12px;line-height:18px;color:${MUTED};"><a href="${escapeHtml(input.desinscription.url)}" target="_blank" style="color:${MUTED};text-decoration:underline;">${escapeHtml(input.desinscription.texte)}</a></p>`
     : '';
@@ -125,7 +131,7 @@ ${pre ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hid
             <div style="font-family:${FONT};font-size:15px;line-height:23px;color:${INK};">${bodyHtml}</div>
           </td>
         </tr>
-${bouton}
+${bouton}${aide}
         <!-- Pied -->
         <tr>
           <td style="padding:20px 32px 28px 32px;border-top:1px solid ${BORDER};background-color:${CARD_BG};">
@@ -160,6 +166,20 @@ function blocBouton(safeCtaLabel: string, safeCtaUrl: string, secours: string): 
         <tr>
           <td style="padding:12px 32px 24px 32px;">
             <p style="margin:0;font-family:${FONT};font-size:12px;line-height:18px;color:${MUTED};">${secours}<br /><a href="${safeCtaUrl}" target="_blank" style="color:${BLUE};text-decoration:underline;word-break:break-all;">${safeCtaUrl}</a></p>
+          </td>
+        </tr>`;
+}
+
+/**
+ * La ligne d'aide sous le bouton (ou sous le corps, sans bouton) : un lien vers une page publique, sur sa propre ligne.
+ * Les deux valeurs arrivent échappées ; elle commence par un saut de ligne, pour qu'un e-mail sans elle reste identique.
+ */
+function blocAide(safeLibelle: string, safeUrl: string): string {
+  return `
+        <!-- Aide pas à pas -->
+        <tr>
+          <td style="padding:4px 32px 24px 32px;">
+            <p style="margin:0;font-family:${FONT};font-size:14px;line-height:20px;color:${INK};"><a href="${safeUrl}" target="_blank" style="color:${BLUE};text-decoration:underline;">${safeLibelle}</a></p>
           </td>
         </tr>`;
 }

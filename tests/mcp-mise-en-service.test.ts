@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AVERTISSEMENTS, OUTILS_DE_L_ETAPE, etatMiseEnService, lireMiseEnService, type DepsMiseEnService, type LecturesMiseEnService,
 } from '../src/mcp/mise-en-service';
-import { AIDE_COMPTE_META_BUSINESS, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_POURQUOI_PAIEMENT } from '../web/lib/partage/aide-connexion';
+import { AIDE_COMPTE_META_BUSINESS, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_PAYER_META } from '../web/lib/partage/aide-connexion';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { OUTILS, type DepsMcp } from '../src/mcp/outils';
 import type { EtatConnexion } from '../src/otp/etat-connexion';
@@ -73,7 +73,7 @@ describe('l’étape suivante', () => {
     const aActiver = etatMiseEnService({ ...PRET, numero: { ...NUMERO_CONNECTE, connecte: { chiffres: '336', aActiver: true } } });
     for (const e of [sansNumero, aActiver]) {
       expect(e.aide, e.etape_suivante).toEqual({
-        guide: AIDE_GUIDE, depannage: AIDE_DEPANNAGE, payer_meta: AIDE_POURQUOI_PAIEMENT, compte_meta_business: AIDE_COMPTE_META_BUSINESS,
+        guide: AIDE_GUIDE, depannage: AIDE_DEPANNAGE, payer_meta: AIDE_PAYER_META, compte_meta_business: AIDE_COMPTE_META_BUSINESS,
       });
     }
     expect(etatMiseEnService(PRET).aide).toBeUndefined();

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
-  ADRESSES_AIDE_CONNEXION, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_POURQUOI_PAIEMENT, VITRINE_AIDE,
+  ADRESSES_AIDE_CONNEXION, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_PAYER_META, VITRINE_AIDE,
 } from '../web/lib/partage/aide-connexion';
 import { GUIDE_NUMERO } from '../scripts/vitrine/aide-pages';
 import { DEPANNAGE } from '../scripts/vitrine/depannage-textes';
@@ -40,7 +40,7 @@ describe('les pages d’aide citées pendant la connexion du numéro', () => {
     for (const langue of ['fr', 'en'] as const) {
       expect(AIDE_GUIDE[langue], langue).toBe(`${VITRINE_AIDE}${GUIDE_NUMERO[langue]}`);
       expect(AIDE_DEPANNAGE[langue], langue).toBe(`${VITRINE_AIDE}${DEPANNAGE.adresse[langue]}`);
-      expect(AIDE_POURQUOI_PAIEMENT[langue], langue).toBe(`${VITRINE_AIDE}${payerMeta.adresse[langue]}`);
+      expect(AIDE_PAYER_META[langue], langue).toBe(`${VITRINE_AIDE}${payerMeta.adresse[langue]}`);
     }
   });
 
