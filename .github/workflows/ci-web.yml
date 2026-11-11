@@ -90,7 +90,10 @@ jobs:
       # E2E : les appels /api/backend/* sont mockés par page.route -> aucun backend ni base requis. Le webServer
       # de Playwright build + sert le Next ; on installe juste le navigateur (avec ses deps système).
       - name: Installer le navigateur E2E
-        run: npx playwright install --with-deps chromium
+        # Le miroir apt de GitHub tombe parfois (le 2026-11-11, plus d'une heure) : `--with-deps` échoue alors en 100,
+        # avant le navigateur, et chaque CI front est rouge pour une raison étrangère. Les machines de GitHub portent
+        # déjà les bibliothèques de Chrome : on installe alors Chromium sans elles. S'il en manque une, les E2E le disent.
+        run: npx playwright install --with-deps chromium || npx playwright install chromium
       - name: Tests E2E (Playwright)
         run: npm run test:e2e
         env:
