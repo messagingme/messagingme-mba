@@ -79,8 +79,7 @@ describe('ce qu’il faut chez Meta', () => {
   it('🔴 qui paie Meta ne se dit nulle part sans le Crédit WhatsApp (rouge de la relecture du lot 4a-2)', () => {
     // « Meta facture directement votre entreprise », « Messaging Me ne touche pas à ces frais » : faux avec le Crédit
     // WhatsApp, qui prépaie ces frais chez Messaging Me. Ici, ce que lisent Claude (la FAQ, les prérequis, qui paie), la
-    // console, la fiche et le guide « compte Meta » ; les cas d'usage et les tarifs de la vitrine, qui parlent de la carte
-    // par défaut, se reprennent avec le lot 3v-2.
+    // console, la fiche et le guide « compte Meta » ; les pages de la vitrine, au test suivant (lot 3v-2c).
     const faux = /ne touche pas à ces frais|never touches these fees|facture directement votre entreprise|bills your business directly|bills the business directly|facture votre entreprise directement/;
     const plat = (t: string): string => t.replace(/\s+/g, ' ');
     const lire = (f: string): string => plat(readFileSync(f, 'utf8'));
@@ -105,6 +104,51 @@ describe('ce qu’il faut chez Meta', () => {
       ['skill regles-whatsapp', lire('plugin/skills/regles-whatsapp/SKILL.md'), 'en'], ['README du plugin', lire('plugin/README.md'), 'en'],
     ];
     for (const [nom, t, langue] of quiPaie) expect(t, nom).toContain(exception[langue]);
+  });
+
+  it('🔴 la vitrine ne dit jamais que Meta facture l’entreprise sans l’exception du Crédit WhatsApp (lot 3v-2c)', () => {
+    // La vente ouverte (2026-11-11), « Meta facture directement à votre entreprise » des cas d'usage, des tarifs, de
+    // l'accueil, de « Pilotage des coûts » et des développeurs devenait faux pour qui prend le Crédit WhatsApp. Chaque
+    // phrase d'une page de la vitrine (son texte comme son JSON-LD) qui le dit nomme l'exception dans la même phrase.
+    const pages = (dossier: string): string[] => readdirSync(dossier, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? pages(`${dossier}/${e.name}`) : e.name === 'index.html' ? [`${dossier}/${e.name}`] : []);
+    const fichiers = pages('site');
+    expect(fichiers.length).toBeGreaterThan(50);
+    // Une phrase où Meta facture les MESSAGES de l'entreprise ou de la boutique, avec ou sans « directement » (les cas
+    // d'usage disent « Meta facture chaque réponse… à votre entreprise ») ; la publicité, que le crédit ne paie pas, et
+    // « your business portfolio » n'y entrent pas. Ou une phrase qui dit que nous n'ajoutons rien : « directement à votre
+    // entreprise » (la réponse dont la question porte le verbe), « ne touche pas à ces frais », « n'y ajoute rien », « sans
+    // supplément », « sans commission » (relecture du lot : la page Shopify passait au travers).
+    const affirme = (p: string): boolean => (/\bMeta\b/.test(p) && /factur|\bbills?\b|\bbilled\b/.test(p)
+      && /votre entreprise|votre boutique|your business\b(?! portfolio| account)|your store\b/.test(p) && /messag|modèle|réponse|templat|repl/i.test(p))
+      || /directement à votre (entreprise|boutique)|directly to your (business|store)|ne touche pas à ces frais|takes no cut|never touches these fees|n[’']y ajoute rien|adds nothing|sans supplément|no surcharge|sans commission|no commission/.test(p);
+    // L'exception se dit de plus d'une façon (« sauf avec le Crédit WhatsApp », « avec le Crédit WhatsApp, vous les
+    // prépayez… ») : la phrase doit nommer le crédit.
+    const exception = /Crédit WhatsApp|WhatsApp credit/;
+    const vuesParPage = new Map<string, number>();
+    for (const f of fichiers) {
+      // Une fin de bloc coupe la phrase comme un point, et un lien suivi d'une autre balise aussi : une liste de liens,
+      // sans ponctuation, n'en fait pas une seule. Un lien DANS la phrase (« selon sa grille, sauf… ») ne la coupe pas. Un
+      // point suivi d'un guillemet (la fin d'une réponse du JSON-LD) coupe aussi.
+      const texte = readFileSync(f, 'utf8').replace(/\s+/g, ' ')
+        .replace(/<\/(p|li|h[1-6]|summary|div|dt|dd|td|th|button)>|<br\s*\/?>|<\/a>(?=\s*<)/g, '\n')
+        .replace(/<[^>]+>/g, ' ').replace(/&nbsp;|\u00a0/g, ' ');
+      for (const phrase of texte.split(/(?<=[.!?]"?)\s+|\n+/)) {
+        if (!affirme(phrase)) continue;
+        vuesParPage.set(f, (vuesParPage.get(f) ?? 0) + 1);
+        expect(phrase, f).toMatch(exception);
+      }
+    }
+    // Les pages que le lot a reprises y sont encore vues, chacune : sans elles, ce test ne prouverait rien.
+    const reprises = [
+      'site/index.html', 'site/en/index.html', 'site/tarifs/index.html', 'site/en/pricing/index.html',
+      'site/fonctionnalites/pilotage-des-couts/index.html', 'site/en/features/cost-control/index.html',
+      'site/developpeurs/index.html', 'site/en/developers/index.html',
+      'site/solutions/shopify/index.html', 'site/en/solutions/shopify-stores/index.html',
+      ...readdirSync('site/cas-d-usage').map((c) => `site/cas-d-usage/${c}/index.html`),
+      ...readdirSync('site/en/use-cases').map((c) => `site/en/use-cases/${c}/index.html`),
+    ];
+    for (const p of reprises) expect(vuesParPage.get(p) ?? 0, p).toBeGreaterThan(0);
   });
 
   it('🔴 la voie du Crédit WhatsApp (« Le vôtre ») dit les mêmes conditions, sans la carte (lot 4a-3)', () => {

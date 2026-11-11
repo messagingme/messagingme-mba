@@ -87,8 +87,7 @@ Then `/messagingme:demarrer` asks you, one question at a time, the same question
    it (App Store or Google Play), then the next question.
 4. **Do you already have a number you could use?** Yes: download the app, put your number in it, and connect it right
    away. No: we provide one, which goes in the app, its verification code shown on the setup page; you reply to your
-   customers from the app from day one. Meta often refuses a brand-new number at first: sending from Messaging Me then
-   waits a few days, until you come back to connect it.
+   customers from the app from day one.
 
 The price of a provided number is under [What it costs](#what-it-costs).
 
@@ -143,7 +142,7 @@ Each line leads to its page: the use case with its film and its code, or the doc
 - **Your own number**, or a provided number at €3.50 excl. VAT per month.
 - **Pay-as-you-go AI** on prepaid credit, €1 offered when your first number is connected.
 - **Pro, €49 excl. VAT per month** (14-day free trial): unlimited sends, 1,000 contacts created and unlimited inbound contacts, 3 users, provided number included, and the Inbox where your team takes over.
-- Meta bills some messages directly to your business, according to [its rate card](https://developers.facebook.com/docs/whatsapp/pricing).
+- Meta bills some messages directly to your business, according to [its rate card](https://developers.facebook.com/docs/whatsapp/pricing), except with WhatsApp credit (Pro or Business plan), prepaid at Messaging Me.
 <!-- prix:fin -->
 
 ## What's inside

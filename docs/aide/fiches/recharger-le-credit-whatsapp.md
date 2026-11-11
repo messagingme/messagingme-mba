@@ -1,14 +1,15 @@
 ---
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: ffd228
+source_empreinte: 0f442b
 ---
 # Recharger le Crédit WhatsApp
 
 Le Crédit WhatsApp est un crédit prépayé qui paie les messages WhatsApp de votre numéro quand Messaging Me règle ces
 messages chez Meta à votre place : vous n'avez alors aucune carte bancaire à poser chez Meta. Vous le trouvez dans
-**Paramètres > Offre**, onglet **Crédit WhatsApp** ; l'onglet n'apparaît que si votre numéro est payé ainsi, et
-l'écran est réservé aux administrateurs. Il ne paie pas l'IA : vos agents IA puisent dans le Crédit IA, l'autre onglet.
+**Paramètres > Offre**, onglet **Crédit WhatsApp**. En formule Pro ou Business, on y prend d'abord l'option, 30 € HT
+par numéro et par mois ; en Entreprise, l'onglet apparaît dès qu'un numéro est payé ainsi. L'écran est réservé aux
+administrateurs. Il ne paie pas l'IA : vos agents IA puisent dans le Crédit IA, l'autre onglet.
 
 **Ce que coûte un message.** Chaque message envoyé (campagne, scénario, réponse de l'Inbox ou d'un agent IA) est
 débité de son prix : le tarif de Meta pour le pays du destinataire et la catégorie du message, tout compris. L'onglet

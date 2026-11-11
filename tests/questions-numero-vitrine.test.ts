@@ -160,8 +160,9 @@ describe('le plugin pose les mêmes questions, sans QR code', () => {
     const rangs = ['**The plan: Free or Pro?**', `**"${q('paiement')}"**`, `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('meme-numero')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
     expect(rangs.every((r) => r > 0), rangs.join(',')).toBe(true);
     expect([...rangs].sort((a, b) => a - b)).toEqual(rangs);
-    // Le numéro trop neuf se dit sans chiffre, et le QR code n'est plus nommé que pour dire qu'il n'est plus proposé.
-    expect(skill).toContain('Never give a number of days');
+    // Un numéro neuf passe en coexistence sans problème (Julien, 2026-11-11, mesuré) : la skill ne dit plus que Meta le
+    // refuse ; le QR code n'est plus nommé que pour dire qu'il n'est plus proposé.
+    expect(skill).not.toMatch(/brand-new|too new|a few days/);
     expect(skill).toContain('**The QR code link is no longer offered**');
     expect(skill).not.toMatch(/On the QR code track|By QR code, to answer/);
   });

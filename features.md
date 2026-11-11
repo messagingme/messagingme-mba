@@ -4659,9 +4659,10 @@ page Offre ; les anciennes adresses y mènent toujours, retour de paiement et li
 Un crédit prépayé qui paie les **messages WhatsApp** d'un numéro dont Messaging Me règle les messages chez Meta, à la
 place d'une carte bancaire posée chez Meta. Chaque message envoyé (campagne, scénario, réponse de l'Inbox ou d'un agent
 IA) est débité de son prix : le tarif de Meta pour le pays du destinataire et la catégorie du message, notre commission
-comprise, jamais affichée en taux. 🔴 **À zéro, plus aucun message ne part, réponses comprises.** L'onglet n'apparaît
-qu'à un espace dont un numéro est payé ainsi, jamais en Free.
-Écran réservé aux admins. Un numéro passe sur ce crédit par nous, depuis `/ops`, en attendant l'option à souscrire.
+comprise, jamais affichée en taux. 🔴 **À zéro, plus aucun message ne part, réponses comprises.** L'onglet apparaît
+en formule Pro ou Business, où l'option se prend (depuis l'ouverture de la vente, le 2026-11-11), et à un espace dont
+un numéro est payé ainsi ; jamais en Free. Écran réservé aux admins. Un numéro passe sur ce crédit par sa ligne,
+posée après sa connexion par la fenêtre du partenaire (l'option prise, ou en Entreprise).
 
 - ✅ **En Entreprise, illimité** (décision du 2026-11-02) : ni solde, ni achat, ni arrêt à zéro. L'onglet affiche
   « Illimité » et ce qu'ont coûté les messages du mois, facturés selon le contrat ; le solde ne bouge pas, et un espace
@@ -4702,7 +4703,9 @@ qu'à un espace dont un numéro est payé ainsi, jamais en Free.
   même fenêtre relie. La fenêtre de Meta connecte le numéro sans lui demander de payer Meta. La carte dit ensuite que sa
   ligne s'ouvre sous 24 h ouvrées, le temps que notre équipe la pose. Un numéro déjà connecté avec la carte du client
   passe sur le Crédit WhatsApp par notre équipe.
-- ⛔ À venir : l'option à souscrire (30 € HT par numéro et par mois), la recharge automatique et celle avant une
+- ✅ **L'option à souscrire** (2026-11-11, la vente ouverte) : 30 € HT par numéro et par mois, prise par un administrateur
+  sur la carte « Crédit WhatsApp » ou dans cet onglet, en formule Pro dès son essai ou en Business confirmé.
+- ⛔ À venir : la recharge automatique et celle avant une
   campagne, le prix dans le récapitulatif d'une campagne, les écrans de coût lus dans nos débits, la fiche d'aide publique.
 
 ## Offres (menu « Paramètres » > Offre)
