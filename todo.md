@@ -149,6 +149,25 @@ au lot suivant ; rien ne bloque.
 
 ## 🟡 Les lots 3v-2a à 3v-2d de l'aide à la connexion : ce qu'ils laissent (2026-11-11)
 
+- 🔴 **Les tutoriels de démarrage supposent un terminal ; presque personne n'ira dans PowerShell ou VS Code**
+  (demande de Julien, 2026-11-11, après ses essais du soir). Tout le démarrage (« Installer le plugin », la vitrine, le
+  README du plugin, la skill) dit `/plugin marketplace add`, `/plugin install` puis `/mcp`, des commandes de Claude Code
+  en terminal. Mesuré ce soir-là :
+  - **Claude Desktop** : `/plugin` ouvre le gestionnaire de plugins au lieu d'exécuter la commande. Il faut un parcours
+    Desktop à part entière (gestionnaire de plugins, autorisation du serveur MCP, retour), écrit d'après la vidéo que
+    Julien en tourne, puis filmé pour le lot 6 ;
+  - **l'adresse courte de la marketplace** (`messagingme/messagingme-plugin`) clone en SSH : sans clé GitHub, une
+    marketplace inutilisable reste enregistrée, et le plugin « ne s'installe pas » sans message clair. L'adresse HTTPS
+    complète (`https://github.com/messagingme/messagingme-plugin.git`) marche : à passer dans `COMMANDES_PLUGIN`
+    (`web/lib/demarrer.ts`), d'où la console, la vitrine, le tutoriel et le README la tirent ;
+  - **PowerShell** : la politique d'exécution par défaut bloque `claude.ps1` ; `claude.cmd` passe. À dire là où le
+    tutoriel montre le terminal sous Windows, sans jamais conseiller de changer la politique ;
+  - **Git** sur un PC neuf : prérequis probable du clonage, à vérifier avant de l'écrire ;
+  - **un PC qui avait déjà vu Claude Code** gardait une marketplace périmée : le tutoriel dit comment la retirer ;
+  - **l'inscription par e-mail depuis `/autoriser`** : « Continuer » s'affiche avant que l'espace existe, et Julien a
+    cliqué trop tôt. Le désactiver tant que le lien du mail n'a pas créé l'espace, ou le renommer.
+  Et un PC où l'autorisation finissait en « Failed to connect » malgré « Authentication successful », jamais expliqué
+  (Claude Code 2.1.322) ; ailleurs, le même parcours a marché.
 - **Une capture dont le pointeur sort du cadre** (vu en 3v-2d) : `capturer` (`web/e2e/captures/donnees-demo.ts`)
   écrit la boîte du pointeur même hors de la fenêtre (y=847 pour 800, la capture 2 avant son recadrage) ; la refuser
   là, les `.json` de sortie n'étant pas versionnés.
