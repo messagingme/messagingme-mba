@@ -533,8 +533,20 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   PRODUCTION ensemble le 2026-11-11 (`baa1f16e`, run 42983102680, avec le lot 4a-3 de l'aide). Décisions de Julien du
   2026-11-11 : le texte de l'e-mail du paiement refusé de la formule Pro avec l'option est validé, et un numéro en
   coexistence n'entre pas dans la liste de `/ops` (l'alerte suffit). V10 (les jaunes de V9) et V11 (cet e-mail, la phrase
-  de l'alerte en coexistence, les jaunes de V10) poussés le 2026-11-11, V11 à déployer, puis `aide:charger`. Restent V12
-  (les six jaunes de V11), V3 (la pose automatique, après D0) et V4 (le numéro d'essai déjà connecté, la liste à Julien).
+  de l'alerte en coexistence, les jaunes de V10) EN PRODUCTION le 2026-11-11 (`111239c5`, run 42993667539) ; V12 et V13
+  (l'e-mail du Pro seulement à un espace en Pro, l'offre lue sans cache, l'alerte Telegram vraie pour toute offre)
+  poussés pour le déploiement suivant. 🔴 Décision du 2026-11-11 (Julien : « c'est interminable ») : PLUS DE LOT DE
+  JAUNES ; les jaunes d'une relecture vont ici, et partent avec le prochain lot de fonctionnalité. Restent V3 (la pose
+  automatique, après D0) et V4 (le numéro d'essai déjà connecté, la liste à Julien).
+- 🟡 **Les jaunes laissés du lot 3v (relectures de V11 et V13, 2026-11-11)** :
+  - l'alerte Telegram « Pro terminé (impayé|résiliation) … L'espace revient en Free » (`src/stripe/traitement-abonnements.ts`)
+    est fausse pour une Entreprise ou un Business qui garde un Pro : la même tournure que l'alerte du renouvellement
+    échoué, ou l'offre relue (`surFinDuPro` la lit déjà sans cache) ;
+  - l'alerte du renouvellement échoué est statique : nommer l'offre lue, au lieu de laisser Julien la chercher ;
+  - le commentaire « Les admins d'abord » du banc de `tests/socle.test.ts` justifie un ordre qui ne compte plus ;
+  - la fiche « Les e-mails que Messaging Me vous envoie » et `features.md` ne citent ni l'e-mail du paiement refusé de
+    l'option elle-même (`paiement_refuse_option_wa`) ni l'exclusion de l'Entreprise et du Business (avec le prochain
+    `aide:charger`).
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes

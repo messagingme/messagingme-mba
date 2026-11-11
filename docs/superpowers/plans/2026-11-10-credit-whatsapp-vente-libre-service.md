@@ -468,3 +468,15 @@ l'option) ; les trois mutations du câblage, refaites, rougissent.
   Entreprise ou un Business (4, tenu par le test du webhook).
 
 V12 et V13 : l'API, sans migration, ensemble ; aucune fiche d'aide.
+
+## La relecture du lot V13 (2026-11-11), et la fin des lots de jaunes
+
+Un relecteur indépendant, sur `41934d27` : **aucun rouge, trois jaunes**. Les quatre jaunes de V12 sont fermés : la
+lecture sans cache rend la même offre que le cache dans le cas nominal, lève sur une panne (l'e-mail part), sans requête
+de plus (le webhook vidait déjà l'entrée du cache) ; le banc répond à chaque requête par la bonne branche, l'identité
+réservée comprise ; cinq mutations rougissent. V12 et V13 partent ensemble.
+
+🔴 **Décision du 2026-11-11 (Julien : « y a encore combien de V comme ça ? c'est interminable »)** : PLUS DE LOT DE
+JAUNES. Les trois jaunes de V13 (l'alerte « Pro terminé » jumelle, l'alerte statique, un commentaire du banc) et le 6 de
+V11 vont au backlog (`todo.md`), et partiront avec le prochain lot de fonctionnalité. Restent au plan V3 (après D0) et
+V4 (le numéro d'essai déjà connecté, la liste à Julien).
