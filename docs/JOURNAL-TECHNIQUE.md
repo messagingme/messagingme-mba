@@ -4,6 +4,31 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : qui paie Meta, sur la vitrine, depuis l'ouverture de la vente du Crédit WhatsApp (lot 3v-2c)
+
+Plan `2026-11-11-aide-connexion-3v2c.md`, implémenté en direct, une relecture indépendante.
+
+- **Ce qui a changé** (`d2441add`) : chaque phrase de la vitrine qui disait que Meta facture votre entreprise (les cas
+  d'usage, leur réponse « Combien ça coûte ? », les tarifs, l'accueil, « Pilotage des coûts », les développeurs, en
+  français et en anglais) nomme l'exception du Crédit WhatsApp, prépayé chez Messaging Me avec la formule Pro ou
+  Business ; les tarifs perdent « Messaging Me ne touche pas à ces frais », sans dire « commission » ; la fiche
+  « Recharger le Crédit WhatsApp » et `features.md` disent l'onglet tel que la vente l'ouvre.
+- **La garde** : `tests/etapes-meta.test.ts` lit chaque page de `site/` et exige l'exception dans toute phrase où
+  Meta facture l'entreprise ; elle a trouvé, en chemin, quatre réponses de FAQ par langue que l'inventaire à la main
+  avait manquées. Vue rouge sur une phrase des tarifs et une ligne d'un cas remises à l'ancienne.
+- **Relecture** : un rouge, corrigé dans le lot : la page Shopify (« Messaging Me n'y ajoute rien », « sans supplément
+  de notre part »), que la garde ne voyait pas ; elle dit maintenant qu'avec le Crédit WhatsApp on prépaie chez
+  Messaging Me, à un prix tout compris, et l'accueil aussi (« sans commission, sauf avec le Crédit WhatsApp » avouait une
+  commission que les tarifs taisent). La garde voit la boutique et « n'y ajoute rien », coupe le JSON-LD par réponse et
+  exige une phrase vue par page reprise ; vue rouge sur l'ancienne note. Jaunes repris : la réponse de la prise de
+  rendez-vous, l'option sortie des « À venir », la pose de la ligne, la fiche avec le prix de l'option, le README du
+  plugin ; les autres au backlog.
+- **Le numéro neuf** (décision de Julien du même jour, un numéro neuf passe en coexistence sans problème) : la FAQ du
+  plugin, la skill et le README ne disent plus que Meta le refuse ; la vitrine et la console, par la session de la
+  barre latérale ; la consigne de `start_whatsapp_connection`, avec 3v-2b.
+- **Ordre** : poussé sur `03d2da47` (la vitrine par Vercel), sans déploiement d'API ; à Julien, `aide:charger` (la
+  fiche du Crédit WhatsApp).
+
 ## 2026-11-11 : le Crédit WhatsApp se prend dans la console, et la vitrine, Claude et l'aide le disent (lot 3v-2a)
 
 Plan `2026-11-11-aide-connexion-3v2a.md`, implémenté en direct, une relecture indépendante, le jour où la vente de

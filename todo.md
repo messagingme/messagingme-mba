@@ -107,9 +107,6 @@ au lot suivant ; rien ne bloque.
 
 ## 🟡 Le lot 4a-2 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
 
-- **« Meta facture directement »** décrit encore la carte par défaut dans les cas d'usage (`scripts/vitrine/
-  cas-textes.ts`) et les tarifs : à nuancer du Crédit WhatsApp avec 3v-2, le jour du prix (la FAQ du plugin, sa skill
-  `regles-whatsapp`, son README, le guide « compte Meta Business » et la fiche le font depuis 4a-3).
 - **Codex, ce qui n'est écrit nulle part** : comment mettre le plugin à jour (`codex plugin` a-t-il une mise à jour ?)
   et ce qu'on y tape pour lancer la mise en service (`/messagingme:demarrer` est une commande de Claude Code ; le tunnel
   fait coller une demande propre à chaque chemin). À mesurer sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3
@@ -117,6 +114,14 @@ au lot suivant ; rien ne bloque.
 
 ## 🟡 Le lot 3v-2a de l'aide à la connexion : ce qu'il laisse (2026-11-11), pour 3v-2b
 
+- **La page Tarifs cite l'option sans son prix** (jaune 3 de 3v-2c) : « (formule Pro ou Business) » se lit « inclus » ;
+  avec la ligne « Crédit WhatsApp » des cartes, 30 € HT par numéro et par mois (`PRIX_OPTION_WA_HT_CENTIMES`).
+- **L'Entreprise oubliée de l'exception** (jaune 4 de 3v-2c) : elle comprend le Crédit WhatsApp, selon son contrat ;
+  « (formule Pro ou Business) » ne la nomme pas (accueil, cas, tarifs).
+- **La doc API de la console** (jaune 11 de 3v-2c) : `web/app/developers/api/page.tsx` dit « Meta peut le facturer à
+  votre entreprise », sans le Crédit WhatsApp.
+- **La consigne de `start_whatsapp_connection` et le numéro neuf** : `NUMERO_NEUF` et la description (« brand-new
+  number is often refused ») à retirer, avec leur test (`tests/mcp-numero.test.ts`) ; la skill et la FAQ le font déjà.
 - **La skill `mise-en-service` et le Crédit WhatsApp** (jaunes 1 et 2) : son « Otherwise » envoie aussi vers l'onglet
   une Entreprise (le crédit est compris : « Connecter sans carte chez Meta »), un Business en essai et un Pro en retard
   (lire la raison que l'onglet donne) ; en Free, redire la question 3. Sa reprise, qui ne repose pas les questions, ne
@@ -136,12 +141,11 @@ au lot suivant ; rien ne bloque.
 
 ## 🟡 Le lot 3v-1 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
 
-- **3v-2, la suite** (la vente ouverte le 2026-11-11 ; 3v-2a fait, la vitrine, la FAQ, la skill et la fiche disent où
-  l'option se prend) : 3v-2c, « Meta facture directement à votre entreprise » des cas d'usage, des tarifs, de l'accueil,
-  de « Pilotage des coûts » et des développeurs, et l'onglet de la fiche « Recharger le Crédit WhatsApp », qui
-  n'apparaîtrait qu'à un numéro déjà payé ainsi ; 3v-2b, le lien de Claude (`/brancher`) qui ouvre la fenêtre du
-  partenaire, sa consigne et la branche du crédit de la vitrine ; puis la fiche publique « Payer ses messages sans carte
-  chez Meta » et la ligne « Crédit WhatsApp » des cartes Pro et Business de la vitrine, montrées à Julien avant le push.
+- **3v-2, la suite** (la vente ouverte le 2026-11-11 ; 3v-2a et 3v-2c faits : la vitrine, la FAQ, la skill et les
+  fiches disent où l'option se prend, et qui paie Meta avec elle) : 3v-2b, le lien de Claude (`/brancher`) qui ouvre la
+  fenêtre du partenaire, sa consigne et la branche du crédit de la vitrine ; puis la fiche publique « Payer ses messages
+  sans carte chez Meta » et la ligne « Crédit WhatsApp » des cartes Pro et Business de la vitrine, montrées à Julien
+  avant le push.
 
 ## 🟡 Le lot 2c de l'aide à la connexion : ce qu'il laisse (2026-11-09)
 
