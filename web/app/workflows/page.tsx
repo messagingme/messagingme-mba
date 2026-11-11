@@ -9,6 +9,7 @@ import { listWorkflows, createWorkflow, getWorkflow, deleteWorkflow, updateWorkf
 import { listAgents, type AgentResume } from '@/lib/api-agent';
 import { listUsers, type AdminUser } from '@/lib/api/compte';
 import { listRequetes, type RequeteApi } from '@/lib/api-agent-requetes';
+import { listSources } from '@/lib/api-agent-sources';
 import { useT, useLocale } from '@/lib/i18n';
 import { formatDate, hourMin } from '@/lib/day';
 import { Bouton } from '@/components/Bouton';
@@ -59,7 +60,7 @@ function WorkflowsInner({ session }: { session: Session }) {
    */
   const [membres, setMembres] = useState<AdminUser[] | null>(null);
   /** Les appels de Tools > Connecteurs API : ils GATENT le bloc « Appel API » et alimentent son sélecteur. */
-  const [requetes, setRequetes] = useState<RequeteApi[] | null>(null);
+  const [requetes, setRequetes] = useState<Array<RequeteApi & { systeme?: string }> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
@@ -136,7 +137,14 @@ function WorkflowsInner({ session }: { session: Session }) {
     void listUsers(session.tenantId)
       .then((r) => setMembres(r.users.filter((u) => !u.disabled && !u.pending)))
       .catch(() => {});
-    void listRequetes(session.tenantId).then((r) => setRequetes(r.requetes)).catch(() => {});
+    /**
+     * Chaque appel porte le NOM DE SON SYSTÈME (2026-11-11) : deux appels de même nom et de même chemin, l'un vers
+     * l'essai et l'autre vers la production, étaient indiscernables dans le bloc « Appel API ». Systèmes illisibles :
+     * la liste reste, sans le nom.
+     */
+    void Promise.all([listRequetes(session.tenantId), listSources(session.tenantId).catch(() => [])])
+      .then(([r, sources]) => setRequetes(r.requetes.map((q) => ({ ...q, systeme: sources.find((s) => s.id === q.sourceId)?.label }))))
+      .catch(() => {});
   }, [session.tenantId]);
 
   useEffect(() => { void load(); }, [load]);

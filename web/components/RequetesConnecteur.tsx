@@ -77,7 +77,7 @@ function libelleUsage(outils: number, scenarios: number, t: ReturnType<typeof us
     : t(`utilisé par ${fr.join(' et ')}`, `used by ${en.join(' and ')}`);
 }
 
-export function RequetesConnecteur({ tenantId, sources, sourceFiltre }: {
+export function RequetesConnecteur({ tenantId, sources, sourceFiltre, onModif }: {
   tenantId: string;
   sources: SourceAgent[];
   /**
@@ -87,6 +87,8 @@ export function RequetesConnecteur({ tenantId, sources, sourceFiltre }: {
    * le composant reste utilisable tel quel).
    */
   sourceFiltre?: string;
+  /** Après chaque écriture réussie : la ligne du système recompte ses appels et ses scénarios. */
+  onModif?: () => void;
 }) {
   const t = useT();
   const [requetes, setRequetes] = useState<RequeteApi[] | null>(null);
@@ -127,6 +129,7 @@ export function RequetesConnecteur({ tenantId, sources, sourceFiltre }: {
     try {
       await travail();
       await charger();
+      onModif?.();
       return true;
     } catch (err) {
       setErreur(err instanceof Error ? err.message : t('Opération impossible', 'Operation failed'));
@@ -142,7 +145,13 @@ export function RequetesConnecteur({ tenantId, sources, sourceFiltre }: {
   return (
     <div className="flex flex-col gap-3" data-testid="requetes-bloc">
       <div>
-        <h2 className="text-base font-semibold text-ink-900">{t('Appels API', 'API calls')}</h2>
+        {/* Le titre NOMME le système quand la liste est la sienne (2026-11-11) : « Appels API » tout court se
+            lisait comme la liste de TOUS les appels, et un système sans appel semblait avoir perdu ceux d'un autre. */}
+        <h2 className="text-base font-semibold text-ink-900" data-testid="requetes-titre">
+          {sourceFiltre === undefined
+            ? t('Appels API', 'API calls')
+            : t(`Appels API de « ${libelleSource(sourceFiltre)} »`, `API calls of “${libelleSource(sourceFiltre)}”`)}
+        </h2>
         <p className="mt-1 text-sm text-ink-500">
           {t(
             'Un appel se règle une fois, s’éprouve avec « Essayer », puis se donne à un ou plusieurs agents dans leur onglet Outils.',

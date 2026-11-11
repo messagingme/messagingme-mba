@@ -10,6 +10,7 @@ import {
   creerSource, eprouverSource, listSources, patchSource, supprimerSource,
   type AuthSource, type SourceAgent,
 } from '@/lib/api-agent-sources';
+import { listRequetes } from '@/lib/api-agent-requetes';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { Squelette } from '@/components/Squelette';
@@ -43,6 +44,28 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
    */
   const [ouvert, setOuvert] = useState<string | null>(null);
   const [ajout, setAjout] = useState(false);
+  /**
+   * 🔴 CE QUI SE SERT DE CHAQUE SYSTÈME, appels et scénarios (Julien, 2026-11-11). La ligne disait « 0 appel(s)
+   * actif(s) » d'un système dont l'appel servait un scénario : le chiffre comptait les seuls outils d'agent, et
+   * on pouvait croire le système inutile. Lu sur la liste des appels, qui porte déjà ses scénarios. Une lecture
+   * en échec rend `null` : la ligne ne dit alors rien plutôt qu'un zéro faux.
+   */
+  const [usages, setUsages] = useState<Record<string, { appels: number; scenarios: number }> | null>(null);
+
+  const chargerUsages = useCallback(async () => {
+    try {
+      const { requetes } = await listRequetes(tenantId);
+      const parSource: Record<string, { appels: number; scenarios: Set<string> }> = {};
+      for (const r of Array.isArray(requetes) ? requetes : []) {
+        const u = (parSource[r.sourceId] ??= { appels: 0, scenarios: new Set() });
+        u.appels += 1;
+        for (const nom of r.scenarios ?? []) u.scenarios.add(nom);
+      }
+      setUsages(Object.fromEntries(Object.entries(parSource).map(([id, u]) => [id, { appels: u.appels, scenarios: u.scenarios.size }])));
+    } catch {
+      setUsages(null);
+    }
+  }, [tenantId]);
 
   const charger = useCallback(async () => {
     try {
@@ -50,7 +73,8 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
     } catch (err) {
       setErreur(erreurDeChargement(err, t));
     }
-  }, [tenantId, t]);
+    await chargerUsages();
+  }, [tenantId, t, chargerUsages]);
   useEffect(() => { void charger(); }, [charger]);
 
   async function agir(travail: () => Promise<void>) {
@@ -100,12 +124,18 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
       )}
 
       {(sources ?? []).map((s) => (
-        <div key={s.id} className="flex flex-col gap-3">
+        /**
+         * 🔴 UN SEUL CADRE POUR LE SYSTÈME DÉPLIÉ, SA FICHE ET SES APPELS (Julien, 2026-11-11 : « c'est pas clair
+         * putain »). La ligne avait son cadre, le détail le sien, et les appels flottaient dessous sans aucun :
+         * le système SUIVANT, collé sous « Ajouter un appel », se lisait comme un appel du système ouvert, et
+         * les appels semblaient passer d'un système à l'autre selon celui qu'on dépliait.
+         */
+        <div key={s.id} data-testid={`source-cadre-${s.id}`} className={`flex flex-col rounded-carte border transition-colors duration-150 ${
+          ouvert === s.id ? 'border-brand-500 bg-white' : 'border-ink-200 bg-white hover:bg-ink-50'
+        }`}>
           {/* LA LIGNE : ce qu'on lit d'un coup d'oeil pour choisir. Le détail et les appels sont dessous, à
               la demande. */}
-          <div className={`flex w-full items-center rounded-carte border transition-colors duration-150 ${
-            ouvert === s.id ? 'border-brand-500 bg-brand-50/40' : 'border-ink-200 bg-white hover:bg-ink-50'
-          }`}>
+          <div className={`flex w-full items-center ${ouvert === s.id ? 'rounded-t-carte border-b border-brand-200 bg-brand-50/40' : ''}`}>
           <button
             type="button"
             data-testid={`source-ligne-${s.id}`}
@@ -129,9 +159,16 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
               {s.agents === 0
                 ? t('aucun agent', 'no agent')
                 : t(`${s.agents} agent(s)`, `${s.agents} agent(s)`)}
-              <span className="block text-ink-500">
-                {t(`${s.outilsActifs} appel(s) actif(s)`, `${s.outilsActifs} active call(s)`)}
-              </span>
+              {usages && (
+                <span className="block text-ink-500">
+                  {(() => {
+                    const u = usages[s.id] ?? { appels: 0, scenarios: 0 };
+                    return u.scenarios > 0
+                      ? t(`${u.appels} appel(s), ${u.scenarios} scénario(s)`, `${u.appels} call(s), ${u.scenarios} scenario(s)`)
+                      : t(`${u.appels} appel(s)`, `${u.appels} call(s)`);
+                  })()}
+                </span>
+              )}
             </span>
           </button>
           {/* 🔴 ACTIVER SE FAIT DEPUIS LA LISTE (Julien, 2026-10-05). Le bouton vivait dans le détail déplié : un
@@ -149,7 +186,7 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
           </div>
 
           {ouvert === s.id && (
-            <>
+            <div className="flex flex-col gap-3 p-3">
               <Source
                 source={s}
                 busy={busy}
@@ -170,9 +207,9 @@ export function ConnecteursBibliotheque({ tenantId }: { tenantId: string }) {
               {/* Les APPELS DE CE SYSTÈME, sous lui. C'est la suite logique du geste : on ne met pas au point
                   un appel sans regarder le système, et l'écran ne montre plus les appels des autres. */}
               <div className="border-t border-ink-200 pt-4">
-                <RequetesConnecteur tenantId={tenantId} sources={sources ?? []} sourceFiltre={s.id} />
+                <RequetesConnecteur tenantId={tenantId} sources={sources ?? []} sourceFiltre={s.id} onModif={chargerUsages} />
               </div>
-            </>
+            </div>
           )}
         </div>
       ))}

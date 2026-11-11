@@ -508,7 +508,7 @@ export function ConfigPanel({
   /** Membres de l'équipe, pour l'affectation du bloc « passer à un humain ». `null` = pas encore chargés. */
   membres?: Array<{ id: string; name: string | null; email: string }> | null;
   /** Appels déclarés dans Tools > Connecteurs API, pour le bloc « Appel API ». `null` = pas encore chargés. */
-  requetes?: Array<{ id: string; label: string; methode: string; chemin: string }> | null;
+  requetes?: Array<{ id: string; label: string; methode: string; chemin: string; systeme?: string }> | null;
   onCommitTag: (tag: string) => void;
   /** L'agent de Meta est-il allumé ? Le bloc « Envoyer au MBA » l'avertit sinon (RC6). `undefined` = non lu : rien n'est dit. */
   mbaEnabled?: boolean;
@@ -1117,7 +1117,7 @@ export function ConfigPanel({
           >
             <option value="">{t('choisir un appel…', 'choose a call…')}</option>
             {(requetes ?? []).map((r) => (
-              <option key={r.id} value={r.id}>{r.label} ({r.methode} {r.chemin})</option>
+              <option key={r.id} value={r.id}>{r.label} ({r.systeme ? `${r.systeme}, ` : ''}{r.methode} {r.chemin})</option>
             ))}
           </select>
           {/* ⚠️ Un appel choisi puis SUPPRIMÉ disparaît de la liste : le sélecteur retomberait sur « choisir… »

@@ -80,7 +80,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   /** Membres de l'équipe, pour le sélecteur d'affectation du bloc « passer à un humain ». */
   membres?: Array<{ id: string; name: string | null; email: string }> | null;
   /** Appels déclarés dans Tools > Connecteurs API, pour le bloc « Appel API ». `null` = pas encore chargés. */
-  requetes?: Array<{ id: string; label: string; methode: string; chemin: string }> | null;
+  requetes?: Array<{ id: string; label: string; methode: string; chemin: string; systeme?: string }> | null;
   /**
    * LE CANAL QUE CE SCÉNARIO DOIT SAVOIR OUVRIR, quand l'éditeur est monté DEPUIS une campagne.
    *

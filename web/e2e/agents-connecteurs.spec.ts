@@ -385,10 +385,15 @@ test.describe('Agent : brancher le système du client', () => {
     // Sans ce chiffre, on croirait le système lié à l'agent d'où on l'a vu, et on le supprimerait en cassant
     // les autres. C'est ce qui rend la bibliothèque partagée lisible.
     const capture = { posts: [] as Array<{ url: string; body: unknown }> };
-    await mock(page, capture, { sources: [{ ...SOURCE, agents: 2, outilsActifs: 3 }] });
+    // 🔴 Et ce qui s'en sert d'autre (2026-11-11) : ses appels, et les SCÉNARIOS qui les jouent. La ligne disait
+    // « 0 appel(s) actif(s) » d'un système dont l'appel servait un scénario.
+    await mock(page, capture, {
+      sources: [{ ...SOURCE, agents: 2, outilsActifs: 0 }],
+      requetes: [{ ...REQUETE, scenarios: ['main', 'relance', 'main'] }],
+    });
     await page.goto('/connecteurs');
-    await expect(page.getByTestId(`source-usage-${SRC}`)).toContainText('2');
-    await expect(page.getByTestId(`source-usage-${SRC}`)).toContainText('3');
+    await expect(page.getByTestId(`source-usage-${SRC}`)).toContainText('2 agent(s)');
+    await expect(page.getByTestId(`source-usage-${SRC}`)).toContainText('1 appel(s), 2 scénario(s)');
   });
 
   test('🔴 un agent ne met au point AUCUN appel : il renvoie vers la bibliothèque', async ({ page }) => {

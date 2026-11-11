@@ -3396,6 +3396,13 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
 - ✅ **Un appel utilisé par un agent ou par un bloc Appel API de scénario ne se supprime pas** : l'écran dit combien
   d'outils d'agent et de scénarios s'en servent (le nom des scénarios au survol) et refuse, plutôt que de rendre un
   agent muet ou un bloc inopérant en silence (scénarios depuis le 2026-11-04).
+- ✅ **Chaque appel se lit chez SON système** (2026-11-11, remonté par Julien en branchant un système de
+  production à côté de son système d'essai). Le système déplié, sa fiche et ses appels tiennent dans **un seul
+  cadre**, sous le titre « Appels API de « nom du système » » : le système suivant ne se lit plus comme un de ses
+  appels. La ligne de chaque système compte ses **appels et les scénarios** qui les jouent (elle disait
+  « 0 appel(s) actif(s) » d'un système dont l'appel servait un scénario). Le bloc **Appel API** d'un scénario
+  nomme le système de chaque appel : deux appels de même nom, l'un vers l'essai et l'autre vers la production,
+  ne se confondent plus.
 - ✅ **Un connecteur qui porte encore des appels ne se supprime pas** : on supprime d'abord ses appels, et le refus le
   dit (depuis le 2026-11-04 ; avant, il finissait en « Incident de notre côté »).
 - ⛔ **L'authentification ne se règle pas sur un appel** : elle vit sur le système, où le secret est chiffré. Un
