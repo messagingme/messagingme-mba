@@ -4,6 +4,27 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : les jaunes du chantier de la connexion du numéro (fenêtre ouverte, conditions de « Le mien », tunnel allégé)
+
+Plan `2026-11-11-aide-connexion-jaunes.md`, implémenté en direct, une relecture indépendante (« Oui, vas-y », Julien).
+
+- **Ce qui a changé** (`5032b83f`) : sur Connecter WhatsApp, une fenêtre de Meta ouverte ferme les gestes qui changeraient de
+  voie (la connexion en cours n'est plus démontée) ; « Le mien » du Crédit WhatsApp montre ses conditions chez Meta ;
+  `get_setup_state` donne « Payer Meta » quand la carte est à régler ; le guide « Pièges de Meta » dit l'exception du
+  Crédit WhatsApp ; le titre des modèles WhatsApp passe sous 60 caractères ; les étapes du tunnel ne s'écrivent plus
+  qu'une fois par issue (environ 51 Ko de moins par page) ; la capture de l'encadré chez Meta est refaite.
+- **Relecture** : aucun rouge. Ses deux trous de garde fermés avant le push : le fil de la page vers la voie de la carte
+  et celui de « Le vôtre » ont chacun leur e2e (fenêtre ouverte, réponses de la ligne fermées), vus rouges fil coupé ; la
+  règle CSS qui masque l'autre offre est tenue par le test du tunnel. Laissés : la lecture sans script des deux demandes
+  (lisible, sans libellé par offre) ; une fenêtre bloquée qui ne rend jamais la main fige les choix jusqu'au rechargement
+  (l'état « occupé » existait déjà, le lot l'étend aux gestes de voie ; le message de fenêtre bloquée s'affiche).
+- **Vérifié** : les suites racine et console, le lint et l'e2e de « Qui paie vos messages à Meta ? », sur la copie puis sur
+  l'arbre fusionné ; vues rouges sans leur correctif : l'e2e de la fenêtre ouverte (écran construit avec les gestes
+  rouverts), ceux de la voie de la carte et de « Le vôtre » (fil coupé), « Payer Meta » avec la carte à régler, les tests
+  du tunnel sur les anciennes pages.
+- **Ordre** : poussé sur `eb198afd` (console et vitrine par Vercel), puis l'API (la règle et la description de
+  `get_setup_state`), sans migration ; le plugin ne change pas.
+
 ## 2026-11-11 : la fenêtre du partenaire, les jaunes 1 à 3 de la relecture de V8 (lot 3v, V9), et V7 à V9 en production
 
 Accord de Julien (« Oui, enchaîne », pour V8 et V9 après leurs relectures) ; plan
