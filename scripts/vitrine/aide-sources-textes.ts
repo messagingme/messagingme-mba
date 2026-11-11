@@ -117,7 +117,9 @@ export const PAGES_SOURCES: readonly PageSource[] = [
   {
     cle: 'modeles-whatsapp',
     adresse: { fr: '/aide/les-modeles-whatsapp/', en: '/en/help/whatsapp-templates/' },
-    titre: { fr: 'Les modèles WhatsApp : pourquoi, quelle catégorie, combien', en: 'WhatsApp templates: why, which category, how much' },
+    // Sous 60 caractères avec le suffixe du titre de la page (« | Aide Messaging Me ») : coupé sinon dans les résultats
+    // de recherche (jaune de la relecture du lot 4a-2). Le « pourquoi » est dans le chapeau.
+    titre: { fr: 'Modèles WhatsApp : catégories et prix', en: 'WhatsApp templates: categories and price' },
     chapeau: {
       fr: 'Pour écrire en premier, WhatsApp exige un modèle approuvé par Meta. Ce qui décide de sa catégorie, ce qu’il coûte, et que faire s’il est refusé.',
       en: 'To write first to someone, WhatsApp requires a template approved by Meta. What decides its category, what it costs, and what to do if it is rejected.',

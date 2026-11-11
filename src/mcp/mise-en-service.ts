@@ -132,7 +132,10 @@ export interface EtatMiseEnService {
   avertissements: string[];
   /** Avec `carte_meta_a_regler` seulement : le chemin chez Meta, la même source que l'Accueil (`ETAPES_CARTE_META`). */
   etapes_carte_meta?: string[];
-  /** Aux deux étapes du numéro seulement (`connecter_numero`, `activer_numero`) : les pages d'aide (`AIDE_NUMERO`). */
+  /**
+   * Aux deux étapes du numéro (`connecter_numero`, `activer_numero`), et avec `carte_meta_a_regler` pour « Payer Meta »
+   * (jaune de la relecture du lot 4b) : les pages d'aide (`AIDE_NUMERO`).
+   */
   aide?: typeof AIDE_NUMERO;
 }
 
@@ -216,7 +219,7 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
     outils_suggeres: OUTILS_DE_L_ETAPE[etape],
     avertissements,
     ...(carteARegler ? { etapes_carte_meta: ETAPES_CARTE_META.map((e) => e.fr) } : {}),
-    ...(etape === 'connecter_numero' || etape === 'activer_numero' ? { aide: AIDE_NUMERO } : {}),
+    ...(etape === 'connecter_numero' || etape === 'activer_numero' || carteARegler ? { aide: AIDE_NUMERO } : {}),
   };
 }
 

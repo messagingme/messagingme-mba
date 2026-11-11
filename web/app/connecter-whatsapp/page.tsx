@@ -88,6 +88,8 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
   const formuleEnLecture = tunnel && isAdmin && !connecte && ((compte === null && !compteIllisible) || vue === undefined);
   /** Après une connexion, par la carte chez Meta comme par la ligne du partenaire : ses avertissements, puis le compte relu. */
   const apresConnexion = (av: string[]) => { setAvertissements(av); chargerCompte(); };
+  /** La fenêtre de Meta de la voie de la carte est ouverte : `QuiRegleMeta` ne laisse pas changer de voie (jaune du lot 3v-1). */
+  const [fenetreCarte, setFenetreCarte] = useState(false);
   const parcours = (
     <ParcoursNumero
       tenantId={tenantId}
@@ -96,6 +98,7 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
       retour="console"
       connecte={false}
       surConnexion={apresConnexion}
+      surOccupe={setFenetreCarte}
     />
   );
   // Connecté avec un numéro fourni payé : l'abonnement se gère encore d'ici (jaune 1 de la relecture de la livraison B).
@@ -158,9 +161,9 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
       ) : formuleEnLecture ? null : formuleAChoisir && vue ? (
         <ChoixOffre tenantId={tenantId} vue={vue} surFree={choisirFree} />
       ) : (
-        <QuiRegleMeta tenantId={tenantId} admin lieu="connecter" api={api} surConnexion={apresConnexion}>{parcours}</QuiRegleMeta>
+        <QuiRegleMeta tenantId={tenantId} admin lieu="connecter" api={api} surConnexion={apresConnexion} occupe={fenetreCarte}>{parcours}</QuiRegleMeta>
       )}
-      {connecte && <QuiRegleMeta tenantId={tenantId} admin={isAdmin} lieu="connecter" connecte>{isAdmin && parcours}</QuiRegleMeta>}
+      {connecte && <QuiRegleMeta tenantId={tenantId} admin={isAdmin} lieu="connecter" connecte occupe={fenetreCarte}>{isAdmin && parcours}</QuiRegleMeta>}
 
       {tunnel && !connecte && (
         <Link href="/demarrer" className="mt-6 inline-block text-sm font-semibold text-ink-900 underline" data-testid="numero-plus-tard">

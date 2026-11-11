@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import { MbaNotice } from '@/components/MbaNotice';
-import { ParcoursNumero } from '@/components/ParcoursNumero';
+import { EncadreChezMeta, ParcoursNumero } from '@/components/ParcoursNumero';
 import { estPageDePaiement } from '@/lib/api-credit';
 import { lireEtatLigne, ouvrirOptionWhatsapp, type VueEtatLigne } from '@/lib/api-credit-whatsapp';
 import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
@@ -13,7 +13,9 @@ import { FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
 import { erreurDeChargement } from '@/lib/http';
 import { useT } from '@/lib/i18n';
 import { raisonAttenteOption } from '@/lib/offre';
-import { AVERTISSEMENT_APPLICATION, ISSUE_API, QUESTION_LIGNE_NUMERO, QUESTION_PAIEMENT } from '@/lib/questions-numero';
+import {
+  AVERTISSEMENT_APPLICATION, ISSUE_API, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, QUESTION_LIGNE_NUMERO, QUESTION_PAIEMENT,
+} from '@/lib/questions-numero';
 import { useOffre } from '@/lib/use-offre';
 
 /** Après un retour de Stripe : combien de fois, et tous les combien, on relit l'état. */
@@ -58,9 +60,14 @@ export const PAR_LA_LIGNE = {
  * 🔴 LE RETOUR DE STRIPE NE PREND RIEN : il relit l'état jusqu'à voir l'option que le webhook écrit, et la prise reste
  * fermée en attendant (sinon le client la paierait deux fois, comme dans l'onglet).
  */
-export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children, api, surConnexion }: {
+export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children, api, surConnexion, occupe = false }: {
   tenantId: string;
   admin: boolean;
+  /**
+   * La fenêtre de Meta du parcours de la carte (`children`, monté par la page) est ouverte : changer de voie le
+   * démonterait, et avec lui la connexion en cours (jaune de la relecture du lot 3v-1).
+   */
+  occupe?: boolean;
   /** `connecter` : la question du guide, et le retour de Stripe y arrive (`?option=`) ; `accueil` : elle mène au guide. */
   lieu: 'connecter' | 'accueil';
   /** Un numéro est connecté : la carte chez Meta ne rouvre le guide qu'une fois l'option arrêtée. */
@@ -86,6 +93,12 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   const [erreur, setErreur] = useState<string | null>(null);
   /** La réponse à « Votre numéro, ou le nôtre ? » (lot 3v), la fenêtre du partenaire ouverte. */
   const [numeroLigne, setNumeroLigne] = useState<'mien' | 'notre' | null>(null);
+  /**
+   * Une fenêtre de Meta ouverte par une voie de la ligne (« Le mien », « Le vôtre »), ou par celle de la carte (`occupe`) :
+   * tant qu'elle l'est, aucun geste ne change de voie, ce qui démonterait la connexion en cours (jaune du lot 3v-1).
+   */
+  const [fenetreLigne, setFenetreLigne] = useState(false);
+  const fenetreOuverte = occupe || fenetreLigne;
 
   useEffect(() => {
     if (lieu !== 'connecter') return;
@@ -176,7 +189,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
             <p className="text-sm font-semibold text-ink-900">{t(QUESTION_LIGNE_NUMERO.texte.fr, QUESTION_LIGNE_NUMERO.texte.en)}</p>
             <div className="flex flex-wrap gap-2">
               {(['mien', 'notre'] as const).map((r) => (
-                <Bouton key={r} type="button" variante={choisie === r ? 'principal' : 'secondaire'} aria-pressed={choisie === r} onClick={() => repondreLigne(r)} data-testid={`ligne-numero-${r}`}>
+                <Bouton key={r} type="button" variante={choisie === r ? 'principal' : 'secondaire'} aria-pressed={choisie === r} disabled={fenetreOuverte} onClick={() => repondreLigne(r)} data-testid={`ligne-numero-${r}`}>
                   {t(QUESTION_LIGNE_NUMERO[r].fr, QUESTION_LIGNE_NUMERO[r].en)}
                 </Bouton>
               ))}
@@ -236,11 +249,11 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   const boutonCarte = lieu === 'accueil' ? (
     <Link href="/connecter-whatsapp" data-testid="carte-meta-choisir" className={classesBouton('secondaire')}>{t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}</Link>
   ) : !connecte ? (
-    <Bouton type="button" variante={carteActive ? 'principal' : 'secondaire'} aria-pressed={carteActive} onClick={() => setCarte(true)} data-testid="carte-meta-choisir">
+    <Bouton type="button" variante={carteActive ? 'principal' : 'secondaire'} aria-pressed={carteActive} disabled={fenetreOuverte} onClick={() => setCarte(true)} data-testid="carte-meta-choisir">
       {t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}
     </Bouton>
   ) : etat === 'arretee' && admin ? (
-    <Bouton type="button" variante={carteActive ? 'principal' : 'secondaire'} aria-pressed={carteActive} onClick={() => setCarte(true)} data-testid="carte-meta-choisir">
+    <Bouton type="button" variante={carteActive ? 'principal' : 'secondaire'} aria-pressed={carteActive} disabled={fenetreOuverte} onClick={() => setCarte(true)} data-testid="carte-meta-choisir">
       {t('Connecter avec ma carte chez Meta', 'Connect with my card at Meta')}
     </Bouton>
   ) : null;
@@ -310,16 +323,20 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
           un numéro qui sert dans l'application, AVANT la fenêtre. Le nôtre : le numéro fourni, relié par la même fenêtre
           du partenaire, jamais en `fourni_application` (la ligne ne paie que l'API). */}
       {ligneIci && !carteActive && numeroLigne === 'mien' && api && surConnexion && (
-        <div data-testid="ligne-numero-mien-suite" className="mt-4 rounded-carte border border-ink-200 bg-white p-5">
-          <p className="text-sm text-ink-700" data-testid="ligne-numero-application">
-            <span className="font-semibold text-ink-900">{t(ISSUE_API.garder.fr, ISSUE_API.garder.en)}</span>{' '}
-            {t(QUESTION_LIGNE_NUMERO.application.fr, QUESTION_LIGNE_NUMERO.application.en)}
-          </p>
-          <div className="mt-3"><BoutonParLaLigne tenantId={tenantId} api={api} surConnexion={surConnexion} /></div>
-        </div>
+        <>
+          {/* Ce qu'il faut chez Meta, comme sur les autres voies : sans la carte, et son numéro à lui (jaune du lot 4a-3). */}
+          <EncadreChezMeta prerequis={[...PREREQUIS_LIGNE, NUMERO_LIGNE_MIEN]} />
+          <div data-testid="ligne-numero-mien-suite" className="mt-4 rounded-carte border border-ink-200 bg-white p-5">
+            <p className="text-sm text-ink-700" data-testid="ligne-numero-application">
+              <span className="font-semibold text-ink-900">{t(ISSUE_API.garder.fr, ISSUE_API.garder.en)}</span>{' '}
+              {t(QUESTION_LIGNE_NUMERO.application.fr, QUESTION_LIGNE_NUMERO.application.en)}
+            </p>
+            <div className="mt-3"><BoutonParLaLigne tenantId={tenantId} api={api} surConnexion={surConnexion} surOccupe={setFenetreLigne} /></div>
+          </div>
+        </>
       )}
       {ligneIci && !carteActive && numeroLigne === 'notre' && api && surConnexion && (
-        <ParcoursNumero tenantId={tenantId} api={api} choixInitial="fourni" parLaLigne retour="console" connecte={connecte} surConnexion={surConnexion} />
+        <ParcoursNumero tenantId={tenantId} api={api} choixInitial="fourni" parLaLigne retour="console" connecte={connecte} surConnexion={surConnexion} surOccupe={setFenetreLigne} />
       )}
     </div>
   );
@@ -331,13 +348,17 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
  * connexion, et n'est monté qu'une fois la voie de la carte chez Meta refermée (« Le mien », lot 3v) : sa fenêtre s'ouvre
  * dans le geste du clic (Safari, `ouvrirFenetreMeta`).
  */
-function BoutonParLaLigne({ tenantId, api, surConnexion }: {
+function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe }: {
   tenantId: string;
   api: Pick<ApiConnexionNumero, 'config' | 'completer'>;
   surConnexion: (avertissements: string[]) => void;
+  /** Sa fenêtre s'ouvre ou se ferme : la carte ferme les gestes qui le démonteraient (jaune du lot 3v-1). */
+  surOccupe: (occupe: boolean) => void;
 }) {
   const t = useT();
   const connexion = useConnexionNumero(tenantId, api, surConnexion);
+  useEffect(() => { surOccupe(connexion.busy); }, [connexion.busy, surOccupe]);
+  useEffect(() => () => { surOccupe(false); }, [surOccupe]);
   const pret = connexion.cfg?.enabled === true && (connexion.cfg.solutionId ?? null) !== null;
   return (
     <div className="space-y-2">

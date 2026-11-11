@@ -21,6 +21,22 @@ import {
 type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
 
 /**
+ * « Avant de commencer, chez Meta » : les conditions d'une fenêtre de Meta, numérotées. Le parcours le pose avant ses
+ * fenêtres, et la voie « Le mien » du Crédit WhatsApp aussi (`QuiRegleMeta`), depuis les mêmes sources.
+ */
+export function EncadreChezMeta({ prerequis }: { prerequis: ReadonlyArray<{ readonly fr: string; readonly en: string }> }) {
+  const t = useT();
+  return (
+    <div data-testid="prerequis-meta" className="mt-6 rounded-carte border border-ink-200 bg-ink-50 p-5">
+      <div className="text-sm font-semibold text-ink-900">{t('Avant de commencer, chez Meta', 'Before you start, at Meta')}</div>
+      <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-ink-700">
+        {prerequis.map((e) => <li key={e.fr}>{t(e.fr, e.en)}</li>)}
+      </ol>
+    </div>
+  );
+}
+
+/**
  * LE PARCOURS DE CONNEXION DU NUMÉRO (lot 3b, sorti de `/connecter-whatsapp` au lot 3c pour servir aussi `/brancher`).
  *
  * Sans choix déjà fait, il pose d'abord les questions du tunnel de la vitrine (2026-10-30, `@/lib/questions-numero`) :
@@ -47,9 +63,14 @@ type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
  * ⚠️ EN v4, RIEN NE FAIT SAUTER L'ÉCRAN DU NUMÉRO DE LA FENÊTRE DE META (mesuré le 2026-10-06) : le client y tape donc
  * le numéro, d'où les consignes. La fenêtre vérifie le code, puis la suite actuelle relie et active le numéro.
  */
-export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, surConnexion, filiere = 'api', parLaLigne = false }: {
+export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, surConnexion, filiere = 'api', parLaLigne = false, surOccupe }: {
   tenantId: string;
   api: ApiConnexionNumero;
+  /**
+   * La fenêtre de Meta de ce parcours s'ouvre ou se ferme (jaune de la relecture du lot 3v-1) : `QuiRegleMeta` ferme alors
+   * les gestes qui démonteraient ce parcours, et avec lui la connexion en cours. Un setter d'état, d'identité stable.
+   */
+  surOccupe?: (occupe: boolean) => void;
   /**
    * Le numéro fourni du Crédit WhatsApp (« Le vôtre », lot 3v) : la fenêtre de Meta s'ouvre avec la solution du
    * partenaire, que la configuration ne rend qu'à un espace qui a droit à la ligne, et la fin passe par la ligne
@@ -107,6 +128,8 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   /** Le numéro fourni va dans l'application : relié par le QR code (filière application), ou gardé en coexistence. */
   const dansApplication = application || choix === 'fourni_application';
   const connexion = useConnexionNumero(tenantId, api, surConnexion);
+  useEffect(() => { surOccupe?.(connexion.busy); }, [connexion.busy, surOccupe]);
+  useEffect(() => () => { surOccupe?.(false); }, [surOccupe]);
   /**
    * La course d'un geste et d'une lecture (jaune 5 de la relecture de la livraison B) : une lecture partie AVANT
    * « Remplacer » revient avec l'ancien numéro ou son code. Chaque geste change de génération à son début et à sa fin,
@@ -293,14 +316,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     <>
       {/* Ce qu'il faut chez Meta, avant toute fenêtre de Meta : la même source que Claude (guide « compte Meta »). La filière
           application n'a pas de fenêtre de Meta. */}
-      {!application && (
-        <div data-testid="prerequis-meta" className="mt-6 rounded-carte border border-ink-200 bg-ink-50 p-5">
-          <div className="text-sm font-semibold text-ink-900">{t('Avant de commencer, chez Meta', 'Before you start, at Meta')}</div>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-ink-700">
-            {prerequis.map((e) => <li key={e.fr}>{t(e.fr, e.en)}</li>)}
-          </ol>
-        </div>
-      )}
+      {!application && <EncadreChezMeta prerequis={prerequis} />}
       {choix === null ? (
         // Les questions du tunnel de la vitrine : seule la page de la console y passe, un lien de Claude Code arrivant
         // avec son choix (donc jamais sur la filière application). Comme sur la vitrine (Julien, 2026-10-30 : « on garde

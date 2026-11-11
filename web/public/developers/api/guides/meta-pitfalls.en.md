@@ -34,7 +34,7 @@ Meta charges template messages by category and by the recipient’s country. Ser
 
 ## The card in Business Manager
 
-Meta requires a valid payment method on the WhatsApp account for what it charges, starting with templates, whatever the Messaging Me plan. Without it: [`131042`](https://console.messagingme.app/developers/api/errors.en.md#meta-131042).
+Meta requires a valid payment method on the WhatsApp account for what it charges, starting with templates, whatever the Messaging Me plan, except with WhatsApp credit, which prepays these messages at Messaging Me (not with the WhatsApp Business app). Without it: [`131042`](https://console.messagingme.app/developers/api/errors.en.md#meta-131042).
 
 <a id="consentement"></a>
 

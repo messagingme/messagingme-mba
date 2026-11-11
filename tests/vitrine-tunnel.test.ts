@@ -337,6 +337,9 @@ describe('le tunnel du numéro WhatsApp', () => {
     // La raison d'une carte grisée ne s'affiche que pour la formule choisie, et la carte ne se choisit pas.
     expect(lire('site.css')).toContain('.js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}');
     expect(lire('site.js')).toContain("carte && carte.querySelector('[data-vers]')");
+    // La formule choisie ne laisse dans une issue que son titre et sa demande : la règle qui masque l'autre offre, que le
+    // bloc d'étapes unique suppose (jaune 7 des lots 3b et 3c).
+    expect(lire('site.css')).toContain('.js .bt-guide[data-offre="free"] .bt-chemin [data-offre="pro"],.js .bt-guide[data-offre="pro"] .bt-chemin [data-offre="free"]{display:none}');
   });
 
   it('🔴 chaque issue finit sur les boutons de chaque offre, et sa demande reprend l’offre, les réponses et la page d’origine', () => {
@@ -357,20 +360,22 @@ describe('le tunnel du numéro WhatsApp', () => {
           expect(existsSync(join(process.cwd(), 'site', x.pasAPas, 'index.html')), x.pasAPas).toBe(true);
           continue;
         }
-        const blocs = new Map(article.split('<div class="bt-appels" data-offre="').slice(1).map((b) => [b.slice(0, b.indexOf('"')), b] as const));
-        expect([...blocs.keys()], `${p.adresse} : ${x.id}`).toEqual(['free', 'pro']);
-        const free = blocs.get('free')!;
-        const pro = blocs.get('pro')!;
+        // UN bloc d'étapes par issue (jaune 7 de la relecture des lots 3b et 3c) : le titre et la demande de chaque offre y
+        // sont marqués (`data-offre`), les étapes communes n'y figurent qu'une fois.
+        expect(article.split('<div class="bt-appels"').length - 1, `${p.adresse} : ${x.id}`).toBe(1);
+        expect(article.split('class="bt-etapes bt-etapes-fin"').length - 1, `${p.adresse} : ${x.id}`).toBe(1);
+        const bloc = article.slice(article.indexOf('<div class="bt-appels">'));
+        expect(bloc, `${p.adresse} : ${x.id}`).toContain('<p class="bt-appels-titre" data-offre="free">');
+        expect(bloc, `${p.adresse} : ${x.id}`).toContain('<p class="bt-appels-titre" data-offre="pro">');
         // En Free comme en Pro par l'assistant (lot 3c) : le plugin et son dépôt, à l'étape 1 ; l'inscription à la console
         // n'est plus ici, elle est l'issue de la console.
-        for (const bloc of [free, pro]) {
-          expect(bloc, `${p.adresse} : ${x.id}`).toContain(`href="${plugin}"`);
-          expect(bloc, `${p.adresse} : ${x.id}`).toContain(`href="${DEPOT_PLUGIN}"`);
-          expect(bloc, `${p.adresse} : ${x.id}`).not.toContain('signup?offre=pro');
-        }
+        expect(bloc, `${p.adresse} : ${x.id}`).toContain(`href="${plugin}"`);
+        expect(bloc, `${p.adresse} : ${x.id}`).toContain(`href="${DEPOT_PLUGIN}"`);
+        expect(bloc, `${p.adresse} : ${x.id}`).not.toContain('signup?offre=pro');
         expect(existsSync(join(process.cwd(), 'site', x.pasAPas, 'index.html')), x.pasAPas).toBe(true);
-        for (const [offre, bloc] of [['free', free], ['pro', pro]] as const) {
+        for (const offre of ['free', 'pro'] as const) {
           const id = `demande-${x.id}-${offre}`;
+          expect(bloc, `${p.adresse} : ${id}`).toContain(`<div class="bt-demande" data-offre="${offre}"><p id="${id}">`);
           expect(bloc, `${p.adresse} : ${id}`).toContain(`data-copier="${id}"`);
           const demande = affiche(bloc.match(new RegExp(`<p id="${id}">([^]*?)</p>`))?.[1] ?? '');
           expect(demande, `${p.adresse} : ${id}`).toBe(affiche(demandeDe(t, x, offre, p.origine)).replace(/ ([:;?!])/g, p.langue === 'fr' ? ' $1' : ' $1'));
@@ -396,10 +401,11 @@ describe('le tunnel du numéro WhatsApp', () => {
       for (const x of TEXTES_TUNNEL[p.langue].issues) {
         if (x.contact || x.console) continue;
         const article = html.match(new RegExp(`<article class="bt-chemin" data-chemin="${x.id}"[\\s\\S]*?</article>`))?.[0] ?? '';
-        for (const offre of ['free', 'pro'] as const) {
-        const free = article.split(`<div class="bt-appels" data-offre="${offre}">`)[1]?.split('<div class="bt-appels" data-offre=')[0] ?? '';
+        {
+        // Le bloc unique de l'issue (les étapes communes aux deux offres) ; chaque offre a sa demande à l'étape 3.
+        const free = article.slice(article.indexOf('<div class="bt-appels">'));
         const etapes = free.split('<li><span class="bt-num">').slice(1);
-        const ou = `${p.adresse} : ${x.id} ${offre}`;
+        const ou = `${p.adresse} : ${x.id}`;
         expect(etapes.map((e) => e.slice(0, 1)), ou).toEqual(['1', '2', '3']);
         // Julien, 2026-11-09 : « des logos Claude Code ou Codex avec la commande en face ». Aux étapes 1 et 2, le logo de
         // Claude Code puis celui de Codex, chacun devant ce qu'on y tape.
@@ -427,8 +433,8 @@ describe('le tunnel du numéro WhatsApp', () => {
         for (const m of ecrans) expect(existsSync(join(process.cwd(), 'site', m[1]!)), m[1]).toBe(true);
         expect(ecrans[0]![2], ou).toMatch(p.langue === 'fr' ? /Google[^]*adresse e-mail/ : /Google[^]*email address/);
         expect(relier, ou).toMatch(p.langue === 'fr' ? /Google, ou votre adresse e-mail/ : /Google, or your email address/);
-        // 3 : la demande à coller, et elle seule ; aucune marque restée dans les étapes, quelle que soit sa forme.
-        expect(etapes[2], ou).toContain(`data-copier="demande-${x.id}-${offre}"`);
+        // 3 : la demande à coller, celle de chaque offre, et elle seule ; aucune marque restée dans les étapes.
+        for (const offre of ['free', 'pro'] as const) expect(etapes[2], ou).toContain(`data-copier="demande-${x.id}-${offre}"`);
         for (const e of etapes.slice(0, 2)) expect(e, ou).not.toContain('data-copier');
         expect(free, ou).not.toMatch(/\{[^{}\s]+\}/);
         }

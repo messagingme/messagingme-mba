@@ -156,7 +156,7 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
   // Free comme en Pro par l'assistant (lot 3c) ; le Pro par la console a son issue. La demande reprend les réponses et
   // parle de la page d'origine.
   const boite = (x: IssueBranchement, offre: OffreTunnel, retrait: string) =>
-    `${retrait}<div class="bt-demande"><p id="demande-${x.id}-${offre}">${demandeDe(n, x, offre, origine)}</p><button type="button" class="bouton bouton-trait" data-copier="demande-${x.id}-${offre}" data-copie="${a.copie}" hidden>${a.copier}</button></div>`;
+    `${retrait}<div class="bt-demande" data-offre="${offre}"><p id="demande-${x.id}-${offre}">${demandeDe(n, x, offre, origine)}</p><button type="button" class="bouton bouton-trait" data-copier="demande-${x.id}-${offre}" data-copie="${a.copie}" hidden>${a.copier}</button></div>`;
   // Les étapes de la Free (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte »), leurs commandes celles
   // des manifestes du plugin (`web/lib/demarrer.ts`).
   const ef = a.etapesFree;
@@ -184,15 +184,18 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
     const d = ef.relier.detour;
     return `<li><figure class="bt-ecran"><span class="bt-fenetre"><img src="${versionnee(adresse)}" alt="${echapper(d.alt).replace(/"/g, '&quot;')}" width="${largeur}" height="${hauteur}" loading="lazy" decoding="async"></span><figcaption>${d.legende}</figcaption></figure></li>`;
   })();
-  // Les trois étapes, en Free comme en Pro par l'assistant (lot 3c) : seule la demande collée à l'étape 3 change.
-  const etapes = (x: IssueBranchement, offre: OffreTunnel) => [
+  // Les trois étapes, en Free comme en Pro par l'assistant (lot 3c) : UNE fois par issue (jaune 7 de la relecture des lots
+  // 3b et 3c : deux copies, +54 Ko par page), seule la demande collée à l'étape 3 changeant selon l'offre (`data-offre`,
+  // que `site.css` masque pour l'autre offre une fois la formule choisie ; sans script, les deux demandes se lisent).
+  const etapes = (x: IssueBranchement) => [
     '            <ol class="bt-etapes bt-etapes-fin">',
     `              <li><span class="bt-num">1</span><div><h4>${ef.installer.titre}</h4><div class="bt-outils">${outil('claude', ef.installer.claude, lignes(COMMANDES_PLUGIN))}${outil('codex', ef.installer.codex, lignes(COMMANDES_CODEX))}</div>`,
     `                <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="${PLUGIN[langue]}">${a.plugin}</a><a class="bouton bouton-trait" href="${DEPOT_PLUGIN}" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>${a.github}</a></div></div></li>`,
     `              <li><span class="bt-num">2</span><div><h4>${ef.relier.titre} <span class="bt-oblig">${ef.relier.obligatoire}</span></h4><div class="bt-outils">${outil('claude', ef.relier.claude, suite)}${outil('codex', ef.relier.codex, `${lignes([AUTORISATION_CODEX])}<p class="bt-outil-note">${ef.relier.codexNote}</p>`)}</div>`,
     `                <p class="bt-ecrans-titre">${ef.relier.navigateur}</p><ol class="bt-ecrans">${ecrans}</ol><p class="bt-ecrans-titre">${ef.relier.detour.titre}</p><ol class="bt-ecrans bt-ecrans-detour">${detour}</ol></div></li>`,
     `              <li><span class="bt-num">3</span><div><h4>${ef.coller}</h4>`,
-    boite(x, offre, '                '),
+    boite(x, 'free', '                '),
+    boite(x, 'pro', '                '),
     '              </div></li>',
     '            </ol>',
   ];
@@ -227,13 +230,10 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
         '          </div>',
       ]
       : [
-        '          <div class="bt-appels" data-offre="free">',
-        `            <p class="bt-appels-titre">${a.free}</p>`,
-        ...etapes(x, 'free'),
-        '          </div>',
-        '          <div class="bt-appels" data-offre="pro">',
-        `            <p class="bt-appels-titre">${a.proAssistant}</p>`,
-        ...etapes(x, 'pro'),
+        '          <div class="bt-appels">',
+        `            <p class="bt-appels-titre" data-offre="free">${a.free}</p>`,
+        `            <p class="bt-appels-titre" data-offre="pro">${a.proAssistant}</p>`,
+        ...etapes(x),
         '          </div>',
       ]);
   const issue = (x: Issue) => [

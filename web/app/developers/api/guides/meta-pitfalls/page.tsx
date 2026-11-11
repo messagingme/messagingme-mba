@@ -80,8 +80,8 @@ function Pieges() {
       <Section id="paiement" titre={t('La carte dans le Business Manager', 'The card in Business Manager')}>
         <p>
           {t(
-            'Meta exige un moyen de paiement valide sur le compte WhatsApp pour ce qu’il facture, à commencer par les modèles, quelle que soit l’offre Messaging Me. Sans lui : ',
-            'Meta requires a valid payment method on the WhatsApp account for what it charges, starting with templates, whatever the Messaging Me plan. Without it: ',
+            'Meta exige un moyen de paiement valide sur le compte WhatsApp pour ce qu’il facture, à commencer par les modèles, quelle que soit l’offre Messaging Me, sauf avec le Crédit WhatsApp, qui prépaie ces messages chez Messaging Me (pas avec l’application WhatsApp Business). Sans lui : ',
+            'Meta requires a valid payment method on the WhatsApp account for what it charges, starting with templates, whatever the Messaging Me plan, except with WhatsApp credit, which prepays these messages at Messaging Me (not with the WhatsApp Business app). Without it: ',
           )}
           <LienErreur meta={131042} />.
         </p>

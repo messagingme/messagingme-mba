@@ -34,7 +34,7 @@ Meta facture les messages de modèle selon leur catégorie et le pays du destina
 
 ## La carte dans le Business Manager
 
-Meta exige un moyen de paiement valide sur le compte WhatsApp pour ce qu’il facture, à commencer par les modèles, quelle que soit l’offre Messaging Me. Sans lui : [`131042`](https://console.messagingme.app/developers/api/errors.md#meta-131042).
+Meta exige un moyen de paiement valide sur le compte WhatsApp pour ce qu’il facture, à commencer par les modèles, quelle que soit l’offre Messaging Me, sauf avec le Crédit WhatsApp, qui prépaie ces messages chez Messaging Me (pas avec l’application WhatsApp Business). Sans lui : [`131042`](https://console.messagingme.app/developers/api/errors.md#meta-131042).
 
 <a id="consentement"></a>
 

@@ -158,6 +158,15 @@ export const PREREQUIS_LIGNE: ReadonlyArray<Texte> = [
   },
 ];
 
+/**
+ * « Le mien », le numéro de la personne par la fenêtre du partenaire (jaune de la relecture du lot 4a-3) : après les
+ * conditions de `PREREQUIS_LIGNE`, celle de son numéro, dont Meta vérifie qu'il est à elle par un code.
+ */
+export const NUMERO_LIGNE_MIEN: Texte = {
+  fr: 'Votre numéro, et le téléphone qui le porte : Meta y envoie un code, par SMS ou par appel.',
+  en: 'Your number, and the phone that holds it: Meta sends a code to it, by text message or phone call.',
+};
+
 /** Les voies qui gardent l'application WhatsApp Business : le Crédit WhatsApp n'y est pas possible (spec, décision 8). */
 export const NOTE_CARTE_APPLICATION: Texte = {
   fr: 'Vous payez Meta avec votre carte : le Crédit WhatsApp n’est pas possible avec l’application.',

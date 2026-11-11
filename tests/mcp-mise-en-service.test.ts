@@ -80,6 +80,14 @@ describe('l’étape suivante', () => {
     expect(etatMiseEnService({ ...PRET, agents: [] }).aide).toBeUndefined();
   });
 
+  it('🔴 la carte chez Meta à régler : les étapes ET « Payer Meta », même un espace prêt (jaune de la relecture du lot 4b)', () => {
+    const bloque = etatMiseEnService({ ...PRET, numero: { ...NUMERO_CONNECTE, connecte: { chiffres: '336', aActiver: false, paiementBloque: true } } });
+    expect(bloque.etape_suivante).toBe('pret');
+    expect(bloque.avertissements).toContain('carte_meta_a_regler');
+    expect(bloque.etapes_carte_meta?.length).toBeGreaterThan(0);
+    expect(bloque.aide?.payer_meta).toEqual(AIDE_PAYER_META);
+  });
+
   it('🔴 le code de vérification n’est jamais rendu : l’outil est ouvert aux clés d’API, le code est réservé à une personne', () => {
     const e = etatMiseEnService({ ...PRET, numero: { ...SANS_NUMERO, fourni: '+442071234567', code: { code: '493817', recuLe: '2026-10-12T10:00:00Z' } } });
     expect(JSON.stringify(e)).not.toContain('493817');

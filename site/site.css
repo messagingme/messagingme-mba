@@ -1019,8 +1019,9 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 /* Au téléphone, le numéro de l'étape se pose à côté de son titre : texte, commandes et demande prennent toute la largeur
    de la carte. */
 @media (max-width:520px){.bt-etapes-fin li{display:flow-root}.bt-etapes-fin .bt-num{float:left;width:28px;height:28px;margin:0 10px 0 0;font-size:.85rem}.bt-etapes-fin h4{margin:3px 0 10px}}
-/* L'offre choisie ne laisse que ses boutons ; sans script, les deux offres restent l'une sous l'autre. */
-.js .bt-guide[data-offre="free"] .bt-appels[data-offre="pro"],.js .bt-guide[data-offre="pro"] .bt-appels[data-offre="free"]{display:none}
+/* L'offre choisie ne laisse dans une issue que son titre et sa demande (les étapes, communes, n'y figurent qu'une fois) ;
+   sans script, les deux restent l'une sous l'autre. */
+.js .bt-guide[data-offre="free"] .bt-chemin [data-offre="pro"],.js .bt-guide[data-offre="pro"] .bt-chemin [data-offre="free"]{display:none}
 .js .bt-guide[data-pret] .bt-chemins{margin:0}
 .js .bt-guide[data-pret] .bt-chemin{display:none}
 .js .bt-guide[data-pret] .bt-chemin.actif{display:block;margin:26px 0 0;padding:clamp(20px,3.5vw,30px);border-color:rgb(37 211 102 / .5);background:rgb(37 211 102 / .07)}
