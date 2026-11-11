@@ -4700,9 +4700,11 @@ posée après sa connexion par la fenêtre du partenaire (l'option prise, ou en 
   sur la carte « Crédit WhatsApp » de Connecter WhatsApp, « Votre numéro, ou le nôtre ? » (2026-11-10). « Le mien » dit
   d'abord qu'un numéro qui sert dans l'application WhatsApp n'y marchera plus (vos clients vous écriront dans Messaging
   Me), puis « Connecter sans carte chez Meta » ; « Le vôtre » donne un numéro de chez nous, inclus en formule Pro, que la
-  même fenêtre relie. La fenêtre de Meta connecte le numéro sans lui demander de payer Meta. La carte dit ensuite que sa
-  ligne s'ouvre sous 24 h ouvrées, le temps que notre équipe la pose. Un numéro déjà connecté avec la carte du client
-  passe sur le Crédit WhatsApp par notre équipe.
+  même fenêtre relie. La fenêtre de Meta connecte le numéro sans lui demander de payer Meta, et sa ligne se pose à la
+  connexion (2026-11-11 ; la carte la promet sous 24 h ouvrées au plus tard). Un numéro déjà connecté avec la carte chez
+  Meta, puis l'option prise (le numéro de l'essai), se reconnecte sans carte depuis cet onglet (2026-11-11) :
+  « Reconnecter mon numéro sans carte chez Meta », le même compte et le même numéro dans la fenêtre de Meta ; la carte
+  de Connecter WhatsApp y mène. Sans numéro connecté, l'onglet mène à Connecter WhatsApp.
 - ✅ **L'option à souscrire** (2026-11-11, la vente ouverte) : 30 € HT par numéro et par mois, prise par un administrateur
   sur la carte « Crédit WhatsApp » ou dans cet onglet, en formule Pro dès son essai ou en Business confirmé.
 - ⛔ À venir : la recharge automatique et celle avant une

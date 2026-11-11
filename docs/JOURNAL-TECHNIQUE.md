@@ -4,6 +4,35 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : la ligne posée à la connexion (V3), et le numéro de l'essai reconnecté par l'onglet (lot 3v)
+
+Décisions de Julien du jour : l'attache de la ligne du partenaire tenue pour automatique (« on peut considérer que ça
+va être fait automatiquement »), donc la nôtre se pose sans attendre ; et le numéro connecté avec la carte chez Meta
+pendant l'essai, l'option prise ensuite, se reconnecte par la fenêtre du partenaire (« l'onglet le guidera »).
+
+- **Ce qui a changé** :
+  - V3 (`bbf64ae7`) : la pose de `/ops` sort de sa route en une fonction partagée (`poserLaLigne`,
+    `src/credit-whatsapp/pose.ts`), les deux chemins ne peuvent plus diverger ; `connexionParLaLigne` pose dans le seul
+    cas « à poser », jamais forcée, sans marquer le numéro, et l'alerte dit la pose ; refusée ou en panne, l'attente
+    d'avant avec la cause. `CREDIT_WA_POSE_AUTOMATIQUE=false` l'éteint sans déployer.
+  - La reconnexion (`87217294`, « V4, suite », d'abord appelée V14, ce qui l'a fait prendre pour un énième lot de
+    jaunes) : `solutionDuPartenaire` rouvre la fenêtre à l'unique numéro d'un espace qui s'y reconnecte (`seReconnecte` :
+    chez Meta, hors coexistence, relié, couvert par aucune ligne, et qui n'attend pas déjà la sienne) ; l'onglet Crédit
+    WhatsApp offre « Reconnecter mon numéro sans carte chez Meta » à la place du renvoi au Support ; la carte connectée
+    en attente de Connecter WhatsApp y mène.
+- **Vérifié** : les tests de la règle vus rouges avant le code, six mutations de `seReconnecte` et quatre de la pose
+  rougissent ; suite racine entière, typecheck, lint, auto-attaque ; e2e sur un build de production (les deux specs
+  touchées et les huit qui visitent ces écrans) ; CI verte job par job sur `87217294`. Une relecture par lot : V3 sans
+  rouge, ses dix jaunes au backlog (`f92f2352`, sans lot de jaunes).
+- ⚠️ **Le risque assumé** : posée avant une attache qui ne viendrait pas, la ligne ferait refuser les envois par Meta,
+  ou, sur un compte qui garde sa carte chez Meta, payer deux fois sans que rien ne refuse. L'essai réel 252 le tranche :
+  un modèle payant accepté, et le moyen de paiement du compte relu chez Meta. La relecture de la reconnexion (aucun
+  rouge) demande qu'aucun vrai client ne se reconnecte avant cet essai ; ses sept jaunes vont au backlog.
+- **En production** : run 43020409536 (`87217294`, `migration=aucune`, avec V12 et V13), approuvé par Julien ; `mba-api`
+  et les trois workers en `87217294`, zéro erreur depuis la bascule ; fumée, fiches OAuth et 401 de « Ne pas poser »
+  conformes ; l'identifiant de la solution et le prix de l'option présents, `CREDIT_WA_POSE_AUTOMATIQUE` absente (la
+  pose automatique allumée). La console (l'onglet, la carte) publiée par Vercel au push.
+
 ## 2026-11-11 : qui paie Meta, sur la vitrine, depuis l'ouverture de la vente du Crédit WhatsApp (lot 3v-2c)
 
 Plan `2026-11-11-aide-connexion-3v2c.md`, implémenté en direct, une relecture indépendante.

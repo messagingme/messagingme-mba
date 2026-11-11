@@ -578,7 +578,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   DE LOT DE JAUNES ; les jaunes d'une relecture vont ici, et partent avec le prochain lot de fonctionnalité. 🟢 **LA VENTE
   EST OUVERTE le 2026-11-11** (`STRIPE_PRIX_OPTION_WA` posé par Julien, l'attache du partenaire tenue pour acquise).
   V3 (la ligne posée à la connexion par la fenêtre, interrupteur `CREDIT_WA_POSE_AUTOMATIQUE`) et la reconnexion du
-  numéro de l'essai par l'onglet (« V4, suite ») poussés le 2026-11-11 (`87217294`), à déployer. Restent : l'essai réel
+  numéro de l'essai par l'onglet (« V4, suite ») EN PRODUCTION le 2026-11-11 (`87217294`, run 43020409536, avec V12 et
+  V13). Restent : l'essai réel
   de bout en bout par Julien (prendre l'option, connecter par la fenêtre, la ligne posée seule, un modèle payant accepté
   par Meta, le moyen de paiement du compte relu chez Meta) ; la fiche publique « Payer ses messages sans carte chez Meta »
   et la ligne de la vitrine (lot 3v-2 de la session de l'aide, qui a repris les textes « sur demande » le 2026-11-11).
@@ -608,6 +609,24 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
     `a_poser`, et un repli après « déjà sur la ligne » marque un numéro qui a sa ligne ;
   - `get_setup_state` tait `carte_meta_a_regler` en `en_attente` : le numéro de l'essai reste payé par sa carte jusqu'à
     sa reconnexion, Claude ne dit pas de le reconnecter.
+- 🟡 **Les jaunes de la relecture de la reconnexion (« V4, suite », `87217294`, 2026-11-11, aucun rouge)** :
+  - la reconnexion ne vise que des comptes qui ont une carte chez Meta : si la carte reste le payeur chez Meta (attache
+    absente, ligne pas prioritaire sur la carte, ou un compte déjà relié à notre application que la solution ne partage
+    pas), le client paie deux fois sans signal, et la console lui dit « reconnecté sans carte » ; l'alerte « POSÉE » d'une
+    reconnexion doit nommer ce symptôme, et, tant que l'essai 252 ne l'a pas prouvé, ne pas poser automatiquement sur une
+    reconnexion se discute : à trancher par Julien ;
+  - une fin de fenêtre perdue (onglet fermé pendant l'attente, réseau, session expirée) laisse un compte partagé avec le
+    partenaire, sans alerte, ni marque, ni ligne, qui envoie chez nous : une trace côté serveur au début d'une
+    reconnexion, visible de Julien jusqu'à la pose ;
+  - un autre numéro choisi dans la fenêtre : l'alerte de refus dit de ne rien attacher, alors que le compte est celui de
+    l'espace ; et `messageSecondNumero` (`src/account/connexion-numero.ts`) tutoie le client, sous le bouton de la console ;
+  - une Entreprise connectée avec sa carte, sans ligne, reçoit l'identifiant (son droit est toujours vrai) sans qu'aucun
+    écran n'y mène : réserver `seReconnecte` aux espaces qui ont une option ;
+  - `PlaceLibre` monte la connexion (le SDK de Meta préchargé) et lit `getAccountStatus` (deux appels à Meta, une
+    écriture) même quand la fenêtre est fermée : lire la configuration d'abord ;
+  - une option en retard de paiement : la carte connectée mène à l'onglet, où `PlaceLibre` n'existe qu'en `actif` ;
+  - la carte connectée promet « sous 24 h ouvrées » à un numéro que la pose refusera toujours (coexistence, délié,
+    360dialog) ; Claude ne guide pas la reconnexion (le MCP et le plugin).
 - 🟡 **Les jaunes laissés du lot 3v (relectures de V11 et V13, 2026-11-11)** :
   - l'alerte Telegram « Pro terminé (impayé|résiliation) … L'espace revient en Free » (`src/stripe/traitement-abonnements.ts`)
     est fausse pour une Entreprise ou un Business qui garde un Pro : la même tournure que l'alerte du renouvellement
