@@ -1,5 +1,17 @@
 # todo.md : backlog
 
+## 🟡 Le parcours endormi après un Appel API : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-11-appel-api-puis-condition.md`)
+
+- **Une campagne garde la marche d'avant** : sa Condition après un Appel API lit la valeur d'avant l'appel. Piste : figer
+  en base ce que la reprise ignore (variables et exemption du modèle d'ouverture, drapeau « masse ») pour qu'une campagne
+  puisse aussi s'endormir. En attendant, une Attente entre l'appel et la Condition (manuel).
+- **Une avance sur un message qui enchaîne un Appel API puis une chaîne finie sans rien envoyer** ne transmet plus le
+  message à l'agent de Meta : c'est la reprise qui clôt, sans `transmettre` (`executor.ts`, `rendreLaMainAMba`).
+- **Un message du contact pendant le sommeil d'une milliseconde** n'est pas routé dans le parcours (`findWaitingByWaId` ne
+  lit que `waiting`) : il part au chemin « aucun parcours », comme pendant une Attente.
+- **La reprise relit la fenêtre de 24 h** (`isWindowOpen`) là où le démarrage pouvait la tenir pour levée
+  (`lien_de_test`) : un message de session après l'appel partirait en « À traiter » si Meta la jugeait fermée.
+
 ## 🟡 Modifier un système branché : ce que la relecture laisse (2026-11-11)
 
 - **La dernière épreuve en base survit à un changement d'adresse ou d'en-tête.** L'écran remplace le verdict affiché

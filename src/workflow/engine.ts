@@ -902,6 +902,52 @@ export interface WalkOptions {
    * par un appelant : le curseur reste sur le message, c'est lui qui attend la réponse.
    */
   sansAttente?: boolean;
+  /**
+   * 🔴 S'ARRÊTER APRÈS UN APPEL QUI RANGE UN CHAMP (2026-11-11, plan `2026-11-11-appel-api-puis-condition.md`). Un Appel API
+   * ou une Fonction JS ne peut pas se répercuter sur la copie de travail : sa valeur n'existe qu'une fois l'appel parti,
+   * APRÈS la marche. Sans arrêt, une Condition qui le suit lit la valeur d'avant. Avec l'option, la marche s'endort sur ce
+   * bloc (`REPRISE_APRES_APPEL_MS`) ; l'exécuteur fait l'appel, et le réveil court reprend au bloc suivant sur un contexte
+   * relu. Posée par `walkResolved` seul : les autres appelants ne savent pas reprendre un parcours endormi.
+   */
+  attendreLesAppels?: boolean;
+}
+
+/** Le sommeil d'un parcours arrêté après un appel : le plus court possible, le réveil court le reprend aussitôt. */
+export const REPRISE_APRES_APPEL_MS = 1;
+
+/**
+ * 🔴 La suite d'un appel revient-elle sur lui SANS traverser un bloc qui attend ? Alors s'y endormir ferait une boucle sans
+ * fin : chaque reprise est une marche neuve (la garde `visited` repart à zéro) et l'appel repartirait toutes les
+ * millisecondes chez le client. Dans ce cas la marche ne s'arrête pas (comportement d'avant : un passage, puis la garde
+ * `visited`). Bloquent : une Attente au DÉLAI positif (une Attente vide, datée ou aux heures ouvrées peut passer sans
+ * attendre), Question, Modèle, Formulaire, message à boutons, Agent configuré, Inbox, RCS, Envoyer au
+ * MBA, un saut hors du graphe. Un « Aller à » interne se suit, comme `walk` le suit.
+ */
+export function revientSansAttente(graph: WorkflowGraph, depart: string, cible: string): boolean {
+  const byId = new Map(graph.nodes.map((n) => [n.id, n]));
+  const vus = new Set<string>();
+  const pile = [depart];
+  while (pile.length > 0) {
+    const id = pile.pop()!;
+    if (id === cible) return true;
+    if (vus.has(id)) continue;
+    vus.add(id);
+    const node = byId.get(id);
+    if (!node) continue;
+    if (
+      (node.type === 'wait' && waitDurationMs(node) > 0) || node.type === 'question' || node.type === 'template' || node.type === 'flow'
+      || node.type === 'inbox' || node.type === 'rcs_message' || node.type === 'vers_mba'
+      || (node.type === 'agent' && String(node.data.agentId ?? '').trim() !== '')
+      || (node.type === 'quick_message' && etapeOffreUnChoix(actionOf(node)))
+    ) continue;
+    if (node.type === 'aller_a') {
+      const ici = blocDuCode(graph, cibleDuSaut(node));
+      if (ici) pile.push(ici.id);
+      continue;
+    }
+    for (const e of graph.edges) if (e.source === id) pile.push(e.target);
+  }
+  return false;
 }
 
 export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContext, opts?: WalkOptions): WalkResult {
@@ -1032,7 +1078,17 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
       actions.push({ nodeId: current, action: a });
       if (work) applyToWork(work, a);
     }
-    current = nextNode(graph, current);
+    const suivant = nextNode(graph, current);
+    // Un appel qui range un champ, avec une suite : s'endormir ici pour que la suite lise la valeur rangée (`attendreLesAppels`).
+    // Jamais dans une suite « sans attendre », dont le repos est ignoré : s'y arrêter perdrait le reste en silence.
+    if (
+      opts?.attendreLesAppels === true && opts.sansAttente !== true && suivant !== null && a
+      && (a.kind === 'appelHttp' || a.kind === 'fonctionJs') && a.champCible !== ''
+      && !revientSansAttente(graph, suivant, current)
+    ) {
+      return { actions, rest: { status: 'sleeping', nodeId: current, resumeInMs: REPRISE_APRES_APPEL_MS } };
+    }
+    current = suivant;
   }
   return { actions, rest: { status: 'done' } };
 }

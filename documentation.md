@@ -1529,6 +1529,17 @@ type, les clés filtrées comme ci-dessus. Le plafond du champ (16 Ko, `MAX_OCTE
 le corps BRUT (une réponse indentée de 20 Ko qui en ferait 10 compacte est refusée) : une réponse plus grosse est un refus
 du transport, donc une ligne du journal des appels et un champ vidé. Un corps vide se range `null`, pas vide.
 
+🔴 **Une Condition après un Appel API ou une Fonction JS lit la valeur RANGÉE, parce que le parcours s'endort sur l'appel**
+(plan `docs/superpowers/plans/2026-11-11-appel-api-puis-condition.md`). `walk` décide les Conditions sur une copie du
+contexte et l'appel ne part qu'à l'application : avec `attendreLesAppels`, après un tel bloc qui range un champ et a une
+suite, la marche rend `sleeping` sur lui (1 ms) ; l'exécuteur fait l'appel, le réveil court reprend au bloc suivant sur
+un contexte relu. Seul `walkResolved` pose l'option, et seulement pour un démarrage UNITAIRE, un réveil ou une avance.
+⚠️ **Deux exceptions gardent la marche d'avant** (la Condition lit la valeur d'avant l'appel) : un démarrage de MASSE
+(`publieLesEtiquettes` faux : campagne, workflow HubSpot, bloc de l'agent de Meta), dont la reprise perdrait les
+variables et l'exemption du modèle d'ouverture et publierait les étiquettes ; et une suite qui revient sur l'appel sans
+traverser un bloc qui attend (`revientSansAttente`), où chaque réveil rappellerait le client sans fin. Pour une campagne,
+mettre une Attente entre l'appel et la Condition.
+
 🔴 **Un champ `json` ne porte qu'un JSON valide de 16 Ko au plus, et ne se remplit que par un scénario, l'API publique
 et le MCP.** Les écritures de fiche d'un parcours passent toutes par `avecGardeJson` (`src/workflow/garde-json.ts`) :
 une valeur qui n'est pas un JSON valide vide le champ (blocs Action, Question, Fonction JS, rangement d'un formulaire).

@@ -2005,3 +2005,73 @@ describe('« Puis, sans attendre » : la suite part avec le message, qui garde l
     expect(runs.run).toMatchObject({ status: 'done', currentNode: null });
   });
 });
+
+/**
+ * 🔴 UNE CONDITION APRÈS UN APPEL API LIT LA VALEUR RANGÉE, PAS CELLE D'AVANT (plan
+ * `docs/superpowers/plans/2026-11-11-appel-api-puis-condition.md`, révélé par l'essai réel du champ JSON). La marche décide
+ * les Conditions sur une copie du contexte, et l'appel ne part qu'à l'application : sans arrêt, « panier contient Blue
+ * Frock » prenait « Sinon » alors que la fiche portait la réponse. Le parcours s'endort sur l'appel, le réveil court le
+ * reprend au bloc suivant sur un contexte relu.
+ */
+describe('Appel API puis Condition : la condition lit la valeur rangée', () => {
+  // http (range « statut ») -> condition (statut contient « expédiée ») --true--> tag ok ; --false--> tag ko
+  const graphe: WorkflowGraph = {
+    nodes: [
+      n('h', 'http', { requestId: 'req-1', champCible: 'statut' }),
+      n('c', 'condition', { match: 'all', clauses: [{ kind: 'field', key: 'statut', op: 'contains', value: 'expédiée' }] }),
+      n('ok', 'tag', { tag: 'ok' }), n('ko', 'tag', { tag: 'ko' }),
+    ],
+    edges: [e('e1', 'h', 'c'), eh('e2', 'c', 'ok', 'true'), eh('e3', 'c', 'ko', 'false')],
+  };
+  const contexte = (fields: Record<string, string>): EvalContext => ({
+    fields: { ...fields }, tags: [], optIn: 'unknown', name: null, phone: null, bsuid: null, analyse: null,
+    now: new Date('2026-11-11T14:00:00Z'), timeZone: 'Europe/Paris', businessHours: {},
+  });
+
+  function monter() {
+    // La fiche du contact : ce que `setField` écrit, `evalContext` le relit, comme la base.
+    const fiche: Record<string, string> = {};
+    const armes: string[] = [];
+    const { ex, runs, calls } = make(graphe, {
+      appelHttp: async () => ({ ok: true, valeur: 'expédiée' }),
+      setField: async (_t, _w, k, v) => { fiche[k] = v; calls.push(`field:${k}=${v}`); },
+      evalContext: async () => contexte(fiche),
+      reveilCourt: { armer: (_t, runId) => { armes.push(runId); } },
+    });
+    return { ex, runs, calls, armes };
+  }
+
+  it('🔴 le démarrage fait l’appel, range la valeur et s’ENDORT sur l’appel, sans décider la condition', async () => {
+    const { ex, runs, calls, armes } = monter();
+    await ex.demarrer('automatisme_ordinaire', 't1', 'wf1', graphe, { waId: '33600', contactId: 'c1' }, { depuis: 'entree', fenetreOuverte: true });
+    expect(calls).toEqual(['field:statut=expédiée']);
+    expect(runs.dernierEtat).toMatchObject({ status: 'sleeping', currentNode: 'h' });
+    // Le réveil court est armé : la suite part tout de suite, pas au balayage d'une minute.
+    expect(armes).toEqual(['r1']);
+  });
+
+  it('🔴 la reprise évalue la condition sur la fiche RELUE : la branche « vraie »', async () => {
+    const { ex, runs, calls } = monter();
+    await ex.demarrer('automatisme_ordinaire', 't1', 'wf1', graphe, { waId: '33600', contactId: 'c1' }, { depuis: 'entree', fenetreOuverte: true });
+    expect(await ex.resume({ ...runs.run!, status: 'sleeping', currentNode: 'h' })).toBe(true);
+    expect(calls).toEqual(['field:statut=expédiée', 'tag:ok']);
+  });
+
+  it('🔴 un démarrage de MASSE (campagne) ne s’endort pas : sa reprise perdrait les variables et l’exemption de l’ouverture', async () => {
+    // Relecture du lot : une campagne reprise par `resume` enverrait son modèle d'ouverture sans les variables de la
+    // campagne ni l'exemption d'accord marketing, et publierait les étiquettes par destinataire. Elle garde la marche
+    // d'avant (la condition lit la copie), limite écrite au manuel.
+    const { ex, runs, calls } = monter();
+    await ex.demarrer('campagne_scenario', 't1', 'wf1', graphe, { waId: '33600', contactId: 'c1' });
+    expect(calls).toEqual(['field:statut=expédiée', 'tag:ko']);
+    expect(runs.dernierEtat?.status).not.toBe('sleeping');
+  });
+
+  it('un appel qui POUSSE (sans champ) ne s’arrête pas : il n’y a rien à relire', async () => {
+    const pousse: WorkflowGraph = { nodes: [n('h', 'http', { requestId: 'req-1' }), n('t', 'tag', { tag: 'apres' })], edges: [e('e1', 'h', 't')] };
+    const { ex, calls } = make(pousse, { appelHttp: async () => ({ ok: true, valeur: '' }) });
+    await ex.demarrer('campagne_scenario', 't1', 'wf1', pousse, { waId: '33600', contactId: 'c1' });
+    // Le tag part dans le MÊME tour : la marche a continué au-delà de l'appel.
+    expect(calls).toEqual(['tag:apres']);
+  });
+});

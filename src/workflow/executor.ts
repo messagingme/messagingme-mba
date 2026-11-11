@@ -1112,7 +1112,7 @@ export class WorkflowExecutor {
       return false;
     }
     const ctx = await this.buildCtx(tenantId, waId, graph);
-    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, suite, ctx, run.id, run.channel ?? 'whatsapp');
+    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, suite, ctx, true, run.id, run.channel ?? 'whatsapp');
 
     // Fenêtre de service fermée : on écarte les seuls messages de session (131047) et on applique le reste,
     // template compris, qui n'a pas besoin de la fenêtre.
@@ -1412,6 +1412,12 @@ export class WorkflowExecutor {
     graph: WorkflowGraph,
     startNodeId: string,
     ctx: EvalContext | undefined,
+    /**
+     * S'endormir après un Appel API ou une Fonction JS qui range un champ (`attendreLesAppels` de `walk`). Requis : FAUX pour
+     * un démarrage de MASSE (campagne, workflow HubSpot, bloc de l'agent de Meta), dont la reprise perdrait les variables
+     * du modèle d'ouverture, son exemption d'accord marketing et la règle « aucun chemin de masse n'émet ».
+     */
+    attendreLesAppels: boolean,
     sendKey: string,
     /** Canal courant à l'entrée. Un envoi RCS réussi bascule le parcours sur `rcs` pour la suite. */
     canalEntrant: RunChannel = 'whatsapp',
@@ -1422,7 +1428,9 @@ export class WorkflowExecutor {
     let canal: RunChannel = canalEntrant;
     let depart = startNodeId;
     for (let i = 0; i < MAX_RCS_ENCHAINES; i++) {
-      const r = walk(graph, depart, ctx, { mbaActif: await this.mbaActif(tenantId) });
+      // `attendreLesAppels` : ce chemin sait reprendre un parcours endormi (réveil court), donc une Condition qui suit un
+      // Appel API ou une Fonction JS lira la valeur rangée, pas celle d'avant l'appel (plan `2026-11-11-appel-api-puis-condition.md`).
+      const r = walk(graph, depart, ctx, { mbaActif: await this.mbaActif(tenantId), attendreLesAppels });
       actions.push(...r.actions);
       if (r.rest.status !== 'rcs_send') return { actions, rest: r.rest, canal };
 
@@ -1667,7 +1675,7 @@ export class WorkflowExecutor {
     const ctx = await this.buildCtx(tenantId, contact.waId, graph);
     // `sendKey` aléatoire : le run n'existe pas encore en base. Ce qui protège d'un double envoi ici, c'est le
     // claim atomique du destinataire côté campagne, pas l'idempotence RBM.
-    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, contact.waId, graph, startNodeId, ctx, randomUUID());
+    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, contact.waId, graph, startNodeId, ctx, opts.politique.publieLesEtiquettes, randomUUID());
     // Garde fenêtre 24 h : sans `fenetreLevee`, un message de session en ouverture serait rejeté par Meta
     // (131047). `POST /campaigns` refuse déjà un tel scénario ; ceci est le filet à l'exécution. Le bloc agent
     // ne produit aucune action mais écrit du texte libre : on teste aussi le repos, sinon l'agent enverrait hors
@@ -2197,7 +2205,7 @@ export class WorkflowExecutor {
       return;
     }
     const ctx = await this.buildCtx(tenantId, waId, graph);
-    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, next, ctx, run.id, run.channel ?? 'whatsapp', battement);
+    const { actions, rest, canal: apresWalk } = await this.walkResolved(tenantId, waId, graph, next, ctx, true, run.id, run.channel ?? 'whatsapp', battement);
     // Le numéro avant tout effet : l'exception sort sans rien écrire, le parcours reste sur son bloc, et le message
     // suivant du contact (après le paiement ou le « Relier ») le fera avancer. Sans elle, chaque message rejouerait
     // l'e-mail ou l'appel API placés avant l'envoi refusé.
