@@ -397,3 +397,35 @@ Après le lot 5 de la session de l'aide sur `origin` : il touche `src/emails-pro
 - [x] **Les trois jaunes de V10** (§ « La relecture du lot V10 ») : la JSDoc du magasin dit que ni la route ni lui ne
   peuvent refuser un compte couvert sans attache (1) ; celle du client d'API, que `code` et `ligne` ne remontent pas (2) ;
   le test lit la cause des deux pannes (3, rouge sans elle).
+
+## La relecture du lot V11 (2026-11-11)
+
+Un relecteur indépendant, sur les deux commits du lot (la phrase de coexistence et les jaunes de V10, puis l'e-mail) :
+**aucun rouge, six jaunes**. Vérifié vrai : le choix de l'e-mail dans tous les états de l'option (`vivante`, le prédicat
+de la fin de droit), l'anti-doublon (une option prise entre deux essais est même quasi impossible, `optionPrenable`
+refusant un Pro en retard), le texte français identique au texte validé octet pour octet, les affirmations du texte au
+regard du code (la fin du Pro arrête les lignes de l'option, la garde refuse tout envoi d'une ligne arrêtée, réponses
+comprises, une fin de droit n'envoie pas `option_wa_arretee`, le crédit reste), le câblage (méthodes appelées sur leur
+objet, les workers déployés avant l'API connaissent la clé neuve avant qu'elle soit émise), et la phrase de coexistence
+vraie partout où elle s'affiche. Suite unitaire entière verte chez le relecteur. Le lot part tel quel ; ses jaunes vont
+à V12.
+
+1. **Aucun test ne tient le câblage de `src/socle.ts`** : `!== null` passé en `=== null`, ou les arguments
+   d'`occasionReservee` intervertis, laissent tout vert. Un cas du banc de `tests/socle.test.ts` qui appelle
+   `paiementRefuse` d'un Pro, le faux pool rendant une option ou aucune, et qui lit la clé insérée.
+2. **Le repli « option illisible » scelle la facture** : le premier essai part en `paiement_refuse_pro`, et aux essais
+   suivants la variante, seul avertissement, se tait (`dejaPrevenu`) ; le silence se décide par espace, pas par
+   personne. Pas forcément de code : le dire dans le manuel et la JSDoc.
+3. **Un espace Entreprise ou Business qui garde un Pro vivant et une option** (`offre_de_l_espace`, 0257) lirait que son
+   option s'arrêtera, alors que `aDroit` la garde ; « repassera en offre Free » y était déjà faux avant le lot. Rare.
+   Ne choisir la variante, voire l'e-mail, que pour une offre effective `pro`.
+4. **Le `quand` de `paiement_refuse_pro` n'a pas suivi** (ce qu'affiche `/ops`) : dire « sans option vivante ». Et
+   couper `paiement_refuse_pro` dans `/ops` ne coupe pas sa variante, clé neuve active par défaut.
+5. **Un commentaire de `connexionParLaLigne` dit encore « il n'est jamais marqué »**, l'affirmation que le jaune 4 de V8
+   réfute.
+6. **Hors périmètre** : ni la fiche des e-mails ni `features.md` ne citent l'e-mail du paiement refusé de l'option
+   elle-même (`paiement_refuse_option_wa`).
+
+### V12. Les jaunes de la relecture de V11
+
+- [ ] Les six (§ « La relecture du lot V11 »), le 3 et le 1 d'abord.

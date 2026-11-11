@@ -553,9 +553,12 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   par la fenêtre, rien à corriger côté serveur ; les jaunes 1, 5 et 6 de V1) EN PRODUCTION le 2026-11-10 (`c7ab5b51`,
   emporté par le déploiement `1b9a9a23` de l'Inbox HubSpot) ; V5 (les jaunes de E7 et de V2) EN PRODUCTION le même jour
   (`7c81f9ba`, run 42874666331) ; la console qui lit `prisePossible` livrée par l'arbre (`a830bece`) ; V6 (les neuf
-  jaunes de V5) EN PRODUCTION le même soir (`731487eb`, run 42885204406). Restent V7 (les six jaunes de V6, en cours),
-  V3 (la pose automatique, après D0) et V4 (le numéro d'essai déjà connecté, l'e-mail du paiement refusé, la liste à
-  Julien) ; une décision à Julien : les cas bloquants en coexistence méritent-ils la liste de `/ops` ?
+  jaunes de V5) EN PRODUCTION le même soir (`731487eb`, run 42885204406) ; V7 à V9 (les jaunes de V6, V7 et V8) EN
+  PRODUCTION ensemble le 2026-11-11 (`baa1f16e`, run 42983102680, avec le lot 4a-3 de l'aide). Décisions de Julien du
+  2026-11-11 : le texte de l'e-mail du paiement refusé de la formule Pro avec l'option est validé, et un numéro en
+  coexistence n'entre pas dans la liste de `/ops` (l'alerte suffit). V10 (les jaunes de V9) et V11 (cet e-mail, la phrase
+  de l'alerte en coexistence, les jaunes de V10) poussés le 2026-11-11, V11 à déployer, puis `aide:charger`. Restent V12
+  (les six jaunes de V11), V3 (la pose automatique, après D0) et V4 (le numéro d'essai déjà connecté, la liste à Julien).
 - Lot 4 (plan `2026-11-03-credit-whatsapp-lot-4.md`, décisions de Julien du 2026-11-03 : une place est un numéro, une
   pose `/ops` d'un Pro ou d'un Business exige une place payée sauf forcée). 4a, l'option, EN PRODUCTION le 2026-11-04
   (`00057374`) : la migration 0276, le serveur (magasin, places dans la garde, webhook, fin de droit, pose `/ops`, routes

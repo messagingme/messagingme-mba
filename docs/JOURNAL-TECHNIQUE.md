@@ -4,6 +4,75 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : la fenêtre du partenaire, les jaunes 1 à 3 de la relecture de V8 (lot 3v, V9), et V7 à V9 en production
+
+Accord de Julien (« Oui, enchaîne », pour V8 et V9 après leurs relectures) ; plan
+`2026-11-10-credit-whatsapp-vente-libre-service.md`, § V9. Implémenteur par lot, TDD, une relecture indépendante.
+
+- **Ce qui a changé** (`a7d36218`) :
+  - « Ne pas poser » n'est promis que dans la liste : sur un compte déjà couvert, la marque éteinte et la marque absente
+    sont désormais tenues par le test ; la relecture en panne se vérifie au journal (`numero_marque_illisible`) ;
+  - l'exemple du champ de note de « Ne pas poser » est neutre (« la ligne ne viendra pas ») : il soufflait « le
+    partenaire n'attache pas », le geste à ne pas faire sur un compte déjà couvert sans attache ; les JSDoc de la route
+    et de `NePasPoser` portent la réserve.
+- **Vérifié** : les tests neufs vus rouges avant le code ; sur l'état final (`baa1f16e`, posé sur le lot 4a-3 de l'aide),
+  la suite racine, 988 fichiers verts (16 718 tests), tsc (racine et console), lint, auto-attaque sans trouvaille
+  (2 083 sondes). CI racine (unit, sécurité, intégration), console (deux topologies) et CodeQL vertes job par job sur
+  `baa1f16e`.
+- **Relecture** : aucun rouge, deux jaunes au plan, pour V10 : deux autres JSDoc de « Ne pas poser » restées en arrière
+  (le client d'API de la console, le magasin), et le journal d'une interruption illisible vérifié nulle part.
+- **En production** : V7, V8 et V9 ensemble, une seule approbation : run 42983102680 (`migration=aucune`, épinglé sur
+  `baa1f16e`, avec le lot 4a-3 de l'aide et ses deux commits de doc, d'accord avec sa session, qui a renoncé à son propre
+  run) : `mba-api` sur l'image `baa1f16e`, `mba-worker`, `mba-worker-analyse` et `mba-application` en révision
+  `baa1f16e`, aucune erreur dans leurs journaux depuis la bascule ; « Ne pas poser » répond 401 sans session ; fumée
+  bonne, fiches OAuth conformes, `META_SOLUTION_ID` présente. Le run affiche `f1d4448f` pour `headSha` (le workflow est
+  lu sur la tête de `main` au lancement) : l'image est bien `baa1f16e`, le lot 4b de l'aide n'y est pas. La veille au
+  soir, un run de V7 seul (42916804701), lancé par un script « arrêté » qui avait survécu à son arrêt, a été annulé
+  avant toute approbation : un run en attente d'approbation tient la file de déploiement, un plus récent ne le remplace
+  pas.
+
+## 2026-11-11 : la fenêtre du partenaire, les cinq jaunes de la relecture de V7 (lot 3v, V8)
+
+Préparé pendant la CI de V7, poussé sur l'accord de Julien (« Oui, enchaîne ») ; plan
+`2026-11-10-credit-whatsapp-vente-libre-service.md`, § V8. Implémenteur par lot, TDD, une relecture indépendante.
+
+- **Ce qui a changé** (`51118d34`) :
+  - la carte de `/ops` et le manuel : la ligne d'un compte déjà couvert ne couvre son numéro que l'attache vérifiée ;
+    sans elle, « Ne pas poser » ne retire pas la nôtre : la retirer plutôt, le numéro restant dans la liste jusqu'à ce
+    qu'on la repose ;
+  - l'alerte de connexion dit ce que la marque a fait, relue (`marquerPuisRelire`, partagé avec l'interruption),
+    « autre espace » compris, et ne promet « Ne pas poser » que si le numéro attend dans la liste ;
+  - en coexistence, un compte déjà couvert, une ligne arrêtée ou celle d'un autre espace : ne rien retirer, ne rien
+    poser, ne rien demander au partenaire sans décision ;
+  - un test tient l'asymétrie du rejet d'une annonce ; une marque absente se journalise en avertissement
+    (`marque_par_la_ligne_absente`).
+- **Vérifié** : les tests neufs vus rouges avant le code, l'e2e de la carte de `/ops` en local ; le reste avec V9.
+- **Relecture** : aucun rouge, quatre jaunes au plan ; les trois premiers fermés par V9, le quatrième (dire la place
+  d'un numéro en coexistence dans la liste par une relecture) attend la décision de Julien sur la coexistence.
+- **En production** : avec V7 et V9, par le même run (entrée de V9).
+
+## 2026-11-11 : la fenêtre du partenaire, les six jaunes de la relecture de V6 (lot 3v, V7)
+
+Accord de Julien (« et après t'enchaînes ») ; plan `2026-11-10-credit-whatsapp-vente-libre-service.md`, § V7. Poussé le
+2026-11-10 (`ba418675`), en production le lendemain avec V8 et V9. Implémenteur par lot, TDD, une relecture indépendante.
+
+- **Ce qui a changé** (`eb1dc5ac`) :
+  - en coexistence, l'alerte de connexion ne promet plus la liste de `/ops` ni son « Ne pas poser » : le numéro n'y est
+    jamais marqué ;
+  - une annonce mal formée n'est pas une annonce absente : un numéro mal formé n'a rien pu rattacher, et un compte mal
+    formé, sans numéro annoncé, ne retombe pas sur l'espace ;
+  - la carte de `/ops` et le manuel distinguent le compte déjà couvert, dont la ligne couvre bien le numéro, de la ligne
+    d'un ancien numéro d'un AUTRE compte, qui ne le couvre pas ;
+  - la marque rend ce qu'elle a écrit : un numéro parti de l'espace avant la relecture dit « aucun », et « hors liste »
+    ne choisit plus la cause ;
+  - les JSDoc de l'alerte, et l'ordre de déploiement de V6 et V7 au plan.
+- **Vérifié** : les tests neufs vus rouges avant le code ; après la mise sur `origin`, les tests qui lisent la doc et
+  ceux du lot verts (69 fichiers, 1 669 tests), tsc. CI racine (unit, sécurité, intégration), console (deux topologies)
+  et CodeQL vertes job par job sur `ba418675`.
+- **Relecture** : aucun rouge, cinq jaunes au plan, pour V8 ; le plus net, la carte de `/ops` qui laissait croire que
+  « Ne pas poser » suffit sur un compte couvert sans attache.
+- **En production** : avec V8 et V9, par le même run, le 2026-11-11 (entrée de V9).
+
 ## 2026-11-11 : chaque e-mail du produit mène à la page d'aide de son geste (aide à la connexion, lot 5)
 
 Plan `2026-11-11-aide-connexion-lot-5.md`, implémenté en direct, une relecture indépendante.
