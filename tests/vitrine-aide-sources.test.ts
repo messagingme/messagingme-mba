@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { PAGES_SOURCES } from '../scripts/vitrine/aide-sources-textes';
 import { PAGES_CLAUDE } from '../scripts/vitrine/aide-claude-textes';
 import { jumellesAide } from '../scripts/vitrine/aide-pages';
-import { TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
+import { OFFRE_CREDIT_WHATSAPP, TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
 import { FAQ } from '../scripts/plugin/faq';
 import { AUTORISATION_CODEX, COMMANDES_CODEX } from '../web/lib/demarrer';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META } from '../web/lib/partage/etapes-meta';
@@ -47,16 +47,22 @@ const page = (cle: string) => {
 describe('les pages du centre composées de sources', () => {
   for (const langue of ['fr', 'en'] as const) {
     it(`🔴 ${langue} : « Payer Meta » cite ses sources mot pour mot, et les étapes de la carte une seule fois`, () => {
-      const t = texteDe(lire(page('payer-meta').adresse[langue]));
+      const html = lire(page('payer-meta').adresse[langue]);
+      const t = texteDe(html);
       const sources = [
         CE_QUI_EST_FACTURE.api[langue], CE_QUI_EST_FACTURE.application[langue], NOTE_CARTE_APPLICATION[langue],
-        QUESTION_PAIEMENT.credit.titre[langue], QUESTION_PAIEMENT.credit.texte[langue], QUESTION_PAIEMENT.grisee.pro[langue],
+        QUESTION_PAIEMENT.credit.titre[langue], QUESTION_PAIEMENT.credit.texte[langue],
         ...ETAPES_CARTE_META.map((e) => e[langue]),
       ];
       for (const s of sources) expect(t, s).toContain(plat(s));
       for (const e of ETAPES_CARTE_META) expect(t.split(plat(e[langue])).length - 1, e[langue]).toBe(1);
       // La page sert la console comme Claude : ni outil de Claude, ni adresse affichée en clair.
       expect(t).not.toMatch(/list_templates|https:\/\//);
+      // Le Crédit WhatsApp se prend dans la console depuis l'ouverture de la vente (lot 3v-2) : son lien y mène, plus
+      // « écrivez-nous » ni la page Contact.
+      expect(html).toContain(`href="${OFFRE_CREDIT_WHATSAPP[langue]}"`);
+      expect(t).not.toContain(plat(QUESTION_PAIEMENT.grisee.pro[langue]));
+      expect(html.slice(html.indexOf('<main>'), html.indexOf('</main>'))).not.toMatch(/href="(\/en)?\/contact\/"/);
     });
 
     it(`🔴 ${langue} : qui paie Meta ne se dit jamais sans le Crédit WhatsApp, sur ces pages qui le proposent ou y mènent`, () => {

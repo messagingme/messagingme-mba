@@ -14,6 +14,7 @@ import type { Rubrique } from '../../src/aide/fiches';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META } from '../../web/lib/partage/etapes-meta';
 import { NOTE_CARTE_APPLICATION, QUESTION_PAIEMENT } from '../../web/lib/questions-numero';
 import { FAQ, GRILLE_META } from '../plugin/faq';
+import { OFFRE_CREDIT_WHATSAPP } from './tunnel-textes';
 import type { Bilingue } from './aide-claude-textes';
 
 /**
@@ -109,7 +110,8 @@ export const PAGES_SOURCES: readonly PageSource[] = [
       {
         titre: b(QUESTION_PAIEMENT.credit.titre),
         textes: [b(QUESTION_PAIEMENT.credit.texte)],
-        lien: { libelle: b(QUESTION_PAIEMENT.grisee.pro), href: { fr: '/contact/', en: '/en/contact/' } },
+        // Depuis l'ouverture de la vente (lot 3v-2), l'option se prend dans la console, dès l'essai de la formule Pro.
+        lien: { libelle: { fr: 'Le prendre dans la console : Offre, onglet Crédit WhatsApp', en: 'Take it in the console: Plan, WhatsApp credit tab' }, href: OFFRE_CREDIT_WHATSAPP },
       },
     ],
     lien: GRILLE,

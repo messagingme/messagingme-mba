@@ -3,8 +3,8 @@
 // chaque page qui le porte (la page « Démarrer », Boutiques Shopify, SaaS et app builders), que `tunnel.ts` assemble.
 // Plan `docs/superpowers/plans/2026-10-30-tunnel-numero-generique.md`. Le 2026-10-31, Julien y ajoute une quatrième
 // question : sans compte Meta Business ni application, « Avez-vous déjà un numéro ? », et sans numéro, le numéro fourni va
-// dans l'application. Le 2026-11-06, une cinquième, juste après l'offre : qui paie Meta (révision du Crédit WhatsApp, lot B),
-// le Crédit WhatsApp grisé tant qu'il n'est pas en vente en ligne.
+// dans l'application. Le 2026-11-06, une cinquième, juste après l'offre : qui paie Meta (révision du Crédit WhatsApp, lot B).
+// La vente du Crédit WhatsApp est ouverte depuis le 2026-11-11 (lot 3v-2) : sa réponse dit où il se prend, la console.
 //
 // 🔴 CE QUE LE TUNNEL NE DIT PLUS : le numéro relié par code, qui ne faisait que répondre (Julien, 2026-10-30 : « on
 // supprime une bonne fois pour toutes l'option QR code »). Chaque voie mène à un numéro de l'API officielle, et
@@ -22,6 +22,15 @@ import type { Langue } from './cas-textes';
 
 /** Le chemin d'une page de la vitrine, depuis son adresse partagée avec la console et Claude (lot 4b). */
 const chemin = (adresse: string): string => new URL(adresse).pathname;
+
+/**
+ * L'onglet Crédit WhatsApp de la page Offre de la console, où l'option se prend depuis l'ouverture de la vente (lot 3v-2).
+ * `&amp;` : elle entre dans du HTML (la réponse du tunnel, le lien de « Payer Meta »), qui ne passe pas par l'outil anglais.
+ */
+export const OFFRE_CREDIT_WHATSAPP: Readonly<Record<Langue, string>> = {
+  fr: 'https://console.messagingme.app/offre?tab=whatsapp',
+  en: 'https://console.messagingme.app/offre?tab=whatsapp&amp;lang=en',
+};
 
 /**
  * Le code du numéro fourni par la fenêtre de Meta, en deux phrases de la source unique (aide à la connexion, lots 2c
@@ -79,8 +88,8 @@ export const lienHtml = (l: Lien): string => `<a class="bouton bouton-trait" hre
 /** Une réponse mène à une autre question ou à une issue (`vers`) ; sans `vers`, elle montre l'aide de sa question.
  * `note` : une phrase qui s'affiche sous la question quand on la choisit (où vérifier son compte Meta Business).
  * `offre` : la réponse choisit la formule, et chaque issue ne montre ensuite que les boutons de cette formule.
- * `grisee` : la réponse ne se choisit pas pour ces formules, et dit pourquoi (le Crédit WhatsApp, pas encore en vente en
- * ligne, révision du 2026-11-04, lot B) ; sous sa carte, elle compte comme une réponse qui mène quelque part. */
+ * `grisee` : la réponse ne se choisit pas dans le tunnel pour ces formules, et dit pourquoi ou où (le Crédit WhatsApp, qui
+ * se prend dans la console, lot 3v-2) ; sous sa carte, elle compte comme une réponse qui mène quelque part. */
 export interface Reponse {
   readonly libelle: string; readonly vers?: string; readonly note?: string; readonly offre?: FormuleTunnel;
   readonly grisee?: Readonly<Partial<Record<FormuleTunnel, string>>>;
@@ -280,13 +289,13 @@ const fr = (): TexteTunnel => {
         reponses: [{ libelle: 'La console', vers: 'console' }, { libelle: 'Claude Code ou Codex', vers: 'paiement' }],
       },
       {
-        // Le Crédit WhatsApp grisé tant qu'il n'est pas en vente en ligne (Julien, 2026-11-06) : sa voie, sans
-        // l'application, arrive avec la vente.
+        // Le Crédit WhatsApp ne se prend pas ici : depuis l'ouverture de la vente (2026-11-11, lot 3v-2), dans la console, dès
+        // l'essai de la formule Pro ; sa réponse dit où, et la Free, qu'il vient avec la formule Pro.
         id: 'paiement', texte: 'Qui paie vos messages à Meta ?', precision: 'Meta facture chaque modèle que vous envoyez.',
         voies: paiement,
         reponses: [
           { libelle: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', vers: 'compte' },
-          { libelle: 'Crédit WhatsApp', grisee: { free: 'Avec la formule Pro.', pro: 'Sur demande : <a href="/contact/">écrivez-nous</a>.' } },
+          { libelle: 'Crédit WhatsApp', grisee: { free: 'Avec la formule Pro.', pro: `Dans la console, dès l’essai de la formule Pro : <a href="${OFFRE_CREDIT_WHATSAPP.fr}">Offre, onglet Crédit WhatsApp</a>.` } },
         ],
       },
       {
@@ -466,7 +475,7 @@ const fr = (): TexteTunnel => {
       points: {
         titre: 'Les cinq points à vérifier',
         liste: [
-          'Qui paie vos messages à Meta : votre carte chez Meta, ou le Crédit WhatsApp, prépayé chez Messaging Me, sur demande, avec la formule Pro ou Business.',
+          'Qui paie vos messages à Meta : votre carte chez Meta, ou le Crédit WhatsApp, prépayé chez Messaging Me, à prendre dans la console avec la formule Pro (dès son essai) ou Business.',
           'Un compte Meta Business : avec, votre numéro se relie en numéro API ; sans, la fenêtre de Meta vous le fait créer en chemin.',
           'L’application WhatsApp Business : vous la gardez, et Messaging Me envoie les messages automatiques à côté. Meta appelle cela la coexistence.',
           'Un numéro : le vôtre, ou un numéro que nous vous fournissons.',
@@ -574,7 +583,7 @@ const en = (): TexteTunnel => {
         voies: paiement,
         reponses: [
           { libelle: 'I add a payment method (Visa / Mastercard) to my Meta Business account', vers: 'compte' },
-          { libelle: 'WhatsApp credit', grisee: { free: 'With the Pro plan.', pro: 'On request: <a href="/en/contact/">write to us</a>.' } },
+          { libelle: 'WhatsApp credit', grisee: { free: 'With the Pro plan.', pro: `In the console, from the Pro plan trial: <a href="${OFFRE_CREDIT_WHATSAPP.en}">Plan, WhatsApp credit tab</a>.` } },
         ],
       },
       {
@@ -740,7 +749,7 @@ const en = (): TexteTunnel => {
       points: {
         titre: 'The five points to check',
         liste: [
-          'Who pays Meta for your messages: your card at Meta, or WhatsApp credit, prepaid at Messaging Me, on request, with the Pro or Business plan.',
+          'Who pays Meta for your messages: your card at Meta, or WhatsApp credit, prepaid at Messaging Me, taken in the console with the Pro plan (from its trial) or Business.',
           'A Meta Business account: with one, your number connects as an API number; without one, Meta’s window has you create it along the way.',
           'The WhatsApp Business app: you keep it, and Messaging Me sends the automated messages alongside. Meta calls this coexistence.',
           'A number: yours, or a number we provide.',

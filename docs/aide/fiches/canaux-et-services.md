@@ -1,7 +1,7 @@
 ---
 ecran: accueil
 source_section: Accueil (1re entrée du menu)
-source_empreinte: ec64a9
+source_empreinte: 4ae677
 ---
 # Les canaux et services de l'espace : allumer, éteindre, délier
 

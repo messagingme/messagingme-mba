@@ -180,8 +180,9 @@ mènent à « Parlons de votre projet », avec « Demander une démo » et « No
 Code** (2026-11-10 : « La console » finit sur « Créez votre espace : la console vous guide », avec « Créer mon espace »
 `/signup?offre=pro` et le pas-à-pas de la console, la console posant elle-même la suite ; « Claude Code ou Codex »
 continue l'arbre), **qui paie Meta** (« Qui paie vos messages à Meta ? » : la carte de l'entreprise chez
-Meta, seule voie ouverte ; le Crédit WhatsApp reste grisé tant qu'il n'est pas en vente en ligne, « Avec la formule Pro. »
-en Free, « Sur demande : écrivez-nous. » en Pro, Julien, 2026-11-06), puis **le compte Meta Business** (Oui mène au
+Meta, seule voie ouverte du tunnel ; le Crédit WhatsApp ne s'y prend pas, sa réponse dit pourquoi ou où : « Avec la
+formule Pro. » en Free et, en Pro, depuis l'ouverture de la vente le 2026-11-11, l'onglet Crédit WhatsApp de la page
+Offre de la console, dès l'essai de la formule Pro), puis **le compte Meta Business** (Oui mène au
 numéro API, son numéro libre ou un numéro fourni,
 3,50 € HT par mois en formule Free et inclus en formule Pro, avec la ligne « Votre numéro sert déjà dans WhatsApp ou
 dans l'application WhatsApp Business ? Vous pouvez le garder » ; Non et « Je ne sais pas » mènent à la question
@@ -2631,8 +2632,9 @@ scénario, comment importer des contacts.
   (Visa / Mastercard) sur mon compte Meta Business » (2026-11-10) : le numéro se connecte, et Meta facture les modèles
   sur ce moyen de paiement (le bouton mène au guide du numéro ; deux liens : pourquoi un moyen de paiement, ce qu'est un
   compte Meta Business). « Crédit WhatsApp » : il prépaie ses messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et
-  par mois, avec la formule Pro ou Business ; grisé tant que l'option n'est pas en vente (en Free, « avec la formule
-  Pro » ; ailleurs, sur demande au Support), et pendant un essai la carte chez Meta. Un numéro qui garde l'application
+  par mois, avec la formule Pro, dès son essai, ou Business ; un administrateur le prend sur la carte (« Prendre
+  l'option »), puis connecte son numéro par la fenêtre du partenaire (en Free, grisé « avec la formule Pro » ; hors
+  vente, grisé, sur demande au Support). Un numéro qui garde l'application
   WhatsApp Business reste sur la carte chez Meta : le Crédit WhatsApp n'est pas possible avec l'application. La carte
   suit l'état de l'espace (à prendre, payée et en attente de sa ligne, active, arrêtée) ; Claude lit le même état
   (`get_setup_state`).

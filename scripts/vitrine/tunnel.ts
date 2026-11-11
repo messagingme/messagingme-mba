@@ -98,8 +98,8 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
   const arbre = mode === 'guide' ? arbreDepuis(n, DEPART_GUIDE) : { questions: n.questions, issues: n.issues };
   const max = profondeurTunnel(arbre.questions);
   const progression = n.progression.replace('{max}', String(max));
-  // Une réponse grisée (le Crédit WhatsApp, pas encore en vente en ligne) : un bouton qui ne se choisit pas, et sa carte
-  // dit pourquoi.
+  // Une réponse grisée (le Crédit WhatsApp, qui se prend dans la console) : un bouton qui ne se choisit pas, et sa carte
+  // dit pourquoi ou où.
   const bouton = (q: Question, r: Reponse, k: number) => (r.grisee
     ? `<button type="button" class="bouton bouton-trait" disabled>${r.libelle}</button>`
     : r.vers

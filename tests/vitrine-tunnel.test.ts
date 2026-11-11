@@ -107,8 +107,8 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect(q('offre').reponses.filter((r) => r.vers).map((r) => `${r.offre}>${r.vers}`), langue)
         .toEqual(['free>paiement', 'pro>pilote', 'business>echange', 'entreprise>echange']);
       expect(q('pilote').reponses.map((r) => r.vers), langue).toEqual(['console', 'paiement']);
-      // Qui paie Meta (2026-11-06) : la carte chez Meta mène au compte Meta Business ; le Crédit WhatsApp, grisé tant
-      // qu'il n'est pas en vente en ligne, ne mène nulle part.
+      // Qui paie Meta (2026-11-06) : la carte chez Meta mène au compte Meta Business ; le Crédit WhatsApp ne mène nulle
+      // part dans le tunnel, sa réponse dit qu'il se prend dans la console (lot 3v-2).
       expect(q('paiement').reponses.map((r) => r.vers ?? (r.grisee ? 'grisee' : '?')), langue).toEqual(['compte', 'grisee']);
       // Oui : le numéro API ; Non et « Je ne sais pas » : l'application, et « Je ne sais pas » dit où vérifier.
       expect(q('compte').reponses.map((r) => r.vers), langue).toEqual(['api', 'application', 'application']);

@@ -117,9 +117,12 @@ Then ask ONE question at a time, in this order. Never pick a way on a guess, and
      payment method. Go to question 3. If they ask why a payment method, or what a Meta Business account is, give the
      page in their language: why, `aide.payer_meta`; the account, `aide.compte_meta_business`.
    - WhatsApp credit: they prepay their messages at Messaging Me, with no card at Meta (30 EUR excl. tax per number per
-     month, with the Pro or Business plan). It is not sold online: on Free, say it comes with the Pro plan; otherwise,
-     say it is on request, by writing to us (https://app.messagingme.fr/contact/). Then go on with the payment method
-     at Meta (question 3). Never offer to buy it.
+     month, with the Pro or Business plan). On Free, say it comes with the Pro plan. Otherwise it is taken in the
+     console, from the first day of the Pro plan trial: the Plan page, WhatsApp credit tab
+     (https://console.messagingme.app/offre?tab=whatsapp, with `&lang=en` in English). Paying is their gesture: never
+     offer to buy it from here. With WhatsApp credit, the number is connected from the console's Connect WhatsApp page,
+     which opens the partner's window: never start Meta's window from here (`start_whatsapp_connection`) for it. If they
+     do not take it, go on with the payment method at Meta (question 3).
    Every way that keeps the WhatsApp Business app (mode `coexistence` or `fourni_application`) is paid with their card
    at Meta: say once, on such a way, that WhatsApp credit is not possible with the app.
 3. **"Do you have a Meta Business account?"**

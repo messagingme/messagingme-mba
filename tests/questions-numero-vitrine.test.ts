@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
+import { OFFRE_CREDIT_WHATSAPP, TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
 import { FAQ } from '../scripts/plugin/faq';
 import {
   CARTES_OFFRE, ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION,
@@ -43,7 +43,7 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       });
     });
 
-    it(`${langue} : « Qui paie vos messages à Meta ? » juste après l’offre ; la carte chez Meta mène à l’arbre, le Crédit WhatsApp grisé`, () => {
+    it(`${langue} : « Qui paie vos messages à Meta ? » juste après l’offre ; la carte chez Meta mène à l’arbre, le Crédit WhatsApp à la console`, () => {
       // Révision du Crédit WhatsApp, lot B (Julien, 2026-11-06) : Free y mène ; Pro aussi, par « Claude Code ou Codex » de
       // la question du pilotage (lot 3c) ; Business et Entreprise, comme avant, à l'échange.
       const offre = question('offre');
@@ -60,11 +60,12 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       // Les deux liens de la carte chez Meta (lot 3a) : les mêmes mots, les mêmes fiches (la console les vise sur la vitrine).
       expect(q.voies![0]!.liens?.map((l) => ({ libelle: texte(l.libelle), href: l.href })))
         .toEqual(QUESTION_PAIEMENT.carte.liens.map((l) => ({ libelle: l.libelle[langue], href: l.href[langue].replace(VITRINE_AIDE, '') })));
-      // Grisée tant que la vente n'est pas ouverte : en Free, avec la formule Pro ; en Pro, sur demande, et sur la vitrine
-      // « écrivez-nous » mène à la page Contact.
+      // Le Crédit WhatsApp ne se prend pas sur la vitrine : en Free, il vient avec la formule Pro (les mots de la console) ;
+      // en Pro, depuis l'ouverture de la vente (lot 3v-2), la réponse mène à l'onglet de la console, plus à « écrivez-nous ».
       const g = q.reponses[1]!.grisee!;
-      expect({ free: texte(g.free!), pro: texte(g.pro!) }).toEqual({ free: QUESTION_PAIEMENT.grisee.free[langue], pro: QUESTION_PAIEMENT.grisee.pro[langue] });
-      expect(g.pro).toContain(`href="${langue === 'fr' ? '/contact/' : '/en/contact/'}"`);
+      expect(texte(g.free!)).toBe(QUESTION_PAIEMENT.grisee.free[langue]);
+      expect(g.pro).toContain(`href="${OFFRE_CREDIT_WHATSAPP[langue]}"`);
+      expect(g.pro).not.toMatch(/contact\//);
     });
 
     it(`${langue} : les voies qui gardent l’application disent qu’on y paie Meta avec sa carte`, () => {
