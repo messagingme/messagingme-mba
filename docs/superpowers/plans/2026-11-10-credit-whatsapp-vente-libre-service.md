@@ -79,7 +79,7 @@ ligne ne paie que les messages de l'API). Aucun code ici ; les jaunes 1, 5 et 6 
 - [ ] Trois préalables venus de la relecture de V1 (jaunes 2 à 4) : la console qui lit `option.prisePossible` est en
   production (fait : `a830bece`, lot 3v-1 de la session de l'aide à la connexion, le 2026-11-10) ; le numéro d'essai
   déjà connecté a sa réponse (le lot D, ou une décision de Julien) ; le texte de l'e-mail du paiement refusé de la
-  formule Pro, qui doit parler de l'option, soumis à Julien.
+  formule Pro, qui doit parler de l'option : VALIDÉ par Julien le 2026-11-11, il part avec V11.
 
 ### V5. Les jaunes des relectures du lot E7 et de V1
 
@@ -135,7 +135,13 @@ V8 : l'API, sans migration (des textes d'alerte, un avertissement au journal), e
 V9 (jaunes 1 à 3) : rien à déployer côté API (des tests et une JSDoc) ; l'exemple du champ de note part avec la console,
 au push.
 
+V7, V8 et V9 sont en production ensemble le 2026-11-11 (run 42983102680, `baa1f16e`, une seule approbation, avec le lot
+4a-3 de l'aide, d'accord avec sa session).
+
 V10 : rien à déployer (des JSDoc et des tests) ; il ne pousse qu'après la CI de V9 et celle du lot de l'aide qui la suit.
+
+V11 : l'API, sans migration (l'e-mail part du webhook de Stripe, le texte d'alerte de la fenêtre du partenaire) ; ses
+JSDoc avec elle.
 
 ## Méthode de livraison
 
@@ -347,4 +353,39 @@ corrigés, chacun tenu par un test qui échoue sous trois mutations ; les textes
   ligne), et « ou Meta refuserait ses envois » dans celle de `NePasPoser` (1) ; les journaux d'une interruption tenus par
   le test, lecture en panne, marque en panne et marque absente, qui ne s'affiche plus à chaque exécution (2, chaque
   assertion vue rouge sous la mutation de son journal, le fichier restauré à l'identique).
-- [ ] Le jaune 4 de V8, après la décision de Julien sur la coexistence dans la liste.
+- [ ] Le jaune 4 de V8 : décision de Julien du 2026-11-11, les numéros en coexistence n'entrent PAS dans la liste de
+  `/ops` (« l'alerte suffit ») ; reste la phrase de l'alerte, qui part avec V11.
+
+## La relecture du lot V10 (2026-11-11)
+
+Un relecteur indépendant, sur le diff de `adcce75a` (coupé par une interruption de session au milieu d'une mutation ; le
+fichier muté a été restauré à l'identique avant sa reprise) : **aucun rouge, trois jaunes**. Les deux jaunes de V9 sont
+corrigés : les trois JSDoc disent vrai au regard de la route, d'`abandonnerAttente` et de l'état relu
+(`etatLigneCredit`) ; les trois journaux d'une interruption sont tenus (chacun rouge sous la mutation de son journal, et
+sous un `warn` passé en `error` ou un journal sans `tenantId`). Le lot part tel quel ; ses jaunes vont à V11.
+
+1. **« la route le dit » (`src/credit-whatsapp/lignes.pg.ts`)** : seule la JSDoc de la route le dit. Son code ne voit pas
+   l'attache, et sur une ligne active de l'espace il efface la marque (200, tenu par `tests/ops-credit-whatsapp.test.ts`) ;
+   ce qui avertit l'exploitant, c'est le texte de la liste de `/ops`. Écrire que ni la route ni le magasin ne peuvent le
+   refuser, l'attache ne se voyant pas d'ici.
+2. **Les codes des 409 cités par la JSDoc du client (`web/lib/api/compte.ts`)** : `appelOps` ne remonte que le statut et
+   `error`, ni `code` ni `ligne`. Dire « codes du serveur, non remontés par ce client », ou ne citer que le 409 et son
+   message.
+3. **« les journaux portent la panne » (test de l'interruption)** : aucune assertion ne lit la cause (`err`), retirée des
+   deux journaux sans rougir le test. Facultatif : la convention du fichier ne la lit pas non plus.
+
+### V11. L'e-mail du paiement refusé de la formule Pro avec l'option (V4), le jaune 4 de V8 et les jaunes de V10
+
+Après le lot 5 de la session de l'aide sur `origin` : il touche `src/emails-produit/` (`aide?` dans `ModeleEmail`,
+`LIGNES_AIDE`), et `tests/emails-produit.test.ts` exige de chaque modèle une `aide` ou une place dans `SANS_PAGE_D_AIDE`.
+
+- [ ] **L'e-mail** (texte validé par Julien le 2026-11-11) : un espace Pro dont le renouvellement échoue alors qu'il a une
+  option Crédit WhatsApp vivante reçoit une variante de `paiement_refuse_pro`, dont le second paragraphe dit « Sans
+  paiement, l’espace repassera en offre Free, avec ses limites, et son option Crédit WhatsApp s’arrêtera avec elle : les
+  messages WhatsApp des numéros de l’option s’arrêteront, réponses à vos clients comprises. Votre crédit restant est
+  conservé. Mettez à jour votre carte depuis la page « Offre » de la console, ou demandez-le à Claude. », et sa version
+  anglaise ; les autres espaces gardent le texte actuel. La raison : l'option résiliée d'office avec la formule
+  n'envoie pas `option_wa_arretee`, cet e-mail est le seul avertissement. Le modèle entre dans `SANS_PAGE_D_AIDE`.
+- [ ] **Le jaune 4 de V8** : en coexistence, l'alerte dit que cette connexion ne l'a pas marqué, au lieu d'affirmer qu'il
+  n'est pas dans la liste (une connexion antérieure a pu l'y mettre).
+- [ ] **Les trois jaunes de V10** (§ « La relecture du lot V10 »).
