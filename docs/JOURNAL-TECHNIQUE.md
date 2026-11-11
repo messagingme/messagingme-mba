@@ -4,6 +4,28 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : une Condition après un Appel API lit la valeur rangée (le moteur s'endort sur l'appel)
+
+Révélé par l'essai réel du champ JSON : la fiche de Julien portait la réponse de l'API, « Blue Frock » compris, et la
+Condition « panier contient Blue Frock » prenait « Sinon ». Défaut d'origine du bloc Appel API, pas du champ JSON :
+`walk` décide les Conditions sur une copie du contexte, l'appel ne part qu'à l'application. Plan
+`docs/superpowers/plans/2026-11-11-appel-api-puis-condition.md`.
+
+- **Ce qui a changé** (`df34d172`) : l'option `attendreLesAppels` de `walk` ; après un Appel API ou une Fonction JS qui
+  range un champ et a une suite, la marche s'endort sur ce bloc (1 ms), le réveil court reprend au bloc suivant sur un
+  contexte relu. Posée par `walkResolved` pour un démarrage unitaire, un réveil, une avance.
+- **La relecture** : deux rouges, corrigés et vus rouges sans leur garde. Une campagne (et tout démarrage de masse) ne
+  s'endort pas : sa reprise aurait perdu les variables et l'exemption du modèle d'ouverture et publié les étiquettes.
+  Une suite qui revient sur l'appel sans bloc qui attend ne s'endort pas : chaque réveil aurait rappelé le client sans
+  fin. Quatre jaunes au backlog.
+- **Vérifié** : suite racine (4 191 fichiers), lint, auto-attaque, tsc ; la CI de `df34d172` annulée par un push de pair,
+  relancée après la sienne, verte job par job.
+- **En production** le 2026-11-11 à 15 h 10 UTC, run 43042809989 épinglé sur `df34d172`, `migration=aucune` (production
+  d'avant : `7c94206f`, son ancêtre). Essai réel fait : « blue » à 15 h 13 m 49 s UTC, « contient blue frock » 1,7 s après.
+- **La règle qui en reste** : un moteur qui décide ses branches sur une copie de travail AVANT d'exécuter ses effets doit
+  s'arrêter après tout effet dont la valeur ne se connaît qu'en l'exécutant ; et l'arrêt d'un parcours ne vaut que là où
+  la reprise sait reconstituer ce que le démarrage portait (une campagne ne le sait pas).
+
 ## 2026-11-11 : le centre d'aide, une section un chemin, et plus de mise en garde sur un numéro neuf
 
 Demandes de Julien du jour, sur `/aide/` : voir les guides de chaque section dans la barre, en séparant Claude Code ou
