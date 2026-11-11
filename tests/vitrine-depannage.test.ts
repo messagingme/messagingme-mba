@@ -6,12 +6,11 @@ import { jumellesAide } from '../scripts/vitrine/aide-pages';
 import { FENETRE_BLOQUEE } from '../web/lib/fenetre-meta';
 import { ETAPES_CARTE_META, WHATSAPP_ORDINAIRE } from '../web/lib/partage/etapes-meta';
 import { ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '../web/lib/partage/etapes-numero-fourni';
-import { ISSUE_TELECHARGER } from '../web/lib/questions-numero';
 
 /**
  * LE DÉPANNAGE DE LA CONNEXION DU NUMÉRO (lot 4a de l'aide à la connexion, spec « Le dépannage ») : aucune cause ni aucun
  * remède ne s'invente. Chaque remède tiré du produit se lit sur la page MOT POUR MOT comme sa source (les étapes du numéro
- * fourni, la fenêtre bloquée, WhatsApp ordinaire, le numéro trop neuf, la carte chez Meta), et chaque lien mène à une page
+ * fourni, la fenêtre bloquée, WhatsApp ordinaire, la carte chez Meta), et chaque lien mène à une page
  * qui existe.
  */
 const SITE = join(process.cwd(), 'site');
@@ -30,7 +29,7 @@ describe('le dépannage de la connexion du numéro', () => {
     it(`🔴 ${langue} : chaque remède tiré du produit se lit mot pour mot comme sa source`, () => {
       const sources = [
         ...ETAPES_NUMERO_FOURNI.filter((e) => /GB \(\+44\)|45/.test(e.fr)).map((e) => e[langue]),
-        SI_SEUL_TEXT_MESSAGE[langue], FENETRE_BLOQUEE[langue], WHATSAPP_ORDINAIRE[langue], ISSUE_TELECHARGER.textes[1]![langue],
+        SI_SEUL_TEXT_MESSAGE[langue], FENETRE_BLOQUEE[langue], WHATSAPP_ORDINAIRE[langue],
         ...ETAPES_CARTE_META.map((e) => e[langue]),
       ];
       expect(sources.length).toBeGreaterThan(6);
@@ -69,7 +68,7 @@ describe('le dépannage de la connexion du numéro', () => {
         const debut = accueil.indexOf(`id="${id}"`);
         const section = accueil.slice(debut, accueil.indexOf('</section>', debut));
         const cartes = [...section.matchAll(/<a class="aide-carte-lien" href="([^"]+)">/g)].map((m) => m[1]);
-        expect(cartes.at(-1), id).toBe(DEPANNAGE.adresse[langue]);
+        expect(cartes.at(-1), id).toBe(`${DEPANNAGE.adresse[langue]}?ou=${id === 'demarrer-claude' ? 'claude' : 'console'}`);
       }
     });
   }

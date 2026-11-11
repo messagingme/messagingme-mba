@@ -247,8 +247,8 @@ export const ISSUE_API = {
 } as const satisfies Record<string, Texte>;
 
 /**
- * Sans l'application : la télécharger, puis brancher TOUT DE SUITE en la gardant (Julien, 2026-10-30) ; si Meta refuse un
- * numéro trop neuf, revenir quelques jours plus tard. Meta ne publie aucun seuil : aucun nombre de jours.
+ * Sans l'application : la télécharger, puis brancher TOUT DE SUITE en la gardant (Julien, 2026-10-30). Un numéro neuf passe
+ * en coexistence sans attendre (testé, Julien, 2026-11-11) : aucune mise en garde sur un refus de Meta.
  */
 export const ISSUE_TELECHARGER = {
   titre: { fr: 'Téléchargez l’application WhatsApp Business', en: 'Download the WhatsApp Business app' },
@@ -256,10 +256,6 @@ export const ISSUE_TELECHARGER = {
     {
       fr: 'Installez l’application WhatsApp Business sur un téléphone, avec le numéro de votre entreprise, puis branchez-le tout de suite en gardant l’application : votre numéro reste sur votre téléphone et envoie aussi depuis Messaging Me.',
       en: 'Install the WhatsApp Business app on a phone, with your business’s number, then connect it right away while keeping the app: your number stays on your phone and also sends from Messaging Me.',
-    },
-    {
-      fr: 'Meta refuse parfois un numéro trop neuf : servez-vous alors de l’application quelques jours, puis revenez le brancher.',
-      en: 'Meta sometimes refuses a number that is too new: then use the app for a few days, and come back to connect it.',
     },
   ],
   /** Les fiches officielles de l'application, celles de la vitrine (`MAGASINS`), avec leur icône (`@/lib/icones`). */
@@ -271,8 +267,8 @@ export const ISSUE_TELECHARGER = {
 
 /**
  * Sans numéro (Julien, 2026-10-31) : nous le fournissons, et il va DANS l'application (« Dans l'application »), puis se
- * branche en la gardant. Les trois phrases de la vitrine que la console reprend : le numéro et son code, répondre dès le
- * premier jour, et le numéro tout neuf que Meta refuse souvent (aucun nombre de jours).
+ * branche en la gardant. Les deux phrases de la vitrine que la console reprend : le numéro et son code, puis répondre dès
+ * le premier jour et brancher le numéro en gardant l'application.
  */
 export const ISSUE_FOURNI = {
   titre: { fr: 'Téléchargez l’application, nous vous fournissons le numéro', en: 'Download the app, we provide the number' },
@@ -284,10 +280,6 @@ export const ISSUE_FOURNI = {
     {
       fr: 'Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.',
       en: 'From day one, you reply to your customers from the app. Then connect the number while keeping the app, so your confirmations, reminders and follow-ups also go out from Messaging Me.',
-    },
-    {
-      fr: 'Meta refuse souvent un numéro tout neuf : l’envoi de vos messages depuis Messaging Me attend alors quelques jours, le temps de revenir le brancher, et vous répondez à vos clients depuis l’application en attendant.',
-      en: 'Meta often refuses a brand-new number: sending your messages from Messaging Me then waits a few days, until you come back to connect it, and you reply to your customers from the app in the meantime.',
     },
   ],
 } as const;

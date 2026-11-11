@@ -3,12 +3,11 @@
 // « Le dépannage ») : une source, en français et en anglais, que `aide.ts` pose sur une page du centre d'aide.
 //
 // 🔴 AUCUNE CAUSE NI AUCUN REMÈDE NE S'INVENTE (spec) : chaque remède est construit à partir de la constante qui fait foi,
-// jamais recopié (les étapes du numéro fourni, la fenêtre bloquée, WhatsApp ordinaire, le numéro trop neuf, la carte chez
+// jamais recopié (les étapes du numéro fourni, la fenêtre bloquée, WhatsApp ordinaire, la carte chez
 // Meta) ; ce qui vient d'une fiche le dit, et `tests/vitrine-depannage.test.ts` tient chaque citation égale à sa source.
 import { FENETRE_BLOQUEE } from '../../web/lib/fenetre-meta';
 import { ETAPES_CARTE_META, WHATSAPP_ORDINAIRE } from '../../web/lib/partage/etapes-meta';
 import { ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '../../web/lib/partage/etapes-numero-fourni';
-import { ISSUE_TELECHARGER } from '../../web/lib/questions-numero';
 import { PAGES_SOURCES } from './aide-sources-textes';
 import { TEXTES_TUNNEL } from './tunnel-textes';
 
@@ -104,13 +103,6 @@ export const DEPANNAGE = {
         { fr: 'Meta ne tolère que dix demandes par numéro sur 72 heures, et bloque le numéro au-delà. Au bout de 48 heures sans code, écrivez-nous.', en: 'Meta only allows ten requests per number over 72 hours, and blocks the number beyond that. After 48 hours without a code, write to us.' },
       ],
       lien: { libelle: { fr: 'Nous écrire', en: 'Write to us' }, href: CONTACT },
-    },
-    {
-      id: 'non-eligible', ou: ['claude', 'console'],
-      titre: { fr: 'Meta dit que le numéro n’est pas éligible (« More activity on the WhatsApp Business App is needed »)', en: 'Meta says the number is not eligible (“More activity on the WhatsApp Business App is needed”)' },
-      cause: { fr: 'Le numéro est trop neuf dans l’application WhatsApp Business. Meta ne publie aucun seuil.', en: 'The number is too new in the WhatsApp Business app. Meta publishes no threshold.' },
-      remede: [{ fr: ISSUE_TELECHARGER.textes[1]!.fr, en: ISSUE_TELECHARGER.textes[1]!.en }],
-      lien: { libelle: { fr: 'Garder mon application WhatsApp Business', en: 'Keep my WhatsApp Business app' }, href: GARDER },
     },
     {
       id: 'whatsapp-ordinaire', ou: ['claude', 'console'],

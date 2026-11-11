@@ -342,8 +342,6 @@ const fr = (): TexteTunnel => {
         textes: [
           'Votre numéro reste dans l’application et envoie aussi depuis Messaging Me : vous répondez toujours depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.',
           whatsappOrdinaire,
-          // Un compte de l'application tout juste repris de WhatsApp peut être trop neuf pour Meta (jaune 5 du lot 3a).
-          'Meta refuse parfois un numéro trop neuf : servez-vous alors de l’application quelques jours, puis revenez le brancher.',
           `${garder} Meta facture les messages partis de Messaging Me, réponses comprises au-delà d’une franchise mensuelle ; ceux que vous tapez dans l’application restent gratuits.`,
           carteAvecApplication,
           'Quelques fonctions de l’application s’arrêtent, comme les listes de diffusion et le message d’absence, et il faut l’ouvrir au moins toutes les deux semaines. Ce que vous y tapez n’apparaît pas dans Messaging Me : votre agent IA ne voit pas vos réponses.',
@@ -368,36 +366,33 @@ const fr = (): TexteTunnel => {
         pasAPas: '/aide/connecter-mon-numero-whatsapp/',
       },
       {
-        // Julien, 2026-10-30 : on branche tout de suite ; si Meta refuse un numéro trop neuf, on revient quelques jours
-        // après. Meta ne publie aucun seuil : aucun nombre de jours ici.
+        // Julien, 2026-10-30 : on branche tout de suite. Un numéro neuf passe en coexistence sans attendre (testé, Julien,
+        // 2026-11-11) : aucune mise en garde sur un refus de Meta.
         id: 'telecharger', situation: 'Sans l’application WhatsApp Business, avec un numéro', titre: 'Téléchargez l’application WhatsApp Business',
         textes: [
           'Installez l’application WhatsApp Business sur un téléphone, avec le numéro de votre entreprise, puis branchez-le tout de suite en gardant l’application : votre numéro reste sur votre téléphone et envoie aussi depuis Messaging Me.',
           whatsappOrdinaire,
           garder,
           carteAvecApplication,
-          'Meta refuse parfois un numéro trop neuf : servez-vous alors de l’application quelques jours, puis revenez le brancher.',
         ],
         liens: magasins,
-        numero: memes('Je viens d’installer l’application WhatsApp Business avec mon numéro et je veux la garder : relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi : je reviendrai dans quelques jours.'),
+        numero: memes('Je viens d’installer l’application WhatsApp Business avec mon numéro et je veux la garder : relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, et guide-moi pour créer mon compte Meta Business en chemin.'),
         pasAPas: '/aide/garder-mon-application-whatsapp-business/',
       },
       {
         // Julien, 2026-10-31 : sans numéro, nous en fournissons un, qui va dans l'application. On répond aux clients dès
-        // le premier jour ; Meta refusant souvent un numéro tout neuf, les messages qu'on envoie depuis Messaging Me
-        // attendent quelques jours. Aucun nombre de jours, comme pour `telecharger`.
+        // le premier jour, et le numéro se branche aussitôt en gardant l'application.
         id: 'fourni', situation: 'Sans l’application WhatsApp Business ni numéro', titre: 'Téléchargez l’application, nous vous fournissons le numéro',
         textes: [
           `Installez l’application WhatsApp Business sur votre téléphone et créez-y votre compte avec le numéro que nous vous fournissons, ${numero} HT par mois en formule Free, inclus en formule Pro : son code de vérification s’affiche sur la page de Messaging Me.`,
           'Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.',
           garder,
           carteAvecApplication,
-          'Meta refuse souvent un numéro tout neuf : l’envoi de vos messages depuis Messaging Me attend alors quelques jours, le temps de revenir le brancher, et vous répondez à vos clients depuis l’application en attendant.',
         ],
         liens: magasins,
         numero: {
-          free: `Je n’ai pas de numéro : fournis-m’en un (${numero} HT par mois), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification ; puis relie-le par Meta en gardant l’application, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi : je reviendrai dans quelques jours.`,
-          pro: 'Je n’ai pas de numéro : fournis-m’en un (inclus en formule Pro), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification ; puis relie-le par Meta en gardant l’application, guide-moi pour créer mon compte Meta Business en chemin, et si Meta refuse un numéro trop neuf, dis-le-moi : je reviendrai dans quelques jours.',
+          free: `Je n’ai pas de numéro : fournis-m’en un (${numero} HT par mois), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification ; puis relie-le par Meta en gardant l’application, et guide-moi pour créer mon compte Meta Business en chemin.`,
+          pro: 'Je n’ai pas de numéro : fournis-m’en un (inclus en formule Pro), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification ; puis relie-le par Meta en gardant l’application, et guide-moi pour créer mon compte Meta Business en chemin.',
         },
         pasAPas: '/aide/garder-mon-application-whatsapp-business/',
       },
@@ -627,7 +622,6 @@ const en = (): TexteTunnel => {
         textes: [
           'Your number stays in the app and also sends from Messaging Me: you still reply from your phone, and your confirmations, reminders and follow-ups go out from Messaging Me.',
           whatsappOrdinaire,
-          'Meta sometimes refuses a number that is too new: then use the app for a few days, and come back to connect it.',
           `${garder} Meta bills the messages sent from Messaging Me, replies included beyond a monthly allowance; those you type in the app stay free.`,
           carteAvecApplication,
           'A few app features stop, such as broadcast lists and the away message, and you need to open the app at least every two weeks. What you type there does not show in Messaging Me: your AI agent does not see your replies.',
@@ -656,10 +650,9 @@ const en = (): TexteTunnel => {
           whatsappOrdinaire,
           garder,
           carteAvecApplication,
-          'Meta sometimes refuses a number that is too new: then use the app for a few days, and come back to connect it.',
         ],
         liens: magasins,
-        numero: memes('I just installed the WhatsApp Business app with my number and I want to keep it: connect it through Meta so it also sends from Messaging Me, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days.'),
+        numero: memes('I just installed the WhatsApp Business app with my number and I want to keep it: connect it through Meta so it also sends from Messaging Me, and walk me through creating my Meta Business account along the way.'),
         pasAPas: '/en/help/keep-my-whatsapp-business-app/',
       },
       {
@@ -669,12 +662,11 @@ const en = (): TexteTunnel => {
           'From day one, you reply to your customers from the app. Then connect the number while keeping the app, so your confirmations, reminders and follow-ups also go out from Messaging Me.',
           garder,
           carteAvecApplication,
-          'Meta often refuses a brand-new number: sending your messages from Messaging Me then waits a few days, until you come back to connect it, and you reply to your customers from the app in the meantime.',
         ],
         liens: magasins,
         numero: {
-          free: `I have no number: provide one (${numero} excl. VAT a month), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days.`,
-          pro: 'I have no number: provide one (included in Pro), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, walk me through creating my Meta Business account along the way, and if Meta refuses a number that is too new, tell me: I will come back in a few days.',
+          free: `I have no number: provide one (${numero} excl. VAT a month), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, and walk me through creating my Meta Business account along the way.`,
+          pro: 'I have no number: provide one (included in Pro), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, and walk me through creating my Meta Business account along the way.',
         },
         pasAPas: '/en/help/keep-my-whatsapp-business-app/',
       },

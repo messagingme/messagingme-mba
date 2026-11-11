@@ -44,6 +44,10 @@ describe('le guide du numéro', () => {
       for (const x of arbre.issues as IssueBranchement[]) {
         const fin = t.slice(t.indexOf(`data-chemin="${x.id}"`), t.indexOf('</article>', t.indexOf(`data-chemin="${x.id}"`)));
         expect(fin, x.id).toContain(`href="${x.pasAPas}"`);
+        // 🔴 La voie (Julien, 2026-11-11) : le bouton de la console et la phrase à dire à Claude portent chacun la leur,
+        // pour qu'une page venue d'un « Démarrer » ne montre que le chemin de cette section.
+        expect(fin, x.id).toMatch(/<a class="bouton bouton-trait" data-voie="console" href="[^"]*\/connecter-whatsapp/);
+        expect(fin, x.id).toMatch(/<div data-voie="claude">\s*<p class="bt-appels-titre bt-guide-claude">[\s\S]*?<div class="bt-demande">/);
         expect(fin, x.id).toMatch(/href="https:\/\/console\.messagingme\.app\/connecter-whatsapp(\?lang=en)?"/);
         const phrase = phraseGuide(n, x);
         expect(phrase, x.id).not.toMatch(/€|formule Pro|included in Pro|inclus en/);
@@ -68,10 +72,18 @@ describe('le guide du numéro', () => {
       for (const id of ['demarrer-claude', 'demarrer-console']) {
         const debut = accueil.indexOf(`id="${id}"`);
         const section = accueil.slice(debut, accueil.indexOf('</section>', debut));
-        expect(section, id).toContain(`<a class="aide-carte-lien" href="${GUIDE_NUMERO[langue]}">`);
+        expect(section, id).toContain(`<a class="aide-carte-lien" href="${GUIDE_NUMERO[langue]}?ou=${id === 'demarrer-claude' ? 'claude' : 'console'}">`);
       }
     });
   }
+
+  it('🔴 la voie se pose depuis ?ou= et masque l’autre chemin (Julien, 2026-11-11)', () => {
+    const css = readFileSync(join(SITE, 'site.css'), 'utf8');
+    const js = readFileSync(join(SITE, 'site.js'), 'utf8');
+    expect(css).toContain('html[data-ou="claude"] [data-voie="console"],html[data-ou="console"] [data-voie="claude"]{display:none!important}');
+    expect(js).toContain("new URLSearchParams(location.search).get('ou')");
+    expect(js).toContain("if (ou !== 'claude' && ou !== 'console') return;");
+  });
 
   it('il entre dans le plan du site et dans llms.txt, et ses deux langues sont jumelles', () => {
     const plan = readFileSync(join(SITE, 'sitemap.xml'), 'utf8');

@@ -1745,6 +1745,13 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
    libellé passe à la ligne au lieu de déborder sur le menu. */
 .aide-article .bouton{white-space:normal;text-align:center}
 .aide-article .bt-demande{background:#E7EAF3}
+/* La voie (2026-11-11) : venue d'un « Démarrer » (?ou=claude ou ?ou=console, posé par site.js), une page d'aide ne garde
+   que ce qui sert cette voie, et son fil d'Ariane nomme la bonne section. Sans voie, tout se lit. */
+html[data-ou="claude"] [data-voie="console"],html[data-ou="console"] [data-voie="claude"]{display:none!important}
+.aide-fil .fil-autre{display:none}
+html[data-ou="claude"] .aide-fil .fil-claude,html[data-ou="console"] .aide-fil .fil-console{display:inline}
+html[data-ou="claude"] .aide-fil .fil-console,html[data-ou="console"] .aide-fil .fil-claude{display:none}
+html[data-ou="console"] .aide-une .appels .bouton-trait[data-voie="console"]{background:var(--action);color:var(--on-action);border-color:transparent;padding:.85em 1.45em;font-size:1rem}
 .aide-article .bouton-trait:not([aria-pressed="true"]):not(:disabled){border-color:var(--line);background:var(--surface);color:var(--ink)}
 .aide-article .bouton-trait:not([aria-pressed="true"]):not(:disabled):hover{border-color:var(--action-ink);background:var(--action-wash)}
 .aide-grille{display:grid;grid-template-columns:250px minmax(0,1fr);gap:40px;align-items:start}

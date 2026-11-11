@@ -57,6 +57,4 @@ Ce que vous tapez dans l'application n'apparaît pas encore dans Messaging Me. S
 ne voit donc pas vos réponses : il peut répondre en même temps que vous.
 
 **Bon à savoir.** Pas encore l'application ? Téléchargez l'application WhatsApp Business sur un téléphone,
-mettez-y le numéro de votre entreprise, puis suivez ce guide tout de suite. Meta peut refuser un numéro trop neuf
-dans l'application (« More activity on the WhatsApp Business App is needed ») : servez-vous de l'application
-quelques jours, puis recommencez.
+mettez-y le numéro de votre entreprise, puis suivez ce guide tout de suite.

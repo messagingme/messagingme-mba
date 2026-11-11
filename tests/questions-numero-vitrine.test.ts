@@ -126,8 +126,9 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
     it(`${langue} : le numéro fourni mis dans l’application, ses phrases et ses magasins`, () => {
       const x = issue('fourni');
       expect(ISSUE_FOURNI.titre[langue]).toBe(texte(x.titre));
-      // Le numéro et son code, répondre dès le premier jour, puis le numéro tout neuf : la 1re, la 2e et la dernière phrase.
-      expect(ISSUE_FOURNI.textes.map((p) => p[langue])).toEqual([texte(x.textes[0]!), texte(x.textes[1]!), texte(x.textes[x.textes.length - 1]!)]);
+      // Le numéro et son code, puis répondre dès le premier jour : les deux premières phrases (Julien, 2026-11-11 : plus
+      // aucune mise en garde sur un numéro neuf, qui passe en coexistence sans attendre).
+      expect(ISSUE_FOURNI.textes.map((p) => p[langue])).toEqual([texte(x.textes[0]!), texte(x.textes[1]!)]);
       expect(ISSUE_TELECHARGER.magasins.map((m) => ({ libelle: m.libelle[langue], href: m.href }))).toEqual(x.liens);
     });
 
@@ -138,8 +139,8 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(ISSUE_API.lien[langue]).toBe(texte(api.autre!.lien));
       const t = issue('telecharger');
       expect(ISSUE_TELECHARGER.titre[langue]).toBe(texte(t.titre));
-      // Brancher tout de suite, puis le numéro trop neuf : la première et la dernière phrase de l'issue de la vitrine.
-      expect(ISSUE_TELECHARGER.textes.map((x) => x[langue])).toEqual([texte(t.textes[0]!), texte(t.textes[t.textes.length - 1]!)]);
+      // Brancher tout de suite : la première phrase de l'issue de la vitrine.
+      expect(ISSUE_TELECHARGER.textes.map((x) => x[langue])).toEqual([texte(t.textes[0]!)]);
       // Les deux magasins de l'application, mêmes libellés et mêmes adresses.
       expect(ISSUE_TELECHARGER.magasins.map((m) => ({ libelle: m.libelle[langue], href: m.href }))).toEqual(t.liens);
     });

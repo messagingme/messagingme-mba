@@ -278,7 +278,7 @@ test('🟡 espace connecté avec un numéro fourni payé : « Gérer mon abonnem
  * LES QUESTIONS DU TUNNEL DE LA VITRINE (2026-10-30, plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-plugin.md`) :
  * le compte Meta Business, puis l'application WhatsApp Business. Plus aucune voie par QR code.
  */
-test('🔴 sans compte Meta Business ni application : la télécharger, brancher tout de suite, et le numéro trop neuf', async ({ page }) => {
+test('🔴 sans compte Meta Business ni application : la télécharger et brancher tout de suite', async ({ page }) => {
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
@@ -302,7 +302,6 @@ test('🔴 sans compte Meta Business ni application : la télécharger, brancher
   // WhatsApp ordinaire (lot 3a) : le numéro qui y sert passe dans WhatsApp Business, sur le même téléphone.
   await expect(page.getByTestId('whatsapp-ordinaire')).toContainText('Installez WhatsApp Business sur le même téléphone');
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
-  await expect(page.getByTestId('numero-trop-neuf')).toContainText('revenez le brancher');
   await expect(page.getByTestId('issue-telecharger').getByRole('link', { name: 'Google Play (Android)' })).toHaveAttribute('href', /com\.whatsapp\.w4b/);
   await expect(page.locator('main')).not.toContainText(/QR/);
   // Comme sur la vitrine : les questions restent affichées, la réponse choisie en évidence, et une autre change la suite.
@@ -329,7 +328,6 @@ test('« Je ne sais pas » : où le vérifier, puis l’application gardée, san
   await page.getByTestId('question-meme-numero-oui').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
-  await expect(page.getByTestId('numero-trop-neuf')).toHaveCount(0);
 });
 
 test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous pouvez le garder »', async ({ page }) => {
@@ -345,8 +343,6 @@ test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous
   await page.getByTestId('choix-coexistence').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('whatsapp-ordinaire')).toContainText('elle vous propose de reprendre ce numéro, avec vos conversations');
-  // Repris de WhatsApp à l'instant, le compte de l'application peut être trop neuf pour Meta (jaune 5 du lot 3a).
-  await expect(page.getByTestId('numero-trop-neuf')).toContainText('revenez le brancher');
   await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
   // « Retour » ramène aux questions, la réponse gardée en évidence ; une autre réponse change la suite.
   await page.getByRole('button', { name: 'Retour' }).click();
@@ -377,7 +373,8 @@ test('🔴 sans compte, sans application, sans numéro : le numéro fourni va da
   await expect(page.getByTestId('code-capte')).toContainText('En attente du code de WhatsApp');
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('ouvrir-fenetre-meta')).toHaveCount(0);
-  await expect(page.getByTestId('suite-fourni-application')).toContainText('Meta refuse souvent un numéro tout neuf');
+  await expect(page.getByTestId('suite-fourni-application')).toContainText('Dès le premier jour');
+  await expect(page.getByTestId('suite-fourni-application')).not.toContainText('Meta refuse');
   await expect(page.locator('main')).not.toContainText(/QR/);
   // 🔴 Un rechargement reprend le numéro DANS sa variante (la mémoire de l’onglet), pas celle de la fenêtre de Meta.
   await page.reload();

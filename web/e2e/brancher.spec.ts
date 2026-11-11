@@ -110,7 +110,8 @@ test('🔴 le numéro fourni mis dans l’application (2026-10-31) : les étapes
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeEnabled();
   await expect(page.getByTestId('ouvrir-fenetre-meta')).toHaveCount(0);
   await expect(page.getByTestId('suite-fourni-application')).toContainText('Dès le premier jour');
-  await expect(page.getByTestId('suite-fourni-application')).toContainText('Meta refuse souvent un numéro tout neuf');
+  await expect(page.getByTestId('suite-fourni-application')).toContainText('Dès le premier jour');
+  await expect(page.getByTestId('suite-fourni-application')).not.toContainText('Meta refuse');
   await expect(page.locator('main')).not.toContainText(/QR/);
 });
 

@@ -340,6 +340,29 @@
   });
 })();
 
+// Centre d'aide : la voie (2026-11-11). Ouverte depuis un « Démarrer » (?ou=claude ou ?ou=console), une page ne montre que
+// ce qui sert cette voie (`data-voie`, la règle de site.css), son menu n'allume que l'entrée de cette section, le
+// dépannage se filtre sur elle, et les liens vers les autres pages d'aide la gardent. Toute autre valeur est ignorée.
+(function () {
+  var ou = new URLSearchParams(location.search).get('ou');
+  if (ou !== 'claude' && ou !== 'console') return;
+  document.documentElement.setAttribute('data-ou', ou);
+  var actifs = [].slice.call(document.querySelectorAll('.aide-nav a.actif'));
+  if (actifs.length > 1) {
+    actifs.forEach(function (a) {
+      if (a.getAttribute('href').indexOf('ou=' + ou) < 0) { a.classList.remove('actif'); a.removeAttribute('aria-current'); }
+    });
+  }
+  [].slice.call(document.querySelectorAll('main a[href^="/aide/"], main a[href^="/en/help/"]')).forEach(function (a) {
+    var h = a.getAttribute('href');
+    if (h.indexOf('?') >= 0 || /^\/(aide|en\/help)\/(#|$)/.test(h)) return;
+    var i = h.indexOf('#');
+    a.setAttribute('href', i < 0 ? h + '?ou=' + ou : h.slice(0, i) + '?ou=' + ou + h.slice(i));
+  });
+  var choix = document.querySelector('[data-depannage] [data-ou-choix="' + ou + '"]');
+  if (choix) choix.click();
+})();
+
 // Le tunnel du numéro WhatsApp (la page « Démarrer », Boutiques Shopify, SaaS) : l'arbre de Julien (2026-10-30). Sans script,
 // les questions restent cachées et toutes les issues se lisent en liste, chacune avec la situation qu'elle sert et les
 // boutons de chaque offre. Avec lui, la question en cours s'affiche en grand sous l'étape et sa jauge ; chaque réponse

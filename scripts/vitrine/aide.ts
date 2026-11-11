@@ -203,6 +203,33 @@ function extras(langue: Langue): Extra[] {
 /** Les pages Claude Code rangées dans une rubrique de démarrage (`demarrer`, lot 4a). */
 const claudeDeLaRubrique = (r: Rubrique): PageClaude[] => (r === 'demarrer-claude' ? PAGES_CLAUDE.filter((p) => p.demarrer !== undefined) : []);
 
+/**
+ * LA VOIE (Julien, 2026-11-11 : « faut être cohérent ») : une page ouverte depuis « Démarrer avec Claude Code ou Codex »
+ * porte `?ou=claude`, depuis « Démarrer avec la console » `?ou=console`. Elle ne montre alors que ce qui sert cette voie
+ * (`data-voie`, la règle de `site.css`, que `site.js` arme) : ni bouton de la console côté Claude, ni phrase à dire à
+ * Claude côté console. Sans voie (un moteur de recherche, un lien partagé), tout se lit.
+ */
+type Voie = 'claude' | 'console';
+const voieDe = (r: string): Voie | null => (r === 'demarrer-claude' ? 'claude' : r === 'demarrer-console' ? 'console' : null);
+const avecVoie = (adresse: string, voie: Voie | null): string => {
+  if (!voie) return adresse;
+  const i = adresse.indexOf('#');
+  return i < 0 ? `${adresse}?ou=${voie}` : `${adresse.slice(0, i)}?ou=${voie}${adresse.slice(i)}`;
+};
+
+/**
+ * Le fil d'Ariane d'une page du centre. Rangée dans les deux « Démarrer », la page nomme celle de sa voie : la principale
+ * sans voie, l'autre seulement quand la voie la désigne (`fil-autre`, `site.css`).
+ */
+function filAide(langue: Langue, principale: Rubrique, places: ReadonlyArray<{ rubrique: Rubrique }>, titre: string): string {
+  const lien = (r: Rubrique, classe: string) => `<a href="${ACCUEIL_AIDE[langue]}#${r}"${classe}>${NOMS_RUBRIQUES[r][langue]}</a>`;
+  const deux = (['demarrer-claude', 'demarrer-console'] as const).every((r) => places.some((x) => x.rubrique === r));
+  const rubrique = deux
+    ? (['demarrer-claude', 'demarrer-console'] as const).map((r) => lien(r, ` class="fil-${voieDe(r)}${r === principale ? '' : ' fil-autre'}"`)).join('')
+    : lien(principale, '');
+  return `    <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › ${rubrique} › ${titre}</p>`;
+}
+
 /** Le menu du centre, à gauche de chaque page : la recherche, puis les rubriques et leurs pages. */
 function menu(pages: PageAide[], courante: PageAide | null, langue: Langue, ici?: string): string {
   const lignes = [
@@ -215,7 +242,7 @@ function menu(pages: PageAide[], courante: PageAide | null, langue: Langue, ici?
       const v = p[langue];
       const mots = motsDeRecherche(`${v.titre} ${structureFiche(v.corps, langue).chapeau}`);
       const actif = p === courante ? ' class="actif" aria-current="page"' : '';
-      return { rang: rangDans(p, r), ligne: `        <a href="${v.adresse}" data-mots="${mots}"${actif}>${texte(v.titre, langue)}</a>` };
+      return { rang: rangDans(p, r), ligne: `        <a href="${avecVoie(v.adresse, voieDe(r))}" data-mots="${mots}"${actif}>${texte(v.titre, langue)}</a>` };
     });
     for (const p of claudeDeLaRubrique(r)) {
       const mots = motsDeRecherche(`${p.titre[langue]} ${p.chapeau[langue]}`);
@@ -224,7 +251,7 @@ function menu(pages: PageAide[], courante: PageAide | null, langue: Langue, ici?
     for (const x of extras(langue)) {
       const place = x.places.find((y) => y.rubrique === r);
       const actif = x.adresse === ici ? ' class="actif" aria-current="page"' : '';
-      if (place) liens.push({ rang: place.rang, ligne: `        <a href="${x.adresse}" data-mots="${motsDeRecherche(x.mots)}"${actif}>${texte(x.titre, langue)}</a>` });
+      if (place) liens.push({ rang: place.rang, ligne: `        <a href="${avecVoie(x.adresse, voieDe(r))}" data-mots="${motsDeRecherche(x.mots)}"${actif}>${texte(x.titre, langue)}</a>` });
     }
     lignes.push(...liens.sort((x, y) => x.rang - y.rang).map((x) => x.ligne), '      </div>');
   }
@@ -258,7 +285,6 @@ function pageAide(pages: PageAide[], p: PageAide, langue: Langue): { chemin: str
   const s = structureFiche(v.corps, langue);
   const i = pages.indexOf(p);
   const [avant, apres] = [pages[i - 1], pages[i + 1]];
-  const rubrique = NOMS_RUBRIQUES[p.publication.rubrique][langue];
   const ecran = CARTE_CONSOLE.find((e) => e.cle === p.ecran);
   const suffixeConsole = langue === 'en' ? '?lang=en' : '';
   const prerequis = pages.find((x) => x.cle === p.publication.prerequis);
@@ -268,15 +294,16 @@ function pageAide(pages: PageAide[], p: PageAide, langue: Langue): { chemin: str
     '<main>',
     '<section class="cadre f-une guide-une aide-une">',
     '  <div>',
-    `    <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${p.publication.rubrique}">${rubrique}</a> › ${texte(v.titre, langue)}</p>`,
+    filAide(langue, p.publication.rubrique, p.publication.places, texte(v.titre, langue)),
     `    <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(v.titre, langue)}</h1>`,
     `    <p class="chapeau">${enLigne(s.chapeau, langue)}</p>`,
     ...(p.publication.offre ? [`    <p class="aide-offre">${texte(p.publication.claudeCode ? T[langue].offreClaude(p.publication.offre) : T[langue].offre(p.publication.offre), langue)}</p>`] : []),
     '    <div class="appels">',
-    // Un geste qui se fait aussi depuis Claude Code mène d'abord au plugin, gratuit ; la console vient en second.
+    // Un geste qui se fait aussi depuis Claude Code mène d'abord au plugin, gratuit ; la console vient en second. Chacun
+    // porte sa voie : venue d'un « Démarrer », la page ne garde que le sien.
     ...(p.publication.claudeCode
-      ? [`      <a class="bouton bouton-plein" href="${PLUGIN[langue]}">${texte(v.boutonClaude ?? T[langue].claudeCode, langue)}</a>`] : []),
-    `      <a class="bouton ${p.publication.claudeCode ? 'bouton-trait' : 'bouton-plein'}" href="${CONSOLE}${ecran?.href ?? '/'}${suffixeConsole}${p.ancreConsole ? `#${p.ancreConsole}` : ''}">${v.boutonConsole ? texte(v.boutonConsole, langue) : ecran ? texte(T[langue].ouvrir(ecran[langue]), langue) : T[langue].ouvrirConsole}</a>`,
+      ? [`      <a class="bouton bouton-plein" href="${PLUGIN[langue]}" data-voie="claude">${texte(v.boutonClaude ?? T[langue].claudeCode, langue)}</a>`] : []),
+    `      <a class="bouton ${p.publication.claudeCode ? 'bouton-trait' : 'bouton-plein'}"${p.publication.claudeCode ? ' data-voie="console"' : ''} href="${CONSOLE}${ecran?.href ?? '/'}${suffixeConsole}${p.ancreConsole ? `#${p.ancreConsole}` : ''}">${v.boutonConsole ? texte(v.boutonConsole, langue) : ecran ? texte(T[langue].ouvrir(ecran[langue]), langue) : T[langue].ouvrirConsole}</a>`,
     ...(prerequis ? [`      <a class="bouton bouton-texte" href="${prerequis[langue].adresse}">${texte(`${T[langue].avant} ${prerequis[langue].titre}`, langue)} <svg class="ic" aria-hidden="true"><use href="#i-fleche"/></svg></a>`] : []),
     '    </div>',
     '  </div>',
@@ -430,18 +457,20 @@ function cartesDeLaSection(pages: PageAide[], r: SectionAccueil, langue: Langue)
     return PAGES_CLAUDE.filter((p) => p.demarrer === undefined)
       .map((p, i) => ({ rang: i, adresse: p.adresse[langue], titre: texte(p.titre[langue], langue), ligne: carteClaude(p, langue) }));
   }
+  const voie = voieDe(r);
   const cartes: CarteAccueil[] = pagesDeLaRubrique(pages, r).map((p) => {
     const v = p[langue];
     const s = structureFiche(v.corps, langue);
     const etapes = s.sections.flatMap((x) => (x.type === 'etape' ? [{ numero: x.numero, titre: x.titre }] : []));
-    return { rang: rangDans(p, r), adresse: v.adresse, titre: texte(v.titre, langue), ligne: carte(v.adresse, texte(v.titre, langue), enLigne(s.chapeau, langue), '',
+    const adresse = avecVoie(v.adresse, voie);
+    return { rang: rangDans(p, r), adresse, titre: texte(v.titre, langue), ligne: carte(adresse, texte(v.titre, langue), enLigne(s.chapeau, langue), '',
       motsDeRecherche(`${v.titre} ${s.chapeau} ${etapes.map((e) => e.titre).join(' ')}`),
       etapes.map((e) => ({ ...e, titre: enLigne(e.titre, langue) })), langue) };
   });
   cartes.push(...claudeDeLaRubrique(r).map((p) => ({ rang: p.demarrer!, adresse: p.adresse[langue], titre: texte(p.titre[langue], langue), ligne: carteClaude(p, langue) })));
   for (const x of extras(langue)) {
     const place = x.places.find((y) => y.rubrique === r);
-    if (place) cartes.push({ rang: place.rang, adresse: x.adresse, titre: texte(x.titre, langue), ligne: carte(x.adresse, texte(x.titre, langue), texte(x.chapeau, langue), '', motsDeRecherche(x.mots), [], langue) });
+    if (place) cartes.push({ rang: place.rang, adresse: avecVoie(x.adresse, voie), titre: texte(x.titre, langue), ligne: carte(avecVoie(x.adresse, voie), texte(x.titre, langue), texte(x.chapeau, langue), '', motsDeRecherche(x.mots), [], langue) });
   }
   return cartes.sort((x, y) => x.rang - y.rang);
 }
@@ -628,11 +657,11 @@ function pageClaude(p: PageClaude, langue: Langue): { chemin: string; contenu: s
 }
 
 /** La tête d'une page du centre qui n'est pas une fiche : le fil d'Ariane, le titre et le chapeau, en pleine largeur. */
-function teteAide(langue: Langue, rubrique: Rubrique, titre: string, chapeau: string): string[] {
+function teteAide(langue: Langue, places: ReadonlyArray<{ rubrique: Rubrique }>, titre: string, chapeau: string): string[] {
   return [
     '<section class="cadre f-une guide-une aide-une">',
     '  <div>',
-    `    <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${rubrique}">${NOMS_RUBRIQUES[rubrique][langue]}</a> › ${texte(titre, langue)}</p>`,
+    filAide(langue, places[0]!.rubrique, places, texte(titre, langue)),
     `    <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(titre, langue)}</h1>`,
     `    <p class="chapeau">${texte(chapeau, langue)}</p>`,
     '  </div>',
@@ -649,12 +678,11 @@ function teteAide(langue: Langue, rubrique: Rubrique, titre: string, chapeau: st
 function pageGuide(pages: PageAide[], langue: Langue): { chemin: string; contenu: string } {
   const g = TEXTES_TUNNEL[langue].guide;
   const { titre, description } = titreGuide(langue);
-  const principale = PLACES_GUIDE[0]!.rubrique;
   // Le gabarit de toutes les pages du centre (Julien, 2026-11-11 : toutes les pages d'aide ont la même forme) : la tête,
   // puis la bande claire avec le menu à gauche ; les cinq points, puis le tunnel, dans l'article.
   const main = [
     '<main>',
-    ...teteAide(langue, principale, titre, g.chapeau),
+    ...teteAide(langue, PLACES_GUIDE, titre, g.chapeau),
     '<section class="f-bloc bande-claire">',
     '  <div class="cadre aide-grille">',
     menu(pages, null, langue, GUIDE_NUMERO[langue]),
@@ -687,7 +715,6 @@ function pageGuide(pages: PageAide[], langue: Langue): { chemin: string; contenu
  */
 function pageDepannage(pages: PageAide[], langue: Langue): { chemin: string; contenu: string } {
   const d = DEPANNAGE;
-  const principale = PLACES_DEPANNAGE[0]!.rubrique;
   // La réponse d'un symptôme, telle qu'elle s'affiche ET telle que la balise le dit (`tests/vitrine-seo.test.ts`).
   const reponse = (s: Symptome): string[] => [s.cause[langue], ...s.remede.map((x) => x[langue]), `${d.voir[langue]} ${s.lien.libelle[langue]}`];
   const symptome = (s: Symptome): string[] => [
@@ -699,7 +726,7 @@ function pageDepannage(pages: PageAide[], langue: Langue): { chemin: string; con
   ];
   const main = [
     '<main>',
-    ...teteAide(langue, principale, d.titre[langue], d.chapeau[langue]),
+    ...teteAide(langue, PLACES_DEPANNAGE, d.titre[langue], d.chapeau[langue]),
     '<section class="f-bloc bande-claire">',
     '  <div class="cadre aide-grille">',
     menu(pages, null, langue, d.adresse[langue]),
@@ -777,7 +804,7 @@ function pageSource(pages: PageAide[], s: PageSource, langue: Langue): { chemin:
     '<main>',
     '<section class="cadre f-une guide-une aide-une">',
     '  <div>',
-    `    <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › <a href="${ACCUEIL_AIDE[langue]}#${principale}">${NOMS_RUBRIQUES[principale][langue]}</a> › ${texte(s.titre[langue], langue)}</p>`,
+    filAide(langue, principale, s.places, texte(s.titre[langue], langue)),
     `    <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-file-text"/></svg>${T[langue].aide}</span> ${texte(s.titre[langue], langue)}</h1>`,
     `    <p class="chapeau">${texte(s.chapeau[langue], langue)}</p>`,
     ...(s.lien ? ['    <div class="appels">', `      <a class="bouton bouton-trait" href="${s.lien.href[langue]}" rel="noopener">${texte(s.lien.libelle[langue], langue)}</a>`, '    </div>'] : []),

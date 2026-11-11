@@ -10,6 +10,9 @@ import { AUTORISATION_CODEX, COMMANDES_CODEX } from '../web/lib/demarrer';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META } from '../web/lib/partage/etapes-meta';
 import { NOTE_CARTE_APPLICATION, QUESTION_PAIEMENT } from '../web/lib/questions-numero';
 
+/** La voie que porte un lien d'une rubrique « Démarrer » (2026-11-11), vide ailleurs. */
+const voie = (r: string): string => (r === 'demarrer-claude' ? '?ou=claude' : r === 'demarrer-console' ? '?ou=console' : '');
+
 /**
  * LES PAGES DU CENTRE COMPOSÉES DE SOURCES (lot 4a-2 de l'aide à la connexion) : « Payer Meta » et « Les modèles
  * WhatsApp ». Aucune phrase ne s'y invente : chaque texte tiré de la FAQ du plugin ou du produit se lit sur la page MOT
@@ -110,7 +113,8 @@ describe('les pages du centre composées de sources', () => {
       for (const p of PAGES_SOURCES) {
         const html = lire(p.adresse[langue]);
         const main = html.slice(html.indexOf('<main>'), html.indexOf('</main>'));
-        const liens = [...main.matchAll(/href="(\/[^"]*)"/g)].map((m) => m[1]!);
+        // La voie (`?ou=`) ne désigne pas un autre fichier : elle se retire avant de chercher la page.
+        const liens = [...main.matchAll(/href="(\/[^"]*)"/g)].map((m) => m[1]!.replace(/\?ou=(claude|console)/, ''));
         expect(liens.length, p.cle).toBeGreaterThan(10);
         for (const l of liens) expect(existsSync(fichier(l)), `${p.cle} : ${l}`).toBe(true);
       }
@@ -122,10 +126,10 @@ describe('les pages du centre composées de sources', () => {
         for (const { rubrique } of p.places) {
           const debut = accueil.indexOf(`id="${rubrique}"`);
           const section = accueil.slice(debut, accueil.indexOf('</section>', debut));
-          expect(section, `${p.cle} dans ${rubrique}`).toContain(`<a class="aide-carte-lien" href="${p.adresse[langue]}">`);
+          expect(section, `${p.cle} dans ${rubrique}`).toContain(`<a class="aide-carte-lien" href="${p.adresse[langue]}${voie(rubrique)}">`);
         }
         const courants = [...lire(p.adresse[langue]).matchAll(/<a href="([^"]+)"[^>]*aria-current="page"/g)].map((m) => m[1]);
-        expect(courants, p.cle).toEqual(p.places.map(() => p.adresse[langue]));
+        expect(courants, p.cle).toEqual(p.places.map((x) => `${p.adresse[langue]}${voie(x.rubrique)}`));
       }
     });
   }

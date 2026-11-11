@@ -206,11 +206,15 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
   const finGuide = (x: Issue): string[] => {
     if (!x.numero) throw new Error(`tunnel : l’issue ${x.id} n’a rien à faire dans le guide`);
     const g = n.guide;
+    // Chaque chemin porte sa voie (Julien, 2026-11-11) : venu de « Démarrer avec la console », le guide ne pousse pas la
+    // phrase à dire à Claude ; venu de « Démarrer avec Claude Code ou Codex », pas le bouton de la console (`data-voie`).
     return [
       '          <div class="bt-appels">',
-      `            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="${x.pasAPas}">${g.fin.pasAPas}</a><a class="bouton bouton-trait" href="${CONSOLE}/connecter-whatsapp${langue === 'en' ? '?lang=en' : ''}">${g.fin.console}</a></div>`,
+      `            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="${x.pasAPas}">${g.fin.pasAPas}</a><a class="bouton bouton-trait" data-voie="console" href="${CONSOLE}/connecter-whatsapp${langue === 'en' ? '?lang=en' : ''}">${g.fin.console}</a></div>`,
+      '            <div data-voie="claude">',
       `            <p class="bt-appels-titre bt-guide-claude">${g.fin.claude}</p>`,
       `            <div class="bt-demande"><p id="demande-${x.id}-guide">${phraseGuide(n, x)}</p><button type="button" class="bouton bouton-trait" data-copier="demande-${x.id}-guide" data-copie="${a.copie}" hidden>${a.copier}</button></div>`,
+      '            </div>',
       '          </div>',
     ];
   };

@@ -278,9 +278,6 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       {COEXISTENCE_PHRASES.map((p) => <p key={p.fr} className="mt-3 text-sm text-ink-700">{t(p.fr, p.en)}</p>)}
       {/* Garder l'application, c'est payer Meta avec sa carte (révision du Crédit WhatsApp, décision 8). */}
       <p data-testid="note-carte-application" className="mt-3 text-sm text-ink-700">{t(NOTE_CARTE_APPLICATION.fr, NOTE_CARTE_APPLICATION.en)}</p>
-      {/* Un numéro qu'on vient de mettre dans l'application, ou de reprendre de WhatsApp (jaune 5 du lot 3a), peut être
-          refusé par Meta : on le dit avant qu'il le soit. */}
-      {(apresTelechargement || ordinaire) && <p data-testid="numero-trop-neuf" className="mt-3 text-sm text-ink-700">{t(ISSUE_TELECHARGER.textes[1].fr, ISSUE_TELECHARGER.textes[1].en)}</p>}
     </div>
   );
   /**
@@ -505,16 +502,16 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
             )}
           </div>
           {application && qrDemande && <QrApplication api={api} />}
-          {/* Ce que l'application garde et perd, et ce que Julien veut dire d'un numéro tout neuf (2026-10-31). */}
+          {/* Ce que l'application garde et perd (Julien, 2026-10-31). */}
           {choix === 'fourni_application' && (
             <div data-testid="suite-fourni-application" className="rounded-carte border border-ink-200 bg-white p-5">
-              {[ISSUE_FOURNI.textes[1], ...COEXISTENCE_PHRASES, ISSUE_FOURNI.textes[2]].map((p) => <p key={p.fr} className="mt-2 text-sm text-ink-700 first:mt-0">{t(p.fr, p.en)}</p>)}
+              {[ISSUE_FOURNI.textes[1], ...COEXISTENCE_PHRASES].map((p) => <p key={p.fr} className="mt-2 text-sm text-ink-700 first:mt-0">{t(p.fr, p.en)}</p>)}
             </div>
           )}
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <Bouton type="button" variante="discret" taille="petite" disabled={enCours} onClick={() => { void remplacer(); }} data-testid="remplacer-numero">
-              {/* Mis dans l'application, un refus de Meta se règle en attendant quelques jours (la carte le dit) : ce bouton ne
-                  sert qu'au code de l'application qui n'arrive pas, avant d'y avoir créé le compte. */}
+              {/* Mis dans l'application, le numéro n'a plus besoin de ce bouton que pour le code de l'application qui n'arrive
+                  pas, avant d'y avoir créé le compte. */}
               {choix === 'fourni_application'
                 ? t('Le code n’arrive pas ? En obtenir un autre', 'The code does not arrive? Get another one')
                 : application
@@ -604,8 +601,8 @@ const INTERVALLE_CODE_MS = 3_000;
 
 /**
  * La variante du numéro fourni choisie dans la console, gardée par le navigateur pour CET espace (2026-10-31) : le retour
- * de Stripe, un rechargement, ou le retour quelques jours plus tard dans un autre onglet (Meta refuse souvent un numéro
- * tout neuf) reprennent le parcours sans savoir quelle question y a mené. Le lien de Claude porte la sienne. Mémoire
+ * de Stripe, un rechargement, ou un retour plus tard dans un autre onglet reprennent le parcours sans savoir quelle
+ * question y a mené. Le lien de Claude porte la sienne. Mémoire
  * indisponible, ou un autre appareil : la variante d'avant, la fenêtre de Meta (l'Accueil garde son bouton « Garder mon
  * application WhatsApp Business »).
  */

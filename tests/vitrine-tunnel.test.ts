@@ -149,8 +149,8 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect(carte.titre, langue).toMatch(/Visa \/ Mastercard/);
       for (const l of carte.liens ?? []) expect(existsSync(join('site', l.href, 'index.html')), `${langue} ${l.href}`).toBe(true);
       expect(carte.liens?.length, langue).toBe(2);
-      // Un compte de l'application tout juste repris de WhatsApp peut être trop neuf pour Meta (jaune 5).
-      expect(issue('garder').textes.join(' '), langue).toMatch(/Meta refuse parfois un numéro trop neuf|Meta sometimes refuses a number that is too new/);
+      // 🔴 Un numéro neuf passe en coexistence sans attendre (testé, Julien, 2026-11-11) : aucune issue ne dit le contraire.
+      for (const x of TEXTES_TUNNEL[langue].issues) expect([...x.textes, ...Object.values(x.numero ?? {})].join(' '), `${langue} ${x.id}`).not.toMatch(/numéro (trop|tout) neuf|quelques jours|too new|brand-new|few days/);
     }
     // Un lien de la carte s'ouvre dans un autre onglet sans la choisir (jaune 1) : le clic ne vaut pas choix.
     expect(lire('site.js')).toContain("closest('.bt-voie-liens a[href]')");
@@ -166,16 +166,16 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
   });
 
-  it('🔴 sans numéro, le numéro fourni va dans l’application : on répond dès le premier jour, l’envoi attend que Meta accepte (Julien, 2026-10-31)', () => {
-    for (const [langue, application, jour, attend] of [
-      ['fr', /créez-y votre compte avec le numéro que nous vous fournissons/, /Dès le premier jour, vous répondez à vos clients depuis l’application/, /l’envoi de vos messages depuis Messaging Me attend alors quelques jours/],
-      ['en', /create your account there with the number we provide/, /From day one, you reply to your customers from the app/, /sending your messages from Messaging Me then waits a few days/],
+  it('🔴 sans numéro, le numéro fourni va dans l’application : on répond dès le premier jour, sans attendre Meta (Julien, 2026-10-31 et 2026-11-11)', () => {
+    for (const [langue, application, jour] of [
+      ['fr', /créez-y votre compte avec le numéro que nous vous fournissons/, /Dès le premier jour, vous répondez à vos clients depuis l’application/],
+      ['en', /create your account there with the number we provide/, /From day one, you reply to your customers from the app/],
     ] as const) {
       const fourni = TEXTES_TUNNEL[langue].issues.find((x) => x.id === 'fourni')!;
       const tout = fourni.textes.join(' ');
       expect(tout, langue).toMatch(application);
       expect(tout, langue).toMatch(jour);
-      expect(tout, langue).toMatch(attend);
+      expect(tout, langue).not.toMatch(/numéro (trop|tout) neuf|quelques jours|too new|brand-new|few days/);
       expect(fourni.liens?.map((l) => l.href), langue).toEqual([MAGASINS.appStore, MAGASINS.googlePlay]);
       // La demande à coller demande le numéro, pour l'application, et le code qui va avec.
       for (const d of Object.values(fourni.numero ?? {})) expect(d, langue).toMatch(langue === 'fr' ? /fournis-m’en un .* l’application WhatsApp Business, et montre-moi son code/ : /provide one .* the WhatsApp Business app, and show me its verification code/);
@@ -260,15 +260,15 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
   });
 
-  it('🔴 la voie de l’application dit que le compte Meta Business se crée en chemin, et le numéro neuf, sans aucun chiffre', () => {
-    for (const [langue, enChemin, neuf] of [
-      ['fr', /Pas de compte Meta Business \? La fenêtre de Meta le crée en chemin/, /Meta refuse parfois un numéro trop neuf/],
-      ['en', /No Meta Business account\? Meta’s window creates it along the way/, /Meta sometimes refuses a number that is too new/],
+  it('🔴 la voie de l’application dit que le compte Meta Business se crée en chemin, sans mise en garde sur un numéro neuf ni aucun chiffre', () => {
+    for (const [langue, enChemin] of [
+      ['fr', /Pas de compte Meta Business \? La fenêtre de Meta le crée en chemin/],
+      ['en', /No Meta Business account\? Meta’s window creates it along the way/],
     ] as const) {
       const { issues } = TEXTES_TUNNEL[langue];
       for (const id of ['garder', 'telecharger', 'fourni']) expect(issues.find((x) => x.id === id)!.textes.join(' '), `${langue} : ${id}`).toMatch(enChemin);
       const telecharger = issues.find((x) => x.id === 'telecharger')!;
-      expect(telecharger.textes.join(' '), langue).toMatch(neuf);
+      expect([...telecharger.textes, ...Object.values(telecharger.numero ?? {})].join(' '), langue).not.toMatch(/numéro (trop|tout) neuf|quelques jours|too new|brand-new|few days/);
       // Meta ne publie aucun seuil : jamais un nombre de jours ni d'heures.
       for (const x of issues.filter((y) => y.id === 'telecharger' || y.id === 'fourni')) {
         expect([...x.textes, ...Object.values(x.numero ?? {})].join(' '), `${langue} : ${x.id}`).not.toMatch(/\d+\s*(jours?|days?|heures?|hours?|semaines?|weeks?)/i);
