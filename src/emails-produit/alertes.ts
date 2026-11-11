@@ -139,9 +139,10 @@ export function creerPaiementRefuse(d: {
    * Ce modèle est-il déjà parti pour cette occasion dans l'espace (`occasionReservee`) ? L'anti-doublon du journal est
    * compté par modèle : sans cette lecture, une option prise ou résiliée entre deux essais de Stripe sur la même facture
    * ferait partir les deux versions de l'e-mail du Pro. Le silence se décide par ESPACE, pas par personne : un admin
-   * arrivé entre deux essais ne reçoit rien. Et la première version partie scelle la facture : une option illisible au
-   * premier essai fait partir l'e-mail d'avant, et la variante, relue vivante aux essais suivants, se tait (relecture du
-   * lot V11, jaune 2 ; le journal `paiement_refuse_option_illisible` en garde la trace).
+   * arrivé entre deux essais ne reçoit rien. Et la première version RÉSERVÉE scelle la facture, même coupée dans /ops ou
+   * ignorée (`occasionReservee` ne regarde pas le statut, relecture du lot V12, jaune 3) : une option illisible au premier
+   * essai fait partir l'e-mail d'avant, et la variante, relue vivante aux essais suivants, se tait (relecture du lot V11,
+   * jaune 2 ; le journal `paiement_refuse_option_illisible` en garde la trace).
    */
   dejaPrevenu(tenantId: string, cle: string, occasion: string): Promise<boolean>;
   /**

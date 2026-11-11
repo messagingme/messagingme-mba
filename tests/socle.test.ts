@@ -8,6 +8,7 @@ import { SOURCE_STOP_WHATSAPP } from '../src/crm/consentement';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { capturerJournal } from './journal';
 
 /**
  * LE SOCLE COMMUN DE L'API ET DU WORKER, EXÉCUTÉ (`src/socle.ts`).
@@ -210,34 +211,45 @@ describe('le socle commun aux deux processus', () => {
     expect(bascule?.params, 'la cause du répondeur, pas celle du mode « Équipe »').toContain('automatique : le répondeur automatique ne peut pas répondre');
   });
 
-  it('🔴 le socle BRANCHE l’e-mail du paiement refusé de la formule Pro : l’option vivante choisit la variante, l’autre version se cherche par (espace, modèle, occasion), et une Entreprise n’en reçoit aucun (relecture du lot V11, jaunes 1 et 3)', async () => {
+  it('🔴 le socle BRANCHE l’e-mail du paiement refusé de la formule Pro : l’option vivante choisit la variante, l’autre version se cherche par (espace, modèle, occasion), une Entreprise n’en reçoit aucun, et une offre illisible le laisse partir (relecture des lots V11, jaunes 1 et 3, et V12, jaunes 1 et 2)', async () => {
     const ADMIN = '22222222-2222-4222-8222-222222222222';
     const OPTION = {
       stripe_subscription_id: 'sub_opt', tenant_id: TENANT, livemode: false, statut: 'actif', places: 1,
       periode_fin: new Date('2026-12-01T00:00:00Z'), fin_prevue_le: null, fini_le: null, fin_raison: null,
     };
+    // `panne` : la lecture de l'offre lève. Lue par le cache, elle rendrait l'Entreprise et tairait l'e-mail ; lue sans
+    // cache, elle lève, l'e-mail part et le journal le dit (relecture du lot V12, jaune 1).
     const cas = [
       ['Pro avec option', 'pro', true, 'paiement_refuse_pro_option', 'paiement_refuse_pro'],
       ['Pro sans option', 'pro', false, 'paiement_refuse_pro', 'paiement_refuse_pro_option'],
       ['Entreprise', 'entreprise', true, null, null],
+      ['offre illisible', 'panne', false, 'paiement_refuse_pro', 'paiement_refuse_pro_option'],
     ] as const;
     for (const [nom, offre, avecOption, attendu, autre] of cas) {
       const inserees: unknown[][] = [];
       const recherches: unknown[][] = [];
       const pool = {
         query: async (sql: string, params: unknown[] = []) => {
-          if (sql.includes('offre_de_l_espace')) return { rows: [{ offre }] };
+          // Les admins d'abord : leur requête cite aussi `offre_de_l_espace` (le rôle effectif), et ne doit pas être prise
+          // pour la lecture de l'offre (relecture du lot V12, jaune 2).
+          if (/from users u/.test(sql)) return { rows: [{ identity_id: ADMIN }] };
+          if (/as entreprise_utilisateurs/.test(sql)) {
+            if (offre === 'panne') throw new Error('base indisponible');
+            return { rows: [{ offre }] };
+          }
           if (/from options_credit_whatsapp where tenant_id = \$1 and fini_le is null/.test(sql)) return { rows: avecOption ? [OPTION] : [] };
           if (/select 1 from emails_produit_envois/.test(sql)) { recherches.push(params); return { rows: [], rowCount: 0 }; }
-          if (/from users u/.test(sql)) return { rows: [{ identity_id: ADMIN }] };
           if (/insert into emails_produit_envois/.test(sql)) { inserees.push(params); return { rows: [] }; }
           return { rows: [] };
         },
       } as unknown as Pool;
       const socle = construireSocle({ pool, queue: { enqueue: async () => {} }, config: configuration });
-      await socle.paiementRefuse({ tenantId: TENANT, offre: 'pro', factureId: 'in_1' });
-      expect(inserees.map((p) => [p[0], p[1], p[2]]), nom).toEqual(attendu === null ? [] : [[TENANT, attendu, 'facture:in_1']]);
+      const { lignes } = await capturerJournal(() => socle.paiementRefuse({ tenantId: TENANT, offre: 'pro', factureId: 'in_1' }));
+      expect(inserees.map((p) => [p[0], p[1], p[2], p[3]]), nom).toEqual(attendu === null ? [] : [[TENANT, attendu, 'facture:in_1', [ADMIN]]]);
       expect(recherches, nom).toEqual(autre === null ? [] : [[TENANT, autre, 'facture:in_1']]);
+      if (offre === 'panne') {
+        expect(lignes, nom).toEqual(expect.arrayContaining([expect.objectContaining({ lvl: 'error', msg: 'paiement_refuse_offre_illisible', tenantId: TENANT })]));
+      }
     }
   });
 });

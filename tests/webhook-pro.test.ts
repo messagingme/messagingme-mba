@@ -181,6 +181,9 @@ describe('le webhook Stripe et le Pro', () => {
     await envoyer(srv, evenement(facturePro(), 'invoice.payment_failed'));
     expect(cap.statuts).toEqual([{ abonnementId: 'sub_pro', statut: 'en_retard', periodeFin: null, finEchouee: new Date(FIN * 1000) }]);
     expect(cap.alertes).toHaveLength(1);
+    // Vraie aussi pour une Entreprise ou un Business qui garde un Pro : ils ne reviennent pas en Free, et leurs admins n'ont
+    // pas d'e-mail ; Julien lit qu'il y a un Pro superflu à résilier (relecture du lot V12, jaune 4).
+    expect(cap.alertes[0]).toMatch(/sauf s'il est en Entreprise ou en Business \(un Pro superflu, à résilier chez Stripe/);
     // Et les admins de l'espace, par e-mail (lot 7), une fois par facture.
     expect(cap.paiementsRefuses).toEqual([{ tenantId: T1, offre: 'pro', factureId: expect.stringMatching(/^in_/) }]);
   });

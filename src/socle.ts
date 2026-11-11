@@ -362,8 +362,10 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
     // Lu à l'appel aussi (le magasin des options est construit plus bas) : l'option vivante, en cours ou en retard.
     optionVivante: async (t) => (await optionsCreditWhatsapp.vivante(t)) !== null,
     dejaPrevenu: (t, cle, occasion) => emailsProduit.occasionReservee(t, cle, occasion),
-    // L'offre effective, celle que tout le produit lit : une Entreprise ou un Business priment sur un Pro vivant.
-    offreEffective: async (t) => (await offres.offreDe(t)).offre,
+    // L'offre effective (une Entreprise ou un Business priment sur un Pro vivant), lue SANS le cache, comme les autres
+    // décisions d'un webhook : le cache ne lève jamais et rend l'Entreprise sur une lecture en panne, ce qui tairait
+    // l'e-mail (relecture du lot V12, jaune 1). Sans cache, la panne lève, et l'e-mail part.
+    offreEffective: async (t) => (await new PgOffresStore(pool).offreDe(t)).offre,
   });
   /**
    * L'option du Crédit WhatsApp payée sans offre qui y donne droit, résiliée aussitôt : l'e-mail aux admins, une fois par

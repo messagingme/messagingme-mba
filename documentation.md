@@ -2931,10 +2931,13 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
     d'office, sans `option_wa_arretee`. Une option illisible fait partir l'e-mail d'avant, et le journal le dit. L'anti-doublon
     étant compté par modèle, une version déjà partie pour la facture fait taire l'autre (`occasionReservee`) : une option
     prise ou résiliée entre deux essais de Stripe n'envoie pas les deux. Ce silence se décide par espace, pas par
-    personne (un admin arrivé entre deux essais ne reçoit rien), et la première version scelle la facture : une option
-    illisible au premier essai fait partir l'e-mail d'avant, la variante se tait ensuite. Un espace dont l'offre
-    effective n'est pas le Pro (`offre_de_l_espace` : une Entreprise ou un Business priment sur un Pro vivant ; un Pro en
-    retard reste un Pro) ne reçoit aucun des deux, qui y seraient faux ; une offre illisible laisse partir l'e-mail ;
+    personne (un admin arrivé entre deux essais ne reçoit rien), et la première version RÉSERVÉE scelle la facture, même
+    coupée dans `/ops` ou ignorée (`occasionReservee` ne regarde pas le statut) : une option illisible au premier essai
+    fait partir l'e-mail d'avant, la variante se tait ensuite. Un espace dont l'offre effective n'est pas le Pro
+    (`offre_de_l_espace` : une Entreprise ou un Business priment sur un Pro vivant ; un Pro en retard reste un Pro) ne
+    reçoit aucun des deux, qui y seraient faux, et l'alerte de Julien dit le Pro superflu à résilier. L'offre se lit SANS
+    le cache : le cache ne lève jamais et rend l'Entreprise sur une panne, ce qui tairait l'e-mail ; sans lui, une offre
+    illisible laisse partir l'e-mail, et le journal le dit ;
   - les limites de la Free et du Pro, par le balayage `emails-produit-limites` (trente minutes) : les modèles du mois
     (occasion : le mois de Paris) et les contacts (occasion : la génération du franchissement, `emails_produit_seuils`,
     migration 0235, posée par une instruction gardée par `not atteint`) ; seul le seuil le plus haut franchi s'écrit.

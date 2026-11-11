@@ -496,7 +496,10 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       const a = await deps.pro.majStatut(abonnementId, 'en_retard', null, finFacture);
       if (a) {
         deps.pro.invalider(a.tenantId);
-        await deps.pro.alerter(`Renouvellement du Pro échoué : espace ${a.tenantId} (${a.abonnementId}). Stripe réessaie ; sans paiement, l'espace reviendra en Free.`);
+        // Vraie pour toute offre effective : une Entreprise ou un Business qui garde un Pro n'y revient pas en Free, et
+        // leurs admins n'ont pas d'e-mail (`paiementRefuse` se tait hors Pro) ; reste un Pro superflu (relecture du lot
+        // V12, jaune 4).
+        await deps.pro.alerter(`Renouvellement du Pro échoué : espace ${a.tenantId} (${a.abonnementId}). Stripe réessaie ; sans paiement, le Pro s'arrêtera et l'espace reviendra en Free, sauf s'il est en Entreprise ou en Business (un Pro superflu, à résilier chez Stripe : ses admins n'ont pas d'e-mail).`);
         // Seulement un Pro EN RETARD : un échec livré après la fin (Stripe ne garantit pas l'ordre) ne prévient pas.
         if (a.statut === 'en_retard') await deps.paiementRefuse({ tenantId: a.tenantId, offre: 'pro', factureId: lu.data.id });
       }

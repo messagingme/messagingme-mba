@@ -438,4 +438,33 @@ vraie partout où elle s'affiche. Suite unitaire entière verte chez le relecteu
   l'exclusion de l'Entreprise et du Business) : reporté au prochain lot qui touche cette fiche, pour ne pas demander un
   second `aide:charger` à Julien pour une phrase.
 
-V12 : l'API, sans migration (l'e-mail du Pro et son câblage), après V11 ; aucune fiche d'aide.
+V12 : l'API, sans migration (l'e-mail du Pro et son câblage), après V11 ; aucune fiche d'aide. 🔴 Jamais seul : il part
+avec V13, qui ferme son jaune 1 (une offre illisible y tairait l'e-mail).
+
+## La relecture du lot V12 (2026-11-11)
+
+Un relecteur indépendant, sur `c588d4b5` : **aucun rouge, quatre jaunes**. Le cas nominal tient : un Pro en retard est
+lu `pro` (`majStatut` n'écrit que le statut, `offre_de_l_espace` ne regarde que `fini_le`, et le webhook invalide le
+cache avant `paiementRefuse`) ; l'Entreprise et le Business sans e-mail est le bon comportement (`aDroit` y garde
+l'option) ; les trois mutations du câblage, refaites, rougissent.
+
+1. **Une offre illisible TAIT l'e-mail, l'inverse de ce que disent la JSDoc et le manuel** : le câblage lit l'offre par
+   `OffresEnCache`, qui ne lève jamais et rend l'Entreprise sur une panne, donc la garde se tait. Lire l'offre sans
+   cache, comme les autres décisions d'un webhook, et un cas « offre illisible » au banc.
+2. **Le banc répond à la requête des admins par accident** : elle cite aussi `offre_de_l_espace` (le rôle effectif), et
+   la réservation partait pour l'identité `undefined`. Viser la requête de l'offre par son texte propre, et vérifier
+   l'identité réservée.
+3. **« La première version partie scelle la facture » est inexact** : c'est la RÉSERVATION qui scelle, même d'une
+   version coupée dans `/ops` (`occasionReservee` ne regarde pas le statut).
+4. **Hors lot : l'alerte Telegram du même événement dit « l'espace reviendra en Free » à une Entreprise ou un
+   Business**, alors qu'elle est désormais le seul signal qu'aucun e-mail n'est parti.
+
+### V13. Les jaunes de la relecture de V12
+
+- [x] Les quatre (§ « La relecture du lot V12 ») : l'offre lue sans cache (`new PgOffresStore(pool)`), le banc en panne
+  de lecture de l'offre rouge sous le cache et vert sans lui (1) ; le banc vise la requête de l'offre
+  (`as entreprise_utilisateurs`), les admins en premier, et vérifie l'identité réservée (2) ; « réservée, même coupée »
+  dans la JSDoc et le manuel (3) ; l'alerte Telegram dit le Pro qui s'arrêtera, et le Pro superflu à résilier pour une
+  Entreprise ou un Business (4, tenu par le test du webhook).
+
+V12 et V13 : l'API, sans migration, ensemble ; aucune fiche d'aide.
