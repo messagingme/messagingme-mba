@@ -1176,6 +1176,11 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
     remplis, dans tous les choix de champ du constructeur qui écrivent sur la fiche (Action, réponse rangée d'une
     Question, Appel API, Fonction JS, rangement d'un formulaire). Avant, ils n'apparaissaient qu'après une première
     écriture. Le nom WhatsApp et le téléphone n'y sont pas : le premier est réécrit à chaque message reçu.
+  - **Plusieurs actions dans un même bloc** (2026-11-11) : « Ajouter une action » sous la première en pose une
+    autre, jouée juste après, dans l'ordre affiché (mettre à jour trois champs ne demande plus trois blocs). Chaque
+    action se retire par sa croix ; une condition placée après le bloc voit l'effet de toutes. **Retirer des
+    étiquettes** et **vider des champs** prennent une liste : on en retire ou on en vide plusieurs d'un coup.
+    Ajouter une étiquette reste à une seule par action.
 - ✅ **Bloc « Condition »** (2026-08-02) : aiguille le contact selon son état, avec **deux sorties à relier**,
   « Si réunie » (verte) et « Sinon » (rouge). On empile plusieurs conditions, combinées en **toutes** ou
   **au moins une** : **tag** (possède / n'a pas), **champ** (texte : contient, ne contient pas, est exactement,

@@ -30,6 +30,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { CHAMP_MAINTENANT, nomDeParametreSur } from '@/lib/partage/fonction-js';
+import { champsAVider, etiquettesARetirer, sousActions, type SousAction } from '@/lib/partage/actions-bloc';
 import { GENRES_PAR_DEFAUT, GENRES_PIECE, type GenrePiece } from '@/lib/partage/question-piece';
 
 /**
@@ -72,6 +73,194 @@ function TagPicker({ label, value, tags, onChange, onCommit }: {
       />
       <datalist id="wf-tags">{tags.map((tg) => <option key={tg.tag} value={tg.tag} />)}</datalist>
       {onCommit && <p className="mt-1 text-xs text-ink-500">{t('L’étiquette est ajoutée à Contenu > Bibliothèque > Étiquettes dès que vous quittez le champ.', 'The tag is added to Content > Library > Tags as soon as you leave the field.')}</p>}
+    </div>
+  );
+}
+
+/** Les clés qu'une action porte à plat dans `data` : effacées quand la première action est retirée et que la suivante
+ *  prend sa place, sinon un reste de l'ancienne (une valeur, une liste) se mêlerait à la nouvelle. */
+const CLES_D_UNE_ACTION = ['actionKind', 'tag', 'tags', 'fieldKey', 'fieldLabel', 'key', 'champs', 'valueKind', 'value'] as const;
+/** Au-delà, un bloc ne se lit plus d'un coup d'œil : mieux vaut deux blocs. */
+const MAX_ACTIONS_PAR_BLOC = 10;
+
+/**
+ * Les actions d'un bloc « Action », jouées à la suite (Julien, 2026-11-11 : trois champs à mettre à jour demandaient
+ * trois blocs). La première reste à plat dans `data`, les suivantes vivent dans `data.suite`
+ * (`web/lib/partage/actions-bloc.ts`, lu aussi par le moteur).
+ */
+function ActionsDuBloc({ d, tags, fields, onPatch, onCommitTag }: {
+  d: Record<string, unknown>;
+  tags: TagCount[];
+  fields: UserFieldDef[];
+  onPatch: (p: Record<string, unknown>) => void;
+  onCommitTag: (v: string) => void;
+}) {
+  const t = useT();
+  const actions = sousActions(d);
+  const suite = actions.slice(1);
+  const patchSuite = (s: SousAction[]) => onPatch({ suite: s });
+  const retirer = (i: number) => {
+    if (i > 0) return patchSuite(suite.filter((_, j) => j !== i - 1));
+    const [suivante, ...reste] = suite;
+    onPatch({ ...Object.fromEntries(CLES_D_UNE_ACTION.map((k) => [k, undefined])), ...suivante, suite: reste });
+  };
+  return (
+    <div className="space-y-3">
+      {actions.map((sa, i) => (
+        <div key={i} data-testid="action-du-bloc" className={actions.length > 1 ? 'space-y-2 rounded-controle border border-ink-200 p-2.5' : ''}>
+          {actions.length > 1 && (
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-ink-500">{t(`Action ${i + 1}`, `Action ${i + 1}`)}</span>
+              <button type="button" onClick={() => retirer(i)} data-testid="action-retirer" className="text-ink-400 hover:text-danger" aria-label={t('Retirer cette action', 'Remove this action')}>
+                <Icone nom="fermer" taille="petite" />
+              </button>
+            </div>
+          )}
+          <EditeurAction
+            sa={sa}
+            tags={tags}
+            fields={fields}
+            onCommitTag={onCommitTag}
+            onPatch={i === 0 ? onPatch : (p) => patchSuite(suite.map((x, j) => (j === i - 1 ? { ...x, ...p } : x)))}
+          />
+        </div>
+      ))}
+      {actions.length < MAX_ACTIONS_PAR_BLOC && (
+        <button type="button" onClick={() => patchSuite([...suite, { actionKind: 'set_field' }])} data-testid="action-ajouter" className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline">
+          <Icone nom="ajouter" taille="petite" />{t('Ajouter une action', 'Add an action')}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Une action du bloc : son choix, puis ce qu'il y a à régler pour elle. */
+function EditeurAction({ sa, tags, fields, onPatch, onCommitTag }: {
+  sa: SousAction;
+  tags: TagCount[];
+  fields: UserFieldDef[];
+  onPatch: (p: Record<string, unknown>) => void;
+  onCommitTag: (v: string) => void;
+}) {
+  const t = useT();
+  const kind = (sa.actionKind as string) ?? 'add_tag';
+  return (
+    <div className="space-y-2">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-ink-500">{t('Action', 'Action')}</label>
+        {/* Changer d'action efface les réglages de l'ancienne : un reste (une valeur « dernier message », une étiquette)
+            serait relu par la nouvelle, en pastille à retirer ou en champ à vider. */}
+        <select value={kind} onChange={(e) => onPatch({ ...Object.fromEntries(CLES_D_UNE_ACTION.map((k) => [k, undefined])), actionKind: e.target.value })} data-testid="action-kind" className={`${cls} bg-white`}>
+          <option value="add_tag">{t('Ajouter une étiquette', 'Add a tag')}</option>
+          <option value="remove_tag">{t('Retirer des étiquettes', 'Remove tags')}</option>
+          <option value="set_field">{t('Mettre à jour un champ', 'Update a field')}</option>
+          <option value="clear_field">{t('Vider des champs', 'Clear fields')}</option>
+          <option value="set_optin">{t('Passer en opt-in', 'Mark as opted in')}</option>
+          <option value="set_optout">{t('Passer en opt-out', 'Mark as opted out')}</option>
+        </select>
+      </div>
+      {kind === 'set_optin' || kind === 'set_optout' ? (
+        // Le consentement n'a RIEN à configurer : le sens est dans le choix de l'action. Pas de second champ,
+        // donc pas d'action « incomplète » possible, contrairement à une étiquette ou un champ laissé vide.
+        <p className="text-xs leading-snug text-ink-500">
+          {kind === 'set_optin'
+            ? t(
+              "Le contact devient destinataire des campagnes marketing. À placer après une étape où il a donné son accord, pas au hasard d’un parcours.",
+              'The contact becomes eligible for marketing campaigns. Place it after a step where they agreed, not anywhere in a flow.',
+            )
+            : t(
+              "Le contact est exclu de toute campagne, y compris de celles déjà programmées. C’est ce qu’il faut derrière un mot-clé de désinscription.",
+              'The contact is excluded from every campaign, including already scheduled ones. This is what belongs behind an unsubscribe keyword.',
+            )}
+        </p>
+      ) : kind === 'add_tag' ? (
+        <TagPicker label={t('Étiquette à ajouter', 'Tag to add')} value={(sa.tag as string) ?? ''} tags={tags} onChange={(v) => onPatch({ tag: v })} onCommit={onCommitTag} />
+      ) : kind === 'remove_tag' ? (
+        <EtiquettesARetirer sa={sa} tags={tags} onPatch={onPatch} />
+      ) : kind === 'clear_field' ? (
+        <ChampsAVider sa={sa} fields={fields} onPatch={onPatch} />
+      ) : (
+        <FieldValueEditor d={sa} fields={fields} onPatch={onPatch} avecValeur />
+      )}
+    </div>
+  );
+}
+
+/** Une pastille retirable d'une liste choisie (étiquette à retirer, champ à vider). */
+function Pastille({ texte, onRetirer }: { texte: string; onRetirer: () => void }) {
+  const t = useT();
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-ink-100 py-0.5 pl-2.5 pr-1.5 text-xs text-ink-900">
+      {texte}
+      <button type="button" onClick={onRetirer} className="text-ink-400 hover:text-danger" aria-label={`${t('Retirer', 'Remove')} ${texte}`}>
+        <Icone nom="fermer" taille="petite" />
+      </button>
+    </span>
+  );
+}
+
+/** Les étiquettes qu'une action retire, en liste : chacune s'ajoute par Entrée ou en quittant la saisie. */
+function EtiquettesARetirer({ sa, tags, onPatch }: { sa: SousAction; tags: TagCount[]; onPatch: (p: Record<string, unknown>) => void }) {
+  const t = useT();
+  const [saisie, setSaisie] = useState('');
+  const liste = etiquettesARetirer(sa);
+  const ajouter = (v: string) => {
+    const tg = v.trim();
+    setSaisie('');
+    if (tg !== '' && !liste.includes(tg)) onPatch({ tags: [...liste, tg] });
+  };
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium text-ink-500">{t('Étiquettes à retirer', 'Tags to remove')}</label>
+      {liste.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" data-testid="etiquettes-a-retirer">
+          {liste.map((tg) => <Pastille key={tg} texte={tg} onRetirer={() => onPatch({ tags: liste.filter((x) => x !== tg) })} />)}
+        </div>
+      )}
+      <input
+        list="wf-tags"
+        value={saisie}
+        onChange={(e) => setSaisie(e.target.value)}
+        onBlur={(e) => ajouter(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); ajouter((e.target as HTMLInputElement).value); } }}
+        className={cls}
+        placeholder={t('vip, prospect…', 'vip, prospect…')}
+      />
+      <datalist id="wf-tags">{tags.map((tg) => <option key={tg.tag} value={tg.tag} />)}</datalist>
+      <p className="text-xs text-ink-500">{t('Entrée pour ajouter une étiquette à la liste.', 'Press Enter to add a tag to the list.')}</p>
+    </div>
+  );
+}
+
+/** Les champs qu'une action vide, en liste : chacun se choisit dans le menu, qui ne propose plus ceux déjà pris. */
+function ChampsAVider({ sa, fields: champsDeLEspace, onPatch }: { sa: SousAction; fields: UserFieldDef[]; onPatch: (p: Record<string, unknown>) => void }) {
+  const t = useT();
+  const fields = champsEcrivables(champsDeLEspace, t);
+  const liste = champsAVider(sa);
+  const restants = fields.filter((f) => !liste.some((c) => c.key === f.key));
+  const libelle = (c: { key: string; label: string }) => fields.find((f) => f.key === c.key)?.label ?? (c.label || c.key);
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium text-ink-500">{t('Champs à vider', 'Fields to clear')}</label>
+      {liste.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" data-testid="champs-a-vider">
+          {liste.map((c) => <Pastille key={c.key} texte={libelle(c)} onRetirer={() => onPatch({ champs: liste.filter((x) => x.key !== c.key) })} />)}
+        </div>
+      )}
+      {restants.length > 0 && (
+        <select
+          value=""
+          data-testid="champ-a-vider-ajouter"
+          onChange={(e) => {
+            const f = fields.find((x) => x.key === e.target.value);
+            if (f) onPatch({ champs: [...liste, { key: f.key, label: f.label }] });
+          }}
+          className={`${cls} bg-white`}
+        >
+          <option value="">{liste.length === 0 ? t('Choisir un champ…', 'Choose a field…') : t('Ajouter un champ…', 'Add a field…')}</option>
+          {restants.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+        </select>
+      )}
     </div>
   );
 }
@@ -825,51 +1014,7 @@ export function ConfigPanel({
         />
       )}
       {wfType === 'field' && <FieldValueEditor d={d} fields={fields} onPatch={onPatch} avecValeur />}
-      {wfType === 'action' && (() => {
-        const kind = (d.actionKind as string) ?? 'add_tag';
-        const isTag = kind === 'add_tag' || kind === 'remove_tag';
-        // Le consentement n'a RIEN à configurer : le sens est dans le choix de l'action. Pas de second champ,
-        // donc pas de bloc « incomplet » possible, contrairement à un tag ou un champ laissé vide.
-        const isConsentement = kind === 'set_optin' || kind === 'set_optout';
-        return (
-          <div className="space-y-2">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-ink-500">{t('Action', 'Action')}</label>
-              <select value={kind} onChange={(e) => onPatch({ actionKind: e.target.value })} data-testid="action-kind" className={`${cls} bg-white`}>
-                <option value="add_tag">{t('Ajouter une étiquette', 'Add a tag')}</option>
-                <option value="remove_tag">{t('Retirer une étiquette', 'Remove a tag')}</option>
-                <option value="set_field">{t('Mettre à jour un champ', 'Update a field')}</option>
-                <option value="clear_field">{t('Vider un champ', 'Clear a field')}</option>
-                <option value="set_optin">{t('Passer en opt-in', 'Mark as opted in')}</option>
-                <option value="set_optout">{t('Passer en opt-out', 'Mark as opted out')}</option>
-              </select>
-            </div>
-            {isConsentement ? (
-              <p className="text-xs leading-snug text-ink-500">
-                {kind === 'set_optin'
-                  ? t(
-                    "Le contact devient destinataire des campagnes marketing. À placer après une étape où il a donné son accord, pas au hasard d’un parcours.",
-                    'The contact becomes eligible for marketing campaigns. Place it after a step where they agreed, not anywhere in a flow.',
-                  )
-                  : t(
-                    "Le contact est exclu de toute campagne, y compris de celles déjà programmées. C’est ce qu’il faut derrière un mot-clé de désinscription.",
-                    'The contact is excluded from every campaign, including already scheduled ones. This is what belongs behind an unsubscribe keyword.',
-                  )}
-              </p>
-            ) : isTag ? (
-              <TagPicker
-                label={kind === 'add_tag' ? t('Étiquette à ajouter', 'Tag to add') : t('Étiquette à retirer', 'Tag to remove')}
-                value={(d.tag as string) ?? ''}
-                tags={tags}
-                onChange={(v) => onPatch({ tag: v })}
-                {...(kind === 'add_tag' ? { onCommit: onCommitTag } : {})}
-              />
-            ) : (
-              <FieldValueEditor d={d} fields={fields} onPatch={onPatch} avecValeur={kind === 'set_field'} />
-            )}
-          </div>
-        );
-      })()}
+      {wfType === 'action' && <ActionsDuBloc d={d} tags={tags} fields={fields} onPatch={onPatch} onCommitTag={onCommitTag} />}
       {wfType === 'condition' && (
         // Les familles du bloc (RC5) : un bloc d'avant en a une, « Si réunie », et s'écrit sous sa forme d'origine
         // tant qu'on ne lui en ajoute pas d'autre (`ecrireFamilles`).

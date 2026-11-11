@@ -14,6 +14,7 @@ import { SORTIE_LIBRE } from '@/lib/workflow-sorties';
 import { SORTIE_FICHIER } from '@/lib/partage/question-piece';
 import { SORTIE_FORMULAIRE_REMPLI } from '@/lib/partage/sorties-formulaire';
 import { SORTIE_ENSUITE } from '@/lib/partage/sortie-ensuite';
+import { champsAVider, etiquettesARetirer, sousActions } from '@/lib/partage/actions-bloc';
 import { ouvreUneSortie } from '@/lib/rcs-boutons';
 import { sortiesDuBloc, type EmailRecipientData } from '@/lib/workflow-canevas';
 import { brand, ink } from '@/lib/couleurs';
@@ -48,14 +49,28 @@ function summaryOf(data: Record<string, unknown>, t: (fr: string, en?: string) =
     return data.valueKind === 'now' ? `${label} = ${t('maintenant', 'now')}` : `${label} = ${(data.value as string) || '…'}`;
   }
   if (wfType === 'action') {
-    const kind = data.actionKind as string;
-    const tag = (data.tag as string) ?? '';
-    const label = (data.fieldLabel as string) ?? '';
-    if (kind === 'add_tag') return tag ? `+ ${tag}` : t('ajouter une étiquette…', 'add a tag…');
-    if (kind === 'remove_tag') return tag ? `− ${tag}` : t('retirer une étiquette…', 'remove a tag…');
-    if (kind === 'set_field') return !label ? t('mettre à jour un champ…', 'update a field…') : data.valueKind === 'now' ? `${label} = ${t('maintenant', 'now')}` : `${label} = ${(data.value as string) || '…'}`;
-    if (kind === 'clear_field') return label ? `${label} ${t('(vidé)', '(cleared)')}` : t('vider un champ…', 'clear a field…');
-    return t('choisir une action…', 'choose an action…');
+    // Une ligne par action du bloc (`sousActions`), jointes par « · ».
+    const resume = (sa: Record<string, unknown>): string => {
+      const kind = sa.actionKind as string;
+      const tag = (sa.tag as string) ?? '';
+      const label = (sa.fieldLabel as string) ?? '';
+      if (kind === 'add_tag') return tag ? `+ ${tag}` : t('ajouter une étiquette…', 'add a tag…');
+      if (kind === 'remove_tag') {
+        const liste = etiquettesARetirer(sa);
+        return liste.length > 0 ? liste.map((x) => `− ${x}`).join(', ') : t('retirer des étiquettes…', 'remove tags…');
+      }
+      if (kind === 'set_field') return !label ? t('mettre à jour un champ…', 'update a field…') : sa.valueKind === 'now' ? `${label} = ${t('maintenant', 'now')}` : `${label} = ${(sa.value as string) || '…'}`;
+      if (kind === 'clear_field') {
+        // Un bloc d'avant porte un libellé seul (`fieldLabel`) ; la liste, des paires clé et libellé.
+        const champs = Array.isArray(sa.champs) ? champsAVider(sa).map((c) => c.label || c.key) : label ? [label] : [];
+        if (champs.length === 0) return t('vider des champs…', 'clear fields…');
+        return `${champs.join(', ')} ${champs.length > 1 ? t('(vidés)', '(cleared)') : t('(vidé)', '(cleared)')}`;
+      }
+      if (kind === 'set_optin') return t('passer en opt-in', 'mark as opted in');
+      if (kind === 'set_optout') return t('passer en opt-out', 'mark as opted out');
+      return t('choisir une action…', 'choose an action…');
+    };
+    return sousActions(data).map(resume).join(' · ');
   }
   if (wfType === 'wait') {
     // Même lecture défensive du mode que le serveur (`waitMode`) et que le panneau : un bloc d'avant le

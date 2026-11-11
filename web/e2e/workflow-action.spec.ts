@@ -1,8 +1,8 @@
 import { test, expect } from './aide/test';
 
 /**
- * E2E builder : le bloc « Action » s'ajoute (par défaut « ajouter un tag »), on change la sous-action, et
- * l'auto-save persiste un node `type:'action'` avec le bon `actionKind`.
+ * E2E builder : le bloc « Action » s'ajoute (par défaut « ajouter un tag »), on change l'action, on en ajoute d'autres
+ * au même bloc (« + »), et l'auto-save persiste un node `type:'action'` avec le bon `actionKind` et sa `suite`.
  * Backend intercepté, aucune base (pattern des E2E accueil / condition).
  */
 const SESSION = { token: 'e2e-token', email: 'admin@e2e.test', role: 'admin', tenantId: 't-e2e' };
@@ -47,15 +47,54 @@ const persiste = (saved: Graph[], kind: string, tag?: string): boolean =>
     && (tag === undefined || (nd.data as { tag?: unknown }).tag === tag)));
 
 test.describe('Builder : node Action', () => {
-  test('ajoute un bloc Action, choisit « retirer un tag », et l’auto-save persiste type:action + actionKind', async ({ page }) => {
+  test('ajoute un bloc Action, choisit « retirer des étiquettes », en retire deux, et l’auto-save persiste la liste', async ({ page }) => {
     const { saved } = await ouvrirBuilder(page);
 
-    // Le sélecteur de sous-action est là (par défaut « ajouter un tag ») : on passe à « retirer un tag ».
+    // Le sélecteur d'action est là (par défaut « ajouter un tag ») : on passe au retrait, qui prend une LISTE.
     await page.locator('select:has(option[value="remove_tag"])').selectOption('remove_tag');
-    await page.getByPlaceholder('vip, prospect…').fill('vip');
+    const saisie = page.getByPlaceholder('vip, prospect…');
+    await saisie.fill('vip');
+    await saisie.press('Enter');
+    await saisie.fill('chaud');
+    await saisie.press('Enter');
+    await expect(page.getByTestId('etiquettes-a-retirer')).toContainText('vip');
 
-    // L'auto-save persiste un node action « retirer le tag vip ».
-    await expect.poll(() => persiste(saved, 'remove_tag', 'vip'), { timeout: 10_000 }).toBe(true);
+    await expect.poll(() => saved.some((g) => g.nodes.some((nd) => nd.type === 'action'
+      && (nd.data as { actionKind?: unknown }).actionKind === 'remove_tag'
+      && JSON.stringify((nd.data as { tags?: unknown }).tags) === JSON.stringify(['vip', 'chaud']))), { timeout: 10_000 }).toBe(true);
+  });
+
+  test('🔴 le « + » ajoute une action au MÊME bloc : trois champs mis à jour sans trois blocs (Julien, 2026-11-11)', async ({ page }) => {
+    const { saved } = await ouvrirBuilder(page);
+    await page.getByTestId('action-kind').selectOption('set_field');
+    await page.locator('select:has(option[value="prenom"])').first().selectOption('prenom');
+    await page.getByPlaceholder('valeur à poser').first().fill('Anne');
+
+    // Deuxième action, vider deux champs d'un coup.
+    await page.getByTestId('action-ajouter').click();
+    await expect(page.getByTestId('action-du-bloc')).toHaveCount(2);
+    await page.getByTestId('action-kind').nth(1).selectOption('clear_field');
+    await page.getByTestId('champ-a-vider-ajouter').selectOption('nom_de_famille');
+    await page.getByTestId('champ-a-vider-ajouter').selectOption('email');
+    await expect(page.getByTestId('champs-a-vider')).toContainText('Email');
+
+    // Un seul bloc action : la première à plat, la seconde dans `suite`.
+    await expect.poll(() => saved.some((g) => {
+      const actions = g.nodes.filter((nd) => nd.type === 'action');
+      const d = (actions[0]?.data ?? {}) as { actionKind?: unknown; fieldKey?: unknown; value?: unknown; suite?: Array<{ actionKind?: unknown; champs?: Array<{ key: string }> }> };
+      return actions.length === 1 && d.actionKind === 'set_field' && d.fieldKey === 'prenom' && d.value === 'Anne'
+        && d.suite?.[0]?.actionKind === 'clear_field'
+        && JSON.stringify(d.suite[0].champs?.map((c) => c.key)) === JSON.stringify(['nom_de_famille', 'email']);
+    }), { timeout: 10_000 }).toBe(true);
+
+    // Retirer la PREMIÈRE action : la suivante prend sa place à plat, sans reste de l'ancienne.
+    await page.getByTestId('action-retirer').first().click();
+    await expect(page.getByTestId('action-du-bloc')).toHaveCount(1);
+    await expect.poll(() => {
+      const d = (saved[saved.length - 1]?.nodes.find((nd) => nd.type === 'action')?.data ?? {}) as Record<string, unknown>;
+      return d.actionKind === 'clear_field' && d.fieldKey === undefined && d.value === undefined
+        && Array.isArray(d.suite) && d.suite.length === 0 && Array.isArray(d.champs) && d.champs.length === 2;
+    }, { timeout: 10_000 }).toBe(true);
   });
 
   test('🔴 la sous-action « passer en opt-out » se choisit et se persiste, sans rien à saisir', async ({ page }) => {
