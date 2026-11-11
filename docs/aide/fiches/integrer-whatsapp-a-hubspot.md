@@ -23,6 +23,9 @@ sans Data Hub pour les webhooks.
   vos modèles approuvés, déjà remplis depuis la fiche.
 - **Une page « Messaging Me » dans HubSpot.** Elle liste les conversations qui attendent un humain, les urgentes
   d'abord : vous y répondez sans chercher la fiche du contact.
+- **Les conversations dans l'Inbox HubSpot.** Une conversation qui attend un conseiller arrive dans une boîte de
+  réception de HubSpot, affectée à qui l'a en main. Le conseiller y répond, et fermer la conversation rend la main à
+  votre agent IA.
 - **Une tâche dès qu'un client demande un humain.** Elle arrive dans la minute chez le propriétaire du contact, avec le
   lien de la conversation, et se coche toute seule quand quelqu'un répond.
 - **Vos workflows HubSpot écrivent sur WhatsApp.** Trois actions s'ajoutent à vos workflows : envoyer un modèle, lancer
@@ -40,6 +43,7 @@ sans Data Hub pour les webhooks.
 offre HubSpot. **Pas besoin non plus de Data Hub** (ex-Operations Hub), la seule offre HubSpot qui donne aux workflows
 l'action webhook : le scénario qu'une étape de transaction déclenche écoute HubSpot par l'app elle-même. Seules les
 trois actions de workflow demandent les workflows de HubSpot, qu'apporte un abonnement Pro : Marketing Hub Pro suffit.
+Et l'Inbox HubSpot demande Sales Hub ou Service Hub, Professionnel ou Entreprise.
 
 ## Le mettre en place
 
@@ -142,7 +146,28 @@ Le contact n'écrivant pas à ce moment-là, le scénario commence par un modèl
 contact sans numéro, ne déclenche rien, et une transaction déplacée plusieurs fois de suite ne déclenche qu'une fois.
 Rien ne part à un contact qui a dit STOP ou que vous avez bloqué.
 
-**8. Suivre, mettre en pause ou couper.** Sur l'Accueil, le bloc HubSpot montre le portail, l'état de la
+**8. Recevoir les conversations dans l'Inbox HubSpot.** Sous les interrupteurs, le bloc « Conversations dans l'Inbox
+HubSpot » propose les boîtes de réception de votre portail : choisissez-en une.
+
+Y arrivent les conversations qui
+attendent un conseiller : le client a demandé un humain, ou il écrit pendant que votre équipe tient la conversation.
+Chacune arrive avec ses échanges des dernières 24 heures, puis tout ce qui s'écrit tant que l'équipe la tient. Celles
+que l'agent IA règle seul n'y apparaissent pas.
+
+Le conseiller répond depuis l'Inbox, aux mêmes conditions que depuis la carte (étape 4) : la réponse part sur WhatsApp et
+s'affiche « Envoyé », ou en échec avec sa raison. L'Inbox n'envoie que du texte : quand la fenêtre de 24 heures est
+fermée, envoyez un modèle depuis la carte de la fiche contact (étape 5).
+
+La conversation est affectée, dans HubSpot, au conseiller qui l'a en main dans Messaging Me, et sinon au propriétaire de
+la fiche HubSpot du contact. Si « Autoriser l'affectation des conversations » apparaît sous le nom de la boîte,
+cliquez-le : HubSpot vous demande ce droit une fois. Une réaffectation faite dans HubSpot ne remonte pas dans Messaging
+Me.
+
+Quand le conseiller ferme la conversation dans HubSpot, Messaging Me rend la main à votre répondeur et range la
+conversation en « Traité », dans la minute : le message suivant du client reçoit la réponse de l'agent IA. Si le client
+a réécrit entre-temps, l'équipe garde la main. « Débrancher » retire l'Inbox : plus rien n'y arrive.
+
+**9. Suivre, mettre en pause ou couper.** Sur l'Accueil, le bloc HubSpot montre le portail, l'état de la
 synchronisation et si vos listes servent d'audience. Couper la synchronisation vous fait choisir entre une pause,
 réversible, et une déconnexion complète.
 

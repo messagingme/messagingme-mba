@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: 9dd52d
+traduit_de: 5ec380
 description: WhatsApp in HubSpot with the Messaging Me app: reply from the contact record, send from your workflows, analyze every conversation. Without Sales Hub.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -16,6 +16,8 @@ Hub for webhooks.
   approved templates, already filled in from the record.
 - **A “Messaging Me” page in HubSpot.** It lists the conversations waiting for a person, urgent ones first: you reply
   there without looking for the contact record.
+- **Conversations in the HubSpot Inbox.** A conversation waiting for an advisor arrives in a HubSpot inbox, assigned
+  to whoever handles it. The advisor replies there, and closing the conversation hands it back to your AI agent.
 - **A task as soon as a customer asks for a human.** It reaches the contact owner within a minute, with the link to the
   conversation, and checks itself off when someone replies.
 - **Your HubSpot workflows write on WhatsApp.** Three actions join your workflows: send a template, launch a scenario,
@@ -32,7 +34,8 @@ Hub for webhooks.
 **No need for Sales Hub.** The card, the page, the tasks, the analysis and the lists work whatever your HubSpot plan.
 **No need for Data Hub either** (formerly Operations Hub), the only HubSpot plan that gives workflows the webhook
 action: the scenario a deal stage triggers listens to HubSpot through the app itself. Only the three workflow actions
-need HubSpot workflows, which a Pro subscription brings: Marketing Hub Pro is enough.
+need HubSpot workflows, which a Pro subscription brings: Marketing Hub Pro is enough. And the HubSpot Inbox needs
+Sales Hub or Service Hub, Professional or Enterprise.
 
 ## Set it up
 
@@ -131,7 +134,26 @@ Since the contact is not writing at that moment, the scenario starts with a temp
 contact without a number, triggers nothing, and a deal moved several times in a row only triggers once. Nothing is sent
 to a contact who said STOP or whom you blocked.
 
-**8. Follow, pause or cut off.** On the Home screen, the HubSpot block shows the portal, the sync status and whether
+**8. Receive conversations in the HubSpot Inbox.** Below the switches, the “Conversations in the HubSpot Inbox” block
+offers your portal's inboxes: choose one.
+
+Conversations waiting for an advisor arrive there: the customer asked for a
+human, or writes while your team is handling the conversation. Each one arrives with its exchanges of the last 24 hours,
+then everything written while the team handles it. Those the AI agent settles on its own do not show up.
+
+The advisor replies from the Inbox, on the same terms as from the card (step 4): the reply goes out on WhatsApp and shows
+“Sent”, or failed with its reason. The Inbox only sends text: when the 24-hour window is closed, send a template from
+the contact record card (step 5).
+
+The conversation is assigned, in HubSpot, to the advisor who handles it in Messaging Me, and otherwise to the owner of
+the contact's HubSpot record. If “Authorize conversation assignment” shows below the inbox name, click it: HubSpot asks
+you for this right once. A reassignment made in HubSpot does not go back to Messaging Me.
+
+When the advisor closes the conversation in HubSpot, Messaging Me hands it back to your responder and files it as
+“Done”, within a minute: the customer's next message gets the AI agent's reply. If the customer wrote again in the
+meantime, the team keeps it. “Disconnect” removes the Inbox: nothing arrives there any more.
+
+**9. Follow, pause or cut off.** On the Home screen, the HubSpot block shows the portal, the sync status and whether
 your lists serve as audiences. Cutting off the sync makes you choose between a pause, which can be undone, and a full
 disconnection.
 
