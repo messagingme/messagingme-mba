@@ -4,6 +4,35 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : chaque e-mail du produit mène à la page d'aide de son geste (aide à la connexion, lot 5)
+
+Plan `2026-11-11-aide-connexion-lot-5.md`, implémenté en direct, une relecture indépendante.
+
+- **Ce qui a changé** (`5543fc51`) :
+  - une ligne sous le bouton : un modèle du catalogue peut porter `aide`, la page publique qui montre son geste pas à
+    pas, dans la langue de la personne, en HTML et en texte ; elle vient du code, jamais de `/ops`, donc reste sous
+    un texte réécrit ;
+  - la table, e-mail par e-mail : 29 modèles mènent à une page, 10 à aucune (le Crédit IA et l'abonnement du numéro
+    fourni n'ont pas de page publique ; la carte d'un paiement refusé de l'option Crédit WhatsApp est chez Messaging Me,
+    quand « Payer Meta » montre celle chez Meta ; le récapitulatif et la demande de données ne demandent aucun geste
+    guidé) ;
+  - `relance_numero` : son bouton mène au guide, sa ligne au dépannage, sa phrase garde la console et Claude ;
+  - cinq fiches entrent dans `web/lib/partage/aide-connexion.ts`, et `AIDE_POURQUOI_PAIEMENT` y prend le nom de sa
+    page, `AIDE_PAYER_META` ; la fiche « Les e-mails que Messaging Me vous envoie » le dit ;
+  - plus de « Business Agent » sous le logo des e-mails du produit (décision de Julien du 2026-11-11, vue en chemin :
+    le nom du produit de Meta), comme l'e-mail d'inscription ; le gabarit le garde pour l'invitation d'équipe.
+- **Relecture** : aucun rouge. Cinq jaunes : deux corrigés avant le push (le paiement refusé de l'option Crédit WhatsApp
+  menait à « Payer Meta », qui montre la carte chez Meta quand celle à changer est chez Messaging Me : il sort de la
+  table ; la fiche dit « la plupart des e-mails ») ; trois laissés (la relance perd son lien cliquable vers la console,
+  choix de la spec, le guide y menant ; le libellé de « Payer Meta » dit « votre carte » ; `lien_numero` reste
+  déclaré pour `/ops`).
+- **Vérifié** : les suites racine et console et le lint, sur la copie puis sur l'arbre fusionné ; les gardes vues rouges
+  en défaisant leur pièce (la relance sans sa ligne, la ligne absente du texte, puis du HTML, le bouton de la relance
+  remis sur la console, un e-mail de la table sans page ni décision, une page d'aide tapée hors de la source vérifiée,
+  « Business Agent » remis sous le logo).
+- **Ordre** : poussé sur `2da8230e`, puis l'API (les e-mails partent de l'API et des workers), puis `aide:charger`
+  (la fiche des e-mails), par Julien.
+
 ## 2026-11-11 : Claude renvoie vers les pages du centre d'aide, et « Pourquoi un moyen de paiement ? » mène à « Payer Meta » (aide à la connexion, lot 4b)
 
 Plan `2026-11-10-aide-connexion-lot-4b.md`, implémenté en direct, une relecture indépendante.

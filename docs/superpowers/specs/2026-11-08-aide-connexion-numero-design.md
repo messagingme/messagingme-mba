@@ -534,6 +534,10 @@ leurs pages, en 4c.
 **Méthode de livraison** : en direct, avec revue du diff (des e-mails qui partent). **Essai réel** : l'aperçu de
 `/ops` et un envoi réel sur un espace de test.
 
+**5 livré le 2026-11-11** (`5543fc51`) : une ligne sous le bouton mène à la page publique de chaque geste (29 e-mails sur
+39 ; la table est dans le plan du lot et tenue par `tests/emails-produit.test.ts`), et la relance du numéro mène au
+guide (son bouton) et au dépannage (sa ligne).
+
 ## Lot 6 : les vidéos
 
 Julien tourne, sans parler, sur son PC en français :

@@ -3767,8 +3767,12 @@ boîte par sous-menu.
 - ✅ **Pour bien démarrer** (2026-10-14, des e-mails d'information) : la bienvenue, dans les deux jours qui suivent la
   création de l'espace, puis trois relances, une fois chacune et dans la semaine qui suit ce qui la déclenche : le
   numéro WhatsApp pas connecté au bout de 24 heures, aucun répondeur (ni agent IA, ni agent de Meta, ni scénario)
-  24 heures après sa connexion, aucun message reçu ni envoyé après sept jours de service. Chacune pointe vers la page de la
-  console qui règle la question, et rappelle que Claude peut le faire.
+  24 heures après sa connexion, aucun message reçu ni envoyé après sept jours de service. Chacune pointe vers la page qui
+  règle la question, et rappelle que Claude peut le faire : la relance du numéro mène au guide du numéro (depuis le
+  2026-11-11), et, en dessous, au dépannage.
+- ✅ **L'aide pas à pas sous le bouton** (2026-11-11) : un e-mail qui demande un geste mène aussi, sous son bouton, à la
+  page du centre d'aide qui le montre (construire un agent IA, poser une bulle, payer Meta, choisir son offre, garder
+  son application...), dans la langue de la personne, même quand son texte a été réécrit dans `/ops`.
 - ✅ **Le récapitulatif de la semaine, en offre Free** (2026-10-14, un e-mail d'information) : le lundi à partir de
   9 h, les messages WhatsApp reçus et envoyés de la semaine écoulée, les conversations, celles confiées à l'équipe et
   le crédit IA restant, avec ce que l'offre Pro ajoute. Une semaine sans aucun message n'envoie rien.
