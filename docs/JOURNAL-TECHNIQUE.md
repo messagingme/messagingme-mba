@@ -4,6 +4,29 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-11 : le lien de Claude ouvre la fenêtre du partenaire (lot 3v-2b)
+
+Plan `2026-11-11-aide-connexion-3v2b.md`, implémenté en direct, une relecture indépendante du diff.
+
+- **Ce qui a changé** (`64c2db54`) : un espace qui a payé l'option Crédit WhatsApp, sans numéro, se connecte aussi depuis
+  Claude Code sans carte chez Meta : `/brancher` ouvre la fenêtre du partenaire en `apporte` et en `fourni`
+  (`parLaLigne="si-ouverte"`, la solution que la configuration du lien rend) ; `start_whatsapp_connection` le dit à
+  Claude avec les conditions sans carte et le crédit à recharger ; `watch_whatsapp_connection` ne demande plus la carte
+  chez Meta au numéro que le crédit paie, et renvoie le numéro de l'essai connecté avec sa carte à l'onglet. Avant, le
+  lien ouvrait la fenêtre de Meta, et le numéro se connectait sur la carte, hors de la ligne payée. Le numéro neuf n'est
+  plus annoncé refusé par Meta côté Claude (décision de Julien du même jour). Les jaunes de 3v-2a et 3v-2c repris.
+- **Relecture** : un rouge, corrigé dans le lot : la course de la connexion sans carte. Le numéro est relié
+  (`linkTenant`) avant la pose de sa ligne, et la règle le prenait un instant pour le numéro de l'essai à reconnecter :
+  Claude aurait dit « la carte paie encore » juste après une connexion sans carte. `paiementStable` relit tant qu'elle
+  le dit ; le test fait la course, vu rouge sans la relecture. Jaunes repris : l'option en attente de sa ligne, l'option
+  en retard et l'Entreprise sans bouton de reconnexion, la lecture en panne journalisée, les deux crédits distingués,
+  deux e2e, le numéro neuf de la section MCP, le manuel ; les autres au backlog.
+- **Vérifié** : les suites racine et console, le lint, les e2e de `/brancher`, la vitrine et le plugin régénérés à
+  l'identique ; vus rouges : les e2e de l'option payée la page sans « si-ouverte », les tests du MCP la fenêtre ou le
+  payeur coupés.
+- **Ordre** : poussé sur `1d12c77e` (la console et la vitrine par Vercel), puis l'API, sans migration ; à Julien,
+  `aide:charger` avec l'image déployée, et la publication du plugin 0.3.37.
+
 ## 2026-11-11 : fermer le fil dans l'Inbox HubSpot rend la main au répondeur (lot 4 de l'Inbox, migration 0290)
 
 - **Pourquoi** (essai réel du lot 3, Julien) : un conseiller qui répond dans l'Inbox HubSpot n'ouvre jamais la console ;

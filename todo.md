@@ -147,40 +147,28 @@ au lot suivant ; rien ne bloque.
   fait coller une demande propre à chaque chemin). À mesurer sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3
   d'« Installer le plugin ».
 
-## 🟡 Le lot 3v-2a de l'aide à la connexion : ce qu'il laisse (2026-11-11), pour 3v-2b
+## 🟡 Les lots 3v-2a à 3v-2b de l'aide à la connexion : ce qu'ils laissent (2026-11-11)
 
+- **Un espace relié par QR code, l'option prise** (jaune 7 de 3v-2b) : la consigne de la coexistence lui propose
+  `apporte` ou `fourni`, que `start_whatsapp_connection` refuse (l'espace est connecté). Rare.
+- **« Le vôtre » dans la fiche du numéro** (jaune 12 de 3v-2b) : « Connecter sans carte chez Meta » est le bouton de
+  « Le mien » ; le numéro fourni passe par son parcours (« Ouvrir la fenêtre de Meta »).
+- **La consigne lue au lien, la page au chargement** (jaune 6 de 3v-2b) : un `start` lancé avant le webhook de Stripe
+  donne la consigne de la carte quand la page ouvre la fenêtre du partenaire ; la suite après connexion rattrape.
 - **La page Tarifs cite l'option sans son prix** (jaune 3 de 3v-2c) : « (formule Pro ou Business) » se lit « inclus » ;
   avec la ligne « Crédit WhatsApp » des cartes, 30 € HT par numéro et par mois (`PRIX_OPTION_WA_HT_CENTIMES`).
 - **L'Entreprise oubliée de l'exception** (jaune 4 de 3v-2c) : elle comprend le Crédit WhatsApp, selon son contrat ;
   « (formule Pro ou Business) » ne la nomme pas (accueil, cas, tarifs).
-- **La doc API de la console** (jaune 11 de 3v-2c) : `web/app/developers/api/page.tsx` dit « Meta peut le facturer à
-  votre entreprise », sans le Crédit WhatsApp.
-- **La consigne de `start_whatsapp_connection` et le numéro neuf** : `NUMERO_NEUF` et la description (« brand-new
-  number is often refused ») à retirer, avec leur test (`tests/mcp-numero.test.ts`) ; la skill et la FAQ le font déjà.
-- **La skill `mise-en-service` et le Crédit WhatsApp** (jaunes 1 et 2) : son « Otherwise » envoie aussi vers l'onglet
-  une Entreprise (le crédit est compris : « Connecter sans carte chez Meta »), un Business en essai et un Pro en retard
-  (lire la raison que l'onglet donne) ; en Free, redire la question 3. Sa reprise, qui ne repose pas les questions, ne
-  sait rien de l'option : un numéro fourni commencé par la fenêtre du partenaire, repris par Claude, partirait par la
-  fenêtre de Meta, hors de la ligne (`get_setup_state` lit l'état de la ligne sans le rendre). Avec `/brancher`.
-- **La fiche « Connecter mon numéro WhatsApp »** (jaunes 3 et 4) : « par la fenêtre de notre partenaire » devient le
-  bouton « Connecter sans carte chez Meta » ; « sur la carte » devient « sur la carte « Crédit WhatsApp » » (le même
-  paragraphe parle de la carte de paiement) ; dire la suite (la ligne, puis recharger : le solde part de zéro).
-- **« Dès l'essai »** (jaune 5 ; le tunnel, la FAQ du plugin, la fiche) : dire que l'option se paie à sa prise, même
-  pendant l'essai de la formule Pro, et qu'elle s'arrête sans remboursement si l'essai n'est pas payé.
 - **`QUESTION_PAIEMENT.grisee.pro` est mort** (jaune 7) : la console a ses propres littéraux (`QuiRegleMeta.tsx`) ; le
   retirer avec son commentaire et celui de `site/site.css`, et tester `/sur demande|on request/i` sur « Payer Meta ».
 - **L'adresse de l'onglet n'est tenue à rien côté console** (jaune 8) : une clé d'onglet partagée (`web/lib/partage`),
   la constante nommée `…_HTML`, et un test qui exige l'adresse dans la skill.
-- **Le prospect du tunnel** (jaune 9) : sans espace, le lien de l'onglet mène à la connexion, et l'inscription crée une
-  Free ; dire « créez votre espace en formule Pro, puis Offre, onglet Crédit WhatsApp » (`inscriptionPro`).
 
 ## 🟡 Le lot 3v-1 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
 
-- **3v-2, la suite** (la vente ouverte le 2026-11-11 ; 3v-2a et 3v-2c faits : la vitrine, la FAQ, la skill et les
-  fiches disent où l'option se prend, et qui paie Meta avec elle) : 3v-2b, le lien de Claude (`/brancher`) qui ouvre la
-  fenêtre du partenaire, sa consigne et la branche du crédit de la vitrine ; puis la fiche publique « Payer ses messages
-  sans carte chez Meta » et la ligne « Crédit WhatsApp » des cartes Pro et Business de la vitrine, montrées à Julien
-  avant le push.
+- **3v-2, la suite** (la vente ouverte le 2026-11-11 ; 3v-2a, 3v-2c et 3v-2b faits) : la fiche publique « Payer ses
+  messages sans carte chez Meta » et la ligne « Crédit WhatsApp » des cartes Pro et Business de la vitrine, avec le prix
+  de l'option sur la page Tarifs et l'Entreprise dans l'exception, montrées à Julien avant le push.
 
 ## 🟡 Le lot 2c de l'aide à la connexion : ce qu'il laisse (2026-11-09)
 
