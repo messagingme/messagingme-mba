@@ -386,6 +386,9 @@ Après le lot 5 de la session de l'aide sur `origin` : il touche `src/emails-pro
   conservé. Mettez à jour votre carte depuis la page « Offre » de la console, ou demandez-le à Claude. », et sa version
   anglaise ; les autres espaces gardent le texte actuel. La raison : l'option résiliée d'office avec la formule
   n'envoie pas `option_wa_arretee`, cet e-mail est le seul avertissement. Le modèle entre dans `SANS_PAGE_D_AIDE`.
-- [ ] **Le jaune 4 de V8** : en coexistence, l'alerte dit que cette connexion ne l'a pas marqué, au lieu d'affirmer qu'il
-  n'est pas dans la liste (une connexion antérieure a pu l'y mettre).
-- [ ] **Les trois jaunes de V10** (§ « La relecture du lot V10 »).
+- [x] **Le jaune 4 de V8** : en coexistence, et sans ligne à poser après une interruption, l'alerte dit que cette
+  connexion ne l'a pas mis dans la liste, au lieu d'affirmer qu'il n'y est pas (une connexion antérieure a pu l'y mettre) ;
+  un test le tient avec un numéro marqué avant (rouge sous chacune des quatre anciennes phrases) ; le manuel suit.
+- [x] **Les trois jaunes de V10** (§ « La relecture du lot V10 ») : la JSDoc du magasin dit que ni la route ni lui ne
+  peuvent refuser un compte couvert sans attache (1) ; celle du client d'API, que `code` et `ligne` ne remontent pas (2) ;
+  le test lit la cause des deux pannes (3, rouge sans elle).

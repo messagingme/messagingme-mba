@@ -328,13 +328,16 @@ export async function connexionParLaLigne(
 
 /**
  * Ce qu'une alerte ajoute quand le numéro garde l'application, hors des cas « à poser » et couverts (relecture du lot V5,
- * jaune 3 ; du lot V7, jaune 2) : jamais marqué, il n'est pas dans la liste de /ops (relecture du lot V6, jaune 1).
+ * jaune 3 ; du lot V7, jaune 2). Cette connexion ne le marque pas (relecture du lot V6, jaune 1), mais l'alerte ne dit
+ * pas qu'il est hors de la liste de /ops : une connexion antérieure a pu le marquer, `linkTenant` garde cette marque en
+ * réécrivant la coexistence, et la liste ne regarde pas la coexistence (relecture du lot V8, jaune 4). Décision de
+ * Julien du 2026-11-11 : la coexistence n'entre pas dans la liste, l'alerte suffit, seule cette phrase change.
  */
-const MAIS_EN_COEXISTENCE = 'Mais ce numéro est EN COEXISTENCE (il garde l’application WhatsApp Business) : la pose de /ops le refusera, ne rien poser sans voir avec le client ; il n’est pas dans la liste de /ops.';
+const MAIS_EN_COEXISTENCE = 'Mais ce numéro est EN COEXISTENCE (il garde l’application WhatsApp Business) : la pose de /ops le refusera, ne rien poser sans voir avec le client ; cette connexion ne l’a pas mis dans la liste de /ops.';
 
 /**
- * Ce que l'alerte dit d'un numéro EN COEXISTENCE (il garde l'application) : la pose de /ops le refuse, il n'est jamais
- * marqué (relecture du lot V2, jaune 6). « À poser » devient `coexistence`, l'application envoyant sans nous. Sur un
+ * Ce que l'alerte dit d'un numéro EN COEXISTENCE (il garde l'application) : la pose de /ops le refuse, cette connexion
+ * ne le marque jamais (relecture du lot V2, jaune 6). « À poser » devient `coexistence`, l'application envoyant sans nous. Sur un
  * compte déjà couvert, une ligne arrêtée ou celle d'un autre espace : ne rien retirer, ne rien poser, ne rien demander au
  * partenaire sans décision, car retirer sans pouvoir poser ouvrirait des envois payés par le partenaire, sans provision
  * (relecture du lot V7, jaune 2). Ailleurs, le texte du cas, puis la coexistence (relecture du lot V5, jaune 3).
@@ -357,7 +360,7 @@ function texteEnCoexistence(cas: CasAlerte, qui: string, couvrante: LigneCouvran
     default:
       return `${texteDeConnexion(cas, qui, couvrante, autre, null)} ${MAIS_EN_COEXISTENCE}`;
   }
-  return `Numéro connecté par la ligne du partenaire EN COEXISTENCE (il garde l’application WhatsApp Business) : ${qui}. Son compte WhatsApp est ${situation}. La pose de /ops refuse un numéro en coexistence : ne rien retirer, ne rien poser, ne rien demander au partenaire sans décision, et voir avec le client. Il n’est pas dans la liste de /ops.`;
+  return `Numéro connecté par la ligne du partenaire EN COEXISTENCE (il garde l’application WhatsApp Business) : ${qui}. Son compte WhatsApp est ${situation}. La pose de /ops refuse un numéro en coexistence : ne rien retirer, ne rien poser, ne rien demander au partenaire sans décision, et voir avec le client. Cette connexion ne l’a pas mis dans la liste de /ops.`;
 }
 
 /**
@@ -406,7 +409,11 @@ async function numeroInterrompu(
   return etat === 'aucun' || etat === 'illisible' ? { etat } : { etat, phoneNumberId };
 }
 
-/** Ce que l'alerte d'une interruption dit de la liste « En attente de leur ligne ». */
+/**
+ * Ce que l'alerte d'une interruption dit de la liste « En attente de leur ligne ». Sans ligne à poser ou en coexistence,
+ * cette connexion ne le marque pas, mais une connexion antérieure a pu le faire : l'alerte ne prétend pas à l'absence
+ * (relecture du lot V8, jaune 4).
+ */
 function texteDeLaListe(n: NumeroInterrompu): string {
   switch (n.etat) {
     case 'dans_la_liste':
@@ -414,9 +421,9 @@ function texteDeLaListe(n: NumeroInterrompu): string {
     case 'hors_liste':
       return `Son numéro ${n.phoneNumberId} est rattaché et marqué, mais il n’attend pas sa ligne (une ligne posée depuis sa première marque, ou son attente levée) : il n’est pas dans la liste « En attente de leur ligne », voir l’espace dans /ops.`;
     case 'rien_a_poser':
-      return `Son numéro ${n.phoneNumberId} est rattaché, sans ligne à poser : il n’est pas dans la liste « En attente de leur ligne ».`;
+      return `Son numéro ${n.phoneNumberId} est rattaché, sans ligne à poser : cette connexion ne l’a pas mis dans la liste « En attente de leur ligne ».`;
     case 'coexistence':
-      return `Son numéro ${n.phoneNumberId} est rattaché EN COEXISTENCE (il garde l’application) : il ne passe pas sur la ligne, et n’est pas dans la liste « En attente de leur ligne ».`;
+      return `Son numéro ${n.phoneNumberId} est rattaché EN COEXISTENCE (il garde l’application) : il ne passe pas sur la ligne, et cette connexion ne l’a pas mis dans la liste « En attente de leur ligne ».`;
     case 'aucun':
       return 'Aucun numéro de cette connexion n’est rattaché : rien dans la liste « En attente de leur ligne ».';
     default:

@@ -4757,7 +4757,7 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   poser » lève l'attente ; absente, retirer la nôtre jusqu'à elle, puis la reposer ; sur une ligne ARRÊTÉE de l'espace
   (citée par son numéro ; la garde refuse ses envois), comme sur celle d'un AUTRE espace, nommé avec le numéro de sa
   ligne (`getTenantName`), vérifier l'attache d'abord, puis retirer et poser dans le même geste ; un numéro en
-  coexistence (il garde l'application, et la pose le refuse) ne passe pas sur la ligne et n'est jamais marqué : rien à
+  coexistence (il garde l'application, et la pose le refuse) ne passe pas sur la ligne, et cette connexion ne le marque pas : rien à
   poser ; sur un compte déjà couvert, une ligne arrêtée ou celle d'un autre espace, son alerte dit de ne rien retirer, ne
   rien poser, ne rien demander au partenaire sans décision (retirer sans pouvoir poser ouvrirait des envois payés par le
   partenaire, sans provision), et dans les autres cas elle le dit en plus de l'absence de droit ou de la cause ; un compte relié
@@ -4798,9 +4798,12 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   rattacher, un compte mal formé sans numéro annoncé ne retombe sur aucun de ces replis, et un numéro bien formé se cherche
   par lui-même, son compte fût-il mal formé. Il est marqué selon les règles de la connexion, jamais en coexistence, puis relu (rejouée, la
   marque garde son premier moment, qu'une ligne posée depuis a pu éteindre), et l'alerte dit ce qu'en sait la liste : il
-  y figure, il n'y est pas (marque éteinte ou attente levée, rien à poser, coexistence), aucun numéro de cette connexion
-  (dont un numéro parti de l'espace avant la relecture), ou une lecture en panne qu'elle ne prétend pas savoir. Une
-  alerte de connexion en coexistence ne promet jamais la liste.
+  y figure, il n'y est pas (marque éteinte ou attente levée), cette connexion ne l'y a pas mis (rien à poser,
+  coexistence), aucun numéro de cette connexion (dont un numéro parti de l'espace avant la relecture), ou une lecture en
+  panne qu'elle ne prétend pas savoir. Une alerte de connexion en coexistence ne promet jamais la liste, et ne prétend pas
+  non plus qu'il en est absent : une connexion antérieure a pu le marquer, `linkTenant` garde cette marque en réécrivant
+  la coexistence, et la liste ne regarde pas la coexistence. Décision de Julien du 2026-11-11 : un numéro en coexistence
+  n'entre pas dans la liste, même quand une ligne arrêtée ou celle d'un autre espace bloque ses envois ; l'alerte suffit.
   Le refus et l'interruption ont chacun leur retenue, une alerte par espace et par demi-heure (`RETENUE_ALERTE_REFUS_MS`,
   des verrous courts ; une alerte retenue se journalise ; une alerte que Telegram n'a pas reçue rend la sienne, jamais
   une alerte incertaine, délai dépassé ou coupure en cours, qui a pu partir ; une connexion jamais établie, adresse

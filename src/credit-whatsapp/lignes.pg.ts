@@ -228,8 +228,9 @@ export class PgLignesCreditStore {
    * vérifiée sur un compte déjà couvert. N'efface QUE la marque, jamais une ligne : l'espace relit ensuite l'état de ses
    * lignes (une Entreprise sans autre ligne, « sur demande » et le conseil de sa carte chez Meta ; une option payée sans
    * ligne, en attente ; un compte déjà couvert garde la sienne). Sur un compte déjà couvert SANS attache, ce n'est pas le
-   * geste, notre ligne resterait : la route le dit (relecture du lot V9, jaune 1). `false` sinon (un autre espace, une
-   * attente déjà éteinte).
+   * geste, notre ligne resterait : la JSDoc de la route et le texte de la liste de /ops le disent, mais ni la route ni ce
+   * magasin ne peuvent le refuser, l'attache ne se voyant pas d'ici (relecture des lots V9 et V10, jaunes 1). `false`
+   * sinon (un autre espace, une attente déjà éteinte).
    */
   async abandonnerAttente(tenantId: string, phoneNumberId: string): Promise<boolean> {
     const { rowCount } = await this.pool.query(
