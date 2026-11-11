@@ -1,5 +1,20 @@
 # todo.md : backlog
 
+## 🟡 La mémoire des fichiers déposés chez Meta : ce qu'elle laisse (plan `docs/superpowers/plans/2026-11-10-memoire-des-medias-meta.md`, migration 0288)
+
+- **Pas de borne de temps propre sur la lecture de `medias_meta`.** Elle échoue ouvert sur une erreur, pas sur une
+  lenteur : une base lente retarde l'envoi d'autant. Piste : une course contre un délai court, puis le dépôt comme avant.
+- **Une ligne de journal par envoi tant que la table manque** (une image dont l'environnement n'a pas reçu la 0288).
+  Sans effet en production, où elle est appliquée. Piste : journaliser une fois par processus.
+- **Un fichier `/m/` d'un autre espace n'est pas oublié** quand il est supprimé de la médiathèque : son `media id` reste
+  servi au plus 7 jours (la durée de la mémoire).
+- **Aucune garde unitaire de l'oubli dans `supprimer`** (`src/rcs/media-store.pg.ts`) : seule l'intégration le tient.
+- **La lenteur du bucket touche sans doute aussi le service public `/m/`** : le premier octet d'un objet met 1 à 2 s,
+  jusqu'à 7,7 s mesurés depuis le worker. Pas mesuré sur `/m/` lui-même.
+- **L'alerte « Messages entrants » parle de saturation à tort.** Sa mesure compte le traitement (une image qui met
+  8 s à partir) et pas seulement l'attente avant prise en charge, et son texte orange dit « les workers ou la base
+  saturent ». Proposé à Julien le 2026-11-10 : ne juger que l'attente et reformuler le texte. En attente de sa décision.
+
 ## 🟡 « Puis, sans attendre » d'un message rapide : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-10-message-rapide-puis-sans-attendre.md`)
 
 - **Le message à boutons refusé, sa suite partie.** `apply` compte ensemble les envois du message et de sa suite :

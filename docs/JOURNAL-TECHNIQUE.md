@@ -91,6 +91,11 @@ mesure de Santé compte le traitement, et huit messages en un quart d'heure suff
   manuel. Ouverts : pas de borne de temps propre sur la mémoire durable (une base lente retarde un envoi), une
   journalisation par envoi tant que la table manque, un fichier `/m/` d'un autre espace non oublié à sa suppression
   (7 jours au plus), pas de garde unitaire de l'oubli dans `supprimer` (l'intégration le tient).
+- **En production** le 2026-11-10 à 23 h 37 (Paris), `921f08b3`, run 42895556067, `migration=avant`. Avant : aucune
+  transaction longue, aucun verrou sur `tenants`. Après, relu en base : colonnes, clé primaire sur les cinq parties,
+  clé étrangère `on delete cascade` (`confdeltype = c`), les deux CHECK, l'index partiel au prédicat attendu, une
+  lecture par le vrai code. Les trois conteneurs en `921f08b3`, test de fumée vert. La table est vide tant que l'essai
+  réel (une image renvoyée après un redémarrage) n'est pas fait.
 
 ## 2026-11-10 : la fenêtre du partenaire, les neuf jaunes de la relecture de V5 (lot 3v, V6)
 
