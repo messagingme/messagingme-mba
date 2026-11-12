@@ -261,6 +261,13 @@ export class PgContactStore implements ContactStore {
      * avant (`inconnusRefuses`, `src/webhooks/espace-plein.ts`). Absente : sans limite (scripts et tests).
      */
     private readonly limiteContacts?: (tenantId: string) => Promise<LimiteContacts | null>,
+    /**
+     * Le pendant de `annoncerDesabonnement` pour un STOP LEVÉ (réabonnement), avec la même garantie : après le `commit`,
+     * ce qu'elle lève est absorbé. Seules les écritures d'une autorité de `LEVE_UN_STOP` l'appellent (la fiche, la
+     * personne ou un scénario, l'import CSV coché ; liste dérivée par `tests/optout-poussee.test.ts`). Elle prévient
+     * HubSpot, pour que la case du désabonnement se décoche (plan `2026-11-12-stop-vers-hubspot.md`).
+     */
+    private readonly annoncerReabonnement?: (tenantId: string, waIds: string[]) => Promise<void>,
   ) {}
 
   /**
@@ -353,6 +360,19 @@ export class PgContactStore implements ContactStore {
     }
   }
 
+  /** Annonce un réabonnement (un STOP levé), sans jamais lever non plus : le consentement est déjà enregistré. */
+  private async annoncerLeve(tenantId: string, waIds: Array<string | null>): Promise<void> {
+    if (!this.annoncerReabonnement) return;
+    const propres = waIds.filter((w): w is string => typeof w === 'string' && w.trim() !== '');
+    if (propres.length === 0) return;
+    try {
+      await this.annoncerReabonnement(tenantId, propres);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`contacts: annonce de reabonnement impossible pour ${tenantId}:`, messageDe(err));
+    }
+  }
+
   /**
    * Upsert d'un contact par son numéro, qui rend son id : webhook entrant et création à la main dans la console.
    * L'API publique passe par `resoudreFiche` et `creerFicheApi`.
@@ -442,6 +462,11 @@ export class PgContactStore implements ContactStore {
     }));
     const leve = issueDeLaTransition('opted_out', lot.optInStatus, lot.autorite) === 'ecrit';
     const neuf = colonnesNeuves('f', '$2::text', '$3::text', '$6');
+    // Un lot qui LÈVE un STOP (l'import CSV coché) : les numéros de ce lot encore désabonnés, lus AVANT l'écriture, sont
+    // ceux qu'il réabonne, annoncés après elle (la case HubSpot se décoche) ; comme une fiche effacée en STOP que l'import
+    // recrée abonnée depuis la liste de refus. Lus hors verrou : l'annonce n'est qu'un signal, et ce qu'elle déclenche
+    // relit l'état enregistré (un numéro de trop repousse le même état, il ne fausse rien).
+    const aReabonner = leve ? await this.desabonnesDuLot(lot.tenantId, lignes) : [];
 
     const res = await this.pool.query<{ phone_e164: string; created: boolean }>(
       `with refus_lus as (
@@ -478,12 +503,33 @@ export class PgContactStore implements ContactStore {
       [lot.tenantId, lot.optInStatus, lot.optInSource ?? null, lot.tags ?? [], JSON.stringify(lignes), leve],
     );
 
+    // Après l'écriture (une instruction, donc validée), jamais avant.
+    if (aReabonner.length > 0) await this.annoncerLeve(lot.tenantId, aReabonner.map((p) => waIdOf(p, null)));
+
     const creePar = new Map(res.rows.map((r) => [r.phone_e164, r.created] as const));
     // Un numéro en double n'est « créé » qu'à sa première apparition, les suivantes sont des mises à jour : sinon
     // un fichier qui répète cinq fois un contact annoncerait cinq créations.
     return lot.contacts.map((c, i) =>
       creePar.get(c.phoneE164) === true && premiereApparition.get(c.phoneE164) === i ? 'created' : 'updated',
     );
+  }
+
+  /**
+   * Les numéros d'un lot d'import encore désabonnés de WhatsApp : une fiche `opted_out`, ou, sans fiche, un refus
+   * WhatsApp gardé dans la liste de refus (une fiche effacée en STOP). Lu par `upsertManyByPhone` pour un lot qui lève
+   * un STOP, avant son écriture.
+   */
+  private async desabonnesDuLot(tenantId: string, lignes: ReadonlyArray<{ phone: string; empreinte: string }>): Promise<string[]> {
+    const res = await this.pool.query<{ phone: string }>(
+      `select x.phone from jsonb_to_recordset($2::jsonb) as x(phone text, empreinte text)
+        where exists (select 1 from contacts c
+                       where c.tenant_id = $1::uuid and c.phone_e164 = x.phone and c.opt_in_status = 'opted_out')
+           or (not exists (select 1 from contacts c where c.tenant_id = $1::uuid and c.phone_e164 = x.phone)
+               and exists (select 1 from refus_effaces r
+                            where r.tenant_id = $1::uuid and r.empreinte = x.empreinte and r.whatsapp_le is not null))`,
+      [tenantId, JSON.stringify(lignes.map((l) => ({ phone: l.phone, empreinte: l.empreinte })))],
+    );
+    return res.rows.map((r) => r.phone);
   }
 
   /** Contact actif par téléphone E.164 exact (tenant scopé), ou null s'il est absent ou supprimé : un contact
@@ -546,7 +592,7 @@ export class PgContactStore implements ContactStore {
     source: string,
     messageDuStop?: string,
   ): Promise<string | null> {
-    const res = await this.pool.query<Pick<FicheDeLEcriture, 'id' | 'passe'>>(
+    const res = await this.pool.query<Pick<FicheDeLEcriture, 'id' | 'passe' | 'leve'>>(
       ecritureDuConsentement({
         cible: `where tenant_id = $1 ${MATCH_BY_WAID_SQL}`, espace: '$1',
         voulu: '$3::text', source: '$4::text', autorite, rendu: 'par_fiche',
@@ -557,6 +603,8 @@ export class PgContactStore implements ContactStore {
     // L'annonce vient après l'écriture (une instruction, donc validée), et seulement pour un vrai passage à
     // `opted_out` : ni personne inconnue poussée chez le client, ni deux événements pour un seul STOP.
     if (r?.passe) await this.annoncer(tenantId, [waId], messageDuStop);
+    // Et un STOP vraiment levé (la personne, ou le bloc « Action » d'un scénario) s'annonce de même.
+    if (r?.leve) await this.annoncerLeve(tenantId, [waId]);
     return r?.id ?? null;
   }
 
@@ -808,6 +856,22 @@ export class PgContactStore implements ContactStore {
       [tenantId, waId],
     );
     return res.rows[0]?.opt_in_status === 'opted_out';
+  }
+
+  /**
+   * Le consentement WhatsApp d'un contact, tel que HubSpot le reçoit (plan `2026-11-12-stop-vers-hubspot.md`) : son
+   * numéro (nul pour un contact connu par son seul BSUID), s'il est désabonné, et depuis quand (ISO UTC, nul si la date
+   * manque, avant 0138). Même fiche que `estDesabonneParWaId`. `null` : contact inconnu.
+   */
+  async consentementParWaId(tenantId: string, waId: string): Promise<{ phoneE164: string | null; desabonne: boolean; optOutAt: string | null } | null> {
+    const res = await this.pool.query<{ phone_e164: string | null; opt_in_status: string; opt_out_at: string | null }>(
+      `select phone_e164, opt_in_status,
+              to_char(opt_out_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as opt_out_at
+         from contacts where tenant_id = $1 ${MATCH_BY_WAID_SQL}`,
+      [tenantId, waId],
+    );
+    const r = res.rows[0];
+    return r ? { phoneE164: r.phone_e164, desabonne: r.opt_in_status === 'opted_out', optOutAt: r.opt_out_at } : null;
   }
 
   /**
@@ -1380,9 +1444,10 @@ export class PgContactStore implements ContactStore {
       // `opted_out` posé ici d'un statut jamais renseigné. Un statut déjà en place ne réécrit ni sa date, ni sa source,
       // et ne s'annonce pas (`src/crm/transition-consentement.ts`).
       let passe = false;
+      let leve = false;
       let consentementChange = false;
       if (edits.optInStatus !== undefined) {
-        const r = await client.query<Pick<FicheDeLEcriture, 'ecrite' | 'passe'>>(
+        const r = await client.query<Pick<FicheDeLEcriture, 'ecrite' | 'passe' | 'leve'>>(
           ecritureDuConsentement({
             cible: 'where id = $1 and tenant_id = $2', espace: '$2',
             voulu: '$3::text', source: '$4::text', autorite: 'fiche', rendu: 'par_fiche',
@@ -1390,6 +1455,7 @@ export class PgContactStore implements ContactStore {
           [contactId, tenantId, edits.optInStatus, 'crm'],
         );
         passe = r.rows[0]?.passe === true;
+        leve = r.rows[0]?.leve === true;
         // Sans autre affectation, `ecrite` veut dire « le statut a changé » : c'est ce que la route journalise.
         consentementChange = r.rows[0]?.ecrite === true;
       }
@@ -1400,7 +1466,7 @@ export class PgContactStore implements ContactStore {
         await client.query(`update contacts set tags = (select coalesce(array_agg(t), '{}') from unnest(tags) t where t <> all($3::text[])), updated_at = now() where id = $1 and tenant_id = $2`, [contactId, tenantId, edits.removeTags]);
       }
       const res = await client.query(PgContactStore.SELECT_ONE, [contactId, tenantId]);
-      return { avant: exists.rows[0]?.tags ?? [], r: res.rows[0], passe, consentementChange };
+      return { avant: exists.rows[0]?.tags ?? [], r: res.rows[0], passe, leve, consentementChange };
     });
     if (ecrit === null || !ecrit.r) return null;
     const avant = new Set(ecrit.avant);
@@ -1413,6 +1479,8 @@ export class PgContactStore implements ContactStore {
     if (ecrit.passe) {
       await this.annoncer(tenantId, [waIdOf(contact.phoneE164, contact.bsuid)]);
     }
+    // Un STOP levé depuis la fiche s'annonce de même, après le `commit`.
+    if (ecrit.leve) await this.annoncerLeve(tenantId, [waIdOf(contact.phoneE164, contact.bsuid)]);
     return {
       contact,
       addedTags: edits.addTags.filter((t) => !avant.has(t) && apres.has(t)),

@@ -762,6 +762,11 @@ export interface TenantSettings {
    * d'une API antérieure : l'écran des automations montre le déclencheur comme avant, la carte HubSpot le lit éteint.
    */
   hubspotAutomations?: boolean;
+  /**
+   * Désabonnement WhatsApp : un STOP coche la case de la fiche HubSpot, un réabonnement la décoche (migration 0292).
+   * Absent d'une API antérieure : la ligne n'est ni montrée ni envoyée (une API d'avant refuse une clé inconnue).
+   */
+  hubspotStop?: boolean;
   hubspotChoixValideLe?: string | null;
   /*
    * `prix` A QUITTE LES REGLAGES LE 2026-09-23 (lot 8, migration 0168). Il n'y a plus qu'une grille, pour
@@ -814,6 +819,8 @@ export interface ChoixHubspot {
   workflows: boolean;
   /** Un deal HubSpot qui atteint une étape lance les automations « deal » de l'espace (lot 3a). */
   automations: boolean;
+  /** Un STOP WhatsApp coche la case « MM - WhatsApp désabonné » de la fiche HubSpot, un réabonnement la décoche. */
+  stop: boolean;
   listes: boolean;
   /** Créer des tâches dans HubSpot (sinon : propriétés seulement). Vaut pour tout le portail. */
   taches: boolean;
@@ -829,6 +836,8 @@ export interface ChoixHubspotEnregistre {
   hubspotWorkflows: boolean;
   /** Absent d'une API antérieure au lot 3a : lu éteint. */
   hubspotAutomations?: boolean;
+  /** Absent d'une API antérieure à 0292. */
+  hubspotStop?: boolean;
   hubspotListsEnabled: boolean;
   hubspotChoixValideLe: string | null;
   routingMode: 'mm_routing' | 'hubspot_native' | null;
@@ -842,7 +851,7 @@ export interface ChoixHubspotEnregistre {
  */
 export function putHubspotChoix(
   tenantId: string,
-  choix: Omit<ChoixHubspot, 'taches' | 'automations'> & { taches?: boolean; automations?: boolean },
+  choix: Omit<ChoixHubspot, 'taches' | 'automations' | 'stop'> & { taches?: boolean; automations?: boolean; stop?: boolean },
 ): Promise<ChoixHubspotEnregistre> {
   return request(`/tenants/${tenantId}/hubspot/choix`, { method: 'PUT', body: JSON.stringify(choix) });
 }

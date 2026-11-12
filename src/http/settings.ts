@@ -118,6 +118,8 @@ export function registerSettings(
       hubspotModeles: choix.modeles,
       hubspotWorkflows: choix.workflows,
       hubspotAutomations: choix.automations,
+      // Le désabonnement WhatsApp vers HubSpot (0292) : sa présence dit à la console que l'API le connaît.
+      hubspotStop: choix.stop,
       hubspotChoixValideLe: choix.valideLe ? choix.valideLe.toISOString() : null,
     });
   });

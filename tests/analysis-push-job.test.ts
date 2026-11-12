@@ -37,6 +37,7 @@ function deps(over: Surcharges = {}): { d: PushJobDeps; posted: EnrichedAnalyzed
     },
     post: async (e) => { posted.push(e); },
     lienConversation: (id) => `https://console.exemple.test/inbox?c=${id}`,
+    stop: async () => null,
     log: (m) => logs.push(m),
     ...reste,
   };
@@ -117,5 +118,21 @@ describe('pushAnalysisJob : le choix du client (lot 1bis)', () => {
     await pushAnalysisJob(REF, d);
     expect(lus).toEqual(['t1']);
     expect(posted).toHaveLength(1);
+  });
+});
+
+describe('pushAnalysisJob : la case du désabonnement (plan 2026-11-12-stop-vers-hubspot)', () => {
+  it('🔴 un contact désabonné : l’événement porte `stop`, demandé pour l’espace et le numéro du contact', async () => {
+    const demandes: Array<[string, string]> = [];
+    const { d, posted } = deps({ stop: async (t, e164) => { demandes.push([t, e164]); return { date: '2026-11-12T09:30:00.000Z' }; } });
+    await pushAnalysisJob(REF, d);
+    expect(demandes).toEqual([['t1', '+33600000001']]);
+    expect(posted[0]!.stop).toEqual({ date: '2026-11-12T09:30:00.000Z' });
+  });
+
+  it('🔴 rien à dire (abonné, réglage éteint) : l’événement ne porte PAS la clé, jamais un « réabonné »', async () => {
+    const { d, posted } = deps({ stop: async () => null });
+    await pushAnalysisJob(REF, d);
+    expect(posted[0]).not.toHaveProperty('stop');
   });
 });

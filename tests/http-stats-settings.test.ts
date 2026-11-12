@@ -115,7 +115,7 @@ function app(over: { stats?: Partial<Omit<StatsRouteDeps, 'stats' | 'conversatio
     ...reglagesInertes,
     // Aucun portail lie : c est le defaut, et la fixture le DIT (cf. `tests/hubspot.ts`).
     hubspotPortalConnecte: sansPortailHubspot,
-    choixHubspot: async () => ({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, valideLe: null }),
+    choixHubspot: async () => ({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, stop: true, valideLe: null }),
     ...over.settings,
     reglages: {
       ...reglagesDepInertes,
@@ -649,7 +649,7 @@ describe('settings route', () => {
   });
 
   it('GET /settings rend la ligne « Automations HubSpot » (lot 3a), que lit l’écran des automations', async () => {
-    const choix = { analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, valideLe: null };
+    const choix = { analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, stop: true, valideLe: null };
     for (const automations of [true, false]) {
       const a = app({ settings: { choixHubspot: async () => ({ ...choix, automations }) } });
       const res = await a.inject({ method: 'GET', url: '/tenants/t1/settings', ...h(adminTok) });

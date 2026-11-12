@@ -63,6 +63,8 @@ export function choixParDefaut(p: {
     modeles: false,
     workflows: false,
     automations: p.reglages.hubspotAutomations === true && !fermeeParLOffre('automations', p.fonctions),
+    // Le refus d'une personne que le client doit connaître : allumé, comme le contact injoignable (migration 0292).
+    stop: true,
     listes: false,
     taches: p.routingMode !== 'hubspot_native',
   };
@@ -83,6 +85,8 @@ export function choixActuel(s: TenantSettings, routingMode: 'mm_routing' | 'hubs
     modeles: reponse && s.hubspotModeles === true && !fermeeParLOffre('modeles', fonctions),
     workflows: s.hubspotWorkflows === true && !fermeeParLOffre('workflows', fonctions),
     automations: s.hubspotAutomations === true && !fermeeParLOffre('automations', fonctions),
+    // Aucune offre ne la ferme ; absente d'une API d'avant 0292, la ligne n'est de toute façon pas montrée.
+    stop: s.hubspotStop !== false,
     listes: s.hubspotListsEnabled === true && !fermeeParLOffre('listes', fonctions),
     taches: routingMode !== 'hubspot_native',
   };
@@ -121,12 +125,26 @@ export function envoyerAutomations(
   return 'bascule' in quoi ? quoi.bascule === 'automations' : !fermeeParLOffre('automations', fonctions);
 }
 
+/**
+ * « Désabonnement WhatsApp » part-il avec cet enregistrement ? 🔴 Seulement si l'API le connaît (une API d'avant 0292
+ * refuse en 400 une clé inconnue, et la console part au push, avant l'API), et seulement quand on bascule SA ligne ou
+ * qu'on valide l'étape de choix : renvoyé à chaque bascule d'une autre ligne, il réécrirait une valeur lue plus tôt.
+ */
+export function envoyerStop(quoi: { bascule: keyof ChoixHubspot } | { validation: true }, connue: boolean): boolean {
+  return connue && ('bascule' in quoi ? quoi.bascule === 'stop' : true);
+}
+
 export function corpsDuChoix(
   choix: ChoixHubspot,
-  p: { envoyerTaches: boolean; envoyerAutomations: boolean },
-): Omit<ChoixHubspot, 'taches' | 'automations'> & { taches?: boolean; automations?: boolean } {
-  const { taches, automations, ...reste } = choix;
-  return { ...reste, ...(p.envoyerTaches ? { taches } : {}), ...(p.envoyerAutomations ? { automations } : {}) };
+  p: { envoyerTaches: boolean; envoyerAutomations: boolean; envoyerStop: boolean },
+): Omit<ChoixHubspot, 'taches' | 'automations' | 'stop'> & { taches?: boolean; automations?: boolean; stop?: boolean } {
+  const { taches, automations, stop, ...reste } = choix;
+  return {
+    ...reste,
+    ...(p.envoyerTaches ? { taches } : {}),
+    ...(p.envoyerAutomations ? { automations } : {}),
+    ...(p.envoyerStop ? { stop } : {}),
+  };
 }
 
 /**

@@ -1893,6 +1893,22 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   de Julien du 2026-10-03 : un refus envoyé par l'API reste annoncé au système du client). La fiche de la console
   (`applyEdits`) rend `consentementChange`, et la route ne journalise `contact.optin` ou `contact.optout` que
   s'il est vrai. La table de cas : `tests/integration/transition-consentement.integration.test.ts`.
+- 🔴 **Le désabonnement WhatsApp remonte dans HubSpot** (plan `docs/superpowers/plans/2026-11-12-stop-vers-hubspot.md`,
+  migration 0292). Chaque passage du consentement s'annonce APRÈS le `commit` : un refus par `annoncerDesabonnement`
+  (enveloppé par `annoncerAussiAHubspot`, qui l'ajoute à la poussée du connecteur API et aux signaux), un STOP LEVÉ par
+  `annoncerReabonnement`, le quatrième paramètre de `PgContactStore`. Seules les trois écritures qui peuvent lever un
+  STOP l'appellent : `setOptInByWaId` et `applyEdits` lisent `leve` dans `ecritureDuConsentement` (le pendant de
+  `passe`), et `upsertManyByPhone`, pour un lot qui lève (`import_csv_coche`), lit les numéros encore désabonnés AVANT
+  d'écrire (`desabonnesDuLot`, hors verrou : l'annonce n'est qu'un signal). Liste dérivée par
+  `tests/optout-poussee.test.ts`. Les deux annonces enfilent `hubspot-stop` (`src/crm/hubspot-stop.ts`, lots de 20,
+  seulement avec `HUBSPOT_SERVICE_URL`), consommée un job à la fois par le rôle `principal` : le job relit l'ÉTAT
+  (`consentementParWaId`) et le pose par le flag `stop` de `/service/contact-flag` du connecteur (`poserStopHubspot`,
+  un essai sous 45 s), donc le dernier job exécuté pose l'état du moment. Le réglage `tenant_settings.hubspot_stop`
+  (« Désabonnement WhatsApp », allumé par défaut, relu à l'exécution) l'éteint ; une fiche sans numéro (BSUID seul) ou
+  d'un numéro hors E.164 est passée ; une fiche en échec n'arrête pas les suivantes (le lot les tente toutes, puis lève,
+  et pg-boss le rejoue en entier) ; un portail à re-consentir est journalisé et laissé. L'événement d'analyse porte `stop: { date? }` pour un
+  contact désabonné d'un espace qui a la case allumée (`stopPourAnalyse`), jamais « réabonné ». Le contrat côté
+  connecteur vit dans le `documentation.md` de `~/mm-hubspot`.
 - 🔴 **La liste de refus des fiches effacées** (`src/crm/refus-effaces.ts`, migration 0226, décision de Julien du
   2026-10-09). La purge anonymise le numéro : sans elle, une fiche recréée avec le même numéro repartait sans son
   STOP. `purgeMany`, dans sa transaction et AVANT l'anonymisation, écrit dans `refus_effaces` une EMPREINTE de chaque
@@ -2790,7 +2806,7 @@ La cadence de polling se règle **par file**, sur la latence réellement utile, 
 |---|---|---|
 | conversationnelle (quelqu'un attend) | 2 s | `webhook`, `agent-turn` |
 | interactive (l'opérateur regarde l'écran) | 5 s | `campaign-run`, `automation-event`, `evenements-distribution`, `evenements-envoi` (l'application d'un client attend) |
-| de fond (personne n'attend) | 30 s | `webhook-status`, `analyze-conversation`, `push-analysis`, `hubspot-catchup`, `optout-poussee`, les files d'adaptateur de signaux (`signaux-batch`, et toute future `signaux-*`) |
+| de fond (personne n'attend) | 30 s | `webhook-status`, `analyze-conversation`, `push-analysis`, `hubspot-catchup`, `optout-poussee`, `hubspot-stop`, les files d'adaptateur de signaux (`signaux-batch`, et toute future `signaux-*`) |
 | dépôt inspecté, consommé par personne | 60 s | toute DLQ |
 
 La carte de latence de `/ops` passe au rouge au-delà du seuil de la FILE (`seuilLatenceSecondes`, même fichier) : 30 s,

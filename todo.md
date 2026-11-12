@@ -1,5 +1,35 @@
 # todo.md : backlog
 
+## 🟡 Le STOP vers HubSpot, lot 2c : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-stop-vers-hubspot.md`)
+
+- Une seule file pour tous les espaces, consommée un job à la fois : un import coché de milliers de numéros retarde
+  les STOP des autres espaces (jusqu'à 45 s par fiche). Piste : une priorité aux annonces unitaires, ou un groupe par
+  espace ; et ne pas enfiler pour un espace sans portail relié (le job ne le découvre qu'au premier appel).
+- Aucun `retryDelay` sur `hubspot-stop` (`src/queue/pgboss.ts`, seules les files vidées en continu en ont un) : les
+  rejeux d'un lot en échec repartent sans laisser au connecteur le temps de se réveiller.
+- L'échéance de 45 s (`DELAI_STOP_MS`) ne couvre pas le réveil du connecteur (15,5 à 16,6 s mesurés) ajouté à une
+  recherche lente : mba abandonne un appel que le connecteur finit parfois. Piste : une échéance absolue dans le corps
+  signé, que le connecteur respecte.
+- Un portail à re-consentir perd ses STOP avec une ligne de journal pour seule trace, rien sur `/ops` ; un portail
+  déconnecté ou un jeton de rafraîchissement révoqué finissent en DLQ au lieu d'être lus comme « aucun portail ».
+- Tout 404 du connecteur se lit `non_relie` (`poserStopHubspot`) : exiger le code `tenant_not_connected`, sinon une
+  route mal adressée passe pour « aucun portail » et le lot se termine sans rien dire.
+- `desabonnesDuLot` (`upsertManyByPhone`) n'est pas absorbé : sa panne fait échouer l'import, alors que l'annonce
+  n'est qu'un signal. Un `try/catch` qui rend `[]` et journalise.
+- La case de l'analyse dépend de `CONNECTOR_PUSH_URL`, la file `hubspot-stop` de `HUBSPOT_SERVICE_URL`
+  (`src/worker.ts`) : une instance qui n'aurait que la première laisserait l'analyse cocher une case qu'aucun
+  réabonnement ne décocherait. Les deux sont posées en production ; conditionner `stopPourAnalyse` à la seconde.
+- Tests manquants : le câblage de `src/socle.ts` avec connecteur, `GET /settings` qui rend `hubspotStop`, une liste
+  dérivée des écritures qui lèvent un STOP (comme celle des refus), la branche « liste de refus » de
+  `upsertManyByPhone` en intégration, et un test qui épingle la concurrence de 1 de la file (l'hypothèse du « dernier
+  job exécuté gagne »).
+- Un rejeu repose les dix-neuf états déjà posés d'un lot : ne réenfiler que les numéros en échec.
+- Petits points : un contact connu par son seul BSUID qui reçoit plus tard un numéro (`rattacherCles`) n'est pas
+  réannoncé ; `features.md` et la fiche promettent tous les formats avant la mesure de l'essai réel (la fiche saisie
+  « 06 33 92 15 77 ») ; aucun interrupteur global, seulement par espace ; la maquette de l'e2e
+  (`web/e2e/hubspot-interrupteur.spec.ts`) ne rend `hubspotStop` qu'après un PUT qui l'envoie, quand la vraie route le
+  rend toujours.
+
 ## 🟡 Les PDF par contact, lot A : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-pdf-par-contact-hubspot.md`)
 
 - Un objet dont l'effacement est refusé durablement reste en tête du balayage (`order by cree_le limit`) et peut

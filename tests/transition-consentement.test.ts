@@ -73,11 +73,19 @@ describe('le SQL est DÉPLIÉ de la règle, jamais réécrit', () => {
       const issue = (a: StatutConsentement, v: StatutConsentement) => issueDeLaTransition(a, v, autorite);
       expect(couplesDe(t.change)).toEqual(attendus(autorite, (a, v) => issue(a, v) === 'ecrit'));
       expect(couplesDe(t.passe)).toEqual(attendus(autorite, (a, v) => issue(a, v) === 'ecrit' && v === 'opted_out'));
+      expect(couplesDe(t.leve)).toEqual(attendus(autorite, (a, v) => issue(a, v) === 'ecrit' && a === 'opted_out'));
       expect(couplesDe(t.garde)).toEqual(attendus(autorite, (a, v) => issue(a, v) === 'stop_garde'));
       // Le prédicat lit l'état d'AVANT, sur la ligne nommée, contre la demande.
       if (t.change !== 'false') expect(t.change).toContain('(avant.opt_in_status, $3::text) in (');
     });
   }
+
+  it('🔴 un STOP n’est LEVÉ (réabonnement annoncé à HubSpot) que par une autorité de `LEVE_UN_STOP`, et seulement vers `opted_in`', () => {
+    for (const autorite of AUTORITES) {
+      const t = transition('', { voulu: '$1::text', source: '$2::text', autorite });
+      expect(couplesDe(t.leve), autorite).toEqual(LEVE_UN_STOP[autorite] ? ['opted_out->opted_in'] : []);
+    }
+  });
 
   it('🔴 l’action en masse : `opted_out -> opted_in` est un STOP gardé, jamais une écriture', () => {
     const t = transition('', { voulu: '$1::text', source: '$2::text', autorite: 'action_en_masse' });
@@ -145,10 +153,10 @@ describe('ecritureDuConsentement : la forme de l’instruction', () => {
     expect(sql).toContain('where tenant_id = $2 and id in (select id from avant) and ');
   });
 
-  it('passe et garde se lisent sur la copie verrouillée, jamais sur la ligne écrite', () => {
+  it('passe, leve et garde se lisent sur la copie verrouillée, jamais sur la ligne écrite', () => {
     const sql = sans(ecritureDuConsentement({ ...demande, cible: 'where id = $1', rendu: 'par_fiche' }));
     const t = transition('avant.', demande);
-    expect(sql).toContain(`${sans(t.passe)} as passe, ${sans(t.garde)} as garde from avant left join ecrit on ecrit.id = avant.id`);
+    expect(sql).toContain(`${sans(t.passe)} as passe, ${sans(t.leve)} as leve, ${sans(t.garde)} as garde from avant left join ecrit on ecrit.id = avant.id`);
   });
 
   it('le rendu `compte` remonte UNE ligne (agrégats), pas une par fiche', () => {

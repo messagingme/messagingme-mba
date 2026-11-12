@@ -24,7 +24,7 @@ const url = process.env.DATABASE_URL ?? '';
 const MIGRATION = readFileSync(resolve(__dirname, '..', '..', 'db', 'migrations', '0270_hubspot_automations.sql'), 'utf8');
 
 const CHOIX: ChoixHubspotEcrit = {
-  analyse: false, passage: true, injoignable: true, reponse: false, modeles: false, workflows: true, automations: true, listes: false,
+  analyse: false, passage: true, injoignable: true, reponse: false, modeles: false, workflows: true, automations: true, stop: true, listes: false,
 };
 
 describe.skipIf(!url)('la ligne « Automations HubSpot » en base', () => {

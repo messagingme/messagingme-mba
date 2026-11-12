@@ -108,6 +108,8 @@ async function parametres(page: Page, o: { reglages: Record<string, unknown>; co
       return json({
         hubspotAnalyse: corps.analyse, hubspotPassage: corps.passage, hubspotInjoignable: corps.injoignable,
         hubspotReponse: corps.reponse, hubspotModeles: corps.reponse === true && corps.modeles === true, hubspotWorkflows: corps.workflows === true, hubspotListsEnabled: corps.listes, hubspotChoixValideLe: '2026-10-23T18:00:00.000Z',
+        // La case du désabonnement (0292) : rendue seulement quand le corps la porte, comme une API qui la connaît.
+        ...(corps.stop !== undefined ? { hubspotStop: corps.stop } : {}),
         routingMode: corps.taches === undefined ? null : corps.taches ? 'mm_routing' : 'hubspot_native',
         tachesAppliquees: true, premiereValidation: true,
       });
@@ -164,6 +166,25 @@ test.describe('Tools > Intégrations > HubSpot : le choix des fonctions (lot 1bi
     await page.getByTestId('integration-hubspot-injoignable-toggle').click();
     await expect.poll(() => trace.puts.length, { timeout: 10_000 }).toBe(1);
     expect(trace.puts[0]).toEqual({ analyse: true, passage: true, injoignable: false, reponse: false, modeles: false, workflows: false, listes: false });
+  });
+
+  test('🔴 « Désabonnement WhatsApp » : cachée tant que l’API ne la connaît pas (une API d’avant refuserait sa clé)', async ({ page }) => {
+    const trace = await parametres(page, { reglages: CHOIX_FAIT, compte: { hasNumber: false, hubspotPortal: { connected: false } } });
+    await expect(page.getByTestId('integration-hubspot-injoignable-toggle')).toBeVisible();
+    await expect(page.getByTestId('integration-hubspot-stop-toggle')).toHaveCount(0);
+    expect(trace.puts).toEqual([]);
+  });
+
+  test('🔴 « Désabonnement WhatsApp » connue de l’API : sa bascule envoie `stop`, celle d’une autre ligne ne l’envoie pas', async ({ page }) => {
+    const trace = await parametres(page, { reglages: { ...CHOIX_FAIT, hubspotStop: true }, compte: { hasNumber: false, hubspotPortal: { connected: false } } });
+    await expect(page.getByTestId('integration-hubspot-stop-toggle')).toHaveAttribute('aria-pressed', 'true');
+    await page.getByTestId('integration-hubspot-stop-toggle').click();
+    await expect.poll(() => trace.puts.length, { timeout: 10_000 }).toBe(1);
+    expect(trace.puts[0]).toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, listes: false, stop: false });
+    await expect(page.getByTestId('integration-hubspot-stop-toggle')).toHaveAttribute('aria-pressed', 'false');
+    await page.getByTestId('integration-hubspot-injoignable-toggle').click();
+    await expect.poll(() => trace.puts.length, { timeout: 10_000 }).toBe(2);
+    expect(trace.puts[1]).not.toHaveProperty('stop');
   });
 
   test('le serveur refuse : son message s’affiche, et l’interrupteur revient à sa place', async ({ page }) => {

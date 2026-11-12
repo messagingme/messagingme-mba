@@ -2493,7 +2493,7 @@ async function main(): Promise<void> {
               const [c, s] = await Promise.all([settingsStore.lireChoixHubspot(t), settingsStore.get(t)]);
               return {
                 analyse: c.analyse, reponse: c.reponse, modeles: c.modeles, workflows: c.workflows, automations: c.automations,
-                listes: s.hubspotListsEnabled, valideLe: c.valideLe,
+                stop: c.stop, listes: s.hubspotListsEnabled, valideLe: c.valideLe,
               };
             },
             portail: lirePortailHubspot,

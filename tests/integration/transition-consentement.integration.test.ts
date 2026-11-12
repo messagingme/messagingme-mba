@@ -66,16 +66,20 @@ describe.skipIf(!url)('la transition du consentement (Postgres)', () => {
   let tenantId = '';
   let autreTenantId = '';
   const annonces: Annonce[] = [];
+  /** Les réabonnements annoncés (plan `2026-11-12-stop-vers-hubspot.md`), avec le statut lu à côté quand ils partent. */
+  const reabonnements: Array<{ waIds: string[]; statutsVus: string[] }> = [];
 
   beforeAll(async () => {
     // Six connexions : la course ouvre un verrou à part et deux écritures concurrentes, l'annonce relit à côté.
     pool = new Pool({ connectionString: url, ssl: pgSsl(), max: 6 });
+    const statutsDe = async (t: string, waIds: string[]): Promise<string[]> => (await pool.query<{ opt_in_status: string }>(
+      `select opt_in_status from contacts where tenant_id = $1 and phone_e164 = any($2::text[])`,
+      [t, waIds.map((w) => `+${w}`)],
+    )).rows.map((r) => r.opt_in_status);
     store = new PgContactStore(pool, async (t, waIds, message) => {
-      const vus = await pool.query<{ opt_in_status: string }>(
-        `select opt_in_status from contacts where tenant_id = $1 and phone_e164 = any($2::text[])`,
-        [t, waIds.map((w) => `+${w}`)],
-      );
-      annonces.push({ waIds: [...waIds].sort(), ...(message ? { message } : {}), statutsVus: vus.rows.map((r) => r.opt_in_status) });
+      annonces.push({ waIds: [...waIds].sort(), ...(message ? { message } : {}), statutsVus: await statutsDe(t, waIds) });
+    }, undefined, async (t, waIds) => {
+      reabonnements.push({ waIds: [...waIds].sort(), statutsVus: await statutsDe(t, waIds) });
     });
     tenantId = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-transition-consentement') returning id`)).rows[0]!.id;
     autreTenantId = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-transition-voisin') returning id`)).rows[0]!.id;
@@ -87,7 +91,7 @@ describe.skipIf(!url)('la transition du consentement (Postgres)', () => {
     await pool.end();
   });
 
-  beforeEach(() => { annonces.length = 0; });
+  beforeEach(() => { annonces.length = 0; reabonnements.length = 0; });
 
   let n = 0;
   /** Une fiche neuve dans l'état de départ, posée en SQL nu : la table ne dépend pas du code qu'elle juge. */
@@ -233,8 +237,21 @@ describe.skipIf(!url)('la transition du consentement (Postgres)', () => {
       // 🔴 Changement (4) : l'annonce ne part que pour un vrai passage à `opted_out`, après le `commit`.
       expect(annonces.map((a) => a.waIds)).toEqual(c.annonce ? [[f.waId]] : []);
       for (const a of annonces) expect(a.statutsVus, 'l’annonce lit une écriture déjà validée').toEqual(['opted_out']);
+      // 🔴 Le réabonnement (STOP levé) s'annonce exactement quand le statut passe de `opted_out` à `opted_in` : la fiche, la
+      // personne, le bloc « Action », l'import CSV coché ; jamais un STOP gardé. Après le `commit`, lui aussi.
+      const leve = c.depart === 'opted_out' && c.statut === 'opted_in';
+      expect(reabonnements.map((a) => a.waIds), 'réabonnement annoncé').toEqual(leve ? [[f.waId]] : []);
+      for (const a of reabonnements) expect(a.statutsVus, 'le réabonnement lit une écriture déjà validée').toEqual(['opted_in']);
     });
   }
+
+  it('🔴 le consentement relu pour HubSpot : le numéro, le désabonnement et sa date en ISO UTC ; null pour un inconnu', async () => {
+    const f = await poser('opted_out');
+    expect(await store.consentementParWaId(tenantId, f.waId)).toEqual({ phoneE164: f.phone, desabonne: true, optOutAt: D0.toISOString() });
+    const g = await poser('opted_in');
+    expect(await store.consentementParWaId(tenantId, g.waId)).toEqual({ phoneE164: g.phone, desabonne: false, optOutAt: null });
+    expect(await store.consentementParWaId(tenantId, '33699999999')).toBeNull();
+  });
 
   it('le mot STOP passe l’identifiant de son message à l’annonce', async () => {
     const f = await poser('opted_in');

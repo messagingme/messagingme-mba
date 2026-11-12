@@ -46,7 +46,8 @@ import { assignerReponse } from './inbox/assignation-campagne';
 import { arriveeParWidget } from './widgets/arrivee';
 import { relanceurDeCampagnes } from './campaign/enqueue';
 import { plafondDuCanal, plafondLePlusBas } from './campaign/pacing';
-import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff, pousserMessagesInbox, affecterInbox, etatsInbox } from './crm/hubspot-service';
+import { flagContactUnreachable, flagSelonLeChoix, pousserHandoff, cloreHandoff, pousserMessagesInbox, affecterInbox, etatsInbox, poserStopHubspot } from './crm/hubspot-service';
+import { creerTravailHubspotStop, FILE_HUBSPOT_STOP, stopPourAnalyse } from './crm/hubspot-stop';
 import { balayerInbox, PgInboxHubspotStore } from './hubspot/inbox';
 import { DUREE_CLE_IDEMPOTENCE_MS } from './api/idempotence';
 import { PgArriveesPubStore } from './pubs/arrivees.pg';
@@ -1204,6 +1205,19 @@ export async function demarrerWorker(): Promise<void> {
       }),
     );
     /**
+     * Le désabonnement WhatsApp vers HubSpot (plan `2026-11-12-stop-vers-hubspot.md`) : le socle enfile chaque passage du
+     * consentement, le job relit l'état et le pose sur les fiches HubSpot du numéro. 🔴 Concurrence 1 (le défaut de
+     * `work`), et la file n'a qu'un rôle (`principal`) : deux jobs d'une même fiche ne s'écrivent jamais en même temps, donc
+     * le dernier exécuté pose l'état du moment. Un seul appel à la fois aussi pour la limite de recherche de HubSpot.
+     */
+    await queue.work(FILE_HUBSPOT_STOP, creerTravailHubspotStop({
+      actif: async (t) => (await settingsStore.lireChoixHubspot(t)).stop,
+      consentement: (t, waId) => contactStore.consentementParWaId(t, waId),
+      poser: (t, e164, valeur, date) => poserStopHubspot(connecteurHubspot, t, e164, valeur, date),
+      // eslint-disable-next-line no-console
+      log: (m) => console.warn(m),
+    }));
+    /**
      * Lot 2b de la reprise humaine : chaque minute, la tâche d'un passage clos se coche chez le connecteur, et une relance
      * part pour le client qui attend l'équipe depuis `HUBSPOT_RELANCE_EQUIPE_MINUTES`. Deux copies qui balaient ensemble
      * ne doublent rien : la clôture est idempotente des deux côtés, l'inscription d'une relance aussi.
@@ -1253,6 +1267,12 @@ export async function demarrerWorker(): Promise<void> {
           post: (event) => postAnalysis(event, { url: config.CONNECTOR_PUSH_URL, secret: config.CONNECTOR_PUSH_SECRET, transport }),
           // Le lien de la conversation dans l'événement : la fonction du socle, celle de l'e-mail et de la tâche HubSpot.
           lienConversation,
+          // La case du désabonnement que porte l'analyse (décision de Julien du 2026-11-12) : « désabonné » seulement,
+          // et seulement quand l'espace a allumé « Désabonnement WhatsApp ».
+          stop: stopPourAnalyse({
+            actif: async (t) => (await settingsStore.lireChoixHubspot(t)).stop,
+            consentement: (t, waId) => contactStore.consentementParWaId(t, waId),
+          }),
           // eslint-disable-next-line no-console
           log: (m) => console.log(m),
         }),

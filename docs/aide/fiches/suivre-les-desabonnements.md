@@ -1,7 +1,7 @@
 ---
 ecran: securite-consentement
 source_section: Sécurité & compliance (menu Sécurité)
-source_empreinte: cdec10
+source_empreinte: 066467
 ---
 # Savoir qui s'est désabonné, et prévenir mes systèmes
 
@@ -49,3 +49,9 @@ Quatre points sur ce branchement :
   supprimé.
 - **Ce réglage est réservé à l'administrateur**, en lecture comme en écriture : brancher, c'est décider que
   des données de contact partent chez un tiers. Un manager voit la liste des désabonnés, pas ce réglage.
+
+**HubSpot l'apprend tout seul.** Si votre espace est relié à HubSpot, rien n'est à brancher : la ligne
+« Désabonnement WhatsApp (STOP) » de Tools > Intégrations > HubSpot, allumée par défaut, coche « MM - WhatsApp
+désabonné », avec la date du refus, sur chaque fiche HubSpot qui porte le numéro de la personne, quel que soit le
+format du numéro. Vos listes et vos workflows HubSpot peuvent ainsi l'exclure. Si la personne est réabonnée, la case
+se décoche. Aucune fiche HubSpot n'est créée pour cela, et les refus reçus avant la mise en service ne sont pas repris.

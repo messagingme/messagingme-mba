@@ -7,7 +7,7 @@
  * Les files travaillées par le worker. `analyze-conversation` et `push-analysis` ne sont enregistrées que si la
  * fonction est activée, mais la file existe côté /ops même désactivée : on les liste inconditionnellement.
  */
-export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta', 'agent-evenement-issue'] as const;
+export const BASE_QUEUES = ['webhook', 'webhook-status', 'campaign-run', 'analyze-conversation', 'push-analysis', 'hubspot-catchup', 'push-handoff', 'automation-event', 'agent-turn', 'optout-poussee', 'hubspot-stop', 'signaux-batch', 'evenements-distribution', 'evenements-envoi', 'emails-produit', 'application-entrant', 'shopify-oubli-modele', 'application-premier-message', 'shopify-preuve-utm', 'conversions-meta', 'agent-evenement-issue'] as const;
 
 /**
  * Le nom de la DLQ d'une file, défini une seule fois : `PgBossQueue.ensure()` l'importe pour la créer, donc le nom
@@ -50,6 +50,7 @@ export const QUEUE_POLLING_SECONDS: Record<(typeof BASE_QUEUES)[number], number>
   'push-handoff': 10,
   'agent-turn': 2,
   'optout-poussee': 30,
+  'hubspot-stop': 30,
   'signaux-batch': 30,
   'evenements-distribution': 5,
   'evenements-envoi': 5,
@@ -88,6 +89,7 @@ export const FILES_NOTIFIEES: Record<(typeof BASE_QUEUES)[number], boolean> = {
   'hubspot-catchup': false, // traitement de fond
   'push-handoff': false, // la tâche HubSpot d'un passage à l'équipe : dix secondes ne se ressentent pas (2026-10-23)
   'optout-poussee': false, // le refus est deja ecrit ; sa diffusion peut attendre le tour d'horloge
+  'hubspot-stop': false, // le consentement est deja ecrit ; la case HubSpot peut attendre le tour d'horloge (2026-11-12)
   'signaux-batch': false, // traitement de fond, et une rafale d'accusés en produit autant : l'espacer protège la base
   'evenements-distribution': true, // l'application d'un client attend le message reçu (lot 12)
   'evenements-envoi': true, // idem, et un réessai différé n'est pris qu'à son heure (`startAfter`)

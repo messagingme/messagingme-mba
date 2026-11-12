@@ -89,6 +89,37 @@ export async function flagContactUnreachable(deps: ConnectorDeps, tenantId: stri
   }
 }
 
+/** L'échéance du flag `stop` : au-delà du pire cas du connecteur (36 s environ, son échéance plus une fiche commencée). */
+export const DELAI_STOP_MS = 45_000;
+
+const reponseStop = z.discriminatedUnion('issue', [
+  z.object({ issue: z.literal('ecrit'), fiches: z.number().int().nonnegative() }),
+  z.object({ issue: z.literal('contact_inconnu') }),
+]);
+
+/**
+ * Pose l'ÉTAT du désabonnement WhatsApp d'un numéro sur ses fiches HubSpot (flag `stop` de `/service/contact-flag`, plan
+ * `2026-11-12-stop-vers-hubspot.md`) : `valeur` vrai coche la case, avec la date du refus quand elle est connue, faux la
+ * décoche. Un seul essai sous `DELAI_STOP_MS` : la file `hubspot-stop` rejoue l'état entier, qui est idempotent. Rend
+ * `ecrit`, `contact_inconnu` (aucune fiche de ce numéro : rien n'est créé) ou `non_relie` (404, aucun portail relié).
+ * Un 409 de re-consentement lève `ReconsentRequiredError` ; toute autre erreur lève (`HubspotServiceError`).
+ */
+export async function poserStopHubspot(
+  deps: ConnectorDeps, tenantId: string, e164: string, valeur: boolean, date: string | null,
+): Promise<'ecrit' | 'contact_inconnu' | 'non_relie'> {
+  let res: unknown;
+  try {
+    const corps = { tenantId, e164, flag: 'stop', valeur, ...(valeur && date ? { date } : {}) };
+    res = await callService<unknown>(deps, '/service/contact-flag', corps, DELAI_STOP_MS);
+  } catch (err) {
+    if (err instanceof HubspotServiceError && err.status === 404) return 'non_relie';
+    throw err;
+  }
+  const lu = reponseStop.safeParse(res);
+  if (!lu.success) throw new HubspotServiceError(200, 'reponse_stop_illisible', false, res);
+  return lu.data.issue;
+}
+
 /**
  * Le corps de `POST /service/handoff` : une conversation passée à l'équipe (contrat figé avec le connecteur, plan du
  * lot 1 de la reprise humaine, 2026-10-23). `e164` est la valeur que porte `contactE164` dans l'analyse poussée,

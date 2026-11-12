@@ -11,7 +11,7 @@ import { ChampsHubspot } from '@/components/ChampsHubspot';
 import { InboxHubspot } from '@/components/InboxHubspot';
 import { useInstallationHubspot } from '@/lib/hubspot-installation';
 import { useOffre } from '@/lib/use-offre';
-import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, envoyerAutomations } from '@/lib/hubspot-choix';
+import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, envoyerAutomations, envoyerStop } from '@/lib/hubspot-choix';
 
 /**
  * TOOLS > INTÉGRATIONS > HUBSPOT : le client choisit ce qu'il branche entre Messaging Me et HubSpot (lot 1bis de
@@ -49,6 +49,8 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
   // L'API connaît-elle la ligne « Automations HubSpot » (lot 3a) ? Une API d'avant ne la rend pas et refuserait la clé :
   // la ligne n'est alors ni montrée ni envoyée.
   const [automationsConnue, setAutomationsConnue] = useState(false);
+  // Même règle pour « Désabonnement WhatsApp » (migration 0292).
+  const [stopConnue, setStopConnue] = useState(false);
   const [choix, setChoix] = useState<ChoixHubspot | null>(null);
   const [statut, setStatut] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [erreur, setErreur] = useState<string | null>(null);
@@ -89,6 +91,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
         setListesAutorisees(portail?.listsScopeGranted === true);
         setModeConnu(portail?.connected === true && portail.routingMode !== undefined);
         setAutomationsConnue(typeof s.hubspotAutomations === 'boolean');
+        setStopConnue(typeof s.hubspotStop === 'boolean');
         if (estRelie && date === null) {
           if (!enEtapeDeChoix.current) setChoix(choixParDefaut({ routingMode: portail?.routingMode, fonctions: fonctionsLues.current, reglages: s }));
           enEtapeDeChoix.current = true;
@@ -146,13 +149,14 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
     return () => clearTimeout(minuteur);
   }, [etape, relecturesReveil, lire]);
 
-  // `automationsPart` : la règle de `envoyerAutomations` (seulement sa ligne, ou la validation de l'étape de choix).
-  const enregistrer = useCallback((suivant: ChoixHubspot, precedent: ChoixHubspot | null, envoyerTaches: boolean, automationsPart: boolean) => {
+  // `automationsPart` et `stopPart` : les règles de `envoyerAutomations` et `envoyerStop` (seulement leur ligne, ou la
+  // validation de l'étape de choix, et seulement si l'API les connaît).
+  const enregistrer = useCallback((suivant: ChoixHubspot, precedent: ChoixHubspot | null, envoyerTaches: boolean, automationsPart: boolean, stopPart: boolean) => {
     setStatut('saving');
     setErreur(null);
     version.current += 1;
     enregistrementEnCours.current = true;
-    putHubspotChoix(tenantId, corpsDuChoix(suivant, { envoyerTaches, envoyerAutomations: automationsPart }))
+    putHubspotChoix(tenantId, corpsDuChoix(suivant, { envoyerTaches, envoyerAutomations: automationsPart, envoyerStop: stopPart }))
       .then((r) => {
         enregistrementEnCours.current = false;
         if (!vivant.current) return;
@@ -163,6 +167,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
           modeles: r.hubspotModeles === true,
           workflows: r.hubspotWorkflows === true,
           automations: r.hubspotAutomations === true,
+          stop: r.hubspotStop !== false,
           listes: r.hubspotListsEnabled,
           // Le mode posé par cette requête ; non demandé, le mode affiché ne bouge pas ; demandé et non posé, la ligne
           // revient à ce qu'elle était (l'avertissement le dit).
@@ -185,7 +190,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
     const suivant = choixApresBascule(choix, champ);
     if (etape === 'choisir') { setChoix(suivant); return; }
     setChoix(suivant);
-    enregistrer(suivant, choix, champ === 'taches', envoyerAutomations({ bascule: champ }, fonctions, automationsConnue));
+    enregistrer(suivant, choix, champ === 'taches', envoyerAutomations({ bascule: champ }, fonctions, automationsConnue), envoyerStop({ bascule: champ }, stopConnue));
   };
 
   const lignes: Array<{ champ: Champ; titre: string; detail: string }> = [
@@ -208,6 +213,11 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
       champ: 'injoignable',
       titre: t('Contact injoignable sur WhatsApp', 'Contact unreachable on WhatsApp'),
       detail: t('La fiche est marquée quand un message ne peut plus parvenir au contact.', 'The record is flagged when messages can no longer reach the contact.'),
+    },
+    {
+      champ: 'stop',
+      titre: t('Désabonnement WhatsApp (STOP)', 'WhatsApp unsubscribe (STOP)'),
+      detail: t('Quand un contact écrit STOP ou que vous le désabonnez, ses fiches HubSpot sont cochées « MM - WhatsApp désabonné », avec la date ; réabonné, la case se décoche. Vos listes et workflows HubSpot peuvent ainsi l’exclure. Aucune fiche n’est créée pour cela.', 'When a contact sends STOP or you unsubscribe them, their HubSpot records get the “MM - WhatsApp désabonné” box checked, with the date; resubscribed, the box is unchecked. Your HubSpot lists and workflows can then exclude them. No record is created for this.'),
     },
     {
       champ: 'reponse',
@@ -282,7 +292,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
             </p>
           )}
           <ul className="mt-2 divide-y divide-ink-50">
-            {lignes.filter((l) => l.champ !== 'automations' || automationsConnue).map((l) => {
+            {lignes.filter((l) => (l.champ !== 'automations' || automationsConnue) && (l.champ !== 'stop' || stopConnue)).map((l) => {
               const fermee = fermeeParLOffre(l.champ, fonctions);
               return (
                 <li key={l.champ} className="flex items-start justify-between gap-3 py-3" data-testid={`integration-hubspot-${l.champ}`}>
@@ -325,7 +335,7 @@ export function ReglageHubspot({ tenantId }: { tenantId: string }) {
 
           {etape === 'choisir' && (
             <div className="mt-3">
-              <Bouton type="button" data-testid="integration-hubspot-valider" onClick={() => enregistrer(choix, null, modeConnu, envoyerAutomations({ validation: true }, fonctions, automationsConnue))} disabled={statut === 'saving'}>
+              <Bouton type="button" data-testid="integration-hubspot-valider" onClick={() => enregistrer(choix, null, modeConnu, envoyerAutomations({ validation: true }, fonctions, automationsConnue), envoyerStop({ validation: true }, stopConnue))} disabled={statut === 'saving'}>
                 {t('Valider', 'Confirm')}
               </Bouton>
             </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, declencheurDealGrise, envoyerAutomations } from './hubspot-choix';
+import { etapeHubspot, fermeeParLOffre, phraseDeLOffre, choixParDefaut, choixActuel, corpsDuChoix, choixApresBascule, declencheurDealGrise, envoyerAutomations, envoyerStop } from './hubspot-choix';
 import type { TenantSettings } from './api';
 import type { FonctionOffre, VueOffre } from './offre';
 
@@ -46,7 +46,7 @@ describe('fermeeParLOffre', () => {
 describe('choixParDefaut (décision 2 du cadrage)', () => {
   it('🔴 coche ce qui écrit dans HubSpot, décoche ce qui ouvre une porte, et suit le mode du portail', () => {
     expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: ENTREPRISE, reglages: VIDE }))
-      .toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false, taches: true });
+      .toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, stop: true, listes: false, taches: true });
     expect(choixParDefaut({ routingMode: 'hubspot_native', fonctions: ENTREPRISE, reglages: VIDE }).taches).toBe(false);
   });
   it('🔴 une fonction fermée par l’offre est décochée (le serveur refuserait de l’allumer)', () => {
@@ -57,18 +57,18 @@ describe('choixParDefaut (décision 2 du cadrage)', () => {
 describe('choixActuel', () => {
   it('lit les réglages, et un champ absent (API antérieure) prend le défaut de la migration', () => {
     const vide = {} as TenantSettings;
-    expect(choixActuel(vide, undefined)).toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false, taches: true });
+    expect(choixActuel(vide, undefined)).toEqual({ analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, stop: true, listes: false, taches: true });
     const s = { hubspotAnalyse: false, hubspotPassage: true, hubspotInjoignable: false, hubspotReponse: true, hubspotListsEnabled: true } as TenantSettings;
-    expect(choixActuel(s, 'hubspot_native')).toEqual({ analyse: false, passage: true, injoignable: false, reponse: true, modeles: false, workflows: false, automations: false, listes: true, taches: false });
+    expect(choixActuel(s, 'hubspot_native')).toEqual({ analyse: false, passage: true, injoignable: false, reponse: true, modeles: false, workflows: false, automations: false, stop: true, listes: true, taches: false });
   });
 });
 
 describe('les correctifs de la relecture du lot 1bis', () => {
-  const choix = { analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false, taches: true };
+  const choix = { analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, stop: true, listes: false, taches: true };
   it('🔴 « Créer des tâches » ne part QUE si on le demande (sa ligne basculée, ou la validation avec un mode connu)', () => {
-    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true })).toEqual({ analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false });
-    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true })).not.toHaveProperty('taches');
-    expect(corpsDuChoix(choix, { envoyerTaches: true, envoyerAutomations: true })).toEqual(choix);
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true, envoyerStop: false })).toEqual({ analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false });
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true, envoyerStop: false })).not.toHaveProperty('taches');
+    expect(corpsDuChoix(choix, { envoyerTaches: true, envoyerAutomations: true, envoyerStop: true })).toEqual(choix);
   });
   it('🟡 un espace descendu d’offre lit éteint ce que l’offre ne permet plus', () => {
     const s = { hubspotAnalyse: true, hubspotListsEnabled: true } as TenantSettings;
@@ -101,7 +101,7 @@ describe('lot 3 : « Répondre aux clients depuis HubSpot » (décision D)', () 
 });
 
 describe('sous-lot « relancer » : « Envoyer des modèles depuis HubSpot » (décision E)', () => {
-  const choix = { analyse: true, passage: true, injoignable: true, reponse: true, modeles: true, workflows: false, automations: false, listes: false, taches: true };
+  const choix = { analyse: true, passage: true, injoignable: true, reponse: true, modeles: true, workflows: false, automations: false, stop: true, listes: false, taches: true };
   it('🔴 éteindre la réponse éteint les modèles ; basculer une autre ligne ne les touche pas', () => {
     expect(choixApresBascule(choix, 'reponse')).toMatchObject({ reponse: false, modeles: false });
     expect(choixApresBascule(choix, 'passage')).toMatchObject({ passage: false, reponse: true, modeles: true });
@@ -131,9 +131,9 @@ describe('lot 2 de l’action de workflow : « Workflows HubSpot : envoyer des m
     expect(choixActuel({} as TenantSettings, 'mm_routing', ENTREPRISE).workflows).toBe(false);
   });
   it('éteindre la réponse ne touche pas les workflows, et il part dans le corps du choix', () => {
-    const choix = { analyse: true, passage: true, injoignable: true, reponse: true, modeles: true, workflows: true, automations: false, listes: false, taches: true };
+    const choix = { analyse: true, passage: true, injoignable: true, reponse: true, modeles: true, workflows: true, automations: false, stop: true, listes: false, taches: true };
     expect(choixApresBascule(choix, 'reponse')).toMatchObject({ reponse: false, modeles: false, workflows: true });
-    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true })).toMatchObject({ workflows: true });
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true, envoyerStop: false })).toMatchObject({ workflows: true });
   });
 });
 
@@ -158,9 +158,9 @@ describe('lot 3a : « Automations HubSpot : lancer un scénario quand un deal at
   });
 
   it('🔴 elle ne part dans le corps que si l’API la connaît (une API d’avant refuserait la clé en 400)', () => {
-    const choix = { analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: true, listes: false, taches: true };
-    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true })).toMatchObject({ automations: true });
-    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: false })).not.toHaveProperty('automations');
+    const choix = { analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: true, stop: true, listes: false, taches: true };
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: true, envoyerStop: false })).toMatchObject({ automations: true });
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: false, envoyerStop: false })).not.toHaveProperty('automations');
     expect(choixApresBascule({ ...choix, automations: false }, 'automations')).toMatchObject({ automations: true, workflows: false });
   });
 
@@ -188,5 +188,29 @@ describe('« Automations HubSpot » dans le corps du choix (relecture du lot 3a)
     expect(envoyerAutomations({ validation: true }, PRO, true)).toBe(false);
     expect(envoyerAutomations({ bascule: 'automations' }, ENTREPRISE, false)).toBe(false);
     expect(envoyerAutomations({ validation: true }, ENTREPRISE, false)).toBe(false);
+  });
+});
+
+describe('« Désabonnement WhatsApp » (migration 0292, plan 2026-11-12-stop-vers-hubspot)', () => {
+  const FREE = new Set<FonctionOffre>(['aide']);
+  it('🔴 allumé par défaut à l’étape de choix ; lu dans les réglages, absent (API d’avant) : allumé, aucune offre ne le ferme', () => {
+    expect(choixParDefaut({ routingMode: 'mm_routing', fonctions: FREE, reglages: VIDE }).stop).toBe(true);
+    expect(choixActuel({ hubspotStop: false } as TenantSettings, 'mm_routing', FREE).stop).toBe(false);
+    expect(choixActuel({ hubspotStop: true } as TenantSettings, 'mm_routing', FREE).stop).toBe(true);
+    expect(choixActuel(VIDE, 'mm_routing', ENTREPRISE).stop).toBe(true);
+  });
+
+  it('🔴 il ne part que si l’API le connaît (une API d’avant refuserait la clé en 400), et seulement sa ligne ou la validation', () => {
+    expect(envoyerStop({ bascule: 'stop' }, true)).toBe(true);
+    expect(envoyerStop({ validation: true }, true)).toBe(true);
+    expect(envoyerStop({ bascule: 'analyse' }, true)).toBe(false);
+    expect(envoyerStop({ bascule: 'stop' }, false)).toBe(false);
+    expect(envoyerStop({ validation: true }, false)).toBe(false);
+  });
+
+  it('le corps ne le porte que demandé', () => {
+    const choix = { analyse: true, passage: true, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, stop: false, listes: false, taches: true };
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: false, envoyerStop: true })).toMatchObject({ stop: false });
+    expect(corpsDuChoix(choix, { envoyerTaches: false, envoyerAutomations: false, envoyerStop: false })).not.toHaveProperty('stop');
   });
 });

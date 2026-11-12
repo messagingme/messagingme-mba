@@ -3704,6 +3704,17 @@ boîte par sous-menu.
     **refuse d'être supprimé** : sinon vous cesseriez de prévenir votre système sans que rien ne le dise.
   - ⚠️ **Réservé à l'administrateur**, en lecture comme en écriture : brancher, c'est décider que des données
     de contact partent chez un tiers. Un manager voit la liste des désabonnés, pas ce réglage.
+- ✅ **HubSpot apprend le refus de lui-même** (2026-11-12, la ligne « Désabonnement WhatsApp (STOP) » de Tools >
+  Intégrations > HubSpot, allumée par défaut). Quand une personne écrit STOP, ou qu'un opérateur, un scénario, l'action
+  en masse ou l'API la désabonne, chaque fiche HubSpot qui porte son numéro est cochée « MM - WhatsApp désabonné », avec
+  la date du refus : les listes et les workflows HubSpot peuvent l'exclure. Réabonnée (sa fiche, elle-même, un scénario,
+  un import CSV case cochée), la case se décoche et la date s'efface. Rien à brancher : il suffit que HubSpot soit relié.
+  - Toutes les fiches du numéro, quel que soit son format (« +33 6 … », « 06 … », le numéro WhatsApp de HubSpot) ;
+    jamais une fiche d'un autre pays au même numéro national, et aucune fiche créée pour un numéro inconnu de HubSpot.
+  - Le résumé de conversation porte aussi la case : une fiche qu'il crée pour un contact déjà désabonné naît cochée. Il
+    ne décoche jamais : un résumé parti avant un STOP ne peut pas le défaire.
+  - ⚠️ Pas repris : les STOP reçus avant la mise en service, un contact connu par son seul identifiant WhatsApp (sans
+    numéro). Un portail relié à deux espaces reçoit l'état du dernier espace qui a bougé.
 - ✅ **Audit trails** et **Journal des erreurs** : les deux journaux ci-dessous, qui vivaient dans Paramètres
   et s'y trouvaient par accident. Aucune adresse n'a changé.
 

@@ -254,6 +254,108 @@ describe('🔴 tout chemin qui écrit un opt-out ANNONCE, et la liste est dériv
     const jamaisOptOut: [Extract<DemandeDUpsert, 'opted_out'>] extends [never] ? true : false = true;
     expect(jamaisOptOut).toBe(true);
   });
+
+  /**
+   * 🔴 LE RÉABONNEMENT (plan `2026-11-12-stop-vers-hubspot.md`). Seules les autorités de `LEVE_UN_STOP` lèvent un STOP :
+   * la fiche (`applyEdits`), la personne ou le bloc « Action » d'un scénario (`setOptInByWaId`), l'import CSV coché
+   * (`upsertManyByPhone`). Ce sont exactement les méthodes qui l'annoncent ; l'action en masse, l'API et le webhook
+   * n'en lèvent jamais.
+   */
+  it('🔴 les méthodes qui annoncent un STOP LEVÉ sont exactement les trois qui peuvent en lever un', () => {
+    expect(methodesQui(/this\.annoncerLeve\(/)).toEqual(['applyEdits', 'setOptInByWaId', 'upsertManyByPhone']);
+  });
+});
+
+describe('le dépôt ANNONCE aussi le réabonnement (un STOP levé), après l’avoir écrit', () => {
+  function poolDuReabonnement(j: ReturnType<typeof journal>, fiche: { id: string; passe: boolean; leve: boolean }) {
+    const query = async (sql: string) => {
+      if (/^\s*with avant as/i.test(sql)) { j.noter('ecriture'); return { rows: [fiche], rowCount: 1 }; }
+      return { rows: [], rowCount: 0 };
+    };
+    return { query } as unknown as Pool;
+  }
+
+  it('🔴 la personne ou un scénario qui LÈVE un STOP : l’écriture PUIS l’annonce du réabonnement, jamais celle d’un refus', async () => {
+    const j = journal();
+    const refus: Array<{ tenantId: string; waIds: string[] }> = [];
+    const leves: Array<{ tenantId: string; waIds: string[] }> = [];
+    const store = new PgContactStore(poolDuReabonnement(j, { id: 'c1', passe: false, leve: true }), annonceQuiNote(j, refus), undefined, annonceQuiNote(j, leves));
+    expect(await store.setOptInByWaId(TENANT, '33600000001', 'opted_in', 'personne', 'flow')).toBe('c1');
+    expect(j.evenements).toEqual(['ecriture', 'annonce']);
+    expect(refus).toEqual([]);
+    expect(leves).toEqual([{ tenantId: TENANT, waIds: ['33600000001'] }]);
+  });
+
+  it('⚠️ sans STOP levé, rien ne s’annonce ; une annonce de réabonnement qui LÈVE ne fait pas échouer l’écriture', async () => {
+    const j = journal();
+    const leves: Array<{ tenantId: string; waIds: string[] }> = [];
+    const store = new PgContactStore(poolDuReabonnement(j, { id: 'c1', passe: false, leve: false }), undefined, undefined, annonceQuiNote(j, leves));
+    await store.setOptInByWaId(TENANT, '33600000001', 'opted_in', 'scenario', 'scenario');
+    expect(leves).toEqual([]);
+    const enPanne = new PgContactStore(poolDuReabonnement(journal(), { id: 'c1', passe: false, leve: true }), undefined, undefined, annonceQuiNote(journal(), [], true));
+    expect(await enPanne.setOptInByWaId(TENANT, '33600000001', 'opted_in', 'personne', 'flow')).toBe('c1');
+  });
+
+  it('🔴 la fiche contact annonce le STOP levé APRÈS le `commit`', async () => {
+    const j = journal();
+    const leves: Array<{ tenantId: string; waIds: string[] }> = [];
+    const ligne = {
+      id: 'c1', phone_e164: '+33600000001', bsuid: null, profile_name: 'Julie', opt_in_status: 'opted_in',
+      fields: {}, tags: [], created_at: new Date('2026-09-13T00:00:00.000Z'), blocked_at: null,
+      whatsapp_joignable: null, whatsapp_joignable_le: null,
+    };
+    const client = {
+      query: async (sql: string) => {
+        if (/^commit/i.test(sql)) { j.noter('commit'); return { rows: [], rowCount: 0 }; }
+        if (/select tags from contacts/i.test(sql)) return { rows: [{ tags: [] }], rowCount: 1 };
+        if (/^\s*with avant as/i.test(sql)) { j.noter('ecriture'); return { rows: [{ ecrite: true, passe: false, leve: true }], rowCount: 1 }; }
+        if (/select id, phone_e164, bsuid/i.test(sql)) return { rows: [ligne], rowCount: 1 };
+        return { rows: [], rowCount: 0 };
+      },
+      release: () => {},
+    };
+    const store = new PgContactStore({ connect: async () => client } as unknown as Pool, undefined, undefined, annonceQuiNote(j, leves));
+    await store.applyEdits(TENANT, 'c1', { fields: {}, addTags: [], removeTags: [], optInStatus: 'opted_in' });
+    expect(j.evenements).toEqual(['ecriture', 'commit', 'annonce']);
+    expect(leves).toEqual([{ tenantId: TENANT, waIds: ['33600000001'] }]);
+  });
+
+  function poolDImport(j: ReturnType<typeof journal>, encoreDesabonnes: string[]) {
+    const query = async (sql: string) => {
+      if (/jsonb_to_recordset\(\$2::jsonb\) as x\(phone text, empreinte text\)/.test(sql)) {
+        j.noter('lecture');
+        return { rows: encoreDesabonnes.map((phone) => ({ phone })), rowCount: encoreDesabonnes.length };
+      }
+      if (/insert into contacts/i.test(sql)) {
+        j.noter('ecriture');
+        return { rows: [{ phone_e164: '+33600000001', created: false }, { phone_e164: '+33600000002', created: false }], rowCount: 2 };
+      }
+      return { rows: [], rowCount: 0 };
+    };
+    return { query } as unknown as Pool;
+  }
+  const lot = (autorite: LotContacts['autorite']): LotContacts => ({
+    tenantId: TENANT, optInStatus: 'opted_in', autorite,
+    contacts: [{ phoneE164: '+33600000001', profileName: null, fields: {} }, { phoneE164: '+33600000002', profileName: null, fields: {} }],
+  });
+
+  it('🔴 l’import CSV coché annonce les numéros qu’il réabonne, lus AVANT l’écriture, annoncés APRÈS', async () => {
+    const j = journal();
+    const leves: Array<{ tenantId: string; waIds: string[] }> = [];
+    const store = new PgContactStore(poolDImport(j, ['+33600000001']), undefined, undefined, annonceQuiNote(j, leves));
+    expect(await store.upsertManyByPhone(lot('import_csv_coche'))).toEqual(['updated', 'updated']);
+    expect(j.evenements).toEqual(['lecture', 'ecriture', 'annonce']);
+    expect(leves).toEqual([{ tenantId: TENANT, waIds: ['33600000001'] }]);
+  });
+
+  it('⚠️ un import SANS la case, ou une liste HubSpot, ne lève aucun STOP : rien n’est lu ni annoncé', async () => {
+    const j = journal();
+    const leves: Array<{ tenantId: string; waIds: string[] }> = [];
+    const store = new PgContactStore(poolDImport(j, ['+33600000001']), undefined, undefined, annonceQuiNote(j, leves));
+    await store.upsertManyByPhone(lot('import'));
+    expect(j.evenements).toEqual(['ecriture']);
+    expect(leves).toEqual([]);
+  });
 });
 
 describe('lotsDePoussee', () => {

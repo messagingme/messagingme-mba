@@ -42,7 +42,7 @@ function app(o: {
   premiere?: boolean;
   numero?: { id: string; hubspotConnected: boolean; hubspotPausedAt: string | null } | null;
   modeEchoue?: boolean;
-  avant?: { analyse: boolean; reponse: boolean; listes: boolean; modeles?: boolean; workflows?: boolean; automations?: boolean };
+  avant?: { analyse: boolean; reponse: boolean; listes: boolean; modeles?: boolean; workflows?: boolean; automations?: boolean; stop?: boolean };
   synchroEchoue?: boolean;
 } = {}): { server: ReturnType<typeof buildServer>; b: Banc } {
   const b: Banc = { ecrits: [], synchros: [], modes: [] };
@@ -52,14 +52,14 @@ function app(o: {
       return {
         choix: {
           analyse: c.analyse, passage: c.passage, injoignable: c.injoignable, reponse: c.reponse, modeles: c.modeles, workflows: c.workflows,
-          automations: c.automations, valideLe: new Date('2026-10-23T18:00:00.000Z'),
+          automations: c.automations, stop: c.stop, valideLe: new Date('2026-10-23T18:00:00.000Z'),
         },
         listes: c.listes,
         premiereValidation: o.premiere ?? true,
       };
     },
     fonctions: async () => o.fonctions ?? ENTREPRISE,
-    choixEnVigueur: async () => ({ modeles: false, workflows: false, automations: false, ...(o.avant ?? { analyse: false, reponse: false, listes: false }), valideLe: (o.premiere ?? true) ? null : new Date('2026-10-20T10:00:00.000Z') }),
+    choixEnVigueur: async () => ({ modeles: false, workflows: false, automations: false, stop: true, ...(o.avant ?? { analyse: false, reponse: false, listes: false }), valideLe: (o.premiere ?? true) ? null : new Date('2026-10-20T10:00:00.000Z') }),
     portail: async () => { if (o.reveil) throw new ConnecteurEnReveil(); return { connected: o.relie ?? true }; },
     numeroPrincipal: async () => (o.numero === undefined ? { id: 'pn1', hubspotConnected: false, hubspotPausedAt: null } : o.numero),
     allumerSynchro: async (numero, t) => { if (o.synchroEchoue) throw new Error('base'); b.synchros.push({ numero, t }); },
@@ -127,12 +127,12 @@ describe('PUT /tenants/:t/hubspot/choix (lot 1bis)', () => {
     const { server, b } = app({ premiere: true });
     const res = await server.inject(put(adminTok, { ...TOUT, passage: false, taches: false }));
     expect(res.statusCode).toBe(200);
-    expect(b.ecrits).toEqual([{ t: 't1', c: { analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, listes: false } }]);
+    expect(b.ecrits).toEqual([{ t: 't1', c: { analyse: true, passage: false, injoignable: true, reponse: false, modeles: false, workflows: false, automations: false, stop: true, listes: false } }]);
     expect(b.modes).toEqual([{ t: 't1', mode: 'hubspot_native' }]);
     expect(b.synchros).toEqual([{ numero: 'pn1', t: 't1' }]);
     expect(res.json()).toEqual({
       hubspotAnalyse: true, hubspotPassage: false, hubspotInjoignable: true, hubspotReponse: false, hubspotModeles: false, hubspotWorkflows: false,
-      hubspotAutomations: false, hubspotListsEnabled: false,
+      hubspotAutomations: false, hubspotStop: true, hubspotListsEnabled: false,
       hubspotChoixValideLe: '2026-10-23T18:00:00.000Z', routingMode: 'hubspot_native', tachesAppliquees: true, premiereValidation: true,
     });
     await server.close();
@@ -252,6 +252,26 @@ describe('PUT .../hubspot/choix : « Workflows HubSpot : envoyer des modèles Wh
     const { server, b } = app();
     expect((await server.inject(put(adminTok, { ...TOUT, workflows: true }))).statusCode).toBe(200);
     expect(b.ecrits[0]?.c.workflows).toBe(true);
+    await server.close();
+  });
+});
+
+describe('PUT .../hubspot/choix : « Désabonnement WhatsApp » (0292, plan 2026-11-12-stop-vers-hubspot)', () => {
+  it('🔴 ABSENT du corps : il garde sa valeur (une console d’avant ne l’allume ni ne l’éteint en basculant une autre ligne)', async () => {
+    const { server, b } = app({ avant: { analyse: true, reponse: false, listes: false, stop: false } });
+    const res = await server.inject(put(adminTok, TOUT));
+    expect(res.statusCode).toBe(200);
+    expect(b.ecrits[0]?.c.stop).toBe(false);
+    expect(res.json()).toMatchObject({ hubspotStop: false });
+    await server.close();
+  });
+
+  it('🔴 aucune offre ne le ferme : allumé ou éteint, il s’écrit ; un booléen attendu', async () => {
+    const { server, b } = app({ fonctions: new Set<Fonction>(), avant: { analyse: false, reponse: false, listes: false, stop: false } });
+    expect((await server.inject(put(adminTok, { ...TOUT, analyse: false, stop: true }))).statusCode).toBe(200);
+    expect((await server.inject(put(adminTok, { ...TOUT, analyse: false, stop: false }))).statusCode).toBe(200);
+    expect(b.ecrits.map((e) => e.c.stop)).toEqual([true, false]);
+    expect((await server.inject(put(adminTok, { ...TOUT, stop: 'oui' }))).statusCode).toBe(400);
     await server.close();
   });
 });

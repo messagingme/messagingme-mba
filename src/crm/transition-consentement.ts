@@ -126,6 +126,11 @@ export function transition(ligne: LigneDAvant, d: DemandeConsentement): {
   change: string;
   /** La fiche passe à `opted_out` par cette écriture : l'annonce part pour elle, et pour elle seule. */
   passe: string;
+  /**
+   * Son STOP est LEVÉ par cette écriture (`opted_out` vers `opted_in`, par une autorité de `LEVE_UN_STOP`) : le
+   * réabonnement s'annonce, pour que la case HubSpot se décoche (plan `2026-11-12-stop-vers-hubspot.md`).
+   */
+  leve: string;
   /** Un STOP gardé : `opted_in` demandé sur une fiche `opted_out`, par une autorité qui ne le lève pas. */
   garde: string;
   /** Les trois affectations, chacune gardée par `change`, à poser dans un `set` qui peut écrire autre chose. */
@@ -136,6 +141,7 @@ export function transition(ligne: LigneDAvant, d: DemandeConsentement): {
   return {
     change,
     passe: couples(ligne, d.voulu, (a, v) => issue(a, v) === 'ecrit' && v === 'opted_out'),
+    leve: couples(ligne, d.voulu, (a, v) => issue(a, v) === 'ecrit' && a === 'opted_out'),
     garde: couples(ligne, d.voulu, (a, v) => issue(a, v) === 'stop_garde'),
     // La date suit le statut (0138) : posée au passage à `opted_out`, remise à null au passage à `opted_in`. Les trois
     // affectations lisent l'état d'avant : leur ordre est indifférent.
@@ -168,6 +174,8 @@ export interface FicheDeLEcriture {
   ecrite: boolean;
   /** Elle est passée à `opted_out` : à annoncer, APRÈS le `commit`. */
   passe: boolean;
+  /** Son STOP a été levé (réabonnement) : à annoncer aussi, APRÈS le `commit`. */
+  leve: boolean;
   /** Son STOP a été gardé. */
   garde: boolean;
 }
@@ -220,7 +228,7 @@ export function ecritureDuConsentement(o: DemandeConsentement & {
   if (o.rendu === 'par_fiche') {
     return `${avec}
        select avant.id, avant.phone_e164, avant.bsuid, ecrit.id is not null as ecrite,
-              ${av.passe} as passe, ${av.garde} as garde
+              ${av.passe} as passe, ${av.leve} as leve, ${av.garde} as garde
          ${depuis}`;
   }
   // Une ligne, pas une par fiche : remonter chaque fiche d'une action en masse serait un coût d'egress invisible.

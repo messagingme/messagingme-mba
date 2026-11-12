@@ -46,6 +46,8 @@ export const FILES_PAR_ROLE: Record<NomDeFile, Appartenance> = {
   'automation-event': 'principal',
   'agent-turn': 'principal',
   'optout-poussee': 'principal',
+  // Le désabonnement WhatsApp vers HubSpot (2026-11-12), à côté de la poussée du refus vers le système du client.
+  'hubspot-stop': 'principal',
   'signaux-batch': 'principal',
   // Les webhooks sortants (lot 12) : l'application d'un client attend derrière.
   'evenements-distribution': 'principal',

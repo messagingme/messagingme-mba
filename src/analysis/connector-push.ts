@@ -25,14 +25,24 @@ export interface EnrichedAnalyzedEvent {
    * dont l'analyse n'a pas besoin.
    */
   lienConversation?: string;
+  /**
+   * Le contact est désabonné de WhatsApp (décision de Julien du 2026-11-12) : sa PRÉSENCE le dit, avec la date du refus
+   * quand elle est connue, et le connecteur coche la case sur la fiche qu'il écrit. Absent : rien n'est dit, jamais
+   * « réabonné » (une analyse partie avant un STOP ne doit pas pouvoir le défaire). Un connecteur ancien l'ignore.
+   */
+  stop?: { date?: string };
   analysis: Omit<StoredConversationAnalysis, 'conversationId' | 'tenantId'>;
 }
 
-/** Assemble l'événement (fonction pure). `lienConversation` : la fonction de lien du socle, fournie par le câblage. */
+/**
+ * Assemble l'événement (fonction pure). `lienConversation` : la fonction de lien du socle, fournie par le câblage ;
+ * `stop` : la case du désabonnement (`stopPourAnalyse`), `null` quand il n'y a rien à dire.
+ */
 export function buildEvent(
   stored: StoredConversationAnalysis,
   enr: Enrichment,
   lienConversation: (conversationId: string) => string,
+  stop: { date?: string } | null = null,
 ): EnrichedAnalyzedEvent {
   const { conversationId, tenantId, ...analysis } = stored;
   const lien = lienConversation(conversationId);
@@ -45,6 +55,7 @@ export function buildEvent(
     whatsappLine: enr.whatsappLine,
     lastInboundAt: enr.lastInboundAt,
     ...(lien.startsWith('https://') ? { lienConversation: lien } : {}),
+    ...(stop ? { stop } : {}),
     analysis,
   };
 }

@@ -27,6 +27,11 @@ export interface PushJobDeps {
   post: (event: EnrichedAnalyzedEvent) => Promise<void>;
   /** L'adresse de la conversation dans l'Inbox, la fonction du socle (`lienConversation` de l'événement). */
   lienConversation: (conversationId: string) => string;
+  /**
+   * La case du désabonnement que porte l'événement (`stopPourAnalyse`, `src/crm/hubspot-stop.ts`) : `{ date? }` pour un
+   * contact désabonné d'un espace qui a allumé « Désabonnement WhatsApp », `null` sinon. Requise, comme `analyseBranchee`.
+   */
+  stop: (tenantId: string, contactE164: string) => Promise<{ date?: string } | null>;
   /** Journalisation optionnelle (skip HubSpot). */
   log?: (msg: string) => void;
 }
@@ -71,7 +76,7 @@ export async function pushAnalysisJob(data: unknown, deps: PushJobDeps): Promise
     return;
   }
 
-  await deps.post(buildEvent(stored, enr, deps.lienConversation));
+  await deps.post(buildEvent(stored, enr, deps.lienConversation, await deps.stop(tenantId, enr.contactE164)));
   // Best-effort : un échec laisse `pending_catchup`, qu'un rattrapage futur rejouera (POST dédoublonné) ; un POST
   // réussi n'échoue jamais pour de la comptabilité.
   try {

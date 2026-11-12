@@ -15,6 +15,7 @@ import { creerDemandeALApplication } from './evenements/besoin-reponse';
 import { FILE_EVENEMENTS_ENVOI } from './evenements/envoi';
 import { PgSignauxStore } from './signaux/store.pg';
 import { creerAnnonceOptOut, FILE_POUSSEE_OPTOUT } from './crm/poussee-optout';
+import { annoncerAussiAHubspot, creerAnnonceHubspotStop, FILE_HUBSPOT_STOP } from './crm/hubspot-stop';
 import { PgContactStore } from './crm/contact-store.pg';
 import { PgUserFieldStore } from './crm/field-store.pg';
 import { PgInboxStore } from './inbox/store.pg';
@@ -217,19 +218,33 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
    * du mois, le magasin des contacts celle des fiches créées. Le webhook du Pro et l'exploitation invalident CETTE instance.
    */
   const offres = new OffresEnCache(new PgOffresStore(pool));
+  const annonceOptOut = annoncerAussiAuxSignaux(
+    creerAnnonceOptOut({
+      enfiler: (job, opts) => queue.enqueue(FILE_POUSSEE_OPTOUT, job, opts),
+      // eslint-disable-next-line no-console
+      log: (m) => console.warn(m),
+    }),
+    emetteur,
+  );
+  /**
+   * Le désabonnement WhatsApp vers HubSpot (plan `2026-11-12-stop-vers-hubspot.md`) : chaque passage du consentement, dans
+   * les deux sens, s'enfile dans `hubspot-stop`, seulement avec un connecteur configuré (comme `push-handoff`) : sans lui,
+   * le worker ne consomme pas la file, et des jobs s'y empileraient.
+   */
+  const annonceHubspotStop = config.HUBSPOT_SERVICE_URL
+    ? creerAnnonceHubspotStop({
+      enfiler: (job, opts) => queue.enqueue(FILE_HUBSPOT_STOP, job, opts),
+      // eslint-disable-next-line no-console
+      log: (m) => console.warn(m),
+    })
+    : null;
   const contactStore = new PgContactStore(
     pool,
-    annoncerAussiAuxSignaux(
-      creerAnnonceOptOut({
-        enfiler: (job, opts) => queue.enqueue(FILE_POUSSEE_OPTOUT, job, opts),
-        // eslint-disable-next-line no-console
-        log: (m) => console.warn(m),
-      }),
-      emetteur,
-    ),
+    annonceHubspotStop ? annoncerAussiAHubspot(annonceOptOut, annonceHubspotStop) : annonceOptOut,
     // La limite de contacts de l'offre (lot 6), avec l'offre qui dit ce qu'elle compte (`contactsToutesOrigines`) : vérifiée
     // par les trois chemins de création, et lue par la porte d'une Free pleine (`inconnusRefuses`), jamais par l'entrant.
     async (tenant) => limiteContactsDe(await offres.offreDe(tenant)),
+    annonceHubspotStop ?? undefined,
   );
   // Les définitions de champs : l'API les écrit (import, API publique), le worker déclare les champs « Pub » la
   // première fois qu'un contact arrive par une publicité (sans définition, la valeur serait invisible du CRM).
