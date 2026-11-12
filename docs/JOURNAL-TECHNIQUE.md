@@ -4,6 +4,30 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-12 : sans compte ni application, un numéro API direct ; la marketplace du plugin en HTTPS
+
+Plan `2026-11-12-arbre-numero-sans-application.md`, un implémenteur puis une relecture indépendante du diff.
+
+- **Ce qui a changé** (`32c79599`) : décision de Julien après ses essais du 2026-11-11, « si le mec l'a pas, c'est plus
+  simple de lui dire de faire de l'API si on crée le BM à la volée ». Sans compte Meta Business et sans l'application
+  WhatsApp Business, l'arbre ne propose plus de la télécharger : « Avez-vous un numéro ? » Oui, l'issue `api` (son
+  numéro en API ; s'il sert dans WhatsApp, l'application ordinaire, WhatsApp Business le reprend et on le garde) ; Non,
+  l'issue `fourni`, un numéro de chez nous relié par la fenêtre de Meta, le compte Meta Business créé en chemin.
+  L'issue `telecharger` disparaît, le numéro fourni mis dans l'application (`fourni_application`) n'est plus proposé
+  mais reste accepté et repris. Partout pareil : console, Démarrer, Shopify, SaaS, guide du numéro, skill et FAQ du
+  plugin (0.3.38), descriptions MCP, fiches « Connecter mon numéro » et « Garder mon application », features.md, spec.
+  La skill pose chaque question sans en sauter une sur une supposition (vu le 2026-11-11). La marketplace s'ajoute par
+  l'adresse HTTPS : la forme courte clone en SSH et échoue sans clé GitHub (mesuré sur un PC neuf ; Claude Code et
+  Codex acceptent l'adresse HTTPS, mesuré).
+- **Relecture** : aucun rouge, dix jaunes. Repris : la skill ne se contredit plus sur WhatsApp ordinaire, la demande
+  copiée de la vitrine ne vaut que pour ses réponses, le manuel, l'adresse HTTPS dans features.md et plugin.yml. Au
+  backlog : le lexique de la vitrine, les magasins de l'issue garder, l'essai réel de `apporte` sans compte.
+- **Vérifié** : la suite racine entière, la suite console, les deux typechecks, le lint, l'auto-attaque, les
+  générateurs stables, 172 e2e en build de production ; sur la fusion avec le Centre de confiance d'un pair, les pages
+  régénérées à l'identique.
+- **Ordre** : poussé sur `767a3d3d` (console et vitrine par Vercel), puis l'API sans migration ; à Julien, la
+  publication du plugin 0.3.38 et `aide:charger`.
+
 ## 2026-11-12 : la fiche « Intégrer WhatsApp à HubSpot » suit les vrais écrans de HubSpot
 
 - L'étape 3 (ajouter la carte à la fiche contact) reprend les libellés relevés le jour même chez HubSpot

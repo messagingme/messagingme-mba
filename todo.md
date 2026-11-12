@@ -238,6 +238,11 @@ au lot suivant ; rien ne bloque.
 
 ## 🟡 Les lots 3v-2a à 3v-2d de l'aide à la connexion : ce qu'ils laissent (2026-11-11)
 
+- **Les restes du lot « arbre sans application »** (2026-11-12, `32c79599`) : le lexique du tunnel de la vitrine dit
+  encore de l'application « elle s'installe sur un téléphone », avec App Store et Google Play, au-dessus de chaque
+  tunnel (`tunnel-textes.ts`, exigé par `tests/vitrine-tunnel.test.ts`) : à garder ou alléger, décision de Julien ;
+  les magasins de l'issue `garder` s'affichent aussi quand on garde un numéro déjà dans l'application (la console les
+  cache) ; l'essai réel de `apporte` sans compte Meta Business (voie neuve) ; les « 3.50 EUR » de la skill tenus par rien.
 - 🔴 **Les tutoriels de démarrage supposent un terminal ; presque personne n'ira dans PowerShell ou VS Code**
   (demande de Julien, 2026-11-11, après ses essais du soir). Tout le démarrage (« Installer le plugin », la vitrine, le
   README du plugin, la skill) dit `/plugin marketplace add`, `/plugin install` puis `/mcp`, des commandes de Claude Code
@@ -245,10 +250,6 @@ au lot suivant ; rien ne bloque.
   - **Claude Desktop** : `/plugin` ouvre le gestionnaire de plugins au lieu d'exécuter la commande. Il faut un parcours
     Desktop à part entière (gestionnaire de plugins, autorisation du serveur MCP, retour), écrit d'après la vidéo que
     Julien en tourne, puis filmé pour le lot 6 ;
-  - **l'adresse courte de la marketplace** (`messagingme/messagingme-plugin`) clone en SSH : sans clé GitHub, une
-    marketplace inutilisable reste enregistrée, et le plugin « ne s'installe pas » sans message clair. L'adresse HTTPS
-    complète (`https://github.com/messagingme/messagingme-plugin.git`) marche : à passer dans `COMMANDES_PLUGIN`
-    (`web/lib/demarrer.ts`), d'où la console, la vitrine, le tutoriel et le README la tirent ;
   - **PowerShell** : la politique d'exécution par défaut bloque `claude.ps1` ; `claude.cmd` passe. À dire là où le
     tutoriel montre le terminal sous Windows, sans jamais conseiller de changer la politique ;
   - **Git** sur un PC neuf : prérequis probable du clonage, à vérifier avant de l'écrire ;
