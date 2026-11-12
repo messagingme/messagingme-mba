@@ -4813,17 +4813,26 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   directe à sa place. `POST /embedded-signup/complete` reçoit `parLaLigne` (la trace d'audit `numero.connecte` le garde),
   relit le droit (sans la condition « aucun numéro », et sans compter parmi les couverts le numéro qui vient d'arriver)
   et la ligne qui couvre déjà le compte, toute origine et tout espace (`ligneDuNumero`, la lecture de la pose de `/ops`),
-  puis alerte Julien (`connexionParLaLigne`). 🔴 **Depuis V3, la nôtre se pose À LA CONNEXION** (décision de Julien du
-  2026-11-11) : l'attache de la ligne du partenaire est tenue pour automatique (elle ne se faisait pas d'elle-même à
-  l'essai réel 236, le partenaire l'automatise chez lui). Dans le cas « à poser » (un droit, aucun compte déjà couvert,
-  hors coexistence), `poserLaLigne` (`src/credit-whatsapp/pose.ts`, la fonction de la route de `/ops` : mêmes contrôles,
-  mêmes places, mêmes refus, jamais forcée) pose la ligne ; le numéro n'est pas marqué (il n'attend rien) et l'alerte dit
-  la pose, avec le geste si l'attache manque : Meta refuse alors les envois du compte, retirer la nôtre dans `/ops`.
-  `CREDIT_WA_POSE_AUTOMATIQUE=false` (défaut `true`, sans déployer) est le levier d'urgence : il rend la pose APRÈS
-  l'attache du 2026-11-09 (posée avant une attache qui ne vient pas, la carte dirait « payés par votre Crédit WhatsApp »
-  pendant que Meta refuse les envois, et un compte qui garde sa carte chez Meta paierait deux fois). Une pose refusée, ou
-  en panne (`pose_a_la_connexion_impossible`), y retombe aussi, et l'alerte en ajoute la cause. Sur ce chemin, l'alerte
-  dit de demander l'attache au partenaire, puis de poser la ligne quand il la confirme ; un compte déjà sur une ligne ACTIVE de l'espace (citée par son numéro), vérifier l'attache : là, « Ne pas
+  puis alerte Julien (`connexionParLaLigne`). 🔴 **La ligne du partenaire s'attache par SON API, à notre demande**
+  (`src/credit-whatsapp/attache.ts`, plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`) : elle ne s'attache jamais
+  d'elle-même (essai réel 236), nous en payons la consommation, donc nous seuls décidons quels comptes y sont branchés.
+  Trois appels sur un compte WhatsApp, un jeton JWT HS256 (`iss` = notre émetteur, `aud` = `whatsapp-cloud`, cinq
+  minutes) : attacher (`PUT`, jusqu'à 11 s mesurées, d'où 30 s de délai ; rejouable), vérifier (`GET`,
+  `creditLineAdded`), retirer (`DELETE` ; « Credit line is not attached » se lit comme déjà retirée). Les trois
+  variables `LIGNE_PARTENAIRE_URL`, `_EMETTEUR` et `_SECRET` (secrète), toutes ou aucune, contrôlées au démarrage ; ni
+  l'adresse ni le partenaire ne s'écrivent dans le dépôt. **La pose** (`poserLaLigne`, `src/credit-whatsapp/pose.ts`, la
+  MÊME pour `/ops` et la connexion : mêmes contrôles, mêmes places, mêmes refus) attache PUIS vérifie la ligne du
+  partenaire AVANT de poser la nôtre ; une attache refusée ou démentie ne pose rien (502, la cause dite) ; une pose qui
+  lève après l'attache la retire. **Le retrait** dans `/ops`, et **la fin de l'option** (fin de droit et webhook de
+  Stripe, `arreterLesLignesEtLeursAttaches`), retirent l'attache ; **la reprise** la rattache, vérifiée
+  (`relancerLesLignesEtLeursAttaches`) ; une panne de ces trois-là alerte Julien sans faire échouer le geste (un retrait
+  manqué laisserait sa consommation à notre charge). Sans les variables, la pose de `/ops` ne touche pas au partenaire.
+  **À la connexion (V3)**, dans le cas « à poser » (un droit, aucun compte déjà couvert, hors coexistence), la ligne se
+  pose seule, le numéro n'est pas marqué (il n'attend rien), et l'alerte dit la pose et l'attache vérifiée. Cette pose
+  automatique n'existe qu'avec l'API configurée ; `CREDIT_WA_POSE_AUTOMATIQUE=false` (défaut `true`, sans déployer) est
+  son levier d'urgence. Éteinte, refusée ou en panne (`pose_a_la_connexion_impossible`), le numéro attend dans la liste
+  de `/ops`, et l'alerte en ajoute la cause ; dans le cas « à poser », elle dit alors de poser dans `/ops` (qui attache)
+  si l'API est configurée, sinon de demander l'attache au partenaire, puis de poser quand il la confirme ; un compte déjà sur une ligne ACTIVE de l'espace (citée par son numéro), vérifier l'attache : là, « Ne pas
   poser » lève l'attente ; absente, retirer la nôtre jusqu'à elle, puis la reposer ; sur une ligne ARRÊTÉE de l'espace
   (citée par son numéro ; la garde refuse ses envois), comme sur celle d'un AUTRE espace, nommé avec le numéro de sa
   ligne (`getTenantName`), vérifier l'attache d'abord, puis retirer et poser dans le même geste ; un numéro en

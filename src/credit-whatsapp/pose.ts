@@ -1,4 +1,5 @@
 import { journaliser } from '../lib/journal';
+import { attacherEtVerifier, retirerLAttacheSansLever, type AttacheLigne } from './attache';
 import type { GrilleMeta } from './grille';
 import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from './lignes.pg';
 
@@ -14,6 +15,11 @@ import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from './lignes.p
  * consomme des places payées, le compte entier devant y tenir (décision de Julien du 2026-11-03) ; un essai se FORCE, et
  * sa ligne `'ops'` reste hors des places. La ligne posée fait repartir les campagnes en pause faute de ligne, sans que
  * l'échec de cette reprise fasse passer la pose pour un échec.
+ *
+ * 🔴 L'API du partenaire configurée (plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`), sa ligne s'attache au
+ * compte PUIS se vérifie AVANT que la nôtre se pose : jamais notre ligne sur un compte sans la sienne (Meta refuserait
+ * les modèles, ou la carte du client paierait en plus du crédit). Une attache refusée ne pose rien ; une pose qui lève
+ * après l'attache la retire, sinon nous paierions la consommation d'un compte sans ligne.
  */
 export interface DepsPose {
   lignes: {
@@ -30,12 +36,16 @@ export interface DepsPose {
     placesPayees(tenantId: string): Promise<number>;
     reprendreCampagnes(tenantId: string): Promise<number>;
   };
+  /** L'API de la ligne du partenaire ; `null` : non configurée, la pose ne la touche pas (le comportement d'avant). */
+  attache: AttacheLigne | null;
+  /** L'alerte à Julien, quand une attache faite ne peut pas être défaite (une propriété : elle se transmet détachée). */
+  alerter: (texte: string) => Promise<void>;
 }
 
 /** Ce que rend une pose : la ligne posée et son origine, ou le refus tel que `/ops` le rend (statut, message, code). */
 export type IssuePose =
   | { ok: true; origine: 'ops' | 'option' }
-  | { ok: false; statut: 404 | 409; error: string; code?: 'places_manquantes' };
+  | { ok: false; statut: 404 | 409 | 502; error: string; code?: 'places_manquantes' };
 
 /**
  * Les places qu'une pose sur ce numéro demanderait : les numéros déjà couverts par l'option, plus ceux que la nouvelle ligne
@@ -91,7 +101,32 @@ export async function poserLaLigne(
     }
     origine = 'option';
   }
-  if (!(await d.lignes.poser(tenantId, phoneNumberId, numero.wabaId, origine, o.note))) {
+  // La ligne du partenaire d'abord, attachée PUIS vérifiée (plan 2026-11-12) : notre ligne ne se pose jamais sans elle.
+  const attache = d.attache;
+  if (attache !== null) {
+    if (numero.wabaId === null) {
+      return { ok: false, statut: 409, error: 'compte WhatsApp du numéro inconnu : la ligne du partenaire ne peut pas s’y attacher' };
+    }
+    try {
+      await attacherEtVerifier(attache, numero.wabaId);
+    } catch (err) {
+      const cause = err instanceof Error ? err.message : String(err);
+      journaliser('error', 'ligne_partenaire_attache_impossible', { tenantId, phoneNumberId, wabaId: numero.wabaId, err: cause });
+      return { ok: false, statut: 502, error: `la ligne du partenaire n’a pas pu être attachée : ${cause}` };
+    }
+  }
+  let posee: boolean;
+  try {
+    posee = await d.lignes.poser(tenantId, phoneNumberId, numero.wabaId, origine, o.note);
+  } catch (err) {
+    // Attachée sans notre ligne, sa consommation serait à notre charge : l'attache se retire, puis l'erreur remonte.
+    if (attache !== null && numero.wabaId !== null) {
+      await retirerLAttacheSansLever({ attache, alerter: d.alerter }, tenantId, numero.wabaId, 'Pose de la ligne en échec');
+    }
+    throw err;
+  }
+  if (!posee) {
+    // Déjà sur la ligne : la nôtre couvre ce compte, l'attache qui vient d'être faite lui revient.
     return { ok: false, statut: 409, error: 'numéro déjà sur la ligne' };
   }
   // La ligne posée : les campagnes de l'espace en pause faute de ligne active repartent (relecture du lot 4a, jaune 6).

@@ -8,6 +8,7 @@ import { prixClient, type GrilleMeta } from '../credit-whatsapp/grille';
 import { MARCHES_META } from '../credit-whatsapp/marches-meta';
 import type { LigneCredit, NumeroDeLEspace, NumeroEnAttente, NumeroPourLaLigne } from '../credit-whatsapp/lignes.pg';
 import { placesApresPose, poserLaLigne, type DepsPose } from '../credit-whatsapp/pose';
+import { retirerLAttacheSansLever, type AttacheLigne } from '../credit-whatsapp/attache';
 import type { ProvisionVue } from '../credit-whatsapp/credit';
 import { makeTraceOps, type AuditSink } from '../audit/journal';
 import { estUuid } from './scope';
@@ -79,6 +80,13 @@ export interface OpsCreditWhatsappDeps {
    * le compte (relecture du lot V5, jaune 2) ; `null` s'il n'est pas connu.
    */
   nomDeLEspace(tenantId: string): Promise<string | null>;
+  /**
+   * L'API de la ligne du partenaire (plan 2026-11-12) : la pose l'attache puis la vérifie, le retrait la retire ; `null` :
+   * non configurée, ni la pose ni le retrait ne la touchent. La MÊME que celle de la connexion (`depsPoseDeLaLigne`).
+   */
+  attache: AttacheLigne | null;
+  /** L'alerte à Julien : un retrait chez le partenaire en panne laisserait sa consommation à notre charge. */
+  alerter: (texte: string) => Promise<void>;
 }
 
 /** Pourquoi un numéro ne peut pas être posé sur la ligne : les mêmes refus que la pose, dits avant le clic. */
@@ -154,7 +162,9 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
   const opts = { preHandler: garde };
   const tracer = makeTraceOps(deps.audit);
   // Ce que la pose lit : les magasins passés entiers (leurs méthodes lisent `this`), la grille appelée sur son magasin.
-  const depsPose: DepsPose = { lignes: deps.lignes, grilleEnVigueur: () => deps.reglages.grilleEnVigueur(), option: deps.option };
+  const depsPose: DepsPose = {
+    lignes: deps.lignes, grilleEnVigueur: () => deps.reglages.grilleEnVigueur(), option: deps.option, attache: deps.attache, alerter: deps.alerter,
+  };
   /**
    * Ce que la fenêtre de l'offre montre d'un espace : ses numéros (couverts ou non par la ligne, et pourquoi l'un ne peut
    * pas l'être), ses lignes, son solde, ce qu'il a consommé ce mois en illimité, ses dernières provisions.
@@ -329,8 +339,16 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
       const pose = await poserLaLigne(depsPose, tenantId, phoneNumberId, { forcer, note: signee });
       if (!pose.ok) return reply.code(pose.statut).send(pose.code ? { error: pose.error, code: pose.code } : { error: pose.error });
       origine = pose.origine;
-    } else if (!(await deps.lignes.retirer(tenantId, phoneNumberId))) {
-      return reply.code(404).send({ error: 'numéro pas sur la ligne de cet espace' });
+    } else {
+      // La ligne retirée, celle du partenaire se retire de son compte (plan 2026-11-12) : nous en payerions sinon la
+      // consommation. Lue AVANT le retrait, seulement si c'est la ligne de ce numéro dans cet espace.
+      const ligne = deps.attache !== null ? await deps.lignes.ligneDuNumero(phoneNumberId) : null;
+      if (!(await deps.lignes.retirer(tenantId, phoneNumberId))) {
+        return reply.code(404).send({ error: 'numéro pas sur la ligne de cet espace' });
+      }
+      if (ligne !== null && ligne.tenantId === tenantId && ligne.phoneNumberId === phoneNumberId && ligne.wabaId !== null) {
+        await retirerLAttacheSansLever({ attache: deps.attache, alerter: deps.alerter }, tenantId, ligne.wabaId, 'Retrait de la ligne dans /ops');
+      }
     }
     journaliser('warn', 'ops_ligne_credit_whatsapp', { tenantId, phoneNumberId, poser, origine, forcer, par, note });
     await tracer(tenantId, par, poser ? 'ops.ligne_credit_posee' : 'ops.ligne_credit_retiree', poser ? { phoneNumberId, origine, forcer } : { phoneNumberId });

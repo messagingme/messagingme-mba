@@ -614,19 +614,17 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   de bout en bout par Julien (prendre l'option, connecter par la fenêtre, la ligne posée seule, un modèle payant accepté
   par Meta, le moyen de paiement du compte relu chez Meta). La fiche publique « Payer ses
   messages sans carte chez Meta » et la ligne de la vitrine sont en ligne (lot 3v-2d de la session de l'aide, 2026-11-11).
+- ✅ **Fermés par l'attache par l'API du partenaire** (plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`) : la
+  ligne posée sans preuve de l'attache (V3, jaune 1 ; reconnexion, jaune 1 : l'attache est désormais faite et VÉRIFIÉE
+  avant notre pose, reste à prouver à l'essai 252 que la carte ne paie plus), l'alerte de repli qui disait d'attendre
+  l'attache (V3, jaune 2), `parLaLigne` qui posait sur un compte peut-être non partagé (V3, jaune 5 : l'attache échoue
+  sur un compte que la solution ne partage pas, et rien n'est posé), la fin de fenêtre perdue qui laissait la ligne du
+  partenaire payer sans provision (reconnexion, jaune 2 : elle ne s'attache plus qu'à notre pose).
 - 🟡 **Les jaunes de la relecture de V3 (2026-11-11, aucun rouge)** :
-  - la ligne posée à la connexion n'est plus marquée : vérifier l'attache ne tient qu'à l'alerte Telegram, et sur un
-    compte qui garde sa carte chez Meta, une attache absente fait payer deux fois sans que rien ne refuse ; l'alerte doit
-    citer ce symptôme et le geste (relire le moyen de paiement du compte chez Meta), et une trace hors Telegram des poses
-    automatiques non vérifiées (marquer après la pose, ou une liste à part) : à trancher par Julien ;
-  - l'alerte de repli (pose refusée ou en panne, interrupteur allumé) dit encore d'attendre l'attache : poser dès que la
-    cause est levée ;
   - une connexion interrompue après l'enregistrement du jeton laisse un numéro relié, marqué, jamais posé : le dire dans
     l'alerte d'interruption (poser vite), ou poser aussi sur ce chemin ;
   - `tests/credit-whatsapp-fenetre-partenaire.test.ts` ne tient pas « seulement à poser » : ajouter `sans_droit`,
     `fermee`, `illisible`, `autre_espace`, `couvert_arrete` avec `pose: { auto: true }` et `poses` vide ;
-  - `parLaLigne` vient du corps de la requête et pose désormais la ligne : vérifier côté serveur que le compte est partagé
-    avec la solution, ou écrire le risque (seul l'espace qui l'envoie paierait deux fois) ;
   - la ligne posée, la garde refuse tout envoi à solde nul, réponses de service comprises : la console après connexion et
     la skill `mise-en-service` doivent pousser la recharge avant l'essai depuis un téléphone ;
   - textes qui décrivent encore la pose manuelle : `QuiRegleMeta.tsx` (« sous 24 h ouvrées », validés, bornent),
@@ -641,14 +639,6 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   - `get_setup_state` tait `carte_meta_a_regler` en `en_attente` : le numéro de l'essai reste payé par sa carte jusqu'à
     sa reconnexion, Claude ne dit pas de le reconnecter.
 - 🟡 **Les jaunes de la relecture de la reconnexion (« V4, suite », `87217294`, 2026-11-11, aucun rouge)** :
-  - la reconnexion ne vise que des comptes qui ont une carte chez Meta : si la carte reste le payeur chez Meta (attache
-    absente, ligne pas prioritaire sur la carte, ou un compte déjà relié à notre application que la solution ne partage
-    pas), le client paie deux fois sans signal, et la console lui dit « reconnecté sans carte » ; l'alerte « POSÉE » d'une
-    reconnexion doit nommer ce symptôme, et, tant que l'essai 252 ne l'a pas prouvé, ne pas poser automatiquement sur une
-    reconnexion se discute : à trancher par Julien ;
-  - une fin de fenêtre perdue (onglet fermé pendant l'attente, réseau, session expirée) laisse un compte partagé avec le
-    partenaire, sans alerte, ni marque, ni ligne, qui envoie chez nous : une trace côté serveur au début d'une
-    reconnexion, visible de Julien jusqu'à la pose ;
   - un autre numéro choisi dans la fenêtre : l'alerte de refus dit de ne rien attacher, alors que le compte est celui de
     l'espace ; et `messageSecondNumero` (`src/account/connexion-numero.ts`) tutoie le client, sous le bouton de la console ;
   - une Entreprise connectée avec sa carte, sans ligne, reçoit l'identifiant (son droit est toujours vrai) sans qu'aucun

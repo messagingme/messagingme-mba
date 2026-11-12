@@ -43,6 +43,10 @@ function app(
   option: Partial<OpsCreditWhatsappDeps['option']> = {},
   /** Le nom d'un espace (relecture du lot V5, jaune 2) : inconnu par défaut. */
   nomDeLEspace: OpsCreditWhatsappDeps['nomDeLEspace'] = async () => null,
+  /** L'API du partenaire (plan 2026-11-12) : non configurée par défaut, le comportement d'avant. */
+  attache: OpsCreditWhatsappDeps['attache'] = null,
+  /** Les alertes à Julien. */
+  alertes: string[] = [],
 ) {
   const creditWhatsapp: OpsCreditWhatsappDeps = {
     reglages: {
@@ -69,6 +73,8 @@ function app(
     credit: { solde: async () => 0, consommationDuMois: async () => 0, dernieresProvisions: async () => [], ...credit },
     option: { entreprise: async () => true, placesPayees: async () => 0, reprendreCampagnes: async () => 0, ...option },
     nomDeLEspace,
+    attache,
+    alerter: async (texte) => { alertes.push(texte); },
   };
   const deps: OpsRouteDeps = {
     ...opsInerte,
@@ -336,6 +342,77 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     expect(res.statusCode).toBe(200);
     expect(retraits).toEqual([`${T1}:${PN}`]);
     await a.close();
+  });
+
+  /** L'API du partenaire simulée : chaque geste s'inscrit ; `panne` fait lever un geste, `dementie` ment la vérification. */
+  function partenaire(o: { panne?: 'attacher' | 'retirer'; dementie?: boolean } = {}) {
+    const gestes: string[] = [];
+    const attache: NonNullable<OpsCreditWhatsappDeps['attache']> = {
+      attacher: async (w) => { gestes.push(`attacher:${w}`); if (o.panne === 'attacher') throw new Error('HTTP 500 : panne du partenaire'); },
+      verifier: async (w) => { gestes.push(`verifier:${w}`); return o.dementie !== true; },
+      retirer: async (w) => { gestes.push(`retirer:${w}`); if (o.panne === 'retirer') throw new Error('HTTP 500 : panne du partenaire'); return 'retiree'; },
+    };
+    return { gestes, attache };
+  }
+
+  it('🔴 l’attache configurée : la ligne du partenaire est attachée PUIS vérifiée sur le compte du numéro, AVANT la nôtre', async () => {
+    const p = partenaire();
+    const a = app({}, true, { numeroDeLEspace: async () => NUMERO, poser: async () => { p.gestes.push('poser'); return true; } }, [], {}, {}, undefined, p.attache);
+    const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+    expect(res.statusCode).toBe(200);
+    expect(p.gestes).toEqual(['attacher:w1', 'verifier:w1', 'poser']);
+    await a.close();
+  });
+
+  it('🔴 une attache refusée, ou démentie par la vérification : 502 avec la cause, rien n’est posé ni tracé', async () => {
+    for (const [nom, p, cause] of [
+      ['refusée', partenaire({ panne: 'attacher' }), /la ligne du partenaire n’a pas pu être attachée : HTTP 500 : panne du partenaire/],
+      ['démentie', partenaire({ dementie: true }), /la ligne du partenaire n’a pas pu être attachée : .*pas attachée/],
+    ] as const) {
+      const traces: Trace[] = [];
+      const a = app({}, true, { numeroDeLEspace: async () => NUMERO, poser: async () => { p.gestes.push('poser'); return true; } }, traces, {}, {}, undefined, p.attache);
+      const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+      expect(res.statusCode, nom).toBe(502);
+      expect(res.json().error, nom).toMatch(cause);
+      expect(p.gestes.includes('poser'), nom).toBe(false);
+      expect(traces, nom).toEqual([]);
+      await a.close();
+    }
+  });
+
+  it('🔴 notre pose qui lève APRÈS l’attache retire l’attache : sans notre ligne, sa consommation serait à notre charge', async () => {
+    const p = partenaire();
+    const a = app({}, true, { numeroDeLEspace: async () => NUMERO, poser: async () => { throw new Error('base indisponible'); } }, [], {}, {}, undefined, p.attache);
+    const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+    expect(res.statusCode).toBe(500);
+    expect(p.gestes).toEqual(['attacher:w1', 'verifier:w1', 'retirer:w1']);
+    await a.close();
+  });
+
+  it('l’attache configurée, un numéro dont le compte WhatsApp n’est pas connu : 409, rien n’est attaché ni posé', async () => {
+    const p = partenaire();
+    const a = app({}, true, { numeroDeLEspace: async () => ({ ...NUMERO, wabaId: null }), poser: async () => { p.gestes.push('poser'); return true; } }, [], {}, {}, undefined, p.attache);
+    const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+    expect(res.statusCode).toBe(409);
+    expect(p.gestes).toEqual([]);
+    await a.close();
+  });
+
+  it('🔴 le retrait dans /ops retire aussi l’attache du compte de la ligne ; une panne alerte Julien sans faire échouer le retrait', async () => {
+    for (const panne of [false, true]) {
+      const p = partenaire(panne ? { panne: 'retirer' } : {});
+      const alertes: string[] = [];
+      const a = app({}, true, {
+        ligneDuNumero: async () => LIGNE,
+        retirer: async () => { p.gestes.push('retirer-la-notre'); return true; },
+      }, [], {}, {}, undefined, p.attache, alertes);
+      const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne(false, 'fin de l’essai') });
+      expect(res.statusCode, String(panne)).toBe(200);
+      expect(p.gestes, String(panne)).toEqual(['retirer-la-notre', 'retirer:w1']);
+      expect(alertes, String(panne)).toHaveLength(panne ? 1 : 0);
+      if (panne) expect(alertes[0]).toMatch(new RegExp(`${T1}.*w1.*panne du partenaire`));
+      await a.close();
+    }
   });
 
   it('un numéro déjà sur la ligne : 409', async () => {

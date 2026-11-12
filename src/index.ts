@@ -54,6 +54,9 @@ import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/siege
 import { formuleEnRetard, formuleEtPrise, optionPrenable, repriseOuverte } from './offres/formule-payee';
 import { connexionParLaLigne, fenetreRefuseeParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
 import { poserLaLigne, type DepsPose } from './credit-whatsapp/pose';
+import {
+  arreterLesLignesEtLeursAttaches, creerAttacheLigne, relancerLesLignesEtLeursAttaches, type DepsCycleAttache,
+} from './credit-whatsapp/attache';
 import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
 import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
@@ -1097,6 +1100,15 @@ async function main(): Promise<void> {
    * pour celle de la connexion par la fenêtre du partenaire, qui ne peuvent donc pas diverger. Les magasins passés
    * entiers (leurs méthodes lisent `this.pool`), les autres méthodes appelées sur leur magasin.
    */
+  /**
+   * L'API de la ligne du partenaire (plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`) : sa ligne s'attache au compte
+   * WhatsApp, se vérifie et se retire à NOTRE demande. `null` tant que ses trois variables ne sont pas posées (contrôlées
+   * ensemble au démarrage, `src/config.ts`) : la pose de /ops ne la touche pas, et la pose automatique est éteinte.
+   */
+  const attacheLigne = config.LIGNE_PARTENAIRE_URL !== ''
+    ? creerAttacheLigne({ url: config.LIGNE_PARTENAIRE_URL, emetteur: config.LIGNE_PARTENAIRE_EMETTEUR, secret: config.LIGNE_PARTENAIRE_SECRET })
+    : null;
+  const alerterDeLAttache = async (texte: string): Promise<void> => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); };
   const depsPoseDeLaLigne: DepsPose = {
     lignes: lignesCreditWhatsapp,
     grilleEnVigueur: () => reglagesCreditWhatsapp.grilleEnVigueur(),
@@ -1106,7 +1118,15 @@ async function main(): Promise<void> {
       placesPayees: (tenant) => optionsCreditWhatsapp.placesPayees(tenant),
       reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
     },
+    // La ligne du partenaire attachée PUIS vérifiée avant la nôtre, la même pour /ops et pour la connexion.
+    attache: attacheLigne,
+    alerter: alerterDeLAttache,
   };
+  /**
+   * Le cycle de l'attache (même plan) : la fin de l'option (fin de droit, webhook de Stripe) retire l'attache de chaque
+   * compte arrêté, la reprise la rattache. Le magasin passé entier (ses méthodes lisent `this.pool`).
+   */
+  const cycleDeLAttache: DepsCycleAttache = { lignes: lignesCreditWhatsapp, attache: attacheLigne, alerter: alerterDeLAttache };
   /**
    * La fenêtre du partenaire (lot E du Crédit WhatsApp, `src/credit-whatsapp/fenetre-partenaire.ts`) : l'offre relue sans
    * cache, l'option, les numéros que ses lignes couvrent et les numéros rattachés à l'espace, déliés compris. La carte et
@@ -1130,9 +1150,11 @@ async function main(): Promise<void> {
     // L'issue chez Telegram remonte : une alerte perdue se journalise (relecture du lot E, jaune 3 ; essai 236), une alerte
     // incertaine garde sa retenue (relecture du lot E7, jaune 7).
     alerter: (texte) => envoyerTelegram(`[mba-${NOM_API}] ${texte}`),
-    // V3 : la ligne posée à la connexion, par la MÊME pose que /ops (ses contrôles, ses places), jamais forcée ; 'false'
-    // coupe (levier d'urgence, `CREDIT_WA_POSE_AUTOMATIQUE`).
-    poseAutomatique: config.CREDIT_WA_POSE_AUTOMATIQUE !== 'false',
+    // V3 : la ligne posée à la connexion, par la MÊME pose que /ops (ses contrôles, ses places, l'attache du partenaire
+    // vérifiée), jamais forcée ; 'false' coupe (levier d'urgence, `CREDIT_WA_POSE_AUTOMATIQUE`), et sans l'API du
+    // partenaire elle est éteinte : jamais notre ligne sur un compte sans la sienne (plan du 2026-11-12).
+    poseAutomatique: config.CREDIT_WA_POSE_AUTOMATIQUE !== 'false' && attacheLigne !== null,
+    attacheParApi: attacheLigne !== null,
     poserLaLigne: (tenant, phoneNumberId) => poserLaLigne(depsPoseDeLaLigne, tenant, phoneNumberId, {
       forcer: false, note: 'Posée à la connexion par la fenêtre du partenaire (pose automatique)',
     }),
@@ -1266,7 +1288,8 @@ async function main(): Promise<void> {
       const o = (await offresSansCache.offreDe(tenant)).offre;
       return o === 'pro' || o === 'business' || o === 'entreprise';
     },
-    arreterLesLignes: (tenant) => lignesCreditWhatsapp.arreterLesLignesDeLOption(tenant),
+    // L'arrêt retire aussi l'attache du partenaire de chaque compte arrêté (plan du 2026-11-12).
+    arreterLesLignes: (tenant) => arreterLesLignesEtLeursAttaches(cycleDeLAttache, tenant),
     // L'e-mail aux admins d'une option payée sans droit, une fois par abonnement, sans promesse de remboursement.
     prevenirSansDroit: optionSansDroit,
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
@@ -2332,9 +2355,10 @@ async function main(): Promise<void> {
           finir: (abonnementId, raison, finiLe) => optionsCreditWhatsapp.finir(abonnementId, raison, finiLe),
           vivante: (tenant) => optionsCreditWhatsapp.vivante(tenant),
           chezStripe: (abonnementId) => optionChezStripe(optionDeLaConsole, abonnementId),
-          arreterLesLignes: (tenant) => lignesCreditWhatsapp.arreterLesLignesDeLOption(tenant),
+          // L'arrêt retire l'attache du partenaire, la reprise la rattache (plan du 2026-11-12) : le même cycle partout.
+          arreterLesLignes: (tenant) => arreterLesLignesEtLeursAttaches(cycleDeLAttache, tenant),
           illimite: async (tenant) => (await offresSansCache.offreDe(tenant)).offre === 'entreprise',
-          relancerLesLignes: (tenant) => lignesCreditWhatsapp.relancerLesLignesDeLOption(tenant),
+          relancerLesLignes: (tenant) => relancerLesLignesEtLeursAttaches(cycleDeLAttache, tenant),
           reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
           resilier: (abonnementId) => resilierOptionChezStripe(optionDeLaConsole, abonnementId),
           // 🔴 Le cas voyage tel quel (`brancherFinDeDroit`) : une flèche à un paramètre l'avalerait, « sans remboursement »
@@ -3304,6 +3328,9 @@ async function main(): Promise<void> {
         option: depsPoseDeLaLigne.option,
         // « Ne pas poser » nomme l'espace dont la ligne bloque encore le compte (relecture du lot V5, jaune 2).
         nomDeLEspace: (tenant) => opsStore.getTenantName(tenant),
+        // L'API du partenaire, la MÊME que la pose à la connexion : la pose l'attache, le retrait la retire.
+        attache: depsPoseDeLaLigne.attache,
+        alerter: depsPoseDeLaLigne.alerter,
       },
       // Les jobs morts et leur rejeu : un geste d'exploitation cross-espace, qui suppose qu'on ait corrigé la
       // cause de l'échec.

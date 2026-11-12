@@ -146,6 +146,18 @@ describe('gardes de config en production', () => {
     expect(schema.safeParse(prodEnv).success).toBe(true);
   });
 
+  it('🔴 la ligne du partenaire : adresse https, émetteur et secret ensemble, ou aucun (plan du 2026-11-12)', () => {
+    // Valeurs fabriquées : aucune vraie adresse ni vrai secret du partenaire dans le dépôt.
+    asProd();
+    const ligne = { LIGNE_PARTENAIRE_URL: 'https://ligne.exemple.test/credit-line', LIGNE_PARTENAIRE_EMETTEUR: 'emetteur', LIGNE_PARTENAIRE_SECRET: 'z'.repeat(64) };
+    expect(schema.safeParse({ ...prodEnv, ...ligne }).success).toBe(true);
+    expect(errPaths(schema.safeParse({ ...prodEnv, ...ligne, LIGNE_PARTENAIRE_SECRET: '' }))).toContain('LIGNE_PARTENAIRE_URL');
+    expect(errPaths(schema.safeParse({ ...prodEnv, LIGNE_PARTENAIRE_URL: ligne.LIGNE_PARTENAIRE_URL }))).toContain('LIGNE_PARTENAIRE_URL');
+    expect(errPaths(schema.safeParse({ ...prodEnv, ...ligne, LIGNE_PARTENAIRE_URL: 'http://ligne.exemple.test/credit-line' }))).toContain('LIGNE_PARTENAIRE_URL');
+    expect(errPaths(schema.safeParse({ ...prodEnv, ...ligne, LIGNE_PARTENAIRE_SECRET: 'court' }))).toContain('LIGNE_PARTENAIRE_SECRET');
+    expect(schema.safeParse(prodEnv).success).toBe(true);
+  });
+
   it('🔴 les deux prix du Pro se posent ensemble (lot 6, B1) : un seul ouvrirait une périodicité et pas l’autre', () => {
     asProd();
     expect(errPaths(schema.safeParse({ ...prodEnv, STRIPE_PRIX_PRO_MOIS: 'price_mois' }))).toContain('STRIPE_PRIX_PRO_AN');

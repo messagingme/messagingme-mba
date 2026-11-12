@@ -47,6 +47,8 @@ function deps(o: {
    * issue (posée par défaut), ou une fonction qui lève.
    */
   pose?: { auto?: boolean; issue?: IssuePose | (() => Promise<IssuePose>) };
+  /** L'API du partenaire configurée (plan du 2026-11-12) : non par défaut, les textes d'avant. */
+  attacheParApi?: boolean;
 } = {}) {
   const alertes: string[] = [];
   const marques: string[] = [];
@@ -86,6 +88,7 @@ function deps(o: {
       return reponses !== null ? (reponses.shift() ?? 'recue') : ((o.alerte as IssueTelegram | undefined) ?? 'recue');
     },
     poseAutomatique: o.pose?.auto ?? false,
+    attacheParApi: o.attacheParApi ?? false,
     poserLaLigne: async (_tenant, phoneNumberId) => {
       poses.push(phoneNumberId);
       const issue = o.pose?.issue;
@@ -284,9 +287,25 @@ describe('la connexion faite par la ligne', () => {
       expect(marques, nom).toEqual([]);
       expect(alertes, nom).toHaveLength(1);
       expect(alertes[0], nom).toContain(`Numéro connecté par la fenêtre du partenaire : espace ${T}, ${NUMERO} (compte waba-1). Sa ligne est POSÉE automatiquement`);
-      expect(alertes[0], nom).toMatch(/si le partenaire n’a pas attaché sa ligne à ce compte, Meta refusera ses envois : retirer la nôtre dans \/ops/);
+      // La pose automatique n'existe qu'avec l'API du partenaire (plan du 2026-11-12) : son attache est faite et vérifiée.
+      expect(alertes[0], nom).toMatch(/celle du partenaire attachée à ce compte et vérifiée par son API : ses envois passent sur le Crédit WhatsApp/);
+      expect(alertes[0], nom).not.toMatch(/tenue pour automatique/);
       expect(alertes[0], nom).not.toContain('« Ne pas poser »');
     }
+  });
+
+  it('🔴 l’API du partenaire configurée, l’alerte du cas « à poser » ne dit plus de lui demander l’attache : la pose de /ops la fait (plan du 2026-11-12)', async () => {
+    const refus: IssuePose = { ok: false, statut: 502, error: 'la ligne du partenaire n’a pas pu être attachée : HTTP 500 : panne' };
+    const { d, alertes, marques } = deps({ offre: 'pro', places: 1, rattaches: ['pn-1'], attacheParApi: true, pose: { auto: true, issue: refus } });
+    await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO, coexistence: false });
+    expect(marques).toEqual(['pn-1']);
+    expect(alertes[0]).toContain('Poser la ligne dans /ops : la pose attache aussi celle du partenaire à ce compte WhatsApp, par son API, et la vérifie');
+    expect(alertes[0]).toContain('La pose automatique a été refusée : la ligne du partenaire n’a pas pu être attachée : HTTP 500 : panne.');
+    expect(alertes[0]).not.toMatch(/Demander au partenaire/);
+    // Sans l'API, le texte d'avant : la ligne ne s'attache qu'à la demande faite au partenaire.
+    const sans = deps({ offre: 'pro', places: 1, rattaches: ['pn-1'] });
+    await connexionParLaLigne(sans.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO, coexistence: false });
+    expect(sans.alertes[0]).toMatch(/Demander au partenaire d’attacher sa ligne/);
   });
 
   it('🔴 V3 : une pose refusée (places manquantes, grille absente) ou en panne retombe sur l’attente d’avant, la raison dite ; jamais en coexistence, ni sur un compte déjà couvert ; éteinte, rien ne change', async () => {

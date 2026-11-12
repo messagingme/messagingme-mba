@@ -662,6 +662,16 @@ export const schema = z.object({
    */
   CREDIT_WA_POSE_AUTOMATIQUE: z.string().default('true'),
   /**
+   * L'API de la ligne de crédit du partenaire (plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`) : sa ligne s'attache
+   * au compte WhatsApp, se vérifie et se retire À NOTRE DEMANDE (`src/credit-whatsapp/attache.ts`). L'adresse de la ligne
+   * de crédit chez lui, notre émetteur (le `iss` du jeton) et le secret qui le signe (🔴 une variable SECRÈTE, posée par
+   * Julien depuis le fichier que le partenaire lui a remis, jamais dans le dépôt). Les trois ensemble, ou aucune : vides, la
+   * pose de `/ops` ne touche pas au partenaire et la pose automatique de la connexion est ÉTEINTE.
+   */
+  LIGNE_PARTENAIRE_URL: z.string().trim().default(''),
+  LIGNE_PARTENAIRE_EMETTEUR: z.string().trim().default(''),
+  LIGNE_PARTENAIRE_SECRET: z.string().default(''),
+  /**
    * Les prix du Pro (lot 6, livraison B1) : 49 € HT par mois et 490 € HT par an, taxe en sus, relus chez Stripe avant
    * chaque paiement (`PRIX_PRO_HT_CENTIMES`, `src/offres/offres.ts`). Posés ensemble ou pas du tout (garde plus bas) ; vides :
    * le Pro n'est pas en vente, la route rend 503 et la page de l'offre renvoie au Support.
@@ -853,6 +863,18 @@ export const schema = z.object({
     // ne connaît pas le mode de la clé, donc ne peut pas refuser un événement de l'autre mode.
     if ((c.STRIPE_SECRET_KEY === '') !== (c.STRIPE_WEBHOOK_SECRET === '')) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: [c.STRIPE_SECRET_KEY === '' ? 'STRIPE_SECRET_KEY' : 'STRIPE_WEBHOOK_SECRET'], message: 'STRIPE_SECRET_KEY et STRIPE_WEBHOOK_SECRET se posent ensemble (ou aucun des deux)' });
+    }
+    // La ligne du partenaire : les trois ensemble. Une adresse sans secret ferait partir des appels refusés à chaque pose ;
+    // un secret court se devine (le partenaire en remet un de 128 caractères hexadécimaux).
+    const lignePartenaire = [c.LIGNE_PARTENAIRE_URL, c.LIGNE_PARTENAIRE_EMETTEUR, c.LIGNE_PARTENAIRE_SECRET];
+    if (lignePartenaire.some((v) => v === '') && lignePartenaire.some((v) => v !== '')) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['LIGNE_PARTENAIRE_URL'], message: 'LIGNE_PARTENAIRE_URL, _EMETTEUR et _SECRET se posent ensemble (ou aucune)' });
+    }
+    if (c.LIGNE_PARTENAIRE_URL !== '' && !/^https:\/\/[^\s/]+\/\S*$/.test(c.LIGNE_PARTENAIRE_URL)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['LIGNE_PARTENAIRE_URL'], message: 'LIGNE_PARTENAIRE_URL doit être une adresse https complète' });
+    }
+    if (c.LIGNE_PARTENAIRE_SECRET !== '' && c.LIGNE_PARTENAIRE_SECRET.length < 32) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['LIGNE_PARTENAIRE_SECRET'], message: 'LIGNE_PARTENAIRE_SECRET trop court (32 caractères au moins)' });
     }
     // Les quatre prix du Crédit WhatsApp vont ensemble : l'onglet présente les quatre offres, une offre sans prix y serait
     // un bouton en 503.

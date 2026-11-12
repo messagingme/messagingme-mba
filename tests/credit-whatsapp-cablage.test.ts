@@ -95,7 +95,7 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     // La coexistence voyage avec le numéro, typée : un littéral reconstruit sans elle ne compilerait pas (relecture du lot V5, jaune 6).
     expect(connexion).toMatch(/connexionParLaLigne: \(tenant: string, n: \{ wabaId: string; phoneNumberId: string \| null; numero: string \| null; coexistence: boolean \}\) =>/);
     // « Ne pas poser » nomme l'espace dont la ligne bloque, par la lecture de `/ops` (relecture du lot V5, jaune 2).
-    expect(sansCommentaires).toMatch(/reglages: reglagesCreditWhatsapp, lignes: lignesCreditWhatsapp,[\s\S]{0,800}?nomDeLEspace: \(tenant\) => opsStore\.getTenantName\(tenant\),\s*\},/);
+    expect(sansCommentaires).toMatch(/reglages: reglagesCreditWhatsapp, lignes: lignesCreditWhatsapp,[\s\S]{0,800}?nomDeLEspace: \(tenant\) => opsStore\.getTenantName\(tenant\),\s*attache: depsPoseDeLaLigne\.attache,\s*alerter: depsPoseDeLaLigne\.alerter,\s*\},/);
     expect(connexion).toMatch(/fenetreRefuseeParLaLigne\(fenetreDuPartenaire, tenant, i\)/);
     // La route tire `enabled` des MÊMES variables que la fenêtre (relecture du lot E4, jaune 4) : l'une déplacée seule,
     // la carte se dirait ouverte sur un bouton grisé.
@@ -107,8 +107,10 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     const fenetre = bloc('const fenetreDuPartenaire: DepsFenetrePartenaire = {', '};');
     // Jamais forcée : une pose forcée passerait outre les places, et un Pro sans place payée aurait sa ligne.
     expect(fenetre).toMatch(/poserLaLigne: \(tenant, phoneNumberId\) => poserLaLigne\(depsPoseDeLaLigne, tenant, phoneNumberId, \{\s*forcer: false,/);
-    // Le levier d'urgence : seule la valeur 'false' la coupe.
-    expect(fenetre).toMatch(/poseAutomatique: config\.CREDIT_WA_POSE_AUTOMATIQUE !== 'false',/);
+    // Le levier d'urgence : seule la valeur 'false' la coupe ; et sans l'API du partenaire, elle est éteinte (plan du
+    // 2026-11-12) : jamais notre ligne sur un compte sans la sienne.
+    expect(fenetre).toMatch(/poseAutomatique: config\.CREDIT_WA_POSE_AUTOMATIQUE !== 'false' && attacheLigne !== null,/);
+    expect(fenetre).toMatch(/attacheParApi: attacheLigne !== null,/);
     // Les deux poses lisent le MÊME objet : magasins entiers, places et campagnes sur leur magasin.
     const deps = bloc('const depsPoseDeLaLigne: DepsPose = {', '  };');
     expect(deps).toMatch(/lignes: lignesCreditWhatsapp,/);
@@ -117,5 +119,20 @@ describe('le câblage de la fenêtre du partenaire (lot E)', () => {
     expect(deps).toMatch(/placesPayees: \(tenant\) => optionsCreditWhatsapp\.placesPayees\(tenant\),/);
     expect(deps).toMatch(/reprendreCampagnes: \(tenant\) => numeroDelieStore\.leverPausesLigneCredit\(tenant\),/);
     expect(sansCommentaires).toMatch(/lignes: lignesCreditWhatsapp, audit: auditSink, credit: creditWhatsapp,\s*option: depsPoseDeLaLigne\.option,/);
+  });
+
+  it('🔴 l’attache par l’API du partenaire : une seule instance, lue de ses trois variables, pour la pose, /ops, la fin et la reprise de l’option (plan du 2026-11-12)', () => {
+    // L'instance n'existe que si l'adresse est posée (les trois vont ensemble, `src/config.ts`), signée de leur secret.
+    expect(sansCommentaires).toMatch(/const attacheLigne = config\.LIGNE_PARTENAIRE_URL !== ''\s*\? creerAttacheLigne\(\{ url: config\.LIGNE_PARTENAIRE_URL, emetteur: config\.LIGNE_PARTENAIRE_EMETTEUR, secret: config\.LIGNE_PARTENAIRE_SECRET \}\)\s*: null;/);
+    const deps = bloc('const depsPoseDeLaLigne: DepsPose = {', '  };');
+    expect(deps).toMatch(/attache: attacheLigne,/);
+    expect(deps).toMatch(/alerter: alerterDeLAttache,/);
+    // Le cycle : le magasin passé ENTIER (ses méthodes lisent `this.pool`), la même instance.
+    expect(sansCommentaires).toMatch(/const cycleDeLAttache: DepsCycleAttache = \{ lignes: lignesCreditWhatsapp, attache: attacheLigne, alerter: alerterDeLAttache \};/);
+    // La fin de droit ET le webhook de Stripe arrêtent par le cycle : plus aucun arrêt des lignes de l'option sans lui.
+    expect(sansCommentaires.match(/arreterLesLignes: \(tenant\) => arreterLesLignesEtLeursAttaches\(cycleDeLAttache, tenant\),/g)).toHaveLength(2);
+    expect(sansCommentaires).not.toMatch(/arreterLesLignes: \(tenant\) => lignesCreditWhatsapp\.arreterLesLignesDeLOption/);
+    expect(sansCommentaires).toMatch(/relancerLesLignes: \(tenant\) => relancerLesLignesEtLeursAttaches\(cycleDeLAttache, tenant\),/);
+    expect(sansCommentaires).not.toMatch(/relancerLesLignes: \(tenant\) => lignesCreditWhatsapp\.relancerLesLignesDeLOption/);
   });
 });
