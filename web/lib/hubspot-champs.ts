@@ -23,7 +23,7 @@ export interface LigneChamp extends ChampHubspot {
 }
 
 /** Une portée facultative de l'application HubSpot qu'un calculé demande. */
-export type AccesHubspot = 'agenda' | 'devis';
+export type AccesHubspot = 'agenda' | 'devis' | 'pieces';
 
 /**
  * Les calculés, dans l'ordre de l'écran, et l'accès que chacun demande (cadrage « lien du devis » du 2026-11-02) : le
@@ -31,6 +31,8 @@ export type AccesHubspot = 'agenda' | 'devis';
  */
 const CALCULES: ReadonlyArray<{ cle: ChampsHubspotDuPortail['calcules'][number]['cle']; acces?: AccesHubspot }> = [
   { cle: 'conseiller' }, { cle: 'lien_agenda', acces: 'agenda' }, { cle: 'lien_devis', acces: 'devis' }, { cle: 'pdf_devis', acces: 'devis' },
+  // Le PDF joint au dernier e-mail (plan du 2026-11-12) : l'accès aux e-mails et aux fichiers, ou, en repli, aux devis.
+  { cle: 'document', acces: 'pieces' },
 ];
 const rangCalcule = (cle: string): number => {
   const i = CALCULES.findIndex((c) => c.cle === cle);
@@ -119,12 +121,45 @@ export function basculerChamp(selection: ReadonlySet<string>, l: LigneChamp): Se
   return suivante;
 }
 
-/** Le corps de `PUT .../hubspot/champs` : la sélection, sans libellé (le serveur relit ceux de HubSpot). */
-export function corpsDesChamps(selection: ReadonlySet<string>): ChampHubspot[] {
-  return [...selection].flatMap((id) => {
+/** L'identifiant du calculé `document` dans la sélection. */
+export const ID_DOCUMENT = 'calcule:document';
+/** Les bornes des débuts, celles du serveur et du connecteur (`schemaDebutsDocument`). */
+export const DEBUTS_MAX = 5;
+export const DEBUT_LONGUEUR_MAX = 40;
+
+/** Les débuts du document, tels que l'écran les montre : séparés par des virgules. */
+export function debutsDe(choisis: ReadonlyArray<ChampHubspot>): string {
+  return (choisis.find((c) => c.objet === 'calcule' && c.propriete === 'document')?.debuts ?? []).join(', ');
+}
+
+/**
+ * Les débuts saisis, prêts pour le serveur : séparés par des virgules ou des retours à la ligne, sans vides ni doublons
+ * (sans casse), coupés aux bornes. Le serveur refuserait au-delà ; l'écran le dit avant (`debutsTropNombreux`).
+ */
+export function lireDebuts(texte: string): string[] {
+  const vus = new Set<string>();
+  return texte.split(/[,\n]/).map((x) => x.trim().slice(0, DEBUT_LONGUEUR_MAX)).filter((x) => {
+    const cle = x.toLowerCase();
+    if (x === '' || vus.has(cle)) return false;
+    vus.add(cle);
+    return true;
+  });
+}
+
+/** Plus de débuts que le serveur n'en accepte. */
+export const debutsTropNombreux = (texte: string): boolean => lireDebuts(texte).length > DEBUTS_MAX;
+
+/**
+ * Le corps de `PUT .../hubspot/champs` : la sélection, sans libellé (le serveur relit ceux de HubSpot). 🔴 Le document
+ * part AVEC ses débuts : renvoyé sans eux, la liste entière étant remplacée, ils seraient effacés chez le connecteur.
+ */
+export function corpsDesChamps(selection: ReadonlySet<string>, debuts = ''): ChampHubspot[] {
+  const lus = lireDebuts(debuts).slice(0, DEBUTS_MAX);
+  return [...selection].flatMap((id): ChampHubspot[] => {
     const i = id.indexOf(':');
     const objet = id.slice(0, i);
     const propriete = id.slice(i + 1);
+    if (id === ID_DOCUMENT) return [{ objet: 'calcule', propriete, ...(lus.length > 0 ? { debuts: lus } : {}) }];
     return objet === 'contact' || objet === 'deal' || objet === 'calcule' ? [{ objet, propriete }] : [];
   });
 }

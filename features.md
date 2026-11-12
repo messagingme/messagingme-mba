@@ -733,6 +733,12 @@ En haut de l'onglet **Historique** d'une fiche contact, deux chiffres face à fa
   toutes les cartes + 2-10 cartes image, texte de carte optionnel, boutons identiques sur toutes les cartes).
   Soumission à validation Meta, suivi du statut. En-tête texte et pied de page : 60 caractères max, sans
   variable (l'en-tête texte accepte un titre fixe uniquement).
+- ✅ **En-tête Document : le PDF propre à chaque contact** (2026-11-12, à la création seulement : Meta ne laisse pas
+  modifier un tel modèle). On dépose un PDF d'exemple (pour la validation de Meta), puis « Document envoyé » : ce
+  fichier, le même pour tous, ou **le PDF de la fiche du contact** (un champ, par exemple « PDF joint au dernier e-mail
+  (HubSpot) »). Chaque contact reçoit alors son propre document, à son nom. Un tel modèle ne part que depuis un
+  **scénario** : une campagne, l'Inbox et la carte HubSpot le refusent (son fichier d'exemple partirait à tous), et
+  rien ne part à un contact dont la fiche n'a pas de document.
 - ✅ **Chaque champ limité dit ce qui lui reste** (2026-10-13) : « 45 caractères restants » sous le titre, le corps,
   le pied de page, le texte de chaque bouton et celui de chaque carte d'un carousel, aux limites de Meta (titre et
   pied 60, corps 1 024, bouton 25, carte 160). Un corps trop long passe en rouge (« 6 caractères de trop ») et
@@ -2613,7 +2619,12 @@ scénario, comment importer des contacts.
   date d'un rendez-vous pris par un lien de réservation, par exemple) devient un champ « date et heure », que
   l'automation « avant ou après une date » peut viser pour relancer le contact avant son rendez-vous ; de type date, un
   champ « date » (2026-11-12). Un tel champ importé avant ce jour, resté en texte, passe en date au prochain
-  « Enregistrer les champs ». Une date que la fiche ne sait pas lire en est retirée plutôt que gardée fausse. Une valeur vide dans HubSpot retire le champ de la fiche, un champ non choisi n'est pas touché, et
+  « Enregistrer les champs ». Une date que la fiche ne sait pas lire en est retirée plutôt que gardée fausse. Le
+  calculé **« PDF joint au dernier e-mail »** (2026-11-12) : la pièce jointe PDF la plus récente des e-mails de la
+  transaction dont le nom commence par un des débuts saisis sous sa case (« Madame, Monsieur », sans tenir compte des
+  majuscules ni des accents) ; sinon le PDF du devis HubSpot ; sinon rien. Messaging Me en garde une copie 30 jours
+  (effacée avec la fiche du contact), et un modèle à en-tête Document l'envoie au contact. Il demande l'accès aux
+  e-mails et aux fichiers HubSpot (bouton « Autoriser l'accès… », qui redemande aussi les devis et l'agenda). Une valeur vide dans HubSpot retire le champ de la fiche, un champ non choisi n'est pas touché, et
   un champ décoché n'est pas supprimé de la fiche. Pendant une mise à jour de l'intégration, le bloc le dit au lieu
   d'afficher une liste vide.
   **Un scénario écrit aussi dans HubSpot** (2026-11-06) : quand un parcours pose un champ « (HubSpot) » d'une propriété

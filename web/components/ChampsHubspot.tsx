@@ -8,7 +8,7 @@ import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { useInstallationHubspot } from '@/lib/hubspot-installation';
 import {
-  CHAMPS_HUBSPOT_MAX, accesAAutoriser, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
+  CHAMPS_HUBSPOT_MAX, DEBUTS_MAX, ID_DOCUMENT, debutsDe, debutsTropNombreux, accesAAutoriser, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
 } from '@/lib/hubspot-champs';
 
 /**
@@ -30,6 +30,9 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
   const [portail, setPortail] = useState<ChampsHubspotDuPortail | null>(null);
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [enregistree, setEnregistree] = useState<Set<string>>(new Set());
+  // Les débuts de nom du PDF joint (calculé `document`, lot B3), tels que saisis, et tels qu'enregistrés.
+  const [debuts, setDebuts] = useState('');
+  const [debutsEnregistres, setDebutsEnregistres] = useState('');
   const [recherche, setRecherche] = useState('');
   const [statut, setStatut] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [erreur, setErreur] = useState<string | null>(null);
@@ -47,6 +50,8 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
         const s = selectionDe(p.choisis);
         setSelection(s);
         setEnregistree(s);
+        setDebuts(debutsDe(p.choisis));
+        setDebutsEnregistres(debutsDe(p.choisis));
         setErreur(null);
         setEtat('ok');
       })
@@ -78,12 +83,14 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
   const enregistrer = () => {
     setStatut('saving');
     setErreur(null);
-    putHubspotChamps(tenantId, corpsDesChamps(selection))
+    putHubspotChamps(tenantId, corpsDesChamps(selection, debuts))
       .then((r) => {
         if (!vivant.current) return;
         const s = selectionDe(r.choisis);
         setSelection(s);
         setEnregistree(s);
+        setDebuts(debutsDe(r.choisis));
+        setDebutsEnregistres(debutsDe(r.choisis));
         setStatut('saved');
       })
       .catch((e: unknown) => {
@@ -171,7 +178,7 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
                       className="text-sm text-brand-600 hover:underline disabled:opacity-60"
                       data-testid="integration-hubspot-champs-autoriser"
                     >
-                      {t('Autoriser l’accès aux devis et à l’agenda', 'Authorize access to quotes and the calendar')}
+                      {t('Autoriser l’accès aux devis, à l’agenda et aux pièces jointes', 'Authorize access to quotes, the calendar and attachments')}
                     </button>
                     {' '}
                     {t('Une fois l’accès accordé dans HubSpot, rechargez cette page.', 'Once access is granted in HubSpot, reload this page.')}
@@ -196,11 +203,36 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
                             <span className="block text-xs text-ink-500" data-testid={`integration-hubspot-champ-raison-${idChamp(l)}`}>
                               {l.acces === 'devis'
                                 ? t('L’accès aux devis HubSpot n’est pas accordé à Messaging Me.', 'Access to HubSpot quotes is not granted to Messaging Me.')
-                                : t('L’accès à l’agenda HubSpot n’est pas accordé à Messaging Me.', 'Access to the HubSpot calendar is not granted to Messaging Me.')}
+                                : l.acces === 'pieces'
+                                  ? t('L’accès aux e-mails et aux fichiers HubSpot n’est pas accordé à Messaging Me.', 'Access to HubSpot emails and files is not granted to Messaging Me.')
+                                  : t('L’accès à l’agenda HubSpot n’est pas accordé à Messaging Me.', 'Access to the HubSpot calendar is not granted to Messaging Me.')}
                             </span>
                           )}
                         </span>
                       </label>
+                      {idChamp(l) === ID_DOCUMENT && selection.has(ID_DOCUMENT) && (
+                        <div className="ml-6 mt-1 mb-2">
+                          <label className="block text-xs text-ink-700" htmlFor="integration-hubspot-debuts">
+                            {t('Le nom du PDF commence par (séparés par des virgules)', 'The PDF name starts with (comma separated)')}
+                          </label>
+                          <input
+                            id="integration-hubspot-debuts"
+                            className={`${inputCls} mt-1 w-full sm:w-96`}
+                            placeholder={t('Madame, Monsieur', 'Mrs, Mr')}
+                            value={debuts}
+                            onChange={(e) => setDebuts(e.target.value)}
+                            disabled={statut === 'saving'}
+                            data-testid="integration-hubspot-debuts"
+                          />
+                          <p className="mt-1 text-xs text-ink-500">
+                            {debutsTropNombreux(debuts)
+                              ? t(`${DEBUTS_MAX} débuts au plus : les suivants ne seront pas gardés.`, `${DEBUTS_MAX} at most: the next ones will not be kept.`)
+                              : debuts.trim() === ''
+                                ? t('Sans début de nom, aucune pièce jointe n’est retenue : seul le PDF du devis HubSpot peut partir.', 'Without a name start, no attachment is picked: only the HubSpot quote PDF can be sent.')
+                                : t('La pièce jointe PDF la plus récente des e-mails de la transaction dont le nom commence ainsi (sans tenir compte des majuscules ni des accents).', 'The most recent PDF attached to the deal’s emails whose name starts this way (case and accents ignored).')}
+                          </p>
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -212,7 +244,7 @@ export function ChampsHubspot({ tenantId }: { tenantId: string }) {
               type="button"
               data-testid="integration-hubspot-champs-enregistrer"
               onClick={enregistrer}
-              disabled={statut === 'saving' || !selectionModifiee(selection, enregistree)}
+              disabled={statut === 'saving' || (!selectionModifiee(selection, enregistree) && debuts === debutsEnregistres)}
             >
               {t('Enregistrer les champs', 'Save the fields')}
             </Bouton>

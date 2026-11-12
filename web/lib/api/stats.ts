@@ -860,6 +860,8 @@ export function putHubspotChoix(
 export interface ChampHubspot {
   objet: 'contact' | 'deal' | 'calcule';
   propriete: string;
+  /** Sur le calculé `document` seulement : les débuts de nom du PDF joint à retenir (lot B3, plan du 2026-11-12). */
+  debuts?: string[];
 }
 
 /** Ce que `GET .../hubspot/champs` rend, lu chez HubSpot par le connecteur. */
@@ -872,7 +874,7 @@ export interface ChampsHubspotDuPortail {
    * Le conseiller (propriétaire de la transaction), son lien de réservation, le lien et le PDF du devis ; `disponible` faux
    * sans l'accès à l'agenda (le lien de réservation) ou aux devis (les deux du devis).
    */
-  calcules: Array<{ cle: 'conseiller' | 'lien_agenda' | 'lien_devis' | 'pdf_devis'; libelle: string; disponible: boolean }>;
+  calcules: Array<{ cle: 'conseiller' | 'lien_agenda' | 'lien_devis' | 'pdf_devis' | 'document'; libelle: string; disponible: boolean }>;
   choisis: Array<ChampHubspot & { libelle: string }>;
 }
 

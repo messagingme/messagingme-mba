@@ -1,7 +1,7 @@
 ---
 ecran: templates
 source_section: Templates WhatsApp (menu Contenu)
-source_empreinte: fbcd42
+source_empreinte: 3e03ad
 ---
 # Modèle ou scénario, lequel choisir
 

@@ -93,6 +93,11 @@ export interface CreateTemplateInput {
   paramHints?: TemplateParamHint[];
   /** Durée de validité en secondes (`web/lib/partage/duree-validite.ts`). Absente : le défaut de Meta, rien envoyé. */
   ttlSecondes?: number;
+  /**
+   * En-tête Document : la clé du champ de la fiche qui porte le document propre à chaque contact (le PDF recopié de
+   * HubSpot), au lieu du fichier d'exemple. Un tel modèle ne part que depuis un scénario (plan du 2026-11-12).
+   */
+  enteteDepuisChamp?: string;
 }
 /** Indice de mapping variable -> champ posé au design d'un template. */
 export interface TemplateParamHint {

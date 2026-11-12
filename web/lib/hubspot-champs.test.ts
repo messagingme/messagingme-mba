@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  CHAMPS_HUBSPOT_MAX, accesAAutoriser, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
+  CHAMPS_HUBSPOT_MAX, accesAAutoriser, basculerChamp, caseGrisee, champsSelectionnes, corpsDesChamps, ID_DOCUMENT, debutsDe, debutsTropNombreux, lireDebuts, groupesDeChamps, idChamp, portailLisible, selectionDe, selectionModifiee,
   type LigneChamp,
 } from './hubspot-champs';
 import type { ChampsHubspotDuPortail } from './api';
@@ -135,5 +135,27 @@ describe('les champs HubSpot à importer', () => {
     for (const r of [{}, null, { proprietes: { contact: [] }, calcules: [], choisis: [] }, { ...PORTAIL, choisis: undefined }]) {
       expect(portailLisible(r), JSON.stringify(r)).toBe(false);
     }
+  });
+});
+
+describe('les débuts de nom du PDF joint (calculé document, lot B3 du plan du 2026-11-12)', () => {
+  it('lus depuis la liste choisie, et relus de la saisie : virgules ou lignes, sans vides ni doublons, bornés', () => {
+    expect(debutsDe([{ objet: 'calcule', propriete: 'document', debuts: ['Madame', 'Monsieur'] }])).toBe('Madame, Monsieur');
+    expect(debutsDe([{ objet: 'calcule', propriete: 'conseiller' }])).toBe('');
+    expect(lireDebuts(' Madame ,Monsieur\nmadame, , Mme')).toEqual(['Madame', 'Monsieur', 'Mme']);
+    expect(lireDebuts('x'.repeat(50))).toEqual(['x'.repeat(40)]);
+    expect(debutsTropNombreux('a, b, c, d, e')).toBe(false);
+    expect(debutsTropNombreux('a, b, c, d, e, f')).toBe(true);
+  });
+
+  it('🔴 le document part AVEC ses débuts (sinon l’enregistrement les effacerait chez le connecteur), au plus 5', () => {
+    const selection = new Set(['contact:firstname', ID_DOCUMENT]);
+    expect(corpsDesChamps(selection, 'Madame, Monsieur')).toEqual([
+      { objet: 'contact', propriete: 'firstname' }, { objet: 'calcule', propriete: 'document', debuts: ['Madame', 'Monsieur'] },
+    ]);
+    expect(corpsDesChamps(selection, '')).toEqual([{ objet: 'contact', propriete: 'firstname' }, { objet: 'calcule', propriete: 'document' }]);
+    expect(corpsDesChamps(new Set([ID_DOCUMENT]), 'a, b, c, d, e, f')[0]!.debuts).toEqual(['a', 'b', 'c', 'd', 'e']);
+    // Sans le document choisi, aucun débuts ne part.
+    expect(corpsDesChamps(new Set(['contact:firstname']), 'Madame')).toEqual([{ objet: 'contact', propriete: 'firstname' }]);
   });
 });

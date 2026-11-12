@@ -92,7 +92,9 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
   const { body } = bodyState;
   const [buttons, setButtons] = useState<TemplateButtonInput[]>(initial?.buttons ?? []);
   // En-tête : en édition seuls les templates à en-tête TEXTE (ou sans) sont éditables (média non re-téléchargeable).
-  const [headerType, setHeaderType] = useState<'none' | 'TEXT' | 'IMAGE' | 'VIDEO'>(initial?.headerFormat === 'TEXT' ? 'TEXT' : 'none');
+  const [headerType, setHeaderType] = useState<'none' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'>(initial?.headerFormat === 'TEXT' ? 'TEXT' : 'none');
+  // En-tête Document : '' = le fichier d'exemple part à tous ; une clé = le PDF de la fiche de chaque contact (lot B3b).
+  const [docDepuisChamp, setDocDepuisChamp] = useState('');
   const [headerText, setHeaderText] = useState(initial?.headerText ?? '');
   const [headerHandle, setHeaderHandle] = useState('');
   const [headerFileName, setHeaderFileName] = useState('');
@@ -186,7 +188,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
 
   function buildHeader(): TemplateHeaderInput | undefined {
     if (headerType === 'TEXT') return headerText.trim() ? { format: 'TEXT', text: headerText.trim() } : undefined;
-    if (headerType === 'IMAGE' || headerType === 'VIDEO') return headerHandle ? { format: headerType, handle: headerHandle } : undefined;
+    if (headerType === 'IMAGE' || headerType === 'VIDEO' || headerType === 'DOCUMENT') return headerHandle ? { format: headerType, handle: headerHandle } : undefined;
     return undefined;
   }
 
@@ -208,7 +210,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
     setError(null);
     try {
       // Image : resize canvas (léger). Vidéo : brut en base64 (pas de resize, capé côté serveur à 16 Mo).
-      const dataUrl = headerType === 'VIDEO' ? await fileToDataUrl(file) : await resizeToDataUrl(file, 1024, 0.85);
+      const dataUrl = headerType === 'VIDEO' || headerType === 'DOCUMENT' ? await fileToDataUrl(file) : await resizeToDataUrl(file, 1024, 0.85);
       const { handle } = await uploadMedia(tenantId, dataUrl);
       setHeaderHandle(handle);
       setHeaderFileName(file.name);
@@ -279,6 +281,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
         ...(buttons.length > 0 ? { buttons } : {}),
         ...(paramHints.length > 0 ? { paramHints } : {}),
         ...(envoyerTtl ? { ttlSecondes: ttl } : {}),
+        ...(headerType === 'DOCUMENT' && docDepuisChamp !== '' ? { enteteDepuisChamp: docDepuisChamp } : {}),
       });
       setOk(`${t('Template soumis (statut', 'Template submitted (status')} : ${res.status}). ${t('Il passe en revue Meta.', 'It goes through Meta review.')}`);
       setName('');
@@ -286,6 +289,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
       setButtons([]);
       setHeaderType('none');
       setHeaderText('');
+      setDocDepuisChamp('');
       clearHeaderMedia();
       setFooter('');
       if (categorieTtl !== null) setTtl(DUREE_PAR_DEFAUT[categorieTtl]);
@@ -302,7 +306,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
   const headerReady =
     headerType === 'none' ||
     (headerType === 'TEXT' && headerText.trim() !== '') ||
-    ((headerType === 'IMAGE' || headerType === 'VIDEO') && headerHandle !== '');
+    ((headerType === 'IMAGE' || headerType === 'VIDEO' || headerType === 'DOCUMENT') && headerHandle !== '');
   /**
    * 🔴 CE QUI MANQUE POUR VALIDER, NOMMÉ. Le bouton se grisait sur CINQ conditions sans en exposer aucune :
    * Julien a saisi `htpps://` au lieu de `https://` et n'a eu qu'un bouton inerte. La raison EXISTAIT
@@ -430,7 +434,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={headerType}
-                onChange={(e) => { setHeaderType(e.target.value as 'none' | 'TEXT' | 'IMAGE' | 'VIDEO'); clearHeaderMedia(); }}
+                onChange={(e) => { setHeaderType(e.target.value as 'none' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'); setDocDepuisChamp(''); clearHeaderMedia(); }}
                 className={`${inputCls} max-w-[150px]`}
                 data-testid="template-entete-type"
               >
@@ -438,6 +442,8 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
                 <option value="TEXT">{t('Texte', 'Text')}</option>
                 <option value="IMAGE">Image</option>
                 <option value="VIDEO">{t('Vidéo', 'Video')}</option>
+                {/* Meta ne laisse pas modifier un modèle à en-tête Document : proposé à la création seulement. */}
+                {!isEdit && <option value="DOCUMENT">{t('Document (PDF)', 'Document (PDF)')}</option>}
               </select>
               {headerType === 'TEXT' && (
                 <div className="min-w-[12rem] flex-1">
@@ -445,16 +451,41 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
                   <CompteurCaracteres reste={caracteresRestants(headerText, LIMITES_TEMPLATE.entete)} testId="template-entete-reste" />
                 </div>
               )}
-              {(headerType === 'IMAGE' || headerType === 'VIDEO') && (
+              {(headerType === 'IMAGE' || headerType === 'VIDEO' || headerType === 'DOCUMENT') && (
                 <>
                   <Bouton variante="secondaire" enCours={headerUploading} type="button" onClick={() => headerFileRef.current?.click()} disabled={headerUploading}>
-                    {headerUploading ? 'Upload…' : headerHandle ? t('Remplacer', 'Replace') : headerType === 'IMAGE' ? t('Choisir une image', 'Choose an image') : t('Choisir une vidéo (mp4)', 'Choose a video (mp4)')}
+                    {headerUploading ? 'Upload…' : headerHandle ? t('Remplacer', 'Replace') : headerType === 'IMAGE' ? t('Choisir une image', 'Choose an image') : headerType === 'DOCUMENT' ? t('Choisir un PDF d’exemple', 'Choose a sample PDF') : t('Choisir une vidéo (mp4)', 'Choose a video (mp4)')}
                   </Bouton>
                   {headerFileName && <span className="inline-flex max-w-[160px] items-center gap-1 text-xs text-ink-500"><span className="truncate">{headerFileName}</span><Icone nom="valide" taille="petite" className="text-succes-700" /></span>}
-                  <input ref={headerFileRef} type="file" accept={headerType === 'IMAGE' ? 'image/png,image/jpeg' : 'video/mp4'} className="hidden" onChange={(e) => onHeaderFile(e.target.files?.[0])} />
+                  <input ref={headerFileRef} type="file" accept={headerType === 'IMAGE' ? 'image/png,image/jpeg' : headerType === 'DOCUMENT' ? 'application/pdf' : 'video/mp4'} className="hidden" onChange={(e) => onHeaderFile(e.target.files?.[0])} />
                 </>
               )}
             </div>
+            {headerType === 'DOCUMENT' && (
+              <div className="mt-2">
+                <label className="mb-1 block text-sm font-medium text-ink-900" htmlFor="template-entete-source">{t('Document envoyé', 'Document sent')}</label>
+                <select
+                  id="template-entete-source"
+                  value={docDepuisChamp}
+                  onChange={(e) => setDocDepuisChamp(e.target.value)}
+                  className={`${inputCls} w-full`}
+                  data-testid="template-entete-source"
+                >
+                  <option value="">{t('Ce fichier, le même pour tous', 'This file, the same for everyone')}</option>
+                  {customFieldsOnly(bodyState.userFields).map((f) => (
+                    <option key={f.key} value={f.key}>{t('Le PDF de la fiche du contact', 'The contact record’s PDF')} : {f.label}</option>
+                  ))}
+                </select>
+                {docDepuisChamp !== '' && (
+                  <p className="mt-1 text-xs text-ink-500" data-testid="template-entete-source-aide">
+                    {t(
+                      'Chaque contact reçoit son propre PDF (par exemple son devis, recopié de HubSpot). Le fichier choisi ci-dessus ne sert qu’à la validation par Meta. Ce modèle ne part que depuis un scénario : ni campagne, ni envoi depuis l’Inbox.',
+                      'Each contact gets their own PDF (for example their quote, copied from HubSpot). The file chosen above is only used for Meta’s review. This template is only sent from a scenario: not from a campaign or the Inbox.',
+                    )}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="mt-3">
