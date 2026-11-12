@@ -123,6 +123,17 @@
 - [Les intégrations](https://app.messagingme.fr/integrations/) : Messaging Me s’installe dans Salesforce (Marketing Cloud et Sales Cloud), Dynamics 365 et HubSpot, où WhatsApp devient une étape des parcours et les réponses reviennent dans la fiche ; il se branche à Shopify, à Claude Code et à Codex ; l’API, les webhooks et le serveur MCP relient le reste.
 - [Integrations](https://app.messagingme.fr/en/integrations/) : the same page in English.
 
+## Centre de confiance
+
+- [Centre de confiance](https://app.messagingme.fr/confiance/) : comment Messaging Me protège les conversations WhatsApp : le chemin d’un message, qui fait quoi entre Meta, Messaging Me et le client, les certifications des fournisseurs (ISO 27001, SOC 2 Type II), le chiffrement, les accès, l’exploitation, et les documents sur demande.
+- [Trust center](https://app.messagingme.fr/en/trust/) : the same page in English.
+- [Le RGPD, en détail](https://app.messagingme.fr/confiance/rgpd/) : les rôles (responsable de traitement, sous-traitant, sous-traitant ultérieur), l’hébergement dans l’Union européenne et les transferts, les durées de conservation, le consentement et le STOP, les droits des personnes.
+- [The GDPR, in detail](https://app.messagingme.fr/en/trust/gdpr/) : the same page in English.
+- [L’AI Act, en détail](https://app.messagingme.fr/confiance/ia/) : l’agent IA face à l’AI Act : les rôles, un usage à risque limité, la transparence, la supervision humaine, les garde-fous, et les deux routes vers les modèles.
+- [The AI Act, in detail](https://app.messagingme.fr/en/trust/ai-act/) : the same page in English.
+- [Nos sous-traitants](https://app.messagingme.fr/confiance/sous-traitants/) : la liste datée des sous-traitants : le rôle, le pays et la garantie de transfert de chacun.
+- [Our subprocessors](https://app.messagingme.fr/en/trust/subprocessors/) : the same page in English.
+
 ## Démarrer
 
 - [Démarrer](https://app.messagingme.fr/demarrer/) : votre numéro WhatsApp en six questions au plus (Free ou Pro, console ou Claude Code, qui paie Meta, compte Meta Business, application WhatsApp Business, numéro), puis la demande à coller dans Claude Code ou Codex.

@@ -1854,3 +1854,150 @@ html[data-ou="console"] .aide-une .appels .bouton-trait[data-voie="console"]{bac
   .aide-etape{grid-template-columns:minmax(0,1fr)}
   .aide-question{margin-left:0}
 }
+
+/* ============================================================================================================
+   LE CENTRE DE CONFIANCE (/confiance/, 2026-11-12, docs/superpowers/specs/2026-11-12-centre-de-confiance-design.md) :
+   la page principale (repères, sommaire collant, schéma du chemin d'un message, qui fait quoi, certifications,
+   chiffrement, accès, exploitation, renvois) et ses trois pages de détail (RGPD, AI Act, sous-traitants). Classes
+   préfixées confiance- : rien ici ne touche une autre page.
+   ============================================================================================================ */
+.confiance-page [id]{scroll-margin-top:150px}
+.confiance-une{padding-bottom:48px}
+.confiance-une .chapeau{max-width:38em}
+.confiance-reperes{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.confiance-reperes li{padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.confiance-reperes .confiance-ic{margin-bottom:14px}
+.confiance-reperes strong{display:block;font-size:1.2rem;line-height:1.25;letter-spacing:-.01em}
+.confiance-reperes span:not(.confiance-ic){display:block;margin-top:6px;color:var(--muted);font-size:.9rem;line-height:1.45}
+.confiance-ic{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:var(--action-wash);color:var(--action-ink);font-size:1.3rem}
+@media (max-width:960px){.confiance-reperes{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:420px){.confiance-reperes{grid-template-columns:minmax(0,1fr)}}
+
+/* Le sommaire, collé sous la barre ; au téléphone, il défile de côté dans sa propre bande, jamais la page. */
+.confiance-sommaire{position:sticky;top:72px;z-index:5;background:rgb(1 6 48 / .94);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+@media (min-width:1141px){.confiance-sommaire{top:84px}}
+.confiance-sommaire ul{list-style:none;margin:0 auto;padding-top:12px;padding-bottom:12px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+.confiance-sommaire ul::-webkit-scrollbar{display:none}
+.confiance-sommaire a{display:block;white-space:nowrap;padding:6px 14px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.86rem;font-weight:600;text-decoration:none;transition:color .15s,border-color .15s}
+.confiance-sommaire a:hover{color:var(--ink);border-color:var(--action)}
+
+.confiance-bloc{padding:88px 0}
+.confiance-bloc + .confiance-bloc{padding-top:24px}
+.confiance-bloc .f-texte{margin-bottom:36px}
+.confiance-bloc h3{margin:0;font-size:1.1rem;line-height:1.3}
+
+/* Le chemin d'un message : le schéma à gauche, les cinq étapes à droite. Sans script, tout se lit : les cinq légendes
+   ouvertes, le schéma sans surbrillance. Le script allume une étape à la fois. */
+.confiance-schema{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px;align-items:start}
+.confiance-toile{margin:0;padding:12px;border:1px solid var(--line);border-radius:20px;background:linear-gradient(180deg,var(--surface),#081040)}
+.confiance-toile svg{display:block;width:100%;height:auto}
+.confiance-toile text{font-family:var(--sans);fill:var(--ink)}
+.confiance-toile .confiance-petit{fill:var(--muted);font-size:11px}
+.confiance-toile .confiance-zone-titre{font-size:11px;font-weight:700;letter-spacing:.06em}
+.confiance-zone{fill:none;stroke-width:1.2;stroke-dasharray:4 6}
+.confiance-noeud rect{fill:#0F1C6E;stroke:rgb(255 255 255 / .18);stroke-width:1.2;transition:fill .35s,stroke .35s}
+.confiance-noeud .confiance-ic-noeud{color:var(--action-ink)}
+.confiance-noeud.allume rect{fill:#13258F;stroke:var(--action-ink);stroke-width:2.2;filter:drop-shadow(0 0 12px rgb(111 194 254 / .5))}
+.confiance-flux{fill:none;stroke:rgb(255 255 255 / .24);stroke-width:2;stroke-dasharray:6 7}
+.confiance-flux.allume{stroke:var(--action-ink)}
+@media (prefers-reduced-motion:no-preference){
+  .confiance-flux.allume{animation:confiance-defile 1s linear infinite}
+}
+@keyframes confiance-defile{to{stroke-dashoffset:-26}}
+.confiance-etapes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.confiance-etape{border:1px solid var(--line);border-radius:14px;background:var(--surface);transition:border-color .25s,background-color .25s}
+.confiance-etape h3{margin:0;font-size:1rem}
+.confiance-etape button{display:flex;align-items:center;gap:10px;width:100%;padding:14px 16px;border:0;background:none;color:var(--ink);font:inherit;font-weight:700;text-align:left;cursor:pointer}
+.confiance-etape button:focus-visible{outline:2px solid var(--action);outline-offset:-2px;border-radius:14px}
+.confiance-n{display:inline-grid;place-items:center;flex:none;width:26px;height:26px;border-radius:50%;background:var(--action-wash);color:var(--action-ink);font-size:.8rem;font-weight:800}
+.confiance-etape-texte{padding:0 16px 16px 52px}
+.confiance-etape-texte p{margin:0;color:var(--muted);font-size:.93rem}
+.js .confiance-etape:not(.allume) .confiance-etape-texte{display:none}
+.confiance-etape.allume{border-color:var(--action);background:#0F1C6E}
+.confiance-etape.allume .confiance-n{background:var(--action);color:var(--on-action)}
+.confiance-puces{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.confiance-puces li{padding:3px 9px;border-radius:6px;background:rgb(61 220 151 / .14);color:#3DDC97;font-size:.75rem;font-weight:700}
+@media (max-width:960px){.confiance-schema{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){.confiance-toile .confiance-petit{display:none}.confiance-toile{padding:6px}.confiance-etape-texte{padding-left:16px}}
+
+/* Qui fait quoi : trois colonnes, un trait de couleur par acteur. */
+.confiance-trois{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.confiance-col{padding:24px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.confiance-col.meta{box-shadow:inset 0 3px 0 #4F8BFF}
+.confiance-col.mm{box-shadow:inset 0 3px 0 var(--action-ink)}
+.confiance-col.vous{box-shadow:inset 0 3px 0 #3DDC97}
+.confiance-qui{margin:4px 0 14px;color:var(--muted);font-size:.86rem}
+.confiance-liste{list-style:none;margin:0;padding:0}
+.confiance-liste li{position:relative;padding:9px 0 9px 28px;border-top:1px solid var(--line);font-size:.95rem;line-height:1.45}
+.confiance-liste li > .ic{position:absolute;left:2px;top:12px;color:#3DDC97;font-size:1.05rem}
+.bande-claire .confiance-liste li > .ic{color:#12A150}
+@media (max-width:960px){.confiance-trois{grid-template-columns:minmax(0,1fr)}}
+
+/* Les certifications, et à qui elles appartiennent. */
+.confiance-certs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.confiance-cert{padding:26px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.confiance-sigle{margin:0;font-size:1.8rem;font-weight:800;letter-spacing:-.02em}
+.confiance-cert p{margin:8px 0 16px;color:var(--muted)}
+.confiance-porteurs{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.confiance-porteurs li{padding:5px 12px;border:1px solid var(--line);border-radius:999px;font-size:.85rem;font-weight:700}
+.confiance-note{margin:18px 0 0;max-width:46em;color:var(--muted);font-size:.9rem}
+@media (max-width:860px){.confiance-certs{grid-template-columns:minmax(0,1fr)}}
+
+/* Chiffrement et accès, sur la bande claire : deux cartes côte à côte. */
+.confiance-duo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.confiance-carte{padding:26px;border:1px solid var(--line);border-radius:18px;background:var(--surface)}
+.confiance-carte .confiance-ic{margin-bottom:14px}
+.confiance-carte h3{margin-bottom:12px}
+.confiance-carte h4{margin:16px 0 4px;color:var(--muted);font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+@media (max-width:860px){.confiance-duo{grid-template-columns:minmax(0,1fr)}}
+
+/* L'exploitation : des tuiles courtes, une icône, un titre, une ligne. */
+.confiance-tuiles{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.confiance-tuiles li{display:flex;gap:14px;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.confiance-tuiles .confiance-ic{flex:none}
+.confiance-tuiles strong{display:block;line-height:1.3}
+.confiance-tuiles span:not(.confiance-ic){display:block;margin-top:4px;color:var(--muted);font-size:.9rem;line-height:1.45}
+@media (max-width:960px){.confiance-tuiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.confiance-tuiles{grid-template-columns:minmax(0,1fr)}}
+
+/* Les renvois vers les pages de détail. */
+.confiance-renvois{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.confiance-renvois a{display:flex;flex-direction:column;gap:10px;height:100%;padding:24px;border:1px solid var(--line);border-radius:18px;background:var(--surface);color:var(--ink);text-decoration:none;transition:border-color .15s,transform .15s}
+.confiance-renvois a:hover{border-color:var(--action-ink);transform:translateY(-2px)}
+.confiance-renvois p{margin:0;color:var(--muted);font-size:.95rem}
+.confiance-plus{display:inline-flex;align-items:center;gap:6px;margin-top:auto;padding-top:6px;color:var(--action-ink);font-weight:700}
+.confiance-noms{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.confiance-noms li{padding:5px 12px;border:1px solid var(--line);border-radius:999px;color:var(--muted);font-size:.85rem;font-weight:600}
+@media (max-width:960px){.confiance-renvois{grid-template-columns:minmax(0,1fr)}}
+@media (prefers-reduced-motion:reduce){.confiance-renvois a{transition:none}.confiance-renvois a:hover{transform:none}}
+
+/* Les documents sur demande, puis l'appel. */
+.confiance-docs{list-style:none;margin:0 0 8px;padding:0;display:flex;flex-wrap:wrap;gap:10px}
+.confiance-docs li{display:flex;align-items:center;gap:10px;padding:12px 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:.95rem;font-weight:600}
+.confiance-docs .ic{color:var(--action-ink);font-size:1.15rem}
+.confiance-appel{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:48px;padding:36px;border-radius:22px;background:linear-gradient(120deg,var(--halo),var(--surface))}
+.confiance-appel h2{margin:0;font-size:1.5rem;line-height:1.25}
+.confiance-appel p{margin:8px 0 0;color:var(--muted)}
+.confiance-appel p a{color:var(--action-ink);font-weight:700}
+.confiance-appel .bouton{flex:none}
+@media (max-width:760px){.confiance-appel{flex-direction:column;align-items:flex-start;padding:26px}}
+
+/* Les pages de détail : un retour vers le centre, des sections courtes, des tableaux. */
+.confiance-retour{color:var(--action-ink);text-decoration:none}
+.confiance-retour:hover{text-decoration:underline}
+.confiance-detail{padding:8px 0 88px}
+.confiance-detail section{max-width:900px;margin:0 0 56px}
+.confiance-detail h2{display:flex;align-items:center;gap:12px;margin:0 0 14px;font-size:clamp(1.35rem,2.4vw,1.7rem);line-height:1.2;letter-spacing:-.02em}
+.confiance-detail h2 .confiance-ic{flex:none}
+.confiance-detail p{margin:0 0 12px;color:var(--muted);max-width:44em}
+.confiance-detail p strong{color:var(--ink)}
+.confiance-detail p a{color:var(--action-ink)}
+.confiance-tableau{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--surface)}
+.confiance-tableau table{width:100%;min-width:520px;border-collapse:collapse;font-size:.93rem}
+.confiance-tableau caption{padding:14px 18px 0;color:var(--muted);font-size:.85rem;text-align:left}
+.confiance-tableau th{padding:12px 18px;border-bottom:1px solid var(--line);color:var(--muted);font-size:.76rem;font-weight:700;letter-spacing:.06em;text-align:left;text-transform:uppercase}
+.confiance-tableau td{padding:13px 18px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.45}
+.confiance-tableau tr:last-child td{border-bottom:0}
+.confiance-tableau td:first-child{font-weight:700}
+.confiance-detail section.confiance-large{max-width:none}
+.confiance-large .confiance-tableau table{min-width:780px}

@@ -57,6 +57,11 @@ export const JUMELLES: Readonly<Record<string, string>> = {
   '/shopify/installe/': '/en/shopify/installed/',
   // La même page pour le parcours de la console (conception 2026-10-22) : « revenez dans votre console ».
   '/shopify/console/': '/en/shopify/console/',
+  // Le Centre de confiance (2026-11-12) : sécurité, RGPD, AI Act et sous-traitants.
+  '/confiance/': '/en/trust/',
+  '/confiance/rgpd/': '/en/trust/gdpr/',
+  '/confiance/ia/': '/en/trust/ai-act/',
+  '/confiance/sous-traitants/': '/en/trust/subprocessors/',
   // Le centre d'aide : ses deux langues viennent des fiches et de leur version anglaise (npm run vitrine:aide).
   ...jumellesAide(),
 };

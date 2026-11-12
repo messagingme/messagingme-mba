@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🔴 Ce que le Centre de confiance annonce et que la production ne fait pas encore (cadrage `docs/superpowers/specs/2026-11-12-centre-de-confiance-design.md`)
+
+- **La console « en serverless chez Scaleway »** : elle tourne encore chez Vercel (décision de Julien de l'annoncer dès la
+  publication). Un conteneur serverless de plus à Amsterdam (l'image `web/Dockerfile` existe), dans le workflow de
+  déploiement ; DNS de `console.messagingme.app` ; Google Sign-In et Meta Embedded Signup gardent la même origine.
+- **Le réglage « zéro conservation » de la passerelle IA de Vercel** : jamais vérifié (audit RSSI du 2026-11-03) ; la page
+  dit « aucun entraînement », pas « sans conservation », tant qu'il ne l'est pas.
+- **Les modèles hébergés en Europe « sur demande »** (Scaleway Generative APIs ou Mistral) : la route se construit au
+  premier client Entreprise qui la demande (décision de Julien).
+
 ## 🟡 Le bloc « Envoyer au MBA » sans relais d'un message répondu : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-bloc-mba-sans-relais.md`)
 
 Aucun rouge. À reprendre avec le prochain lot de fonctionnalité qui touche ce chemin.
