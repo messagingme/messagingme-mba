@@ -3209,8 +3209,14 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   à `/^[a-z0-9_]{1,53}$/` (la clé tient dans les 64 caractères d'une clé de l'API), les calculés de
   `CALCULES_HUBSPOT` (`conseiller`, `lien_agenda`, `lien_devis`, `pdf_devis`), 20 au plus, calculés compris, sans doublon. 🔴 mba seul fabrique les clés de fiche, depuis le nom
   interne et jamais depuis le libellé : `hs_contact_<p>`, `hs_deal_<p>`, `hs_calc_<calculé>` (un calculé ne rencontre
-  jamais une propriété de transaction du même nom), en `text` sauf les trois liens calculés en `url` (`champsFiche`
-  écrit sans validation ni mise en forme), libellé HubSpot suivi de « (HubSpot) ». 🔴 Le `PUT` relit les libellés chez le
+  jamais une propriété de transaction du même nom), en `text` sauf les trois liens calculés en `url` et les propriétés
+  HubSpot `datetime` et `date`, déclarées `datetime` et `date` (`typeChampHubspot`, le type relu chez le connecteur à
+  l'enregistrement, jamais pris dans le corps), libellé HubSpot suivi de « (HubSpot) ». Un champ `hs_*` existant resté en
+  `text` dont la propriété est une date passe en date à la déclaration (`updateField`) ; aucun autre changement de type.
+  `champsDeFiche` reçoit les champs déclarés avec leur type : une date est posée en ISO (`normaliserDate`), 🔴 une date
+  illisible, ambiguë ou sans heure est RETIRÉE et journalisée (`hubspot_champ_date_illisible`, clé et raison, jamais la
+  valeur), les autres types partent bruts, sans validation ni mise en forme. C'est ce qui permet au déclencheur
+  `avant_date` (qui n'accepte qu'un champ `datetime`) de viser la date d'un rendez-vous pris dans HubSpot. 🔴 Le `PUT` relit les libellés chez le
   connecteur (jamais ceux du corps, `strict`), refuse une propriété absente ou filtrée (400 `propriete_inconnue`), puis
   DÉCLARE les champs (`ensureFieldByKey`, idempotent) AVANT de poser la liste : une liste posée sans déclaration ferait
   envoyer des valeurs que mba ignore. Un champ décoché n'est jamais supprimé (un modèle peut encore le viser). Les

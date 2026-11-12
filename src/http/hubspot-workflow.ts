@@ -16,7 +16,7 @@ import type { TemplateSummary } from '../meta/templates';
 import type { EnvoyerPublic } from '../shopify/envoi';
 import { envoyerPourWorkflow, valeursDuWorkflow, type EnvoiWorkflow, type IssueWorkflow, type PlafondRefuse } from '../hubspot-workflow/envoi';
 import type { VerdictPlafonds } from '../hubspot-workflow/plafonds';
-import { champsDeFiche, schemaChampsContact, schemaChampsGroupes } from '../hubspot-workflow/champs';
+import { champsDeFiche, schemaChampsContact, schemaChampsGroupes, type ChampDeclare } from '../hubspot-workflow/champs';
 import { resolveHintParams, type ResolvableContact } from '../crm/template';
 import type { ParamHint } from '../crm/template-hints.pg';
 import type { EtatLigneHubspot } from './hubspot-conversation';
@@ -66,10 +66,10 @@ export interface HubspotWorkflowDeps {
   /** La fiche d'un numéro telle que les variables d'un modèle la lisent (`getResolvableByPhone`), ou `null`. */
   ficheParNumero(tenantId: string, waId: string): Promise<ResolvableContact | null>;
   /**
-   * Les clés des champs de fiche déclarés dans l'espace (`fieldStore.list`) : seul un champ HubSpot déclaré s'écrit
-   * (lot 2 du 2026-11-02), la liste choisie vivant chez le connecteur.
+   * Les champs de fiche déclarés dans l'espace, clé et type (`fieldStore.list`) : seul un champ HubSpot déclaré s'écrit
+   * (lot 2 du 2026-11-02), la liste choisie vivant chez le connecteur, et une date s'y écrit en ISO (`champsDeFiche`).
    */
-  champsDeclares(tenantId: string): Promise<string[]>;
+  champsDeclares(tenantId: string): Promise<ReadonlyArray<ChampDeclare>>;
   now?: () => number;
   windowMs?: number;
 }
@@ -400,7 +400,7 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     const g = await garderLancement(reply, tenantId, telephone, scenario, lu.data.valeurs, accordMarketing === true);
     if (!g) return reply;
     if (g.valeurs.length !== g.lancable.variables) return reply.code(200).send({ issue: 'valeur_invalide' });
-    const champsFiche = champs ? champsDeFiche(champs, await deps.champsDeclares(tenantId)) : null;
+    const champsFiche = champs ? champsDeFiche(champs, await deps.champsDeclares(tenantId), tenantId) : null;
     return lancer(reply, {
       tenantId, telephone: g.e164, cible: { scenario }, valeurs: g.valeurs, workflowId,
       ...(champsFiche ? { champsFiche } : {}), ...(accordMarketing ? { accordMarketing } : {}),
@@ -428,7 +428,7 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     const g = await garderLancement(reply, tenantId, telephone, scenario, null, accordMarketing === true);
     if (!g) return reply;
 
-    const champsFiche = champsDeFiche(champs, await deps.champsDeclares(tenantId));
+    const champsFiche = champsDeFiche(champs, await deps.champsDeclares(tenantId), tenantId);
     // La fiche telle qu'elle sera après l'écriture : ses champs, moins ceux qu'on retire, plus ceux qu'on pose. Un lead
     // inconnu n'a pas encore de fiche (le cœur la crée) : sa vue n'a que son numéro et les champs reçus.
     const fiche = g.waId !== null ? await deps.ficheParNumero(tenantId, g.waId) : null;

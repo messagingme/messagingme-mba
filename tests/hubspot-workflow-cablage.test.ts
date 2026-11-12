@@ -58,7 +58,8 @@ describe('le câblage de l’action de workflow HubSpot', () => {
 
   it('🔴 les champs HubSpot choisis : les clés déclarées lues dans l’espace, jamais une liste fixe', () => {
     // `champsDeclares: async () => []` compilerait, et plus aucun champ ne s'écrirait (lot 2 du 2026-11-02).
-    expect(bloc).toContain('champsDeclares: async (t: string) => (await fieldStore.list(t)).map((f) => f.key),');
+    // La clé ET le type : une date reçue de HubSpot s'écrit en ISO sur un champ date (plan du 2026-11-12).
+    expect(bloc).toContain('champsDeclares: (t: string) => fieldStore.list(t),');
   });
 });
 
@@ -103,7 +104,7 @@ describe('le câblage du changement d’étape d’un deal HubSpot', () => {
 
   it('🔴 la fiche par `resoudreFiche` (limite de contacts, liste de refus), les champs déclarés de l’espace, le blocage relu', () => {
     expect(evenements).toContain("resoudreFiche: (t: string, e164: string) => resoudreFiche(contactStore, t, { phone: e164 }, { creer: 'phone' }),");
-    expect(evenements).toContain('champsDeclares: async (t: string) => (await fieldStore.list(t)).map((f) => f.key),');
+    expect(evenements).toContain('champsDeclares: (t: string) => fieldStore.list(t),');
     expect(evenements).toContain('ecrireChamps: (t: string, contactId: string, champs: ChampsFiche) => contactStore.ecrireChampsFiche(t, contactId, champs),');
     expect(evenements).toContain('estBloque: (t: string, waId: string) => contactStore.isBlockedByWaId(t, waId),');
   });

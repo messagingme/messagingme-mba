@@ -84,12 +84,16 @@ export function registerHubspotChamps(app: FastifyInstance, deps: HubspotChampsR
 
     try {
       const portail = await deps.lire(tenant);
+      const proprieteDe = (c: ChampChoisi) => (c.objet === 'calcule' ? undefined : portail.proprietes[c.objet].find((p) => p.nom === c.propriete));
       const libelleDe = (c: ChampChoisi): string | undefined => (c.objet === 'calcule'
         ? portail.calcules.find((k) => k.cle === c.propriete)?.libelle
-        : portail.proprietes[c.objet].find((p) => p.nom === c.propriete)?.libelle);
+        : proprieteDe(c)?.libelle);
+      // Le type HubSpot vient du connecteur, jamais du corps : une propriété `datetime` devient un champ « date et
+      // heure », que le déclencheur « avant ou après une date » peut viser (`typeChampHubspot`).
       const declares = choisis.flatMap((c): ChampLibelle[] => {
         const libelle = libelleDe(c);
-        return libelle === undefined ? [] : [{ ...c, libelle }];
+        const typeHubspot = proprieteDe(c)?.type;
+        return libelle === undefined ? [] : [{ ...c, libelle, ...(typeHubspot !== undefined ? { typeHubspot } : {}) }];
       });
       if (declares.length < choisis.length) {
         return reply.code(400).send({

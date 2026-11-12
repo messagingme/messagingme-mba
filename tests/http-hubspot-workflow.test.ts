@@ -113,7 +113,7 @@ function app(o: Options = {}) {
     conseillerEnMain: async (t, waId) => { lus.push(['conseiller', `${t}/${waId}`]); return o.conseiller ?? false; },
     sourcesDuModele: async (t, name) => { lus.push(['sources', `${t}/${name}`]); return o.sources?.[name] ?? []; },
     ficheParNumero: async (t, waId) => { lus.push(['fiche', `${t}/${waId}`]); return o.fiche ?? null; },
-    champsDeclares: lire('declarees', o.declarees ?? DECLAREES),
+    champsDeclares: lire('declarees', (o.declarees ?? DECLAREES).map((key) => ({ key, type: 'text' as const }))),
     now: () => NOW,
   };
   const server = buildServer({ queue: new FakeQueue(), hubspotWorkflow: deps });

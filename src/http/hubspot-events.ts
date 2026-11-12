@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { verifyRequest } from '../lib/signature';
 import { waIdOf } from '../crm/identity';
 import { normalizePhone } from '../crm/phone';
-import { champsDeFiche, schemaChampsGroupes } from '../hubspot-workflow/champs';
+import { champsDeFiche, schemaChampsGroupes, type ChampDeclare } from '../hubspot-workflow/champs';
 import type { ResolutionFiche } from '../api/fiche';
 import type { ChampsFiche } from '../campaign/build';
 
@@ -50,8 +50,8 @@ export interface HubspotEventRouteDeps {
    * liste de refus s'appliquent, et la création n'émet aucun événement d'automation.
    */
   resoudreFiche(tenantId: string, e164: string): Promise<ResolutionFiche>;
-  /** Les clés des champs de fiche déclarés dans l'espace : seules les clés `hs_*` déclarées s'écrivent. */
-  champsDeclares(tenantId: string): Promise<string[]>;
+  /** Les champs de fiche déclarés dans l'espace, clé et type : seules les clés `hs_*` déclarées s'écrivent. */
+  champsDeclares(tenantId: string): Promise<ReadonlyArray<ChampDeclare>>;
   /** Écrit les champs sur la fiche, hors transaction (`PgContactStore.ecrireChampsFiche`). */
   ecrireChamps(tenantId: string, contactId: string, champs: ChampsFiche): Promise<void>;
   /** Publie l'événement d'automation (file). C'est le worker qui décide ensuite quoi déclencher. */
@@ -130,7 +130,7 @@ export function registerHubspotEvents(app: FastifyInstance, deps: HubspotEventRo
     // Les champs importés s'écrivent AVANT l'enfilement : le scénario les lit sur la fiche. Seules les clés déclarées
     // dans l'espace, une valeur vide retire le champ (règle du lot 2, `champsDeFiche`).
     if (champs) {
-      const ecrits = champsDeFiche(champs, await deps.champsDeclares(tenantId));
+      const ecrits = champsDeFiche(champs, await deps.champsDeclares(tenantId), tenantId);
       if (Object.keys(ecrits.poser).length > 0 || ecrits.retirer.length > 0) await deps.ecrireChamps(tenantId, fiche.contactId, ecrits);
     }
 

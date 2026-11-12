@@ -39,7 +39,7 @@ function app(over: Partial<HubspotEventRouteDeps> = {}) {
     findWaId: async (_t, waId) => waId,
     estBloque: async () => false,
     resoudreFiche: async (tenantId, e164) => { fiches.push({ tenantId, e164 }); journal.push('fiche'); return { ok: true, contactId: 'c1', cree: true }; },
-    champsDeclares: async () => DECLAREES,
+    champsDeclares: async () => DECLAREES.map((key) => ({ key, type: 'text' as const })),
     ecrireChamps: async (tenantId, contactId, champs) => { ecrits.push({ tenantId, contactId, champs }); journal.push('champs'); },
     publish: async (tenantId, ev) => { publies.push({ tenantId, ev }); journal.push('publish'); },
     now: () => NOW,

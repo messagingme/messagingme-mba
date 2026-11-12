@@ -2606,7 +2606,11 @@ scénario, comment importer des contacts.
   d'une variable de modèle et lisible par les blocs d'un scénario. L'action transaction écrit les champs choisis du
   contact, de la transaction et les calculés ; l'action « Lancer un scénario » ceux du contact ; « Envoyer un modèle »
   n'en écrit aucun ; un deal qui atteint l'étape d'une automation allumée écrit ceux du contact, de la transaction et
-  les calculés avant le scénario (aucun sans automation sur l'étape). Une valeur vide dans HubSpot retire le champ de la fiche, un champ non choisi n'est pas touché, et
+  les calculés avant le scénario (aucun sans automation sur l'étape). Une propriété HubSpot de type date et heure (la
+  date d'un rendez-vous pris par un lien de réservation, par exemple) devient un champ « date et heure », que
+  l'automation « avant ou après une date » peut viser pour relancer le contact avant son rendez-vous ; de type date, un
+  champ « date » (2026-11-12). Un tel champ importé avant ce jour, resté en texte, passe en date au prochain
+  « Enregistrer les champs ». Une date que la fiche ne sait pas lire en est retirée plutôt que gardée fausse. Une valeur vide dans HubSpot retire le champ de la fiche, un champ non choisi n'est pas touché, et
   un champ décoché n'est pas supprimé de la fiche. Pendant une mise à jour de l'intégration, le bloc le dit au lieu
   d'afficher une liste vide.
   **Un scénario écrit aussi dans HubSpot** (2026-11-06) : quand un parcours pose un champ « (HubSpot) » d'une propriété

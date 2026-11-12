@@ -2184,7 +2184,7 @@ async function main(): Promise<void> {
         findWaId: async (tenant: string, waId: string) => ((await contactStore.findIdByWaId(tenant, waId)) ? waId : null),
         estBloque: (t: string, waId: string) => contactStore.isBlockedByWaId(t, waId),
         resoudreFiche: (t: string, e164: string) => resoudreFiche(contactStore, t, { phone: e164 }, { creer: 'phone' }),
-        champsDeclares: async (t: string) => (await fieldStore.list(t)).map((f) => f.key),
+        champsDeclares: (t: string) => fieldStore.list(t),
         ecrireChamps: (t: string, contactId: string, champs: ChampsFiche) => contactStore.ecrireChampsFiche(t, contactId, champs),
         publish: async (tenantId: string, event: { kind: 'hubspot_deal_stage'; waId: string; pipelineId: string; stageId: string }) => {
           await enfilerEvenementAutomation(queue, { tenantId, event } satisfies AutomationEventJob);
@@ -2272,7 +2272,7 @@ async function main(): Promise<void> {
         sourcesDuModele: (t: string, name: string, language: string) => templateHintStore.get(t, name, language),
         ficheParNumero: (t: string, waId: string) => contactStore.getResolvableByPhone(t, waId),
         // Les champs HubSpot choisis (lot 2 du 2026-11-02) : seule une clé déclarée dans l'espace s'écrit sur la fiche.
-        champsDeclares: async (t: string) => (await fieldStore.list(t)).map((f) => f.key),
+        champsDeclares: (t: string) => fieldStore.list(t),
       } satisfies HubspotWorkflowDeps,
     } : {}),
     /**

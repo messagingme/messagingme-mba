@@ -32,7 +32,11 @@ const appel = (methode: 'GET' | 'PUT', tok: string, body?: unknown) => ({
 
 const PORTAIL: ChampsDuPortail = {
   proprietes: {
-    contact: [{ nom: 'firstname', libelle: 'Prénom', type: 'string' }, { nom: 'ville', libelle: 'Ville', type: 'string' }],
+    contact: [
+      { nom: 'firstname', libelle: 'Prénom', type: 'string' },
+      { nom: 'ville', libelle: 'Ville', type: 'string' },
+      { nom: 'engagements_last_meeting_booked', libelle: 'Dernière réunion réservée', type: 'datetime' },
+    ],
     deal: [{ nom: 'montant_devis', libelle: 'Montant du devis', type: 'number' }],
   },
   calcules: [
@@ -110,12 +114,23 @@ describe('PUT /tenants/:t/hubspot/champs', () => {
     expect(res.statusCode).toBe(200);
     expect(journal).toEqual(['lire:t1', 'declarer:t1', 'poser:t1']);
     expect(declares).toEqual([[
-      { objet: 'contact', propriete: 'firstname', libelle: 'Prénom' },
-      { objet: 'deal', propriete: 'montant_devis', libelle: 'Montant du devis' },
+      { objet: 'contact', propriete: 'firstname', libelle: 'Prénom', typeHubspot: 'string' },
+      { objet: 'deal', propriete: 'montant_devis', libelle: 'Montant du devis', typeHubspot: 'number' },
       { objet: 'calcule', propriete: 'conseiller', libelle: 'Conseiller (propriétaire de la transaction)' },
     ]]);
     expect(poses).toEqual([LISTE]);
     expect(res.json()).toEqual({ choisis: LISTE.map((c) => ({ ...c, libelle: `lu:${c.propriete}` })) });
+    await server.close();
+  });
+
+  it('🔴 le type HubSpot de la propriété vient du connecteur ; un type fourni par le corps est refusé (400)', async () => {
+    const { server, declares } = app();
+    const choix = [{ objet: 'contact', propriete: 'engagements_last_meeting_booked' }];
+    expect((await server.inject(appel('PUT', adminTok, { champs: choix }))).statusCode).toBe(200);
+    expect(declares).toEqual([[{ ...choix[0], libelle: 'Dernière réunion réservée', typeHubspot: 'datetime' }]]);
+    const res = await server.inject(appel('PUT', adminTok, { champs: [{ ...choix[0], typeHubspot: 'string' }] }));
+    expect(res.statusCode).toBe(400);
+    expect(declares).toHaveLength(1);
     await server.close();
   });
 

@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { ensureFieldByKey, type UserFieldStore } from '../crm/fields';
+import { normaliserDate } from '../crm/date-iso';
 import type { UserFieldType } from '../crm/types';
 import type { ChampsFiche } from '../campaign/build';
+import { journaliser } from '../lib/journal';
 
 /**
  * LES CHAMPS HUBSPOT QU'UN ESPACE CHOISIT D'IMPORTER SUR SES FICHES (lot 2 du plan
@@ -47,8 +49,11 @@ export type ChampChoisi = z.infer<typeof schemaChampChoisi>;
 export const schemaListeChoisie = z.array(schemaChampChoisi).max(CHAMPS_HUBSPOT_MAX)
   .refine((l) => new Set(l.map((c) => `${c.objet}:${c.propriete}`)).size === l.length, { message: 'doublon' });
 
-/** Un champ choisi avec son libellé HubSpot, tel que le connecteur le rend. */
-export interface ChampLibelle { objet: ObjetHubspot; propriete: string; libelle: string }
+/**
+ * Un champ choisi avec son libellé HubSpot, tel que le connecteur le rend. `typeHubspot` (le `type` de la propriété chez
+ * HubSpot : `datetime`, `date`, `string`...) n'est connu qu'à l'enregistrement de la liste, relu chez le connecteur.
+ */
+export interface ChampLibelle { objet: ObjetHubspot; propriete: string; libelle: string; typeHubspot?: string }
 
 /** La clé de fiche d'un champ choisi : `hs_contact_<p>`, `hs_deal_<p>` ou `hs_calc_<calculé>`. */
 export function cleChampHubspot(objet: ObjetHubspot, propriete: string): string {
@@ -56,17 +61,38 @@ export function cleChampHubspot(objet: ObjetHubspot, propriete: string): string 
 }
 
 /**
- * Le type du champ de fiche : du texte, sauf les liens calculés (réservation, devis, PDF du devis). `champsFiche` écrit
- * sans validation ni mise en forme, donc un champ déclaré date ou booléen recevrait la valeur brute de HubSpot.
+ * Le type du champ de fiche : les liens calculés (réservation, devis, PDF du devis) en `url`, une propriété HubSpot
+ * `datetime` en « date et heure » et `date` en « date » (plan `docs/superpowers/plans/2026-11-12-champs-hubspot-dates.md` :
+ * le déclencheur « avant ou après une date » n'accepte qu'un champ « date et heure », le rappel d'un rendez-vous pris dans
+ * HubSpot en dépend), le reste en texte. 🔴 Un booléen ou un nombre restent du TEXTE : `champsDeFiche` ne met en forme que
+ * les dates, un autre type recevrait la valeur brute de HubSpot sans validation.
  */
-export function typeChampHubspot(objet: ObjetHubspot, propriete: string): UserFieldType {
-  return objet === 'calcule' && CALCULES_LIENS.has(propriete) ? 'url' : 'text';
+export function typeChampHubspot(objet: ObjetHubspot, propriete: string, typeHubspot?: string): UserFieldType {
+  if (objet === 'calcule') return CALCULES_LIENS.has(propriete) ? 'url' : 'text';
+  if (typeHubspot === 'datetime') return 'datetime';
+  if (typeHubspot === 'date') return 'date';
+  return 'text';
 }
 
-/** Déclare les champs choisis dans l'espace (idempotent : une clé qui existe déjà est reprise telle quelle). */
-export async function declarerChampsHubspot(store: UserFieldStore, tenantId: string, champs: readonly ChampLibelle[]): Promise<void> {
+/** Un champ de fiche déclaré dans l'espace, tel que l'écriture des valeurs reçues le lit (`UserFieldStore.list`). */
+export interface ChampDeclare { readonly key: string; readonly type: UserFieldType }
+
+/** Ce que la déclaration demande au store des champs : il sait aussi changer le type d'un champ existant. */
+export interface StoreChampsHubspot extends UserFieldStore {
+  updateField(tenantId: string, key: string, patch: { type: UserFieldType }): Promise<boolean>;
+}
+
+/**
+ * Déclare les champs choisis dans l'espace (idempotent). Une clé qui existe déjà garde son libellé et son type, SAUF un
+ * champ resté en texte dont la propriété HubSpot est une date : il passe en date (décision de Julien du 2026-11-12), ses
+ * valeurs venant déjà de HubSpot. Jamais l'inverse, et jamais un autre type : un champ retypé à la main reste tel quel.
+ */
+export async function declarerChampsHubspot(store: StoreChampsHubspot, tenantId: string, champs: readonly ChampLibelle[]): Promise<void> {
   for (const c of champs) {
-    await ensureFieldByKey(store, tenantId, cleChampHubspot(c.objet, c.propriete), `${c.libelle} (HubSpot)`, typeChampHubspot(c.objet, c.propriete));
+    const cle = cleChampHubspot(c.objet, c.propriete);
+    const voulu = typeChampHubspot(c.objet, c.propriete, c.typeHubspot);
+    const champ = await ensureFieldByKey(store, tenantId, cle, `${c.libelle} (HubSpot)`, voulu);
+    if (champ.type === 'text' && (voulu === 'date' || voulu === 'datetime')) await store.updateField(tenantId, cle, { type: voulu });
   }
 }
 
@@ -116,15 +142,34 @@ function clesRecues(g: ChampsGroupes): Array<[string, string]> {
  * Les champs reçus, en écriture de fiche : une valeur posée, une valeur vide RETIRÉE (jamais la valeur laissée par une
  * transaction précédente, décision 6 du 2026-10-29), une propriété non reçue pas touchée. Seules les clés DÉCLARÉES dans
  * l'espace (`declarees`) s'écrivent ; une autre est ignorée.
+ *
+ * Un champ « date » ou « date et heure » reçoit sa valeur mise en ISO (`normaliserDate`, la forme que le déclencheur
+ * « avant ou après une date » et les filtres comparent). 🔴 Une date ILLISIBLE est RETIRÉE et journalisée (sa clé et la
+ * raison, jamais la valeur), décision de Julien du 2026-11-12 : un rappel ne part pas sur l'ancienne date d'un rendez-vous
+ * que HubSpot a changé, et un champ date ne porte qu'une date.
  */
-export function champsDeFiche(recus: ChampsGroupes, declarees: Iterable<string>): ChampsFiche {
-  const connues = new Set(declarees);
+export function champsDeFiche(recus: ChampsGroupes, declarees: Iterable<ChampDeclare>, tenantId: string): ChampsFiche {
+  const types = new Map<string, UserFieldType>();
+  for (const d of declarees) types.set(d.key, d.type);
   const poser: Record<string, string> = {};
   const retirer: string[] = [];
   for (const [cle, v] of clesRecues(recus)) {
-    if (!connues.has(cle)) continue;
-    if (v.trim() !== '') poser[cle] = v;
-    else retirer.push(cle);
+    const type = types.get(cle);
+    if (type === undefined) continue;
+    if (v.trim() === '') {
+      retirer.push(cle);
+      continue;
+    }
+    if (type !== 'date' && type !== 'datetime') {
+      poser[cle] = v;
+      continue;
+    }
+    const n = normaliserDate(v, type);
+    if (n.ok) poser[cle] = n.iso;
+    else {
+      journaliser('warn', 'hubspot_champ_date_illisible', { tenantId, cle, raison: n.raison });
+      retirer.push(cle);
+    }
   }
   return { poser, retirer };
 }

@@ -4,6 +4,18 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-12 : les propriétés HubSpot de type date arrivent en date sur la fiche
+
+Besoin de MUTAC : relancer un prospect X heures avant le rendez-vous pris par un lien de réservation HubSpot. Le
+déclencheur « avant ou après une date » existait, mais il n'accepte qu'un champ « date et heure », et toute propriété
+HubSpot importée était déclarée en texte. Le type de la propriété arrivait pourtant déjà du connecteur
+(`POST /service/champs`), simplement ignoré : le lot tient dans mba, le connecteur ne change pas. Plan :
+`docs/superpowers/plans/2026-11-12-champs-hubspot-dates.md`. Décisions de Julien : un champ déjà importé en texte passe
+en date au prochain enregistrement de la liste ; une date illisible vide le champ plutôt que de le laisser faux. Les
+trois mécanismes (type, retypage, mise en ISO) vérifiés dans les deux sens par mutation. Reste l'essai réel sur le
+portail de MUTAC, dont la première étape vérifie que `engagements_last_meeting_booked` porte l'heure du rendez-vous et
+non celle de la réservation.
+
 ## 2026-11-11 : la CI front rouge sur une panne du miroir apt de GitHub, et son repli
 
 - **Ce qui s'est passé** : de 14 h 53 à environ 18 h 30 UTC, `azure.archive.ubuntu.com` ne se résolvait plus sur les
