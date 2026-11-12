@@ -42,6 +42,7 @@ const PORTAIL: ChampsDuPortail = {
   calcules: [
     { cle: 'conseiller', libelle: 'Conseiller (propriétaire de la transaction)', disponible: true },
     { cle: 'lien_agenda', libelle: 'Lien de réservation du conseiller', disponible: true },
+    { cle: 'document', libelle: 'PDF joint au dernier e-mail (sinon le PDF du devis)', disponible: true },
   ],
   choisis: [],
 };
@@ -108,6 +109,16 @@ describe('GET /tenants/:t/hubspot/champs', () => {
 });
 
 describe('PUT /tenants/:t/hubspot/champs', () => {
+  it('🔴 les débuts du document partent tels quels au connecteur (lot B3) ; refusés sur un autre champ', async () => {
+    const { server, poses } = app();
+    const doc = { objet: 'calcule', propriete: 'document', debuts: ['Madame', 'Monsieur'] };
+    expect((await server.inject(appel('PUT', adminTok, { champs: [doc] }))).statusCode).toBe(200);
+    expect(poses).toEqual([[doc]]);
+    expect((await server.inject(appel('PUT', adminTok, { champs: [{ objet: 'contact', propriete: 'firstname', debuts: ['x'] }] }))).statusCode).toBe(400);
+    expect(poses).toHaveLength(1);
+    await server.close();
+  });
+
   it('🔴 DÉCLARE les champs (avec les libellés lus chez le connecteur) AVANT de poser la liste', async () => {
     const { server, journal, declares, poses } = app();
     const res = await server.inject(appel('PUT', adminTok, { champs: LISTE }));

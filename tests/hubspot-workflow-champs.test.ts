@@ -233,3 +233,15 @@ describe('les propriétés HubSpot de type date', () => {
     expect(champsDeFiche(recus({ rdv: '' }), DATES, 't1')).toEqual({ poser: {}, retirer: ['hs_contact_rdv'] });
   });
 });
+
+describe('les débuts de nom du calculé document (lot B3 du plan du 2026-11-12)', () => {
+  it('🔴 acceptés sur le document seul, au plus 5, de 40 caractères', () => {
+    expect(schemaListeChoisie.safeParse([{ objet: 'calcule', propriete: 'document', debuts: ['Madame', 'Monsieur'] }]).success).toBe(true);
+    expect(schemaListeChoisie.safeParse([{ objet: 'calcule', propriete: 'document' }]).success).toBe(true);
+    expect(schemaListeChoisie.safeParse([{ objet: 'calcule', propriete: 'conseiller', debuts: ['x'] }]).success).toBe(false);
+    expect(schemaListeChoisie.safeParse([{ objet: 'contact', propriete: 'city', debuts: ['x'] }]).success).toBe(false);
+    expect(schemaListeChoisie.safeParse([{ objet: 'calcule', propriete: 'document', debuts: ['a', 'b', 'c', 'd', 'e', 'f'] }]).success).toBe(false);
+    expect(schemaListeChoisie.safeParse([{ objet: 'calcule', propriete: 'document', debuts: ['x'.repeat(41)] }]).success).toBe(false);
+    expect(schemaListeChoisie.safeParse([{ objet: 'calcule', propriete: 'document', debuts: ['  '] }]).success).toBe(false);
+  });
+});

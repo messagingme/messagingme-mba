@@ -50,6 +50,12 @@ describe('lireChampsHubspot', () => {
     expect(appels[0]!.echeance).toBeInstanceOf(AbortSignal);
   });
 
+  it('🔴 les débuts du document (lot B3) reviennent jusqu’à l’écran, jamais effacés par la validation', async () => {
+    const avecDebuts = { ...CHAMPS, choisis: [...CHAMPS.choisis, { objet: 'calcule', propriete: 'document', libelle: 'PDF joint', debuts: ['Madame'] }] };
+    const { deps } = connecteur([{ status: 200, json: avecDebuts }]);
+    expect((await lireChampsHubspot(deps, 't1')).choisis[1]).toEqual({ objet: 'calcule', propriete: 'document', libelle: 'PDF joint', debuts: ['Madame'] });
+  });
+
   it('🔴 un 404 sans `tenant_not_connected` (route absente, connecteur pas encore à jour) : `ConnecteurPasAJour`, jamais « aucun champ »', async () => {
     const { deps } = connecteur([{ status: 404, json: { message: 'Route POST:/service/champs not found', error: 'Not Found', statusCode: 404 } }]);
     await expect(lireChampsHubspot(deps, 't1')).rejects.toBeInstanceOf(ConnecteurPasAJour);

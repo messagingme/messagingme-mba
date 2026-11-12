@@ -38,11 +38,18 @@ export type CalculeHubspot = (typeof CALCULES_HUBSPOT)[number];
 const CALCULES_LIENS: ReadonlySet<string> = new Set<CalculeHubspot>(['lien_agenda', 'lien_devis', 'pdf_devis']);
 export type ObjetHubspot = 'contact' | 'deal' | 'calcule';
 
-/** Un champ choisi, tel que le contrat le décrit. */
+/**
+ * Les débuts de nom qui désignent la pièce jointe à envoyer (« Madame », « Monsieur »), réglés par espace sur le calculé
+ * `document` (décision 2 du cadrage du 2026-11-12, lot B3) : au plus 5, de 40 caractères. Le connecteur les garde avec la
+ * liste et compare sans casse ni accents ; sans débuts, il ne retient aucune pièce jointe (seul le PDF du devis part).
+ */
+export const schemaDebutsDocument = z.array(z.string().trim().min(1).max(40)).max(5);
+
+/** Un champ choisi, tel que le contrat le décrit. Les débuts ne se posent que sur le calculé `document`. */
 export const schemaChampChoisi = z.union([
   z.object({ objet: z.enum(['contact', 'deal']), propriete: z.string().regex(NOM_PROPRIETE_HUBSPOT) }).strict(),
-  z.object({ objet: z.literal('calcule'), propriete: z.enum(CALCULES_HUBSPOT) }).strict(),
-]);
+  z.object({ objet: z.literal('calcule'), propriete: z.enum(CALCULES_HUBSPOT), debuts: schemaDebutsDocument.optional() }).strict(),
+]).refine((c) => !('debuts' in c) || c.debuts === undefined || c.propriete === 'document', { message: 'débuts réservés au document' });
 export type ChampChoisi = z.infer<typeof schemaChampChoisi>;
 
 /** Une liste choisie : au plus `CHAMPS_HUBSPOT_MAX`, sans doublon (objet, propriété). */
@@ -53,7 +60,7 @@ export const schemaListeChoisie = z.array(schemaChampChoisi).max(CHAMPS_HUBSPOT_
  * Un champ choisi avec son libellé HubSpot, tel que le connecteur le rend. `typeHubspot` (le `type` de la propriété chez
  * HubSpot : `datetime`, `date`, `string`...) n'est connu qu'à l'enregistrement de la liste, relu chez le connecteur.
  */
-export interface ChampLibelle { objet: ObjetHubspot; propriete: string; libelle: string; typeHubspot?: string }
+export interface ChampLibelle { objet: ObjetHubspot; propriete: string; libelle: string; typeHubspot?: string; debuts?: readonly string[] }
 
 /** La clé de fiche d'un champ choisi : `hs_contact_<p>`, `hs_deal_<p>` ou `hs_calc_<calculé>`. */
 export function cleChampHubspot(objet: ObjetHubspot, propriete: string): string {

@@ -12,7 +12,7 @@ import type { HttpTransport } from '../meta/http';
 import { importContacts } from './import';
 import type { ImportDeps } from './import';
 import type { ColumnMapping, ImportReport } from './types';
-import { CALCULES_HUBSPOT, CHAMPS_HUBSPOT_MAX, NOM_PROPRIETE_HUBSPOT, type ChampChoisi, type ChampLibelle } from '../hubspot-workflow/champs';
+import { CALCULES_HUBSPOT, CHAMPS_HUBSPOT_MAX, NOM_PROPRIETE_HUBSPOT, type ChampChoisi, type ChampLibelle, schemaDebutsDocument } from '../hubspot-workflow/champs';
 
 /** Le portail n'a pas (encore) accordé crm.lists.read : l'admin doit re-consentir. Porte l'URL construite par mm-hubspot. */
 export class ReconsentRequiredError extends Error {
@@ -305,7 +305,8 @@ export const DELAI_CHAMPS_MS = 8_000;
 
 const champLibelle = z.union([
   z.object({ objet: z.enum(['contact', 'deal']), propriete: z.string().regex(NOM_PROPRIETE_HUBSPOT), libelle: z.string().max(500) }),
-  z.object({ objet: z.literal('calcule'), propriete: z.enum(CALCULES_HUBSPOT), libelle: z.string().max(500) }),
+  // Les débuts du document, relus pour que l'écran les montre (lot B3) ; sans eux, ils disparaîtraient au parsing.
+  z.object({ objet: z.literal('calcule'), propriete: z.enum(CALCULES_HUBSPOT), libelle: z.string().max(500), debuts: schemaDebutsDocument.optional() }),
 ]);
 const proprieteDuPortail = z.object({ nom: z.string().regex(NOM_PROPRIETE_HUBSPOT), libelle: z.string().max(500), type: z.string().max(100) });
 

@@ -3257,6 +3257,10 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   `PgDocumentsContact.deposer` (le même fichier de moins d'un jour rend son code), et la fiche ne reçoit que le CODE
   `doc_…`. 🔴 L'adresse ne s'écrit ni sur la fiche, ni dans la campagne, ni au journal ; un refus ou une panne RETIRE le
   champ (décision 3 du cadrage).
+- **Les débuts de nom du calculé `document`** (lot B3) : la liste choisie accepte, sur ce seul calculé, `debuts` (au plus
+  5, de 40 caractères, `schemaDebutsDocument`), transmis tels quels au connecteur, qui retient la pièce jointe dont le
+  nom commence par l'un d'eux, et relus à la lecture (`champLibelle`). ⚠️ Tant que l'écran Intégrations ne les gère pas,
+  un enregistrement depuis la console les efface (la liste entière est remplacée).
 - **L'en-tête DOCUMENT qui vient de la fiche** (lot B2, `src/documents/entete.ts`) : un modèle à en-tête Document peut
   dire que son document est celui d'un champ de la fiche (`enteteDepuisChamp` à la création ou à la modification d'un
   modèle, refusé ailleurs qu'un en-tête Document). La règle vit dans `template_param_hints` à la POSITION 0 (`POSITION_ENTETE`),
