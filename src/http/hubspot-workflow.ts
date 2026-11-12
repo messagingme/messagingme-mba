@@ -17,6 +17,7 @@ import type { EnvoyerPublic } from '../shopify/envoi';
 import { envoyerPourWorkflow, valeursDuWorkflow, type EnvoiWorkflow, type IssueWorkflow, type PlafondRefuse } from '../hubspot-workflow/envoi';
 import type { VerdictPlafonds } from '../hubspot-workflow/plafonds';
 import { champsDeFiche, schemaChampsContact, schemaChampsGroupes, type ChampDeclare } from '../hubspot-workflow/champs';
+import { recopierDocumentRecu, type DepsRecopie } from '../documents/recopie';
 import { resolveHintParams, type ResolvableContact } from '../crm/template';
 import type { ParamHint } from '../crm/template-hints.pg';
 import type { EtatLigneHubspot } from './hubspot-conversation';
@@ -70,6 +71,8 @@ export interface HubspotWorkflowDeps {
    * (lot 2 du 2026-11-02), la liste choisie vivant chez le connecteur, et une date s'y écrit en ISO (`champsDeFiche`).
    */
   champsDeclares(tenantId: string): Promise<ReadonlyArray<ChampDeclare>>;
+  /** La recopie du PDF propre au contact (calculé `document`) : son adresse à courte vie devient le code de la copie. */
+  documents: DepsRecopie;
   now?: () => number;
   windowMs?: number;
 }
@@ -428,7 +431,10 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
     const g = await garderLancement(reply, tenantId, telephone, scenario, null, accordMarketing === true);
     if (!g) return reply;
 
-    const champsFiche = champsDeFiche(champs, await deps.champsDeclares(tenantId), tenantId);
+    const declares = await deps.champsDeclares(tenantId);
+    // Le PDF propre au contact est recopié AVANT : la fiche ne reçoit que son code (`recopierDocumentRecu`).
+    const recus = await recopierDocumentRecu(deps.documents, tenantId, waIdOf(g.e164, null) ?? g.e164, champs, declares);
+    const champsFiche = champsDeFiche(recus, declares, tenantId);
     // La fiche telle qu'elle sera après l'écriture : ses champs, moins ceux qu'on retire, plus ceux qu'on pose. Un lead
     // inconnu n'a pas encore de fiche (le cœur la crée) : sa vue n'a que son numéro et les champs reçus.
     const fiche = g.waId !== null ? await deps.ficheParNumero(tenantId, g.waId) : null;

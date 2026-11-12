@@ -53,6 +53,13 @@ portées mesurées.
    pour la mémoire des dépôts), envoyé par identifiant avec son nom d'origine. Absent ou effacé : le bloc échoue avec sa
    raison au journal des échecs de scénario, rien ne part.
 4. Les refus des autres chemins : `lancerEnvoiPublic`, création de campagne, Inbox, catalogue de la carte HubSpot.
+5. (Relecture du lot B1) La console : `web/lib/hubspot-champs.ts` (`rangCalcule`, libellés) et le type de
+   `web/lib/api/stats.ts` ne connaissent pas le calculé `document` ; l'écran Intégrations doit le présenter (« Le PDF
+   joint au dernier e-mail », son accès facultatif) avant que le connecteur ne le propose.
+
+**Pour le lot C (connecteur)** : l'adresse du `document` NE SE COUPE PAS à 1 000 caractères comme une valeur de champ
+(`VALEUR_MAX`) : mba l'accepte jusqu'à 4 096 (`ADRESSE_DOCUMENT_MAX`) et la remplace par un code. Et elle doit être
+l'adresse FINALE du fichier : mba ne suit aucune redirection.
 
 ## Rayon de souffle
 

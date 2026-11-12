@@ -14,6 +14,11 @@
   au-delà de 30 jours ou après marquage (`src/documents/store.pg.ts`). Rien n'écrit encore dans la table (lot B).
 - **Relecture** : aucun rouge ; un jaune pris tout de suite (`@>` sur l'index GIN de `contacts.fields` au lieu de
   `->> =`), deux au backlog, un au plan du lot B. Les trois mécanismes du balayage vérifiés dans les deux sens.
+- **Lot B1, la réception** : le calculé `document` (adresse signée) est téléchargé par le chemin gardé des en-têtes
+  (`telechargerEnteteProduction`, aucun code réseau neuf), rangé, et la fiche ne reçoit que le code ; routes transaction
+  et étape de transaction. Relecture sans rouge ; trois jaunes pris (déduplication limitée à un jour, adresse jusqu'à
+  4 096 caractères, test de la route transaction), l'alignement de la console reporté au lot B2. Inerte tant que le
+  connecteur n'envoie pas `document`.
 - **Migration 0291** : poussée seule (`27574e7e`, CI verte), `migration=avant`, run 43223268856 approuvé par Julien :
   `-> 0291_documents_contact.sql ... ok`. Table neuve, non relue en base (sonde de production réservée à Julien), son
   SQL joué par le job `integration` de la CI.

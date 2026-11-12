@@ -282,6 +282,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
     estBloque: async () => false,
     resoudreFiche: async () => ({ ok: false, code: 'unknown_contact' }),
     champsDeclares: async () => [],
+    documents: { telecharger: async () => ({ refus: 'auto-attaque' }), deposer: async () => { throw new Error('auto-attaque'); } },
     ecrireChamps: async () => undefined,
     publish: async () => undefined,
   } satisfies HubspotEventRouteDeps,
@@ -322,6 +323,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
     sourcesDuModele: inconnu('hubspotWorkflow.sourcesDuModele'),
     ficheParNumero: inconnu('hubspotWorkflow.ficheParNumero'),
     champsDeclares: inconnu('hubspotWorkflow.champsDeclares'),
+    documents: { telecharger: inconnu('hubspotWorkflow.documents.telecharger'), deposer: inconnu('hubspotWorkflow.documents.deposer') },
   } satisfies HubspotWorkflowDeps,
   // Le webhook de Stripe : un VRAI secret aussi, et un dépôt qui ne crédite personne. Une signature fausse ou absente
   // doit tomber avant le dépôt (sonde 12).

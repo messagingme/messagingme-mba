@@ -4,6 +4,7 @@ import { verifyRequest } from '../lib/signature';
 import { waIdOf } from '../crm/identity';
 import { normalizePhone } from '../crm/phone';
 import { champsDeFiche, schemaChampsGroupes, type ChampDeclare } from '../hubspot-workflow/champs';
+import { recopierDocumentRecu, type DepsRecopie } from '../documents/recopie';
 import type { ResolutionFiche } from '../api/fiche';
 import type { ChampsFiche } from '../campaign/build';
 
@@ -52,6 +53,8 @@ export interface HubspotEventRouteDeps {
   resoudreFiche(tenantId: string, e164: string): Promise<ResolutionFiche>;
   /** Les champs de fiche déclarés dans l'espace, clé et type : seules les clés `hs_*` déclarées s'écrivent. */
   champsDeclares(tenantId: string): Promise<ReadonlyArray<ChampDeclare>>;
+  /** La recopie du PDF propre au contact (calculé `document`) : son adresse à courte vie devient le code de la copie. */
+  documents: DepsRecopie;
   /** Écrit les champs sur la fiche, hors transaction (`PgContactStore.ecrireChampsFiche`). */
   ecrireChamps(tenantId: string, contactId: string, champs: ChampsFiche): Promise<void>;
   /** Publie l'événement d'automation (file). C'est le worker qui décide ensuite quoi déclencher. */
@@ -130,7 +133,9 @@ export function registerHubspotEvents(app: FastifyInstance, deps: HubspotEventRo
     // Les champs importés s'écrivent AVANT l'enfilement : le scénario les lit sur la fiche. Seules les clés déclarées
     // dans l'espace, une valeur vide retire le champ (règle du lot 2, `champsDeFiche`).
     if (champs) {
-      const ecrits = champsDeFiche(champs, await deps.champsDeclares(tenantId), tenantId);
+      const declares = await deps.champsDeclares(tenantId);
+      // Le PDF propre au contact est recopié AVANT : la fiche ne reçoit que son code (`recopierDocumentRecu`).
+      const ecrits = champsDeFiche(await recopierDocumentRecu(deps.documents, tenantId, waId, champs, declares), declares, tenantId);
       if (Object.keys(ecrits.poser).length > 0 || ecrits.retirer.length > 0) await deps.ecrireChamps(tenantId, fiche.contactId, ecrits);
     }
 

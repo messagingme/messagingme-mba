@@ -40,6 +40,7 @@ function app(over: Partial<HubspotEventRouteDeps> = {}) {
     estBloque: async () => false,
     resoudreFiche: async (tenantId, e164) => { fiches.push({ tenantId, e164 }); journal.push('fiche'); return { ok: true, contactId: 'c1', cree: true }; },
     champsDeclares: async () => DECLAREES.map((key) => ({ key, type: 'text' as const })),
+    documents: { telecharger: async () => ({ refus: 'non attendu' }), deposer: async () => 'doc_non_attendu' },
     ecrireChamps: async (tenantId, contactId, champs) => { ecrits.push({ tenantId, contactId, champs }); journal.push('champs'); },
     publish: async (tenantId, ev) => { publies.push({ tenantId, ev }); journal.push('publish'); },
     now: () => NOW,
@@ -225,6 +226,27 @@ describe('POST /hubspot/deal-stage', () => {
       }]);
       expect(b.journal).toEqual(['fiche', 'champs', 'publish']);
       expect(b.publies).toEqual([{ tenantId: 't1', ev: { kind: 'hubspot_deal_stage', waId: '33612345678', pipelineId: 'p1', stageId: 's-devis' } }]);
+      await b.server.close();
+    });
+
+    it('🔴 le PDF propre au contact : l’adresse signée reçue devient le CODE de la copie sur la fiche, rangé au numéro', async () => {
+      const URL_SIGNEE = 'https://f.hubspotusercontent-eu1.net/hubfs/1/Devis.pdf?Signature=SECRET';
+      const recopies: string[] = [];
+      const b = app({
+        ...correspond,
+        champsDeclares: async () => ['hs_contact_firstname', 'hs_calc_document'].map((key) => ({ key, type: 'text' as const })),
+        documents: {
+          telecharger: async (url) => { recopies.push(url); return { octets: Buffer.from('%PDF-1.7'), mime: 'application/pdf' }; },
+          deposer: async (e) => { recopies.push(`${e.tenantId}/${e.waId}/${e.nom}`); return 'doc_copie'; },
+        },
+      });
+      const res = await b.server.inject({
+        method: 'POST', url: '/hubspot/deal-stage', ...envoi({ ...VALIDE, champs: { contact: { firstname: 'Claire' }, calcules: { document: URL_SIGNEE } } }),
+      });
+      expect(res.json()).toEqual({ ok: true, triggered: true });
+      expect(recopies).toEqual([URL_SIGNEE, 't1/33612345678/Devis.pdf']);
+      expect(b.ecrits).toEqual([{ tenantId: 't1', contactId: 'c1', champs: { poser: { hs_contact_firstname: 'Claire', hs_calc_document: 'doc_copie' }, retirer: [] } }]);
+      expect(JSON.stringify(b.ecrits)).not.toContain('Signature=SECRET');
       await b.server.close();
     });
 

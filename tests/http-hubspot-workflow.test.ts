@@ -17,6 +17,7 @@ import type { ScenarioPublie } from '../src/workflow/store.pg';
 import type { WorkflowGraph, WorkflowNode } from '../src/workflow/graph';
 import type { ResolvableContact } from '../src/crm/template';
 import type { ParamHint } from '../src/crm/template-hints.pg';
+import type { DepsRecopie } from '../src/documents/recopie';
 
 /**
  * L'ACTION DE WORKFLOW HUBSPOT « ENVOYER UN MODÈLE WHATSAPP » (cadrage du 2026-10-27, lot 1). Une porte d'ENVOI ouverte à
@@ -67,6 +68,8 @@ interface Options {
   scenarios?: ScenarioPublie[];
   /** Les clés des champs de fiche déclarés dans l'espace (défaut : `DECLAREES`). */
   declarees?: string[];
+  /** La recopie du PDF propre au contact (défaut : une recopie qu'aucun test n'attend). */
+  documents?: DepsRecopie;
 }
 
 /** Les champs HubSpot déclarés par défaut (lot 2 du 2026-11-02) : seuls ceux-là s'écrivent sur la fiche. */
@@ -114,6 +117,7 @@ function app(o: Options = {}) {
     sourcesDuModele: async (t, name) => { lus.push(['sources', `${t}/${name}`]); return o.sources?.[name] ?? []; },
     ficheParNumero: async (t, waId) => { lus.push(['fiche', `${t}/${waId}`]); return o.fiche ?? null; },
     champsDeclares: lire('declarees', (o.declarees ?? DECLAREES).map((key) => ({ key, type: 'text' as const }))),
+    documents: o.documents ?? { telecharger: async () => ({ refus: 'non attendu' }), deposer: async () => 'doc_non_attendu' },
     now: () => NOW,
   };
   const server = buildServer({ queue: new FakeQueue(), hubspotWorkflow: deps });
@@ -592,6 +596,32 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     });
     expect(comptes).toEqual([T1]);
     await server.close();
+  });
+
+  it('🔴 le PDF propre au contact : l’adresse signée devient le CODE dans les champs de la fiche, jamais dans ce qui part ; un refus le RETIRE', async () => {
+    const URL_SIGNEE = 'https://f.hubspotusercontent-eu1.net/hubfs/1/Devis.pdf?Signature=SECRET';
+    const declarees = ['hs_contact_firstname', 'hs_calc_conseiller', 'hs_calc_document'];
+    const avecDocument = { ...LANCEMENT, champs: { ...LANCEMENT.champs, calcules: { ...LANCEMENT.champs.calcules, document: URL_SIGNEE } } };
+    const recopies: string[] = [];
+    const { server, envois } = appT({
+      fiche: null, sources: SOURCES, declarees,
+      documents: {
+        telecharger: async (url) => { recopies.push(url); return { octets: Buffer.from('%PDF-1.7'), mime: 'application/pdf' }; },
+        deposer: async (e) => { recopies.push(`${e.waId}/${e.nom}`); return 'doc_copie'; },
+      },
+    });
+    expect((await server.inject(appel('transaction', avecDocument))).json()).toEqual({ issue: 'envoye', sendId: 'envoi-1' });
+    expect(recopies).toEqual([URL_SIGNEE, '33612345678/Devis.pdf']);
+    expect(envois[0]!.options.champsFiche).toEqual({
+      poser: { hs_contact_firstname: 'Claire', hs_calc_conseiller: 'Cédric Weiss', hs_calc_document: 'doc_copie' }, retirer: [],
+    });
+    expect(JSON.stringify(envois)).not.toContain('Signature=SECRET');
+    await server.close();
+
+    const refus = appT({ fiche: null, sources: SOURCES, declarees, documents: { telecharger: async () => ({ refus: 'pas un PDF' }), deposer: async () => 'x' } });
+    expect((await refus.server.inject(appel('transaction', avecDocument))).json().issue).toBe('envoye');
+    expect(refus.envois[0]!.options.champsFiche).toEqual({ poser: { hs_contact_firstname: 'Claire', hs_calc_conseiller: 'Cédric Weiss' }, retirer: ['hs_calc_document'] });
+    await refus.server.close();
   });
 
   it('🔴 l’ancienne forme `{ prenom, conseiller, lienAgenda }` est refusée (retirée le 2026-11-03), rien ne part', async () => {

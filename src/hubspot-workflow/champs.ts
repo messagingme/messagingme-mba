@@ -32,7 +32,7 @@ export const VALEUR_CHAMP_HUBSPOT_MAX = 1000;
  * Les calculés : le conseiller et son lien de réservation (lot 2), le lien public et le PDF du devis de la transaction
  * (cadrage `~/mm-hubspot/docs/2026-11-02-lien-du-devis-cadrage.md`, décisions 1 à 5). Le connecteur choisit le devis.
  */
-export const CALCULES_HUBSPOT = ['conseiller', 'lien_agenda', 'lien_devis', 'pdf_devis'] as const;
+export const CALCULES_HUBSPOT = ['conseiller', 'lien_agenda', 'lien_devis', 'pdf_devis', 'document'] as const;
 export type CalculeHubspot = (typeof CALCULES_HUBSPOT)[number];
 /** Les calculés qui sont des liens envoyés au client : de type `url`, `https` seulement. */
 const CALCULES_LIENS: ReadonlySet<string> = new Set<CalculeHubspot>(['lien_agenda', 'lien_devis', 'pdf_devis']);
@@ -105,6 +105,13 @@ const valeursDUnObjet = z.record(z.string().regex(NOM_PROPRIETE_HUBSPOT), valeur
  * (aucun devis valable : le champ est RETIRÉ, jamais le lien d'une autre transaction).
  */
 const lienCalcule = z.union([z.literal(''), z.url({ protocol: /^https$/ }).max(VALEUR_CHAMP_HUBSPOT_MAX)]);
+/**
+ * L'adresse du PDF propre au contact : signée, donc plus longue qu'un lien de devis (jeton, nom de fichier encodé), et
+ * jamais écrite sur la fiche (`recopierDocumentRecu` la remplace par un code) : la borne d'une valeur de fiche ne la
+ * concerne pas. Plafonnée quand même, une adresse de 4 Ko au-delà n'est plus une adresse (relecture du lot B1).
+ */
+export const ADRESSE_DOCUMENT_MAX = 4096;
+const adresseDocument = z.union([z.literal(''), z.url({ protocol: /^https$/ }).max(ADRESSE_DOCUMENT_MAX)]);
 
 /** Les valeurs des propriétés du contact seules (l'action « Lancer un scénario »). */
 export const schemaChampsContact = z.object({ contact: valeursDUnObjet }).strict();
@@ -118,6 +125,9 @@ export const schemaChampsGroupes = z.object({
     lien_agenda: lienCalcule.optional(),
     lien_devis: lienCalcule.optional(),
     pdf_devis: lienCalcule.optional(),
+    // Le PDF propre au contact (plan `docs/superpowers/plans/2026-11-12-pdf-par-contact-hubspot.md`) : une adresse à courte
+    // vie que mba télécharge AUSSITÔT (`recopierDocumentRecu`) ; la fiche ne reçoit que le code de la copie, jamais l'adresse.
+    document: adresseDocument.optional(),
   }).strict().optional(),
 }).strict()
   .refine((c) => Object.keys(c).length > 0, { message: 'aucun groupe' })

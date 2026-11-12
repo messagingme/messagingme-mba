@@ -3233,6 +3233,14 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   une automation correspond, ci-dessous). Pannes du connecteur : réveil (délai de
   `DELAI_CHAMPS_MS`, `ConnecteurEnReveil`) et route absente (404 sans `tenant_not_connected`, `ConnecteurPasAJour`)
   rendent 503 avec leur code, l'écran dit « connexion en cours » ou « mise à jour en cours », jamais « aucun champ ».
+- **Le calculé `document`, le PDF propre au contact** (lot B1 du plan `2026-11-12-pdf-par-contact-hubspot.md`) : le
+  connecteur y met une adresse `https` SIGNÉE, à courte vie (jusqu'à `ADRESSE_DOCUMENT_MAX`, 4 096 caractères). Les routes
+  transaction et étape de transaction la passent à `recopierDocumentRecu` (`src/documents/recopie.ts`) AVANT
+  `champsDeFiche`, seulement si `hs_calc_document` est déclaré : téléchargement par `telechargerEnteteProduction`
+  (format DOCUMENT : https, hôte public vérifié, aucune redirection, 16 Mo, signature `%PDF-`), dépôt par
+  `PgDocumentsContact.deposer` (le même fichier de moins d'un jour rend son code), et la fiche ne reçoit que le CODE
+  `doc_…`. 🔴 L'adresse ne s'écrit ni sur la fiche, ni dans la campagne, ni au journal ; un refus ou une panne RETIRE le
+  champ (décision 3 du cadrage).
 - **Un parcours qui écrit un champ HubSpot du CONTACT le remonte** (cadrage
   `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`) : les écritures de fiche de l'exécuteur (`setField`,
   `clearField`) sont enveloppées dans le câblage par `avecRemonteeHubspot` (`src/hubspot-workflow/remontee.ts`,

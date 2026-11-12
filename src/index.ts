@@ -175,6 +175,8 @@ import { carouselSendBlocker } from './meta/template-components';
 import { creerEnvoiModeleInbox } from './inbox/envoi-modele';
 import type { DepsEnvoiModeleDansLeFil } from './inbox/envoi-operateur';
 import { PgRcsMessageStore } from './rcs/message-store.pg';
+import { PgDocumentsContact } from './documents/store.pg';
+import { telechargerDocumentProduction } from './documents/recopie';
 import { PgRcsMediaStore } from './rcs/media-store.pg';
 import { prefixeEspace } from './lib/magasin-objets';
 import { typeFichier, urlFichier } from './medias/fichier';
@@ -591,6 +593,12 @@ async function main(): Promise<void> {
   const channelsMeClient = new ChannelsMeClient();
   const rcsMessageStore = new PgRcsMessageStore(pool);
   const rcsMediaStore = new PgRcsMediaStore(pool, magasinObjets);
+  // Les PDF propres à un contact, recopiés de HubSpot (0291, plan du 2026-11-12) : la recopie à la réception des champs.
+  const documentsContact = new PgDocumentsContact(pool, magasinObjets);
+  const recopieDocuments = {
+    telecharger: telechargerDocumentProduction,
+    deposer: (e: { tenantId: string; waId: string; nom: string; octets: Buffer }) => documentsContact.deposer(e),
+  };
   // Le cache de joignabilité RCS : lu par la fiche de l'API publique, écrit par le rapport de livraison
   // smsmode (`traiterRapportRcs`). L'envoi a le sien dans `rcsStack`.
   const rcsJoignabilite = new PgReachabilityStore(pool);
@@ -2185,6 +2193,7 @@ async function main(): Promise<void> {
         estBloque: (t: string, waId: string) => contactStore.isBlockedByWaId(t, waId),
         resoudreFiche: (t: string, e164: string) => resoudreFiche(contactStore, t, { phone: e164 }, { creer: 'phone' }),
         champsDeclares: (t: string) => fieldStore.list(t),
+        documents: recopieDocuments,
         ecrireChamps: (t: string, contactId: string, champs: ChampsFiche) => contactStore.ecrireChampsFiche(t, contactId, champs),
         publish: async (tenantId: string, event: { kind: 'hubspot_deal_stage'; waId: string; pipelineId: string; stageId: string }) => {
           await enfilerEvenementAutomation(queue, { tenantId, event } satisfies AutomationEventJob);
@@ -2273,6 +2282,7 @@ async function main(): Promise<void> {
         ficheParNumero: (t: string, waId: string) => contactStore.getResolvableByPhone(t, waId),
         // Les champs HubSpot choisis (lot 2 du 2026-11-02) : seule une clé déclarée dans l'espace s'écrit sur la fiche.
         champsDeclares: (t: string) => fieldStore.list(t),
+        documents: recopieDocuments,
       } satisfies HubspotWorkflowDeps,
     } : {}),
     /**

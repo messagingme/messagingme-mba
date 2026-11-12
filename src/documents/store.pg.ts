@@ -1,5 +1,6 @@
+import { createHash, randomUUID } from 'node:crypto';
 import type { Pool } from 'pg';
-import type { MagasinObjets } from '../lib/magasin-objets';
+import { prefixeEspace, type MagasinObjets } from '../lib/magasin-objets';
 import { texteDe } from '../lib/erreur';
 
 /**
@@ -16,6 +17,34 @@ export const CHAMP_DOCUMENT = 'hs_calc_document';
 
 export class PgDocumentsContact {
   constructor(private readonly pool: Pool, private readonly magasin: MagasinObjets | null) {}
+
+  /**
+   * Range un PDF reçu pour ce numéro et rend son code (lot B1). Le même fichier (même empreinte) déjà rangé pour ce
+   * numéro, VIVANT et de MOINS D'UN JOUR, rend son code sans redépôt : un rejeu de HubSpot ne double rien. Plus vieux,
+   * il est redéposé sous un nouveau code, qui repart pour 30 jours : repris au jour 29, il serait effacé par le balayage
+   * dans l'heure, champ de la fiche compris (relectures des lots A et B1). L'objet est déposé AVANT la ligne : une ligne
+   * ne nomme jamais un objet absent.
+   * Sans magasin, lève : le PDF n'a nulle part où aller, et l'appelant retire le champ.
+   */
+  async deposer(e: { tenantId: string; waId: string; nom: string; octets: Buffer }): Promise<string> {
+    if (this.magasin === null) throw new Error('stockage d’objets non configuré');
+    const empreinte = createHash('sha256').update(e.octets).digest('hex');
+    const deja = await this.pool.query<{ code: string }>(
+      `select code from documents_contact
+        where tenant_id = $1 and wa_id = $2 and empreinte = $3 and cree_le > now() - interval '1 day'
+        order by cree_le desc limit 1`,
+      [e.tenantId, e.waId, empreinte],
+    );
+    if (deja.rows[0]) return deja.rows[0].code;
+    const code = `doc_${randomUUID().replace(/-/g, '')}`;
+    const cle = `${prefixeEspace(e.tenantId)}documents/${code}.pdf`;
+    await this.magasin.deposer(cle, e.octets, 'application/pdf');
+    await this.pool.query(
+      `insert into documents_contact (tenant_id, code, wa_id, nom, cle_objet, taille, empreinte) values ($1, $2, $3, $4, $5, $6, $7)`,
+      [e.tenantId, code, e.waId, e.nom, cle, e.octets.length, empreinte],
+    );
+    return code;
+  }
 
   /**
    * Efface au plus `taille` documents échus : plus vieux que la conservation, ou marqués par la purge RGPD d'un contact.
