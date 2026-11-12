@@ -1,3 +1,4 @@
+import { champDEntete } from './documents/entete';
 import { config } from './config';
 import { PgBossQueue } from './queue/pgboss';
 import { pool, mesureAttentePool } from './db/pool';
@@ -272,6 +273,9 @@ export async function demarrerWorker(): Promise<void> {
   const PURGE_MEDIAS_PAR_LOT = 50;
   // Les PDF recopiés de HubSpot (0291) : le worker n'en fait que la fin de vie (rétention générale), objet au bucket compris.
   const documentsContact = new PgDocumentsContact(pool, magasinObjets);
+  // Les sources des modèles (`template_param_hints`) : la suppression d'un modèle les retire, et la campagne y lit si
+  // l'en-tête vient de la fiche (plan du 2026-11-12, lot B2).
+  const indicesDesModeles = new PgTemplateHintStore(pool);
 
   // Heartbeat : le worker écrit un signal de vie best-effort, dont /ops/overview lit l'âge. Il prouve que le
   // process tourne (event loop non bloquée), pas que pg-boss dépile : pour des files gelées, c'est le backlog
@@ -516,7 +520,7 @@ export async function demarrerWorker(): Promise<void> {
    */
   const oubliShopify = {
     store: activationShopify.store,
-    supprimerModele: suppressionDesModeles({ meta: metaFactory, repo, indices: new PgTemplateHintStore(pool) }),
+    supprimerModele: suppressionDesModeles({ meta: metaFactory, repo, indices: indicesDesModeles }),
     programmerOubli: programmerOubliShopify,
   };
   await queue.work(FILE_OUBLI_MODELE, async (data) => { await traiterOubli(oubliShopify, data); });
@@ -955,6 +959,9 @@ export async function demarrerWorker(): Promise<void> {
         getTemplateHeaderMedia: async (tenant: string, name: string, language: string) => {
           const info = await templateVarInfo(tenant, name, language);
           if (!info?.headerFormat) return null;
+          // 🔴 Un en-tête DOCUMENT tiré de la fiche (plan du 2026-11-12) ne part que d'un scénario : la campagne directe est
+          // refusée entière (`mediaId: null`), jamais le fichier d'exemple du modèle à chaque destinataire.
+          if (champDEntete(await indicesDesModeles.get(tenant, name, language)) !== null) return { headerFormat: info.headerFormat, mediaId: null };
           const mediaId = info.headerMediaUrl ? await prepareHeaderMedia(tenant, info.headerMediaUrl) : null;
           return { headerFormat: info.headerFormat, mediaId };
         },

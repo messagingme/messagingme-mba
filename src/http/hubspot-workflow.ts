@@ -1,3 +1,4 @@
+import { champDEntete } from '../documents/entete';
 import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { verifyRequest } from '../lib/signature';
@@ -444,9 +445,12 @@ export function registerHubspotWorkflow(app: FastifyInstance, deps: HubspotWorkf
       phone_e164: fiche?.phone_e164 ?? g.e164,
       fields: { ...Object.fromEntries(gardes), ...champsFiche.poser },
     };
-    const sources = sourcesDuBloc(
-      await deps.sourcesDuModele(tenantId, g.lancable.modele.name, g.lancable.modele.language), g.lancable.sourcesDuBloc,
-    );
+    const duModele = await deps.sourcesDuModele(tenantId, g.lancable.modele.name, g.lancable.modele.language);
+    // Décision 3 du cadrage du 2026-11-12 : un modèle d'ouverture dont l'en-tête DOCUMENT vient de la fiche ne part pas
+    // sans document (`valeur_invalide`, que l'historique du workflow montre) : jamais « voici votre devis » sans devis.
+    const champDocument = champDEntete(duModele);
+    if (champDocument !== null && !vue.fields?.[champDocument]) return reply.code(200).send({ issue: 'valeur_invalide' });
+    const sources = sourcesDuBloc(duModele, g.lancable.sourcesDuBloc);
     const remplies = resolveHintParams(sources, g.lancable.variables, vue, { now: new Date(now()) });
     if (remplies.missing.length > 0) return reply.code(200).send({ issue: 'valeur_invalide' });
     const valeurs = valeursDuWorkflow(remplies.values);

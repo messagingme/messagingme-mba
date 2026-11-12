@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import { EnteteDeLaFicheRefusee } from '../src/documents/entete';
 import { envoyerModeleDansLeFil, envoyerRcsDansLeFil, type DepsEnvoiModeleDansLeFil, type DepsEnvoiRcsDansLeFil } from '../src/inbox/envoi-operateur';
 import { RetraitDeLaListeRefuse } from '../src/mba/liste';
 
@@ -34,6 +35,14 @@ function modele(o: { numero?: string | null; desabonne?: boolean; categorie?: 'm
 }
 
 const promo = { name: 'promo', language: 'fr', bodyParams: [] };
+
+it('🔴 un en-tête tiré de la fiche (plan du 2026-11-12) : 422 `header_from_contact`, le fil n’est ni pris ni inscrit', async () => {
+  const { deps, gestes } = modele({ envoiLeve: new EnteteDeLaFicheRefusee() });
+  expect(await envoyerModeleDansLeFil(deps, 't1', FIL, promo, 'u1')).toEqual({
+    ok: false, statut: 422, code: 'header_from_contact', error: 'Ce modèle envoie le document propre à chaque contact : il ne part que depuis un scénario.',
+  });
+  expect(gestes.some((g) => g.startsWith('prise:') || g.startsWith('inscrit:'))).toBe(false);
+});
 
 describe('envoyerModeleDansLeFil', () => {
   it('un contact abonné : la catégorie n’est PAS lue, le modèle part, le fil est pris, puis le message inscrit', async () => {

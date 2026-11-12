@@ -1,3 +1,4 @@
+import { champDEntete } from '../documents/entete';
 import type { WorkflowExecutorDeps } from './executor';
 import { LimiteOffreError } from '../offres/refus';
 import { problemeLienBouton } from './engine';
@@ -93,6 +94,11 @@ export interface DepsEnvoisDeBloc {
    * une adresse de la médiathèque se lit par (espace, code), sans HTTP. null = non préparé, le bloc refuse.
    */
   prepareFichierDuBloc(tenant: string, url: string): Promise<FichierPrepare | null>;
+  /**
+   * Le PDF propre au contact (code `doc_…` lu sur sa fiche) déposé chez Meta pour l'en-tête d'un modèle (plan du
+   * 2026-11-12, lot B2) : seulement un document de CET espace et de CE numéro. null = introuvable, effacé ou non déposé.
+   */
+  preparerDocumentDuContact(tenant: string, waId: string, code: string): Promise<{ mediaId: string; nom: string } | null>;
   /** Les liens tracés d'un template, et le jeton public du contact écrit dans leur suffixe. */
   trackedLinks: Pick<PgTrackedLinkStore, 'listByTemplates' | 'jetonPourE164'>;
   /** Les indications « variable {{n}} -> champ » d'un template. */
@@ -146,8 +152,26 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
    * pour se comporter à l'identique. `info` null (lecture en échec) -> ni visuel ni refus : un template sans
    * visuel n'est jamais bloqué par une panne de lecture.
    */
-  type VisuelsEnvoi = { carousel?: { cards: OutboundCarouselCard[] }; headerMediaId?: string; headerFormat?: 'IMAGE' | 'VIDEO' | 'DOCUMENT' };
-  const visuelsPourEnvoi = async (tenant: string, info: TplInfo | null): Promise<{ refus: string } | VisuelsEnvoi> => {
+  type VisuelsEnvoi = { carousel?: { cards: OutboundCarouselCard[] }; headerMediaId?: string; headerFormat?: 'IMAGE' | 'VIDEO' | 'DOCUMENT'; headerFilename?: string };
+  /**
+   * L'en-tête DOCUMENT tiré de la fiche (lot B2) : null quand le modèle n'en a pas (son fichier part, comme avant), sinon
+   * le document de CE contact, ou le refus. 🔴 Jamais le fichier d'exemple du modèle à la place : un devis témoin
+   * partirait au client.
+   */
+  const enteteDeLaFiche = async (tenant: string, waId: string, name: string, language: string, info: TplInfo | null): Promise<{ refus: string } | VisuelsEnvoi | null> => {
+    if (info?.headerFormat !== 'DOCUMENT' || info.carousel) return null;
+    const champ = champDEntete(await hintStore.get(tenant, name, language));
+    if (champ === null) return null;
+    const fiche = await contactStore.getResolvableByPhone(tenant, waId);
+    const code = fiche?.fields?.[champ];
+    if (typeof code !== 'string' || code === '') return { refus: `ce contact n'a pas de document pour l'en-tête (champ « ${champ} »)` };
+    const doc = await deps.preparerDocumentDuContact(tenant, waId, code);
+    if (doc === null) return { refus: `le document de ce contact (champ « ${champ} ») est introuvable ou effacé` };
+    return { headerMediaId: doc.mediaId, headerFormat: 'DOCUMENT', headerFilename: doc.nom };
+  };
+  const visuelsPourEnvoi = async (tenant: string, waId: string, name: string, language: string, info: TplInfo | null): Promise<{ refus: string } | VisuelsEnvoi> => {
+    const deLaFiche = await enteteDeLaFiche(tenant, waId, name, language, info);
+    if (deLaFiche !== null) return deLaFiche;
     const carousel = info?.carousel ? { cards: await prepareCarouselMedia(tenant, info.carousel.cards) } : undefined;
     const refusCarousel = carousel ? carouselSendBlocker(carousel.cards) : null;
     if (refusCarousel !== null) return { refus: refusCarousel };
@@ -193,7 +217,7 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
         try {
           luCampagne = await templateVarInfo(tenant, name, language);
         } catch { /* best-effort */ }
-        const visuels = await visuelsPourEnvoi(tenant, luCampagne);
+        const visuels = await visuelsPourEnvoi(tenant, waId, name, language, luCampagne);
         if ('refus' in visuels) {
           // eslint-disable-next-line no-console
           console.error(`workflow sendTemplate: « ${name} » non envoyé à ${waId} : ${visuels.refus}`);
@@ -244,7 +268,7 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
       // Payload contrôlé sur chaque bouton quick-reply (`btn:<index>`) : au tap, il sélectionne la branche.
       // Carousel non envoyable (carte sans image, variable de carte) : on ne laisse pas partir un payload que Meta
       // rejettera.
-      const visuels = await visuelsPourEnvoi(tenant, info);
+      const visuels = await visuelsPourEnvoi(tenant, waId, name, language, info);
       if ('refus' in visuels) {
         // eslint-disable-next-line no-console
         console.error(`workflow sendTemplate: « ${name} » non envoyé à ${waId} : ${visuels.refus}`);

@@ -1,3 +1,4 @@
+import { POSITION_ENTETE } from '../documents/entete';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -659,6 +660,12 @@ export function registerHubspotConversation(app: FastifyInstance, deps: HubspotC
     }
 
     let enteteId: string | undefined;
+    // 🔴 Un en-tête DOCUMENT tiré de la fiche (plan du 2026-11-12) ne part que d'un scénario : envoyé d'ici, ce serait le
+    // fichier d'exemple du modèle, un devis témoin.
+    if (modele.entete?.format === 'DOCUMENT'
+      && (await deps.modeles.indices(tenantId)).some((i) => i.name === name && i.language === language && i.position === POSITION_ENTETE)) {
+      return reply.code(422).send({ error: 'Ce modèle envoie le document propre à chaque contact : il ne part que depuis un scénario.', code: 'header_from_contact' });
+    }
     if (modele.entete) {
       const prepare = await enteteBornee(deps.modeles, tenantId, modele.entete);
       if ('statut' in prepare) return refuser(reply, prepare);

@@ -1,3 +1,4 @@
+import { POSITION_ENTETE } from '../documents/entete';
 import type { FastifyInstance } from 'fastify';
 import { forbidNonAdmin } from '../auth/middleware';
 import type { Guard } from '../auth/middleware';
@@ -134,6 +135,38 @@ function indicesDe(b: Record<string, unknown>): IndicesModele | null | undefined
   return parseParamHints(b.paramHints);
 }
 
+/**
+ * LA SOURCE DE L'EN-TÊTE DOCUMENT (plan du 2026-11-12, lot B2) : `enteteDepuisChamp` est la clé du champ de la fiche qui
+ * porte le document (le PDF recopié de HubSpot), `null` pour revenir au fichier du modèle, absent pour ne rien changer.
+ * Seulement sur un en-tête DOCUMENT : sur une image, une vidéo ou sans en-tête, c'est refusé (400).
+ */
+function enteteDe(b: Record<string, unknown>, header: TemplateHeader | undefined): string | null | undefined | 'invalide' {
+  const v = b.enteteDepuisChamp;
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string' || !/^[A-Za-z0-9_.-]{1,100}$/.test(v)) return 'invalide';
+  return header?.format === 'DOCUMENT' ? v : 'invalide';
+}
+
+/**
+ * Les sources à enregistrer : les variables (reçues, ou celles déjà posées) et la position 0 de l'en-tête. 🔴 Le store
+ * REMPLACE toutes les sources d'un modèle : un enregistrement des seules variables garde la source d'en-tête déjà posée,
+ * et un modèle qui n'a plus d'en-tête DOCUMENT la perd. `undefined` quand rien ne change (aucune écriture).
+ */
+async function sourcesAEnregistrer(
+  deps: DepsGestionModeles, tenant: string, name: string, language: string,
+  indices: IndicesModele | undefined, entete: string | null | undefined, header: TemplateHeader | undefined,
+): Promise<IndicesModele | undefined> {
+  const existantes = await deps.indices.get(tenant, name, language);
+  const zeroExistant = existantes.find((h) => h.position === POSITION_ENTETE);
+  const zero = header?.format !== 'DOCUMENT' ? undefined
+    : entete === undefined ? zeroExistant
+      : entete === null ? undefined : { position: POSITION_ENTETE, source: { type: 'field' as const, key: entete } };
+  if (indices === undefined && JSON.stringify(zero) === JSON.stringify(zeroExistant)) return undefined;
+  const variables = indices ?? existantes.filter((h) => h.position !== POSITION_ENTETE);
+  return [...variables, ...(zero ? [zero] : [])];
+}
+
 /** Routes de modèles : l'adapter valide le transport et traduit les issues du module métier. */
 export function registerTemplates(app: FastifyInstance, deps: DepsGestionModeles, garde: Guard): void {
   const opts = { preHandler: garde };
@@ -154,8 +187,11 @@ export function registerTemplates(app: FastifyInstance, deps: DepsGestionModeles
     if ('error' in parsed) return reply.code(400).send({ error: parsed.error });
     const indices = indicesDe(b);
     if (indices === null) return reply.code(400).send({ error: 'paramHints invalides' });
+    const entete = enteteDe(b, parsed.fields.header);
+    if (entete === 'invalide') return reply.code(400).send({ error: 'enteteDepuisChamp : la clé d’un champ, sur un modèle à en-tête Document seulement' });
+    const sources = await sourcesAEnregistrer(deps, tenant, b.name, b.language, indices, entete, parsed.fields.header);
 
-    const issue = await creerUnModele(deps, tenant, { name: b.name, language: b.language, ...parsed.fields }, indices);
+    const issue = await creerUnModele(deps, tenant, { name: b.name, language: b.language, ...parsed.fields }, sources);
     if (!('res' in issue)) return reply.code(issue.statut).send({ error: issue.error });
     return reply.code(201).send(issue.res);
   });
@@ -180,8 +216,11 @@ export function registerTemplates(app: FastifyInstance, deps: DepsGestionModeles
     if ('error' in parsed) return reply.code(400).send({ error: parsed.error });
     const indices = indicesDe(b);
     if (indices === null) return reply.code(400).send({ error: 'paramHints invalides' });
+    const entete = enteteDe(b, parsed.fields.header);
+    if (entete === 'invalide') return reply.code(400).send({ error: 'enteteDepuisChamp : la clé d’un champ, sur un modèle à en-tête Document seulement' });
+    const sources = await sourcesAEnregistrer(deps, tenant, name, b.language, indices, entete, parsed.fields.header);
 
-    const issue = await modifierUnModele(deps, tenant, name, b.language, parsed.fields, indices);
+    const issue = await modifierUnModele(deps, tenant, name, b.language, parsed.fields, sources);
     if ('refus' in issue) return reply.code(issue.refus.statut).send(corpsRefus(issue.refus));
     return reply.code(200).send(issue.res);
   });

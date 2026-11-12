@@ -19,6 +19,9 @@
   et étape de transaction. Relecture sans rouge ; trois jaunes pris (déduplication limitée à un jour, adresse jusqu'à
   4 096 caractères, test de la route transaction), l'alignement de la console reporté au lot B2. Inerte tant que le
   connecteur n'envoie pas `document`.
+- **Lot B2, l'en-tête tiré de la fiche** : la position 0 de `template_param_hints`, l'envoi par le seul scénario avec le
+  nom du fichier, les refus de la campagne directe, de l'Inbox et de la carte HubSpot, `valeur_invalide` côté action
+  transaction. Quatre mécanismes vérifiés dans les deux sens. La console (lot B3) suit le déploiement de l'API.
 - **Migration 0291** : poussée seule (`27574e7e`, CI verte), `migration=avant`, run 43223268856 approuvé par Julien :
   `-> 0291_documents_contact.sql ... ok`. Table neuve, non relue en base (sonde de production réservée à Julien), son
   SQL joué par le job `integration` de la CI.

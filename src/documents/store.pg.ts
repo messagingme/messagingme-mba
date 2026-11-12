@@ -47,6 +47,23 @@ export class PgDocumentsContact {
   }
 
   /**
+   * Le document d'un code, pour l'envoi (lot B2) : seulement s'il appartient à CET espace et à CE numéro, et s'il n'a pas
+   * été marqué par une purge (`wa_id` vidé). Un code d'un autre espace, d'un autre contact, effacé ou inconnu rend null :
+   * l'envoi refuse, rien ne part. Sans magasin, null aussi.
+   */
+  async lire(tenantId: string, waId: string, code: string): Promise<{ nom: string; octets: Buffer } | null> {
+    if (this.magasin === null) return null;
+    const { rows } = await this.pool.query<{ nom: string | null; cle_objet: string }>(
+      `select nom, cle_objet from documents_contact where tenant_id = $1 and code = $2 and wa_id = $3`,
+      [tenantId, code, waId],
+    );
+    const r = rows[0];
+    if (!r) return null;
+    const octets = await this.magasin.lireOctets(r.cle_objet);
+    return octets === null ? null : { nom: r.nom ?? 'document.pdf', octets };
+  }
+
+  /**
    * Efface au plus `taille` documents échus : plus vieux que la conservation, ou marqués par la purge RGPD d'un contact.
    * Dans l'ordre : l'objet, PUIS la ligne, comme la médiathèque (`purgerSupprimes`) : un objet qui ne s'efface pas garde
    * sa ligne, que le passage suivant reprend, et la passe lève pour que l'étape se voie en échec. Le champ de la fiche

@@ -1,3 +1,4 @@
+import { PgDocumentsContact } from '../documents/store.pg';
 import type { Pool } from 'pg';
 import { config } from '../config';
 import type { PgWorkflowRunStore } from './run-store.pg';
@@ -230,16 +231,17 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
   // La médiathèque, lue par (espace, code) : c'est par là qu'une vidéo ou un PDF du bloc « message rapide » partent, sans
   // adresse publique (spec médias, § 3.2).
   const mediatheque = new PgRcsMediaStore(pool, deps.magasinObjets);
+  const mediaClientFor = async (tenant: string) => {
+    // Résolution d'ENVOI : un numéro 360dialog téléverse chez 360dialog, avec la clé que `resolveForTenant` refuse.
+    const { token, fournisseur } = await metaCredentials.resolvePourEnvoi(tenant);
+    return fournisseur === '360dialog' ? new Media360dialogClient(token) : new MetaMediaClient(token, config.META_APP_ID, config.META_GRAPH_VERSION);
+  };
   const templateMedia = new TemplateMediaPreparer({
     getPhoneNumberId: (tenant) => numeroDeLEspace(tenant),
     lireFichier: (tenant, code) => mediatheque.lireDeLEspace(tenant, code),
     // 🔴 Une adresse saisie par le client : le téléchargement gardé des en-têtes de modèle, jamais un fetch nu.
     telecharger: (format, url) => telechargerEnteteProduction(format, url),
-    mediaClientFor: async (tenant) => {
-      // Résolution d'ENVOI : un numéro 360dialog téléverse chez 360dialog, avec la clé que `resolveForTenant` refuse.
-      const { token, fournisseur } = await metaCredentials.resolvePourEnvoi(tenant);
-      return fournisseur === '360dialog' ? new Media360dialogClient(token) : new MetaMediaClient(token, config.META_APP_ID, config.META_GRAPH_VERSION);
-    },
+    mediaClientFor,
     // Les dépôts survivent aux redémarrages (migration 0288) ; la même résolution d'envoi dit chez qui ils ont été faits.
     memoire: new PgMemoireDesMedias(pool),
     fournisseurDe: async (tenant) => (await metaCredentials.resolvePourEnvoi(tenant)).fournisseur,
@@ -249,6 +251,23 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
   const prepareHeaderMedia = (tenant: string, mediaUrl: string): Promise<string | null> =>
     templateMedia.prepareOne(tenant, mediaUrl);
   const prepareFichierDuBloc = (tenant: string, url: string) => templateMedia.prepareFichier(tenant, url);
+  // Le PDF propre au contact (plan du 2026-11-12, lot B2) : lu dans la copie de CET espace et de CE numéro, puis déposé
+  // chez Meta pour l'en-tête. Un dépôt par envoi : le document est propre au contact, rien à mettre en commun. Ne lève
+  // jamais : null fait refuser le bloc en le nommant.
+  const documentsContact = new PgDocumentsContact(pool, deps.magasinObjets);
+  const preparerDocumentDuContact = async (tenant: string, waId: string, code: string): Promise<{ mediaId: string; nom: string } | null> => {
+    try {
+      const doc = await documentsContact.lire(tenant, waId, code);
+      const pn = doc ? await numeroDeLEspace(tenant) : null;
+      if (!doc || !pn) return null;
+      const mediaId = await (await mediaClientFor(tenant)).uploadForSend(pn, doc.octets, 'application/pdf');
+      return { mediaId, nom: doc.nom };
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('document du contact : non déposé pour l’envoi:', messageDe(err));
+      return null;
+    }
+  };
 
   const templateVarInfo = async (tenant: string, name: string, language: string): Promise<TplInfo | null> => {
     const waba = await tenantWabaId(tenant);
@@ -295,7 +314,7 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
   // exécuté par ses tests. Il reçoit d'ici ce qui est partagé : le client de l'espace (la réponse d'un agent IA
   // l'emprunte) et le cache des templates (les campagnes et l'API le lisent).
   const envois = creerEnvoisDeBloc({
-    dryRun, clientWhatsApp, templateVarInfo, prepareCarouselMedia, prepareHeaderMedia, prepareFichierDuBloc,
+    dryRun, clientWhatsApp, templateVarInfo, prepareCarouselMedia, prepareHeaderMedia, prepareFichierDuBloc, preparerDocumentDuContact,
     trackedLinks, hintStore, contactStore, varsDuContact, inboxStore, ecranDEntree,
   });
 

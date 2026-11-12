@@ -1,3 +1,4 @@
+import { champDEntete } from './documents/entete';
 import './charger-env';
 import { PgActionsAgent } from './agent/actions.pg';
 import { messagesInteractifsDuFormulaire } from './mba/messages-interactifs';
@@ -1834,6 +1835,8 @@ async function main(): Promise<void> {
         const url = (await workflowRuntime.templateVarInfo(tenant, name, language))?.headerMediaUrl;
         return url ? workflowRuntime.prepareHeaderMedia(tenant, url) : null;
       },
+      // 🔴 Un en-tête DOCUMENT tiré de la fiche (plan du 2026-11-12) ne part que d'un scénario : l'envoi à la main le refuse.
+      enteteDeLaFiche: async (tenant, name, language) => champDEntete(await templateHintStore.get(tenant, name, language)) !== null,
     }),
     /**
      * 🔴 La garde d'opt-out de l'envoi de modèle depuis l'Inbox, en deux morceaux : le statut du contact

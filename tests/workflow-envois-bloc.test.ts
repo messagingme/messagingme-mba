@@ -67,6 +67,7 @@ function monter(over: Partial<DepsEnvoisDeBloc> = {}) {
     prepareCarouselMedia: vi.fn(async (_t: string, cartes: OutboundCarouselCard[]) => cartes.map((c) => ({ ...c, mediaId: 'media-carte' }))),
     prepareHeaderMedia: vi.fn(async () => 'media-entete'),
     prepareFichierDuBloc: vi.fn(async () => ({ mediaId: 'media-entete', type: 'image' as const, nom: null })),
+    preparerDocumentDuContact: vi.fn(async () => ({ mediaId: 'media-du-contact', nom: 'Madame CORNU SOPHIE-MUTAC.pdf' })),
     trackedLinks: { listByTemplates: vi.fn(async () => []), jetonPourE164: vi.fn(async () => 'jeton-abc') },
     hintStore: { get: vi.fn(async () => []) },
     contactStore: { getResolvableByPhone: vi.fn(async () => null) },
@@ -277,6 +278,48 @@ describe('sendTemplate, branche « variables déjà résolues » (campagne de sc
     expect(appels).toEqual([['sendTemplate', W, { name: NOM, language: LANGUE, components: [
       { type: 'header', parameters: [{ type: 'image', image: { id: 'media-entete' } }] },
     ] }]]);
+  });
+
+  describe('l’en-tête DOCUMENT tiré de la fiche (plan du 2026-11-12, lot B2)', () => {
+    const DOC = { ...LECTURE, headerFormat: 'DOCUMENT' as const, headerMediaUrl: 'https://cdn.meta/devis-temoin.pdf' };
+    const SOURCE = [{ position: 0, source: { type: 'field' as const, key: 'hs_calc_document' } }];
+    const fiche = (code: string | undefined) => vi.fn(async () => ({ phone_e164: '+33600000001', bsuid: null, profile_name: null, fields: (code === undefined ? {} : { hs_calc_document: code }) as Record<string, unknown> }));
+
+    it('🔴 les deux branches : le document de CE contact part, à son nom, JAMAIS le fichier d’exemple du modèle', async () => {
+      for (const explicites of [[], undefined] as const) {
+        const { envois, deps, appels } = monter({ templateVarInfo: vi.fn(async () => DOC), hintStore: { get: vi.fn(async () => SOURCE) }, contactStore: { getResolvableByPhone: fiche('doc_abc') } });
+        await envois.sendTemplate(T, W, NOM, LANGUE, [], explicites === undefined ? undefined : [...explicites]);
+        expect(deps.preparerDocumentDuContact).toHaveBeenCalledWith(T, W, 'doc_abc');
+        expect(deps.prepareHeaderMedia).not.toHaveBeenCalled();
+        expect(appels).toEqual([['sendTemplate', W, { name: NOM, language: LANGUE, components: [
+          { type: 'header', parameters: [{ type: 'document', document: { id: 'media-du-contact', filename: 'Madame CORNU SOPHIE-MUTAC.pdf' } }] },
+        ] }]]);
+      }
+    });
+
+    it('🔴 fiche sans document, ou document introuvable : refus nommé, rien ne part, et jamais le fichier du modèle', async () => {
+      const sans = monter({ templateVarInfo: vi.fn(async () => DOC), hintStore: { get: vi.fn(async () => SOURCE) }, contactStore: { getResolvableByPhone: fiche(undefined) } });
+      expect(await sans.envois.sendTemplate(T, W, NOM, LANGUE, [], [])).toBe(`template « ${NOM} » : ce contact n'a pas de document pour l'en-tête (champ « hs_calc_document »)`);
+      expect(sans.appels).toEqual([]);
+      expect(sans.deps.prepareHeaderMedia).not.toHaveBeenCalled();
+      const efface = monter({
+        templateVarInfo: vi.fn(async () => DOC), hintStore: { get: vi.fn(async () => SOURCE) }, contactStore: { getResolvableByPhone: fiche('doc_parti') },
+        preparerDocumentDuContact: vi.fn(async () => null),
+      });
+      expect(await efface.envois.sendTemplate(T, W, NOM, LANGUE, [], [])).toBe(`template « ${NOM} » : le document de ce contact (champ « hs_calc_document ») est introuvable ou effacé`);
+      expect(efface.appels).toEqual([]);
+      expect(efface.deps.prepareHeaderMedia).not.toHaveBeenCalled();
+    });
+
+    it('sans source d’en-tête, ou pour une image : le fichier du modèle part comme avant', async () => {
+      const sansSource = monter({ templateVarInfo: vi.fn(async () => DOC) });
+      await sansSource.envois.sendTemplate(T, W, NOM, LANGUE, [], []);
+      expect(sansSource.deps.prepareHeaderMedia).toHaveBeenCalledWith(T, 'https://cdn.meta/devis-temoin.pdf');
+      expect(sansSource.deps.preparerDocumentDuContact).not.toHaveBeenCalled();
+      const image = monter({ templateVarInfo: vi.fn(async () => ({ ...LECTURE, headerFormat: 'IMAGE' as const, headerMediaUrl: 'https://cdn.meta/x.jpg' })), hintStore: { get: vi.fn(async () => SOURCE) } });
+      await image.envois.sendTemplate(T, W, NOM, LANGUE, [], []);
+      expect(image.deps.preparerDocumentDuContact).not.toHaveBeenCalled();
+    });
   });
 
   it('un visuel non préparé refuse avec sa raison, sans appel', async () => {

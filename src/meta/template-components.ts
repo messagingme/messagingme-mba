@@ -40,6 +40,11 @@ export interface OutboundTemplateParts {
   headerMediaUrl?: string;
   /** Format du header média (défaut IMAGE si absent mais URL fournie). */
   headerFormat?: 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+  /**
+   * Le nom que le client voit sur un en-tête DOCUMENT (le PDF propre au contact, plan du 2026-11-12). Ignoré pour une
+   * image ou une vidéo, que Meta n'accepte pas avec un nom.
+   */
+  headerFilename?: string;
   /** Cartes du composant CAROUSEL du template. Absent = template sans carousel. */
   carousel?: { cards: OutboundCarouselCard[] };
   /**
@@ -109,7 +114,8 @@ export function buildTemplateComponents(tpl: OutboundTemplateParts): unknown[] {
   if ((tpl.headerMediaId || tpl.headerMediaUrl) && !tpl.carousel) {
     const key = tpl.headerFormat === 'VIDEO' ? 'video' : tpl.headerFormat === 'DOCUMENT' ? 'document' : 'image';
     // `id` dès qu'on l'a, `link` en repli (une URL fournie à la main par un opérateur, elle, se télécharge).
-    const media = tpl.headerMediaId ? { id: tpl.headerMediaId } : { link: tpl.headerMediaUrl };
+    const source = tpl.headerMediaId ? { id: tpl.headerMediaId } : { link: tpl.headerMediaUrl };
+    const media = key === 'document' && tpl.headerFilename ? { ...source, filename: tpl.headerFilename } : source;
     components.push({ type: 'header', parameters: [{ type: key, [key]: media }] });
   }
   if (tpl.bodyParams.length > 0) {

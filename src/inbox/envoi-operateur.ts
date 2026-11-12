@@ -1,3 +1,4 @@
+import { EnteteDeLaFicheRefusee } from '../documents/entete';
 import type { InboxDep, InboxRouteDeps, OutboundTemplate } from '../http/inbox';
 import type { AuteurDuChangement } from './evenements';
 import { journaliserEnvoiAccepte, type EtatJournalSortant } from './journal-sortant';
@@ -84,7 +85,14 @@ export async function envoyerModeleDansLeFil(
   const prep = await deps.prepareCarousel(tenantId, modele.name, modele.language);
   if (prep && 'refus' in prep) return { ok: false, statut: 422, error: prep.refus };
 
-  const messageId = await deps.sendTemplateMessage(tenantId, phoneNumberId, fil.waId, { ...modele, ...(prep ? { carousel: prep } : {}) });
+  let messageId: string;
+  try {
+    messageId = await deps.sendTemplateMessage(tenantId, phoneNumberId, fil.waId, { ...modele, ...(prep ? { carousel: prep } : {}) });
+  } catch (err) {
+    // Un en-tête tiré de la fiche (plan du 2026-11-12) : refusé avant tout appel à Meta, rien n'est parti.
+    if (err instanceof EnteteDeLaFicheRefusee) return { ok: false, statut: 422, error: err.message, code: 'header_from_contact' };
+    throw err;
+  }
   const journal = await prendreLeFilPuisInscrire(deps, tenantId, fil, { collaborateur: operateur }, messageId, () =>
     deps.inbox.recordOutbound(fil.conversationId, `[template] ${modele.name}`, messageId, 'humain', 'template', modele.templateCategory ?? null, modele.name, operateur));
   return { ok: true, messageId, journal };

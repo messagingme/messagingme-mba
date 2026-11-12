@@ -54,6 +54,8 @@ export function buildWorkflowTemplateComponents(opts: {
    */
   headerMediaId?: string;
   headerFormat?: 'IMAGE' | 'VIDEO' | 'DOCUMENT';
+  /** Le nom d'un en-tête DOCUMENT propre au contact (`OutboundTemplateParts.headerFilename`). */
+  headerFilename?: string;
   /**
    * Suffixes des boutons URL tracés, par index de bouton (attribution des clics). Une URL soumise à Meta sous
    * la forme `/r/<code>/{{1}}` exige son composant à chaque envoi, quel que soit le chemin qui envoie :
@@ -69,6 +71,7 @@ export function buildWorkflowTemplateComponents(opts: {
     ...(opts.carousel ? { carousel: opts.carousel } : {}),
     ...(opts.headerMediaId ? { headerMediaId: opts.headerMediaId } : {}),
     ...(opts.headerFormat ? { headerFormat: opts.headerFormat } : {}),
+    ...(opts.headerFilename ? { headerFilename: opts.headerFilename } : {}),
     ...(opts.suffixesBoutons ? { suffixesBoutons: opts.suffixesBoutons } : {}),
   });
   const flowToken = opts.flowToken && opts.flowToken !== '' ? opts.flowToken : 'mba-flow';

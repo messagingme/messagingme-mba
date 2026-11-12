@@ -192,3 +192,14 @@ describe('headerMediaSendBlocker', () => {
     expect(headerMediaSendBlocker(undefined, undefined)).toBeNull();
   });
 });
+
+describe('le nom d’un en-tête DOCUMENT (plan du 2026-11-12, lot B2)', () => {
+  it('🔴 le PDF propre au contact part avec son nom ; une image ou une vidéo n’en portent jamais', () => {
+    expect(buildTemplateComponents({ bodyParams: [], headerMediaId: 'm1', headerFormat: 'DOCUMENT', headerFilename: 'Devis.pdf' }))
+      .toEqual([{ type: 'header', parameters: [{ type: 'document', document: { id: 'm1', filename: 'Devis.pdf' } }] }]);
+    expect(buildTemplateComponents({ bodyParams: [], headerMediaId: 'm1', headerFormat: 'IMAGE', headerFilename: 'x.jpg' }))
+      .toEqual([{ type: 'header', parameters: [{ type: 'image', image: { id: 'm1' } }] }]);
+    expect(buildTemplateComponents({ bodyParams: [], headerMediaId: 'm1', headerFormat: 'DOCUMENT' }))
+      .toEqual([{ type: 'header', parameters: [{ type: 'document', document: { id: 'm1' } }] }]);
+  });
+});

@@ -1,3 +1,4 @@
+import { EnteteDeLaFicheRefusee } from '../documents/entete';
 import { buildTemplateComponents } from '../meta/template-components';
 import { messagingTarget, type MarketingParams, type TemplateSpec } from '../meta/types';
 import type { InboxRouteDeps } from '../http/inbox';
@@ -32,10 +33,15 @@ export interface DepsEnvoiModeleInbox {
    * de scénario et la campagne envoyaient déjà le `media id` ; l'Inbox, non.
    */
   mediaDuModele(tenantId: string, name: string, language: string): Promise<string | null>;
+  /** L'en-tête DOCUMENT de ce modèle vient-il de la fiche (position 0 de ses sources, plan du 2026-11-12) ? */
+  enteteDeLaFiche(tenantId: string, name: string, language: string): Promise<boolean>;
 }
 
 export function creerEnvoiModeleInbox(deps: DepsEnvoiModeleInbox): InboxRouteDeps['sendTemplateMessage'] {
   return async (tenant, phoneNumberId, to, tpl) => {
+    // 🔴 Avant tout : un modèle dont l'en-tête vient de la fiche ne part que d'un scénario. Lue sans `try` : une lecture
+    // en échec ne laisse pas partir le fichier d'exemple, elle fait échouer l'envoi.
+    if (!tpl.carousel && (await deps.enteteDeLaFiche(tenant, tpl.name, tpl.language))) throw new EnteteDeLaFicheRefusee();
     const client = await deps.client(tenant, phoneNumberId);
     let suffixes: { suffixesBoutons?: Record<number, string> } = {};
     try {

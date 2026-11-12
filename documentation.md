@@ -3257,6 +3257,20 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
   `PgDocumentsContact.deposer` (le même fichier de moins d'un jour rend son code), et la fiche ne reçoit que le CODE
   `doc_…`. 🔴 L'adresse ne s'écrit ni sur la fiche, ni dans la campagne, ni au journal ; un refus ou une panne RETIRE le
   champ (décision 3 du cadrage).
+- **L'en-tête DOCUMENT qui vient de la fiche** (lot B2, `src/documents/entete.ts`) : un modèle à en-tête Document peut
+  dire que son document est celui d'un champ de la fiche (`enteteDepuisChamp` à la création ou à la modification d'un
+  modèle, refusé ailleurs qu'un en-tête Document). La règle vit dans `template_param_hints` à la POSITION 0 (`POSITION_ENTETE`),
+  qu'aucune résolution de variable ne voit (`resolveHintParams` parcourt 1..n, `parseParamHints` la refuse) ; un
+  enregistrement des seules variables la GARDE (`sourcesAEnregistrer`), un modèle qui perd son en-tête Document la perd.
+  🔴 SEUL UN SCÉNARIO l'envoie (`enteteDeLaFiche`, `src/workflow/envois-bloc.ts`, les deux branches du bloc modèle) : le
+  code lu sur la fiche, le document de CET espace et de CE numéro (`PgDocumentsContact.lire`), déposé chez Meta et envoyé
+  par identifiant avec son nom (`headerFilename`) ; fiche sans document ou document effacé : le bloc refuse en le nommant.
+  Partout ailleurs le modèle partirait avec son fichier d'exemple (un devis témoin), donc : la campagne directe est
+  refusée entière (`getTemplateHeaderMedia` du worker) ; l'envoi à la main (Inbox et carte HubSpot) est refusé AVANT tout
+  appel à Meta (`EnteteDeLaFicheRefusee` levée par `creerEnvoiModeleInbox`, rendue en 422 `header_from_contact` par
+  `envoyerModeleDansLeFil`) : 🔴 ce chemin reçoit l'adresse d'en-tête dans le CORPS de la requête, un média non préparé y
+  retomberait sur le lien du fichier d'exemple (rouge de la relecture du lot B2) ; la carte ne propose pas le modèle, et l'action transaction rend `valeur_invalide`
+  quand la fiche n'aura pas de document.
 - **Un parcours qui écrit un champ HubSpot du CONTACT le remonte** (cadrage
   `~/mm-hubspot/docs/2026-11-06-remontee-champs-cadrage.md`) : les écritures de fiche de l'exécuteur (`setField`,
   `clearField`) sont enveloppées dans le câblage par `avecRemonteeHubspot` (`src/hubspot-workflow/remontee.ts`,

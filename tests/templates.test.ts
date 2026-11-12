@@ -720,6 +720,66 @@ describe('routes templates — indices variable->champ (paramHints)', () => {
     await server.close();
   });
 
+  describe('la source de l’en-tête DOCUMENT (`enteteDepuisChamp`, plan du 2026-11-12, lot B2)', () => {
+    const DOCUMENT = { format: 'DOCUMENT', handle: 'h-devis-temoin' };
+    const ZERO = { position: 0, source: { type: 'field', key: 'hs_calc_document' } };
+    const PRENOM = { position: 1, source: { type: 'field', key: 'prenom' } };
+    const creer = (server: ReturnType<typeof appHints>, corps: Record<string, unknown>) => server.inject({
+      method: 'POST', url: '/tenants/t1/templates', ...h(token),
+      payload: { name: 'devis', language: 'fr', category: 'UTILITY', body: 'Votre devis, {{1}}', example: ['Marie'], ...corps },
+    });
+
+    it('🔴 posée sur un en-tête Document : enregistrée à la position 0, à côté des variables', async () => {
+      const cap: HintCap = { saved: [], removed: [] };
+      const server = appHints(makeFetch([{ ok: true, status: 200, json: { id: 'tid', status: 'PENDING' } }]).fn, cap);
+      const res = await creer(server, { header: DOCUMENT, paramHints: [PRENOM], enteteDepuisChamp: 'hs_calc_document' });
+      expect(res.statusCode).toBe(201);
+      expect(cap.saved).toEqual([{ name: 'devis', language: 'fr', hints: [PRENOM, ZERO] }]);
+      await server.close();
+    });
+
+    it('🔴 refusée (400, aucun appel Meta) sur une image, sans en-tête, ou avec une clé invalide', async () => {
+      for (const corps of [
+        { header: { format: 'IMAGE', handle: 'h' }, enteteDepuisChamp: 'hs_calc_document' },
+        { enteteDepuisChamp: 'hs_calc_document' },
+        { header: DOCUMENT, enteteDepuisChamp: 'pas une clé !' },
+        { header: DOCUMENT, enteteDepuisChamp: 42 },
+      ]) {
+        const cap: HintCap = { saved: [], removed: [] };
+        const { fn, calls } = makeFetch([{ ok: true, status: 200, json: { id: 'tid', status: 'PENDING' } }]);
+        const server = appHints(fn, cap);
+        expect((await creer(server, corps)).statusCode, JSON.stringify(corps)).toBe(400);
+        expect(calls).toHaveLength(0);
+        expect(cap.saved).toEqual([]);
+        await server.close();
+      }
+    });
+
+    it('🔴 un enregistrement des SEULES variables garde la source d’en-tête déjà posée ; `null` la retire', async () => {
+      const deja = async () => [PRENOM, ZERO];
+      const cap: HintCap = { saved: [], removed: [] };
+      const server = appHints(makeFetch([{ ok: true, status: 200, json: { id: 'tid', status: 'PENDING' } }]).fn, cap, deja);
+      const autre = { position: 1, source: { type: 'attribute', key: 'name' } };
+      expect((await creer(server, { header: DOCUMENT, paramHints: [autre] })).statusCode).toBe(201);
+      expect(cap.saved).toEqual([{ name: 'devis', language: 'fr', hints: [autre, ZERO] }]);
+      await server.close();
+
+      const cap2: HintCap = { saved: [], removed: [] };
+      const s2 = appHints(makeFetch([{ ok: true, status: 200, json: { id: 'tid', status: 'PENDING' } }]).fn, cap2, deja);
+      expect((await creer(s2, { header: DOCUMENT, enteteDepuisChamp: null })).statusCode).toBe(201);
+      expect(cap2.saved).toEqual([{ name: 'devis', language: 'fr', hints: [PRENOM] }]);
+      await s2.close();
+    });
+
+    it('un modèle qui n’a plus d’en-tête Document perd sa source d’en-tête', async () => {
+      const cap: HintCap = { saved: [], removed: [] };
+      const server = appHints(makeFetch([{ ok: true, status: 200, json: { id: 'tid', status: 'PENDING' } }]).fn, cap, async () => [PRENOM, ZERO]);
+      expect((await creer(server, { paramHints: [PRENOM] })).statusCode).toBe(201);
+      expect(cap.saved).toEqual([{ name: 'devis', language: 'fr', hints: [PRENOM] }]);
+      await server.close();
+    });
+  });
+
   it('PATCH SANS paramHints -> n\'EFFACE PAS les indices existants (clé absente = on ne touche pas)', async () => {
     const cap: HintCap = { saved: [], removed: [] };
     // 1) list (résout l'id + éditable BODY-only), 2) update.

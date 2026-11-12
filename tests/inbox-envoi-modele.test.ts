@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { creerEnvoiModeleInbox } from '../src/inbox/envoi-modele';
+import { EnteteDeLaFicheRefusee } from '../src/documents/entete';
 import type { LienTrace } from '../src/links/tracked-links.pg';
 import type { MarketingParams, TemplateSpec } from '../src/meta/types';
 
@@ -20,6 +21,7 @@ function envoi(
   liens: () => Promise<LienTrace[]>,
   jeton: () => Promise<string | null> = async () => JETON,
   media: (tenant: string, name: string, language: string) => Promise<string | null> = async () => null,
+  enteteDeLaFiche: () => Promise<boolean> = async () => false,
 ) {
   const envoyes: Array<{ to: string; spec: TemplateSpec }> = [];
   const marketing: MarketingParams[] = [];
@@ -34,6 +36,7 @@ function envoi(
       jetonPourE164: async (tenant, e164) => { lectures.push({ tenant, e164 }); return jeton(); },
     },
     mediaDuModele: media,
+    enteteDeLaFiche,
   });
   return { send, envoyes, marketing, lectures };
 }
@@ -140,5 +143,23 @@ describe('envoi manuel d’un template depuis l’Inbox : le visuel du modèle',
     const { send } = envoi(async () => [], undefined, async (_t, name) => { preparations.push(name); return 'media-7'; });
     await send('t1', 'pn1', '33612345678', { name: 'suivi', language: 'fr', bodyParams: ['Marie'] });
     expect(preparations).toEqual([]);
+  });
+});
+
+describe('un modèle dont l’en-tête DOCUMENT vient de la fiche (plan du 2026-11-12, relecture du lot B2)', () => {
+  it('🔴 l’envoi à la main est REFUSÉ avant tout appel à Meta, même quand le corps porte l’adresse du fichier d’exemple', async () => {
+    const preparations: string[] = [];
+    const { send, envoyes, marketing } = envoi(async () => [], async () => JETON, async (_t, n) => { preparations.push(n); return null; }, async () => true);
+    const corps = { name: 'devis_du_contact', language: 'fr', bodyParams: [], headerFormat: 'DOCUMENT' as const, headerMediaUrl: 'https://cdn.meta/devis-temoin.pdf' };
+    await expect(send('t1', 'pn1', '33612345678', corps)).rejects.toThrow(EnteteDeLaFicheRefusee);
+    expect(envoyes).toEqual([]);
+    expect(marketing).toEqual([]);
+    expect(preparations).toEqual([]);
+  });
+
+  it('sans en-tête tiré de la fiche, l’envoi part comme avant', async () => {
+    const { send, envoyes } = envoi(async () => []);
+    expect(await send('t1', 'pn1', '33612345678', { name: 'plaquette', language: 'fr', bodyParams: [] })).toBe('wamid.1');
+    expect(envoyes).toHaveLength(1);
   });
 });

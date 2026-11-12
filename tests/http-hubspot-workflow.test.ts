@@ -624,6 +624,25 @@ describe('l’action « Lancer un scénario (transaction) »', () => {
     await refus.server.close();
   });
 
+  it('🔴 décision 3 : un modèle d’ouverture à en-tête tiré de la fiche ne part pas sans document (valeur_invalide)', async () => {
+    const ZERO = { position: 0, source: { type: 'field' as const, key: 'hs_calc_document' } };
+    const avecEntete = { suivi_devis: [...SOURCES.suivi_devis, ZERO] };
+    const declarees = ['hs_contact_firstname', 'hs_calc_conseiller', 'hs_calc_document'];
+    const sans = appT({ fiche: null, sources: avecEntete, declarees });
+    expect((await sans.server.inject(appel('transaction', LANCEMENT))).json()).toEqual({ issue: 'valeur_invalide' });
+    expect(sans.envois).toEqual([]);
+    await sans.server.close();
+
+    const URL_SIGNEE = 'https://f.hubspotusercontent-eu1.net/hubfs/1/Devis.pdf?Signature=SECRET';
+    const avec = appT({
+      fiche: null, sources: avecEntete, declarees,
+      documents: { telecharger: async () => ({ octets: Buffer.from('%PDF-1.7'), mime: 'application/pdf' }), deposer: async () => 'doc_copie' },
+    });
+    const corps = { ...LANCEMENT, champs: { ...LANCEMENT.champs, calcules: { ...LANCEMENT.champs.calcules, document: URL_SIGNEE } } };
+    expect((await avec.server.inject(appel('transaction', corps))).json().issue).toBe('envoye');
+    await avec.server.close();
+  });
+
   it('🔴 l’ancienne forme `{ prenom, conseiller, lienAgenda }` est refusée (retirée le 2026-11-03), rien ne part', async () => {
     const { server, envois } = appT({ fiche: null, sources: SOURCES });
     for (const champs of [{ prenom: 'Claire', conseiller: 'Cédric Weiss', lienAgenda: LIEN }, {}]) {

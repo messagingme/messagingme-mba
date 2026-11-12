@@ -1,5 +1,16 @@
 # todo.md : backlog
 
+## 🟡 Les PDF par contact, lots B1 et B2 : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-pdf-par-contact-hubspot.md`)
+
+- Le numéro de dépôt (chiffres du numéro reçu de HubSpot) et celui de la lecture à l'envoi (le `waId` du parcours)
+  doivent être égaux : un contact connu par son BSUID ferait refuser l'envoi en « introuvable ». À prouver par l'essai réel.
+- Un dépôt chez Meta par envoi (`preparerDocumentDuContact`), sans plafond propre ; et une panne passagère (429) y
+  devient « introuvable ou effacé » : distinguer la panne de l'absence.
+- Une source d'en-tête (position 0) oubliée sur un modèle recréé hors de notre API avec une image : le modèle est
+  refusé en campagne, sans fuite. `champDEntete` pourrait aussi regarder le format.
+- Un PDF régénéré à chaque appel (horodatage) laisse une copie orpheline jusqu'à 30 jours ; un dépôt fait avant un
+  refus de la route transaction (`deja_envoye`, plafond) aussi.
+
 ## 🟡 Le STOP vers HubSpot, lot 2c : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-stop-vers-hubspot.md`)
 
 - Une seule file pour tous les espaces, consommée un job à la fois : un import coché de milliers de numéros retarde

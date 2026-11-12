@@ -1,3 +1,4 @@
+import { POSITION_ENTETE } from '../documents/entete';
 import type { TemplateSummary } from '../meta/templates';
 import type { IndiceDuTemplate } from '../crm/template-hints.pg';
 import { resolveHintParams, type ParamSource, type ResolvableContact } from '../crm/template';
@@ -98,7 +99,10 @@ export function modelesPourLeContact(
   contact: { optIn: string; fiche: ResolvableContact },
   now: Date,
 ): ModelePropose[] {
-  const sansCarrousel = templates.filter((t) => !t.carousel && !t.isCarousel);
+  // 🔴 Un modèle dont l'en-tête DOCUMENT vient de la fiche (plan du 2026-11-12) ne part que d'un scénario : la carte ne le
+  // propose pas (son fichier d'exemple, un devis témoin, partirait au contact).
+  const enteteDeFiche = new Set(indices.filter((i) => i.position === POSITION_ENTETE).map((i) => JSON.stringify([i.name, i.language])));
+  const sansCarrousel = templates.filter((t) => !t.carousel && !t.isCarousel && !enteteDeFiche.has(JSON.stringify([t.name, t.language])));
   const corps = new Map(sansCarrousel.map((t) => [JSON.stringify([t.name, t.language]), t.body]));
   const consentement = { optInStatus: statutConsentement(contact.optIn) };
   return catalogueTemplates(sansCarrousel, indices).map((m) => {
