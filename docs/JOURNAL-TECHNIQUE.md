@@ -4,6 +4,34 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-12 : la ligne du partenaire attachée, vérifiée et retirée par son API, et les deux rouges de sa relecture
+
+- **Ce qui a changé** (`c49a3c0d`, plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`) : la ligne de crédit du
+  partenaire ne s'attache jamais d'elle-même (essai 236) ; elle s'attache à notre demande, par son API
+  (`src/credit-whatsapp/attache.ts`). La pose (`/ops` et la connexion) l'attache PUIS la vérifie avant de poser la
+  nôtre, la fin de l'option la retire, la reprise la rattache. Les trois variables `LIGNE_PARTENAIRE_*` posées sur le
+  conteneur de l'API le même jour, le secret par Julien dans la console.
+- **La relecture, deux rouges.** (1) Une attache non confirmée (vérification en panne ou démentie, PUT coupé que le
+  partenaire termine) rendait 502 sans rien retirer : le compte restait attaché sans notre ligne, ses modèles payés par
+  le partenaire et jamais débités. (2) Le retrait de `/ops` retirait NOTRE ligne avant la sienne : entre les deux, et
+  sans limite si son retrait échouait, les envois partaient sans provision. Les variables étant déjà posées, le
+  déploiement en attente d'approbation (run 43178836150) a été annulé avant d'être approuvé.
+- **Le correctif.** (1) L'attache non confirmée se retire, avec une alerte « peut-être faite » si ce retrait échoue ; un
+  numéro déjà sur la ligne est refusé AVANT d'attacher, sans quoi ce retrait détacherait un compte couvert ; 422 au lieu
+  de 502, dont Cloudflare remplace le corps. (2) Le retrait retire la sienne d'abord, lue en base et non par le cache de
+  5 s, et garde la nôtre si elle ne part pas (422).
+- **Une mesure qui a changé le correctif** : au retrait comme à la lecture, un compte que le partenaire ne voit pas rend
+  `500` avec l'erreur Graph 100/33 (sonde sur un identifiant inexistant). Le retrait corrigé tel que la relecture le
+  demandait serait resté bloqué en 422 sur une ligne d'essai posée sur un compte jamais partagé avec lui, réessayer n'y
+  changeant rien. Ce cas a sa classe (`CompteInconnuDuPartenaire`) : la pose le refuse sans rien retirer, le retrait
+  retire la nôtre et alerte Julien.
+- **Vérifié** : chaque test des rouges vu échouer avant le code, puis quatorze mutations, chacune faisant échouer le test
+  visé, les fichiers restaurés à l'identique. Les jaunes de la relecture sont au backlog.
+- **Une mutation qui ne mordait plus a trouvé un défaut** : lire le code et le sous-code de Graph en `z.unknown()` (pour
+  ne pas dépendre de leur type) les rendait OBLIGATOIRES, car Zod 4 exige une clé `z.unknown()` nue (« expected
+  nonoptional », mesuré sur 4.6.7). Toute erreur de Graph sans sous-code, la plupart, aurait perdu son message. Les deux
+  clés sont `z.unknown().optional()`, et un test tient les trois formes (sans sous-code, sans code, code en texte).
+
 ## 2026-11-12 : les propriétés HubSpot de type date arrivent en date sur la fiche
 
 Besoin de MUTAC : relancer un prospect X heures avant le rendez-vous pris par un lien de réservation HubSpot. Le

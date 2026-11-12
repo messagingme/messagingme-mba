@@ -629,6 +629,23 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   l'attache (V3, jaune 2), `parLaLigne` qui posait sur un compte peut-être non partagé (V3, jaune 5 : l'attache échoue
   sur un compte que la solution ne partage pas, et rien n'est posé), la fin de fenêtre perdue qui laissait la ligne du
   partenaire payer sans provision (reconnexion, jaune 2 : elle ne s'attache plus qu'à notre pose).
+- 🟡 **Les jaunes de la relecture de l'attache par l'API (2026-11-12 ; ses deux rouges corrigés, le jaune 3, 502 masqué
+  par Cloudflare, avec eux)** :
+  - le cycle (`attache.ts`) : la reprise relance notre ligne AVANT de rattacher la sienne (en panne du partenaire, notre
+    ligne court sans la sienne : rattacher d'abord, ou ré-arrêter celle qui ne se rattache pas) ; rien ne sérialise la
+    fin et la reprise d'un espace (un DELETE lent arrivé après le rattachement) ; l'alerte dit « la reposer dans /ops »,
+    qui répond « déjà sur la ligne » ; `n === 0` ne retente jamais un retrait manqué par un processus tué ;
+  - les délais : jusqu'à 60 s par compte (PUT puis GET) dans `/embedded-signup/complete` où le client attend, dans le
+    webhook de Stripe (k comptes à la reprise, puis le 524 de Cloudflare à 100 s) et sous le verrou de fin de droit
+    (180 s) : les sortir de la requête par `travauxEnVol.suivre` ;
+  - textes restés sur l'attache MANUELLE : les cas `sans_droit`, `sans_numero`, `couvert_arrete`, `autre_espace` et
+    `deja_couvert` de `fenetre-partenaire.ts` (« demander au partenaire d'attacher, de détacher ») ; le 409 de « Ne pas
+    poser » et sa phrase « une fois la ligne du partenaire détachée » (`ops-credit-whatsapp.ts`) ; l'aide de la liste
+    (`OpsCreditWhatsappCard.tsx`) ; `lignes.pg.ts` (« paie encore chez Meta ») ; la JSDoc de `depsPoseDeLaLigne`
+    restée au-dessus de `attacheLigne` (`src/index.ts`) ;
+  - hors du lot : la suppression d'un espace efface nos lignes sans retirer l'attache ; les lignes posées par V3 depuis
+    le 2026-11-11 ne sont ni vérifiées ni rattachées ; une ligne sans `waba_id` est sautée en silence au retrait et à la
+    fin.
 - 🟡 **Les jaunes de la relecture de V3 (2026-11-11, aucun rouge)** :
   - une connexion interrompue après l'enregistrement du jeton laisse un numéro relié, marqué, jamais posé : le dire dans
     l'alerte d'interruption (poser vite), ou poser aussi sur ce chemin ;

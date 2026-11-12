@@ -19,13 +19,18 @@ plus rien ; un compte inconnu rend `500` (erreur Graph 100/33). Jeton JWT HS256 
   `LIGNE_PARTENAIRE_SECRET` (secrète). L'adresse et le secret ne s'écrivent jamais dans le dépôt, le partenaire n'y est
   jamais nommé. Tests : le jeton vérifié par `jose`, chaque réponse mesurée, chaque panne (statut, corps illisible, délai).
 - [x] **La pose** (`poserLaLigne`, `/ops` et la connexion) : configurée, elle attache puis vérifie AVANT de poser notre
-  ligne ; une attache refusée ne pose rien (502, la cause dite) ; une pose qui lève après l'attache la retire. Non
+  ligne ; une attache non confirmée ne pose rien (422, la cause dite) et se retire ; une pose qui lève après l'attache la retire. Non
   configurée, `/ops` pose comme avant et la pose automatique de la connexion est ÉTEINTE. L'alerte « POSÉE » dit l'attache
   vérifiée ; celle du cas « à poser » dit que la pose de `/ops` attache aussi. Tests : l'ordre, chaque refus, le retrait de
   secours, la pose automatique éteinte sans configuration.
 - [x] **Le cycle** : la fin de l'option (fin de droit et webhook Stripe) retire l'attache de chaque compte arrêté, la
-  reprise la rattache, le retrait dans `/ops` la retire ; une panne alerte Julien sans faire échouer le geste (notre
-  garde coupe déjà les envois d'une ligne arrêtée). Tests : chaque chemin, la panne alertée, rien sans configuration.
+  reprise la rattache ; une panne alerte Julien sans faire échouer le geste (notre garde coupe déjà les envois d'une
+  ligne arrêtée). Le retrait dans `/ops` retire la sienne AVANT la nôtre, et une panne garde la nôtre (422). Tests :
+  chaque chemin, la panne alertée, rien sans configuration.
+- [x] **Les deux rouges de la relecture** : une attache non confirmée se retire, après un refus « déjà sur la ligne »
+  avancé avant l'attache ; le retrait de `/ops` retire la ligne du partenaire d'abord, lue en base. Un compte que le
+  partenaire ne voit pas (Graph 100/33, mesuré au retrait comme à la lecture) laisse retirer la nôtre, alerté, sans quoi
+  le retrait resterait bloqué. Chaque test vu rouge, puis vérifié par mutation.
 - [x] Le câblage (`src/index.ts`) tenu par `tests/credit-whatsapp-cablage.test.ts` ; le manuel, `.env.example`, le backlog
   (les jaunes que ce lot ferme).
 

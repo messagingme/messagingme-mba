@@ -1,5 +1,5 @@
 import { journaliser } from '../lib/journal';
-import { attacherEtVerifier, retirerLAttacheSansLever, type AttacheLigne } from './attache';
+import { attacherEtVerifier, CompteInconnuDuPartenaire, retirerLAttacheSansLever, type AttacheLigne } from './attache';
 import type { GrilleMeta } from './grille';
 import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from './lignes.pg';
 
@@ -18,8 +18,10 @@ import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from './lignes.p
  *
  * 🔴 L'API du partenaire configurée (plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`), sa ligne s'attache au
  * compte PUIS se vérifie AVANT que la nôtre se pose : jamais notre ligne sur un compte sans la sienne (Meta refuserait
- * les modèles, ou la carte du client paierait en plus du crédit). Une attache refusée ne pose rien ; une pose qui lève
- * après l'attache la retire, sinon nous paierions la consommation d'un compte sans ligne.
+ * les modèles, ou la carte du client paierait en plus du crédit). Une attache non confirmée (refusée, démentie, ou dont
+ * la vérification lève) ne pose rien et se RETIRE, car elle a pu se faire quand même ; une pose qui lève après l'attache
+ * la retire aussi : sans notre ligne, nous paierions la consommation du compte sans débit (relecture du lot de l'attache,
+ * rouge 1). D'où le refus d'un numéro déjà sur la ligne AVANT d'attacher : ce retrait détacherait un compte couvert.
  */
 export interface DepsPose {
   lignes: {
@@ -45,7 +47,7 @@ export interface DepsPose {
 /** Ce que rend une pose : la ligne posée et son origine, ou le refus tel que `/ops` le rend (statut, message, code). */
 export type IssuePose =
   | { ok: true; origine: 'ops' | 'option' }
-  | { ok: false; statut: 404 | 409 | 502; error: string; code?: 'places_manquantes' };
+  | { ok: false; statut: 404 | 409 | 422; error: string; code?: 'places_manquantes' };
 
 /**
  * Les places qu'une pose sur ce numéro demanderait : les numéros déjà couverts par l'option, plus ceux que la nouvelle ligne
@@ -87,6 +89,10 @@ export async function poserLaLigne(
   if (couvrante !== null && couvrante.phoneNumberId !== phoneNumberId) {
     return { ok: false, statut: 409, error: 'déjà couvert : un autre numéro de son compte WhatsApp est sur la ligne, qui couvre tout le compte' };
   }
+  // 🔴 La ligne du numéro lui-même, en cours ou arrêtée : refusée AVANT d'attacher (relecture du lot de l'attache, rouge 1).
+  // Attachée d'abord, un échec retirerait l'attache d'un compte que notre ligne couvre, et une ligne arrêtée verrait son
+  // compte rattaché en silence, que la fin de l'option ne retirerait plus.
+  if (couvrante !== null) return { ok: false, statut: 409, error: 'numéro déjà sur la ligne' };
   let origine: 'ops' | 'option' = 'ops';
   if (!o.forcer && !(await d.option.entreprise(tenantId))) {
     const [places, couverts, numeros] = await Promise.all([
@@ -110,9 +116,19 @@ export async function poserLaLigne(
     try {
       await attacherEtVerifier(attache, numero.wabaId);
     } catch (err) {
+      // 🔴 L'attache a pu se faire (une vérification en panne ou en retard, un PUT coupé que le partenaire termine) : elle se
+      // retire, sinon le compte enverrait sans notre ligne, payé par le partenaire et jamais débité (rouge 1). 422 et non
+      // 502 : Cloudflare remplace le corps d'un 502 par sa page, et la cause ne se lirait plus.
+      // Un compte que le partenaire ne voit pas : rien n'a pu s'y attacher, et un retrait n'y ferait qu'une fausse alerte.
       const cause = err instanceof Error ? err.message : String(err);
       journaliser('error', 'ligne_partenaire_attache_impossible', { tenantId, phoneNumberId, wabaId: numero.wabaId, err: cause });
-      return { ok: false, statut: 502, error: `la ligne du partenaire n’a pas pu être attachée : ${cause}` };
+      let suite = ' : le partenaire ne voit pas ce compte WhatsApp (jamais partagé avec lui, ou son accès retiré), rien n’y est attaché';
+      if (!(err instanceof CompteInconnuDuPartenaire)) {
+        suite = (await retirerLAttacheSansLever({ attache, alerter: d.alerter }, tenantId, numero.wabaId, 'Pose de la ligne, attache non confirmée mais peut-être faite'))
+          ? ', et son attache éventuelle est retirée'
+          : ', mais son attache, peut-être faite, n’a pas pu être retirée (une alerte est partie)';
+      }
+      return { ok: false, statut: 422, error: `la ligne du partenaire n’a pas pu être attachée et vérifiée (${cause}) : rien n’est posé${suite}` };
     }
   }
   let posee: boolean;
@@ -126,7 +142,8 @@ export async function poserLaLigne(
     throw err;
   }
   if (!posee) {
-    // Déjà sur la ligne : la nôtre couvre ce compte, l'attache qui vient d'être faite lui revient.
+    // Posée entre la lecture et l'écriture (une autre copie, ou son cache de 5 s) : la nôtre couvre ce compte, l'attache
+    // qui vient d'être faite lui revient.
     return { ok: false, statut: 409, error: 'numéro déjà sur la ligne' };
   }
   // La ligne posée : les campagnes de l'espace en pause faute de ligne active repartent (relecture du lot 4a, jaune 6).

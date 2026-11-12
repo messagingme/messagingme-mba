@@ -8,7 +8,7 @@ import { prixClient, type GrilleMeta } from '../credit-whatsapp/grille';
 import { MARCHES_META } from '../credit-whatsapp/marches-meta';
 import type { LigneCredit, NumeroDeLEspace, NumeroEnAttente, NumeroPourLaLigne } from '../credit-whatsapp/lignes.pg';
 import { placesApresPose, poserLaLigne, type DepsPose } from '../credit-whatsapp/pose';
-import { retirerLAttacheSansLever, type AttacheLigne } from '../credit-whatsapp/attache';
+import { CompteInconnuDuPartenaire, type AttacheLigne } from '../credit-whatsapp/attache';
 import type { ProvisionVue } from '../credit-whatsapp/credit';
 import { makeTraceOps, type AuditSink } from '../audit/journal';
 import { estUuid } from './scope';
@@ -340,14 +340,35 @@ export function registerOpsCreditWhatsapp(app: FastifyInstance, deps: OpsCreditW
       if (!pose.ok) return reply.code(pose.statut).send(pose.code ? { error: pose.error, code: pose.code } : { error: pose.error });
       origine = pose.origine;
     } else {
-      // La ligne retirée, celle du partenaire se retire de son compte (plan 2026-11-12) : nous en payerions sinon la
-      // consommation. Lue AVANT le retrait, seulement si c'est la ligne de ce numéro dans cet espace.
-      const ligne = deps.attache !== null ? await deps.lignes.ligneDuNumero(phoneNumberId) : null;
+      // 🔴 La ligne du partenaire se retire AVANT la nôtre (relecture du lot de l'attache, rouge 2) : la nôtre retirée, la
+      // garde ignore le numéro, et ses envois partiraient sans provision, payés par le partenaire. Une panne garde donc la
+      // nôtre (422) ; « déjà absente » laisse continuer. Un compte que le partenaire ne voit pas (Graph 100/33) ne peut ni
+      // porter sa ligne ni en être retiré par son API, et réessayer n'y changerait rien : la nôtre se retire, Julien est
+      // alerté pour vérifier avec lui. La ligne se lit en base, pas par le cache de 5 s (`ligneDuNumero`) : posée sur une
+      // autre copie juste avant, elle partirait sans que la sienne soit retirée.
+      const attache = deps.attache;
+      let compteInconnu: { wabaId: string; cause: string } | null = null;
+      if (attache !== null) {
+        const ligne = (await deps.lignes.lignesDeLEspace(tenantId)).find((l) => l.phoneNumberId === phoneNumberId);
+        if (ligne !== undefined && ligne.wabaId !== null) {
+          try {
+            await attache.retirer(ligne.wabaId);
+          } catch (err) {
+            const cause = err instanceof Error ? err.message : String(err);
+            if (!(err instanceof CompteInconnuDuPartenaire)) {
+              journaliser('error', 'ligne_partenaire_retrait_impossible', { tenantId, phoneNumberId, wabaId: ligne.wabaId, err: cause });
+              return reply.code(422).send({ error: `la ligne du partenaire n’a pas pu être retirée de ce compte WhatsApp (${cause}) : la nôtre reste posée, réessayez` });
+            }
+            compteInconnu = { wabaId: ligne.wabaId, cause };
+          }
+        }
+      }
       if (!(await deps.lignes.retirer(tenantId, phoneNumberId))) {
         return reply.code(404).send({ error: 'numéro pas sur la ligne de cet espace' });
       }
-      if (ligne !== null && ligne.tenantId === tenantId && ligne.phoneNumberId === phoneNumberId && ligne.wabaId !== null) {
-        await retirerLAttacheSansLever({ attache: deps.attache, alerter: deps.alerter }, tenantId, ligne.wabaId, 'Retrait de la ligne dans /ops');
+      if (compteInconnu !== null) {
+        journaliser('warn', 'ligne_partenaire_compte_inconnu', { tenantId, phoneNumberId, wabaId: compteInconnu.wabaId, err: compteInconnu.cause });
+        await deps.alerter(`Retrait de la ligne dans /ops : espace ${tenantId}, le partenaire ne voit pas le compte WhatsApp ${compteInconnu.wabaId} (${compteInconnu.cause}). Notre ligne est retirée ; vérifier avec lui que la sienne n’y est pas attachée, sinon sa consommation reste à notre charge.`).catch(() => undefined);
       }
     }
     journaliser('warn', 'ops_ligne_credit_whatsapp', { tenantId, phoneNumberId, poser, origine, forcer, par, note });

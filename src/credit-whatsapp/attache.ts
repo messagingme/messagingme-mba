@@ -42,10 +42,28 @@ export interface AttacheLigne {
   verifier(wabaId: string): Promise<boolean>;
 }
 
+/**
+ * Un compte WhatsApp que le partenaire ne voit pas (erreur Graph 100/33, mesurée le 2026-11-12 sur un compte inconnu, au
+ * retrait comme à la lecture) : jamais partagé avec lui, ou son accès retiré. Sa ligne ne peut ni s'y attacher ni en être
+ * retirée par son API, et réessayer n'y change rien : c'est ce qui la sépare d'une panne.
+ */
+export class CompteInconnuDuPartenaire extends Error {}
+
 const SUCCES = z.object({ ok: z.literal(1) }).passthrough();
 const ETAT = z.object({ ok: z.literal(1), data: z.object({ creditLineAdded: z.boolean() }).passthrough() }).passthrough();
 const ECHEC = z.object({ ok: z.literal(0), error: z.unknown() }).passthrough();
-const ERREUR_GRAPH = z.object({ error: z.object({ message: z.string() }).passthrough() }).passthrough();
+// Le code et le sous-code se lisent sans contrainte de type, et FACULTATIFS : Zod 4 exige une clé `z.unknown()` nue, et
+// la plupart des erreurs de Graph n'ont pas de sous-code. Un format inattendu ne doit jamais faire perdre le message.
+const ERREUR_GRAPH = z.object({
+  error: z.object({ message: z.string(), code: z.unknown().optional(), error_subcode: z.unknown().optional() }).passthrough(),
+}).passthrough();
+
+/** L'erreur Graph 100/33 que le partenaire enveloppe : l'objet n'existe pas, ou il n'a pas le droit de le lire. */
+function compteInconnu(corps: unknown): boolean {
+  const e = ECHEC.safeParse(corps);
+  const graph = e.success ? ERREUR_GRAPH.safeParse(e.data.error) : null;
+  return graph?.success === true && graph.data.error.code === 100 && graph.data.error.error_subcode === 33;
+}
 
 /** La cause d'un refus en texte court : leur message, ou celui de Graph qu'il enveloppe. */
 function causeDuRefus(corps: unknown): string {
@@ -92,8 +110,10 @@ export function creerAttacheLigne(c: ConfigAttache, o: { fetch?: typeof fetch; d
     return { statut: r.status, corps };
   }
 
-  const refus = (statut: number, corps: unknown): Error =>
-    new Error(`HTTP ${statut} : ${corps === undefined ? 'réponse illisible' : causeDuRefus(corps)}`);
+  const refus = (statut: number, corps: unknown): Error => {
+    const texte = `HTTP ${statut} : ${corps === undefined ? 'réponse illisible' : causeDuRefus(corps)}`;
+    return compteInconnu(corps) ? new CompteInconnuDuPartenaire(texte) : new Error(texte);
+  };
 
   return {
     async verifier(wabaId) {
@@ -146,19 +166,24 @@ function comptesDeLOption(lignes: ReadonlyArray<Pick<LigneCredit, 'wabaId' | 'or
 const message = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 
 /**
- * Retire l'attache d'un compte SANS lever : le geste qui l'a demandée (un arrêt, un retrait) est déjà fait, et notre garde
- * coupe les envois d'une ligne arrêtée ou retirée. Une panne se journalise et alerte Julien : la ligne du partenaire
- * resterait attachée, et sa consommation à notre charge.
+ * Retire l'attache d'un compte SANS lever, quand plus rien ne doit la porter : nos lignes de l'option arrêtées (la garde
+ * refuse les envois d'une ligne arrêtée), ou notre pose qui n'a pas abouti (l'attache a pu se faire quand même). Rend
+ * `true` quand le partenaire confirme (retirée, ou déjà absente) ; une panne se journalise, alerte Julien et rend `false` :
+ * sa ligne resterait attachée, et les envois de ce compte payés par lui, donc par nous, sans débit. 🔴 Jamais pour retirer
+ * NOTRE ligne : retirée, la garde ignore le numéro et ses envois partent sans provision ; le retrait de /ops retire donc
+ * la sienne d'abord, et garde la nôtre si elle ne part pas (relecture du lot de l'attache, rouge 2).
  */
 export async function retirerLAttacheSansLever(
   d: Pick<DepsCycleAttache, 'attache' | 'alerter'>, tenantId: string, wabaId: string, quand: string,
-): Promise<void> {
-  if (d.attache === null) return;
+): Promise<boolean> {
+  if (d.attache === null) return true;
   try {
     await d.attache.retirer(wabaId);
+    return true;
   } catch (err) {
     journaliser('error', 'ligne_partenaire_retrait_impossible', { tenantId, wabaId, err: message(err) });
     await d.alerter(`${quand} : espace ${tenantId}, la ligne du partenaire n’a pas pu être retirée du compte WhatsApp ${wabaId} (${message(err)}). À retirer à la main, sinon sa consommation reste à notre charge.`).catch(() => undefined);
+    return false;
   }
 }
 

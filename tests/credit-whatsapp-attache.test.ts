@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { jwtVerify } from 'jose';
 import {
-  arreterLesLignesEtLeursAttaches, attacherEtVerifier, creerAttacheLigne, relancerLesLignesEtLeursAttaches,
-  type AttacheLigne,
+  arreterLesLignesEtLeursAttaches, attacherEtVerifier, CompteInconnuDuPartenaire, creerAttacheLigne, relancerLesLignesEtLeursAttaches,
+  retirerLAttacheSansLever, type AttacheLigne,
 } from '../src/credit-whatsapp/attache';
 import { capturerJournal } from './journal';
 
@@ -96,6 +96,63 @@ describe('le client de l’API du partenaire', () => {
     await expect(client([new Error('The operation was aborted due to timeout')]).a.retirer(W)).rejects.toThrow(/injoignable.*timeout/);
     // Une autre erreur que « plus rien à retirer » reste une panne.
     await expect(client([GRAPH_100]).a.retirer('123')).rejects.toThrow(/does not exist/);
+  });
+
+  it('🔴 un compte que le partenaire ne voit pas (Graph 100/33, mesuré le 2026-11-12) lève `CompteInconnuDuPartenaire`, une autre panne non', async () => {
+    const leve = (p: Promise<unknown>): Promise<unknown> => p.then(() => null, (e: unknown) => e);
+    for (const geste of ['attacher', 'verifier', 'retirer'] as const) {
+      const err = await leve(client([GRAPH_100]).a[geste]('123'));
+      expect(err, geste).toBeInstanceOf(CompteInconnuDuPartenaire);
+      expect(String(err), geste).toMatch(/500.*does not exist/);
+    }
+    for (const corps of [
+      { ok: 0, error: 'panne' },
+      // Une autre erreur de Graph (un jeton refusé) reste une panne ordinaire : le partenaire peut la réparer.
+      { ok: 0, error: { error: { message: 'Invalid OAuth access token', type: 'OAuthException', code: 190 } } },
+    ]) {
+      const err = await leve(client([{ statut: 500, corps }]).a.retirer(W));
+      expect(err).toBeInstanceOf(Error);
+      expect(err).not.toBeInstanceOf(CompteInconnuDuPartenaire);
+    }
+  });
+
+  it('🔴 un code de Graph absent ou d’un type inattendu ne fait pas perdre la cause du refus', async () => {
+    for (const [nom, error, cause] of [
+      // Zod 4 exige une clé `z.unknown()` : sans sous-code (la plupart des erreurs de Graph), le message se perdait.
+      ['sans sous-code', { message: 'Invalid OAuth access token', type: 'OAuthException', code: 190 }, /HTTP 500 : Invalid OAuth access token/],
+      ['sans code', { message: 'Service temporarily unavailable' }, /HTTP 500 : Service temporarily unavailable/],
+      ['code en texte', { message: 'Object with ID ‘123’ does not exist', code: '100', error_subcode: null }, /HTTP 500 : Object with ID .123. does not exist/],
+    ] as const) {
+      const err = await client([{ statut: 500, corps: { ok: 0, error: { error } } }]).a.retirer('123').then(() => null, (e: unknown) => e);
+      expect(String(err), nom).toMatch(cause);
+      expect(err, nom).not.toBeInstanceOf(CompteInconnuDuPartenaire);
+    }
+  });
+});
+
+describe('retirer l’attache sans lever', () => {
+  function attache(issue: 'retiree' | 'deja_absente' | Error): AttacheLigne {
+    return {
+      attacher: async () => undefined,
+      verifier: async () => true,
+      retirer: async () => { if (issue instanceof Error) throw issue; return issue; },
+    };
+  }
+
+  it('🔴 rend `true` quand le partenaire confirme (retirée, ou déjà absente), `false` sur une panne, qui alerte Julien', async () => {
+    for (const issue of ['retiree', 'deja_absente'] as const) {
+      const alertes: string[] = [];
+      expect(await retirerLAttacheSansLever({ attache: attache(issue), alerter: async (t) => { alertes.push(t); } }, 't1', W, 'Essai'), issue).toBe(true);
+      expect(alertes, issue).toEqual([]);
+    }
+    const alertes: string[] = [];
+    const { resultat } = await capturerJournal(() => retirerLAttacheSansLever(
+      { attache: attache(new Error('HTTP 500 : panne')), alerter: async (t) => { alertes.push(t); } }, 't1', W, 'Essai',
+    ));
+    expect(resultat).toBe(false);
+    expect(alertes).toHaveLength(1);
+    expect(alertes[0]).toMatch(new RegExp(`^Essai : espace t1.*${W}.*panne`));
+    expect(await retirerLAttacheSansLever({ attache: null, alerter: async () => undefined }, 't1', W, 'Essai')).toBe(true);
   });
 });
 

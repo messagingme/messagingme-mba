@@ -4827,12 +4827,18 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   `creditLineAdded`), retirer (`DELETE` ; « Credit line is not attached » se lit comme déjà retirée). Les trois
   variables `LIGNE_PARTENAIRE_URL`, `_EMETTEUR` et `_SECRET` (secrète), toutes ou aucune, contrôlées au démarrage ; ni
   l'adresse ni le partenaire ne s'écrivent dans le dépôt. **La pose** (`poserLaLigne`, `src/credit-whatsapp/pose.ts`, la
-  MÊME pour `/ops` et la connexion : mêmes contrôles, mêmes places, mêmes refus) attache PUIS vérifie la ligne du
-  partenaire AVANT de poser la nôtre ; une attache refusée ou démentie ne pose rien (502, la cause dite) ; une pose qui
-  lève après l'attache la retire. **Le retrait** dans `/ops`, et **la fin de l'option** (fin de droit et webhook de
-  Stripe, `arreterLesLignesEtLeursAttaches`), retirent l'attache ; **la reprise** la rattache, vérifiée
-  (`relancerLesLignesEtLeursAttaches`) ; une panne de ces trois-là alerte Julien sans faire échouer le geste (un retrait
-  manqué laisserait sa consommation à notre charge). Sans les variables, la pose de `/ops` ne touche pas au partenaire.
+  MÊME pour `/ops` et la connexion : mêmes contrôles, mêmes places, mêmes refus) refuse un numéro déjà sur la ligne,
+  puis attache ET vérifie la ligne du partenaire AVANT de poser la nôtre. Une attache non confirmée (refusée, démentie,
+  ou dont la vérification lève) ne pose rien (422, la cause dite) et se RETIRE, car elle a pu se faire quand même ; une
+  pose qui lève après l'attache la retire aussi. **Le retrait** dans `/ops` retire la ligne du partenaire AVANT la nôtre,
+  lue en base et non par le cache de 5 s : la nôtre retirée, la garde ignore le numéro, et ses envois partiraient sans
+  provision. Une panne garde donc la nôtre (422) ; « déjà retirée » laisse continuer. **Un compte que le partenaire ne
+  voit pas** (erreur Graph 100/33, mesurée sur un compte inconnu, `CompteInconnuDuPartenaire`) ne peut ni porter sa
+  ligne ni en être retiré par son API, et réessayer n'y change rien : la pose le refuse sans rien retirer, le retrait
+  retire la nôtre et alerte Julien. **La fin de l'option** (fin de droit et webhook de Stripe,
+  `arreterLesLignesEtLeursAttaches`) retire l'attache APRÈS l'arrêt (la garde refuse les envois d'une ligne arrêtée) ;
+  **la reprise** la rattache, vérifiée (`relancerLesLignesEtLeursAttaches`) ; une panne de ces deux-là alerte Julien sans
+  faire échouer le geste. Sans les variables, la pose de `/ops` ne touche pas au partenaire.
   **À la connexion (V3)**, dans le cas « à poser » (un droit, aucun compte déjà couvert, hors coexistence), la ligne se
   pose seule, le numéro n'est pas marqué (il n'attend rien), et l'alerte dit la pose et l'attache vérifiée. Cette pose
   automatique n'existe qu'avec l'API configurée ; `CREDIT_WA_POSE_AUTOMATIQUE=false` (défaut `true`, sans déployer) est

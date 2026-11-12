@@ -295,7 +295,7 @@ describe('la connexion faite par la ligne', () => {
   });
 
   it('🔴 l’API du partenaire configurée, l’alerte du cas « à poser » ne dit plus de lui demander l’attache : la pose de /ops la fait (plan du 2026-11-12)', async () => {
-    const refus: IssuePose = { ok: false, statut: 502, error: 'la ligne du partenaire n’a pas pu être attachée : HTTP 500 : panne' };
+    const refus: IssuePose = { ok: false, statut: 422, error: 'la ligne du partenaire n’a pas pu être attachée : HTTP 500 : panne' };
     const { d, alertes, marques } = deps({ offre: 'pro', places: 1, rattaches: ['pn-1'], attacheParApi: true, pose: { auto: true, issue: refus } });
     await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO, coexistence: false });
     expect(marques).toEqual(['pn-1']);
