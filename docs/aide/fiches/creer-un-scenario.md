@@ -1,7 +1,7 @@
 ---
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 6a738b
+source_empreinte: 9e121d
 ---
 # Créer un scénario
 
@@ -59,7 +59,9 @@ Les blocs que vous utiliserez le plus :
   équipe. La publication est refusée si le bloc visé n'existe pas, ou si un saut vers un autre scénario suit une
   attente de 24 h ou plus et mène à autre chose qu'un modèle ; dans le même scénario, l'écran vous en avertit.
 - **Envoyer au MBA** : le parcours s'arrête et l'agent de Meta prend la conversation, quel que soit celui qui répond
-  d'habitude au client ; il répond tout de suite au dernier message du contact. Si l'agent de Meta est éteint, le
+  d'habitude au client ; il répond tout de suite au dernier message du contact. Pour qu'il réponde à une question,
+  faites dire au scénario « posez-nous votre question » juste avant ce bloc, sans bloc Question : la question lui
+  arrive alors directement. Si l'agent de Meta est éteint, le
   panneau du bloc vous prévient : la conversation passe alors à votre équipe, dans « À traiter ».
 
 Chaque bouton que vous proposez devient une **sortie à relier** : le petit point à droite du bloc. Un bouton

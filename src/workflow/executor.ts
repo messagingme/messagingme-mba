@@ -399,7 +399,7 @@ export interface WorkflowExecutorDeps {
   mbaActifPour(tenantId: string): Promise<boolean>;
   /**
    * Le bloc « Envoyer au MBA » (RC6, `vers_mba`) : le parcours vient de finir, et l'agent de Meta prend le contact dans
-   * TOUS les modes (`ControleDuFil.envoyerAuMba`), avec le dernier message du contact pour y répondre tout de suite ;
+   * TOUS les modes (`ControleDuFil.envoyerAuMba`), avec le message du contact resté sans réponse pour y répondre tout de suite (rien si le scénario a parlé après lui) ;
    * éteint, la conversation va à l'équipe et la frise le dit. `workflowId` : le scénario, que la frise et le journal des
    * échecs nomment. Requise ; fixtures : `aucunEnvoiAuMba`.
    */

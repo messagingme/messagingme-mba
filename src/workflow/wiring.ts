@@ -492,7 +492,7 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     mbaActifPour: async (tenant) => leMbaRepond(await reglagesSousLOffre({ reglages: settingsStore, offres }, tenant)),
     /**
      * Le bloc « Envoyer au MBA » (RC6) : le contrôle du fil confie le contact à l'agent de Meta, avec son dernier
-     * message (`derniereSaisieDuContact`, le texte que le client vient d'écrire), ou le passe à l'équipe quand l'agent
+     * message s'il attend encore une réponse (`saisieSansReponse` : rien si le scénario a parlé après lui), ou le passe à l'équipe quand l'agent
      * est éteint. La frise et le journal des échecs nomment le scénario, comme pour une escalade
      * (`designation`, qui lit aussi le scénario système). Un contact qui n'a pas été confié laisse sa ligne dans le
      * journal des échecs de scénario : un bloc qui ne fait pas ce qu'il annonce doit se voir.
@@ -500,7 +500,9 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     confierAuMbaParLeBloc: async (tenant, waId, workflowId) => {
       const designe = await workflowStore.designation(workflowId, tenant).catch(() => null);
       const nom = designationDuScenario(designe, workflowId);
-      const contenu = (await inboxStore.derniereSaisieDuContact(tenant, waId).catch(() => null)) ?? '';
+      // Seulement un message du client resté SANS réponse : si le scénario a parlé après lui (« posez-nous votre
+      // question »), rien n'est transmis et l'agent répond à la question suivante, qui lui arrive directement.
+      const contenu = (await inboxStore.saisieSansReponse(tenant, waId).catch(() => null)) ?? '';
       const issue = await fil.envoyerAuMba(tenant, waId, { contenu, cause: automatique(`bloc « Envoyer au MBA », ${nom}`) });
       if (issue === 'confie') return;
       await echecsDeScenario.enregistrerEchecAvance({

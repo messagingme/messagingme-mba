@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 Le bloc « Envoyer au MBA » sans relais d'un message répondu : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-bloc-mba-sans-relais.md`)
+
+Aucun rouge. À reprendre avec le prochain lot de fonctionnalité qui touche ce chemin.
+
+- **Un dernier message du client sans texte** (image, appui de bouton) ne déclenche plus d'événement : l'agent répond
+  au message suivant. La fiche « Créer un scénario » ne le dit pas.
+- **Le test d'intégration de `saisieSansReponse`** n'a pas de cas avec un sortant `type = 'mba'` ni d'un opérateur.
+- **Le commentaire de `envoyerAuMba`** (`src/inbox/fil.ts`, « le dernier message du contact ») ne dit pas qu'il peut
+  être vide.
+
 ## 🟡 Les PDF par contact, lots B1 et B2 : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-pdf-par-contact-hubspot.md`)
 
 - Le numéro de dépôt (chiffres du numéro reçu de HubSpot) et celui de la lecture à l'envoi (le `waId` du parcours)

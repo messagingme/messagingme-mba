@@ -2003,6 +2003,27 @@ export class PgInboxStore implements InboxStore {
   }
 
   /**
+   * Le message du contact qui attend encore une réponse : le dernier message de la conversation s'il vient de lui
+   * (texte non vide), sinon `null` (le dernier est le nôtre, celui d'un scénario, d'un opérateur ou de l'agent de
+   * Meta, ou rien). Lu par le bloc « Envoyer au MBA » : un message auquel le scénario a déjà répondu ne se transmet
+   * pas à l'agent (mesuré le 2026-11-12 sur MUTAC : Meta met alors l'événement en échec, et l'agent attend de toute
+   * façon la question suivante, qui lui arrive directement). Une réaction n'est pas un message.
+   */
+  async saisieSansReponse(tenantId: string, waId: string): Promise<string | null> {
+    const res = await this.pool.query<{ direction: string; body: string | null }>(
+      `select m.direction, m.body
+         from conversation_messages m
+         join conversations c on c.id = m.conversation_id
+        where c.tenant_id = $1 and c.wa_id = $2 and m.type is distinct from 'reaction'
+        order by m.created_at desc, m.id desc
+        limit 1`,
+      [tenantId, waId],
+    );
+    const dernier = res.rows[0];
+    return dernier && dernier.direction === 'in' && dernier.body ? dernier.body : null;
+  }
+
+  /**
    * La date du dernier message REÇU du contact, tous canaux, ou `null` s'il n'a jamais écrit : le champ système
    * « dernier message reçu » du bloc Condition (RC5), lu seulement quand un bloc le teste. Une réaction n'en est pas
    * un, comme pour `dernierMessageDuClient` : un pouce levé ne dit pas que le contact est revenu.

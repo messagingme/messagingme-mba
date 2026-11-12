@@ -1221,7 +1221,11 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   d'arrivée.
 - ✅ **Bloc « Envoyer au MBA »** (RC6) : le parcours s'arrête et **l'agent de Meta prend la conversation**, quel que
   soit le répondeur choisi pour l'espace (voir l'Accueil, « Qui répond au client »). Il répond **tout de suite au
-  dernier message du contact**, puis garde ce contact tant qu'un scénario ou un membre de l'équipe ne le reprend pas.
+  dernier message du contact** s'il attend encore une réponse, puis garde ce contact tant qu'un scénario ou un membre de
+  l'équipe ne le reprend pas. Si le scénario a parlé juste avant (« posez-nous votre question »), rien ne lui est
+  transmis : il répond à la question suivante du client, qui lui arrive directement (2026-11-12). C'est le montage qui
+  marche quand les réponses aux modèles sont routées vers Messaging Me : un message du client que nous avons reçu,
+  transmis à l'agent, échoue chez Meta.
   Le bloc n'a pas de sortie. Il reste dans la palette même quand l'agent de Meta est éteint (on prépare un scénario
   avant de l'allumer) : son panneau prévient alors que, tant qu'il l'est, **la conversation passe à l'équipe**, dans
   « À traiter », et l'historique de la conversation le dit (« Agent de Meta éteint : la conversation va à l'équipe »).
