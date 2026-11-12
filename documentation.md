@@ -4862,9 +4862,13 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   où une place payée sans numéro (`PlaceLibre`, un administrateur) offre « Reconnecter mon numéro sans carte chez Meta »
   (la même fenêtre, `parLaLigne`), ou le lien vers Connecter WhatsApp sans numéro, et renvoie au Support seulement
   quand la fenêtre est fermée. Une ENTREPRISE connectée en direct, sans ligne (`a_prendre`), n'a pas d'onglet Crédit
-  WhatsApp : quand la fenêtre lui est rouverte, la carte de Connecter WhatsApp porte elle-même « Reconnecter mon numéro
-  sans carte chez Meta » (`RECONNEXION_ENTREPRISE`, la page lui passant sa connexion aussi numéro connecté), puis relit
-  l'état, que la fin de la connexion a fait passer `active` (ligne posée) ou `en_attente`. La carte chez Meta se reprend
+  WhatsApp : quand la fenêtre lui est rouverte ET que la page est ouverte par le lien de notre équipe
+  (`LIEN_RECONNEXION_ENTREPRISE`, `?reconnexion=entreprise` ; décision de Julien du 2026-11-12, la reconnexion d'un compte
+  existant n'ayant pas encore tourné en vrai et changeant ce qui est facturé), la carte de Connecter WhatsApp porte
+  elle-même « Reconnecter mon numéro sans carte chez Meta » (`RECONNEXION_ENTREPRISE`, la page lui passant sa connexion
+  aussi numéro connecté), puis relit l'état, que la fin de la connexion a fait passer `active` (ligne posée) ou
+  `en_attente` ; sans le lien, « sur demande ». Le serveur, lui, rouvre la fenêtre à toute Entreprise (`seReconnecte`) :
+  le lien règle l'écran, pas le droit. La carte chez Meta se reprend
   d'un clic, et le bouton du partenaire, resté en second, referme
   son guide dans le même clic que la fenêtre, sans recharger la page (chaque voie porte sa connexion ; seule celle dont
   le bouton a ouvert la fenêtre en envoie la fin). Le crochet refuse d'ouvrir la fenêtre sans identifiant, jamais une connexion

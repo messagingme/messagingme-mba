@@ -4747,8 +4747,9 @@ posée après sa connexion par la fenêtre du partenaire (l'option prise, ou en 
   « Reconnecter mon numéro sans carte chez Meta », le même compte et le même numéro dans la fenêtre de Meta ; la carte
   de Connecter WhatsApp y mène. Sans numéro connecté, l'onglet mène à Connecter WhatsApp. Une Entreprise dont le numéro
   a été connecté en direct, avec la carte chez Meta, se reconnecte de même depuis la carte « Crédit WhatsApp » de
-  Connecter WhatsApp, puisque son onglet ne s'affiche pas sans ligne (2026-11-12) : « Reconnecter mon numéro sans carte
-  chez Meta », et sa ligne se pose à la fin de la connexion.
+  Connecter WhatsApp, puisque son onglet ne s'affiche pas sans ligne (2026-11-12), mais seulement par le lien que lui
+  donne notre équipe (`/connecter-whatsapp?reconnexion=entreprise` ; sans lui, « sur demande ») : « Reconnecter mon
+  numéro sans carte chez Meta », et sa ligne se pose à la fin de la connexion.
 - ✅ **L'option à souscrire** (2026-11-11, la vente ouverte) : 30 € HT par numéro et par mois, prise par un administrateur
   sur la carte « Crédit WhatsApp » ou dans cet onglet, en formule Pro dès son essai ou en Business confirmé.
 - ⛔ À venir : la recharge automatique et celle avant une

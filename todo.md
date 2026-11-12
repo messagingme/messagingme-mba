@@ -754,6 +754,9 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   - `get_setup_state` tait `carte_meta_a_regler` en `en_attente` : le numéro de l'essai reste payé par sa carte jusqu'à
     sa reconnexion, Claude ne dit pas de le reconnecter.
 - 🟡 **Les jaunes de la relecture du bouton de reconnexion d'une Entreprise (2026-11-12, aucun rouge)** :
+  - 🔴 décision à prendre (Julien) après l'essai 257 (MUTAC) : ouvrir le bouton à toute Entreprise connectée en direct,
+    ou le garder derrière le lien de notre équipe (`?reconnexion=entreprise`, décision du 2026-11-12 : « MUTAC
+    seulement ») ; l'ouvrir, c'est retirer `reconnexionDemandee` de la condition de `QuiRegleMeta` et son e2e ;
   - après une reconnexion réussie, seule la relecture de l'état retire le bouton : une relecture en échec le laisse
     actif, et un second clic marque le numéro (« sous 24 h ouvrées », alerte). Un état local `reconnecte` qui remplace
     le bouton par le constat, comme `PlaceLibre`, et son e2e ;

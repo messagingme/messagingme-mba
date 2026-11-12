@@ -302,10 +302,21 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
 
   // Une Entreprise connectée en direct, avant que la fenêtre du partenaire existe (plan
   // `2026-11-12-credit-whatsapp-reconnexion-entreprise.md`) : le partenaire ne voit pas son compte, sa ligne ne peut pas
-  // s'y attacher. Son onglet Crédit WhatsApp, sans ligne, ne s'affiche pas : la reconnexion se fait depuis la carte.
+  // s'y attacher. Son onglet Crédit WhatsApp, sans ligne, ne s'affiche pas : la reconnexion se fait depuis la carte, et
+  // seulement par le lien que notre équipe donne (`?reconnexion=entreprise`, décision de Julien : « MUTAC seulement »).
   const RECONNEXION_ENTREPRISE = 'Votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages : reconnectez-le sans carte, en choisissant dans la fenêtre de Meta le même compte WhatsApp et le même numéro.';
+  const LIEN_RECONNEXION = '/connecter-whatsapp?reconnexion=entreprise';
 
-  test('🔴 une Entreprise connectée en direct, la fenêtre rouverte par le serveur : « Reconnecter mon numéro sans carte chez Meta » ouvre la fenêtre par la solution, la fin passe par la ligne, et la carte relit son état', async ({ page }) => {
+  test('🔴 une Entreprise connectée en direct, SANS le lien de notre équipe : « sur demande », aucun bouton, même la fenêtre rouverte par le serveur', async ({ page }) => {
+    await mockAccueil(page, { inscription: { complete: {} } });
+    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false, fenetrePartenaire: true }], solution: 'sol-e2e' });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('numero-connecte')).toBeVisible();
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
+    await expect(page.getByTestId('carte-credit-wa-reconnecter-entreprise')).toHaveCount(0);
+  });
+
+  test('🔴 une Entreprise connectée en direct, par le lien de notre équipe, la fenêtre rouverte par le serveur : « Reconnecter mon numéro sans carte chez Meta » ouvre la fenêtre par la solution, la fin passe par la ligne, et la carte relit son état', async ({ page }) => {
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
     const posts: unknown[] = [];
     await mockAccueil(page, { inscription: { complete: CONNECTE, posts } });
@@ -317,7 +328,7 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
         ? { etat: 'active', enVente: false, avecApplication: false, fenetrePartenaire: false }
         : { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: true }),
     }));
-    await page.goto('/connecter-whatsapp');
+    await page.goto(LIEN_RECONNEXION);
     await expect(page.getByTestId('numero-connecte')).toBeVisible();
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText(RECONNEXION_ENTREPRISE);
     const bouton = page.getByTestId('carte-credit-wa-reconnecter-entreprise');
@@ -333,10 +344,10 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(page.getByTestId('carte-credit-wa-reconnecter-entreprise')).toHaveCount(0);
   });
 
-  test('🔴 une Entreprise connectée, la fenêtre fermée par le serveur (déjà sur une ligne, application, rien de configuré) : « sur demande », aucun bouton', async ({ page }) => {
+  test('🔴 une Entreprise connectée, par le lien, la fenêtre fermée par le serveur (déjà sur une ligne, application, rien de configuré) : « sur demande », aucun bouton', async ({ page }) => {
     await mockAccueil(page, { inscription: { complete: {} } });
     await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false }], solution: 'sol-e2e' });
-    await page.goto('/connecter-whatsapp');
+    await page.goto(LIEN_RECONNEXION);
     await expect(page.getByTestId('numero-connecte')).toBeVisible();
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
     await expect(page.getByTestId('carte-credit-wa-reconnecter-entreprise')).toHaveCount(0);

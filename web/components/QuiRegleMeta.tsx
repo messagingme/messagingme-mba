@@ -54,7 +54,11 @@ export const RECONNEXION = {
  * Une Entreprise dont le numéro a été connecté en direct, avec sa carte chez Meta, avant la fenêtre du partenaire (plan
  * `2026-11-12-credit-whatsapp-reconnexion-entreprise.md`) : le partenaire ne voit pas son compte, sa ligne ne peut pas s'y
  * attacher. Elle se reconnecte sans carte depuis cette carte, son onglet Crédit WhatsApp ne s'affichant pas sans ligne.
+ * 🔴 SEULEMENT PAR LE LIEN QUE DONNE NOTRE ÉQUIPE (`LIEN_RECONNEXION_ENTREPRISE`, décision de Julien du 2026-11-12 :
+ * « MUTAC seulement ») : sans lui, une Entreprise connectée en direct lit « sur demande », comme avant ; passer sur la
+ * ligne change ce qui lui est facturé, et la reconnexion d'un compte existant n'a pas encore tourné en vrai.
  */
+export const LIEN_RECONNEXION_ENTREPRISE = '/connecter-whatsapp?reconnexion=entreprise';
 export const RECONNEXION_ENTREPRISE = {
   texte: {
     fr: 'Votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages : reconnectez-le sans carte, en choisissant dans la fenêtre de Meta le même compte WhatsApp et le même numéro.',
@@ -86,8 +90,9 @@ export const RECONNEXION_ENTREPRISE = {
  * fermée en attendant (sinon le client la paierait deux fois, comme dans l'onglet).
  *
  * Une Entreprise dont le numéro a été connecté en direct (sa carte chez Meta) se reconnecte sans carte d'ici, quand le
- * serveur lui rouvre la fenêtre du partenaire (`RECONNEXION_ENTREPRISE`, 2026-11-12) : son onglet Crédit WhatsApp ne
- * s'affiche pas sans ligne, et le lien de Claude refuse un espace qui a déjà un numéro.
+ * serveur lui rouvre la fenêtre du partenaire et que la page est ouverte par le lien de notre équipe
+ * (`RECONNEXION_ENTREPRISE`, `LIEN_RECONNEXION_ENTREPRISE`, 2026-11-12) : son onglet Crédit WhatsApp ne s'affiche pas sans
+ * ligne, et le lien de Claude refuse un espace qui a déjà un numéro.
  */
 export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children, api, surConnexion, occupe = false }: {
   tenantId: string;
@@ -128,6 +133,8 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
    */
   const [fenetreLigne, setFenetreLigne] = useState(false);
   const fenetreOuverte = occupe || fenetreLigne;
+  /** La page est ouverte par le lien de la reconnexion d'une Entreprise (`LIEN_RECONNEXION_ENTREPRISE`). */
+  const [reconnexionDemandee, setReconnexionDemandee] = useState(false);
 
   useEffect(() => {
     if (lieu !== 'connecter') return;
@@ -136,6 +143,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     setRetour(o === 'recue' || o === 'abandon' ? o : null);
     // Le retour de Stripe d'un numéro fourni payé : le parcours de « Le vôtre » reprend où il en était.
     if (p.get('abonnement') === 'recu') setNumeroLigne('notre');
+    setReconnexionDemandee(p.get('reconnexion') === 'entreprise');
   }, [lieu]);
 
   // Une Free n'a pas la route (402) : son état se dit sans elle. Une offre illisible tente la lecture quand même.
@@ -242,10 +250,11 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
           {t(RECONNEXION.bouton.fr, RECONNEXION.bouton.en)}
         </Link>
       ) : nonAdmin(t('Un administrateur de votre espace peut le reconnecter.', 'An administrator of your workspace can reconnect it.'));
-    } else if (connecte && offre === 'entreprise' && etat === 'a_prendre' && vue.fenetrePartenaire) {
+    } else if (connecte && offre === 'entreprise' && etat === 'a_prendre' && vue.fenetrePartenaire && reconnexionDemandee) {
       // Une Entreprise connectée en direct, sans ligne (`a_prendre`), que le serveur rouvre à la fenêtre du partenaire pour
-      // l'y reconnecter (`seReconnecte`) : la fin de la connexion pose sa ligne, l'attache vérifiée (V3), puis l'état se
-      // relit. Sans la connexion de la page, pas de geste : l'Accueil ne montre pas cette carte à un espace connecté.
+      // l'y reconnecter (`seReconnecte`), et seulement par le lien de notre équipe : la fin de la connexion pose sa ligne,
+      // l'attache vérifiée (V3), puis l'état se relit. Sans la connexion de la page, pas de geste : l'Accueil ne montre pas
+      // cette carte à un espace connecté.
       ligne = t(RECONNEXION_ENTREPRISE.texte.fr, RECONNEXION_ENTREPRISE.texte.en);
       if (!admin) {
         action = nonAdmin(t('Un administrateur de votre espace peut le reconnecter.', 'An administrator of your workspace can reconnect it.'));

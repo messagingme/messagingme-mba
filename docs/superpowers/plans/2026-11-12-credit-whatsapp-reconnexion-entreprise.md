@@ -9,6 +9,11 @@ Entreprise comprise), et la fin de la connexion pose la ligne, l'attache vérifi
 l'onglet Crédit WhatsApp d'une formule Pro ou Business avec l'option, onglet qu'une Entreprise sans ligne ne voit pas, et
 le lien de Claude refuse un espace qui a déjà un numéro. Décision de Julien du 2026-11-12 : « Oui, fais le bouton ».
 
+**Décision de Julien après la relecture (2026-11-12) : « MUTAC seulement ».** Le serveur rouvre la fenêtre à TOUTE
+Entreprise connectée en direct ; le bouton n'y paraît donc que par le lien que notre équipe donne
+(`/connecter-whatsapp?reconnexion=entreprise`), sans lui « sur demande » comme avant. Passer sur la ligne change ce qui
+est facturé, et la reconnexion d'un compte existant n'a pas encore tourné en vrai. L'ouvrir à toutes : décision à venir.
+
 ## Tâches
 
 - [ ] **La carte « Qui paie vos messages à Meta ? »** de Connecter WhatsApp (`QuiRegleMeta`), un numéro connecté, une
