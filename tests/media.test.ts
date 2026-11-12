@@ -126,6 +126,22 @@ describe('route media', () => {
     await server.close();
   });
 
+  it('🔴 POST d’un PDF (en-tête Document, lot B3b) -> 200 ; un faux PDF (signature absente) -> 400, rien n’est déposé', async () => {
+    const { server, cap } = app();
+    const pdf = 'data:application/pdf;base64,' + Buffer.from('%PDF-1.7 devis témoin').toString('base64');
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/media', ...h(adminTok), payload: { dataUrl: pdf } });
+    expect(res.statusCode).toBe(200);
+    expect(cap.mime).toBe('application/pdf');
+    const faux = app();
+    const html = 'data:application/pdf;base64,' + Buffer.from('<html>pas un pdf</html>').toString('base64');
+    const refus = await faux.server.inject({ method: 'POST', url: '/tenants/t1/media', ...h(adminTok), payload: { dataUrl: html } });
+    expect(refus.statusCode).toBe(400);
+    expect(refus.json<{ error: string }>().error).toBe('le fichier n’est pas un document PDF');
+    expect(faux.cap.mime).toBeUndefined();
+    await server.close();
+    await faux.server.close();
+  });
+
   it('POST agent -> 403', async () => {
     const { server } = app();
     const res = await server.inject({ method: 'POST', url: '/tenants/t1/media', ...h(agentTok), payload: { dataUrl: PNG_DATAURL } });
