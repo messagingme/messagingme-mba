@@ -126,9 +126,10 @@ part.
 Une fois cette ligne ou celle des automations (étape 7) allumée, le bloc « Champs HubSpot à importer », sous les
 interrupteurs, liste les propriétés du contact et de la transaction, plus le conseiller (le propriétaire de la
 transaction), son lien de réservation (quand Messaging Me peut lire son agenda), le lien du devis et le PDF du devis
-(quand Messaging Me peut lire vos devis). Le devis retenu est le plus récent de la transaction qui est publié, ni
-annulé, ni refusé, ni expiré. Quand un accès manque, ces champs sont grisés : le bouton « Autoriser l'accès aux devis et
-à l'agenda » le demande à HubSpot, une seule fois pour les deux, puis rechargez la page.
+(quand Messaging Me peut lire vos devis), et le PDF joint au dernier e-mail (quand Messaging Me peut lire vos e-mails et
+leurs fichiers). Le devis retenu est le plus récent de la transaction qui est publié, ni
+annulé, ni refusé, ni expiré. Quand un accès manque, ces champs sont grisés : le bouton « Autoriser l'accès aux devis, à
+l'agenda et aux pièces jointes » le demande à HubSpot, une seule fois pour tous, puis rechargez la page.
 Cochez-en 20 au plus, puis « Enregistrer les champs ». Chaque champ devient un champ de la fiche Messaging Me, son nom
 HubSpot suivi de « (HubSpot) », par exemple **Prénom (HubSpot)**. L'action de transaction et l'étape de transaction de
 l'étape 7 les écrivent tous sur la fiche, l'action « Lancer un scénario » ceux du contact. Une propriété vide dans HubSpot retire le champ de la fiche, et un champ
@@ -140,6 +141,23 @@ le modèle d'ouverture, ne posez que ce qui est toujours rempli, comme le préno
 conseiller et son lien vont dans les messages qui suivent. Le lien du devis peut aller dans le modèle d'ouverture si
 chaque transaction qui arrive là a un devis publié : sans devis, rien ne part, jamais le devis d'une autre transaction.
 Ce lien est public, c'est sa fonction : quiconque l'a voit le devis.
+
+**Envoyer à chaque client son propre PDF.** Quand vos conseillers envoient le devis en pièce jointe d'un e-mail depuis
+HubSpot, le scénario peut le renvoyer sur WhatsApp, en document, au nom du fichier. Trois réglages :
+
+- dans « Champs HubSpot à importer », cochez **PDF joint au dernier e-mail** et écrivez sous la case comment commence le
+  nom du fichier, par exemple « Madame, Monsieur » (sans tenir compte des majuscules ni des accents) : c'est ce qui
+  écarte les autres pièces jointes, une plaquette ou des conditions générales ;
+- dans Templates, créez un modèle avec un en-tête **Document (PDF)** : déposez un PDF d'exemple pour la validation de
+  Meta, puis choisissez dans « Document envoyé » **le PDF de la fiche du contact : PDF joint au dernier e-mail
+  (HubSpot)** ;
+- faites commencer le scénario par ce modèle.
+
+Quand la transaction arrive à l'étape (action de transaction ou étape 7), Messaging Me prend la pièce jointe PDF la plus
+récente des e-mails de la transaction dont le nom commence ainsi ; à défaut, le PDF du devis HubSpot ; sinon, rien ne
+part et l'historique du workflow le dit. Envoyez donc l'e-mail avant de changer d'étape. Messaging Me garde une copie
+du PDF trente jours, effacée avec la fiche du contact. Ce modèle ne part que depuis un scénario : une campagne ou
+l'Inbox enverraient à tous le même PDF d'exemple, elles le refusent.
 
 Placez l'action juste après le déclencheur, et activez la réinscription pour qu'une proposition révisée reparte (elle
 est refusée dans les 24 heures). Ne branchez pas en plus une automatisation de la console sur la même étape : le contact

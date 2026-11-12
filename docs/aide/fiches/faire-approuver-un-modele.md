@@ -15,7 +15,9 @@ Un modèle est un message que WhatsApp valide avant que vous ayez le droit de l'
 obligé pour écrire à quelqu'un qui ne vous a pas répondu récemment.
 
 **1. Composer le message.** Dans l'écran Templates (menu Contenu > WhatsApp), écrivez le corps du texte, puis ajoutez si besoin un en-tête
-(texte, image ou vidéo), un pied de page et des boutons.
+(texte, image, vidéo ou document PDF), un pied de page et des boutons. Un en-tête Document peut envoyer à chaque contact
+son propre PDF (son devis, recopié de HubSpot) : voyez « Intégrer WhatsApp à HubSpot » ; un tel modèle ne part que
+depuis un scénario.
 
 L'en-tête texte et le pied de page sont limités à soixante caractères et n'acceptent pas de variable. Sous
 chaque champ limité, un compteur dit combien de caractères il vous reste : le corps en accepte 1 024, le texte

@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: e77d7f
+traduit_de: 00e9f9
 description: WhatsApp in HubSpot with the Messaging Me app: reply from the contact record, send from your workflows, analyze every conversation. Without Sales Hub.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -115,10 +115,11 @@ sent.
 
 Once this line or the automations line (step 7) is on, the “HubSpot fields to import” block, below the switches, lists
 the contact and deal properties, plus the advisor (the deal owner), their booking link (when Messaging Me can read
-their calendar), the quote link and the quote PDF (when Messaging Me can read your quotes). The quote used is the most
+their calendar), the quote link and the quote PDF (when Messaging Me can read your quotes), and the PDF attached to the last email (when
+Messaging Me can read your emails and their files). The quote used is the most
 recent one of the deal that is published, neither voided, nor rejected, nor expired. When an access is missing, these
-fields are greyed out: the “Authorize access to quotes and the calendar” button asks HubSpot for it, once for both, then
-reload the page. Check 20 at most, then “Save the fields”. Each field becomes a field of the Messaging Me record, its
+fields are greyed out: the “Authorize access to quotes, the calendar and attachments” button asks HubSpot for it, once
+for all, then reload the page. Check 20 at most, then “Save the fields”. Each field becomes a field of the Messaging Me record, its
 HubSpot name followed by “(HubSpot)”, for instance **First name (HubSpot)**. The deal action and the deal stage of step
 7 write them all to the record, the “Launch a scenario” action those of the contact. An empty property in HubSpot removes the field from the record, and an unchecked field is not deleted.
 
@@ -128,6 +129,22 @@ opening template, only set what is always filled in, such as the first name: an 
 advisor and their link go in the messages that follow. The quote link can go in the opening template if every deal that
 gets there has a published quote: without a quote, nothing is sent, never the quote of another deal. This link is
 public, that is its purpose: anyone who has it sees the quote.
+
+**Send each customer their own PDF.** When your advisors send the quote as an email attachment from HubSpot, the
+scenario can send it again on WhatsApp, as a document, under the file name. Three settings:
+
+- in “HubSpot fields to import”, check **PDF attached to the last email** and write below the box how the file name
+  starts, for instance “Mrs, Mr” (case and accents ignored): this is what leaves out the other attachments, a brochure
+  or terms and conditions;
+- in Templates, create a template with a **Document (PDF)** header: upload a sample PDF for Meta's review, then choose in
+  “Document sent” **the contact record's PDF: PDF attached to the last email (HubSpot)**;
+- make the scenario start with this template.
+
+When the deal reaches the stage (deal action or step 7), Messaging Me takes the most recent PDF attached to the deal's
+emails whose name starts this way; failing that, the HubSpot quote PDF; otherwise nothing is sent and the workflow
+history says so. So send the email before changing the stage. Messaging Me keeps a copy of the PDF for thirty days,
+deleted with the contact record. This template is only sent from a scenario: a campaign or the Inbox would send everyone
+the same sample PDF, they refuse it.
 
 Place the action right after the trigger, and turn re-enrollment on so that a revised proposal goes out again (it is
 refused within 24 hours). Do not also connect a console automation to the same stage: the contact would receive two

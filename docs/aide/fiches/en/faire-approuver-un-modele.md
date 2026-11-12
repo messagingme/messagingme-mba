@@ -1,15 +1,16 @@
 ---
 description: Create a WhatsApp message template and get it approved by Meta: the text, the variables, the validity period, the language, then submission.
 slug: get-a-template-approved
-traduit_de: 1e12d6
+traduit_de: e46f25
 ---
 # Create a template and get it approved
 
 A template is a message WhatsApp validates before you are allowed to send it. It is the required route to write to
 someone who has not replied to you recently.
 
-**1. Write the message.** On the Templates screen (Content > WhatsApp menu), write the body text, then add if needed a header (text, image or
-video), a footer and buttons.
+**1. Write the message.** On the Templates screen (Content > WhatsApp menu), write the body text, then add if needed a header (text, image, video or PDF
+document), a footer and buttons. A Document header can send each contact their own PDF (their quote, copied from
+HubSpot): see “Integrate WhatsApp with HubSpot”; such a template is only sent from a scenario.
 
 The text header and the footer are limited to sixty characters and do not accept a variable. Under each limited
 field, a counter tells you how many characters you have left: the body accepts 1,024, a button’s text 25. A body

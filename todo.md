@@ -2,9 +2,6 @@
 
 ## 🟡 Les PDF par contact, lot B3b (console)
 
-- La fiche publique « Faire approuver un modèle » liste l'en-tête « texte, image ou vidéo » : y ajouter le Document
-  et le PDF de la fiche (fiche publique : `vitrine:aide`, retraduction anglaise, `aide:charger`).
-- La fiche « Intégrer WhatsApp à HubSpot » ne cite pas encore le calculé « PDF joint au dernier e-mail ».
 - Dupliquer un modèle Document repart sans en-tête ni source « PDF de la fiche » (comme l'image et la vidéo) : le dire,
   ou les recopier.
 - Les débuts modifiés alors que « PDF joint » est décoché activent « Enregistrer » pour rien (rien n'est envoyé).
