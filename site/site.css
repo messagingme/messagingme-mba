@@ -2001,3 +2001,15 @@ html[data-ou="console"] .aide-une .appels .bouton-trait[data-voie="console"]{bac
 .confiance-tableau td:first-child{font-weight:700}
 .confiance-detail section.confiance-large{max-width:none}
 .confiance-large .confiance-tableau table{min-width:780px}
+/* Le Centre de confiance sur fond clair (2026-11-12, demande de Julien : « dur à lire » en sombre), comme l'aide : le
+   héros reste sombre, tout le contenu passe dans une bande claire. Le schéma et l'appel final restent des cartes sombres
+   posées sur le blanc, avec les jetons du thème sombre, comme les blocs de code de l'aide. */
+.confiance-clair{margin-top:40px}
+.bande-claire .confiance-toile,.bande-claire .confiance-appel{--ink:#FFFFFF;--muted:rgb(255 255 255 / .66);--line:rgb(255 255 255 / .12);--surface:#0B1452;--action-ink:#6FC2FE;--action-wash:rgb(51 171 254 / .16);color:var(--ink)}
+.bande-claire .confiance-toile{box-shadow:0 30px 60px -36px var(--ombre)}
+.bande-claire :is(.confiance-etape,.confiance-col,.confiance-cert,.confiance-carte,.confiance-tuiles li,.confiance-renvois a,.confiance-docs li,.confiance-tableau){box-shadow:0 18px 40px -30px var(--ombre)}
+.bande-claire .confiance-etape.allume{background:var(--action-wash)}
+.bande-claire .confiance-puces li{background:#E3F6EC;color:#0E7A45}
+.bande-claire .confiance-col.vous{box-shadow:inset 0 3px 0 #12A150,0 18px 40px -30px var(--ombre)}
+.bande-claire .confiance-col.meta{box-shadow:inset 0 3px 0 #2F6BEA,0 18px 40px -30px var(--ombre)}
+.bande-claire .confiance-col.mm{box-shadow:inset 0 3px 0 var(--action-ink),0 18px 40px -30px var(--ombre)}
