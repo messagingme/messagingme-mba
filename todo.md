@@ -1,5 +1,14 @@
 # todo.md : backlog
 
+## 🟡 Les dates HubSpot sur la fiche : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-champs-hubspot-dates.md`, `ab6ca848`)
+
+- Un espace qui a déjà sa liste de champs garde ses dates HubSpot en texte tant qu'il ne la réenregistre pas : le
+  rappel « avant la date » ne marche pas d'ici là. Le dire à l'écran, ou retyper au premier envoi.
+- Une variable de modèle qui cite un champ HubSpot date montre au client l'ISO en UTC (`2026-11-14T09:30:00.000Z`) :
+  un format lisible en français, au fuseau de l'espace, quand une source vise un champ date.
+- Tests : horodatage en secondes (10 chiffres) et décalage horaire (`+01:00`) dans `champsDeFiche` ; les routes
+  `hubspot-events` et `hubspot-workflow` n'ont que des champs déclarés en texte, aucune ne prouve le passage du type.
+
 ## 🟡 Le parcours endormi après un Appel API : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-11-appel-api-puis-condition.md`)
 
 - **Une campagne garde la marche d'avant** : sa Condition après un Appel API lit la valeur d'avant l'appel. Piste : figer
