@@ -5011,6 +5011,14 @@ du 2026-10-27.
   Question), Meta échoue à chaque fois jusqu'à ce que le client réécrive ; un bouton de modèle qui mène au bloc,
   lui, fait répondre l'agent.
 
+- ✅ **Qui reçoit les réponses aux modèles se règle chez Meta, dans le routage des conversations** (2026-11-12). Par
+  défaut, un appui sur un bouton d'un modèle marketing ou utility part à l'agent de Meta, qui répond à la place du
+  scénario. Dans Meta Business Suite (portefeuille d'entreprise, Comptes WhatsApp, le numéro, onglet « Conversation
+  routing »), l'entreprise met ces deux lignes sur **Messaging Me** et laisse « Customer sends a message » sur l'agent :
+  les boutons des modèles font avancer le scénario, et les questions écrites vont à l'agent. Le réglage ne se fait par
+  aucune API, seulement à la main, une fois par numéro. Côté scénario, on passe ensuite la main à l'agent par un message
+  rapide (« posez-nous votre question ») relié au bloc « Envoyer au MBA », jamais par un bloc Question.
+
 - ✅ **Onglet « Activation »** (2026-08-21) : les deux réglages qui décident **qui parle au client**, réunis au
   même endroit, en deux questions. (1) *Quand le client demande un humain, ou que l'agent ne sait pas* : l'agent
   passe la main et la conversation remonte dans « À traiter » ; ou seulement pendant vos heures d'ouverture (en

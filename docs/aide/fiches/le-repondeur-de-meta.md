@@ -2,11 +2,11 @@
 description: Le Meta Business Agent, le répondeur de WhatsApp : quand il répond, comment le régler, son plafond, et comment reprendre la main.
 ecran: mba-settings
 source_section: MBA, le répondeur de Meta (menu « AI Agent » > MBA)
-source_empreinte: 80cc63
+source_empreinte: db3482
 publique: oui
 rubrique: parler-aux-clients
 rang: 11
-captures: non
+captures: oui
 offre: business
 ---
 # Le répondeur de Meta : à quoi il sert, et comment le régler
@@ -143,3 +143,23 @@ Dans tous les cas, **écrire au contact prend le fil à coup sûr**.
 **Pour repérer ces conversations dans la liste de l'Inbox** : un dégradé bleu vers violet et une baguette à
 étincelles devant le nom. La liste ne porte aucune mention écrite du détenteur ; elle sert à repérer
 l'exception, et le détenteur exact se lit dans l'en-tête de la conversation ouverte.
+
+## Choisir chez Meta qui reçoit les réponses à vos modèles
+
+Meta décide lui-même qui reçoit ce que vos clients vous écrivent : son agent ou Messaging Me. Par défaut, quand un
+client appuie sur un bouton d'un de vos modèles, la réponse part à l'agent, qui répond à la place de votre scénario.
+Le réglage se fait chez Meta, une seule fois, dans le routage des conversations de votre numéro.
+
+**1. Envoyez à Messaging Me les réponses à vos modèles.** Dans Meta Business Suite, ouvrez **Comptes WhatsApp**, votre
+numéro, puis l'onglet **Conversation routing** et sa modification. Sur les lignes « Customer replies to a marketing
+message » et « Customer replies to a utility message », choisissez **Messaging Me**, puis **Apply**.
+
+Laissez « Customer sends a message » sur **Meta Business Agent** : c'est lui qui répond aux questions que vos clients
+écrivent. Laissez aussi « Thread control » sur **Messaging Me**, pour que votre équipe puisse reprendre une
+conversation.
+
+**2. Passez la main à l'agent par un message, pas par une question.** Dans vos scénarios, faites dire « posez-nous
+votre question » par un **message rapide**, relié directement au bloc **Envoyer au MBA** : la question du client
+arrive alors à l'agent, qui y répond.
+
+Avec un bloc Question à la place, c'est le scénario qui reçoit la question, et l'agent ne peut pas y répondre.

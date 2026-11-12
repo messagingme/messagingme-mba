@@ -1,6 +1,6 @@
 ---
 slug: meta-business-agent
-traduit_de: d8b2d2
+traduit_de: 234e6f
 description: The Meta Business Agent, WhatsApp’s responder: when it answers, how to set it up, its cap, and how to take back control.
 ---
 # Meta’s responder: what it is for, and how to set it up
@@ -129,3 +129,22 @@ In any case, **writing to the contact takes the thread for sure**.
 **To spot these conversations in the Inbox list**: a blue to purple gradient and a sparkle wand in front of the
 name. The list carries no written mention of who holds the conversation; it is there to spot the exception, and
 the exact holder is read in the header of the open conversation.
+
+## Choose at Meta who receives the replies to your templates
+
+Meta itself decides who receives what your customers write to you: its agent or Messaging Me. By default, when a
+customer taps a button of one of your templates, the reply goes to the agent, which answers instead of your scenario.
+You set this once, at Meta, in the conversation routing of your number.
+
+**1. Send the replies to your templates to Messaging Me.** In Meta Business Suite, open **WhatsApp accounts**, your
+number, then the **Conversation routing** tab and its settings. On the lines “Customer replies to a marketing
+message” and “Customer replies to a utility message”, choose **Messaging Me**, then **Apply**.
+
+Leave “Customer sends a message” on **Meta Business Agent**: it answers the questions your customers write. Also
+leave “Thread control” on **Messaging Me**, so that your team can take a conversation back.
+
+**2. Hand over to the agent with a message, not a question.** In your scenarios, have a **quick message** say “ask us
+your question”, linked directly to the **Send to MBA** block: the customer’s question then reaches the agent, which
+answers it.
+
+With a Question block instead, the scenario receives the question, and the agent cannot answer it.

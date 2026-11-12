@@ -243,7 +243,7 @@ describe('les fiches publiques', () => {
   it('les pages sans capture et sans mention d’offre sont celles prévues', () => {
     expect(publiques.filter((f) => !f.publication.captures).map((f) => f.cle).sort())
       .toEqual(['ce-qu-il-faut-chez-meta', 'construire-un-agent-ia', 'creer-une-publicite', 'envoyer-un-message-rcs',
-        'integrer-whatsapp-a-hubspot', 'la-fenetre-de-24-heures', 'le-repondeur-de-meta', 'poser-une-bulle-whatsapp-sur-mon-site',
+        'integrer-whatsapp-a-hubspot', 'la-fenetre-de-24-heures', 'poser-une-bulle-whatsapp-sur-mon-site',
         'publier-sur-ma-chaine-whatsapp']);
     // Connecter son numéro et garder son application se font depuis Claude Code (Free) ou l'Accueil, ouvert à la
     // Free (`ECRANS_FREE`, `MODULES_OUVERTS_AU_FREE`) : aucune offre à dire.
