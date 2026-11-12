@@ -1,7 +1,7 @@
 ---
 description: Keep your WhatsApp Business app and connect the same number to Messaging Me, screen by screen, with the Meta Business account created along the way if needed.
 slug: keep-my-whatsapp-business-app
-traduit_de: 1a2c93
+traduit_de: a493b7
 bouton_claude: Keep my app from Claude Code, for free
 bouton_console: Keep my app in the console
 ---
@@ -51,5 +51,6 @@ weeks.
 What you type in the app does not show in Messaging Me yet. If an AI agent answers your customers, it does not see
 your replies: it may answer at the same time as you.
 
-**Good to know.** Not using the app yet? Download the WhatsApp Business app on a phone, put your business’s number in
-it, then follow this guide right away.
+**Good to know.** Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it
+offers to take over that number, with your chats. Then follow this guide. No app at all? No need to install one: your
+number connects directly to Messaging Me, from “Connect WhatsApp”.

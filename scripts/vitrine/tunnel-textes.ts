@@ -2,9 +2,12 @@
 // Les textes du tunnel du numéro WhatsApp, en français et en anglais : l'arbre de Julien du 2026-10-30, le même sur
 // chaque page qui le porte (la page « Démarrer », Boutiques Shopify, SaaS et app builders), que `tunnel.ts` assemble.
 // Plan `docs/superpowers/plans/2026-10-30-tunnel-numero-generique.md`. Le 2026-10-31, Julien y ajoute une quatrième
-// question : sans compte Meta Business ni application, « Avez-vous déjà un numéro ? », et sans numéro, le numéro fourni va
-// dans l'application. Le 2026-11-06, une cinquième, juste après l'offre : qui paie Meta (révision du Crédit WhatsApp, lot B).
-// La vente du Crédit WhatsApp est ouverte depuis le 2026-11-11 (lot 3v-2) : sa réponse dit où il se prend, la console.
+// question : sans compte Meta Business ni application, « Avez-vous déjà un numéro ? ». Le 2026-11-06, une cinquième, juste
+// après l'offre : qui paie Meta (révision du Crédit WhatsApp, lot B). La vente du Crédit WhatsApp est ouverte depuis le
+// 2026-11-11 (lot 3v-2) : sa réponse dit où il se prend, la console. Le 2026-11-12 (plan
+// `docs/superpowers/plans/2026-11-12-arbre-numero-sans-application.md`), sans compte Meta Business ni application, on ne
+// fait plus télécharger l'application : un numéro, le numéro API ; aucun, un numéro de chez nous relié par la fenêtre de
+// Meta, qui crée le compte en chemin. Plus de numéro fourni mis dans l'application.
 //
 // 🔴 CE QUE LE TUNNEL NE DIT PLUS : le numéro relié par code, qui ne faisait que répondre (Julien, 2026-10-30 : « on
 // supprime une bonne fois pour toutes l'option QR code »). Chaque voie mène à un numéro de l'API officielle, et
@@ -240,6 +243,11 @@ const fr = (): TexteTunnel => {
   // WhatsApp ordinaire (Julien, 2026-11-08, lot 3a) : le numéro passe dans WhatsApp Business, qui le reprend, puis se garde.
   const whatsappOrdinaire = 'Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations.';
   const magasins: readonly Lien[] = [{ libelle: 'App Store (iPhone)', href: MAGASINS.appStore }, { libelle: 'Google Play (Android)', href: MAGASINS.googlePlay }];
+  // Un numéro de chez nous, relié par la fenêtre de Meta : le cas 4 et, sans compte ni application ni numéro, l'issue
+  // `fourni` (2026-11-12) ; le cas 4 y ajoute ce que garde l'application.
+  const deChezNous = 'Un numéro de chez nous, relié par Meta';
+  const numeroDeChezNous = `Nous vous fournissons un numéro, ${numero} HT par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond.`;
+  const metaFacture = 'Meta facture vos messages, et les réponses au-delà d’une franchise mensuelle : un moyen de paiement s’ajoute chez Meta.';
   return {
     surtitre: 'Votre numéro WhatsApp',
     titre: ['Votre branchement', 'commence ici.'],
@@ -268,8 +276,8 @@ const fr = (): TexteTunnel => {
       ],
     },
     // L'arbre de Julien du 2026-10-30 : l'offre, le compte Meta Business, puis l'application WhatsApp Business ; du
-    // 2026-10-31 : sans application, le numéro, que nous fournissons à qui n'en a pas ; et du 2026-11-06 : qui paie Meta,
-    // juste après l'offre.
+    // 2026-10-31 : sans application, le numéro, que nous fournissons à qui n'en a pas ; du 2026-11-06 : qui paie Meta,
+    // juste après l'offre ; et du 2026-11-12 : sans application, plus rien à télécharger, le numéro se relie par Meta.
     questions: [
       {
         id: 'offre', texte: 'Quelle formule voulez-vous ?', precision: 'Vous pourrez en changer plus tard.',
@@ -308,8 +316,8 @@ const fr = (): TexteTunnel => {
       },
       {
         id: 'application', texte: 'Avez-vous déjà l’application WhatsApp Business ?', precision: 'L’application des professionnels, distincte de WhatsApp.', logo: LOGO_APPLICATION,
-        // Sans elle, dire tout de suite qu'il faudra la télécharger, avec les magasins (Julien, 2026-10-31).
-        reponses: [{ libelle: 'Oui', vers: 'meme-numero' }, { libelle: 'Non', vers: 'numero', note: `Vous allez devoir télécharger l’application WhatsApp Business.<span class="bt-liens">${magasins.map(lienHtml).join('')}</span>` }],
+        // Sans elle, plus rien à télécharger (Julien, 2026-11-12) : la question du numéro, qui mène au numéro API.
+        reponses: [{ libelle: 'Oui', vers: 'meme-numero' }, { libelle: 'Non', vers: 'numero' }],
       },
       {
         // Le cas 4 (Julien, 2026-11-08, lot 3a) : l'application, mais pas pour ce numéro-là ; un numéro de chez nous, relié
@@ -318,26 +326,31 @@ const fr = (): TexteTunnel => {
         reponses: [{ libelle: 'Oui', vers: 'garder' }, { libelle: 'Non', vers: 'autre-numero' }],
       },
       {
-        id: 'numero', texte: 'Avez-vous déjà un numéro que vous pourriez utiliser ?', precision: 'Le numéro que vous mettrez dans l’application WhatsApp Business.',
-        reponses: [{ libelle: 'Oui', vers: 'telecharger' }, { libelle: 'Non', vers: 'fourni' }],
+        // Sans compte Meta Business ni application (2026-11-12) : un numéro mène au numéro API, comme avec un compte ;
+        // aucun, à un numéro de chez nous, relié par la fenêtre de Meta. Plus rien ne va dans l'application.
+        id: 'numero', texte: 'Avez-vous déjà un numéro que vous pourriez utiliser ?', precision: 'Le numéro de votre entreprise, relié à l’API officielle de WhatsApp.',
+        reponses: [{ libelle: 'Oui', vers: 'api' }, { libelle: 'Non', vers: 'fourni' }],
       },
     ],
     issues: [
       {
-        id: 'api', situation: 'Avec un compte Meta Business', titre: 'Votre numéro API',
+        // Avec un compte Meta Business, ou sans l'application avec un numéro (2026-11-12) : sa demande ne dit donc plus
+        // qu'on a un compte, la fenêtre de Meta le crée s'il manque.
+        id: 'api', situation: 'Avec un compte Meta Business, ou avec un numéro sans l’application WhatsApp Business', titre: 'Votre numéro API',
         textes: [
-          'La fenêtre de Meta prend votre compte Meta Business et relie votre numéro à l’API officielle de WhatsApp : il envoie vos messages, et votre agent IA répond.',
+          'La fenêtre de Meta prend votre compte Meta Business, ou vous le fait créer en chemin, et relie votre numéro à l’API officielle de WhatsApp : il envoie vos messages, et votre agent IA répond.',
           `Un numéro libre, qui ne sert dans aucune application WhatsApp, devient votre numéro API ; un numéro qui sert déjà dans WhatsApp ou dans l’application WhatsApp Business se garde dans l’application (ci-dessous). Sans numéro, prenez un numéro fourni : ${numero} HT par mois en formule Free, inclus en formule Pro.`,
-          'Meta facture vos messages, et les réponses au-delà d’une franchise mensuelle : un moyen de paiement s’ajoute chez Meta.',
+          metaFacture,
         ],
         autre: { question: 'Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?', lien: 'Vous pouvez le garder', vers: 'garder' },
         numero: {
-          free: `J’ai un compte Meta Business : relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (${numero} HT par mois).`,
-          pro: 'J’ai un compte Meta Business : relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (inclus en formule Pro).',
+          free: `Relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (${numero} HT par mois) ; s’il me manque un compte Meta Business, guide-moi pour le créer en chemin.`,
+          pro: 'Relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (inclus en formule Pro) ; s’il me manque un compte Meta Business, guide-moi pour le créer en chemin.',
         },
         pasAPas: '/aide/connecter-mon-numero-whatsapp/',
       },
       {
+        // Les magasins sous WhatsApp ordinaire : on installe WhatsApp Business sur le même téléphone (2026-11-12).
         id: 'garder', situation: 'Avec l’application WhatsApp Business', titre: 'Gardez votre application WhatsApp Business',
         textes: [
           'Votre numéro reste dans l’application et envoie aussi depuis Messaging Me : vous répondez toujours depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.',
@@ -346,18 +359,19 @@ const fr = (): TexteTunnel => {
           carteAvecApplication,
           'Quelques fonctions de l’application s’arrêtent, comme les listes de diffusion et le message d’absence, et il faut l’ouvrir au moins toutes les deux semaines. Ce que vous y tapez n’apparaît pas dans Messaging Me : votre agent IA ne voit pas vos réponses.',
         ],
+        liens: magasins,
         numero: memes('Mon numéro est dans l’application WhatsApp Business et je veux la garder : relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, et s’il me manque un compte Meta Business, guide-moi pour le créer en chemin.'),
         pasAPas: '/aide/garder-mon-application-whatsapp-business/',
       },
       {
         // Le cas 4 (Julien, 2026-11-08, lot 3a) : le numéro fourni par la fenêtre de Meta (`fourni`), l'application
         // WhatsApp Business gardant le sien ; son code se reçoit par l'appel (lot 2c).
-        id: 'autre-numero', situation: 'Avec l’application WhatsApp Business, pour un autre numéro', titre: 'Un numéro de chez nous, relié par Meta',
+        id: 'autre-numero', situation: 'Avec l’application WhatsApp Business, pour un autre numéro', titre: deChezNous,
         textes: [
-          `Nous vous fournissons un numéro, ${numero} HT par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond. Votre application WhatsApp Business garde le sien.`,
+          `${numeroDeChezNous} Votre application WhatsApp Business garde le sien.`,
           codeParLAppel('fr'),
           garder,
-          'Meta facture vos messages, et les réponses au-delà d’une franchise mensuelle : un moyen de paiement s’ajoute chez Meta.',
+          metaFacture,
         ],
         numero: {
           free: `J’ai déjà l’application WhatsApp Business, mais je veux un autre numéro pour Messaging Me : fournis-m’en un (${numero} HT par mois), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.`,
@@ -366,35 +380,15 @@ const fr = (): TexteTunnel => {
         pasAPas: '/aide/connecter-mon-numero-whatsapp/',
       },
       {
-        // Julien, 2026-10-30 : on branche tout de suite. Un numéro neuf passe en coexistence sans attendre (testé, Julien,
-        // 2026-11-11) : aucune mise en garde sur un refus de Meta.
-        id: 'telecharger', situation: 'Sans l’application WhatsApp Business, avec un numéro', titre: 'Téléchargez l’application WhatsApp Business',
-        textes: [
-          'Installez l’application WhatsApp Business sur un téléphone, avec le numéro de votre entreprise, puis branchez-le tout de suite en gardant l’application : votre numéro reste sur votre téléphone et envoie aussi depuis Messaging Me.',
-          whatsappOrdinaire,
-          garder,
-          carteAvecApplication,
-        ],
-        liens: magasins,
-        numero: memes('Je viens d’installer l’application WhatsApp Business avec mon numéro et je veux la garder : relie-le par Meta pour qu’il envoie aussi depuis Messaging Me, et guide-moi pour créer mon compte Meta Business en chemin.'),
-        pasAPas: '/aide/garder-mon-application-whatsapp-business/',
-      },
-      {
-        // Julien, 2026-10-31 : sans numéro, nous en fournissons un, qui va dans l'application. On répond aux clients dès
-        // le premier jour, et le numéro se branche aussitôt en gardant l'application.
-        id: 'fourni', situation: 'Sans l’application WhatsApp Business ni numéro', titre: 'Téléchargez l’application, nous vous fournissons le numéro',
-        textes: [
-          `Installez l’application WhatsApp Business sur votre téléphone et créez-y votre compte avec le numéro que nous vous fournissons, ${numero} HT par mois en formule Free, inclus en formule Pro : son code de vérification s’affiche sur la page de Messaging Me.`,
-          'Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.',
-          garder,
-          carteAvecApplication,
-        ],
-        liens: magasins,
+        // Ni compte Meta Business, ni application, ni numéro (Julien, 2026-11-12) : un numéro de chez nous, relié par la
+        // fenêtre de Meta (`fourni`), qui crée le compte en chemin ; son code se reçoit par l'appel (lot 2c).
+        id: 'fourni', situation: 'Sans l’application WhatsApp Business ni numéro', titre: deChezNous,
+        textes: [numeroDeChezNous, codeParLAppel('fr'), garder, metaFacture],
         numero: {
-          free: `Je n’ai pas de numéro : fournis-m’en un (${numero} HT par mois), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification ; puis relie-le par Meta en gardant l’application, et guide-moi pour créer mon compte Meta Business en chemin.`,
-          pro: 'Je n’ai pas de numéro : fournis-m’en un (inclus en formule Pro), que je mets dans l’application WhatsApp Business, et montre-moi son code de vérification ; puis relie-le par Meta en gardant l’application, et guide-moi pour créer mon compte Meta Business en chemin.',
+          free: `Je n’ai ni l’application WhatsApp Business ni numéro : fournis-m’en un (${numero} HT par mois), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.`,
+          pro: 'Je n’ai ni l’application WhatsApp Business ni numéro : fournis-m’en un (inclus en formule Pro), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.',
         },
-        pasAPas: '/aide/garder-mon-application-whatsapp-business/',
+        pasAPas: '/aide/connecter-mon-numero-whatsapp/',
       },
       {
         // Le Pro par la console (lot 3c) : la console pose elle-même les questions du numéro.
@@ -529,6 +523,9 @@ const en = (): TexteTunnel => {
   const carteAvecApplication = 'You pay Meta with your card: WhatsApp credit is not possible with the app.';
   const whatsappOrdinaire = 'Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats.';
   const magasins: readonly Lien[] = [{ libelle: 'App Store (iPhone)', href: MAGASINS.appStore }, { libelle: 'Google Play (Android)', href: MAGASINS.googlePlay }];
+  const deChezNous = 'A number from us, connected through Meta';
+  const numeroDeChezNous = `We provide a number, ${numero} excl. VAT a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers.`;
+  const metaFacture = 'Meta bills your messages, and replies beyond a monthly allowance: a payment method is added at Meta.';
   return {
     surtitre: 'Your WhatsApp number',
     titre: ['Your setup', 'starts here.'],
@@ -591,29 +588,29 @@ const en = (): TexteTunnel => {
       },
       {
         id: 'application', texte: 'Do you already have the WhatsApp Business app?', precision: 'The app for businesses, separate from WhatsApp.', logo: LOGO_APPLICATION,
-        reponses: [{ libelle: 'Yes', vers: 'meme-numero' }, { libelle: 'No', vers: 'numero', note: `You will need to download the WhatsApp Business app.<span class="bt-liens">${magasins.map(lienHtml).join('')}</span>` }],
+        reponses: [{ libelle: 'Yes', vers: 'meme-numero' }, { libelle: 'No', vers: 'numero' }],
       },
       {
         id: 'meme-numero', texte: 'Do you want to use that number?', precision: 'The one in your WhatsApp Business app.',
         reponses: [{ libelle: 'Yes', vers: 'garder' }, { libelle: 'No', vers: 'autre-numero' }],
       },
       {
-        id: 'numero', texte: 'Do you already have a number you could use?', precision: 'The number you will put in the WhatsApp Business app.',
-        reponses: [{ libelle: 'Yes', vers: 'telecharger' }, { libelle: 'No', vers: 'fourni' }],
+        id: 'numero', texte: 'Do you already have a number you could use?', precision: 'Your business’s number, connected to the official WhatsApp API.',
+        reponses: [{ libelle: 'Yes', vers: 'api' }, { libelle: 'No', vers: 'fourni' }],
       },
     ],
     issues: [
       {
-        id: 'api', situation: 'With a Meta Business account', titre: 'Your API number',
+        id: 'api', situation: 'With a Meta Business account, or with a number without the WhatsApp Business app', titre: 'Your API number',
         textes: [
-          'Meta’s window takes your Meta Business account and connects your number to the official WhatsApp API: it sends your messages, and your AI agent answers.',
+          'Meta’s window takes your Meta Business account, or has you create it along the way, and connects your number to the official WhatsApp API: it sends your messages, and your AI agent answers.',
           `An available number, not used in any WhatsApp app, becomes your API number; a number already used in WhatsApp or in the WhatsApp Business app is kept in the app (below). Without a number, take a provided one: ${numero} excl. VAT a month with the Free plan, included in Pro.`,
-          'Meta bills your messages, and replies beyond a monthly allowance: a payment method is added at Meta.',
+          metaFacture,
         ],
         autre: { question: 'Is your number already used in WhatsApp or in the WhatsApp Business app?', lien: 'You can keep it', vers: 'garder' },
         numero: {
-          free: `I have a Meta Business account: connect my available number through Meta as an API number, or, if I have no number at all, provide one (${numero} excl. VAT a month).`,
-          pro: 'I have a Meta Business account: connect my available number through Meta as an API number, or, if I have no number at all, provide one (included in Pro).',
+          free: `Connect my available number through Meta as an API number, or, if I have no number at all, provide one (${numero} excl. VAT a month); if I lack a Meta Business account, walk me through creating it along the way.`,
+          pro: 'Connect my available number through Meta as an API number, or, if I have no number at all, provide one (included in Pro); if I lack a Meta Business account, walk me through creating it along the way.',
         },
         pasAPas: '/en/help/connect-my-whatsapp-number/',
       },
@@ -626,16 +623,17 @@ const en = (): TexteTunnel => {
           carteAvecApplication,
           'A few app features stop, such as broadcast lists and the away message, and you need to open the app at least every two weeks. What you type there does not show in Messaging Me: your AI agent does not see your replies.',
         ],
+        liens: magasins,
         numero: memes('My number is in the WhatsApp Business app and I want to keep it: connect it through Meta so it also sends from Messaging Me, and if I lack a Meta Business account, walk me through creating it along the way.'),
         pasAPas: '/en/help/keep-my-whatsapp-business-app/',
       },
       {
-        id: 'autre-numero', situation: 'With the WhatsApp Business app, for another number', titre: 'A number from us, connected through Meta',
+        id: 'autre-numero', situation: 'With the WhatsApp Business app, for another number', titre: deChezNous,
         textes: [
-          `We provide a number, ${numero} excl. VAT a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers. Your WhatsApp Business app keeps its own.`,
+          `${numeroDeChezNous} Your WhatsApp Business app keeps its own.`,
           codeParLAppel('en'),
           garder,
-          'Meta bills your messages, and replies beyond a monthly allowance: a payment method is added at Meta.',
+          metaFacture,
         ],
         numero: {
           free: `I already have the WhatsApp Business app, but I want another number for Messaging Me: provide one (${numero} excl. VAT a month), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.`,
@@ -644,31 +642,13 @@ const en = (): TexteTunnel => {
         pasAPas: '/en/help/connect-my-whatsapp-number/',
       },
       {
-        id: 'telecharger', situation: 'Without the WhatsApp Business app, with a number', titre: 'Download the WhatsApp Business app',
-        textes: [
-          'Install the WhatsApp Business app on a phone, with your business’s number, then connect it right away while keeping the app: your number stays on your phone and also sends from Messaging Me.',
-          whatsappOrdinaire,
-          garder,
-          carteAvecApplication,
-        ],
-        liens: magasins,
-        numero: memes('I just installed the WhatsApp Business app with my number and I want to keep it: connect it through Meta so it also sends from Messaging Me, and walk me through creating my Meta Business account along the way.'),
-        pasAPas: '/en/help/keep-my-whatsapp-business-app/',
-      },
-      {
-        id: 'fourni', situation: 'Without the WhatsApp Business app or a number', titre: 'Download the app, we provide the number',
-        textes: [
-          `Install the WhatsApp Business app on your phone and create your account there with the number we provide, ${numero} excl. VAT a month with the Free plan, included in Pro: its verification code shows on the Messaging Me page.`,
-          'From day one, you reply to your customers from the app. Then connect the number while keeping the app, so your confirmations, reminders and follow-ups also go out from Messaging Me.',
-          garder,
-          carteAvecApplication,
-        ],
-        liens: magasins,
+        id: 'fourni', situation: 'Without the WhatsApp Business app or a number', titre: deChezNous,
+        textes: [numeroDeChezNous, codeParLAppel('en'), garder, metaFacture],
         numero: {
-          free: `I have no number: provide one (${numero} excl. VAT a month), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, and walk me through creating my Meta Business account along the way.`,
-          pro: 'I have no number: provide one (included in Pro), which I put in the WhatsApp Business app, and show me its verification code; then connect it through Meta while keeping the app, and walk me through creating my Meta Business account along the way.',
+          free: `I have neither the WhatsApp Business app nor a number: provide one (${numero} excl. VAT a month), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.`,
+          pro: 'I have neither the WhatsApp Business app nor a number: provide one (included in Pro), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.',
         },
-        pasAPas: '/en/help/keep-my-whatsapp-business-app/',
+        pasAPas: '/en/help/connect-my-whatsapp-number/',
       },
       {
         id: 'console', situation: 'With the Pro plan, from the console', titre: 'Create your workspace: the console guides you', console: true,

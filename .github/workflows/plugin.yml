@@ -3,7 +3,8 @@ name: Plugin Claude Code (publication)
 # 🔴 LE PLUGIN SE PUBLIE DANS SON PROPRE DEPOT (lot 10, decision de Julien du 2026-10-12), sur le modele du SDK : le
 # dossier `plugin/` part tel quel vers `messagingme/messagingme-plugin`, etiquete `v<version>` de
 # `plugin/.claude-plugin/plugin.json`. On l'installe dans Claude Code par
-# `/plugin marketplace add messagingme/messagingme-plugin`, puis `/plugin install messagingme@messagingme`.
+# `/plugin marketplace add https://github.com/messagingme/messagingme-plugin.git`, puis `/plugin install messagingme@messagingme`
+# (l'adresse HTTPS : la forme courte clone en SSH, qui échoue sans clé GitHub).
 #
 # 🔴 A LA MAIN, APRES LE DEPLOIEMENT DE L'API : `gh workflow run plugin.yml --ref main`. Jamais sur un push : les skills
 # nomment des outils du serveur MCP (`get_setup_state`), qu'un plugin publie avant le `up` de l'API appellerait en vain.

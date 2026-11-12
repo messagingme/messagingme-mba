@@ -17,9 +17,14 @@ export const API_PUBLIQUE = 'https://api.messagingme.app';
  * plugin vit dans `plugin/` et se publie dans `messagingme/messagingme-plugin` ; `tests/plugin.test.ts` tient ces
  * noms égaux à ses manifestes. La page finale du tunnel et la vitrine les montrent ; la doc MCP garde `claude mcp add`
  * pour qui ne veut que le serveur.
+ *
+ * 🔴 LA MARKETPLACE S'AJOUTE PAR L'ADRESSE HTTPS COMPLÈTE DU DÉPÔT (2026-11-11, mesuré sur un PC neuf) : l'adresse courte
+ * `messagingme/messagingme-plugin` fait cloner en SSH (`git@github.com:`), qui échoue sans clé GitHub, c'est-à-dire chez
+ * presque tout le monde, et laisse une marketplace enregistrée mais vide : le plugin « ne s'installe pas », sans message
+ * clair. Claude Code et Codex acceptent tous deux l'adresse HTTPS (mesuré, Codex 0.151).
  */
 export const COMMANDES_PLUGIN = [
-  '/plugin marketplace add messagingme/messagingme-plugin',
+  '/plugin marketplace add https://github.com/messagingme/messagingme-plugin.git',
   '/plugin install messagingme@messagingme',
 ] as const;
 export const COMMANDE_DEMARRAGE = '/messagingme:demarrer';
@@ -30,7 +35,7 @@ export const SERVEUR_PLUGIN_MCP = 'plugin:messagingme:messagingme';
  * tient ces commandes égales aux manifestes, comme celles de Claude Code.
  */
 export const COMMANDES_CODEX = [
-  'codex plugin marketplace add messagingme/messagingme-plugin',
+  'codex plugin marketplace add https://github.com/messagingme/messagingme-plugin.git',
   'codex plugin add messagingme@messagingme',
 ] as const;
 export const AUTORISATION_CODEX = 'codex mcp login messagingme';

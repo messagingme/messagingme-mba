@@ -8,7 +8,7 @@ import { COMMANDE_DEMARRAGE, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP, enSuiteDeDema
 describe('le plugin Claude Code (lot 10, livraison B)', () => {
   it('🔴 deux commandes, sans clé : le catalogue du dépôt public, puis le plugin', () => {
     expect(COMMANDES_PLUGIN).toEqual([
-      '/plugin marketplace add messagingme/messagingme-plugin',
+      '/plugin marketplace add https://github.com/messagingme/messagingme-plugin.git',
       '/plugin install messagingme@messagingme',
     ]);
     for (const c of COMMANDES_PLUGIN) expect(c).not.toMatch(/Authorization|Bearer|mba_|VOTRE_CLE/);

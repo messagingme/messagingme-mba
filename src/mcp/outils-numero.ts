@@ -725,9 +725,12 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       + 'installed WhatsApp Business on the same phone, which takes it over with its chats) or in the WhatsApp Business '
       + 'app goes through `coexistence`, never to another number. `coexistence`: the person\'s own number, kept in the WhatsApp Business app on their phone; messages sent '
       + 'through Messaging Me are official templates billed by Meta, those typed in the app stay free (filiere api only). '
-      + '`fourni_application`: a number we provide (same price), which the person puts IN the WhatsApp Business app (its '
-      + 'verification code arrives here), then keeps the app and connects it through Meta\'s window, like coexistence '
-      + '(filiere api only). When the workspace took WhatsApp credit and has no number yet, the link of `fourni` and '
+      + 'Without a Meta Business account, Meta\'s window creates it along the way, in `apporte` and `fourni` as in '
+      + '`coexistence`: a person without the WhatsApp Business app connects their number, or a provided one, as an API '
+      + 'number, with no app to install. `fourni_application` is no longer offered, only resumed: a number we provide, '
+      + 'already put IN the WhatsApp Business app (its verification code arrives here), then kept there through Meta\'s '
+      + 'window, like coexistence; still accepted for a connection started that way, which numero.reprise of '
+      + 'get_setup_state names (filiere api only). When the workspace took WhatsApp credit and has no number yet, the link of `fourni` and '
       + '`apporte` opens the connection without a card at Meta, and the consigne gives its conditions; the credit never '
       + 'pays a number that keeps the app. '
       + 'Refused if the workspace already has a connected number, except `coexistence` for a number linked by QR code, '
@@ -740,18 +743,19 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         mode: {
           type: 'string', enum: ['fourni', 'apporte', 'coexistence', 'fourni_application'],
           description: 'fourni: a number we provide; apporte: the person\'s own number; coexistence: the person\'s own number, '
-            + 'kept in the WhatsApp Business app; fourni_application: a number we provide, put in the WhatsApp Business app '
-            + 'and kept there.',
+            + 'kept in the WhatsApp Business app; fourni_application: a number we provide, already put in the WhatsApp '
+            + 'Business app and kept there (no longer offered, only resumed).',
         },
-        // 🔴 Plus aucune voie par QR code proposée (Julien, 2026-10-30) : sans compte Meta Business, le numéro de
-        // l'application WhatsApp Business se garde, par la fenêtre de Meta, qui crée le compte en chemin. La valeur
-        // `application` reste acceptée pour un lien déjà en cours ; rien ne la propose plus.
+        // 🔴 Plus aucune voie par QR code proposée (Julien, 2026-10-30) : sans compte Meta Business, la fenêtre de Meta
+        // crée le compte en chemin. Depuis le 2026-11-12, sans l'application, le numéro se relie en numéro API (apporte ou
+        // fourni) : on ne la fait plus télécharger. La valeur `application` reste acceptée pour un lien déjà en cours ;
+        // rien ne la propose plus.
         filiere: {
           type: 'string', enum: ['api', 'application'],
           description: 'Leave it out: api, the official WhatsApp API. application, the link of the WhatsApp Business app by QR '
-            + 'code, is no longer offered: never propose it. Without a Meta Business account, the person keeps (or downloads) '
-            + 'the WhatsApp Business app and connects its number with mode coexistence: Meta\'s window creates the account '
-            + 'along the way.',
+            + 'code, is no longer offered: never propose it. Without a Meta Business account, Meta\'s window creates the '
+            + 'account along the way: the person connects their own number (apporte) or a number we provide (fourni) as an '
+            + 'API number, or keeps the WhatsApp Business app they already have (coexistence).',
         },
         numero: {
           type: 'string', maxLength: 30,

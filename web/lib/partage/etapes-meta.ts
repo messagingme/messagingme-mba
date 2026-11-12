@@ -13,7 +13,7 @@
  * WHATSAPP ORDINAIRE (Julien, 2026-11-08, lot 3a) : un numéro qui sert dans WhatsApp ne part plus vers un autre numéro ;
  * il passe dans WhatsApp Business, qui le reprend avec ses conversations, et l'application se garde. Dite là où le numéro
  * peut servir dans WhatsApp : la 3e condition ci-dessous, et dans la console (`questions-numero.ts`, qui la reprend) en
- * gardant l'application depuis le numéro API, et en la téléchargeant.
+ * gardant l'application depuis le numéro API, avec les deux magasins de WhatsApp Business.
  */
 export const WHATSAPP_ORDINAIRE: { readonly fr: string; readonly en: string } = {
   fr: 'Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : '

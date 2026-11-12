@@ -122,7 +122,7 @@ const ICONES = {
   rechercher: MagnifyingGlassIcon,
   contact: UserIcon,
   fin: FlagIcon,
-  // Les deux magasins de l'application WhatsApp Business (`ISSUE_TELECHARGER.magasins`, Julien, 2026-10-31).
+  // Les deux magasins de l'application WhatsApp Business (`MAGASINS_APPLICATION`, Julien, 2026-10-31).
   appstore: AppleLogoIcon,
   googleplay: GooglePlayLogoIcon,
 } satisfies Record<NomIcone, Icon>;

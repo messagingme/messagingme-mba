@@ -13,14 +13,14 @@ creates it along the way, and you can keep your WhatsApp Business app.**
 In Claude Code:
 
 ```
-/plugin marketplace add messagingme/messagingme-plugin
+/plugin marketplace add https://github.com/messagingme/messagingme-plugin.git
 /plugin install messagingme@messagingme
 ```
 
 In Codex, the same plugin, in a terminal:
 
 ```
-codex plugin marketplace add messagingme/messagingme-plugin
+codex plugin marketplace add https://github.com/messagingme/messagingme-plugin.git
 codex plugin add messagingme@messagingme
 ```
 
@@ -83,11 +83,11 @@ Then `/messagingme:demarrer` asks you, one question at a time, the same question
 2. **Do you have a Meta Business account?** Yes: your number becomes an API number, an available one of yours or a
    provided one; if it is already in the WhatsApp Business app, you can keep it. No, or not sure: the next question
    (business.facebook.com lists your portfolios, and a missing account is created along the way).
-3. **Do you already have the WhatsApp Business app?** Yes: you keep it, no number needed. No: you will need to download
-   it (App Store or Google Play), then the next question.
-4. **Do you already have a number you could use?** Yes: download the app, put your number in it, and connect it right
-   away. No: we provide one, which goes in the app, its verification code shown on the setup page; you reply to your
-   customers from the app from day one.
+3. **Do you already have the WhatsApp Business app?** Yes: you keep it, or, for another number, we provide one. No: the
+   next question, with no app to get.
+4. **Do you already have a number you could use?** Yes: it becomes your API number, connected through Meta's window,
+   which creates your Meta Business account along the way. No: we provide one, connected the same way, its
+   verification code shown on the setup page.
 
 The price of a provided number is under [What it costs](#what-it-costs).
 

@@ -80,8 +80,10 @@ describe('🔴 ce que la console et la vitrine font taper (lot 10, B) est ce que
     const plugin = json<{ name: string; repository: string }>('.claude-plugin/plugin.json');
     const catalogue = json<{ name: string }>('.claude-plugin/marketplace.json');
     const [serveur] = Object.keys(json<{ mcpServers: Record<string, unknown> }>('.mcp.json').mcpServers);
-    const depot = new URL(plugin.repository).pathname.replace(/^\/|\.git$/g, '');
-    expect(COMMANDES_PLUGIN).toEqual([`/plugin marketplace add ${depot}`, `/plugin install ${plugin.name}@${catalogue.name}`]);
+    // La forme HTTPS complète, jamais `owner/repo`, qui fait cloner en SSH et échoue sans clé GitHub (2026-11-11).
+    const adresse = `${plugin.repository.replace(/\.git$/, '')}.git`;
+    expect(adresse).toMatch(/^https:\/\/github\.com\//);
+    expect(COMMANDES_PLUGIN).toEqual([`/plugin marketplace add ${adresse}`, `/plugin install ${plugin.name}@${catalogue.name}`]);
     expect(COMMANDE_DEMARRAGE).toBe(`/${plugin.name}:demarrer`);
     expect(SKILLS.map((s) => s.nom)).toContain('demarrer');
     expect(SERVEUR_PLUGIN_MCP).toBe(`plugin:${plugin.name}:${serveur}`);
@@ -94,8 +96,10 @@ describe('🔴 ce que la console et la vitrine font taper (lot 10, B) est ce que
     const plugin = json<{ name: string; repository: string }>('.claude-plugin/plugin.json');
     const catalogue = json<{ name: string }>('.claude-plugin/marketplace.json');
     const [serveur] = Object.keys(json<{ mcpServers: Record<string, unknown> }>('.mcp.json').mcpServers);
-    const depot = new URL(plugin.repository).pathname.replace(/^\/|\.git$/g, '');
-    expect(COMMANDES_CODEX).toEqual([`codex plugin marketplace add ${depot}`, `codex plugin add ${plugin.name}@${catalogue.name}`]);
+    // La forme HTTPS complète, jamais `owner/repo`, qui fait cloner en SSH et échoue sans clé GitHub (2026-11-11).
+    const adresse = `${plugin.repository.replace(/\.git$/, '')}.git`;
+    expect(adresse).toMatch(/^https:\/\/github\.com\//);
+    expect(COMMANDES_CODEX).toEqual([`codex plugin marketplace add ${adresse}`, `codex plugin add ${plugin.name}@${catalogue.name}`]);
     expect(AUTORISATION_CODEX).toBe(`codex mcp login ${serveur}`);
     const lisezmoi = readFileSync(resolve(PLUGIN, 'README.md'), 'utf8');
     for (const c of [...COMMANDES_CODEX, AUTORISATION_CODEX]) expect(lisezmoi, c).toContain(c);

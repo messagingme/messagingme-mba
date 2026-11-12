@@ -4,8 +4,8 @@ import { join } from 'node:path';
 import { OFFRE_CREDIT_WHATSAPP, TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
 import { FAQ } from '../scripts/plugin/faq';
 import {
-  CARTES_OFFRE, ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, ISSUE_TELECHARGER, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION,
-  QUESTION_COMPTE, QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_OFFRE, QUESTION_PAIEMENT, WHATSAPP_ORDINAIRE,
+  CARTES_OFFRE, ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, MAGASINS_APPLICATION, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION,
+  QUESTION_COMPTE, QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_OFFRE, QUESTION_PAIEMENT, SUITE_FOURNI_APPLICATION, WHATSAPP_ORDINAIRE,
 } from '../web/lib/questions-numero';
 import { VITRINE_AIDE } from '../web/lib/partage/aide-connexion';
 import { AIDE_NUMERO } from '../src/mcp/mise-en-service';
@@ -68,8 +68,10 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(g.pro).not.toMatch(/contact\//);
     });
 
-    it(`${langue} : les voies qui gardent l’application disent qu’on y paie Meta avec sa carte`, () => {
-      for (const id of ['garder', 'telecharger', 'fourni']) expect(issue(id).textes.map(texte), id).toContain(NOTE_CARTE_APPLICATION[langue]);
+    it(`${langue} : la voie qui garde l’application dit qu’on y paie Meta avec sa carte, et elle seule`, () => {
+      expect(issue('garder').textes.map(texte)).toContain(NOTE_CARTE_APPLICATION[langue]);
+      // Plus aucune autre issue ne garde l'application (2026-11-12) : le numéro fourni passe par la fenêtre de Meta.
+      for (const x of v.issues.filter((y) => y.id !== 'garder')) expect(x.textes.map(texte), x.id).not.toContain(NOTE_CARTE_APPLICATION[langue]);
       // La FAQ du plugin, sur la même question (lot C du Crédit WhatsApp) : la même phrase.
       expect(FAQ.find((q) => q.id === 'numero-dans-l-application')!.reponse[langue]).toContain(NOTE_CARTE_APPLICATION[langue]);
     });
@@ -87,17 +89,16 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(q.reponses[2]!.note).toContain(`href="${META_BUSINESS_URL}"`);
     });
 
-    it(`${langue} : « Avez-vous déjà l’application WhatsApp Business ? », Oui demande si c’est ce numéro-là, Non la fait télécharger`, () => {
+    it(`${langue} : « Avez-vous déjà l’application WhatsApp Business ? », Oui demande si c’est ce numéro-là, Non ne la fait plus télécharger`, () => {
       const q = question('application');
       expect(QUESTION_APPLICATION.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_APPLICATION.precision[langue]).toBe(texte(q.precision!));
       expect([QUESTION_APPLICATION.oui, QUESTION_APPLICATION.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
       // Avec l'application, on la garde ; sans elle, la 4e question (Julien, 2026-10-31).
       expect(q.reponses.map((r) => r.vers)).toEqual(['meme-numero', 'numero']);
-      // Avant elle, « il faudra la télécharger », avec les deux magasins : le texte au mot près, les liens à l'adresse près.
-      const note = q.reponses[1]!.note!;
-      expect(QUESTION_APPLICATION.noteNon[langue]).toBe(texte(note.replace(/<span class="bt-liens">[\s\S]*<\/span>$/, '')));
-      expect([...note.matchAll(/href="([^"]+)"/g)].map((m) => m[1])).toEqual(ISSUE_TELECHARGER.magasins.map((m) => m.href));
+      // 🔴 Sans elle, plus de note ni de magasins (Julien, 2026-11-12) : on ne propose plus l'application.
+      expect(q.reponses[1]!.note).toBeUndefined();
+      expect(Object.keys(QUESTION_APPLICATION)).not.toContain('noteNon');
     });
 
     it(`${langue} : le cas 4, « Voulez-vous utiliser ce numéro-là ? » : Oui la garde, Non mène à un numéro de chez nous (lot 3a)`, () => {
@@ -111,25 +112,29 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(ISSUE_AUTRE_NUMERO.texte[langue]).toBe(texte(x.textes[0]!));
     });
 
-    it(`${langue} : WhatsApp ordinaire, dit au mot près là où le numéro peut servir dans WhatsApp (lot 3a)`, () => {
-      for (const id of ['garder', 'telecharger']) expect(issue(id).textes.map(texte), id).toContain(WHATSAPP_ORDINAIRE[langue]);
+    it(`${langue} : WhatsApp ordinaire, dit au mot près là où le numéro peut servir dans WhatsApp, avec les magasins (lot 3a)`, () => {
+      const garder = issue('garder');
+      expect(garder.textes.map(texte)).toContain(WHATSAPP_ORDINAIRE[langue]);
+      // WhatsApp Business s'installe sur le même téléphone : les deux magasins, mêmes libellés et mêmes adresses.
+      expect(MAGASINS_APPLICATION.map((m) => ({ libelle: m.libelle[langue], href: m.href }))).toEqual(garder.liens);
     });
 
-    it(`${langue} : « Avez-vous déjà un numéro que vous pourriez utiliser ? », Oui le met dans l’application, Non le fait fournir`, () => {
+    it(`${langue} : « Avez-vous déjà un numéro que vous pourriez utiliser ? », Oui mène au numéro API, Non le fait fournir par Meta (2026-11-12)`, () => {
       const q = question('numero');
       expect(QUESTION_NUMERO.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_NUMERO.precision[langue]).toBe(texte(q.precision!));
+      expect(QUESTION_NUMERO.precision[langue]).not.toMatch(/application|\bapp\b/);
       expect([QUESTION_NUMERO.oui, QUESTION_NUMERO.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
-      expect(q.reponses.map((r) => r.vers)).toEqual(['telecharger', 'fourni']);
+      expect(q.reponses.map((r) => r.vers)).toEqual(['api', 'fourni']);
     });
 
-    it(`${langue} : le numéro fourni mis dans l’application, ses phrases et ses magasins`, () => {
+    it(`${langue} : sans compte, ni application, ni numéro, un numéro de chez nous relié par la fenêtre de Meta (2026-11-12)`, () => {
       const x = issue('fourni');
       expect(ISSUE_FOURNI.titre[langue]).toBe(texte(x.titre));
-      // Le numéro et son code, puis répondre dès le premier jour : les deux premières phrases (Julien, 2026-11-11 : plus
-      // aucune mise en garde sur un numéro neuf, qui passe en coexistence sans attendre).
-      expect(ISSUE_FOURNI.textes.map((p) => p[langue])).toEqual([texte(x.textes[0]!), texte(x.textes[1]!)]);
-      expect(ISSUE_TELECHARGER.magasins.map((m) => ({ libelle: m.libelle[langue], href: m.href }))).toEqual(x.liens);
+      expect(ISSUE_FOURNI.texte[langue]).toBe(texte(x.textes[0]!));
+      // Le cas 4 dit la même chose, plus ce que garde l'application : une seule source.
+      expect(ISSUE_AUTRE_NUMERO.titre).toBe(ISSUE_FOURNI.titre);
+      expect(ISSUE_AUTRE_NUMERO.texte[langue].startsWith(`${ISSUE_FOURNI.texte[langue]} `)).toBe(true);
     });
 
     it(`${langue} : les issues que la console reprend`, () => {
@@ -137,17 +142,12 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(ISSUE_API.titre[langue]).toBe(texte(api.titre));
       expect(ISSUE_API.garder[langue]).toBe(texte(api.autre!.question));
       expect(ISSUE_API.lien[langue]).toBe(texte(api.autre!.lien));
-      const t = issue('telecharger');
-      expect(ISSUE_TELECHARGER.titre[langue]).toBe(texte(t.titre));
-      // Brancher tout de suite : la première phrase de l'issue de la vitrine.
-      expect(ISSUE_TELECHARGER.textes.map((x) => x[langue])).toEqual([texte(t.textes[0]!)]);
-      // Les deux magasins de l'application, mêmes libellés et mêmes adresses.
-      expect(ISSUE_TELECHARGER.magasins.map((m) => ({ libelle: m.libelle[langue], href: m.href }))).toEqual(t.liens);
     });
   }
 
   it('🔴 aucun chiffre de jours pour le numéro trop neuf : Meta n’en publie aucun', () => {
-    for (const x of [...ISSUE_TELECHARGER.textes, ...ISSUE_FOURNI.textes.slice(1)]) expect(`${x.fr} ${x.en}`).not.toMatch(/\d/);
+    // La reprise d'un numéro fourni mis dans l'application, la seule phrase qui en parle encore.
+    expect(`${SUITE_FOURNI_APPLICATION.fr} ${SUITE_FOURNI_APPLICATION.en}`).not.toMatch(/\d/);
   });
 });
 
@@ -161,6 +161,10 @@ describe('le plugin pose les mêmes questions, sans QR code', () => {
     const rangs = ['**The plan: Free or Pro?**', `**"${q('paiement')}"**`, `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('meme-numero')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
     expect(rangs.every((r) => r > 0), rangs.join(',')).toBe(true);
     expect([...rangs].sort((a, b) => a - b)).toEqual(rangs);
+    // 🔴 Chaque question se pose, aucune ne se suppose (vu le 2026-11-11 : la question du numéro sautée sur un numéro
+    // d'entreprise supposé) ; et l'application ne se fait plus télécharger (Julien, 2026-11-12).
+    expect(skill).toContain('**Ask every question of this tree, one at a time.**');
+    expect(skill).not.toMatch(/download/i);
     // Un numéro neuf passe en coexistence sans problème (Julien, 2026-11-11, mesuré) : la skill ne dit plus que Meta le
     // refuse ; le QR code n'est plus nommé que pour dire qu'il n'est plus proposé.
     expect(skill).not.toMatch(/brand-new|too new|a few days/);

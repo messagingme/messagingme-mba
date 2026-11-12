@@ -171,13 +171,15 @@ export const QUESTION_COMPTE = {
   },
 } as const satisfies Record<string, Texte | Record<string, Texte>>;
 
+/**
+ * Sans compte Meta Business (ou sans le savoir). « Non » mène tout droit à la question du numéro : on ne fait plus
+ * télécharger l'application (Julien, 2026-11-12), le numéro se relie en numéro API et la fenêtre de Meta crée le compte.
+ */
 export const QUESTION_APPLICATION = {
   texte: { fr: 'Avez-vous déjà l’application WhatsApp Business ?', en: 'Do you already have the WhatsApp Business app?' },
   precision: { fr: 'L’application des professionnels, distincte de WhatsApp.', en: 'The app for businesses, separate from WhatsApp.' },
   oui: { fr: 'Oui', en: 'Yes' },
   non: { fr: 'Non', en: 'No' },
-  /** Après « Non », avant la 4e question, avec les deux magasins (Julien, 2026-10-31). */
-  noteNon: { fr: 'Vous allez devoir télécharger l’application WhatsApp Business.', en: 'You will need to download the WhatsApp Business app.' },
 } as const satisfies Record<string, Texte>;
 
 /**
@@ -191,27 +193,56 @@ export const QUESTION_MEME_NUMERO = {
   non: { fr: 'Non', en: 'No' },
 } as const satisfies Record<string, Texte>;
 
-/** Le cas 4, Non : le titre et la première phrase de l'issue de la vitrine ; le bouton ouvre le numéro fourni (`fourni`). */
-export const ISSUE_AUTRE_NUMERO = {
+/**
+ * UN NUMÉRO DE CHEZ NOUS, RELIÉ PAR LA FENÊTRE DE META (mode `fourni`) : le titre et la première phrase de l'issue
+ * `fourni` de la vitrine (Julien, 2026-11-12 : sans compte Meta Business, ni application, ni numéro ; la fenêtre de Meta
+ * crée le compte en chemin). Le cas 4 (`ISSUE_AUTRE_NUMERO`) dit la même chose, plus ce que garde l'application.
+ */
+export const ISSUE_FOURNI = {
   titre: { fr: 'Un numéro de chez nous, relié par Meta', en: 'A number from us, connected through Meta' },
   texte: {
-    fr: 'Nous vous fournissons un numéro, 3,50 € HT par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond. Votre application WhatsApp Business garde le sien.',
-    en: 'We provide a number, €3.50 excl. VAT a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers. Your WhatsApp Business app keeps its own.',
+    fr: 'Nous vous fournissons un numéro, 3,50 € HT par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond.',
+    en: 'We provide a number, €3.50 excl. VAT a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers.',
+  },
+} as const satisfies Record<string, Texte>;
+
+/** Le cas 4, Non : le titre et la première phrase de l'issue de la vitrine ; le bouton ouvre le numéro fourni (`fourni`). */
+export const ISSUE_AUTRE_NUMERO = {
+  titre: ISSUE_FOURNI.titre,
+  texte: {
+    fr: `${ISSUE_FOURNI.texte.fr} Votre application WhatsApp Business garde le sien.`,
+    en: `${ISSUE_FOURNI.texte.en} Your WhatsApp Business app keeps its own.`,
   },
 } as const satisfies Record<string, Texte>;
 
 /** WHATSAPP ORDINAIRE (lot 3a) : la phrase vit dans la source partagée, que lisent aussi la 3e condition chez Meta et Claude. */
 export { WHATSAPP_ORDINAIRE } from './partage/etapes-meta';
 
-/** Sans compte Meta Business ni application (Julien, 2026-10-31) : a-t-on un numéro à mettre dans l'application ? */
+/**
+ * Les fiches officielles de WhatsApp Business, sous la phrase de WhatsApp ordinaire (on l'installe sur le même téléphone
+ * pour reprendre le numéro), celles de l'issue `garder` de la vitrine (`MAGASINS`), avec leur icône (`@/lib/icones`).
+ */
+export const MAGASINS_APPLICATION = [
+  { libelle: { fr: 'App Store (iPhone)', en: 'App Store (iPhone)' }, href: 'https://apps.apple.com/app/whatsapp-business/id1386412985', icone: 'appstore' },
+  { libelle: { fr: 'Google Play (Android)', en: 'Google Play (Android)' }, href: 'https://play.google.com/store/apps/details?id=com.whatsapp.w4b', icone: 'googleplay' },
+] as const;
+
+/**
+ * Sans compte Meta Business ni application (Julien, 2026-10-31, revu le 2026-11-12) : a-t-on un numéro ? Oui, le numéro
+ * API (`ISSUE_API`) ; Non, un numéro de chez nous relié par la fenêtre de Meta (`ISSUE_FOURNI`). Plus rien ne va DANS
+ * l'application.
+ */
 export const QUESTION_NUMERO = {
   texte: { fr: 'Avez-vous déjà un numéro que vous pourriez utiliser ?', en: 'Do you already have a number you could use?' },
-  precision: { fr: 'Le numéro que vous mettrez dans l’application WhatsApp Business.', en: 'The number you will put in the WhatsApp Business app.' },
+  precision: { fr: 'Le numéro de votre entreprise, relié à l’API officielle de WhatsApp.', en: 'Your business’s number, connected to the official WhatsApp API.' },
   oui: { fr: 'Oui', en: 'Yes' },
   non: { fr: 'Non', en: 'No' },
 } as const satisfies Record<string, Texte>;
 
-/** Avec un compte Meta Business : le numéro API, et la ligne qui rappelle qu'on peut garder son application. */
+/**
+ * Avec un compte Meta Business, ou sans l'application avec un numéro : le numéro API, et la ligne qui rappelle qu'on
+ * peut garder son application (WhatsApp ordinaire y passe d'abord).
+ */
 export const ISSUE_API = {
   titre: { fr: 'Votre numéro API', en: 'Your API number' },
   garder: { fr: 'Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?', en: 'Is your number already used in WhatsApp or in the WhatsApp Business app?' },
@@ -219,42 +250,15 @@ export const ISSUE_API = {
 } as const satisfies Record<string, Texte>;
 
 /**
- * Sans l'application : la télécharger, puis brancher TOUT DE SUITE en la gardant (Julien, 2026-10-30). Un numéro neuf passe
- * en coexistence sans attendre (testé, Julien, 2026-11-11) : aucune mise en garde sur un refus de Meta.
+ * LA REPRISE D'UN NUMÉRO FOURNI MIS DANS L'APPLICATION (mode `fourni_application`, le « parcours C ») : l'arbre ne le
+ * propose plus depuis le 2026-11-12, mais un numéro déjà attribué ainsi (le lien de Claude, ou la mémoire de l'onglet)
+ * reprend là où il en était, avec ce qu'il permet et la suite. Plus aucun chiffre de jours : un numéro neuf passe en
+ * coexistence sans attendre (testé, Julien, 2026-11-11).
  */
-export const ISSUE_TELECHARGER = {
-  titre: { fr: 'Téléchargez l’application WhatsApp Business', en: 'Download the WhatsApp Business app' },
-  textes: [
-    {
-      fr: 'Installez l’application WhatsApp Business sur un téléphone, avec le numéro de votre entreprise, puis branchez-le tout de suite en gardant l’application : votre numéro reste sur votre téléphone et envoie aussi depuis Messaging Me.',
-      en: 'Install the WhatsApp Business app on a phone, with your business’s number, then connect it right away while keeping the app: your number stays on your phone and also sends from Messaging Me.',
-    },
-  ],
-  /** Les fiches officielles de l'application, celles de la vitrine (`MAGASINS`), avec leur icône (`@/lib/icones`). */
-  magasins: [
-    { libelle: { fr: 'App Store (iPhone)', en: 'App Store (iPhone)' }, href: 'https://apps.apple.com/app/whatsapp-business/id1386412985', icone: 'appstore' },
-    { libelle: { fr: 'Google Play (Android)', en: 'Google Play (Android)' }, href: 'https://play.google.com/store/apps/details?id=com.whatsapp.w4b', icone: 'googleplay' },
-  ],
-} as const;
-
-/**
- * Sans numéro (Julien, 2026-10-31) : nous le fournissons, et il va DANS l'application (« Dans l'application »), puis se
- * branche en la gardant. Les deux phrases de la vitrine que la console reprend : le numéro et son code, puis répondre dès
- * le premier jour et brancher le numéro en gardant l'application.
- */
-export const ISSUE_FOURNI = {
-  titre: { fr: 'Téléchargez l’application, nous vous fournissons le numéro', en: 'Download the app, we provide the number' },
-  textes: [
-    {
-      fr: 'Installez l’application WhatsApp Business sur votre téléphone et créez-y votre compte avec le numéro que nous vous fournissons, 3,50 € HT par mois en formule Free, inclus en formule Pro : son code de vérification s’affiche sur la page de Messaging Me.',
-      en: 'Install the WhatsApp Business app on your phone and create your account there with the number we provide, €3.50 excl. VAT a month with the Free plan, included in Pro: its verification code shows on the Messaging Me page.',
-    },
-    {
-      fr: 'Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.',
-      en: 'From day one, you reply to your customers from the app. Then connect the number while keeping the app, so your confirmations, reminders and follow-ups also go out from Messaging Me.',
-    },
-  ],
-} as const;
+export const SUITE_FOURNI_APPLICATION: Texte = {
+  fr: 'Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.',
+  en: 'From day one, you reply to your customers from the app. Then connect the number while keeping the app, so your confirmations, reminders and follow-ups also go out from Messaging Me.',
+};
 
 /** La réponse à la question du compte Meta Business. */
 export type ReponseCompte = 'oui' | 'non' | 'nsp';

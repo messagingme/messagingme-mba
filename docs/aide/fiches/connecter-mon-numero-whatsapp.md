@@ -41,6 +41,10 @@ Sans compte Meta Business, avec l'application WhatsApp Business pour un autre nu
 l'application WhatsApp Business ? », « Non » à « Voulez-vous utiliser ce numéro-là ? », puis « Fournissez-moi un
 numéro ».
 
+Sans compte Meta Business ni application WhatsApp Business, et sans numéro : « Non » à « Avez-vous déjà l'application
+WhatsApp Business ? », « Non » à « Avez-vous déjà un numéro que vous pourriez utiliser ? », puis « Fournissez-moi un
+numéro ». Rien à installer : la fenêtre de Meta vous fait créer votre compte Meta Business en chemin.
+
 Vous payez sur la page de Stripe (un code promo s'y saisit, si nous vous en avons remis un), puis le numéro
 s'affiche. Ensuite, dans l'ordre :
 

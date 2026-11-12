@@ -1,7 +1,7 @@
 ---
 description: Connect a WhatsApp number to Messaging Me from Meta's window, get one if needed, have it verified, then read its status on the Home screen.
 slug: connect-my-whatsapp-number
-traduit_de: d4587f
+traduit_de: 6edadf
 ---
 # Connect my WhatsApp number, and read its status
 
@@ -32,6 +32,10 @@ Pro plan, and €3.50 excl. VAT a month without it.
 
 Without a Meta Business account, with the WhatsApp Business app for another number: “Yes” to “Do you already have the
 WhatsApp Business app?”, “No” to “Do you want to use that number?”, then “Provide me a number”.
+
+Without a Meta Business account or the WhatsApp Business app, and without a number: “No” to “Do you already have the
+WhatsApp Business app?”, “No” to “Do you already have a number you could use?”, then “Provide me a number”. Nothing to
+install: Meta’s window has you create your Meta Business account along the way.
 
 You pay on Stripe’s page (a promo code can be entered there, if we gave you one), then the number appears. Next, in
 order:

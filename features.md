@@ -187,15 +187,14 @@ numéro API, son numéro libre ou un numéro fourni,
 3,50 € HT par mois en formule Free et inclus en formule Pro, avec la ligne « Votre numéro sert déjà dans WhatsApp ou
 dans l'application WhatsApp Business ? Vous pouvez le garder » ; Non et « Je ne sais pas » mènent à la question
 suivante, « Je ne sais pas » avec où le vérifier), puis **l'application WhatsApp Business** (Oui : « Voulez-vous
-utiliser ce numéro-là ? », Oui la garde, le numéro y reste et envoie aussi depuis Messaging Me, Non mène à un numéro de
-chez nous, relié par la fenêtre de Meta, 2026-11-10 ; Non dit qu'il faudra la télécharger, avec les liens App Store et Google
-Play et leurs icônes, et mène à la question suivante), puis **le numéro** (« Avez-vous déjà un numéro que vous pourriez
-utiliser ? » ; Oui : télécharger
-l'application, y mettre son numéro et le brancher tout de suite en la gardant ; Non : un numéro fourni, 3,50 € HT par mois en formule Free et inclus en formule Pro,
-que la personne met dans l'application téléchargée, son code de vérification affiché par Messaging Me : elle répond à
-ses clients dès le premier jour, puis le branche en gardant l'application, Julien, 2026-10-31 ; un numéro neuf passe en
-coexistence sans attendre, testé, Julien, 2026-11-11 : aucune mise en garde là-dessus). Les voies de l'application disent que la fenêtre de Meta crée le
-compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre choisie : en Free, trois étapes numérotées,
+utiliser ce numéro-là ? », Oui la garde, le numéro y reste et envoie aussi depuis Messaging Me, avec les liens App Store
+et Google Play pour qui doit d'abord passer de WhatsApp ordinaire à WhatsApp Business, Non mène à un numéro de chez nous,
+relié par la fenêtre de Meta, 2026-11-10 ; Non mène tout droit à la question suivante, sans rien à télécharger, Julien,
+2026-11-12), puis **le numéro** (« Avez-vous déjà un numéro que vous pourriez utiliser ? », précisé « Le numéro de votre
+entreprise, relié à l'API officielle de WhatsApp » ; Oui : le numéro API, comme avec un compte, la fenêtre de Meta créant
+le compte en chemin ; Non : un numéro de chez nous, 3,50 € HT par mois en formule Free et inclus en formule Pro, relié
+par la fenêtre de Meta, son code reçu par l'appel). Plus aucune voie ne fait télécharger l'application ni n'y met un
+numéro fourni. Les voies sans compte disent que la fenêtre de Meta crée le compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre choisie : en Free, trois étapes numérotées,
 presque sans texte (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte ») : installer le plugin (le logo
 de Claude Code puis celui de Codex, chacun avec ses deux commandes en face, une par ligne, puis le pas-à-pas et le dépôt
 GitHub), le relier à Messaging Me (obligatoire : dans Claude Code, `/mcp` puis le serveur et Authenticate à choisir ;
@@ -2447,14 +2446,14 @@ scénario, comment importer des contacts.
   sert déjà dans WhatsApp ou dans l'application WhatsApp Business ? Vous pouvez le garder ». Non, ou « Je ne sais pas »
   (avec où le vérifier, business.facebook.com) : « Avez-vous déjà l'application WhatsApp Business ? », Oui menant à
   « Voulez-vous utiliser ce numéro-là ? » (Oui : « Garder mon application WhatsApp Business » ; Non : un numéro de chez
-  nous, relié par la fenêtre de Meta, 2026-11-10), Non à « Vous allez devoir télécharger l'application WhatsApp
-  Business » (liens App Store et Google Play), puis « Avez-vous déjà un numéro que vous pourriez utiliser ? » (2026-10-31).
-  Oui : la même fenêtre après avoir téléchargé l'application (liens App Store et Google Play). Non : « nous vous fournissons le numéro », qui va DANS
-  l'application : la page l'attribue (payé, ou inclus en formule Pro), on y crée le compte de l'application avec ce
-  numéro (le code de vérification s'affiche sur la page), puis « Garder mon application WhatsApp Business » ; on répond
-  aux clients depuis l'application dès le premier jour, et le numéro se branche aussitôt (un numéro neuf passe en
-  coexistence sans attendre, 2026-11-11). Un rechargement, le retour de Stripe ou un retour plus tard dans le même navigateur reprend
-  cette variante. L'offre, la première question de la
+  nous, relié par la fenêtre de Meta, 2026-11-10), Non à « Avez-vous déjà un numéro que vous pourriez utiliser ? »
+  (2026-10-31), sans rien à télécharger (2026-11-12). Oui : le numéro API, les mêmes choix qu'avec un compte. Non : un
+  numéro de chez nous, relié par la fenêtre de Meta (« Fournissez-moi un numéro »), qui fait créer le compte Meta Business
+  en chemin. « Garder mon application WhatsApp Business » montre, sous la phrase de WhatsApp ordinaire, les liens App
+  Store et Google Play. Un rechargement, le retour de Stripe ou un retour plus tard dans le même navigateur reprend le
+  numéro fourni dans sa variante : celui de la fenêtre de Meta, ou un numéro mis DANS l'application avant le 2026-11-12,
+  voie qui n'est plus proposée (les étapes du compte de l'application, son code affiché sur la page, puis « Garder mon
+  application WhatsApp Business »). L'offre, la première question de la
   vitrine, est celle de l'espace. Comme sur la vitrine (2026-10-31), une question répondue reste affichée, la réponse
   choisie en évidence et les autres estompées, la suite s'affiche dessous, et cliquer une autre réponse change de chemin ;
   plus aucune voie par QR code. Claude pose les mêmes
@@ -2739,9 +2738,10 @@ scénario, comment importer des contacts.
 - ✅ **LIVE (lot 1, en production le 2026-10-25).** **À quoi ça sert.** Un numéro qui sert déjà dans l'application
   WhatsApp Business du téléphone y reste, et passe aussi par l'API officielle : le client continue de répondre depuis son
   téléphone, et ce que son site, son logiciel ou sa boutique envoie part de Messaging Me. Sans compte Meta Business, la
-  fenêtre de Meta le fait créer en chemin. Pas encore l'application (2026-10-30) : la télécharger sur un téléphone, y
-  mettre le numéro de l'entreprise et brancher tout de suite (un numéro neuf passe en coexistence sans attendre,
-  2026-11-11). Face au client, jamais le mot « coexistence » : « garder votre application WhatsApp Business ».
+  fenêtre de Meta le fait créer en chemin. Un numéro qui sert dans WhatsApp, l'application ordinaire, y passe d'abord en
+  installant WhatsApp Business sur le même téléphone, puis se garde. Sans application du tout, on n'en installe pas
+  (2026-11-12) : le numéro se relie directement en numéro API. Face au client, jamais le mot « coexistence » : « garder
+  votre application WhatsApp Business ».
 - ✅ **Lancer** : depuis Claude (`start_whatsapp_connection` en mode `coexistence`, puis `watch_whatsapp_connection`
   dans le même mode), ou le bouton « Garder mon application WhatsApp Business » de l'Accueil. La fenêtre de Meta demande
   le numéro et sa vérification, montre le profil de l'application, fait choisir ou créer le portefeuille business (nom
@@ -5476,7 +5476,7 @@ coûté un dépôt entier pour UN partenaire, le serveur MCP rend la console joi
 protocole, pour un seul travail.
 
 ✅ **Le plugin Claude Code** (lot 10, publié le 2026-10-13, `messagingme/messagingme-plugin`) : deux commandes
-dans Claude Code (`/plugin marketplace add messagingme/messagingme-plugin`, puis `/plugin install
+dans Claude Code (`/plugin marketplace add https://github.com/messagingme/messagingme-plugin.git`, puis `/plugin install
 messagingme@messagingme`) branchent le serveur sans clé et apportent `/messagingme:demarrer`, qui mène pas à pas
 jusqu'à un agent IA qui répond sur WhatsApp et une bulle sur le site, en reprenant une session coupée là où elle
 s'était arrêtée. Il porte aussi les règles de WhatsApp et la FAQ, la même que celle de la vitrine. Côté serveur, l'outil
@@ -5610,11 +5610,13 @@ console : Claude lui donne un lien, il clique, et la page de connexion de son nu
 écran de connexion. Il y fait la fenêtre de Meta ; pendant ce temps, Claude suit le branchement, affiche dans le
 terminal le code de vérification d'un numéro fourni, et annonce le numéro connecté.
 
-**Les questions d'abord (2026-10-30).** Avant le lien, Claude pose celles du tunnel de la vitrine, une à une : l'offre,
-le compte Meta Business (Oui : numéro libre ou fourni, ou l'application gardée), l'application WhatsApp Business (la
-garder), puis, sans elle, le numéro (2026-10-31) : son propre numéro dans l'application téléchargée, ou un numéro
-fourni mis DANS l'application (`start_whatsapp_connection` en mode `fourni_application` : le numéro, le compte de
-l'application créé avec lui, son code relayé par Claude, puis la fenêtre de Meta en coexistence).
+**Les questions d'abord (2026-10-30).** Avant le lien, Claude pose celles du tunnel de la vitrine, une à une, chacune
+sans en supposer la réponse : l'offre, qui paie Meta, le compte Meta Business (Oui : numéro libre ou fourni, ou
+l'application gardée), l'application WhatsApp Business (la garder), puis, sans elle, le numéro : son propre numéro en
+numéro API (mode `apporte`), ou un numéro fourni par la fenêtre de Meta (mode `fourni`), le compte Meta Business créé
+en chemin, sans jamais faire télécharger l'application (2026-11-12). Le mode `fourni_application` (un numéro fourni mis
+DANS l'application, son code relayé par Claude, puis la fenêtre de Meta en coexistence) n'est plus proposé : il reste
+accepté pour reprendre une connexion commencée ainsi.
 
 **Sans carte chez Meta (2026-11-11, lot 3v-2b).** L'option Crédit WhatsApp payée et aucun numéro encore, le lien ouvre
 de lui-même la connexion sans carte chez Meta (la fenêtre du partenaire), pour un numéro fourni ou apporté ; Claude en

@@ -166,6 +166,23 @@ vérification (un code à six chiffres que Meta, ou WhatsApp, envoie par SMS ou 
 à vous) ; pourquoi il apparaît dans Claude ou sur la page (le numéro est chez nous : nous recevons ce SMS ou cet appel
 et vous le transmettons) ; où le taper (fenêtre de Meta pour D, application WhatsApp Business pour C).
 
+### Révision du 2026-11-12 : sans compte ni application, plus d'application
+
+Décision de Julien, après ses essais du 2026-11-11 au soir (plan
+[2026-11-12-arbre-numero-sans-application](../plans/2026-11-12-arbre-numero-sans-application.md)) : sans compte Meta
+Business et sans l'application WhatsApp Business, on ne propose plus l'application, puisque la fenêtre de Meta crée le
+compte en chemin. L'arbre garde ses six questions au plus ; seule change la suite de « Non » à l'application :
+
+- plus de note « il faudra la télécharger » ni de magasins avant « Avez-vous déjà un numéro que vous pourriez
+  utiliser ? », précisée « Le numéro de votre entreprise, relié à l'API officielle de WhatsApp » ;
+- Oui : le numéro API, la même issue qu'avec un compte (`apporte`) ; un numéro qui sert dans WhatsApp ordinaire passe
+  dans WhatsApp Business, qui le reprend, puis se garde (`coexistence`, la ligne « Vous pouvez le garder ») ;
+- Non : un numéro de chez nous, relié par la fenêtre de Meta (`fourni`), le compte créé en chemin.
+
+Le cas 2 rejoint donc le cas 5 sans compte (parcours E, ou B pour WhatsApp ordinaire), et le cas 1 le cas 4 (parcours
+D). Le parcours C sort de l'arbre : le serveur accepte toujours `fourni_application` pour reprendre un numéro déjà mis
+dans l'application, mais rien ne le propose plus.
+
 ## Lot 1 : le plugin et le serveur MCP (les trois défauts, l'explication avant)
 
 **Serveur** (`src/mcp/outils-numero.ts`, déployé avec l'API) :

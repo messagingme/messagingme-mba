@@ -276,9 +276,11 @@ test('🟡 espace connecté avec un numéro fourni payé : « Gérer mon abonnem
 
 /*
  * LES QUESTIONS DU TUNNEL DE LA VITRINE (2026-10-30, plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-plugin.md`) :
- * le compte Meta Business, puis l'application WhatsApp Business. Plus aucune voie par QR code.
+ * le compte Meta Business, puis l'application WhatsApp Business. Plus aucune voie par QR code. Depuis le 2026-11-12
+ * (plan `docs/superpowers/plans/2026-11-12-arbre-numero-sans-application.md`), sans compte ni application, plus rien à
+ * télécharger : le numéro API, ou un numéro de chez nous relié par la fenêtre de Meta.
  */
-test('🔴 sans compte Meta Business ni application : la télécharger et brancher tout de suite', async ({ page }) => {
+test('🔴 sans compte Meta Business ni application, avec un numéro : le numéro API, sans rien à télécharger (2026-11-12)', async ({ page }) => {
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
@@ -289,27 +291,30 @@ test('🔴 sans compte Meta Business ni application : la télécharger et branch
   await expect(page.getByTestId('note-compte')).toContainText('la fenêtre de Meta vous le fera créer en chemin');
   await expect(page.getByTestId('question-application')).toContainText('Avez-vous déjà l’application WhatsApp Business ?');
   await page.getByTestId('question-application-non').click();
-  // Avant la 4e question, « il faudra la télécharger », avec les deux magasins et leur icône (Julien, 2026-10-31).
-  const note = page.getByTestId('note-application');
-  await expect(note).toContainText('Vous allez devoir télécharger l’application WhatsApp Business.');
-  await expect(note.getByRole('link', { name: 'App Store (iPhone)' })).toHaveAttribute('href', /id1386412985/);
-  await expect(note.getByRole('link', { name: 'Google Play (Android)' })).toHaveAttribute('href', /com\.whatsapp\.w4b/);
-  await expect(note.getByRole('link').locator('svg')).toHaveCount(2);
-  // La 4e question (Julien, 2026-10-31) : avec son propre numéro, télécharger l’application et brancher tout de suite.
+  // 🔴 La question du numéro tout de suite : ni note « il faudra la télécharger », ni magasins.
   await expect(page.getByTestId('question-numero')).toContainText('Avez-vous déjà un numéro que vous pourriez utiliser ?');
+  await expect(page.getByTestId('question-numero')).toContainText('Le numéro de votre entreprise, relié à l’API officielle de WhatsApp.');
+  await expect(page.locator('main')).not.toContainText(/télécharger|Téléchargez|App Store|Google Play/);
+  await expect(page.getByTestId('issue-api')).toHaveCount(0);
   await page.getByTestId('question-numero-oui').click();
-  await expect(page.getByTestId('issue-telecharger')).toContainText('branchez-le tout de suite');
-  // WhatsApp ordinaire (lot 3a) : le numéro qui y sert passe dans WhatsApp Business, sur le même téléphone.
-  await expect(page.getByTestId('whatsapp-ordinaire')).toContainText('Installez WhatsApp Business sur le même téléphone');
-  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
-  await expect(page.getByTestId('issue-telecharger').getByRole('link', { name: 'Google Play (Android)' })).toHaveAttribute('href', /com\.whatsapp\.w4b/);
-  await expect(page.locator('main')).not.toContainText(/QR/);
-  // Comme sur la vitrine : les questions restent affichées, la réponse choisie en évidence, et une autre change la suite.
+  // Le numéro API, comme avec un compte : le sien par la fenêtre de Meta, et la ligne pour garder son application.
+  await expect(page.getByTestId('issue-api')).toContainText('Votre numéro API');
+  await expect(page.getByTestId('choix-apporte')).toBeVisible();
+  await expect(page.getByTestId('issue-api')).toContainText('Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?');
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toHaveCount(0);
+  await expect(page.locator('main')).not.toContainText(/QR|télécharger|Téléchargez/);
+  await page.getByTestId('choix-apporte').click();
+  await expect(page.getByTestId('choix-apporte-ouvert')).toContainText('Dans la fenêtre de Meta, choisissez votre entreprise');
+  await expect(page.getByTestId('ouvrir-fenetre-meta')).toBeVisible();
+  // « Retour » ramène aux questions, les réponses gardées ; une autre réponse change la suite.
+  await page.getByRole('button', { name: 'Retour' }).click();
   await expect(page.getByTestId('question-compte-non')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByTestId('question-compte-oui')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.getByTestId('question-application-non')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByTestId('question-numero-oui')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('question-application-oui').click();
-  await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
+  await expect(page.getByTestId('question-numero')).toHaveCount(0);
+  await expect(page.getByTestId('issue-api')).toHaveCount(0);
   // Avec l'application, ce numéro-là ? (le cas 4, lot 3a) : rien ne s'ouvre avant la réponse.
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toHaveCount(0);
   await page.getByTestId('question-meme-numero-oui').click();
@@ -318,7 +323,7 @@ test('🔴 sans compte Meta Business ni application : la télécharger et branch
   await expect(page.getByRole('button', { name: 'Retour' })).toHaveCount(0);
 });
 
-test('« Je ne sais pas » : où le vérifier, puis l’application gardée, sans la télécharger', async ({ page }) => {
+test('« Je ne sais pas » : où le vérifier, puis l’application gardée', async ({ page }) => {
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
@@ -327,7 +332,7 @@ test('« Je ne sais pas » : où le vérifier, puis l’application gardée, san
   await page.getByTestId('question-application-oui').click();
   await page.getByTestId('question-meme-numero-oui').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
-  await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
+  await expect(page.locator('main')).not.toContainText(/télécharger|Téléchargez/);
 });
 
 test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous pouvez le garder »', async ({ page }) => {
@@ -343,7 +348,11 @@ test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous
   await page.getByTestId('choix-coexistence').click();
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await expect(page.getByTestId('whatsapp-ordinaire')).toContainText('elle vous propose de reprendre ce numéro, avec vos conversations');
-  await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
+  // WhatsApp Business s'installe sur le même téléphone : ses deux magasins, avec leur icône, sous la phrase.
+  const ordinaire = page.getByTestId('whatsapp-ordinaire');
+  await expect(ordinaire.getByRole('link', { name: 'App Store (iPhone)' })).toHaveAttribute('href', /id1386412985/);
+  await expect(ordinaire.getByRole('link', { name: 'Google Play (Android)' })).toHaveAttribute('href', /com\.whatsapp\.w4b/);
+  await expect(ordinaire.getByRole('link').locator('svg')).toHaveCount(2);
   // « Retour » ramène aux questions, la réponse gardée en évidence ; une autre réponse change la suite.
   await page.getByRole('button', { name: 'Retour' }).click();
   await expect(page.getByTestId('question-compte-oui')).toHaveAttribute('aria-pressed', 'true');
@@ -353,21 +362,47 @@ test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous
   await expect(page.getByTestId('question-application')).toBeVisible();
 });
 
-test('🔴 sans compte, sans application, sans numéro : le numéro fourni va dans l’application, puis se garde (2026-10-31)', async ({ page }) => {
+test('🔴 sans compte, sans application, sans numéro : un numéro de chez nous, relié par la fenêtre de Meta, jamais dans l’application (2026-11-12)', async ({ page }) => {
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
-  await simulerNumeroFourni(page, { abonnement: 'actif', lecturesAvantCode: 100 });
+  const etat = await simulerNumeroFourni(page, { abonnement: 'actif', lecturesAvantCode: 100 });
   await page.goto('/connecter-whatsapp');
   await page.getByTestId('question-compte-non').click();
   await page.getByTestId('question-application-non').click();
   await page.getByTestId('question-numero-non').click();
-  await expect(page.getByTestId('issue-fourni')).toContainText('nous vous fournissons le numéro');
-  await expect(page.getByTestId('issue-fourni')).toContainText('Dès le premier jour');
-  await expect(page.getByTestId('issue-fourni').getByRole('link', { name: 'App Store (iPhone)' })).toBeVisible();
-  // Avec l’application déjà là, aucun numéro n’est proposé ; sans elle et sans numéro, si.
-  await expect(page.getByTestId('issue-telecharger')).toHaveCount(0);
-  await page.getByTestId('choix-fourni-application').click();
-  await expect(page.getByTestId('choix-fourni-ouvert')).toContainText('que vous ajouterez dans l’application WhatsApp Business');
+  const issue = page.getByTestId('issue-fourni');
+  await expect(issue).toContainText('Un numéro de chez nous, relié par Meta');
+  await expect(issue).toContainText('la fenêtre de Meta le relie à l’API officielle de WhatsApp');
+  // 🔴 Rien sur l'application : ni à télécharger, ni à garder, ni ses magasins.
+  await expect(issue).not.toContainText(/application|Téléchargez|App Store|Google Play/);
+  await expect(page.getByTestId('issue-api')).toHaveCount(0);
+  await page.getByTestId('choix-issue-fourni').click();
+  await expect(page.getByTestId('choix-fourni-ouvert')).toContainText('que vous connecterez dans la fenêtre de Meta');
+  // Au numéro fourni, la condition d'un numéro à soi se tait, comme chez Claude (jaune 10 du lot 3a).
+  await expect(page.getByTestId('prerequis-meta').locator('li')).toHaveCount(2);
   await page.getByTestId('obtenir-numero').click();
+  await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
+  // Par la fenêtre de Meta, le code par l'appel (lot 2c), jamais dans l'application.
+  await expect(page.getByTestId('etapes-numero-fourni').locator('li[data-insiste]')).toContainText('Phone call');
+  await expect(page.getByTestId('code-capte')).toContainText('En attente du code de Meta');
+  await expect(page.getByTestId('ouvrir-fenetre-meta')).toBeVisible();
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toHaveCount(0);
+  await expect(page.getByTestId('suite-fourni-application')).toHaveCount(0);
+  await expect(page.locator('main')).not.toContainText(/QR/);
+  expect(etat.gestes).toEqual(['obtenir']);
+  // 🔴 Un rechargement reprend le numéro par la fenêtre de Meta : la mémoire de l'onglet dit `fourni`.
+  await page.reload();
+  await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
+  await expect(page.getByTestId('ouvrir-fenetre-meta')).toBeVisible();
+  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toHaveCount(0);
+});
+
+test('🔴 la reprise d’un numéro fourni mis dans l’application avant le 2026-11-12 : sa variante, ses étapes, puis la garder', async ({ page }) => {
+  await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
+  // L'onglet a gardé la variante d'avant (`fourni_application`), et le numéro est déjà attribué.
+  await page.addInitScript(() => { window.localStorage.setItem('mba.numero-variante.t-e2e', 'fourni_application'); });
+  const etat = await simulerNumeroFourni(page, { abonnement: 'actif', lecturesAvantCode: 100 });
+  etat.numero = '+441235619343';
+  await page.goto('/connecter-whatsapp');
   await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
   await expect(page.getByTestId('etapes-numero-fourni')).toContainText('créez le compte avec ce numéro');
   await expect(page.getByTestId('code-capte')).toContainText('En attente du code de WhatsApp');
@@ -376,11 +411,7 @@ test('🔴 sans compte, sans application, sans numéro : le numéro fourni va da
   await expect(page.getByTestId('suite-fourni-application')).toContainText('Dès le premier jour');
   await expect(page.getByTestId('suite-fourni-application')).not.toContainText('Meta refuse');
   await expect(page.locator('main')).not.toContainText(/QR/);
-  // 🔴 Un rechargement reprend le numéro DANS sa variante (la mémoire de l’onglet), pas celle de la fenêtre de Meta.
-  await page.reload();
-  await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
-  await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
-  await expect(page.getByTestId('ouvrir-fenetre-meta')).toHaveCount(0);
+  expect(etat.gestes).toEqual([]);
 });
 
 test('🟡 avec l’application et ce numéro-là, aucune 4e question ni numéro proposé', async ({ page }) => {
