@@ -1,6 +1,6 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: 5ec380
+traduit_de: e77d7f
 description: WhatsApp in HubSpot with the Messaging Me app: reply from the contact record, send from your workflows, analyze every conversation. Without Sales Hub.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
@@ -54,9 +54,20 @@ contact unreachable on WhatsApp, your lists as a campaign audience.
 Without “Create tasks in HubSpot”, only the properties arrive, for your HubSpot workflows; this setting applies to the
 whole portal. If the right to read your lists is missing, “Authorize access to HubSpot lists” asks the portal for it.
 
-**3. Add the card to the contact record.** In HubSpot, open Settings, then Objects, Contacts and the “Record
-customization” tab. Open the default view and, in the middle column, “Add cards”: search for “Messaging Me”, add the
-card, save.
+**Good to know.** The optional accesses (your lists, your advisors' calendars, your quotes) are ticked on HubSpot's
+authorization screen. If their boxes are greyed out, with “This permission has been disabled for this app by an
+administrator”, follow the message's “Go to admin settings” link, enable Messaging Me's accesses, save, then run the
+authorization again from the console.
+
+**3. Add the card to the contact record.** In HubSpot, open Settings, then Objects: choose Contacts, the “Record
+customization” tab, then “Default view”. In the middle column, click the “+” of the first section, then “App cards”:
+under “Messaging Me : conversation WhatsApp”, “Add card”, then “Save and exit”.
+
+The card appears on every contact record: the WhatsApp conversation, who holds it, the time left in the 24-hour window,
+and the analysis of the last conversation. To see it in the preview too (the panel that opens from a contact list),
+open Settings, Integrations, Connected apps, then Messaging Me: the “Settings” tab, “App cards” section, lists the
+record card and its “(aperçu)” preview version, and their “Manage locations” button places them without going through
+the editor.
 
 **4. Reply from HubSpot.** Turn on “Reply to customers from HubSpot”, off at first. Anyone in the portal then reads the
 conversation in the card and replies, signed with their address, as long as the 24-hour window is open; “Hand back to

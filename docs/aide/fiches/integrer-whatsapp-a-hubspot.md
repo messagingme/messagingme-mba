@@ -63,9 +63,21 @@ Sans « Créer des tâches dans HubSpot », seules les propriétés arrivent, po
 pour tout le portail. Si le droit de lire vos listes manque, « Autoriser l'accès aux listes HubSpot » le demande au
 portail.
 
-**3. Ajouter la carte à la fiche contact.** Dans HubSpot, ouvrez Paramètres, puis Objets, Contacts et l'onglet
-« Personnalisation de la fiche ». Ouvrez la vue par défaut et, dans la colonne du milieu, « Ajouter des cartes » :
-cherchez « Messaging Me », ajoutez la carte, enregistrez.
+**Bon à savoir.** Les accès facultatifs (vos listes, l'agenda des conseillers, vos devis) se cochent sur l'écran
+d'autorisation de HubSpot. Si leurs cases sont grisées, avec « Cette autorisation est désactivée pour cette application
+par un administrateur », suivez le lien « Accéder aux paramètres d'administration » du message, activez les accès de
+Messaging Me, enregistrez, puis relancez l'autorisation depuis la console.
+
+**3. Ajouter la carte à la fiche contact.** Dans HubSpot, ouvrez Paramètres, puis Objets : choisissez Contacts,
+l'onglet « Personnalisation des fiches d'informations », puis « Vue par défaut ». Dans la colonne du milieu, cliquez
+sur le « + » du premier bloc, puis sur « Cartes d'application » : sous « Messaging Me : conversation WhatsApp »,
+« Ajouter une carte », puis « Enregistrer et quitter ».
+
+La carte apparaît sur chaque fiche contact : la conversation WhatsApp, qui la tient, le temps restant dans la fenêtre
+de 24 heures, et l'analyse de la dernière conversation. Pour la voir aussi dans l'aperçu (le volet qui s'ouvre depuis
+une liste de contacts), ouvrez Paramètres, Intégrations, Applications connectées, puis Messaging Me : l'onglet
+« Settings », rubrique « App cards », liste la carte de la fiche et sa version « (aperçu) », et leur bouton « Manage
+locations » les place sans passer par l'éditeur.
 
 **4. Répondre depuis HubSpot.** Allumez « Répondre aux clients depuis HubSpot », éteint au départ. Toute personne du
 portail lit alors la conversation dans la carte et répond, signée de son adresse, tant que la fenêtre de 24 heures est
