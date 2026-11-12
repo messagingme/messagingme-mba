@@ -1,4 +1,5 @@
 import { test, expect, type Page } from './aide/test';
+import { MIN_MOT_DE_PASSE } from '../lib/partage/mot-de-passe';
 
 /**
  * LA PAGE D'UNE INVITATION (lot identité C) : la seule porte d'un compte créé par une invitation.
@@ -65,7 +66,8 @@ test.describe('La page d’une invitation', () => {
     await page.goto('/invite/jeton-invitation');
     await expect(page.getByTestId('apercu-invitation')).toContainText('Acme');
     const champ = page.locator('input[type="password"]');
-    expect(Number(await champ.getAttribute('minlength'))).toBeGreaterThanOrEqual(12);
+    // Le minimum partagé avec le serveur (`MIN_MOT_DE_PASSE`), revenu de 12 à 8 le 2026-11-11 : jamais un nombre recopié.
+    expect(Number(await champ.getAttribute('minlength'))).toBe(MIN_MOT_DE_PASSE);
     await expect(page.getByRole('link', { name: /Déjà activé|Already activated/ })).toBeVisible();
   });
 
