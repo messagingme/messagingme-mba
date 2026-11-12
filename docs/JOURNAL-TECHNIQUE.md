@@ -31,6 +31,13 @@
   ne pas dépendre de leur type) les rendait OBLIGATOIRES, car Zod 4 exige une clé `z.unknown()` nue (« expected
   nonoptional », mesuré sur 4.6.7). Toute erreur de Graph sans sous-code, la plupart, aurait perdu son message. Les deux
   clés sont `z.unknown().optional()`, et un test tient les trois formes (sans sous-code, sans code, code en texte).
+- **En production** le 2026-11-12 (`787a4bbf`, run 43193703030, sans migration, avec `ab6ca848` et `eb7c0018`), vérifiée
+  en service : image et workers en `787a4bbf`, aucune erreur depuis le démarrage, fumée publique et fiches OAuth
+  conformes. La CI front, rouge depuis `eb7c0018` sur un test e2e qui attendait encore 12 caractères de mot de passe,
+  est repassée verte avec la même tête.
+- **Essai réel 253, fait le même jour** sur le compte de test de l'essai 236 : le retrait dans `/ops` relu chez le
+  partenaire (sa ligne n'est plus attachée), la repose (attachée, vérifiée), un modèle payant livré, et la page de
+  facturation de Meta montre, pour ce compte, une ligne de crédit allouée par le partenaire comme moyen de paiement.
 
 ## 2026-11-12 : les propriétés HubSpot de type date arrivent en date sur la fiche
 

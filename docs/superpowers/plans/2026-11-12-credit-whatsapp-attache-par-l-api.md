@@ -48,4 +48,5 @@ et le webhook de Stripe. TDD.
 
 **Essai réel** : sur le compte de test de l'essai 236, retirer la ligne dans `/ops` (le partenaire retiré, vérifié par son
 API), la reposer (attachée et vérifiée), puis envoyer un modèle payant que Meta accepte, et relire chez Meta le moyen de
-paiement du compte : la ligne du partenaire.
+paiement du compte : la ligne du partenaire. **Fait le 2026-11-12** (essai 253, `787a4bbf` en production) : chaque point
+vérifié, et Meta montre la ligne du partenaire comme moyen de paiement du compte.

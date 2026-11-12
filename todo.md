@@ -631,13 +631,15 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   EST OUVERTE le 2026-11-11** (`STRIPE_PRIX_OPTION_WA` posé par Julien, l'attache du partenaire tenue pour acquise).
   V3 (la ligne posée à la connexion par la fenêtre, interrupteur `CREDIT_WA_POSE_AUTOMATIQUE`) et la reconnexion du
   numéro de l'essai par l'onglet (« V4, suite ») EN PRODUCTION le 2026-11-11 (`87217294`, run 43020409536, avec V12 et
-  V13). Restent : l'essai réel
-  de bout en bout par Julien (prendre l'option, connecter par la fenêtre, la ligne posée seule, un modèle payant accepté
-  par Meta, le moyen de paiement du compte relu chez Meta). La fiche publique « Payer ses
+  V13). L'attache par l'API du partenaire EN PRODUCTION le 2026-11-12 (`787a4bbf`, run 43193703030, avec le correctif
+  des deux rouges de sa relecture) ; essai réel 253 fait le même jour (retrait et repose relus chez le partenaire, un
+  modèle payant livré, et Meta affiche la ligne du partenaire comme moyen de paiement du compte). Restent : l'essai réel
+  de bout en bout par Julien (prendre l'option, connecter par la fenêtre, la ligne posée seule, un modèle payant débité
+  du crédit prépayé d'un Pro). La fiche publique « Payer ses
   messages sans carte chez Meta » et la ligne de la vitrine sont en ligne (lot 3v-2d de la session de l'aide, 2026-11-11).
 - ✅ **Fermés par l'attache par l'API du partenaire** (plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`) : la
   ligne posée sans preuve de l'attache (V3, jaune 1 ; reconnexion, jaune 1 : l'attache est désormais faite et VÉRIFIÉE
-  avant notre pose, reste à prouver à l'essai 252 que la carte ne paie plus), l'alerte de repli qui disait d'attendre
+  avant notre pose, et l'essai 253 a montré chez Meta la ligne du partenaire à la place de la carte), l'alerte de repli qui disait d'attendre
   l'attache (V3, jaune 2), `parLaLigne` qui posait sur un compte peut-être non partagé (V3, jaune 5 : l'attache échoue
   sur un compte que la solution ne partage pas, et rien n'est posé), la fin de fenêtre perdue qui laissait la ligne du
   partenaire payer sans provision (reconnexion, jaune 2 : elle ne s'attache plus qu'à notre pose).
