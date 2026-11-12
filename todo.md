@@ -1,5 +1,17 @@
 # todo.md : backlog
 
+## 🟡 Le stockage WhatsApp en Allemagne : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-stockage-local-whatsapp.md`)
+
+- Un `/settings` qui traîne retient la connexion jusqu'à 30 s de plus (plafond commun de `call`) : un plafond court
+  (8 s) sur ce seul appel, puisque le réglage est facultatif.
+- Le refus est journalisé en `error` : une reconnexion d'un numéro déjà enregistré (refus attendu de Meta) ressemble à
+  une panne. `warn` si une alerte se branche sur les `error`.
+- `META_STOCKAGE_LOCAL` absent de `.env.prod.example` : une ligne pour qui cherche le levier en urgence.
+- Le test de câblage lit `new MetaEmbeddedSignupClient(...)` avec `[^)]*` : faux rouge à la première parenthèse dans
+  ses arguments, jamais faux vert.
+- Proposer la migration aux numéros connectés avant le 2026-11-12 (désenregistrer, régler, réenregistrer, moins de
+  cinq minutes de coupure chacun, sans nouveau code) : un script, numéro par numéro, si un client le demande.
+
 ## 🟡 Les dates HubSpot sur la fiche : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-champs-hubspot-dates.md`, `ab6ca848`)
 
 - Un espace qui a déjà sa liste de champs garde ses dates HubSpot en texte tant qu'il ne la réenregistre pas : le

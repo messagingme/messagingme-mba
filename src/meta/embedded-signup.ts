@@ -26,6 +26,13 @@ export interface EsPhoneInfo {
 
 /** Ce qui est propre à l'inscription WhatsApp ; l'appel Graph et l'échange de code viennent de `ClientGraph`. */
 export class MetaEmbeddedSignupClient extends ClientGraph {
+  /**
+   * @param regionStockage pays du stockage local posé avant chaque `/register` (`META_STOCKAGE_LOCAL`) ; vide, rien
+   * n'est demandé. Seul le client qui enregistre des numéros le reçoit.
+   */
+  constructor(appId: string, appSecret: string, version: string, private readonly regionStockage: string = '') {
+    super(appId, appSecret, version);
+  }
 
   /**
    * Comptes WhatsApp auxquels ce business token donne accès, lus dans le token (`GET /debug_token` ->
@@ -123,12 +130,37 @@ export class MetaEmbeddedSignupClient extends ClientGraph {
     });
   }
 
-  /** Enregistre le numéro sur la Cloud API (numéro neuf). Le pin devient le PIN 2FA du numéro. */
+  /**
+   * Enregistre le numéro sur la Cloud API (numéro neuf). Le pin devient le PIN 2FA du numéro.
+   *
+   * Le stockage local se pose JUSTE AVANT : Meta ne l'accepte que sur un numéro non enregistré, et une fois le numéro
+   * enregistré, le changer exigerait de le désenregistrer (coupure). Un refus n'empêche pas l'enregistrement (décision de
+   * Julien, 2026-11-12 : la connexion n'est jamais bloquée) ; il est journalisé, puisque le numéro gardera alors le
+   * stockage par défaut de Meta.
+   */
   async register(phoneNumberId: string, businessToken: string, pin: string): Promise<void> {
+    if (this.regionStockage !== '') await this.poserStockageLocal(phoneNumberId, businessToken);
     await this.call(`${this.baseUrl}/${this.version}/${encodeURIComponent(phoneNumberId)}/register`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${businessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ messaging_product: 'whatsapp', pin }),
     });
+  }
+
+  /** Ne lève jamais : voir `register`. */
+  private async poserStockageLocal(phoneNumberId: string, businessToken: string): Promise<void> {
+    const region = this.regionStockage;
+    try {
+      await this.call(`${this.baseUrl}/${this.version}/${encodeURIComponent(phoneNumberId)}/settings`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${businessToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          storage_configuration: { status: 'IN_COUNTRY_STORAGE_ENABLED', data_localization_region: region },
+        }),
+      });
+      journaliser('info', 'stockage_local_pose', { phoneNumberId, region });
+    } catch (err) {
+      journaliser('error', 'stockage_local_refuse', { phoneNumberId, region, err });
+    }
   }
 }

@@ -2912,7 +2912,9 @@ async function main(): Promise<void> {
       enVol: travauxEnVol,
     },
     embeddedSignup: (() => {
-      const esClient = new MetaEmbeddedSignupClient(config.META_APP_ID, config.META_APP_SECRET, config.META_GRAPH_VERSION);
+      const esClient = new MetaEmbeddedSignupClient(
+        config.META_APP_ID, config.META_APP_SECRET, config.META_GRAPH_VERSION, config.META_STOCKAGE_LOCAL,
+      );
       return {
         audit: auditSink,
         configId: config.META_ES_CONFIG_ID,

@@ -19,6 +19,11 @@ abandonnée ou repoussée sans date, la pastille se retire, elle ne se reformule
 ⚠️ **La phrase couvre le STOCKAGE, rien de plus** : la base et les fichiers. Elle ne couvre ni les appels IA
 (Vercel AI Gateway, §2.1), ni le transit des messages par Meta. Une question RSSI se répond avec le §2.1,
 jamais avec le pied de page.
+**Le transit par Meta, depuis le 2026-11-12** : chaque numéro connecté depuis cette date demande à Meta le stockage
+local de la Cloud API en Allemagne (`META_STOCKAGE_LOCAL`, `documentation.md`). Meta garde alors le contenu des
+messages (texte, médias, 30 jours au plus) uniquement en Allemagne, après au plus 60 minutes de traitement ailleurs.
+Meta reste une société américaine, et ni le carnet de contacts de Meta, ni les numéros connectés avant, ni ceux en
+coexistence ne sont couverts : à dire tel quel à un RSSI.
 
 Ce document ne décrit pas ce qui tourne aujourd'hui (voir `documentation.md`). Il décrit **ce qu'on vise**,
 **les chantiers à finir avant**, et **la séquence du jour J**.

@@ -153,3 +153,69 @@ describe('unsubscribeApp (RC8, la suppression d’un espace)', () => {
     await expect(client().unsubscribeApp('waba-1', 'TOKEN_CLIENT')).rejects.toThrow();
   });
 });
+
+describe('register : le stockage local posé juste avant (plan 2026-11-12)', () => {
+  type Appel = { url: string; methode?: string; corps?: unknown };
+  /** `refuserSettings` : Meta refuse le réglage du stockage, le reste réussit. */
+  function enregistrer(refuserSettings = false): Appel[] {
+    const appels: Appel[] = [];
+    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+      appels.push({ url: String(url), methode: init?.method, corps: init?.body ? JSON.parse(String(init.body)) : undefined });
+      const refus = refuserSettings && String(url).endsWith('/settings');
+      return { ok: !refus, status: refus ? 400 : 200, json: async () => (refus ? { error: { message: 'refus' } } : { success: true }) } as Response;
+    }) as typeof fetch;
+    return appels;
+  }
+  const avecRegion = () => new MetaEmbeddedSignupClient('APP_ID', 'APP_SECRET', 'v25.0', 'DE');
+
+  it('🔴 réglage du stockage en Allemagne PUIS register, sur le même numéro', async () => {
+    const appels = enregistrer();
+    await avecRegion().register('ph-1', 'TOKEN_CLIENT', '123456');
+    expect(appels).toEqual([
+      {
+        url: 'https://graph.facebook.com/v25.0/ph-1/settings',
+        methode: 'POST',
+        corps: { storage_configuration: { status: 'IN_COUNTRY_STORAGE_ENABLED', data_localization_region: 'DE' } },
+      },
+      { url: 'https://graph.facebook.com/v25.0/ph-1/register', methode: 'POST', corps: { messaging_product: 'whatsapp', pin: '123456' } },
+    ]);
+  });
+
+  it('un refus du réglage est journalisé et n’empêche pas l’enregistrement', async () => {
+    const appels = enregistrer(true);
+    const erreurs = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await avecRegion().register('ph-1', 'TOKEN_CLIENT', '123456');
+      expect(appels.map((a) => a.url.split('/').pop())).toEqual(['settings', 'register']);
+      const lignes = erreurs.mock.calls.map((c) => String(c[0]));
+      expect(lignes.some((l) => l.includes('stockage_local_refuse') && l.includes('ph-1') && l.includes('"DE"'))).toBe(true);
+    } finally {
+      erreurs.mockRestore();
+    }
+  });
+
+  it('sans région, aucun réglage n’est demandé', async () => {
+    const appels = enregistrer();
+    await client().register('ph-1', 'TOKEN_CLIENT', '123456');
+    expect(appels.map((a) => a.url.split('/').pop())).toEqual(['register']);
+  });
+
+  it('un refus du register lui-même lève toujours', async () => {
+    globalThis.fetch = (async (url: string) => {
+      const refus = String(url).endsWith('/register');
+      return { ok: !refus, status: refus ? 400 : 200, json: async () => (refus ? { error: { message: 'non vérifié' } } : { success: true }) } as Response;
+    }) as typeof fetch;
+    await expect(avecRegion().register('ph-1', 'TOKEN_CLIENT', '123456')).rejects.toThrow();
+  });
+});
+
+describe('câblage du stockage local', () => {
+  it('🔴 le client qui enregistre les numéros reçoit META_STOCKAGE_LOCAL (sinon rien n’est demandé à Meta, en silence)', async () => {
+    const { readFileSync } = await import('node:fs');
+    const index = readFileSync(new URL('../src/index.ts', import.meta.url), 'utf8');
+    const creations = index.match(/new MetaEmbeddedSignupClient\([^)]*\)/g) ?? [];
+    expect(creations.filter((c) => c.includes('config.META_STOCKAGE_LOCAL'))).toHaveLength(1);
+    // Le seul client qui appelle `register` est celui des gestes de connexion et d'activation.
+    expect(index).toMatch(/const esClient = new MetaEmbeddedSignupClient\([^)]*config\.META_STOCKAGE_LOCAL/);
+  });
+});

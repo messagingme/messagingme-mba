@@ -5310,6 +5310,16 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   montre [0] en gardant l'application, [0] et [1] au numéro fourni, tout au numéro apporté, Claude [0] et [1] au numéro
   fourni et tout au numéro apporté ; `PREREQUIS_LIGNE` en est la version sans carte ; `ETAPES_CARTE_META`), et la fiche `ce-qu-il-faut-chez-meta` les
   reprend mot pour mot (`tests/etapes-meta.test.ts`).
+- 🔴 **Le contenu des messages stocké en Allemagne** (stockage local de la Cloud API, plan
+  `docs/superpowers/plans/2026-11-12-stockage-local-whatsapp.md`). `MetaEmbeddedSignupClient.register`, seule source de
+  `/register` (connexion et « Activer le numéro »), pose JUSTE AVANT `POST /{numéro}/settings`
+  (`storage_configuration`, `IN_COUNTRY_STORAGE_ENABLED`, région `META_STOCKAGE_LOCAL`, défaut `DE`, seul pays de
+  l'Union proposé par Meta). Meta ne l'accepte que sur un numéro non enregistré, et ne le change plus ensuite sans
+  désenregistrer. Un refus est journalisé (`stockage_local_refuse`) et n'empêche PAS l'enregistrement (décision de
+  Julien). Ce que ça couvre : le texte et les médias, gardés en Allemagne après au plus 60 minutes de traitement
+  ailleurs (90 en Marketing Messages API). Ce que ça ne couvre pas : le carnet de contacts de Meta, les numéros connectés
+  avant le 2026-11-12 (laissés tels quels, choix de Julien), un numéro en coexistence (jamais `/register` chez nous) et
+  un compte 360dialog. `META_STOCKAGE_LOCAL` vide = rien n'est demandé (levier, sans déployer).
 - 🔴 **Le numéro fourni côté client** (lot 3b, `src/http/numero-fourni.ts`, page `/connecter-whatsapp`). En
   Embedded Signup v4, rien ne fait sauter l'écran du numéro de la fenêtre de Meta : le client y TAPE le numéro que la
   page lui attribue, choisit la vérification par SMS (« Text message ») de préférence, et recopie le code que la

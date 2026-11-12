@@ -19,6 +19,12 @@ export const schema = z.object({
   META_ACCESS_TOKEN: z.string().default(''),
   /** Version Graph API pour les appels d'envoi. */
   META_GRAPH_VERSION: z.string().default('v25.0'),
+  /**
+   * Pays où Meta garde le contenu des messages d'un numéro (stockage local de la Cloud API), posé juste avant chaque
+   * `/register` (plan `docs/superpowers/plans/2026-11-12-stockage-local-whatsapp.md`). `DE` : l'Allemagne, seul pays de
+   * l'Union que Meta propose. Vide = rien n'est demandé : le levier si Meta cassait la connexion sur ce réglage.
+   */
+  META_STOCKAGE_LOCAL: z.string().regex(/^([A-Z]{2})?$/, 'deux lettres majuscules (code pays), ou vide').default('DE'),
   /** App ID Meta (public) : endpoint du resumable upload `/{appId}/uploads` (en-têtes média du carrousel). */
   META_APP_ID: z.string().default('988129420727963'),
   /**
