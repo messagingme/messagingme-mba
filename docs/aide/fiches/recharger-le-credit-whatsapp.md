@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: 5c2c51
+source_empreinte: da5ac5
 ---
 # Recharger le Crédit WhatsApp
 

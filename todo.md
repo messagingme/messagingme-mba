@@ -753,11 +753,26 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
     `a_poser`, et un repli après « déjà sur la ligne » marque un numéro qui a sa ligne ;
   - `get_setup_state` tait `carte_meta_a_regler` en `en_attente` : le numéro de l'essai reste payé par sa carte jusqu'à
     sa reconnexion, Claude ne dit pas de le reconnecter.
+- 🟡 **Les jaunes de la relecture du bouton de reconnexion d'une Entreprise (2026-11-12, aucun rouge)** :
+  - après une reconnexion réussie, seule la relecture de l'état retire le bouton : une relecture en échec le laisse
+    actif, et un second clic marque le numéro (« sous 24 h ouvrées », alerte). Un état local `reconnecte` qui remplace
+    le bouton par le constat, comme `PlaceLibre`, et son e2e ;
+  - Claude envoie encore cette Entreprise au Support (`CONNECTE_PAR_LE_SUPPORT`, `src/mcp/outils-numero.ts`, tenu par
+    `tests/mcp-numero.test.ts`) : la renvoyer vers la carte de Connecter WhatsApp ;
+  - « Ne pas poser » et le retrait dans `/ops` ne tiennent plus pour une Entreprise : l'état repasse `a_prendre`, la
+    fenêtre se rouvre et la carte offre le bouton. À trancher (Julien) ; au moins les JSDoc de `lignes.pg.ts`
+    (`abandonnerAttente`) et de `ops-credit-whatsapp.ts` (« Ne pas poser ») ; pour que le geste tienne, une marque
+    serveur que `seReconnecte` lise ;
+  - la fiche publique `payer-ses-messages-sans-carte-chez-meta` ne décrit la reconnexion que par l'option et l'onglet :
+    une phrase pour l'Entreprise (puis `vitrine:aide`, l'anglais, `aide:charger`) ;
+  - un numéro pas encore activé chez Meta voit le bouton, et « Meta facture encore ses messages » y est inexact ;
+  - aucun e2e de l'échec de la reconnexion (`carte-credit-wa-reconnecter-entreprise-erreur`).
 - 🟡 **Les jaunes de la relecture de la reconnexion (« V4, suite », `87217294`, 2026-11-11, aucun rouge)** :
   - un autre numéro choisi dans la fenêtre : l'alerte de refus dit de ne rien attacher, alors que le compte est celui de
     l'espace ; et `messageSecondNumero` (`src/account/connexion-numero.ts`) tutoie le client, sous le bouton de la console ;
-  - une Entreprise connectée avec sa carte, sans ligne, reçoit l'identifiant (son droit est toujours vrai) sans qu'aucun
-    écran n'y mène : réserver `seReconnecte` aux espaces qui ont une option ;
+  - ✅ tranché autrement le 2026-11-12 (Julien, « Oui, fais le bouton ») : une Entreprise connectée avec sa carte, sans
+    ligne, garde l'identifiant, et la carte de Connecter WhatsApp lui offre la reconnexion (plan
+    `2026-11-12-credit-whatsapp-reconnexion-entreprise.md`) ;
   - `PlaceLibre` monte la connexion (le SDK de Meta préchargé) et lit `getAccountStatus` (deux appels à Meta, une
     écriture) même quand la fenêtre est fermée : lire la configuration d'abord ;
   - une option en retard de paiement : la carte connectée mène à l'onglet, où `PlaceLibre` n'existe qu'en `actif` ;

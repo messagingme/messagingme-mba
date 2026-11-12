@@ -51,6 +51,19 @@ export const RECONNEXION = {
 } as const;
 
 /**
+ * Une Entreprise dont le numéro a été connecté en direct, avec sa carte chez Meta, avant la fenêtre du partenaire (plan
+ * `2026-11-12-credit-whatsapp-reconnexion-entreprise.md`) : le partenaire ne voit pas son compte, sa ligne ne peut pas s'y
+ * attacher. Elle se reconnecte sans carte depuis cette carte, son onglet Crédit WhatsApp ne s'affichant pas sans ligne.
+ */
+export const RECONNEXION_ENTREPRISE = {
+  texte: {
+    fr: 'Votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages : reconnectez-le sans carte, en choisissant dans la fenêtre de Meta le même compte WhatsApp et le même numéro.',
+    en: 'Your number is connected with your card at Meta, which still bills its messages: reconnect it without a card, choosing the same WhatsApp account and the same number in Meta’s window.',
+  },
+  bouton: { fr: 'Reconnecter mon numéro sans carte chez Meta', en: 'Reconnect my number without a card at Meta' },
+} as const;
+
+/**
  * « QUI PAIE VOS MESSAGES À META ? » (révision du Crédit WhatsApp du 2026-11-04, lot B) : deux cartes, chaque bouton sous
  * la sienne. Sur Connecter WhatsApp, c'est la première question du guide du numéro, et la voie de la carte chez Meta y
  * ouvre la suite (`children`) ; sur l'Accueil, tant qu'aucun numéro n'est connecté, elle y mène.
@@ -71,6 +84,10 @@ export const RECONNEXION = {
  *
  * 🔴 LE RETOUR DE STRIPE NE PREND RIEN : il relit l'état jusqu'à voir l'option que le webhook écrit, et la prise reste
  * fermée en attendant (sinon le client la paierait deux fois, comme dans l'onglet).
+ *
+ * Une Entreprise dont le numéro a été connecté en direct (sa carte chez Meta) se reconnecte sans carte d'ici, quand le
+ * serveur lui rouvre la fenêtre du partenaire (`RECONNEXION_ENTREPRISE`, 2026-11-12) : son onglet Crédit WhatsApp ne
+ * s'affiche pas sans ligne, et le lien de Claude refuse un espace qui a déjà un numéro.
  */
 export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children, api, surConnexion, occupe = false }: {
   tenantId: string;
@@ -225,6 +242,22 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
           {t(RECONNEXION.bouton.fr, RECONNEXION.bouton.en)}
         </Link>
       ) : nonAdmin(t('Un administrateur de votre espace peut le reconnecter.', 'An administrator of your workspace can reconnect it.'));
+    } else if (connecte && offre === 'entreprise' && etat === 'a_prendre' && vue.fenetrePartenaire) {
+      // Une Entreprise connectée en direct, sans ligne (`a_prendre`), que le serveur rouvre à la fenêtre du partenaire pour
+      // l'y reconnecter (`seReconnecte`) : la fin de la connexion pose sa ligne, l'attache vérifiée (V3), puis l'état se
+      // relit. Sans la connexion de la page, pas de geste : l'Accueil ne montre pas cette carte à un espace connecté.
+      ligne = t(RECONNEXION_ENTREPRISE.texte.fr, RECONNEXION_ENTREPRISE.texte.en);
+      if (!admin) {
+        action = nonAdmin(t('Un administrateur de votre espace peut le reconnecter.', 'An administrator of your workspace can reconnect it.'));
+      } else if (api && surConnexion) {
+        action = (
+          <BoutonParLaLigne
+            tenantId={tenantId} api={api} surOccupe={setFenetreLigne}
+            surConnexion={(av) => { setRelectures((n) => n + 1); surConnexion(av); }}
+            libelle={RECONNEXION_ENTREPRISE.bouton} testid="carte-credit-wa-reconnecter-entreprise"
+          />
+        );
+      }
     } else if (optionPayee || etat === 'en_attente') {
       ligne = ligneOuverte;
     } else if (etat === 'free') {
@@ -367,15 +400,19 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
 /**
  * « Connecter sans carte chez Meta » (lot E du Crédit WhatsApp) : la fenêtre de Meta ouverte avec la solution du
  * partenaire, dont la configuration ne rend l'identifiant qu'à un espace qui a droit à la ligne. Il porte sa propre
- * connexion, et n'est monté qu'une fois la voie de la carte chez Meta refermée (« Le mien », lot 3v) : sa fenêtre s'ouvre
- * dans le geste du clic (Safari, `ouvrirFenetreMeta`).
+ * connexion, et n'est monté qu'une fois la voie de la carte chez Meta refermée (« Le mien », lot 3v), ou pour reconnecter
+ * le numéro d'une Entreprise (`RECONNEXION_ENTREPRISE`) : sa fenêtre s'ouvre dans le geste du clic (Safari,
+ * `ouvrirFenetreMeta`).
  */
-function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe }: {
+function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe, libelle = PAR_LA_LIGNE.bouton, testid = 'carte-credit-wa-connecter-ligne' }: {
   tenantId: string;
   api: Pick<ApiConnexionNumero, 'config' | 'completer'>;
   surConnexion: (avertissements: string[]) => void;
   /** Sa fenêtre s'ouvre ou se ferme : la carte ferme les gestes qui le démonteraient (jaune du lot 3v-1). */
   surOccupe: (occupe: boolean) => void;
+  /** Son libellé et son attribut de test : la connexion par défaut, la reconnexion d'une Entreprise sinon. */
+  libelle?: { readonly fr: string; readonly en: string };
+  testid?: string;
 }) {
   const t = useT();
   const connexion = useConnexionNumero(tenantId, api, surConnexion);
@@ -385,14 +422,14 @@ function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe }: {
   return (
     <div className="space-y-2">
       <Bouton
-        type="button" data-testid="carte-credit-wa-connecter-ligne"
+        type="button" data-testid={testid}
         enCours={connexion.busy} disabled={!pret || connexion.busy}
         onClick={() => { void connexion.connect({ parLaLigne: true }); }}
       >
-        {t(PAR_LA_LIGNE.bouton.fr, PAR_LA_LIGNE.bouton.en)}
+        {t(libelle.fr, libelle.en)}
       </Bouton>
       {connexion.peutEtreBloquee && <p className="text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
-      {connexion.error && <p className="text-sm text-danger" data-testid="carte-credit-wa-connecter-ligne-erreur">{connexion.error}</p>}
+      {connexion.error && <p className="text-sm text-danger" data-testid={`${testid}-erreur`}>{connexion.error}</p>}
     </div>
   );
 }

@@ -300,6 +300,48 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
   });
 
+  // Une Entreprise connectée en direct, avant que la fenêtre du partenaire existe (plan
+  // `2026-11-12-credit-whatsapp-reconnexion-entreprise.md`) : le partenaire ne voit pas son compte, sa ligne ne peut pas
+  // s'y attacher. Son onglet Crédit WhatsApp, sans ligne, ne s'affiche pas : la reconnexion se fait depuis la carte.
+  const RECONNEXION_ENTREPRISE = 'Votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages : reconnectez-le sans carte, en choisissant dans la fenêtre de Meta le même compte WhatsApp et le même numéro.';
+
+  test('🔴 une Entreprise connectée en direct, la fenêtre rouverte par le serveur : « Reconnecter mon numéro sans carte chez Meta » ouvre la fenêtre par la solution, la fin passe par la ligne, et la carte relit son état', async ({ page }) => {
+    await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
+    const posts: unknown[] = [];
+    await mockAccueil(page, { inscription: { complete: CONNECTE, posts } });
+    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false, fenetrePartenaire: true }], solution: 'sol-e2e' });
+    // La fin de la connexion pose la ligne (le serveur l'attache et la vérifie) : l'état relu après elle est actif.
+    await page.route((url) => url.pathname.endsWith('/credit-whatsapp/etat'), (route) => route.fulfill({
+      status: 200, contentType: 'application/json',
+      body: JSON.stringify(posts.length > 0
+        ? { etat: 'active', enVente: false, avecApplication: false, fenetrePartenaire: false }
+        : { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: true }),
+    }));
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('numero-connecte')).toBeVisible();
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText(RECONNEXION_ENTREPRISE);
+    const bouton = page.getByTestId('carte-credit-wa-reconnecter-entreprise');
+    await expect(bouton).toHaveText('Reconnecter mon numéro sans carte chez Meta');
+    await expect(bouton).toBeEnabled();
+    await bouton.click();
+    // L'écoute attend 6 s un message de la fenêtre avant d'envoyer le code seul.
+    await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(1);
+    expect(posts[0]).toEqual({ code: 'code-e2e', parLaLigne: true });
+    const options = await page.evaluate(() => (window as unknown as { __optionsFb?: { extras?: unknown } }).__optionsFb);
+    expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos messages sont payés par votre Crédit WhatsApp.');
+    await expect(page.getByTestId('carte-credit-wa-reconnecter-entreprise')).toHaveCount(0);
+  });
+
+  test('🔴 une Entreprise connectée, la fenêtre fermée par le serveur (déjà sur une ligne, application, rien de configuré) : « sur demande », aucun bouton', async ({ page }) => {
+    await mockAccueil(page, { inscription: { complete: {} } });
+    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false }], solution: 'sol-e2e' });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('numero-connecte')).toBeVisible();
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
+    await expect(page.getByTestId('carte-credit-wa-reconnecter-entreprise')).toHaveCount(0);
+  });
+
   test('🔴 la fenêtre du partenaire ouverte : ni l’autre réponse ni la carte chez Meta ne démontent la connexion en cours', async ({ page }) => {
     // Un SDK dont la fenêtre ne rend jamais la main : la connexion reste en cours (jaune de la relecture du lot 3v-1).
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.FB={init:function(){},login:function(){}};' }));

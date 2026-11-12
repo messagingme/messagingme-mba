@@ -4820,7 +4820,8 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
 - 🔴 **« Qui paie vos messages à Meta ? »** (révision du 2026-11-04, lot B) : l'état du Crédit WhatsApp d'un espace
   (`etatLigneCredit`, `src/credit-whatsapp/etat-ligne.ts`) vaut `free`, `essai` (l'option ne se prend pas encore : un
   Business en essai, ou une formule Pro en retard de prélèvement), `a_prendre` (un espace Pro dès son essai, ou un
-  Business confirmé, sans option ; une Entreprise sans ligne ni numéro qui attend la sienne, sur demande), `en_attente`
+  Business confirmé, sans option ; une Entreprise sans ligne ni numéro qui attend la sienne, sur demande, sauf quand la
+  fenêtre du partenaire lui est rouverte pour reconnecter son numéro connecté en direct, voir plus bas), `en_attente`
   (l'option payée, aucune ligne posée), `active` ou `arretee` (toutes ses lignes arrêtées).
   `GET /tenants/:tenantId/credit-whatsapp/etat`, lisible par tout membre et fermé à la Free comme tout le module, le rend
   avec `enVente` (l'option se prend en ligne) et `avecApplication` (tous les numéros non déliés de l'espace gardent
@@ -4860,7 +4861,11 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   carte chez Meta » et devient la voie active ; numéro connecté, en `en_attente`, elle mène à l'onglet Crédit WhatsApp,
   où une place payée sans numéro (`PlaceLibre`, un administrateur) offre « Reconnecter mon numéro sans carte chez Meta »
   (la même fenêtre, `parLaLigne`), ou le lien vers Connecter WhatsApp sans numéro, et renvoie au Support seulement
-  quand la fenêtre est fermée. La carte chez Meta se reprend d'un clic, et le bouton du partenaire, resté en second, referme
+  quand la fenêtre est fermée. Une ENTREPRISE connectée en direct, sans ligne (`a_prendre`), n'a pas d'onglet Crédit
+  WhatsApp : quand la fenêtre lui est rouverte, la carte de Connecter WhatsApp porte elle-même « Reconnecter mon numéro
+  sans carte chez Meta » (`RECONNEXION_ENTREPRISE`, la page lui passant sa connexion aussi numéro connecté), puis relit
+  l'état, que la fin de la connexion a fait passer `active` (ligne posée) ou `en_attente`. La carte chez Meta se reprend
+  d'un clic, et le bouton du partenaire, resté en second, referme
   son guide dans le même clic que la fenêtre, sans recharger la page (chaque voie porte sa connexion ; seule celle dont
   le bouton a ouvert la fenêtre en envoie la fin). Le crochet refuse d'ouvrir la fenêtre sans identifiant, jamais une connexion
   directe à sa place. `POST /embedded-signup/complete` reçoit `parLaLigne` (la trace d'audit `numero.connecte` le garde),
