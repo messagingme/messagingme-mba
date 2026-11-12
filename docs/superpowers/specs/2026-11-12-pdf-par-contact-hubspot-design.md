@@ -61,6 +61,22 @@ réponse du client) ; un devis HubSpot part en LIEN dans le texte ; une pièce j
   RGPD d'un contact efface ses documents. 🔴 La table que la purge NOMME part en migration SEULE, appliquée avant son
   code (règle du dépôt).
 
+## Lot 0 : la mesure (2026-11-12)
+
+- **Mesuré sur le portail de Messaging Me** (par l'outil HubSpot de Claude) : un e-mail CRM porte ses pièces jointes dans
+  `hs_attachment_ids` (identifiants de fichiers séparés par « ; », 3 161 e-mails en ont), et les e-mails sont associés
+  aux transactions (trois transactions retrouvées depuis cinq e-mails). La chaîne transaction, e-mails, fichiers existe.
+- **Documenté** ([guide Files](https://developers.hubspot.com/docs/api-reference/latest/files/guide)) : `GET
+  /files/v3/files/{fileId}` rend `name`, `extension`, `type`, `size`, `createdAt`, `access` ; `GET
+  /files/v3/files/{fileId}/signed-url?expirationSeconds=` rend `url`, `expiresAt`, `name`, `extension`, `size`. Un
+  fichier PRIVÉ rend 404 sur son adresse nue : l'adresse signée est obligatoire. Un fichier « sensible » se lit par
+  `/download` avec une portée à part (hors du lot : refusé, il compte comme « aucun PDF »).
+- **Non tranché par la documentation** (ses encadrés de portées ne s'affichent pas) : les DEUX portées à ajouter aux
+  `optionalScopes` de l'app (`hubspot-app/src/app/app-hsmeta.json`), lecture des e-mails CRM et lecture des fichiers
+  (candidates : `sales-email-read`, `files`, `files.ui_hidden.read`). Première étape du lot C : les poser sur l'app, la
+  réautoriser sur un portail de test, et lire un vrai fichier de bout en bout ; le défaut et le maximum de
+  `expirationSeconds` se mesurent au même appel.
+
 ## Les lots
 
 | Lot | Où | Contenu |

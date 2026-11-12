@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 Les PDF par contact, lot A : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-pdf-par-contact-hubspot.md`)
+
+- Un objet dont l'effacement est refusé durablement reste en tête du balayage (`order by cree_le limit`) et peut
+  affamer les suivants : l'écarter après N échecs, ou trier les échecs à la fin.
+- Le test d'intégration du balayage (`purge-rgpd.integration.test.ts`) passe `limit 50` et se contente de « au moins
+  un » : s'il y a un jour plus de 50 lignes échues d'autres tests, il peut laisser la sienne.
+
 ## 🟡 Le stockage WhatsApp en Allemagne : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-12-stockage-local-whatsapp.md`)
 
 - Un `/settings` qui traîne retient la connexion jusqu'à 30 s de plus (plafond commun de `call`) : un plafond court

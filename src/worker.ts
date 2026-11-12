@@ -6,6 +6,7 @@ import { fabriquerJeton } from './links/jeton-contact';
 import { RETENTION_ESSAIS_JOURS } from './agent/test-runs';
 import { PgNumerosFournisStore, RETENTION_CODES_VERIFICATION_JOURS } from './otp/store.pg';
 import { PgRcsMediaStore, GRACE_SUPPRESSION_JOURS } from './rcs/media-store.pg';
+import { PgDocumentsContact, CONSERVATION_DOCUMENTS_JOURS } from './documents/store.pg';
 import { RETENTION_LATENCES_JOURS } from './ops/latence-http';
 import { RETENTION_REFUS_ANS } from './crm/refus-effaces';
 import { MesureTaches, RETENTION_TACHES_JOURS } from './ops/mesure-taches';
@@ -268,6 +269,8 @@ export async function demarrerWorker(): Promise<void> {
   // La médiathèque : le worker n'en fait que purger les fichiers supprimés (rétention générale), objet au bucket compris.
   const mediatheque = new PgRcsMediaStore(pool, magasinObjets);
   const PURGE_MEDIAS_PAR_LOT = 50;
+  // Les PDF recopiés de HubSpot (0291) : le worker n'en fait que la fin de vie (rétention générale), objet au bucket compris.
+  const documentsContact = new PgDocumentsContact(pool, magasinObjets);
 
   // Heartbeat : le worker écrit un signal de vie best-effort, dont /ops/overview lit l'âge. Il prouve que le
   // process tourne (event loop non bloquée), pas que pg-boss dépile : pour des files gelées, c'est le backlog
@@ -1895,6 +1898,9 @@ export async function demarrerWorker(): Promise<void> {
     // visuel RCS que l'opérateur télécharge tard. Par petits lots : une ligne peut porter une vidéo de 16 Mo.
     await etape('medias', `fichier(s) supprimé(s) de la médiathèque effacé(s) (au-delà de ${GRACE_SUPPRESSION_JOURS} j)`,
       () => purgerJusquAEpuisement(() => mediatheque.purgerSupprimes(PURGE_MEDIAS_PAR_LOT), { taille: PURGE_MEDIAS_PAR_LOT, budgetMs: 60_000 }));
+    // Les PDF recopiés de HubSpot (0291) : au-delà de leur conservation, ou marqués par la purge RGPD d'un contact.
+    await etape('documents', `document(s) de contact effacé(s) (au-delà de ${CONSERVATION_DOCUMENTS_JOURS} j, ou purgé(s))`,
+      () => purgerJusquAEpuisement(() => documentsContact.purgerEchus(PURGE_MEDIAS_PAR_LOT), { taille: PURGE_MEDIAS_PAR_LOT, budgetMs: 60_000 }));
     // Les étapes sont indépendantes et chacune a déjà journalisé et alerté ; la passe lève à la fin pour que la
     // mesure de `/ops` la compte en échec au lieu d'afficher « succès, 0 ligne ».
     if (enEchec.length > 0) throw new Error(`étape(s) en échec : ${enEchec.join(', ')}`);

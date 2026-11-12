@@ -1786,6 +1786,14 @@ export class PgContactStore implements ContactStore {
           `delete from workflow_advance_failures where tenant_id = $1 and wa_id = any($2::text[])`,
           [tenantId, waIdsDeLaPersonne],
         );
+        // Les PDF recopiés de HubSpot (migration 0291) : un devis nominatif. MARQUÉS ici (numéro et nom effacés), leurs
+        // objets effacés par le balayage de rétention (`PgDocumentsContact.purgerEchus`) : la transaction n'appelle pas
+        // le bucket, et une purge annulée ne laisse aucun objet effacé sans sa ligne.
+        await client.query(
+          `update documents_contact set wa_id = null, nom = null, a_effacer_le = now()
+            where tenant_id = $1 and wa_id = any($2::text[])`,
+          [tenantId, waIdsDeLaPersonne],
+        );
       }
 
       // Les webhooks sortants (lot 12, migration 0223) : le corps figé d'un envoi porte le numéro, le nom et les messages

@@ -1978,6 +1978,11 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   fils de la personne, les chiffres de sa fiche ET son BSUID, les trois formes que `matchWaIdPredicat` rattache à une
   fiche. La rétention efface les fils et garde la fiche : un jeu tiré des seuls fils laissait le numéro, ou le BSUID, à
   une demande d'effacement tardive. Une table ajoutée qui porte un `wa_id` entre dans ce jeu, sous `tenant_id = $1`.
+  🔴 **Les PDF recopiés de HubSpot (`documents_contact`, 0291) sont MARQUÉS, pas effacés, par la purge** : numéro et nom
+  vidés, `a_effacer_le` posé, dans sa transaction. L'objet au bucket part au balayage suivant de la rétention générale
+  (`PgDocumentsContact.purgerEchus`, `src/documents/store.pg.ts`), qui efface aussi tout document de plus de
+  `CONSERVATION_DOCUMENTS_JOURS` (30, décision de Julien du 2026-11-12) : l'objet PUIS la ligne, puis le champ
+  `hs_calc_document` de la fiche qui portait son code. La transaction de la purge n'appelle jamais le bucket.
   Effacer un parcours (`workflow_runs`) emporte en cascade ses sessions d'agent IA et leurs appels d'outils (0086) :
   les sessions, jetons et tours de « Coût de l'IA » (lus dans `agent_sessions`) et le journal des erreurs système
   (`listerEchecsSysteme`, sur `agent_tool_calls`) ne comptent plus une personne effacée, quand ses euros, eux, restent :

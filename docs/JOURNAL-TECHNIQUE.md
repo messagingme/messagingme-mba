@@ -4,6 +4,20 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-12 : les PDF propres à un contact, lot A (migration 0291)
+
+- **Le besoin** (MUTAC) : envoyer en document WhatsApp le devis qu'un conseiller a joint à un e-mail dans HubSpot.
+  Cadrage `docs/superpowers/specs/2026-11-12-pdf-par-contact-hubspot-design.md`, plan du même jour ; lot 0 mesuré sur le
+  portail de Messaging Me (les e-mails portent `hs_attachment_ids` et sont associés aux transactions).
+- **Ce qui a changé** : la table `documents_contact` (0291), rangée par numéro ; la purge RGPD la MARQUE (numéro et nom
+  vidés) sans appeler le bucket ; la rétention générale efface objet, champ `hs_calc_document` de la fiche, puis ligne,
+  au-delà de 30 jours ou après marquage (`src/documents/store.pg.ts`). Rien n'écrit encore dans la table (lot B).
+- **Relecture** : aucun rouge ; un jaune pris tout de suite (`@>` sur l'index GIN de `contacts.fields` au lieu de
+  `->> =`), deux au backlog, un au plan du lot B. Les trois mécanismes du balayage vérifiés dans les deux sens.
+- **Migration 0291** : poussée seule (`27574e7e`, CI verte), `migration=avant`, run 43223268856 approuvé par Julien :
+  `-> 0291_documents_contact.sql ... ok`. Table neuve, non relue en base (sonde de production réservée à Julien), son
+  SQL joué par le job `integration` de la CI.
+
 ## 2026-11-12 : la ligne du partenaire attachée, vérifiée et retirée par son API, et les deux rouges de sa relecture
 
 - **Ce qui a changé** (`c49a3c0d`, plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`) : la ligne de crédit du

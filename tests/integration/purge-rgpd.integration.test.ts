@@ -5,6 +5,8 @@ import { pgSsl } from '../../src/db/ssl';
 import { PgContactStore } from '../../src/crm/contact-store.pg';
 import { PgCampaignRepo, PgRecipientStore } from '../../src/campaign/store.pg';
 import { creerNoteurJoignabilite } from '../../src/contacts/joignabilite.pg';
+import { PgDocumentsContact } from '../../src/documents/store.pg';
+import type { MagasinObjets } from '../../src/lib/magasin-objets';
 
 /**
  * Intégration de la PURGE RGPD. ISOLÉE par tenant jetable (créé/détruit ici), jamais la prod « métier ».
@@ -422,6 +424,61 @@ describe.skipIf(!url)('purge RGPD — ce qui part et ce qui reste', () => {
     expect((await store.purgeMany(tenantId, [fiche])).purges).toBe(1);
     expect((await lignes(tenantId)).rowCount).toBe(0);
     expect((await lignes(autreTenantId)).rowCount).toBe(1);
+  });
+
+  it('🔴 les PDF recopiés de HubSpot sont MARQUÉS (numéro et nom effacés), puis effacés par le balayage ; pas ceux d’un autre espace (0291)', async () => {
+    const tel = '+33600000941';
+    const chiffres = '33600000941';
+    const fiche = (await pool.query<{ id: string }>(
+      `insert into contacts (tenant_id, phone_e164, opt_in_status, fields) values ($1, $2, 'opted_in', $3::jsonb) returning id`,
+      [tenantId, tel, JSON.stringify({ hs_calc_document: 'doc_itest_1' })],
+    )).rows[0]!.id;
+    await pool.query(
+      `insert into documents_contact (tenant_id, code, wa_id, nom, cle_objet, taille, empreinte)
+       values ($1, 'doc_itest_1', $3, 'Madame ITEST-MUTAC.pdf', 'tenants/x/documents/doc_itest_1.pdf', 1000, 'e1'),
+              ($2, 'doc_itest_1', $3, 'Autre espace.pdf', 'tenants/y/documents/doc_itest_1.pdf', 1000, 'e1')`,
+      [tenantId, autreTenantId, chiffres],
+    );
+    const ligne = async (t: string) => (await pool.query<{ wa_id: string | null; nom: string | null; a_effacer_le: Date | null }>(
+      `select wa_id, nom, a_effacer_le from documents_contact where tenant_id = $1 and code = 'doc_itest_1'`, [t],
+    )).rows[0];
+    // ANCRE : la ligne vit AVANT la purge.
+    expect((await ligne(tenantId))?.wa_id).toBe(chiffres);
+    expect((await store.purgeMany(tenantId, [fiche])).purges).toBe(1);
+    const marquee = await ligne(tenantId);
+    expect(marquee).toMatchObject({ wa_id: null, nom: null });
+    expect(marquee?.a_effacer_le).not.toBeNull();
+    expect((await ligne(autreTenantId))?.wa_id).toBe(chiffres);
+
+    // Le balayage efface l'objet PUIS la ligne marquée, et rien de l'autre espace (qui a moins de 30 jours).
+    const effaces: string[] = [];
+    const magasin = { effacer: async (cle: string) => { effaces.push(cle); } } as unknown as MagasinObjets;
+    expect(await new PgDocumentsContact(pool, magasin).purgerEchus(50)).toBeGreaterThanOrEqual(1);
+    expect(effaces).toContain('tenants/x/documents/doc_itest_1.pdf');
+    expect(effaces).not.toContain('tenants/y/documents/doc_itest_1.pdf');
+    expect(await ligne(tenantId)).toBeUndefined();
+    expect((await ligne(autreTenantId))?.wa_id).toBe(chiffres);
+  });
+
+  it('🔴 au-delà de 30 jours, le balayage efface le document ET vide le champ de la fiche qui portait son code', async () => {
+    const fiche = (await pool.query<{ id: string }>(
+      `insert into contacts (tenant_id, phone_e164, opt_in_status, fields) values ($1, '+33600000942', 'opted_in', $2::jsonb) returning id`,
+      [tenantId, JSON.stringify({ hs_calc_document: 'doc_itest_vieux', ville: 'Lyon' })],
+    )).rows[0]!.id;
+    await pool.query(
+      `insert into documents_contact (tenant_id, code, wa_id, nom, cle_objet, taille, empreinte, cree_le)
+       values ($1, 'doc_itest_vieux', '33600000942', 'Vieux.pdf', 'tenants/x/documents/doc_itest_vieux.pdf', 1000, 'e2', now() - interval '31 days'),
+              ($1, 'doc_itest_jeune', '33600000942', 'Jeune.pdf', 'tenants/x/documents/doc_itest_jeune.pdf', 1000, 'e3', now() - interval '29 days')`,
+      [tenantId],
+    );
+    const magasin = { effacer: async () => {} } as unknown as MagasinObjets;
+    await new PgDocumentsContact(pool, magasin).purgerEchus(50);
+    const codes = (await pool.query<{ code: string }>(
+      `select code from documents_contact where tenant_id = $1 and code like 'doc_itest_%'`, [tenantId],
+    )).rows.map((r) => r.code);
+    expect(codes).toEqual(['doc_itest_jeune']);
+    const champs = (await pool.query<{ fields: Record<string, string> }>('select fields from contacts where id = $1', [fiche])).rows[0]!.fields;
+    expect(champs).toEqual({ ville: 'Lyon' });
   });
 
   it('purger deux fois ne compte pas deux fois (anonymized_at fait garde)', async () => {
