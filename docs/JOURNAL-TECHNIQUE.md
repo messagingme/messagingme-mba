@@ -4,6 +4,17 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-12 : la fiche « Intégrer WhatsApp à HubSpot » suit les vrais écrans de HubSpot
+
+- L'étape 3 (ajouter la carte à la fiche contact) reprend les libellés relevés le jour même chez HubSpot
+  (« Personnalisation des fiches d'informations », « Cartes d'application », « Messaging Me : conversation WhatsApp »),
+  et dit comment placer la carte d'aperçu (Settings > App cards > Manage locations). Un encadré explique les accès
+  facultatifs verrouillés par un administrateur du portail. FR et EN, `815c75ed`, `aide:charger` monté dans l'image en
+  service 787a4bbf (207 lignes, 0 retirée).
+- Une image pour la seule étape 3 a été écartée : `tests/vitrine-aide.test.ts` exige une capture pour chaque étape d'une
+  page à captures, dans les deux langues. Illustrer la page est un chantier à part (captures de la console par
+  `npm run aide:captures`, captures de HubSpot en anglais à la main).
+
 ## 2026-11-12 : les PDF propres à un contact, lot A (migration 0291)
 
 - **Le besoin** (MUTAC) : envoyer en document WhatsApp le devis qu'un conseiller a joint à un e-mail dans HubSpot.
