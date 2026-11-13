@@ -60,7 +60,7 @@ test('🔴 un espace neuf en Free voit d’abord la formule ; Free mène à « Q
   await expect(page.getByTestId('offre-choisir-pro')).toHaveText('Essayer Pro 14 jours');
   await expect(page.getByTestId('carte-offre-pro')).toContainText('49 €');
   await expect(page.getByTestId('carte-offre-pro')).toContainText('HT par mois');
-  await expect(page.getByTestId('carte-offre-free')).toContainText('Besoin d’un IDE : Claude Code ou Codex');
+  await expect(page.getByTestId('carte-offre-free')).toContainText('Besoin d’un IDE, de Claude Code ou de Codex');
   // Avant la réponse, rien de la suite.
   await expect(page.getByTestId('qui-regle-meta')).toHaveCount(0);
   await expect(page.getByTestId('question-compte')).toHaveCount(0);

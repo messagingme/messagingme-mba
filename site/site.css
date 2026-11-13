@@ -966,7 +966,14 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-question .bt-voie-grisee .bouton-trait:disabled,.bt-question .bt-voie-grisee .bouton-trait:disabled:hover{opacity:.45;cursor:not-allowed;border-color:var(--line);background:transparent;color:var(--ink)}
 .bt-grisee{margin:12px 0 0;color:var(--ink);font-size:.95rem;font-weight:600}
 .bt-question .bt-voie-choix > .bouton,.bt-question .bt-voie-choix > .bouton:is(:hover,[aria-pressed],:disabled,:disabled:hover){position:absolute;inset:0;z-index:1;width:auto;min-width:0;padding:0;border:0;border-radius:16px;background:transparent;color:transparent;font-size:0;opacity:1;box-shadow:none}
-.bt-voie-choix :is(.bt-voie-liens,.bt-grisee){position:relative;z-index:2}
+.bt-voie-choix .bt-voie{position:relative;z-index:2;pointer-events:none}
+.bt-voie-choix .bt-voie :is(a,.bt-info){pointer-events:auto}
+/* Un lien à bulle (2026-11-13) : sa réponse au survol, ou au clic (`site.js`), sans quitter le tunnel. */
+.bt-info{position:relative;display:inline-block}
+.bt-info > a{cursor:help}
+.bt-bulle{position:absolute;left:0;bottom:calc(100% + 10px);z-index:6;width:min(360px,78vw);padding:14px 16px;border:1px solid rgb(255 255 255 / .22);border-radius:12px;background:#121940;color:#fff;box-shadow:0 22px 50px -20px rgb(0 0 0 / .8);font-size:.9rem;font-weight:400;line-height:1.5;text-align:left;opacity:0;visibility:hidden;transform:translateY(6px);transition:opacity .15s,transform .15s,visibility .15s}
+.bt-bulle a{color:#7CC4FF;font-weight:600}
+.bt-info:is(:hover,:focus-within,.ouverte) .bt-bulle{opacity:1;visibility:visible;transform:none}
 .bt-grisee a{color:var(--action-ink)}
 .bt-voie-liens{display:flex;flex-wrap:wrap;gap:4px 16px;margin:12px 0 0;font-size:.95rem}
 .bt-voie-liens a{color:var(--action-ink)}
@@ -980,7 +987,8 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .js .bt-guide[data-pret] .bt-question legend.bt-avec-logo{padding-left:0}
 .js .bt-guide[data-pret] .bt-question .bt-logo{position:static;display:block;margin:0 auto 12px}
 .js .bt-guide[data-pret] .bt-reponses{justify-content:center}
-.js .bt-guide[data-pret] :is(.bt-aide,.bt-note-reponse){margin-left:auto;margin-right:auto}
+.js .bt-guide[data-pret] :is(.bt-aide,.bt-note-reponse){margin-left:auto;margin-right:auto;border-left:0;text-align:center}
+.bt-logo[src$="/meta.png"]{border-radius:12px}
 .js .bt-guide[data-pret] .bt-recommencer:not([hidden]){display:block;margin:26px auto 0}
 /* La page « Démarrer » : le titre, puis le tunnel tout de suite dessous. */
 .demarrer-une{gap:8px}

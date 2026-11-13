@@ -39,7 +39,7 @@ export const CARTES_OFFRE: ReadonlyArray<{
   {
     offre: 'free', libelle: { fr: 'Free', en: 'Free' }, titre: { fr: 'Free', en: 'Free' },
     prix: { fr: '0 €', en: '€0' }, unite: { fr: 'sans limite de durée', en: 'with no time limit' },
-    note: { fr: 'Besoin d’un IDE : Claude Code ou Codex', en: 'Needs an IDE: Claude Code or Codex' },
+    note: { fr: 'Besoin d’un IDE, de Claude Code ou de Codex', en: 'Needs an IDE, Claude Code or Codex' },
     plus: [], moins: [],
   },
   {

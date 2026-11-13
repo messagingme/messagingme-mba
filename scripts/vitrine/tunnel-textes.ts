@@ -65,6 +65,8 @@ export const milliers = (n: number, langue: Langue): string =>
   (langue === 'fr' ? n.toLocaleString('fr-FR').replace(/\s/g, '&nbsp;') : n.toLocaleString('en-US'));
 /** L'icône de l'application WhatsApp Business (la bulle au « + »), à côté de la question qui la nomme. */
 const LOGO_APPLICATION = '/img/logos/whatsapp-business.png';
+/** Le logo de Meta, au-dessus de la question du compte Meta Business (Julien, 2026-11-13). */
+const LOGO_META = '/img/logos/meta.png';
 const META_BUSINESS = '<a href="https://business.facebook.com/" rel="noopener">business.facebook.com</a>';
 /** Les fiches officielles de l'application WhatsApp Business (vérifiées le 2026-10-30 : 200, « WhatsApp Business App »). */
 export const MAGASINS = {
@@ -79,7 +81,11 @@ export type Origine = 'generique' | 'shopify' | 'saas';
 export type OffreTunnel = 'free' | 'pro';
 export type FormuleTunnel = OffreTunnel | 'business' | 'entreprise';
 /** Un lien externe, sous un mot du lexique ou dans une issue (les magasins d'applications, le compte Meta Business). */
-export interface Lien { readonly libelle: string; readonly href: string }
+/**
+ * Un lien ; `bulle`, sa réponse courte, montrée sur place dans une bulle (survol ou clic) plutôt que de quitter le
+ * tunnel (Julien, 2026-11-13), la page restant à un clic dans la bulle.
+ */
+export interface Lien { readonly libelle: string; readonly href: string; readonly bulle?: string }
 /** Les icônes des deux magasins (Simple Icons, CC0), devant leur libellé : Julien, 2026-10-31, « les 2 petites icônes ». */
 const ICONES: Readonly<Record<string, string>> = {
   [MAGASINS.appStore]: '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701"/></svg>',
@@ -140,6 +146,8 @@ export interface TexteTunnel {
   readonly lexique: { readonly titre: string; readonly termes: readonly Mot[] };
   readonly questions: readonly Question[]; readonly issues: readonly Issue[];
   readonly plus: string; readonly moins: string; readonly recommencer: string;
+  /** Dans la bulle d'un lien, ce qui mène à sa page. */
+  readonly lireFiche: string;
   /** L'étape en cours (`{n}` son rang, `{max}` le plus long parcours de l'arbre, que `tunnel.ts` calcule), et le mot
    * de l'issue. */
   readonly progression: string; readonly fin: string;
@@ -201,7 +209,7 @@ const fr = (): TexteTunnel => {
   const offres: readonly Voie[] = [
     // Le nom et le prix, rien d'autre (Julien, 2026-11-13 : « pas clair, pas vendeur ; on va éviter les textes qui
     // décrivent les options ») ; Free dit seulement ce qu'il faut pour s'en servir. Les prix sont ceux du code.
-    { titre: 'Free', prix: '0&nbsp;€', unite: 'sans limite de durée', note: 'Besoin d’un IDE&nbsp;: {claude} ou {codex}', plus: [], moins: [] },
+    { titre: 'Free', prix: '0&nbsp;€', unite: 'sans limite de durée', note: 'Besoin d’un IDE, de {claude} ou de {codex}', plus: [], moins: [] },
     { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
     { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
     { titre: 'Entreprise', prix: 'Sur devis', unite: 'selon votre volume', plus: [], moins: [] },
@@ -215,8 +223,14 @@ const fr = (): TexteTunnel => {
       plus: ['Meta vous facture vos modèles sur ce moyen de paiement.'],
       moins: [],
       liens: [
-        { libelle: 'Pourquoi un moyen de paiement ?', href: chemin(AIDE_PAYER_META.fr) },
-        { libelle: 'Qu’est-ce qu’un compte Meta Business ?', href: chemin(AIDE_COMPTE_META_BUSINESS.fr) },
+        {
+          libelle: 'Pourquoi un moyen de paiement ?', href: chemin(AIDE_PAYER_META.fr),
+          bulle: 'Meta facture vos modèles, et les réponses au-delà de sa franchise mensuelle, sur ce moyen de paiement : sans lui, vos modèles ne partent pas. Il se pose chez Meta, juste après la connexion.',
+        },
+        {
+          libelle: 'Qu’est-ce qu’un compte Meta Business ?', href: chemin(AIDE_COMPTE_META_BUSINESS.fr),
+          bulle: 'Le compte de votre entreprise chez Meta, l’ancien Business Manager. Si vous faites de la publicité sur Facebook ou Instagram, vous en avez sans doute un. Sinon, rien à préparer : il est gratuit, et la fenêtre de Meta vous le fait créer en chemin, avec votre profil Facebook.',
+        },
       ],
     },
     {
@@ -279,7 +293,7 @@ const fr = (): TexteTunnel => {
       },
       {
         // Le Pro a la console ET Claude Code (Julien, 2026-11-09, lot 3c) : la console finit ici, Claude Code suit l'arbre.
-        id: 'pilote', texte: 'Console ou Claude Code ?', precision: 'La formule Pro a les deux : par où voulez-vous commencer ?',
+        id: 'pilote', texte: 'Où voulez-vous construire ?',
         reponses: [{ libelle: 'La console', vers: 'console' }, { libelle: 'Claude Code ou Codex', vers: 'paiement' }],
       },
       {
@@ -293,7 +307,7 @@ const fr = (): TexteTunnel => {
         ],
       },
       {
-        id: 'compte', texte: 'Avez-vous un compte Meta Business ?', precision: 'L’ancien Business Manager : le compte de votre entreprise chez Meta.',
+        id: 'compte', texte: 'Avez-vous un compte Meta Business ?', precision: 'L’ancien Business Manager : le compte de votre entreprise chez Meta.', logo: LOGO_META,
         reponses: [
           { libelle: 'Oui', vers: 'api' },
           { libelle: 'Non', vers: 'application', note: 'Rien à préparer : la fenêtre de Meta vous le fera créer en chemin.' },
@@ -397,6 +411,7 @@ const fr = (): TexteTunnel => {
     ],
     plus: 'Pour :', moins: 'Contre :',
     recommencer: 'Recommencer',
+    lireFiche: 'Lire la fiche',
     progression: 'Question {n} sur {max} au plus', fin: 'Votre chemin',
     appels: {
       free: 'En formule Free, depuis votre assistant IA', pro: 'En formule Pro',
@@ -466,7 +481,7 @@ const fr = (): TexteTunnel => {
 const en = (): TexteTunnel => {
   const numero = euros(PRIX_NUMERO_AFFICHE_HT_CENTIMES, 'en');
   const offres: readonly Voie[] = [
-    { titre: 'Free', prix: '€0', unite: 'with no time limit', note: 'Needs an IDE: {claude} or {codex}', plus: [], moins: [] },
+    { titre: 'Free', prix: '€0', unite: 'with no time limit', note: 'Needs an IDE, {claude} or {codex}', plus: [], moins: [] },
     { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}-day free trial`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
     { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
     { titre: 'Enterprise', prix: 'On quote', unite: 'based on your volume', plus: [], moins: [] },
@@ -478,8 +493,14 @@ const en = (): TexteTunnel => {
       plus: ['Meta bills your templates to this payment method.'],
       moins: [],
       liens: [
-        { libelle: 'Why a payment method?', href: chemin(AIDE_PAYER_META.en) },
-        { libelle: 'What is a Meta Business account?', href: chemin(AIDE_COMPTE_META_BUSINESS.en) },
+        {
+          libelle: 'Why a payment method?', href: chemin(AIDE_PAYER_META.en),
+          bulle: 'Meta bills your templates, and replies beyond its monthly allowance, to this payment method: without it, your templates do not go out. You add it at Meta, right after the connection.',
+        },
+        {
+          libelle: 'What is a Meta Business account?', href: chemin(AIDE_COMPTE_META_BUSINESS.en),
+          bulle: 'Your business’s account at Meta, formerly Business Manager. If you advertise on Facebook or Instagram, you probably have one. Otherwise, nothing to prepare: it is free, and Meta’s window has you create it along the way, with your Facebook profile.',
+        },
       ],
     },
     {
@@ -535,7 +556,7 @@ const en = (): TexteTunnel => {
         ],
       },
       {
-        id: 'pilote', texte: 'Console or Claude Code?', precision: 'The Pro plan has both: where do you want to start?',
+        id: 'pilote', texte: 'Where do you want to build?',
         reponses: [{ libelle: 'The console', vers: 'console' }, { libelle: 'Claude Code or Codex', vers: 'paiement' }],
       },
       {
@@ -547,7 +568,7 @@ const en = (): TexteTunnel => {
         ],
       },
       {
-        id: 'compte', texte: 'Do you have a Meta Business account?', precision: 'Formerly Business Manager: your business’s account at Meta.',
+        id: 'compte', texte: 'Do you have a Meta Business account?', precision: 'Formerly Business Manager: your business’s account at Meta.', logo: LOGO_META,
         reponses: [
           { libelle: 'Yes', vers: 'api' },
           { libelle: 'No', vers: 'application', note: 'Nothing to prepare: Meta’s window will have you create it along the way.' },
@@ -636,6 +657,7 @@ const en = (): TexteTunnel => {
     ],
     plus: 'For:', moins: 'Against:',
     recommencer: 'Start again',
+    lireFiche: 'Read the page',
     progression: 'Question {n} of {max} at most', fin: 'Your path',
     appels: {
       free: 'With the Free plan, from your AI assistant', pro: 'With the Pro plan',

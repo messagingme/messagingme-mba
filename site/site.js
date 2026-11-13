@@ -523,8 +523,20 @@
         aide.setAttribute('aria-expanded', String(Boolean(texte) && !texte.hidden));
         return;
       }
-      // Un lien de la carte (« Pourquoi un moyen de paiement ? ») s'ouvre dans un autre onglet sans la choisir (jaune 1 de
-      // la relecture du lot 3a) : sans ce retour, le clic la choisissait puis quittait la page.
+      // Un lien à bulle (« Pourquoi un moyen de paiement ? », 2026-11-13) : le clic ouvre sa réponse sur place, sans
+      // quitter le tunnel ni choisir la carte ; la page reste à un clic, dans la bulle.
+      var info = e.target.closest && e.target.closest('.bt-info > a');
+      if (info) {
+        e.preventDefault();
+        var bulle = info.parentNode;
+        var ouvrir = !bulle.classList.contains('ouverte');
+        [].slice.call(g.querySelectorAll('.bt-info.ouverte')).forEach(function (x) { x.classList.remove('ouverte'); x.firstChild.setAttribute('aria-expanded', 'false'); });
+        bulle.classList.toggle('ouverte', ouvrir);
+        info.setAttribute('aria-expanded', String(ouvrir));
+        return;
+      }
+      // Un lien de la carte s'ouvre dans un autre onglet sans la choisir (jaune 1 de la relecture du lot 3a) : sans ce
+      // retour, le clic la choisissait puis quittait la page.
       if (e.target.closest && e.target.closest('.bt-voie-liens a[href]')) return;
       // Une carte se choisit d'un clic n'importe où sur elle, comme son bouton (le texte reste sélectionnable au clavier).
       var carte = e.target.closest && e.target.closest('.bt-voie-choix');

@@ -162,7 +162,7 @@ describe('le tunnel du numéro WhatsApp', () => {
     // Un lien de la carte s'ouvre dans un autre onglet sans la choisir (jaune 1) : le clic ne vaut pas choix.
     expect(lire('site.js')).toContain("closest('.bt-voie-liens a[href]')");
     for (const adresse of [DEMARRER.fr, DEMARRER.en]) {
-      expect(lire(fichierDe(adresse)), adresse).toMatch(/<p class="bt-voie-liens"><a href="[^"]+" target="_blank" rel="noopener">/);
+      expect(lire(fichierDe(adresse)), adresse).toMatch(/<p class="bt-voie-liens">(<span class="bt-info">)?<a href="[^"]+" target="_blank" rel="noopener"/);
     }
   });
 

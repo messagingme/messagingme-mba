@@ -124,7 +124,11 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
       '                  </ul>',
     ] : []),
     ...(v.note ? [`                  <p class="bt-voie-note">${v.note.replace('{claude}', assistant('claude')).replace('{codex}', assistant('codex'))}</p>`] : []),
-    ...(v.liens ? [`                  <p class="bt-voie-liens">${v.liens.map((l) => `<a href="${l.href}" target="_blank" rel="noopener">${l.libelle}</a>`).join('')}</p>`] : []),
+    // Un lien à bulle (2026-11-13) : sa réponse s'ouvre sur place (survol, ou clic qui ne quitte pas le tunnel, `site.js`),
+    // et la page reste à un clic, dans la bulle.
+    ...(v.liens ? [`                  <p class="bt-voie-liens">${v.liens.map((l) => (l.bulle
+      ? `<span class="bt-info"><a href="${l.href}" target="_blank" rel="noopener" aria-expanded="false">${l.libelle}</a><span class="bt-bulle" role="tooltip">${l.bulle} <a href="${l.href}" target="_blank" rel="noopener">${n.lireFiche}</a></span></span>`
+      : `<a href="${l.href}" target="_blank" rel="noopener">${l.libelle}</a>`)).join('')}</p>`] : []),
     ...Object.entries(r.grisee ?? {}).map(([offre, raison]) => `                  <p class="bt-grisee" data-pour="${offre}">${raison}</p>`),
     '                </section>',
   ];
