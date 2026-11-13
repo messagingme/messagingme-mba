@@ -385,11 +385,13 @@
     if (!questions || !recommencer || !premiere) return;
     var parcours = [premiere];
     // Le tunnel : « Question n », sa jauge sur le plus long parcours (`data-max`, calculé depuis l'arbre), l'issue en
-    // dernière étape ; puis « Votre chemin » et la jauge pleine.
+    // dernière étape ; au bout, la jauge disparaît.
     var avancer = function (fin) {
       if (!progression) return;
+      // Au bout des questions, plus de jauge (Julien, 2026-11-13) : l'issue se lit seule.
+      progression.hidden = Boolean(fin);
+      if (fin) return;
       var max = Number(progression.getAttribute('data-max')) || 1;
-      progression.hidden = false;
       progression.querySelector('[data-etape]').textContent = fin
         ? progression.getAttribute('data-fin')
         : progression.getAttribute('data-progression').replace('{n}', String(parcours.length));
