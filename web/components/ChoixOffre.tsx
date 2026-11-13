@@ -74,7 +74,7 @@ export function ChoixOffre({ tenantId, vue, surFree }: { tenantId: string; vue: 
               )}
               <div className="text-sm font-semibold text-ink-900">{t(c.titre.fr, c.titre.en)}</div>
               <p className="mt-1 text-2xl font-bold text-ink-900">{t(c.prix.fr, c.prix.en)}</p>
-              <p className="text-xs text-ink-500">{t(c.unite.fr, c.unite.en)}</p>
+              {c.unite && <p className="text-xs text-ink-500">{t(c.unite.fr, c.unite.en)}</p>}
               {c.note && <p className="mt-3 border-t border-ink-100 pt-2 text-xs text-ink-700">{t(c.note.fr, c.note.en)}</p>}
               <ul className="mt-2 space-y-1 text-sm text-ink-700">
                 {c.plus.map((p) => (

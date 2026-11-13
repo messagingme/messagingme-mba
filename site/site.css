@@ -948,7 +948,18 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 [data-question="offre"] .bt-ide,.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-ide{color:#0B0E24}
 .bt-question.repondue .bt-voie-note{justify-content:center}
 [data-question="offre"] .bt-badge,.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-badge{background:#E6F8EE;color:#0E7A3C}
-[data-question="offre"] .bt-badge{margin:12px 0 0}
+[data-question="offre"] .bt-badge{margin:12px 0 0;text-align:center;white-space:nowrap}
+@media (max-width:520px){
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-tarif{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px}
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-tarif strong{display:inline;font-size:1.55rem}
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-tarif span{display:inline;margin:0;font-size:.64rem;white-space:nowrap}
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-voie{padding:14px 12px}
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-badge{display:block;padding:3px 6px;font-size:.66rem}
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-voie-note{margin-top:10px;padding-top:8px;gap:4px;font-size:.64rem}
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-ide{gap:3px}
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-ide .bt-assist{width:16px;height:16px;border-radius:4px}
+  [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-ide .bt-assist svg{width:10px;height:10px}
+}
 [data-question="offre"] .bt-voie-choix:hover .bt-voie{border-color:#fff;box-shadow:0 22px 50px -26px rgb(0 0 0 / .8)}
 .bt-question.repondue .bt-reponses [aria-pressed="true"]{box-shadow:0 18px 40px -24px rgb(0 0 0 / .75)}
 @media (prefers-reduced-motion:no-preference){

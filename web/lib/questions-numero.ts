@@ -30,7 +30,7 @@ export type FormuleChoisie = 'free' | 'pro' | 'business' | 'entreprise';
 export const CARTES_OFFRE: ReadonlyArray<{
   readonly offre: FormuleChoisie; readonly libelle: Texte; readonly titre: Texte; readonly badge?: Texte;
   /** Le prix en grand, son unité dessous, et une ligne au pied (Free : ce qu'il faut pour s'en servir), 2026-11-13. */
-  readonly prix: Texte; readonly unite: Texte; readonly note?: Texte;
+  readonly prix: Texte; readonly unite?: Texte; readonly note?: Texte;
   readonly plus: readonly Texte[]; readonly moins: readonly Texte[];
 }> = [
   {
@@ -52,7 +52,7 @@ export const CARTES_OFFRE: ReadonlyArray<{
   },
   {
     offre: 'entreprise', libelle: { fr: 'Entreprise', en: 'Enterprise' }, titre: { fr: 'Entreprise', en: 'Enterprise' },
-    prix: { fr: 'Sur devis', en: 'On quote' }, unite: { fr: 'selon votre volume', en: 'based on your volume' },
+    prix: { fr: 'Sur devis', en: 'On quote' },
     plus: [], moins: [],
   },
 ];

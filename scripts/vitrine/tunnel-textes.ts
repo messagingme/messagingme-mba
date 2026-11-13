@@ -220,7 +220,7 @@ const fr = (): TexteTunnel => {
     { titre: 'Free', prix: '0&nbsp;€', unite: 'sans limite de durée', note: 'Besoin d’un IDE ou de {claude} / {codex}', plus: [], moins: [] },
     { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
     { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
-    { titre: 'Entreprise', prix: 'Sur devis', unite: 'selon votre volume', plus: [], moins: [] },
+    { titre: 'Entreprise', prix: 'Sur devis', plus: [], moins: [] },
   ];
   const garder = 'Pas de compte Meta Business ? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement.';
   // Qui paie Meta, juste après l'offre (révision du Crédit WhatsApp, lot B, textes validés par Julien le 2026-11-06).
@@ -510,7 +510,7 @@ const en = (): TexteTunnel => {
     { titre: 'Free', prix: '€0', unite: 'with no time limit', note: 'Needs an IDE or {claude} / {codex}', plus: [], moins: [] },
     { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}-day free trial`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
     { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
-    { titre: 'Enterprise', prix: 'On quote', unite: 'based on your volume', plus: [], moins: [] },
+    { titre: 'Enterprise', prix: 'On quote', plus: [], moins: [] },
   ];
   const garder = 'No Meta Business account? Meta’s window creates it along the way, with your Facebook profile, then offers a payment method.';
   const paiement: readonly Voie[] = [
