@@ -1,7 +1,7 @@
 ---
 description: The credit line, with no card at Meta: take the option, connect your number without a card, then top up the line that pays your messages.
 slug: pay-for-your-messages-without-a-card-at-meta
-traduit_de: 7a243c
+traduit_de: 0a9eee
 ---
 # Pay for your messages without a card at Meta
 
@@ -17,6 +17,9 @@ workspace's administrators only.
 **1. Take the option.** In **Settings > Plan**, **Credit line** tab, choose how many numbers, then “Take the option”:
 Stripe’s payment page opens. The option is paid when taken, even during the Pro plan trial. The “Credit line” card of
 the “Connect WhatsApp” page offers it too.
+
+From Claude Code or Codex, tell it “I want my messages paid by the credit line”: it gives you the option’s payment
+page, then the connection link once the option is paid.
 
 **2. Connect your number without a card.** On the “Connect WhatsApp” page, the “Credit line” card asks “Your number, or
 ours?”. Your number: “I’ll use an existing number”, then “Connect my number”. Ours: “I need a number”, “Get my number”,

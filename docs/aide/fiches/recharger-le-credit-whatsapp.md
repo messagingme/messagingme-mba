@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Ligne de crédit (menu « Paramètres » > Offre, onglet Ligne de crédit)
-source_empreinte: 13e089
+source_empreinte: 2644c9
 ---
 # Recharger la ligne de crédit
 

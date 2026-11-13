@@ -4,6 +4,20 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-13 : la ligne de crédit se prend depuis Claude Code ou Codex
+
+Julien, devant `/demarrer/` : en formule Pro et « Claude Code ou Codex », la carte « Ligne de crédit » était grisée et
+renvoyait à la console, alors que tout le reste du parcours se fait dans Claude. Aucune décision ne l'interdisait : la
+carte datait du lot 3v-2, quand la prise n'existait que dans la console. Design et plan :
+`docs/superpowers/specs/2026-11-13-ligne-de-credit-depuis-claude-design.md` et `docs/superpowers/plans/2026-11-13-ligne-de-credit-depuis-claude.md`.
+
+- L'outil `take_credit_line` (la prise de l'onglet, origine `claude`) et le texte de « Paiement reçu » pour l'option.
+- Claude dit l'ordre : formule Pro, option, puis le lien de connexion, jamais l'inverse (plugin 0.3.42).
+- Le guide : « Ligne de crédit » grisée en Free, choisie en Pro, puis « Quel numéro ? » (le sien ou le nôtre). Une réponse
+  peut désormais être grisée pour une formule seulement (`data-pour` / `data-sauf`) ; la garde de `site.js` qui empêche
+  de choisir la carte en Free a été vérifiée dans les deux sens dans un navigateur.
+- Corrigé en écrivant le plan : le retour de Stripe devait être la page publique, pas l'onglet de la console (la
+  personne de Claude n'a pas forcément de session).
 ## 2026-11-13 : ce que dit Claude d'un numéro connecté avec sa carte, et la marque posée avant la pose
 
 - **Le constat** (reste du lot « numéro avec carte », `bd5e5222`) : `watch_whatsapp_connection` disait encore

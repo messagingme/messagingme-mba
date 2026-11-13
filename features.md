@@ -4724,6 +4724,11 @@ en formule Pro ou Business, où l'option se prend (depuis l'ouverture de la vent
 un numéro est payé ainsi ; jamais en Free. Écran réservé aux admins. Un numéro y passe par sa ligne,
 posée après sa connexion par la fenêtre du partenaire (l'option prise, ou en Entreprise).
 
+- ✅ **Prise depuis Claude Code ou Codex** (2026-11-13) : en formule Pro, Claude ouvre le paiement de l'option
+  (`take_credit_line`, la page de Stripe, retour sur « Paiement reçu »), AVANT de donner le lien de connexion, qui
+  s'ouvre alors sans carte chez Meta. Rappelé quand l'option existe, l'outil dit si elle est payée, sans second paiement.
+  Le guide « Démarrer » de la vitrine y mène : formule Pro, « Claude Code ou Codex », « Ligne de crédit », puis le numéro.
+
 - ✅ **En Entreprise, illimitée** (décision du 2026-11-02) : ni solde, ni achat, ni arrêt à zéro. L'onglet affiche
   « Illimitée » et ce qu'ont coûté les messages du mois, facturés selon le contrat ; le solde ne bouge pas, et un espace
   qui quitte l'Entreprise retrouve celui d'avant, sans dette. Rien à régler dans `/ops` : toute Entreprise l'est, et

@@ -2,7 +2,7 @@
 description: La ligne de crédit, sans carte chez Meta : prendre l'option, connecter votre numéro sans carte, puis recharger la ligne qui paie vos messages.
 ecran: offre
 source_section: Ligne de crédit (menu « Paramètres » > Offre, onglet Ligne de crédit)
-source_empreinte: 13e089
+source_empreinte: 2644c9
 publique: oui
 rubrique: demarrer-console
 rang: 4
@@ -24,6 +24,9 @@ réservé aux administrateurs de l'espace.
 **1. Prendre l'option.** Dans **Paramètres > Offre**, onglet **Ligne de crédit**, choisissez le nombre de numéros, puis
 « Prendre l'option » : la page de paiement de Stripe s'ouvre. L'option se paie dès sa prise, même pendant l'essai de la
 formule Pro. La carte « Ligne de crédit » de la page « Connecter WhatsApp » la propose aussi.
+
+Depuis Claude Code ou Codex, dites-lui « je veux payer mes messages par la ligne de crédit » : il vous donne la page de
+paiement de l'option, puis le lien de connexion une fois l'option payée.
 
 **2. Connecter votre numéro sans carte.** Sur la page « Connecter WhatsApp », la carte « Ligne de crédit » demande
 « Votre numéro, ou le nôtre ? ». Votre numéro : « J'utilise un numéro existant », puis « Connecter mon numéro ». Le

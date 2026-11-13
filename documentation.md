@@ -4379,6 +4379,11 @@ l'activer, et d'ouvrir une recharge du crédit.
   `webhooks:write`, ni `contacts:admin`, pour qu'une consigne glissée dans un message lu par Claude ne fabrique pas une clé
   qui exfiltre ou efface et survit à la révocation de Claude. Le portail d'un espace déjà Pro est rendu sans montant. Ouverts à toutes les offres (`fonction: null`) : c'est la Free qui
   en a besoin.
+- **`take_credit_line` prend l'option ligne de crédit par la MÊME prise que l'onglet** (`ouvrirOption`, origine `claude`,
+  retour sur `/paiement-recu?produit=option_credit_whatsapp`) : tous ses refus remontent avec leur code, `numero_avec_carte`
+  compris. Une option déjà vivante rend `deja_prise` et son `statut` sans ouvrir de session : c'est ainsi que Claude sait
+  qu'elle est payée. 🔴 L'option se prend AVANT le lien de connexion (sa description, celle de
+  `start_whatsapp_connection` et la skill `mise-en-service` le disent) : un numéro connecté d'abord reste à sa carte.
 - 🔴 **La marche arrière : ce qu'une offre permet de commencer, elle permet de le finir** (plan
   `docs/superpowers/plans/2026-10-22-mcp-marche-arriere.md`). La Free n'a plus de console : chaque geste qu'un outil
   laissait « à la console » y devient un outil, sur la fonction du bouton : `control_conversation` (`reprendreLaMain`,
