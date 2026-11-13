@@ -1,5 +1,21 @@
 # todo.md : backlog
 
+## 🟡 La ligne de crédit prise depuis Claude (relecture du 2026-11-13, aucun rouge)
+
+- La skill fait payer l'option (question 2) AVANT de savoir si le numéro garde l'application (question 4) : un client qui
+  choisit ensuite `coexistence` a une option à 30 € HT par mois qui ne paie pas son numéro. Demander « gardez-vous
+  l'application ? » avant `take_credit_line`, ou refuser la ligne sur ce chemin (`plugin/skills/mise-en-service/SKILL.md`).
+- « Rappelez `take_credit_line` une fois payé » : appelé quelques secondes après le paiement, avant le webhook,
+  `vivante()` rend `null` et un SECOND Checkout payable sort (le premier, terminé, n'est plus expiré ; l'index unique ne
+  joue qu'au webhook, après le débit). Dire d'attendre puis de relire, et ne jamais redonner un lien juste après un
+  paiement annoncé. Même risque dans la console, pas nouveau (`src/mcp/outils-offre.ts`).
+- `deja_prise` ne dit pas qu'un nombre de numéros demandé différent n'a pas été appliqué (le changement passe par la
+  console, `changerPlaces`).
+- Le lien de connexion avant l'option payée n'est empêché que par le texte : `start_whatsapp_connection` ne lit pas
+  l'option. Cohérent avec la décision du lot.
+- L'essai réel du lot (Pro, option payée pour de vrai, numéro de chez nous par la fenêtre, ligne posée seule, recharge),
+  à inscrire dans `docs/prive/ESSAIS-REELS.md`.
+
 ## 🟡 La page du numéro fourni (relecture du 2026-11-13)
 
 - Les pages anglaises montrent les captures françaises (Claude, console, Meta) : le dire, ou des captures anglaises.
