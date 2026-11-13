@@ -100,10 +100,18 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
   const progression = n.progression.replace('{max}', String(max));
   // Une réponse grisée (le Crédit WhatsApp, qui se prend dans la console) : un bouton qui ne se choisit pas, et sa carte
   // dit pourquoi ou où.
-  const bouton = (q: Question, r: Reponse, k: number) => (r.grisee
+  // Grisée pour certaines formules seulement (la ligne de crédit : grisée en Free, choisie en Pro depuis Claude, plan
+  // 2026-11-13) : le bouton grisé pour ces formules (`data-pour`), le bouton qui mène ailleurs pour les autres (`data-sauf`),
+  // la règle de `site.css` n'en montrant qu'un selon la formule choisie plus haut.
+  const actif = (q: Question, r: Reponse, k: number, sauf = '') =>
+    `<button type="button" class="bouton bouton-trait" data-vers="${r.vers}"${sauf}${r.offre ? ` data-offre="${r.offre}"` : ''}${r.note ? ` data-note="note-${q.id}-${k}"` : ''} aria-pressed="false">${r.libelle}</button>`;
+  const bouton = (q: Question, r: Reponse, k: number) => (r.grisee && r.vers
+    ? Object.keys(r.grisee).map((o) => `<button type="button" class="bouton bouton-trait" data-pour="${o}" disabled>${r.libelle}</button>`).join('')
+      + actif(q, r, k, ` data-sauf="${Object.keys(r.grisee).join(' ')}"`)
+    : r.grisee
     ? `<button type="button" class="bouton bouton-trait" disabled>${r.libelle}</button>`
     : r.vers
-    ? `<button type="button" class="bouton bouton-trait" data-vers="${r.vers}"${r.offre ? ` data-offre="${r.offre}"` : ''}${r.note ? ` data-note="note-${q.id}-${k}"` : ''} aria-pressed="false">${r.libelle}</button>`
+    ? actif(q, r, k)
     : `<button type="button" class="bouton bouton-texte" data-aide aria-expanded="false">${r.libelle}</button>`);
   const ligne = (classe: string, icone: string, sr: string) => (x: string) =>
     `                    <li class="${classe}"><svg class="ic" aria-hidden="true"><use href="#${icone}"/></svg><span class="bt-sr">${sr} </span>${x}</li>`;
@@ -145,7 +153,7 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
     return [
       `            <div class="bt-voies" id="voies-${q.id}">`,
       ...q.voies.flatMap((v, i) => [
-        `              <div class="bt-voie-choix${menent[i]!.r.grisee ? ' bt-voie-grisee' : ''}">`, ...voie(v, menent[i]!.r), `                ${bouton(q, menent[i]!.r, menent[i]!.k)}`, '              </div>',
+        `              <div class="bt-voie-choix${menent[i]!.r.grisee && !menent[i]!.r.vers ? ' bt-voie-grisee' : ''}">`, ...voie(v, menent[i]!.r), `                ${bouton(q, menent[i]!.r, menent[i]!.k)}`, '              </div>',
       ]),
       '            </div>',
       ...(autres.length > 0 ? [`            <div class="bt-reponses">${autres.map(({ r, k }) => bouton(q, r, k)).join('')}</div>`] : []),

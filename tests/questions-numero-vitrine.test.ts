@@ -49,7 +49,7 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       });
     });
 
-    it(`${langue} : « Qui paie vos messages à Meta ? » juste après l’offre ; la carte chez Meta mène à l’arbre, le Crédit WhatsApp à la console`, () => {
+    it(`${langue} : « Qui paie vos messages à Meta ? » juste après l’offre ; la carte chez Meta mène à l’arbre, la ligne de crédit au numéro`, () => {
       // Révision du Crédit WhatsApp, lot B (Julien, 2026-11-06) : Free y mène ; Pro aussi, par « Claude Code ou Codex » de
       // la question du pilotage (lot 3c) ; Business et Entreprise, comme avant, à l'échange.
       const offre = question('offre');
@@ -66,12 +66,12 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       // Les deux liens de la carte chez Meta (lot 3a) : les mêmes mots, les mêmes fiches (la console les vise sur la vitrine).
       expect(q.voies![0]!.liens?.map((l) => ({ libelle: texte(l.libelle), href: l.href })))
         .toEqual(QUESTION_PAIEMENT.carte.liens.map((l) => ({ libelle: l.libelle[langue], href: l.href[langue].replace(VITRINE_AIDE, '') })));
-      // Le Crédit WhatsApp ne se prend pas sur la vitrine : en Free, il vient avec la formule Pro (les mots de la console) ;
-      // en Pro, depuis l'ouverture de la vente (lot 3v-2), la réponse mène à l'onglet de la console, plus à « écrivez-nous ».
+      // La ligne de crédit : en Free, elle vient avec la formule Pro (les mots de la console) ; en Pro, depuis Claude, elle
+      // mène au numéro, et Claude fait prendre l'option avant le lien (plan 2026-11-13), plus à l'onglet de la console.
       const g = q.reponses[1]!.grisee!;
       expect(texte(g.free!)).toBe(QUESTION_PAIEMENT.grisee.free[langue]);
-      expect(g.pro).toContain(`href="${OFFRE_CREDIT_WHATSAPP[langue]}"`);
-      expect(g.pro).not.toMatch(/contact\//);
+      expect(g.pro).toBeUndefined();
+      expect(q.reponses[1]!.vers).toBe('numero-ligne');
     });
 
     it(`${langue} : la voie qui garde l’application dit qu’on y paie Meta avec sa carte, et elle seule`, () => {

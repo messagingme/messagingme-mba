@@ -80,9 +80,10 @@ describe('le tunnel du numéro WhatsApp', () => {
         // Une seule réponse sans destination, et seulement si la question a une aide à déplier ; une réponse grisée n'en
         // a pas encore, et dit pourquoi pour chaque formule qui mène à sa question (Free et Pro).
         expect(q.reponses.filter((r) => !r.vers && !r.grisee).length, `${langue} : ${id}`).toBeLessThanOrEqual(q.aide ? 1 : 0);
+        // Grisée pour toutes les formules qui y mènent (Free et Pro), ou pour la Free seulement quand elle mène ailleurs
+        // en Pro (la ligne de crédit depuis Claude, plan 2026-11-13).
         for (const r of q.reponses.filter((x) => x.grisee)) {
-          expect(r.vers, `${langue} : ${id}`).toBeUndefined();
-          expect(Object.keys(r.grisee!).sort(), `${langue} : ${id}`).toEqual(['free', 'pro']);
+          expect(Object.keys(r.grisee!).sort(), `${langue} : ${id}`).toEqual(r.vers ? ['free'] : ['free', 'pro']);
         }
         for (const r of q.reponses) if (r.vers) parcourir(r.vers, [...chemin, id]);
       };
@@ -100,16 +101,18 @@ describe('le tunnel du numéro WhatsApp', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { questions } = TEXTES_TUNNEL[langue];
       const q = (id: string) => questions.find((x) => x.id === id)!;
-      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'pilote', 'paiement', 'compte', 'application', 'meme-numero', 'numero']);
+      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'pilote', 'paiement', 'numero-ligne', 'compte', 'application', 'meme-numero', 'numero']);
       // Free mène à « Qui paie vos messages à Meta ? » ; Pro d'abord à « Console ou Claude Code ? » (lot 3c), dont la
       // console finit sur son issue et Claude Code rejoint la même question. Business et Entreprise mènent à la démo et au
       // contact, jamais aux questions du numéro (Julien, 2026-10-30).
       expect(q('offre').reponses.filter((r) => r.vers).map((r) => `${r.offre}>${r.vers}`), langue)
         .toEqual(['free>paiement', 'pro>pilote', 'business>echange', 'entreprise>echange']);
       expect(q('pilote').reponses.map((r) => r.vers), langue).toEqual(['console', 'paiement']);
-      // Qui paie Meta (2026-11-06) : la carte chez Meta mène au compte Meta Business ; le Crédit WhatsApp ne mène nulle
-      // part dans le tunnel, sa réponse dit qu'il se prend dans la console (lot 3v-2).
-      expect(q('paiement').reponses.map((r) => r.vers ?? (r.grisee ? 'grisee' : '?')), langue).toEqual(['compte', 'grisee']);
+      // Qui paie Meta (2026-11-06) : la carte chez Meta mène au compte Meta Business ; la ligne de crédit, grisée en Free,
+      // mène en Pro au numéro (plan 2026-11-13) : le sien ou le nôtre, chacun à son issue.
+      expect(q('paiement').reponses.map((r) => r.vers), langue).toEqual(['compte', 'numero-ligne']);
+      expect(q('paiement').reponses[1]!.grisee, langue).toEqual({ free: expect.any(String) });
+      expect(q('numero-ligne').reponses.map((r) => r.vers), langue).toEqual(['ligne-mien', 'ligne-fourni']);
       // Oui : le numéro API ; Non et « Je ne sais pas » : l'application, et « Je ne sais pas » dit où vérifier.
       expect(q('compte').reponses.map((r) => r.vers), langue).toEqual(['api', 'application', 'application']);
       expect(q('compte').reponses[2]!.note, langue).toContain('business.facebook.com');
@@ -327,6 +330,16 @@ describe('le tunnel du numéro WhatsApp', () => {
         cartes.forEach((c, i) => {
           const r = menent[i]!;
           const ou = `${p.adresse}, ${q.id}, carte ${i + 1}`;
+          if (r.grisee && r.vers) {
+            // Grisée pour certaines formules : leur bouton grisé, la raison, et le bouton qui mène ailleurs pour les autres.
+            expect(c, ou).toMatch(/^">/);
+            for (const offre of Object.keys(r.grisee)) {
+              expect(c, ou).toContain(`<button type="button" class="bouton bouton-trait" data-pour="${offre}" disabled>`);
+              expect(c, ou).toContain(`<p class="bt-grisee" data-pour="${offre}">`);
+            }
+            expect(c, ou).toContain(`data-vers="${r.vers}" data-sauf="${Object.keys(r.grisee).join(' ')}"`);
+            return;
+          }
           if (r.grisee) {
             // Grisée : un bouton qui ne se choisit pas, et la raison de chaque formule dans la carte.
             expect(c, ou).toMatch(/^ bt-voie-grisee">/);
@@ -342,6 +355,9 @@ describe('le tunnel du numéro WhatsApp', () => {
     // La raison d'une carte grisée ne s'affiche que pour la formule choisie, et la carte ne se choisit pas.
     expect(lire('site.css')).toContain('.js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}');
     expect(lire('site.js')).toContain("carte && carte.querySelector('[data-vers]')");
+    // Une réponse grisée pour la formule choisie seulement : un seul de ses deux boutons se voit, et sa carte ne se choisit pas.
+    expect(lire('site.css')).toContain('.js .bt-guide:not([data-offre="free"]) button[data-pour="free"],.js .bt-guide[data-offre="free"] button[data-sauf~="free"]{display:none}');
+    expect(lire('site.js')).toContain("b.getAttribute('data-sauf')");
     // La formule choisie ne laisse dans une issue que son titre et sa demande : la règle qui masque l'autre offre, que le
     // bloc d'étapes unique suppose (jaune 7 des lots 3b et 3c).
     expect(lire('site.css')).toContain('.js .bt-guide[data-offre="free"] .bt-chemin [data-offre="pro"],.js .bt-guide[data-offre="pro"] .bt-chemin [data-offre="free"]{display:none}');

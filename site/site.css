@@ -982,6 +982,9 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 /* L'essai du Pro, en tête de sa carte (lot 3b) : visible avant le titre. */
 .bt-badge{display:inline-block;margin:0 0 8px;padding:3px 11px;border-radius:999px;background:rgb(37 211 102 / .16);color:#5BE38F;font-size:.8rem;font-weight:700}
 .js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}
+/* Une réponse grisée pour une formule seulement (la ligne de crédit, plan 2026-11-13) : son bouton grisé pour cette formule,
+   son bouton actif pour les autres. Sans formule choisie (le guide du centre d'aide), le bouton actif. */
+.js .bt-guide:not([data-offre="free"]) button[data-pour="free"],.js .bt-guide[data-offre="free"] button[data-sauf~="free"]{display:none}
 /* Le guide du centre d'aide (lot 4a) ne pose pas la question de l'offre : chaque raison se lit. */
 .js .bt-guide[data-mode="guide"] .bt-grisee[data-pour]{display:block}
 /* Avec le script, le tunnel se lit au milieu, le long du fil (2026-11-13). */

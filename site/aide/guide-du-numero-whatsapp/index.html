@@ -311,18 +311,21 @@
                 </section>
                 <button type="button" class="bouton bouton-trait" data-vers="compte" aria-pressed="false">Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business</button>
               </div>
-              <div class="bt-voie-choix bt-voie-grisee">
+              <div class="bt-voie-choix">
                 <section class="bt-voie">
                   <h4>Ligne de crédit</h4>
                   <ul>
                     <li class="bt-plus"><svg class="ic" aria-hidden="true"><use href="#i-check"/></svg><span class="bt-sr">Pour&nbsp;: </span>Vous prépayez vos messages chez Messaging Me, sans carte chez Meta&nbsp;: 30&nbsp;€ HT par numéro et par mois, avec la formule Pro ou Business.</li>
                   </ul>
                   <p class="bt-grisee" data-pour="free">Avec la formule Pro.</p>
-                  <p class="bt-grisee" data-pour="pro">Dans la console, une fois votre espace créé en formule Pro&nbsp;: <a href="https://console.messagingme.app/offre?tab=whatsapp">Offre, onglet Ligne de crédit</a>&nbsp;; l’option se paie dès sa prise, même pendant l’essai.</p>
                 </section>
-                <button type="button" class="bouton bouton-trait" disabled>Ligne de crédit</button>
+                <button type="button" class="bouton bouton-trait" data-pour="free" disabled>Ligne de crédit</button><button type="button" class="bouton bouton-trait" data-vers="numero-ligne" data-sauf="free" aria-pressed="false">Ligne de crédit</button>
               </div>
             </div>
+          </fieldset>
+          <fieldset class="bt-question" data-question="numero-ligne" hidden>
+            <legend>Quel numéro&nbsp;?<span class="bt-precision">Avec la ligne de crédit, votre numéro quitte l’application WhatsApp Business.</span></legend>
+            <div class="bt-reponses"><button type="button" class="bouton bouton-trait" data-vers="ligne-mien" aria-pressed="false">Un numéro à moi</button><button type="button" class="bouton bouton-trait" data-vers="ligne-fourni" aria-pressed="false">Un numéro de chez vous</button></div>
           </fieldset>
           <fieldset class="bt-question" data-question="compte" hidden>
             <legend class="bt-avec-logo"><img class="bt-logo" src="/img/logos/meta.png" alt="" width="40" height="40">Avez-vous un compte Meta Business&nbsp;?<span class="bt-precision">L’ancien Business Manager&nbsp;: le compte de votre entreprise chez Meta.</span></legend>
@@ -404,6 +407,36 @@
             <div data-voie="claude">
             <p class="bt-appels-titre bt-guide-claude">Depuis Claude Code ou Codex, dites-lui&nbsp;:</p>
             <div class="bt-demande"><p id="demande-fourni-guide">Connecte mon numéro WhatsApp à Messaging Me. Je n’ai ni l’application WhatsApp Business ni numéro&nbsp;: fournis-m’en un, relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.</p><button type="button" class="bouton bouton-trait" data-copier="demande-fourni-guide" data-copie="Copié" hidden>Copier</button></div>
+            </div>
+          </div>
+        </article>
+        <article class="bt-chemin" data-chemin="ligne-mien" id="numero-ligne-mien">
+          <p class="bt-situation">Avec la ligne de crédit, votre numéro</p>
+          <h3 tabindex="-1">Votre numéro, payé par la ligne de crédit</h3>
+          <p>Claude ouvre d’abord le paiement de l’option, 30&nbsp;€ HT par numéro et par mois, payée dès sa prise, même pendant l’essai de la formule Pro. Une fois l’option payée, il vous donne le lien&nbsp;: la fenêtre de Meta relie votre numéro sans demander de moyen de paiement.</p>
+          <p>Votre numéro, avec le téléphone qui le porte, où Meta envoie un code. S’il sert dans l’application WhatsApp Business, il la quitte&nbsp;: vos clients vous écrivent dans Messaging Me.</p>
+          <p>Votre numéro est déjà connecté avec votre carte chez Meta&nbsp;? La ligne de crédit ne peut pas le prendre en charge&nbsp;: écrivez au Support.</p>
+          <p>Son solde part de zéro&nbsp;: rechargez votre ligne de crédit avant vos premiers modèles, Claude vous en donne le lien.</p>
+          <div class="bt-appels">
+            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="/aide/payer-ses-messages-sans-carte-chez-meta/">Le pas-à-pas</a><a class="bouton bouton-trait" data-voie="console" href="https://console.messagingme.app/connecter-whatsapp">Connecter mon numéro dans la console</a></div>
+            <div data-voie="claude">
+            <p class="bt-appels-titre bt-guide-claude">Depuis Claude Code ou Codex, dites-lui&nbsp;:</p>
+            <div class="bt-demande"><p id="demande-ligne-mien-guide">Connecte mon numéro WhatsApp à Messaging Me. Je veux payer mes messages par la ligne de crédit&nbsp;: ouvre-moi l’option, puis relie mon numéro par Meta en numéro API, sans carte chez Meta.</p><button type="button" class="bouton bouton-trait" data-copier="demande-ligne-mien-guide" data-copie="Copié" hidden>Copier</button></div>
+            </div>
+          </div>
+        </article>
+        <article class="bt-chemin" data-chemin="ligne-fourni" id="numero-ligne-fourni">
+          <p class="bt-situation">Avec la ligne de crédit, un numéro de chez nous</p>
+          <h3 tabindex="-1">Un numéro de chez nous, payé par la ligne de crédit</h3>
+          <p>Claude ouvre d’abord le paiement de l’option, 30&nbsp;€ HT par numéro et par mois, payée dès sa prise, même pendant l’essai de la formule Pro. Une fois l’option payée, il vous donne le lien&nbsp;: la fenêtre de Meta relie votre numéro sans demander de moyen de paiement.</p>
+          <p>Nous vous fournissons un numéro, inclus en formule Pro&nbsp;: la fenêtre de Meta le relie à l’API officielle de WhatsApp.</p>
+          <p>Pour recevoir le code, choisissez «&nbsp;Phone call&nbsp;» (l’appel), surtout pas «&nbsp;Text message&nbsp;». Le code s’affiche sur la page en quelques secondes&nbsp;: saisissez-le dans la fenêtre de Meta.</p>
+          <p>Son solde part de zéro&nbsp;: rechargez votre ligne de crédit avant vos premiers modèles, Claude vous en donne le lien.</p>
+          <div class="bt-appels">
+            <div class="bt-appels-boutons"><a class="bouton bouton-plein" href="/aide/payer-ses-messages-sans-carte-chez-meta/">Le pas-à-pas</a><a class="bouton bouton-trait" data-voie="console" href="https://console.messagingme.app/connecter-whatsapp">Connecter mon numéro dans la console</a></div>
+            <div data-voie="claude">
+            <p class="bt-appels-titre bt-guide-claude">Depuis Claude Code ou Codex, dites-lui&nbsp;:</p>
+            <div class="bt-demande"><p id="demande-ligne-fourni-guide">Connecte mon numéro WhatsApp à Messaging Me. Je veux payer mes messages par la ligne de crédit&nbsp;: ouvre-moi l’option, puis fournis-moi un numéro, relié par Meta en numéro API, sans carte chez Meta.</p><button type="button" class="bouton bouton-trait" data-copier="demande-ligne-fourni-guide" data-copie="Copié" hidden>Copier</button></div>
             </div>
           </div>
         </article>

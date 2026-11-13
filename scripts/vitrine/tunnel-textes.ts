@@ -48,6 +48,14 @@ const codeParLAppel = (langue: Langue): string => {
 /** Le numéro fourni, en centimes HT par mois : la valeur de `PRIX_NUMERO_HT_CENTIMES`, gardée égale par le test. */
 export const PRIX_NUMERO_AFFICHE_HT_CENTIMES = 350;
 
+/** La ligne de crédit depuis Claude (plan 2026-11-13) : l'option payée d'abord, le lien ensuite. */
+const ligneDAbord = (langue: Langue): string => (langue === 'fr'
+  ? `Claude ouvre d’abord le paiement de l’option, ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'fr')} HT par numéro et par mois, payée dès sa prise, même pendant l’essai de la formule Pro. Une fois l’option payée, il vous donne le lien : la fenêtre de Meta relie votre numéro sans demander de moyen de paiement.`
+  : `Claude first opens the payment of the option, ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'en')} excl. VAT per number per month, paid when taken, even during the Pro plan trial. Once the option is paid, it gives you the link: Meta’s window connects your number without asking for a payment method.`);
+const ligneRecharge = (langue: Langue): string => (langue === 'fr'
+  ? 'Son solde part de zéro : rechargez votre ligne de crédit avant vos premiers modèles, Claude vous en donne le lien.'
+  : 'Its balance starts at zero: top up your credit line before your first templates, Claude gives you the link.');
+
 export const euros = (centimes: number, langue: Langue): string => {
   const entier = centimes % 100 === 0;
   const n = (centimes / 100).toFixed(entier ? 0 : 2);
@@ -301,8 +309,15 @@ const fr = (): TexteTunnel => {
         voies: paiement,
         reponses: [
           { libelle: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', vers: 'compte' },
-          { libelle: 'Ligne de crédit', grisee: { free: 'Avec la formule Pro.', pro: `Dans la console, une fois votre espace créé en formule Pro : <a href="${OFFRE_CREDIT_WHATSAPP.fr}">Offre, onglet Ligne de crédit</a> ; l’option se paie dès sa prise, même pendant l’essai.` } },
+          // Depuis Claude en formule Pro (plan 2026-11-13) : l'option se prend par Claude, avant le lien ; la Free la voit grisée.
+          { libelle: 'Ligne de crédit', vers: 'numero-ligne', grisee: { free: 'Avec la formule Pro.' } },
         ],
+      },
+      {
+        // La ligne de crédit choisie (Julien, 2026-11-13) : elle ne paie pas un numéro qui garde l'application, d'où la
+        // précision ; puis le numéro, le sien ou le nôtre, chacun relié par la fenêtre du partenaire, sans carte.
+        id: 'numero-ligne', texte: 'Quel numéro ?', precision: 'Avec la ligne de crédit, votre numéro quitte l’application WhatsApp Business.',
+        reponses: [{ libelle: 'Un numéro à moi', vers: 'ligne-mien' }, { libelle: 'Un numéro de chez vous', vers: 'ligne-fourni' }],
       },
       {
         id: 'compte', texte: 'Avez-vous un compte Meta Business ?', precision: 'L’ancien Business Manager : le compte de votre entreprise chez Meta.', logo: LOGO_META,
@@ -387,6 +402,19 @@ const fr = (): TexteTunnel => {
           pro: 'Je n’ai ni l’application WhatsApp Business ni numéro : fournis-m’en un (inclus en formule Pro), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.',
         },
         pasAPas: '/aide/numero-fourni-par-messaging-me/',
+      },
+      {
+        // La ligne de crédit depuis Claude (plan 2026-11-13) : l'option d'abord, puis le lien, sans carte chez Meta.
+        id: 'ligne-mien', situation: 'Avec la ligne de crédit, votre numéro', titre: 'Votre numéro, payé par la ligne de crédit',
+        textes: [ligneDAbord('fr'), 'Votre numéro, avec le téléphone qui le porte, où Meta envoie un code. S’il sert dans l’application WhatsApp Business, il la quitte : vos clients vous écrivent dans Messaging Me.', 'Votre numéro est déjà connecté avec votre carte chez Meta ? La ligne de crédit ne peut pas le prendre en charge : écrivez au Support.', ligneRecharge('fr')],
+        numero: memes('Je veux payer mes messages par la ligne de crédit : ouvre-moi l’option, puis relie mon numéro par Meta en numéro API, sans carte chez Meta.'),
+        pasAPas: '/aide/payer-ses-messages-sans-carte-chez-meta/',
+      },
+      {
+        id: 'ligne-fourni', situation: 'Avec la ligne de crédit, un numéro de chez nous', titre: 'Un numéro de chez nous, payé par la ligne de crédit',
+        textes: [ligneDAbord('fr'), 'Nous vous fournissons un numéro, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp.', codeParLAppel('fr'), ligneRecharge('fr')],
+        numero: memes('Je veux payer mes messages par la ligne de crédit : ouvre-moi l’option, puis fournis-moi un numéro (inclus en formule Pro), relié par Meta en numéro API, sans carte chez Meta.'),
+        pasAPas: '/aide/payer-ses-messages-sans-carte-chez-meta/',
       },
       {
         // Le Pro par la console (lot 3c) : la console pose elle-même les questions du numéro.
@@ -560,8 +588,12 @@ const en = (): TexteTunnel => {
         voies: paiement,
         reponses: [
           { libelle: 'I add a payment method (Visa / Mastercard) to my Meta Business account', vers: 'compte' },
-          { libelle: 'Credit line', grisee: { free: 'With the Pro plan.', pro: `In the console, once your workspace is created on the Pro plan: <a href="${OFFRE_CREDIT_WHATSAPP.en}">Plan, Credit line tab</a>; the option is paid when taken, even during the trial.` } },
+          { libelle: 'Credit line', vers: 'numero-ligne', grisee: { free: 'With the Pro plan.' } },
         ],
+      },
+      {
+        id: 'numero-ligne', texte: 'Which number?', precision: 'With the credit line, your number leaves the WhatsApp Business app.',
+        reponses: [{ libelle: 'A number of mine', vers: 'ligne-mien' }, { libelle: 'A number from you', vers: 'ligne-fourni' }],
       },
       {
         id: 'compte', texte: 'Do you have a Meta Business account?', precision: 'Formerly Business Manager: your business’s account at Meta.', logo: LOGO_META,
@@ -634,6 +666,18 @@ const en = (): TexteTunnel => {
           pro: 'I have neither the WhatsApp Business app nor a number: provide one (included in Pro), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.',
         },
         pasAPas: '/en/help/get-a-number-provided-by-messaging-me/',
+      },
+      {
+        id: 'ligne-mien', situation: 'With the credit line, your number', titre: 'Your number, paid by the credit line',
+        textes: [ligneDAbord('en'), 'Your number, with the phone that carries it, where Meta sends a code. If it is used in the WhatsApp Business app, it leaves it: your customers write to you in Messaging Me.', 'Your number is already connected with your card at Meta? The credit line cannot take it over: write to Support.', ligneRecharge('en')],
+        numero: memes('I want my messages paid by the credit line: open the option for me, then connect my number through Meta as an API number, with no card at Meta.'),
+        pasAPas: '/en/help/pay-for-your-messages-without-a-card-at-meta/',
+      },
+      {
+        id: 'ligne-fourni', situation: 'With the credit line, a number from us', titre: 'A number from us, paid by the credit line',
+        textes: [ligneDAbord('en'), 'We provide a number, included in Pro: Meta’s window connects it to the official WhatsApp API.', codeParLAppel('en'), ligneRecharge('en')],
+        numero: memes('I want my messages paid by the credit line: open the option for me, then provide a number (included in Pro), connected through Meta as an API number, with no card at Meta.'),
+        pasAPas: '/en/help/pay-for-your-messages-without-a-card-at-meta/',
       },
       {
         id: 'console', situation: 'With the Pro plan, from the console', titre: 'Create your workspace: the console guides you', console: true,

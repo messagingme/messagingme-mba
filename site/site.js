@@ -541,6 +541,9 @@
       // Une carte se choisit d'un clic n'importe où sur elle, comme son bouton (le texte reste sélectionnable au clavier).
       var carte = e.target.closest && e.target.closest('.bt-voie-choix');
       var b = (e.target.closest && e.target.closest('[data-vers]')) || (carte && carte.querySelector('[data-vers]'));
+      // Une carte grisée pour la formule choisie (`data-sauf`, la ligne de crédit en Free) ne se choisit pas d'un clic.
+      var guide = b && b.closest('.bt-guide');
+      if (b && guide && (' ' + (b.getAttribute('data-sauf') || '') + ' ').indexOf(' ' + guide.getAttribute('data-offre') + ' ') >= 0) return;
       if (b) {
         var q = b.closest('[data-question]');
         if (q.hasAttribute('data-anime')) return;
