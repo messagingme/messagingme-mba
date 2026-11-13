@@ -288,7 +288,7 @@ describe('la connexion faite par la ligne', () => {
     }
   });
 
-  it('🔴 V3 : la pose automatique allumée, un numéro à poser a sa ligne POSÉE à la connexion, sans marque ; l’alerte le dit, et dit quoi faire si le partenaire n’a pas attaché (décision de Julien du 2026-11-11)', async () => {
+  it('🔴 V3 : la pose automatique allumée, un numéro à poser a sa ligne POSÉE à la connexion, marqué avant elle ; l’alerte le dit, et dit quoi faire si le partenaire n’a pas attaché (décision de Julien du 2026-11-11)', async () => {
     for (const [nom, o, origine] of [
       ['Pro avec une place', { offre: 'pro', places: 1 }, 'option'],
       ['Entreprise', { offre: 'entreprise', places: null }, 'ops'],
@@ -296,13 +296,32 @@ describe('la connexion faite par la ligne', () => {
       const { d, alertes, marques, poses } = deps({ ...o, rattaches: ['pn-1'], pose: { auto: true, issue: { ok: true, origine } } });
       await connexionParLaLigne(d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO, coexistence: false });
       expect(poses, nom).toEqual(['pn-1']);
-      expect(marques, nom).toEqual([]);
+      // La marque, que la ligne posée éteint aussitôt (`ATTEND_LIGNE_SQL`) : elle couvre le temps de la pose.
+      expect(marques, nom).toEqual(['pn-1']);
       expect(alertes, nom).toHaveLength(1);
       expect(alertes[0], nom).toContain(`Numéro connecté par la fenêtre du partenaire : espace ${T}, ${NUMERO} (compte waba-1). Sa ligne est POSÉE automatiquement`);
       // La pose automatique n'existe qu'avec l'API du partenaire (plan du 2026-11-12) : son attache est faite et vérifiée.
       expect(alertes[0], nom).toMatch(/celle du partenaire attachée à ce compte et vérifiée par son API : ses envois passent sur la ligne de crédit/);
       expect(alertes[0], nom).not.toMatch(/tenue pour automatique/);
       expect(alertes[0], nom).not.toContain('« Ne pas poser »');
+    }
+  });
+
+  /**
+   * 🔴 LE NUMÉRO RELIÉ PENDANT LA POSE (relecture du lot 2 « numéro avec carte », 2026-11-13). La pose attend l'attache du
+   * partenaire, vérifiée : des secondes, jusqu'à cinq appels (essai 258). Sans marque ni ligne pendant ce temps, le numéro
+   * se lirait connecté avec sa carte (`numeroAvecCarte`), et Claude, qui suit la connexion, dirait à qui vient de se
+   * connecter sans carte que la ligne de crédit ne peut pas le prendre et d'ajouter sa carte chez Meta.
+   */
+  it('🔴 pendant la pose à la connexion, le numéro attend déjà sa ligne : jamais lu « connecté avec sa carte »', async () => {
+    for (const [nom, o] of [['Pro avec une place', { offre: 'pro', places: 1 }], ['Entreprise', { offre: 'entreprise', places: null }]] as const) {
+      const pendant: boolean[] = [];
+      const m = deps({
+        ...o, rattaches: ['pn-1'],
+        pose: { auto: true, issue: async () => { pendant.push(await numeroAvecCarte(m.d, T)); return { ok: true, origine: 'option' }; } },
+      });
+      await connexionParLaLigne(m.d, T, { wabaId: 'waba-1', phoneNumberId: 'pn-1', numero: NUMERO, coexistence: false });
+      expect(pendant, nom).toEqual([false]);
     }
   });
 

@@ -360,6 +360,12 @@ function texteDeConnexion(
  * chez Meta (le rouge de la relecture du lot E5). L'audit `numero.connecte` garde, lui, toute connexion par la fenêtre.
  * La marque d'abord, relue, l'alerte ensuite, qui dit ce que la marque a fait (relecture du lot V7, jaune 1) : une alerte
  * perdue laisse la trace. Ne lève jamais : la connexion est faite.
+ *
+ * 🔴 La marque vient AVANT la pose automatique (relecture du lot 2 « numéro avec carte », 2026-11-13) : la pose attend
+ * l'attache du partenaire, vérifiée (des secondes, jusqu'à cinq appels) ; sans marque ni ligne pendant ce temps, le numéro
+ * relié se lirait connecté avec sa carte (`numeroAvecCarte`), et Claude le dirait à qui vient de se connecter sans carte.
+ * La ligne posée éteint la marque (`ATTEND_LIGNE_SQL`, les deux dates prises en base) ; une pose refusée ou en panne
+ * n'écrit aucune ligne, et la liste relue avant elle reste vraie pour son alerte.
  */
 export async function connexionParLaLigne(
   d: DepsFenetrePartenaire, tenantId: string,
@@ -371,6 +377,10 @@ export async function connexionParLaLigne(
   // lot V2, jaune 6 ; une connexion antérieure a pu le faire : relecture du lot V11, jaune 5), et son alerte a son texte
   // (`texteEnCoexistence`).
   const cas: CasAlerte = n.coexistence && lu.cas === 'a_poser' ? 'coexistence' : lu.cas;
+  // La marque, avant la pose automatique : elle couvre le temps de la pose (voir plus haut).
+  const liste = !n.coexistence && CAS_QUI_ATTENDENT.has(cas) && n.phoneNumberId !== null
+    ? await marquerPuisRelire(d, tenantId, n.phoneNumberId)
+    : null;
   // V3 : un numéro à poser (droit à la ligne, aucun compte déjà couvert, hors coexistence) a sa ligne posée tout de suite,
   // par la pose de /ops ; refusée ou en panne, il retombe sur l'attente d'avant, la raison dite.
   let apresPose = '';
@@ -386,9 +396,6 @@ export async function connexionParLaLigne(
       : ` La pose automatique a été refusée : ${pose.error}.`;
   }
   const autre = cas === 'autre_espace' && lu.couvrante !== null ? await autreEspace(d, lu.couvrante.tenantId) : '';
-  const liste = !n.coexistence && CAS_QUI_ATTENDENT.has(cas) && n.phoneNumberId !== null
-    ? await marquerPuisRelire(d, tenantId, n.phoneNumberId)
-    : null;
   const texte = n.coexistence ? texteEnCoexistence(cas, qui, lu.couvrante, autre) : texteDeConnexion(cas, qui, lu.couvrante, autre, liste, d.attacheParApi);
   await alerterSansPerte(d, tenantId, n.wabaId, cas, `${texte}${apresPose}`);
 }

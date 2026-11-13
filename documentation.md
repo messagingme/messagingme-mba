@@ -4825,8 +4825,9 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
 - 🔴 **« Qui paie vos messages à Meta ? »** (révision du 2026-11-04, lot B) : l'état du Crédit WhatsApp d'un espace
   (`etatLigneCredit`, `src/credit-whatsapp/etat-ligne.ts`) vaut `free`, `essai` (l'option ne se prend pas encore : un
   Business en essai, ou une formule Pro en retard de prélèvement), `a_prendre` (un espace Pro dès son essai, ou un
-  Business confirmé, sans option ; une Entreprise sans ligne ni numéro qui attend la sienne, sur demande, sauf quand la
-  fenêtre du partenaire lui est rouverte pour reconnecter son numéro connecté en direct, voir plus bas), `en_attente`
+  Business confirmé, sans option ; une Entreprise sans ligne ni numéro qui attend la sienne, sur demande ; un numéro
+  connecté en direct avec sa carte n'y passe jamais, la fenêtre du partenaire ne se rouvrant pas à un espace qui a déjà
+  un numéro), `en_attente`
   (l'option payée, aucune ligne posée), `active` ou `arretee` (toutes ses lignes arrêtées).
   `GET /tenants/:tenantId/credit-whatsapp/etat`, lisible par tout membre et fermé à la Free comme tout le module, le rend
   avec `enVente` (l'option se prend en ligne) et `avecApplication` (tous les numéros non déliés de l'espace gardent
@@ -4908,7 +4909,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   **la reprise** la rattache, vérifiée (`relancerLesLignesEtLeursAttaches`) ; une panne de ces deux-là alerte Julien sans
   faire échouer le geste. Sans les variables, la pose de `/ops` ne touche pas au partenaire.
   **À la connexion (V3)**, dans le cas « à poser » (un droit, aucun compte déjà couvert, hors coexistence), la ligne se
-  pose seule, le numéro n'est pas marqué (il n'attend rien), et l'alerte dit la pose et l'attache vérifiée. Cette pose
+  pose seule, et l'alerte dit la pose et l'attache vérifiée. 🔴 Le numéro est marqué AVANT la pose (2026-11-13) : la pose
+  attend l'attache du partenaire (des secondes, jusqu'à cinq appels), et sans marque ni ligne il se lirait pendant ce
+  temps connecté avec sa carte (`numeroAvecCarte`, que Claude lit en suivant la connexion) ; la ligne posée éteint la
+  marque aussitôt (les deux dates prises en base). Cette pose
   automatique n'existe qu'avec l'API configurée ; `CREDIT_WA_POSE_AUTOMATIQUE=false` (défaut `true`, sans déployer) est
   son levier d'urgence. Éteinte, refusée ou en panne (`pose_a_la_connexion_impossible`), le numéro attend dans la liste
   de `/ops`, et l'alerte en ajoute la cause ; dans le cas « à poser », elle dit alors de poser dans `/ops` (qui attache)
@@ -5020,7 +5024,8 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   « Ajoutez votre carte chez Meta » se tait quand le Crédit WhatsApp paie Meta (`creditPaieMeta`,
   `web/lib/partage/credit-whatsapp.ts`), et une lecture illisible de l'état ou des numéros le laisse dire, à Claude
   (`get_setup_state`) comme sur l'Accueil. L'option payée ne le tait pas pour un numéro connecté avec sa carte
-  (`numeroAvecCarte`, troisième argument requis de la règle, illisible lu comme oui) : la ligne ne le prendra jamais.
+  (`numeroAvecCarte`, troisième argument requis de la règle) : la ligne ne le prendra jamais. Illisible, `get_setup_state`
+  le lit comme oui ; la route de l'état, elle, le rend faux (journalisé), et l'Accueil se tait alors.
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés
@@ -5558,8 +5563,10 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   refusée avant), ou la carte quand même : connecté avec elle (`numeroAvecCarte`) alors que la ligne aurait pu le prendre
   (l'option payée, ou une Entreprise), le numéro n'y passera jamais, et Claude le dit comme la console (le Support pour
   changer) avec les étapes de la carte. Hors de ces deux cas, la règle ne se lit pas. 🔴 Le numéro est relié
-  (`linkTenant`) AVANT sa marque « arrivé par la fenêtre » et sa ligne, et `numeroAvecCarte` le lit un instant connecté
-  avec sa carte : `paiementStable` relit tant qu'elle le dit, jusqu'à la fin de l'attente et au moins cinq pas.
+  (`linkTenant`) AVANT sa marque « arrivé par la fenêtre », que `connexionParLaLigne` pose après les appels à Meta de la
+  connexion (abonnement, `/register`, crédit offert) et AVANT la pose de sa ligne : entre les deux, `numeroAvecCarte` le
+  lit connecté avec sa carte. `paiementStable` relit tant qu'elle le dit, jusqu'à la fin de l'attente et au moins cinq
+  pas (10 s) : une connexion dont ces appels à Meta dépassent ce temps resterait lue « avec sa carte ».
 - **L'origine de l'espace** (`tenants.origine`, migration 0212) : `claude_code` quand l'espace naît par la connexion
   OAuth de Claude Code (`src/http/oauth.ts`), `console` sinon. Elle ne décide plus du crédit offert (1 € pour toutes
   les origines, lot 6) : c'est une donnée d'exploitation. `createTenantWithAdmin` l'exige toujours dans le contrat des

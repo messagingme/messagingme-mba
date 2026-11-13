@@ -948,7 +948,7 @@ describe('la connexion sans carte chez Meta (lot 3v-2b)', () => {
     const s = ((await outil('watch_whatsapp_connection').executer(m.deps, 't1', { mode: 'apporte' }, PERSONNE)) as { suite: string }).suite;
     expect(s).toMatch(/ne peut pas le prendre en charge/);
     expect(m.lecturesCarte.length).toBeGreaterThan(5);
-    // 🔴 Jamais au-delà du délai de l'attente.
+    // Détecté dès le premier pas : jamais au-delà du délai de l'attente (détecté plus tard, cinq pas au moins après lui).
     expect(m.lecturesCarte.at(-1)! - m.debut).toBeLessThanOrEqual(DELAI_ATTENTE_MS);
   });
 

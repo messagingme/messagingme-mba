@@ -74,13 +74,17 @@ que des tests vérifient ; la relecture tient à l'invariant invisible (une seul
    Ailleurs la règle ne se lit pas (aucune attente pour un numéro connecté, comme toujours, avec sa carte).
    `paiementStable` relit tant qu'elle dit `avec_carte` (le numéro relié avant sa marque). Les branches de la reconnexion
    et leurs textes partent ; le JSDoc de `fenetrePartenaire` ne la promet plus.
+3. **Le rouge de la relecture** : la pose automatique à la connexion (attache du partenaire vérifiée, des secondes, jusqu'à
+   cinq appels) se faisait AVANT toute marque, donc le numéro relié se lisait « avec sa carte » bien au-delà des cinq pas
+   de relecture. `connexionParLaLigne` le marque désormais AVANT la pose ; la ligne posée éteint la marque.
 
 **Tests attendus.** `creditPaieMeta` avec la carte (`en_attente` faux, `active` vrai) ; `carte_meta_a_regler` dit pour
 un numéro avec carte en `en_attente`, ou illisible, tu en `active` ; `get_setup_state` lit la règle pour l'espace
 demandé ; la suite `avec_carte` pour l'option à jour, en retard, et une Entreprise, jamais « sous 24 h ouvrées » ni
 « aucune carte » ; sans option, la suite de la carte sans lire la règle ; la course (relu jusqu'à la marque) ; un vrai
 numéro avec carte relu au moins cinq fois, jamais au-delà de l'attente ; e2e de l'Accueil : le bandeau reste pour un
-numéro avec carte en `en_attente`, se tait en `active`.
+numéro avec carte en `en_attente`, se tait en `active` ; pendant la pose à la connexion, `numeroAvecCarte` vaut faux
+(Pro et Entreprise).
 
 **Ordre de déploiement.** Sans migration. La console au push (le champ qu'elle lit est déjà en production) ; l'API
 ensuite (`migration=aucune`, `-f commit=<sha>`).

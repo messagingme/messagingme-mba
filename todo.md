@@ -25,6 +25,18 @@
     après un retrait de sa ligne dans `/ops` non reposée, un « Ne pas poser », ou une pose et une marque toutes deux en
     panne (« Reprendre l'option » alors refusé à tort) ; rares, et tous passent par Julien ;
   - un numéro 360dialog : l'option s'y vend encore, inutilisable, et le texte (1) y serait faux. À trancher.
+- Relecture du lot 2 (ce que dit Claude ; le rouge, la pose à la connexion faite avant la marque, corrigé avant le push) :
+  - la course qui reste : le numéro relié par `linkTenant` n'est marqué qu'après les appels à Meta de la connexion
+    (abonnement, `/register`, crédit offert) ; plus lents que les cinq pas de relecture (10 s), Claude dirait « connecté
+    avec sa carte ». Parade possible : marquer dès le rattachement quand la fenêtre était ouverte ;
+  - une lecture en panne dans `paiementDuNumero` (l'offre, `numeroAvecCarte`) rend la suite de la carte, même à un
+    numéro arrivé par la fenêtre qui attend sa ligne ;
+  - `creditPaieMeta('active', false, true)` est vrai (la précédence de la carte de Connecter WhatsApp) : un ancien numéro
+    déconnecté dont la ligne reste active, et un nouveau numéro connecté avec sa carte, se lisent payés par la ligne.
+    À trancher ;
+  - `watch_whatsapp_connection` peut durer environ 35 s (détection tardive, plus cinq pas) alors que sa description dit
+    25 s au plus ; les faux de `tests/mcp-numero.test.ts` ne sortent de la course que par la marque, jamais par la ligne
+    posée ; `tests/etapes-meta.test.ts` (184 à 189) passe par une panne (dépendances sans `agentIa`).
 
 ## 🟡 La grille des formules, lot 1 : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-13-grille-des-formules.md`)
 
