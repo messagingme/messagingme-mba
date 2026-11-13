@@ -270,8 +270,8 @@ const fr = (): TexteTunnel => {
           detail: 'C’est lui qui envoie vos messages (confirmations, rappels, relances), pilotés par Messaging Me. Meta facture ses messages.',
         },
         {
-          terme: 'Garder votre application', court: 'Votre numéro reste dans l’application et envoie aussi depuis Messaging Me.',
-          detail: 'Il devient aussi un numéro API : vous répondez toujours depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.',
+          terme: 'Garder votre application', court: 'Votre numéro WhatsApp Business devient aussi un numéro API.',
+          detail: 'Meta appelle cela la « coexistence ». Vous profitez du meilleur des deux mondes : vous continuez à répondre depuis votre téléphone, et même à écrire à vos contacts, et cela reste gratuit. Et Messaging Me automatise toutes vos communications : confirmations, rappels, relances, campagnes.',
         },
       ],
     },
@@ -351,7 +351,7 @@ const fr = (): TexteTunnel => {
         // Les magasins sous WhatsApp ordinaire : on installe WhatsApp Business sur le même téléphone (2026-11-12).
         id: 'garder', situation: 'Avec l’application WhatsApp Business', titre: 'Gardez votre application WhatsApp Business',
         textes: [
-          'Votre numéro reste dans l’application et envoie aussi depuis Messaging Me : vous répondez toujours depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.',
+          'Votre numéro reste dans l’application et envoie aussi depuis Messaging Me (Meta appelle cela la « coexistence ») : vous répondez toujours depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.',
           whatsappOrdinaire,
           `${garder} Meta facture les messages partis de Messaging Me, réponses comprises au-delà d’une franchise mensuelle ; ceux que vous tapez dans l’application restent gratuits.`,
           carteAvecApplication,
@@ -535,8 +535,8 @@ const en = (): TexteTunnel => {
           detail: 'It sends your messages (confirmations, reminders, follow-ups), driven by Messaging Me. Meta bills its messages.',
         },
         {
-          terme: 'Keeping your app', court: 'Your number stays in the app and also sends from Messaging Me.',
-          detail: 'It also becomes an API number: you still reply from your phone, and your confirmations, reminders and follow-ups go out from Messaging Me.',
+          terme: 'Keeping your app', court: 'Your WhatsApp Business number also becomes an API number.',
+          detail: 'Meta calls this “coexistence”. You get the best of both worlds: you keep replying from your phone, and even writing to your contacts, and that stays free. And Messaging Me automates all your communications: confirmations, reminders, follow-ups, campaigns.',
         },
       ],
     },
@@ -602,7 +602,7 @@ const en = (): TexteTunnel => {
       {
         id: 'garder', situation: 'With the WhatsApp Business app', titre: 'Keep your WhatsApp Business app',
         textes: [
-          'Your number stays in the app and also sends from Messaging Me: you still reply from your phone, and your confirmations, reminders and follow-ups go out from Messaging Me.',
+          'Your number stays in the app and also sends from Messaging Me (Meta calls this “coexistence”): you still reply from your phone, and your confirmations, reminders and follow-ups go out from Messaging Me.',
           whatsappOrdinaire,
           `${garder} Meta bills the messages sent from Messaging Me, replies included beyond a monthly allowance; those you type in the app stay free.`,
           carteAvecApplication,

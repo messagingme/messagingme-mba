@@ -57,13 +57,14 @@ describe('le guide du numéro', () => {
       expect(t).not.toMatch(/data-chemin="(console|echange)"/);
     });
 
-    it(`🔴 ${langue} : « coexistence » une seule fois dans la page, dans les cinq points, jamais dans le tunnel`, () => {
+    it(`🔴 ${langue} : « coexistence » dans les cinq points et dans le tunnel, pour le référencement (Julien, 2026-11-13), jamais « QR »`, () => {
       // Hors du menu du centre (2026-11-11, le guide prend le gabarit commun) : l'entrée du guide y porte les cinq points
       // dans ses mots de recherche, un attribut que le visiteur ne lit pas.
       const lu = corps(html).replace(/<nav class="aide-nav"[\s\S]*?<\/nav>/, '');
       expect(lu).not.toContain('class="aide-nav"');
-      expect(lu.match(/coexist/gi) ?? []).toHaveLength(1);
-      expect(tunnelDe(html)).not.toMatch(/coexist|QR/i);
+      expect((lu.match(/coexist/gi) ?? []).length).toBeGreaterThan(1);
+      expect(tunnelDe(html)).toMatch(/coexistence/);
+      expect(tunnelDe(html)).not.toMatch(/QR/);
       expect(n.guide.points.liste).toHaveLength(5);
     });
 

@@ -114,9 +114,10 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
   const assistant = (cle: Assistant) => `<span class="bt-ide">${logo(cle)}${ASSISTANTS[cle]}</span>`;
   const voie = (v: Voie, r: Reponse) => [
     '                <section class="bt-voie">',
-    ...(v.badge ? [`                  <p class="bt-badge">${v.badge}</p>`] : []),
     `                  <h4>${v.titre}</h4>`,
     ...(v.prix ? [`                  <p class="bt-tarif"><strong>${v.prix}</strong>${v.unite ? `<span>${v.unite}</span>` : ''}</p>`] : []),
+    // Le badge sous le prix (Julien, 2026-11-13) : le titre de la carte reste aligné sur ses voisines.
+    ...(v.badge ? [`                  <p class="bt-badge">${v.badge}</p>`] : []),
     ...(v.plus.length + v.moins.length > 0 ? [
       '                  <ul>',
       ...v.plus.map(ligne('bt-plus', 'i-check', n.plus)),

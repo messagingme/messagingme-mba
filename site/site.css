@@ -942,12 +942,14 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-question.repondue:not(.rouverte) .bt-voie-choix{width:min(100%,340px)}
 .bt-question.repondue:not(.rouverte) :is(.bt-voie-choix:not(:has([aria-pressed="true"])),.bt-reponses > .bouton:not([aria-pressed="true"])){display:none}
 .bt-question.repondue .bt-reponses{justify-content:center}
-.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-voie{background:#fff;color:#0B0E24;box-shadow:0 26px 60px -30px rgb(0 0 0 / .75)}
-.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) :is(.bt-tarif span,.bt-voie li,.bt-voie-note){color:#4A5068}
-.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-voie-note{border-color:#E7EAF3}
-.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-ide{color:#0B0E24}
+[data-question="offre"] .bt-voie,.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-voie{background:#fff;color:#0B0E24;box-shadow:0 26px 60px -30px rgb(0 0 0 / .75)}
+[data-question="offre"] .bt-voie :is(.bt-tarif span,.bt-voie-note),.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) :is(.bt-tarif span,.bt-voie li,.bt-voie-note){color:#4A5068}
+[data-question="offre"] .bt-voie-note,.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-voie-note{border-color:#E7EAF3}
+[data-question="offre"] .bt-ide,.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-ide{color:#0B0E24}
 .bt-question.repondue .bt-voie-note{justify-content:center}
-.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-badge{background:#E6F8EE;color:#0E7A3C}
+[data-question="offre"] .bt-badge,.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-badge{background:#E6F8EE;color:#0E7A3C}
+[data-question="offre"] .bt-badge{margin:12px 0 0}
+[data-question="offre"] .bt-voie-choix:hover .bt-voie{border-color:#fff;box-shadow:0 22px 50px -26px rgb(0 0 0 / .8)}
 .bt-question.repondue .bt-reponses [aria-pressed="true"]{box-shadow:0 18px 40px -24px rgb(0 0 0 / .75)}
 @media (prefers-reduced-motion:no-preference){
   @keyframes bt-fil{from{transform:scaleY(0)}to{transform:none}}

@@ -211,7 +211,7 @@ describe('le tunnel du numéro WhatsApp', () => {
     expect(css).toContain('.bt-voie-choix:has([aria-pressed="true"]) .bt-voie{');
   });
 
-  it('🔴 la carte Pro dit son essai en tête, avant son titre (lot 3b)', () => {
+  it('🔴 la carte Pro dit son essai sous son prix, le titre aligné sur les autres (2026-11-13)', () => {
     for (const [langue, essai] of [['fr', /^14&nbsp;jours d’essai gratuit$/], ['en', /^14-day free trial$/]] as const) {
       const cartes = TEXTES_TUNNEL[langue].questions.find((x) => x.id === 'offre')!.voies!;
       expect(cartes.map((c) => Boolean(c.badge)), langue).toEqual([false, true, false, false]);
@@ -219,7 +219,7 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
     for (const p of PAGES) {
       const html = lire(fichierDe(p.adresse));
-      expect(html, p.adresse).toMatch(/<p class="bt-badge">[^<]+<\/p>\s*<h4>Pro<\/h4>/);
+      expect(html, p.adresse).toMatch(/<h4>Pro<\/h4>\s*<p class="bt-tarif">[\s\S]*?<\/p>\s*<p class="bt-badge">/);
     }
   });
 
@@ -239,14 +239,15 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
   });
 
-  it('🔴 ne dit ni « QR code », ni « coexistence », ni « appareils liés », et aucune voie ne fait seulement répondre', () => {
+  it('🔴 ne dit ni « QR code », ni « appareils liés », et aucune voie ne fait seulement répondre ; « coexistence » oui, pour le référencement (Julien, 2026-11-13)', () => {
     for (const p of PAGES) {
       const g = texte(guide(lire(fichierDe(p.adresse))));
       expect(g.length, p.adresse).toBeGreaterThan(1000);
-      expect(g, p.adresse).not.toMatch(/QR|coexist|appareils? liés?|linked devices?|scann|code à scanner|pour répondre\b|to answer\b|rien ne part en premier|nothing goes out first/i);
+      expect(g, p.adresse).not.toMatch(/QR|appareils? liés?|linked devices?|scann|code à scanner|pour répondre\b|to answer\b|rien ne part en premier|nothing goes out first/i);
+      expect(g, p.adresse).toMatch(/coexistence/);
     }
-    // Ni la page Shopify entière (sa FAQ comprise), ni la FAQ du plugin, ni son README ne parlent de coexistence.
-    for (const a of [shopify.fr.adresse, shopify.en.adresse]) expect(corps(lire(fichierDe(a))), a).not.toMatch(/QR|coexist/i);
+    // Ni la page Shopify entière (sa FAQ comprise) ne parle de QR code ; ni la FAQ du plugin, ni son README de coexistence.
+    for (const a of [shopify.fr.adresse, shopify.en.adresse]) expect(corps(lire(fichierDe(a))), a).not.toMatch(/QR/);
     expect(readFileSync(join(process.cwd(), 'plugin/README.md'), 'utf8')).not.toMatch(/coexist/i);
     for (const q of FAQ) expect(`${q.question.fr} ${q.question.en} ${q.reponse.fr} ${q.reponse.en}`, q.id).not.toMatch(/coexist/i);
   });
