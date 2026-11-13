@@ -13,7 +13,7 @@
 import type { Rubrique } from '../../src/aide/fiches';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META } from '../../web/lib/partage/etapes-meta';
 import { NOTE_CARTE_APPLICATION, QUESTION_PAIEMENT } from '../../web/lib/questions-numero';
-import { FAQ, GRILLE_META } from '../plugin/faq';
+import { FAQ, GRILLE_META, texteBrut } from '../plugin/faq';
 import { OFFRE_CREDIT_WHATSAPP } from './tunnel-textes';
 import type { Bilingue } from './aide-claude-textes';
 
@@ -50,7 +50,7 @@ const b = (x: { readonly fr: string; readonly en: string }): Bilingue => ({ fr: 
 const faq = (id: string, titre?: Bilingue): SectionSource => {
   const q = FAQ.find((x) => x.id === id);
   if (!q) throw new Error(`aide-sources : la FAQ du plugin n'a pas de question « ${id} »`);
-  return { titre: titre ?? b(q.question), textes: [b(q.reponse)] };
+  return { titre: titre ?? b(q.question), textes: [{ fr: texteBrut(q.reponse.fr), en: texteBrut(q.reponse.en) }] };
 };
 
 /**

@@ -10,6 +10,7 @@
 import { DROITS, PRIX_SIEGE_BUSINESS_HT_CENTIMES, PRIX_SIEGE_HT_CENTIMES } from '../../src/offres/offres';
 import { PRIX_NUMERO_HT_CENTIMES } from '../../src/stripe/abonnement';
 import { ETAPES_CARTE_META, PREREQUIS_META, WHATSAPP_ORDINAIRE } from '../../web/lib/partage/etapes-meta';
+import { AIDE_GARDER_APPLICATION, AIDE_NUMERO_FOURNI, VITRINE_AIDE, type AdresseAide } from '../../web/lib/partage/aide-connexion';
 import { DUREE_CODE_MS } from '../../src/campaign/confirmation';
 import { NOMS_DU_RECAPITULATIF } from '../../src/mcp/outils-campagnes';
 
@@ -52,6 +53,39 @@ export const GRILLE_META = 'https://developers.facebook.com/docs/whatsapp/pricin
 const enUnBloc = (etapes: ReadonlyArray<{ fr: string; en: string }>, langue: 'fr' | 'en'): string =>
   etapes.map((e, i) => `${i + 1}) ${e[langue]}`).join('\n');
 
+/**
+ * Une réponse porte deux marques de mise en page, rendues par `scripts/plugin/generer.ts` : `\n` va à la ligne, `**…**`
+ * met en gras. Une page qui reprend la réponse en texte simple (le centre d'aide) passe par ici.
+ */
+/** La page d'aide « Connecter mon numéro WhatsApp », qui porte sa vidéo. */
+const AIDE_CONNECTER_NUMERO: AdresseAide = {
+  fr: `${VITRINE_AIDE}/aide/connecter-mon-numero-whatsapp/`,
+  en: `${VITRINE_AIDE}/en/help/connect-my-whatsapp-number/`,
+};
+/**
+ * Le lien d'une vidéo du centre d'aide, pour la FAQ de la vitrine. La skill du plugin l'ôte (`SANS_VIDEO`) : Claude reçoit
+ * ces pages par les champs `aide` de `get_setup_state`, et aucune adresse du centre n'est tapée dans le plugin
+ * (`tests/aide-connexion-adresses.test.ts`).
+ */
+const video = (a: AdresseAide, langue: 'fr' | 'en', duree = ''): string =>
+  langue === 'fr' ? ` Le parcours en vidéo${duree} : ${a.fr}` : ` The path in a video${duree}: ${a.en}`;
+export const SANS_VIDEO = new RegExp(` (?:Le parcours en vidéo|The path in a video)[^:]*: ${VITRINE_AIDE.replace(/\./g, '\\.')}\\S+`, 'g');
+
+export const texteBrut =(t: string): string => t.replace(/\*\*/g, '').replace(/\n+/g, ' ');
+
+/** Retire une fin de phrase attendue, et casse bruyamment si la source ne la porte plus. */
+const sansFin = (t: string, fin: string): string => {
+  if (!t.endsWith(fin)) throw new Error(`faq : « ${t.slice(-60)} » ne finit plus par « ${fin} »`);
+  return t.slice(0, -fin.length).trimEnd();
+};
+/** Les conditions chez Meta, une par ligne ; le numéro fourni, en gras à la fin, pour qu'on le voie avant tout. */
+const prerequisMeta = (langue: 'fr' | 'en'): string => {
+  const fin = { fr: 'Sans numéro, nous vous en fournissons un.', en: 'No number? We provide one.' }[langue];
+  const etapes = PREREQUIS_META.map((e, i) => (i === PREREQUIS_META.length - 1 ? { ...e, [langue]: sansFin(e[langue], fin) } : e));
+  const gras = { fr: '**Vous n’avez pas de numéro ? Nous vous en fournissons un !**', en: '**No number? We provide one!**' }[langue];
+  return `${enUnBloc(etapes, langue)}\n${gras}`;
+};
+
 export const FAQ: readonly EntreeFaq[] = [
   {
     id: 'api-officielle',
@@ -87,17 +121,27 @@ export const FAQ: readonly EntreeFaq[] = [
   {
     id: 'compte-meta',
     question: { fr: 'Que faut-il chez Meta avant de commencer ?', en: 'What do I need at Meta before I start?' },
-    reponse: { fr: enUnBloc(PREREQUIS_META, 'fr'), en: enUnBloc(PREREQUIS_META, 'en') },
+    reponse: { fr: prerequisMeta('fr'), en: prerequisMeta('en') },
     source: 'web/lib/partage/etapes-meta.ts (doc Embedded Signup de Meta, aide « Créer un portefeuille business », relues le 2026-10-13)',
   },
   {
     id: 'nom-affiche',
     question: { fr: 'Mon nom d’entreprise s’affiche mal sur WhatsApp.', en: 'My business name shows up wrong on WhatsApp.' },
     reponse: {
-      fr: 'C’est le nom d’affichage WhatsApp, distinct du nom de votre espace. Il se change dans votre Business Manager, et Meta relit chaque changement : pendant la relecture, ou après un refus, WhatsApp peut afficher le numéro à la place.',
-      en: 'That is the WhatsApp display name, separate from your workspace name. You change it in your Business Manager, and Meta reviews every change: during the review, or after a rejection, WhatsApp may show the number instead.',
+      fr: 'C’est le nom d’affichage WhatsApp, distinct du nom de votre espace. Pour le changer :\n'
+        + '1) Ouvrez le Gestionnaire WhatsApp : https://business.facebook.com/wa/manage/home/\n'
+        + '2) « Outils du compte », puis « Numéros de téléphone » : choisissez votre numéro.\n'
+        + '3) Onglet « Profil », section « Nom d’affichage » : cliquez sur « Modifier ».\n'
+        + 'Meta relit chaque changement (dix au plus par période de 30 jours) : pendant la relecture, ou après un refus, WhatsApp peut afficher le numéro à la place.\n'
+        + '**Nom approuvé ? Écrivez-nous** : Meta demande de réenregistrer le numéro dans les 14 jours pour que le nouveau nom s’affiche.',
+      en: 'That is the WhatsApp display name, separate from your workspace name. To change it:\n'
+        + '1) Open WhatsApp Manager: https://business.facebook.com/wa/manage/home/\n'
+        + '2) “Account tools”, then “Phone numbers”: select your number.\n'
+        + '3) “Profile” tab, “Display name” section: click “Edit”.\n'
+        + 'Meta reviews every change (ten at most per 30-day period): during the review, or after a rejection, WhatsApp may show the number instead.\n'
+        + '**Name approved? Write to us**: Meta requires the number to be re-registered within 14 days for the new name to show.',
     },
-    source: 'docs/aide/fiches/connecter-mon-numero-whatsapp.md',
+    source: 'la page « Display names » de la documentation WhatsApp de Meta, relue le 2026-11-13 : chemin dans le Gestionnaire WhatsApp, dix changements par 30 jours, réenregistrement sous 14 jours après approbation ; docs/aide/fiches/connecter-mon-numero-whatsapp.md',
   },
   {
     id: 'fenetre-24-heures',
@@ -112,8 +156,14 @@ export const FAQ: readonly EntreeFaq[] = [
     id: 'ce-que-meta-facture',
     question: { fr: 'Pourquoi Meta me demande une carte, et que facture-t-il ?', en: 'Why does Meta ask for a card, and what does it charge?' },
     reponse: {
-      fr: `Meta facture les modèles et, depuis le 1er octobre 2026, les réponses au-delà d’une franchise mensuelle, selon sa grille et le pays de la personne, sur le moyen de paiement de votre compte Meta Business ; sauf avec la ligne de crédit, prépayée chez Messaging Me, qui se prend depuis Claude, avant de connecter le numéro, ou dans la console (Offre, onglet Ligne de crédit) avec la formule Pro ou Business (pas avec l’application WhatsApp Business). Aucune formule, Free comprise, n’inclut ces frais. Claude vous donne le tarif en vigueur d’un message livré en France, catégorie par catégorie, lu dans la grille de Meta (list_templates) ; pour un autre pays, la grille de Meta : ${GRILLE_META}. Pour ajouter la carte :\n${enUnBloc(ETAPES_CARTE_META, 'fr')}`,
-      en: `Meta bills the templates and, since October 1, 2026, the replies beyond a monthly allowance, according to its rate card and the person’s country, on the payment method of your Meta Business account; except with the credit line, prepaid at Messaging Me, taken from Claude, before connecting the number, or in the console (Plan, Credit line tab) with the Pro or Business plan (not with the WhatsApp Business app). No plan, Free included, includes these fees. Claude gives you the current price of a message delivered in France, category by category, read from Meta’s rate card (list_templates); for another country, Meta’s rate card: ${GRILLE_META}. To add the card:\n${enUnBloc(ETAPES_CARTE_META, 'en')}`,
+      fr: '**Avec la ligne de crédit Messaging Me, aucune carte chez Meta.** Vous la prépayez chez nous, depuis Claude avant de connecter le numéro, ou dans la console (Offre, onglet Ligne de crédit), avec la formule Pro ou Business (pas avec l’application WhatsApp Business), et vos messages WhatsApp se paient dessus.\n'
+        + 'Meta facture sur le moyen de paiement de votre compte Meta Business, sauf avec la ligne de crédit : les modèles et, depuis le 1er octobre 2026, les réponses au-delà d’une franchise mensuelle, selon sa grille et le pays de la personne. Aucune formule, Free comprise, n’inclut ces frais.\n'
+        + `Claude vous donne le tarif en vigueur d’un message livré en France, catégorie par catégorie, lu dans la grille de Meta (list_templates) ; pour un autre pays, la grille de Meta : ${GRILLE_META}.\n`
+        + `Pour ajouter la carte :\n${enUnBloc(ETAPES_CARTE_META, 'fr')}`,
+      en: '**With the Messaging Me credit line, no card at Meta.** You prepay it with us, from Claude before connecting the number, or in the console (Plan, Credit line tab), with the Pro or Business plan (not with the WhatsApp Business app), and your WhatsApp messages are paid from it.\n'
+        + 'Meta bills the payment method of your Meta Business account, except with the credit line: the templates and, since October 1, 2026, the replies beyond a monthly allowance, according to its rate card and the person’s country. No plan, Free included, includes these fees.\n'
+        + `Claude gives you the current price of a message delivered in France, category by category, read from Meta’s rate card (list_templates); for another country, Meta’s rate card: ${GRILLE_META}.\n`
+        + `To add the card:\n${enUnBloc(ETAPES_CARTE_META, 'en')}`,
     },
     // Le Crédit WhatsApp et la franchise depuis le lot 4a-3 de l'aide à la connexion : la réponse disait « Meta facture
     // directement votre entreprise », « Messaging Me ne touche pas à ces frais » et toutes les réponses payantes, faux
@@ -160,8 +210,14 @@ export const FAQ: readonly EntreeFaq[] = [
     id: 'code-de-verification',
     question: { fr: 'Le code de vérification n’arrive pas.', en: 'The verification code does not arrive.' },
     reponse: {
-      fr: 'Avec un numéro fourni par Messaging Me, le code est capté pour vous et Claude l’affiche (watch_whatsapp_connection) ; la page « Prendre un numéro fourni par Messaging Me » du centre d’aide montre ce parcours en vidéo (3 minutes), et Claude vous la donne avec le lien de connexion. Avec votre numéro, demandez l’appel plutôt que le SMS quand Meta laisse le choix. Meta ne tolère que dix demandes de code par numéro sur 72 heures.',
-      en: 'With a number provided by Messaging Me, the code is captured for you and Claude shows it (watch_whatsapp_connection); the help center page “Get a number provided by Messaging Me” shows this path in a video (3 minutes), and Claude gives it to you with the connection link. With your own number, ask for a call rather than an SMS when Meta offers the choice. Meta allows only ten code requests per number over 72 hours.',
+      fr: `**Avec un numéro fourni par Messaging Me**, le code est capté pour vous et Claude l’affiche (watch_whatsapp_connection).${video(AIDE_NUMERO_FOURNI, 'fr', ' (3 minutes)')}\n`
+        + `**Avec votre numéro**, demandez l’appel plutôt que le SMS quand Meta laisse le choix.${video(AIDE_CONNECTER_NUMERO, 'fr')}\n`
+        + `**Avec votre application WhatsApp Business**, Meta envoie le code à son numéro, par message ou par appel : gardez le téléphone à portée de main.${video(AIDE_GARDER_APPLICATION, 'fr')}\n`
+        + 'Meta ne tolère que dix demandes de code par numéro sur 72 heures.',
+      en: `**With a number provided by Messaging Me**, the code is captured for you and Claude shows it (watch_whatsapp_connection).${video(AIDE_NUMERO_FOURNI, 'en', ' (3 minutes)')}\n`
+        + `**With your own number**, ask for a call rather than an SMS when Meta offers the choice.${video(AIDE_CONNECTER_NUMERO, 'en')}\n`
+        + `**With your WhatsApp Business app**, Meta sends the code to its number, by text message or phone call: keep the phone at hand.${video(AIDE_GARDER_APPLICATION, 'en')}\n`
+        + 'Meta allows only ten code requests per number over 72 hours.',
     },
     source: 'docs/aide/fiches/connecter-mon-numero-whatsapp.md ; docs/aide/fiches/numero-fourni-par-messaging-me.md',
   },

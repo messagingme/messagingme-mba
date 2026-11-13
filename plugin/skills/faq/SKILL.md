@@ -55,7 +55,9 @@ Claude vous aide à choisir au moment de connecter le numéro.
 
 2) No Meta Business account yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook profile (your business name, an email address, the country and the website), then offers a payment method. You can also create it beforehand on business.facebook.com: open the menu under “Home” at the top left, then create a business portfolio.
 
-3) A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it with “Keep my WhatsApp Business app”. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats. Meta sends a code to your number, by text message or phone call: keep the phone that holds it at hand. No number? We provide one.
+3) A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it with “Keep my WhatsApp Business app”. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats. Meta sends a code to your number, by text message or phone call: keep the phone that holds it at hand.
+
+**No number? We provide one!**
 
 **FR · Que faut-il chez Meta avant de commencer ?**
 
@@ -63,15 +65,37 @@ Claude vous aide à choisir au moment de connecter le numéro.
 
 2) Pas encore de compte Meta Business ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen de paiement. Vous pouvez aussi le créer avant, sur business.facebook.com : ouvrez le menu sous « Accueil » en haut à gauche, puis créez un portefeuille business.
 
-3) Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, qui y reste avec « Garder mon application WhatsApp Business ». Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Meta envoie un code à votre numéro, par SMS ou par appel : gardez à portée de main le téléphone qui le porte. Sans numéro, nous vous en fournissons un.
+3) Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, qui y reste avec « Garder mon application WhatsApp Business ». Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Meta envoie un code à votre numéro, par SMS ou par appel : gardez à portée de main le téléphone qui le porte.
+
+**Vous n’avez pas de numéro ? Nous vous en fournissons un !**
 
 ## My business name shows up wrong on WhatsApp.
 
-That is the WhatsApp display name, separate from your workspace name. You change it in your Business Manager, and Meta reviews every change: during the review, or after a rejection, WhatsApp may show the number instead.
+That is the WhatsApp display name, separate from your workspace name. To change it:
+
+1) Open WhatsApp Manager: https://business.facebook.com/wa/manage/home/
+
+2) “Account tools”, then “Phone numbers”: select your number.
+
+3) “Profile” tab, “Display name” section: click “Edit”.
+
+Meta reviews every change (ten at most per 30-day period): during the review, or after a rejection, WhatsApp may show the number instead.
+
+**Name approved? Write to us**: Meta requires the number to be re-registered within 14 days for the new name to show.
 
 **FR · Mon nom d’entreprise s’affiche mal sur WhatsApp.**
 
-C’est le nom d’affichage WhatsApp, distinct du nom de votre espace. Il se change dans votre Business Manager, et Meta relit chaque changement : pendant la relecture, ou après un refus, WhatsApp peut afficher le numéro à la place.
+C’est le nom d’affichage WhatsApp, distinct du nom de votre espace. Pour le changer :
+
+1) Ouvrez le Gestionnaire WhatsApp : https://business.facebook.com/wa/manage/home/
+
+2) « Outils du compte », puis « Numéros de téléphone » : choisissez votre numéro.
+
+3) Onglet « Profil », section « Nom d’affichage » : cliquez sur « Modifier ».
+
+Meta relit chaque changement (dix au plus par période de 30 jours) : pendant la relecture, ou après un refus, WhatsApp peut afficher le numéro à la place.
+
+**Nom approuvé ? Écrivez-nous** : Meta demande de réenregistrer le numéro dans les 14 jours pour que le nouveau nom s’affiche.
 
 ## My message was not sent.
 
@@ -83,7 +107,13 @@ Passé 24 heures sans message de la personne, seul un modèle approuvé par Meta
 
 ## Why does Meta ask for a card, and what does it charge?
 
-Meta bills the templates and, since October 1, 2026, the replies beyond a monthly allowance, according to its rate card and the person’s country, on the payment method of your Meta Business account; except with the credit line, prepaid at Messaging Me, taken from Claude, before connecting the number, or in the console (Plan, Credit line tab) with the Pro or Business plan (not with the WhatsApp Business app). No plan, Free included, includes these fees. Claude gives you the current price of a message delivered in France, category by category, read from Meta’s rate card (`list_templates`); for another country, Meta’s rate card: https://developers.facebook.com/docs/whatsapp/pricing. To add the card:
+**With the Messaging Me credit line, no card at Meta.** You prepay it with us, from Claude before connecting the number, or in the console (Plan, Credit line tab), with the Pro or Business plan (not with the WhatsApp Business app), and your WhatsApp messages are paid from it.
+
+Meta bills the payment method of your Meta Business account, except with the credit line: the templates and, since October 1, 2026, the replies beyond a monthly allowance, according to its rate card and the person’s country. No plan, Free included, includes these fees.
+
+Claude gives you the current price of a message delivered in France, category by category, read from Meta’s rate card (`list_templates`); for another country, Meta’s rate card: https://developers.facebook.com/docs/whatsapp/pricing.
+
+To add the card:
 
 1) On business.facebook.com, open WhatsApp Manager, “Overview” page.
 
@@ -97,7 +127,13 @@ Meta bills the templates and, since October 1, 2026, the replies beyond a monthl
 
 **FR · Pourquoi Meta me demande une carte, et que facture-t-il ?**
 
-Meta facture les modèles et, depuis le 1er octobre 2026, les réponses au-delà d’une franchise mensuelle, selon sa grille et le pays de la personne, sur le moyen de paiement de votre compte Meta Business ; sauf avec la ligne de crédit, prépayée chez Messaging Me, qui se prend depuis Claude, avant de connecter le numéro, ou dans la console (Offre, onglet Ligne de crédit) avec la formule Pro ou Business (pas avec l’application WhatsApp Business). Aucune formule, Free comprise, n’inclut ces frais. Claude vous donne le tarif en vigueur d’un message livré en France, catégorie par catégorie, lu dans la grille de Meta (`list_templates`) ; pour un autre pays, la grille de Meta : https://developers.facebook.com/docs/whatsapp/pricing. Pour ajouter la carte :
+**Avec la ligne de crédit Messaging Me, aucune carte chez Meta.** Vous la prépayez chez nous, depuis Claude avant de connecter le numéro, ou dans la console (Offre, onglet Ligne de crédit), avec la formule Pro ou Business (pas avec l’application WhatsApp Business), et vos messages WhatsApp se paient dessus.
+
+Meta facture sur le moyen de paiement de votre compte Meta Business, sauf avec la ligne de crédit : les modèles et, depuis le 1er octobre 2026, les réponses au-delà d’une franchise mensuelle, selon sa grille et le pays de la personne. Aucune formule, Free comprise, n’inclut ces frais.
+
+Claude vous donne le tarif en vigueur d’un message livré en France, catégorie par catégorie, lu dans la grille de Meta (`list_templates`) ; pour un autre pays, la grille de Meta : https://developers.facebook.com/docs/whatsapp/pricing.
+
+Pour ajouter la carte :
 
 1) Sur business.facebook.com, ouvrez le Gestionnaire WhatsApp, page « Vue d’ensemble ».
 
@@ -143,11 +179,23 @@ Oui, par une action : `set_agent_action` la pose sur l’agent, avec une consign
 
 ## The verification code does not arrive.
 
-With a number provided by Messaging Me, the code is captured for you and Claude shows it (`watch_whatsapp_connection`); the help center page “Get a number provided by Messaging Me” shows this path in a video (3 minutes), and Claude gives it to you with the connection link. With your own number, ask for a call rather than an SMS when Meta offers the choice. Meta allows only ten code requests per number over 72 hours.
+**With a number provided by Messaging Me**, the code is captured for you and Claude shows it (`watch_whatsapp_connection`).
+
+**With your own number**, ask for a call rather than an SMS when Meta offers the choice.
+
+**With your WhatsApp Business app**, Meta sends the code to its number, by text message or phone call: keep the phone at hand.
+
+Meta allows only ten code requests per number over 72 hours.
 
 **FR · Le code de vérification n’arrive pas.**
 
-Avec un numéro fourni par Messaging Me, le code est capté pour vous et Claude l’affiche (`watch_whatsapp_connection`) ; la page « Prendre un numéro fourni par Messaging Me » du centre d’aide montre ce parcours en vidéo (3 minutes), et Claude vous la donne avec le lien de connexion. Avec votre numéro, demandez l’appel plutôt que le SMS quand Meta laisse le choix. Meta ne tolère que dix demandes de code par numéro sur 72 heures.
+**Avec un numéro fourni par Messaging Me**, le code est capté pour vous et Claude l’affiche (`watch_whatsapp_connection`).
+
+**Avec votre numéro**, demandez l’appel plutôt que le SMS quand Meta laisse le choix.
+
+**Avec votre application WhatsApp Business**, Meta envoie le code à son numéro, par message ou par appel : gardez le téléphone à portée de main.
+
+Meta ne tolère que dix demandes de code par numéro sur 72 heures.
 
 ## Can I keep this number in the WhatsApp app?
 

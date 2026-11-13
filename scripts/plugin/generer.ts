@@ -24,7 +24,7 @@ import { COMMANDES } from './commandes';
 import { NOMS_OFFRES, etiquetteDOffre, offreDeLaCarte } from '../vitrine/offres-outils';
 import { CONSTRUIRE, ICONES_FAMILLES, type Capacite, type LienCapacite } from './construire';
 import { FAMILLES_OUTILS } from '../../web/lib/partage/familles-outils';
-import { FAQ } from './faq';
+import { FAQ, SANS_VIDEO } from './faq';
 import { AUTORISATION_CODEX, SERVEUR_PLUGIN_MCP } from '../../web/lib/demarrer';
 
 /** Un fichier que le générateur écrit, par son chemin dans `plugin/`. */
@@ -98,8 +98,7 @@ export const PAGES_FAQ: ReadonlyArray<{ chemin: string; langue: Langue }> = [
 ];
 
 export function skillFaq(): string {
-  // Un saut de ligne de la source (une liste 1), 2), 3)) devient un paragraphe en Markdown, un <br> en HTML.
-  const md = (t: string) => t.replace(OUTIL_RE, '`$1`').replace(/\n/g, '\n\n');
+  const md = (t: string) => t.replace(SANS_VIDEO, '').replace(OUTIL_RE, '`$1`').replace(/\n/g, '\n\n');
   const lignes = [
     '---',
     'name: faq',
@@ -125,11 +124,12 @@ export function skillFaq(): string {
 
 const echapper = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** Le texte d'une réponse en HTML : les outils en code, l'adresse de la grille de Meta en lien. */
+/** Le texte d'une réponse en HTML : les outils en code, les adresses en liens, `**…**` en gras, `\n` à la ligne. */
 function enHtml(t: string): string {
   return echapper(t)
     .replace(OUTIL_RE, '<code>$1</code>')
     .replace(/https:\/\/[^\s<]+[^\s<.,;:)]/g, (u) => `<a href="${u}">${u.replace(/^https:\/\//, '')}</a>`)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\n/g, '<br>');
 }
 
@@ -139,7 +139,7 @@ export function blocFaqVitrine(langue: Langue): string {
     '@type': 'FAQPage',
     inLanguage: langue === 'fr' ? 'fr-FR' : 'en-US',
     mainEntity: FAQ.map((e) => ({
-      '@type': 'Question', name: e.question[langue], acceptedAnswer: { '@type': 'Answer', text: e.reponse[langue] },
+      '@type': 'Question', name: e.question[langue], acceptedAnswer: { '@type': 'Answer', text: e.reponse[langue].replace(/\*\*/g, '') },
     })),
   };
   return [
