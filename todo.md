@@ -1,5 +1,21 @@
 # todo.md : backlog
 
+## 🔴 La reconnexion sans carte est refusée par Meta : la remplacer (décision de Julien)
+
+- **Le constat** (2026-11-13, essai 257 sur MUTAC) : un compte que notre application sert déjà en direct ne repasse pas
+  par la fenêtre du partenaire (#2494156, « A paid messaging account already exists for this partner ») ;
+  `set_solution_migration_intent` rend 2593118 (réservé au partenaire qui a intégré le compte). Les deux reconnexions
+  livrées ne marchent donc pas : l'onglet d'une formule Pro qui a pris l'option avec un numéro connecté pendant l'essai
+  (« V4, suite ») et le lien d'une Entreprise (`?reconnexion=entreprise`). Personne n'est touché aujourd'hui (aucun
+  abonnement Pro, le bouton d'Entreprise derrière notre lien), mais la vente est ouverte.
+- **À décider (Julien), une voie** : retirer notre compte de messagerie direct puis repasser par la fenêtre (non
+  éprouvé ; modèles et agent de Meta à refaire, une coupure) ; ou ne plus vendre l'option à un numéro connecté en
+  direct (le dire avant l'achat) ; ou la reconnexion par le Support.
+- **Dans le même lot** : la fiche publique `payer-ses-messages-sans-carte-chez-meta` (elle propose encore « Reconnecter
+  mon numéro sans carte chez Meta » ; puis `vitrine:aide`, l'anglais, `aide:charger`), `recharger-le-credit-whatsapp`,
+  la carte de Connecter WhatsApp et l'onglet (`QuiRegleMeta.tsx`, `PlaceLibre`), le paragraphe de features.md, et ce que
+  dit Claude (MCP, skill du plugin).
+
 ## 🟡 Les PDF par contact, lot B3b (console)
 
 - Dupliquer un modèle Document repart sans en-tête ni source « PDF de la fiche » (comme l'image et la vidéo) : le dire,
@@ -780,10 +796,8 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
     `a_poser`, et un repli après « déjà sur la ligne » marque un numéro qui a sa ligne ;
   - `get_setup_state` tait `carte_meta_a_regler` en `en_attente` : le numéro de l'essai reste payé par sa carte jusqu'à
     sa reconnexion, Claude ne dit pas de le reconnecter.
-- 🟡 **Les jaunes de la relecture du bouton de reconnexion d'une Entreprise (2026-11-12, aucun rouge)** :
-  - 🔴 décision à prendre (Julien) après l'essai 257 (MUTAC) : ouvrir le bouton à toute Entreprise connectée en direct,
-    ou le garder derrière le lien de notre équipe (`?reconnexion=entreprise`, décision du 2026-11-12 : « MUTAC
-    seulement ») ; l'ouvrir, c'est retirer `reconnexionDemandee` de la condition de `QuiRegleMeta` et son e2e ;
+- 🟡 **Les jaunes de la relecture du bouton de reconnexion d'une Entreprise (2026-11-12, aucun rouge ; la décision
+  « ouvrir le bouton à toute Entreprise » est sans objet depuis que Meta refuse la reconnexion, voir en tête)** :
   - après une reconnexion réussie, seule la relecture de l'état retire le bouton : une relecture en échec le laisse
     actif, et un second clic marque le numéro (« sous 24 h ouvrées », alerte). Un état local `reconnecte` qui remplace
     le bouton par le constat, comme `PlaceLibre`, et son e2e ;

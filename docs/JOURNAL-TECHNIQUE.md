@@ -42,6 +42,22 @@
   workers sur l'image `17f0d54b`, `/health` à 200, `/ops` sans session à 401. L'essai réel 258 attend la prochaine
   connexion par la fenêtre d'un compte qui a déjà un moyen de paiement.
 
+## 2026-11-13 : reprendre un numéro par la fenêtre du partenaire, ce que Meta accepte et refuse
+
+- **Refusé : un compte que notre application sert déjà en direct** (essai 257, MUTAC, connecté avec sa carte le
+  2026-11-09). La reconnexion par le bouton de l'Entreprise ouvre la fenêtre du partenaire, qui refuse : #2494156, « A
+  paid messaging account already exists for this partner ». L'ajout du compte à la solution par l'API,
+  `POST /<compte>/set_solution_migration_intent` avec le jeton de l'espace, rend 400, sous-code 2593118 (« WABA is not
+  eligible ») : c'est un geste du partenaire qui a intégré le compte. Le nouveau modèle de compte de Meta (un compte de
+  messagerie par partenaire, plus de migration) explique les deux refus. Les deux reconnexions livrées (l'onglet de la
+  formule Pro, le lien d'une Entreprise) ne marchent donc pas ; leur remplacement attend une décision (`todo.md`, en tête).
+- **Accepté : un compte servi par un AUTRE fournisseur** (essai 258, un numéro de test onboardé chez SmartLink dans un
+  portefeuille sans lien avec notre application). La fenêtre, ouverte depuis la console d'un espace de test en
+  Entreprise, accepte le compte WhatsApp existant et crée notre compte de messagerie à côté de celui de SmartLink. Le
+  partenaire le voit, et sa ligne s'y attache (après une pose à la main, l'automatique ayant buté sur le moyen de
+  paiement, entrée précédente). Les comptes de ce test ont ensuite été défaits ; où arrivent les entrants d'un numéro
+  repris reste à voir sur un vrai cas.
+
 ## 2026-11-12 : sans compte ni application, un numéro API direct ; la marketplace du plugin en HTTPS
 
 Plan `2026-11-12-arbre-numero-sans-application.md`, un implémenteur puis une relecture indépendante du diff.

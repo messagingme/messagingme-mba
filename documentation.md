@@ -4868,7 +4868,14 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   elle-même « Reconnecter mon numéro sans carte chez Meta » (`RECONNEXION_ENTREPRISE`, la page lui passant sa connexion
   aussi numéro connecté), puis relit l'état, que la fin de la connexion a fait passer `active` (ligne posée) ou
   `en_attente` ; sans le lien, « sur demande ». Le serveur, lui, rouvre la fenêtre à toute Entreprise (`seReconnecte`) :
-  le lien règle l'écran, pas le droit. La carte chez Meta se reprend
+  le lien règle l'écran, pas le droit. 🔴 **Chez Meta, ces deux reconnexions (l'onglet et le lien) ne passent PAS** pour
+  un compte que notre application sert déjà en direct (mesuré le 2026-11-13 sur MUTAC, essai 257) : la fenêtre refuse
+  (#2494156, « A paid messaging account already exists for this partner », nouveau modèle de compte : un compte de
+  messagerie par partenaire), et `POST /<compte>/set_solution_migration_intent` rend 400, sous-code 2593118 (« WABA is
+  not eligible », un geste réservé au partenaire qui a intégré le compte). Seule voie connue, NON éprouvée : retirer notre
+  compte de messagerie direct, puis repasser par la fenêtre, qui en crée un neuf (modèles et agent de Meta à refaire).
+  À l'inverse, un compte WhatsApp servi par un AUTRE fournisseur passe par la fenêtre (essai 258) : un compte de
+  messagerie neuf à nous, à côté du sien. La carte chez Meta se reprend
   d'un clic, et le bouton du partenaire, resté en second, referme
   son guide dans le même clic que la fenêtre, sans recharger la page (chaque voie porte sa connexion ; seule celle dont
   le bouton a ouvert la fenêtre en envoie la fin). Le crochet refuse d'ouvrir la fenêtre sans identifiant, jamais une connexion
