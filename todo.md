@@ -246,9 +246,9 @@ au lot suivant ; rien ne bloque.
 
 - 🔴 **La carte « Crédit WhatsApp » de Connecter WhatsApp** (Julien, 2026-11-13, en voulant relier un numéro
   existant) : 1) elle n'a pas de bouton à elle, contrairement à la carte de la carte bancaire : on ne voit pas qu'on peut
-  la choisir, le choix se cache dans « Votre numéro, ou le nôtre ? » (« Le mien », « Le vôtre ») sous la carte ; 2) le
-  bouton final « Connecter sans carte chez Meta » redit ce que la personne vient de choisir (« pas la peine de lui
-  rappeler connecter sans carte ») : un libellé neutre, comme « Connecter mon numéro ». Et l'encadré « Avant de
+  la choisir, le choix se cache dans « Votre numéro, ou le nôtre ? » (« J'utilise un numéro existant », « J'ai besoin d'un numéro ») sous la carte (le libellé des réponses et
+  du bouton final, fait le 2026-11-13, `87f459d9`). Le lien « Connecter mon numéro » de la même carte sur l'Accueil mène
+  à cette question : un libellé propre à l'Accueil, si Julien le veut. Et l'encadré « Avant de
   commencer, chez Meta » annonce un code par SMS ou appel, que ne reçoit pas un numéro déjà en service ailleurs (il se
   re-sélectionne sans code, `src/meta/embedded-signup.ts`).
 - **Les restes du lot « arbre sans application »** (2026-11-12, `32c79599`) : le lexique du tunnel de la vitrine dit
@@ -278,8 +278,6 @@ au lot suivant ; rien ne bloque.
   l'onglet Crédit WhatsApp (`?tab=whatsapp`) ; le générateur ne vise qu'un écran (`ecran: offre`).
 - **Un espace relié par QR code, l'option prise** (jaune 7 de 3v-2b) : la consigne de la coexistence lui propose
   `apporte` ou `fourni`, que `start_whatsapp_connection` refuse (l'espace est connecté). Rare.
-- **« Le vôtre » dans la fiche du numéro** (jaune 12 de 3v-2b) : « Connecter sans carte chez Meta » est le bouton de
-  « Le mien » ; le numéro fourni passe par son parcours (« Ouvrir la fenêtre de Meta »).
 - **La consigne lue au lien, la page au chargement** (jaune 6 de 3v-2b) : un `start` lancé avant le webhook de Stripe
   donne la consigne de la carte quand la page ouvre la fenêtre du partenaire ; la suite après connexion rattrape.
 - **L'Entreprise oubliée de l'exception** (jaune 4 de 3v-2c) : elle comprend le Crédit WhatsApp, selon son contrat ;

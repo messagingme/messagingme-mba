@@ -4,6 +4,17 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-13 : la carte « Crédit WhatsApp » dit ce que font ses boutons
+
+- **Ce qui a changé** (`87f459d9`, console et vitrine par Vercel, sans API) : demande de Julien en reliant un numéro
+  existant. Sous « Votre numéro, ou le nôtre ? », « Le mien » et « Le vôtre » deviennent « J'utilise un numéro existant »
+  et « J'ai besoin d'un numéro », en pleine largeur sous la carte ; le bouton final, qui redisait le choix (« Connecter
+  sans carte chez Meta »), devient « Connecter mon numéro ». Les fiches publiques « Payer ses messages sans carte chez
+  Meta » et « Connecter mon numéro » (fr et en), la capture de l'étape 2, features.md et les e2e suivent.
+- **Relecture** : aucun rouge ; deux phrases des fiches reprises avant le push. Au backlog : le libellé du lien de la
+  carte sur l'Accueil.
+- **Ordre** : poussé, puis `aide:charger` par Julien (fiches de `87f459d9` montées sur l'image `32c79599`).
+
 ## 2026-11-13 : une attache refusée se relit avant d'être défaite
 
 - **Le constat** (essai réel 258, sur un espace de test en Entreprise) : un numéro venu d'un autre fournisseur, son
