@@ -469,6 +469,9 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .consentement-perso:focus-visible,.consentement-details input:focus-visible{outline:2px solid var(--action);outline-offset:3px;border-radius:6px}
 .pied address{font-style:normal;font-size:.93rem;display:grid;gap:12px}
 .pied address strong{color:#fff;font-weight:600}
+.pied .pied-labels{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:24px 0 0}
+.pied-labels li{display:flex;align-items:center;padding:7px 10px;border-radius:12px;background:#fff}
+.pied-labels img{display:block;width:auto;height:46px;max-width:none}
 .pied-bas{position:relative;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding-top:24px;padding-bottom:32px;font-size:.88rem;color:#fff}
 .pied-bas::before{content:"";position:absolute;top:0;left:var(--g);right:var(--g);height:1px;background:rgb(255 255 255 / .16)}
 .pied .reseaux{display:flex;gap:10px}
