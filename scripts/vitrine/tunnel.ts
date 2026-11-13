@@ -261,6 +261,7 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
     // Le titre reçoit le focus en fin de tunnel (`site.js`) : un lecteur d'écran l'annonce et lit l'issue depuis le début.
     `          <h3 tabindex="-1">${x.titre}</h3>`,
     ...x.textes.map((p) => `          <p>${p}</p>`),
+    ...Object.entries(x.parOffre ?? {}).flatMap(([offre, ps]) => ps.map((p) => `          <p data-pour="${offre}">${p}</p>`)),
     ...(x.liens ? liens(x.liens, '          ') : []),
     ...(x.autre ? [`          <p class="bt-autre">${x.autre.question} <a href="#numero-${x.autre.vers}" data-vers-chemin="${x.autre.vers}">${x.autre.lien}</a></p>`] : []),
     ...fin(x),

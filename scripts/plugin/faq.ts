@@ -24,7 +24,7 @@ export interface EntreeFaq {
 
 const prix = (centimes: number, langue: 'fr' | 'en'): string => {
   const e = (centimes / 100).toFixed(2);
-  return langue === 'fr' ? `${e.replace('.', ',')} € HT` : `€${e} excl. VAT`;
+  return langue === 'fr' ? `${e.replace('.', ',')} €` : `€${e}`;
 };
 const NUMERO_FR = `${prix(PRIX_NUMERO_HT_CENTIMES, 'fr')} par mois`;
 const NUMERO_EN = `${prix(PRIX_NUMERO_HT_CENTIMES, 'en')} a month`;
@@ -221,8 +221,8 @@ export const FAQ: readonly EntreeFaq[] = [
     id: 'ajouter-un-collegue',
     question: { fr: 'Comment ajouter un collègue ?', en: 'How do I add a colleague?' },
     reponse: {
-      fr: `Depuis la console, par une invitation. ${UTILISATEURS_FREE} utilisateur en formule Free, ${UTILISATEURS_PRO} en formule Pro puis ${SIEGE_MOIS} € HT par utilisateur en plus et par mois (proposé à l'invitation), ${UTILISATEURS_BUSINESS} en Business puis ${SIEGE_BUSINESS_MOIS} € HT par utilisateur en plus et par mois (demandé au Support), selon le devis en Entreprise.`,
-      en: `From the console, with an invitation. ${UTILISATEURS_FREE} user on Free, ${UTILISATEURS_PRO} on Pro then €${SIEGE_MOIS} excl. VAT per extra user per month (offered when inviting), ${UTILISATEURS_BUSINESS} on Business then €${SIEGE_BUSINESS_MOIS} excl. VAT per extra user per month (asked from Support), per quote on Enterprise.`,
+      fr: `Depuis la console, par une invitation. ${UTILISATEURS_FREE} utilisateur en formule Free, ${UTILISATEURS_PRO} en formule Pro puis ${SIEGE_MOIS} € par utilisateur en plus et par mois (proposé à l'invitation), ${UTILISATEURS_BUSINESS} en Business puis ${SIEGE_BUSINESS_MOIS} € par utilisateur en plus et par mois (demandé au Support), selon le devis en Entreprise.`,
+      en: `From the console, with an invitation. ${UTILISATEURS_FREE} user on Free, ${UTILISATEURS_PRO} on Pro then €${SIEGE_MOIS} per extra user per month (offered when inviting), ${UTILISATEURS_BUSINESS} on Business then €${SIEGE_BUSINESS_MOIS} per extra user per month (asked from Support), per quote on Enterprise.`,
     },
     source: 'src/offres/offres.ts (DROITS) ; docs/aide/fiches/inviter-mon-equipe-et-gerer-les-acces.md',
   },

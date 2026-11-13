@@ -49,8 +49,8 @@ const affiche = (h: string): string => h.replace(/<[^>]+>/g, '').replace(/&nbsp;
 describe('le tunnel du numéro WhatsApp', () => {
   it('le numéro fourni cite le prix du code', () => {
     expect(PRIX_NUMERO_AFFICHE_HT_CENTIMES).toBe(PRIX_NUMERO_HT_CENTIMES);
-    expect(corps(lire(fichierDe(DEMARRER.fr)))).toContain('3,50 € HT par mois en formule Free, inclus en formule Pro');
-    expect(corps(lire(fichierDe(DEMARRER.en)))).toContain('€3.50 excl. VAT a month with the Free plan, included in Pro');
+    expect(corps(lire(fichierDe(DEMARRER.fr)))).toContain('3,50 € par mois en formule Free, inclus en formule Pro');
+    expect(corps(lire(fichierDe(DEMARRER.en)))).toContain('€3.50 a month with the Free plan, included in Pro');
   });
 
   it('est posé, une seule fois, sur chaque page qui le porte, et nulle part ailleurs', () => {

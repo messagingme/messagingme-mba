@@ -949,6 +949,12 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-question.repondue .bt-voie-note{justify-content:center}
 [data-question="offre"] .bt-badge,.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-badge{background:#E6F8EE;color:#0E7A3C}
 [data-question="offre"] .bt-badge{margin:12px 0 0;text-align:center;white-space:nowrap}
+/* Le nom de la formule en pastille de couleur (Julien, 2026-11-13 : « faut que ça pète ») : une couleur par formule. */
+[data-question="offre"] .bt-voie h4{display:inline-block;margin:0 0 12px;padding:5px 14px;border-radius:999px;background:#0B0E24;color:#fff;font-size:.82rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+[data-question="offre"] .bt-voie-choix:nth-child(1) .bt-voie h4{background:#5B6178}
+[data-question="offre"] .bt-voie-choix:nth-child(2) .bt-voie h4{background:#1677E6}
+[data-question="offre"] .bt-voie-choix:nth-child(3) .bt-voie h4{background:#12A150}
+[data-question="offre"] .bt-voie-choix:nth-child(4) .bt-voie h4{background:#0B0E24}
 @media (max-width:520px){
   [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-tarif{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px}
   [data-question="offre"]:is(:not(.repondue),.rouverte) .bt-tarif strong{display:inline;font-size:1.55rem}
@@ -992,7 +998,7 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-voie-liens a{color:var(--action-ink)}
 /* L'essai du Pro, en tête de sa carte (lot 3b) : visible avant le titre. */
 .bt-badge{display:inline-block;margin:0 0 8px;padding:3px 11px;border-radius:999px;background:rgb(37 211 102 / .16);color:#5BE38F;font-size:.8rem;font-weight:700}
-.js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}
+.js .bt-guide:not([data-offre="business"]) .bt-chemin [data-pour="business"],.js .bt-guide:not([data-offre="entreprise"]) .bt-chemin [data-pour="entreprise"],.js .bt-guide:not([data-offre="free"]) .bt-grisee[data-pour="free"],.js .bt-guide:not([data-offre="pro"]) .bt-grisee[data-pour="pro"]{display:none}
 /* Une réponse grisée pour une formule seulement (la ligne de crédit, plan 2026-11-13) : son bouton grisé pour cette formule,
    son bouton actif pour les autres. Sans formule choisie (le guide du centre d'aide), le bouton actif. */
 .js .bt-guide:not([data-offre="free"]) button[data-pour="free"],.js .bt-guide[data-offre="free"] button[data-sauf~="free"]{display:none}

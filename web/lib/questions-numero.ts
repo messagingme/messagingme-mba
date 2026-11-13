@@ -42,12 +42,12 @@ export const CARTES_OFFRE: ReadonlyArray<{
   {
     offre: 'pro', libelle: { fr: 'Pro', en: 'Pro' }, titre: { fr: 'Pro', en: 'Pro' },
     badge: { fr: '14 jours d’essai gratuit', en: '14-day free trial' },
-    prix: { fr: '49 €', en: '€49' }, unite: { fr: 'HT par mois', en: 'excl. VAT a month' },
+    prix: { fr: '49 €', en: '€49' }, unite: { fr: 'par mois', en: 'a month' },
     plus: [], moins: [],
   },
   {
     offre: 'business', libelle: { fr: 'Business', en: 'Business' }, titre: { fr: 'Business', en: 'Business' },
-    prix: { fr: '349 €', en: '€349' }, unite: { fr: 'HT par mois', en: 'excl. VAT a month' },
+    prix: { fr: '349 €', en: '€349' }, unite: { fr: 'par mois', en: 'a month' },
     plus: [], moins: [],
   },
   {
@@ -89,8 +89,8 @@ export const QUESTION_PAIEMENT = {
   credit: {
     titre: { fr: 'Ligne de crédit', en: 'Credit line' },
     texte: {
-      fr: 'Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : 30 € HT par numéro et par mois, avec la formule Pro ou Business.',
-      en: 'You prepay your messages at Messaging Me, with no card at Meta: €30 excl. VAT per number per month, with the Pro or Business plan.',
+      fr: 'Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : 30 € par numéro et par mois, avec la formule Pro ou Business.',
+      en: 'You prepay your messages at Messaging Me, with no card at Meta: €30 per number per month, with the Pro or Business plan.',
     },
   },
   grisee: {
@@ -184,8 +184,8 @@ export const QUESTION_MEME_NUMERO = {
 export const ISSUE_FOURNI = {
   titre: { fr: 'Un numéro de chez nous, relié par Meta', en: 'A number from us, connected through Meta' },
   texte: {
-    fr: 'Nous vous fournissons un numéro, 3,50 € HT par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond.',
-    en: 'We provide a number, €3.50 excl. VAT a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers.',
+    fr: 'Nous vous fournissons un numéro, 3,50 € par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond.',
+    en: 'We provide a number, €3.50 a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers.',
   },
 } as const satisfies Record<string, Texte>;
 

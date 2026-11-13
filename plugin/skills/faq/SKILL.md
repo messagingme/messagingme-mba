@@ -33,7 +33,7 @@ Your number goes through the official WhatsApp API, connected through Meta. It l
 
 2) The number of your WhatsApp Business app: you keep it in the app on your phone, and it also sends from Messaging Me. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats.
 
-3) No number: we provide one (€3.50 excl. VAT a month, included in Pro).
+3) No number: we provide one (€3.50 a month, included in Pro).
 
 Claude helps you choose when you connect the number.
 
@@ -45,7 +45,7 @@ Votre numéro passe par l’API officielle de WhatsApp, relié par Meta. Il vous
 
 2) Le numéro de votre application WhatsApp Business : vous le gardez dans l’application de votre téléphone, et il envoie aussi depuis Messaging Me. Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations.
 
-3) Pas de numéro : nous vous en fournissons un (3,50 € HT par mois, inclus en formule Pro).
+3) Pas de numéro : nous vous en fournissons un (3,50 € par mois, inclus en formule Pro).
 
 Claude vous aide à choisir au moment de connecter le numéro.
 
@@ -159,11 +159,11 @@ Oui, avec l’application WhatsApp Business : le même numéro reste dans l’ap
 
 ## Do I own the provided number?
 
-No: it is rented for €3.50 excl. VAT a month, included in Pro. A number you bring stays yours.
+No: it is rented for €3.50 a month, included in Pro. A number you bring stays yours.
 
 **FR · Le numéro fourni m’appartient-il ?**
 
-Non : il est loué 3,50 € HT par mois, inclus en formule Pro. Un numéro que vous apportez reste à vous.
+Non : il est loué 3,50 € par mois, inclus en formule Pro. Un numéro que vous apportez reste à vous.
 
 ## How many messages can I send?
 
@@ -191,19 +191,19 @@ Oui, en formule Pro, et rien ne part sans votre oui. Claude trouve les contacts 
 
 ## How do I add a colleague?
 
-From the console, with an invitation. 1 user on Free, 3 on Pro then €15 excl. VAT per extra user per month (offered when inviting), 5 on Business then €10 excl. VAT per extra user per month (asked from Support), per quote on Enterprise.
+From the console, with an invitation. 1 user on Free, 3 on Pro then €15 per extra user per month (offered when inviting), 5 on Business then €10 per extra user per month (asked from Support), per quote on Enterprise.
 
 **FR · Comment ajouter un collègue ?**
 
-Depuis la console, par une invitation. 1 utilisateur en formule Free, 3 en formule Pro puis 15 € HT par utilisateur en plus et par mois (proposé à l'invitation), 5 en Business puis 10 € HT par utilisateur en plus et par mois (demandé au Support), selon le devis en Entreprise.
+Depuis la console, par une invitation. 1 utilisateur en formule Free, 3 en formule Pro puis 15 € par utilisateur en plus et par mois (proposé à l'invitation), 5 en Business puis 10 € par utilisateur en plus et par mois (demandé au Support), selon le devis en Entreprise.
 
 ## How do I cancel, and what happens to the number?
 
-Pro and the provided number are managed in the Stripe portal, from the console Plan page or through Claude (`manage_number_subscription`). When Pro ends, the provided number moves to €3.50 excl. VAT a month on the same card, unless you choose to give it back (`return_number_at_plan_end`).
+Pro and the provided number are managed in the Stripe portal, from the console Plan page or through Claude (`manage_number_subscription`). When Pro ends, the provided number moves to €3.50 a month on the same card, unless you choose to give it back (`return_number_at_plan_end`).
 
 **FR · Comment résilier, et que devient le numéro ?**
 
-La formule Pro et le numéro fourni se gèrent dans le portail de Stripe, depuis la page Offre de la console ou par Claude (`manage_number_subscription`). À la fin de la formule Pro, le numéro fourni passe à 3,50 € HT par mois sur la même carte, sauf si vous choisissez de le rendre (`return_number_at_plan_end`).
+La formule Pro et le numéro fourni se gèrent dans le portail de Stripe, depuis la page Offre de la console ou par Claude (`manage_number_subscription`). À la fin de la formule Pro, le numéro fourni passe à 3,50 € par mois sur la même carte, sauf si vous choisissez de le rendre (`return_number_at_plan_end`).
 
 ## How do I update the plugin?
 

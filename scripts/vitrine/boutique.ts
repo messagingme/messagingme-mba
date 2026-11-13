@@ -73,7 +73,7 @@ const carteClaude = (t: TexteBoutique, langue: Langue) => (c: CarteClaude) => {
  * La phrase d'un outil sur la page : celle de la vitrine (`PHRASES_OUTILS`), sinon la première de la doc MCP
  * (`OUTILS_MCP`), coupée avant son premier « ; ». La liste se lit d'un coup d'œil, le détail reste à la doc ; et ce qui
  * suit parle parfois du « QR code », mot que la page n'emploie plus (`tests/vitrine-boutique.test.ts`). Une phrase finit
- * sur un point suivi d'une majuscule, jamais sur celui d'une abréviation (« €3.50 excl. VAT »).
+ * sur un point suivi d'une majuscule, jamais sur celui d'une abréviation (« €3.50 »).
  */
 const phraseCourte = (quoi: string): string => {
   const p = quoi.split(/\s?;\s/)[0]!.split(/(?<=[.!?])(?<!\b(?:excl|incl|approx|cf|etc)\.)\s+(?=[A-ZÀ-Ý«“])/)[0]!.trim();

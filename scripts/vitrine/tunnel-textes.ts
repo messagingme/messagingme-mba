@@ -45,13 +45,13 @@ const codeParLAppel = (langue: Langue): string => {
   return `${appel[langue]} ${code[langue]}`;
 };
 
-/** Le numéro fourni, en centimes HT par mois : la valeur de `PRIX_NUMERO_HT_CENTIMES`, gardée égale par le test. */
+/** Le numéro fourni, en centimes par mois : la valeur de `PRIX_NUMERO_HT_CENTIMES`, gardée égale par le test. */
 export const PRIX_NUMERO_AFFICHE_HT_CENTIMES = 350;
 
 /** La ligne de crédit depuis Claude (plan 2026-11-13) : l'option payée d'abord, le lien ensuite. */
 const ligneDAbord = (langue: Langue): string => (langue === 'fr'
-  ? `Claude ouvre d’abord le paiement de l’option, ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'fr')} HT par numéro et par mois, payée dès sa prise, même pendant l’essai de la formule Pro. Une fois l’option payée, il vous donne le lien : la fenêtre de Meta relie votre numéro sans demander de moyen de paiement.`
-  : `Claude first opens the payment of the option, ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'en')} excl. VAT per number per month, paid when taken, even during the Pro plan trial. Once the option is paid, it gives you the link: Meta’s window connects your number without asking for a payment method.`);
+  ? `Claude ouvre d’abord le paiement de l’option, ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'fr')} par numéro et par mois, payée dès sa prise, même pendant l’essai de la formule Pro. Une fois l’option payée, il vous donne le lien : la fenêtre de Meta relie votre numéro sans demander de moyen de paiement.`
+  : `Claude first opens the payment of the option, ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'en')} per number per month, paid when taken, even during the Pro plan trial. Once the option is paid, it gives you the link: Meta’s window connects your number without asking for a payment method.`);
 const ligneRecharge = (langue: Langue): string => (langue === 'fr'
   ? 'Son solde part de zéro : rechargez votre ligne de crédit avant vos premiers modèles, Claude vous en donne le lien.'
   : 'Its balance starts at zero: top up your credit line before your first templates, Claude gives you the link.');
@@ -136,6 +136,8 @@ export interface Voie {
  */
 export type Issue = {
   readonly id: string; readonly situation: string; readonly titre: string; readonly textes: readonly string[];
+  /** Des textes propres à la formule choisie plus haut (`data-pour`, la règle de `site.css`), 2026-11-13. */
+  readonly parOffre?: Readonly<Partial<Record<'business' | 'entreprise', readonly string[]>>>;
   readonly autre?: { readonly question: string; readonly lien: string; readonly vers: string };
   readonly liens?: readonly Lien[];
 } & (
@@ -218,8 +220,8 @@ const fr = (): TexteTunnel => {
     // Le nom et le prix, rien d'autre (Julien, 2026-11-13 : « pas clair, pas vendeur ; on va éviter les textes qui
     // décrivent les options ») ; Free dit seulement ce qu'il faut pour s'en servir. Les prix sont ceux du code.
     { titre: 'Free', prix: '0&nbsp;€', unite: 'sans limite de durée', note: 'Besoin d’un IDE ou de {claude} / {codex}', plus: [], moins: [] },
-    { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
-    { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
+    { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'fr'), unite: 'par mois', plus: [], moins: [] },
+    { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'fr'), unite: 'par mois', plus: [], moins: [] },
     { titre: 'Entreprise', prix: 'Sur devis', plus: [], moins: [] },
   ];
   const garder = 'Pas de compte Meta Business ? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement.';
@@ -243,7 +245,7 @@ const fr = (): TexteTunnel => {
     },
     {
       titre: 'Ligne de crédit',
-      plus: [`Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'fr')} HT par numéro et par mois, avec la formule Pro ou Business.`],
+      plus: [`Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'fr')} par numéro et par mois, avec la formule Pro ou Business.`],
       moins: [],
     },
   ];
@@ -254,7 +256,7 @@ const fr = (): TexteTunnel => {
   // Un numéro de chez nous, relié par la fenêtre de Meta : le cas 4 et, sans compte ni application ni numéro, l'issue
   // `fourni` (2026-11-12) ; le cas 4 y ajoute ce que garde l'application.
   const deChezNous = 'Un numéro de chez nous, relié par Meta';
-  const numeroDeChezNous = `Nous vous fournissons un numéro, ${numero} HT par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond.`;
+  const numeroDeChezNous = `Nous vous fournissons un numéro, ${numero} par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond.`;
   const metaFacture = 'Meta facture vos messages, et les réponses au-delà d’une franchise mensuelle : un moyen de paiement s’ajoute chez Meta.';
   return {
     surtitre: 'Votre numéro WhatsApp',
@@ -352,12 +354,12 @@ const fr = (): TexteTunnel => {
         id: 'api', situation: 'Avec un compte Meta Business, ou avec un numéro sans l’application WhatsApp Business', titre: 'Votre numéro API',
         textes: [
           'La fenêtre de Meta prend votre compte Meta Business, ou vous le fait créer en chemin, et relie votre numéro à l’API officielle de WhatsApp : il envoie vos messages, et votre agent IA répond.',
-          `Un numéro libre, qui ne sert dans aucune application WhatsApp, devient votre numéro API ; un numéro qui sert déjà dans WhatsApp ou dans l’application WhatsApp Business se garde dans l’application (ci-dessous). Sans numéro, prenez un numéro fourni : ${numero} HT par mois en formule Free, inclus en formule Pro.`,
+          `Un numéro libre, qui ne sert dans aucune application WhatsApp, devient votre numéro API ; un numéro qui sert déjà dans WhatsApp ou dans l’application WhatsApp Business se garde dans l’application (ci-dessous). Sans numéro, prenez un numéro fourni : ${numero} par mois en formule Free, inclus en formule Pro.`,
           metaFacture,
         ],
         autre: { question: 'Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ?', lien: 'Vous pouvez le garder', vers: 'garder' },
         numero: {
-          free: `Relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (${numero} HT par mois) ; s’il me manque un compte Meta Business, guide-moi pour le créer en chemin.`,
+          free: `Relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (${numero} par mois) ; s’il me manque un compte Meta Business, guide-moi pour le créer en chemin.`,
           pro: 'Relie mon numéro libre par Meta en numéro API, ou, si je n’ai aucun numéro, fournis-m’en un (inclus en formule Pro) ; s’il me manque un compte Meta Business, guide-moi pour le créer en chemin.',
         },
         pasAPas: '/aide/connecter-mon-numero-whatsapp/',
@@ -387,7 +389,7 @@ const fr = (): TexteTunnel => {
           metaFacture,
         ],
         numero: {
-          free: `J’ai déjà l’application WhatsApp Business, mais je veux un autre numéro pour Messaging Me : fournis-m’en un (${numero} HT par mois), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.`,
+          free: `J’ai déjà l’application WhatsApp Business, mais je veux un autre numéro pour Messaging Me : fournis-m’en un (${numero} par mois), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.`,
           pro: 'J’ai déjà l’application WhatsApp Business, mais je veux un autre numéro pour Messaging Me : fournis-m’en un (inclus en formule Pro), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.',
         },
         pasAPas: '/aide/numero-fourni-par-messaging-me/',
@@ -398,7 +400,7 @@ const fr = (): TexteTunnel => {
         id: 'fourni', situation: 'Sans l’application WhatsApp Business ni numéro', titre: deChezNous,
         textes: [numeroDeChezNous, codeParLAppel('fr'), garder, metaFacture],
         numero: {
-          free: `Je n’ai ni l’application WhatsApp Business ni numéro : fournis-m’en un (${numero} HT par mois), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.`,
+          free: `Je n’ai ni l’application WhatsApp Business ni numéro : fournis-m’en un (${numero} par mois), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.`,
           pro: 'Je n’ai ni l’application WhatsApp Business ni numéro : fournis-m’en un (inclus en formule Pro), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.',
         },
         pasAPas: '/aide/numero-fourni-par-messaging-me/',
@@ -429,10 +431,17 @@ const fr = (): TexteTunnel => {
         // Business et Entreprise ne se branchent pas seuls (Julien, 2026-10-30 : « request a demo ou contact »), et ce
         // que la page Tarifs en dit (sur facture, essai sur demande, devis) se reprend ici mot pour mot.
         id: 'echange', situation: 'En formule Business ou Entreprise', titre: 'Parlons de votre projet', contact: true,
-        textes: [
-          'Business et Entreprise se mettent en place après un échange avec nous : nous posons la formule sur votre espace, sur facture, sans paiement en ligne, et nous vous accompagnons dans la mise en service.',
-          'Un essai de 14&nbsp;jours de Business est possible sur demande. Entreprise se chiffre sur devis, selon votre volume.',
-        ],
+        textes: [],
+        parOffre: {
+          business: [
+            'Business se met en place après un échange avec nous : nous posons la formule sur votre espace, sur facture, sans paiement en ligne, et nous vous accompagnons dans la mise en service.',
+            'Un essai de 14&nbsp;jours est possible sur demande.',
+          ],
+          entreprise: [
+            'Entreprise se met en place après un échange avec nous : nous posons la formule sur votre espace, sur facture, sans paiement en ligne, et nous vous accompagnons dans la mise en service.',
+            'Elle se chiffre sur devis.',
+          ],
+        },
       },
     ],
     plus: 'Pour :', moins: 'Contre :',
@@ -508,8 +517,8 @@ const en = (): TexteTunnel => {
   const numero = euros(PRIX_NUMERO_AFFICHE_HT_CENTIMES, 'en');
   const offres: readonly Voie[] = [
     { titre: 'Free', prix: '€0', unite: 'with no time limit', note: 'Needs an IDE or {claude} / {codex}', plus: [], moins: [] },
-    { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}-day free trial`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
-    { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
+    { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}-day free trial`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'en'), unite: 'a month', plus: [], moins: [] },
+    { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'en'), unite: 'a month', plus: [], moins: [] },
     { titre: 'Enterprise', prix: 'On quote', plus: [], moins: [] },
   ];
   const garder = 'No Meta Business account? Meta’s window creates it along the way, with your Facebook profile, then offers a payment method.';
@@ -531,7 +540,7 @@ const en = (): TexteTunnel => {
     },
     {
       titre: 'Credit line',
-      plus: [`You prepay your messages at Messaging Me, with no card at Meta: ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'en')} excl. VAT per number per month, with the Pro or Business plan.`],
+      plus: [`You prepay your messages at Messaging Me, with no card at Meta: ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'en')} per number per month, with the Pro or Business plan.`],
       moins: [],
     },
   ];
@@ -539,7 +548,7 @@ const en = (): TexteTunnel => {
   const whatsappOrdinaire = 'Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats.';
   const magasins: readonly Lien[] = [{ libelle: 'App Store (iPhone)', href: MAGASINS.appStore }, { libelle: 'Google Play (Android)', href: MAGASINS.googlePlay }];
   const deChezNous = 'A number from us, connected through Meta';
-  const numeroDeChezNous = `We provide a number, ${numero} excl. VAT a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers.`;
+  const numeroDeChezNous = `We provide a number, ${numero} a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers.`;
   const metaFacture = 'Meta bills your messages, and replies beyond a monthly allowance: a payment method is added at Meta.';
   return {
     surtitre: 'Your WhatsApp number',
@@ -621,12 +630,12 @@ const en = (): TexteTunnel => {
         id: 'api', situation: 'With a Meta Business account, or with a number without the WhatsApp Business app', titre: 'Your API number',
         textes: [
           'Meta’s window takes your Meta Business account, or has you create it along the way, and connects your number to the official WhatsApp API: it sends your messages, and your AI agent answers.',
-          `An available number, not used in any WhatsApp app, becomes your API number; a number already used in WhatsApp or in the WhatsApp Business app is kept in the app (below). Without a number, take a provided one: ${numero} excl. VAT a month with the Free plan, included in Pro.`,
+          `An available number, not used in any WhatsApp app, becomes your API number; a number already used in WhatsApp or in the WhatsApp Business app is kept in the app (below). Without a number, take a provided one: ${numero} a month with the Free plan, included in Pro.`,
           metaFacture,
         ],
         autre: { question: 'Is your number already used in WhatsApp or in the WhatsApp Business app?', lien: 'You can keep it', vers: 'garder' },
         numero: {
-          free: `Connect my available number through Meta as an API number, or, if I have no number at all, provide one (${numero} excl. VAT a month); if I lack a Meta Business account, walk me through creating it along the way.`,
+          free: `Connect my available number through Meta as an API number, or, if I have no number at all, provide one (${numero} a month); if I lack a Meta Business account, walk me through creating it along the way.`,
           pro: 'Connect my available number through Meta as an API number, or, if I have no number at all, provide one (included in Pro); if I lack a Meta Business account, walk me through creating it along the way.',
         },
         pasAPas: '/en/help/connect-my-whatsapp-number/',
@@ -653,7 +662,7 @@ const en = (): TexteTunnel => {
           metaFacture,
         ],
         numero: {
-          free: `I already have the WhatsApp Business app, but I want another number for Messaging Me: provide one (${numero} excl. VAT a month), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.`,
+          free: `I already have the WhatsApp Business app, but I want another number for Messaging Me: provide one (${numero} a month), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.`,
           pro: 'I already have the WhatsApp Business app, but I want another number for Messaging Me: provide one (included in Pro), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.',
         },
         pasAPas: '/en/help/get-a-number-provided-by-messaging-me/',
@@ -662,7 +671,7 @@ const en = (): TexteTunnel => {
         id: 'fourni', situation: 'Without the WhatsApp Business app or a number', titre: deChezNous,
         textes: [numeroDeChezNous, codeParLAppel('en'), garder, metaFacture],
         numero: {
-          free: `I have neither the WhatsApp Business app nor a number: provide one (${numero} excl. VAT a month), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.`,
+          free: `I have neither the WhatsApp Business app nor a number: provide one (${numero} a month), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.`,
           pro: 'I have neither the WhatsApp Business app nor a number: provide one (included in Pro), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.',
         },
         pasAPas: '/en/help/get-a-number-provided-by-messaging-me/',
@@ -689,10 +698,17 @@ const en = (): TexteTunnel => {
       },
       {
         id: 'echange', situation: 'With the Business or Enterprise plan', titre: 'Let’s talk about your project', contact: true,
-        textes: [
-          'Business and Enterprise are set up after a conversation with us: we put the plan on your workspace, invoiced, with no online payment, and we support you through the setup.',
-          'A 14-day Business trial is possible on request. Enterprise is priced on quote, based on your volume.',
-        ],
+        textes: [],
+        parOffre: {
+          business: [
+            'Business is set up after a conversation with us: we put the plan on your workspace, invoiced, with no online payment, and we support you through the setup.',
+            'A 14-day trial is possible on request.',
+          ],
+          entreprise: [
+            'Enterprise is set up after a conversation with us: we put the plan on your workspace, invoiced, with no online payment, and we support you through the setup.',
+            'It is priced on quote.',
+          ],
+        },
       },
     ],
     plus: 'For:', moins: 'Against:',
