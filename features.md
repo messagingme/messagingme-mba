@@ -812,6 +812,10 @@ En haut de l'onglet **Historique** d'une fiche contact, deux chiffres face à fa
   d'en-tête (à redéposer), et un bouton téléphone, code à copier, appel ou catalogue, qui apparaît en réponse rapide.
 - ✅ **En-tête média** : l'image **ou la vidéo** uploadée s'affiche pour de vrai dans l'aperçu WhatsApp (plus
   juste une icône).
+- ✅ **L'en-tête se choisit aussi dans la médiathèque** (demande de Julien, 2026-11-13) : à côté de « Choisir une image »,
+  « Choisir dans la médiathèque » propose les fichiers déjà déposés qui conviennent au format (JPEG ou PNG pour une
+  image, MP4 pour une vidéo, PDF pour un document). Le serveur lit le fichier dans l'espace, jamais par son adresse, et le
+  dépose chez Meta comme un fichier du poste.
 - ✅ **L'aperçu porte le NOM DE L'ENTREPRISE** (2026-08-21) : l'en-tête de la miniature WhatsApp affiche le
   **nom vérifié** du compte, celui que le destinataire lit en haut de sa conversation, et non plus le libellé
   générique « Votre entreprise ». Vaut pour les six aperçus (création de template, création de carrousel,

@@ -6,13 +6,21 @@
  * cinq types que la route accepte (`src/http/rcs-media.ts`), à ses plafonds.
  * Le serveur relit la SIGNATURE de chaque fichier : ces règles évitent seulement d'envoyer pour rien.
  */
-export type Accepte = 'image' | 'image-video-pdf' | 'tout';
+/**
+ * `entete-*` (2026-11-13) : l'en-tête d'un modèle, que Meta veut en JPEG ou PNG, en MP4 ou en PDF selon son format ;
+ * un GIF de la médiathèque ne s'y propose pas.
+ */
+export type Accepte = 'image' | 'image-video-pdf' | 'tout' | 'entete-image' | 'entete-video' | 'entete-document';
 
 const MO = 1024 * 1024;
 const PLAFONDS: Record<Accepte, Record<string, number>> = {
   image: { 'image/jpeg': 2 * MO, 'image/png': 2 * MO, 'image/gif': 2 * MO },
   'image-video-pdf': { 'image/jpeg': 2 * MO, 'image/png': 2 * MO, 'video/mp4': 16 * MO, 'application/pdf': 16 * MO },
   tout: { 'image/jpeg': 2 * MO, 'image/png': 2 * MO, 'image/gif': 2 * MO, 'video/mp4': 16 * MO, 'application/pdf': 16 * MO },
+  // Les plafonds de Meta pour un en-tête (`src/http/media.ts`) : 5 Mo une image, 16 Mo une vidéo ou un PDF.
+  'entete-image': { 'image/jpeg': 5 * MO, 'image/png': 5 * MO },
+  'entete-video': { 'video/mp4': 16 * MO },
+  'entete-document': { 'application/pdf': 16 * MO },
 };
 
 /** La valeur de l'attribut `accept` du sélecteur de fichier. */
@@ -34,6 +42,9 @@ const EXTENSIONS: Record<Accepte, RegExp> = {
   image: /\.(jpe?g|png|gif)(\?.*)?$/i,
   'image-video-pdf': /\.(jpe?g|png|mp4|pdf)(\?.*)?$/i,
   tout: /\.(jpe?g|png|gif|mp4|pdf)(\?.*)?$/i,
+  'entete-image': /\.(jpe?g|png)(\?.*)?$/i,
+  'entete-video': /\.mp4(\?.*)?$/i,
+  'entete-document': /\.pdf(\?.*)?$/i,
 };
 
 /** Une adresse saisie dont l'extension n'est pas de celles que ce champ accepte (l'envoi serait refusé). */

@@ -35,6 +35,10 @@
   les siens.
 - L'agent IA de la Free : la vitrine dit « 1 agent IA », le code n'en limite pas le nombre (décision de Julien du
   2026-11-13, texte seulement).
+- Lot 3 (l'en-tête pris dans la médiathèque) : un fichier supprimé depuis moins de 30 jours reste lisible par la route
+  (la grâce de `lireDeLEspace`), donc un onglet resté ouvert peut encore le déposer chez Meta ; l'aperçu reçoit l'adresse
+  brute au lieu de `imageDessinable` ; le type d'en-tête reste modifiable pendant un dépôt (défaut d'avant le lot,
+  `onHeaderFile` aussi) ; le plafond de 5 Mo d'`entete-image` est au-dessus des 2 Mo de la médiathèque.
 
 ## 🟡 Les PDF par contact, lot B3b (console)
 

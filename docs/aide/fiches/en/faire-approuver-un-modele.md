@@ -1,7 +1,7 @@
 ---
 description: Create a WhatsApp message template and get it approved by Meta: the text, the variables, the validity period, the language, then submission.
 slug: get-a-template-approved
-traduit_de: e46f25
+traduit_de: c22096
 ---
 # Create a template and get it approved
 
@@ -12,7 +12,8 @@ someone who has not replied to you recently.
 document), a footer and buttons. A Document header can send each contact their own PDF (their quote, copied from
 HubSpot): see “Integrate WhatsApp with HubSpot”; such a template is only sent from a scenario.
 
-The text header and the footer are limited to sixty characters and do not accept a variable. Under each limited
+The file of an image, video or document header comes from your computer, or from the media library through “Pick
+from the media library”. The text header and the footer are limited to sixty characters and do not accept a variable. Under each limited
 field, a counter tells you how many characters you have left: the body accepts 1,024, a button’s text 25. A body
 that is too long turns red, and the template does not go out as long as it is over. You can also create a carousel:
 a shared introduction message, then two to ten cards with an image (160 characters of text each), each carrying the

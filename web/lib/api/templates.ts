@@ -137,3 +137,15 @@ export function deleteTemplate(tenantId: string, name: string): Promise<{ succes
 export function uploadMedia(tenantId: string, dataUrl: string): Promise<{ handle: string }> {
   return request<{ handle: string }>(`/tenants/${tenantId}/media`, { method: 'POST', body: JSON.stringify({ dataUrl }) });
 }
+
+/**
+ * L'en-tête d'un modèle choisi dans la médiathèque (demande de Julien du 2026-11-13) : le serveur lit le fichier dans
+ * l'espace par son adresse, vérifie qu'il convient au format, et le dépose chez Meta. Rend le handle et le nom du fichier.
+ */
+export function uploadMediaDepuisMediatheque(
+  tenantId: string, adresse: string, format: 'IMAGE' | 'VIDEO' | 'DOCUMENT',
+): Promise<{ handle: string; nom: string | null }> {
+  return request<{ handle: string; nom: string | null }>(`/tenants/${tenantId}/media`, {
+    method: 'POST', body: JSON.stringify({ mediatheque: adresse, format }),
+  });
+}

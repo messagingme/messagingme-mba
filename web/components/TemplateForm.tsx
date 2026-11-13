@@ -12,7 +12,7 @@ import {
 import { exempleUrl } from '@/lib/champs-url';
 import { analyserChampsUrl, type AnalyseChampsUrl } from '@/lib/partage/champs-url';
 import { customFieldsOnly } from '@/lib/fields';
-import { listFlows, createTemplate, updateTemplate, uploadMedia, getTemplateHints, type TemplateSummary, type TemplateButtonInput, type TemplateHeaderInput, type FlowSummary, type TemplateParamHint } from '@/lib/api';
+import { listFlows, createTemplate, updateTemplate, uploadMedia, uploadMediaDepuisMediatheque, getTemplateHints, type TemplateSummary, type TemplateButtonInput, type TemplateHeaderInput, type FlowSummary, type TemplateParamHint } from '@/lib/api';
 import { resizeToDataUrl, fileToDataUrl } from '@/lib/image';
 import { isSendableButtonUrl } from '@/lib/partage/button-url';
 import { useLocale, useT } from '@/lib/i18n';
@@ -24,6 +24,7 @@ import { ListeManques } from '@/components/ListeManques';
 import { Field } from '@/components/Field';
 import { Bouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
+import { ChoixMediatheque } from '@/components/ChoixMediatheque';
 
 /**
  * Formulaire de creation (et d'edition) d'un template Meta.
@@ -103,6 +104,8 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
   const [headerPreviewUrl, setHeaderPreviewUrl] = useState('');
   const headerPreviewRef = useRef<string>('');
   const [headerUploading, setHeaderUploading] = useState(false);
+  // La médiathèque ouverte pour l'en-tête (2026-11-13) : un fichier déjà déposé, au lieu d'un fichier du poste.
+  const [mediathequeOuverte, setMediathequeOuverte] = useState(false);
   const [footer, setFooter] = useState(initial?.footer ?? '');
   const headerFileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -219,6 +222,29 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
       if (headerPreviewRef.current) URL.revokeObjectURL(headerPreviewRef.current);
       headerPreviewRef.current = preview;
       setHeaderPreviewUrl(preview);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Upload du média impossible', 'Media upload failed'));
+    } finally {
+      setHeaderUploading(false);
+    }
+  }
+
+  /**
+   * L'en-tête pris dans la médiathèque (demande de Julien du 2026-11-13) : le serveur lit le fichier dans l'espace et le
+   * dépose chez Meta, comme un fichier du poste. Une image se montre dans l'aperçu par son adresse publique ; une vidéo ou
+   * un PDF n'en ont pas, l'aperçu garde alors son cadre.
+   */
+  async function onHeaderMediatheque(adresse: string) {
+    if (headerType !== 'IMAGE' && headerType !== 'VIDEO' && headerType !== 'DOCUMENT') return;
+    setHeaderUploading(true);
+    setError(null);
+    try {
+      const { handle, nom } = await uploadMediaDepuisMediatheque(tenantId, adresse, headerType);
+      setHeaderHandle(handle);
+      setHeaderFileName(nom ?? t('Fichier de la médiathèque', 'Media library file'));
+      if (headerPreviewRef.current) URL.revokeObjectURL(headerPreviewRef.current);
+      headerPreviewRef.current = '';
+      setHeaderPreviewUrl(headerType === 'IMAGE' ? adresse : '');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Upload du média impossible', 'Media upload failed'));
     } finally {
@@ -456,7 +482,19 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
                   <Bouton variante="secondaire" enCours={headerUploading} type="button" onClick={() => headerFileRef.current?.click()} disabled={headerUploading}>
                     {headerUploading ? 'Upload…' : headerHandle ? t('Remplacer', 'Replace') : headerType === 'IMAGE' ? t('Choisir une image', 'Choose an image') : headerType === 'DOCUMENT' ? t('Choisir un PDF d’exemple', 'Choose a sample PDF') : t('Choisir une vidéo (mp4)', 'Choose a video (mp4)')}
                   </Bouton>
+                  <Bouton variante="secondaire" type="button" onClick={() => setMediathequeOuverte(true)} disabled={headerUploading} data-testid="template-entete-mediatheque-ouvrir">
+                    {t('Choisir dans la médiathèque', 'Pick from the media library')}
+                  </Bouton>
                   {headerFileName && <span className="inline-flex max-w-[160px] items-center gap-1 text-xs text-ink-500"><span className="truncate">{headerFileName}</span><Icone nom="valide" taille="petite" className="text-succes-700" /></span>}
+                  {mediathequeOuverte && (
+                    <ChoixMediatheque
+                      tenantId={tenantId}
+                      accepte={headerType === 'IMAGE' ? 'entete-image' : headerType === 'VIDEO' ? 'entete-video' : 'entete-document'}
+                      testIdPrefix="template-entete"
+                      onChoisir={(adresse) => { setMediathequeOuverte(false); void onHeaderMediatheque(adresse); }}
+                      onClose={() => setMediathequeOuverte(false)}
+                    />
+                  )}
                   <input ref={headerFileRef} type="file" accept={headerType === 'IMAGE' ? 'image/png,image/jpeg' : headerType === 'DOCUMENT' ? 'application/pdf' : 'video/mp4'} className="hidden" onChange={(e) => onHeaderFile(e.target.files?.[0])} />
                 </>
               )}

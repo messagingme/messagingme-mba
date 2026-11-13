@@ -50,11 +50,14 @@ export function ChoixMediatheque({ tenantId, accepte, testIdPrefix, onChoisir, o
   }, [tenantId]);
 
   const proposables = (fichiers ?? []).filter((f) => fichierAccepte(f, accepte));
-  const formats = accepte === 'image'
-    ? t('images JPEG, PNG ou GIF', 'JPEG, PNG or GIF images')
-    : accepte === 'image-video-pdf'
-      ? t('images JPEG ou PNG, vidéos MP4 ou PDF', 'JPEG or PNG images, MP4 videos or PDFs')
-      : t('images, vidéos MP4 ou PDF', 'images, MP4 videos or PDFs');
+  const formats = ({
+    image: t('images JPEG, PNG ou GIF', 'JPEG, PNG or GIF images'),
+    'image-video-pdf': t('images JPEG ou PNG, vidéos MP4 ou PDF', 'JPEG or PNG images, MP4 videos or PDFs'),
+    tout: t('images, vidéos MP4 ou PDF', 'images, MP4 videos or PDFs'),
+    'entete-image': t('images JPEG ou PNG', 'JPEG or PNG images'),
+    'entete-video': t('vidéos MP4', 'MP4 videos'),
+    'entete-document': t('documents PDF', 'PDF documents'),
+  } satisfies Record<Accepte, string>)[accepte];
 
   return createPortal(
     <Modale

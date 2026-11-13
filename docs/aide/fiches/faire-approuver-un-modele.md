@@ -2,7 +2,7 @@
 description: Créer un modèle de message WhatsApp et le faire approuver par Meta : le texte, les variables, la durée de validité, la langue, puis la soumission.
 ecran: templates
 source_section: Templates WhatsApp (menu Contenu)
-source_empreinte: 3e03ad
+source_empreinte: 29f24f
 publique: oui
 rubrique: parler-aux-clients
 rang: 3
@@ -19,7 +19,8 @@ obligé pour écrire à quelqu'un qui ne vous a pas répondu récemment.
 son propre PDF (son devis, recopié de HubSpot) : voyez « Intégrer WhatsApp à HubSpot » ; un tel modèle ne part que
 depuis un scénario.
 
-L'en-tête texte et le pied de page sont limités à soixante caractères et n'acceptent pas de variable. Sous
+Le fichier d'un en-tête image, vidéo ou document vient de votre ordinateur, ou de la médiathèque par « Choisir dans la
+médiathèque ». L'en-tête texte et le pied de page sont limités à soixante caractères et n'acceptent pas de variable. Sous
 chaque champ limité, un compteur dit combien de caractères il vous reste : le corps en accepte 1 024, le texte
 d'un bouton 25. Un corps trop long passe en rouge, et le modèle ne part pas tant qu'il dépasse. Vous pouvez
 aussi créer un carousel : un message d'introduction commun, puis de deux à dix cartes avec image (160
