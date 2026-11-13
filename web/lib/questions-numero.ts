@@ -72,7 +72,8 @@ export const CARTES_OFFRE: ReadonlyArray<{
  */
 export const QUESTION_PAIEMENT = {
   texte: { fr: 'Qui paie vos messages à Meta ?', en: 'Who pays Meta for your messages?' },
-  precision: { fr: 'Eh oui, Meta facture chaque modèle que vous envoyez 💸', en: 'Yes, Meta bills each template you send 💸' },
+  // La console n'a pas d'emoji (tests/web-icones.test.ts) : la vitrine ajoute le sien.
+  precision: { fr: 'Eh oui, Meta facture chaque modèle que vous envoyez', en: 'Yes, Meta bills each template you send' },
   carte: {
     titre: {
       fr: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business',

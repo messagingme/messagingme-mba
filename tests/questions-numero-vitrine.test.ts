@@ -57,7 +57,8 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(question('pilote').reponses.map((r) => r.vers)).toEqual(['console', 'paiement']);
       const q = question('paiement');
       expect(QUESTION_PAIEMENT.texte[langue]).toBe(texte(q.texte));
-      expect(QUESTION_PAIEMENT.precision[langue]).toBe(texte(q.precision!));
+      // La vitrine y met un emoji, que la console n'a pas (tests/web-icones.test.ts).
+      expect(QUESTION_PAIEMENT.precision[langue]).toBe(texte(q.precision!).replace(/\s*\p{Extended_Pictographic}/gu, ''));
       const cartes = [QUESTION_PAIEMENT.carte, QUESTION_PAIEMENT.credit];
       expect(q.voies!.map((x) => texte(x.titre))).toEqual(cartes.map((c) => c.titre[langue]));
       expect(q.voies!.map((x) => texte(x.plus[0]!))).toEqual(cartes.map((c) => c.texte[langue]));
