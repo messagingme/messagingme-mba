@@ -1,7 +1,7 @@
 ---
 description: Connect a WhatsApp number to Messaging Me from Meta's window, get one if needed, have it verified, then read its status on the Home screen.
 slug: connect-my-whatsapp-number
-traduit_de: 6edadf
+traduit_de: a21075
 ---
 # Connect my WhatsApp number, and read its status
 
@@ -14,7 +14,7 @@ and Meta bills your templates to this payment method; the card says why Meta wan
 account is.
 “WhatsApp credit”: you prepay your messages at Messaging Me, with no card at Meta, €30 excl. VAT per number per month,
 with the Pro or Business plan; the option is paid when taken, even during the Pro plan trial. An administrator takes
-it on the “WhatsApp credit” card (“Take the option”), then connects your number with “Connect without a card at Meta”;
+it on the “WhatsApp credit” card (“Take the option”), then connects your number: “I’ll use an existing number”, and “Connect my number”;
 its line then opens (within 24 business hours at most), and your WhatsApp credit, which starts at zero, is topped up
 before your first templates. A number that keeps the WhatsApp Business app stays on your card:
 WhatsApp credit is not possible with the app.

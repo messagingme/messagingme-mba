@@ -152,7 +152,7 @@ describe('ce qu’il faut chez Meta', () => {
     for (const p of reprises) expect(vuesParPage.get(p) ?? 0, p).toBeGreaterThan(0);
   });
 
-  it('🔴 la voie du Crédit WhatsApp (« Le vôtre ») dit les mêmes conditions, sans la carte (lot 4a-3)', () => {
+  it('🔴 la voie du Crédit WhatsApp (« J’ai besoin d’un numéro ») dit les mêmes conditions, sans la carte (lot 4a-3)', () => {
     // `PREREQUIS_LIGNE` est la version sans carte de [0] et [1] : même nom du compte, même question.
     const premiere = (t: string): string => t.slice(0, t.indexOf('. '));
     for (const langue of ['fr', 'en'] as const) {

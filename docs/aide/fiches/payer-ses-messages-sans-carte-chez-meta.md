@@ -2,7 +2,7 @@
 description: Le Crédit WhatsApp, sans carte chez Meta : prendre l'option, connecter votre numéro sans carte, puis recharger le crédit qui paie vos messages.
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: 881dcf
+source_empreinte: d493f9
 publique: oui
 rubrique: demarrer-console
 rang: 4
@@ -26,12 +26,13 @@ réservé aux administrateurs de l'espace.
 formule Pro. La carte « Crédit WhatsApp » de la page « Connecter WhatsApp » la propose aussi.
 
 **2. Connecter votre numéro sans carte.** Sur la page « Connecter WhatsApp », la carte « Crédit WhatsApp » demande
-« Votre numéro, ou le nôtre ? ». Votre numéro : « Le mien », puis « Connecter sans carte chez Meta ». Le nôtre : « Le
-vôtre », « Obtenir mon numéro », puis « Ouvrir la fenêtre de Meta ». Dans les deux cas, la fenêtre de Meta s'ouvre sans demander de moyen de
-paiement. Depuis Claude Code, le lien de connexion fait de même.
+« Votre numéro, ou le nôtre ? ». Votre numéro : « J'utilise un numéro existant », puis « Connecter mon numéro ». Le
+nôtre : « J'ai besoin d'un numéro », « Obtenir mon numéro », puis « Ouvrir la fenêtre de Meta ». Dans les deux cas, la
+fenêtre de Meta s'ouvre sans demander de moyen de paiement.
 
-« Le mien » : votre numéro, avec le téléphone qui le porte, où Meta envoie un code. « Le vôtre » : un numéro que nous
-vous fournissons, inclus dans votre formule. La ligne de votre numéro s'ouvre à la connexion, sous 24 h ouvrées au plus.
+« J'utilise un numéro existant » : votre numéro, avec le téléphone qui le porte, où Meta envoie un code. « J'ai besoin
+d'un numéro » : un numéro que nous vous fournissons, inclus dans votre formule. La ligne de votre numéro s'ouvre à la
+connexion, sous 24 h ouvrées au plus. Depuis Claude Code, le lien de connexion ouvre la même fenêtre, sans carte.
 
 Votre numéro est déjà connecté avec votre carte chez Meta ? Une fois l'option prise, l'onglet **Crédit WhatsApp**
 propose « Reconnecter mon numéro sans carte chez Meta ».

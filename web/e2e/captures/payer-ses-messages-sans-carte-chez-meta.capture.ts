@@ -7,7 +7,7 @@ import { NAVIGATEUR, capturer, communs, langue, type Locale } from './donnees-de
 /**
  * « Payer ses messages sans carte chez Meta » (lot 3v-2d) : le Crédit WhatsApp, de la prise de l'option à la recharge.
  * 1. l'option dans l'onglet Crédit WhatsApp de la page Offre, à prendre ;
- * 2. la connexion du numéro sans carte : « Votre numéro, ou le nôtre ? », puis « Connecter sans carte chez Meta » ;
+ * 2. la connexion du numéro sans carte : « Votre numéro, ou le nôtre ? », « J’utilise un numéro existant », puis « Connecter mon numéro » ;
  * 3. le solde, le prix d'un message vers la France et les quatre recharges.
  * Les états sont ceux que le serveur rend (simulés) ; rien n'est payé, aucune fenêtre ne s'ouvre.
  */

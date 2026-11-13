@@ -188,8 +188,8 @@ export interface VueEtatLigne {
   /** Tous les numéros de l'espace gardent l'application : le paiement de l'option le dit (décision 8). */
   avecApplication: boolean;
   /**
-   * La fenêtre du partenaire est ouverte à l'espace (lot E du Crédit WhatsApp) : la carte propose « Connecter sans carte
-   * chez Meta ». Faux sur une API d'avant ce champ : aucun bouton.
+   * La fenêtre du partenaire est ouverte à l'espace (lot E du Crédit WhatsApp) : la carte propose « Connecter mon
+   * numéro ». Faux sur une API d'avant ce champ : aucun bouton.
    */
   fenetrePartenaire: boolean;
 }

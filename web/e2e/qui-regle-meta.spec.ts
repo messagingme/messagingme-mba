@@ -154,7 +154,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await expect(page.getByTestId('carte-credit-wa-recue')).toContainText('Paiement de l’option reçu.');
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre ligne s’ouvre sous 24 h ouvrées.');
     await expect(page.getByTestId('carte-credit-wa-prendre')).toHaveCount(0);
-    // La fenêtre du partenaire fermée (le serveur ne la dit pas ouverte) : pas de « Connecter sans carte chez Meta ».
+    // La fenêtre du partenaire fermée (le serveur ne la dit pas ouverte) : pas de « Connecter mon numéro ».
     await expect(page.getByTestId('carte-credit-wa-connecter-ligne')).toHaveCount(0);
     // La ligne attendue, le guide de la carte chez Meta ne s'ouvre que d'un clic.
     await expect.poll(() => s.lecturesEtat(), { timeout: 10_000 }).toBeGreaterThanOrEqual(3);
@@ -258,7 +258,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
 });
 
 /**
- * LA FENÊTRE DU PARTENAIRE (lot E du Crédit WhatsApp) : « Connecter sans carte chez Meta » ouvre la fenêtre de Meta avec
+ * LA FENÊTRE DU PARTENAIRE (lot E du Crédit WhatsApp) : « Connecter mon numéro » ouvre la fenêtre de Meta avec
  * la solution du partenaire, que la configuration de la connexion rend à cet espace. Le faux SDK retient les options de
  * `FB.login` ; la fin dit au serveur que la connexion s'est faite par la ligne. Textes validés par Julien le 2026-11-09.
  */
@@ -266,7 +266,7 @@ const SDK_QUI_RETIENT = 'window.FB={init:function(){},login:function(cb,o){windo
 const CONNECTE = { connected: true, wabaId: 'w-e2e', phoneNumberId: 'pn-e2e', displayPhoneNumber: '+33 6 00 00 00 00' };
 
 test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
-  test('🔴 l’option payée : « Connecter sans carte chez Meta » ouvre la fenêtre de Meta par la solution, et la fin le dit au serveur', async ({ page }) => {
+  test('🔴 l’option payée : « Connecter mon numéro » ouvre la fenêtre de Meta par la solution, et la fin le dit au serveur', async ({ page }) => {
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
     const posts: unknown[] = [];
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts } });
@@ -278,6 +278,9 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
     // « Votre numéro, ou le nôtre ? » (lot 3v) : le sien reçoit la phrase validée de Julien AVANT la fenêtre.
     await expect(page.getByTestId('ligne-numero')).toContainText('Votre numéro, ou le nôtre ?');
+    // Les réponses disent ce que la personne a ou n'a pas (Julien, 2026-11-13).
+    await expect(page.getByTestId('ligne-numero-mien')).toHaveText('J’utilise un numéro existant');
+    await expect(page.getByTestId('ligne-numero-notre')).toHaveText('J’ai besoin d’un numéro');
     await expect(page.getByTestId('carte-credit-wa-connecter-ligne')).toHaveCount(0);
     await page.getByTestId('ligne-numero-mien').click();
     await expect(page.getByTestId('ligne-numero-application')).toHaveText('Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ? Avec le Crédit WhatsApp, il n’y marchera plus : vos clients vous écriront dans Messaging Me, et vous leur répondrez là (la console ou Claude). Pour garder l’application : « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business », ou un numéro de chez nous.');
@@ -290,7 +293,7 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(prerequis.locator('li').nth(0)).toContainText('sans carte chez Meta');
     await expect(prerequis.locator('li').nth(2)).toHaveText('Votre numéro, et le téléphone qui le porte : Meta y envoie un code, par SMS ou par appel.');
     const bouton = page.getByTestId('carte-credit-wa-connecter-ligne');
-    await expect(bouton).toHaveText('Connecter sans carte chez Meta');
+    await expect(bouton).toHaveText('Connecter mon numéro');
     await expect(bouton).toBeEnabled();
     await bouton.click();
     // L'écoute attend 6 s un message de la fenêtre avant d'envoyer le code seul.
@@ -363,7 +366,7 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(page.getByTestId('ligne-numero-notre')).toBeEnabled();
     await page.getByTestId('carte-credit-wa-connecter-ligne').click();
     await expect(page.getByTestId('carte-credit-wa-connecter-ligne')).toBeDisabled();
-    // Fenêtre ouverte : les gestes qui démonteraient « Le mien » sont fermés, et son parcours reste monté.
+    // Fenêtre ouverte : les gestes qui démonteraient « J’utilise un numéro existant » sont fermés, et son parcours reste monté.
     await expect(page.getByTestId('ligne-numero-notre')).toBeDisabled();
     await expect(page.getByTestId('ligne-numero-mien')).toBeDisabled();
     await expect(page.getByTestId('carte-meta-choisir')).toBeDisabled();
@@ -389,7 +392,7 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(page.getByTestId('ouvrir-fenetre-meta')).toBeVisible();
   });
 
-  test('🔴 une Entreprise sans numéro : son texte, la même question ; la carte chez Meta se reprend d’un clic, et « Le mien » la referme avant la fenêtre du partenaire', async ({ page }) => {
+  test('🔴 une Entreprise sans numéro : son texte, la même question ; la carte chez Meta se reprend d’un clic, et « J’utilise un numéro existant » la referme avant la fenêtre du partenaire', async ({ page }) => {
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
     const posts: unknown[] = [];
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts } });
@@ -403,7 +406,7 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
     await page.getByTestId('carte-meta-choisir').click();
     await expect(page.getByTestId('question-compte')).toBeVisible();
-    // Sans recharger la page : « Le mien » referme le guide de la carte, puis le bouton du partenaire ouvre sa fenêtre.
+    // Sans recharger la page : « J’utilise un numéro existant » referme le guide de la carte, puis le bouton du partenaire ouvre sa fenêtre.
     await page.getByTestId('ligne-numero-mien').click();
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
     const bouton = page.getByTestId('carte-credit-wa-connecter-ligne');
@@ -415,7 +418,7 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
 });
 
 test.describe('Connecter WhatsApp : le numéro fourni par la fenêtre du partenaire (lot 3v)', () => {
-  test('🔴 « Le vôtre » : le numéro fourni, la fenêtre de Meta ouverte par la solution du partenaire, la fin par la ligne', async ({ page }) => {
+  test('🔴 « J’ai besoin d’un numéro » : le numéro fourni, la fenêtre de Meta ouverte par la solution du partenaire, la fin par la ligne', async ({ page }) => {
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
     const posts: unknown[] = [];
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts } });
@@ -446,7 +449,7 @@ test.describe('Connecter WhatsApp : le numéro fourni par la fenêtre du partena
     expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
   });
 
-  test('🔴 « Le vôtre », sa fenêtre ouverte : ni « Le mien » ni la carte chez Meta ne démontent son parcours', async ({ page }) => {
+  test('🔴 « J’ai besoin d’un numéro », sa fenêtre ouverte : ni « J’utilise un numéro existant » ni la carte chez Meta ne démontent son parcours', async ({ page }) => {
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.FB={init:function(){},login:function(){}};' }));
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts: [] } });
     await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }], solution: 'sol-e2e' });
@@ -465,7 +468,7 @@ test.describe('Connecter WhatsApp : le numéro fourni par la fenêtre du partena
   });
 });
 
-test('🔴 au retour de Stripe d’un numéro fourni payé, « Le vôtre » reprend, par la ligne (jaune 6 de la relecture du lot 3v)', async ({ page }) => {
+test('🔴 au retour de Stripe d’un numéro fourni payé, « J’ai besoin d’un numéro » reprend, par la ligne (jaune 6 de la relecture du lot 3v)', async ({ page }) => {
   await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
   const posts: unknown[] = [];
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts } });
@@ -496,7 +499,7 @@ test.describe('Accueil : « Qui paie vos messages à Meta ? »', () => {
     await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('href', '/connecter-whatsapp');
   });
 
-  test('sans numéro, la fenêtre du partenaire ouverte (lot E) : son texte, et « Connecter sans carte chez Meta » mène à Connecter WhatsApp', async ({ page }) => {
+  test('sans numéro, la fenêtre du partenaire ouverte (lot E) : son texte, et « Connecter mon numéro » mène à Connecter WhatsApp', async ({ page }) => {
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }] });
     await page.goto('/accueil');

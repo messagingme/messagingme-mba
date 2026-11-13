@@ -27,7 +27,8 @@ const INTERVALLE_MS = 2_000;
  * 2026-11-09. Une formule Pro ou un Business l'ont, l'option payée ; une Entreprise, selon son contrat.
  */
 export const PAR_LA_LIGNE = {
-  bouton: { fr: 'Connecter sans carte chez Meta', en: 'Connect without a card at Meta' },
+  // Il redit ce que la personne vient de choisir (Julien, 2026-11-13), « sans carte » est déjà dans la carte.
+  bouton: { fr: 'Connecter mon numéro', en: 'Connect my number' },
   optionPayee: {
     fr: 'Votre option est payée : connectez votre numéro, Meta ne vous facturera pas. Votre ligne s’ouvre ensuite sous 24 h ouvrées.',
     en: 'Your option is paid: connect your number, Meta will not bill you. Your line then opens within 24 business hours.',
@@ -82,7 +83,7 @@ export const RECONNEXION_ENTREPRISE = {
  * « Prendre l'option » dès que le serveur la dit à prendre (`a_prendre`, un Pro dès le début de son essai, lot 3v V1), la
  * raison de l'attente pour un Business en essai ou un Pro en retard (`essai`), puis la ligne qui s'ouvre, active, ou
  * arrêtée avec ses deux chemins. L'option payée, la fenêtre du partenaire demande « Votre numéro, ou le nôtre ? » (lot
- * 3v) : le sien par « Connecter sans carte chez Meta », le nôtre par le parcours du numéro fourni, ouvert par la même
+ * 3v) : le sien par « Connecter mon numéro », le nôtre par le parcours du numéro fourni, ouvert par la même
  * fenêtre (`parLaLigne`). Les mots de la question sont ceux de la vitrine (`QUESTION_PAIEMENT`, tenus égaux par
  * `tests/questions-numero-vitrine.test.ts`) ; ceux de chaque état, validés par Julien le 2026-11-06.
  *
@@ -111,7 +112,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   /**
    * La connexion de Connecter WhatsApp (lot E du Crédit WhatsApp) : l'autorité de ses appels et ce qui suit une connexion.
    * Sans elles (l'Accueil), le bouton de la fenêtre du partenaire mène à Connecter WhatsApp. Le parcours du numéro fourni
-   * (« Le vôtre », lot 3v) en lit toutes les routes.
+   * (« J’ai besoin d’un numéro », lot 3v) en lit toutes les routes.
    */
   api?: ApiConnexionNumero;
   surConnexion?: (avertissements: string[]) => void;
@@ -128,7 +129,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   /** La réponse à « Votre numéro, ou le nôtre ? » (lot 3v), la fenêtre du partenaire ouverte. */
   const [numeroLigne, setNumeroLigne] = useState<'mien' | 'notre' | null>(null);
   /**
-   * Une fenêtre de Meta ouverte par une voie de la ligne (« Le mien », « Le vôtre »), ou par celle de la carte (`occupe`) :
+   * Une fenêtre de Meta ouverte par une voie de la ligne (« J’utilise un numéro existant », « J’ai besoin d’un numéro »), ou par celle de la carte (`occupe`) :
    * tant qu'elle l'est, aucun geste ne change de voie, ce qui démonterait la connexion en cours (jaune du lot 3v-1).
    */
   const [fenetreLigne, setFenetreLigne] = useState(false);
@@ -141,7 +142,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     const p = new URLSearchParams(window.location.search);
     const o = p.get('option');
     setRetour(o === 'recue' || o === 'abandon' ? o : null);
-    // Le retour de Stripe d'un numéro fourni payé : le parcours de « Le vôtre » reprend où il en était.
+    // Le retour de Stripe d'un numéro fourni payé : le parcours de « J’ai besoin d’un numéro » reprend où il en était.
     if (p.get('abonnement') === 'recu') setNumeroLigne('notre');
     setReconnexionDemandee(p.get('reconnexion') === 'entreprise');
   }, [lieu]);
@@ -224,7 +225,8 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
         action = (
           <div className="space-y-2" data-testid="ligne-numero">
             <p className="text-sm font-semibold text-ink-900">{t(QUESTION_LIGNE_NUMERO.texte.fr, QUESTION_LIGNE_NUMERO.texte.en)}</p>
-            <div className="flex flex-wrap gap-2">
+            {/* L'une sous l'autre, de la largeur de la colonne, comme le bouton de la carte chez Meta en face (2026-11-13). */}
+            <div className="grid gap-2">
               {(['mien', 'notre'] as const).map((r) => (
                 <Bouton key={r} type="button" variante={choisie === r ? 'principal' : 'secondaire'} aria-pressed={choisie === r} disabled={fenetreOuverte} onClick={() => repondreLigne(r)} data-testid={`ligne-numero-${r}`}>
                   {t(QUESTION_LIGNE_NUMERO[r].fr, QUESTION_LIGNE_NUMERO[r].en)}
@@ -407,9 +409,9 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
 }
 
 /**
- * « Connecter sans carte chez Meta » (lot E du Crédit WhatsApp) : la fenêtre de Meta ouverte avec la solution du
+ * « Connecter mon numéro » (lot E du Crédit WhatsApp) : la fenêtre de Meta ouverte avec la solution du
  * partenaire, dont la configuration ne rend l'identifiant qu'à un espace qui a droit à la ligne. Il porte sa propre
- * connexion, et n'est monté qu'une fois la voie de la carte chez Meta refermée (« Le mien », lot 3v), ou pour reconnecter
+ * connexion, et n'est monté qu'une fois la voie de la carte chez Meta refermée (« J’utilise un numéro existant », lot 3v), ou pour reconnecter
  * le numéro d'une Entreprise (`RECONNEXION_ENTREPRISE`) : sa fenêtre s'ouvre dans le geste du clic (Safari,
  * `ouvrirFenetreMeta`).
  */

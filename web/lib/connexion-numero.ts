@@ -17,7 +17,7 @@ import { useT } from '@/lib/i18n';
  * alignées, dont une qui aurait raté le prochain correctif.
  *
  * DEUX INSTANCES PEUVENT VIVRE SUR UNE PAGE (lot E du Crédit WhatsApp : le guide de la carte chez Meta et le bouton
- * « Connecter sans carte chez Meta », resté en second) : chacune écoute les messages de la fenêtre de Meta et en garde
+ * « Connecter mon numéro » du Crédit WhatsApp, resté en second) : chacune écoute les messages de la fenêtre de Meta et en garde
  * les identifiants, mais seule celle dont `connect` a ouvert la fenêtre envoie la fin au serveur, avec ce qu'elle a
  * capturé depuis (remis à zéro à l'ouverture).
  */

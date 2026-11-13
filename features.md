@@ -4736,12 +4736,12 @@ posée après sa connexion par la fenêtre du partenaire (l'option prise, ou en 
 - ✅ **API publique** : un envoi refusé faute de crédit rend `whatsapp_credit_exhausted` (402), un numéro dont le crédit
   est arrêté `whatsapp_credit_line_inactive` (409) ; `POST /v1/sends` les rend avant de créer quoi que ce soit, dès que
   le solde ne couvre pas son premier message.
-- ✅ **Connecter sans carte chez Meta** (2026-11-09, fermé tant que notre équipe ne l'a pas ouvert) : un espace qui a
-  droit au Crédit WhatsApp (l'option payée en formule Pro ou Business, ou une Entreprise) et n'a encore aucun numéro voit,
-  sur la carte « Crédit WhatsApp » de Connecter WhatsApp, « Votre numéro, ou le nôtre ? » (2026-11-10). « Le mien » dit
-  d'abord qu'un numéro qui sert dans l'application WhatsApp n'y marchera plus (vos clients vous écriront dans Messaging
-  Me), puis « Connecter sans carte chez Meta » ; « Le vôtre » donne un numéro de chez nous, inclus en formule Pro, que la
-  même fenêtre relie. La fenêtre de Meta connecte le numéro sans lui demander de payer Meta, et sa ligne se pose à la
+- ✅ **Connecter un numéro sans carte chez Meta** (2026-11-09, fermé tant que notre équipe ne l'a pas ouvert) : un espace
+  qui a droit au Crédit WhatsApp (l'option payée en formule Pro ou Business, ou une Entreprise) et n'a encore aucun numéro
+  voit, sur la carte « Crédit WhatsApp » de Connecter WhatsApp, « Votre numéro, ou le nôtre ? » (2026-11-10).
+  « J'utilise un numéro existant » dit d'abord qu'un numéro qui sert dans l'application WhatsApp n'y marchera plus (vos
+  clients vous écriront dans Messaging Me), puis « Connecter mon numéro » ; « J'ai besoin d'un numéro » donne un numéro de
+  chez nous, inclus en formule Pro, que la même fenêtre relie. La fenêtre de Meta connecte le numéro sans lui demander de payer Meta, et sa ligne se pose à la
   connexion (2026-11-11 ; la carte la promet sous 24 h ouvrées au plus tard). Un numéro déjà connecté avec la carte chez
   Meta, puis l'option prise (le numéro de l'essai), se reconnecte sans carte depuis cet onglet (2026-11-11) :
   « Reconnecter mon numéro sans carte chez Meta », le même compte et le même numéro dans la fenêtre de Meta ; la carte

@@ -75,7 +75,7 @@ export const PREREQUIS_META: ReadonlyArray<{ fr: string; en: string }> = [
 ];
 
 /**
- * Avant la fenêtre du partenaire (« Le vôtre », lot 3v) : les conditions chez Meta de `PREREQUIS_META`, sans la carte que
+ * Avant la fenêtre du partenaire (« J’ai besoin d’un numéro », lot 3v) : les conditions chez Meta de `PREREQUIS_META`, sans la carte que
  * la ligne remplace (jaune 4 de la relecture du lot 3v). La console les dit, et Claude quand le lien de connexion
  * ouvre la fenêtre du partenaire (lot 3v-2b, `start_whatsapp_connection`).
  * Même écriture que `PREREQUIS_META` (lot 4a-3) : `tests/etapes-meta.test.ts` tient leurs débuts égaux.
@@ -98,7 +98,7 @@ export const PREREQUIS_LIGNE: ReadonlyArray<{ readonly fr: string; readonly en: 
 ];
 
 /**
- * « Le mien », le numéro de la personne par la fenêtre du partenaire (jaune de la relecture du lot 4a-3) : après les
+ * « J’utilise un numéro existant », le numéro de la personne par la fenêtre du partenaire (jaune de la relecture du lot 4a-3) : après les
  * conditions de `PREREQUIS_LIGNE`, celle de son numéro, dont Meta vérifie qu'il est à elle par un code.
  */
 export const NUMERO_LIGNE_MIEN: { readonly fr: string; readonly en: string } = {

@@ -30,7 +30,7 @@ export interface CreditWhatsappRouteDeps {
   achat: DepsAchatWhatsapp;
   /**
    * La fenêtre du partenaire est-elle ouverte à l'espace (lot E du Crédit WhatsApp, `solutionDuPartenaire`) ? La carte le
-   * lit pour proposer « Connecter sans carte chez Meta » ; l'identifiant de la solution, lui, ne part que par la
+   * lit pour proposer « Connecter mon numéro » ; l'identifiant de la solution, lui, ne part que par la
    * configuration de la connexion, réservée à un administrateur ou au lien de Claude Code.
    */
   fenetrePartenaire(tenantId: string): Promise<boolean>;

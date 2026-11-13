@@ -22,7 +22,7 @@ type Choix = 'fourni' | 'apporte' | 'coexistence' | 'fourni_application';
 
 /**
  * « Avant de commencer, chez Meta » : les conditions d'une fenêtre de Meta, numérotées. Le parcours le pose avant ses
- * fenêtres, et la voie « Le mien » du Crédit WhatsApp aussi (`QuiRegleMeta`), depuis les mêmes sources.
+ * fenêtres, et la voie « J’utilise un numéro existant » du Crédit WhatsApp aussi (`QuiRegleMeta`), depuis les mêmes sources.
  */
 export function EncadreChezMeta({ prerequis }: { prerequis: ReadonlyArray<{ readonly fr: string; readonly en: string }> }) {
   const t = useT();
@@ -74,7 +74,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
    */
   surOccupe?: (occupe: boolean) => void;
   /**
-   * Le numéro fourni du Crédit WhatsApp (« Le vôtre », lot 3v) : la fenêtre de Meta s'ouvre avec la solution du
+   * Le numéro fourni du Crédit WhatsApp (« J’ai besoin d’un numéro », lot 3v) : la fenêtre de Meta s'ouvre avec la solution du
    * partenaire, que la configuration ne rend qu'à un espace qui a droit à la ligne, et la fin passe par la ligne
    * (`connect({ parLaLigne: true })`). Seulement avec `choixInitial` à `fourni`, jamais `fourni_application`.
    * `si-ouverte` (le lien de Claude, `/brancher`, lot 3v-2b) : la même fenêtre dès que la configuration rend la solution
@@ -248,7 +248,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   // Le numéro fourni mis dans l'application y reste aussi : même chose. Au numéro fourni par la fenêtre de Meta, la
   // condition d'un numéro à soi n'a plus de sens : il vient d'en choisir un, comme Claude le tait (jaune 10 du lot 3a).
   // Par la fenêtre du partenaire (lot 3v), ni carte ni moyen de paiement : les mêmes conditions sans eux.
-  // « Le mien » par la ligne (lot 3v-2b, comme la carte de `QuiRegleMeta`) : son numéro et le téléphone qui le porte.
+  // « J’utilise un numéro existant » par la ligne (lot 3v-2b, comme la carte de `QuiRegleMeta`) : son numéro et le téléphone qui le porte.
   const prerequis = ligne ? (choix === 'apporte' ? [...PREREQUIS_LIGNE, NUMERO_LIGNE_MIEN] : PREREQUIS_LIGNE)
     : choix === 'coexistence' || choix === 'fourni_application' ? PREREQUIS_META.slice(0, 1)
       : choix === 'fourni' ? PREREQUIS_META.slice(0, 2) : PREREQUIS_META;

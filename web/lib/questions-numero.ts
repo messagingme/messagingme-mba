@@ -126,8 +126,10 @@ export const QUESTION_PAIEMENT = {
  */
 export const QUESTION_LIGNE_NUMERO = {
   texte: { fr: 'Votre numéro, ou le nôtre ?', en: 'Your number, or ours?' },
-  mien: { fr: 'Le mien', en: 'Mine' },
-  notre: { fr: 'Le vôtre', en: 'Yours' },
+  // Les réponses disent ce que la personne a ou n'a pas (Julien, 2026-11-13) : « Le mien » / « Le vôtre » ne se
+  // comprenaient pas sous la carte. Les clés restent `mien` et `notre` (attributs de test, état de la carte).
+  mien: { fr: 'J’utilise un numéro existant', en: 'I’ll use an existing number' },
+  notre: { fr: 'J’ai besoin d’un numéro', en: 'I need a number' },
   // Le titre de la carte chez Meta s'y cite tel quel : il se lit dans `QUESTION_PAIEMENT`, jamais recopié (jaune 5 de la
   // relecture du lot 3v).
   application: {

@@ -1,7 +1,7 @@
 ---
 description: WhatsApp credit, with no card at Meta: take the option, connect your number without a card, then top up the credit that pays your messages.
 slug: pay-for-your-messages-without-a-card-at-meta
-traduit_de: e3d75c
+traduit_de: 7bfc83
 ---
 # Pay for your messages without a card at Meta
 
@@ -19,12 +19,12 @@ option”: Stripe’s payment page opens. The option is paid when taken, even du
 credit” card of the “Connect WhatsApp” page offers it too.
 
 **2. Connect your number without a card.** On the “Connect WhatsApp” page, the “WhatsApp credit” card asks “Your
-number, or ours?”. Your number: “Mine”, then “Connect without a card at Meta”. Ours: “Yours”, “Get my number”, then “Open the Meta
-window”. Either way, Meta’s window opens without asking for a payment method. From Claude Code, the connection link
-does the same.
+number, or ours?”. Your number: “I’ll use an existing number”, then “Connect my number”. Ours: “I need a number”,
+“Get my number”, then “Open the Meta window”. Either way, Meta’s window opens without asking for a payment method.
 
-“Mine”: your number, with the phone that holds it, where Meta sends a code. “Yours”: a number we provide, included in
-your plan. Your number’s line opens on connection, within 24 business hours at most.
+“I’ll use an existing number”: your number, with the phone that holds it, where Meta sends a code. “I need a number”: a
+number we provide, included in your plan. Your number’s line opens on connection, within 24 business hours at most.
+From Claude Code, the connection link opens the same window, with no card.
 
 Is your number already connected with your card at Meta? Once the option is taken, the **WhatsApp credit** tab offers
 “Reconnect my number without a card at Meta”.
