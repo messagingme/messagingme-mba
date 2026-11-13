@@ -19,9 +19,17 @@
 - **Ce qui a changé** : une attache refusée ou coupée se RELIT avant de conclure (`attacherEtVerifier`). Trouvée en
   place, la nôtre se pose sans rien retirer. Refusée pour un moyen de paiement en place (`MoyenDePaiementEnPlace`), elle
   se retire par l'API puis se redemande une fois, et ce que le retrait a trouvé se journalise
-  (`ligne_partenaire_moyen_de_paiement_en_place`) : la prochaine occurrence départagera les deux lectures. Refusée
-  encore, la pose le dit (une carte, ou la ligne d'un autre fournisseur, à retirer dans « Billing & payments ») sans
-  retrait de plus. Un compte que le partenaire ne voit pas ne se relit pas.
+  (`ligne_partenaire_moyen_de_paiement_en_place`) : une prochaine occurrence relue ABSENTE départagera les deux lectures
+  (relue attachée, rien n'est encore journalisé : jaune 1 de la relecture). Refusée encore, la pose le dit (une carte, ou
+  la ligne d'un autre fournisseur, à retirer dans « Billing & payments ») sans retrait de plus. Un compte que le
+  partenaire ne voit pas ne se relit pas.
+- **Vérifié** : les tests neufs vus échouer avant le code, sept mutations tuées (fichiers restaurés à l'identique), la
+  suite racine (deux délais dépassés sous charge, sans lien, verts relancés seuls), typecheck, lint. **Relecture** :
+  aucun rouge, sept jaunes au backlog (`todo.md`, Crédit WhatsApp).
+- **En production** le 2026-11-13 (`17f0d54b`, run 43410676811, sans migration, approuvé dans GitHub ; côté serveur,
+  seuls `attache.ts` et `pose.ts` depuis le déploiement précédent) : l'API et les trois conteneurs de la machine des
+  workers sur l'image `17f0d54b`, `/health` à 200, `/ops` sans session à 401. L'essai réel 258 attend la prochaine
+  connexion par la fenêtre d'un compte qui a déjà un moyen de paiement.
 
 ## 2026-11-12 : sans compte ni application, un numéro API direct ; la marketplace du plugin en HTTPS
 

@@ -742,6 +742,28 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
   - hors du lot : la suppression d'un espace efface nos lignes sans retirer l'attache ; les lignes posées par V3 depuis
     le 2026-11-11 ne sont ni vérifiées ni rattachées ; une ligne sans `waba_id` est sautée en silence au retrait et à la
     fin.
+- 🟡 **Les jaunes de la relecture du correctif « une attache refusée se relit » (2026-11-13, `17f0d54b`, aucun rouge)** :
+  - un refus relu attaché pose la nôtre SANS rien journaliser : c'est pourtant l'occurrence qui dirait si le `GET` du
+    partenaire lit Meta (et une carte en place lue « attachée » ferait payer deux fois le client). Journaliser en `warn`
+    tout refus relu attaché ; pour `MoyenDePaiementEnPlace`, une alerte unique « vérifier Billing & payments » ; demander
+    au partenaire ce que lit son `GET` (Julien) ;
+  - tests manquants : le second `PUT` en panne ordinaire (gestes `attacher, verifier, retirer, attacher, retirer` et
+    « son attache éventuelle est retirée » : une mutation qui le faisait passer pour `MoyenDePaiementEnPlace` survit),
+    le retrait qui lève dans la branche, `MoyenDePaiementEnPlace` avec relecture en panne ;
+  - la reprise de l'option hérite du retrait et du second essai alors que NOTRE ligne est déjà relancée : sur
+    `MoyenDePaiementEnPlace` avec relecture en panne, ne rien retirer ni réessayer (erreur ordinaire, qui garde la
+    cause) ; le dire dans `documentation.md` (§ la reprise) ;
+  - le second `PUT` part aussitôt après le retrait, et le 422 renvoie à « Billing & payments » même quand le retrait
+    vient de rendre `retiree` (le jour de l'essai 258, le `PUT` qui a marché est venu 7 minutes après) : porter
+    `retrait` dans l'erreur, et dire alors « reposer dans /ops dans quelques minutes » ;
+  - un retrait qui lève dans la branche remplace la cause « already using a payment method », et le journal ne
+    s'écrit pas (ni `tenantId`) : `try/catch` autour du retrait, une erreur ordinaire qui garde les deux causes ;
+  - les délais de `/embedded-signup/complete` s'allongent (refus ordinaire : 90 s au pire au lieu de 60 s, puis le 524
+    de Cloudflare à 100 s) : un délai court (10 s) pour la relecture, ou la pose hors de la requête (jaune des délais
+    ci-dessus) ;
+  - doc : l'en-tête de `pose.ts` dit encore qu'une attache refusée se retire toujours ; `documentation.md` garde « elle
+    ne s'attache jamais d'elle-même (essai réel 236) » alors que la fenêtre a peut-être posé la ligne à l'essai 258 ;
+    l'identifiant du compte de test dans les tests de l'attache (`W`) serait plus propre fictif.
 - 🟡 **Les jaunes de la relecture de V3 (2026-11-11, aucun rouge)** :
   - une connexion interrompue après l'enregistrement du jeton laisse un numéro relié, marqué, jamais posé : le dire dans
     l'alerte d'interruption (poser vite), ou poser aussi sur ce chemin ;
