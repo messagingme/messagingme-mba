@@ -13,9 +13,9 @@ bouton_console: Garder mon application dans la console
 ---
 # Garder mon application WhatsApp Business
 
-Votre numéro sert déjà dans l'application WhatsApp Business de votre téléphone ? Gardez-le : vous continuez d'y
-répondre, et Messaging Me envoie les messages de votre site, de votre logiciel ou de votre boutique. Pas de compte Meta
-Business ? La fenêtre de Meta vous le fait créer en chemin.
+Votre numéro sert déjà dans l'application WhatsApp Business de votre téléphone ? Gardez-le : c'est la « coexistence »
+de Meta, le meilleur des deux mondes. Vous y répondez toujours, gratuitement, et Messaging Me envoie les messages de
+votre site, de votre logiciel ou de votre boutique.
 
 **1. Ouvrir « Garder mon application WhatsApp Business ».** Demandez-le à Claude Code : il vous donne un lien vers la
 page « Connecter WhatsApp ». Dans la console, le même bouton est sur l'Accueil. La page rappelle ce qui change, puis

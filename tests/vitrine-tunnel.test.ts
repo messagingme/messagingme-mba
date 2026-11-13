@@ -246,10 +246,10 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect(g, p.adresse).not.toMatch(/QR|appareils? liés?|linked devices?|scann|code à scanner|pour répondre\b|to answer\b|rien ne part en premier|nothing goes out first/i);
       expect(g, p.adresse).toMatch(/coexistence/);
     }
-    // Ni la page Shopify entière (sa FAQ comprise) ne parle de QR code ; ni la FAQ du plugin, ni son README de coexistence.
+    // Ni la page Shopify entière (sa FAQ comprise) ne parle de QR code.
     for (const a of [shopify.fr.adresse, shopify.en.adresse]) expect(corps(lire(fichierDe(a))), a).not.toMatch(/QR/);
-    expect(readFileSync(join(process.cwd(), 'plugin/README.md'), 'utf8')).not.toMatch(/coexist/i);
-    for (const q of FAQ) expect(`${q.question.fr} ${q.question.en} ${q.reponse.fr} ${q.reponse.en}`, q.id).not.toMatch(/coexist/i);
+    // « Coexistence » s'emploie partout depuis le 2026-11-13 (Julien), jamais seul : la FAQ qui le nomme dit aussi ce qu'il apporte.
+    for (const q of FAQ.filter((x) => /coexist/i.test(x.reponse.fr))) expect(q.reponse.fr, q.id).toMatch(/reste dans l’application/);
   });
 
   it('🔴 les questions et les cartes ne parlent jamais de boutique : elles servent à tous les métiers', () => {
