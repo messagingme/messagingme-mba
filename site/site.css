@@ -1669,6 +1669,8 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .tarif-liste li::before,.tarif-fonctions li::before{content:"";position:absolute;left:2px;top:.45em;width:12px;height:7px;border-left:2px solid var(--action-ink);border-bottom:2px solid var(--action-ink);transform:rotate(-45deg)}
 .tarif-liste strong{color:var(--ink)}
 .tarif-fonctions li{color:var(--ink)}
+.tarif-accompagnement{position:relative;margin-top:6px;padding-top:22px}
+.tarif-accompagnement::before{content:"";position:absolute;top:0;left:0;width:44px;height:3px;border-radius:3px;background:var(--action-ink)}
 .tarif-plus{margin:8px 0 0;padding-top:18px;border-top:1px solid var(--line);font-size:.82rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--action-ink)}
 .tarif-note{margin:4px 0 0;color:var(--muted);font-size:.85rem;text-wrap:pretty}
 .tarifs-detail{padding:72px 0 24px}

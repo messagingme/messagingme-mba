@@ -177,7 +177,7 @@ const fr = (): TexteBoutique => {
           'Un numéro fourni, inclus',
           `Envois illimités, ${milliers(limite('pro', 'contacts'), 'fr')} contacts, ceux qui vous écrivent compris, ${limite('pro', 'utilisateurs')}&nbsp;utilisateurs`,
         ],
-        prix: `${euros(PRIX_PRO_HT_CENTIMES.mois, 'fr')} HT par mois, ${ESSAI_PRO_JOURS}&nbsp;jours d’essai la première fois, carte demandée.`,
+        prix: `${euros(PRIX_PRO_HT_CENTIMES.mois, 'fr')} HT par mois, ${ESSAI_PRO_JOURS}&nbsp;jours d’essai la première fois.`,
         bouton: `Essayer Pro ${ESSAI_PRO_JOURS}&nbsp;jours`,
       },
       versOutils: 'Tous les outils de Claude, un par un',
@@ -214,7 +214,7 @@ const fr = (): TexteBoutique => {
           ],
         },
         {
-          nom: 'Pro', prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'fr'), detail: `HT par mois, essai gratuit de ${ESSAI_PRO_JOURS}&nbsp;jours, carte demandée`,
+          nom: 'Pro', prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'fr'), detail: `HT par mois, essai gratuit de ${ESSAI_PRO_JOURS}&nbsp;jours`,
           liste: [
             'La console, la carte de votre boutique comprise',
             `Envois illimités, ${milliers(limite('pro', 'contacts'), 'fr')} contacts, ceux qui vous écrivent compris`,
@@ -349,7 +349,7 @@ const en = (): TexteBoutique => {
           'A provided number, included',
           `Unlimited sends, ${milliers(limite('pro', 'contacts'), 'en')} contacts, including those who write to you, ${limite('pro', 'utilisateurs')} users`,
         ],
-        prix: `${euros(PRIX_PRO_HT_CENTIMES.mois, 'en')} excl. VAT a month, a ${ESSAI_PRO_JOURS}-day trial the first time, card required.`,
+        prix: `${euros(PRIX_PRO_HT_CENTIMES.mois, 'en')} excl. VAT a month, a ${ESSAI_PRO_JOURS}-day trial the first time.`,
         bouton: `Try Pro for ${ESSAI_PRO_JOURS} days`,
       },
       versOutils: 'All of Claude’s tools, one by one',
@@ -386,7 +386,7 @@ const en = (): TexteBoutique => {
           ],
         },
         {
-          nom: 'Pro', prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'en'), detail: `excl. VAT a month, ${ESSAI_PRO_JOURS}-day free trial, card required`,
+          nom: 'Pro', prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'en'), detail: `excl. VAT a month, ${ESSAI_PRO_JOURS}-day free trial`,
           liste: [
             'The console, your store’s card included',
             `Unlimited sends, ${milliers(limite('pro', 'contacts'), 'en')} contacts, including those who write to you`,

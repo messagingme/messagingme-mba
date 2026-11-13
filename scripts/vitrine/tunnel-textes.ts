@@ -206,7 +206,7 @@ const fr = (): TexteTunnel => {
       titre: `Pro, ${euros(PRIX_PRO_HT_CENTIMES.mois, 'fr')} HT par mois`,
       badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`,
       plus: ['La console : l’Inbox de l’équipe, les campagnes, les tableaux de bord.', 'Un numéro fourni, inclus.', `${ESSAI_PRO_JOURS}&nbsp;jours d’essai la première fois.`],
-      moins: ['Une carte demandée dès l’essai.'],
+      moins: [],
     },
     // Business et Entreprise (Julien, 2026-10-30) : leur contenu est celui de la page Tarifs, tenue égale au code.
     {
@@ -490,7 +490,7 @@ const en = (): TexteTunnel => {
       titre: `Pro, ${euros(PRIX_PRO_HT_CENTIMES.mois, 'en')} excl. VAT a month`,
       badge: `${ESSAI_PRO_JOURS}-day free trial`,
       plus: ['The console: the team Inbox, campaigns, dashboards.', 'A provided number, included.', `A ${ESSAI_PRO_JOURS}-day trial the first time.`],
-      moins: ['A card required from the trial.'],
+      moins: [],
     },
     {
       titre: `Business, ${euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'en')} excl. VAT a month`,

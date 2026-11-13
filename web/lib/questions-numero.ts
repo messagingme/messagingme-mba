@@ -55,7 +55,7 @@ export const CARTES_OFFRE: ReadonlyArray<{
       { fr: 'Un numéro fourni, inclus.', en: 'A provided number, included.' },
       { fr: '14 jours d’essai la première fois.', en: 'A 14-day trial the first time.' },
     ],
-    moins: [{ fr: 'Une carte demandée dès l’essai.', en: 'A card required from the trial.' }],
+    moins: [],
   },
   {
     offre: 'business', libelle: { fr: 'Business', en: 'Business' },
