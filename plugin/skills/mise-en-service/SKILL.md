@@ -194,7 +194,12 @@ their own number one used in no WhatsApp app): relay it once, before the link.
 3. Call `watch_whatsapp_connection` in a loop, passing the `empreinte` it returned as `etat_connu`, and always pass
    the same `mode` to `watch_whatsapp_connection`: while nothing has moved, its answer carries a fresh link (`lien`)
    and tells you to write it if your last message did not contain the link. Loop until `connecte: true` (`coexistence: true` for the app
-   kept), or until `a_activer: true` (then see `activer_numero`), and follow the `suite` of each answer. When a `code`
+   kept), or until `a_activer: true` (then see `activer_numero`), and follow the `suite` of each answer. While a
+   `suite` tells you to call `watch_whatsapp_connection` again, do not end your turn: once it ends, you cannot write
+   anything until the user writes, and they are on the page or in Meta's window, not here. During this wait, never ask
+   them to tell you when they have paid or are ready. Stop only after about forty calls in a row with no change (about a
+   quarter of an hour), telling them to write to you when they resume. A `suite` that asks a question or offers a choice
+   is answered by the user: ask it and end your turn. When a `code`
    shows up, write it in full: the user types it into Meta's window, or into the app for `fourni_application`. If the user comes back before the end ("I paid", "what now?"),
    tell them again where they are (the page, Meta's window, the number) before waiting again. Once connected, call
    `get_setup_state` before announcing anything: the credit offered for the first number arrives a few seconds after

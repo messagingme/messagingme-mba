@@ -286,7 +286,17 @@ const CONSIGNES = {
     + SI_ELLE_REVIENT,
 } as const;
 
-const RAPPEL_ATTENTE = 'Rappelle watch_whatsapp_connection avec etat_connu égal à cette empreinte pour attendre la suite.';
+/**
+ * L'ATTENTE NE REND PAS LA MAIN (vidéo 2 de l'aide, 2026-11-13) : après deux minutes sans paiement, Claude a terminé son
+ * tour en demandant « faites-moi signe », puis le code est arrivé sans que personne le lise. Tour fini, Claude ne peut plus
+ * rien écrire avant un message de la personne, qui est sur la page ou dans la fenêtre de Meta, pas dans le terminal : le
+ * code n'est arrivé que parce que Julien l'a réclamé.
+ */
+const RAPPEL_ATTENTE = 'Rappelle watch_whatsapp_connection avec etat_connu égal à cette empreinte pour attendre la suite, '
+  + 'sans rendre la main : dès que tu la rends, tu ne peux plus rien écrire avant son prochain message, et elle est sur la '
+  + 'page ou dans la fenêtre de Meta, pas ici. Ne lui demande pas de te faire signe pendant cette attente. Ne t’arrête '
+  + 'qu’après une quarantaine d’appels de suite sans changement (un quart d’heure environ), en lui disant de t’écrire '
+  + 'quand elle reprend.';
 
 /**
  * Ce que le numéro fourni mis dans l'application permet dès le premier jour. 🔴 Plus de « Meta refuse souvent un numéro
