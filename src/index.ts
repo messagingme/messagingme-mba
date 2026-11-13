@@ -2885,7 +2885,8 @@ async function main(): Promise<void> {
       messagesInteractifsDuFormulaire: (tenant, flowId) => messagesInteractifsDuFormulaire(
         { numero: (x) => repo.getTenantPhoneNumberId(x), client: (x) => metaFactory.mbaClientForTenant(x) }, tenant, flowId),
     },
-    media: { uploadImage: enteteDeModele },
+    // L'en-tête d'un modèle choisi dans la médiathèque (2026-11-13) : lu dans l'espace, jamais téléchargé par son adresse.
+    media: { uploadImage: enteteDeModele, lireMediatheque: (t, code) => rcsMediaStore.lireDeLEspace(t, code) },
     tags: tagStore,
     dossiers: new PgDossierStore(pool),
     fields: {

@@ -106,10 +106,26 @@ const noUsers: UserAuthStore = { findIdentity: async (): Promise<EmailIdentity |
 const h = (t: string) => ({ headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` } });
 const PNG_DATAURL = 'data:image/png;base64,' + Buffer.from([137, 80, 78, 71]).toString('base64');
 
+/** La médiathèque du faux : un code par espace. Un code d'un autre espace se lit comme un code inconnu (`lireDeLEspace`). */
+const CODE_T1 = '01hgw2v8k4m6n8p0q2r4s6t8vx';
+const CODE_T2 = '01hgw2v8k4m6n8p0q2r4s6t8vz';
+const CODE_GIF = '01hgw2v8k4m6n8p0q2r4s6t8vy';
+const CODE_FAUX_PDF = '01hgw2v8k4m6n8p0q2r4s6t8vw';
+const MEDIATHEQUE: Record<string, Record<string, { bytes: Buffer; mime: string; nom: string | null }>> = {
+  t1: {
+    [CODE_T1]: { bytes: Buffer.from([137, 80, 78, 71, 1]), mime: 'image/png', nom: 'bandeau.png' },
+    [CODE_GIF]: { bytes: Buffer.from('GIF89a'), mime: 'image/gif', nom: 'anime.gif' },
+    [CODE_FAUX_PDF]: { bytes: Buffer.from('<html>'), mime: 'application/pdf', nom: 'faux.pdf' },
+  },
+  t2: { [CODE_T2]: { bytes: Buffer.from([137, 80, 78, 71, 2]), mime: 'image/png', nom: 'ailleurs.png' } },
+};
+const adresse = (code: string, ext = 'png') => `https://api.messagingme.app/m/${code}.${ext}`;
+
 function app(over: Partial<MediaRouteDeps> = {}) {
-  const cap: { bytes?: Buffer; mime?: string } = {};
+  const cap: { bytes?: Buffer; mime?: string; lus: Array<[string, string]> } = { lus: [] };
   const deps: MediaRouteDeps = {
     uploadImage: async (bytes, mime) => { cap.bytes = bytes; cap.mime = mime; return 'HANDLE'; },
+    lireMediatheque: async (tenant, code) => { cap.lus.push([tenant, code]); return MEDIATHEQUE[tenant]?.[code] ?? null; },
     ...over,
   };
   return { server: buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET }, media: deps }), cap };
@@ -163,6 +179,45 @@ describe('route media', () => {
     const res = await server.inject({ method: 'POST', url: '/tenants/t1/media', ...h(adminTok), payload: { dataUrl: 'data:text/plain;base64,QQ==' } });
     expect(res.statusCode).toBe(400);
     await server.close();
+  });
+
+  it('🔴 un en-tête choisi dans la médiathèque (2026-11-13) : lu dans l’espace de la session par son code, déposé chez Meta, avec son nom', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/media', ...h(adminTok), payload: { mediatheque: adresse(CODE_T1), format: 'IMAGE' } });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ handle: 'HANDLE', nom: 'bandeau.png' });
+    expect(cap.lus).toEqual([['t1', CODE_T1]]);
+    expect(cap.mime).toBe('image/png');
+    expect([...cap.bytes!]).toEqual([137, 80, 78, 71, 1]);
+    await server.close();
+  });
+
+  it('🔴 le fichier d’un AUTRE espace est introuvable (404), et rien n’est déposé', async () => {
+    const { server, cap } = app();
+    const res = await server.inject({ method: 'POST', url: '/tenants/t1/media', ...h(adminTok), payload: { mediatheque: adresse(CODE_T2), format: 'IMAGE' } });
+    expect(res.statusCode).toBe(404);
+    expect(cap.lus).toEqual([['t1', CODE_T2]]);
+    expect(cap.mime).toBeUndefined();
+    await server.close();
+  });
+
+  it('un fichier qui ne convient pas au format de l’en-tête, une adresse hors médiathèque, une saisie incomplète : 400, rien n’est déposé', async () => {
+    const cas: Array<[Record<string, unknown>, RegExp]> = [
+      [{ mediatheque: adresse(CODE_GIF, 'gif'), format: 'IMAGE' }, /une image JPEG ou PNG/],
+      [{ mediatheque: adresse(CODE_T1), format: 'VIDEO' }, /une vidéo MP4/],
+      [{ mediatheque: adresse(CODE_FAUX_PDF, 'pdf'), format: 'DOCUMENT' }, /n’est pas un document PDF/],
+      [{ mediatheque: 'https://exemple.com/image.png', format: 'IMAGE' }, /pas celle d’un fichier de la médiathèque/],
+      [{ mediatheque: adresse(CODE_T1) }, /format/],
+      [{ mediatheque: adresse(CODE_T1), format: 'IMAGE', dataUrl: PNG_DATAURL }, /format/],
+    ];
+    for (const [payload, attendu] of cas) {
+      const { server, cap } = app();
+      const res = await server.inject({ method: 'POST', url: '/tenants/t1/media', ...h(adminTok), payload });
+      expect(res.statusCode, JSON.stringify(payload)).toBe(400);
+      expect(res.json<{ error: string }>().error, JSON.stringify(payload)).toMatch(attendu);
+      expect(cap.mime, JSON.stringify(payload)).toBeUndefined();
+      await server.close();
+    }
   });
 
   it('POST sans dataUrl -> 400', async () => {

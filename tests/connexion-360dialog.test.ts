@@ -53,7 +53,7 @@ describe('une fonction qui ne parle qu’à Meta, sur un espace 360dialog', () =
   it('🔴 CompteChez360dialog devient un 409 lisible, jamais un 500 opaque', async () => {
     const server = buildServer({
       queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET },
-      media: { uploadImage: async () => { throw new CompteChez360dialog('W1'); } },
+      media: { uploadImage: async () => { throw new CompteChez360dialog('W1'); }, lireMediatheque: async () => null },
     });
     const res = await server.inject({
       method: 'POST', url: '/tenants/t1/media', ...h(adminTok),
