@@ -36,7 +36,7 @@ async function monter(page: Page, o: { etat?: string; enVente?: boolean; role?: 
   return lectures;
 }
 
-test('🔴 la formule payée, l’option à prendre : le bandeau sur chaque page, « Voir le Crédit WhatsApp » mène à l’onglet', async ({ page }) => {
+test('🔴 la formule payée, l’option à prendre : le bandeau sur chaque page, « Voir la ligne de crédit » mène à l’onglet', async ({ page }) => {
   await monter(page);
   await page.goto('/support');
   const bandeau = page.getByTestId('bandeau-ligne-credit');
@@ -77,7 +77,7 @@ test('aucun bandeau : l’option prise, payée ou en essai, hors vente, ou un nu
   }
 });
 
-test('ni un membre, ni une Free, ni un Pro sans l’onglet Crédit WhatsApp (option hors vente) : aucune lecture de l’état, aucun bandeau', async ({ page }) => {
+test('ni un membre, ni une Free, ni un Pro sans l’onglet Ligne de crédit (option hors vente) : aucune lecture de l’état, aucun bandeau', async ({ page }) => {
   for (const cas of [{ role: 'agent' as const }, { offre: 'base' }, { onglet: false }]) {
     const lectures = await monter(page, cas);
     // L'offre lue (ce qui déciderait du montage), puis un temps : aucune lecture de l'état ne doit suivre.

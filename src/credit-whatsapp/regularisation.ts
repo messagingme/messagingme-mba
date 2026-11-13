@@ -278,7 +278,7 @@ export function creerRegularisationCreditWhatsapp(d: DepsRegularisation): { pass
           }
           if (!lisible) {
             journaliser('error', 'credit_whatsapp_regularisation_illisible', { tenantId: espace.tenantId });
-            uneFoisParJour(`regularisation-illisible:${espace.tenantId}`, `Crédit WhatsApp : les volumes de Meta de « ${espace.nom} » sont illisibles, sa régularisation attend.`);
+            uneFoisParJour(`regularisation-illisible:${espace.tenantId}`, `Ligne de crédit : les volumes de Meta de « ${espace.nom} » sont illisibles, sa régularisation attend.`);
             continue;
           }
           const nous = await d.store.nosDemiHeures(espace.tenantId, depuisS, finS);
@@ -293,19 +293,19 @@ export function creerRegularisationCreditWhatsapp(d: DepsRegularisation): { pass
             const { openBar, commissionPct } = (await d.store.conditionsDuJour(espace.tenantId, j.debutS, j.finS)) ?? actuelles;
             const grille = await d.grilleAu(j.jour);
             if (grille === null) {
-              uneFoisParJour('regularisation-sans-grille', `Crédit WhatsApp : aucune grille de Meta en vigueur le ${j.jour}, la régularisation attend.`);
+              uneFoisParJour('regularisation-sans-grille', `Ligne de crédit : aucune grille de Meta en vigueur le ${j.jour}, la régularisation attend.`);
               continue;
             }
             const calcul = calculerRegularisation({ comptes, nous, grille, commissionPct });
             if (calcul.nonChiffres > 0) {
               journaliser('error', 'credit_whatsapp_regularisation_non_chiffree', { tenantId: espace.tenantId, jour: j.jour, messages: calcul.nonChiffres });
-              uneFoisParJour(`regularisation-non-chiffree:${espace.tenantId}`, `Crédit WhatsApp : ${calcul.nonChiffres} message(s) de « ${espace.nom} » le ${j.jour} que la grille ne sait pas chiffrer, sa régularisation attend.`);
+              uneFoisParJour(`regularisation-non-chiffree:${espace.tenantId}`, `Ligne de crédit : ${calcul.nonChiffres} message(s) de « ${espace.nom} » le ${j.jour} que la grille ne sait pas chiffrer, sa régularisation attend.`);
               continue;
             }
             // Meta ne rend rien alors que nos messages ont été livrés : une omission chez lui rendrait tout le jour au client.
             if (calcul.volumeMeta === 0 && calcul.livresNous > 0) {
               journaliser('error', 'credit_whatsapp_regularisation_meta_vide', { tenantId: espace.tenantId, jour: j.jour, livres: calcul.livresNous });
-              uneFoisParJour(`regularisation-meta-vide:${espace.tenantId}`, `Crédit WhatsApp : Meta ne rend aucun volume pour « ${espace.nom} » le ${j.jour}, alors que ${calcul.livresNous} message(s) ont été livrés : sa régularisation attend.`);
+              uneFoisParJour(`regularisation-meta-vide:${espace.tenantId}`, `Ligne de crédit : Meta ne rend aucun volume pour « ${espace.nom} » le ${j.jour}, alors que ${calcul.livresNous} message(s) ont été livrés : sa régularisation attend.`);
               continue;
             }
             const tranches = [...new Set(comptes.flatMap((c) => [...c.demiHeures]))];
@@ -325,19 +325,19 @@ export function creerRegularisationCreditWhatsapp(d: DepsRegularisation): { pass
             if (horsMessagingMe(calcul) && !alerteDejaPartie) {
               d.alerter(
                 `regularisation-hors:${espace.tenantId}:${j.jour}`,
-                `Crédit WhatsApp : le ${j.jour}, Meta a facturé à « ${espace.nom} » ${euros(calcul.metaMicroEur)} pour ${calcul.messagesMeta} message(s), nos provisions ${euros(calcul.nousMicroEur)} : ${euros(calcul.ecartMicroEur)} d'envois que nous n'avons pas vus (hors Messaging Me ?). ${openBar ? 'Ajouté au montant à facturer.' : 'Débité de son Crédit WhatsApp.'}`,
+                `Ligne de crédit : le ${j.jour}, Meta a facturé à « ${espace.nom} » ${euros(calcul.metaMicroEur)} pour ${calcul.messagesMeta} message(s), nos provisions ${euros(calcul.nousMicroEur)} : ${euros(calcul.ecartMicroEur)} d'envois que nous n'avons pas vus (hors Messaging Me ?). ${openBar ? 'Ajouté au montant à facturer.' : 'Débité de sa ligne de crédit.'}`,
               );
               await d.store.marquerAlerte(espace.tenantId, j.jour);
             }
             // Le retrait se juge sur l'offre du MOMENT : une Entreprise d'aujourd'hui ne dépend plus de son solde.
             if (!actuelles.openBar && soldeMicroEur < SOLDE_RETRAIT_LIGNE_MICRO_EUR) {
-              uneFoisParJour(`regularisation-retrait:${espace.tenantId}`, `Crédit WhatsApp : le solde de « ${espace.nom} » est à ${euros(soldeMicroEur)} après régularisation : faire retirer la ligne par le partenaire.`);
+              uneFoisParJour(`regularisation-retrait:${espace.tenantId}`, `Ligne de crédit : le solde de « ${espace.nom} » est à ${euros(soldeMicroEur)} après régularisation : faire retirer la ligne par le partenaire.`);
             }
           }
         } catch (err) {
           // Une panne sur un espace (base, Meta) n'arrête pas la régularisation des suivants.
           journaliser('error', 'credit_whatsapp_regularisation_echec', { tenantId: espace.tenantId, erreur: err instanceof Error ? err.message : String(err) });
-          uneFoisParJour(`regularisation-echec:${espace.tenantId}`, `Crédit WhatsApp : la régularisation de « ${espace.nom} » a échoué (${err instanceof Error ? err.message : String(err)}), elle sera rejouée.`);
+          uneFoisParJour(`regularisation-echec:${espace.tenantId}`, `Ligne de crédit : la régularisation de « ${espace.nom} » a échoué (${err instanceof Error ? err.message : String(err)}), elle sera rejouée.`);
         }
       }
       return ecrits;

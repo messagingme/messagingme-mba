@@ -50,7 +50,7 @@ export function BandeauLigneCredit({ tenantId }: { tenantId: string }) {
         </span>
         <Link href="/offre?tab=whatsapp" data-testid="bandeau-ligne-credit-voir"
           className="ml-auto rounded-controle border border-current bg-white px-3 py-1.5 text-xs font-semibold transition-colors duration-150 hover:bg-ink-50">
-          {t('Voir le Crédit WhatsApp', 'See WhatsApp credit')}
+          {t('Voir la ligne de crédit', 'See the credit line')}
         </Link>
         <button type="button" onClick={masquer} data-testid="bandeau-ligne-credit-masquer" title={t('Masquer', 'Hide')}
           className="rounded-controle px-2 py-1 text-ink-500 hover:bg-white">

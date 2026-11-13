@@ -87,8 +87,8 @@ export const PAGES_SOURCES: readonly PageSource[] = [
     adresse: { fr: '/aide/payer-meta-poser-votre-carte/', en: '/en/help/pay-meta-add-your-card/' },
     titre: { fr: 'Payer Meta : poser votre carte', en: 'Pay Meta: add your card' },
     chapeau: {
-      fr: 'Ce que Meta facture selon votre numéro, et où poser votre carte chez Meta. Ou, sans carte, le Crédit WhatsApp.',
-      en: 'What Meta bills depending on your number, and where to add your card at Meta. Or, with no card, WhatsApp credit.',
+      fr: 'Ce que Meta facture selon votre numéro, et où poser votre carte chez Meta. Ou, sans carte, la ligne de crédit.',
+      en: 'What Meta bills depending on your number, and where to add your card at Meta. Or, with no card, the credit line.',
     },
     // Dans les deux rubriques de démarrage : la page sert la console comme Claude, d'où aucun outil de Claude ici.
     places: [{ rubrique: 'demarrer-claude', rang: 6 }, { rubrique: 'demarrer-console', rang: 9 }],
@@ -111,7 +111,7 @@ export const PAGES_SOURCES: readonly PageSource[] = [
         titre: b(QUESTION_PAIEMENT.credit.titre),
         textes: [b(QUESTION_PAIEMENT.credit.texte)],
         // Depuis l'ouverture de la vente (lot 3v-2), l'option se prend dans la console, dès l'essai de la formule Pro.
-        lien: { libelle: { fr: 'Le prendre dans la console : Offre, onglet Crédit WhatsApp', en: 'Take it in the console: Plan, WhatsApp credit tab' }, href: OFFRE_CREDIT_WHATSAPP },
+        lien: { libelle: { fr: 'La prendre dans la console : Offre, onglet Ligne de crédit', en: 'Take it in the console: Plan, Credit line tab' }, href: OFFRE_CREDIT_WHATSAPP },
       },
     ],
     lien: GRILLE,

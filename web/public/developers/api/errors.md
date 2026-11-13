@@ -195,17 +195,17 @@ Que faire : Régler l’abonnement du numéro dans la console : les envois repar
 
 ### `whatsapp_credit_exhausted` 402
 
-Le Crédit WhatsApp qui paie les messages de ce numéro est épuisé : rien ne part par WhatsApp, réponses comprises, avant une recharge. Rendu par les routes qui envoient par WhatsApp, et par POST /v1/sends quand le premier message part en WhatsApp ; rien n’est créé.
+La ligne de crédit qui paie les messages de ce numéro est épuisée : rien ne part par WhatsApp, réponses comprises, avant une recharge. Rendu par les routes qui envoient par WhatsApp, et par POST /v1/sends quand le premier message part en WhatsApp ; rien n’est créé.
 
-Que faire : Un admin recharge le Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp) : les envois repartent dès le paiement.
+Que faire : Un admin recharge la ligne de crédit dans la console (Paramètres > Offre, onglet Ligne de crédit) : les envois repartent dès le paiement.
 
 <a id="whatsapp_credit_line_inactive"></a>
 
 ### `whatsapp_credit_line_inactive` 409
 
-Le Crédit WhatsApp n’est plus actif sur ce numéro, ou ce numéro n’a pas de place dans l’option Crédit WhatsApp (le message commence alors par « Ce numéro n’a pas de place dans l’option ») : rien ne part par WhatsApp, et une recharge n’y changerait rien. Rendu comme whatsapp_credit_exhausted.
+La ligne de crédit n’est plus active sur ce numéro, ou ce numéro n’a pas de place dans l’option Ligne de crédit (le message commence alors par « Ce numéro n’a pas de place dans l’option ») : rien ne part par WhatsApp, et une recharge n’y changerait rien. Rendu comme whatsapp_credit_exhausted.
 
-Que faire : Si le message commence par « Ce numéro n’a pas de place dans l’option », un admin ajoute un numéro à l’option Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp). Si l’option est arrêtée, un admin la reprend au même endroit, ou connecte le numéro avec sa carte chez Meta. Sinon, nous contacter depuis le Support de la console : une recharge n’y changerait rien.
+Que faire : Si le message commence par « Ce numéro n’a pas de place dans l’option », un admin ajoute un numéro à l’option Ligne de crédit dans la console (Paramètres > Offre, onglet Ligne de crédit). Si l’option est arrêtée, un admin la reprend au même endroit, ou connecte le numéro avec sa carte chez Meta. Sinon, nous contacter depuis le Support de la console : une recharge n’y changerait rien.
 
 <a id="scenario_not_found"></a>
 

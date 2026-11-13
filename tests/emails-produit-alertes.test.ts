@@ -214,8 +214,8 @@ describe('le paiement refusé', () => {
     }
     // Le texte validé, mot pour mot ; le reste suit l'e-mail d'avant (sujet, bouton, premier paragraphe).
     const m = modeleDe('paiement_refuse_pro_option')!;
-    expect(m.textes.fr.corps.split('\n\n')[2]).toBe('Sans paiement, l’espace repassera en offre Free, avec ses limites, et son option Crédit WhatsApp s’arrêtera avec elle : les messages WhatsApp des numéros de l’option s’arrêteront, réponses à vos clients comprises. Votre crédit restant est conservé. Mettez à jour votre carte depuis la page « Offre » de la console, ou demandez-le à Claude.');
-    expect(m.textes.en.corps.split('\n\n')[2]).toBe('Without payment, the workspace will go back to the Free plan, with its limits, and its WhatsApp credit option will stop with it: the WhatsApp messages of the option’s numbers will stop, replies to your customers included. Your remaining credit is kept. Update your card from the “Plan” page of the console, or ask Claude.');
+    expect(m.textes.fr.corps.split('\n\n')[2]).toBe('Sans paiement, l’espace repassera en offre Free, avec ses limites, et son option Ligne de crédit s’arrêtera avec elle : les messages WhatsApp des numéros de l’option s’arrêteront, réponses à vos clients comprises. Le solde de la ligne de crédit est conservé. Mettez à jour votre carte depuis la page « Offre » de la console, ou demandez-le à Claude.');
+    expect(m.textes.en.corps.split('\n\n')[2]).toBe('Without payment, the workspace will go back to the Free plan, with its limits, and its Credit line option will stop with it: the WhatsApp messages of the option’s numbers will stop, replies to your customers included. The credit line balance is kept. Update your card from the “Plan” page of the console, or ask Claude.');
     const avant = modeleDe('paiement_refuse_pro')!;
     for (const l of ['fr', 'en'] as const) {
       expect(m.textes[l].sujet, l).toBe(avant.textes[l].sujet);
@@ -283,7 +283,7 @@ describe('le paiement refusé', () => {
     // Les deux chemins (spec, moment 3) et le crédit conservé, dans les deux langues.
     const m = modeleDe('option_wa_arretee')!;
     expect(m.textes.fr.corps).toMatch(/reprenez l’option, ou connectez votre numéro avec votre carte chez Meta/);
-    expect(m.textes.fr.corps).toMatch(/votre crédit restant est conservé/);
+    expect(m.textes.fr.corps).toMatch(/votre solde est conservé/);
     expect(m.textes.en.corps).toMatch(/take the option again, or connect your number with your card at Meta/);
   });
 

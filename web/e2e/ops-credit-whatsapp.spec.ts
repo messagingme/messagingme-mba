@@ -210,7 +210,7 @@ async function offre(page: import('@playwright/test').Page, espace: { entreprise
   return { modale, poses };
 }
 
-test.describe('Ops : les numéros d’un espace sur la ligne du Crédit WhatsApp', () => {
+test.describe('Ops : les numéros d’un espace sur la ligne de crédit', () => {
   test('🔴 les numéros de l’espace, chacun avec son geste : plus d’identifiant Meta à taper', async ({ page }) => {
     const { modale, poses } = await offre(page);
     await expect(modale.getByTestId('ligne-credit-numero-111')).toContainText('sur la ligne');

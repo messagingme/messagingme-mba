@@ -129,7 +129,7 @@ export const DEPANNAGE = {
     {
       id: 'modeles-bloques', ou: ['claude', 'console'],
       titre: { fr: 'Mes modèles ne partent pas', en: 'My templates do not go out' },
-      cause: { fr: 'Meta facture les modèles à votre entreprise : sans moyen de paiement sur votre compte Meta Business, ils ne partent pas, sauf avec le Crédit WhatsApp, qui les paie.', en: 'Meta bills templates to your business: without a payment method on your Meta Business account, they do not go out, except with WhatsApp credit, which pays for them.' },
+      cause: { fr: 'Meta facture les modèles à votre entreprise : sans moyen de paiement sur votre compte Meta Business, ils ne partent pas, sauf avec la ligne de crédit, qui les paie.', en: 'Meta bills templates to your business: without a payment method on your Meta Business account, they do not go out, except with the credit line, which pays for them.' },
       remede: ETAPES_CARTE_META.map((e) => ({ fr: e.fr, en: e.en })),
       // Vers « Payer Meta », qui donne les mêmes étapes et qui paie quoi (jaune 6 de la relecture du lot 4a-2).
       lien: { libelle: PAYER_META.titre, href: PAYER_META.adresse },

@@ -409,7 +409,7 @@ async function poserSansLever(d: Pick<DepsFenetrePartenaire, 'poserLaLigne'>, te
  */
 function textePosee(qui: string, origine: 'ops' | 'option'): string {
   const comment = origine === 'option' ? 'une place de l’option' : 'Entreprise, hors places';
-  return `Numéro connecté par la fenêtre du partenaire : ${qui}. Sa ligne est POSÉE automatiquement (${comment}), celle du partenaire attachée à ce compte et vérifiée par son API : ses envois passent sur le Crédit WhatsApp.`;
+  return `Numéro connecté par la fenêtre du partenaire : ${qui}. Sa ligne est POSÉE automatiquement (${comment}), celle du partenaire attachée à ce compte et vérifiée par son API : ses envois passent sur la ligne de crédit.`;
 }
 
 /**

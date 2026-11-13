@@ -2,7 +2,7 @@
 description: Connecter un numéro WhatsApp à Messaging Me depuis la fenêtre de Meta, en obtenir un si besoin, le faire vérifier, puis lire son état sur l'Accueil.
 ecran: accueil
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 48088a
+source_empreinte: 4495df
 publique: oui
 rubrique: demarrer-console
 rang: 3
@@ -19,12 +19,12 @@ chose : l'état de votre compte WhatsApp, et tant qu'aucun numéro n'est rattach
 **Qui paie vos messages à Meta ?** Tant qu'aucun numéro n'est rattaché, l'Accueil vous pose la question, comme la page
 « Connecter WhatsApp ». « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business » : vous
 connectez votre numéro, et Meta vous facture vos modèles sur ce moyen de paiement ; la carte dit pourquoi Meta en veut
-un, et ce qu'est un compte Meta Business. « Crédit WhatsApp » : vous prépayez vos messages chez Messaging Me, sans carte chez Meta, 30 € HT
+un, et ce qu'est un compte Meta Business. « Ligne de crédit » : vous prépayez vos messages chez Messaging Me, sans carte chez Meta, 30 € HT
 par numéro et par mois, avec la formule Pro ou Business ; l'option se paie dès sa prise, même pendant l'essai de la
-formule Pro. Un administrateur la prend sur la carte « Crédit WhatsApp » (« Prendre l'option »), puis connecte votre
-numéro : « J'utilise un numéro existant », et « Connecter mon numéro » ; sa ligne s'ouvre ensuite (sous 24 h ouvrées au plus), et votre Crédit
-WhatsApp, qui part de zéro, se recharge avant vos premiers modèles. Un numéro qui garde
-l'application WhatsApp Business reste sur votre carte : le Crédit WhatsApp n'est pas possible avec l'application.
+formule Pro. Un administrateur la prend sur la carte « Ligne de crédit » (« Prendre l'option »), puis connecte votre
+numéro : « J'utilise un numéro existant », et « Connecter mon numéro » ; sa ligne s'ouvre ensuite (sous 24 h ouvrées au plus), et votre ligne
+de crédit, dont le solde part de zéro, se recharge avant vos premiers modèles. Un numéro qui garde
+l'application WhatsApp Business reste sur votre carte : la ligne de crédit n'est pas possible avec l'application.
 
 **1. Ouvrir la fenêtre de Meta.** Tant qu'aucun numéro n'est rattaché, un bouton de l'Accueil ouvre la fenêtre de
 Meta. Vous y choisissez votre compte professionnel et votre numéro, et tout le reste se fait sans vous.

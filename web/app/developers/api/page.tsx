@@ -71,8 +71,8 @@ function Accueil({ session }: { session: Session | null }) {
         <Encadre sorte="attention">
           <p>
             {t(
-              'Les appels sont réels : il n’y a pas d’espace de test. Un envoi part vraiment sur WhatsApp, et il peut être facturé : par Meta à votre entreprise, ou débité de votre Crédit WhatsApp. Pour essayer, écrivez d’abord à votre propre téléphone.',
-              'Calls are real: there is no test workspace. A send really goes out on WhatsApp, and it may be charged: billed by Meta to your business, or debited from your WhatsApp credit. To try things out, write to your own phone first.',
+              'Les appels sont réels : il n’y a pas d’espace de test. Un envoi part vraiment sur WhatsApp, et il peut être facturé : par Meta à votre entreprise, ou débité de votre ligne de crédit. Pour essayer, écrivez d’abord à votre propre téléphone.',
+              'Calls are real: there is no test workspace. A send really goes out on WhatsApp, and it may be charged: billed by Meta to your business, or debited from your credit line. To try things out, write to your own phone first.',
             )}
           </p>
         </Encadre>

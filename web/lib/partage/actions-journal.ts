@@ -114,11 +114,11 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'ops.espace_observe': ['Espace observé par Messaging Me (lecture seule)', 'Workspace viewed by Messaging Me (read-only)'],
   'ops.numero_rattache': ['Numéro WhatsApp rattaché par Messaging Me', 'WhatsApp number connected by Messaging Me'],
   // Le Crédit WhatsApp (plan du 2026-10-30) : le détail porte l'identifiant Meta du numéro, jamais le numéro affiché.
-  'ops.ligne_credit_posee': ['Numéro passé au Crédit WhatsApp par Messaging Me', 'Number moved to WhatsApp Credit by Messaging Me'],
-  'ops.ligne_credit_retiree': ['Numéro retiré du Crédit WhatsApp par Messaging Me', 'Number removed from WhatsApp Credit by Messaging Me'],
+  'ops.ligne_credit_posee': ['Numéro passé à la ligne de crédit par Messaging Me', 'Number moved to the credit line by Messaging Me'],
+  'ops.ligne_credit_retiree': ['Numéro retiré de la ligne de crédit par Messaging Me', 'Number removed from the credit line by Messaging Me'],
   // « Ne pas poser » (relecture du lot E6, jaune 5) : la ligne attendue ne viendra pas. Le détail ne porte que
   // l'identifiant Meta du numéro, jamais la note de l'exploitant, qui peut nommer le partenaire.
-  'ops.attente_ligne_abandonnee': ['Attente du Crédit WhatsApp levée par Messaging Me', 'WhatsApp Credit wait cleared by Messaging Me'],
+  'ops.attente_ligne_abandonnee': ['Attente de la ligne de crédit levée par Messaging Me', 'Credit line wait cleared by Messaging Me'],
   // La pièce reçue par un bloc Question (2026-11-02) : téléchargée par le lien qu'un Appel API de scénario a fabriqué.
   // La cible est le message, jamais le jeton ni le contact.
   'piece.telechargee': ['Pièce reçue téléchargée par un lien de scénario', 'Received attachment downloaded through a scenario link'],

@@ -195,17 +195,17 @@ What to do: Settle the number subscription in the console: sends resume on payme
 
 ### `whatsapp_credit_exhausted` 402
 
-The WhatsApp credit that pays for this number’s messages is used up: nothing goes out over WhatsApp, replies included, until a top-up. Returned by the routes that send over WhatsApp, and by POST /v1/sends when the first message goes out over WhatsApp; nothing is created.
+The credit line that pays for this number’s messages is used up: nothing goes out over WhatsApp, replies included, until a top-up. Returned by the routes that send over WhatsApp, and by POST /v1/sends when the first message goes out over WhatsApp; nothing is created.
 
-What to do: An admin tops up the WhatsApp credit in the console (Settings > Plan, WhatsApp credit tab): sends resume as soon as it is paid.
+What to do: An admin tops up the credit line in the console (Settings > Plan, Credit line tab): sends resume as soon as it is paid.
 
 <a id="whatsapp_credit_line_inactive"></a>
 
 ### `whatsapp_credit_line_inactive` 409
 
-The WhatsApp credit is no longer active on this number, or this number has no place in the WhatsApp credit option (the message, in French, then starts with “Ce numéro n’a pas de place dans l’option”): nothing goes out over WhatsApp, and a top-up would not change that. Returned like whatsapp_credit_exhausted.
+The credit line is no longer active on this number, or this number has no place in the Credit line option (the message, in French, then starts with “Ce numéro n’a pas de place dans l’option”): nothing goes out over WhatsApp, and a top-up would not change that. Returned like whatsapp_credit_exhausted.
 
-What to do: If the message, in French, starts with “Ce numéro n’a pas de place dans l’option” (this number has no place in the option), an admin adds a number to the WhatsApp credit option in the console (Settings > Plan, WhatsApp credit tab). If the option has stopped, an admin takes it again in the same place, or connects the number with their own card at Meta. Otherwise, contact us from the console Support: a top-up would not change that.
+What to do: If the message, in French, starts with “Ce numéro n’a pas de place dans l’option” (this number has no place in the option), an admin adds a number to the Credit line option in the console (Settings > Plan, Credit line tab). If the option has stopped, an admin takes it again in the same place, or connects the number with their own card at Meta. Otherwise, contact us from the console Support: a top-up would not change that.
 
 <a id="scenario_not_found"></a>
 

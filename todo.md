@@ -39,6 +39,9 @@
   (la grâce de `lireDeLEspace`), donc un onglet resté ouvert peut encore le déposer chez Meta ; l'aperçu reçoit l'adresse
   brute au lieu de `imageDessinable` ; le type d'en-tête reste modifiable pendant un dépôt (défaut d'avant le lot,
   `onHeaderFile` aussi) ; le plafond de 5 Mo d'`entete-image` est au-dessus des 2 Mo de la médiathèque.
+- Lot 2 (« ligne de crédit » partout) : la recherche de l'aide de la vitrine ne trouve plus rien sur l'ancien nom
+  (« crédit whatsapp » sorti des `data-mots`) ; le garder comme synonyme invisible. « the Credit line option » garde
+  sa majuscule au milieu d'une phrase dans `get_credit` (`src/mcp/outils-agent.ts`), comme le libellé de l'onglet.
 
 ## 🟡 Les PDF par contact, lot B3b (console)
 

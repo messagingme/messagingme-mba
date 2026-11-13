@@ -200,20 +200,20 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
       <IntroPage>
         {illimite
           ? t(
-            'Votre offre Entreprise comprend un Crédit WhatsApp illimité : vos messages partent sans solde à recharger, et nous les facturons selon votre contrat.',
-            'Your Enterprise plan includes unlimited WhatsApp credit: your messages go out with no balance to top up, and we bill them under your contract.',
+            'Votre offre Entreprise comprend une ligne de crédit illimitée : vos messages partent sans solde à recharger, et nous les facturons selon votre contrat.',
+            'Your Enterprise plan includes an unlimited credit line: your messages go out with no balance to top up, and we bill them under your contract.',
           )
           : t(
-            'Le crédit prépayé qui paie les messages WhatsApp de vos numéros. À zéro, plus aucun message ne part, réponses comprises.',
-            'The prepaid credit that pays for your numbers’ WhatsApp messages. At zero, no message goes out any more, replies included.',
+            'La ligne de crédit prépayée qui paie les messages WhatsApp de vos numéros. À zéro, plus aucun message ne part, réponses comprises.',
+            'The prepaid credit line that pays for your numbers’ WhatsApp messages. At zero, no message goes out any more, replies included.',
           )}
       </IntroPage>
 
       {retour === 'recu' && (
         <MbaNotice kind="success" testid="credit-wa-retour-recu">
           {arrive
-            ? t('Paiement reçu, votre Crédit WhatsApp est à jour. La facture vous est envoyée par e-mail.', 'Payment received, your WhatsApp credit is up to date. The invoice is sent to you by email.')
-            : t('Paiement reçu : le crédit arrive dans quelques secondes.', 'Payment received: the credit arrives in a few seconds.')}
+            ? t('Paiement reçu, votre ligne de crédit est à jour. La facture vous est envoyée par e-mail.', 'Payment received, your credit line is up to date. The invoice is sent to you by email.')
+            : t('Paiement reçu : votre ligne de crédit est rechargée dans quelques secondes.', 'Payment received: your credit line is topped up in a few seconds.')}
         </MbaNotice>
       )}
       {retour === 'abandon' && (
@@ -223,7 +223,7 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
       )}
       {erreurLecture && vue === null && (
         <MbaNotice kind="error" testid="credit-wa-erreur-lecture">
-          {t('Le Crédit WhatsApp n’a pas pu être lu. Réessayez dans un instant.', 'The WhatsApp credit could not be read. Try again in a moment.')}
+          {t('La ligne de crédit n’a pas pu être lue. Réessayez dans un instant.', 'The credit line could not be read. Try again in a moment.')}
         </MbaNotice>
       )}
       {/* L'option arrêtée (lot C, moment 3, texte validé par Julien le 2026-11-06) : la sortie, ses deux chemins. Des lignes
@@ -232,8 +232,8 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
         <div className="space-y-3" data-testid="credit-wa-option-arretee">
           <MbaNotice kind="error">
             {t(
-              'Vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant est conservé. Pour envoyer de nouveau : reprenez l’option, ou connectez votre numéro avec votre carte chez Meta.',
-              'Your sends through WhatsApp credit are stopped, your remaining credit is kept. To send again: take the option again, or connect your number with your card at Meta.',
+              'Vos envois par la ligne de crédit sont arrêtés, votre solde est conservé. Pour envoyer de nouveau : reprenez l’option, ou connectez votre numéro avec votre carte chez Meta.',
+              'Your sends through the credit line are stopped, your balance is kept. To send again: take the option again, or connect your number with your card at Meta.',
             )}
             {!vue.option.disponible && ` ${t('Sur demande : écrivez-nous depuis le Support.', 'On request: write to us from Support.')}`}
           </MbaNotice>
@@ -258,18 +258,18 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
       {vue?.ligneArretee && !vue.optionArretee && (
         <MbaNotice kind="error" testid="credit-wa-ligne-arretee">
           {t(
-            'Le Crédit WhatsApp est arrêté sur vos numéros : plus aucun message ne part, et une recharge n’y changerait rien. Contactez-nous depuis le Support.',
-            'The WhatsApp credit is stopped on your numbers: no message goes out any more, and a top-up would not change that. Contact us from Support.',
+            'La ligne de crédit est arrêtée sur vos numéros : plus aucun message ne part, et une recharge n’y changerait rien. Contactez-nous depuis le Support.',
+            'The credit line is stopped on your numbers: no message goes out any more, and a top-up would not change that. Contact us from Support.',
           )}
         </MbaNotice>
       )}
 
       <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-solde">
-        <div className="text-xs font-medium text-ink-500">{illimite ? t('Crédit WhatsApp', 'WhatsApp credit') : t('Crédit WhatsApp restant', 'WhatsApp credit left')}</div>
+        <div className="text-xs font-medium text-ink-500">{illimite ? t('Ligne de crédit', 'Credit line') : t('Solde de la ligne de crédit', 'Credit line balance')}</div>
         {vue === null && !erreurLecture && <Squelette forme="carte" className="mt-1" />}
         {vue !== null && illimite && (
           <>
-            <div className="mt-1 text-3xl font-semibold tracking-tight text-ink-900" data-testid="credit-wa-illimite">{t('Illimité', 'Unlimited')}</div>
+            <div className="mt-1 text-3xl font-semibold tracking-tight text-ink-900" data-testid="credit-wa-illimite">{t('Illimitée', 'Unlimited')}</div>
             <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-conso-mois">
               {t(`Messages de ce mois-ci : ${euros(vue.consommationDuMoisMicroEur, locale)} HT, facturés selon votre contrat.`,
                 `This month’s messages: ${euros(vue.consommationDuMoisMicroEur, locale)} excl. VAT, billed under your contract.`)}
@@ -343,7 +343,7 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
           <h2 className="text-sm font-semibold text-ink-900">{t('Recharger', 'Top up')}</h2>
           {!admin && (
             <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-non-admin">
-              {t('Demandez à un administrateur de votre espace de recharger le Crédit WhatsApp.', 'Ask an administrator of your workspace to top up the WhatsApp credit.')}
+              {t('Demandez à un administrateur de votre espace de recharger la ligne de crédit.', 'Ask an administrator of your workspace to top up the credit line.')}
             </p>
           )}
           {admin && vue !== null && ouvert && (indisponible || !vue.achat.disponible) && (
@@ -354,7 +354,7 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
           {admin && vue !== null && !ouvert && !vue.ligneArretee && (
             <p className="mt-1 text-sm text-ink-500" data-testid="credit-wa-ferme">
               {sansNumero && avecOption
-                ? t('La recharge s’ouvre dès qu’un de vos numéros est sur le Crédit WhatsApp, avec l’option ci-dessus.', 'Top-up opens as soon as one of your numbers is on WhatsApp credit, with the option above.')
+                ? t('La recharge s’ouvre dès qu’un de vos numéros est sur la ligne de crédit, avec l’option ci-dessus.', 'Top-up opens as soon as one of your numbers is on the credit line, with the option above.')
                 : t('La recharge n’est pas ouverte pour cet espace. Contactez-nous depuis le Support.', 'Top-up is not open for this workspace. Contact us from Support.')}
             </p>
           )}
@@ -384,8 +384,8 @@ export function OngletCreditWhatsapp({ session }: { session: Session }) {
           {erreur && <p className="mt-2 text-sm text-danger" data-testid="credit-wa-erreur">{erreur}</p>}
           <p className="mt-3 text-xs text-ink-500">
             {t(
-              'Ce que le crédit paie : chaque message WhatsApp que vos numéros envoient (campagnes, scénarios, réponses de l’Inbox et de vos agents IA). Il ne paie pas l’IA, qui puise dans le Crédit IA.',
-              'What the credit pays for: every WhatsApp message your numbers send (campaigns, scenarios, Inbox and AI agent replies). It does not pay for AI, which draws on the AI credit.',
+              'Ce que la ligne de crédit paie : chaque message WhatsApp que vos numéros envoient (campagnes, scénarios, réponses de l’Inbox et de vos agents IA). Elle ne paie pas l’IA, qui puise dans le Crédit IA.',
+              'What the credit line pays for: every WhatsApp message your numbers send (campaigns, scenarios, Inbox and AI agent replies). It does not pay for AI, which draws on the AI credit.',
             )}
           </p>
         </section>
@@ -501,8 +501,8 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   const enTrop = Math.max(0, option.couverts - option.places);
   const libres = Math.max(0, option.places - option.couverts);
   const placeLibre = t(
-    `${libres} numéro${s(libres)} payé${s(libres)} pas encore sur le Crédit WhatsApp`,
-    `${libres} paid number${s(libres)} not yet on WhatsApp credit`,
+    `${libres} numéro${s(libres)} payé${s(libres)} pas encore sur la ligne de crédit`,
+    `${libres} paid number${s(libres)} not yet on the credit line`,
   );
   const modifiable = admin && option.disponible && option.statut === 'actif' && option.finPrevueLe === null;
   const retraitPossible = option.places - 1 >= Math.max(1, option.couverts);
@@ -556,11 +556,11 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
 
   return (
     <section id="option-credit-whatsapp" className="scroll-mt-4 rounded-carte border border-ink-200 bg-white p-5" data-testid="credit-wa-option">
-      <h2 className="text-sm font-semibold text-ink-900">{t('Vos numéros sur le Crédit WhatsApp', 'Your numbers on WhatsApp credit')}</h2>
+      <h2 className="text-sm font-semibold text-ink-900">{t('Vos numéros sur la ligne de crédit', 'Your numbers on the credit line')}</h2>
       <p className="mt-1 text-sm text-ink-500">
         {t(
-          `L’option Crédit WhatsApp : ${prixMois(1)} € HT par numéro et par mois, TVA en sus. Les messages de ces numéros sont payés par votre Crédit WhatsApp, sans carte à enregistrer chez Meta.`,
-          `The WhatsApp credit option: €${prixMois(1)} excl. VAT per number per month, VAT added. The messages of these numbers are paid by your WhatsApp credit, with no card to register with Meta.`,
+          `L’option Ligne de crédit : ${prixMois(1)} € HT par numéro et par mois, TVA en sus. Les messages de ces numéros sont payés par votre ligne de crédit, sans carte à enregistrer chez Meta.`,
+          `The Credit line option: €${prixMois(1)} excl. VAT per number per month, VAT added. The messages of these numbers are paid by your credit line, with no card to register with Meta.`,
         )}
       </p>
       {retour === 'recue' && (
@@ -600,8 +600,8 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
       {!prise && !enAttenteDuRetour && attend && (
         <div className="mt-3 space-y-3" data-testid="credit-wa-option-essai">
           <p className="text-sm text-ink-700">
-            {t('Le Crédit WhatsApp, vos messages payés chez Messaging Me sans carte chez Meta, vient avec la formule payante.',
-              'WhatsApp credit, your messages paid at Messaging Me with no card at Meta, comes with the paid plan.')}
+            {t('La ligne de crédit, vos messages payés chez Messaging Me sans carte chez Meta, vient avec la formule payante.',
+              'The credit line, your messages paid at Messaging Me with no card at Meta, comes with the paid plan.')}
             {/* Hors de l'essai (un paiement en retard), pas d'essai à évoquer (jaune 7 de la relecture du lot A5). */}
             {abonnement?.statut !== 'en_retard' && ` ${t('Pendant l’essai, vous connectez votre numéro avec votre carte chez Meta, qui vous facture vos modèles.',
               'During the trial, you connect your number with your card at Meta, which bills your templates.')}`}
@@ -630,7 +630,7 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
               <span className="tabular-nums text-ink-900" data-testid="credit-wa-option-payes">{fmtNum(option.places, locale)}</span>
             </li>
             <li className="flex items-baseline justify-between gap-3 py-2 text-sm">
-              <span className="text-ink-900">{t('Numéros sur le Crédit WhatsApp', 'Numbers on WhatsApp credit')}</span>
+              <span className="text-ink-900">{t('Numéros sur la ligne de crédit', 'Numbers on the credit line')}</span>
               <span className="tabular-nums text-ink-900" data-testid="credit-wa-option-couverts">{fmtNum(enService, locale)}</span>
             </li>
             <li className="flex items-baseline justify-between gap-3 py-2 text-sm">
@@ -666,8 +666,8 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
           {option.finPrevueLe !== null && (
             <p className="mt-2 text-sm text-alerte" data-testid="credit-wa-option-fin">
               {t(
-                `Votre option s’arrête le ${formatDate(option.finPrevueLe, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} : ses numéros n’enverront plus par le Crédit WhatsApp.`,
-                `Your option ends on ${formatDate(option.finPrevueLe, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}: its numbers will no longer send through WhatsApp credit.`,
+                `Votre option s’arrête le ${formatDate(option.finPrevueLe, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })} : ses numéros n’enverront plus par la ligne de crédit.`,
+                `Your option ends on ${formatDate(option.finPrevueLe, locale, { day: '2-digit', month: '2-digit', year: 'numeric' })}: its numbers will no longer send through the credit line.`,
               )}
             </p>
           )}
@@ -806,7 +806,7 @@ function libelle(m: LigneCreditWhatsapp, t: (fr: string, en?: string) => string,
         ? t(`Envois du ${jourCourt(m.jour)} (${fmtNum(n, locale)} message${s})`, `Messages on ${jourCourt(m.jour)} (${fmtNum(n, locale)} message${s})`)
         : t('Envois', 'Messages');
     }
-    case 'achat': return t('Achat de crédit', 'Credit purchase');
+    case 'achat': return t('Recharge', 'Top-up');
     case 'recharge_auto': return t('Recharge automatique', 'Automatic top-up');
     case 'regularisation': return m.jour ? t(`Régularisation du ${jourCourt(m.jour)}`, `Adjustment for ${jourCourt(m.jour)}`) : t('Régularisation', 'Adjustment');
     default: return m.raison;

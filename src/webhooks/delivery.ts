@@ -170,7 +170,7 @@ export async function processStatuses(
       const numero = ev.phoneNumberId;
       const wamid = t?.messageId ?? d?.messageId;
       if (wamid !== undefined) {
-        await tenter('ajustement du Crédit WhatsApp ignoré:', () =>
+        await tenter('ajustement de la ligne de crédit ignoré:', () =>
           ajustementCredit.ajuster(numero, { wamid, tarif: t, statut: d?.status ?? null, livreLe: instantDuStatut(ev.data) }));
       }
     }

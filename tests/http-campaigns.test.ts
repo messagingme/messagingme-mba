@@ -486,7 +486,7 @@ describe('POST /campaigns/:campaignId/run', () => {
     const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(402);
     expect(res.json()).toEqual({
-      error: 'Crédit WhatsApp insuffisant pour cette campagne : il vous manque 11,40 € HT. Un administrateur peut recharger le crédit depuis Paramètres > Offre, puis la relancer. Rien n’est parti.',
+      error: 'Solde de la ligne de crédit insuffisant pour cette campagne : il vous manque 11,40 € HT. Un administrateur peut recharger la ligne de crédit depuis Paramètres > Offre, puis relancer la campagne. Rien n’est parti.',
       code: 'whatsapp_credit_exhausted', manqueMicroEur: 11_400_000, montantMicroEur: 12_400_000,
     });
     expect(q.enqueued).toEqual([]);

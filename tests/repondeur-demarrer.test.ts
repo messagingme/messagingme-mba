@@ -195,7 +195,7 @@ describe('la remise « personne ne suit » démarre le répondeur IA, après les
     const b = repondeur({ conversations: { w: { owner: 'app_workflow' } }, demarrage: 'credit_whatsapp_epuise' });
     await b.fil.remettreSiPersonneNeSuit(ESPACE, 'w', MSG, entree());
     expect(b.etat('w')?.owner).toBe('app_human');
-    expect(b.ecritures.at(-1)?.opts).toMatchObject({ par: { cause: 'automatique : Crédit WhatsApp épuisé, le répondeur automatique ne peut pas répondre' }, ouvreUneDemande: true });
+    expect(b.ecritures.at(-1)?.opts).toMatchObject({ par: { cause: 'automatique : Ligne de crédit épuisée, le répondeur automatique ne peut pas répondre' }, ouvreUneDemande: true });
   });
 
   it('indisponible, refusé, ou un démarreur qui LÈVE : à l’équipe aussi (le client n’attend pas un robot qui ne viendra pas)', async () => {

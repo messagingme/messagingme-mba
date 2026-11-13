@@ -216,7 +216,7 @@ export function creerTraitementRecharge(deps: DepsTraitementRecharge) {
       const notre = notreRechargeSchema.safeParse(session.metadata ?? {});
       if (notre.success && (payee || session.payment_status === 'no_payment_required')) {
         journaliser('error', 'stripe_offre_inconnue', { evenement: e.id, session: session.id, tenantId: notre.data.tenant_id, offre: notre.data.offre.slice(0, 40), produit: PRODUIT_CREDIT_WHATSAPP });
-        await deps.alerter(`Achat du Crédit WhatsApp réglé pour une offre que cette version ne connaît pas (${notre.data.offre.slice(0, 40)}) : espace ${notre.data.tenant_id}, session ${session.id}, rien n'a été crédité. Revenir à une version qui la connaît, puis renvoyer l'événement depuis Stripe ; sinon rembourser.${lienFacture}`);
+        await deps.alerter(`Recharge de la ligne de crédit réglée pour une offre que cette version ne connaît pas (${notre.data.offre.slice(0, 40)}) : espace ${notre.data.tenant_id}, session ${session.id}, rien n'a été crédité. Revenir à une version qui la connaît, puis renvoyer l'événement depuis Stripe ; sinon rembourser.${lienFacture}`);
         return NON_CREDITE;
       }
       return ACQUITTE;
@@ -236,7 +236,7 @@ export function creerTraitementRecharge(deps: DepsTraitementRecharge) {
         attenduCentimes: attendu, payeCentimes: session.amount_subtotal, totalCentimes: session.amount_total, remiseCentimes: remise,
         devise: session.currency, referenceConcorde: reference === null || reference === tenantId,
       });
-      await deps.alerter(`Achat du Crédit WhatsApp NON crédité, paiement incohérent avec l'offre ${offre} (statut ${session.payment_status}, ${session.amount_subtotal ?? '?'} centimes HT, remise ${remise}, total ${session.amount_total ?? '?'}, devise ${session.currency ?? '?'}) : espace ${tenantId}, session ${session.id}. Vérifier chez Stripe, puis créditer ou rembourser.${lienFacture}`);
+      await deps.alerter(`Recharge de la ligne de crédit NON créditée, paiement incohérent avec l'offre ${offre} (statut ${session.payment_status}, ${session.amount_subtotal ?? '?'} centimes HT, remise ${remise}, total ${session.amount_total ?? '?'}, devise ${session.currency ?? '?'}) : espace ${tenantId}, session ${session.id}. Vérifier chez Stripe, puis créditer ou rembourser.${lienFacture}`);
       return NON_CREDITE;
     }
 
@@ -252,7 +252,7 @@ export function creerTraitementRecharge(deps: DepsTraitementRecharge) {
     });
     if (issue === 'espace_inconnu') {
       journaliser('error', 'stripe_paiement_espace_inconnu', { evenement: e.id, session: session.id, tenantId, produit: PRODUIT_CREDIT_WHATSAPP });
-      await deps.alerter(`Achat du Crédit WhatsApp payé pour un espace inexistant (supprimé ?) ${tenantId} : session ${session.id}, à rembourser chez Stripe.${lienFacture}`);
+      await deps.alerter(`Recharge de la ligne de crédit payée pour un espace inexistant (supprimé ?) ${tenantId} : session ${session.id}, à rembourser chez Stripe.${lienFacture}`);
       return NON_CREDITE;
     }
     if (issue === 'credite') {

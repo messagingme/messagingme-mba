@@ -71,7 +71,7 @@ describe('launch_campaign', () => {
   it('🔴 il manque du Crédit WhatsApp : refusé avec le montant, le code rendu, rien ne part', async () => {
     const { d, trace } = deps({ credit: { montantMicroEur: 5_000_000, soldeMicroEur: 0, manqueMicroEur: 5_000_000 } });
     await expect(outil.executer(d, T, { campaign_id: ID, confirmation_code: 'k7m2qp' }, PERSONNE))
-      .rejects.toThrow('Crédit WhatsApp insuffisant pour cette campagne : il vous manque 5,00 € HT.');
+      .rejects.toThrow('Solde de la ligne de crédit insuffisant pour cette campagne : il vous manque 5,00 € HT.');
     expect(trace).toEqual(['plafond', 'reclame', 'rend']);
   });
 

@@ -25,8 +25,8 @@ const TITRES = {
   apres: { fr: 'Après la connexion : la carte chez Meta', en: 'After connecting: your card at Meta' },
   apresTexte: {
     // Le Crédit WhatsApp depuis le lot 4a-3 : « Meta facture directement votre entreprise » était faux avec lui.
-    fr: 'Meta facture vos modèles, et les réponses au-delà de sa franchise mensuelle, selon sa grille, sur la carte de votre compte Meta Business, sauf avec le Crédit WhatsApp, qui les prépaie chez Messaging Me (pas avec l’application WhatsApp Business). Sans carte valable chez Meta, hors Crédit WhatsApp, seules les réponses dans la fenêtre de 24 heures partent.',
-    en: 'Meta bills your templates, and replies beyond its monthly allowance, according to its rate card, on the card of your Meta Business account, except with WhatsApp credit, which prepays them at Messaging Me (not with the WhatsApp Business app). Without a valid card at Meta, outside WhatsApp credit, only replies within the 24-hour window go out.',
+    fr: 'Meta facture vos modèles, et les réponses au-delà de sa franchise mensuelle, selon sa grille, sur la carte de votre compte Meta Business, sauf avec la ligne de crédit, qui les prépaie chez Messaging Me (pas avec l’application WhatsApp Business). Sans carte valable chez Meta, hors ligne de crédit, seules les réponses dans la fenêtre de 24 heures partent.',
+    en: 'Meta bills your templates, and replies beyond its monthly allowance, according to its rate card, on the card of your Meta Business account, except with the credit line, which prepays them at Messaging Me (not with the WhatsApp Business app). Without a valid card at Meta, outside the credit line, only replies within the 24-hour window go out.',
   },
   howTo: { fr: 'Préparer son compte Meta Business pour WhatsApp', en: 'Prepare your Meta Business account for WhatsApp' },
 } as const;

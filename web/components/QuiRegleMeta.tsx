@@ -46,14 +46,14 @@ export const PAR_LA_LIGNE = {
  * serveur (`numero_avec_carte`) aussi. La phrase s'achève sur le lien du Support.
  */
 export const NUMERO_AVEC_CARTE = {
-  fr: 'Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au ',
-  en: 'Your number is connected with your card at Meta: WhatsApp credit can’t take it over. To change this, write to ',
+  fr: 'Votre numéro est connecté avec votre carte chez Meta : la ligne de crédit ne peut pas le prendre en charge. Pour changer, écrivez au ',
+  en: 'Your number is connected with your card at Meta: the credit line can’t take it over. To change this, write to ',
 } as const;
 
 /** Avant qu'un espace qui a droit à la ligne ne connecte son numéro avec sa carte : il ne pourra plus y passer. */
 export const AVERTISSEMENT_CARTE = {
-  fr: 'Connecté avec votre carte chez Meta, ce numéro ne pourra plus passer sur le Crédit WhatsApp.',
-  en: 'Connected with your card at Meta, this number will no longer be able to move onto WhatsApp credit.',
+  fr: 'Connecté avec votre carte chez Meta, ce numéro ne pourra plus passer sur la ligne de crédit.',
+  en: 'Connected with your card at Meta, this number will no longer be able to move onto the credit line.',
 } as const;
 
 /**
@@ -260,9 +260,9 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
         );
       }
     } else if (etat === 'active') {
-      ligne = t('Vos messages sont payés par votre Crédit WhatsApp.', 'Your messages are paid by your WhatsApp credit.');
+      ligne = t('Vos messages sont payés par votre ligne de crédit.', 'Your messages are paid by your credit line.');
     } else if (etat === 'arretee') {
-      ligne = t('Vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant est conservé.', 'Your sends through WhatsApp credit are stopped, your remaining credit is kept.');
+      ligne = t('Vos envois par la ligne de crédit sont arrêtés, votre solde est conservé.', 'Your sends through the credit line are stopped, your balance is kept.');
       action = !vue.enVente ? <p className="text-sm text-ink-700">{surDemande}</p> : admin ? (
         <Bouton data-testid="carte-credit-wa-reprendre" onClick={() => { void prendre(); }} disabled={geste} enCours={geste}>
           {t('Reprendre l’option', 'Take the option again')}

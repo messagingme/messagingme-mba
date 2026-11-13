@@ -1349,7 +1349,7 @@ function SuppressionEspace({ jeton, tenantId, nom, onFermer, onPerdue }: {
                 <li key={a.id}>
                   {a.produit === 'numero'
                     ? t('Abonnement du numéro', 'Number subscription')
-                    : a.produit === 'option_credit_whatsapp' ? t('Option Crédit WhatsApp', 'WhatsApp credit option') : t('Abonnement Pro', 'Pro subscription')}
+                    : a.produit === 'option_credit_whatsapp' ? t('Option Ligne de crédit', 'Credit line option') : t('Abonnement Pro', 'Pro subscription')}
                   {' '}({a.statut}{a.livemode ? '' : ', test'}) :{' '}
                   <a href={a.lien} target="_blank" rel="noreferrer" className="font-mono text-brand-600 underline">{a.id}</a>
                 </li>
@@ -1701,9 +1701,9 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
               </label>
               <p className="text-xs text-ink-500" data-testid="offre-business-essai-aide">
                 {businessEssai
-                  ? t('Pendant l’essai, l’option Crédit WhatsApp reste fermée, même la date passée : décochez pour confirmer le Business.',
-                    'During the trial, the WhatsApp credit option stays closed, even after the date: untick to confirm Business.')
-                  : t('Business confirmé : l’option Crédit WhatsApp est ouverte.', 'Business confirmed: the WhatsApp credit option is open.')}
+                  ? t('Pendant l’essai, l’option Ligne de crédit reste fermée, même la date passée : décochez pour confirmer le Business.',
+                    'During the trial, the Credit line option stays closed, even after the date: untick to confirm Business.')
+                  : t('Business confirmé : l’option Ligne de crédit est ouverte.', 'Business confirmed: the Credit line option is open.')}
               </p>
               {!finEssaiValide && <span className="text-xs text-danger-700">{t('Une date de fin, au format du calendrier.', 'An end date, from the calendar.')}</span>}
               {etat.business !== true && etat.alertes?.proPayeVivant && (
@@ -1776,14 +1776,14 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
           )}
           {!etat.entreprise && entreprise && etat.alertes?.optionCreditWhatsappVivante === true && (
             <p className="rounded-controle bg-alerte-50 px-3 py-2 text-xs text-alerte-700" data-testid="offre-alerte-option-wa-entreprise">
-              {t('L’espace a l’option Crédit WhatsApp : en Entreprise, illimitée, elle ne sert plus et reste facturée chaque mois. Résiliez-la chez Stripe, sans remboursement du mois entamé, si le contrat le prévoit ; ses numéros continuent d’envoyer.',
-                'The workspace has the WhatsApp credit option: on Enterprise, unlimited, it is no longer needed and is still billed every month. Cancel it at Stripe, with no refund of the month begun, if the contract says so; its numbers keep sending.')}
+              {t('L’espace a l’option Ligne de crédit : en Entreprise, illimitée, elle ne sert plus et reste facturée chaque mois. Résiliez-la chez Stripe, sans remboursement du mois entamé, si le contrat le prévoit ; ses numéros continuent d’envoyer.',
+                'The workspace has the Credit line option: on Enterprise, unlimited, it is no longer needed and is still billed every month. Cancel it at Stripe, with no refund of the month begun, if the contract says so; its numbers keep sending.')}
             </p>
           )}
           {(etat.entreprise || etat.business) && !entreprise && !business && etat.alertes?.optionCreditWhatsappSansDroit === true && (
             <p className="rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700" data-testid="offre-alerte-option-wa">
-              {t('L’espace a l’option Crédit WhatsApp, sans formule Pro : sans offre qui y donne droit, elle sera résiliée chez Stripe, sans remboursement du mois entamé, et ses numéros cesseront d’envoyer.',
-                'The workspace has the WhatsApp credit option, without a Pro plan: with no plan that allows it, it will be cancelled at Stripe, with no refund of the month begun, and its numbers will stop sending.')}
+              {t('L’espace a l’option Ligne de crédit, sans formule Pro : sans offre qui y donne droit, elle sera résiliée chez Stripe, sans remboursement du mois entamé, et ses numéros cesseront d’envoyer.',
+                'The workspace has the Credit line option, without a Pro plan: with no plan that allows it, it will be cancelled at Stripe, with no refund of the month begun, and its numbers will stop sending.')}
             </p>
           )}
           {etat.entreprise && !entreprise && etat.alertes?.ligneCreditWhatsappSansCredit === true && (
@@ -1791,10 +1791,10 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
               {/* Retombé en Free (ni Business ni Pro payé), l'espace ne peut pas acheter de Crédit WhatsApp (`achatPermis`) :
                   promettre un achat serait faux, il faut d'abord retirer son numéro de la ligne (relecture du lot A). */}
               {!business && etat.alertes?.proPayeVivant !== true
-                ? t('Un numéro de l’espace est sur la ligne du Crédit WhatsApp, illimité en Entreprise. En Free, le Crédit WhatsApp ne s’achète pas : retirez d’abord le numéro de la ligne (Crédit WhatsApp de l’espace, « Retirer »), sinon plus rien ne partira, réponses comprises.',
-                  'A number of the workspace is on the WhatsApp credit line, unlimited on Enterprise. On Free, WhatsApp credit cannot be bought: take the number off the line first (the workspace’s WhatsApp credit, “Remove”), or nothing will go out, replies included.')
-                : t('Un numéro de l’espace est sur la ligne du Crédit WhatsApp, illimité en Entreprise. Hors Entreprise, il ne lui reste pas de quoi payer un message : plus rien ne partira, réponses comprises, avant un achat de Crédit WhatsApp.',
-                  'A number of the workspace is on the WhatsApp credit line, unlimited on Enterprise. Out of Enterprise, nothing is left to pay for a message: nothing will go out, replies included, until a WhatsApp credit purchase.')}
+                ? t('Un numéro de l’espace est sur la ligne de crédit, illimitée en Entreprise. En Free, la ligne de crédit ne se recharge pas : retirez d’abord le numéro de la ligne (Ligne de crédit de l’espace, « Retirer »), sinon plus rien ne partira, réponses comprises.',
+                  'A number of the workspace is on the credit line, unlimited on Enterprise. On Free, the credit line cannot be topped up: take the number off the line first (the workspace’s Credit line, “Remove”), or nothing will go out, replies included.')
+                : t('Un numéro de l’espace est sur la ligne de crédit, illimitée en Entreprise. Hors Entreprise, il ne lui reste pas de quoi payer un message : plus rien ne partira, réponses comprises, avant une recharge de la ligne de crédit.',
+                  'A number of the workspace is on the credit line, unlimited on Enterprise. Out of Enterprise, nothing is left to pay for a message: nothing will go out, replies included, until a credit line top-up.')}
             </p>
           )}
           {etat.entreprise && !entreprise && !business && (

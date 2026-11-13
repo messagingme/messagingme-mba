@@ -164,12 +164,12 @@ describe('l’option du Crédit WhatsApp', () => {
     // pause faute de ligne repartent (jaunes 4 et 6 de la relecture du lot 4a).
     expect(paye.journal).toEqual(['enregistrer:sub_opt:3', `relance:${TENANT}`, `reprise:${TENANT}`]);
     // Une option reprise relance ses lignes : rien à poser, l'alerte le dit comme avant.
-    expect(paye.alertes).toEqual(['Nouvelle option Crédit WhatsApp : espace 5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01 (sub_opt), 3 numéros, 1 ligne relancée.']);
+    expect(paye.alertes).toEqual(['Nouvelle option Ligne de crédit : espace 5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01 (sub_opt), 3 numéros, 1 ligne relancée.']);
     // Une option neuve, sans ligne : l'alerte à Julien dit le geste et son délai, celui que les cartes promettent au
     // client (lot B, B1).
     const neuve = option({ relu: { statut: 'active', places: 1, finPrevueLe: null }, relancees: 0 });
     await neuve.traitement.traiter(evenement('checkout.session.completed', session));
-    expect(neuve.alertes).toEqual(['Nouvelle option Crédit WhatsApp : espace 5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01 (sub_opt), 1 numéro : ligne à poser sous 24 h ouvrées.']);
+    expect(neuve.alertes).toEqual(['Nouvelle option Ligne de crédit : espace 5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01 (sub_opt), 1 numéro : ligne à poser sous 24 h ouvrées.']);
     const impaye = option();
     await impaye.traitement.traiter(evenement('checkout.session.completed', { ...session, payment_status: 'unpaid' }));
     const incomplet = option({ relu: { statut: 'incomplete', places: 3, finPrevueLe: null } });
@@ -267,7 +267,7 @@ describe('l’option du Crédit WhatsApp', () => {
   it('🔴 l’alerte de fin part AVANT la lecture des lignes : une panne de cette lecture fait rejouer l’événement, l’alerte n’est pas perdue (jaune 10)', async () => {
     const panne = option({ lignesEnPanne: true });
     await expect(panne.traitement.traiter(evenement('customer.subscription.deleted', { id: 'sub_opt', metadata: META }))).rejects.toThrow('base indisponible');
-    expect(panne.alertes.join(' ')).toMatch(/Option Crédit WhatsApp terminée \(résiliation\) : espace .* \(sub_opt\), 1 ligne arrêtée\./);
+    expect(panne.alertes.join(' ')).toMatch(/Option Ligne de crédit terminée \(résiliation\) : espace .* \(sub_opt\), 1 ligne arrêtée\./);
   });
 
   it('🔴 la fin de l’option d’un espace passé en Entreprise n’arrête pas ses lignes : l’illimité les couvre, Julien le sait', async () => {
@@ -352,7 +352,7 @@ describe('l’option du Crédit WhatsApp', () => {
     const payee = option({ connue: false, relu: { statut: 'canceled', places: 2, finPrevueLe: null } });
     await payee.traitement.traiter(evenement('invoice.paid', facture()));
     expect(payee.journal).toEqual(['statut:sub_opt:actif']);
-    expect(payee.alertes.join(' ')).toMatch(/Facture de 30,00 € payée pour l'option Crédit WhatsApp sub_opt .* que Stripe dit canceled : à rembourser/);
+    expect(payee.alertes.join(' ')).toMatch(/Facture de 30,00 € payée pour l'option Ligne de crédit sub_opt .* que Stripe dit canceled : à rembourser/);
     const nulle = option({ connue: false, relu: { statut: 'canceled', places: 2, finPrevueLe: null } });
     await nulle.traitement.traiter(evenement('invoice.paid', { ...facture(), amount_paid: 0 }));
     expect(nulle.alertes).toEqual([]);

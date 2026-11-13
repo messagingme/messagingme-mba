@@ -234,12 +234,12 @@ const fr = (): TexteTunnel => {
       ],
     },
     {
-      titre: 'Crédit WhatsApp',
+      titre: 'Ligne de crédit',
       plus: [`Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'fr')} HT par numéro et par mois, avec la formule Pro ou Business.`],
       moins: [],
     },
   ];
-  const carteAvecApplication = 'Vous payez Meta avec votre carte : le Crédit WhatsApp n’est pas possible avec l’application.';
+  const carteAvecApplication = 'Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application.';
   // WhatsApp ordinaire (Julien, 2026-11-08, lot 3a) : le numéro passe dans WhatsApp Business, qui le reprend, puis se garde.
   const whatsappOrdinaire = 'Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations.';
   const magasins: readonly Lien[] = [{ libelle: 'App Store (iPhone)', href: MAGASINS.appStore }, { libelle: 'Google Play (Android)', href: MAGASINS.googlePlay }];
@@ -303,7 +303,7 @@ const fr = (): TexteTunnel => {
         voies: paiement,
         reponses: [
           { libelle: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', vers: 'compte' },
-          { libelle: 'Crédit WhatsApp', grisee: { free: 'Avec la formule Pro.', pro: `Dans la console, une fois votre espace créé en formule Pro : <a href="${OFFRE_CREDIT_WHATSAPP.fr}">Offre, onglet Crédit WhatsApp</a> ; l’option se paie dès sa prise, même pendant l’essai.` } },
+          { libelle: 'Ligne de crédit', grisee: { free: 'Avec la formule Pro.', pro: `Dans la console, une fois votre espace créé en formule Pro : <a href="${OFFRE_CREDIT_WHATSAPP.fr}">Offre, onglet Ligne de crédit</a> ; l’option se paie dès sa prise, même pendant l’essai.` } },
         ],
       },
       {
@@ -464,7 +464,7 @@ const fr = (): TexteTunnel => {
       points: {
         titre: 'Les cinq points à vérifier',
         liste: [
-          'Qui paie vos messages à Meta : votre carte chez Meta, ou le Crédit WhatsApp, prépayé chez Messaging Me, à prendre dans la console avec la formule Pro ou Business (l’option se paie dès sa prise, même pendant l’essai).',
+          'Qui paie vos messages à Meta : votre carte chez Meta, ou la ligne de crédit, prépayée chez Messaging Me, à prendre dans la console avec la formule Pro ou Business (l’option se paie dès sa prise, même pendant l’essai).',
           'Un compte Meta Business : avec, votre numéro se relie en numéro API ; sans, la fenêtre de Meta vous le fait créer en chemin.',
           'L’application WhatsApp Business : vous la gardez, et Messaging Me envoie les messages automatiques à côté. Meta appelle cela la coexistence.',
           'Un numéro : le vôtre, ou un numéro que nous vous fournissons.',
@@ -515,12 +515,12 @@ const en = (): TexteTunnel => {
       ],
     },
     {
-      titre: 'WhatsApp credit',
+      titre: 'Credit line',
       plus: [`You prepay your messages at Messaging Me, with no card at Meta: ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'en')} excl. VAT per number per month, with the Pro or Business plan.`],
       moins: [],
     },
   ];
-  const carteAvecApplication = 'You pay Meta with your card: WhatsApp credit is not possible with the app.';
+  const carteAvecApplication = 'You pay Meta with your card: the credit line is not possible with the app.';
   const whatsappOrdinaire = 'Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats.';
   const magasins: readonly Lien[] = [{ libelle: 'App Store (iPhone)', href: MAGASINS.appStore }, { libelle: 'Google Play (Android)', href: MAGASINS.googlePlay }];
   const deChezNous = 'A number from us, connected through Meta';
@@ -575,7 +575,7 @@ const en = (): TexteTunnel => {
         voies: paiement,
         reponses: [
           { libelle: 'I add a payment method (Visa / Mastercard) to my Meta Business account', vers: 'compte' },
-          { libelle: 'WhatsApp credit', grisee: { free: 'With the Pro plan.', pro: `In the console, once your workspace is created on the Pro plan: <a href="${OFFRE_CREDIT_WHATSAPP.en}">Plan, WhatsApp credit tab</a>; the option is paid when taken, even during the trial.` } },
+          { libelle: 'Credit line', grisee: { free: 'With the Pro plan.', pro: `In the console, once your workspace is created on the Pro plan: <a href="${OFFRE_CREDIT_WHATSAPP.en}">Plan, Credit line tab</a>; the option is paid when taken, even during the trial.` } },
         ],
       },
       {
@@ -721,7 +721,7 @@ const en = (): TexteTunnel => {
       points: {
         titre: 'The five points to check',
         liste: [
-          'Who pays Meta for your messages: your card at Meta, or WhatsApp credit, prepaid at Messaging Me, taken in the console with the Pro or Business plan (the option is paid when taken, even during the trial).',
+          'Who pays Meta for your messages: your card at Meta, or the credit line, prepaid at Messaging Me, taken in the console with the Pro or Business plan (the option is paid when taken, even during the trial).',
           'A Meta Business account: with one, your number connects as an API number; without one, Meta’s window has you create it along the way.',
           'The WhatsApp Business app: you keep it, and Messaging Me sends the automated messages alongside. Meta calls this coexistence.',
           'A number: yours, or a number we provide.',

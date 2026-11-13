@@ -215,7 +215,7 @@ describe('prepare_campaign', () => {
     const surLaLigne = (await outil.executer(deps({ credit: { montantMicroEur: 54_560, soldeMicroEur: 20_009, manqueMicroEur: 34_551 } }).d, T, BASE, PERSONNE)) as Record<string, unknown>;
     expect(surLaLigne.whatsapp_credit).toEqual({
       estimated_cost_eur_excl_tax: '0,06', balance_eur_excl_tax: '0,02', missing_eur_excl_tax: '0,04',
-      warning: 'Crédit WhatsApp insuffisant pour cette campagne : il vous manque 0,04 € HT. Un administrateur peut recharger le crédit depuis Paramètres > Offre, puis la relancer. Rien n’est parti.',
+      warning: 'Solde de la ligne de crédit insuffisant pour cette campagne : il vous manque 0,04 € HT. Un administrateur peut recharger la ligne de crédit depuis Paramètres > Offre, puis relancer la campagne. Rien n’est parti.',
     });
     const couvert = (await outil.executer(deps({ credit: { montantMicroEur: 54_560, soldeMicroEur: 900_000, manqueMicroEur: 0 } }).d, T, BASE, PERSONNE)) as Record<string, unknown>;
     expect(couvert.whatsapp_credit).toEqual({ estimated_cost_eur_excl_tax: '0,06', balance_eur_excl_tax: '0,90' });

@@ -66,11 +66,11 @@ export function OpsLignesCreditWhatsapp({ jeton, tenantId, entreprise }: { jeton
 
   return (
     <div className="grid gap-2 border-t border-ink-100 pt-4" data-testid="ligne-credit">
-      <p className="font-medium text-ink-900">{t('Crédit WhatsApp : numéros sur la ligne', 'WhatsApp credit: numbers on the line')}</p>
+      <p className="font-medium text-ink-900">{t('Ligne de crédit : numéros sur la ligne', 'Credit line: numbers on the line')}</p>
       <p className="text-xs text-ink-500">
         {t(
-          'Un numéro sur la ligne : ses messages sont payés par notre ligne de crédit WhatsApp, au prix de la grille de Meta, puis refacturés à l’espace (débités de son Crédit WhatsApp en Pro et Business, facturés au contrat en Entreprise). La ligne couvre tout le compte WhatsApp du numéro.',
-          'A number on the line: its messages are paid by our WhatsApp credit line, at Meta’s rate card price, then billed back to the workspace (taken from its WhatsApp credit on Pro and Business, invoiced per contract on Enterprise). The line covers the number’s whole WhatsApp account.',
+          'Un numéro sur la ligne : ses messages sont payés par notre ligne de crédit, au prix de la grille de Meta, puis refacturés à l’espace (débités de sa ligne de crédit en Pro et Business, facturés au contrat en Entreprise). La ligne couvre tout le compte WhatsApp du numéro.',
+          'A number on the line: its messages are paid by our credit line, at Meta’s rate card price, then billed back to the workspace (taken from its credit line on Pro and Business, invoiced per contract on Enterprise). The line covers the number’s whole WhatsApp account.',
         )}
       </p>
 

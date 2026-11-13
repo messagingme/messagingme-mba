@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { estAccesSuspendu, lireRefusOffre, lireSiegeRequis, lireVueOffre, offreQuiOuvre, phraseFormulePro, phraseInclusDans, phraseSansAdresse, raisonAttenteOption, FONCTIONS_OFFRE } from './offre';
 
-describe('raisonAttenteOption : pourquoi l’option Crédit WhatsApp attend, dit pareil par l’onglet et la carte', () => {
+describe('raisonAttenteOption : pourquoi l’option Ligne de crédit attend, dit pareil par l’onglet et la carte', () => {
   const fr = (f: string): string => f;
   it('🔴 un Business en essai attend sa confirmation, dans les mots du refus du serveur (lot 3v)', () => {
-    expect(raisonAttenteOption('business', 'essai', fr)).toBe('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.');
+    expect(raisonAttenteOption('business', 'essai', fr)).toBe('L’option Ligne de crédit s’ouvre quand votre formule Business est confirmée.');
   });
   it('🔴 un Pro en retard de paiement : le refus du serveur, sans « premier » ni « essai » (jaune 7 de la relecture du lot A5)', () => {
     const r = raisonAttenteOption('pro', 'en_retard', fr);

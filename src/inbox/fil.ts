@@ -460,7 +460,7 @@ const CAUSES = {
   inactivite: parCause('délai de reprise écoulé'),
   creditEpuise: parCause('crédit IA épuisé, le répondeur automatique ne peut pas répondre'),
   plafondIa: parCause('plafond de sécurité de l’IA atteint ce mois-ci, le répondeur automatique ne peut pas répondre'),
-  creditWhatsappEpuise: parCause('Crédit WhatsApp épuisé, le répondeur automatique ne peut pas répondre'),
+  creditWhatsappEpuise: parCause('Ligne de crédit épuisée, le répondeur automatique ne peut pas répondre'),
   repondeurIndisponible: parCause('le répondeur automatique ne peut pas répondre'),
   agentDeMetaRemplace: parCause('l’agent de Meta n’est plus le répondeur de l’espace'),
   equipe: parCause('le contact écrit, l’équipe répond'),

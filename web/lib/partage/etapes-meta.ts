@@ -127,10 +127,10 @@ export const CE_QUI_EST_FACTURE: {
     // Le Crédit WhatsApp paie Meta sans carte (jaune 4 de la relecture du lot 1) : un numéro API n'est pas toujours sur
     // une carte, ce que la question « Qui paie vos messages à Meta ? » (`web/lib/questions-numero.ts`) dit déjà.
     fr: 'Tout ce qui part de ce numéro passe par Messaging Me : Meta facture vos modèles, et les réponses au-delà de sa '
-      + 'franchise mensuelle, sur une carte à poser chez Meta juste après la connexion, sauf avec le Crédit WhatsApp, qui '
+      + 'franchise mensuelle, sur une carte à poser chez Meta juste après la connexion, sauf avec la ligne de crédit, qui '
       + 'les prépaie chez Messaging Me.',
     en: 'Everything this number sends goes through Messaging Me: Meta bills your templates, and replies beyond its monthly '
-      + 'allowance, on a card to add at Meta right after the connection, except with WhatsApp credit, which prepays them '
+      + 'allowance, on a card to add at Meta right after the connection, except with the credit line, which prepays them '
       + 'at Messaging Me.',
   },
 };

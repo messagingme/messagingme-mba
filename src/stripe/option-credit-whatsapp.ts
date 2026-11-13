@@ -75,14 +75,14 @@ const DUREE_VERROU_PRISE_MS = 60_000;
  */
 export const optionEnVente = (d: Pick<DepsOptionCredit, 'stripe' | 'prixOption'>): boolean => d.stripe !== null && d.prixOption !== '';
 
-export const OPTION_INDISPONIBLE = refus(503, 'L’option Crédit WhatsApp n’est pas encore en vente : contactez-nous.', { code: 'option_indisponible' });
+export const OPTION_INDISPONIBLE = refus(503, 'L’option Ligne de crédit n’est pas encore en vente : contactez-nous.', { code: 'option_indisponible' });
 
 /**
  * Un Business en essai attend la confirmation de Julien (AskUserQuestion du 2026-11-10) : le seul refus « d'essai » qui
  * reste, un Pro prenant l'option dès le début de son essai (V1 du plan du 2026-11-10). Le code ne change pas, la console
  * le lit.
  */
-export const OPTION_APRES_ESSAI = refus(409, 'L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.', { code: 'option_apres_essai' });
+export const OPTION_APRES_ESSAI = refus(409, 'L’option Ligne de crédit s’ouvre quand votre formule Business est confirmée.', { code: 'option_apres_essai' });
 
 /**
  * Une formule Pro en retard de paiement n'est pas « payée » non plus, mais ce n'est pas un essai : le refus dit la vraie
@@ -97,7 +97,7 @@ export const OPTION_FORMULE_EN_RETARD = refus(409, 'Le paiement de votre formule
  * console montre à la place de l'achat.
  */
 export const OPTION_NUMERO_AVEC_CARTE = refus(409,
-  'Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au Support.',
+  'Votre numéro est connecté avec votre carte chez Meta : la ligne de crédit ne peut pas le prendre en charge. Pour changer, écrivez au Support.',
   { code: 'numero_avec_carte' });
 
 const placesValides = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= PLACES_OPTION_MAX;
@@ -115,7 +115,7 @@ async function prixJuste(s: StripeConfigure, prixOption: string, tenantId: strin
   return false;
 }
 const PRIX_INCOHERENT = refus(422,
-  'L’option Crédit WhatsApp est momentanément indisponible : son tarif est en cours de correction. Réessayez plus tard, ou contactez-nous.',
+  'L’option Ligne de crédit est momentanément indisponible : son tarif est en cours de correction. Réessayez plus tard, ou contactez-nous.',
   { code: 'prix_incoherent' });
 
 /**
@@ -132,16 +132,16 @@ export async function ouvrirOption(
   if (!placesValides(places)) return PLACES_INVALIDES;
   const offre = await d.offre(tenantId);
   if (offre === 'entreprise') {
-    return refus(409, 'Votre offre Entreprise comprend déjà le Crédit WhatsApp, sans option à prendre.', { code: 'option_inutile' });
+    return refus(409, 'Votre offre Entreprise comprend déjà la ligne de crédit, sans option à prendre.', { code: 'option_inutile' });
   }
   if (offre !== 'pro' && offre !== 'business') {
-    return refus(409, 'L’option Crédit WhatsApp se prend avec la formule Pro ou Business.', { code: 'option_avec_le_pro' });
+    return refus(409, 'L’option Ligne de crédit se prend avec la formule Pro ou Business.', { code: 'option_avec_le_pro' });
   }
   // Le numéro avant la formule, comme la console : sa raison est définitive, celle de la formule passe (relecture du lot).
   if (await d.numeroAvecCarte(tenantId)) return OPTION_NUMERO_AVEC_CARTE;
   if (!(await d.optionPrenable(tenantId))) return (await d.formuleEnRetard(tenantId)) ? OPTION_FORMULE_EN_RETARD : OPTION_APRES_ESSAI;
   if ((await d.options.vivante(tenantId)) !== null) {
-    return refus(409, 'Votre espace a déjà l’option Crédit WhatsApp : changez son nombre de numéros.', { code: 'option_deja_prise' });
+    return refus(409, 'Votre espace a déjà l’option Ligne de crédit : changez son nombre de numéros.', { code: 'option_deja_prise' });
   }
   try {
     if (!(await prixJuste(s, d.prixOption, tenantId))) return PRIX_INCOHERENT;
@@ -205,17 +205,17 @@ export async function changerPlaces(d: DepsOptionCredit, tenantId: string, deman
   if (!(await d.payeurAutorise(payeur))) return OPTION_INDISPONIBLE;
   if (!placesValides(cible)) return PLACES_INVALIDES;
   const o = await d.options.vivante(tenantId);
-  if (o === null) return refus(409, 'Votre espace n’a pas l’option Crédit WhatsApp.', { code: 'sans_option' });
+  if (o === null) return refus(409, 'Votre espace n’a pas l’option Ligne de crédit.', { code: 'sans_option' });
   try {
     const a = await lireAbonnementStripe(s.transport, { cle: s.cle, abonnementId: o.abonnementId });
     if (a.statut !== 'active') {
-      return refus(409, 'Le paiement de votre option Crédit WhatsApp est en attente : réglez-le, puis changez le nombre de numéros.', { code: 'option_en_retard' });
+      return refus(409, 'Le paiement de votre option Ligne de crédit est en attente : réglez-le, puis changez le nombre de numéros.', { code: 'option_en_retard' });
     }
     const lignes = a.lignes.filter((l) => l.prix === d.prixOption);
     // Une ligne posée à la main chez Stripe, à un autre prix ou en double : on ne devine pas laquelle changer.
     if (lignes.length !== 1) {
       journaliser('error', 'stripe_option_wa_a_regler', { tenantId, abonnement: o.abonnementId, lignes: a.lignes.map((l) => l.prix) });
-      return refus(409, 'Votre option Crédit WhatsApp demande un réglage de notre part : contactez-nous.', { code: 'option_a_regler' });
+      return refus(409, 'Votre option Ligne de crédit demande un réglage de notre part : contactez-nous.', { code: 'option_a_regler' });
     }
     const ligne = lignes[0]!;
     const actuel = ligne.quantite;
@@ -263,7 +263,7 @@ async function noter(
 ): Promise<Issue<{ places: number }>> {
   await d.options.noterPlaces(abonnementId, lu.places, lu.finPrevueLe);
   if (geste !== null) {
-    await d.alerter(`Place de l'option Crédit WhatsApp ${geste} : espace ${tenantId} (${abonnementId}), ${lu.places} numéro${lu.places > 1 ? 's' : ''}.`);
+    await d.alerter(`Place de l'option Ligne de crédit ${geste} : espace ${tenantId} (${abonnementId}), ${lu.places} numéro${lu.places > 1 ? 's' : ''}.`);
     // Une place en plus libère peut-être un numéro du compte resté dehors : ses campagnes en pause repartent (jaune 6).
     await d.reprendreCampagnes(tenantId);
   }
@@ -279,7 +279,7 @@ async function noter(
 export async function resilierOptionChezStripe(d: Pick<DepsOptionCredit, 'stripe' | 'alerter'>, abonnementId: string): Promise<boolean> {
   const s = d.stripe;
   if (s === null) {
-    await d.alerter(`Option Crédit WhatsApp ${abonnementId} impayée : Stripe n'est pas configuré dans cette copie, elle est à résilier à la main, sans remboursement.`);
+    await d.alerter(`Option Ligne de crédit ${abonnementId} impayée : Stripe n'est pas configuré dans cette copie, elle est à résilier à la main, sans remboursement.`);
     return false;
   }
   try {
@@ -293,7 +293,7 @@ export async function resilierOptionChezStripe(d: Pick<DepsOptionCredit, 'stripe
     const relu = await statutRelu(s, abonnementId);
     if (relu === 'canceled') return true;
     journaliser('error', 'option_wa_resiliation_impaye_impossible', { abonnement: abonnementId, status: err.status, code: err.code, relu, err: err.message });
-    await d.alerter(`Option Crédit WhatsApp ${abonnementId} impayée : Stripe n'a pas résilié ${abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''} ; relue : ${relu ?? 'illisible'}). À vérifier chez Stripe, et à résilier à la main, sans remboursement ; ses envois sont arrêtés. ${lienTableauStripe('subscriptions', abonnementId, s.livemode)}`);
+    await d.alerter(`Option Ligne de crédit ${abonnementId} impayée : Stripe n'a pas résilié ${abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''} ; relue : ${relu ?? 'illisible'}). À vérifier chez Stripe, et à résilier à la main, sans remboursement ; ses envois sont arrêtés. ${lienTableauStripe('subscriptions', abonnementId, s.livemode)}`);
     return false;
   }
 }
@@ -314,7 +314,7 @@ export async function optionChezStripe(
   } catch (err) {
     if (!(err instanceof StripeError) || passagere(err)) throw err;
     journaliser('error', 'stripe_option_wa_illisible', { abonnement: abonnementId, status: err.status, code: err.code, err: err.message });
-    await d.alerter(`Option Crédit WhatsApp ${abonnementId} illisible chez Stripe (${err.status}) : ses places ne sont pas relues, à vérifier.`);
+    await d.alerter(`Option Ligne de crédit ${abonnementId} illisible chez Stripe (${err.status}) : ses places ne sont pas relues, à vérifier.`);
     return null;
   }
 }
@@ -412,7 +412,7 @@ async function finirSansDroit(
   let issue: IssueFinDeDroitOption = 'resiliee';
   if (d.stripe === null || d.stripe.livemode !== o.livemode) {
     issue = 'a_verifier';
-    await d.alerter(`Fin de droit de l'option Crédit WhatsApp de l'espace ${tenantId} : son abonnement ${o.abonnementId} court encore, à résilier à la main (${remboursement}). ${lien}`);
+    await d.alerter(`Fin de droit de l'option Ligne de crédit de l'espace ${tenantId} : son abonnement ${o.abonnementId} court encore, à résilier à la main (${remboursement}). ${lien}`);
   } else {
     try {
       await arreterAbonnementNumeroSeul(d.stripe.transport, { cle: d.stripe.cle, abonnementId: o.abonnementId, avoir: false });
@@ -427,7 +427,7 @@ async function finirSansDroit(
       if (relu !== 'canceled') {
         issue = 'a_verifier';
         journaliser('error', 'option_wa_resiliation_impossible', { tenantId, abonnement: o.abonnementId, status: err.status, code: err.code, relu, err: err.message });
-        await d.alerter(`Fin de droit de l'option Crédit WhatsApp de l'espace ${tenantId} : Stripe n'a pas résilié ${o.abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''} ; relue : ${relu ?? 'illisible'}). À vérifier chez Stripe, et à résilier à la main (${remboursement}) ; ses envois sont arrêtés. ${lien}`);
+        await d.alerter(`Fin de droit de l'option Ligne de crédit de l'espace ${tenantId} : Stripe n'a pas résilié ${o.abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''} ; relue : ${relu ?? 'illisible'}). À vérifier chez Stripe, et à résilier à la main (${remboursement}) ; ses envois sont arrêtés. ${lien}`);
       }
     }
   }
@@ -437,15 +437,15 @@ async function finirSansDroit(
   // fin, l'un et l'autre se perdraient (relecture du correctif, jaune 2). L'e-mail ne part qu'une fois par abonnement.
   if (payee && issue === 'resiliee') {
     await d.prevenirSansDroit(tenantId, o.abonnementId);
-    await d.alerter(`Option Crédit WhatsApp payée sans offre qui y donne droit : espace ${tenantId} (${o.abonnementId}), résiliée chez Stripe, un e-mail part à ses admins. Remboursement à décider au cas par cas. ${lien}`);
+    await d.alerter(`Option Ligne de crédit payée sans offre qui y donne droit : espace ${tenantId} (${o.abonnementId}), résiliée chez Stripe, un e-mail part à ses admins. Remboursement à décider au cas par cas. ${lien}`);
   }
   const fin = await d.options.finir(o.abonnementId, 'fin_de_droit', (d.now ?? (() => new Date()))());
   if (fin?.premiereFin) {
     const n = await d.arreterLesLignes(tenantId);
     const lignes = `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
     await d.alerter(payee
-      ? `Option Crédit WhatsApp payée sans droit, finie chez nous : espace ${tenantId} (${o.abonnementId}), ${lignes}.`
-      : `Option Crédit WhatsApp finie, plus aucune offre n'y donne droit : espace ${tenantId} (${o.abonnementId}), ${lignes}.`);
+      ? `Option Ligne de crédit payée sans droit, finie chez nous : espace ${tenantId} (${o.abonnementId}), ${lignes}.`
+      : `Option Ligne de crédit finie, plus aucune offre n'y donne droit : espace ${tenantId} (${o.abonnementId}), ${lignes}.`);
   }
   return issue;
 }

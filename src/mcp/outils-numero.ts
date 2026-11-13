@@ -166,7 +166,7 @@ const SI_ELLE_BLOQUE = ' Si elle bloque (pas de code, une fenêtre de Meta qui r
  * Garder l'application, c'est payer Meta avec sa carte (révision du Crédit WhatsApp, lot C) : la phrase de la console
  * (`NOTE_CARTE_APPLICATION`, `web/lib/questions-numero.ts`), que `tests/mcp-numero.test.ts` tient égale.
  */
-const CARTE_AVEC_APPLICATION = ' Dis-lui aussi, dans sa langue : « Vous payez Meta avec votre carte : le Crédit WhatsApp n’est pas '
+const CARTE_AVEC_APPLICATION = ' Dis-lui aussi, dans sa langue : « Vous payez Meta avec votre carte : la ligne de crédit n’est pas '
   + 'possible avec l’application. »';
 
 /** Des étapes numérotées sur une ligne : Claude les remet une par ligne, dans la langue de la personne. */
@@ -189,22 +189,22 @@ const PREREQUIS_APPORTE = prerequis(PREREQUIS_META);
  * page (`PREREQUIS_LIGNE`, et en `apporte` le téléphone du numéro, `NUMERO_LIGNE_MIEN`) ; qui paie, le crédit, dont le
  * solde part de zéro. Jamais la carte chez Meta, que le crédit remplace.
  */
-const SANS_CARTE = 'Cet espace a droit au Crédit WhatsApp (l’option prise, ou en Entreprise) : ce lien ouvre la connexion '
+const SANS_CARTE = 'Cet espace a droit à la ligne de crédit (l’option prise, ou en Entreprise) : ce lien ouvre la connexion '
   + 'sans carte chez Meta, la page s’en charge d’elle-même. ';
 const PREREQUIS_LIGNE_FOURNI = prerequis(PREREQUIS_LIGNE);
 const PREREQUIS_LIGNE_APPORTE = prerequis([...PREREQUIS_LIGNE, NUMERO_LIGNE_MIEN]);
-const QUI_PAIE_LIGNE = 'Puis qui paie, dans sa langue : « Vos messages se paient par votre Crédit WhatsApp : aucune carte '
-  + 'chez Meta. » Hors Entreprise (où il suit son contrat, illimité), ce crédit est prépayé chez Messaging Me et part de '
-  + 'zéro : une fois le numéro connecté et sa ligne ouverte, propose-lui de le recharger (buy_credit avec credit '
+const QUI_PAIE_LIGNE = 'Puis qui paie, dans sa langue : « Vos messages se paient par votre ligne de crédit : aucune carte '
+  + 'chez Meta. » Hors Entreprise (où elle suit son contrat, illimitée), cette ligne de crédit est prépayée chez Messaging Me et '
+  + 'son solde part de zéro : une fois le numéro connecté et sa ligne ouverte, propose-lui de la recharger (buy_credit avec credit '
   + '« whatsapp ») avant ses premiers modèles. ';
 /** Le numéro de la personne déjà dans une application WhatsApp : la ligne ne paie pas un numéro qui la garde. */
 const SI_NUMERO_DANS_WHATSAPP_LIGNE = 'Si son numéro sert dans WhatsApp ou dans l’application WhatsApp Business, dis-lui '
-  + 'd’abord qu’avec le Crédit WhatsApp il n’y marchera plus : ses clients lui écriront dans Messaging Me, et elle leur '
+  + 'd’abord qu’avec la ligne de crédit il n’y marchera plus : ses clients lui écriront dans Messaging Me, et elle leur '
   + 'répondra là (la console, ou toi). Pour garder l’application, rappelle start_whatsapp_connection avec mode '
-  + '« coexistence » : ses messages se paieront alors avec sa carte chez Meta, pas par le crédit. ';
+  + '« coexistence » : ses messages se paieront alors avec sa carte chez Meta, pas par la ligne de crédit. ';
 /** Garder l'application alors que l'espace a pris le Crédit WhatsApp : le dire, pour qu'elle choisisse en connaissance. */
-const CREDIT_SANS_APPLICATION = ' Préviens-la aussi : cet espace a pris le Crédit WhatsApp, qui ne paie pas un numéro qui '
-  + 'garde l’application ; pour qu’il paie, un numéro hors de toute application WhatsApp (start_whatsapp_connection avec '
+const CREDIT_SANS_APPLICATION = ' Préviens-la aussi : cet espace a pris la ligne de crédit, qui ne paie pas un numéro qui '
+  + 'garde l’application ; pour qu’elle paie, un numéro hors de toute application WhatsApp (start_whatsapp_connection avec '
   + 'mode « apporte » ou « fourni »).';
 
 /**
@@ -448,26 +448,26 @@ type PaiementDuNumero = 'carte' | 'credit' | 'attente' | 'reconnecter' | 'regler
 const RELIRE_APRES_CONNEXION = 'Relis ensuite get_setup_state avant d’annoncer la suite : la connexion change l’état de '
   + 'l’espace. Le crédit IA offert au premier numéro arrive quelques secondes après : s’il est encore à 0, relis une fois '
   + 'quelques secondes plus tard.';
-const CONNECTE_PAR_LE_CREDIT = 'Le numéro est connecté : le branchement est fini. Ses messages se paient par le Crédit '
-  + 'WhatsApp, sans carte chez Meta : ne lui demande aucune carte. Si le solde de ce Crédit WhatsApp est à zéro (get_credit '
-  + 'le dit, dans credit_whatsapp ; jamais en Entreprise, où il est illimité), propose-lui de le recharger (buy_credit avec '
+const CONNECTE_PAR_LE_CREDIT = 'Le numéro est connecté : le branchement est fini. Ses messages se paient par la ligne '
+  + 'de crédit, sans carte chez Meta : ne lui demande aucune carte. Si le solde de cette ligne de crédit est à zéro (get_credit '
+  + 'le dit, dans credit_whatsapp ; jamais en Entreprise, où elle est illimitée), propose-lui de la recharger (buy_credit avec '
   + `credit « whatsapp ») avant ses premiers modèles. ${RELIRE_APRES_CONNEXION}`;
 /** L'option payée, la ligne pas encore posée (pose refusée, ou la pose automatique coupée) : la recharge attend la ligne. */
-const CONNECTE_EN_ATTENTE = 'Le numéro est connecté sans carte chez Meta : ne lui demande aucune carte. Sa ligne de Crédit '
-  + 'WhatsApp s’ouvre sous 24 h ouvrées au plus ; la recharge du Crédit WhatsApp vient ensuite (get_credit le montrera), '
+const CONNECTE_EN_ATTENTE = 'Le numéro est connecté sans carte chez Meta : ne lui demande aucune carte. Sa ligne de crédit '
+  + 's’ouvre sous 24 h ouvrées au plus ; la recharge de la ligne de crédit vient ensuite (get_credit le montrera), '
   + `elle n’est pas possible avant. ${RELIRE_APRES_CONNEXION}`;
 const CONNECTE_A_RECONNECTER = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages : l’espace a '
-  + 'pris le Crédit WhatsApp, et le numéro se reconnecte sans carte depuis l’onglet Crédit WhatsApp de la page Offre de la '
+  + 'pris la ligne de crédit, et le numéro se reconnecte sans carte depuis l’onglet Ligne de crédit de la page Offre de la '
   + 'console (« Reconnecter mon numéro sans carte chez Meta »). Dis-le-lui ; d’ici là, sans carte chez Meta, ses modèles '
   + `ne partent pas. ${RELIRE_APRES_CONNEXION}`;
 /** Le bouton de l'onglet n'existe que pour une option à jour : l'option en retard se règle d'abord, au même onglet. */
 const CONNECTE_A_REGLER = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages : le paiement de '
-  + 'l’option Crédit WhatsApp n’est pas à jour. Dis-lui de le régler dans l’onglet Crédit WhatsApp de la page Offre de la '
+  + 'l’option Ligne de crédit n’est pas à jour. Dis-lui de le régler dans l’onglet Ligne de crédit de la page Offre de la '
   + 'console ; le numéro s’y reconnectera ensuite sans carte. D’ici là, sans carte chez Meta, ses modèles ne partent pas. '
   + RELIRE_APRES_CONNEXION;
 /** En Entreprise, pas de bouton : notre équipe passe le numéro sur le Crédit WhatsApp. */
 const CONNECTE_PAR_LE_SUPPORT = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages. En '
-  + 'Entreprise, notre équipe le passe sur le Crédit WhatsApp : dis-lui de nous écrire depuis le Support de la console. '
+  + 'Entreprise, notre équipe le passe sur la ligne de crédit : dis-lui de nous écrire depuis le Support de la console. '
   + RELIRE_APRES_CONNEXION;
 const SUITES_CONNECTE: Readonly<Record<Exclude<PaiementDuNumero, 'carte'>, string>> = {
   credit: CONNECTE_PAR_LE_CREDIT, attente: CONNECTE_EN_ATTENTE, reconnecter: CONNECTE_A_RECONNECTER,
@@ -740,8 +740,8 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       + 'number, with no app to install. `fourni_application` is no longer offered, only resumed: a number we provide, '
       + 'already put IN the WhatsApp Business app (its verification code arrives here), then kept there through Meta\'s '
       + 'window, like coexistence; still accepted for a connection started that way, which numero.reprise of '
-      + 'get_setup_state names (filiere api only). When the workspace took WhatsApp credit and has no number yet, the link of `fourni` and '
-      + '`apporte` opens the connection without a card at Meta, and the consigne gives its conditions; the credit never '
+      + 'get_setup_state names (filiere api only). When the workspace took the credit line and has no number yet, the link of `fourni` and '
+      + '`apporte` opens the connection without a card at Meta, and the consigne gives its conditions; the credit line never '
       + 'pays a number that keeps the app. '
       + 'Refused if the workspace already has a connected number, except `coexistence` for a number linked by QR code, '
       + 'which moves to the API on the same number.',

@@ -339,7 +339,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       {/* Le lien de Claude ouvre la connexion sans carte d'elle-même (lot 3v-2b) : la page le dit, la console le dit déjà. */}
       {ligne && parLaLigne === 'si-ouverte' && (
         <p data-testid="connexion-sans-carte" className="mt-3 text-sm text-ink-700">
-          {t('Sans carte chez Meta : vos messages se paieront par votre Crédit WhatsApp.', 'No card at Meta: your messages will be paid by your WhatsApp credit.')}
+          {t('Sans carte chez Meta : vos messages se paieront par votre ligne de crédit.', 'No card at Meta: your messages will be paid by your credit line.')}
         </p>
       )}
       {choix === null ? (

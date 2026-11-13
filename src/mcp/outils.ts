@@ -1148,7 +1148,7 @@ export const OUTILS: OutilMcp[] = [
       + 'payment method, and where to add it), compte_meta_business (what a Meta Business account is). Give the one that '
       + 'fits, in the user\'s language; never write a help page address from memory. '
       + 'avertissements: numero_a_activer, credit_epuise (an AI agent no longer answers: buy_credit), '
-      + 'credit_whatsapp_epuise (the WhatsApp credit is under one euro: some messages no longer go out, none at zero, '
+      + 'credit_whatsapp_epuise (the credit line balance is under one euro: some messages no longer go out, none at zero, '
       + 'and a campaign stopped for lack of credit waits for a top-up: buy_credit with a WhatsApp offer), '
       + 'repondeur_gele_par_l_offre (the chosen responder is frozen by the current plan), carte_meta_a_regler (Meta '
       + 'blocks the account over its card; etapes_carte_meta gives the steps to follow), numero_coupe (WhatsApp cut the '

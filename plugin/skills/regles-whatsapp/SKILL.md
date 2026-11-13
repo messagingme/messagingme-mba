@@ -69,7 +69,7 @@ Meta keeps a received file only 7 days: download it as soon as it arrives if the
 ## Money
 
 - Meta bills per delivered message: templates by category, and replies within the 24-hour window beyond a monthly
-  allowance. It bills them on the card of the business's Meta Business account, except with WhatsApp credit, prepaid at
+  allowance. It bills them on the card of the business's Meta Business account, except with the credit line, prepaid at
   Messaging Me (not possible with the WhatsApp Business app). No Messaging Me plan, Free included, includes these fees.
   Who pays and where to add the card: the `faq` skill.
 - The price comes from a tool, never from memory: `list_templates` returns `prix_meta`, Meta's base price per delivered

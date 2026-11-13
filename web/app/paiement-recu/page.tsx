@@ -46,7 +46,7 @@ export default function PaiementRecuPage() {
                 : produit === 'credit'
                 ? t('Merci. Retournez dans Claude : il vous confirme la recharge de votre crédit IA dès que Stripe l’a validée, en général en quelques secondes.', 'Thank you. Go back to Claude: it confirms your AI credit top-up as soon as Stripe has validated it, usually within seconds.')
                 : produit === 'credit_whatsapp'
-                ? t('Merci. Retournez dans Claude : il vous confirme la recharge de votre Crédit WhatsApp dès que Stripe l’a validée, en général en quelques secondes. Une campagne arrêtée faute de crédit repart d’elle-même.', 'Thank you. Go back to Claude: it confirms your WhatsApp credit top-up as soon as Stripe has validated it, usually within seconds. A campaign stopped for lack of credit resumes on its own.')
+                ? t('Merci. Retournez dans Claude : il vous confirme la recharge de votre ligne de crédit dès que Stripe l’a validée, en général en quelques secondes. Une campagne arrêtée faute de crédit repart d’elle-même.', 'Thank you. Go back to Claude: it confirms your credit line top-up as soon as Stripe has validated it, usually within seconds. A campaign stopped for lack of credit resumes on its own.')
                 : t('Merci. Retournez dans Claude : il vous confirme le réabonnement de votre numéro dès que Stripe l’a validé, en général en quelques secondes.', 'Thank you. Go back to Claude: it confirms your number subscription as soon as Stripe has validated it, usually within seconds.')}
             </p>
           </div>

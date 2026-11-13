@@ -278,8 +278,8 @@ function CarteRoi({ roi, locale, t }: { roi: RoiVue; locale: Locale; t: T }) {
         </p>
         {roi.estime && (
           <p data-testid="roi-estime">
-            {t('Coût estimé à partir des tarifs de Meta et de notre grille, sauf les messages du Crédit WhatsApp, comptés à leur coût réel.',
-              'Cost estimated from Meta’s rates and our price grid, except WhatsApp Credit messages, counted at their real cost.')}
+            {t('Coût estimé à partir des tarifs de Meta et de notre grille, sauf les messages de la ligne de crédit, comptés à leur coût réel.',
+              'Cost estimated from Meta’s rates and our price grid, except credit line messages, counted at their real cost.')}
           </p>
         )}
         {roi.partiel && (

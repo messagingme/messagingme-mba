@@ -57,7 +57,7 @@ interface Options {
 }
 
 /** Le texte validé par Julien le 2026-11-13 (version A) : l'option ne se vend plus à un numéro connecté avec sa carte. */
-const NUMERO_AVEC_CARTE = 'Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au Support.';
+const NUMERO_AVEC_CARTE = 'Votre numéro est connecté avec votre carte chez Meta : la ligne de crédit ne peut pas le prendre en charge. Pour changer, écrivez au Support.';
 
 /** L'option en vente, pas encore prise (lot 4a) : 30 € HT par numéro et par mois, de 1 à 20 numéros. */
 const OPTION = { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 0, statut: null, finPrevueLe: null };
@@ -130,7 +130,7 @@ async function monter(page: Page, o: Options = {}) {
   return { achats, options, changements, factures, fins, lectures: () => lectures, demarrages: () => demarrages };
 }
 
-test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
+test.describe('Paramètres > Offre > Ligne de crédit', () => {
   test('🔴 sans numéro sur la ligne, pas d’onglet, et l’adresse de l’onglet ramène à l’offre', async ({ page }) => {
     await monter(page, { onglet: false });
     await page.goto('/offre?tab=whatsapp');
@@ -168,17 +168,17 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     const achat = { ...ACHAT_ANCIEN, id: 'm2', reference: 'cs_live_wa_neuf', at: new Date().toISOString() };
     const m = await monter(page, { vues: [credit({ soldeMicroEur: 0 }), credit({ soldeMicroEur: 50_000_000, historique: [achat, ENVOIS, ACHAT_ANCIEN] })] });
     await page.goto('/offre?tab=whatsapp&paiement=recu');
-    await expect(page.getByTestId('credit-wa-retour-recu')).toContainText(/le crédit arrive dans quelques secondes/);
+    await expect(page.getByTestId('credit-wa-retour-recu')).toContainText(/votre ligne de crédit est rechargée dans quelques secondes/);
     await expect(page.getByTestId('credit-wa-solde')).toContainText('50,00', { timeout: 10_000 });
-    await expect(page.getByTestId('credit-wa-retour-recu')).toContainText(/votre Crédit WhatsApp est à jour/);
+    await expect(page.getByTestId('credit-wa-retour-recu')).toContainText(/votre ligne de crédit est à jour/);
     expect(m.lectures()).toBeGreaterThanOrEqual(2);
   });
 
-  test('🔴 une Entreprise, illimitée : « Illimité » et les messages du mois, ni solde, ni alerte, ni bouton d’achat', async ({ page }) => {
+  test('🔴 une Entreprise, illimitée : « Illimitée » et les messages du mois, ni solde, ni alerte, ni bouton d’achat', async ({ page }) => {
     // Son solde peut valoir zéro : il ne bouge pas et n'arrête rien (décision du 2026-11-02), l'écran ne doit pas le dire épuisé.
     await monter(page, { vues: [credit({ illimite: true, soldeMicroEur: 0, consommationDuMoisMicroEur: 2_149_520, achat: { disponible: true, permis: 'open_bar', offres: [] } })] });
     await page.goto('/offre?tab=whatsapp');
-    await expect(page.getByTestId('credit-wa-illimite')).toHaveText('Illimité');
+    await expect(page.getByTestId('credit-wa-illimite')).toHaveText('Illimitée');
     await expect(page.getByTestId('credit-wa-conso-mois')).toContainText('2,15');
     await expect(page.getByTestId('credit-wa-conso-mois')).toContainText(/selon votre contrat/);
     for (const alerte of ['credit-wa-epuise', 'credit-wa-presque-epuise', 'credit-wa-bas', 'credit-wa-recharger']) {
@@ -248,7 +248,7 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     await monter(page, { vues: [arretee] });
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-arretee')).toContainText(
-      'Vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant est conservé. Pour envoyer de nouveau : reprenez l’option, ou connectez votre numéro avec votre carte chez Meta.',
+      'Vos envois par la ligne de crédit sont arrêtés, votre solde est conservé. Pour envoyer de nouveau : reprenez l’option, ou connectez votre numéro avec votre carte chez Meta.',
     );
     // L'ancien avis (« contactez-nous ») reste aux lignes posées à la main : jamais les deux.
     await expect(page.getByTestId('credit-wa-ligne-arretee')).toHaveCount(0);
@@ -288,10 +288,10 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
     expect(m.factures[0]).toContain('/tenants/t-e2e/credit/factures/cs_live_wa_ancien');
   });
 
-  test('🔴 une recharge payée depuis Claude revient sur la page publique, qui parle du Crédit WhatsApp (pas du numéro)', async ({ page }) => {
+  test('🔴 une recharge payée depuis Claude revient sur la page publique, qui parle de la ligne de crédit (pas du numéro)', async ({ page }) => {
     // `buy_credit` renvoie ici (`?produit=credit_whatsapp`), sans session : la page tombait sur le texte du numéro.
     await page.goto('/paiement-recu?produit=credit_whatsapp');
-    await expect(page.getByTestId('paiement-recu')).toContainText('recharge de votre Crédit WhatsApp');
+    await expect(page.getByTestId('paiement-recu')).toContainText('recharge de votre ligne de crédit');
     await expect(page.getByTestId('paiement-recu')).not.toContainText('numéro');
     await page.goto('/paiement-recu?produit=credit_whatsapp&abonnement=abandon');
     await expect(page.getByTestId('paiement-abandonne')).toBeVisible();
@@ -310,8 +310,8 @@ test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
  * L'OPTION DU CRÉDIT WHATSAPP (lot 4a, 30 € HT par numéro et par mois) : un Pro ou un Business la prend dans l'onglet, pour
  * 1 à 20 numéros, puis en change le nombre un numéro à la fois, le prix dit avant toute facture. Stripe est simulé.
  */
-test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
-  test('🔴 un Pro sans numéro sur le Crédit WhatsApp : l’option proposée, jamais « épuisé », et la prendre ouvre Stripe', async ({ page }) => {
+test.describe('Paramètres > Offre > Ligne de crédit : l’option', () => {
+  test('🔴 un Pro sans numéro sur la ligne de crédit : l’option proposée, jamais « épuisé », et la prendre ouvre Stripe', async ({ page }) => {
     const m = await monter(page, { vues: [credit({ ...SANS_NUMERO, option: OPTION })] });
     await page.goto('/offre?tab=whatsapp');
     const section = page.getByTestId('credit-wa-option');
@@ -379,7 +379,7 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
       solution: 'sol-e2e',
     });
     await page.goto('/offre?tab=whatsapp');
-    await expect(page.getByTestId('credit-wa-option-libre')).toContainText('1 numéro payé pas encore sur le Crédit WhatsApp : connectez votre numéro sans carte chez Meta.');
+    await expect(page.getByTestId('credit-wa-option-libre')).toContainText('1 numéro payé pas encore sur la ligne de crédit : connectez votre numéro sans carte chez Meta.');
     await expect(page.getByTestId('credit-wa-connecter')).toHaveAttribute('href', '/connecter-whatsapp');
   });
 
@@ -389,7 +389,7 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
       solution: null,
     });
     await page.goto('/offre?tab=whatsapp');
-    await expect(page.getByTestId('credit-wa-option-libre')).toHaveText('1 numéro payé pas encore sur le Crédit WhatsApp : contactez-nous depuis le Support pour y mettre votre numéro.');
+    await expect(page.getByTestId('credit-wa-option-libre')).toHaveText('1 numéro payé pas encore sur la ligne de crédit : contactez-nous depuis le Support pour y mettre votre numéro.');
     await expect(page.getByTestId('credit-wa-connecter')).toHaveCount(0);
   });
 
@@ -424,7 +424,7 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
     expect(m.changements).toEqual([{ depuis: 2, cible: 3 }]);
   });
 
-  test('🔴 un retrait ne passe pas sous les numéros sur le Crédit WhatsApp, et part depuis les places lues', async ({ page }) => {
+  test('🔴 un retrait ne passe pas sous les numéros sur la ligne de crédit, et part depuis les places lues', async ({ page }) => {
     const pleine = await monter(page, { vues: [credit({ option: { ...OPTION, places: 2, couverts: 2, statut: 'actif' } })] });
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-retirer')).toBeDisabled();
@@ -471,7 +471,7 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
  * retard de paiement attendent, et l'onglet dit pourquoi dans les mots du refus du serveur. Plus de « Démarrer la formule
  * Pro maintenant ». L'abonnement ne choisit que les mots.
  */
-test.describe('Paramètres > Offre > Crédit WhatsApp : la prise de l’option, essai compris', () => {
+test.describe('Paramètres > Offre > Ligne de crédit : la prise de l’option, essai compris', () => {
   const ESSAI = {
     statut: 'essai', periodicite: 'mois', debutLe: '2026-11-01T09:00:00.000Z', prochaineEcheanceLe: '2099-11-15T09:00:00.000Z',
     finPrevueLe: null, essaiFinLe: '2099-11-15T09:00:00.000Z', finiLe: null, finRaison: null,
@@ -497,7 +497,7 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : la prise de l’option, 
     const m = await monter(page, { vues: [ATTENTE(false)], vueOffre: { offre: 'business' } });
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-essai')).toContainText('vient avec la formule payante');
-    await expect(page.getByTestId('credit-wa-option-attente')).toHaveText('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.');
+    await expect(page.getByTestId('credit-wa-option-attente')).toHaveText('L’option Ligne de crédit s’ouvre quand votre formule Business est confirmée.');
     await expect(page.getByTestId('credit-wa-option-demarrer')).toHaveCount(0);
     await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
     expect(m.options).toEqual([]);
@@ -522,7 +522,7 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : la prise de l’option, 
   test('🔴 tous les numéros gardent l’application : l’avertissement avant « Prendre l’option » (décision 8)', async ({ page }) => {
     await monter(page, { vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: false, prisePossible: true, avecApplication: true } })], vueOffre: EN_ESSAI });
     await page.goto('/offre?tab=whatsapp');
-    await expect(page.getByTestId('credit-wa-option-avertissement')).toContainText('le Crédit WhatsApp n’est pas possible avec l’application');
+    await expect(page.getByTestId('credit-wa-option-avertissement')).toContainText('la ligne de crédit n’est pas possible avec l’application');
     await expect(page.getByTestId('credit-wa-option-prendre')).toBeVisible();
   });
 

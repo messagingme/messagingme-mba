@@ -110,7 +110,7 @@ describe('les montants dits au client', () => {
 
   it('le refus dit le montant HT, où recharger, et que rien n’est parti', () => {
     expect(messageManqueCredit(12_345_678)).toBe(
-      'Crédit WhatsApp insuffisant pour cette campagne : il vous manque 12,35 € HT. Un administrateur peut recharger le crédit depuis Paramètres > Offre, puis la relancer. Rien n’est parti.',
+      'Solde de la ligne de crédit insuffisant pour cette campagne : il vous manque 12,35 € HT. Un administrateur peut recharger la ligne de crédit depuis Paramètres > Offre, puis relancer la campagne. Rien n’est parti.',
     );
   });
 });

@@ -1,7 +1,7 @@
 ---
-description: What you need at Meta to connect WhatsApp: before, a Meta Business account (created along the way) and a number; after, your card, except with WhatsApp credit.
+description: What you need at Meta to connect WhatsApp: before, a Meta Business account (created along the way) and a number; after, your card, except with the credit line.
 slug: what-you-need-at-meta
-traduit_de: 714486
+traduit_de: 9a9ced
 ---
 # What you need at Meta, before and after connecting
 
@@ -34,10 +34,10 @@ phone call: keep the phone that holds it at hand. No number? We provide one.
 ## After connecting
 
 Meta bills your templates, and replies beyond its monthly allowance, on the card of your Meta Business account,
-except with WhatsApp credit, which prepays them at Messaging Me. With the WhatsApp Business app, it is always the card:
-WhatsApp credit is not possible there.
+except with the credit line, which prepays them at Messaging Me. With the WhatsApp Business app, it is always the card:
+the credit line is not possible there.
 
-**4. Add your card, except with WhatsApp credit.** Right after connecting, add it to your Meta Business account, as
+**4. Add your card, except with the credit line.** Right after connecting, add it to your Meta Business account, as
 follows.
 
 - On business.facebook.com, open WhatsApp Manager, “Overview” page.

@@ -93,8 +93,8 @@ function EnAttenteDeLigne({ token }: { token: string }) {
       <h3 className="text-xs font-semibold text-ink-900">{t('En attente de leur ligne', 'Waiting for their line')}</h3>
       <p className="mt-1 text-xs text-ink-500">
         {t(
-          'Arrivés par la fenêtre du partenaire : lui demander d’attacher sa ligne de crédit, puis poser celle de l’espace (son lien « offre ») quand il confirme l’attache, pas avant. « Ne pas poser » sort un numéro de cette liste, quand la ligne ne viendra pas ou que l’attache est vérifiée sur un compte déjà couvert : une Entreprise sans ligne repasse sur demande, avec le conseil de sa carte chez Meta ; un compte déjà couvert, l’attache vérifiée, garde sa ligne, qui couvre bien son numéro (« payés par votre Crédit WhatsApp ») ; sans attache, « Ne pas poser » ne retire pas la nôtre : la retirer plutôt, le numéro restant ici jusqu’à ce qu’on la repose, l’attache confirmée ; une Entreprise qui garde seulement la ligne active d’un ancien numéro d’un AUTRE compte WhatsApp lit aussi « payés par votre Crédit WhatsApp », sans que son numéro soit couvert ; une option payée sans ligne reste en attente. Refusé tant qu’une ligne d’un autre espace, ou arrêtée, bloque encore le compte.',
-          'Connected through the partner’s window: ask the partner to attach their credit line, then set the workspace’s line (its “plan” link) once they confirm, not before. “Do not set” removes a number from this list, when the line will not come or the attachment is checked on an account already covered: an Enterprise with no line goes back to on request, with the advice about its card at Meta; an account already covered, the attachment checked, keeps its line, which does cover its number (“paid by your WhatsApp Credit”); with no attachment, “Do not set” does not remove ours: remove it instead, the number staying here until it is set again, once the attachment is confirmed; an Enterprise that only keeps the active line of a former number on ANOTHER WhatsApp account also reads “paid by your WhatsApp Credit”, while its number is not covered; a paid option with no line stays pending. Refused while a line of another workspace, or a stopped line, still blocks the account.',
+          'Arrivés par la fenêtre du partenaire : lui demander d’attacher sa ligne de crédit, puis poser celle de l’espace (son lien « offre ») quand il confirme l’attache, pas avant. « Ne pas poser » sort un numéro de cette liste, quand la ligne ne viendra pas ou que l’attache est vérifiée sur un compte déjà couvert : une Entreprise sans ligne repasse sur demande, avec le conseil de sa carte chez Meta ; un compte déjà couvert, l’attache vérifiée, garde sa ligne, qui couvre bien son numéro (« payés par votre ligne de crédit ») ; sans attache, « Ne pas poser » ne retire pas la nôtre : la retirer plutôt, le numéro restant ici jusqu’à ce qu’on la repose, l’attache confirmée ; une Entreprise qui garde seulement la ligne active d’un ancien numéro d’un AUTRE compte WhatsApp lit aussi « payés par votre ligne de crédit », sans que son numéro soit couvert ; une option payée sans ligne reste en attente. Refusé tant qu’une ligne d’un autre espace, ou arrêtée, bloque encore le compte.',
+          'Connected through the partner’s window: ask the partner to attach their credit line, then set the workspace’s line (its “plan” link) once they confirm, not before. “Do not set” removes a number from this list, when the line will not come or the attachment is checked on an account already covered: an Enterprise with no line goes back to on request, with the advice about its card at Meta; an account already covered, the attachment checked, keeps its line, which does cover its number (“paid by your credit line”); with no attachment, “Do not set” does not remove ours: remove it instead, the number staying here until it is set again, once the attachment is confirmed; an Enterprise that only keeps the active line of a former number on ANOTHER WhatsApp account also reads “paid by your credit line”, while its number is not covered; a paid option with no line stays pending. Refused while a line of another workspace, or a stopped line, still blocks the account.',
         )}
       </p>
       {numeros === null && (
@@ -176,7 +176,7 @@ export function OpsCreditWhatsappCard({ token }: { token: string }) {
   if (absente) {
     return (
       <div className="rounded-carte border border-ink-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-ink-900">{t('Crédit WhatsApp', 'WhatsApp credit')}</h2>
+        <h2 className="text-sm font-semibold text-ink-900">{t('Ligne de crédit', 'Credit line')}</h2>
         <p className="mt-1 text-xs text-ink-500">
           {t('Indisponible sur cette instance : l’API n’a pas encore la route.', 'Unavailable on this instance: the API does not have the route yet.')}
         </p>
@@ -187,7 +187,7 @@ export function OpsCreditWhatsappCard({ token }: { token: string }) {
 
   return (
     <div className="rounded-carte border border-ink-200 bg-white p-5" data-testid="ops-credit-whatsapp">
-      <h2 className="text-sm font-semibold text-ink-900">{t('Crédit WhatsApp : grille de Meta et commission', 'WhatsApp credit: Meta rate card and commission')}</h2>
+      <h2 className="text-sm font-semibold text-ink-900">{t('Ligne de crédit : grille de Meta et commission', 'Credit line: Meta rate card and commission')}</h2>
       <p className="mt-1 text-xs text-ink-500">
         {t(
           'Le prix d’un message sur la ligne de crédit : le tarif de Meta du pays et de la catégorie, plus la commission. Aucun numéro ne peut passer sur la ligne sans grille.',

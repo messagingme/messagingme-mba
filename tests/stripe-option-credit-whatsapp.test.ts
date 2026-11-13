@@ -188,7 +188,7 @@ describe('ouvrir l’option', () => {
 
   it('🔴 un numéro connecté avec sa carte : le refus dit le texte validé par Julien (version A, 2026-11-13), avant les refus de la formule', async () => {
     const refus = JSON.stringify(await ouvrirOption(deps({ numeroAvecCarte: true }).d, T1, 1, 'u1'));
-    expect(refus).toContain('Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au Support.');
+    expect(refus).toContain('Votre numéro est connecté avec votre carte chez Meta : la ligne de crédit ne peut pas le prendre en charge. Pour changer, écrivez au Support.');
     // Le numéro d'abord, comme la console : sa raison est définitive, celle de la formule passe (un Business confirmé, un
     // retard réglé, et l'option resterait refusée). Un Business en essai ou un Pro en retard lit donc celle de son numéro.
     for (const o of [{ offre: 'business' as const, optionPrenable: false }, { optionPrenable: false, formuleEnRetard: true }]) {
@@ -212,7 +212,7 @@ describe('ouvrir l’option', () => {
     expect(enRetard).toContain('Le paiement de votre formule Pro est en retard : réglez-le, puis prenez l’option.');
     expect(enRetard).not.toContain('essai');
     const business = JSON.stringify(await ouvrirOption(deps({ offre: 'business', formulePayee: false, optionPrenable: false }).d, T1, 1, 'u1'));
-    expect(business).toContain('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.');
+    expect(business).toContain('L’option Ligne de crédit s’ouvre quand votre formule Business est confirmée.');
     expect(business).not.toContain('pas pendant un essai');
   });
 
@@ -333,7 +333,7 @@ describe('la fin de droit', () => {
     const { d, transport, journal } = fin();
     expect(await finDeDroitOption(d, T1, 'fin_de_droit')).toBe('resiliee');
     expect(transport.suppressions.map((s) => [s.url.split('/').pop(), s.corps.toString()])).toEqual([['sub_opt', '']]);
-    expect(journal).toEqual(['finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Crédit WhatsA']);
+    expect(journal).toEqual(['finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Ligne de créd']);
   });
 
   it('🔴 une offre y donne encore droit (un Pro, un Business, une Entreprise), ou aucune option : rien ne bouge', async () => {
@@ -368,7 +368,7 @@ describe('la fin de droit', () => {
   it('🔴 payée sans droit, résiliée chez Stripe : l’e-mail et la consigne AVANT la fin, puis les lignes arrêtées', async () => {
     const { d, journal, alertes } = fin();
     expect(await finDeDroitOption(d, T1, 'payee_sans_droit')).toBe('resiliee');
-    expect(journal).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Crédit WhatsA', 'finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Crédit WhatsA']);
+    expect(journal).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Ligne de créd', 'finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Ligne de créd']);
     expect(alertes).toHaveLength(2);
     expect(alertes[0]).toMatch(/payée sans offre qui y donne droit : .*résiliée chez Stripe, un e-mail part à ses admins\. Remboursement à décider au cas par cas/);
     expect(alertes[1]).toMatch(/payée sans droit, finie chez nous : .*2 lignes arrêtées/);
@@ -420,7 +420,7 @@ describe('la fin de droit', () => {
     for (const c of cas) {
       const { d, journal, alertes } = fin({ ...c, relu: RESILIE });
       expect(await finDeDroitOption(d, T1, 'payee_sans_droit'), c.nom).toBe('resiliee');
-      expect(journal, c.nom).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Crédit WhatsA', 'finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Crédit WhatsA']);
+      expect(journal, c.nom).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Ligne de créd', 'finir:sub_opt:fin_de_droit', `arret:${T1}`, 'alerte:Option Ligne de créd']);
       expect(alertes[0], c.nom).toMatch(/résiliée chez Stripe, un e-mail part à ses admins/);
     }
     // Une fin de droit ordinaire aussi : résiliée, relue, sans alerte « à la main ».
@@ -475,7 +475,7 @@ describe('la fin de droit', () => {
     // et ne dit que « terminée (résiliation) ».
     const { d, journal, alertes } = fin({ premiereFin: false });
     expect(await finDeDroitOption(d, T1, 'payee_sans_droit')).toBe('resiliee');
-    expect(journal).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Crédit WhatsA', 'finir:sub_opt:fin_de_droit']);
+    expect(journal).toEqual([`courriel:${T1}:sub_opt`, 'alerte:Option Ligne de créd', 'finir:sub_opt:fin_de_droit']);
     expect(alertes[0]).toMatch(/Remboursement à décider au cas par cas/);
   });
 
@@ -484,7 +484,7 @@ describe('la fin de droit', () => {
     expect(await finDeDroitOption(d, T1, 'fin_de_droit')).toBe('a_verifier');
     expect(journal.some((j) => j.startsWith('courriel'))).toBe(false);
     expect(alertes[0]).toMatch(/à résilier à la main \(sans remboursement\)/);
-    expect(alertes[1]).toMatch(/^Option Crédit WhatsApp finie, plus aucune offre n'y donne droit/);
+    expect(alertes[1]).toMatch(/^Option Ligne de crédit finie, plus aucune offre n'y donne droit/);
   });
 
   it('🔴 branchée pour le câblage du webhook, la fin de droit reçoit le cas tel quel : payée sans droit, l’e-mail part ; fin du Pro, non', async () => {

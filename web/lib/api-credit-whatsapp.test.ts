@@ -142,15 +142,15 @@ describe('ouvrirAchatWhatsapp : ce qu’une réponse veut dire', () => {
     repondre(404, { message: 'Route not found' });
     expect(await ouvrirAchatWhatsapp('t1', 'wa_50')).toEqual({ indisponible: true });
     vi.unstubAllGlobals();
-    repondre(503, { error: 'Le Crédit WhatsApp n’est pas encore en vente.', code: 'credit_whatsapp_indisponible' });
+    repondre(503, { error: 'La ligne de crédit n’est pas encore en vente.', code: 'credit_whatsapp_indisponible' });
     expect(await ouvrirAchatWhatsapp('t1', 'wa_50')).toEqual({ indisponible: true });
   });
 
   it('409 (numéro arrêté) : le refus remonte avec le message du serveur', async () => {
-    repondre(409, { error: 'Aucun numéro de cet espace n’est sur le Crédit WhatsApp.', code: 'credit_whatsapp_sans_ligne' });
+    repondre(409, { error: 'Aucun numéro de cet espace n’est sur la ligne de crédit.', code: 'credit_whatsapp_sans_ligne' });
     const err = await ouvrirAchatWhatsapp('t1', 'wa_100').catch((e: unknown) => e);
     expect(err).toBeInstanceOf(ApiError);
-    expect((err as ApiError).message).toContain('Crédit WhatsApp');
+    expect((err as ApiError).message).toContain('ligne de crédit');
   });
 });
 
@@ -174,10 +174,10 @@ describe('l’option : la prendre, changer ses places', () => {
     repondre(404, { message: 'Route not found' });
     expect(await ouvrirOptionWhatsapp('t1', 1)).toEqual({ indisponible: true });
     vi.unstubAllGlobals();
-    repondre(503, { error: 'L’option Crédit WhatsApp n’est pas encore en vente : contactez-nous.', code: 'option_indisponible' });
+    repondre(503, { error: 'L’option Ligne de crédit n’est pas encore en vente : contactez-nous.', code: 'option_indisponible' });
     expect(await ouvrirOptionWhatsapp('t1', 1)).toEqual({ indisponible: true });
     vi.unstubAllGlobals();
-    repondre(409, { error: 'Votre espace a déjà l’option Crédit WhatsApp : changez son nombre de numéros.', code: 'option_deja_prise' });
+    repondre(409, { error: 'Votre espace a déjà l’option Ligne de crédit : changez son nombre de numéros.', code: 'option_deja_prise' });
     await expect(ouvrirOptionWhatsapp('t1', 1)).rejects.toThrow(/déjà l’option/);
   });
 

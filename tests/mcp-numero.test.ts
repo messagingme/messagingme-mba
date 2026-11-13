@@ -839,7 +839,7 @@ describe('la connexion sans carte chez Meta (lot 3v-2b)', () => {
     expect(c).not.toContain(PREREQUIS_META[0]!.fr);
     expect(c).not.toContain(CE_QUI_EST_FACTURE.api.fr);
     expect(c).toMatch(/sans carte chez Meta/);
-    expect(c).toMatch(/Crédit WhatsApp/);
+    expect(c).toMatch(/ligne de crédit/);
     expect(c).toMatch(/buy_credit avec credit « whatsapp »/);
     // Son numéro dans une application WhatsApp : le crédit ne le paiera pas, et garder l'application reste possible.
     expect(c).toMatch(/il n’y marchera plus/);

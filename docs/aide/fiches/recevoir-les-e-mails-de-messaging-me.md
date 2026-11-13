@@ -1,6 +1,6 @@
 ---
 source_section: Les e-mails de Messaging Me aux administrateurs
-source_empreinte: 2f5dd5
+source_empreinte: e74b20
 ---
 # Les e-mails que Messaging Me vous envoie
 
@@ -16,17 +16,17 @@ section « E-mails de Messaging Me ».
 
 **Les alertes de service.** Le crédit IA presque épuisé (sous 0,50 €, une fois par recharge), puis épuisé (vos agents
 IA ne répondent plus, une fois par jour au plus). Un paiement refusé de votre offre Pro ou de votre numéro fourni, dès
-le premier échec, avec la date où les envois du numéro seraient coupés. Si votre espace a l'option Crédit WhatsApp,
+le premier échec, avec la date où les envois du numéro seraient coupés. Si votre espace a l'option Ligne de crédit,
 celui de l'offre Pro vous dit qu'elle s'arrêtera avec l'offre : les messages des numéros de l'option s'arrêteraient,
-réponses à vos clients comprises, votre crédit restant conservé. Le numéro fourni suspendu, le rappel deux jours
+réponses à vos clients comprises, votre solde conservé. Le numéro fourni suspendu, le rappel deux jours
 avant sa libération, sa libération, et la suite du numéro quand votre offre Pro se termine. En offre Free, 80 % puis
 100 % des modèles du mois et de vos contacts, ceux qui vous ont écrit les premiers compris : l'alerte de 100 % propose
 de passer en Pro. Au-delà de votre limite de contacts (au retour en formule Free après la formule Pro, par exemple), une alerte vous
 dit combien en supprimer pour y revenir, en le demandant à Claude. Quand votre espace Free, Pro ou Business est plein
 et qu'un nouveau client vous écrit, un e-mail vous dit que son message n'est pas entré, une fois par jour au plus. En
 offres Pro et Business, 80 % puis 100 % de vos contacts, ceux qui vous ont écrit les premiers compris : l'alerte du Pro
-renvoie au Business, celle du Business à l'Entreprise. Si l'option Crédit WhatsApp s'arrête (une résiliation, un impayé) alors que votre formule permet de
-la reprendre, un e-mail vous dit que vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant conservé, et
+renvoie au Business, celle du Business à l'Entreprise. Si l'option Ligne de crédit s'arrête (une résiliation, un impayé) alors que votre formule permet de
+la reprendre, un e-mail vous dit que vos envois par la ligne de crédit sont arrêtés, votre solde conservé, et
 comment envoyer de nouveau.
 
 **Une conversation attend votre équipe.** Quand un agent IA, l'agent de Meta ou un scénario confie à l'équipe une
@@ -49,11 +49,11 @@ votre langue.
 écoulée, les conversations, celles confiées à votre équipe, et votre crédit IA restant. Une semaine sans message
 n'envoie rien.
 
-**Le Crédit WhatsApp.** Quand votre formule devient payée (la fin de l'essai de la formule Pro, ou un Business confirmé),
+**La ligne de crédit.** Quand votre formule devient payée (la fin de l'essai de la formule Pro, ou un Business confirmé),
 un e-mail vous dit que vous pouvez payer vos messages WhatsApp chez Messaging Me, sans carte chez Meta, une seule fois.
 
 **Ce qu'on peut couper.** Deux familles d'e-mails se coupent : les conversations qui attendent votre équipe, et les
-e-mails d'information (la bienvenue, les relances, le récapitulatif de la semaine, le Crédit WhatsApp). Chacun porte un lien « Ne plus recevoir ces e-mails » en bas, et « Mon compte » permet de les
+e-mails d'information (la bienvenue, les relances, le récapitulatif de la semaine, la ligne de crédit). Chacun porte un lien « Ne plus recevoir ces e-mails » en bas, et « Mon compte » permet de les
 couper ou de les rétablir. Les alertes de service partent toujours : elles disent quand quelque chose s'arrête si
 personne n'agit.
 

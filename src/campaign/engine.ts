@@ -267,7 +267,7 @@ export interface EngineDeps {
 
 /** La raison d'un arrêt sur un refus du Crédit WhatsApp dont la pause n'a pas été écrite : un crédit est arrivé entre-temps. */
 export const RAISON_CREDIT_RECHARGE_ENTRE_TEMPS =
-  'Crédit WhatsApp rechargé entre-temps : run arrêté sans écrire de pause, la campagne repart';
+  'Ligne de crédit rechargée entre-temps : run arrêté sans écrire de pause, la campagne repart';
 
 /**
  * La raison d'un run arrêté sur un refus « numéro délié » dont la pause n'a pas été écrite : le numéro a été

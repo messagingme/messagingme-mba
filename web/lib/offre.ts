@@ -338,7 +338,7 @@ export function phraseFormulePro(
 export function raisonAttenteOption(
   offre: NomOffre | undefined, statut: StatutAbonnementPro | undefined, t: (fr: string, en: string) => string,
 ): string {
-  if (offre === 'business') return t('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.', 'The WhatsApp credit option opens once your Business plan is confirmed.');
+  if (offre === 'business') return t('L’option Ligne de crédit s’ouvre quand votre formule Business est confirmée.', 'The Credit line option opens once your Business plan is confirmed.');
   // Un Pro qui attend est en retard, quel que soit le statut que la vue de l'offre, gardée une minute, dit encore
   // (jaune 3 de la relecture du lot 3v) : un Pro actif, essai compris, prend l'option.
   if (offre === 'pro' || statut === 'en_retard') {

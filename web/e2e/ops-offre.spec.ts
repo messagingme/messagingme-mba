@@ -136,13 +136,13 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     await expect(modale.getByTestId('offre-alerte-credit-wa')).toHaveCount(0);
     await modale.getByTestId('offre-entreprise').uncheck();
     // Retombé en Free (aucun Pro payé), l'achat lui est fermé : l'écran ne le promet pas, il dit de retirer le numéro.
-    await expect(modale.getByTestId('offre-alerte-credit-wa')).toContainText(/En Free, le Crédit WhatsApp ne s’achète pas : retirez d’abord le numéro de la ligne/);
+    await expect(modale.getByTestId('offre-alerte-credit-wa')).toContainText(/En Free, la ligne de crédit ne se recharge pas : retirez d’abord le numéro de la ligne/);
     // Vers le Business : il prépaie, comme le Pro, et l'achat lui est ouvert.
     await modale.getByTestId('offre-business').check();
-    await expect(modale.getByTestId('offre-alerte-credit-wa')).toContainText(/avant un achat de Crédit WhatsApp/);
+    await expect(modale.getByTestId('offre-alerte-credit-wa')).toContainText(/avant une recharge de la ligne de crédit/);
   });
 
-  test('🔴 retirer le Business d’un espace qui a l’option du Crédit WhatsApp sans Pro : l’écran annonce sa résiliation', async ({ page }) => {
+  test('🔴 retirer le Business d’un espace qui a l’option de la ligne de crédit sans Pro : l’écran annonce sa résiliation', async ({ page }) => {
     const { modale } = await ouvrir(page, {
       entreprise: false, utilisateurs: null, conservationJours: 90, business: true, utilisateursBusiness: null,
       alertes: { proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, optionCreditWhatsappSansDroit: true },
@@ -155,7 +155,7 @@ test.describe('Ops : l’offre Entreprise d’un espace', () => {
     await expect(modale.getByTestId('offre-alerte-option-wa')).toHaveCount(0);
   });
 
-  test('🔴 passer en Entreprise un espace qui a l’option du Crédit WhatsApp : l’écran dit qu’elle reste facturée', async ({ page }) => {
+  test('🔴 passer en Entreprise un espace qui a l’option de la ligne de crédit : l’écran dit qu’elle reste facturée', async ({ page }) => {
     const { modale } = await ouvrir(page, {
       entreprise: false, utilisateurs: null, conservationJours: 90, business: true, utilisateursBusiness: null,
       alertes: { proPayeVivant: false, numeroSeulVivant: false, numeroFourniSansCouverture: false, optionCreditWhatsappSansDroit: true, optionCreditWhatsappVivante: true },
@@ -231,7 +231,7 @@ test.describe('Ops : le Business d’un espace (spec Business)', () => {
     const { modale, ecrits } = await ouvrir(page, { entreprise: false, utilisateurs: null, conservationJours: 90, business: false, alertes: ALERTES });
     await modale.getByTestId('offre-business').check();
     await modale.getByTestId('offre-business-essai').check();
-    await expect(modale.getByTestId('offre-business-essai-aide')).toContainText('l’option Crédit WhatsApp reste fermée');
+    await expect(modale.getByTestId('offre-business-essai-aide')).toContainText('l’option Ligne de crédit reste fermée');
     await modale.getByTestId('offre-note').fill('Business en essai de 14 jours');
     await expect(modale.getByTestId('offre-enregistrer')).toBeDisabled();
     await modale.getByTestId('offre-business-essai-fin').fill('2026-11-19');

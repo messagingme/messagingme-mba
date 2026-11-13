@@ -97,7 +97,7 @@ describe('ce qu’il faut chez Meta', () => {
     for (const t of textes) expect(plat(t)).not.toMatch(faux);
     // Et chaque texte qui dit qui paie Meta nomme l'exception, dans sa langue.
     const meta = FAQ.find((e) => e.id === 'ce-que-meta-facture')!;
-    const exception = { fr: 'sauf avec le Crédit WhatsApp', en: 'except with WhatsApp credit' };
+    const exception = { fr: 'sauf avec la ligne de crédit', en: 'except with the credit line' };
     const quiPaie: Array<[string, string, 'fr' | 'en']> = [
       ['FAQ « que facture Meta »', meta.reponse.fr, 'fr'], ['FAQ « what Meta bills »', meta.reponse.en, 'en'],
       ['fiche', lire('docs/aide/fiches/ce-qu-il-faut-chez-meta.md'), 'fr'], ['fiche en', lire('docs/aide/fiches/en/ce-qu-il-faut-chez-meta.md'), 'en'],
@@ -123,10 +123,10 @@ describe('ce qu’il faut chez Meta', () => {
     const affirme = (p: string): boolean => (/\bMeta\b/.test(p) && /factur|\bbills?\b|\bbilled\b/.test(p)
       && /votre entreprise|votre boutique|your business\b(?! portfolio| account)|your store\b/.test(p) && /messag|modèle|réponse|templat|repl/i.test(p))
       || /directement à votre (entreprise|boutique)|directly to your (business|store)|ne touche pas à ces frais|takes no cut|never touches these fees|n[’']y ajoute rien|adds nothing|sans supplément|no surcharge|sans commission|no commission/.test(p);
-    // L'exception se dit de plus d'une façon (« sauf avec le Crédit WhatsApp », « avec le Crédit WhatsApp, vous les
-    // prépayez… ») : la phrase doit nommer le crédit.
-    // « Ligne de crédit » depuis le 2026-11-13 (demande de Julien) : la page des tarifs d'abord, le reste au lot suivant.
-    const exception = /Crédit WhatsApp|WhatsApp credit|ligne de crédit|credit line/i;
+    // L'exception se dit de plus d'une façon (« sauf avec la ligne de crédit », « avec la ligne de crédit, vous les
+    // prépayez… ») : la phrase doit nommer la ligne de crédit.
+    // « Ligne de crédit » partout depuis le 2026-11-13 (demande de Julien) : l'ancien nom, « Crédit WhatsApp », ne compte plus.
+    const exception = /ligne de crédit|credit line/i;
     const vuesParPage = new Map<string, number>();
     for (const f of fichiers) {
       // Une fin de bloc coupe la phrase comme un point, et un lien suivi d'une autre balise aussi : une liste de liens,

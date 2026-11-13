@@ -95,7 +95,7 @@ function Offre({ session }: { session: Session }) {
             tabs={[
               { key: 'offre', label: t('Offre', 'Plan') },
               { key: 'credit', label: t('Crédit IA', 'AI credit') },
-              ...(avecWhatsapp ? [{ key: 'whatsapp', label: t('Crédit WhatsApp', 'WhatsApp credit') }] : []),
+              ...(avecWhatsapp ? [{ key: 'whatsapp', label: t('Ligne de crédit', 'Credit line') }] : []),
             ]}
             active={onglet}
             onSelect={choisir}

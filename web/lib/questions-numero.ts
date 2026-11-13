@@ -106,7 +106,7 @@ export const QUESTION_PAIEMENT = {
     ],
   },
   credit: {
-    titre: { fr: 'Crédit WhatsApp', en: 'WhatsApp credit' },
+    titre: { fr: 'Ligne de crédit', en: 'Credit line' },
     texte: {
       fr: 'Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : 30 € HT par numéro et par mois, avec la formule Pro ou Business.',
       en: 'You prepay your messages at Messaging Me, with no card at Meta: €30 excl. VAT per number per month, with the Pro or Business plan.',
@@ -133,8 +133,8 @@ export const QUESTION_LIGNE_NUMERO = {
   // Le titre de la carte chez Meta s'y cite tel quel : il se lit dans `QUESTION_PAIEMENT`, jamais recopié (jaune 5 de la
   // relecture du lot 3v).
   application: {
-    fr: `Avec le Crédit WhatsApp, il n’y marchera plus : vos clients vous écriront dans Messaging Me, et vous leur répondrez là (la console ou Claude). Pour garder l’application : « ${QUESTION_PAIEMENT.carte.titre.fr} », ou un numéro de chez nous.`,
-    en: `With WhatsApp credit, it will no longer work there: your customers will write to you in Messaging Me, and you will reply there (the console or Claude). To keep the app: “${QUESTION_PAIEMENT.carte.titre.en}”, or a number from us.`,
+    fr: `Avec la ligne de crédit, il n’y marchera plus : vos clients vous écriront dans Messaging Me, et vous leur répondrez là (la console ou Claude). Pour garder l’application : « ${QUESTION_PAIEMENT.carte.titre.fr} », ou un numéro de chez nous.`,
+    en: `With the credit line, it will no longer work there: your customers will write to you in Messaging Me, and you will reply there (the console or Claude). To keep the app: “${QUESTION_PAIEMENT.carte.titre.en}”, or a number from us.`,
   },
 } as const satisfies Record<string, Texte>;
 
@@ -143,8 +143,8 @@ export { NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE } from './partage/etapes-meta';
 
 /** Les voies qui gardent l'application WhatsApp Business : le Crédit WhatsApp n'y est pas possible (spec, décision 8). */
 export const NOTE_CARTE_APPLICATION: Texte = {
-  fr: 'Vous payez Meta avec votre carte : le Crédit WhatsApp n’est pas possible avec l’application.',
-  en: 'You pay Meta with your card: WhatsApp credit is not possible with the app.',
+  fr: 'Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application.',
+  en: 'You pay Meta with your card: the credit line is not possible with the app.',
 };
 
 /**
@@ -152,8 +152,8 @@ export const NOTE_CARTE_APPLICATION: Texte = {
  * « Crédit WhatsApp » (`QuiRegleMeta`) et l'onglet Crédit WhatsApp le disent pareil.
  */
 export const AVERTISSEMENT_APPLICATION: Texte = {
-  fr: 'Vos numéros connectés gardent l’application WhatsApp Business : ils restent payés par votre carte chez Meta, le Crédit WhatsApp n’est pas possible avec l’application. L’option sert à connecter un nouveau numéro, sans l’application.',
-  en: 'Your connected numbers keep the WhatsApp Business app: they stay paid by your card at Meta, WhatsApp credit is not possible with the app. The option is for connecting a new number, without the app.',
+  fr: 'Vos numéros connectés gardent l’application WhatsApp Business : ils restent payés par votre carte chez Meta, la ligne de crédit n’est pas possible avec l’application. L’option sert à connecter un nouveau numéro, sans l’application.',
+  en: 'Your connected numbers keep the WhatsApp Business app: they stay paid by your card at Meta, the credit line is not possible with the app. The option is for connecting a new number, without the app.',
 };
 
 export const QUESTION_COMPTE = {

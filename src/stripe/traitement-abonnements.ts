@@ -626,7 +626,7 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     /** Les places relues, ramenées aux bornes de la base ; `null` hors bornes basses (rien n'est inventé, Julien prévenu). */
     const borner = async (places: number, abonnementId: string): Promise<number | null> => {
       if (places >= PLACES_MIN && places <= PLACES_MAX) return places;
-      await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} : ${places} place(s) chez Stripe, hors des bornes (${PLACES_MIN} à ${PLACES_MAX}). À régler.`);
+      await deps.option.alerter(`Option Ligne de crédit ${abonnementId} : ${places} place(s) chez Stripe, hors des bornes (${PLACES_MIN} à ${PLACES_MAX}). À régler.`);
       return places > PLACES_MAX ? PLACES_MAX : null;
     };
     /**
@@ -647,11 +647,11 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         // 🔴 Avant toute autre lecture (relecture du lot C5, jaune 10) : une panne après `finir` fait rejouer l'événement,
         // qui n'a plus `premiereFin`, et l'alerte se perdait.
         const suite = illimite ? 'Entreprise : ses lignes restent actives, sous l’illimité' : `${n} ligne${n > 1 ? 's' : ''} arrêtée${n > 1 ? 's' : ''}`;
-        await deps.option.alerter(`Option Crédit WhatsApp terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}.`);
+        await deps.option.alerter(`Option Ligne de crédit terminée (${raison === 'impaye' ? 'impayé' : 'résiliation'}) : espace ${a.tenantId} (${a.abonnementId}), ${suite}.`);
       }
       /** Ce que Julien doit savoir quand l'e-mail ne part pas alors que l'option s'est arrêtée : une fois, à la première fin. */
       const sansEmail = async (pourquoi: string): Promise<void> => {
-        if (a.premiereFin) await deps.option.alerter(`Option Crédit WhatsApp ${a.abonnementId} de l'espace ${a.tenantId} : ${pourquoi}, à prévenir à la main si besoin.`);
+        if (a.premiereFin) await deps.option.alerter(`Option Ligne de crédit ${a.abonnementId} de l'espace ${a.tenantId} : ${pourquoi}, à prévenir à la main si besoin.`);
       };
       // L'ÉTAT des lignes après l'arrêt (lot C, jaunes 2 et 4) : il décide l'e-mail, pas ce que CET appel a arrêté. Un rejeu
       // après une panne (la fin déjà écrite) et deux traitements de la même fin (l'`updated` impayé et le `deleted` qu'il
@@ -704,7 +704,7 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       // Rien de relu (l'option pas en vente dans cette copie, ou un refus durable) : rien n'est inventé, mais un paiement
       // reçu sans option enregistrée se dit (relecture du lot 4a, jaune 3 : il était acquitté sans trace).
       if (lu === null) {
-        await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} payée par l'espace ${tenantId}, mais rien n'a pu être relu chez Stripe (le prix de l'option absent de cette copie, ou un refus durable) : elle n'est PAS enregistrée, à vérifier. ${lien}`);
+        await deps.option.alerter(`Option Ligne de crédit ${abonnementId} payée par l'espace ${tenantId}, mais rien n'a pu être relu chez Stripe (le prix de l'option absent de cette copie, ou un refus durable) : elle n'est PAS enregistrée, à vérifier. ${lien}`);
         return;
       }
       if (lu.statut !== 'active' && lu.statut !== 'past_due') {
@@ -712,7 +712,7 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         // impayé, payée à la main) : de l'argent reçu pour rien, qui passait sans trace (relecture des jaunes d'avant la
         // vente, jaune 3). Pas encore payée (`incomplete`), sans facture : aucune place n'existe, rien à dire.
         if (facture !== null && (await aRembourser(abonnementId, facture))) {
-          await deps.option.alerter(`Facture de ${(facture.centimes / 100).toFixed(2).replace('.', ',')} € payée pour l'option Crédit WhatsApp ${abonnementId} de l'espace ${tenantId}, que Stripe dit ${lu.statut} : à rembourser. ${lien}`);
+          await deps.option.alerter(`Facture de ${(facture.centimes / 100).toFixed(2).replace('.', ',')} € payée pour l'option Ligne de crédit ${abonnementId} de l'espace ${tenantId}, que Stripe dit ${lu.statut} : à rembourser. ${lien}`);
         }
         return;
       }
@@ -725,7 +725,7 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
         // Un espace supprimé peut encore être facturé : la clé étrangère ne guérira pas au rejeu, alerte et acquittement.
         if (!espaceDisparu(err)) throw err;
         journaliser('error', 'stripe_option_wa_espace_disparu', { tenantId, abonnement: abonnementId, livemode: e.livemode });
-        await deps.option.alerter(`L'espace supprimé ${tenantId} paie encore son option Crédit WhatsApp ${abonnementId} : à résilier chez Stripe. ${lienTableauStripe('subscriptions', abonnementId, e.livemode)}`);
+        await deps.option.alerter(`L'espace supprimé ${tenantId} paie encore son option Ligne de crédit ${abonnementId} : à résilier chez Stripe. ${lienTableauStripe('subscriptions', abonnementId, e.livemode)}`);
         return;
       }
       if (issue.etat === 'enregistre') {
@@ -748,17 +748,17 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
           const suite = relancees > 0
             ? `, ${relancees} ligne${relancees > 1 ? 's' : ''} relancée${relancees > 1 ? 's' : ''}`
             : ' : ligne à poser sous 24 h ouvrées';
-          await deps.option.alerter(`Nouvelle option Crédit WhatsApp : espace ${issue.tenantId} (${abonnementId}), ${places} numéro${places > 1 ? 's' : ''}${suite}.`);
+          await deps.option.alerter(`Nouvelle option Ligne de crédit : espace ${issue.tenantId} (${abonnementId}), ${places} numéro${places > 1 ? 's' : ''}${suite}.`);
         }
       } else if (issue.etat === 'doublon') {
-        await deps.option.alerter(`Option Crédit WhatsApp en double : ${abonnementId} pour l'espace ${tenantId}, qui en a déjà une vivante. À annuler et rembourser chez Stripe.`);
+        await deps.option.alerter(`Option Ligne de crédit en double : ${abonnementId} pour l'espace ${tenantId}, qui en a déjà une vivante. À annuler et rembourser chez Stripe.`);
       } else if (issue.etat === 'fini') {
         // Finie chez nous, vivante chez Stripe (une résiliation à la main restée à faire) : le client paie pour rien, ses
         // lignes restant arrêtées (jaune 3 : elle passait sans trace). « Facturée » seulement venue d'une facture, et « à
         // rembourser » seulement réglée après la fin chez nous (`aRembourser`).
         const facturee = facture !== null ? ` et l'a facturée` : '';
         const rembourser = (await aRembourser(abonnementId, facture)) ? ', et la facture à rembourser' : '';
-        await deps.option.alerter(`Option Crédit WhatsApp ${abonnementId} de l'espace ${tenantId} : finie chez nous, mais Stripe la dit ${lu.statut}${facturee}. À résilier chez Stripe${rembourser}. ${lien}`);
+        await deps.option.alerter(`Option Ligne de crédit ${abonnementId} de l'espace ${tenantId} : finie chez nous, mais Stripe la dit ${lu.statut}${facturee}. À résilier chez Stripe${rembourser}. ${lien}`);
       }
     };
 
@@ -817,7 +817,7 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
       if (lu.data.billing_reason === 'subscription_update') return ACQUITTE;
       const a = await deps.option.majStatut(abonnementId, 'en_retard', null, finFacture);
       if (a) {
-        await deps.option.alerter(`Renouvellement de l'option Crédit WhatsApp échoué : espace ${a.tenantId} (${a.abonnementId}). Stripe réessaie ; ses numéros envoient jusqu'à ce qu'il abandonne.`);
+        await deps.option.alerter(`Renouvellement de l'option Ligne de crédit échoué : espace ${a.tenantId} (${a.abonnementId}). Stripe réessaie ; ses numéros envoient jusqu'à ce qu'il abandonne.`);
         if (a.statut === 'en_retard') await deps.paiementRefuse({ tenantId: a.tenantId, offre: 'option_credit_whatsapp', factureId: lu.data.id });
       }
       return ACQUITTE;

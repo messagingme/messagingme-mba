@@ -302,8 +302,8 @@ export function descriptionBuyCredit(offres: readonly OffreRecharge[], offresWa:
       ? 'Opens the payment of a credit purchase and returns the URL of the Stripe checkout page; the payment itself is '
         + 'made by the person on that page, and the credit arrives once Stripe has confirmed it (get_credit). '
         + `AI credit (credit "ia", the default): ${enClair}, credited in full. Offer the smallest amount that covers the `
-        + `need: ${offres[0]} is enough for a trial. WhatsApp credit (credit "whatsapp"): ${enClairWa}, only for a `
-        + 'workspace whose number is on the WhatsApp credit line and not stopped (get_credit then shows credit_whatsapp, '
+        + `need: ${offres[0]} is enough for a trial. Credit line (credit "whatsapp"): ${enClairWa}, only for a `
+        + 'workspace whose number is on the credit line and not stopped (get_credit then shows credit_whatsapp, '
         + 'without envois_arretes); it pays the '
         + 'WhatsApp messages themselves, and no promotion code applies to it. ' + taxe
       : 'Opens the payment of an AI credit top-up and returns the URL of the Stripe checkout page; the payment itself is '
@@ -314,7 +314,7 @@ export function descriptionBuyCredit(offres: readonly OffreRecharge[], offresWa:
       type: 'object',
       properties: {
         offre: avecWa
-          ? { type: 'string', enum: [...offres, ...offresWa], description: 'The offer: refill_* for the AI credit, wa_* for the WhatsApp credit.' }
+          ? { type: 'string', enum: [...offres, ...offresWa], description: 'The offer: refill_* for the AI credit, wa_* for the credit line.' }
           : { type: 'string', enum: [...offres], description: 'The top-up offer.' },
         ...(avecWa ? { credit: { type: 'string', enum: ['ia', 'whatsapp'], description: 'Which balance to top up; absent, the one the offer belongs to.' } } : {}),
       },
@@ -1071,13 +1071,13 @@ export const OUTILS_AGENT: OutilMcp[] = [
       + `${LIGNES_HISTORIQUE} movements, most recent first: purchases, offered credit, top-ups, AI usage (agent turns `
       + 'and their knowledge searches, preparation of knowledge entries, transcriptions) and translations, each '
       + 'aggregated per day, at the rate of the workspace plan. After a payment opened by buy_credit, an "achat" line '
-      + 'appears once Stripe has confirmed it. When a number of the workspace is on the WhatsApp credit line, '
+      + 'appears once Stripe has confirmed it. When a number of the workspace is on the credit line, '
       + 'credit_whatsapp gives that other prepaid balance, which pays the WhatsApp messages themselves: its balance, '
       + 'the price of one message in France per category (fees included), and its movements (sends aggregated per day, '
       + 'purchases, adjustments). At zero, NOTHING is sent from that number, replies included, until a purchase '
       + '(buy_credit, credit "whatsapp"). When every number of the workspace is stopped on the line, credit_whatsapp says '
       + 'envois_arretes: true: nothing is sent whatever the balance, which is kept, and a purchase changes nothing. With '
-      + 'option_arretee: true, the WhatsApp credit option has ended: to send again, the person takes the option again or '
+      + 'option_arretee: true, the Credit line option has ended: to send again, the person takes the option again or '
       + 'connects the number with their card at Meta, both from the Connect WhatsApp page of the console; otherwise they '
       + 'write to Support. On the Enterprise plan both credits are unlimited and billed under the '
       + 'contract (illimite: true): no balance and nothing to buy, consommation_du_mois_eur gives what this month cost '

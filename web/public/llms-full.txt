@@ -34,7 +34,7 @@ Authorization: Bearer mba_xxxxxxxxxxxxxxxx
 
 > **Attention**
 >
-> Les appels sont réels : il n’y a pas d’espace de test. Un envoi part vraiment sur WhatsApp, et il peut être facturé : par Meta à votre entreprise, ou débité de votre Crédit WhatsApp. Pour essayer, écrivez d’abord à votre propre téléphone.
+> Les appels sont réels : il n’y a pas d’espace de test. Un envoi part vraiment sur WhatsApp, et il peut être facturé : par Meta à votre entreprise, ou débité de votre ligne de crédit. Pour essayer, écrivez d’abord à votre propre téléphone.
 
 <a id="adresse"></a>
 
@@ -1089,8 +1089,8 @@ Dans l’ordre où elles sont vérifiées :
 | 409 | `no_whatsapp_number` | Espace sans numéro WhatsApp. |
 | 409 | `number_unlinked` | Numéro délié depuis l’Accueil. |
 | 409 | `number_suspended` | Abonnement du numéro fourni impayé ou terminé. |
-| 402 | `whatsapp_credit_exhausted` | Crédit WhatsApp épuisé : rien ne part avant une recharge. |
-| 409 | `whatsapp_credit_line_inactive` | Crédit WhatsApp inactif sur ce numéro. |
+| 402 | `whatsapp_credit_exhausted` | Ligne de crédit épuisée : rien ne part avant une recharge. |
+| 409 | `whatsapp_credit_line_inactive` | Ligne de crédit inactive sur ce numéro. |
 | 422 | `no_phone` | Numéro relié par QR code : réponse hors des 24 h à une personne sans numéro connu. |
 | 402 | `plan_limit_reached` | Numéro relié par QR code : messages du mois atteints. |
 | 400, 409 | `invalid_recipient` `invalid_phone` `identity_conflict` | Clés de fiche absentes, illisibles ou contradictoires : [Désigner une personne](https://console.messagingme.app/developers/api/concepts.md#identification) |
@@ -1701,8 +1701,8 @@ Motifs d’écart : `invalid_recipient` , `invalid_phone` , `unknown_contact` , 
 | 409 | `no_whatsapp_number` | Aucun numéro WhatsApp sur l’espace (sauf message RCS). |
 | 409 | `number_unlinked` | Numéro WhatsApp délié depuis l’Accueil, et premier message en WhatsApp. Rien n’est créé. Une cible qui ouvre en RCS part. |
 | 409 | `number_suspended` | Abonnement du numéro fourni impayé ou terminé, et premier message en WhatsApp. Rien n’est créé. |
-| 402 | `whatsapp_credit_exhausted` | Crédit WhatsApp épuisé, et premier message en WhatsApp. Rien n’est créé. |
-| 409 | `whatsapp_credit_line_inactive` | Crédit WhatsApp inactif sur ce numéro, et premier message en WhatsApp. Rien n’est créé. |
+| 402 | `whatsapp_credit_exhausted` | Ligne de crédit épuisée, et premier message en WhatsApp. Rien n’est créé. |
+| 409 | `whatsapp_credit_line_inactive` | Ligne de crédit inactive sur ce numéro, et premier message en WhatsApp. Rien n’est créé. |
 | 404 | `template_not_found` | Template absent, non approuvé, ou d’une autre langue. |
 | 422 | `template_category_unknown` | Catégorie du template illisible, ou ni marketing ni utility. |
 | 404 | `scenario_not_found` | Scénario introuvable. |
@@ -3122,7 +3122,7 @@ Meta facture les messages de modèle selon leur catégorie et le pays du destina
 
 ## La carte dans le Business Manager
 
-Meta exige un moyen de paiement valide sur le compte WhatsApp pour ce qu’il facture, à commencer par les modèles, quelle que soit l’offre Messaging Me, sauf avec le Crédit WhatsApp, qui prépaie ces messages chez Messaging Me (pas avec l’application WhatsApp Business). Sans lui : [`131042`](https://console.messagingme.app/developers/api/errors.md#meta-131042).
+Meta exige un moyen de paiement valide sur le compte WhatsApp pour ce qu’il facture, à commencer par les modèles, quelle que soit l’offre Messaging Me, sauf avec la ligne de crédit, qui prépaie ces messages chez Messaging Me (pas avec l’application WhatsApp Business). Sans lui : [`131042`](https://console.messagingme.app/developers/api/errors.md#meta-131042).
 
 <a id="consentement"></a>
 
@@ -4576,17 +4576,17 @@ Que faire : Régler l’abonnement du numéro dans la console : les envois repar
 
 ### `whatsapp_credit_exhausted` 402
 
-Le Crédit WhatsApp qui paie les messages de ce numéro est épuisé : rien ne part par WhatsApp, réponses comprises, avant une recharge. Rendu par les routes qui envoient par WhatsApp, et par POST /v1/sends quand le premier message part en WhatsApp ; rien n’est créé.
+La ligne de crédit qui paie les messages de ce numéro est épuisée : rien ne part par WhatsApp, réponses comprises, avant une recharge. Rendu par les routes qui envoient par WhatsApp, et par POST /v1/sends quand le premier message part en WhatsApp ; rien n’est créé.
 
-Que faire : Un admin recharge le Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp) : les envois repartent dès le paiement.
+Que faire : Un admin recharge la ligne de crédit dans la console (Paramètres > Offre, onglet Ligne de crédit) : les envois repartent dès le paiement.
 
 <a id="whatsapp_credit_line_inactive"></a>
 
 ### `whatsapp_credit_line_inactive` 409
 
-Le Crédit WhatsApp n’est plus actif sur ce numéro, ou ce numéro n’a pas de place dans l’option Crédit WhatsApp (le message commence alors par « Ce numéro n’a pas de place dans l’option ») : rien ne part par WhatsApp, et une recharge n’y changerait rien. Rendu comme whatsapp_credit_exhausted.
+La ligne de crédit n’est plus active sur ce numéro, ou ce numéro n’a pas de place dans l’option Ligne de crédit (le message commence alors par « Ce numéro n’a pas de place dans l’option ») : rien ne part par WhatsApp, et une recharge n’y changerait rien. Rendu comme whatsapp_credit_exhausted.
 
-Que faire : Si le message commence par « Ce numéro n’a pas de place dans l’option », un admin ajoute un numéro à l’option Crédit WhatsApp dans la console (Paramètres > Offre, onglet Crédit WhatsApp). Si l’option est arrêtée, un admin la reprend au même endroit, ou connecte le numéro avec sa carte chez Meta. Sinon, nous contacter depuis le Support de la console : une recharge n’y changerait rien.
+Que faire : Si le message commence par « Ce numéro n’a pas de place dans l’option », un admin ajoute un numéro à l’option Ligne de crédit dans la console (Paramètres > Offre, onglet Ligne de crédit). Si l’option est arrêtée, un admin la reprend au même endroit, ou connecte le numéro avec sa carte chez Meta. Sinon, nous contacter depuis le Support de la console : une recharge n’y changerait rien.
 
 <a id="scenario_not_found"></a>
 

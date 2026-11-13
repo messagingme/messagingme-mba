@@ -86,7 +86,7 @@ export const LIGNES_AIDE = {
   agent: ligne(AIDE_AGENT_IA, 'Construire un agent IA, pas à pas', 'Build an AI agent, step by step'),
   bulle: ligne(AIDE_BULLE, 'Poser une bulle WhatsApp sur mon site, pas à pas', 'Put a WhatsApp bubble on my site, step by step'),
   inbox: ligne(AIDE_INBOX, 'Répondre à un client dans l’Inbox, pas à pas', 'Reply to a customer in the Inbox, step by step'),
-  payerMeta: ligne(AIDE_PAYER_META, 'Payer Meta : votre carte, ou le Crédit WhatsApp', 'Pay Meta: your card, or WhatsApp credit'),
+  payerMeta: ligne(AIDE_PAYER_META, 'Payer Meta : votre carte, ou la ligne de crédit', 'Pay Meta: your card, or the credit line'),
   offre: ligne(AIDE_OFFRE, 'Choisir mon offre : ce que chacune comprend', 'Choose my plan: what each one includes'),
   shopify: ligne(AIDE_SHOPIFY, 'Brancher ma boutique Shopify, pas à pas', 'Connect my Shopify store, step by step'),
 } as const satisfies Record<string, LigneAide>;
@@ -299,27 +299,27 @@ export const CATALOGUE = [
     cle: 'credit_whatsapp_bas',
     categorie: 'service',
     aide: LIGNES_AIDE.payerMeta,
-    nom: 'Crédit WhatsApp presque épuisé',
-    quand: 'Un message fait passer le Crédit WhatsApp sous 10 €. Une fois par achat.',
+    nom: 'Ligne de crédit presque épuisée',
+    quand: 'Un message fait passer le solde de la ligne de crédit sous 10 €. Une fois par recharge.',
     variables: {
-      solde: { description: 'Le Crédit WhatsApp restant', forme: 'euros', exemple: '8420000' },
-      lien_credit_whatsapp: { description: 'L’onglet Crédit WhatsApp de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
+      solde: { description: 'Le solde restant de la ligne de crédit', forme: 'euros', exemple: '8420000' },
+      lien_credit_whatsapp: { description: 'L’onglet Ligne de crédit de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
     },
     textes: {
       fr: {
-        sujet: 'Crédit WhatsApp bientôt épuisé : il reste {{solde}}',
-        corps: 'Bonjour,\n\nLe Crédit WhatsApp de l’espace {{espace}} passe sous 10 € : il reste {{solde}}. Quand il sera à '
+        sujet: 'Ligne de crédit bientôt épuisée : il reste {{solde}}',
+        corps: 'Bonjour,\n\nLe solde de la ligne de crédit de l’espace {{espace}} passe sous 10 € : il reste {{solde}}. Quand il sera à '
           + 'zéro, plus aucun message WhatsApp ne partira de votre numéro, réponses à vos clients comprises, et vos campagnes '
           + 'se mettront en pause.\n\nRechargez dès maintenant, depuis la console ou en le demandant à Claude, pour que vos '
           + 'messages continuent de partir.',
-        bouton: { libelle: 'Recharger le Crédit WhatsApp', lien: '{{lien_credit_whatsapp}}' },
+        bouton: { libelle: 'Recharger la ligne de crédit', lien: '{{lien_credit_whatsapp}}' },
       },
       en: {
-        sujet: 'WhatsApp credit running low: {{solde}} left',
-        corps: 'Hello,\n\nThe WhatsApp credit of the {{espace}} workspace has dropped below €10: {{solde}} left. When it '
+        sujet: 'Credit line running low: {{solde}} left',
+        corps: 'Hello,\n\nThe credit line balance of the {{espace}} workspace has dropped below €10: {{solde}} left. When it '
           + 'reaches zero, no WhatsApp message will leave your number any more, replies to your customers included, and your '
           + 'campaigns will pause.\n\nTop up now, from the console or by asking Claude, so your messages keep going.',
-        bouton: { libelle: 'Top up WhatsApp credit', lien: '{{lien_credit_whatsapp}}' },
+        bouton: { libelle: 'Top up the credit line', lien: '{{lien_credit_whatsapp}}' },
       },
     },
   },
@@ -327,28 +327,28 @@ export const CATALOGUE = [
     cle: 'credit_whatsapp_epuise',
     categorie: 'service',
     aide: LIGNES_AIDE.payerMeta,
-    nom: 'Crédit WhatsApp épuisé',
-    quand: 'Un message WhatsApp est refusé faute de Crédit WhatsApp. Une fois par jour au plus.',
+    nom: 'Ligne de crédit épuisée',
+    quand: 'Un message WhatsApp est refusé, la ligne de crédit épuisée. Une fois par jour au plus.',
     variables: {
-      lien_credit_whatsapp: { description: 'L’onglet Crédit WhatsApp de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
+      lien_credit_whatsapp: { description: 'L’onglet Ligne de crédit de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
     },
     textes: {
       fr: {
-        sujet: 'Crédit WhatsApp épuisé : vos messages WhatsApp ne partent plus',
-        corps: 'Bonjour,\n\nLe Crédit WhatsApp de l’espace {{espace}} est épuisé. Plus aucun message WhatsApp ne part de '
+        sujet: 'Ligne de crédit épuisée : vos messages WhatsApp ne partent plus',
+        corps: 'Bonjour,\n\nLa ligne de crédit de l’espace {{espace}} est épuisée. Plus aucun message WhatsApp ne part de '
           + 'votre numéro, réponses à vos clients comprises : vos campagnes sont en pause, et les conversations que le '
-          + 'répondeur automatique aurait prises arrivent dans « À traiter » de l’Inbox.\n\nRechargez le crédit, depuis la '
+          + 'répondeur automatique aurait prises arrivent dans « À traiter » de l’Inbox.\n\nRechargez la ligne de crédit, depuis la '
           + 'console ou en le demandant à Claude : vos campagnes reprennent d’elles-mêmes.\n\nCette alerte part une fois par '
           + 'jour au plus.',
-        bouton: { libelle: 'Recharger le Crédit WhatsApp', lien: '{{lien_credit_whatsapp}}' },
+        bouton: { libelle: 'Recharger la ligne de crédit', lien: '{{lien_credit_whatsapp}}' },
       },
       en: {
-        sujet: 'WhatsApp credit used up: your WhatsApp messages no longer go out',
-        corps: 'Hello,\n\nThe WhatsApp credit of the {{espace}} workspace is used up. No WhatsApp message leaves your number '
+        sujet: 'Credit line used up: your WhatsApp messages no longer go out',
+        corps: 'Hello,\n\nThe credit line of the {{espace}} workspace is used up. No WhatsApp message leaves your number '
           + 'any more, replies to your customers included: your campaigns are paused, and the conversations the automatic '
-          + 'responder would have taken go to “To do” in the Inbox.\n\nTop up the credit, from the console or by asking '
+          + 'responder would have taken go to “To do” in the Inbox.\n\nTop up the credit line, from the console or by asking '
           + 'Claude: your campaigns resume on their own.\n\nThis alert is sent at most once a day.',
-        bouton: { libelle: 'Top up WhatsApp credit', lien: '{{lien_credit_whatsapp}}' },
+        bouton: { libelle: 'Top up the credit line', lien: '{{lien_credit_whatsapp}}' },
       },
     },
   },
@@ -384,7 +384,7 @@ export const CATALOGUE = [
     cle: 'paiement_refuse_pro',
     categorie: 'service',
     nom: 'Paiement refusé : offre Pro',
-    quand: 'Le paiement du renouvellement de l’offre Pro échoue, dans un espace effectivement en Pro (ni Entreprise ni Business) et sans option Crédit WhatsApp en cours ou en retard : avec elle, c’est « Paiement refusé : offre Pro avec l’option Crédit WhatsApp », qui se coupe à part. Une fois par facture.',
+    quand: 'Le paiement du renouvellement de l’offre Pro échoue, dans un espace effectivement en Pro (ni Entreprise ni Business) et sans option Ligne de crédit en cours ou en retard : avec elle, c’est « Paiement refusé : offre Pro avec l’option Ligne de crédit », qui se coupe à part. Une fois par facture.',
     variables: {
       lien_offre: { description: 'La page Offre de la console', forme: 'lien', exemple: 'https://console.messagingme.app/offre' },
     },
@@ -412,8 +412,8 @@ export const CATALOGUE = [
     // `paiement_refuse_pro` mot pour mot (tenu par `tests/emails-produit-alertes.test.ts`).
     cle: 'paiement_refuse_pro_option',
     categorie: 'service',
-    nom: 'Paiement refusé : offre Pro avec l’option Crédit WhatsApp',
-    quand: 'Le paiement du renouvellement de l’offre Pro échoue, dans un espace effectivement en Pro (ni Entreprise ni Business) qui a une option Crédit WhatsApp en cours ou en retard : elle s’arrêtera avec l’offre. À la place de « Paiement refusé : offre Pro », et se coupe à part de lui. Une fois par facture.',
+    nom: 'Paiement refusé : offre Pro avec l’option Ligne de crédit',
+    quand: 'Le paiement du renouvellement de l’offre Pro échoue, dans un espace effectivement en Pro (ni Entreprise ni Business) qui a une option Ligne de crédit en cours ou en retard : elle s’arrêtera avec l’offre. À la place de « Paiement refusé : offre Pro », et se coupe à part de lui. Une fois par facture.',
     variables: {
       lien_offre: { description: 'La page Offre de la console', forme: 'lien', exemple: 'https://console.messagingme.app/offre' },
     },
@@ -422,8 +422,8 @@ export const CATALOGUE = [
         sujet: 'Le paiement de votre offre Pro a échoué',
         corps: 'Bonjour,\n\nLe paiement du renouvellement de l’offre Pro de l’espace {{espace}} a échoué. Notre prestataire '
           + 'de paiement va réessayer dans les prochains jours.\n\nSans paiement, l’espace repassera en offre Free, avec '
-          + 'ses limites, et son option Crédit WhatsApp s’arrêtera avec elle : les messages WhatsApp des numéros de '
-          + 'l’option s’arrêteront, réponses à vos clients comprises. Votre crédit restant est conservé. Mettez à jour '
+          + 'ses limites, et son option Ligne de crédit s’arrêtera avec elle : les messages WhatsApp des numéros de '
+          + 'l’option s’arrêteront, réponses à vos clients comprises. Le solde de la ligne de crédit est conservé. Mettez à jour '
           + 'votre carte depuis la page « Offre » de la console, ou demandez-le à Claude.',
         bouton: { libelle: 'Mettre à jour ma carte', lien: '{{lien_offre}}' },
       },
@@ -431,8 +431,8 @@ export const CATALOGUE = [
         sujet: 'The payment for your Pro plan failed',
         corps: 'Hello,\n\nThe renewal payment for the Pro plan of the {{espace}} workspace failed. Our payment provider '
           + 'will try again over the next few days.\n\nWithout payment, the workspace will go back to the Free plan, with '
-          + 'its limits, and its WhatsApp credit option will stop with it: the WhatsApp messages of the option’s numbers '
-          + 'will stop, replies to your customers included. Your remaining credit is kept. Update your card from the '
+          + 'its limits, and its Credit line option will stop with it: the WhatsApp messages of the option’s numbers '
+          + 'will stop, replies to your customers included. The credit line balance is kept. Update your card from the '
           + '“Plan” page of the console, or ask Claude.',
         bouton: { libelle: 'Update my card', lien: '{{lien_offre}}' },
       },
@@ -441,25 +441,25 @@ export const CATALOGUE = [
   {
     cle: 'paiement_refuse_option_wa',
     categorie: 'service',
-    nom: 'Paiement refusé : option Crédit WhatsApp',
-    quand: 'Le paiement du renouvellement de l’option Crédit WhatsApp échoue. Une fois par facture.',
+    nom: 'Paiement refusé : option Ligne de crédit',
+    quand: 'Le paiement du renouvellement de l’option Ligne de crédit échoue. Une fois par facture.',
     variables: {
-      lien_credit_whatsapp: { description: 'L’onglet Crédit WhatsApp de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
+      lien_credit_whatsapp: { description: 'L’onglet Ligne de crédit de la page Offre', forme: 'lien', exemple: 'https://console.messagingme.app/offre?tab=whatsapp' },
     },
     textes: {
       fr: {
-        sujet: 'Le paiement de votre option Crédit WhatsApp a échoué',
-        corps: 'Bonjour,\n\nLe paiement du renouvellement de l’option Crédit WhatsApp de l’espace {{espace}} a échoué. Notre '
+        sujet: 'Le paiement de votre option Ligne de crédit a échoué',
+        corps: 'Bonjour,\n\nLe paiement du renouvellement de l’option Ligne de crédit de l’espace {{espace}} a échoué. Notre '
           + 'prestataire de paiement va réessayer dans les prochains jours.\n\nSans paiement, les messages WhatsApp des numéros '
-          + 'de l’option s’arrêteront, réponses à vos clients comprises. Mettez à jour votre carte depuis l’onglet Crédit '
-          + 'WhatsApp de la page « Offre » de la console.',
+          + 'de l’option s’arrêteront, réponses à vos clients comprises. Mettez à jour votre carte depuis l’onglet Ligne '
+          + 'de crédit de la page « Offre » de la console.',
         bouton: { libelle: 'Mettre à jour ma carte', lien: '{{lien_credit_whatsapp}}' },
       },
       en: {
-        sujet: 'The payment for your WhatsApp credit option failed',
-        corps: 'Hello,\n\nThe renewal payment for the WhatsApp credit option of the {{espace}} workspace failed. Our payment '
+        sujet: 'The payment for your Credit line option failed',
+        corps: 'Hello,\n\nThe renewal payment for the Credit line option of the {{espace}} workspace failed. Our payment '
           + 'provider will try again over the next few days.\n\nWithout payment, the WhatsApp messages of the option’s numbers '
-          + 'will stop, replies to your customers included. Update your card from the WhatsApp credit tab of the “Plan” page '
+          + 'will stop, replies to your customers included. Update your card from the Credit line tab of the “Plan” page '
           + 'of the console.',
         bouton: { libelle: 'Update my card', lien: '{{lien_credit_whatsapp}}' },
       },
@@ -471,23 +471,23 @@ export const CATALOGUE = [
     cle: 'option_wa_sans_droit',
     categorie: 'service',
     aide: LIGNES_AIDE.payerMeta,
-    nom: 'Option Crédit WhatsApp payée sans droit',
-    quand: 'L’option Crédit WhatsApp est payée alors que la formule de l’espace n’y donne plus droit (un essai de la formule Pro fini avant le paiement) : elle est résiliée aussitôt. Une fois par abonnement.',
+    nom: 'Option Ligne de crédit payée sans droit',
+    quand: 'L’option Ligne de crédit est payée alors que la formule de l’espace n’y donne plus droit (un essai de la formule Pro fini avant le paiement) : elle est résiliée aussitôt. Une fois par abonnement.',
     variables: { lien_offre: LIEN_OFFRE },
     textes: {
       fr: {
-        sujet: 'Votre option Crédit WhatsApp est résiliée',
-        corps: 'Bonjour,\n\nL’option Crédit WhatsApp de l’espace {{espace}} a été payée alors que la formule de l’espace n’y '
+        sujet: 'Votre option Ligne de crédit est résiliée',
+        corps: 'Bonjour,\n\nL’option Ligne de crédit de l’espace {{espace}} a été payée alors que la formule de l’espace n’y '
           + 'donnait plus droit, par exemple après la fin d’un essai de la formule Pro. Nous l’avons résiliée : ses numéros '
-          + 'n’envoient pas par le Crédit WhatsApp.\n\nPour toute question sur ce paiement, contactez-nous depuis le Support '
+          + 'n’envoient pas par la ligne de crédit.\n\nPour toute question sur ce paiement, contactez-nous depuis le Support '
           + 'de la console.',
         bouton: { libelle: 'Voir mon offre', lien: '{{lien_offre}}' },
       },
       en: {
-        sujet: 'Your WhatsApp credit option has been cancelled',
-        corps: 'Hello,\n\nThe WhatsApp credit option of the {{espace}} workspace was paid while the workspace’s plan no '
+        sujet: 'Your Credit line option has been cancelled',
+        corps: 'Hello,\n\nThe Credit line option of the {{espace}} workspace was paid while the workspace’s plan no '
           + 'longer included it, for example after a Pro plan trial ended. We have cancelled it: its numbers do not send '
-          + 'through the WhatsApp credit.\n\nFor any question about this payment, contact us from the console Support.',
+          + 'through the credit line.\n\nFor any question about this payment, contact us from the console Support.',
         bouton: { libelle: 'See my plan', lien: '{{lien_offre}}' },
       },
     },
@@ -500,8 +500,8 @@ export const CATALOGUE = [
     cle: 'ligne_credit_disponible',
     categorie: 'commercial',
     aide: LIGNES_AIDE.payerMeta,
-    nom: 'Crédit WhatsApp disponible',
-    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) et l’option Crédit WhatsApp est en vente. Une fois par administrateur, à ce moment-là (dans les 25 jours qui suivent la fin de l’essai de la formule Pro).',
+    nom: 'Ligne de crédit disponible',
+    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) et l’option Ligne de crédit est en vente. Une fois par administrateur, à ce moment-là (dans les 25 jours qui suivent la fin de l’essai de la formule Pro).',
     variables: { lien_numero: LIEN_NUMERO },
     textes: {
       fr: {
@@ -528,14 +528,14 @@ export const CATALOGUE = [
     cle: 'ligne_credit_sur_demande',
     categorie: 'commercial',
     aide: LIGNES_AIDE.payerMeta,
-    nom: 'Crédit WhatsApp sur demande',
-    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) alors que l’option Crédit WhatsApp n’est pas en vente en ligne. Une fois par administrateur, à ce moment-là (dans les 25 jours qui suivent la fin de l’essai de la formule Pro).',
+    nom: 'Ligne de crédit sur demande',
+    quand: 'La formule de l’espace devient payée (l’essai de la formule Pro fini et payé ou écourté, un Business confirmé) alors que l’option Ligne de crédit n’est pas en vente en ligne. Une fois par administrateur, à ce moment-là (dans les 25 jours qui suivent la fin de l’essai de la formule Pro).',
     variables: { lien_support: LIEN_SUPPORT },
     textes: {
       fr: {
         sujet: 'Vos messages WhatsApp, payés chez Messaging Me',
         corps: 'Bonjour,\n\nLa formule de l’espace {{espace}} est active : vous pouvez payer vos messages WhatsApp chez '
-          + 'Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois. Le Crédit WhatsApp se prend sur demande : '
+          + 'Messaging Me, sans carte chez Meta, 30 € HT par numéro et par mois. La ligne de crédit se prend sur demande : '
           + 'écrivez-nous depuis le Support de la console.\n\nUn numéro connecté sans l’application WhatsApp Business garde '
           + 'ses conversations, ses modèles sont recopiés, et leur qualité repart de zéro ; un numéro qui garde '
           + 'l’application reste sur votre carte chez Meta.',
@@ -544,7 +544,7 @@ export const CATALOGUE = [
       en: {
         sujet: 'Your WhatsApp messages, paid at Messaging Me',
         corps: 'Hello,\n\nThe plan of the {{espace}} workspace is active: you can pay for your WhatsApp messages at '
-          + 'Messaging Me, with no card at Meta, €30 excl. VAT per number per month. WhatsApp credit is available on '
+          + 'Messaging Me, with no card at Meta, €30 excl. VAT per number per month. The credit line is available on '
           + 'request: write to us from the console Support.\n\nA number connected without the WhatsApp Business app keeps '
           + 'its conversations, its templates are copied over, and their quality starts again from zero; a number that '
           + 'keeps the app stays on your card at Meta.',
@@ -560,21 +560,21 @@ export const CATALOGUE = [
     cle: 'option_wa_arretee',
     categorie: 'service',
     aide: LIGNES_AIDE.payerMeta,
-    nom: 'Option Crédit WhatsApp arrêtée',
-    quand: 'L’option Crédit WhatsApp se termine (résiliée, ou un impayé que Stripe abandonne) et toutes les lignes de l’espace sont arrêtées, la formule permettant de la reprendre (ni en retard de paiement, ni une formule Pro dont la fin programmée est passée) et l’option en vente. Un espace qui garde une ligne posée à la main ne la reçoit pas. Une fois par abonnement, dans les trois jours qui suivent la fin.',
+    nom: 'Option Ligne de crédit arrêtée',
+    quand: 'L’option Ligne de crédit se termine (résiliée, ou un impayé que Stripe abandonne) et toutes les lignes de l’espace sont arrêtées, la formule permettant de la reprendre (ni en retard de paiement, ni une formule Pro dont la fin programmée est passée) et l’option en vente. Un espace qui garde une ligne posée à la main ne la reçoit pas. Une fois par abonnement, dans les trois jours qui suivent la fin.',
     variables: { lien_numero: LIEN_NUMERO },
     textes: {
       fr: {
-        sujet: 'Vos envois par le Crédit WhatsApp sont arrêtés',
-        corps: 'Bonjour,\n\nL’option Crédit WhatsApp de l’espace {{espace}} est terminée : vos envois par le Crédit WhatsApp '
-          + 'sont arrêtés, votre crédit restant est conservé.\n\nPour envoyer de nouveau : reprenez l’option, ou connectez '
+        sujet: 'Vos envois par la ligne de crédit sont arrêtés',
+        corps: 'Bonjour,\n\nL’option Ligne de crédit de l’espace {{espace}} est terminée : vos envois par la ligne de crédit '
+          + 'sont arrêtés, votre solde est conservé.\n\nPour envoyer de nouveau : reprenez l’option, ou connectez '
           + 'votre numéro avec votre carte chez Meta.',
         bouton: { libelle: 'Connecter WhatsApp', lien: '{{lien_numero}}' },
       },
       en: {
-        sujet: 'Your sends through WhatsApp credit are stopped',
-        corps: 'Hello,\n\nThe WhatsApp credit option of the {{espace}} workspace has ended: your sends through WhatsApp '
-          + 'credit are stopped, your remaining credit is kept.\n\nTo send again: take the option again, or connect your '
+        sujet: 'Your sends through the credit line are stopped',
+        corps: 'Hello,\n\nThe Credit line option of the {{espace}} workspace has ended: your sends through the credit '
+          + 'line are stopped, your balance is kept.\n\nTo send again: take the option again, or connect your '
           + 'number with your card at Meta.',
         bouton: { libelle: 'Connect WhatsApp', lien: '{{lien_numero}}' },
       },

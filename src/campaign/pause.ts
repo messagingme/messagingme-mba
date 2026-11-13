@@ -72,12 +72,12 @@ export function messageDePause(raison: MotifDePause, reprise: Date | null, code:
   }
   if (raison === 'credit_whatsapp_epuise') {
     // Le crédit la lève : un achat, une recharge automatique. Le partenaire n'est jamais nommé.
-    return 'Crédit WhatsApp épuisé : campagne mise en pause. Les destinataires qui n’avaient encore rien reçu restent en '
-      + 'attente, et elle reprendra d’elle-même dès que le crédit sera rechargé.';
+    return 'Ligne de crédit épuisée : campagne mise en pause. Les destinataires qui n’avaient encore rien reçu restent en '
+      + 'attente, et elle reprendra d’elle-même dès que la ligne de crédit sera rechargée.';
   }
   if (raison === 'ligne_credit_inactive') {
-    return 'Le Crédit WhatsApp n’est plus actif sur ce numéro : campagne mise en pause. Les destinataires qui n’avaient '
-      + 'encore rien reçu restent en attente, et elle reprendra quand l’option Crédit WhatsApp sera rétablie.';
+    return 'La ligne de crédit n’est plus active sur ce numéro : campagne mise en pause. Les destinataires qui n’avaient '
+      + 'encore rien reçu restent en attente, et elle reprendra quand l’option Ligne de crédit sera rétablie.';
   }
   if (raison === 'hors_horaires') {
     // Le client l'a demandé : le dire, sinon la pause ressemble à une panne et l'opérateur relance contre sa

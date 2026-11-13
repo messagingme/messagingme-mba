@@ -300,7 +300,7 @@ describe('la connexion faite par la ligne', () => {
       expect(alertes, nom).toHaveLength(1);
       expect(alertes[0], nom).toContain(`Numéro connecté par la fenêtre du partenaire : espace ${T}, ${NUMERO} (compte waba-1). Sa ligne est POSÉE automatiquement`);
       // La pose automatique n'existe qu'avec l'API du partenaire (plan du 2026-11-12) : son attache est faite et vérifiée.
-      expect(alertes[0], nom).toMatch(/celle du partenaire attachée à ce compte et vérifiée par son API : ses envois passent sur le Crédit WhatsApp/);
+      expect(alertes[0], nom).toMatch(/celle du partenaire attachée à ce compte et vérifiée par son API : ses envois passent sur la ligne de crédit/);
       expect(alertes[0], nom).not.toMatch(/tenue pour automatique/);
       expect(alertes[0], nom).not.toContain('« Ne pas poser »');
     }

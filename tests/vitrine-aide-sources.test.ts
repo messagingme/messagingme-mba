@@ -74,7 +74,7 @@ describe('les pages du centre composées de sources', () => {
       const toujoursLEntreprise = /ne touche pas à ces frais|never touches these fees|Meta facture directement votre entreprise|Meta bills your business directly|Meta facture vos messages à votre entreprise|Meta bills your messages to your business/;
       for (const p of PAGES_SOURCES) expect(plat(lire(p.adresse[langue])), p.cle).not.toMatch(toujoursLEntreprise);
       // Et « Payer Meta » dit l'exception là où elle dit qui paie : la source la porte, la page la reprend.
-      const exception = langue === 'fr' ? 'sauf avec le Crédit WhatsApp' : 'except with WhatsApp credit';
+      const exception = langue === 'fr' ? 'sauf avec la ligne de crédit' : 'except with the credit line';
       expect(CE_QUI_EST_FACTURE.api[langue]).toContain(exception);
       expect(texteDe(lire(page('payer-meta').adresse[langue]))).toContain(exception);
     });

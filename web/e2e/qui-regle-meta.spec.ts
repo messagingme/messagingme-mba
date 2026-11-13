@@ -26,8 +26,8 @@ const vueOffre = (offre: string, abonnement: unknown = null) => ({
 });
 type Etat = { etat: string; enVente: boolean; avecApplication?: boolean; fenetrePartenaire?: boolean; numeroAvecCarte?: boolean };
 /** Les deux textes validés par Julien le 2026-11-13 (version A) : l'option ne se vend plus à un numéro connecté avec sa carte. */
-const NUMERO_AVEC_CARTE = 'Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au Support.';
-const AVERTISSEMENT_CARTE = 'Connecté avec votre carte chez Meta, ce numéro ne pourra plus passer sur le Crédit WhatsApp.';
+const NUMERO_AVEC_CARTE = 'Votre numéro est connecté avec votre carte chez Meta : la ligne de crédit ne peut pas le prendre en charge. Pour changer, écrivez au Support.';
+const AVERTISSEMENT_CARTE = 'Connecté avec votre carte chez Meta, ce numéro ne pourra plus passer sur la ligne de crédit.';
 
 /** Le serveur des cartes : l'offre, l'état de la ligne (une suite, la dernière répétée), l'option et le démarrage du Pro. */
 async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; etats?: Etat[]; solution?: string } = {}) {
@@ -65,7 +65,7 @@ async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; et
 }
 
 test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () => {
-  test('🔴 la carte chez Meta est la voie active et le guide suit ; hors vente, le Crédit WhatsApp est grisé, sur demande', async ({ page }) => {
+  test('🔴 la carte chez Meta est la voie active et le guide suit ; hors vente, la ligne de crédit est grisée, sur demande', async ({ page }) => {
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'a_prendre', enVente: false }] });
     await page.goto('/connecter-whatsapp');
@@ -109,7 +109,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     const s = await simuler(page, { offre: 'business', etats: [{ etat: 'essai', enVente: true }] });
     await page.goto('/connecter-whatsapp');
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('L’option Crédit WhatsApp s’ouvre quand votre formule Business est confirmée.');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('L’option Ligne de crédit s’ouvre quand votre formule Business est confirmée.');
     await expect(page.getByTestId('carte-credit-wa-prendre')).toHaveCount(0);
     expect(s.options).toEqual([]);
   });
@@ -146,7 +146,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     const s = await simuler(page, { etats: [{ etat: 'a_prendre', enVente: true, avecApplication: true }] });
     await page.goto('/connecter-whatsapp');
-    await expect(page.getByTestId('carte-credit-wa-avertissement')).toContainText('le Crédit WhatsApp n’est pas possible avec l’application');
+    await expect(page.getByTestId('carte-credit-wa-avertissement')).toContainText('la ligne de crédit n’est pas possible avec l’application');
     await page.getByTestId('carte-credit-wa-prendre').click();
     await expect(page).toHaveURL(PAGE_STRIPE);
     expect(s.options).toEqual([{ places: 1, origine: 'connecter' }]);
@@ -176,7 +176,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre ligne s’ouvre sous 24 h ouvrées.');
     await expect(page.getByTestId('carte-credit-wa-reprendre')).toHaveCount(0);
     await expect.poll(() => s.lecturesEtat(), { timeout: 10_000 }).toBeGreaterThanOrEqual(3);
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos messages sont payés par votre Crédit WhatsApp.');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos messages sont payés par votre ligne de crédit.');
     expect(s.options).toEqual([]);
   });
 
@@ -212,7 +212,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     const s = await simuler(page, { etats: [{ etat: 'arretee', enVente: true }] });
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('numero-connecte')).toBeVisible();
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant est conservé.');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos envois par la ligne de crédit sont arrêtés, votre solde est conservé.');
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
     await page.getByTestId('carte-meta-choisir').click();
     await expect(page.getByTestId('question-compte')).toBeVisible();
@@ -251,11 +251,11 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await expect(page.getByTestId('carte-credit-wa-numero-carte')).toHaveCount(0);
   });
 
-  test('un numéro connecté sur une ligne active : le Crédit WhatsApp paie, aucun guide ni bouton de la carte chez Meta', async ({ page }) => {
+  test('un numéro connecté sur une ligne active : la ligne de crédit paie, aucun guide ni bouton de la carte chez Meta', async ({ page }) => {
     await mockAccueil(page, { inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'active', enVente: true }] });
     await page.goto('/connecter-whatsapp');
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos messages sont payés par votre Crédit WhatsApp.');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos messages sont payés par votre ligne de crédit.');
     await expect(page.getByTestId('carte-meta-choisir')).toHaveCount(0);
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
   });
@@ -267,7 +267,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await page.getByTestId('question-compte-non').click();
     await page.getByTestId('question-application-oui').click();
     await page.getByTestId('question-meme-numero-oui').click();
-    await expect(page.getByTestId('note-carte-application')).toHaveText('Vous payez Meta avec votre carte : le Crédit WhatsApp n’est pas possible avec l’application.');
+    await expect(page.getByTestId('note-carte-application')).toHaveText('Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application.');
   });
 });
 
@@ -300,7 +300,7 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(page.getByTestId('ligne-numero-notre')).toHaveText('J’ai besoin d’un numéro');
     await expect(page.getByTestId('carte-credit-wa-connecter-ligne')).toHaveCount(0);
     await page.getByTestId('ligne-numero-mien').click();
-    await expect(page.getByTestId('ligne-numero-application')).toHaveText('Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ? Avec le Crédit WhatsApp, il n’y marchera plus : vos clients vous écriront dans Messaging Me, et vous leur répondrez là (la console ou Claude). Pour garder l’application : « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business », ou un numéro de chez nous.');
+    await expect(page.getByTestId('ligne-numero-application')).toHaveText('Votre numéro sert déjà dans WhatsApp ou dans l’application WhatsApp Business ? Avec la ligne de crédit, il n’y marchera plus : vos clients vous écriront dans Messaging Me, et vous leur répondrez là (la console ou Claude). Pour garder l’application : « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business », ou un numéro de chez nous.');
     await expect(page.getByTestId('ligne-numero-application')).not.toContainText('quitter');
     // Ce qu'il faut chez Meta, comme sur les autres voies : le compte Meta Business sans carte, et son numéro avec le
     // téléphone qui reçoit le code (jaune de la relecture du lot 4a-3).
@@ -476,7 +476,7 @@ test('🔴 au retour de Stripe d’un numéro fourni payé, « J’ai besoin d�
 });
 
 test.describe('Accueil : « Qui paie vos messages à Meta ? »', () => {
-  test('sans numéro : la carte chez Meta mène au guide de Connecter WhatsApp, le Crédit WhatsApp dit son état', async ({ page }) => {
+  test('sans numéro : la carte chez Meta mène au guide de Connecter WhatsApp, la ligne de crédit dit son état', async ({ page }) => {
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'en_attente', enVente: true }] });
     await page.goto('/accueil');

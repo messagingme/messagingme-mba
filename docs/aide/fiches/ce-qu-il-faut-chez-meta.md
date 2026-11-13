@@ -1,8 +1,8 @@
 ---
-description: Ce qu'il faut chez Meta pour WhatsApp : avant, un compte Meta Business (il se crée en chemin) et un numéro ; après, la carte, sauf avec le Crédit WhatsApp.
+description: Ce qu'il faut chez Meta pour WhatsApp : avant, un compte Meta Business (il se crée en chemin) et un numéro ; après, la carte, sauf avec la ligne de crédit.
 ecran: accueil
 source_section: Ce qu'il faut chez Meta (avant de connecter un numéro)
-source_empreinte: 9fd324
+source_empreinte: 950626
 publique: oui
 rubrique: demarrer-claude, demarrer-console
 rang: 3, 2
@@ -42,10 +42,10 @@ numéro, nous vous en fournissons un.
 ## Après la connexion
 
 Meta facture vos modèles, et les réponses au-delà de sa franchise mensuelle, sur la carte de votre compte Meta
-Business, sauf avec le Crédit WhatsApp, qui les prépaie chez Messaging Me. Avec l’application WhatsApp Business, c’est
-toujours la carte : le Crédit WhatsApp n’y est pas possible.
+Business, sauf avec la ligne de crédit, qui les prépaie chez Messaging Me. Avec l’application WhatsApp Business, c’est
+toujours la carte : la ligne de crédit n’y est pas possible.
 
-**4. Poser votre carte, sauf avec le Crédit WhatsApp.** Juste après la connexion, ajoutez-la dans votre compte Meta
+**4. Poser votre carte, sauf avec la ligne de crédit.** Juste après la connexion, ajoutez-la dans votre compte Meta
 Business, comme suit.
 
 - Sur business.facebook.com, ouvrez le Gestionnaire WhatsApp, page « Vue d’ensemble ».

@@ -93,6 +93,6 @@ export function eurosDisponibles(microEur: number): string {
 
 /** Le refus d'un lancement, le même pour la console et pour Claude. */
 export function messageManqueCredit(manqueMicroEur: number): string {
-  return `Crédit WhatsApp insuffisant pour cette campagne : il vous manque ${eurosManquants(manqueMicroEur)} € HT. `
-    + 'Un administrateur peut recharger le crédit depuis Paramètres > Offre, puis la relancer. Rien n’est parti.';
+  return `Solde de la ligne de crédit insuffisant pour cette campagne : il vous manque ${eurosManquants(manqueMicroEur)} € HT. `
+    + 'Un administrateur peut recharger la ligne de crédit depuis Paramètres > Offre, puis relancer la campagne. Rien n’est parti.';
 }

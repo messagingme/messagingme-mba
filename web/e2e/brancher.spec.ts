@@ -223,7 +223,7 @@ test('🔴 l’option payée, son numéro : les conditions sans carte, la fenêt
   await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
   const s = await simuler(page, { solution: 'sol-e2e' });
   await page.goto(`/brancher#${jeton('apporte')}`);
-  await expect(page.getByTestId('connexion-sans-carte')).toHaveText('Sans carte chez Meta : vos messages se paieront par votre Crédit WhatsApp.');
+  await expect(page.getByTestId('connexion-sans-carte')).toHaveText('Sans carte chez Meta : vos messages se paieront par votre ligne de crédit.');
   const prerequis = page.getByTestId('prerequis-meta');
   await expect(prerequis.locator('li')).toHaveCount(3);
   await expect(prerequis.locator('li').nth(0)).toContainText('sans carte chez Meta');

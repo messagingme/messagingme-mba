@@ -42,12 +42,12 @@ export interface DepsAchatWhatsapp extends Pick<DepsPaiement, 'clients' | 'payeu
 /** Le corps ne porte qu'une offre, jamais un montant. Exporté : l'outil MCP annonce les offres d'ici. */
 export const saisieAchatWhatsapp = z.object({ offre: z.enum(OFFRES_WHATSAPP) });
 
-export const ACHAT_WHATSAPP_INDISPONIBLE = refus(503, 'achat du Crédit WhatsApp pas encore disponible', { code: 'credit_whatsapp_indisponible' });
+export const ACHAT_WHATSAPP_INDISPONIBLE = refus(503, 'recharge de la ligne de crédit pas encore disponible', { code: 'credit_whatsapp_indisponible' });
 
 const REFUS_PERMIS: Readonly<Record<Exclude<AchatPermis, 'ok'>, ReturnType<typeof refus>>> = {
-  free: refus(403, 'Le Crédit WhatsApp n’est pas proposé en formule Free.', { code: 'credit_whatsapp_hors_offre' }),
-  open_bar: refus(409, 'Votre offre Entreprise comprend un Crédit WhatsApp illimité, facturé selon votre contrat : il n’y a rien à acheter.', { code: 'credit_whatsapp_open_bar' }),
-  sans_ligne: refus(409, 'Aucun de vos numéros n’est sur la ligne de crédit : le Crédit WhatsApp ne vous servirait pas.', { code: 'credit_whatsapp_sans_ligne' }),
+  free: refus(403, 'La ligne de crédit n’est pas proposée en formule Free.', { code: 'credit_whatsapp_hors_offre' }),
+  open_bar: refus(409, 'Votre offre Entreprise comprend une ligne de crédit illimitée, facturée selon votre contrat : il n’y a rien à recharger.', { code: 'credit_whatsapp_open_bar' }),
+  sans_ligne: refus(409, 'Aucun de vos numéros n’est sur la ligne de crédit : la recharger ne vous servirait pas.', { code: 'credit_whatsapp_sans_ligne' }),
 };
 
 export interface AchatOuvert {
@@ -82,7 +82,7 @@ export async function ouvrirAchatCreditWhatsapp(
         tenantId, offre, prix: s.prix[offre], attenduCentimes: attendu, luCentimes: prix.montantCentimes, devise: prix.devise, taxe: prix.taxe,
       });
       return refus(422,
-        'L’achat du Crédit WhatsApp est momentanément indisponible : son tarif est en cours de correction. Réessayez plus tard, ou contactez-nous.',
+        'La recharge de la ligne de crédit est momentanément indisponible : son tarif est en cours de correction. Réessayez plus tard, ou contactez-nous.',
         { code: 'prix_incoherent' });
     }
 

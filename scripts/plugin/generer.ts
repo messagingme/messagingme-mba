@@ -253,7 +253,7 @@ export function readmeAJour(md: string): string {
     `- **Your own number**, or a provided number at ${euros(PRIX_NUMERO_HT_CENTIMES)} excl. VAT per month.`,
     `- **Pay-as-you-go AI** on prepaid credit, €${offert} offered when your first number is connected.`,
     `- **Pro, ${euros(PRIX_PRO_HT_CENTIMES.mois)} excl. VAT per month** (${ESSAI_PRO_JOURS}-day free trial): ${mentionsPro.join(', ')}.`,
-    '- Meta bills some messages directly to your business, according to [its rate card](https://developers.facebook.com/docs/whatsapp/pricing), except with WhatsApp credit (Pro or Business plan), prepaid at Messaging Me.',
+    '- Meta bills some messages directly to your business, according to [its rate card](https://developers.facebook.com/docs/whatsapp/pricing), except with the credit line (Pro or Business plan), prepaid at Messaging Me.',
   ].join('\n');
   const contenu = [
     '- the Messaging Me MCP server (`https://api.messagingme.app/mcp`), authorized with OAuth: no key in your files;',

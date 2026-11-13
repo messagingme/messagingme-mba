@@ -223,13 +223,13 @@ const fr = (): TexteBoutique => {
           ],
         },
       ],
-      note: 'Meta facture chaque message directement à votre boutique ; avec le Crédit WhatsApp (formule Pro ou Business), vous les prépayez chez Messaging Me, à un prix tout compris. Votre agent IA consomme un crédit prépayé, rechargeable dès 5&nbsp;€ HT.',
+      note: 'Meta facture chaque message directement à votre boutique ; avec la ligne de crédit (formule Pro ou Business), vous les prépayez chez Messaging Me, à un prix tout compris. Votre agent IA consomme un crédit prépayé, rechargeable dès 5&nbsp;€ HT.',
       tarifs: 'Toutes les offres',
     },
     faq: {
       titre: 'Questions fréquentes',
       questions: [
-        { id: 'faq-prix', q: 'Combien coûte la relance des paniers abandonnés ?', r: `0&nbsp;€ d’abonnement avec l’offre Free, en la branchant depuis Claude Code. Meta facture chaque message envoyé à votre boutique, sans supplément de notre part ; avec le Crédit WhatsApp (formule Pro ou Business), vous les prépayez chez Messaging Me, à un prix tout compris. Il vous faut un numéro relié par Meta (le vôtre, ou un numéro fourni à ${numero} HT par mois), et votre agent IA consomme un crédit prépayé.` },
+        { id: 'faq-prix', q: 'Combien coûte la relance des paniers abandonnés ?', r: `0&nbsp;€ d’abonnement avec l’offre Free, en la branchant depuis Claude Code. Meta facture chaque message envoyé à votre boutique, sans supplément de notre part ; avec la ligne de crédit (formule Pro ou Business), vous les prépayez chez Messaging Me, à un prix tout compris. Il vous faut un numéro relié par Meta (le vôtre, ou un numéro fourni à ${numero} HT par mois), et votre agent IA consomme un crédit prépayé.` },
         { id: 'faq-app', q: 'Faut-il installer une app de l’App Store de Shopify ?', r: 'Non. Claude crée l’app dans votre propre organisation Shopify, sans validation de Shopify : vous n’avez qu’à cliquer « Installer ».' },
         { id: 'faq-reponse', q: 'Qui répond quand le client répond à la relance ?', r: 'Celui que vous avez choisi : votre agent IA, avec ce qu’il sait de votre boutique, ou votre équipe. L’agent n’a pas accès à vos commandes : pour un colis précis, il passe la main.' },
         { id: 'faq-promotion', q: 'Puis-je envoyer une promotion à mes clients ?', r: 'Oui, avec l’offre Pro : Claude prépare la campagne, vous montre qui la recevra, et ne la lance qu’avec votre oui. Elle ne part qu’à ceux qui ont accepté WhatsApp, depuis un numéro API, et un STOP est toujours respecté. En formule Free, Claude envoie un message à un client à la fois.' },
@@ -395,13 +395,13 @@ const en = (): TexteBoutique => {
           ],
         },
       ],
-      note: 'Meta bills each message directly to your store; with WhatsApp credit (Pro or Business plan), you prepay them at Messaging Me, at an all-inclusive price. Your AI agent uses prepaid credit, rechargeable from €5 excl. VAT.',
+      note: 'Meta bills each message directly to your store; with the credit line (Pro or Business plan), you prepay them at Messaging Me, at an all-inclusive price. Your AI agent uses prepaid credit, rechargeable from €5 excl. VAT.',
       tarifs: 'All plans',
     },
     faq: {
       titre: 'Frequently asked questions',
       questions: [
-        { id: 'faq-prix', q: 'How much does the abandoned checkout reminder cost?', r: `€0 a month with the Free plan, by connecting it from Claude Code. Meta bills each message sent to your store, with no surcharge from us; with WhatsApp credit (Pro or Business plan), you prepay them at Messaging Me, at an all-inclusive price. You need a number connected through Meta (yours, or a provided number at ${numero} excl. VAT a month), and your AI agent uses prepaid credit.` },
+        { id: 'faq-prix', q: 'How much does the abandoned checkout reminder cost?', r: `€0 a month with the Free plan, by connecting it from Claude Code. Meta bills each message sent to your store, with no surcharge from us; with the credit line (Pro or Business plan), you prepay them at Messaging Me, at an all-inclusive price. You need a number connected through Meta (yours, or a provided number at ${numero} excl. VAT a month), and your AI agent uses prepaid credit.` },
         { id: 'faq-app', q: 'Do I need to install an app from the Shopify App Store?', r: 'No. Claude creates the app in your own Shopify organization, with no Shopify review: all you have to do is click “Install”.' },
         { id: 'faq-reponse', q: 'Who answers when the customer replies to the reminder?', r: 'The one you chose: your AI agent, with what it knows about your store, or your team. The agent has no access to your orders: for a specific parcel, it hands over.' },
         { id: 'faq-promotion', q: 'Can I send a promotion to my customers?', r: 'Yes, with the Pro plan: Claude prepares the campaign, shows you who will receive it, and only launches it with your yes. It only goes to those who accepted WhatsApp, from an API number, and a STOP is always respected. With the Free plan, Claude sends a message to one customer at a time.' },

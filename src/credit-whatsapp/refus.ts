@@ -25,16 +25,16 @@ export const CODE_REFUS_CREDIT = {
 } as const satisfies Record<MotifRefusCredit, CodeApi>;
 
 export const MESSAGE_REFUS_CREDIT: Record<MotifRefusCredit, string> = {
-  solde: 'Crédit WhatsApp épuisé : ce message n’est pas parti. Un administrateur peut recharger le crédit depuis Paramètres > Offre.',
+  solde: 'Ligne de crédit épuisée : ce message n’est pas parti. Un administrateur peut recharger la ligne de crédit depuis Paramètres > Offre.',
   // Révision du 2026-11-04 (décision 4) : à l'arrêt de l'option, tout se gèle ; les deux façons de repartir.
-  ligne_inactive: 'Le Crédit WhatsApp n’est pas actif sur ce numéro : ce message n’est pas parti. Si votre option Crédit WhatsApp est arrêtée, reprenez-la depuis Paramètres > Offre, ou connectez votre numéro avec votre carte chez Meta.',
+  ligne_inactive: 'La ligne de crédit n’est pas active sur ce numéro : ce message n’est pas parti. Si votre option Ligne de crédit est arrêtée, reprenez-la depuis Paramètres > Offre, ou connectez votre numéro avec votre carte chez Meta.',
 };
 
 /** La raison d'un refus `ligne_inactive` qu'un administrateur peut lever lui-même. */
 export type DetailRefusCredit = 'place_manquante';
 
 export const MESSAGE_PLACE_MANQUANTE =
-  'Ce numéro n’a pas de place dans l’option Crédit WhatsApp : ce message n’est pas parti. Un administrateur peut ajouter un numéro à l’option depuis Paramètres > Offre.';
+  'Ce numéro n’a pas de place dans l’option Ligne de crédit : ce message n’est pas parti. Un administrateur peut ajouter un numéro à l’option depuis Paramètres > Offre.';
 
 export class CreditWhatsappRefus extends Error {
   readonly statusCode: 402 | 409;

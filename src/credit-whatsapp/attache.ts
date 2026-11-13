@@ -227,11 +227,11 @@ export async function arreterLesLignesEtLeursAttaches(d: DepsCycleAttache, tenan
   if (n === 0 || d.attache === null) return n;
   try {
     for (const waba of comptesDeLOption(await d.lignes.lignesDeLEspace(tenantId), true)) {
-      await retirerLAttacheSansLever(d, tenantId, waba, 'Fin de l’option Crédit WhatsApp');
+      await retirerLAttacheSansLever(d, tenantId, waba, 'Fin de l’option Ligne de crédit');
     }
   } catch (err) {
     journaliser('error', 'ligne_partenaire_retrait_impossible', { tenantId, err: message(err) });
-    await d.alerter(`Fin de l’option Crédit WhatsApp : espace ${tenantId}, les lignes du partenaire n’ont pas pu être relues pour être retirées (${message(err)}). À retirer à la main.`).catch(() => undefined);
+    await d.alerter(`Fin de l’option Ligne de crédit : espace ${tenantId}, les lignes du partenaire n’ont pas pu être relues pour être retirées (${message(err)}). À retirer à la main.`).catch(() => undefined);
   }
   return n;
 }
@@ -249,12 +249,12 @@ export async function relancerLesLignesEtLeursAttaches(d: DepsCycleAttache, tena
         await attacherEtVerifier(d.attache, waba);
       } catch (err) {
         journaliser('error', 'ligne_partenaire_rattache_impossible', { tenantId, wabaId: waba, err: message(err) });
-        await d.alerter(`Reprise de l’option Crédit WhatsApp : espace ${tenantId}, la ligne du partenaire n’a pas pu être rattachée au compte WhatsApp ${waba} (${message(err)}). Meta refusera ses modèles : la reposer dans /ops.`).catch(() => undefined);
+        await d.alerter(`Reprise de l’option Ligne de crédit : espace ${tenantId}, la ligne du partenaire n’a pas pu être rattachée au compte WhatsApp ${waba} (${message(err)}). Meta refusera ses modèles : la reposer dans /ops.`).catch(() => undefined);
       }
     }
   } catch (err) {
     journaliser('error', 'ligne_partenaire_rattache_impossible', { tenantId, err: message(err) });
-    await d.alerter(`Reprise de l’option Crédit WhatsApp : espace ${tenantId}, les lignes n’ont pas pu être relues pour rattacher celle du partenaire (${message(err)}). À rattacher à la main.`).catch(() => undefined);
+    await d.alerter(`Reprise de l’option Ligne de crédit : espace ${tenantId}, les lignes n’ont pas pu être relues pour rattacher celle du partenaire (${message(err)}). À rattacher à la main.`).catch(() => undefined);
   }
   return n;
 }

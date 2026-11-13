@@ -38,7 +38,7 @@ test.describe('Accueil : panneau statut WhatsApp Business (F2)', () => {
     await expect(page.getByTestId('carte-meta-a-regler')).toHaveCount(0);
   });
 
-  test('🔴 le Crédit WhatsApp paie Meta (jaune 3 du lot B) : la ligne active, ou l’option payée qui l’attend, taisent le bandeau ; un numéro qui garde l’application l’entend', async ({ page }) => {
+  test('🔴 la ligne de crédit paie Meta (jaune 3 du lot B) : la ligne active, ou l’option payée qui l’attend, taisent le bandeau ; un numéro qui garde l’application l’entend', async ({ page }) => {
     const bloque = { ...defaultAccount, paiementMetaBloque: true };
     for (const etat of ['active', 'en_attente']) {
       await mockAccueil(page, { account: bloque, etatLigne: { etat, enVente: true, avecApplication: false } });

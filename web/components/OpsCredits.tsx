@@ -80,7 +80,7 @@ export function OpsCredits({ jeton, onPerdue }: { jeton: string; onPerdue: () =>
               <th className="px-4 py-3 font-medium">{t('Espace', 'Workspace')}</th>
               <th className="px-3 py-3 font-medium">{t('Crédit IA', 'AI credit')}</th>
               <th className="px-3 py-3 text-right font-medium">{t('IA, mois / précédent', 'AI, month / previous')}</th>
-              <th className="px-3 py-3 font-medium">{t('Crédit WhatsApp', 'WhatsApp credit')}</th>
+              <th className="px-3 py-3 font-medium">{t('Ligne de crédit', 'Credit line')}</th>
               <th className="px-3 py-3 text-right font-medium">{t('WhatsApp, mois / précédent', 'WhatsApp, month / previous')}</th>
               <th className="px-3 py-3 text-right font-medium">{t('À facturer, mois / précédent', 'To invoice, month / previous')}</th>
             </tr>
@@ -120,7 +120,7 @@ function Ligne({ e }: { e: LigneCreditsOps }) {
         {!e.whatsapp.surLaLigne && e.whatsapp.soldeMicroEur === 0
           ? <span className="text-ink-500">{t('pas sur la ligne', 'not on the line')}</span>
           : e.ia.illimite
-            ? <span className="text-ink-900">{t('illimité', 'unlimited')}</span>
+            ? <span className="text-ink-900">{t('illimitée', 'unlimited')}</span>
             : <span className="tabular-nums text-ink-900">{euros(e.whatsapp.soldeMicroEur, locale)}</span>}
       </td>
       <td className="px-3 py-3 text-right text-xs tabular-nums text-ink-700">{deuxMois(e.whatsapp.consommation, locale)}</td>
