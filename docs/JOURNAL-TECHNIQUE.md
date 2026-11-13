@@ -4,6 +4,30 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-13 : la grille des formules réécrite, l'en-tête d'un modèle pris dans la médiathèque, « ligne de crédit » partout
+
+- **La demande** (Julien, le même jour) : la grille des tarifs de la vitrine réécrite formule par formule ; le Pro et le
+  Business comptent tous leurs contacts, comme la Free (1 000 et 5 000 en tout, ceux qui écrivent compris) ; des widgets
+  par formule (1 en Free, 5 en Pro, illimités au-delà) ; l'en-tête d'un modèle pris dans la médiathèque ; « ligne de
+  crédit » partout à la place de « Crédit WhatsApp ». Plan `2026-11-13-grille-des-formules.md`, un implémenteur par lot
+  puis une relecture du diff par lot, aucun rouge.
+- **Lot 1** (`6a634209`, déployé avec `b1d92f0e`) : `contactsToutesOrigines` ne garde la règle des seules fiches créées
+  que pour l'Entreprise ; `inconnusRefuses` relit l'offre en base et prend SA limite ; les alertes de contacts du
+  Business ; `Limites.widgets` et son refus `plan_limit_reached` ; la grille de `site/tarifs/`, avec les points d'API et
+  les outils MCP par formule (`fonction` posée sur les routes de scénarios et de RCS, empreinte du contrat inchangée).
+- **Le rouge de CI du lot 1** : trois tests d'intégration affirmaient l'ancienne règle (« le Pro ne compte pas la fiche
+  née d'un entrant ») ; correctif `565d5390`. Aucun test unitaire ne pouvait le voir : le grep dans `tests/integration/`
+  vaut aussi pour une RÈGLE métier, pas seulement pour le retour d'un store.
+- **Lot 3** : l'API d'abord (`b1d92f0e`, la route de dépôt d'un en-tête accepte `{ mediatheque, format }`, lit le
+  fichier dans l'espace et refuse un type qui ne correspond pas au format), puis l'écran (`3da29203`, « Choisir dans la
+  médiathèque »), poussé après le déploiement de l'API.
+- **Lot 2** (`ffcfa437`) : le vocabulaire visible seulement (console, e-mails, refus de l'API, consignes MCP, fiches
+  FR et EN, vitrine, plugin 0.3.40) ; les identifiants restent (`credit_whatsapp`, `?tab=whatsapp`, slugs des fiches).
+  Reporté sur le lot « numéro avec carte » d'une autre session (`bd5e5222`), dont les textes neufs ont suivi ; les
+  captures des fiches « Payer ses messages sans carte » et « Connecter mon numéro » refaites.
+- **Ce qui a coûté** : `gh run list --commit` avec un SHA COURT rend une liste vide, sans erreur ; deux scripts
+  d'attente de la CI bouclaient à vide. Le SHA complet, toujours.
+
 ## 2026-11-13 : le Crédit WhatsApp ne se vend plus à un numéro connecté avec sa carte
 
 - **La décision** (Julien, le même jour, après l'essai 257) : Meta refusant qu'un compte que nous servons déjà en direct
