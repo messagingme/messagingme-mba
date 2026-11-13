@@ -209,6 +209,28 @@ Plan `2026-11-12-arbre-numero-sans-application.md`, un implémenteur puis une re
   page à captures, dans les deux langues. Illustrer la page est un chantier à part (captures de la console par
   `npm run aide:captures`, captures de HubSpot en anglais à la main).
 
+## 2026-11-12 : les PDF propres à un contact, lots B3 et C, et l'aide
+
+- **Lot C, le connecteur** (`~/mm-hubspot`) : portées facultatives `sales-email-read` et `files.ui_hidden.read` (app
+  build #29, `1e65a85`) ; à l'étape de transaction, les e-mails ASSOCIÉS À LA TRANSACTION, leurs `hs_attachment_ids`,
+  et le PDF le plus récent dont le nom commence par un des débuts de l'espace, sinon le PDF du devis HubSpot. Code
+  `f4de673`, déployé (run 43260116602).
+- **Le rouge de sa relecture** : le lien signé (10 minutes) était écrit dans le corps de la première tentative de
+  l'action de workflow, et un rejeu présentait un lien expiré : rien ne partait. Le corps garde la référence
+  (`hubspot-fichier:<id>`) et `preparer` la signe à chaque tentative ; l'étape de transaction, qui envoie tout de suite,
+  signe sur place.
+- **Lot B3a** (`54c78ca2`, run 43270089730) : les débuts réglés par espace sur le calculé `document`. **B3b** : la route
+  des médias accepte un PDF (`767a3d3d`, run 43286837728) ; l'écran (`b755c6be`, CI verte) offre l'en-tête Document,
+  la source « PDF de la fiche » et la zone des débuts sous « PDF joint au dernier e-mail ».
+- **L'aide** (`b6cd6078`) : section « Envoyer à chaque client son propre PDF » dans la fiche HubSpot, l'en-tête PDF dans
+  « Faire approuver un modèle », français et anglais, vitrine régénérée et vérifiée en ligne. Le chargement en base de
+  la console (`aide:charger`) laissé à Julien.
+- **Ce que l'explication à Julien a montré** : la référence au document vit dans le MODÈLE (« Document envoyé »), pas
+  dans le bloc du scénario, et c'est là qu'il a buté (jaune au backlog). Deux limites assumées : seul un e-mail associé à
+  la transaction est lu (ni la fiche du contact, ni un PDF déposé sans e-mail, rangé en note par HubSpot) ; le PDF ne
+  part que par un modèle, jamais par un message libre, même fenêtre ouverte.
+- Reste l'essai réel sur le portail cobaye (réautorisation, débuts « Madame », modèle, transaction).
+
 ## 2026-11-12 : les PDF propres à un contact, lot A (migration 0291)
 
 - **Le besoin** (MUTAC) : envoyer en document WhatsApp le devis qu'un conseiller a joint à un e-mail dans HubSpot.

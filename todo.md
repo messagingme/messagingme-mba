@@ -63,6 +63,8 @@
 - Dupliquer un modèle Document repart sans en-tête ni source « PDF de la fiche » (comme l'image et la vidéo) : le dire,
   ou les recopier.
 - Les débuts modifiés alors que « PDF joint » est décoché activent « Enregistrer » pour rien (rien n'est envoyé).
+- Le bloc « Envoyer un modèle » du scénario ne dit pas que le modèle choisi envoie le PDF de la fiche : la référence
+  vit dans le modèle, et Julien l'a cherchée dans le nœud (2026-11-13). Le montrer sous le choix du modèle.
 
 ## 🔴 Ce que le Centre de confiance annonce et que la production ne fait pas encore (cadrage `docs/superpowers/specs/2026-11-12-centre-de-confiance-design.md`)
 
