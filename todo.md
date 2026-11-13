@@ -244,6 +244,13 @@ au lot suivant ; rien ne bloque.
 
 ## 🟡 Les lots 3v-2a à 3v-2d de l'aide à la connexion : ce qu'ils laissent (2026-11-11)
 
+- 🔴 **La carte « Crédit WhatsApp » de Connecter WhatsApp** (Julien, 2026-11-13, en voulant relier un numéro
+  existant) : 1) elle n'a pas de bouton à elle, contrairement à la carte de la carte bancaire : on ne voit pas qu'on peut
+  la choisir, le choix se cache dans « Votre numéro, ou le nôtre ? » (« Le mien », « Le vôtre ») sous la carte ; 2) le
+  bouton final « Connecter sans carte chez Meta » redit ce que la personne vient de choisir (« pas la peine de lui
+  rappeler connecter sans carte ») : un libellé neutre, comme « Connecter mon numéro ». Et l'encadré « Avant de
+  commencer, chez Meta » annonce un code par SMS ou appel, que ne reçoit pas un numéro déjà en service ailleurs (il se
+  re-sélectionne sans code, `src/meta/embedded-signup.ts`).
 - **Les restes du lot « arbre sans application »** (2026-11-12, `32c79599`) : le lexique du tunnel de la vitrine dit
   encore de l'application « elle s'installe sur un téléphone », avec App Store et Google Play, au-dessus de chaque
   tunnel (`tunnel-textes.ts`, exigé par `tests/vitrine-tunnel.test.ts`) : à garder ou alléger, décision de Julien ;
