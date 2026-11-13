@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { jwtVerify } from 'jose';
 import {
-  arreterLesLignesEtLeursAttaches, attacherEtVerifier, CompteInconnuDuPartenaire, creerAttacheLigne, relancerLesLignesEtLeursAttaches,
-  retirerLAttacheSansLever, type AttacheLigne,
+  arreterLesLignesEtLeursAttaches, attacherEtVerifier, CompteInconnuDuPartenaire, creerAttacheLigne, MoyenDePaiementEnPlace,
+  relancerLesLignesEtLeursAttaches, retirerLAttacheSansLever, type AttacheLigne,
 } from '../src/credit-whatsapp/attache';
 import { capturerJournal } from './journal';
 
@@ -48,6 +48,11 @@ const PAS_ATTACHEE = { statut: 500, corps: { ok: 0, error: 'Credit line is not a
 const GRAPH_100 = {
   statut: 500,
   corps: { ok: 0, error: { error: { message: "Unsupported post request. Object with ID '123' does not exist", type: 'GraphMethodException', code: 100, error_subcode: 33 } } },
+};
+/** Le refus de l'attache de l'essai réel 258 (alerte du 2026-11-13) : Meta voit déjà un moyen de paiement. */
+const MOYEN_EN_PLACE = {
+  statut: 500,
+  corps: { ok: 0, error: { error: { message: `(#100) WABA inputted (id ${W}) is already using a payment method`, type: 'OAuthException', code: 100 } } },
 };
 
 describe('le client de l’API du partenaire', () => {
@@ -128,6 +133,19 @@ describe('le client de l’API du partenaire', () => {
       expect(err, nom).not.toBeInstanceOf(CompteInconnuDuPartenaire);
     }
   });
+
+  it('🔴 un compte qui a déjà un moyen de paiement chez Meta (alerte du 2026-11-13) lève `MoyenDePaiementEnPlace`, avec sa cause', async () => {
+    const leve = (p: Promise<unknown>): Promise<unknown> => p.then(() => null, (e: unknown) => e);
+    const err = await leve(client([MOYEN_EN_PLACE]).a.attacher(W));
+    expect(err).toBeInstanceOf(MoyenDePaiementEnPlace);
+    expect(String(err)).toMatch(new RegExp(`HTTP 500 : \\(#100\\) WABA inputted \\(id ${W}\\) is already using a payment method`));
+    // Le même refus en texte nu se reconnaît aussi ; un autre refus reste une panne ordinaire.
+    const texte = await leve(client([{ statut: 500, corps: { ok: 0, error: 'WABA is already using a payment method' } }]).a.attacher(W));
+    expect(texte).toBeInstanceOf(MoyenDePaiementEnPlace);
+    for (const r of [GRAPH_100, { statut: 500, corps: { ok: 0, error: 'panne' } }]) {
+      expect(await leve(client([r]).a.attacher(W))).not.toBeInstanceOf(MoyenDePaiementEnPlace);
+    }
+  });
 });
 
 describe('retirer l’attache sans lever', () => {
@@ -172,9 +190,52 @@ describe('attacher puis vérifier', () => {
     await attacherEtVerifier(ok, W);
     expect(ok.gestes).toEqual([`attacher:${W}`, `verifier:${W}`]);
     await expect(attacherEtVerifier(faux({ verifie: false }), W)).rejects.toThrow(/pas attachée/);
-    const refusee = faux({ attache: new Error('HTTP 500 : refus') });
+    // Refusée, et la relecture dit qu'elle manque : la cause du refus remonte, rien d'autre n'est tenté.
+    const refusee = faux({ attache: new Error('HTTP 500 : refus'), verifie: false });
     await expect(attacherEtVerifier(refusee, W)).rejects.toThrow(/refus/);
-    expect(refusee.gestes).toEqual([`attacher:${W}`]);
+    expect(refusee.gestes).toEqual([`attacher:${W}`, `verifier:${W}`]);
+  });
+
+  /** Un partenaire dont chaque geste rend, dans l'ordre, la réponse suivante de sa liste (la dernière se répète). */
+  function suite(o: { attacher: Array<Error | null>; verifier: Array<boolean | Error>; retirer?: 'retiree' | 'deja_absente' }) {
+    const gestes: string[] = [];
+    const prochain = <T>(l: T[]): T => (l.length > 1 ? (l.shift() as T) : (l[0] as T));
+    const a: AttacheLigne = {
+      attacher: async (w) => { gestes.push(`attacher:${w}`); const r = prochain(o.attacher); if (r !== null) throw r; },
+      verifier: async (w) => { gestes.push(`verifier:${w}`); const r = prochain(o.verifier); if (r instanceof Error) throw r; return r; },
+      retirer: async (w) => { gestes.push(`retirer:${w}`); return o.retirer ?? 'retiree'; },
+    };
+    return { a, gestes };
+  }
+  const moyen = (): MoyenDePaiementEnPlace => new MoyenDePaiementEnPlace(`HTTP 500 : (#100) WABA inputted (id ${W}) is already using a payment method`);
+
+  it('🔴 une attache refusée ou coupée se relit avant de conclure : déjà là (attachée avant nous, ou par ce PUT malgré la panne), rien n’est retiré', async () => {
+    for (const refus of [new Error('API du partenaire injoignable : timeout'), moyen()]) {
+      const p = suite({ attacher: [refus], verifier: [true] });
+      await attacherEtVerifier(p.a, W);
+      expect(p.gestes, refus.message).toEqual([`attacher:${W}`, `verifier:${W}`]);
+    }
+  });
+
+  it('🔴 la relecture en panne ne remplace pas la cause du refus', async () => {
+    const p = suite({ attacher: [new Error('HTTP 500 : refus du partenaire')], verifier: [new Error('HTTP 502 : relecture en panne')] });
+    await expect(attacherEtVerifier(p.a, W)).rejects.toThrow(/refus du partenaire/);
+    expect(p.gestes).toEqual([`attacher:${W}`, `verifier:${W}`]);
+  });
+
+  it('🔴 Meta voit déjà un moyen de paiement que le partenaire ne tient pas pour sa ligne : retirée par son API, puis redemandée UNE fois, et vérifiée', async () => {
+    const p = suite({ attacher: [moyen(), null], verifier: [false, true] });
+    const { lignes } = await capturerJournal(() => attacherEtVerifier(p.a, W));
+    expect(p.gestes).toEqual([`attacher:${W}`, `verifier:${W}`, `retirer:${W}`, `attacher:${W}`, `verifier:${W}`]);
+    // Ce que le retrait a trouvé se journalise : il dit, la prochaine fois, si la ligne était déjà là ou non.
+    expect(lignes).toEqual([expect.objectContaining({ lvl: 'warn', msg: 'ligne_partenaire_moyen_de_paiement_en_place', wabaId: W, retrait: 'retiree' })]);
+  });
+
+  it('🔴 un moyen de paiement qui reste (une carte, la ligne d’un autre fournisseur) : `MoyenDePaiementEnPlace` remonte après un seul nouvel essai', async () => {
+    const p = suite({ attacher: [moyen()], verifier: [false], retirer: 'deja_absente' });
+    const err = await capturerJournal(() => attacherEtVerifier(p.a, W)).then(() => null, (e: unknown) => e);
+    expect(err).toBeInstanceOf(MoyenDePaiementEnPlace);
+    expect(p.gestes).toEqual([`attacher:${W}`, `verifier:${W}`, `retirer:${W}`, `attacher:${W}`]);
   });
 });
 
@@ -186,7 +247,8 @@ describe('le cycle de l’option : la fin retire l’attache, la reprise la ratt
     const alertes: string[] = [];
     const attache: AttacheLigne | null = o.attache === undefined ? {
       attacher: async (w) => { gestes.push(`attacher:${w}`); if ((o.panne ?? []).includes(w)) throw new Error(`HTTP 500 : panne ${w}`); },
-      verifier: async (w) => { gestes.push(`verifier:${w}`); return true; },
+      // Un compte en panne n'est pas attaché : la relecture d'une attache refusée le dit (sinon le refus passerait pour fait).
+      verifier: async (w) => { gestes.push(`verifier:${w}`); return !(o.panne ?? []).includes(w); },
       retirer: async (w) => { gestes.push(`retirer:${w}`); if ((o.panne ?? []).includes(w)) throw new Error(`HTTP 500 : panne ${w}`); return 'retiree'; },
     } : o.attache;
     return {
@@ -232,7 +294,7 @@ describe('le cycle de l’option : la fin retire l’attache, la reprise la ratt
     ], panne: ['W2'], n: 2 });
     const { resultat } = await capturerJournal(() => relancerLesLignesEtLeursAttaches(d, 't1'));
     expect(resultat).toBe(2);
-    expect(gestes).toEqual(['relancer', 'attacher:W1', 'verifier:W1', 'attacher:W2']);
+    expect(gestes).toEqual(['relancer', 'attacher:W1', 'verifier:W1', 'attacher:W2', 'verifier:W2']);
     expect(alertes).toHaveLength(1);
     expect(alertes[0]).toMatch(/t1.*W2.*panne W2/);
   });

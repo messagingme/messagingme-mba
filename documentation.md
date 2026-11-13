@@ -4879,14 +4879,19 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   (`src/credit-whatsapp/attache.ts`, plan `2026-11-12-credit-whatsapp-attache-par-l-api.md`) : elle ne s'attache jamais
   d'elle-même (essai réel 236), nous en payons la consommation, donc nous seuls décidons quels comptes y sont branchés.
   Trois appels sur un compte WhatsApp, un jeton JWT HS256 (`iss` = notre émetteur, `aud` = `whatsapp-cloud`, cinq
-  minutes) : attacher (`PUT`, jusqu'à 11 s mesurées, d'où 30 s de délai ; rejouable), vérifier (`GET`,
+  minutes) : attacher (`PUT`, jusqu'à 11 s mesurées, d'où 30 s de délai ; rejouable sur une attache faite par elle,
+  refusé par Meta, « is already using a payment method », sur un moyen de paiement qu'elle n'a pas posé), vérifier (`GET`,
   `creditLineAdded`), retirer (`DELETE` ; « Credit line is not attached » se lit comme déjà retirée). Les trois
   variables `LIGNE_PARTENAIRE_URL`, `_EMETTEUR` et `_SECRET` (secrète), toutes ou aucune, contrôlées au démarrage ; ni
   l'adresse ni le partenaire ne s'écrivent dans le dépôt. **La pose** (`poserLaLigne`, `src/credit-whatsapp/pose.ts`, la
   MÊME pour `/ops` et la connexion : mêmes contrôles, mêmes places, mêmes refus) refuse un numéro déjà sur la ligne,
-  puis attache ET vérifie la ligne du partenaire AVANT de poser la nôtre. Une attache non confirmée (refusée, démentie,
-  ou dont la vérification lève) ne pose rien (422, la cause dite) et se RETIRE, car elle a pu se faire quand même ; une
-  pose qui lève après l'attache la retire aussi. **Le retrait** dans `/ops` retire la ligne du partenaire AVANT la nôtre,
+  puis attache ET vérifie la ligne du partenaire AVANT de poser la nôtre. 🔴 **Une attache refusée ou coupée se RELIT
+  d'abord** (`attacherEtVerifier`) : trouvée en place (là avant nous, ou faite malgré la panne), la nôtre se pose sans
+  rien retirer. Refusée parce que Meta voit déjà un moyen de paiement (`MoyenDePaiementEnPlace`), elle se retire par
+  l'API puis se redemande UNE fois ; refusée encore, la pose le dit (une carte, ou la ligne d'un autre fournisseur, à
+  retirer dans « Billing & payments ») sans rien retirer de plus. Une attache non confirmée autrement (refusée et relue
+  absente, démentie, ou dont la vérification lève) ne pose rien (422, la cause dite) et se RETIRE, car elle a pu se faire
+  quand même ; une pose qui lève après l'attache la retire aussi. **Le retrait** dans `/ops` retire la ligne du partenaire AVANT la nôtre,
   lue en base et non par le cache de 5 s : la nôtre retirée, la garde ignore le numéro, et ses envois partiraient sans
   provision. Une panne garde donc la nôtre (422) ; « déjà retirée » laisse continuer. **Un compte que le partenaire ne
   voit pas** (erreur Graph 100/33, mesurée sur un compte inconnu, `CompteInconnuDuPartenaire`) ne peut ni porter sa

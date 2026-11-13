@@ -4,6 +4,25 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-13 : une attache refusée se relit avant d'être défaite
+
+- **Le constat** (essai réel 258, sur un espace de test en Entreprise) : un numéro venu d'un autre fournisseur, son
+  compte WhatsApp existant connecté par la fenêtre du partenaire. Meta crée le compte de messagerie de notre solution,
+  mais la pose automatique est refusée : le `PUT` du partenaire rend `500`, « (#100) WABA inputted (id …) is already
+  using a payment method ». La pose retire alors l'attache « peut-être faite » ; sept minutes plus tard, le partenaire
+  relit sa ligne absente, et la pose à la main dans `/ops` l'attache. Jusque-là, le compte n'avait aucun moyen de
+  paiement : un client en libre-service n'aurait rien pu envoyer.
+- **La cause, en partie ouverte** : le partenaire répond `{"ok":1}` à une attache déjà faite par lui (mesuré le
+  2026-11-12), donc ce moyen de paiement n'était pas sa ligne posée par son API. Deux lectures tiennent : sa ligne
+  posée par la fenêtre de Meta, que notre retrait a ensuite enlevée, ou le moyen de paiement de l'ancien fournisseur,
+  parti quand il a été retiré du compte. Rien de ce qui était journalisé ne les départage.
+- **Ce qui a changé** : une attache refusée ou coupée se RELIT avant de conclure (`attacherEtVerifier`). Trouvée en
+  place, la nôtre se pose sans rien retirer. Refusée pour un moyen de paiement en place (`MoyenDePaiementEnPlace`), elle
+  se retire par l'API puis se redemande une fois, et ce que le retrait a trouvé se journalise
+  (`ligne_partenaire_moyen_de_paiement_en_place`) : la prochaine occurrence départagera les deux lectures. Refusée
+  encore, la pose le dit (une carte, ou la ligne d'un autre fournisseur, à retirer dans « Billing & payments ») sans
+  retrait de plus. Un compte que le partenaire ne voit pas ne se relit pas.
+
 ## 2026-11-12 : sans compte ni application, un numéro API direct ; la marketplace du plugin en HTTPS
 
 Plan `2026-11-12-arbre-numero-sans-application.md`, un implémenteur puis une relecture indépendante du diff.

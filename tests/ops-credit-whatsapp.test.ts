@@ -6,7 +6,7 @@ import { placesApresPose, type OpsCreditWhatsappDeps } from '../src/http/ops-cre
 import type { ChargementGrille, ResumeGrille } from '../src/credit-whatsapp/reglages.pg';
 import type { LigneCredit, NumeroDeLEspace, NumeroEnAttente, NumeroPourLaLigne } from '../src/credit-whatsapp/lignes.pg';
 import type { ProvisionVue } from '../src/credit-whatsapp/credit';
-import { CompteInconnuDuPartenaire } from '../src/credit-whatsapp/attache';
+import { CompteInconnuDuPartenaire, MoyenDePaiementEnPlace } from '../src/credit-whatsapp/attache';
 import { exploitationInerte, opsInerte } from './routes-inertes';
 import { accesOps, ADRESSE_OPS } from './acces-ops';
 
@@ -349,7 +349,7 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
    * L'API du partenaire simulée : chaque geste s'inscrit. `pannes` fait lever des gestes (`retirer-inconnu` : le compte
    * que le partenaire ne voit pas, Graph 100/33), `dementie` ment la vérification, `absente` : plus rien à retirer.
    */
-  type Panne = 'attacher' | 'attacher-inconnu' | 'verifier' | 'retirer' | 'retirer-inconnu';
+  type Panne = 'attacher' | 'attacher-inconnu' | 'attacher-moyen' | 'verifier' | 'retirer' | 'retirer-inconnu';
   function partenaire(o: { pannes?: readonly Panne[]; dementie?: boolean; absente?: boolean } = {}) {
     const gestes: string[] = [];
     const panne = (g: Panne): boolean => (o.pannes ?? []).includes(g);
@@ -358,6 +358,7 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
         gestes.push(`attacher:${w}`);
         if (panne('attacher')) throw new Error('HTTP 500 : panne du partenaire');
         if (panne('attacher-inconnu')) throw new CompteInconnuDuPartenaire(`HTTP 500 : Unsupported post request. Object with ID '${w}' does not exist`);
+        if (panne('attacher-moyen')) throw new MoyenDePaiementEnPlace(`HTTP 500 : (#100) WABA inputted (id ${w}) is already using a payment method`);
       },
       verifier: async (w) => { gestes.push(`verifier:${w}`); if (panne('verifier')) throw new Error('HTTP 500 : vérification en panne'); return o.dementie !== true; },
       retirer: async (w) => {
@@ -381,8 +382,9 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
 
   it('🔴 une attache refusée, démentie, ou dont la vérification lève : 422 avec la cause, rien n’est posé ni tracé, et l’attache, peut-être faite, est retirée', async () => {
     for (const [nom, p, cause, gestes] of [
-      // Un PUT en panne a pu aboutir chez le partenaire (coupé à 30 s pendant qu'il le termine) : il se retire aussi.
-      ['refusée', partenaire({ pannes: ['attacher'] }), /\(HTTP 500 : panne du partenaire\)/, ['attacher:w1', 'retirer:w1']],
+      // Un PUT en panne a pu aboutir chez le partenaire (coupé à 30 s pendant qu'il le termine, après la relecture) : il
+      // se retire aussi, une fois la relecture faite.
+      ['refusée', partenaire({ pannes: ['attacher'], dementie: true }), /\(HTTP 500 : panne du partenaire\)/, ['attacher:w1', 'verifier:w1', 'retirer:w1']],
       ['démentie', partenaire({ dementie: true }), /\(.*pas attachée.*\)/, ['attacher:w1', 'verifier:w1', 'retirer:w1']],
       ['vérification en panne', partenaire({ pannes: ['verifier'] }), /\(HTTP 500 : vérification en panne\)/, ['attacher:w1', 'verifier:w1', 'retirer:w1']],
     ] as const) {
@@ -411,6 +413,27 @@ describe('POST /ops/credit-whatsapp/ligne/:tenantId', () => {
     expect(p.gestes).toEqual(['attacher:w1', 'verifier:w1', 'retirer:w1']);
     expect(alertes).toHaveLength(1);
     expect(alertes[0]).toMatch(new RegExp(`peut-être faite.*${T1}.*w1.*panne du partenaire`));
+    await a.close();
+  });
+
+  it('🔴 une attache refusée que la relecture trouve faite : la nôtre se pose, rien n’est retiré (essai réel 258, 2026-11-13)', async () => {
+    const p = partenaire({ pannes: ['attacher'] });
+    const a = app({}, true, { numeroDeLEspace: async () => NUMERO, poser: async () => { p.gestes.push('poser'); return true; } }, [], {}, {}, undefined, p.attache);
+    const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+    expect(res.statusCode).toBe(200);
+    expect(p.gestes).toEqual(['attacher:w1', 'verifier:w1', 'poser']);
+    await a.close();
+  });
+
+  it('🔴 un compte qui garde un autre moyen de paiement chez Meta : 422 qui le dit, après un seul retrait et un seul nouvel essai, aucune alerte', async () => {
+    const p = partenaire({ pannes: ['attacher-moyen'], dementie: true, absente: true });
+    const alertes: string[] = [];
+    const a = app({}, true, { numeroDeLEspace: async () => NUMERO, poser: async () => { p.gestes.push('poser'); return true; } }, [], {}, {}, undefined, p.attache, alertes);
+    const res = await a.inject({ method: 'POST', url: URL_LIGNE, ...withTok(OPS), payload: corpsLigne() });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toMatch(/\(HTTP 500 : \(#100\) WABA inputted \(id w1\) is already using a payment method\) : rien n’est posé : Meta voit déjà un autre moyen de paiement sur ce compte/);
+    expect(p.gestes).toEqual(['attacher:w1', 'verifier:w1', 'retirer:w1', 'attacher:w1']);
+    expect(alertes).toEqual([]);
     await a.close();
   });
 

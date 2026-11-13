@@ -1,5 +1,5 @@
 import { journaliser } from '../lib/journal';
-import { attacherEtVerifier, CompteInconnuDuPartenaire, retirerLAttacheSansLever, type AttacheLigne } from './attache';
+import { attacherEtVerifier, CompteInconnuDuPartenaire, MoyenDePaiementEnPlace, retirerLAttacheSansLever, type AttacheLigne } from './attache';
 import type { GrilleMeta } from './grille';
 import type { LigneCredit, NumeroDeLEspace, NumeroPourLaLigne } from './lignes.pg';
 
@@ -123,7 +123,10 @@ export async function poserLaLigne(
       const cause = err instanceof Error ? err.message : String(err);
       journaliser('error', 'ligne_partenaire_attache_impossible', { tenantId, phoneNumberId, wabaId: numero.wabaId, err: cause });
       let suite = ' : le partenaire ne voit pas ce compte WhatsApp (jamais partagé avec lui, ou son accès retiré), rien n’y est attaché';
-      if (!(err instanceof CompteInconnuDuPartenaire)) {
+      if (err instanceof MoyenDePaiementEnPlace) {
+        // Refusé deux fois par Meta, retrait fait entre les deux : rien n'y est attaché, un retrait de plus n'y ferait rien.
+        suite = ' : Meta voit déjà un autre moyen de paiement sur ce compte (une carte, ou la ligne d’un autre fournisseur), à retirer dans « Billing & payments » avant de reposer la ligne ; rien n’y est attaché';
+      } else if (!(err instanceof CompteInconnuDuPartenaire)) {
         suite = (await retirerLAttacheSansLever({ attache, alerter: d.alerter }, tenantId, numero.wabaId, 'Pose de la ligne, attache non confirmée mais peut-être faite'))
           ? ', et son attache éventuelle est retirée'
           : ', mais son attache, peut-être faite, n’a pas pu être retirée (une alerte est partie)';

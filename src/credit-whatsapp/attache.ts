@@ -49,6 +49,15 @@ export interface AttacheLigne {
  */
 export class CompteInconnuDuPartenaire extends Error {}
 
+/**
+ * Meta refuse l'attache parce que le compte « is already using a payment method » (relevé par l'alerte de l'essai réel
+ * 258, le 2026-11-13, sur un compte de messagerie tout juste créé par la fenêtre) : un moyen de paiement que l'API
+ * du partenaire ne tient pas pour sa ligne, puisqu'elle répond `{"ok":1}` à une attache déjà faite par elle (mesuré le
+ * 2026-11-12). Ce PUT n'a donc rien attaché.
+ */
+export class MoyenDePaiementEnPlace extends Error {}
+const DEJA_UN_MOYEN_DE_PAIEMENT = /already using a payment method/i;
+
 const SUCCES = z.object({ ok: z.literal(1) }).passthrough();
 const ETAT = z.object({ ok: z.literal(1), data: z.object({ creditLineAdded: z.boolean() }).passthrough() }).passthrough();
 const ECHEC = z.object({ ok: z.literal(0), error: z.unknown() }).passthrough();
@@ -111,8 +120,10 @@ export function creerAttacheLigne(c: ConfigAttache, o: { fetch?: typeof fetch; d
   }
 
   const refus = (statut: number, corps: unknown): Error => {
-    const texte = `HTTP ${statut} : ${corps === undefined ? 'réponse illisible' : causeDuRefus(corps)}`;
-    return compteInconnu(corps) ? new CompteInconnuDuPartenaire(texte) : new Error(texte);
+    const cause = corps === undefined ? 'réponse illisible' : causeDuRefus(corps);
+    const texte = `HTTP ${statut} : ${cause}`;
+    if (compteInconnu(corps)) return new CompteInconnuDuPartenaire(texte);
+    return DEJA_UN_MOYEN_DE_PAIEMENT.test(cause) ? new MoyenDePaiementEnPlace(texte) : new Error(texte);
   };
 
   return {
@@ -136,9 +147,29 @@ export function creerAttacheLigne(c: ConfigAttache, o: { fetch?: typeof fetch; d
   };
 }
 
-/** La ligne n'est tenue pour attachée que VÉRIFIÉE : une attache que la vérification dément lève. */
+/**
+ * La ligne n'est tenue pour attachée que VÉRIFIÉE : une attache que la vérification dément lève.
+ *
+ * 🔴 Une attache refusée ou coupée se RELIT avant de conclure (essai réel 258, le 2026-11-13) : la ligne a pu être
+ * là avant nous, ou ce PUT l'avoir faite malgré la panne. Conclure sans relire faisait retirer à la pose une ligne
+ * peut-être en place, et le compte se retrouvait sans aucun moyen de paiement jusqu'à une pose à la main dans /ops.
+ * Refusée parce que Meta voit déjà un moyen de paiement que le partenaire ne tient pas pour sa ligne, elle se retire par
+ * son API (« plus rien à retirer » est un succès), puis se redemande UNE fois : c'est l'enchaînement qui l'a attachée ce
+ * jour-là, à la main. Un compte que le partenaire ne voit pas ne se relit pas : rien n'a pu s'y attacher.
+ */
 export async function attacherEtVerifier(a: AttacheLigne, wabaId: string): Promise<void> {
-  await a.attacher(wabaId);
+  try {
+    await a.attacher(wabaId);
+  } catch (err) {
+    if (err instanceof CompteInconnuDuPartenaire) throw err;
+    // Une relecture en panne ne dit rien : la cause du refus remonte, pas la sienne.
+    if (await a.verifier(wabaId).catch(() => false)) return;
+    if (!(err instanceof MoyenDePaiementEnPlace)) throw err;
+    const retrait = await a.retirer(wabaId);
+    // Ce que le retrait a trouvé dit, la prochaine fois, si la ligne était déjà là (retirée) ou s'il s'agit d'autre chose.
+    journaliser('warn', 'ligne_partenaire_moyen_de_paiement_en_place', { wabaId, retrait });
+    await a.attacher(wabaId);
+  }
   if (!(await a.verifier(wabaId))) throw new Error('la ligne n’est pas attachée après la demande (vérification du partenaire)');
 }
 
