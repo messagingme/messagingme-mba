@@ -1,6 +1,6 @@
 import type { NomOutilMcp } from '../../web/lib/partage/catalogue-mcp';
 import { ETAPES_CARTE_META } from '../../web/lib/partage/etapes-meta';
-import { AIDE_COMPTE_META_BUSINESS, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_PAYER_META } from '../../web/lib/partage/aide-connexion';
+import { AIDE_COMPTE_META_BUSINESS, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_NUMERO_FOURNI, AIDE_PAYER_META } from '../../web/lib/partage/aide-connexion';
 import { modeEffectif, sousLOffre, type ModeRepondeur, type ReglageDuRepondeur } from '../repondeur/mode';
 import { manquesDeLAgent, type DepsGestionAgents } from '../agent/gestion';
 import { eurosDepuisMicro } from '../agent/devise';
@@ -55,6 +55,7 @@ export const AIDE_NUMERO = {
   depannage: AIDE_DEPANNAGE,
   payer_meta: AIDE_PAYER_META,
   compte_meta_business: AIDE_COMPTE_META_BUSINESS,
+  numero_fourni: AIDE_NUMERO_FOURNI,
 } as const;
 
 /** Les avertissements que l'outil peut rendre ; `lecture_manquee` porte la source après un deux-points. */

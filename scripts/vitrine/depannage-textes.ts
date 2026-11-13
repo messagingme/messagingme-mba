@@ -28,6 +28,10 @@ export interface Symptome {
 const GUIDE: Bilingue = { fr: TEXTES_TUNNEL.fr.guide.adresse, en: TEXTES_TUNNEL.en.guide.adresse };
 const NUMERO_CONSOLE: Bilingue = { fr: '/aide/connecter-mon-numero-whatsapp/', en: '/en/help/connect-my-whatsapp-number/' };
 const NUMERO_CLAUDE: Bilingue = { fr: '/developpeurs/connecter-son-numero/', en: '/en/developers/connect-your-number/' };
+/** Le mode op du numéro fourni, avec sa vidéo (lot 6) : l'étape 4 est celle du numéro saisi et du code. */
+const NUMERO_FOURNI: Bilingue = { fr: '/aide/numero-fourni-par-messaging-me/', en: '/en/help/get-a-number-provided-by-messaging-me/' };
+const NUMERO_FOURNI_TITRE: Bilingue = { fr: 'Prendre un numéro fourni par Messaging Me', en: 'Get a number provided by Messaging Me' };
+const ETAPE_CODE: Bilingue = { fr: `${NUMERO_FOURNI.fr}#etape-4`, en: `${NUMERO_FOURNI.en}#etape-4` };
 const GARDER: Bilingue = { fr: '/aide/garder-mon-application-whatsapp-business/', en: '/en/help/keep-my-whatsapp-business-app/' };
 const CONTACT: Bilingue = { fr: '/contact/', en: '/en/contact/' };
 /** « Payer Meta » (lot 4a-2) : les étapes de la carte et qui paie quoi ; son titre et son adresse se lisent chez elle. */
@@ -69,7 +73,7 @@ export const DEPANNAGE = {
     choix: [
       { libelle: { fr: 'J’ai un numéro que je peux utiliser', en: 'I have a number I can use' }, href: GUIDE },
       { libelle: { fr: 'Il me faut un numéro', en: 'I need a number' }, href: GUIDE },
-      { libelle: { fr: 'Je vous ai acheté un numéro', en: 'I bought a number from you' }, href: NUMERO_CONSOLE },
+      { libelle: { fr: 'Je vous ai acheté un numéro', en: 'I bought a number from you' }, href: NUMERO_FOURNI },
     ],
   },
   /** Le dernier mot de chaque réponse, avant la page qui va plus loin (il entre aussi dans la réponse balisée). */
@@ -90,7 +94,7 @@ export const DEPANNAGE = {
       titre: { fr: 'J’ai un numéro fourni et je n’arrive pas à le saisir', en: 'I have a provided number and can’t enter it' },
       cause: { fr: 'La fenêtre de Meta demande le pays à part, puis le numéro sans son indicatif.', en: 'Meta’s window asks for the country separately, then the number without its country code.' },
       remede: [etapeFournie('À l’écran du numéro')],
-      lien: { libelle: { fr: 'Connecter mon numéro WhatsApp', en: 'Connect my WhatsApp number' }, href: NUMERO_CONSOLE },
+      lien: { libelle: NUMERO_FOURNI_TITRE, href: ETAPE_CODE },
     },
     {
       id: 'pas-de-code', ou: ['claude', 'console'],
@@ -102,6 +106,7 @@ export const DEPANNAGE = {
         // La fiche « Connecter mon numéro WhatsApp », étape 3, et la décision de Julien du 2026-11-08 (48 heures).
         { fr: 'Meta ne tolère que dix demandes par numéro sur 72 heures, et bloque le numéro au-delà. Au bout de 48 heures sans code, écrivez-nous.', en: 'Meta only allows ten requests per number over 72 hours, and blocks the number beyond that. After 48 hours without a code, write to us.' },
       ],
+      // Ce symptôme vaut aussi pour son propre numéro, dont le code arrive sur son téléphone : le lien reste le contact.
       lien: { libelle: { fr: 'Nous écrire', en: 'Write to us' }, href: CONTACT },
     },
     {

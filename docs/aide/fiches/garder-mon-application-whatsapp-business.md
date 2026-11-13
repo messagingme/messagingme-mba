@@ -3,6 +3,7 @@ description: Garder votre application WhatsApp Business et relier le même numé
 source_section: Garder son application WhatsApp Business (2026-10-25)
 source_empreinte: 03c3d2
 publique: oui
+video: oui
 rubrique: demarrer-claude, demarrer-console
 rang: 5, 5
 offre: non
@@ -32,10 +33,13 @@ choisissez « Créez un portefeuille business » : il se crée en chemin.
 **5. Décrire votre entreprise.** Pour un nouveau portefeuille, Meta demande le nom de votre entreprise, une adresse
 e-mail, le pays et votre site.
 
-**6. Relier votre application.** Dans l'application WhatsApp Business de votre téléphone, scannez le code QR que montre
-la fenêtre. Si vous ne pouvez pas le scanner, la fenêtre propose un code d'accès : un message du compte Facebook
-officiel arrive dans l'application, appuyez sur « Connect », puis saisissez ce code. Messaging Me ne reprend ni vos
-contacts ni vos anciennes conversations : ils restent dans l'application.
+**6. Relier votre application.** Dans l'application WhatsApp Business de votre téléphone, appuyez sur « Connect »
+dans le message du compte Facebook officiel, ou passez par le menu ⋮ : « Paramètres », « Compte », « Plateforme
+Business », puis « Se connecter à la plateforme Business ».
+
+Confirmez le partage de l'historique, puis scannez le code QR que montre la fenêtre. Si le scan ne passe pas, « Saisir plutôt le code d'accès » sur le téléphone, et tapez le code
+que la fenêtre affiche. Messaging Me ne reprend ni vos contacts ni vos anciennes conversations : ils restent dans
+l'application.
 
 **7. Confirmer votre compte WhatsApp Business.** Vérifiez son nom et son fuseau horaire, puis continuez.
 

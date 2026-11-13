@@ -10,6 +10,11 @@ export interface FilmAide {
   /** La date de publication, AAAA-MM-JJ. */
   readonly publie: string;
   readonly secondes: { readonly fr: number; readonly en: number };
+  /**
+   * Un tutoriel d'un parcours entier, tourné à l'écran et découpé en étapes (lot 6 de l'aide à la connexion, validé par
+   * Julien le 2026-11-13) : il dépasse la minute trente des films de la console, jusqu'à quatre minutes.
+   */
+  readonly tutoriel?: true;
 }
 
 export const FILMS_AIDE: Readonly<Record<string, FilmAide>> = {
@@ -19,4 +24,6 @@ export const FILMS_AIDE: Readonly<Record<string, FilmAide>> = {
   'faire-approuver-un-modele': { publie: '2026-10-21', secondes: { fr: 47, en: 46 } },
   'importer-mes-contacts': { publie: '2026-10-21', secondes: { fr: 48, en: 47 } },
   'lancer-une-campagne': { publie: '2026-10-21', secondes: { fr: 53, en: 52 } },
+  'numero-fourni-par-messaging-me': { publie: '2026-11-13', secondes: { fr: 179, en: 179 }, tutoriel: true },
+  'garder-mon-application-whatsapp-business': { publie: '2026-11-13', secondes: { fr: 226, en: 226 }, tutoriel: true },
 };

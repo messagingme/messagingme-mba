@@ -134,7 +134,8 @@ describe('le tunnel du numéro WhatsApp', () => {
       const autre = issue('autre-numero');
       const appel = ETAPES_NUMERO_FOURNI.find((e) => e.insiste)!;
       expect(autre.textes.join(' '), langue).toContain(appel[langue]);
-      expect(autre.pasAPas, langue).toBe(langue === 'fr' ? '/aide/connecter-mon-numero-whatsapp/' : '/en/help/connect-my-whatsapp-number/');
+      // Son pas-à-pas : le mode op du numéro fourni, avec sa vidéo (lot 6 de l'aide à la connexion, 2026-11-13).
+      expect(autre.pasAPas, langue).toBe(langue === 'fr' ? '/aide/numero-fourni-par-messaging-me/' : '/en/help/get-a-number-provided-by-messaging-me/');
       expect(Object.values(autre.numero ?? {}).join(' '), langue).toMatch(/fournis-m’en un|provide one/);
       // WhatsApp ordinaire : plus aucun texte n'envoie un numéro qui sert dans WhatsApp vers un autre numéro ; il passe
       // dans WhatsApp Business, gardée, que dit l'issue de l'application.

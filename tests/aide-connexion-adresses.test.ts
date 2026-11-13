@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
-  ADRESSES_AIDE_CONNEXION, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_PAYER_META, VITRINE_AIDE,
+  ADRESSES_AIDE_CONNEXION, AIDE_DEPANNAGE, AIDE_GUIDE, AIDE_NUMERO_FOURNI, AIDE_PAYER_META, VITRINE_AIDE,
 } from '../web/lib/partage/aide-connexion';
-import { GUIDE_NUMERO } from '../scripts/vitrine/aide-pages';
+import { GUIDE_NUMERO, pagesDuCentre } from '../scripts/vitrine/aide-pages';
 import { DEPANNAGE } from '../scripts/vitrine/depannage-textes';
 import { PAGES_SOURCES } from '../scripts/vitrine/aide-sources-textes';
 
@@ -35,9 +35,11 @@ describe('les pages d’aide citées pendant la connexion du numéro', () => {
    * CHACUNE EST LA PAGE QU'ELLE NOMME (lot 4b), lue dans le registre de la vitrine : une page qui existe ne suffit pas,
    * « Pourquoi un moyen de paiement ? » qui mènerait encore à la fenêtre de 24 heures passerait le contrôle ci-dessus.
    */
-  it('🔴 le guide, le dépannage et « Payer Meta » sont les pages du registre de la vitrine', () => {
+  it('🔴 le guide, le dépannage, « Payer Meta » et le numéro fourni sont les pages du registre de la vitrine', () => {
     const payerMeta = PAGES_SOURCES.find((p) => p.cle === 'payer-meta')!;
+    const numeroFourni = pagesDuCentre().find((p) => p.cle === 'numero-fourni-par-messaging-me')!;
     for (const langue of ['fr', 'en'] as const) {
+      expect(AIDE_NUMERO_FOURNI[langue], langue).toBe(`${VITRINE_AIDE}${numeroFourni[langue].adresse}`);
       expect(AIDE_GUIDE[langue], langue).toBe(`${VITRINE_AIDE}${GUIDE_NUMERO[langue]}`);
       expect(AIDE_DEPANNAGE[langue], langue).toBe(`${VITRINE_AIDE}${DEPANNAGE.adresse[langue]}`);
       expect(AIDE_PAYER_META[langue], langue).toBe(`${VITRINE_AIDE}${payerMeta.adresse[langue]}`);

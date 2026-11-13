@@ -10,7 +10,7 @@ import { empreinteEtat, type EtatConnexion } from '../src/otp/etat-connexion';
 import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, PREREQUIS_META } from '../web/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI, ETAPES_FENETRE_GARDER, ETAPES_RELIER_APPLICATION } from '../web/lib/partage/etapes-application';
 import { CODE_VERIFICATION_FOURNI, ETAPES_NUMERO_FOURNI } from '../web/lib/partage/etapes-numero-fourni';
-import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION } from '../web/lib/partage/aide-connexion';
+import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION, AIDE_NUMERO_FOURNI } from '../web/lib/partage/aide-connexion';
 import { COEXISTENCE_BOUTON } from '../web/lib/fenetre-meta';
 import { NOTE_CARTE_APPLICATION } from '../web/lib/questions-numero';
 
@@ -541,6 +541,18 @@ describe('start_whatsapp_connection en coexistence', () => {
     expect(c).toContain(ETAPES_CARTE_META[0]!.fr);
   });
 
+  /** Le mode op du numéro fourni en vidéo (lot 6) : donné AVANT le lien, et seulement à ce mode. */
+  it('🔴 fourni : la page de la vidéo du parcours avant le lien, en français et en anglais ; aucun autre mode ne la cite', async () => {
+    const r = await demarrer(VIDE, { mode: 'fourni' });
+    const c = r.consigne!;
+    expect(c.indexOf(AIDE_NUMERO_FOURNI.fr)).toBeGreaterThan(-1);
+    expect(c.indexOf(AIDE_NUMERO_FOURNI.fr)).toBeLessThan(c.indexOf(r.url!));
+    expect(c).toContain(AIDE_NUMERO_FOURNI.en);
+    for (const mode of ['apporte', 'coexistence', 'fourni_application']) {
+      expect((await demarrer(VIDE, { mode })).consigne, mode).not.toContain(AIDE_NUMERO_FOURNI.fr);
+    }
+  });
+
   /** Claude renvoie vers les pages (lot 4b) : la page de dépannage, si ça bloque, après le lien, dans chaque mode. */
   it('🔴 la page de dépannage finit la consigne des quatre modes de la fenêtre de Meta, en français et en anglais', async () => {
     for (const mode of ['fourni', 'apporte', 'coexistence', 'fourni_application']) {
@@ -852,6 +864,8 @@ describe('la connexion sans carte chez Meta (lot 3v-2b)', () => {
     expect(c).not.toContain(NUMERO_LIGNE_MIEN.fr);
     expect(c).not.toContain(PREREQUIS_META[0]!.fr);
     expect(c).toMatch(/aucune carte chez Meta/);
+    // La vidéo montre la fenêtre de la carte, pas celle de la ligne : Claude ne la donne pas ici (lot 6).
+    expect(c).not.toContain(AIDE_NUMERO_FOURNI.fr);
   });
 
   it('🔴 sans la fenêtre du partenaire, rien ne change : les conditions de la carte et qui paie chez Meta', async () => {

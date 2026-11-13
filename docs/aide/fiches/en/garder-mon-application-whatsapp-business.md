@@ -1,7 +1,7 @@
 ---
 description: Keep your WhatsApp Business app and connect the same number to Messaging Me, screen by screen, with the Meta Business account created along the way if needed.
 slug: keep-my-whatsapp-business-app
-traduit_de: a493b7
+traduit_de: 2079cb
 bouton_claude: Keep my app from Claude Code, for free
 bouton_console: Keep my app in the console
 ---
@@ -27,10 +27,13 @@ choose “Create a business portfolio”: it is created along the way.
 **5. Describe your business.** For a new portfolio, Meta asks for your business name, an email address, the country
 and your website.
 
-**6. Link your app.** In the WhatsApp Business app on your phone, scan the QR code the window shows. If you cannot
-scan it, the window offers an access code: a message from the official Facebook business account arrives in the app,
-tap “Connect”, then enter that code. Messaging Me does not take over your contacts or past conversations: they stay
-in the app.
+**6. Link your app.** In the WhatsApp Business app on your phone, tap “Connect” in the message from the official
+Facebook business account, or go through the ⋮ menu: “Settings”, “Account”, “Business Platform”, then “Connect to
+the Business Platform”.
+
+Confirm sharing your chat history, then scan the QR code the window shows. If scanning does
+not work, choose on the phone to enter the access code instead, and type the code the window shows. Messaging Me does not take
+over your contacts or past conversations: they stay in the app.
 
 **7. Confirm your WhatsApp Business account.** Check its name and time zone, then continue.
 

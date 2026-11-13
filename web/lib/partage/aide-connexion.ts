@@ -17,6 +17,16 @@ export const AIDE_GARDER_APPLICATION: AdresseAide = {
 };
 
 /**
+ * Le mode op « prendre un numéro fourni par Messaging Me » (fiche `numero-fourni-par-messaging-me`, parcours D de la
+ * spec) : la vidéo de trois minutes, puis les six étapes. Claude la donne avant le lien d'un numéro fourni, la console
+ * l'offre sur la page de connexion, le guide et le dépannage y mènent.
+ */
+export const AIDE_NUMERO_FOURNI: AdresseAide = {
+  fr: `${VITRINE_AIDE}/aide/numero-fourni-par-messaging-me/`,
+  en: `${VITRINE_AIDE}/en/help/get-a-number-provided-by-messaging-me/`,
+};
+
+/**
  * « Payer Meta » (lot 4a-2) : pourquoi Meta veut un moyen de paiement, où le poser, et le Crédit WhatsApp. C'est le lien
  * « Pourquoi un moyen de paiement ? » de la carte « Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta
  * Business » (lot 3a, décision de Julien du 2026-11-09 ; « Payer Meta » depuis le lot 4b), avec, à côté, ce qu'est un
@@ -67,6 +77,6 @@ export const AIDE_SHOPIFY: AdresseAide = {
 
 /** Toutes les adresses de ce fichier, pour le test qui les vérifie. */
 export const ADRESSES_AIDE_CONNEXION: readonly string[] = [
-  AIDE_GARDER_APPLICATION, AIDE_PAYER_META, AIDE_COMPTE_META_BUSINESS, AIDE_GUIDE, AIDE_DEPANNAGE,
+  AIDE_GARDER_APPLICATION, AIDE_NUMERO_FOURNI, AIDE_PAYER_META, AIDE_COMPTE_META_BUSINESS, AIDE_GUIDE, AIDE_DEPANNAGE,
   AIDE_AGENT_IA, AIDE_BULLE, AIDE_INBOX, AIDE_OFFRE, AIDE_SHOPIFY,
 ].flatMap((p) => [p.fr, p.en]);

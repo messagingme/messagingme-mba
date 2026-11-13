@@ -4,7 +4,7 @@ import { CE_QUI_EST_FACTURE, ETAPES_CARTE_META, NUMERO_LIGNE_MIEN, PREREQUIS_LIG
 import { creditPaieMeta } from '../../web/lib/partage/credit-whatsapp';
 import { lireEtatLigne, tousGardentLApplication } from '../credit-whatsapp/etat-ligne';
 import { journaliser } from '../lib/journal';
-import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION } from '../../web/lib/partage/aide-connexion';
+import { AIDE_DEPANNAGE, AIDE_GARDER_APPLICATION, AIDE_NUMERO_FOURNI } from '../../web/lib/partage/aide-connexion';
 import type { AnnotationsMcp, DepsMcp, OutilMcp, PersonneMcp } from './outils';
 import { RefusOutil, valeurOuRefus } from './saisie';
 import { MESSAGE_OPERATIONS_LOURDES } from '../auth/plafond-partage';
@@ -155,8 +155,8 @@ const SI_ELLE_REVIENT = ' Si elle revient avant la fin, rappelle-lui où elle en
 
 /**
  * LA PAGE DE DÉPANNAGE, SI ELLE BLOQUE (aide à la connexion, lot 4b) : la fin de chaque consigne de la fenêtre de Meta,
- * à l'adresse de sa langue. Le mode op du parcours n'existe encore que pour garder l'application (A, cité dans
- * `AVANT_LE_LIEN_GARDER`) ; ceux du numéro fourni et de son propre numéro viendront avec leurs pages (lot 4c).
+ * à l'adresse de sa langue. Les modes op cités avant le lien : garder l'application (A, `AVANT_LE_LIEN_GARDER`) et le
+ * numéro fourni par la fenêtre de Meta (D, `VIDEO_FOURNI`) ; celui de son propre numéro viendra avec sa page (lot 4c).
  */
 const SI_ELLE_BLOQUE = ' Si elle bloque (pas de code, une fenêtre de Meta qui refuse son numéro ou ne s’ouvre pas), donne-lui '
   + `la page de dépannage, à l’adresse de sa langue : en français ${AIDE_DEPANNAGE.fr} ; dans une autre langue `
@@ -237,13 +237,21 @@ const INSISTE_APPEL_SI_REDONNEES = `Si tu les redonnes, insiste lourdement, et r
   + `Ajoute seulement ensuite, en passant : ${SI_SEUL_TEXT_MESSAGE.fr} `;
 
 /**
+ * LE MODE OP DU NUMÉRO FOURNI, EN VIDÉO (lot 6 de l'aide à la connexion, 2026-11-13) : la page montre ce parcours de bout
+ * en bout depuis Claude Code, puis ses étapes avec leurs captures. Donnée AVANT le lien, comme celle de l'application
+ * gardée (`AVANT_LE_LIEN_GARDER`). Pas par la ligne : sa fenêtre n'est pas celle que montre le film.
+ */
+const VIDEO_FOURNI = 'Avant le lien, donne-lui la page qui montre ce parcours en vidéo (trois minutes), puis ses étapes, à '
+  + `l’adresse de sa langue : en français ${AIDE_NUMERO_FOURNI.fr} ; dans une autre langue ${AIDE_NUMERO_FOURNI.en} . `;
+
+/**
  * La consigne du numéro fourni : les étapes de la page (`ETAPES_NUMERO_FOURNI`, la même source), encadrées par le lien
  * et le paiement avant, et par le retour vers Claude après « Finish » (essai 99, ordre de Julien). En Pro (J4 de la
  * relecture de B2b), le numéro est inclus : la page l'obtient sans payer, et Claude n'annonce pas un prix qu'elle ne
  * demande pas.
  */
 const consigneFourni = (inclusDansLePro: boolean, url: string, ligne: boolean): string =>
-  (ligne ? SANS_CARTE + PREREQUIS_LIGNE_FOURNI + CODE_EXPLIQUE + QUI_PAIE_LIGNE : PREREQUIS_FOURNI + CODE_EXPLIQUE + QUI_PAIE_API)
+  (ligne ? SANS_CARTE + PREREQUIS_LIGNE_FOURNI + CODE_EXPLIQUE + QUI_PAIE_LIGNE : PREREQUIS_FOURNI + CODE_EXPLIQUE + QUI_PAIE_API + VIDEO_FOURNI)
   + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
   + 'étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
   + numerotees([

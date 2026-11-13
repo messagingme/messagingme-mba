@@ -165,10 +165,10 @@ export const FAQ: readonly EntreeFaq[] = [
     id: 'code-de-verification',
     question: { fr: 'Le code de vérification n’arrive pas.', en: 'The verification code does not arrive.' },
     reponse: {
-      fr: 'Avec un numéro fourni par Messaging Me, le code est capté pour vous et Claude l’affiche (watch_whatsapp_connection). Avec votre numéro, demandez l’appel plutôt que le SMS quand Meta laisse le choix. Meta ne tolère que dix demandes de code par numéro sur 72 heures.',
-      en: 'With a number provided by Messaging Me, the code is captured for you and Claude shows it (watch_whatsapp_connection). With your own number, ask for a call rather than an SMS when Meta offers the choice. Meta allows only ten code requests per number over 72 hours.',
+      fr: 'Avec un numéro fourni par Messaging Me, le code est capté pour vous et Claude l’affiche (watch_whatsapp_connection) ; la page « Prendre un numéro fourni par Messaging Me » du centre d’aide montre ce parcours en vidéo (3 minutes), et Claude vous la donne avec le lien de connexion. Avec votre numéro, demandez l’appel plutôt que le SMS quand Meta laisse le choix. Meta ne tolère que dix demandes de code par numéro sur 72 heures.',
+      en: 'With a number provided by Messaging Me, the code is captured for you and Claude shows it (watch_whatsapp_connection); the help center page “Get a number provided by Messaging Me” shows this path in a video (3 minutes), and Claude gives it to you with the connection link. With your own number, ask for a call rather than an SMS when Meta offers the choice. Meta allows only ten code requests per number over 72 hours.',
     },
-    source: 'docs/aide/fiches/connecter-mon-numero-whatsapp.md',
+    source: 'docs/aide/fiches/connecter-mon-numero-whatsapp.md ; docs/aide/fiches/numero-fourni-par-messaging-me.md',
   },
   {
     id: 'numero-dans-l-application',

@@ -377,7 +377,7 @@ const fr = (): TexteTunnel => {
           free: `J’ai déjà l’application WhatsApp Business, mais je veux un autre numéro pour Messaging Me : fournis-m’en un (${numero} HT par mois), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.`,
           pro: 'J’ai déjà l’application WhatsApp Business, mais je veux un autre numéro pour Messaging Me : fournis-m’en un (inclus en formule Pro), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.',
         },
-        pasAPas: '/aide/connecter-mon-numero-whatsapp/',
+        pasAPas: '/aide/numero-fourni-par-messaging-me/',
       },
       {
         // Ni compte Meta Business, ni application, ni numéro (Julien, 2026-11-12) : un numéro de chez nous, relié par la
@@ -388,7 +388,7 @@ const fr = (): TexteTunnel => {
           free: `Je n’ai ni l’application WhatsApp Business ni numéro : fournis-m’en un (${numero} HT par mois), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.`,
           pro: 'Je n’ai ni l’application WhatsApp Business ni numéro : fournis-m’en un (inclus en formule Pro), relie-le par Meta en numéro API, et guide-moi pour créer mon compte Meta Business en chemin.',
         },
-        pasAPas: '/aide/connecter-mon-numero-whatsapp/',
+        pasAPas: '/aide/numero-fourni-par-messaging-me/',
       },
       {
         // Le Pro par la console (lot 3c) : la console pose elle-même les questions du numéro.
@@ -639,7 +639,7 @@ const en = (): TexteTunnel => {
           free: `I already have the WhatsApp Business app, but I want another number for Messaging Me: provide one (${numero} excl. VAT a month), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.`,
           pro: 'I already have the WhatsApp Business app, but I want another number for Messaging Me: provide one (included in Pro), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.',
         },
-        pasAPas: '/en/help/connect-my-whatsapp-number/',
+        pasAPas: '/en/help/get-a-number-provided-by-messaging-me/',
       },
       {
         id: 'fourni', situation: 'Without the WhatsApp Business app or a number', titre: deChezNous,
@@ -648,7 +648,7 @@ const en = (): TexteTunnel => {
           free: `I have neither the WhatsApp Business app nor a number: provide one (${numero} excl. VAT a month), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.`,
           pro: 'I have neither the WhatsApp Business app nor a number: provide one (included in Pro), connect it through Meta as an API number, and walk me through creating my Meta Business account along the way.',
         },
-        pasAPas: '/en/help/connect-my-whatsapp-number/',
+        pasAPas: '/en/help/get-a-number-provided-by-messaging-me/',
       },
       {
         id: 'console', situation: 'With the Pro plan, from the console', titre: 'Create your workspace: the console guides you', console: true,

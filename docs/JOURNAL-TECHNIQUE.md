@@ -4,6 +4,27 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-13 : Claude ne rend plus la main avant le code, et le numéro fourni a sa vidéo
+
+- **L'attente** (`a314d247`, API déployée le jour même, plugin 0.3.39) : au tournage de la vidéo 2, Claude avait
+  rendu la main après deux minutes sans paiement (« faites-moi signe »), puis le code était arrivé sans que personne
+  le lise. La consigne de chaque attente lui dit de rappeler l'attente sans rendre la main, sans demander de faire
+  signe, et de ne s'arrêter qu'après une quarantaine d'appels sans changement. **Éprouvé au tournage de la vidéo 3** :
+  Claude a écrit « Toujours en attente… » puis « C'est fait : ton numéro … est relié », sans qu'on lui écrive.
+- **La vidéo 2** (ce lot) : la page publique « Prendre un numéro fourni par Messaging Me » (fr, en) porte le film du
+  parcours (2 min 59, `FilmAide.tutoriel` relève le plafond à 240 s pour un tutoriel) et six étapes illustrées. Le
+  guide du numéro, la page de dépannage et la page de connexion de la console (« Voir la vidéo (3 min) ») y mènent ;
+  `get_setup_state` la rend dans `aide.numero_fourni`, et la consigne du mode `fourni` la fait donner avant le lien
+  (pas avec la ligne de crédit, dont la fenêtre n'est pas celle du film). Plugin 0.3.41.
+- **La vidéo 3** (ce lot) : le film « garder son application WhatsApp Business » (ordinateur et téléphone côte à côte,
+  3 min 46) entre dans la page qui existait déjà, et son étape 6 dit le chemin dans l'application (menu, Paramètres,
+  Compte, Plateforme Business) et le code d'accès quand le scan ne passe pas.
+- **Le montage** : la page de paiement Stripe (carte, cryptogramme, code promo) restait visible 1/6 de seconde dans les
+  premières versions envoyées à Julien ; les cinq images sont effacées de la source, les versions exposées supprimées.
+- **Relecture** : aucun rouge ; trois jaunes corrigés avant le push, les autres au backlog.
+
+
+
 ## 2026-11-13 : la grille des formules réécrite, l'en-tête d'un modèle pris dans la médiathèque, « ligne de crédit » partout
 
 - **La demande** (Julien, le même jour) : la grille des tarifs de la vitrine réécrite formule par formule ; le Pro et le

@@ -1,5 +1,16 @@
 # todo.md : backlog
 
+## 🟡 La page du numéro fourni (relecture du 2026-11-13)
+
+- Les pages anglaises montrent les captures françaises (Claude, console, Meta) : le dire, ou des captures anglaises.
+- `aide.numero_fourni` (adresses d'aide) et `numero_fourni` (le numéro, dans l'attente) : deux sens pour un nom.
+- Le lien « Voir la vidéo » de la console s'affiche puis se masque quand la ligne de crédit se lit après coup ;
+  « Je vous ai acheté un numéro » (dépannage) mène à la fenêtre de Meta même pour un numéro mis dans l'application.
+- `NUMERO_FOURNI_TITRE` (`depannage-textes.ts`) recopie le titre de la fiche ; les deux films pèsent 15 Mo chacun.
+- Le film montre le jeton (expiré) du lien de connexion et Claude disant le Crédit WhatsApp (ancien nom) « avec l'offre Pro »
+  seulement : à refaire au prochain tournage.
+
+
 ## 🟡 Le Crédit WhatsApp ne se vend plus à un numéro connecté avec sa carte : ce qui reste (plan `docs/superpowers/plans/2026-11-13-credit-whatsapp-numero-avec-carte.md`)
 
 - Ce que dit Claude, laissé à la session de l'aide à la connexion qui a ces fichiers en cours : la skill

@@ -11,6 +11,7 @@ import { repriseDuNumeroFourni } from '@/lib/lien-numero';
 import { ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '@/lib/partage/etapes-numero-fourni';
 import { PREREQUIS_META } from '@/lib/partage/etapes-meta';
 import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
+import { AIDE_NUMERO_FOURNI } from '@/lib/partage/aide-connexion';
 import { QrApplication } from '@/components/QrApplication';
 import {
   ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, MAGASINS_APPLICATION, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, QUESTION_APPLICATION,
@@ -238,6 +239,13 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t('Ouvrir la fenêtre de Meta', 'Open the Meta window')}
     </Bouton>
   );
+  // Le numéro fourni par la fenêtre de Meta, en vidéo (lot 6 de l'aide à la connexion) : pas pour l'application, ni pour
+  // la ligne, dont la fenêtre n'est pas celle que montre le film.
+  const lienVideo = !dansApplication && !ligne ? (
+    <a data-testid="video-numero-fourni" href={t(AIDE_NUMERO_FOURNI.fr, AIDE_NUMERO_FOURNI.en)} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-xs font-medium text-brand-600 underline underline-offset-2 hover:text-brand-700">
+      {t('Voir la vidéo (3 min)', 'Watch the video (3 min)')}
+    </a>
+  ) : null;
   // Le lien de Claude Code arrive avec son choix : pas de retour vers un choix qu'il n'a pas proposé.
   const boutonRetour = choixInitial === null
     ? <Bouton type="button" variante="discret" onClick={() => setChoix(null)}>{t('Retour', 'Back')}</Bouton>
@@ -424,6 +432,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
               ? t('Nous vous attribuons un numéro britannique dédié, que vous ajouterez dans l’application WhatsApp Business.', 'We assign you a dedicated UK number, which you then add in the WhatsApp Business app.')
               : t('Nous vous attribuons un numéro britannique dédié, que vous connecterez dans la fenêtre de Meta.', 'We assign you a dedicated UK number, which you then connect in the Meta window.')}
           </p>
+          {lienVideo}
           {abonne && rendu ? (
             // Rendu par « Abandonner », mais l'abonnement court toujours : on le dit, avec ce qu'on peut en faire.
             <p data-testid="numero-rendu" className="mt-3 text-sm text-ink-700">
@@ -483,6 +492,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
             {!dansApplication && (
               <p data-testid="si-seul-text-message" className="mt-2 pl-5 text-xs text-ink-500">{t(SI_SEUL_TEXT_MESSAGE.fr, SI_SEUL_TEXT_MESSAGE.en)}</p>
             )}
+            {lienVideo && <div className="pl-5">{lienVideo}</div>}
             <div className="mt-4">
               {/* Mis dans l'application (plan 2026-10-31) : une fois le compte créé, la même fenêtre qu'en coexistence. */}
               {!dansApplication ? boutonFenetre : !application ? boutonCoexistence : !qrDemande ? (

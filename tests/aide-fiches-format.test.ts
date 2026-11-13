@@ -204,6 +204,8 @@ describe('les fiches publiques', () => {
     'creer-une-publicite': ['parler-aux-clients', 12],
     // Le Crédit WhatsApp, à la vente le 2026-11-11 (aide à la connexion, lot 3v-2d), après la connexion du numéro.
     'payer-ses-messages-sans-carte-chez-meta': ['demarrer-console', 4],
+    // Le mode op D, un numéro fourni par la fenêtre de Meta, avec sa vidéo (lot 6, 2026-11-13) : à côté du mode op A.
+    'numero-fourni-par-messaging-me': ['demarrer-claude', 5],
   };
   /** Les six écrans qui portent « Comment faire », et leur page. */
   const COMMENT_FAIRE: Record<string, string> = {
@@ -249,7 +251,7 @@ describe('les fiches publiques', () => {
     // Free (`ECRANS_FREE`, `MODULES_OUVERTS_AU_FREE`) : aucune offre à dire.
     expect(publiques.filter((f) => !f.publication.offre).map((f) => f.cle).sort())
       .toEqual(['ce-qu-il-faut-chez-meta', 'choisir-mon-offre', 'connecter-mon-numero-whatsapp',
-        'garder-mon-application-whatsapp-business', 'la-fenetre-de-24-heures']);
+        'garder-mon-application-whatsapp-business', 'la-fenetre-de-24-heures', 'numero-fourni-par-messaging-me']);
   });
 
   it('🔴 spec Business : chaque fiche dit l’offre la moins chère qui ouvre sa fonction (publicités, RCS et chaînes : l’Entreprise)', () => {
