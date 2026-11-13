@@ -13,7 +13,6 @@
 
 ## 🟡 Le Crédit WhatsApp ne se vend plus à un numéro connecté avec sa carte : ce qui reste (plan `docs/superpowers/plans/2026-11-13-credit-whatsapp-numero-avec-carte.md`)
 
-- `aide:charger` en production après le déploiement : la fiche publique et `recharger-le-credit-whatsapp` ont changé.
 - L'espace de l'essai 257 : sa reconnexion passerait par le Support (retirer notre compte de messagerie direct, puis la
   fenêtre ; non éprouvé, modèles et agent de Meta à refaire), si Julien le décide.
 - Relecture du lot 1 (aucun rouge restant ; le numéro délié, rouge, corrigé avant le push ; la carte muette pour un numéro
@@ -409,8 +408,6 @@ Aucun rouge ; à reprendre au lot suivant qui touche ces chemins.
   **Reste** : l'étoile de `contact_envoye` et d'`interet_developpeur` à leur première apparition (Administration >
   Affichage des données > Événements, onglet « Événements récents »). Les visites de test du 2026-11-06 ont le nom
   d'hôte `localhost`.
-- **La fiche `partager-mes-etapes-avec-meta`**, retouchée pour la bannière à trois boutons, n'entre dans le bot d'aide
-  qu'au prochain `aide:charger` (image déployée qui la contient).
 - **Les jaunes de la relecture** : corrigés le 2026-11-09 (lot 2 du plan). Le lot 2 n'a pas eu de relecture : la
   suivante qui touche la bannière le relit.
 
