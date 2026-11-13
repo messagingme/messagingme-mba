@@ -4,6 +4,37 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-13 : ce que dit Claude d'un numéro connecté avec sa carte, et la marque posée avant la pose
+
+- **Le constat** (reste du lot « numéro avec carte », `bd5e5222`) : `watch_whatsapp_connection` disait encore
+  « connecté sans carte… sa ligne de crédit s'ouvre sous 24 h ouvrées » à un numéro connecté avec sa carte dont l'option
+  est payée, et ses trois suites de la reconnexion (`reconnecter`, `regler`, `support`) étaient mortes depuis que la
+  fenêtre ne se rouvre plus à un espace qui a un numéro. `get_setup_state` et l'Accueil taisaient « Ajoutez votre carte
+  chez Meta » pour ce même numéro : la même règle, `creditPaieMeta`, les trois fois. Plan : section « Lot 2 » de
+  `2026-11-13-credit-whatsapp-numero-avec-carte.md`, en direct puis une relecture du diff.
+- **Ce qui a changé** (`69d71c83`) : `creditPaieMeta` prend `numeroAvecCarte` (requis) : l'option payée n'attend pas un
+  tel numéro, une ligne active paie quand même (la précédence de la carte de Connecter WhatsApp). `get_setup_state` lit
+  la règle (illisible, lue comme oui) ; l'Accueil passe le champ de la route de l'état, en production depuis le lot 1.
+  `paiementDuNumero` rend `avec_carte` quand la ligne aurait pu prendre le numéro (l'option payée, ou une Entreprise sans
+  ligne) : Claude dit le texte (1), le Support pour changer, et les étapes de la carte ; ailleurs la règle ne se lit
+  pas. `paiementStable` relit tant qu'il dit `avec_carte`.
+- **Le rouge de la relecture** (`61bbdc86`) : à la connexion par la fenêtre, la ligne se posait (attache du partenaire
+  vérifiée, des secondes, jusqu'à cinq appels) AVANT toute marque ; pendant ce temps le numéro relié se lisait « avec sa
+  carte », bien au-delà des cinq pas de relecture, et Claude aurait dit à qui venait de se connecter sans carte
+  d'ajouter la sienne (une carte qui fait ensuite refuser l'attache). Le code d'avant disait `attente`, juste : une
+  régression du lot, qu'aucun faux instantané ne pouvait montrer. `connexionParLaLigne` marque désormais AVANT la pose ;
+  la ligne posée éteint la marque (les deux dates prises en base, propriété tenue par le test d'intégration de la
+  marque). Test : `numeroAvecCarte` lu PENDANT la pose vaut faux, vu échouer avant. Reste au backlog la course plus
+  courte d'avant la marque (abonnement, `/register`, crédit offert) et cinq jaunes.
+- **Vérifié** : chaque test neuf vu échouer avant le code, dont l'e2e de l'Accueil (build sans le correctif : le bandeau
+  tu à tort) ; 81 e2e verts sur l'Accueil, la carte « Qui paie Meta », l'onglet et le bandeau, en build de production ;
+  la suite racine entière (999 fichiers, 17 090 tests), `tsc`, eslint, l'auto-attaque (2 083 sondes, rien) ; la CI des
+  deux workflows verte job par job.
+- **En production** le 2026-11-13 à 17 h 15 UTC (`61bbdc86`, run 43469162335, sans migration, approuvé dans GitHub) :
+  l'API `ready` et les trois conteneurs des workers sur l'image, `/health` à 200 ; la console par Vercel au push. Il
+  emportait aussi `d9664aed` (deux plans, aucun code). Restent `aide:charger` (les fiches des lots du jour, à Julien) et
+  l'essai réel 260.
+
 ## 2026-11-13 : Claude ne rend plus la main avant le code, et le numéro fourni a sa vidéo
 
 - **L'attente** (`a314d247`, API déployée le jour même, plugin 0.3.39) : au tournage de la vidéo 2, Claude avait
