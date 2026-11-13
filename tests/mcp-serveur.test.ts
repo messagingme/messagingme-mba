@@ -949,6 +949,8 @@ describe('serveur MCP : cohérence du catalogue', () => {
       // Offres v2 : une clé de plus à chaque appel, rien chez un tiers ; le Pro ouvre une session chez Stripe à chaque appel.
       create_api_key: [true, false, false],
       subscribe_pro: [true, false, true],
+      // La ligne de crédit (plan 2026-11-13) : une session chez Stripe à chaque appel, comme le Pro.
+      take_credit_line: [true, false, true],
     });
     // Une lecture ne touche personne hors de l'espace, à DEUX exceptions nommées : `preview_site` va lire un site tiers,
     // `preview_shopify_customers` les clients de la boutique chez Shopify (lot 3).

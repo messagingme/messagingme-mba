@@ -647,6 +647,7 @@ export const mcpOffreInerte: Pick<DepsMcp, 'offre' | 'offres' | 'cles'> = {
       ongletCreditWhatsapp: false,
     }),
     pro: { ouvrir: neDevraitPasEtreAppelee('offre.pro.ouvrir') },
+    option: { ouvrir: neDevraitPasEtreAppelee('offre.option.ouvrir'), etat: neDevraitPasEtreAppelee('offre.option.etat') },
   },
 };
 

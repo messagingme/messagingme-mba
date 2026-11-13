@@ -119,6 +119,7 @@ Les outils marqués « connexion OAuth requise » agissent au nom d’une person
 | get_setup_state | mcp:read | Où en est la mise en service de l’espace (numéro, agent IA, répondeur, bulle, crédit, offre), et l’étape suivante avec ses outils. À appeler en premier pour mettre un espace en service, ou reprendre. |
 | get_plan | mcp:read | L’offre de l’espace, ses limites et ce qui en est consommé, avec le lien pour passer en formule Pro. |
 | subscribe_pro | mcp:write connexion OAuth requise | Ouvrir le paiement de la formule Pro, au mois ou à l’année, montant hors taxe ; la personne paie elle-même sur la page de Stripe, et revient sur « Paiement reçu ». |
+| take_credit_line | mcp:write connexion OAuth requise | Ouvrir le paiement de l’option ligne de crédit, 30 € HT par numéro et par mois, avant de connecter le numéro ; la personne paie elle-même sur la page de Stripe, et revient sur « Paiement reçu ». |
 | get_credit | mcp:read | Le solde du crédit IA et ses derniers mouvements. |
 | buy_credit | mcp:write connexion OAuth requise | Ouvrir le paiement d’une recharge, montant hors taxe ; la personne paie elle-même sur la page de Stripe. |
 | create_api_key | mcp:write connexion OAuth requise | Créer la clé d’API de votre application, montrée une seule fois : elle passe par la conversation, à ranger aussitôt dans le fichier .env. |

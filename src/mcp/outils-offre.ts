@@ -6,6 +6,8 @@ import { LOURDE, ecriture, personneRequise, plafondCouteux, signataire } from '.
 import { creerCleApi } from '../auth/creer-cle';
 import { PRIX_PRO_HT_CENTIMES } from '../offres/offres';
 import type { PeriodicitePro, RetourPro } from '../stripe/pro';
+import { PLACES_OPTION_MAX, PRIX_OPTION_WA_HT_CENTIMES } from '../stripe/option-credit-whatsapp';
+import type { StatutOption } from '../credit-whatsapp/options.pg';
 import type { Issue } from '../lib/issue';
 
 /**
@@ -27,6 +29,16 @@ export interface DepsOffreMcp {
  * (déconnexion par le client, jeton rejoué, fin de vie) la laissent vivre, décision de Julien du 2026-11-06.
  */
 const DROITS_PAR_CLAUDE = ['contacts:read', 'contacts:write', 'sends:create', 'conversations:read', 'templates:write'] as const satisfies readonly ApiScope[];
+
+/**
+ * La prise de l'option ligne de crédit depuis Claude (`take_credit_line`, plan 2026-11-13) : la MÊME ouverture que l'onglet
+ * de la console (`ouvrirOption`, câblée avec l'origine `claude`, retour sur la page publique « paiement reçu »), et l'option
+ * vivante de l'espace, pour que Claude sache si elle est payée sans ouvrir un second paiement.
+ */
+export interface DepsOptionMcp {
+  ouvrir(tenantId: string, places: number, payeur: string): Promise<Issue<{ url: string }>>;
+  etat(tenantId: string): Promise<{ statut: StatutOption; places: number } | null>;
+}
 
 const PERIODICITES: readonly PeriodicitePro[] = ['mois', 'an'];
 
@@ -108,6 +120,53 @@ export const OUTILS_OFFRE: OutilMcp[] = [
         taxe: 'calculée par Stripe sur la page de paiement, selon le pays et le numéro de TVA saisis',
         // L'essai (spec offres v2) : rien n'est prélevé avant sa fin, la carte est demandée sur la page.
         ...(p.essaiJours ? { essai_jours: p.essaiJours } : {}),
+      };
+    },
+  },
+  {
+    ...ficheOutilMcp('take_credit_line'),
+    fonction: null,
+    description:
+      'Opens the payment of the Credit line option and returns the URL of the Stripe checkout page; the payment itself is '
+      + 'made by the person on that page. With the option, the WhatsApp messages of the workspace numbers are paid by '
+      + 'the Messaging Me credit line, prepaid by the person (buy_credit, credit "whatsapp"), with no card at Meta: '
+      + `€${PRIX_OPTION_WA_HT_CENTIMES / 100} EXCLUDING TAX per number per month, paid when taken, even during the trial `
+      + 'of the Pro plan. It is taken on a Pro workspace (or a confirmed Business): first subscribe_pro, then wait until '
+      + 'get_plan shows Pro, then this tool, ALWAYS before start_whatsapp_connection: a number connected with its card at '
+      + 'Meta can no longer move onto the credit line (refusal numero_avec_carte; the person writes to Support). Once '
+      + 'Stripe has confirmed it, the connection link opens without a card at Meta. A credit line does not pay a number '
+      + 'that keeps the WhatsApp Business app. Called again while the option exists, it opens nothing and returns '
+      + 'deja_prise with its statut (actif: paid; en_retard: a payment is due) and its places. Refusals keep their code: '
+      + 'option_avec_le_pro (not on Pro), option_inutile (Entreprise, already included), option_apres_essai (a Business '
+      + 'not confirmed yet), formule_en_retard, option_en_cours (another payment is opening: retry in a few seconds). '
+      + LOURDE,
+    // Monde ouvert : elle crée une session chez Stripe. Non idempotente : une session de plus à chaque appel.
+    annotations: ecriture('Take the credit line option', false, true),
+    entree: {
+      type: 'object',
+      properties: {
+        places: {
+          type: 'integer', minimum: 1, maximum: PLACES_OPTION_MAX,
+          description: `How many numbers the option covers (1 by default; beyond ${PLACES_OPTION_MAX}, contact us).`,
+        },
+      },
+    },
+    async executer(deps, tenantId, args, personne) {
+      const payeur = signataire(personne);
+      const places = args.places ?? 1;
+      if (typeof places !== 'number' || !Number.isInteger(places) || places < 1 || places > PLACES_OPTION_MAX) {
+        throw new RefusOutil(`places : un entier de 1 à ${PLACES_OPTION_MAX}`);
+      }
+      await plafondCouteux(deps, tenantId);
+      // Déjà prise : son état, jamais un second paiement (la prise le refuserait, sans dire si elle est payée).
+      const vivante = await deps.offre.option.etat(tenantId);
+      if (vivante !== null) return { deja_prise: true, statut: vivante.statut, places: vivante.places };
+      const o = valeurOuRefus(await deps.offre.option.ouvrir(tenantId, places, payeur));
+      return {
+        url: o.url,
+        places,
+        montant_ht_eur_par_mois: places * PRIX_OPTION_WA_HT_CENTIMES / 100,
+        taxe: 'calculée par Stripe sur la page de paiement, selon le pays et le numéro de TVA saisis',
       };
     },
   },

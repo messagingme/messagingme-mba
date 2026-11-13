@@ -5421,6 +5421,7 @@ Tools marked "OAuth connection required" act on behalf of a person: an API key d
 | get_setup_state | mcp:read | Where the workspace setup stands (number, AI agent, responder, bubble, credit, plan), and the next step with its tools. Call it first to set up a workspace, or to resume. |
 | get_plan | mcp:read | The workspace plan, its limits and current usage, with the link to upgrade. |
 | subscribe_pro | mcp:write OAuth connection required | Open the Pro plan payment, monthly or yearly, amount before tax; the person pays on Stripe’s page and comes back to “Payment received”. |
+| take_credit_line | mcp:write OAuth connection required | Open the credit line option payment, €30 excl. tax per number per month, before connecting the number; the person pays on Stripe’s page and comes back to “Payment received”. |
 | get_credit | mcp:read | The AI credit balance and its latest movements. |
 | buy_credit | mcp:write OAuth connection required | Open a top-up payment, amount before tax; the person pays on the Stripe page themselves. |
 | create_api_key | mcp:write OAuth connection required | Create your application’s API key, shown only once: it passes through the conversation, to put at once in the .env file. |

@@ -69,6 +69,8 @@ export const CATALOGUE_MCP = {
   /** La clé de l'application et le paiement du Pro (spec offres v2) : ce qu'une Free ne fait plus dans la console. */
   create_api_key: { scope: 'mcp:write', exigePersonne: true },
   subscribe_pro: { scope: 'mcp:write', exigePersonne: true },
+  /** L'option ligne de crédit prise depuis Claude (plan 2026-11-13), avant la connexion du numéro. */
+  take_credit_line: { scope: 'mcp:write', exigePersonne: true },
   return_number_at_plan_end: { scope: 'mcp:write', exigePersonne: true },
   get_number_subscription: { scope: 'mcp:read' },
   manage_number_subscription: { scope: 'mcp:write', exigePersonne: true },

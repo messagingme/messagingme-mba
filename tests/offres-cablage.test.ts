@@ -66,7 +66,9 @@ describe('le câblage de l’offre', () => {
     expect(api).toMatch(/proEnVente: proDeLaConsole\.stripe !== null && proDeLaConsole\.prixProMois !== '' && proDeLaConsole\.prixProAn !== '',/);
     expect(api.match(/^\s+offre: \{ vue: vueOffre \},$/gm)).toHaveLength(1);
     // Claude lit la MÊME vue, et paie le Pro par la MÊME ouverture que la console, en revenant où l'outil le demande (offres v2).
-    expect(api).toMatch(/offre: \{\s+vue: vueOffre,\s+pro: \{ ouvrir: \(tenant, periodicite, payeur, retour\) => ouvrirPro\(proDeLaConsole, tenant, periodicite, payeur, retour\) \},\s+\},/);
+    expect(api).toMatch(/offre: \{\s+vue: vueOffre,\s+pro: \{ ouvrir: \(tenant, periodicite, payeur, retour\) => ouvrirPro\(proDeLaConsole, tenant, periodicite, payeur, retour\) \},/);
+    // L'option ligne de crédit prise par Claude : la MÊME prise que l'onglet, avec le retour sur « paiement reçu » (plan 2026-11-13).
+    expect(api).toMatch(/option: \{\s+ouvrir: \(tenant, places, payeur\) => ouvrirOption\(optionDeLaConsole, tenant, places, payeur, 'claude'\),\s+etat: \(tenant\) => optionsCreditWhatsapp\.vivante\(tenant\),\s+\},\s+\},/);
     // La clé d'API créée par Claude bute sur le MÊME plafond de l'offre que la console.
     expect(api.match(/limiteCles: limiteClesDeLOffre/g)).toHaveLength(2);
     // L'exploitation vide le cache de CE process : sans quoi un espace ramené en Base garderait l'Entreprise 30 s.

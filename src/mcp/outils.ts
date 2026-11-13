@@ -30,7 +30,7 @@ import { AgentDeMetaGardeLeFil, type ControleDuFil, type IssueRendreLaMain } fro
 import { modeEffectif, reglagesSousLOffre } from '../repondeur/mode';
 import { OUTILS_AGENT, signataire, type DepsAgentMcp } from './outils-agent';
 import { estUuid } from '../http/scope';
-import { OUTILS_OFFRE, type DepsOffreMcp } from './outils-offre';
+import { OUTILS_OFFRE, type DepsOffreMcp, type DepsOptionMcp } from './outils-offre';
 import { OUTILS_SCENARIOS, type DepsScenariosMcp } from './outils-scenarios';
 import type { DepsCreationCle } from '../auth/creer-cle';
 import { OUTILS_EVENEMENTS, type DepsEvenementsMcp } from './outils-evenements';
@@ -145,7 +145,7 @@ export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp {
    * L'offre de l'espace (lot 6) : la MÊME vue que la console (`GET /tenants/:tenantId/offre`), pour `get_plan`, et le MÊME
    * paiement du Pro que `POST /offre/paiement`, pour `subscribe_pro` (spec offres v2).
    */
-  offre: { vue(tenantId: string): Promise<VueOffre>; pro: DepsOffreMcp };
+  offre: { vue(tenantId: string): Promise<VueOffre>; pro: DepsOffreMcp; option: DepsOptionMcp };
   /** La création d'une clé d'API (spec offres v2) : la MÊME fonction que la route de la console, pour `create_api_key`. */
   cles: DepsCreationCle;
   /** Un message par son identifiant public (lot 13) : la MÊME lecture que `GET /v1/messages/{id}`, pour `get_message_status`. */

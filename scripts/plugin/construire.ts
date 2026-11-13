@@ -281,11 +281,11 @@ export const CONSTRUIRE: readonly FamilleCapacites[] = [
       },
       {
         texte: {
-          fr: 'La formule Pro, le crédit IA et l’abonnement du numéro fourni, réglés depuis Claude.',
-          en: 'The Pro plan, AI credit and the provided number’s subscription, handled from Claude.',
+          fr: 'La formule Pro, la ligne de crédit, le crédit IA et l’abonnement du numéro fourni, réglés depuis Claude.',
+          en: 'The Pro plan, the credit line, AI credit and the provided number’s subscription, handled from Claude.',
         },
         lien: { page: { fr: '/tarifs/', en: '/en/pricing/' } },
-        outils: ['get_plan', 'buy_credit', 'subscribe_pro', 'manage_number_subscription'],
+        outils: ['get_plan', 'buy_credit', 'subscribe_pro', 'take_credit_line', 'manage_number_subscription'],
       },
     ],
   },

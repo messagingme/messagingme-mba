@@ -5,6 +5,7 @@ import { DROIT_RELAIS, DROITS_CLE_APPLICATION, VARIABLE_CLE } from '../web/lib/p
 import { PRIX_PRO_HT_CENTIMES } from '../src/offres/offres';
 import { AUTORISATION_REVOQUEE, type PlafondCles } from '../src/auth/api-key-store.pg';
 import type { PeriodicitePro } from '../src/stripe/pro';
+import { PLACES_OPTION_MAX, PRIX_OPTION_WA_HT_CENTIMES } from '../src/stripe/option-credit-whatsapp';
 
 /**
  * CE QU'UNE FREE FAIT DEPUIS CLAUDE CODE PLUTÔT QUE DANS LA CONSOLE (spec offres v2, livraison 4) : créer la clé de son
@@ -16,11 +17,16 @@ const T = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
 const PERSONNE = { userId: 'u1', autorisationId: 'aut-1' };
 const outil = (nom: string) => OUTILS.find((o) => o.nom === nom)!;
 
-function deps(o: { limiteCles?: number | null; creee?: boolean | 'revoquee'; couteuxAccepte?: boolean; pro?: 'ok' | 'entreprise' | 'portail' | 'essai' } = {}) {
+function deps(o: {
+  limiteCles?: number | null; creee?: boolean | 'revoquee'; couteuxAccepte?: boolean; pro?: 'ok' | 'entreprise' | 'portail' | 'essai';
+  /** La prise de l'option : un refus de `ouvrirOption` (son code), ou l'option déjà vivante. */
+  option?: { refus?: string; vivante?: { statut: 'actif' | 'en_retard' | 'resilie'; places: number } };
+} = {}) {
   const cap = {
     creations: [] as Array<{ name: string; scopes: string[]; plafond: PlafondCles; autorisation: string | null }>,
     audit: [] as Array<{ action: string; userId: string | null; detail: unknown }>,
     pro: [] as Array<{ periodicite: PeriodicitePro; payeur: string; retour: string }>,
+    option: [] as Array<{ places: number; payeur: string }>,
   };
   const d = {
     cles: {
@@ -48,6 +54,15 @@ function deps(o: { limiteCles?: number | null; creee?: boolean | 'revoquee'; cou
               ? { ok: true as const, valeur: { url: 'https://billing.stripe.com/p/session/portail', portail: true } }
               : { ok: true as const, valeur: { url: 'https://checkout.stripe.com/c/pay/cs_pro', portail: false } };
         },
+      },
+      option: {
+        ouvrir: async (_t: string, places: number, payeur: string) => {
+          cap.option.push({ places, payeur });
+          return o.option?.refus
+            ? { ok: false as const, statut: 409 as const, erreur: `refus ${o.option.refus}`, details: { code: o.option.refus } }
+            : { ok: true as const, valeur: { url: 'https://checkout.stripe.com/c/pay/cs_option' } };
+        },
+        etat: async () => o.option?.vivante ?? null,
       },
     },
     couteux: { consommer: async () => ({ accepte: o.couteuxAccepte ?? true, attenteMs: 3000 }) },
@@ -136,10 +151,48 @@ describe('les outils MCP d’une Free : la clé de son application et le Pro', (
     expect(outil('subscribe_pro').description).toMatch(/Business or Entreprise workspace is refused/);
   });
 
-  it('🔴 les deux comptent dans les opérations lourdes : refusées, elles n’appellent ni la création ni Stripe', async () => {
+  it('🔴 les trois comptent dans les opérations lourdes : refusées, elles n’appellent ni la création ni Stripe', async () => {
     const { d, cap } = deps({ couteuxAccepte: false });
     await expect(outil('create_api_key').executer(d, T, { name: 'x' }, PERSONNE)).rejects.toBeInstanceOf(RefusOutil);
     await expect(outil('subscribe_pro').executer(d, T, { periodicite: 'mois' }, PERSONNE)).rejects.toBeInstanceOf(RefusOutil);
-    expect([cap.creations, cap.pro]).toEqual([[], []]);
+    await expect(outil('take_credit_line').executer(d, T, {}, PERSONNE)).rejects.toBeInstanceOf(RefusOutil);
+    expect([cap.creations, cap.pro, cap.option]).toEqual([[], [], []]);
+  });
+
+  it('🔴 take_credit_line : une personne requise, l’adresse de Stripe, 1 numéro par défaut et 30 € HT par numéro', async () => {
+    expect(outil('take_credit_line').exigePersonne).toBe(true);
+    const { d, cap } = deps();
+    expect(await outil('take_credit_line').executer(d, T, {}, PERSONNE)).toMatchObject({
+      url: 'https://checkout.stripe.com/c/pay/cs_option', places: 1, montant_ht_eur_par_mois: PRIX_OPTION_WA_HT_CENTIMES / 100,
+    });
+    expect(await outil('take_credit_line').executer(d, T, { places: 3 }, PERSONNE)).toMatchObject({ places: 3, montant_ht_eur_par_mois: 3 * PRIX_OPTION_WA_HT_CENTIMES / 100 });
+    expect(cap.option).toEqual([{ places: 1, payeur: 'u1' }, { places: 3, payeur: 'u1' }]);
+    // Ce que le schéma annonce, l'outil l'applique (règle des bornes) : un entier de 1 à PLACES_OPTION_MAX.
+    expect(outil('take_credit_line').entree).toMatchObject({ properties: { places: { type: 'integer', minimum: 1, maximum: PLACES_OPTION_MAX } } });
+    for (const places of [0, 2.5, '2', PLACES_OPTION_MAX + 1]) {
+      await expect(outil('take_credit_line').executer(d, T, { places }, PERSONNE)).rejects.toBeInstanceOf(RefusOutil);
+    }
+    expect(cap.option).toHaveLength(2);
+  });
+
+  it('🔴 take_credit_line : chaque refus de la prise remonte avec son code (Free, Entreprise, numéro avec sa carte, Pro à confirmer…)', async () => {
+    for (const code of ['option_avec_le_pro', 'option_inutile', 'numero_avec_carte', 'option_apres_essai', 'formule_en_retard', 'option_en_cours', 'option_indisponible']) {
+      await expect(outil('take_credit_line').executer(deps({ option: { refus: code } }).d, T, {}, PERSONNE)).rejects.toThrow(new RegExp(code));
+    }
+  });
+
+  it('🔴 take_credit_line : une option déjà vivante rend son état, sans ouvrir de second paiement', async () => {
+    const { d, cap } = deps({ option: { vivante: { statut: 'actif', places: 2 } } });
+    const r = await outil('take_credit_line').executer(d, T, {}, PERSONNE) as Record<string, unknown>;
+    expect(r).toEqual({ deja_prise: true, statut: 'actif', places: 2 });
+    expect(r).not.toHaveProperty('url');
+    expect(cap.option).toEqual([]);
+  });
+
+  it('🔴 take_credit_line dit l’ordre : après la confirmation du Pro, AVANT tout lien de connexion', () => {
+    const d = outil('take_credit_line').description;
+    expect(d).toMatch(/get_plan/);
+    expect(d).toMatch(/before .*start_whatsapp_connection/i);
+    expect(d).toMatch(/even during the trial/);
   });
 });

@@ -58,7 +58,7 @@ import { poserLaLigne, type DepsPose } from './credit-whatsapp/pose';
 import {
   arreterLesLignesEtLeursAttaches, creerAttacheLigne, relancerLesLignesEtLeursAttaches, type DepsCycleAttache,
 } from './credit-whatsapp/attache';
-import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
+import { brancherFinDeDroit, finDeDroitOption, optionChezStripe, optionEnVente, ouvrirOption, resilierOptionChezStripe, type DepsFinDeDroitOption, type DepsOptionCredit } from './stripe/option-credit-whatsapp';
 import { signalerConversion, signalerConversionDuPro, type DepsConversion } from './credit-whatsapp/conversion';
 import { lireEtatLigne } from './credit-whatsapp/etat-ligne';
 import { changerResiliationPro, demarrerProMaintenant, type DepsDemarrerPro, facturesDeLEspace, finPrevueChezStripe, tarifDuPro, type DepsGestionPro } from './stripe/gestion-pro';
@@ -3799,6 +3799,12 @@ async function main(): Promise<void> {
         offre: {
           vue: vueOffre,
           pro: { ouvrir: (tenant, periodicite, payeur, retour) => ouvrirPro(proDeLaConsole, tenant, periodicite, payeur, retour) },
+          // L'option ligne de crédit prise depuis Claude (`take_credit_line`, plan 2026-11-13) : la MÊME prise que l'onglet,
+          // retour sur « paiement reçu » ; son état, l'option vivante (le magasin appelé sur son objet, il lit `this.pool`).
+          option: {
+            ouvrir: (tenant, places, payeur) => ouvrirOption(optionDeLaConsole, tenant, places, payeur, 'claude'),
+            etat: (tenant) => optionsCreditWhatsapp.vivante(tenant),
+          },
         },
         // La création d'une clé d'API (spec offres v2) : la MÊME fonction que la route de la console, pour `create_api_key`.
         cles: { cles: apiKeyStore, limiteCles: limiteClesDeLOffre, audit: auditSink },
