@@ -108,6 +108,10 @@ export interface Voie {
   readonly titre: string; readonly plus: readonly string[]; readonly moins: readonly string[]; readonly liens?: readonly Lien[];
   /** Une mention mise en avant au-dessus du titre (l'essai du Pro, Julien, 2026-11-09 : « on comprend rien sinon »). */
   readonly badge?: string;
+  /** Le prix en grand sous le titre, et son unité dessous (les formules, 2026-11-13). */
+  readonly prix?: string; readonly unite?: string;
+  /** Une ligne au pied de la carte ; `{claude}` et `{codex}` y deviennent le logo et le nom de l'assistant. */
+  readonly note?: string;
 }
 /**
  * Une issue : `situation` se lit sans script, quand toutes les issues s'affichent l'une sous l'autre. `autre` mène à une
@@ -136,8 +140,6 @@ export interface TexteTunnel {
   readonly lexique: { readonly titre: string; readonly termes: readonly Mot[] };
   readonly questions: readonly Question[]; readonly issues: readonly Issue[];
   readonly plus: string; readonly moins: string; readonly recommencer: string;
-  /** Les flèches du carrousel des formules, sur le bureau. */
-  readonly defiler: { readonly precedente: string; readonly suivante: string };
   /** L'étape en cours (`{n}` son rang, `{max}` le plus long parcours de l'arbre, que `tunnel.ts` calcule), et le mot
    * de l'issue. */
   readonly progression: string; readonly fin: string;
@@ -197,28 +199,12 @@ export interface TexteTunnel {
 const fr = (): TexteTunnel => {
   const numero = euros(PRIX_NUMERO_AFFICHE_HT_CENTIMES, 'fr');
   const offres: readonly Voie[] = [
-    {
-      titre: 'Free, 0&nbsp;€ d’abonnement',
-      plus: ['Tout se fait en parlant à Claude Code ou Codex : votre numéro, votre agent IA, vos messages.', 'Sans limite de durée.'],
-      moins: ['Pas de console : il faut un agent IA comme Claude Code ou Codex.', `${milliers(limite('base', 'contacts'), 'fr')} contacts et ${milliers(limite('base', 'envoisModelesMois'), 'fr')} modèles envoyés par mois.`],
-    },
-    {
-      titre: `Pro, ${euros(PRIX_PRO_HT_CENTIMES.mois, 'fr')} HT par mois`,
-      badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`,
-      plus: ['La console : l’Inbox de l’équipe, les campagnes, les tableaux de bord.', 'Un numéro fourni, inclus.', `${ESSAI_PRO_JOURS}&nbsp;jours d’essai la première fois.`],
-      moins: [],
-    },
-    // Business et Entreprise (Julien, 2026-10-30) : leur contenu est celui de la page Tarifs, tenue égale au code.
-    {
-      titre: `Business, ${euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'fr')} HT par mois`,
-      plus: ['Tout Pro, plus le Meta Business Agent et HubSpot.', `${DROITS.business.limites.utilisateurs}&nbsp;utilisateurs et un accompagnement les deux premiers mois.`],
-      moins: ['Sur facture, après un échange avec nous.'],
-    },
-    {
-      titre: 'Entreprise, sur devis',
-      plus: ['Tout Business, plus le RCS, Salesforce et Dynamics, l’analyse des conversations et les publicités Click-to-WhatsApp.', 'Contacts, utilisateurs et webhooks à votre mesure.'],
-      moins: ['Un devis selon votre volume.'],
-    },
+    // Le nom et le prix, rien d'autre (Julien, 2026-11-13 : « pas clair, pas vendeur ; on va éviter les textes qui
+    // décrivent les options ») ; Free dit seulement ce qu'il faut pour s'en servir. Les prix sont ceux du code.
+    { titre: 'Free', prix: '0&nbsp;€', unite: 'sans limite de durée', note: 'Besoin d’un IDE&nbsp;: {claude} ou {codex}', plus: [], moins: [] },
+    { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
+    { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
+    { titre: 'Entreprise', prix: 'Sur devis', unite: 'selon votre volume', plus: [], moins: [] },
   ];
   const garder = 'Pas de compte Meta Business ? La fenêtre de Meta le crée en chemin, avec votre profil Facebook, puis vous propose un moyen de paiement.';
   // Qui paie Meta, juste après l'offre (révision du Crédit WhatsApp, lot B, textes validés par Julien le 2026-11-06).
@@ -410,7 +396,6 @@ const fr = (): TexteTunnel => {
       },
     ],
     plus: 'Pour :', moins: 'Contre :',
-    defiler: { precedente: 'Formules précédentes', suivante: 'Formules suivantes' },
     recommencer: 'Recommencer',
     progression: 'Question {n} sur {max} au plus', fin: 'Votre chemin',
     appels: {
@@ -481,27 +466,10 @@ const fr = (): TexteTunnel => {
 const en = (): TexteTunnel => {
   const numero = euros(PRIX_NUMERO_AFFICHE_HT_CENTIMES, 'en');
   const offres: readonly Voie[] = [
-    {
-      titre: 'Free, €0 a month',
-      plus: ['Everything happens by talking to Claude Code or Codex: your number, your AI agent, your messages.', 'With no time limit.'],
-      moins: ['No console: you need an AI agent such as Claude Code or Codex.', `${milliers(limite('base', 'contacts'), 'en')} contacts and ${milliers(limite('base', 'envoisModelesMois'), 'en')} templates sent a month.`],
-    },
-    {
-      titre: `Pro, ${euros(PRIX_PRO_HT_CENTIMES.mois, 'en')} excl. VAT a month`,
-      badge: `${ESSAI_PRO_JOURS}-day free trial`,
-      plus: ['The console: the team Inbox, campaigns, dashboards.', 'A provided number, included.', `A ${ESSAI_PRO_JOURS}-day trial the first time.`],
-      moins: [],
-    },
-    {
-      titre: `Business, ${euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'en')} excl. VAT a month`,
-      plus: ['Everything in Pro, plus the Meta Business Agent and HubSpot.', `${DROITS.business.limites.utilisateurs} users and dedicated support for the first two months.`],
-      moins: ['Invoiced, after a conversation with us.'],
-    },
-    {
-      titre: 'Enterprise, on quote',
-      plus: ['Everything in Business, plus RCS, Salesforce and Dynamics, conversation analysis and Click-to-WhatsApp ads.', 'Contacts, users and webhooks sized for you.'],
-      moins: ['A quote based on your volume.'],
-    },
+    { titre: 'Free', prix: '€0', unite: 'with no time limit', note: 'Needs an IDE: {claude} or {codex}', plus: [], moins: [] },
+    { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}-day free trial`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
+    { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
+    { titre: 'Enterprise', prix: 'On quote', unite: 'based on your volume', plus: [], moins: [] },
   ];
   const garder = 'No Meta Business account? Meta’s window creates it along the way, with your Facebook profile, then offers a payment method.';
   const paiement: readonly Voie[] = [
@@ -667,7 +635,6 @@ const en = (): TexteTunnel => {
       },
     ],
     plus: 'For:', moins: 'Against:',
-    defiler: { precedente: 'Previous plans', suivante: 'Next plans' },
     recommencer: 'Start again',
     progression: 'Question {n} of {max} at most', fin: 'Your path',
     appels: {

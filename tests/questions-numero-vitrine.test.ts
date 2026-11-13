@@ -38,6 +38,10 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
         expect(c.libelle[langue], c.offre).toBe(texte(avecFormule[i]!.libelle));
         expect(c.titre[langue], c.offre).toBe(texte(v.titre));
         expect(c.badge?.[langue], c.offre).toBe(v.badge === undefined ? undefined : texte(v.badge));
+        // Le prix, son unité et la mention au pied (2026-11-13) ; la vitrine y met les logos de Claude Code et de Codex.
+        expect(c.prix[langue], c.offre).toBe(texte(v.prix!));
+        expect(c.unite[langue], c.offre).toBe(texte(v.unite!));
+        expect(c.note?.[langue], c.offre).toBe(v.note === undefined ? undefined : texte(v.note).replace('{claude}', 'Claude Code').replace('{codex}', 'Codex'));
         expect(c.plus.map((x) => x[langue]), c.offre).toEqual(v.plus.map(texte));
         expect(c.moins.map((x) => x[langue]), c.offre).toEqual(v.moins.map(texte));
       });

@@ -32,48 +32,31 @@ export type FormuleChoisie = 'free' | 'pro' | 'business' | 'entreprise';
 
 export const CARTES_OFFRE: ReadonlyArray<{
   readonly offre: FormuleChoisie; readonly libelle: Texte; readonly titre: Texte; readonly badge?: Texte;
+  /** Le prix en grand, son unité dessous, et une ligne au pied (Free : ce qu'il faut pour s'en servir), 2026-11-13. */
+  readonly prix: Texte; readonly unite: Texte; readonly note?: Texte;
   readonly plus: readonly Texte[]; readonly moins: readonly Texte[];
 }> = [
   {
-    offre: 'free', libelle: { fr: 'Free', en: 'Free' },
-    titre: { fr: 'Free, 0 € d’abonnement', en: 'Free, €0 a month' },
-    plus: [
-      { fr: 'Tout se fait en parlant à Claude Code ou Codex : votre numéro, votre agent IA, vos messages.', en: 'Everything happens by talking to Claude Code or Codex: your number, your AI agent, your messages.' },
-      { fr: 'Sans limite de durée.', en: 'With no time limit.' },
-    ],
-    moins: [
-      { fr: 'Pas de console : il faut un agent IA comme Claude Code ou Codex.', en: 'No console: you need an AI agent such as Claude Code or Codex.' },
-      { fr: '100 contacts et 1 000 modèles envoyés par mois.', en: '100 contacts and 1,000 templates sent a month.' },
-    ],
+    offre: 'free', libelle: { fr: 'Free', en: 'Free' }, titre: { fr: 'Free', en: 'Free' },
+    prix: { fr: '0 €', en: '€0' }, unite: { fr: 'sans limite de durée', en: 'with no time limit' },
+    note: { fr: 'Besoin d’un IDE : Claude Code ou Codex', en: 'Needs an IDE: Claude Code or Codex' },
+    plus: [], moins: [],
   },
   {
-    offre: 'pro', libelle: { fr: 'Pro', en: 'Pro' },
-    titre: { fr: 'Pro, 49 € HT par mois', en: 'Pro, €49 excl. VAT a month' },
+    offre: 'pro', libelle: { fr: 'Pro', en: 'Pro' }, titre: { fr: 'Pro', en: 'Pro' },
     badge: { fr: '14 jours d’essai gratuit', en: '14-day free trial' },
-    plus: [
-      { fr: 'La console : l’Inbox de l’équipe, les campagnes, les tableaux de bord.', en: 'The console: the team Inbox, campaigns, dashboards.' },
-      { fr: 'Un numéro fourni, inclus.', en: 'A provided number, included.' },
-      { fr: '14 jours d’essai la première fois.', en: 'A 14-day trial the first time.' },
-    ],
-    moins: [],
+    prix: { fr: '49 €', en: '€49' }, unite: { fr: 'HT par mois', en: 'excl. VAT a month' },
+    plus: [], moins: [],
   },
   {
-    offre: 'business', libelle: { fr: 'Business', en: 'Business' },
-    titre: { fr: 'Business, 349 € HT par mois', en: 'Business, €349 excl. VAT a month' },
-    plus: [
-      { fr: 'Tout Pro, plus le Meta Business Agent et HubSpot.', en: 'Everything in Pro, plus the Meta Business Agent and HubSpot.' },
-      { fr: '5 utilisateurs et un accompagnement les deux premiers mois.', en: '5 users and dedicated support for the first two months.' },
-    ],
-    moins: [{ fr: 'Sur facture, après un échange avec nous.', en: 'Invoiced, after a conversation with us.' }],
+    offre: 'business', libelle: { fr: 'Business', en: 'Business' }, titre: { fr: 'Business', en: 'Business' },
+    prix: { fr: '349 €', en: '€349' }, unite: { fr: 'HT par mois', en: 'excl. VAT a month' },
+    plus: [], moins: [],
   },
   {
-    offre: 'entreprise', libelle: { fr: 'Entreprise', en: 'Enterprise' },
-    titre: { fr: 'Entreprise, sur devis', en: 'Enterprise, on quote' },
-    plus: [
-      { fr: 'Tout Business, plus le RCS, Salesforce et Dynamics, l’analyse des conversations et les publicités Click-to-WhatsApp.', en: 'Everything in Business, plus RCS, Salesforce and Dynamics, conversation analysis and Click-to-WhatsApp ads.' },
-      { fr: 'Contacts, utilisateurs et webhooks à votre mesure.', en: 'Contacts, users and webhooks sized for you.' },
-    ],
-    moins: [{ fr: 'Un devis selon votre volume.', en: 'A quote based on your volume.' }],
+    offre: 'entreprise', libelle: { fr: 'Entreprise', en: 'Enterprise' }, titre: { fr: 'Entreprise', en: 'Enterprise' },
+    prix: { fr: 'Sur devis', en: 'On quote' }, unite: { fr: 'selon votre volume', en: 'based on your volume' },
+    plus: [], moins: [],
   },
 ];
 

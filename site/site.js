@@ -372,8 +372,9 @@
 // l'offre (`data-offre`) ne laisse aux issues que les boutons de cette offre ; une réponse sans `data-vers` (« Je ne sais
 // pas ») déplie l'aide de sa question ; « Copier » met la demande à coller dans Claude Code dans le presse-papiers ; un lien d'issue
 // (`data-vers-chemin`) montre une autre issue ; `?offre=` dans l'adresse (free, pro, business, entreprise : les offres de la page Tarifs)
-// répond à la première question à l'ouverture, sans prendre le focus ; sur le bureau, les flèches (`data-defiler`) font défiler
-// le carrousel des formules.
+// répond à la première question à l'ouverture, sans prendre le focus. Depuis le 2026-11-13 (Julien : « quand le mec choisit
+// une option, les autres disparaissent et celle qu'il a choisie vient au milieu »), une question répondue ne garde que sa
+// réponse, au milieu et en blanc, reliée à la suivante par un fil ; recliquer cette réponse rouvre la question.
 (function () {
   [].slice.call(document.querySelectorAll('[data-guide-numero]')).forEach(function (g) {
     var questions = g.querySelector('.bt-questions');
@@ -398,7 +399,7 @@
       chemins.forEach(function (c) { c.classList.toggle('actif', c.getAttribute('data-chemin') === cle); });
     };
     var effacer = function (q) {
-      q.classList.remove('repondue');
+      q.classList.remove('repondue', 'rouverte');
       // La question de l'offre effacée : plus d'offre choisie, les issues retrouvent les boutons des deux.
       if (q.querySelector('[data-offre]')) g.removeAttribute('data-offre');
       [].slice.call(q.querySelectorAll('[data-vers]')).forEach(function (b) { b.setAttribute('aria-pressed', 'false'); });
@@ -430,6 +431,35 @@
     // l'annonce, puis lit l'issue depuis le début (ce qu'elle dit, puis les étapes ou les boutons de l'offre choisie) ; au
     // clavier, la touche Tab mène ensuite à ses liens et boutons, dans l'ordre.
     var premierArret = function (issue) { return issue && issue.querySelector('h3[tabindex]'); };
+    // La réponse choisie (2026-11-13) : les autres s'effacent, puis la question se replie (`repondue`) et la choisie glisse
+    // de sa place au milieu. Une transformation rejoue l'écart entre sa position d'avant et celle d'après (FLIP) ; sans
+    // animation (mouvement réduit, `?offre=` à l'ouverture), la question se replie tout de suite.
+    var choisir = function (q, b, anime, suite) {
+      var cible = b.closest('.bt-voie-choix') || b;
+      if (!anime || !cible.animate) { q.classList.add('repondue'); suite(); return; }
+      var autres = [].slice.call(q.querySelectorAll('.bt-voie-choix, .bt-reponses > .bouton')).filter(function (x) {
+        return x !== cible && x.offsetParent !== null;
+      });
+      q.setAttribute('data-anime', '');
+      var effaces = autres.map(function (x) {
+        return x.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.94)' }], { duration: 200, easing: 'ease-in', fill: 'forwards' });
+      });
+      var replier = function () {
+        var avant = cible.getBoundingClientRect();
+        q.classList.add('repondue');
+        effaces.forEach(function (a) { a.cancel(); });
+        var apres = cible.getBoundingClientRect();
+        if (apres.width > 0 && apres.height > 0) {
+          cible.animate([
+            { transformOrigin: '0 0', transform: 'translate(' + (avant.left - apres.left) + 'px,' + (avant.top - apres.top) + 'px) scale(' + (avant.width / apres.width) + ',' + (avant.height / apres.height) + ')' },
+            { transformOrigin: '0 0', transform: 'none' },
+          ], { duration: 560, easing: 'cubic-bezier(.2,.8,.2,1)' });
+        }
+        q.removeAttribute('data-anime');
+        suite();
+      };
+      if (effaces.length === 0) replier(); else setTimeout(replier, 200);
+    };
     // Une réponse donnée : sa question reste affichée, la réponse en évidence, et la suivante (ou l'issue) apparaît
     // dessous. `focus` vaut faux à l'ouverture de la page, quand l'adresse choisit l'offre : le focus et le défilement
     // restent au visiteur.
@@ -440,17 +470,14 @@
       // Une réponse peut porter une note (où vérifier son compte Meta Business) : seule la sienne s'affiche.
       [].slice.call(q.querySelectorAll('.bt-note-reponse')).forEach(function (n) { n.hidden = n.id !== b.getAttribute('data-note'); });
       if (b.hasAttribute('data-offre')) g.setAttribute('data-offre', b.getAttribute('data-offre'));
-      q.classList.add('repondue');
-      // Dans le carrousel, la carte choisie se met en vue (une formule choisie par l'adresse peut être hors champ).
-      var choisieCarte = b.closest('.bt-carrousel .bt-voie-choix');
-      var rangeeChoix = choisieCarte && choisieCarte.parentNode;
-      if (rangeeChoix && (choisieCarte.offsetLeft < rangeeChoix.scrollLeft
-        || choisieCarte.offsetLeft + choisieCarte.offsetWidth > rangeeChoix.scrollLeft + rangeeChoix.clientWidth)) {
-        rangeeChoix.scrollTo({ left: choisieCarte.offsetLeft, behavior: focus && doux ? 'smooth' : 'auto' });
-      }
+      q.classList.remove('rouverte');
       var aideOuverte = q.querySelector('.bt-aide');
       if (aideOuverte) aideOuverte.hidden = true;
       recommencer.hidden = false;
+      choisir(q, b, focus && doux, function () { suivre(vers, focus); });
+    };
+    // Ce qui vient après une réponse : la question suivante plus bas, ou l'issue.
+    var suivre = function (vers, focus) {
       var suivante = g.querySelector('[data-question="' + vers + '"]');
       if (suivante) {
         // Une question partagée par deux branches suit celle qui y mène : on l'affiche à la suite du parcours, avant
@@ -489,14 +516,6 @@
         }
         return;
       }
-      // Les flèches du carrousel des formules (bureau) : une carte de plus ou de moins.
-      var defiler = e.target.closest && e.target.closest('[data-defiler]');
-      if (defiler) {
-        var rangee = defiler.closest('[data-question]').querySelector('.bt-carrousel');
-        var une = rangee && rangee.querySelector('.bt-voie-choix');
-        if (une) rangee.scrollBy({ left: Number(defiler.getAttribute('data-defiler')) * (une.getBoundingClientRect().width + 16), behavior: doux ? 'smooth' : 'auto' });
-        return;
-      }
       var aide = e.target.closest && e.target.closest('[data-aide]');
       if (aide) {
         var texte = aide.closest('[data-question]').querySelector('.bt-aide');
@@ -512,8 +531,14 @@
       var b = (e.target.closest && e.target.closest('[data-vers]')) || (carte && carte.querySelector('[data-vers]'));
       if (b) {
         var q = b.closest('[data-question]');
-        // La réponse déjà choisie ne refait rien ; une autre change le chemin à partir de cette question.
-        if (b.getAttribute('aria-pressed') !== 'true') repondre(b, q, true);
+        if (q.hasAttribute('data-anime')) return;
+        // La réponse déjà choisie, recliquée, rouvre sa question (ou la referme) pour en changer ; une autre réponse change
+        // le chemin à partir de cette question.
+        if (b.getAttribute('aria-pressed') === 'true') {
+          if (q.classList.contains('repondue')) q.classList.toggle('rouverte');
+          return;
+        }
+        repondre(b, q, true);
         return;
       }
       // Un lien d'issue vers une autre (« Vous pouvez le garder ») : l'autre issue prend sa place, son titre le focus.

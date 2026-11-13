@@ -109,14 +109,21 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
     `                    <li class="${classe}"><svg class="ic" aria-hidden="true"><use href="#${icone}"/></svg><span class="bt-sr">${sr} </span>${x}</li>`;
   // La raison d'une carte grisée, une par formule : seule celle de la formule choisie plus haut s'affiche (`data-pour`,
   // la règle de `site.css`).
+  // Une carte de formule (2026-11-13) : son nom, son prix en grand et son unité, et au pied ce qu'il faut pour s'en servir
+  // (`note`, où `{claude}` et `{codex}` deviennent le logo et le nom de l'assistant) ; une carte sans liste n'en a pas.
+  const assistant = (cle: Assistant) => `<span class="bt-ide">${logo(cle)}${ASSISTANTS[cle]}</span>`;
   const voie = (v: Voie, r: Reponse) => [
     '                <section class="bt-voie">',
     ...(v.badge ? [`                  <p class="bt-badge">${v.badge}</p>`] : []),
     `                  <h4>${v.titre}</h4>`,
-    '                  <ul>',
-    ...v.plus.map(ligne('bt-plus', 'i-check', n.plus)),
-    ...v.moins.map(ligne('bt-moins', 'i-x', n.moins)),
-    '                  </ul>',
+    ...(v.prix ? [`                  <p class="bt-tarif"><strong>${v.prix}</strong>${v.unite ? `<span>${v.unite}</span>` : ''}</p>`] : []),
+    ...(v.plus.length + v.moins.length > 0 ? [
+      '                  <ul>',
+      ...v.plus.map(ligne('bt-plus', 'i-check', n.plus)),
+      ...v.moins.map(ligne('bt-moins', 'i-x', n.moins)),
+      '                  </ul>',
+    ] : []),
+    ...(v.note ? [`                  <p class="bt-voie-note">${v.note.replace('{claude}', assistant('claude')).replace('{codex}', assistant('codex'))}</p>`] : []),
     ...(v.liens ? [`                  <p class="bt-voie-liens">${v.liens.map((l) => `<a href="${l.href}" target="_blank" rel="noopener">${l.libelle}</a>`).join('')}</p>`] : []),
     ...Object.entries(r.grisee ?? {}).map(([offre, raison]) => `                  <p class="bt-grisee" data-pour="${offre}">${raison}</p>`),
     '                </section>',
@@ -129,18 +136,13 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
     const menent = toutes.filter(({ r }) => r.vers || r.grisee);
     const autres = toutes.filter(({ r }) => !r.vers && !r.grisee);
     if (menent.length !== q.voies.length) throw new Error(`tunnel : ${q.id} a ${q.voies.length} cartes et ${menent.length} réponses qui mènent quelque part`);
-    // Plus de deux cartes : un carrousel sur le bureau (Julien, 2026-10-30 : « un carousel sur ordi, pas 2 rangées »), ses
-    // flèches (`data-defiler`), et les cartes l'une sous l'autre au téléphone.
-    const carrousel = q.voies.length > 2;
-    const fleche = (sens: -1 | 1, libelle: string) =>
-      `<button type="button" class="bt-fleche" data-defiler="${sens}" aria-label="${libelle}"><svg class="ic" aria-hidden="true"><use href="#i-caret-left"/></svg></button>`;
+    // Les cartes sur une rangée (les formules ne disent plus que leur nom et leur prix, 2026-11-13 : le carrousel est parti).
     return [
-      `            <div class="bt-voies${carrousel ? ' bt-carrousel' : ''}" id="voies-${q.id}">`,
+      `            <div class="bt-voies" id="voies-${q.id}">`,
       ...q.voies.flatMap((v, i) => [
         `              <div class="bt-voie-choix${menent[i]!.r.grisee ? ' bt-voie-grisee' : ''}">`, ...voie(v, menent[i]!.r), `                ${bouton(q, menent[i]!.r, menent[i]!.k)}`, '              </div>',
       ]),
       '            </div>',
-      ...(carrousel ? [`            <div class="bt-fleches">${fleche(-1, n.defiler.precedente)}${fleche(1, n.defiler.suivante)}</div>`] : []),
       ...(autres.length > 0 ? [`            <div class="bt-reponses">${autres.map(({ r, k }) => bouton(q, r, k)).join('')}</div>`] : []),
     ];
   };

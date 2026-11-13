@@ -3,7 +3,7 @@ import { GUIDE_NUMERO } from '../scripts/vitrine/aide-pages';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PRIX_NUMERO_HT_CENTIMES } from '../src/stripe/abonnement';
-import { DROITS, PRIX_BUSINESS_HT_CENTIMES } from '../src/offres/offres';
+import { PRIX_BUSINESS_HT_CENTIMES } from '../src/offres/offres';
 import { MAGASINS, PRIX_NUMERO_AFFICHE_HT_CENTIMES, TEXTES_TUNNEL, demandeDe, type Origine } from '../scripts/vitrine/tunnel-textes';
 import { DEMARRER, TEXTES_DEMARRER, profondeurTunnel } from '../scripts/vitrine/tunnel';
 import { TEXTES_CARREFOUR, type Langue } from '../scripts/vitrine/cas-textes';
@@ -205,16 +205,22 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
   });
 
-  it('une question répondue reste affichée, sa réponse en évidence, et une autre réponse change le chemin (Julien, 2026-10-30)', () => {
+  it('une question répondue ne garde que sa réponse, au milieu et en blanc, reliée à la suivante par un fil ; la recliquer la rouvre (Julien, 2026-11-13)', () => {
     const js = lire('site.js');
     const css = lire('site.css');
-    // Plus de repli en une ligne ni de « Modifier » : on change d'avis en recliquant.
+    // Pas de « Modifier » : on change d'avis en recliquant la réponse, qui rouvre la question.
     expect(js).not.toMatch(/data-modifier|data-resume/);
     for (const p of PAGES) expect(lire(fichierDe(p.adresse)), p.adresse).not.toMatch(/data-modifier|data-resume/);
-    expect(js).toContain("b.getAttribute('aria-pressed') !== 'true'");
+    expect(js).toContain("if (b.getAttribute('aria-pressed') === 'true') {");
+    expect(js).toContain("q.classList.toggle('rouverte')");
+    // « Les autres disparaissent et celle qu'il a choisie vient au milieu », sauf question rouverte.
+    expect(css).toContain('.bt-question.repondue:not(.rouverte) :is(.bt-voie-choix:not(:has([aria-pressed="true"])),.bt-reponses > .bouton:not([aria-pressed="true"])){display:none}');
+    expect(css).toContain('.bt-question.repondue:not(.rouverte) .bt-voies{display:flex;justify-content:center}');
+    // « Chaque phase choisie en fond blanc », et le fil entre deux étapes.
+    expect(css).toContain('.bt-question.repondue .bt-voie-choix:has([aria-pressed="true"]) .bt-voie{background:#fff;');
+    expect(css).toContain('.bt-question [aria-pressed="true"]{background:#fff;');
+    expect(css).toContain('.bt-question.repondue::after{');
     expect(css).toContain('.bt-voie-choix:has([aria-pressed="true"]) .bt-voie{');
-    // Les cartes et les réponses d'une question répondue ne se cachent plus.
-    expect(css).not.toMatch(/\.bt-question\.repondue :is\([^)]*\.bt-(voies|reponses)\b[^)]*\)\{display:none/);
   });
 
   it('🔴 la carte Pro dit son essai en tête, avant son titre (lot 3b)', () => {
@@ -225,7 +231,7 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
     for (const p of PAGES) {
       const html = lire(fichierDe(p.adresse));
-      expect(html, p.adresse).toMatch(/<p class="bt-badge">[^<]+<\/p>\s*<h4>Pro, /);
+      expect(html, p.adresse).toMatch(/<p class="bt-badge">[^<]+<\/p>\s*<h4>Pro<\/h4>/);
     }
   });
 
@@ -540,15 +546,16 @@ describe('Free et Pro, sans article, sur la vitrine française', () => {
 
 describe('Business et Entreprise, et les mots du guide (Julien, 2026-10-30)', () => {
   it('🔴 Business et Entreprise ont leur carte, aux chiffres du code, et finissent sur la démo et le contact, sans demande', () => {
-    for (const [langue, business, utilisateurs, entreprise, contact] of [
-      ['fr', `Business, ${PRIX_BUSINESS_HT_CENTIMES.mois / 100}&nbsp;€ HT par mois`, `${DROITS.business.limites.utilisateurs}&nbsp;utilisateurs`, 'Entreprise, sur devis', '/contact/'],
-      ['en', `Business, €${PRIX_BUSINESS_HT_CENTIMES.mois / 100} excl. VAT a month`, `${DROITS.business.limites.utilisateurs} users`, 'Enterprise, on quote', '/en/contact/'],
+    // Depuis le 2026-11-13, une carte ne dit plus que son nom et son prix (Julien : « pas de textes qui décrivent les options »).
+    for (const [langue, business, entreprise, devis, contact] of [
+      ['fr', `${PRIX_BUSINESS_HT_CENTIMES.mois / 100}&nbsp;€`, 'Entreprise', 'Sur devis', '/contact/'],
+      ['en', `€${PRIX_BUSINESS_HT_CENTIMES.mois / 100}`, 'Enterprise', 'On quote', '/en/contact/'],
     ] as const) {
       const offre = TEXTES_TUNNEL[langue].questions.find((x) => x.id === 'offre')!;
-      expect(offre.voies!.map((v) => v.titre.split(',')[0]), langue).toEqual(['Free', 'Pro', 'Business', langue === 'fr' ? 'Entreprise' : 'Enterprise']);
-      expect(offre.voies![2]!.titre, langue).toBe(business);
-      expect(offre.voies![2]!.plus.join(' '), langue).toContain(utilisateurs);
-      expect(offre.voies![3]!.titre, langue).toBe(entreprise);
+      expect(offre.voies!.map((v) => v.titre), langue).toEqual(['Free', 'Pro', 'Business', entreprise]);
+      expect(offre.voies!.map((v) => v.plus.length + v.moins.length), langue).toEqual([0, 0, 0, 0]);
+      expect(offre.voies![2]!.prix, langue).toBe(business);
+      expect(offre.voies![3]!.prix, langue).toBe(devis);
       const echange = TEXTES_TUNNEL[langue].issues.find((x) => x.id === 'echange')!;
       expect(echange.contact, langue).toBe(true);
       for (const p of PAGES.filter((x) => x.langue === langue)) {
@@ -561,14 +568,14 @@ describe('Business et Entreprise, et les mots du guide (Julien, 2026-10-30)', ()
     }
   });
 
-  it('les formules forment un carrousel sur le bureau, avec ses flèches (Julien, 2026-10-30 : « pas 2 rangées »)', () => {
+  it('les formules tiennent sur une rangée, sans carrousel ni flèches (2026-11-13 : elles ne disent plus que leur nom et leur prix)', () => {
     for (const p of PAGES) {
       const html = lire(fichierDe(p.adresse));
-      expect(html, p.adresse).toContain('<div class="bt-voies bt-carrousel" id="voies-offre">');
-      expect(html.match(/<button type="button" class="bt-fleche" data-defiler="(-1|1)"/g)?.length, p.adresse).toBe(2);
+      expect(html, p.adresse).toContain('<div class="bt-voies" id="voies-offre">');
+      expect(html, p.adresse).not.toMatch(/bt-carrousel|bt-fleche|data-defiler/);
     }
-    expect(lire('site.js')).toContain("closest('[data-defiler]')");
-    expect(lire('site.css')).toMatch(/\.bt-voies\.bt-carrousel\{[^}]*grid-auto-flow:column[^}]*overflow-x:auto/);
+    expect(lire('site.js')).not.toContain('data-defiler');
+    expect(lire('site.css')).not.toMatch(/bt-carrousel|bt-fleche/);
   });
 
   it('les mots du guide se déplient un à un, sans nombre au titre, avec les liens de Meta et des magasins', () => {
