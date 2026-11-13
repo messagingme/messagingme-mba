@@ -21,7 +21,8 @@ import { DEPOT_PLUGIN } from '../../web/lib/demarrer';
 import { ACCUEIL, fichierDe, fil, page } from './cas';
 import { insecables } from './guide-meta';
 import { versionnee } from './images';
-import { FAQ } from '../plugin/faq';
+import { FAQ, texteBrut } from '../plugin/faq';
+import { enHtml as reponseFaqEnHtml } from '../plugin/generer';
 import { PAGES_CLAUDE, type PageClaude } from './aide-claude-textes';
 import { FILMS_AIDE, type FilmAide } from './aide-films';
 import { ACCUEIL_AIDE, GUIDE_NUMERO, NOMS_RUBRIQUES, PLACES_DEPANNAGE, PLACES_GUIDE, pagesDeLaRubrique, pagesDuCentre, type Langue, type PageAide } from './aide-pages';
@@ -71,6 +72,7 @@ const T = {
     developpeursLien: 'Les pages développeurs',
     developpeursAdresse: '/developpeurs/',
     videos: 'Les guides en vidéo',
+    faq: 'Questions fréquentes',
     groupeClaude: 'Claude Code / Codex',
     groupeConsole: 'Console',
     parlerClaude: 'Parler aux clients depuis Claude Code',
@@ -111,6 +113,7 @@ const T = {
     developpeursLien: 'The developer pages',
     developpeursAdresse: '/en/developers/',
     videos: 'Video guides',
+    faq: 'Frequently asked questions',
     groupeClaude: 'Claude Code / Codex',
     groupeConsole: 'Console',
     parlerClaude: 'Talk to customers from Claude Code',
@@ -230,6 +233,26 @@ function filAide(langue: Langue, principale: Rubrique, places: ReadonlyArray<{ r
   return `    <p class="aide-fil"><a href="${ACCUEIL_AIDE[langue]}">${T[langue].aide}</a> › ${rubrique} › ${titre}</p>`;
 }
 
+/**
+ * LA FAQ DANS LE CENTRE D'AIDE (Julien, 2026-11-13) : la même que celle des pages développeurs (`scripts/plugin/faq.ts`),
+ * dépliable sur l'accueil du centre, et trouvée par sa recherche.
+ */
+const ANCRE_FAQ = 'questions-frequentes';
+const motsDeLaFaq = (langue: Langue): string => FAQ.map((q) => `${q.question[langue]} ${texteBrut(q.reponse[langue])}`).join(' ');
+function sectionFaq(langue: Langue): string[] {
+  // En français, la ponctuation haute et les guillemets gardent leur espace insécable (`tests/vitrine-aide.test.ts`).
+  const fr = (h: string): string => (langue === 'fr' ? insecables(h) : h);
+  return [
+    `      <section class="aide-rubrique" id="${ANCRE_FAQ}">`,
+    `        <h2>${T[langue].faq}</h2>`,
+    '        <div class="dev-faq aide-faq">',
+    ...FAQ.map((q) => `          <details id="faq-${q.id}" data-mots="${motsDeRecherche(`${q.question[langue]} ${texteBrut(q.reponse[langue])}`)}">`
+      + `<summary>${fr(echapper(q.question[langue]))}</summary><p>${fr(reponseFaqEnHtml(q.reponse[langue]))}</p></details>`),
+    '        </div>',
+    '      </section>',
+  ];
+}
+
 /** Le menu du centre, à gauche de chaque page : la recherche, puis les rubriques et leurs pages. */
 function menu(pages: PageAide[], courante: PageAide | null, langue: Langue, ici?: string): string {
   const lignes = [
@@ -255,7 +278,13 @@ function menu(pages: PageAide[], courante: PageAide | null, langue: Langue, ici?
     }
     lignes.push(...liens.sort((x, y) => x.rang - y.rang).map((x) => x.ligne), '      </div>');
   }
-  lignes.push('    </nav>');
+  // La FAQ, de chaque page : la recherche du menu la trouve par les mots de toutes ses questions et réponses.
+  lignes.push(
+    `      <div class="aide-rubrique"><p class="aide-nav-titre">${T[langue].faq}</p>`,
+    `        <a href="${ACCUEIL_AIDE[langue]}#${ANCRE_FAQ}" data-mots="${motsDeRecherche(motsDeLaFaq(langue))}">${T[langue].faq}</a>`,
+    '      </div>',
+    '    </nav>',
+  );
   return lignes.join('\n');
 }
 
@@ -388,6 +417,7 @@ function menuAccueil(cartes: ReadonlyMap<SectionAccueil, CarteAccueil[]>, langue
     `      <input class="aide-recherche" type="search" placeholder="${T[langue].recherche}" aria-label="${T[langue].recherche}">`,
     '      <div class="aide-sections">',
     `        <a class="aide-section-lien" href="#videos">${T[langue].videos}</a>`,
+    `        <a class="aide-section-lien" href="#${ANCRE_FAQ}">${T[langue].faq}</a>`,
   ];
   for (const g of GROUPES_ACCUEIL(langue)) {
     lignes.push(`        <p class="aide-nav-groupe">${g.nom}</p>`);
@@ -505,6 +535,7 @@ function accueilAide(pages: PageAide[], langue: Langue): { chemin: string; conte
     lignes.push('      </section>');
   }
   lignes.push(
+    ...sectionFaq(langue),
     `      <p class="aide-aucun" hidden>${langue === 'fr' ? insecables(T.fr.aucun) : T.en.aucun}</p>`,
     '    </div>',
     '  </div>',

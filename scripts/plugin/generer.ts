@@ -124,8 +124,11 @@ export function skillFaq(): string {
 
 const echapper = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** Le texte d'une réponse en HTML : les outils en code, les adresses en liens, `**…**` en gras, `\n` à la ligne. */
-function enHtml(t: string): string {
+/**
+ * Le texte d'une réponse en HTML : les outils en code, les adresses en liens, `**…**` en gras, `\n` à la ligne. Les pages
+ * développeurs et l'accueil du centre d'aide (`scripts/vitrine/aide.ts`) rendent la FAQ par lui.
+ */
+export function enHtml(t: string): string {
   return echapper(t)
     .replace(OUTIL_RE, '<code>$1</code>')
     .replace(/https:\/\/[^\s<]+[^\s<.,;:)]/g, (u) => `<a href="${u}">${u.replace(/^https:\/\//, '')}</a>`)
