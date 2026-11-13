@@ -160,6 +160,20 @@
   paiement, entrée précédente). Les comptes de ce test ont ensuite été défaits ; où arrivent les entrants d'un numéro
   repris reste à voir sur un vrai cas.
 
+## 2026-11-12 : un nom introuvable n'est plus journalisé « adresse interne » (LUAS)
+
+- **Le constat** (2026-11-11, espace LUAS, « le destinataire ne reçoit rien ») : depuis 13 h 30, un seul appel du bloc
+  « Appel API », à 13:31:09, refusé chez nous en 60 ms avec `erreur = 'adresse_interne'`. L'adresse (Azure) est
+  publique : depuis le worker, le nom résout et `resolutionPublique` répond ok cinq fois sur cinq, et le journal du
+  worker n'en garde aucune trace. Un raté DNS passager, que le transport rangeait sous `adresse_refusee` comme tout
+  refus de la résolution. L'essai de Julien à 19:37:20 est parti : 200 en 305 ms.
+- **Le corps envoyé** n'est pas gardé (`agent_tool_calls` n'a ni corps ni contact) : il a été reconstruit pour LUAS
+  par le vrai code (`creerAppelHttpScenario`, stores réels sur un client `begin read only`, faux transport qui capture
+  sans envoyer, en-tête d'authentification masqué).
+- **Le correctif** (`8e2beaf4`) : `VerdictResolution.introuvable` sur un échec, un délai ou une réponse vide, et le
+  transport rend alors `reseau` ; ses trois appelants le traduisaient déjà (« injoignable », « indispo »). Tests
+  vérifiés dans les deux sens. Déployé seul le 2026-11-12, sans migration (run 43173200061, image `8e2beaf4`).
+
 ## 2026-11-12 : sans compte ni application, un numéro API direct ; la marketplace du plugin en HTTPS
 
 Plan `2026-11-12-arbre-numero-sans-application.md`, un implémenteur puis une relecture indépendante du diff.

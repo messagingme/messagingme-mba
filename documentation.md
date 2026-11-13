@@ -4614,6 +4614,10 @@ ou sur le réseau Docker. Trois règles la rendent juste : **une seule adresse i
 **une résolution qui ÉCHOUE ou qui TRAÎNE est un REFUS** ; et une **plage se compare en ARITHMÉTIQUE, jamais
 en préfixe de chaîne** (`fe80::/10` fait dix bits, pas quatre caractères). L'inventaire des chemins concernés
 est tenu par `tests/lib-adresse-privee.test.ts`, plus par une page qui dérive.
+⚠️ **Un refus ne dit pas toujours « interne ».** Un nom introuvable (échec, délai, réponse vide) est refusé pareil,
+sans appel, mais son verdict porte `introuvable` : le transport des connecteurs (`src/agent/transport-connecteur-http.ts`)
+le range alors en `reseau` (« injoignable », comme un `ENOTFOUND` pendant l'appel), jamais en `adresse_interne`, que
+seul un nom qui pointe vers l'intérieur produit. Les confondre fait chercher une faille là où il n'y a qu'une panne.
 
 🔴 **L'adresse se revérifie à l'OUVERTURE de la connexion.** La vérification ci-dessus et l'appel faisaient
 deux résolutions distinctes : un DNS hostile pouvait répondre public à la première, interne à la seconde
