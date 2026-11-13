@@ -174,6 +174,28 @@
   transport rend alors `reseau` ; ses trois appelants le traduisaient déjà (« injoignable », « indispo »). Tests
   vérifiés dans les deux sens. Déployé seul le 2026-11-12, sans migration (run 43173200061, image `8e2beaf4`).
 
+## 2026-11-12 : le contenu WhatsApp stocké en Allemagne, et le Centre de confiance de la vitrine
+
+- **Le stockage local de la Cloud API** (`a7b1c028`, plan `docs/superpowers/plans/2026-11-12-stockage-local-whatsapp.md`).
+  `MetaEmbeddedSignupClient.register` pose `POST /{numéro}/settings` (`IN_COUNTRY_STORAGE_ENABLED`, `DE`) juste avant
+  `/register`, sur les deux chemins (connexion, « Activer le numéro »). Décisions de Julien : un refus de Meta ne bloque
+  jamais la connexion, il est journalisé (`stockage_local_refuse`) ; les numéros déjà connectés restent tels quels.
+  Lu chez Meta le jour même : le réglage n'est accepté que sur un numéro NON enregistré, un désenregistrement ne le coupe
+  pas, et l'Allemagne est le seul pays de l'Union de la liste (la Suisse et le Royaume-Uni n'en sont pas). Une relecture,
+  aucun rouge, cinq jaunes au backlog. Déployé sans migration (run 43225310190), derrière le déploiement d'un pair qui
+  appliquait la 0291 en `avant` : mon image, qui emportait sa migration déjà appliquée, est passée en second. Essai réel
+  à la prochaine connexion d'un numéro neuf (`GET /{numéro}/settings`).
+- **Le Centre de confiance** (`518371c2`, cadrage `docs/superpowers/specs/2026-11-12-centre-de-confiance-design.md`) :
+  `/confiance/` (schéma animé du chemin d'un message, qui fait quoi, certifications expliquées, chiffrement, accès,
+  exploitation, documents sur demande), `/confiance/rgpd/`, `/confiance/ia/`, `/confiance/sous-traitants/`, leurs
+  jumelles `/en/trust/`, une entrée du menu Ressources et un lien du pied sur toutes les pages. Grill en trois rondes,
+  maquette validée, pages construites par un implémenteur puis relues au rendu. Trois défauts vus seulement au rendu :
+  les titres de section en 12,8 px, parce que le conteneur portait la classe nue `confiance` du bandeau « Ils nous font
+  confiance » de l'accueil (aucune erreur, aucun test) ; deux libellés du schéma hors de leur cadre ; « votre client sait
+  qu'il parle à une IA » alors qu'un espace peut couper la mention (devenu « par défaut »). Puis passé sur fond clair à la
+  demande de Julien (`bf8794d0`), comme l'aide : le héros reste sombre, le schéma et l'appel final restent des cartes
+  sombres. Trois promesses en avance sur la production, par décision de Julien, en tête de `todo.md`.
+
 ## 2026-11-12 : sans compte ni application, un numéro API direct ; la marketplace du plugin en HTTPS
 
 Plan `2026-11-12-arbre-numero-sans-application.md`, un implémenteur puis une relecture indépendante du diff.

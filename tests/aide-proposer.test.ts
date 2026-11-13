@@ -125,6 +125,8 @@ const SECTIONS_SANS_FICHE: ReadonlyMap<string, 'interne' | 'integrateurs' | 'auc
   ['À venir / hors périmètre', 'interne'],
   // La mesure de NOTRE site public, pas un écran de la console ; la bannière qui la demande est dans la fiche du pixel.
   ["La mesure d'audience de la vitrine", 'interne'],
+  // Une rubrique de notre site public, pas un écran de la console : elle se lit sur la vitrine, rien à y faire.
+  ['Le Centre de confiance (vitrine)', 'interne'],
   ['API publique `/v1` (intégrateurs externes)', 'integrateurs'],
   ['Webhooks entrants (menu Tools)', 'integrateurs'],
   ['Brancher vos systèmes : les connecteurs API (menu « Tools » > Connecteurs API)', 'integrateurs'],

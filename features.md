@@ -362,6 +362,19 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   (`contact_envoye`), la copie de la commande Claude Code ou le clic vers GitHub (`interet_developpeur`). Aucune
   fonction publicitaire de Google.
 
+## Le Centre de confiance (vitrine)
+
+- ✅ **Une rubrique publique pour rassurer un client, son RSSI ou son DPO** (2026-11-12), dans le menu Ressources et le
+  pied de page : `app.messagingme.fr/confiance/` (en anglais `/en/trust/`). Un schéma animé suit un message de bout en
+  bout (le téléphone du client, Meta en Allemagne, Cloudflare, Messaging Me dans l'Union européenne, l'IA et le CRM),
+  puis qui fait quoi entre Meta, Messaging Me et le client, les certifications expliquées (ISO 27001, SOC 2 Type II, celles
+  de nos fournisseurs), le chiffrement, le contrôle des accès, l'exploitation, et quatre documents sur demande (contrat de
+  sous-traitance, mesures techniques et organisationnelles, questionnaire de sécurité, rapports des fournisseurs).
+- ✅ **Trois pages détaillées** : le RGPD (rôles, transferts, durées de conservation, droits des personnes), l'AI Act
+  (rôles, transparence, supervision humaine, deux routes vers les modèles) et la liste datée des sous-traitants.
+- ✅ **Le contenu WhatsApp gardé en Allemagne** : pour chaque numéro connecté depuis le 2026-11-12, Messaging Me demande
+  à Meta le stockage local de la Cloud API, que la rubrique annonce.
+
 ## Comptes & authentification
 
 - ✅ **L'inscription par e-mail passe par un lien** (2026-11-05). Une adresse qui n'a pas encore de compte reçoit
