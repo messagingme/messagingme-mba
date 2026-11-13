@@ -4865,9 +4865,10 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   un AUTRE fournisseur passe par la fenêtre (essai 258) : un compte de messagerie neuf à nous, à côté du sien. **Un
   numéro connecté avec sa carte** (`numeroAvecCarte`, même fichier : un numéro Meta rattaché, délié compris, qu'aucune ligne ne
   couvre et qui n'attend pas la sienne, coexistence comprise) **ne se voit plus vendre l'option** (décision de Julien du
-  2026-11-13) : la prise la refuse (`numero_avec_carte`, après les refus de la formule), l'onglet rend `prisePossible`
-  faux et `numeroAvecCarte`, l'état des cartes `numeroAvecCarte` (jamais pour une Free), et l'e-mail de la conversion se
-  tait ; la carte et l'onglet disent le texte validé (`NUMERO_AVEC_CARTE`, `QuiRegleMeta.tsx`), et la carte chez Meta
+  2026-11-13) : la prise la refuse (`numero_avec_carte`, avant les refus de la formule : sa raison est définitive), l'onglet rend `prisePossible`
+  faux et `numeroAvecCarte`, l'état des cartes `numeroAvecCarte` (jamais pour une Free ; une lecture en panne y vaut
+  faux, journalisée `numero_avec_carte_illisible`, la prise relisant), et l'e-mail comme le bandeau de la conversion
+  (`BandeauLigneCredit.tsx`) se taisent ; la carte et l'onglet disent le texte validé (`NUMERO_AVEC_CARTE`, `QuiRegleMeta.tsx`), et la carte chez Meta
   d'un espace qui a droit à la ligne avertit avant la connexion (`AVERTISSEMENT_CARTE`). Une règle qui ne se lit pas
   ferme la fenêtre, journalisée (`fenetre_partenaire_illisible`), sans faire échouer la configuration ni l'état des
   cartes. La route de l'état des cartes n'en dit qu'un booléen (`fenetrePartenaire`). Sans numéro, la carte « Crédit

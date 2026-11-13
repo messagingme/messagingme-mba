@@ -12,11 +12,23 @@
   `2026-11-13-credit-whatsapp-numero-avec-carte.md`, implémenteur puis une relecture du diff.
 - **Ce qui a changé** : `numeroAvecCarte` (un numéro Meta rattaché, délié compris, sans ligne et qui n'attend pas la sienne,
   coexistence comprise) ; `solutionDuPartenaire` ne rouvre plus la fenêtre à un espace qui a un numéro (`seReconnecte`
-  retiré) ; la prise refuse (`numero_avec_carte`, après les refus de la formule), l'onglet et l'état des cartes le
-  disent, l'e-mail de la conversion se tait. Console : le texte (1) à la place de l'achat, de « sur demande » ou de « sous
-  24 h ouvrées » ; le texte (2) sur la carte chez Meta d'un espace qui a droit à la ligne ; `PlaceLibre` lit la seule
-  configuration, sans précharger le SDK de Meta. Les deux fiches d'aide (la publique, en français et en anglais) et
-  features.md ne promettent plus de reconnexion.
+  retiré) ; la prise refuse (`numero_avec_carte`, AVANT les refus de la formule : sa raison est définitive), l'onglet et
+  l'état des cartes le disent (une lecture en panne y vaut faux, journalisée), l'e-mail et le bandeau de la conversion se
+  taisent. Console : le texte (1) à la place de l'achat, de « sur demande » ou de « sous 24 h ouvrées » ; le texte (2) sur
+  la carte chez Meta d'un espace qui a droit à la ligne ; `PlaceLibre` lit la seule configuration, sans précharger le SDK
+  de Meta. Les deux fiches d'aide (la publique, en français et en anglais) et features.md ne promettent plus de
+  reconnexion.
+- **Relecture** : un rouge, corrigé avant le push et vu dans les deux sens : un numéro DÉLIÉ échappait à la règle, alors
+  que délier n'est que l'interrupteur de l'Accueil (rien chez Meta) ; l'option s'y serait vendue pour rien. Quatre jaunes
+  repris (le bandeau, l'ordre des refus, la panne de lecture, la doc) ; les autres au backlog (`todo.md`, en tête), dont
+  ce que dit Claude (l'outil MCP du numéro), repris dans un lot à part.
+- **Vérifié** : les tests neufs vus échouer avant le code ; un défaut trouvé par les e2e (une configuration sans `enabled`
+  laissait `PlaceLibre` « en lecture ») corrigé ; 92 e2e verts sur les cinq écrans touchés, en build de production ; la
+  suite racine (des délais dépassés sous charge, hors du lot, verts relancés seuls), l'auto-attaque (2 083 sondes, rien).
+- **En production** le 2026-11-13 (`bd5e5222`, run 43451426176, sans migration, approuvé dans GitHub ; côté serveur, les
+  six fichiers du lot depuis le déploiement précédent) : l'API et les trois conteneurs des workers sur l'image, `/health`
+  à 200. La console, par Vercel au push. L'essai réel 259 reste à Julien ; le renommage en « ligne de crédit » suit, par
+  la session des offres.
 
 ## 2026-11-13 : la carte « Crédit WhatsApp » dit ce que font ses boutons
 
