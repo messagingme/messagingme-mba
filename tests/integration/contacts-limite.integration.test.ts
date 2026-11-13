@@ -22,15 +22,21 @@ const waId = (n: number) => tel(n).slice(1);
 
 describe.skipIf(!url)('la limite de contacts de l’offre', () => {
   let pool: Pool;
-  /** Un Pro dont la limite est basse : la règle des fiches créées seules, sans en écrire 5 000. */
+  /**
+   * Une Entreprise réglée sur devis à une limite basse : la règle des fiches créées seules, la seule offre qui la garde
+   * depuis le 2026-11-13 (le Pro et le Business comptent tout, comme la Free).
+   */
   let store: PgContactStore;
+  /** Un Pro, à la même limite : toutes les origines comptent (2026-11-13). */
+  let pro: PgContactStore;
   /** Une Free, à la même limite : toutes les origines comptent. */
   let free: PgContactStore;
   let t = '';
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl() });
-    store = new PgContactStore(pool, undefined, async () => ({ max: LIMITE, offre: 'pro' }));
+    store = new PgContactStore(pool, undefined, async () => ({ max: LIMITE, offre: 'entreprise' }));
+    pro = new PgContactStore(pool, undefined, async () => ({ max: LIMITE, offre: 'pro' }));
     free = new PgContactStore(pool, undefined, async () => ({ max: LIMITE, offre: 'base' }));
     t = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-limite-contacts') returning id`)).rows[0]!.id;
   });
@@ -70,13 +76,14 @@ describe.skipIf(!url)('la limite de contacts de l’offre', () => {
     await expect(creer(51)).rejects.toBeInstanceOf(LimiteOffreError);
   });
 
-  it('🔴 Free : une fiche née d’un entrant compte, et la création suivante est refusée ; le Pro ne la compte pas', async () => {
+  it('🔴 Free : une fiche née d’un entrant compte, et la création suivante est refusée ; le Pro la compte aussi, l’Entreprise sur devis non', async () => {
     await creer(1);
     await creer(2);
     expect(await free.upsertFromInbound(t, waId(50), 'Inconnu')).toBe('created');
     await expect(free.upsertByPhoneReturningId({ tenantId: t, phoneE164: tel(51), profileName: null, fields: {}, optInStatus: 'unknown' }))
       .rejects.toBeInstanceOf(LimiteOffreError);
     expect(await free.placesContacts(t, [tel(50)])).toMatchObject({ limite: LIMITE, comptees: 3 });
+    expect((await pro.placesContacts(t, [tel(50)])).comptees).toBe(3);
     expect((await store.placesContacts(t, [tel(50)])).comptees).toBe(2);
   });
 
@@ -87,7 +94,7 @@ describe.skipIf(!url)('la limite de contacts de l’offre', () => {
     // Pleine : trois fiches actives sur trois, dont deux nées d'un entrant.
     expect(await free.inconnusRefuses(t, [waId(1), waId(50), 'BSUID.itest.limite', waId(70)]))
       .toEqual({ waIds: new Set([waId(70)]), limite: LIMITE });
-    // Le Pro, plein de la même façon, ne refuse jamais l'entrant.
+    // L'Entreprise sur devis, pleine de la même façon, ne refuse jamais l'entrant.
     expect(await store.inconnusRefuses(t, [waId(70)])).toBeNull();
   });
 
@@ -125,7 +132,7 @@ describe.skipIf(!url)('la limite de contacts de l’offre', () => {
     await expect(store.verifierPlaceContacts(t, [tel(1), tel(2), tel(3)])).resolves.toBeUndefined();
   });
 
-  it('sans limite (Pro, Entreprise), rien n’est compté ni refusé', async () => {
+  it('sans limite (Entreprise sans devis), rien n’est compté ni refusé', async () => {
     const libre = new PgContactStore(pool);
     for (let n = 1; n <= LIMITE + 2; n++) await libre.upsertByPhoneReturningId({ tenantId: t, phoneE164: tel(n), profileName: null, fields: {}, optInStatus: 'unknown' });
     const r = await pool.query<{ n: number }>('select count(*)::int as n from contacts where tenant_id = $1', [t]);

@@ -300,7 +300,8 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
       await contacts.upsertByPhoneReturningId({ tenantId: t, phoneE164: tel(n), profileName: null, fields: {}, optInStatus: 'unknown' });
     }
     await pool.query('update contacts set deleted_at = now() where tenant_id = $1 and phone_e164 = $2', [t, tel(3)]);
-    // Née d'un entrant : comptée en Free (décision de Julien du 2026-10-25), jamais en Pro (plus bas).
+    // Née d'un entrant : comptée en Free et en Pro (décisions de Julien du 2026-10-25 et du 2026-11-13), jamais en
+    // Entreprise (plus bas).
     await contacts.upsertFromInbound(t, tel(4).slice(1), 'Inconnu');
 
     const wf = (await pool.query<{ id: string }>(`insert into workflows (tenant_id, name) values ($1, 'itest-usage') returning id`, [t])).rows[0]!.id;
@@ -321,8 +322,11 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
 
     // Un espace sans Pro ni Entreprise est en Free : les deux fiches créées actives et celle de l'entrant.
     expect(await offres.usage(t)).toEqual({ contacts: 3, automations: 1, membres: 2 });
-    // En Pro, la fiche née d'un entrant ne compte plus.
+    // En Pro (2026-11-13), la fiche née d'un entrant compte aussi.
     await pro(t, 'sub_itestoffreusage', null);
+    expect(await offres.usage(t)).toEqual({ contacts: 3, automations: 1, membres: 2 });
+    // En Entreprise, réglée sur devis, elle ne compte plus.
+    expect(await offres.ecrireEntreprise(t, { entreprise: true, utilisateurs: null, conservationJours: null })).toBe(true);
     expect(await offres.usage(t)).toEqual({ contacts: 2, automations: 1, membres: 2 });
   });
 
