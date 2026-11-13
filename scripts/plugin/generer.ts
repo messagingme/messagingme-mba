@@ -98,7 +98,8 @@ export const PAGES_FAQ: ReadonlyArray<{ chemin: string; langue: Langue }> = [
 ];
 
 export function skillFaq(): string {
-  const md = (t: string) => t.replace(OUTIL_RE, '`$1`');
+  // Un saut de ligne de la source (une liste 1), 2), 3)) devient un paragraphe en Markdown, un <br> en HTML.
+  const md = (t: string) => t.replace(OUTIL_RE, '`$1`').replace(/\n/g, '\n\n');
   const lignes = [
     '---',
     'name: faq',
@@ -128,7 +129,8 @@ const echapper = (t: string): string => t.replace(/&/g, '&amp;').replace(/</g, '
 function enHtml(t: string): string {
   return echapper(t)
     .replace(OUTIL_RE, '<code>$1</code>')
-    .replace(/https:\/\/[^\s<]+[^\s<.,;:)]/g, (u) => `<a href="${u}">${u.replace(/^https:\/\//, '')}</a>`);
+    .replace(/https:\/\/[^\s<]+[^\s<.,;:)]/g, (u) => `<a href="${u}">${u.replace(/^https:\/\//, '')}</a>`)
+    .replace(/\n/g, '<br>');
 }
 
 export function blocFaqVitrine(langue: Langue): string {
