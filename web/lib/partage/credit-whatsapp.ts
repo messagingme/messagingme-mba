@@ -18,9 +18,13 @@ export const SOLDE_REPRISE_CREDIT_MICRO_EUR = 1_000_000;
  * LE CRÉDIT WHATSAPP PAIE-T-IL META POUR LE NUMÉRO DE L'ESPACE ? (jaunes 2 et 3 de la relecture du lot B) Oui quand la
  * ligne est active, ou quand l'option payée attend sa ligne, et jamais pour un numéro qui garde l'application WhatsApp
  * Business : il reste sur sa carte chez Meta (décision 8). Alors seulement, « Ajoutez votre carte chez Meta » se tait :
- * `get_setup_state` (`carte_meta_a_regler`) et le bandeau de l'Accueil lisent cette règle-ci. `avecApplication` : tous
- * les numéros vivants de l'espace gardent l'application (`tousGardentLApplication`) ; un espace pilote un seul numéro.
+ * `get_setup_state` (`carte_meta_a_regler`), la suite de `watch_whatsapp_connection` et le bandeau de l'Accueil lisent
+ * cette règle-ci. `avecApplication` : tous les numéros vivants de l'espace gardent l'application
+ * (`tousGardentLApplication`) ; un espace pilote un seul numéro. `numeroAvecCarte` : un numéro connecté avec sa carte chez
+ * Meta (`numeroAvecCarte`, décision de Julien du 2026-11-13), que la ligne ne prendra jamais : l'option payée ne
+ * l'attend pas. Une ligne active paie quand même, comme sur la carte de Connecter WhatsApp, qui ne dit le texte (1)
+ * qu'hors ligne active. Requis : facultatif, un lecteur qui l'oublierait tairait la carte à ce numéro en silence.
  */
-export function creditPaieMeta(etat: string | null | undefined, avecApplication: boolean): boolean {
-  return !avecApplication && (etat === 'active' || etat === 'en_attente');
+export function creditPaieMeta(etat: string | null | undefined, avecApplication: boolean, numeroAvecCarte: boolean): boolean {
+  return !avecApplication && (etat === 'active' || (etat === 'en_attente' && !numeroAvecCarte));
 }

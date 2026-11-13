@@ -56,9 +56,9 @@ export interface DepsNumeroMcp {
   retenirDestination(tenantId: string, destination: DestinationNumeroFourni): Promise<void>;
   /**
    * La fenêtre du partenaire est-elle ouverte à l'espace (`solutionDuPartenaire`, lot E du Crédit WhatsApp, lot 3v-2b) ?
-   * Sans numéro : l'option payée (ou une Entreprise), et `/brancher` ouvre alors d'elle-même la connexion sans carte, en
-   * `apporte` et en `fourni`. Avec un numéro : le numéro de l'essai connecté avec la carte chez Meta, puis l'option prise,
-   * qui se reconnecte depuis l'onglet Crédit WhatsApp (sa carte paie encore Meta d'ici là).
+   * Seulement sans numéro rattaché : l'option payée (ou une Entreprise), et `/brancher` ouvre alors d'elle-même la
+   * connexion sans carte, en `apporte` et en `fourni`. Un numéro déjà connecté avec sa carte ne s'y reconnecte pas (Meta
+   * le refuse, #2494156) : la suite d'un numéro connecté se lit sur `numeroAvecCarte`, jamais ici.
    */
   fenetrePartenaire(tenantId: string): Promise<boolean>;
 }
@@ -447,12 +447,13 @@ function suiteApplication(e: EtatConnexion): string | null {
 }
 
 /**
- * QUI PAIE META POUR LE NUMÉRO CONNECTÉ (lot 3v-2b) : sa carte (la suite d'avant), le Crédit WhatsApp (sa ligne posée, ou
+ * QUI PAIE META POUR LE NUMÉRO CONNECTÉ (lot 3v-2b) : sa carte (la suite d'avant), la ligne de crédit (sa ligne posée, ou
  * l'option payée qui l'attend, pour un numéro qui ne garde pas l'application : `creditPaieMeta`, la règle de
- * `get_setup_state`), ou sa carte ENCORE, l'option prise sur le numéro de l'essai connecté avec elle, qui se reconnecte
- * sans carte depuis l'onglet (le serveur ne rouvre la fenêtre du partenaire à un espace connecté que pour ce cas).
+ * `get_setup_state`), ou sa carte quand même : connecté avec elle alors que la ligne aurait pu le prendre (l'option payée,
+ * ou une Entreprise), il ne passera jamais sur la ligne, Meta refusant sa reconnexion (`numeroAvecCarte`, décision de
+ * Julien du 2026-11-13).
  */
-type PaiementDuNumero = 'carte' | 'credit' | 'attente' | 'reconnecter' | 'regler' | 'support';
+type PaiementDuNumero = 'carte' | 'credit' | 'attente' | 'avec_carte';
 const RELIRE_APRES_CONNEXION = 'Relis ensuite get_setup_state avant d’annoncer la suite : la connexion change l’état de '
   + 'l’espace. Le crédit IA offert au premier numéro arrive quelques secondes après : s’il est encore à 0, relis une fois '
   + 'quelques secondes plus tard.';
@@ -464,37 +465,30 @@ const CONNECTE_PAR_LE_CREDIT = 'Le numéro est connecté : le branchement est fi
 const CONNECTE_EN_ATTENTE = 'Le numéro est connecté sans carte chez Meta : ne lui demande aucune carte. Sa ligne de crédit '
   + 's’ouvre sous 24 h ouvrées au plus ; la recharge de la ligne de crédit vient ensuite (get_credit le montrera), '
   + `elle n’est pas possible avant. ${RELIRE_APRES_CONNEXION}`;
-const CONNECTE_A_RECONNECTER = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages : l’espace a '
-  + 'pris la ligne de crédit, et le numéro se reconnecte sans carte depuis l’onglet Ligne de crédit de la page Offre de la '
-  + 'console (« Reconnecter mon numéro sans carte chez Meta »). Dis-le-lui ; d’ici là, sans carte chez Meta, ses modèles '
-  + `ne partent pas. ${RELIRE_APRES_CONNEXION}`;
-/** Le bouton de l'onglet n'existe que pour une option à jour : l'option en retard se règle d'abord, au même onglet. */
-const CONNECTE_A_REGLER = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages : le paiement de '
-  + 'l’option Ligne de crédit n’est pas à jour. Dis-lui de le régler dans l’onglet Ligne de crédit de la page Offre de la '
-  + 'console ; le numéro s’y reconnectera ensuite sans carte. D’ici là, sans carte chez Meta, ses modèles ne partent pas. '
-  + RELIRE_APRES_CONNEXION;
-/** En Entreprise, pas de bouton : notre équipe passe le numéro sur le Crédit WhatsApp. */
-const CONNECTE_PAR_LE_SUPPORT = 'Le numéro est connecté avec sa carte chez Meta, qui paie encore ses messages. En '
-  + 'Entreprise, notre équipe le passe sur la ligne de crédit : dis-lui de nous écrire depuis le Support de la console. '
+/** La carte chez Meta paie : ses étapes, celles de la console. */
+const AJOUTER_SA_CARTE = 'Dis-lui tout de suite d’ajouter sa carte chez Meta, sans laquelle les modèles ne partent pas : '
+  + numerotees(ETAPES_CARTE_META.map((e) => e.fr));
+/** Le texte (1) de la console, dit à la personne : le Support est la seule suite (décision de Julien du 2026-11-13). */
+const CONNECTE_AVEC_CARTE = 'Le numéro est connecté avec sa carte chez Meta : le branchement est fini, mais la ligne de '
+  + 'crédit ne peut pas le prendre en charge (Meta refuse de le reconnecter sans carte). Dis-le à la personne : pour '
+  + `changer, elle écrit au Support de la console. C’est donc sa carte chez Meta qui paie ses messages. ${AJOUTER_SA_CARTE} `
   + RELIRE_APRES_CONNEXION;
 const SUITES_CONNECTE: Readonly<Record<Exclude<PaiementDuNumero, 'carte'>, string>> = {
-  credit: CONNECTE_PAR_LE_CREDIT, attente: CONNECTE_EN_ATTENTE, reconnecter: CONNECTE_A_RECONNECTER,
-  regler: CONNECTE_A_REGLER, support: CONNECTE_PAR_LE_SUPPORT,
+  credit: CONNECTE_PAR_LE_CREDIT, attente: CONNECTE_EN_ATTENTE, avec_carte: CONNECTE_AVEC_CARTE,
 };
 
 /** Lu seulement quand le numéro est connecté. Une lecture qui échoue garde la suite d'avant, la carte, et se journalise. */
 async function paiementDuNumero(deps: DepsMcp, tenantId: string): Promise<PaiementDuNumero> {
   try {
     const wa = deps.agentIa.creditWhatsapp;
-    if (await deps.numero.fenetrePartenaire(tenantId)) {
-      // Le numéro de l'essai connecté avec sa carte, l'option prise (V4 de la session du crédit) : le bouton de
-      // l'onglet n'existe que pour une option à jour, hors Entreprise.
-      const [offre, option] = await Promise.all([wa.option.offre(tenantId), wa.option.options.vivante(tenantId)]);
-      if (offre === 'entreprise') return 'support';
-      return option?.statut === 'actif' ? 'reconnecter' : 'regler';
-    }
-    const [etat, numeros] = await Promise.all([lireEtatLigne(wa, tenantId), wa.vue.numeros(tenantId)]);
-    if (!creditPaieMeta(etat, tousGardentLApplication(numeros))) return 'carte';
+    const [etat, numeros, offre] = await Promise.all([lireEtatLigne(wa, tenantId), wa.vue.numeros(tenantId), wa.option.offre(tenantId)]);
+    const avecApplication = tousGardentLApplication(numeros);
+    // La ligne aurait pu prendre ce numéro : l'option payée l'attend, ou une Entreprise (sa ligne se pose à la connexion).
+    // Ailleurs, la règle ne se lit pas : aucune course à attendre pour un numéro connecté, comme toujours, avec sa carte.
+    const ligneAttendue = !avecApplication && (etat === 'en_attente' || (etat === 'a_prendre' && offre === 'entreprise'));
+    const avecCarte = ligneAttendue && await wa.option.numeroAvecCarte(tenantId);
+    if (avecCarte) return 'avec_carte';
+    if (!creditPaieMeta(etat, avecApplication, avecCarte)) return 'carte';
     return etat === 'en_attente' ? 'attente' : 'credit';
   } catch (err) {
     journaliser('error', 'mcp_paiement_du_numero_illisible', { tenantId, err });
@@ -503,15 +497,15 @@ async function paiementDuNumero(deps: DepsMcp, tenantId: string): Promise<Paieme
 }
 
 /**
- * 🔴 LA COURSE DE LA CONNEXION SANS CARTE (rouge de la relecture du lot) : le numéro est relié (`linkTenant`) AVANT que sa
- * ligne soit posée ou qu'il soit marqué arrivé par la fenêtre du partenaire (quelques secondes d'appels à Meta) ; entre
- * les deux, la règle le lit comme le numéro de l'essai connecté avec sa carte. On relit donc tant qu'elle dit « carte qui
- * paie encore », jusqu'à la fin de l'attente et au moins cinq pas : un vrai numéro à reconnecter le reste jusqu'au bout.
+ * 🔴 LA COURSE DE LA CONNEXION SANS CARTE (rouge de la relecture du lot 3v-2b) : le numéro est relié (`linkTenant`) AVANT
+ * d'être marqué arrivé par la fenêtre du partenaire et d'avoir sa ligne (quelques secondes d'appels à Meta) ; entre les
+ * deux, `numeroAvecCarte` le lit connecté avec sa carte. On relit donc tant qu'elle le dit, jusqu'à la fin de l'attente
+ * et au moins cinq pas : un vrai numéro connecté avec sa carte le reste jusqu'au bout.
  */
 async function paiementStable(deps: DepsMcp, tenantId: string, debut: number): Promise<PaiementDuNumero> {
   const limite = Math.max(debut + DELAI_ATTENTE_MS, deps.numero.maintenant() + 5 * PAS_ATTENTE_MS);
   let p = await paiementDuNumero(deps, tenantId);
-  while ((p === 'reconnecter' || p === 'regler' || p === 'support') && deps.numero.maintenant() + PAS_ATTENTE_MS <= limite) {
+  while (p === 'avec_carte' && deps.numero.maintenant() + PAS_ATTENTE_MS <= limite) {
     await deps.numero.attendre(PAS_ATTENTE_MS);
     p = await paiementDuNumero(deps, tenantId);
   }
@@ -556,8 +550,7 @@ function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string
   if (e.connecte) {
     if (paiement !== 'carte') return SUITES_CONNECTE[paiement];
     // Le crédit offert est écrit après la liaison, une fois Meta interrogé (relecture du lot) : quelques secondes.
-    return 'Le numéro est connecté : le branchement est fini. Dis-lui tout de suite d’ajouter sa carte chez Meta, sans '
-      + `laquelle les modèles ne partent pas : ${numerotees(ETAPES_CARTE_META.map((e) => e.fr))} Relis ensuite `
+    return `Le numéro est connecté : le branchement est fini. ${AJOUTER_SA_CARTE} Relis ensuite `
       + 'get_setup_state avant d’annoncer la suite : la connexion change l’état de l’espace. Le crédit offert au premier '
       + 'numéro arrive quelques secondes après : s’il est encore à 0, relis une fois quelques secondes plus tard.';
   }

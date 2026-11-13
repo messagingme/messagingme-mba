@@ -22,12 +22,19 @@ function deps(o: {
 
 describe('creditPaieMeta (jaunes 2 et 3 de la relecture du lot B)', () => {
   it('🔴 la ligne active, ou l’option payée qui attend sa ligne, pour un numéro qui ne garde pas l’application ; sinon la carte chez Meta', () => {
-    expect(creditPaieMeta('active', false)).toBe(true);
-    expect(creditPaieMeta('en_attente', false)).toBe(true);
+    expect(creditPaieMeta('active', false, false)).toBe(true);
+    expect(creditPaieMeta('en_attente', false, false)).toBe(true);
     // Qui garde l'application reste sur sa carte chez Meta (décision 8) : la ligne ne le couvrira jamais.
-    expect(creditPaieMeta('en_attente', true)).toBe(false);
-    expect(creditPaieMeta('active', true)).toBe(false);
-    for (const etat of ['free', 'essai', 'a_prendre', 'arretee', undefined, null]) expect(creditPaieMeta(etat, false), String(etat)).toBe(false);
+    expect(creditPaieMeta('en_attente', true, false)).toBe(false);
+    expect(creditPaieMeta('active', true, false)).toBe(false);
+    for (const etat of ['free', 'essai', 'a_prendre', 'arretee', undefined, null]) expect(creditPaieMeta(etat, false, false), String(etat)).toBe(false);
+  });
+
+  it('🔴 un numéro connecté avec sa carte chez Meta : l’option payée ne l’attend pas, sa carte paie (décision du 2026-11-13)', () => {
+    // La ligne ne le prendra jamais (Meta refuse sa reconnexion) : « en attente » ne veut rien dire pour lui.
+    expect(creditPaieMeta('en_attente', false, true)).toBe(false);
+    // Une ligne active paie, comme sur la carte de Connecter WhatsApp, qui ne dit le texte (1) qu'hors ligne active.
+    expect(creditPaieMeta('active', false, true)).toBe(true);
   });
 });
 

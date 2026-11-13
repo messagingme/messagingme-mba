@@ -13,19 +13,11 @@
 
 ## 🟡 Le Crédit WhatsApp ne se vend plus à un numéro connecté avec sa carte : ce qui reste (plan `docs/superpowers/plans/2026-11-13-credit-whatsapp-numero-avec-carte.md`)
 
-- Ce que dit Claude, laissé à la session de l'aide à la connexion qui a ces fichiers en cours : la skill
-  `mise-en-service` du plugin (« or the reconnection without a card from the WhatsApp credit tab »), puis sa
-  publication ; et dans `src/mcp/outils-numero.ts`, `paiementDuNumero` et `paiementStable` (lignes 459 à 510) supposent
-  encore que la fenêtre se rouvre à un espace connecté (V4) : les branches `reconnecter`/`regler`/`support` sont mortes,
-  et un numéro avec carte dont l'option est payée (`en_attente`) s'y lit « connecté sans carte… sous 24 h ouvrées ». À
-  lire sur `numeroAvecCarte`, comme la carte ; `tests/mcp-numero.test.ts` (873 à 906) tient des cas qui n'existent plus.
 - `aide:charger` en production après le déploiement : la fiche publique et `recharger-le-credit-whatsapp` ont changé.
-- MUTAC (essai 257) : sa reconnexion passerait par le Support (retirer notre compte de messagerie direct, puis la
+- L'espace de l'essai 257 : sa reconnexion passerait par le Support (retirer notre compte de messagerie direct, puis la
   fenêtre ; non éprouvé, modèles et agent de Meta à refaire), si Julien le décide.
-- Relecture du lot (aucun rouge restant ; le numéro délié, rouge, corrigé avant le push) :
-  - « ajoutez votre carte chez Meta » reste muet pour un numéro avec carte dont l'option est payée (`en_attente`) :
-    `creditPaieMeta` (`web/lib/partage/credit-whatsapp.ts`) et `carte_meta_a_regler` de `get_setup_state`
-    (`src/mcp/mise-en-service.ts`) le tiennent pour payé par le crédit (`&& !numeroAvecCarte`) ;
+- Relecture du lot 1 (aucun rouge restant ; le numéro délié, rouge, corrigé avant le push ; la carte muette pour un numéro
+  avec carte dont l'option est payée, reprise au lot 2 avec ce que dit Claude) :
   - le texte (2) ne paraît qu'à un espace qui a droit à la ligne (périmètre validé) : ni au Pro sans option, ni au
     Business en essai, à qui l'onglet conseille même « Pendant l'essai, vous connectez votre numéro avec votre carte »,
     ni à côté du bouton direct de l'Accueil (`accueil/page.tsx`). À trancher par Julien ;

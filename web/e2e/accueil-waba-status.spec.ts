@@ -50,6 +50,16 @@ test.describe('Accueil : panneau statut WhatsApp Business (F2)', () => {
     await expect(page.getByTestId('carte-meta-a-regler')).toBeVisible();
   });
 
+  test('🔴 un numéro connecté avec sa carte chez Meta (décision du 2026-11-13) : l’option payée ne l’attend pas, le bandeau reste ; une ligne active le tait', async ({ page }) => {
+    const bloque = { ...defaultAccount, paiementMetaBloque: true };
+    await mockAccueil(page, { account: bloque, etatLigne: { etat: 'en_attente', enVente: true, avecApplication: false, numeroAvecCarte: true } });
+    await expect(page.getByTestId('carte-meta-a-regler')).toBeVisible();
+    await page.goto('about:blank');
+    await mockAccueil(page, { account: bloque, etatLigne: { etat: 'active', enVente: true, avecApplication: false, numeroAvecCarte: true } });
+    await expect(page.getByTestId('waba-status-panel')).toBeVisible();
+    await expect(page.getByTestId('carte-meta-a-regler')).toHaveCount(0);
+  });
+
   test('bloc paiement : renvoi honnête vers le Business Manager (lien billing_hub)', async ({ page }) => {
     await mockAccueil(page);
     const link = page.getByTestId('waba-status-panel').getByRole('link', { name: 'Business Manager Meta' });

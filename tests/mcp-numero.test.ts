@@ -36,9 +36,17 @@ function monter(etats: (t: number) => EtatConnexion, o: {
   offre?: string;
   /** La lecture des lignes en panne. */
   lecturePanne?: boolean;
+  /**
+   * Un numéro connecté avec sa carte chez Meta (`numeroAvecCarte`, décision du 2026-11-13) : une suite de réponses, la
+   * dernière répétée, comme `ligne` (le numéro relié avant sa marque, la course du lot 3v-2b).
+   */
+  avecCarte?: boolean | boolean[];
+  /** Le numéro est arrivé par la fenêtre du partenaire et attend sa ligne (`attendLigne`). */
+  attendLigne?: boolean;
 } = {}) {
   let t = 1_000_000;
   const lectures: Array<{ tenant: string; t: number }> = [];
+  const lecturesCarte: number[] = [];
   const portails: Array<{ tenant: string; payeur: string }> = [];
   const paiements: Array<{ tenant: string; payeur: string }> = [];
   const couteux: string[] = [];
@@ -72,16 +80,20 @@ function monter(etats: (t: number) => EtatConnexion, o: {
         option: {
           offre: async () => o.offre ?? 'pro', optionPrenable: async () => true,
           options: { vivante: async () => (o.option ? { places: 1, statut: o.option } : null) },
+          numeroAvecCarte: async () => {
+            lecturesCarte.push(t);
+            return Array.isArray(o.avecCarte) ? (o.avecCarte.length > 1 ? o.avecCarte.shift()! : o.avecCarte[0]!) : o.avecCarte ?? false;
+          },
         },
         vue: {
           lignes: async () => { if (o.lecturePanne) throw new Error('base injoignable'); return o.ligneActive ? [{ arreteeLe: null }] : []; },
-          numeros: async () => [{ coexistence: false, delie: false, attendLigne: false }],
+          numeros: async () => [{ coexistence: false, delie: false, attendLigne: o.attendLigne ?? false }],
         },
       },
     },
     couteux: { consommer: async (tenant: string) => { couteux.push(tenant); return { accepte: true, attenteMs: 0 }; } },
   } as unknown as DepsMcp;
-  return { deps, lectures, debut: t, portails, couteux, paiements, rendus, destinations };
+  return { deps, lectures, lecturesCarte, debut: t, portails, couteux, paiements, rendus, destinations };
 }
 
 describe('start_whatsapp_connection', () => {
@@ -884,26 +896,60 @@ describe('la connexion sans carte chez Meta (lot 3v-2b)', () => {
     }
   });
 
-  it('🔴 connecté : la carte chez Meta seulement si elle paie ; le crédit, ou la reconnexion depuis l’onglet', async () => {
+  it('🔴 connecté : la carte chez Meta seulement si elle paie ; sinon la ligne de crédit, sans carte', async () => {
     const carte = await suite({});
     expect(carte).toContain(ETAPES_CARTE_META[0]!.fr);
     const credit = await suite({ ligneActive: true });
     expect(credit).not.toContain(ETAPES_CARTE_META[0]!.fr);
     expect(credit).toMatch(/ne lui demande aucune carte/);
     expect(credit).toMatch(/buy_credit avec credit « whatsapp »/);
-    // Le numéro de l'essai connecté avec sa carte, l'option prise : la fenêtre reste ouverte jusqu'au bout de l'attente.
-    const reconnecter = await suite({ ligne: true, option: 'actif' });
-    expect(reconnecter).toMatch(/Reconnecter mon numéro sans carte chez Meta/);
-    expect(reconnecter).not.toMatch(/ne lui demande aucune carte/);
-    for (const s of [carte, credit, reconnecter]) expect(s).toMatch(/Relis ensuite get_setup_state/);
+    for (const s of [carte, credit]) expect(s).toMatch(/Relis ensuite get_setup_state/);
   });
 
-  it('🔴 la course de la connexion sans carte : relié AVANT la pose de sa ligne, le numéro n’est pas annoncé « à reconnecter »', async () => {
-    // `linkTenant` relie le numéro, puis quelques secondes d'appels à Meta, puis la ligne posée : entre les deux, la
-    // fenêtre du partenaire paraît rouverte (rouge de la relecture du lot).
-    const s = await suite({ ligne: [true, true, false], ligneActive: true, option: 'actif' });
+  /**
+   * UN NUMÉRO CONNECTÉ AVEC SA CARTE CHEZ META (décision de Julien du 2026-11-13) : Meta refuse sa reconnexion, la ligne
+   * ne le prendra jamais. L'option payée (à jour ou non) ou une Entreprise ne changent rien : sa carte paie, et le Support
+   * est la seule suite, comme le dit la console (texte (1)). Plus jamais « sous 24 h ouvrées » ni « aucune carte ».
+   */
+  it('🔴 connecté avec sa carte, l’option payée ou en Entreprise : la ligne de crédit ne le prend pas, sa carte paie', async () => {
+    for (const o of [{ option: 'actif' as const }, { option: 'en_retard' as const }, { offre: 'entreprise' }]) {
+      const s = await suite({ ...o, avecCarte: true });
+      const cas = JSON.stringify(o);
+      expect(s, cas).toMatch(/la ligne de crédit ne peut pas le prendre en charge/);
+      expect(s, cas).toMatch(/Support de la console/);
+      expect(s, cas).toContain(ETAPES_CARTE_META[0]!.fr);
+      expect(s, cas).not.toMatch(/ne lui demande aucune carte|sous 24 h ouvrées|buy_credit|Reconnecter/);
+      expect(s, cas).toMatch(/Relis ensuite get_setup_state/);
+    }
+  });
+
+  it('🔴 sans option ni Entreprise, un numéro connecté avec sa carte garde la suite de la carte, sans rien attendre', async () => {
+    const m = monter(() => CONNECTE, { avecCarte: true });
+    const s = ((await outil('watch_whatsapp_connection').executer(m.deps, 't1', { mode: 'apporte' }, PERSONNE)) as { suite: string }).suite;
+    expect(s).toContain(ETAPES_CARTE_META[0]!.fr);
+    expect(s).not.toMatch(/ligne de crédit/);
+    // Aucune ligne n'aurait pu le prendre : la règle ne se lit même pas, aucune course à attendre.
+    expect(m.lecturesCarte).toEqual([]);
+  });
+
+  it('🔴 la course de la connexion sans carte : relié AVANT sa marque, le numéro n’est pas annoncé « connecté avec sa carte »', async () => {
+    // `linkTenant` relie le numéro, puis quelques secondes d'appels à Meta, puis la marque « arrivé par la fenêtre du
+    // partenaire » et la pose de sa ligne : entre les deux, il paraît connecté avec sa carte (rouge de la relecture du
+    // lot 3v-2b, revenu avec `numeroAvecCarte`).
+    const m = monter(() => CONNECTE, { avecCarte: [true, true, false], option: 'actif' });
+    const s = ((await outil('watch_whatsapp_connection').executer(m.deps, 't1', { mode: 'apporte' }, PERSONNE)) as { suite: string }).suite;
     expect(s).toMatch(/ne lui demande aucune carte/);
-    expect(s).not.toMatch(/Reconnecter mon numéro|carte chez Meta, qui paie encore/);
+    expect(s).not.toMatch(/ne peut pas le prendre en charge/);
+    expect(m.lecturesCarte).toHaveLength(3);
+  });
+
+  it('🔴 un vrai numéro avec sa carte le reste jusqu’au bout de l’attente : relu au moins cinq fois avant de le dire', async () => {
+    const m = monter(() => CONNECTE, { avecCarte: true, option: 'actif' });
+    const s = ((await outil('watch_whatsapp_connection').executer(m.deps, 't1', { mode: 'apporte' }, PERSONNE)) as { suite: string }).suite;
+    expect(s).toMatch(/ne peut pas le prendre en charge/);
+    expect(m.lecturesCarte.length).toBeGreaterThan(5);
+    // 🔴 Jamais au-delà du délai de l'attente.
+    expect(m.lecturesCarte.at(-1)! - m.debut).toBeLessThanOrEqual(DELAI_ATTENTE_MS);
   });
 
   it('🔴 l’option payée, la ligne pas encore posée : ni carte, ni recharge (refusée avant la ligne)', async () => {
@@ -913,11 +959,10 @@ describe('la connexion sans carte chez Meta (lot 3v-2b)', () => {
     expect(s).not.toMatch(/buy_credit/);
   });
 
-  it('🟡 la carte paie encore : l’option en retard se règle d’abord ; en Entreprise, le Support', async () => {
-    expect(await suite({ ligne: true, option: 'en_retard' })).toMatch(/n’est pas à jour/);
-    const entreprise = await suite({ ligne: true, offre: 'entreprise' });
-    expect(entreprise).toMatch(/Support de la console/);
-    expect(entreprise).not.toMatch(/Reconnecter mon numéro/);
+  it('🔴 une Entreprise dont le numéro arrivé par la fenêtre attend sa ligne : ni carte, ni « connecté avec sa carte »', async () => {
+    const s = await suite({ offre: 'entreprise', attendLigne: true });
+    expect(s).toMatch(/ne lui demande aucune carte/);
+    expect(s).not.toMatch(/ne peut pas le prendre en charge/);
   });
 
   it('🟡 une lecture en panne garde la suite de la carte', async () => {

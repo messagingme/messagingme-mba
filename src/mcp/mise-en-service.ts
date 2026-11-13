@@ -102,6 +102,11 @@ export interface LecturesMiseEnService {
    * reste dit, comme sur l'Accueil (jaune 9 du lot C).
    */
   avecApplication?: boolean;
+  /**
+   * Un numéro de l'espace est connecté avec sa carte chez Meta (`numeroAvecCarte`, décision du 2026-11-13) : la ligne ne
+   * le prendra jamais, l'option payée ne l'attend pas. Absent (lecture en échec) : lu comme oui, comme `avecApplication`.
+   */
+  numeroAvecCarte?: boolean;
 }
 
 export interface EtatMiseEnService {
@@ -162,9 +167,9 @@ export function etatMiseEnService(l: LecturesMiseEnService): EtatMiseEnService {
   if (statutApplication === 'sommeil') avertissements.push('numero_en_sommeil');
   // Connecté mais bloqué chez Meta pour sa carte : les modèles ne partent pas (erreur 141006, guide « compte Meta »).
   // Sauf si le Crédit WhatsApp paie Meta (`creditPaieMeta`) : la ligne posée, ou l'option payée qui l'attend, pour un
-  // numéro qui ne garde pas l'application.
+  // numéro qui ne garde pas l'application et n'est pas connecté avec sa carte.
   const carteARegler = numero?.connecte === true && l.numero?.connecte?.paiementBloque === true
-    && !creditPaieMeta(l.etatLigne, l.avecApplication ?? true);
+    && !creditPaieMeta(l.etatLigne, l.avecApplication ?? true, l.numeroAvecCarte ?? true);
   if (carteARegler) avertissements.push('carte_meta_a_regler');
 
   const agents = l.agents === null ? null : {
@@ -242,6 +247,8 @@ export interface DepsMiseEnService {
      */
     creditWhatsapp: SourcesEtatLigne & {
       surLaLigne(tenantId: string): Promise<boolean>;
+      /** Un numéro connecté avec sa carte chez Meta (`numeroAvecCarte`, la même règle que la prise de l'option). */
+      option: { numeroAvecCarte(tenantId: string): Promise<boolean> };
       vue: {
         solde(tenantId: string): Promise<number>; conditions(tenantId: string): Promise<{ openBar: boolean }>;
         /** Les numéros de l'espace, pour savoir s'ils gardent tous l'application (`tousGardentLApplication`). */
@@ -266,7 +273,7 @@ function ou<T>(p: Promise<T>, tenantId: string, source: string): Promise<T | nul
 export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: string): Promise<EtatMiseEnService> {
   const g = deps.agentIa.gestion;
   const wa = deps.agentIa.creditWhatsapp;
-  const [offre, creditIa, numero, liste, reglages, widgets, soldeWhatsapp, etatLigne, numerosCredit] = await Promise.all([
+  const [offre, creditIa, numero, liste, reglages, widgets, soldeWhatsapp, etatLigne, numerosCredit, numeroAvecCarte] = await Promise.all([
     ou(deps.offre.vue(tenantId), tenantId, 'offre'),
     ou(g.creditIa.etat(tenantId), tenantId, 'credit'),
     ou(deps.numero.etat(tenantId), tenantId, 'numero'),
@@ -279,6 +286,7 @@ export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: strin
     ou(wa.surLaLigne(tenantId).then(async (o) => (o && !(await wa.vue.conditions(tenantId)).openBar ? wa.vue.solde(tenantId) : null)), tenantId, 'credit_whatsapp'),
     ou(lireEtatLigne(wa, tenantId), tenantId, 'ligne_credit'),
     ou(wa.vue.numeros(tenantId), tenantId, 'numeros_credit'),
+    ou(wa.option.numeroAvecCarte(tenantId), tenantId, 'numero_avec_carte'),
   ]);
   // Les manques, pour les brouillons seulement (la lecture de la console, `/manques`) : un espace en porte quelques-uns.
   const agents = liste === null ? null : await Promise.all(liste.map(async (a) => ({
@@ -291,5 +299,6 @@ export async function lireMiseEnService(deps: DepsMiseEnService, tenantId: strin
     ...(creditIa !== null ? { creditIa: { illimite: creditIa.illimite, plafondAtteint: creditIa.acces === 'plafond' } } : {}),
     ...(etatLigne !== null ? { etatLigne } : {}),
     ...(numerosCredit !== null ? { avecApplication: tousGardentLApplication(numerosCredit) } : {}),
+    ...(numeroAvecCarte !== null ? { numeroAvecCarte } : {}),
   });
 }

@@ -55,8 +55,11 @@ export async function mockAccueil(
      * que ce support ne connaît pas, donc aucun répondeur IA.
      */
     repondeurIa?: { id: string; label: string };
-    /** L'état du Crédit WhatsApp (`GET /credit-whatsapp/etat`, lot B). Absent : `{}`, un état illisible. */
-    etatLigne?: { etat: string; enVente: boolean; avecApplication: boolean };
+    /**
+     * L'état du Crédit WhatsApp (`GET /credit-whatsapp/etat`, lot B). Absent : `{}`, un état illisible. `numeroAvecCarte` :
+     * un numéro connecté avec sa carte chez Meta (décision du 2026-11-13) ; absent, comme l'API d'avant.
+     */
+    etatLigne?: { etat: string; enVente: boolean; avecApplication: boolean; numeroAvecCarte?: boolean };
     /**
      * « Qui répond au client » (RC6), rendu par `GET /repondeur` et TENU par le mock : un `PUT` le change, comme le
      * serveur (le mode et sa cible, et l'agent de Meta allumé par le mode « mba »). Absent : `{}`, comme toute route que

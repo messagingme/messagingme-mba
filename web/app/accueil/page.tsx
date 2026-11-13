@@ -51,7 +51,8 @@ export default function AccueilPage() {
 
 /**
  * « Ajoutez votre carte chez Meta » (erreur 141006) : tu quand le Crédit WhatsApp paie Meta pour le numéro de l'espace
- * (`creditPaieMeta`, la règle de `get_setup_state`, jaune 3 de la relecture du lot B). L'état ne se lit qu'ici, quand Meta
+ * (`creditPaieMeta`, la règle de `get_setup_state`, jaune 3 de la relecture du lot B), jamais pour un numéro connecté avec
+ * sa carte que l'option payée n'attend pas (`numeroAvecCarte`, 2026-11-13). L'état ne se lit qu'ici, quand Meta
  * bloque le compte ; illisible, ou en échec, le bandeau paraît : mieux vaut un conseil de trop qu'un blocage tu.
  */
 function CarteMetaARegler({ tenantId }: { tenantId: string }) {
@@ -60,7 +61,7 @@ function CarteMetaARegler({ tenantId }: { tenantId: string }) {
   useEffect(() => {
     let vivant = true;
     lireEtatLigne(tenantId)
-      .then((v) => { if (vivant) setPaie(v !== null && creditPaieMeta(v.etat, v.avecApplication)); })
+      .then((v) => { if (vivant) setPaie(v !== null && creditPaieMeta(v.etat, v.avecApplication, v.numeroAvecCarte)); })
       .catch(() => { if (vivant) setPaie(false); });
     return () => { vivant = false; };
   }, [tenantId]);

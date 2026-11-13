@@ -201,8 +201,17 @@ describe('ce qu’il faut chez Meta', () => {
     // carte chez Meta de payer, Claude ne doit pas dire d'en enregistrer une.
     const numeroBloque = { ...CONNECTE, connecte: { chiffres: '336', aActiver: false, paiementBloque: true } };
     for (const etatLigne of ['en_attente', 'active'] as const) {
-      expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne, avecApplication: false }).avertissements, etatLigne).not.toContain('carte_meta_a_regler');
+      expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne, avecApplication: false, numeroAvecCarte: false }).avertissements, etatLigne).not.toContain('carte_meta_a_regler');
     }
+    // 🔴 Un numéro connecté avec sa carte chez Meta (décision du 2026-11-13) : l'option payée ne l'attend pas, la ligne ne le
+    // prendra jamais, sa carte reste à régler. Illisible, le conseil reste dit, comme pour l'application ; une ligne active
+    // paie, comme sur la carte de Connecter WhatsApp.
+    const avecCarte = (etatLigne: 'en_attente' | 'active', numeroAvecCarte?: boolean) => etatMiseEnService({
+      ...PRET, numero: numeroBloque, etatLigne, avecApplication: false, ...(numeroAvecCarte === undefined ? {} : { numeroAvecCarte }),
+    }).avertissements;
+    expect(avecCarte('en_attente', true)).toContain('carte_meta_a_regler');
+    expect(avecCarte('en_attente')).toContain('carte_meta_a_regler');
+    expect(avecCarte('active', true)).not.toContain('carte_meta_a_regler');
     for (const etatLigne of ['a_prendre', 'essai', 'arretee'] as const) {
       expect(etatMiseEnService({ ...PRET, numero: numeroBloque, etatLigne }).avertissements, etatLigne).toContain('carte_meta_a_regler');
     }

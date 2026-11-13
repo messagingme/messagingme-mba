@@ -5648,8 +5648,9 @@ accepté pour reprendre une connexion commencée ainsi.
 **Sans carte chez Meta (2026-11-11, lot 3v-2b).** L'option Ligne de crédit payée et aucun numéro encore, le lien ouvre
 de lui-même la connexion sans carte chez Meta (la fenêtre du partenaire), pour un numéro fourni ou apporté ; Claude en
 dit les conditions (le compte Meta Business, sans carte) et le crédit qui paie, à recharger. Le numéro connecté, il ne
-demande la carte chez Meta que si elle paie, et renvoie le numéro de l'essai connecté avec sa carte, l'option prise,
-à l'onglet Ligne de crédit, pour s'y reconnecter sans carte.
+demande la carte chez Meta que si elle paie. Un numéro connecté avec sa carte alors que l'option est prise (ou en
+Entreprise) ne passera pas sur la ligne de crédit (2026-11-13) : Claude le dit comme la console, le Support pour
+changer, et donne les étapes de la carte chez Meta.
 
 **Ce qu'il faut savoir.** Le lien vaut une heure, peut se rouvrir pendant ce temps, et cesse de servir dès que le
 numéro est connecté ; passé l'heure, Claude en donne un autre. Il n'ouvre que la connexion du numéro de cet espace,

@@ -4843,7 +4843,8 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   fourni ouvert par la même fenêtre (`ParcoursNumero` avec `parLaLigne` : la solution du partenaire, la fin par la ligne,
   ses conditions chez Meta sans carte, jamais `fourni_application`). Une Free l'est sans lire la route (402), par la vue de l'offre. Prise depuis une carte, l'option compte
   un numéro et ramène sur Connecter WhatsApp (`origine: 'connecter'`, le corps d'avant sans elle), dont le retour garde la
-  prise fermée jusqu'à relire l'option. `get_setup_state` tait `carte_meta_a_regler` en `en_attente` et `active`. La même
+  prise fermée jusqu'à relire l'option. `get_setup_state` tait `carte_meta_a_regler` en `active`, et en `en_attente` sauf
+  pour un numéro connecté avec sa carte (`numeroAvecCarte`, que la ligne ne prendra jamais). La même
   question se pose sur la vitrine (`scripts/vitrine/tunnel-textes.ts`, une réponse grisée par formule, `Reponse.grisee`)
   et dans la skill de mise en service du plugin, aux mêmes mots (`tests/questions-numero-vitrine.test.ts`) ; chaque voie
   qui garde l'application y dit qu'on paie Meta avec sa carte.
@@ -5018,7 +5019,8 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   hors vente et sans ligne, aucune lecture ; il paraît en vente et `a_prendre`, masqué d'un clic sur ce navigateur.
   « Ajoutez votre carte chez Meta » se tait quand le Crédit WhatsApp paie Meta (`creditPaieMeta`,
   `web/lib/partage/credit-whatsapp.ts`), et une lecture illisible de l'état ou des numéros le laisse dire, à Claude
-  (`get_setup_state`) comme sur l'Accueil.
+  (`get_setup_state`) comme sur l'Accueil. L'option payée ne le tait pas pour un numéro connecté avec sa carte
+  (`numeroAvecCarte`, troisième argument requis de la règle, illisible lu comme oui) : la ligne ne le prendra jamais.
 
 **Pannes.** Sans grille de Meta en vigueur, la garde refuse tout envoi d'un numéro sur la ligne : `/ops` refuse donc d'y
 poser un numéro tant que la grille n'est pas chargée. Sans les quatre prix Stripe (`STRIPE_PRIX_WA_50` à `_500`, posés
@@ -5552,11 +5554,12 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   `PREREQUIS_LIGNE` et `NUMERO_LIGNE_MIEN`) et en `fourni`, jamais en gardant l'application. `start_whatsapp_connection`
   lit la même règle (`fenetrePartenaire` de `DepsNumeroMcp`, câblée dans `src/index.ts`) et dit la connexion sans carte,
   ses conditions et le crédit à recharger. Connecté, `watch_whatsapp_connection` choisit sa suite par qui paie
-  (`paiementDuNumero`) : la carte chez Meta, le Crédit WhatsApp (ligne active ; en attente de sa ligne, sans recharge,
-  refusée avant), ou la carte encore (le numéro de l'essai connecté avec elle, l'option prise : la reconnexion depuis
-  l'onglet, le règlement de l'option en retard, ou le Support en Entreprise). 🔴 Le numéro est relié (`linkTenant`) AVANT
-  la pose de sa ligne, et la règle le prend un instant pour un numéro à reconnecter : `paiementStable` relit tant qu'elle
-  le dit, jusqu'à la fin de l'attente et au moins cinq pas.
+  (`paiementDuNumero`) : la carte chez Meta, la ligne de crédit (ligne active ; en attente de sa ligne, sans recharge,
+  refusée avant), ou la carte quand même : connecté avec elle (`numeroAvecCarte`) alors que la ligne aurait pu le prendre
+  (l'option payée, ou une Entreprise), le numéro n'y passera jamais, et Claude le dit comme la console (le Support pour
+  changer) avec les étapes de la carte. Hors de ces deux cas, la règle ne se lit pas. 🔴 Le numéro est relié
+  (`linkTenant`) AVANT sa marque « arrivé par la fenêtre » et sa ligne, et `numeroAvecCarte` le lit un instant connecté
+  avec sa carte : `paiementStable` relit tant qu'elle le dit, jusqu'à la fin de l'attente et au moins cinq pas.
 - **L'origine de l'espace** (`tenants.origine`, migration 0212) : `claude_code` quand l'espace naît par la connexion
   OAuth de Claude Code (`src/http/oauth.ts`), `console` sinon. Elle ne décide plus du crédit offert (1 € pour toutes
   les origines, lot 6) : c'est une donnée d'exploitation. `createTenantWithAdmin` l'exige toujours dans le contrat des
