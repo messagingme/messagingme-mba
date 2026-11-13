@@ -18,7 +18,7 @@ import { e164DepuisSaisie } from '../crm/phone';
 import { LONGUEUR_MAX_ETIQUETTE, nettoyerEtiquettes, type PoseEtiquette } from '../crm/poser-etiquette';
 import {
   DEBUT_AVATAR, MAX_AVATAR_URL, MAX_LIBELLE_WIDGET, MAX_NOM_WIDGET, MAX_PAR_HEURE_WIDGET, MAX_PHRASE_WIDGET,
-  MOTIF_COULEUR, POSITIONS_WIDGET, LIMITE_WIDGETS_PAR_ESPACE,
+  MOTIF_COULEUR, POSITIONS_WIDGET,
   creerWidget, listerEnVue, miseEnVue, modifierWidget,
   type ChampWidget, type DepsWidgets,
 } from '../widgets/gestion';
@@ -440,6 +440,10 @@ export const MAX_MESSAGES_MCP = LIMITE_MESSAGES_MCP;
  * Free, la seule offre de la filière application : lues dans la grille.
  */
 const MESSAGES_DU_MOIS = (DROITS.base.limites.envoisModelesMois ?? 0).toLocaleString('en-US');
+/** La limite de widgets de chaque offre, dite aux modèles telle que la grille la pose (null = sans limite). */
+const LIMITE_WIDGETS = (['base', 'pro', 'business', 'entreprise'] as const)
+  .map((o) => `${({ base: 'Free', pro: 'Pro', business: 'Business', entreprise: 'Enterprise' })[o]} ${DROITS[o].limites.widgets ?? 'unlimited'}`)
+  .join(', ');
 
 /** Les annotations d'une lecture : rien n'est touché, ni dans l'espace ni au-dehors. */
 const lecture = (title: string): AnnotationsMcp => ({ title, readOnlyHint: true, openWorldHint: false });
@@ -1001,7 +1005,7 @@ export const OUTILS: OutilMcp[] = [
     ...ficheOutilMcp('list_widgets'),
     fonction: null,
     description:
-      `The workspace's WhatsApp widgets (${LIMITE_WIDGETS_PAR_ESPACE} at most): chat bubbles placed on a site, which `
+      `The workspace's WhatsApp widgets, with limite, the most the plan allows (${LIMITE_WIDGETS}): chat bubbles placed on a site, which `
       + 'open WhatsApp with a prefilled message. Each one carries its id (for update_widget), its name, its phrase, who '
       + 'answers (devenir, workflowId), whether it is active, the tag to paste on the site (balise) and the address of '
       + 'its script, the bubble\'s wa.me link (waMeUrl; null = the bubble shows greyed out, no WhatsApp number is '
@@ -1045,7 +1049,8 @@ export const OUTILS: OutilMcp[] = [
       + 'template, and the phrase tells that they come from this widget (their contact gets the tag widget-<code>, '
       + 'devenir decides who answers). Returns the widget, including its tag (balise): it goes in the site\'s HTML '
       + 'code, just before the closing </body> tag, on every page where the bubble should appear. It loads without '
-      + `slowing the page down and never changes. ${LIMITE_WIDGETS_PAR_ESPACE} widgets at most per workspace. The `
+      + `slowing the page down and never changes. The plan limits the number of widgets (${LIMITE_WIDGETS}): beyond it, the `
+      + 'call is refused with the plan link, and the existing widgets keep working. The '
       + 'checks are those of the console screen: a refusal states its reason.',
     // Non idempotente : chaque appel qui réussit crée un widget de plus. Destructrice pour la règle du répertoire de
     // Claude (voir `AnnotationsMcp`).
@@ -1096,9 +1101,9 @@ export const OUTILS: OutilMcp[] = [
       + 'link to the plans page, and the Pro trial (essai: whether the 14-day trial is possible, and the end of a running one). '
       + 'grille gives the four plans side by side. Pro is paid online (subscribe_pro); Business and Entreprise are set up by '
       + 'Messaging Me on request (the Support page of the console), never paid through Claude. '
-      + 'contactsToutesOrigines tells what the contact limit counts: in Free every contact counts, including those who wrote '
-      + 'first, and a full Free workspace does not let a new customer in (their message is not recorded, the admins get an '
-      + 'email); in Pro, Business and Entreprise only the contacts created count, and a customer who writes is never refused. '
+      + 'contactsToutesOrigines tells what the contact limit counts: in Free, Pro and Business every contact counts, including '
+      + 'those who wrote first, and a full workspace does not let a new customer in (their message is not recorded, the admins '
+      + 'get an email); in Entreprise only the contacts created count, and a customer who writes is never refused. '
       + 'contactsEnTrop is how many counted contacts are above the limit (0 within it): as long as it is above 0, no '
       + 'contact can be created or imported; deleting that many (prepare_contacts_deletion, then delete_contacts) brings '
       + 'the workspace back within its limit, and in Free these deletions are not capped per day meanwhile. '

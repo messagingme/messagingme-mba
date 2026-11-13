@@ -5,8 +5,10 @@ import { LimiteOffreError } from '../src/offres/refus';
 import type { LimiteContacts } from '../src/offres/offres';
 
 /**
- * LA FREE NE GÈRE JAMAIS PLUS DE CONTACTS QUE SA LIMITE, QUELLE QUE SOIT LEUR ORIGINE (décision de Julien du 2026-10-25,
- * plan `docs/superpowers/plans/2026-10-25-free-100-contacts.md`), sur un faux pool.
+ * FREE, PRO ET BUSINESS NE GÈRENT JAMAIS PLUS DE CONTACTS QUE LEUR LIMITE, QUELLE QUE SOIT LEUR ORIGINE (décisions de
+ * Julien du 2026-10-25, plan `docs/superpowers/plans/2026-10-25-free-100-contacts.md`, et du 2026-11-13, plan
+ * `docs/superpowers/plans/2026-11-13-grille-des-formules.md`), sur un faux pool. Seule l'Entreprise réglée sur devis ne
+ * compte que les fiches créées.
  *
  * Le faux compte comme la base compterait D'APRÈS LE PRÉDICAT QUE PORTE LA REQUÊTE : 100 fiches vivantes, dont 40 nées
  * d'un message entrant, donc 60 si la requête exclut `ne_entrant`. Ce que la vraie base fait de ces requêtes est dans
@@ -47,18 +49,24 @@ describe('🔴 le compte de la limite dépend de l’offre (`contactsToutesOrigi
     expect((refus as LimiteOffreError).message).toMatch(/100 contacts, ceux qui vous écrivent compris\. Passez en Pro/);
   });
 
-  it('le Pro dans le même état accepte : ses 40 fiches nées d’un entrant ne comptent pas', async () => {
+  it('🔴 le Pro et le Business dans le même état refusent aussi (2026-11-13) ; seule l’Entreprise sur devis ne compte pas ceux qui écrivent', async () => {
     const { p } = pool();
-    // Une limite basse, pour que seul le prédicat décide : 60 fiches créées sur 100 places.
-    await expect(new PgContactStore(p, undefined, limite({ max: 100, offre: 'pro' })).verifierPlaceContacts(T, ['+33600000101'])).resolves.toBeUndefined();
-    await expect(new PgContactStore(p, undefined, limite({ max: 5000, offre: 'pro' })).verifierPlaceContacts(T, ['+33600000101'])).resolves.toBeUndefined();
+    // Une limite basse, pour que seul le prédicat décide : 100 fiches vivantes, dont 60 créées, pour 100 places.
+    for (const offre of ['pro', 'business'] as const) {
+      const refus = await new PgContactStore(p, undefined, limite({ max: 100, offre })).verifierPlaceContacts(T, ['+33600000101']).catch((e: unknown) => e);
+      expect(refus, offre).toBeInstanceOf(LimiteOffreError);
+      expect((refus as LimiteOffreError).message, offre).toMatch(/ceux qui vous écrivent compris/);
+    }
+    await expect(new PgContactStore(p, undefined, limite({ max: 100, offre: 'entreprise' })).verifierPlaceContacts(T, ['+33600000101'])).resolves.toBeUndefined();
   });
 
-  it('les places que l’import Shopify annonce comptent comme le refus : toutes les fiches en Free, les créées en Pro', async () => {
+  it('les places que l’import Shopify annonce comptent comme le refus : toutes les fiches en Free, Pro et Business, les créées en Entreprise', async () => {
     const { p } = pool();
     expect(await new PgContactStore(p, undefined, limite({ max: 100, offre: 'base' })).placesContacts(T, ['+33600000101']))
       .toEqual({ limite: 100, comptees: 100, presents: new Set() });
-    expect(await new PgContactStore(p, undefined, limite({ max: 5000, offre: 'pro' })).placesContacts(T, ['+33600000101']))
+    expect(await new PgContactStore(p, undefined, limite({ max: 1000, offre: 'pro' })).placesContacts(T, ['+33600000101']))
+      .toEqual({ limite: 1000, comptees: 100, presents: new Set() });
+    expect(await new PgContactStore(p, undefined, limite({ max: 5000, offre: 'entreprise' })).placesContacts(T, ['+33600000101']))
       .toEqual({ limite: 5000, comptees: 60, presents: new Set() });
   });
 
@@ -70,7 +78,7 @@ describe('🔴 le compte de la limite dépend de l’offre (`contactsToutesOrigi
   });
 });
 
-describe('🔴 la porte d’une Free pleine : qui n’y entre pas (`inconnusRefuses`)', () => {
+describe('🔴 la porte d’un espace plein : qui n’y entre pas (`inconnusRefuses`)', () => {
   it('Free pleine : l’inconnu est refusé, le contact connu entre, et la limite voyage avec le refus', async () => {
     const { p, appels } = pool(['33611111111']);
     const r = await new PgContactStore(p, undefined, limite({ max: 100, offre: 'base' })).inconnusRefuses(T, ['33611111111', '33622222222']);
@@ -90,13 +98,19 @@ describe('🔴 la porte d’une Free pleine : qui n’y entre pas (`inconnusRefu
     expect(r).toEqual({ waIds: new Set(['33633333333']), limite: 100 });
   });
 
-  it('🔴 l’offre relue en base : un espace que le cache croit en Free, mais qui vient de passer en Pro, ne refuse personne', async () => {
-    // Le paiement du Pro ou le début d'un essai n'invalide que le cache de l'API : celui du worker retarde de 30 s.
-    for (const offre of ['pro', 'entreprise']) {
+  it('🔴 l’offre relue en base, ET SA LIMITE : un espace que le cache croit en Free, mais qui vient de passer en Pro, ne refuse personne à 100', async () => {
+    // Le paiement du Pro ou le début d'un essai n'invalide que le cache de l'API : celui du worker retarde de 30 s. Depuis
+    // que le Pro refuse aussi (2026-11-13), garder la limite du cache le ferait refuser à 100 : il refuse à 1 000.
+    for (const offre of ['pro', 'business', 'entreprise']) {
       const { p, appels } = pool([], VIVANTES, offre);
       expect(await new PgContactStore(p, undefined, limite({ max: 100, offre: 'base' })).inconnusRefuses(T, ['33622222222']), offre).toBeNull();
       expect(appels, offre).toHaveLength(1);
     }
+    // Un Pro plein que le cache croit encore en Pro, passé en Business : la limite du Business, pas celle du Pro.
+    expect(await new PgContactStore(pool([], 1000, 'business').p, undefined, limite({ max: 1000, offre: 'pro' })).inconnusRefuses(T, ['33622222222'])).toBeNull();
+    // Et l'inverse : le cache croit en Business, la base dit Pro, plein à 1 000 : refusé, avec la limite du Pro.
+    expect(await new PgContactStore(pool([], 1000, 'pro').p, undefined, limite({ max: 5000, offre: 'business' })).inconnusRefuses(T, ['33622222222']))
+      .toEqual({ waIds: new Set(['33622222222']), limite: 1000 });
     // Une offre que le code ne connaît pas se lit comme la Base, comme `offreDe` : la porte refuse.
     expect(await new PgContactStore(pool([], VIVANTES, 'inconnue').p, undefined, limite({ max: 100, offre: 'base' })).inconnusRefuses(T, ['33622222222']))
       .toEqual({ waIds: new Set(['33622222222']), limite: 100 });
@@ -107,9 +121,15 @@ describe('🔴 la porte d’une Free pleine : qui n’y entre pas (`inconnusRefu
     expect(await new PgContactStore(pool(['33611111111']).p, undefined, limite({ max: 100, offre: 'base' })).inconnusRefuses(T, ['33611111111'])).toBeNull();
   });
 
-  it('🔴 le Pro plein, l’Entreprise, sans limite ou sans personne : rien n’est refusé ni même lu', async () => {
+  it('🔴 le Pro plein et le Business plein refusent l’inconnu, comme la Free (2026-11-13)', async () => {
+    for (const [offre, max] of [['pro', 1000], ['business', 5000]] as const) {
+      const r = await new PgContactStore(pool([], max, offre).p, undefined, limite({ max, offre })).inconnusRefuses(T, ['33622222222']);
+      expect(r, offre).toEqual({ waIds: new Set(['33622222222']), limite: max });
+    }
+  });
+
+  it('🔴 l’Entreprise, sans limite ou sans personne : rien n’est refusé ni même lu', async () => {
     const { p, appels } = pool([], 5000);
-    expect(await new PgContactStore(p, undefined, limite({ max: 5000, offre: 'pro' })).inconnusRefuses(T, ['33622222222'])).toBeNull();
     expect(await new PgContactStore(p, undefined, limite({ max: 100, offre: 'entreprise' })).inconnusRefuses(T, ['33622222222'])).toBeNull();
     expect(await new PgContactStore(p, undefined, limite(null)).inconnusRefuses(T, ['33622222222'])).toBeNull();
     expect(await new PgContactStore(p).inconnusRefuses(T, ['33622222222'])).toBeNull();

@@ -7,6 +7,8 @@ import { PRIX_NUMERO_HT_CENTIMES } from '../src/stripe/abonnement';
 import { PRIX_OPTION_WA_HT_CENTIMES } from '../src/stripe/option-credit-whatsapp';
 import { schema } from '../src/config';
 import { JUMELLES } from '../scripts/vitrine/anglais';
+import { OUTILS } from '../src/mcp/outils';
+import { ROUTES_V1 } from '../src/api/openapi/registre';
 import { lire, parAttribut, texte } from './vitrine-lecture';
 
 /**
@@ -18,12 +20,31 @@ import { lire, parAttribut, texte } from './vitrine-lecture';
 
 const PAGES = { fr: 'tarifs/index.html', en: 'en/pricing/index.html' } as const;
 
+/**
+ * Les outils MCP et les points d'API qu'une offre OUVRE (demande de Julien du 2026-11-13, « pour bien différencier ») :
+ * comptés sur le catalogue du serveur MCP (la `fonction` de chaque outil) et sur le registre de l'API publique (la
+ * `fonction` qui ferme une route), jamais écrits à la main. Un outil ou une route qui arrive change le chiffre attendu.
+ */
+const outilsMcp = (o: Offre): number => OUTILS.filter((t) => t.fonction === null || DROITS[o].fonctions.has(t.fonction)).length;
+const pointsApi = (o: Offre): number => ROUTES_V1.filter((r) => r.fonction === undefined || DROITS[o].fonctions.has(r.fonction)).length;
+
 const ATTENDU: Record<string, number> = {
   'base.envois-modeles-mois': DROITS.base.limites.envoisModelesMois ?? NaN,
   'base.contacts': DROITS.base.limites.contacts ?? NaN,
   'base.utilisateurs': DROITS.base.limites.utilisateurs ?? NaN,
   'base.adresses-webhook': DROITS.base.limites.adressesWebhook ?? NaN,
   'base.conservation-jours': DROITS.base.limites.conservationJours,
+  // Les widgets (décision de Julien du 2026-11-13) : Free 1, Pro 5 ; le Business sans limite, dit en mots plus bas.
+  'base.widgets': DROITS.base.limites.widgets ?? NaN,
+  'pro.widgets': DROITS.pro.limites.widgets ?? NaN,
+  'base.outils-mcp': outilsMcp('base'),
+  'pro.outils-mcp': outilsMcp('pro'),
+  'business.outils-mcp': outilsMcp('business'),
+  'entreprise.outils-mcp': outilsMcp('entreprise'),
+  'base.points-api': pointsApi('base'),
+  'pro.points-api': pointsApi('pro'),
+  'business.points-api': pointsApi('business'),
+  'entreprise.points-api': pointsApi('entreprise'),
   // « 3,50 » et « 3.50 » se lisent 350 : les centimes, comme la constante.
   'numero.prix-mois': PRIX_NUMERO_HT_CENTIMES,
   'pro.prix-mois': PRIX_PRO_HT_CENTIMES.mois / 100,
@@ -61,6 +82,7 @@ const ATTENDU_TEXTE: Record<string, RegExp> = {
   'business.envois-modeles-mois': DROITS.business.limites.envoisModelesMois === null ? /illimités|unlimited/i : /(?!)/,
   'business.automations': DROITS.business.limites.automations === null ? /illimitées|unlimited/i : /(?!)/,
   'business.numero-inclus': DROITS.business.limites.numeroInclus ? /inclus|included/i : /(?!)/,
+  'business.widgets': DROITS.business.limites.widgets === null ? /illimités|unlimited/i : /(?!)/,
 };
 
 /** Ce qu'une offre ajoute à la précédente, dans l'ordre de la grille. */
@@ -106,9 +128,10 @@ for (const [langue, page] of Object.entries(PAGES)) {
       expect(bloc.slice(0, bloc.indexOf('}', bloc.indexOf('priceSpecification')))).toContain('"valueAddedTaxIncluded": false');
     });
 
-    it('la connexion SSO est promise, dans la carte de l’Entreprise (spec offres v2)', () => {
+    it('la connexion SSO et l’IA on premise sont promises, dans la carte de l’Entreprise (spec offres v2, puis 2026-11-13)', () => {
       const entreprise = html.slice(html.indexOf('data-fonction="entreprise:'));
       expect(entreprise).toMatch(/<li data-promesse="sso">[^<]*SSO[^<]*<\/li>/);
+      expect(entreprise).toMatch(/<li data-promesse="ia-on-premise">[^<]*on.premise[^<]*<\/li>/i);
       expect(html.slice(0, html.indexOf('data-fonction="entreprise:'))).not.toContain('SSO');
     });
 

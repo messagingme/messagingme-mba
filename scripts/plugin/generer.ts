@@ -242,7 +242,7 @@ export function readmeAJour(md: string): string {
   // Chaque mention du Pro suit les droits du code, pas seulement ses chiffres : un droit retiré disparaît du README.
   const mentionsPro = [
     pro.envoisModelesMois === null ? 'unlimited sends' : `${enAnglais(pro.envoisModelesMois!)} templates sent per month`,
-    `${enAnglais(pro.contacts!)} contacts created and unlimited inbound contacts`,
+    `${enAnglais(pro.contacts!)} contacts, including those who write to you`,
     utilisateurs(pro.utilisateurs),
     ...(pro.numeroInclus ? ['provided number included'] : []),
     ...(DROITS.pro.fonctions.has('inbox') ? ['and the Inbox where your team takes over'] : []),
@@ -283,7 +283,7 @@ export function blocAccueil(): string {
     'the console',
     ...(pro.numeroInclus ? ['provided number included'] : []),
     pro.envoisModelesMois === null ? 'unlimited sends' : `${enAnglais(pro.envoisModelesMois!)} templates sent per month`,
-    `${enAnglais(pro.contacts!)} contacts created and unlimited inbound contacts`,
+    `${enAnglais(pro.contacts!)} contacts, including those who write to you`,
     utilisateurs(pro.utilisateurs),
   ];
   return [

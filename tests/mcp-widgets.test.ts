@@ -6,7 +6,7 @@ import { sha256Hex } from '../src/lib/signature';
 import type { ApiKeyLookup } from '../src/auth/api-key-store.pg';
 import { OUTILS, type CablageMcp } from '../src/mcp/outils';
 import {
-  DEVENIR_AGENT_A_VENIR, LIMITE_WIDGETS_PAR_ESPACE, SCENARIO_NON_PUBLIE, WIDGET_INCONNU,
+  DEVENIR_AGENT_A_VENIR, SCENARIO_NON_PUBLIE, WIDGET_INCONNU,
   saisieDeCreation, saisieDeModification, type DepsGestionWidgets,
 } from '../src/widgets/gestion';
 import type { NumeroDuWidget } from '../src/widgets/adresses';
@@ -19,6 +19,7 @@ import { jamaisDesabonne } from './consentement';
 import { mcpAgentInerte, mcpNumeroInerte, mcpEvenementsInertes, mcpChiffresInertes, mcpMessagesInertes, mcpOffreInerte, mcpCampagnesInertes, mcpChampsInertes, mcpSuppressionInerte, mcpShopifyInerte, mcpFilInerte, mcpInerte, scenariosApiInerte } from './routes-inertes';
 import { bornesDesChamps, champsDe, muettes as bornesMuettes } from './aide/bornes-zod';
 import { offresToutOuvert, filiereApiSeule, aucunPremierMessage } from './gardes';
+import { DROITS, type Offre } from '../src/offres/offres';
 
 /**
  * Les outils MCP des widgets WhatsApp (lot 5 de docs/superpowers/plans/2026-10-02-widget-whatsapp.md), montés par
@@ -65,7 +66,7 @@ const jamais = (nom: string) => async (): Promise<never> => {
   throw new Error(`${nom} ne devrait pas être appelée par un outil des widgets`);
 };
 
-function monter(o: { widgets?: WidgetRow[]; liens?: string[]; scenarios?: Array<{ tenant: string; id: string; name: string; nodeCount: number }> } = {}) {
+function monter(o: { widgets?: WidgetRow[]; liens?: string[]; scenarios?: Array<{ tenant: string; id: string; name: string; nodeCount: number }>; offre?: Offre } = {}) {
   const lignes = [...(o.widgets ?? [])];
   const cap = {
     creations: [] as Array<{ tenant: string; w: WidgetInput }>,
@@ -93,7 +94,8 @@ function monter(o: { widgets?: WidgetRow[]; liens?: string[]; scenarios?: Array<
     },
     phrasesDesLiens: async () => o.liens ?? [],
     messagesContenantLaPhrase: async () => 0,
-    offres: offresToutOuvert,
+    // Entreprise, tout ouvert, sauf quand le test parle d'offre (la limite de widgets).
+    offres: o.offre ? { offreDe: async () => ({ offre: o.offre!, droits: DROITS[o.offre!], retourEnBaseLe: null }) } : offresToutOuvert,
     scenarioEtat: async (t, id) => {
       if ((t === 't1' && id === WF_T1) || (t === 't2' && id === WF_T2)) return 'ok';
       return t === 't1' && id === WF_T1_NON_PUBLIE ? 'vide' : 'inconnu';
@@ -196,7 +198,8 @@ describe('le catalogue', () => {
     const d = OUTILS.find((o) => o.nom === 'create_widget')!.description;
     expect(d).toContain('</body>');
     expect(d).toMatch(/visitor/);
-    expect(d).toContain(`${LIMITE_WIDGETS_PAR_ESPACE} widgets at most`);
+    // La limite de chaque offre, lue dans la grille : une limite qui bouge change la description.
+    expect(d).toContain(`Free ${DROITS.base.limites.widgets}, Pro ${DROITS.pro.limites.widgets}, Business unlimited, Enterprise unlimited`);
   });
 });
 
@@ -216,12 +219,12 @@ describe('create_widget', () => {
   });
 
   it('🔴 un refus de la gestion est un RÉSULTAT isError avec SA phrase, jamais une panne', async () => {
-    const cinq = Array.from({ length: LIMITE_WIDGETS_PAR_ESPACE }, (_, i) => ligne({ phrase: `Phrase numero ${i} du site` }));
     const cas: Array<[ReturnType<typeof monter>, Record<string, unknown>, string]> = [
       [monter(), { nom: 'Blog', phrase: 'Je viens du blog', devenir: 'agent' }, DEVENIR_AGENT_A_VENIR],
       [monter(), { nom: 'Blog', phrase: 'Je viens du blog', devenir: 'scenario', workflowId: WF_T1_NON_PUBLIE }, SCENARIO_NON_PUBLIE],
       [monter({ liens: ['Je veux le guide'] }), { nom: 'Blog', phrase: 'Je veux le guide 2026' }, 'lien de chaîne'],
-      [monter({ widgets: cinq }), { nom: 'Sixième', phrase: 'Une toute autre phrase' }, `${LIMITE_WIDGETS_PAR_ESPACE} widgets`],
+      // La limite de widgets de la Free (un seul) : la phrase de toute limite de l'offre, avec l'offre qui la lève.
+      [monter({ widgets: [ligne({ phrase: 'Je viens du site' })], offre: 'base' }), { nom: 'Second', phrase: 'Une toute autre phrase' }, '1 widget WhatsApp. Passez en Pro'],
       [monter(), { nom: 'Blog', phrase: 'x'.repeat(301) }, 'la phrase (1 à 300 caractères)'],
     ];
     for (const [{ server, cap }, args, attendu] of cas) {
@@ -309,7 +312,8 @@ describe('list_widgets et list_scenarios', () => {
     const { server, cap } = monter({ widgets: [ligne({ tenantId: 't1' }), ligne({ tenantId: 't2', phrase: 'Ailleurs' })] });
     const r = await appeler(server, CLE_AUTRE_ESPACE, 'list_widgets');
     expect(r.json().widgets.map((w: { phrase: string }) => w.phrase)).toEqual(['Ailleurs']);
-    expect(r.json().limite).toBe(LIMITE_WIDGETS_PAR_ESPACE);
+    // L'Entreprise du montage n'a pas de limite de widgets.
+    expect(r.json().limite).toBeNull();
     expect(cap.listes).toEqual(['t2']);
     await server.close();
   });

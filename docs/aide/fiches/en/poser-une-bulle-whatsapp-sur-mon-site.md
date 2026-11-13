@@ -1,6 +1,6 @@
 ---
 slug: put-a-whatsapp-bubble-on-my-site
-traduit_de: df6b2e
+traduit_de: 18ed7e
 description: Put a WhatsApp bubble on your site: create it, choose its pre-filled message and who answers, then paste the tag on your pages.
 ---
 # Put a WhatsApp bubble on my site
@@ -33,8 +33,8 @@ agent to answer the widget’s visitors, choose it in “Who answers the custome
 the widget no longer starts anything: its record says so, choose another one.
 
 **Turn off or delete.** When off, the bubble disappears but the tag can stay on your site; you turn it back on in
-one move. You can create five widgets at most. With no WhatsApp number linked, the bubble shows greyed out and does
-not open.
+one move. The number of widgets follows your plan: one on Free, five on Pro, no limit on Business and Enterprise. With
+no WhatsApp number linked, the bubble shows greyed out and does not open.
 
 **From an assistant.** An assistant such as Claude Code, plugged into your workspace through the MCP server
 (Developers menu), can also list, create and edit your widgets, with the same rules, and paste the tag on your site

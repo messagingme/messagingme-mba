@@ -12,7 +12,7 @@ import { registerWidgetPublic } from '../src/http/widget-public';
 import { SCRIPT_INERTE } from '../src/widgets/script';
 import { RateLimiter } from '../src/auth/rate-limit';
 import {
-  LIMITE_WIDGETS_PAR_ESPACE, DEVENIR_AGENT_A_VENIR, SCENARIO_NON_PUBLIE, type DepsGestionWidgets,
+  DEVENIR_AGENT_A_VENIR, SCENARIO_NON_PUBLIE, type DepsGestionWidgets,
 } from '../src/widgets/gestion';
 import type { NumeroDuWidget } from '../src/widgets/adresses';
 import type { WidgetInput, WidgetRow } from '../src/widgets/store.pg';
@@ -144,8 +144,9 @@ describe('lister, et ce qu’il faut pour poser la bulle', () => {
     const { server } = monter({ widgets: [w] });
     const res = await server.inject({ method: 'GET', url: URL_WIDGETS, ...h(adminTok) });
     expect(res.statusCode).toBe(200);
-    const corps = res.json<{ widgets: Array<Record<string, unknown>>; limite: number }>();
-    expect(corps.limite).toBe(LIMITE_WIDGETS_PAR_ESPACE);
+    const corps = res.json<{ widgets: Array<Record<string, unknown>>; limite: number | null }>();
+    // L'Entreprise du montage n'a pas de limite de widgets.
+    expect(corps.limite).toBeNull();
     const vue = corps.widgets[0]!;
     expect(vue.adresseScript).toBe(`${BASE_API}/widget/${w.code}.js`);
     expect(vue.balise).toBe(`<script src="${BASE_API}/widget/${w.code}.js" async></script>`);
@@ -325,19 +326,35 @@ describe('créer', () => {
     }
   });
 
-  it('🔴 le sixième widget est refusé (409), et rien n’est écrit', async () => {
-    const cinq = Array.from({ length: LIMITE_WIDGETS_PAR_ESPACE }, (_, i) => ligne({ phrase: `Phrase numero ${i} du site` }));
-    const { server, cap } = monter({ widgets: cinq });
-    const res = await creer(server, { nom: 'Sixième', phrase: 'Une toute autre phrase' });
-    expect(res.statusCode).toBe(409);
-    expect(erreur(res)).toContain(`${LIMITE_WIDGETS_PAR_ESPACE} widgets`);
-    expect(cap.creations).toEqual([]);
-    await server.close();
+  it('🔴 la limite de l’offre (Free 1, Pro 5) : le widget de trop est refusé en 402 avec l’offre qui la lève, et rien n’est écrit', async () => {
+    for (const [offre, leve] of [['base', 'Pro'], ['pro', 'Business']] as const) {
+      const max = DROITS[offre].limites.widgets!;
+      const pleins = Array.from({ length: max }, (_, i) => ligne({ phrase: `Phrase numero ${i} du site` }));
+      const { server, cap } = monter({ widgets: pleins, offre });
+      const lu = await server.inject({ method: 'GET', url: URL_WIDGETS, ...h(adminTok) });
+      expect(lu.json<{ limite: number | null }>().limite, offre).toBe(max);
+      const res = await creer(server, { nom: 'De trop', phrase: 'Une toute autre phrase' });
+      expect(res.statusCode, offre).toBe(402);
+      expect(res.json<{ code: string; limite: string; max: number }>(), offre).toMatchObject({ code: 'plan_limit_reached', limite: 'widgets', max });
+      expect(erreur(res), offre).toContain(`Passez en ${leve}`);
+      expect(cap.creations, offre).toEqual([]);
+      await server.close();
+    }
+  });
+
+  it('🔴 Business et Entreprise n’ont pas de limite de widgets', async () => {
+    for (const offre of ['business', 'entreprise'] as const) {
+      expect(DROITS[offre].limites.widgets, offre).toBeNull();
+      const beaucoup = Array.from({ length: 12 }, (_, i) => ligne({ phrase: `Phrase numero ${i} du site` }));
+      const { server } = monter({ widgets: beaucoup, offre });
+      expect((await creer(server, { nom: 'Treizième', phrase: 'Une toute autre phrase' })).statusCode, offre).toBe(201);
+      await server.close();
+    }
   });
 
   it('les widgets d’un AUTRE espace ne comptent pas dans la limite', async () => {
-    const ailleurs = Array.from({ length: LIMITE_WIDGETS_PAR_ESPACE }, (_, i) => ligne({ tenantId: 't2', phrase: `Ailleurs ${i}` }));
-    const { server } = monter({ widgets: ailleurs });
+    const ailleurs = Array.from({ length: DROITS.pro.limites.widgets! }, (_, i) => ligne({ tenantId: 't2', phrase: `Ailleurs ${i}` }));
+    const { server } = monter({ widgets: ailleurs, offre: 'pro' });
     expect((await creer(server, { nom: 'Blog', phrase: 'Je viens du blog' })).statusCode).toBe(201);
     await server.close();
   });

@@ -16,6 +16,19 @@
   la carte de Connecter WhatsApp et l'onglet (`QuiRegleMeta.tsx`, `PlaceLibre`), le paragraphe de features.md, et ce que
   dit Claude (MCP, skill du plugin).
 
+## 🟡 La grille des formules, lot 1 : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-13-grille-des-formules.md`)
+
+- La porte d'un espace plein compte désormais toutes les fiches actives d'un Pro ou d'un Business (jusqu'à 1 000 et
+  5 000) à chaque lot entrant (`inconnusRefuses`) : à mesurer sur un espace chargé ; parade possible, ne compter que
+  près de la limite.
+- Pro et Business partagent les états d'alerte `contacts_pro_*` : un Business à 4 500 contacts repassé en Pro reçoit
+  « a atteint les 1 000 » sans dire de combien il dépasse (pas de seuil « dépassée » hors Free). Un test de la bascule
+  Business vers Pro manque.
+- Un test manque : une Free redescendue avec deux widgets ou plus ne peut plus en créer, mais lit, modifie et supprime
+  les siens.
+- L'agent IA de la Free : la vitrine dit « 1 agent IA », le code n'en limite pas le nombre (décision de Julien du
+  2026-11-13, texte seulement).
+
 ## 🟡 Les PDF par contact, lot B3b (console)
 
 - Dupliquer un modèle Document repart sans en-tête ni source « PDF de la fiche » (comme l'image et la vidéo) : le dire,

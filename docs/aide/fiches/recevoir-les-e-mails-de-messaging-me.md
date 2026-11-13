@@ -1,6 +1,6 @@
 ---
 source_section: Les e-mails de Messaging Me aux administrateurs
-source_empreinte: c60412
+source_empreinte: 2f5dd5
 ---
 # Les e-mails que Messaging Me vous envoie
 
@@ -22,9 +22,10 @@ réponses à vos clients comprises, votre crédit restant conservé. Le numéro 
 avant sa libération, sa libération, et la suite du numéro quand votre offre Pro se termine. En offre Free, 80 % puis
 100 % des modèles du mois et de vos contacts, ceux qui vous ont écrit les premiers compris : l'alerte de 100 % propose
 de passer en Pro. Au-delà de votre limite de contacts (au retour en formule Free après la formule Pro, par exemple), une alerte vous
-dit combien en supprimer pour y revenir, en le demandant à Claude. Quand votre espace Free est plein et qu'un nouveau
-client vous écrit, un e-mail vous dit que son message n'est pas entré, une fois par jour au plus. En offre Pro, 80 % puis 100 % de vos contacts : l'alerte renvoie à
-l'offre Entreprise. Si l'option Crédit WhatsApp s'arrête (une résiliation, un impayé) alors que votre formule permet de
+dit combien en supprimer pour y revenir, en le demandant à Claude. Quand votre espace Free, Pro ou Business est plein
+et qu'un nouveau client vous écrit, un e-mail vous dit que son message n'est pas entré, une fois par jour au plus. En
+offres Pro et Business, 80 % puis 100 % de vos contacts, ceux qui vous ont écrit les premiers compris : l'alerte du Pro
+renvoie au Business, celle du Business à l'Entreprise. Si l'option Crédit WhatsApp s'arrête (une résiliation, un impayé) alors que votre formule permet de
 la reprendre, un e-mail vous dit que vos envois par le Crédit WhatsApp sont arrêtés, votre crédit restant conservé, et
 comment envoyer de nouveau.
 

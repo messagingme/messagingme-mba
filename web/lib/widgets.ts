@@ -130,8 +130,8 @@ export function ecartsDeSaisie(avant: SaisieWidget, apres: SaisieWidget): Partia
 
 // --- Les quatre appels --------------------------------------------------------------------------------
 
-/** `limite` est celle du serveur : l'écran l'affiche, il ne la décide pas. */
-export function listerWidgets(tenantId: string): Promise<{ widgets: Widget[]; limite: number }> {
+/** `limite` est celle de l'offre, dite par le serveur (`null` : sans limite) : l'écran l'affiche, il ne la décide pas. */
+export function listerWidgets(tenantId: string): Promise<{ widgets: Widget[]; limite: number | null }> {
   return request(base(tenantId));
 }
 

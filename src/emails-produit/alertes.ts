@@ -278,21 +278,21 @@ export interface DepsLimites {
 export interface LimitesAlertables {
   modelesMois: number | null;
   contacts: number | null;
-  offre: 'free' | 'pro' | null;
+  offre: 'free' | 'pro' | 'business' | null;
 }
 
 /**
  * Les limites que surveille le balayage, selon l'offre (spec offres v2, livraison 5) : celles de la Free, dont les textes
- * disent « Passez en Pro », et les contacts du Pro, dont les textes renvoient au Business (le Pro n'a pas de limite de
- * modèles). L'Entreprise, dont la limite de contacts se règle sur devis par /ops, n'en reçoit aucune : un texte la dirait
- * dans une offre qui n'est pas la sienne. Le Business non plus : il n'a pas encore ses propres textes, et ceux du Pro le
- * diraient en Pro. `null` = rien à surveiller.
+ * disent « Passez en Pro », les contacts du Pro, dont les textes renvoient au Business (le Pro n'a pas de limite de
+ * modèles), et depuis le 2026-11-13 ceux du Business, qui compte lui aussi ceux qui lui écrivent : ses textes renvoient à
+ * l'Entreprise. L'Entreprise, dont la limite de contacts se règle sur devis par /ops, n'en reçoit aucune : un texte la
+ * dirait dans une offre qui n'est pas la sienne. `null` = rien à surveiller.
  */
 export function limitesAlertables(
   offre: Offre, l: { envoisModelesMois: number | null; contacts: number | null },
 ): LimitesAlertables {
   if (offre === 'base') return { modelesMois: l.envoisModelesMois, contacts: l.contacts, offre: 'free' };
-  if (offre === 'pro') return { modelesMois: null, contacts: l.contacts, offre: 'pro' };
+  if (offre === 'pro' || offre === 'business') return { modelesMois: null, contacts: l.contacts, offre };
   return { modelesMois: null, contacts: null, offre: null };
 }
 
@@ -319,10 +319,17 @@ function seuilContactsAtteint(fiches: number, limite: number, s: SeuilContacts):
   return s === SEUIL_DEPASSEE ? fiches > limite : seuilAtteint(fiches, limite, s);
 }
 
-/** L'e-mail du seuil le plus haut franchi, avec les textes de l'offre : le Pro renvoie à l'Entreprise, la Free au Pro. */
+/** L'e-mail du seuil le plus haut franchi, avec les textes de l'offre : la Free renvoie au Pro, le Pro au Business, le
+ *  Business à l'Entreprise. */
 function emissionContacts(tenantId: string, offre: LimitesAlertables['offre'], seuil: SeuilContacts, generation: number,
   fiches: number, limite: number, pageOffre: string): Parameters<Emettre>[0] {
   const occasion = `franchissement:${generation}`;
+  if (offre === 'business') {
+    return {
+      cle: seuil === 100 ? 'limite_contacts_business_100' : 'limite_contacts_business_80', tenantId, occasion, a: 'admins',
+      valeurs: { limite: String(limite), lien_offre: pageOffre },
+    };
+  }
   if (offre === 'pro') {
     return {
       cle: seuil === 100 ? 'limite_contacts_pro_100' : 'limite_contacts_pro_80', tenantId, occasion, a: 'admins',
@@ -360,12 +367,13 @@ export async function balayerLimites(d: DepsLimites): Promise<number> {
           n += 1;
         }
       }
-      // Les seuils sont ceux de l'offre (`contacts_` en Free, `contacts_pro_` en Pro), et ceux de l'autre se relâchent :
+      // Les seuils sont ceux de l'offre (`contacts_` en Free, `contacts_pro_` en Pro et en Business, dont la limite est
+      // plus haute : un Pro passé en Business relit chaque seuil sur la sienne), et ceux de l'autre se relâchent :
       // un Pro arrivé à sa limite puis revenu en Free a déjà franchi ses seuils de Pro, pas ceux de la Free, et reçoit
       // son « Passer en Pro ». Un relâchement n'écrit rien quand le seuil l'est déjà.
       // 🔴 Tous les seuils de l'autre famille, « dépassée » compris : une Free à 3 000 contacts passée en Pro puis revenue
       // doit recevoir de nouveau son « dépassée ».
-      const famille = l.offre === 'pro' ? 'contacts_pro' : 'contacts';
+      const famille = l.offre === 'pro' || l.offre === 'business' ? 'contacts_pro' : 'contacts';
       const autre = famille === 'contacts' ? 'contacts_pro' : 'contacts';
       for (const s of SEUILS_CONTACTS[autre]) await d.franchir(tenantId, `${autre}_${s}`, false);
       if (l.contacts === null) {

@@ -21,7 +21,7 @@ import {
   creerWidget, ecartsDeSaisie, listerWidgets, modifierWidget, saisieDuWidget, sansApparence, supprimerWidget,
   type SaisieWidget, type Widget,
 } from '@/lib/widgets';
-import { APPARENCE_STANDARD, LIMITE_WIDGETS_PAR_ESPACE } from '@/lib/partage/widgets';
+import { APPARENCE_STANDARD } from '@/lib/partage/widgets';
 
 /**
  * Widget WhatsApp : la bulle que le client pose sur son site. Le visiteur clique, WhatsApp s'ouvre avec un message
@@ -40,7 +40,8 @@ function WidgetsInner({ session }: { session: Session }) {
   const t = useT();
   const confirmer = useConfirmation();
   const [widgets, setWidgets] = useState<Widget[]>([]);
-  const [limite, setLimite] = useState(LIMITE_WIDGETS_PAR_ESPACE);
+  // La limite de l'offre, lue avec la liste (`null` : sans limite, Business et Entreprise) ; le serveur tranche.
+  const [limite, setLimite] = useState<number | null>(null);
   const [scenarios, setScenarios] = useState<WorkflowSummary[]>([]);
   const [chargement, setChargement] = useState(true);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -58,7 +59,7 @@ function WidgetsInner({ session }: { session: Session }) {
       // Lecture défensive au bord du réseau : une 200 sans le champ attendu poserait `undefined` dans un état typé
       // tableau, et le premier `.map` démonterait l'écran.
       setWidgets(Array.isArray(w?.widgets) ? w.widgets : []);
-      setLimite(typeof w?.limite === 'number' ? w.limite : LIMITE_WIDGETS_PAR_ESPACE);
+      setLimite(typeof w?.limite === 'number' ? w.limite : null);
       setScenarios(Array.isArray(s?.workflows) ? s.workflows : []);
     } catch (err) {
       if (estAnnulation(err)) return;
@@ -122,7 +123,7 @@ function WidgetsInner({ session }: { session: Session }) {
     }
   }
 
-  const complet = widgets.length >= limite;
+  const complet = limite !== null && widgets.length >= limite;
 
   return (
     <div className="mx-auto max-w-liste space-y-6 px-4 py-8">
@@ -152,12 +153,14 @@ function WidgetsInner({ session }: { session: Session }) {
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-ink-500" data-testid="widgets-compte">
-            {t(`${widgets.length} widget(s) sur ${limite} possibles`, `${widgets.length} of ${limite} widgets`)}
+            {limite === null
+              ? t(`${widgets.length} widget(s)`, `${widgets.length} widget(s)`)
+              : t(`${widgets.length} widget(s) sur ${limite} possibles`, `${widgets.length} of ${limite} widgets`)}
           </p>
           <Bouton
             onClick={() => { setErreur(null); setEdition({ mode: 'creation' }); }}
             disabled={chargement || complet}
-            title={complet ? t('Limite atteinte : supprimez un widget pour en créer un autre.', 'Limit reached: delete a widget to create another one.') : undefined}
+            title={complet ? t('Limite de votre offre atteinte : supprimez un widget, ou changez d’offre depuis la page Offre.', 'Your plan’s limit is reached: delete a widget, or change plans from the Plan page.') : undefined}
             data-testid="widget-nouveau"
           >
             <Icone nom="ajouter" />

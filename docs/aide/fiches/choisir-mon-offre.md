@@ -2,7 +2,7 @@
 description: Free, Pro, Business ou Entreprise : ce que chaque offre de Messaging Me ouvre, ses limites, et comment changer d'offre ou gérer l'abonnement.
 ecran: offre
 source_section: Offres (menu « Paramètres » > Offre)
-source_empreinte: d8e810
+source_empreinte: 028b7b
 publique: oui
 rubrique: demarrer-console
 rang: 1
@@ -53,17 +53,21 @@ Free garde l'accueil (votre numéro), les clés d'API, la documentation, l'offre
 statistiques et l'e-mail, avec plus de contacts. Il compte trois utilisateurs, tous administrateurs : au-delà, chaque
 utilisateur en plus se paie, et son prix s'affiche quand vous invitez le membre, avant que rien ne soit facturé. La
 page Offre en retire un, sans remboursement, une fois le membre en trop désactivé. Le Business ajoute le Meta Business
-Agent, les assistants de configuration, l'assistant d'aide, le widget personnalisable et les rôles de l'équipe
+Agent, les assistants de configuration, l'assistant d'aide, des widgets personnalisables et sans limite de nombre, et les rôles de l'équipe
 (administrateur, manager, agent), avec cinq utilisateurs, l'accompagnement de la mise en route et le support
 prioritaire ; un utilisateur de plus s'y demande au Support. Les publicités, les chaînes, le RCS, Salesforce et Batch,
 et le Performance Lab complet demandent l'Entreprise.
 
-**Ce que compte la limite de contacts.** En formule Free, tous vos contacts comptent, ceux qui vous écrivent les premiers
-compris. Quand votre espace Free est plein, créer ou importer un contact est refusé, et un nouveau client qui vous
-écrit n'entre pas dans Messaging Me : son message n'est pas enregistré et votre agent IA ne lui répond pas. Un e-mail
-vous prévient, une fois par jour au plus. Vos contacts déjà présents vous écrivent comme avant, et un contact supprimé
-libère sa place : demandez à Claude de supprimer ceux dont vous n'avez plus besoin. Hors formule Free, un contact qui
-vous écrit le premier n'est jamais compté ni refusé.
+**Ce que compte la limite de contacts.** En formules Free, Pro et Business, tous vos contacts comptent, ceux qui vous
+écrivent les premiers compris. Quand votre espace est plein, créer ou importer un contact est refusé, et un nouveau
+client qui vous écrit n'entre pas dans Messaging Me : son message n'est pas enregistré et votre agent IA ne lui répond
+pas. Un e-mail vous prévient, une fois par jour au plus. Vos contacts déjà présents vous écrivent comme avant, et un
+contact supprimé libère sa place : demandez à Claude de supprimer ceux dont vous n'avez plus besoin. En Entreprise, le
+nombre de contacts se règle avec vous, et un contact qui vous écrit le premier n'est jamais refusé.
+
+**Les widgets WhatsApp.** Un en formule Free, cinq en formule Pro, sans limite en Business et en Entreprise. Un espace
+qui en a plus que son offre n'en permet garde les siens, qui continuent de marcher : seule la création d'un nouveau est
+refusée.
 
 **Ce qui n'est jamais compté.** Une réponse envoyée dans les 24 heures qui suivent un message du client n'est pas un
 envoi de modèle : elle n'est pas comptée.

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { STATUT_PAR_CODE, type CodeApi } from '../erreurs';
+import type { Fonction } from '../../offres/offres';
 
 /**
  * LE CONTRAT OPENAPI 3.1 DE L'API PUBLIQUE (lot 16, spec `docs/superpowers/specs/2026-10-09-openapi-sdk-design.md`).
@@ -45,6 +46,13 @@ export interface RouteOpenapi {
   readonly autreSucces?: { readonly statut: 202; readonly schema: z.ZodType; readonly quand: string };
   /** Les codes d'erreur PROPRES à la route ; ceux des gardes communes s'ajoutent à toutes (`ERREURS_COMMUNES`). */
   readonly erreurs: readonly CodeApi[];
+  /**
+   * La fonction de l'offre sans laquelle la route ne sert à rien (2026-11-13) : elle refuse tout appel (les scénarios, en
+   * 402 `plan_feature_unavailable` ; l'envoi RCS, en 409 `rcs_not_enabled`) ou ne rend jamais rien (la bibliothèque RCS).
+   * Absente : ouverte à toutes les offres. La page des tarifs compte ainsi les points d'API de chaque formule
+   * (`tests/vitrine-pages.test.ts`) ; une route qui en refuse une partie seulement (`POST /v1/sends`) n'en porte pas.
+   */
+  readonly fonction?: Fonction;
 }
 
 /** Un type d'événement envoyé par nos webhooks sortants. */

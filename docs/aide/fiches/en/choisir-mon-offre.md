@@ -1,7 +1,7 @@
 ---
 description: Free, Pro, Business or Enterprise: what each Messaging Me plan opens, its limits, and how to change plan or manage the subscription.
 slug: choose-my-plan
-traduit_de: 490eac
+traduit_de: de8e25
 ---
 # Choose my plan
 
@@ -47,15 +47,20 @@ customers within 24 hours, send your templates and build your AI agent. In the c
 more contacts. It includes three users, all administrators: beyond that, each extra user is paid for, and its price is
 shown when you invite the member, before anything is billed. The Plan page removes one, without a refund, once the
 extra member is deactivated. Business adds the Meta Business Agent, the setup assistants, the help assistant, the
-customisable widget and team roles (administrator, manager, agent), with five users, onboarding and priority support;
+customisable widgets with no limit on their number, and team roles (administrator, manager, agent), with five users,
+onboarding and priority support;
 an extra user is requested through Support. Ads, channels, RCS, Salesforce and Batch, and the full Performance Lab
 require Enterprise.
 
-**What the contact limit counts.** On Free, all your contacts count, including those who write to you first. When
-your Free workspace is full, creating or importing a contact is refused, and a new customer who writes to you does not
-get into Messaging Me: their message is not recorded and your AI agent does not reply to them. An email lets you know,
-at most once a day. Your existing contacts write to you as before, and a deleted contact frees its place: ask Claude to
-delete the ones you no longer need. Outside Free, a contact who writes to you first is never counted nor refused.
+**What the contact limit counts.** On Free, Pro and Business, all your contacts count, including those who write to you
+first. When your workspace is full, creating or importing a contact is refused, and a new customer who writes to you
+does not get into Messaging Me: their message is not recorded and your AI agent does not reply to them. An email lets
+you know, at most once a day. Your existing contacts write to you as before, and a deleted contact frees its place: ask
+Claude to delete the ones you no longer need. On Enterprise, the number of contacts is agreed with you, and a contact
+who writes to you first is never refused.
+
+**WhatsApp widgets.** One on Free, five on Pro, no limit on Business and Enterprise. A workspace that has more than its
+plan allows keeps its own, which keep working: only creating a new one is refused.
 
 **What is never counted.** A reply sent within 24 hours of a customer’s message is not a template send: it is not
 counted.

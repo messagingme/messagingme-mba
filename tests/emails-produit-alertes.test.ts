@@ -128,29 +128,31 @@ describe('🔴 l’espace Free plein qui écarte un nouveau client', () => {
     await expect(a('t1', 100)).resolves.toBeUndefined();
   });
 
-  it('le texte dit que le message n’est pas entré, la limite, et les deux issues : le Pro, ou supprimer des contacts', () => {
+  it('le texte dit que le message n’est pas entré, la limite, et les deux issues : l’offre supérieure, ou supprimer des contacts', () => {
     const m = modeleDe('espace_plein_entrant')!;
     expect(m.categorie).toBe('service');
     const v = { limite: '100', lien_offre: 'https://c/offre', espace: 'Boulangerie', _fuseau: 'Europe/Paris' };
     const fr = rendre(m, m.textes.fr, v, 'fr').text;
     expect(fr).toMatch(/nouveau client vous a écrit sur WhatsApp/);
-    expect(fr).toMatch(/100 contacts de l’offre Free/);
+    expect(fr).toMatch(/100 contacts que permet son offre/);
     expect(fr).toMatch(/n’est pas entré dans Messaging Me/);
-    expect(fr).toMatch(/Passez en Pro.*supprimez/s);
-    expect(rendre(m, m.textes.en, v, 'en').text).toMatch(/100 contacts of the Free plan/);
+    expect(fr).toMatch(/offre supérieure.*supprimez/s);
+    // Free, Pro ou Business (2026-11-13) : l'alerte ne connaît que la limite, elle ne nomme aucune offre.
+    expect(fr).not.toMatch(/Free|Pro\b|Business/);
+    expect(rendre(m, m.textes.en, v, 'en').text).toMatch(/100 contacts its plan allows/);
   });
 
-  it('🔴 les alertes de franchissement de la Free disent que tous les contacts comptent ; celles du Pro, que ceux qui écrivent ne comptent pas', () => {
+  it('🔴 les alertes de franchissement de la Free, du Pro et du Business disent que tous les contacts comptent (2026-11-13)', () => {
     const v = { limite: '100', limite_pro: '5000', lien_offre: 'x', espace: 'A', _fuseau: 'Europe/Paris' };
-    for (const cle of ['limite_contacts_80', 'limite_contacts_100'] as const) {
+    const toutes = ['limite_contacts_80', 'limite_contacts_100', 'limite_contacts_pro_80', 'limite_contacts_pro_100',
+      'limite_contacts_business_80', 'limite_contacts_business_100'] as const;
+    for (const cle of toutes) {
       const m = modeleDe(cle)!;
       expect(rendre(m, m.textes.fr, v, 'fr').text, cle).toMatch(/ceux qui vous ont écrit les premiers compris/);
-      expect(rendre(m, m.textes.fr, v, 'fr').text, cle).not.toMatch(/jamais refusé ni compté/);
+      expect(rendre(m, m.textes.fr, v, 'fr').text, cle).not.toMatch(/jamais refusé ni compté|sans compter ceux/);
+      expect(rendre(m, m.textes.fr, v, 'fr').text, cle).toMatch(/nouveau client qui vous écrit/);
       expect(rendre(m, m.textes.en, v, 'en').text, cle).toMatch(/including those who wrote to you first/);
-    }
-    for (const cle of ['limite_contacts_pro_80', 'limite_contacts_pro_100'] as const) {
-      const m = modeleDe(cle)!;
-      expect(rendre(m, m.textes.fr, v, 'fr').text, cle).toMatch(/jamais refusé ni compté/);
+      expect(rendre(m, m.textes.en, v, 'en').text, cle).not.toMatch(/never refused nor counted|not counting/);
     }
   });
 });
@@ -300,16 +302,32 @@ describe('les limites de la Free et du Pro', () => {
     expect(limitesAlertables('base', limites)).toEqual({ modelesMois: 1000, contacts: 20000, offre: 'free' });
     // Le Pro n'a pas de limite de modèles : ses alertes ne portent que sur les contacts.
     expect(limitesAlertables('pro', limites)).toEqual({ modelesMois: null, contacts: 20000, offre: 'pro' });
+    // Le Business compte ceux qui lui écrivent depuis le 2026-11-13 : ses contacts sont surveillés, avec ses textes.
+    expect(limitesAlertables('business', limites)).toEqual({ modelesMois: null, contacts: 20000, offre: 'business' });
     expect(limitesAlertables('entreprise', limites)).toEqual({ modelesMois: null, contacts: null, offre: null });
   });
 
   it('🔴 un Pro reçoit l’alerte du Pro, qui renvoie au Business (spec Business) ; la Free cite la limite du Pro, lue dans la grille', async () => {
-    const { d, e } = banc({ pro: { modelesMois: null, contacts: 5000, crees: 4000, offre: 'pro' }, free: { modelesMois: null, contacts: 100, crees: 100 } });
+    const { d, e } = banc({
+      pro: { modelesMois: null, contacts: 5000, crees: 4000, offre: 'pro' },
+      free: { modelesMois: null, contacts: 100, crees: 100 },
+      business: { modelesMois: null, contacts: 5000, crees: 5000, offre: 'business' },
+    });
     await balayerLimites(d);
     expect(e.emissions.map((x) => [x.tenantId, x.cle, x.valeurs.limite])).toEqual([
       ['pro', 'limite_contacts_pro_80', '5000'],
       ['free', 'limite_contacts_100', '100'],
+      ['business', 'limite_contacts_business_100', '5000'],
     ]);
+    // Le Business renvoie à l'Entreprise, jamais à une offre plus basse.
+    for (const cle of ['limite_contacts_business_80', 'limite_contacts_business_100']) {
+      const m = modeleDe(cle)!;
+      expect(rendre(m, m.textes.fr, { limite: '5000', espace: 'A', lien_offre: 'x' }, 'fr').text, cle).toMatch(/offre Entreprise/);
+      expect(rendre(m, m.textes.en, { limite: '5000', espace: 'A', lien_offre: 'x' }, 'en').text, cle).toMatch(/Enterprise plan/);
+      for (const l of ['fr', 'en'] as const) {
+        expect(rendre(m, m.textes[l], { limite: '5000', espace: 'A', lien_offre: 'x' }, l).text, cle + l).not.toMatch(/Passez en Pro|Upgrade to Pro|offre Free|Free plan|offre Pro|Pro plan/);
+      }
+    }
     expect(e.emissions[1]!.valeurs.limite_pro).toBe(String(DROITS.pro.limites.contacts));
     for (const cle of ['limite_contacts_pro_80', 'limite_contacts_pro_100']) {
       const m = modeleDe(cle)!;
@@ -336,7 +354,7 @@ describe('les limites de la Free et du Pro', () => {
   });
 
   /** Un banc : des espaces, leurs usages, et l'état des seuils comme en base (migration 0235). */
-  function banc(espaces: Record<string, { modelesMois: number | null; contacts: number | null; modeles?: number | null; crees?: number; offre?: 'free' | 'pro' }>) {
+  function banc(espaces: Record<string, { modelesMois: number | null; contacts: number | null; modeles?: number | null; crees?: number; offre?: 'free' | 'pro' | 'business' }>) {
     const e = emetteur();
     const seuils = new Map<string, { atteint: boolean; generation: number }>();
     const d: DepsLimites = {

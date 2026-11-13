@@ -8,13 +8,13 @@ import { PgChannelsMeLinkStore } from '../channels-me/link-store.pg';
 import { PgWorkflowStore, etatDuScenario, type EtatScenario } from '../workflow/store.pg';
 import { PgWidgetStore, type DevenirWidget, type PositionWidget, type WidgetInput, type WidgetRow } from './store.pg';
 import {
-  APPARENCE_STANDARD, COULEUR_PAR_DEFAUT, LIMITE_WIDGETS_PAR_ESPACE, MAX_LIBELLE_WIDGET, MAX_NOM_WIDGET, MAX_PHRASE_WIDGET,
-  POSITIONS_WIDGET,
+  APPARENCE_STANDARD, COULEUR_PAR_DEFAUT, MAX_LIBELLE_WIDGET, MAX_NOM_WIDGET, MAX_PHRASE_WIDGET, POSITIONS_WIDGET,
 } from '../../web/lib/partage/widgets';
 import { enConflitAvec, phrasesEnConflit } from './phrases';
 import { adresseDuScript, baliseDuScript, lienDuWidget, type NumeroDuWidget } from './adresses';
-import { refusFonction } from '../offres/refus';
+import { LimiteOffreError, STATUT_REFUS_OFFRE, corpsRefusLimite, refusFonction } from '../offres/refus';
 import type { SourceOffres } from '../offres/offre.pg';
+import type { Offre } from '../offres/offres';
 
 /**
  * LA GESTION DES WIDGETS : lister, créer, modifier, supprimer (lot 4 de
@@ -36,14 +36,15 @@ import type { SourceOffres } from '../offres/offre.pg';
  *    scénario, le lot 3 le traite comme `null`, et l'accepter ici laisserait le MCP poser un choix inerte ;
  *  - la phrase : réduite à rien par `normalizeText`, en conflit avec un autre widget ou un lien de chaîne
  *    (`./phrases`), ou déjà présente dans la conversation ordinaire ;
- *  - cinq widgets au plus par espace (décision de Julien du 2026-10-02) ;
+ *  - la limite de widgets de l'offre (décision de Julien du 2026-11-13 : Free 1, Pro 5, Business et Entreprise sans
+ *    limite), refusée en 402 comme toute limite de l'offre ;
  *  - 🔴 le devenir « scénario » CHOISI exige la fonction `scenarios` (lot 6, B2a, décision de Julien du 2026-10-07) : en
  *    Base, un widget ne démarre plus de scénario du client. Un widget d'avant reste modifiable et éteignable.
  */
 
 /** Les bornes que la console guide et que le serveur tranche, lues des deux côtés au même endroit. */
 export {
-  COULEUR_PAR_DEFAUT, LIMITE_WIDGETS_PAR_ESPACE, MAX_LIBELLE_WIDGET, MAX_NOM_WIDGET, MAX_PHRASE_WIDGET, POSITIONS_WIDGET,
+  COULEUR_PAR_DEFAUT, MAX_LIBELLE_WIDGET, MAX_NOM_WIDGET, MAX_PHRASE_WIDGET, POSITIONS_WIDGET,
 } from '../../web/lib/partage/widgets';
 export const MAX_AVATAR_URL = 2000;
 /** La même borne que le plafond horaire d'un lien de chaîne. */
@@ -137,8 +138,11 @@ const PHRASE_VIDE = 'Cette phrase ne contient aucun caractère exploitable : cho
 const PHRASE_ARRET =
   'Ce message commence par un mot d’arrêt (« stop », « arrêt », « désabonner »…) : chaque visiteur qui l’enverrait serait désabonné. Commencez-le autrement.';
 const PHRASE_DEJA_PRISE = 'Un autre widget de cet espace porte déjà cette phrase.';
-const LIMITE_ATTEINTE =
-  `Cet espace a déjà ${LIMITE_WIDGETS_PAR_ESPACE} widgets, le maximum : supprimez-en un avant d’en créer un autre.`;
+/** Le refus d'un widget de trop : la phrase et le corps de toute limite de l'offre, le lien qui la lève compris. */
+function refusLimiteWidgets(tenantId: string, max: number, offre: Offre) {
+  const c = corpsRefusLimite(new LimiteOffreError(tenantId, 'widgets', max, { offre }));
+  return refus(STATUT_REFUS_OFFRE, c.error, { code: c.code, limite: c.limite, max: c.max, upgradeUrl: c.upgradeUrl });
+}
 
 export interface DepsGestionWidgets {
   widgets: {
@@ -320,10 +324,12 @@ function estPhraseDejaPrise(err: unknown): boolean {
 export async function creerWidget(deps: DepsGestionWidgets, tenantId: string, corps: unknown): Promise<Issue<WidgetRow>> {
   const lu = saisieDeCreation.safeParse(corps ?? {});
   if (!lu.success) return refus(400, messageDeSaisie(lu.error));
-  const existants = await deps.widgets.lister(tenantId);
+  const [existants, { offre, droits }] = await Promise.all([deps.widgets.lister(tenantId), deps.offres.offreDe(tenantId)]);
   // ⚠️ Deux créations simultanées peuvent passer à 4 et finir à 6 : un dépassement d'un widget, sans conséquence,
-  // qui ne justifie pas un verrou. La limite borne un usage, pas une ressource.
-  if (existants.length >= LIMITE_WIDGETS_PAR_ESPACE) return refus(409, LIMITE_ATTEINTE);
+  // qui ne justifie pas un verrou. La limite borne un usage, pas une ressource. Un espace au-dessus (retour en Free)
+  // garde les siens : seule la création est refusée.
+  const max = droits.limites.widgets;
+  if (max !== null && existants.length >= max) return refusLimiteWidgets(tenantId, max, offre);
   const pret = await preparer(deps, tenantId, existants, null, lu.data);
   if (!pret.ok) return pret;
   try {
@@ -450,7 +456,10 @@ export async function miseEnVue(deps: DepsWidgets, tenantId: string): Promise<(w
 }
 
 /** La liste d'un espace telle que la console et le MCP la rendent, avec la limite qui s'applique à la création. */
-export async function listerEnVue(deps: DepsWidgets, tenantId: string): Promise<{ widgets: VueWidget[]; limite: number }> {
-  const [widgets, vue] = await Promise.all([deps.gestion.widgets.lister(tenantId), miseEnVue(deps, tenantId)]);
-  return { widgets: widgets.map(vue), limite: LIMITE_WIDGETS_PAR_ESPACE };
+export async function listerEnVue(deps: DepsWidgets, tenantId: string): Promise<{ widgets: VueWidget[]; limite: number | null }> {
+  const [widgets, vue, { droits }] = await Promise.all([
+    deps.gestion.widgets.lister(tenantId), miseEnVue(deps, tenantId), deps.gestion.offres.offreDe(tenantId),
+  ]);
+  // `null` : sans limite (Business, Entreprise).
+  return { widgets: widgets.map(vue), limite: droits.limites.widgets };
 }

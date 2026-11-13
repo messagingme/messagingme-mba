@@ -11,7 +11,7 @@ import type { Filiere } from './comptes';
 
 /**
  * RECEVOIR, FILIÈRE APPLICATION (plan 2026-10-22, tâche 4) : le job de la file `application-entrant`, traité par le
- * worker comme le canal RCS (`src/rcs/message-entrant.ts`), sur l'ingestion commune. La porte d'une Free pleine passe
+ * worker comme le canal RCS (`src/rcs/message-entrant.ts`), sur l'ingestion commune. La porte d'un espace plein passe
  * d'abord (`messagesEcartes`, `src/webhooks/espace-plein.ts`) ; `processInbound` fait la fiche, le STOP, l'écriture et le
  * détenteur ; l'avance fait suivre un parcours en attente, celui de l'agent IA en pleine conversation ; la remise commune
  * décide si l'agent IA répond, avec ses gardes.
@@ -68,7 +68,7 @@ export interface DepsEntrantApplication {
   /** Ce message est-il déjà enregistré dans l'espace ? Un message redonné ne refait rien. */
   dejaRecu(tenantId: string, messageId: string): Promise<boolean>;
   /**
-   * 🔴 La porte d'une Free pleine (2026-10-25, `src/webhooks/espace-plein.ts`), la même que la réception de Meta : le
+   * 🔴 La porte d'un espace plein (2026-10-25, `src/webhooks/espace-plein.ts`), la même que la réception de Meta : le
    * message d'un inconnu n'entre pas, son STOP seul est retenu. Requise : un câblage qui l'oublierait laisserait cette
    * filière sans plafond.
    */
@@ -119,7 +119,7 @@ export async function traiterEntrantApplication(job: JobEntrant, deps: DepsEntra
     return;
   }
   const entrants = [{ message: m, tenantId: job.tenantId }];
-  // 🔴 Avant l'ingestion commune, comme la réception de Meta : l'inconnu d'une Free pleine n'entre pas, et son STOP est
+  // 🔴 Avant l'ingestion commune, comme la réception de Meta : l'inconnu d'un espace plein n'entre pas, et son STOP est
   // retenu par les mêmes écritures (`deps.entrants`). Un message tapé sur le téléphone, plus haut, n'est pas un entrant.
   if ((await messagesEcartes(entrants, deps.espacesPleins, deps.entrants)).has(m.messageId)) return;
   const rouvertes = await processInbound(entrants, deps.inbox, deps.entrants);

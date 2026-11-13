@@ -160,8 +160,8 @@ describe('la page Boutiques Shopify', () => {
       expect(DROITS.pro.limites.numeroInclus).toBe(true);
       expect(DROITS.pro.limites.envoisModelesMois).toBeNull();
       for (const [langue, contacts, utilisateurs, prix] of [
-        ['fr', `${DROITS.pro.limites.contacts!.toLocaleString('fr-FR').replace(/\s/g, ' ')} contacts créés`, `${DROITS.pro.limites.utilisateurs} utilisateurs`, `${PRIX_PRO_HT_CENTIMES.mois / 100} € HT par mois, ${ESSAI_PRO_JOURS} jours d’essai`],
-        ['en', `${DROITS.pro.limites.contacts!.toLocaleString('en-US')} contacts created`, `${DROITS.pro.limites.utilisateurs} users`, `€${PRIX_PRO_HT_CENTIMES.mois / 100} excl. VAT a month, a ${ESSAI_PRO_JOURS}-day trial`],
+        ['fr', `${DROITS.pro.limites.contacts!.toLocaleString('fr-FR').replace(/\s/g, ' ')} contacts, ceux qui vous écrivent compris`, `${DROITS.pro.limites.utilisateurs} utilisateurs`, `${PRIX_PRO_HT_CENTIMES.mois / 100} € HT par mois, ${ESSAI_PRO_JOURS} jours d’essai`],
+        ['en', `${DROITS.pro.limites.contacts!.toLocaleString('en-US')} contacts, including those who write to you`, `${DROITS.pro.limites.utilisateurs} users`, `€${PRIX_PRO_HT_CENTIMES.mois / 100} excl. VAT a month, a ${ESSAI_PRO_JOURS}-day trial`],
       ] as const) {
         const bloc = section(langue, 'claude').match(/<div class="bt-pro">[\s\S]*?<\/div>/)?.[0] ?? '';
         const lu = texte(bloc);

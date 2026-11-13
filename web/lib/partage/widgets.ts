@@ -4,8 +4,6 @@
  * recopiée qui dérive fait promettre à l'écran ce que le serveur refuse.
  */
 
-/** Cinq widgets au plus par espace : un site vitrine, un blog, une page tarifs, et de la marge. */
-export const LIMITE_WIDGETS_PAR_ESPACE = 5;
 /** Le nom ne sert qu'au client, dans la liste : jamais montré au visiteur. */
 export const MAX_NOM_WIDGET = 80;
 /** La même borne que la phrase d'un lien de chaîne (`src/http/channels-me.ts`) : les deux vivent dans un `wa.me`. */

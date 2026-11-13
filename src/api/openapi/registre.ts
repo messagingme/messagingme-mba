@@ -158,7 +158,7 @@ export const ROUTES_V1: readonly RouteOpenapi[] = [
     erreurs: TEXTE_WHATSAPP,
   },
   {
-    methode: 'POST', chemin: '/v1/messages/rcs', droit: 'sends:create', groupe: M, operationId: 'sendRcsText',
+    methode: 'POST', chemin: '/v1/messages/rcs', droit: 'sends:create', groupe: M, operationId: 'sendRcsText', fonction: 'rcs',
     resume: 'Sends an RCS text right away to an existing record.', corps: schemaMessageRcs,
     succes: { statut: 200, schema: reponseMessageSimple },
     erreurs: ['invalid_body', ...RESOLUTION, 'no_phone', 'blocked_contact', 'opted_out', 'no_consent', 'rcs_not_enabled', 'rcs_unreachable'],
@@ -191,25 +191,25 @@ export const ROUTES_V1: readonly RouteOpenapi[] = [
     erreurs: ['invalid_body', 'template_not_found', 'meta_rejected', 'meta_auth_failed', 'no_whatsapp_number'],
   },
   {
-    methode: 'POST', chemin: '/v1/scenarios', droit: 'scenarios:write', groupe: S, operationId: 'createScenario',
+    methode: 'POST', chemin: '/v1/scenarios', droit: 'scenarios:write', groupe: S, operationId: 'createScenario', fonction: 'scenarios',
     resume: 'Creates a scenario from a recipe and publishes it at once.', corps: schemaRecetteDoc,
     succes: { statut: 201, schema: vueScenario }, erreurs: RECETTE,
   },
   {
-    methode: 'GET', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'getScenario',
+    methode: 'GET', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'getScenario', fonction: 'scenarios',
     resume: 'Reads a scenario as a recipe, with the fingerprint that guards its replacement.',
     parametres: z.object({ scenarioId: z.string().describe('The scenario id, or its scn_ code.') }),
     succes: { statut: 200, schema: vueScenario }, erreurs: ['plan_feature_unavailable', 'scenario_not_found', 'scenario_not_describable'],
   },
   {
-    methode: 'PUT', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'replaceScenario',
+    methode: 'PUT', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'replaceScenario', fonction: 'scenarios',
     resume: 'Replaces a scenario created through the API and publishes it at once.',
     parametres: z.object({ scenarioId: z.string().describe('The scenario id, or its scn_ code.') }), corps: schemaRemplacementDoc,
     succes: { statut: 200, schema: vueScenario },
     erreurs: [...RECETTE, 'precondition_required', 'scenario_not_found', 'scenario_managed_in_console', 'scenario_changed', 'scenario_not_describable'],
   },
   {
-    methode: 'DELETE', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'deleteScenario',
+    methode: 'DELETE', chemin: '/v1/scenarios/{scenarioId}', droit: 'scenarios:write', groupe: S, operationId: 'deleteScenario', fonction: 'scenarios',
     resume: 'Deletes a scenario created through the API, if nothing uses it any more.',
     parametres: z.object({ scenarioId: z.string().describe('The scenario id, or its scn_ code.') }),
     succes: { statut: 200, schema: scenarioSupprime },
@@ -278,7 +278,7 @@ export const ROUTES_V1: readonly RouteOpenapi[] = [
     succes: { statut: 200, schema: reponseScenarios }, erreurs: [],
   },
   {
-    methode: 'GET', chemin: '/v1/rcs-messages', droit: 'sends:create', groupe: K, operationId: 'listRcsMessages',
+    methode: 'GET', chemin: '/v1/rcs-messages', droit: 'sends:create', groupe: K, operationId: 'listRcsMessages', fonction: 'rcs',
     resume: 'Lists the RCS messages of the library.',
     succes: { statut: 200, schema: reponseMessagesRcs }, erreurs: [],
   },

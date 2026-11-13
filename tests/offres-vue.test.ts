@@ -56,10 +56,11 @@ describe('creerVueOffre', () => {
     expect(v.upgradeUrl).toMatch(/\/offre$/);
   });
 
-  it('🔴 la vue dit ce que compte la limite de contacts : tous en Free, les fiches créées ailleurs (2026-10-25)', async () => {
+  it('🔴 la vue dit ce que compte la limite de contacts : tous en Free, Pro et Business, les fiches créées en Entreprise (2026-11-13)', async () => {
     // La console et Claude le lisent ici, jamais en recopiant la règle : `contactsToutesOrigines` la décide seule.
     expect((await vue('base', null)('t1')).contactsToutesOrigines).toBe(true);
-    expect((await vue('pro', null)('t1')).contactsToutesOrigines).toBe(false);
+    expect((await vue('pro', null)('t1')).contactsToutesOrigines).toBe(true);
+    expect((await vue('business', null)('t1')).contactsToutesOrigines).toBe(true);
     expect((await vue('entreprise', null)('t1')).contactsToutesOrigines).toBe(false);
   });
 

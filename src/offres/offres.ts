@@ -34,10 +34,16 @@ export interface Limites {
   utilisateurs: number | null;
   admins: number | null;
   /**
-   * Les fiches vivantes que l'offre compte (`contactsToutesOrigines`) : en Free, toutes, nées d'un message entrant
-   * comprises ; ailleurs, celles créées par import, API, MCP, console ou scénario (une fiche née d'un entrant n'y compte pas).
+   * Les fiches vivantes que l'offre compte (`contactsToutesOrigines`) : en Free, Pro et Business, toutes, nées d'un message
+   * entrant comprises ; en Entreprise réglée sur devis, celles créées par import, API, MCP, console ou scénario.
    */
   contacts: number | null;
+  /**
+   * Les widgets WhatsApp de l'espace (décision de Julien du 2026-11-13 : Free 1, Pro 5, Business et Entreprise sans
+   * limite). Un espace au-dessus (changement d'offre) garde les siens, qui continuent de marcher : seule la création est
+   * refusée (`creerWidget`).
+   */
+  widgets: number | null;
   /** Modèles (messages à l'initiative de l'entreprise) par mois civil de Paris ; un message dans la fenêtre ne compte pas. */
   envoisModelesMois: number | null;
   /** Automations du client ; celles que possède un lien, une publicité ou un widget ne comptent pas. */
@@ -110,7 +116,7 @@ export const DROITS: Readonly<Record<Offre, Droits>> = {
   base: {
     fonctions: new Set<Fonction>(),
     limites: {
-      utilisateurs: 1, admins: 1, contacts: 100, envoisModelesMois: 1000, automations: 10, suppressionsJour: 10,
+      utilisateurs: 1, admins: 1, contacts: 100, widgets: 1, envoisModelesMois: 1000, automations: 10, suppressionsJour: 10,
       adressesWebhook: 1, journalWebhooksJours: 3, conservationJours: 30, commissionPct: 100, badge: true, numeroInclus: false,
       stockageOctets: 0, clesApi: 2, appelsMinute: 30, appelsHeure: 500, modelesJour: 500, reponsesJour: 2000,
     },
@@ -119,7 +125,7 @@ export const DROITS: Readonly<Record<Offre, Droits>> = {
     fonctions: new Set<Fonction>(FONCTIONS_PRO),
     limites: {
       // Tous administrateurs (spec du 2026-10-27, `roleEffectif`) : plus de limite d'administrateurs à part.
-      utilisateurs: 3, admins: null, contacts: 1000, envoisModelesMois: null, automations: null, suppressionsJour: null,
+      utilisateurs: 3, admins: null, contacts: 1000, widgets: 5, envoisModelesMois: null, automations: null, suppressionsJour: null,
       adressesWebhook: 5, journalWebhooksJours: 30, conservationJours: 60, commissionPct: 20, badge: false, numeroInclus: true,
       stockageOctets: 100 * MO, clesApi: 10, appelsMinute: 60, appelsHeure: 1000, modelesJour: 2000, reponsesJour: 2000,
     },
@@ -131,7 +137,7 @@ export const DROITS: Readonly<Record<Offre, Droits>> = {
   business: {
     fonctions: new Set<Fonction>(FONCTIONS_BUSINESS),
     limites: {
-      utilisateurs: 5, admins: null, contacts: 5000, envoisModelesMois: null, automations: null, suppressionsJour: null,
+      utilisateurs: 5, admins: null, contacts: 5000, widgets: null, envoisModelesMois: null, automations: null, suppressionsJour: null,
       adressesWebhook: 10, journalWebhooksJours: 30, conservationJours: 90, commissionPct: 15, badge: false, numeroInclus: true,
       stockageOctets: 250 * MO, clesApi: 20, appelsMinute: 120, appelsHeure: 3000, modelesJour: 5000, reponsesJour: 5000,
     },
@@ -139,7 +145,7 @@ export const DROITS: Readonly<Record<Offre, Droits>> = {
   entreprise: {
     fonctions: new Set<Fonction>(FONCTIONS),
     limites: {
-      utilisateurs: null, admins: null, contacts: null, envoisModelesMois: null, automations: null, suppressionsJour: null,
+      utilisateurs: null, admins: null, contacts: null, widgets: null, envoisModelesMois: null, automations: null, suppressionsJour: null,
       adressesWebhook: null, journalWebhooksJours: 30, conservationJours: 90, commissionPct: 10, badge: false, numeroInclus: true,
       stockageOctets: 500 * MO, clesApi: null, appelsMinute: null, appelsHeure: null, modelesJour: null, reponsesJour: null,
     },
@@ -150,13 +156,14 @@ export const DROITS: Readonly<Record<Offre, Droits>> = {
  * 🔴 CE QUE COMPTE LA LIMITE DE CONTACTS, ET LE SEUL ENDROIT QUI LE DÉCIDE (décision de Julien du 2026-10-25, plan
  * `docs/superpowers/plans/2026-10-25-free-100-contacts.md`). La Free ne gère jamais plus de contacts différents que sa
  * limite, quelle que soit leur origine : une fiche née d'un message entrant y compte, et un inconnu qui écrit à une Free
- * pleine n'entre pas (`src/webhooks/espace-plein.ts`). Le Pro et l'Entreprise ne comptent que les fiches créées : une
- * fiche née d'un entrant n'y compte jamais, et l'entrant n'y est jamais refusé. Les gardes du magasin des contacts
- * (`PgContactStore`), l'usage de la vue de l'offre (`PgOffresStore.usage`, donc ses courriels de franchissement) et la
- * phrase du refus (`phraseLimite`) le lisent ici.
+ * pleine n'entre pas (`src/webhooks/espace-plein.ts`). 🔴 Depuis le 2026-11-13 (décision de Julien : « en Pro c'est 1000
+ * en tout »), le Pro et le Business comptent de même : 1 000 et 5 000 contacts en tout, et un inconnu qui écrit à l'un
+ * d'eux plein n'entre pas non plus. Seule l'Entreprise réglée sur devis ne compte que les fiches créées, sans jamais
+ * refuser un entrant. Les gardes du magasin des contacts (`PgContactStore`), l'usage de la vue de l'offre
+ * (`PgOffresStore.usage`, donc ses courriels de franchissement) et la phrase du refus (`phraseLimite`) le lisent ici.
  */
 export function contactsToutesOrigines(offre: Offre): boolean {
-  return offre === 'base';
+  return offre !== 'entreprise';
 }
 
 /** La limite de contacts d'un espace, et l'offre qui la fixe : c'est elle qui dit ce qu'on compte (`contactsToutesOrigines`). */

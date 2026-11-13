@@ -31,7 +31,7 @@ Then, before anything else:
 and a chat bubble for your site.
 
 - **Free**: 100 contacts including those who write to you, 1,000 templates sent per month, 1 user, driven entirely from here.
-- **Pro, €49 excl. VAT per month** (14-day free trial): the console, provided number included, unlimited sends, 1,000 contacts created and unlimited inbound contacts, 3 users.
+- **Pro, €49 excl. VAT per month** (14-day free trial): the console, provided number included, unlimited sends, 1,000 contacts, including those who write to you, 3 users.
 
 **Step 1, required: connect Claude Code (or Codex) to Messaging Me.** Claude acts in your own workspace, so it needs
 your agreement, once.
@@ -141,7 +141,7 @@ Each line leads to its page: the use case with its film and its code, or the doc
 - **Free**: 1,000 templates sent per month, 100 contacts including those who write to you, 1 user, the API and the MCP server included.
 - **Your own number**, or a provided number at €3.50 excl. VAT per month.
 - **Pay-as-you-go AI** on prepaid credit, €1 offered when your first number is connected.
-- **Pro, €49 excl. VAT per month** (14-day free trial): unlimited sends, 1,000 contacts created and unlimited inbound contacts, 3 users, provided number included, and the Inbox where your team takes over.
+- **Pro, €49 excl. VAT per month** (14-day free trial): unlimited sends, 1,000 contacts, including those who write to you, 3 users, provided number included, and the Inbox where your team takes over.
 - Meta bills some messages directly to your business, according to [its rate card](https://developers.facebook.com/docs/whatsapp/pricing), except with WhatsApp credit (Pro or Business plan), prepaid at Messaging Me.
 <!-- prix:fin -->
 

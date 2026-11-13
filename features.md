@@ -3803,9 +3803,11 @@ boîte par sous-menu.
     qui remplace celle de 100 % (une fois à chaque franchissement) : le nombre de contacts, combien en supprimer pour
     revenir à la limite, en le demandant à Claude, et que ces suppressions ne sont pas limitées par jour tant que
     l'espace dépasse ;
-  - en offre Free pleine, un nouveau client qui a écrit et n'est pas entré (une fois par jour au plus, quel que soit le
-    nombre de clients écartés) : passer en Pro, ou supprimer des contacts en le demandant à Claude ;
-  - en offre Pro, 80 % puis 100 % des contacts, à chaque franchissement ; ces alertes renvoient à l'Entreprise ;
+  - un espace Free, Pro ou Business plein, un nouveau client qui a écrit et n'est pas entré (une fois par jour au plus,
+    quel que soit le nombre de clients écartés) : passer à l'offre supérieure, ou supprimer des contacts en le demandant
+    à Claude ;
+  - en offre Pro, 80 % puis 100 % des contacts, ceux qui ont écrit les premiers compris, à chaque franchissement ; ces
+    alertes renvoient au Business ; en offre Business, les mêmes, qui renvoient à l'Entreprise ;
   - l'option Crédit WhatsApp arrêtée (une résiliation, un impayé) alors que la formule permet de la reprendre (jamais une
     formule en retard de paiement, ni une formule Pro dont la fin programmée est passée), une fois par option, dans les
     trois jours qui suivent sa fin, et seulement quand toutes les lignes de l'espace sont arrêtées : les envois par le
@@ -4781,18 +4783,22 @@ du 2026-10-27.
   mais leurs automations se taisent, comme en Free. Côté statistiques : l'accueil, les coûts de chaque campagne et le
   journal des erreurs restent ouverts à tous ; le Quantitatif est au Pro ; la Synthèse, l'analyse des
   conversations et « Mes tableaux » sont à l'Entreprise.
-- ✅ **La Free ne gère jamais plus de contacts que sa limite, quelle que soit leur origine** (décision de Julien,
-  2026-10-25) : importés, créés par l'API, par Claude ou par un scénario, ou venus d'eux-mêmes en écrivant les premiers,
-  tous comptent. Quand elle est pleine, créer ou importer un contact est refusé, et **un nouveau client qui écrit
+- ✅ **Free, Pro et Business ne gèrent jamais plus de contacts que leur limite, quelle que soit leur origine**
+  (décisions de Julien, 2026-10-25 pour la formule Free, 2026-11-13 pour les formules Pro et Business : 100, 1 000 et 5 000 contacts en
+  tout) : importés, créés par l'API, par Claude ou par un scénario, ou venus d'eux-mêmes en écrivant les premiers, tous
+  comptent. Quand l'espace est plein, créer ou importer un contact est refusé, et **un nouveau client qui écrit
   n'entre pas** : ni fiche, ni conversation, ni réponse de l'agent IA, ni scénario, ni automation. Les administrateurs
-  reçoivent un e-mail, une fois par jour au plus, qui propose de passer en Pro ou de supprimer des contacts (en le
-  demandant à Claude).
+  reçoivent un e-mail, une fois par jour au plus, qui propose de passer à l'offre supérieure ou de supprimer des
+  contacts (en le demandant à Claude).
   Seul son **STOP** est retenu : sa fiche naît désabonnée, sans conversation, pour que personne ne lui écrive plus
   (elle ne reçoit rien et ne libère aucune place). Un contact déjà présent écrit et reçoit comme avant, et une fiche
   supprimée libère sa place. Ce qui compte vient de l'offre de l'espace, sur la réception de Meta, celle de 360dialog et
   l'application WhatsApp Business reliée par QR code.
-- ✅ **Hors de la Free, seuls les contacts créés comptent** : un client qui écrit le premier n'y est jamais compté
-  (même complété ensuite), ni jamais refusé.
+- ✅ **En Entreprise, seuls les contacts créés comptent** (leur nombre se règle sur devis) : un client qui écrit le
+  premier n'y est jamais compté (même complété ensuite), ni jamais refusé.
+- ✅ **Les widgets WhatsApp suivent l'offre** (décision de Julien, 2026-11-13) : un en formule Free, cinq en formule Pro, sans limite en
+  Business et en Entreprise. Un espace qui en a plus que son offre n'en permet garde les siens, qui continuent de marcher ;
+  seule la création d'un nouveau est refusée, avec le lien de l'offre qui la lève. La grille de la page Offre le montre.
 - ✅ **Ce qui n'est jamais compté** : une réponse dans les 24 h qui suivent un message du client (seuls les modèles
   comptent).
 - ✅ **Dans la console** : les menus et les onglets d'une fonction fermée restent visibles, grisés, avec un cadenas
@@ -5473,7 +5479,8 @@ l'enregistrement :
 pose encore, mais plus rien ne démarre. La fiche du widget le dit (« scénario supprimé, ce widget ne démarre plus
 rien ») et invite à en choisir un autre. Supprimer un scénario n'est pas bloqué pour autant.
 
-**Cinq widgets au plus par espace** (un site vitrine, un blog, une page tarifs…). Au-delà, la création est refusée.
+**Le nombre de widgets suit l'offre** : un en formule Free, cinq en formule Pro, sans limite en Business et en Entreprise. Au-delà,
+la création est refusée, avec le lien de l'offre qui la lève ; les widgets déjà posés continuent de marcher.
 
 **Éteindre ou supprimer.** Éteint, le widget garde sa balise sur le site et la bulle disparaît ; on le rallume d'un
 geste. Supprimé, la bulle disparaît aussi, sans erreur sur le site du client ; les conversations déjà arrivées
@@ -5530,7 +5537,7 @@ sinon un message piégé pourrait lui faire lire la fiche, et le résumé, d'un 
 que l'assistant colle juste avant la fin de la page (`</body>`) du site qu'il est en train de modifier ;
 `update_widget` modifie un widget sans jamais changer sa balise ; `list_scenarios` dit quel scénario un widget peut
 démarrer. Les contrôles sont ceux de l'écran, au mot près : message propre au widget, scénario publié de l'espace,
-cinq widgets au plus, et un refus dit sa raison. Les champs annoncent leurs limites, l'assistant n'a pas à les
+le nombre de widgets de l'offre, et un refus dit sa raison. Les champs annoncent leurs limites, l'assistant n'a pas à les
 deviner. L'écran est réservé aux administrateurs. Une clé qui porte `mcp:write` est créée par un administrateur,
 mais elle donne ce pouvoir à QUICONQUE la détient : elle peut changer ce que la bulle affiche sur le site public
 (libellé, avatar, message, extinction). Ne la confiez pas à un agent qui répond aux clients. Pas de suppression

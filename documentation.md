@@ -186,7 +186,7 @@ Où regarder avant de modifier quoi que ce soit.
 | **Serveur MCP et son OAuth** | Claude et les autres clients MCP (ChatGPT, Cursor, VS Code, Lovable) lisent et agissent dans un espace, par une clé d'API ou un jeton OAuth (§ 7) | `src/mcp/`, `src/http/mcp.ts`, `src/oauth/`, `src/http/oauth.ts`, `src/http/oauth-consentement.ts` | `/developers/mcp` | `oauth_autorisations`, `oauth_codes`, `oauth_clients` | `retention-oauth` |
 | **Exploitation** | vue cross-tenant, recharge de crédit, alertes, suppression d'un espace (§ 10) | `src/ops/` | `/ops` | `worker_heartbeat`, `audit_log`, `espaces_supprimes` | `dlq-sweep` |
 | **Numéros fournis** | la réserve de numéros DIDWW, et le pont qui lit le code que Meta dicte en appelant (lot 3a) | `src/otp/`, `src/didww/`, `src/http/otp-pont.ts`, `src/http/ops-numeros.ts`, `ops/otp-asterisk/` | `/ops` | `numeros_fournis`, `codes_verification` | purge du balayage de rétention |
-| **Offres** | l'offre d'un espace (Base, Pro, Entreprise), ses fonctions, ses limites, le refus 402 (§ 7), le paiement du Pro, la porte d'une Free pleine | `src/offres/`, `src/http/offre.ts`, `src/http/ops-offre.ts`, `src/http/offre-paiement.ts`, `src/stripe/pro.ts`, `src/webhooks/espace-plein.ts` | `/offre`, la barre (`web/lib/nav.ts`) | `abonnements_offre`, `tenants` (`offre_entreprise`), `contacts` (`ne_entrant`), `compteurs_debit` | aucune : une étape au montage, des compteurs |
+| **Offres** | l'offre d'un espace (Base, Pro, Entreprise), ses fonctions, ses limites, le refus 402 (§ 7), le paiement du Pro, la porte d'un espace plein | `src/offres/`, `src/http/offre.ts`, `src/http/ops-offre.ts`, `src/http/offre-paiement.ts`, `src/stripe/pro.ts`, `src/webhooks/espace-plein.ts` | `/offre`, la barre (`web/lib/nav.ts`) | `abonnements_offre`, `tenants` (`offre_entreprise`), `contacts` (`ne_entrant`), `compteurs_debit` | aucune : une étape au montage, des compteurs |
 | **Crédit WhatsApp** | payer ses messages WhatsApp sur un solde chez nous quand un numéro est sur la ligne de crédit d'un partenaire : grille de Meta, garde avant l'envoi, ajustement à l'accusé, estimation au lancement, achat par Stripe, reprise des campagnes (§ 7) | `src/credit-whatsapp/`, `src/meta/factory.ts`, `src/http/ops-credit-whatsapp.ts`, `src/http/credit-whatsapp.ts`, `src/stripe/achat-whatsapp.ts` | Paramètres > Offre, onglet Crédit WhatsApp ; `/ops` | `credits_whatsapp`, `credit_whatsapp_provisions`, `credit_whatsapp_mouvements`, `lignes_credit_whatsapp`, `grilles_meta`, `grille_meta_tarifs`, `credit_whatsapp_reglages` | aucune : la garde dans la fabrique, l'ajustement sur `webhook` et `webhook-status`, le contrôle au départ dans le balayage des campagnes programmées |
 | **Auth et comptes** | connexion, invitations, rôles, multi-espace | `src/auth/`, `src/user/` | `/login`, `/admin` | `users`, `identities`, `auth_tokens` | |
 
@@ -2524,8 +2524,9 @@ base ; les appelants ne refont ni ces défauts ni cette compatibilité.
   fils, les chiffres de sa fiche et son BSUID), parce que la rétention efface les fils et garde la fiche.
 - 🔴 **Un seul point de passage pour écrire : `src/widgets/gestion.ts`**, appelé par la route de la console
   (`src/http/widgets.ts`, réservée aux admins, lecture comprise) ET par les outils MCP (`create_widget`,
-  `update_widget`, `list_widgets`, `list_scenarios`). Ses contrôles, que la base ne fait pas : cinq widgets au plus
-  par espace ; le scénario désigné appartient au MÊME espace (sinon fuite entre espaces) et, quand la requête le
+  `update_widget`, `list_widgets`, `list_scenarios`). Ses contrôles, que la base ne fait pas : la limite de widgets
+  de l'offre (`limites.widgets` : Free 1, Pro 5, Business et Entreprise sans limite ; refus 402 `plan_limit_reached`, et
+  un espace au-dessus garde les siens) ; le scénario désigné appartient au MÊME espace (sinon fuite entre espaces) et, quand la requête le
   choisit, a une version publiée ; le devenir `agent` est refusé ; et la phrase. L'espace des phrases d'un espace
   est **widgets UNION liens de chaîne**, comparés par INCLUSION dans les deux sens après normalisation et
   ponctuation finale retirée (`src/widgets/phrases.ts`, partagé avec la création d'un lien de chaîne). Une phrase
@@ -2998,8 +2999,9 @@ modifiés dans `/ops` (rétablir supprime la ligne), `emails_produit_interrupteu
     (occasion : le mois de Paris) et les contacts (occasion : la génération du franchissement, `emails_produit_seuils`,
     migration 0235, posée par une instruction gardée par `not atteint`) ; seul le seuil le plus haut franchi s'écrit.
     `limitesAlertables` choisit les textes de l'offre : la Free (`limite_*`, « Passez en Pro », qui citent la limite de
-    contacts du Pro lue dans `DROITS`), le Pro (ses contacts seuls, `limite_contacts_pro_*`, qui renvoient à
-    l'Entreprise) ; l'Entreprise, dont la limite se règle sur devis, n'en reçoit aucune. Les contacts s'y comptent par
+    contacts du Pro lue dans `DROITS`), le Pro (ses contacts seuls, `limite_contacts_pro_*`, qui renvoient au Business)
+    et le Business (`limite_contacts_business_*`, qui renvoient à l'Entreprise ; ses seuils sont ceux de la famille
+    `contacts_pro`) ; l'Entreprise, dont la limite se règle sur devis, n'en reçoit aucune. Les contacts s'y comptent par
     `PgOffresStore.usage`, donc comme la limite (`contactsToutesOrigines`). Au-dessus de 100 %, la Free a un seuil de
     plus, `depassee` (strictement plus de fiches que la limite, `SEUILS_CONTACTS`) : un espace revenu en Free avec
     3 000 contacts franchit les trois d'un coup et ne reçoit que `limite_contacts_depassee`, qui cite le nombre de
@@ -3820,22 +3822,25 @@ sécurité : c'est un levier commercial, et une route ouverte à tort ne fuit au
   console qui grise l'écran payant ; la table complète est tenue par `tests/offres-fonctions.test.ts`, qui lit
   `src/http/stats.ts`.
 - 🔴 **Ce que compte la limite de contacts, une seule fonction le décide** : `contactsToutesOrigines(offre)`
-  (`src/offres/offres.ts`, décision de Julien du 2026-10-25). En Free, toutes les fiches actives comptent, nées d'un
-  message entrant comprises ; hors de la Free, une fiche `ne_entrant` ne compte jamais (la mise à jour ne touche
-  pas ce drapeau). La limite voyage avec son offre (`LimiteContacts`, `limiteContactsDe`, câblée par le socle) ; le
+  (`src/offres/offres.ts`, décisions de Julien du 2026-10-25 et du 2026-11-13). En Free, en Pro et en Business, toutes
+  les fiches actives comptent, nées d'un message entrant comprises ; en Entreprise (limite sur devis), une fiche
+  `ne_entrant` ne compte jamais (la mise à jour ne touche pas ce drapeau). La limite voyage avec son offre (`LimiteContacts`, `limiteContactsDe`, câblée par le socle) ; le
   prédicat SQL s'écrit une fois (`ficheComptee`, `src/crm/contact-store.pg.ts`), lu par les gardes du magasin et par
   `PgOffresStore.usage`, qui lit l'offre par `offre_de_l_espace` dans la même requête. La vue de l'offre le dit
-  (`contactsToutesOrigines`), et la phrase du refus aussi (« ceux qui vous écrivent compris » en Free). La vue porte
+  (`contactsToutesOrigines`), et la phrase du refus aussi (« ceux qui vous écrivent compris », sauf en Entreprise). La vue porte
   aussi `contactsEnTrop` (2026-10-26), l'usage au-delà de la limite (0 sous elle, pile à elle, ou sans limite) : la
   page `/offre` le dit sous la jauge des contacts, avec la marche à suivre, et `get_plan` le rend ; la console le lit
   en tolérant son absence (0), elle est publiée avant l'API. Les textes publics qui disent ce que compte cette limite
   (Tarifs, pages développeurs, Shopify, cas d'usage, README et FAQ du plugin) la suivent, tenus par
   `tests/vitrine-contacts-origines.test.ts`.
-- 🔴 **La porte d'une Free pleine** (`src/webhooks/espace-plein.ts`) : quand les fiches actives d'une Free remplissent sa
-  limite, le message d'un inconnu (aucune fiche active ne porte son `wa_id`, numéro ou BSUID) n'entre pas, sur les trois
+- 🔴 **La porte d'un espace plein** (`src/webhooks/espace-plein.ts`) : quand les fiches actives d'une Free, d'un Pro ou
+  d'un Business remplissent sa limite, le message d'un inconnu (aucune fiche active ne porte son `wa_id`, numéro ou BSUID) n'entre pas, sur les trois
   portes : la file `webhook` (Meta et 360dialog), juste après l'écart des numéros déliés et avant le journal brut, et la
   file `application-entrant`, avant l'ingestion commune. `PgContactStore.inconnusRefuses` décide, en une requête par
-  espace et par lot (rien n'est lu hors Free) ; les places qui restent vont aux premiers inconnus du lot. Le STOP d'un
+  espace et par lot (rien n'est lu en Entreprise) ; les places qui restent vont aux premiers inconnus du lot. 🔴 Elle
+  relit l'offre EN BASE dans la même requête (le cache du worker retarde de 30 s sur un paiement ou un changement
+  d'offre) et prend la limite de CETTE offre dans la grille, jamais celle du cache : sans quoi un espace passé de Free
+  à Pro refuserait encore ses clients à 100. Le STOP d'un
   inconnu écarté est retenu par les deux écritures de `processInbound` (la fiche, puis le refus), et rien d'autre.
   L'écart est journalisé `entrant_ecarte_espace_plein`, sans le numéro ni le texte. La porte ne lève jamais : une lecture
   en échec laisse entrer. Requise dans `WebhookJobDeps` et `DepsEntrantApplication` (`aucunEspacePlein` dans les tests).
@@ -6238,7 +6243,8 @@ Ajouté par le lot 4 de l'API publique :
    `ecarterLesInconnusDesEspacesPleins`), avant le journal brut et chaque étape, accusés gardés, et de la même façon
    avant l'ingestion de la filière application (`messagesEcartes`). La lecture du numéro vers l'espace est celle du job
    (`uneLectureParNumero`), partagée avec le rattachement : la porte n'ajoute aucune lecture de `phone_numbers`. Coût :
-   hors Free, rien que l'offre en cache (`OffresEnCache`) ; en Free, une requête de plus par espace et par lot. Seul le
+   en Entreprise, rien que l'offre en cache (`OffresEnCache`) ; en Free, en Pro et en Business, une requête de plus par
+   espace et par lot (depuis le 2026-11-13 pour les deux derniers). Seul le
    STOP d'un inconnu passe, pour écrire sa fiche désabonnée, jamais sa conversation. Une lecture en échec laisse entrer.
 41. **Le nom de l'espace** : `GET /tenants/:tenantId/nom` rend `{ nom }`, `PATCH` avec `{ nom }` le change. Les deux
    vivent dans le module `admin` (`src/http/users.ts`, monté avec `g.admin`) : `scopeTenant` et la garde admin du
@@ -6678,7 +6684,7 @@ avec elle) garde son test de parité.
 | `src/agent/mcp/rafraichissement.ts` -> `creerRafraichissementMcp` | l'aperçu et l'import d'un serveur MCP externe, par la même préparation : source, type, connexion, catalogue, plan de changement, adresses publiques, écriture transactionnelle |
 | `src/email/resolver.ts` -> `EmailAccountResolver.prepareSend` | l'envoi SMTP d'une boîte : une fonction d'envoi prête, sans exposer à l'appelant le mot de passe déchiffré ni le transport ; partagé par la route de la console et les scénarios, son cache invalidé à chaque écriture de compte |
 | `src/crm/contact-store.pg.ts` -> `MATCH_BY_WAID_SQL` | résoudre un contact par `wa_id` (E.164 exact, chiffres nus, BSUID) |
-| `src/offres/offres.ts` -> `contactsToutesOrigines` ; `src/crm/contact-store.pg.ts` -> `ficheComptee` | 🔴 ce que compte la limite de contacts (toutes les fiches actives en Free, les créées ailleurs) et son prédicat SQL : les gardes du magasin, `PgOffresStore.usage`, la vue de l'offre et la phrase du refus les lisent, jamais une copie |
+| `src/offres/offres.ts` -> `contactsToutesOrigines` ; `src/crm/contact-store.pg.ts` -> `ficheComptee` | 🔴 ce que compte la limite de contacts (toutes les fiches actives en Free, Pro et Business, les créées en Entreprise) et son prédicat SQL : les gardes du magasin, `PgOffresStore.usage`, la vue de l'offre et la phrase du refus les lisent, jamais une copie |
 | `src/workflow/engine.ts` -> `cibleDuSaut`, `blocDuCode` ; `src/workflow/aller-a.ts` | 🔴 où mène un « Aller à » : dans le graphe joué d'abord, ailleurs par `resoudreBloc`. `aller-a.ts` porte ce qui lit plusieurs scénarios : `MAX_SAUTS_SANS_PAUSE` et `refusDePublication`. Voir § 4.3 |
 | `src/workflow/conditions.ts` -> `sortiesDeCondition`, `famillesDeCondition` | 🔴 les sorties d'un bloc Condition (une par famille, puis « Sinon ») et la lecture de ses familles, compatibilité des blocs d'avant comprise. Aucun lecteur du graphe n'écrit `true` / `false` : voir § 4.3 |
 | `src/crm/identity.ts` -> `waIdOfTarget` | la règle wa_id pour une cible d'envoi |

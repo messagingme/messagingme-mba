@@ -37,7 +37,7 @@ export type LimiteNombre = (typeof LIMITES_NOMBRE)[number];
  * comme toutes les limites de l'API (spec offres v2). 🔴 Une limite neuve va ICI, jamais dans `LIMITES_NOMBRE` : absente
  * d'une API plus ancienne, elle rendrait la vue illisible, donc tout ouvert, Free comprise.
  */
-export const LIMITES_TOLERANTES = ['stockageOctets', 'clesApi', 'appelsMinute', 'appelsHeure', 'modelesJour', 'reponsesJour'] as const;
+export const LIMITES_TOLERANTES = ['stockageOctets', 'clesApi', 'appelsMinute', 'appelsHeure', 'modelesJour', 'reponsesJour', 'widgets'] as const;
 type LimiteTolerante = (typeof LIMITES_TOLERANTES)[number];
 
 /**

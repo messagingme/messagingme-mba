@@ -123,7 +123,7 @@ function fonctionDemandee(): FonctionOffre | null {
 
 /** Les limites montrées dans la grille, dans cet ordre. Les webhooks sortants y entrent avec leur écran (lot 12). */
 const LIGNES_LIMITES = [
-  'utilisateurs', 'contacts', 'envoisModelesMois', 'automations', 'adressesWebhook', 'journalWebhooksJours',
+  'utilisateurs', 'contacts', 'envoisModelesMois', 'automations', 'widgets', 'adressesWebhook', 'journalWebhooksJours',
   'stockageOctets', 'conservationJours', 'numeroInclus', 'badge',
 ] as const satisfies ReadonlyArray<keyof LimitesOffre>;
 
@@ -218,10 +218,12 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
 
   const libelleLimite = (k: (typeof LIGNES_LIMITES)[number]): string => ({
     utilisateurs: t('Utilisateurs', 'Users'),
-    // La grille compare les offres : la Free compte aussi ceux qui écrivent (`contactsToutesOrigines`, 2026-10-25).
-    contacts: t('Contacts (en formule Free, ceux qui vous écrivent compris)', 'Contacts (on Free, including those who write to you)'),
+    // La grille compare les offres : Free, Pro et Business comptent aussi ceux qui écrivent (`contactsToutesOrigines`,
+    // 2026-10-25 puis 2026-11-13) ; l'Entreprise y est sans limite.
+    contacts: t('Contacts (ceux qui vous écrivent compris)', 'Contacts (including those who write to you)'),
     envoisModelesMois: t('Modèles envoyés par mois', 'Templates sent per month'),
     automations: t('Automations allumées', 'Active automations'),
+    widgets: t('Widgets WhatsApp', 'WhatsApp widgets'),
     adressesWebhook: t('Adresses de webhook sortant actives', 'Active outgoing webhook addresses'),
     journalWebhooksJours: t('Journal des webhooks sortants', 'Outgoing webhook log'),
     stockageOctets: t('Fichiers de la médiathèque', 'Media library files'),
@@ -270,7 +272,8 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
     : t(`Votre espace a créé ${fr} contact${s} de trop : tant qu’il est plein, aucun contact ne peut être créé ni importé. Supprimez-en au moins ${fr}, et quelques-uns de plus pour pouvoir en créer de nouveaux, depuis la liste des contacts ou en le demandant à Claude.`,
       `Your workspace has created ${en} contact${s} too many: as long as it is full, no contact can be created or imported. Delete at least ${en} of them, and a few more to be able to create new ones, from the contact list or by asking Claude.`);
   const jauges: Array<{ cle: string; libelle: string; utilise: number | null; max: number | null; note?: string; alerte?: string }> = [
-    // Ce qui compte vient du serveur (`contactsToutesOrigines`) : en Free, tous les contacts, ceux qui écrivent compris.
+    // Ce qui compte vient du serveur (`contactsToutesOrigines`) : en Free, en Pro et en Business, tous les contacts, ceux
+    // qui écrivent compris.
     vue.contactsToutesOrigines
       ? { cle: 'contacts', libelle: t('Contacts', 'Contacts'), utilise: vue.usage.contacts, max: vue.limites.contacts,
         note: t('Tous comptent, ceux qui vous écrivent compris : au-delà, un nouveau client qui vous écrit n’entre pas dans Messaging Me.',
@@ -355,8 +358,8 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
                 peut encore les dire sans limite (une API plus ancienne que la console). */}
             {suivante === 'pro'
               ? (vue.grille.pro.limites.contacts != null
-                ? t(`La formule Pro ouvre la console (l’Inbox, les scénarios, les statistiques), crée jusqu’à ${valeurLimite(vue.grille.pro.limites, 'contacts')} contacts et lève les limites d’envois et d’automations.`,
-                  `Pro unlocks the console (the Inbox, scenarios, statistics), creates up to ${valeurLimite(vue.grille.pro.limites, 'contacts')} contacts and lifts the sending and automation limits.`)
+                ? t(`La formule Pro ouvre la console (l’Inbox, les scénarios, les statistiques), gère jusqu’à ${valeurLimite(vue.grille.pro.limites, 'contacts')} contacts et lève les limites d’envois et d’automations.`,
+                  `Pro unlocks the console (the Inbox, scenarios, statistics), manages up to ${valeurLimite(vue.grille.pro.limites, 'contacts')} contacts and lifts the sending and automation limits.`)
                 : t('La formule Pro ouvre la console (l’Inbox, les scénarios, les statistiques) et lève les limites de contacts, d’envois et d’automations.',
                   'Pro unlocks the console (the Inbox, scenarios, statistics) and lifts the contact, sending and automation limits.'))
               : suivante === 'business'

@@ -6,16 +6,17 @@ import { FAQ } from '../scripts/plugin/faq';
 import { lire, pagesHtml } from './vitrine-lecture';
 
 /**
- * CE QUE COMPTE LA LIMITE DE CONTACTS, DIT COMME LE CODE LE DÉCIDE (décision de Julien du 2026-10-25, plan
- * `docs/superpowers/plans/2026-10-25-free-100-contacts.md`). Un seul endroit le décide, `contactsToutesOrigines` : en
- * Free, ceux qui écrivent les premiers comptent ; au Pro, non. La vitrine est du HTML statique et le plugin un texte
+ * CE QUE COMPTE LA LIMITE DE CONTACTS, DIT COMME LE CODE LE DÉCIDE (décisions de Julien du 2026-10-25, plan
+ * `docs/superpowers/plans/2026-10-25-free-100-contacts.md`, et du 2026-11-13). Un seul endroit le décide,
+ * `contactsToutesOrigines` : en Free, en Pro et en Business, ceux qui écrivent les premiers comptent ; en Entreprise, non. La vitrine est du HTML statique et le plugin un texte
  * publié : rien ne les relie au code, sauf ce test. Une règle qui change rend ces phrases fausses, et ce test rouge.
  */
 
 const FREE = contactsToutesOrigines('base');
 const PRO = contactsToutesOrigines('pro');
+const BUSINESS = contactsToutesOrigines('business');
 /** « Ceux qui vous écrivent comptent », dans chaque tournure de la vitrine et du plugin, en français et en anglais. */
-const COMPTENT = /ceux qui vous écrivent compris|ceux qui vous écrivent comptent aussi|chaque personne qui vous écrit aussi|including those who write to you|those who write to you count too|so does each person who writes to you/;
+const COMPTENT = /ceux qui vous écrivent compris|including those who write to you|those who write to you included|ceux qui vous écrivent comptent aussi|chaque personne qui vous écrit aussi|including those who write to you|those who write to you count too|so does each person who writes to you/;
 const ENTRANTS_ILLIMITES = /contacts entrants (sont )?illimités|unlimited inbound contacts|inbound contacts are unlimited/i;
 
 /** Le morceau d'une page entre deux repères, qui doivent y être tous les deux. */
@@ -26,15 +27,19 @@ function entre(html: string, debut: string, fin: string, ou: string): string {
   return html.slice(i, j);
 }
 
-describe('la limite de contacts de la Free et du Pro, dite comme le code la compte', () => {
+describe('la limite de contacts de Free, Pro et Business, dite comme le code la compte', () => {
   for (const [page, nomEntreprise] of [['tarifs/index.html', 'Entreprise'], ['en/pricing/index.html', 'Enterprise']] as const) {
     it(`${page} : la carte Free, la carte Pro et la question des limites`, () => {
       const html = lire(page);
       const free = entre(html, '<h2 class="tarif-nom">Free</h2>', '<h2 class="tarif-nom">Pro</h2>', page);
-      const pro = entre(html, '<h2 class="tarif-nom">Pro</h2>', `<h2 class="tarif-nom">${nomEntreprise}</h2>`, page);
+      const pro = entre(html, '<h2 class="tarif-nom">Pro</h2>', '<h2 class="tarif-nom">Business</h2>', page);
+      const business = entre(html, '<h2 class="tarif-nom">Business</h2>', `<h2 class="tarif-nom">${nomEntreprise}</h2>`, page);
       expect(COMPTENT.test(free), 'Free : ceux qui écrivent comptent').toBe(FREE);
       expect(ENTRANTS_ILLIMITES.test(free), 'Free : contacts entrants illimités').toBe(!FREE);
+      expect(COMPTENT.test(pro), 'Pro : ceux qui écrivent comptent').toBe(PRO);
       expect(ENTRANTS_ILLIMITES.test(pro), 'Pro : contacts entrants illimités').toBe(!PRO);
+      expect(COMPTENT.test(business), 'Business : ceux qui écrivent comptent').toBe(BUSINESS);
+      expect(/entrants illimités|unlimited inbound/i.test(business), 'Business : entrants illimités').toBe(!BUSINESS);
       expect(/ceux qui vous écrivent comptent aussi parmi vos contacts|those who write to you count among your contacts too/.test(html),
         'la question « quand j’atteins une limite »').toBe(FREE);
     });

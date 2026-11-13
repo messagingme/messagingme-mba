@@ -2,7 +2,7 @@
 description: Poser une bulle WhatsApp sur votre site : la créer, choisir son message pré-rempli et qui répond, puis coller la balise sur vos pages.
 ecran: widgets
 source_section: Widget WhatsApp (menu Tools > Widget WhatsApp)
-source_empreinte: 36269d
+source_empreinte: da1b66
 publique: oui
 rubrique: parler-aux-clients
 rang: 7
@@ -40,8 +40,8 @@ d'abord. Pour qu'un agent IA réponde aux visiteurs du widget, choisissez-le dan
 plus rien : sa fiche le signale, choisissez-en un autre.
 
 **Éteindre ou supprimer.** Éteint, la bulle disparaît mais la balise peut rester sur votre site ; vous le
-rallumez d'un geste. Vous pouvez créer cinq widgets au plus. Sans numéro WhatsApp relié, la bulle s'affiche
-grisée et ne s'ouvre pas.
+rallumez d'un geste. Le nombre de widgets suit votre offre : un en formule Free, cinq en formule Pro, sans limite en
+Business et en Entreprise. Sans numéro WhatsApp relié, la bulle s'affiche grisée et ne s'ouvre pas.
 
 **Depuis un assistant.** Un assistant comme Claude Code, branché sur votre espace par le serveur MCP (menu
 Developers), peut aussi lister, créer et modifier vos widgets, avec les mêmes règles, et coller lui-même la balise

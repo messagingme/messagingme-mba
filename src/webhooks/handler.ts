@@ -108,7 +108,7 @@ interface EtapesRattachees {
  *    facture pas ce message »), l'échec des messages libres et les signaux : les accusés arrivent par deux files ;
  *  - une file qui traite des entrants (`inbox`) garde les arrivées publicitaires (Meta n'envoie `ctwa_clid`
  *    qu'une fois), route les leads (`routagePub`, sans quoi un clic payé irait aux automations ordinaires), émet
- *    les signaux de réponse, écarte les entrants d'un numéro délié, ceux d'un inconnu à une Free pleine
+ *    les signaux de réponse, écarte les entrants d'un numéro délié, ceux d'un inconnu à un espace plein
  *    (`espacesPleins`, sans quoi un câblage qui l'oublierait laisserait la Free sans plafond), et enregistre le
  *    STOP (`inboundOptOut`) : une dépendance de consentement n'est jamais optionnelle, un câblage qui l'oublierait
  *    laisserait `opted_in` un contact qui a répondu STOP. Elle corrige aussi le détenteur du fil (`detenteur`) : un
@@ -166,7 +166,7 @@ export async function handleWebhookJob(recu: unknown, deps: WebhookJobDeps): Pro
    */
   const sansDelies = numerosDelies ? await ecarterLesEntrantsDelies(recu, numerosDelies) : recu;
   /**
-   * 🔴 Juste après, et pour la même raison : le message d'un inconnu à une Free pleine (décision de Julien du 2026-10-25),
+   * 🔴 Juste après, et pour la même raison : le message d'un inconnu à un espace plein (décision de Julien du 2026-10-25),
    * retiré avant le journal brut et chaque étape ; son STOP seul est retenu, par les deux écritures de `processInbound`.
    * Garde les accusés, ne lève jamais (`./espace-plein.ts`).
    */

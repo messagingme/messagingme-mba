@@ -21,9 +21,10 @@ function pool(offre: string) {
 }
 
 describe('🔴 l’usage des contacts suit l’offre (`contactsToutesOrigines`)', () => {
-  it('en Free, toutes les fiches vivantes ; en Pro et en Entreprise, les fiches créées', async () => {
+  it('en Free, Pro et Business, toutes les fiches vivantes ; en Entreprise, les fiches créées (2026-11-13)', async () => {
     expect(await new PgOffresStore(pool('base').p).usage('t1')).toEqual({ contacts: 100, automations: 2, membres: 1 });
-    expect((await new PgOffresStore(pool('pro').p).usage('t1')).contacts).toBe(60);
+    expect((await new PgOffresStore(pool('pro').p).usage('t1')).contacts).toBe(100);
+    expect((await new PgOffresStore(pool('business').p).usage('t1')).contacts).toBe(100);
     expect((await new PgOffresStore(pool('entreprise').p).usage('t1')).contacts).toBe(60);
   });
 

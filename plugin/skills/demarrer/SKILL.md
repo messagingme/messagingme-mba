@@ -19,7 +19,7 @@ from another page. If the `messagingme` tools are already available, the server 
 and a chat bubble for your site.
 
 - **Free**: 100 contacts including those who write to you, 1,000 templates sent per month, 1 user, driven entirely from here.
-- **Pro, €49 excl. VAT per month** (14-day free trial): the console, provided number included, unlimited sends, 1,000 contacts created and unlimited inbound contacts, 3 users.
+- **Pro, €49 excl. VAT per month** (14-day free trial): the console, provided number included, unlimited sends, 1,000 contacts, including those who write to you, 3 users.
 
 **Step 1, required: connect Claude Code (or Codex) to Messaging Me.** Claude acts in your own workspace, so it needs
 your agreement, once.

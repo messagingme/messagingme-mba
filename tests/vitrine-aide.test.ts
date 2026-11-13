@@ -12,7 +12,7 @@ import { FILMS_AIDE } from '../scripts/vitrine/aide-films';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
 import { page } from '../scripts/vitrine/cas';
 import { OUTILS } from '../src/mcp/outils';
-import { DROITS, ESSAI_PRO_JOURS, PRIX_BUSINESS_HT_CENTIMES, PRIX_PRO_HT_CENTIMES, PRIX_SIEGE_BUSINESS_HT_CENTIMES, PRIX_SIEGE_HT_CENTIMES } from '../src/offres/offres';
+import { DROITS, contactsToutesOrigines, ESSAI_PRO_JOURS, PRIX_BUSINESS_HT_CENTIMES, PRIX_PRO_HT_CENTIMES, PRIX_SIEGE_BUSINESS_HT_CENTIMES, PRIX_SIEGE_HT_CENTIMES } from '../src/offres/offres';
 import { OFFRE_PRO, PRIX_DEMO } from '../web/e2e/captures/offre-demo';
 import { SITE, lire, pagesHtml, parAttribut, texte } from './vitrine-lecture';
 
@@ -201,6 +201,9 @@ describe('le centre d’aide de la vitrine', () => {
     expect(PRIX_DEMO.siege).toEqual({ moisCentimes: PRIX_SIEGE_HT_CENTIMES.mois, anCentimes: PRIX_SIEGE_HT_CENTIMES.an });
     expect(PRIX_DEMO.essaiJours).toBe(ESSAI_PRO_JOURS);
     expect(PRIX_DEMO.business).toEqual({ moisCentimes: PRIX_BUSINESS_HT_CENTIMES.mois, siegeMoisCentimes: PRIX_SIEGE_BUSINESS_HT_CENTIMES.mois });
+    // Ce que compte la limite de contacts de la démo, celle d'un Pro et d'une Free dans le code (2026-11-13).
+    expect(OFFRE_PRO.contactsToutesOrigines).toBe(contactsToutesOrigines('pro'));
+    expect(OFFRE_PRO.contactsToutesOrigines).toBe(contactsToutesOrigines('base'));
     for (const [demo, vraie] of [['free', 'base'], ['pro', 'pro'], ['business', 'business'], ['entreprise', 'entreprise']] as const) {
       const g = OFFRE_PRO.grille[demo];
       expect(new Set(g.fonctions), demo).toEqual(DROITS[vraie].fonctions);

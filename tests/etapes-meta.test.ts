@@ -125,7 +125,8 @@ describe('ce qu’il faut chez Meta', () => {
       || /directement à votre (entreprise|boutique)|directly to your (business|store)|ne touche pas à ces frais|takes no cut|never touches these fees|n[’']y ajoute rien|adds nothing|sans supplément|no surcharge|sans commission|no commission/.test(p);
     // L'exception se dit de plus d'une façon (« sauf avec le Crédit WhatsApp », « avec le Crédit WhatsApp, vous les
     // prépayez… ») : la phrase doit nommer le crédit.
-    const exception = /Crédit WhatsApp|WhatsApp credit/;
+    // « Ligne de crédit » depuis le 2026-11-13 (demande de Julien) : la page des tarifs d'abord, le reste au lot suivant.
+    const exception = /Crédit WhatsApp|WhatsApp credit|ligne de crédit|credit line/i;
     const vuesParPage = new Map<string, number>();
     for (const f of fichiers) {
       // Une fin de bloc coupe la phrase comme un point, et un lien suivi d'une autre balise aussi : une liste de liens,

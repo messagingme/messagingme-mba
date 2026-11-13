@@ -47,10 +47,10 @@ export interface VueOffre {
   limites: LimitesVue;
   usage: UsageOffre;
   /**
-   * Ce que compte la limite de contacts de l'espace (`contactsToutesOrigines`, décision de Julien du 2026-10-25) : vrai en
-   * Free, où tous les contacts comptent, ceux qui ont écrit les premiers compris, et où un inconnu qui écrit à un espace
-   * plein n'entre pas ; faux ailleurs, où seules les fiches créées comptent. La console et Claude le lisent ici, sans
-   * recopier la règle.
+   * Ce que compte la limite de contacts de l'espace (`contactsToutesOrigines`, décisions de Julien du 2026-10-25 et du
+   * 2026-11-13) : vrai en Free, en Pro et en Business, où tous les contacts comptent, ceux qui ont écrit les premiers
+   * compris, et où un inconnu qui écrit à un espace plein n'entre pas ; faux en Entreprise, où seules les fiches créées
+   * comptent. La console et Claude le lisent ici, sans recopier la règle.
    */
   contactsToutesOrigines: boolean;
   /**

@@ -10,7 +10,7 @@ import { refus, type Refus } from '../lib/issue';
 export const STATUT_REFUS_OFFRE = 402;
 
 /** Les limites qu'un geste peut atteindre (les autres se lisent sans refuser). */
-export type NomLimite = Extract<keyof Limites, 'utilisateurs' | 'admins' | 'contacts' | 'envoisModelesMois' | 'automations' | 'suppressionsJour' | 'adressesWebhook' | 'stockageOctets' | 'clesApi'>;
+export type NomLimite = Extract<keyof Limites, 'utilisateurs' | 'admins' | 'contacts' | 'envoisModelesMois' | 'automations' | 'suppressionsJour' | 'adressesWebhook' | 'stockageOctets' | 'clesApi' | 'widgets'>;
 
 /**
  * Le siège à acheter pour lever la limite d'utilisateurs d'un Pro (spec offres v2, livraison 7) : le nombre de sièges visé
@@ -63,6 +63,7 @@ const LIBELLE_LIMITE: Record<NomLimite, (max: number, contexte: ContexteLimite) 
   suppressionsJour: (m) => `${nb(m)} suppressions de contacts par jour`,
   adressesWebhook: (m) => `${m} adresse${m > 1 ? 's' : ''} de webhook sortant actives`,
   stockageOctets: (m) => `${Math.round(m / (1024 * 1024))} Mo de fichiers dans la médiathèque`,
+  widgets: (m) => `${m} widget${m > 1 ? 's' : ''} WhatsApp`,
   clesApi: (m) => `${m} clés d’API actives (révoquez-en une pour en créer une autre ; la clé de l’agent de Meta ne compte pas)`,
 };
 

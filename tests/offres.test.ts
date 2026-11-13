@@ -11,23 +11,23 @@ const MO = 1024 * 1024;
  */
 const GRILLE: Record<Offre, Limites> = {
   base: {
-    utilisateurs: 1, admins: 1, contacts: 100, envoisModelesMois: 1000, automations: 10, suppressionsJour: 10,
+    utilisateurs: 1, admins: 1, contacts: 100, widgets: 1, envoisModelesMois: 1000, automations: 10, suppressionsJour: 10,
     adressesWebhook: 1, journalWebhooksJours: 3, conservationJours: 30, commissionPct: 100, badge: true, numeroInclus: false,
     stockageOctets: 0, clesApi: 2, appelsMinute: 30, appelsHeure: 500, modelesJour: 500, reponsesJour: 2000,
   },
   pro: {
-    utilisateurs: 3, admins: null, contacts: 1000, envoisModelesMois: null, automations: null, suppressionsJour: null,
+    utilisateurs: 3, admins: null, contacts: 1000, widgets: 5, envoisModelesMois: null, automations: null, suppressionsJour: null,
     adressesWebhook: 5, journalWebhooksJours: 30, conservationJours: 60, commissionPct: 20, badge: false, numeroInclus: true,
     stockageOctets: 100 * MO, clesApi: 10, appelsMinute: 60, appelsHeure: 1000, modelesJour: 2000, reponsesJour: 2000,
   },
   // Le Business (spec du 2026-10-27) : posé à la main dans /ops ; ses limites invisibles sont un choix de Claude relu.
   business: {
-    utilisateurs: 5, admins: null, contacts: 5000, envoisModelesMois: null, automations: null, suppressionsJour: null,
+    utilisateurs: 5, admins: null, contacts: 5000, widgets: null, envoisModelesMois: null, automations: null, suppressionsJour: null,
     adressesWebhook: 10, journalWebhooksJours: 30, conservationJours: 90, commissionPct: 15, badge: false, numeroInclus: true,
     stockageOctets: 250 * MO, clesApi: 20, appelsMinute: 120, appelsHeure: 3000, modelesJour: 5000, reponsesJour: 5000,
   },
   entreprise: {
-    utilisateurs: null, admins: null, contacts: null, envoisModelesMois: null, automations: null, suppressionsJour: null,
+    utilisateurs: null, admins: null, contacts: null, widgets: null, envoisModelesMois: null, automations: null, suppressionsJour: null,
     adressesWebhook: null, journalWebhooksJours: 30, conservationJours: 90, commissionPct: 10, badge: false, numeroInclus: true,
     stockageOctets: 500 * MO, clesApi: null, appelsMinute: null, appelsHeure: null, modelesJour: null, reponsesJour: null,
   },
@@ -146,14 +146,15 @@ describe('les refus nomment l’offre qui lève la limite ou ouvre la fonction (
 });
 
 /**
- * CE QUE COMPTE LA LIMITE DE CONTACTS (décision de Julien du 2026-10-25) : la Free ne gère jamais plus de contacts que sa
- * limite, quelle que soit leur origine ; le Pro et l'Entreprise ne comptent que les fiches créées. Une seule fonction le dit,
- * et la phrase du refus la suit.
+ * CE QUE COMPTE LA LIMITE DE CONTACTS (décisions de Julien du 2026-10-25 et du 2026-11-13) : Free, Pro et Business ne
+ * gèrent jamais plus de contacts que leur limite, quelle que soit leur origine ; seule l'Entreprise réglée sur devis ne
+ * compte que les fiches créées. Une seule fonction le dit, et la phrase du refus la suit.
  */
-describe('🔴 ce que compte la limite de contacts : toutes les origines en Free, les fiches créées ailleurs', () => {
-  it('la Free compte toutes les origines ; le Pro et l’Entreprise, seulement les fiches créées', () => {
+describe('🔴 ce que compte la limite de contacts : toutes les origines, sauf en Entreprise', () => {
+  it('Free, Pro et Business comptent toutes les origines ; l’Entreprise, seulement les fiches créées', () => {
     expect(contactsToutesOrigines('base')).toBe(true);
-    expect(contactsToutesOrigines('pro')).toBe(false);
+    expect(contactsToutesOrigines('pro')).toBe(true);
+    expect(contactsToutesOrigines('business')).toBe(true);
     expect(contactsToutesOrigines('entreprise')).toBe(false);
   });
 
@@ -165,9 +166,10 @@ describe('🔴 ce que compte la limite de contacts : toutes les origines en Free
     expect(limiteContactsDe({ offre: 'entreprise', droits: devis })).toEqual({ max: 300, offre: 'entreprise' });
   });
 
-  it('la phrase du refus dit ce qui compte : ceux qui écrivent compris en Free, jamais ailleurs', () => {
+  it('la phrase du refus dit ce qui compte : ceux qui écrivent compris, sauf en Entreprise', () => {
     expect(phraseLimite('contacts', DROITS.base.limites.contacts!)).toMatch(/100 contacts, ceux qui vous écrivent compris\. Passez en Pro/);
-    expect(phraseLimite('contacts', DROITS.pro.limites.contacts!)).toMatch(/1.000 contacts créés \(ceux qui vous écrivent ne comptent pas\)\. Passez en Business/);
+    expect(phraseLimite('contacts', DROITS.pro.limites.contacts!)).toMatch(/1.000 contacts, ceux qui vous écrivent compris\. Passez en Business/);
+    expect(phraseLimite('contacts', DROITS.business.limites.contacts!)).toMatch(/5.000 contacts, ceux qui vous écrivent compris\. Passez en Entreprise/);
     // L'offre connue prime sur la grille : une Entreprise réglée à 100 contacts ne compte pas ceux qui lui écrivent.
     expect(phraseLimite('contacts', 100, { offre: 'entreprise' })).toMatch(/100 contacts créés \(ceux qui vous écrivent ne comptent pas\)/);
     expect(phraseLimite('contacts', 123_456)).toMatch(/contacts créés \(ceux qui vous écrivent ne comptent pas\)/);
