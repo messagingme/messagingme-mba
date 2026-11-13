@@ -19,12 +19,9 @@ export const META_BUSINESS_URL = 'https://business.facebook.com/';
  */
 export const QUESTION_OFFRE = {
   texte: { fr: 'Quelle formule voulez-vous ?', en: 'Which plan do you want?' },
-  precision: { fr: 'Vous pourrez en changer plus tard.', en: 'You can change it later.' },
-  aide: {
-    fr: 'Free se pilote uniquement depuis un agent IA comme Claude Code ou Codex : sans lui, Free ne marche pas. Sans agent IA, choisissez Pro : la console, pour vous et votre équipe, avec un numéro fourni.',
-    en: 'Free is driven only from an AI agent such as Claude Code or Codex: without one, Free does not work. Without an AI agent, choose Pro: the console, for you and your team, with a provided number.',
-  },
-  nsp: { fr: 'Je ne sais pas', en: 'I don’t know' },
+  /** Le lien vers la grille des formules de la vitrine (2026-11-13, à la place de « Vous pourrez en changer plus tard »). */
+  precision: { fr: 'Pour comparer les formules', en: 'Compare the plans' },
+  tarifs: { fr: 'https://app.messagingme.fr/tarifs/', en: 'https://app.messagingme.fr/en/pricing/' },
 } as const satisfies Record<string, Texte>;
 
 /** Les quatre formules d'un espace, dans l'ordre de la vitrine. */
@@ -39,7 +36,7 @@ export const CARTES_OFFRE: ReadonlyArray<{
   {
     offre: 'free', libelle: { fr: 'Free', en: 'Free' }, titre: { fr: 'Free', en: 'Free' },
     prix: { fr: '0 €', en: '€0' }, unite: { fr: 'sans limite de durée', en: 'with no time limit' },
-    note: { fr: 'Besoin d’un IDE, de Claude Code ou de Codex', en: 'Needs an IDE, Claude Code or Codex' },
+    note: { fr: 'Besoin d’un IDE ou de Claude Code / Codex', en: 'Needs an IDE or Claude Code / Codex' },
     plus: [], moins: [],
   },
   {
@@ -75,7 +72,7 @@ export const CARTES_OFFRE: ReadonlyArray<{
  */
 export const QUESTION_PAIEMENT = {
   texte: { fr: 'Qui paie vos messages à Meta ?', en: 'Who pays Meta for your messages?' },
-  precision: { fr: 'Meta facture chaque modèle que vous envoyez.', en: 'Meta bills each template you send.' },
+  precision: { fr: 'Eh oui, Meta facture chaque modèle que vous envoyez 💸', en: 'Yes, Meta bills each template you send 💸' },
   carte: {
     titre: {
       fr: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business',

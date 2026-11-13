@@ -60,12 +60,11 @@ test('🔴 un espace neuf en Free voit d’abord la formule ; Free mène à « Q
   await expect(page.getByTestId('offre-choisir-pro')).toHaveText('Essayer Pro 14 jours');
   await expect(page.getByTestId('carte-offre-pro')).toContainText('49 €');
   await expect(page.getByTestId('carte-offre-pro')).toContainText('HT par mois');
-  await expect(page.getByTestId('carte-offre-free')).toContainText('Besoin d’un IDE, de Claude Code ou de Codex');
+  await expect(page.getByTestId('carte-offre-free')).toContainText('Besoin d’un IDE ou de Claude Code / Codex');
   // Avant la réponse, rien de la suite.
   await expect(page.getByTestId('qui-regle-meta')).toHaveCount(0);
   await expect(page.getByTestId('question-compte')).toHaveCount(0);
-  await page.getByTestId('offre-nsp').click();
-  await expect(page.getByTestId('offre-aide')).toContainText('Sans agent IA, choisissez Pro');
+  await expect(page.getByTestId('offre-comparer')).toHaveAttribute('href', 'https://app.messagingme.fr/tarifs/');
   await page.getByTestId('offre-choisir-free').click();
   await expect(page.getByTestId('choix-offre')).toHaveCount(0);
   await expect(page.getByTestId('qui-regle-meta')).toContainText('Qui paie vos messages à Meta ?');

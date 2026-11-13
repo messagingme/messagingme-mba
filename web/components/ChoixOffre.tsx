@@ -21,7 +21,6 @@ import { CARTES_OFFRE, QUESTION_OFFRE, type FormuleChoisie } from '@/lib/questio
  */
 export function ChoixOffre({ tenantId, vue, surFree }: { tenantId: string; vue: VueOffre; surFree: () => void }) {
   const t = useT();
-  const [aide, setAide] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [proIndisponible, setProIndisponible] = useState(vue.prixPro === null);
@@ -62,7 +61,7 @@ export function ChoixOffre({ tenantId, vue, surFree }: { tenantId: string; vue: 
   return (
     <section data-testid="choix-offre" className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
       <h2 className="text-base font-semibold text-ink-900">{t(QUESTION_OFFRE.texte.fr, QUESTION_OFFRE.texte.en)}</h2>
-      <p className="mt-1 text-xs text-ink-500">{t(QUESTION_OFFRE.precision.fr, QUESTION_OFFRE.precision.en)}</p>
+      <p className="mt-1 text-xs"><a href={t(QUESTION_OFFRE.tarifs.fr, QUESTION_OFFRE.tarifs.en)} target="_blank" rel="noopener" className="font-semibold text-ink-900 underline" data-testid="offre-comparer">{t(QUESTION_OFFRE.precision.fr, QUESTION_OFFRE.precision.en)}</a></p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {CARTES_OFFRE.map((c) => (
           <div key={c.offre} className="grid grid-rows-[1fr_auto] gap-3">
@@ -91,10 +90,6 @@ export function ChoixOffre({ tenantId, vue, surFree }: { tenantId: string; vue: 
         ))}
       </div>
       {erreur && <p className="mt-3 rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{erreur}</p>}
-      <button type="button" aria-expanded={aide} onClick={() => setAide((a) => !a)} className="mt-4 text-sm font-semibold text-ink-900 underline" data-testid="offre-nsp">
-        {t(QUESTION_OFFRE.nsp.fr, QUESTION_OFFRE.nsp.en)}
-      </button>
-      {aide && <p data-testid="offre-aide" className="mt-2 text-sm text-ink-700">{t(QUESTION_OFFRE.aide.fr, QUESTION_OFFRE.aide.en)}</p>}
     </section>
   );
 }

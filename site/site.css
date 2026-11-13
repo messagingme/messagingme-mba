@@ -992,6 +992,7 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .js .bt-guide[data-pret] .bt-recommencer:not([hidden]){display:block;margin:26px auto 0}
 /* La page « Démarrer » : le titre, puis le tunnel tout de suite dessous. */
 .demarrer-une{gap:8px}
+.demarrer-une > div{max-width:none}
 .demarrer-une .bt-guide{margin:0;max-width:880px}
 /* `hidden` doit gagner sur les `display` du guide : sans script, l'étape et sa jauge ne s'affichent pas. */
 .bt-guide [hidden]{display:none}
@@ -1090,6 +1091,7 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-liens{display:flex;flex-wrap:wrap;gap:10px;margin:0;padding:0 16px 16px}
 .bt-chemin .bt-liens{padding:4px 0 6px}
 .bt-precision{display:block;margin-top:10px;font-weight:400;font-size:1.02rem;letter-spacing:0;color:var(--muted)}
+.bt-precision a{color:var(--action-ink);font-weight:600}
 .bt-aide{margin:16px 0 0;max-width:640px;padding:12px 16px;border-left:3px solid var(--action-ink);color:var(--muted);font-size:.95rem}
 .bt-note-reponse{margin:16px 0 0;max-width:640px;padding:12px 16px;border-left:3px solid #25d366;color:var(--muted);font-size:.95rem}
 @media (prefers-reduced-motion:no-preference){

@@ -193,18 +193,6 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
   });
 
-  it('🔴 « Je ne sais pas » à la question de l’offre dit que Free ne marche qu’avec un agent IA, et sinon Pro (Julien, 2026-10-30)', () => {
-    for (const [langue, agent, sans] of [
-      ['fr', /uniquement depuis un agent IA comme Claude Code ou Codex/, /Sans agent IA, choisissez Pro/],
-      ['en', /only from an AI agent such as Claude Code or Codex/, /Without an AI agent, choose Pro/],
-    ] as const) {
-      const offre = TEXTES_TUNNEL[langue].questions.find((x) => x.id === 'offre')!;
-      expect(offre.reponses.some((r) => !r.vers), langue).toBe(true);
-      expect(offre.aide, langue).toMatch(agent);
-      expect(offre.aide, langue).toMatch(sans);
-    }
-  });
-
   it('une question répondue ne garde que sa réponse, au milieu et en blanc, reliée à la suivante par un fil ; la recliquer la rouvre (Julien, 2026-11-13)', () => {
     const js = lire('site.js');
     const css = lire('site.css');
@@ -235,13 +223,14 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
   });
 
-  it('🔴 le plus long parcours fait six questions (Pro par Claude Code), et le chapeau, l’étape et la page « Démarrer » le disent', () => {
-    for (const [langue, trois] of [['fr', 'six question'], ['en', 'six question']] as const) {
+  it('🔴 le plus long parcours fait six questions (Pro par Claude Code) : l’étape le dit, les titres non (Julien, 2026-11-13 : « dis pas 6, tu décourages »)', () => {
+    for (const [langue, quelques] of [['fr', 'quelques questions'], ['en', 'a few questions']] as const) {
       const max = profondeurTunnel(TEXTES_TUNNEL[langue].questions);
       expect(max).toBe(6);
-      expect(TEXTES_TUNNEL[langue].chapeau, langue).toContain(trois);
-      expect(TEXTES_DEMARRER[langue].h1.join(' '), langue).toContain(trois);
-      expect(TEXTES_DEMARRER[langue].titre, langue).toContain(trois);
+      for (const x of [TEXTES_TUNNEL[langue].chapeau, TEXTES_DEMARRER[langue].h1.join(' '), TEXTES_DEMARRER[langue].titre]) {
+        expect(x, langue).toContain(quelques);
+        expect(x, langue).not.toMatch(/six question/);
+      }
       for (const p of PAGES.filter((x) => x.langue === langue)) {
         const html = lire(fichierDe(p.adresse));
         expect(html, p.adresse).toContain(`data-max="${max}"`);

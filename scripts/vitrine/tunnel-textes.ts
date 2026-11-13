@@ -209,7 +209,7 @@ const fr = (): TexteTunnel => {
   const offres: readonly Voie[] = [
     // Le nom et le prix, rien d'autre (Julien, 2026-11-13 : « pas clair, pas vendeur ; on va éviter les textes qui
     // décrivent les options ») ; Free dit seulement ce qu'il faut pour s'en servir. Les prix sont ceux du code.
-    { titre: 'Free', prix: '0&nbsp;€', unite: 'sans limite de durée', note: 'Besoin d’un IDE, de {claude} ou de {codex}', plus: [], moins: [] },
+    { titre: 'Free', prix: '0&nbsp;€', unite: 'sans limite de durée', note: 'Besoin d’un IDE ou de {claude} / {codex}', plus: [], moins: [] },
     { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}&nbsp;jours d’essai gratuit`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
     { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'fr'), unite: 'HT par mois', plus: [], moins: [] },
     { titre: 'Entreprise', prix: 'Sur devis', unite: 'selon votre volume', plus: [], moins: [] },
@@ -251,7 +251,7 @@ const fr = (): TexteTunnel => {
   return {
     surtitre: 'Votre numéro WhatsApp',
     titre: ['Votre branchement', 'commence ici.'],
-    chapeau: 'En six questions au plus, sur votre formule, qui paie Meta, votre compte Meta Business, votre application WhatsApp Business et votre numéro, vous savez quoi faire.',
+    chapeau: 'En quelques questions, sur votre formule, qui paie Meta, votre compte Meta Business, votre application WhatsApp Business et votre numéro, vous savez quoi faire.',
     lexique: {
       titre: 'Les mots de ce guide, expliqués',
       termes: [
@@ -280,15 +280,13 @@ const fr = (): TexteTunnel => {
     // juste après l'offre ; et du 2026-11-12 : sans application, plus rien à télécharger, le numéro se relie par Meta.
     questions: [
       {
-        id: 'offre', texte: 'Quelle formule voulez-vous ?', precision: 'Vous pourrez en changer plus tard.',
-        aide: 'Free se pilote uniquement depuis un agent IA comme Claude Code ou Codex : sans lui, Free ne marche pas. Sans agent IA, choisissez Pro : la console, pour vous et votre équipe, avec un numéro fourni.',
+        id: 'offre', texte: 'Quelle formule voulez-vous ?', precision: '<a href="/tarifs/">Pour comparer les formules</a>',
         voies: offres,
         reponses: [
           { libelle: 'Free', vers: 'paiement', offre: 'free' },
           { libelle: 'Pro', vers: 'pilote', offre: 'pro' },
           { libelle: 'Business', vers: 'echange', offre: 'business' },
           { libelle: 'Entreprise', vers: 'echange', offre: 'entreprise' },
-          { libelle: 'Je ne sais pas' },
         ],
       },
       {
@@ -299,7 +297,7 @@ const fr = (): TexteTunnel => {
       {
         // Le Crédit WhatsApp ne se prend pas ici : depuis l'ouverture de la vente (2026-11-11, lot 3v-2), dans la console, dès
         // l'essai de la formule Pro ; sa réponse dit où, et la Free, qu'il vient avec la formule Pro.
-        id: 'paiement', texte: 'Qui paie vos messages à Meta ?', precision: 'Meta facture chaque modèle que vous envoyez.',
+        id: 'paiement', texte: 'Qui paie vos messages à Meta ?', precision: 'Eh oui, Meta facture chaque modèle que vous envoyez 💸',
         voies: paiement,
         reponses: [
           { libelle: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', vers: 'compte' },
@@ -481,7 +479,7 @@ const fr = (): TexteTunnel => {
 const en = (): TexteTunnel => {
   const numero = euros(PRIX_NUMERO_AFFICHE_HT_CENTIMES, 'en');
   const offres: readonly Voie[] = [
-    { titre: 'Free', prix: '€0', unite: 'with no time limit', note: 'Needs an IDE, {claude} or {codex}', plus: [], moins: [] },
+    { titre: 'Free', prix: '€0', unite: 'with no time limit', note: 'Needs an IDE or {claude} / {codex}', plus: [], moins: [] },
     { titre: 'Pro', badge: `${ESSAI_PRO_JOURS}-day free trial`, prix: euros(PRIX_PRO_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
     { titre: 'Business', prix: euros(PRIX_BUSINESS_HT_CENTIMES.mois, 'en'), unite: 'excl. VAT a month', plus: [], moins: [] },
     { titre: 'Enterprise', prix: 'On quote', unite: 'based on your volume', plus: [], moins: [] },
@@ -518,7 +516,7 @@ const en = (): TexteTunnel => {
   return {
     surtitre: 'Your WhatsApp number',
     titre: ['Your setup', 'starts here.'],
-    chapeau: 'In six questions at most, about your plan, who pays Meta, your Meta Business account, your WhatsApp Business app and your number, you know what to do.',
+    chapeau: 'In a few questions, about your plan, who pays Meta, your Meta Business account, your WhatsApp Business app and your number, you know what to do.',
     lexique: {
       titre: 'The words of this guide, explained',
       termes: [
@@ -544,15 +542,13 @@ const en = (): TexteTunnel => {
     },
     questions: [
       {
-        id: 'offre', texte: 'Which plan do you want?', precision: 'You can change it later.',
-        aide: 'Free is driven only from an AI agent such as Claude Code or Codex: without one, Free does not work. Without an AI agent, choose Pro: the console, for you and your team, with a provided number.',
+        id: 'offre', texte: 'Which plan do you want?', precision: '<a href="/en/pricing/">Compare the plans</a>',
         voies: offres,
         reponses: [
           { libelle: 'Free', vers: 'paiement', offre: 'free' },
           { libelle: 'Pro', vers: 'pilote', offre: 'pro' },
           { libelle: 'Business', vers: 'echange', offre: 'business' },
           { libelle: 'Enterprise', vers: 'echange', offre: 'entreprise' },
-          { libelle: 'I don’t know' },
         ],
       },
       {
@@ -560,7 +556,7 @@ const en = (): TexteTunnel => {
         reponses: [{ libelle: 'The console', vers: 'console' }, { libelle: 'Claude Code or Codex', vers: 'paiement' }],
       },
       {
-        id: 'paiement', texte: 'Who pays Meta for your messages?', precision: 'Meta bills each template you send.',
+        id: 'paiement', texte: 'Who pays Meta for your messages?', precision: 'Yes, Meta bills each template you send 💸',
         voies: paiement,
         reponses: [
           { libelle: 'I add a payment method (Visa / Mastercard) to my Meta Business account', vers: 'compte' },

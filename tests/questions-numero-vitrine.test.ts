@@ -27,9 +27,11 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
     it(`${langue} : la formule au premier écran de la console, la question et ses quatre cartes au mot près (lot 3b)`, () => {
       const q = question('offre');
       expect(QUESTION_OFFRE.texte[langue]).toBe(texte(q.texte));
+      // Le lien vers la grille des formules, plus de « Je ne sais pas » (2026-11-13).
       expect(QUESTION_OFFRE.precision[langue]).toBe(texte(q.precision!));
-      expect(QUESTION_OFFRE.aide[langue]).toBe(texte(q.aide!));
-      expect(QUESTION_OFFRE.nsp[langue]).toBe(texte(q.reponses.find((r) => !r.vers)!.libelle));
+      expect(q.precision).toContain(`href="${QUESTION_OFFRE.tarifs[langue].replace('https://app.messagingme.fr', '')}"`);
+      expect(q.aide, langue).toBeUndefined();
+      expect(q.reponses.every((r) => r.vers), langue).toBe(true);
       // Les quatre cartes, dans l'ordre de la vitrine, chacune sous la réponse de même formule.
       const avecFormule = q.reponses.filter((r) => r.offre);
       expect(CARTES_OFFRE.map((c) => c.offre)).toEqual(avecFormule.map((r) => r.offre));

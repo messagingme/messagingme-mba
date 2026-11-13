@@ -321,19 +321,17 @@ export function sectionTunnel(langue: Langue, origine: Origine, classe = 'f-bloc
  */
 export const TEXTES_DEMARRER = {
   fr: {
-    titre: 'Démarrer : votre numéro WhatsApp en six questions · Messaging Me',
-    description: 'Free ou Pro, qui paie Meta, compte Meta Business, application WhatsApp Business, numéro : six questions au plus, et la demande à coller dans Claude Code.',
+    titre: 'Démarrer : votre numéro WhatsApp en quelques questions · Messaging Me',
+    description: 'Free ou Pro, qui paie Meta, compte Meta Business, application WhatsApp Business, numéro : quelques questions, et la demande à coller dans Claude Code.',
     fil: 'Démarrer',
-    h1: ['Branchez votre WhatsApp,', 'en six questions.'],
-    chapeau: 'Votre offre, qui paie Meta, votre compte Meta Business, votre application WhatsApp Business, votre numéro : à la fin, vous savez quoi faire, et vous avez la demande à coller dans Claude Code ou Codex.',
+    h1: ['Branchez votre WhatsApp,', 'en quelques questions.'],
     appel: { titre: 'Vous préférez qu’on en parle ?', texte: 'Une démo sur votre cas : vos clients, vos conversations, votre numéro.', bouton: 'Demander une démo', contact: '/contact/#formulaire' },
   },
   en: {
-    titre: 'Get started: your WhatsApp number in six questions · Messaging Me',
-    description: 'Free or Pro, who pays Meta, Meta Business account, WhatsApp Business app, number: six questions at most, then the request to paste into Claude Code.',
+    titre: 'Get started: your WhatsApp number in a few questions · Messaging Me',
+    description: 'Free or Pro, who pays Meta, Meta Business account, WhatsApp Business app, number: a few questions, then the request to paste into Claude Code.',
     fil: 'Get started',
-    h1: ['Connect your WhatsApp,', 'in six questions.'],
-    chapeau: 'Your plan, who pays Meta, your Meta Business account, your WhatsApp Business app, your number: at the end, you know what to do, and you have the request to paste into Claude Code or Codex.',
+    h1: ['Connect your WhatsApp,', 'in a few questions.'],
     appel: { titre: 'Would you rather talk it through?', texte: 'A demo on your case: your customers, your conversations, your number.', bouton: 'Request a demo', contact: '/en/contact/#formulaire' },
   },
 } as const;
@@ -344,7 +342,6 @@ export function pagesDemarrer(): Array<{ chemin: string; contenu: string }> {
     const autre = langue === 'fr' ? 'en' : 'fr';
     const tete = [
       `      <h1><span class="f-surtitre"><svg class="ic" aria-hidden="true"><use href="#i-whatsapp"/></svg>${t.fil}</span> ${t.h1[0]} <span class="sec-accent">${t.h1[1]}</span></h1>`,
-      `      <p class="chapeau">${t.chapeau}</p>`,
     ];
     const main = [
       '<main>',
