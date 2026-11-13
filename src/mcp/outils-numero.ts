@@ -743,7 +743,9 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       + 'window, like coexistence; still accepted for a connection started that way, which numero.reprise of '
       + 'get_setup_state names (filiere api only). When the workspace took the credit line and has no number yet, the link of `fourni` and '
       + '`apporte` opens the connection without a card at Meta, and the consigne gives its conditions; the credit line never '
-      + 'pays a number that keeps the app. '
+      + 'pays a number that keeps the app. When the person chose the credit line and the workspace has not taken it yet '
+      + '(on Pro or a confirmed Business), call take_credit_line first and give this link only once the option is paid: '
+      + 'a number connected before would stay paid by its card at Meta. '
       + 'Refused if the workspace already has a connected number, except `coexistence` for a number linked by QR code, '
       + 'which moves to the API on the same number.',
     // Il ne touche rien chez un tiers et ne crée rien : un lien signé de plus à chaque appel.

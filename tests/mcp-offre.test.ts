@@ -189,6 +189,10 @@ describe('les outils MCP d’une Free : la clé de son application et le Pro', (
     expect(cap.option).toEqual([]);
   });
 
+  it('🔴 start_whatsapp_connection renvoie à take_credit_line avant son lien quand la personne choisit la ligne de crédit', () => {
+    expect(outil('start_whatsapp_connection').description).toMatch(/chose the credit line.*take_credit_line first/);
+  });
+
   it('🔴 take_credit_line dit l’ordre : après la confirmation du Pro, AVANT tout lien de connexion', () => {
     const d = outil('take_credit_line').description;
     expect(d).toMatch(/get_plan/);

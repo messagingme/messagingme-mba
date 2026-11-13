@@ -133,6 +133,18 @@ describe('les skills', () => {
     }
   });
 
+  it('🔴 la ligne de crédit se prend depuis Claude (plan 2026-11-13) : Pro, puis take_credit_line, puis le lien, jamais l’inverse', () => {
+    const texte = readFileSync(resolve(PLUGIN, 'skills', 'mise-en-service', 'SKILL.md'), 'utf8');
+    const q2 = texte.slice(texte.indexOf('**"Who pays Meta for your messages?"**'), texte.indexOf('**"Do you have a Meta Business account?"**'));
+    expect(q2).toMatch(/take_credit_line/);
+    expect(q2.indexOf('subscribe_pro')).toBeGreaterThan(-1);
+    expect(q2.indexOf('subscribe_pro')).toBeLessThan(q2.indexOf('take_credit_line'));
+    expect(q2.indexOf('take_credit_line')).toBeLessThan(q2.indexOf('start_whatsapp_connection'));
+    // Plus de renvoi vers l'onglet de la console pour la PRISE, ni d'interdiction de l'ouvrir d'ici.
+    expect(q2).not.toMatch(/never offer to buy the option/);
+    expect(q2).not.toMatch(/it is taken in the console/);
+  });
+
   it('/messagingme:demarrer est réservé à la personne : Claude ne le lance pas de lui-même', () => {
     expect(SKILLS.find((s) => s.nom === 'demarrer')!.champ('disable-model-invocation')).toBe('true');
   });
@@ -147,6 +159,11 @@ describe('les skills', () => {
         grilleMeta: async () => ({ id: 'g', enVigueurLe: '2026-10-01', tarifs: [{ marche: 'FR', categorie: 'utility', palier: 0, prixMicroEur: 1 }] }),
       },
     } as unknown as DepsMcp, 't', {}, null);
+    // Les champs que rend `take_credit_line` quand l'option est déjà prise (`deja_prise`, plan 2026-11-13), par le VRAI outil.
+    const sortieOption = await OUTILS.find((o) => o.nom === 'take_credit_line')!.executer({
+      offre: { option: { etat: async () => ({ statut: 'actif', places: 1 }), ouvrir: async () => { throw new Error('pas d’ouverture'); } } },
+      couteux: { consommer: async () => ({ accepte: true, attenteMs: 0 }) },
+    } as unknown as DepsMcp, 't', {}, { userId: 'u', autorisationId: 'a' });
     const clesRendues = (o: unknown): string[] => (o !== null && typeof o === 'object')
       ? Object.entries(o).flatMap(([k, v]) => [k, ...clesRendues(Array.isArray(v) ? v[0] : v)]) : [];
     const exemple = etatMiseEnService({
@@ -166,7 +183,7 @@ describe('les skills', () => {
     const valeurs = OUTILS.flatMap((o) => Object.values((o.entree as { properties?: Record<string, { enum?: unknown[]; items?: { enum?: unknown[] } }> }).properties ?? {})
       .flatMap((p) => [...(p.enum ?? []), ...(p.items?.enum ?? [])].filter((v): v is string => typeof v === 'string')));
     const connus = new Set<string>([
-      ...Object.keys(CATALOGUE_MCP), ...Object.keys(OUTILS_DE_L_ETAPE), ...AVERTISSEMENTS, ...clesRendues(exemple), ...clesRendues(sortieListe),
+      ...Object.keys(CATALOGUE_MCP), ...Object.keys(OUTILS_DE_L_ETAPE), ...AVERTISSEMENTS, ...clesRendues(exemple), ...clesRendues(sortieListe), ...clesRendues(sortieOption),
       ...arguments_, ...valeurs, ...OUTILS_SURS, ...Object.keys(STATUT_PAR_CODE),
     ]);
     for (const s of SKILLS) {

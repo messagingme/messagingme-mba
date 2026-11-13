@@ -83,7 +83,7 @@ Passé 24 heures sans message de la personne, seul un modèle approuvé par Meta
 
 ## Why does Meta ask for a card, and what does it charge?
 
-Meta bills the templates and, since October 1, 2026, the replies beyond a monthly allowance, according to its rate card and the person’s country, on the payment method of your Meta Business account; except with the credit line, prepaid at Messaging Me, taken in the console (Plan, Credit line tab) with the Pro or Business plan (not with the WhatsApp Business app). No plan, Free included, includes these fees. Claude gives you the current price of a message delivered in France, category by category, read from Meta’s rate card (`list_templates`); for another country, Meta’s rate card: https://developers.facebook.com/docs/whatsapp/pricing. To add the card:
+Meta bills the templates and, since October 1, 2026, the replies beyond a monthly allowance, according to its rate card and the person’s country, on the payment method of your Meta Business account; except with the credit line, prepaid at Messaging Me, taken from Claude, before connecting the number, or in the console (Plan, Credit line tab) with the Pro or Business plan (not with the WhatsApp Business app). No plan, Free included, includes these fees. Claude gives you the current price of a message delivered in France, category by category, read from Meta’s rate card (`list_templates`); for another country, Meta’s rate card: https://developers.facebook.com/docs/whatsapp/pricing. To add the card:
 
 1) On business.facebook.com, open WhatsApp Manager, “Overview” page.
 
@@ -97,7 +97,7 @@ Meta bills the templates and, since October 1, 2026, the replies beyond a monthl
 
 **FR · Pourquoi Meta me demande une carte, et que facture-t-il ?**
 
-Meta facture les modèles et, depuis le 1er octobre 2026, les réponses au-delà d’une franchise mensuelle, selon sa grille et le pays de la personne, sur le moyen de paiement de votre compte Meta Business ; sauf avec la ligne de crédit, prépayée chez Messaging Me, qui se prend dans la console (Offre, onglet Ligne de crédit) avec la formule Pro ou Business (pas avec l’application WhatsApp Business). Aucune formule, Free comprise, n’inclut ces frais. Claude vous donne le tarif en vigueur d’un message livré en France, catégorie par catégorie, lu dans la grille de Meta (`list_templates`) ; pour un autre pays, la grille de Meta : https://developers.facebook.com/docs/whatsapp/pricing. Pour ajouter la carte :
+Meta facture les modèles et, depuis le 1er octobre 2026, les réponses au-delà d’une franchise mensuelle, selon sa grille et le pays de la personne, sur le moyen de paiement de votre compte Meta Business ; sauf avec la ligne de crédit, prépayée chez Messaging Me, qui se prend depuis Claude, avant de connecter le numéro, ou dans la console (Offre, onglet Ligne de crédit) avec la formule Pro ou Business (pas avec l’application WhatsApp Business). Aucune formule, Free comprise, n’inclut ces frais. Claude vous donne le tarif en vigueur d’un message livré en France, catégorie par catégorie, lu dans la grille de Meta (`list_templates`) ; pour un autre pays, la grille de Meta : https://developers.facebook.com/docs/whatsapp/pricing. Pour ajouter la carte :
 
 1) Sur business.facebook.com, ouvrez le Gestionnaire WhatsApp, page « Vue d’ensemble ».
 
