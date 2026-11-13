@@ -163,9 +163,7 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
       ) : (
         <QuiRegleMeta tenantId={tenantId} admin lieu="connecter" api={api} surConnexion={apresConnexion} occupe={fenetreCarte}>{parcours}</QuiRegleMeta>
       )}
-      {/* Connecté, la carte reçoit aussi la connexion de la page : une Entreprise connectée en direct s'y reconnecte sans
-          carte par la fenêtre du partenaire (`RECONNEXION_ENTREPRISE`), puis le compte se relit. */}
-      {connecte && <QuiRegleMeta tenantId={tenantId} admin={isAdmin} lieu="connecter" connecte occupe={fenetreCarte} api={api} surConnexion={apresConnexion}>{isAdmin && parcours}</QuiRegleMeta>}
+      {connecte && <QuiRegleMeta tenantId={tenantId} admin={isAdmin} lieu="connecter" connecte occupe={fenetreCarte}>{isAdmin && parcours}</QuiRegleMeta>}
 
       {tunnel && !connecte && (
         <Link href="/demarrer" className="mt-6 inline-block text-sm font-semibold text-ink-900 underline" data-testid="numero-plus-tard">

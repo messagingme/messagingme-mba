@@ -24,7 +24,10 @@ const vueOffre = (offre: string, abonnement: unknown = null) => ({
   prixPro: { moisCentimes: 4900, anCentimes: 49000 }, essai: null, sieges: null, suiteDuNumero: null, abonnement,
   upgradeUrl: 'https://console.e2e.test/offre', ongletCreditWhatsapp: false,
 });
-type Etat = { etat: string; enVente: boolean; avecApplication?: boolean; fenetrePartenaire?: boolean };
+type Etat = { etat: string; enVente: boolean; avecApplication?: boolean; fenetrePartenaire?: boolean; numeroAvecCarte?: boolean };
+/** Les deux textes validés par Julien le 2026-11-13 (version A) : l'option ne se vend plus à un numéro connecté avec sa carte. */
+const NUMERO_AVEC_CARTE = 'Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au Support.';
+const AVERTISSEMENT_CARTE = 'Connecté avec votre carte chez Meta, ce numéro ne pourra plus passer sur le Crédit WhatsApp.';
 
 /** Le serveur des cartes : l'offre, l'état de la ligne (une suite, la dernière répétée), l'option et le démarrage du Pro. */
 async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; etats?: Etat[]; solution?: string } = {}) {
@@ -78,6 +81,8 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await expect(page.getByTestId('carte-credit-wa-ligne').getByRole('link', { name: 'Support' })).toHaveAttribute('href', '/support');
     await expect(page.getByTestId('carte-credit-wa-grisee')).toBeDisabled();
     await expect(page.getByTestId('carte-credit-wa-prendre')).toHaveCount(0);
+    // Sans droit à la ligne (la fenêtre du partenaire fermée), aucun avertissement sur la voie de la carte.
+    await expect(page.getByTestId('carte-meta-avertissement-ligne')).toHaveCount(0);
   });
 
   test('🔴 en Free, sans lire l’état (la route est fermée à la Free) : « Avec la formule Pro. »', async ({ page }) => {
@@ -216,25 +221,34 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     expect(s.options).toEqual([{ places: 1, origine: 'connecter' }]);
   });
 
-  test('🔴 V4 : le numéro de l’essai, connecté avec la carte chez Meta, l’option payée : la carte mène à sa reconnexion dans l’onglet Crédit WhatsApp', async ({ page }) => {
-    // Le serveur ne rouvre la fenêtre du partenaire à un espace connecté que pour l'y reconnecter (`seReconnecte`) : sans
-    // elle, personne ne poserait sa ligne, et « sous 24 h ouvrées » serait faux.
+  test('🔴 un numéro connecté avec sa carte, l’option à prendre : le texte validé à la place de « Prendre l’option » (décision de Julien du 2026-11-13)', async ({ page }) => {
+    // Meta refuse qu'un compte que nous servons déjà en direct repasse par la fenêtre du partenaire (#2494156) : la carte
+    // ne vend plus l'option à ce numéro.
     await mockAccueil(page, { inscription: { complete: {} } });
-    await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }] });
+    const s = await simuler(page, { etats: [{ etat: 'a_prendre', enVente: true, numeroAvecCarte: true }] });
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('numero-connecte')).toBeVisible();
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre option est payée, mais votre numéro est connecté avec votre carte chez Meta : reconnectez-le sans carte depuis l’onglet Crédit WhatsApp.');
-    await expect(page.getByTestId('carte-credit-wa-reconnecter')).toHaveAttribute('href', '/offre?tab=whatsapp');
-    // La fenêtre ne s'ouvre pas d'ici : la question de la voie de la ligne est celle d'un espace sans numéro.
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText(NUMERO_AVEC_CARTE);
+    await expect(page.getByTestId('carte-credit-wa-numero-carte').getByRole('link', { name: 'Support' })).toHaveAttribute('href', '/support');
+    await expect(page.getByTestId('carte-credit-wa-prendre')).toHaveCount(0);
+    expect(s.options).toEqual([]);
+  });
+
+  test('🔴 un numéro connecté avec sa carte, l’option déjà payée : le texte validé, jamais « sous 24 h ouvrées » ni une reconnexion', async ({ page }) => {
+    await mockAccueil(page, { inscription: { complete: {} } });
+    await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, numeroAvecCarte: true }] });
+    await page.goto('/connecter-whatsapp');
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText(NUMERO_AVEC_CARTE);
+    await expect(page.getByTestId('carte-credit-wa-connecter-ligne')).toHaveCount(0);
     await expect(page.getByTestId('ligne-numero')).toHaveCount(0);
   });
 
-  test('un numéro connecté, l’option payée, sans fenêtre à rouvrir : la ligne s’ouvre sous 24 h, comme avant', async ({ page }) => {
+  test('un numéro connecté, l’option payée, le serveur ne le dit pas connecté avec sa carte : la ligne s’ouvre sous 24 h, comme avant', async ({ page }) => {
     await mockAccueil(page, { inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'en_attente', enVente: true }] });
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre ligne s’ouvre sous 24 h ouvrées.');
-    await expect(page.getByTestId('carte-credit-wa-reconnecter')).toHaveCount(0);
+    await expect(page.getByTestId('carte-credit-wa-numero-carte')).toHaveCount(0);
   });
 
   test('un numéro connecté sur une ligne active : le Crédit WhatsApp paie, aucun guide ni bouton de la carte chez Meta', async ({ page }) => {
@@ -276,6 +290,9 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     // La voie de la carte chez Meta est fermée : son guide n'est pas monté, une seule connexion écoute la fenêtre.
     await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
+    // 🔴 Elle avertit, AVANT tout geste, qu'elle est sans retour (texte validé par Julien le 2026-11-13) : Meta refuse la
+    // reconnexion d'un numéro connecté avec sa carte.
+    await expect(page.getByTestId('carte-meta-avertissement-ligne')).toHaveText(AVERTISSEMENT_CARTE);
     // « Votre numéro, ou le nôtre ? » (lot 3v) : le sien reçoit la phrase validée de Julien AVANT la fenêtre.
     await expect(page.getByTestId('ligne-numero')).toContainText('Votre numéro, ou le nôtre ?');
     // Les réponses disent ce que la personne a ou n'a pas (Julien, 2026-11-13).
@@ -303,57 +320,26 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
   });
 
-  // Une Entreprise connectée en direct, avant que la fenêtre du partenaire existe (plan
-  // `2026-11-12-credit-whatsapp-reconnexion-entreprise.md`) : le partenaire ne voit pas son compte, sa ligne ne peut pas
-  // s'y attacher. Son onglet Crédit WhatsApp, sans ligne, ne s'affiche pas : la reconnexion se fait depuis la carte, et
-  // seulement par le lien que notre équipe donne (`?reconnexion=entreprise`, décision de Julien : « MUTAC seulement »).
-  const RECONNEXION_ENTREPRISE = 'Votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages : reconnectez-le sans carte, en choisissant dans la fenêtre de Meta le même compte WhatsApp et le même numéro.';
-  const LIEN_RECONNEXION = '/connecter-whatsapp?reconnexion=entreprise';
-
-  test('🔴 une Entreprise connectée en direct, SANS le lien de notre équipe : « sur demande », aucun bouton, même la fenêtre rouverte par le serveur', async ({ page }) => {
+  // Une Entreprise connectée en direct, avec sa carte chez Meta : Meta refuse qu'elle se reconnecte par la fenêtre du
+  // partenaire (#2494156, essai 257). L'ancien lien de notre équipe (`?reconnexion=entreprise`) ne propose plus rien
+  // (décision de Julien du 2026-11-13).
+  test('🔴 une Entreprise connectée avec sa carte : le texte validé, plus de « sur demande » ni de reconnexion, même par l’ancien lien de notre équipe', async ({ page }) => {
     await mockAccueil(page, { inscription: { complete: {} } });
-    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false, fenetrePartenaire: true }], solution: 'sol-e2e' });
+    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false, numeroAvecCarte: true }], solution: 'sol-e2e' });
+    await page.goto('/connecter-whatsapp?reconnexion=entreprise');
+    await expect(page.getByTestId('numero-connecte')).toBeVisible();
+    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText(NUMERO_AVEC_CARTE);
+    await expect(page.getByTestId('carte-credit-wa-connecter-ligne')).toHaveCount(0);
+    await expect(page.getByTestId('carte-credit-wa-grisee')).toHaveCount(0);
+  });
+
+  test('une Entreprise connectée que le serveur ne dit pas connectée avec sa carte (une API d’avant, une lecture du numéro en panne) : « sur demande », comme avant', async ({ page }) => {
+    await mockAccueil(page, { inscription: { complete: {} } });
+    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false }], solution: 'sol-e2e' });
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('numero-connecte')).toBeVisible();
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
-    await expect(page.getByTestId('carte-credit-wa-reconnecter-entreprise')).toHaveCount(0);
-  });
-
-  test('🔴 une Entreprise connectée en direct, par le lien de notre équipe, la fenêtre rouverte par le serveur : « Reconnecter mon numéro sans carte chez Meta » ouvre la fenêtre par la solution, la fin passe par la ligne, et la carte relit son état', async ({ page }) => {
-    await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
-    const posts: unknown[] = [];
-    await mockAccueil(page, { inscription: { complete: CONNECTE, posts } });
-    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false, fenetrePartenaire: true }], solution: 'sol-e2e' });
-    // La fin de la connexion pose la ligne (le serveur l'attache et la vérifie) : l'état relu après elle est actif.
-    await page.route((url) => url.pathname.endsWith('/credit-whatsapp/etat'), (route) => route.fulfill({
-      status: 200, contentType: 'application/json',
-      body: JSON.stringify(posts.length > 0
-        ? { etat: 'active', enVente: false, avecApplication: false, fenetrePartenaire: false }
-        : { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: true }),
-    }));
-    await page.goto(LIEN_RECONNEXION);
-    await expect(page.getByTestId('numero-connecte')).toBeVisible();
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText(RECONNEXION_ENTREPRISE);
-    const bouton = page.getByTestId('carte-credit-wa-reconnecter-entreprise');
-    await expect(bouton).toHaveText('Reconnecter mon numéro sans carte chez Meta');
-    await expect(bouton).toBeEnabled();
-    await bouton.click();
-    // L'écoute attend 6 s un message de la fenêtre avant d'envoyer le code seul.
-    await expect.poll(() => posts.length, { timeout: 15_000 }).toBe(1);
-    expect(posts[0]).toEqual({ code: 'code-e2e', parLaLigne: true });
-    const options = await page.evaluate(() => (window as unknown as { __optionsFb?: { extras?: unknown } }).__optionsFb);
-    expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos messages sont payés par votre Crédit WhatsApp.');
-    await expect(page.getByTestId('carte-credit-wa-reconnecter-entreprise')).toHaveCount(0);
-  });
-
-  test('🔴 une Entreprise connectée, par le lien, la fenêtre fermée par le serveur (déjà sur une ligne, application, rien de configuré) : « sur demande », aucun bouton', async ({ page }) => {
-    await mockAccueil(page, { inscription: { complete: {} } });
-    await simuler(page, { offre: 'entreprise', etats: [{ etat: 'a_prendre', enVente: false }], solution: 'sol-e2e' });
-    await page.goto(LIEN_RECONNEXION);
-    await expect(page.getByTestId('numero-connecte')).toBeVisible();
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
-    await expect(page.getByTestId('carte-credit-wa-reconnecter-entreprise')).toHaveCount(0);
+    await expect(page.getByTestId('carte-credit-wa-numero-carte')).toHaveCount(0);
   });
 
   test('🔴 la fenêtre du partenaire ouverte : ni l’autre réponse ni la carte chez Meta ne démontent la connexion en cours', async ({ page }) => {

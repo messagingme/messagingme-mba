@@ -52,6 +52,11 @@ export interface DepsOptionCredit extends DepsPortail {
    * que le refus dise la vraie raison (relecture du lot C5, jaune 7).
    */
   formuleEnRetard(tenantId: string): Promise<boolean>;
+  /**
+   * Le numéro de l'espace est-il connecté avec sa carte chez Meta (`numeroAvecCarte`, décision de Julien du 2026-11-13) ?
+   * Meta refuse qu'il passe sur la ligne : l'option ne s'y vend plus, l'onglet et les cartes le disent.
+   */
+  numeroAvecCarte(tenantId: string): Promise<boolean>;
   /** Les numéros que les lignes `'option'` couvrent déjà : un retrait de places ne passe pas sous leur nombre. */
   numerosCouverts(tenantId: string): Promise<number>;
   /** `PgNumeroDelieStore.leverPausesLigneCredit` : une place en plus fait repartir les campagnes en pause faute de place. */
@@ -85,6 +90,15 @@ export const OPTION_APRES_ESSAI = refus(409, 'L’option Crédit WhatsApp s’ou
  * l'onglet et les cartes le lisent tous deux ici.
  */
 export const OPTION_FORMULE_EN_RETARD = refus(409, 'Le paiement de votre formule Pro est en retard : réglez-le, puis prenez l’option.', { code: 'formule_en_retard' });
+
+/**
+ * Un numéro connecté avec sa carte chez Meta ne passe jamais sur la ligne (Meta refuse sa reconnexion, #2494156) : l'option
+ * ne s'y vend plus (décision de Julien du 2026-11-13). Le texte est celui que Julien a validé (version A), le même que la
+ * console montre à la place de l'achat.
+ */
+export const OPTION_NUMERO_AVEC_CARTE = refus(409,
+  'Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au Support.',
+  { code: 'numero_avec_carte' });
 
 const placesValides = (n: number): boolean => Number.isInteger(n) && n >= 1 && n <= PLACES_OPTION_MAX;
 const PLACES_INVALIDES = refus(400, `De 1 à ${PLACES_OPTION_MAX} numéros : au-delà, contactez-nous.`, { code: 'places_invalides' });
@@ -123,6 +137,8 @@ export async function ouvrirOption(
   if (offre !== 'pro' && offre !== 'business') {
     return refus(409, 'L’option Crédit WhatsApp se prend avec la formule Pro ou Business.', { code: 'option_avec_le_pro' });
   }
+  // Le numéro avant la formule, comme la console : sa raison est définitive, celle de la formule passe (relecture du lot).
+  if (await d.numeroAvecCarte(tenantId)) return OPTION_NUMERO_AVEC_CARTE;
   if (!(await d.optionPrenable(tenantId))) return (await d.formuleEnRetard(tenantId)) ? OPTION_FORMULE_EN_RETARD : OPTION_APRES_ESSAI;
   if ((await d.options.vivante(tenantId)) !== null) {
     return refus(409, 'Votre espace a déjà l’option Crédit WhatsApp : changez son nombre de numéros.', { code: 'option_deja_prise' });

@@ -17,7 +17,9 @@ const T = 't1';
 const MAINTENANT = Date.parse('2026-12-01T10:00:00Z');
 const JOUR = 86_400_000;
 function monter(o: {
-  offre?: Offre; etat?: EtatLigne; enVente?: boolean; panne?: 'offre' | 'emettre' | 'depuis';
+  offre?: Offre; etat?: EtatLigne; enVente?: boolean; panne?: 'offre' | 'emettre' | 'depuis' | 'carte';
+  /** Le numéro de l'espace connecté avec sa carte chez Meta (décision de Julien du 2026-11-13) ; non par défaut. */
+  numeroAvecCarte?: boolean;
   /** Quand la formule Pro est devenue payée ; `null` : aucun Pro. Par défaut, la veille. */
   depuis?: Date | null;
 } = {}) {
@@ -25,6 +27,7 @@ function monter(o: {
   const d: DepsConversion = {
     offre: async () => { if (o.panne === 'offre') throw new Error('base'); return o.offre ?? 'pro'; },
     etat: async () => o.etat ?? 'a_prendre',
+    numeroAvecCarte: async () => { if (o.panne === 'carte') throw new Error('base'); return o.numeroAvecCarte ?? false; },
     enVente: o.enVente ?? false,
     emettre: async (e) => {
       if (o.panne === 'emettre') throw new Error('file');
@@ -72,6 +75,18 @@ describe('signalerConversion', () => {
       await signalerConversion(m.d, T);
       expect(m.emissions, JSON.stringify(o)).toEqual([]);
     }
+  });
+
+  it('🔴 jamais à un espace dont le numéro est connecté avec sa carte : l’option ne s’y vend plus (décision de Julien du 2026-11-13)', async () => {
+    for (const enVente of [true, false]) {
+      const m = monter({ enVente, numeroAvecCarte: true });
+      await signalerConversion(m.d, T);
+      expect(m.emissions, String(enVente)).toEqual([]);
+    }
+    // Une lecture du numéro en panne se tait aussi, sans lever (le webhook et /ops ne tombent pas).
+    const panne = monter({ enVente: true, panne: 'carte' });
+    await expect(signalerConversion(panne.d, T)).resolves.toBeUndefined();
+    expect(panne.emissions).toEqual([]);
   });
 
   it('🔴 ne lève jamais : une lecture ou une émission en panne ne fait pas tomber le webhook ni /ops', async () => {

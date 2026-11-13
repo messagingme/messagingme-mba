@@ -74,6 +74,8 @@ function deps(o: {
   formuleEnRetard?: boolean;
   /** Le verrou de la prise déjà tenu par un autre clic (jaune 7 du lot C). */
   verrouTenu?: boolean;
+  /** Le numéro de l'espace connecté avec sa carte chez Meta (décision de Julien du 2026-11-13) ; non par défaut. */
+  numeroAvecCarte?: boolean;
 } = {}) {
   // Les sessions Checkout ouvertes du client (jaune 11) : aucune par défaut.
   const transport = new FauxStripe({ price_opt: PRIX, sessions: { object: 'list', data: [] }, ...(o.objets ?? {}) }, o.reponses ?? []);
@@ -95,6 +97,7 @@ function deps(o: {
     formuleEtPrise: async () => ({ formulePayee: o.formulePayee ?? true, prisePossible: o.optionPrenable ?? true }),
     optionPrenable: async () => o.optionPrenable ?? true,
     formuleEnRetard: async () => o.formuleEnRetard ?? false,
+    numeroAvecCarte: async () => o.numeroAvecCarte ?? false,
     numerosCouverts: async () => o.couverts ?? 0,
     reprendreCampagnes: async (t) => { reprises.push(t); return 0; },
     alerter: async (t) => { alertes.push(t); },
@@ -171,6 +174,8 @@ describe('ouvrir l’option', () => {
       // Relecture du lot C5, jaune 7 (décision de Julien du 2026-11-09) : un Pro en retard lit la vraie raison.
       ['Pro en retard', { formulePayee: false, optionPrenable: false, formuleEnRetard: true }, 1, 409, 'formule_en_retard'],
       ['déjà prise', { vivante: OPTION }, 1, 409, 'option_deja_prise'],
+      // Décision de Julien du 2026-11-13 : Meta refuse qu'un numéro servi en direct passe sur la ligne, l'option ne s'y vend plus.
+      ['numéro connecté avec sa carte', { numeroAvecCarte: true }, 1, 409, 'numero_avec_carte'],
       ['zéro', {}, 0, 400, 'places_invalides'],
       ['vingt et un', {}, 21, 400, 'places_invalides'],
     ];
@@ -178,6 +183,17 @@ describe('ouvrir l’option', () => {
       const { d, transport } = deps(o);
       expect(await ouvrirOption(d, T1, places, 'u1'), nom).toMatchObject({ ok: false, statut, details: { code } });
       expect(transport.posts, nom).toEqual([]);
+    }
+  });
+
+  it('🔴 un numéro connecté avec sa carte : le refus dit le texte validé par Julien (version A, 2026-11-13), avant les refus de la formule', async () => {
+    const refus = JSON.stringify(await ouvrirOption(deps({ numeroAvecCarte: true }).d, T1, 1, 'u1'));
+    expect(refus).toContain('Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au Support.');
+    // Le numéro d'abord, comme la console : sa raison est définitive, celle de la formule passe (un Business confirmé, un
+    // retard réglé, et l'option resterait refusée). Un Business en essai ou un Pro en retard lit donc celle de son numéro.
+    for (const o of [{ offre: 'business' as const, optionPrenable: false }, { optionPrenable: false, formuleEnRetard: true }]) {
+      const r = await ouvrirOption(deps({ numeroAvecCarte: true, ...o }).d, T1, 1, 'u1');
+      expect(r, JSON.stringify(o)).toMatchObject({ ok: false, details: { code: 'numero_avec_carte' } });
     }
   });
 

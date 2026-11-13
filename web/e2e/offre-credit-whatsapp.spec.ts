@@ -50,12 +50,14 @@ interface Options {
   /** Ce que la vue de l'offre change (l'offre, l'abonnement en essai, ses prix). */
   vueOffre?: Record<string, unknown>;
   /**
-   * V4 : le numéro de l'espace (`account-status`) et la configuration de la fenêtre de Meta, dont `solutionId` (la
-   * fenêtre du partenaire). Absents, le serveur simulé rend `{}` : ni numéro lu, ni fenêtre.
+   * La configuration de la fenêtre de Meta, dont `solutionId` (la fenêtre du partenaire, que le serveur n'ouvre qu'à un
+   * espace sans numéro). Absente, le serveur simulé rend `{}` : aucune fenêtre.
    */
-  compte?: { hasNumber: boolean; number?: string | null };
   solution?: string | null;
 }
+
+/** Le texte validé par Julien le 2026-11-13 (version A) : l'option ne se vend plus à un numéro connecté avec sa carte. */
+const NUMERO_AVEC_CARTE = 'Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au Support.';
 
 /** L'option en vente, pas encore prise (lot 4a) : 30 € HT par numéro et par mois, de 1 à 20 numéros. */
 const OPTION = { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 0, statut: null, finPrevueLe: null };
@@ -116,7 +118,6 @@ async function monter(page: Page, o: Options = {}) {
     if (chemin.endsWith('/agents/mouvements')) return json({ mouvements: [] });
     if (chemin.endsWith('/unread-count')) return json({ count: 0 });
     if (chemin.endsWith('/me')) return json({ email: ADMIN.email, name: 'Jean Test', role: 'admin' });
-    if (o.compte !== undefined && chemin.endsWith('/account-status')) return json(o.compte);
     if (o.solution !== undefined && chemin.endsWith('/embedded-signup/config')) {
       return json({ enabled: true, appId: 'app-e2e', configId: 'cfg-e2e', graphVersion: 'v25.0', solutionId: o.solution });
     }
@@ -128,9 +129,6 @@ async function monter(page: Page, o: Options = {}) {
   });
   return { achats, options, changements, factures, fins, lectures: () => lectures, demarrages: () => demarrages };
 }
-
-/** Le SDK de Meta simulé (comme `qui-regle-meta.spec.ts`) : il retient les options de `FB.login` et rend un code. */
-const SDK_QUI_RETIENT = 'window.FB={init:function(){},login:function(cb,o){window.__optionsFb=o;setTimeout(function(){cb({authResponse:{code:"code-e2e"}})},10)}};';
 
 test.describe('Paramètres > Offre > Crédit WhatsApp', () => {
   test('🔴 sans numéro sur la ligne, pas d’onglet, et l’adresse de l’onglet ramène à l’offre', async ({ page }) => {
@@ -362,54 +360,36 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : l’option', () => {
     expect(m.options).toEqual([]);
   });
 
-  test('🔴 V4 : le numéro de l’essai, connecté avec la carte chez Meta, se reconnecte par la fenêtre du partenaire, et l’onglet relit', async ({ page }) => {
-    await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
-    const payee = { ...OPTION, places: 1, couverts: 0, statut: 'actif' };
-    const m = await monter(page, {
-      vues: [credit({ ...SANS_NUMERO, option: payee }), credit({ option: { ...payee, couverts: 1 } })],
-      compte: { hasNumber: true, number: '+33 6 00 00 00 00' },
-      solution: 'sol-e2e',
-    });
+  test('🔴 une place payée et le numéro connecté avec sa carte : le texte validé, plus aucune reconnexion (décision de Julien du 2026-11-13)', async ({ page }) => {
+    // Meta refuse qu'un compte que nous servons déjà en direct repasse par la fenêtre du partenaire (#2494156) : l'ancienne
+    // reconnexion de l'onglet (V4) ne passerait jamais. Même une configuration qui rendrait la solution n'y change rien.
+    const payee = { ...OPTION, places: 1, couverts: 0, statut: 'actif', numeroAvecCarte: true };
+    const m = await monter(page, { vues: [credit({ ...SANS_NUMERO, option: payee })], solution: 'sol-e2e' });
     await page.goto('/offre?tab=whatsapp');
-    const libre = page.getByTestId('credit-wa-option-libre');
-    await expect(libre).toContainText('1 numéro payé pas encore sur le Crédit WhatsApp : votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages.');
-    await expect(libre).toContainText('choisissez le même compte WhatsApp et le même numéro');
-    await expect(libre).not.toContainText('Support');
-    await page.getByTestId('credit-wa-reconnecter').click();
-    // L'écoute attend 6 s un message de la fenêtre avant d'envoyer le code seul.
-    await expect.poll(() => m.fins.length, { timeout: 15_000 }).toBe(1);
-    // 🔴 La fin dit au serveur que la connexion s'est faite par la ligne : sans `parLaLigne`, rien ne pose sa ligne.
-    expect(m.fins[0]).toEqual({ code: 'code-e2e', parLaLigne: true });
-    const options = await page.evaluate(() => (window as unknown as { __optionsFb?: { extras?: unknown } }).__optionsFb);
-    expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
-    await expect(page.getByTestId('credit-wa-reconnexion-faite')).toContainText('Votre numéro est reconnecté sans carte chez Meta');
-    // L'onglet relit : la ligne posée à la fin (V3), le numéro compte, la place n'est plus libre.
-    await expect(page.getByTestId('credit-wa-option-couverts')).toHaveText('1');
-    await expect(libre).toHaveCount(0);
-    expect(m.lectures()).toBeGreaterThanOrEqual(2);
+    await expect(page.getByTestId('credit-wa-option-numero-carte')).toHaveText(NUMERO_AVEC_CARTE);
+    await expect(page.getByTestId('credit-wa-option-numero-carte').getByRole('link', { name: 'Support' })).toHaveAttribute('href', '/support');
+    await expect(page.getByTestId('credit-wa-option-libre')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-connecter')).toHaveCount(0);
+    expect(m.fins).toEqual([]);
   });
 
-  test('V4 : sans numéro, la fenêtre du partenaire ouverte, l’onglet mène à Connecter WhatsApp', async ({ page }) => {
+  test('sans numéro, la fenêtre du partenaire ouverte : l’onglet mène à Connecter WhatsApp', async ({ page }) => {
     await monter(page, {
       vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, places: 1, couverts: 0, statut: 'actif' } })],
-      compte: { hasNumber: false, number: null },
       solution: 'sol-e2e',
     });
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-libre')).toContainText('1 numéro payé pas encore sur le Crédit WhatsApp : connectez votre numéro sans carte chez Meta.');
     await expect(page.getByTestId('credit-wa-connecter')).toHaveAttribute('href', '/connecter-whatsapp');
-    await expect(page.getByTestId('credit-wa-reconnecter')).toHaveCount(0);
   });
 
-  test('🔴 V4 : la fenêtre fermée par le serveur (numéro qui attend déjà sa ligne, application, rien de configuré) : le texte d’avant, aucun bouton', async ({ page }) => {
+  test('🔴 la fenêtre fermée par le serveur (un numéro déjà là, rien de configuré) : le Support, aucun bouton', async ({ page }) => {
     await monter(page, {
       vues: [credit({ ...SANS_NUMERO, option: { ...OPTION, places: 1, couverts: 0, statut: 'actif' } })],
-      compte: { hasNumber: true, number: '+33 6 00 00 00 00' },
       solution: null,
     });
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-libre')).toHaveText('1 numéro payé pas encore sur le Crédit WhatsApp : contactez-nous depuis le Support pour y mettre votre numéro.');
-    await expect(page.getByTestId('credit-wa-reconnecter')).toHaveCount(0);
     await expect(page.getByTestId('credit-wa-connecter')).toHaveCount(0);
   });
 
@@ -544,6 +524,17 @@ test.describe('Paramètres > Offre > Crédit WhatsApp : la prise de l’option, 
     await page.goto('/offre?tab=whatsapp');
     await expect(page.getByTestId('credit-wa-option-avertissement')).toContainText('le Crédit WhatsApp n’est pas possible avec l’application');
     await expect(page.getByTestId('credit-wa-option-prendre')).toBeVisible();
+  });
+
+  test('🔴 un Pro en essai dont le numéro est connecté avec sa carte : le texte validé à la place de « Prendre l’option », sans explication de l’essai (décision de Julien du 2026-11-13)', async ({ page }) => {
+    const avecCarte = credit({ ...SANS_NUMERO, option: { ...OPTION, formulePayee: false, prisePossible: false, numeroAvecCarte: true } });
+    const m = await monter(page, { vues: [avecCarte], vueOffre: EN_ESSAI });
+    await page.goto('/offre?tab=whatsapp');
+    await expect(page.getByTestId('credit-wa-option-numero-carte')).toHaveText(NUMERO_AVEC_CARTE);
+    await expect(page.getByTestId('credit-wa-option-prendre')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-places')).toHaveCount(0);
+    await expect(page.getByTestId('credit-wa-option-essai')).toHaveCount(0);
+    expect(m.options).toEqual([]);
   });
 
   test('🔴 la formule payée : « Prendre l’option », sans explication de l’attente', async ({ page }) => {

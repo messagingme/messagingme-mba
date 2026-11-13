@@ -2,7 +2,7 @@
 description: Le Crédit WhatsApp, sans carte chez Meta : prendre l'option, connecter votre numéro sans carte, puis recharger le crédit qui paie vos messages.
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: 732a9b
+source_empreinte: 761931
 publique: oui
 rubrique: demarrer-console
 rang: 4
@@ -34,8 +34,8 @@ fenêtre de Meta s'ouvre sans demander de moyen de paiement.
 d'un numéro » : un numéro que nous vous fournissons, inclus dans votre formule. La ligne de votre numéro s'ouvre à la
 connexion, sous 24 h ouvrées au plus. Depuis Claude Code, le lien de connexion ouvre la même fenêtre, sans carte.
 
-Votre numéro est déjà connecté avec votre carte chez Meta ? Une fois l'option prise, l'onglet **Crédit WhatsApp**
-propose « Reconnecter mon numéro sans carte chez Meta ».
+Votre numéro est déjà connecté avec votre carte chez Meta ? Le Crédit WhatsApp ne peut pas le prendre en charge : pour
+changer, écrivez au Support. Pour en profiter, connectez votre numéro sans carte dès le départ.
 
 **3. Recharger votre Crédit WhatsApp.** Il part de zéro : avant vos premiers modèles, rechargez-le dans l'onglet
 **Crédit WhatsApp**, de 50, 100, 250 ou 500 € HT, par la page de paiement de Stripe. L'onglet affiche le prix d'un

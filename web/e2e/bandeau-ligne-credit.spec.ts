@@ -12,7 +12,7 @@ const LIMITES = {
 };
 const PRO = ['inbox', 'scenarios', 'statistiques', 'agent_meta', 'aide', 'assistants', 'email', 'console'];
 
-async function monter(page: Page, o: { etat?: string; enVente?: boolean; role?: 'admin' | 'agent'; offre?: string; onglet?: boolean } = {}) {
+async function monter(page: Page, o: { etat?: string; enVente?: boolean; role?: 'admin' | 'agent'; offre?: string; onglet?: boolean; numeroAvecCarte?: boolean } = {}) {
   const lectures: string[] = [];
   await page.addInitScript((s) => { window.localStorage.setItem('mba.session', JSON.stringify(s)); },
     { token: 'e2e-token', email: 'x@e2e.test', role: o.role ?? 'admin', tenantId: TENANT });
@@ -21,7 +21,7 @@ async function monter(page: Page, o: { etat?: string; enVente?: boolean; role?: 
     const chemin = new URL(route.request().url()).pathname;
     if (chemin.endsWith('/credit-whatsapp/etat')) {
       lectures.push(chemin);
-      return route.fulfill(json({ etat: o.etat ?? 'a_prendre', enVente: o.enVente ?? true, avecApplication: false }));
+      return route.fulfill(json({ etat: o.etat ?? 'a_prendre', enVente: o.enVente ?? true, avecApplication: false, numeroAvecCarte: o.numeroAvecCarte ?? false }));
     }
     if (chemin.endsWith(`/tenants/${TENANT}/offre`)) {
       return route.fulfill(json({
@@ -62,8 +62,10 @@ test('🔴 la croix le masque, et il ne revient pas au chargement suivant (aucun
   expect(lectures.length).toBe(avant);
 });
 
-test('aucun bandeau : l’option prise, payée ou en essai, ou hors vente (l’état lu)', async ({ page }) => {
-  for (const cas of [{ etat: 'active' }, { etat: 'en_attente' }, { etat: 'essai' }, { enVente: false }]) {
+test('aucun bandeau : l’option prise, payée ou en essai, hors vente, ou un numéro connecté avec sa carte (l’état lu)', async ({ page }) => {
+  // Le numéro connecté avec sa carte : l'option ne s'y vend plus (décision de Julien du 2026-11-13), le bandeau qui la
+  // propose se tait comme l'e-mail du même moment.
+  for (const cas of [{ etat: 'active' }, { etat: 'en_attente' }, { etat: 'essai' }, { enVente: false }, { numeroAvecCarte: true }]) {
     await monter(page, cas);
     // 🔴 L'état LU d'abord : avant sa réponse, l'absence du bandeau ne prouverait rien.
     const lue = page.waitForResponse((r) => r.url().endsWith('/credit-whatsapp/etat'));

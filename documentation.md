@@ -4855,32 +4855,25 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   `GET /embedded-signup/config`, réservée à un administrateur ou au lien de Claude Code (`adminOuLien`), et seulement à
   l'espace que `solutionDuPartenaire` désigne (`src/credit-whatsapp/fenetre-partenaire.ts`) : un droit à la ligne
   (`droitALaLigne` : une Entreprise ; une formule Pro, essai compris, ou un Business, avec une option vivante et une place
-  libre ; jamais une Free) et aucun numéro rattaché, délié compris, comme pour `hasNumber` et `linkTenant`, OU, depuis
-  le 2026-11-11 (décision de Julien), l'unique numéro de l'espace qui s'y RECONNECTE (`seReconnecte`) : celui de l'essai,
-  connecté avec la carte chez Meta avant l'option, que la pose de `/ops` ne servirait pas (son compte n'est pas partagé
-  avec le partenaire). Il doit être chez Meta, hors coexistence, relié, couvert par aucune ligne (`ligneDuNumero`, toute
-  origine, tout espace, arrêtée comprise) et ne pas attendre déjà la sienne ; `linkTenant` rejoue le même numéro, et la fin
-  le pose (V3). Une règle qui ne se lit pas ferme la fenêtre, journalisée (`fenetre_partenaire_illisible`), sans
-  faire échouer la configuration ni l'état des cartes. La route de l'état des cartes n'en dit qu'un booléen
-  (`fenetrePartenaire`). Sans numéro, la carte « Crédit WhatsApp » de Connecter WhatsApp montre alors « Connecter sans
-  carte chez Meta » et devient la voie active ; numéro connecté, en `en_attente`, elle mène à l'onglet Crédit WhatsApp,
-  où une place payée sans numéro (`PlaceLibre`, un administrateur) offre « Reconnecter mon numéro sans carte chez Meta »
-  (la même fenêtre, `parLaLigne`), ou le lien vers Connecter WhatsApp sans numéro, et renvoie au Support seulement
-  quand la fenêtre est fermée. Une ENTREPRISE connectée en direct, sans ligne (`a_prendre`), n'a pas d'onglet Crédit
-  WhatsApp : quand la fenêtre lui est rouverte ET que la page est ouverte par le lien de notre équipe
-  (`LIEN_RECONNEXION_ENTREPRISE`, `?reconnexion=entreprise` ; décision de Julien du 2026-11-12, la reconnexion d'un compte
-  existant n'ayant pas encore tourné en vrai et changeant ce qui est facturé), la carte de Connecter WhatsApp porte
-  elle-même « Reconnecter mon numéro sans carte chez Meta » (`RECONNEXION_ENTREPRISE`, la page lui passant sa connexion
-  aussi numéro connecté), puis relit l'état, que la fin de la connexion a fait passer `active` (ligne posée) ou
-  `en_attente` ; sans le lien, « sur demande ». Le serveur, lui, rouvre la fenêtre à toute Entreprise (`seReconnecte`) :
-  le lien règle l'écran, pas le droit. 🔴 **Chez Meta, ces deux reconnexions (l'onglet et le lien) ne passent PAS** pour
-  un compte que notre application sert déjà en direct (mesuré le 2026-11-13 sur MUTAC, essai 257) : la fenêtre refuse
-  (#2494156, « A paid messaging account already exists for this partner », nouveau modèle de compte : un compte de
-  messagerie par partenaire), et `POST /<compte>/set_solution_migration_intent` rend 400, sous-code 2593118 (« WABA is
-  not eligible », un geste réservé au partenaire qui a intégré le compte). Seule voie connue, NON éprouvée : retirer notre
-  compte de messagerie direct, puis repasser par la fenêtre, qui en crée un neuf (modèles et agent de Meta à refaire).
-  À l'inverse, un compte WhatsApp servi par un AUTRE fournisseur passe par la fenêtre (essai 258) : un compte de
-  messagerie neuf à nous, à côté du sien. La carte chez Meta se reprend
+  libre ; jamais une Free) et AUCUN numéro rattaché, délié compris, comme pour `hasNumber` et `linkTenant`. 🔴 Un
+  numéro déjà là ne la rouvre jamais : Meta refuse qu'un compte que notre application sert déjà en direct repasse par la
+  fenêtre (mesuré le 2026-11-13 sur MUTAC, essai 257 : #2494156, « A paid messaging account already exists for this
+  partner », un compte de messagerie par partenaire ; et `POST /<compte>/set_solution_migration_intent` rend 400,
+  sous-code 2593118, un geste réservé au partenaire qui a intégré le compte). Les reconnexions qui le tentaient (l'onglet
+  d'une formule Pro, le lien d'une Entreprise) sont retirées ; seule voie connue, non éprouvée : retirer notre compte de
+  messagerie direct, puis la fenêtre (modèles et agent de Meta à refaire), au Support. À l'inverse, un compte servi par
+  un AUTRE fournisseur passe par la fenêtre (essai 258) : un compte de messagerie neuf à nous, à côté du sien. **Un
+  numéro connecté avec sa carte** (`numeroAvecCarte`, même fichier : un numéro Meta rattaché, délié compris, qu'aucune ligne ne
+  couvre et qui n'attend pas la sienne, coexistence comprise) **ne se voit plus vendre l'option** (décision de Julien du
+  2026-11-13) : la prise la refuse (`numero_avec_carte`, après les refus de la formule), l'onglet rend `prisePossible`
+  faux et `numeroAvecCarte`, l'état des cartes `numeroAvecCarte` (jamais pour une Free), et l'e-mail de la conversion se
+  tait ; la carte et l'onglet disent le texte validé (`NUMERO_AVEC_CARTE`, `QuiRegleMeta.tsx`), et la carte chez Meta
+  d'un espace qui a droit à la ligne avertit avant la connexion (`AVERTISSEMENT_CARTE`). Une règle qui ne se lit pas
+  ferme la fenêtre, journalisée (`fenetre_partenaire_illisible`), sans faire échouer la configuration ni l'état des
+  cartes. La route de l'état des cartes n'en dit qu'un booléen (`fenetrePartenaire`). Sans numéro, la carte « Crédit
+  WhatsApp » de Connecter WhatsApp montre alors « Connecter mon numéro » et devient la voie active ; dans
+  l'onglet, une place payée sans numéro (`PlaceLibre`, un administrateur, la configuration lue seule) mène à Connecter
+  WhatsApp quand la fenêtre est ouverte, au Support sinon. La carte chez Meta se reprend
   d'un clic, et le bouton du partenaire, resté en second, referme
   son guide dans le même clic que la fenêtre, sans recharger la page (chaque voie porte sa connexion ; seule celle dont
   le bouton a ouvert la fenêtre en envoie la fin). Le crochet refuse d'ouvrir la fenêtre sans identifiant, jamais une connexion

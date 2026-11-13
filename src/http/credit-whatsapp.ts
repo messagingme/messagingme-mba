@@ -13,6 +13,7 @@ import type { LigneCredit } from '../credit-whatsapp/lignes.pg';
 import type { StatutOption } from '../credit-whatsapp/options.pg';
 import { changerPlaces, optionEnVente, ouvrirOption, PRIX_OPTION_WA_HT_CENTIMES, PLACES_OPTION_MAX, type DepsOptionCredit } from '../stripe/option-credit-whatsapp';
 import { arretDesLignes, lireEtatLigne, tousGardentLApplication } from '../credit-whatsapp/etat-ligne';
+import { journaliser } from '../lib/journal';
 
 /**
  * LE CRÉDIT WHATSAPP D'UN ESPACE (plan du Crédit WhatsApp, tâches 10 et 11) : l'achat par Stripe et ce que montre l'onglet
@@ -113,6 +114,11 @@ export interface VueCreditWhatsapp {
     prisePossible: boolean;
     /** Tous les numéros de l'espace gardent l'application (décision 8) : le paiement de l'option prévient. */
     avecApplication: boolean;
+    /**
+     * Le numéro de l'espace est connecté avec sa carte chez Meta (`numeroAvecCarte`, décision de Julien du 2026-11-13) :
+     * l'option ne s'y vend plus (`prisePossible` faux), et l'onglet dit pourquoi à la place de l'achat.
+     */
+    numeroAvecCarte: boolean;
   };
 }
 
@@ -131,6 +137,8 @@ export function registerCreditWhatsapp(
    * une lecture légère, sans l'historique ni la courbe de l'onglet. Tout membre la lit ; seul un administrateur agit.
    * `enVente` : l'option se prend en ligne (son prix posé, un Pro ou un Business) ; sinon la carte est grisée.
    * `avecApplication` : tous les numéros de l'espace gardent l'application, et le paiement le dit (décision 8).
+   * `numeroAvecCarte` : le numéro est connecté avec sa carte chez Meta, la carte le dit à la place de l'achat ou de « sur
+   * demande » (décision de Julien du 2026-11-13) ; jamais pour une Free, qui n'a pas de Crédit WhatsApp.
    */
   app.get('/tenants/:tenantId/credit-whatsapp/etat', { preHandler: gardeLecture }, async (req, reply) => {
     const tenant = espaceVerifie(req);
@@ -139,7 +147,13 @@ export function registerCreditWhatsapp(
       lireEtatLigne(deps, tenant), o.offre(tenant), deps.vue.numeros(tenant), deps.fenetrePartenaire(tenant),
     ]);
     const enVente = optionEnVente(o) && (offre === 'pro' || offre === 'business');
-    return reply.code(200).send({ etat, enVente, avecApplication: tousGardentLApplication(numeros), fenetrePartenaire });
+    // Une lecture en panne ne fait pas tomber l'état des cartes, comme la fenêtre : faux, journalisé ; la prise relit et,
+    // en panne elle aussi, ne vend rien (relecture du lot).
+    const numeroAvecCarte = offre !== 'base' && (await o.numeroAvecCarte(tenant).catch((err: unknown) => {
+      journaliser('error', 'numero_avec_carte_illisible', { tenantId: tenant, err });
+      return false;
+    }));
+    return reply.code(200).send({ etat, enVente, avecApplication: tousGardentLApplication(numeros), fenetrePartenaire, numeroAvecCarte });
   });
 
   /** L'onglet : tout membre le lit (un agent y voit le solde et qui peut recharger), seul un administrateur achète. */
@@ -159,6 +173,8 @@ export function registerCreditWhatsapp(
     const { formulePayee, prisePossible } = offre === 'pro' || offre === 'business'
       ? await deps.option.formuleEtPrise(tenant)
       : { formulePayee: false, prisePossible: false };
+    // Un numéro connecté avec sa carte : l'option ne s'y vend plus (décision de Julien du 2026-11-13), la prise le refuse.
+    const numeroAvecCarte = (offre === 'pro' || offre === 'business') && (await deps.option.numeroAvecCarte(tenant));
     const s = deps.achat.stripe;
     const arret = arretDesLignes(lignes);
     const vue: VueCreditWhatsapp = {
@@ -185,8 +201,9 @@ export function registerCreditWhatsapp(
         statut: option?.statut ?? null,
         finPrevueLe: option?.finPrevueLe?.toISOString() ?? null,
         formulePayee,
-        prisePossible,
+        prisePossible: prisePossible && !numeroAvecCarte,
         avecApplication: tousGardentLApplication(numeros),
+        numeroAvecCarte,
       },
     };
     return reply.code(200).send(vue);

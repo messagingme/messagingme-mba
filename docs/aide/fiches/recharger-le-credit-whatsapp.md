@@ -1,7 +1,7 @@
 ---
 ecran: offre
 source_section: Crédit WhatsApp (menu « Paramètres » > Offre, onglet Crédit WhatsApp)
-source_empreinte: 732a9b
+source_empreinte: 761931
 ---
 # Recharger le Crédit WhatsApp
 
@@ -11,10 +11,9 @@ messages chez Meta à votre place : vous n'avez alors aucune carte bancaire à p
 par numéro et par mois ; en Entreprise, l'onglet apparaît dès qu'un numéro est payé ainsi. L'écran est réservé aux
 administrateurs. Il ne paie pas l'IA : vos agents IA puisent dans le Crédit IA, l'autre onglet.
 
-**Votre numéro est déjà connecté avec votre carte chez Meta ?** Une fois l'option prise, l'onglet vous propose
-« Reconnecter mon numéro sans carte chez Meta » : dans la fenêtre de Meta, choisissez le même compte WhatsApp et le
-même numéro, et votre numéro passe sur le Crédit WhatsApp. Sans numéro connecté, l'onglet vous mène à la page
-Connecter WhatsApp, où vous le connectez sans carte chez Meta.
+**Votre numéro est déjà connecté avec votre carte chez Meta ?** Le Crédit WhatsApp ne peut pas le prendre en charge :
+l'option ne s'y prend pas, et l'onglet vous le dit. Pour changer, écrivez au Support. Sans numéro connecté, l'onglet
+vous mène à la page Connecter WhatsApp, où vous le connectez sans carte chez Meta.
 
 **Ce que coûte un message.** Chaque message envoyé (campagne, scénario, réponse de l'Inbox ou d'un agent IA) est
 débité de son prix : le tarif de Meta pour le pays du destinataire et la catégorie du message, tout compris. L'onglet

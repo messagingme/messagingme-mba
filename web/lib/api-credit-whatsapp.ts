@@ -63,12 +63,17 @@ export interface OptionCreditWhatsapp {
    * Crédit WhatsApp, et le paiement de l'option le dit. Faux sur une API d'avant ce champ.
    */
   avecApplication: boolean;
+  /**
+   * Le numéro de l'espace est connecté avec sa carte chez Meta (décision de Julien du 2026-11-13) : l'option ne s'y vend
+   * plus, l'onglet dit pourquoi (`NUMERO_AVEC_CARTE`) à la place de l'achat. Faux sur une API d'avant ce champ.
+   */
+  numeroAvecCarte: boolean;
 }
 
 /** Une API d'avant l'option (la console part avant l'API) : rien en vente, rien de pris. */
 export const SANS_OPTION: OptionCreditWhatsapp = {
   disponible: false, prixHtCentimes: 0, placesMax: 0, places: 0, couverts: 0, statut: null, finPrevueLe: null, formulePayee: true,
-  prisePossible: true, avecApplication: false,
+  prisePossible: true, avecApplication: false, numeroAvecCarte: false,
 };
 
 /** Ce que lit l'onglet. Montants en micro-euros ; un prix se montre tout compris, jamais un taux. */
@@ -123,6 +128,7 @@ function lireOption(v: unknown): OptionCreditWhatsapp {
     formulePayee: o.formulePayee !== false,
     prisePossible: typeof o.prisePossible === 'boolean' ? o.prisePossible : o.formulePayee !== false,
     avecApplication: o.avecApplication === true,
+    numeroAvecCarte: o.numeroAvecCarte === true,
   };
 }
 
@@ -192,6 +198,11 @@ export interface VueEtatLigne {
    * numéro ». Faux sur une API d'avant ce champ : aucun bouton.
    */
   fenetrePartenaire: boolean;
+  /**
+   * Le numéro de l'espace est connecté avec sa carte chez Meta (décision de Julien du 2026-11-13) : la carte le dit
+   * (`NUMERO_AVEC_CARTE`) à la place de l'achat ou de « sur demande ». Faux sur une API d'avant ce champ : comme avant.
+   */
+  numeroAvecCarte: boolean;
 }
 
 /**
@@ -206,7 +217,7 @@ export async function lireEtatLigne(tenantId: string): Promise<VueEtatLigne | nu
     if (typeof etat !== 'string' || !(ETATS_LIGNE as readonly string[]).includes(etat)) return null;
     return {
       etat: etat as EtatLigne, enVente: r?.enVente === true, avecApplication: r?.avecApplication === true,
-      fenetrePartenaire: r?.fenetrePartenaire === true,
+      fenetrePartenaire: r?.fenetrePartenaire === true, numeroAvecCarte: r?.numeroAvecCarte === true,
     };
   } catch (err) {
     if (err instanceof ApiError && (err.status === 402 || err.status === 404)) return null;

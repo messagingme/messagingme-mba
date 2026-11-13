@@ -16,7 +16,8 @@ import type { IssuePose } from './pose';
  *
  * Mesuré à l'essai réel 236 (2026-11-09) : le compte est bien partagé avec le partenaire, mais sa ligne ne s'attachait PAS
  * d'elle-même. Depuis V3 (2026-11-11), Julien tient cette attache pour automatique (le partenaire l'automatise) : la nôtre
- * se pose à la connexion (`connexionParLaLigne`), et le numéro de l'essai connecté avec la carte s'y reconnecte (V4).
+ * se pose à la connexion (`connexionParLaLigne`). Un numéro déjà connecté avec la carte ne s'y reconnecte pas : Meta le
+ * refuse (#2494156), et l'option ne se vend plus à son espace (`numeroAvecCarte`, décision de Julien du 2026-11-13).
  */
 export interface DepsFenetrePartenaire {
   /**
@@ -35,7 +36,7 @@ export interface DepsFenetrePartenaire {
   numerosCouverts(tenantId: string): Promise<string[]>;
   /**
    * Les numéros RATTACHÉS à l'espace, déliés compris : comme `hasNumber` (la console le dit connecté) et `linkTenant` (qui
-   * refuse un second numéro). Un numéro déjà là ne rouvre la fenêtre que pour s'y reconnecter (`seReconnecte`, V4) ; une
+   * refuse un second numéro). Un numéro déjà là ne rouvre jamais la fenêtre (décision de Julien du 2026-11-13) ; une
    * connexion interrompue y retrouve celui qu'elle a pu rattacher, dans le compte du corps, et l'alerte dit ce qu'en sait
    * la liste (relecture du lot E7, jaune 4 ; du lot V5, jaunes 1, 4 et 7).
    */
@@ -158,16 +159,20 @@ export async function droitALaLigne(
 }
 
 /**
- * L'identifiant de la solution, pour la fenêtre de Meta : seulement à un espace qui a droit à la ligne, et qui n'a encore
- * aucun numéro rattaché OU dont l'unique numéro s'y reconnecte (`seReconnecte`, V4). `null` sinon, et pour tous si rien
- * n'est configuré. Une règle qui ne se lit pas (la base) ferme la fenêtre, journalisée : la configuration de la connexion
- * et l'état des cartes restent servis, et la connexion directe avec eux.
+ * L'identifiant de la solution, pour la fenêtre de Meta : seulement à un espace qui a droit à la ligne et n'a encore aucun
+ * numéro rattaché. `null` sinon, et pour tous si rien n'est configuré. Une règle qui ne se lit pas (la base) ferme la
+ * fenêtre, journalisée : la configuration de la connexion et l'état des cartes restent servis, et la connexion directe
+ * avec eux.
+ *
+ * 🔴 Un numéro déjà là ne la rouvre JAMAIS (décision de Julien du 2026-11-13). La reconnexion de V4 (le numéro de l'essai,
+ * connecté avec sa carte, repassé par la fenêtre) est refusée par Meta : un compte que notre application sert déjà en
+ * direct a déjà son compte de messagerie payé, et la fenêtre rend #2494156 (essai 257). L'option ne se vend plus à un tel
+ * numéro (`numeroAvecCarte`).
  */
 export async function solutionDuPartenaire(d: DepsFenetrePartenaire, tenantId: string): Promise<string | null> {
   if (d.solutionId === '') return null;
   try {
-    const rattaches = await d.numerosRattaches(tenantId);
-    if (rattaches.length > 0 && !(await seReconnecte(d, rattaches))) return null;
+    if ((await d.numerosRattaches(tenantId)).length > 0) return null;
     return (await droitALaLigne(d, tenantId)) ? d.solutionId : null;
   } catch (err) {
     journaliser('error', 'fenetre_partenaire_illisible', { tenantId, err });
@@ -176,19 +181,22 @@ export async function solutionDuPartenaire(d: DepsFenetrePartenaire, tenantId: s
 }
 
 /**
- * V4 (décision de Julien du 2026-11-11) : le numéro de l'essai, connecté avec la carte chez Meta avant que l'option soit
- * prise, se RECONNECTE par la fenêtre du partenaire. La pose de `/ops` ne lui suffit pas : son compte n'est pas partagé
- * avec le partenaire, qui ne peut pas y attacher sa ligne. Reconnecté (le même compte, le même numéro : `linkTenant` le
- * rejoue), il arrive dans `connexionParLaLigne` au cas « à poser », qui pose sa ligne (V3). Seulement l'UNIQUE numéro de
- * l'espace (`linkTenant` refuse un second numéro), que la pose accepterait (chez Meta, hors coexistence, relié), couvert
- * par aucune ligne (`ligneDuNumero` : toute origine, tout espace, arrêtée comprise ; couvert, la fin dirait « déjà
- * couvert ») et qui n'attend pas déjà sa ligne (passé par la fenêtre, sa pose est à Julien, pas à une seconde fenêtre).
+ * L'espace a-t-il un numéro connecté avec sa carte chez Meta (décision de Julien du 2026-11-13) ? Un numéro Meta rattaché
+ * qu'aucune ligne ne couvre (`ligneDuNumero` : toute origine, tout espace, arrêtée comprise) et qui n'attend pas la sienne
+ * (`attendLigne` : arrivé par la fenêtre du partenaire). La coexistence en est : l'application WhatsApp Business paie
+ * aussi Meta par sa carte. Un numéro délié aussi : délier n'est que l'interrupteur de l'Accueil, rien ne change chez Meta
+ * (`numero-delie.pg.ts`), il reste connecté avec sa carte (relecture du lot, rouge). Un tel numéro ne passera jamais sur
+ * la ligne (Meta refuse sa reconnexion, #2494156) : l'option ne se vend plus à son espace, la carte et l'onglet le disent,
+ * l'e-mail de la conversion se tait.
  */
-async function seReconnecte(d: Pick<DepsFenetrePartenaire, 'ligneDuNumero'>, rattaches: readonly NumeroRattache[]): Promise<boolean> {
-  const [numero, ...autres] = rattaches;
-  if (numero === undefined || autres.length > 0) return false;
-  if (numero.fournisseur !== 'meta' || numero.coexistence || numero.delie || numero.attendLigne) return false;
-  return (await d.ligneDuNumero(numero.phoneNumberId)) === null;
+export async function numeroAvecCarte(
+  d: Pick<DepsFenetrePartenaire, 'numerosRattaches' | 'ligneDuNumero'>, tenantId: string,
+): Promise<boolean> {
+  for (const n of await d.numerosRattaches(tenantId)) {
+    if (n.fournisseur !== 'meta' || n.attendLigne) continue;
+    if ((await d.ligneDuNumero(n.phoneNumberId)) === null) return true;
+  }
+  return false;
 }
 
 /**

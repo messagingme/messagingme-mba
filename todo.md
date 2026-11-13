@@ -1,20 +1,27 @@
 # todo.md : backlog
 
-## 🔴 La reconnexion sans carte est refusée par Meta : la remplacer (décision de Julien)
+## 🟡 Le Crédit WhatsApp ne se vend plus à un numéro connecté avec sa carte : ce qui reste (plan `docs/superpowers/plans/2026-11-13-credit-whatsapp-numero-avec-carte.md`)
 
-- **Le constat** (2026-11-13, essai 257 sur MUTAC) : un compte que notre application sert déjà en direct ne repasse pas
-  par la fenêtre du partenaire (#2494156, « A paid messaging account already exists for this partner ») ;
-  `set_solution_migration_intent` rend 2593118 (réservé au partenaire qui a intégré le compte). Les deux reconnexions
-  livrées ne marchent donc pas : l'onglet d'une formule Pro qui a pris l'option avec un numéro connecté pendant l'essai
-  (« V4, suite ») et le lien d'une Entreprise (`?reconnexion=entreprise`). Personne n'est touché aujourd'hui (aucun
-  abonnement Pro, le bouton d'Entreprise derrière notre lien), mais la vente est ouverte.
-- **À décider (Julien), une voie** : retirer notre compte de messagerie direct puis repasser par la fenêtre (non
-  éprouvé ; modèles et agent de Meta à refaire, une coupure) ; ou ne plus vendre l'option à un numéro connecté en
-  direct (le dire avant l'achat) ; ou la reconnexion par le Support.
-- **Dans le même lot** : la fiche publique `payer-ses-messages-sans-carte-chez-meta` (elle propose encore « Reconnecter
-  mon numéro sans carte chez Meta » ; puis `vitrine:aide`, l'anglais, `aide:charger`), `recharger-le-credit-whatsapp`,
-  la carte de Connecter WhatsApp et l'onglet (`QuiRegleMeta.tsx`, `PlaceLibre`), le paragraphe de features.md, et ce que
-  dit Claude (MCP, skill du plugin).
+- Ce que dit Claude, laissé à la session de l'aide à la connexion qui a ces fichiers en cours : la skill
+  `mise-en-service` du plugin (« or the reconnection without a card from the WhatsApp credit tab »), puis sa
+  publication ; et dans `src/mcp/outils-numero.ts`, `paiementDuNumero` et `paiementStable` (lignes 459 à 510) supposent
+  encore que la fenêtre se rouvre à un espace connecté (V4) : les branches `reconnecter`/`regler`/`support` sont mortes,
+  et un numéro avec carte dont l'option est payée (`en_attente`) s'y lit « connecté sans carte… sous 24 h ouvrées ». À
+  lire sur `numeroAvecCarte`, comme la carte ; `tests/mcp-numero.test.ts` (873 à 906) tient des cas qui n'existent plus.
+- `aide:charger` en production après le déploiement : la fiche publique et `recharger-le-credit-whatsapp` ont changé.
+- MUTAC (essai 257) : sa reconnexion passerait par le Support (retirer notre compte de messagerie direct, puis la
+  fenêtre ; non éprouvé, modèles et agent de Meta à refaire), si Julien le décide.
+- Relecture du lot (aucun rouge restant ; le numéro délié, rouge, corrigé avant le push) :
+  - « ajoutez votre carte chez Meta » reste muet pour un numéro avec carte dont l'option est payée (`en_attente`) :
+    `creditPaieMeta` (`web/lib/partage/credit-whatsapp.ts`) et `carte_meta_a_regler` de `get_setup_state`
+    (`src/mcp/mise-en-service.ts`) le tiennent pour payé par le crédit (`&& !numeroAvecCarte`) ;
+  - le texte (2) ne paraît qu'à un espace qui a droit à la ligne (périmètre validé) : ni au Pro sans option, ni au
+    Business en essai, à qui l'onglet conseille même « Pendant l'essai, vous connectez votre numéro avec votre carte »,
+    ni à côté du bouton direct de l'Accueil (`accueil/page.tsx`). À trancher par Julien ;
+  - `numeroAvecCarte` se déduit d'une absence (ni ligne, ni marque) : un numéro arrivé par la fenêtre lit le texte (1)
+    après un retrait de sa ligne dans `/ops` non reposée, un « Ne pas poser », ou une pose et une marque toutes deux en
+    panne (« Reprendre l'option » alors refusé à tort) ; rares, et tous passent par Julien ;
+  - un numéro 360dialog : l'option s'y vend encore, inutilisable, et le texte (1) y serait faux. À trancher.
 
 ## 🟡 La grille des formules, lot 1 : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-13-grille-des-formules.md`)
 
@@ -809,32 +816,10 @@ voie par QR code (plan `docs/superpowers/plans/2026-10-30-tunnel-numero-console-
     `a_poser`, et un repli après « déjà sur la ligne » marque un numéro qui a sa ligne ;
   - `get_setup_state` tait `carte_meta_a_regler` en `en_attente` : le numéro de l'essai reste payé par sa carte jusqu'à
     sa reconnexion, Claude ne dit pas de le reconnecter.
-- 🟡 **Les jaunes de la relecture du bouton de reconnexion d'une Entreprise (2026-11-12, aucun rouge ; la décision
-  « ouvrir le bouton à toute Entreprise » est sans objet depuis que Meta refuse la reconnexion, voir en tête)** :
-  - après une reconnexion réussie, seule la relecture de l'état retire le bouton : une relecture en échec le laisse
-    actif, et un second clic marque le numéro (« sous 24 h ouvrées », alerte). Un état local `reconnecte` qui remplace
-    le bouton par le constat, comme `PlaceLibre`, et son e2e ;
-  - Claude envoie encore cette Entreprise au Support (`CONNECTE_PAR_LE_SUPPORT`, `src/mcp/outils-numero.ts`, tenu par
-    `tests/mcp-numero.test.ts`) : la renvoyer vers la carte de Connecter WhatsApp ;
-  - « Ne pas poser » et le retrait dans `/ops` ne tiennent plus pour une Entreprise : l'état repasse `a_prendre`, la
-    fenêtre se rouvre et la carte offre le bouton. À trancher (Julien) ; au moins les JSDoc de `lignes.pg.ts`
-    (`abandonnerAttente`) et de `ops-credit-whatsapp.ts` (« Ne pas poser ») ; pour que le geste tienne, une marque
-    serveur que `seReconnecte` lise ;
-  - la fiche publique `payer-ses-messages-sans-carte-chez-meta` ne décrit la reconnexion que par l'option et l'onglet :
-    une phrase pour l'Entreprise (puis `vitrine:aide`, l'anglais, `aide:charger`) ;
-  - un numéro pas encore activé chez Meta voit le bouton, et « Meta facture encore ses messages » y est inexact ;
-  - aucun e2e de l'échec de la reconnexion (`carte-credit-wa-reconnecter-entreprise-erreur`).
-- 🟡 **Les jaunes de la relecture de la reconnexion (« V4, suite », `87217294`, 2026-11-11, aucun rouge)** :
-  - un autre numéro choisi dans la fenêtre : l'alerte de refus dit de ne rien attacher, alors que le compte est celui de
-    l'espace ; et `messageSecondNumero` (`src/account/connexion-numero.ts`) tutoie le client, sous le bouton de la console ;
-  - ✅ tranché autrement le 2026-11-12 (Julien, « Oui, fais le bouton ») : une Entreprise connectée avec sa carte, sans
-    ligne, garde l'identifiant, et la carte de Connecter WhatsApp lui offre la reconnexion (plan
-    `2026-11-12-credit-whatsapp-reconnexion-entreprise.md`) ;
-  - `PlaceLibre` monte la connexion (le SDK de Meta préchargé) et lit `getAccountStatus` (deux appels à Meta, une
-    écriture) même quand la fenêtre est fermée : lire la configuration d'abord ;
-  - une option en retard de paiement : la carte connectée mène à l'onglet, où `PlaceLibre` n'existe qu'en `actif` ;
-  - la carte connectée promet « sous 24 h ouvrées » à un numéro que la pose refusera toujours (coexistence, délié,
-    360dialog) ; Claude ne guide pas la reconnexion (le MCP et le plugin).
+- 🟡 **Ce qui reste des relectures des deux reconnexions (2026-11-11 et 2026-11-12), retirées le 2026-11-13** :
+  - `messageSecondNumero` (`src/account/connexion-numero.ts`) tutoie le client, sous le bouton de la console ;
+  - la carte connectée promet « sous 24 h ouvrées » à un numéro délié ou 360dialog, que la pose refusera toujours (la
+    coexistence lit désormais `NUMERO_AVEC_CARTE`).
 - 🟡 **Les jaunes laissés du lot 3v (relectures de V11 et V13, 2026-11-11)** :
   - l'alerte Telegram « Pro terminé (impayé|résiliation) … L'espace revient en Free » (`src/stripe/traitement-abonnements.ts`)
     est fausse pour une Entreprise ou un Business qui garde un Pro : la même tournure que l'alerte du renouvellement

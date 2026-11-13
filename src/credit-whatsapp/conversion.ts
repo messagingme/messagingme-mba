@@ -44,6 +44,11 @@ export interface DepsConversion {
    * Pro en essai y lit `a_prendre`, et seule la date (`proPayeDepuis`) l'écarte du webhook (relecture du lot V2, jaune 2).
    */
   etat(tenantId: string): Promise<EtatLigne>;
+  /**
+   * Le numéro de l'espace est connecté avec sa carte chez Meta (`numeroAvecCarte`, décision de Julien du 2026-11-13) :
+   * l'option ne s'y vend plus, et l'e-mail qui la propose ne part pas.
+   */
+  numeroAvecCarte(tenantId: string): Promise<boolean>;
   /** L'option se prend en ligne : son prix posé chez Stripe. */
   enVente: boolean;
   emettre: EmetteurEmails['emettre'];
@@ -64,6 +69,8 @@ export async function signalerConversion(d: DepsConversion, tenantId: string): P
     const offre = await d.offre(tenantId);
     if (offre !== 'pro' && offre !== 'business') return;
     if ((await d.etat(tenantId)) !== 'a_prendre') return;
+    // Un numéro connecté avec sa carte : l'option ne s'y vend plus (décision de Julien du 2026-11-13), l'e-mail se tait.
+    if (await d.numeroAvecCarte(tenantId)) return;
     await d.emettre(d.enVente
       ? { cle: 'ligne_credit_disponible', tenantId, occasion: 'conversion', a: 'admins', valeurs: { lien_numero: d.pageNumero } }
       : { cle: 'ligne_credit_sur_demande', tenantId, occasion: 'conversion', a: 'admins', valeurs: { lien_support: d.pageSupport } });

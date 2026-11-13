@@ -53,7 +53,7 @@ import { PgAbonnementsOffreStore } from './offres/abonnements-offre.pg';
 import { ouvrirPro, ouvrirPortailPro, type DepsPro } from './stripe/pro';
 import { changerSieges, siegesChezStripe, type DepsSieges } from './stripe/sieges';
 import { formuleEnRetard, formuleEtPrise, optionPrenable, repriseOuverte } from './offres/formule-payee';
-import { connexionParLaLigne, fenetreRefuseeParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
+import { connexionParLaLigne, fenetreRefuseeParLaLigne, numeroAvecCarte, solutionDuPartenaire, type DepsFenetrePartenaire } from './credit-whatsapp/fenetre-partenaire';
 import { poserLaLigne, type DepsPose } from './credit-whatsapp/pose';
 import {
   arreterLesLignesEtLeursAttaches, creerAttacheLigne, relancerLesLignesEtLeursAttaches, type DepsCycleAttache,
@@ -1098,6 +1098,9 @@ async function main(): Promise<void> {
     formuleEtPrise: async (tenant) => formuleEtPrise(await formuleDe(tenant), Date.now()),
     optionPrenable: async (tenant) => optionPrenable(await formuleDe(tenant), Date.now()),
     formuleEnRetard: async (tenant) => formuleEnRetard(await formuleDe(tenant)),
+    // Un numéro connecté avec sa carte : l'option ne s'y vend plus (décision de Julien du 2026-11-13). Les lectures de la
+    // fenêtre du partenaire, déclarée plus bas : appelée à chaque requête, jamais pendant l'initialisation.
+    numeroAvecCarte: (tenant) => numeroAvecCarte(fenetreDuPartenaire, tenant),
     numerosCouverts: async (tenant) => (await lignesCreditWhatsapp.numerosCouvertsParOption(tenant)).length,
     reprendreCampagnes: (tenant) => numeroDelieStore.leverPausesLigneCredit(tenant),
     alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
@@ -1194,6 +1197,7 @@ async function main(): Promise<void> {
   const conversionDeLaConsole: DepsConversion = {
     offre: async (tenant) => (await offresSansCache.offreDe(tenant)).offre,
     etat: (tenant) => lireEtatLigne(creditWhatsappDeLaConsole, tenant),
+    numeroAvecCarte: (tenant) => numeroAvecCarte(fenetreDuPartenaire, tenant),
     enVente: optionEnVente(optionDeLaConsole),
     emettre: (e) => emetteurEmails.emettre(e),
     pageNumero: `${config.APP_URL.trim().replace(/\/+$/, '')}/connecter-whatsapp`,

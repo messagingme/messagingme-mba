@@ -10,6 +10,7 @@ import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
 import { achatPermis, ongletCreditWhatsapp, surLaLigne } from '../src/credit-whatsapp/achat-permis';
 import type { LigneCredit } from '../src/credit-whatsapp/lignes.pg';
 import type { GrilleMeta } from '../src/credit-whatsapp/grille';
+import { capturerJournal } from './journal';
 
 /**
  * ACHETER DU CRÉDIT WHATSAPP (plan du Crédit WhatsApp, tâche 10) : la route qui ouvre l'achat. Aucun appel ne part chez
@@ -83,6 +84,8 @@ function achat(o: {
   numeros?: Array<{ coexistence: boolean; delie: boolean }>;
   /** La fenêtre du partenaire ouverte à l'espace (lot E) ; fermée par défaut. */
   fenetre?: boolean;
+  /** Le numéro de l'espace connecté avec sa carte chez Meta (décision de Julien du 2026-11-13) ; non par défaut, ou en panne. */
+  numeroAvecCarte?: boolean | 'panne';
 } = {}) {
   const transport = new FauxStripe([CLIENT_OK, SESSION_OK], o.lesPrix ?? PRIX_JUSTES);
   /** Les lectures de la formule (relecture de V1, jaune 5) : la vue la lit en UNE fois. */
@@ -133,6 +136,7 @@ function achat(o: {
       },
       optionPrenable: async () => { lectures.optionPrenable++; return o.optionPrenable ?? true; },
       formuleEnRetard: async () => false,
+      numeroAvecCarte: async () => { if (o.numeroAvecCarte === 'panne') throw new Error('base indisponible'); return o.numeroAvecCarte ?? false; },
       numerosCouverts: async () => 1,
       reprendreCampagnes: async () => 0,
       alerter: async () => {},
@@ -349,18 +353,23 @@ describe('GET /tenants/:tenantId/credit-whatsapp/etat', () => {
   const etat = (srv: ReturnType<typeof buildServer>, jeton = admin) => srv.inject({ method: 'GET', url: `/tenants/${T1}/credit-whatsapp/etat`, ...h(jeton) });
 
   it('🔴 l’état de la ligne (etatLigneCredit) et la vente ouverte ou non, lus par tout membre', async () => {
-    const cas: Array<[Parameters<typeof achat>[0], { etat: string; enVente: boolean; avecApplication: boolean; fenetrePartenaire: boolean }]> = [
-      [{ lignes: [] }, { etat: 'a_prendre', enVente: true, avecApplication: false, fenetrePartenaire: false }],
-      [{ lignes: [], optionVivante: { places: 1, statut: 'actif' } }, { etat: 'en_attente', enVente: true, avecApplication: false, fenetrePartenaire: false }],
-      [{}, { etat: 'active', enVente: true, avecApplication: false, fenetrePartenaire: false }],
+    const cas: Array<[Parameters<typeof achat>[0], { etat: string; enVente: boolean; avecApplication: boolean; fenetrePartenaire: boolean; numeroAvecCarte: boolean }]> = [
+      [{ lignes: [] }, { etat: 'a_prendre', enVente: true, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
+      [{ lignes: [], optionVivante: { places: 1, statut: 'actif' } }, { etat: 'en_attente', enVente: true, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
+      [{}, { etat: 'active', enVente: true, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
       // L'option ne se prend pas encore (un Business en essai, un Pro en retard) : la carte attend.
-      [{ lignes: [], formulePayee: false, optionPrenable: false }, { etat: 'essai', enVente: true, avecApplication: false, fenetrePartenaire: false }],
+      [{ lignes: [], formulePayee: false, optionPrenable: false }, { etat: 'essai', enVente: true, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
       // 🔴 Un Pro dans son essai de 14 jours : sa formule n'est pas payée, l'option se prend déjà (V1 du 2026-11-10).
-      [{ lignes: [], formulePayee: false, optionPrenable: true }, { etat: 'a_prendre', enVente: true, avecApplication: false, fenetrePartenaire: false }],
-      [{ lignes: [], prixOption: '' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false }],
-      [{ lignes: [], stripe: 'aucun' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false }],
-      [{ lignes: [], offre: 'base' }, { etat: 'free', enVente: false, avecApplication: false, fenetrePartenaire: false }],
-      [{ lignes: [], offre: 'entreprise' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false }],
+      [{ lignes: [], formulePayee: false, optionPrenable: true }, { etat: 'a_prendre', enVente: true, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
+      [{ lignes: [], prixOption: '' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
+      [{ lignes: [], stripe: 'aucun' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
+      [{ lignes: [], offre: 'base' }, { etat: 'free', enVente: false, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
+      [{ lignes: [], offre: 'entreprise' }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
+      // 🔴 Un numéro connecté avec sa carte (décision de Julien du 2026-11-13) : la carte le dit, en formule Pro comme en
+      // Entreprise ; une Free n'a pas de Crédit WhatsApp, rien ne se lit pour elle.
+      [{ lignes: [], numeroAvecCarte: true }, { etat: 'a_prendre', enVente: true, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: true }],
+      [{ lignes: [], offre: 'entreprise', numeroAvecCarte: true }, { etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: true }],
+      [{ lignes: [], offre: 'base', numeroAvecCarte: true }, { etat: 'free', enVente: false, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }],
     ];
     for (const [o, attendu] of cas) {
       const a = achat(o);
@@ -369,6 +378,15 @@ describe('GET /tenants/:tenantId/credit-whatsapp/etat', () => {
       expect(r.json(), JSON.stringify(o)).toEqual(attendu);
       await a.srv.close();
     }
+  });
+
+  it('🔴 une lecture du numéro en panne ne fait pas tomber l’état des cartes : faux, journalisé ; la prise relit et refuse (relecture du lot)', async () => {
+    const a = achat({ lignes: [], numeroAvecCarte: 'panne' });
+    const { resultat: r, lignes } = await capturerJournal(() => etat(a.srv, membre));
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({ etat: 'a_prendre', numeroAvecCarte: false });
+    expect(lignes).toEqual(expect.arrayContaining([expect.objectContaining({ lvl: 'error', msg: 'numero_avec_carte_illisible' })]));
+    await a.srv.close();
   });
 
   it('🔴 dit si la fenêtre du partenaire est ouverte à l’espace (lot E) : un booléen, jamais l’identifiant de la solution', async () => {
@@ -403,7 +421,7 @@ describe('l’option dans l’onglet', () => {
     const enVente = achat();
     expect((await lire(enVente.srv)).json().option).toEqual({
       disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 1, statut: null, finPrevueLe: null,
-      formulePayee: true, prisePossible: true, avecApplication: false,
+      formulePayee: true, prisePossible: true, avecApplication: false, numeroAvecCarte: false,
     });
     await enVente.srv.close();
     // La même règle que l'état de la ligne : l'onglet prévient aussi au moment de payer.
@@ -431,6 +449,20 @@ describe('l’option dans l’onglet', () => {
       const a = achat(o);
       const vue = (await lire(a.srv)).json().option;
       expect([vue.prisePossible, vue.formulePayee], JSON.stringify(o)).toEqual([prise, payee]);
+      await a.srv.close();
+    }
+  });
+
+  it('🔴 un numéro connecté avec sa carte : l’onglet ne vend plus l’option (`prisePossible` faux) et dit pourquoi (`numeroAvecCarte`, décision de Julien du 2026-11-13)', async () => {
+    for (const [o, prise, carte] of [
+      [{ offre: 'pro' as const, optionPrenable: true, numeroAvecCarte: true }, false, true],
+      [{ offre: 'business' as const, optionPrenable: true, numeroAvecCarte: true }, false, true],
+      // Le témoin : le même espace, sans numéro direct, se voit proposer l'option.
+      [{ offre: 'pro' as const, optionPrenable: true, numeroAvecCarte: false }, true, false],
+    ] as const) {
+      const a = achat(o);
+      const vue = (await lire(a.srv)).json().option;
+      expect([vue.prisePossible, vue.numeroAvecCarte], JSON.stringify(o)).toEqual([prise, carte]);
       await a.srv.close();
     }
   });

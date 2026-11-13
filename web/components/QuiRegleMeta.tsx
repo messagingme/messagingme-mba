@@ -40,32 +40,20 @@ export const PAR_LA_LIGNE = {
 } as const;
 
 /**
- * Le numéro de l'essai, connecté avec la carte chez Meta, l'option payée (V4, décision de Julien du 2026-11-11) : il se
- * reconnecte sans carte par la fenêtre du partenaire, depuis l'onglet Crédit WhatsApp.
+ * Un numéro connecté avec sa carte chez Meta ne passe jamais sur la ligne : Meta refuse qu'un compte que nous servons déjà
+ * en direct repasse par la fenêtre du partenaire (#2494156, essai 257). L'option ne s'y vend plus (décision de Julien du
+ * 2026-11-13, textes validés par lui, version A) : la carte et l'onglet le disent à la place de l'achat, le refus du
+ * serveur (`numero_avec_carte`) aussi. La phrase s'achève sur le lien du Support.
  */
-export const RECONNEXION = {
-  texte: {
-    fr: 'Votre option est payée, mais votre numéro est connecté avec votre carte chez Meta : reconnectez-le sans carte depuis l’onglet Crédit WhatsApp.',
-    en: 'Your option is paid, but your number is connected with your card at Meta: reconnect it without a card from the WhatsApp credit tab.',
-  },
-  bouton: { fr: 'Ouvrir l’onglet Crédit WhatsApp', en: 'Open the WhatsApp credit tab' },
+export const NUMERO_AVEC_CARTE = {
+  fr: 'Votre numéro est connecté avec votre carte chez Meta : le Crédit WhatsApp ne peut pas le prendre en charge. Pour changer, écrivez au ',
+  en: 'Your number is connected with your card at Meta: WhatsApp credit can’t take it over. To change this, write to ',
 } as const;
 
-/**
- * Une Entreprise dont le numéro a été connecté en direct, avec sa carte chez Meta, avant la fenêtre du partenaire (plan
- * `2026-11-12-credit-whatsapp-reconnexion-entreprise.md`) : le partenaire ne voit pas son compte, sa ligne ne peut pas s'y
- * attacher. Elle se reconnecte sans carte depuis cette carte, son onglet Crédit WhatsApp ne s'affichant pas sans ligne.
- * 🔴 SEULEMENT PAR LE LIEN QUE DONNE NOTRE ÉQUIPE (`LIEN_RECONNEXION_ENTREPRISE`, décision de Julien du 2026-11-12 :
- * « MUTAC seulement ») : sans lui, une Entreprise connectée en direct lit « sur demande », comme avant ; passer sur la
- * ligne change ce qui lui est facturé, et la reconnexion d'un compte existant n'a pas encore tourné en vrai.
- */
-export const LIEN_RECONNEXION_ENTREPRISE = '/connecter-whatsapp?reconnexion=entreprise';
-export const RECONNEXION_ENTREPRISE = {
-  texte: {
-    fr: 'Votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages : reconnectez-le sans carte, en choisissant dans la fenêtre de Meta le même compte WhatsApp et le même numéro.',
-    en: 'Your number is connected with your card at Meta, which still bills its messages: reconnect it without a card, choosing the same WhatsApp account and the same number in Meta’s window.',
-  },
-  bouton: { fr: 'Reconnecter mon numéro sans carte chez Meta', en: 'Reconnect my number without a card at Meta' },
+/** Avant qu'un espace qui a droit à la ligne ne connecte son numéro avec sa carte : il ne pourra plus y passer. */
+export const AVERTISSEMENT_CARTE = {
+  fr: 'Connecté avec votre carte chez Meta, ce numéro ne pourra plus passer sur le Crédit WhatsApp.',
+  en: 'Connected with your card at Meta, this number will no longer be able to move onto WhatsApp credit.',
 } as const;
 
 /**
@@ -90,10 +78,8 @@ export const RECONNEXION_ENTREPRISE = {
  * 🔴 LE RETOUR DE STRIPE NE PREND RIEN : il relit l'état jusqu'à voir l'option que le webhook écrit, et la prise reste
  * fermée en attendant (sinon le client la paierait deux fois, comme dans l'onglet).
  *
- * Une Entreprise dont le numéro a été connecté en direct (sa carte chez Meta) se reconnecte sans carte d'ici, quand le
- * serveur lui rouvre la fenêtre du partenaire et que la page est ouverte par le lien de notre équipe
- * (`RECONNEXION_ENTREPRISE`, `LIEN_RECONNEXION_ENTREPRISE`, 2026-11-12) : son onglet Crédit WhatsApp ne s'affiche pas sans
- * ligne, et le lien de Claude refuse un espace qui a déjà un numéro.
+ * Un numéro connecté avec sa carte chez Meta (`numeroAvecCarte`) lit `NUMERO_AVEC_CARTE`, en formule Pro comme en
+ * Entreprise : Meta refuse qu'il se reconnecte par la fenêtre du partenaire, plus rien ne le propose (2026-11-13).
  */
 export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children, api, surConnexion, occupe = false }: {
   tenantId: string;
@@ -134,8 +120,6 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
    */
   const [fenetreLigne, setFenetreLigne] = useState(false);
   const fenetreOuverte = occupe || fenetreLigne;
-  /** La page est ouverte par le lien de la reconnexion d'une Entreprise (`LIEN_RECONNEXION_ENTREPRISE`). */
-  const [reconnexionDemandee, setReconnexionDemandee] = useState(false);
 
   useEffect(() => {
     if (lieu !== 'connecter') return;
@@ -144,14 +128,13 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     setRetour(o === 'recue' || o === 'abandon' ? o : null);
     // Le retour de Stripe d'un numéro fourni payé : le parcours de « J’ai besoin d’un numéro » reprend où il en était.
     if (p.get('abonnement') === 'recu') setNumeroLigne('notre');
-    setReconnexionDemandee(p.get('reconnexion') === 'entreprise');
   }, [lieu]);
 
   // Une Free n'a pas la route (402) : son état se dit sans elle. Une offre illisible tente la lecture quand même.
   const offre = vueOffre?.offre;
   useEffect(() => {
     if (vueOffre === undefined) return undefined;
-    if (offre === 'free') { setVue({ etat: 'free', enVente: false, avecApplication: false, fenetrePartenaire: false }); return undefined; }
+    if (offre === 'free') { setVue({ etat: 'free', enVente: false, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false }); return undefined; }
     let vivant = true;
     // Une relecture qui échoue garde la dernière vue lue : le parcours en cours ne disparaît pas (jaune 2 du lot 3v).
     lireEtatLigne(tenantId).then((v) => { if (vivant) setVue(v); }).catch(() => { if (vivant) setVue((avant) => avant ?? null); });
@@ -242,33 +225,16 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
           </Link>
         );
       }
-    } else if (connecte && etat === 'en_attente' && vue.fenetrePartenaire) {
-      // V4 (décision de Julien du 2026-11-11) : le numéro de l'essai, connecté avec la carte chez Meta, l'option payée. Le
-      // serveur ne rouvre la fenêtre du partenaire à un espace connecté que pour l'y reconnecter (`seReconnecte`) : sans
-      // elle, personne ne poserait sa ligne, et « sous 24 h ouvrées » serait faux. L'onglet Crédit WhatsApp la porte.
-      ligne = t(RECONNEXION.texte.fr, RECONNEXION.texte.en);
-      action = admin ? (
-        <Link href="/offre?tab=whatsapp" data-testid="carte-credit-wa-reconnecter" className={classesBouton('principal')}>
-          {t(RECONNEXION.bouton.fr, RECONNEXION.bouton.en)}
-        </Link>
-      ) : nonAdmin(t('Un administrateur de votre espace peut le reconnecter.', 'An administrator of your workspace can reconnect it.'));
-    } else if (connecte && offre === 'entreprise' && etat === 'a_prendre' && vue.fenetrePartenaire && reconnexionDemandee) {
-      // Une Entreprise connectée en direct, sans ligne (`a_prendre`), que le serveur rouvre à la fenêtre du partenaire pour
-      // l'y reconnecter (`seReconnecte`), et seulement par le lien de notre équipe : la fin de la connexion pose sa ligne,
-      // l'attache vérifiée (V3), puis l'état se relit. Sans la connexion de la page, pas de geste : l'Accueil ne montre pas
-      // cette carte à un espace connecté.
-      ligne = t(RECONNEXION_ENTREPRISE.texte.fr, RECONNEXION_ENTREPRISE.texte.en);
-      if (!admin) {
-        action = nonAdmin(t('Un administrateur de votre espace peut le reconnecter.', 'An administrator of your workspace can reconnect it.'));
-      } else if (api && surConnexion) {
-        action = (
-          <BoutonParLaLigne
-            tenantId={tenantId} api={api} surOccupe={setFenetreLigne}
-            surConnexion={(av) => { setRelectures((n) => n + 1); surConnexion(av); }}
-            libelle={RECONNEXION_ENTREPRISE.bouton} testid="carte-credit-wa-reconnecter-entreprise"
-          />
-        );
-      }
+    } else if (connecte && vue.numeroAvecCarte && etat !== 'active' && etat !== 'arretee') {
+      // Un numéro connecté avec sa carte chez Meta (décision de Julien du 2026-11-13) : Meta refuse qu'il se reconnecte par
+      // la fenêtre du partenaire (#2494156), il ne passera jamais sur la ligne. La carte le dit, à la place de l'achat, de
+      // « sur demande » d'une Entreprise, ou de « sous 24 h ouvrées » d'une option prise avec lui : aucun geste à proposer.
+      ligne = (
+        <span data-testid="carte-credit-wa-numero-carte">
+          {t(NUMERO_AVEC_CARTE.fr, NUMERO_AVEC_CARTE.en)}
+          <Link href="/support" className="underline">{t('Support', 'Support')}</Link>.
+        </span>
+      );
     } else if (optionPayee || etat === 'en_attente') {
       ligne = ligneOuverte;
     } else if (etat === 'free') {
@@ -348,6 +314,11 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
               <p className="mt-1 text-sm text-ink-700">
                 {t('Vous connectez votre numéro, et Meta vous facture vos modèles sur ce moyen de paiement.', 'You connect your number, and Meta bills your templates to this payment method.')}
               </p>
+              {/* Un espace qui a droit à la ligne, sans numéro : avant de prendre cette voie, il apprend qu'elle est sans
+                  retour (Meta refuse la reconnexion d'un numéro connecté avec sa carte, décision de Julien du 2026-11-13). */}
+              {fenetrePartenaire && (
+                <p className="mt-2 text-sm text-alerte-700" data-testid="carte-meta-avertissement-ligne">{t(AVERTISSEMENT_CARTE.fr, AVERTISSEMENT_CARTE.en)}</p>
+              )}
               {/* Ses deux liens (lot 3a) : pourquoi un moyen de paiement, et ce qu'est un compte Meta Business. */}
               <p data-testid="carte-meta-liens" className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 {QUESTION_PAIEMENT.carte.liens.map((l) => (
@@ -411,19 +382,15 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
 /**
  * « Connecter mon numéro » (lot E du Crédit WhatsApp) : la fenêtre de Meta ouverte avec la solution du
  * partenaire, dont la configuration ne rend l'identifiant qu'à un espace qui a droit à la ligne. Il porte sa propre
- * connexion, et n'est monté qu'une fois la voie de la carte chez Meta refermée (« J’utilise un numéro existant », lot 3v), ou pour reconnecter
- * le numéro d'une Entreprise (`RECONNEXION_ENTREPRISE`) : sa fenêtre s'ouvre dans le geste du clic (Safari,
- * `ouvrirFenetreMeta`).
+ * connexion, et n'est monté qu'une fois la voie de la carte chez Meta refermée (« J’utilise un numéro existant », lot 3v) :
+ * sa fenêtre s'ouvre dans le geste du clic (Safari, `ouvrirFenetreMeta`).
  */
-function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe, libelle = PAR_LA_LIGNE.bouton, testid = 'carte-credit-wa-connecter-ligne' }: {
+function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe }: {
   tenantId: string;
   api: Pick<ApiConnexionNumero, 'config' | 'completer'>;
   surConnexion: (avertissements: string[]) => void;
   /** Sa fenêtre s'ouvre ou se ferme : la carte ferme les gestes qui le démonteraient (jaune du lot 3v-1). */
   surOccupe: (occupe: boolean) => void;
-  /** Son libellé et son attribut de test : la connexion par défaut, la reconnexion d'une Entreprise sinon. */
-  libelle?: { readonly fr: string; readonly en: string };
-  testid?: string;
 }) {
   const t = useT();
   const connexion = useConnexionNumero(tenantId, api, surConnexion);
@@ -433,14 +400,14 @@ function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe, libelle = PA
   return (
     <div className="space-y-2">
       <Bouton
-        type="button" data-testid={testid}
+        type="button" data-testid="carte-credit-wa-connecter-ligne"
         enCours={connexion.busy} disabled={!pret || connexion.busy}
         onClick={() => { void connexion.connect({ parLaLigne: true }); }}
       >
-        {t(libelle.fr, libelle.en)}
+        {t(PAR_LA_LIGNE.bouton.fr, PAR_LA_LIGNE.bouton.en)}
       </Bouton>
       {connexion.peutEtreBloquee && <p className="text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
-      {connexion.error && <p className="text-sm text-danger" data-testid={`${testid}-erreur`}>{connexion.error}</p>}
+      {connexion.error && <p className="text-sm text-danger" data-testid="carte-credit-wa-connecter-ligne-erreur">{connexion.error}</p>}
     </div>
   );
 }

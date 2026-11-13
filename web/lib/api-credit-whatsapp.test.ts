@@ -35,7 +35,7 @@ describe('getCreditWhatsapp', () => {
       optionArretee: false,
       historique: [{ id: 'envois:2026-10-31', raison: 'envois', deltaMicroEur: -149_520, jour: '2026-10-31', at: '2026-10-31T10:00:00.000Z', messages: 2, reference: null, facture: false }],
       serie: [{ jour: '2026-10-31', soldeMicroEur: 12_340_000, consommationMicroEur: 149_520 }],
-      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null, formulePayee: true, prisePossible: true, avecApplication: false },
+      option: { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 2, couverts: 1, statut: 'actif', finPrevueLe: null, formulePayee: true, prisePossible: true, avecApplication: false, numeroAvecCarte: false },
     };
     const appels = repondre(200, vue);
     expect(await getCreditWhatsapp('t1')).toEqual(vue);
@@ -104,6 +104,16 @@ describe('getCreditWhatsapp', () => {
     for (const avecApplication of [undefined, 'oui', false]) {
       repondre(200, { soldeMicroEur: 0, option: { ...option, avecApplication } });
       expect((await getCreditWhatsapp('t1')).option.avecApplication, String(avecApplication)).toBe(false);
+    }
+  });
+
+  it('🔴 le numéro connecté avec sa carte (décision de Julien du 2026-11-13) : vrai seulement quand le serveur le dit, faux sur une API d’avant', async () => {
+    const option = { disponible: true, prixHtCentimes: 3000, placesMax: 20, places: 0, couverts: 0, statut: null, finPrevueLe: null, formulePayee: true };
+    repondre(200, { soldeMicroEur: 0, option: { ...option, numeroAvecCarte: true } });
+    expect((await getCreditWhatsapp('t1')).option.numeroAvecCarte).toBe(true);
+    for (const numeroAvecCarte of [undefined, 'oui', 1]) {
+      repondre(200, { soldeMicroEur: 0, option: { ...option, numeroAvecCarte } });
+      expect((await getCreditWhatsapp('t1')).option.numeroAvecCarte, String(numeroAvecCarte)).toBe(false);
     }
   });
 
@@ -212,8 +222,8 @@ describe('lireEtatLigne : l’état pour les cartes « Qui paie vos messages à 
   afterEach(() => { vi.unstubAllGlobals(); });
 
   it('rend l’état, la vente et les numéros avec l’application tels que le serveur les donne', async () => {
-    const appels = repondre(200, { etat: 'essai', enVente: true, avecApplication: true, fenetrePartenaire: true });
-    expect(await lireEtatLigne('t1')).toEqual({ etat: 'essai', enVente: true, avecApplication: true, fenetrePartenaire: true });
+    const appels = repondre(200, { etat: 'essai', enVente: true, avecApplication: true, fenetrePartenaire: true, numeroAvecCarte: true });
+    expect(await lireEtatLigne('t1')).toEqual({ etat: 'essai', enVente: true, avecApplication: true, fenetrePartenaire: true, numeroAvecCarte: true });
     expect(appels[0]!.url).toContain('/tenants/t1/credit-whatsapp/etat');
   });
 
@@ -229,7 +239,7 @@ describe('lireEtatLigne : l’état pour les cartes « Qui paie vos messages à 
 
   it('🔴 une vente ou des numéros illisibles valent faux : jamais un bouton de paiement inventé', async () => {
     // La fenêtre du partenaire (lot E) aussi : un champ illisible ou absent (une API d'avant), jamais un bouton.
-    repondre(200, { etat: 'a_prendre', enVente: 'oui', avecApplication: 1, fenetrePartenaire: 'oui' });
-    expect(await lireEtatLigne('t1')).toEqual({ etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false });
+    repondre(200, { etat: 'a_prendre', enVente: 'oui', avecApplication: 1, fenetrePartenaire: 'oui', numeroAvecCarte: 'oui' });
+    expect(await lireEtatLigne('t1')).toEqual({ etat: 'a_prendre', enVente: false, avecApplication: false, fenetrePartenaire: false, numeroAvecCarte: false });
   });
 });

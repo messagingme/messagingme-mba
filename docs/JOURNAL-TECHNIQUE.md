@@ -4,6 +4,20 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-13 : le Crédit WhatsApp ne se vend plus à un numéro connecté avec sa carte
+
+- **La décision** (Julien, le même jour, après l'essai 257) : Meta refusant qu'un compte que nous servons déjà en direct
+  repasse par la fenêtre du partenaire, l'option ne se vend plus à un tel numéro, et les deux reconnexions livrées
+  (l'onglet d'une formule Pro, le lien d'une Entreprise) sont retirées. Textes validés par Julien (version A). Plan
+  `2026-11-13-credit-whatsapp-numero-avec-carte.md`, implémenteur puis une relecture du diff.
+- **Ce qui a changé** : `numeroAvecCarte` (un numéro Meta rattaché, délié compris, sans ligne et qui n'attend pas la sienne,
+  coexistence comprise) ; `solutionDuPartenaire` ne rouvre plus la fenêtre à un espace qui a un numéro (`seReconnecte`
+  retiré) ; la prise refuse (`numero_avec_carte`, après les refus de la formule), l'onglet et l'état des cartes le
+  disent, l'e-mail de la conversion se tait. Console : le texte (1) à la place de l'achat, de « sur demande » ou de « sous
+  24 h ouvrées » ; le texte (2) sur la carte chez Meta d'un espace qui a droit à la ligne ; `PlaceLibre` lit la seule
+  configuration, sans précharger le SDK de Meta. Les deux fiches d'aide (la publique, en français et en anglais) et
+  features.md ne promettent plus de reconnexion.
+
 ## 2026-11-13 : la carte « Crédit WhatsApp » dit ce que font ses boutons
 
 - **Ce qui a changé** (`87f459d9`, console et vitrine par Vercel, sans API) : demande de Julien en reliant un numéro

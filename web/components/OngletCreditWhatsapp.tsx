@@ -1,12 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { getAccountStatus } from '@/lib/api';
 import { apiDeLaSession } from '@/lib/api/connexion-numero';
-import { useConnexionNumero } from '@/lib/connexion-numero';
-import { FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
+import { NUMERO_AVEC_CARTE } from '@/components/QuiRegleMeta';
 import {
   achatArriveDepuis, estPageDePaiement, lireDepartPaiement, oublierDepartPaiement, ouvrirFacture, retenirDepartPaiement,
   seuilDuRetour,
@@ -458,10 +456,17 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   const [indisponible, setIndisponible] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [facture, setFacture] = useState<string | null>(null);
-  /** Le numéro reconnecté par la fenêtre du partenaire (V4), et les avertissements de sa fin ; `null` avant. */
-  const [reconnecte, setReconnecte] = useState<string[] | null>(null);
 
   const prise = option.places > 0 || option.statut !== null;
+  // Le numéro connecté avec sa carte chez Meta (décision de Julien du 2026-11-13) : l'option ne s'y vend plus, et l'onglet
+  // le dit à la place de l'achat ou d'une place libre. Absent d'une API d'avant : faux, l'onglet d'avant.
+  const avecCarte = option.numeroAvecCarte;
+  const numeroAvecCarte = (
+    <>
+      {t(NUMERO_AVEC_CARTE.fr, NUMERO_AVEC_CARTE.en)}
+      <Link href="/support" className="font-semibold text-ink-900 underline">{t('Support', 'Support')}</Link>.
+    </>
+  );
   // 🔴 Payée, pas encore arrivée (le webhook n'est pas passé) : la prise reste fermée, sinon le client la paierait deux fois
   // (relecture du lot 4a-2 ; le Pro fait de même, `offre/page.tsx`).
   const enAttenteDuRetour = retour === 'recue' && !prise;
@@ -471,7 +476,7 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
   // 🔴 L'OPTION SE PREND SELON LA RÈGLE DU SERVEUR (`prisePossible`, lot 3v V1), lue telle quelle, jamais recalculée ici :
   // un Pro la prend dès le début de son essai. Elle n'attend plus qu'un Business en essai et un Pro en retard de paiement,
   // et l'onglet explique alors au lieu de vendre. Le statut de l'abonnement ne sert qu'à choisir les mots.
-  const attend = !prise && option.disponible && !option.prisePossible;
+  const attend = !prise && option.disponible && !option.prisePossible && !avecCarte;
   const vueOffre = useOffre(tenantId);
   const abonnement = vueOffre?.abonnement ?? null;
   const raisonAttente = raisonAttenteOption(vueOffre?.offre, abonnement?.statut, t);
@@ -576,7 +581,11 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
         </MbaNotice>
       )}
 
-      {!prise && !admin && !attend && (
+      {/* Le numéro connecté avec sa carte : ni achat ni attente, la raison et le Support (décision de Julien du 2026-11-13). */}
+      {!prise && !enAttenteDuRetour && avecCarte && (
+        <p className="mt-2 text-sm text-ink-700" data-testid="credit-wa-option-numero-carte">{numeroAvecCarte}</p>
+      )}
+      {!prise && !admin && !attend && !avecCarte && (
         <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-non-admin">
           {t('Demandez à un administrateur de votre espace de prendre l’option.', 'Ask an administrator of your workspace to take the option.')}
         </p>
@@ -601,10 +610,10 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
         </div>
       )}
       {/* Tous les numéros gardent l'application : ils restent sur la carte chez Meta (décision 8), dit avant de payer. */}
-      {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && !attend && option.avecApplication && (
+      {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && !attend && !avecCarte && option.avecApplication && (
         <p className="mt-3 text-sm text-alerte-700" data-testid="credit-wa-option-avertissement">{t(AVERTISSEMENT_APPLICATION.fr, AVERTISSEMENT_APPLICATION.en)}</p>
       )}
-      {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && !attend && (
+      {!prise && admin && !enAttenteDuRetour && !indisponible && option.disponible && !attend && !avecCarte && (
         <div className="mt-3 flex flex-wrap items-end gap-3">
           {choixPlaces}
           <Bouton data-testid="credit-wa-option-prendre" onClick={() => { void prendre(); }} disabled={geste !== null} enCours={geste === 'prendre'}>
@@ -637,22 +646,12 @@ function OptionDuCredit({ tenantId, option, admin, retour, tarde, relire }: {
               )}
             </p>
           )}
-          {reconnecte !== null && (
-            <MbaNotice kind="success" testid="credit-wa-reconnexion-faite">
-              {t(
-                'Votre numéro est reconnecté sans carte chez Meta : il passe sur le Crédit WhatsApp dès que sa ligne est posée.',
-                'Your number is reconnected without a card at Meta: it moves onto WhatsApp credit as soon as its line is set up.',
-              )}
-              {reconnecte.length > 0 && ` ${t('À savoir', 'Note')} : ${reconnecte.join(' · ')}`}
-            </MbaNotice>
+          {/* Une place payée et le numéro connecté avec sa carte : il ne passera jamais sur la ligne (2026-11-13). */}
+          {libres > 0 && option.statut === 'actif' && avecCarte && (
+            <p className="mt-2 text-sm text-ink-700" data-testid="credit-wa-option-numero-carte">{numeroAvecCarte}</p>
           )}
-          {libres > 0 && option.statut === 'actif' && (admin ? (
-            <PlaceLibre
-              tenantId={tenantId}
-              debut={placeLibre}
-              reconnecte={reconnecte !== null}
-              surReconnexion={(avertissements) => { setReconnecte(avertissements); void relire().catch(() => undefined); }}
-            />
+          {libres > 0 && option.statut === 'actif' && !avecCarte && (admin ? (
+            <PlaceLibre tenantId={tenantId} debut={placeLibre} />
           ) : (
             <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-libre">{placeLibre}{t(SUPPORT_PLACE_LIBRE.fr, SUPPORT_PLACE_LIBRE.en)}</p>
           ))}
@@ -734,59 +733,36 @@ const SUPPORT_PLACE_LIBRE = {
 } as const;
 
 /**
- * Une place payée de l'option sans numéro sur le Crédit WhatsApp, vue d'un administrateur (V4, décision de Julien du
- * 2026-11-11). Le serveur ouvre la fenêtre du partenaire (`solutionId` de la configuration, `solutionDuPartenaire`) à
- * l'espace qui y a droit : sans numéro, la page Connecter WhatsApp la porte ; avec le numéro de l'essai, connecté avec la
- * carte chez Meta, l'onglet le RECONNECTE par elle (le même compte et le même numéro), et la fin pose sa ligne (V3).
- * Fenêtre fermée (le numéro attend déjà sa ligne, garde l'application, rien n'est configuré), configuration ou compte
- * illisibles : le texte d'avant, qui renvoie au Support, jamais un bouton deviné.
+ * Une place payée de l'option sans numéro sur le Crédit WhatsApp, vue d'un administrateur. Le serveur n'ouvre la fenêtre du
+ * partenaire (`solutionId` de la configuration, `solutionDuPartenaire`) qu'à un espace qui y a droit et n'a encore AUCUN
+ * numéro : la page Connecter WhatsApp la porte. Fenêtre fermée (un numéro déjà là, rien de configuré) ou configuration
+ * illisible : le Support, jamais un bouton deviné. Un numéro connecté avec sa carte lit `NUMERO_AVEC_CARTE` avant d'arriver
+ * ici : Meta refuse sa reconnexion (#2494156), l'onglet ne la propose plus (décision de Julien du 2026-11-13). La
+ * configuration se lit seule, sans monter la connexion ni précharger le SDK de Meta.
  */
-function PlaceLibre({ tenantId, debut, reconnecte, surReconnexion }: {
+function PlaceLibre({ tenantId, debut }: {
   tenantId: string;
   /** « 1 numéro payé pas encore sur le Crédit WhatsApp », que chaque cas complète. */
   debut: string;
-  /** La reconnexion est faite : plus de bouton (la configuration, lue avant, rouvrirait la fenêtre), l'onglet dit la suite. */
-  reconnecte: boolean;
-  surReconnexion: (avertissements: string[]) => void;
 }) {
   const t = useT();
-  const api = useMemo(() => apiDeLaSession(tenantId), [tenantId]);
-  const connexion = useConnexionNumero(tenantId, api, surReconnexion);
-  // `null` : pas encore lu ; `illisible` : le texte d'avant.
-  const [connecte, setConnecte] = useState<boolean | 'illisible' | null>(null);
+  // `undefined` : pas encore lue ; `null` : illisible, le Support.
+  const [fenetre, setFenetre] = useState<boolean | null | undefined>(undefined);
   useEffect(() => {
     let vivant = true;
-    getAccountStatus(tenantId)
-      .then((c) => { if (vivant) setConnecte(c.hasNumber === true); })
-      .catch(() => { if (vivant) setConnecte('illisible'); });
+    apiDeLaSession(tenantId).config()
+      // Un booléen, jamais `undefined` : une configuration sans `enabled` (une API d'avant, un corps inattendu) laisserait
+      // l'onglet « en lecture » pour toujours, sans le Support (vu par l'e2e du retour de paiement).
+      .then((cfg) => { if (vivant) setFenetre(cfg.enabled === true && (cfg.solutionId ?? null) !== null); })
+      .catch(() => { if (vivant) setFenetre(null); });
     return () => { vivant = false; };
   }, [tenantId]);
-  const cfg = connexion.cfg;
-  const fenetre = cfg !== null && cfg.enabled && (cfg.solutionId ?? null) !== null;
 
-  // En lecture, ou déjà reconnecté : le constat seul, sans geste.
-  if (reconnecte || cfg === null || (fenetre && connecte === null)) {
+  // En lecture : le constat seul, sans geste.
+  if (fenetre === undefined) {
     return <p className="mt-2 text-sm text-ink-500" data-testid="credit-wa-option-libre">{debut}.</p>;
   }
-  if (fenetre && connecte === true) {
-    return (
-      <div className="mt-2 space-y-2" data-testid="credit-wa-option-libre">
-        <p className="text-sm text-ink-700">
-          {debut}{t(
-            ' : votre numéro est connecté avec votre carte chez Meta, qui facture encore ses messages. Reconnectez-le sans carte chez Meta : dans la fenêtre de Meta, choisissez le même compte WhatsApp et le même numéro.',
-            ': your number is connected with your card at Meta, which still bills its messages. Reconnect it without a card at Meta: in Meta’s window, choose the same WhatsApp account and the same number.',
-          )}
-        </p>
-        <Bouton data-testid="credit-wa-reconnecter" onClick={() => { void connexion.connect({ parLaLigne: true }); }}
-          disabled={connexion.busy} enCours={connexion.busy}>
-          {t('Reconnecter mon numéro sans carte chez Meta', 'Reconnect my number without a card at Meta')}
-        </Bouton>
-        {connexion.peutEtreBloquee && <p className="text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
-        {connexion.error && <p className="text-sm text-danger" data-testid="credit-wa-reconnecter-erreur">{connexion.error}</p>}
-      </div>
-    );
-  }
-  if (fenetre && connecte === false) {
+  if (fenetre === true) {
     return (
       <div className="mt-2 space-y-2" data-testid="credit-wa-option-libre">
         <p className="text-sm text-ink-700">{debut}{t(' : connectez votre numéro sans carte chez Meta.', ': connect your number without a card at Meta.')}</p>

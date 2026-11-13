@@ -34,6 +34,14 @@ describe('le câblage de l’option du Crédit WhatsApp', () => {
     expect(option).toMatch(/formuleEnRetard: async \(tenant\) => formuleEnRetard\(await formuleDe\(tenant\)\),/);
   });
 
+  it('🔴 la prise, l’onglet, les cartes et la conversion lisent le numéro connecté avec sa carte par la MÊME règle, sur les vraies lectures de la fenêtre (décision de Julien du 2026-11-13)', () => {
+    // Les tests de la prise et des routes montent un faux `numeroAvecCarte` : un câblage qui rendrait toujours `false`
+    // revendrait l'option à un numéro que Meta ne laissera jamais passer sur la ligne, suite verte.
+    const regle = /numeroAvecCarte: \(tenant\) => numeroAvecCarte\(fenetreDuPartenaire, tenant\),/;
+    expect(bloc('const optionDeLaConsole: DepsOptionCredit = {', '};')).toMatch(regle);
+    expect(bloc('const conversionDeLaConsole: DepsConversion = {', '\n  };')).toMatch(regle);
+  });
+
   it('🔴 la fin de droit reçoit le verrou partagé entre les copies', () => {
     expect(bloc('const finDeDroitDeLOption: DepsFinDeDroitOption = {', '};')).toMatch(/verrous: verrousCourts,/);
   });

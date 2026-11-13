@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  connexionParLaLigne, droitALaLigne, fenetreRefuseeParLaLigne, solutionDuPartenaire, type DepsFenetrePartenaire,
+  connexionParLaLigne, droitALaLigne, fenetreRefuseeParLaLigne, numeroAvecCarte, solutionDuPartenaire, type DepsFenetrePartenaire,
 } from '../src/credit-whatsapp/fenetre-partenaire';
 import type { Offre } from '../src/offres/offres';
 import type { IssuePose } from '../src/credit-whatsapp/pose';
@@ -124,42 +124,54 @@ describe('le droit à la ligne', () => {
   });
 });
 
+describe('un numéro connecté avec sa carte chez Meta (décision de Julien du 2026-11-13 : l’option ne s’y vend plus)', () => {
+  it('🔴 vrai pour un numéro Meta rattaché qu’aucune ligne ne couvre et qui n’attend pas la sienne, coexistence et numéro délié compris', async () => {
+    expect(await numeroAvecCarte(deps({ rattaches: ['pn-1'] }).d, T)).toBe(true);
+    // L'application WhatsApp Business garde sa carte chez Meta : la ligne ne la prend pas non plus.
+    expect(await numeroAvecCarte(deps({ rattaches: [{ phoneNumberId: 'pn-1', coexistence: true }] }).d, T)).toBe(true);
+    // 🔴 Délier n'est que l'interrupteur de l'Accueil, rien chez Meta (`numero-delie.pg.ts`) : le numéro reste connecté avec
+    // sa carte, et l'option vendue à cet espace ne servirait jamais (relecture du lot, rouge).
+    expect(await numeroAvecCarte(deps({ rattaches: [{ phoneNumberId: 'pn-1', delie: true }] }).d, T)).toBe(true);
+    // Un seul numéro direct suffit, à côté d'un numéro qui attend la sienne.
+    const deux = deps({ rattaches: ['pn-1', 'pn-2'], attendent: ['pn-2'] });
+    expect(await numeroAvecCarte(deux.d, T)).toBe(true);
+  });
+
+  it('🔴 faux sans numéro, pour un numéro 360dialog, couvert par une ligne (toute origine, tout espace) ou qui attend la sienne', async () => {
+    expect(await numeroAvecCarte(deps({}).d, T)).toBe(false);
+    expect(await numeroAvecCarte(deps({ rattaches: [{ phoneNumberId: 'pn-1', fournisseur: '360dialog' }] }).d, T)).toBe(false);
+    expect(await numeroAvecCarte(deps({ rattaches: ['pn-1'], couvrante: { tenantId: T } }).d, T)).toBe(false);
+    expect(await numeroAvecCarte(deps({ rattaches: ['pn-1'], couvrante: { tenantId: T, arreteeLe: '2026-11-01T00:00:00.000Z' } }).d, T)).toBe(false);
+    expect(await numeroAvecCarte(deps({ rattaches: ['pn-1'], couvrante: { tenantId: 'autre-espace' } }).d, T)).toBe(false);
+    expect(await numeroAvecCarte(deps({ rattaches: ['pn-1'], attendent: ['pn-1'] }).d, T)).toBe(false);
+  });
+});
+
 describe('l’identifiant de la solution', () => {
-  it('🔴 rendu seulement à un espace qui a droit à la ligne, sans numéro ou pour reconnecter le sien (V4)', async () => {
+  it('🔴 rendu seulement à un espace qui a droit à la ligne et n’a encore aucun numéro', async () => {
     expect(await solutionDuPartenaire(deps({ offre: 'entreprise', places: null }).d, T)).toBe(SOLUTION);
     expect(await solutionDuPartenaire(deps({ offre: 'pro', places: 1 }).d, T)).toBe(SOLUTION);
     expect(await solutionDuPartenaire(deps({ offre: 'base' }).d, T)).toBeNull();
     expect(await solutionDuPartenaire(deps({ offre: 'pro', places: null }).d, T)).toBeNull();
   });
 
-  it('🔴 V4 : le numéro de l’essai, connecté avec la carte chez Meta puis l’option prise, se reconnecte par la fenêtre (décision de Julien du 2026-11-11)', async () => {
-    // La pose de /ops ne lui suffit pas : son compte n'est pas partagé avec le partenaire, qui ne peut pas y attacher sa
-    // ligne. Reconnecté par la fenêtre (le même compte, le même numéro), sa fin pose la ligne (V3).
-    const { d, couvertures } = deps({ offre: 'pro', places: 1, rattaches: ['pn-essai'] });
-    expect(await solutionDuPartenaire(d, T)).toBe(SOLUTION);
-    // La couverture se lit comme la pose la lit (`ligneDuNumero`) : toute ligne, toute origine, tout espace.
-    expect(couvertures).toEqual(['pn-essai']);
-  });
-
-  it('🔴 V4 : jamais pour un numéro que la pose refuserait, déjà couvert, ou qui attend déjà sa ligne', async () => {
-    const ouverte = async (o: Parameters<typeof deps>[0]) => solutionDuPartenaire(deps({ offre: 'pro', places: 1, ...o }).d, T);
-    // Couvert par une ligne active, arrêtée, ou celle d'un autre espace : la fin dirait « déjà couvert », rien à reconnecter.
-    expect(await ouverte({ rattaches: ['pn-1'], couvrante: { tenantId: T } })).toBeNull();
-    expect(await ouverte({ rattaches: ['pn-1'], couvrante: { tenantId: T, arreteeLe: '2026-11-01T00:00:00.000Z' } })).toBeNull();
-    expect(await ouverte({ rattaches: ['pn-1'], couvrante: { tenantId: 'autre-espace' } })).toBeNull();
-    // La pose refuse la coexistence, un numéro délié et un numéro 360dialog.
-    expect(await ouverte({ rattaches: [{ phoneNumberId: 'pn-1', coexistence: true }] })).toBeNull();
-    expect(await ouverte({ rattaches: [{ phoneNumberId: 'pn-1', delie: true }] })).toBeNull();
-    expect(await ouverte({ rattaches: [{ phoneNumberId: 'pn-1', fournisseur: '360dialog' }] })).toBeNull();
-    // Passé par la fenêtre, il attend sa ligne : sa pose est à Julien, pas à une seconde fenêtre.
-    expect(await ouverte({ rattaches: ['pn-1'], attendent: ['pn-1'] })).toBeNull();
-    // Deux numéros : aucun n'est désigné, et `linkTenant` refuse un second numéro.
-    expect(await ouverte({ rattaches: ['pn-1', 'pn-2'] })).toBeNull();
-    // Sans droit (la place prise par un autre numéro, aucune option) : fermée, comme sans numéro.
-    expect(await ouverte({ rattaches: ['pn-1'], couverts: ['pn-autre'] })).toBeNull();
-    expect(await ouverte({ rattaches: ['pn-1'], places: null })).toBeNull();
-    // Le témoin : le même numéro, rien de tout cela, l'ouvre.
-    expect(await ouverte({ rattaches: ['pn-1'] })).toBe(SOLUTION);
+  it('🔴 un numéro déjà rattaché ne rouvre JAMAIS la fenêtre : Meta refuse un compte que nous servons déjà en direct (#2494156, décision de Julien du 2026-11-13)', async () => {
+    // L'ancienne reconnexion (V4) l'ouvrait au numéro de l'essai connecté avec sa carte : Meta la refuse. Aucun cas ne
+    // l'ouvre plus, le témoin d'hier (un numéro direct, une place libre) compris, en formule Pro comme en Entreprise.
+    const cas: Array<[string, Parameters<typeof deps>[0]]> = [
+      ['témoin d’hier, formule Pro', { offre: 'pro', places: 1, rattaches: ['pn-1'] }],
+      ['Entreprise connectée en direct', { offre: 'entreprise', places: null, rattaches: ['pn-1'] }],
+      ['couvert par une ligne', { offre: 'pro', places: 1, rattaches: ['pn-1'], couvrante: { tenantId: T } }],
+      ['en coexistence', { offre: 'pro', places: 1, rattaches: [{ phoneNumberId: 'pn-1', coexistence: true }] }],
+      ['qui attend sa ligne', { offre: 'pro', places: 1, rattaches: ['pn-1'], attendent: ['pn-1'] }],
+      ['deux numéros', { offre: 'pro', places: 2, rattaches: ['pn-1', 'pn-2'] }],
+    ];
+    for (const [nom, o] of cas) {
+      const { d, couvertures } = deps(o);
+      expect(await solutionDuPartenaire(d, T), nom).toBeNull();
+      // Plus rien à lire de la couverture : la présence d'un numéro suffit.
+      expect(couvertures, nom).toEqual([]);
+    }
   });
 
   it('la solution non configurée (`META_SOLUTION_ID` vide, ou l’inscription éteinte) : rien, pour personne', async () => {

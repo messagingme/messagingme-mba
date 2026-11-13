@@ -226,7 +226,7 @@ export class PgLignesCreditStore {
    * « Ne pas poser » (relecture du lot E6, jaune 5) : efface la marque d'un numéro de CET espace qui attend VRAIMENT sa
    * ligne (le prédicat de la liste), quand le partenaire n'attache pas, que le client renonce, ou que l'attache est
    * vérifiée sur un compte déjà couvert. N'efface QUE la marque, jamais une ligne : l'espace relit ensuite l'état de ses
-   * lignes (une Entreprise sans autre ligne, « sur demande » et le conseil de sa carte chez Meta ; une option payée sans
+   * lignes (une Entreprise sans autre ligne, le texte du numéro connecté avec sa carte, `NUMERO_AVEC_CARTE` ; une option payée sans
    * ligne, en attente ; un compte déjà couvert garde la sienne). Sur un compte déjà couvert SANS attache, ce n'est pas le
    * geste, notre ligne resterait : la JSDoc de la route et le texte de la liste de /ops le disent, mais ni la route ni ce
    * magasin ne peuvent le refuser, l'attache ne se voyant pas d'ici (relecture des lots V9 et V10, jaunes 1). `false`

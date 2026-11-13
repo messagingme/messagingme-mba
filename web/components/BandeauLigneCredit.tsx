@@ -27,7 +27,8 @@ export function BandeauLigneCredit({ tenantId }: { tenantId: string }) {
     if (masque) return;
     let vivant = true;
     lireEtatLigne(tenantId)
-      .then((v) => { if (vivant) setVisible(v !== null && v.enVente && v.etat === 'a_prendre'); })
+      // Jamais à un numéro connecté avec sa carte : l'option ne s'y vend plus (décision de Julien du 2026-11-13).
+      .then((v) => { if (vivant) setVisible(v !== null && v.enVente && v.etat === 'a_prendre' && !v.numeroAvecCarte); })
       .catch(() => {});
     return () => { vivant = false; };
   }, [tenantId]);
