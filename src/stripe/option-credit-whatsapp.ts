@@ -69,6 +69,9 @@ export interface DepsOptionCredit extends DepsPortail {
 /** Le verrou d'une prise : quelques appels à Stripe, largement. Relâché dès la session créée ou l'échec rendu. */
 const DUREE_VERROU_PRISE_MS = 60_000;
 
+/** D'où part la prise de l'option : l'onglet de l'offre, Connecter WhatsApp, ou Claude (`take_credit_line`). */
+export type OrigineOption = 'offre' | 'connecter' | 'claude';
+
 /**
  * L'option se prend en ligne : son prix posé chez Stripe. La carte « Qui règle Meta ? » (`/credit-whatsapp/etat`) et
  * l'e-mail de la conversion (lot C) lisent cette règle-ci : jamais « prenez l'option » pour une option qui ne se prend pas.
@@ -121,10 +124,12 @@ const PRIX_INCOHERENT = refus(422,
 /**
  * Ouvre la session Checkout de l'option pour `places` numéros. `payeur` est l'utilisateur de la session, jamais une valeur
  * du corps. Une option déjà vivante se change (`changerPlaces`), elle ne se reprend pas. `origine` : d'où part le paiement,
- * pour y revenir ; depuis les cartes « Qui règle Meta ? » (lot B), Connecter WhatsApp, où le numéro se branche ensuite.
+ * pour y revenir ; depuis les cartes « Qui règle Meta ? » (lot B), Connecter WhatsApp, où le numéro se branche ensuite ;
+ * depuis Claude (`take_credit_line`), la page publique « paiement reçu », comme `subscribe_pro` : la personne de Claude
+ * Code n'a pas forcément de session de console.
  */
 export async function ouvrirOption(
-  d: DepsOptionCredit, tenantId: string, places: number, payeur: string, origine: 'offre' | 'connecter' = 'offre',
+  d: DepsOptionCredit, tenantId: string, places: number, payeur: string, origine: OrigineOption = 'offre',
 ): Promise<Issue<{ url: string }>> {
   const s = d.stripe;
   if (s === null || d.prixOption === '') return OPTION_INDISPONIBLE;
@@ -152,6 +157,8 @@ export async function ouvrirOption(
       return refus(409, 'Une prise de l’option est déjà en cours pour cet espace : rechargez la page dans quelques secondes.', { code: 'option_en_cours' });
     }
     try {
+      // La page « paiement reçu » lit `produit` et `abonnement=abandon`, comme pour le Pro (`ouvrirPro`) ; la console, `option`.
+      const claude = `${page(d, 'claude')}?produit=${PRODUIT_OPTION_WA}`;
       const retour = origine === 'connecter' ? `${page(d, 'console')}?` : `${page(d, 'offre')}?tab=whatsapp&`;
       const customerId = await clientDeLEspace(d, s, tenantId);
       // 🔴 Un seul paiement de l'option à la fois (jaune 11 de la relecture du lot B) : les sessions encore ouvertes du
@@ -162,8 +169,8 @@ export async function ouvrirOption(
         tenantId,
         prix: d.prixOption,
         customerId,
-        urlSucces: `${retour}option=recue`,
-        urlAbandon: `${retour}option=abandon`,
+        urlSucces: origine === 'claude' ? claude : `${retour}option=recue`,
+        urlAbandon: origine === 'claude' ? `${claude}&abonnement=abandon` : `${retour}option=abandon`,
         idempotence: `option-wa-${tenantId}-${randomUUID()}`,
         produit: PRODUIT_OPTION_WA,
         quantite: places,

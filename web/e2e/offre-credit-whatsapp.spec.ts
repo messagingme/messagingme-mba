@@ -297,6 +297,15 @@ test.describe('Paramètres > Offre > Ligne de crédit', () => {
     await expect(page.getByTestId('paiement-abandonne')).toBeVisible();
   });
 
+  test('🔴 l’option prise depuis Claude (take_credit_line) revient sur la page publique, qui parle de l’option et de la suite (le lien du numéro)', async ({ page }) => {
+    // Sans ce cas, `?produit=option_credit_whatsapp` retombe sur le texte du réabonnement du numéro.
+    await page.goto('/paiement-recu?produit=option_credit_whatsapp');
+    await expect(page.getByTestId('paiement-recu')).toContainText('votre option ligne de crédit');
+    await expect(page.getByTestId('paiement-recu')).not.toContainText('réabonnement');
+    await page.goto('/paiement-recu?produit=option_credit_whatsapp&abonnement=abandon');
+    await expect(page.getByTestId('paiement-abandonne')).toBeVisible();
+  });
+
   test('🔴 un compte NON ADMIN n’y entre pas : aucun bouton d’achat ne lui est offert', async ({ page }) => {
     const m = await monter(page, { session: AGENT });
     await page.goto('/offre?tab=whatsapp');

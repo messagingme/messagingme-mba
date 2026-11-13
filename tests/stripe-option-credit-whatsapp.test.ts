@@ -164,6 +164,16 @@ describe('ouvrir l’option', () => {
     ]);
   });
 
+  it('🔴 depuis Claude (take_credit_line), le retour de Stripe ramène sur la page publique « paiement reçu » de l’option, payée ou abandonnée', async () => {
+    const { d, transport } = deps();
+    expect(await ouvrirOption(d, T1, 1, 'u1', 'claude')).toMatchObject({ ok: true });
+    const session = transport.posts.find((p) => p.url.endsWith('/checkout/sessions'))!.corps;
+    expect([session.get('success_url'), session.get('cancel_url')]).toEqual([
+      'https://console.messagingme.app/paiement-recu?produit=option_credit_whatsapp',
+      'https://console.messagingme.app/paiement-recu?produit=option_credit_whatsapp&abonnement=abandon',
+    ]);
+  });
+
   it('🔴 rien ne part chez Stripe : sans prix, en Free, en Entreprise, déjà prise, hors des bornes', async () => {
     const cas: Array<[string, Parameters<typeof deps>[0], number, number, string]> = [
       ['sans prix', { prixOption: '' }, 1, 503, 'option_indisponible'],

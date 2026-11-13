@@ -18,13 +18,16 @@ export default function PaiementRecuPage() {
   const t = useT();
   /** `null` tant que l'adresse n'est pas lue : la page ne dit rien avant de savoir. */
   const [abandon, setAbandon] = useState<boolean | null>(null);
-  /** Ce qui a été payé : le numéro (par défaut), le crédit IA ou le Crédit WhatsApp (`buy_credit`), ou le Pro (`subscribe_pro`). */
-  const [produit, setProduit] = useState<'numero' | 'credit' | 'credit_whatsapp' | 'pro'>('numero');
+  /**
+   * Ce qui a été payé : le numéro (par défaut), le crédit IA ou la ligne de crédit (`buy_credit`), le Pro
+   * (`subscribe_pro`), ou l'option ligne de crédit (`take_credit_line`, `?produit=option_credit_whatsapp`).
+   */
+  const [produit, setProduit] = useState<'numero' | 'credit' | 'credit_whatsapp' | 'pro' | 'option_credit_whatsapp'>('numero');
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
     setAbandon(q.get('abonnement') === 'abandon');
     const p = q.get('produit');
-    setProduit(p === 'credit' || p === 'credit_whatsapp' || p === 'pro' ? p : 'numero');
+    setProduit(p === 'credit' || p === 'credit_whatsapp' || p === 'pro' || p === 'option_credit_whatsapp' ? p : 'numero');
   }, []);
 
   return (
@@ -45,6 +48,8 @@ export default function PaiementRecuPage() {
                 ? t('Merci. Retournez dans Claude : il vous confirme le passage de votre espace en formule Pro dès que Stripe l’a validé, en général en quelques secondes.', 'Thank you. Go back to Claude: it confirms your workspace’s move to Pro as soon as Stripe has validated it, usually within seconds.')
                 : produit === 'credit'
                 ? t('Merci. Retournez dans Claude : il vous confirme la recharge de votre crédit IA dès que Stripe l’a validée, en général en quelques secondes.', 'Thank you. Go back to Claude: it confirms your AI credit top-up as soon as Stripe has validated it, usually within seconds.')
+                : produit === 'option_credit_whatsapp'
+                ? t('Merci. Retournez dans Claude : il vous confirme votre option ligne de crédit dès que Stripe l’a validée, en général en quelques secondes, puis il vous donne le lien pour connecter votre numéro.', 'Thank you. Go back to Claude: it confirms your credit line option as soon as Stripe has validated it, usually within seconds, then gives you the link to connect your number.')
                 : produit === 'credit_whatsapp'
                 ? t('Merci. Retournez dans Claude : il vous confirme la recharge de votre ligne de crédit dès que Stripe l’a validée, en général en quelques secondes. Une campagne arrêtée faute de crédit repart d’elle-même.', 'Thank you. Go back to Claude: it confirms your credit line top-up as soon as Stripe has validated it, usually within seconds. A campaign stopped for lack of credit resumes on its own.')
                 : t('Merci. Retournez dans Claude : il vous confirme le réabonnement de votre numéro dès que Stripe l’a validé, en général en quelques secondes.', 'Thank you. Go back to Claude: it confirms your number subscription as soon as Stripe has validated it, usually within seconds.')}
