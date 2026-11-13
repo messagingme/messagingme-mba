@@ -1108,7 +1108,7 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-voies{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:12px 0 0}
 /* Les formules sur une rangée (elles ne disent plus que leur nom et leur prix, 2026-11-13), deux par deux au téléphone. */
 .bt-question .bt-voies{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))}
-@media (max-width:520px){.bt-question .bt-voies{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.bt-question .bt-voie{padding:16px}}
+@media (max-width:520px){.bt-question .bt-voies{grid-template-columns:minmax(0,1fr);gap:10px}[data-question="offre"] .bt-voies{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-question .bt-voie{padding:16px}}
 /* Sur le bureau, la carte du tunnel sort du cadre de la page et prend presque tout l'écran (Julien, 2026-10-30 : « élargis
    au max de la taille de l'écran, mégote pas ») ; les textes des issues gardent une largeur de lecture. */
 @media (min-width:721px){
