@@ -126,6 +126,8 @@ export interface Voie {
   readonly badge?: string;
   /** Le titre au téléphone, avant le choix (2026-11-14) : le détail ne se lit qu'une fois la carte choisie. */
   readonly court?: string;
+  /** Sous le titre court, en petit (2026-11-14). */
+  readonly courtPrecision?: string;
   /** Le prix en grand sous le titre, et son unité dessous (les formules, 2026-11-13). */
   readonly prix?: string; readonly unite?: string;
   /** Une ligne au pied de la carte ; `{claude}` et `{codex}` y deviennent le logo et le nom de l'assistant. */
@@ -233,8 +235,8 @@ const fr = (): TexteTunnel => {
   // La carte chez Meta, dite par Julien le 2026-11-09 (aide à la connexion, lot 3a), avec ses deux liens.
   const paiement: readonly Voie[] = [
     {
-      titre: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', court: 'Je mets un moyen de paiement',
-      plus: ['Meta vous facture vos modèles sur ce moyen de paiement.'],
+      titre: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', court: 'Je mets un moyen de paiement', courtPrecision: 'Étape à réaliser en toute fin',
+      plus: ['Meta vous facture vos modèles sur ce moyen de paiement.', 'Une étape à faire tout à la fin, une fois votre numéro connecté.'],
       moins: [],
       liens: [
         {
@@ -528,8 +530,8 @@ const en = (): TexteTunnel => {
   const garder = 'No Meta Business account? Meta’s window creates it along the way, with your Facebook profile, then offers a payment method.';
   const paiement: readonly Voie[] = [
     {
-      titre: 'I add a payment method (Visa / Mastercard) to my Meta Business account', court: 'I add a payment method',
-      plus: ['Meta bills your templates to this payment method.'],
+      titre: 'I add a payment method (Visa / Mastercard) to my Meta Business account', court: 'I add a payment method', courtPrecision: 'A step for the very end',
+      plus: ['Meta bills your templates to this payment method.', 'A step for the very end, once your number is connected.'],
       moins: [],
       liens: [
         {
