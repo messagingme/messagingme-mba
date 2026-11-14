@@ -118,7 +118,7 @@ Never pick a way on a guess, and never offer another one.
    console; Pro adds the console (the team Inbox, campaigns, dashboards) and includes a number we provide. Ask only if
    the user has not said and the workspace is on Free. If they want Pro, `subscribe_pro` returns its payment link
    (paying is their gesture); then go on.
-2. **"Who pays Meta for your messages?"** Meta bills each template they send.
+2. **"How do you want to pay for your Meta messages?"** Meta bills each template they send.
    - "I add a payment method (Visa / Mastercard) to my Meta Business account": Meta bills their templates to this
      payment method. Go to question 3. If they ask why a payment method, or what a Meta Business account is, give the
      page in their language: why, `aide.payer_meta`; the account, `aide.compte_meta_business`.

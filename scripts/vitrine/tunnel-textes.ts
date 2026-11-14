@@ -122,6 +122,8 @@ export interface Voie {
   readonly titre: string; readonly plus: readonly string[]; readonly moins: readonly string[]; readonly liens?: readonly Lien[];
   /** Une mention mise en avant au-dessus du titre (l'essai du Pro, Julien, 2026-11-09 : « on comprend rien sinon »). */
   readonly badge?: string;
+  /** Le titre au téléphone, avant le choix (2026-11-14) : le détail ne se lit qu'une fois la carte choisie. */
+  readonly court?: string;
   /** Le prix en grand sous le titre, et son unité dessous (les formules, 2026-11-13). */
   readonly prix?: string; readonly unite?: string;
   /** Une ligne au pied de la carte ; `{claude}` et `{codex}` y deviennent le logo et le nom de l'assistant. */
@@ -229,7 +231,7 @@ const fr = (): TexteTunnel => {
   // La carte chez Meta, dite par Julien le 2026-11-09 (aide à la connexion, lot 3a), avec ses deux liens.
   const paiement: readonly Voie[] = [
     {
-      titre: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business',
+      titre: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', court: 'Je mets un moyen de paiement',
       plus: ['Meta vous facture vos modèles sur ce moyen de paiement.'],
       moins: [],
       liens: [
@@ -244,7 +246,7 @@ const fr = (): TexteTunnel => {
       ],
     },
     {
-      titre: 'Ligne de crédit',
+      titre: 'Ligne de crédit', court: 'Je veux une ligne de crédit',
       plus: [`Vous prépayez vos messages chez Messaging Me, sans carte chez Meta : ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'fr')} par numéro et par mois, avec la formule Pro ou Business.`],
       moins: [],
     },
@@ -307,7 +309,7 @@ const fr = (): TexteTunnel => {
       {
         // Le Crédit WhatsApp ne se prend pas ici : depuis l'ouverture de la vente (2026-11-11, lot 3v-2), dans la console, dès
         // l'essai de la formule Pro ; sa réponse dit où, et la Free, qu'il vient avec la formule Pro.
-        id: 'paiement', texte: 'Qui paie vos messages à Meta ?', precision: 'Eh oui, Meta facture chaque modèle que vous envoyez 💸',
+        id: 'paiement', texte: 'Quelle solution pour payer vos messages Meta ?', precision: 'Eh oui, Meta facture chaque modèle que vous envoyez 💸',
         voies: paiement,
         reponses: [
           { libelle: 'Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business', vers: 'compte' },
@@ -499,7 +501,7 @@ const fr = (): TexteTunnel => {
       points: {
         titre: 'Les cinq points à vérifier',
         liste: [
-          'Qui paie vos messages à Meta : votre carte chez Meta, ou la ligne de crédit, prépayée chez Messaging Me, à prendre dans la console avec la formule Pro ou Business (l’option se paie dès sa prise, même pendant l’essai).',
+          'Pour payer vos messages Meta : votre carte chez Meta, ou la ligne de crédit, prépayée chez Messaging Me, à prendre dans la console avec la formule Pro ou Business (l’option se paie dès sa prise, même pendant l’essai).',
           'Un compte Meta Business : avec, votre numéro se relie en numéro API ; sans, la fenêtre de Meta vous le fait créer en chemin.',
           'L’application WhatsApp Business : vous la gardez, et Messaging Me envoie les messages automatiques à côté. Meta appelle cela la coexistence.',
           'Un numéro : le vôtre, ou un numéro que nous vous fournissons.',
@@ -524,7 +526,7 @@ const en = (): TexteTunnel => {
   const garder = 'No Meta Business account? Meta’s window creates it along the way, with your Facebook profile, then offers a payment method.';
   const paiement: readonly Voie[] = [
     {
-      titre: 'I add a payment method (Visa / Mastercard) to my Meta Business account',
+      titre: 'I add a payment method (Visa / Mastercard) to my Meta Business account', court: 'I add a payment method',
       plus: ['Meta bills your templates to this payment method.'],
       moins: [],
       liens: [
@@ -539,7 +541,7 @@ const en = (): TexteTunnel => {
       ],
     },
     {
-      titre: 'Credit line',
+      titre: 'Credit line', court: 'I want a credit line',
       plus: [`You prepay your messages at Messaging Me, with no card at Meta: ${euros(PRIX_OPTION_WA_HT_CENTIMES, 'en')} per number per month, with the Pro or Business plan.`],
       moins: [],
     },
@@ -593,7 +595,7 @@ const en = (): TexteTunnel => {
         reponses: [{ libelle: 'The console', vers: 'console' }, { libelle: 'Claude Code or Codex', vers: 'paiement' }],
       },
       {
-        id: 'paiement', texte: 'Who pays Meta for your messages?', precision: 'Yes, Meta bills each template you send 💸',
+        id: 'paiement', texte: 'How do you want to pay for your Meta messages?', precision: 'Yes, Meta bills each template you send 💸',
         voies: paiement,
         reponses: [
           { libelle: 'I add a payment method (Visa / Mastercard) to my Meta Business account', vers: 'compte' },
@@ -766,7 +768,7 @@ const en = (): TexteTunnel => {
       points: {
         titre: 'The five points to check',
         liste: [
-          'Who pays Meta for your messages: your card at Meta, or the credit line, prepaid at Messaging Me, taken in the console with the Pro or Business plan (the option is paid when taken, even during the trial).',
+          'To pay for your Meta messages: your card at Meta, or the credit line, prepaid at Messaging Me, taken in the console with the Pro or Business plan (the option is paid when taken, even during the trial).',
           'A Meta Business account: with one, your number connects as an API number; without one, Meta’s window has you create it along the way.',
           'The WhatsApp Business app: you keep it, and Messaging Me sends the automated messages alongside. Meta calls this coexistence.',
           'A number: yours, or a number we provide.',

@@ -135,7 +135,7 @@ describe('les skills', () => {
 
   it('🔴 la ligne de crédit se prend depuis Claude (plan 2026-11-13) : Pro, puis take_credit_line, puis le lien, jamais l’inverse', () => {
     const texte = readFileSync(resolve(PLUGIN, 'skills', 'mise-en-service', 'SKILL.md'), 'utf8');
-    const q2 = texte.slice(texte.indexOf('**"Who pays Meta for your messages?"**'), texte.indexOf('**"Do you have a Meta Business account?"**'));
+    const q2 = texte.slice(texte.indexOf('**"How do you want to pay for your Meta messages?"**'), texte.indexOf('**"Do you have a Meta Business account?"**'));
     expect(q2).toMatch(/take_credit_line/);
     expect(q2.indexOf('subscribe_pro')).toBeGreaterThan(-1);
     expect(q2.indexOf('subscribe_pro')).toBeLessThan(q2.indexOf('take_credit_line'));

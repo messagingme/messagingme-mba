@@ -71,7 +71,7 @@ export const CARTES_OFFRE: ReadonlyArray<{
  * (jaune 8 de la relecture du lot B).
  */
 export const QUESTION_PAIEMENT = {
-  texte: { fr: 'Qui paie vos messages à Meta ?', en: 'Who pays Meta for your messages?' },
+  texte: { fr: 'Quelle solution pour payer vos messages Meta ?', en: 'How do you want to pay for your Meta messages?' },
   // La console n'a pas d'emoji (tests/web-icones.test.ts) : la vitrine ajoute le sien.
   precision: { fr: 'Eh oui, Meta facture chaque modèle que vous envoyez', en: 'Yes, Meta bills each template you send' },
   carte: {

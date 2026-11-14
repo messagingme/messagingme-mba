@@ -67,7 +67,7 @@ test('🔴 un espace neuf en Free voit d’abord la formule ; Free mène à « Q
   await expect(page.getByTestId('offre-comparer')).toHaveAttribute('href', 'https://app.messagingme.fr/tarifs/');
   await page.getByTestId('offre-choisir-free').click();
   await expect(page.getByTestId('choix-offre')).toHaveCount(0);
-  await expect(page.getByTestId('qui-regle-meta')).toContainText('Qui paie vos messages à Meta ?');
+  await expect(page.getByTestId('qui-regle-meta')).toContainText('Quelle solution pour payer vos messages Meta ?');
   await page.reload();
   await expect(page.getByTestId('qui-regle-meta')).toBeVisible();
   await expect(page.getByTestId('choix-offre')).toHaveCount(0);

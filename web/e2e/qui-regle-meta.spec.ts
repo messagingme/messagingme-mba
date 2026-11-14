@@ -69,7 +69,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'a_prendre', enVente: false }] });
     await page.goto('/connecter-whatsapp');
-    await expect(page.getByTestId('qui-regle-meta')).toContainText('Qui paie vos messages à Meta ?');
+    await expect(page.getByTestId('qui-regle-meta')).toContainText('Quelle solution pour payer vos messages Meta ?');
     await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'true');
     // Le libellé de la carte et ses deux liens vers la vitrine (lot 3a ; « Payer Meta » depuis le lot 4b).
     const carteMeta = page.getByTestId('carte-meta');

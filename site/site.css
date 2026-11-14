@@ -1004,6 +1004,27 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .js .bt-guide:not([data-offre="free"]) button[data-pour="free"],.js .bt-guide[data-offre="free"] button[data-sauf~="free"]{display:none}
 /* Le guide du centre d'aide (lot 4a) ne pose pas la question de l'offre : chaque raison se lit. */
 .js .bt-guide[data-mode="guide"] .bt-grisee[data-pour]{display:block}
+/* Le même code couleur à chaque étage (Julien, 2026-11-14) : une réponse proposée en clair, la choisie en blanc ; la
+   ligne de crédit, qui ne se choisit pas ici, bien grisée. */
+.bt-question .bt-voie-choix .bt-voie{background:#E3E8F3;border-color:#E3E8F3;color:#0B0E24}
+.bt-question .bt-voie-choix .bt-voie :is(li,.bt-tarif span,.bt-voie-note){color:#4A5068}
+.bt-question .bt-voie-choix .bt-voie-liens a{color:#0F5DB8}
+.bt-question .bt-voie-choix:hover .bt-voie{background:#F3F5FA;border-color:#F3F5FA}
+.bt-question .bt-voie-choix:has([aria-pressed="true"]) .bt-voie{background:#fff;border-color:#fff}
+.bt-question .bt-reponses .bouton-trait{background:#E3E8F3;border-color:#E3E8F3;color:#0B0E24}
+.bt-question .bt-reponses .bouton-trait:hover{background:#F3F5FA;border-color:#F3F5FA;color:#0B0E24}
+.bt-question .bt-reponses .bouton-trait[aria-pressed="true"]{background:#fff;border-color:#fff;color:#0B0E24}
+.bt-question .bt-voie-choix.bt-voie-grisee .bt-voie,.bt-question .bt-voie-choix.bt-voie-grisee:hover .bt-voie,.js .bt-guide[data-offre="free"] .bt-voie-choix:has(> [data-pour="free"]) .bt-voie,.js .bt-guide[data-offre="free"] .bt-voie-choix:has(> [data-pour="free"]):hover .bt-voie{background:rgb(255 255 255 / .03);border:1px dashed rgb(255 255 255 / .25);color:rgb(255 255 255 / .42);transform:none;box-shadow:none}
+.bt-question .bt-voie-choix.bt-voie-grisee .bt-voie :is(h4,ul,li),.js .bt-guide[data-offre="free"] .bt-voie-choix:has(> [data-pour="free"]) .bt-voie :is(h4,ul,li){color:rgb(255 255 255 / .42);opacity:1}
+.bt-question .bt-voie-choix.bt-voie-grisee .bt-voie .ic,.js .bt-guide[data-offre="free"] .bt-voie-choix:has(> [data-pour="free"]) .bt-voie .ic{opacity:.35;filter:grayscale(1)}
+.bt-question .bt-voie-choix.bt-voie-grisee .bt-grisee,.js .bt-guide[data-offre="free"] .bt-voie-choix:has(> [data-pour="free"]) .bt-grisee{color:rgb(255 255 255 / .8)}
+/* Au téléphone, avant le choix, une carte à titre court ne dit que lui ; le détail vient une fois choisie (2026-11-14). */
+.js .bt-guide[data-offre="free"] .bt-voie-choix:has(> [data-pour="free"]){cursor:not-allowed}
+.bt-titre-court{display:none}
+@media (max-width:520px){
+  .bt-question:is(:not(.repondue),.rouverte) .bt-voie:has(.bt-titre-court) :is(.bt-titre-long,ul,.bt-voie-liens){display:none}
+  .bt-question:is(:not(.repondue),.rouverte) .bt-voie .bt-titre-court{display:inline}
+}
 /* Avec le script, le tunnel se lit au milieu, le long du fil (2026-11-13). */
 .js .bt-guide[data-pret] .bt-question legend{text-align:center}
 .js .bt-guide[data-pret] .bt-question legend.bt-avec-logo{padding-left:0}
@@ -1125,7 +1146,7 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-voies{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:12px 0 0}
 /* Les formules sur une rangée (elles ne disent plus que leur nom et leur prix, 2026-11-13), deux par deux au téléphone. */
 .bt-question .bt-voies{grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr))}
-@media (max-width:520px){.bt-question .bt-voies{grid-template-columns:minmax(0,1fr);gap:10px}[data-question="offre"] .bt-voies{grid-template-columns:repeat(2,minmax(0,1fr))}.bt-question .bt-voie{padding:16px}}
+@media (max-width:520px){.bt-question .bt-voies{grid-template-columns:minmax(0,1fr);gap:10px}[data-question="offre"]:is(:not(.repondue),.rouverte) .bt-voies{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:78%;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;padding:4px 2px 12px;scrollbar-width:none}[data-question="offre"]:is(:not(.repondue),.rouverte) .bt-voies::-webkit-scrollbar{display:none}[data-question="offre"]:is(:not(.repondue),.rouverte) .bt-voie-choix{scroll-snap-align:center}.bt-question .bt-voie{padding:16px}}
 /* Sur le bureau, la carte du tunnel sort du cadre de la page et prend presque tout l'écran (Julien, 2026-10-30 : « élargis
    au max de la taille de l'écran, mégote pas ») ; les textes des issues gardent une largeur de lecture. */
 @media (min-width:721px){
