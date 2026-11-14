@@ -110,6 +110,8 @@ export const lienHtml = (l: Lien): string => `<a class="bouton bouton-trait" hre
 export interface Reponse {
   readonly libelle: string; readonly vers?: string; readonly note?: string; readonly offre?: FormuleTunnel;
   readonly grisee?: Readonly<Partial<Record<FormuleTunnel, string>>>;
+  /** Les logos de Claude Code et de Codex en grand sur le bouton, son libellé en petit dessous (2026-11-14). */
+  readonly assistants?: true;
 }
 /** `voies` : des cartes côte à côte, et SOUS chacune la réponse de même rang (Julien, 2026-10-27 : sinon on ne sait
  * pas quel bouton va avec quelle carte) ; une réponse sans `vers` (« Je ne sais pas ») reste dessous. */
@@ -304,7 +306,7 @@ const fr = (): TexteTunnel => {
       {
         // Le Pro a la console ET Claude Code (Julien, 2026-11-09, lot 3c) : la console finit ici, Claude Code suit l'arbre.
         id: 'pilote', texte: 'Où voulez-vous construire ?',
-        reponses: [{ libelle: 'La console', vers: 'console' }, { libelle: 'Claude Code ou Codex', vers: 'paiement' }],
+        reponses: [{ libelle: 'La console', vers: 'console' }, { libelle: 'Claude Code ou Codex', vers: 'paiement', assistants: true }],
       },
       {
         // Le Crédit WhatsApp ne se prend pas ici : depuis l'ouverture de la vente (2026-11-11, lot 3v-2), dans la console, dès
@@ -592,7 +594,7 @@ const en = (): TexteTunnel => {
       },
       {
         id: 'pilote', texte: 'Where do you want to build?',
-        reponses: [{ libelle: 'The console', vers: 'console' }, { libelle: 'Claude Code or Codex', vers: 'paiement' }],
+        reponses: [{ libelle: 'The console', vers: 'console' }, { libelle: 'Claude Code or Codex', vers: 'paiement', assistants: true }],
       },
       {
         id: 'paiement', texte: 'How do you want to pay for your Meta messages?', precision: 'Yes, Meta bills each template you send 💸',

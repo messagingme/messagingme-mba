@@ -104,7 +104,7 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
   // 2026-11-13) : le bouton grisé pour ces formules (`data-pour`), le bouton qui mène ailleurs pour les autres (`data-sauf`),
   // la règle de `site.css` n'en montrant qu'un selon la formule choisie plus haut.
   const actif = (q: Question, r: Reponse, k: number, sauf = '') =>
-    `<button type="button" class="bouton bouton-trait" data-vers="${r.vers}"${sauf}${r.offre ? ` data-offre="${r.offre}"` : ''}${r.note ? ` data-note="note-${q.id}-${k}"` : ''} aria-pressed="false">${r.libelle}</button>`;
+    `<button type="button" class="bouton bouton-trait" data-vers="${r.vers}"${sauf}${r.offre ? ` data-offre="${r.offre}"` : ''}${r.note ? ` data-note="note-${q.id}-${k}"` : ''} aria-pressed="false"${r.assistants ? ' data-assistants' : ''}>${r.assistants ? `<span class="bt-logos">${logo('claude')}${logo('codex')}</span><span class="bt-logos-nom">${r.libelle}</span>` : r.libelle}</button>`;
   const bouton = (q: Question, r: Reponse, k: number) => (r.grisee && r.vers
     ? Object.keys(r.grisee).map((o) => `<button type="button" class="bouton bouton-trait" data-pour="${o}" disabled>${r.libelle}</button>`).join('')
       + actif(q, r, k, ` data-sauf="${Object.keys(r.grisee).join(' ')}"`)
