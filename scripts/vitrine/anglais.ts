@@ -41,6 +41,7 @@ export const JUMELLES: Readonly<Record<string, string>> = {
   '/solutions/assurance/': '/en/solutions/insurance/',
   '/solutions/voyage-et-tourisme/': '/en/solutions/travel-and-tourism/',
   '/solutions/shopify/': '/en/solutions/shopify-stores/',
+  '/solutions/deep-hubspot-integration/': '/en/solutions/deep-hubspot-integration/',
   '/cas-d-usage/rappels-rendez-vous/': '/en/use-cases/appointment-reminders/',
   '/cas-d-usage/notifications-de-commande/': '/en/use-cases/order-notifications/',
   '/cas-d-usage/prise-de-rendez-vous/': '/en/use-cases/appointment-booking/',
@@ -76,7 +77,7 @@ const ECRITES_A_LA_MAIN = new Set(['/developpeurs/', '/developpeurs/compte-meta-
  * dans `tunnel-textes.ts` (npm run vitrine:cas) ;
  * le centre d'aide, dans les fiches et leur version anglaise (npm run vitrine:aide).
  */
-const hors = (p: string): boolean => ECRITES_A_LA_MAIN.has(p) || p === '/demarrer/' || p.startsWith('/cas-d-usage/') || p.startsWith('/solutions/')
+const hors = (p: string): boolean => ECRITES_A_LA_MAIN.has(p) || p === '/demarrer/' || p.startsWith('/cas-d-usage/') || (p.startsWith('/solutions/') && p !== '/solutions/deep-hubspot-integration/')
   || p.startsWith('/aide/') || ADRESSES_CLAUDE_FR.has(p);
 export const GENEREES: readonly string[] = Object.keys(JUMELLES).filter((p) => !hors(p));
 

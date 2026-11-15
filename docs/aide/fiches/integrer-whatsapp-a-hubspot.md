@@ -1,5 +1,5 @@
 ---
-description: WhatsApp dans HubSpot avec l'app Messaging Me : répondre depuis la fiche contact, envoyer depuis vos workflows, analyser chaque conversation. Sans Sales Hub.
+description: WhatsApp dans HubSpot : chaque conversation analysée devient une action, vos listes deviennent des campagnes, vous répondez sans quitter HubSpot.
 ecran: integrations
 ancre_console: integration-hubspot
 source_section: Accueil (1re entrée du menu)
@@ -12,30 +12,31 @@ offre: business
 ---
 # Intégrer WhatsApp à HubSpot, sans Sales Hub
 
-L'app Messaging Me met WhatsApp dans HubSpot : vos équipes répondent aux clients depuis la fiche contact, vos
-workflows envoient des modèles et lancent des scénarios, et chaque conversation remonte analysée. Sans Sales Hub, et
-sans Data Hub pour les webhooks.
+L'app Messaging Me remplit votre HubSpot toute seule : chaque conversation WhatsApp remonte analysée dans la fiche
+du contact et devient une action pour votre équipe, vos campagnes partent de vos listes HubSpot, et vous répondez sans
+quitter HubSpot. Sans Sales Hub, et sans Data Hub pour les webhooks.
 
 ## Ce que fait l'app
 
+- **Chaque conversation devient une action.** L'intention, le sentiment et l'action suggérée arrivent dans la fiche, en
+  propriétés que vos workflows suivent, avec une tâche et des actions en un clic : créer ou rattacher le devis,
+  rappeler, escalader vers un humain. Aucune conversation ne reste sans réponse de votre équipe.
+- **Une tâche dès qu'un client demande un humain.** Elle arrive dans la minute chez le propriétaire du contact, avec le
+  lien de la conversation, et se coche toute seule quand quelqu'un répond.
+- **Vos listes HubSpot deviennent des campagnes.** Une campagne WhatsApp cible directement une liste HubSpot : ses
+  contacts sont importés et étiquetés, puis la campagne part.
 - **Répondre depuis la fiche contact.** La carte Messaging Me montre la conversation WhatsApp, et toute personne du
   portail y répond, chaque réponse signée de son adresse. Quand le client n'a plus écrit depuis 24 heures, elle propose
   vos modèles approuvés, déjà remplis depuis la fiche.
-- **Une page « Messaging Me » dans HubSpot.** Elle liste les conversations qui attendent un humain, les urgentes
-  d'abord : vous y répondez sans chercher la fiche du contact.
 - **Les conversations dans l'Inbox HubSpot.** Une conversation qui attend un conseiller arrive dans une boîte de
   réception de HubSpot, affectée à qui l'a en main. Le conseiller y répond, et fermer la conversation rend la main à
   votre agent IA.
-- **Une tâche dès qu'un client demande un humain.** Elle arrive dans la minute chez le propriétaire du contact, avec le
-  lien de la conversation, et se coche toute seule quand quelqu'un répond.
+- **Une page « Messaging Me » dans HubSpot.** Elle liste les conversations qui attendent un humain, les urgentes
+  d'abord : vous y répondez sans chercher la fiche du contact.
 - **Vos workflows HubSpot écrivent sur WhatsApp.** Trois actions s'ajoutent à vos workflows : envoyer un modèle, lancer
   un scénario, ou le lancer depuis une transaction, avec les champs HubSpot que vous choisissez.
 - **Une étape de transaction lance un scénario.** Quand une transaction arrive sur l'étape choisie, son contact reçoit
   le scénario, sans écrire de workflow, et sa fiche est créée s'il est nouveau pour Messaging Me.
-- **L'analyse de chaque conversation.** L'intention, le sentiment et l'action suggérée arrivent dans la fiche, en
-  propriétés que vos workflows suivent, avec une tâche et des actions en un clic : créer ou rattacher le devis,
-  rappeler, escalader vers un humain.
-- **Vos listes HubSpot comme audiences.** Une campagne WhatsApp cible une liste HubSpot.
 
 ## Ce qu'il faut côté HubSpot
 

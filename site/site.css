@@ -826,7 +826,7 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .integ-onglets label img,.integ-onglets label svg{width:20px;height:20px;flex:none}
 .integ-onglets input:checked + label{background:#FFFFFF;color:#010630}
 .integ-onglets input:focus-visible + label{outline:2px solid var(--action);outline-offset:2px}
-.integ-crm:has(#crm-salesforce:checked) .panneau-dynamics,.integ-crm:has(#crm-dynamics:checked) .panneau-salesforce{display:none}
+.integ-crm:not(:has(#crm-hubspot:checked)) .panneau-hubspot,.integ-crm:not(:has(#crm-dynamics:checked)) .panneau-dynamics,.integ-crm:not(:has(#crm-salesforce:checked)) .panneau-salesforce{display:none}
 .integ-crm-visuel{position:relative;margin:0 52px 0 0}
 .integ-crm-visuel img{display:block;height:auto}
 .integ-fenetre{width:100%;filter:drop-shadow(0 34px 48px rgb(0 2 20 / .6))}
@@ -842,6 +842,12 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
   .integ-crm-visuel{margin:0}
   .integ-fiche{position:relative;right:auto;bottom:auto;width:min(88%,420px);margin:-28px 0 0 auto}
   .integ-points{margin-top:40px;grid-template-columns:minmax(0,1fr);gap:20px}
+}
+/* Trois onglets (HubSpot, Dynamics, Salesforce, 2026-11-15) : au téléphone, la pilule passe sur deux lignes au lieu de
+   déborder de l'écran. */
+@media (max-width:560px){
+  .integ-onglets{display:flex;flex-wrap:wrap;border-radius:24px}
+  .integ-onglets label{padding:8px 14px}
 }
 
 /* LA PAGE « BOUTIQUES SHOPIFY » (2026-10-24, scripts/vitrine/boutique.ts) : le téléphone de l'accueil, fixe (hors de la

@@ -1,33 +1,34 @@
 ---
 slug: integrate-whatsapp-with-hubspot
-traduit_de: 00e9f9
-description: WhatsApp in HubSpot with the Messaging Me app: reply from the contact record, send from your workflows, analyze every conversation. Without Sales Hub.
+traduit_de: 59dea6
+description: WhatsApp in HubSpot: every analyzed conversation becomes an action, your lists become campaigns, you reply without leaving HubSpot.
 ---
 # Integrate WhatsApp with HubSpot, without Sales Hub
 
-The Messaging Me app puts WhatsApp in HubSpot: your teams reply to customers from the contact record, your workflows
-send templates and launch scenarios, and every conversation comes back analyzed. Without Sales Hub, and without Data
-Hub for webhooks.
+The Messaging Me app fills your HubSpot on its own: every WhatsApp conversation comes back analyzed on the contact
+record and becomes an action for your team, your campaigns start from your HubSpot lists, and you reply without leaving
+HubSpot. Without Sales Hub, and without Data Hub for webhooks.
 
 ## What the app does
 
+- **Every conversation becomes an action.** The intent, the sentiment and the suggested action land on the record, as
+  properties your workflows can follow, with a task and one-click actions: create or attach the quote, call back,
+  escalate to a human. No conversation is left without an answer from your team.
+- **A task as soon as a customer asks for a human.** It reaches the contact owner within a minute, with the link to the
+  conversation, and checks itself off when someone replies.
+- **Your HubSpot lists become campaigns.** A WhatsApp campaign targets a HubSpot list directly: its contacts are
+  imported and tagged, then the campaign goes out.
 - **Reply from the contact record.** The Messaging Me card shows the WhatsApp conversation, and anyone in the portal
   replies there, each reply signed with their address. When the customer has not written for 24 hours, it offers your
   approved templates, already filled in from the record.
-- **A “Messaging Me” page in HubSpot.** It lists the conversations waiting for a person, urgent ones first: you reply
-  there without looking for the contact record.
 - **Conversations in the HubSpot Inbox.** A conversation waiting for an advisor arrives in a HubSpot inbox, assigned
   to whoever handles it. The advisor replies there, and closing the conversation hands it back to your AI agent.
-- **A task as soon as a customer asks for a human.** It reaches the contact owner within a minute, with the link to the
-  conversation, and checks itself off when someone replies.
+- **A “Messaging Me” page in HubSpot.** It lists the conversations waiting for a person, urgent ones first: you reply
+  there without looking for the contact record.
 - **Your HubSpot workflows write on WhatsApp.** Three actions join your workflows: send a template, launch a scenario,
   or launch it from a deal, with the HubSpot fields you choose.
 - **A deal stage launches a scenario.** When a deal reaches the chosen stage, its contact receives the scenario,
   without writing a workflow, and their record is created if they are new to Messaging Me.
-- **The analysis of every conversation.** The intent, the sentiment and the suggested action land on the record, as
-  properties your workflows can follow, with a task and one-click actions: create or attach the quote, call back,
-  escalate to a human.
-- **Your HubSpot lists as audiences.** A WhatsApp campaign targets a HubSpot list.
 
 ## What you need in HubSpot
 

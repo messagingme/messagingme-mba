@@ -21,6 +21,7 @@ import { pageAvecEntete } from './entete';
 import { LOGOS_ASSISTANTS, type LogoAssistant } from './logos-assistants';
 import { pagesBoutiques } from './boutique';
 import { TEXTES_BOUTIQUES } from './boutique-textes';
+import { HUBSPOT_SOLUTION } from './hubspot-textes';
 import { pagesDemarrer, sectionTunnel } from './tunnel';
 
 const ORIGINE = 'https://app.messagingme.fr';
@@ -506,6 +507,11 @@ export function pagesSolutions(): Array<{ chemin: string; contenu: string }> {
       elements.push([p.titre, p.adresse]);
       secteurs.push(carte(p.adresse, icone(t.icone), p.titre, t.menu));
     }
+    {
+      const h = HUBSPOT_SOLUTION[langue];
+      elements.push([h.titre, h.adresse]);
+      secteurs.push(carte(h.adresse, icone(HUBSPOT_SOLUTION.icone), h.titre, h.menu));
+    }
     const c = TEXTES_CARREFOUR[langue];
     elements.push([c.fil, c.adresse]);
     secteurs.push(carte(c.adresse, mini(c.film.nom), c.fil, c.menu));
@@ -810,6 +816,8 @@ export function sectionLlms(): string {
       `- [${e.fr.titre}](${ORIGINE}${e.fr.adresse}) : ${texte(TEXTES_BOUTIQUES[e.cle]!.fr.description)}`,
       `- [${e.en.titre}](${ORIGINE}${e.en.adresse}) : ${texte(TEXTES_BOUTIQUES[e.cle]!.en.description)}`,
     ]),
+    `- [${HUBSPOT_SOLUTION.fr.titre}](${ORIGINE}${HUBSPOT_SOLUTION.fr.adresse}) : ${HUBSPOT_SOLUTION.fr.description}`,
+    `- [${HUBSPOT_SOLUTION.en.titre}](${ORIGINE}${HUBSPOT_SOLUTION.en.adresse}) : ${HUBSPOT_SOLUTION.en.description}`,
     '',
   ].join('\n');
 }
