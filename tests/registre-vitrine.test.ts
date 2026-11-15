@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { ENTREES, PROFILS, entreesEnLigne } from '../web/lib/registre-vitrine';
 import { GROUPES_DOC, PAGES_DOC } from '../web/lib/doc-api-pages';
 import { SITE, lire, pagesHtml } from './vitrine-lecture';
+import { HUBSPOT_SOLUTION } from '../scripts/vitrine/hubspot-textes';
 
 /**
  * LE REGISTRE DE LA VITRINE DIT CE QUI EXISTE, DANS LES DEUX SENS (lots 6 et 6 bis, spec
@@ -97,7 +98,10 @@ describe('le registre de la vitrine', () => {
   });
 
   it('toute page sous une rubrique est le carrefour ou la page d’une entrée', () => {
-    const permis = new Set(ENTREES.flatMap((e) => [e.fr.adresse, e.en.adresse]).map((a) => `${a.slice(1)}index.html`));
+    // La page « Deep HubSpot integration » (2026-11-15) est écrite à la main, hors registre : le menu et la page
+    // Solutions la lisent dans `hubspot-textes.ts`, d'où elle est permise ici.
+    const permis = new Set([...ENTREES.flatMap((e) => [e.fr.adresse, e.en.adresse]), HUBSPOT_SOLUTION.fr.adresse, HUBSPOT_SOLUTION.en.adresse]
+      .map((a) => `${a.slice(1)}index.html`));
     for (const rubrique of RUBRIQUES) {
       for (const f of fichiersSous(rubrique).filter((x) => x.endsWith('.html'))) {
         if (f === `${rubrique}/index.html`) continue;
