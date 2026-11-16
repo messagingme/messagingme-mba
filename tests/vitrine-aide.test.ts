@@ -148,8 +148,9 @@ describe('le centre d’aide de la vitrine', () => {
         expect(contenu, `${chemin} ${m[1]}`).toContain(`<a class="aide-capture" href="${m[1]}?v=${empreinte}"`);
       }
     }
-    // 114, puis 120 avec les trois étapes de la console (2026-11-16 : numéro fourni 1 et 2, garder 1), en deux langues.
-    expect(vues).toBe(120);
+    // 114, puis 120 avec les trois étapes de la console (2026-11-16 : numéro fourni 1 et 2, garder 1), en deux langues ;
+    // 128 avec les étapes 8 et 9 de la boutique Shopify, chacune par Claude Code et par la console (le même jour).
+    expect(vues).toBe(128);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {

@@ -1,5 +1,5 @@
 import { test, expect } from '../aide/test';
-import { NAVIGATEUR, REGLAGES_DEMO, capturer, communs, langue, type Locale } from './donnees-demo';
+import { CONTACTS_DEMO, NAVIGATEUR, REGLAGES_DEMO, TAGS_DEMO, capturer, communs, langue, type Locale } from './donnees-demo';
 
 /**
  * « Brancher ma boutique Shopify » : la carte de Paramètres > Général sans boutique, le mode opératoire chez Shopify, les
@@ -27,6 +27,38 @@ const EN_SERVICE = {
   compteurs: { envoye: 148, desabonne: 3, sans_telephone: 6 },
   paniers: { relances: { envoye: 21 }, fermesATemps: 7, enAttente: 4 },
 };
+/** Ce que les envois ont rapporté sur 30 jours (étape 8), en euros, quelques commandes de test à part. */
+const VENTES = {
+  periode: { from: '2026-10-17', to: '2026-11-15' },
+  reel: {
+    totaux: [{ devise: 'EUR', brut: '4862.40', prouve: '2915.80', commandes: 58 }],
+    sources: [
+      { source: 'campagne', campaignId: 'k-automne', nom: 'Collection automne', devise: 'EUR', brut: '2740.10', prouve: '1820.60', commandes: 31 },
+      { source: 'relance_panier', campaignId: null, nom: null, devise: 'EUR', brut: '1395.20', prouve: '1095.20', commandes: 17 },
+      { source: 'agent', campaignId: null, nom: null, devise: 'EUR', brut: '727.10', prouve: '0', commandes: 10 },
+    ],
+  },
+  test: { totaux: [], sources: [] },
+  paniers: { relances: 64, recuperes: 17, montants: [{ devise: 'EUR', montant: '1395.20' }], recuperesTest: 0 },
+};
+const ROI = {
+  devise: 'EUR',
+  serie: Array.from({ length: 30 }, (_, i) => ({
+    jour: new Date(Date.UTC(2026, 9, 17 + i)).toISOString().slice(0, 10),
+    chiffreCumule: (4862.4 * Math.pow((i + 1) / 30, 1.15)).toFixed(2),
+    coutCumule: Math.round(212.6 * ((i + 1) / 30) * 100) / 100,
+  })),
+  depense: 212.6, ramene: '4862.40', prouve: '2915.80', roiPct: 2187, ia: 18.4, estime: true, partiel: false,
+  autresDevises: [],
+  sources: [
+    { source: 'campagne', campaignId: 'k-automne', nom: 'Collection automne', cout: 148.2, brut: '2740.10', roiPct: 1749, partiel: false },
+    { source: 'relance_panier', campaignId: null, nom: null, cout: 46, brut: '1395.20', roiPct: 2933, partiel: false },
+    { source: 'agent', campaignId: null, nom: null, cout: 18.4, brut: '727.10', roiPct: 3852, partiel: false },
+  ],
+  autres: null,
+};
+/** Le suivi des commandes (étape 9) : la boutique branchée le 3 octobre. */
+const SEGMENTS = { boutique: { devise: 'EUR', commandesDepuis: '2026-10-03T10:00:00.000Z', coupeeLe: null }, activiteCompleteDepuis: '2026-10-03' };
 const APERCU = { abonnes: 412, sansTelephone: 57, dejaDansLEspace: 38, nouveaux: 317, placesLibres: 4812, importables: 317, complet: true };
 
 for (const locale of ['fr', 'en'] as Locale[]) {
@@ -41,6 +73,12 @@ for (const locale of ['fr', 'en'] as Locale[]) {
         const chemin = new URL(req.url()).pathname;
         const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
         if (chemin.endsWith('/integrations/shopify/clients/apercu')) return json(APERCU);
+        if (chemin.endsWith('/stats/ventes')) return json(VENTES);
+        if (chemin.endsWith('/stats/roi')) return json(ROI);
+        if (chemin.endsWith('/contacts/segments')) return json(SEGMENTS);
+        if (chemin.endsWith('/contacts') && req.method() === 'GET') return json({ contacts: CONTACTS_DEMO, total: 1284 });
+        if (chemin.endsWith('/user-fields')) return json({ fields: [] });
+        if (chemin.endsWith('/tags')) return json({ tags: TAGS_DEMO });
         if (chemin.endsWith('/integrations/shopify') && req.method() === 'GET') return json(etat);
         if (chemin.endsWith('/integrations/shopify')) return json({});
         if (chemin.endsWith('/settings')) return json({ ...REGLAGES_DEMO, hubspotPortalConnecte: false, hubspotChoixValideLe: null });
@@ -97,6 +135,20 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await page.goto('/integrations');
       await expect(carte.getByTestId('integration-shopify-compteurs')).toBeVisible();
       await capturer(page, CLE, 7, locale, carte, 'haut', carte.getByTestId('integration-shopify-couper'));
+
+      // 8 (console). Performance Lab > Quantitatif > Shopify : le chiffre, sa part prouvée, le coût et le ROI.
+      await page.goto('/dashboard/shopify');
+      await expect(page.getByTestId('ventes-total-EUR')).toBeVisible();
+      await capturer(page, CLE, '8-console', locale, undefined, 'haut', page.getByTestId('ventes-total-EUR'));
+
+      // 9 (console). Contacts, les filtres « Achats et activité » : au moins 2 commandes en 90 jours.
+      await page.goto('/contacts');
+      await page.getByTestId('contacts-toggle-filters').click();
+      await page.getByTestId('filtre-commandes-min').fill('2');
+      await page.getByTestId('filtre-commandes-jours').fill('90');
+      const achats = page.getByTestId('filtres-achats');
+      await expect(page.getByTestId('filtres-achats-suivi')).toBeVisible();
+      await capturer(page, CLE, '9-console', locale, achats, 'haut', page.getByTestId('filtre-commandes-min'));
     });
   });
 }

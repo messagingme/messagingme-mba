@@ -101,26 +101,35 @@ campagnes permet encore de la relier à vos messages.
 
 ## Ce que vos envois ont rapporté
 
-Dans la console (Performance Lab > Quantitatif > Shopify, offre Pro) ou en le demandant à Claude Code (toutes les offres) :
-le chiffre d'affaires des commandes payées dans les 5 jours après un message WhatsApp reçu, attribué au dernier envoi
-(une campagne, la relance de panier, un scénario, un agent IA ou l'agent de Meta). Le chiffre est brut, remboursements
-non déduits, et compté par devise. Une part est **prouvée** : le panier relancé lui-même payé, ou une visite venue de
-vos liens WhatsApp. Le reste est une concordance dans le temps, pas une preuve. Les commandes de test de Shopify sont
-annoncées à part, jamais comptées, et seules comptent les commandes payées depuis le branchement de la boutique.
+Le chiffre d'affaires de vos commandes payées après un message WhatsApp, et ce que vos messages ont coûté.
 
-Dans la console, la même page met aussi en face ce que vos messages ont **coûté** : deux courbes cumulées sur la
-période, et votre **ROI en pourcentage**, en tout et pour chaque campagne. Le coût ne compte que ce qui peut amener une
-vente (campagnes, relances de panier, scénarios, agents), jamais les confirmations de commande ni les avis d'expédition.
+**8. [claude] Le demander à Claude Code.** Dès l'offre Free : « combien mes envois WhatsApp ont rapporté sur les 30
+derniers jours ? ». Il répond par source (relance de panier, campagne, agent IA) et dit la part prouvée.
+
+**8. [console] Ouvrir Performance Lab > Quantitatif > Shopify.** Offre Pro : le chiffre d'affaires, ce que vos
+messages ont coûté, et votre ROI, en tout et pour chaque campagne.
+
+**Bon à savoir.** Le chiffre compte les commandes payées dans les 5 jours après un message WhatsApp reçu, attribuées
+au dernier envoi. Il est brut (remboursements non déduits) et compté par devise. La part **prouvée** : le panier
+relancé lui-même payé, ou une visite venue d'un lien WhatsApp ; le reste est une concordance dans le temps. Les
+commandes de test de Shopify sont à part, jamais comptées. Le coût ne compte que ce qui peut amener une vente, jamais
+les confirmations de commande ni les avis d'expédition.
 
 ## Cibler vos clients par leurs commandes
 
-Une fois la boutique branchée, vous ciblez vos clients par leurs commandes payées : combien sur une période, combien
-ils ont dépensé, depuis quand ils n'ont rien commandé. Dans la console, c'est la partie « Achats et activité » des
-filtres des contacts et des destinataires d'une campagne (offre Pro) ; avec Claude Code, il suffit de le demander,
-par exemple « mes clients qui ont commandé au moins 2 fois en 90 jours, en France ». Les commandes comptent depuis le
-branchement de la boutique (pas avant), commandes de test comprises, remboursements non déduits, et seulement celles
-d'un numéro déjà dans vos contacts. Sans boutique Shopify, ces critères n'existent pas : nous ne connaissons une
-commande que parce que Shopify nous l'envoie. Le pays et l'activité, eux, marchent dans tous les espaces.
+Vos clients choisis par leurs commandes payées : combien, pour quel montant, la dernière quand.
+
+**9. [claude] Le demander à Claude Code.** Offre Pro : « mes clients qui ont commandé au moins 2 fois en 90 jours, en
+France », puis « prépare une campagne pour eux ». Il vous montre qui la recevra avant de la lancer.
+
+**9. [console] Filtrer par « Achats et activité ».** Offre Pro : dans le mini-CRM, ouvrez les filtres ; la même partie
+sert aux destinataires d'une campagne. Commandes payées, dépense, dernière commande, sur la période de votre choix.
+
+**Bon à savoir.** Les commandes ne comptent que depuis le branchement de la boutique : l'historique de Shopify n'est
+pas repris, et un client importé arrive sans ses commandes passées. Juste après le branchement, « au moins 2 commandes »
+ne trouve donc personne ; le panneau dit la date du début du suivi. Seules comptent les commandes d'un numéro déjà dans
+vos contacts, commandes de test comprises. Le pays et l'activité, eux, marchent dans tous les espaces, avec ou sans
+boutique.
 
 ## Les règles des envois
 

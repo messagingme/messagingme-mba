@@ -1,7 +1,7 @@
 ---
 description: Connect a Shopify store to WhatsApp: order confirmation, shipping notice with tracking, abandoned checkout reminders. The simplest way: Claude Code.
 slug: connect-my-shopify-store
-traduit_de: 6922cb
+traduit_de: a49d28
 bouton_claude: Connect Shopify from Claude Code, for free
 bouton_console: Connect Shopify in the console
 ---
@@ -93,26 +93,33 @@ can still tie it to your messages.
 
 ## What your sends brought in
 
-In the console (Performance Lab > Quantitative > Shopify, Pro plan) or by asking Claude Code (every plan): the revenue of the
-orders paid within 5 days after a WhatsApp message was received, credited to the last send (a campaign, the checkout
-reminder, a scenario, an AI agent or Meta’s agent). The figure is gross, refunds not deducted, and counted per currency.
-Part of it is **proven**: the reminded checkout itself paid, or a visit that came through your WhatsApp links. The rest
-is a match in time, not a proof. Shopify test orders are shown apart, never counted, and only orders paid since the
-store was connected count.
+The revenue from your orders paid after a WhatsApp message, and what your messages cost.
 
-In the console, the same page also sets what your messages **cost** against it: two cumulative curves over the period,
-and your **ROI as a percentage**, overall and for each campaign. The cost only counts what can bring a sale (campaigns,
-checkout reminders, scenarios, agents), never order confirmations or shipping notices.
+**8. [claude] Ask Claude Code.** From the Free plan: “how much did my WhatsApp sends bring in over the last 30 days?”.
+It answers source by source (checkout reminder, campaign, AI agent) and gives the proven part.
+
+**8. [console] Open Performance Lab > Quantitative > Shopify.** Pro plan: the revenue, what your messages cost, and
+your ROI, overall and for each campaign.
+
+**Good to know.** The figure counts the orders paid within 5 days after a WhatsApp message was received, credited to
+the last send. It is gross (refunds not deducted) and counted per currency. The **proven** part: the reminded checkout
+itself paid, or a visit that came through a WhatsApp link; the rest is a match in time. Shopify test orders are shown
+apart, never counted. The cost only counts what can bring a sale, never order confirmations or shipping notices.
 
 ## Targeting your customers by their orders
 
-Once the store is connected, you target your customers by their paid orders: how many over a period, how much they
-spent, how long since they last ordered. In the console, it is the “Purchases and activity” part of the filters of the
-contacts and of a campaign’s recipients (Pro plan); with Claude Code, just ask, for example “my customers who ordered
-at least twice in 90 days, in France”. Orders count from the moment the store was connected (not before), test orders
-included, refunds not deducted, and only those from a number already in your contacts. Without a Shopify store, these
-criteria do not exist: we only know about an order because Shopify sends it to us. Country and activity, on the other
-hand, work in every workspace.
+Your customers picked by their paid orders: how many, for how much, the last one when.
+
+**9. [claude] Ask Claude Code.** Pro plan: “my customers who ordered at least twice in 90 days, in France”, then
+“prepare a campaign for them”. It shows you who will receive it before launching it.
+
+**9. [console] Filter by “Purchases and activity”.** Pro plan: in the mini-CRM, open the filters; the same part serves a
+campaign’s recipients. Paid orders, spend, last order, over the period you choose.
+
+**Good to know.** Orders only count from the moment the store was connected: Shopify’s history is not taken over, and
+an imported customer arrives without their past orders. Right after connecting, “at least 2 orders” therefore finds
+nobody; the panel gives the date tracking started. Only orders from a number already in your contacts count, test
+orders included. Country and activity work in every workspace, with or without a store.
 
 ## The sending rules
 
