@@ -4,6 +4,18 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : brancher sa boutique Shopify depuis Claude Code, une page à part de la fiche console
+
+La rubrique « Démarrer avec Claude Code » n'avait aucun mode opératoire Shopify, alors que c'est le cœur de l'offre
+Free : la fiche « Brancher ma boutique Shopify » n'était rangée que côté console, sa partie Claude Code tenait en un
+paragraphe. Julien a rappelé la règle de départ : une fiche par voie. Livré en `4a24e3be` : une page de
+`scripts/vitrine/aide-claude-textes.ts` (`/developpeurs/brancher-sa-boutique-shopify/`, rang 6 de la rubrique, film
+`cas-shopify`), neuf étapes qui reprennent les éléments de la fiche console. Le ciblage par commandes passe par
+`find_contacts`, fermé en Free : l'étape dit « Avec l'offre Pro » et ne cite pas l'outil, plutôt que de marquer toute
+la page Pro (le test exige la mention Pro de PAGE dès qu'un outil cité est fermé). La session console a poussé sa
+fiche pendant le lot (`ad63080d`) : fusion par `merge-tree`, puis les pages régénérées sur l'arbre fusionné, sans
+aucun écart ; elle a ensuite retiré sa partie Claude Code (`c0f8f3fb`).
+
 ## 2026-11-16 : les étapes de Codex sur la page Développeurs, et `/messagingme:demarrer` à l'étape 3 du tunnel
 
 Demande de Julien (« une ligne claude code et ligne codex », puis « /messagingme:demarrer avant le texte à copier

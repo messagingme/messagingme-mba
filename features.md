@@ -2393,12 +2393,11 @@ scénario, comment importer des contacts.
   la fenêtre de Meta et sa vérification par appel, l'état du numéro.
 - ✅ **Le centre d'aide** (`app.messagingme.fr/aide/`, en anglais `/en/help/`, depuis le 2026-10-21) : un mode
   opératoire par geste, pas à pas. Démarrer, en deux rubriques depuis le 2026-11-10 : avec Claude Code ou Codex
-  (installer le plugin, connecter son numéro depuis Claude, ce qu'il faut chez Meta, le guide, garder son application, payer
+  (installer le plugin, connecter son numéro depuis Claude, ce qu'il faut chez Meta, brancher sa boutique Shopify depuis Claude, le guide, garder son application, payer
   Meta, les modèles WhatsApp, le dépannage) et avec la console (choisir son offre, ce qu'il faut chez Meta, connecter son numéro, payer ses
   messages sans carte chez Meta (la ligne de crédit), le guide, garder son application, se repérer dans la console, relier HubSpot, brancher sa boutique, payer Meta, le dépannage). Parler aux clients : répondre
   dans l'Inbox, la fenêtre de 24 heures, faire approuver un modèle, importer ses contacts, lancer une campagne,
-  brancher sa boutique Shopify (depuis le 2026-10-24 : le chemin de la console, et sa dernière section dit celui de
-  Claude Code), poser une bulle WhatsApp sur son site, publier sur sa chaîne, envoyer un message RCS, construire un
+  brancher sa boutique Shopify (le chemin de la console ; celui de Claude Code a sa page à part depuis le 2026-11-16), poser une bulle WhatsApp sur son site, publier sur sa chaîne, envoyer un message RCS, construire un
   agent IA, régler le Meta Business Agent, lancer une publicité Click-to-WhatsApp.
   - Chaque étape a sa **capture de la vraie console** (avec des données inventées), qui s'ouvre en grand d'un clic ;
     la suite de l'étape se déplie sous « En détail ». Les sept fiches publiées le 2026-10-26 (HubSpot, bulle, chaîne,
@@ -2412,6 +2411,9 @@ scénario, comment importer des contacts.
     pas les boutons de la console, une page ouverte depuis « Démarrer avec la console » ne montre pas la phrase à dire à
     Claude ; le fil d'Ariane et le menu suivent la section, et ce choix suit d'une page d'aide à l'autre. Arrivée
     d'ailleurs (un moteur de recherche, un lien partagé), la page montre les deux chemins.
+  - **Une fiche par voie** (2026-11-16) : un geste qui se fait depuis la console ET depuis Claude Code a deux pages, chacune
+    avec ses propres étapes (captures de la console d'un côté, phrases à dire à Claude de l'autre), jamais une fiche qui
+    alterne les deux. Premier cas : Shopify, en neuf étapes côté Claude Code.
   - **Toutes les pages ont la même forme** (2026-11-11) : la tête (titre et chapeau) en pleine largeur, puis le menu à
     gauche et la page sur fond clair, le guide du numéro et le dépannage compris.
   - **Les mêmes textes que l'aide de la console** : une page est une fiche du mode d'emploi publiée, corriger l'une
