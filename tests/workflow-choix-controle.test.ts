@@ -87,6 +87,44 @@ describe('walk : ce qui bloque le parcours selon que MBA est allumé', () => {
     expect(walk(vide, 'n1', undefined, { mbaActif: true }).actions.map((a) => a.nodeId)).toEqual(['autre']);
   });
 
+  it('🔴 MBA allumé : un message rapide SANS TEXTE traversé ne suit jamais la flèche d’un de ses boutons', () => {
+    // Vécu le 2026-11-16 : « Suite » (photo et boutons, sans texte) n'est pas parti, et le parcours a suivi sa 1re arête,
+    // celle du bouton « J'en profite », donc envoyé « Code promo » comme si le contact avait tapé un bouton jamais reçu.
+    const vide: WorkflowGraph = {
+      nodes: [
+        noeud('n1', 'quick_message', { body: '', imageUrl: 'https://exemple.fr/a.png', quickReplies: ["J'en profite"] }),
+        noeud('promo', 'tag', { tag: 'promo' }),
+        noeud('autre', 'tag', { tag: 'autre' }),
+      ],
+      edges: [{ id: 'e1', source: 'n1', target: 'promo', sourceHandle: 'btn:0' }, { id: 'e2', source: 'n1', target: 'autre' }],
+    };
+    expect(walk(vide, 'n1', undefined, { mbaActif: true }).actions.map((a) => a.nodeId)).toEqual(['autre']);
+    // Sans « Toute autre réponse » reliée, le parcours s'arrête là.
+    const seul: WorkflowGraph = { nodes: vide.nodes, edges: vide.edges.filter((e) => e.sourceHandle === 'btn:0') };
+    expect(walk(seul, 'n1', undefined, { mbaActif: true })).toEqual({ actions: [], rest: { status: 'done' } });
+  });
+
+  it('🔴 MBA allumé : un template SANS modèle choisi traversé ne suit jamais la flèche d’un de ses boutons', () => {
+    const vide: WorkflowGraph = {
+      nodes: [noeud('n1', 'template', {}), noeud('oui', 'tag', { tag: 'oui' })],
+      edges: [{ id: 'e1', source: 'n1', target: 'oui', sourceHandle: 'btn:0' }],
+    };
+    expect(walk(vide, 'n1', undefined, { mbaActif: true })).toEqual({ actions: [], rest: { status: 'done' } });
+  });
+
+  it('🔴 une question SANS TEXTE traversée ne suit jamais une ligne de son menu ni son délai, MBA ou non', () => {
+    const vide: WorkflowGraph = {
+      nodes: [noeud('n1', 'question', { body: '', rows: [{ title: 'Oui' }] }), noeud('oui', 'tag', { tag: 'oui' }), noeud('libre', 'tag', { tag: 'libre' })],
+      edges: [
+        { id: 'e1', source: 'n1', target: 'oui', sourceHandle: 'row:0' },
+        { id: 'e2', source: 'n1', target: 'oui', sourceHandle: 'timeout' },
+        { id: 'e3', source: 'n1', target: 'libre' },
+      ],
+    };
+    expect(walk(vide, 'n1').actions.map((a) => a.nodeId)).toEqual(['libre']);
+    expect(walk(vide, 'n1', undefined, { mbaActif: true }).actions.map((a) => a.nodeId)).toEqual(['libre']);
+  });
+
   it('un message rapide sans bouton continue dans les DEUX cas (règle historique inchangée)', () => {
     const rapide = graphe(
       [noeud('n1', 'quick_message', { body: 'coucou', quickReplies: [] }), noeud('n2', 'tag', { tag: 'vu' })],

@@ -399,7 +399,7 @@ function explorerLesAttentes(graph: WorkflowGraph): { premierMontage: WaitThenSe
       // Configurée, elle bloque (elle attend une réponse) : l'analyse s'arrête là. Non configurée, elle est un
       // passe-plat : on explore au-delà.
       if (a) continue;
-      const apres = nextNode(graph, id);
+      const apres = nextNodeSansHandle(graph, id); // comme `walk`
       if (apres) pile.push({ id: apres, cumul, dernierWait });
       continue;
     }
@@ -1056,8 +1056,9 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
       const a = actionOf(node, work);
       if (!a) {
         // Question sans texte : attendre une réponse à une question jamais posée figerait le parcours. Passe-plat,
-        // comme un bloc Attente sans durée (alors que `quick_message` non configuré bloque, par historique).
-        current = nextNode(graph, current);
+        // comme un bloc Attente sans durée (alors que `quick_message` non configuré bloque, par historique). Par l'arête
+        // libre seulement : la 1re arête venue peut être `row:<i>` ou `timeout`, une issue d'une question jamais posée.
+        current = nextNodeSansHandle(graph, current);
         continue;
       }
       actions.push({ nodeId: current, action: a });
@@ -1073,8 +1074,10 @@ export function walk(graph: WorkflowGraph, startNodeId: string, ctx?: EvalContex
       const continuer = !etapeOffreUnChoix(a) && (opts?.mbaActif === true || a?.kind === 'sendQuickMessage');
       if (continuer) {
         // Un formulaire traversé n'a rien envoyé, donc rien n'a pu être rempli : « Toute autre réponse » (l'arête
-        // libre), jamais la 1re arête venue, qui peut être « Formulaire rempli ».
-        current = node.type === 'flow' ? nextNodeSansHandle(graph, current) : nextNode(graph, current);
+        // libre), jamais la 1re arête venue, qui peut être « Formulaire rempli ». Même règle pour tout bloc qui n'a rien
+        // envoyé (message rapide sans texte, template sans modèle) : la 1re arête peut être celle d'un bouton que le
+        // contact n'a jamais reçu (vécu le 2026-11-16, « Code promo » parti sans « Suite »).
+        current = node.type === 'flow' || a === null ? nextNodeSansHandle(graph, current) : nextNode(graph, current);
         continue;
       }
       // « Puis, sans attendre » (2026-11-10) : la suite d'un message rapide à boutons part avec lui, ses actions à la
