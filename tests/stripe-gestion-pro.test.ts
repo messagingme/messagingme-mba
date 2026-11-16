@@ -47,6 +47,7 @@ function monter(o: { reponses?: Array<ReponseStripe | Error>; stripe?: null; pay
     proVivant: async () => (o.pro === null ? null : { abonnementId: 'sub_1' }),
     noterFinPrevue: async (abonnementId, finPrevueLe) => { notes.push({ abonnementId, finPrevueLe }); },
     prixSiege: ['price_siege_mois', 'price_siege_an'],
+    prixAchats: { creditIa: ['price_refill_50'], ligneCredit: ['price_wa_100'] },
   };
   return { d, transport, notes };
 }
@@ -160,6 +161,26 @@ describe('facturesDeLEspace', () => {
       // Une adresse qui n'est pas `https` n'est jamais rendue : l'écran y enverrait un onglet.
       expect.objectContaining({ id: 'in_4', statut: 'impayee', urlPage: null, urlPdf: null }),
     ] } });
+  });
+
+  // Onglet Facturation (2026-11-16) : chaque achat porte un objet que l'écran nomme, au lieu du seul libellé de Stripe.
+  it('🔴 l’option ligne de crédit par ses métadonnées, les recharges par le prix de leur ligne, le reste en autre', async () => {
+    const ligne = (prix: unknown) => ({ data: [{ description: 'Ligne Stripe', pricing: { price_details: { price: prix } } }] });
+    const { d } = monter({ reponses: [{ status: 200, json: { has_more: false, data: [
+      facture({ id: 'in_opt', parent: { subscription_details: { metadata: { produit: 'option_credit_whatsapp' } } } }),
+      facture({ id: 'in_wa', parent: null, lines: ligne('price_wa_100') }),
+      facture({ id: 'in_ia', parent: null, lines: ligne({ id: 'price_refill_50' }) }),
+      facture({ id: 'in_inconnu', parent: null, lines: ligne('price_autre') }),
+      facture({ id: 'in_sans_prix', parent: null }),
+    ] } }] });
+    const r = await facturesDeLEspace(d, 't1', 'u1');
+    expect(r.ok && r.valeur.factures.map((f) => [f.id, f.objet, f.libelle])).toEqual([
+      ['in_opt', 'option_ligne_credit', '1 × Messaging Me Pro'],
+      ['in_wa', 'recharge_ligne_credit', 'Ligne Stripe'],
+      ['in_ia', 'recharge_credit_ia', 'Ligne Stripe'],
+      ['in_inconnu', 'autre', 'Ligne Stripe'],
+      ['in_sans_prix', 'autre', '1 × Messaging Me Pro'],
+    ]);
   });
 
   it('🔴 un brouillon, un statut inconnu, une facture illisible ou d’un autre client sont écartés, sans cacher les autres', async () => {

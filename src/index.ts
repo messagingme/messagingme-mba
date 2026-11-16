@@ -1329,6 +1329,13 @@ async function main(): Promise<void> {
     },
     // Les prix d'un siège, pour séparer le Pro de ses sièges dans son tarif réel.
     prixSiege: [config.STRIPE_PRIX_SIEGE_MOIS, config.STRIPE_PRIX_SIEGE_AN].filter((p) => p !== ''),
+    // Les prix des achats ponctuels, pour nommer leurs factures (onglet Facturation, 2026-11-16).
+    prixAchats: {
+      creditIa: [config.STRIPE_PRIX_REFILL_5, config.STRIPE_PRIX_REFILL_10, config.STRIPE_PRIX_REFILL_50, config.STRIPE_PRIX_REFILL_100]
+        .filter((p) => p !== ''),
+      ligneCredit: [config.STRIPE_PRIX_WA_50, config.STRIPE_PRIX_WA_100, config.STRIPE_PRIX_WA_250, config.STRIPE_PRIX_WA_500]
+        .filter((p) => p !== ''),
+    },
   };
   /**
    * Démarrer la formule Pro avant la fin de l'essai (révision du Crédit WhatsApp, 2026-11-04, décision 6) : la gestion du

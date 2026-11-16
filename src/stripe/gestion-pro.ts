@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { changerFinAbonnement, LECTURE_AVANT_ENVOI, lireAbonnementStripe, listerFacturesStripe, StripeError, terminerEssaiStripe } from './client';
 import type { DepsPaiement } from './paiement';
+import { PRODUIT_OPTION_WA } from './option-credit-whatsapp';
 import { journaliser } from '../lib/journal';
 import { refus, type Issue } from '../lib/issue';
 import type { VerrousCourts } from '../db/verrous-courts';
@@ -23,6 +24,11 @@ export type DepsGestionPro = Pick<DepsPaiement, 'stripe' | 'payeurAutorise'> & {
   noterFinPrevue(abonnementId: string, finPrevueLe: Date | null): Promise<void>;
   /** Les identifiants Stripe des prix d'un siège (`STRIPE_PRIX_SIEGE_MOIS`, `_AN`) : le tarif sépare le Pro de ses sièges. */
   prixSiege: readonly string[];
+  /**
+   * Les identifiants Stripe des prix des achats PONCTUELS (`STRIPE_PRIX_REFILL_*`, `STRIPE_PRIX_WA_*`) : leur facture ne porte
+   * pas d'abonnement, c'est le prix de sa ligne qui dit si elle recharge le crédit IA ou la ligne de crédit.
+   */
+  prixAchats: { creditIa: readonly string[]; ligneCredit: readonly string[] };
 };
 
 /** Ce que le démarrage de la formule Pro avant la fin de son essai lit et écrit (révision du 2026-11-04, décision 6). */
@@ -232,7 +238,12 @@ const PAS_EN_ESSAI = refus(409, 'Votre formule Pro est déjà payée.', { code: 
 /** Combien de factures la console montre, les plus récentes : les autres restent sur le portail de Stripe. */
 export const FACTURES_MONTREES = 24;
 
-export type ObjetFacture = 'pro' | 'numero' | 'autre';
+/**
+ * Ce qu'une facture vend (2026-11-16, onglet Facturation) : un abonnement (Pro, numéro, option ligne de crédit) se lit sur ses
+ * métadonnées, un achat ponctuel (recharge du crédit IA ou de la ligne de crédit) sur le prix de sa ligne. `autre` : rien de
+ * reconnu, l'écran garde le libellé de Stripe.
+ */
+export type ObjetFacture = 'pro' | 'numero' | 'option_ligne_credit' | 'recharge_ligne_credit' | 'recharge_credit_ia' | 'autre';
 export type StatutFacture = 'payee' | 'a_regler' | 'impayee' | 'annulee';
 
 export interface FactureEspace {
@@ -252,6 +263,14 @@ export interface FactureEspace {
 
 const STATUTS: Readonly<Record<string, StatutFacture>> = { paid: 'payee', open: 'a_regler', uncollectible: 'impayee', void: 'annulee' };
 
+function objetDe(prix: DepsGestionPro['prixAchats'], produit: string | null, prixLigne: string | null): ObjetFacture {
+  if (produit === 'pro' || produit === 'numero') return produit;
+  if (produit === PRODUIT_OPTION_WA) return 'option_ligne_credit';
+  if (prixLigne !== null && prix.ligneCredit.includes(prixLigne)) return 'recharge_ligne_credit';
+  if (prixLigne !== null && prix.creditIa.includes(prixLigne)) return 'recharge_credit_ia';
+  return 'autre';
+}
+
 /**
  * LES FACTURES DE L'ESPACE, Pro, numéro et recharges, les plus récentes d'abord. Les brouillons sont écartés (Stripe ne
  * les a pas encore émises), comme un statut inconnu. Sans client Stripe (l'espace n'a jamais payé) : une liste vide.
@@ -270,7 +289,7 @@ export async function facturesDeLEspace(
     const factures = r.factures.flatMap((f): FactureEspace[] => {
       const statut = f.statut === null ? undefined : STATUTS[f.statut];
       if (statut === undefined) return [];
-      const objet: ObjetFacture = f.produit === 'pro' || f.produit === 'numero' ? f.produit : 'autre';
+      const objet = objetDe(d.prixAchats, f.produit, f.prix);
       return [{
         id: f.id, numero: f.numero, le: f.creeLe.toISOString(), objet, libelle: f.libelle, totalCentimes: f.totalCentimes,
         devise: f.devise, statut, urlPage: f.urlPage, urlPdf: f.urlPdf,

@@ -56,9 +56,14 @@ export function FacturesEspace({ tenantId }: { tenantId: string }) {
       return `${(f.totalCentimes / 100).toLocaleString(fr)} ${f.devise.toUpperCase()}`;
     }
   };
-  const objet = (f: FactureEspace): string => (f.objet === 'pro'
-    ? t('Abonnement Pro', 'Pro subscription')
-    : f.objet === 'numero' ? t('Numéro WhatsApp', 'WhatsApp number') : (f.libelle ?? t('Facture', 'Invoice')));
+  const OBJETS: Record<Exclude<FactureEspace['objet'], 'autre'>, string> = {
+    pro: t('Abonnement Pro', 'Pro subscription'),
+    numero: t('Numéro WhatsApp', 'WhatsApp number'),
+    option_ligne_credit: t('Option ligne de crédit', 'Credit line option'),
+    recharge_ligne_credit: t('Recharge de la ligne de crédit', 'Credit line top-up'),
+    recharge_credit_ia: t('Recharge du crédit IA', 'AI credit top-up'),
+  };
+  const objet = (f: FactureEspace): string => (f.objet === 'autre' ? (f.libelle ?? t('Facture', 'Invoice')) : OBJETS[f.objet]);
   const STATUTS: Record<StatutFacture, { libelle: string; classes: string }> = {
     payee: { libelle: t('Payée', 'Paid'), classes: 'bg-succes-50 text-succes-700' },
     a_regler: { libelle: t('À régler', 'Due'), classes: 'bg-alerte-50 text-alerte-700' },
@@ -71,8 +76,8 @@ export function FacturesEspace({ tenantId }: { tenantId: string }) {
     <section className="rounded-carte border border-ink-200 bg-white p-5" data-testid="offre-factures">
       <h2 className="text-sm font-semibold text-ink-900">{t('Vos factures', 'Your invoices')}</h2>
       <p className="mt-1 text-xs text-ink-500">
-        {t('Abonnement, numéro et recharges du crédit IA, montants TTC. Chaque facture s’ouvre sur la page de Stripe, avec son PDF.',
-          'Subscription, number and AI credit top-ups, amounts incl. VAT. Each invoice opens on Stripe’s page, with its PDF.')}
+        {t('Abonnement, numéro, ligne de crédit et crédit IA, montants TTC. Chaque facture s’ouvre sur la page de Stripe, avec son PDF.',
+          'Subscription, number, credit line and AI credit, amounts incl. VAT. Each invoice opens on Stripe’s page, with its PDF.')}
       </p>
       {etat === undefined && <Squelette forme="carte" className="mt-3" />}
       {etat && etat.factures.length === 0 && (

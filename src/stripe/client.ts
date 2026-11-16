@@ -466,7 +466,13 @@ const factureListeeSchema = z.object({
   parent: z.object({
     subscription_details: z.object({ metadata: z.record(z.string(), z.string()).nullable().optional() }).nullable().optional(),
   }).nullable().optional(),
-  lines: z.object({ data: z.array(z.object({ description: z.string().nullable().optional() })) }).optional(),
+  lines: z.object({ data: z.array(z.object({
+    description: z.string().nullable().optional(),
+    // Le prix de la ligne (version `clover` : `pricing.price_details.price`, un identifiant ou l'objet développé).
+    pricing: z.object({
+      price_details: z.object({ price: z.union([z.string(), z.object({ id: z.string() })]).nullable().optional() }).nullable().optional(),
+    }).nullable().optional(),
+  })) }).optional(),
 });
 const listeFacturesSchema = z.object({ data: z.array(z.unknown()), has_more: z.boolean() });
 
@@ -485,7 +491,11 @@ export interface FactureStripe {
   produit: string | null;
   /** Le libellé de sa première ligne, tel que la facture le porte. */
   libelle: string | null;
+  /** L'identifiant Stripe du prix de sa première ligne (`price_…`), `null` sans prix : il dit ce qu'un achat ponctuel a vendu. */
+  prix: string | null;
 }
+
+const prixDeLigne = (p: string | { id: string } | null | undefined): string | null => (p == null ? null : typeof p === 'string' ? p : p.id);
 
 const https = (u: string | null | undefined): string | null => (typeof u === 'string' && u.startsWith('https://') ? u : null);
 
@@ -514,6 +524,7 @@ export async function listerFacturesStripe(transport: TransportStripe, o: { cle:
       totalCentimes: f.total, devise: f.currency, urlPage: https(f.hosted_invoice_url), urlPdf: https(f.invoice_pdf),
       produit: f.parent?.subscription_details?.metadata?.produit ?? null,
       libelle: f.lines?.data[0]?.description ?? null,
+      prix: prixDeLigne(f.lines?.data[0]?.pricing?.price_details?.price),
     });
   }
   return { factures, ecartees, plus: r.has_more };

@@ -66,13 +66,16 @@ export async function demarrerPro(tenantId: string): Promise<{ paye: boolean }> 
 }
 
 export type StatutFacture = 'payee' | 'a_regler' | 'impayee' | 'annulee';
+/** Ce que la facture vend ; une valeur inconnue (API plus récente) se lit `autre`, avec le libellé de Stripe. */
+export type ObjetFacture = 'pro' | 'numero' | 'option_ligne_credit' | 'recharge_ligne_credit' | 'recharge_credit_ia' | 'autre';
+const OBJETS_FACTURE: readonly string[] = ['pro', 'numero', 'option_ligne_credit', 'recharge_ligne_credit', 'recharge_credit_ia'];
 
 /** Une facture de l'espace, telle que le serveur la rend (`src/stripe/gestion-pro.ts`). Les adresses sont `https`. */
 export interface FactureEspace {
   id: string;
   numero: string | null;
   le: string;
-  objet: 'pro' | 'numero' | 'autre';
+  objet: ObjetFacture;
   libelle: string | null;
   totalCentimes: number;
   devise: string;
@@ -103,7 +106,7 @@ export async function lireFactures(tenantId: string): Promise<{ factures: Factur
     const o = f as Record<string, unknown>;
     if (typeof o.id !== 'string' || typeof o.le !== 'string' || typeof o.totalCentimes !== 'number' || typeof o.devise !== 'string') return [];
     if (typeof o.statut !== 'string' || !STATUTS_FACTURE.includes(o.statut)) return [];
-    const objet = o.objet === 'pro' || o.objet === 'numero' ? o.objet : 'autre';
+    const objet = typeof o.objet === 'string' && OBJETS_FACTURE.includes(o.objet) ? o.objet as ObjetFacture : 'autre';
     return [{
       id: o.id, numero: typeof o.numero === 'string' ? o.numero : null, le: o.le, objet,
       libelle: typeof o.libelle === 'string' ? o.libelle : null, totalCentimes: o.totalCentimes, devise: o.devise,
