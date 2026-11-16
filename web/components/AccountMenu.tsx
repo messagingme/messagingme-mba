@@ -19,9 +19,9 @@ function initials(email: string): string {
   return s.toUpperCase();
 }
 
-/** Le libellé d'un rôle. Un manager n'est pas un agent : il affecte les conversations et lit la conformité. */
+/** Le libellé d'un rôle, court (« Admin ») pour laisser la place au nom de l'espace. Un manager n'est pas un agent : il affecte les conversations et lit la conformité. */
 function libelleRole(role: string, t: (fr: string, en: string) => string): string {
-  if (role === 'admin') return t('Administrateur', 'Administrator');
+  if (role === 'admin') return t('Admin', 'Admin');
   if (role === 'manager') return t('Manager', 'Manager');
   if (role === 'agent') return t('Agent', 'Agent');
   return role;
@@ -133,12 +133,12 @@ export function AccountMenu({ session, onLogout }: { session: Session; onLogout:
         aria-expanded={open}
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">{initials(session.email)}</span>
-        <span className="hidden max-w-[160px] truncate sm:inline">{session.email}</span>
+        <span className="hidden max-w-[192px] truncate sm:inline">{session.email}</span>
         <Icone nom="deplier" taille="petite" className={`text-ink-400 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-40 mt-2 w-56 overflow-hidden rounded-carte border border-ink-200 bg-white py-1 shadow-mm-md" role="menu">
+        <div className="absolute right-0 z-40 mt-2 w-[270px] overflow-hidden rounded-carte border border-ink-200 bg-white py-1 shadow-mm-md" role="menu">
           <div className="border-b border-ink-100 px-3 py-2">
             <div className="truncate text-sm font-medium text-ink-900">{session.email}</div>
             {actuel && <div className="truncate text-xs text-ink-700" data-testid="menu-espace-actuel">{actuel.tenantName}</div>}
@@ -202,7 +202,8 @@ export function AccountMenu({ session, onLogout }: { session: Session; onLogout:
                   onClick={() => void basculer(e.tenantId)}
                   disabled={bascule !== null}
                   data-testid={`menu-espace-${e.tenantId}`}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-ink-900 hover:bg-ink-50 disabled:cursor-wait disabled:opacity-60"
+                  title={e.tenantName}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-ink-900 transition-colors duration-150 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-wait disabled:opacity-60"
                 >
                   <span className="truncate">{e.tenantName}</span>
                   <span className="shrink-0 text-xs text-ink-500">{bascule === e.tenantId ? t('Ouverture…', 'Opening…') : libelleRole(e.role, t)}</span>
