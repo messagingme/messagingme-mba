@@ -375,7 +375,9 @@ export function registerPubs(app: FastifyInstance, deps: PubsRouteDeps, garde: G
       }
       // Le code a 30 secondes de vie et ne sert qu'une fois : l'échec le plus courant est un client qui a
       // laissé la fenêtre ouverte. On rend le message de Meta, c'est son compte, et lui seul peut agir.
-      return reply.code(502).send({ error: err instanceof Error ? err.message : 'échange refusé par Meta' });
+      // 🔴 Par `repondreEchec`, donc en 422 : en 502, Cloudflare remplaçait la réponse par sa page, sans nos en-têtes
+      // CORS, et l'écran n'affichait que « Failed to fetch » (essai du 2026-11-16, connexion de la SANDBOX).
+      return repondreEchec(reply, err, 'échange du code de connexion', tenantId);
     }
     await journal(tenantId, req, 'pubs.connectee', { kind: 'pub_connexion', id: tenantId },
       { comptes: actifs.comptesPub.length, pages: actifs.pages.length });
@@ -397,10 +399,9 @@ export function registerPubs(app: FastifyInstance, deps: PubsRouteDeps, garde: G
     try {
       actifs = await deps.actifsAccordes(tenantId);
     } catch (err) {
-      // Un espace non connecté n'est pas une panne de Meta : le 502 l'aurait fait chercher du côté d'une
-      // panne, quand il lui suffit de se connecter.
-      if (err instanceof PasDeConnexionPub) return reply.code(409).send({ error: err.message, code: 'pas_connecte' });
-      return reply.code(502).send({ error: err instanceof Error ? err.message : 'Meta ne répond pas' });
+      // Un espace non connecté n'est pas une panne de Meta (409, dans `repondreEchec`) : le 502 l'aurait fait
+      // chercher du côté d'une panne, quand il lui suffit de se connecter.
+      return repondreEchec(reply, err, 'lecture des actifs accordés', tenantId);
     }
     // `act_123` et `123` désignent le même compte : un appelant qui recopie l'identifiant vu dans le
     // Gestionnaire de publicités enverrait la forme préfixée. On compare, et on enregistre, la forme nue.
@@ -418,8 +419,7 @@ export function registerPubs(app: FastifyInstance, deps: PubsRouteDeps, garde: G
     } catch (err) {
       // Même cas que plus haut : `choisir` lit le jeton lui aussi, et un autre onglet peut déconnecter pendant le
       // choix.
-      if (err instanceof PasDeConnexionPub) return reply.code(409).send({ error: err.message, code: 'pas_connecte' });
-      return reply.code(502).send({ error: err instanceof Error ? err.message : 'Meta ne répond pas' });
+      return repondreEchec(reply, err, 'choix du compte et de la Page', tenantId);
     }
     await journal(tenantId, req, 'pubs.actifs_choisis', { kind: 'pub_connexion', id: tenantId },
       { comptePubId: connexion.comptePubId, pageId: connexion.pageId, pageLiee: connexion.pageLiee });
@@ -737,8 +737,7 @@ export function registerPubs(app: FastifyInstance, deps: PubsRouteDeps, garde: G
       // Un refus n'est pas une panne de Meta : 409, et le message dit ce qu'il faut réparer. Un 502 enverrait le
       // client chercher un problème chez Meta, qui n'a même pas été appelé.
       if (err instanceof PublicationRefusee) return reply.code(409).send({ error: err.message, code: 'publication_refusee' });
-      if (err instanceof PasDeConnexionPub) return reply.code(409).send({ error: err.message, code: 'pas_connecte' });
-      return reply.code(502).send({ error: err instanceof Error ? err.message : 'Meta ne répond pas' });
+      return repondreEchec(reply, err, 'publication', tenantId);
     }
     await journal(tenantId, req, 'pubs.publiee', { kind: 'publicite', id }, {});
     return reply.send({ ok: true });
@@ -772,8 +771,8 @@ export function registerPubs(app: FastifyInstance, deps: PubsRouteDeps, garde: G
       try {
         await deps.basculerPub(tenantId, id, actif);
       } catch (err) {
-        if (err instanceof PasDeConnexionPub) return reply.code(409).send({ error: err.message, code: 'pas_connecte' });
-        return reply.code(502).send({ error: err instanceof Error ? err.message : 'Meta ne répond pas' });
+        // Un refus de Meta en 422, lisible : c'est le bouton d'arrêt d'une dépense, son refus doit arriver à l'écran.
+        return repondreEchec(reply, err, actif ? 'reprise' : 'mise en pause', tenantId);
       }
       await journal(tenantId, req, action, { kind: 'publicite', id }, {});
       return reply.send({ ok: true });

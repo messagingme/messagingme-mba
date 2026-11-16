@@ -8,6 +8,7 @@ import type { ConnexionPub } from '../src/pubs/connexion.pg';
 import type { ActifsAccordes } from '../src/meta/pubs';
 import { aucunePubDeRoute } from './pubs-fixtures';
 import { BOUTONS_PUB } from '../src/meta/pubs-payloads';
+import { ErreurGraph } from '../src/meta/graph';
 
 /**
  * LES ROUTES DE CRÉATION ET DE PUBLICATION D'UNE PUBLICITÉ (lot 3, commit 2).
@@ -266,11 +267,19 @@ describe('POST /pubs/:id/publier', () => {
     expect((await srv.inject({ method: 'POST', url: urlPubs('/pub-1/publier') })).statusCode).toBe(403);
   });
 
-  it('🔴 Meta refuse : 502, et RIEN n’est journalisé comme publié', async () => {
-    const { srv, traces } = app({ publierPub: async () => { throw new Error('compte suspendu'); } });
+  it('🔴 Meta refuse : 422 avec son message, et RIEN n’est journalisé comme publié', async () => {
+    const { srv, traces } = app({ publierPub: async () => { throw new ErreurGraph(400, 1487, 'Graph 400 (#1487) : compte suspendu'); } });
+    const res = await srv.inject({ method: 'POST', url: urlPubs('/pub-1/publier') });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toContain('compte suspendu');
+    expect(traces.audit).toEqual([]);
+  });
+
+  it('🔴 une panne à la publication : 502 opaque, et RIEN n’est journalisé comme publié', async () => {
+    const { srv, traces } = app({ publierPub: async () => { throw new Error('délai dépassé vers graph.facebook.com'); } });
     const res = await srv.inject({ method: 'POST', url: urlPubs('/pub-1/publier') });
     expect(res.statusCode).toBe(502);
-    expect(res.json().error).toBe('compte suspendu');
+    expect(res.json().code).toBe('panne');
     expect(traces.audit).toEqual([]);
   });
 
@@ -335,11 +344,19 @@ describe('la pause et la reprise', () => {
     expect((await srv.inject({ method: 'POST', url: '/tenants/t-voisin/pubs/pub-1/pause' })).statusCode).toBe(403);
   });
 
-  it('Meta refuse : 502 avec son message, et rien au journal', async () => {
-    const { srv, traces } = app({ basculerPub: async () => { throw new Error('campagne supprimée'); } });
+  it('🔴 Meta refuse la pause : 422 avec son message, et rien au journal', async () => {
+    const { srv, traces } = app({ basculerPub: async () => { throw new ErreurGraph(400, 100, 'Graph 400 (#100) : campagne supprimée'); } });
+    const res = await srv.inject({ method: 'POST', url: urlPubs('/pub-1/pause') });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toContain('campagne supprimée');
+    expect(traces.audit).toEqual([]);
+  });
+
+  it('une panne à la pause : 502 opaque, et rien au journal', async () => {
+    const { srv, traces } = app({ basculerPub: async () => { throw new Error('réseau coupé'); } });
     const res = await srv.inject({ method: 'POST', url: urlPubs('/pub-1/pause') });
     expect(res.statusCode).toBe(502);
-    expect(res.json().error).toBe('campagne supprimée');
+    expect(res.json().code).toBe('panne');
     expect(traces.audit).toEqual([]);
   });
 

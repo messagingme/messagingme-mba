@@ -6,6 +6,7 @@ import { monterAvecEtapeEspace } from '../src/http/scope';
 import type { ConnexionPub } from '../src/pubs/connexion.pg';
 import type { ActifsAccordes } from '../src/meta/pubs';
 import { aucunePubDeRoute } from './pubs-fixtures';
+import { ErreurGraph } from '../src/meta/graph';
 
 /**
  * LES ROUTES DE LA CONNEXION PUBLICITAIRE (lot 2 « Connecter »).
@@ -136,11 +137,22 @@ describe('POST /echange : le code rendu par la fenêtre Meta', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('un refus de Meta rend 502 avec SON message, parce que le client seul peut agir sur son compte', async () => {
-    const { srv } = app({ connecter: async () => { throw new Error('Graph 400 (#100) : code expiré'); } });
+  it('🔴 un refus de Meta rend 422 avec SON message, parce que le client seul peut agir sur son compte', async () => {
+    // 422 et pas 502 : Cloudflare remplace la réponse d'un 5xx par sa page, sans nos en-têtes CORS, et l'écran
+    // n'affichait que « Failed to fetch » (essai du 2026-11-16).
+    const { srv } = app({ connecter: async () => { throw new ErreurGraph(400, 100, 'Graph 400 (#100) : code expiré'); } });
     const res = await srv.inject({ method: 'POST', url: url('/echange'), payload: { code: 'VIEUX' } });
-    expect(res.statusCode).toBe(502);
+    expect(res.statusCode).toBe(422);
     expect(res.json().error).toContain('code expiré');
+    expect(res.json().code).toBe('refus_meta');
+  });
+
+  it('🔴 une PANNE à l échange reste en 502, et son message interne ne sort pas', async () => {
+    const { srv } = app({ connecter: async () => { throw new Error('connexion à la base perdue'); } });
+    const res = await srv.inject({ method: 'POST', url: url('/echange'), payload: { code: 'CODE' } });
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error).not.toContain('base');
+    expect(res.json().code).toBe('panne');
   });
 
   it('🔴 une connexion qui EXISTE ne s ecrase pas : 409, meme par un appel direct a la route', async () => {
@@ -239,6 +251,14 @@ describe('POST /choix : le compte et la Page', () => {
     const res = await srv.inject({ method: 'POST', url: url('/choix'), payload: { comptePubId: '111', pageId: 'p1' } });
     expect(res.statusCode).toBe(409);
     expect(res.json().code).toBe('pas_connecte');
+    expect(traces.choisi).toEqual([]);
+  });
+
+  it('🔴 un refus de Meta à la relecture des actifs rend 422 avec son message, rien n est choisi', async () => {
+    const { srv, traces } = app({ actifsAccordes: async () => { throw new ErreurGraph(403, 200, 'Graph 403 (#200) : permission'); } });
+    const res = await srv.inject({ method: 'POST', url: url('/choix'), payload: { comptePubId: '111', pageId: 'p1' } });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toContain('permission');
     expect(traces.choisi).toEqual([]);
   });
 
