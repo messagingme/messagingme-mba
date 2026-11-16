@@ -4,6 +4,31 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : le bloc « Extraire du JSON » (champ JSON, lot 2), et la Condition sur un champ nombre
+
+Plan `docs/superpowers/plans/2026-11-11-champ-json-lot-2.md`. Le bloc lit un champ `json` et range des valeurs dans
+d'autres champs, ligne par ligne (chemin, « la valeur » ou « le nombre d'éléments », champ cible).
+
+- **Ce qui a changé** : serveur `ac047028` (module pur `web/lib/partage/extraire-json.ts` ; `chemin-json` accepte
+  l'index négatif `[-1]`, le webhook entrant aussi ; action `extraireJson` sans attente, valeurs répercutées sur la copie
+  de travail ET validées par le type de leur cible, `valeurPourCible`, types chargés par `buildCtx` quand le graphe porte
+  le bloc ; exécuteur qui relit la source, `typesDesChamps` requise). Console `88e87cd9` (palette derrière la garde de
+  l'Appel API, panneau, « Voir un exemple » qui rejoue l'appel amont avec ses valeurs d'essai, confirmé si ce n'est pas
+  un GET), puis `c5c468f1` pour les retours de l'essai.
+- **La relecture** : aucun rouge. Corrigés dans le lot : l'inventaire figé des blocs sans attente, la validation de la
+  copie (sans elle, une Condition prenait sa branche sur une valeur que l'exécuteur refusait), les entiers au-delà de
+  2^53, une doc déplacée. Jaunes au backlog.
+- **Les retours de l'essai réel** (`c5c468f1`) : une liste ne s'attachait pas depuis l'arbre (`ArbreJson`, option
+  `branchesAttachables`), les lignes du panneau n'avaient pas d'intitulés, et **la Condition renvoyait un champ perso
+  NOMBRE sur « Dernière analyse »** : `estFiltreAnalyse` reconnaissait l'analyse à l'opérateur (`gte`, `lte`, `is_true`,
+  `is_false` sont aussi ceux d'un champ perso), elle la reconnaît à la clé, comme le moteur. Défaut ancien, présent aussi
+  dans les filtres de la liste des contacts.
+- **Vérifié** : suite racine (4 254 fichiers), suite console, lint, auto-attaque, tsc, build, 114 puis 168 e2e ; la
+  moitié serveur vérifiée seule avant son push ; CI relancée après l'annulation par un push de pair, verte job par job.
+- **En production** le 2026-11-16 (serveur par le run 43843152194 épinglé sur `ac047028`, `migration=aucune`). Essai réel
+  fait (n° 255) : par le lien de test de « testJSON », « Blue Frock » puis « test sup 4 » 3 s après le jeton. Le mot-clé ne
+  part plus sur la SANDBOX : l'agent de Meta y tient le fil du numéro de Julien.
+
 ## 2026-11-16 : incident, « Disconnect » des publicités a révoqué NOS droits publicitaires
 
 En préparant la vidéo de l'App Review des droits publicitaires (`docs/APP-REVIEW-2026-11-16-SOUMISSION-1.md`), Julien a
