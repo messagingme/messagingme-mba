@@ -4,9 +4,9 @@ import { NAVIGATEUR, REGLAGES_ACCUEIL, capturer, communs, langue, type Locale } 
 import { fenetreMeta } from './fenetre-meta';
 
 /**
- * « Connecter mon numéro WhatsApp, et lire son état » : la fenêtre de Meta (sa forme générique, `fenetre-meta.ts`), la
- * page « Connecter WhatsApp » (le numéro fourni), un numéro rattaché que Meta n'a pas vérifié, puis un numéro connecté
- * et son état. Rien n'est connecté, rien n'est payé.
+ * « Connecter mon numéro WhatsApp, et lire son état », dans l'ordre des étapes (Julien, 2026-11-16) : la carte « Quelle
+ * solution pour payer vos messages Meta ? », la page « Connecter WhatsApp » (votre numéro ou le nôtre), la fenêtre de
+ * Meta (sa forme générique, `fenetre-meta.ts`), puis un numéro connecté et son état. Rien n'est connecté, rien n'est payé.
  */
 const CLE = 'connecter-mon-numero-whatsapp';
 /** Le numéro de la marque fictive, dans la plage réservée à la fiction. */
@@ -22,9 +22,9 @@ for (const locale of ['fr', 'en'] as Locale[]) {
     test.use(NAVIGATEUR[locale]);
 
     test(`${CLE} (${locale}) : la fenêtre de Meta`, async ({ page }) => {
-      // 1. La fenêtre de Meta n'est pas la nôtre : sa forme générique, en trois étapes, comme le film du démarrage.
+      // 3. La fenêtre de Meta n'est pas la nôtre : sa forme générique, en trois étapes, comme le film du démarrage.
       await page.setContent(fenetreMeta(locale));
-      await capturer(page, CLE, 1, locale);
+      await capturer(page, CLE, 3, locale);
     });
 
     test(`${CLE} (${locale}) : la page Connecter WhatsApp`, async ({ page }) => {
@@ -36,6 +36,9 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       })));
       await communs(page);
       await page.goto('/connecter-whatsapp');
+      // 1. Comment payer vos messages Meta : la carte et ses deux choix.
+      await expect(page.getByTestId('qui-regle-meta')).toBeVisible();
+      await capturer(page, CLE, 1, locale, page.getByTestId('qui-regle-meta'));
       // 2. Pas de numéro ? « Oui » au compte Meta Business, puis « Fournissez-moi un numéro » (les questions du tunnel).
       // La carte « Qui paie vos messages à Meta ? » est au-dessus (lot B du Crédit WhatsApp) : la vue descend à l'encadré
       // « Avant de commencer », sans couper le bouton de la carte. La page s'arrête juste sous ses choix : un peu d'air en
@@ -43,23 +46,6 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await page.getByTestId('question-compte-oui').click();
       await page.locator('main').evaluate((m) => { (m as HTMLElement).style.paddingBottom = '160px'; });
       await capturer(page, CLE, 2, locale, page.getByTestId('prerequis-meta').locator('ol'), 'haut', page.getByTestId('choix-fourni'));
-    });
-
-    test(`${CLE} (${locale}) : numéro à vérifier`, async ({ page }) => {
-      await langue(page, locale);
-      // Le libellé que le serveur donne à un numéro pas encore connecté (`src/account/service.ts`), pas le vert d'un numéro actif.
-      await mockAccueil(page, {
-        account: {
-          ...COMPTE, numberStatus: 'PENDING', codeVerificationStatus: 'NOT_VERIFIED',
-          status: { dot: 'grey', label: 'Numéro non connecté', reason: 'Le numéro est en état « PENDING », pas encore connecté.' },
-        },
-        settings: REGLAGES_ACCUEIL,
-      });
-      await communs(page);
-      await page.reload();
-      // 3. Un numéro rattaché que Meta n'a pas vérifié : la carte le dit et porte le bouton.
-      await expect(page.getByTestId('numero-card')).toBeVisible();
-      await capturer(page, CLE, 3, locale, page.getByTestId('numero-card'), 'haut', page.getByTestId('demander-code'));
     });
 
     test(`${CLE} (${locale}) : numéro connecté`, async ({ page }) => {

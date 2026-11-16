@@ -163,7 +163,7 @@ Le solde descend à chaque tour, au tarif affiché dans la liste des
 modèles, recherche dans la base de connaissance comprise, et aussi
 à la préparation des fiches de connaissance et à chaque traduction ou transcription de l'Inbox. Un avertissement apparaît quand
 il devient bas, et un bandeau rouge à zéro. Un administrateur le recharge dans l'onglet **Crédit IA** de **Paramètres > Offre**
-(5, 10, 50 ou 100 € hors taxe, payés sur la page de Stripe), et 1 € est offert au premier numéro WhatsApp de
+(5, 10, 50 ou 100 €, payés sur la page de Stripe), et 1 € est offert au premier numéro WhatsApp de
 l'espace, une fois que Meta l'a vérifié. **Sans crédit, on ne peut pas créer d'agent et le
 bac à sable refuse** : un essai appelle vraiment le modèle, il se paie comme une conversation.
 

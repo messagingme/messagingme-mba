@@ -1,6 +1,6 @@
 ---
 slug: build-an-ai-agent
-traduit_de: 56d504
+traduit_de: ba3ff7
 description: Build an AI agent that answers on WhatsApp: the interview, the knowledge base, the tools, the stop rules, the test and the credit.
 ---
 # Build an AI agent
@@ -148,7 +148,7 @@ whatever the conversation, and its first turn reads the message that triggered i
 balance goes down at each turn, at the rate shown in the list of models, knowledge base search included, and also
 when knowledge cards are prepared and at each translation or transcription in the Inbox. A warning appears when it
 gets low, and a red banner at zero. An administrator tops it up in the **AI credit** tab of **Settings > Plan** (5,
-10, 50 or 100 € excluding tax, paid on Stripe’s page), and 1 € is offered for the workspace’s first WhatsApp number,
+10, 50 or 100 €, paid on Stripe’s page), and 1 € is offered for the workspace’s first WhatsApp number,
 once Meta has verified it. **With no credit, you cannot create an agent and the sandbox refuses**: a test really
 calls the model, it is paid like a conversation.
 

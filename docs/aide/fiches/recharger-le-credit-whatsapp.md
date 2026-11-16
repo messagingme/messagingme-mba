@@ -7,7 +7,7 @@ source_empreinte: 2644c9
 
 La ligne de crédit est un solde prépayé qui paie les messages WhatsApp de votre numéro quand Messaging Me règle ces
 messages chez Meta à votre place : vous n'avez alors aucune carte bancaire à poser chez Meta. Vous la trouvez dans
-**Paramètres > Offre**, onglet **Ligne de crédit**. En formule Pro ou Business, on y prend d'abord l'option, 30 € HT
+**Paramètres > Offre**, onglet **Ligne de crédit**. En formule Pro ou Business, on y prend d'abord l'option, 30 €
 par numéro et par mois ; en Entreprise, l'onglet apparaît dès qu'un numéro est payé ainsi. L'écran est réservé aux
 administrateurs. Elle ne paie pas l'IA : vos agents IA puisent dans le Crédit IA, l'autre onglet.
 
@@ -17,7 +17,7 @@ vous mène à la page Connecter WhatsApp, où vous le connectez sans carte chez 
 
 **Ce que coûte un message.** Chaque message envoyé (campagne, scénario, réponse de l'Inbox ou d'un agent IA) est
 débité de son prix : le tarif de Meta pour le pays du destinataire et la catégorie du message, tout compris. L'onglet
-affiche, hors taxe, le prix d'un message vers la France pour chaque catégorie : marketing, utilitaire,
+affiche le prix d'un message vers la France pour chaque catégorie : marketing, utilitaire,
 authentification, et réponse dans les 24 heures qui suivent un message du client. Les 1 000 premières réponses de
 chaque numéro sont offertes chaque mois, et un message que Meta ne facture pas ne vous coûte rien.
 
@@ -27,15 +27,15 @@ après la recharge. Sous 10 €, l'onglet vous prévient et les administrateurs 
 recharge ; sous un euro, il dit le solde presque épuisé : ce reste ne couvre déjà plus certains messages. Un message
 refusé faute de crédit envoie aussi un e-mail, une fois par jour au plus.
 
-**Recharger.** Quatre boutons : 50, 100, 250 ou 500 €, hors taxe. Un clic vous emmène sur la page de paiement
-sécurisée de Stripe, où vous saisissez votre carte et vos informations de facturation. La TVA s'ajoute au paiement :
-50 € hors taxe payés donnent 50 € sur votre ligne de crédit. Stripe vous envoie la facture par e-mail, et chaque recharge
+**Recharger.** Quatre boutons : 50, 100, 250 ou 500 €. Un clic vous emmène sur la page de paiement
+sécurisée de Stripe, où vous saisissez votre carte et vos informations de facturation. 50 € de
+recharge donnent 50 € sur votre ligne de crédit. Stripe vous envoie la facture par e-mail, et chaque recharge
 de l'historique porte un lien **Facture**. Les codes promo ne s'appliquent pas à la ligne de crédit. Au retour, l'écran
 vous dit que le paiement est reçu, puis que votre ligne de crédit est à jour dès que la recharge apparaît ; si vous
 abandonnez, rien n'est débité. Vous pouvez aussi demander à Claude de recharger : il vous donne le lien de paiement.
 
-**La courbe**, au-dessus de l'historique, montre votre solde en fin de journée sur les quatre-vingt-dix derniers jours,
-hors taxe ; survolez-la pour lire un jour. En offre Entreprise, elle montre ce que vos messages ont coûté chaque jour.
+**La courbe**, au-dessus de l'historique, montre votre solde en fin de journée sur les quatre-vingt-dix derniers jours
+; survolez-la pour lire un jour. En offre Entreprise, elle montre ce que vos messages ont coûté chaque jour.
 
 **L'historique** liste les quatre-vingt-dix derniers jours : les envois d'une journée en une ligne (nombre de messages
 et montant), vos recharges et les régularisations.

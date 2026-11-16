@@ -13,19 +13,19 @@ Offre**, onglet **Crédit IA** ; l'écran est réservé aux administrateurs.
 
 **En Entreprise, le crédit IA est illimité.** Votre contrat le comprend : il n'y a ni solde à surveiller ni recharge,
 et nous facturons la consommation selon votre contrat. L'onglet affiche « Illimité » et ce que l'IA a consommé ce
-mois-ci, hors taxe ; le compteur repart de zéro le 1er de chaque mois. Un plafond de sécurité mensuel protège contre
+mois-ci ; le compteur repart de zéro le 1er de chaque mois. Un plafond de sécurité mensuel protège contre
 un emballement, un agent qui tournerait en boucle par exemple : s'il est atteint, l'onglet et la page des agents
 l'affichent en rouge, vos agents IA ne répondent plus (ils sortent par « Plafond atteint ») et l'Inbox ne traduit
 plus. Contactez-nous depuis le Support : nous le relevons.
 
-**Recharger.** Quatre boutons : 5, 10, 50 ou 100 €, hors taxe. La formule Free n'a pas cet onglet : elle recharge depuis
+**Recharger.** Quatre boutons : 5, 10, 50 ou 100 €. La formule Free n'a pas cet onglet : elle recharge depuis
 Claude, aux mêmes montants. Un clic vous emmène sur la page de paiement sécurisée
 de Stripe, où vous saisissez votre carte, votre raison sociale, votre adresse de facturation et, si vous le
-souhaitez, votre numéro de TVA. La TVA s'ajoute au paiement : 50 € hors taxe payés donnent 50 € de crédit.
+souhaitez, votre numéro de TVA. 50 € de recharge donnent 50 € de crédit.
 Stripe vous envoie la facture par e-mail. Le crédit n'expire pas et n'est pas remboursé.
 
 Si nous vous avons remis un **code promo**, saisissez-le sur la page de Stripe : il réduit le prix, pas le
-crédit. Avec 20 % de remise sur la recharge de 50 €, vous payez 40 € hors taxe et recevez 50 € de crédit.
+crédit. Avec 20 % de remise sur la recharge de 50 €, vous payez 40 € et recevez 50 € de crédit.
 
 **Au retour**, l'écran vous dit que le paiement est reçu et que le crédit arrive dans quelques secondes, puis
 il relit votre historique jusqu'à y voir l'achat que vous venez de payer, et vous dit que votre crédit est à
@@ -33,8 +33,8 @@ jour (tout de suite, si Stripe nous a prévenus avant votre retour). Si vous aba
 débité. Le paiement se fait toujours en euros. Si l'écran dit que la recharge en ligne n'est pas encore
 disponible, ou momentanément indisponible, contactez-nous : le crédit est ajouté à votre espace dans la foulée.
 
-**La courbe**, au-dessus de l'historique, montre votre solde en fin de journée sur les quatre-vingt-dix derniers jours,
-hors taxe ; survolez-la pour lire un jour. En offre Entreprise, elle montre ce que l'IA a consommé chaque jour, et
+**La courbe**, au-dessus de l'historique, montre votre solde en fin de journée sur les quatre-vingt-dix derniers jours
+; survolez-la pour lire un jour. En offre Entreprise, elle montre ce que l'IA a consommé chaque jour, et
 l'historique affiche ces montants sans signe « moins », puisque votre solde ne bouge pas.
 
 **L'historique** liste ce qui a fait bouger le solde sur les quatre-vingt-dix derniers jours, en clair : achat de

@@ -14,7 +14,7 @@ bouton_console: Prendre mon numéro dans la console
 # Prendre un numéro fourni par Messaging Me
 
 Pas de numéro pour WhatsApp ? Nous vous fournissons un numéro britannique, que la fenêtre de Meta relie à l'API
-officielle de WhatsApp : 3,50 € HT par mois, inclus dans la formule Pro. Pas de compte Meta Business ? La fenêtre de
+officielle de WhatsApp : 3,50 € par mois, inclus dans la formule Pro. Pas de compte Meta Business ? La fenêtre de
 Meta le crée en chemin.
 
 **1. Lancer la mise en service.** Dans Claude Code, tapez « /messagingme:demarrer » : Claude fait le point sur votre
@@ -28,7 +28,7 @@ relié. Avec l'application WhatsApp Business pour un autre numéro, répondez «
 numéro-là ? » : vous arrivez au même numéro fourni.
 
 **3. Payer le numéro, puis ouvrir la fenêtre de Meta.** Claude vous donne le lien de connexion. Sur la page, payez
-3,50 € HT par mois (en formule Pro, « Obtenir mon numéro », sans rien payer) : votre numéro britannique s'affiche.
+3,50 € par mois (en formule Pro, « Obtenir mon numéro », sans rien payer) : votre numéro britannique s'affiche.
 Cliquez sur « Ouvrir la fenêtre de Meta ».
 
 Le lien vaut une heure ; si elle est passée, Claude en donne un neuf. Dans la console, « Fournissez-moi un numéro »

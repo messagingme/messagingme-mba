@@ -14,7 +14,7 @@ prerequis: ce-qu-il-faut-chez-meta
 
 Avec la ligne de crédit, vous n'avez aucune carte à poser chez Meta : Messaging Me règle vos messages WhatsApp chez Meta
 à votre place, et vous les prépayez chez nous, à un prix tout compris. C'est une option des formules Pro et Business,
-à 30 € HT par numéro et par mois ; en Entreprise, elle suit votre contrat.
+à 30 € par numéro et par mois ; en Entreprise, elle suit votre contrat.
 
 Elle vaut pour un numéro qui ne garde pas l'application WhatsApp Business : un numéro qui la garde se paie avec votre
 carte chez Meta. L'option se prend en formule Pro dès son essai, ou en Business confirmé ; prise pendant l'essai, elle
@@ -41,5 +41,5 @@ Votre numéro est déjà connecté avec votre carte chez Meta ? La ligne de cré
 changer, écrivez au Support. Pour en profiter, connectez votre numéro sans carte dès le départ.
 
 **3. Recharger votre ligne de crédit.** Son solde part de zéro : avant vos premiers modèles, rechargez-la dans l'onglet
-**Ligne de crédit**, de 50, 100, 250 ou 500 € HT, par la page de paiement de Stripe. L'onglet affiche le prix d'un
+**Ligne de crédit**, de 50, 100, 250 ou 500 €, par la page de paiement de Stripe. L'onglet affiche le prix d'un
 message vers la France, catégorie par catégorie, tout compris. À zéro, plus aucun message ne part, réponses comprises.

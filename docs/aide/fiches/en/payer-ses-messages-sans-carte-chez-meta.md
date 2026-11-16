@@ -1,12 +1,12 @@
 ---
 description: The credit line, with no card at Meta: take the option, connect your number without a card, then top up the line that pays your messages.
 slug: pay-for-your-messages-without-a-card-at-meta
-traduit_de: 0a9eee
+traduit_de: ab14e7
 ---
 # Pay for your messages without a card at Meta
 
 With the credit line, you have no card to add at Meta: Messaging Me pays Meta for your WhatsApp messages on your behalf,
-and you prepay them with us, at an all-inclusive price. It is an option of the Pro and Business plans, at €30 excl. VAT
+and you prepay them with us, at an all-inclusive price. It is an option of the Pro and Business plans, at €30
 per number per month; on Enterprise, it follows your contract.
 
 It applies to a number that does not keep the WhatsApp Business app: a number that keeps it is paid with your card at
@@ -33,5 +33,5 @@ Is your number already connected with your card at Meta? The credit line can’t
 Support. To benefit from it, connect your number without a card from the start.
 
 **3. Top up your credit line.** Its balance starts at zero: before your first templates, top it up in the **Credit line**
-tab, by €50, €100, €250 or €500 excl. VAT, through Stripe’s payment page. The tab shows the price of a message to France,
+tab, by €50, €100, €250 or €500, through Stripe’s payment page. The tab shows the price of a message to France,
 category by category, all included. At zero, no message goes out any more, replies included.

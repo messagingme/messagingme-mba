@@ -1,14 +1,14 @@
 ---
 description: Get a number provided by Messaging Me and connect it to WhatsApp through Meta’s window, from Claude Code: the video, then the six steps.
 slug: get-a-number-provided-by-messaging-me
-traduit_de: 6312fd
+traduit_de: 1ec29f
 bouton_claude: Get my number from Claude Code
 bouton_console: Get my number in the console
 ---
 # Get a number provided by Messaging Me
 
-No number for WhatsApp? We provide a UK number, which Meta’s window connects to the official WhatsApp API: €3.50 excl.
-VAT a month, included in the Pro plan. No Meta Business account? Meta’s window creates it along the way.
+No number for WhatsApp? We provide a UK number, which Meta’s window connects to the official WhatsApp API: €3.50 a month,
+included in the Pro plan. No Meta Business account? Meta’s window creates it along the way.
 
 **1. Start the setup.** In Claude Code, type “/messagingme:demarrer”: Claude checks your workspace and starts with your
 WhatsApp number. In the console, the “Connect WhatsApp” page asks the same questions.
@@ -20,8 +20,8 @@ The video stays on the Free plan: Meta bills your templates to a card, which you
 the WhatsApp Business app for another number, answer “No” to “Do you want to use that number?”: you reach the same
 provided number.
 
-**3. Pay for the number, then open Meta’s window.** Claude gives you the connection link. On the page, pay €3.50 excl.
-VAT a month (with the Pro plan, “Get my number”, with nothing to pay): your UK number appears. Click “Open the Meta
+**3. Pay for the number, then open Meta’s window.** Claude gives you the connection link. On the page, pay €3.50 a
+month (with the Pro plan, “Get my number”, with nothing to pay): your UK number appears. Click “Open the Meta
 window”.
 
 The link is valid for one hour; once it has passed, Claude gives a new one. In the console, “Provide me a number” leads

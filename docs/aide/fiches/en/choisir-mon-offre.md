@@ -1,7 +1,7 @@
 ---
 description: Free, Pro, Business or Enterprise: what each Messaging Me plan opens, its limits, and how to change plan or manage the subscription.
 slug: choose-my-plan
-traduit_de: de8e25
+traduit_de: 91cec5
 ---
 # Choose my plan
 
@@ -90,7 +90,7 @@ not capped per day.
 
 It is included in Pro, Business and Enterprise: get it at no cost from the “Connect WhatsApp” page. If it was already paid for separately,
 that subscription stops at the first Pro payment, with a credit on the next invoice. If you cancel Pro, the Plan page
-and an email warn you: when Pro ends, the number moves to €3.50 excl. VAT a month on the same card. To give it back
+and an email warn you: when Pro ends, the number moves to €3.50 a month on the same card. To give it back
 instead, choose “Give back my number when Pro ends” on the Plan page; you can change your mind as long as Pro is
 running. If you send through your own number, the provided number does not resume: it is released seven days after
 Pro ends.
