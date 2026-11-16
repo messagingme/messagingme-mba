@@ -218,14 +218,25 @@ créer un lead de test avec l'outil de Meta et le voir arriver sur WhatsApp.
 désactivée sur la Page), lead reçu mais rien envoyé (pas de message réglé, modèle en attente ou refusé, limite de
 contacts, numéro illisible, STOP).
 
-## Ce que Julien fait chez Meta (avant le lot 1, bloquant)
+## Ce que Julien fait chez Meta
 
-1. **App Review** : accès Advanced pour `leads_retrieval` et `pages_manage_metadata` (vérifier dans le tableau de bord
-   que `ads_management`, `pages_manage_ads`, `pages_show_list`, `pages_read_engagement` le sont déjà, ce que les
-   Publicités en production laissent penser). Enregistrement d'écran tourné sur l'espace SANDBOX.
-2. **Webhooks de l'app** : abonner l'objet Page, champ `leadgen`, à `https://api.messagingme.app/webhooks/meta`.
-3. Après l'accord seulement : étendre la configuration des Publicités, puis créer une configuration de connexion du
-   numéro de TEST, la mesurer, et alors seulement mettre à jour `META_ES_CONFIG_ID`.
+🔴 **L'App Review ne vient PAS en premier** (corrigé le 2026-11-16) : Meta exige un enregistrement d'écran qui montre
+l'app UTILISER la permission, donc une fonctionnalité qui marche. En accès Standard, les permissions marchent déjà pour
+les comptes qui ont un rôle sur l'app (Julien) : on construit et on essaie sur sa Page, puis on soumet.
+
+1. **Relever les niveaux d'accès** (Révision de l'app, Autorisations et fonctionnalités) : lesquelles de
+   `ads_management`, `ads_read`, `pages_manage_ads`, `pages_show_list`, `pages_read_engagement`,
+   `business_management` sont déjà en Advanced (les Publicités en production le laissent penser).
+2. **Webhooks de l'app** : abonner l'objet Page, champ `leadgen`, à `https://api.messagingme.app/webhooks/meta`, avec
+   le même jeton de vérification que l'objet WhatsApp.
+3. **Une configuration de connexion du numéro de TEST** : copie de celle d'Embedded Signup, plus `leads_retrieval`,
+   `pages_manage_metadata` et les Pages en actifs. Elle sert aux mesures, jamais à la production.
+4. **Un formulaire instantané sur sa Page** (Meta Business Suite, Formulaires instantanés), sans pub : il suffit
+   pour l'outil de test de Meta.
+5. **Après le lot 1 sur SANDBOX** : l'App Review (Advanced pour `leads_retrieval` et `pages_manage_metadata`), vidéo
+   du parcours réel. **Après l'accord seulement** : étendre la configuration des Publicités, puis `META_ES_CONFIG_ID`.
+   Jusque-là, la fonction reste réservée aux comptes qui ont un rôle sur l'app, et le chemin de production ne bouge
+   pas.
 
 ## Mesures avant le code (lecture seule, sur SANDBOX)
 
