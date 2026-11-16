@@ -119,9 +119,10 @@ export function surveillerOps(deps: {
 }
 
 /**
- * L'adresse du client, à titre indicatif. `req.ip` désigne le proxy (pas de `trustProxy`, Cloudflare puis NPM
- * devant) : on lit l'en-tête de Cloudflare, qu'un appel direct au VPS pourrait forger. Il ne sert qu'au
- * journal, jamais à une décision d'autorisation.
+ * L'adresse du client, à titre indicatif. `req.ip` désigne le frontal (pas de `trustProxy`, Cloudflare puis le frontal
+ * de Scaleway devant) : on lit l'en-tête de Cloudflare, forgeable seulement par qui détient le jeton d'origine que le
+ * conteneur exige. Il sert au journal, à la clé d'un plafond (`reseauDuClient`) et à l'adresse transmise au défi
+ * Turnstile, jamais à une décision d'autorisation.
  */
 export function ipIndicative(req: { ip: string; headers: Record<string, unknown> }): string {
   const cf = req.headers['cf-connecting-ip'];

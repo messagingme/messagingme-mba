@@ -12,7 +12,7 @@ import { avecDemande, demandeDeLAdresse } from '@/lib/oauth';
 import { CadreSansCompte } from '@/components/CadreSansCompte';
 import { GoogleButton, RetourGoogle } from '@/components/GoogleButton';
 import { LienEnvoye } from '@/components/LienEnvoye';
-import { CLE_SITE_TURNSTILE, DefiTurnstile } from '@/components/DefiTurnstile';
+import { CLE_SITE_TURNSTILE, DefiTurnstile, useDefiALaDemande } from '@/components/DefiTurnstile';
 import { useLocale, useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { aideMotDePasse } from '@/lib/mot-de-passe';
@@ -43,6 +43,11 @@ export default function SignupPage() {
   /** Le jeton du défi Turnstile, et sa génération : un jeton ne sert qu'une fois, chaque envoi en redemande un. */
   const [jetonDefi, setJetonDefi] = useState<string | null>(null);
   const [generationDefi, setGenerationDefi] = useState(0);
+  /**
+   * L'étape de l'adresse connue vérifie un mot de passe : comme la connexion, l'API y exige le défi après beaucoup
+   * d'essais sur l'adresse (lot E de l'audit). Distinct du défi de l'étape de l'adresse, toujours affiché.
+   */
+  const defiConnue = useDefiALaDemande();
   /** L'adresse à qui un lien vient de partir : rien n'est créé ici, l'espace naît au clic. */
   const [lienPour, setLienPour] = useState<string | null>(null);
   /**
@@ -117,16 +122,17 @@ export default function SignupPage() {
     try {
       const res = await signup({
         workspaceName: workspaceName.trim(), email: email.trim(), password, name: name.trim() || undefined,
-        pub: champPub(partage, window.location.search),
+        pub: champPub(partage, window.location.search), ...defiConnue.champ,
       });
       setPassword('');
       if (estLienEnvoye(res)) setLienPour(email.trim());
       else if (estEtapeSecondFacteur(res)) setEtape(res);
       else entrer(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Inscription impossible', 'Sign-up failed'));
+      setError(defiConnue.lireRefus(err) ?? (err instanceof Error ? err.message : t('Inscription impossible', 'Sign-up failed')));
     } finally {
       setLoading(false);
+      defiConnue.renouveler();
     }
   }
 
@@ -175,9 +181,11 @@ export default function SignupPage() {
 
         <CasePartageMeta coche={partage} onChange={setPartage} />
 
+        {defiConnue.widget}
+
         {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
 
-        <Bouton enCours={loading} type="submit" disabled={loading} className="w-full">
+        <Bouton enCours={loading} type="submit" disabled={loading || defiConnue.attend} className="w-full">
           {loading ? t('Création…', 'Creating…') : t('Ajouter l’espace', 'Add the workspace')}
         </Bouton>
         <Bouton type="button" variante="secondaire" onClick={autreAdresse} className="w-full">{t('Utiliser une autre adresse', 'Use another address')}</Bouton>

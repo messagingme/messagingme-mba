@@ -1,6 +1,6 @@
 ---
 source_section: Comptes & authentification
-source_empreinte: 9e3992
+source_empreinte: bdc44a
 ---
 # Inviter mon équipe, et gérer les accès
 
@@ -68,8 +68,14 @@ réinitialise depuis Compte & équipe, après avoir redonné son mot de passe ; 
 espace, c'est le support qui s'en charge.
 
 **Mot de passe oublié** : un lien de réinitialisation part par e-mail. La réponse affichée est toujours la
-même, que l'adresse existe ou non, pour qu'on ne puisse pas deviner qui a un compte chez vous. Pour changer
-un mot de passe que vous connaissez, passez par « Mon compte ».
+même, que l'adresse existe ou non, pour qu'on ne puisse pas deviner qui a un compte chez vous. Chaque lien vaut
+une heure, et une adresse en reçoit cinq par jour au plus : au-delà, ouvrez le plus récent. Pour changer un mot de
+passe que vous connaissez, passez par « Mon compte ».
+
+**Une vérification anti-robot à la connexion ?** Quand une adresse a reçu beaucoup d'essais de mot de passe en peu
+de temps, d'où qu'ils viennent, la connexion demande cette vérification de Cloudflare avant d'entrer. Attendez
+qu'elle se valide (un clic suffit parfois), puis cliquez de nouveau sur « Se connecter » : votre compte n'est pas
+bloqué, c'est ce qui arrête un robot qui essaierait des mots de passe à votre place.
 
 **Si votre session expire pendant que vous travaillez**, une bannière apparaît en haut de l'écran avec un
 bouton « Se reconnecter ». Rien de ce que vous tentez d'enregistrer ne part en silence.

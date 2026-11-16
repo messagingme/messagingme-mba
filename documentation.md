@@ -3691,7 +3691,7 @@ par défaut, `mmhs` TOUJOURS qualifié) et que toutes ses transactions passent p
 |---|---|---|
 | Conteneur privé et jeton d'origine | le conteneur `mba-api` (privé chez Scaleway) et la règle « Jeton d'origine api » de Cloudflare, qui pose `X-Auth-Token` (`docs/ARCHITECTURE-CIBLE.md` § 7.3) | un appel direct sur l'adresse technique du conteneur, qui contournerait Cloudflare : refusé (403) |
 | Cloudflare Managed Ruleset (offre Pro de la zone) | `api.` et `mm-hubspot.`, SAUF les webhooks signés (règle « Webhooks signés : pas de règles gérées ») | une attaque connue portée par une requête (injection, Log4Shell, etc.), arrêtée avant le conteneur |
-| Deux règles de débit Cloudflare, par IP | `/v1` et `/mcp` (« Fusible de l'API externe ») ; les entrées anonymes qui écrivent, les deux formulaires de la vitrine compris, contact et livre blanc (« Entrées anonymes qui écrivent ») | une seule adresse qui vide le budget des clés inconnues ou le plafond global, ou qui essaie mille comptes : aucun plafond du code ne compte par IP |
+| Deux règles de débit Cloudflare, par IP | `/v1` et `/mcp` (« Fusible de l'API externe ») ; les entrées anonymes qui écrivent, les deux formulaires de la vitrine compris, contact et livre blanc (« Entrées anonymes qui écrivent ») | une seule adresse qui vide le budget des clés inconnues ou le plafond global, ou qui essaie mille comptes : le code compte par réseau du client les essais sur UNE même adresse (connexion, inscription, lot E de l'audit) et quelques portes à petit débit toutes adresses confondues (mot de passe oublié, demande et clic d'un lien d'inscription, page d'une invitation), rien qui arrête un balayage de mille comptes |
 | Signature du webhook | avant de lire le corps | un tiers qui se ferait passer pour Meta |
 | `etapeEspace` (règle `scopeTenant`), posée au montage | toute route `:tenantId` d'un module `tenant` (§ 5) | l'accès aux données d'un autre client (IDOR) |
 | `requireAdmin` (`g.admin`, au montage) ; `forbidNonAdmin` dans le handler des modules sur `g.auth`, plus deux écarts délibérés sur `g.admin` (`contacts`, dont les lectures de conformité passent par `g.encadrement`, et `mbaAssistant`) | écritures | un opérateur d'inbox qui modifierait la configuration |
@@ -4509,7 +4509,7 @@ construction) :
 | API publique par espace (`/v1` et `/mcp`, minute et heure), et ses `x-ratelimit-*` | compteur partagé | l'appel PASSE, sans en-têtes (refuser tous les intégrateurs sur une panne passagère déclencherait leurs rejeux au retour de la base, et la route a de toute façon besoin de la base) |
 | opérations coûteuses d'un espace (`RATE_LIMIT_COUTEUX_PAR_MINUTE`), routes de la console et outils MCP coûteux confondus | compteur partagé | l'opération PASSE (même raison) |
 | usage de l'API publique (`/ops/usage`, et le quota par espace le jour où il existera) | compteur partagé | l'appel PASSE (le garde observe, il ne devient pas la panne) |
-| connexion : `login` (et le choix d'espace), `signup`, `forgot-password`, `reset-password`, `invitations/accept`, `google`, clé = l’EMPREINTE de `ip::discriminant` (jamais l’adresse ni le jeton en clair : la clé vit en base, donc dans ses sauvegardes) | compteur partagé | la tentative est REFUSÉE (429, « vérification momentanément impossible ») : une panne n'ouvre jamais un essai de plus |
+| connexion : un essai de mot de passe (`login` et l'inscription d'une adresse connue : le réseau du client et l'adresse, plus le filet de l'adresse), `signup` (réseau et adresse), `forgot-password` (le réseau, puis l'adresse seule, par jour), le choix d'espace, `reset-password`, `invitations/accept` et `google` (clé sur leur jeton) ; clé = l’EMPREINTE de `source::discriminant` (jamais l’adresse ni le jeton en clair : la clé vit en base, donc dans ses sauvegardes) | compteur partagé | la tentative est REFUSÉE (429, « vérification momentanément impossible ») : une panne n'ouvre jamais un essai de plus |
 | la minute entre deux demandes de code d'un numéro (`/numero/code`, le quota de Meta : dix requêtes sur 72 h) | verrou court `es-code:<numéro>`, jamais relâché | REFUSÉE (429), Meta n'est pas appelé |
 | refus de `/ops` et repos de leur alerte Telegram | compteur partagé (`ops.refus`), verrou court `ops.alerte` | le refus est journalisé (`dansLaFenetre: null`), aucune alerte |
 | OAuth : un MÊME code ou jeton de renouvellement sur `/oauth/token` (`oauth.jeton`, 10/min), le consentement par jeton Google ou par preuve (`oauth.consentement`, 20/min), clé = l’empreinte de `ip::jeton` | compteur partagé | REFUSÉ (429), comme la connexion |
@@ -4533,21 +4533,48 @@ Restent EN MÉMOIRE, par copie, délibérément :
 🔴 **LE COÛT : UNE ÉCRITURE PAR APPEL COMPTÉ, ET AUCUNE PAR REFUS RÉPÉTÉ.** Concernés : les routes de `/v1` et
 `/mcp` (le plafond, une instruction à deux lignes, plus l'usage, une instruction à deux lignes : deux allers-retours
 de plus par appel accepté, bornés par le plafond de l'espace, celui de son offre), les
-routes coûteuses (gestes manuels, rares), les routes anonymes de la connexion (une par tentative), la demande
-de code d'un numéro, et chaque refus de `/ops`. Le plafond par utilisateur, qui voit passer toute la console, n'y
-passe PAS. Un refus coûte une écriture la première fois qu'une copie voit la fenêtre pleine, puis plus rien jusqu'à
-sa fin (`memoireDesPleines`) ; un refus d'une fenêtre sur deux en coûte une seconde, qui rend ce que l'autre avait
-compté. ⚠️ Plus de plafond de clés vivantes sur la connexion : il bornait la MÉMOIRE d'une copie contre un robot qui
-invente des adresses ; en base, ces lignes vivent une minute et la tâche `compteurs-debit` les efface toutes les
-cinq minutes. Le fusible contre une telle rafale est au bord : la règle de débit Cloudflare « Entrées anonymes qui
-écrivent », par IP (§ 7, tableau des gardes).
+routes coûteuses (gestes manuels, rares), les routes anonymes de la connexion (une par tentative, à deux lignes pour un
+essai de mot de passe), la demande de code d'un numéro, et chaque refus de `/ops`. Le plafond par utilisateur, qui voit
+passer toute la console, n'y passe PAS. Un refus coûte une écriture la première fois qu'une copie voit la fenêtre
+pleine, puis plus rien jusqu'à sa fin (`memoireDesPleines`) ; un refus d'une fenêtre sur deux en coûte une seconde, qui
+rend ce que l'autre avait compté. ⚠️ Plus de plafond de clés vivantes sur la connexion : il bornait la MÉMOIRE d'une
+copie contre un robot qui invente des adresses ; en base, ces lignes vivent le temps de leur fenêtre (une minute, dix
+pour le filet d'une adresse, un jour pour les liens de réinitialisation) et la tâche `compteurs-debit` efface les
+échues toutes les cinq minutes. Le fusible contre une telle rafale est au bord : la règle de débit Cloudflare
+« Entrées anonymes qui écrivent », par IP (§ 7, tableau des gardes).
 
-⚠️ **LA CLÉ PAR IP N'EST PAS L'ADRESSE DU CLIENT** : Fastify tourne sans `trustProxy`, donc `req.ip` est l'adresse du
-frontal de Scaleway devant le conteneur, et la clé `ip::adresse` vaut en pratique un plafond par identité tentée pour
-toute la plateforme. Derrière un répartiteur qui présenterait plusieurs adresses sources, la même identité se
-répartirait sur plusieurs clés, donc un plafond multiplié d'autant. Le compte par IP se fait chez Cloudflare.
-`CF-Connecting-IP` est désormais fiable (§ 7.7 de `docs/ARCHITECTURE-CIBLE.md`) : le conteneur ne répond qu'avec le
-jeton d'origine que pose Cloudflare, et l'en-tête n'est forgeable que par qui détient ce jeton.
+🔴 **UN ESSAI DE MOT DE PASSE SE COMPTE SUR LE RÉSEAU DU CLIENT, JAMAIS SUR `req.ip`** (lot E de l'audit de sécurité,
+2026-11-16). Fastify tourne sans `trustProxy` : `req.ip` est le frontal de Scaleway pour tout le monde, et une clé
+`req.ip::adresse` serait un plafond par adresse pour toute la plateforme, qu'un anonyme remplit pour fermer la connexion
+du titulaire. `compterEssai` (`src/auth/tentatives.ts`) sert la connexion (entrée `/ops` comprise) et l'inscription d'une
+adresse connue avec les MÊMES clés, pour qu'alterner les deux routes ne double rien. Il compte en un appel, toutes les
+fenêtres ou aucune :
+- le RÉSEAU du client et l'adresse (`reseauDuClient` : l'IPv4, ou le /64 d'une IPv6, lus dans `CF-Connecting-IP`),
+  10 par minute (`loginRateLimit`) ;
+- le FILET de l'adresse, tous réseaux confondus, 30 par 10 minutes (`FILET_PAR_ADRESSE`) : un refus du réseau ne le
+  consomme pas, mais à son rythme permis UN seul réseau le remplit en trois minutes. N'importe qui peut donc imposer le
+  défi à n'importe quelle adresse, `/ops` compris, et c'est voulu : il ne peut plus la fermer.
+
+Le filet plein n'est pas un refus : il exige le défi Turnstile (403 `code: 'defi'`), que la console affiche
+(`useDefiALaDemande`) et que le titulaire résout. ⚠️ Sans clé secrète (`TURNSTILE_SECRET_KEY`), il n'y a pas de défi et
+le filet plein REFUSE, titulaire compris, jusqu'à la fin de sa fenêtre : un seul réseau rouvrirait alors le constat de
+l'audit à chaque fenêtre. Le démarrage le dit (`turnstile_inactif`). Avec un jeton, le réseau se compte AVANT
+l'appel à Cloudflare : les vérifications sont bornées par réseau ET par adresse (10 par minute), et d'une adresse à
+l'autre par la seule règle Cloudflare par IP. Échec fermé, comme l'inscription : Cloudflare muet, le défi échoue, et
+Google reste ouvert. ⚠️ **La borne réelle de la force brute** : 30 essais par 10 minutes sans rien résoudre, puis un
+jeton de défi par essai. Des services vendent des jetons résolus : au-delà du filet, un attaquant qui paie n'est plus
+borné que par réseau (10 par minute et par adresse), sur autant de réseaux qu'il en tient. Le défi arrête le robot qui
+ne paie pas, et rend la force brute coûteuse ; il ne la rend pas impossible.
+
+Le mot de passe oublié se compte en deux temps : le RÉSEAU du client d'abord, 10 par minute toutes adresses confondues
+(les lignes de l'ADRESSE vivent un jour : sans lui, un robot qui balaie des adresses en écrirait autant que Cloudflare
+laisse passer de requêtes), puis l'ADRESSE seule, tous réseaux confondus, et c'est voulu : elle borne les e-mails qu'un tiers fait
+partir vers une boîte, 5 par jour UTC (décision de Julien du 2026-11-16, avec son revers : un tiers peut épuiser la
+journée d'une adresse, et un lien ne vaut qu'une heure). Dans cet ordre, un refus du réseau n'entame pas les liens de
+l'adresse visée. La page « Mot de passe oublié » dit ce refus et l'heure de réouverture (`Retry-After`) ; il ne révèle
+aucun compte, compté avant toute lecture. `CF-Connecting-IP` est fiable (§ 7.7 de
+`docs/ARCHITECTURE-CIBLE.md`) : le conteneur ne répond qu'avec le jeton d'origine que pose Cloudflare, et l'en-tête
+n'est forgeable que par qui détient ce jeton. Si cette garde tombait, le filet resterait la borne de la force brute.
 
 🔴 **Les portes publiques ont leurs propres plafonds, et un plafond ne compte que des clés qui EXISTENT.**
 - `/v1` et `/mcp` : un budget GLOBAL (`API_KEY_PREFILTRE_MAX`, clé constante, 600 par minute) freine les empreintes

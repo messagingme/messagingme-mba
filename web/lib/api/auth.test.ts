@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { loginWithGoogle } from './auth';
+import { login, loginOps, loginWithGoogle } from './auth';
 
 /**
  * LA CONNEXION GOOGLE DE LA CONSOLE PORTE LA LANGUE DE L'ÉCRAN (aide à la connexion, lot 2b). Une adresse inconnue y crée
@@ -44,5 +44,30 @@ describe('loginWithGoogle', () => {
     vi.stubGlobal('window', fenetre({ navigateur: 'fr-FR' }));
     await loginWithGoogle('jeton-google', { accord: true });
     expect(appels[0]?.corps).toEqual({ idToken: 'jeton-google', langue: 'fr', pub: { accord: true } });
+  });
+});
+
+/**
+ * LE JETON DU DÉFI D'UN ESSAI DE MOT DE PASSE (lot E de l'audit de sécurité). Sans lui dans le corps, un titulaire dont
+ * l'adresse a un filet plein reste devant le défi à chaque envoi : `login` et `loginOps` le joignent quand l'écran en a
+ * un (`useDefiALaDemande`), et ne joignent rien sinon (la console face à une API d'avant le lot envoie le corps d'avant).
+ */
+describe('login et loginOps : le jeton du défi', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('🔴 joignent `turnstile` quand l’écran en a un, et rien sinon', async () => {
+    const appels = api();
+    vi.stubGlobal('window', fenetre({ navigateur: 'fr-FR' }));
+    await login('a@b.co', 'pw');
+    await login('a@b.co', 'pw', { turnstile: 'jeton-defi' });
+    await loginOps('a@b.co', 'pw');
+    await loginOps('a@b.co', 'pw', { turnstile: 'jeton-ops' });
+    expect(appels.map((a) => a.corps)).toEqual([
+      { email: 'a@b.co', password: 'pw' },
+      { email: 'a@b.co', password: 'pw', turnstile: 'jeton-defi' },
+      { email: 'a@b.co', password: 'pw', ops: true },
+      { email: 'a@b.co', password: 'pw', ops: true, turnstile: 'jeton-ops' },
+    ]);
+    expect(appels.every((a) => a.url.endsWith('/auth/login'))).toBe(true);
   });
 });

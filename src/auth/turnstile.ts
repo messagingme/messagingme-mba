@@ -18,6 +18,9 @@ export interface VerificateurTurnstile {
   verifier(jeton: string, ip: string | null): Promise<boolean>;
 }
 
+/** Le refus d'un jeton absent ou refusé, le même pour l'inscription et pour la connexion (`code: 'defi'`). */
+export const MESSAGE_DEFI_ECHOUE = 'La vérification anti-robot n’a pas abouti : réessayez.';
+
 export const URL_TURNSTILE = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 /** Un jeton Turnstile fait au plus 2 048 caractères (documentation de Cloudflare). */
 export const LONGUEUR_MAX_JETON_TURNSTILE = 2048;

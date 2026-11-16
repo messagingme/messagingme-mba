@@ -461,7 +461,12 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   (posé par l'admin) est SUPPRIMÉE** : on n'ajoute un membre QUE par invitation (front + route + code backend retirés).
 - ✅ **Mot de passe** : « oublié » (`/forgot`, lien de réinitialisation par email, réponse toujours générique
   anti-énumération, y compris pour une adresse dont le seul compte est une invitation en attente) + changement
-  depuis le compte (`/compte`).
+  depuis le compte (`/compte`). Cinq liens par jour et par adresse au plus (2026-11-16), chacun valable une heure : au
+  sixième, la page renvoie au plus récent.
+- ✅ **Un tiers ne ferme plus la connexion d'un compte** (2026-11-16). Les essais de mot de passe se comptent par réseau :
+  dix par minute pour une adresse depuis un même réseau. Au-delà de trente essais en dix minutes sur une adresse, d'où
+  qu'ils viennent, la connexion (console et `/ops`) et l'ajout d'un espace par cette adresse demandent le défi
+  anti-robot de Cloudflare, que le titulaire passe en un clic, puis il entre.
 - ✅ **Session expirée : on le dit, et on propose de revenir** (2026-08-17) : quand le jeton tombe pendant
   qu'on travaille, une bannière apparaît en haut de l'écran avec un bouton **« Se reconnecter »** qui ramène à
   la connexion. Avant, l'interface restait active et les enregistrements échouaient en silence.

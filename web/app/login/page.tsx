@@ -13,6 +13,7 @@ import { useT } from '@/lib/i18n';
 import { inputCls } from '@/lib/ui';
 import { Bouton } from '@/components/Bouton';
 import { EtapesSecondFacteur } from '@/components/SecondFacteur';
+import { useDefiALaDemande } from '@/components/DefiTurnstile';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,6 +36,8 @@ export default function LoginPage() {
   const [etape, setEtape] = useState<EtapeSecondFacteur | null>(null);
   /** Venue de la page d'autorisation d'une application (Claude Code), sans Google : on y retourne une fois entré. */
   const [demande, setDemande] = useState<string | null>(null);
+  /** Le défi anti-robot, quand l'API l'exige après beaucoup d'essais sur l'adresse. */
+  const defi = useDefiALaDemande();
 
   // Lu ici et pas au rendu : l'adresse n'existe pas côté serveur.
   useEffect(() => { setDemande(demandeDeLAdresse(window.location.search)); }, []);
@@ -58,7 +61,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
     try {
-      const res = await login(email.trim(), password);
+      const res = await login(email.trim(), password, defi.champ);
       if (estEtapeSecondFacteur(res)) {
         setPassword('');
         setEtape(res);
@@ -66,9 +69,10 @@ export default function LoginPage() {
       }
       continuer(res);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Connexion impossible', 'Unable to sign in'));
+      setError(defi.lireRefus(err) ?? (err instanceof Error ? err.message : t('Connexion impossible', 'Unable to sign in')));
     } finally {
       setLoading(false);
+      defi.renouveler();
     }
   }
 
@@ -169,11 +173,13 @@ export default function LoginPage() {
             />
           </div>
 
+          {defi.widget}
+
           {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
 
           <Bouton enCours={loading}
             type="submit"
-            disabled={loading}
+            disabled={loading || defi.attend}
             className="w-full"
           >
             {loading ? t('Connexion…', 'Signing in…') : t('Se connecter', 'Sign in')}

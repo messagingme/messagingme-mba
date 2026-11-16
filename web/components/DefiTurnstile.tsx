@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useT } from '@/lib/i18n';
+import { codeDuRefus } from '@/lib/api';
 
 /**
  * LE DÉFI ANTI-ROBOT DE CLOUDFLARE (Turnstile) DE LA DEMANDE D'UN LIEN D'INSCRIPTION (lot identité B). Le plus souvent
@@ -93,4 +94,52 @@ export function DefiTurnstile({ onJeton, generation }: { onJeton: (jeton: string
       )}
     </div>
   );
+}
+
+/**
+ * LE DÉFI À LA DEMANDE D'UN ESSAI DE MOT DE PASSE (lot E de l'audit de sécurité, 2026-11-16). La connexion (console et
+ * `/ops`) et l'ajout d'un espace par une adresse connue ne montrent d'abord aucun défi : l'API l'exige quand l'adresse a
+ * reçu beaucoup d'essais, tous réseaux confondus (refus `code: 'defi'`). Le formulaire l'affiche alors, et l'envoi
+ * suivant porte son jeton, à usage unique : un neuf se prépare après chaque envoi.
+ */
+export function useDefiALaDemande() {
+  const t = useT();
+  const [exige, setExige] = useState(false);
+  const [jeton, setJeton] = useState<string | null>(null);
+  const [generation, setGeneration] = useState(0);
+  return {
+    /** À joindre au corps de l'envoi : le jeton du défi, s'il y en a un. */
+    champ: jeton !== null ? { turnstile: jeton } : {},
+    /** Le défi est exigé, affichable, et pas encore résolu : l'envoi l'attend. */
+    attend: exige && CLE_SITE_TURNSTILE !== '' && jeton === null,
+    /** Le défi, une fois exigé. */
+    widget: exige ? <DefiTurnstile onJeton={setJeton} generation={generation} /> : null,
+    /**
+     * Lit le refus d'un envoi : `code: 'defi'` exige le défi et rend son message, traduit ; tout autre refus rend `null`,
+     * et l'écran garde le sien.
+     */
+    lireRefus(err: unknown): string | null {
+      if (codeDuRefus(err) !== 'defi') return null;
+      setExige(true);
+      // Sans clé du site, le défi ne peut pas s'afficher : on donne les deux sorties plutôt qu'un bouton qui reboucle.
+      if (!CLE_SITE_TURNSTILE) {
+        return t(
+          'Beaucoup d’essais de connexion sur ce compte, et la vérification anti-robot n’est pas disponible ici : connectez-vous avec Google, ou réessayez dans quelques minutes.',
+          'Many sign-in attempts on this account, and the anti-bot check is not available here: sign in with Google, or try again in a few minutes.',
+        );
+      }
+      return jeton !== null
+        ? t('La vérification anti-robot n’a pas abouti : réessayez.', 'The anti-bot check did not succeed: try again.')
+        : t(
+          'Beaucoup d’essais de connexion sur ce compte : confirmez que vous n’êtes pas un robot, puis réessayez.',
+          'Many sign-in attempts on this account: confirm you are not a robot, then try again.',
+        );
+    },
+    /** Après chaque envoi, réussi ou non : le jeton a servi, un neuf se prépare. */
+    renouveler(): void {
+      if (!exige && jeton === null) return;
+      setJeton(null);
+      setGeneration((g) => g + 1);
+    },
+  };
 }

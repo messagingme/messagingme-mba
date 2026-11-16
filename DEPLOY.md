@@ -307,7 +307,16 @@ reconnecter les clients MCP des espaces juste après le retour.
    redéploiement de la console : une variable `NEXT_PUBLIC_*` est figée au build, la poser ne suffit pas ;
 3. vérifier que le défi s'affiche sur `/signup` ;
 4. sa clé SECRÈTE sur le conteneur `mba-api` seulement (`TURNSTILE_SECRET_KEY`, en variable secrète ; le worker ne
-   sert aucune inscription). Sans elle, l'API écrit `turnstile_inactif` au démarrage et n'exige aucun défi.
+   sert aucune inscription). Sans elle, l'API écrit `turnstile_inactif` au démarrage et n'exige aucun défi, ni à
+   l'inscription ni à la connexion (voir le paragraphe suivant).
+
+🔴 **Depuis le lot E de l'audit (2026-11-16), ces clés servent aussi la CONNEXION** : quand le filet d'une adresse est
+plein (trente essais de mot de passe en dix minutes, tous réseaux confondus), la connexion, celle de `/ops` et l'ajout
+d'un espace par une adresse connue exigent ce défi. Une console construite SANS la clé du site face à une API qui a la
+clé secrète rend ce défi impossible à passer : l'écran le dit et renvoie vers Google, mais la connexion par mot de passe
+de l'adresse visée reste fermée jusqu'à la fin de la fenêtre. Après tout changement du projet Vercel ou de ses
+variables, vérifier que le défi s'affiche sur `/signup`. 🔴 Et RETIRER la clé secrète de `mba-api` rouvre le constat du
+lot E : sans défi, un filet plein refuse le titulaire, et un seul réseau peut le remplir à chaque fenêtre de dix minutes.
 
 **Le levier d'urgence** : `INSCRIPTION_PLAFOND_HEURE` (défaut 200 demandes de lien par heure, au total ; 0 = aucun
 refus global, les trois liens par adresse et par jour et la fenêtre par réseau restent).
@@ -355,6 +364,19 @@ créations derrière une boîte qui ne les nomme plus. Ramener aussi l'API, ou g
 **Retour arrière d'une image d'avant le lot** : l'ancien code ignore les colonnes, ne coupe plus les créations à la
 révocation, ne liste plus les applications déconnectées et purge leurs autorisations (le comportement d'avant ; le lien de
 ce qu'elles ont créé passe alors à vide). Rien à défaire en base.
+
+## ⚠️ La connexion compte ses essais par réseau du client (lot E de l'audit de sécurité, 2026-11-16) : l'ordre, le retour
+
+**L'ordre** : aucune migration. La console d'abord (Vercel, au push) : face à l'ancienne API, elle ne reçoit jamais de
+refus `defi` et ne joint de jeton qu'après lui. Puis l'API, `migration=aucune`. L'inverse laisserait, le temps de la
+console, un titulaire dont l'adresse a un filet plein devant un message sans défi à résoudre. Les clés Turnstile sont
+celles du lot identité B (section précédente), déjà posées. Après le push, `aide:charger` en production : la fiche
+« Inviter mon équipe, et gérer les accès » a changé (le défi, les cinq liens par jour).
+
+**Retour arrière d'une image d'avant le lot** : l'ancienne clé revient (`req.ip::adresse`, le constat de l'audit), le
+jeton du défi est ignoré et le mot de passe oublié repasse à cinq par minute. Rien à défaire en base : les lignes des
+nouvelles clés (`connexion.adresse`, `connexion.oubli`, `connexion.forgot` du jour) s'effacent avec leur fenêtre. La
+console du lot reste compatible.
 
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 

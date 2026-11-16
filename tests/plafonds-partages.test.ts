@@ -143,7 +143,7 @@ describe('les plafonds de connexion, sur deux copies', () => {
   const essai = (app: ReturnType<typeof buildServer>) =>
     app.inject({ method: 'POST', url: '/auth/login', headers: { 'content-type': 'application/json' }, payload: { email: 'a@b.co', password: 'nope' } });
 
-  it('🔴 dix essais par minute pour une identité, au TOTAL : l’autre copie ne rouvre pas les essais', async () => {
+  it('🔴 les essais d’un réseau pour une adresse se comptent au TOTAL : l’autre copie ne les rouvre pas', async () => {
     const debit = new CompteurDebitMemoire();
     const a = copieAuth(debit);
     const b = copieAuth(debit);
@@ -174,7 +174,8 @@ describe('les plafonds de connexion, sur deux copies', () => {
     const reset = await a.inject({ method: 'POST', url: '/auth/reset-password', headers: { 'content-type': 'application/json' }, payload: { token: JETON, password: 'un-mot-de-passe-assez-long' } });
     expect(reset.statusCode, 'la route a passé le plafond et lu le jeton').toBe(400);
     const lignes = await debit.lister('connexion.', 3_600_000);
-    expect(lignes.map((l) => l.cle.split('|')[0]).sort()).toEqual(['connexion.login', 'connexion.reset']);
+    // Un essai de mot de passe se compte par réseau du client (`login`) et dans le filet de l'adresse (`adresse`, lot E).
+    expect(lignes.map((l) => l.cle.split('|')[0]).sort()).toEqual(['connexion.adresse', 'connexion.login', 'connexion.reset']);
     for (const l of lignes) expect(l.cle).toMatch(/^connexion\.[a-z]+\|[0-9a-f]{64}$/);
     expect(JSON.stringify(lignes)).not.toMatch(/a@b\.co|jeton-de-reinitialisation/);
     await a.close();

@@ -1076,6 +1076,21 @@ Lot identité B (journal du 2026-11-05). Rien ne bloque.
   rebonds suffisent pour commencer.
 - **La suite de l'audit d'identité** : son plan est privé, dans `docs/prive/`.
 
+## 🟡 La connexion par réseau du client : ce que le lot laisse (lot E de l'audit de sécurité, 2026-11-16)
+
+- **Prévenir quand le filet d'une adresse se remplit** : rien ne dit à l'exploitation qu'un compte reçoit trente essais
+  en dix minutes. Une alerte Telegram (`deps.alerter`, déjà câblé pour l'inscription), une fois par fenêtre et sans
+  l'adresse, au plus une par demi-heure, comme les refus de `/ops`. À trancher : utile contre une attaque ciblée,
+  bruyante contre un balayage de milliers d'adresses.
+- **Le jour du mot de passe oublié est le jour UTC** (comme les trois liens d'inscription par jour) : il rouvre à une ou
+  deux heures du matin à Paris. Le caler sur minuit de Paris (`origineMs`, `bornesDuJour`) si un client s'en étonne.
+- **Un balayage du mot de passe oublié depuis beaucoup de réseaux** (une IPv6 /48 en donne 65 536 /64) écrit une ligne
+  par adresse inventée qui vit jusqu'à minuit UTC ; seule la règle Cloudflare par IP le borne au total. Un plafond
+  horaire global, comme `inscription.total` de l'inscription, si `compteurs_debit` gonfle.
+- **Le défi avec une clé du site n'est éprouvé par aucun test automatique** : le build des e2e n'en a pas, seule la branche
+  « clé absente » tourne, et `useDefiALaDemande` n'a pas de test unitaire (la console n'a pas d'outil de rendu React).
+  L'essai réel n° 265 couvre la connexion, `/ops` et l'étape « adresse connue » de l'inscription.
+
 ## 🟡 Ce qu'une application connectée crée : ce que le lot laisse (lot D de l'audit de sécurité, 2026-11-06)
 
 - **La page de consentement** (`web/app/autoriser`) ne dit pas qu'une application peut créer des clés d'API et des webhooks,

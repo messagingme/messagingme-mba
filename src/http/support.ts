@@ -29,8 +29,8 @@ const MESSAGE_MAX = 5000;
 export function registerSupport(app: FastifyInstance, deps: SupportRouteDeps, garde: Guard): void {
   const opts = { preHandler: garde };
 
-  // Limiteur propre à cet endpoint, cadence calquée sur /auth/forgot-password. Clé = userId, pas req.ip : sans
-  // `trustProxy`, derrière NPM, `req.ip` est le même pour tous (un plafond global qu'un seul épuiserait).
+  // Limiteur propre à cet endpoint, cinq demandes par minute. Clé = userId, pas req.ip : sans `trustProxy`, derrière
+  // le frontal, `req.ip` est le même pour tous (un plafond global qu'un seul épuiserait).
   const limiter = new RateLimiter(5, 60_000);
 
   app.post('/tenants/:tenantId/support', opts, async (req, reply) => {

@@ -47,9 +47,14 @@ export function estEtapeSecondFacteur(r: LoginOutcome): r is EtapeSecondFacteur 
 export function chooseWorkspace(choiceToken: string, tenantId: string): Promise<LoginResult> {
   return request<LoginResult>('/auth/choose-workspace', { method: 'POST', body: JSON.stringify({ choiceToken, tenantId }) });
 }
-export function login(email: string, password: string): Promise<LoginOutcome> {
+/**
+ * Le jeton du défi anti-robot d'un essai de mot de passe, joint seulement après un refus `code: 'defi'`
+ * (`useDefiALaDemande`, lot E de l'audit de sécurité).
+ */
+export interface ChampDefi { turnstile?: string }
+export function login(email: string, password: string, defi: ChampDefi = {}): Promise<LoginOutcome> {
   // `etape` : un 401 ici veut dire « identifiants invalides », pas « session perdue » (il n'y en a pas encore).
-  return request<LoginOutcome>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }, 'etape');
+  return request<LoginOutcome>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, ...defi }) }, 'etape');
 }
 /**
  * La réponse d'une demande d'inscription pour une adresse INCONNUE (lot identité B) : un lien est parti, rien n'est créé.
@@ -178,8 +183,8 @@ export interface SessionOpsOuverte { sessionOps: string; email: string }
  * Se connecter à l'exploitation : le compte habituel, puis TOUJOURS le second facteur (code, ou enrôlement pour
  * une adresse de la liste qui n'en a pas). Le serveur refuse en 403 une adresse hors de la liste.
  */
-export function loginOps(email: string, password: string): Promise<EtapeSecondFacteur> {
-  return request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, ops: true }) }, 'etape');
+export function loginOps(email: string, password: string, defi: ChampDefi = {}): Promise<EtapeSecondFacteur> {
+  return request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, ops: true, ...defi }) }, 'etape');
 }
 /** Idem par Google : Google prouve l'adresse, jamais le second facteur, qui reste exigé. */
 export function loginOpsGoogle(idToken: string): Promise<EtapeSecondFacteur> {
@@ -220,7 +225,10 @@ export function desactiverSecondFacteur(code: string): Promise<{ ok: boolean; to
 export function estCodeRefuse(err: unknown): boolean {
   return err instanceof ApiError && err.status === 401 && estCorpsCodeRefuse(err.corps);
 }
-/** Mot de passe perdu : renvoie toujours 200 (anti-énumération). */
+/**
+ * Mot de passe perdu : 200 générique (anti-énumération), ou 429 au-delà des plafonds (par réseau du client, puis cinq
+ * liens par jour et par adresse), comptés avant toute lecture et donc muets sur l'existence du compte.
+ */
 export function forgotPassword(email: string): Promise<{ ok: boolean; message: string }> {
   return request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) });
 }

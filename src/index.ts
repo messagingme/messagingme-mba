@@ -658,9 +658,10 @@ async function main(): Promise<void> {
         await envoisResend.produit({ to, subject, text, ...(html ? { html } : {}), ...(tags && tags.length > 0 ? { tags } : {}) });
       }
     : undefined;
-  // Le défi anti-robot de la demande d'un lien d'inscription (lot identité B) : sans clé secrète, aucun défi.
+  // Le défi anti-robot : la demande d'un lien d'inscription (lot identité B) et le filet plein d'un essai de mot de passe
+  // (lot E de l'audit). Sans clé secrète, aucun défi, et un filet plein REFUSE la connexion du titulaire.
   const turnstile = config.TURNSTILE_SECRET_KEY ? creerVerificateurTurnstile(config.TURNSTILE_SECRET_KEY) : undefined;
-  if (!turnstile) journaliser('warn', 'turnstile_inactif', { raison: 'TURNSTILE_SECRET_KEY vide : la demande d’un lien d’inscription n’a pas de défi' });
+  if (!turnstile) journaliser('warn', 'turnstile_inactif', { raison: 'TURNSTILE_SECRET_KEY vide : ni la demande d’un lien d’inscription ni la connexion n’ont de défi ; une adresse dont le filet est plein ne se connecte plus par mot de passe avant la fin de sa fenêtre' });
   /**
    * Le chiffrage : toutes les lectures de coût (statistiques, fiche contact, `/ops`), leur tarif Meta sous
    * micro-cache et la marge. Construit une fois, donc un cache de tarifs par process ; le worker, qui
@@ -2043,8 +2044,9 @@ async function main(): Promise<void> {
       verifyGoogle: (idToken) => verifyGoogleIdToken(idToken, config.GOOGLE_CLIENT_ID),
       ...(sendAuthEmail ? { sendEmail: sendAuthEmail } : {}),
       pub: pubInscription,
-      // La demande d'un lien d'inscription (lot identité B) : le défi Turnstile si sa clé secrète est posée, l'alerte du
-      // total horaire, et ce total (0 : aucun refus).
+      // Le défi Turnstile si sa clé secrète est posée (la demande d'un lien d'inscription, lot identité B, et le filet
+      // plein d'un essai de mot de passe, lot E de l'audit), l'alerte du total horaire des liens, et ce total (0 : aucun
+      // refus).
       ...(turnstile ? { turnstile } : {}),
       alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
       inscriptionPlafondHeure: config.INSCRIPTION_PLAFOND_HEURE,

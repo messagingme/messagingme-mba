@@ -15,28 +15,34 @@ import { nomEspace, MESSAGE_NOM_ESPACE_INVALIDE } from '../user/nom-espace';
 import { journaliser } from '../lib/journal';
 import { marquerConnexion, type ComptesAuthDep } from './comptes';
 import { entrerParGoogle } from './entree-google';
-import { empreinteTentative, verifierTentative } from './tentatives';
+import { compterEssai, empreinteTentative, FILET_PAR_ADRESSE, verifierTentative, type ReglageEssais } from './tentatives';
 import { MIN_MOT_DE_PASSE } from '../../web/lib/partage/mot-de-passe';
 import { DUREE_LIEN_INSCRIPTION_MS, REFUS_INSCRIPTION } from '../../web/lib/partage/inscription';
 import { apresEntree, lireChampPub, type DepsPubInscription } from '../pub/inscription';
 import { ipIndicative, reseauDuClient } from '../ops/tentatives';
 import { emailInscription, lienInscription } from './email-inscription';
 import { compterDemande, lireDemande, PLAFOND_INSCRIPTIONS_PAR_HEURE, SEUIL_ALERTE_INSCRIPTIONS_PAR_HEURE } from './inscription-lien';
-import type { VerificateurTurnstile } from './turnstile';
+import { MESSAGE_DEFI_ECHOUE, type VerificateurTurnstile } from './turnstile';
 
 export interface AuthRouteDeps extends MfaDeps {
   /**
    * Journal d'audit des connexions échouées ; absent : aucune trace. Écrit seulement pour un compte qui existe :
    * `audit_log.tenant_id` est NOT NULL, une tentative sur une adresse inconnue n'a nulle part où s'écrire, et
-   * l'écran doit le dire. Sûr sur ce chemin non authentifié grâce au frein placé avant (dix tentatives par
-   * minute et par clé, 429 avant la vérification du mot de passe). L'acteur est le compte visé ; le `detail`
+   * l'écran doit le dire. Sûr sur ce chemin non authentifié grâce au frein placé avant (`compterEssai` : dix essais
+   * par minute pour un réseau et une adresse, puis le défi au-delà du filet de l'adresse, refus avant la vérification
+   * du mot de passe). L'acteur est le compte visé ; le `detail`
    * ne porte ni l'adresse ni l'IP (table jamais purgée, l'IP est une donnée personnelle), seulement la cause.
    */
   auditConnexion?: (tenantId: string, userId: string, cause: 'mot_de_passe' | 'compte_desactive') => Promise<void>;
   users: UserAuthStore;
   secret: string;
-  /** Rate-limit du login (clé : l’empreinte de `ip::adresse`). Défaut : 10 tentatives par minute. */
+  /**
+   * Les essais de mot de passe d'un RÉSEAU du client pour une adresse (`compterEssai`, lot E de l'audit). Défaut : 10
+   * par minute. Sert aussi `/auth/choose-workspace`, clé sur son jeton de choix.
+   */
   loginRateLimit?: { max: number; windowMs: number };
+  /** Le filet par adresse, tous réseaux confondus, au-delà duquel le défi est exigé. Défaut : `FILET_PAR_ADRESSE`. */
+  filetParAdresse?: { max: number; dureeMs: number };
   /** Relecture par requête de l'état du compte (révoqué, supprimé, rôle frais). Absent en test (JWT seul).
    *  Voir makeRequireAuth. */
   getUserState?: UserStateLoader;
@@ -58,8 +64,9 @@ export interface AuthRouteDeps extends MfaDeps {
    */
   sendEmail?(input: { to: string; subject: string; text: string; html?: string; tags?: Array<{ name: string; value: string }> }): Promise<void>;
   /**
-   * Le défi Cloudflare Turnstile de la demande d'inscription (lot identité B). Absent (clé secrète non posée) : pas de
-   * défi, les plafonds seuls.
+   * Le défi Cloudflare Turnstile : celui de la demande d'inscription (lot identité B), et celui qu'exige le filet par
+   * adresse d'un essai de mot de passe (lot E de l'audit). Absent (clé secrète non posée) : pas de défi, les plafonds
+   * seuls, et un filet plein refuse.
    */
   turnstile?: VerificateurTurnstile;
   /** Une alerte à l'exploitant (Telegram) : le total horaire des demandes de lien qui atteint son seuil. Absente : rien. */
@@ -178,25 +185,47 @@ const LIEN_MORT = {
 } as const;
 
 /** Adapte la décision de débit indépendante du transport à la réponse Fastify de ces routes. */
-async function freine(plafond: PlafondPartage, cle: string, reply: FastifyReply): Promise<boolean> {
-  const decision = await verifierTentative(plafond, cle);
+async function freine(plafond: PlafondPartage, cle: string, reply: FastifyReply, message?: string): Promise<boolean> {
+  const decision = await verifierTentative(plafond, cle, message);
   if (decision.acceptee) return false;
   await refuserTropDeRequetes(reply, decision.attenteMs, decision.message);
   return true;
 }
 
+/** Un jour, la fenêtre des liens de réinitialisation d'une adresse. */
+const JOUR_MS = 24 * 60 * 60_000;
+/**
+ * Le refus de la sixième demande du jour pour une adresse (décision de Julien du 2026-11-16). Il dit que chaque lien ne
+ * vaut qu'une heure : le revers connu de cette borne est qu'un tiers peut épuiser la journée d'une adresse. Il ne dit
+ * pas « demain » : la fenêtre est le jour UTC, qui rouvre à une ou deux heures du matin à Paris. La console affiche le
+ * sien, traduit, avec l'heure de réouverture tirée de `Retry-After` (`web/app/forgot/page.tsx`).
+ */
+export const MESSAGE_LIENS_DE_REINITIALISATION = 'Plusieurs liens de réinitialisation sont déjà partis vers cette adresse aujourd’hui. Chacun vaut une heure : ouvrez le plus récent.';
+
 export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: Guard, compteur: CompteurDebit): void {
   /**
-   * Les huit plafonds, dans le compteur partagé, tous fermés sur panne. Plus de plafond de clés vivantes : il bornait
+   * Les neuf plafonds, dans le compteur partagé, tous fermés sur panne. Plus de plafond de clés vivantes : il bornait
    * la MÉMOIRE d'un processus contre un robot qui invente des adresses ; en base, ces lignes vivent le temps de leur
-   * fenêtre et la tâche `compteurs-debit` du worker les efface toutes les cinq minutes.
+   * fenêtre et la tâche `compteurs-debit` du worker les efface toutes les cinq minutes. Le filet d'un essai de mot de
+   * passe n'est pas l'un d'eux : `compterEssai` compte ses deux fenêtres en un appel.
    */
   const plafond = (nom: string, max: number, dureeMs = 60_000): PlafondPartage =>
     new PlafondPartage(compteur, { nom: `connexion.${nom}`, max, dureeMs, siLaBaseEchoue: 'refuser' });
   const cfg = deps.loginRateLimit ?? { max: 10, windowMs: 60_000 };
   const limiter = plafond('login', cfg.max, cfg.windowMs);
+  const reglageEssais: ReglageEssais = {
+    parReseau: { max: cfg.max, dureeMs: cfg.windowMs },
+    parAdresse: deps.filetParAdresse ?? FILET_PAR_ADRESSE,
+  };
+  // Par réseau du client et par adresse (lot E de l'audit) : un tiers ne ferme plus l'inscription d'une adresse.
   const signupLimiter = plafond('signup', 10);
-  const forgotLimiter = plafond('forgot', 5);
+  // Le mot de passe oublié, en deux temps (lot E de l'audit). D'abord le RÉSEAU du client, toutes adresses confondues,
+  // une minute : les lignes de l'ADRESSE vivent un jour, et sans lui un robot qui balaie des adresses en écrirait
+  // autant que la règle Cloudflare laisse passer de requêtes. Puis l'ADRESSE seule, tous réseaux confondus, et c'est
+  // voulu : elle borne les e-mails qu'un tiers fait partir vers une boîte (5 par jour UTC, décision de Julien du
+  // 2026-11-16 ; 5 par minute avant). Dans cet ordre, un refus du réseau ne touche pas les liens de l'adresse visée.
+  const oubliLimiter = plafond('oubli', 10);
+  const forgotLimiter = plafond('forgot', 5, JOUR_MS);
   const resetLimiter = plafond('reset', 10);
   const acceptLimiter = plafond('accept', 10);
   const googleLimiter = plafond('google', 20);
@@ -209,14 +238,26 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
   // les essais de mot de passe d'UN jeton : recharger la page n'en consomme aucun.
   const invitationLimiter = plafond('invitation', 60);
 
+  /**
+   * Un essai de mot de passe pour `email` (`compterEssai`) : la connexion et l'inscription d'une adresse connue, avec
+   * les mêmes clés. `true` : refusé, la réponse est partie (429, ou 403 `code: 'defi'` quand le filet exige le défi).
+   */
+  const essaiRefuse = async (req: FastifyRequest, reply: FastifyReply, email: string, jeton: string): Promise<boolean> => {
+    const v = await compterEssai(compteur, reglageEssais, { reseau: reseauDuClient(req), adresse: email, jeton, ip: ipIndicative(req) }, deps.turnstile);
+    if (v.verdict === 'accepte') return false;
+    if (v.verdict === 'defi') await reply.code(403).send({ error: v.message, code: 'defi' });
+    else await refuserTropDeRequetes(reply, v.attenteMs, v.message);
+    return true;
+  };
+
   app.post('/auth/login', async (req, reply) => {
-    const b = (req.body ?? {}) as { email?: unknown; password?: unknown; ops?: unknown };
+    const b = (req.body ?? {}) as { email?: unknown; password?: unknown; ops?: unknown; turnstile?: unknown };
     if (typeof b.email !== 'string' || typeof b.password !== 'string' || b.email === '' || b.password === '') {
       return reply.code(400).send({ error: 'email et password requis' });
     }
     const email = b.email.trim().toLowerCase();
-    // Rate-limit après le parse (la clé porte l'adresse) et avant le scrypt (protège le coût CPU du brute-force).
-    if (await freine(limiter, empreinteTentative(req, email), reply)) return reply;
+    // Compté après le parse (la clé porte l'adresse) et avant le scrypt (protège le coût CPU du brute-force).
+    if (await essaiRefuse(req, reply, email, str(b.turnstile))) return reply;
 
     const identite = await deps.users.findIdentity(email);
     // Toujours vérifier un hash (leurre si l'adresse est inconnue) : même temps CPU, pas de fuite d'existence.
@@ -375,7 +416,7 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
       return reply.code(503).send({ error: 'inscription par e-mail indisponible' });
     }
     if (deps.turnstile && !(await deps.turnstile.verifier(str(corps.turnstile), ipIndicative(req)))) {
-      return reply.code(403).send({ error: 'La vérification anti-robot n’a pas abouti : réessayez.', code: 'defi' });
+      return reply.code(403).send({ error: MESSAGE_DEFI_ECHOUE, code: 'defi' });
     }
     const plafonds = await compterDemande(compteur, email, req, deps.inscriptionPlafondHeure ?? PLAFOND_INSCRIPTIONS_PAR_HEURE);
     if (!plafonds.accepte) {
@@ -410,7 +451,7 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     const password = str(b.password);
     const name = str(b.name).trim() || null;
     if (!EMAIL_RE.test(email) || email.length > LONGUEUR_MAX_EMAIL) return reply.code(400).send({ error: 'email invalide' });
-    if (await freine(signupLimiter, empreinteTentative(req, email), reply)) return reply;
+    if (await freine(signupLimiter, empreinteTentative({ ip: reseauDuClient(req) }, email), reply)) return reply;
     const existant = await deps.comptes.motDePasseDeLAdresse(email);
     if (existant === undefined) return demanderUnLien(req, reply, email, b);
     // Une identité sans mot de passe ET sans compte ouvert est née d'une invitation jamais acceptée (lot identité C) :
@@ -432,7 +473,10 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     if (!nomLu.success) return reply.code(400).send({ error: MESSAGE_NOM_ESPACE_INVALIDE });
     const workspaceName = nomLu.data;
     if (password.length < MIN_MOT_DE_PASSE) return reply.code(400).send({ error: `mot de passe trop court (min ${MIN_MOT_DE_PASSE})` });
-    if (existant === null || !(await verifyPassword(password, existant))) return reply.code(409).send(ADRESSE_DEJA_CONNUE);
+    if (existant === null) return reply.code(409).send(ADRESSE_DEJA_CONNUE);
+    // Un essai de mot de passe comme un autre : les clés de la connexion, pour qu'alterner les deux routes ne double rien.
+    if (await essaiRefuse(req, reply, email, str(b.turnstile))) return reply;
+    if (!(await verifyPassword(password, existant))) return reply.code(409).send(ADRESSE_DEJA_CONNUE);
     try {
       const { tenantId, userId } = await deps.comptes.createTenantWithAdmin(workspaceName, { email, name, passwordHash: await hashPassword(password) }, 'console');
       // L'inscription crée un admin d'un espace qui n'exige pas le second facteur (défaut de la migration 0230) : elle
@@ -490,11 +534,13 @@ export function registerAuth(app: FastifyInstance, deps: AuthRouteDeps, garde: G
     return reply.code(201).send({ ...suite, inscription: { offre: r.offrePro ? 'pro' : null, application: r.application, langue: r.langue } });
   });
 
-  // Mot de passe perdu : toujours 200 (anti-énumération), un lien si le compte existe.
+  // Mot de passe perdu : 200 générique (anti-énumération), un lien si le compte existe ; 429 au-delà des plafonds.
   app.post('/auth/forgot-password', async (req, reply) => {
     const email = str((req.body as { email?: unknown } | undefined)?.email).trim().toLowerCase();
-    // Clé sur l'adresse. Le `take()` précède toute lecture : le seuil du 429 ne révèle pas l'existence du compte.
-    if (await freine(forgotLimiter, empreinteTentative(req, email), reply)) return reply;
+    // Le réseau du client, puis l'adresse seule (voir `oubliLimiter`). Comptés avant toute lecture : le seuil du 429
+    // ne révèle pas l'existence du compte.
+    if (await freine(oubliLimiter, empreinteTentative({ ip: reseauDuClient(req) }, 'oubli'), reply)) return reply;
+    if (await freine(forgotLimiter, empreinteTentative({ ip: '*' }, email), reply, MESSAGE_LIENS_DE_REINITIALISATION)) return reply;
     const generic = { ok: true, message: 'Si un compte existe pour cet email, un lien de réinitialisation a été envoyé.' };
     if (EMAIL_RE.test(email) && deps.tokens && deps.sendEmail && deps.appUrl && deps.comptes?.compteAReinitialiser) {
       try {

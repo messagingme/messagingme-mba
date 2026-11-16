@@ -15,6 +15,7 @@ import { formatDate } from '@/lib/day';
 import { fmtCost, fmtNum } from '@/lib/format';
 import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { Modale } from '@/components/Modale';
+import { useDefiALaDemande } from '@/components/DefiTurnstile';
 import { ordonnerLatences, enAlerte, SEUIL_P95_MS, EFFECTIF_MIN, CODE_ABANDON } from '@/lib/latence-http';
 import { tacheEnAlerte, fichiersEnBase, fmtOctets, SEUIL_TACHE_LENTE_MS, SEUIL_FICHIERS_EN_BASE_OCTETS, teinteVercel, fmtDollars, SEUIL_VERCEL_ORANGE_POURCENT, SEUIL_VERCEL_ROUGE_POURCENT } from '@/lib/ops-mesures';
 import { useLocale, useT } from '@/lib/i18n';
@@ -298,6 +299,8 @@ function ConnexionOps({ message, onSession }: { message: string | null; onSessio
   const [etape, setEtape] = useState<EtapeSecondFacteur | null>(null);
   const [error, setError] = useState<string | null>(message);
   const [loading, setLoading] = useState(false);
+  /** Le défi anti-robot, quand l'API l'exige après beaucoup d'essais sur l'adresse (la même règle que la console). */
+  const defi = useDefiALaDemande();
 
   /**
    * ⚠️ La console part chez Vercel au `git push`, l'API à son `up` : entre les deux, une API d'avant ignore
@@ -314,12 +317,13 @@ function ConnexionOps({ message, onSession }: { message: string | null; onSessio
     setError(null);
     setLoading(true);
     try {
-      suiteEtape(await loginOps(email.trim(), password));
+      suiteEtape(await loginOps(email.trim(), password, defi.champ));
       setPassword('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('Connexion impossible', 'Unable to sign in'));
+      setError(defi.lireRefus(err) ?? (err instanceof Error ? err.message : t('Connexion impossible', 'Unable to sign in')));
     } finally {
       setLoading(false);
+      defi.renouveler();
     }
   }
 
@@ -369,8 +373,9 @@ function ConnexionOps({ message, onSession }: { message: string | null; onSessio
               <label htmlFor="ops-password" className="mb-1 block text-sm font-medium text-ink-900">{t('Mot de passe', 'Password')}</label>
               <input id="ops-password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} className={inputCls} />
             </div>
+            {defi.widget}
             {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700" data-testid="ops-connexion-erreur">{error}</p>}
-            <Bouton enCours={loading} type="submit" disabled={loading} className="w-full">
+            <Bouton enCours={loading} type="submit" disabled={loading || defi.attend} className="w-full">
               {loading ? t('Connexion…', 'Signing in…') : t('Se connecter', 'Sign in')}
             </Bouton>
             <GoogleButton onError={setError} surJeton={parGoogle} />
