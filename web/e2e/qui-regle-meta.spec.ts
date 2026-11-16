@@ -287,12 +287,12 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }], solution: 'sol-e2e' });
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre option est payée : connectez votre numéro, Meta ne vous facturera pas. Votre ligne s’ouvre ensuite sous 24 h ouvrées.');
-    // La voie de la carte chez Meta est fermée : son guide n'est pas monté, une seule connexion écoute la fenêtre.
-    await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'false');
+    // 🔴 L'option payée, la voie de la carte chez Meta n'est plus proposée (Julien, 2026-11-16, essai 263 : « pourquoi tu
+    // laisses encore le choix alors qu'on vient de la choisir ») : ni son bouton, ni son guide, ni son avertissement.
+    await expect(page.getByTestId('carte-meta-choisir')).toHaveCount(0);
+    await expect(page.getByTestId('carte-meta')).toHaveCount(0);
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
-    // 🔴 Elle avertit, AVANT tout geste, qu'elle est sans retour (texte validé par Julien le 2026-11-13) : Meta refuse la
-    // reconnexion d'un numéro connecté avec sa carte.
-    await expect(page.getByTestId('carte-meta-avertissement-ligne')).toHaveText(AVERTISSEMENT_CARTE);
+    await expect(page.getByTestId('carte-meta-avertissement-ligne')).toHaveCount(0);
     // « Votre numéro, ou le nôtre ? » (lot 3v) : le sien reçoit la phrase validée de Julien AVANT la fenêtre.
     // L'option payée (essai 263) : la confirmation, puis l'étape suivante en titre.
     await expect(page.getByTestId('ligne-confirmee')).toHaveText('Votre option ligne de crédit est active');
@@ -344,7 +344,7 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(page.getByTestId('carte-credit-wa-numero-carte')).toHaveCount(0);
   });
 
-  test('🔴 la fenêtre du partenaire ouverte : ni l’autre réponse ni la carte chez Meta ne démontent la connexion en cours', async ({ page }) => {
+  test('🔴 la fenêtre du partenaire ouverte : l’autre réponse ne démonte pas la connexion en cours', async ({ page }) => {
     // Un SDK dont la fenêtre ne rend jamais la main : la connexion reste en cours (jaune de la relecture du lot 3v-1).
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.FB={init:function(){},login:function(){}};' }));
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts: [] } });
@@ -357,30 +357,10 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     // Fenêtre ouverte : les gestes qui démonteraient « J’utilise un numéro existant » sont fermés, et son parcours reste monté.
     await expect(page.getByTestId('ligne-numero-notre')).toBeDisabled();
     await expect(page.getByTestId('ligne-numero-mien')).toBeDisabled();
-    await expect(page.getByTestId('carte-meta-choisir')).toBeDisabled();
     await expect(page.getByTestId('ligne-numero-mien-suite')).toBeVisible();
   });
 
-  test('🔴 la fenêtre de Meta de la voie de la carte ouverte : les réponses de la ligne ne démontent pas son parcours', async ({ page }) => {
-    // La page tient l'état de la fenêtre de son parcours (`surOccupe`) et le passe à la carte (`occupe`).
-    await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.FB={init:function(){},login:function(){}};' }));
-    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts: [] } });
-    await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }], solution: 'sol-e2e' });
-    await page.goto('/connecter-whatsapp');
-    await page.getByTestId('carte-meta-choisir').click();
-    await page.getByTestId('question-compte-oui').click();
-    await page.getByTestId('choix-apporte').click();
-    await expect(page.getByTestId('ligne-numero-mien')).toBeEnabled();
-    await page.getByTestId('ouvrir-fenetre-meta').click();
-    await expect(page.getByTestId('ouvrir-fenetre-meta')).toBeDisabled();
-    await expect(page.getByTestId('ligne-numero-mien')).toBeDisabled();
-    await expect(page.getByTestId('ligne-numero-notre')).toBeDisabled();
-    // Le parcours de la carte reste monté : son encadré et son bouton, fenêtre ouverte.
-    await expect(page.getByTestId('prerequis-meta')).toBeVisible();
-    await expect(page.getByTestId('ouvrir-fenetre-meta')).toBeVisible();
-  });
-
-  test('🔴 une Entreprise sans numéro : son texte, la même question ; la carte chez Meta se reprend d’un clic, et « J’utilise un numéro existant » la referme avant la fenêtre du partenaire', async ({ page }) => {
+  test('🔴 une Entreprise sans numéro : son texte, la même question, sans la voie de la carte chez Meta, et « J’utilise un numéro existant » mène à la fenêtre du partenaire', async ({ page }) => {
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
     const posts: unknown[] = [];
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts } });
@@ -389,14 +369,11 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Connectez votre numéro, Meta ne vous facturera pas. Votre ligne s’ouvre ensuite sous 24 h ouvrées.');
     await expect(page.getByTestId('ligne-numero')).toBeVisible();
     await expect(page.getByTestId('carte-credit-wa-grisee')).toHaveCount(0);
-    // Une Entreprise n'a pas de ligne en attente : sans la fenêtre du partenaire, la carte chez Meta serait la voie active.
-    await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'false');
+    // Sa ligne comprise dans son contrat : la confirmation, et plus de voie de la carte chez Meta (essai 263).
+    await expect(page.getByTestId('ligne-confirmee')).toHaveText('Votre ligne de crédit est comprise dans votre contrat');
+    await expect(page.getByTestId('carte-meta-choisir')).toHaveCount(0);
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
-    await page.getByTestId('carte-meta-choisir').click();
-    await expect(page.getByTestId('question-compte')).toBeVisible();
-    // Sans recharger la page : « J’utilise un numéro existant » referme le guide de la carte, puis le bouton du partenaire ouvre sa fenêtre.
     await page.getByTestId('ligne-numero-mien').click();
-    await expect(page.getByTestId('question-compte')).toHaveCount(0);
     const bouton = page.getByTestId('carte-credit-wa-connecter-ligne');
     await expect(bouton).toBeEnabled();
     await bouton.click();
@@ -437,7 +414,7 @@ test.describe('Connecter WhatsApp : le numéro fourni par la fenêtre du partena
     expect(options?.extras).toEqual({ setup: { solutionID: 'sol-e2e' }, featureType: '', sessionInfoVersion: '3' });
   });
 
-  test('🔴 « J’ai besoin d’un numéro », sa fenêtre ouverte : ni « J’utilise un numéro existant » ni la carte chez Meta ne démontent son parcours', async ({ page }) => {
+  test('🔴 « J’ai besoin d’un numéro », sa fenêtre ouverte : « J’utilise un numéro existant » ne démonte pas son parcours', async ({ page }) => {
     await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.FB={init:function(){},login:function(){}};' }));
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: CONNECTE, posts: [] } });
     await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }], solution: 'sol-e2e' });
@@ -451,7 +428,6 @@ test.describe('Connecter WhatsApp : le numéro fourni par la fenêtre du partena
     await page.getByTestId('ouvrir-fenetre-meta').click();
     await expect(page.getByTestId('ouvrir-fenetre-meta')).toBeDisabled();
     await expect(page.getByTestId('ligne-numero-mien')).toBeDisabled();
-    await expect(page.getByTestId('carte-meta-choisir')).toBeDisabled();
     await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
   });
 });

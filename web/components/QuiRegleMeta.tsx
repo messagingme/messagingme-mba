@@ -44,7 +44,7 @@ export const PAR_LA_LIGNE = {
 /**
  * L'option payée, ou une Entreprise sans numéro (essai 263, Julien, 2026-11-16 : « une rassurance comme quoi l'option a
  * bien été prise en compte, et maintenant on attaque l'étape suivante ») : la confirmation, puis la question du numéro
- * en titre, et la voie de la carte chez Meta reléguée dessous.
+ * en titre ; la voie de la carte chez Meta n’est plus proposée (« on vient de la choisir », Julien).
  */
 export const OPTION_ACTIVE = {
   fr: 'Votre option ligne de crédit est active',
@@ -57,10 +57,6 @@ export const LIGNE_DU_CONTRAT = {
 export const ETAPE_NUMERO = {
   fr: 'Étape suivante : quel numéro voulez-vous connecter ?',
   en: 'Next step: which number do you want to connect?',
-} as const;
-export const PLUTOT_LA_CARTE = {
-  fr: 'Vous préférez payer Meta avec votre carte ?',
-  en: 'Would you rather pay Meta with your card?',
 } as const;
 
 /**
@@ -369,7 +365,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   ) : null;
   /**
    * L'option payée (ou une Entreprise sans numéro), sur Connecter WhatsApp, la voie de la carte pas reprise : la
-   * confirmation en tête, la question du numéro en titre, et la carte chez Meta reléguée dessous (essai 263).
+   * confirmation en tête, la question du numéro en titre, sans la voie de la carte chez Meta (essai 263).
    */
   const confirmee = ligneIci && !carteActive;
 
@@ -378,7 +374,8 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
       <div data-testid="qui-regle-meta" className="rounded-carte border border-ink-200 bg-white p-5">
         <div className="text-base font-semibold text-ink-900">{t(QUESTION_PAIEMENT.texte.fr, QUESTION_PAIEMENT.texte.en)}</div>
         <p className="mt-1 text-xs text-ink-500">{t(QUESTION_PAIEMENT.precision.fr, QUESTION_PAIEMENT.precision.en)}</p>
-        {retour === 'recue' && (
+        {/* Confirmée, la carte verte dit déjà que l'option est prise : pas de second bandeau. */}
+        {retour === 'recue' && !confirmee && (
           <div className="mt-3"><MbaNotice kind="success" testid="carte-credit-wa-recue">{t('Paiement de l’option reçu.', 'Option payment received.')}</MbaNotice></div>
         )}
         {retour === 'abandon' && etat !== 'en_attente' && etat !== 'active' && (
@@ -398,12 +395,9 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
               </div>
               {ligne && <p className="mt-1 text-sm text-succes-800" data-testid="carte-credit-wa-ligne">{ligne}</p>}
             </div>
+            {/* Plus de voie de la carte chez Meta : l'option choisie et payée, la reproposer embrouillait (Julien,
+                2026-11-16, essai 263 : « pourquoi tu laisses encore le choix alors qu'on vient de la choisir »). */}
             <div className="mt-5">{action}</div>
-            {/* La voie de la carte chez Meta reste possible, en dessous, avec son avertissement : sans retour. */}
-            <div className="mt-6 border-t border-ink-200 pt-4">
-              <p className="mb-3 text-sm font-semibold text-ink-700">{t(PLUTOT_LA_CARTE.fr, PLUTOT_LA_CARTE.en)}</p>
-              {rangee(carteMeta, boutonCarte, 'rangee-meta')}
-            </div>
           </>
         ) : (
           <div className="mt-4 space-y-4">
