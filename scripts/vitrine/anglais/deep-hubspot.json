@@ -12,7 +12,6 @@
  {"fr": "Dès qu’un client demande un humain, une tâche part chez le propriétaire du contact, avec le lien de la conversation. Aucune conversation ne reste sans réponse de votre équipe.", "en": "As soon as a customer asks for a human, a task goes to the contact owner, with the link to the conversation. No conversation is left without an answer from your team."},
  {"fr": "Avec Sales Hub ou Service Hub, la conversation arrive dans votre Inbox HubSpot. Sans eux, vous répondez depuis la fiche du contact. Le client reçoit la réponse sur WhatsApp.", "en": "With Sales Hub or Service Hub, the conversation arrives in your HubSpot Inbox. Without them, you reply from the contact record. The customer gets the reply on WhatsApp."},
  {"fr": "Vos listes et vos workflows partent sur WhatsApp", "en": "Your lists and your workflows go out on WhatsApp"},
- {"fr": "Une campagne WhatsApp cible directement une liste HubSpot. Vos workflows envoient des modèles et lancent des scénarios, jusqu’au changement d’étape d’une transaction.", "en": "A WhatsApp campaign targets a HubSpot list directly. Your workflows send templates and launch scenarios, down to a deal changing stage."},
  {"fr": "Faut-il Sales Hub ou une offre Pro de HubSpot&nbsp;?", "en": "Do you need Sales Hub or a HubSpot Pro plan?"},
  {"fr": "Non. La carte de la fiche contact, l’analyse, les tâches et les listes marchent avec toutes les offres HubSpot. Seuls les workflows demandent une offre Pro, et l’Inbox HubSpot Sales Hub ou Service Hub Professional.", "en": "No. The contact record card, the analysis, the tasks and the lists work with every HubSpot plan. Only workflows need a Pro plan, and the HubSpot Inbox needs Sales Hub or Service Hub Professional."},
  {"fr": "Où arrive l’analyse d’une conversation&nbsp;?", "en": "Where does a conversation’s analysis go?"},
@@ -51,5 +50,11 @@
  {"fr": "Marketing Hub ou Service Hub, Professional ou Enterprise", "en": "Marketing Hub or Service Hub, Professional or Enterprise"},
  {"fr": "Fonction", "en": "Feature"},
  {"fr": "oui", "en": "yes"},
- {"fr": "non", "en": "no"}
+ {"fr": "non", "en": "no"},
+ {"fr": "Le film&nbsp;: plus qu’un canal, du conversationnel.", "en": "The film: more than a channel, conversational."},
+ {"fr": "D’une pub ou d’un formulaire jusqu’à la fiche HubSpot&nbsp;: la conversation analysée, transformée en action, et la réponse du conseiller, sans quitter HubSpot.", "en": "From an ad or a form to the HubSpot record: the conversation analyzed, turned into an action, and the advisor’s reply, without leaving HubSpot."},
+ {"fr": "D’une pub ou d’un formulaire jusqu’à la fiche HubSpot : la conversation analysée, transformée en action, et la réponse du conseiller, sans quitter HubSpot.", "en": "From an ad or a form to the HubSpot record: the conversation analyzed, turned into an action, and the advisor’s reply, without leaving HubSpot."},
+ {"fr": "Film&nbsp;: l’intégration la plus profonde entre WhatsApp et HubSpot, avec Messaging Me", "en": "Film: the deepest integration between WhatsApp and HubSpot, with Messaging Me"},
+ {"fr": "Film : Deep HubSpot integration avec Messaging Me", "en": "Film: Deep HubSpot integration with Messaging Me"},
+ {"fr": "Une campagne WhatsApp cible directement une liste HubSpot. Un formulaire HubSpot rempli, une transaction qui change d’étape&nbsp;: vos workflows lancent le scénario sur WhatsApp.", "en": "A WhatsApp campaign targets a HubSpot list directly. A HubSpot form submitted, a deal changing stage: your workflows launch the scenario on WhatsApp."}
 ]
