@@ -62,8 +62,11 @@ function debrancher(data: Record<string, unknown>, cles: readonly string[], rais
   return { data: vide, raison: pointait ? raison : null, champs };
 }
 
-/** Les clés des clauses `field` et `datetime` d'un groupe, lues défensivement (`data` est opaque). */
-function clesDesClauses(clauses: readonly unknown[]): string[] {
+/**
+ * Les clés des clauses `field` et `datetime` d'un groupe, lues défensivement (`data` est opaque). Sert aussi aux
+ * conditions des déclencheurs (`declencheurs.ts`), qui ont la même forme.
+ */
+export function clesDesClauses(clauses: readonly unknown[]): string[] {
   return clauses.flatMap((c) => {
     const o = c !== null && typeof c === 'object' ? (c as Record<string, unknown>) : {};
     return (o.kind === 'field' || o.kind === 'datetime') ? [texte(o.key)] : [];
