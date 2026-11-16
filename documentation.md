@@ -6529,7 +6529,8 @@ Ajouté par le lot 4 de l'API publique :
     numéro seulement, sous leur nom complet `mcp__plugin_messagingme_messagingme__<outil>`). La FAQ s'écrit dans
     `scripts/plugin/faq.ts`, chaque réponse avec sa source et les chiffres de nos offres tirés du code, aucun prix de
     Meta ; `npm run plugin:generer` l'écrit dans la skill `faq` (et dans la vitrine quand ses pages portent les marques),
-    et `tests/plugin-faq.test.ts` exige l'égalité. L'accueil du plugin aussi (`blocAccueil`, `scripts/plugin/generer.ts`,
+    et `tests/plugin-faq.test.ts` exige l'égalité. Un saut de ligne (`\n`) dans une réponse devient un `<br>` sur la
+    vitrine et un paragraphe dans la skill : une liste 1), 2), 3) va à la ligne à chaque point. L'accueil du plugin aussi (`blocAccueil`, `scripts/plugin/generer.ts`,
     entre les marques `accueil` des skills `demarrer` et `mise-en-service` et du README) : les deux offres chiffrées depuis
     `DROITS`, la connexion MCP comme étape 1 avec la commande de Codex ; Claude le recopie au lieu d'écrire son intro, et
     `tests/plugin-readme.test.ts` refuse un autre nombre de contacts que celui de la grille. « Ce que vous pouvez construire » s'écrit de même dans

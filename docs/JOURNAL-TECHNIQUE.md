@@ -111,6 +111,14 @@ que le canal WhatsApp natif de HubSpot, quelle que soit l'offre HubSpot du clien
 - **Incident** : le job `unit` de `b52dd9b69` rouge sur `tests/registre-vitrine.test.ts` (une page sous `/solutions/`
   doit être une entrée du registre), lancé localement sur les seuls tests `vitrine*`. Corrigé par `467f1c7d8` après la
   suite entière ; la page en ligne n'a jamais été touchée.
+## 2026-11-13 : la FAQ « Quel numéro WhatsApp prendre ? » répond à sa question
+
+La réponse déroulait l'arbre de questions de Claude et tout le paiement de Meta en un seul bloc ; Julien l'a jugée
+illisible et hors sujet. Elle dit maintenant à quoi sert le numéro (écrire en premier avec des modèles, « templates »
+en anglais, que Meta facture), puis trois cas : numéro libre, numéro de l'application WhatsApp Business, numéro
+fourni (`c3a4c782`). Le paiement reste dans l'entrée `ce-que-meta-facture`. Puis chaque 1), 2), 3) de la FAQ va à la
+ligne, sur la vitrine et dans la skill (`a70938b1`). Vitrine en ligne ; le plugin attend sa montée de version.
+
 ## 2026-11-13 : la ligne de crédit se prend depuis Claude Code ou Codex
 
 Julien, devant `/demarrer/` : en formule Pro et « Claude Code ou Codex », la carte « Ligne de crédit » était grisée et
