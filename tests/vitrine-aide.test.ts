@@ -282,7 +282,7 @@ describe('le centre d’aide de la vitrine', () => {
   });
 
   it('🔴 les pages Claude Code ne citent que de vrais outils, sous leur nom', () => {
-    expect(PAGES_CLAUDE.length).toBe(4);
+    expect(PAGES_CLAUDE.length).toBe(5);
     for (const p of PAGES_CLAUDE) {
       for (const langue of ['fr', 'en'] as const) {
         const html = lire(`${p.adresse[langue].slice(1)}index.html`);

@@ -157,6 +157,104 @@ export const PAGES_CLAUDE: readonly PageClaude[] = [
     },
   },
   {
+    cle: 'brancher-sa-boutique-shopify',
+    demarrer: 6,
+    adresse: { fr: '/developpeurs/brancher-sa-boutique-shopify/', en: '/en/developers/connect-your-shopify-store/' },
+    titre: { fr: 'Brancher votre boutique Shopify depuis Claude', en: 'Connect your Shopify store from Claude' },
+    chapeau: {
+      fr: 'Confirmation, expédition, relance des paniers : Claude crée l’app dans votre compte Shopify et la branche. Vous n’avez qu’à cliquer « Installer ». Offre Free.',
+      en: 'Confirmation, shipping, checkout reminder: Claude creates the app in your Shopify account and connects it all. You sign in and click “Install”. Free plan.',
+    },
+    film: 'cas-shopify',
+    etapes: [
+      {
+        titre: { fr: 'Demander le branchement', en: 'Ask for the connection' },
+        dire: { fr: 'Branche ma boutique Shopify.', en: 'Connect my Shopify store.' },
+        outils: ['get_setup_state', 'get_shopify_state'],
+        reponse: {
+          fr: 'Claude vérifie que votre numéro WhatsApp est connecté, puis annonce le chemin : cinq minutes, deux gestes pour vous. Il lui faut Node.js sur votre ordinateur : s’il manque, il vous propose de l’installer.',
+          en: 'Claude checks that your WhatsApp number is connected, then tells you the way: five minutes, two gestures for you. It needs Node.js on your computer: if it is missing, it offers to install it.',
+        },
+      },
+      {
+        titre: { fr: 'Vous connecter à Shopify', en: 'Sign in to Shopify' },
+        dire: { fr: 'C’est bon, je suis connecté.', en: 'Done, I am signed in.' },
+        outils: [],
+        reponse: {
+          fr: 'Une fenêtre de Shopify s’ouvre : connectez-vous avec le compte qui gère votre boutique. Claude crée alors l’app Messaging Me dans votre propre organisation Shopify, avec l’outil de Shopify : aucune validation de Shopify n’est nécessaire.',
+          en: 'A Shopify window opens: sign in with the account that manages your store. Claude then creates the Messaging Me app in your own Shopify organization, with Shopify’s own tool: no Shopify review is needed.',
+        },
+      },
+      {
+        titre: { fr: 'Installer l’app', en: 'Install the app' },
+        dire: { fr: 'Installée.', en: 'Installed.' },
+        outils: ['connect_shopify'],
+        reponse: {
+          fr: 'Claude vous donne un lien : cliquez « Installer ». Le message « This app hasn’t been reviewed » est normal, c’est votre propre app. Claude branche la boutique, puis vous demande de rendre le téléphone obligatoire au paiement (Paramètres > Paiement, dans Shopify) : sans téléphone, une commande ne reçoit rien sur WhatsApp.',
+          en: 'Claude gives you a link: click “Install”. The “This app hasn’t been reviewed” message is expected, it is your own app. Claude connects the store, then asks you to make the phone required at checkout (Settings > Checkout, in Shopify): without a phone, an order receives nothing on WhatsApp.',
+        },
+      },
+      {
+        titre: { fr: 'Écrire les messages de commande', en: 'Write the order messages' },
+        dire: { fr: 'Propose-moi la confirmation de commande et l’avis d’expédition.', en: 'Suggest the order confirmation and the shipping update.' },
+        outils: ['create_template', 'get_template_status', 'set_shopify_message'],
+        reponse: {
+          fr: 'Claude propose chaque texte, avec le numéro de commande, le montant, le transporteur et le lien de suivi, le fait approuver par Meta (de quelques minutes à 24 heures) et l’active. Vous pouvez fermer Claude Code entre-temps et revenir avec « termine mes messages Shopify ».',
+          en: 'Claude suggests each text, with the order number, the total, the carrier and the tracking link, has Meta approve it (from a few minutes to 24 hours) and turns it on. You can close Claude Code meanwhile and come back with “finish my Shopify messages”.',
+        },
+      },
+      {
+        titre: { fr: 'Relancer les paniers abandonnés', en: 'Remind abandoned checkouts' },
+        dire: { fr: 'Ajoute la relance des paniers abandonnés, une heure après.', en: 'Add the abandoned checkout reminder, one hour later.' },
+        outils: ['create_template', 'set_shopify_message'],
+        reponse: {
+          fr: 'Une seule relance par panier, avec le lien qui le rouvre, au délai choisi (de 15 min à 72 h) ; rien ne part si une commande en est née. C’est un message marketing : il porte la mention « Répondez STOP ».',
+          en: 'One reminder per checkout, with the link that reopens it, after the chosen delay (15 min to 72 h); nothing goes out if an order came out of it. It is a marketing message: it carries the “Reply STOP” line.',
+        },
+      },
+      {
+        titre: { fr: 'Importer vos clients', en: 'Import your customers' },
+        dire: { fr: 'Importe mes clients Shopify.', en: 'Import my Shopify customers.' },
+        outils: ['preview_shopify_customers', 'import_shopify_customers'],
+        reponse: {
+          fr: 'Claude compte d’abord, sans rien écrire : vos clients abonnés à votre marketing qui ont un téléphone, ceux déjà là, et les places que votre offre laisse. Vous choisissez combien en importer. En le demandant, vous déclarez qu’ils ont accepté vos messages WhatsApp ; un client qui a dit STOP le reste.',
+          en: 'Claude counts first, writing nothing: your customers subscribed to your marketing who have a phone, those already there, and the places your plan leaves. You choose how many to import. By asking, you declare they agreed to your WhatsApp messages; a customer who said STOP stays opted out.',
+        },
+      },
+      {
+        titre: { fr: 'Cibler par les commandes', en: 'Target by orders' },
+        dire: { fr: 'Mes clients qui ont commandé au moins 2 fois en 90 jours, en France.', en: 'My customers who ordered at least twice in 90 days, in France.' },
+        outils: [],
+        reponse: {
+          fr: 'Avec l’offre Pro, Claude retrouve les contacts par leurs commandes payées : combien, combien dépensé, depuis quand rien. Les commandes comptent depuis le branchement de la boutique, remboursements non déduits.',
+          en: 'On the Pro plan, Claude finds the contacts by their paid orders: how many, how much spent, how long since the last one. Orders count from when the store was connected, refunds not deducted.',
+        },
+      },
+      {
+        titre: { fr: 'Voir ce que WhatsApp a rapporté', en: 'See what WhatsApp brought in' },
+        dire: { fr: 'Combien mes messages WhatsApp ont rapporté ce mois-ci ?', en: 'How much did my WhatsApp messages bring in this month?' },
+        outils: ['get_revenue_stats'],
+        reponse: {
+          fr: 'Claude donne le chiffre d’affaires des commandes payées dans les 5 jours après un message, par devise et par source (campagne, relance, scénario, agent), et sa part prouvée : le reste est une concordance dans le temps. Les commandes de test sont à part.',
+          en: 'Claude gives the revenue of orders paid within 5 days after a message, per currency and per source (campaign, reminder, scenario, agent), and its proven part: the rest is a match in time. Test orders are kept apart.',
+        },
+      },
+      {
+        titre: { fr: 'Suivre, ou couper', en: 'Check, or cut' },
+        dire: { fr: 'Où en est ma boutique ?', en: 'How is my store doing?' },
+        outils: ['get_shopify_state', 'disconnect_shopify'],
+        reponse: {
+          fr: 'Claude dit l’état de chaque message, le dernier événement reçu, les envois des 30 derniers jours et les paniers récupérés. « Coupe Shopify » arrête tous les messages ; l’app reste installée, Claude vous donne la page où la désinstaller.',
+          en: 'Claude tells the state of each message, the last event received, the last 30 days of sends and the recovered checkouts. “Cut Shopify” stops every message; the app stays installed, Claude gives you the page to uninstall it.',
+        },
+      },
+    ],
+    bonASavoir: {
+      fr: 'Un client qui a répondu STOP ne reçoit rien. Les modèles du mois et la limite de contacts de votre offre comptent : la fiche d’un nouveau client compte. Chaque message apparaît dans Campagnes, une ligne par commande, et part même quand l’agent ou votre équipe tient la conversation. Une demande d’effacement transmise par Shopify efface la fiche du client.',
+      en: 'A customer who replied STOP receives nothing. The month’s templates and your plan’s contact limit count: a new customer’s record counts. Each message shows in Campaigns, one line per order, and goes out even when the agent or your team holds the conversation. An erasure request sent by Shopify erases the customer’s record.',
+    },
+  },
+  {
     cle: 'repondre-a-une-conversation',
     adresse: { fr: '/developpeurs/repondre-a-une-conversation/', en: '/en/developers/reply-to-a-conversation/' },
     titre: { fr: 'Répondre à un client depuis Claude', en: 'Reply to a customer from Claude' },
