@@ -37,6 +37,12 @@ export interface ConnexionNumero {
    */
   erreurMeta: string | null;
   /**
+   * La fenêtre de Meta s'est fermée sur un succès et le serveur finit la connexion (échange du jeton, abonnement,
+   * enregistrement du numéro, ligne de crédit) : jusqu'à une demi-minute, que la page dit (essai 263, Julien,
+   * 2026-11-16 : « la fenêtre précédente est restée super longtemps »).
+   */
+  validation: boolean;
+  /**
    * Ouvre la fenêtre de Meta. `coexistence` : le numéro reste dans l'application WhatsApp Business (plan 2026-10-24,
    * `optionsFenetreMeta`) ; `parLaLigne` : la fenêtre du partenaire (lot E du Crédit WhatsApp), avec l'identifiant de sa
    * solution que la configuration rend à cet espace ; absents, le parcours d'aujourd'hui.
@@ -73,6 +79,7 @@ export function useConnexionNumero(
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [erreurMeta, setErreurMeta] = useState<string | null>(null);
+  const [validation, setValidation] = useState(false);
   // L'erreur annoncée par la fenêtre à sa fermeture : elle arrive par postMessage, avant le callback de FB.login.
   const erreurRef = useRef<string | null>(null);
   // waba_id / phone_number_id arrivent par postMessage, PAS par le callback FB.login -> stash dans une ref. Le
@@ -161,6 +168,7 @@ export function useConnexionNumero(
                 setError(t('Connexion Meta annulée ou refusée.', 'Meta connection cancelled or denied.'));
                 return;
               }
+              setValidation(true);
               // La session info (waba/numéro) peut arriver juste après le callback : on lui laisse 6 s.
               //
               // Son ABSENCE n'est plus une erreur. Meta ne l'émet que lorsque la popup exécute vraiment les
@@ -175,6 +183,7 @@ export function useConnexionNumero(
             } catch (err) {
               setError(err instanceof Error ? err.message : t('Connexion impossible', 'Connection failed'));
             } finally {
+              setValidation(false);
               setBusy(false);
             }
           })();
@@ -188,5 +197,5 @@ export function useConnexionNumero(
     }
   }
 
-  return { cfg, busy, peutEtreBloquee, error, erreurMeta, connect };
+  return { cfg, busy, peutEtreBloquee, error, erreurMeta, validation, connect };
 }

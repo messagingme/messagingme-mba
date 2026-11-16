@@ -1,10 +1,15 @@
 'use client';
 
+import { ValidationConnexion, VALIDATION_BOUTON } from '@/components/ValidationConnexion';
 import { AideErreurMeta } from '@/components/AideErreurMeta';
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
+import { RechargeLigne } from '@/components/RechargeLigne';
+import { FilLigne } from '@/components/FilLigne';
+import { eurosDepuisMicro } from '@/lib/agent-solde';
+import type { VueCreditWhatsapp } from '@/lib/api-credit-whatsapp';
 import { MbaNotice } from '@/components/MbaNotice';
 import { EncadreChezMeta, ParcoursNumero } from '@/components/ParcoursNumero';
 import { estPageDePaiement } from '@/lib/api-credit';
@@ -13,7 +18,7 @@ import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
 import { useConnexionNumero } from '@/lib/connexion-numero';
 import { FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
 import { erreurDeChargement } from '@/lib/http';
-import { useT } from '@/lib/i18n';
+import { useLocale, useT } from '@/lib/i18n';
 import { raisonAttenteOption } from '@/lib/offre';
 import {
   AVERTISSEMENT_APPLICATION, ISSUE_API, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, QUESTION_LIGNE_NUMERO, QUESTION_PAIEMENT,
@@ -139,6 +144,9 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
    * tant qu'elle l'est, aucun geste ne change de voie, ce qui démonterait la connexion en cours (jaune du lot 3v-1).
    */
   const [fenetreLigne, setFenetreLigne] = useState(false);
+  /** La vue de la ligne, lue par la recharge une fois le numéro connecté : le fil des étapes en tire le solde. */
+  const [vueCredit, setVueCredit] = useState<VueCreditWhatsapp | null | undefined>(undefined);
+  const { locale } = useLocale();
   const fenetreOuverte = occupe || fenetreLigne;
 
   useEffect(() => {
@@ -368,6 +376,11 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
    * confirmation en tête, la question du numéro en titre, sans la voie de la carte chez Meta (essai 263).
    */
   const confirmee = ligneIci && !carteActive;
+  /**
+   * Le numéro connecté sur la ligne (posée, ou qui s'ouvre), sur Connecter WhatsApp : plus de choix du paiement ni de
+   * l'option, mais la suite, recharger (essai 263, Julien, 2026-11-16).
+   */
+  const surLaLigne = lieu === 'connecter' && connecte && lignePayee;
 
   return (
     <div className={lieu === 'accueil' ? 'mb-4' : 'mt-6'}>
@@ -375,7 +388,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
         <div className="text-base font-semibold text-ink-900">{t(QUESTION_PAIEMENT.texte.fr, QUESTION_PAIEMENT.texte.en)}</div>
         <p className="mt-1 text-xs text-ink-500">{t(QUESTION_PAIEMENT.precision.fr, QUESTION_PAIEMENT.precision.en)}</p>
         {/* Confirmée, la carte verte dit déjà que l'option est prise : pas de second bandeau. */}
-        {retour === 'recue' && !confirmee && (
+        {retour === 'recue' && !confirmee && !surLaLigne && (
           <div className="mt-3"><MbaNotice kind="success" testid="carte-credit-wa-recue">{t('Paiement de l’option reçu.', 'Option payment received.')}</MbaNotice></div>
         )}
         {retour === 'abandon' && etat !== 'en_attente' && etat !== 'active' && (
@@ -385,7 +398,26 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
             </MbaNotice>
           </div>
         )}
-        {confirmee ? (
+        {(surLaLigne || confirmee) && (
+          <FilLigne etat={{
+            entreprise: offre === 'entreprise',
+            numeroConnecte: surLaLigne,
+            solde: vueCredit === undefined || vueCredit === null ? null : vueCredit.illimite ? 'illimite' : eurosDepuisMicro(vueCredit.soldeMicroEur),
+            soldeTexte: vueCredit ? new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'fr-FR', { style: 'currency', currency: 'EUR' }).format(eurosDepuisMicro(vueCredit.soldeMicroEur)) : '',
+          }} />
+        )}
+        {surLaLigne ? (
+          <>
+            <div data-testid="carte-credit-wa" data-etat={etat ?? ''} className="mt-4 rounded-carte border border-succes-200 bg-succes-50 p-4">
+              <div className="flex items-center gap-2 text-base font-semibold text-succes-800" data-testid="ligne-confirmee">
+                <Icone nom="valide" />
+                {t('Votre numéro est sur la ligne de crédit', 'Your number is on the credit line')}
+              </div>
+              {ligne && <p className="mt-1 text-sm text-succes-800" data-testid="carte-credit-wa-ligne">{ligne}</p>}
+            </div>
+            <RechargeLigne tenantId={tenantId} admin={admin} surVue={setVueCredit} />
+          </>
+        ) : confirmee ? (
           <>
             {/* La confirmation : l'option est prise (ou comprise dans le contrat), rien d'autre à payer chez Meta. */}
             <div data-testid="carte-credit-wa" data-etat={etat ?? ''} className="mt-4 rounded-carte border border-succes-200 bg-succes-50 p-4">
@@ -456,8 +488,9 @@ function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe }: {
         enCours={connexion.busy} disabled={!pret || connexion.busy}
         onClick={() => { void connexion.connect({ parLaLigne: true }); }}
       >
-        {t(PAR_LA_LIGNE.bouton.fr, PAR_LA_LIGNE.bouton.en)}
+        {connexion.validation ? t(VALIDATION_BOUTON.fr, VALIDATION_BOUTON.en) : t(PAR_LA_LIGNE.bouton.fr, PAR_LA_LIGNE.bouton.en)}
       </Bouton>
+      <ValidationConnexion visible={connexion.validation} />
       {connexion.peutEtreBloquee && <p className="text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
       {connexion.error && <p className="text-sm text-danger" data-testid="carte-credit-wa-connecter-ligne-erreur">{connexion.error}</p>}
       <AideErreurMeta code={connexion.erreurMeta} />

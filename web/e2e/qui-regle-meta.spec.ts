@@ -30,7 +30,7 @@ const NUMERO_AVEC_CARTE = 'Votre numéro est connecté avec votre carte chez Met
 const AVERTISSEMENT_CARTE = 'Connecté avec votre carte chez Meta, ce numéro ne pourra plus passer sur la ligne de crédit.';
 
 /** Le serveur des cartes : l'offre, l'état de la ligne (une suite, la dernière répétée), l'option et le démarrage du Pro. */
-async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; etats?: Etat[]; solution?: string } = {}) {
+async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; etats?: Etat[]; solution?: string; soldeMicroEur?: number } = {}) {
   const options: unknown[] = [];
   const etats = [...(o.etats ?? [{ etat: 'a_prendre', enVente: false }])];
   let lecturesEtat = 0;
@@ -43,6 +43,15 @@ async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; et
     if (chemin.endsWith('/credit-whatsapp/etat')) {
       lecturesEtat += 1;
       return json(etats.length > 1 ? etats.shift()! : etats[0]!);
+    }
+    // La vue de la ligne de crédit (essai 263) : le solde à zéro et les quatre recharges, que l'écran propose une fois
+    // le numéro sur la ligne.
+    if (chemin.endsWith('/credit-whatsapp') && req.method() === 'GET') {
+      return json({
+        illimite: false, soldeMicroEur: o.soldeMicroEur ?? 0, consommationDuMoisMicroEur: 0, prixFrance: null, franchiseServiceParNumero: 1000,
+        achat: { disponible: true, permis: 'ok', offres: [{ offre: 'wa_50', htCentimes: 5000 }, { offre: 'wa_100', htCentimes: 10000 }, { offre: 'wa_250', htCentimes: 25000 }, { offre: 'wa_500', htCentimes: 50000 }] },
+        ligneArretee: false, optionArretee: false, historique: [], serie: [],
+      });
     }
     if (chemin.endsWith('/credit-whatsapp/option') && req.method() === 'POST') {
       options.push(req.postDataJSON());
@@ -251,11 +260,32 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await expect(page.getByTestId('carte-credit-wa-numero-carte')).toHaveCount(0);
   });
 
-  test('un numéro connecté sur une ligne active : la ligne de crédit paie, aucun guide ni bouton de la carte chez Meta', async ({ page }) => {
+  test('🔴 la ligne rechargée : les trois étapes faites, le montant chargé dit, et la recharge reste possible', async ({ page }) => {
+    await mockAccueil(page, { inscription: { complete: {} } });
+    await simuler(page, { etats: [{ etat: 'active', enVente: true }], soldeMicroEur: 50_000_000 });
+    await page.goto('/connecter-whatsapp');
+    for (const e of ['option', 'numero', 'credit']) await expect(page.getByTestId(`fil-ligne-${e}`)).toHaveAttribute('data-statut', 'fait');
+    await expect(page.getByTestId('fil-ligne-credit')).toContainText('Ligne de crédit chargée : 50,00');
+    await expect(page.getByTestId('recharge-ligne')).toContainText('Recharger votre ligne de crédit');
+    await expect(page.getByTestId('recharge-ligne')).not.toContainText('Étape suivante');
+  });
+
+  test('🔴 un numéro connecté sur une ligne active : la confirmation, puis la recharge, plus ni l’option ni la carte chez Meta (essai 263)', async ({ page }) => {
     await mockAccueil(page, { inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'active', enVente: true }] });
-    await page.goto('/connecter-whatsapp');
+    await page.goto('/connecter-whatsapp?option=recue');
+    await expect(page.getByTestId('ligne-confirmee')).toHaveText('Votre numéro est sur la ligne de crédit');
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Vos messages sont payés par votre ligne de crédit.');
+    // La suite, recharger (Julien, 2026-11-16 : « au lieu de me reparler de l'option que j'ai payée »).
+    await expect(page.getByTestId('recharge-ligne')).toContainText('Étape suivante : rechargez votre ligne de crédit');
+    await expect(page.getByTestId('recharge-ligne-solde')).toContainText('Solde : 0,00');
+    await expect(page.getByTestId('recharge-ligne-wa_50')).toHaveText('Recharger 50 € HT');
+    await expect(page.getByTestId('recharge-ligne-wa_500')).toBeVisible();
+    // Le fil : l'option et le numéro faits, la recharge en cours.
+    await expect(page.getByTestId('fil-ligne-numero')).toHaveAttribute('data-statut', 'fait');
+    await expect(page.getByTestId('fil-ligne-credit')).toHaveAttribute('data-statut', 'en_cours');
+    await expect(page.getByTestId('carte-credit-wa-recue')).toHaveCount(0);
+    await expect(page.getByTestId('carte-meta')).toHaveCount(0);
     await expect(page.getByTestId('carte-meta-choisir')).toHaveCount(0);
     await expect(page.getByTestId('question-compte')).toHaveCount(0);
   });
@@ -296,6 +326,11 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     // « Votre numéro, ou le nôtre ? » (lot 3v) : le sien reçoit la phrase validée de Julien AVANT la fenêtre.
     // L'option payée (essai 263) : la confirmation, puis l'étape suivante en titre.
     await expect(page.getByTestId('ligne-confirmee')).toHaveText('Votre option ligne de crédit est active');
+    // Le tunnel visible (Julien, 2026-11-16) : l'option faite, le numéro en cours, la recharge à venir.
+    await expect(page.getByTestId('fil-ligne-option')).toHaveAttribute('data-statut', 'fait');
+    await expect(page.getByTestId('fil-ligne-option')).toContainText('Option ligne de crédit payée');
+    await expect(page.getByTestId('fil-ligne-numero')).toHaveAttribute('data-statut', 'en_cours');
+    await expect(page.getByTestId('fil-ligne-credit')).toHaveAttribute('data-statut', 'a_venir');
     await expect(page.getByTestId('ligne-numero')).toContainText('Étape suivante : quel numéro voulez-vous connecter ?');
     // Les réponses disent ce que la personne a ou n'a pas (Julien, 2026-11-13).
     await expect(page.getByTestId('ligne-numero-mien')).toHaveText('J’utilise un numéro existant');

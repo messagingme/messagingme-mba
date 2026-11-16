@@ -305,3 +305,16 @@ test('🔴 la fenêtre de Meta fermée sur l’erreur #2388386 : la page dit la 
   await expect(aide).toContainText('déjà ses deux numéros');
   await expect(aide.locator('li')).toHaveCount(3);
 });
+
+test('🔴 la fenêtre de Meta fermée sur un succès : la page dit la validation de la connexion le temps que le serveur finisse', async ({ page }) => {
+  await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_RETIENT }));
+  const s = await simuler(page);
+  await page.goto(`/brancher#${jeton('fourni')}`);
+  await page.getByTestId('obtenir-numero').click();
+  await page.getByTestId('ouvrir-fenetre-meta').click();
+  // Sans les identifiants du compte, la page les attend quelques secondes avant de finir : la validation se voit.
+  await expect(page.getByTestId('validation-connexion')).toContainText('nous finalisons la connexion');
+  await expect(page.getByTestId('ouvrir-fenetre-meta')).toHaveText('Validation de la connexion…');
+  await expect.poll(() => s.fins.length, { timeout: 15_000 }).toBe(1);
+  await expect(page.getByTestId('validation-connexion')).toHaveCount(0);
+});

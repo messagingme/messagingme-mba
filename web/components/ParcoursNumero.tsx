@@ -1,5 +1,6 @@
 'use client';
 
+import { ValidationConnexion, VALIDATION_BOUTON } from '@/components/ValidationConnexion';
 import { AideErreurMeta } from '@/components/AideErreurMeta';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Bouton, classesBouton } from '@/components/Bouton';
@@ -255,7 +256,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const pret = connexion.cfg?.enabled === true && (!ligne || (connexion.cfg.solutionId ?? null) !== null);
   const boutonFenetre = (
     <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={ouvrir} data-testid="ouvrir-fenetre-meta">
-      {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t('Ouvrir la fenêtre de Meta', 'Open the Meta window')}
+      {connexion.validation ? t(VALIDATION_BOUTON.fr, VALIDATION_BOUTON.en) : connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t('Ouvrir la fenêtre de Meta', 'Open the Meta window')}
     </Bouton>
   );
   // Le numéro fourni par la fenêtre de Meta, en vidéo (lot 6 de l'aide à la connexion) : pas pour l'application, ni pour
@@ -281,7 +282,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       : choix === 'fourni' ? PREREQUIS_META.slice(0, 2) : PREREQUIS_META;
   const boutonCoexistence = (
     <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect({ coexistence: true }); }} data-testid="ouvrir-fenetre-coexistence">
-      {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}
+      {connexion.validation ? t(VALIDATION_BOUTON.fr, VALIDATION_BOUTON.en) : connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}
     </Bouton>
   );
   /**
@@ -561,6 +562,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       )}
       {connexion.peutEtreBloquee && <p data-testid="fenetre-bloquee" className="mt-4 text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
       {(erreur ?? connexion.error) && <p data-testid="erreur-connexion" className="mt-4 rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700">{erreur ?? connexion.error}</p>}
+      <ValidationConnexion visible={connexion.validation} />
       <AideErreurMeta code={connexion.erreurMeta} />
     </>
   );
