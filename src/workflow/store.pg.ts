@@ -196,7 +196,7 @@ async function enTransaction<T>(pool: Pool, f: (c: PoolClient) => Promise<T>): P
  * Le nom unique d'un scénario dans l'espace, comparé comme `/v1/sends` le résout (`eqName`, `src/ids/resolve.ts`) : sans
  * la casse ni les espaces aux bords. Sous un verrou consultatif de l'espace, tenu jusqu'à la fin de la transaction.
  */
-async function nomPrisSousVerrou(c: PoolClient, tenantId: string, nom: string, sauf: string | null): Promise<string | null> {
+export async function nomPrisSousVerrou(c: PoolClient, tenantId: string, nom: string, sauf: string | null): Promise<string | null> {
   await c.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`scenario-nom:${tenantId}`]);
   const r = await c.query<{ id: string }>(
     `select id from workflows where tenant_id = $1 and ${PUBLIC} and lower(btrim(name)) = lower(btrim($2))
@@ -204,6 +204,20 @@ async function nomPrisSousVerrou(c: PoolClient, tenantId: string, nom: string, s
     [tenantId, nom, sauf],
   );
   return r.rows[0]?.id ?? null;
+}
+
+/**
+ * L'insertion d'un scénario, en BROUILLON seulement (`draft_graph`) : rien n'est en ligne tant que personne n'a cliqué
+ * « Publier ». Le seul SQL d'insertion : `PgWorkflowStore.insert` l'appelle avec son pool, la duplication entre espaces
+ * (`src/ops/duplication/store.pg.ts`) avec le client de sa transaction.
+ */
+export async function insererBrouillon(q: Pick<Pool, 'query'>, tenantId: string, name: string, graph: WorkflowGraph): Promise<{ id: string }> {
+  const code = makeCode('scn', await resolveTenantCode(q, tenantId));
+  const res = await q.query<{ id: string }>(
+    `insert into workflows (tenant_id, name, draft_graph, code) values ($1, $2, $3::jsonb, $4) returning id`,
+    [tenantId, name, JSON.stringify(graph), code],
+  );
+  return { id: res.rows[0]!.id };
 }
 
 export class WorkflowUtiliseParLienChaine extends Error {
@@ -225,12 +239,7 @@ export class PgWorkflowStore {
    * personne n'a cliqué « Publier » (vaut aussi pour la duplication).
    */
   async insert(tenantId: string, name: string, graph: WorkflowGraph): Promise<{ id: string }> {
-    const code = makeCode('scn', await resolveTenantCode(this.pool, tenantId));
-    const res = await this.pool.query<{ id: string }>(
-      `insert into workflows (tenant_id, name, draft_graph, code) values ($1, $2, $3::jsonb, $4) returning id`,
-      [tenantId, name, JSON.stringify(graph), code],
-    );
-    return { id: res.rows[0]!.id };
+    return insererBrouillon(this.pool, tenantId, name, graph);
   }
 
   /**

@@ -107,11 +107,23 @@ export class PgAutomationStore {
    * @param limiteAutomations la limite d'automations allumées de l'offre de l'espace (lot 6, `null` = sans limite),
    *   vérifiée à la création d'une automation allumée et au rallumage (`src/offres/automations.ts`). Absente : sans
    *   limite (scripts et tests).
+   * @param pool un pool, ou le client d'une transaction en cours : aucune méthode n'ouvre de connexion elle-même, et la
+   *   duplication entre espaces (`src/ops/duplication/store.pg.ts`) écrit ses automations dans SA transaction.
    */
   constructor(
-    private readonly pool: Pool,
+    private readonly pool: Pick<Pool, 'query'>,
     private readonly limiteAutomations?: (tenantId: string) => Promise<number | null>,
   ) {}
+
+  /**
+   * TOUTES les automations du tenant, celles possédées par un webhook, un lien ou une publicité comprises. Pour la
+   * duplication entre espaces seulement, en lecture : elle doit voir les déclencheurs du scénario qu'elle ne copie pas
+   * (pour les dire), et ceux de la destination avec lesquels une copie entrerait en conflit. Jamais pour un écran.
+   */
+  async toutesPourLaDuplication(tenantId: string): Promise<AutomationRow[]> {
+    const res = await this.pool.query<Raw>(`select ${COLS} from automations where tenant_id = $1 order by created_at`, [tenantId]);
+    return res.rows.map(toRow).filter((a): a is AutomationRow => a !== null);
+  }
 
   /**
    * Automations du tenant (écran Automation), les plus récentes d'abord. Celles possédées par un webhook, un

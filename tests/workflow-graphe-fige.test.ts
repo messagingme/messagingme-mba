@@ -185,6 +185,7 @@ describe('SEUL le lien de test joue le brouillon : l’inventaire de `grapheEdit
     const attendus = new Map([
       ['src/workflow/store.pg.ts', 'la DÉFINITION de `grapheEditable`'],
       ['src/http/workflows.ts', 'la DUPLICATION d’un scénario : on recopie le travail en cours, on n’exécute rien'],
+      ['src/ops/duplication/store.pg.ts', 'la DUPLICATION vers un autre espace, depuis /ops : on recopie le travail en cours, on n’exécute rien'],
       ['src/workflow/lancements.ts', 'l’entrée des lancements, pour le seul type dont la politique joue le brouillon (`lien_de_test`)'],
     ]);
     // ⚠️ `--untracked` N'EST PAS DÉCORATIF (mesuré par la seconde passe de revue) : sans lui, `git grep` ne
