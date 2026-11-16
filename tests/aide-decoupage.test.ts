@@ -58,7 +58,7 @@ describe('decouperFiche, sur les fiches réelles', () => {
     for (const f of aEtapes) {
       const m = decouperFiche(f);
       for (const e of structureFiche(f.corps).sections.filter((s) => s.type === 'etape')) {
-        const marque = `**${e.numero}. ${e.titre}.**`;
+        const marque = `**${e.numero}. ${e.voie ? `[${e.voie}] ` : ''}${e.titre}.**`;
         const siens = m.filter((x) => x.corps.includes(marque));
         expect(siens.length, `${f.cle} ${marque}`).toBeGreaterThan(0);
         for (const x of siens) expect(x.corps.startsWith(marque), `${x.cle} commence par ${marque}`).toBe(true);

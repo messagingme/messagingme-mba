@@ -8,6 +8,7 @@ rang: 5, 5
 offre: non
 claude_code: oui
 video: oui
+video_voie: claude
 bouton_claude: Prendre mon numéro depuis Claude Code
 bouton_console: Prendre mon numéro dans la console
 ---
@@ -17,23 +18,28 @@ Pas de numéro pour WhatsApp ? Nous vous fournissons un numéro britannique, que
 officielle de WhatsApp : 3,50 € par mois, inclus dans la formule Pro. Pas de compte Meta Business ? La fenêtre de
 Meta le crée en chemin.
 
-**1. Lancer la mise en service.** Dans Claude Code, tapez « /messagingme:demarrer » : Claude fait le point sur votre
-espace et commence par votre numéro WhatsApp. Dans la console, la page « Connecter WhatsApp » pose les mêmes questions.
+**1. [claude] Lancer la mise en service.** Dans Claude Code, tapez « /messagingme:demarrer » : Claude fait le point sur
+votre espace et commence par votre numéro WhatsApp.
 
-**2. Répondre aux questions de Claude.** Pas de compte Meta Business, pas d'application WhatsApp Business, pas de
+**1. [console] Ouvrir « Connecter WhatsApp ».** Sur l'Accueil, tant qu'aucun numéro n'est rattaché, cliquez sur « Pas
+de numéro ? Nous vous en fournissons un ».
+
+**2. [claude] Répondre aux questions de Claude.** Pas de compte Meta Business, pas d'application WhatsApp Business, pas de
 numéro : Claude vous propose un numéro fourni.
 
 La vidéo reste sur la formule Free : Meta facture vos modèles sur une carte, que vous ajouterez une fois le numéro
 relié. Avec l'application WhatsApp Business pour un autre numéro, répondez « Non » à « Voulez-vous utiliser ce
 numéro-là ? » : vous arrivez au même numéro fourni.
 
-**3. Payer le numéro, puis ouvrir la fenêtre de Meta.** Claude vous donne le lien de connexion. Sur la page, payez
+**2. [console] Choisir « Fournissez-moi un numéro ».** Répondez aux questions de la page, puis choisissez « Fournissez-moi
+un numéro » : un numéro dédié, prêt pour WhatsApp.
+
+**3. Payer le numéro, puis ouvrir la fenêtre de Meta.** Sur la page « Connecter WhatsApp », payez
 3,50 € par mois (en formule Pro, « Obtenir mon numéro », sans rien payer) : votre numéro britannique s'affiche.
 Cliquez sur « Ouvrir la fenêtre de Meta ».
 
-Le lien vaut une heure ; si elle est passée, Claude en donne un neuf. Dans la console, « Fournissez-moi un numéro »
-mène au même paiement (en formule Pro, au numéro inclus). Gardez la page ouverte jusqu'au bout : le code
-de vérification s'y affichera.
+Gardez la page ouverte jusqu'au bout : le code de vérification s'y affichera. Depuis Claude Code, Claude vous donne le
+lien de cette page ; il vaut une heure, et passé ce délai Claude en donne un neuf.
 
 **4. Relier le numéro dans la fenêtre de Meta.** Connectez-vous avec Facebook. À l'écran du numéro, saisissez un
 nouveau numéro : le pays GB (+44), puis les chiffres qui suivent +44. **Pour le code, cochez « Appel téléphonique »,

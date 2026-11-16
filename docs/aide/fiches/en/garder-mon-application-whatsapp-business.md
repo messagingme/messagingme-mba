@@ -1,7 +1,7 @@
 ---
 description: Keep your WhatsApp Business app and connect the same number to Messaging Me, screen by screen, with the Meta Business account created along the way if needed.
 slug: keep-my-whatsapp-business-app
-traduit_de: 84e2d5
+traduit_de: 2fba69
 bouton_claude: Keep my app from Claude Code, for free
 bouton_console: Keep my app in the console
 ---
@@ -11,9 +11,11 @@ Is your number already used in the WhatsApp Business app on your phone? Keep it:
 best of both worlds. You still reply there, for free, and Messaging Me sends the messages of your website, your
 software or your store.
 
-**1. Open “Keep my WhatsApp Business app”.** Ask Claude Code: it gives you a link to the “Connect WhatsApp” page. In
-the console, the same button is on the Home screen. The page sums up what changes, then the button opens Meta’s
-window, where you sign in with your Facebook profile.
+**1. [claude] Open “Keep my WhatsApp Business app”.** Ask Claude Code: it gives you a link to the “Connect WhatsApp”
+page. The page sums up what changes, then the button opens Meta’s window, where you sign in with your Facebook profile.
+
+**1. [console] Open “Keep my WhatsApp Business app”.** On the “Connect WhatsApp” page, click “You can keep it”, then
+“Keep my WhatsApp Business app”: Meta’s window opens, where you sign in with your Facebook profile.
 
 **2. Enter your number.** Enter the number of your WhatsApp Business app, with its country, then choose how Meta
 verifies it (by text message or by phone call) and follow what it asks.

@@ -157,7 +157,7 @@ export const NAVIGATEUR: Readonly<Record<Locale, { locale: string; timezoneId: s
  * refait avec les captures, sans coordonnée écrite à la main.
  */
 export async function capturer(
-  page: Page, cle: string, numero: number, locale: Locale, zone?: Locator, ou: 'haut' | 'bas' = 'haut', pointeur?: Locator,
+  page: Page, cle: string, numero: number | string, locale: Locale, zone?: Locator, ou: 'haut' | 'bas' = 'haut', pointeur?: Locator,
 ): Promise<void> {
   await page.waitForLoadState('networkidle');
   // Aucun champ en cours de saisie sur une capture : le curseur et la sélection ne disent rien au lecteur.

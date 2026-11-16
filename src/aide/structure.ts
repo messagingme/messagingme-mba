@@ -18,7 +18,7 @@ export type BlocFiche = { type: 'paragraphe'; texte: string } | { type: 'liste';
 
 export type SectionFiche =
   | { type: 'prose'; titre: string | null; blocs: BlocFiche[] }
-  | { type: 'etape'; numero: number; titre: string; tete: string; detail: BlocFiche[] }
+  | { type: 'etape'; numero: number; titre: string; tete: string; detail: BlocFiche[]; voie?: VoieEtape }
   | { type: 'encadre'; texte: string };
 
 export interface StructureFiche {
@@ -39,6 +39,9 @@ export const texteBloc = (b: BlocFiche): string =>
   b.type === 'paragraphe' ? b.texte : b.items.map((i) => `- ${i}`).join('\n');
 /** `**3. Le contenu.** suite` : le numéro, le titre sans son point, puis la tête. */
 const MARQUEUR = /^\*\*(\d+)\. ([^*]+?)\.\*\*(?:\s+(.*))?$/;
+/** La voie d'une étape (`[claude]` ou `[console]` en tête de son titre, 2026-11-16) : elle ne se lit que dans celle-là. */
+export type VoieEtape = 'claude' | 'console';
+const VOIE = /^\[(claude|console)\]\s+/;
 
 type BlocBrut = { type: 'titre'; texte: string } | BlocFiche;
 
@@ -91,7 +94,11 @@ export function structureFiche(corps: string, langue: LangueFiche = 'fr'): Struc
     if (b.type === 'paragraphe') {
       const m = MARQUEUR.exec(b.texte);
       if (m) {
-        courante = { type: 'etape', numero: Number(m[1]), titre: m[2]!.trim(), tete: (m[3] ?? '').trim(), detail: [] };
+        const voie = VOIE.exec(m[2]!.trim());
+        courante = {
+          type: 'etape', numero: Number(m[1]), titre: m[2]!.trim().replace(VOIE, ''), tete: (m[3] ?? '').trim(), detail: [],
+          ...(voie ? { voie: voie[1] as VoieEtape } : {}),
+        };
         sections.push(courante);
         continue;
       }
@@ -122,8 +129,15 @@ export function erreursDeStructure(corps: string, langue: LangueFiche): string[]
   if (s.chapeau === '') erreurs.push('pas de chapeau : le premier paragraphe doit être une phrase, ni une étape ni un encadré');
   if (s.chapeau.length > CHAPEAU_MAX) erreurs.push(`chapeau de ${s.chapeau.length} caractères, plus de ${CHAPEAU_MAX}`);
 
-  s.sections.filter((x) => x.type === 'etape').forEach((e, i) => {
-    if (e.numero !== i + 1) erreurs.push(`étape numérotée ${e.numero} à la place ${i + 1} : un numéro manque ou se répète`);
+  // Deux variantes d'une même étape (l'une par voie) portent le même numéro, l'une juste après l'autre.
+  let attendu = 0;
+  let precedente: { numero: number; voie?: VoieEtape } | null = null;
+  s.sections.filter((x) => x.type === 'etape').forEach((e) => {
+    const variante = precedente !== null && e.voie !== undefined && precedente.voie !== undefined && e.voie !== precedente.voie
+      && e.numero === precedente.numero;
+    if (!variante) attendu += 1;
+    precedente = e;
+    if (e.numero !== attendu) erreurs.push(`étape numérotée ${e.numero} à la place ${attendu} : un numéro manque ou se répète`);
     if (e.tete === '') erreurs.push(`étape ${e.numero} sans tête : son marqueur doit être suivi du geste`);
     if (e.tete.length > TETE_MAX) erreurs.push(`tête de l’étape ${e.numero} de ${e.tete.length} caractères, plus de ${TETE_MAX}`);
   });

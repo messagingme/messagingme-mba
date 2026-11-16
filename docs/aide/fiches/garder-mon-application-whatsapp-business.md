@@ -4,6 +4,7 @@ source_section: Garder son application WhatsApp Business (2026-10-25)
 source_empreinte: 03c3d2
 publique: oui
 video: oui
+video_voie: claude
 rubrique: demarrer-claude, demarrer-console
 rang: 5, 5
 offre: non
@@ -17,9 +18,13 @@ Votre numéro sert déjà dans l'application WhatsApp Business de votre téléph
 de Meta, le meilleur des deux mondes. Vous y répondez toujours, gratuitement, et Messaging Me envoie les messages de
 votre site, de votre logiciel ou de votre boutique.
 
-**1. Ouvrir « Garder mon application WhatsApp Business ».** Demandez-le à Claude Code : il vous donne un lien vers la
-page « Connecter WhatsApp ». Dans la console, le même bouton est sur l'Accueil. La page rappelle ce qui change, puis
-le bouton ouvre la fenêtre de Meta, où vous vous connectez avec votre profil Facebook.
+**1. [claude] Ouvrir « Garder mon application WhatsApp Business ».** Demandez-le à Claude Code : il vous donne un lien
+vers la page « Connecter WhatsApp ». La page rappelle ce qui change, puis le bouton ouvre la fenêtre de Meta, où vous
+vous connectez avec votre profil Facebook.
+
+**1. [console] Ouvrir « Garder mon application WhatsApp Business ».** Sur la page « Connecter WhatsApp », cliquez sur
+« Vous pouvez le garder », puis sur « Garder mon application WhatsApp Business » : la fenêtre de Meta s'ouvre, où vous
+vous connectez avec votre profil Facebook.
 
 **2. Saisir votre numéro.** Entrez le numéro de votre application WhatsApp Business, avec son pays, puis choisissez
 comment Meta le vérifie (par message ou par appel) et suivez ce qu'il demande.

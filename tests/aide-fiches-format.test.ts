@@ -287,7 +287,7 @@ describe('les fiches publiques', () => {
     expect(() => publicationDe(fiche('rubrique: demarrer-console\nrang: 2\nclaude_code: si'))).toThrow(/claude_code/);
     expect(publicationDe(fiche('rubrique: demarrer-console\nrang: 2'))).toEqual({
       rubrique: 'demarrer-console', rang: 2, places: [{ rubrique: 'demarrer-console', rang: 2 }], commentFaire: false,
-      captures: true, video: false, prerequis: null, offre: 'pro', claudeCode: false,
+      captures: true, video: false, videoVoie: null, prerequis: null, offre: 'pro', claudeCode: false,
     });
     expect(publicationDe(fiche('rubrique: demarrer-console\nrang: 2\nclaude_code: oui'))?.claudeCode).toBe(true);
   });

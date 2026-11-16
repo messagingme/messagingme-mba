@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SORTIE = join(RACINE, 'web', 'e2e', 'captures', 'sortie');
 const CIBLE = join(RACINE, 'site', 'img', 'aide');
-const NOM = /^etape-\d+(-en)?\.png$/;
+const NOM = /^etape-\d+(-console)?(-en)?\.png$/;
 /**
  * Les scénarios qui ne servent pas une fiche : leurs captures vont ailleurs que dans `site/img/aide/`, que
  * `tests/vitrine-aide.test.ts` réserve aux étapes des fiches. `demarrer-autoriser` : les écrans de l'étape 2 du tunnel

@@ -71,7 +71,7 @@ describe('le centre d’aide de la vitrine', () => {
       if (!p.publication.captures) continue;
       for (const langue of ['fr', 'en'] as const) {
         for (const s of structureFiche(p[langue].corps, langue).sections) {
-          if (s.type === 'etape') attendues.push(adresseCapture(p.cle, s.numero, langue).slice(1));
+          if (s.type === 'etape') attendues.push(adresseCapture(p.cle, s.numero, langue, s.voie).slice(1));
         }
       }
     }
@@ -148,7 +148,8 @@ describe('le centre d’aide de la vitrine', () => {
         expect(contenu, `${chemin} ${m[1]}`).toContain(`<a class="aide-capture" href="${m[1]}?v=${empreinte}"`);
       }
     }
-    expect(vues).toBe(114);
+    // 114, puis 120 avec les trois étapes de la console (2026-11-16 : numéro fourni 1 et 2, garder 1), en deux langues.
+    expect(vues).toBe(120);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {

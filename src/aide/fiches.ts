@@ -137,7 +137,7 @@ export function decouperFiche(f: FicheFichier): FicheFichier[] {
       // fin d'un morceau, et sa suite ouvrait le suivant sans lui.
       textes.push(...morceaux(`## ${section.titre}`, section.blocs.map(texteBloc), '\n\n'));
     } else if (section.type === 'etape') {
-      textes.push(...morceaux(`**${section.numero}. ${section.titre}.**`, [section.tete, ...section.detail.map(texteBloc)]));
+      textes.push(...morceaux(`**${section.numero}. ${section.voie ? `[${section.voie}] ` : ''}${section.titre}.**`, [section.tete, ...section.detail.map(texteBloc)]));
     } else {
       textes.push(...morceaux(ENCADRE.fr, [section.texte]));
     }
@@ -173,6 +173,8 @@ export interface PublicationFiche {
   captures: boolean;
   /** Son film est livré (`site/films/aide-<cle>*`) ; posé à la livraison, jamais avant. */
   video: boolean;
+  /** La voie que son film montre (`video_voie`), s'il n'en sert qu'une : il ne se voit que dans celle-là (2026-11-16). */
+  videoVoie: 'claude' | 'console' | null;
   /** La fiche à lire avant, le second bouton de la page. */
   prerequis: string | null;
   /**
@@ -240,6 +242,7 @@ export function publicationDe(texte: string): PublicationFiche | null {
     commentFaire: oui('comment_faire', false),
     captures: oui('captures', true),
     video: oui('video', false),
+    videoVoie: ((v) => (v === 'claude' || v === 'console' ? v : null))(champDeFiche(texte, 'video_voie')),
     prerequis: champDeFiche(texte, 'prerequis'),
     offre: offre === null ? 'pro' : offre === 'non' ? null : (offre as OffreFiche),
     claudeCode: oui('claude_code', false),

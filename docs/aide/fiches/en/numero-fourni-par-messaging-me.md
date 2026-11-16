@@ -1,7 +1,7 @@
 ---
 description: Get a number provided by Messaging Me and connect it to WhatsApp through Meta’s window, from Claude Code: the video, then the six steps.
 slug: get-a-number-provided-by-messaging-me
-traduit_de: 1ec29f
+traduit_de: 8e051d
 bouton_claude: Get my number from Claude Code
 bouton_console: Get my number in the console
 ---
@@ -10,22 +10,28 @@ bouton_console: Get my number in the console
 No number for WhatsApp? We provide a UK number, which Meta’s window connects to the official WhatsApp API: €3.50 a month,
 included in the Pro plan. No Meta Business account? Meta’s window creates it along the way.
 
-**1. Start the setup.** In Claude Code, type “/messagingme:demarrer”: Claude checks your workspace and starts with your
-WhatsApp number. In the console, the “Connect WhatsApp” page asks the same questions.
+**1. [claude] Start the setup.** In Claude Code, type “/messagingme:demarrer”: Claude checks your workspace and starts with your
+WhatsApp number.
 
-**2. Answer Claude’s questions.** No Meta Business account, no WhatsApp Business app, no number: Claude offers you a
+**1. [console] Open “Connect WhatsApp”.** On the Home screen, as long as no number is attached, click “No
+number? We provide one”.
+
+**2. [claude] Answer Claude’s questions.** No Meta Business account, no WhatsApp Business app, no number: Claude offers you a
 provided number.
 
 The video stays on the Free plan: Meta bills your templates to a card, which you add once the number is connected. With
 the WhatsApp Business app for another number, answer “No” to “Do you want to use that number?”: you reach the same
 provided number.
 
-**3. Pay for the number, then open Meta’s window.** Claude gives you the connection link. On the page, pay €3.50 a
+**2. [console] Choose “Provide me a number”.** Answer the page’s questions, then choose “Provide me a number”: a
+dedicated number, ready for WhatsApp.
+
+**3. Pay for the number, then open Meta’s window.** On the “Connect WhatsApp” page, pay €3.50 a
 month (with the Pro plan, “Get my number”, with nothing to pay): your UK number appears. Click “Open the Meta
 window”.
 
-The link is valid for one hour; once it has passed, Claude gives a new one. In the console, “Provide me a number” leads
-to the same payment (on the Pro plan, to the included number). Keep the page open until the end: the verification code will show there.
+Keep the page open until the end: the verification code will show there. From Claude Code, Claude gives you the link
+to this page; it is valid for one hour, and once it has passed Claude gives a new one.
 
 **4. Connect the number in Meta’s window.** Log in with Facebook. On the number screen, enter a new number: the country
 GB (+44), then the digits that follow +44. **For the code, tick “Phone call”, NOT “Text message”.**

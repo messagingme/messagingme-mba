@@ -154,8 +154,8 @@ const bloc = (b: BlocFiche, langue: Langue): string => (b.type === 'paragraphe'
   : `<ul>${b.items.map((i) => `<li>${enLigne(i, langue)}</li>`).join('')}</ul>`);
 
 /** La capture d'une étape, si elle existe : `site/img/aide/<clé>/etape-<n>.webp`, et `-en` pour l'anglais. */
-export const adresseCapture = (cle: string, numero: number, langue: Langue): string =>
-  `/img/aide/${cle}/etape-${numero}${langue === 'en' ? '-en' : ''}.webp`;
+export const adresseCapture = (cle: string, numero: number, langue: Langue, voie?: 'claude' | 'console'): string =>
+  `/img/aide/${cle}/etape-${numero}${voie === 'console' ? '-console' : ''}${langue === 'en' ? '-en' : ''}.webp`;
 const captureExiste = (adresse: string): boolean => existsSync(SITE(adresse.slice(1)));
 
 /** Le film d'une page, livré dans `site/films/` (tâche 11) : `aide-<clé>` et `-en`. */
@@ -166,7 +166,7 @@ function corps(p: PageAide, langue: Langue): string {
   const v = p[langue];
   return structureFiche(v.corps, langue).sections.map((s) => {
     if (s.type === 'etape') {
-      const capture = adresseCapture(p.cle, s.numero, langue);
+      const capture = adresseCapture(p.cle, s.numero, langue, s.voie);
       // Dans la page, la capture fait un tiers de sa taille : un clic ouvre l'image entière, sans script.
       const image = p.publication.captures && captureExiste(capture)
         ? `<a class="aide-capture" href="${versionnee(capture)}" title="${T[langue].agrandir}"><img src="${versionnee(capture)}" alt="${attribut(`${T[langue].etape} ${s.numero}${langue === 'fr' ? ' :' : ':'} ${brut(s.titre)}`)}" width="1280" height="800" loading="lazy"></a>`
@@ -174,7 +174,8 @@ function corps(p: PageAide, langue: Langue): string {
       const detail = s.detail.length > 0
         ? `<details class="aide-detail"><summary>${T[langue].detail}</summary>${s.detail.map((b) => bloc(b, langue)).join('')}</details>`
         : '';
-      return `      <div class="aide-etape${image === '' ? ' sans-capture' : ''}" id="etape-${s.numero}"><div><h3>${s.numero}. ${enLigne(s.titre, langue)}</h3><p>${enLigne(s.tete, langue)}</p>${detail}</div>${image}</div>`;
+      // Une étape d'une seule voie (2026-11-16) : la variante console a son ancre et sa capture (`-console`).
+      return `      <div class="aide-etape${image === '' ? ' sans-capture' : ''}" id="etape-${s.numero}${s.voie === 'console' ? '-console' : ''}"${s.voie ? ` data-voie="${s.voie}"` : ''}><div><h3>${s.numero}. ${enLigne(s.titre, langue)}</h3><p>${enLigne(s.tete, langue)}</p>${detail}</div>${image}</div>`;
     }
     if (s.type === 'encadre') return `      <div class="aide-encadre"><strong>${T[langue].bonASavoir}</strong> ${enLigne(s.texte, langue)}</div>`;
     return `      <div class="aide-prose">${s.titre === null ? '' : `<h2>${enLigne(s.titre, langue)}</h2>`}${s.blocs.map((b) => bloc(b, langue)).join('')}</div>`;
@@ -301,7 +302,7 @@ function film(p: PageAide, langue: Langue): string {
   const f = filmDe(p);
   if (!f) return '';
   return [
-    '      <figure class="aide-video">',
+    `      <figure class="aide-video"${p.publication.videoVoie ? ` data-voie="${p.publication.videoVoie}"` : ''}>`,
     `        <video class="f-video aide-film" src="${versionnee(adresseFilm(p.cle, langue, 'mp4'))}" poster="${versionnee(adresseFilm(p.cle, langue, 'webp'))}" width="1280" height="720" controls muted playsinline preload="none" aria-label="${attribut(p[langue].titre)}"></video>`,
       `        <figcaption>${texte(T[langue].legendeFilm(T[langue].duree(...minSec(f.secondes[langue]))), langue)}</figcaption>`,
     '      </figure>',
@@ -317,7 +318,8 @@ function pageAide(pages: PageAide[], p: PageAide, langue: Langue): { chemin: str
   const ecran = CARTE_CONSOLE.find((e) => e.cle === p.ecran);
   const suffixeConsole = langue === 'en' ? '?lang=en' : '';
   const prerequis = pages.find((x) => x.cle === p.publication.prerequis);
-  const etapes = s.sections.filter((x) => x.type === 'etape');
+  // Le HowTo suit la voie par défaut : la variante console d'une étape n'y figure pas une seconde fois.
+  const etapes = s.sections.flatMap((x) => (x.type === 'etape' && x.voie !== 'console' ? [x] : []));
 
   const main = [
     '<main>',
@@ -491,7 +493,8 @@ function cartesDeLaSection(pages: PageAide[], r: SectionAccueil, langue: Langue)
   const cartes: CarteAccueil[] = pagesDeLaRubrique(pages, r).map((p) => {
     const v = p[langue];
     const s = structureFiche(v.corps, langue);
-    const etapes = s.sections.flatMap((x) => (x.type === 'etape' ? [{ numero: x.numero, titre: x.titre }] : []));
+    const etapes = s.sections.flatMap((x) => (x.type === 'etape' && (x.voie === undefined || x.voie === voie || (voie === null && x.voie === 'claude'))
+      ? [{ numero: x.numero, titre: x.titre }] : []));
     const adresse = avecVoie(v.adresse, voie);
     return { rang: rangDans(p, r), adresse, titre: texte(v.titre, langue), ligne: carte(adresse, texte(v.titre, langue), enLigne(s.chapeau, langue), '',
       motsDeRecherche(`${v.titre} ${s.chapeau} ${etapes.map((e) => e.titre).join(' ')}`),
