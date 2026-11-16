@@ -11,11 +11,10 @@ import { grapheEditable, WorkflowUtiliseParLienChaine } from '../workflow/store.
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { espaceVerifie, nonEmpty, estUuid } from './scope';
 import { executerFonctionJs } from '../workflow/fonction-js';
-import { normaliserEtiquette } from '../crm/poser-etiquette';
 import { refusDePublication, sautsDeLaCopie } from '../workflow/aller-a';
 import { refusFichierSansSuite } from '../workflow/question-piece';
 import { refusSuiteQuiAttend } from '../workflow/engine';
-import { sousActions } from '../../web/lib/partage/actions-bloc';
+import { tagsInGraph } from '../workflow/tags-du-graphe';
 
 /**
  * La sauvegarde n'exige pas qu'un scénario commence par un template : un scénario qui ouvre sur un message de
@@ -66,21 +65,6 @@ export interface WorkflowRouteDeps {
   declareTags(tenantId: string, tags: string[]): Promise<void>;
   /** Numéro WhatsApp affiché du tenant, pour construire le lien wa.me. null si aucun numéro connecté. */
   getDisplayPhoneNumber(tenantId: string): Promise<string | null>;
-}
-
-/** Tags saisis dans les blocs `tag` du graphe (dédupliqués, normalisés comme à la pose : `normaliserEtiquette`). */
-function tagsInGraph(graph: WorkflowGraph): string[] {
-  const out = new Set<string>();
-  for (const n of graph.nodes) {
-    // Bloc `tag` legacy OU action « ajouter un tag » d'un bloc `action` (chacune, `sousActions`) : on déclare le tag
-    // posé dans le référentiel. Un retrait de tag (remove_tag) ne « dé-déclare » rien -> ignoré ici.
-    const poses = n.type === 'tag' ? [n.data] : n.type === 'action' ? sousActions(n.data).filter((sa) => sa.actionKind === 'add_tag') : [];
-    for (const sa of poses) {
-      const t = normaliserEtiquette(String(sa.tag ?? ''));
-      if (t !== '') out.add(t);
-    }
-  }
-  return [...out];
 }
 
 /**

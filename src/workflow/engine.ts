@@ -697,7 +697,7 @@ function valeurDuChamp(data: Record<string, unknown>, ctx?: EvalContext): string
   return String(data.value ?? '');
 }
 
-function emailRecipientsOf(raw: unknown): EmailRecipient[] | null {
+export function emailRecipientsOf(raw: unknown): EmailRecipient[] | null {
   const bruts = Array.isArray(raw) ? raw : [raw];
   const out: EmailRecipient[] = [];
   for (const b of bruts) {
@@ -749,6 +749,19 @@ function actionsDeLaSousAction(sa: SousAction, ctx?: EvalContext): WorkflowActio
   return [];
 }
 
+/**
+ * La source JavaScript d'un bloc « Fonction JS ». Elle vit dans `data.js`, pas dans `data.code` : `data.code` porte le
+ * code public du bloc (`nod_<client>_<ULID>`), que `mintNodeCodes` refait à chaque enregistrement dès que la valeur ne
+ * ressemble pas à un code valide, ce qui écrasait le JavaScript. Le repli sur `data.code` récupère les graphes pas
+ * encore réécrits, sans risque : un code minté est reconnaissable. La duplication entre espaces s'en sert pour déplacer
+ * la source avant de refaire les codes (`src/ops/duplication/graphe.ts`).
+ */
+export function sourceDuBlocJs(data: Record<string, unknown>): string {
+  const brutJs = typeof data.js === 'string' ? data.js : '';
+  const ancien = String(data.code ?? '');
+  return brutJs !== '' ? brutJs : (/^nod_[a-z0-9]+_[0-9A-HJKMNP-TV-Z]{26}$/.test(ancien) ? '' : ancien);
+}
+
 /** Exportée pour le test unitaire du node email (`actionOf` en isolation). */
 export function actionOf(node: WorkflowNode, ctx?: EvalContext): WorkflowAction | null {
   if (node.type === 'question') {
@@ -783,15 +796,7 @@ export function actionOf(node: WorkflowNode, ctx?: EvalContext): WorkflowAction 
     return requestId !== '' ? { kind: 'appelHttp', requestId, champCible } : null;
   }
   if (node.type === 'js') {
-    /**
-     * La source vit dans `data.js`, pas dans `data.code` : `data.code` porte le code public du bloc
-     * (`nod_<client>_<ULID>`), que `mintNodeCodes` refait à chaque enregistrement dès que la valeur ne
-     * ressemble pas à un code valide, ce qui écrasait le JavaScript. Le repli sur `data.code` récupère les
-     * graphes pas encore réécrits, sans risque : un code minté est reconnaissable.
-     */
-    const brutJs = typeof node.data.js === 'string' ? node.data.js : '';
-    const ancien = String(node.data.code ?? '');
-    const code = brutJs !== '' ? brutJs : (/^nod_[a-z0-9]+_[0-9A-HJKMNP-TV-Z]{26}$/.test(ancien) ? '' : ancien);
+    const code = sourceDuBlocJs(node.data);
     const champSource = String(node.data.champSource ?? '').trim();
     const champCible = String(node.data.champCible ?? '').trim();
     // Bloc à moitié réglé -> no-op. Le code vide compte comme non réglé : l'exécuter écrirait une valeur vide,
