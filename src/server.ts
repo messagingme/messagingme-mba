@@ -135,6 +135,7 @@ import { registerDesinscriptionEmails, type DesinscriptionRouteDeps } from './ht
 import { registerPieceQuestion, type PieceQuestionRouteDeps } from './http/piece-question';
 import { registerEmailsMoi, type EmailsMoiDeps } from './http/emails-moi';
 import { registerOpsSuppression, type OpsSuppressionDeps } from './http/ops-suppression';
+import { registerOpsDuplication, type OpsDuplicationDeps } from './http/ops-duplication';
 import { registerOtpPont, type OtpPontRouteDeps } from './http/otp-pont';
 import { MetaApiError } from './meta/errors';
 import { CompteChez360dialog } from './meta/credentials';
@@ -518,6 +519,8 @@ export interface ServerDeps {
   offrePaiement?: OffrePaiementRouteDeps;
   /** La suppression définitive d'un espace par l'exploitation (RC8, `/ops/espaces/:tenantId`). */
   opsSuppression?: OpsSuppressionDeps;
+  /** La duplication d'un scénario d'un espace à l'autre par l'exploitation (`/ops/duplication`). */
+  opsDuplication?: OpsDuplicationDeps;
   /** Les e-mails du produit dans `/ops` (lot 7, `/ops/emails`). */
   opsEmails?: OpsEmailsDeps;
   /** Le webhook signé de Resend (lot 7, `/webhooks/resend`) : livrés, ouverts, cliqués, rebonds, plaintes. */
@@ -783,6 +786,8 @@ export function modulesDeRoutes(
     entree('opsEmails', 'session-ops', deps.opsEmails, (app, d, g) => registerOpsEmails(app, d, g.ops)),
     // La suppression définitive d'un espace (RC8) : même autorité que `/ops`, dans un module à part.
     entree('opsSuppression', 'session-ops', deps.opsSuppression, (app, d, g) => registerOpsSuppression(app, d, g.ops)),
+    // La duplication d'un scénario entre espaces : même autorité que `/ops`, cross-espace par construction.
+    entree('opsDuplication', 'session-ops', deps.opsDuplication, (app, d, g) => registerOpsDuplication(app, d, g.ops)),
     // Redirection des liens tracés : publique (un destinataire clique depuis WhatsApp, sans session), montée
     // avant les gardes d'auth.
     entree('links', 'code-url', deps.links, (app, d) => registerLinks(app, d)),

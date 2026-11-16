@@ -217,6 +217,8 @@ import { programmerLaFinDuNumero } from './numero/fin-abonnement';
 import { servirLAttente } from './numero/reserve';
 import type { ContexteTiers } from './ops/suppression-espace';
 import type { OpsSuppressionDeps } from './http/ops-suppression';
+import type { OpsDuplicationDeps } from './http/ops-duplication';
+import { PgDuplicationStore } from './ops/duplication/store.pg';
 import { CompteChez360dialog, TokenInvalidError } from './meta/credentials';
 import { lireMediaRecu } from './inbox/media-entrant';
 import { creerOuvertureConversationInbox } from './inbox/ouverture';
@@ -1465,6 +1467,24 @@ async function main(): Promise<void> {
   };
 
   /**
+   * La duplication d'un scénario d'un espace à l'autre, depuis /ops (lot 1). Les templates se lisent chez Meta SANS le
+   * cache du catalogue : l'aperçu doit voir un template qui vient d'apparaître, et « pas de WABA » (null) n'est pas
+   * « aucun template ».
+   */
+  const duplicationScenario: OpsDuplicationDeps = {
+    store: new PgDuplicationStore(pool),
+    templatesDe: async (tenant) => {
+      const waba = await repo.getTenantWabaId(tenant);
+      if (!waba) return null;
+      const modeles = await (await metaFactory.templateClientForTenant(tenant)).list(waba);
+      return modeles.map((t) => ({ nom: t.name, langue: t.language, statut: t.status }));
+    },
+    offreOuvreScenarios: async (tenant) => (await offres.offreDe(tenant)).droits.fonctions.has('scenarios'),
+    declareTags: async (tenant, tags) => { for (const t of tags) await tagStore.create(tenant, t); },
+    verrous: verrousCourts,
+  };
+
+  /**
    * Les dépendances de l'écran Modèles, partagées avec `POST /v1/templates` et l'outil `create_template` (lot 13,
    * domaine 3) : la création passe par `creerUnModele`, avec ces gardes et ce traçage des liens, quel que soit l'appelant.
    */
@@ -1994,6 +2014,8 @@ async function main(): Promise<void> {
     },
     // La suppression définitive d'un espace (RC8).
     opsSuppression: suppressionEspace,
+    // La duplication d'un scénario entre espaces (lot 1).
+    opsDuplication: duplicationScenario,
     /**
      * L'alerte d'exploitation : les quotas quotidiens de l'API publique la lèvent quand leur compteur ne répond pas (les
      * appels passent alors, les quotas ne sont plus tenus). Absente, elle partirait seulement dans le journal.

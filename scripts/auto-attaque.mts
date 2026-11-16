@@ -258,6 +258,8 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
   ops360dialog: inconnu('ops360dialog'),
   // La suppression d'un espace (RC8) : même session, module à part. Aucun espace n'existe, aucun geste ne part.
   opsSuppression: inconnu('opsSuppression'),
+  // La duplication d'un scénario entre espaces : même session, module à part. Aucun espace n'existe, rien n'est écrit.
+  opsDuplication: inconnu('opsDuplication'),
   // Code dans l'adresse : aucun code ne se résout.
   links: inconnu('links'),
   // Le fichier d'une pièce reçue par un bloc Question (2026-11-02) : aucun jeton ne se lit, donc aucun message n'est
