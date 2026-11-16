@@ -3,7 +3,7 @@
 // la page « Démarrer » (`pagesDemarrer`, ici), Boutiques Shopify (`boutique.ts`) et SaaS et app builders (`cas.ts`).
 // Textes dans `tunnel-textes.ts` ; `site.js` le rend interactif, et il reste lisible sans script (ses issues en liste).
 // Plan `docs/superpowers/plans/2026-10-30-tunnel-numero-generique.md`.
-import { AUTORISATION_CODEX, COMMANDES_CODEX, COMMANDES_PLUGIN, DEPOT_PLUGIN, SERVEUR_PLUGIN_MCP } from '../../web/lib/demarrer';
+import { AUTORISATION_CODEX, COMMANDE_DEMARRAGE, COMMANDES_CODEX, COMMANDES_PLUGIN, DEPOT_PLUGIN, SERVEUR_PLUGIN_MCP } from '../../web/lib/demarrer';
 import { ACCUEIL, fichierDe, fil, page } from './cas';
 import type { Langue } from './cas-textes';
 import { echapper, insecables } from './guide-meta';
@@ -208,7 +208,7 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
     `                <div class="bt-appels-boutons"><a class="bouton bouton-trait" href="${PLUGIN[langue]}">${a.plugin}</a><a class="bouton bouton-trait" href="${DEPOT_PLUGIN}" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>${a.github}</a></div></div></li>`,
     `              <li><span class="bt-num">2</span><div><h4>${ef.relier.titre} <span class="bt-oblig">${ef.relier.obligatoire}</span></h4><div class="bt-outils">${outil('claude', ef.relier.claude, suite)}${outil('codex', ef.relier.codex, `${lignes([AUTORISATION_CODEX])}<p class="bt-outil-note">${ef.relier.codexNote}</p>`)}</div>`,
     `                <p class="bt-ecrans-titre">${ef.relier.navigateur}</p><ol class="bt-ecrans">${ecrans}</ol><p class="bt-ecrans-titre">${ef.relier.detour.titre}</p><ol class="bt-ecrans bt-ecrans-detour">${detour}</ol></div></li>`,
-    `              <li><span class="bt-num">3</span><div><h4>${ef.coller}</h4>`,
+    `              <li><span class="bt-num">3</span><div><h4>${ef.lancer.titre}</h4><div class="bt-outils">${outil('claude', ef.lancer.claude, lignes([COMMANDE_DEMARRAGE]))}${outil('codex', ef.lancer.codex, `<p class="bt-outil-texte">${ef.lancer.codexTexte}</p>`)}</div>`,
     boite(x, 'free', '                '),
     boite(x, 'pro', '                '),
     '              </div></li>',

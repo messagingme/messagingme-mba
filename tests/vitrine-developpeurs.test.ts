@@ -6,7 +6,7 @@ import { CODE_RE } from '../src/http/widget-public';
 import { PRIX_NUMERO_HT_CENTIMES } from '../src/stripe/abonnement';
 import { schema } from '../src/config';
 import { adresseDuScript, baliseDuScript } from '../src/widgets/adresses';
-import { API_PUBLIQUE, COMMANDE_DEMARRAGE, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
+import { API_PUBLIQUE, AUTORISATION_CODEX, COMMANDE_DEMARRAGE, COMMANDES_CODEX, COMMANDES_PLUGIN, SERVEUR_PLUGIN_MCP } from '../web/lib/demarrer';
 import { MARQUE_DEBUT } from '../scripts/plugin/generer';
 import { EXEMPLES_SDK, VERSION_SDK } from '../web/lib/exemples-code';
 import { CATALOGUE_MCP } from '../web/lib/partage/catalogue-mcp';
@@ -59,7 +59,9 @@ describe('les commandes qui branchent Claude Code sont celles du plugin (lot 10,
   for (const [langue, html] of Object.entries(PAGES)) {
     it(`page ${langue} : les deux commandes, puis le lancement, une par bloc (collées ensemble, Claude Code n’en lancerait qu’une)`, () => {
       const blocs = Object.fromEntries(parAttribut(html, 'data-commande').map((b) => [b.valeur, texte(b.contenu).trim()]));
-      expect(blocs).toEqual({ 'plugin-1': COMMANDES_PLUGIN[0], 'plugin-2': COMMANDES_PLUGIN[1], demarrage: COMMANDE_DEMARRAGE });
+      expect(blocs).toEqual({ 'plugin-1': COMMANDES_PLUGIN[0], 'plugin-2': COMMANDES_PLUGIN[1], demarrage: COMMANDE_DEMARRAGE,
+        'codex-1': COMMANDES_CODEX[0], 'codex-2': COMMANDES_CODEX[1], 'codex-login': AUTORISATION_CODEX,
+      });
       expect(texte(parAttribut(html, 'data-commande-terminal')[0]?.contenu ?? '')).toBe(COMMANDE_DEMARRAGE);
       // Le nom que /mcp affiche pour le serveur du plugin.
       expect(parAttribut(html, 'data-serveur').map((b) => texte(b.contenu))).toEqual([SERVEUR_PLUGIN_MCP]);

@@ -1090,6 +1090,7 @@ h1{grid-column:1 / -1;grid-row:1;position:relative;z-index:1;font-size:clamp(2.3
 .bt-outil-nom{display:flex;flex-direction:column;font-weight:700;color:var(--ink);line-height:1.25}
 .bt-outil-nom small{font-size:.75rem;font-weight:500;color:var(--muted)}
 /* Ce que Codex voit sur la page d'autorisation (« non vérifié »), annoncé sous sa ligne. */
+.bt-outil-texte{margin:0;color:var(--muted)}
 .bt-outil-note{margin:6px 0 0;font-size:.8rem;color:var(--muted)}
 /* Ce qu'on tape (`code`) et ce qu'on choisit ensuite dans une liste (`.bt-choix`), à la suite. */
 .bt-chemin .bt-etapes-fin .bt-suite{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;margin:0}
@@ -1646,6 +1647,9 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .dev-pas p{margin:0;color:var(--muted)}
 .dev-pas .code{align-self:stretch;white-space:pre-wrap;overflow-wrap:anywhere}
 .dev-pas .bouton-texte{padding-left:0}
+.dev-voie + .dev-voie{margin-top:40px}
+.dev-voie-tete{display:flex;align-items:center;gap:12px;margin:40px 0 0;font-size:1.15rem;font-weight:800;color:var(--ink)}
+.dev-voie .dev-pas{margin-top:16px}
 .dev-autres{margin:28px 0 0;max-width:46em;color:var(--muted)}
 .dev-pas p code,.dev-autres code{font-family:var(--mono);font-size:.88em;color:var(--code-ink);background:rgb(255 255 255 / .08);padding:.1em .4em;border-radius:6px;overflow-wrap:anywhere}
 .dev-copier{display:none}

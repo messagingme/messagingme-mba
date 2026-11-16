@@ -200,7 +200,11 @@ export interface TexteTunnel {
          */
         readonly ecrans: readonly { readonly legende: string; readonly alt: string }[];
       };
-      readonly coller: string;
+      /**
+       * L'étape 3 (Julien, 2026-11-16 : « /messagingme:demarrer avant le texte à copier coller ») : dans Claude Code, la
+       * commande de la mise en service puis la demande à sa suite ; dans Codex, qui n'a pas nos commandes, la demande seule.
+       */
+      readonly lancer: { readonly titre: string; readonly claude: string; readonly codex: string; readonly codexTexte: string };
     };
   };
   /** La demande à coller : son début (la page d'origine et l'offre), la phrase du numéro de l'issue, puis sa fin. */
@@ -482,7 +486,12 @@ const fr = (): TexteTunnel => {
             { legende: 'C’est relié', alt: '« Autorisation accordée » : retour vers Claude Code.' },
           ],
         },
-        coller: 'Collez votre demande dans Claude Code ou Codex :',
+        lancer: {
+          titre: 'Lancez la mise en service, avec votre demande :',
+          claude: 'la commande, puis la demande à la suite',
+          codex: 'la demande seule',
+          codexTexte: 'Collez la demande telle quelle.',
+        },
       },
     },
     demande: {
@@ -749,7 +758,12 @@ const en = (): TexteTunnel => {
             { legende: 'Connected', alt: '“Authorization granted”: back to Claude Code.' },
           ],
         },
-        coller: 'Paste your request into Claude Code or Codex:',
+        lancer: {
+          titre: 'Start the setup, with your request:',
+          claude: 'the command, then the request after it',
+          codex: 'the request alone',
+          codexTexte: 'Paste the request as is.',
+        },
       },
     },
     demande: {
