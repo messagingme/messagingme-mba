@@ -1559,6 +1559,22 @@ bac à sable dans `src/index.ts`). Ils écrivent le champ que l'administrateur a
 pas un champ `json` ; un graphe ou un outil réglé par l'API peut quand même en viser un. Le bloc d'extraction doit
 donc tolérer une valeur qui n'est pas du JSON (chemin absent, champ cible vidé).
 
+🔴 **Le bloc « Extraire du JSON » range ses valeurs sur la copie de travail ET les valide par le type de leur cible,
+par le même calcul que l'exécuteur** (plan `docs/superpowers/plans/2026-11-11-champ-json-lot-2.md`). L'action
+`extraireJson` (`{ champSource, lignes }`, au plus `MAX_LIGNES_EXTRACTION` lignes de `web/lib/partage/extraire-json.ts`)
+n'attend pas (`BLOCS_SANS_ATTENTE`) : une Condition placée après la lit sans sommeil, campagne comprise. `applyToWork`
+et l'exécuteur passent tous deux par `valeurPourCible` (`src/workflow/engine.ts`) : sans cette validation sur la copie,
+une Condition prenait sa branche sur une valeur que l'exécuteur refusait ensuite. Les types viennent de
+`typesDesChamps` (dépendance requise de l'exécuteur), chargés dans `ctx.typesChamps` par `buildCtx` seulement quand le
+graphe porte le bloc. L'exécuteur relit la source par le contexte d'évaluation, jamais la copie. Vident la cible : un
+chemin absent, une source qui n'est pas du JSON, une valeur que le type refuse, un entier au-delà de 2^53
+(`valeurExtraite` rend vide plutôt qu'un nombre arrondi).
+
+🔴 **Une condition reconnaît un filtre d'analyse à sa CLÉ, jamais à son opérateur** (`estFiltreAnalyse`,
+`web/lib/champs-fiche.ts` : une clé du catalogue d'analyse ou un préfixe `analyse_`, comme le moteur). `gte`, `lte`,
+`is_true` et `is_false` sont aussi des opérateurs de champ perso : les reconnaître à l'opérateur renvoyait un champ perso
+nombre sur « Dernière analyse », dans le constructeur de Condition comme dans les filtres de la liste des contacts.
+
 ⚠️ **La nature et les champs lus d'un appel déjà posé se modifient ENSEMBLE** (`PATCH .../tools/:outilId`,
 2026-10-05) : des champs sans nature sont refusés, `integre` exige au moins un champ, `pousse` n'en lit aucun (la
 même `refusLecture` qu'à la création), et une nature hors d'un connecteur API est refusée. La cohérence se juge donc
@@ -6853,7 +6869,7 @@ avec elle) garde son test de parité.
 | `web/components/doc-api/` | `CadreDoc` : le cadre de chaque page de doc ; il décide console ou public une fois pour toutes, porte la navigation et suit l'ancre après le rendu. `elements.tsx` : titre, route avec badge de méthode, bloc avec Copier, encadrés, lien typé vers une ancre déclarée, et `ADRESSE_API`, dérivée de `BASE`, définie ici seulement ; `Route` prend la clé d'un endpoint ; `Champs`, `Erreurs` et `Refus` lisent le statut d'un code dans la table (`statutDe`), jamais écrit à la main |
 | `web/lib/intentions.ts` | 🔴 les libellés des intentions d'une conversation analysée, et leurs comptes dans l'ordre d'affichage (fixe, `autre` en dernier), pour la carte du Performance Lab ET l'Analyse des conversations. La liste est `INTENTS`, partagée avec le serveur (`web/lib/partage/analyse.ts`) ; un libellé par valeur est exigé par `tests/intentions-parite.test.ts` (à la racine : seul `ci.yml` tourne quand `src/` change). Une intention absente d'une API plus ancienne vaut zéro (`comptesParIntention`) |
 | `web/lib/erreurs-livraison.ts` | l'ORIGINE d'une ligne du journal des erreurs de livraison, en mots (canal et provenance d'un message libre non délivré), et l'export CSV de ce journal : les mêmes mots à l'écran et dans l'export |
-| `web/lib/partage/chemin-json.ts` | la grammaire unique des chemins JSON de webhook : la console construit les chemins de l'arbre avec elle, le serveur valide et relit les mêmes chemins. `web/lib/chemin-json.ts` garde l'arbre d'affichage ; `src/webhook-entrant/chemin.ts` garde la conversion en valeur de champ. Une clé inadressable ou un chemin de plus de 300 caractères reste visible, mais ne peut pas être attaché |
+| `web/lib/partage/chemin-json.ts` | la grammaire unique des chemins JSON (webhook entrant et bloc « Extraire du JSON ») ; un index négatif (`[-1]`) compte depuis la fin. La console construit les chemins de l'arbre avec elle, le serveur valide et relit les mêmes chemins. `web/lib/chemin-json.ts` garde l'arbre d'affichage ; `src/webhook-entrant/chemin.ts` garde la conversion en valeur de champ. Une clé inadressable ou un chemin de plus de 300 caractères reste visible, mais ne peut pas être attaché |
 | `web/lib/contact-filters.ts` | la reprise des filtres d'un brouillon et leur sérialisation dans l'adresse ; le contrat vit dans `web/lib/partage/contact-filters.ts` |
 | `web/lib/selection-contacts.ts` | la sélection de contacts commune au mini-CRM et aux campagnes : lignes choisies, ou tout le résultat filtré moins les exclusions, le comptage et la cible d'une action en masse |
 | `web/lib/risque.ts` | le risque de désengagement à l'écran : badges des niveaux, libellés des raisons en deux langues, choix du filtre, et `risqueLu`, qui lit le champ venu du réseau et rend `null` (« pas encore calculé ») pour un champ absent, nul ou illisible, jamais un niveau inventé |
