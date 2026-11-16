@@ -1730,6 +1730,24 @@ h1 > .f-surtitre{display:flex;width:fit-content;line-height:1.6}
 .dev-construire a{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px;line-height:1.5}
 .dev-construire a:hover{color:var(--ink);text-decoration-color:var(--action-ink)}
 @media (max-width:900px){.dev-construire,.dev-construire-bloc .dev-construire{grid-template-columns:minmax(0,1fr)}}
+/* Page développeurs (Julien, 2026-11-16 : « bleu sur bleu, illisible ») : des cartes BLANCHES sur le fond nuit, et
+   devant chaque ligne une petite tuile à la couleur de la famille, l'icône duotone de la ligne dedans. Le texte passe
+   en encre sombre, les outils en puces grises. La page SaaS, qui reprend la carte sans ces lignes, n'est pas touchée. */
+.dev-construire-bloc .dev-construire > div{--ink:#010630;--muted:#4A5065;--line:#E3E6EF;--surface:#FFFFFF;--action-ink:#0066AA;--action-wash:#E6F3FC;--a:#25D366;--b:#128C7E;color:var(--ink);border-color:transparent;box-shadow:0 28px 60px -34px rgb(0 2 20 / .9)}
+.dev-construire-bloc .dev-construire > div:has(.dev-ic-cloche){--a:#FFB547;--b:#E0620F}
+.dev-construire-bloc .dev-construire > div:has(.dev-ic-prises){--a:#6FC2FE;--b:#4B4BE0}
+.dev-construire-bloc .dev-construire > div:has(.dev-ic-graphique){--a:#D49BFF;--b:#8B3FE0}
+.dev-construire-bloc .dev-construire > div:hover{border-color:transparent;box-shadow:0 34px 70px -32px rgb(0 2 20 / .95)}
+.dev-construire-bloc .dev-construire ul{gap:0}
+.dev-construire-bloc .dev-construire li{display:grid;grid-template-columns:38px minmax(0,1fr);gap:14px;align-items:start;padding:14px 0;border-top:1px solid var(--line)}
+.dev-construire-bloc .dev-construire li:first-child{border-top:0;padding-top:0}
+.dev-li-ic{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:color-mix(in srgb,var(--a) 22%,#FFFFFF)}
+.dev-li-ic svg{width:22px;height:22px;fill:var(--b)}
+.dev-li-ic .dev-ic-fond{opacity:.35}
+.dev-construire-bloc .dev-construire a{color:var(--ink);font-weight:600;text-decoration:none}
+.dev-construire-bloc .dev-construire a:hover{color:var(--action-ink);text-decoration:underline;text-decoration-color:currentColor}
+.dev-construire-bloc .bt-avec{color:var(--muted)}
+.dev-construire-bloc .bt-avec code{color:#1B2140;background:#EEF0F6}
 /* « Et depuis Claude » de la page SaaS : dans chaque colonne, « Avec la Free » puis « Et en plus, avec le Pro », repliés. */
 .hub-offre{border-top:1px solid var(--line)}
 .hub-offre summary{display:flex;align-items:center;gap:10px;padding:14px 0;cursor:pointer;list-style:none;font-weight:700}

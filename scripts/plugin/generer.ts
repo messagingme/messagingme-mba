@@ -22,7 +22,7 @@ import { PRIX_NUMERO_HT_CENTIMES } from '../../src/stripe/abonnement';
 import { schema } from '../../src/config';
 import { COMMANDES } from './commandes';
 import { NOMS_OFFRES, etiquetteDOffre, offreDeLaCarte } from '../vitrine/offres-outils';
-import { CONSTRUIRE, ICONES_FAMILLES, type Capacite, type LienCapacite } from './construire';
+import { CONSTRUIRE, ICONES_CAPACITES, ICONES_FAMILLES, type Capacite, type LienCapacite } from './construire';
 import { FAMILLES_OUTILS } from '../../web/lib/partage/familles-outils';
 import { FAQ, SANS_VIDEO } from './faq';
 import { AUTORISATION_CODEX, SERVEUR_PLUGIN_MCP } from '../../web/lib/demarrer';
@@ -203,7 +203,9 @@ export function blocConstruireVitrine(langue: Langue): string {
     const avec = c.outils?.length
       ? `<span class="bt-avec">${langue === 'fr' ? 'Avec' : 'With'} ${c.outils.map((o) => `<code>${o}</code>`).join(', ')}</span>`
       : '';
-    return `      <li><a href="${hrefCapacite(c.lien, langue)}">${echapper(c.texte[langue])}</a>${offre ? ` ${etiquetteDOffre(offre, langue)}` : ''}${avec}</li>`;
+    const ic = ICONES_CAPACITES[c.icone];
+    const icone = `<span class="dev-li-ic" aria-hidden="true"><svg viewBox="0 0 256 256"><path class="dev-ic-fond" d="${ic.fond}"/><path d="${ic.trait}"/></svg></span>`;
+    return `      <li>${icone}<div><a href="${hrefCapacite(c.lien, langue)}">${echapper(c.texte[langue])}</a>${offre ? ` ${etiquetteDOffre(offre, langue)}` : ''}${avec}</div></li>`;
   };
   return [
     '<div class="dev-construire">',
