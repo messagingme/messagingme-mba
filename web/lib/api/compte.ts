@@ -738,6 +738,60 @@ export function getOpsCredits(sessionOps: string): Promise<VueCreditsOps> {
   return appelOps(sessionOps, '/ops/credits');
 }
 
+/** Un espace de l'onglet « Dupliquer » : sans WABA, il ne peut pas recevoir de copie. */
+export interface EspaceDuplicationOps { id: string; nom: string; waba: boolean }
+
+/** Les trois choix de l'onglet « Dupliquer ». */
+export interface ChoixDuplicationOps { source: string; scenarioId: string; destination: string }
+
+export type RaisonDebrancheOps = 'aller_a' | 'assignation' | 'agent' | 'appel_api' | 'email' | 'flow';
+export type RaisonRetraitOps = 'mot_cle_pris' | 'nouveau_contact_existe' | 'lie_a_la_source';
+
+/** Le récapitulatif d'une duplication (`POST /ops/duplication/apercu`), calculé sans rien écrire. */
+export interface ApercuDuplicationOps {
+  nomCopie: string;
+  debranches: Array<{ nodeId: string; nom: string; type: string; raison: RaisonDebrancheOps }>;
+  templates: Array<{ nom: string; langue: string }>;
+  champsACreer: Array<{ key: string; label: string; type: string }>;
+  champsEnConflit: Array<{ cle: string; typeSource: string; typeDestination: string }>;
+  champsInconnus: string[];
+  templatesAbsents: Array<{ nom: string; langue: string }>;
+  templatesNonApprouves: Array<{ nom: string; langue: string; statut: string }>;
+  declencheursCopies: Array<{ nom: string; type: string }>;
+  declencheursRetires: Array<{ nom: string; raison: RaisonRetraitOps }>;
+  motsRetires: Array<{ nom: string; mots: string[] }>;
+  signaux: string[];
+  blocages: string[];
+  /** Renvoyée telle quelle à la duplication : l'API refuse (409) si l'état a changé depuis. */
+  empreinte: string;
+}
+
+export interface ResultatDuplicationOps {
+  scenarioId: string;
+  nom: string;
+  champsCrees: string[];
+  declencheursCopies: number;
+  debranches: ApercuDuplicationOps['debranches'];
+  declencheursRetires: ApercuDuplicationOps['declencheursRetires'];
+  motsRetires: ApercuDuplicationOps['motsRetires'];
+}
+
+export function lireEspacesDuplicationOps(sessionOps: string): Promise<{ espaces: EspaceDuplicationOps[] }> {
+  return appelOps(sessionOps, '/ops/duplication/espaces');
+}
+
+export function lireScenariosOps(sessionOps: string, tenantId: string): Promise<{ scenarios: Array<{ id: string; nom: string }> }> {
+  return appelOps(sessionOps, `/ops/duplication/espaces/${encodeURIComponent(tenantId)}/scenarios`);
+}
+
+export function apercuDuplicationOps(sessionOps: string, choix: ChoixDuplicationOps): Promise<{ apercu: ApercuDuplicationOps }> {
+  return appelOps(sessionOps, '/ops/duplication/apercu', { method: 'POST', corps: choix });
+}
+
+export function dupliquerScenarioOps(sessionOps: string, choix: ChoixDuplicationOps & { empreinte: string }): Promise<ResultatDuplicationOps> {
+  return appelOps(sessionOps, '/ops/duplication', { method: 'POST', corps: choix });
+}
+
 /** Coûteux côté base : lu une fois à l'ouverture de l'écran, jamais avec la vue d'ensemble. */
 export function getOpsStockage(sessionOps: string): Promise<MesureStockage> {
   return appelOps(sessionOps, '/ops/stockage');

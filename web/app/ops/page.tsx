@@ -38,13 +38,14 @@ import { MbaTabs } from '@/components/MbaTabs';
 import { OpsSante } from '@/components/OpsSante';
 import { OpsCapacite } from '@/components/OpsCapacite';
 import { OpsCredits } from '@/components/OpsCredits';
+import { OpsDuplication } from '@/components/OpsDuplication';
 import { OpsSeuils } from '@/components/OpsSeuils';
 
 /**
  * Les quatre onglets (refonte, `docs/superpowers/specs/2026-10-27-ops-refonte-design.md`). Santé d'abord : c'est
  * l'écran du téléphone. L'onglet vit dans l'adresse (`?tab=`), lu au montage et réécrit sans recharger.
  */
-const ONGLETS = ['sante', 'capacite', 'clients', 'credits', 'reglages'] as const;
+const ONGLETS = ['sante', 'capacite', 'clients', 'credits', 'reglages', 'dupliquer'] as const;
 type Onglet = (typeof ONGLETS)[number];
 const ongletDe = (valeur: string | null): Onglet => (ONGLETS as readonly string[]).includes(valeur ?? '') ? valeur as Onglet : 'sante';
 
@@ -115,8 +116,8 @@ export default function OpsPage() {
 
   // La vue d'ensemble est lourde (charge et latence des files, lues dans la table des jobs de pg-boss) : l'onglet Santé,
   // celui du téléphone et de l'incident, n'en a pas besoin. Elle se relit en arrivant sur un autre onglet.
-  // Les Crédits non plus (lot C) : leur onglet lit sa propre route.
-  const besoinVue = onglet !== 'sante' && onglet !== 'credits';
+  // Les Crédits non plus (lot C) : leur onglet lit sa propre route. La duplication de scénarios non plus.
+  const besoinVue = onglet !== 'sante' && onglet !== 'credits' && onglet !== 'dupliquer';
   useEffect(() => {
     if (session && besoinVue) void load(session.token);
   }, [session, besoinVue, load]);
@@ -202,6 +203,7 @@ export default function OpsPage() {
             { key: 'clients', label: t('Clients', 'Clients') },
             { key: 'credits', label: t('Crédits', 'Credits') },
             { key: 'reglages', label: t('Réglages', 'Settings') },
+            { key: 'dupliquer', label: t('Dupliquer', 'Duplicate') },
           ]}
           active={onglet}
           onSelect={choisirOnglet}
@@ -210,6 +212,8 @@ export default function OpsPage() {
         {onglet === 'sante' && <OpsSante jeton={session.token} onPerdue={perdue} onRevision={setRevisionSante} />}
         {onglet === 'capacite' && <OpsCapacite jeton={session.token} onPerdue={perdue} />}
         {onglet === 'credits' && <OpsCredits jeton={session.token} onPerdue={perdue} />}
+        {/* La duplication d'un scénario entre espaces : sa propre route, comme Crédits. */}
+        {onglet === 'dupliquer' && <OpsDuplication jeton={session.token} onPerdue={perdue} />}
         {loading && !data ? (
           <Squelette forme="carte" />
         ) : data ? (
