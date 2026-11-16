@@ -27,6 +27,8 @@ export const NODE_META: Record<WorkflowNodeType, { icone: NomIcone; label: [stri
   // « Fonction » et non « JavaScript » : ce que le client fait, c'est transformer une valeur. Le langage est
   // un détail de l'écran, pas le sujet du bloc.
   js: { icone: 'fonction', label: ['Fonction JS', 'JS function'] },
+  // Lot 2 du champ JSON : ranger des valeurs d'une réponse d'Appel API dans des champs. « Extraire », le geste du client.
+  extraire: { icone: 'liste', label: ['Extraire du JSON', 'Extract from JSON'] },
   // RC5 : le parcours continue sur un bloc de n'importe quel scénario de l'espace. Aucune sortie : la suite est là-bas.
   aller_a: { icone: 'saut', label: ['Aller à', 'Go to'] },
   // RC6 : l'agent de Meta prend le contact et répond tout de suite à son dernier message, quel que soit le répondeur de

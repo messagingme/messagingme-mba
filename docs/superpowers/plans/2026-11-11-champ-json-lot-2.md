@@ -29,8 +29,9 @@ la valeur rangée) sont en production.
    exemple »** : le bloc Appel API du graphe qui range dans cette source, rejoué par `POST .../requetes/:id/test` avec
    ses valeurs d'essai, la réponse dans `ArbreJson` ; un clic écrit le chemin de la ligne active. Sans appel amont :
    saisie libre. Le résumé MCP des blocs (`node-list.ts`) le nomme.
-5. **Annonce** (décision 14) : `features.md` (champ JSON et extraction), la fiche d'aide qui cite la section et son
-   empreinte dans le même commit. La vitrine n'est PAS touchée sans le oui de Julien (nouveauté publique).
+5. **Annonce** (décision 14) : `features.md` (champ JSON et extraction, section des connecteurs API). Aucune fiche d'aide
+   ne cite cette section ; la fiche « Créer un scénario » est publique, donc une page de la vitrine : ni elle ni la
+   vitrine ne sont touchées sans le oui de Julien (nouveauté publique).
 6. **Tests** : module (clé, index, `[-1]`, racine, `nombre`, absent, objet vers `json`, type refusé), moteur (Condition
    qui suit voit la valeur, campagne comprise), exécuteur (source relue, validation, une lecture des champs),
    `chemin-json` (`[-n]` accepté, webhook inchangé sinon), e2e du panneau (exemple, clic, lignes) et TOUS les

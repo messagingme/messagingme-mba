@@ -567,6 +567,8 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     // `{ok: false}`, champ vidé). Le champ source donne son nom au paramètre, en plus de `valeur`, qui reste
     // valide pour les blocs existants.
     executerJs: (code, valeur, champSource) => executerFonctionJs(code, valeur, champSource ? { nomParametre: champSource } : {}),
+    // Le bloc « Extraire du JSON » : les types des champs de l'espace, une lecture pour toutes les lignes du bloc.
+    typesDesChamps: async (t) => Object.fromEntries((await champsDeLEspace.list(t)).map((f) => [f.key, f.type])),
     /** Les variables `{{champ}}` d'un message rapide ou d'une question : même table que le RCS et les modèles
      *  d'e-mail (`contactVars`). */
     varsFor: varsDuContact,

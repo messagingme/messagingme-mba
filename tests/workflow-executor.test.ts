@@ -2075,3 +2075,81 @@ describe('Appel API puis Condition : la condition lit la valeur rangée', () => 
     expect(calls).toEqual(['tag:apres']);
   });
 });
+
+/**
+ * LE BLOC « EXTRAIRE DU JSON » À L'EXÉCUTION (plan `docs/superpowers/plans/2026-11-11-champ-json-lot-2.md`) : la source
+ * est relue au moment d'écrire, chaque valeur passe le type de sa cible (refusée : cible vidée), et les types sont lus
+ * UNE fois pour toutes les lignes.
+ */
+describe('bloc « Extraire du JSON » à l’exécution', () => {
+  const PANIER = '{"products":[{"title":"Blue Frock"},{"title":"iPhone 6"}],"total":"beaucoup"}';
+  const graphe: WorkflowGraph = {
+    nodes: [n('x', 'extraire', {
+      champSource: 'panier',
+      lignes: [
+        { chemin: 'products[0].title', champCible: 'premier' },
+        { chemin: 'products', mesure: 'nombre', champCible: 'nb' },
+        { chemin: 'total', champCible: 'montant' },
+      ],
+    })],
+    edges: [],
+  };
+  const contexte = (fields: Record<string, string>): EvalContext => ({
+    fields, tags: [], optIn: 'unknown', name: null, phone: null, bsuid: null, analyse: null,
+    now: new Date('2026-11-16T12:00:00Z'), timeZone: 'Europe/Paris', businessHours: {},
+  });
+
+  it('🔴 chaque valeur passe le type de sa cible : un texte dans un champ NOMBRE vide la cible', async () => {
+    let lectures = 0;
+    const { ex, calls } = make(graphe, {
+      evalContext: async () => contexte({ panier: PANIER }),
+      typesDesChamps: async () => { lectures++; return { premier: 'text', nb: 'number', montant: 'number' }; },
+    });
+    await ex.demarrer('campagne_scenario', 't1', 'wf1', graphe, { waId: '33600', contactId: 'c1' });
+    expect(calls).toEqual(['field:premier=Blue Frock', 'field:nb=2', 'field:montant=']);
+    // Une lecture du référentiel pour les trois lignes.
+    expect(lectures).toBe(1);
+  });
+
+  it('une valeur acceptée prend la forme CANONIQUE de son type (oui -> true)', async () => {
+    const oui: WorkflowGraph = { nodes: [n('x', 'extraire', { champSource: 'panier', lignes: [{ chemin: 'livre', champCible: 'livre' }] })], edges: [] };
+    const { ex, calls } = make(oui, {
+      evalContext: async () => contexte({ panier: '{"livre":"oui"}' }),
+      typesDesChamps: async () => ({ livre: 'boolean' }),
+    });
+    await ex.demarrer('campagne_scenario', 't1', 'wf1', oui, { waId: '33600', contactId: 'c1' });
+    expect(calls).toEqual(['field:livre=true']);
+  });
+
+  it('🔴 avec une Condition au graphe, la marche charge les types : la copie valide comme l’exécuteur', async () => {
+    const g: WorkflowGraph = {
+      nodes: [
+        n('x', 'extraire', { champSource: 'panier', lignes: [{ chemin: 'total', champCible: 'montant' }] }),
+        n('c', 'condition', { match: 'all', clauses: [{ kind: 'field', key: 'montant', op: 'not_empty' }] }),
+        n('ok', 'tag', { tag: 'ok' }), n('ko', 'tag', { tag: 'ko' }),
+      ],
+      edges: [e('e1', 'x', 'c'), eh('e2', 'c', 'ok', 'true'), eh('e3', 'c', 'ko', 'false')],
+    };
+    const { ex, calls } = make(g, {
+      evalContext: async () => contexte({ panier: '{"total":"beaucoup"}' }),
+      typesDesChamps: async () => ({ montant: 'number' }),
+    });
+    await ex.demarrer('campagne_scenario', 't1', 'wf1', g, { waId: '33600', contactId: 'c1' });
+    expect(calls).toEqual(['field:montant=', 'tag:ko']);
+  });
+
+  it('🔴 la source est RELUE au moment d’écrire, pas prise à la marche', async () => {
+    // La marche voit une fiche sans panier ; l'exécuteur relit la fiche, qui le porte désormais (un Appel API l'a écrit).
+    // Une Condition (isolée) fait construire le contexte de la marche : c'est la PREMIÈRE lecture, la seconde est celle de
+    // l'exécuteur.
+    const avecCondition: WorkflowGraph = { ...graphe, nodes: [...graphe.nodes, n('c', 'condition', { match: 'all', clauses: [] })] };
+    let lus = 0;
+    const { ex, calls } = make(avecCondition, {
+      evalContext: async () => { lus++; return contexte(lus === 1 ? {} : { panier: PANIER }); },
+      typesDesChamps: async () => ({}),
+    });
+    await ex.demarrer('campagne_scenario', 't1', 'wf1', avecCondition, { waId: '33600', contactId: 'c1' });
+    expect(lus).toBe(2);
+    expect(calls).toEqual(['field:premier=Blue Frock', 'field:nb=2', 'field:montant=beaucoup']);
+  });
+});

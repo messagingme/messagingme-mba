@@ -27,8 +27,16 @@ describe('chemin JSON : analyse', () => {
   });
 
   it('🔴 refuse les formes malformées, sans en accepter une par distraction', () => {
-    const mauvais = ['', '   ', '.a', 'a.', 'a..b', 'a.[0]', 'a[0]b', 'a[]', 'a[-1]', 'a[1', 'a]', 'a[b]'];
+    const mauvais = ['', '   ', '.a', 'a.', 'a..b', 'a.[0]', 'a[0]b', 'a[]', 'a[-]', 'a[--1]', 'a[1', 'a]', 'a[b]'];
     for (const m of mauvais) expect(cheminValide(m), m).toBe(false);
+  });
+
+  it('un index NÉGATIF compte depuis la fin (élargi le 2026-11-11 pour le bloc « Extraire du JSON »)', () => {
+    // `a[-1]` figurait parmi les formes refusées : il est désormais lisible, ici comme dans l'extraction.
+    expect(parseChemin('lignes[-1].ref')).toEqual([{ cle: 'lignes' }, { index: -1 }, { cle: 'ref' }]);
+    expect(litChemin(PAYLOAD_OR, 'lignes[-1].ref')).toBe('B-2');
+    expect(litChemin(PAYLOAD_OR, 'lignes[-2].prix')).toBe(42.5);
+    expect(litChemin(PAYLOAD_OR, 'lignes[-3].prix')).toBeUndefined();
   });
 
   it('🔴 refuse un chemin plus long que la limite', () => {
@@ -124,6 +132,12 @@ describe('mapping : cibles', () => {
 });
 
 describe('mapping : coercition du jsonb', () => {
+  it('une règle au chemin `[-1]` est GARDÉE et lit le dernier élément (élargissement du 2026-11-11)', () => {
+    const regles = coerceMapping([{ chemin: 'lignes[-1].ref', cible: 'field:derniere_ref' }]);
+    expect(regles).toEqual([{ chemin: 'lignes[-1].ref', cible: 'field:derniere_ref' }]);
+    expect(extraireDuPayload(PAYLOAD_OR, regles).champs).toEqual({ derniere_ref: 'B-2' });
+  });
+
   it('retire les règles illisibles au lieu de lever', () => {
     const regles = coerceMapping([
       { chemin: 'client.tel', cible: 'sys:phone' },

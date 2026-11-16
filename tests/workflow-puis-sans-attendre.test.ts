@@ -93,7 +93,7 @@ describe('walk : la suite « Puis, sans attendre » part avec le message, qui ga
 describe('passeSansAttente : les blocs qui peuvent suivre « Puis, sans attendre »', () => {
   it('🔴 la liste, type par type : un type ajouté demain doit être rangé ici, pas laissé au hasard', () => {
     const passent = WORKFLOW_NODE_TYPES.filter((t) => passeSansAttente(n('x', t, t === 'quick_message' ? { body: 'Texte' } : {})));
-    expect([...passent].sort()).toEqual(['action', 'condition', 'email', 'field', 'http', 'js', 'mba_disable', 'mba_handoff', 'quick_message', 'tag']);
+    expect([...passent].sort()).toEqual(['action', 'condition', 'email', 'extraire', 'field', 'http', 'js', 'mba_disable', 'mba_handoff', 'quick_message', 'tag']);
   });
 
   it('un message rapide passe sans bouton ou avec un bouton de lien, jamais avec une réponse rapide ni sans texte', () => {

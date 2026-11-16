@@ -1,5 +1,17 @@
 # todo.md : backlog
 
+## 🟡 Le bloc « Extraire du JSON » : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-11-champ-json-lot-2.md`)
+
+- **Deux lectures par destinataire dans une campagne** : la fiche relue (`evalContext`) et les types des champs
+  (`typesDesChamps`) pour chaque bloc Extraire. Piste : mémoïser les types le temps d'un `apply` ou d'un run.
+- **`features.md` (section Automatisations) n'énumère pas « extraction JSON »** parmi les blocs qui n'attendent rien :
+  la section est citée par la fiche publique « Créer un scénario » (empreinte et vitrine), à reprendre avec l'accord de
+  Julien.
+- **Un retour arrière d'image retirerait en silence une règle de webhook entrant au chemin `[-1]`** (`coerceMapping`
+  d'une image d'avant le 2026-11-11 la juge illisible) : le champ mappé ne se remplirait plus, sans erreur.
+- **L'e2e du panneau ne couvre pas** un essai en échec (`ok: false`), une réponse qui n'est pas du JSON, ni la
+  confirmation d'un appel qui écrit (méthode autre que GET).
+
 ## 🟡 La ligne de crédit prise depuis Claude (relecture du 2026-11-13, aucun rouge)
 
 - La skill fait payer l'option (question 2) AVANT de savoir si le numéro garde l'application (question 4) : un client qui

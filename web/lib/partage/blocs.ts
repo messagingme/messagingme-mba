@@ -10,7 +10,7 @@
  */
 export const WORKFLOW_NODE_TYPES = [
   'template', 'quick_message', 'inbox', 'flow', 'question', 'tag', 'field', 'condition', 'action', 'wait', 'mba_handoff',
-  'mba_disable', 'rcs_message', 'email', 'agent', 'http', 'js', 'aller_a', 'vers_mba',
+  'mba_disable', 'rcs_message', 'email', 'agent', 'http', 'js', 'extraire', 'aller_a', 'vers_mba',
 ] as const;
 export type WorkflowNodeType = (typeof WORKFLOW_NODE_TYPES)[number];
 

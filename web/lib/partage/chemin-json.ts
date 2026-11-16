@@ -6,8 +6,13 @@
 export type SegmentChemin = { cle: string } | { index: number };
 
 const CLE_ADRESSABLE = /^[^.[\]]+$/;
-const CHEMIN_RE = /^(?:[^.[\]]+|\[\d{1,6}\])(?:\.[^.[\]]+|\[\d{1,6}\])*$/;
-const JETON_RE = /\[(\d{1,6})\]|\.?([^.[\]]+)/g;
+/**
+ * Un index peut être NÉGATIF : il compte depuis la fin (`[-1]` = le dernier élément), pour le bloc « Extraire du JSON »
+ * (2026-11-11) comme pour le mapping d'un webhook entrant, qui le reçoit aussi. La console ne fabrique que des index
+ * positifs (`cheminPourIndex`) ; un index négatif se tape.
+ */
+const CHEMIN_RE = /^(?:[^.[\]]+|\[-?\d{1,6}\])(?:\.[^.[\]]+|\[-?\d{1,6}\])*$/;
+const JETON_RE = /\[(-?\d{1,6})\]|\.?([^.[\]]+)/g;
 
 /** Les chemins plus longs sont refusés lors de l'enregistrement d'un mapping. */
 export const LONGUEUR_CHEMIN_MAX = 300;
@@ -56,7 +61,8 @@ export function litChemin(racine: unknown, chemin: string): unknown {
     if (courant === null || courant === undefined) return undefined;
     if ('index' in s) {
       if (!Array.isArray(courant)) return undefined;
-      courant = courant[s.index];
+      // `[-0]` vaut `[0]` ; au-delà de la longueur, dans un sens comme dans l'autre, la valeur est absente.
+      courant = courant[s.index < 0 ? courant.length + s.index : s.index];
       continue;
     }
     if (typeof courant !== 'object' || Array.isArray(courant)) return undefined;

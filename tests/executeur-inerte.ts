@@ -154,6 +154,9 @@ export function avecGardesDEtatInertes<R extends Pick<Runs, 'setState'> & Partia
  * Toutes les dépendances requises de l'exécuteur qu'une fixture ne regarde pas. À étaler EN TÊTE : ce que le
  * test observe vient après et l'emporte.
  */
+/** `typesDesChamps` (bloc « Extraire du JSON ») : aucun type connu, donc chaque valeur extraite s'écrit telle quelle. */
+export const aucunTypeConnu = async (): Promise<Record<string, never>> => ({});
+
 export const depsInertes = {
   mayAct: filToujoursANous,
   reclaimControl: repriseSansObjection,
@@ -179,4 +182,5 @@ export const depsInertes = {
   piecesQuestion: aucunePieceNotee,
   fuseau: fuseauUtc,
   categorieDuModele: categorieIllisible,
+  typesDesChamps: aucunTypeConnu,
 } satisfies Partial<WorkflowExecutorDeps>;

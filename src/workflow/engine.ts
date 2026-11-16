@@ -18,6 +18,9 @@ import { blocDuCode as blocDuCodePartage, cibleDuSaut as cibleDuSautPartage, ent
 import type { AnalyseOuverture } from '../../web/lib/partage/ouverture-scenario';
 import { SORTIE_ENSUITE } from '../../web/lib/partage/sortie-ensuite';
 import { champsAVider, etiquettesARetirer, sousActions, type SousAction } from '../../web/lib/partage/actions-bloc';
+import { extraireDuJson, lignesDuBloc, type LigneExtraction } from '../../web/lib/partage/extraire-json';
+import { canonicalizeFieldValue, validateFieldValue } from '../crm/fields';
+import type { UserFieldType } from '../crm/types';
 
 /**
  * Moteur d'exécution d'un workflow, pur (aucune IO). Un run avance de bloc en bloc : les blocs synchrones
@@ -62,6 +65,13 @@ export type WorkflowAction =
    * valeur est relue au moment d'exécuter, pas au walk : un bloc précédent vient peut-être d'écrire ce champ.
    */
   | { kind: 'fonctionJs'; code: string; champSource: string; champCible: string }
+  /**
+   * Bloc « Extraire du JSON » (plan `2026-11-11-champ-json-lot-2.md`) : lit des valeurs dans le champ `json`
+   * `champSource` et les range dans d'autres champs. Calcul PUR (`extraireDuJson`) : `walk` le répercute sur sa copie
+   * de travail, donc une Condition qui suit lit les valeurs sans arrêt du parcours ; l'exécuteur relit la source au
+   * moment d'écrire et valide chaque valeur contre le type de sa cible.
+   */
+  | { kind: 'extraireJson'; champSource: string; lignes: LigneExtraction[] }
   /** Consentement marketing posé par un scénario. Les deux sens, comme depuis la fiche et l'action en masse. */
   | { kind: 'optIn'; value: 'opted_in' | 'opted_out' }
   /** `sources` = champ choisi dans le bloc pour certaines variables, par-dessus ceux du template. Absent = ceux du
@@ -137,7 +147,7 @@ function quickMessageNonBloquant(a: WorkflowAction | null): boolean {
  * blocs MBA retirés sont des passe-plats. Tout autre type attend, rend la main ou clôt le parcours.
  */
 const BLOCS_SANS_ATTENTE: ReadonlySet<WorkflowNodeType> = new Set<WorkflowNodeType>([
-  'tag', 'field', 'action', 'condition', 'email', 'http', 'js', 'mba_handoff', 'mba_disable',
+  'tag', 'field', 'action', 'condition', 'email', 'http', 'js', 'extraire', 'mba_handoff', 'mba_disable',
 ]);
 
 /**
@@ -185,7 +195,7 @@ export function refusSuiteQuiAttend(graph: WorkflowGraph): string | null {
         const nom = corps.length > 60 ? `${corps.slice(0, 60)}…` : corps;
         const sansTexte = n.type === 'quick_message' && String(n.data.body ?? '').trim() === '';
         const bloc = sansTexte ? 'un Message rapide sans texte' : `un bloc ${NOM_DU_BLOC[n.type] ?? n.type}`;
-        return `la sortie « Puis, sans attendre » du message « ${nom} » mène à ${bloc}, qui attend. Seuls des blocs qui n’attendent rien peuvent la suivre : message sans bouton, action, condition, envoi de mail, appel API, fonction JS`;
+        return `la sortie « Puis, sans attendre » du message « ${nom} » mène à ${bloc}, qui attend. Seuls des blocs qui n’attendent rien peuvent la suivre : message sans bouton, action, condition, envoi de mail, appel API, fonction JS, extraction JSON`;
       }
       if (n.type === 'condition') {
         const sorties = sortiesDeCondition(n);
@@ -790,6 +800,12 @@ export function actionOf(node: WorkflowNode, ctx?: EvalContext): WorkflowAction 
       ? { kind: 'fonctionJs', code, champSource, champCible }
       : null;
   }
+  if (node.type === 'extraire') {
+    // Sans source ou sans ligne lisible : passe-plat, comme un bloc à moitié réglé.
+    const champSource = String(node.data.champSource ?? '').trim();
+    const lignes = lignesDuBloc(node.data);
+    return champSource !== '' && lignes.length > 0 ? { kind: 'extraireJson', champSource, lignes } : null;
+  }
   if (node.type === 'action') {
     // Le bloc peut porter plusieurs actions (`sousActions`) : `walk` les joue toutes, une à une. Ici, la première
     // qui produit quelque chose, pour les lecteurs qui ne demandent que « ce bloc fait-il quelque chose ? ».
@@ -875,6 +891,16 @@ export function actionOf(node: WorkflowNode, ctx?: EvalContext): WorkflowAction 
  *  qu'une condition plus loin dans le même walk la voie (l'écriture en base n'a lieu qu'après, via
  *  executor.apply). Même normalisation d'étiquette que la pose (`normaliserEtiquette`, dédup). `clearField`
  *  retire la clé, comme le SQL `fields - key`. */
+/**
+ * Une valeur extraite telle qu'elle s'écrit dans sa cible : vide, ou sans type connu (champ socle pas encore créé),
+ * telle quelle ; sinon validée par le type (`validateFieldValue`) et ramenée à sa forme canonique, ou VIDE si refusée.
+ * Partagée par la copie de travail et l'exécuteur : les deux doivent voir la même valeur.
+ */
+export function valeurPourCible(valeur: string, type: UserFieldType | undefined): string {
+  if (valeur === '' || type === undefined) return valeur;
+  return validateFieldValue(type, valeur) ? canonicalizeFieldValue(type, valeur) : '';
+}
+
 function applyToWork(work: EvalContext, a: WorkflowAction): void {
   if (a.kind === 'tag') {
     const t = normaliserEtiquette(a.tag);
@@ -886,6 +912,15 @@ function applyToWork(work: EvalContext, a: WorkflowAction): void {
     work.fields[a.key] = a.value;
   } else if (a.kind === 'clearField') {
     delete work.fields[a.key];
+  } else if (a.kind === 'extraireJson') {
+    // La même extraction ET la même validation que l'exécuteur, sur la copie : une Condition qui suit voit la valeur
+    // qui sera écrite, vide comprise (`valeurPourCible`, les types chargés par `buildCtx`).
+    const brut = work.fields[a.champSource];
+    for (const r of extraireDuJson(typeof brut === 'string' ? brut : '', a.lignes)) {
+      const types = work.typesChamps;
+      // `hasOwn` : une cible nommée `constructor` ne doit pas tomber sur le prototype de l'objet des types.
+      work.fields[r.champCible] = valeurPourCible(r.valeur, types && Object.hasOwn(types, r.champCible) ? types[r.champCible] : undefined);
+    }
   }
 }
 

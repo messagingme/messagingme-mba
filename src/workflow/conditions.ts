@@ -48,6 +48,12 @@ export type BusinessHours = Record<string, DayHours>;
 
 export interface EvalContext {
   fields: Record<string, unknown>;
+  /**
+   * Les types des champs de l'espace, chargés seulement si le graphe porte un bloc « Extraire du JSON » (`buildCtx`) :
+   * la copie de travail y valide chaque valeur extraite comme l'exécuteur, sinon une Condition qui suit prendrait une
+   * branche sur une valeur que l'exécuteur refusera (relecture du lot 2 du champ JSON). Absent = valeurs brutes.
+   */
+  typesChamps?: Record<string, import('../crm/types').UserFieldType>;
   tags: string[];
   optIn: string;
   name: string | null;

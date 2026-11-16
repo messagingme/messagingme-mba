@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, lienPourLeContact, pauseEnSecondes, questionRows } from './engine';
+import { walk, entryNode, nextNode, nextNodeByHandle, nextNodeSansHandle, waitMode, problemeLienBouton, lienPourLeContact, pauseEnSecondes, questionRows, valeurPourCible } from './engine';
 import type { WalkStep } from './engine';
 import type { WorkflowAction, WalkRest, WorkflowButton, SendEmailAction, QuestionRow, LienBouton } from './engine';
 import type { WorkflowGraph, WorkflowNode, WorkflowNodeType } from './graph';
@@ -33,6 +33,8 @@ import { classerPiece, mentionDePiece, reglagesQuestion } from './question-piece
 import type { PgPiecesQuestion } from './pieces-question.pg';
 import { SORTIE_FICHIER, type GenrePiece } from '../../web/lib/partage/question-piece';
 import { sousActions } from '../../web/lib/partage/actions-bloc';
+import { extraireDuJson } from '../../web/lib/partage/extraire-json';
+import type { UserFieldType } from '../crm/types';
 
 /**
  * Résultat d'un démarrage : `true` = parti, une chaîne = pas parti, avec la raison exacte (pour que la
@@ -372,6 +374,12 @@ export interface WorkflowExecutorDeps {
    */
   executerJs?(code: string, valeur: string, champSource?: string): Promise<{ ok: boolean; valeur: string }>;
   /**
+   * Les types des champs de l'espace, par clé, lus UNE fois pour toutes les lignes d'un bloc « Extraire du JSON » : une
+   * valeur que le type de sa cible refuse (`validateFieldValue`) vide la cible au lieu de s'y écrire. Requise : sans elle,
+   * un texte partirait dans un champ nombre sans que rien ne le dise.
+   */
+  typesDesChamps(tenantId: string): Promise<Record<string, UserFieldType>>;
+  /**
    * Table de substitution des variables `{{champ}}` du contact, pour les messages WhatsApp d'un scénario
    * (message rapide, question) : la même que pour le RCS et les modèles d'e-mail (`contactVars`), pour
    * qu'une accolade veuille dire la même chose partout. Optionnelle, appelée seulement si le message porte
@@ -598,7 +606,10 @@ export class WorkflowExecutor {
       ...besoinsDesClauses(graph.nodes.filter((n) => n.type === 'condition').flatMap((n) => clausesDuBloc(n.data))),
     };
     try {
-      return (await this.deps.evalContext(tenantId, waId, besoins)) ?? undefined;
+      const ctx = (await this.deps.evalContext(tenantId, waId, besoins)) ?? undefined;
+      // Un bloc « Extraire du JSON » : les types des champs, pour que la copie de travail valide comme l'exécuteur.
+      if (ctx && graph.nodes.some((n) => n.type === 'extraire')) ctx.typesChamps = await this.deps.typesDesChamps(tenantId);
+      return ctx;
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(`workflow: evalContext a échoué pour ${waId}, conditions -> 'false' (fail-closed)`, err);
@@ -882,6 +893,19 @@ export class WorkflowExecutor {
             })();
           const r = await this.deps.executerJs(a.code, entree, a.champSource);
           await this.deps.setField(tenantId, waId, a.champCible, r.ok ? r.valeur : '');
+        }
+      }
+      /**
+       * La source est relue ici, pas prise au walk, comme pour la Fonction JS : un Appel API qui la précède vient de
+       * l'écrire. Chaque valeur passe la validation du type de sa cible, puis sa forme canonique ; refusée, la cible est
+       * vidée (décision 13 de la spec). Une cible inconnue du référentiel (champ socle pas encore matérialisé) reçoit la
+       * valeur telle quelle, comme un bloc Action.
+       */
+      else if (a.kind === 'extraireJson') {
+        const brut = (await this.deps.evalContext(tenantId, waId))?.fields?.[a.champSource];
+        const types = await this.deps.typesDesChamps(tenantId);
+        for (const r of extraireDuJson(typeof brut === 'string' ? brut : '', a.lignes)) {
+          await this.deps.setField(tenantId, waId, r.champCible, valeurPourCible(r.valeur, Object.hasOwn(types, r.champCible) ? types[r.champCible] : undefined));
         }
       }
       else if (a.kind === 'clearField') await this.deps.clearField(tenantId, waId, a.key);

@@ -111,6 +111,12 @@ export function summarize(type: WorkflowNodeType, data: Record<string, unknown>)
     case 'http': out = s(data.champCible) === '' ? '' : `-> ${s(data.champCible)}`; break;
     // Les deux champs, pas le code : une liste de blocs doit tenir sur une ligne.
     case 'js': out = s(data.champSource) === '' || s(data.champCible) === '' ? '' : `${s(data.champSource)} -> ${s(data.champCible)}`; break;
+    // La source et le nombre de champs remplis : une liste de blocs doit tenir sur une ligne.
+    case 'extraire': {
+      const n = Array.isArray(data.lignes) ? data.lignes.length : 0;
+      out = s(data.champSource) === '' || n === 0 ? '' : `${s(data.champSource)} -> ${n} champ(s)`;
+      break;
+    }
     case 'agent': out = s(data.label); break;
     // La cible telle que l'écran l'a nommée au choix (« Menu principal, Question 2 »), sinon son code.
     case 'aller_a': {
