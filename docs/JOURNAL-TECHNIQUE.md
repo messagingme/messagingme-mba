@@ -4,6 +4,51 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : la connexion par mot de passe compte ses essais par réseau du client, avec un défi au-delà d'un filet (lot E de l'audit de sécurité)
+
+Demande de Julien (« Oui, le plafond », 2026-11-16), décisions du même jour : un plafond par réseau du client et par
+adresse, plus un filet commun à l'adresse, tous réseaux confondus ; quand le filet est plein, le défi anti-robot de
+Cloudflare (Turnstile, celui de l'inscription), que le titulaire passe et qui arrête un robot ; et le mot de passe
+oublié borné à cinq liens par jour et par adresse, choisi en connaissant son revers (un lien vaut une heure, un tiers
+peut épuiser la journée d'une adresse ; cinq par heure était proposé).
+
+- **Ce qui a changé** : `compterEssai` (`src/auth/tentatives.ts`) compte un essai de mot de passe en un appel, deux
+  fenêtres, toutes ou aucune : le réseau du client (`reseauDuClient`, `CF-Connecting-IP`, une IPv6 par /64) et
+  l'adresse, 10 par minute ; le filet de l'adresse (`connexion.adresse`), 30 par 10 minutes. Filet plein : 403
+  `code: 'defi'` sans jeton (rien compté), et avec un jeton, le réseau compté AVANT l'appel à Cloudflare ; sans clé
+  secrète, 429. `/auth/login` (entrée `/ops` comprise) et le chemin « adresse connue » de `/auth/signup` partagent les
+  clés ; `signupLimiter` se clé sur le réseau. `/auth/forgot-password` : `oubli` (10 par minute et par réseau) puis
+  `forgot` (5 par jour UTC et par adresse), dans cet ordre. Console : `useDefiALaDemande` à côté de `DefiTurnstile`
+  (connexion, `/ops`, étape « adresse connue » de l'inscription) ; la page du mot de passe oublié dit un 429 et l'heure
+  de réouverture.
+- **La critique du plan** : aucun rouge, sept jaunes. Repris : la page du mot de passe oublié avalait le refus ; le
+  défi joué avec le bon et le mauvais mot de passe, sans lecture d'identité ; une borne par réseau pour le mot de passe
+  oublié, dont les lignes vivent désormais un jour ; les tests de garde des clés et des plafonds ; la clé du site
+  absente ; la borne réelle écrite au manuel ; les fenêtres fixes dans l'essai réel. Au `todo.md` : l'alerte quand un
+  filet se remplit, entre autres.
+- **La relecture** : aucun rouge, huit jaunes, corrigés avant la poussée sauf un au `todo.md` (le balayage du mot de passe
+  oublié depuis beaucoup de réseaux). Entre autres : un seul réseau remplit le filet en trois minutes (n'importe qui peut
+  imposer le défi à une adresse, jamais la fermer, et c'est écrit) ; sans `TURNSTILE_SECRET_KEY` le filet plein refuse
+  le titulaire, ce que disent désormais le journal de démarrage `turnstile_inactif`, `DEPLOY.md` et le manuel ; la
+  valeur du filet et le corps envoyé par `login` et `loginOps` sont tenus par des tests ; la page du mot de passe oublié
+  affiche ses propres messages, traduits et au vouvoiement.
+- **Vérifié avant de pousser** : sur l'arbre exact du commit, suite racine entière (997 fichiers verts ; quatre rouges :
+  les deux tests qui lancent `git grep` hors d'un dépôt, le test de la part du pool, vert seul et rouge sous la charge
+  d'une suite entière, et un test du lot à 31 scrypt dont le délai a été porté à 30 s, puis rejoué vert), suite de la
+  console (1 281), e2e sur une construction de production (104, dont le défi à la connexion et les deux refus du mot de
+  passe oublié), auto-attaque (2 085 sondes), lint, typecheck ; dix-neuf défauts remis en place, chacun vu rouge par son
+  test. Le défi avec une vraie clé du site n'est éprouvé que par l'essai réel.
+- **En production** : `aa749114`, la console publiée par Vercel à la poussée (READY), puis l'API et les trois conteneurs
+  de la machine sur `aa749114` (run 43945109584, `migration=aucune`, approuvé par Julien), après le déploiement du pair de
+  l'onglet Shopify (`8c5ba80a`, l'image de retour arrière). Fumée bonne, dont une connexion et un mot de passe oublié sur
+  une adresse inventée, qui passent par le nouveau comptage contre le compteur en base.
+- **La CI de la console a rougi sur la spec du lot, pas sur le produit** (run 43942191403, job `web (vercel)`) : en
+  topologie Vercel, la console appelle l'API d'une autre origine, et le faux serveur du test n'exposait pas `retry-after`
+  par CORS, que la vraie API expose (`exposedHeaders`). La page prenait donc la branche « réessayez dans une minute ».
+  Correctif `409568c1`, éprouvé en local dans cette topologie. Leçon : un e2e qui lit un en-tête de réponse se joue dans
+  les DEUX topologies avant de pousser.
+- L'essai réel est le n° 265 (`docs/prive/ESSAIS-REELS.md`).
+
 ## 2026-11-16 : l'onglet « Shopify » de la fiche contact
 
 **La demande** : Julien, en relisant la fiche d'aide « Brancher ma boutique Shopify », voulait retrouver sur la fiche
