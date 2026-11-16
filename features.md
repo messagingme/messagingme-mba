@@ -168,50 +168,35 @@ famille, chacun avec sa phrase et son offre, et le lien de la doc MCP. Puis le t
 sur la page « Démarrer » (voir ci-dessous), dont la demande à coller parle de la boutique. Suivent les quatre étapes
 depuis Claude Code, le prix et une FAQ.
 
-✅ **La vitrine a sa page « Démarrer » et un tunnel du numéro commun** (2026-10-30) : `app.messagingme.fr/demarrer/`,
-jumelle `/en/get-started/`, au bouton « Démarrer » de l'en-tête de chaque page (à droite sur le bureau, à côté du menu
-au téléphone). L'arbre de Julien du 2026-10-30, complété le 2026-10-31, en six questions au plus (depuis le 2026-11-10), dans une carte, sous
-l'étape et sa jauge ; une question répondue reste affichée, sa réponse en évidence (la carte choisie encadrée, les autres
-estompées, repliées au téléphone), la suivante apparaît dessous, et un clic sur une autre réponse change le chemin :
-**la formule** (un carrousel sur le bureau, Free, Pro, Business et Entreprise, aux chiffres de la page Tarifs, chacune avec son bouton
-dessous, les 14 jours d'essai gratuit en tête de la carte Pro, et « Je ne sais pas » qui dit que Free ne marche qu'avec
-un agent IA comme Claude Code ou Codex, et sinon Pro ; Business et Entreprise ne posent pas les questions du numéro, ils
-mènent à « Parlons de votre projet », avec « Demander une démo » et « Nous contacter »), en Pro **console ou Claude
-Code** (2026-11-10 : « La console » finit sur « Créez votre espace : la console vous guide », avec « Créer mon espace »
-`/signup?offre=pro` et le pas-à-pas de la console, la console posant elle-même la suite ; « Claude Code ou Codex »
-continue l'arbre), **qui paie Meta** (« Qui paie vos messages à Meta ? » : la carte de l'entreprise chez
-Meta, seule voie ouverte du tunnel ; la ligne de crédit ne s'y prend pas, sa réponse dit pourquoi ou où : « Avec la
-formule Pro. » en Free et, en Pro, depuis l'ouverture de la vente le 2026-11-11, l'onglet Ligne de crédit de la page
-Offre de la console, dès l'essai de la formule Pro), puis **le compte Meta Business** (Oui mène au
-numéro API, son numéro libre ou un numéro fourni,
-3,50 € HT par mois en formule Free et inclus en formule Pro, avec la ligne « Votre numéro sert déjà dans WhatsApp ou
-dans l'application WhatsApp Business ? Vous pouvez le garder » ; Non et « Je ne sais pas » mènent à la question
-suivante, « Je ne sais pas » avec où le vérifier), puis **l'application WhatsApp Business** (Oui : « Voulez-vous
-utiliser ce numéro-là ? », Oui la garde, le numéro y reste et envoie aussi depuis Messaging Me, avec les liens App Store
-et Google Play pour qui doit d'abord passer de WhatsApp ordinaire à WhatsApp Business, Non mène à un numéro de chez nous,
-relié par la fenêtre de Meta, 2026-11-10 ; Non mène tout droit à la question suivante, sans rien à télécharger, Julien,
-2026-11-12), puis **le numéro** (« Avez-vous déjà un numéro que vous pourriez utiliser ? », précisé « Le numéro de votre
-entreprise, relié à l'API officielle de WhatsApp » ; Oui : le numéro API, comme avec un compte, la fenêtre de Meta créant
-le compte en chemin ; Non : un numéro de chez nous, 3,50 € HT par mois en formule Free et inclus en formule Pro, relié
-par la fenêtre de Meta, son code reçu par l'appel). Plus aucune voie ne fait télécharger l'application ni n'y met un
-numéro fourni. Les voies sans compte disent que la fenêtre de Meta crée le compte Meta Business en chemin. Chaque issue finit sur les boutons de l'offre choisie : en Free, trois étapes numérotées,
-presque sans texte (Julien, 2026-11-09 : « faut être visuel, personne ne lit le texte ») : installer le plugin (le logo
-de Claude Code puis celui de Codex, chacun avec ses deux commandes en face, une par ligne, puis le pas-à-pas et le dépôt
-GitHub), le relier à Messaging Me (obligatoire : dans Claude Code, `/mcp` puis le serveur et Authenticate à choisir ;
-dans Codex, sa commande, et la page qui le dit « non vérifié », ce qui est normal ; puis les trois écrans de la page
-d'autorisation, capturés sur la vraie page : Google ou l'adresse e-mail, l'espace à autoriser, l'autorisation
-accordée ; et, sans Google, la page du lien reçu par e-mail, où l'on nomme son espace), puis coller la demande dans
-Claude Code ou Codex ; en Pro par Claude Code ou Codex, les mêmes trois étapes, la demande de la formule Pro à coller
-(2026-11-10). La demande reprend l'offre et les réponses, et la page d'origine : générique sur
-« Démarrer », la boutique sur « Boutiques Shopify », l'app sur « SaaS et app builders », qui portent le même tunnel. Les
-mots du guide se déplient sous la carte, un par ligne (le mot et sa phrase courte, le détail au clic), avec des liens
-vers le compte Meta Business et vers l'App Store et Google Play pour l'application WhatsApp Business, liens que les deux
-voies « sans l'application » portent aussi. Plus aucune voie ne fait seulement répondre : le numéro relié par code
-(« on supprime une bonne fois pour toutes l'option QR code », Julien), et jamais « coexistence » face au visiteur. Sur
-Tarifs, « Démarrer gratuitement » (Free) et « Essayer Pro 14 jours » (Pro) ouvrent le tunnel l'offre déjà choisie
-(`?offre=free`, `?offre=pro`) ; la une de l'accueil y mène aussi. L'écran « Connecter WhatsApp » de la console et la
-skill `mise-en-service` du plugin posent les mêmes questions depuis le 2026-10-30, sans QR code, et la quatrième, celle
-du numéro, depuis le 2026-10-31 (la skill à partir du plugin 0.3.20).
+✅ **La vitrine a sa page « Démarrer » et un tunnel du numéro commun** (2026-10-30, redessiné le 2026-11-16) :
+`app.messagingme.fr/demarrer/`, jumelle `/en/get-started/`, au bouton « Démarrer » de l'en-tête de chaque page. Titre :
+« Branchez votre WhatsApp, en quelques questions », sans chapeau. Chaque question est une rangée de cartes ; avant le
+choix les cartes sont d'une couleur claire, la carte choisie devient blanche et vient au centre, les autres
+disparaissent, et un fil relie les étapes déjà répondues (un clic sur une étape répondue la rouvre). Pas de jauge ni de
+récapitulatif « Votre chemin » à la fin. **La formule** : quatre cartes réduites au nom (en pastille de couleur) et au
+prix, l'essai de 14 jours sous le prix de la formule Pro, « Besoin d'un IDE ou de Claude Code / Codex » (leurs logos)
+sous Free ; côte à côte sur le bureau, en carrousel de cartes égales au téléphone ; « Pour comparer les formules » mène à
+Tarifs. Business et Entreprise mènent à « Parlons de votre projet », chacune ne parlant que d'elle-même. En Pro, **« Où
+voulez-vous construire ? »** : la console (« Créer mon espace », `/signup?offre=pro`) ou « Claude Code ou Codex » (leurs
+logos en grand, le nom en petit). **« Quelle solution pour payer vos messages Meta ? »** (même question dans la console et
+la skill `mise-en-service`) : le moyen de paiement chez Meta, avec le coche vert « Une étape à faire tout à la fin, une
+fois votre numéro connecté. », ou la ligne de crédit, grisée en Free (« Avec la formule Pro. ») ; au téléphone, « Je mets
+un moyen de paiement » et « Je veux une ligne de crédit ». « Eh oui, Meta facture chaque modèle que vous envoyez 💸 »
+(sans l'emoji dans la console, qui les refuse). Puis **le compte Meta Business** (le logo de Meta au-dessus),
+**l'application WhatsApp Business** (la garder : la coexistence, le meilleur des deux mondes, le numéro reste dans
+l'application et envoie aussi depuis Messaging Me) et **le numéro** (le sien, ou un numéro de chez nous à 3,50 € par mois
+en Free, inclus en Pro, relié par la fenêtre de Meta, son code reçu par l'appel). Une réponse en lien (« Pourquoi un
+moyen de paiement ? ») s'ouvre en bulle au survol ou au clic, sans quitter le tunnel. En Free et en Pro par Claude Code ou
+Codex, la fin donne trois étapes numérotées, presque sans texte : installer le plugin (Claude Code puis Codex, leurs
+commandes), le relier à Messaging Me (`/mcp`, les trois écrans de la page d'autorisation), coller la demande, qui reprend
+l'offre, les réponses et la page d'origine (« Démarrer », « Boutiques Shopify », « SaaS et app builders », qui portent le
+même tunnel). Sur Tarifs, « Démarrer gratuitement » et « Essayer Pro 14 jours » ouvrent le tunnel l'offre déjà choisie
+(`?offre=free`, `?offre=pro`). Aucun prix de la vitrine ni des fiches d'aide ne porte « HT » ni « excl. VAT » (Julien,
+2026-11-16 : « on donne juste le prix »). L'écran « Connecter WhatsApp » de la console et la skill `mise-en-service`
+posent les mêmes questions.
+
+✅ **Le pied de page de la vitrine porte trois labels** (2026-11-16) : La French Tech, Meta Tech Provider 2026 et
+Lauréat French Assurtech 2026, sur des pastilles blanches (gabarits `scripts/vitrine/pied.<langue>.html`).
 
 ✅ **Free et Pro, sans article, sur toute la vitrine française** (2026-10-30, Julien : « c'est Free ou Pro, ou formule
 Free ou formule Pro ») : jamais « la Free », « le Pro », « en Free » ni « passer au Pro » sur les pages, leurs
@@ -2389,6 +2374,11 @@ scénario, comment importer des contacts.
 
 ## Le centre d'aide public et « Comment faire » (vitrine et console)
 
+- ✅ **Une étape peut n'exister que dans une voie** (2026-11-16) : sous « Démarrer avec la console », « Prendre un numéro
+  fourni » et « Garder mon application WhatsApp Business » montrent les vrais écrans de la console (l'Accueil, la page
+  « Connecter WhatsApp »), et leur film, tourné dans Claude Code, ne se voit que sous « Démarrer avec Claude Code ».
+  « Connecter mon numéro WhatsApp » se lit en quatre étapes illustrées : comment payer Meta, votre numéro ou le nôtre,
+  la fenêtre de Meta et sa vérification par appel, l'état du numéro.
 - ✅ **Le centre d'aide** (`app.messagingme.fr/aide/`, en anglais `/en/help/`, depuis le 2026-10-21) : un mode
   opératoire par geste, pas à pas. Démarrer, en deux rubriques depuis le 2026-11-10 : avec Claude Code ou Codex
   (installer le plugin, connecter son numéro depuis Claude, ce qu'il faut chez Meta, le guide, garder son application, payer

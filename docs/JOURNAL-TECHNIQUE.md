@@ -4,6 +4,32 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : le tunnel Démarrer redessiné, le prix sans taxe, les étapes propres à une voie
+
+Une journée de retouches de la vitrine dictées par Julien, écran par écran. **Tarifs** : Shopify « tous vos cas
+d'usage », plus de « carte demandée », l'accompagnement de Business et d'Entreprise sorti en gras sous une petite barre
+(onboarding et support prioritaire ; account manager dédié et heures de support CSM). **Pied de page** : les labels La
+French Tech, Meta Tech Provider 2026 et Lauréat French Assurtech 2026. **Tunnel « Démarrer »** : cartes réduites au nom
+et au prix, la carte choisie qui vient au centre avec un fil entre les étapes, couleur claire avant le choix et blanc
+après, carrousel au téléphone, réponses en bulle, plus de « Je ne sais pas », de jauge ni de « Votre chemin »,
+« Quelle solution pour payer vos messages Meta ? » partout (vitrine, console, skill ; plugin 0.3.45 publié par Julien).
+**Prix sans taxe** : plus aucun « HT », « excl. VAT » ni mention de TVA sur la vitrine et dans les fiches d'aide (« on
+donne juste le prix ») ; la console, les e-mails et les descriptions MCP n'ont pas été touchés, Julien n'a pas tranché.
+
+**Aide** : « Connecter mon numéro WhatsApp » réécrite en quatre étapes avec leurs captures (`dfb0d1721`), puis les
+étapes propres à une voie (`b6f09dbc0`) : sous « Démarrer avec la console », Julien voyait des écrans de Claude Code.
+Le découpage de `src/aide` a changé, donc les fiches demandaient l'image neuve et non le montage de `docs/aide` seul.
+
+Trois CI rouges, chacune sur une phrase : l'emoji 💸 refusé dans la console par `tests/web-icones.test.ts` (retiré de
+la console, le test de parité ignore les pictogrammes), un e2e qui attendait « HT par mois », et la réécriture de la
+fiche qui avait perdu l'insistance exacte sur « Phone call » qu'exige `tests/etapes-numero-fourni.test.ts`
+(`c692774fc`).
+
+**Déploiement** : le run approuvé (43843152194) avait `b6f09dbc0` pour tête mais construisait `ac0470281`, le commit
+choisi par un pair ; l'étiquette d'image donnée à Julien pour `aide:charger` n'existait donc pas. Le lot est entré en
+production avec `938c7827e`, déployé ensuite par un pair ; un second run lancé pour `b6f09dbc0` a été annulé avant
+approbation, il aurait ramené la production en arrière. La leçon était déjà écrite (l'entrée `commit` fait l'image, pas
+le `headSha`) : l'étiquette se lit dans le journal du run, et l'image en service dans le dernier run réussi.
 ## 2026-11-12 : MUTAC en EVERYONE avec le routage des conversations, et le bloc « Envoyer au MBA » qui ne relaie plus un message répondu
 
 **Décision de Julien** : refaire l'essai de septembre sur MUTAC, agent de Meta en `EVERYONE` (sonde
