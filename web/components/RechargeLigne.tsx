@@ -58,12 +58,8 @@ export function RechargeLigne({ tenantId, admin, surVue }: {
   const ouvert = vue !== null && !vue.illimite && vue.achat.disponible && vue.achat.permis === 'ok';
 
   return (
-    <div data-testid="recharge-ligne" className="mt-5">
-      <p className="text-base font-semibold text-ink-900">
-        {vue !== null && vue.soldeMicroEur > 0
-          ? t('Recharger votre ligne de crédit', 'Top up your credit line')
-          : t('Étape suivante : rechargez votre ligne de crédit', 'Next step: top up your credit line')}
-      </p>
+    // Dans l'étape 3 du fil (`FilLigne`), qui porte déjà le titre et la règle du solde à zéro : le solde, puis les recharges.
+    <div data-testid="recharge-ligne">
       {vue === null ? (
         <p className="mt-1 text-sm text-ink-700">{t('Rechargez-la depuis ', 'Top it up from ')}{onglet}.</p>
       ) : vue.illimite ? (
@@ -71,8 +67,7 @@ export function RechargeLigne({ tenantId, admin, surVue }: {
       ) : (
         <>
           <p className="mt-1 text-sm text-ink-700" data-testid="recharge-ligne-solde">
-            {t(`Solde : ${solde}. Avant vos premiers modèles, rechargez-la : à zéro, plus aucun message ne part, réponses comprises.`,
-              `Balance: ${solde}. Top it up before your first templates: at zero, no message goes out, replies included.`)}
+            {t(`Solde : ${solde}.`, `Balance: ${solde}.`)}
           </p>
           {ouvert && admin ? (
             <>

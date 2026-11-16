@@ -47,21 +47,12 @@ export const PAR_LA_LIGNE = {
 } as const;
 
 /**
- * L'option payée, ou une Entreprise sans numéro (essai 263, Julien, 2026-11-16 : « une rassurance comme quoi l'option a
- * bien été prise en compte, et maintenant on attaque l'étape suivante ») : la confirmation, puis la question du numéro
- * en titre ; la voie de la carte chez Meta n’est plus proposée (« on vient de la choisir », Julien).
+ * L'option payée, ou une Entreprise sans numéro (essai 263, Julien, 2026-11-16) : le fil des étapes (`FilLigne`), et la
+ * question du numéro dans l'étape 2 ; la voie de la carte chez Meta n’est plus proposée (« on vient de la choisir »).
  */
-export const OPTION_ACTIVE = {
-  fr: 'Votre option ligne de crédit est active',
-  en: 'Your credit line option is active',
-} as const;
-export const LIGNE_DU_CONTRAT = {
-  fr: 'Votre ligne de crédit est comprise dans votre contrat',
-  en: 'Your credit line is included in your contract',
-} as const;
 export const ETAPE_NUMERO = {
-  fr: 'Étape suivante : quel numéro voulez-vous connecter ?',
-  en: 'Next step: which number do you want to connect?',
+  fr: 'Quel numéro voulez-vous connecter ?',
+  en: 'Which number do you want to connect?',
 } as const;
 
 /**
@@ -398,39 +389,26 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
             </MbaNotice>
           </div>
         )}
-        {(surLaLigne || confirmee) && (
-          <FilLigne etat={{
-            entreprise: offre === 'entreprise',
-            numeroConnecte: surLaLigne,
-            solde: vueCredit === undefined || vueCredit === null ? null : vueCredit.illimite ? 'illimite' : eurosDepuisMicro(vueCredit.soldeMicroEur),
-            soldeTexte: vueCredit ? new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'fr-FR', { style: 'currency', currency: 'EUR' }).format(eurosDepuisMicro(vueCredit.soldeMicroEur)) : '',
-          }} />
-        )}
-        {surLaLigne ? (
-          <>
-            <div data-testid="carte-credit-wa" data-etat={etat ?? ''} className="mt-4 rounded-carte border border-succes-200 bg-succes-50 p-4">
-              <div className="flex items-center gap-2 text-base font-semibold text-succes-800" data-testid="ligne-confirmee">
-                <Icone nom="valide" />
-                {t('Votre numéro est sur la ligne de crédit', 'Your number is on the credit line')}
-              </div>
-              {ligne && <p className="mt-1 text-sm text-succes-800" data-testid="carte-credit-wa-ligne">{ligne}</p>}
-            </div>
-            <RechargeLigne tenantId={tenantId} admin={admin} surVue={setVueCredit} />
-          </>
-        ) : confirmee ? (
-          <>
-            {/* La confirmation : l'option est prise (ou comprise dans le contrat), rien d'autre à payer chez Meta. */}
-            <div data-testid="carte-credit-wa" data-etat={etat ?? ''} className="mt-4 rounded-carte border border-succes-200 bg-succes-50 p-4">
-              <div className="flex items-center gap-2 text-base font-semibold text-succes-800" data-testid="ligne-confirmee">
-                <Icone nom="valide" />
-                {offre === 'entreprise' ? t(LIGNE_DU_CONTRAT.fr, LIGNE_DU_CONTRAT.en) : t(OPTION_ACTIVE.fr, OPTION_ACTIVE.en)}
-              </div>
-              {ligne && <p className="mt-1 text-sm text-succes-800" data-testid="carte-credit-wa-ligne">{ligne}</p>}
-            </div>
-            {/* Plus de voie de la carte chez Meta : l'option choisie et payée, la reproposer embrouillait (Julien,
-                2026-11-16, essai 263 : « pourquoi tu laisses encore le choix alors qu'on vient de la choisir »). */}
-            <div className="mt-5">{action}</div>
-          </>
+        {surLaLigne || confirmee ? (
+          // Le tunnel de la ligne (essai 263) : les trois étapes l'une sous l'autre, le geste de l'étape en cours dedans ;
+          // plus de bandeau de confirmation à côté, qui redisait l'étape 1 (Julien, 2026-11-16).
+          <div data-testid="carte-credit-wa" data-etat={etat ?? ''}>
+            <FilLigne
+              etat={{
+                entreprise: offre === 'entreprise',
+                numeroConnecte: surLaLigne,
+                solde: vueCredit === undefined || vueCredit === null ? null : vueCredit.illimite ? 'illimite' : eurosDepuisMicro(vueCredit.soldeMicroEur),
+                soldeTexte: vueCredit ? new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'fr-FR', { style: 'currency', currency: 'EUR' }).format(eurosDepuisMicro(vueCredit.soldeMicroEur)) : '',
+              }}
+              detailNumero={(
+                <span data-testid="carte-credit-wa-ligne">
+                  {surLaLigne ? ligne : t(PAR_LA_LIGNE.entreprise.fr, PAR_LA_LIGNE.entreprise.en)}
+                </span>
+              )}
+              contenuNumero={confirmee ? action : null}
+              contenuCredit={surLaLigne ? <RechargeLigne tenantId={tenantId} admin={admin} surVue={setVueCredit} /> : null}
+            />
+          </div>
         ) : (
           <div className="mt-4 space-y-4">
             {rangee(carteMeta, boutonCarte, 'rangee-meta')}
