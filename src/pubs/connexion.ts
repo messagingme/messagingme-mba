@@ -89,6 +89,14 @@ export interface DepotConnexionPub {
 export interface DepsConnexionPub {
   client: ClientConnexionPub;
   connexions: DepotConnexionPub;
+  /**
+   * 🔴 Les entités (utilisateurs système) de NOS jetons globaux, que rien ici ne doit révoquer ; `null` = illisibles
+   * pour l'instant. Incident du 2026-11-16 : un jeton de notre utilisateur système, déposé à la main par `/ops` sur la
+   * SANDBOX (la fenêtre de Meta ne sert pas le portefeuille qui possède l'app), a été « déconnecté » par l'écran.
+   * `DELETE /me/permissions/<perm>` porte sur l'ENTITÉ : `META_ACCESS_TOKEN` et `META_CAPI_TOKEN` ont perdu
+   * `ads_management`, et la Conversions API de notre pixel avec. `creerEntitesProtegees` en est l'implémentation.
+   */
+  entitesProtegees: () => Promise<readonly string[] | null>;
   /** `ENCRYPTION_KEY` : `encryptSecret` lève sur une clé absente ou mal formée. */
   cleChiffrement: string;
 }
@@ -153,6 +161,16 @@ export function creerConnexionPub(d: DepsConnexionPub): GestesConnexionPub {
   const lireJeton = async (tenantId: string): Promise<string | null> => {
     const chiffre = await connexions.lireJetonChiffre(tenantId);
     return chiffre === null ? null : decryptSecret(chiffre, d.cleChiffrement);
+  };
+
+  /**
+   * Ce jeton est-il intouchable ? Oui quand il porte une de NOS entités, et aussi quand on ne sait pas le dire (son
+   * identité ou les nôtres illisibles) : ne pas révoquer laisse au pire un accès vivant, que la régénération du jeton
+   * chez Meta ferme ; révoquer à tort coupe nos propres droits, en silence (incident du 2026-11-16).
+   */
+  const estProtege = async (jeton: string): Promise<boolean> => {
+    const [entite, protegees] = await Promise.all([client.identite(jeton), d.entitesProtegees()]);
+    return entite === null || protegees === null || protegees.includes(entite);
   };
 
   /**
@@ -280,9 +298,13 @@ export function creerConnexionPub(d: DepsConnexionPub): GestesConnexionPub {
       // l'effacer sans tenter le retrait laisserait un accès vivant que nous ne pourrions plus fermer.
       const chiffre = await connexions.lireJetonChiffre(t);
       let revoqueChezMeta = false;
-      if (chiffre !== null) {
+      const clair = chiffre === null ? null : decryptSecret(chiffre, d.cleChiffrement);
+      if (clair !== null && await estProtege(clair)) {
+        // eslint-disable-next-line no-console
+        console.warn(`déconnexion publicitaire de l'espace ${t} : jeton de l'une de nos entités (ou illisible), aucun droit retiré chez Meta`);
+      } else if (clair !== null) {
         try {
-          await client.revoquerAcces(decryptSecret(chiffre, d.cleChiffrement));
+          await client.revoquerAcces(clair);
           revoqueChezMeta = true;
         } catch (err) {
           // Un échec n'empêche pas de se déconnecter : bloquer sur une panne de Meta retiendrait un client
@@ -320,11 +342,11 @@ export function creerConnexionPub(d: DepsConnexionPub): GestesConnexionPub {
       // déléguer, avec l'ancien DÉCHIFFRÉ et le neuf en clair, AVANT le remplacement (une fois `remplacer`
       // passé, l'ancien est perdu et plus personne ne peut décider de son sort).
       const ancien = await connexions.lireJetonChiffre(tenantId);
-      const ancienRevoque = await retirerAncienAcces(
-        client,
-        ancien === null ? null : decryptSecret(ancien, d.cleChiffrement),
-        jeton,
-      );
+      const ancienClair = ancien === null ? null : decryptSecret(ancien, d.cleChiffrement);
+      // 🔴 L'ancien porte l'une de NOS entités : `retirerAncienAcces` ne la protège pas (il ne compare qu'avec le neuf).
+      const ancienRevoque: SortAncienAcces = ancienClair !== null && await estProtege(ancienClair)
+        ? 'protege'
+        : await retirerAncienAcces(client, ancienClair, jeton);
       await connexions.remplacer(tenantId, chiffreNeuf, {
         comptePubId: compte.id, compteNom: compte.nom, pageId: page.id, pageNom: page.nom,
         devise: compte.devise, fuseau: compte.fuseau, pageLiee,
@@ -334,5 +356,26 @@ export function creerConnexionPub(d: DepsConnexionPub): GestesConnexionPub {
         devise: compte.devise, fuseau: compte.fuseau, pageLiee, ancienRevoque,
       };
     },
+  };
+}
+
+/**
+ * Les entités de nos jetons globaux, lues une fois chez Meta (`GET /me`) et gardées pour le processus. Une lecture qui
+ * échoue n'est PAS gardée : elle rend `null` (donc « on ne révoque rien », `estProtege`) et sera retentée au prochain
+ * geste. Les jetons vides (variable absente de ce processus) sont ignorés.
+ */
+export function creerEntitesProtegees(
+  client: Pick<ClientRetrait, 'identite'>,
+  jetons: readonly string[],
+): () => Promise<readonly string[] | null> {
+  const nos = jetons.filter((j) => j !== '');
+  let lues: Promise<readonly string[] | null> | null = null;
+  return () => {
+    lues ??= Promise.all(nos.map((j) => client.identite(j))).then((ids) => {
+      const connues = ids.filter((id): id is string => id !== null);
+      if (connues.length !== ids.length) { lues = null; return null; }
+      return connues;
+    });
+    return lues;
   };
 }

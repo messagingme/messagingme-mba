@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : incident, « Disconnect » des publicités a révoqué NOS droits publicitaires
+
+En préparant la vidéo de l'App Review des droits publicitaires (`docs/APP-REVIEW-2026-11-16-SOUMISSION-1.md`), Julien a
+cliqué « Disconnect » sur l'écran Ads de la SANDBOX, puis « Connect my ads ».
+
+- **Ce qui s'est passé.** Le jeton publicitaire de la SANDBOX n'était pas celui de la fenêtre de Meta : il avait été
+  fait main et déposé par `POST /ops/pubs/connexion/:tenantId` en septembre, parce que la fenêtre ne sert pas le
+  portefeuille qui possède l'app (`ae90e02c`). Il portait l'utilisateur système « julien » (`122166316490697776`),
+  celui de `META_ACCESS_TOKEN` et de `META_CAPI_TOKEN`. « Disconnect » fait `DELETE /me/permissions/<perm>` pour
+  `ads_management`, `ads_read` et `pages_manage_ads`, et ce retrait porte sur l'ENTITÉ, pas sur le jeton (établi le
+  2026-09-23, `f14b39f1`) : nos deux jetons globaux ont perdu les trois permissions, donc la Conversions API de notre
+  pixel. Mesuré en lecture seule (`/me/permissions` de chaque jeton, depuis `mba-worker`), aucun jeton imprimé.
+- **Rétabli le même jour par Julien** : Business Suite, Utilisateurs système, « julien », « Générer un jeton » avec les
+  permissions cochées. Les jetons EN PLACE ont retrouvé les trois permissions sans être remplacés (remesuré) : une
+  permission accordée à l'entité vaut pour tous ses jetons, dans les deux sens. Les événements de la Conversions API
+  partis entre les deux n'ont pas été relus.
+- **Le correctif** (`src/pubs/connexion.ts`, `estProtege`) : avant toute révocation (la déconnexion, et l'ancien jeton
+  d'un dépôt `/ops`, qui rend alors `protege`), l'identité du jeton est comparée à celles de nos jetons globaux
+  (`creerEntitesProtegees`, lue une fois, une lecture ratée n'est pas gardée). La nôtre, ou une identité illisible :
+  rien n'est révoqué. Dans le doute, un accès laissé vivant se ferme par la régénération du jeton chez Meta ; un retrait
+  à tort coupe nos droits en silence. Vérifié dans les deux sens (cinq cas tombent sur l'ancien code).
+- **Le correctif du même matin** (`69eda568`) a rendu l'erreur lisible : l'échange du code, le choix, la publication et
+  la pause rendaient 502 sur un refus de Meta, que Cloudflare remplace par sa page sans en-têtes CORS (« Failed to
+  fetch » à l'écran). Ils passent par `repondreEchec` : refus de Meta en 422 avec son message, panne en 502 journalisée.
+- **Ce qui reste établi pour la suite.** Par la fenêtre de Meta, l'utilisateur système du portefeuille Messaging Me ne
+  reçoit que les droits de la Page (mesuré trois fois, deux comptes publicitaires), alors que le compte de Julien
+  obtient bien les droits publicitaires (explorateur Graph). La SANDBOX se connecte donc par un jeton fait main, et la
+  connexion d'un client par la fenêtre attend l'App Review. Un défaut reste : une connexion sans droits publicitaires
+  s'enregistre à moitié (« to be chosen ») et affiche « Missing Permissions » (`todo.md`).
+
 ## 2026-11-16 : la page Deep HubSpot integration, son comparatif et son film
 
 Julien, 2026-11-14 : la page HubSpot ne montrait ni l'analyse de chaque conversation qui devient une action, ni les

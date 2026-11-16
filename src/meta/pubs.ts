@@ -193,7 +193,7 @@ export class MetaPubsClient extends ClientGraph {
 }
 
 /** Ce qui est arrivé à l'ancien jeton d'un remplacement. Le détail de chaque valeur : `src/http/ops.ts`. */
-export type SortAncienAcces = 'aucun' | 'retire' | 'meme_entite' | 'indetermine' | 'echec';
+export type SortAncienAcces = 'aucun' | 'retire' | 'meme_entite' | 'indetermine' | 'echec' | 'protege';
 
 /** Ce que `retirerAncienAcces` a besoin de savoir faire. Un objet minuscule, pour qu'un faux tienne en trois lignes. */
 export interface ClientRetrait {

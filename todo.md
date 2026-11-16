@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 La connexion des publicités enregistrée à moitié (incident du 2026-11-16, journal technique)
+
+- Quand la fenêtre de Meta n'accorde que les droits de la Page (cas mesuré sur le portefeuille qui possède l'app),
+  `connecter` range le jeton AVANT de lire les comptes publicitaires : l'écran affiche « Missing Permissions », puis,
+  rechargé, une connexion « to be chosen » sans compte ni Page. Lire les permissions du jeton juste après l'échange
+  (`/me/permissions`), ne rien ranger s'il manque `ads_management` ou `ads_read`, et dire lesquels Meta n'a pas accordés.
+- Un jeton fait main déposé par `/ops` sur la SANDBOX ne doit plus porter l'utilisateur système de nos jetons globaux :
+  le correctif empêche désormais sa révocation, mais un utilisateur système DÉDIÉ aux essais publicitaires rendrait le
+  geste sans risque par construction.
+
 ## 🟡 La page Deep HubSpot integration (2026-11-16)
 
 - **`aide:charger` en production** (Julien) : la fiche « Intégrer WhatsApp à HubSpot » a été remise dans l'ordre

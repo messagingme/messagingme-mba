@@ -45,7 +45,9 @@ import { makeTraceOps, type AuditSink } from '../audit/journal';
  *   l'ancienne chaîne reste valide, la tuer demande de régénérer le jeton chez Meta ;
  * - `indetermine` : Meta n'a pas dit qui portait l'un des jetons, rien retiré (même geste si besoin) ;
  * - `echec` : le retrait a été refusé, un accès reste vivant : retirer à la main les permissions publicitaires
- *   (jamais l'application, qui porte le numéro WhatsApp).
+ *   (jamais l'application, qui porte le numéro WhatsApp) ;
+ * - `protege` : l'ancien portait l'une de NOS entités (ou Meta n'a pas dit laquelle), rien retiré : c'est le cas d'un
+ *   jeton fait main déposé sur la SANDBOX, et le retirer coupait nos propres droits (incident du 2026-11-16).
  */
 export type SortAncienJetonPub = SortAncienAcces;
 

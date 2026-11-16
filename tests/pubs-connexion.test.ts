@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
-  creerConnexionPub, ConnexionPubIncomplete, DejaConnectePub, JetonNonEnregistre, PasDeConnexionPub,
+  creerConnexionPub, creerEntitesProtegees, ConnexionPubIncomplete, DejaConnectePub, JetonNonEnregistre, PasDeConnexionPub,
   type ClientConnexionPub, type DepotConnexionPub,
 } from '../src/pubs/connexion';
 import { encryptSecret, decryptSecret } from '../src/crypto/secretbox';
@@ -27,7 +27,9 @@ const ACTIFS: ActifsAccordes = {
 };
 
 /** Qui porte chaque jeton chez Meta ; un jeton absent de la table ne répond pas (un cryptogramme, par exemple). */
-const ENTITES: Record<string, string> = { ANCIEN: 'entite-a', NEUF: 'entite-b', NEUF_MEME_ENTITE: 'entite-a' };
+const ENTITES: Record<string, string> = {
+  ANCIEN: 'entite-a', NEUF: 'entite-b', NEUF_MEME_ENTITE: 'entite-a', NOTRE_JETON: 'entite-nous',
+};
 
 function monter(o: {
   chiffreEnBase?: string | null;
@@ -35,6 +37,8 @@ function monter(o: {
   client?: Partial<ClientConnexionPub>;
   depot?: Partial<DepotConnexionPub>;
   cle?: string;
+  /** Les entités de nos jetons globaux ; `null` = illisibles. Par défaut, la nôtre. */
+  protegees?: readonly string[] | null;
 } = {}) {
   const journal: string[] = [];
   let chiffre = o.chiffreEnBase === undefined ? null : o.chiffreEnBase;
@@ -69,7 +73,10 @@ function monter(o: {
     supprimer: async () => { journal.push('base.supprimer'); chiffre = null; },
     ...o.depot,
   };
-  const gestes = creerConnexionPub({ client, connexions: depot, cleChiffrement: o.cle ?? CLE });
+  const protegees = o.protegees === undefined ? ['entite-nous'] : o.protegees;
+  const gestes = creerConnexionPub({
+    client, connexions: depot, cleChiffrement: o.cle ?? CLE, entitesProtegees: async () => protegees,
+  });
   return { gestes, journal, ecrits };
 }
 
@@ -214,6 +221,29 @@ describe('déconnecter', () => {
     expect(await gestes.deconnecter('t1')).toEqual({ revoqueChezMeta: false });
     expect(journal).toContain('base.supprimer');
   });
+
+  /**
+   * 🔴 INCIDENT DU 2026-11-16 : le jeton de la SANDBOX, fait main et déposé par `/ops`, portait NOTRE utilisateur
+   * système. « Disconnect » l'a révoqué, et `DELETE /me/permissions` porte sur l'entité : `META_ACCESS_TOKEN` et
+   * `META_CAPI_TOKEN` ont perdu `ads_management`, donc la Conversions API de notre pixel.
+   */
+  it('🔴 le jeton de l une de NOS entités n est jamais révoqué, mais la ligne part quand même', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { gestes, journal } = monter({ chiffreEnBase: encryptSecret('NOTRE_JETON', CLE) });
+    expect(await gestes.deconnecter('t1')).toEqual({ revoqueChezMeta: false });
+    expect(journal.some((l) => l.startsWith('meta.revoquerAcces'))).toBe(false);
+    expect(journal).toContain('base.supprimer');
+  });
+
+  it('🔴 dans le doute, on ne révoque pas : identité du jeton illisible, ou les nôtres illisibles', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const jetonMuet = monter({ chiffreEnBase: encryptSecret('INCONNU_DE_META', CLE) });
+    expect(await jetonMuet.gestes.deconnecter('t1')).toEqual({ revoqueChezMeta: false });
+    expect(jetonMuet.journal.some((l) => l.startsWith('meta.revoquerAcces'))).toBe(false);
+    const nosMuettes = monter({ chiffreEnBase: encryptSecret('ANCIEN', CLE), protegees: null });
+    expect(await nosMuettes.gestes.deconnecter('t1')).toEqual({ revoqueChezMeta: false });
+    expect(nosMuettes.journal.some((l) => l.startsWith('meta.revoquerAcces'))).toBe(false);
+  });
 });
 
 describe('le dépôt par /ops', () => {
@@ -246,6 +276,14 @@ describe('le dépôt par /ops', () => {
     const r = await gestes.deposerJeton('t1', 'NEUF_MEME_ENTITE', '111', 'p1');
     expect(r.ancienRevoque).toBe('meme_entite');
     expect(journal.some((l) => l.startsWith('meta.revoquerAcces'))).toBe(false);
+  });
+
+  it('🔴 l ancien porte l une de NOS entités : protege, rien retiré, et le neuf est bien posé', async () => {
+    const { gestes, journal, ecrits } = monter({ chiffreEnBase: encryptSecret('NOTRE_JETON', CLE) });
+    const r = await gestes.deposerJeton('t1', 'NEUF', '111', 'p1');
+    expect(r.ancienRevoque).toBe('protege');
+    expect(journal.some((l) => l.startsWith('meta.revoquerAcces'))).toBe(false);
+    expect(decryptSecret(ecrits[0]!, CLE)).toBe('NEUF');
   });
 
   it('sans connexion préalable : aucun, et un compte non accordé est refusé avant tout', async () => {
@@ -292,5 +330,23 @@ describe('un jeton refusé se retient, une panne non', () => {
     await sain.gestes.etatCompte('t2');
     expect(sain.journal.filter((l) => l.startsWith('meta.etatCompte'))).toEqual(['meta.etatCompte(111,ANCIEN)', 'meta.etatCompte(111,ANCIEN)']);
     expect(lectures).toBe(1);
+  });
+});
+
+describe('nos entités protégées (creerEntitesProtegees)', () => {
+  it('lit une fois chez Meta, ignore les variables vides, et garde le résultat', async () => {
+    const lus: string[] = [];
+    const lire = creerEntitesProtegees({ identite: async (j) => { lus.push(j); return `id-${j}`; } }, ['GLOBAL', '', 'CAPI']);
+    expect(await lire()).toEqual(['id-GLOBAL', 'id-CAPI']);
+    expect(await lire()).toEqual(['id-GLOBAL', 'id-CAPI']);
+    expect(lus).toEqual(['GLOBAL', 'CAPI']);
+  });
+
+  it('🔴 une lecture ratée rend null (donc aucune révocation) et n est PAS gardée : elle est retentée', async () => {
+    let meta = false;
+    const lire = creerEntitesProtegees({ identite: async (j) => (meta ? `id-${j}` : null) }, ['GLOBAL']);
+    expect(await lire()).toBeNull();
+    meta = true;
+    expect(await lire()).toEqual(['id-GLOBAL']);
   });
 });

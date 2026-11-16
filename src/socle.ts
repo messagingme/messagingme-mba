@@ -80,7 +80,7 @@ import { decryptSecret, encryptSecret } from './crypto/secretbox';
 import { PgCleGatewayStore } from './agent/cles-gateway.pg';
 import { journaliser } from './lib/journal';
 import { PgPubConnexionStore } from './pubs/connexion.pg';
-import { creerConnexionPub } from './pubs/connexion';
+import { creerConnexionPub, creerEntitesProtegees } from './pubs/connexion';
 import { PgPublicitesStore } from './pubs/publicites.pg';
 import { MetaPubsClient } from './meta/pubs';
 import { MetaPubsCreationClient } from './meta/pubs-creation';
@@ -568,6 +568,9 @@ export function construireSocle({ pool, queue, config }: DepsSocle) {
   const connexionPub = creerConnexionPub({
     client: clientPubs,
     connexions: connexionsPub,
+    // 🔴 Nos propres utilisateurs système ne se révoquent jamais (incident du 2026-11-16, `DepsConnexionPub`).
+    // `META_CAPI_TOKEN` n'est pas listé : c'est une copie du même utilisateur système, et l'API ne l'a pas.
+    entitesProtegees: creerEntitesProtegees(clientPubs, [config.META_ACCESS_TOKEN]),
     cleChiffrement: config.ENCRYPTION_KEY,
   });
 
