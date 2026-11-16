@@ -4,6 +4,14 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : « Ce que vous pouvez construire » lisible, cartes blanches et une icône par ligne
+
+Julien : « bleu sur bleu, illisible ». Sur la page développeurs (FR et EN), les quatre cartes passent en blanc avec
+une encre sombre, et chaque ligne porte devant elle une icône Phosphor duotone dans une tuile à la couleur de sa
+famille. Les tracés sont recopiés de `@phosphor-icons/react` dans `ICONES_CAPACITES` (`scripts/plugin/construire.ts`),
+chaque capacité déclare la sienne, et `npm run plugin:generer` les pose. Le style est borné à `.dev-construire-bloc` :
+la page SaaS, qui reprend la carte, n'est pas touchée. Commit `829a168dc`, publié par Vercel le même jour.
+
 ## 2026-11-16 : la connexion par mot de passe compte ses essais par réseau du client, avec un défi au-delà d'un filet (lot E de l'audit de sécurité)
 
 Demande de Julien (« Oui, le plafond », 2026-11-16), décisions du même jour : un plafond par réseau du client et par
