@@ -540,6 +540,21 @@ corps tiraient vers ce mot. Corrigé en posant chaque libellé seul sur sa ligne
 libellé exact : Parler à un agent »), en demandant de le recopier caractère pour caractère, et en retirant le mot
 concurrent du titre (`choix-rdv-ou-agent`).
 
+### 🔴 Mesuré le 2026-11-12 : le routage des conversations existe, et il change qui reçoit les boutons
+
+- **Le réglage existe dans Meta Business Suite** : portefeuille d'entreprise, **Comptes WhatsApp**, le numéro, onglet
+  **Conversation routing**. Une ligne par type d'entrée (réponse à une pub Click-to-WhatsApp, message libre, appel,
+  réponse à un modèle marketing, réponse à un modèle utility), plus « Thread control » et « Conversation visibility ».
+  Il se règle à la main, par l'entreprise, sans API. Le 2026-10-08, on ne l'avait pas trouvé dans notre propre compte.
+- **Par défaut, les réponses aux modèles marketing et utility vont à l'agent** : c'est l'appui sur un bouton de modèle
+  qui faisait répondre l'agent au milieu de nos scénarios. Mises sur Messaging Me (essai sur MUTAC, agent en
+  `EVERYONE`), elles nous arrivent et le scénario enchaîne ; les messages libres restent à l'agent.
+- **Dans ce routage, un message du client que NOUS recevons, relayé à l'agent par `agent_event`, échoue** ; la question
+  suivante du client arrive directement à l'agent, qui y répond. D'où le montage « message rapide, puis Envoyer au
+  MBA » et la lecture `saisieSansReponse` du bloc (`documentation.md`).
+- Lu le même jour sur MUTAC : la relance automatique de l'agent (`followup`) est active par défaut, toutes les heures
+  d'inactivité, avec un texte choisi par Meta que nous ne savons pas écrire.
+
 ### 🟡 La revue des consignes bloque encore le mot « âge »
 
 Revécu sur MUTAC (assurance obsèques) : deux consignes passées en `blocked` à cause de « âge », redevenues `active`

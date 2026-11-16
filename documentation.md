@@ -972,7 +972,10 @@ webhooks sortants, `repondeur_adresse_id`, 0224). Les invariants :
   tient lui reste, délai écoulé ou non. Rien pour une redélivrance, une réaction seule, un contact muet.
 - **Le bloc « Envoyer au MBA »** (type `vers_mba`, terminal, sans sortie ; 🔴 un type NEUF, `mba_handoff` reste un
   passe-plat) : dans tous les modes, `ControleDuFil.envoyerAuMba` confie le contact (liste, `release`, fil `mba`) et
-  prévient l'agent avec le dernier message du contact (`derniereSaisieDuContact`) pour qu'il y réponde tout de suite ;
+  prévient l'agent avec le message du contact resté SANS réponse (`saisieSansReponse` : le dernier message de la
+  conversation s'il vient du client, sinon rien) pour qu'il y réponde tout de suite. Si le scénario a parlé après lui
+  (« posez-nous votre question »), rien n'est transmis, aucun événement ne part, et l'agent répond à la question
+  suivante, qui lui arrive directement : un message du client que NOUS avons reçu, relayé à l'agent, échoue chez Meta ;
   le parcours se termine SANS second rendu, et remplace un parcours en cours. Agent de Meta éteint : la frise le dit
   (`mba_indisponible`, 0217), le fil passe à l'équipe avec une demande, et une ligne entre au journal des échecs de
   scénario. ⚠️ Si le scénario vient d'envoyer un message, le `release` peut être annulé par Meta (l'envoi prend le

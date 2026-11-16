@@ -4,6 +4,23 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-12 : MUTAC en EVERYONE avec le routage des conversations, et le bloc « Envoyer au MBA » qui ne relaie plus un message répondu
+
+**Décision de Julien** : refaire l'essai de septembre sur MUTAC, agent de Meta en `EVERYONE` (sonde
+`docs/prive/mutac-audience-everyone.mjs`, la console remettant `ALLOWLISTED_ONLY` à chaque écriture des réglages), et
+le routage des conversations réglé par Julien dans Meta Business Suite : réponses aux modèles marketing et utility
+vers Messaging Me, messages libres vers l'agent. MUTAC reste ainsi. Mesuré : les boutons des modèles nous arrivent, mais
+la question captée par un bloc Question et relayée à l'agent échoue chez Meta ; la question suivante, elle, arrive à
+l'agent. Parade de scénario : un message rapide « posez-nous votre question », puis « Envoyer au MBA ».
+
+**Le correctif (`44a89e2c`, run 43266398750, sans migration, avec le lot B2 du PDF par contact)** : le bloc lit
+`saisieSansReponse` et ne transmet rien quand le scénario a parlé après le client ; sans lui, l'événement échouait et
+le filet passait la conversation à l'équipe 45 s plus tard. Relecture sans rouge, trois jaunes au backlog. Essai 256
+fait par Julien : question tapée plus d'une minute après, l'agent a répondu.
+
+**L'aide (`21ca0048`)** : la fiche publique du répondeur de Meta gagne deux étapes, le routage chez Meta (capture de
+la fenêtre de Meta recadrée, sans nom ni numéro de client) et le montage du scénario ; chargée en production par Julien.
+
 ## 2026-11-16 : le numéro fourni d'une Free se résilie depuis la page Offre
 
 Parti d'une réponse donnée à Johan par son propre Claude, sans nos outils. Il cherchait comment arrêter son numéro
