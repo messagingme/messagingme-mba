@@ -4,6 +4,21 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : les retours de l'essai 263 sur la connexion du numéro
+
+Julien, en faisant l'essai 263 dans la console (formule Pro, ligne de crédit, numéro fourni). Plan :
+`docs/superpowers/plans/2026-11-16-connexion-numero-retours-essai-263.md`.
+
+- « Quelle solution pour payer vos messages Meta ? » : chaque voie sur une rangée, sa carte à gauche, son bouton à
+  droite ; l'option payée, une confirmation puis « Étape suivante : quel numéro voulez-vous connecter ? ».
+- L'encadré du code remonté sous le numéro, « Le code s'affichera ici », vidé à chaque réouverture de la fenêtre de
+  Meta (Julien voyait l'ancien code) ; seul un code reçu depuis s'affiche, comparé par sa date de réception chez nous.
+- Les mots de la fenêtre de Meta en français, relevés par Julien : « Appel téléphonique », « Message texte ».
+- L'erreur #2388386 (un portefeuille Meta Business commence à deux numéros enregistrés ; le sien, récent, les avait
+  déjà) : la page la lit à la fermeture de la fenêtre (`CANCEL` avec `error_id`) et en donne la cause et trois sorties ;
+  le dépannage public a la même entrée.
+- Les deux e2e neufs vérifiés dans les deux sens (correctifs retirés le temps d'une construction : le vieux code restait,
+  l'aide n'apparaissait pas ; restaurés, empreintes égales). Relu sans rouge, jaunes en tête de `todo.md`.
 ## 2026-11-16 : le bloc « Extraire du JSON » (champ JSON, lot 2), et la Condition sur un champ nombre
 
 Plan `docs/superpowers/plans/2026-11-11-champ-json-lot-2.md`. Le bloc lit un champ `json` et range des valeurs dans

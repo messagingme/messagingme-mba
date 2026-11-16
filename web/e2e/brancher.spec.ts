@@ -15,7 +15,11 @@ function jeton(mode: 'fourni' | 'apporte' | 'fourni_application' = 'fourni'): st
 
 /** Le serveur de la page : le numéro fourni, la fenêtre de Meta et l'état. Chaque en-tête Authorization est gardé. */
 async function simuler(page: Page, o: { refus401?: boolean; refus403?: boolean; connecte?: boolean; aActiver?: boolean; lecturesAvantCode?: number; abonnement?: 'actif' | null; solution?: string } = {}) {
-  const s = { numero: null as string | null, lectures: 0, autorisations: [] as string[], connecte: o.connecte === true, retours: [] as string[], fins: [] as unknown[] };
+  const s = {
+    numero: null as string | null, lectures: 0, autorisations: [] as string[], connecte: o.connecte === true, retours: [] as string[], fins: [] as unknown[],
+    /** Un code posé par le test (date de réception comprise), à la place du code qui arrive au fil des lectures. */
+    code: null as { code: string; recuLe: string } | null,
+  };
   const abonnement = o.abonnement === undefined ? { statut: 'actif', periodeFin: null } : (o.abonnement ? { statut: o.abonnement, periodeFin: null } : null);
   const json = (body: unknown, status = 200) => ({ status, contentType: 'application/json', body: JSON.stringify(body) });
   await page.route('**/api/backend/**', async (route) => {
@@ -45,6 +49,7 @@ async function simuler(page: Page, o: { refus401?: boolean; refus403?: boolean; 
     if (req.method() === 'GET' && chemin.endsWith('/numero-fourni')) {
       if (s.numero === null) return route.fulfill(json({ numero: null, code: null, codeRecuLe: null }));
       s.lectures += 1;
+      if (s.code) return route.fulfill(json({ numero: s.numero, code: s.code.code, codeRecuLe: s.code.recuLe }));
       const code = s.lectures > (o.lecturesAvantCode ?? 1) ? '345679' : null;
       return route.fulfill(json({ numero: s.numero, code, codeRecuLe: code ? '2026-10-06T10:00:00.000Z' : null }));
     }
@@ -262,4 +267,41 @@ test('🔴 l’option payée, mais le numéro fourni mis dans l’application : 
   await expect(page.getByTestId('choix-fourni-ouvert')).toBeVisible();
   await expect(page.getByTestId('connexion-sans-carte')).toHaveCount(0);
   await expect(page.getByTestId('prerequis-meta')).not.toContainText('sans carte chez Meta');
+});
+
+/**
+ * LES RETOURS DE L'ESSAI 263 (2026-11-16). La fenêtre de Meta est un faux SDK qui ne rend jamais la main (le client y est
+ * encore), ou qui se ferme sur l'erreur #2388386 en l'annonçant par `postMessage`, comme Meta (un `MessageEvent` d'origine facebook.com : un `postMessage` de la page porterait la sienne).
+ */
+const SDK_QUI_ATTEND = 'window.FB={init:function(){},login:function(){}};';
+const SDK_LIMITE_NUMEROS = 'window.FB={init:function(){},login:function(cb){window.dispatchEvent(new MessageEvent("message",{origin:"https://www.facebook.com",data:JSON.stringify({type:"WA_EMBEDDED_SIGNUP",event:"CANCEL",data:{error_message:"Pour utiliser ce numéro de téléphone…",error_id:"2388386",session_id:"s-e2e"}})}));setTimeout(function(){cb({})},50)}};';
+
+test('🔴 la fenêtre de Meta rouverte, le code d’avant disparaît, et seul un code reçu depuis s’affiche', async ({ page }) => {
+  await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_QUI_ATTEND }));
+  const s = await simuler(page);
+  s.code = { code: '416746', recuLe: '2026-11-16T09:00:00.000Z' };
+  await page.goto(`/brancher#${jeton('fourni')}`);
+  await page.getByTestId('obtenir-numero').click();
+  await expect(page.getByTestId('code-capte')).toContainText('416746', { timeout: 12_000 });
+  await expect(page.getByTestId('code-capte')).toContainText('Le code s’affichera ici');
+  await page.getByTestId('ouvrir-fenetre-meta').click();
+  await expect(page.getByTestId('code-capte')).toContainText('En attente du code de Meta');
+  // Plusieurs lectures plus tard, le même code (même date de réception) reste caché.
+  await page.waitForTimeout(7_000);
+  await expect(page.getByTestId('code-capte')).not.toContainText('416746');
+  s.code = { code: '582913', recuLe: '2026-11-16T09:05:00.000Z' };
+  await expect(page.getByTestId('code-capte')).toContainText('582913', { timeout: 12_000 });
+});
+
+test('🔴 la fenêtre de Meta fermée sur l’erreur #2388386 : la page dit la limite de deux numéros et ses trois sorties', async ({ page }) => {
+  await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: SDK_LIMITE_NUMEROS }));
+  await simuler(page);
+  await page.goto(`/brancher#${jeton('fourni')}`);
+  await page.getByTestId('obtenir-numero').click();
+  await page.getByTestId('ouvrir-fenetre-meta').click();
+  const aide = page.getByTestId('aide-erreur-meta');
+  await expect(aide).toBeVisible({ timeout: 10_000 });
+  await expect(aide).toHaveAttribute('data-code', '2388386');
+  await expect(aide).toContainText('déjà ses deux numéros');
+  await expect(aide.locator('li')).toHaveCount(3);
 });

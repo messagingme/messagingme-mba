@@ -1,5 +1,18 @@
 # todo.md : backlog
 
+## 🟡 Les retours de l'essai 263 sur la connexion du numéro (relecture du 2026-11-16, aucun rouge)
+
+- `ParcoursNumero.tsx` : la première lecture par `api.etat()` affiche le code sans renseigner `dernierRecuLe` ; un clic
+  sur « Ouvrir la fenêtre de Meta » dans les 3 premières secondes laisse revenir le code d'avant (une ligne :
+  `dernierRecuLe.current = r.etat.code?.recuLe ?? null`). Et un code arrivé entre la dernière lecture et le clic passe
+  pour récent (fenêtre de 3 s au plus).
+- `ouvrir` vide l'encadré même quand la fenêtre ne s'ouvre pas (bouton pourtant désactivé dans ces cas).
+- `connexion-numero.ts` : une annulation simple garde le bouton occupé une seconde de plus (`waitFor` de l'erreur) ;
+  regarder `erreurRef` tout de suite avant d'attendre.
+- `erreurs-meta.ts` : la cause de #2388386 est dite « déjà ses deux numéros » ; un portefeuille vérifié à sa limite
+  recevrait la même erreur. Dire « a atteint sa limite de numéros (deux au départ) ». Et la sortie « Créez un
+  portefeuille business » suppose l'écran du choix du compte, à vérifier en coexistence.
+
 ## 🟡 La connexion des publicités enregistrée à moitié (incident du 2026-11-16, journal technique)
 
 - Quand la fenêtre de Meta n'accorde que les droits de la Page (cas mesuré sur le portefeuille qui possède l'app),

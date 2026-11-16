@@ -1,7 +1,7 @@
 ---
 description: Get a number provided by Messaging Me and connect it to WhatsApp through Meta’s window, from Claude Code: the video, then the six steps.
 slug: get-a-number-provided-by-messaging-me
-traduit_de: a0a264
+traduit_de: 1be8b3
 bouton_claude: Get my number from Claude Code
 bouton_console: Get my number in the console
 ---
@@ -36,8 +36,8 @@ to this page; it is valid for one hour, and once it has passed Claude gives a ne
 **4. Connect the number in Meta’s window.** Log in with Facebook. On the number screen, enter a new number: the country
 GB (+44), then the digits that follow +44. **For the code, tick “Phone call”, NOT “Text message”.**
 
-After a security check, Meta calls the number: we pick up the call, and the code shows on the connection page and in
-Claude, usually within seconds. Type it into Meta’s window.
+After a security check, Meta calls the number: we pick up the call, and the code shows on the connection page, in the
+“The code will appear here” box, and in Claude, usually within seconds. Type it into Meta’s window.
 
 No code after 30 seconds: ask Claude whether it got it. Still nothing after 45 seconds: wait until Meta offers to send
 it again, and ask for it again, still by phone call.

@@ -191,8 +191,10 @@ their own number one used in no WhatsApp app): relay it once, before the link.
    `consigne`, one per line, in the user's language: the page shows the same ones. For `fourni_application`, the steps are those of its `consigne` (the app's account, then "Keep my
    WhatsApp Business app"), with no Meta window before the account. For a number we provide through Meta's window
    (`fourni`): click the link; pay (or "Get my number" in Pro); click "Open the Meta window"; on the number screen, "Enter a new phone number", the country GB (+44), then the digits that follow +44;
-   to get the code, "Phone call", NOT "Text message" (insist on it, and say it again on its own after the steps); the
-   code shows on the page within seconds, and you write it here too; no code after 45 seconds: wait until Meta offers
+   to get the code, "Phone call", NOT "Text message" (insist on it, and say it again on its own after the steps; a Meta
+   window in French says « Appel téléphonique » and « Message texte », so in French say « Appel téléphonique », surtout
+   pas « Message texte »); the code shows within seconds on that page, in the box "The code will appear here" (« Le
+   code s'affichera ici ») right under the number, and you write it here too; no code after 45 seconds: wait until Meta offers
    to send it again, and ask for it again, still by "Phone call"; go to Meta's last screen, "Finish"; only then come
    back here. Mention only in passing that if Meta's window offers nothing but "Text message", they take it (the text
    reaches us read aloud by a call, and the code usually shows the same way). Never write "I generated the link" without the link.

@@ -294,7 +294,9 @@ test.describe('Connecter WhatsApp : la fenêtre du partenaire', () => {
     // reconnexion d'un numéro connecté avec sa carte.
     await expect(page.getByTestId('carte-meta-avertissement-ligne')).toHaveText(AVERTISSEMENT_CARTE);
     // « Votre numéro, ou le nôtre ? » (lot 3v) : le sien reçoit la phrase validée de Julien AVANT la fenêtre.
-    await expect(page.getByTestId('ligne-numero')).toContainText('Votre numéro, ou le nôtre ?');
+    // L'option payée (essai 263) : la confirmation, puis l'étape suivante en titre.
+    await expect(page.getByTestId('ligne-confirmee')).toHaveText('Votre option ligne de crédit est active');
+    await expect(page.getByTestId('ligne-numero')).toContainText('Étape suivante : quel numéro voulez-vous connecter ?');
     // Les réponses disent ce que la personne a ou n'a pas (Julien, 2026-11-13).
     await expect(page.getByTestId('ligne-numero-mien')).toHaveText('J’utilise un numéro existant');
     await expect(page.getByTestId('ligne-numero-notre')).toHaveText('J’ai besoin d’un numéro');

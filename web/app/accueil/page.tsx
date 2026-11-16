@@ -1,5 +1,6 @@
 'use client';
 
+import { AideErreurMeta } from '@/components/AideErreurMeta';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
@@ -1180,6 +1181,7 @@ function ConnexionMetaDuNumero({ connexion, tenantId, est360, onRecolle, onDecon
       </p>
       {connexion.peutEtreBloquee && <p data-testid="fenetre-bloquee" className="mt-2 text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
       {connexion.error && <p data-testid="renouveler-erreur" className="mt-2 rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700">{connexion.error}</p>}
+      <AideErreurMeta code={connexion.erreurMeta} />
       {confirmer && (
         <ConfirmationDeconnexion
           tenantId={tenantId}

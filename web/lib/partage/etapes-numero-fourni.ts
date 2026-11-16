@@ -6,7 +6,9 @@
  * 🔴 L'APPEL, PAS LE SMS (aide à la connexion, lot 2c, décision de Julien du 2026-11-09 : « il faut lourdement
  * insister ») : l'essai 99 avait retenu « Text message » ; c'est désormais « Phone call », et au bout de 45 secondes sans
  * code on le redemande par « Phone call » encore, jamais par l'autre méthode. « Text message » ne se prend que si la
- * fenêtre ne propose rien d'autre (`SI_SEUL_TEXT_MESSAGE`). Les libellés sont ceux de la fenêtre de Meta en anglais.
+ * fenêtre ne propose rien d'autre (`SI_SEUL_TEXT_MESSAGE`). En français, les libellés de la fenêtre de Meta en français
+ * (« Appel téléphonique », « Message texte », relevés par Julien à l'essai 263), l'anglais entre parenthèses ; en anglais, ceux
+ * de la fenêtre en anglais.
  */
 
 /**
@@ -31,7 +33,7 @@ export const SECONDES_SANS_CODE = 45;
  * (`src/otp/extraire-code.ts`), un chemin plus fragile que l'appel direct, d'où « en général ».
  */
 export const SI_SEUL_TEXT_MESSAGE: { readonly fr: string; readonly en: string } = {
-  fr: 'Si la fenêtre de Meta ne propose que « Text message », prenez-le : le SMS nous parvient lu à voix haute par un '
+  fr: 'Si la fenêtre de Meta ne propose que « Message texte » (« Text message »), prenez-le : le SMS nous parvient lu à voix haute par un '
     + 'appel, et le code s’affiche en général de la même façon.',
   en: 'If Meta’s window only offers “Text message”, take it: the text reaches us read aloud by a call, and the code '
     + 'usually shows the same way.',
@@ -48,17 +50,17 @@ export const ETAPES_NUMERO_FOURNI: ReadonlyArray<{ fr: string; en: string; insis
     en: 'On the phone number screen, choose “Enter a new phone number”: the country GB (+44), then the digits that follow +44.',
   },
   {
-    fr: 'Pour recevoir le code, choisissez « Phone call » (l’appel), surtout pas « Text message ».',
+    fr: 'Pour recevoir le code, choisissez « Appel téléphonique » (« Phone call » si la fenêtre est en anglais), surtout pas « Message texte ».',
     en: 'To get the code, choose “Phone call”, NOT “Text message”.',
     insiste: true,
   },
   {
-    fr: 'Le code s’affiche sur la page en quelques secondes : saisissez-le dans la fenêtre de Meta.',
-    en: 'The code shows on the page within seconds: enter it in the Meta window.',
+    fr: 'Le code s’affiche en quelques secondes sur cette page, dans l’encadré « Le code s’affichera ici » sous votre numéro : saisissez-le dans la fenêtre de Meta.',
+    en: 'The code shows within seconds on this page, in the “The code will appear here” box under your number: enter it in the Meta window.',
   },
   {
     fr: `Pas de code au bout de ${SECONDES_SANS_CODE} secondes : attendez que Meta propose de renvoyer le code, et `
-      + 'redemandez-le, toujours par « Phone call ».',
+      + 'redemandez-le, toujours par « Appel téléphonique ».',
     en: `No code after ${SECONDES_SANS_CODE} seconds: wait until Meta offers to send the code again, and ask for it again, `
       + 'still by “Phone call”.',
   },

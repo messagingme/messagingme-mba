@@ -1,7 +1,7 @@
 ---
 description: Connect your WhatsApp number step by step: paying for your Meta messages, your number or ours, Meta's window, then the number's status.
 slug: connect-my-whatsapp-number
-traduit_de: 210d00
+traduit_de: 12e4af
 ---
 # Connect my WhatsApp number, and read its status
 
@@ -21,7 +21,7 @@ dedicated UK number, included in the Pro plan, and €3.50 a month without it.
 
 For the provided number, you pay on Stripe's page (a promo code goes there, if we gave you one), then the number
 shows. In Meta's window, choose “Enter a new phone number”, the country GB (+44), then the digits after +44;
-**to get the code, choose “Phone call”, NOT “Text message”**: the code shows on the page within seconds. With no code after
+**to get the code, choose “Phone call”, NOT “Text message”**: the code shows within seconds on the page, in the “The code will appear here” box, under your number. With no code after
 45 seconds, request it again, still by “Phone call”. If Meta refuses this number, “Get another
 one” gives you a new one.
 

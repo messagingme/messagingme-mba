@@ -46,6 +46,27 @@ export function lireMessageEs(origine: unknown, donnees: unknown): MessageEs | n
 }
 
 /**
+ * L'ERREUR QUE LA FENÊTRE REND EN SE FERMANT (essai 263, 2026-11-16) : après une erreur affichée dans la fenêtre, Meta
+ * annonce sa fermeture (`CANCEL`) avec `error_id` (l'erreur #2388386 d'un portefeuille déjà à deux numéros, par exemple).
+ * `null` : pas de Meta, pas de fermeture, ou un code qui n'est pas un nombre. Ne lève jamais (données arbitraires).
+ */
+export interface ErreurEs { code: string }
+export function lireErreurEs(origine: unknown, donnees: unknown): ErreurEs | null {
+  if (typeof origine !== 'string' || !FB_ORIGIN.test(origine)) return null;
+  let d: unknown;
+  try {
+    d = typeof donnees === 'string' ? JSON.parse(donnees) : donnees;
+  } catch {
+    return null;
+  }
+  if (typeof d !== 'object' || d === null) return null;
+  const brut = d as { type?: unknown; event?: unknown; data?: unknown };
+  if (brut.type !== 'WA_EMBEDDED_SIGNUP' || brut.event !== 'CANCEL' || typeof brut.data !== 'object' || brut.data === null) return null;
+  const code = enTexte((brut.data as { error_id?: unknown }).error_id);
+  return code !== undefined && /^\d{1,12}$/.test(code) ? { code } : null;
+}
+
+/**
  * Ce que l'écoute garde quand un nouveau message arrive : le dernier, SAUF un compte seul qui écraserait le couple
  * compte et numéro déjà capturé pour le même compte. Le chemin avec numéro reste ainsi exact, quoi que la fenêtre
  * envoie après sa fin.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { lireMessageEs, retenirMessageEs } from './message-es';
+import { lireErreurEs, lireMessageEs, retenirMessageEs } from './message-es';
 
 const FB = 'https://www.facebook.com';
 const msg = (event: string, data: Record<string, unknown>) => JSON.stringify({ type: 'WA_EMBEDDED_SIGNUP', event, data });
@@ -52,5 +52,20 @@ describe('retenirMessageEs : un message tardif n’efface pas ce qui est déjà 
     expect(retenirMessageEs({ wabaId: 'w1', phoneNumberId: 'p1' }, autre)).toBe(autre);
     const couple = { wabaId: 'w1', phoneNumberId: 'p1' };
     expect(retenirMessageEs(seul, couple)).toBe(couple);
+  });
+});
+
+describe('lireErreurEs : l’erreur que la fenêtre de Meta rend en se fermant (essai 263)', () => {
+  it('🔴 la fermeture après une erreur : son code, en chaîne ou en nombre', () => {
+    expect(lireErreurEs(FB, msg('CANCEL', { error_message: 'Pour utiliser ce numéro…', error_id: '2388386', session_id: 's1' }))).toEqual({ code: '2388386' });
+    expect(lireErreurEs(FB, { type: 'WA_EMBEDDED_SIGNUP', event: 'CANCEL', data: { error_id: 2388386 } })).toEqual({ code: '2388386' });
+  });
+
+  it('🔴 une origine qui n’est pas facebook.com, une fermeture sans erreur, un autre événement : rien', () => {
+    expect(lireErreurEs('https://evilfacebook.com', msg('CANCEL', { error_id: '2388386' }))).toBeNull();
+    expect(lireErreurEs(FB, msg('CANCEL', { current_step: 'PHONE_NUMBER_SETUP' }))).toBeNull();
+    expect(lireErreurEs(FB, msg('FINISH', { error_id: '2388386', waba_id: 'w1' }))).toBeNull();
+    expect(lireErreurEs(FB, msg('CANCEL', { error_id: 'pas un code' }))).toBeNull();
+    expect(lireErreurEs(FB, '{pas du json')).toBeNull();
   });
 });

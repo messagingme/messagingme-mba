@@ -46,7 +46,7 @@ nouveau numéro : le pays GB (+44), puis les chiffres qui suivent +44. **Pour le
 surtout pas « Message texte ».**
 
 Après un contrôle de sécurité, Meta appelle le numéro : nous captons l'appel, et le code s'affiche sur la page de
-connexion et dans Claude, en général en quelques secondes. Tapez-le dans la fenêtre de Meta.
+connexion, dans l'encadré « Le code s'affichera ici », et dans Claude, en général en quelques secondes. Tapez-le dans la fenêtre de Meta.
 
 Pas de code au bout de 30 secondes : demandez à Claude s'il l'a reçu. Toujours rien au bout de 45 secondes : attendez
 que Meta propose de le renvoyer, et redemandez-le, toujours par l'appel.

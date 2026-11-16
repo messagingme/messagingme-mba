@@ -89,9 +89,9 @@ test('🔴 numéro fourni : il s’affiche, puis le code capté apparaît sans r
   // 🔴 L'appel, pas le SMS (lot 2c) : l'étape en gras est celle de « Phone call », l'exception dite à part, en petit.
   const appel = page.getByTestId('etapes-numero-fourni').locator('li[data-insiste]');
   await expect(appel).toHaveCount(1);
-  await expect(appel).toContainText('choisissez « Phone call » (l’appel), surtout pas « Text message »');
+  await expect(appel).toContainText('choisissez « Appel téléphonique » (« Phone call » si la fenêtre est en anglais), surtout pas « Message texte »');
   await expect(appel).toHaveCSS('font-weight', '600');
-  await expect(page.getByTestId('si-seul-text-message')).toContainText('ne propose que « Text message », prenez-le');
+  await expect(page.getByTestId('si-seul-text-message')).toContainText('ne propose que « Message texte » (« Text message »), prenez-le');
   await expect(page.getByTestId('code-capte')).toContainText('En attente du code de Meta');
   // La page lit le code toutes les 3 secondes : il arrive sans geste du client.
   await expect(page.getByTestId('code-capte')).toContainText('345679', { timeout: 12_000 });

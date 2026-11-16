@@ -1,8 +1,10 @@
 'use client';
 
+import { AideErreurMeta } from '@/components/AideErreurMeta';
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Bouton, classesBouton } from '@/components/Bouton';
+import { Icone } from '@/components/Icone';
 import { MbaNotice } from '@/components/MbaNotice';
 import { EncadreChezMeta, ParcoursNumero } from '@/components/ParcoursNumero';
 import { estPageDePaiement } from '@/lib/api-credit';
@@ -37,6 +39,28 @@ export const PAR_LA_LIGNE = {
     fr: 'Connectez votre numéro, Meta ne vous facturera pas. Votre ligne s’ouvre ensuite sous 24 h ouvrées.',
     en: 'Connect your number, Meta will not bill you. Your line then opens within 24 business hours.',
   },
+} as const;
+
+/**
+ * L'option payée, ou une Entreprise sans numéro (essai 263, Julien, 2026-11-16 : « une rassurance comme quoi l'option a
+ * bien été prise en compte, et maintenant on attaque l'étape suivante ») : la confirmation, puis la question du numéro
+ * en titre, et la voie de la carte chez Meta reléguée dessous.
+ */
+export const OPTION_ACTIVE = {
+  fr: 'Votre option ligne de crédit est active',
+  en: 'Your credit line option is active',
+} as const;
+export const LIGNE_DU_CONTRAT = {
+  fr: 'Votre ligne de crédit est comprise dans votre contrat',
+  en: 'Your credit line is included in your contract',
+} as const;
+export const ETAPE_NUMERO = {
+  fr: 'Étape suivante : quel numéro voulez-vous connecter ?',
+  en: 'Next step: which number do you want to connect?',
+} as const;
+export const PLUTOT_LA_CARTE = {
+  fr: 'Vous préférez payer Meta avec votre carte ?',
+  en: 'Would you rather pay Meta with your card?',
 } as const;
 
 /**
@@ -206,10 +230,10 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
         // les cartes. Une réponse n'est en avant que tant que la carte chez Meta n'a pas été reprise.
         const choisie = carteActive ? null : numeroLigne;
         action = (
-          <div className="space-y-2" data-testid="ligne-numero">
-            <p className="text-sm font-semibold text-ink-900">{t(QUESTION_LIGNE_NUMERO.texte.fr, QUESTION_LIGNE_NUMERO.texte.en)}</p>
-            {/* L'une sous l'autre, de la largeur de la colonne, comme le bouton de la carte chez Meta en face (2026-11-13). */}
-            <div className="grid gap-2">
+          <div className="space-y-3" data-testid="ligne-numero">
+            {/* L'étape suivante, en titre (essai 263, Julien, 2026-11-16 : « on attaque l'étape suivante »). */}
+            <p className="text-base font-semibold text-ink-900">{t(ETAPE_NUMERO.fr, ETAPE_NUMERO.en)}</p>
+            <div className="grid gap-2 sm:grid-cols-2">
               {(['mien', 'notre'] as const).map((r) => (
                 <Bouton key={r} type="button" variante={choisie === r ? 'principal' : 'secondaire'} aria-pressed={choisie === r} disabled={fenetreOuverte} onClick={() => repondreLigne(r)} data-testid={`ligne-numero-${r}`}>
                   {t(QUESTION_LIGNE_NUMERO[r].fr, QUESTION_LIGNE_NUMERO[r].en)}
@@ -292,6 +316,63 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   // Un numéro connecté que la ligne ne paie pas est payé par sa carte : elle est mise en avant (jaune 4 du lot B).
   const metaEnAvant = lieu === 'accueil' || connecte ? !lignePayee : carteActive;
 
+  // Chaque voie sur UNE rangée, sa carte à gauche et son geste à droite (essai 263, Julien, 2026-11-16 : les boutons sous
+  // deux colonnes ne disaient pas à quelle carte ils allaient).
+  const rangee = (carteEl: ReactNode, geste: ReactNode, testid: string) => (
+    <div data-testid={testid} className="grid gap-3 sm:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] sm:items-center">
+      {carteEl}
+      {geste ? <div className="space-y-2">{geste}</div> : <div className="hidden sm:block" />}
+    </div>
+  );
+  const carteMeta = (
+    <div data-testid="carte-meta" className={`rounded-carte border p-4 ${metaEnAvant ? 'border-ink-900' : 'border-ink-200'}`}>
+      <div className="text-sm font-semibold text-ink-900">{t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}</div>
+      <p className="mt-1 text-sm text-ink-700">
+        {t('Vous connectez votre numéro, et Meta vous facture vos modèles sur ce moyen de paiement.', 'You connect your number, and Meta bills your templates to this payment method.')}
+      </p>
+      {/* Un espace qui a droit à la ligne, sans numéro : avant de prendre cette voie, il apprend qu'elle est sans
+          retour (Meta refuse la reconnexion d'un numéro connecté avec sa carte, décision de Julien du 2026-11-13). */}
+      {fenetrePartenaire && (
+        <p className="mt-2 text-sm text-alerte-700" data-testid="carte-meta-avertissement-ligne">{t(AVERTISSEMENT_CARTE.fr, AVERTISSEMENT_CARTE.en)}</p>
+      )}
+      {/* Ses deux liens (lot 3a) : pourquoi un moyen de paiement, et ce qu'est un compte Meta Business. */}
+      <p data-testid="carte-meta-liens" className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {QUESTION_PAIEMENT.carte.liens.map((l) => (
+          <a key={l.href.fr} href={t(l.href.fr, l.href.en)} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink-900 underline">
+            {t(l.libelle.fr, l.libelle.en)}
+          </a>
+        ))}
+      </p>
+    </div>
+  );
+  const carteLigne = (
+    <div data-testid="carte-credit-wa" data-etat={etat ?? ''} aria-disabled={grisee || undefined} className={`rounded-carte border p-4 ${lignePayee ? 'border-ink-900' : 'border-ink-200'}`}>
+      <div className={`text-sm font-semibold text-ink-900 ${grisee ? 'opacity-60' : ''}`}>{t(QUESTION_PAIEMENT.credit.titre.fr, QUESTION_PAIEMENT.credit.titre.en)}</div>
+      <p className={`mt-1 text-sm text-ink-700 ${grisee ? 'opacity-60' : ''}`}>
+        {/* Une Entreprise : son contrat, jamais le prix de l'option (jaune 9 du lot B, texte validé par Julien le 2026-11-06). */}
+        {offre === 'entreprise'
+          ? t('Vous payez vos messages chez Messaging Me, sans carte chez Meta, selon votre contrat Entreprise.', 'You pay for your messages at Messaging Me, with no card at Meta, under your Enterprise contract.')
+          : t(QUESTION_PAIEMENT.credit.texte.fr, QUESTION_PAIEMENT.credit.texte.en)}
+      </p>
+      {ligne && <p className="mt-2 text-sm font-semibold text-ink-900" data-testid="carte-credit-wa-ligne">{ligne}</p>}
+    </div>
+  );
+  const gesteLigne = (grisee || action || avertissement) ? (
+    <>
+      {avertissement}
+      {grisee ? (
+        <Bouton type="button" variante="secondaire" disabled data-testid="carte-credit-wa-grisee">
+          {t(QUESTION_PAIEMENT.credit.titre.fr, QUESTION_PAIEMENT.credit.titre.en)}
+        </Bouton>
+      ) : action}
+    </>
+  ) : null;
+  /**
+   * L'option payée (ou une Entreprise sans numéro), sur Connecter WhatsApp, la voie de la carte pas reprise : la
+   * confirmation en tête, la question du numéro en titre, et la carte chez Meta reléguée dessous (essai 263).
+   */
+  const confirmee = ligneIci && !carteActive;
+
   return (
     <div className={lieu === 'accueil' ? 'mb-4' : 'mt-6'}>
       <div data-testid="qui-regle-meta" className="rounded-carte border border-ink-200 bg-white p-5">
@@ -307,52 +388,29 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
             </MbaNotice>
           </div>
         )}
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="grid grid-rows-[1fr_auto] gap-3">
-            <div data-testid="carte-meta" className={`rounded-carte border p-4 ${metaEnAvant ? 'border-ink-900' : 'border-ink-200'}`}>
-              <div className="text-sm font-semibold text-ink-900">{t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}</div>
-              <p className="mt-1 text-sm text-ink-700">
-                {t('Vous connectez votre numéro, et Meta vous facture vos modèles sur ce moyen de paiement.', 'You connect your number, and Meta bills your templates to this payment method.')}
-              </p>
-              {/* Un espace qui a droit à la ligne, sans numéro : avant de prendre cette voie, il apprend qu'elle est sans
-                  retour (Meta refuse la reconnexion d'un numéro connecté avec sa carte, décision de Julien du 2026-11-13). */}
-              {fenetrePartenaire && (
-                <p className="mt-2 text-sm text-alerte-700" data-testid="carte-meta-avertissement-ligne">{t(AVERTISSEMENT_CARTE.fr, AVERTISSEMENT_CARTE.en)}</p>
-              )}
-              {/* Ses deux liens (lot 3a) : pourquoi un moyen de paiement, et ce qu'est un compte Meta Business. */}
-              <p data-testid="carte-meta-liens" className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                {QUESTION_PAIEMENT.carte.liens.map((l) => (
-                  <a key={l.href.fr} href={t(l.href.fr, l.href.en)} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink-900 underline">
-                    {t(l.libelle.fr, l.libelle.en)}
-                  </a>
-                ))}
-              </p>
-            </div>
-            {boutonCarte && <div>{boutonCarte}</div>}
-          </div>
-          <div className="grid grid-rows-[1fr_auto] gap-3">
-            <div data-testid="carte-credit-wa" data-etat={etat ?? ''} aria-disabled={grisee || undefined} className={`rounded-carte border p-4 ${lignePayee ? 'border-ink-900' : 'border-ink-200'}`}>
-              <div className={`text-sm font-semibold text-ink-900 ${grisee ? 'opacity-60' : ''}`}>{t(QUESTION_PAIEMENT.credit.titre.fr, QUESTION_PAIEMENT.credit.titre.en)}</div>
-              <p className={`mt-1 text-sm text-ink-700 ${grisee ? 'opacity-60' : ''}`}>
-                {/* Une Entreprise : son contrat, jamais le prix de l'option (jaune 9 du lot B, texte validé par Julien le 2026-11-06). */}
-                {offre === 'entreprise'
-                  ? t('Vous payez vos messages chez Messaging Me, sans carte chez Meta, selon votre contrat Entreprise.', 'You pay for your messages at Messaging Me, with no card at Meta, under your Enterprise contract.')
-                  : t(QUESTION_PAIEMENT.credit.texte.fr, QUESTION_PAIEMENT.credit.texte.en)}
-              </p>
-              {ligne && <p className="mt-2 text-sm font-semibold text-ink-900" data-testid="carte-credit-wa-ligne">{ligne}</p>}
-            </div>
-            {(grisee || action || avertissement) && (
-              <div className="space-y-2">
-                {avertissement}
-                {grisee ? (
-                  <Bouton type="button" variante="secondaire" disabled data-testid="carte-credit-wa-grisee">
-                    {t(QUESTION_PAIEMENT.credit.titre.fr, QUESTION_PAIEMENT.credit.titre.en)}
-                  </Bouton>
-                ) : action}
+        {confirmee ? (
+          <>
+            {/* La confirmation : l'option est prise (ou comprise dans le contrat), rien d'autre à payer chez Meta. */}
+            <div data-testid="carte-credit-wa" data-etat={etat ?? ''} className="mt-4 rounded-carte border border-succes-200 bg-succes-50 p-4">
+              <div className="flex items-center gap-2 text-base font-semibold text-succes-800" data-testid="ligne-confirmee">
+                <Icone nom="valide" />
+                {offre === 'entreprise' ? t(LIGNE_DU_CONTRAT.fr, LIGNE_DU_CONTRAT.en) : t(OPTION_ACTIVE.fr, OPTION_ACTIVE.en)}
               </div>
-            )}
+              {ligne && <p className="mt-1 text-sm text-succes-800" data-testid="carte-credit-wa-ligne">{ligne}</p>}
+            </div>
+            <div className="mt-5">{action}</div>
+            {/* La voie de la carte chez Meta reste possible, en dessous, avec son avertissement : sans retour. */}
+            <div className="mt-6 border-t border-ink-200 pt-4">
+              <p className="mb-3 text-sm font-semibold text-ink-700">{t(PLUTOT_LA_CARTE.fr, PLUTOT_LA_CARTE.en)}</p>
+              {rangee(carteMeta, boutonCarte, 'rangee-meta')}
+            </div>
+          </>
+        ) : (
+          <div className="mt-4 space-y-4">
+            {rangee(carteMeta, boutonCarte, 'rangee-meta')}
+            {rangee(carteLigne, gesteLigne, 'rangee-ligne')}
           </div>
-        </div>
+        )}
         {erreur && <p className="mt-3 text-sm text-danger" data-testid="carte-credit-wa-erreur">{erreur}</p>}
       </div>
       {lieu === 'connecter' && carteActive && children}
@@ -408,6 +466,7 @@ function BoutonParLaLigne({ tenantId, api, surConnexion, surOccupe }: {
       </Bouton>
       {connexion.peutEtreBloquee && <p className="text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
       {connexion.error && <p className="text-sm text-danger" data-testid="carte-credit-wa-connecter-ligne-erreur">{connexion.error}</p>}
+      <AideErreurMeta code={connexion.erreurMeta} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import { AideErreurMeta } from '@/components/AideErreurMeta';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
@@ -185,6 +186,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     api.lire().then((r) => {
       const reprise = repriseDuNumeroFourni(choixInitial, r);
       if (reprise && fraiche(depart)) {
+        dernierRecuLe.current = r.codeRecuLe;
         setNumero(reprise.numero); setCode(reprise.code);
         // La variante du lien de Claude, sinon celle que la console a gardée dans l'onglet.
         setChoix(choixInitial === 'fourni_application' ? 'fourni_application' : choixInitial === null ? varianteGardee(tenantId) : 'fourni');
@@ -196,12 +198,29 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
 
+  /**
+   * La fenêtre de Meta rouverte, l'encadré repart à zéro (essai 263, Julien, 2026-11-16 : le « vieux code » restait
+   * affiché, « ça porte à confusion »). On retient le code lu à l'ouverture, par sa date de réception chez nous, et on
+   * ne montre ensuite qu'un code reçu DEPUIS : une date du serveur comparée à elle-même, jamais à l'horloge du poste.
+   */
+  const dernierRecuLe = useRef<string | null>(null);
+  const codeAvantOuverture = useRef<string | null>(null);
+  const ouvrir = () => {
+    codeAvantOuverture.current = dernierRecuLe.current;
+    setCode(null);
+    void connexion.connect(ligne ? { parLaLigne: true } : {});
+  };
+
   // Le code se lit en boucle tant qu'un numéro fourni attend sa connexion.
   useEffect(() => {
     if (!fourni || numero === null || connecte) return undefined;
     const minuterie = setInterval(() => {
       const depart = generation.current;
-      api.lire().then((r) => { if (fraiche(depart)) setCode(r.code); }).catch(() => {});
+      api.lire().then((r) => {
+        if (!fraiche(depart)) return;
+        dernierRecuLe.current = r.codeRecuLe;
+        setCode(r.codeRecuLe !== null && r.codeRecuLe === codeAvantOuverture.current ? null : r.code);
+      }).catch(() => {});
     }, INTERVALLE_CODE_MS);
     return () => clearInterval(minuterie);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -235,7 +254,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   // Par la ligne (lot 3v), la fenêtre attend la solution du partenaire : sans elle, rien ne s'ouvre par la carte chez Meta.
   const pret = connexion.cfg?.enabled === true && (!ligne || (connexion.cfg.solutionId ?? null) !== null);
   const boutonFenetre = (
-    <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={() => { void connexion.connect(ligne ? { parLaLigne: true } : {}); }} data-testid="ouvrir-fenetre-meta">
+    <Bouton type="button" enCours={connexion.busy} disabled={!pret || connexion.busy} onClick={ouvrir} data-testid="ouvrir-fenetre-meta">
       {connexion.busy ? t('Fenêtre de Meta ouverte…', 'Meta window open…') : t('Ouvrir la fenêtre de Meta', 'Open the Meta window')}
     </Bouton>
   );
@@ -480,6 +499,20 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
               <span data-testid="numero-fourni" className="font-mono text-2xl font-semibold text-ink-900">{numero}</span>
               <Bouton type="button" variante="secondaire" taille="petite" onClick={() => { void copier(); }}>{copie ? t('Copié', 'Copied') : t('Copier', 'Copy')}</Bouton>
             </div>
+            {/* Le code arrive ICI, juste sous le numéro, en grand et en couleur (essai 263, Julien, 2026-11-16 : « on voit pas
+                bien où ça va apparaître ») ; un point qui pulse pendant l'attente, que la page dit gardée ouverte. */}
+            <div data-testid="code-capte" className="mt-4 rounded-carte border-2 border-brand-500 bg-brand-50 p-4">
+              <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">{t(CODE_ICI.fr, CODE_ICI.en)}</div>
+              {code ? (
+                <div className="mt-1 font-mono text-4xl font-semibold tracking-widest text-ink-900">{code}</div>
+              ) : (
+                <p className="mt-2 flex items-center gap-2 text-sm font-medium text-ink-900">
+                  <span aria-hidden className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-brand-500 motion-reduce:animate-none" />
+                  {dansApplication ? t('En attente du code de WhatsApp…', 'Waiting for WhatsApp’s code…') : t('En attente du code de Meta…', 'Waiting for Meta’s code…')}
+                  <span className="font-normal text-ink-500">{t('(gardez cette page ouverte)', '(keep this page open)')}</span>
+                </p>
+              )}
+            </div>
             {/* Les mêmes étapes que celles que Claude redit (`src/mcp/outils-numero.ts`) : une seule source. */}
             <ol data-testid="etapes-numero-fourni" className="mt-4 list-decimal space-y-1 pl-5 text-sm text-ink-700">
               {(dansApplication ? ETAPES_COMPTE_FOURNI : ETAPES_NUMERO_FOURNI).map((e) => (
@@ -501,16 +534,6 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                 </Bouton>
               ) : null}
             </div>
-          </div>
-          <div data-testid="code-capte" className="rounded-carte border border-ink-200 bg-ink-50 p-5">
-            <div className="text-xs font-medium text-ink-500">{t('Code de vérification', 'Verification code')}</div>
-            {code ? (
-              <div className="mt-1 font-mono text-3xl font-semibold tracking-widest text-ink-900">{code}</div>
-            ) : (
-              <p className="mt-1 text-sm text-ink-500">
-                {dansApplication ? t('En attente du code de WhatsApp…', 'Waiting for WhatsApp’s code…') : t('En attente du code de Meta…', 'Waiting for Meta’s code…')}
-              </p>
-            )}
           </div>
           {application && qrDemande && <QrApplication api={api} />}
           {/* Ce que l'application garde et perd (Julien, 2026-10-31) : la reprise d'un numéro fourni mis dans l'application. */}
@@ -538,11 +561,15 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       )}
       {connexion.peutEtreBloquee && <p data-testid="fenetre-bloquee" className="mt-4 text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
       {(erreur ?? connexion.error) && <p data-testid="erreur-connexion" className="mt-4 rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700">{erreur ?? connexion.error}</p>}
+      <AideErreurMeta code={connexion.erreurMeta} />
     </>
   );
 }
 
 type Texte = { readonly fr: string; readonly en: string };
+
+/** Le titre de l'encadré du code, que l'étape « le code s'affiche… » désigne (essai 263). */
+export const CODE_ICI: Texte = { fr: 'Le code s’affichera ici', en: 'The code will appear here' };
 
 /**
  * Une question du tunnel, comme sur la vitrine : elle reste affichée une fois répondue, la réponse choisie en évidence

@@ -5,7 +5,7 @@ import type { EsConfig } from '@/lib/api';
 import type { ApiConnexionNumero } from '@/lib/api/connexion-numero';
 import { ouvrirFenetreMeta, prechargerFbSdk } from '@/lib/fb-sdk';
 import { DELAI_FENETRE_BLOQUEE_MS, optionsFenetreMeta } from '@/lib/fenetre-meta';
-import { lireMessageEs, retenirMessageEs, type MessageEs } from '@/lib/message-es';
+import { lireErreurEs, lireMessageEs, retenirMessageEs, type MessageEs } from '@/lib/message-es';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -31,6 +31,11 @@ export interface ConnexionNumero {
    */
   peutEtreBloquee: boolean;
   error: string | null;
+  /**
+   * Le code de l'erreur sur laquelle la fenêtre de Meta s'est fermée (`CANCEL` avec `error_id`, essai 263) : la page
+   * affiche l'aide de celles que nous savons expliquer (`aideErreurMeta`). `null` : aucune.
+   */
+  erreurMeta: string | null;
   /**
    * Ouvre la fenêtre de Meta. `coexistence` : le numéro reste dans l'application WhatsApp Business (plan 2026-10-24,
    * `optionsFenetreMeta`) ; `parLaLigne` : la fenêtre du partenaire (lot E du Crédit WhatsApp), avec l'identifiant de sa
@@ -67,6 +72,9 @@ export function useConnexionNumero(
   const [cfg, setCfg] = useState<EsConfig | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [erreurMeta, setErreurMeta] = useState<string | null>(null);
+  // L'erreur annoncée par la fenêtre à sa fermeture : elle arrive par postMessage, avant le callback de FB.login.
+  const erreurRef = useRef<string | null>(null);
   // waba_id / phone_number_id arrivent par postMessage, PAS par le callback FB.login -> stash dans une ref. Le
   // compte peut arriver SEUL : la fenêtre finie sans numéro (lot 3b, `lireMessageEs`).
   const idsRef = useRef<MessageEs | undefined>(undefined);
@@ -114,6 +122,8 @@ export function useConnexionNumero(
       }
       // On capture les identifiants dès qu'ils sont présents, QUEL QUE SOIT l'événement (FINISH, FINISH_ONLY_WABA...),
       // en chaîne OU en nombre (Meta n'est pas constant) -> plus de « popup n'a rien renvoyé » à tort.
+      const erreurLue = lireErreurEs(e.origin, e.data);
+      if (erreurLue) erreurRef.current = erreurLue.code;
       const lu = lireMessageEs(e.origin, e.data);
       if (!lu) return;
       idsRef.current = retenirMessageEs(idsRef.current, lu);
@@ -135,6 +145,8 @@ export function useConnexionNumero(
     }
     setBusy(true);
     setError(null);
+    setErreurMeta(null);
+    erreurRef.current = null;
     idsRef.current = undefined;
     try {
       await ouvrirFenetreMeta(cfg.appId, cfg.graphVersion, t, () => window.FB!.login(
@@ -143,6 +155,9 @@ export function useConnexionNumero(
             try {
               const code = resp?.authResponse?.code;
               if (typeof code !== 'string' || code === '') {
+                // La fermeture d'une erreur arrive un peu après le callback : on lui laisse une seconde.
+                const erreurLue = await waitFor(() => erreurRef.current ?? undefined, 1000);
+                setErreurMeta(erreurLue ?? null);
                 setError(t('Connexion Meta annulée ou refusée.', 'Meta connection cancelled or denied.'));
                 return;
               }
@@ -173,5 +188,5 @@ export function useConnexionNumero(
     }
   }
 
-  return { cfg, busy, peutEtreBloquee, error, connect };
+  return { cfg, busy, peutEtreBloquee, error, erreurMeta, connect };
 }

@@ -7,6 +7,7 @@
 // Meta) ; ce qui vient d'une fiche le dit, et `tests/vitrine-depannage.test.ts` tient chaque citation égale à sa source.
 import { FENETRE_BLOQUEE } from '../../web/lib/fenetre-meta';
 import { ETAPES_CARTE_META, WHATSAPP_ORDINAIRE } from '../../web/lib/partage/etapes-meta';
+import { LIMITE_NUMEROS } from '../../web/lib/partage/erreurs-meta';
 import { ETAPES_NUMERO_FOURNI, SI_SEUL_TEXT_MESSAGE } from '../../web/lib/partage/etapes-numero-fourni';
 import { PAGES_SOURCES } from './aide-sources-textes';
 import { TEXTES_TUNNEL } from './tunnel-textes';
@@ -115,6 +116,14 @@ export const DEPANNAGE = {
       cause: { fr: 'WhatsApp ordinaire ne se relie pas à l’API : seule l’application WhatsApp Business le peut.', en: 'Regular WhatsApp cannot connect to the API: only the WhatsApp Business app can.' },
       remede: [{ fr: WHATSAPP_ORDINAIRE.fr, en: WHATSAPP_ORDINAIRE.en }],
       lien: { libelle: { fr: 'Garder mon application WhatsApp Business', en: 'Keep my WhatsApp Business app' }, href: GARDER },
+    },
+    {
+      // L'erreur #2388386 (essai 263, 2026-11-16) : les mots de la page de connexion, qui l'affiche à la fermeture.
+      id: 'limite-numeros', ou: ['claude', 'console'],
+      titre: LIMITE_NUMEROS.titre,
+      cause: LIMITE_NUMEROS.cause,
+      remede: LIMITE_NUMEROS.sorties,
+      lien: { libelle: { fr: 'Connecter mon numéro WhatsApp', en: 'Connect my WhatsApp number' }, href: NUMERO_CONSOLE },
     },
     {
       id: 'fenetre-bloquee', ou: ['claude', 'console'],

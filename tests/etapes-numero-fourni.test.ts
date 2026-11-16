@@ -40,8 +40,8 @@ describe('les étapes du numéro fourni', () => {
     const fr = ETAPES_NUMERO_FOURNI.map((e) => e.fr);
     const ou = (motif: RegExp) => fr.findIndex((t) => motif.test(t));
     const ordre = [
-      /Ouvrir la fenêtre de Meta/, /GB \(\+44\)/, /choisissez « Phone call » \(l’appel\), surtout pas « Text message »/,
-      /saisissez-le/, /redemandez-le, toujours par « Phone call »/, /Finish/,
+      /Ouvrir la fenêtre de Meta/, /GB \(\+44\)/, /choisissez « Appel téléphonique » \(« Phone call » si la fenêtre est en anglais\), surtout pas « Message texte »/,
+      /saisissez-le/, /redemandez-le, toujours par « Appel téléphonique »/, /Finish/,
     ].map(ou);
     expect(ordre.every((i) => i >= 0)).toBe(true);
     expect([...ordre].sort((a, b) => a - b)).toEqual(ordre);
@@ -54,16 +54,17 @@ describe('les étapes du numéro fourni', () => {
 
   it('🔴 l’appel, jamais le SMS : une seule étape insiste, c’est elle, et « Text message » n’y figure que pour être refusé', () => {
     expect(APPEL).toHaveLength(1);
-    expect(APPEL[0]!.fr).toMatch(/« Phone call ».*surtout pas « Text message »/);
+    // Les mots de la fenêtre de Meta en français, relevés par Julien à l'essai 263 (2026-11-16), l'anglais entre parenthèses.
+    expect(APPEL[0]!.fr).toMatch(/« Appel téléphonique ».*« Phone call ».*surtout pas « Message texte »/);
     expect(APPEL[0]!.en).toMatch(/“Phone call”, NOT “Text message”/);
     // Plus aucune étape n'envoie vers « l'autre méthode », ni ne propose le SMS.
     for (const e of ETAPES_NUMERO_FOURNI) {
       expect(`${e.fr} ${e.en}`).not.toMatch(/autre méthode|other method/i);
-      if (e !== APPEL[0]) expect(`${e.fr} ${e.en}`).not.toMatch(/Text message/);
+      if (e !== APPEL[0]) expect(`${e.fr} ${e.en}`).not.toMatch(/Text message|Message texte/);
     }
     expect(ETAPES_NUMERO_FOURNI.find((e) => e.fr.includes(`${SECONDES_SANS_CODE} secondes`))!.en).toMatch(/still by “Phone call”/);
     // La seule exception, à part : la fenêtre ne propose que « Text message ».
-    expect(SI_SEUL_TEXT_MESSAGE.fr).toMatch(/ne propose que « Text message », prenez-le/);
+    expect(SI_SEUL_TEXT_MESSAGE.fr).toMatch(/ne propose que « Message texte » \(« Text message »\), prenez-le/);
     expect(SI_SEUL_TEXT_MESSAGE.en).toMatch(/only offers “Text message”, take it/);
   });
 
@@ -113,8 +114,10 @@ describe('les étapes du numéro fourni', () => {
   it('🔴 les fiches d’aide (FR, EN) et la capture générique de la fenêtre de Meta disent l’appel', () => {
     const fr = readFileSync('docs/aide/fiches/connecter-mon-numero-whatsapp.md', 'utf8');
     const en = readFileSync('docs/aide/fiches/en/connecter-mon-numero-whatsapp.md', 'utf8');
-    expect(fr).toContain('**pour recevoir le code, choisissez « Phone call » (l\'appel), surtout pas « Text message »**');
-    expect(fr).toContain('toujours par « Phone call »');
+    // Les mots de la fenêtre de Meta en français (essai 263), le texte de la fiche lu sans ses retours à la ligne.
+    const frLu = fr.replace(/\s+/g, ' ');
+    expect(frLu).toContain('**pour recevoir le code, choisissez « Appel téléphonique » (« Phone call » si la fenêtre est en anglais), surtout pas « Message texte »**');
+    expect(frLu).toContain('toujours par « Appel téléphonique »');
     expect(en).toContain('**to get the code, choose “Phone call”, NOT “Text message”**');
     expect(en).toContain('still by “Phone call”');
     for (const fiche of [fr, en]) expect(fiche).not.toMatch(/l'autre méthode|the other method|par SMS \(« Text message »\) si|by SMS \(“Text message”\) if/);
