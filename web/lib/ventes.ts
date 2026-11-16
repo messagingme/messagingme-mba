@@ -69,3 +69,14 @@ export function fmtMontant(montant: string, codeDevise: string, locale: string):
     return `${montant} ${codeDevise}`;
   }
 }
+
+/** Le nom d'une source de vente, le même au tableau Shopify et sur la fiche d'un contact. */
+export function libelleSource(s: { source: SourceVente; nom: string | null }, t: (fr: string, en?: string) => string): string {
+  switch (s.source) {
+    case 'campagne': return s.nom ? t(`Campagne « ${s.nom} »`, `Campaign “${s.nom}”`) : t('Campagne supprimée', 'Deleted campaign');
+    case 'relance_panier': return t('Relance de panier', 'Checkout reminder');
+    case 'scenario': return t('Scénarios', 'Scenarios');
+    case 'agent': return t('Agent IA', 'AI agent');
+    case 'agent_meta': return t('Agent de Meta', 'Meta’s agent');
+  }
+}

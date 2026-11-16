@@ -2719,6 +2719,15 @@ dans `PgShopifyStore`. Le jeton rendu n'est ni gardé ni renouvelé : les webhoo
   part, de même forme. Les ventes se comptent à la date du PAIEMENT ; relances parties, récupérés et montant récupéré à
   la date de la RELANCE (`relances_panier_jour.jour`, `ventes_attribuees.relance_le`), pour se comparer entre eux : la
   carte Shopify les rend ensemble (`relancesParties`, `recuperes`), à part de ses compteurs par panier ouvert.
+- **l'onglet « Shopify » de la fiche contact lit UN contact, pas une période** (plan 2026-11-16) :
+  `GET /tenants/:tenantId/contacts/:contactId/shopify` (module `contacts`, même garde que `/resume` et `/bilan`) sert
+  `PgVentesStore.achatsDuContact`, forme partagée `web/lib/partage/achats-shopify.ts`. Deux règles, chacune celle d'une
+  surface voisine pour que les nombres se recoupent : le RÉSUMÉ (nombre, dépense, dernière commande) est celui des filtres
+  « Achats et activité » qui ciblent ce client (`src/crm/segments.ts` : toutes ses lignes de `shopify_commandes`, test
+  compris, dépense dans la devise de la boutique) ; le RAPPORTÉ par WhatsApp est celui du chiffre attribué (test exclu,
+  part prouvée = `preuve` non nulle, par devise), joint par `commande_id`. Les paniers se retrouvent par le numéro de la
+  fiche (`shopify_paniers.telephone`), donc sur 7 jours au plus. La console ne montre l'onglet que si
+  `/contacts/segments` dit une boutique (branchée ou coupée), et lit la route au clic seulement.
 - 🔴 **le ROI des messages compte EXACTEMENT les messages que l'attribution prend pour des touches** (plan 2026-11-06) :
   `GET /tenants/:tenantId/stats/roi` (fonction `statistiques`, console seulement, `get_revenue_stats` ne le lit pas) sert
   `roiVentes` (`src/shopify/roi.ts`), qui met en face du chiffre brut de `chiffreVentes` (et de sa série cumulée par

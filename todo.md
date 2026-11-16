@@ -1,5 +1,18 @@
 # todo.md : backlog
 
+## 🟡 L'onglet « Shopify » de la fiche contact (relecture du 2026-11-16, aucun rouge)
+
+- Boutique sans devise lue (`shopify_boutiques.devise` nul) : le total dépensé somme toutes les devises (même règle que
+  `clausePlageCommandes`) et s'affiche sans symbole. Dire « devise inconnue » ou ne pas afficher de total.
+- « Commandes payées » compte aussi une commande connue par sa seule expédition (montant nul) : même règle que le filtre,
+  mais le libellé trompe. Choisir entre le libellé et l'exclusion, aux DEUX endroits ensemble.
+- Le rapporté joint `ventes_attribuees` par `commande_id` : une vente anonymisée n'y remonte pas, alors que le tableau de
+  bord la compte. Le dire en commentaire de `achatsDuContact`.
+- `ContactShopifyPanel.tsx` : `key={p.ouvertLe}` peut se dédoubler (prendre l'index) ; `ContactDetail.tsx` : remettre
+  l'onglet sur « Fiche » si `avecBoutique` repasse à faux pendant que « Shopify » est ouvert.
+- Tests d'intégration à ajouter : boutique sans devise, fiche effacée (`deleted_at`, `anonymized_at` rendent `null`),
+  borne des 100 commandes.
+
 ## 🟡 Les retours de l'essai 263 sur la connexion du numéro (relecture du 2026-11-16, aucun rouge)
 
 - `ParcoursNumero.tsx` : la première lecture par `api.etat()` affiche le code sans renseigner `dernierRecuLe` ; un clic

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import type { AchatsShopifyVue } from '../web/lib/partage/achats-shopify';
 import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import { signSession } from '../src/auth/token';
@@ -54,6 +55,7 @@ function app(
   exportSends?: (tenantId: string, contactId: string) => Promise<ContactSend[] | null>,
   bilan?: ContactsRouteDeps['getBilanContact'],
   resume?: ContactsRouteDeps['contactHistory']['resumeContact'],
+  achats?: ContactsRouteDeps['achatsShopify'],
 ) {
   const contacts: ContactsRouteDeps = {
     ...contactsInertes,
@@ -65,6 +67,7 @@ function app(
       resumeContact: resume ?? historiqueContactInerte.resumeContact,
     },
     ...(bilan ? { getBilanContact: bilan } : {}),
+    ...(achats ? { achatsShopify: achats } : {}),
   };
   return buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET }, contacts });
 }
@@ -283,6 +286,58 @@ describe('GET /tenants/:t/contacts/:id/resume', () => {
   it('sans jeton -> 401', async () => {
     const a = app(known, undefined, undefined, async () => RESUME);
     expect((await a.inject({ method: 'GET', url: '/tenants/t1/contacts/c1/resume' })).statusCode).toBe(401);
+    await a.close();
+  });
+});
+
+describe('GET /tenants/:t/contacts/:id/shopify', () => {
+  const C = '0b5f1c8e-7a52-4c1e-9d2a-3f6b8e1a2c4d';
+  const ACHATS: AchatsShopifyVue = {
+    boutique: { nom: 'Boutique', domaine: 'demo.myshopify.com', devise: 'EUR', commandesDepuis: '2026-11-01T00:00:00.000Z', coupeeLe: null },
+    resume: { commandes: 1, commandesTest: 1, depense: '49.9', derniereLe: '2026-11-02T10:00:00.000Z' },
+    rapporte: [],
+    commandes: [{ commandeId: '1001', payeeLe: '2026-11-02T10:00:00.000Z', montant: '49.9', devise: 'EUR', test: true, attribution: null }],
+    paniers: [],
+  };
+  const lecture = async (_t: string, id: string) => (id === C ? ACHATS : null);
+
+  it('contact connu -> 200 avec la boutique et ses commandes', async () => {
+    const a = app(known, undefined, undefined, undefined, lecture);
+    const res = await a.inject({ method: 'GET', url: `/tenants/t1/contacts/${C}/shopify`, ...h(adminTok) });
+    expect(res.statusCode).toBe(200);
+    expect(res.json<AchatsShopifyVue>()).toEqual(ACHATS);
+    await a.close();
+  });
+
+  it('🔴 contact inconnu du compte -> 404, jamais des commandes', async () => {
+    const a = app(known, undefined, undefined, undefined, lecture);
+    const res = await a.inject({ method: 'GET', url: '/tenants/t1/contacts/8c1d2e3f-0000-4000-8000-000000000000/shopify', ...h(adminTok) });
+    expect(res.statusCode).toBe(404);
+    await a.close();
+  });
+
+  it('identifiant mal formé -> 404 sans interroger la base (un 22P02 serait un 500)', async () => {
+    let appele = false;
+    const a = app(known, undefined, undefined, undefined, async () => { appele = true; return ACHATS; });
+    const res = await a.inject({ method: 'GET', url: '/tenants/t1/contacts/pas-un-uuid/shopify', ...h(adminTok) });
+    expect(res.statusCode).toBe(404);
+    expect(appele).toBe(false);
+    await a.close();
+  });
+
+  it('🔴 tenant de l’URL != tenant du jeton -> 403 SANS toucher au store', async () => {
+    let appele = false;
+    const a = app(known, undefined, undefined, undefined, async () => { appele = true; return ACHATS; });
+    const res = await a.inject({ method: 'GET', url: `/tenants/AUTRE/contacts/${C}/shopify`, ...h(adminTok) });
+    expect(res.statusCode).toBe(403);
+    expect(appele).toBe(false);
+    await a.close();
+  });
+
+  it('agent -> 403, comme tout le mini-CRM ; sans jeton -> 401', async () => {
+    const a = app(known, undefined, undefined, undefined, lecture);
+    expect((await a.inject({ method: 'GET', url: `/tenants/t1/contacts/${C}/shopify`, ...h(agentTok) })).statusCode).toBe(403);
+    expect((await a.inject({ method: 'GET', url: `/tenants/t1/contacts/${C}/shopify` })).statusCode).toBe(401);
     await a.close();
   });
 });

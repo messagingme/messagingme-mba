@@ -5,6 +5,7 @@ import { ficheActive } from '../crm/contact-store.pg';
 import { BOUNDS_CTE, STATS_TZ, type DateRange } from '../stats/range';
 import { LIGNE_RELANCE_PANIER, PREFIXE_LIGNE_SHOPIFY, type SourceVente, type Touche, type VenteAttribuee } from './attribution';
 import { campagneLevier, origineLevier, sourceDeCampagne, sourceDeLOrigine } from './perimetre-leviers';
+import { BORNES_ACHATS, type AchatsShopifyVue } from '../../web/lib/partage/achats-shopify';
 
 /**
  * Ce que la base somme pour une période (plan 2026-10-30, lot 2) : les montants sont des décimaux en TEXTE, additionnés
@@ -276,6 +277,94 @@ export class PgVentesStore {
       [tenantId, range.from, range.to, STATS_TZ],
     );
     return res.rows.map((r) => ({ jour: r.jour, devise: r.devise, brutCumule: r.brut, prouveCumule: r.prouve }));
+  }
+
+  /**
+   * L'ONGLET « SHOPIFY » DE LA FICHE (plan 2026-11-16) : la boutique, les commandes du contact et leur attribution, et
+   * les paniers de son numéro. `null` : contact inconnu de l'espace (ou effacé). 🔴 Chaque requête porte `tenant_id = $1`,
+   * le seul contrôle d'isolation ici (le rôle de l'application contourne la RLS).
+   * Le résumé suit la règle des filtres « Achats et activité » (toutes les commandes, test compris, dépense dans la devise
+   * de la boutique, `src/crm/segments.ts`) ; ce que WhatsApp a rapporté suit celle du chiffre attribué (test exclu).
+   */
+  async achatsDuContact(tenantId: string, contactId: string): Promise<AchatsShopifyVue | null> {
+    const fiche = await this.pool.query<{ telephone: string | null }>(
+      `select c.phone_e164 as telephone from contacts c where c.tenant_id = $1 and c.id = $2 and ${ficheActive('c')}`,
+      [tenantId, contactId],
+    );
+    if (fiche.rows.length === 0) return null;
+    const boutique = await this.pool.query<{
+      nom: string | null; domaine: string; devise: string | null; commandes_depuis: Date; coupee_le: Date | null;
+    }>(
+      `select nom, domaine, devise, commandes_depuis, coupee_le from shopify_boutiques where tenant_id = $1`,
+      [tenantId],
+    );
+    const b = boutique.rows[0];
+    const vide: AchatsShopifyVue = {
+      boutique: null, resume: { commandes: 0, commandesTest: 0, depense: '0', derniereLe: null }, rapporte: [], commandes: [], paniers: [],
+    };
+    if (!b) return vide;
+    const telephone = fiche.rows[0]?.telephone ?? null;
+    const [resume, rapporte, commandes, paniers] = await Promise.all([
+      this.pool.query<{ commandes: number; commandes_test: number; depense: string; derniere_le: Date | null }>(
+        `select count(*)::int as commandes, (count(*) filter (where o.test))::int as commandes_test,
+                trim_scale(coalesce(sum(o.montant) filter (where o.devise = coalesce($3::text, o.devise)), 0))::text as depense,
+                max(o.payee_le) as derniere_le
+           from shopify_commandes o
+          where o.tenant_id = $1 and o.contact_id = $2`,
+        [tenantId, contactId, b.devise],
+      ),
+      this.pool.query<{ devise: string; montant: string; prouve: string; commandes: number }>(
+        `select v.devise, trim_scale(sum(v.montant))::text as montant,
+                trim_scale(coalesce(sum(v.montant) filter (where v.preuve is not null), 0))::text as prouve,
+                count(*)::int as commandes
+           from ventes_attribuees v
+           join shopify_commandes o on o.tenant_id = v.tenant_id and o.commande_id = v.commande_id
+          where v.tenant_id = $1 and o.contact_id = $2 and not v.test
+          group by v.devise
+          order by v.devise`,
+        [tenantId, contactId],
+      ),
+      this.pool.query<{
+        commande_id: string; payee_le: Date; montant: string | null; devise: string | null; test: boolean;
+        source: SourceVente | null; campagne: string | null; preuve: 'panier' | 'utm' | null;
+      }>(
+        `select o.commande_id, o.payee_le, trim_scale(o.montant)::text as montant, o.devise, o.test,
+                v.source, k.name as campagne, v.preuve
+           from shopify_commandes o
+           left join ventes_attribuees v on v.tenant_id = o.tenant_id and v.commande_id = o.commande_id
+           left join campaigns k on k.id = v.campaign_id and k.tenant_id = o.tenant_id
+          where o.tenant_id = $1 and o.contact_id = $2
+          order by o.payee_le desc, o.commande_id desc
+          limit ${BORNES_ACHATS.commandes}`,
+        [tenantId, contactId],
+      ),
+      telephone === null
+        ? Promise.resolve({ rows: [] as Array<{ ouvert_le: Date; relance_le: Date | null; ferme_le: Date | null; issue: string | null }> })
+        : this.pool.query<{ ouvert_le: Date; relance_le: Date | null; ferme_le: Date | null; issue: string | null }>(
+          `select ouvert_le, relance_le, ferme_le, issue from shopify_paniers
+            where tenant_id = $1 and telephone = $2
+            order by ouvert_le desc
+            limit ${BORNES_ACHATS.paniers}`,
+          [tenantId, telephone],
+        ),
+    ]);
+    const r = resume.rows[0];
+    return {
+      boutique: {
+        nom: b.nom, domaine: b.domaine, devise: b.devise, commandesDepuis: b.commandes_depuis.toISOString(), coupeeLe: b.coupee_le?.toISOString() ?? null,
+      },
+      resume: {
+        commandes: r?.commandes ?? 0, commandesTest: r?.commandes_test ?? 0, depense: r?.depense ?? '0', derniereLe: r?.derniere_le?.toISOString() ?? null,
+      },
+      rapporte: rapporte.rows.map((x) => ({ devise: x.devise, montant: x.montant, prouve: x.prouve, commandes: x.commandes })),
+      commandes: commandes.rows.map((x) => ({
+        commandeId: x.commande_id, payeeLe: x.payee_le.toISOString(), montant: x.montant, devise: x.devise, test: x.test,
+        attribution: x.source === null ? null : { source: x.source, campagne: x.campagne, preuve: x.preuve },
+      })),
+      paniers: paniers.rows.map((x) => ({
+        ouvertLe: x.ouvert_le.toISOString(), relanceLe: x.relance_le?.toISOString() ?? null, fermeLe: x.ferme_le?.toISOString() ?? null, issue: x.issue,
+      })),
+    };
   }
 
   private async lire(

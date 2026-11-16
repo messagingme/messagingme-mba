@@ -2919,6 +2919,8 @@ async function main(): Promise<void> {
       contactHistory: contactHistoryStore,
       // Le coût d'un contact, aux mêmes tarifs que la fiche de campagne : `src/stats/chiffrage.ts`.
       getBilanContact: chiffrage.getBilanContact,
+      // L'onglet « Shopify » de la fiche : une lecture du store des ventes, appelée sur son objet (il lit `this.pool`).
+      achatsShopify: (tenant, contactId) => ventesStore.achatsDuContact(tenant, contactId),
       // La pose d'étiquettes sur UNE fiche, le MÊME module que l'agent, le scénario, le widget et l'outil MCP : la
       // déclaration dans le référentiel, et « tag ajouté » pour les nouvelles. L'API ne démarre pas de scénario (le
       // worker tient l'exécuteur), elle publie un événement par étiquette nouvelle. Un contact sans identité joignable

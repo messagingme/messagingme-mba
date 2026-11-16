@@ -1,7 +1,7 @@
 ---
 ecran: contacts
 source_section: Contacts & CRM
-source_empreinte: eed84f
+source_empreinte: d61f38
 publique: oui
 rubrique: parler-aux-clients
 rang: 4

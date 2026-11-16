@@ -12,6 +12,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ContactHistoryPanel } from '@/components/ContactHistoryPanel';
+import { ContactShopifyPanel } from '@/components/ContactShopifyPanel';
+import { chargerSegments } from '@/lib/segments';
 import { useT, useLocale } from '@/lib/i18n';
 import { fieldValue, SOCLE_CLES, waIdDuContact } from '@/lib/fields';
 import { formatDate } from '@/lib/day';
@@ -64,13 +66,15 @@ export const JOIGNABILITE_BADGE: Record<Verdict, { text: [string, string]; cls: 
  * les onglets Tags, Champs (les champs personnalisés) et Analyse (risque, dernière analyse, résumé) montrent
  * chacun une partie, pour y aller directement. « Historique » n'a pas bougé.
  */
-type OngletFiche = 'fiche' | 'tags' | 'champs' | 'analyse' | 'historique';
+type OngletFiche = 'fiche' | 'tags' | 'champs' | 'analyse' | 'historique' | 'shopify';
 const ONGLETS_FICHE: ReadonlyArray<{ cle: OngletFiche; libelle: [string, string] }> = [
   { cle: 'fiche', libelle: ['Fiche', 'Details'] },
   { cle: 'tags', libelle: ['Tags', 'Tags'] },
   { cle: 'champs', libelle: ['Champs', 'Fields'] },
   { cle: 'analyse', libelle: ['Analyse', 'Analysis'] },
   { cle: 'historique', libelle: ['Historique', 'History'] },
+  // Montré seulement quand l'espace a une boutique (plan 2026-11-16) : filtré au rendu, par `avecBoutique`.
+  { cle: 'shopify', libelle: ['Shopify', 'Shopify'] },
 ];
 
 /** Input adapté au type d'un user field. */
@@ -257,6 +261,17 @@ export function ContactDetail({
   // Onglet courant. L'historique se charge au premier affichage seulement (le panneau fait son propre fetch,
   // et n'est monté que quand l'onglet est actif).
   const [tab, setTab] = useState<OngletFiche>('fiche');
+  /**
+   * L'onglet « Shopify » paraît quand l'espace a une boutique, branchée ou coupée (ses commandes restent), quelle que
+   * soit l'offre (décision de Julien du 2026-11-16). Lu par `chargerSegments`, déjà en cache pour les filtres de la
+   * liste : aucune requête de plus à l'ouverture d'une fiche. Une API qui ne répond pas : pas d'onglet.
+   */
+  const [avecBoutique, setAvecBoutique] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    chargerSegments(tenantId).then((s) => { if (alive) setAvecBoutique(s?.boutique != null); }).catch(() => {});
+    return () => { alive = false; };
+  }, [tenantId]);
 
   const selectedDef = defByKey.get(newKey);
 
@@ -611,7 +626,7 @@ export function ContactDetail({
       {/* ⚠️ Des BOUTONS, pas des `role="tab"` : les tests e2e de la console trouvent un onglet par son rôle de
           bouton (`contact-bilan.spec.ts` ouvre ainsi l'Historique), et un rôle changé l'y rendrait introuvable. */}
       <div className="mt-4 flex gap-1 overflow-x-auto border-b border-ink-100 text-sm">
-        {ONGLETS_FICHE.map(({ cle, libelle }) => (
+        {ONGLETS_FICHE.filter(({ cle }) => cle !== 'shopify' || avecBoutique).map(({ cle, libelle }) => (
           <button
             key={cle}
             data-testid={`fiche-onglet-${cle}`}
@@ -625,6 +640,8 @@ export function ContactDetail({
 
       {tab === 'historique' ? (
         <ContactHistoryPanel tenantId={tenantId} contactId={contact.id} />
+      ) : tab === 'shopify' ? (
+        <ContactShopifyPanel tenantId={tenantId} contactId={contact.id} />
       ) : tab === 'tags' ? (
         <>{messageErreur}{blocTags}</>
       ) : tab === 'champs' ? (

@@ -8,7 +8,8 @@ import type { CoutContact, NiveauEngagement } from '../stats/cost';
 import { validateFieldValue, canonicalizeFieldValue, defPourEcriture, refusSaisieJson } from '../crm/fields';
 import { classerDemandeArret } from '../crm/consentement';
 import { nettoyerEtiquettes, type PoseEtiquette } from '../crm/poser-etiquette';
-import { espaceVerifie } from './scope';
+import { espaceVerifie, estUuid } from './scope';
+import type { AchatsShopifyVue } from '../../web/lib/partage/achats-shopify';
 import { buildContactFilters, normalizeFieldFilters } from '../crm/contact-filters';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import type { AuditEntry } from '../audit/store.pg';
@@ -118,6 +119,11 @@ export interface ContactsRouteDeps {
    * empêcher la fiche contact de s'ouvrir, qui appelle cette route à part.
    */
   getBilanContact(tenantId: string, contactId: string): Promise<{ cout: CoutContact; entonnoir: NiveauEngagement[] } | null>;
+  /**
+   * L'onglet « Shopify » de la fiche (plan 2026-11-16) : la boutique, les commandes et leur attribution, les paniers.
+   * `null` si le contact n'est pas dans l'espace. Lecture seule (`PgVentesStore.achatsDuContact`).
+   */
+  achatsShopify(tenantId: string, contactId: string): Promise<AchatsShopifyVue | null>;
   /**
    * La suite de la pose d'étiquettes d'UNE fiche (`src/crm/poser-etiquette.ts`), après l'écriture réussie : les
    * déclarer dans le référentiel de l'espace, et publier « tag ajouté » pour les nouvelles, ce que la fiche DEMANDE.
@@ -285,6 +291,18 @@ export function registerContacts(app: FastifyInstance, deps: ContactsRouteDeps, 
     const resume = await deps.contactHistory.resumeContact(tenant, contactId);
     if (!resume) return reply.code(404).send({ error: 'contact inconnu' });
     return reply.code(200).send(resume);
+  });
+
+  /**
+   * Ce que la boutique Shopify sait de ce contact (plan 2026-11-16). Route à part, appelée au clic sur l'onglet seulement :
+   * la fiche n'en dépend pas, et une API plus ancienne (404) ne l'empêche pas de s'ouvrir.
+   */
+  app.get('/tenants/:tenantId/contacts/:contactId/shopify', opts, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const { contactId } = req.params as { contactId: string };
+    const achats = estUuid(contactId) ? await deps.achatsShopify(tenant, contactId) : null;
+    if (!achats) return reply.code(404).send({ error: 'contact inconnu' });
+    return reply.code(200).send(achats);
   });
 
   /**

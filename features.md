@@ -659,6 +659,13 @@ Agent : **Inbox** seule. Menu **Compte** en haut à droite (**toggle langue FR/E
   L'onglet Fiche garde TOUT, comme avant ; les trois suivants montrent chacun une partie, pour y aller
   directement : les étiquettes, les champs personnalisés, et tout ce que la plateforme a déduit du contact
   (risque de désengagement, dernière analyse, résumé de la conversation). Historique ne change pas.
+- ✅ **Onglet « Shopify » sur la fiche contact** (2026-11-16) : dès que l'espace a une boutique Shopify, quelle que soit
+  l'offre, la fiche d'un client montre ce que la boutique nous a appris de lui. Ses commandes payées (nombre, total
+  dépensé, dernière commande, puis chacune avec sa date, son montant et la mention « test »), ce que WhatsApp en a
+  rapporté et par quelle source (campagne nommée, relance de panier, agent, scénario, preuve par le lien ou par le
+  panier), et ses paniers abandonnés des 7 derniers jours avec leur relance. Les commandes ne sont connues que depuis
+  le branchement de la boutique, et l'onglet le dit ; ni le numéro lisible de la commande ni les produits ne sont
+  gardés.
 - ✅ **Onglet « Historique » sur la fiche contact** (2026-07-20) : deux vues de tout ce que ce contact a vécu.
   **Campagnes reçues** : quelle campagne, quel template ou scénario, quand, et où en est le message (envoyé,
   délivré, lu, non délivré, écarté, envoi en échec avec son motif). Un message parti dont Meta n'a jamais

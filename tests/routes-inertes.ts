@@ -230,7 +230,7 @@ export const creationInerte: CampaignRepoLike = {
 };
 
 export const contactsInertes: Pick<ContactsRouteDeps,
-  'audit' | 'journal' | 'erreurs' | 'ensureSocleField' | 'createOneContact' | 'getBilanContact' | 'etiquettes' | 'listeDeLAgent' | 'enVol'
+  'audit' | 'journal' | 'erreurs' | 'ensureSocleField' | 'createOneContact' | 'getBilanContact' | 'achatsShopify' | 'etiquettes' | 'listeDeLAgent' | 'enVol'
   | 'suppressionsDuJour'> = {
   audit: journalMuet,
   journal: { list: async () => [] },
@@ -239,6 +239,7 @@ export const contactsInertes: Pick<ContactsRouteDeps,
   ensureSocleField: async () => {},
   createOneContact: neDevraitPasEtreAppelee('createOneContact'),
   getBilanContact: async () => null,
+  achatsShopify: async () => null,
   // Absente : ni déclaration ni émission. Les cas qui les observent montent le vrai module (`tests/contacts.test.ts`).
   etiquettes: { apresPose: async () => {} },
   // Aucun contact purgé n'est sur la liste de l'agent de Meta : rien à y retirer (la purge y est d'ailleurs inerte).

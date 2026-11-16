@@ -11,7 +11,7 @@ import { useT, useLocale } from '@/lib/i18n';
 import { presetRange } from '@/lib/range';
 import { fmtNum } from '@/lib/format';
 import type { Locale } from '@/lib/locale';
-import { fmtMontant, lireVentes, type ChiffreVentesVue, type SourceVente } from '@/lib/ventes';
+import { fmtMontant, libelleSource, lireVentes, type ChiffreVentesVue } from '@/lib/ventes';
 import { fmtRoi, lireRoi, type RoiVue } from '@/lib/roi';
 import { CourbeRoi } from '@/components/analytics/CourbeRoi';
 
@@ -104,16 +104,6 @@ function ShopifyInner({ session }: { session: Session }) {
 }
 
 type T = (fr: string, en?: string) => string;
-
-function libelleSource(s: { source: SourceVente; nom: string | null }, t: T): string {
-  switch (s.source) {
-    case 'campagne': return s.nom ? t(`Campagne « ${s.nom} »`, `Campaign “${s.nom}”`) : t('Campagne supprimée', 'Deleted campaign');
-    case 'relance_panier': return t('Relance de panier', 'Checkout reminder');
-    case 'scenario': return t('Scénarios', 'Scenarios');
-    case 'agent': return t('Agent IA', 'AI agent');
-    case 'agent_meta': return t('Agent de Meta', 'Meta’s agent');
-  }
-}
 
 function Tableau({ ventes, roi, locale, t }: { ventes: ChiffreVentesVue; roi: RoiVue | null; locale: Locale; t: T }) {
   const { reel, test, paniers } = ventes;
