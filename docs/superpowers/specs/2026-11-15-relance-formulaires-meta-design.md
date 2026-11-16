@@ -15,7 +15,8 @@ L'accroche : « Relancez sur WhatsApp, dans la minute, les leads de vos formulai
 
 **Le succès** : un annonceur relie sa Page et choisit le message en une conversation avec Claude (ou dans la console),
 et chaque nouveau lead reçoit son WhatsApp moins d'une minute après avoir rempli le formulaire, sans Zapier et sans
-CRM.
+CRM. Et, ajouté le 2026-11-16 : un client Entreprise CRÉE la pub à formulaire elle-même depuis Messaging Me (console ou
+Claude), relance comprise, comme il crée déjà une pub Click-to-WhatsApp.
 
 ## Ce qui existe déjà (mesuré sur `origin/main`)
 
@@ -92,6 +93,14 @@ DIT = écrit dans la doc ; SUPPOSÉ = déduit ou source tierce ; À MESURER = à
    des Publicités (`META_ADS_CONFIG_ID`), étendue des droits des leads. L'écran Publicités reste réservé à
    l'Entreprise par notre code.
 
+**Ajoutées le 2026-11-16 :**
+
+6. **Créer la pub à formulaire depuis Messaging Me**, console ET Claude Code, avec la même règle d'offre que les pubs
+   Click-to-WhatsApp (la fonction `publicites`, Entreprise aujourd'hui). La relance des leads, elle, reste ouverte à
+   toutes les offres.
+7. **Le formulaire de la pub : les deux.** Choisir un formulaire existant de la Page, OU en créer un simple dans
+   Messaging Me (voir « Créer la pub à formulaire »). Les formulaires avancés (logique conditionnelle) restent chez Meta.
+
 **Choix pris par défaut dans cette spec, à contester à la relecture :**
 - Un formulaire sans message réglé ne crée AUCUNE fiche : en Free (100 contacts), des leads non relancés mangeraient
   la limite. Ils sont seulement comptés (« reçus, non relancés »).
@@ -101,8 +110,9 @@ DIT = écrit dans la doc ; SUPPOSÉ = déduit ou source tierce ; À MESURER = à
 
 ## Non-objectifs
 
-- Créer ou modifier les formulaires depuis Messaging Me (ils restent dans le Gestionnaire de publicités).
-- Créer les publicités à formulaire (les Publicités Click-to-WhatsApp, Entreprise, restent seules à créer des pubs).
+- Modifier un formulaire existant (Meta ne modifie pas un formulaire publié : on en crée un nouveau), ou un formulaire
+  à logique conditionnelle.
+- Modifier une pub à formulaire déjà créée (comme les pubs Click-to-WhatsApp : le Gestionnaire de Meta).
 - Lire une case de consentement (décision 2).
 - Les leads organiques et ceux d'avant le branchement : seul un lead reçu après l'abonnement de la Page est relancé.
 - Un connecteur CRM au milieu : le client qui a HubSpot garde son chemin (déclencheur « étape de deal »).
@@ -170,6 +180,40 @@ DIT = écrit dans la doc ; SUPPOSÉ = déduit ou source tierce ; À MESURER = à
 - La catégorie affichée est celle que Meta attribue (une relance de lead sera probablement marketing, donc payante :
   à ne jamais affirmer avant la réponse de Meta).
 
+## Créer la pub à formulaire (Entreprise, décisions 6 et 7)
+
+L'écran **Publicités** gagne un choix en tête de création : « Ouvrir une conversation WhatsApp » (la pub
+Click-to-WhatsApp d'aujourd'hui) ou « Faire remplir un formulaire, puis relancer sur WhatsApp ». Tout le reste est
+commun et déjà écrit : compte publicitaire et Page, visuel image ou vidéo, texte, budget total et dates obligatoires,
+pays, âge, audiences, case « aucune catégorie spéciale », **tout créé EN PAUSE**, publication avec confirmation de la
+dépense maximale, suivi toutes les quinze minutes, archivage, lien vers le Gestionnaire.
+
+**Ce qui change pour une pub à formulaire :**
+- **Le formulaire** : un formulaire existant de la Page (liste, avec ses questions), ou un nouveau :
+  questions préremplies par Meta (prénom, nom, téléphone obligatoire, e-mail en option), trois questions libres au plus,
+  le lien vers la **politique de confidentialité du client** (obligatoire chez Meta, l'écran le demande), un texte
+  d'introduction, et un **écran de fin avec le bouton « Continuer sur WhatsApp »** vers le numéro de l'espace
+  (`button_type = WHATSAPP`, DIT). Un formulaire sans question de téléphone est refusé à la création : la relance n'aurait
+  rien à envoyer.
+- **Le message de relance se règle dans le même formulaire de création** : le modèle (ou, dès Pro, le scénario), sans
+  aller ailleurs. La pub et sa relance naissent ensemble, comme une pub Click-to-WhatsApp naît avec son scénario.
+- **Côté Meta** (DIT pour l'objectif et le formulaire, À MESURER pour le reste) : campagne `OUTCOME_LEADS`, formulaire
+  par `POST /{page-id}/leadgen_forms` avec le jeton de la Page, ensemble de pubs à destination « sur la pub », création
+  liée au formulaire.
+- 🔴 **Les conditions des pubs à formulaire** : une Page doit les accepter UNE fois, à
+  `facebook.com/ads/leadgen/tos`, sinon la création de la pub échoue (sous-code 1815089, source tierce). Ça ne se fait
+  pas par API : l'écran (et Claude) lit l'état de la Page et, s'il n'est pas accepté, donne le lien AVANT de laisser
+  créer.
+- **L'entonnoir** remplace « prospects » par : leads reçus, relancés, ont répondu, qualifiés (le tag), avec le coût de
+  chaque étape. Les leads non relancés (STOP, limite, numéro illisible, pas de message) sont comptés à part, comme les
+  prospects non pris en charge aujourd'hui.
+
+**Claude Code (deux outils, Entreprise)** :
+- `create_lead_ad` : tout ce que fait l'écran, en une fois, et crée EN PAUSE. Il rend l'aperçu, la dépense maximale et
+  les dates.
+- `publish_lead_ad` : publie, met en pause ou reprend. 🔴 Sa description exige que Claude répète budget total et dates
+  et obtienne un oui explicite AVANT de publier : c'est l'argent du client.
+
 ## Les outils (MCP, API, console)
 
 **MCP, trois outils**, et aucun pour un nouveau client : sa Page arrive avec le numéro.
@@ -233,8 +277,17 @@ les comptes qui ont un rôle sur l'app (Julien) : on construit et on essaie sur 
    `pages_manage_metadata` et les Pages en actifs. Elle sert aux mesures, jamais à la production.
 4. **Un formulaire instantané sur sa Page** (Meta Business Suite, Formulaires instantanés), sans pub : il suffit
    pour l'outil de test de Meta.
-5. **Après le lot 1 sur SANDBOX** : l'App Review (Advanced pour `leads_retrieval` et `pages_manage_metadata`), vidéo
-   du parcours réel. **Après l'accord seulement** : étendre la configuration des Publicités, puis `META_ES_CONFIG_ID`.
+5. **Deux soumissions d'App Review** (relevé du 2026-11-16 : seules `whatsapp_business_messaging`,
+   `whatsapp_business_management` et `public_profile` ont été accordées, le 2026-08-06 ; les Publicités ne marchent donc
+   que pour les comptes qui ont un rôle sur l'app) :
+   - **Soumission 1, sans attendre** : `ads_management`, `ads_read`, `pages_manage_ads`, `pages_show_list`,
+     `pages_read_engagement`, `business_management`. Elle débloque les Publicités pour les clients, le lot B du coût du
+     MBA (plan `2026-11-10-cout-ia-et-mba.md`) et les prérequis de `leads_retrieval`. Vidéo : l'écran Publicités tel
+     qu'il est. Le palier « Marketing API Access Tier » (500 appels réussis en 15 jours, moins de 15 % d'erreurs) se lit
+     dans le tableau de bord : une pub Click-to-WhatsApp créée DEPUIS la console alimente le compteur, une pub faite dans
+     le Gestionnaire non.
+   - **Soumission 2, après le lot 1 et la création de pub à formulaire** : `leads_retrieval`, `pages_manage_metadata`.
+     Vidéo : la pub à formulaire créée dans la console, un lead, le WhatsApp reçu. **Après l'accord seulement** : étendre la configuration des Publicités, puis `META_ES_CONFIG_ID`.
    Jusque-là, la fonction reste réservée aux comptes qui ont un rôle sur l'app, et le chemin de production ne bouge
    pas.
 
@@ -244,6 +297,9 @@ les comptes qui ont un rôle sur l'app (Julien) : on construit et on essaie sur 
    (utilisateur système d'intégration) lit-il `/me/accounts` et le jeton d'une Page ?
 2. `GET /{page-id}/leadgen_forms` avec ce jeton : formulaires et questions rendus ?
 3. Un lead de test Instagram porte-t-il `platform` ?
+4. Une pub `OUTCOME_LEADS` se crée-t-elle par l'API pour un annonceur français (en pause, sur le compte de Julien) ?
+   La spec des pubs Click-to-WhatsApp cite une agence pour qui « les leads ne passent pas pour l'Europe » : à
+   trancher par cet appel, pas par la source tierce. Et `leadgen_tos_accepted` se lit-il sur la Page ?
 
 Une mesure qui contredit la spec la fait revoir AVANT le plan, pas pendant.
 
@@ -260,6 +316,9 @@ partagés entre deux connexions, idempotence par `leadgen_id`).
   l'événement sortant.
 - **Lot 2** (console) : la carte Formulaires Meta et le texte du tunnel, poussés APRÈS le déploiement de l'API qui
   porte leurs routes.
+- **Lot 2 bis** (pub à formulaire, Entreprise) : serveur (formulaire, campagne `OUTCOME_LEADS`, état des conditions de
+  la Page, entonnoir des leads), les deux outils MCP, puis l'écran Publicités, poussé après l'API. Il dépend du lot 1
+  (la relance) et de la mesure 4.
 - **Lot 3** (doc) : la fiche et le dépannage (deux chemins, vitrine, anglais), la skill du plugin et la publication
   du plugin, `features.md`.
 - **Lot 4** : la configuration de connexion du numéro de production, après la mesure 1.
