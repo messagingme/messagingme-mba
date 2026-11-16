@@ -4,6 +4,39 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : dupliquer un scénario d'un espace à l'autre depuis /ops (lot 1)
+
+**La demande** : Julien veut, depuis `/ops`, dupliquer un scénario d'un espace vers un autre. « Aller vers » et
+« assigner » arrivent débranchés ; l'agent IA, les appels API, le modèle d'e-mail et le Flow se dupliquent à la demande ;
+les champs manquants sont créés ; les templates absents sont recréés chez Meta. Cadrage en cinq rondes de questions
+(spec `docs/superpowers/specs/2026-11-16-duplication-scenario-entre-espaces-design.md`), en trois lots. Le lot 1 copie
+le scénario, ses champs et ses déclencheurs, et débranche tout ce qui pointe l'espace source (plan
+`docs/superpowers/plans/2026-11-16-duplication-scenario-lot-1.md`).
+
+**Le lot** (API `2b9810b9` à `4a5a9343`, manuel `9e6ac630`, console `da5d006f`) : trois fonctions pures
+(`copierGraphe`, `copierDeclencheurs`, `planifierDuplication`), un store qui écrit en UNE transaction
+(`PgDuplicationStore`), quatre routes `session-ops`, l'onglet « Dupliquer ». Meta en lecture seule. On réutilise plutôt
+que recopier : `tagsInGraph` passe dans un module pur, `insererBrouillon` devient le seul SQL d'insertion d'un scénario,
+la source d'un bloc JS se lit par `sourceDuBlocJs`, et `PgAutomationStore` accepte le client d'une transaction. Fait en
+dehors de l'arbre partagé (259 commits de retard), dans une copie à part acceptée par Julien.
+
+**Ce que les essais ont appris** : l'e2e a trouvé deux défauts de l'onglet avant le push. Il chargeait la vue d'ensemble
+lourde de `/ops`, comme tout onglet hors Santé et Crédits ; et re-choisir le même espace source laissait la liste des
+scénarios sur « Chargement… ». Une règle de conception, écrite dans le manuel : l'empreinte qui lie l'aperçu à
+l'exécution se calcule sur l'état lu, jamais sur le plan, puisque la copie tire des codes de blocs neufs à chaque
+calcul.
+
+**Preuve** :
+- **Tests** : unitaires ; la suite racine sur le commit serveur seul (17 232 tests) ; intégration en CI (isolation entre
+  espaces, transaction, source intacte) ; 6 e2e de l'onglet et 90 e2e de `/ops`.
+- **Sécurité** : auto-attaque sans trouvaille (2 108 sondes) ; les tests de l'empreinte et des blocages vérifiés dans
+  les deux sens par mutation.
+- **Relecture indépendante** : aucun rouge, onze jaunes en tête de `todo.md`, pour le lot 2.
+- **Déploiement** : sans migration, après le lot Facturation d'une session voisine (run 43966832440, image de
+  `9e6ac630`). La route rend 401 en production (404 avant). La console a été poussée ensuite, CI verte.
+
+Reste l'essai réel 266.
+
 ## 2026-11-16 : l'onglet Facturation dans Paramètres, et chaque facture nommée
 
 Demande de Julien (« un onglet billing qui liste les factures et donne les liens Stripe », puis « les factures du Pro, de
