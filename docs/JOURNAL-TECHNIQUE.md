@@ -4,6 +4,26 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : l'onglet « Shopify » de la fiche contact
+
+**La demande** : Julien, en relisant la fiche d'aide « Brancher ma boutique Shopify », voulait retrouver sur la fiche
+d'un client tout ce que nous savons de lui côté boutique. Cadrage en rondes de questions : le résumé chiffré, la liste
+des commandes, ce que WhatsApp a rapporté et par quelle source, les paniers abandonnés ; rien de plus stocké (ni le
+numéro « #1002 », ni les produits) ; l'onglet dès qu'une boutique existe, quelle que soit l'offre.
+
+**Le lot** (`8c5ba80ac`) : `GET /tenants/:tenantId/contacts/:contactId/shopify` dans le module `contacts`, servi par
+`PgVentesStore.achatsDuContact` ; la console lit la route au clic sur l'onglet, qui ne paraît que si
+`/contacts/segments` dit une boutique. Deux règles empruntées pour que les nombres se recoupent : le résumé est celui
+des filtres « Achats et activité », le rapporté celui du chiffre attribué.
+
+**Preuve** : tests unitaires (la route, le lecteur de la console), intégration en CI (isolation entre espaces, devise,
+commandes de test, attribution, paniers par le numéro), trois e2e (avec boutique, sans boutique, API sans la route) et
+80 e2e voisins de la fiche, auto-attaque sans trouvaille. Trois tests du serveur dépassaient 5 s quand la suite tournait
+en même temps que le build de la console : seuls, ils passent, et ils durent autant avec et sans le lot (1,1 s contre
+1,2 s pour le plus long). Déployé sans migration (run 43940738599) : la route rend 401 en production (404 avant), la
+fumée est verte. Relecture indépendante : aucun rouge, six jaunes en tête de `todo.md`. Reste l'essai réel sur
+« Messaging Me demo » (essai 265).
+
 ## 2026-11-16 : un bloc qui n'a rien envoyé ne suit plus la flèche d'un bouton
 
 **Le cas** : un scénario de Julien, « Accueil » puis « Suite » (une photo et deux boutons, SANS texte) puis « Code
