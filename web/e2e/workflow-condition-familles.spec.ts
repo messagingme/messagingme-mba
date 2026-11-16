@@ -29,7 +29,7 @@ const INITIAL: Graph = {
   edges: [{ id: 'e0', source: 't', target: 'c' }],
 };
 
-async function ouvrir(page: Page, etat: Etat): Promise<void> {
+async function ouvrir(page: Page, etat: Etat, champs: Array<{ key: string; label: string; type: string }> = []): Promise<void> {
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
     const req = route.request();
@@ -53,7 +53,7 @@ async function ouvrir(page: Page, etat: Etat): Promise<void> {
     if (url.includes('/flows')) return json({ flows: [] });
     if (url.includes('/tags')) return json({ tags: [] });
     if (url.includes('/user-fields/usage')) return json({ total: 0, parChamp: {} });
-    if (url.includes('/user-fields')) return json({ fields: [] });
+    if (url.includes('/user-fields')) return json({ fields: champs });
     if (url.includes('/settings')) return json({ mbaEnabled: false, rcsEnabled: false, hubspotListsEnabled: false, campaignsPaused: false });
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     return json({});
@@ -158,6 +158,22 @@ test.describe('Bloc Condition : les familles', () => {
     await expect.poll(() => aretesDeC(etat), { timeout: 10_000 }).toEqual([`${h1}->a`, `${h3}->p`, `${hSinon}->s`].sort());
     expect(famillesEnregistrees(etat).map((f) => f.nom)).toEqual(['France', 'Endormi']);
     expect((await sortiesDeC(page)).map((s) => s.id)).toEqual([h1, h3, hSinon]);
+  });
+
+  test('🔴 un champ perso NOMBRE garde sa rubrique « Champ » : son opérateur « ≥ » n’en fait pas un champ d’analyse', async ({ page }) => {
+    // Julien, 2026-11-16 : choisir « Nombre d'articles » ramenait le menu sur « Dernière analyse », le champ illisible.
+    const etat: Etat = { courant: INITIAL, saved: [], publications: 0 };
+    await ouvrir(page, etat, [{ key: 'nombre_d_articles', label: 'Nombre d’articles', type: 'number' }]);
+    await page.locator('.react-flow__node[data-id="c"]').click();
+    const type = page.locator('select').filter({ has: page.locator('option[value="analyse"], option[value="field"]') }).first();
+    await type.selectOption('field');
+    await page.getByTestId('condition-champ').selectOption('nombre_d_articles');
+    await expect(type).toHaveValue('field');
+    await expect(page.getByTestId('condition-champ')).toHaveValue('nombre_d_articles');
+    await expect.poll(() => {
+      const c = etat.saved[etat.saved.length - 1]?.nodes.find((x) => x.id === 'c');
+      return (c?.data.clauses as Array<{ key?: string; op?: string }> | undefined)?.[0] ?? null;
+    }, { timeout: 10_000 }).toMatchObject({ kind: 'field', key: 'nombre_d_articles', op: 'gte' });
   });
 
   test('un champ système se choisit dans la liste des champs, sous « Système »', async ({ page }) => {

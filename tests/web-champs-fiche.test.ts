@@ -55,4 +55,13 @@ describe('estFiltreAnalyse', () => {
     expect(estFiltreAnalyse({ key: 'analyse_urgence', op: 'gte' }, [])).toBe(true);
     expect(estFiltreAnalyse({ key: 'ville', op: 'contains' }, champs)).toBe(false);
   });
+
+  it('🔴 un champ perso NOMBRE ou OUI/NON reste un champ, même avec un opérateur que l’analyse partage', () => {
+    // Julien, 2026-11-16 : la Condition « Nombre d'articles ≥ 4 » revenait sur « Dernière analyse » à chaque choix.
+    const champs = champsFiltrablesDe(reponseDuServeur());
+    for (const op of ['gte', 'lte', 'is_true', 'is_false', 'in']) {
+      expect(estFiltreAnalyse({ key: 'nombre_d_articles', op }, champs), op).toBe(false);
+      expect(estFiltreAnalyse({ key: 'nombre_d_articles', op }, []), `${op}, liste pas encore reçue`).toBe(false);
+    }
+  });
 });

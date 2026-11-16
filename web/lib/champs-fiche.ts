@@ -110,9 +110,15 @@ export function filtreAnalyseParDefaut(champ: ChampFiltrable, op: OperateurAnaly
   return { key: champ.cle, op, value: '' };
 }
 
-/** Une ligne de filtre porte-t-elle sur la dernière analyse ? Par la liste reçue, ou par un opérateur de colonne. */
+/**
+ * Une ligne de filtre porte-t-elle sur la dernière analyse ? Par la liste reçue, ou, tant qu'elle n'est pas arrivée, par sa
+ * CLÉ : celles de l'analyse commencent toutes par `analyse_`, préfixe qu'aucun champ perso ne peut porter (le serveur les
+ * réserve). 🔴 Jamais par l'opérateur : `gte`, `lte`, `is_true` et `is_false` sont aussi ceux d'un champ perso nombre ou
+ * oui/non, et une Condition sur « Nombre d'articles ≥ 4 » basculait dans la rubrique « Dernière analyse » (Julien,
+ * 2026-11-16) ; le moteur, lui, juge par la clé (`estCleFiltrable`).
+ */
 export function estFiltreAnalyse(f: { key: string; op: string }, champs: readonly ChampFiltrable[]): boolean {
-  return champs.some((c) => c.cle === f.key) || (OPERATEURS_FICHE_SEULS as readonly string[]).includes(f.op);
+  return champs.some((c) => c.cle === f.key) || f.key.startsWith('analyse_');
 }
 
 /**

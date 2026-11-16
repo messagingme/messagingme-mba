@@ -19,11 +19,18 @@ export function ArbreJson({
   payload,
   cheminsUtilises,
   onAttacher,
+  branchesAttachables = false,
 }: {
   payload: unknown;
   /** Chemins déjà présents dans le mapping : la ligne le dit au lieu de proposer un doublon. */
   cheminsUtilises: readonly string[];
-  onAttacher: (chemin: string) => void;
+  /** Le chemin attaché, et la nature de ce qu'il désigne (une liste se compte, un objet se range dans un champ JSON). */
+  onAttacher: (chemin: string, type: NoeudJson['type']) => void;
+  /**
+   * Une liste ou un objet peut-il s'attacher aussi ? Non pour le webhook entrant (un champ reçoit une valeur simple) ;
+   * oui pour le bloc « Extraire du JSON », qui compte une liste ou range une sous-partie en JSON (Julien, 2026-11-16).
+   */
+  branchesAttachables?: boolean;
 }) {
   const t = useT();
   const racine = arbreDuPayload(payload);
@@ -39,7 +46,7 @@ export function ArbreJson({
   return (
     <div className="rounded-carte border border-ink-200 bg-ink-50/50 p-2 font-mono text-xs" data-testid="arbre-json">
       {racine.map((n) => (
-        <Ligne key={n.cle} noeud={n} profondeur={0} cheminsUtilises={cheminsUtilises} onAttacher={onAttacher} />
+        <Ligne key={n.cle} noeud={n} profondeur={0} cheminsUtilises={cheminsUtilises} onAttacher={onAttacher} branchesAttachables={branchesAttachables} />
       ))}
     </div>
   );
@@ -50,17 +57,20 @@ function Ligne({
   profondeur,
   cheminsUtilises,
   onAttacher,
+  branchesAttachables,
 }: {
   noeud: NoeudJson;
   profondeur: number;
   cheminsUtilises: readonly string[];
-  onAttacher: (chemin: string) => void;
+  onAttacher: (chemin: string, type: NoeudJson['type']) => void;
+  branchesAttachables: boolean;
 }) {
   const t = useT();
   // Les deux premiers niveaux sont ouverts : c'est là que se trouvent presque toujours le téléphone et le nom.
   const [ouvert, setOuvert] = useState(profondeur < 2);
   const branche = noeud.enfants.length > 0;
   const deja = noeud.chemin !== '' && cheminsUtilises.includes(noeud.chemin);
+  const attachable = noeud.attachable || (branchesAttachables && noeud.type !== 'valeur' && noeud.chemin !== '');
 
   return (
     <div>
@@ -80,10 +90,10 @@ function Ligne({
         <span className="text-ink-900">{noeud.cle}</span>
         <span className="truncate text-ink-500">{noeud.apercu}</span>
         <span className="ml-auto shrink-0">
-          {noeud.attachable && !deja && (
+          {attachable && !deja && (
             <button
               type="button"
-              onClick={() => onAttacher(noeud.chemin)}
+              onClick={() => onAttacher(noeud.chemin, noeud.type)}
               className="rounded-controle border border-brand-200 bg-white px-1.5 py-0.5 text-xs font-sans font-medium text-brand-600 hover:bg-brand-50"
             >
               {t('Attacher…', 'Attach…')}
@@ -99,7 +109,7 @@ function Ligne({
         </span>
       </div>
       {ouvert && noeud.enfants.map((e, i) => (
-        <Ligne key={`${e.cle}-${i}`} noeud={e} profondeur={profondeur + 1} cheminsUtilises={cheminsUtilises} onAttacher={onAttacher} />
+        <Ligne key={`${e.cle}-${i}`} noeud={e} profondeur={profondeur + 1} cheminsUtilises={cheminsUtilises} onAttacher={onAttacher} branchesAttachables={branchesAttachables} />
       ))}
     </div>
   );

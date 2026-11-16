@@ -114,23 +114,35 @@ export function PanneauExtraireJson({ tenantId, data, fields, blocsDuScenario, r
         const apercu = exemple === undefined || (l.chemin === '' && l.mesure === 'valeur') ? null : valeurExtraite(exemple, l);
         return (
           <div key={i} className={`flex flex-col gap-1.5 rounded-controle border p-2 ${i === active ? 'border-brand-300 bg-brand-50/40' : 'border-ink-200'}`} onFocus={() => setActive(i)} data-testid={`extraire-ligne-${i}`}>
-            <input
-              data-testid={`extraire-chemin-${i}`} className={cls} value={l.chemin} placeholder={t('chemin, ex. articles[0].nom', 'path, e.g. items[0].name')}
-              onChange={(e) => changer(i, { chemin: e.target.value })}
-            />
-            <div className="flex gap-1.5">
-              <select data-testid={`extraire-mesure-${i}`} className={`${cls} bg-white`} value={l.mesure} onChange={(e) => changer(i, { mesure: e.target.value as MesureExtraction })}>
-                <option value="valeur">{t('la valeur', 'the value')}</option>
-                <option value="nombre">{t('le nombre d’éléments', 'the number of items')}</option>
-              </select>
-              <select data-testid={`extraire-cible-${i}`} className={`${cls} bg-white`} value={l.champCible} onChange={(e) => changer(i, { champCible: e.target.value })}>
-                <option value="">{t('ranger dans…', 'store in…')}</option>
-                {cibles.map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}
-              </select>
+            {/* Trois intitulés en clair : « prends ceci dans la réponse, range-le dans ce champ » (Julien, 2026-11-16 :
+                trois cases sans titre ne se comprenaient pas). */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-ink-900">{t(`Ligne ${i + 1}`, `Line ${i + 1}`)}</span>
               <button type="button" className="shrink-0 text-ink-400 hover:text-danger" aria-label={t('Retirer la ligne', 'Remove the line')} onClick={() => { ecrire(lignes.filter((_, j) => j !== i)); setActive(0); }}>
                 <Icone nom="supprimer" taille="petite" />
               </button>
             </div>
+            <label className="text-xs text-ink-500">
+              {t('Dans la réponse', 'In the answer')}
+              <input
+                data-testid={`extraire-chemin-${i}`} className={`${cls} mt-0.5`} value={l.chemin} placeholder={t('ex. articles[0].nom', 'e.g. items[0].name')}
+                onChange={(e) => changer(i, { chemin: e.target.value })}
+              />
+            </label>
+            <label className="text-xs text-ink-500">
+              {t('Prendre', 'Take')}
+              <select data-testid={`extraire-mesure-${i}`} className={`${cls} mt-0.5 bg-white`} value={l.mesure} onChange={(e) => changer(i, { mesure: e.target.value as MesureExtraction })}>
+                <option value="valeur">{t('la valeur', 'the value')}</option>
+                <option value="nombre">{t('le nombre d’éléments (une liste)', 'the number of items (a list)')}</option>
+              </select>
+            </label>
+            <label className="text-xs text-ink-500">
+              {t('Ranger dans le champ', 'Store in the field')}
+              <select data-testid={`extraire-cible-${i}`} className={`${cls} mt-0.5 bg-white`} value={l.champCible} onChange={(e) => changer(i, { champCible: e.target.value })}>
+                <option value="">{t('choisir un champ…', 'choose a field…')}</option>
+                {cibles.map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}
+              </select>
+            </label>
             {apercu !== null && (
               <p className="break-all text-xs text-ink-700" data-testid={`extraire-apercu-${i}`}>→ {apercu === '' ? t('(vide)', '(empty)') : apercu}</p>
             )}
@@ -150,14 +162,16 @@ export function PanneauExtraireJson({ tenantId, data, fields, blocsDuScenario, r
             {t('Voir un exemple', 'See an example')}
           </Bouton>
           <p className="text-xs text-ink-500">
-            {t('Rejoue le bloc Appel API qui range dans ce champ, avec ses valeurs d’essai. Cliquez une valeur pour remplir le chemin de la ligne active.',
-              'Replays the API call block that stores into this field, with its test values. Click a value to fill the active line’s path.')}
+            {t('Rejoue le bloc Appel API qui range dans ce champ, avec ses valeurs d’essai. « Attacher… » remplit « Dans la réponse » de la ligne encadrée ; une liste attachée se compte.',
+              'Replays the API call block that stores into this field, with its test values. “Attach…” fills “In the answer” of the framed line; an attached list is counted.')}
           </p>
           {erreur !== null && <p className="text-xs text-danger" data-testid="extraire-erreur">{erreur}</p>}
           {exemple !== undefined && (
-            <ArbreJson payload={exemple} cheminsUtilises={lignes.map((l) => l.chemin)} onAttacher={(chemin) => {
-              if (lignes.length === 0) { ecrire([{ chemin, mesure: 'valeur', champCible: '' }]); setActive(0); return; }
-              changer(Math.min(active, lignes.length - 1), { chemin });
+            <ArbreJson payload={exemple} cheminsUtilises={lignes.map((l) => l.chemin)} branchesAttachables onAttacher={(chemin, type) => {
+              // Une liste attachée se COMPTE d'office ; une valeur ou un objet se prend tel quel.
+              const mesure: MesureExtraction = type === 'tableau' ? 'nombre' : 'valeur';
+              if (lignes.length === 0) { ecrire([{ chemin, mesure, champCible: '' }]); setActive(0); return; }
+              changer(Math.min(active, lignes.length - 1), { chemin, mesure });
             }} />
           )}
         </div>

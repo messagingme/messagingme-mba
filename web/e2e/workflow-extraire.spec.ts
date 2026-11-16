@@ -74,10 +74,11 @@ test.describe('Builder : le bloc Extraire du JSON', () => {
     await expect(page.getByTestId('extraire-chemin-0')).toHaveValue('products[0].title');
     await expect(page.getByTestId('extraire-apercu-0')).toContainText('Blue Frock');
 
-    // Le chemin tapé à la main, index depuis la fin compris, s'aperçoit aussi.
+    // 🔴 Une LISTE s'attache aussi depuis l'arbre (Julien, 2026-11-16), et se compte d'office.
     await page.getByTestId('extraire-ajouter').click();
-    await page.getByTestId('extraire-chemin-1').fill('products');
-    await page.getByTestId('extraire-mesure-1').selectOption('nombre');
+    await page.getByTestId('noeud-json').filter({ hasText: 'products' }).first().getByRole('button', { name: /Attacher/ }).click();
+    await expect(page.getByTestId('extraire-chemin-1')).toHaveValue('products');
+    await expect(page.getByTestId('extraire-mesure-1')).toHaveValue('nombre');
     await page.getByTestId('extraire-cible-1').selectOption('nb');
     await expect(page.getByTestId('extraire-apercu-1')).toContainText('2');
 
