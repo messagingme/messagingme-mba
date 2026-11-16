@@ -1,5 +1,5 @@
 ---
-description: Brancher une boutique Shopify à WhatsApp : confirmation de commande, avis d'expédition, relance des paniers abandonnés. Le plus simple : Claude Code.
+description: Brancher une boutique Shopify à WhatsApp depuis la console : confirmation de commande, avis d'expédition, relance des paniers abandonnés.
 ecran: integrations
 source_section: Boutique Shopify : les messages de commande sur WhatsApp (Claude Code ou console, 2026-10-21)
 source_empreinte: bbb9b5
@@ -7,32 +7,17 @@ publique: oui
 rubrique: parler-aux-clients, demarrer-console
 rang: 6, 8
 prerequis: connecter-mon-numero-whatsapp
-claude_code: oui
-bouton_claude: Brancher Shopify depuis Claude Code, gratuitement
 bouton_console: Brancher Shopify dans la console
 ancre_console: integration-shopify
 ---
 # Brancher ma boutique Shopify
 
 Vos clients Shopify reçoivent sur WhatsApp la **confirmation de leur commande payée**, l'**avis d'expédition** avec le
-transporteur et le lien de suivi, et une **relance s'ils abandonnent leur panier**. Le plus simple : le demander à
-**Claude Code**.
-
-## Depuis Claude Code, avec l'offre Free
-
-Installez le plugin Messaging Me dans Claude Code, puis demandez « branche ma boutique Shopify ». Claude crée l'app
-dans votre propre organisation Shopify (aucune validation de Shopify n'est nécessaire) ; vous n'avez qu'à vous
-connecter à Shopify et à cliquer « Installer ». Il vous propose ensuite le texte de chaque message, le fait approuver
-par Meta, et le branche. Il importe aussi vos clients abonnés à votre marketing, si vous le lui demandez : en le
-demandant, vous déclarez qu'ils ont accepté vos messages WhatsApp, et leurs fiches arrivent consentantes (un client qui
-a dit STOP le reste).
-
-Les autres règles décrites plus bas (la relance, STOP, la limite de contacts) sont les mêmes que depuis la console :
-les deux chemins passent par la même gestion.
+transporteur et le lien de suivi, et une **relance s'ils abandonnent leur panier**. Ce guide suit la console, avec l'offre Pro.
 
 ## Depuis la console, avec l'offre Pro
 
-Sans Claude Code, la carte Shopify de la console vous guide de bout en bout, en sept gestes.
+La carte Shopify de la console vous guide de bout en bout, en sept gestes.
 
 **1. Ouvrir la carte Shopify.** Dans le menu Tools > Intégrations, la carte Shopify dit ce
 qu'elle fait et vous guide en deux étapes, la première chez Shopify, la seconde dans la console.
@@ -75,7 +60,7 @@ Les fiches sont étiquetées « Shopify » et arrivent sans consentement WhatsAp
 les chiffres des 30 derniers jours : messages partis, clients écartés et pourquoi. « Couper » arrête tous les messages.
 
 L'app reste alors installée sur votre boutique : désinstallez-la depuis la page des apps de la boutique, dont le lien
-est sur la carte. Vous pourrez la rebrancher depuis la carte ou depuis Claude Code.
+est sur la carte. Vous pourrez la rebrancher depuis la carte.
 
 **Bon à savoir.** Chaque message de la boutique rend la fiche du client consentante partout, campagnes comprises ; un
 client qui a répondu STOP le reste et ne reçoit rien.
@@ -103,10 +88,7 @@ campagnes permet encore de la relier à vos messages.
 
 Le chiffre d'affaires de vos commandes payées après un message WhatsApp, et ce que vos messages ont coûté.
 
-**8. [claude] Le demander à Claude Code.** Dès l'offre Free : « combien mes envois WhatsApp ont rapporté sur les 30
-derniers jours ? ». Il répond par source (relance de panier, campagne, agent IA) et dit la part prouvée.
-
-**8. [console] Ouvrir Performance Lab > Quantitatif > Shopify.** Offre Pro : le chiffre d'affaires, ce que vos
+**8. Ouvrir Performance Lab > Quantitatif > Shopify.** Offre Pro : le chiffre d'affaires, ce que vos
 messages ont coûté, et votre ROI, en tout et pour chaque campagne.
 
 **Bon à savoir.** Le chiffre compte les commandes payées dans les 5 jours après un message WhatsApp reçu, attribuées
@@ -119,10 +101,7 @@ les confirmations de commande ni les avis d'expédition.
 
 Vos clients choisis par leurs commandes payées : combien, pour quel montant, la dernière quand.
 
-**9. [claude] Le demander à Claude Code.** Offre Pro : « mes clients qui ont commandé au moins 2 fois en 90 jours, en
-France », puis « prépare une campagne pour eux ». Il vous montre qui la recevra avant de la lancer.
-
-**9. [console] Filtrer par « Achats et activité ».** Offre Pro : dans le mini-CRM, ouvrez les filtres ; la même partie
+**9. Filtrer par « Achats et activité ».** Offre Pro : dans le mini-CRM, ouvrez les filtres ; la même partie
 sert aux destinataires d'une campagne. Commandes payées, dépense, dernière commande, sur la période de votre choix.
 
 **Bon à savoir.** Les commandes ne comptent que depuis le branchement de la boutique : l'historique de Shopify n'est

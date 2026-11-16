@@ -1,30 +1,17 @@
 ---
-description: Connect a Shopify store to WhatsApp: order confirmation, shipping notice with tracking, abandoned checkout reminders. The simplest way: Claude Code.
+description: Connect a Shopify store to WhatsApp from the console: order confirmation, shipping notice with tracking, abandoned checkout reminders.
 slug: connect-my-shopify-store
-traduit_de: a49d28
-bouton_claude: Connect Shopify from Claude Code, for free
+traduit_de: 7c20ab
 bouton_console: Connect Shopify in the console
 ---
 # Connect my Shopify store
 
 Your Shopify customers get on WhatsApp the **confirmation of their paid order**, the **shipping notice** with the
-carrier and the tracking link, and a **reminder if they abandon their checkout**. The simplest way: ask **Claude
-Code**.
-
-## From Claude Code, with the Free plan
-
-Install the Messaging Me plugin in Claude Code, then ask “connect my Shopify store”. Claude creates the app in your own
-Shopify organization (no Shopify review is needed); all you have to do is sign in to Shopify and click “Install”. It
-then suggests the text of each message, has it approved by Meta, and connects it. It also imports your customers
-subscribed to your marketing, if you ask it to: by asking, you declare they agreed to receive your WhatsApp messages,
-and their records arrive opted in (a customer who said STOP stays opted out).
-
-The other rules described below (the reminder, STOP, the contact limit) are the same as from the console: both paths
-go through the same management.
+carrier and the tracking link, and a **reminder if they abandon their checkout**. This guide follows the console, with the Pro plan.
 
 ## From the console, with the Pro plan
 
-Without Claude Code, the Shopify card of the console guides you from start to finish, in seven steps.
+The Shopify card of the console guides you from start to finish, in seven steps.
 
 **1. Open the Shopify card.** In the Tools > Integrations menu, the Shopify card says what it
 does and guides you in two steps, the first at Shopify, the second in the console.
@@ -67,7 +54,7 @@ The records are tagged “Shopify” and arrive without WhatsApp consent: an ema
 the figures for the last 30 days: messages sent, customers left out and why. “Cut” stops every message.
 
 The app then stays installed on your store: uninstall it from the store apps page, whose link is on the card. You can
-reconnect it from the card or from Claude Code.
+reconnect it from the card.
 
 **Good to know.** Each message from the store makes the customer’s record consenting everywhere, campaigns included; a
 customer who replied STOP stays opted out and gets nothing.
@@ -95,10 +82,7 @@ can still tie it to your messages.
 
 The revenue from your orders paid after a WhatsApp message, and what your messages cost.
 
-**8. [claude] Ask Claude Code.** From the Free plan: “how much did my WhatsApp sends bring in over the last 30 days?”.
-It answers source by source (checkout reminder, campaign, AI agent) and gives the proven part.
-
-**8. [console] Open Performance Lab > Quantitative > Shopify.** Pro plan: the revenue, what your messages cost, and
+**8. Open Performance Lab > Quantitative > Shopify.** Pro plan: the revenue, what your messages cost, and
 your ROI, overall and for each campaign.
 
 **Good to know.** The figure counts the orders paid within 5 days after a WhatsApp message was received, credited to
@@ -110,10 +94,7 @@ apart, never counted. The cost only counts what can bring a sale, never order co
 
 Your customers picked by their paid orders: how many, for how much, the last one when.
 
-**9. [claude] Ask Claude Code.** Pro plan: “my customers who ordered at least twice in 90 days, in France”, then
-“prepare a campaign for them”. It shows you who will receive it before launching it.
-
-**9. [console] Filter by “Purchases and activity”.** Pro plan: in the mini-CRM, open the filters; the same part serves a
+**9. Filter by “Purchases and activity”.** Pro plan: in the mini-CRM, open the filters; the same part serves a
 campaign’s recipients. Paid orders, spend, last order, over the period you choose.
 
 **Good to know.** Orders only count from the moment the store was connected: Shopify’s history is not taken over, and

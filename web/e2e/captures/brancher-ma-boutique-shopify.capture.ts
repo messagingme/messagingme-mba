@@ -136,19 +136,19 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await expect(carte.getByTestId('integration-shopify-compteurs')).toBeVisible();
       await capturer(page, CLE, 7, locale, carte, 'haut', carte.getByTestId('integration-shopify-couper'));
 
-      // 8 (console). Performance Lab > Quantitatif > Shopify : le chiffre, sa part prouvée, le coût et le ROI.
+      // 8. Performance Lab > Quantitatif > Shopify : le chiffre, sa part prouvée, le coût et le ROI.
       await page.goto('/dashboard/shopify');
       await expect(page.getByTestId('ventes-total-EUR')).toBeVisible();
-      await capturer(page, CLE, '8-console', locale, undefined, 'haut', page.getByTestId('ventes-total-EUR'));
+      await capturer(page, CLE, 8, locale, undefined, 'haut', page.getByTestId('ventes-total-EUR'));
 
-      // 9 (console). Contacts, les filtres « Achats et activité » : au moins 2 commandes en 90 jours.
+      // 9. Contacts, les filtres « Achats et activité » : au moins 2 commandes en 90 jours.
       await page.goto('/contacts');
       await page.getByTestId('contacts-toggle-filters').click();
       await page.getByTestId('filtre-commandes-min').fill('2');
       await page.getByTestId('filtre-commandes-jours').fill('90');
       const achats = page.getByTestId('filtres-achats');
       await expect(page.getByTestId('filtres-achats-suivi')).toBeVisible();
-      await capturer(page, CLE, '9-console', locale, achats, 'haut', page.getByTestId('filtre-commandes-min'));
+      await capturer(page, CLE, 9, locale, achats, 'haut', page.getByTestId('filtre-commandes-min'));
     });
   });
 }
