@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : un bloc qui n'a rien envoyé ne suit plus la flèche d'un bouton
+
+**Le cas** : un scénario de Julien, « Accueil » puis « Suite » (une photo et deux boutons, SANS texte) puis « Code
+promo », relié au bouton « J'en profite » de « Suite ». À l'essai, « Code promo » est parti sans « Suite ». L'espace
+avait l'agent de Meta pour répondeur : `walk` traverse alors une étape qui n'offre aucun choix, et un message sans
+texte (`actionOf` nul) en était une ; le parcours a suivi `nextNode`, la première arête du bloc, celle du bouton.
+Le formulaire avait déjà la parade (l'arête libre seulement) ; le message rapide et le template ne l'avaient pas.
+
+**La relecture** a trouvé le même défaut, plus large, sur la question sans texte : traversée dans tous les modes, elle
+suivait sa première arête, qui peut être une ligne du menu ou son délai. Corrigé dans le même lot, dans `walk` et dans
+`waitBeforeSessionMessage`.
+
+**Preuve** : trois cas dans `tests/workflow-choix-controle.test.ts`, chacun vu échouer sans le correctif (« promo »,
+puis la branche « oui ») ; suite du moteur verte, typecheck, lint et auto-attaque verts. `f9f0e014f` déployé sans
+migration le jour même. Reste l'essai réel, et le refus à la publication d'un bloc sans texte (`todo.md`).
+
 ## 2026-11-16 : le tunnel Démarrer redessiné, le prix sans taxe, les étapes propres à une voie
 
 Une journée de retouches de la vitrine dictées par Julien, écran par écran. **Tarifs** : Shopify « tous vos cas

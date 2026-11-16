@@ -256,8 +256,10 @@ Chacun a arrêté un vrai parcours en silence, sans rien dans la console pour le
   Condition, le moteur ne suit jamais cette arête dès qu'une sortie typée existe (« Sinon » reliée) : le parcours finit
   sur la Condition. Piste : rattacher la moitié aval à la première famille (`true`), et signaler à la publication une
   arête libre sortant d'une Condition. Relevé en prod : le seul cas était LUAS, corrigé à la main.
-- **Un message rapide dont le texte n'est qu'un retour à la ligne ne part pas, image comprise**, et le parcours
-  attend dessus (`actionOf` le juge vide). Piste : le refuser à la publication, comme un bloc sans texte.
+- **Un message rapide ou une question sans texte (ou dont le texte n'est qu'un retour à la ligne) ne part pas, image
+  comprise**, et rien ne le dit avant l'essai. Sans l'agent de Meta, le parcours attend sur le message rapide ; avec
+  lui, il suit l'arête libre ou s'arrête (correctif du 2026-11-16). Piste : le signaler dans l'éditeur et le refuser à
+  la publication (aucun refus n'existe aujourd'hui). Vécu : « Suite », une photo et deux boutons, chez Julien.
 - **Un bloc Appel API qui range la réponse sans champ coché** dans l'appel échoue en `outputPaths vide`, lisible
   seulement dans le journal des appels. Piste : le dire dans le panneau du bloc, et refuser la publication.
 
@@ -4837,6 +4839,9 @@ Signalés à la revue Phase 3 (sous le seuil de confiance, défense en profondeu
 - **Arêtes orphelines à la re-sélection** : changer le template d'un node déjà câblé ne purge pas les arêtes des
   anciens `sourceHandle` disparus ; combiné au repli `nextNode` (1re arête), une arête morte pourrait être
   choisie. Fix : purger les arêtes du node dont le `sourceHandle` n'existe plus au changement de template.
+  ⚠️ Même famille (relecture du 2026-11-16) : un bloc PARTI sans offrir de choix (template sans bouton, agent de Meta
+  répondeur) continue par `nextNode` ; une arête `btn:<i>` restée après le retrait des boutons serait suivie. Piste :
+  `nextNodeSansHandle` pour tout bloc qui continue, après vérification du message rapide sans bouton.
 
 ## Suites builder Lot 3 (V2, non bloquant)
 

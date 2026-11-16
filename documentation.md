@@ -668,6 +668,12 @@ bloc, `advance` ignore tout autre payload (un bouton d'un ancien message ne nomm
 sinon l'arête libre, sinon l'arrêt. Un formulaire renvoyé passe donc par l'arête libre quand `rempli` n'est pas
 reliée, ce qui garde intacts les montages d'une seule flèche. Sa mesure porte `rempli`, pas le JSON.
 
+🔴 **Un bloc traversé sans rien envoyer ne suit que l'arête libre** (`nextNodeSansHandle`), jamais la première venue
+(`nextNode`) : celle-ci peut être `btn:<i>`, `row:<i>` ou `timeout`, l'issue d'un message qui n'est jamais parti. Cela
+vaut pour le message rapide sans texte et le template sans modèle quand l'agent de Meta est le répondeur (sans lui, ils
+attendent, par historique), et pour la question sans texte dans tous les cas ; sans arête libre, le parcours s'arrête.
+`walk` et `waitBeforeSessionMessage` répondent pareil. Tenu par `tests/workflow-choix-controle.test.ts`.
+
 🔴 **Un message rapide à boutons a une sortie `ensuite`, « Puis, sans attendre »** (`SORTIE_ENSUITE`,
 `web/lib/partage/sortie-ensuite.ts`, 2026-11-10). `walk` parcourt sa suite APRÈS avoir posé l'envoi du message, en
 `sansAttente`, puis rend `waiting` sur LE MESSAGE : un parcours n'a qu'un curseur, et un tap revient en `btn:<i>` sans
