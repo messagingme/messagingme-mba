@@ -184,7 +184,7 @@ Où regarder avant de modifier quoi que ce soit.
 | **Widget WhatsApp** | une bulle sur le site du client qui ouvre WhatsApp avec une phrase, et ce qui se passe quand cette phrase arrive | `src/widgets/`, `src/http/widgets.ts`, `src/http/widget-public.ts` | `/widgets` | `widgets`, `widget_tirs` | aucune : une étape de `processInbound` |
 | **API publique v1** | ce qu'un intégrateur du client appelle, son contrat OpenAPI (`GET /openapi.json`, dérivé de `src/api/openapi/`), et le SDK TypeScript qui en tire ses types (`sdk/`, publié par `.github/workflows/sdk.yml` dans le dépôt public `messagingme-sdk`) | `src/api/`, `src/http/v1-*.ts`, `src/http/openapi.ts`, `sdk/`, `scripts/sdk-contrat.ts` | `/developers` | `api_keys`, `api_idempotency` | |
 | **Serveur MCP et son OAuth** | Claude et les autres clients MCP (ChatGPT, Cursor, VS Code, Lovable) lisent et agissent dans un espace, par une clé d'API ou un jeton OAuth (§ 7) | `src/mcp/`, `src/http/mcp.ts`, `src/oauth/`, `src/http/oauth.ts`, `src/http/oauth-consentement.ts` | `/developers/mcp` | `oauth_autorisations`, `oauth_codes`, `oauth_clients` | `retention-oauth` |
-| **Exploitation** | vue cross-tenant, recharge de crédit, alertes, suppression d'un espace (§ 10) | `src/ops/` | `/ops` | `worker_heartbeat`, `audit_log`, `espaces_supprimes` | `dlq-sweep` |
+| **Exploitation** | vue cross-tenant, recharge de crédit, alertes, suppression d'un espace, duplication d'un scénario entre espaces (§ 10) | `src/ops/` | `/ops` | `worker_heartbeat`, `audit_log`, `espaces_supprimes` | `dlq-sweep` |
 | **Numéros fournis** | la réserve de numéros DIDWW, et le pont qui lit le code que Meta dicte en appelant (lot 3a) | `src/otp/`, `src/didww/`, `src/http/otp-pont.ts`, `src/http/ops-numeros.ts`, `ops/otp-asterisk/` | `/ops` | `numeros_fournis`, `codes_verification` | purge du balayage de rétention |
 | **Offres** | l'offre d'un espace (Base, Pro, Entreprise), ses fonctions, ses limites, le refus 402 (§ 7), le paiement du Pro, la porte d'un espace plein | `src/offres/`, `src/http/offre.ts`, `src/http/ops-offre.ts`, `src/http/offre-paiement.ts`, `src/stripe/pro.ts`, `src/webhooks/espace-plein.ts` | `/offre`, la barre (`web/lib/nav.ts`) | `abonnements_offre`, `tenants` (`offre_entreprise`), `contacts` (`ne_entrant`), `compteurs_debit` | aucune : une étape au montage, des compteurs |
 | **Crédit WhatsApp** | payer ses messages WhatsApp sur un solde chez nous quand un numéro est sur la ligne de crédit d'un partenaire : grille de Meta, garde avant l'envoi, ajustement à l'accusé, estimation au lancement, achat par Stripe, reprise des campagnes (§ 7) | `src/credit-whatsapp/`, `src/meta/factory.ts`, `src/http/ops-credit-whatsapp.ts`, `src/http/credit-whatsapp.ts`, `src/stripe/achat-whatsapp.ts` | Paramètres > Offre, onglet Crédit WhatsApp ; `/ops` | `credits_whatsapp`, `credit_whatsapp_provisions`, `credit_whatsapp_mouvements`, `lignes_credit_whatsapp`, `grilles_meta`, `grille_meta_tarifs`, `credit_whatsapp_reglages` | aucune : la garde dans la fabrique, l'ajustement sur `webhook` et `webhook-status`, le contrôle au départ dans le balayage des campagnes programmées |
@@ -5846,6 +5846,39 @@ tracé à jeton (`/r/<code>/{{1}}`) et ne voit jamais le champ.
 - Un bouton de carte de carousel est tracé sans jeton : un champ y est refusé à la création. Si le traçage échoue,
   un bouton à champs fait REFUSER la soumission (422 lisible) au lieu du repli sur l'adresse saisie, qui enverrait
   `{cle}` en clair chez Meta.
+
+### Dupliquer un scénario dans un autre espace
+
+L'onglet « Dupliquer » de `/ops` (`web/components/OpsDuplication.tsx`) : espace source, scénario, espace de destination,
+puis un récapitulatif, puis la copie. Quatre routes `session-ops` (`src/http/ops-duplication.ts`, la garde de `/ops`) :
+`GET /ops/duplication/espaces` (avec la présence d'une WABA), `GET /ops/duplication/espaces/:tenantId/scenarios` (les
+scénarios publics, jamais celui du répondeur), `POST /ops/duplication/apercu` et `POST /ops/duplication`. Spec :
+`docs/superpowers/specs/2026-11-16-duplication-scenario-entre-espaces-design.md`.
+
+- **Ce que devient chaque bloc** (`copierGraphe`, `src/ops/duplication/graphe.ts`, `switch` exhaustif sur les types de
+  bloc) : ce qui pointe un objet de l'espace source est DÉBRANCHÉ et listé (« aller vers », même vers un bloc du même
+  scénario ; « assigner », qui va alors au pot commun ; agent IA, appel API, boîte et modèle d'e-mail, Flow). Les clés de
+  champ, les tags et les templates sont collectés. Les codes publics sont refaits au code client de la destination, et
+  la source d'un bloc JS ancien passe de `data.code` à `data.js` avant (`sourceDuBlocJs`).
+- **Les déclencheurs** (`copierDeclencheurs`, `src/ops/duplication/declencheurs.ts`) : copiés ÉTEINTS, jamais avec
+  l'attestation d'accord marketing (elle engage une personne de la source). Ne suivent pas : un déclencheur lié à un
+  objet de la source (webhook entrant, étape HubSpot, publicité, action d'agent, automation possédée), un « nouveau
+  contact » quand la destination en a déjà un, un mot-clé dont tous les mots y sont déjà pris (un mot pris est retiré,
+  comparé par `normalizeText`).
+- **Le plan** (`planifierDuplication`, `src/ops/duplication/plan.ts`) : un champ absent se crée avec la définition de la
+  source ; un conflit de type garde celui de la destination et se signale. Bloquent : une destination sans WABA, un
+  template absent de sa WABA (même nom, même langue), la même source et destination. Se signalent : un template non
+  approuvé, une offre de destination qui n'ouvre pas les scénarios, une clé définie nulle part.
+- 🔴 **L'aperçu et l'exécution calculent le même plan**, et l'exécution refuse (409) si son empreinte n'est plus celle de
+  l'aperçu. L'empreinte se calcule sur l'ÉTAT LU (JSON aux clés triées), jamais sur le plan : la copie tire des codes de
+  blocs neufs à chaque calcul.
+- **L'écriture** (`PgDuplicationStore.ecrire`, `src/ops/duplication/store.pg.ts`) : UNE transaction sur son client
+  (champs, scénario en BROUILLON par `insererBrouillon`, déclencheurs par `PgAutomationStore` construit sur ce client),
+  le nom « X (copie N) » choisi sous le verrou de nom de la destination (`nomPrisSousVerrou`). Une duplication à la fois
+  par destination (verrou court `duplication-scenario:<id>`, 2 min). Les tags se déclarent après, au mieux.
+- 🔴 **Meta en lecture seule** : les templates de la destination se lisent sans le cache du catalogue, et une lecture qui
+  échoue rend un 422, jamais une liste vide prise pour « aucun template ». Jamais de 5xx ; la ligne de journal
+  `ops_duplication_scenario` porte l'exploitant (`par`).
 
 ### Supprimer un espace
 
