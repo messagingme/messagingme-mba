@@ -120,6 +120,14 @@ export async function supprimerRequete(tenantId: string, id: string): Promise<vo
 }
 
 /**
+ * Rejoue un appel ENREGISTRÉ avec ses valeurs d'essai (`POST .../:id/test`, corps vide) : l'exemple du bloc « Extraire du
+ * JSON », sans aucune donnée d'un vrai contact (décision 11 de la spec du champ JSON).
+ */
+export async function testerRequeteEnregistree(tenantId: string, id: string): Promise<ResultatTest> {
+  return request(`${base(tenantId)}/${id}/test`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+/**
  * Éprouve un BROUILLON, c'est-à-dire ce qui est à l'écran, enregistré ou non.
  *
  * 🔴 C'EST CE QUE L'ÉCRAN DOIT APPELER, et son absence rendait la création d'un appel IMPOSSIBLE : on ne peut

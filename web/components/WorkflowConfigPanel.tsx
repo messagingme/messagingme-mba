@@ -18,6 +18,7 @@ import { ChampCorpsVariables } from '@/components/ChampCorpsVariables';
 import { ChampCompte } from '@/components/ChampCompte';
 import { EditeurFamilles } from '@/components/ConditionBuilder';
 import { PanneauAllerA } from '@/components/PanneauAllerA';
+import { PanneauExtraireJson } from '@/components/PanneauExtraireJson';
 import { sortiesDuBloc, type EmailRecipientData, type RFNode } from '@/lib/workflow-canevas';
 import { essayerFonctionJs, getTemplateHints, listSortiesFormulaire, type EssaiJs, type SortieDeFormulaire, type TemplateParamHint } from '@/lib/api';
 import { ApiError } from '@/lib/http';
@@ -1095,6 +1096,9 @@ export function ConfigPanel({
           onPatch={onPatch}
           {...(onCreerChamp ? { onCreerChamp } : {})}
         />
+      )}
+      {wfType === 'extraire' && (
+        <PanneauExtraireJson tenantId={tenantId} data={d} fields={fields} blocsDuScenario={blocsDuScenario} requetes={requetes} onPatch={onPatch} />
       )}
       {wfType === 'http' && (
         <div className="flex flex-col gap-2">

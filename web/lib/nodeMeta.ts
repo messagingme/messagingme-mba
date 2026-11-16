@@ -68,7 +68,8 @@ export const AGENT_NODE_ORDER: WorkflowNodeType[] = ['agent'];
 // Bloc « Appel API » : présenté à part et GRISÉ tant qu'aucun appel n'est déclaré dans Tools > Connecteurs
 // API. Même doctrine que RCS, Email et Agent IA : un bloc qui ne pourrait désigner aucun appel promettrait un
 // aller-retour qui n'aurait jamais lieu.
-export const HTTP_NODE_ORDER: WorkflowNodeType[] = ['http'];
+// « Extraire du JSON » suit l'Appel API, dont il lit la réponse : même garde d'offre.
+export const HTTP_NODE_ORDER: WorkflowNodeType[] = ['http', 'extraire'];
 
 // Bloc « Fonction JS » : il ne dépend d'AUCUN branchement (ni connecteur, ni boîte mail, ni agent), donc il
 // est dans la liste normale. Sa seule condition est d'avoir un champ à transformer, et un espace sans champ

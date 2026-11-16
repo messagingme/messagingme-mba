@@ -3442,6 +3442,16 @@ aussi tout faire depuis la console, sans Claude Code (2026-10-22, voir la carte 
   lit toute la réponse. La poser donnerait un réglage sans effet.
 - ✅ Un outil de connecteur naît **inactif**, comme un outil maison : c'est un administrateur qui l'active
   après l'avoir relu.
+- ✅ **Garder toute la réponse d'un appel, puis en extraire ce qu'on veut** (2026-11-11). Dans un scénario, le bloc
+  **Appel API** range sa réponse ENTIÈRE dans un champ de type **JSON** (« JSON (réponse d'un appel API) », à créer
+  dans Contenu > Champs), sans avoir à déclarer les champs de réponse dans Tools. Le bloc **Extraire du JSON** lit
+  ensuite ce champ et range des valeurs dans d'autres champs, ligne par ligne : un chemin (`commande.statut`,
+  `articles[0].nom`, `articles[-1]` pour le dernier), « la valeur » ou « le nombre d'éléments », et le champ qui la
+  reçoit. **« Voir un exemple »** rejoue l'Appel API du scénario avec ses valeurs d'essai : un clic dans la réponse
+  écrit le chemin, et chaque ligne montre ce qu'elle extrairait. Une Condition placée après l'un ou l'autre lit la
+  valeur rangée (pour une campagne, placer une Attente entre l'Appel API et la Condition). Un chemin absent, ou une
+  valeur que le type du champ refuse, vide ce champ. Un champ JSON se lit dans la fiche du contact (déplié, mis en
+  forme) mais ne se saisit pas à la main ; il se remplit aussi par l'API publique et le MCP. 16 Ko au plus.
 - ✅ **Un appel utilisé par un agent ou par un bloc Appel API de scénario ne se supprime pas** : l'écran dit combien
   d'outils d'agent et de scénarios s'en servent (le nom des scénarios au survol) et refuse, plutôt que de rendre un
   agent muet ou un bloc inopérant en silence (scénarios depuis le 2026-11-04).
