@@ -4,6 +4,23 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : l'onglet Facturation dans Paramètres, et chaque facture nommée
+
+Demande de Julien (« un onglet billing qui liste les factures et donne les liens Stripe », puis « les factures du Pro, de
+l'option ligne de crédit, de la ligne de crédit et du crédit IA ? »).
+
+- **`b3e7b42d`** (console seule) : `/parametres/factures`, entrée « Facturation » du groupe Paramètres, admin seul. La
+  page reprend `FacturesEspace` et la route `/offre/factures`, déjà en production : aucun déploiement de l'API.
+- **`0bb0ac05`** (API et console), déployé par le run 43964302023, sans migration : `facturesDeLEspace` nomme l'option
+  ligne de crédit par la métadonnée `produit` de son abonnement, et les deux recharges par le prix de la première ligne
+  de la facture (`pricing.price_details.price` en version `clover`, comparé à `STRIPE_PRIX_REFILL_*` et
+  `STRIPE_PRIX_WA_*`), factures déjà émises comprises. Une valeur inconnue se lit `autre` des deux côtés, donc les deux
+  ordres de déploiement étaient sûrs. Relecture indépendante sans rouge ; le test de reconnaissance par le prix vérifié
+  dans les deux sens.
+- Fait dans une copie d'origin (l'arbre partagé avait du retard sur `src/index.ts`), `@aws-sdk/client-s3` prêté par une
+  jonction `src/node_modules` pour faire tourner la suite et l'auto-attaque (2 088 sondes, aucune trouvaille).
+- Reste l'essai réel : ouvrir Paramètres > Facturation sur un espace qui a de vraies factures.
+
 ## 2026-11-16 : brancher sa boutique Shopify depuis Claude Code, une page à part de la fiche console
 
 La rubrique « Démarrer avec Claude Code » n'avait aucun mode opératoire Shopify, alors que c'est le cœur de l'offre

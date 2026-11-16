@@ -4862,7 +4862,8 @@ du 2026-10-27.
   prélevé » pendant l'essai) et ce que devient le numéro fourni ; la fin est posée chez Stripe à la fin de la période
   payée, et jusque-là « **Annuler la résiliation** » la retire. Une fin posée par nous à une date précise ne se retire pas
   d'ici (« contactez-nous »). « **Changer de carte bancaire** » ouvre le portail de Stripe. « **Vos factures** » liste les
-  24 dernières factures de l'espace (le Pro, le numéro, les recharges du crédit IA), avec leur montant TTC, leur statut
+  24 dernières factures de l'espace (le Pro, le numéro, l'option et les recharges de la ligne de crédit, les recharges du
+  crédit IA ; la même liste que Paramètres > Facturation), avec leur montant TTC, leur statut
   (payée, à régler, impayée, annulée) et un lien vers leur page et leur PDF chez Stripe ; les plus anciennes restent sur le
   portail. Claude lit le même abonnement par `get_plan`.
   ✅ **Le numéro fourni d'une Free se résilie depuis la page Offre** (2026-11-16, un client qui cherchait où arrêter
@@ -4953,6 +4954,15 @@ du 2026-10-27.
   - la **recherche dans la connaissance, la préparation des fiches et la transcription** sont payées par le crédit,
     dans toutes les offres ;
   - le **crédit offert** au premier numéro vaut 1 € pour tous les espaces, 10 € pour un Business.
+
+- ✅ **Paramètres > Facturation : toutes les factures de l'espace, avec leurs liens Stripe** (2026-11-16, demande de
+  Julien). Les 24 dernières, les plus récentes d'abord, chacune nommée : **Abonnement Pro**, **Numéro WhatsApp**,
+  **Option ligne de crédit**, **Recharge de la ligne de crédit**, **Recharge du crédit IA** (factures déjà émises
+  comprises) ; une facture qu'on ne reconnaît pas garde le libellé de Stripe. Pour chacune : la date, le numéro, le
+  montant TTC, le statut (payée, à régler, impayée, annulée), « **Voir** » (« **Régler** » si elle est à payer) vers
+  sa page chez Stripe et « **PDF** ». Les plus anciennes restent sur le portail de Stripe, qu'un lien ouvre. Réservé
+  aux admins, comme l'Offre. Une Entreprise n'y trouve pas sa consommation illimitée : elle est facturée au contrat,
+  hors de Stripe.
 
 ## MBA, le répondeur de Meta (menu « AI Agent » > MBA)
 

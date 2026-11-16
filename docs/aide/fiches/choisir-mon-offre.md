@@ -2,7 +2,7 @@
 description: Free, Pro, Business ou Entreprise : ce que chaque offre de Messaging Me ouvre, ses limites, et comment changer d'offre ou gérer l'abonnement.
 ecran: offre
 source_section: Offres (menu « Paramètres » > Offre)
-source_empreinte: 12fe79
+source_empreinte: 164b3f
 publique: oui
 rubrique: demarrer-console
 rang: 1
@@ -42,8 +42,9 @@ formule Pro jusqu'à la date de fin, puis revient en formule Free.
 En formule Free, un numéro fourni par Messaging Me a son propre abonnement : la carte « Votre numéro WhatsApp fourni »,
 sur la page Offre, ouvre la page de Stripe pour changer de carte ou le résilier, à la fin du mois déjà payé.
 
-**4. Retrouver mes factures.** La page Offre liste les factures de votre espace, celles de l'abonnement, du numéro et
-des recharges du crédit IA, avec leur montant et leur statut. Chacune s'ouvre sur la page de Stripe, avec son PDF.
+**4. Retrouver mes factures.** Le menu Paramètres > Facturation, comme la page Offre, liste les factures de votre
+espace : l'abonnement, le numéro, l'option et les recharges de la ligne de crédit, les recharges du crédit IA, avec leur
+montant et leur statut. Chacune s'ouvre sur la page de Stripe, avec son PDF.
 
 ## Ce que comprend chaque offre
 

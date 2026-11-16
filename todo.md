@@ -26,6 +26,14 @@
   - commentaires périmés : « Les quatre onglets » (`web/app/ops/page.tsx`, ils sont six), et `HORS_WEBHOOK`
     (« hors de portée de ce store », plus tout à fait vrai depuis `toutesPourLaDuplication`).
 
+## 🟡 Les factures nommées (relecture du 2026-11-16, aucun rouge)
+
+- Seule la PREMIÈRE ligne d'une facture est lue (prix et libellé) : un achat ponctuel à plusieurs lignes dont le prix
+  reconnu n'est pas en tête retombe sur le libellé de Stripe.
+- Un prix de recharge remplacé chez Stripe puis dans `STRIPE_PRIX_REFILL_*` ou `STRIPE_PRIX_WA_*` fait retomber les
+  factures émises sur l'ancien prix sur le libellé de Stripe. Garder les anciens identifiants dans `prixAchats`, ou
+  reconnaître la recharge par la métadonnée de la session (`invoice_creation[invoice_data][metadata]`).
+
 ## 🟡 L'onglet « Shopify » de la fiche contact (relecture du 2026-11-16, aucun rouge)
 
 - Boutique sans devise lue (`shopify_boutiques.devise` nul) : le total dépensé somme toutes les devises (même règle que
