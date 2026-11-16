@@ -4,6 +4,25 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : la page Deep HubSpot integration, son comparatif et son film
+
+Julien, 2026-11-14 : la page HubSpot ne montrait ni l'analyse de chaque conversation qui devient une action, ni les
+campagnes lancées sur une liste HubSpot, et sans aucune capture. Puis le pitch : démontrer pourquoi notre app vaut mieux
+que le canal WhatsApp natif de HubSpot, quelle que soit l'offre HubSpot du client.
+
+- **Intégrations** (`b52dd9b69`) : un onglet HubSpot, en tête, à côté de Dynamics et Salesforce, sur de vraies captures ;
+  la pilule des onglets passe sur deux lignes au téléphone. Le guide HubSpot met l'analyse et les listes en tête.
+- **La page `/solutions/deep-hubspot-integration/`** (FR et EN, au menu Solutions) : quatre fonctions sur les vraies
+  captures, puis (`a56b57c2b`) un comparatif « Canal WhatsApp natif de HubSpot » face à Messaging Me, où ce que la
+  documentation de HubSpot ne décrit pas est marqué « non » (décision de Julien) ; puis (`2dcf44929`) le film d'une
+  minute, FR et EN, 16:9 et 9:16 (atelier `~/engageme-motion/engageme-hubspot`).
+- **Les captures** : prises sur le portail mm-inbox-test et l'espace Vélo Rapide, sur une conversation jouée par Julien
+  depuis un second numéro (« Camille Bernard », un devis pour 15 vélos), sa réponse envoyée depuis l'Inbox HubSpot, une
+  liste statique « Flottes entreprise · Nantes » importée dans une campagne jamais envoyée. L'analyse a remonté 25 minutes
+  après le dernier message ; la tâche « attend une réponse » s'est cochée seule à la réponse du conseiller.
+- **Incident** : le job `unit` de `b52dd9b69` rouge sur `tests/registre-vitrine.test.ts` (une page sous `/solutions/`
+  doit être une entrée du registre), lancé localement sur les seuls tests `vitrine*`. Corrigé par `467f1c7d8` après la
+  suite entière ; la page en ligne n'a jamais été touchée.
 ## 2026-11-13 : la ligne de crédit se prend depuis Claude Code ou Codex
 
 Julien, devant `/demarrer/` : en formule Pro et « Claude Code ou Codex », la carte « Ligne de crédit » était grisée et

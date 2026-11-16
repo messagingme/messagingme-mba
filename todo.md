@@ -1,5 +1,12 @@
 # todo.md : backlog
 
+## 🟡 La page Deep HubSpot integration (2026-11-16)
+
+- **`aide:charger` en production** (Julien) : la fiche « Intégrer WhatsApp à HubSpot » a été remise dans l'ordre
+  (l'analyse et les listes en tête) ; la page publique est à jour, le bot d'aide de la console lit encore l'ancienne.
+- **La page anglaise montre les captures HubSpot en français** (`site/img/hubspot-*.webp`, et les écrans du film) :
+  les reprendre sur le portail mm-inbox-test avec l'interface HubSpot en anglais, puis un `-en` à côté de chaque image.
+
 ## 🟡 Le bloc « Extraire du JSON » : ce que la relecture laisse (plan `docs/superpowers/plans/2026-11-11-champ-json-lot-2.md`)
 
 - **Deux lectures par destinataire dans une campagne** : la fiche relue (`evalContext`) et les types des champs
