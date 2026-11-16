@@ -20,5 +20,10 @@ avant la libération, puis à la libération. Libéré, 7 jours après la fin de
 pour de bon : votre espace redevient sans numéro, et vous pouvez en connecter un autre pour continuer sur WhatsApp. Si
 vous envoyez par votre propre numéro, l'abonnement du numéro fourni ne le coupe jamais.
 
+**Résilier l'abonnement du numéro.** En formule Free, la carte « Votre numéro WhatsApp fourni » de la page Offre (ou
+« Gérer mon abonnement » sur la page « Connecter WhatsApp ») ouvre la page de Stripe, où il se résilie ; depuis Claude
+Code, demandez-le à Claude. La fin est programmée à la fin de la période déjà payée, sans remboursement, puis la suite
+est celle décrite plus haut : envois coupés, 7 jours pour se réabonner, puis libération.
+
 **Rendre un numéro fourni.** « Abandonner » rend le numéro à la réserve ; si son abonnement court, sa fin est
 programmée à la fin de la période déjà payée, et plus rien n'est prélevé ensuite.

@@ -1,7 +1,7 @@
 ---
 description: Free, Pro, Business or Enterprise: what each Messaging Me plan opens, its limits, and how to change plan or manage the subscription.
 slug: choose-my-plan
-traduit_de: 91cec5
+traduit_de: 527c30
 ---
 # Choose my plan
 
@@ -32,6 +32,9 @@ without charging anything: the confirmation gives the exact date, and until that
 
 To switch from monthly to yearly, write to us through Support. A cancellation refunds nothing: your workspace keeps Pro
 until the end date, then goes back to Free.
+
+On Free, a number provided by Messaging Me has its own subscription: the “Your provided WhatsApp number” card, on the
+Plan page, opens Stripe’s page to change card or cancel it, at the end of the month already paid.
 
 **4. Find my invoices.** The Plan page lists your workspace’s invoices, for the subscription, the number and the AI
 credit top-ups, with their amount and status. Each one opens on Stripe’s page, with its PDF.

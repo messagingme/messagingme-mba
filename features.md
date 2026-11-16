@@ -4851,6 +4851,10 @@ du 2026-10-27.
   24 dernières factures de l'espace (le Pro, le numéro, les recharges du crédit IA), avec leur montant TTC, leur statut
   (payée, à régler, impayée, annulée) et un lien vers leur page et leur PDF chez Stripe ; les plus anciennes restent sur le
   portail. Claude lit le même abonnement par `get_plan`.
+  ✅ **Le numéro fourni d'une Free se résilie depuis la page Offre** (2026-11-16, un client qui cherchait où arrêter
+  ses 3,50 € par mois) : hors d'un Pro vivant, tant que l'abonnement du numéro court (actif ou fin prévue), la carte
+  « Votre numéro WhatsApp fourni » ouvre le portail de Stripe du numéro (carte, factures, résiliation), et dit la date
+  d'une résiliation programmée. En retard ou suspendu, c'est le bandeau de chaque page qui porte le geste.
   ✅ **Un essai gratuit de 14 jours** (spec offres v2, livraison 6) pour un espace qui n'a JAMAIS eu de Pro : la carte est
   demandée sur la page de Stripe, rien n'est prélevé avant la fin de l'essai, le Pro est ouvert tout de suite (numéro
   fourni compris), et la page Offre, comme Claude, dit la date de fin. Un seul essai par espace. À la fin d'un essai sans

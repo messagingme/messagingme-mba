@@ -1,7 +1,7 @@
 ---
 description: Get a number provided by Messaging Me and connect it to WhatsApp through Meta’s window, from Claude Code: the video, then the six steps.
 slug: get-a-number-provided-by-messaging-me
-traduit_de: 8e051d
+traduit_de: a0a264
 bouton_claude: Get my number from Claude Code
 bouton_console: Get my number in the console
 ---
@@ -59,3 +59,7 @@ Meta’s card comes next, before your first templates: Claude gives you the step
 
 **Good to know.** If Meta refuses this number, “Meta refuses this number? Get another one”, on the connection page,
 gives you a new one.
+
+**Cancel the number.** On the console Plan page, “Manage the number subscription” opens Stripe’s page, where you cancel
+it; from Claude Code, ask Claude. The number keeps sending until the end of the month already paid, with no refund.
+After that its sends stop, you have 7 days to resubscribe and keep the same number, then it leaves your workspace.

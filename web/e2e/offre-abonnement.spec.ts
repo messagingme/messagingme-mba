@@ -41,9 +41,12 @@ async function monter(page: Page, o: {
   vue: unknown; resiliation?: { status: number; corps: unknown }; tarif?: unknown;
   /** La réponse à « Démarrer la formule Pro maintenant » ; par défaut, un paiement fait. */
   demarrer?: { status: number; corps: unknown };
+  /** L'abonnement du numéro fourni (`/abonnement-numero`) ; par défaut, aucun. */
+  numero?: unknown;
 }) {
   const resiliations: unknown[] = [];
   let demarrages = 0;
+  let portailsNumero = 0;
   let vue = o.vue as ReturnType<typeof vuePro>;
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
@@ -69,6 +72,11 @@ async function monter(page: Page, o: {
       return json(r.corps, r.status);
     }
     if (chemin.endsWith('/offre/factures')) return json(FACTURES);
+    if (chemin.endsWith('/abonnement-numero')) return json(o.numero ?? { etat: null, finPrevueLe: null, coupureLe: null, liberationLe: null, fini: false });
+    if (req.method() === 'POST' && chemin.endsWith('/numero-fourni/portail')) {
+      portailsNumero += 1;
+      return json({ url: 'https://billing.stripe.e2e/numero' });
+    }
     // Sans tarif simulé, la route répond comme une API plus ancienne (404) : la carte garde la grille.
     if (chemin.endsWith('/offre/tarif')) return o.tarif ? json(o.tarif) : json({ error: 'Not Found' }, 404);
     if (chemin.endsWith('/offre')) return json(vue);
@@ -78,7 +86,7 @@ async function monter(page: Page, o: {
     if (chemin.endsWith('/me')) return json({ email: SESSION.email, name: 'Jean Test', role: 'admin' });
     return json({});
   });
-  return { resiliations, demarrages: () => demarrages };
+  return { resiliations, demarrages: () => demarrages, portailsNumero: () => portailsNumero };
 }
 
 /** Un Pro en essai (révision du Crédit WhatsApp, 2026-11-04) : « Démarrer la formule Pro maintenant » s'y offre. */
@@ -249,5 +257,42 @@ test.describe('les onglets Offre et Crédit IA', () => {
     await expect(page.getByTestId('offre-actuelle')).toHaveText('Free');
     await expect(page.getByTestId('mba-tab-credit')).toHaveCount(0);
     await expect(page.getByTestId('credit-solde')).toHaveCount(0);
+  });
+});
+
+/**
+ * LE NUMÉRO FOURNI D'UNE FREE SE RÉSILIE DEPUIS LA PAGE OFFRE (2026-11-16) : un client cherchait où arrêter son numéro
+ * et ne trouvait, ici, que ses factures. La carte ouvre le portail de Stripe du NUMÉRO, pas celui du Pro.
+ */
+test.describe('la carte « Votre numéro WhatsApp fourni »', () => {
+  const FREE = { ...vuePro(null), offre: 'free', fonctions: [], limites: limites('free'), sieges: null, essai: { jours: 14, possible: true, finLe: null } };
+  const NUMERO = (etat: string, finPrevueLe: string | null = null) => ({ etat, finPrevueLe, coupureLe: null, liberationLe: null, fini: false });
+
+  test('🔴 une Free dont le numéro court : la carte ouvre le portail de Stripe du numéro', async ({ page }) => {
+    const s = await monter(page, { vue: FREE, numero: NUMERO('actif') });
+    await page.route('https://billing.stripe.e2e/**', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<p>portail</p>' }));
+    await page.goto('/offre');
+    await expect(page.getByTestId('offre-numero-fourni')).toContainText('résilier');
+    await page.getByTestId('offre-numero-portail').click();
+    await expect(page).toHaveURL('https://billing.stripe.e2e/numero');
+    expect(s.portailsNumero()).toBe(1);
+  });
+
+  test('une résiliation programmée dit sa date', async ({ page }) => {
+    await monter(page, { vue: FREE, numero: NUMERO('fin_prevue', '2099-12-14T09:00:00.000Z') });
+    await page.goto('/offre');
+    await expect(page.getByTestId('offre-numero-fourni')).toContainText('14 décembre 2099');
+  });
+
+  test('🔴 sans abonnement du numéro, ou en formule Pro, pas de carte', async ({ page }) => {
+    await monter(page, { vue: FREE });
+    await page.goto('/offre');
+    await expect(page.getByTestId('offre-actuelle')).toHaveText('Free');
+    await expect(page.getByTestId('offre-numero-fourni')).toHaveCount(0);
+    await page.unrouteAll({ behavior: 'ignoreErrors' });
+    await monter(page, { vue: vuePro(ACTIF), numero: NUMERO('actif') });
+    await page.goto('/offre');
+    await expect(page.getByTestId('offre-actuelle')).toHaveText('Pro');
+    await expect(page.getByTestId('offre-numero-fourni')).toHaveCount(0);
   });
 });

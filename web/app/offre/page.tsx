@@ -14,6 +14,7 @@ import { OngletCreditIA } from '@/components/OngletCreditIA';
 import { OngletCreditWhatsapp } from '@/components/OngletCreditWhatsapp';
 import { AbonnementPro } from '@/components/AbonnementPro';
 import { FacturesEspace } from '@/components/FacturesEspace';
+import { AbonnementNumeroOffre } from '@/components/AbonnementNumeroOffre';
 import type { Session } from '@/lib/session';
 import { useT } from '@/lib/i18n';
 import { oublierOffre, relireOffre, useOffre } from '@/lib/use-offre';
@@ -495,6 +496,9 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
           {erreurPaiement && <p className="w-full text-sm text-danger" data-testid="offre-paiement-erreur">{erreurPaiement}</p>}
         </section>
       )}
+
+      {/* Le numéro fourni payé à part (une Free) : sa résiliation se cherche ici, avec les factures. */}
+      {!proVivant && <AbonnementNumeroOffre tenantId={session.tenantId} />}
 
       <FacturesEspace tenantId={session.tenantId} />
 

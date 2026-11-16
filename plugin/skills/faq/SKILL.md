@@ -247,11 +247,11 @@ Depuis la console, par une invitation. 1 utilisateur en formule Free, 3 en formu
 
 ## How do I cancel, and what happens to the number?
 
-Pro and the provided number are managed in the Stripe portal, from the console Plan page or through Claude (`manage_number_subscription`). When Pro ends, the provided number moves to €3.50 a month on the same card, unless you choose to give it back (`return_number_at_plan_end`).
+Everything is cancelled in the Stripe portal. The provided number paid on its own (€3.50 a month): ask Claude, which opens the portal (`manage_number_subscription`), or in the console, Plan page or "Connect WhatsApp" page, number subscription button. Pro: Plan page, "Cancel my subscription". A cancellation takes effect at the end of the period already paid, with no refund. The number keeps sending until then; after that its sends stop, resubscribing within 7 days gives back the same number, then it is released and leaves the workspace. When Pro ends, the provided number moves to €3.50 a month on the same card, unless you choose to give it back (`return_number_at_plan_end`).
 
 **FR · Comment résilier, et que devient le numéro ?**
 
-La formule Pro et le numéro fourni se gèrent dans le portail de Stripe, depuis la page Offre de la console ou par Claude (`manage_number_subscription`). À la fin de la formule Pro, le numéro fourni passe à 3,50 € par mois sur la même carte, sauf si vous choisissez de le rendre (`return_number_at_plan_end`).
+Tout se résilie dans le portail de Stripe. Le numéro fourni payé à part (3,50 € par mois) : demandez à Claude, qui ouvre le portail (`manage_number_subscription`), ou dans la console, page Offre ou page « Connecter WhatsApp », bouton de l'abonnement du numéro. La formule Pro : page Offre, « Résilier mon abonnement ». Une résiliation prend effet à la fin de la période déjà payée, sans remboursement. Le numéro envoie jusque-là ; ensuite ses envois sont coupés, un réabonnement dans les 7 jours rend le même numéro, puis il est libéré et quitte l'espace. À la fin de la formule Pro, le numéro fourni passe à 3,50 € par mois sur la même carte, sauf si vous choisissez de le rendre (`return_number_at_plan_end`).
 
 ## How do I update the plugin?
 

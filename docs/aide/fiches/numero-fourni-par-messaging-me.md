@@ -69,3 +69,8 @@ La carte chez Meta s'ajoute ensuite, avant vos premiers modèles : Claude vous e
 
 **Bon à savoir.** Si Meta refuse ce numéro, « Meta refuse ce numéro ? En obtenir un autre », sur la page de connexion,
 vous en donne un nouveau.
+
+**Résilier le numéro.** Sur la page Offre de la console, « Gérer l'abonnement du numéro » ouvre la page de Stripe, où
+il se résilie ; depuis Claude Code, demandez-le à Claude. Le numéro envoie jusqu'à la fin du mois déjà payé, sans
+remboursement. Ensuite ses envois s'arrêtent, vous avez 7 jours pour vous réabonner et garder le même numéro, puis il
+quitte votre espace.
