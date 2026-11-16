@@ -1037,7 +1037,7 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
 - ✅ **Le message rapide à boutons a une sortie « Puis, sans attendre »** (2026-11-10). Sous « Toute autre réponse »,
   une ligne verte : ce qu'on y relie part juste après le message, sans attendre que le contact réponde, et ses boutons
   restent la réponse attendue (un tap suit sa branche, un texte « Toute autre réponse »). Derrière elle, seulement des
-  blocs qui n'attendent rien : message sans bouton, action, condition, envoi de mail, appel API, fonction JS. Un bloc
+  blocs qui n'attendent rien : message sans bouton, action, condition, envoi de mail, appel API, fonction JS, extraction JSON. Un bloc
   qui attend (question, formulaire, message à boutons, modèle, agent IA, attente, assignation, RCS, « Aller à ») fait
   **refuser la publication**, en nommant le message : il prendrait la main, et un tap sur l'ancien bouton serait lu
   comme une réponse à lui. Retirer le dernier bouton, ou cocher le bouton de lien, retire la sortie et sa flèche. Les

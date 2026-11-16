@@ -1,7 +1,7 @@
 ---
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: 9e121d
+source_empreinte: 02c6e1
 ---
 # Créer un scénario
 
@@ -48,6 +48,19 @@ Les blocs que vous utiliserez le plus :
   propose aussi le dernier message reçu, la langue détectée et le pays de l'indicatif. Le dernier message reçu sert
   surtout dans une campagne : quand c'est un message du contact qui lance le scénario, c'est ce message-là, donc
   « maintenant ». Le pays suit l'indicatif : les départements d'outre-mer ont le leur, à cocher en plus de la France.
+- **Appel API** : interroge un système que vous avez branché dans Tools > Connecteurs API (votre boutique, votre
+  CRM…). Sans champ choisi, il envoie une information sans rien attendre. Pour garder la réponse, choisissez où la
+  ranger : un champ ordinaire reçoit les champs de réponse déclarés dans Tools ; un champ de type **JSON** (« JSON
+  (réponse d'un appel API) », à créer dans Contenu > Champs) reçoit la réponse **entière**, 16 Ko au plus, sans rien
+  déclarer. Si l'appel échoue, le champ est vidé : une Condition « ce champ est vide » traite ce cas. Une Condition
+  placée juste après lit la réponse qui vient d'arriver ; dans une campagne, mettez une Attente entre les deux.
+- **Extraire du JSON** : lit un champ JSON (la réponse d'un Appel API) et range des valeurs dans d'autres champs, une
+  ligne par valeur. « Dans la réponse » dit où chercher : `commande.statut`, `articles[0].nom` (le premier article),
+  `articles[-1].nom` (le dernier). « Prendre » choisit la valeur, ou le nombre d'éléments d'une liste. « Ranger dans
+  le champ » dit où la mettre. « Voir un exemple » rejoue l'Appel API du scénario avec ses valeurs d'essai : cliquez
+  « Attacher… » sur une valeur, ou sur une liste pour la compter, et chaque ligne montre ce qu'elle rangera. Un chemin
+  absent, ou une valeur que le type du champ refuse (un texte dans un champ nombre), vide ce champ. Une Condition
+  placée après lit les valeurs extraites, campagne comprise.
 - **Attente** : met le parcours en pause, pour une durée, jusqu'à une date, ou jusqu'aux prochaines heures
   d'ouverture. En secondes (de 1 à 59), elle espace deux messages pour leur donner le rythme d'une personne qui
   écrit : quand le scénario répond au contact, celui-ci voit « en train d'écrire… » et son message passe en lu.
