@@ -106,13 +106,14 @@ describe('le rangement du 2026-09-29', () => {
 
   // L'Offre (lot 6, 2026-10-07) s'y ajoute : c'est aussi un réglage de l'ESPACE. Le Crédit IA en est un onglet depuis le
   // 2026-10-26 (`/offre?tab=credit`), et quitte la barre.
-  it('🔴 « Paramètres » est un GROUPE du bloc bas : Général, Médiathèque et Offre', () => {
+  it('🔴 « Paramètres » est un GROUPE du bloc bas : Général, Médiathèque, Offre et Facturation', () => {
     const groupe = arbresNav(t).adminBas.find((e) => e.label === 'Paramètres');
     expect(groupe?.href).toBeUndefined();
     expect((groupe?.children ?? []).map(feuille)).toEqual([
       { key: 'parametres', href: '/parametres', label: 'Général', enfants: 0 },
       { key: 'parametres-medias', href: '/parametres/medias', label: 'Médiathèque', enfants: 0 },
       { key: 'offre', href: '/offre', label: 'Offre', enfants: 0 },
+      { key: 'parametres-factures', href: '/parametres/factures', label: 'Facturation', enfants: 0 },
     ]);
   });
 

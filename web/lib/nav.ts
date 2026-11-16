@@ -452,6 +452,8 @@ export function arbresNav(t: Traducteur, badgeInbox = 0): ListesNav {
       // L'offre de l'espace (lot 6) : l'abonnement, la grille, ce qui est consommé, « Passer en Pro », les factures ; et
       // l'onglet Crédit IA.
       { key: 'offre', href: '/offre', label: t('Offre', 'Plan') },
+      // Toutes les factures de l'espace et leurs liens Stripe (2026-11-16) : la liste de l'Offre, à une adresse à elle.
+      { key: 'parametres-factures', href: '/parametres/factures', label: t('Facturation', 'Billing') },
     ] },
     { key: 'support', href: '/support', label: t('Support', 'Support'), icone: icons.support },
     /**
