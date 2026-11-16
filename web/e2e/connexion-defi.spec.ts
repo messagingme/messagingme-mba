@@ -16,7 +16,10 @@ async function backend(page: Page, chemin: string, reponse: { status: number; bo
     const url = route.request().url().split('?')[0]!;
     if (url.endsWith(chemin)) {
       corps.push(route.request().postDataJSON());
-      return route.fulfill({ status: reponse.status, contentType: 'application/json', headers: reponse.entetes, body: JSON.stringify(reponse.body) });
+      // Comme la vraie API (`exposedHeaders`, `src/server.ts`) : en topologie Vercel, la console appelle l'API d'une
+      // autre origine, et le navigateur masquerait `retry-after` si la réponse ne l'exposait pas.
+      const headers = { ...reponse.entetes, 'access-control-expose-headers': 'retry-after' };
+      return route.fulfill({ status: reponse.status, contentType: 'application/json', headers, body: JSON.stringify(reponse.body) });
     }
     const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (url.endsWith('/auth/config')) return json({ googleClientId: '', googleEnabled: false });
