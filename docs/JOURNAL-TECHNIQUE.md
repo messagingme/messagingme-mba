@@ -4,6 +4,24 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : le numéro fourni d'une Free se résilie depuis la page Offre
+
+Parti d'une réponse donnée à Johan par son propre Claude, sans nos outils. Il cherchait comment arrêter son numéro
+fourni (3,50 € HT par mois), n'a trouvé aucune source publique et a inventé une procédure générique (réglages de
+facturation, Apple ou Google). Trois trous de notre côté, corrigés dans `0e0ddc739` :
+
+- la page Offre d'une Free montrait les factures du numéro sans aucun bouton : la carte « Votre numéro WhatsApp
+  fourni » (`web/components/AbonnementNumeroOffre.tsx`) ouvre désormais le portail Stripe du numéro ;
+- l'entrée `resilier` de la FAQ du plugin envoyait tout le monde vers la page Offre, où un Free ne trouvait rien
+  (plugin 0.3.46, à publier) ;
+- aucune page publique ne parlait de résiliation : un paragraphe « Résilier le numéro » dans la fiche publique du
+  numéro fourni (FR et EN), une phrase dans « Choisir mon offre », un paragraphe dans la fiche du bot.
+
+Fiches chargées sans déployer, montées sur l'image en service `69eda568` : 223 lignes, « 1 retirées ». Ce retrait
+était attendu : la fiche `abonnement-du-numero-fourni` a dépassé `MORCEAU_MAX` et passe en morceaux `#1` et `#2`,
+vérifié en comparant les clés des deux révisions par `decouperFiche`. Reste l'essai réel, un clic sur la carte
+depuis un espace Free.
+
 ## 2026-11-16 : les retours de l'essai 263 sur la connexion du numéro
 
 Julien, en faisant l'essai 263 dans la console (formule Pro, ligne de crédit, numéro fourni). Plan :
