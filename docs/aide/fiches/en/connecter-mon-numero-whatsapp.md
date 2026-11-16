@@ -1,7 +1,7 @@
 ---
 description: Connect your WhatsApp number step by step: paying for your Meta messages, your number or ours, Meta's window, then the number's status.
 slug: connect-my-whatsapp-number
-traduit_de: be143c
+traduit_de: 210d00
 ---
 # Connect my WhatsApp number, and read its status
 
@@ -20,8 +20,9 @@ WhatsApp Business app stays on your payment method at Meta.
 dedicated UK number, included in the Pro plan, and €3.50 a month without it.
 
 For the provided number, you pay on Stripe's page (a promo code goes there, if we gave you one), then the number
-shows. In Meta's window, choose “Enter a new phone number”, the country GB (+44), then the digits after +44. **To get
-the code, choose “Phone call”**: the code shows on the page within seconds. If Meta refuses this number, “Get another
+shows. In Meta's window, choose “Enter a new phone number”, the country GB (+44), then the digits after +44;
+**to get the code, choose “Phone call”, NOT “Text message”**: the code shows on the page within seconds. With no code after
+45 seconds, request it again, still by “Phone call”. If Meta refuses this number, “Get another
 one” gives you a new one.
 
 **3. Meta's window.** There you choose your business account and your number, Meta sends you a code, you enter it,

@@ -29,8 +29,9 @@ numéro » vous donne un numéro britannique dédié, inclus dans la formule Pro
 
 Pour le numéro fourni, vous payez sur la page de Stripe (un code promo s'y saisit, si nous vous en avons remis un),
 puis le numéro s'affiche. Dans la fenêtre de Meta, choisissez « Enter a new phone number », le pays GB (+44), puis
-les chiffres qui suivent +44. **Pour recevoir le code, choisissez « Phone call »** : le code s'affiche sur la page en
-quelques secondes. Si Meta refuse ce numéro, « En obtenir un autre » vous en donne un nouveau.
+les chiffres qui suivent +44 ; **pour recevoir le code, choisissez « Phone call » (l'appel), surtout pas « Text message »** :
+le code s'affiche sur la page en quelques secondes. Sans code au bout de 45 secondes, redemandez-le,
+toujours par « Phone call ». Si Meta refuse ce numéro, « En obtenir un autre » vous en donne un nouveau.
 
 **3. La fenêtre de Meta.** Vous y choisissez votre compte professionnel et votre numéro, Meta vous envoie un code,
 vous le saisissez, et vous allez jusqu'au dernier écran (« Finish »).
