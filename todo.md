@@ -1,5 +1,31 @@
 # todo.md : backlog
 
+## 🟡 La duplication de scénarios entre espaces, lot 1 (relecture du 2026-11-16, aucun rouge) : à faire avec le lot 2
+
+- **Faux 409 possible** (`src/ops/duplication/plan.ts`, empreinte) : la liste des templates est hachée dans l'ordre
+  rendu par Meta, et `toutesPourLaDuplication` trie sur `created_at` seul, alors que les déclencheurs d'une même copie
+  partagent le même `now()`. Trier les templates par (nom, langue) et les automations par `created_at, id`.
+- **Template homonyme réutilisé sans comparer son contenu** (`plan.ts`) : si ses boutons diffèrent de ceux de la source,
+  le bloc garde les `templateButtons` de la source, et une fois publié, `btn:<i>` part par index vers la mauvaise
+  branche. `TemplateSummary` porte `buttons` et `body` : les comparer et le signaler au récapitulatif.
+- **Onglet** (`web/components/OpsDuplication.tsx`) :
+  - les listes restent actives pendant la copie : un changement en cours de requête affiche le résultat sous le
+    nouveau choix ;
+  - choisir comme source l'espace déjà choisi en destination garde `destination` (l'aperçu dit « même espace »
+    pendant que la liste affiche « Choisir… ») ;
+  - après un échec du chargement des scénarios, changer la destination efface l'erreur et la liste reste sur
+    « Chargement… ».
+- **Images `/m/`** des messages rapides et RCS : la copie garde l'adresse de la source ; si la source est purgée,
+  l'envoi est refusé (point « À vérifier au plan » de la spec). Au minimum, le signaler au récapitulatif.
+- **Petits points** :
+  - les tags des clauses de condition ne sont pas déclarés (sans effet : un tag se pose par son nom) ;
+  - « réessayez dans un instant » sort aussi pour une WABA sans jeton ou une base en panne ;
+  - `scenarios()` passe par `listResume`, qui charge les graphes publiés pour n'en garder que les noms ;
+  - le `catch {}` des tags est muet (un `warn` suffit) ;
+  - la trace n'est que dans le journal applicatif, rien dans le journal d'activité de la destination ;
+  - commentaires périmés : « Les quatre onglets » (`web/app/ops/page.tsx`, ils sont six), et `HORS_WEBHOOK`
+    (« hors de portée de ce store », plus tout à fait vrai depuis `toutesPourLaDuplication`).
+
 ## 🟡 L'onglet « Shopify » de la fiche contact (relecture du 2026-11-16, aucun rouge)
 
 - Boutique sans devise lue (`shopify_boutiques.devise` nul) : le total dépensé somme toutes les devises (même règle que
