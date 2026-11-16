@@ -8,8 +8,6 @@
   mais le libellé trompe. Choisir entre le libellé et l'exclusion, aux DEUX endroits ensemble.
 - Le rapporté joint `ventes_attribuees` par `commande_id` : une vente anonymisée n'y remonte pas, alors que le tableau de
   bord la compte. Le dire en commentaire de `achatsDuContact`.
-- `ContactShopifyPanel.tsx` : `key={p.ouvertLe}` peut se dédoubler (prendre l'index) ; `ContactDetail.tsx` : remettre
-  l'onglet sur « Fiche » si `avecBoutique` repasse à faux pendant que « Shopify » est ouvert.
 - Tests d'intégration à ajouter : boutique sans devise, fiche effacée (`deleted_at`, `anonymized_at` rendent `null`),
   borne des 100 commandes.
 

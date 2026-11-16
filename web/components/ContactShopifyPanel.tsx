@@ -47,6 +47,12 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
   }
   const montant = (m: string, devise: string | null) => (devise ? fmtMontant(m, devise, locale) : m);
   const depuis = formatDate(boutique.commandesDepuis, locale);
+  /**
+   * Les commandes de test ne comptent jamais dans le rapporté (la règle du chiffre attribué). Quand certaines portent
+   * pourtant une source, l'écran le dit : sinon « aucune commande attribuée » contredit la liste juste en dessous (vu à
+   * l'essai réel du 2026-11-16, sur l'espace de démonstration, où toutes les commandes attribuées étaient de test).
+   */
+  const testAttribuees = commandes.some((c) => c.test && c.attribution !== null);
 
   return (
     <div className="mt-4 space-y-5 text-sm" data-testid="fiche-shopify">
@@ -73,7 +79,11 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
         <span className="text-ink-500">{t('Rapporté par WhatsApp', 'Brought in by WhatsApp')}</span>
         <span className="text-ink-900" data-testid="fiche-shopify-rapporte">
           {rapporte.length === 0
-            ? <span className="text-ink-500">{t('Aucune commande attribuée à WhatsApp', 'No order attributed to WhatsApp')}</span>
+            ? <span className="text-ink-500">
+              {testAttribuees
+                ? t('Aucune vente réelle attribuée à WhatsApp', 'No real sale attributed to WhatsApp')
+                : t('Aucune commande attribuée à WhatsApp', 'No order attributed to WhatsApp')}
+            </span>
             : rapporte.map((r) => (
               <span key={r.devise} className="block">
                 {montant(r.montant, r.devise)}
@@ -83,6 +93,11 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
                 </span>
               </span>
             ))}
+          {testAttribuees && (
+            <span className="block text-xs text-ink-500" data-testid="fiche-shopify-rapporte-test">
+              {t('Les commandes de test attribuées ne comptent pas dans ce chiffre.', 'Attributed test orders do not count in this figure.')}
+            </span>
+          )}
         </span>
       </div>
 
@@ -130,8 +145,8 @@ export function ContactShopifyPanel({ tenantId, contactId }: { tenantId: string;
           </p>
         ) : (
           <ul className="divide-y divide-ink-100 rounded-controle border border-ink-100" data-testid="fiche-shopify-paniers">
-            {paniers.map((p) => (
-              <li key={p.ouvertLe} className="flex flex-wrap items-center gap-x-3 px-3 py-2">
+            {paniers.map((p, i) => (
+              <li key={`${p.ouvertLe}-${i}`} className="flex flex-wrap items-center gap-x-3 px-3 py-2">
                 <span className="w-24 shrink-0 text-ink-900">{formatDate(p.ouvertLe, locale)}</span>
                 <span className="text-xs text-ink-500">{etatPanier(p, locale, t)}</span>
               </li>

@@ -272,6 +272,11 @@ export function ContactDetail({
     chargerSegments(tenantId).then((s) => { if (alive) setAvecBoutique(s?.boutique != null); }).catch(() => {});
     return () => { alive = false; };
   }, [tenantId]);
+  // Plus de boutique (un autre espace) pendant que l'onglet est ouvert : retour sur « Fiche », sinon le panneau resterait
+  // affiché sans son bouton.
+  useEffect(() => {
+    if (!avecBoutique && tab === 'shopify') setTab('fiche');
+  }, [avecBoutique, tab]);
 
   const selectedDef = defByKey.get(newKey);
 

@@ -66,6 +66,22 @@ test.describe('Fiche contact : l’onglet Shopify', () => {
     await pasDeDebordement(page);
   });
 
+  test('🔴 seules des commandes de test sont attribuées : « aucune vente réelle », et la raison est dite', async ({ page }) => {
+    // Le cas de l'essai réel du 2026-11-16 (espace de démonstration) : le rapporté exclut les commandes de test, et la
+    // phrase « aucune commande attribuée » contredisait la liste, où elles portent leur source.
+    await mock(page, AVEC_BOUTIQUE, {
+      ...ACHATS,
+      rapporte: [],
+      commandes: [{ commandeId: '1002', payeeLe: '2026-11-03T10:00:00.000Z', montant: '20', devise: 'EUR', test: true,
+        attribution: { source: 'relance_panier', campagne: null, preuve: 'panier' } }],
+    });
+    await ouvrirFiche(page);
+    await page.getByTestId('fiche-onglet-shopify').click();
+    await expect(page.getByTestId('fiche-shopify-rapporte')).toContainText('Aucune vente réelle attribuée à WhatsApp');
+    await expect(page.getByTestId('fiche-shopify-rapporte-test')).toContainText('ne comptent pas dans ce chiffre');
+    await expect(page.getByTestId('fiche-shopify-commandes')).toContainText('Relance de panier');
+  });
+
   test('🔴 sans boutique : pas d’onglet Shopify', async ({ page }) => {
     await mock(page, SANS_BOUTIQUE, ACHATS);
     await ouvrirFiche(page);
