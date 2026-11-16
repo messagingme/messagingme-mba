@@ -4,6 +4,22 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-16 : les étapes de Codex sur la page Développeurs, et `/messagingme:demarrer` à l'étape 3 du tunnel
+
+Demande de Julien (« une ligne claude code et ligne codex », puis « /messagingme:demarrer avant le texte à copier
+coller »). `b9690777`, CI verte (unit, securite, integration), vérifié en production le même soir.
+
+- **Page Développeurs** (`site/developpeurs/`, `site/en/developers/`, écrites à la main) : « Trois étapes, une seule
+  session » sur deux lignes, Claude Code puis Codex, chacune sous son logo (`.dev-voie`). Codex : ses deux commandes
+  d'installation, `codex mcp login messagingme` (« non vérifié » est normal), puis la demande « Mets en service WhatsApp
+  avec Messaging Me. ». `tests/vitrine-developpeurs.test.ts` tient aussi les commandes de Codex (`codex-1`, `codex-2`,
+  `codex-login`).
+- **Étape 3 du tunnel** (Démarrer, Shopify, SaaS, fr et en) : « Lancez la mise en service, avec votre demande », sur le
+  modèle des étapes 1 et 2 : Claude Code, `/messagingme:demarrer` puis la demande à sa suite ; Codex, la demande telle
+  quelle (comment Codex lance une skill de plugin n'est pas mesuré, `todo.md`).
+- Fait dans une copie à jour d'origin : l'arbre partagé avait 260 commits de retard et le travail d'une autre session
+  sur `web/lib/demarrer.ts`.
+
 ## 2026-11-16 : « Ce que vous pouvez construire » lisible, cartes blanches et une icône par ligne
 
 Julien : « bleu sur bleu, illisible ». Sur la page développeurs (FR et EN), les quatre cartes passent en blanc avec

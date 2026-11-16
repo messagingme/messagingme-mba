@@ -368,9 +368,9 @@ au lot suivant ; rien ne bloque.
 ## 🟡 Le lot 4a-2 de l'aide à la connexion : ce qu'il laisse (2026-11-10)
 
 - **Codex, ce qui n'est écrit nulle part** : comment mettre le plugin à jour (`codex plugin` a-t-il une mise à jour ?)
-  et ce qu'on y tape pour lancer la mise en service (`/messagingme:demarrer` est une commande de Claude Code ; le tunnel
-  fait coller une demande propre à chaque chemin). À mesurer sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3
-  d'« Installer le plugin ».
+  et comment Codex lance une skill de plugin (`/messagingme:demarrer` est une commande de Claude Code). Depuis le
+  2026-11-16, l'étape 3 du tunnel et la page Développeurs disent, pour Codex, de coller la demande telle quelle. À mesurer
+  sur Codex, puis à dire dans la FAQ du plugin et à l'étape 3 d'« Installer le plugin ».
 
 ## 🟡 Les lots 3v-2a à 3v-2d de l'aide à la connexion : ce qu'ils laissent (2026-11-11)
 
@@ -1560,8 +1560,8 @@ Conceptions : `docs/superpowers/specs/2026-10-23-shopify-numero-qr-design.md` (l
   numéro »). La capture se refait par `npm run aide:captures`, le film dans `~/engageme-motion` ; un fichier remplacé
   sous le même nom prend un `?v=` incrémenté dans chaque page qui le cite.
 - **La carte Codex de `/integrations/`** mène aux pages développeurs : « Installer le plugin » y donne depuis le
-  2026-11-10 les commandes de Codex (installer, relier), l'accueil des développeurs n'en dit encore rien (essai 121 pas
-  fait ; Julien garde la carte telle quelle en attendant, 2026-10-24).
+  2026-11-10 les commandes de Codex (installer, relier), et l'accueil des développeurs ses trois étapes depuis le
+  2026-11-16 ; reste l'essai 121 (Julien garde la carte telle quelle en attendant, 2026-10-24).
 - **Remplacer un numéro relié par QR code par un numéro fourni** : `relierApplication` et `preparer` refusent un espace
   déjà relié (`deja_relie`), donc un marchand qui a relié le numéro de sa boutique ne peut pas passer à un numéro fourni
   pour le protéger (sort des conversations, des fiches, du cache `@lid` et du crédit offert à décider).
