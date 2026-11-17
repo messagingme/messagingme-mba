@@ -2,6 +2,11 @@
 
 ## 🟡 La duplication de scénarios entre espaces, lot 1 (relecture du 2026-11-16, aucun rouge) : à faire avec le lot 2
 
+- **Les lots 2 et 3 sont validés et pas commencés** (spec
+  `docs/superpowers/specs/2026-11-16-duplication-scenario-entre-espaces-design.md`, section « Lots ») : le lot 2 coche
+  l'agent IA (fiche, connaissance et vecteurs, outils désactivés), les appels API (secret recopié chiffré) et le modèle
+  d'e-mail ; le lot 3 recrée chez Meta les templates et les Flows absents, Meta d'abord et tout ou rien. Un plan par lot,
+  avec sa « Méthode de livraison », avant le code. Les jaunes ci-dessous partent avec le lot 2.
 - **Faux 409 possible** (`src/ops/duplication/plan.ts`, empreinte) : la liste des templates est hachée dans l'ordre
   rendu par Meta, et `toutesPourLaDuplication` trie sur `created_at` seul, alors que les déclencheurs d'une même copie
   partagent le même `now()`. Trier les templates par (nom, langue) et les automations par `created_at, id`.
