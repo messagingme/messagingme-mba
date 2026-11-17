@@ -746,7 +746,7 @@ export interface EspaceDuplicationOps { id: string; nom: string; waba: boolean }
 /** Les trois choix de l'onglet « Dupliquer ». */
 export interface ChoixDuplicationOps { source: string; scenarioId: string; destination: string }
 
-export type RaisonDebrancheOps = 'aller_a' | 'assignation' | 'agent' | 'appel_api' | 'email' | 'flow';
+export type RaisonDebrancheOps = 'aller_a' | 'assignation' | 'agent' | 'appel_api' | 'email' | 'flow' | 'template';
 export type RaisonRetraitOps = 'mot_cle_pris' | 'nouveau_contact_existe' | 'lie_a_la_source';
 
 /** Le récapitulatif d'une duplication (`POST /ops/duplication/apercu`), calculé sans rien écrire. */
@@ -764,11 +764,29 @@ export interface ApercuDuplicationOps {
   motsRetires: Array<{ nom: string; mots: string[] }>;
   /** Ce que le scénario désigne et qui peut partir avec lui, case à cocher (lot 2). */
   dependances: DependancesApercuOps;
+  /** Les dépendances bloc par bloc : l'écran en tire les blocs qu'une case rebranche (lot 3). Absent d'une API d'avant. */
+  references?: Array<{ nodeId: string; sorte: 'agent' | 'requete' | 'modele_email' | 'flow'; id: string }>;
+  /** Chaque template et chaque Flow du scénario, son sort et sa case (lot 3). Absent d'une API d'avant. */
+  meta?: ApercuMetaOps;
   signaux: string[];
   blocages: string[];
   /** Renvoyée telle quelle à la duplication : l'API refuse (409) si l'état a changé depuis. */
   empreinte: string;
 }
+
+export type RaisonNonRecreableOps = 'lecture' | 'introuvable' | 'categorie' | 'boutons' | 'entete' | 'media' | 'liens' | 'flow';
+export interface ApercuMetaOps {
+  templates: Array<{
+    nom: string; langue: string; etat: 'reutilise' | 'a_recreer' | 'non_recreable'; statut: string | null;
+    raison: RaisonNonRecreableOps | null; flows: string[]; champs: string[]; blocs: Array<{ nodeId: string; nom: string }>;
+  }>;
+  flows: Array<{ id: string; nom: string; nomCopie: string; publie: boolean; recreable: boolean; champs: string[]; blocs: Array<{ nodeId: string; nom: string }> }>;
+}
+
+/** Ce qu'une duplication a créé chez Meta (lot 3) : rendu par le succès, et par un arrêt (où cela reste chez Meta). */
+export type CreationMetaOps =
+  | { sorte: 'flow'; nom: string; id: string; publie: boolean }
+  | { sorte: 'template'; nom: string; langue: string; statut: string; categorie: string };
 
 export type RaisonOutilNonCopieOps = 'mcp' | 'autre_scenario' | 'cible_illisible';
 export interface DependancesApercuOps {
@@ -776,13 +794,25 @@ export interface DependancesApercuOps {
     id: string; nom: string; nomCopie: string; fiches: number;
     outilsCopies: Array<{ nom: string; nomCopie: string }>;
     outilsNonCopies: Array<{ nom: string; raison: RaisonOutilNonCopieOps }>;
+    /** Les requêtes qu'appellent ses outils copiés : elles partent avec lui. Absent d'une API d'avant le lot 3. */
+    requetes?: string[];
+    /** Les champs que sa copie créerait dans la destination. Absent d'une API d'avant le lot 3. */
+    champs?: string[];
   }>;
-  requetes: Array<{ id: string; nom: string; nomCopie: string; source: { nom: string; nomCopie: string; secret: boolean } }>;
-  modelesEmail: Array<{ id: string; nom: string; nomCopie: string }>;
+  requetes: Array<{
+    id: string; nom: string; nomCopie: string; source: { nom: string; nomCopie: string; secret: boolean };
+    /** Un bloc la désigne : elle a sa case. Sinon elle ne part qu'avec l'agent qui l'appelle. Absent avant le lot 3. */
+    parUnBloc?: boolean;
+    champs?: string[];
+  }>;
+  modelesEmail: Array<{ id: string; nom: string; nomCopie: string; champs?: string[] }>;
 }
 
-/** Les cases cochées : ce qui part avec le scénario. */
-export interface CasesDuplicationOps { agents: string[]; requetes: string[]; modelesEmail: string[] }
+/** Les cases cochées : ce qui part avec le scénario ; les templates et les Flows se recréent chez Meta (lot 3). */
+export interface CasesDuplicationOps {
+  agents: string[]; requetes: string[]; modelesEmail: string[];
+  templates: Array<{ nom: string; langue: string }>; flows: string[];
+}
 
 export interface ResultatDuplicationOps {
   scenarioId: string;
@@ -792,7 +822,10 @@ export interface ResultatDuplicationOps {
   debranches: ApercuDuplicationOps['debranches'];
   declencheursRetires: ApercuDuplicationOps['declencheursRetires'];
   motsRetires: ApercuDuplicationOps['motsRetires'];
-  dependancesCopiees: { agents: string[]; requetes: string[]; modelesEmail: string[]; sourcesAvecSecret: string[] };
+  /** Absent d'une API du lot 1. */
+  dependancesCopiees?: { agents: string[]; requetes: string[]; modelesEmail: string[]; sourcesAvecSecret: string[] };
+  /** Ce qui a été recréé chez Meta (lot 3) ; absent d'une API d'avant. */
+  crees?: CreationMetaOps[];
 }
 
 export function lireEspacesDuplicationOps(sessionOps: string): Promise<{ espaces: EspaceDuplicationOps[] }> {

@@ -120,7 +120,7 @@ test.describe('Ops : l’onglet Dupliquer', () => {
     await page.getByTestId('ops-duplication-bouton').click();
     await expect(page.getByTestId('ops-duplication-resultat')).toContainText('« Accueil (copie) », inactive, en brouillon');
     expect(envois).toEqual([{
-      source: SRC, scenarioId: WF, destination: DST, empreinte: 'a'.repeat(64), dupliquer: { agents: [], requetes: [], modelesEmail: [] },
+      source: SRC, scenarioId: WF, destination: DST, empreinte: 'a'.repeat(64), dupliquer: { agents: [], requetes: [], modelesEmail: [], templates: [], flows: [] },
     }]);
   });
 
@@ -180,7 +180,7 @@ test.describe('Ops : l’onglet Dupliquer, les dépendances (lot 2)', () => {
     await page.getByTestId('ops-duplication-bouton').click();
     await expect(page.getByTestId('ops-duplication-resultat')).toContainText('Copiés avec lui : Conseiller (copie) (secret copié : CRM)');
     expect(envois).toEqual([{
-      source: SRC, scenarioId: WF, destination: DST, empreinte: 'a'.repeat(64), dupliquer: { agents: ['ag-1'], requetes: ['rq-1'], modelesEmail: [] },
+      source: SRC, scenarioId: WF, destination: DST, empreinte: 'a'.repeat(64), dupliquer: { agents: ['ag-1'], requetes: ['rq-1'], modelesEmail: [], templates: [], flows: [] },
     }]);
   });
 
@@ -211,5 +211,123 @@ test.describe('Ops : l’onglet Dupliquer, les dépendances (lot 2)', () => {
     await expect(page.getByTestId('ops-duplication-erreur-scenarios')).toBeVisible();
     await page.getByTestId('ops-duplication-reessayer').click();
     await expect(page.getByTestId('ops-duplication-scenario').locator('option')).toHaveText(['Choisir…', 'Accueil']);
+  });
+
+  test('🔴 une requête que seul l’agent appelle se lit sous lui, sans case ; celle d’un bloc qu’emporte l’agent coché se coche, se verrouille et rebranche son bloc ; les champs de chaque dépendance', async ({ page }) => {
+    const apercu = {
+      ...APERCU,
+      debranches: [...APERCU.debranches, { nodeId: 'h5', nom: 'Créer le lead', type: 'http', raison: 'appel_api' }],
+      references: [{ nodeId: 'g6', sorte: 'agent', id: 'ag-1' }, { nodeId: 'h5', sorte: 'requete', id: 'rq-1' }],
+      dependances: {
+        agents: [{ ...APERCU.dependances.agents[0]!, requetes: ['rq-1', 'rq-2'], champs: ['ville_rdv'] }],
+        requetes: [
+          { ...APERCU.dependances.requetes[0]!, parUnBloc: true, champs: ['ville'] },
+          { id: 'rq-2', nom: 'Lire le stock', nomCopie: 'Lire le stock', source: { nom: 'ERP', nomCopie: 'ERP', secret: false }, parUnBloc: false, champs: [] },
+        ],
+        modelesEmail: [{ ...APERCU.dependances.modelesEmail[0]!, champs: ['code_promo'] }],
+      },
+    };
+    const { envois } = await ouvrir(page, { apercu: { status: 200, body: { apercu } } });
+    await choisirTout(page);
+    await expect(page.getByTestId('ops-duplication-case-requete-rq-2')).toHaveCount(0);
+    await expect(page.getByTestId('ops-duplication-requete-de-l-agent')).toContainText('Lire le stock, source ERP');
+    await expect(page.getByTestId('ops-duplication-champs-dependance')).toHaveText(['Champs à créer : ville_rdv', 'Champs à créer : ville', 'Champs à créer : code_promo']);
+    const debranches = page.getByTestId('ops-duplication-debranches');
+    await expect(debranches).toContainText('Créer le lead');
+
+    await page.getByTestId('ops-duplication-case-agent-ag-1').check();
+    await expect(page.getByTestId('ops-duplication-case-requete-rq-1')).toBeChecked();
+    await expect(page.getByTestId('ops-duplication-case-requete-rq-1')).toBeDisabled();
+    await expect(debranches).not.toContainText('Créer le lead');
+    await page.getByTestId('ops-duplication-bouton').click();
+    await expect(page.getByTestId('ops-duplication-resultat')).toBeVisible();
+    expect(envois).toEqual([{
+      source: SRC, scenarioId: WF, destination: DST, empreinte: 'a'.repeat(64), dupliquer: { agents: ['ag-1'], requetes: [], modelesEmail: [], templates: [], flows: [] },
+    }]);
+  });
+});
+
+/** Le scénario du lot 3 : un template réutilisé, un absent à recréer qui ouvre un Flow, un non recréable, et un bloc Flow. */
+const APERCU_META = {
+  ...APERCU,
+  debranches: [...APERCU.debranches, { nodeId: 'f5', nom: 'Formulaire', type: 'flow', raison: 'flow' }],
+  references: [{ nodeId: 'f5', sorte: 'flow', id: '7001' }],
+  meta: {
+    templates: [
+      { nom: 'bienvenue', langue: 'fr', etat: 'reutilise', statut: 'APPROVED', raison: null, flows: [], champs: [], blocs: [{ nodeId: 't2', nom: 'Bienvenue' }] },
+      { nom: 'inscription', langue: 'fr', etat: 'a_recreer', statut: 'APPROVED', raison: null, flows: ['7001'], champs: [], blocs: [{ nodeId: 't6', nom: 'Inscription' }] },
+      { nom: 'code', langue: 'fr', etat: 'non_recreable', statut: 'APPROVED', raison: 'categorie', flows: [], champs: [], blocs: [{ nodeId: 't7', nom: 'Code' }] },
+    ],
+    flows: [{ id: '7001', nom: 'Inscription', nomCopie: 'Inscription', publie: true, recreable: true, champs: [], blocs: [{ nodeId: 'f5', nom: 'Formulaire' }] }],
+  },
+};
+
+test.describe('Ops : l’onglet Dupliquer, les templates et les Flows chez Meta (lot 3)', () => {
+  test('🔴 une case par template à recréer, le non recréable dit pourquoi ; cocher le template coche et verrouille son Flow ; les débranchés suivent les cases', async ({ page }) => {
+    const { envois } = await ouvrir(page, {
+      apercu: { status: 200, body: { apercu: APERCU_META } },
+      duplication: { status: 201, body: {
+        scenarioId: 'wf-copie', nom: 'Accueil (copie)', champsCrees: [], declencheursCopies: 1,
+        debranches: [], declencheursRetires: [], motsRetires: [],
+        dependancesCopiees: { agents: [], requetes: [], modelesEmail: [], sourcesAvecSecret: [] },
+        crees: [
+          { sorte: 'flow', nom: 'Inscription', id: '9001', publie: true },
+          { sorte: 'template', nom: 'inscription', langue: 'fr', statut: 'PENDING', categorie: 'marketing' },
+        ],
+      } },
+    });
+    await choisirTout(page);
+    const caseTemplate = page.getByTestId('ops-duplication-case-template-inscription-fr');
+    const caseFlow = page.getByTestId('ops-duplication-case-flow-7001');
+    await expect(caseTemplate).not.toBeChecked();
+    await expect(caseFlow).not.toBeChecked();
+    await expect(page.getByTestId('ops-duplication-template-non-recreable')).toContainText('code (fr)');
+    const debranches = page.getByTestId('ops-duplication-debranches');
+    await expect(debranches).toContainText('Inscription : template à choisir');
+    await expect(debranches).toContainText('Code : template à choisir');
+    await expect(debranches).toContainText('Formulaire : Flow débranché');
+
+    await caseTemplate.check();
+    await expect(caseFlow).toBeChecked();
+    await expect(caseFlow).toBeDisabled();
+    await expect(debranches).not.toContainText('Inscription : template à choisir');
+    await expect(debranches).not.toContainText('Formulaire');
+    await expect(debranches).toContainText('Code : template à choisir');
+
+    await page.getByTestId('ops-duplication-bouton').click();
+    const resultat = page.getByTestId('ops-duplication-resultat');
+    await expect(resultat).toContainText('Recréés chez Meta');
+    await expect(resultat).toContainText('template inscription (fr), en attente d’approbation');
+    await expect(resultat).toContainText('Flow Inscription, publié');
+    expect(envois).toEqual([{
+      source: SRC, scenarioId: WF, destination: DST, empreinte: 'a'.repeat(64),
+      dupliquer: { agents: [], requetes: [], modelesEmail: [], templates: [{ nom: 'inscription', langue: 'fr' }], flows: ['7001'] },
+    }]);
+  });
+
+  test('un arrêt chez Meta : le message, et ce qui y a déjà été créé', async ({ page }) => {
+    await ouvrir(page, {
+      apercu: { status: 200, body: { apercu: APERCU_META } },
+      duplication: { status: 422, body: {
+        error: 'la duplication s’est arrêtée chez Meta : le template inscription (fr) : Meta a refusé le modèle. Rien n’a été écrit dans l’espace ; ce qui a déjà été créé chez Meta y reste',
+        crees: [{ sorte: 'flow', nom: 'Inscription', id: '9001', publie: true }], champsCrees: [],
+      } },
+    });
+    await choisirTout(page);
+    await page.getByTestId('ops-duplication-case-template-inscription-fr').check();
+    await page.getByTestId('ops-duplication-bouton').click();
+    await expect(page.getByTestId('ops-duplication-erreur-copie')).toContainText('arrêtée chez Meta');
+    await expect(page.getByTestId('ops-duplication-crees-avant-arret')).toContainText('Flow Inscription, publié');
+  });
+
+  test('au-delà de 10 templates et Flows cochés, le bouton se grise et dit pourquoi', async ({ page }) => {
+    const nombreux = Array.from({ length: 11 }, (_, i) => ({
+      nom: `m${i}`, langue: 'fr', etat: 'a_recreer', statut: 'APPROVED', raison: null, flows: [], champs: [], blocs: [{ nodeId: `n${i}`, nom: `M${i}` }],
+    }));
+    await ouvrir(page, { apercu: { status: 200, body: { apercu: { ...APERCU_META, meta: { templates: nombreux, flows: [] } } } } });
+    await choisirTout(page);
+    for (let i = 0; i < 11; i += 1) await page.getByTestId(`ops-duplication-case-template-m${i}-fr`).check();
+    await expect(page.getByTestId('ops-duplication-bouton')).toBeDisabled();
+    await expect(page.getByTestId('ops-duplication-trop-a-meta')).toBeVisible();
   });
 });
