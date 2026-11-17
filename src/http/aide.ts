@@ -6,6 +6,7 @@ import { QUESTION_MAX_CARACTERES, type CoutAide, type QuestionAide, type Reponse
 import { creerCacheRecap } from '../aide/recap-cache';
 import type { RecapTexte } from '../aide/recap-rendu';
 import { resoudre } from '../aide/carte';
+import { lireFicheAide } from '../aide/fiche-disque';
 import { reserverBudget, solderReservation, type BudgetAssistantDeps } from '../assistant/budget';
 import { addDays, todayParis } from '../stats/range';
 import { texteDe } from '../lib/erreur';
@@ -179,5 +180,18 @@ export function registerAide(app: FastifyInstance, deps: AideRouteDeps, garde: G
       // 502 gardé, pour la même raison que la question : l'écran ne lit pas ce corps.
       return reply.code(502).send({ error: 'récap indisponible pour le moment' });
     }
+  });
+
+  /**
+   * Une fiche citée en source d'une réponse, pour la relire dans le panneau d'aide. Aucun appel payé, donc ni budget
+   * ni plafond de cette route : le plafond par utilisateur de la garde suffit. La clé est validée par `lireFicheAide`.
+   */
+  app.get('/tenants/:tenantId/aide/fiches/:cle', opts, async (req, reply) => {
+    espaceVerifie(req);
+    const { cle } = req.params as { cle: string };
+    const langue = (req.query as { langue?: unknown }).langue === 'en' ? 'en' : 'fr';
+    const fiche = await lireFicheAide(cle, langue);
+    if (!fiche) return reply.code(404).send({ error: 'fiche introuvable' });
+    return reply.code(200).send(fiche);
   });
 }

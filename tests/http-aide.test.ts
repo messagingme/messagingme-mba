@@ -43,7 +43,7 @@ const post = (payload: Record<string, unknown>) => ({ method: 'POST' as const, u
 
 describe('route d’aide', () => {
   it('répond 200 avec ce que rend le moteur', async () => {
-    const r = await app({ repondre: async () => ({ sait: true, texte: 'Ouvrez Campagnes.', sources: ['Lancer une campagne'], ecrans: [] }) })
+    const r = await app({ repondre: async () => ({ sait: true, texte: 'Ouvrez Campagnes.', sources: [{ cle: 'lancer-une-campagne', titre: 'Lancer une campagne' }], ecrans: [] }) })
       .inject(post({ question: 'comment lancer une campagne' }));
     expect(r.statusCode).toBe(200);
     expect(r.json()).toMatchObject({ sait: true, texte: 'Ouvrez Campagnes.' });
@@ -172,5 +172,44 @@ describe('route d’aide : l’enveloppe du mois', () => {
     const depenses = new DepensesMemoire();
     await app({ budget: budgetEnMemoire(depenses), repondre: async () => vide }).inject(post({ question: '   ' }));
     expect(depenses.mouvements).toEqual([]);
+  });
+});
+
+/**
+ * LA FICHE CITÉE EN SOURCE : la console l'ouvre dans le panneau d'aide. Elle se lit sur le DISQUE (les vraies fiches
+ * du dépôt), et la clé, qui vient de l'URL, ne doit jamais sortir du dossier des fiches.
+ */
+describe('route d’aide : une fiche citée', () => {
+  const get = (cle: string, langue?: string) => ({
+    method: 'GET' as const, url: `/tenants/t1/aide/fiches/${cle}${langue ? `?langue=${langue}` : ''}`,
+  });
+
+  it('rend le titre et le corps de la fiche, sans son en-tête', async () => {
+    const r = await app().inject(get('bloc-message-rapide'));
+    expect(r.statusCode).toBe(200);
+    const f = r.json() as { titre: string; corps: string };
+    expect(f.titre).toBe('Le bloc Message rapide');
+    expect(f.corps).toContain('**1. Écrire le message.**');
+    expect(f.corps).not.toContain('source_empreinte');
+    expect(f.corps).not.toMatch(/^# /m);
+  });
+
+  it('en anglais quand la traduction existe, en français sinon', async () => {
+    const en = (await app().inject(get('bloc-message-rapide', 'en'))).json() as { titre: string };
+    expect(en.titre).not.toBe('Le bloc Message rapide');
+    const sansTraduction = await app().inject(get('recharger-le-credit-ia', 'en'));
+    expect(sansTraduction.statusCode).toBe(200);
+  });
+
+  it('🔴 une clé qui sort du dossier ou qui n’existe pas : 404, sans lire autre chose', async () => {
+    // `../../../CLAUDE` existe bien (la racine du dépôt) : sans la garde, il serait servi.
+    for (const cle of ['..%2F..%2F..%2FCLAUDE', '..', 'en', 'inconnue-de-tous', 'Bloc-Message-Rapide', 'bloc-message-rapide.md']) {
+      expect((await app().inject(get(cle))).statusCode, cle).toBe(404);
+    }
+  });
+
+  it('🔴 un jeton d’un AUTRE espace est refusé', async () => {
+    const r = await app({}, { tenantId: 'autre', role: 'admin' }).inject(get('bloc-message-rapide'));
+    expect(r.statusCode).toBe(403);
   });
 });

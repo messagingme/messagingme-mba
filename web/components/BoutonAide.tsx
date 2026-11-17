@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useT, useLocale } from '@/lib/i18n';
 import { Logo } from '@/components/Logo';
 import { inputCls } from '@/lib/ui';
-import { demanderAide, demanderRecap } from '@/lib/api-aide';
+import { demanderAide, demanderRecap, lireFicheAide, type FicheAide, type SourceAide } from '@/lib/api-aide';
+import { blocsFiche, segmentsFiche } from '@/lib/aide-fiche';
 import { HorsOffre } from './HorsOffre';
 import { useFermeture } from '@/lib/use-offre';
 import { lireFil, ecrireFil, MAX_ECHANGES_GARDES, type EchangeAide } from '@/lib/aide-fil';
@@ -61,21 +62,48 @@ export function BoutonAide({ tenantId, ecranCourant, role, dansEntete = false }:
   // pourrait arriver après la nouvelle et s'afficher à sa place.
   const enCours = useRef<AbortController | null>(null);
   const basDuFil = useRef<HTMLDivElement | null>(null);
+  /**
+   * La fiche ouverte depuis une source « D'après » : elle prend la place du fil, un bouton y ramène. Le fil n'est
+   * pas touché, la personne retrouve sa conversation où elle l'avait laissée.
+   */
+  const [fiche, setFiche] = useState<{ source: SourceAide; contenu: FicheAide | null; erreur: boolean } | null>(null);
+  const ficheEnCours = useRef<AbortController | null>(null);
   // L'offre de l'espace (lot 6) : l'assistant d'aide est une fonction payante. Fermé, le panneau dit dans quelle offre il
   // est et garde le recours au Support, au lieu d'un champ dont chaque question serait refusée.
   const ferme = useFermeture(tenantId, 'aide');
 
   // Le fil est relu au MONTAGE, pas à l'ouverture du panneau : la coquille est remontée à chaque changement
   // d'écran, et c'est précisément là qu'il faut le retrouver intact.
-  useEffect(() => { setFil(lireFil(tenantId)); }, [tenantId]);
+  useEffect(() => { setFil(lireFil(tenantId)); setFiche(null); }, [tenantId]);
 
   // On descend sur la dernière réponse. Sans ça, une réponse longue apparaît au-dessus de ce qu'on lit.
-  useEffect(() => { basDuFil.current?.scrollIntoView({ block: 'end' }); }, [fil, occupe, ouvert]);
+  // `fiche` aussi : en revenant d'une fiche, on retrouve la dernière réponse.
+  useEffect(() => { basDuFil.current?.scrollIntoView({ block: 'end' }); }, [fil, occupe, ouvert, fiche]);
+
+  function fermerFiche(): void {
+    ficheEnCours.current?.abort();
+    setFiche(null);
+  }
+
+  async function ouvrirFiche(source: SourceAide): Promise<void> {
+    ficheEnCours.current?.abort();
+    const abandon = new AbortController();
+    ficheEnCours.current = abandon;
+    setFiche({ source, contenu: null, erreur: false });
+    try {
+      const contenu = await lireFicheAide(tenantId, source.cle, locale === 'en' ? 'en' : 'fr', abandon.signal);
+      if (!abandon.signal.aborted) setFiche({ source, contenu, erreur: false });
+    } catch {
+      if (!abandon.signal.aborted) setFiche({ source, contenu: null, erreur: true });
+    }
+  }
 
   async function envoyer(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     const q = question.trim();
     if (q === '' || occupe) return;
+    // Une question posée depuis une fiche ouverte : on revient au fil, où sa réponse va s'afficher.
+    fermerFiche();
     enCours.current?.abort();
     const abandon = new AbortController();
     enCours.current = abandon;
@@ -179,7 +207,46 @@ export function BoutonAide({ tenantId, ecranCourant, role, dansEntete = false }:
             </div>
           ) : (
           <>
-          <div className="flex-1 space-y-4 overflow-y-auto px-4 py-3" data-testid="aide-fil">
+          {fiche ? (
+          <div key="fiche" className="flex-1 space-y-3 overflow-y-auto px-4 py-3" data-testid="aide-fiche">
+            <button
+              type="button"
+              onClick={fermerFiche}
+              data-testid="aide-fiche-retour"
+              className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline"
+            >
+              <Icone nom="precedent" taille="petite" />
+              {t('Retour à la réponse', 'Back to the answer')}
+            </button>
+            <p className="text-sm font-semibold text-ink-900">{fiche.contenu?.titre ?? fiche.source.titre}</p>
+            {fiche.erreur ? (
+              <div data-testid="aide-fiche-erreur">
+                <p className="text-sm text-ink-900">{t('Cette fiche ne s’ouvre pas pour le moment.', 'This article cannot be opened right now.')}</p>
+                {recours}
+              </div>
+            ) : fiche.contenu === null ? (
+              <p className="text-sm text-ink-500">{t('Chargement…', 'Loading…')}</p>
+            ) : (
+              blocsFiche(fiche.contenu.corps, locale === 'en' ? 'en' : 'fr').map((b, i) => {
+                const enLigne = (texte: string) => segmentsFiche(texte).map((s, j) => (
+                  s.gras ? <strong key={j} className="font-semibold">{s.texte}</strong>
+                    : s.code ? <code key={j} className="rounded-controle bg-ink-100 px-1 text-xs">{s.texte}</code>
+                      : <Fragment key={j}>{s.texte}</Fragment>
+                ));
+                if (b.type === 'intertitre') return <p key={i} className="pt-1 text-sm font-semibold text-ink-900">{b.texte}</p>;
+                if (b.type === 'liste') {
+                  return (
+                    <ul key={i} className="list-disc space-y-1 pl-5 text-sm text-ink-900">
+                      {b.items.map((it, j) => <li key={j}>{enLigne(it)}</li>)}
+                    </ul>
+                  );
+                }
+                return <p key={i} className="text-sm text-ink-900">{enLigne(b.texte)}</p>;
+              })
+            )}
+          </div>
+          ) : (
+          <div key="fil" className="flex-1 space-y-4 overflow-y-auto px-4 py-3" data-testid="aide-fil">
             {/**
               * 🔴 UNE INVITATION, PAS UNE CONSIGNE (demande de Julien, 2026-09-11 : « là c'est hyper triste
               * [...] dis "Je suis là pour vous aider", pas un truc "posez votre question sur la console" »).
@@ -265,10 +332,25 @@ export function BoutonAide({ tenantId, ecranCourant, role, dansEntete = false }:
                       </div>
                     )}
                     {/* La SOURCE est montrée, et ce n'est pas décoratif : le client voit d'où sort la réponse,
-                        et peut juger si elle parle bien de ce qu'il cherche. */}
+                        juge si elle parle bien de ce qu'il cherche, et l'ouvre pour la relire en entier. */}
                     {e.reponse.sources.length > 0 && (
                       <p className="mt-2 text-xs text-ink-500" data-testid="aide-sources">
-                        {t('D’après : ', 'Based on: ')}{e.reponse.sources.join(', ')}
+                        {t('D’après : ', 'Based on: ')}
+                        {e.reponse.sources.map((s, j) => (
+                          <Fragment key={typeof s === 'string' ? s : s.cle}>
+                            {j > 0 && ', '}
+                            {typeof s === 'string' ? s : (
+                              <button
+                                type="button"
+                                onClick={() => { void ouvrirFiche(s); }}
+                                data-testid={`aide-source-${s.cle}`}
+                                className="text-brand-600 underline decoration-brand-300 underline-offset-2 hover:text-brand-700"
+                              >
+                                {s.titre}
+                              </button>
+                            )}
+                          </Fragment>
+                        ))}
                       </p>
                     )}
                   </div>
@@ -285,6 +367,7 @@ export function BoutonAide({ tenantId, ecranCourant, role, dansEntete = false }:
             )}
             <div ref={basDuFil} />
           </div>
+          )}
 
           <form onSubmit={envoyer} className="flex gap-2 border-t border-ink-100 px-4 py-3">
             <input

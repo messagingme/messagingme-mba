@@ -1,6 +1,6 @@
 ---
 source_section: L'aide de la console (bouton flottant, sur tous les écrans) | Le centre d'aide public et « Comment faire » (vitrine et console)
-source_empreinte: 9df1ed | c06b06
+source_empreinte: c90bae | c06b06
 ---
 # Poser une question à l'aide de la console
 
@@ -12,7 +12,8 @@ importer vos contacts.
 Quand la réponse concerne un écran précis, il pose un lien qui vous y conduit, et vous cliquez si vous
 voulez.
 
-**Il cite sa source**, c'est-à-dire le titre de la fiche du mode d'emploi d'où vient sa réponse. Et **quand
+**Il cite sa source**, c'est-à-dire le titre de la fiche du mode d'emploi d'où vient sa réponse. Cliquez-la :
+la fiche s'ouvre en entier dans le panneau, et « Retour à la réponse » vous ramène à la conversation. Et **quand
 il ne sait pas, il le dit** et ouvre la page Support, plutôt que d'inventer une réponse plausible.
 
 **Le fil est gardé tant que vous restez connecté** : il survit au changement d'écran et au rechargement de

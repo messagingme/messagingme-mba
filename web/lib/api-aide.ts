@@ -21,9 +21,32 @@ export interface ReponseAide {
   /** `false` = aucune source pertinente. L'écran propose alors le recours humain plutôt qu'une réponse inventée. */
   sait: boolean;
   texte: string;
-  /** Les TITRES des fiches utilisées, pour que le client voie d'où sort la réponse. */
-  sources: string[];
+  /**
+   * Les fiches utilisées, pour que le client voie d'où sort la réponse et puisse l'ouvrir (`lireFicheAide`).
+   * ⚠️ Une chaîne seule (le titre) est l'ANCIENNE forme : un fil gardé dans `sessionStorage` avant le changement, ou
+   * l'API pas encore déployée quand la console l'est déjà. Elle s'affiche, sans lien.
+   */
+  sources: Array<SourceAide | string>;
   ecrans: EcranAide[];
+}
+
+/** Une fiche du mode d'emploi citée en source. `cle` est le nom de son fichier. */
+export interface SourceAide {
+  cle: string;
+  titre: string;
+}
+
+/** Une fiche, telle que le panneau d'aide l'affiche quand on clique sa source. */
+export interface FicheAide {
+  titre: string;
+  corps: string;
+}
+
+/** Lit une fiche citée en source, dans la langue de la console quand sa traduction existe. */
+export function lireFicheAide(tenantId: string, cle: string, langue: 'fr' | 'en', signal?: AbortSignal): Promise<FicheAide> {
+  return request<FicheAide>(`/tenants/${tenantId}/aide/fiches/${encodeURIComponent(cle)}?langue=${langue}`, {
+    ...(signal ? { signal } : {}),
+  });
 }
 
 /**

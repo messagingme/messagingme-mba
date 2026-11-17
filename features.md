@@ -2360,8 +2360,9 @@ scénario, comment importer des contacts.
 
 - **Il explique et il emmène, il n'écrit jamais rien.** Aucune action, aucun brouillon, aucun réglage. Quand
   la réponse concerne un écran précis, il pose un lien qui y conduit.
-- **Il cite sa source** (le titre de la fiche du mode d'emploi d'où vient la réponse), et **quand il ne sait
-  pas, il le dit** et ouvre la page Support plutôt que d'inventer une réponse plausible.
+- **Il cite sa source** (le titre de la fiche du mode d'emploi d'où vient la réponse), **cliquable** : la fiche
+  s'ouvre en entier dans le panneau, et un bouton ramène à la réponse. Et **quand il ne sait pas, il le dit** et
+  ouvre la page Support plutôt que d'inventer une réponse plausible.
 - **Le fil de la conversation est gardé tant que la personne reste connectée** : il survit au changement
   d'écran et au rechargement, il meurt avec l'onglet, et il part à la déconnexion. Les questions de suite
   (« et ensuite ? ») sont comprises dans le contexte des précédentes.

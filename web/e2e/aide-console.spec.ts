@@ -10,12 +10,12 @@ import { test, expect } from './aide/test';
  */
 const SESSION = { token: 'e2e-token', email: 'admin@e2e.test', role: 'admin', tenantId: 't-e2e' };
 
-type Reponse = { sait: boolean; texte: string; sources: string[]; ecrans: Array<Record<string, unknown>> };
+type Reponse = { sait: boolean; texte: string; sources: Array<{ cle: string; titre: string } | string>; ecrans: Array<Record<string, unknown>> };
 
 const SAIT: Reponse = {
   sait: true,
   texte: 'Ouvrez Campagnes, choisissez votre modèle, puis votre audience.',
-  sources: ['Lancer une campagne'],
+  sources: [{ cle: 'lancer-une-campagne', titre: 'Lancer une campagne' }],
   ecrans: [{ cle: 'campagnes', href: '/campaigns', fr: 'Campagnes', en: 'Campaigns', chemin: [] }],
 };
 
@@ -25,6 +25,9 @@ async function mock(page: import('@playwright/test').Page, reponse: Reponse | 'p
     const req = route.request();
     const url = req.url();
     const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
+    if (url.includes('/aide/fiches/lancer-une-campagne')) {
+      return json({ titre: 'Lancer une campagne', corps: 'Une campagne part vers une liste.\n\n**1. Le modèle.** Choisissez-le.\n\n- un point\n- un autre' });
+    }
     if (url.includes('/aide')) {
       vues.push((req.postDataJSON() ?? {}) as Record<string, unknown>);
       if (reponse === 'panne') return route.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"x"}' });
@@ -85,6 +88,34 @@ test.describe('Bouton d’aide de la console', () => {
     await page.getByTestId('aide-question').fill('q');
     await page.getByTestId('aide-envoyer').click();
     await expect(page.getByTestId('aide-sources')).toContainText('Lancer une campagne');
+  });
+
+  test('la source s’OUVRE : la fiche s’affiche dans le panneau, et le retour ramène à la réponse', async ({ page }) => {
+    await mock(page, SAIT, []);
+    await page.goto('/campaigns');
+    await page.getByTestId('aide-bouton').click();
+    await page.getByTestId('aide-question').fill('q');
+    await page.getByTestId('aide-envoyer').click();
+    await page.getByTestId('aide-source-lancer-une-campagne').click();
+    const fiche = page.getByTestId('aide-fiche');
+    await expect(fiche).toContainText('Choisissez-le.');
+    // La syntaxe de la fiche ne se voit pas : le gras est rendu, pas affiché.
+    await expect(fiche.locator('strong')).toHaveText('1. Le modèle.');
+    await expect(fiche).not.toContainText('**');
+    await expect(fiche.locator('li')).toHaveCount(2);
+    await page.getByTestId('aide-fiche-retour').click();
+    await expect(page.getByTestId('aide-reponse')).toBeVisible();
+  });
+
+  test('une source à l’ANCIENNE forme (un titre seul) reste affichée, sans lien', async ({ page }) => {
+    // Un fil gardé avant le changement, ou l'API pas encore déployée quand la console l'est déjà.
+    await mock(page, { ...SAIT, sources: ['Lancer une campagne'] }, []);
+    await page.goto('/campaigns');
+    await page.getByTestId('aide-bouton').click();
+    await page.getByTestId('aide-question').fill('q');
+    await page.getByTestId('aide-envoyer').click();
+    await expect(page.getByTestId('aide-sources')).toContainText('Lancer une campagne');
+    await expect(page.getByTestId('aide-sources').locator('button')).toHaveCount(0);
   });
 
   test('🔴 quand il ne sait pas, il le DIT et propose le recours humain', async ({ page }) => {

@@ -57,7 +57,7 @@ describe('répondeur d’aide', () => {
     const r = await creerRepondeur(deps())(question);
     expect(r.sait).toBe(true);
     expect(r.texte).toBe('Ouvrez Campagnes.');
-    expect(r.sources).toEqual(['Lancer une campagne']);
+    expect(r.sources).toEqual([{ cle: 'lancer-une-campagne', titre: 'Lancer une campagne' }]);
     expect(r.ecrans.map((e) => e.cle)).toEqual(['campagnes']);
     expect(r.ecrans[0]?.href).toBe('/campaigns');
   });
@@ -68,7 +68,8 @@ describe('répondeur d’aide', () => {
       fiche({ id: '2', cle: 'lancer-une-campagne#5', corps: '**5. Le lancement.** Lancez, ou programmez.' }),
     ];
     const r = await creerRepondeur(deps({ depot: { chercher: async () => morceaux } }))(question);
-    expect(r.sources).toEqual(['Lancer une campagne']);
+    // Citée sous la clé de son FICHIER, sans le `#<n>` du morceau : c'est elle que la console ouvre.
+    expect(r.sources).toEqual([{ cle: 'lancer-une-campagne', titre: 'Lancer une campagne' }]);
   });
 
   /** Le bloc de fiches que le modèle a reçu, pour ces morceaux retenus dans cet ordre. */
@@ -81,7 +82,7 @@ describe('répondeur d’aide', () => {
         return repondu('Voilà.') as never;
       },
     } as never))(question);
-    return { bloc: vus.find((t) => t.startsWith('FICHES DU MODE')) ?? '', sources: r.sources };
+    return { bloc: vus.find((t) => t.startsWith('FICHES DU MODE')) ?? '', sources: r.sources.map((s) => s.titre) };
   }
   const grand = (cle: string, titre: string, n: number) =>
     fiche({ id: `${cle}#${n}`, cle: `${cle}#${n}`, titre, corps: `Geste ${cle} ${n}. ${'x'.repeat(1_500)}` });

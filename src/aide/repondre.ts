@@ -39,9 +39,17 @@ export interface ReponseAide {
   /** `false` = aucune source pertinente. Le texte est alors vide et l'écran propose le recours humain. */
   sait: boolean;
   texte: string;
-  /** Les titres des fiches utilisées, pour que le client voie d'où sort la réponse. */
-  sources: string[];
+  /**
+   * Les fiches utilisées, pour que le client voie d'où sort la réponse et puisse la relire : la console ouvre une
+   * source par `GET /tenants/:tenantId/aide/fiches/:cle`. `cle` est le nom du fichier, sans le `#<n>` d'un morceau.
+   */
+  sources: SourceAide[];
   ecrans: EcranAide[];
+}
+
+export interface SourceAide {
+  cle: string;
+  titre: string;
 }
 
 export interface DepsAide {
@@ -201,11 +209,11 @@ function consigne(q: QuestionAide, ecrans: EcranAide[]): string {
     `RÉPONDS EN ${q.langue === 'en' ? 'ANGLAIS' : 'FRANÇAIS'}, brièvement, en expliquant les étapes dans l’ordre.`,
     'Appuie-toi UNIQUEMENT sur les fiches qui te sont données. Si elles ne répondent pas, dis-le simplement.',
     'N’invente aucune fonctionnalité, aucun bouton, aucun écran.',
-    // Le 2026-09-29, le bot a répondu « je vous renvoie vers la fiche … (cliquez sur le lien) » : les fiches sont
-    // ses sources, pas des pages que la personne peut ouvrir, et l'écran n'affiche aucun lien vers elles.
+    // Le 2026-09-29, le bot a répondu « je vous renvoie vers la fiche … (cliquez sur le lien) » : la réponse doit
+    // se suffire. L'écran cite et ouvre ensuite les fiches utilisées, sans que le modèle ait à en parler.
     'RÉPONDS TOI-MÊME avec le contenu des fiches. Ne renvoie JAMAIS vers une fiche, un article, une documentation '
-      + 'ou un lien, et ne promets aucun lien : la personne ne peut pas les ouvrir. Les seuls liens qu’elle verra '
-      + 'sont les boutons des écrans que tu rends dans `ecrans`.',
+      + 'ou un lien, et ne promets aucun lien : les fiches utilisées sont citées sous ta réponse, sans que tu le '
+      + 'fasses. Les seuls boutons vers la console sont ceux des écrans que tu rends dans `ecrans`.',
     ici,
     '',
     'ÉCRANS où tu peux envoyer la personne. Rends leurs CLÉS dans `ecrans`, jamais leur nom ni une adresse :',
@@ -313,8 +321,11 @@ export function creerRepondeur(deps: DepsAide): (q: QuestionAide, cout?: CoutAid
     return {
       sait: true,
       texte: valide.data.reponse.trim(),
-      // Deux morceaux d'une même fiche portent son titre : la source se cite une fois.
-      sources: [...new Set(retenues.map((f) => f.titre))],
+      // Deux morceaux d'une même fiche (`<clé>#<n>`) sont une seule source : elle se cite une fois.
+      sources: [...new Map(retenues.map((f) => {
+        const cle = f.cle.replace(/#\d+$/, '');
+        return [cle, { cle, titre: f.titre }] as const;
+      })).values()],
       ecrans: resoudre(valide.data.ecrans ?? [], q.role),
     };
   };
