@@ -1,4 +1,4 @@
-import type { AgentBrain } from './brain';
+import type { AgentBrain, UsageTour } from './brain';
 import type { AccesCreditIa } from './acces-credit';
 import { PlafondModeleAtteint } from '../llm/errors';
 import { TourInterrompu } from './brain';
@@ -181,16 +181,17 @@ async function finirLeTour(job: AgentTurnJob, sessionId: string, deps: RunTurnDe
 
 /**
  * Enregistre ce qu'un tour a coûté : le solde prépayé du workspace d'abord, le compteur de la session
- * ensuite.
+ * ensuite, avec ses jetons.
  *
  * 🔴 Deux tables, pas d'atomicité possible : le solde passe en premier parce que c'est de l'argent (un raté
  * y fait consommer sans facturer), quand un raté sur la session ne relâche qu'un plafond. Traces distinctes.
  * Best-effort : lever ferait retourner le job en file, donc repayer l'appel et réenvoyer le message.
  */
 async function enregistrerCout(
-  job: AgentTurnJob, sessionId: string, coutMicroEur: number, deps: RunTurnDeps,
+  job: AgentTurnJob, sessionId: string, usage: UsageTour | undefined, deps: RunTurnDeps,
 ): Promise<void> {
-  if (!(coutMicroEur > 0)) return;
+  const coutMicroEur = usage?.coutMicroEur ?? 0;
+  if (!usage || !(coutMicroEur > 0)) return;
   if (deps.debiterTenant) {
     try {
       await deps.debiterTenant(job.tenantId, coutMicroEur, sessionId);
@@ -200,7 +201,7 @@ async function enregistrerCout(
     }
   }
   try {
-    await deps.sessions.ajouterCout(job.tenantId, sessionId, coutMicroEur);
+    await deps.sessions.ajouterCout(job.tenantId, sessionId, usage);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error(`agent: coût du tour non enregistré sur la session ${sessionId}`, messageDe(err));
@@ -350,7 +351,7 @@ export async function runTurn(job: AgentTurnJob, deps: RunTurnDeps): Promise<Res
   } catch (err) {
     // 🔴 Un aller-retour déjà facturé se paie, même quand le suivant échoue : `TourInterrompu` porte ce qui a
     // été dépensé.
-    if (err instanceof TourInterrompu) await enregistrerCout(job, session.id, err.usage.coutMicroEur, deps);
+    if (err instanceof TourInterrompu) await enregistrerCout(job, session.id, err.usage, deps);
     // Un plafond atteint chez le Gateway n'est pas un échec : même branche que le solde épuisé, vu de l'autre
     // côté. L'erreur peut voyager emballée dans `TourInterrompu`.
     const cause = err instanceof TourInterrompu ? err.erreur : err;
@@ -376,7 +377,7 @@ export async function runTurn(job: AgentTurnJob, deps: RunTurnDeps): Promise<Res
 
   // Le coût est enregistré juste après la décision : tous les chemins qui suivent l'ont déjà engagé chez le
   // fournisseur.
-  await enregistrerCout(job, session.id, decision.usage?.coutMicroEur ?? 0, deps);
+  await enregistrerCout(job, session.id, decision.usage, deps);
 
   /**
    * 🔴 4bis. UN OUTIL A LANCÉ UN SCÉNARIO (RC4, `mba_lancer_scenario`) : il a pris la conversation, et la dépendance de

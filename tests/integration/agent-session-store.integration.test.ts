@@ -156,6 +156,19 @@ describe.skipIf(!url)('PgAgentSessionStore (Postgres)', () => {
     expect(r.rows[0]?.transcript.map((e) => e.role)).toEqual(['contact', 'agent']);
   });
 
+  it('🔴 ajouterCout cumule le coût ET les jetons de chaque tour ; un AUTRE tenant n écrit rien (2026-11-17)', async () => {
+    const runId = await nouveauRun();
+    const s = await store.open({ tenantId, runId, agentId, nodeId: 'n1', waId: '33600000000' });
+    await store.ajouterCout(tenantId, s.id, { coutMicroEur: 4200, tokensIn: 100, tokensOut: 20 });
+    await store.ajouterCout(tenantId, s.id, { coutMicroEur: 800, tokensIn: 50, tokensOut: 5 });
+    await store.ajouterCout(autreTenantId, s.id, { coutMicroEur: 999, tokensIn: 999, tokensOut: 999 });
+    const r = await pool.query<{ cout: string; tin: string; tout: string }>(
+      'select cout_micro_eur::text as cout, tokens_in::text as tin, tokens_out::text as tout from agent_sessions where id = $1',
+      [s.id],
+    );
+    expect(r.rows[0]).toEqual({ cout: '5000', tin: '150', tout: '25' });
+  });
+
   it('ajouterAuTranscript avec un AUTRE tenant n écrit rien (isolation)', async () => {
     const runId = await nouveauRun();
     const s = await store.open({ tenantId, runId, agentId, nodeId: 'n1', waId: '33600000000' });

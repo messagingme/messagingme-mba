@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import type { UsageTour } from './brain';
 import type {
   AgentSession, AgentSessionStatus, AgentSessionStore, ConsommationAgent, TourBloque,
 } from './session-store';
@@ -94,17 +95,21 @@ export class PgAgentSessionStore implements AgentSessionStore {
     );
   }
 
-  async ajouterCout(tenantId: string, sessionId: string, montantMicroEur: number): Promise<void> {
-    // Un montant nul ou négatif ne s'écrit pas : un négatif serait un remboursement déguisé sur un compteur
-    // qui ne doit que monter.
-    const montant = Math.max(0, Math.round(montantMicroEur));
+  async ajouterCout(tenantId: string, sessionId: string, usage: UsageTour): Promise<void> {
+    // Un montant nul ou négatif ne s'écrit pas : un négatif serait un remboursement déguisé sur des compteurs
+    // qui ne doivent que monter. Même règle pour les jetons.
+    const positif = (n: number) => Math.max(0, Math.round(Number.isFinite(n) ? n : 0));
+    const montant = positif(usage.coutMicroEur);
     if (montant === 0) return;
     // Incrément côté base, sans condition de statut : un tour déjà joué a coûté, même si la session vient
     // d'être close.
     await this.pool.query(
-      `update agent_sessions set cout_micro_eur = cout_micro_eur + $3::bigint, derniere_activite = now()
+      `update agent_sessions
+          set cout_micro_eur = cout_micro_eur + $3::bigint,
+              tokens_in = tokens_in + $4::bigint, tokens_out = tokens_out + $5::bigint,
+              derniere_activite = now()
         where id = $1 and tenant_id = $2`,
-      [sessionId, tenantId, montant],
+      [sessionId, tenantId, montant, positif(usage.tokensIn), positif(usage.tokensOut)],
     );
   }
 

@@ -4,6 +4,7 @@
  * Le contrat est séparé de son implémentation Postgres pour que la boucle de tour puisse être testée
  * sans base (même raison que `Queue` / `FakeQueue`).
  */
+import type { UsageTour } from './brain';
 
 /**
  * `en_cours` tant que l'agent tient le fil. Les quatre autres sont des fins, et elles se distinguent parce
@@ -72,9 +73,10 @@ export interface AgentSessionStore {
    * Ajoute le coût d'un tour au cumul de la session. 🔴 C'est ce cumul que `runTurn` compare au budget de la
    * fiche : sans lui, le plafond par conversation ne se déclencherait jamais. Incrémenté côté base, comme
    * `compterAppel` : deux écritures concurrentes ne s'écrasent pas, et un tour joué se compte même si la
-   * session vient d'être close.
+   * session vient d'être close. Les jetons du tour s'y ajoutent avec lui : ce sont eux que lisent la page de
+   * l'agent, la carte des coûts et `get_ai_stats` (restés à zéro jusqu'au 2026-11-17, faute d'être écrits).
    */
-  ajouterCout(tenantId: string, sessionId: string, montantMicroEur: number): Promise<void>;
+  ajouterCout(tenantId: string, sessionId: string, usage: UsageTour): Promise<void>;
 
   /**
    * Efface la marque de tour en vol posée par `prendreLeTour`, sur les sorties qui laissent la session vivante

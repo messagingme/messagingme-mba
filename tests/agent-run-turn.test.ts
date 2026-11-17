@@ -506,14 +506,17 @@ describe('le budget, relié à la consommation', () => {
 
   it('🔴 le coût du tour est écrit SUR LA SESSION et DÉBITÉ du solde du workspace', async () => {
     const couts: number[] = [];
+    const jetons: Array<[number, number]> = [];
     const debits: Array<{ montant: number; sessionId: string }> = [];
     const { deps } = make({
-      sessions: { ...sessionsOk(), ajouterCout: async (_t, _s, m) => { couts.push(m); } },
+      sessions: { ...sessionsOk(), ajouterCout: async (_t, _s, u) => { couts.push(u.coutMicroEur); jetons.push([u.tokensIn, u.tokensOut]); } },
       acces: prepaye(30_000),
       debiterTenant: async (_t, montant, sessionId) => { debits.push({ montant, sessionId }); },
     }, { texte: 'ok', sortie: null, usage: USAGE });
     await runTurn(JOB, deps);
     expect(couts).toEqual([4200]);
+    // Les jetons du tour s’écrivent avec son coût : ils restaient à zéro sur toutes les sessions (2026-11-17).
+    expect(jetons).toEqual([[100, 20]]);
     expect(debits).toEqual([{ montant: 4200, sessionId: SESSION.id }]);
   });
 
@@ -626,7 +629,7 @@ describe('le budget, relié à la consommation', () => {
     const couts: number[] = [];
     const debits: number[] = [];
     const { deps } = make({
-      sessions: { ...sessionsOk(), ajouterCout: async (_t: string, _s: string, m: number) => { couts.push(m); } } as unknown as RunTurnDeps['sessions'],
+      sessions: { ...sessionsOk(), ajouterCout: async (_t: string, _s: string, u: { coutMicroEur: number }) => { couts.push(u.coutMicroEur); } } as unknown as RunTurnDeps['sessions'],
       acces: prepaye(30_000),
       debiterTenant: async (_t, m) => { debits.push(m); },
       brain: { penser: async () => { throw new TourInterrompu(new Error('502 du fournisseur'), USAGE); } },
@@ -654,7 +657,7 @@ describe('le budget, relié à la consommation', () => {
     // enchaîner dans un seul `try` faisait sauter la seconde au premier raté de la première.
     const couts: number[] = [];
     const { deps, envois } = make({
-      sessions: { ...sessionsOk(), ajouterCout: async (_t: string, _s: string, m: number) => { couts.push(m); } } as unknown as RunTurnDeps['sessions'],
+      sessions: { ...sessionsOk(), ajouterCout: async (_t: string, _s: string, u: { coutMicroEur: number }) => { couts.push(u.coutMicroEur); } } as unknown as RunTurnDeps['sessions'],
       acces: prepaye(30_000),
       debiterTenant: async () => { throw new Error('contention sur la ligne de solde'); },
     }, { texte: 'ok', sortie: null, usage: USAGE });
