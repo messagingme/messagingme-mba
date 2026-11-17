@@ -3916,8 +3916,8 @@ boîte par sous-menu.
   copie prend « (copie) » si son nom est pris, et le récapitulatif dit les outils qui ne suivront pas et les champs que
   chaque copie créera. Un template absent de la destination a lui aussi sa case : coché, il y est recréé et soumis à
   l'approbation de Meta, avec le Flow qu'ouvre son bouton ; décoché, ou impossible à recréer (la raison est dite), son
-  bloc arrive débranché. Un Flow ouvert par un bloc se recrée de même. Si Meta refuse en route, rien n'est écrit dans
-  l'espace, et ce qui a déjà été créé chez Meta est nommé. La copie arrive inactive, en brouillon, sous le nom « X
+  bloc arrive débranché. Un Flow ouvert par un bloc se recrée de même. Si Meta refuse en route, le scénario n'est pas
+  copié, et ce qui a déjà été créé chez Meta est nommé (il y reste). La copie arrive inactive, en brouillon, sous le nom « X
   (copie) » ; la source ne bouge pas, et le journal d'activité de la destination garde la trace de la duplication. Elle
   est refusée si la destination n'a pas de compte WhatsApp, prévient si elle n'a pas les scénarios dans son offre ou
   pas de crédit IA pour l'agent copié, et redemande l'aperçu si l'un des deux espaces a changé entre-temps.

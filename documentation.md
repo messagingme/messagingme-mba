@@ -5948,10 +5948,13 @@ scénarios publics, jamais celui du répondeur), `POST /ops/duplication/apercu` 
   d'origine des boutons remises à la place de nos liens tracés) ; la création passe par `creerUnModele`, le chemin de la
   console : ses gardes, ses liens tracés alloués dans la DESTINATION, ses médias redéposés, ses indications de variables
   recopiées. Un Flow se recrée en brouillon (`creerFormulaire`, les champs que son mapping nomme créés s'ils manquent),
-  puis se publie s'il l'est dans la source ou si un bouton l'ouvre. 🔴 **Meta d'abord, tout ou rien** : les champs que
-  nomment les adresses des boutons, puis les Flows, puis les templates, AVANT la transaction de base. Un refus de Meta
-  arrête tout (422) et rien n'est écrit en base ; ce qui a déjà été créé chez Meta y reste, nommé dans la réponse et
-  dans le journal. Au plus 10 templates et Flows à recréer par duplication (`PLAFOND_META`, un blocage au-delà).
+  puis se publie s'il l'est dans la source ou si un bouton l'ouvre. 🔴 **Meta d'abord, tout ou rien pour le scénario** :
+  les champs que nomment les adresses des boutons, puis les Flows, puis les templates, AVANT la transaction de base. Un
+  refus de Meta arrête tout (422) et le scénario n'est pas copié ; ce qui a déjà été créé chez Meta y reste, nommé dans
+  la réponse et dans le journal, avec ce que ces créations ont écrit dans la destination hors de la transaction : les
+  champs créés avant Meta, la ligne locale de chaque Flow et ses champs, les liens tracés et les indications de
+  variables de chaque template accepté. ⚠️ Le message du 422 dit encore « Rien n'a été écrit dans l'espace » (`todo.md`).
+  Au plus 10 templates et Flows à recréer par duplication (`PLAFOND_META`, un blocage au-delà).
 - **Les déclencheurs** (`copierDeclencheurs`, `src/ops/duplication/declencheurs.ts`) : copiés ÉTEINTS, jamais avec
   l'attestation d'accord marketing (elle engage une personne de la source). Ne suivent pas : un déclencheur lié à un
   objet de la source (webhook entrant, étape HubSpot, publicité, action d'agent, automation possédée), un « nouveau

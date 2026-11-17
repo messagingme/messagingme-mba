@@ -50,6 +50,50 @@
 - **Changement d'espace** : l'effet sur `tenantId` garde `moyen` et `credit` de l'espace précédent jusqu'à la nouvelle
   lecture ; les remettre à `null` en tête de l'effet.
 
+## 🟡 La duplication de scénarios entre espaces (relecture du lot 3, 2026-11-17, aucun rouge)
+
+À faire avec le prochain lot de fonctionnalité de la duplication.
+
+- **Les carrousels** (`src/ops/duplication/meta.ts`, `src/meta/templates.ts`) : `carouselOf` ne pose `mediaFormat` que
+  pour une vidéo, donc tout carrousel d'images est dit non recréable (« média ») ; un carrousel vidéo est proposé, mais
+  `buildComponents` force `IMAGE` et Meta le refuse, après les Flows et templates précédents ; `aDesBoutonsNonRelus` ne
+  lit pas les boutons des cartes. Les fixtures posent un `mediaFormat: 'IMAGE'` que la lecture ne produit jamais.
+- **Ce que Meta refusera, proposé quand même** (`pourquoiNonRecreable`) : un template REJECTED, PAUSED ou DISABLED dans
+  la source (statut non montré), un composant que la lecture ignore, une clé d'adresse définie nulle part, une
+  destination 360dialog avec un en-tête vidéo ou document. L'exécution s'arrête alors chez Meta, des Flows déjà publiés.
+- **Le résultat d'une création** (`meta-execution.ts`, l'onglet) : un REJECTED rendu à la création compte comme un succès,
+  affiché « en attente d'approbation » ; la catégorie que Meta a pu changer n'est pas montrée (la spec le demande : un
+  UTILITY reclassé MARKETING change le consentement exigé à l'envoi).
+- **Le message d'un arrêt chez Meta** (`src/http/ops-duplication.ts`) dit « Rien n'a été écrit dans l'espace » : faux, les
+  champs créés avant Meta, les lignes locales des Flows, les liens tracés et indications des templates acceptés restent.
+  L'onglet ignore les `champsCrees` d'un arrêt, et le 422 d'une écriture qui échoue après Meta les omet.
+- **La reprise après un arrêt** : un Flow n'est jamais réutilisé (`nomLibre`), une reprise le recrée en « X (copie) »,
+  publié donc insupprimable ; le template réutilisé ouvre alors la première copie, le bloc la seconde. Une coupure de
+  Cloudflare à 100 s laisse le serveur finir pendant que l'onglet affiche une erreur, et un nouvel essai fait « (copie
+  2) ». `PLAFOND_META` compte les objets, pas les médias (jusqu'à 20 s de téléchargement chacun).
+- **Les places de téléchargement** (`meta-execution.ts`) sont partagées avec la console, l'API et Claude : toutes prises,
+  la duplication s'arrête au milieu. Une courte attente l'éviterait.
+- **Les Flows** : `marquerPublie` qui lève après une publication réussie laisse la ligne locale en DRAFT et la réponse
+  dit `publie: false` ; un `FlowJsonInvalidError` laisse chez Meta un brouillon que `crees` ne liste pas ;
+  `refusDeMeta` parle d'un « modèle » pour une erreur de Flow.
+- **Un lien tracé sous un ancien hôte** (`mba.`, `engageme.`) n'est pas réhabilité par `listerModeles` : son template est
+  dit non recréable, sans danger mais avec une raison trompeuse. Retrouver l'adresse d'origine par le code, dans les
+  `tracked_links` de la source.
+- **Trois jaunes du lot 2, pas faits** : la source se lit chez Meta même quand le graphe n'a aucun template ; une source
+  sans WABA (`modelesDe` rend `null`) est dite « illisible », et « relancez l'aperçu » n'y changera rien ;
+  `estImageDeLEspace` ne contrôle que la forme du chemin, pas nos hôtes.
+- **L'onglet** : les champs des templates et des Flows ne sont pas affichés ; un Flow en brouillon qu'ouvre un template
+  coché est annoncé « en brouillon » alors qu'il sera publié ; un Flow que seul le bouton d'un template ouvre a sa propre
+  case, et coché seul il crée un Flow qu'aucun bloc n'utilise.
+- **L'empreinte** porte `creditIaOuvert` : une destination prépayée qui passe par zéro entre l'aperçu et l'exécution
+  donne un 409 inutile.
+- **Les champs d'un Flow** : l'`upsert` des `champsAAssurer` réécrirait le libellé et le type d'une clé créée dans la
+  destination entre la lecture et la création ; un `create` idempotent suffit.
+- **Tests manquants** : un carrousel réel passé par `resumeDuModele` ; le 409 d'un template apparu dans la destination,
+  sans appel à Meta ; `FormulaireDistantNonConfirme` listé dans `crees` ; l'échec de `marquerPublie` ; les places de
+  téléchargement épuisées ; un REJECTED à la création ; un lien sous un ancien hôte ; le corps d'erreur qu'`appelOps`
+  (`web/lib/api/compte.ts`) transmet, couvert par le seul e2e de l'onglet.
+
 ## 🟡 Les factures nommées (relecture du 2026-11-16, aucun rouge)
 
 - Seule la PREMIÈRE ligne d'une facture est lue (prix et libellé) : un achat ponctuel à plusieurs lignes dont le prix
