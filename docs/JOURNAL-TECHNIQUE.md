@@ -4,6 +4,39 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : un bloc de l'agent IA ne repart pas pour la même demande, la console retype les fichiers qu'elle ouvre, et le consentement s'arme (lot G de l'audit de sécurité)
+
+Décisions de Julien du 2026-11-17, sur le second passage de l'audit : corriger directement le rejeu d'un bloc par
+l'agent IA, sans mesurer d'abord la facturation de Meta ; corriger le type des fichiers ouverts par la console, la
+piste ayant été confirmée dans Chromium le même jour ; poser une garde sur le consentement OAuth, sans la mesurer avec
+de vrais clics du système. La clé IAM de déploiement partagée avec `mm-hubspot` est laissée telle quelle (il est le
+seul collaborateur des deux dépôts) ; le cas de l'ordre des événements Stripe s'observe d'abord, en lecture seule.
+
+- **Ce qui a changé** : « Envoyer un bloc » de l'agent IA et l'étape « bloc » d'un outil enchaîné passent par un seul
+  point, `creerGestesEnvoiAgent.envoyerBloc`, qui prend désormais les clés d'anti-rejeu de l'agent de Meta
+  (`clesAntiRejeu`, dernier message du contact sur 2 min et plancher de 30 s, dans les verrous courts partagés par les
+  copies), dans leur propre espace (`agent-envoi:…`). Une réponse du modèle portant dix appels envoyait dix fois le même
+  modèle facturé ; un rappel rend désormais « déjà envoyé, ne rappelle pas » (`BLOC_DEJA_ENVOYE`). Câblage dans le worker
+  (verrous courts, `dernierMessageDuClient`). Côté console, `requestBlob` retype les fichiers qu'elle ouvre en URL
+  d'objet (`typeDeBlobSur` : images affichables, audio, vidéo et PDF gardés, le reste en octets bruts) : un vocal
+  annoncé `text/html` ou `image/svg+xml`, ouvert dans un onglet, exécutait son script dans l'origine de la session. Les
+  boutons qui accordent l'accès à une application (`/autoriser`) ne s'activent qu'après une demi-seconde de page
+  visible et active, se désarment à la perte du focus, et le geste relit l'armement sans attendre le rendu (`useArme`).
+- **La relecture** : aucun rouge, quatre jaunes au `todo.md`, dont le plus probable en usage réel : une page de
+  consentement ouverte sans le focus garde ses boutons grisés jusqu'à un premier clic, qui se perd.
+- **Vérifié avant de pousser** : suite racine (17 266 verts ; rouges, les deux tests qui lancent `git grep` hors d'un
+  dépôt et cinq délais de 5 s dépassés sous la charge d'une construction simultanée, rejoués verts seuls), console
+  (1 292), 208 e2e sur une construction de production (consentement, Inbox, médias, RCS), auto-attaque (2 117 sondes),
+  lint, typecheck ; six défauts remis en place, chacun vu rouge par son test, plus la relecture synchrone de
+  l'armement retirée d'une construction de la console, vue rouge par son e2e. Le vocal piégé avait été vu exécuter son
+  script sur le code d'avant, par la même mesure.
+- **En production** : `3fb38e47`, la console publiée par Vercel à la poussée, puis l'API et la machine des workers (run
+  44075935232, `migration=aucune`, approuvé par Julien), qui emporte aussi le retrait de la route `360dialog/connecter`
+  d'une session voisine (`05531162`, avec son accord) : la production tournait sur `fb7f275d`. Fumée sans session bonne,
+  dont cette route, passée de 401 à 404, preuve que l'image neuve sert. Essai réel à faire par Julien : un agent IA dont
+  l'outil « Envoyer un bloc » est en autonomie, sollicité deux fois de suite ; un vocal reçu qui se lit toujours ;
+  l'autorisation de Claude Code depuis Claude Desktop.
+
 ## 2026-11-17 : « Onboard with 360dialog » retiré, on ne relie plus de numéro par 360dialog
 
 Demande de Julien (2026-11-17) : « faut supprimer tous les boutons onboard with 360 dialog, on va plus jamais utiliser
