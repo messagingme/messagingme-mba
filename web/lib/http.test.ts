@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { ApiError, attenteDemandee, langue, messageDErreur, request } from './http';
+import { ApiError, attenteDemandee, langue, messageDErreur, request, requestBlob } from './http';
 import { OFFRE_REFUSEE_EVENT } from './offre';
 
 /**
@@ -136,5 +136,33 @@ describe('langue() des messages d’erreur', () => {
     expect(langue()).toBe('fr');
     vi.stubGlobal('window', { localStorage: { getItem: () => { throw new Error('bloqué'); } }, location: { search: '' } });
     expect(langue()).toBe('fr');
+  });
+});
+
+/**
+ * 🔴 LES FICHIERS QUE LA CONSOLE OUVRE EN URL D'OBJET SONT RETYPÉS ICI (passage 2 de l'audit, 2026-11-17) : le type vient
+ * de l'expéditeur, et une URL `blob:` vit dans l'origine de la session.
+ */
+describe('requestBlob : le type gardé', () => {
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  async function lire(type: string): Promise<Blob> {
+    const fenetre = Object.assign(new EventTarget(), { localStorage: { getItem: () => null } });
+    vi.stubGlobal('window', fenetre);
+    vi.stubGlobal('localStorage', fenetre.localStorage);
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<script>alert(1)</script>', { status: 200, headers: { 'content-type': type } })));
+    return requestBlob('/tenants/t1/conversations/c1/messages/m1/media');
+  }
+
+  it('🔴 un « vocal » annoncé en HTML ou en SVG revient en octets bruts, octets intacts', async () => {
+    const html = await lire('text/html');
+    expect(html.type).toBe('application/octet-stream');
+    expect(await html.text()).toBe('<script>alert(1)</script>');
+    expect((await lire('image/svg+xml')).type).toBe('application/octet-stream');
+  });
+
+  it('un vrai vocal garde son type, pour que le lecteur le joue', async () => {
+    // Le navigateur normalise l'écriture des paramètres ; le type, lui, reste audio.
+    expect((await lire('audio/ogg; codecs=opus')).type).toMatch(/^audio\/ogg;\s?codecs=opus$/);
   });
 });

@@ -11,6 +11,7 @@
 import { getSession, clearSession } from './session';
 import { LOCALE_STORAGE_KEY, langueInitiale, type Locale } from './locale';
 import { estCorpsCodeRefuse } from './second-facteur';
+import { typeDeBlobSur } from './piece-jointe';
 import { CORPS_OPAQUE_5XX } from './partage/textes-serveur';
 import { ACCES_SUSPENDU_EVENT, OFFRE_REFUSEE_EVENT, estAccesSuspendu, lireRefusOffre, lireSiegeRequis } from './offre';
 
@@ -183,7 +184,10 @@ export async function requestBlob(path: string): Promise<Blob> {
     const msg = typeof corps?.error === 'string' ? corps.error : `média indisponible (${res.status})`;
     throw new ApiError(res.status, msg, corps ?? undefined);
   }
-  return res.blob();
+  // Le type vient de l'EXPÉDITEUR du fichier : retypé ici, le seul point de passage des URL d'objet (`typeDeBlobSur`).
+  const brut = await res.blob();
+  const sur = typeDeBlobSur(brut.type);
+  return sur === brut.type ? brut : new Blob([brut], { type: sur });
 }
 
 async function attempt<T>(path: string, init: RequestInit, refus401: Refus401): Promise<T> {

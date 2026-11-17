@@ -12,6 +12,7 @@ import { grapheDuRepondeur } from '../src/repondeur/graphe';
 import { offresToutOuvert } from './gardes';
 import { DROITS } from '../src/offres/offres';
 import { INDISPONIBLE_POUR_LE_MODELE } from '../src/offres/refus';
+import { verrousEnMemoire } from './verrous';
 
 /**
  * LES DEUX OUTILS D'UN AGENT IA QUI ENVOIENT SUR UNE CIBLE FIXÉE (RC4) : « Envoyer un bloc » et « Lancer un scénario ».
@@ -45,6 +46,8 @@ function composition(over: Partial<DepsGestesEnvoiAgent> = {}) {
     offres: offresToutOuvert,
     sessions: { clore: async (_t, id, statut, sortie) => { journal.push(`session:${id}:${statut}:${sortie ?? ''}`); } },
     parcours: { clore: async (_t, runId) => { journal.push(`parcours:${runId}`); return false; } },
+    antiRejeu: verrousEnMemoire(),
+    dernierMessageDuClient: async () => 'm-client-1',
     ...over,
   };
   return { gestes: creerGestesEnvoiAgent(deps), journal };
@@ -81,6 +84,89 @@ describe('envoyer le bloc fixé', () => {
     expect(attend.ok).toBe(false);
     expect(attend.raison).toContain('attend une réponse');
     expect(journal).toEqual([]);
+  });
+});
+
+/**
+ * 🔴 UN BLOC NE REPART PAS POUR LA MÊME DEMANDE DU CONTACT (passage 2 de l'audit, 2026-11-16) : une réponse du modèle
+ * portant dix appels de « Envoyer un bloc » envoyait dix fois le même modèle, facturé, au même contact. La règle de
+ * l'agent de Meta : le dernier message du client départage, et un plancher de 30 s.
+ */
+describe('envoyer le bloc fixé : l’anti-rejeu', () => {
+  const BLOC = { tenantId: ESPACE, waId: WA, runId: 'r-agent', workflowId: WF_B, code: CODE };
+  function avecHorloge() {
+    let t = 1_000_000;
+    let dernier: string | null = 'm-client-1';
+    const verrous = verrousEnMemoire(() => t);
+    const c = composition({ antiRejeu: verrous, dernierMessageDuClient: async () => dernier });
+    return { ...c, verrous, avancer: (ms: number) => { t += ms; }, nouveauMessage: (id: string) => { dernier = id; } };
+  }
+
+  it('🔴 rappelé pour le même message du client : rien ne repart, et l’appel le dit', async () => {
+    const m = avecHorloge();
+    expect(await m.gestes.envoyerBloc(BLOC)).toEqual({ ok: true });
+    expect(await m.gestes.envoyerBloc(BLOC)).toEqual({ ok: true, deja: true });
+    expect(m.journal).toHaveLength(1);
+    // Le même message, passé le plancher : la clé du message tient toujours.
+    m.avancer(31_000);
+    expect(await m.gestes.envoyerBloc(BLOC)).toEqual({ ok: true, deja: true });
+    expect(m.journal).toHaveLength(1);
+  });
+
+  it('🔴 vingt appels simultanés pour le même message : un seul envoi', async () => {
+    const m = avecHorloge();
+    const issues = await Promise.all(Array.from({ length: 20 }, () => m.gestes.envoyerBloc(BLOC)));
+    expect(issues.filter((i) => i.deja)).toHaveLength(19);
+    expect(m.journal).toHaveLength(1);
+  });
+
+  it('une vraie redemande (un nouveau message, passé le plancher) relance ; avant le plancher, non', async () => {
+    const m = avecHorloge();
+    await m.gestes.envoyerBloc(BLOC);
+    m.nouveauMessage('m-client-2');
+    expect(await m.gestes.envoyerBloc(BLOC)).toEqual({ ok: true, deja: true });
+    m.avancer(30_000);
+    expect(await m.gestes.envoyerBloc(BLOC)).toEqual({ ok: true });
+    expect(m.journal).toHaveLength(2);
+  });
+
+  it('les clés de l’agent IA vivent dans leur propre espace (pas celui de l’agent de Meta) et désignent le bloc', async () => {
+    const m = avecHorloge();
+    await m.gestes.envoyerBloc(BLOC);
+    expect(m.verrous.tenues().length).toBeGreaterThan(0);
+    expect(m.verrous.tenues().every((c) => c.startsWith('agent-envoi:'))).toBe(true);
+    expect(m.verrous.tenues().some((c) => c.includes(`${WF_B}:${CODE}`))).toBe(true);
+  });
+
+  it('🔴 un envoi refusé rend ses clés : le rappel repart ; une exception les garde (le message a pu partir)', async () => {
+    let refuse = true;
+    const m = avecHorloge();
+    const c = composition({
+      antiRejeu: m.verrous,
+      dernierMessageDuClient: async () => 'm-client-1',
+      envoyerDepuisAgent: async () => (refuse ? { ok: false, raison: 'fenêtre fermée' } : { ok: true }),
+    });
+    expect(await c.gestes.envoyerBloc(BLOC)).toEqual({ ok: false, raison: 'fenêtre fermée' });
+    refuse = false;
+    expect(await c.gestes.envoyerBloc(BLOC)).toEqual({ ok: true });
+
+    const m2 = avecHorloge();
+    const panne = composition({
+      antiRejeu: m2.verrous,
+      dernierMessageDuClient: async () => 'm-client-1',
+      envoyerDepuisAgent: async () => { throw new Error('Meta injoignable'); },
+    });
+    await expect(panne.gestes.envoyerBloc(BLOC)).rejects.toThrow('Meta injoignable');
+    expect(await panne.gestes.envoyerBloc(BLOC)).toEqual({ ok: true, deja: true });
+  });
+
+  it('🔴 les refus de forme ne prennent rien : hors offre, scénario disparu', async () => {
+    const m = avecHorloge();
+    const base = { offreDe: async () => ({ offre: 'base' as const, droits: DROITS.base, retourEnBaseLe: null }) };
+    const c = composition({ antiRejeu: m.verrous, offres: base });
+    await c.gestes.envoyerBloc(BLOC);
+    await c.gestes.envoyerBloc({ ...BLOC, workflowId: 'wf-supprime' });
+    expect(m.verrous.tenues()).toEqual([]);
   });
 });
 
@@ -210,6 +296,8 @@ function monde(parcoursAgent: { workflowId: string; graphe: WorkflowGraph; fige:
     offres: offresToutOuvert,
     sessions: agentSessions,
     parcours: { clore: (t, runId) => deps.runs.setStateSiVivant(t, runId, { currentNode: null, status: 'done' }) },
+    antiRejeu: verrousEnMemoire(),
+    dernierMessageDuClient: async () => null,
   });
   return { b, gestes, executor, envois, rendus, sessionsCloses, runs };
 }
@@ -263,6 +351,8 @@ describe('lancer le scénario fixé, sur le vrai exécuteur', () => {
       estDesabonne: jamaisDesabonne,
       offres: offresToutOuvert,
       sessions: { clore: async (_t, id, statut, sortie) => { sessions.push(`${id}:${statut}:${sortie ?? ''}`); } },
+      antiRejeu: verrousEnMemoire(),
+      dernierMessageDuClient: async () => null,
       parcours: {
         clore: async (_t, runId) => {
           const r = m.runs.get(runId);

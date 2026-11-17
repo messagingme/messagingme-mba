@@ -21,9 +21,13 @@ export const PLANCHER_ANTI_REJEU_MS = 30_000;
 /**
  * Les deux clés d'un geste d'envoi, à prendre d'un seul geste (toutes ou aucune) : le plancher (client et outil) et
  * la demande (client, outil et dernier message du client, `-` quand il n'y en a pas). Le préfixe les sépare des
- * autres usages des verrous courts.
+ * autres usages des verrous courts : `mba-envoi` pour l'agent de Meta, `agent-envoi` pour l'agent IA
+ * (`src/agent/gestes-envoi.ts`, où « l'outil » est le bloc envoyé), chacun son espace.
  */
-export function clesAntiRejeu(tenantId: string, waId: string, outilId: string, dernierMessage: string | null): CleDemandee[] {
-  const plancher = `mba-envoi:${tenantId}:${waId}:${outilId}`;
+export function clesAntiRejeu(
+  tenantId: string, waId: string, outilId: string, dernierMessage: string | null,
+  espace: 'mba-envoi' | 'agent-envoi' = 'mba-envoi',
+): CleDemandee[] {
+  const plancher = `${espace}:${tenantId}:${waId}:${outilId}`;
   return [[plancher, PLANCHER_ANTI_REJEU_MS], [`${plancher}:${dernierMessage ?? '-'}`, DUREE_ANTI_REJEU_MS]];
 }

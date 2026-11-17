@@ -27,7 +27,7 @@ function messages(opts: { transcription?: string | null } = {}) {
   ];
 }
 
-async function monter(page: import('@playwright/test').Page, opts: { transcription?: string | null; appels?: string[]; creditEpuise?: boolean; plafondIa?: boolean } = {}) {
+async function monter(page: import('@playwright/test').Page, opts: { transcription?: string | null; appels?: string[]; creditEpuise?: boolean; plafondIa?: boolean; media?: { type: string; corps: string } } = {}) {
   const appels = opts.appels ?? [];
   await page.addInitScript((s) => window.localStorage.setItem('mba.session', JSON.stringify(s)), SESSION);
   await page.route('**/api/backend/**', async (route) => {
@@ -36,6 +36,7 @@ async function monter(page: import('@playwright/test').Page, opts: { transcripti
     appels.push(`${req.method()} ${url}`);
     const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
     if (/\/messages\/m-vocal\/media$/.test(url)) {
+      if (opts.media) return route.fulfill({ status: 200, contentType: opts.media.type, body: opts.media.corps });
       // Un ogg minuscule mais réel : le lecteur doit recevoir des octets, pas du JSON.
       return route.fulfill({ status: 200, contentType: 'audio/ogg', body: Buffer.from('OggS-faux-audio') });
     }
@@ -124,4 +125,31 @@ test.describe('Inbox : un vocal s’écoute ou se transcrit', () => {
     await expect(page.getByTestId('vocal-m-texte')).toHaveCount(0);
     await expect(page.getByTestId('vocal-ecouter-m-texte')).toHaveCount(0);
   });
+});
+
+/**
+ * 🔴 UN « VOCAL » ANNONCÉ EN HTML OU EN SVG NE S'EXÉCUTE PAS DANS LA CONSOLE (passage 2 de l'audit, 2026-11-17). Le type
+ * vient de l'expéditeur ; l'URL d'objet du lecteur vit dans l'origine de la session. Avant le retypage de
+ * `requestBlob`, ouvrir cette adresse dans un onglet exécutait le script, qui lisait la session (mesuré ici même).
+ */
+test.describe('Inbox : un vocal au type piégé', () => {
+  for (const [nom, type, corps] of [
+    ['HTML', 'text/html', '<!doctype html><title>avant</title><script>document.title = "VOLE:" + localStorage.getItem("mba.session")</script>'],
+    ['SVG', 'image/svg+xml', '<svg xmlns="http://www.w3.org/2000/svg"><title>avant</title><script>document.title = "VOLE:" + localStorage.getItem("mba.session")</script></svg>'],
+  ] as const) {
+    test(`🔴 ${nom} : son adresse ouverte dans un onglet n’exécute rien et ne lit pas la session`, async ({ page }) => {
+      await monter(page, { media: { type, corps } });
+      await page.getByTestId('vocal-ecouter-m-vocal').click();
+      const lecteur = page.getByTestId('vocal-lecteur-m-vocal');
+      await lecteur.waitFor();
+      const src = (await lecteur.getAttribute('src')) ?? '';
+      expect(src).toMatch(/^blob:/);
+      // L'équivalent d'une adresse collée : des octets bruts partent en téléchargement, rien ne se rend.
+      const onglet = await page.context().newPage();
+      await onglet.goto(src).catch(() => undefined);
+      await onglet.waitForTimeout(500);
+      expect(await onglet.title()).not.toContain('e2e-token');
+      expect(await onglet.title()).not.toContain('VOLE');
+    });
+  }
 });

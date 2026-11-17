@@ -40,6 +40,20 @@ export function natureDePieceJointe(type: string | null | undefined): NaturePiec
  */
 export const TYPES_IMAGE_AFFICHABLES: ReadonlySet<string> = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
+/**
+ * Le type qu'un fichier téléchargé par la console garde en URL d'objet (`requestBlob`, `web/lib/http.ts`).
+ *
+ * 🔴 UNE URL `blob:` VIT DANS L'ORIGINE DE LA CONSOLE, celle de la session (passage 2 de l'audit, 2026-11-17) : ouverte
+ * dans un onglet, un `text/html` ou un `image/svg+xml` y exécute son script et lit la session, mesuré dans Chromium
+ * avec un vocal reçu. Ne restent que les types qu'un navigateur ne rend jamais en document scriptable : les images
+ * affichables, l'audio, la vidéo et le PDF. Tout le reste devient des octets bruts, que le navigateur télécharge.
+ */
+export function typeDeBlobSur(type: string | null | undefined): string {
+  const t = (type ?? '').split(';')[0]!.trim().toLowerCase();
+  if (TYPES_IMAGE_AFFICHABLES.has(t) || t === 'application/pdf' || /^(audio|video)\/[a-z0-9][a-z0-9.+-]*$/.test(t)) return type!;
+  return 'application/octet-stream';
+}
+
 /** Ce blob peut-il être montré dans une `<img>` ? On lit son type, sans ses paramètres. */
 export function imageAffichable(typeDuBlob: string | null | undefined): boolean {
   const t = (typeDuBlob ?? '').split(';')[0]!.trim().toLowerCase();

@@ -1201,7 +1201,10 @@ API, sans écran pour s'en défaire. Un outil MCP reste parce qu'il vient d'un i
   (`src/mba/anti-rejeu.ts`) : deux clés prises d'un seul geste dans les verrous courts, le plancher (client et
   outil, 30 s) et la demande (client, outil et dernier message reçu, 2 min). Un rappel rend « déjà traitée » ; un
   refus relâche les deux ; une exception les garde (le message a pu partir). Une prise impossible (base
-  injoignable) lève : rien ne part.
+  injoignable) lève : rien ne part. **L'agent IA tient la même règle pour « Envoyer un bloc »** et l'étape « bloc »
+  d'un outil enchaîné (`creerGestesEnvoiAgent.envoyerBloc`, `src/agent/gestes-envoi.ts`), dans son propre espace de
+  clés (`agent-envoi:…`, le bloc tenant lieu d'outil) : un rappel rend `deja`, que le modèle lit « déjà envoyé, ne
+  rappelle pas » (`BLOC_DEJA_ENVOYE`) et que l'enchaînement ne compte pas comme une étape ratée.
 - 🔴 **L'ARRÊT D'UNE COPIE ATTEND LES ENVOIS LAISSÉS EN ROUTE** : un envoi qui dépasse `DELAI_REPONSE_ENVOI_MS`
   continue après la réponse (fin de tour de l'agent, jusqu'à 15 s). Le relais le confie à `TravauxEnVol`
   (`src/lib/en-vol.ts`), et `arreterApi` (`src/shutdown.ts`) l'attend après le serveur et AVANT la file et le
@@ -2293,6 +2296,10 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   SEPT jours (`DUREE_MEDIA_RECU_JOURS`, mesuré ; trente jours ne vaut que pour ce qu'on téléverse) : le fil
   rend `mediaExpire`, la route rend 410 `media_expire`. Seules les images matricielles se servent `inline`,
   tout le reste en `attachment` + `nosniff` (`MIMES_AFFICHABLES`, parité avec l'écran tenue par un test).
+  🔴 **Côté console, le type est REVU avant toute URL d'objet** : `requestBlob` (`web/lib/http.ts`) retype par
+  `typeDeBlobSur` (`web/lib/piece-jointe.ts`) ; ne gardent leur type que les images affichables, l'audio, la vidéo et le
+  PDF, le reste devient `application/octet-stream`. Une URL `blob:` vit dans l'origine de la session : un vocal annoncé
+  `text/html` y exécutait son script dès qu'on ouvrait son adresse (mesuré, `web/e2e/inbox-vocal.spec.ts`).
   Plafond propre, `MEDIA_ENTRANT_TAILLE_MAX_KO`, indépendant de la transcription.
 - 🔴 **UN AGENT PEUT PRENDRE, JAMAIS RÉAFFECTER** : `peutPrendre` (`src/inbox/assignment.ts`), conversation à
   personne et `agents_peuvent_prendre` activé (ou encadrement). L'écriture est CONDITIONNELLE
@@ -4336,6 +4343,10 @@ clique « Autoriser » dans un espace où elle est admin, et Claude reçoit un j
   seule la demande voyage, la destination est fixe (aucune redirection ouverte), et le consentement relit la demande
   et attend le clic comme à l'arrivée. Google y est remplacé par un lien qui ramène à `/autoriser` (`RetourGoogle`) :
   il ouvrirait la console sans revenir.
+- 🔴 **LES BOUTONS QUI ACCORDENT L'ACCÈS NE PARTENT PAS SUR UN CLIC PIÉGÉ** (`useArme`, `web/lib/armement.ts`) : désactivés
+  tant que la page n'a pas été visible ET active une demi-seconde, désarmés dès qu'elle perd le focus ou se cache, et
+  le geste relit l'armement sans attendre le rendu. Un double-clic piégé (une fenêtre tierce fermée au premier appui)
+  fait tomber le second appui juste après le retour du focus ; `frame-ancestors 'none'` n'y pouvait rien.
 - **Les erreurs de `/oauth/token` sont au format OAuth et en 400** (`invalid_grant`, `invalid_request`,
   `invalid_client`, `invalid_target`, `unsupported_grant_type`) : un refus n'est jamais un 5xx, dont Cloudflare
   remplacerait le corps. Seule une panne de base y rend 500, délibérément : un `invalid_grant` ferait jeter ses

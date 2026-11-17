@@ -25,10 +25,11 @@ export interface DepsResolveurMba {
   /**
    * Envoie SEUL le bloc fixé d'un scénario publié de l'espace (`mba_envoyer_bloc`), sans faire bouger le parcours de
    * l'agent : `creerGestesEnvoiAgent` (`src/agent/gestes-envoi.ts`), puis `WorkflowExecutor.envoyerBlocDepuisAgent`.
+   * `deja` : le même bloc vient de partir pour ce message du client (anti-rejeu), rien n'est reparti.
    */
   envoyerBloc(input: {
     tenantId: string; waId: string; runId: string; workflowId: string; code: string;
-  }): Promise<{ ok: boolean; raison?: string }>;
+  }): Promise<{ ok: boolean; raison?: string; deja?: boolean }>;
 
   /**
    * Lance le scénario fixé (`mba_lancer_scenario`, RC4), qui prend la conversation, puis clôt la session de l'agent et
@@ -94,6 +95,12 @@ function texte(args: Record<string, unknown>, cle: string): string {
 function echec(raison: string): SortieResolveur {
   return { ok: false, contenu: { erreur: raison }, erreur: raison };
 }
+
+/**
+ * Ce que le modèle lit quand il rappelle l'envoi d'un bloc déjà parti pour ce message du contact : de quoi clore son
+ * tour sans renvoyer, ni affirmer plus que « déjà envoyé ». La phrase de l'agent de Meta (`REPONSE_DEJA_TRAITE`).
+ */
+export const BLOC_DEJA_ENVOYE = 'Ce message vient déjà d’être envoyé au contact pour sa dernière demande : ne rappelle pas cet outil maintenant. S’il le redemande plus tard, rappelle-le.';
 
 /** Ce que le modèle lit d'un outil dont la cible ne se lit pas : il ne peut rien y corriger, l'administrateur si. */
 export const CIBLE_ILLISIBLE = 'outil mal configuré : sa cible ne se lit pas, il faut le refaire dans l’onglet Outils de l’agent';
@@ -208,6 +215,7 @@ const HANDLERS: Record<string, Handler> = {
     const res = await deps.envoyerBloc({
       tenantId: ctx.tenantId, waId: ctx.waId, runId: ctx.runId, workflowId: cible.workflowId, code: cible.code,
     });
+    if (res.ok && res.deja) return { contenu: { deja_envoye: true, note: BLOC_DEJA_ENVOYE } };
     return res.ok ? { contenu: { envoye: true } } : echec(res.raison ?? 'le bloc n a pas pu etre envoye');
   },
 

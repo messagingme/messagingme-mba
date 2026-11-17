@@ -13,6 +13,7 @@ import { Squelette } from '@/components/Squelette';
 import { ApiError } from '@/lib/http';
 import { useT } from '@/lib/i18n';
 import { getSession, type Session } from '@/lib/session';
+import { useArme } from '@/lib/armement';
 import {
   adresseDeRetourSure, autoriserParGoogle, autoriserParSession, avecDemande, capacitesAnnoncees, continuerAvecGoogle, estDemandeExpiree,
   ouvrirConsentement, type ChoixOauth, type MarqueClient, type Ouverture,
@@ -51,6 +52,8 @@ export default function AutoriserPage() {
   const [partie, setPartie] = useState(false);
   /** Relancé par « Réessayer » quand la demande n'a pas pu être lue (panne, réseau). */
   const [essai, setEssai] = useState(0);
+  /** 🔴 Les boutons qui accordent l'accès ne partent qu'une demi-seconde après chaque retour sur la page (`useArme`). */
+  const { arme, estArme } = useArme();
 
   useEffect(() => {
     // Lu ici et pas au rendu : ni l'adresse ni le stockage du navigateur n'existent côté serveur.
@@ -68,7 +71,8 @@ export default function AutoriserPage() {
    * s'affiche tel quel, c'est l'état « refus ».
    */
   async function autoriser(appel: () => Promise<{ adresse: string }>, direct: boolean): Promise<void> {
-    if (ouverture?.etat !== 'prete') return;
+    // Relu dans le geste : un appui arrivé avant le rendu qui désactive le bouton ne part pas non plus.
+    if (ouverture?.etat !== 'prete' || !estArme()) return;
     setErreur(null);
     setEnCours(true);
     try {
@@ -183,6 +187,7 @@ export default function AutoriserPage() {
                 client={ouverture.demande.client}
                 choix={choix}
                 enCours={enCours}
+                arme={arme}
                 onAutoriser={(tenantId) => { void autoriser(() => autoriserParGoogle(demande ?? '', choix.choix, tenantId), false); }}
                 onAutreAdresse={() => { setChoix(null); setErreur(null); }}
               />
@@ -203,7 +208,7 @@ export default function AutoriserPage() {
                     <Bouton
                       className="w-full"
                       enCours={enCours}
-                      disabled={enCours}
+                      disabled={enCours || !arme}
                       data-testid="autoriser-direct"
                       onClick={() => {
                         const direct = ouverture.espaceDirect;
@@ -351,10 +356,11 @@ function Capacites({ client, droits, marque, domaine }: { client: string; droits
  * Après Google : un bouton par espace où la personne est admin, les autres affichés sans bouton. Le rôle montré ici
  * vient de la réponse du serveur ; il le relit encore au clic.
  */
-function ChoixEspace({ client, choix, enCours, onAutoriser, onAutreAdresse }: {
+function ChoixEspace({ client, choix, enCours, arme, onAutoriser, onAutreAdresse }: {
   client: string;
   choix: ChoixOauth;
   enCours: boolean;
+  arme: boolean;
   onAutoriser: (tenantId: string) => void;
   onAutreAdresse: () => void;
 }) {
@@ -376,7 +382,7 @@ function ChoixEspace({ client, choix, enCours, onAutoriser, onAutreAdresse }: {
         {choix.espaces.map((e) => (
           <li key={e.tenantId}>
             {e.admin ? (
-              <Bouton className="w-full" enCours={enCours} disabled={enCours} data-testid={`autoriser-espace-${e.tenantId}`} onClick={() => onAutoriser(e.tenantId)}>
+              <Bouton className="w-full" enCours={enCours} disabled={enCours || !arme} data-testid={`autoriser-espace-${e.tenantId}`} onClick={() => onAutoriser(e.tenantId)}>
                 {t(`Autoriser dans ${e.nom}`, `Authorize in ${e.nom}`)}
               </Bouton>
             ) : (

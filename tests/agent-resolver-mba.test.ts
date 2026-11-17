@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { creerResolveurMba, type DepsResolveurMba } from '../src/agent/resolvers/mba';
+import { creerResolveurMba, type DepsResolveurMba, BLOC_DEJA_ENVOYE } from '../src/agent/resolvers/mba';
 import type { ContexteAppel } from '../src/agent/executor';
 import type { OutilDefini } from '../src/agent/catalog';
 import { SANS_MCP } from './outils-mcp';
@@ -221,6 +221,13 @@ describe('résolveur maison (tâche 16)', () => {
     const r = await resolveur(appel('escalader'));
     expect(r.rendu).toBe(true);
     expect(r.mainPrise).toBe(false);
+  });
+
+  it('🔴 « envoyer_bloc » déjà parti pour ce message : le modèle lit « déjà envoyé » et de ne pas rappeler', async () => {
+    const { resolveur } = harnais({ envoyerBloc: async () => ({ ok: true, deja: true }) });
+    const r = await resolveur(appelCible(CIBLES.bloc));
+    expect(r).toEqual({ contenu: { deja_envoye: true, note: BLOC_DEJA_ENVOYE } });
+    expect(BLOC_DEJA_ENVOYE).toMatch(/ne rappelle pas cet outil/);
   });
 
   it('« envoyer_bloc » rend le refus du parcours au modele', async () => {

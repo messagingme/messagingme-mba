@@ -1,4 +1,6 @@
 import { blocSeul } from '../mba/outils-maison';
+import { clesAntiRejeu } from '../mba/anti-rejeu';
+import type { VerrousCourts } from '../db/verrous-courts';
 import type { WorkflowGraph } from '../workflow/graph';
 import type { StartOutcome } from '../workflow/executor';
 import { MOTIF_SCENARIO_LANCE } from '../workflow/lancements';
@@ -42,13 +44,23 @@ export interface DepsGestesEnvoiAgent {
    * démarrage du scénario l'a remplacé.
    */
   parcours: { clore(tenantId: string, runId: string): Promise<boolean> };
+  /**
+   * 🔴 L'anti-rejeu d'un bloc envoyé (passage 2 de l'audit, 2026-11-16) : les verrous courts partagés par toutes les
+   * copies, et le dernier message du client, qui départage une vraie redemande d'un rappel du modèle. Requis : sans
+   * eux, une réponse du modèle portant dix appels envoyait dix fois le même modèle facturé au même contact.
+   */
+  antiRejeu: VerrousCourts;
+  dernierMessageDuClient(tenantId: string, waId: string): Promise<string | null>;
 }
+
+/** Le résultat d'un envoi de bloc. `deja` : le même bloc vient de partir pour ce message du client, rien n'est reparti. */
+export type IssueEnvoiBloc = { ok: boolean; raison?: string; deja?: boolean };
 
 export const CONTACT_DESABONNE = 'ce contact a demandé à ne plus rien recevoir : aucun scénario ne peut lui être lancé';
 export const SCENARIO_INCONNU = 'ce scénario n’existe plus';
 
 export function creerGestesEnvoiAgent(deps: DepsGestesEnvoiAgent): {
-  envoyerBloc(input: { tenantId: string; waId: string; runId: string; workflowId: string; code: string }): Promise<{ ok: boolean; raison?: string }>;
+  envoyerBloc(input: { tenantId: string; waId: string; runId: string; workflowId: string; code: string }): Promise<IssueEnvoiBloc>;
   lancerScenario(input: { tenantId: string; waId: string; runId: string; sessionId: string; workflowId: string }): Promise<{ ok: boolean; raison?: string }>;
 } {
   const scenariosOuverts = async (tenantId: string) => (await deps.offres.offreDe(tenantId)).droits.fonctions.has('scenarios');
@@ -57,6 +69,13 @@ export function creerGestesEnvoiAgent(deps: DepsGestesEnvoiAgent): {
      * Le bloc fixé, revérifié à chaque appel sur le graphe PUBLIÉ (le scénario a pu changer depuis la pose de l'outil),
      * et réduit à lui seul (`blocSeul`, la règle de l'agent de Meta) : un bloc qui attend une réponse, ouvre un agent
      * ou part en RCS est refusé avec sa raison, avant tout envoi.
+     *
+     * 🔴 UN BLOC NE REPART PAS POUR LA MÊME DEMANDE DU CONTACT, la règle de l'agent de Meta (`src/mba/executer-maison.ts`) :
+     * deux clés prises d'un seul geste atomique, sur toutes les copies, le dernier message du client (une vraie
+     * redemande relance) et un plancher de 30 s. Le modèle peut appeler l'outil plusieurs fois dans une réponse, et
+     * chaque appel envoyait le même modèle, facturé. Prises après les refus de forme (qui n'envoient rien), gardées sur
+     * une exception (le message a pu partir), relâchées sur un refus de l'envoi. Une prise qui échoue (base
+     * injoignable) lève : rien ne part.
      */
     async envoyerBloc({ tenantId, waId, runId, workflowId, code }) {
       if (!(await scenariosOuverts(tenantId))) return { ok: false, raison: INDISPONIBLE_POUR_LE_MODELE };
@@ -64,7 +83,13 @@ export function creerGestesEnvoiAgent(deps: DepsGestesEnvoiAgent): {
       if (!graphe) return { ok: false, raison: 'le scénario de ce bloc n’existe plus' };
       const seul = blocSeul(graphe, code);
       if (!seul.ok) return { ok: false, raison: seul.raison };
-      return deps.envoyerDepuisAgent(tenantId, waId, { runId, workflowId, graphe: seul.graphe, noeudId: seul.noeudId });
+      const dernier = await deps.dernierMessageDuClient(tenantId, waId);
+      const prise = await deps.antiRejeu.prendre(clesAntiRejeu(tenantId, waId, `${workflowId}:${code}`, dernier, 'agent-envoi'));
+      if (prise === null) return { ok: true, deja: true };
+      const issue = await deps.envoyerDepuisAgent(tenantId, waId, { runId, workflowId, graphe: seul.graphe, noeudId: seul.noeudId });
+      // Un relâchement raté retarde seulement une redemande jusqu'à l'échéance ; il ne cache pas la raison du refus.
+      if (!issue.ok) await deps.antiRejeu.relacher(prise).catch(() => {});
+      return issue;
     },
 
     /**

@@ -340,3 +340,50 @@ test.describe('Autoriser Claude : avec Google, depuis un navigateur anglais', ()
     expect(appels.find((a) => a.chemin === '/oauth/consentement/google')?.corps).toEqual({ demande: 'd-e2e', idToken: 'jeton-google-e2e', langue: 'en' });
   });
 });
+
+/**
+ * 🔴 LE DOUBLE-CLIC PIÉGÉ (passage 2 de l'audit, 2026-11-17) : une page tierce ferme une petite fenêtre au premier appui,
+ * et le second tombe sur le bouton révélé, juste après le retour du focus. Le bouton se désarme dès que la page perd le
+ * focus, et ne se réarme qu'une demi-seconde après son retour ; le geste relit l'armement sans attendre le rendu.
+ */
+test.describe('Autoriser Claude : un clic piégé n’accorde rien', () => {
+  const repondeur = (chemin: string): Reponse | undefined => {
+    if (chemin === '/oauth/consentement/demande') return { body: DEMANDE };
+    if (chemin === '/tenants/t1/nom') return { body: { nom: 'Mon espace' } };
+    if (chemin === '/tenants/t1/oauth/autoriser') return { body: { adresse: RETOUR } };
+    return undefined;
+  };
+
+  test('🔴 page sans le focus : bouton désactivé, un clic forcé n’envoie rien ; au retour, il se réarme et part', async ({ page }) => {
+    await avecSession(page, SESSION_ADMIN);
+    const appels = await monter(page, repondeur);
+    await page.goto('/autoriser?demande=d-e2e');
+    const direct = page.getByRole('button', { name: 'Autoriser dans Mon espace' });
+    await expect(direct).toBeEnabled();
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    await expect(direct).toBeDisabled();
+    await direct.click({ force: true });
+    expect(autorisations(appels)).toEqual([]);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect(direct).toBeEnabled();
+    await direct.click();
+    await page.waitForURL(/localhost:5555\/callback/);
+    expect(autorisations(appels)).toHaveLength(1);
+  });
+
+  test('🔴 l’appui qui suit le retour du focus, avant même le rendu, ne part pas', async ({ page }) => {
+    await avecSession(page, SESSION_ADMIN);
+    const appels = await monter(page, repondeur);
+    await page.goto('/autoriser?demande=d-e2e');
+    const direct = page.getByRole('button', { name: 'Autoriser dans Mon espace' });
+    await expect(direct).toBeEnabled();
+    // Perte puis retour du focus, et l'appui dans le même instant : le bouton est encore actif à l'écran.
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('blur'));
+      window.dispatchEvent(new Event('focus'));
+      (document.querySelector('[data-testid="autoriser-direct"]') as HTMLButtonElement).click();
+    });
+    await page.waitForTimeout(300);
+    expect(autorisations(appels)).toEqual([]);
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   DUREE_MEDIA_RECU_JOURS_AFFICHEE, TYPES_IMAGE_AFFICHABLES, imageAffichable, legendeDePieceJointe, natureDePieceJointe,
-  nomDeTelechargement,
+  nomDeTelechargement, typeDeBlobSur,
 } from '../web/lib/piece-jointe';
 import { DUREE_MEDIA_RECU_JOURS, MIMES_AFFICHABLES } from '../src/inbox/media-entrant';
 
@@ -51,5 +51,30 @@ describe('les pièces jointes, à l’écran', () => {
     expect(nomDeTelechargement('facture-mars.pdf', 'document', 'abcdef123456')).toBe('facture-mars.pdf');
     expect(nomDeTelechargement(null, 'video', 'abcdef123456')).toBe('piece-jointe-abcdef12.mp4');
     expect(nomDeTelechargement('  ', 'document', 'abcdef123456')).toBe('piece-jointe-abcdef12');
+  });
+});
+
+/**
+ * 🔴 LE TYPE D'UNE URL D'OBJET DE LA CONSOLE (passage 2 de l'audit, 2026-11-17) : un vocal reçu en `text/html`, ouvert
+ * dans un onglet, exécutait son script dans l'origine de la session (mesuré dans Chromium). Ne gardent leur type que ce
+ * qu'un navigateur ne rend jamais en document scriptable.
+ */
+describe('typeDeBlobSur', () => {
+  it('🔴 HTML, SVG, XML, JavaScript et l’absence de type deviennent des octets bruts', () => {
+    for (const t of ['text/html', 'TEXT/HTML; charset=utf-8', 'image/svg+xml', 'application/xhtml+xml', 'text/xml', 'application/xml', 'text/javascript', 'text/plain', '', null, undefined]) {
+      expect(typeDeBlobSur(t), String(t)).toBe('application/octet-stream');
+    }
+  });
+
+  it('l’audio, la vidéo, le PDF et les images affichables gardent leur type, paramètres compris', () => {
+    expect(typeDeBlobSur('audio/ogg; codecs=opus')).toBe('audio/ogg; codecs=opus');
+    for (const t of ['audio/mpeg', 'audio/aac', 'audio/amr', 'audio/mp4', 'video/mp4', 'video/3gpp', 'application/pdf', ...TYPES_IMAGE_AFFICHABLES]) {
+      expect(typeDeBlobSur(t), t).toBe(t);
+    }
+  });
+
+  it('un faux type audio qui cache autre chose ne passe pas', () => {
+    expect(typeDeBlobSur('audio/')).toBe('application/octet-stream');
+    expect(typeDeBlobSur('audio/<script>')).toBe('application/octet-stream');
   });
 });

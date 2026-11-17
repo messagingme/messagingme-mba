@@ -2285,6 +2285,9 @@ export async function demarrerWorker(): Promise<void> {
       offres,
       sessions: agentSessions,
       parcours: { clore: (t, runId) => runStore.setStateSiVivant(t, runId, { currentNode: null, status: 'done' }) },
+      // L'anti-rejeu d'un bloc : les verrous courts de toutes les copies, et le message du client qui départage.
+      antiRejeu: verrousCourts,
+      dernierMessageDuClient: (t, waId) => inboxStore.dernierMessageDuClient(t, waId),
     });
 
     // Les vrais outils maison, à comparer à `resolvers/simulation.ts` (bac à sable) : ici chaque dépendance

@@ -1,5 +1,18 @@
 # todo.md : backlog
 
+## 🟡 Anti-rejeu de l'agent IA, fichiers de la console et consentement armé (relecture du 2026-11-17, aucun rouge)
+
+- **Consentement ouvert sans le focus** (`useArme`, `web/lib/armement.ts`) : une page ouverte en arrière-plan, ou avec
+  le focus dans la barre d'adresse, garde ses boutons grisés jusqu'au premier clic, qui donne le focus et se perd ; le
+  bouton s'arme une demi-seconde plus tard. Rien ne le dit à l'écran : une ligne d'aide quand le bouton est désarmé.
+  Le plus probable en usage réel (une connexion depuis Claude Desktop).
+- **Plancher de 30 s par bloc** (`src/agent/gestes-envoi.ts`) : deux messages du contact à moins de 30 s qui appellent
+  chacun le même bloc n'en reçoivent qu'un, comme chez l'agent de Meta.
+- **Tour sans message entrant** : la clé de demande vaut alors `-` pendant 2 minutes ; à revoir le jour où un tour
+  d'agent partira hors d'un message du contact.
+- **Audio servi en `application/ogg`** : `typeDeBlobSur` le passe en octets bruts ; le lecteur le joue par détection,
+  sauf sur certains navigateurs. WhatsApp envoie `audio/ogg` : aucun cas connu.
+
 ## 🟡 Le tunnel de Connecter WhatsApp en étapes (2026-11-17) : avec le prochain lot de la ligne de crédit
 
 - **`QuiRegleMeta` garde une branche `lieu="accueil"` sans appelant** : l'Accueil ne monte plus la carte (« Continuer la

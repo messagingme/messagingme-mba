@@ -285,6 +285,15 @@ describe('l’étape « transférer en À traiter »', () => {
     expect(JSON.stringify(r.contenu)).toMatch(/Ne rappelle pas cet outil : le message prévu repartirait/);
   });
 
+  it('🔴 un message prévu déjà parti pour cette demande (anti-rejeu) n’est pas compté comme raté', async () => {
+    const bloc: EtapeEnchainement = { type: 'bloc', workflowId: WF, code: BLOC };
+    const { resolveur, journal } = harnais({ envoyerBloc: async () => ({ ok: true, deja: true }) });
+    const r = await resolveur(appel([TAG, bloc], {}));
+    expect(r.contenu).toMatchObject({ fait: true });
+    expect(r.contenu).not.toHaveProperty('non_abouti');
+    expect(journal).toEqual(['tag:lead_chaud']);
+  });
+
   it('un échec non bloquant d’avant le transfert remonte avec lui', async () => {
     const { resolveur } = harnais({ poserTag: async () => { throw new Error('tag refusé'); } });
     const r = await resolveur(appel([TAG, TRANSFERT], {}));
