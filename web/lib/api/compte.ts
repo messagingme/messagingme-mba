@@ -760,11 +760,27 @@ export interface ApercuDuplicationOps {
   declencheursCopies: Array<{ nom: string; type: string }>;
   declencheursRetires: Array<{ nom: string; raison: RaisonRetraitOps }>;
   motsRetires: Array<{ nom: string; mots: string[] }>;
+  /** Ce que le scénario désigne et qui peut partir avec lui, case à cocher (lot 2). */
+  dependances: DependancesApercuOps;
   signaux: string[];
   blocages: string[];
   /** Renvoyée telle quelle à la duplication : l'API refuse (409) si l'état a changé depuis. */
   empreinte: string;
 }
+
+export type RaisonOutilNonCopieOps = 'mcp' | 'autre_scenario' | 'cible_illisible';
+export interface DependancesApercuOps {
+  agents: Array<{
+    id: string; nom: string; nomCopie: string; fiches: number;
+    outilsCopies: Array<{ nom: string; nomCopie: string }>;
+    outilsNonCopies: Array<{ nom: string; raison: RaisonOutilNonCopieOps }>;
+  }>;
+  requetes: Array<{ id: string; nom: string; nomCopie: string; source: { nom: string; nomCopie: string; secret: boolean } }>;
+  modelesEmail: Array<{ id: string; nom: string; nomCopie: string }>;
+}
+
+/** Les cases cochées : ce qui part avec le scénario. */
+export interface CasesDuplicationOps { agents: string[]; requetes: string[]; modelesEmail: string[] }
 
 export interface ResultatDuplicationOps {
   scenarioId: string;
@@ -774,6 +790,7 @@ export interface ResultatDuplicationOps {
   debranches: ApercuDuplicationOps['debranches'];
   declencheursRetires: ApercuDuplicationOps['declencheursRetires'];
   motsRetires: ApercuDuplicationOps['motsRetires'];
+  dependancesCopiees: { agents: string[]; requetes: string[]; modelesEmail: string[]; sourcesAvecSecret: string[] };
 }
 
 export function lireEspacesDuplicationOps(sessionOps: string): Promise<{ espaces: EspaceDuplicationOps[] }> {
@@ -788,7 +805,9 @@ export function apercuDuplicationOps(sessionOps: string, choix: ChoixDuplication
   return appelOps(sessionOps, '/ops/duplication/apercu', { method: 'POST', corps: choix });
 }
 
-export function dupliquerScenarioOps(sessionOps: string, choix: ChoixDuplicationOps & { empreinte: string }): Promise<ResultatDuplicationOps> {
+export function dupliquerScenarioOps(
+  sessionOps: string, choix: ChoixDuplicationOps & { empreinte: string; dupliquer: CasesDuplicationOps },
+): Promise<ResultatDuplicationOps> {
   return appelOps(sessionOps, '/ops/duplication', { method: 'POST', corps: choix });
 }
 

@@ -42,7 +42,7 @@ import { OpsDuplication } from '@/components/OpsDuplication';
 import { OpsSeuils } from '@/components/OpsSeuils';
 
 /**
- * Les quatre onglets (refonte, `docs/superpowers/specs/2026-10-27-ops-refonte-design.md`). Santé d'abord : c'est
+ * Les onglets (refonte, `docs/superpowers/specs/2026-10-27-ops-refonte-design.md`, puis Crédits et Dupliquer). Santé d'abord : c'est
  * l'écran du téléphone. L'onglet vit dans l'adresse (`?tab=`), lu au montage et réécrit sans recharger.
  */
 const ONGLETS = ['sante', 'capacite', 'clients', 'credits', 'reglages', 'dupliquer'] as const;
