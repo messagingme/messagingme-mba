@@ -3889,15 +3889,19 @@ boîte par sous-menu.
   qu'il faut facturer à chaque Entreprise, le mois en cours et le précédent, et la somme de leurs plafonds IA face au
   budget d'équipe de Vercel. **Réglages** : les seuils, la grille de prix, les numéros fournis, les adresses
   d'exploitation. **Dupliquer** : la copie d'un scénario dans un autre espace (ci-dessous).
-- ✅ **Dupliquer un scénario dans un autre espace** (2026-11-16, premier lot). On choisit l'espace source, le scénario,
-  puis l'espace de destination ; un récapitulatif dit, avant d'écrire quoi que ce soit, ce qui arrivera : les blocs
-  débranchés (« aller vers », « assigner », agent IA, appel API, e-mail, Flow), les champs créés et ceux dont le type
-  diffère dans la destination (celui de la destination est gardé), les templates déjà présents, les déclencheurs copiés
-  éteints et ceux qui ne suivent pas (un mot-clé déjà pris, un « nouveau contact » en double, un déclencheur lié à
-  l'espace source). La copie arrive inactive, en brouillon, sous le nom « X (copie) » ; la source ne bouge pas. La
-  duplication est refusée si la destination n'a pas de compte WhatsApp ou si un template du scénario n'y existe pas, et
-  elle redemande l'aperçu si l'un des deux espaces a changé entre-temps. À venir : dupliquer aussi l'agent IA, les
-  appels API et le modèle d'e-mail (lot 2), puis recréer chez Meta les templates et Flows absents (lot 3).
+- ✅ **Dupliquer un scénario dans un autre espace** (2026-11-16 ; ses dépendances le 2026-11-17). On choisit l'espace
+  source, le scénario, puis l'espace de destination ; un récapitulatif dit, avant d'écrire quoi que ce soit, ce qui
+  arrivera : les blocs débranchés (« aller vers », « assigner », Flow, et ce qu'on ne coche pas), les champs créés et
+  ceux dont le type diffère dans la destination (celui de la destination est gardé), les templates déjà présents (et
+  ceux dont les boutons diffèrent), les déclencheurs copiés éteints et ceux qui ne suivent pas (un mot-clé déjà pris, un
+  « nouveau contact » en double, un déclencheur lié à l'espace source). Des cases, décochées par défaut, emportent aussi
+  avec le scénario l'agent IA d'un bloc (sa fiche, sa connaissance, ses outils, désactivés jusqu'à ce qu'on les active
+  dans la destination), l'appel API d'un bloc (sa requête et sa source, secret compris) et le modèle d'e-mail d'un bloc
+  (sa boîte d'envoi reste à choisir) ; chaque copie prend « (copie) » si son nom est pris, et le récapitulatif dit les
+  outils qui ne suivront pas. La copie arrive inactive, en brouillon, sous le nom « X (copie) » ; la source ne bouge pas,
+  et le journal d'activité de la destination garde la trace de la duplication. Elle est refusée si la destination n'a
+  pas de compte WhatsApp ou si un template du scénario n'y existe pas, et elle redemande l'aperçu si l'un des deux
+  espaces a changé entre-temps. À venir : recréer chez Meta les templates et Flows absents (lot 3).
 - ✅ **Des seuils réglables, et une alerte Telegram quand un signal change d'état** (2026-10-30). L'orange et le rouge de
   chaque signal se règlent dans Réglages, tous d'un coup, avec une note obligatoire ; une valeur hors bornes est
   refusée et son champ passe en rouge. Une aggravation est annoncée tout de suite, une baisse ou un retour au vert au

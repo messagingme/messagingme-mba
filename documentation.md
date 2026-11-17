@@ -5873,7 +5873,8 @@ tracé à jeton (`/r/<code>/{{1}}`) et ne voit jamais le champ.
 ### Dupliquer un scénario dans un autre espace
 
 L'onglet « Dupliquer » de `/ops` (`web/components/OpsDuplication.tsx`) : espace source, scénario, espace de destination,
-puis un récapitulatif, puis la copie. Quatre routes `session-ops` (`src/http/ops-duplication.ts`, la garde de `/ops`) :
+puis un récapitulatif dont les cases, décochées par défaut, choisissent les dépendances qui partent avec le scénario,
+puis la copie. Quatre routes `session-ops` (`src/http/ops-duplication.ts`, la garde de `/ops`) :
 `GET /ops/duplication/espaces` (avec la présence d'une WABA), `GET /ops/duplication/espaces/:tenantId/scenarios` (les
 scénarios publics, jamais celui du répondeur), `POST /ops/duplication/apercu` et `POST /ops/duplication`. Spec :
 `docs/superpowers/specs/2026-11-16-duplication-scenario-entre-espaces-design.md`.
@@ -5881,8 +5882,30 @@ scénarios publics, jamais celui du répondeur), `POST /ops/duplication/apercu` 
 - **Ce que devient chaque bloc** (`copierGraphe`, `src/ops/duplication/graphe.ts`, `switch` exhaustif sur les types de
   bloc) : ce qui pointe un objet de l'espace source est DÉBRANCHÉ et listé (« aller vers », même vers un bloc du même
   scénario ; « assigner », qui va alors au pot commun ; agent IA, appel API, boîte et modèle d'e-mail, Flow). Les clés de
-  champ, les tags et les templates sont collectés. Les codes publics sont refaits au code client de la destination, et
-  la source d'un bloc JS ancien passe de `data.code` à `data.js` avant (`sourceDuBlocJs`).
+  champ, les tags et les templates sont collectés. Les codes publics sont refaits au code client de la destination (la
+  copie rend la table ancien code vers nouveau), et la source d'un bloc JS ancien passe de `data.code` à `data.js` avant
+  (`sourceDuBlocJs`).
+- **Les dépendances cochées** (`src/ops/duplication/dependances.ts`, pur ; `dependances.pg.ts`, lectures et copies).
+  L'aperçu liste les agents IA, requêtes d'appel API et modèles d'e-mail que le graphe désigne (`referencesDuGraphe`),
+  lus dans l'espace SOURCE seulement, avec le nom de chaque copie : le même s'il est libre, sinon « X (copie) », « X
+  (copie N) » (insensible à la casse, sauf pour un modèle d'e-mail) ; un outil de l'espace prend `nom_copie`,
+  `nom_copie_N`, jamais le nom d'une action d'un agent qui le consomme (`atc_nom_par_consommateur_uidx`). Une case doit
+  désigner une dépendance référencée ET lue, sinon 400 et rien n'est écrit. Ce qui part :
+  - **un agent**, en `draft` : sa fiche et ses réglages, sa connaissance avec ses vecteurs et leur modèle (aucune
+    revectorisation, rien de débité), ses actions (`agent_id` = la copie) et ses outils de l'espace. Chaque liaison
+    arrive DÉSACTIVÉE et non autonome : le consentement se donne dans la destination (`active_par`). Ne suivent pas :
+    sa clé Gateway, ses sessions et son historique, un outil MCP (à reconnecter), une action qui vise un AUTRE
+    scénario. Une action qui vise le scénario copié vise sa copie et le nouveau code de son bloc (`rebrancherCible`).
+    Cocher un agent emporte les requêtes et sources de ses outils d'appel. Un outil de l'espace consommé par deux agents
+    cochés est copié une fois, puis lié aux deux.
+  - **une requête**, avec sa source, en-têtes compris, sans ses `valeurs_test` (celles d'un vrai contact, peut-être).
+    La source garde son statut ; 🔴 son secret est recopié CHIFFRÉ tel quel (même `ENCRYPTION_KEY`), jamais déchiffré,
+    jamais rendu (l'aperçu dit seulement « secret copié »), jamais journalisé hors du label de sa source. Une requête
+    ou une source partagée n'est copiée qu'une fois.
+  - **un modèle d'e-mail** : le bloc le reçoit, sa boîte d'envoi reste vide, donc listée à rebrancher.
+  - Les champs que nomment les copies (variable `champ` d'une requête, `{{clé}}` d'un e-mail par `variablesDuTexte`,
+    cible d'une action) se créent comme ceux du graphe ; les tags que posent les actions se déclarent avec eux. Le
+    déclencheur « action d'agent » ne suit toujours pas, même quand l'agent est copié.
 - **Les déclencheurs** (`copierDeclencheurs`, `src/ops/duplication/declencheurs.ts`) : copiés ÉTEINTS, jamais avec
   l'attestation d'accord marketing (elle engage une personne de la source). Ne suivent pas : un déclencheur lié à un
   objet de la source (webhook entrant, étape HubSpot, publicité, action d'agent, automation possédée), un « nouveau
@@ -5891,17 +5914,28 @@ scénarios publics, jamais celui du répondeur), `POST /ops/duplication/apercu` 
 - **Le plan** (`planifierDuplication`, `src/ops/duplication/plan.ts`) : un champ absent se crée avec la définition de la
   source ; un conflit de type garde celui de la destination et se signale. Bloquent : une destination sans WABA, un
   template absent de sa WABA (même nom, même langue), la même source et destination. Se signalent : un template non
-  approuvé, une offre de destination qui n'ouvre pas les scénarios, une clé définie nulle part.
+  approuvé, un template homonyme dont les boutons diffèrent de ceux de la source (une réponse `btn:<i>` partirait vers
+  une autre branche), une image hébergée par l'espace source (`/m/`), une offre de destination qui n'ouvre pas les
+  scénarios, une clé définie nulle part.
 - 🔴 **L'aperçu et l'exécution calculent le même plan**, et l'exécution refuse (409) si son empreinte n'est plus celle de
-  l'aperçu. L'empreinte se calcule sur l'ÉTAT LU (JSON aux clés triées), jamais sur le plan : la copie tire des codes de
-  blocs neufs à chaque calcul.
-- **L'écriture** (`PgDuplicationStore.ecrire`, `src/ops/duplication/store.pg.ts`) : UNE transaction sur son client
-  (champs, scénario en BROUILLON par `insererBrouillon`, déclencheurs par `PgAutomationStore` construit sur ce client),
-  le nom « X (copie N) » choisi sous le verrou de nom de la destination (`nomPrisSousVerrou`). Une duplication à la fois
-  par destination (verrou court `duplication-scenario:<id>`, 2 min). Les tags se déclarent après, au mieux.
+  l'aperçu. L'empreinte se calcule sur l'ÉTAT LU (JSON aux clés triées, templates triés par nom et langue, déclencheurs
+  lus par `created_at, id`), jamais sur le plan : la copie tire des codes de blocs neufs à chaque calcul. Les cases
+  cochées n'y entrent pas.
+- **L'écriture** (`PgDuplicationStore.ecrire`, `src/ops/duplication/store.pg.ts`) : UNE transaction sur son client. Le
+  nom « X (copie N) » choisi sous le verrou de nom de la destination (`nomPrisSousVerrou`), les champs, puis les
+  sources, requêtes, modèles d'e-mail et agents avec leurs outils, puis le scénario en BROUILLON (`insererBrouillon`,
+  avec l'identifiant tiré d'avance que les actions copiées visent déjà), son graphe posé sur les copies (`rebrancher`),
+  puis les déclencheurs par `PgAutomationStore` construit sur ce client. 🔴 Chaque copie est un `INSERT … SELECT` filtré
+  sur l'espace source, l'espace de destination en valeur écrite, et elle LÈVE si elle n'insère rien : la transaction
+  est annulée. Une duplication à la fois par destination (verrou court `duplication-scenario:<id>`, 2 min). Les tags se
+  déclarent après, au mieux (un échec est journalisé en `warn`).
+- **La trace** : `ops.scenario_duplique` au journal d'activité de la DESTINATION, l'exploitant pour auteur, le
+  scénario et les copies par leur nom ; la ligne de journal `ops_duplication_scenario` porte l'exploitant (`par`) et
+  les labels des sources dont le secret a été recopié.
 - 🔴 **Meta en lecture seule** : les templates de la destination se lisent sans le cache du catalogue, et une lecture qui
-  échoue rend un 422, jamais une liste vide prise pour « aucun template ». Jamais de 5xx ; la ligne de journal
-  `ops_duplication_scenario` porte l'exploitant (`par`).
+  échoue rend un 422, jamais une liste vide prise pour « aucun template » ; un jeton WhatsApp invalide de la
+  destination se dit (« reconnectez son numéro »). Ceux de la source se lisent pour comparer les boutons, et une
+  lecture qui échoue y est seulement signalée. Jamais de 5xx.
 
 ### Supprimer un espace
 
