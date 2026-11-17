@@ -9,21 +9,12 @@ import { lireGestes } from './gestes';
 import { asRecord } from '../webhooks/json';
 import { agentDuConsommateur, consommateurAgent, consommateurMba } from './consommateur';
 import { RISQUE_MAISON, type CibleMaison } from '../mba/outils-maison';
-import type { CibleOutilAgent } from './outils-maison';
-import { risqueDeLEnchainement, scenariosDeLEnchainement } from './enchainement';
+import { scenariosDeLaCible, type CibleOutilAgent } from './outils-maison';
+import { risqueDeLEnchainement } from './enchainement';
 import { OUTILS_ACTIFS_POUR_CAMP, campDeLOutil, refusDeCampPourUnOutil, type LigneOutilPourCamp } from './camp';
 import { sortiesDeLaFiche } from './fiche';
 import { lireVariables, paramsDuConnecteur } from './requetes';
 import { enTransaction } from '../db/transaction';
-
-/**
- * Les scénarios que vise la cible d'un outil d'agent IA (RC4), pour la garde d'isolation de l'écriture : un pour un bloc
- * ou un lancement, ceux de ses étapes pour un outil enchaîné, aucun sinon. TOUS doivent être de l'espace.
- */
-function scenariosDeLaCible(cible: CibleOutilAgent | null): string[] {
-  if (cible?.handler === 'envoyer_bloc' || cible?.handler === 'lancer_scenario') return [cible.workflowId];
-  return cible?.handler === 'enchainer' ? scenariosDeLEnchainement(cible.etapes) : [];
-}
 
 /** La garde d'isolation, en SQL : aucun des scénarios donnés n'est hors de l'espace `$1`. Un tableau vide passe. */
 const SCENARIOS_DE_L_ESPACE = (param: string): string =>

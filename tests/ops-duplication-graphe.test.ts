@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { copierGraphe, referencesDuGraphe, rebrancher } from '../src/ops/duplication/graphe';
+import { copierGraphe, debrancherTemplates, referencesDuGraphe, rebrancher } from '../src/ops/duplication/graphe';
 import { parseGraph, MAX_NODES, type WorkflowGraph, type WorkflowNodeType } from '../src/workflow/graph';
 
 /**
@@ -179,12 +179,13 @@ describe('lot 2 : les références du graphe, et son rebranchement sur les copie
     }
   });
 
-  it('les images /m/ de la source sont listées, pas une adresse externe', () => {
+  it('les images de la médiathèque de la source sont listées ; pas une adresse externe, même en /m/', () => {
     const r = copierGraphe(g([
-      n('q1', 'quick_message', { imageUrl: 'https://api.messagingme.app/m/abc123.jpg' }),
+      n('q1', 'quick_message', { imageUrl: 'https://api.messagingme.app/m/01j7zq8h3m4n5p6q7r8s9t0v1w.jpg' }),
       n('r2', 'rcs_message', { imageUrl: 'https://cdn.exemple.fr/image.png' }),
+      n('r3', 'rcs_message', { imageUrl: 'https://autre-site.fr/m/photo.jpg' }),
     ]), DEST);
-    expect(r.imagesSource).toEqual(['https://api.messagingme.app/m/abc123.jpg']);
+    expect(r.imagesSource).toEqual(['https://api.messagingme.app/m/01j7zq8h3m4n5p6q7r8s9t0v1w.jpg']);
   });
 
   it('rebrancher pose les copies sur leurs blocs ; un bloc sans copie reste vide et listé ; la copie d’origine ne bouge pas', () => {
@@ -208,5 +209,28 @@ describe('lot 2 : les références du graphe, et son rebranchement sur les copie
     // L'agent et la requête rebranchés sortent des débranchés ; l'e-mail reste (sa boîte d'envoi), l'agent sans copie aussi.
     expect(r.debranches.map((d) => d.nodeId)).toEqual(['m3', 'g4']);
     expect(JSON.stringify(copie)).toBe(avant);
+  });
+});
+
+describe('lot 3 : les Flows rebranchés, les templates qui ne suivent pas débranchés', () => {
+  it('referencesDuGraphe rend aussi le Flow d’un bloc Flow ; rebrancher y pose la copie, qui sort des débranchés', () => {
+    const source = g([n('f1', 'flow', { flowId: '111', flowName: 'Inscription' }), n('f2', 'flow', { flowId: '222', flowName: 'Avis' })]);
+    expect(referencesDuGraphe(source)).toEqual([{ nodeId: 'f1', sorte: 'flow', id: '111' }, { nodeId: 'f2', sorte: 'flow', id: '222' }]);
+    const copie = copierGraphe(source, DEST);
+    const r = rebrancher(copie, referencesDuGraphe(source), {
+      agents: new Map(), requetes: new Map(), modelesEmail: new Map(), flows: new Map([['111', { id: '901', nom: 'Inscription' }]]),
+    });
+    expect(bloc(r.graphe, 'f1').data).toMatchObject({ flowId: '901', flowName: 'Inscription' });
+    // Le Flow non recréé reste débranché, vidé par la copie.
+    expect(bloc(r.graphe, 'f2').data).toMatchObject({ flowId: '', flowName: '' });
+    expect(r.debranches.map((d) => d.nodeId)).toEqual(['f2']);
+  });
+
+  it('debrancherTemplates vide le template des blocs nommés, les liste, et laisse les autres', () => {
+    const source = g([n('t1', 'template', { templateName: 'accueil', language: 'fr' }), n('t2', 'template', { templateName: 'relance', language: 'fr' })]);
+    const r = debrancherTemplates(copierGraphe(source, DEST), new Set(['t2']));
+    expect(bloc(r.graphe, 't1').data.templateName).toBe('accueil');
+    expect(bloc(r.graphe, 't2').data).toMatchObject({ templateName: '', language: 'fr' });
+    expect(r.debranches).toEqual([{ nodeId: 't2', nom: expect.any(String), type: 'template', raison: 'template' }]);
   });
 });

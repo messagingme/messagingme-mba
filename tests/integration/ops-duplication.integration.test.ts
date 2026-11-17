@@ -14,6 +14,10 @@ import { PgSourceStore } from '../../src/agent/sources.pg';
 import { PgRequeteStore } from '../../src/agent/requetes.pg';
 import { PgToolCatalog } from '../../src/agent/catalog.pg';
 import { PgEmailTemplateStore } from '../../src/email/template-store.pg';
+import { randomUUID } from 'node:crypto';
+import { PgFlowStore } from '../../src/flow/store.pg';
+import type { FlowScreenDef } from '../../src/meta/flow-json';
+import { copierAgent, copierModeleEmail, copierOutil, copierRequete, copierSource } from '../../src/ops/duplication/dependances.pg';
 
 const url = process.env.DATABASE_URL ?? '';
 
@@ -50,7 +54,7 @@ describe.skipIf(!url)('duplication de scénario entre espaces (Postgres)', () =>
             (select count(*)::int from automations where tenant_id = $1) as a,
             (select count(*)::int from user_fields where tenant_id = $1) as c`, [tenant],
   )).rows[0]!;
-  const plan = (e: EtatEnBase) => planifierDuplication({ ...e, templatesDestination: [], templatesSource: [], offreOuvreScenarios: true });
+  const plan = (e: EtatEnBase) => planifierDuplication({ ...e, templatesDestination: [], modelesSource: [], flowsSource: [], indicesSource: [], offreOuvreScenarios: true, creditIaOuvert: true });
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl(), max: 4 });
@@ -161,7 +165,7 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
   )).rows[0]!.n);
   const etat = async (dest: string) => (await store.lireEtat(source, scenario, dest))!;
   const plan = (e: EtatEnBase, choix?: Parameters<typeof planifierDuplication>[1]) =>
-    planifierDuplication({ ...e, templatesDestination: [], templatesSource: [], offreOuvreScenarios: true }, choix);
+    planifierDuplication({ ...e, templatesDestination: [], modelesSource: [], flowsSource: [], indicesSource: [], offreOuvreScenarios: true, creditIaOuvert: true }, choix);
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: url, ssl: pgSsl(), max: 4 });
@@ -197,6 +201,7 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
       sourceId: src.id, requestId: requete, name: 'creer_lead', title: 'Créer le lead', description: 'Crée le lead dans le CRM.',
       nePasUtiliser: '', risk: 'write', nature: 'integre', outputPaths: [],
     }))!.id;
+    await pool.query('update agent_tools set gestes = $2::jsonb where id = $1', [outilAppel, JSON.stringify([{ type: 'tag', valeur: 'lead crm' }])]);
     modele = (await new PgEmailTemplateStore(pool).create(source, {
       name: 'Confirmation', format: 'basic', subject: 'Bonjour', body: 'Votre ville : {{ville}}',
     })).id;
@@ -219,6 +224,7 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
   it('lit l’agent, ses outils, la requête et sa source, et le modèle d’e-mail du scénario', async () => {
     const e = await etat(destination);
     expect(e.dependances.agents.map((a) => [a.label, a.fiches, a.outils.map((o) => o.nom).sort()])).toEqual([['Conseiller', 2, ['creer_lead', 'envoyer_horaires']]]);
+    expect(e.dependances.agents[0]!.outils.find((o) => o.nom === 'creer_lead')!.gestes).toEqual([{ type: 'tag', valeur: 'lead crm' }]);
     expect(e.dependances.requetes.map((r) => r.label)).toEqual(['Créer le lead']);
     expect(e.dependances.sources).toEqual([{ id: expect.any(String), label: 'CRM', secret: true }]);
     expect(e.dependances.modelesEmail.map((m) => m.nom)).toEqual(['Confirmation']);
@@ -309,6 +315,36 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
     expect(plan(e, { agents: [espion], requetes: [], modelesEmail: [] }).choixInvalides).toEqual([espion]);
   });
 
+  it('🔴 chaque copie filtre l’espace SOURCE : l’identifiant d’une ligne d’un troisième espace lève, et la destination ne reçoit rien', async () => {
+    const vierge = await espace('itest-dup2-isolation');
+    try {
+      const srcT = await new PgSourceStore(pool).creer(tiers, {
+        kind: 'http', label: 'CRM tiers', baseUrl: 'https://tiers.exemple.fr', authKind: 'bearer', authSecret: 'secret-du-tiers',
+      });
+      const reqT = (await new PgRequeteStore(pool).creer(tiers, {
+        sourceId: srcT.id, label: 'Lire tiers', methode: 'GET', chemin: '/x', parametres: [], entetes: [], corps: { mode: 'aucun' },
+        variables: [], outputPaths: [], valeursTest: {},
+      })).id;
+      const modT = (await new PgEmailTemplateStore(pool).create(tiers, { name: 'Modèle tiers', format: 'basic', subject: 'S', body: 'B' })).id;
+      const agT = (await new PgAgentStore(pool).create(tiers, 'Agent tiers', 'Je suis une IA.', 'openai/gpt-4.1-mini')).id;
+      const outT = (await new PgToolCatalog(pool).ajouterConnecteur(tiers, agT, {
+        sourceId: srcT.id, requestId: reqT, name: 'lire_tiers', title: 'Lire', description: 'Lit le tiers.',
+        nePasUtiliser: '', risk: 'write', nature: 'integre', outputPaths: [],
+      }))!.id;
+      const copies: Array<[string, () => Promise<string>]> = [
+        ['la source', () => copierSource(pool, source, vierge, srcT.id, 'CRM tiers')],
+        ['la requête', () => copierRequete(pool, source, vierge, reqT, 'Lire tiers', srcT.id)],
+        ['le modèle', () => copierModeleEmail(pool, source, vierge, modT, 'Modèle tiers')],
+        ['l’agent', () => copierAgent(pool, source, vierge, agT, 'Agent tiers')],
+        ['l’outil', () => copierOutil(pool, source, vierge, outT, { nom: 'lire_tiers', agentProprietaire: null, requeteCopiee: null, sourceCopiee: null, binding: {} })],
+      ];
+      for (const [quoi, copier] of copies) await expect(copier(), quoi).rejects.toThrow('introuvable dans l’espace source');
+      expect(await lignesDe(vierge)).toBe(0);
+    } finally {
+      await pool.query('delete from tenants where id = $1', [vierge]);
+    }
+  });
+
   it('deux déclencheurs écrits dans la même transaction se lisent dans l’ordre de leur identifiant', async () => {
     const t = await espace('itest-dup2-ordre');
     try {
@@ -375,5 +411,58 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
     } finally {
       await pool.query('delete from tenants where id = $1', [dest]);
     }
+  });
+});
+
+/**
+ * LOT 3 : LES FLOWS DE LA SOURCE ET LES BLOCS QUI LES OUVRENT, SUR POSTGRES (plan
+ * `docs/superpowers/plans/2026-11-17-duplication-scenario-lot-3.md`). Meta n'est pas joint : le Flow « recréé » est passé
+ * à `ecrire` comme l'orchestration le rendrait.
+ */
+describe.skipIf(!url)('duplication des templates et des Flows (Postgres)', () => {
+  let pool: Pool;
+  let store: PgDuplicationStore;
+  let source: string;
+  let destination: string;
+  let tiers: string;
+  let scenario: string;
+  const ECRANS: FlowScreenDef[] = [{ title: 'Inscription', elements: [] }];
+  const espace = async (nom: string) => (await pool.query<{ id: string }>(`insert into tenants (name) values ($1) returning id`, [nom])).rows[0]!.id;
+
+  beforeAll(async () => {
+    pool = new Pool({ connectionString: url, ssl: pgSsl(), max: 4 });
+    store = new PgDuplicationStore(pool);
+    source = await espace('itest-dup3-source');
+    destination = await espace('itest-dup3-destination');
+    tiers = await espace('itest-dup3-tiers');
+    const flows = new PgFlowStore(pool);
+    await flows.insert({ id: '7001', tenantId: source, name: 'Inscription', screens: ECRANS, ref: randomUUID(), mapping: { email: 'email_pro' } });
+    await flows.insert({ id: '7002', tenantId: tiers, name: 'Espion', screens: ECRANS, ref: randomUUID(), mapping: {} });
+    scenario = (await new PgWorkflowStore(pool).insert(source, 'Inscriptions', { nodes: [
+      { id: 'f1', type: 'flow', position: { x: 0, y: 0 }, data: { flowId: '7001', flowName: 'Inscription' } },
+      { id: 't2', type: 'template', position: { x: 0, y: 0 }, data: { templateName: 'absent_de_la_destination', language: 'fr' } },
+    ], edges: [] })).id;
+  });
+
+  afterAll(async () => {
+    for (const t of [source, destination, tiers]) if (t) await pool.query('delete from tenants where id = $1', [t]);
+    await pool.end();
+  });
+
+  it('🔴 les Flows de la source se lisent dans l’espace source SEULEMENT : l’id d’un autre espace ne rend rien', async () => {
+    const lus = await store.flowsSource(source, ['7001', '7002']);
+    expect(lus.map((f) => [f.id, f.nom, f.ecrans?.length, f.mapping])).toEqual([['7001', 'Inscription', 1, { email: 'email_pro' }]]);
+  });
+
+  it('le bloc Flow se rebranche sur le Flow recréé ; le template absent et décoché arrive vidé, listé débranché', async () => {
+    const e = (await store.lireEtat(source, scenario, destination))!;
+    const flowsSource = await store.flowsSource(source, ['7001']);
+    const p = planifierDuplication({ ...e, templatesDestination: [], modelesSource: [], flowsSource, indicesSource: [], offreOuvreScenarios: true, creditIaOuvert: true });
+    const r = await store.ecrire(destination, source, e.scenario, p, new Map([['7001', { id: '8001', nom: 'Inscription' }]]));
+    const copie = (await new PgWorkflowStore(pool).getById(r.scenarioId, destination))!;
+    const bloc = (id: string) => copie.draftGraph!.nodes.find((n) => n.id === id)!.data;
+    expect(bloc('f1')).toMatchObject({ flowId: '8001', flowName: 'Inscription' });
+    expect(bloc('t2')).toMatchObject({ templateName: '', language: 'fr' });
+    expect(r.debranches.map((d) => [d.nodeId, d.raison])).toEqual([['t2', 'template']]);
   });
 });

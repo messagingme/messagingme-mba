@@ -263,7 +263,8 @@ import { catalogueBranchable } from './http/agent-setup';
 import type { CountryCode } from 'libphonenumber-js';
 import { handlerMaison } from './agent/outils-maison';
 import type { TemplateSummary } from './meta/templates';
-import { creerUnModele, type DepsGestionModeles } from './templates/gestion';
+import { creerUnModele, listerModeles as listerModelesRehabilites, type DepsGestionModeles } from './templates/gestion';
+import { executerChezMeta } from './ops/duplication/meta-execution';
 import { refusDeMeta, statutsDuModele, type DepsCreationModele } from './api/creer-modele';
 import { placesDeTelechargement, telechargerEnteteProduction } from './api/entete-par-url';
 import { lancerEnvoiPublic, type DepsEnvoiPublic } from './api/envoi-public';
@@ -1488,7 +1489,25 @@ async function main(): Promise<void> {
         nom: t.name, langue: t.language, statut: t.status, boutons: (t.buttons ?? []).map((b) => ({ type: b.type, texte: b.text })),
       }));
     },
+    // Lot 3 : la source se lit EN ENTIER, adresses d'origine des boutons remises (jamais nos liens tracés), sans cache.
+    modelesDe: async (tenant) => ((await repo.getTenantWabaId(tenant)) ? listerModelesRehabilites(depsModeles, tenant) : null),
+    indicesDe: async (tenant, modeles) => Promise.all(modeles.map(async (m) => ({
+      nom: m.nom, langue: m.langue, indices: await templateHintStore.get(tenant, m.nom, m.langue),
+    }))),
+    // La création chez Meta passe par les chemins de la console : `depsModeles` (liens tracés, indications) et
+    // `creationModeles` (en-têtes), déclarés plus bas et lus à l'appel.
+    executerChezMeta: (destination, entree) => executerChezMeta({
+      modeles: depsModeles,
+      medias: creationModeles,
+      flows: {
+        client: (tenant) => metaFactory.flowClientForTenant(tenant),
+        persistance: new PgPersistanceFormulaire(pool),
+        marquerPublie: (flowId, tenant) => flowStore.markPublished(flowId, tenant),
+      },
+      creerChamp: (tenant, def) => fieldStore.create(tenant, def),
+    }, destination, entree),
     offreOuvreScenarios: async (tenant) => (await offres.offreDe(tenant)).droits.fonctions.has('scenarios'),
+    creditIaOuvert: async (tenant) => (await accesCreditIa.acces(tenant)) === 'ok',
     declareTags: async (tenant, tags) => { for (const t of tags) await tagStore.create(tenant, t); },
     verrous: verrousCourts,
     audit: auditSink,

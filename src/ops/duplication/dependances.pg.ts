@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
+import { screensOf } from '../../meta/flow-json';
+import { estUuid } from '../../http/scope';
 import type { ReferenceDependance } from './graphe';
 import type { DependancesSource, NomsPris, OutilSource } from './dependances';
+import type { FlowSource } from './meta';
 
 /**
  * LES DÉPENDANCES D'UN SCÉNARIO DUPLIQUÉ, EN BASE (lot 2 ; plan `docs/superpowers/plans/2026-11-17-duplication-scenario-lot-2.md`).
@@ -21,7 +24,9 @@ const uniques = (l: readonly string[]): string[] => [...new Set(l)];
 
 /** Ce que le scénario désigne dans la source, et ce qu'il emporterait : agents et leurs outils, requêtes, sources, modèles. */
 export async function lireDependances(q: Q, source: string, refs: readonly ReferenceDependance[]): Promise<DependancesSource> {
-  const ids = (sorte: ReferenceDependance['sorte']) => uniques(refs.filter((r) => r.sorte === sorte).map((r) => r.id));
+  // Un identifiant qui n'est pas un UUID (écrit par l'API REST dans un bloc) ferait échouer le cast `uuid[]` et toute la
+  // lecture : il est écarté, et son bloc arrive débranché comme au lot 1 (relecture du lot 2).
+  const ids = (sorte: ReferenceDependance['sorte']) => uniques(refs.filter((r) => r.sorte === sorte && estUuid(r.id)).map((r) => r.id));
   const agentIds = ids('agent');
 
   const agents = agentIds.length === 0 ? [] : (await q.query<{ id: string; label: string; fiches: number }>(
@@ -32,8 +37,9 @@ export async function lireDependances(q: Q, source: string, refs: readonly Refer
   )).rows;
   const outils = agents.length === 0 ? [] : (await q.query<{
     consommateur: string; id: string; name: string; origin: OutilSource['origine']; agent_id: string | null; binding: unknown; request_id: string | null;
+    gestes: unknown;
   }>(
-    `select c.consommateur, t.id, t.name, t.origin, t.agent_id, t.binding, t.request_id
+    `select c.consommateur, t.id, t.name, t.origin, t.agent_id, t.binding, t.request_id, t.gestes
        from agent_tool_consommateurs c
        join agent_tools t on t.id = c.tool_id and t.tenant_id = c.tenant_id
       where c.tenant_id = $1 and c.consommateur = any($2::text[])
@@ -65,6 +71,7 @@ export async function lireDependances(q: Q, source: string, refs: readonly Refer
       id: a.id, label: a.label, fiches: a.fiches,
       outils: outils.filter((o) => o.consommateur === `agent:${a.id}`).map((o) => ({
         id: o.id, nom: o.name, origine: o.origin, proprietaire: o.agent_id === a.id, binding: o.binding, requeteId: o.request_id,
+        gestes: o.gestes,
       })),
     })),
     requetes: requetes.map((r) => ({ id: r.id, label: r.label, sourceId: r.source_id, variables: r.variables })),
@@ -82,7 +89,23 @@ export async function nomsPris(q: Q, destination: string): Promise<NomsPris> {
     sources: await lire('select label as n from agent_tool_sources where tenant_id = $1'),
     modelesEmail: await lire('select name as n from email_templates where tenant_id = $1 and deleted_at is null'),
     outils: await lire('select name as n from agent_tools where tenant_id = $1 and agent_id is null'),
+    flows: await lire('select name as n from flows where tenant_id = $1'),
   };
+}
+
+/**
+ * Les Flows de la source que le scénario ouvre (lot 3), par leurs ids Meta, dans l'espace source SEULEMENT : un id d'un
+ * autre espace, glissé dans un graphe ou un bouton, ne se lit pas. Écrans normalisés comme la base les sert (`screensOf`).
+ */
+export async function lireFlowsSource(q: Q, source: string, ids: readonly string[]): Promise<FlowSource[]> {
+  if (ids.length === 0) return [];
+  const lignes = (await q.query<{ id: string; name: string; status: string; elements: unknown; mapping: Record<string, string> | null; cta: string | null }>(
+    `select id, name, status, elements, mapping, cta from flows where tenant_id = $1 and id = any($2::text[]) order by id`,
+    [source, [...new Set(ids)]],
+  )).rows;
+  return lignes.map((f) => ({
+    id: f.id, nom: f.name, publie: f.status === 'PUBLISHED', ecrans: screensOf(f.elements), mapping: f.mapping ?? {}, cta: f.cta,
+  }));
 }
 
 async function inserer(q: Q, sql: string, params: unknown[], quoi: string): Promise<string> {
@@ -92,11 +115,15 @@ async function inserer(q: Q, sql: string, params: unknown[], quoi: string): Prom
   return id;
 }
 
-/** La source : sa configuration et son chiffré tels quels, son statut ; jamais essayée depuis la destination. */
+/**
+ * La source : sa configuration et son chiffré tels quels, son statut ; jamais essayée depuis la destination. Sans
+ * `secret_publie_le`, qui date l'acceptation du secret par Meta pour CET espace (0129) : faux dans la destination
+ * (relecture du lot 2).
+ */
 export function copierSource(q: Q, source: string, destination: string, id: string, label: string): Promise<string> {
   return inserer(q, `
-    insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_header_name, auth_secret_enc, status, secret_publie_le)
-    select $3, kind, $4, base_url, auth_kind, auth_header_name, auth_secret_enc, status, secret_publie_le
+    insert into agent_tool_sources (tenant_id, kind, label, base_url, auth_kind, auth_header_name, auth_secret_enc, status)
+    select $3, kind, $4, base_url, auth_kind, auth_header_name, auth_secret_enc, status
       from agent_tool_sources where id = $1 and tenant_id = $2
     returning id`, [id, source, destination, label], 'la source');
 }

@@ -10,10 +10,6 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/** Remplace les `{{clef}}` par la valeur fournie (`{{ clef }}` toléré). Valeur absente ou nulle -> chaîne vide.
- *  Seules les clés propres de `vars` sont lues : `toString`, `constructor` ou `__proto__` remonteraient sinon
- *  un membre d'Object.prototype (texte parasite, ou `TypeError` dans escapeHtml). En mode HTML, la valeur
- *  substituée est échappée ; le corps du modèle, rédigé par le tenant, ne l'est jamais. */
 /** Une variable d'un texte rendu : `{{prenom}}`, espaces tolérés. Le seul motif : `renderText` et `variablesDuTexte`. */
 const VARIABLE_DU_TEXTE = /\{\{\s*([\w.-]+)\s*\}\}/g;
 
@@ -22,6 +18,10 @@ export function variablesDuTexte(text: string): string[] {
   return [...new Set([...text.matchAll(VARIABLE_DU_TEXTE)].map((m) => m[1]!))];
 }
 
+/** Remplace les `{{clef}}` par la valeur fournie (`{{ clef }}` toléré). Valeur absente ou nulle -> chaîne vide.
+ *  Seules les clés propres de `vars` sont lues : `toString`, `constructor` ou `__proto__` remonteraient sinon
+ *  un membre d'Object.prototype (texte parasite, ou `TypeError` dans escapeHtml). En mode HTML, la valeur
+ *  substituée est échappée ; le corps du modèle, rédigé par le tenant, ne l'est jamais. */
 export function renderText(
   text: string,
   vars: Record<string, string | null | undefined>,

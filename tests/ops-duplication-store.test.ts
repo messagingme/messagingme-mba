@@ -64,18 +64,21 @@ const etat: EtatDuplication = {
   champsDestination: [],
   nomsPrisDestination: [],
   templatesDestination: [],
-  templatesSource: [],
+  modelesSource: [],
+  flowsSource: [],
+  indicesSource: [],
   offreOuvreScenarios: true,
+  creditIaOuvert: true,
   dependances: {
     agents: [{
       id: 'ag-1', label: 'Conseiller', fiches: 2,
-      outils: [{ id: 'o-http', nom: 'creer_lead', origine: 'http', proprietaire: false, binding: {}, requeteId: 'rq-1' }],
+      outils: [{ id: 'o-http', nom: 'creer_lead', origine: 'http', proprietaire: false, binding: {}, requeteId: 'rq-1', gestes: [] }],
     }],
     requetes: [{ id: 'rq-1', label: 'Créer le lead', sourceId: 'src-1', variables: [] }],
     sources: [{ id: 'src-1', label: 'CRM', secret: true }],
     modelesEmail: [],
   },
-  nomsPris: { agents: [], requetes: [], sources: [], modelesEmail: [], outils: [] },
+  nomsPris: { agents: [], requetes: [], sources: [], modelesEmail: [], outils: [], flows: [] },
 };
 const scenario = { id: 'wf', nom: 'Accueil' };
 
@@ -114,7 +117,7 @@ describe('PgDuplicationStore.ecrire', () => {
       ] } },
       dependances: { ...etat.dependances, agents: [...etat.dependances.agents, {
         id: 'ag-2', label: 'Vendeur', fiches: 0,
-        outils: [{ id: 'o-http', nom: 'creer_lead', origine: 'http', proprietaire: false, binding: {}, requeteId: 'rq-1' }],
+        outils: [{ id: 'o-http', nom: 'creer_lead', origine: 'http', proprietaire: false, binding: {}, requeteId: 'rq-1', gestes: [] }],
       }] },
     };
     await store.ecrire('dst', 'src', scenario, planifierDuplication(deux, { agents: ['ag-1', 'ag-2'], requetes: [], modelesEmail: [] }));

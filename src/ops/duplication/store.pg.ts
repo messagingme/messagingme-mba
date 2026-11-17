@@ -6,9 +6,12 @@ import { PgUserFieldStore } from '../../crm/field-store.pg';
 import { resolveTenantCode } from '../../ids/tenant-code';
 import type { UserFieldDef } from '../../crm/types';
 import type { EtatDuplication, PlanDuplication } from './plan';
-import { rebrancher, referencesDuGraphe, type BlocDebranche } from './graphe';
+import { debrancherTemplates, rebrancher, referencesDuGraphe, type BlocDebranche } from './graphe';
 import { rebrancherCible } from './dependances';
-import { copierAgent, copierModeleEmail, copierOutil, copierRequete, copierSource, lierOutil, lireDependances, nomsPris } from './dependances.pg';
+import type { FlowSource } from './meta';
+import {
+  copierAgent, copierModeleEmail, copierOutil, copierRequete, copierSource, lierOutil, lireDependances, lireFlowsSource, nomsPris,
+} from './dependances.pg';
 
 /**
  * LA BASE D'UNE DUPLICATION DE SCÉNARIO ENTRE ESPACES (duplication depuis /ops, lots 1 et 2 ; spec
@@ -26,8 +29,13 @@ import { copierAgent, copierModeleEmail, copierOutil, copierRequete, copierSourc
  * les outils d'un agent copié qui visent le scénario visent sa copie, écrite après eux.
  */
 
-/** Ce que la base dit de la duplication ; la route y ajoute les WABA (Meta) et l'offre. */
-export type EtatEnBase = Omit<EtatDuplication, 'templatesDestination' | 'templatesSource' | 'offreOuvreScenarios'>;
+/**
+ * Ce que la base dit de la duplication. La route y ajoute les templates (Meta), puis les Flows et les indications de
+ * variables qu'ils désignent (lus après eux, `flowsSource`), l'offre et le crédit IA de la destination.
+ */
+export type EtatEnBase = Omit<
+  EtatDuplication, 'templatesDestination' | 'modelesSource' | 'flowsSource' | 'indicesSource' | 'offreOuvreScenarios' | 'creditIaOuvert'
+>;
 
 export interface EspaceDuplication { id: string; nom: string; waba: boolean }
 
@@ -102,8 +110,22 @@ export class PgDuplicationStore {
     };
   }
 
-  /** Écrit le plan dans la destination, en une transaction. `scenario` : le scénario copié (son id et son nom). */
-  async ecrire(destination: string, sourceTenant: string, scenario: { id: string; nom: string }, plan: PlanDuplication): Promise<CopieEcrite> {
+  /** Les Flows de la source que le scénario ouvre, par leurs ids Meta, dans l'espace source seulement (lot 3). */
+  async flowsSource(source: string, ids: readonly string[]): Promise<FlowSource[]> {
+    return lireFlowsSource(this.pool, source, ids);
+  }
+
+  /**
+   * Écrit le plan dans la destination, en une transaction. `scenario` : le scénario copié (son id et son nom). `flows` :
+   * les Flows déjà recréés chez Meta (lot 3), de l'id de la source vers la copie, sur lesquels ses blocs Flow se rebranchent.
+   */
+  async ecrire(
+    destination: string,
+    sourceTenant: string,
+    scenario: { id: string; nom: string },
+    plan: PlanDuplication,
+    flows: ReadonlyMap<string, { id: string; nom: string }> = new Map(),
+  ): Promise<CopieEcrite> {
     const c = await this.pool.connect();
     try {
       await c.query('begin');
@@ -150,7 +172,10 @@ export class PgDuplicationStore {
         }
       }
 
-      const rebranche = rebrancher(plan.graphe, plan.references, { agents, requetes, modelesEmail });
+      const rebranche = debrancherTemplates(
+        rebrancher(plan.graphe, plan.references, { agents, requetes, modelesEmail, flows }),
+        new Set(plan.templatesADebrancher),
+      );
       const { id } = await insererBrouillon(c, destination, nom, rebranche.graphe, scenarioCopie);
       const automations = new PgAutomationStore(c);
       for (const d of plan.declencheurs.copies) await automations.create(destination, { ...d, workflowId: id });

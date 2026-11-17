@@ -8,7 +8,10 @@ import { verrousEnMemoire } from './verrous';
 import type { OpsDuplicationDeps } from '../src/http/ops-duplication';
 import type { EtatEnBase } from '../src/ops/duplication/store.pg';
 import type { TemplateDeLaWaba } from '../src/ops/duplication/plan';
+import type { EntreeMeta } from '../src/ops/duplication/meta-execution';
+import type { TemplateSummary } from '../src/meta/templates';
 import { TokenInvalidError } from '../src/meta/credentials';
+import { MetaApiError } from '../src/meta/errors';
 
 /**
  * LA DUPLICATION D'UN SCÉNARIO DEPUIS /ops, PAR LE VRAI CÂBLAGE (`buildServer`) : la garde d'exploitation, l'aperçu qui
@@ -42,7 +45,13 @@ const ETAT: EtatEnBase = {
   champsDestination: [],
   nomsPrisDestination: [],
   dependances: { agents: [], requetes: [], sources: [], modelesEmail: [] },
-  nomsPris: { agents: [], requetes: [], sources: [], modelesEmail: [], outils: [] },
+  nomsPris: { agents: [], requetes: [], sources: [], modelesEmail: [], outils: [], flows: [] },
+};
+
+/** Le template `bienvenue` tel que la source le rend en entier (lot 3). */
+const BIENVENUE: TemplateSummary = {
+  id: 'm1', name: 'bienvenue', status: 'APPROVED', category: 'MARKETING', language: 'fr', body: 'Bonjour', headerFormat: null,
+  isCarousel: false, editable: true,
 };
 
 /** Le même scénario, avec un bloc agent IA : de quoi cocher une dépendance (lot 2). */
@@ -62,21 +71,27 @@ interface Options {
   ecrire?: OpsDuplicationDeps['store']['ecrire'];
   declareTags?: OpsDuplicationDeps['declareTags'];
   verrous?: ReturnType<typeof verrousEnMemoire>;
+  modelesDe?: OpsDuplicationDeps['modelesDe'];
+  executerChezMeta?: OpsDuplicationDeps['executerChezMeta'];
+  creditIaOuvert?: boolean;
 }
 
 function monter(o: Options = {}) {
-  const ecrits: Array<{ destination: string; nom: string; agentsCopies: string[] }> = [];
+  const ecrits: Array<{ destination: string; nom: string; agentsCopies: string[]; flows: string[] }> = [];
   const tagsDeclares: string[][] = [];
-  const traces: Array<{ tenantId: string; email: string | null; action: string }> = [];
+  const traces: Array<{ tenantId: string; email: string | null; action: string; details?: unknown }> = [];
+  const chezMeta: Array<{ destination: string; entree: EntreeMeta }> = [];
   let lectures = 0;
+  let creditsLus = 0;
   const verrous = o.verrous ?? verrousEnMemoire();
   const deps: OpsDuplicationDeps = {
     store: {
       espaces: async () => { lectures += 1; return [{ id: SRC, nom: 'Source', waba: true }, { id: DST, nom: 'Destination', waba: true }]; },
       scenarios: async (t) => { lectures += 1; return t === SRC ? [{ id: WF, nom: 'Accueil' }] : []; },
       lireEtat: async (s, w, d) => { lectures += 1; return s === SRC && w === WF && d === DST ? (o.etat ?? ETAT) : null; },
-      ecrire: o.ecrire ?? (async (destination, _source, scenario, plan) => {
-        ecrits.push({ destination, nom: scenario.nom, agentsCopies: plan.copies.agents.map((a) => a.id) });
+      flowsSource: async () => [],
+      ecrire: o.ecrire ?? (async (destination, _source, scenario, plan, flows) => {
+        ecrits.push({ destination, nom: scenario.nom, agentsCopies: plan.copies.agents.map((a) => a.id), flows: [...(flows ?? new Map()).keys()] });
         return {
           scenarioId: 'wf-copie', nom: `${scenario.nom} (copie)`, champsCrees: ['ville'], declencheursCopies: 0,
           dependancesCopiees: { agents: plan.copies.agents.map((a) => a.label), requetes: [], modelesEmail: [], sourcesAvecSecret: [] },
@@ -85,13 +100,20 @@ function monter(o: Options = {}) {
       }),
     },
     templatesDe: o.templatesDe ?? (async (): Promise<TemplateDeLaWaba[]> => [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED', boutons: [] }]),
+    modelesDe: o.modelesDe ?? (async () => [BIENVENUE]),
+    indicesDe: async () => [],
+    executerChezMeta: async (destination, entree) => {
+      chezMeta.push({ destination, entree });
+      return o.executerChezMeta ? o.executerChezMeta(destination, entree) : { ok: true, flows: new Map(), crees: [], champsCrees: [] };
+    },
     offreOuvreScenarios: async () => true,
+    creditIaOuvert: async () => { creditsLus += 1; return o.creditIaOuvert ?? true; },
     declareTags: o.declareTags ?? (async (_t, tags) => { tagsDeclares.push(tags); }),
     verrous,
-    audit: async (tenantId, actor, action) => { traces.push({ tenantId, email: actor.email, action }); },
+    audit: async (tenantId, actor, action, _cible, details) => { traces.push({ tenantId, email: actor.email, action, details }); },
   };
   const server = buildServer({ queue: new FakeQueue(), auth: acces.auth, opsDuplication: deps });
-  return { server, ecrits, tagsDeclares, traces, verrous, lus: () => lectures };
+  return { server, ecrits, tagsDeclares, traces, chezMeta, verrous, lus: () => lectures, creditsLus: () => creditsLus };
 }
 
 const acces = accesOps();
@@ -220,7 +242,7 @@ describe('la duplication d’un scénario depuis /ops', () => {
     }));
     expect(res.statusCode).toBe(201);
     expect(res.json()).toMatchObject({ scenarioId: 'wf-copie', nom: 'Accueil (copie)', champsCrees: ['ville'], debranches: [{ nodeId: 'a3' }] });
-    expect(ecrits).toEqual([{ destination: DST, nom: 'Accueil', agentsCopies: [] }]);
+    expect(ecrits).toEqual([{ destination: DST, nom: 'Accueil', agentsCopies: [], flows: [] }]);
     expect(tagsDeclares).toEqual([['vip']]);
     expect(lignes).toContainEqual(expect.objectContaining({ msg: 'ops_duplication_scenario', par: ADRESSE_OPS, source: SRC, destination: DST, copie: 'wf-copie' }));
     expect(verrous.tenues()).toEqual([]);
@@ -247,6 +269,19 @@ describe('lot 2 : les dépendances cochées, la trace, les messages', () => {
     await server.close();
   });
 
+  it('un agent proposé à une destination sans crédit IA : signalé ; sans agent, le crédit n’est pas lu', async () => {
+    const sansCredit = monter({ etat: ETAT_AVEC_AGENT, creditIaOuvert: false });
+    const a = (await sansCredit.server.inject({ method: 'POST', url: '/ops/duplication/apercu', headers: ops, payload: corps }))
+      .json<{ apercu: { signaux: string[]; blocages: string[] } }>().apercu;
+    expect(a.signaux.some((s) => s.includes('crédit IA'))).toBe(true);
+    expect(a.blocages).toEqual([]);
+    await sansCredit.server.close();
+    const sansAgent = monter({ creditIaOuvert: false });
+    await sansAgent.server.inject({ method: 'POST', url: '/ops/duplication/apercu', headers: ops, payload: corps });
+    expect(sansAgent.creditsLus()).toBe(0);
+    await sansAgent.server.close();
+  });
+
   it('🔴 une case qui désigne ce que le scénario ne désigne pas : 400, rien n’est écrit', async () => {
     const { server, ecrits } = monter({ etat: ETAT_AVEC_AGENT });
     const empreinte = await empreinteDe(server);
@@ -267,9 +302,12 @@ describe('lot 2 : les dépendances cochées, la trace, les messages', () => {
       payload: { ...corps, empreinte, dupliquer: { agents: [AGENT], requetes: [], modelesEmail: [] } },
     });
     expect(res.statusCode).toBe(201);
-    expect(ecrits).toEqual([{ destination: DST, nom: 'Accueil', agentsCopies: [AGENT] }]);
+    expect(ecrits).toEqual([{ destination: DST, nom: 'Accueil', agentsCopies: [AGENT], flows: [] }]);
     expect(res.json()).toMatchObject({ dependancesCopiees: { agents: ['Conseiller'] } });
-    expect(traces).toEqual([{ tenantId: DST, email: ADRESSE_OPS, action: 'ops.scenario_duplique' }]);
+    expect(traces).toEqual([{
+      tenantId: DST, email: ADRESSE_OPS, action: 'ops.scenario_duplique',
+      details: { scenario: 'Accueil (copie)', copies: { agents: ['Conseiller'], requetes: [], modelesEmail: [], sourcesAvecSecret: [], templates: [], flows: [] } },
+    }]);
     await server.close();
   });
 
@@ -278,6 +316,98 @@ describe('lot 2 : les dépendances cochées, la trace, les messages', () => {
     const res = await server.inject({ method: 'POST', url: '/ops/duplication/apercu', headers: ops, payload: corps });
     expect(res.statusCode).toBe(422);
     expect(res.json<{ error: string }>().error).toContain('reconnectez son numéro');
+    await server.close();
+  });
+
+  it('une WABA sans jeton propre, que le jeton global ne peut pas lire : « vérifiez que son compte est relié », pas « réessayez »', async () => {
+    // Le refus de permission que rend Meta au jeton global (code 200) : durable, réessayer n'y change rien.
+    const refus = new MetaApiError(403, { message: 'Permissions error', code: 200, type: 'OAuthException' });
+    const { server } = monter({ templatesDe: async (t) => { if (t === DST) throw refus; return []; } });
+    const res = await server.inject({ method: 'POST', url: '/ops/duplication/apercu', headers: ops, payload: corps });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ error: string }>().error).toContain('relié à notre application');
+    await server.close();
+  });
+});
+
+describe('lot 3 : les templates et les Flows recréés chez Meta', () => {
+  const SANS_TEMPLATE = async (): Promise<TemplateDeLaWaba[]> => [];
+  const cocher = (templates: Array<{ nom: string; langue: string }>) => ({ agents: [], requetes: [], modelesEmail: [], templates });
+
+  it('🔴 un template coché se recrée chez Meta AVANT l’écriture en base, et la réponse le nomme', async () => {
+    const { server, chezMeta, ecrits, traces } = monter({
+      templatesDe: SANS_TEMPLATE,
+      executerChezMeta: async () => ({ ok: true, flows: new Map(), crees: [{ sorte: 'template', nom: 'bienvenue', langue: 'fr', statut: 'PENDING', categorie: 'marketing' }], champsCrees: [] }),
+    });
+    const empreinte = await empreinteDe(server);
+    const res = await server.inject({ method: 'POST', url: '/ops/duplication', headers: ops, payload: { ...corps, empreinte, dupliquer: cocher([{ nom: 'bienvenue', langue: 'fr' }]) } });
+    expect(res.statusCode).toBe(201);
+    expect(chezMeta.map((x) => [x.destination, x.entree.copies.templates])).toEqual([[DST, [{ nom: 'bienvenue', langue: 'fr', flows: [] }]]]);
+    expect(ecrits).toHaveLength(1);
+    expect(res.json<{ crees: unknown[] }>().crees).toEqual([{ sorte: 'template', nom: 'bienvenue', langue: 'fr', statut: 'PENDING', categorie: 'marketing' }]);
+    expect(traces.at(-1)!.details).toMatchObject({ copies: { templates: ['bienvenue (fr)'], flows: [] } });
+    await server.close();
+  });
+
+  it('🔴 un refus chez Meta : 422 qui liste ce qui a déjà été créé, et RIEN d’écrit en base', async () => {
+    const { server, ecrits } = monter({
+      templatesDe: SANS_TEMPLATE,
+      executerChezMeta: async () => ({
+        ok: false, refus: 'le template bienvenue (fr) : Meta a refusé le modèle', crees: [{ sorte: 'flow', nom: 'Inscription', id: '901', publie: true }], champsCrees: [],
+      }),
+    });
+    const empreinte = await empreinteDe(server);
+    const res = await server.inject({ method: 'POST', url: '/ops/duplication', headers: ops, payload: { ...corps, empreinte, dupliquer: cocher([{ nom: 'bienvenue', langue: 'fr' }]) } });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ error: string; crees: unknown[] }>()).toMatchObject({ crees: [{ sorte: 'flow', id: '901' }] });
+    expect(res.json<{ error: string }>().error).toContain('arrêtée chez Meta');
+    expect(ecrits).toEqual([]);
+    await server.close();
+  });
+
+  it('sans case cochée : rien chez Meta, et la copie s’écrit quand même (le bloc arrivera débranché)', async () => {
+    const { server, chezMeta, ecrits } = monter({ templatesDe: SANS_TEMPLATE });
+    const empreinte = await empreinteDe(server);
+    const apercu = await server.inject({ method: 'POST', url: '/ops/duplication/apercu', headers: ops, payload: corps });
+    expect(apercu.json<{ apercu: { blocages: string[]; meta: { templates: Array<{ etat: string }> } } }>().apercu)
+      .toMatchObject({ blocages: [], meta: { templates: [{ etat: 'a_recreer' }] } });
+    const res = await server.inject({ method: 'POST', url: '/ops/duplication', headers: ops, payload: { ...corps, empreinte } });
+    expect(res.statusCode).toBe(201);
+    expect(chezMeta).toEqual([]);
+    expect(ecrits).toHaveLength(1);
+    await server.close();
+  });
+
+  it('l’empreinte se compare AVANT les cases : un état changé et une case invalide disent « relancez l’aperçu »', async () => {
+    let appels = 0;
+    const { server } = monter({
+      templatesDe: async () => [{ nom: 'bienvenue', langue: 'fr', statut: (appels += 1) === 1 ? 'APPROVED' : 'PENDING', boutons: [] }],
+    });
+    const empreinte = await empreinteDe(server);
+    const res = await server.inject({
+      method: 'POST', url: '/ops/duplication', headers: ops,
+      payload: { ...corps, empreinte, dupliquer: { agents: [INCONNU], requetes: [], modelesEmail: [] } },
+    });
+    expect(res.statusCode).toBe(409);
+    await server.close();
+  });
+
+  it('le bail du verrou couvre les appels à Meta : à 4 minutes, une autre duplication vers la même destination attend encore', async () => {
+    let maintenant = 0;
+    const verrous = verrousEnMemoire(() => maintenant);
+    let pendantMeta: unknown = 'non joué';
+    const { server } = monter({
+      templatesDe: SANS_TEMPLATE,
+      verrous,
+      executerChezMeta: async () => {
+        maintenant = 4 * 60_000;
+        pendantMeta = await verrous.prendre([[`duplication-scenario:${DST}`, 1_000]]);
+        return { ok: true, flows: new Map(), crees: [], champsCrees: [] };
+      },
+    });
+    const empreinte = await empreinteDe(server);
+    await server.inject({ method: 'POST', url: '/ops/duplication', headers: ops, payload: { ...corps, empreinte, dupliquer: cocher([{ nom: 'bienvenue', langue: 'fr' }]) } });
+    expect(pendantMeta).toBeNull();
     await server.close();
   });
 });

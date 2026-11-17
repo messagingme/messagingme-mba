@@ -246,15 +246,6 @@ export class PgWorkflowStore {
     return insererBrouillon(this.pool, tenantId, name, graph);
   }
 
-  /**
-   * La liste résumée, pour les écrans : jamais les graphes, qui pèseraient sur chaque écran qui n'affiche
-   * qu'un nom.
-   *
-   * Nombre de blocs et présence d'un brouillon se calculent en SQL ; l'éligibilité demande un parcours du
-   * graphe et se calcule ici, avec `scanOpening`, la même fonction que la garde de création de campagne. La
-   * base envoie donc toujours le graphe à l'application : seul le trajet vers le navigateur disparaît. `list()`
-   * reste pour ce qui a réellement besoin des graphes (résolution par code de `/v1/sends`).
-   */
   /** Les noms des scénarios publics, sans leurs graphes : pour une liste qui n'affiche qu'un nom (duplication `/ops`). */
   async listNoms(tenantId: string): Promise<Array<{ id: string; name: string }>> {
     const res = await this.pool.query<{ id: string; name: string }>(
@@ -264,6 +255,15 @@ export class PgWorkflowStore {
     return res.rows;
   }
 
+  /**
+   * La liste résumée, pour les écrans : jamais les graphes, qui pèseraient sur chaque écran qui n'affiche
+   * qu'un nom.
+   *
+   * Nombre de blocs et présence d'un brouillon se calculent en SQL ; l'éligibilité demande un parcours du
+   * graphe et se calcule ici, avec `scanOpening`, la même fonction que la garde de création de campagne. La
+   * base envoie donc toujours le graphe à l'application : seul le trajet vers le navigateur disparaît. `list()`
+   * reste pour ce qui a réellement besoin des graphes (résolution par code de `/v1/sends`).
+   */
   async listResume(tenantId: string): Promise<WorkflowResumeRow[]> {
     const res = await this.pool.query<{
       id: string; tenant_id: string; name: string; code: string | null;

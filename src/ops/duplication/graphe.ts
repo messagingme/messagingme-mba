@@ -28,7 +28,8 @@ import { lignesDuBloc } from '../../../web/lib/partage/extraire-json';
  * décidé de son sort ici. Sans cette garde, un bloc neuf qui pointe un objet de l'espace partirait branché sur la source.
  */
 
-export type RaisonDebranche = 'aller_a' | 'assignation' | 'agent' | 'appel_api' | 'email' | 'flow';
+/** `template` (lot 3) : un template absent de la destination, ni coché ni recréable ; son nom est vidé. */
+export type RaisonDebranche = 'aller_a' | 'assignation' | 'agent' | 'appel_api' | 'email' | 'flow' | 'template';
 
 export interface BlocDebranche { nodeId: string; nom: string; type: WorkflowNodeType; raison: RaisonDebranche }
 
@@ -50,8 +51,8 @@ export interface GrapheCopie {
   imagesSource: string[];
 }
 
-/** Ce qu'un bloc du graphe désigne dans l'espace source et qui peut être dupliqué avec lui (lot 2). */
-export type SorteDependance = 'agent' | 'requete' | 'modele_email';
+/** Ce qu'un bloc du graphe désigne dans l'espace source et qui peut être dupliqué avec lui (lot 2 ; `flow`, lot 3). */
+export type SorteDependance = 'agent' | 'requete' | 'modele_email' | 'flow';
 export interface ReferenceDependance { nodeId: string; sorte: SorteDependance; id: string }
 
 /** Les copies d'une duplication, de l'id source vers la copie. */
@@ -59,6 +60,8 @@ export interface Rebranchements {
   agents: ReadonlyMap<string, { id: string; nom: string }>;
   requetes: ReadonlyMap<string, { id: string; nom: string }>;
   modelesEmail: ReadonlyMap<string, string>;
+  /** Les Flows recréés dans la WABA de destination (lot 3), de l'id Meta de la source vers celui de la copie. */
+  flows?: ReadonlyMap<string, { id: string; nom: string }>;
 }
 
 interface SortDuBloc {
@@ -166,26 +169,32 @@ export function copierGraphe(source: WorkflowGraph, codeClientDestination: strin
   };
 }
 
-/** Une image servie par `/m/` est un fichier de la médiathèque de l'espace (`src/http/rcs-media.ts`). */
+/**
+ * Un fichier de la médiathèque de l'espace (`src/http/rcs-media.ts`) : `/m/<code de 26 caractères>.<extension>`. La
+ * forme exacte du code, et pas un simple chemin en `/m/`, qu'une adresse d'un autre site peut porter (relecture du lot 2).
+ */
+const FICHIER_DE_L_ESPACE = /^\/m\/[0-9a-hjkmnp-tv-z]{26}\.[a-z]+$/i;
 function estImageDeLEspace(v: unknown): boolean {
   const u = texte(v);
   if (u === '') return false;
-  try { return new URL(u).pathname.startsWith('/m/'); } catch { return u.startsWith('/m/'); }
+  try { return FICHIER_DE_L_ESPACE.test(new URL(u).pathname); } catch { return FICHIER_DE_L_ESPACE.test(u); }
 }
 
-/** Ce que le graphe désigne et qui peut partir avec lui (lot 2) : les mêmes clés que `copierGraphe` vide. */
+/** Ce que le graphe désigne et qui peut partir avec lui (lots 2 et 3) : les mêmes clés que `copierGraphe` vide. */
 export function referencesDuGraphe(graphe: WorkflowGraph): ReferenceDependance[] {
   return graphe.nodes.flatMap((n): ReferenceDependance[] => {
-    const id = texte(n.type === 'agent' ? n.data.agentId : n.type === 'http' ? n.data.requestId : n.type === 'email' ? n.data.templateId : '');
-    if (id === '') return [];
-    const sorte: SorteDependance = n.type === 'agent' ? 'agent' : n.type === 'http' ? 'requete' : 'modele_email';
-    return [{ nodeId: n.id, sorte, id }];
+    const ref = (sorte: SorteDependance, v: unknown): ReferenceDependance[] => (texte(v) === '' ? [] : [{ nodeId: n.id, sorte, id: texte(v) }]);
+    if (n.type === 'agent') return ref('agent', n.data.agentId);
+    if (n.type === 'http') return ref('requete', n.data.requestId);
+    if (n.type === 'email') return ref('modele_email', n.data.templateId);
+    if (n.type === 'flow') return ref('flow', n.data.flowId);
+    return [];
   });
 }
 
 /**
- * Pose les copies sur les blocs qui désignaient leur original. Un agent ou une requête rebranchés sortent des blocs
- * débranchés ; un e-mail y reste, sa boîte d'envoi ne suit jamais. Pur : la copie d'origine n'est pas modifiée.
+ * Pose les copies sur les blocs qui désignaient leur original. Un agent, une requête ou un Flow rebranchés sortent des
+ * blocs débranchés ; un e-mail y reste, sa boîte d'envoi ne suit jamais. Pur : la copie d'origine n'est pas modifiée.
  */
 export function rebrancher(copie: GrapheCopie, references: readonly ReferenceDependance[], r: Rebranchements): GrapheCopie {
   const rebranches = new Set<string>();
@@ -198,6 +207,9 @@ export function rebrancher(copie: GrapheCopie, references: readonly ReferenceDep
       } else if (ref.sorte === 'requete') {
         const q = r.requetes.get(ref.id);
         if (q) { data = { ...data, requestId: q.id, requeteLabel: q.nom }; rebranches.add(n.id); }
+      } else if (ref.sorte === 'flow') {
+        const f = r.flows?.get(ref.id);
+        if (f) { data = { ...data, flowId: f.id, flowName: f.nom }; rebranches.add(n.id); }
       } else {
         const m = r.modelesEmail.get(ref.id);
         if (m) data = { ...data, templateId: m };
@@ -210,4 +222,20 @@ export function rebrancher(copie: GrapheCopie, references: readonly ReferenceDep
     graphe: { nodes, edges: copie.graphe.edges },
     debranches: copie.debranches.filter((d) => !rebranches.has(d.nodeId)),
   };
+}
+
+/**
+ * Débranche les blocs template dont le template ne suit pas (lot 3) : absent de la destination, et ni coché ni
+ * recréable. Son nom est vidé (un bloc sans template se joue en passe-plat, comme les autres blocs débranchés), et il
+ * entre dans les blocs débranchés. Pur.
+ */
+export function debrancherTemplates(copie: GrapheCopie, nodeIds: ReadonlySet<string>): GrapheCopie {
+  if (nodeIds.size === 0) return copie;
+  const debranches = [...copie.debranches];
+  const nodes = copie.graphe.nodes.map((n): WorkflowNode => {
+    if (!nodeIds.has(n.id) || n.type !== 'template' || texte(n.data.templateName) === '') return n;
+    debranches.push({ nodeId: n.id, nom: nomDuBloc(n), type: n.type, raison: 'template' });
+    return { ...n, data: { ...n.data, templateName: '' } };
+  });
+  return { ...copie, graphe: { nodes, edges: copie.graphe.edges }, debranches };
 }

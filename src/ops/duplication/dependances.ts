@@ -1,5 +1,6 @@
 import { lireVariables } from '../../agent/requetes';
-import { lireCibleOutilAgent, type CibleOutilAgent } from '../../agent/outils-maison';
+import { exigeUneCible, lireCibleOutilAgent, scenariosDeLaCible, type CibleOutilAgent } from '../../agent/outils-maison';
+import { lireGestes } from '../../agent/gestes';
 import { normaliserEtiquette } from '../../crm/poser-etiquette';
 import { variablesDuTexte } from '../../crm/render';
 import { nomLibre, nomOutilLibre } from './nommage';
@@ -11,8 +12,9 @@ import type { ReferenceDependance } from './graphe';
  * lu, dit pour l'aperçu sous quel nom chacun arriverait, et pour l'écriture ce que les cases cochées font créer.
  *
  * Ce qui suit un agent coché : ses outils maison et ses actions (ils lui appartiennent), et ses outils d'appel API avec
- * leur requête et leur source. Ne suivent pas : un outil MCP (déclaré par un serveur, à reconnecter), et un outil maison
- * qui vise un AUTRE scénario que celui qu'on copie (celui qui vise le scénario copié est rebranché sur la copie).
+ * leur requête et leur source. Ne suivent pas : un outil MCP (déclaré par un serveur, à reconnecter), un outil maison
+ * qui vise un AUTRE scénario que celui qu'on copie (celui qui vise le scénario copié est rebranché sur la copie), et un
+ * outil maison qui vise un bloc que la version copiée n'a plus (la copie viserait un code qui n'y existe pas).
  *
  * 🔴 LES CHOIX SONT BORNÉS : une case cochée doit désigner une dépendance que le scénario source référence. Un id hors
  * de cette liste (un agent d'un autre espace glissé dans le corps) rend `choixInvalides` non vide et AUCUNE copie.
@@ -26,6 +28,8 @@ export interface OutilSource {
   proprietaire: boolean;
   binding: unknown;
   requeteId: string | null;
+  /** Les gestes de l'outil (tag, champ ; `src/agent/gestes.ts`), tels que la base les garde : ils partent avec lui. */
+  gestes: unknown;
 }
 export interface AgentSource { id: string; label: string; fiches: number; outils: OutilSource[] }
 export interface RequeteSource { id: string; label: string; sourceId: string; variables: unknown }
@@ -38,8 +42,17 @@ export interface DependancesSource {
   modelesEmail: ModeleEmailSource[];
 }
 /** Les noms déjà pris dans la destination, par table (les outils : ceux de l'espace, `agent_id` nul). */
-export interface NomsPris { agents: string[]; requetes: string[]; sources: string[]; modelesEmail: string[]; outils: string[] }
+export interface NomsPris {
+  agents: string[]; requetes: string[]; sources: string[]; modelesEmail: string[]; outils: string[];
+  /** Les noms des Flows de la destination (lot 3) : un nom de Flow est unique par WABA chez Meta. */
+  flows: string[];
+}
 export interface ChoixDependances { agents: string[]; requetes: string[]; modelesEmail: string[] }
+/**
+ * Le scénario copié : son id, et les codes de ses blocs qui ont un équivalent dans la copie (`GrapheCopie.codes`). Un
+ * outil qui vise un autre code ne serait pas rebranché (`rebrancherCible`).
+ */
+export interface ScenarioSource { id: string; codes: ReadonlySet<string> }
 
 export type RaisonOutilNonCopie = 'mcp' | 'autre_scenario' | 'cible_illisible';
 
@@ -48,9 +61,17 @@ export interface ApercuDependances {
     id: string; nom: string; nomCopie: string; fiches: number;
     outilsCopies: Array<{ nom: string; nomCopie: string }>;
     outilsNonCopies: Array<{ nom: string; raison: RaisonOutilNonCopie }>;
+    /** Les requêtes qu'appellent ses outils copiés : elles partent avec lui, cochées ou non. */
+    requetes: string[];
+    /** Les clés de champ que la copie nomme : cibles et gestes de ses outils, variables de leurs requêtes. */
+    champs: string[];
   }>;
-  requetes: Array<{ id: string; nom: string; nomCopie: string; source: { nom: string; nomCopie: string; secret: boolean } }>;
-  modelesEmail: Array<{ id: string; nom: string; nomCopie: string }>;
+  /** `parUnBloc` : un bloc du scénario la désigne, elle a sa case ; sinon elle ne part qu'avec l'agent qui l'appelle. */
+  requetes: Array<{
+    id: string; nom: string; nomCopie: string; source: { nom: string; nomCopie: string; secret: boolean };
+    parUnBloc: boolean; champs: string[];
+  }>;
+  modelesEmail: Array<{ id: string; nom: string; nomCopie: string; champs: string[] }>;
 }
 
 /** Ce que les cases cochées font créer, dans l'ordre d'écriture. Les ids sont ceux de la SOURCE. */
@@ -77,14 +98,14 @@ export interface PlanDependances {
 
 const AUCUNE_COPIE: CopiesPrevues = { sources: [], requetes: [], modelesEmail: [], agents: [] };
 
-/** Les scénarios qu'une cible d'outil maison vise. */
-function scenariosDeLaCible(c: CibleOutilAgent): string[] {
-  if (c.handler === 'envoyer_bloc' || c.handler === 'lancer_scenario') return [c.workflowId];
-  if (c.handler === 'enchainer') return c.etapes.flatMap((e) => (e.type === 'bloc' || e.type === 'scenario' ? [e.workflowId] : []));
+/** Les codes de bloc qu'une cible d'outil maison vise (les scénarios, eux, viennent de `scenariosDeLaCible`). */
+function blocsDeLaCible(c: CibleOutilAgent): string[] {
+  if (c.handler === 'envoyer_bloc') return [c.code];
+  if (c.handler === 'enchainer') return c.etapes.flatMap((e) => (e.type === 'bloc' ? [e.code] : []));
   return [];
 }
 
-/** Les clés de champ et les tags qu'une cible d'outil maison nomme. */
+/** Les clés de champ et les tags qu'une cible d'outil maison nomme. Exhaustif : un handler ajouté au schéma doit dire les siens. */
 function nomsDeLaCible(c: CibleOutilAgent): { cles: string[]; tags: string[] } {
   switch (c.handler) {
     case 'poser_tag': return { cles: [], tags: [c.tag] };
@@ -94,24 +115,48 @@ function nomsDeLaCible(c: CibleOutilAgent): { cles: string[]; tags: string[] } {
       tags: c.etapes.flatMap((e) => (e.type === 'tag' ? [e.tag] : [])),
     };
     case 'qualifier_transferer': return { cles: c.questions.map((q) => q.champ), tags: [] };
-    default: return { cles: [], tags: [] };
+    case 'envoyer_bloc':
+    case 'lancer_scenario':
+    case 'declencher_action':
+      return { cles: [], tags: [] };
+    default: {
+      const jamais: never = c;
+      throw new Error(`cible sans règle de copie : ${String((jamais as { handler?: unknown }).handler)}`);
+    }
   }
 }
 
+/** Ce qu'un outil copié nomme : sa cible (outil maison) et ses gestes (un tag posé, un champ écrit). */
+function nomsDeLOutil(o: OutilSource): { cles: string[]; tags: string[] } {
+  const cible = o.origine === 'mba' ? lireCibleOutilAgent(o.binding) : null;
+  const n = cible ? nomsDeLaCible(cible) : { cles: [], tags: [] };
+  const gestes = lireGestes(o.gestes);
+  return {
+    cles: [...n.cles, ...gestes.flatMap((g) => (g.type === 'variable' ? [g.champ] : []))],
+    tags: [...n.tags, ...gestes.flatMap((g) => (g.type === 'tag' ? [g.valeur] : []))],
+  };
+}
+
+/** Les clés de champ que remplissent les variables d'une requête. */
+const clesDeLaRequete = (r: RequeteSource): string[] => lireVariables(r.variables).flatMap((v) => (v.origine.type === 'champ' ? [v.origine.cle] : []));
+
 /** Un outil suit-il l'agent, et sinon pourquoi ? Un outil d'appel suit toujours ; ses requête et source avec lui. */
-export function sortDeLOutil(o: OutilSource, scenarioSource: string): { suit: true } | { suit: false; raison: RaisonOutilNonCopie } {
+export function sortDeLOutil(o: OutilSource, scenario: ScenarioSource): { suit: true } | { suit: false; raison: RaisonOutilNonCopie } {
   if (o.origine === 'mcp') return { suit: false, raison: 'mcp' };
   if (o.origine === 'http') return { suit: true };
   const cible = lireCibleOutilAgent(o.binding);
   // Un outil maison sans cible (terminer, escalader, chercher…) n'en a pas besoin pour exister.
-  if (cible === null) return isObjetAvecHandlerACible(o.binding) ? { suit: false, raison: 'cible_illisible' } : { suit: true };
-  return scenariosDeLaCible(cible).every((w) => w === scenarioSource) ? { suit: true } : { suit: false, raison: 'autre_scenario' };
+  if (cible === null) return estUnHandlerACible(o.binding) ? { suit: false, raison: 'cible_illisible' } : { suit: true };
+  if (!scenariosDeLaCible(cible).every((w) => w === scenario.id)) return { suit: false, raison: 'autre_scenario' };
+  // Un bloc que la version copiée n'a plus (supprimé du brouillon) : la copie garderait le code de la source, qui ne
+  // désigne rien dans la destination (relecture du lot 2).
+  return blocsDeLaCible(cible).every((code) => scenario.codes.has(code)) ? { suit: true } : { suit: false, raison: 'cible_illisible' };
 }
 
 /** Un `binding` qui annonce un handler à cible mais ne se lit pas : il ne serait ni exposé ni exécuté. */
-function isObjetAvecHandlerACible(binding: unknown): boolean {
+function estUnHandlerACible(binding: unknown): boolean {
   const h = binding !== null && typeof binding === 'object' ? (binding as Record<string, unknown>).handler : undefined;
-  return ['poser_tag', 'ecrire_variable', 'envoyer_bloc', 'lancer_scenario', 'declencher_action', 'enchainer', 'qualifier_transferer'].includes(String(h));
+  return typeof h === 'string' && exigeUneCible(h);
 }
 
 /**
@@ -138,12 +183,17 @@ export function rebrancherCible(binding: unknown, scenarioSource: string, scenar
 export function planifierDependances(
   d: DependancesSource,
   pris: NomsPris,
-  scenarioSource: string,
+  scenario: ScenarioSource,
   references: readonly ReferenceDependance[],
   choix?: ChoixDependances,
 ): PlanDependances {
   const requetes = new Map(d.requetes.map((r) => [r.id, r]));
   const sources = new Map(d.sources.map((s) => [s.id, s]));
+  const suivent = (a: AgentSource): OutilSource[] => a.outils.filter((o) => sortDeLOutil(o, scenario).suit);
+  const requetesDe = (a: AgentSource): string[] => [...new Set(suivent(a).flatMap((o) => (o.requeteId === null ? [] : [o.requeteId])))]
+    .filter((id) => requetes.has(id));
+  const referencees = (sorte: ReferenceDependance['sorte']) => new Set(references.filter((r) => r.sorte === sorte).map((r) => r.id));
+  const requetesDesBlocs = referencees('requete');
 
   // Les noms de TOUTES les copies possibles, dans un ordre fixe : l'aperçu les montre, l'écriture prend les mêmes.
   const occupes = {
@@ -179,29 +229,33 @@ export function planifierDependances(
   const apercu: ApercuDependances = {
     agents: d.agents.map((a) => ({
       id: a.id, nom: a.label, nomCopie: nomAgent.get(a.id)!, fiches: a.fiches,
-      outilsCopies: a.outils.filter((o) => sortDeLOutil(o, scenarioSource).suit).map((o) => ({ nom: o.nom, nomCopie: nomOutil.get(o.id)! })),
+      outilsCopies: suivent(a).map((o) => ({ nom: o.nom, nomCopie: nomOutil.get(o.id)! })),
       outilsNonCopies: a.outils.flatMap((o) => {
-        const s = sortDeLOutil(o, scenarioSource);
+        const s = sortDeLOutil(o, scenario);
         return s.suit ? [] : [{ nom: o.nom, raison: s.raison }];
       }),
+      requetes: requetesDe(a),
+      champs: [...new Set([...suivent(a).flatMap((o) => nomsDeLOutil(o).cles), ...requetesDe(a).flatMap((id) => clesDeLaRequete(requetes.get(id)!))])],
     })),
     requetes: d.requetes.map((r) => {
       const s = sources.get(r.sourceId);
       return {
         id: r.id, nom: r.label, nomCopie: nomRequete.get(r.id)!,
         source: { nom: s?.label ?? '', nomCopie: nomSource.get(r.sourceId) ?? '', secret: s?.secret ?? false },
+        parUnBloc: requetesDesBlocs.has(r.id), champs: [...new Set(clesDeLaRequete(r))],
       };
     }),
-    modelesEmail: d.modelesEmail.map((m) => ({ id: m.id, nom: m.nom, nomCopie: nomModele.get(m.id)! })),
+    modelesEmail: d.modelesEmail.map((m) => ({
+      id: m.id, nom: m.nom, nomCopie: nomModele.get(m.id)!, champs: [...new Set([...variablesDuTexte(m.sujet), ...variablesDuTexte(m.corps)])],
+    })),
   };
 
   const vide: PlanDependances = { apercu, copies: AUCUNE_COPIE, clesDeChamp: [], tags: [], choixInvalides: [] };
   if (!choix) return vide;
 
-  const referencees = (sorte: ReferenceDependance['sorte']) => new Set(references.filter((r) => r.sorte === sorte).map((r) => r.id));
   const choixInvalides = [
     ...choix.agents.filter((id) => !referencees('agent').has(id) || !d.agents.some((a) => a.id === id)),
-    ...choix.requetes.filter((id) => !referencees('requete').has(id) || !requetes.has(id)),
+    ...choix.requetes.filter((id) => !requetesDesBlocs.has(id) || !requetes.has(id)),
     ...choix.modelesEmail.filter((id) => !referencees('modele_email').has(id) || !d.modelesEmail.some((m) => m.id === id)),
   ];
   if (choixInvalides.length > 0) return { ...vide, choixInvalides };
@@ -211,15 +265,12 @@ export function planifierDependances(
   const agents: CopiesPrevues['agents'] = [];
   const requetesACopier = new Set(choix.requetes);
   for (const a of d.agents.filter((x) => choix.agents.includes(x.id))) {
-    const outils = a.outils.filter((o) => sortDeLOutil(o, scenarioSource).suit);
+    const outils = suivent(a);
+    for (const id of requetesDe(a)) requetesACopier.add(id);
     for (const o of outils) {
-      if (o.requeteId !== null) requetesACopier.add(o.requeteId);
-      const cible = o.origine === 'mba' ? lireCibleOutilAgent(o.binding) : null;
-      if (cible) {
-        const n = nomsDeLaCible(cible);
-        n.cles.forEach((k) => cles.add(k));
-        n.tags.forEach((t) => { const e = normaliserEtiquette(t); if (e !== '') tags.add(e); });
-      }
+      const n = nomsDeLOutil(o);
+      n.cles.forEach((k) => cles.add(k));
+      n.tags.forEach((t) => { const e = normaliserEtiquette(t); if (e !== '') tags.add(e); });
     }
     agents.push({
       id: a.id, label: nomAgent.get(a.id)!,
@@ -233,9 +284,7 @@ export function planifierDependances(
     const r = requetes.get(id);
     return r ? [r] : [];
   });
-  for (const r of requetesCopiees) {
-    for (const v of lireVariables(r.variables)) if (v.origine.type === 'champ') cles.add(v.origine.cle);
-  }
+  for (const r of requetesCopiees) for (const k of clesDeLaRequete(r)) cles.add(k);
   const sourcesACopier = [...new Set(requetesCopiees.map((r) => r.sourceId))].filter((id) => sources.has(id));
   const modeles = d.modelesEmail.filter((m) => choix.modelesEmail.includes(m.id));
   for (const m of modeles) for (const k of [...variablesDuTexte(m.sujet), ...variablesDuTexte(m.corps)]) cles.add(k);

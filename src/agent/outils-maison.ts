@@ -6,7 +6,7 @@ import { LONGUEUR_MAX_ETIQUETTE } from '../crm/poser-etiquette';
 import { CODE_BLOC_RE } from '../workflow/node-list';
 import {
   PARAM_MESSAGE, cibleEnchainementSchema, cibleQualificationSchema, etapesDeLaQualification, motsDeLEnchainement,
-  paramsDeLEnchainement, type EtapeEnchainement,
+  paramsDeLEnchainement, scenariosDeLEnchainement, type EtapeEnchainement,
 } from './enchainement';
 
 /**
@@ -368,6 +368,16 @@ export function exigeUneCible(handler: string): handler is HandlerACible {
 export function lireCibleOutilAgent(binding: unknown): CibleOutilAgent | null {
   const r = cibleOutilAgentSchema.safeParse(binding);
   return r.success ? r.data : null;
+}
+
+/**
+ * Les scénarios que vise la cible d'un outil d'agent IA (RC4) : un pour un bloc ou un lancement, ceux de ses étapes pour
+ * un outil enchaîné, aucun sinon. La garde d'isolation de l'écriture (`catalog.pg.ts`) exige qu'ils soient TOUS de
+ * l'espace ; la duplication entre espaces (`src/ops/duplication/dependances.ts`) qu'ils soient le scénario copié.
+ */
+export function scenariosDeLaCible(cible: CibleOutilAgent | null): string[] {
+  if (cible?.handler === 'envoyer_bloc' || cible?.handler === 'lancer_scenario') return [cible.workflowId];
+  return cible?.handler === 'enchainer' ? scenariosDeLEnchainement(cible.etapes) : [];
 }
 
 const PAR_HANDLER = new Map(OUTILS_MAISON.map((o) => [o.handler, o]));
