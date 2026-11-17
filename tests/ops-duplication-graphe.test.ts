@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { copierGraphe } from '../src/ops/duplication/graphe';
+import { copierGraphe, referencesDuGraphe, rebrancher } from '../src/ops/duplication/graphe';
 import { parseGraph, MAX_NODES, type WorkflowGraph, type WorkflowNodeType } from '../src/workflow/graph';
 
 /**
@@ -149,5 +149,64 @@ describe('copierGraphe : forme du graphe rendu', () => {
     const r = copierGraphe(g(nodes, edges), DEST);
     expect(parseGraph(JSON.parse(JSON.stringify(r.graphe)))).not.toBeNull();
     expect(r.debranches).toHaveLength(MAX_NODES);
+  });
+});
+
+describe('lot 2 : les références du graphe, et son rebranchement sur les copies', () => {
+  it('referencesDuGraphe rend chaque agent, requête et modèle d’e-mail avec son bloc ; une clé vide n’en est pas une', () => {
+    const source = g([
+      n('g1', 'agent', { agentId: 'a-1' }),
+      n('g2', 'agent', { agentId: 'a-1' }),
+      n('h3', 'http', { requestId: 'r-1' }),
+      n('m4', 'email', { emailAccountId: 'b-1', templateId: 't-1' }),
+      n('g5', 'agent', { agentId: '  ' }),
+      n('m6', 'email', { emailAccountId: 'b-1' }),
+    ]);
+    expect(referencesDuGraphe(source)).toEqual([
+      { nodeId: 'g1', sorte: 'agent', id: 'a-1' },
+      { nodeId: 'g2', sorte: 'agent', id: 'a-1' },
+      { nodeId: 'h3', sorte: 'requete', id: 'r-1' },
+      { nodeId: 'm4', sorte: 'modele_email', id: 't-1' },
+    ]);
+  });
+
+  it('chaque ancien code de bloc mène au nouveau code du même bloc', () => {
+    const source = g([n('q1', 'question', { body: 'A' }), n('w2', 'wait', { delay: 1 })]);
+    const r = copierGraphe(source, DEST);
+    for (const ancien of source.nodes) {
+      const nouveau = r.graphe.nodes.find((x) => x.id === ancien.id)!.data.code;
+      expect(r.codes.get(String(ancien.data.code))).toBe(nouveau);
+    }
+  });
+
+  it('les images /m/ de la source sont listées, pas une adresse externe', () => {
+    const r = copierGraphe(g([
+      n('q1', 'quick_message', { imageUrl: 'https://api.messagingme.app/m/abc123.jpg' }),
+      n('r2', 'rcs_message', { imageUrl: 'https://cdn.exemple.fr/image.png' }),
+    ]), DEST);
+    expect(r.imagesSource).toEqual(['https://api.messagingme.app/m/abc123.jpg']);
+  });
+
+  it('rebrancher pose les copies sur leurs blocs ; un bloc sans copie reste vide et listé ; la copie d’origine ne bouge pas', () => {
+    const source = g([
+      n('g1', 'agent', { agentId: 'a-1', agentLabel: 'Conseiller' }),
+      n('h2', 'http', { requestId: 'r-1', requeteLabel: 'Créer le lead' }),
+      n('m3', 'email', { emailAccountId: 'b-1', templateId: 't-1' }),
+      n('g4', 'agent', { agentId: 'a-2' }),
+    ]);
+    const copie = copierGraphe(source, DEST);
+    const avant = JSON.stringify(copie);
+    const r = rebrancher(copie, referencesDuGraphe(source), {
+      agents: new Map([['a-1', { id: 'a-copie', nom: 'Conseiller (copie)' }]]),
+      requetes: new Map([['r-1', { id: 'r-copie', nom: 'Créer le lead' }]]),
+      modelesEmail: new Map([['t-1', 't-copie']]),
+    });
+    expect(bloc(r.graphe, 'g1').data).toMatchObject({ agentId: 'a-copie', agentLabel: 'Conseiller (copie)' });
+    expect(bloc(r.graphe, 'h2').data).toMatchObject({ requestId: 'r-copie', requeteLabel: 'Créer le lead' });
+    expect(bloc(r.graphe, 'm3').data).toMatchObject({ templateId: 't-copie', emailAccountId: '' });
+    expect(bloc(r.graphe, 'g4').data).toMatchObject({ agentId: '' });
+    // L'agent et la requête rebranchés sortent des débranchés ; l'e-mail reste (sa boîte d'envoi), l'agent sans copie aussi.
+    expect(r.debranches.map((d) => d.nodeId)).toEqual(['m3', 'g4']);
+    expect(JSON.stringify(copie)).toBe(avant);
   });
 });

@@ -41,6 +41,24 @@ export interface GrapheCopie {
   tags: string[];
   /** Templates nommés par le graphe, une fois chacun. */
   templates: Array<{ nom: string; langue: string }>;
+  /**
+   * L'ancien code public de chaque bloc vers le nouveau (lot 2) : un outil d'agent copié qui visait un bloc du scénario
+   * copié vise le même bloc de la copie.
+   */
+  codes: ReadonlyMap<string, string>;
+  /** Les images des messages rapides et RCS hébergées par l'espace source (`/m/`) : elles meurent avec lui. */
+  imagesSource: string[];
+}
+
+/** Ce qu'un bloc du graphe désigne dans l'espace source et qui peut être dupliqué avec lui (lot 2). */
+export type SorteDependance = 'agent' | 'requete' | 'modele_email';
+export interface ReferenceDependance { nodeId: string; sorte: SorteDependance; id: string }
+
+/** Les copies d'une duplication, de l'id source vers la copie. */
+export interface Rebranchements {
+  agents: ReadonlyMap<string, { id: string; nom: string }>;
+  requetes: ReadonlyMap<string, { id: string; nom: string }>;
+  modelesEmail: ReadonlyMap<string, string>;
 }
 
 interface SortDuBloc {
@@ -127,13 +145,69 @@ export function copierGraphe(source: WorkflowGraph, codeClientDestination: strin
   const debranches: BlocDebranche[] = [];
   const cles = new Set<string>();
   const templates = new Map<string, { nom: string; langue: string }>();
+  const imagesSource: string[] = [];
   const nodes = source.nodes.map((n): WorkflowNode => {
     const sort = sortDuBloc(n);
     if (sort.raison !== null) debranches.push({ nodeId: n.id, nom: nomDuBloc(n), type: n.type, raison: sort.raison });
     for (const c of sort.champs) if (c !== '' && !isSystemFieldKey(c)) cles.add(c);
     if (sort.template) templates.set(`${sort.template.nom}\u0000${sort.template.langue}`, sort.template);
+    if ((n.type === 'quick_message' || n.type === 'rcs_message') && estImageDeLEspace(n.data.imageUrl)) imagesSource.push(texte(n.data.imageUrl));
     return { ...n, data: { ...sort.data, code: undefined } };
   });
   const graphe = mintNodeCodes({ nodes, edges: source.edges }, codeClientDestination);
-  return { graphe, debranches, clesDeChamp: [...cles], tags: tagsInGraph(graphe), templates: [...templates.values()] };
+  const codes = new Map<string, string>();
+  for (const n of source.nodes) {
+    const ancien = texte(n.data.code);
+    const nouveau = graphe.nodes.find((x) => x.id === n.id)?.data.code;
+    if (ancien !== '' && typeof nouveau === 'string') codes.set(ancien, nouveau);
+  }
+  return {
+    graphe, debranches, clesDeChamp: [...cles], tags: tagsInGraph(graphe), templates: [...templates.values()], codes, imagesSource,
+  };
+}
+
+/** Une image servie par `/m/` est un fichier de la médiathèque de l'espace (`src/http/rcs-media.ts`). */
+function estImageDeLEspace(v: unknown): boolean {
+  const u = texte(v);
+  if (u === '') return false;
+  try { return new URL(u).pathname.startsWith('/m/'); } catch { return u.startsWith('/m/'); }
+}
+
+/** Ce que le graphe désigne et qui peut partir avec lui (lot 2) : les mêmes clés que `copierGraphe` vide. */
+export function referencesDuGraphe(graphe: WorkflowGraph): ReferenceDependance[] {
+  return graphe.nodes.flatMap((n): ReferenceDependance[] => {
+    const id = texte(n.type === 'agent' ? n.data.agentId : n.type === 'http' ? n.data.requestId : n.type === 'email' ? n.data.templateId : '');
+    if (id === '') return [];
+    const sorte: SorteDependance = n.type === 'agent' ? 'agent' : n.type === 'http' ? 'requete' : 'modele_email';
+    return [{ nodeId: n.id, sorte, id }];
+  });
+}
+
+/**
+ * Pose les copies sur les blocs qui désignaient leur original. Un agent ou une requête rebranchés sortent des blocs
+ * débranchés ; un e-mail y reste, sa boîte d'envoi ne suit jamais. Pur : la copie d'origine n'est pas modifiée.
+ */
+export function rebrancher(copie: GrapheCopie, references: readonly ReferenceDependance[], r: Rebranchements): GrapheCopie {
+  const rebranches = new Set<string>();
+  const nodes = copie.graphe.nodes.map((n): WorkflowNode => {
+    let data = n.data;
+    for (const ref of references.filter((x) => x.nodeId === n.id)) {
+      if (ref.sorte === 'agent') {
+        const a = r.agents.get(ref.id);
+        if (a) { data = { ...data, agentId: a.id, agentLabel: a.nom }; rebranches.add(n.id); }
+      } else if (ref.sorte === 'requete') {
+        const q = r.requetes.get(ref.id);
+        if (q) { data = { ...data, requestId: q.id, requeteLabel: q.nom }; rebranches.add(n.id); }
+      } else {
+        const m = r.modelesEmail.get(ref.id);
+        if (m) data = { ...data, templateId: m };
+      }
+    }
+    return data === n.data ? n : { ...n, data };
+  });
+  return {
+    ...copie,
+    graphe: { nodes, edges: copie.graphe.edges },
+    debranches: copie.debranches.filter((d) => !rebranches.has(d.nodeId)),
+  };
 }
