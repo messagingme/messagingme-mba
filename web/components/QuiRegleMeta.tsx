@@ -222,6 +222,21 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   // au clic, et la suite (« Avez-vous un compte Meta Business ? ») s'affichait avant la réponse. Elle suit le clic, sauf
   // un numéro fourni déjà en route (`repriseCarte`), hors fenêtre du partenaire qui a son propre parcours.
   const carteActive = carte ?? (repriseCarte && !fenetrePartenaire);
+  /**
+   * Le clic sur la carte chez Meta amène l'étape suivante à l'écran, sa première question comprise (Julien, 2026-11-17,
+   * lot 4 : « on est obligé de scroller à la main ») ; les questions suivantes défilent dans `ParcoursNumero`. Jamais au
+   * chargement : seulement après ce clic.
+   */
+  const [defiler, setDefiler] = useState(false);
+  useEffect(() => {
+    if (!defiler || !carteActive) return;
+    setDefiler(false);
+    const etape = document.querySelector('[data-testid="tunnel-numero-meta"]');
+    if (!(etape instanceof HTMLElement)) return;
+    const sansAnimation = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    etape.scrollIntoView({ behavior: sansAnimation ? 'auto' : 'smooth', block: 'nearest' });
+  }, [defiler, carteActive]);
+  const choisirCarte = () => { setCarte(true); setDefiler(true); };
   /** Sur Connecter WhatsApp, avec la connexion de la page : la question, puis la suite de la réponse sous les cartes. */
   const ligneIci = fenetrePartenaire && admin && lieu === 'connecter' && api !== undefined && surConnexion !== undefined;
   const repondreLigne = (r: 'mien' | 'notre') => { setCarte(false); setNumeroLigne(r); };
@@ -329,11 +344,11 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     <Link href="/connecter-whatsapp" data-testid="carte-meta-choisir" className={classesBouton('secondaire')}>{t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}</Link>
   ) : !connecte ? (
     // Les deux réponses à égalité tant que rien n'est choisi ; la ligne de crédit passe en gris une fois la carte prise.
-    <Bouton type="button" variante={carteActive || carte === null ? 'principal' : 'secondaire'} aria-pressed={carteActive} disabled={fenetreOuverte} onClick={() => setCarte(true)} data-testid="carte-meta-choisir">
+    <Bouton type="button" variante={carteActive || carte === null ? 'principal' : 'secondaire'} aria-pressed={carteActive} disabled={fenetreOuverte} onClick={choisirCarte} data-testid="carte-meta-choisir">
       {t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}
     </Bouton>
   ) : etat === 'arretee' && admin ? (
-    <Bouton type="button" variante={carteActive ? 'principal' : 'secondaire'} aria-pressed={carteActive} disabled={fenetreOuverte} onClick={() => setCarte(true)} data-testid="carte-meta-choisir">
+    <Bouton type="button" variante={carteActive ? 'principal' : 'secondaire'} aria-pressed={carteActive} disabled={fenetreOuverte} onClick={choisirCarte} data-testid="carte-meta-choisir">
       {t('Connecter avec ma carte chez Meta', 'Connect with my card at Meta')}
     </Bouton>
   ) : null;

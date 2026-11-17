@@ -7,8 +7,9 @@
 /** Avant le QR code, pour un numéro fourni : créer le compte de l'application avec ce numéro. */
 export const ETAPES_COMPTE_FOURNI: ReadonlyArray<{ fr: string; en: string }> = [
   {
-    fr: 'Sur un téléphone, installez l’application WhatsApp Business et créez le compte avec ce numéro.',
-    en: 'On a phone, install the WhatsApp Business app and create the account with this number.',
+    // Lot 4 du 2026-11-17 : on y arrive aussi pour un 2e compte dans l'application, deux au plus.
+    fr: 'Sur un téléphone, dans l’application WhatsApp Business (installez-la s’il le faut, ou ajoutez-y un 2e compte), créez le compte avec ce numéro.',
+    en: 'On a phone, in the WhatsApp Business app (install it if needed, or add a 2nd account to it), create the account with this number.',
   },
   {
     fr: 'Pour la vérification, choisissez l’appel : le code s’affiche sur la page en quelques secondes, saisissez-le dans l’application.',

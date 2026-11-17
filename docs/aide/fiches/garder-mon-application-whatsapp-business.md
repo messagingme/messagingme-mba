@@ -1,7 +1,7 @@
 ---
 description: Garder votre application WhatsApp Business et relier le même numéro à Messaging Me, écran par écran, avec le compte Meta Business créé en chemin s'il manque.
 source_section: Garder son application WhatsApp Business (2026-10-25)
-source_empreinte: 73c9eb
+source_empreinte: e7e9bb
 publique: oui
 video: oui
 video_voie: claude
@@ -27,8 +27,9 @@ vous connectez avec votre profil Facebook.
 vous connectez avec votre profil Facebook.
 
 Sans compte Meta Business, les questions de la page mènent au même bouton : « Oui » à l'application WhatsApp Business,
-puis « Oui » au numéro qui y fonctionne et à « Voulez-vous utiliser ce numéro-là ? ». Pas encore de numéro dedans :
-« Non », puis « Non » à « Souhaitez-vous qu'on vous fournisse un numéro ? ».
+puis « Oui » au numéro qui y fonctionne et à « Voulez-vous utiliser ce numéro-là ? ». Sinon, répondez « Avec
+l'application » à « Comment voulez-vous utiliser WhatsApp ? », puis « Non » à « Souhaitez-vous qu'on vous fournisse un
+numéro ? » : vous y installez un numéro à vous.
 
 **2. Saisir votre numéro.** Entrez le numéro de votre application WhatsApp Business, avec son pays, puis choisissez
 comment Meta le vérifie (par message ou par appel) et suivez ce qu'il demande.
@@ -69,11 +70,16 @@ liés sont déliés. Ouvrez-la au moins toutes les deux semaines.
 Ce que vous tapez dans l'application n'apparaît pas encore dans Messaging Me. Si un agent IA répond à vos clients, il
 ne voit donc pas vos réponses : il peut répondre en même temps que vous.
 
-**Bon à savoir.** Pas encore de numéro dans votre application WhatsApp Business ? Installez-y un numéro à vous : une
-ligne mobile, qui reçoit le code de WhatsApp par SMS ou par appel. Puis suivez ce guide, sans attendre : un numéro neuf
-se garde aussi. Ou prenez un numéro de chez nous, à mettre dans l'application : voir « Prendre un numéro fourni par
-Messaging Me ».
+Le nom et la photo de votre numéro se règlent dans l'application, sur votre téléphone. Et vous payez Meta avec votre
+carte : la ligne de crédit n'est pas possible avec l'application.
+
+**Bon à savoir.** Pas encore de numéro dans votre application WhatsApp Business, ou vous voulez en relier un autre ?
+Installez-y un numéro à vous : une ligne mobile, qui reçoit le code de WhatsApp par SMS ou par appel. Un autre numéro
+s'y ajoute en 2e compte : une application WhatsApp Business porte deux comptes au plus. Puis suivez ce guide, sans
+attendre : un numéro neuf se garde aussi. Ou prenez un numéro de chez nous, à mettre dans l'application : voir « Prendre
+un numéro fourni par Messaging Me ».
 
 **Bon à savoir.** Votre numéro sert dans WhatsApp, l'application ordinaire ? Installez WhatsApp Business sur le même
 téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Puis suivez ce guide. Pas d'application du
-tout ? Inutile d'en installer une : votre numéro se connecte directement à Messaging Me, depuis « Connecter WhatsApp ».
+tout ? Vous avez le choix : avec l'application, installez d'abord WhatsApp Business sur votre téléphone, elle est
+gratuite ; par l'API, votre numéro se connecte directement à Messaging Me, sans application.

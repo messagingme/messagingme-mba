@@ -173,3 +173,45 @@ Ses jaunes, pour le prochain lot de fonctionnalité :
   n'a aucun numéro fourni.
 - **« Le code n'arrive pas ? En obtenir un autre »** bloque le numéro même sans aucun appel reçu : le rendre à la réserve
   quand aucun appel n'a été capté depuis l'attribution.
+
+## Lot 4 : l'application ou l'API, et la forme du tunnel (essai de Julien, 2026-11-17)
+
+Décisions de Julien (rondes de questions du 2026-11-17, après son essai de la console) :
+
+- **« Comment voulez-vous utiliser WhatsApp ? »**, deux cartes, une ligne chacune et le détail dans une bulle, posée à
+  trois endroits : après « Non » à l'application (choisir l'application, c'est d'abord l'installer : ses magasins), après
+  « Non » à « un numéro qui fonctionne sur cette application », après « Non » à « ce numéro-là » (là, « un 2e compte dans
+  l'application, deux au plus »). Ensuite : l'application mène à « Souhaitez-vous qu'on vous fournisse un numéro ? »,
+  l'API à « Avez-vous déjà un numéro que vous pourriez utiliser ? ». Arguments : sa synthèse des faits de nos fiches (le
+  nom et la photo se règlent dans l'application ; avec l'API, le nom affiché se personnalise chez Meta).
+- **« Oui » à « un numéro que vous pourriez utiliser »** : plus de « Fournissez-moi un numéro », seulement le sien.
+- **La bulle de « WhatsApp Business »** : ce qu'est l'application, son logo (celui de la vitrine) et ses magasins.
+- **Les étapes à venir, grisées**, sous le paiement du numéro fourni : payer, le numéro et son code, la fenêtre de Meta.
+- **Le défilement** : chaque nouvelle question vient à l'écran, sans défiler à la main.
+
+Méthode : comme le lot 3. L'arbre de la console et de la vitrine en direct, les textes de la skill, des fiches et les e2e
+par un agent chacun, puis une relecture. Côté API, seulement des textes lus par Claude (descriptions de
+`start_whatsapp_connection`, première étape du compte d'un numéro fourni mis dans l'application) : la console et la
+vitrine partent au push, l'API se déploie ensuite (`migration=aucune`), puis le plugin 0.3.50.
+**Essai réel** : de la console, « Non » à l'application, « Par l'API », « Oui » au numéro (seulement le sien), et le
+chemin du 2e compte dans l'application, sur iPhone et sur Android (faut-il passer sur ce compte avant de confirmer dans
+la fenêtre de Meta ?).
+
+**Relecture du lot 4** : aucun rouge, déployé tel quel. Ses jaunes, pour le prochain lot de fonctionnalité :
+
+- **La bulle** : un second toucher ne la referme pas (lire l'état au `pointerdown`) ; Échap sur un lien du magasin perd le
+  focus (le rendre au déclencheur) ; ouverte au clavier sur une carte estompée, elle reste à 60 % (`focus-within`) ; au
+  téléphone, elle déborde de 25 à 40 px à droite, et celle de l'API recouvre la carte du dessus quand elles s'empilent.
+- **Le défilement** : une bulle peut s'ouvrir seule sous une souris immobile (n'ouvrir qu'après un vrai mouvement) ; le
+  focus reste sur le bouton cliqué (le donner à la question suivante, comme la vitrine) ; `QuiRegleMeta` vise l'étape par
+  son `data-testid` (une `ref`).
+- **Les étapes à venir** : barrent « Obtenir » au lieu de « Payer » quand le webhook arrive avant le numéro, et lisent
+  `paiementRecu` après « Abandonner » ; la filière QR n'en a pas besoin.
+- **Les textes** : « Inbox à plusieurs » promis aussi en Free (la Free n'a ni console ni Inbox) ; « s'ouvre au moins
+  toutes les deux semaines » se lit comme si l'application s'ouvrait seule ; la note d'installation a ses magasins dans la
+  console, pas sur la vitrine ; les demandes à coller ne disent plus si le visiteur a l'application.
+- **Les tests** : « une bulle à la fois » n'ouvre jamais la première.
+- **Plus exposés** : la reprise depuis un autre navigateur et la voie de la ligne de crédit qui ne retient jamais `api`
+  (jaunes du lot 3), « Avec l'application » étant proposé aussi à qui ne l'a pas.
+- **Au déploiement** : `aide:charger` pour les fiches retouchées, et les films des fiches à vidéo montrent l'ancien
+  arbre.

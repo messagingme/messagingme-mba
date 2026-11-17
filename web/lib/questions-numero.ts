@@ -155,9 +155,9 @@ export const QUESTION_COMPTE = {
 } as const satisfies Record<string, Texte | Record<string, Texte>>;
 
 /**
- * Sans compte Meta Business (ou sans le savoir). « Non » mène tout droit à la question du numéro : on ne fait plus
- * télécharger l'application (Julien, 2026-11-12), le numéro se relie en numéro API et la fenêtre de Meta crée le compte.
- * « Oui » (Julien, 2026-11-17, lot 3) : un numéro fonctionne-t-il déjà dans l'application (`QUESTION_NUMERO_APPLICATION`) ?
+ * Sans compte Meta Business (ou sans le savoir). « Oui » (Julien, 2026-11-17, lot 3) : un numéro fonctionne-t-il déjà dans
+ * l'application (`QUESTION_NUMERO_APPLICATION`) ? « Non » (lot 4) : comment utiliser WhatsApp (`QUESTION_DEPLOIEMENT`),
+ * l'application étant alors à installer. Son titre porte la bulle de « WhatsApp Business » (`BULLE_WHATSAPP_BUSINESS`).
  */
 export const QUESTION_APPLICATION = {
   texte: { fr: 'Avez-vous déjà l’application WhatsApp Business ?', en: 'Do you already have the WhatsApp Business app?' },
@@ -168,7 +168,7 @@ export const QUESTION_APPLICATION = {
 
 /**
  * L'APPLICATION, ET UN NUMÉRO QUI Y FONCTIONNE ? (Julien, 2026-11-17, lot 3) Oui : est-ce celui-là
- * (`QUESTION_MEME_NUMERO`) ? Non : faut-il en fournir un (`QUESTION_FOURNIR`) ?
+ * (`QUESTION_MEME_NUMERO`) ? Non (lot 4) : comment utiliser WhatsApp (`QUESTION_DEPLOIEMENT`) ?
  */
 export const QUESTION_NUMERO_APPLICATION = {
   texte: { fr: 'Avez-vous déjà un numéro qui fonctionne sur cette application ?', en: 'Do you already have a number working in that app?' },
@@ -179,7 +179,7 @@ export const QUESTION_NUMERO_APPLICATION = {
 
 /**
  * LE CAS 4 (Julien, 2026-11-08, lot 3a) : l'application WhatsApp Business, mais pour un autre numéro. Oui, on la garde ;
- * Non (depuis le 2026-11-17, lot 3) : faut-il en fournir un (`QUESTION_FOURNIR`), comme sans numéro dans l'application ?
+ * Non (lot 4 du 2026-11-17) : un 2e compte dans l'application, ou l'API (`QUESTION_DEPLOIEMENT`, `DEPLOIEMENT_SECOND`) ?
  */
 export const QUESTION_MEME_NUMERO = {
   texte: { fr: 'Voulez-vous utiliser ce numéro-là ?', en: 'Do you want to use that number?' },
@@ -187,6 +187,94 @@ export const QUESTION_MEME_NUMERO = {
   oui: { fr: 'Oui', en: 'Yes' },
   non: { fr: 'Non', en: 'No' },
 } as const satisfies Record<string, Texte>;
+
+/**
+ * COMMENT VOULEZ-VOUS UTILISER WHATSAPP ? (Julien, 2026-11-17, lot 4) L'application WhatsApp Business ou l'API officielle :
+ * deux cartes d'une ligne chacune, le détail dans une bulle. Sa synthèse des faits de nos fiches : avec l'application, le
+ * nom et la photo s'y règlent ; avec l'API, le nom affiché se personnalise chez Meta. Posée à trois endroits : sans
+ * l'application (la choisir, c'est l'installer d'abord, `NOTE_INSTALLER_APPLICATION`), avec elle mais sans numéro dedans,
+ * et pour un autre numéro que le sien (`DEPLOIEMENT_SECOND`, un 2e compte). L'application mène ensuite à
+ * `QUESTION_FOURNIR`, l'API à `QUESTION_NUMERO`. Les mêmes mots que les cartes de la vitrine (`tests/questions-numero-vitrine.test.ts`).
+ */
+export const QUESTION_DEPLOIEMENT = {
+  texte: { fr: 'Comment voulez-vous utiliser WhatsApp ?', en: 'How do you want to use WhatsApp?' },
+  precision: { fr: 'Deux façons de relier votre numéro à Messaging Me.', en: 'Two ways to connect your number to Messaging Me.' },
+  /** Le lien de chaque carte, qui ouvre sa bulle. */
+  detail: { fr: 'Ce que ça change', en: 'What it changes' },
+  application: {
+    titre: { fr: 'Avec l’application WhatsApp Business', en: 'With the WhatsApp Business app' },
+    ligne: {
+      fr: 'Vous répondez aussi depuis votre téléphone, et votre agent IA répond depuis Messaging Me.',
+      en: 'You also reply from your phone, and your AI agent replies from Messaging Me.',
+    },
+    bulle: {
+      fr: 'Le nom et la photo se règlent dans l’application. Elle perd ses listes de diffusion et son message d’absence, et s’ouvre au moins toutes les deux semaines. Pas de ligne de crédit : vous payez Meta avec votre carte.',
+      en: 'The name and photo are set in the app. It loses its broadcast lists and away message, and must be opened at least every two weeks. No credit line: you pay Meta with your card.',
+    },
+    libelle: { fr: 'Avec l’application', en: 'With the app' },
+  },
+  api: {
+    titre: { fr: 'Directement par l’API officielle', en: 'Directly through the official API' },
+    ligne: {
+      fr: 'Tout passe par Messaging Me : réponses automatiques, campagnes, Inbox à plusieurs.',
+      en: 'Everything goes through Messaging Me: automatic replies, campaigns, a shared Inbox.',
+    },
+    bulle: {
+      fr: 'Le nom affiché se personnalise chez Meta, qui le relit. Il faut un compte Meta Business : la fenêtre de Meta le crée en chemin.',
+      en: 'The display name is customized at Meta, which reviews it. You need a Meta Business account: Meta’s window creates it along the way.',
+    },
+    libelle: { fr: 'Par l’API', en: 'Through the API' },
+  },
+} as const;
+
+/** Sans l'application, la choisir, c'est d'abord l'installer (Julien, 2026-11-17, lot 4) : sous la question, ses magasins. */
+export const NOTE_INSTALLER_APPLICATION: Texte = {
+  fr: 'Installez d’abord WhatsApp Business sur votre téléphone : elle est gratuite.',
+  en: 'First install WhatsApp Business on your phone: it is free.',
+};
+
+/**
+ * Pour un autre numéro que celui de son application (Julien, 2026-11-17, lot 4) : un 2e compte dans la même application,
+ * qui en porte deux au plus. Le reste de la carte est celui de `QUESTION_DEPLOIEMENT.application`.
+ */
+export const DEPLOIEMENT_SECOND = {
+  titre: { fr: 'Un 2e compte dans l’application WhatsApp Business', en: 'A 2nd account in the WhatsApp Business app' },
+  bulle: {
+    fr: `Une application WhatsApp Business porte deux comptes au plus. ${QUESTION_DEPLOIEMENT.application.bulle.fr}`,
+    en: `A WhatsApp Business app holds two accounts at most. ${QUESTION_DEPLOIEMENT.application.bulle.en}`,
+  },
+} as const;
+
+/**
+ * La bulle de « WhatsApp Business », au titre de `QUESTION_APPLICATION` (Julien, 2026-11-17, lot 4) : ce qu'est
+ * l'application, avec son logo (`LOGO_WHATSAPP_BUSINESS`) et ses magasins.
+ */
+export const BULLE_WHATSAPP_BUSINESS = {
+  terme: { fr: 'WhatsApp Business', en: 'WhatsApp Business' },
+  texte: {
+    fr: 'L’application WhatsApp des professionnels, gratuite : son logo est la bulle verte de WhatsApp, marquée d’un B. Elle est distincte de WhatsApp, l’application ordinaire.',
+    en: 'WhatsApp’s app for businesses, free: its logo is WhatsApp’s green bubble, marked with a B. It is separate from WhatsApp, the regular app.',
+  },
+} as const satisfies Record<string, Texte>;
+/** Le logo de l'application WhatsApp Business, celui de la vitrine (`site/img/logos/whatsapp-business.png`). */
+export const LOGO_WHATSAPP_BUSINESS = '/logos/whatsapp-business.png';
+
+/**
+ * LES ÉTAPES À VENIR DU NUMÉRO FOURNI (Julien, 2026-11-17, lot 4) : sous son paiement, la première en cours et les
+ * suivantes grisées, pour voir qu'après les 3,50 € viennent le numéro et la fenêtre de Meta.
+ */
+export const ETAPES_A_VENIR = {
+  payer: { fr: 'Payer le numéro', en: 'Pay for the number' },
+  obtenir: { fr: 'Obtenir le numéro', en: 'Get the number' },
+  api: [
+    { fr: 'Votre numéro s’affiche, et son code quand Meta l’appelle', en: 'Your number shows, and its code when Meta calls it' },
+    { fr: 'La fenêtre de Meta : vous y saisissez le numéro et le code', en: 'Meta’s window: you enter the number and the code' },
+  ],
+  application: [
+    { fr: 'Vous l’ajoutez dans l’application : son code s’affiche ici', en: 'You add it in the app: its code shows here' },
+    { fr: 'La fenêtre de Meta garde votre application', en: 'Meta’s window keeps your app' },
+  ],
+} as const;
 
 /**
  * UN NUMÉRO DE CHEZ NOUS, RELIÉ PAR LA FENÊTRE DE META (mode `fourni`) : le titre et la première phrase de l'issue
@@ -202,7 +290,7 @@ export const ISSUE_FOURNI = {
 } as const satisfies Record<string, Texte>;
 
 /**
- * FAUT-IL FOURNIR UN NUMÉRO ? (Julien, 2026-11-17, lot 3) Avec l'application, sans numéro dedans ou sans vouloir le sien :
+ * FAUT-IL FOURNIR UN NUMÉRO ? (Julien, 2026-11-17, lot 3) Après le choix de l'application (`QUESTION_DEPLOIEMENT`, lot 4) :
  * Oui, un numéro de chez nous mis DANS l'application (`ISSUE_FOURNI_APPLICATION`, mode `fourni_application`) ; Non, un
  * numéro à soi qu'on y installe (`ISSUE_INSTALLER`). Dans les deux cas, la fenêtre de Meta garde ensuite l'application.
  */
@@ -252,9 +340,9 @@ export const MAGASINS_APPLICATION = [
 ] as const;
 
 /**
- * Sans compte Meta Business ni application (Julien, 2026-10-31, revu le 2026-11-12) : a-t-on un numéro ? Oui, le numéro
- * API (`ISSUE_API`) ; Non, un numéro de chez nous relié par la fenêtre de Meta (`ISSUE_FOURNI`). Plus rien ne va DANS
- * l'application.
+ * Après le choix de l'API (`QUESTION_DEPLOIEMENT`, Julien, 2026-11-17, lot 4) : a-t-on un numéro ? Oui, le sien seul, en
+ * numéro API, sans proposer d'en fournir un (Julien : « il ne faut pas lui proposer de lui fournir un numéro ») ; Non, un
+ * numéro de chez nous relié par la fenêtre de Meta (`ISSUE_FOURNI`).
  */
 export const QUESTION_NUMERO = {
   texte: { fr: 'Avez-vous déjà un numéro que vous pourriez utiliser ?', en: 'Do you already have a number you could use?' },

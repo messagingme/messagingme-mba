@@ -1,7 +1,7 @@
 ---
 description: Get a number provided by Messaging Me, connected through Meta’s window or put in your WhatsApp Business app: the video, then the six steps.
 slug: get-a-number-provided-by-messaging-me
-traduit_de: 957b86
+traduit_de: 82fc35
 bouton_claude: Get my number from Claude Code
 bouton_console: Get my number in the console
 ---
@@ -17,8 +17,8 @@ WhatsApp number.
 **1. [console] Open “Connect WhatsApp”.** On the Home screen, as long as no number is attached, click “Continue
 the setup”.
 
-**2. [claude] Answer Claude’s questions.** No Meta Business account, no WhatsApp Business app, no number: Claude offers you a
-provided number.
+**2. [claude] Answer Claude’s questions.** No Meta Business account or WhatsApp Business app, the official API rather
+than the app, and no number of yours: Claude offers you a provided number.
 
 The video stays on the Free plan: Meta bills your templates to a card, which you add once the number is connected. Do
 you have the WhatsApp Business app? The provided number can go in it: see “With your WhatsApp Business app”, below.
@@ -26,12 +26,17 @@ you have the WhatsApp Business app? The provided number can go in it: see “Wit
 **2. [console] Choose “Provide me a number”.** Answer the page’s questions, then choose “Provide me a number”: a
 dedicated number, ready for WhatsApp.
 
+Without a Meta Business account, answer “Through the API” to “How do you want to use WhatsApp?”, then “No” to “Do you
+already have a number you could use?”. To put it in your WhatsApp Business app, see “With your WhatsApp Business app”,
+below.
+
 **3. Pay for the number, then open Meta’s window.** On the “Connect WhatsApp” page, pay €3.50 a month (with the Pro
 plan, “Get my number”, with nothing to pay; during its trial, €3.50, deducted from your first month): your UK number
 appears. Click “Open the Meta window”.
 
-Keep the page open until the end: the verification code will show there. From Claude Code, Claude gives you the link
-to this page; it is valid for one hour, and once it has passed Claude gives a new one.
+Under the button, the steps to come show in grey, up to Meta’s window. Keep the page open until the end: the
+verification code will show there. From Claude Code, Claude gives you the link to this page; it is valid for one hour,
+and once it has passed Claude gives a new one.
 
 **4. Connect the number in Meta’s window.** Log in with Facebook. On the number screen, enter a new number: the country
 GB (+44), then the digits that follow +44. **For the code, tick “Phone call”, NOT “Text message”.**
@@ -59,10 +64,12 @@ Meta’s card comes next, before your first templates: Claude gives you the step
 
 ## With your WhatsApp Business app
 
-The provided number can also go in your WhatsApp Business app, which you keep: you reply there from your phone.
+The provided number can also go in your WhatsApp Business app, which you keep: you reply there from your phone. No
+app yet? First install WhatsApp Business on your phone: it is free. It already holds a number you do not want to
+connect? Ours is added as a 2nd account: a WhatsApp Business app holds two accounts at most.
 
-- Answer “Yes” to “Would you like us to provide a number?”, then pay for the number (with the Pro plan, “Get my
-  number”): it shows on the connection page.
+- Answer “With the app” to “How do you want to use WhatsApp?”, then “Yes” to “Would you like us to provide a number?”,
+  and pay for the number (with the Pro plan, “Get my number”): it shows on the connection page.
 - Add it in your WhatsApp Business app. For the verification, choose the phone call: the code shows on the connection
   page, and in Claude. Enter it in the app.
 - Click “Keep my WhatsApp Business app”: Meta’s window connects your app to Messaging Me, and you keep it. Its screens

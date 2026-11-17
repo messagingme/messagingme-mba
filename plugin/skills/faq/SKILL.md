@@ -19,11 +19,11 @@ Oui : la WhatsApp Business Platform de Meta. Messaging Me est Tech Provider de M
 
 ## I have no Meta Business account: can I still use it?
 
-Yes. Meta’s window has you create your Meta Business account along the way, with your Facebook profile (your business name, an email address, the country and the website), then offers a payment method. Already have the WhatsApp Business app? Keep it: its number also sends from Messaging Me, and you still reply from your phone. No number in the app, or you would rather not use the one it has? Put a number of yours in it, or the one we provide, then keep the app the same way. No app? You do not need it: Meta’s window connects your available number to the official API or, without a number, the one we provide. A provided number’s verification code shows on the Messaging Me page. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats. Then keep WhatsApp Business the same way.
+Yes. Meta’s window has you create your Meta Business account along the way, with your Facebook profile (your business name, an email address, the country and the website), then offers a payment method. Already have the WhatsApp Business app? Keep it: its number also sends from Messaging Me, and you still reply from your phone. No number in the app, or you would rather not use the one it has? Put a number of yours in it, or the one we provide (a WhatsApp Business app holds two accounts at most), then keep the app the same way; or go directly through the official API, with your number or ours. No app? You do not need it: Meta’s window connects your available number to the official API or, without a number, the one we provide. To also reply from your phone, first install WhatsApp Business: it is free. A provided number’s verification code shows on the Messaging Me page. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats. Then keep WhatsApp Business the same way.
 
 **FR · Je n’ai pas de compte Meta Business : je peux quand même ?**
 
-Oui. La fenêtre de Meta vous fait créer votre compte Meta Business en chemin, avec votre profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen de paiement. Vous avez déjà l’application WhatsApp Business ? Gardez-la : son numéro envoie aussi depuis Messaging Me, et vous répondez toujours depuis votre téléphone. Pas de numéro dans l’application, ou vous préférez ne pas utiliser le sien ? Mettez-y un numéro à vous, ou celui que nous vous fournissons, puis gardez-la de la même façon. Vous n’avez pas l’application ? Vous n’en avez pas besoin : la fenêtre de Meta relie à l’API officielle votre numéro libre ou, sans numéro, celui que nous vous fournissons. Le code de vérification d’un numéro fourni s’affiche sur la page de Messaging Me. Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Puis gardez WhatsApp Business de la même façon.
+Oui. La fenêtre de Meta vous fait créer votre compte Meta Business en chemin, avec votre profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen de paiement. Vous avez déjà l’application WhatsApp Business ? Gardez-la : son numéro envoie aussi depuis Messaging Me, et vous répondez toujours depuis votre téléphone. Pas de numéro dans l’application, ou vous préférez ne pas utiliser le sien ? Mettez-y un numéro à vous, ou celui que nous vous fournissons (une application WhatsApp Business porte deux comptes au plus), puis gardez-la de la même façon ; ou passez directement par l’API officielle, avec votre numéro ou le nôtre. Vous n’avez pas l’application ? Vous n’en avez pas besoin : la fenêtre de Meta relie à l’API officielle votre numéro libre ou, sans numéro, celui que nous vous fournissons. Pour répondre aussi depuis votre téléphone, installez d’abord WhatsApp Business : elle est gratuite. Le code de vérification d’un numéro fourni s’affiche sur la page de Messaging Me. Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Puis gardez WhatsApp Business de la même façon.
 
 ## Which WhatsApp number should I use?
 
@@ -33,7 +33,7 @@ Your number goes through the official WhatsApp API, connected through Meta. It l
 
 2) The number of your WhatsApp Business app: you keep it in the app on your phone, and it also sends from Messaging Me. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats.
 
-3) No number: we provide one (€3.50 a month, included in Pro), connected through Meta’s window or, if you have the WhatsApp Business app, put in the app, which you then keep the same way.
+3) No number: we provide one (€3.50 a month, included in Pro), connected through Meta’s window or, if you choose the WhatsApp Business app, put in the app, which you then keep the same way.
 
 Claude helps you choose when you connect the number.
 
@@ -45,7 +45,7 @@ Votre numéro passe par l’API officielle de WhatsApp, relié par Meta. Il vous
 
 2) Le numéro de votre application WhatsApp Business : vous le gardez dans l’application de votre téléphone, et il envoie aussi depuis Messaging Me. Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations.
 
-3) Pas de numéro : nous vous en fournissons un (3,50 € par mois, inclus en formule Pro), relié par la fenêtre de Meta ou, si vous avez l’application WhatsApp Business, mis dans l’application, que vous gardez alors de la même façon.
+3) Pas de numéro : nous vous en fournissons un (3,50 € par mois, inclus en formule Pro), relié par la fenêtre de Meta ou, si vous choisissez l’application WhatsApp Business, mis dans l’application, que vous gardez alors de la même façon.
 
 Claude vous aide à choisir au moment de connecter le numéro.
 

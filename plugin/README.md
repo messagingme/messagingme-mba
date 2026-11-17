@@ -86,14 +86,21 @@ Then `/messagingme:demarrer` asks you, one question at a time, the same question
 3. **Do you have a Meta Business account?** Yes: your number becomes an API number, an available one of yours or a
    provided one; if it is already in the WhatsApp Business app, you can keep it. No, or not sure: the next question
    (business.facebook.com lists your portfolios, and a missing account is created along the way).
-4. **Do you already have the WhatsApp Business app?** Yes: **Do you already have a number working in that app?** If so,
-   **Do you want to use that number?** Using it, you keep the app. Otherwise, **Would you like us to provide a
-   number?** Yes: we provide one, which you put in your app, its verification code shown on the setup page. No: you put
-   a number of yours in the app. Either way, Meta's window then connects the app, and you keep it. No app: the next
-   question, with no app to get.
-5. **Do you already have a number you could use?** Yes: it becomes your API number, connected through Meta's window,
-   which creates your Meta Business account along the way. No: we provide one, connected the same way, its
-   verification code shown on the setup page.
+4. **Do you already have the WhatsApp Business app?** (Its logo: WhatsApp's green bubble, marked with a B.) Yes: **Do
+   you already have a number working in that app?** If so, **Do you want to use that number?** Using it, you keep the
+   app. Otherwise, or with no app, the next question.
+5. **How do you want to use WhatsApp?** With the WhatsApp Business app: you also reply from your phone, and your AI
+   agent replies from Messaging Me; the name and photo are set in the app, which loses its broadcast lists and away
+   message, and you pay Meta with your card, no credit line. For another number than the one in your app, that is a
+   2nd account in it, two at most per app; with no app yet, you first install it on your phone, for free. Or directly
+   through the official API: everything goes through Messaging Me (automatic replies, campaigns; with Pro, a shared
+   Inbox), and the display name is customized at Meta, which reviews it.
+6. With the app, **Would you like us to provide a number?** Yes: we provide one, which you put in your app, its
+   verification code shown on the setup page. No: you put a number of yours in the app. Either way, Meta's window
+   then connects the app, and you keep it.
+7. Through the API, **Do you already have a number you could use?** Yes: your own number becomes your API number,
+   connected through Meta's window, which creates your Meta Business account along the way. No: we provide one,
+   connected the same way, its verification code shown on the setup page.
 
 The price of a provided number is under [What it costs](#what-it-costs).
 

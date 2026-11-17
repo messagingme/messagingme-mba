@@ -30,9 +30,17 @@ rechargez par carte dans Messaging Me, et en Entreprise elle se règle sur factu
 carte chez Meta ». Un numéro qui garde l'application WhatsApp Business reste sur votre moyen de paiement chez Meta.
 
 **3. Votre numéro, ou le nôtre.** Quelques questions décident du chemin : avez-vous un compte Meta Business, une
-application WhatsApp Business, un numéro à vous. Vous avez un numéro : vous le connectez. Vous n'en avez pas :
-« Fournissez-moi un numéro » vous donne un numéro britannique dédié, inclus dans la formule Pro, et à 3,50 € par mois
-sans elle.
+application WhatsApp Business, voulez-vous l'application ou l'API, avez-vous un numéro à vous. Vous avez un numéro :
+vous le connectez. Vous n'en avez pas : « Fournissez-moi un numéro » vous donne un numéro britannique dédié, inclus dans
+la formule Pro, et à 3,50 € par mois sans elle.
+
+Sans compte Meta Business, « Comment voulez-vous utiliser WhatsApp ? » vous fait choisir, sauf si vous gardez le numéro
+de votre application. « Avec l'application » : le numéro, le vôtre ou le nôtre, va dans votre application WhatsApp
+Business (à installer d'abord si vous ne l'avez pas, deux comptes au plus par application), et vous la gardez ; vous
+répondez aussi depuis votre téléphone, le nom et la photo s'y règlent, et vous payez Meta avec votre carte. « Par
+l'API » : tout passe par Messaging Me (réponses automatiques, campagnes, Inbox à plusieurs), et le nom affiché se
+personnalise chez Meta, qui le relit. Voir « Garder mon application WhatsApp Business » et « Prendre un numéro fourni
+par Messaging Me ».
 
 Pour le numéro fourni, vous payez sur la page de Stripe (un code promo s'y saisit, si nous vous en avons remis un ;
 pendant l'essai de la formule Pro, ses 3,50 € sont déduits de votre premier mois), puis le numéro s'affiche. Dans la
@@ -40,9 +48,6 @@ fenêtre de Meta, choisissez « Enter a new phone number », le pays GB (+44), p
 les chiffres qui suivent +44 ; **pour recevoir le code, choisissez « Appel téléphonique » (« Phone call » si la fenêtre est en anglais), surtout pas
 « Message texte »** : le code s'affiche en quelques secondes sur la page, dans l'encadré « Le code s'affichera ici », sous
 votre numéro. Sans code au bout de 45 secondes, redemandez-le, toujours par « Appel téléphonique ». Si Meta refuse ce numéro, « En obtenir un autre » vous en donne un nouveau.
-
-Avec l'application WhatsApp Business, le numéro, le vôtre ou le nôtre, va dans l'application, et vous la gardez : voir
-« Garder mon application WhatsApp Business » et « Prendre un numéro fourni par Messaging Me ».
 
 **4. La fenêtre de Meta.** Vous y choisissez votre compte professionnel et votre numéro, Meta vous envoie un code,
 vous le saisissez, et vous allez jusqu'au dernier écran (« Finish »).

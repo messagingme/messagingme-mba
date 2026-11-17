@@ -24,8 +24,8 @@ votre espace et commence par votre numéro WhatsApp.
 **1. [console] Ouvrir « Connecter WhatsApp ».** Sur l'Accueil, tant qu'aucun numéro n'est rattaché, cliquez sur
 « Continuer la mise en service ».
 
-**2. [claude] Répondre aux questions de Claude.** Pas de compte Meta Business, pas d'application WhatsApp Business, pas de
-numéro : Claude vous propose un numéro fourni.
+**2. [claude] Répondre aux questions de Claude.** Pas de compte Meta Business ni d'application WhatsApp Business, l'API
+officielle plutôt que l'application, et pas de numéro à vous : Claude vous propose un numéro fourni.
 
 La vidéo reste sur la formule Free : Meta facture vos modèles sur une carte, que vous ajouterez une fois le numéro
 relié. Vous avez l'application WhatsApp Business ? Le numéro fourni peut y aller : voir « Avec votre application
@@ -34,12 +34,17 @@ WhatsApp Business », plus bas.
 **2. [console] Choisir « Fournissez-moi un numéro ».** Répondez aux questions de la page, puis choisissez « Fournissez-moi
 un numéro » : un numéro dédié, prêt pour WhatsApp.
 
+Sans compte Meta Business, répondez « Par l'API » à « Comment voulez-vous utiliser WhatsApp ? », puis « Non » à
+« Avez-vous déjà un numéro que vous pourriez utiliser ? ». Pour le mettre dans votre application WhatsApp Business,
+voir « Avec votre application WhatsApp Business », plus bas.
+
 **3. Payer le numéro, puis ouvrir la fenêtre de Meta.** Sur la page « Connecter WhatsApp », payez 3,50 € par mois (en
 formule Pro, « Obtenir mon numéro », sans rien payer ; pendant son essai, 3,50 €, déduits de votre premier mois) : votre
 numéro britannique s'affiche. Cliquez sur « Ouvrir la fenêtre de Meta ».
 
-Gardez la page ouverte jusqu'au bout : le code de vérification s'y affichera. Depuis Claude Code, Claude vous donne le
-lien de cette page ; il vaut une heure, et passé ce délai Claude en donne un neuf.
+Sous le bouton, les étapes à venir s'affichent en gris, jusqu'à la fenêtre de Meta. Gardez la page ouverte jusqu'au
+bout : le code de vérification s'y affichera. Depuis Claude Code, Claude vous donne le lien de cette page ; il vaut une
+heure, et passé ce délai Claude en donne un neuf.
 
 **4. Relier le numéro dans la fenêtre de Meta.** Connectez-vous avec Facebook. À l'écran du numéro, saisissez un
 nouveau numéro : le pays GB (+44), puis les chiffres qui suivent +44. **Pour le code, cochez « Appel téléphonique »,
@@ -70,10 +75,13 @@ La carte chez Meta s'ajoute ensuite, avant vos premiers modèles : Claude vous e
 ## Avec votre application WhatsApp Business
 
 Le numéro fourni peut aussi aller dans votre application WhatsApp Business, que vous gardez : vous y répondez depuis
-votre téléphone.
+votre téléphone. Pas encore l'application ? Installez d'abord WhatsApp Business sur votre téléphone : elle est gratuite.
+Elle porte déjà un numéro, que vous ne voulez pas relier ? Le nôtre s'y ajoute en 2e compte : une application WhatsApp
+Business porte deux comptes au plus.
 
-- Répondez « Oui » à « Souhaitez-vous qu'on vous fournisse un numéro ? », puis payez le numéro (en formule Pro,
-  « Obtenir mon numéro ») : il s'affiche sur la page de connexion.
+- Répondez « Avec l'application » à « Comment voulez-vous utiliser WhatsApp ? », puis « Oui » à « Souhaitez-vous qu'on
+  vous fournisse un numéro ? », et payez le numéro (en formule Pro, « Obtenir mon numéro ») : il s'affiche sur la page
+  de connexion.
 - Ajoutez-le dans votre application WhatsApp Business. Pour la vérification, choisissez l'appel : le code s'affiche sur
   la page de connexion, et dans Claude. Saisissez-le dans l'application.
 - Cliquez sur « Garder mon application WhatsApp Business » : la fenêtre de Meta relie votre application à Messaging Me,

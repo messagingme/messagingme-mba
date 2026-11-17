@@ -1,7 +1,7 @@
 ---
 description: Keep your WhatsApp Business app and connect the same number to Messaging Me, screen by screen, with the Meta Business account created along the way if needed.
 slug: keep-my-whatsapp-business-app
-traduit_de: 3c816a
+traduit_de: 0ae9e0
 bouton_claude: Keep my app from Claude Code, for free
 bouton_console: Keep my app in the console
 ---
@@ -18,8 +18,9 @@ page. The page sums up what changes, then the button opens Meta’s window, wher
 “Keep my WhatsApp Business app”: Meta’s window opens, where you sign in with your Facebook profile.
 
 Without a Meta Business account, the page’s questions lead to the same button: “Yes” to the WhatsApp Business app,
-then “Yes” to the number working in it and to “Do you want to use that number?”. No number in it yet: “No”, then “No”
-to “Would you like us to provide a number?”.
+then “Yes” to the number working in it and to “Do you want to use that number?”. Otherwise, answer “With the app” to
+“How do you want to use WhatsApp?”, then “No” to “Would you like us to provide a number?”: you install a number of yours
+in it.
 
 **2. Enter your number.** Enter the number of your WhatsApp Business app, with its country, then choose how Meta
 verifies it (by text message or by phone call) and follow what it asks.
@@ -60,10 +61,15 @@ weeks.
 What you type in the app does not show in Messaging Me yet. If an AI agent answers your customers, it does not see
 your replies: it may answer at the same time as you.
 
-**Good to know.** No number in your WhatsApp Business app yet? Install a number of yours in it: a mobile line that
-receives WhatsApp’s code by text or by call. Then follow this guide right away: a new number can be kept too. Or take a
-number from us, to put in the app: see “Get a number provided by Messaging Me”.
+Your number’s name and photo are set in the app, on your phone. And you pay Meta with your card: the credit line is not
+possible with the app.
+
+**Good to know.** No number in your WhatsApp Business app yet, or you want to connect another one? Install a number of
+yours in it: a mobile line that receives WhatsApp’s code by text or by call. Another number is added as a 2nd account: a
+WhatsApp Business app holds two accounts at most. Then follow this guide right away: a new number can be kept too. Or
+take a number from us, to put in the app: see “Get a number provided by Messaging Me”.
 
 **Good to know.** Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it
-offers to take over that number, with your chats. Then follow this guide. No app at all? No need to install one: your
-number connects directly to Messaging Me, from “Connect WhatsApp”.
+offers to take over that number, with your chats. Then follow this guide. No app at all? You have the choice: with the
+app, first install WhatsApp Business on your phone, it is free; through the API, your number connects directly to
+Messaging Me, with no app.

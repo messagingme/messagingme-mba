@@ -101,7 +101,8 @@ describe('le tunnel du numéro WhatsApp', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { questions } = TEXTES_TUNNEL[langue];
       const q = (id: string) => questions.find((x) => x.id === id)!;
-      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'pilote', 'paiement', 'numero-ligne', 'compte', 'application', 'numero-application', 'meme-numero', 'fournir', 'numero']);
+      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'pilote', 'paiement', 'numero-ligne', 'compte', 'application', 'numero-application', 'meme-numero',
+        'deploiement', 'deploiement-application', 'deploiement-second', 'fournir', 'numero']);
       // Free mène à « Qui paie vos messages à Meta ? » ; Pro d'abord à « Console ou Claude Code ? » (lot 3c), dont la
       // console finit sur son issue et Claude Code rejoint la même question. Business et Entreprise mènent à la démo et au
       // contact, jamais aux questions du numéro (Julien, 2026-10-30).
@@ -118,18 +119,31 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect(q('compte').reponses[2]!.note, langue).toContain('business.facebook.com');
       expect(q('compte').reponses[2]!.note, langue).toMatch(/Facebook ou Instagram|Facebook or Instagram/);
       // Avec l'application (Julien, 2026-11-17, lot 3) : un numéro y fonctionne-t-il ? Oui, est-ce celui-là (le cas 4) ? Oui,
-      // on la garde ; Non, ou aucun numéro dedans : faut-il en fournir un ? Oui, le nôtre dans l'application ; Non, le
-      // sien qu'on y installe. Sans elle, la question du numéro (Julien, 2026-10-31), sans note ni magasins (2026-11-12).
-      expect(q('application').reponses.map((r) => r.vers), langue).toEqual(['numero-application', 'numero']);
+      // on la garde. Sinon, et sans l'application (lot 4) : comment utiliser WhatsApp, à trois endroits, l'application
+      // menant à « faut-il en fournir un ? » (Oui, le nôtre dedans ; Non, le sien qu'on y installe), l'API à la question du
+      // numéro.
+      expect(q('application').reponses.map((r) => r.vers), langue).toEqual(['numero-application', 'deploiement']);
       expect(q('application').reponses.map((r) => r.note), langue).toEqual([undefined, undefined]);
-      expect(q('numero-application').reponses.map((r) => r.vers), langue).toEqual(['meme-numero', 'fournir']);
-      expect(q('meme-numero').reponses.map((r) => r.vers), langue).toEqual(['garder', 'fournir']);
+      expect(q('numero-application').reponses.map((r) => r.vers), langue).toEqual(['meme-numero', 'deploiement-application']);
+      expect(q('meme-numero').reponses.map((r) => r.vers), langue).toEqual(['garder', 'deploiement-second']);
+      for (const id of ['deploiement', 'deploiement-application', 'deploiement-second']) {
+        expect(q(id).reponses.map((r) => r.vers), `${langue} ${id}`).toEqual(['fournir', 'numero']);
+        expect(q(id).voies?.length, `${langue} ${id}`).toBe(2);
+      }
+      // Sans l'application, la choisir, c'est d'abord l'installer : sa note le dit ; ailleurs, aucune note.
+      expect(q('deploiement').reponses[0]!.note, langue).toMatch(/Installez d’abord WhatsApp Business|First install WhatsApp Business/);
+      expect([q('deploiement-application'), q('deploiement-second')].flatMap((x) => x.reponses.map((r) => r.note)), langue).toEqual([undefined, undefined, undefined, undefined]);
+      // Le 2e compte : deux au plus dans une application.
+      expect(q('deploiement-second').voies![0]!.titre, langue).toMatch(/2e compte|2nd account/);
+      expect(q('deploiement-second').voies![0]!.liens![0]!.bulle, langue).toMatch(/deux comptes au plus|two accounts at most/);
       expect(q('fournir').reponses.map((r) => r.vers), langue).toEqual(['fourni-application', 'installer']);
       // 🔴 Jamais le mot « coexistence » dans une question (Julien) : seulement dans les issues qui l'expliquent.
       for (const x of questions) expect(`${x.texte} ${x.precision ?? ''}`, `${langue} ${x.id}`).not.toMatch(/coexist/i);
-      // 🔴 Un numéro : le numéro API, comme avec un compte ; aucun : un numéro de chez nous, relié par la fenêtre de
-      // Meta. Plus rien ne fait télécharger l'application ni n'y met un numéro fourni (Julien, 2026-11-12).
-      expect(q('numero').reponses.map((r) => r.vers), langue).toEqual(['api', 'fourni']);
+      // 🔴 Un numéro à soi : le sien seul, en numéro API, sans proposer d'en fournir un (Julien, 2026-11-17, lot 4) ;
+      // aucun : un numéro de chez nous, relié par la fenêtre de Meta.
+      expect(q('numero').reponses.map((r) => r.vers), langue).toEqual(['api-mien', 'fourni']);
+      const mien = TEXTES_TUNNEL[langue].issues.find((x) => x.id === 'api-mien')!;
+      expect([...mien.textes, ...Object.values(mien.numero ?? {})].join(' '), langue).not.toMatch(/fourni|provide/i);
       expect(TEXTES_TUNNEL[langue].issues.map((x) => x.id), langue).not.toContain('telecharger');
     }
   });
@@ -229,11 +243,12 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
   });
 
-  it('🔴 le plus long parcours fait huit questions (Pro par Claude Code, avec l’application, un numéro à fournir) : l’étape le dit, les titres non (Julien, 2026-11-13 : « dis pas 6, tu décourages »)', () => {
+  it('🔴 le plus long parcours fait neuf questions (Pro par Claude Code, avec l’application, un 2e compte) : l’étape le dit, les titres non (Julien, 2026-11-13 : « dis pas 6, tu décourages »)', () => {
     for (const [langue, quelques] of [['fr', 'quelques questions'], ['en', 'a few questions']] as const) {
       const max = profondeurTunnel(TEXTES_TUNNEL[langue].questions);
-      // Six jusqu'au lot 3 du 2026-11-17, qui a ajouté « un numéro y fonctionne-t-il ? » et « faut-il en fournir un ? ».
-      expect(max).toBe(8);
+      // Six jusqu'au lot 3 du 2026-11-17 (« un numéro y fonctionne-t-il ? », « faut-il en fournir un ? »), huit jusqu'au
+      // lot 4 (« comment voulez-vous utiliser WhatsApp ? »).
+      expect(max).toBe(9);
       for (const x of [TEXTES_TUNNEL[langue].chapeau, TEXTES_DEMARRER[langue].h1.join(' '), TEXTES_DEMARRER[langue].titre]) {
         expect(x, langue).toContain(quelques);
         expect(x, langue).not.toMatch(/\b(\d+|six|huit|eight) questions?\b/);
@@ -325,7 +340,7 @@ describe('le tunnel du numéro WhatsApp', () => {
     for (const p of PAGES) {
       const html = lire(fichierDe(p.adresse));
       const aCartes = TEXTES_TUNNEL[p.langue].questions.filter((q) => q.voies);
-      expect(aCartes.map((q) => q.id), p.adresse).toEqual(['offre', 'paiement']);
+      expect(aCartes.map((q) => q.id), p.adresse).toEqual(['offre', 'paiement', 'deploiement', 'deploiement-application', 'deploiement-second']);
       for (const q of aCartes) {
         const menent = q.reponses.filter((r) => r.vers || r.grisee);
         const fieldset = html.match(new RegExp(`<fieldset class="bt-question" data-question="${q.id}"[\\s\\S]*?</fieldset>`))?.[0] ?? '';
