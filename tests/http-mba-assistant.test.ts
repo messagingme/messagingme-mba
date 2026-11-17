@@ -8,6 +8,7 @@ import { monterAvecEtapeEspace } from '../src/http/scope';
 import { calculerCompletion, type EntreeCompletion } from '../src/mba/completion';
 import { ENTRETIEN_MBA_VIERGE, type EntretienMba } from '../src/mba/assistant/entretien-store';
 import { LlmApiError } from '../src/llm/errors';
+import { RESERVATION_MICRO_EUR } from '../src/assistant/budget';
 import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
 import { signSession } from '../src/auth/token';
@@ -42,6 +43,11 @@ function monter(sur: Partial<MbaAssistantDeps> = {}, opts: { role?: string; depe
     depenses: {
       lire: async () => opts.depense ?? 0,
       ajouter: async (_t, _m, micro) => { journal.depenses.push(micro); },
+      reserver: async (_t, _m, micro, plafondMicro) => {
+        if ((opts.depense ?? 0) >= plafondMicro) return false;
+        journal.depenses.push(micro);
+        return true;
+      },
     },
     plafondEuros: 2,
     modele: 'test/modele',
@@ -126,11 +132,11 @@ describe('un tour', () => {
     expect(fil.auteurs).toEqual(['u1', null]);
   });
 
-  it('⚠️ la dépense est notée APRÈS l’appel, avec le coût réel', async () => {
+  it('⚠️ une borne est réservée AVANT l’appel, puis remplacée par le coût réel', async () => {
     const m = monter();
     await post(m.app, '/tenants/t1/mba/assistant', { message: 'bonjour' });
-    // 0,01 $ × 0,92 = 9 200 micro-euros.
-    expect(m.journal.depenses).toEqual([9200]);
+    // 0,01 $ × 0,92 = 9 200 micro-euros, inscrits au total une fois la réservation soldée.
+    expect(m.journal.depenses).toEqual([RESERVATION_MICRO_EUR, 9200 - RESERVATION_MICRO_EUR]);
   });
 
   it('🔴 au plafond, il le DIT, ne coûte rien, et les onglets restent', async () => {

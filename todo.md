@@ -1,5 +1,23 @@
 # todo.md : backlog
 
+## 🟡 Le repli des actions de campagne vers leurs anciennes adresses (2026-11-17) : à retirer avec le prochain lot de campagne
+
+- `web/lib/api/campagnes.ts` (`avecRepli`, `routeInconnue`) : lancer, renvoyer et annuler la programmation vivent sous
+  `/tenants/:tenantId/campaigns/:id/...`. La console retombait sur `/campaigns/:id/...` sur un 404 de route inconnue,
+  le temps que l'API soit déployée ; une fois l'API en production, ce repli ne sert plus. Le retirer avec son test
+  (`web/lib/api/campagnes.test.ts`, les deux cas de repli).
+
+## 🟡 L'enveloppe mensuelle des assistants et de l'aide (relecture du 2026-11-17, rouge corrigé avant le push)
+
+- Le récap de la veille (`POST /tenants/:tenantId/aide/recap`) rédige encore sur notre clé hors de l'enveloppe : il
+  n'est borné que par son cache d'un jour par espace et par langue, et le débit par minute de l'aide.
+- Une copie arrêtée entre la réservation et le solde (déploiement, mise à l'échelle) laisse 0,05 € compté jusqu'à la
+  fin du mois, sans balayage qui le rende.
+- Le solde posé dans les `catch` (`tour-entretien.ts`, `mba-assistant.ts`, `agent-setup.ts`, `aide.ts`) masque
+  l'erreur d'origine s'il lève lui-même (base indisponible), et change le statut rendu (500 au lieu de 502 pour l'aide).
+- Un onglet de la console ouvert avant le déploiement appelle les anciennes adresses des actions de campagne : 404
+  jusqu'au rechargement de la page.
+
 ## 🟡 Le moyen de paiement de la carte du numéro (relecture du 2026-11-17, aucun rouge) : avec le prochain lot de la ligne
 
 - **Crédit à zéro lu « active » en vert** (`MoyenDePaiement`, `web/app/accueil/page.tsx`) : un prépayé sous

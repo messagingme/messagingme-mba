@@ -470,8 +470,8 @@ l'écran et refusé par l'API) et `null` ne démarrent rien. Les tirs du widget 
 ### 4.2 Une campagne part
 
 ```
-POST /campaigns          création : destinataires matérialisés, variables résolues
-POST /campaigns/:id/run  -> job `campaign-run` (expiration DIMENSIONNÉE au volume et au débit)
+POST /tenants/:tenantId/campaigns          création : destinataires matérialisés, variables résolues
+POST /tenants/:tenantId/campaigns/:id/run  -> job `campaign-run` (expiration DIMENSIONNÉE au volume et au débit)
    runCampaign :
      verrou d'exécution (bail + jeton de garde + drapeau de relance)
      pour chaque destinataire pending :
@@ -5329,9 +5329,10 @@ n'arrêtant pas les autres ; la transcription seulement si SON écriture a pris,
 un message pas encore transcrit, donc deux clics simultanés ne paient qu'une fois) ; la passerelle le rend dans la réponse
 (`providerMetadata.gateway.cost`, et `provider_metadata` pour le reranker, mesuré le 2026-10-08). Le tarif annoncé dans
 la liste des modèles lit la même commission (`modelesProposes(tenantId)`) : le prix affiché est le prix payé. Sur
-**notre clé** et à nos frais : les deux assistants de configuration, mesurés au coût brut (`microEurosDepuisDollars`,
-que `tests/agent-devise.test.ts` refuse ailleurs) et plafonnés par espace ; le bot d'aide et la vectorisation de ses
-fiches ; la transcription du pont des codes d'un numéro fourni (notre infrastructure).
+**notre clé** et à nos frais : les deux assistants de configuration et le bot d'aide, mesurés au coût brut
+(`microEurosDepuisDollars`, que `tests/agent-devise.test.ts` refuse ailleurs) et plafonnés par espace dans UNE enveloppe
+mensuelle, réservée avant chaque appel puis soldée au coût réel (`reserverBudget`, `src/assistant/budget.ts`) ; la
+vectorisation des fiches d'aide ; la transcription du pont des codes d'un numéro fourni (notre infrastructure).
 ⚠️ **La traduction se débite à chaque appel mais s'inscrit au journal en UNE ligne par espace et par jour de
 Paris** (raison `traduction`, colonne `jour`, index unique partiel de 0190, upsert de
 `PgCreditStore.debiterTraduction`). Accès fermé (solde nul, ou Entreprise à son plafond, cause `plafond`) : pas de

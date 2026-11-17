@@ -2,8 +2,10 @@ import { describe, it, expect, vi } from 'vitest';
 import Fastify from 'fastify';
 import { registerAide } from '../src/http/aide';
 import { monterAvecEtapeEspace } from '../src/http/scope';
-import type { QuestionAide, ReponseAide } from '../src/aide/repondre';
+import type { CoutAide, QuestionAide, ReponseAide } from '../src/aide/repondre';
+import { RESERVATION_MICRO_EUR, type BudgetAssistantDeps } from '../src/assistant/budget';
 import { aideInerte } from './routes-inertes';
+import { DepensesMemoire, budgetEnMemoire } from './aide/depenses';
 
 /**
  * LA ROUTE DU BOT D'AIDE.
@@ -22,13 +24,18 @@ const vide: ReponseAide = { sait: false, texte: '', sources: [], ecrans: [] };
  * comportaient à l'identique. Le test passait dans les DEUX sens, c'est-à-dire ne prouvait rien, tout en
  * annonçant dans son titre qu'il gardait le contraire. Relevé par mutation le 2026-09-11.
  */
-function app(over: { repondre?: (q: QuestionAide) => Promise<ReponseAide> } = {}, auth: { tenantId: string; role: string } | null = { tenantId: 't1', role: 'admin' }) {
+function app(
+  over: { repondre?: (q: QuestionAide, cout: CoutAide) => Promise<ReponseAide>; budget?: BudgetAssistantDeps } = {},
+  auth: { tenantId: string; role: string } | null = { tenantId: 't1', role: 'admin' },
+) {
   let userId = 'u1';
   const server = Fastify();
   const garde = async (req: { auth?: unknown }): Promise<void> => {
     if (auth) (req as { auth?: unknown }).auth = { tenantId: auth.tenantId, userId, role: auth.role };
   };
-  monterAvecEtapeEspace(server, () => registerAide(server, { ...aideInerte, ...(over.repondre ? { repondre: over.repondre } : {}) }, garde as never));
+  monterAvecEtapeEspace(server, () => registerAide(server, {
+    ...aideInerte, ...(over.repondre ? { repondre: over.repondre } : {}), ...(over.budget ? { budget: over.budget } : {}),
+  }, garde as never));
   return Object.assign(server, { changerUtilisateur: (u: string) => { userId = u; } });
 }
 
@@ -117,5 +124,53 @@ describe('route d’aide', () => {
     expect(autre.statusCode).toBe(429);
     const neuf = app({ repondre: async () => vide });
     expect((await neuf.inject(post({ question: 'q' }))).statusCode).toBe(200);
+  });
+});
+
+/**
+ * 🔴 L'AIDE ENTRE DANS L'ENVELOPPE MENSUELLE DES ASSISTANTS (passage 2 de l'audit ; décision de Julien du 2026-11-17).
+ * Seul un débit par minute la bornait : un espace pouvait faire tourner notre clé tout le mois.
+ */
+describe('route d’aide : l’enveloppe du mois', () => {
+  it('🔴 enveloppe vide : elle le dit en 200, dans la langue de l’écran, sans appeler le moteur', async () => {
+    const repondre = vi.fn().mockResolvedValue(vide);
+    const budget = budgetEnMemoire(new DepensesMemoire(2_000_000));
+    const fr = await app({ repondre, budget }).inject(post({ question: 'comment lancer une campagne' }));
+    expect(fr.statusCode).toBe(200);
+    expect(fr.json()).toMatchObject({ sait: true, sources: [], ecrans: [] });
+    expect(fr.json().texte).toMatch(/mois prochain/);
+    const en = await app({ repondre, budget }).inject(post({ question: 'how to launch a campaign', langue: 'en' }));
+    expect(en.json().texte).toMatch(/next month/);
+    expect(repondre).not.toHaveBeenCalled();
+  });
+
+  it('🔴 la réservation est remplacée par ce que la question a coûté (recherche et modèle)', async () => {
+    const depenses = new DepensesMemoire();
+    const r = await app({
+      budget: budgetEnMemoire(depenses),
+      repondre: async (_q, cout) => { cout.dollars += 0.002; return { sait: true, texte: 'Ouvrez Campagnes.', sources: [], ecrans: [] }; },
+    }).inject(post({ question: 'comment lancer une campagne' }));
+    expect(r.statusCode).toBe(200);
+    // Au taux 1 : 0,002 $ = 2 000 micro-euros.
+    expect(depenses.mouvements).toEqual([RESERVATION_MICRO_EUR, 2_000 - RESERVATION_MICRO_EUR]);
+    expect(depenses.total).toBe(2_000);
+  });
+
+  it('🔴 une panne du moteur garde ce qui a été payé avant elle, et rend le reste de la réservation', async () => {
+    const depenses = new DepensesMemoire();
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const r = await app({
+      budget: budgetEnMemoire(depenses),
+      repondre: async (_q, cout) => { cout.dollars += 0.0001; throw new Error('Gateway en panne'); },
+    }).inject(post({ question: 'q' }));
+    spy.mockRestore();
+    expect(r.statusCode).toBe(502);
+    expect(depenses.total).toBe(100);
+  });
+
+  it('une question refusée (vide, trop longue) ne réserve rien', async () => {
+    const depenses = new DepensesMemoire();
+    await app({ budget: budgetEnMemoire(depenses), repondre: async () => vide }).inject(post({ question: '   ' }));
+    expect(depenses.mouvements).toEqual([]);
   });
 });

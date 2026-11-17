@@ -2638,6 +2638,15 @@ async function main(): Promise<void> {
      */
     aide: {
       /**
+       * 🔴 L'enveloppe mensuelle des deux assistants : chaque question y entre (décision de Julien du 2026-11-17),
+       * même compteur et même plafond, puisque c'est notre clé qui paie.
+       */
+      budget: {
+        depenses: new PgDepenseStore(pool),
+        plafondEuros: config.ASSISTANT_PLAFOND_EUROS_MOIS,
+        tauxEurParDollar: config.EUR_PER_USD,
+      },
+      /**
        * Le récap de la veille, branché même sans modèle : tout ce qui est chiffré sort du SQL, et le gabarit
        * le dit en trois phrases. Le modèle n'ajoute que le remarquable, les jours où il y en a un.
        */

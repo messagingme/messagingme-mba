@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import Fastify from 'fastify';
 import { registerAide } from '../src/http/aide';
+import { aideInerte } from './routes-inertes';
 import { monterAvecEtapeEspace } from '../src/http/scope';
 import type { RecapTexte } from '../src/aide/recap-rendu';
 
@@ -29,7 +30,7 @@ function app(o: {
   };
   monterAvecEtapeEspace(server, () => registerAide(
     server,
-    { recap: { calculer, aujourdhui: () => jour } },
+    { ...aideInerte, recap: { calculer, aujourdhui: () => jour } },
     garde as never,
   ));
   return Object.assign(server, { calculer, avancerAuLendemain: () => { jour = '2026-09-14'; } });

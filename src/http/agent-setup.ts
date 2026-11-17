@@ -15,7 +15,7 @@ import {
 } from '../agent/setup/tour-entretien';
 import { espaceVerifie, estUuid } from './scope';
 import type { OutilBibliotheque } from '../agent/catalog';
-import { budgetOuvert, MESSAGE_PLAFOND, noterDepense } from '../assistant/budget';
+import { MESSAGE_PLAFOND, reserverBudget, solderReservation } from '../assistant/budget';
 import { direPanneModele } from '../llm/errors';
 import { journaliser } from '../lib/journal';
 
@@ -253,7 +253,8 @@ export function registerAgentSetup(app: FastifyInstance, deps: AgentSetupRouteDe
       if (!deps.completer || vision === '') {
         return reply.code(503).send({ error: 'lecture d’image indisponible sur ce serveur (aucun modèle de vision configuré) ; les documents texte, PDF et Word passent quand même' });
       }
-      if (!(await budgetOuvert(deps, ctx.tenant))) {
+      const reservation = await reserverBudget(deps, ctx.tenant);
+      if (!reservation) {
         // 422 et pas 200 : ici le client attend un import, pas une phrase. Lui dire que ce n'est pas parti
         // est le seul comportement honnête, et les documents texte, eux, continuent de passer.
         return reply.code(422).send({ error: `${MESSAGE_PLAFOND} Les documents texte, PDF et Word passent quand même.` });
@@ -268,12 +269,13 @@ export function registerAgentSetup(app: FastifyInstance, deps: AgentSetupRouteDe
       try {
         lu = await lireImage(deps, ctx.tenant, vision, parse.data.dataUrl, parse.data.nom);
       } catch (err) {
+        await solderReservation(deps, ctx.tenant, reservation, 0);
         const raison = direPanneModele(err);
         if (raison === null) throw err;
         journaliser('error', 'agent_setup_image_echec', { tenantId: ctx.tenant, err });
         return reply.code(422).send({ error: `l’image n’a pas pu être lue : ${raison}` });
       }
-      await noterDepense(deps, ctx.tenant, lu.coutDollars);
+      await solderReservation(deps, ctx.tenant, reservation, lu.coutDollars);
       fiches = lu.texte === null || lu.texte.trim() === '' ? null : await texteEnFichesHorsBoucle(lu.texte, parse.data.nom, reconnu.nature);
     } else {
       fiches = doc.fiches;

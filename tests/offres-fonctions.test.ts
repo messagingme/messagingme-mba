@@ -63,6 +63,31 @@ async function appeler(m: ModuleMonte, offres: SourceOffres, espace = 't1') {
 }
 
 describe('les fonctions gardées par l’offre', () => {
+  it('🔴 toute route d’un module d’espace vit sous /tenants/:tenantId, sinon elle échappe à l’isolation et à l’offre', async () => {
+    // Les étapes de montage suivent le CHEMIN (`monterAvecEtapeEspace`), pas la classe du module : lancer, reprendre
+    // ou renvoyer une campagne échappait ainsi à l'offre (passage 2 de l'audit, 2026-11-16). Une exception se
+    // déclare ici, avec sa raison.
+    const EXCEPTIONS: Record<string, readonly string[]> = {
+      // Le visuel d'un message, servi sans session à Meta et aux destinataires.
+      rcsMedia: ['GET /m/:fichier'],
+    };
+    const constate: Record<string, string[]> = {};
+    for (const m of modulesDeRoutes(toutBouchonne, usage)) {
+      if (m.acces !== 'tenant') continue;
+      const app = Fastify({ logger: false });
+      const hors: string[] = [];
+      app.addHook('onRoute', (r) => {
+        const methodes = Array.isArray(r.method) ? r.method : [r.method];
+        for (const methode of methodes) if (methode !== 'HEAD' && !r.path.includes(':tenantId')) hors.push(`${methode} ${r.path}`);
+      });
+      m.monte(app, { ...gardesOuvertes, auth: authT1, admin: authT1, encadrement: authT1, adminOuLien: authT1, offres: source('entreprise') });
+      await app.ready();
+      if (hors.length > 0) constate[m.nom] = hors;
+      await app.close();
+    }
+    expect(constate).toEqual(EXCEPTIONS);
+  });
+
   it('🔴 le registre garde exactement les modules validés, ni plus ni moins', () => {
     expect(gardes().map((m) => m.nom).sort()).toEqual(Object.keys(ATTENDU).sort());
   });

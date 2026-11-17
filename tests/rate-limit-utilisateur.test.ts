@@ -331,7 +331,7 @@ describe('l’inventaire des routes coûteuses ne dérive pas', () => {
     { fichier: 'contacts.ts', route: "app.post('/tenants/:tenantId/contacts/bulk', couteux," },
     { fichier: 'contacts.ts', route: "app.post('/tenants/:tenantId/contacts/purge', couteux," },
     { fichier: 'contacts.ts', route: "app.get('/tenants/:tenantId/contacts/:contactId/history/export', couteux," },
-    { fichier: 'campaigns.ts', route: "app.post('/campaigns/:campaignId/run', couteux," },
+    { fichier: 'campaigns.ts', route: "app.post('/tenants/:tenantId/campaigns/:campaignId/run', couteux," },
   ];
 
   it.each(attendus)('$route porte le plafond par espace', ({ fichier, route }) => {

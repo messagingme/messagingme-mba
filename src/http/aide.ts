@@ -2,25 +2,40 @@ import type { FastifyInstance } from 'fastify';
 import { gardeEtendue, makeRequireRole, type Guard } from '../auth/middleware';
 import { RateLimiter } from '../auth/rate-limit';
 import { espaceVerifie } from './scope';
-import { QUESTION_MAX_CARACTERES, type QuestionAide, type ReponseAide } from '../aide/repondre';
+import { QUESTION_MAX_CARACTERES, type CoutAide, type QuestionAide, type ReponseAide } from '../aide/repondre';
 import { creerCacheRecap } from '../aide/recap-cache';
 import type { RecapTexte } from '../aide/recap-rendu';
 import { resoudre } from '../aide/carte';
+import { reserverBudget, solderReservation, type BudgetAssistantDeps } from '../assistant/budget';
 import { addDays, todayParis } from '../stats/range';
 import { texteDe } from '../lib/erreur';
 
 /**
  * Le bot d'aide de la console : une route synchrone (la personne attend devant son écran, une file n'apporterait
  * rien). Il n'écrit rien : il répond et pose des liens vers des écrans.
- * 🔴 Les tokens sont à notre charge (clé maison, pas le crédit du client) : le plafond d'équipe chez Vercel borne
- * la dépense globale, le plafond de débit ci-dessous empêche un espace de la consommer pour tous.
+ * 🔴 Les tokens sont à notre charge (clé maison, pas le crédit du client) : chaque question entre dans l'enveloppe
+ * mensuelle de l'espace, commune aux deux assistants (`src/assistant/budget.ts`), et le plafond de débit ci-dessous
+ * arrête une boucle avant elle.
  */
 export interface AideRouteDeps {
-  /** Absent = l'aide n'est pas configurée (clé du Gateway ou modèle manquant) -> 503, jamais un repli muet. */
-  repondre?(q: QuestionAide): Promise<ReponseAide>;
+  /**
+   * Absent = l'aide n'est pas configurée (clé du Gateway ou modèle manquant) -> 503, jamais un repli muet. Il ajoute
+   * à `cout` ce que ses appels ont coûté.
+   */
+  repondre?(q: QuestionAide, cout: CoutAide): Promise<ReponseAide>;
+  /** 🔴 Requis : sur notre clé, rien d'autre ne borne la dépense d'un espace sur le mois. */
+  budget: BudgetAssistantDeps;
   /** Le récap du jour. Toujours câblé en production. Voir `RecapRouteDeps`. */
   recap: RecapRouteDeps;
 }
+
+/** Ce que l'aide répond quand l'enveloppe du mois est vide : une limite voulue, dite comme telle. */
+const PLAFOND_AIDE = {
+  fr: 'Je ne peux plus répondre aux questions de cet espace jusqu’au mois prochain. '
+    + 'Toute la console reste utilisable, comme d’habitude.',
+  en: 'I can no longer answer questions for this workspace until next month. '
+    + 'The whole console remains available, as usual.',
+};
 
 export interface RecapRouteDeps {
   /**
@@ -99,9 +114,15 @@ export function registerAide(app: FastifyInstance, deps: AideRouteDeps, garde: G
         reponse: e.reponse.slice(0, REPONSE_MAX_CARACTERES),
       }));
 
+    // Réservée juste avant les appels payés, soldée sur chaque sortie au coût de ceux qui ont abouti.
+    const reservation = await reserverBudget(deps.budget, tenant);
+    if (!reservation) {
+      return reply.code(200).send({ sait: true, texte: PLAFOND_AIDE[langue], sources: [], ecrans: [] } satisfies ReponseAide);
+    }
+    const cout: CoutAide = { dollars: 0 };
+    let r: ReponseAide;
     try {
-      const r = await deps.repondre({ question, role, langue, ecranCourant, historique });
-      return reply.code(200).send(r);
+      r = await deps.repondre({ question, role, langue, ecranCourant, historique }, cout);
     } catch (err) {
       // Journaliser avant de masquer : sinon une panne du Gateway et une faute de programmation rendraient le même
       // message.
@@ -113,10 +134,13 @@ export function registerAide(app: FastifyInstance, deps: AideRouteDeps, garde: G
         err: texteDe(err),
         stack: err instanceof Error ? err.stack : undefined,
       }));
+      await solderReservation(deps.budget, tenant, reservation, cout.dollars);
       // 502 gardé : ce corps n'est lu par personne (le panneau `BoutonAide.tsx` affiche son propre texte), et l'échec
       // est bien le nôtre. Le jour où l'écran affichera `error`, ce code passe en 422.
       return reply.code(502).send({ error: 'aide indisponible pour le moment' });
     }
+    await solderReservation(deps.budget, tenant, reservation, cout.dollars);
+    return reply.code(200).send(r);
   });
 
   /**

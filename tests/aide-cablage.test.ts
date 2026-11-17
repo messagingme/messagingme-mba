@@ -38,6 +38,13 @@ describe('câblage du bot d’aide', () => {
     expect(bloc, 'l’aide passerait par le client qui facture l’espace').not.toMatch(/[^A-Za-z]gateway\.completer/);
   });
 
+  it('🔴 l’aide entre dans l’enveloppe mensuelle des assistants : même compteur, même plafond, même taux', () => {
+    // Le type exige un budget, il ne dit pas lequel : un plafond à part, ou un compteur qui ne serait pas celui des
+    // assistants, rouvrirait l'écart que le passage 2 de l'audit a relevé (décision de Julien du 2026-11-17).
+    const bloc = sansCommentaires.slice(sansCommentaires.indexOf('aide: {'), sansCommentaires.indexOf('agentSetup: {'));
+    expect(bloc).toMatch(/budget: \{\s*depenses: new PgDepenseStore\(pool\),\s*plafondEuros: config\.ASSISTANT_PLAFOND_EUROS_MOIS,\s*tauxEurParDollar: config\.EUR_PER_USD,\s*\}/);
+  });
+
   it('⚠️ l’aide ne se monte QUE si son modèle est configuré', () => {
     // Sans modèle, la route doit répondre 503 plutôt que de retomber sur le modèle d'un autre usage : celui
     // de l'agent de production coûte plus cher et n'a pas le même métier.

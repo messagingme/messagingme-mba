@@ -145,7 +145,7 @@ function app(opts: {
     modele: opts.sansModele ? '' : 'modele-de-construction',
     ...(opts.sansVision ? {} : { modeleVision: 'modele-de-vision' }),
     ...(opts.depensesEchouent ? {
-      depenses: { lire: async () => 0, ajouter: async () => { throw new Error('connexion au pool perdue'); } },
+      depenses: { lire: async () => 0, reserver: async () => true, ajouter: async () => { throw new Error('connexion au pool perdue'); } },
     } : {}),
   };
   /** Exécute directement le geste métier ; les tests HTTP utilisent `srv` séparément. */

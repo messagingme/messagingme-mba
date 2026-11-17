@@ -29,12 +29,12 @@ const ROUTES_ADMIN: readonly string[] = [
   // import
   'POST /tenants/:tenantId/contacts/import/preview',
   'POST /tenants/:tenantId/contacts/import',
-  // campaigns (les trois routes sans :tenantId comprises : l'étape d'espace ne les voit pas, ce fichier si)
+  // campaigns
   'POST /tenants/:tenantId/campaigns',
-  'POST /campaigns/:campaignId/run',
-  'POST /campaigns/:campaignId/recipients/:recipientId/retry',
+  'POST /tenants/:tenantId/campaigns/:campaignId/run',
+  'POST /tenants/:tenantId/campaigns/:campaignId/recipients/:recipientId/retry',
   'POST /tenants/:tenantId/campaigns/:campaignId/pause',
-  'POST /campaigns/:campaignId/cancel-schedule',
+  'POST /tenants/:tenantId/campaigns/:campaignId/cancel-schedule',
   'POST /tenants/:tenantId/campaigns/:campaignId/stop',
   'POST /tenants/:tenantId/campaigns/:campaignId/archive',
   'POST /tenants/:tenantId/campaigns/:campaignId/unarchive',

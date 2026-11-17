@@ -375,7 +375,7 @@ depuis deux jours. Un pointeur qui décrit un ÉTAT vieillit ; un pointeur qui d
   IA) : facturer quelqu'un pour apprendre à se servir du produit se retourne contre nous. Cet écart ne se « corrige » pas.
   🔴 **ET CE QUI EST SUR NOTRE CLÉ DOIT PORTER UN PLAFOND, SANS EXCEPTION.** Sur le crédit du client, un
   bavardage se paie tout seul ; sur le nôtre, rien ne le borne. `ASSISTANT_PLAFOND_EUROS_MOIS` (défaut 2 €)
-  est compté PAR ESPACE et PARTAGÉ par les deux assistants (`assistant_depense_mois`, migration 0146) ;
+  est compté PAR ESPACE, PARTAGÉ par les deux assistants et le bot d'aide, RÉSERVÉ avant l'appel (`assistant/budget.ts`) ;
   0 le désactive. ⚠️ Il a été câblé sur UN SEUL des deux pendant tout le chantier, alors que le commentaire
   du câblage annonçait lui-même que « les deux moitiés vont ensemble » : relevé par la revue finale du
   2026-09-15, gardé depuis par `tests/agent-setup-evolution.test.ts`.

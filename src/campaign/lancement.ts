@@ -3,7 +3,7 @@ import { campaignJobExpireSeconds, resolveRatePerMinute } from './pacing';
 import type { EstimationCredit } from '../credit-whatsapp/estimation';
 
 /**
- * LE LANCEMENT D'UNE CAMPAGNE, partagé par le bouton « Lancer » de la console (`POST /campaigns/:campaignId/run`) et par
+ * LE LANCEMENT D'UNE CAMPAGNE, partagé par le bouton « Lancer » de la console (`POST /tenants/:tenantId/campaigns/:campaignId/run`) et par
  * l'outil `launch_campaign` de l'assistant. 🔴 Une seule copie : une seconde dériverait, et sur le chemin d'envoi de
  * masse ce serait un assistant qui lance avec d'autres garde-fous (ordre pause puis enfilement, groupe de l'espace,
  * modèles du mois).

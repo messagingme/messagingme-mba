@@ -11,8 +11,9 @@ import { construireMessagesMba, pointDuTourMba, type InventaireMba } from '../mb
 import { propositionMbaSchema, SCHEMA_PROPOSITION_MBA, type Operation } from '../mba/assistant/proposition';
 import { appliquer, libelleDe, type ApplicationDeps } from '../mba/assistant/application';
 import { accueilMba } from '../mba/assistant/couverture';
-import { moisDe, resteDuBudget, MESSAGE_PLAFOND, type DepenseStore } from '../assistant/budget';
-import { microEurosDepuisDollars } from '../agent/devise';
+import {
+  moisDe, resteDuBudget, MESSAGE_PLAFOND, reserverBudget, solderReservation, type DepenseStore,
+} from '../assistant/budget';
 import type { ChatMessage, GatewayChatClient, OutilExpose, ReponseChat } from '../agent/llm/chat-client';
 import { direPanneModele } from '../llm/errors';
 import { journaliser } from '../lib/journal';
@@ -106,16 +107,6 @@ export function registerMbaAssistant(app: FastifyInstance, deps: MbaAssistantDep
     const parse = corpsTour.safeParse(req.body ?? {});
     if (!parse.success) return reply.code(400).send({ error: 'message requis' });
 
-    /**
-     * Le plafond est vérifié avant l'appel et rend 200 : c'est une limite voulue, l'assistant la dit (un 4xx
-     * afficherait un message d'infrastructure, un 5xx serait remplacé par la page de Cloudflare).
-     */
-    const mois = moisDe(new Date());
-    const reste = resteDuBudget(await deps.depenses.lire(ctx.tenant, mois), deps.plafondEuros);
-    if (reste <= 0) {
-      return reply.code(200).send({ message: MESSAGE_PLAFOND, operations: [], budgetEpuise: true, ongletsUtilisables: true });
-    }
-
     const inv = await deps.inventaire(ctx.tenant);
     if (!inv) {
       // 422 et pas 502 : l'écran affiche ce message, et Cloudflare remplace le corps de toute 5xx par sa page.
@@ -134,6 +125,16 @@ export function registerMbaAssistant(app: FastifyInstance, deps: MbaAssistantDep
     const messages = construireMessagesMba(inv, bornerPourModeleMba(filComplet), avant.poses) as ChatMessage[];
 
     /**
+     * Le plafond est réservé juste avant l'appel, rien ne pouvant échouer entre les deux, et rend 200 : c'est une
+     * limite voulue, l'assistant la dit (un 4xx afficherait un message d'infrastructure, un 5xx serait remplacé par
+     * la page de Cloudflare).
+     */
+    const reservation = await reserverBudget(deps, ctx.tenant);
+    if (!reservation) {
+      return reply.code(200).send({ message: MESSAGE_PLAFOND, operations: [], budgetEpuise: true, ongletsUtilisables: true });
+    }
+
+    /**
      * L'appel est borné et rattrapé : une panne du fournisseur, un délai ou une clé refusée ne sont pas des incidents
      * de la console. Rien n'est écrit avant : le fil ne s'écrit qu'après une réponse, sinon le message du client y
      * resterait sans réponse en face.
@@ -148,6 +149,7 @@ export function registerMbaAssistant(app: FastifyInstance, deps: MbaAssistantDep
         signal: AbortSignal.timeout(DELAI_MS),
       });
     } catch (err) {
+      await solderReservation(deps, ctx.tenant, reservation, 0);
       // 422 et pas 502, pour que l'écran lise le message. Seulement pour une panne du fournisseur : le reste est
       // notre panne, relancée en 500 opaque.
       const raison = direPanneModele(err);
@@ -156,10 +158,8 @@ export function registerMbaAssistant(app: FastifyInstance, deps: MbaAssistantDep
       return reply.code(422).send({ error: `l’assistant n’a pas répondu : ${raison}` });
     }
 
-    // La dépense est notée après l'appel, au coût réel ; le dépassement du dernier tour est assumé, borné par le
-    // coût d'un tour.
-    await deps.depenses.ajouter(ctx.tenant, mois,
-      microEurosDepuisDollars(reponse.usage.coutDollars, deps.tauxEurParDollar));
+    // La réservation est remplacée par le coût réel, même si la réponse se révèle inutilisable : l'appel est payé.
+    await solderReservation(deps, ctx.tenant, reservation, reponse.usage.coutDollars);
 
     /**
      * Les arguments arrivent en JSON brut, et un modèle peut en rendre du mal formé : on retombe sur un objet vide,

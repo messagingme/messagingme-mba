@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { MESSAGE_PLAFOND, moisDe, resteDuBudget } from '../src/assistant/budget';
+import {
+  MESSAGE_PLAFOND, moisDe, resteDuBudget, RESERVATION_MICRO_EUR, reserverBudget, solderReservation,
+} from '../src/assistant/budget';
+import { DepensesMemoire, budgetEnMemoire } from './aide/depenses';
 
 /**
  * LE PLAFOND DE CE QUE NOUS DÉPENSONS pour les assistants de configuration.
@@ -49,6 +52,60 @@ describe('le plafond de l’assistant', () => {
     // onglets laisserait croire que tout est bloqué.
     expect(MESSAGE_PLAFOND).toMatch(/mois prochain/i);
     expect(MESSAGE_PLAFOND).toMatch(/onglets/i);
+  });
+});
+
+/**
+ * 🔴 RÉSERVER AVANT L'APPEL, SOLDER APRÈS (passage 2 de l'audit, 2026-11-16). Lire le compteur puis noter la dépense
+ * une fois la réponse rendue laissait passer tous les appels arrivés avant la première réponse : mesuré, vingt tours
+ * simultanés au lieu d'un. La concurrence réelle se prouve en base (`tests/integration/assistant-depense`) ; ici, la
+ * règle de calcul et ce que voient les routes.
+ */
+describe('la réservation de l’enveloppe', () => {
+  it('sous le plafond : une borne haute est réservée, puis remplacée par le coût réel', async () => {
+    const depenses = new DepensesMemoire(100_000);
+    const deps = budgetEnMemoire(depenses);
+    const r = await reserverBudget(deps, 't1');
+    expect(r).toEqual({ mois: moisDe(new Date()), microEuros: RESERVATION_MICRO_EUR });
+    expect(depenses.total).toBe(100_000 + RESERVATION_MICRO_EUR);
+    await solderReservation(deps, 't1', r!, 0.0092);
+    expect(depenses.total).toBe(100_000 + 9_200);
+  });
+
+  it('🔴 au plafond : rien n’est réservé, l’appel ne part pas', async () => {
+    const depenses = new DepensesMemoire(2_000_000);
+    expect(await reserverBudget(budgetEnMemoire(depenses), 't1')).toBeNull();
+    expect(depenses.mouvements).toEqual([]);
+  });
+
+  it('🔴 un appel qui lève rend sa réservation : solder à zéro ramène le compteur où il était', async () => {
+    const depenses = new DepensesMemoire(300_000);
+    const deps = budgetEnMemoire(depenses);
+    await solderReservation(deps, 't1', (await reserverBudget(deps, 't1'))!, 0);
+    expect(depenses.total).toBe(300_000);
+  });
+
+  it('🔴 vingt appels simultanés à un micro-euro du plafond : un seul part', async () => {
+    const depenses = new DepensesMemoire(1_999_999);
+    const deps = budgetEnMemoire(depenses);
+    const reservations = await Promise.all(Array.from({ length: 20 }, () => reserverBudget(deps, 't1')));
+    expect(reservations.filter((r) => r !== null)).toHaveLength(1);
+  });
+
+  it('🔴 plafond à 0 (levier d’urgence) : jamais refusé, réservation nulle, et la dépense réelle reste comptée', async () => {
+    const depenses = new DepensesMemoire(9_000_000);
+    const deps = { ...budgetEnMemoire(depenses), plafondEuros: 0 };
+    const r = await reserverBudget(deps, 't1');
+    expect(r).toEqual({ mois: moisDe(new Date()), microEuros: 0 });
+    await solderReservation(deps, 't1', r!, 0.001);
+    expect(depenses.total).toBe(9_001_000);
+  });
+
+  it('⚠️ le solde se fait sur le mois de la RÉSERVATION, même si l’appel finit le mois suivant', async () => {
+    const vus: string[] = [];
+    const deps = budgetEnMemoire({ lire: async () => 0, reserver: async () => true, ajouter: async (_t, mois) => { vus.push(mois); } });
+    await solderReservation(deps, 't1', { mois: '2026-10-01', microEuros: RESERVATION_MICRO_EUR }, 0.001);
+    expect(vus).toEqual(['2026-10-01']);
   });
 });
 

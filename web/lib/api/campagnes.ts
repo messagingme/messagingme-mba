@@ -8,7 +8,7 @@
  * `lib/api.ts` reste le point d'entree et reexporte tout, donc AUCUN des 67 importeurs ne change.
  */
 
-import { request, requestBlob } from '../http';
+import { ApiError, request, requestBlob } from '../http';
 import type { BulkTarget } from '../contact-filters';
 import type { CanalEtage } from '../campagne-chaine';
 import type { ReponseEnvoiInteractif } from '../partage/journal-sortant';
@@ -425,18 +425,40 @@ export function updateCampaignDraft(tenantId: string, draftId: string, name: str
 export function deleteCampaignDraft(tenantId: string, draftId: string): Promise<{ deleted: boolean }> {
   return request(`/tenants/${tenantId}/campaign-drafts/${draftId}`, { method: 'DELETE' });
 }
+/**
+ * 🔴 TRANSITOIRE (2026-11-17) : lancer, renvoyer et annuler la programmation ont rejoint `/tenants/:tenantId/...`. La
+ * console part à chaque push, l'API attend son déploiement : sur le seul 404 de route inconnue (le corps de Fastify,
+ * `error: 'Not Found'`, jamais celui d'une campagne introuvable), l'appel retombe sur l'ancienne adresse. Une route
+ * inconnue n'a rien exécuté, le rejouer ne double rien. L'API déployée, ce repli ne sert plus : il part avec le
+ * prochain lot de campagne (`todo.md`).
+ */
+export function routeInconnue(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404
+    && (err.corps as { error?: unknown } | null | undefined)?.error === 'Not Found';
+}
+async function avecRepli<T>(adresse: string, ancienne: string, init: RequestInit): Promise<T> {
+  try {
+    return await request<T>(adresse, init);
+  } catch (err) {
+    if (!routeInconnue(err)) throw err;
+    return request<T>(ancienne, init);
+  }
+}
 /** Lance une campagne : maintenant (sans `scheduledAt`) ou à une date future (ISO UTC absolu -> programmée). */
-export function runCampaign(campaignId: string, scheduledAt?: string): Promise<{ enqueued?: boolean; scheduled?: boolean; scheduledAt?: string }> {
-  return request(`/campaigns/${campaignId}/run`, { method: 'POST', ...(scheduledAt ? { body: JSON.stringify({ scheduledAt }) } : {}) });
+export function runCampaign(tenantId: string, campaignId: string, scheduledAt?: string): Promise<{ enqueued?: boolean; scheduled?: boolean; scheduledAt?: string }> {
+  return avecRepli(`/tenants/${tenantId}/campaigns/${campaignId}/run`, `/campaigns/${campaignId}/run`,
+    { method: 'POST', ...(scheduledAt ? { body: JSON.stringify({ scheduledAt }) } : {}) });
 }
 /** Renvoi d'un destinataire en échec de variable de template (F7) : après avoir corrigé la donnée du contact, re-résout
  *  et remet le destinataire en file. 202 si repris ; 422 si la variable est toujours manquante. */
-export function retryRecipient(campaignId: string, recipientId: string): Promise<{ enqueued: boolean; recipientId: string }> {
-  return request(`/campaigns/${campaignId}/recipients/${recipientId}/retry`, { method: 'POST' });
+export function retryRecipient(tenantId: string, campaignId: string, recipientId: string): Promise<{ enqueued: boolean; recipientId: string }> {
+  return avecRepli(`/tenants/${tenantId}/campaigns/${campaignId}/recipients/${recipientId}/retry`,
+    `/campaigns/${campaignId}/recipients/${recipientId}/retry`, { method: 'POST' });
 }
 /** Annule une campagne programmée : elle repasse en brouillon. */
-export function cancelSchedule(campaignId: string): Promise<{ cancelled: boolean }> {
-  return request(`/campaigns/${campaignId}/cancel-schedule`, { method: 'POST' });
+export function cancelSchedule(tenantId: string, campaignId: string): Promise<{ cancelled: boolean }> {
+  return avecRepli(`/tenants/${tenantId}/campaigns/${campaignId}/cancel-schedule`, `/campaigns/${campaignId}/cancel-schedule`,
+    { method: 'POST' });
 }
 /** Archive une campagne : masquée de la liste, conservée en base (les analytics continuent de la compter). */
 export function archiveCampaign(tenantId: string, campaignId: string): Promise<{ archived: boolean }> {

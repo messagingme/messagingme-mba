@@ -165,11 +165,13 @@ async function verdict(
   candidates: FicheAide[],
   question: string,
   recherche: RechercheSemantique,
+  cout: CoutAide,
 ): Promise<FicheAide[]> {
   if (candidates.length === 0) return [];
   try {
-    // Le coût est le nôtre (le bot d'aide est sur notre clé) : il n'est débité à personne.
-    const { scores } = await recherche.reclasser(question, candidates.map((f) => ({ texte: `${f.titre}\n${f.corps}` })));
+    // Le coût est le nôtre (le bot d'aide est sur notre clé) : il entre dans l'enveloppe mensuelle de l'espace.
+    const { scores, coutDollars } = await recherche.reclasser(question, candidates.map((f) => ({ texte: `${f.titre}\n${f.corps}` })));
+    cout.dollars += coutDollars;
     return candidates
       .map((f, i) => ({ f, score: scores[i] ?? 0 }))
       .filter((x) => x.score >= recherche.seuil)
@@ -212,12 +214,20 @@ function consigne(q: QuestionAide, ecrans: EcranAide[]): string {
 }
 
 /**
+ * Ce qu'une question a coûté sur notre clé, en dollars : vectorisation, reclassements et modèle, pour les seuls appels
+ * qui ont abouti (un appel qui lève n'a rendu aucun coût lisible). La route le reporte dans l'enveloppe de l'espace.
+ */
+export interface CoutAide {
+  dollars: number;
+}
+
+/**
  * Construit le répondeur. Les fiches arrivent dans un message à part, entre délimiteurs, jamais concaténées à
  * la consigne : ce moteur doit pouvoir recevoir aussi des textes écrits par des inconnus.
  */
-export function creerRepondeur(deps: DepsAide): (q: QuestionAide) => Promise<ReponseAide> {
+export function creerRepondeur(deps: DepsAide): (q: QuestionAide, cout?: CoutAide) => Promise<ReponseAide> {
   const rien: ReponseAide = { sait: false, texte: '', sources: [], ecrans: [] };
-  return async (q) => {
+  return async (q, cout = { dollars: 0 }) => {
     const question = q.question.trim().slice(0, QUESTION_MAX_CARACTERES);
     if (question === '') return rien;
 
@@ -226,7 +236,9 @@ export function creerRepondeur(deps: DepsAide): (q: QuestionAide) => Promise<Rep
     let candidates = lexicales;
     if (deps.recherche && deps.depot.chercherParVecteur) {
       try {
-        const [vecteur] = (await deps.recherche.vectoriser([question])).vecteurs;
+        const vectorise = await deps.recherche.vectoriser([question]);
+        cout.dollars += vectorise.coutDollars;
+        const [vecteur] = vectorise.vecteurs;
         if (vecteur) {
           candidates = fusionner(lexicales, await deps.depot.chercherParVecteur(vecteur, deps.recherche.candidats));
         }
@@ -235,7 +247,7 @@ export function creerRepondeur(deps: DepsAide): (q: QuestionAide) => Promise<Rep
       }
     }
 
-    let retenues = (deps.recherche ? await verdict(candidates, question, deps.recherche)
+    let retenues = (deps.recherche ? await verdict(candidates, question, deps.recherche, cout)
       : candidates.filter(ficheEstPertinente));
     retenues = places(retenues);
 
@@ -248,7 +260,7 @@ export function creerRepondeur(deps: DepsAide): (q: QuestionAide) => Promise<Rep
     if (retenues.length === 0 && precedente !== '') {
       const elargie = `${precedente} ${question}`.slice(0, QUESTION_MAX_CARACTERES);
       const rattrapees = await deps.depot.chercher(elargie, large ? deps.recherche!.candidats : CANDIDATS_LEXICAUX);
-      retenues = (deps.recherche ? await verdict(rattrapees, elargie, deps.recherche)
+      retenues = (deps.recherche ? await verdict(rattrapees, elargie, deps.recherche, cout)
         : rattrapees.filter(ficheEstPertinente));
       retenues = places(retenues);
     }
@@ -283,6 +295,8 @@ export function creerRepondeur(deps: DepsAide): (q: QuestionAide) => Promise<Rep
     } finally {
       clearTimeout(minuteur);
     }
+    // Payé dès qu'il a répondu, même si sa sortie est ensuite inutilisable.
+    cout.dollars += brut.usage.coutDollars;
 
     const appel = brut.appelsOutils.find((a) => a.nom === OUTIL_REPONDRE);
     if (!appel) return rien;

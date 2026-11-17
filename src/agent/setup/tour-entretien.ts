@@ -2,7 +2,7 @@ import { parse as secureJsonParse } from 'secure-json-parse';
 import type { ChatMessage, ChatMessageImage, OutilExpose, ReponseChat } from '../llm/chat-client';
 import type { IssueImportEntretien } from '../connaissance';
 import {
-  budgetOuvert, MESSAGE_PLAFOND, noterDepense, type BudgetAssistantDeps,
+  MESSAGE_PLAFOND, reserverBudget, solderReservation, type BudgetAssistantDeps,
 } from '../../assistant/budget';
 import { direPanneModele } from '../../llm/errors';
 import { journaliser } from '../../lib/journal';
@@ -131,7 +131,8 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       const historique = bornerPourModele(filComplet);
       const pointDuTour = prochainPoint(avant, inventaireDe(contexte));
 
-      if (!(await budgetOuvert(deps, commande.tenantId))) {
+      const reservation = await reserverBudget(deps, commande.tenantId);
+      if (!reservation) {
         return {
           issue: 'budget_epuise',
           reponse: {
@@ -153,6 +154,8 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
           construireMessages(contexte, historique, avant),
         );
       } catch (err) {
+        // Rien de lisible n'a été rendu : la réservation est rendue avant toute sortie, relance comprise.
+        await solderReservation(deps, commande.tenantId, reservation, 0);
         const raison = direPanneModele(err);
         if (raison === null) throw err;
         journaliser('error', 'agent_setup_tour_echec', { tenantId: commande.tenantId, err });
@@ -160,7 +163,7 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
       }
 
       // L'appel est payé même si sa sortie est ensuite absente ou invalide.
-      await noterDepense(deps, commande.tenantId, reponse.usage.coutDollars);
+      await solderReservation(deps, commande.tenantId, reservation, reponse.usage.coutDollars);
       const appel = reponse.appelsOutils.find((a) => a.nom === OUTIL_PROPOSER);
       if (!appel) return { issue: 'proposition_absente' };
 
@@ -247,7 +250,8 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
 
       // La synthèse ne tourne que sur la transition vers « couvert ». Une panne attendue du fournisseur ou une
       // sortie invalide garde la première proposition ; une panne interne de budget ou de stockage remonte.
-      if (vientDeFinir && await budgetOuvert(deps, commande.tenantId)) {
+      const reservationSynthese = vientDeFinir ? await reserverBudget(deps, commande.tenantId) : null;
+      if (reservationSynthese) {
         let seconde: ReponseChat | null = null;
         try {
           seconde = await appelerProposition(
@@ -255,13 +259,14 @@ export function creerTourEntretien(deps: TourEntretienDeps): TourEntretienAgent 
             construireMessages(contexte, historique, etatApres, { synthese: true }),
           );
         } catch (err) {
+          await solderReservation(deps, commande.tenantId, reservationSynthese, 0);
           const raison = direPanneModele(err);
           if (raison === null) throw err;
           journaliser('warn', 'agent_setup_synthese_echec', { tenantId: commande.tenantId, agentId: commande.agentId, err });
         }
 
         if (seconde) {
-          await noterDepense(deps, commande.tenantId, seconde.usage.coutDollars);
+          await solderReservation(deps, commande.tenantId, reservationSynthese, seconde.usage.coutDollars);
           tokensIn += seconde.usage.tokensIn;
           tokensOut += seconde.usage.tokensOut;
           const appelSynthese = seconde.appelsOutils.find((a) => a.nom === OUTIL_PROPOSER);

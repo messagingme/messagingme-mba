@@ -113,11 +113,19 @@ interface Deps {
   credit?: { montantMicroEur: number; soldeMicroEur: number; manqueMicroEur: number } | null;
   /** L'offre de l'espace (lot 6, B2a) : Entreprise par défaut. */
   offre?: Offre;
+  /**
+   * L'offre vue par l'étape de MONTAGE (`ServerDeps.offres`), distincte de celle que lit le module : c'est elle qui
+   * ferme la console à une Base, avant le handler.
+   */
+  offreAuMontage?: Offre;
 }
 function appWith(repo: FakeRepo, d: Deps = {}) {
   return buildServer({
     queue: new FakeQueue(),
     auth: { users: noUsers, secret: SECRET },
+    ...(d.offreAuMontage
+      ? { offres: { offreDe: async () => ({ offre: d.offreAuMontage!, droits: DROITS[d.offreAuMontage!], retourEnBaseLe: null }) } }
+      : {}),
     campaigns: {
       ...campagnesInertes,
       // Le faux dépôt de création, complété de ce que les routes lisent et écrivent des campagnes.
@@ -437,11 +445,11 @@ describe('POST /tenants/:tenantId/campaigns', () => {
   });
 });
 
-describe('POST /campaigns/:campaignId/run', () => {
+describe('POST /tenants/:tenantId/campaigns/:campaignId/run', () => {
   it('campagne du tenant -> 202 + job campaign-run enqueué (expire dimensionné)', async () => {
     const q = new FakeQueue();
     const app = appWith(new FakeRepo(contacts), { queue: q });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(202);
     expect(q.enqueued).toHaveLength(1);
     expect(q.enqueued[0]).toMatchObject({ name: 'campaign-run', data: { campaignId: 'known' } });
@@ -453,7 +461,7 @@ describe('POST /campaigns/:campaignId/run', () => {
     const q = new FakeQueue();
     // 1000 destinataires à 1/min : ~1000 min -> le timeout doit COUVRIR ça (pas la constante fixe de 15 min).
     const app = appWith(new FakeRepo(contacts), { queue: q, runSizing: { ratePerMinute: 1, pendingCount: 1000 } });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(202);
     // campaignJobExpireSeconds(1000, 1) = max(900, ceil(1000/1*60*1.5)+600) = 90600 s brut, plafonné à
     // 82800 (23 h) : au-delà, pg-boss REFUSE l'enfilement et la campagne ne partirait jamais.
@@ -470,7 +478,7 @@ describe('POST /campaigns/:campaignId/run', () => {
     const q = new FakeQueue();
     const pauseCalls: string[] = [];
     const app = appWith(new FakeRepo(contacts), { queue: q, pauseCalls, modeles: { max: 1000, reste: 100, demandes: 120 } });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(402);
     expect(res.json()).toMatchObject({ code: 'plan_limit_reached', limite: 'envoisModelesMois', max: 1000, reste: 100, demandes: 120 });
     expect(res.json().upgradeUrl).toMatch(/\/offre$/);
@@ -483,7 +491,7 @@ describe('POST /campaigns/:campaignId/run', () => {
     const q = new FakeQueue();
     const pauseCalls: string[] = [];
     const app = appWith(new FakeRepo(contacts), { queue: q, pauseCalls, credit: { montantMicroEur: 12_400_000, soldeMicroEur: 1_000_000, manqueMicroEur: 11_400_000 } });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(402);
     expect(res.json()).toEqual({
       error: 'Solde de la ligne de crédit insuffisant pour cette campagne : il vous manque 11,40 € HT. Un administrateur peut recharger la ligne de crédit depuis Paramètres > Offre, puis relancer la campagne. Rien n’est parti.',
@@ -497,7 +505,7 @@ describe('POST /campaigns/:campaignId/run', () => {
   it('autant de destinataires que de modèles restants : la campagne part', async () => {
     const q = new FakeQueue();
     const app = appWith(new FakeRepo(contacts), { queue: q, modeles: { max: 1000, reste: 100, demandes: 100 } });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(202);
     expect(q.enqueued).toHaveLength(1);
     await app.close();
@@ -506,7 +514,7 @@ describe('POST /campaigns/:campaignId/run', () => {
   it('campagne d un autre tenant / inconnue -> 404, rien enqueué', async () => {
     const q = new FakeQueue();
     const app = appWith(new FakeRepo(contacts), { queue: q, campaignTenant: 'AUTRE' });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(404);
     expect(q.enqueued).toEqual([]);
     await app.close();
@@ -514,7 +522,7 @@ describe('POST /campaigns/:campaignId/run', () => {
 
   it('sans token -> 401', async () => {
     const app = appWith(new FakeRepo(contacts));
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run' });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run' });
     expect(res.statusCode).toBe(401);
     await app.close();
   });
@@ -522,7 +530,7 @@ describe('POST /campaigns/:campaignId/run', () => {
   it('role agent -> 403 sur le run', async () => {
     const q = new FakeQueue();
     const app = appWith(new FakeRepo(contacts), { queue: q });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...asAgent() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...asAgent() });
     expect(res.statusCode).toBe(403);
     expect(q.enqueued).toEqual([]);
     await app.close();
@@ -533,7 +541,7 @@ describe('POST /campaigns/:campaignId/run', () => {
     const scheduled: Array<{ id: string; when: string }> = [];
     const app = appWith(new FakeRepo(contacts), { queue: q, scheduled });
     const when = new Date(Date.now() + 3_600_000).toISOString(); // dans 1 h
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth(), payload: { scheduledAt: when } });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth(), payload: { scheduledAt: when } });
     expect(res.statusCode).toBe(202);
     expect(res.json<{ scheduled: boolean; scheduledAt: string }>()).toMatchObject({ scheduled: true, scheduledAt: when });
     expect(scheduled).toEqual([{ id: 'known', when }]);
@@ -544,9 +552,9 @@ describe('POST /campaigns/:campaignId/run', () => {
   it('scheduledAt PASSÉ ou invalide -> 400 (pas de lancement déguisé)', async () => {
     const q = new FakeQueue();
     const app = appWith(new FakeRepo(contacts), { queue: q });
-    const past = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth(), payload: { scheduledAt: new Date(Date.now() - 1000).toISOString() } });
+    const past = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth(), payload: { scheduledAt: new Date(Date.now() - 1000).toISOString() } });
     expect(past.statusCode).toBe(400);
-    const bad = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth(), payload: { scheduledAt: 'pas-une-date' } });
+    const bad = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth(), payload: { scheduledAt: 'pas-une-date' } });
     expect(bad.statusCode).toBe(400);
     expect(q.enqueued).toEqual([]);
     await app.close();
@@ -554,21 +562,56 @@ describe('POST /campaigns/:campaignId/run', () => {
 
   it('scheduledAt sur une campagne non programmable -> 409', async () => {
     const app = appWith(new FakeRepo(contacts), { scheduleOk: false });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth(), payload: { scheduledAt: new Date(Date.now() + 3_600_000).toISOString() } });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth(), payload: { scheduledAt: new Date(Date.now() + 3_600_000).toISOString() } });
     expect(res.statusCode).toBe(409);
     await app.close();
   });
 
-  it('POST /cancel-schedule -> 200 si programmée, 404 sinon, 403 agent', async () => {
+  it('POST /tenants/:tenantId/campaigns/:id/cancel-schedule -> 200 si programmée, 404 sinon, 403 agent', async () => {
     const ok = appWith(new FakeRepo(contacts));
-    expect((await ok.inject({ method: 'POST', url: '/campaigns/known/cancel-schedule', ...auth() })).statusCode).toBe(200);
+    expect((await ok.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/cancel-schedule', ...auth() })).statusCode).toBe(200);
     await ok.close();
     const no = appWith(new FakeRepo(contacts), { cancelOk: false });
-    expect((await no.inject({ method: 'POST', url: '/campaigns/known/cancel-schedule', ...auth() })).statusCode).toBe(404);
+    expect((await no.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/cancel-schedule', ...auth() })).statusCode).toBe(404);
     await no.close();
     const agent = appWith(new FakeRepo(contacts));
-    expect((await agent.inject({ method: 'POST', url: '/campaigns/known/cancel-schedule', ...asAgent() })).statusCode).toBe(403);
+    expect((await agent.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/cancel-schedule', ...asAgent() })).statusCode).toBe(403);
     await agent.close();
+  });
+});
+
+/**
+ * 🔴 LES ROUTES D'ACTION VIVENT SOUS `/tenants/:tenantId` (passage 2 de l'audit, 2026-11-16). Les étapes de montage
+ * (isolation, puis offre) suivent le CHEMIN : hors de ce préfixe, lancer, reprendre ou renvoyer échappait à l'offre.
+ */
+describe('🔴 lancer, renvoyer et annuler la programmation passent par l’espace et par l’offre', () => {
+  const fins = ['run', 'recipients/r1/retry', 'cancel-schedule'];
+
+  it.each(fins)('%s : l’ancienne adresse hors espace n’existe plus (404 de route inconnue)', async (fin) => {
+    const app = appWith(new FakeRepo(contacts));
+    const res = await app.inject({ method: 'POST', url: `/campaigns/known/${fin}`, ...auth() });
+    expect(res.statusCode).toBe(404);
+    // Le corps de Fastify, sur lequel la console se replie tant que l'API n'est pas déployée.
+    expect(res.json()).toMatchObject({ error: 'Not Found' });
+    await app.close();
+  });
+
+  it.each(fins)('%s : un jeton d’un autre espace est refusé', async (fin) => {
+    const q = new FakeQueue();
+    const app = appWith(new FakeRepo(contacts), { queue: q, retry: { result: 'queued', campaignId: 'known' } });
+    const res = await app.inject({ method: 'POST', url: `/tenants/t2/campaigns/known/${fin}`, ...auth() });
+    expect(res.statusCode).toBe(403);
+    expect(q.enqueued).toHaveLength(0);
+    await app.close();
+  });
+
+  it.each(fins)('%s : un espace Base est arrêté par l’offre avant que rien ne parte', async (fin) => {
+    const q = new FakeQueue();
+    const app = appWith(new FakeRepo(contacts), { queue: q, offreAuMontage: 'base', retry: { result: 'queued', campaignId: 'known' } });
+    const res = await app.inject({ method: 'POST', url: `/tenants/t1/campaigns/known/${fin}`, ...auth() });
+    expect(res.statusCode).toBe(402);
+    expect(q.enqueued).toHaveLength(0);
+    await app.close();
   });
 });
 
@@ -639,8 +682,8 @@ describe('lecture campagnes (GET)', () => {
   });
 });
 
-describe('POST /campaigns/:cid/recipients/:rid/retry (F7)', () => {
-  const url = '/campaigns/known/recipients/r1/retry';
+describe('POST /tenants/:tenantId/campaigns/:cid/recipients/:rid/retry (F7)', () => {
+  const url = '/tenants/t1/campaigns/known/recipients/r1/retry';
 
   it('queued -> 202 + job campaign-run enqueué (réutilise runCampaign)', async () => {
     const q = new FakeQueue();
@@ -1060,7 +1103,7 @@ describe('reprise après pause : POST /run lève la pause AVANT d’enfiler', ()
         },
       }),
     });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(202);
     expect(pauseCalls).toEqual(['resume:known:t1', 'enqueue']);
     await app.close();
@@ -1077,7 +1120,7 @@ describe('reprise après pause : POST /run lève la pause AVANT d’enfiler', ()
         },
       }),
     });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(500);
     expect(pauseCalls).toEqual(['resume:known:t1', 'pause:known:t1']);
     await app.close();
@@ -1088,7 +1131,7 @@ describe('reprise après pause : POST /run lève la pause AVANT d’enfiler', ()
     // inertes (rien n'était en pause) laissent le lancement intact.
     const q = new FakeQueue();
     const app = appWith(new FakeRepo(contacts), { queue: q, sansPause: true });
-    const res = await app.inject({ method: 'POST', url: '/campaigns/known/run', ...auth() });
+    const res = await app.inject({ method: 'POST', url: '/tenants/t1/campaigns/known/run', ...auth() });
     expect(res.statusCode).toBe(202);
     expect(q.enqueued).toHaveLength(1);
     await app.close();

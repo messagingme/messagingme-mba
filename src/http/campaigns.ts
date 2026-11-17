@@ -249,9 +249,13 @@ export function registerCampaigns(app: FastifyInstance, deps: CampaignRouteDeps,
     return reply.code(201).send({ ...result, ...(avertissement ? { avertissement } : {}) });
   });
 
-  app.post('/campaigns/:campaignId/run', couteux, async (req, reply) => {
+  /**
+   * 🔴 Sous `/tenants/:tenantId`, comme toute route d'espace : les étapes de montage (isolation, puis offre) suivent
+   * le CHEMIN, pas la classe du module. Hors de ce préfixe, le lancement échappait à l'étape d'offre.
+   */
+  app.post('/tenants/:tenantId/campaigns/:campaignId/run', couteux, async (req, reply) => {
     const { campaignId } = req.params as { campaignId: string };
-    const authTenant = req.auth?.tenantId ?? '';
+    const authTenant = espaceVerifie(req);
     // « Plus tard » : un scheduledAt (ISO absolu UTC) programme au lieu de lancer ; le sweeper enfilera le run à
     // l'échéance. Le corps se lit d'abord : un scheduledAt mal formé est une erreur de l'appelant (400), quelle que soit
     // la campagne visée. Le reste, appartenance comprise, est `lancerCampagne`, que l'assistant appelle aussi.
@@ -291,8 +295,8 @@ export function registerCampaigns(app: FastifyInstance, deps: CampaignRouteDeps,
    * paramMapping sur le contact à jour et on remet le destinataire à `pending` (même chemin d'envoi). Gardes :
    * famille de codes variables, statut `failed`, appartenance à l'espace. 422 si la variable manque toujours.
    */
-  app.post('/campaigns/:campaignId/recipients/:recipientId/retry', opts, async (req, reply) => {
-    const authTenant = req.auth?.tenantId ?? '';
+  app.post('/tenants/:tenantId/campaigns/:campaignId/recipients/:recipientId/retry', opts, async (req, reply) => {
+    const authTenant = espaceVerifie(req);
     const { campaignId, recipientId } = req.params as { campaignId: string; recipientId: string };
     const r = await deps.repo.resetRecipientForRetry(authTenant, campaignId, recipientId);
     if (r.result === 'not_found') return reply.code(404).send({ error: 'destinataire inconnu' });
@@ -324,9 +328,9 @@ export function registerCampaigns(app: FastifyInstance, deps: CampaignRouteDeps,
   });
 
   // Annule une campagne programmée : elle repasse en brouillon (le job différé n'a jamais été enfilé, rien à tuer).
-  app.post('/campaigns/:campaignId/cancel-schedule', opts, async (req, reply) => {
+  app.post('/tenants/:tenantId/campaigns/:campaignId/cancel-schedule', opts, async (req, reply) => {
     const { campaignId } = req.params as { campaignId: string };
-    const authTenant = req.auth?.tenantId ?? '';
+    const authTenant = espaceVerifie(req);
     const ok = await deps.repo.cancelSchedule(campaignId, authTenant);
     if (!ok) return reply.code(404).send({ error: 'campagne non programmée' });
     return reply.code(200).send({ cancelled: true, campaignId });

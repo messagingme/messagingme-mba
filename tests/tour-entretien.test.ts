@@ -4,6 +4,8 @@ import type { ReponseChat } from '../src/agent/llm/chat-client';
 import { AGENDA } from '../src/agent/setup/couverture';
 import type { EntretienComplet, EntretienStore } from '../src/agent/setup/entretien-store';
 import { ficheVide } from '../src/agent/fiche';
+import { LlmApiError } from '../src/llm/errors';
+import { DepensesMemoire } from './aide/depenses';
 
 const AGENT_ID = '11111111-1111-4111-8111-111111111111';
 const POINTS = AGENDA.map((point) => point.code);
@@ -59,6 +61,10 @@ function dependances(options: {
     },
     depenses: {
       lire: async () => { evenements.push('lire_budget'); return options.depenseMicroEuros ?? 0; },
+      reserver: async (_t, _m, _micro, plafondMicro) => {
+        evenements.push('reserver_budget');
+        return (options.depenseMicroEuros ?? 0) < plafondMicro;
+      },
       ajouter: async () => {
         evenements.push('noter_depense');
         rangDepense += 1;
@@ -141,7 +147,7 @@ describe('un tour d’entretien', () => {
     await creerTourEntretien(deps).executer(commande);
 
     expect(evenements).toEqual([
-      'lire_scenarios', 'lire_entretien', 'lire_budget', 'modele', 'noter_depense', 'ecrire', 'importer',
+      'lire_scenarios', 'lire_entretien', 'reserver_budget', 'modele', 'noter_depense', 'ecrire', 'importer',
     ]);
   });
 
@@ -157,7 +163,7 @@ describe('un tour d’entretien', () => {
 
     await expect(creerTourEntretien(deps).executer(commande)).rejects.toThrow('base indisponible');
     expect(evenements).toEqual([
-      'lire_scenarios', 'lire_entretien', 'lire_budget', 'modele', 'noter_depense', 'ecrire',
+      'lire_scenarios', 'lire_entretien', 'reserver_budget', 'modele', 'noter_depense', 'ecrire',
     ]);
   });
 
@@ -177,5 +183,56 @@ describe('un tour d’entretien', () => {
     });
 
     await expect(creerTourEntretien(deps).executer(commande)).rejects.toThrow('compteur indisponible');
+  });
+});
+
+/**
+ * 🔴 L'ENVELOPPE SE RÉSERVE AVANT L'APPEL (passage 2 de l'audit, 2026-11-16). Lue avant et notée après, elle laissait
+ * partir tous les tours arrivés avant la première réponse du modèle.
+ */
+describe('la réservation de l’enveloppe pendant un tour', () => {
+  it('🔴 vingt tours simultanés à un micro-euro du plafond : un seul appelle le modèle', async () => {
+    const base = dependances();
+    let appels = 0;
+    let ouvrir!: () => void;
+    const porte = new Promise<void>((r) => { ouvrir = r; });
+    const deps: TourEntretienDeps = {
+      ...base,
+      // Le plafond des dépendances de test est de 10 € : il reste un micro-euro.
+      depenses: new DepensesMemoire(9_999_999),
+      completer: async (entree) => { appels += 1; await porte; return base.completer!(entree); },
+    };
+    let refus = 0;
+    const tours = Array.from({ length: 20 }, () => creerTourEntretien(deps).executer(commande)
+      .then((r) => { if (r.issue === 'budget_epuise') refus += 1; return r; }));
+    // Le modèle ne répond qu'une fois les dix-neuf autres tours tranchés : sans réservation, ils attendraient tous
+    // devant la porte et ce délai expirerait.
+    await vi.waitFor(() => { if (refus < 19) throw new Error(`${refus} refus sur 19`); });
+    ouvrir();
+    await Promise.all(tours);
+    expect(appels).toBe(1);
+  });
+
+  it('🔴 un modèle en panne rend sa réservation : le compteur revient où il était', async () => {
+    const depenses = new DepensesMemoire(500_000);
+    const deps: TourEntretienDeps = {
+      ...dependances(),
+      depenses,
+      completer: async () => { throw new LlmApiError(503, 'indisponible', true); },
+    };
+    const resultat = await creerTourEntretien(deps).executer(commande);
+    expect(resultat.issue).toBe('modele_en_panne');
+    expect(depenses.total).toBe(500_000);
+  });
+
+  it('🔴 une panne qui n’est pas celle du fournisseur remonte, réservation rendue quand même', async () => {
+    const depenses = new DepensesMemoire(500_000);
+    const deps: TourEntretienDeps = {
+      ...dependances(),
+      depenses,
+      completer: async () => { throw new TypeError('faute de programmation'); },
+    };
+    await expect(creerTourEntretien(deps).executer(commande)).rejects.toThrow('faute de programmation');
+    expect(depenses.total).toBe(500_000);
   });
 });

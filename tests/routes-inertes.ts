@@ -74,8 +74,10 @@ export const compteInerte: Pick<AccountRouteDeps, 'photoNumero' | 'hubspotPortal
   hubspotPortal: async () => ({ connected: false }),
 };
 
-export const aideInerte: Pick<AideRouteDeps, 'recap'> = {
+export const aideInerte: Pick<AideRouteDeps, 'recap' | 'budget'> = {
   recap: { calculer: neDevraitPasEtreAppelee('recap.calculer') },
+  // L'enveloppe toujours ouverte : un test qui la ferme le dit.
+  budget: { depenses: { lire: async () => 0, ajouter: async () => {}, reserver: async () => true }, plafondEuros: 2, tauxEurParDollar: 1 },
 };
 
 export const connaissanceInerte: Pick<AgentKnowledgeRouteDeps, 'journaliserSuppression'> = {
@@ -96,7 +98,7 @@ export const assistantAgentInerte: Pick<AgentSetupRouteDeps,
   // Absente : « auteur inconnu » partout, c'est-à-dire aucune adresse résolue.
   emailsDesMembres: async () => ({}),
   // Absent : pas de plafond. Un plafond à 0 dit la même chose, et le compteur n'est alors jamais lu.
-  depenses: { lire: async () => 0, ajouter: async () => {} },
+  depenses: { lire: async () => 0, ajouter: async () => {}, reserver: async () => true },
   plafondEuros: 0,
   // Absent : le repli était 1.
   tauxEurParDollar: 1,

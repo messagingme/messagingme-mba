@@ -338,3 +338,39 @@ describe('répondeur d’aide : avec la recherche sémantique', () => {
     expect(r.sait).toBe(true);
   });
 });
+
+/**
+ * 🔴 CE QU'UNE QUESTION COÛTE SUR NOTRE CLÉ (passage 2 de l'audit, 2026-11-16) : la route le reporte dans l'enveloppe
+ * mensuelle de l'espace. Les coûts rendus par la recherche étaient ignorés, et celui du modèle aussi.
+ */
+describe('répondeur d’aide : ce qu’une question coûte', () => {
+  const payant = (cout: number) => ({ ...repondu('Ouvrez Campagnes.'), usage: { tokensIn: 0, tokensOut: 0, tokensCaches: 0, coutDollars: cout } });
+  const depot = { chercher: async () => [fiche()], chercherParVecteur: async () => [fiche()] };
+
+  it('🔴 additionne la vectorisation, le reclassement et le modèle', async () => {
+    const recherche = {
+      vectoriser: async () => ({ vecteurs: [[1, 0, 0]], coutDollars: 0.0001 }),
+      reclasser: async (_q: string, f: Array<{ texte: string }>) => ({ scores: f.map(() => 0.9), coutDollars: 0.0002 }),
+      candidats: 12, seuil: 0.06,
+    };
+    const cout = { dollars: 0 };
+    await creerRepondeur(deps({ depot, recherche, completer: async () => payant(0.001) as never }))(question, cout);
+    expect(cout.dollars).toBeCloseTo(0.0013, 10);
+  });
+
+  it('un appel qui lève ne compte rien, et aucune source ne fait rien payer au modèle', async () => {
+    const recherche = {
+      vectoriser: async () => ({ vecteurs: [[1, 0, 0]], coutDollars: 0.0001 }),
+      reclasser: async (_q: string, f: Array<{ texte: string }>) => ({ scores: f.map(() => 0.01), coutDollars: 0.0002 }),
+      candidats: 12, seuil: 0.06,
+    };
+    const cout = { dollars: 0 };
+    const completer = vi.fn();
+    await creerRepondeur(deps({ depot, recherche, completer }))(question, cout);
+    expect(completer).not.toHaveBeenCalled();
+    expect(cout.dollars).toBeCloseTo(0.0003, 10);
+    const enPanne = { dollars: 0 };
+    await creerRepondeur(deps({ completer: async () => { throw new Error('délai dépassé'); } }))(question, enPanne);
+    expect(enPanne.dollars).toBe(0);
+  });
+});

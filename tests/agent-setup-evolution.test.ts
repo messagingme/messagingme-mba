@@ -197,10 +197,10 @@ describe('le plafond de dépense', () => {
     expect(mba).toContain('plafondEuros: config.ASSISTANT_PLAFOND_EUROS_MOIS');
   });
 
-  it('🔴 il est vérifié AVANT l’appel, et il rend 200 avec une phrase', () => {
+  it('🔴 il est réservé AVANT l’appel, et il rend 200 avec une phrase', () => {
     // Un 4xx afficherait un message d'infrastructure là où le client attend une phrase, et un 5xx serait
     // remplacé par la page d'erreur de Cloudflare.
-    expect(tour).toContain('if (!(await budgetOuvert(deps, commande.tenantId)))');
+    expect(tour).toContain('const reservation = await reserverBudget(deps, commande.tenantId);');
     expect(tour).toContain('message: MESSAGE_PLAFOND');
   });
 
@@ -208,7 +208,7 @@ describe('le plafond de dépense', () => {
     // La noter seulement sur le chemin heureux rendrait le plafond contournable par un modèle bavard et
     // inexploitable : l'appel a eu lieu, donc il est payé.
     const apresAppel = tour.slice(tour.indexOf('reponse = await appelerProposition('));
-    const note = apresAppel.indexOf('await noterDepense(deps, commande.tenantId, reponse.usage.coutDollars)');
+    const note = apresAppel.indexOf('await solderReservation(deps, commande.tenantId, reservation, reponse.usage.coutDollars)');
     const sortie = apresAppel.indexOf("if (!appel) return { issue: 'proposition_absente' }");
     // ⚠️ L'EXISTENCE D'ABORD, l'ordre ENSUITE : `indexOf` rend -1 quand la ligne a disparu, et « -1 < n »
     // est vrai. Sans cette assertion, retirer la dépense ferait PASSER ce test, qui prouverait l'inverse de
@@ -219,7 +219,7 @@ describe('le plafond de dépense', () => {
   });
 
   it('🔴 et la LECTURE D’IMAGE compte aussi : elle part chez un fournisseur qui la facture', () => {
-    expect(route).toContain('await noterDepense(deps, ctx.tenant, lu.coutDollars)');
+    expect(route).toContain('await solderReservation(deps, ctx.tenant, reservation, lu.coutDollars)');
     expect(route).toContain('coutDollars: r.usage.coutDollars');
   });
 });

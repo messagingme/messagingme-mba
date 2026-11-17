@@ -231,7 +231,7 @@ function CampaignsInner({ session }: { session: Session }) {
   async function run(id: string, quand?: string) {
     setError(null);
     try {
-      await runCampaign(id, quand);
+      await runCampaign(session.tenantId, id, quand);
       await openDetail(id); // ouvre le détail de la campagne lancée
       // Le worker traite en ~1-2s : on rafraîchit quelques fois pour voir les statuts évoluer.
       setPolling(true);
@@ -254,7 +254,7 @@ function CampaignsInner({ session }: { session: Session }) {
   async function cancelSched(id: string) {
     setError(null);
     try {
-      await cancelSchedule(id);
+      await cancelSchedule(session.tenantId, id);
       await reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('Annulation impossible', 'Cancellation failed'));
@@ -622,7 +622,7 @@ function DetailPanel({ detail, cout, devise, tenantId, onClose, onRetried }: {
       // Ne PATCH que les champs réellement saisis (MERGE côté serveur, n'écrase pas les autres).
       const fields = Object.fromEntries(Object.entries(vals).filter(([, v]) => v.trim() !== ''));
       if (Object.keys(fields).length > 0) await updateContact(tenantId, r.contactId, { fields });
-      await retryRecipient(detail.id, r.id);
+      await retryRecipient(tenantId, detail.id, r.id);
       setRetryFor(null);
       setMsg({ rid: r.id, text: t('Renvoi en file. Le statut se met à jour au rafraîchissement.', 'Resend queued. Status updates on refresh.'), ok: true });
       onRetried();

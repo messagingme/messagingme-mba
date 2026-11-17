@@ -148,8 +148,8 @@ export function EtapeRecap({
       if (!puisLancer) { setEnvoi('creee'); onCree?.(cree.campaignId); return; }
       // ⚠️ DEUX APPELS ÉCRITS EN CLAIR plutôt qu'un argument optionnel calculé : `runCampaign` sans date
       // LANCE, avec date PROGRAMME, et ces deux gestes n'ont pas le même coût. La différence se lit.
-      if ('iso' in moment) await runCampaign(cree.campaignId, moment.iso);
-      else await runCampaign(cree.campaignId);
+      if ('iso' in moment) await runCampaign(tenantId, cree.campaignId, moment.iso);
+      else await runCampaign(tenantId, cree.campaignId);
       setEnvoi('fait');
       onCree?.(cree.campaignId);
     } catch (err) {
