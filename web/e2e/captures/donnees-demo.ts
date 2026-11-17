@@ -155,9 +155,14 @@ export const NAVIGATEUR: Readonly<Record<Locale, { locale: string; timezoneId: s
  * À côté, `etape-<n>[-en].json` : la boîte de `pointeur` (le geste de l'étape) et celle de `zone`, mesurées dans l'état
  * exact de la capture. Le film de la page (`~/engageme-motion/engageme-aide`) y pose son curseur et son zoom : il se
  * refait avec les captures, sans coordonnée écrite à la main.
+ *
+ * `fleche` (fiches des blocs de scénario, 2026-11-17) : une flèche et un cadre sur le `pointeur`, dessinés dans la page
+ * juste avant la photo, APRÈS le défilement, pour qu'ils tombent sur l'élément tel qu'il est photographié. Une option :
+ * les captures des autres fiches ne changent pas.
  */
 export async function capturer(
   page: Page, cle: string, numero: number | string, locale: Locale, zone?: Locator, ou: 'haut' | 'bas' = 'haut', pointeur?: Locator,
+  fleche = false,
 ): Promise<void> {
   await page.waitForLoadState('networkidle');
   // Aucun champ en cours de saisie sur une capture : le curseur et la sélection ne disent rien au lecteur.
@@ -173,10 +178,66 @@ export async function capturer(
   }
   await page.waitForTimeout(400);
   const nom = `e2e/captures/sortie/${cle}/etape-${numero}${locale === 'en' ? '-en' : ''}`;
-  await page.screenshot({ path: `${nom}.png` });
+  // La flèche cadre la photo sur ce qu'elle montre : dans la page d'aide, une capture de toute la console est réduite au
+  // tiers, et l'élément visé y devient illisible. Le cadre garde le format 16:10 des autres captures.
+  const vue = page.viewportSize();
+  const cadre = fleche && pointeur && vue ? cadrer(await pointeur.evaluate(poserFleche), vue) : undefined;
+  await page.screenshot({ path: `${nom}.png`, ...(cadre ? { clip: cadre } : {}) });
+  if (cadre) await page.evaluate(() => document.getElementById('fleche-capture')?.remove());
   const boite = async (l?: Locator) => {
     const b = l ? await l.boundingBox() : null;
     return b && { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) };
   };
-  await writeFile(`${nom}.json`, JSON.stringify({ pointeur: await boite(pointeur), zone: await boite(zone) }));
+  // `cadre` : la photo est rognée, les boîtes restent en coordonnées de la fenêtre ; un film les décale de son origine.
+  await writeFile(`${nom}.json`, JSON.stringify({ pointeur: await boite(pointeur), zone: await boite(zone), ...(cadre ? { cadre } : {}) }));
+}
+
+type Boite = { x: number; y: number; width: number; height: number };
+
+/**
+ * La zone photographiée autour de la flèche et de sa cible : 640 x 400 au moins (le double en pixels, le scénario
+ * capturant en double densité), agrandie si la cible déborde, en 16:10, centrée sur elles et tenue dans la fenêtre.
+ */
+function cadrer(b: Boite, vue: { width: number; height: number }): Boite {
+  const marge = 48;
+  let width = Math.max(640, b.width + marge, (b.height + marge) * 1.6);
+  width = Math.min(width, vue.width, vue.height * 1.6);
+  const height = width / 1.6;
+  const x = Math.min(Math.max(0, b.x + b.width / 2 - width / 2), vue.width - width);
+  const y = Math.min(Math.max(0, b.y + b.height / 2 - height / 2), vue.height - height);
+  return { x: Math.round(x), y: Math.round(y), width: Math.round(width), height: Math.round(height) };
+}
+
+/**
+ * Le calque de la flèche, exécuté DANS la page (il ne voit rien de ce module) : un cadre autour de l'élément, et une
+ * flèche oblique venue du côté le plus libre de la fenêtre. Corail sur halo blanc : il tranche sur le bleu de la console
+ * sans se lire comme une erreur de l'écran. Fixe et sans clic, retiré par `capturer` après la photo. Rend la boîte qui
+ * contient la cible ET la flèche, que `cadrer` photographie.
+ */
+function poserFleche(cible: Element): { x: number; y: number; width: number; height: number } {
+  const r = cible.getBoundingClientRect();
+  const largeur = window.innerWidth;
+  const cy = r.top + r.height / 2;
+  const parLaGauche = r.left + r.width / 2 > largeur / 2;
+  const pointe = { x: parLaGauche ? r.left - 12 : r.right + 12, y: cy };
+  const dy = cy - 70 < 12 ? 70 : -70;
+  const queue = { x: Math.min(largeur - 12, Math.max(12, pointe.x + (parLaGauche ? -120 : 120))), y: cy + dy };
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.id = 'fleche-capture';
+  svg.setAttribute('width', String(largeur));
+  svg.setAttribute('height', String(window.innerHeight));
+  svg.setAttribute('style', 'position:fixed;inset:0;z-index:2147483647;pointer-events:none');
+  const angle = Math.atan2(pointe.y - queue.y, pointe.x - queue.x);
+  const tete = (d: number, a: number) => `${pointe.x - d * Math.cos(angle - a)},${pointe.y - d * Math.sin(angle - a)}`;
+  const traits = (couleur: string, epaisseur: number) => [
+    `<rect x="${r.left - 6}" y="${r.top - 6}" width="${r.width + 12}" height="${r.height + 12}" rx="10" fill="none" stroke="${couleur}" stroke-width="${epaisseur}"/>`,
+    `<line x1="${queue.x}" y1="${queue.y}" x2="${pointe.x}" y2="${pointe.y}" stroke="${couleur}" stroke-width="${epaisseur + 2}" stroke-linecap="round"/>`,
+    `<polygon points="${pointe.x},${pointe.y} ${tete(22, 0.45)} ${tete(22, -0.45)}" fill="${couleur}" stroke="${couleur}" stroke-width="${epaisseur - 2}" stroke-linejoin="round"/>`,
+  ].join('');
+  svg.innerHTML = traits('#FFFFFF', 7) + traits('#E4604A', 4);
+  document.body.appendChild(svg);
+  const gauche = Math.min(r.left - 10, queue.x - 10);
+  const haut = Math.min(r.top - 10, queue.y - 10);
+  return { x: gauche, y: haut, width: Math.max(r.right + 10, queue.x + 10) - gauche, height: Math.max(r.bottom + 10, queue.y + 10) - haut };
 }

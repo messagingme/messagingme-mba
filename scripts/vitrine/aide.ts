@@ -404,7 +404,8 @@ const GROUPES_ACCUEIL = (langue: Langue): ReadonlyArray<{ nom: string; sections:
   },
   {
     nom: T[langue].groupeConsole,
-    sections: [{ id: 'demarrer-console', nom: NOMS_RUBRIQUES['demarrer-console'][langue] }, { id: 'parler-aux-clients', nom: T[langue].parlerConsole }],
+    sections: [{ id: 'demarrer-console', nom: NOMS_RUBRIQUES['demarrer-console'][langue] }, { id: 'parler-aux-clients', nom: T[langue].parlerConsole },
+      { id: 'construire-un-scenario', nom: NOMS_RUBRIQUES['construire-un-scenario'][langue] }],
   },
 ];
 

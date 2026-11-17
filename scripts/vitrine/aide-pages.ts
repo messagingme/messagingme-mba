@@ -39,6 +39,8 @@ export const NOMS_RUBRIQUES: Readonly<Record<Rubrique, Readonly<Record<Langue, s
   'demarrer-claude': { fr: 'Démarrer avec Claude Code ou Codex', en: 'Get started with Claude Code or Codex' },
   'demarrer-console': { fr: 'Démarrer avec la console', en: 'Get started with the console' },
   'parler-aux-clients': { fr: 'Parler aux clients', en: 'Talk to customers' },
+  // Une fiche par bloc du constructeur (spec `2026-11-17-fiches-par-bloc-design.md`), dans l'ordre de la palette.
+  'construire-un-scenario': { fr: 'Construire un scénario', en: 'Build a scenario' },
 };
 
 /**

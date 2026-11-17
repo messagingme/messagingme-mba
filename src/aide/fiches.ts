@@ -150,7 +150,7 @@ export function decouperFiche(f: FicheFichier): FicheFichier[] {
  * Les rubriques du centre d'aide public, dans l'ordre du menu. « Démarrer » s'est coupée en deux (lot 4a de l'aide à la
  * connexion, spec `2026-11-08-aide-connexion-numero-design.md`) : depuis Claude Code ou Codex, et depuis la console.
  */
-export const RUBRIQUES = ['demarrer-claude', 'demarrer-console', 'parler-aux-clients'] as const;
+export const RUBRIQUES = ['demarrer-claude', 'demarrer-console', 'parler-aux-clients', 'construire-un-scenario'] as const;
 export type Rubrique = (typeof RUBRIQUES)[number];
 
 /**

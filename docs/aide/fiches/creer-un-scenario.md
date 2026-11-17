@@ -18,20 +18,8 @@ Les blocs que vous utiliserez le plus :
   annule vos choix. Une variable reliée à aucun champ apparaît en rouge, et le bloc ne partira pas. Pour le premier
   modèle d'un scénario lancé en campagne, l'étape Contenu de la campagne reprend vos choix, et vous pouvez encore les
   y changer.
-- **Message rapide** : un texte, avec jusqu'à trois boutons de réponse ou un bouton qui ouvre une page. Il ne
-  part que dans une conversation déjà ouverte. L'adresse du bouton peut venir d'un champ du contact : le bouton
-  « Variable » sous l'adresse l'insère, par exemple le lien du devis importé de HubSpot. Si ce champ est vide sur la
-  fiche, le message ne part pas pour ce contact : en cours de parcours, la conversation passe à votre équipe et le
-  Journal des erreurs dit pourquoi (voir plus bas). Une adresse à variable ne
-  part qu'en WhatsApp : un parcours RCS la refuse. Il peut porter une image, une vidéo MP4 ou un PDF ; la vidéo et le
-  PDF ne partent qu'en WhatsApp, et le texte qui les accompagne est limité à 1 024 caractères. Une vidéo d'iPhone
-  (MOV, ou HEVC) est refusée au dépôt : convertissez-la en MP4 H.264. Le fichier vient de votre ordinateur
-  (« Choisir un fichier ») ou de ceux que vous avez déjà déposés (« Depuis la médiathèque », qui ne propose que ce que
-  le bloc peut envoyer). Vos fichiers et le quota de votre offre se gèrent dans Paramètres > Médiathèque, où vous
-  pouvez aussi en ajouter directement. Avec des boutons de réponse, il a aussi la sortie « Puis, sans attendre » : ce
-  que vous y reliez part juste après lui, et ses boutons restent proposés au contact. Seuls des blocs qui n'attendent
-  rien peuvent la suivre (message sans bouton, action, condition, envoi de mail, appel API) ; un bloc qui attend une
-  réponse empêche de publier.
+- **Message rapide** : un texte, avec un fichier, des réponses rapides ou un bouton de lien. Tout son mode
+  d'emploi est dans sa fiche, « Le bloc Message rapide ».
 - **Question** : une question avec un menu de réponses, ou une question ouverte. Le scénario attend la
   réponse avant de continuer. Elle peut ranger la réponse dans un de vos champs, et attendre un fichier (une pièce
   d'identité, par exemple) : cochez « Attendre un fichier » et ses types, et le fichier part par la sortie « Fichier

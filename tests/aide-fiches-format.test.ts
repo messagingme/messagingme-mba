@@ -209,6 +209,8 @@ describe('les fiches publiques', () => {
     // Le nom et la photo du numéro, qui se changent chez Meta (Julien, 2026-11-17, avec ses captures) : en fin des deux
     // rubriques de démarrage, la console d'abord.
     'changer-le-nom-et-la-photo-de-mon-numero': ['demarrer-console', 10],
+    // Une fiche par bloc du constructeur de scénario (spec `2026-11-17-fiches-par-bloc-design.md`), dans l'ordre de la palette.
+    'bloc-message-rapide': ['construire-un-scenario', 1],
   };
   /** Les six écrans qui portent « Comment faire », et leur page. */
   const COMMENT_FAIRE: Record<string, string> = {
