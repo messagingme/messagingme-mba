@@ -255,13 +255,14 @@ const prixDuNumero = (e: Pick<EtatConnexion, 'inclusDansLePro' | 'essaiPro'>): P
   (e.inclusDansLePro ? 'inclus' : e.essaiPro ? 'essai' : 'payant');
 const ETAPE_PRIX: Record<PrixDuNumero, string> = {
   inclus: '« Obtenir mon numéro » : il est inclus dans son offre, rien à payer ; le numéro s’affiche sur la page.',
-  essai: '« Payer 3,50 € HT par mois » : pendant son essai de la formule Pro, ces 3,50 € sont déduits de son premier mois '
-    + 'de formule Pro ; une fois le paiement confirmé, le numéro s’affiche sur la page.',
+  essai: '« Payer 3,50 € HT par mois » : pendant son essai de la formule Pro, ces 3,50 € sont déduits de sa première facture '
+    + 'de formule Pro, et ne lui sont pas remboursés s’il ne la garde pas au bout de l’essai ; une fois le paiement confirmé, le '
+    + 'numéro s’affiche sur la page.',
   payant: '« Payer 3,50 € HT par mois » ; une fois le paiement confirmé, le numéro s’affiche sur la page.',
 };
 const PRIX_DIT: Record<PrixDuNumero, string> = {
   inclus: 'inclus en formule Pro',
-  essai: '3,50 € HT par mois, déduits du premier mois de formule Pro (essai en cours)',
+  essai: '3,50 € HT par mois, déduits de la première facture de formule Pro, non remboursés sans formule Pro au bout de l’essai (essai en cours)',
   payant: '3,50 € HT par mois',
 };
 
@@ -344,7 +345,7 @@ const NUMERO_NEUF = 'dès le premier jour, elle répond à ses clients depuis l�
  * La dernière étape du numéro fourni mis dans l'application : le bouton de la page, la même fenêtre qu'en coexistence.
  * Son libellé est celui de `COEXISTENCE_BOUTON` (`web/lib/fenetre-meta.ts`), que `tests/mcp-numero.test.ts` tient égal.
  */
-const GARDER_APRES_COMPTE = 'Une fois le compte créé dans l’application, « Garder mon application WhatsApp Business » sur la '
+const GARDER_APRES_COMPTE = 'Une fois le compte créé dans l’application, « Ouvrir la fenêtre de Meta » sur la '
   + 'page : dans la fenêtre de Meta, saisir ce numéro et confirmer dans l’application, sur le téléphone.';
 
 /**
@@ -379,7 +380,7 @@ const consigneFourniApplication = (prix: PrixDuNumero, url: string, ligne: boole
  */
 const compteCree = (fourni: string): string => `Le numéro ${fourni} a déjà reçu son code de vérification : son compte de `
   + 'l’application WhatsApp Business est créé. Ne redonne PAS les étapes de création du compte. Il ne reste qu’une étape, '
-  + 'garder l’application : sur la page, « Garder mon application WhatsApp Business », puis, dans la fenêtre de Meta, '
+  + 'garder l’application : sur la page, « Ouvrir la fenêtre de Meta », puis, dans la fenêtre de Meta, '
   + 'saisir ce numéro et confirmer dans l’application, sur le téléphone. Si la page n’est plus ouverte, ou si l’heure du '
   + 'lien est passée, start_whatsapp_connection avec mode « coexistence » donne un lien neuf qui ouvre directement cette '
   + 'fenêtre : écris-le-lui en entier (ce mot reste dans ton appel, jamais dans ce que tu lui dis). Si l’application '

@@ -18,13 +18,12 @@ Votre numéro sert déjà dans l'application WhatsApp Business de votre téléph
 de Meta, le meilleur des deux mondes. Vous y répondez toujours, gratuitement, et Messaging Me envoie les messages de
 votre site, de votre logiciel ou de votre boutique.
 
-**1. [claude] Ouvrir « Garder mon application WhatsApp Business ».** Demandez-le à Claude Code : il vous donne un lien
+**1. [claude] Ouvrir la fenêtre de Meta.** Demandez-le à Claude Code : il vous donne un lien
 vers la page « Connecter WhatsApp ». La page rappelle ce qui change, puis le bouton ouvre la fenêtre de Meta, où vous
 vous connectez avec votre profil Facebook.
 
-**1. [console] Ouvrir « Garder mon application WhatsApp Business ».** Sur la page « Connecter WhatsApp », cliquez sur
-« Vous pouvez le garder », puis sur « Garder mon application WhatsApp Business » : la fenêtre de Meta s'ouvre, où vous
-vous connectez avec votre profil Facebook.
+**1. [console] Ouvrir la fenêtre de Meta.** Sur la page « Connecter WhatsApp », cliquez sur « Vous pouvez le garder »,
+puis sur « Ouvrir la fenêtre de Meta » : elle s'ouvre, et vous vous y connectez avec votre profil Facebook.
 
 Sans compte Meta Business, les questions de la page mènent au même bouton : « Oui » à l'application WhatsApp Business,
 puis « Oui » au numéro qui y fonctionne et à « Voulez-vous utiliser ce numéro-là ? ». Sinon, répondez « Avec
@@ -58,7 +57,7 @@ WhatsApp, ses conversations, et transmettre à Meta les événements de votre co
 
 **9. Terminer.** « Votre compte est associé à Messaging Me » : votre compte WhatsApp est créé, et votre portefeuille
 s'il est nouveau. Cliquez sur « Terminer » ; le moyen de paiement chez Meta peut attendre votre premier modèle. Votre
-numéro apparaît sur l'Accueil. Sinon, relancez « Garder mon application WhatsApp Business » : la fenêtre reprend ce
+numéro apparaît sur l'Accueil. Sinon, relancez « Ouvrir la fenêtre de Meta » : la fenêtre reprend ce
 qui est déjà créé et termine le rattachement.
 
 ## Ce qui change dans l'application

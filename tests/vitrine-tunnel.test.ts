@@ -49,8 +49,9 @@ const affiche = (h: string): string => h.replace(/<[^>]+>/g, '').replace(/&nbsp;
 describe('le tunnel du numéro WhatsApp', () => {
   it('le numéro fourni cite le prix du code', () => {
     expect(PRIX_NUMERO_AFFICHE_HT_CENTIMES).toBe(PRIX_NUMERO_HT_CENTIMES);
-    expect(corps(lire(fichierDe(DEMARRER.fr)))).toContain('3,50 € par mois en formule Free, inclus en formule Pro');
-    expect(corps(lire(fichierDe(DEMARRER.en)))).toContain('€3.50 a month with the Free plan, included in Pro');
+    // Sous la formule choisie (lot 5 du 2026-11-17) : en Free, le prix et le Pro qui l'inclut ; en Pro, l'essai.
+    expect(corps(lire(fichierDe(DEMARRER.fr)))).toContain('Ce numéro coûte 3,50 € par mois en formule Free, et il est inclus en formule Pro.');
+    expect(corps(lire(fichierDe(DEMARRER.en)))).toContain('This number costs €3.50 a month with the Free plan, and is included in Pro.');
   });
 
   it('est posé, une seule fois, sur chaque page qui le porte, et nulle part ailleurs', () => {
@@ -146,6 +147,30 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect([...mien.textes, ...Object.values(mien.numero ?? {})].join(' '), langue).not.toMatch(/fourni|provide/i);
       expect(TEXTES_TUNNEL[langue].issues.map((x) => x.id), langue).not.toContain('telecharger');
     }
+  });
+
+  it('🔴 en Pro, le numéro fourni ne parle pas de la Free : son prix sous la formule choisie, l’essai et ses 3,50 € déduits, non remboursés (Julien, 2026-11-17)', () => {
+    for (const langue of ['fr', 'en'] as const) {
+      for (const x of TEXTES_TUNNEL[langue].issues) {
+        // Aucun texte commun ne dit le prix du numéro par formule : il vit dans `prix`, sous la formule choisie.
+        expect(x.textes.join(' '), `${langue} ${x.id}`).not.toMatch(/en formule Free|with the Free plan/);
+        if (!x.prix) continue;
+        expect(x.prix.pro, `${langue} ${x.id}`).not.toMatch(/Free/);
+        // 🔴 La première facture vaut 49 € au mois, 490 € à l'année (relecture du lot 5) : les deux, jamais « de 49 € » seul.
+        expect(x.prix.pro, `${langue} ${x.id}`).toMatch(/déduits de votre première facture de formule Pro \(49.*par mois, ou 490.*à l’année\)|deducted from your first Pro plan invoice \(€49 a month, or €490 a year\)/);
+        expect(x.prix.pro, `${langue} ${x.id}`).toMatch(/ne vous sont pas remboursés|are not refunded/);
+        expect(x.prix.apres, `${langue} ${x.id}`).toBeLessThan(x.textes.length);
+      }
+    }
+    // Sur les pages : le prix de chaque formule, marqué pour elle, que `site.css` cache sous l'autre formule.
+    for (const p of PAGES) {
+      const html = lire(fichierDe(p.adresse));
+      expect(html, p.adresse).toMatch(/<p data-pour="pro">(Pendant les|During the)/);
+      expect(html, p.adresse).toMatch(/<p data-pour="free">(Ce numéro coûte|This number costs)/);
+    }
+    const css = lire('site.css');
+    expect(css).toContain('.js .bt-guide:not([data-offre="free"]) .bt-chemin p[data-pour="free"]');
+    expect(css).toContain('.js .bt-guide:not([data-offre="pro"]) .bt-chemin p[data-pour="pro"]');
   });
 
   it('🔴 le cas 4, WhatsApp ordinaire et la carte chez Meta (aide à la connexion, lot 3a)', () => {

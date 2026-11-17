@@ -518,8 +518,10 @@ test('🔴 le cas 4 : l’application, pas ce numéro-là, un 2e compte, un num�
   const issue = page.getByTestId('issue-fourni-application');
   await expect(issue).toContainText('Un numéro de chez nous, dans votre application WhatsApp Business');
   await expect(issue).toContainText('inclus en formule Pro');
+  // Son prix selon l'espace (lot 5 du 2026-11-17) : une Free le lit avec la formule Pro qui l'inclut.
+  await expect(issue.getByTestId('prix-numero-fourni')).toHaveText('Ce numéro coûte 3,50 € par mois en formule Free, et il est inclus en formule Pro.');
   await expect(issue).toContainText('le code de vérification s’affiche sur la page de connexion');
-  await expect(issue).toContainText('Puis la fenêtre de Meta relie votre application à Messaging Me, et vous la gardez');
+  await expect(issue).toContainText('appuyez sur le bouton « Ouvrir la fenêtre de Meta », qui relie ainsi votre application à Messaging Me');
   // Comme chaque voie qui garde l'application : Meta se paie avec sa carte.
   await expect(issue.getByTestId('note-carte-application')).toHaveText('Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application.');
   await expect(page.getByTestId('issue-installer')).toHaveCount(0);
@@ -604,7 +606,7 @@ test('🔴 l’application sans numéro dedans, « Avec l’application » : « 
   const installer = page.getByTestId('issue-installer');
   await expect(installer).toContainText('Mettez un numéro à vous dans l’application');
   await expect(installer).toContainText('une ligne mobile, qui reçoit le code de WhatsApp par SMS ou par appel');
-  await expect(installer).toContainText('Puis la fenêtre de Meta relie votre application à Messaging Me, et vous la gardez');
+  await expect(installer).toContainText('appuyez sur le bouton « Ouvrir la fenêtre de Meta », qui relie ainsi votre application à Messaging Me');
   // Sous l'issue, la carte qui garde l'application : son bouton et le moyen de paiement chez Meta, ni magasins ni QR code.
   await expect(installer.getByTestId('choix-coexistence-ouvert')).toBeVisible();
   await expect(installer.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();

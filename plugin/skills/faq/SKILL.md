@@ -55,7 +55,7 @@ Claude vous aide à choisir au moment de connecter le numéro.
 
 2) No Meta Business account yet? Nothing to prepare: Meta’s window has you create it along the way, with your Facebook profile (your business name, an email address, the country and the website), then offers a payment method. You can also create it beforehand on business.facebook.com: open the menu under “Home” at the top left, then create a business portfolio.
 
-3) A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it with “Keep my WhatsApp Business app”. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats. Meta sends a code to your number, by text message or phone call: keep the phone that holds it at hand.
+3) A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it: you keep the app with “Open the Meta window”. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats. Meta sends a code to your number, by text message or phone call: keep the phone that holds it at hand.
 
 **No number? We provide one!**
 
@@ -65,7 +65,7 @@ Claude vous aide à choisir au moment de connecter le numéro.
 
 2) Pas encore de compte Meta Business ? Rien à préparer : la fenêtre de Meta vous le fait créer en chemin, avec votre profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen de paiement. Vous pouvez aussi le créer avant, sur business.facebook.com : ouvrez le menu sous « Accueil » en haut à gauche, puis créez un portefeuille business.
 
-3) Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, qui y reste avec « Garder mon application WhatsApp Business ». Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Meta envoie un code à votre numéro, par SMS ou par appel : gardez à portée de main le téléphone qui le porte.
+3) Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, qui y reste : vous la gardez avec « Ouvrir la fenêtre de Meta ». Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Meta envoie un code à votre numéro, par SMS ou par appel : gardez à portée de main le téléphone qui le porte.
 
 **Vous n’avez pas de numéro ? Nous vous en fournissons un !**
 
@@ -211,19 +211,19 @@ Meta ne tolère que dix demandes de code par numéro sur 72 heures.
 
 ## Can I keep this number in the WhatsApp app?
 
-Yes, with the WhatsApp Business app: the same number stays in the app on your phone and also goes through the API, if you want: this is what Meta calls “coexistence” (“Keep my WhatsApp Business app”, from Claude or the console’s Home). A number we provide can go there too: you add it in the app, its verification code shows on the connection page, then you keep the app the same way. You keep replying from your phone, but what you type there does not show in Messaging Me yet. A few app features stop (broadcast lists, away message), and you need to open the app at least every two weeks. You pay Meta with your card: the credit line is not possible with the app. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats. Then keep WhatsApp Business the same way.
+Yes, with the WhatsApp Business app: the same number stays in the app on your phone and also goes through the API, if you want: this is what Meta calls “coexistence” (the “Open the Meta window” button of the “Connect WhatsApp” page, in the console or through Claude’s link). A number we provide can go there too: you add it in the app, its verification code shows on the connection page, then you keep the app the same way. You keep replying from your phone, but what you type there does not show in Messaging Me yet. A few app features stop (broadcast lists, away message), and you need to open the app at least every two weeks. You pay Meta with your card: the credit line is not possible with the app. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the same phone: it offers to take over that number, with your chats. Then keep WhatsApp Business the same way.
 
 **FR · Puis-je garder ce numéro dans l’application WhatsApp ?**
 
-Oui, avec l’application WhatsApp Business : le même numéro reste dans l’application de votre téléphone et passe aussi par l’API, si vous le voulez : c’est ce que Meta appelle la « coexistence » (« Garder mon application WhatsApp Business », depuis Claude ou l’Accueil de la console). Un numéro que nous vous fournissons peut y aller aussi : vous l’ajoutez dans l’application, son code de vérification s’affiche sur la page de connexion, puis vous la gardez de la même façon. Vous continuez de répondre depuis votre téléphone, mais ce que vous y tapez n’apparaît pas encore dans Messaging Me. Quelques fonctions de l’application s’arrêtent (listes de diffusion, message d’absence), et il faut l’ouvrir au moins toutes les deux semaines. Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application. Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Puis gardez WhatsApp Business de la même façon.
+Oui, avec l’application WhatsApp Business : le même numéro reste dans l’application de votre téléphone et passe aussi par l’API, si vous le voulez : c’est ce que Meta appelle la « coexistence » (le bouton « Ouvrir la fenêtre de Meta » de la page « Connecter WhatsApp », dans la console ou par le lien de Claude). Un numéro que nous vous fournissons peut y aller aussi : vous l’ajoutez dans l’application, son code de vérification s’affiche sur la page de connexion, puis vous la gardez de la même façon. Vous continuez de répondre depuis votre téléphone, mais ce que vous y tapez n’apparaît pas encore dans Messaging Me. Quelques fonctions de l’application s’arrêtent (listes de diffusion, message d’absence), et il faut l’ouvrir au moins toutes les deux semaines. Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application. Votre numéro sert dans WhatsApp, l’application ordinaire ? Installez WhatsApp Business sur le même téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Puis gardez WhatsApp Business de la même façon.
 
 ## Do I own the provided number?
 
-No: it is rented for €3.50 a month, included in Pro. During the Pro trial, it costs €3.50, deducted from your first month of the Pro plan. A number you bring stays yours.
+No: it is rented for €3.50 a month, included in Pro. During the Pro trial, it costs €3.50, deducted from your first Pro plan invoice, and not refunded if you do not keep it at the end of the trial. A number you bring stays yours.
 
 **FR · Le numéro fourni m’appartient-il ?**
 
-Non : il est loué 3,50 € par mois, inclus en formule Pro. Pendant l’essai de la formule Pro, il se paie 3,50 €, déduits de votre premier mois. Un numéro que vous apportez reste à vous.
+Non : il est loué 3,50 € par mois, inclus en formule Pro. Pendant l’essai de la formule Pro, il se paie 3,50 €, déduits de votre première facture de formule Pro, et non remboursés si vous ne la gardez pas au bout de l’essai. Un numéro que vous apportez reste à vous.
 
 ## How many messages can I send?
 

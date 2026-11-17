@@ -43,7 +43,8 @@ personnalise chez Meta, qui le relit. Voir « Garder mon application WhatsApp Bu
 par Messaging Me ».
 
 Pour le numéro fourni, vous payez sur la page de Stripe (un code promo s'y saisit, si nous vous en avons remis un ;
-pendant l'essai de la formule Pro, ses 3,50 € sont déduits de votre premier mois), puis le numéro s'affiche. Dans la
+pendant l'essai de la formule Pro, ses 3,50 € sont déduits de votre première facture de formule Pro, et ne vous
+sont pas remboursés si vous ne la gardez pas), puis le numéro s'affiche. Dans la
 fenêtre de Meta, choisissez « Enter a new phone number », le pays GB (+44), puis
 les chiffres qui suivent +44 ; **pour recevoir le code, choisissez « Appel téléphonique » (« Phone call » si la fenêtre est en anglais), surtout pas
 « Message texte »** : le code s'affiche en quelques secondes sur la page, dans l'encadré « Le code s'affichera ici », sous

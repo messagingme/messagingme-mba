@@ -255,12 +255,17 @@ export function tunnel(langue: Langue, origine: Origine, mode: 'demarrer' | 'gui
         ...etapes(x),
         '          </div>',
       ]);
+  // Le prix du numéro fourni, un par formule (lot 5) : seul celui de la formule choisie s'affiche (`data-pour`, `site.css`).
+  const prixHtml = (p: NonNullable<Issue['prix']>) => [
+    ...(p.free ? [`          <p data-pour="free">${p.free}</p>`] : []),
+    `          <p data-pour="pro">${p.pro}</p>`,
+  ];
   const issue = (x: Issue) => [
     `        <article class="bt-chemin" data-chemin="${x.id}" id="numero-${x.id}">`,
     `          <p class="bt-situation">${x.situation}</p>`,
     // Le titre reçoit le focus en fin de tunnel (`site.js`) : un lecteur d'écran l'annonce et lit l'issue depuis le début.
     `          <h3 tabindex="-1">${x.titre}</h3>`,
-    ...x.textes.map((p) => `          <p>${p}</p>`),
+    ...x.textes.flatMap((p, i) => [`          <p>${p}</p>`, ...(x.prix?.apres === i ? prixHtml(x.prix) : [])]),
     ...Object.entries(x.parOffre ?? {}).flatMap(([offre, ps]) => ps.map((p) => `          <p data-pour="${offre}">${p}</p>`)),
     ...(x.liens ? liens(x.liens, '          ') : []),
     ...(x.autre ? [`          <p class="bt-autre">${x.autre.question} <a href="#numero-${x.autre.vers}" data-vers-chemin="${x.autre.vers}">${x.autre.lien}</a></p>`] : []),

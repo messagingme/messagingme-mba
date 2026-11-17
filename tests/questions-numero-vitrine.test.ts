@@ -5,7 +5,7 @@ import { OFFRE_CREDIT_WHATSAPP, TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-
 import { FAQ } from '../scripts/plugin/faq';
 import {
   CARTES_OFFRE, DEPLOIEMENT_SECOND, ISSUE_API, ISSUE_FOURNI, ISSUE_FOURNI_APPLICATION, ISSUE_INSTALLER, MAGASINS_APPLICATION, META_BUSINESS_URL,
-  NOTE_CARTE_APPLICATION, NOTE_INSTALLER_APPLICATION, QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_DEPLOIEMENT, QUESTION_FOURNIR, QUESTION_MEME_NUMERO,
+  NOTE_CARTE_APPLICATION, NOTE_INSTALLER_APPLICATION, PRIX_NUMERO_FOURNI, QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_DEPLOIEMENT, QUESTION_FOURNIR, QUESTION_MEME_NUMERO,
   QUESTION_NUMERO, QUESTION_NUMERO_APPLICATION, QUESTION_OFFRE, QUESTION_PAIEMENT, RELIER_EN_GARDANT, SUITE_FOURNI_APPLICATION, WHATSAPP_ORDINAIRE,
 } from '../web/lib/questions-numero';
 import { VITRINE_AIDE } from '../web/lib/partage/aide-connexion';
@@ -185,6 +185,13 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       const x = issue('fourni');
       expect(ISSUE_FOURNI.titre[langue]).toBe(texte(x.titre));
       expect(ISSUE_FOURNI.texte[langue]).toBe(texte(x.textes[0]!));
+      // Son prix selon la formule (Julien, 2026-11-17, lot 5), les mêmes mots que la console, partout où la vitrine en
+      // propose un, ligne de crédit et console comprises (le Pro seul).
+      for (const id of ['fourni', 'fourni-application', 'api', 'ligne-fourni', 'console']) {
+        const p = issue(id).prix!;
+        expect(texte(p.pro), id).toBe(PRIX_NUMERO_FOURNI.pro[langue]);
+        if (p.free !== undefined) expect(texte(p.free), id).toBe(PRIX_NUMERO_FOURNI.free[langue]);
+      }
       // L'issue du cas 4 par la fenêtre de Meta (`autre-numero`) a disparu le 2026-11-17 (lot 3).
       expect(v.issues.map((y) => y.id)).not.toContain('autre-numero');
     });

@@ -215,3 +215,41 @@ la fenêtre de Meta ?).
   (jaunes du lot 3), « Avec l'application » étant proposé aussi à qui ne l'a pas.
 - **Au déploiement** : `aide:charger` pour les fiches retouchées, et les films des fiches à vidéo montrent l'ancien
   arbre.
+
+## Lot 5 : « Ouvrir la fenêtre de Meta », et le prix du numéro selon la formule (essai de Julien, 2026-11-17)
+
+Demandes de Julien, après l'essai réel du lot 4 :
+
+- **La carte « Mettez un numéro à vous dans l'application »** dit quand appuyer, et sur quoi : « Puis, une fois cette
+  opération faite, appuyez sur le bouton « Ouvrir la fenêtre de Meta », qui relie ainsi votre application à Messaging
+  Me… » (`RELIER_EN_GARDANT`, partagé avec le numéro fourni mis dans l'application).
+- **Le bouton qui garde l'application s'appelle « Ouvrir la fenêtre de Meta »** (`COEXISTENCE_BOUTON`), partout : la
+  console, la page du lien de Claude, ce que dit Claude, la FAQ du plugin, les fiches et leur capture (`aide:captures`
+  du parcours de la console). Le guide « Garder mon application WhatsApp Business » garde son titre. Les messages du
+  serveur à un numéro relié par QR code renvoyaient à un bouton de l'Accueil qui n'existe plus : ils renvoient au lien
+  de Claude.
+- **En Pro, le numéro fourni ne parle pas de la Free** : son prix s'affiche sous la formule choisie (`prix` des issues de
+  la vitrine, `PRIX_NUMERO_FOURNI` dans la console). En Pro, pendant l'essai de 14 jours : 3,50 €, déduits de la
+  première facture de 49 €, non remboursés sans formule Pro au bout de l'essai ; en Free, 3,50 € par mois, inclus en
+  formule Pro. Claude et la FAQ disent aussi le non-remboursement.
+
+Méthode : en direct (textes et un rendu), une relecture. Côté API, des textes lus par Claude et des messages du
+serveur : déploiement `migration=aucune`, puis le plugin 0.3.51 et `aide:charger`. **Essai réel** : la vitrine en Pro
+puis en Free jusqu'au numéro fourni, et la carte « Mettez un numéro à vous » de la console.
+
+**Relecture du lot 5** : un rouge, corrigé avant le push. « Déduits de votre première facture de 49 € » était faux pour
+un Pro pris à l'année (490 €) : le texte dit « de votre première facture de formule Pro (49 € par mois, ou 490 € à
+l'année) », vérifié dans les deux sens par `tests/vitrine-tunnel.test.ts`. Corrigés avec lui, des oublis du renommage
+(la skill, `features.md`, des commentaires), « Ce numéro coûte » au lieu de « Il coûte » (qui suivait « votre agent IA
+répond »), et « rien n'est prélevé pour la formule » sous le prix de l'essai. Ses jaunes, pour le prochain lot :
+
+- **Deux boutons du même nom** : celui de la fenêtre ordinaire et celui qui garde l'application s'appellent tous deux
+  « Ouvrir la fenêtre de Meta », et la 3e condition chez Meta, lue en `apporte`, désigne alors le mauvais. Réaliser le
+  point du `todo.md` (en `apporte`, ne garder que le numéro libre), et désigner la voie plutôt que le libellé.
+- **Le guide du centre d'aide ne montre aucun prix** du numéro fourni (aucune formule choisie) : assumé, comme sa fin
+  sans prix ; sinon montrer les deux en mode guide.
+- **Le prix vient avant « Puis, une fois cette opération faite »** dans la carte du numéro mis dans l'application :
+  le placer après la suite.
+- **Les demandes à coller en Pro** disent encore « (inclus en formule Pro) » sous le prix de l'essai.
+- **Pas d'e2e** du prix en essai ni du numéro inclus (`simulerNumeroFourni` avec `essaiPro`, `inclusDansLePro`).
+- **Le film du guide** « Garder mon application WhatsApp Business » montre probablement l'ancien libellé du bouton.

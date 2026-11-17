@@ -120,7 +120,8 @@ Never pick a way on a guess, and never offer another one.
 
 1. **The plan: Free or Pro?** `get_setup_state` gives it (`offre`). Free is driven entirely from here, with no
    console; Pro adds the console (the team Inbox, campaigns, dashboards) and includes a number we provide (during the
-   Pro trial, that number is paid, 3.50 EUR excl. tax, then deducted from the first Pro month). Ask only if
+   Pro trial, that number is paid, 3.50 EUR excl. tax, then deducted from the first Pro plan invoice, and not refunded
+   without the Pro plan at the end of the trial). Ask only if
    the user has not said and the workspace is on Free. If they want Pro, `subscribe_pro` returns its payment link
    (paying is their gesture); then go on.
 2. **"How do you want to pay for your Meta messages?"** Meta bills each template they send.
@@ -218,8 +219,8 @@ their own number one used in no WhatsApp app): relay it once, before the link.
    `consigne` announces BEFORE the link (what will happen in Meta's window, who pays what on this way, the step by step
    guide): the user must know it before clicking. For `fourni`, that guide is `aide.numero_fourni` (the video of this
    way, 3 minutes), given before the link unless the credit line pays (its window is another one). Then write the full `url` on its own line, then the numbered steps of
-   `consigne`, one per line, in the user's language: the page shows the same ones. For `fourni_application`, the steps are those of its `consigne` (the app's account, then "Keep my
-   WhatsApp Business app"), with no Meta window before the account. For a number we provide through Meta's window
+   `consigne`, one per line, in the user's language: the page shows the same ones. For `fourni_application`, the steps are those of its `consigne` (the app's account, then "Open the
+   Meta window"), with no Meta window before the account. For a number we provide through Meta's window
    (`fourni`): click the link; pay (or "Get my number" in Pro); click "Open the Meta window"; on the number screen, "Enter a new phone number", the country GB (+44), then the digits that follow +44;
    to get the code, "Phone call", NOT "Text message" (insist on it, and say it again on its own after the steps; a Meta
    window in French says « Appel téléphonique » and « Message texte », so in French say « Appel téléphonique », surtout

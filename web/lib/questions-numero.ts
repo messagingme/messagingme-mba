@@ -284,8 +284,8 @@ export const ETAPES_A_VENIR = {
 export const ISSUE_FOURNI = {
   titre: { fr: 'Un numéro de chez nous, relié par Meta', en: 'A number from us, connected through Meta' },
   texte: {
-    fr: 'Nous vous fournissons un numéro, 3,50 € par mois en formule Free, inclus en formule Pro : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond.',
-    en: 'We provide a number, €3.50 a month with the Free plan, included in Pro: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers.',
+    fr: 'Nous vous fournissons un numéro dédié : la fenêtre de Meta le relie à l’API officielle de WhatsApp, il envoie vos messages, et votre agent IA répond.',
+    en: 'We provide a dedicated number: Meta’s window connects it to the official WhatsApp API, it sends your messages, and your AI agent answers.',
   },
 } as const satisfies Record<string, Texte>;
 
@@ -303,18 +303,32 @@ export const QUESTION_FOURNIR = {
 
 /** La suite commune des deux issues qui gardent l'application après y avoir mis un numéro (la vitrine, `relierEnGardant`). */
 export const RELIER_EN_GARDANT: Texte = {
-  fr: 'Puis la fenêtre de Meta relie votre application à Messaging Me, et vous la gardez : vous répondez depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.',
-  en: 'Then Meta’s window connects your app to Messaging Me, and you keep it: you reply from your phone, and your confirmations, reminders and follow-ups go out from Messaging Me.',
+  fr: 'Puis, une fois cette opération faite, appuyez sur le bouton « Ouvrir la fenêtre de Meta », qui relie ainsi votre application à Messaging Me. Vous gardez donc votre numéro : vous répondez depuis votre téléphone, et vos confirmations, rappels, relances et tous vos messages automatiques partent de Messaging Me.',
+  en: 'Then, once this is done, press the “Open the Meta window” button, which connects your app to Messaging Me. You keep your number: you reply from your phone, and your confirmations, reminders, follow-ups and all your automatic messages go out from Messaging Me.',
 };
 
 /** Le numéro de chez nous mis DANS l'application : le titre et les deux premières phrases de l'issue de la vitrine. */
 export const ISSUE_FOURNI_APPLICATION = {
   titre: { fr: 'Un numéro de chez nous, dans votre application WhatsApp Business', en: 'A number from us, in your WhatsApp Business app' },
   texte: {
-    fr: 'Nous vous fournissons un numéro, 3,50 € par mois en formule Free, inclus en formule Pro. Vous l’ajoutez dans votre application WhatsApp Business : le code de vérification s’affiche sur la page de connexion.',
-    en: 'We provide a number, €3.50 a month with the Free plan, included in Pro. You add it in your WhatsApp Business app: the verification code shows on the connection page.',
+    fr: 'Nous vous fournissons un numéro dédié. Vous l’ajoutez dans votre application WhatsApp Business : le code de vérification s’affiche sur la page de connexion.',
+    en: 'We provide a dedicated number. You add it in your WhatsApp Business app: the verification code shows on the connection page.',
   },
   suite: RELIER_EN_GARDANT,
+} as const satisfies Record<string, Texte>;
+
+/**
+ * LE PRIX DU NUMÉRO FOURNI, SELON LA FORMULE (Julien, 2026-11-17, lot 5 : « quand tu as choisi le Pro, ne pas parler du
+ * Free »). La vitrine le montre sous la formule choisie (le `prix` de ses issues), la console selon l'espace : inclus,
+ * en essai du Pro, ou Free. `free` et `pro`, les mêmes mots que la vitrine (`tests/questions-numero-vitrine.test.ts`).
+ */
+export const PRIX_NUMERO_FOURNI = {
+  free: { fr: 'Ce numéro coûte 3,50 € par mois en formule Free, et il est inclus en formule Pro.', en: 'This number costs €3.50 a month with the Free plan, and is included in Pro.' },
+  pro: {
+    fr: 'Pendant les 14 jours d’essai de la formule Pro, ce numéro se paie 3,50 €, déduits de votre première facture de formule Pro (49 € par mois, ou 490 € à l’année). Sans formule Pro au bout de l’essai, ces 3,50 € ne vous sont pas remboursés.',
+    en: 'During the 14-day Pro trial, this number costs €3.50, deducted from your first Pro plan invoice (€49 a month, or €490 a year). Without the Pro plan at the end of the trial, these €3.50 are not refunded.',
+  },
+  inclus: { fr: 'Inclus dans votre offre : rien à payer.', en: 'Included in your plan: nothing to pay.' },
 } as const satisfies Record<string, Texte>;
 
 /** Un numéro à soi installé dans l'application, puis gardée : le titre et les deux premières phrases de l'issue. */

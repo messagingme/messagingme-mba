@@ -63,7 +63,7 @@ describe('ouvrirPro', () => {
     expect(r).toMatchObject({ ok: false, statut: 409, details: { code: 'filiere_application' } });
     expect(r.ok ? '' : r.erreur).toMatch(/API WhatsApp/);
     // La coexistence (plan 2026-10-24, tâche 4) : le même numéro passe au Pro, l'application gardée.
-    expect(r.ok ? '' : r.erreur).toMatch(/Pour la formule Pro, passez ce même numéro sur l’API officielle de WhatsApp : choisissez « Garder mon application WhatsApp Business » sur l’Accueil de la console, ou demandez-le à Claude\.$/);
+    expect(r.ok ? '' : r.erreur).toMatch(/Pour la formule Pro, passez ce même numéro sur l’API officielle de WhatsApp : demandez-le à Claude, puis, sur la page qu’il vous donne, appuyez sur « Ouvrir la fenêtre de Meta »\.$/);
     // 🔴 Sans le mot de Meta (Julien, 2026-10-25) : le client ne le comprend pas.
     expect(r.ok ? '' : r.erreur).not.toMatch(/coexistence/i);
     expect(r.ok ? '' : r.erreur).not.toMatch(/pour l’instant/);

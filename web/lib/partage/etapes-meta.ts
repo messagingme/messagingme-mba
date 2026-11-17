@@ -65,11 +65,11 @@ export const PREREQUIS_META: ReadonlyArray<{ fr: string; en: string }> = [
     // numéro qui sert dans WhatsApp. Le téléphone (4a-3) : Meta envoie le code au numéro apporté comme à celui de
     // l'application (`CODE_VERIFICATION_FOURNI`, `ETAPES_FENETRE_GARDER`) ; au numéro fourni, il s'affiche sur la page.
     fr: 'Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, '
-      + `qui y reste avec « Garder mon application WhatsApp Business ». ${WHATSAPP_ORDINAIRE.fr} Meta envoie un code à `
+      + `qui y reste : vous la gardez avec « Ouvrir la fenêtre de Meta ». ${WHATSAPP_ORDINAIRE.fr} Meta envoie un code à `
       + 'votre numéro, par SMS ou par appel : gardez à portée de main le téléphone qui le porte. Sans numéro, nous vous '
       + 'en fournissons un.',
-    en: 'A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it '
-      + `with “Keep my WhatsApp Business app”. ${WHATSAPP_ORDINAIRE.en} Meta sends a code to your number, by text message `
+    en: 'A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it'
+      + `: you keep the app with “Open the Meta window”. ${WHATSAPP_ORDINAIRE.en} Meta sends a code to your number, by text message `
       + 'or phone call: keep the phone that holds it at hand. No number? We provide one.',
   },
 ];

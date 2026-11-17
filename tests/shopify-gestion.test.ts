@@ -262,8 +262,8 @@ describe('un message Shopify sur un numéro relié par QR code', () => {
     // La coexistence (plan 2026-10-24, tâche 4) : le même numéro, l'application gardée, et les messages partent en modèles.
     expect(PHRASE_SHOPIFY_QR_CODE).toBe('Sur un numéro relié par QR code, les messages Shopify ne peuvent pas partir : WhatsApp ne '
       + 'laisse pas écrire en premier à un client. Pour écrire en premier tout en gardant l’application WhatsApp Business, '
-      + 'passez ce même numéro sur l’API officielle de WhatsApp : choisissez « Garder mon application WhatsApp Business » '
-      + 'sur l’Accueil de la console, ou demandez-le à Claude.');
+      + 'passez ce même numéro sur l’API officielle de WhatsApp : demandez-le à Claude, puis, sur la page qu’il vous donne, '
+      + 'appuyez sur « Ouvrir la fenêtre de Meta ».');
     // 🔴 Sans le mot de Meta (Julien, 2026-10-25) : le client ne le comprend pas.
     expect(PHRASE_SHOPIFY_QR_CODE).not.toMatch(/coexistence/i);
   });

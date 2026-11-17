@@ -46,8 +46,8 @@ export const FENETRE_BLOQUEE = {
   en: 'The Meta window did not open? Allow pop-ups for this site, then reload the page.',
 } as const;
 
-/** Le bouton qui ouvre la fenêtre de Meta en coexistence, sur l'Accueil et sur la page du numéro. */
-export const COEXISTENCE_BOUTON = { fr: 'Garder mon application WhatsApp Business', en: 'Keep my WhatsApp Business app' } as const;
+/** Le bouton qui ouvre la fenêtre de Meta en coexistence, sur la carte qui garde l'application (lot 5 du 2026-11-17). */
+export const COEXISTENCE_BOUTON = { fr: 'Ouvrir la fenêtre de Meta', en: 'Open the Meta window' } as const;
 
 /**
  * Ce que la console dit sous ce bouton, au moment du choix : ce que l'application garde et perd, ce que Meta facture, et

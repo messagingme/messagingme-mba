@@ -1,7 +1,7 @@
 ---
 description: Get a number provided by Messaging Me, connected through Meta’s window or put in your WhatsApp Business app: the video, then the six steps.
 slug: get-a-number-provided-by-messaging-me
-traduit_de: 82fc35
+traduit_de: 0c222e
 bouton_claude: Get my number from Claude Code
 bouton_console: Get my number in the console
 ---
@@ -31,7 +31,8 @@ already have a number you could use?”. To put it in your WhatsApp Business app
 below.
 
 **3. Pay for the number, then open Meta’s window.** On the “Connect WhatsApp” page, pay €3.50 a month (with the Pro
-plan, “Get my number”, with nothing to pay; during its trial, €3.50, deducted from your first month): your UK number
+plan, “Get my number”, with nothing to pay; during its trial, €3.50, deducted from your first Pro plan invoice, and
+not refunded if you do not keep it): your UK number
 appears. Click “Open the Meta window”.
 
 Under the button, the steps to come show in grey, up to Meta’s window. Keep the page open until the end: the
@@ -72,7 +73,7 @@ connect? Ours is added as a 2nd account: a WhatsApp Business app holds two accou
   and pay for the number (with the Pro plan, “Get my number”): it shows on the connection page.
 - Add it in your WhatsApp Business app. For the verification, choose the phone call: the code shows on the connection
   page, and in Claude. Enter it in the app.
-- Click “Keep my WhatsApp Business app”: Meta’s window connects your app to Messaging Me, and you keep it. Its screens
+- Click “Open the Meta window”: it connects your app to Messaging Me, and you keep it. Its screens
   are those of the “Keep my WhatsApp Business app” guide.
 
 **Good to know.** If Meta refuses this number, “Meta refuses this number? Get another one”, on the connection page,

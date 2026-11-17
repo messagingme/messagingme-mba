@@ -30,10 +30,11 @@ export type Filiere = 'api' | 'application';
  * La fin des refus d'un numéro relié par QR code qui voudrait écrire en premier (le premier contact, les messages Shopify,
  * le Pro) : la coexistence, sur le même numéro, l'application WhatsApp Business gardée (plan 2026-10-24, tâche 4). Écrite
  * une fois pour les trois. 🔴 Sans le mot « coexistence » (Julien, 2026-10-25 : personne ne comprend les noms de Meta) :
- * le geste se nomme par le bouton de la console (`COEXISTENCE_BOUTON`, `web/lib/fenetre-meta.ts`).
+ * le geste se nomme par le bouton de la page (`COEXISTENCE_BOUTON`, `web/lib/fenetre-meta.ts`). Par le lien de Claude
+ * (lot 5 du 2026-11-17) : l'Accueil de la console n'a plus ce bouton, et seul ce lien relie un numéro déjà relié par QR code.
  */
-export const RELIER_EN_COEXISTENCE = 'passez ce même numéro sur l’API officielle de WhatsApp : choisissez « Garder mon '
-  + 'application WhatsApp Business » sur l’Accueil de la console, ou demandez-le à Claude.';
+export const RELIER_EN_COEXISTENCE = 'passez ce même numéro sur l’API officielle de WhatsApp : demandez-le à Claude, puis, sur la '
+  + 'page qu’il vous donne, appuyez sur « Ouvrir la fenêtre de Meta ».';
 
 /** Pourquoi un compte ne peut pas être préparé. */
 export type RefusPreparation =

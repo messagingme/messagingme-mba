@@ -39,7 +39,8 @@ Sans compte Meta Business, répondez « Par l'API » à « Comment voulez-vous u
 voir « Avec votre application WhatsApp Business », plus bas.
 
 **3. Payer le numéro, puis ouvrir la fenêtre de Meta.** Sur la page « Connecter WhatsApp », payez 3,50 € par mois (en
-formule Pro, « Obtenir mon numéro », sans rien payer ; pendant son essai, 3,50 €, déduits de votre premier mois) : votre
+formule Pro, « Obtenir mon numéro », sans rien payer ; pendant son essai, 3,50 €, déduits de votre première facture de formule Pro, et non
+remboursés si vous ne la gardez pas) : votre
 numéro britannique s'affiche. Cliquez sur « Ouvrir la fenêtre de Meta ».
 
 Sous le bouton, les étapes à venir s'affichent en gris, jusqu'à la fenêtre de Meta. Gardez la page ouverte jusqu'au
@@ -84,8 +85,7 @@ Business porte deux comptes au plus.
   de connexion.
 - Ajoutez-le dans votre application WhatsApp Business. Pour la vérification, choisissez l'appel : le code s'affiche sur
   la page de connexion, et dans Claude. Saisissez-le dans l'application.
-- Cliquez sur « Garder mon application WhatsApp Business » : la fenêtre de Meta relie votre application à Messaging Me,
-  et vous la gardez. Ses écrans sont ceux du guide « Garder mon application WhatsApp Business ».
+- Cliquez sur « Ouvrir la fenêtre de Meta » : elle relie votre application à Messaging Me, et vous la gardez. Ses écrans sont ceux du guide « Garder mon application WhatsApp Business ».
 
 **Bon à savoir.** Si Meta refuse ce numéro, « Meta refuse ce numéro ? En obtenir un autre », sur la page de connexion,
 vous en donne un nouveau. Pour un numéro mis dans l'application, c'est « Le code n'arrive pas ? En obtenir un autre ».

@@ -2469,7 +2469,7 @@ scénario, comment importer des contacts.
   Facebook ou un compte Meta géré), rien à préparer
   pour le créer (la fenêtre de Meta le fait créer en chemin, mesuré à l'essai 161, ou on le crée avant, pas à pas, sur
   business.facebook.com), et un numéro : un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de
-  l'application WhatsApp Business, qui y reste (« Garder mon application WhatsApp Business ») ; un numéro qui sert dans
+  l'application WhatsApp Business, qui y reste (« Ouvrir la fenêtre de Meta », le bouton de la carte qui la garde) ; un numéro qui sert dans
   WhatsApp, l'application ordinaire, y passe d'abord en installant WhatsApp Business sur le même téléphone, qui le
   reprend avec ses conversations (2026-11-10), et le numéro fourni ne vaut que sans numéro ; Meta envoie un code au numéro
   apporté, d'où le téléphone qui le porte, jamais demandé au numéro fourni (2026-11-10). Claude Code dit
@@ -2487,8 +2487,8 @@ scénario, comment importer des contacts.
   cliquer une autre réponse change de chemin ; chaque nouvelle question vient à l'écran d'elle-même (2026-11-17), sans
   défiler à la main ; plus aucune voie par QR code. Claude pose les mêmes (skill `mise-en-service`).
   - **Oui à l'application** (2026-11-17) : « Avez-vous déjà un numéro qui fonctionne sur cette application ? ». Oui
-    mène à « Voulez-vous utiliser ce numéro-là ? », dont le Oui garde l'application (« Garder mon application WhatsApp
-    Business »).
+    mène à « Voulez-vous utiliser ce numéro-là ? », dont le Oui garde l'application (« Ouvrir la fenêtre de
+    Meta »).
   - **« Comment voulez-vous utiliser WhatsApp ? »** (2026-11-17) : deux cartes d'une ligne, « Avec l'application
     WhatsApp Business » (on répond aussi depuis son téléphone, l'agent IA depuis Messaging Me) et « Directement par
     l'API officielle » (tout passe par Messaging Me : réponses automatiques, campagnes, Inbox à plusieurs), le détail
@@ -2502,9 +2502,10 @@ scénario, comment importer des contacts.
     au plus).
   - **Avec l'application** : « Souhaitez-vous qu'on vous fournisse un numéro ? ».
   - **Oui au numéro fourni** : « Un numéro de chez nous, dans votre application WhatsApp Business », 3,50 € par mois en
-    Free, inclus en Pro (pendant l'essai du Pro, 3,50 € déduits du premier mois). « Fournissez-moi un numéro »
+    Free, inclus en Pro (pendant l'essai du Pro, 3,50 € déduits de la première facture de formule Pro, non remboursés sans formule Pro). « Fournissez-moi un numéro »
     l'attribue, le client l'ajoute dans son application (le code de vérification de WhatsApp s'affiche sur la page),
-    puis « Garder mon application WhatsApp Business » ouvre la fenêtre de Meta, qui relie l'application en la gardant.
+    puis « Ouvrir la fenêtre de Meta » (le bouton s'appelait « Garder mon application WhatsApp Business » jusqu'au
+    2026-11-17) relie l'application en la gardant.
     La page retient cette voie, la seule où le code venu de l'application s'affiche.
   - **Non au numéro fourni** : « Mettez un numéro à vous dans l'application » (une ligne mobile, qui reçoit le code de
     WhatsApp par SMS ou par appel), puis le même bouton garde l'application.

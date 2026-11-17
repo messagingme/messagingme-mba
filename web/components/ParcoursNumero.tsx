@@ -16,7 +16,7 @@ import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { AIDE_NUMERO_FOURNI } from '@/lib/partage/aide-connexion';
 import { QrApplication } from '@/components/QrApplication';
 import {
-  BULLE_WHATSAPP_BUSINESS, DEPLOIEMENT_SECOND, ETAPES_A_VENIR, ISSUE_API, ISSUE_FOURNI, ISSUE_FOURNI_APPLICATION, ISSUE_INSTALLER, LOGO_WHATSAPP_BUSINESS,
+  BULLE_WHATSAPP_BUSINESS, DEPLOIEMENT_SECOND, ETAPES_A_VENIR, ISSUE_API, ISSUE_FOURNI, ISSUE_FOURNI_APPLICATION, ISSUE_INSTALLER, LOGO_WHATSAPP_BUSINESS, PRIX_NUMERO_FOURNI,
   MAGASINS_APPLICATION, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, NOTE_INSTALLER_APPLICATION, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, QUESTION_APPLICATION,
   QUESTION_COMPTE, QUESTION_DEPLOIEMENT, QUESTION_FOURNIR, QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_NUMERO_APPLICATION, SUITE_FOURNI_APPLICATION,
   WHATSAPP_ORDINAIRE, type ReponseCompte,
@@ -62,7 +62,8 @@ export function EncadreChezMeta({ prerequis }: { prerequis: ReadonlyArray<{ read
  * Julien du 2026-11-09) ; le SMS seulement si la fenêtre ne propose rien d'autre (la ligne fixe le lit à voix haute).
  * Notre Asterisk capte le code dans les deux cas, et le parcours l'affiche pour qu'il le recopie. Les étapes affichées sont
  * celles que Claude redit (`ETAPES_NUMERO_FOURNI`, essai réel 99). « J'ai déjà un numéro » : la fenêtre de Meta, comme depuis l'Accueil.
- * « Garder mon application WhatsApp Business » : la même fenêtre en coexistence (plan 2026-10-24), le numéro reste dans
+ * « Ouvrir la fenêtre de Meta » de la carte qui garde l'application (Julien, 2026-11-17, lot 5 ; « Garder mon application
+ * WhatsApp Business » avant) : la même fenêtre en coexistence (plan 2026-10-24), le numéro reste dans
  * l'application.
  *
  * Il ne connaît pas son autorité : `api` est celle de la session de la console ou celle du lien de Claude Code
@@ -378,10 +379,13 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
    * la même suite que « Fournissez-moi un numéro » du numéro API. `gardeLApplication` : comme chaque voie qui garde
    * l'application, la carte dit qu'on y paie Meta avec sa carte (`NOTE_CARTE_APPLICATION`).
    */
+  const prixNumero = inclus ? PRIX_NUMERO_FOURNI.inclus : essaiPro ? PRIX_NUMERO_FOURNI.pro : PRIX_NUMERO_FOURNI.free;
   const carteNumeroDeChezNous = (testid: string, issue: { titre: Texte; texte: Texte; suite?: Texte }, testidBouton: string, choisir: () => void, gardeLApplication = false) => (
     <div data-testid={testid} className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
       <div className="text-base font-semibold text-ink-900">{t(issue.titre.fr, issue.titre.en)}</div>
       <p className="mt-2 text-sm text-ink-700">{t(issue.texte.fr, issue.texte.en)}</p>
+      {/* Son prix selon l'espace (Julien, 2026-11-17, lot 5) : inclus, en essai du Pro (jamais la Free), ou Free. */}
+      <p data-testid="prix-numero-fourni" className="mt-2 text-sm text-ink-700">{t(prixNumero.fr, prixNumero.en)}</p>
       {issue.suite && <p className="mt-2 text-sm text-ink-700">{t(issue.suite.fr, issue.suite.en)}</p>}
       {gardeLApplication && <p data-testid="note-carte-application" className="mt-2 text-sm text-ink-700">{t(NOTE_CARTE_APPLICATION.fr, NOTE_CARTE_APPLICATION.en)}</p>}
       <Bouton type="button" className="mt-4" onClick={choisir} data-testid={testidBouton}>
@@ -724,16 +728,16 @@ type Texte = { readonly fr: string; readonly en: string };
 
 /** La carte du numéro fourni pendant l'essai du Pro (lot 2 du 2026-11-17). */
 export const ESSAI_PRO_CARTE: Texte = {
-  fr: 'Un numéro dédié, prêt pour WhatsApp : 3,50 € HT, déduits de votre premier mois de formule Pro.',
-  en: 'A dedicated number, ready for WhatsApp: €3.50 excl. VAT, deducted from your first month of the Pro plan.',
+  fr: 'Un numéro dédié, prêt pour WhatsApp : 3,50 € HT pendant l’essai, déduits de votre première facture de formule Pro.',
+  en: 'A dedicated number, ready for WhatsApp: €3.50 excl. VAT during the trial, deducted from your first Pro plan invoice.',
 };
 
 /** Sous le paiement du numéro pendant l'essai du Pro (lot 2 du 2026-11-17). */
 export const ESSAI_PRO_PAIEMENT: Texte = {
-  fr: 'Pendant votre essai, le numéro se paie 3,50 € HT, déduits de votre premier mois de formule Pro. Sans formule Pro '
-    + 'ensuite, il reste à 3,50 € HT par mois.',
-  en: 'During your trial, the number costs €3.50 excl. VAT, deducted from your first month of the Pro plan. Without the Pro '
-    + 'plan afterwards, it stays at €3.50 excl. VAT per month.',
+  fr: 'Pendant votre essai de 14 jours, le numéro se paie 3,50 € HT, déduits de votre première facture de formule Pro. Sans '
+    + 'formule Pro au bout de l’essai, ces 3,50 € ne vous sont pas remboursés, et le numéro reste à 3,50 € HT par mois.',
+  en: 'During your 14-day trial, the number costs €3.50 excl. VAT, deducted from your first Pro plan invoice. Without the Pro '
+    + 'plan at the end of the trial, these €3.50 are not refunded, and the number stays at €3.50 excl. VAT per month.',
 };
 
 /** Dit à la place du code quand l'application WhatsApp a appelé un numéro destiné à la fenêtre de Meta (2026-11-17). */
@@ -934,8 +938,7 @@ const INTERVALLE_CODE_MS = 3_000;
  * La variante du numéro fourni choisie dans la console, gardée par le navigateur pour CET espace (2026-10-31) : le retour
  * de Stripe, un rechargement, ou un retour plus tard dans un autre onglet reprennent le parcours sans savoir quelle
  * question y a mené. Le lien de Claude porte la sienne. Mémoire
- * indisponible, ou un autre appareil : la variante d'avant, la fenêtre de Meta (l'Accueil garde son bouton « Garder mon
- * application WhatsApp Business »).
+ * indisponible, ou un autre appareil : la variante d'avant, la fenêtre de Meta.
  */
 const cleVariante = (tenantId: string) => `mba.numero-variante.${tenantId}`;
 function varianteGardee(tenantId: string): 'fourni' | 'fourni_application' {

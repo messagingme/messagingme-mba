@@ -411,17 +411,17 @@ describe('les outils de l’abonnement du numéro (livraison B)', () => {
     expect(r.etat).toMatchObject({ inclus_dans_le_pro: true });
   });
 
-  it('🔴 lot 2 du 2026-11-17 : en essai du Pro, Claude dit le prix ET la déduction du premier mois, dans les trois consignes', async () => {
+  it('🔴 lot 2 du 2026-11-17 : en essai du Pro, Claude dit le prix, la déduction de la première facture ET le non-remboursement (lot 5), dans les trois consignes', async () => {
     const enEssai = monter(() => ({ ...VIDE, essaiPro: true }));
     for (const mode of ['fourni', 'fourni_application'] as const) {
       const r = await outil('start_whatsapp_connection').executer(enEssai.deps, 't1', { mode }, PERSONNE) as Record<string, string>;
       expect(r.consigne, mode).toMatch(/Payer 3,50 € HT par mois/);
-      expect(r.consigne, mode).toMatch(/déduits de son premier mois/);
+      expect(r.consigne, mode).toMatch(/déduits de sa première facture de formule Pro, et ne lui sont pas remboursés s’il ne la garde pas au bout de l’essai/);
     }
     const app = await outil('start_whatsapp_connection').executer(enEssai.deps, 't1', { mode: 'fourni', filiere: 'application' }, PERSONNE) as Record<string, string>;
-    expect(app.consigne).toMatch(/déduits de son premier mois/);
+    expect(app.consigne).toMatch(/déduits de sa première facture de formule Pro, et ne lui sont pas remboursés/);
     expect(await outil('get_number_subscription').executer(enEssai.deps, 't1', {}, null))
-      .toMatchObject({ inclus_dans_le_pro: false, prix: '3,50 € HT par mois, déduits du premier mois de formule Pro (essai en cours)' });
+      .toMatchObject({ inclus_dans_le_pro: false, prix: '3,50 € HT par mois, déduits de la première facture de formule Pro, non remboursés sans formule Pro au bout de l’essai (essai en cours)' });
     // Hors essai, rien de plus qu'avant : le prix seul.
     const horsEssai = monter(() => VIDE);
     const r = await outil('start_whatsapp_connection').executer(horsEssai.deps, 't1', { mode: 'fourni' }, PERSONNE) as Record<string, string>;
@@ -781,7 +781,7 @@ describe('le mode fourni_application', () => {
     await expect(demarrer({ ...VIDE, connecte: { chiffres: '441235619343', aActiver: false } }, { mode: 'fourni_application' })).rejects.toThrow(/déjà un numéro/);
   });
 
-  it('🔴 le code se saisit dans l’application, pas dans la fenêtre de Meta ; puis « Garder mon application »', async () => {
+  it('🔴 le code se saisit dans l’application, pas dans la fenêtre de Meta ; puis « Ouvrir la fenêtre de Meta »', async () => {
     const r = await attendre({ ...FOURNI, code: { code: '345679', recuLe: '2026-10-31T10:00:00.000Z' } });
     expect(r.code).toBe('345679');
     expect(r.suite).toMatch(/dans l’application WhatsApp Business/);

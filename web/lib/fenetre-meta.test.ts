@@ -68,7 +68,7 @@ describe('le parcours en coexistence', () => {
   });
 
   it('🔴 les textes exacts du plan : rien de « gratuit » pour ce qui part par Messaging Me', () => {
-    expect(COEXISTENCE_BOUTON).toEqual({ fr: 'Garder mon application WhatsApp Business', en: 'Keep my WhatsApp Business app' });
+    expect(COEXISTENCE_BOUTON).toEqual({ fr: 'Ouvrir la fenêtre de Meta', en: 'Open the Meta window' });
     expect(COEXISTENCE_PHRASES.map((p) => p.fr)).toEqual([
       'Votre numéro reste dans l’application, où les messages que vous tapez restent gratuits ; ceux qui partent par Messaging Me '
         + 'sont facturés par Meta. L’application perd ses listes de diffusion, son catalogue, ses messages d’absence et ses '

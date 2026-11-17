@@ -1,7 +1,7 @@
 ---
 description: What you need at Meta to connect WhatsApp: before, a Meta Business account (created along the way) and a number; after, your card, except with the credit line.
 slug: what-you-need-at-meta
-traduit_de: 9ed777
+traduit_de: 6fe19a
 ---
 # What you need at Meta, before and after connecting
 
@@ -27,8 +27,8 @@ business portfolio.
 **3. A number.** Yours, with the phone that holds it, or a number we provide: connected through Meta’s window, with no
 phone needed, or put in your WhatsApp Business app.
 
-A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it with
-“Keep my WhatsApp Business app”. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the
+A spare number, not used in any WhatsApp app, or the number of your WhatsApp Business app, which stays in it: you keep
+the app with “Open the Meta window”. Is your number used in WhatsApp, the regular app? Install WhatsApp Business on the
 same phone: it offers to take over that number, with your chats. Meta sends a code to your number, by text message or
 phone call: keep the phone that holds it at hand. No number? We provide one.
 

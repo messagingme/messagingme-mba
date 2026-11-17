@@ -1,7 +1,7 @@
 ---
 description: Keep your WhatsApp Business app and connect the same number to Messaging Me, screen by screen, with the Meta Business account created along the way if needed.
 slug: keep-my-whatsapp-business-app
-traduit_de: 0ae9e0
+traduit_de: 73f6eb
 bouton_claude: Keep my app from Claude Code, for free
 bouton_console: Keep my app in the console
 ---
@@ -11,11 +11,11 @@ Is your number already used in the WhatsApp Business app on your phone? Keep it:
 best of both worlds. You still reply there, for free, and Messaging Me sends the messages of your website, your
 software or your store.
 
-**1. [claude] Open “Keep my WhatsApp Business app”.** Ask Claude Code: it gives you a link to the “Connect WhatsApp”
+**1. [claude] Open the Meta window.** Ask Claude Code: it gives you a link to the “Connect WhatsApp”
 page. The page sums up what changes, then the button opens Meta’s window, where you sign in with your Facebook profile.
 
-**1. [console] Open “Keep my WhatsApp Business app”.** On the “Connect WhatsApp” page, click “You can keep it”, then
-“Keep my WhatsApp Business app”: Meta’s window opens, where you sign in with your Facebook profile.
+**1. [console] Open the Meta window.** On the “Connect WhatsApp” page, click “You can keep it”, then “Open the Meta
+window”: it opens, and you sign in with your Facebook profile.
 
 Without a Meta Business account, the page’s questions lead to the same button: “Yes” to the WhatsApp Business app,
 then “Yes” to the number working in it and to “Do you want to use that number?”. Otherwise, answer “With the app” to
@@ -49,7 +49,7 @@ account, its conversations, and pass your account’s events on to Meta. Confirm
 
 **9. Finish.** “Your account is connected to Messaging Me”: your WhatsApp account is created, and your portfolio if it
 is new. Click “Finish”; the payment method at Meta can wait for your first template. Your number shows on the Home
-screen. If not, start “Keep my WhatsApp Business app” again: the window picks up what is already created and completes
+screen. If not, press “Open the Meta window” again: the window picks up what is already created and completes
 the connection.
 
 ## What changes in the app
