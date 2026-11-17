@@ -26,7 +26,7 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       // 1. « Continuer la mise en service », la seule carte de l'Accueil sans numéro (2026-11-17).
       const lien = page.getByTestId('continuer-mise-en-service');
       await expect(lien).toBeVisible();
-      await capturer(page, FOURNI, '1-console', locale, lien, 'haut', lien);
+      await capturer(page, FOURNI, '1-console', locale, page.getByTestId('reprendre-mise-en-service'), 'haut', lien);
     });
 
     test(`console (${locale}) : la page Connecter WhatsApp`, async ({ page }) => {

@@ -562,6 +562,39 @@ function AccueilInner({ session }: { session: Session }) {
 
       {error && <p className="rounded-controle bg-danger-50 px-3 py-2 text-sm text-danger-700">{error}</p>}
 
+      {/* SANS NUMÉRO, LA MISE EN SERVICE EN TÊTE (Julien, 2026-11-17) : la carte qui la reprend passe avant tout le
+          reste, au lieu d'attendre sous Canaux et services. Seulement une fois le compte lu ET sans numéro (l'invariant
+          de la cascade du numéro, plus bas). */}
+      {!accountLoading && !accountError && account && !account.hasNumber && (
+        <div data-testid="accueil-sans-numero">
+          {numeroDeconnecte && (
+            <p data-testid="numero-deconnecte" className="mb-3 rounded-controle bg-succes-50 px-3 py-2 text-xs text-succes-700">
+              {t(
+                `Numéro déconnecté : ${numeroDeconnecte.conversations} conversation(s) effacée(s), ${numeroDeconnecte.campagnesArretees} campagne(s) arrêtée(s). L’espace peut connecter un autre numéro.`,
+                `Number disconnected: ${numeroDeconnecte.conversations} conversation(s) erased, ${numeroDeconnecte.campagnesArretees} campaign(s) stopped. The workspace can connect another number.`,
+              )}
+            </p>
+          )}
+          {numeroDeconnecte && numeroDeconnecte.echecsMeta > 0 && (
+            <p data-testid="numero-deconnecte-meta" className="mb-3 rounded-controle bg-alerte-50 px-3 py-2 text-xs text-alerte-700">
+              {t(
+                'Meta n’a pas tout accepté : l’agent de Meta peut encore répondre sur ce numéro, ou Messaging Me rester abonné à votre compte. Notre équipe est prévenue et termine chez Meta ; vous pouvez aussi retirer l’app dans le Business Manager de Meta.',
+                'Meta did not accept everything: Meta’s agent may still answer on this number, or Messaging Me may stay subscribed to your account. Our team is notified and will finish at Meta; you can also remove the app in Meta’s Business Manager.',
+              )}
+            </p>
+          )}
+          <ReprendreMiseEnService isAdmin={isAdmin} tenantId={session.tenantId} onConnecte360={recharger360} />
+          {/* 🔴 Le compte peut revenir de la fenêtre Meta SANS numéro (lot 3b) : l'espace n'a toujours pas de
+              numéro, donc c'est cette branche qui s'affiche, et l'avertissement qui dit quoi faire doit y être.
+              Sans lui, la fenêtre se fermait sans un mot. Titre neutre : rien n'est « connecté ». */}
+          {avertissementsConnexion.length > 0 && (
+            <div data-testid="avertissements-connexion" className="mt-3 rounded-controle bg-alerte-50 px-3 py-2 text-xs text-alerte-700">
+              {t('À savoir', 'Note')} : {avertissementsConnexion.join(' · ')}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Rangée de KPIs (30 derniers jours) : mêmes chiffres que la page Analytics. Pas en Free : elle n'a pas de statistiques. */}
       {consoleOuverte && (
       <div>
@@ -691,33 +724,8 @@ function AccueilInner({ session }: { session: Session }) {
               </Bouton>
             </div>
           ) : account && !account.hasNumber ? (
-            <>
-              {numeroDeconnecte && (
-                <p data-testid="numero-deconnecte" className="mb-3 rounded-controle bg-succes-50 px-3 py-2 text-xs text-succes-700">
-                  {t(
-                    `Numéro déconnecté : ${numeroDeconnecte.conversations} conversation(s) effacée(s), ${numeroDeconnecte.campagnesArretees} campagne(s) arrêtée(s). L’espace peut connecter un autre numéro.`,
-                    `Number disconnected: ${numeroDeconnecte.conversations} conversation(s) erased, ${numeroDeconnecte.campagnesArretees} campaign(s) stopped. The workspace can connect another number.`,
-                  )}
-                </p>
-              )}
-              {numeroDeconnecte && numeroDeconnecte.echecsMeta > 0 && (
-                <p data-testid="numero-deconnecte-meta" className="mb-3 rounded-controle bg-alerte-50 px-3 py-2 text-xs text-alerte-700">
-                  {t(
-                    'Meta n’a pas tout accepté : l’agent de Meta peut encore répondre sur ce numéro, ou Messaging Me rester abonné à votre compte. Notre équipe est prévenue et termine chez Meta ; vous pouvez aussi retirer l’app dans le Business Manager de Meta.',
-                    'Meta did not accept everything: Meta’s agent may still answer on this number, or Messaging Me may stay subscribed to your account. Our team is notified and will finish at Meta; you can also remove the app in Meta’s Business Manager.',
-                  )}
-                </p>
-              )}
-              <ReprendreMiseEnService isAdmin={isAdmin} tenantId={session.tenantId} onConnecte360={recharger360} />
-              {/* 🔴 Le compte peut revenir de la fenêtre Meta SANS numéro (lot 3b) : l'espace n'a toujours pas de
-                  numéro, donc c'est cette branche qui s'affiche, et l'avertissement qui dit quoi faire doit y être.
-                  Sans lui, la fenêtre se fermait sans un mot. Titre neutre : rien n'est « connecté ». */}
-              {avertissementsConnexion.length > 0 && (
-                <div data-testid="avertissements-connexion" className="mt-3 rounded-controle bg-alerte-50 px-3 py-2 text-xs text-alerte-700">
-                  {t('À savoir', 'Note')} : {avertissementsConnexion.join(' · ')}
-                </div>
-              )}
-            </>
+            // Sans numéro, la carte de la mise en service est en tête de page (`accueil-sans-numero`).
+            null
           ) : (
             <div data-testid="numero-card" className="rounded-carte border border-ink-200 bg-white p-5">
               <div className="mb-3 flex items-center justify-between">

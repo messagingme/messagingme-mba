@@ -2687,8 +2687,8 @@ scénario, comment importer des contacts.
   WhatsApp Business reste sur la carte chez Meta : la ligne de crédit n'est pas possible avec l'application. La carte
   suit l'état de l'espace (à prendre, payée et en attente de sa ligne, active, arrêtée) ; Claude lit le même état
   (`get_setup_state`).
-- ✅ **Onboarding « Connecter mon compte WhatsApp » (Embedded Signup)** : un espace **sans numéro rattaché** voit sur
-  l'Accueil une seule carte, **« Continuer la mise en service »** (2026-11-17 ; l'interrupteur « Numéro WhatsApp » de
+- ✅ **Onboarding « Connecter mon compte WhatsApp » (Embedded Signup)** : un espace **sans numéro rattaché** voit en tête
+  de l'Accueil une seule carte, **« Continuer la mise en service »** (2026-11-17 ; l'interrupteur « Numéro WhatsApp » de
   Canaux et services y mène aussi), vers le tunnel de « Connecter WhatsApp » : la formule (faite), la question du
   paiement des messages Meta (rien de choisi d'avance ; la carte chez Meta choisie, la ligne de crédit passe en retrait
   et la page dit que la carte peut se poser après la connexion), puis les questions du numéro, une à la fois, jusqu'au
