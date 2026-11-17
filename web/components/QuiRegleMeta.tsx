@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Bouton, classesBouton } from '@/components/Bouton';
 import { Icone } from '@/components/Icone';
 import { RechargeLigne } from '@/components/RechargeLigne';
-import { FilLigne } from '@/components/FilLigne';
+import { EtapeTunnel, FilLigne, FlecheEtape } from '@/components/FilLigne';
 import { eurosDepuisMicro } from '@/lib/agent-solde';
 import type { VueCreditWhatsapp } from '@/lib/api-credit-whatsapp';
 import { MbaNotice } from '@/components/MbaNotice';
@@ -78,8 +78,8 @@ export const AVERTISSEMENT_CARTE = {
  * ouvre la suite (`children`) ; sur l'Accueil, tant qu'aucun numéro n'est connecté, elle y mène.
  *
  * La carte du moyen de paiement chez Meta (« Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta
- * Business », Julien, 2026-11-09, lot 3a, avec ses deux liens) est la voie active (spec, moment 1) : le numéro se connecte
- * par notre application, et Meta le facture. Elle cède la place quand une ligne est payée ou posée (`en_attente`,
+ * Business », Julien, 2026-11-09, lot 3a, avec ses deux liens) : le numéro se connecte par notre application, et Meta le
+ * facture. Aucune voie n'est choisie d'avance (Julien, 2026-11-17) : la suite n'apparaît qu'une fois la carte choisie. Elle cède la place quand une ligne est payée ou posée (`en_attente`,
  * `active`), et se reprend d'un clic.
  *
  * « Crédit WhatsApp » dit ce que l'état de la ligne permet (`GET /credit-whatsapp/etat`, `etatLigneCredit` du serveur) :
@@ -97,8 +97,13 @@ export const AVERTISSEMENT_CARTE = {
  * Un numéro connecté avec sa carte chez Meta (`numeroAvecCarte`) lit `NUMERO_AVEC_CARTE`, en formule Pro comme en
  * Entreprise : Meta refuse qu'il se reconnecte par la fenêtre du partenaire, plus rien ne le propose (2026-11-13).
  */
-export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children, api, surConnexion, occupe = false }: {
+export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children, api, surConnexion, occupe = false, formule = null }: {
   tenantId: string;
+  /**
+   * La formule de l'espace, dite par la page (« Formule Pro souscrite ») : la première étape, faite, du tunnel de
+   * Connecter WhatsApp. `null` : pas d'étape de formule (pas encore lue).
+   */
+  formule?: string | null;
   admin: boolean;
   /**
    * La fenêtre de Meta du parcours de la carte (`children`, monté par la page) est ouverte : changer de voie le
@@ -140,14 +145,25 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   const { locale } = useLocale();
   const fenetreOuverte = occupe || fenetreLigne;
 
+  /**
+   * Un numéro fourni déjà en route (payé, au retour de Stripe, ou attribué, au retour sur la page) : la voie de la carte
+   * chez Meta est déjà prise, son parcours reprend où il en était sans reposer la question du paiement.
+   */
+  const [repriseCarte, setRepriseCarte] = useState(false);
   useEffect(() => {
-    if (lieu !== 'connecter') return;
+    if (lieu !== 'connecter') return undefined;
     const p = new URLSearchParams(window.location.search);
     const o = p.get('option');
     setRetour(o === 'recue' || o === 'abandon' ? o : null);
     // Le retour de Stripe d'un numéro fourni payé : le parcours de « J’ai besoin d’un numéro » reprend où il en était.
-    if (p.get('abonnement') === 'recu') setNumeroLigne('notre');
-  }, [lieu]);
+    if (p.get('abonnement') === 'recu') { setNumeroLigne('notre'); setRepriseCarte(true); }
+    if (connecte || !api) return undefined;
+    let vivant = true;
+    api.lire().then((r) => { if (vivant && r.numero) setRepriseCarte(true); }).catch(() => {});
+    return () => { vivant = false; };
+    // `api` change d'identité à chaque rendu de la page : l'espace suffit à dire qu'il faut relire.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lieu, connecte, tenantId]);
 
   // Une Free n'a pas la route (402) : son état se dit sans elle. Une offre illisible tente la lecture quand même.
   const offre = vueOffre?.offre;
@@ -193,7 +209,10 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   // d'un clic, et une réponse à « Votre numéro, ou le nôtre ? » la referme (lot 3v). Chaque voie porte sa connexion :
   // seule celle dont le bouton a ouvert la fenêtre en envoie la fin au serveur.
   const fenetrePartenaire = vue?.fenetrePartenaire === true && !connecte;
-  const carteActive = carte ?? (!connecte && !lignePayee && !optionPayee && retour !== 'recue' && !fenetrePartenaire);
+  // 🔴 AUCUNE VOIE CHOISIE D'AVANCE (Julien, 2026-11-17) : la carte chez Meta l'était, son bouton ne faisait donc rien
+  // au clic, et la suite (« Avez-vous un compte Meta Business ? ») s'affichait avant la réponse. Elle suit le clic, sauf
+  // un numéro fourni déjà en route (`repriseCarte`), hors fenêtre du partenaire qui a son propre parcours.
+  const carteActive = carte ?? (repriseCarte && !fenetrePartenaire);
   /** Sur Connecter WhatsApp, avec la connexion de la page : la question, puis la suite de la réponse sous les cartes. */
   const ligneIci = fenetrePartenaire && admin && lieu === 'connecter' && api !== undefined && surConnexion !== undefined;
   const repondreLigne = (r: 'mien' | 'notre') => { setCarte(false); setNumeroLigne(r); };
@@ -373,49 +392,88 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
    */
   const surLaLigne = lieu === 'connecter' && connecte && lignePayee;
 
+  /** Le contenu de la question : les retours de Stripe, puis les deux voies (ou le fil de la ligne), et l'erreur. */
+  const contenu = (
+    <>
+      {/* Confirmée, la carte verte dit déjà que l'option est prise : pas de second bandeau. */}
+      {retour === 'recue' && !confirmee && !surLaLigne && (
+        <div className="mt-3"><MbaNotice kind="success" testid="carte-credit-wa-recue">{t('Paiement de l’option reçu.', 'Option payment received.')}</MbaNotice></div>
+      )}
+      {retour === 'abandon' && etat !== 'en_attente' && etat !== 'active' && (
+        <div className="mt-3">
+          <MbaNotice kind="warning" testid="carte-credit-wa-abandon">
+            {t('Paiement de l’option abandonné : rien n’a été débité pour l’option.', 'Option payment cancelled: nothing was charged for the option.')}
+          </MbaNotice>
+        </div>
+      )}
+      {surLaLigne || confirmee ? (
+        // Le tunnel de la ligne (essai 263) : les trois étapes l'une sous l'autre, le geste de l'étape en cours dedans ;
+        // plus de bandeau de confirmation à côté, qui redisait l'étape 1 (Julien, 2026-11-16).
+        <div data-testid="carte-credit-wa" data-etat={etat ?? ''}>
+          <FilLigne
+            etat={{
+              entreprise: offre === 'entreprise',
+              numeroConnecte: surLaLigne,
+              solde: vueCredit === undefined || vueCredit === null ? null : vueCredit.illimite ? 'illimite' : eurosDepuisMicro(vueCredit.soldeMicroEur),
+              soldeTexte: vueCredit ? new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'fr-FR', { style: 'currency', currency: 'EUR' }).format(eurosDepuisMicro(vueCredit.soldeMicroEur)) : '',
+            }}
+            detailNumero={(
+              <span data-testid="carte-credit-wa-ligne">
+                {surLaLigne ? ligne : t(PAR_LA_LIGNE.entreprise.fr, PAR_LA_LIGNE.entreprise.en)}
+              </span>
+            )}
+            contenuNumero={confirmee ? action : null}
+            contenuCredit={surLaLigne ? <RechargeLigne tenantId={tenantId} admin={admin} surVue={setVueCredit} /> : null}
+          />
+        </div>
+      ) : (
+        <div className="mt-4 space-y-4">
+          {rangee(carteMeta, boutonCarte, 'rangee-meta')}
+          {rangee(carteLigne, gesteLigne, 'rangee-ligne')}
+        </div>
+      )}
+      {erreur && <p className="mt-3 text-sm text-danger" data-testid="carte-credit-wa-erreur">{erreur}</p>}
+    </>
+  );
+  /**
+   * LE TUNNEL DE LA CARTE CHEZ META (Julien, 2026-11-17 : « il faut que l'on voie les étapes une par une ») : la formule,
+   * faite ; la question du paiement ; puis, une fois la carte choisie, la connexion du numéro, qui n'apparaît qu'alors.
+   * Le fil de la ligne de crédit (`FilLigne`) garde le sien.
+   */
+  if (lieu === 'connecter' && !connecte && !confirmee) {
+    const decalage = formule ? 1 : 0;
+    return (
+      <ol className="mt-6" data-testid="tunnel-numero">
+        {formule && (
+          <>
+            <EtapeTunnel testid="tunnel-formule" numero={1} statut="fait" titre={formule} />
+            <FlecheEtape />
+          </>
+        )}
+        <EtapeTunnel
+          testid="qui-regle-meta" numero={1 + decalage} statut={carteActive ? 'fait' : 'en_cours'}
+          titre={t(QUESTION_PAIEMENT.texte.fr, QUESTION_PAIEMENT.texte.en)} detail={t(QUESTION_PAIEMENT.precision.fr, QUESTION_PAIEMENT.precision.en)}
+        >
+          {contenu}
+        </EtapeTunnel>
+        {carteActive && (
+          <>
+            <FlecheEtape />
+            <EtapeTunnel testid="tunnel-numero-meta" numero={2 + decalage} statut="en_cours" titre={t('Connecter votre numéro chez Meta', 'Connect your number at Meta')}>
+              {children}
+            </EtapeTunnel>
+          </>
+        )}
+      </ol>
+    );
+  }
+
   return (
     <div className={lieu === 'accueil' ? 'mb-4' : 'mt-6'}>
       <div data-testid="qui-regle-meta" className="rounded-carte border border-ink-200 bg-white p-5">
         <div className="text-base font-semibold text-ink-900">{t(QUESTION_PAIEMENT.texte.fr, QUESTION_PAIEMENT.texte.en)}</div>
         <p className="mt-1 text-xs text-ink-500">{t(QUESTION_PAIEMENT.precision.fr, QUESTION_PAIEMENT.precision.en)}</p>
-        {/* Confirmée, la carte verte dit déjà que l'option est prise : pas de second bandeau. */}
-        {retour === 'recue' && !confirmee && !surLaLigne && (
-          <div className="mt-3"><MbaNotice kind="success" testid="carte-credit-wa-recue">{t('Paiement de l’option reçu.', 'Option payment received.')}</MbaNotice></div>
-        )}
-        {retour === 'abandon' && etat !== 'en_attente' && etat !== 'active' && (
-          <div className="mt-3">
-            <MbaNotice kind="warning" testid="carte-credit-wa-abandon">
-              {t('Paiement de l’option abandonné : rien n’a été débité pour l’option.', 'Option payment cancelled: nothing was charged for the option.')}
-            </MbaNotice>
-          </div>
-        )}
-        {surLaLigne || confirmee ? (
-          // Le tunnel de la ligne (essai 263) : les trois étapes l'une sous l'autre, le geste de l'étape en cours dedans ;
-          // plus de bandeau de confirmation à côté, qui redisait l'étape 1 (Julien, 2026-11-16).
-          <div data-testid="carte-credit-wa" data-etat={etat ?? ''}>
-            <FilLigne
-              etat={{
-                entreprise: offre === 'entreprise',
-                numeroConnecte: surLaLigne,
-                solde: vueCredit === undefined || vueCredit === null ? null : vueCredit.illimite ? 'illimite' : eurosDepuisMicro(vueCredit.soldeMicroEur),
-                soldeTexte: vueCredit ? new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'fr-FR', { style: 'currency', currency: 'EUR' }).format(eurosDepuisMicro(vueCredit.soldeMicroEur)) : '',
-              }}
-              detailNumero={(
-                <span data-testid="carte-credit-wa-ligne">
-                  {surLaLigne ? ligne : t(PAR_LA_LIGNE.entreprise.fr, PAR_LA_LIGNE.entreprise.en)}
-                </span>
-              )}
-              contenuNumero={confirmee ? action : null}
-              contenuCredit={surLaLigne ? <RechargeLigne tenantId={tenantId} admin={admin} surVue={setVueCredit} /> : null}
-            />
-          </div>
-        ) : (
-          <div className="mt-4 space-y-4">
-            {rangee(carteMeta, boutonCarte, 'rangee-meta')}
-            {rangee(carteLigne, gesteLigne, 'rangee-ligne')}
-          </div>
-        )}
-        {erreur && <p className="mt-3 text-sm text-danger" data-testid="carte-credit-wa-erreur">{erreur}</p>}
+        {contenu}
       </div>
       {lieu === 'connecter' && carteActive && children}
       {/* La suite de « Votre numéro, ou le nôtre ? » (lot 3v), sous les cartes. Le sien : la phrase validée de Julien pour

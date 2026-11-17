@@ -43,6 +43,7 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       // La carte « Qui paie vos messages à Meta ? » est au-dessus (lot B du Crédit WhatsApp) : la vue descend à l'encadré
       // « Avant de commencer », sans couper le bouton de la carte. La page s'arrête juste sous ses choix : un peu d'air en
       // bas la laisse descendre jusque-là (jaune 6 de la relecture du lot 3a).
+      await page.getByTestId('carte-meta-choisir').click();
       await page.getByTestId('question-compte-oui').click();
       await page.locator('main').evaluate((m) => { (m as HTMLElement).style.paddingBottom = '160px'; });
       await capturer(page, CLE, 2, locale, page.getByTestId('prerequis-meta').locator('ol'), 'haut', page.getByTestId('choix-fourni'));

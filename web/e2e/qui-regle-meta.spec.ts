@@ -74,18 +74,26 @@ async function simuler(page: Page, o: { offre?: string; abonnement?: unknown; et
 }
 
 test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () => {
-  test('🔴 la carte chez Meta est la voie active et le guide suit ; hors vente, la ligne de crédit est grisée, sur demande', async ({ page }) => {
+  test('🔴 aucune voie choisie d’avance : le clic sur la carte chez Meta ouvre l’étape suivante ; hors vente, la ligne de crédit est grisée, sur demande', async ({ page }) => {
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     await simuler(page, { etats: [{ etat: 'a_prendre', enVente: false }] });
     await page.goto('/connecter-whatsapp');
     await expect(page.getByTestId('qui-regle-meta')).toContainText('Quelle solution pour payer vos messages Meta ?');
-    await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'true');
+    // 🔴 Rien de choisi, rien de la suite tant que la question n'a pas de réponse (Julien, 2026-11-17 : le bouton de la
+    // carte, déjà choisi d'avance, « ne faisait rien »).
+    await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('qui-regle-meta')).toHaveAttribute('data-statut', 'en_cours');
+    await expect(page.getByTestId('question-compte')).toHaveCount(0);
+    await expect(page.getByTestId('tunnel-numero-meta')).toHaveCount(0);
     // Le libellé de la carte et ses deux liens vers la vitrine (lot 3a ; « Payer Meta » depuis le lot 4b).
     const carteMeta = page.getByTestId('carte-meta');
     await expect(carteMeta).toContainText('Je mets un moyen de paiement (Visa / Mastercard) sur mon compte Meta Business');
     await expect(carteMeta.getByRole('link', { name: 'Pourquoi un moyen de paiement ?' })).toHaveAttribute('href', /\/aide\/payer-meta-poser-votre-carte\/$/);
     await expect(carteMeta.getByRole('link', { name: 'Qu’est-ce qu’un compte Meta Business ?' })).toHaveAttribute('href', /\/aide\/ce-qu-il-faut-chez-meta\/$/);
-    await expect(page.getByTestId('question-compte')).toBeVisible();
+    await page.getByTestId('carte-meta-choisir').click();
+    await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('qui-regle-meta')).toHaveAttribute('data-statut', 'fait');
+    await expect(page.getByTestId('tunnel-numero-meta').getByTestId('question-compte')).toContainText('Avez-vous un compte Meta Business ?');
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
     await expect(page.getByTestId('carte-credit-wa-ligne').getByRole('link', { name: 'Support' })).toHaveAttribute('href', '/support');
     await expect(page.getByTestId('carte-credit-wa-grisee')).toBeDisabled();
@@ -296,6 +304,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
     await simuler(page);
     await page.goto('/connecter-whatsapp');
+    await page.getByTestId('carte-meta-choisir').click();
     await page.getByTestId('question-compte-non').click();
     await page.getByTestId('question-application-oui').click();
     await page.getByTestId('question-meme-numero-oui').click();

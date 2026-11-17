@@ -4904,8 +4904,11 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   l'application, `tousGardentLApplication`, décision 8 ; la vue de l'onglet porte le même champ). La console en tire deux
   cartes (`web/components/QuiRegleMeta.tsx`) : sur Connecter WhatsApp, la première question du guide du numéro, et sur
   l'Accueil tant qu'aucun numéro n'est connecté. La carte du moyen de paiement chez Meta (« Je mets un moyen de
-  paiement (Visa / Mastercard) sur mon compte Meta Business », avec ses deux liens, `QUESTION_PAIEMENT.carte`) est la
-  voie active et ouvre le guide ; elle cède la place quand une ligne est payée ou posée. 🔴 « Crédit WhatsApp » reste grisée « sur demande » tant que l'option n'est
+  paiement (Visa / Mastercard) sur mon compte Meta Business », avec ses deux liens, `QUESTION_PAIEMENT.carte`) ouvre le
+  guide une fois CHOISIE : aucune voie n'est choisie d'avance, et sur Connecter WhatsApp la page est un tunnel d'étapes
+  (`EtapeTunnel`, `web/components/FilLigne.tsx`) : la formule (faite), la question du paiement, puis la connexion du
+  numéro, qui n'apparaît qu'après la réponse ; seul un numéro fourni déjà en route (payé ou attribué) reprend sans
+  reposer la question. Elle cède la place quand une ligne est payée ou posée. 🔴 « Crédit WhatsApp » reste grisée « sur demande » tant que l'option n'est
   pas en vente, dans TOUS les états, essai compris : jamais « Prendre l'option » pour une option qui ne se prend pas en
   ligne. En vente, un Pro la prend dès le début de son essai (`a_prendre`) ; un Business en essai et un Pro en retard
   lisent la raison du refus du serveur (`raisonAttenteOption`, `web/lib/offre.ts`), et l'onglet décide sur

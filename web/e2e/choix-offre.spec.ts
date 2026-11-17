@@ -116,7 +116,9 @@ test('🔴 le retour de Stripe ramène au numéro, l’essai dit, même si l’o
   await expect(page.getByTestId('choix-offre')).toBeVisible();
   await page.goto('/offre?pro=recu');
   await expect(page).toHaveURL(/\/connecter-whatsapp\?suite=demarrer&pro=recu/);
-  await expect(page.getByTestId('essai-pro-commence')).toContainText('Votre formule Pro est souscrite');
+  // L'étape 1 du tunnel, faite (Julien, 2026-11-17), à la place du bandeau d'avant.
+  await expect(page.getByTestId('tunnel-formule')).toContainText('Formule Pro souscrite');
+  await expect(page.getByTestId('tunnel-formule')).toHaveAttribute('data-statut', 'fait');
   await expect(page.getByTestId('choix-offre')).toHaveCount(0);
   await expect(page.getByTestId('qui-regle-meta')).toBeVisible();
 });
@@ -137,7 +139,7 @@ test('🔴 un espace venu du choix du Pro entre dans le tunnel : après Stripe, 
   await expect(page.getByTestId('offre-raison')).toBeVisible();
   await page.goto('/offre?pro=recu');
   await expect(page).toHaveURL(/\/connecter-whatsapp\?suite=demarrer&pro=recu/);
-  await expect(page.getByTestId('essai-pro-commence')).toBeVisible();
+  await expect(page.getByTestId('tunnel-formule')).toContainText('Formule Pro souscrite');
 });
 
 test('hors du tunnel, ni la question ni le renvoi : la page de l’offre reste la page de l’offre', async ({ page }) => {
@@ -170,7 +172,7 @@ test('🔴 un Pro payé ne revoit pas les cartes dans l’onglet, même si l’o
   // Le premier écran a posé la suite dans l'onglet avant que Stripe ne revienne sur la page de l'offre.
   await expect(page.getByTestId('choix-offre')).toBeVisible();
   await page.goto('/offre?pro=recu');
-  await expect(page.getByTestId('essai-pro-commence')).toBeVisible();
+  await expect(page.getByTestId('tunnel-formule')).toContainText('Formule Pro souscrite');
   // « Plus tard », puis « Connecter mon numéro » : le tunnel sans le retour de Stripe, l'offre toujours lue Free.
   await page.goto('/connecter-whatsapp?suite=demarrer');
   await expect(page.getByTestId('qui-regle-meta')).toBeVisible();

@@ -15,6 +15,7 @@ import { getAccountStatus, type AccountStatusResponse } from '@/lib/api';
 import { apiDeLaSession } from '@/lib/api/connexion-numero';
 import { CLE_FORMULE, CLE_SUITE, enSuiteDeDemarrage, SUITE_DEMARRER } from '@/lib/demarrer';
 import { useOffre } from '@/lib/use-offre';
+import { nomDeLOffre } from '@/lib/offre';
 
 /**
  * « CONNECTER WHATSAPP » dans la console (lot 3b, spec `docs/superpowers/specs/2026-10-05-numero-fourni-design.md`).
@@ -22,7 +23,7 @@ import { useOffre } from '@/lib/use-offre';
  * (lot 3c) ; celle-ci y ajoute la coquille, la session et l'état du compte.
  *
  * « Qui paie vos messages à Meta ? » (`QuiRegleMeta`, révision du Crédit WhatsApp, lot B) ouvre le guide : la voie de la
- * carte chez Meta y mène, active par défaut. Un numéro connecté garde les deux cartes, qui disent l'état de son Crédit
+ * carte chez Meta y mène, une fois choisie (aucune voie n'est choisie d'avance, Julien, 2026-11-17). Un numéro connecté garde les deux cartes, qui disent l'état de son Crédit
  * WhatsApp ; une fois l'option arrêtée, la carte chez Meta y rouvre le guide.
  */
 export default function ConnecterWhatsappPage() {
@@ -82,6 +83,14 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
     try { window.sessionStorage.setItem(CLE_FORMULE, `${tenantId}:free`); } catch { /* idem */ }
     setFormuleGardee('free');
   };
+  /**
+   * L'étape 1 du tunnel, faite : la formule. Au retour de Stripe, le Pro est dit même si l'offre se lit encore Free le
+   * temps du webhook ; elle remplace le bandeau « Votre formule Pro est souscrite » (Julien, 2026-11-17).
+   */
+  const offreDite = proRetour === 'recu' || formuleGardee === 'pro' ? 'pro' : vue?.offre;
+  const formule = offreDite === undefined ? null : offreDite === 'free'
+    ? t('Formule Free choisie', 'Free plan chosen')
+    : t(`Formule ${nomDeLOffre(offreDite, t)} souscrite`, `${nomDeLOffre(offreDite, t)} plan subscribed`);
   const formuleAChoisir = tunnel && isAdmin && compte !== null && !connecte && vue !== undefined && vue !== null
     && vue.offre === 'free' && proRetour !== 'recu' && formuleGardee === null;
   // Le temps de lire le compte et l'offre, rien : ni la question, ni « Qui paie vos messages à Meta ? » qu'elle précède.
@@ -127,11 +136,6 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
     <div className="mx-auto max-w-formulaire">
       <TitrePage>{t('Connecter WhatsApp', 'Connect WhatsApp')}</TitrePage>
       <IntroPage>{t('Un numéro WhatsApp pour votre espace : le vôtre, ou un numéro que nous vous fournissons.', 'A WhatsApp number for your workspace: yours, or one we provide.')}</IntroPage>
-      {proRetour === 'recu' && !connecte && (
-        <div className="mt-4"><MbaNotice kind="success" testid="essai-pro-commence">
-          {t('Votre formule Pro est souscrite. Il reste à connecter votre numéro.', 'Your Pro plan is set up. All that is left is to connect your number.')}
-        </MbaNotice></div>
-      )}
       {proRetour === 'abandon' && formuleAChoisir && (
         <div className="mt-4"><MbaNotice kind="warning" testid="essai-pro-abandonne">
           {t('Paiement abandonné : rien n’a été prélevé. Choisissez votre formule.', 'Payment cancelled: nothing was charged. Choose your plan.')}
@@ -161,7 +165,7 @@ function ConnecterWhatsapp({ session }: { session: Session }) {
       ) : formuleEnLecture ? null : formuleAChoisir && vue ? (
         <ChoixOffre tenantId={tenantId} vue={vue} surFree={choisirFree} />
       ) : (
-        <QuiRegleMeta tenantId={tenantId} admin lieu="connecter" api={api} surConnexion={apresConnexion} occupe={fenetreCarte}>{parcours}</QuiRegleMeta>
+        <QuiRegleMeta tenantId={tenantId} admin lieu="connecter" formule={formule} api={api} surConnexion={apresConnexion} occupe={fenetreCarte}>{parcours}</QuiRegleMeta>
       )}
       {connecte && <QuiRegleMeta tenantId={tenantId} admin={isAdmin} lieu="connecter" connecte occupe={fenetreCarte}>{isAdmin && parcours}</QuiRegleMeta>}
 

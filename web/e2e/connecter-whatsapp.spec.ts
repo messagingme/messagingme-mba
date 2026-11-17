@@ -81,6 +81,7 @@ test('🔴 numéro fourni : il s’affiche, puis le code capté apparaît sans r
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   const etat = await simulerNumeroFourni(page, { lecturesAvantCode: 1 });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
 
   await page.getByTestId('question-compte-oui').click();
   await page.getByTestId('choix-fourni').click();
@@ -103,6 +104,7 @@ test('« Meta refuse ce numéro » : un autre numéro remplace le premier', asyn
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   const etat = await simulerNumeroFourni(page, { lecturesAvantCode: 100 });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-oui').click();
   await page.getByTestId('choix-fourni').click();
   await page.getByTestId('obtenir-numero').click();
@@ -125,6 +127,7 @@ test('🔴 sans abonnement : le prix et « Payer », puis la page de paiement ; 
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   const etat = await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-oui').click();
   await page.getByTestId('choix-fourni').click();
   await expect(page.getByTestId('obtenir-numero')).toHaveCount(0);
@@ -139,6 +142,7 @@ test('🔴 en Pro (lot 6, B2b) : le numéro est inclus, « Obtenir mon numéro �
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   const etat = await simulerNumeroFourni(page, { abonnement: null, inclusDansLePro: true });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-oui').click();
   await expect(page.getByTestId('choix-fourni')).toContainText('Inclus dans votre offre');
   await page.getByTestId('choix-fourni').click();
@@ -206,6 +210,7 @@ test('🟡 le portail de Stripe s’ouvre depuis la console', async ({ page }) =
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   const etat = await simulerNumeroFourni(page, { abonnement: 'actif' });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-oui').click();
   await page.getByTestId('choix-fourni').click();
   await page.getByTestId('gerer-abonnement').click();
@@ -217,6 +222,7 @@ test('🟡 sans abonnement, pas de bouton du portail', async ({ page }) => {
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-oui').click();
   await page.getByTestId('choix-fourni').click();
   await expect(page.getByTestId('payer-numero')).toBeVisible();
@@ -252,6 +258,7 @@ test('payé, mais la réserve était vide : « en préparation »', async ({ pag
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: 'actif' });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-oui').click();
   await page.getByTestId('choix-fourni').click();
   await expect(page.getByTestId('numero-en-preparation')).toBeVisible();
@@ -284,6 +291,7 @@ test('🔴 sans compte Meta Business ni application, avec un numéro : le numér
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await expect(page.getByTestId('question-compte')).toContainText('Avez-vous un compte Meta Business ?');
   // Rien n'est choisi tant qu'on n'a pas répondu.
   await expect(page.getByTestId('choix-fourni')).toHaveCount(0);
@@ -327,6 +335,7 @@ test('« Je ne sais pas » : où le vérifier, puis l’application gardée', as
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-nsp').click();
   await expect(page.getByTestId('note-compte').getByRole('link', { name: 'business.facebook.com' })).toHaveAttribute('href', 'https://business.facebook.com/');
   await page.getByTestId('question-application-oui').click();
@@ -339,6 +348,7 @@ test('avec un compte Meta Business : le numéro API, libre ou fourni, et « Vous
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-oui').click();
   await expect(page.getByTestId('issue-api')).toContainText('Votre numéro API');
   await expect(page.getByTestId('choix-fourni')).toBeVisible();
@@ -366,6 +376,7 @@ test('🔴 sans compte, sans application, sans numéro : un numéro de chez nous
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   const etat = await simulerNumeroFourni(page, { abonnement: 'actif', lecturesAvantCode: 100 });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-non').click();
   await page.getByTestId('question-application-non').click();
   await page.getByTestId('question-numero-non').click();
@@ -418,6 +429,7 @@ test('🟡 avec l’application et ce numéro-là, aucune 4e question ni numéro
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   await simulerNumeroFourni(page, { abonnement: null });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-nsp').click();
   await page.getByTestId('question-application-oui').click();
   await page.getByTestId('question-meme-numero-oui').click();
@@ -434,6 +446,7 @@ test('🔴 le cas 4 : l’application, pas ce numéro-là, donc un numéro de ch
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
   const etat = await simulerNumeroFourni(page, { lecturesAvantCode: 100 });
   await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
   await page.getByTestId('question-compte-non').click();
   await page.getByTestId('question-application-oui').click();
   await expect(page.getByTestId('question-meme-numero')).toContainText('Voulez-vous utiliser ce numéro-là ?');

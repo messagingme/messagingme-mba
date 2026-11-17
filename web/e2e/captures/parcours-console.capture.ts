@@ -38,6 +38,7 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       })));
       await communs(page);
       await page.goto('/connecter-whatsapp');
+      await page.getByTestId('carte-meta-choisir').click();
       await page.getByTestId('question-compte-oui').click();
       await page.locator('main').evaluate((m) => { (m as HTMLElement).style.paddingBottom = '320px'; });
       // 2. « Fournissez-moi un numéro », à côté de « J'ai déjà un numéro ».

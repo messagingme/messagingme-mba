@@ -21,7 +21,57 @@ export interface EtatFilLigne {
   soldeTexte: string;
 }
 
-type Statut = 'fait' | 'en_cours' | 'a_venir';
+export type StatutEtape = 'fait' | 'en_cours' | 'a_venir';
+type Statut = StatutEtape;
+
+/**
+ * UNE ÉTAPE D'UN TUNNEL : son numéro (une coche une fois faite), son titre, ce qu'elle dit de plus et son geste dedans.
+ * Le fil de la ligne de crédit s'en sert, et Connecter WhatsApp pour la voie de la carte chez Meta (Julien, 2026-11-17 :
+ * « il faut que l'on voie les étapes une par une dans le tunnel »).
+ */
+export function EtapeTunnel({ testid, numero, statut, titre, detail, children }: {
+  testid: string;
+  numero: number;
+  statut: StatutEtape;
+  titre: ReactNode;
+  detail?: ReactNode;
+  children?: ReactNode;
+}) {
+  const t = useT();
+  return (
+    <li
+      data-testid={testid}
+      data-statut={statut}
+      className={`rounded-carte p-4 ${statut === 'fait' ? 'border border-succes-200 bg-succes-50' : statut === 'en_cours' ? 'border-2 border-brand-500 bg-white' : 'border border-ink-200 bg-white'}`}
+    >
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${statut === 'fait' ? 'bg-succes-600 text-white' : statut === 'en_cours' ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-500'}`}
+        >
+          {statut === 'fait' ? <Icone nom="valide" /> : numero}
+        </span>
+        <div className="min-w-0">
+          <div className={`text-xs font-semibold uppercase tracking-wide ${statut === 'fait' ? 'text-succes-800' : statut === 'en_cours' ? 'text-brand-600' : 'text-ink-500'}`}>
+            {t(`Étape ${numero}`, `Step ${numero}`)}
+          </div>
+          <div className={`text-sm font-semibold ${statut === 'a_venir' ? 'text-ink-500' : 'text-ink-900'}`}>{titre}</div>
+        </div>
+      </div>
+      {detail && <div className="mt-2 pl-10 text-sm text-ink-700">{detail}</div>}
+      {children && <div className="mt-3 pl-10">{children}</div>}
+    </li>
+  );
+}
+
+/** La flèche d'une étape à la suivante. */
+export function FlecheEtape() {
+  return (
+    <li aria-hidden className="flex justify-center py-1.5 text-ink-500">
+      <Icone nom="deplier" taille="grande" />
+    </li>
+  );
+}
 
 export function FilLigne({ etat, detailNumero, contenuNumero, contenuCredit }: {
   etat: EtatFilLigne;
@@ -62,33 +112,8 @@ export function FilLigne({ etat, detailNumero, contenuNumero, contenuCredit }: {
     <ol data-testid="fil-ligne" className="mt-4">
       {etapes.map((e, i) => (
         <Fragment key={e.cle}>
-          {i > 0 && (
-            <li aria-hidden className="flex justify-center py-1.5 text-ink-500">
-              <Icone nom="deplier" taille="grande" />
-            </li>
-          )}
-          <li
-            data-testid={`fil-ligne-${e.cle}`}
-            data-statut={e.statut}
-            className={`rounded-carte p-4 ${e.statut === 'fait' ? 'border border-succes-200 bg-succes-50' : e.statut === 'en_cours' ? 'border-2 border-brand-500 bg-white' : 'border border-ink-200 bg-white'}`}
-          >
-            <div className="flex items-center gap-3">
-              <span
-                aria-hidden
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${e.statut === 'fait' ? 'bg-succes-600 text-white' : e.statut === 'en_cours' ? 'bg-brand-600 text-white' : 'bg-ink-100 text-ink-500'}`}
-              >
-                {e.statut === 'fait' ? <Icone nom="valide" /> : i + 1}
-              </span>
-              <div className="min-w-0">
-                <div className={`text-xs font-semibold uppercase tracking-wide ${e.statut === 'fait' ? 'text-succes-800' : e.statut === 'en_cours' ? 'text-brand-600' : 'text-ink-500'}`}>
-                  {t(`Étape ${i + 1}`, `Step ${i + 1}`)}
-                </div>
-                <div className={`text-sm font-semibold ${e.statut === 'a_venir' ? 'text-ink-500' : 'text-ink-900'}`}>{e.titre}</div>
-              </div>
-            </div>
-            {e.detail && <div className="mt-2 pl-10 text-sm text-ink-700">{e.detail}</div>}
-            {e.contenu && <div className="mt-3 pl-10">{e.contenu}</div>}
-          </li>
+          {i > 0 && <FlecheEtape />}
+          <EtapeTunnel testid={`fil-ligne-${e.cle}`} numero={i + 1} statut={e.statut} titre={e.titre} detail={e.detail}>{e.contenu}</EtapeTunnel>
         </Fragment>
       ))}
     </ol>
