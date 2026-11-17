@@ -2496,11 +2496,9 @@ scénario, comment importer des contacts.
 
 ## Numéro WhatsApp relié par 360dialog (2026-10-16)
 
-- ✅ **« Onboard with 360dialog »** : sur l'Accueil d'un espace sans numéro, à côté de « Connecter mon compte
-  WhatsApp », l'admin colle la clé d'API d'un numéro pris chez 360dialog (et, s'il le veut, le numéro affiché).
-  Messaging Me lit le numéro chez 360dialog, le relie à l'espace et branche la réception des messages, en gardant les
-  autres logiciels déjà branchés sur ce numéro. Dès qu'un numéro est connecté, par l'une ou l'autre voie, les deux
-  boutons disparaissent. Pas de fenêtre de Meta : c'est 360dialog qui porte le numéro.
+- ❌ **On ne relie plus de numéro par 360dialog (2026-11-17)** : les boutons « Onboard with 360dialog » (Accueil d'un
+  espace sans numéro) et « Recoller la clé 360dialog » (carte du numéro) sont retirés, avec leur route. Seule notre
+  équipe peut encore rattacher un tel numéro, depuis l'exploitation. Un numéro déjà relié garde ce qui suit.
 - ✅ **Ce qui marche comme avec un numéro Meta** : messages et médias reçus dans l'Inbox (photos, vocaux et leur
   transcription), réponses de l'Inbox, scénarios, campagnes, agents IA, API et Claude, modèles (liste, création avec
   une image, suppression, statuts), envois marketing par MM Lite, formulaires WhatsApp (Flows). Les gardes restent les
@@ -2509,8 +2507,6 @@ scénario, comment importer des contacts.
   page dit qu'il n'est pas disponible sur ce numéro), sa position dans « Qui répond au client », « Renouveler la
   connexion Meta », l'activation du numéro, sa qualité et le panneau du compte WhatsApp Business. La pastille dit
   « Compte connecté », jamais un faux vert, ou « Clé 360dialog refusée » en rouge.
-- ✅ **« Recoller la clé 360dialog »**, sur la carte du numéro : remplace une clé refusée (par exemple après en avoir
-  généré une nouvelle chez 360dialog, qui révoque l'ancienne).
 - Limites : un modèle ne se modifie pas (il se recrée) ; l'en-tête d'un modèle ne peut être qu'une image, rangée dans la
   médiathèque de l'espace (la supprimer casse le modèle) ; « Rafraîchir » les formulaires en importe 100 au plus.
 

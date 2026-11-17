@@ -4,6 +4,21 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : « Onboard with 360dialog » retiré, on ne relie plus de numéro par 360dialog
+
+Demande de Julien (2026-11-17) : « faut supprimer tous les boutons onboard with 360 dialog, on va plus jamais utiliser
+cette technique désormais ».
+
+- **Retiré** : les deux boutons de l'Accueil (« Onboard with 360dialog » dans la carte d'un espace sans numéro,
+  « Recoller la clé 360dialog » sur la carte du numéro), leur composant `Connexion360dialog`, le client
+  `connecter360dialog`, la route `POST /tenants/:tenantId/360dialog/connecter` et son module du registre, la fiche
+  d'aide `numero-360dialog`, et les deux cas e2e du bouton.
+- **Gardé, délibérément** : `POST /ops/360dialog/:tenantId` (`rattacher360dialog`), la réception et l'envoi
+  360dialog, et ce que la console masque pour un numéro déjà relié (`est360`, e2e `accueil-360dialog.spec.ts`).
+  Retirer toute la chaîne est une autre décision.
+- **Ordre** : la console n'appelle plus la route dès ce push ; la route reste servie en production jusqu'au prochain
+  déploiement de l'API, sans appelant. La fiche d'aide reste dans la base de l'aide jusqu'au prochain `aide:charger`.
+
 ## 2026-11-17 : Connecter WhatsApp devient un tunnel d'étapes, et l'Accueil n'y mène plus que par une porte
 
 Retour de Julien (même jour), juste après avoir souscrit la formule Pro : sur « Quelle solution pour payer vos messages

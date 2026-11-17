@@ -1838,6 +1838,8 @@ d'un modèle par `waba-v2.360dialog.io/messages` ET par MM Lite (`/marketing_mes
   360dialog ») ; le bouton « Onboard with 360dialog » COLLE la clé d'API d'un numéro pris sur notre compte client
   360dialog, par `POST /tenants/:tenantId/360dialog/connecter` (même logique que `/ops`). Les deux boutons se masquent
   dès qu'un numéro est connecté, quelle que soit la voie ; « Recoller la clé 360dialog » répare une clé refusée.
+  **RETIRÉ le 2026-11-17 (Julien : « on va plus jamais utiliser cette technique »)** : les deux boutons, leur composant
+  et la route `/360dialog/connecter`. Restent `/ops/360dialog`, la réception et l'envoi pour un numéro déjà relié.
 - **À demander à 360dialog avant le lot 2** : l'agent de Meta (MBA) sur leurs numéros, qu'aucune clé ne permet
   d'essayer ; et si la Multi-Partner Solution existe chez eux (elle garderait tout en direct chez Meta).
 

@@ -127,6 +127,9 @@ const SECTIONS_SANS_FICHE: ReadonlyMap<string, 'interne' | 'integrateurs' | 'auc
   ["La mesure d'audience de la vitrine", 'interne'],
   // Une rubrique de notre site public, pas un écran de la console : elle se lit sur la vitrine, rien à y faire.
   ['Le Centre de confiance (vitrine)', 'interne'],
+  // Plus aucun geste client depuis le 2026-11-17 (« Onboard with 360dialog » retiré) : seule l'exploitation rattache
+  // encore un tel numéro, et sa fiche d'aide a été retirée avec le bouton.
+  ['Numéro WhatsApp relié par 360dialog (2026-10-16)', 'interne'],
   ['API publique `/v1` (intégrateurs externes)', 'integrateurs'],
   ['Webhooks entrants (menu Tools)', 'integrateurs'],
   ['Brancher vos systèmes : les connecteurs API (menu « Tools » > Connecteurs API)', 'integrateurs'],

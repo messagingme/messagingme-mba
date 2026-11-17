@@ -40,7 +40,6 @@ import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { TitrePage } from '@/components/TitrePage';
 import { Icone } from '@/components/Icone';
 import { Modale } from '@/components/Modale';
-import { Connexion360dialog } from '@/components/Connexion360dialog';
 import { Squelette } from '@/components/Squelette';
 import { Nd } from '@/components/Nd';
 import { HorsOffre } from '@/components/HorsOffre';
@@ -523,8 +522,6 @@ function AccueilInner({ session }: { session: Session }) {
   const rcs = useCanalRcs(session.tenantId);
   // Le compte relié par 360dialog (livraison D) : la console masque ce qui ne parle qu'à Meta.
   const est360 = account?.fournisseur === '360dialog';
-  // Après « Onboard with 360dialog » ou une clé recollée : relire le compte, comme après la fenêtre de Meta.
-  const recharger360 = (): void => { setAvertissementsConnexion([]); setConnexionRenouvelee(false); setLoading(true); void load(); void loadAccount(); };
   const affichageHubspot = account
     // Un connecteur qui se réveille compte comme relié, sauf pour un espace qui a éteint HubSpot : le bloc s'affiche,
     // et c'est lui qui dit « connexion en cours ».
@@ -583,7 +580,7 @@ function AccueilInner({ session }: { session: Session }) {
               )}
             </p>
           )}
-          <ReprendreMiseEnService isAdmin={isAdmin} tenantId={session.tenantId} onConnecte360={recharger360} />
+          <ReprendreMiseEnService isAdmin={isAdmin} />
           {/* 🔴 Le compte peut revenir de la fenêtre Meta SANS numéro (lot 3b) : l'espace n'a toujours pas de
               numéro, donc c'est cette branche qui s'affiche, et l'avertissement qui dit quoi faire doit y être.
               Sans lui, la fenêtre se fermait sans un mot. Titre neutre : rien n'est « connecté ». */}
@@ -825,7 +822,6 @@ function AccueilInner({ session }: { session: Session }) {
                   connexion={connexionNumero}
                   tenantId={session.tenantId}
                   est360={est360}
-                  onRecolle={recharger360}
                   onDeconnecte={(r) => {
                     setConnexionRenouvelee(false);
                     setAvertissementsConnexion([]);
@@ -1104,11 +1100,9 @@ function BadgeField({ label, badge }: { label: string; badge: StatusBadge }) {
  * UN ESPACE SANS NUMÉRO, SUR L'ACCUEIL : UNE SEULE CARTE, « CONTINUER LA MISE EN SERVICE » (Julien, 2026-11-17). Elle mène
  * au tunnel de Connecter WhatsApp, qui pose ses questions une à une, le choix du paiement d'abord. L'Accueil ouvrait la
  * fenêtre de Meta en direct, à côté de la question du paiement : le client pouvait connecter son numéro sans avoir fini
- * la mise en service. La clé d'un numéro pris chez 360dialog reste ici, c'est un geste d'intégrateur sans question.
+ * la mise en service. « Onboard with 360dialog » n'y est plus (Julien, 2026-11-17 : on ne relie plus de numéro par 360dialog).
  */
-function ReprendreMiseEnService({ isAdmin, tenantId, onConnecte360 }: {
-  isAdmin: boolean; tenantId: string; onConnecte360: () => void;
-}) {
+function ReprendreMiseEnService({ isAdmin }: { isAdmin: boolean }) {
   const t = useT();
   return (
     <div data-testid="reprendre-mise-en-service" className="rounded-carte border-2 border-brand-500 bg-white p-5">
@@ -1131,9 +1125,6 @@ function ReprendreMiseEnService({ isAdmin, tenantId, onConnecte360 }: {
         ) : (
           <span className="text-sm text-ink-500">{t('Réservé aux admins de l’espace.', 'Workspace admins only.')}</span>
         )}
-        {/* Le lot 3 : la clé d'un numéro pris chez 360dialog. Toute la carte disparaît dès qu'un numéro est connecté, par
-            l'une ou l'autre voie : la règle est celle de la branche qui la monte (`!account.hasNumber`). */}
-        {isAdmin && <Connexion360dialog tenantId={tenantId} mode="connecter" onConnecte={onConnecte360} />}
       </div>
     </div>
   );
@@ -1162,12 +1153,11 @@ function ReprendreMiseEnService({ isAdmin, tenantId, onConnecte360 }: {
  * ⚠️ LA MÊME INSTANCE que la zone « Connecter » et le bloc « Canaux et services » (`connexionNumero`) : elle porte
  * l'écoute des messages de la fenêtre Meta, et une seconde instance les capterait de son côté.
  */
-function ConnexionMetaDuNumero({ connexion, tenantId, est360, onRecolle, onDeconnecte }: {
+function ConnexionMetaDuNumero({ connexion, tenantId, est360, onDeconnecte }: {
   connexion: ConnexionNumero;
   tenantId: string;
-  /** Compte relié par 360dialog : pas de fenêtre de Meta à rouvrir, mais une clé à recoller. */
+  /** Compte relié par 360dialog : pas de fenêtre de Meta à rouvrir. */
   est360: boolean;
-  onRecolle: () => void;
   onDeconnecte: (r: { conversations: number; campagnesArretees: number; echecsMeta: number }) => void;
 }) {
   const t = useT();
@@ -1183,7 +1173,6 @@ function ConnexionMetaDuNumero({ connexion, tenantId, est360, onRecolle, onDecon
             {connexion.busy ? t('Connexion en cours…', 'Connecting…') : t('Renouveler la connexion Meta', 'Renew the Meta connection')}
           </Bouton>
         )}
-        {est360 && <Connexion360dialog tenantId={tenantId} mode="recoller" onConnecte={onRecolle} />}
         <Bouton data-testid="deconnecter-numero" variante="discret" type="button" disabled={connexion.busy} onClick={() => setConfirmer(true)}>
           {t('Déconnecter le numéro', 'Disconnect the number')}
         </Bouton>

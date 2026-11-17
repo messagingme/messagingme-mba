@@ -4,9 +4,9 @@ import { Cle360dialogRefusee, Erreur360dialog, type Destination360 } from '../me
 import type { Fournisseur } from '../meta/credentials';
 
 /**
- * RATTACHER UN NUMÉRO 360DIALOG À UN ESPACE, AVEC LA CLÉ D'API DU NUMÉRO : un seul exemplaire, pour l'exploitation
- * (`POST /ops/360dialog/:tenantId`) et pour l'admin de l'espace (le bouton « Onboard with 360dialog », lot 3,
- * `POST /tenants/:tenantId/360dialog/connecter`). Les deux ne diffèrent que par leur autorité et leur trace.
+ * RATTACHER UN NUMÉRO 360DIALOG À UN ESPACE, AVEC LA CLÉ D'API DU NUMÉRO, par l'exploitation seule
+ * (`POST /ops/360dialog/:tenantId`). Le bouton « Onboard with 360dialog » de l'admin et sa route
+ * `POST /tenants/:tenantId/360dialog/connecter` sont retirés (Julien, 2026-11-17 : on ne relie plus de numéro par 360dialog).
  *
  * Le numéro et le compte sont LUS chez 360dialog avec la clé, jamais saisis ; les gardes de l'Embedded Signup
  * s'appliquent (un seul numéro par espace, jamais le compte d'un autre espace) ; la clé est chiffrée comme un jeton

@@ -1996,8 +1996,6 @@ async function main(): Promise<void> {
       espaceExiste: async (tenant) => ((await pool.query('select 1 from tenants where id = $1', [tenant])).rowCount ?? 0) > 0,
       audit: auditSink,
     },
-    // Le bouton « Onboard with 360dialog » (lot 3) : la même logique, par l'admin de l'espace.
-    connexion360dialog: { ...rattachement360, audit: auditSink },
     offrePaiement: {
       ouvrir: (tenant, periodicite, payeur) => ouvrirPro(proDeLaConsole, tenant, periodicite, payeur, 'offre'),
       portail: (tenant, payeur) => ouvrirPortailPro(proDeLaConsole, tenant, payeur),

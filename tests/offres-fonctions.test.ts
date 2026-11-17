@@ -155,7 +155,7 @@ describe('les fonctions gardées par l’offre', () => {
  * espace Free.
  */
 const OUVERTS_AU_FREE = [
-  'offre', 'offrePaiement', 'creditPaiement', 'embeddedSignup', 'connexion360dialog', 'numeroFourni', 'abonnementNumero',
+  'offre', 'offrePaiement', 'creditPaiement', 'embeddedSignup', 'numeroFourni', 'abonnementNumero',
   'apiKeys', 'oauthConsentement', 'account', 'admin', 'me', 'emailsMoi', 'support',
 ];
 const modulesDEspace = (): ModuleMonte[] => modulesDeRoutes(toutBouchonne, usage).filter((m) => m.acces === 'tenant');

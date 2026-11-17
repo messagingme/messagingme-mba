@@ -327,10 +327,9 @@ FERMÉ pour un tel espace ; le tarif y est « absent », comme sans tarif, et to
 `CompteChez360dialog` rend un 409 lisible (gestionnaire d'erreurs de `src/server.ts`), jamais un 500. `account-status`
 dit le `fournisseur` (lu en SQL avec le numéro, rien n'est déchiffré) ; pour 360dialog il n'interroge pas Meta, et sa
 pastille est grise « connecté », ou rouge quand la clé a été refusée. La connexion par Embedded Signup est REFUSÉE sur un
-tel espace (elle remplacerait sa clé par un jeton Meta). L'admin de l'espace relie un numéro, ou recolle sa clé, par
-`POST /tenants/:tenantId/360dialog/connecter` (le bouton « Onboard with 360dialog », `src/http/connexion-360dialog.ts`),
-la même logique que l'exploitation (`rattacher360dialog`, `src/account/rattacher-360dialog.ts`). Un
-numéro 360dialog se rattache par `POST /ops/360dialog/:tenantId` (`src/http/ops-360dialog.ts`) : la clé collée, le
+tel espace (elle remplacerait sa clé par un jeton Meta). L'admin de l'espace n'a plus aucun geste pour relier un numéro
+ou recoller sa clé (bouton « Onboard with 360dialog » et sa route retirés le 2026-11-17). Un
+numéro 360dialog se rattache seulement par `POST /ops/360dialog/:tenantId` (`src/http/ops-360dialog.ts`) : la clé collée, le
 numéro et le compte LUS par `/health_status`, les gardes de `linkTenant`, puis notre webhook posé en gardant les
 destinations existantes (`Config360dialogClient.poserWebhook`). Le numéro affiché, qu'aucune route ne rend avec la clé,
 est facultatif.

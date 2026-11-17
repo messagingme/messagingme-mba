@@ -127,7 +127,6 @@ import { registerOffre, type OffreRouteDeps } from './http/offre';
 import { registerOffrePaiement, type OffrePaiementRouteDeps } from './http/offre-paiement';
 import { registerOpsOffre, type OpsOffreDeps } from './http/ops-offre';
 import { registerOps360dialog, type Ops360dialogDeps } from './http/ops-360dialog';
-import { registerConnexion360dialog, type Connexion360dialogDeps } from './http/connexion-360dialog';
 import { registerOpsNumeros, type OpsNumerosDeps } from './http/ops-numeros';
 import { registerOpsEmails, type OpsEmailsDeps } from './http/ops-emails';
 import { registerResendWebhook, type ResendWebhookRouteDeps } from './http/webhook-resend';
@@ -399,8 +398,6 @@ export interface ServerDeps {
   automations?: AutomationRouteDeps;
   /** Embedded Signup Meta (connexion du numéro, Tech Provider), réservé aux admins. */
   embeddedSignup?: EmbeddedSignupRouteDeps;
-  /** Le bouton « Onboard with 360dialog » : l'admin colle la clé d'un numéro 360dialog (`src/http/connexion-360dialog.ts`). */
-  connexion360dialog?: Connexion360dialogDeps;
   /** Le numéro fourni côté client (lot 3b) : un numéro de la réserve et le code capté, réservé aux admins. */
   numeroFourni?: NumeroFourniRouteDeps;
   /** L'état de l'abonnement du numéro fourni, lisible par tout membre (lot 4, le bandeau de la console). */
@@ -648,7 +645,7 @@ const fermeAuFree = (): boolean => false;
  */
 export const MODULES_OUVERTS_AU_FREE: Readonly<Record<string, (route: RouteDeModule) => boolean>> = {
   offre: toutLeModule, offrePaiement: toutLeModule, creditPaiement: toutLeModule, embeddedSignup: toutLeModule,
-  connexion360dialog: toutLeModule, numeroFourni: toutLeModule, abonnementNumero: toutLeModule, apiKeys: toutLeModule,
+  numeroFourni: toutLeModule, abonnementNumero: toutLeModule, apiKeys: toutLeModule,
   oauthConsentement: toutLeModule, me: toutLeModule, emailsMoi: toutLeModule, support: toutLeModule,
   account: (r) => r.chemin === '/tenants/:tenantId/account-status',
   admin: (r) => r.chemin === '/tenants/:tenantId/nom' && r.methodes.every((m) => m === 'GET' || m === 'HEAD'),
@@ -903,8 +900,6 @@ export function modulesDeRoutes(
     entree('widgets', 'tenant', deps.widgets, (app, d, g) => registerWidgets(app, d, g.admin)),
     // La page de connexion du numéro : `adminOuLien`, la session d'admin OU le lien que donne Claude Code (lot 3c).
     entree('embeddedSignup', 'tenant', deps.embeddedSignup, (app, d, g) => registerEmbeddedSignup(app, d, g.adminOuLien, g.admin, g.limiteCouteuse)),
-    // Coller la clé d'un numéro 360dialog (lot 3) : admin, et la limite coûteuse (chaque essai appelle 360dialog).
-    entree('connexion360dialog', 'tenant', deps.connexion360dialog, (app, d, g) => registerConnexion360dialog(app, d, g.admin, g.limiteCouteuse)),
     // Le portail de Stripe, lui, reste à la session d'admin : `g.admin`.
     entree('numeroFourni', 'tenant', deps.numeroFourni, (app, d, g) => registerNumeroFourni(app, d, g.adminOuLien, g.admin, g.limiteCouteuse)),
     // `auth` et non `admin` : un agent de l'Inbox doit savoir pourquoi ses réponses ne partent plus (lot 4).
