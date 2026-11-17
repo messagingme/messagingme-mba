@@ -41,7 +41,7 @@ npm run build            # build standalone
 (stores, pg-boss, e2e) ont besoin d'un Postgres, et le `DATABASE_URL` du `.env` local pointe sur
 l'**ANCIENNE base de production** (Supabase, figée le 2026-10-26, le retour arrière de la bascule) : les lancer
 d'ici la salirait. La CI monte un Postgres jetable pour ça (job `integration`), donc **après un
-push, regarder le run GitHub** : un `npm test` vert en local n'a rien vérifié côté base. Vu le
+push, regarder le run GitHub** : un `npm test` vert en local n'a rien vérifié côté base. Avant le push, un banc PGlite (le vrai `pg`, toutes les migrations, une requête à la fois) les joue sans base : recette dans `brain/LEARNINGS.md` (2026-11-17). Vu le
 2026-07-21, quatre commits rouges d'affilée sur une attente de test périmée qu'aucun test
 unitaire ne pouvait voir.
 
