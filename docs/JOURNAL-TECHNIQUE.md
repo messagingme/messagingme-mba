@@ -4,6 +4,44 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : dupliquer un scénario avec son agent IA, ses appels API et son modèle d'e-mail (lot 2)
+
+**La demande** : le lot 2 de la duplication entre espaces depuis `/ops` (spec
+`docs/superpowers/specs/2026-11-16-duplication-scenario-entre-espaces-design.md`, plan
+`docs/superpowers/plans/2026-11-17-duplication-scenario-lot-2.md`, onze décisions validées par Julien). Des cases,
+décochées par défaut, emportent avec le scénario l'agent IA d'un bloc (fiche, connaissance avec ses vecteurs, outils
+désactivés), l'appel API d'un bloc (requête et source, secret recopié chiffré) et le modèle d'e-mail d'un bloc ; plus
+les onze jaunes de la relecture du lot 1.
+
+**Le lot** (API `592c194b` et `e9cf5346`, manuel `784740c3`, console `664b631e`) : le graphe dit ce qu'il référence
+et se rebranche sur les copies (`referencesDuGraphe`, `rebrancher`) ; un module pur décide ce qui part et sous quel nom
+(`planifierDependances`, `nomLibre`, `nomOutilLibre`) ; chaque copie est un `INSERT … SELECT` filtré sur l'espace
+source, dans la transaction du scénario, dont l'identifiant est tiré d'avance : c'est ce qui rompt la dépendance
+croisée entre les actions de l'agent (qui visent le scénario copié) et le scénario (qui désigne l'agent copié). La
+trace `ops.scenario_duplique` entre au journal d'activité de la destination. Le motif des `{{clé}}` d'un e-mail est
+partagé depuis `src/crm/render.ts` : le plan le situait dans `wiring.ts`, qui n'en a pas. Fait dans une copie à part.
+
+**Ce que les essais ont appris** : les tests d'intégration ne tournent qu'en CI, et le poste n'a pas de Postgres. Un
+banc local les a joués avant toute CI : le vrai `pg` sur PGlite (son adaptateur node-postgres), les 290 migrations en
+3 s, les requêtes sérialisées entre connexions (sans quoi les `Promise.all` de `lireEtat` entremêlent leurs messages
+dans l'unique session). Il a trouvé deux défauts qu'aucun test unitaire ne pouvait voir : un outil d'espace consommé
+par deux agents cochés était copié deux fois (refus de `agent_tools_nom_espace_uidx`, toute la copie annulée), et son
+nouveau nom pouvait heurter une action du même agent (`atc_nom_par_consommateur_uidx`). Trois tests prévus par le plan
+manquaient (un graphe forgé vers l'agent d'un tiers, l'ordre de deux déclencheurs créés ensemble, l'outil partagé) ;
+ils sont écrits, et chacun des quatre nouveaux tests a été vu rouge sans son correctif.
+
+**Preuve** :
+- **Tests** : la suite racine sur l'état rebasé (17 305 verts ; deux délais dus à la charge, verts seuls) ; 13 tests
+  d'intégration sur le banc, puis en CI ; 94 e2e de `/ops` sur une construction de production, dont 10 de l'onglet.
+- **Sécurité** : auto-attaque sans trouvaille (2 113 sondes).
+- **Relecture indépendante** : aucun rouge, treize jaunes au `todo.md`, pour le lot 3. Le plus visible : l'aperçu
+  donne une case à une requête que seul un outil de l'agent appelle, et la route refuse de la cocher.
+- **Déploiement** : sans migration, après le lot G d'une session voisine (run 44084008742, image de `784740c3`,
+  approuvé par Julien), l'image relue dans le journal du job de construction. La route répond 401 sans session. La
+  console poussée ensuite (`664b631e`), sa CI verte job par job, publiée par Vercel.
+
+Reste l'essai réel 272.
+
 ## 2026-11-17 : un bloc de l'agent IA ne repart pas pour la même demande, la console retype les fichiers qu'elle ouvre, et le consentement s'arme (lot G de l'audit de sécurité)
 
 Décisions de Julien du 2026-11-17, sur le second passage de l'audit : corriger directement le rejeu d'un bloc par
