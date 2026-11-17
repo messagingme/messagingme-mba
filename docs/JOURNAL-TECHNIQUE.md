@@ -4,6 +4,23 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : l'assistant de l'agent de Meta envoyait son outil sans nom, et le fournisseur le refusait (essai réel du lot F)
+
+Trouvé par Julien pendant l'essai réel n° 270 : l'onglet « Assistant » de l'agent de Meta répondait « le fournisseur du
+modèle a refusé l'appel (HTTP 400) », pendant que l'assistant de construction d'un agent répondait avec le même modèle.
+
+- **La cause, antérieure au lot F** : depuis son câblage du 15 septembre, la route (`src/http/mba-assistant.ts`) passait
+  au client du modèle un outil déjà emballé au format du fournisseur (`{ type, function }`), forcé au type `OutilExpose`
+  par un `as`. Le client (`src/agent/llm/chat-client.ts`) l'emballe lui-même en lisant `name`, `description` et
+  `parameters` : le fournisseur recevait un outil sans nom ni schéma. Les faux `completer` des tests ne lisaient pas leur
+  entrée, et aucun ne pouvait le voir.
+- **Le correctif** : l'outil part en `{ name, description, parameters }`, et son appel est imposé (`toolChoice`), comme pour
+  l'assistant de construction. Le test passe par le vrai client du modèle, seul `fetch` simulé, et vérifie le corps
+  envoyé au fournisseur ; il échoue sur l'ancien code avec le message vu en production. Écrit par un sous-agent dans une
+  copie à part, relu avant la poussée ; aucun autre appelant du client ne passait un outil mal formé.
+- **En production** : `8beee5f6`, run 44091730343 en `migration=aucune`, approuvé par Julien ; fumée sans session bonne.
+  L'étape de l'essai n° 270 se rejoue.
+
 ## 2026-11-17 : dupliquer un scénario avec son agent IA, ses appels API et son modèle d'e-mail (lot 2)
 
 **La demande** : le lot 2 de la duplication entre espaces depuis `/ops` (spec
