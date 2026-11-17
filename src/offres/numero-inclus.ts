@@ -1,4 +1,4 @@
-import { arreterAbonnementNumeroSeul, creerAbonnementNumeroSeul, poserRemiseUneFois, StripeError, type TransportStripe } from '../stripe/client';
+import { arreterAbonnementNumeroSeul, couponSurFacture, creerAbonnementNumeroSeul, poserRemiseUneFois, StripeError, type TransportStripe } from '../stripe/client';
 import type { AbonnementNumero, IssueEnregistrement } from '../stripe/abonnements.pg';
 import type { RaisonFinOffre } from './abonnements-offre.pg';
 import { lienTableauStripe } from '../stripe/liens';
@@ -106,7 +106,7 @@ const dejaEnCours = (err: StripeError): boolean => err.code === 'idempotency_key
  * levés), mais l'abonnement payé à part ne s'arrête qu'à la première facture payée non nulle. Un essai abandonné ne l'a
  * donc jamais touché, et la fin du Pro le trouve vivant (`deja_abonne`) : rien n'est recréé en double.
  */
-export async function surPassageEnPro(d: DepsNumeroInclus, tenantId: string, o: { arreterLeNumeroSeul: boolean }): Promise<void> {
+export async function surPassageEnPro(d: DepsNumeroInclus, tenantId: string, o: { arreterLeNumeroSeul: boolean; factureId?: string }): Promise<void> {
   await d.numero.oublierAvisDeSuspension(tenantId);
   await d.reprendreCampagnes(tenantId);
   if (!o.arreterLeNumeroSeul) return;
@@ -115,8 +115,12 @@ export async function surPassageEnPro(d: DepsNumeroInclus, tenantId: string, o: 
   const lien = lienTableauStripe('subscriptions', a.abonnementId, a.livemode);
   // 🔴 Lot 2 du 2026-11-17 : un numéro payé PENDANT l'essai est remboursé par la remise de 3,50 € posée sur la première
   // facture du Pro (`surNumeroPayePendantLEssai`) ; l'avoir au prorata le rembourserait une seconde fois. Un numéro payé
-  // avant l'essai (un Free devenu Pro) garde son avoir, comme avant.
-  const rembourseParLaRemise = d.couponNumeroEssai !== '' && await d.numero.payePendantLEssai(tenantId, a.abonnementId);
+  // avant l'essai (un Free devenu Pro) garde son avoir, comme avant. 🔴 Lot 3 (jaune 1 de la relecture du lot 2) : la
+  // remise doit figurer sur la FACTURE payée qui fait passer en Pro (`remiseSurLaFacture`) ; refusée, jamais posée ou
+  // consommée ailleurs, l'avoir au prorata reste.
+  const rembourseParLaRemise = d.couponNumeroEssai !== ''
+    && await d.numero.payePendantLEssai(tenantId, a.abonnementId)
+    && await remiseSurLaFacture(d, tenantId, o.factureId);
   if (d.stripe === null || d.stripe.livemode !== a.livemode) {
     await d.alerter(`Espace ${tenantId} passé en Pro : son abonnement du numéro seul ${a.abonnementId} court encore, à arrêter à la main ${rembourseParLaRemise ? 'sans avoir (la remise de l’essai l’a remboursé)' : 'avec un avoir au prorata'}. ${lien}`);
     return;
@@ -134,6 +138,23 @@ export async function surPassageEnPro(d: DepsNumeroInclus, tenantId: string, o: 
     }
     journaliser('error', 'numero_inclus_arret_impossible', { tenantId, abonnement: a.abonnementId, status: err.status, code: err.code, err: err.message });
     await d.alerter(`Espace ${tenantId} passé en Pro : Stripe refuse d'arrêter son abonnement du numéro seul ${a.abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''}). À arrêter à la main avec un avoir au prorata. ${lien}`);
+  }
+}
+
+/**
+ * La remise de l'essai figure-t-elle sur la facture payée du passage en Pro (lot 3, jaune 1 de la relecture du lot 2) ?
+ * Sans facture, sans Stripe dans ce mode, ou une lecture qui échoue : NON, et l'avoir au prorata reste. Dans le doute, le
+ * client garde son remboursement : un remboursement en double coûte au plus 3,50 €, un remboursement perdu est un
+ * montant faux à sa charge.
+ */
+async function remiseSurLaFacture(d: DepsNumeroInclus, tenantId: string, factureId: string | undefined): Promise<boolean> {
+  if (factureId === undefined || d.stripe === null) return false;
+  try {
+    return await couponSurFacture(d.stripe.transport, { cle: d.stripe.cle, facture: factureId, coupon: d.couponNumeroEssai });
+  } catch (err) {
+    if (!(err instanceof StripeError)) throw err;
+    journaliser('error', 'numero_essai_facture_illisible', { tenantId, facture: factureId, status: err.status, code: err.code, err: err.message });
+    return false;
   }
 }
 
@@ -155,6 +176,9 @@ export type IssueNumeroEssai = 'hors_essai' | 'posee' | 'deja' | 'en_cours' | 'a
 export async function surNumeroPayePendantLEssai(d: DepsNumeroInclus, tenantId: string, abonnementNumero: string): Promise<IssueNumeroEssai> {
   const pro = await d.proEnEssai(tenantId);
   if (pro === null) return 'hors_essai';
+  // 🔴 Lot 3 (jaune 2 de la relecture du lot 2) : la MÊME règle qu'au passage en Pro. Un rejeu tardif de l'événement d'un
+  // numéro payé AVANT l'essai, arrivé pendant l'essai, ne pose aucune remise : ce numéro garde son avoir au prorata.
+  if (!(await d.numero.payePendantLEssai(tenantId, abonnementNumero))) return 'hors_essai';
   const aLaMain = async (pourquoi: string): Promise<'a_poser_a_la_main'> => {
     await d.alerter(`Numéro payé pendant l'essai du Pro : espace ${tenantId} (${abonnementNumero}). ${pourquoi} Pose à la main une remise de 3,50 € « une fois » sur son Pro avant la fin de l'essai, sinon sa première facture sera entière. ${lienTableauStripe('subscriptions', pro.abonnementId, pro.livemode)}`);
     return 'a_poser_a_la_main';

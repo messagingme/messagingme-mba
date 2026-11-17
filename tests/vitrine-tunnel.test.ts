@@ -101,7 +101,7 @@ describe('le tunnel du numéro WhatsApp', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { questions } = TEXTES_TUNNEL[langue];
       const q = (id: string) => questions.find((x) => x.id === id)!;
-      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'pilote', 'paiement', 'numero-ligne', 'compte', 'application', 'meme-numero', 'numero']);
+      expect(questions.map((x) => x.id), langue).toEqual(['offre', 'pilote', 'paiement', 'numero-ligne', 'compte', 'application', 'numero-application', 'meme-numero', 'fournir', 'numero']);
       // Free mène à « Qui paie vos messages à Meta ? » ; Pro d'abord à « Console ou Claude Code ? » (lot 3c), dont la
       // console finit sur son issue et Claude Code rejoint la même question. Business et Entreprise mènent à la démo et au
       // contact, jamais aux questions du numéro (Julien, 2026-10-30).
@@ -117,11 +117,16 @@ describe('le tunnel du numéro WhatsApp', () => {
       expect(q('compte').reponses.map((r) => r.vers), langue).toEqual(['api', 'application', 'application']);
       expect(q('compte').reponses[2]!.note, langue).toContain('business.facebook.com');
       expect(q('compte').reponses[2]!.note, langue).toMatch(/Facebook ou Instagram|Facebook or Instagram/);
-      // Avec l'application, ce numéro-là ? (le cas 4, lot 3a) Oui, on la garde ; Non, un numéro de chez nous par la
-      // fenêtre de Meta. Sans elle, la question du numéro (Julien, 2026-10-31), sans note ni magasins (2026-11-12).
-      expect(q('application').reponses.map((r) => r.vers), langue).toEqual(['meme-numero', 'numero']);
+      // Avec l'application (Julien, 2026-11-17, lot 3) : un numéro y fonctionne-t-il ? Oui, est-ce celui-là (le cas 4) ? Oui,
+      // on la garde ; Non, ou aucun numéro dedans : faut-il en fournir un ? Oui, le nôtre dans l'application ; Non, le
+      // sien qu'on y installe. Sans elle, la question du numéro (Julien, 2026-10-31), sans note ni magasins (2026-11-12).
+      expect(q('application').reponses.map((r) => r.vers), langue).toEqual(['numero-application', 'numero']);
       expect(q('application').reponses.map((r) => r.note), langue).toEqual([undefined, undefined]);
-      expect(q('meme-numero').reponses.map((r) => r.vers), langue).toEqual(['garder', 'autre-numero']);
+      expect(q('numero-application').reponses.map((r) => r.vers), langue).toEqual(['meme-numero', 'fournir']);
+      expect(q('meme-numero').reponses.map((r) => r.vers), langue).toEqual(['garder', 'fournir']);
+      expect(q('fournir').reponses.map((r) => r.vers), langue).toEqual(['fourni-application', 'installer']);
+      // 🔴 Jamais le mot « coexistence » dans une question (Julien) : seulement dans les issues qui l'expliquent.
+      for (const x of questions) expect(`${x.texte} ${x.precision ?? ''}`, `${langue} ${x.id}`).not.toMatch(/coexist/i);
       // 🔴 Un numéro : le numéro API, comme avec un compte ; aucun : un numéro de chez nous, relié par la fenêtre de
       // Meta. Plus rien ne fait télécharger l'application ni n'y met un numéro fourni (Julien, 2026-11-12).
       expect(q('numero').reponses.map((r) => r.vers), langue).toEqual(['api', 'fourni']);
@@ -133,13 +138,14 @@ describe('le tunnel du numéro WhatsApp', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { questions, issues } = TEXTES_TUNNEL[langue];
       const issue = (id: string) => issues.find((x) => x.id === id)!;
-      // Le cas 4 : un numéro de chez nous relié par la fenêtre de Meta, son code par l'appel (la source du lot 2c).
-      const autre = issue('autre-numero');
-      const appel = ETAPES_NUMERO_FOURNI.find((e) => e.insiste)!;
-      expect(autre.textes.join(' '), langue).toContain(appel[langue]);
-      // Son pas-à-pas : le mode op du numéro fourni, avec sa vidéo (lot 6 de l'aide à la connexion, 2026-11-13).
-      expect(autre.pasAPas, langue).toBe(langue === 'fr' ? '/aide/numero-fourni-par-messaging-me/' : '/en/help/get-a-number-provided-by-messaging-me/');
-      expect(Object.values(autre.numero ?? {}).join(' '), langue).toMatch(/fournis-m’en un|provide one/);
+      // Le numéro de chez nous mis DANS l'application (lot 3 du 2026-11-17) : son code s'affiche sur la page, puis la
+      // fenêtre de Meta garde l'application ; son pas-à-pas, le mode op du numéro fourni.
+      const dansApplication = issue('fourni-application');
+      expect(dansApplication.textes.join(' '), langue).toMatch(/s’affiche sur la page de connexion|shows on the connection page/);
+      expect(dansApplication.pasAPas, langue).toBe(langue === 'fr' ? '/aide/numero-fourni-par-messaging-me/' : '/en/help/get-a-number-provided-by-messaging-me/');
+      expect(Object.values(dansApplication.numero ?? {}).join(' '), langue).toMatch(/fournis-moi un numéro .*que je mets dans l’application|provide me a number .*that I put in the app/);
+      // Le numéro à soi installé dans l'application : le pas-à-pas de l'application gardée.
+      expect(issue('installer').pasAPas, langue).toBe(langue === 'fr' ? '/aide/garder-mon-application-whatsapp-business/' : '/en/help/keep-my-whatsapp-business-app/');
       // WhatsApp ordinaire : plus aucun texte n'envoie un numéro qui sert dans WhatsApp vers un autre numéro ; il passe
       // dans WhatsApp Business, gardée, que dit l'issue de l'application.
       const api = issue('api');
@@ -180,14 +186,11 @@ describe('le tunnel du numéro WhatsApp', () => {
     for (const langue of ['fr', 'en'] as const) {
       const { issues } = TEXTES_TUNNEL[langue];
       const fourni = issues.find((x) => x.id === 'fourni')!;
-      const autre = issues.find((x) => x.id === 'autre-numero')!;
-      // Le même numéro que le cas 4, sans ce que garde l'application : son code par l'appel, le compte créé en chemin.
-      expect(fourni.titre, langue).toBe(autre.titre);
-      expect(autre.textes[0]!.startsWith(`${fourni.textes[0]!} `), langue).toBe(true);
+      // Son code par l'appel (la source du lot 2c), le compte créé en chemin, le pas-à-pas du numéro fourni.
       const appel = ETAPES_NUMERO_FOURNI.find((e) => e.insiste)!;
       expect(fourni.textes.join(' '), langue).toContain(appel[langue]);
       expect(fourni.textes.join(' '), langue).toMatch(/La fenêtre de Meta le crée en chemin|Meta’s window creates it along the way/);
-      expect(fourni.pasAPas, langue).toBe(autre.pasAPas);
+      expect(fourni.pasAPas, langue).toBe(langue === 'fr' ? '/aide/numero-fourni-par-messaging-me/' : '/en/help/get-a-number-provided-by-messaging-me/');
       // 🔴 Rien n'y parle de l'application : ni à télécharger, ni à garder, ni à y mettre le numéro, ni ses magasins.
       expect(fourni.liens, langue).toBeUndefined();
       const tout = [fourni.titre, fourni.situation.replace(/^Sans l’application WhatsApp Business|^Without the WhatsApp Business app/, ''), ...fourni.textes, ...Object.values(fourni.numero ?? {})].join(' ');
@@ -226,13 +229,14 @@ describe('le tunnel du numéro WhatsApp', () => {
     }
   });
 
-  it('🔴 le plus long parcours fait six questions (Pro par Claude Code) : l’étape le dit, les titres non (Julien, 2026-11-13 : « dis pas 6, tu décourages »)', () => {
+  it('🔴 le plus long parcours fait huit questions (Pro par Claude Code, avec l’application, un numéro à fournir) : l’étape le dit, les titres non (Julien, 2026-11-13 : « dis pas 6, tu décourages »)', () => {
     for (const [langue, quelques] of [['fr', 'quelques questions'], ['en', 'a few questions']] as const) {
       const max = profondeurTunnel(TEXTES_TUNNEL[langue].questions);
-      expect(max).toBe(6);
+      // Six jusqu'au lot 3 du 2026-11-17, qui a ajouté « un numéro y fonctionne-t-il ? » et « faut-il en fournir un ? ».
+      expect(max).toBe(8);
       for (const x of [TEXTES_TUNNEL[langue].chapeau, TEXTES_DEMARRER[langue].h1.join(' '), TEXTES_DEMARRER[langue].titre]) {
         expect(x, langue).toContain(quelques);
-        expect(x, langue).not.toMatch(/six question/);
+        expect(x, langue).not.toMatch(/\b(\d+|six|huit|eight) questions?\b/);
       }
       for (const p of PAGES.filter((x) => x.langue === langue)) {
         const html = lire(fichierDe(p.adresse));
@@ -276,7 +280,7 @@ describe('le tunnel du numéro WhatsApp', () => {
       ['en', /No Meta Business account\? Meta’s window creates it along the way/],
     ] as const) {
       const { issues } = TEXTES_TUNNEL[langue];
-      for (const id of ['garder', 'autre-numero', 'fourni']) expect(issues.find((x) => x.id === id)!.textes.join(' '), `${langue} : ${id}`).toMatch(enChemin);
+      for (const id of ['garder', 'fourni-application', 'installer', 'fourni']) expect(issues.find((x) => x.id === id)!.textes.join(' '), `${langue} : ${id}`).toMatch(enChemin);
       // Meta ne publie aucun seuil : jamais un nombre de jours ni d'heures.
       for (const x of issues.filter((y) => y.id === 'garder' || y.id === 'fourni')) {
         expect([...x.textes, ...Object.values(x.numero ?? {})].join(' '), `${langue} : ${x.id}`).not.toMatch(/\d+\s*(jours?|days?|heures?|hours?|semaines?|weeks?)/i);

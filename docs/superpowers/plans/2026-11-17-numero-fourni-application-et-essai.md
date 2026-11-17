@@ -145,3 +145,31 @@ tests du tunnel, `tests/connexion-numero.test.ts`, e2e `connecter-whatsapp.spec.
 
 Déploiement : API, puis console et vitrine, puis publication du plugin. **Essai réel** : de la console, « Oui / Non /
 Oui » jusqu'au numéro relié en gardant l'application, sur le téléphone de Julien.
+
+**Relecture du lot 3** : aucun rouge dans le code. Deux constats corrigés avant le push :
+
+- La route de la voie était montée sous la garde du lien de Claude (`adminOuLien`), que `tests/scope-tenant.test.ts`
+  refuse : elle passe à la session d'admin seule (`gardeAdmin`), le lien arrivant avec sa voie déjà retenue.
+- 🔴 selon l'ordre de mise en ligne : la console, publiée par Vercel dès le push, envoyait la voie sans l'attendre ; tant
+  que l'API n'avait pas la route, un client qui choisissait le numéro mis dans l'application payait, sa voie jamais
+  retenue, et la garde du lot 1 lui cachait le code. La console attend désormais la voie avant d'avancer, et dit un refus
+  (e2e « la voie de l'application refusée par le serveur »).
+
+Ses jaunes, pour le prochain lot de fonctionnalité :
+
+- **La reprise ignore la voie du serveur** : la variante ne vient que de la mémoire de l'onglet (`varianteGardee`) ; d'un
+  autre navigateur, un numéro mis dans l'application s'affiche sur la voie de la fenêtre de Meta. La lire de l'état.
+- **La voie de la ligne de crédit ne retient jamais `api`** (`QuiRegleMeta`, « J'ai besoin d'un numéro ») : un espace
+  passé par la voie de l'application garde `application`, et un appel de l'application y montrerait son code.
+- **Deux clics opposés en rafale** : la route lit puis écrit, et la console n'ordonne pas ses envois. Une seule
+  instruction (`where numero_fourni_destination is distinct from $2`) et des envois en file.
+- **« Remplacer » sans réserve** garde bien le numéro, mais le verrou d'une heure est pris : tout essai dans l'heure rend
+  429, même réapprovisionnée. Relâcher le verrou quand rien n'a été remplacé.
+- **`couponSurFacture` lit la présence du coupon, pas son montant** : sur une facture à 0 € (code promo à 100 %), le
+  numéro s'arrêterait sans avoir. Exiger un montant non nul (`total_discount_amounts`).
+- **Textes de l'essai** : la carte du numéro mis dans l'application dit « inclus en formule Pro » à un Pro en essai, et
+  `scripts/plugin/generer.ts` écrit « provided number included » près de l'essai de 14 jours.
+- **Une voie posée par un clic coupe un lien neuf de Claude** (`modeDuLienNeuf`) : ignorer la voie retenue quand l'espace
+  n'a aucun numéro fourni.
+- **« Le code n'arrive pas ? En obtenir un autre »** bloque le numéro même sans aucun appel reçu : le rendre à la réserve
+  quand aucun appel n'a été capté depuis l'attribution.

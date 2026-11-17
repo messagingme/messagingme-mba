@@ -2,7 +2,7 @@
 description: Ce qu'il faut chez Meta pour WhatsApp : avant, un compte Meta Business (il se crée en chemin) et un numéro ; après, la carte, sauf avec la ligne de crédit.
 ecran: accueil
 source_section: Ce qu'il faut chez Meta (avant de connecter un numéro)
-source_empreinte: ded4d8
+source_empreinte: b3aee8
 publique: oui
 rubrique: demarrer-claude, demarrer-console
 rang: 3, 2
@@ -30,8 +30,8 @@ profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le s
 paiement. Vous pouvez aussi le créer avant, sur business.facebook.com : ouvrez le menu sous « Accueil » en haut à
 gauche, puis créez un portefeuille business.
 
-**3. Un numéro.** Le vôtre, avec le téléphone qui le porte, ou un numéro que nous vous fournissons, sans téléphone à
-prévoir.
+**3. Un numéro.** Le vôtre, avec le téléphone qui le porte, ou un numéro que nous vous fournissons : relié par la
+fenêtre de Meta, sans téléphone à prévoir, ou mis dans votre application WhatsApp Business.
 
 Un numéro libre, qui ne sert dans aucune application WhatsApp, ou celui de votre application WhatsApp Business, qui
 y reste avec « Garder mon application WhatsApp Business ». Votre numéro sert dans WhatsApp, l’application ordinaire ?

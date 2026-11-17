@@ -27,6 +27,12 @@ export interface ApiConnexionNumero {
    * Code ne l'a pas (le serveur le refuse) : Claude a son outil, `manage_number_subscription`.
    */
   portail?(): Promise<{ url: string }>;
+  /**
+   * La voie choisie dans l'arbre (lot 3 du 2026-11-17) : la fenêtre de Meta ou l'application, retenue par le serveur pour
+   * montrer le code de l'application. La session de la console SEULE : le lien de Claude la retient déjà
+   * (`start_whatsapp_connection`).
+   */
+  retenirDestination?(destination: 'api' | 'application'): Promise<unknown>;
   /** La filière application (2026-10-22) : ouvrir la session du compte, qui produit le QR code. */
   relierApplication(): Promise<{ ok: true }>;
   /** Le QR code en image (`data:`), jusqu'à « relié ». */
@@ -52,6 +58,7 @@ export function apiDeLaSession(tenantId: string): ApiConnexionNumero {
     etat: () => request(`/tenants/${tenantId}/connexion-numero`),
     payer: (retour) => request(`/tenants/${tenantId}/numero-fourni/abonnement`, { method: 'POST', body: JSON.stringify({ retour }) }),
     portail: () => request(`/tenants/${tenantId}/numero-fourni/portail`, { method: 'POST', body: '{}' }),
+    retenirDestination: (destination) => request(`/tenants/${tenantId}/numero-fourni/destination`, { method: 'POST', body: JSON.stringify({ destination }) }),
     relierApplication: () => request(`/tenants/${tenantId}/application/relier`, { method: 'POST', body: '{}' }),
     qrApplication: () => request(`/tenants/${tenantId}/application/qr`),
   };

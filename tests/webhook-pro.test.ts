@@ -38,6 +38,8 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
     credits: 0,
     /** Les passages en Pro : l'espace, et si l'abonnement du numéro seul s'arrête (pas pendant un essai, spec offres v2). */
     passages: [] as Array<{ tenantId: string; arreter: boolean }>,
+    /** La facture payée transmise au passage en Pro (lot 3) : la remise de l'essai doit y figurer. */
+    facturesDuPassage: [] as string[],
     finsDuPro: [] as FinDuPro[],
     /** Les e-mails de paiement refusé demandés (lot 7). */
     paiementsRefuses: [] as Array<{ tenantId: string; offre: string; factureId: string }>,
@@ -77,7 +79,10 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrementPro; panne?: 
       },
       invalider: (t) => { cap.invalides.push(t); },
       alerter: async (texte) => { cap.alertes.push(texte); },
-      surPassageEnPro: async (t, o) => { cap.passages.push({ tenantId: t, arreter: o.arreterLeNumeroSeul }); },
+      surPassageEnPro: async (t, o) => {
+        cap.passages.push({ tenantId: t, arreter: o.arreterLeNumeroSeul });
+        if (o.factureId) cap.facturesDuPassage.push(o.factureId);
+      },
       surFinDuPro: async (f) => { cap.finsDuPro.push(f); },
       vivant: async () => false,
       siegesChezStripe: async (abonnementId) => {
@@ -384,6 +389,8 @@ describe('l’essai de 14 jours du Pro', () => {
     expect(cap.passages).toEqual([]);
     await envoyer(srv, evenement(facturePro({ id: 'in_pro_2', amount_paid: 4900, parent: essai }), 'invoice.paid'));
     expect(cap.passages).toEqual([{ tenantId: T1, arreter: true }]);
+    // Lot 3 : la facture payée part avec le passage, pour y lire la remise de l'essai.
+    expect(cap.facturesDuPassage).toEqual(['in_pro_2']);
   });
 
   it('🔴 la conversion de nos publicités (pixel, lot 2) : un paiement réel seulement, jamais 0 € ni le prorata d’un siège', async () => {

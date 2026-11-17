@@ -402,11 +402,10 @@ export class PgNumerosFournisStore {
       const nouveau = await attribuerAvec(client, tenantId);
       if (sorti && seulementLApplication && nouveau === null) {
         // Réserve vide : l'espace garde son numéro, qui marche (la fenêtre de Meta l'attend), plutôt que de rester sans.
-        const garde = await client.query<LigneNumero>(
-          `update numeros_fournis n set statut = 'attribue', tenant_id = $2 where n.id = $1 returning ${COLONNES_NUMERO}`,
-          [sorti.id, tenantId],
-        );
-        return { bloque: null, nouveau: garde.rows[0] ? versNumero(garde.rows[0]) : null };
+        // `nouveau: null` : la route répond « réserve vide » au lieu d'un 200 qui rendrait le même numéro sans le dire
+        // (lot 3, jaune de la relecture du lot 1).
+        await client.query(`update numeros_fournis set statut = 'attribue', tenant_id = $2 where id = $1`, [sorti.id, tenantId]);
+        return { bloque: null, nouveau: null };
       }
       if (sorti && seulementLApplication) {
         await client.query(`update numeros_fournis set statut = 'libre', attribue_le = null where id = $1`, [sorti.id]);

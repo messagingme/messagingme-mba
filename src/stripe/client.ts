@@ -669,6 +669,23 @@ export async function poserRemiseUneFois(transport: TransportStripe, o: {
   return 'posee';
 }
 
+const facturePourRemiseSchema = z.object({
+  id: z.string().startsWith('in_'),
+  discounts: z.array(remiseSchema).nullable().optional(),
+});
+
+/**
+ * LA REMISE A-T-ELLE ÉTÉ APPLIQUÉE À CETTE FACTURE (lot 3 du 2026-11-17, jaune 1 de la relecture du lot 2) ? Relue chez
+ * Stripe, remises étendues : le coupon parmi les remises de la facture. 🔴 Pas sur l'abonnement : une remise « une
+ * fois » le quitte dès la facture qu'elle a réduite, et c'est justement celle-ci qu'on lit au passage en Pro payant. La
+ * clé restreinte doit pouvoir LIRE les factures (elle le peut déjà, `lireFactureStripe`).
+ */
+export async function couponSurFacture(transport: TransportStripe, o: { cle: string; facture: string; coupon: string }): Promise<boolean> {
+  const f = await appeler(transport, 'facture', `/invoices/${encodeURIComponent(o.facture)}?${formulaire({ 'expand[]': 'discounts' })}`, null, { cle: o.cle }, facturePourRemiseSchema);
+  if (f.id !== o.facture) throw new StripeError('facture', 200, null, null, 'reponse pour une autre facture');
+  return (f.discounts ?? []).some((r) => (idDuCoupon(r.source?.coupon) ?? idDuCoupon(r.coupon)) === o.coupon);
+}
+
 /**
  * Ce qu'on lit d'un abonnement avant et après l'arrêt de son essai. `latest_invoice`, relue dépliée après l'arrêt : la
  * facture de la période qui commence ; non dépliée (un identifiant) ou absente, elle ne prouve rien.

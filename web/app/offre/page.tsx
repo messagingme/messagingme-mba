@@ -293,6 +293,8 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
   const abonnement = vue.abonnement;
   const carteAbonnement = abonnement ? <AbonnementPro tenantId={session.tenantId} vue={{ ...vue, abonnement }} /> : null;
   const proVivant = abonnement !== null && abonnement.statut !== 'termine';
+  /** Le Pro est en essai : le numéro fourni s'y paie à part (lot 2 du 2026-11-17), sa carte reste donc visible. */
+  const enEssai = proVivant && Boolean(vue.essai?.finLe) && new Date(vue.essai?.finLe ?? 0).getTime() > Date.now();
 
   return (
     <div className="space-y-6">
@@ -497,8 +499,9 @@ function OffreInner({ session, vue, retour }: { session: Session; vue: VueOffre 
         </section>
       )}
 
-      {/* Le numéro fourni payé à part (une Free) : sa résiliation se cherche ici, avec les factures. */}
-      {!proVivant && <AbonnementNumeroOffre tenantId={session.tenantId} />}
+      {/* Le numéro fourni payé à part (une Free, ou un Pro EN ESSAI, qui le paie depuis le 2026-11-17) : sa résiliation se
+          cherche ici, avec les factures. */}
+      {(!proVivant || enEssai) && <AbonnementNumeroOffre tenantId={session.tenantId} />}
 
       <FacturesEspace tenantId={session.tenantId} />
 

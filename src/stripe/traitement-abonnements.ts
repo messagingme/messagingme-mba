@@ -54,7 +54,7 @@ export interface DepsTraitementAbonnements {
      * `arreterLeNumeroSeul` faux pendant l'essai de 14 jours (spec offres v2) : l'abonnement du numéro payé à part ne
      * s'arrête qu'à la première facture payée non nulle, sinon un essai abandonné ferait perdre son numéro au client.
      */
-    surPassageEnPro(tenantId: string, o: { arreterLeNumeroSeul: boolean }): Promise<void>;
+    surPassageEnPro(tenantId: string, o: { arreterLeNumeroSeul: boolean; factureId?: string }): Promise<void>;
     surFinDuPro(f: FinDuPro): Promise<unknown>;
     /**
      * 🔴 Les sièges payés du Pro, RELUS CHEZ STRIPE (spec offres v2, livraison 7) : la charge d'un événement peut arriver
@@ -533,7 +533,8 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     const paye = await deps.pro.majStatut(abonnementId, 'actif', finFacture);
     if (paye) {
       deps.pro.invalider(paye.tenantId);
-      if (estEssai(meta.data) && payeeNonNulle) await deps.pro.surPassageEnPro(paye.tenantId, { arreterLeNumeroSeul: true });
+      // La facture payée : la remise de l'essai doit y figurer pour que le numéro s'arrête sans avoir (lot 3).
+      if (estEssai(meta.data) && payeeNonNulle) await deps.pro.surPassageEnPro(paye.tenantId, { arreterLeNumeroSeul: true, factureId: lu.data.id });
     } else {
       // 🟡 La facture à 0 € qui ouvre un essai couvre l'essai : sa fin, provisoire comme celle de la session (jaune 3).
       const ouvreUnEssai = estEssai(meta.data) && !payeeNonNulle;

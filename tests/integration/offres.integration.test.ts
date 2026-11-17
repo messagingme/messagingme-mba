@@ -572,6 +572,12 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
       await pool.query(`update abonnements_numero set statut = 'resilie' where stripe_subscription_id = 'sub_itestnumpendant'`);
       await pool.query(`update abonnements_numero set tenant_id = $1 where stripe_subscription_id = 'sub_itestnumavant'`, [t]);
       expect(await numeros.payePendantLEssai(t, 'sub_itestnumavant')).toBe(false);
+      // Lot 3 : le Pro FINI ne compte plus (sa remise est partie avec lui), même si l'essai couvrait le numéro.
+      // La règle ne lit pas le statut de l'abonnement du numéro (résilié ici), seulement les dates et le Pro.
+      expect(await numeros.payePendantLEssai(t, 'sub_itestnumpendant')).toBe(true);
+      await pool.query(`update abonnements_offre set fini_le = now() where stripe_subscription_id = 'sub_itestessainum'`);
+      expect(await numeros.payePendantLEssai(t, 'sub_itestnumpendant')).toBe(false);
+      await pool.query(`update abonnements_offre set fini_le = null where stripe_subscription_id = 'sub_itestessainum'`);
       // Un Pro payé dès le départ (aucune fin d'essai) : aucun numéro n'a été payé « pendant son essai ».
       await pool.query(`update abonnements_offre set essai_fin_le = null where stripe_subscription_id = 'sub_itestessainum'`);
       expect(await numeros.payePendantLEssai(t, 'sub_itestnumpendant')).toBe(false);

@@ -756,17 +756,18 @@ export const OUTILS_NUMERO: OutilMcp[] = [
       'Returns the link that opens the connection page of the workspace\'s WhatsApp number, without going through the '
       + 'console, valid for one hour: the person goes through Meta\'s window there. `fourni`: a dedicated number is '
       + 'provided (€3.50 excl. VAT a month, paid on the page before it is assigned; included, with nothing to pay, for '
-      + 'a workspace on Pro), whose verification code arrives here through watch_whatsapp_connection. `apporte`: the '
+      + 'a workspace on Pro, except during its trial, when it is paid and the €3.50 are deducted from the first Pro '
+      + 'month), whose verification code arrives here through watch_whatsapp_connection. `apporte`: the '
       + 'person\'s own number, used in no WhatsApp app; a number used in WhatsApp (the regular app, once the person '
       + 'installed WhatsApp Business on the same phone, which takes it over with its chats) or in the WhatsApp Business '
       + 'app goes through `coexistence`, never to another number. `coexistence`: the person\'s own number, kept in the WhatsApp Business app on their phone; messages sent '
       + 'through Messaging Me are official templates billed by Meta, those typed in the app stay free (filiere api only). '
       + 'Without a Meta Business account, Meta\'s window creates it along the way, in `apporte` and `fourni` as in '
       + '`coexistence`: a person without the WhatsApp Business app connects their number, or a provided one, as an API '
-      + 'number, with no app to install. `fourni_application` is no longer offered, only resumed: a number we provide, '
-      + 'already put IN the WhatsApp Business app (its verification code arrives here), then kept there through Meta\'s '
-      + 'window, like coexistence; still accepted for a connection started that way, which numero.reprise of '
-      + 'get_setup_state names (filiere api only). When the workspace took the credit line and has no number yet, the link of `fourni` and '
+      + 'number, with no app to install. `fourni_application`: for a person who has the WhatsApp Business app, a number '
+      + 'we provide (priced like `fourni`), put IN the app, whose account they create with it (its verification code '
+      + 'arrives here), then kept there through Meta\'s window, like coexistence (filiere api only); a connection '
+      + 'started that way resumes in the mode that numero.reprise of get_setup_state names. When the workspace took the credit line and has no number yet, the link of `fourni` and '
       + '`apporte` opens the connection without a card at Meta, and the consigne gives its conditions; the credit line never '
       + 'pays a number that keeps the app. When the person chose the credit line and the workspace has not taken it yet '
       + '(on Pro or a confirmed Business), call take_credit_line first and give this link only once the option is paid: '
@@ -781,8 +782,8 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         mode: {
           type: 'string', enum: ['fourni', 'apporte', 'coexistence', 'fourni_application'],
           description: 'fourni: a number we provide; apporte: the person\'s own number; coexistence: the person\'s own number, '
-            + 'kept in the WhatsApp Business app; fourni_application: a number we provide, already put in the WhatsApp '
-            + 'Business app and kept there (no longer offered, only resumed).',
+            + 'kept in the WhatsApp Business app; fourni_application: a number we provide, put in the person\'s WhatsApp '
+            + 'Business app and kept there.',
         },
         // 🔴 Plus aucune voie par QR code proposée (Julien, 2026-10-30) : sans compte Meta Business, la fenêtre de Meta
         // crée le compte en chemin. Depuis le 2026-11-12, sans l'application, le numéro se relie en numéro API (apporte ou
@@ -793,7 +794,8 @@ export const OUTILS_NUMERO: OutilMcp[] = [
           description: 'Leave it out: api, the official WhatsApp API. application, the link of the WhatsApp Business app by QR '
             + 'code, is no longer offered: never propose it. Without a Meta Business account, Meta\'s window creates the '
             + 'account along the way: the person connects their own number (apporte) or a number we provide (fourni) as an '
-            + 'API number, or keeps the WhatsApp Business app they already have (coexistence).',
+            + 'API number, or keeps the WhatsApp Business app they already have (coexistence, or fourni_application with a '
+            + 'number we provide put in it).',
         },
         numero: {
           type: 'string', maxLength: 30,

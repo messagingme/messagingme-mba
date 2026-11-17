@@ -297,9 +297,9 @@ describe.skipIf(!url)('la réserve de numéros fournis (0210)', () => {
       const { numero: n1 } = await store.declarer(N1, 'did-itest-1');
       await store.attribuer(tenantId);
       await store.ecrireCode(n1.id, { appelId: 'itest.63', code: null, transcription: 'To receive your WhatsApp verification code, press', cause: 'code_introuvable' });
-      const r = await store.remplacerNumero(tenantId);
-      expect(r).toMatchObject({ bloque: null, nouveau: { numero: N1, statut: 'attribue', tenantId } });
-      expect(await store.numeroDeLEspace(tenantId)).toMatchObject({ numero: N1 });
+      // Lot 3 : `nouveau: null`, la route répond « réserve vide » ; l'espace garde son numéro.
+      expect(await store.remplacerNumero(tenantId)).toEqual({ bloque: null, nouveau: null });
+      expect(await store.numeroDeLEspace(tenantId)).toMatchObject({ numero: N1, statut: 'attribue' });
     });
 
     it('🔴 l’index tient : un second numéro attribué au même espace est refusé par la base', async () => {

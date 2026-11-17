@@ -213,6 +213,7 @@ describe('GET /tenants/:tenantId/connexion-numero', () => {
         codeDeLEspace: async () => ({ code: '123456', recuLe: new Date('2026-10-06T08:53:01Z') }),
         codeCapteDepuisLAttribution: async () => true,
         destinationDeLEspace: async () => ({ destination: 'application' as const, depuis: new Date('2026-10-06T08:50:00Z') }),
+        retenirDestination: async () => {},
         appelDeLApplicationRecent: async () => false,
         remplacerNumero: async () => ({ bloque: null, nouveau: null }),
         rendre: async () => null,

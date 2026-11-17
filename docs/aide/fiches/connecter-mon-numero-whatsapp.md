@@ -34,11 +34,15 @@ application WhatsApp Business, un numéro à vous. Vous avez un numéro : vous l
 « Fournissez-moi un numéro » vous donne un numéro britannique dédié, inclus dans la formule Pro, et à 3,50 € par mois
 sans elle.
 
-Pour le numéro fourni, vous payez sur la page de Stripe (un code promo s'y saisit, si nous vous en avons remis un),
-puis le numéro s'affiche. Dans la fenêtre de Meta, choisissez « Enter a new phone number », le pays GB (+44), puis
+Pour le numéro fourni, vous payez sur la page de Stripe (un code promo s'y saisit, si nous vous en avons remis un ;
+pendant l'essai de la formule Pro, ses 3,50 € sont déduits de votre premier mois), puis le numéro s'affiche. Dans la
+fenêtre de Meta, choisissez « Enter a new phone number », le pays GB (+44), puis
 les chiffres qui suivent +44 ; **pour recevoir le code, choisissez « Appel téléphonique » (« Phone call » si la fenêtre est en anglais), surtout pas
 « Message texte »** : le code s'affiche en quelques secondes sur la page, dans l'encadré « Le code s'affichera ici », sous
 votre numéro. Sans code au bout de 45 secondes, redemandez-le, toujours par « Appel téléphonique ». Si Meta refuse ce numéro, « En obtenir un autre » vous en donne un nouveau.
+
+Avec l'application WhatsApp Business, le numéro, le vôtre ou le nôtre, va dans l'application, et vous la gardez : voir
+« Garder mon application WhatsApp Business » et « Prendre un numéro fourni par Messaging Me ».
 
 **4. La fenêtre de Meta.** Vous y choisissez votre compte professionnel et votre numéro, Meta vous envoie un code,
 vous le saisissez, et vous allez jusqu'au dernier écran (« Finish »).

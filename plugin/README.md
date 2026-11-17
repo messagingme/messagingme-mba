@@ -80,12 +80,18 @@ Then `/messagingme:demarrer` asks you, one question at a time, the same question
 
 1. **Which plan?** Free, driven entirely from Claude Code, or Pro, which adds the console and includes a provided
    number.
-2. **Do you have a Meta Business account?** Yes: your number becomes an API number, an available one of yours or a
+2. **How do you want to pay for your Meta messages?** A payment method (Visa / Mastercard) on your Meta Business
+   account, which Meta bills for your templates; or the credit line, prepaid at Messaging Me with no card at Meta, with
+   the Pro or Business plan.
+3. **Do you have a Meta Business account?** Yes: your number becomes an API number, an available one of yours or a
    provided one; if it is already in the WhatsApp Business app, you can keep it. No, or not sure: the next question
    (business.facebook.com lists your portfolios, and a missing account is created along the way).
-3. **Do you already have the WhatsApp Business app?** Yes: you keep it, or, for another number, we provide one. No: the
-   next question, with no app to get.
-4. **Do you already have a number you could use?** Yes: it becomes your API number, connected through Meta's window,
+4. **Do you already have the WhatsApp Business app?** Yes: **Do you already have a number working in that app?** If so,
+   **Do you want to use that number?** Using it, you keep the app. Otherwise, **Would you like us to provide a
+   number?** Yes: we provide one, which you put in your app, its verification code shown on the setup page. No: you put
+   a number of yours in the app. Either way, Meta's window then connects the app, and you keep it. No app: the next
+   question, with no app to get.
+5. **Do you already have a number you could use?** Yes: it becomes your API number, connected through Meta's window,
    which creates your Meta Business account along the way. No: we provide one, connected the same way, its
    verification code shown on the setup page.
 

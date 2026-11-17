@@ -330,12 +330,14 @@ export class PgAbonnementsNumeroStore {
    * un numéro payé pendant l'essai est remboursé par la remise, il s'arrête donc SANS avoir au passage en Pro payant.
    * 🔴 La fenêtre est celle de l'essai, bornes comprises : un numéro payé AVANT l'essai (un Free devenu Pro) garde son
    * avoir au prorata, comme avant ce lot. `cree_le` est l'heure du premier enregistrement (le webhook), jamais réécrite.
+   * Le Pro VIVANT seulement (lot 3, jaune 2 de la relecture du lot 2) : la remise d'un essai abandonné est partie avec
+   * son abonnement, elle ne rembourse rien sur un second Pro.
    */
   async payePendantLEssai(tenantId: string, abonnementId: string): Promise<boolean> {
     const res = await this.pool.query(
       `select 1 from abonnements_numero n join abonnements_offre o on o.tenant_id = n.tenant_id
         where n.tenant_id = $1 and n.stripe_subscription_id = $2
-          and o.essai_fin_le is not null and n.cree_le >= o.cree_le and n.cree_le <= o.essai_fin_le
+          and o.fini_le is null and o.essai_fin_le is not null and n.cree_le >= o.cree_le and n.cree_le <= o.essai_fin_le
         limit 1`,
       [tenantId, abonnementId],
     );

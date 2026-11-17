@@ -1,7 +1,7 @@
 ---
 description: Garder votre application WhatsApp Business et relier le même numéro à Messaging Me, écran par écran, avec le compte Meta Business créé en chemin s'il manque.
 source_section: Garder son application WhatsApp Business (2026-10-25)
-source_empreinte: 03c3d2
+source_empreinte: 73c9eb
 publique: oui
 video: oui
 video_voie: claude
@@ -25,6 +25,10 @@ vous connectez avec votre profil Facebook.
 **1. [console] Ouvrir « Garder mon application WhatsApp Business ».** Sur la page « Connecter WhatsApp », cliquez sur
 « Vous pouvez le garder », puis sur « Garder mon application WhatsApp Business » : la fenêtre de Meta s'ouvre, où vous
 vous connectez avec votre profil Facebook.
+
+Sans compte Meta Business, les questions de la page mènent au même bouton : « Oui » à l'application WhatsApp Business,
+puis « Oui » au numéro qui y fonctionne et à « Voulez-vous utiliser ce numéro-là ? ». Pas encore de numéro dedans :
+« Non », puis « Non » à « Souhaitez-vous qu'on vous fournisse un numéro ? ».
 
 **2. Saisir votre numéro.** Entrez le numéro de votre application WhatsApp Business, avec son pays, puis choisissez
 comment Meta le vérifie (par message ou par appel) et suivez ce qu'il demande.
@@ -64,6 +68,11 @@ liés sont déliés. Ouvrez-la au moins toutes les deux semaines.
 
 Ce que vous tapez dans l'application n'apparaît pas encore dans Messaging Me. Si un agent IA répond à vos clients, il
 ne voit donc pas vos réponses : il peut répondre en même temps que vous.
+
+**Bon à savoir.** Pas encore de numéro dans votre application WhatsApp Business ? Installez-y un numéro à vous : une
+ligne mobile, qui reçoit le code de WhatsApp par SMS ou par appel. Puis suivez ce guide, sans attendre : un numéro neuf
+se garde aussi. Ou prenez un numéro de chez nous, à mettre dans l'application : voir « Prendre un numéro fourni par
+Messaging Me ».
 
 **Bon à savoir.** Votre numéro sert dans WhatsApp, l'application ordinaire ? Installez WhatsApp Business sur le même
 téléphone : elle vous propose de reprendre ce numéro, avec vos conversations. Puis suivez ce guide. Pas d'application du

@@ -1,5 +1,5 @@
 ---
-description: Prendre un numéro fourni par Messaging Me et le relier à WhatsApp par la fenêtre de Meta, depuis Claude Code : la vidéo, puis les six étapes.
+description: Prendre un numéro fourni par Messaging Me, relié par la fenêtre de Meta ou mis dans votre application WhatsApp Business : la vidéo, puis les six étapes.
 source_section: Accueil (1re entrée du menu)
 source_empreinte: 7f1454
 publique: oui
@@ -14,9 +14,9 @@ bouton_console: Prendre mon numéro dans la console
 ---
 # Prendre un numéro fourni par Messaging Me
 
-Pas de numéro pour WhatsApp ? Nous vous fournissons un numéro britannique, que la fenêtre de Meta relie à l'API
-officielle de WhatsApp : 3,50 € par mois, inclus dans la formule Pro. Pas de compte Meta Business ? La fenêtre de
-Meta le crée en chemin.
+Pas de numéro pour WhatsApp ? Nous vous fournissons un numéro britannique, relié par la fenêtre de Meta à l'API
+officielle de WhatsApp, ou mis dans votre application WhatsApp Business : 3,50 € par mois, inclus dans la formule Pro.
+Pas de compte Meta Business ? La fenêtre de Meta le crée en chemin.
 
 **1. [claude] Lancer la mise en service.** Dans Claude Code, tapez « /messagingme:demarrer » : Claude fait le point sur
 votre espace et commence par votre numéro WhatsApp.
@@ -28,15 +28,15 @@ votre espace et commence par votre numéro WhatsApp.
 numéro : Claude vous propose un numéro fourni.
 
 La vidéo reste sur la formule Free : Meta facture vos modèles sur une carte, que vous ajouterez une fois le numéro
-relié. Avec l'application WhatsApp Business pour un autre numéro, répondez « Non » à « Voulez-vous utiliser ce
-numéro-là ? » : vous arrivez au même numéro fourni.
+relié. Vous avez l'application WhatsApp Business ? Le numéro fourni peut y aller : voir « Avec votre application
+WhatsApp Business », plus bas.
 
 **2. [console] Choisir « Fournissez-moi un numéro ».** Répondez aux questions de la page, puis choisissez « Fournissez-moi
 un numéro » : un numéro dédié, prêt pour WhatsApp.
 
-**3. Payer le numéro, puis ouvrir la fenêtre de Meta.** Sur la page « Connecter WhatsApp », payez
-3,50 € par mois (en formule Pro, « Obtenir mon numéro », sans rien payer) : votre numéro britannique s'affiche.
-Cliquez sur « Ouvrir la fenêtre de Meta ».
+**3. Payer le numéro, puis ouvrir la fenêtre de Meta.** Sur la page « Connecter WhatsApp », payez 3,50 € par mois (en
+formule Pro, « Obtenir mon numéro », sans rien payer ; pendant son essai, 3,50 €, déduits de votre premier mois) : votre
+numéro britannique s'affiche. Cliquez sur « Ouvrir la fenêtre de Meta ».
 
 Gardez la page ouverte jusqu'au bout : le code de vérification s'y affichera. Depuis Claude Code, Claude vous donne le
 lien de cette page ; il vaut une heure, et passé ce délai Claude en donne un neuf.
@@ -67,8 +67,20 @@ La page de connexion et Claude disent alors « Votre numéro WhatsApp est connec
 
 La carte chez Meta s'ajoute ensuite, avant vos premiers modèles : Claude vous en donne les étapes.
 
+## Avec votre application WhatsApp Business
+
+Le numéro fourni peut aussi aller dans votre application WhatsApp Business, que vous gardez : vous y répondez depuis
+votre téléphone.
+
+- Répondez « Oui » à « Souhaitez-vous qu'on vous fournisse un numéro ? », puis payez le numéro (en formule Pro,
+  « Obtenir mon numéro ») : il s'affiche sur la page de connexion.
+- Ajoutez-le dans votre application WhatsApp Business. Pour la vérification, choisissez l'appel : le code s'affiche sur
+  la page de connexion, et dans Claude. Saisissez-le dans l'application.
+- Cliquez sur « Garder mon application WhatsApp Business » : la fenêtre de Meta relie votre application à Messaging Me,
+  et vous la gardez. Ses écrans sont ceux du guide « Garder mon application WhatsApp Business ».
+
 **Bon à savoir.** Si Meta refuse ce numéro, « Meta refuse ce numéro ? En obtenir un autre », sur la page de connexion,
-vous en donne un nouveau.
+vous en donne un nouveau. Pour un numéro mis dans l'application, c'est « Le code n'arrive pas ? En obtenir un autre ».
 
 **Résilier le numéro.** Sur la page Offre de la console, « Gérer l'abonnement du numéro » ouvre la page de Stripe, où
 il se résilie ; depuis Claude Code, demandez-le à Claude. Le numéro envoie jusqu'à la fin du mois déjà payé, sans

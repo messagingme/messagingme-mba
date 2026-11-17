@@ -69,6 +69,8 @@ function monter(o: {
   seulementLApplication?: boolean;
   /** Le Pro de l'espace est en essai (lot 2 du 2026-11-17) : le numéro n'y est pas inclus. */
   essaiPro?: boolean;
+  /** La voie déjà retenue pour le numéro fourni (lot 3 du 2026-11-17) ; aucune si absente. */
+  destination?: 'api' | 'application';
 } = {}) {
   const cap = {
     attribues: 0, rendus: 0, remplaces: 0, gardes: 0, alertesReserve: [] as number[], bloques: [] as string[],
@@ -80,6 +82,8 @@ function monter(o: {
     fins: [] as string[],
     finsNotees: [] as string[],
     alertesFin: [] as string[],
+    /** Les voies retenues (`retenirDestination`), dans l'ordre. */
+    destinations: [] as string[],
   };
   const statut = o.abonnement === undefined ? 'actif' : o.abonnement;
   const reserve = [...(o.reserve ?? ['441235619343'])];
@@ -100,7 +104,8 @@ function monter(o: {
       numeroDeLEspace: async () => (attribue ? NUMERO(attribue) : null),
       codeDeLEspace: async () => o.code ?? null,
       codeCapteDepuisLAttribution: async () => o.codeCapte ?? false,
-      destinationDeLEspace: async () => null,
+      destinationDeLEspace: async () => (o.destination ? { destination: o.destination, depuis: new Date(0) } : null),
+      retenirDestination: async (_tenantId, destination) => { cap.destinations.push(destination); },
       appelDeLApplicationRecent: async () => o.appelApplication === true,
       remplacerNumero: async () => {
         cap.remplaces += 1;
@@ -155,6 +160,53 @@ function monter(o: {
 }
 
 const URL = '/tenants/t1/numero-fourni';
+
+describe('POST /numero-fourni/destination : la voie choisie dans l’arbre de la console (lot 3 du 2026-11-17)', () => {
+  const choisir = (server: ReturnType<typeof monter>['server'], payload: string) =>
+    server.inject({ method: 'POST', url: `${URL}/destination`, ...h(adminTok), payload });
+
+  it('retient la voie quand elle change, et la rend', async () => {
+    const { server, cap } = monter({ destination: 'api' });
+    const res = await choisir(server, JSON.stringify({ destination: 'application' }));
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ destination: 'application' });
+    expect(cap.destinations).toEqual(['application']);
+    await server.close();
+  });
+
+  it('sans voie retenue, la première choisie est retenue', async () => {
+    const { server, cap } = monter();
+    expect((await choisir(server, JSON.stringify({ destination: 'api' }))).statusCode).toBe(200);
+    expect(cap.destinations).toEqual(['api']);
+    await server.close();
+  });
+
+  it('🔴 la même voie n’est pas reposée : son heure dit depuis quand un code prouve le compte de l’application', async () => {
+    const { server, cap } = monter({ destination: 'application' });
+    const res = await choisir(server, JSON.stringify({ destination: 'application' }));
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ destination: 'application' });
+    expect(cap.destinations).toEqual([]);
+    await server.close();
+  });
+
+  it('refuse une voie inconnue ou absente, sans rien retenir', async () => {
+    const { server, cap } = monter();
+    for (const payload of [JSON.stringify({ destination: 'qr' }), '{}']) {
+      expect((await choisir(server, payload)).statusCode, payload).toBe(400);
+    }
+    expect(cap.destinations).toEqual([]);
+    await server.close();
+  });
+
+  it('un agent ne retient rien : la connexion du numéro est un geste d’admin', async () => {
+    const { server, cap } = monter();
+    const res = await server.inject({ method: 'POST', url: `${URL}/destination`, ...h(agentTok), payload: JSON.stringify({ destination: 'application' }) });
+    expect(res.statusCode).toBe(403);
+    expect(cap.destinations).toEqual([]);
+    await server.close();
+  });
+});
 
 describe('POST /numero-fourni : obtenir un numéro de la réserve', () => {
   it('attribue un numéro et le rend avec son « + » ; la réserve encore garnie ne prévient personne', async () => {

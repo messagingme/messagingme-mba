@@ -310,6 +310,7 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await page.getByTestId('carte-meta-choisir').click();
     await page.getByTestId('question-compte-non').click();
     await page.getByTestId('question-application-oui').click();
+    await page.getByTestId('question-numero-application-oui').click();
     await page.getByTestId('question-meme-numero-oui').click();
     await expect(page.getByTestId('note-carte-application')).toHaveText('Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application.');
   });

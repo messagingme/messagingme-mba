@@ -1,7 +1,7 @@
 ---
 description: Connect your WhatsApp number step by step: the plan, paying for your Meta messages, your number or ours, Meta's window, then the number's status.
 slug: connect-my-whatsapp-number
-traduit_de: 75996e
+traduit_de: c4352e
 ---
 # Connect my WhatsApp number, and read its status
 
@@ -26,11 +26,15 @@ WhatsApp Business app stays on your payment method at Meta.
 Business app, a number of your own. You have a number: you connect it. You don't: “Provide me a number” gives you a
 dedicated UK number, included in the Pro plan, and €3.50 a month without it.
 
-For the provided number, you pay on Stripe's page (a promo code goes there, if we gave you one), then the number
-shows. In Meta's window, choose “Enter a new phone number”, the country GB (+44), then the digits after +44;
+For the provided number, you pay on Stripe's page (a promo code goes there, if we gave you one; during the Pro plan's
+trial, its €3.50 is deducted from your first month), then the number shows. In Meta's window, choose “Enter a new
+phone number”, the country GB (+44), then the digits after +44;
 **to get the code, choose “Phone call”, NOT “Text message”**: the code shows within seconds on the page, in the “The code will appear here” box, under your number. With no code after
 45 seconds, request it again, still by “Phone call”. If Meta refuses this number, “Get another
 one” gives you a new one.
+
+With the WhatsApp Business app, the number, yours or ours, goes in the app, and you keep it: see “Keep my WhatsApp
+Business app” and “Get a number provided by Messaging Me”.
 
 **4. Meta's window.** There you choose your business account and your number, Meta sends you a code, you enter it,
 and you go to the last screen (“Finish”).

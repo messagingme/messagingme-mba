@@ -72,19 +72,20 @@ phone.
 ## connecter_numero: the WhatsApp number
 
 The same questions as the "Get started" page of the website, in the same order: the plan, who pays Meta, the Meta
-Business account, the WhatsApp Business app, then, without the app, the number.
+Business account, the WhatsApp Business app (with it, the number that works in it, or one we provide to put in it),
+then, without the app, the number.
 **Ask every question of this tree, one at a time.** Skip one only when its answer is stated, in the user's own words
 (the request copied from the website names the plan and some answers: skip only those it states) or by `get_setup_state`; never skip one by
 assuming its answer. A business that has a phone line may not want to use it, or may have none to spare: "Do you
-already have a number you could use?" is asked, never guessed. When `numero.fourni` is
+already have a number you could use?" is asked, never guessed, and so is "Do you already have a number working in that
+app?" for someone who has the WhatsApp Business app. When `numero.fourni` is
 already set and the number is not connected, a number we provide was paid for: resume without asking the questions
 again, with `start_whatsapp_connection` in the mode `numero.reprise` gives, never one you guess. `coexistence`: the
 number is already in their WhatsApp Business app (its account was created with its verification code); only one step
 remains, keeping the app, and you never give the account creation steps again. `fourni_application`: it goes in the
-app, whose account is not created yet (a way no longer offered, only resumed when `numero.reprise` gives it). `fourni`:
-Meta's window. When `numero.reprise` is null, ask one thing only, about their phone: "Is the number (`numero.fourni`) in the
-WhatsApp Business app on your phone?" Yes: `coexistence`. No: question 3 below decides. When a tool refuses a mode and
-names another one, use the one it names.
+app, whose account is not created yet. `fourni`: Meta's window. When `numero.reprise` is null, ask one thing only,
+about their phone: "Is the number (`numero.fourni`) in the WhatsApp Business app on your phone?" Yes: `coexistence`.
+No: question 3 below decides. When a tool refuses a mode and names another one, use the one it names.
 
 At this step and at `activer_numero`, `get_setup_state` gives the help pages (`aide`), each in French (`fr`) and
 English (`en`, for any other language). `aide.guide` asks these same questions as a web page: give it to a user who
@@ -115,7 +116,8 @@ Then ask ONE question at a time, in this order, each one until the tree ends: a 
 Never pick a way on a guess, and never offer another one.
 
 1. **The plan: Free or Pro?** `get_setup_state` gives it (`offre`). Free is driven entirely from here, with no
-   console; Pro adds the console (the team Inbox, campaigns, dashboards) and includes a number we provide. Ask only if
+   console; Pro adds the console (the team Inbox, campaigns, dashboards) and includes a number we provide (during the
+   Pro trial, that number is paid, 3.50 EUR excl. tax, then deducted from the first Pro month). Ask only if
    the user has not said and the workspace is on Free. If they want Pro, `subscribe_pro` returns its payment link
    (paying is their gesture); then go on.
 2. **"How do you want to pay for your Meta messages?"** Meta bills each template they send.
@@ -133,8 +135,8 @@ Never pick a way on a guess, and never offer another one.
      take it in the console (the Plan page, Credit line tab). On Enterprise, it comes with their contract: nothing to
      take. Once the option is paid, or on Enterprise, go on with question 3: `start_whatsapp_connection` in `apporte` or
      `fourni` then gives a link that connects without a card at Meta, and its `consigne` says the conditions.
-   Every way that keeps the WhatsApp Business app (mode `coexistence`, or a resumed `fourni_application`) is paid with
-   their card at Meta: say once, on such a way, that the credit line is not possible with the app.
+   Every way that keeps the WhatsApp Business app (mode `coexistence` or `fourni_application`) is paid with their card
+   at Meta: say once, on such a way, that the credit line is not possible with the app.
 3. **"Do you have a Meta Business account?"**
    - Yes: an API number. Ask whether they have an available number, one used in no WhatsApp app: yes, their own
      number (mode `apporte`); no number at all, a number we provide (mode `fourni`, 3.50 EUR excl. tax a month,
@@ -146,12 +148,22 @@ Never pick a way on a guess, and never offer another one.
    - "I don't know": tell them where to check (business.facebook.com; if they advertise on Facebook or Instagram, they
      probably have one), and that a missing account is created along the way. Go to question 4.
 4. **"Do you already have the WhatsApp Business app?"** Only after No or "I don't know".
-   - Yes: ask **"Do you want to use that number?"** (the one in their WhatsApp Business app). Yes: they keep the app
-     (mode `coexistence`). No: a number we provide, connected through Meta's window (mode `fourni`, 3.50 EUR excl. tax
-     a month, included in Pro); their app keeps its own number.
+   - Yes: ask **"Do you already have a number working in that app?"** (a number installed in their WhatsApp Business
+     app).
+     - Yes: ask **"Do you want to use that number?"** (the one in their WhatsApp Business app). Yes: they keep the app
+       (mode `coexistence`). No: the question below.
+     - No: the question below.
+
+     Then ask **"Would you like us to provide a number?"** (a dedicated UK number, which they put in their WhatsApp
+     Business app).
+     - Yes: a number we provide, put in their WhatsApp Business app (mode `fourni_application`, 3.50 EUR excl. tax a
+       month, included in Pro): its verification code shows on the connection page and here, they create the app's
+       account with it, then Meta's window connects the app to Messaging Me and they keep it.
+     - No: they put a number of their own in their WhatsApp Business app, a mobile line that receives WhatsApp's code
+       by text or by call. Once they say it works there, they keep the app (mode `coexistence`).
    - No: question 5. Without a Meta Business account and without the app, the number connects directly as an API
      number: never invite them to get the WhatsApp Business app for its own sake (only the WhatsApp case of question 5
-     below), and never put a number we provide in it.
+     below). A number we provide goes into the app only for someone who already has it (the Yes above).
 5. **"Do you already have a number you could use?"** Their business's number, connected to the official WhatsApp API.
    Ask it, even when the user is a business that surely has a phone line.
    - Yes: ask whether that number is used in WhatsApp, the regular app. Not used in any WhatsApp app: their own
@@ -179,11 +191,11 @@ their own number one used in no WhatsApp app): relay it once, before the link.
    - **their own number** (`apporte`): check that it is used in no WhatsApp app. One used in WhatsApp, the regular
      app, or in the WhatsApp Business app is kept with `coexistence` (in the regular app, they first install WhatsApp
      Business on the same phone, which takes it over with its chats): never send it to another number;
-   - **their WhatsApp Business app, kept** (`coexistence`): in Meta's window they enter the number of their app and
-     confirm in the app, on their phone;
-   - **a number we provide, put in the WhatsApp Business app** (`fourni_application`): no longer offered, only resumed
-     when `numero.reprise` gives it. Paid or obtained on the page, then the app's account created with it, then the
-     same window as `coexistence`. The code is typed in the app, not in Meta's window.
+   - **their WhatsApp Business app, kept** (`coexistence`), with the number already in it or one of their own they
+     just put in it: in Meta's window they enter the number of their app and confirm in the app, on their phone;
+   - **a number we provide, put in the WhatsApp Business app** (`fourni_application`): paid or obtained on the page,
+     then the app's account created with it, then the same window as `coexistence`. The code is typed in the app, not
+     in Meta's window.
 2. `start_whatsapp_connection` with that mode returns a link valid for one hour and its `consigne`. First say what the
    `consigne` announces BEFORE the link (what will happen in Meta's window, who pays what on this way, the step by step
    guide): the user must know it before clicking. For `fourni`, that guide is `aide.numero_fourni` (the video of this

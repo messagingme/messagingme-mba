@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { OFFRE_CREDIT_WHATSAPP, TEXTES_TUNNEL } from '../scripts/vitrine/tunnel-textes';
 import { FAQ } from '../scripts/plugin/faq';
 import {
-  CARTES_OFFRE, ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, MAGASINS_APPLICATION, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, QUESTION_APPLICATION,
-  QUESTION_COMPTE, QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_OFFRE, QUESTION_PAIEMENT, SUITE_FOURNI_APPLICATION, WHATSAPP_ORDINAIRE,
+  CARTES_OFFRE, ISSUE_API, ISSUE_FOURNI, ISSUE_FOURNI_APPLICATION, ISSUE_INSTALLER, MAGASINS_APPLICATION, META_BUSINESS_URL, NOTE_CARTE_APPLICATION,
+  QUESTION_APPLICATION, QUESTION_COMPTE, QUESTION_FOURNIR, QUESTION_MEME_NUMERO, QUESTION_NUMERO, QUESTION_NUMERO_APPLICATION, QUESTION_OFFRE,
+  QUESTION_PAIEMENT, RELIER_EN_GARDANT, SUITE_FOURNI_APPLICATION, WHATSAPP_ORDINAIRE,
 } from '../web/lib/questions-numero';
 import { VITRINE_AIDE } from '../web/lib/partage/aide-connexion';
 import { AIDE_NUMERO } from '../src/mcp/mise-en-service';
@@ -75,10 +76,11 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(q.reponses[1]!.vers).toBe('numero-ligne');
     });
 
-    it(`${langue} : la voie qui garde l’application dit qu’on y paie Meta avec sa carte, et elle seule`, () => {
-      expect(issue('garder').textes.map(texte)).toContain(NOTE_CARTE_APPLICATION[langue]);
-      // Plus aucune autre issue ne garde l'application (2026-11-12) : le numéro fourni passe par la fenêtre de Meta.
-      for (const x of v.issues.filter((y) => y.id !== 'garder')) expect(x.textes.map(texte), x.id).not.toContain(NOTE_CARTE_APPLICATION[langue]);
+    it(`${langue} : les voies qui gardent l’application disent qu’on y paie Meta avec sa carte, et elles seules`, () => {
+      // Lot 3 du 2026-11-17 : garder la sienne, y mettre un numéro de chez nous, ou y installer le sien.
+      const gardent = ['garder', 'fourni-application', 'installer'];
+      for (const id of gardent) expect(issue(id).textes.map(texte), id).toContain(NOTE_CARTE_APPLICATION[langue]);
+      for (const x of v.issues.filter((y) => !gardent.includes(y.id))) expect(x.textes.map(texte), x.id).not.toContain(NOTE_CARTE_APPLICATION[langue]);
       // La FAQ du plugin, sur la même question (lot C du Crédit WhatsApp) : la même phrase.
       expect(FAQ.find((q) => q.id === 'numero-dans-l-application')!.reponse[langue]).toContain(NOTE_CARTE_APPLICATION[langue]);
     });
@@ -96,27 +98,47 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       expect(q.reponses[2]!.note).toContain(`href="${META_BUSINESS_URL}"`);
     });
 
-    it(`${langue} : « Avez-vous déjà l’application WhatsApp Business ? », Oui demande si c’est ce numéro-là, Non ne la fait plus télécharger`, () => {
+    it(`${langue} : « Avez-vous déjà l’application WhatsApp Business ? », Oui demande si un numéro y fonctionne, Non ne la fait plus télécharger`, () => {
       const q = question('application');
       expect(QUESTION_APPLICATION.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_APPLICATION.precision[langue]).toBe(texte(q.precision!));
       expect([QUESTION_APPLICATION.oui, QUESTION_APPLICATION.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
-      // Avec l'application, on la garde ; sans elle, la 4e question (Julien, 2026-10-31).
-      expect(q.reponses.map((r) => r.vers)).toEqual(['meme-numero', 'numero']);
+      // Avec l'application, un numéro y fonctionne-t-il (lot 3 du 2026-11-17) ; sans elle, la 4e question (2026-10-31).
+      expect(q.reponses.map((r) => r.vers)).toEqual(['numero-application', 'numero']);
       // 🔴 Sans elle, plus de note ni de magasins (Julien, 2026-11-12) : on ne propose plus l'application.
       expect(q.reponses[1]!.note).toBeUndefined();
       expect(Object.keys(QUESTION_APPLICATION)).not.toContain('noteNon');
     });
 
-    it(`${langue} : le cas 4, « Voulez-vous utiliser ce numéro-là ? » : Oui la garde, Non mène à un numéro de chez nous (lot 3a)`, () => {
+    it(`${langue} : « Avez-vous déjà un numéro qui fonctionne sur cette application ? » : Oui demande si c’est celui-là, Non s’il faut en fournir un (lot 3)`, () => {
+      const q = question('numero-application');
+      expect(QUESTION_NUMERO_APPLICATION.texte[langue]).toBe(texte(q.texte));
+      expect(QUESTION_NUMERO_APPLICATION.precision[langue]).toBe(texte(q.precision!));
+      expect([QUESTION_NUMERO_APPLICATION.oui, QUESTION_NUMERO_APPLICATION.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
+      expect(q.reponses.map((r) => r.vers)).toEqual(['meme-numero', 'fournir']);
+    });
+
+    it(`${langue} : le cas 4, « Voulez-vous utiliser ce numéro-là ? » : Oui la garde, Non demande s’il faut en fournir un (lot 3)`, () => {
       const q = question('meme-numero');
       expect(QUESTION_MEME_NUMERO.texte[langue]).toBe(texte(q.texte));
       expect(QUESTION_MEME_NUMERO.precision[langue]).toBe(texte(q.precision!));
       expect([QUESTION_MEME_NUMERO.oui, QUESTION_MEME_NUMERO.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
-      expect(q.reponses.map((r) => r.vers)).toEqual(['garder', 'autre-numero']);
-      const x = issue('autre-numero');
-      expect(ISSUE_AUTRE_NUMERO.titre[langue]).toBe(texte(x.titre));
-      expect(ISSUE_AUTRE_NUMERO.texte[langue]).toBe(texte(x.textes[0]!));
+      expect(q.reponses.map((r) => r.vers)).toEqual(['garder', 'fournir']);
+    });
+
+    it(`${langue} : « Souhaitez-vous qu’on vous fournisse un numéro ? » : Oui, le nôtre dans l’application ; Non, le sien qu’on y installe (lot 3)`, () => {
+      const q = question('fournir');
+      expect(QUESTION_FOURNIR.texte[langue]).toBe(texte(q.texte));
+      expect(QUESTION_FOURNIR.precision[langue]).toBe(texte(q.precision!));
+      expect([QUESTION_FOURNIR.oui, QUESTION_FOURNIR.non].map((r) => r[langue])).toEqual(q.reponses.map((r) => r.libelle));
+      expect(q.reponses.map((r) => r.vers)).toEqual(['fourni-application', 'installer']);
+      for (const [id, console] of [['fourni-application', ISSUE_FOURNI_APPLICATION], ['installer', ISSUE_INSTALLER]] as const) {
+        const x = issue(id);
+        expect(console.titre[langue], id).toBe(texte(x.titre));
+        expect(console.texte[langue], id).toBe(texte(x.textes[0]!));
+        expect(console.suite[langue], id).toBe(texte(x.textes[1]!));
+      }
+      expect(RELIER_EN_GARDANT).toBe(ISSUE_FOURNI_APPLICATION.suite);
     });
 
     it(`${langue} : WhatsApp ordinaire, dit au mot près là où le numéro peut servir dans WhatsApp, avec les magasins (lot 3a)`, () => {
@@ -139,9 +161,8 @@ describe('la console pose les questions du tunnel de la vitrine', () => {
       const x = issue('fourni');
       expect(ISSUE_FOURNI.titre[langue]).toBe(texte(x.titre));
       expect(ISSUE_FOURNI.texte[langue]).toBe(texte(x.textes[0]!));
-      // Le cas 4 dit la même chose, plus ce que garde l'application : une seule source.
-      expect(ISSUE_AUTRE_NUMERO.titre).toBe(ISSUE_FOURNI.titre);
-      expect(ISSUE_AUTRE_NUMERO.texte[langue].startsWith(`${ISSUE_FOURNI.texte[langue]} `)).toBe(true);
+      // L'issue du cas 4 par la fenêtre de Meta (`autre-numero`) a disparu le 2026-11-17 (lot 3).
+      expect(v.issues.map((y) => y.id)).not.toContain('autre-numero');
     });
 
     it(`${langue} : les issues que la console reprend`, () => {
@@ -163,9 +184,10 @@ describe('le plugin pose les mêmes questions, sans QR code', () => {
   const en = TEXTES_TUNNEL.en;
   const q = (id: string) => texte(en.questions.find((x) => x.id === id)!.texte);
 
-  it('🔴 la skill de mise en service : l’offre, le compte Meta Business, l’application, puis ce numéro-là, dans cet ordre', () => {
+  it('🔴 la skill de mise en service : l’offre, le compte Meta Business, l’application, son numéro, ce numéro-là, en fournir un, dans cet ordre', () => {
     const skill = lire('plugin/skills/mise-en-service/SKILL.md');
-    const rangs = ['**The plan: Free or Pro?**', `**"${q('paiement')}"**`, `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('meme-numero')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
+    const rangs = ['**The plan: Free or Pro?**', `**"${q('paiement')}"**`, `**"${q('compte')}"**`, `**"${q('application')}"**`, `**"${q('numero-application')}"**`,
+      `**"${q('meme-numero')}"**`, `**"${q('fournir')}"**`, `**"${q('numero')}"**`].map((m) => skill.indexOf(m));
     expect(rangs.every((r) => r > 0), rangs.join(',')).toBe(true);
     expect([...rangs].sort((a, b) => a - b)).toEqual(rangs);
     // 🔴 Chaque question se pose, aucune ne se suppose (vu le 2026-11-11 : la question du numéro sautée sur un numéro

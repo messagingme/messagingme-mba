@@ -2381,7 +2381,10 @@ async function main(): Promise<void> {
           // Lot 4 : la résiliation programmée, et les campagnes en pause sur la suspension reprises au paiement.
           noterFinPrevue: (abonnementId, fin) => abonnementsNumero.noterFinPrevue(abonnementId, fin),
           reprendreCampagnes: async (tenant) => { await numeroDelieStore.leverPausesSuspension(tenant); },
-          inclusDansLOffre: (tenant) => offreQuiInclutLeNumero.numeroInclus(tenant),
+          // 🔴 La GRILLE, essai compris, et non `offreQuiInclutLeNumero` (lot 3, jaune 3 de la relecture du lot 2) : l'alerte
+          // dit ce que fera la suspension, et la couverture SQL (`OFFRES_NUMERO_INCLUS`) couvre un Pro en essai. Un numéro
+          // payé pendant l'essai et arrêté avant sa fin n'est pas coupé : l'alerte ne doit pas annoncer l'inverse.
+          inclusDansLOffre: async (tenant) => (await offresSansCache.offreDe(tenant)).droits.limites.numeroInclus,
           // Lot 2 du 2026-11-17 : payé pendant l'essai du Pro, le numéro se déduit de sa première facture.
           deduireDeLEssai: (tenant, abonnementId) => surNumeroPayePendantLEssai(numeroInclus, tenant, abonnementId),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },

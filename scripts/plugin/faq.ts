@@ -47,6 +47,11 @@ const UTILISATEURS_BUSINESS = DROITS.business.limites.utilisateurs;
 const SIEGE_BUSINESS_MOIS = PRIX_SIEGE_BUSINESS_HT_CENTIMES.mois / 100;
 const INCLUS_FR = DROITS.pro.limites.numeroInclus ? ', inclus en formule Pro' : '';
 const INCLUS_EN = DROITS.pro.limites.numeroInclus ? ', included in Pro' : '';
+/** Pendant l'essai du Pro, le numéro fourni se paie, puis se déduit du premier mois (lot 2 du 2026-11-17). */
+const ESSAI_FR = DROITS.pro.limites.numeroInclus
+  ? ` Pendant l’essai de la formule Pro, il se paie ${prix(PRIX_NUMERO_HT_CENTIMES, 'fr')}, déduits de votre premier mois.` : '';
+const ESSAI_EN = DROITS.pro.limites.numeroInclus
+  ? ` During the Pro trial, it costs ${prix(PRIX_NUMERO_HT_CENTIMES, 'en')}, deducted from your first month of the Pro plan.` : '';
 /** La grille officielle de Meta : la FAQ la cite, les pages du centre composées de sources en font un bouton. */
 export const GRILLE_META = 'https://developers.facebook.com/docs/whatsapp/pricing';
 /** Les étapes chez Meta, de la même source que la console et que Claude (`web/lib/partage/etapes-meta.ts`). */
@@ -111,22 +116,23 @@ export const FAQ: readonly EntreeFaq[] = [
     question: { fr: 'Je n’ai pas de compte Meta Business : je peux quand même ?', en: 'I have no Meta Business account: can I still use it?' },
     reponse: {
       // Sans l'application, plus rien à télécharger (Julien, 2026-11-12) : le numéro se relie en numéro API, et seul un
-      // numéro qui sert dans WhatsApp, l'application ordinaire, passe par WhatsApp Business.
-      fr: 'Oui. La fenêtre de Meta vous fait créer votre compte Meta Business en chemin, avec votre profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen de paiement. Vous avez déjà l’application WhatsApp Business ? Gardez-la : son numéro envoie aussi depuis Messaging Me, et vous répondez toujours depuis votre téléphone. Sinon, pas besoin de l’application : la fenêtre de Meta relie à l’API officielle votre numéro libre ou, sans numéro, celui que nous vous fournissons (son code de vérification s’affiche sur la page de Messaging Me). '
+      // numéro qui sert dans WhatsApp, l'application ordinaire, passe par WhatsApp Business. Avec elle, sans numéro dedans
+      // ou sans vouloir le sien (Julien, 2026-11-17, lot 3) : on y met le nôtre ou un numéro à soi, puis on la garde.
+      fr: 'Oui. La fenêtre de Meta vous fait créer votre compte Meta Business en chemin, avec votre profil Facebook (le nom de votre entreprise, une adresse e-mail, le pays et le site), puis vous propose un moyen de paiement. Vous avez déjà l’application WhatsApp Business ? Gardez-la : son numéro envoie aussi depuis Messaging Me, et vous répondez toujours depuis votre téléphone. Pas de numéro dans l’application, ou vous préférez ne pas utiliser le sien ? Mettez-y un numéro à vous, ou celui que nous vous fournissons, puis gardez-la de la même façon. Vous n’avez pas l’application ? Vous n’en avez pas besoin : la fenêtre de Meta relie à l’API officielle votre numéro libre ou, sans numéro, celui que nous vous fournissons. Le code de vérification d’un numéro fourni s’affiche sur la page de Messaging Me. '
         + `${WHATSAPP_ORDINAIRE.fr} Puis gardez WhatsApp Business de la même façon.`,
-      en: 'Yes. Meta’s window has you create your Meta Business account along the way, with your Facebook profile (your business name, an email address, the country and the website), then offers a payment method. Already have the WhatsApp Business app? Keep it: its number also sends from Messaging Me, and you still reply from your phone. Otherwise, no need for the app: Meta’s window connects your available number to the official API or, without a number, the one we provide (its verification code shows on the Messaging Me page). '
+      en: 'Yes. Meta’s window has you create your Meta Business account along the way, with your Facebook profile (your business name, an email address, the country and the website), then offers a payment method. Already have the WhatsApp Business app? Keep it: its number also sends from Messaging Me, and you still reply from your phone. No number in the app, or you would rather not use the one it has? Put a number of yours in it, or the one we provide, then keep the app the same way. No app? You do not need it: Meta’s window connects your available number to the official API or, without a number, the one we provide. A provided number’s verification code shows on the Messaging Me page. '
         + `${WHATSAPP_ORDINAIRE.en} Then keep WhatsApp Business the same way.`,
     },
-    source: 'l’arbre du numéro de Julien du 2026-10-30, sa 4e question du 2026-10-31 et sa révision du 2026-11-12, sans application à télécharger (scripts/vitrine/tunnel-textes.ts, repris par web/lib/questions-numero.ts et la skill mise-en-service) ; web/lib/partage/etapes-meta.ts (la fenêtre de Meta crée le portefeuille, essai 161)',
+    source: 'l’arbre du numéro de Julien du 2026-10-30, sa 4e question du 2026-10-31, sa révision du 2026-11-12, sans application à télécharger, et celle du 2026-11-17 (lot 3), un numéro mis dans l’application qu’on garde (scripts/vitrine/tunnel-textes.ts, repris par web/lib/questions-numero.ts et la skill mise-en-service) ; web/lib/partage/etapes-meta.ts (la fenêtre de Meta crée le portefeuille, essai 161)',
   },
   {
     id: 'api-ou-application',
     question: { fr: 'Quel numéro WhatsApp prendre ?', en: 'Which WhatsApp number should I use?' },
     reponse: {
-      fr: `Votre numéro passe par l’API officielle de WhatsApp, relié par Meta. Il vous permet d’écrire en premier à vos clients (confirmations, rappels, campagnes, messages Shopify) avec des modèles (« templates » en anglais), que Meta valide puis vous facture. Trois cas.\n1) Un numéro qui ne sert dans aucune application WhatsApp : il devient votre numéro API.\n2) Le numéro de votre application WhatsApp Business : vous le gardez dans l’application de votre téléphone, et il envoie aussi depuis Messaging Me. ${WHATSAPP_ORDINAIRE.fr}\n3) Pas de numéro : nous vous en fournissons un (${NUMERO_FR}${INCLUS_FR}).\nClaude vous aide à choisir au moment de connecter le numéro.`,
-      en: `Your number goes through the official WhatsApp API, connected through Meta. It lets you write first to your customers (confirmations, reminders, campaigns, Shopify messages) with templates, which Meta approves and then bills you for. Three cases.\n1) A number used in no WhatsApp app: it becomes your API number.\n2) The number of your WhatsApp Business app: you keep it in the app on your phone, and it also sends from Messaging Me. ${WHATSAPP_ORDINAIRE.en}\n3) No number: we provide one (${NUMERO_EN}${INCLUS_EN}).\nClaude helps you choose when you connect the number.`,
+      fr: `Votre numéro passe par l’API officielle de WhatsApp, relié par Meta. Il vous permet d’écrire en premier à vos clients (confirmations, rappels, campagnes, messages Shopify) avec des modèles (« templates » en anglais), que Meta valide puis vous facture. Trois cas.\n1) Un numéro qui ne sert dans aucune application WhatsApp : il devient votre numéro API.\n2) Le numéro de votre application WhatsApp Business : vous le gardez dans l’application de votre téléphone, et il envoie aussi depuis Messaging Me. ${WHATSAPP_ORDINAIRE.fr}\n3) Pas de numéro : nous vous en fournissons un (${NUMERO_FR}${INCLUS_FR}), relié par la fenêtre de Meta ou, si vous avez l’application WhatsApp Business, mis dans l’application, que vous gardez alors de la même façon.\nClaude vous aide à choisir au moment de connecter le numéro.`,
+      en: `Your number goes through the official WhatsApp API, connected through Meta. It lets you write first to your customers (confirmations, reminders, campaigns, Shopify messages) with templates, which Meta approves and then bills you for. Three cases.\n1) A number used in no WhatsApp app: it becomes your API number.\n2) The number of your WhatsApp Business app: you keep it in the app on your phone, and it also sends from Messaging Me. ${WHATSAPP_ORDINAIRE.en}\n3) No number: we provide one (${NUMERO_EN}${INCLUS_EN}), connected through Meta’s window or, if you have the WhatsApp Business app, put in the app, which you then keep the same way.\nClaude helps you choose when you connect the number.`,
     },
-    source: 'l’arbre du numéro de Julien du 2026-10-30, sa question du paiement du 2026-11-06 et sa révision du 2026-11-12, sans application à télécharger (scripts/vitrine/tunnel-textes.ts), repris par la console (web/lib/questions-numero.ts) et la skill mise-en-service ; src/stripe/abonnement.ts ; réécrite le 2026-11-13 à la demande de Julien : elle répond à la question posée, le paiement vit dans `ce-que-meta-facture`',
+    source: 'l’arbre du numéro de Julien du 2026-10-30, sa question du paiement du 2026-11-06, sa révision du 2026-11-12, sans application à télécharger, et celle du 2026-11-17 (lot 3), le numéro fourni de nouveau mis dans l’application (scripts/vitrine/tunnel-textes.ts), repris par la console (web/lib/questions-numero.ts) et la skill mise-en-service ; src/stripe/abonnement.ts ; réécrite le 2026-11-13 à la demande de Julien : elle répond à la question posée, le paiement vit dans `ce-que-meta-facture`',
   },
   {
     id: 'compte-meta',
@@ -224,37 +230,41 @@ export const FAQ: readonly EntreeFaq[] = [
     id: 'code-de-verification',
     question: { fr: 'Le code de vérification n’arrive pas.', en: 'The verification code does not arrive.' },
     reponse: {
-      fr: `**Avec un numéro fourni par Messaging Me**, le code est capté pour vous et Claude l’affiche (watch_whatsapp_connection).${video(AIDE_NUMERO_FOURNI, 'fr', ' (3 minutes)')}\n`
+      fr: `**Avec un numéro fourni par Messaging Me**, le code est capté pour vous : il s’affiche sur la page de connexion, et Claude l’affiche aussi (watch_whatsapp_connection).${video(AIDE_NUMERO_FOURNI, 'fr', ' (3 minutes)')}\n`
+        + '**Avec un numéro fourni mis dans votre application WhatsApp Business**, son code s’affiche de la même façon : vous le tapez dans l’application, pas dans la fenêtre de Meta.\n'
         + `**Avec votre numéro**, demandez l’appel plutôt que le SMS quand Meta laisse le choix.${video(AIDE_CONNECTER_NUMERO, 'fr')}\n`
-        + `**Avec votre application WhatsApp Business**, Meta envoie le code à son numéro, par message ou par appel : gardez le téléphone à portée de main.${video(AIDE_GARDER_APPLICATION, 'fr')}\n`
+        + `**Avec votre numéro dans l’application WhatsApp Business**, Meta envoie le code à ce numéro, par message ou par appel : gardez le téléphone à portée de main.${video(AIDE_GARDER_APPLICATION, 'fr')}\n`
         + 'Meta ne tolère que dix demandes de code par numéro sur 72 heures.',
-      en: `**With a number provided by Messaging Me**, the code is captured for you and Claude shows it (watch_whatsapp_connection).${video(AIDE_NUMERO_FOURNI, 'en', ' (3 minutes)')}\n`
+      en: `**With a number provided by Messaging Me**, the code is captured for you: it shows on the connection page, and Claude shows it too (watch_whatsapp_connection).${video(AIDE_NUMERO_FOURNI, 'en', ' (3 minutes)')}\n`
+        + '**With a provided number put in your WhatsApp Business app**, its code shows the same way: you type it in the app, not in Meta’s window.\n'
         + `**With your own number**, ask for a call rather than an SMS when Meta offers the choice.${video(AIDE_CONNECTER_NUMERO, 'en')}\n`
-        + `**With your WhatsApp Business app**, Meta sends the code to its number, by text message or phone call: keep the phone at hand.${video(AIDE_GARDER_APPLICATION, 'en')}\n`
+        + `**With your own number in the WhatsApp Business app**, Meta sends the code to that number, by text message or phone call: keep the phone at hand.${video(AIDE_GARDER_APPLICATION, 'en')}\n`
         + 'Meta allows only ten code requests per number over 72 hours.',
     },
-    source: 'docs/aide/fiches/connecter-mon-numero-whatsapp.md ; docs/aide/fiches/numero-fourni-par-messaging-me.md',
+    // Le numéro fourni mis dans l'application (mode `fourni_application`), de nouveau proposé le 2026-11-17 (lot 3) : son
+    // code de création du compte s'affiche sur la page et chez Claude, et se tape dans l'application.
+    source: 'docs/aide/fiches/connecter-mon-numero-whatsapp.md ; docs/aide/fiches/numero-fourni-par-messaging-me.md ; src/mcp/outils-numero.ts (consigneFourniApplication)',
   },
   {
     id: 'numero-dans-l-application',
     question: { fr: 'Puis-je garder ce numéro dans l’application WhatsApp ?', en: 'Can I keep this number in the WhatsApp app?' },
     reponse: {
-      fr: `Oui, avec l’application WhatsApp Business : le même numéro reste dans l’application de votre téléphone et passe aussi par l’API, si vous le voulez : c’est ce que Meta appelle la « coexistence » (« Garder mon application WhatsApp Business », depuis Claude ou l’Accueil de la console). Vous continuez de répondre depuis votre téléphone, mais ce que vous y tapez n’apparaît pas encore dans Messaging Me. Quelques fonctions de l’application s’arrêtent (listes de diffusion, message d’absence), et il faut l’ouvrir au moins toutes les deux semaines. Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application. `
+      fr: `Oui, avec l’application WhatsApp Business : le même numéro reste dans l’application de votre téléphone et passe aussi par l’API, si vous le voulez : c’est ce que Meta appelle la « coexistence » (« Garder mon application WhatsApp Business », depuis Claude ou l’Accueil de la console). Un numéro que nous vous fournissons peut y aller aussi : vous l’ajoutez dans l’application, son code de vérification s’affiche sur la page de connexion, puis vous la gardez de la même façon. Vous continuez de répondre depuis votre téléphone, mais ce que vous y tapez n’apparaît pas encore dans Messaging Me. Quelques fonctions de l’application s’arrêtent (listes de diffusion, message d’absence), et il faut l’ouvrir au moins toutes les deux semaines. Vous payez Meta avec votre carte : la ligne de crédit n’est pas possible avec l’application. `
         // WhatsApp ordinaire (Julien, lot 3a) : le numéro passe dans WhatsApp Business, jamais vers un autre numéro.
         + `${WHATSAPP_ORDINAIRE.fr} Puis gardez WhatsApp Business de la même façon.`,
-      en: `Yes, with the WhatsApp Business app: the same number stays in the app on your phone and also goes through the API, if you want: this is what Meta calls “coexistence” (“Keep my WhatsApp Business app”, from Claude or the console’s Home). You keep replying from your phone, but what you type there does not show in Messaging Me yet. A few app features stop (broadcast lists, away message), and you need to open the app at least every two weeks. You pay Meta with your card: the credit line is not possible with the app. `
+      en: `Yes, with the WhatsApp Business app: the same number stays in the app on your phone and also goes through the API, if you want: this is what Meta calls “coexistence” (“Keep my WhatsApp Business app”, from Claude or the console’s Home). A number we provide can go there too: you add it in the app, its verification code shows on the connection page, then you keep the app the same way. You keep replying from your phone, but what you type there does not show in Messaging Me yet. A few app features stop (broadcast lists, away message), and you need to open the app at least every two weeks. You pay Meta with your card: the credit line is not possible with the app. `
         + `${WHATSAPP_ORDINAIRE.en} Then keep WhatsApp Business the same way.`,
     },
-    source: 'docs/superpowers/specs/2026-10-24-coexistence-design.md (la coexistence : lot 1 en production, essai 161 ; le lot 2, les messages tapés dans l’application, à venir) ; src/mcp (le mode coexistence de la connexion)',
+    source: 'docs/superpowers/specs/2026-10-24-coexistence-design.md (la coexistence : lot 1 en production, essai 161 ; le lot 2, les messages tapés dans l’application, à venir) ; src/mcp (le mode coexistence de la connexion) ; le numéro fourni mis dans l’application, de nouveau proposé le 2026-11-17 (docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md, lot 3)',
   },
   {
     id: 'numero-fourni',
     question: { fr: 'Le numéro fourni m’appartient-il ?', en: 'Do I own the provided number?' },
     reponse: {
-      fr: `Non : il est loué ${NUMERO_FR}${INCLUS_FR}. Un numéro que vous apportez reste à vous.`,
-      en: `No: it is rented for ${NUMERO_EN}${INCLUS_EN}. A number you bring stays yours.`,
+      fr: `Non : il est loué ${NUMERO_FR}${INCLUS_FR}.${ESSAI_FR} Un numéro que vous apportez reste à vous.`,
+      en: `No: it is rented for ${NUMERO_EN}${INCLUS_EN}.${ESSAI_EN} A number you bring stays yours.`,
     },
-    source: 'src/stripe/abonnement.ts (PRIX_NUMERO_HT_CENTIMES) ; src/offres/offres.ts (numeroInclus)',
+    source: 'src/stripe/abonnement.ts (PRIX_NUMERO_HT_CENTIMES) ; src/offres/offres.ts (numeroInclus) ; src/offres/numero-inclus.ts (inclutLeNumero, l’essai du Pro)',
   },
   {
     id: 'combien-de-messages',

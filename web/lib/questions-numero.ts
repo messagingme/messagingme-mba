@@ -157,6 +157,7 @@ export const QUESTION_COMPTE = {
 /**
  * Sans compte Meta Business (ou sans le savoir). « Non » mène tout droit à la question du numéro : on ne fait plus
  * télécharger l'application (Julien, 2026-11-12), le numéro se relie en numéro API et la fenêtre de Meta crée le compte.
+ * « Oui » (Julien, 2026-11-17, lot 3) : un numéro fonctionne-t-il déjà dans l'application (`QUESTION_NUMERO_APPLICATION`) ?
  */
 export const QUESTION_APPLICATION = {
   texte: { fr: 'Avez-vous déjà l’application WhatsApp Business ?', en: 'Do you already have the WhatsApp Business app?' },
@@ -166,8 +167,19 @@ export const QUESTION_APPLICATION = {
 } as const satisfies Record<string, Texte>;
 
 /**
+ * L'APPLICATION, ET UN NUMÉRO QUI Y FONCTIONNE ? (Julien, 2026-11-17, lot 3) Oui : est-ce celui-là
+ * (`QUESTION_MEME_NUMERO`) ? Non : faut-il en fournir un (`QUESTION_FOURNIR`) ?
+ */
+export const QUESTION_NUMERO_APPLICATION = {
+  texte: { fr: 'Avez-vous déjà un numéro qui fonctionne sur cette application ?', en: 'Do you already have a number working in that app?' },
+  precision: { fr: 'Un numéro installé dans votre application WhatsApp Business.', en: 'A number installed in your WhatsApp Business app.' },
+  oui: { fr: 'Oui', en: 'Yes' },
+  non: { fr: 'Non', en: 'No' },
+} as const satisfies Record<string, Texte>;
+
+/**
  * LE CAS 4 (Julien, 2026-11-08, lot 3a) : l'application WhatsApp Business, mais pour un autre numéro. Oui, on la garde ;
- * Non, un numéro de chez nous, relié par la fenêtre de Meta (`ISSUE_AUTRE_NUMERO`), l'application gardant le sien.
+ * Non (depuis le 2026-11-17, lot 3) : faut-il en fournir un (`QUESTION_FOURNIR`), comme sans numéro dans l'application ?
  */
 export const QUESTION_MEME_NUMERO = {
   texte: { fr: 'Voulez-vous utiliser ce numéro-là ?', en: 'Do you want to use that number?' },
@@ -179,7 +191,7 @@ export const QUESTION_MEME_NUMERO = {
 /**
  * UN NUMÉRO DE CHEZ NOUS, RELIÉ PAR LA FENÊTRE DE META (mode `fourni`) : le titre et la première phrase de l'issue
  * `fourni` de la vitrine (Julien, 2026-11-12 : sans compte Meta Business, ni application, ni numéro ; la fenêtre de Meta
- * crée le compte en chemin). Le cas 4 (`ISSUE_AUTRE_NUMERO`) dit la même chose, plus ce que garde l'application.
+ * crée le compte en chemin).
  */
 export const ISSUE_FOURNI = {
   titre: { fr: 'Un numéro de chez nous, relié par Meta', en: 'A number from us, connected through Meta' },
@@ -189,13 +201,42 @@ export const ISSUE_FOURNI = {
   },
 } as const satisfies Record<string, Texte>;
 
-/** Le cas 4, Non : le titre et la première phrase de l'issue de la vitrine ; le bouton ouvre le numéro fourni (`fourni`). */
-export const ISSUE_AUTRE_NUMERO = {
-  titre: ISSUE_FOURNI.titre,
+/**
+ * FAUT-IL FOURNIR UN NUMÉRO ? (Julien, 2026-11-17, lot 3) Avec l'application, sans numéro dedans ou sans vouloir le sien :
+ * Oui, un numéro de chez nous mis DANS l'application (`ISSUE_FOURNI_APPLICATION`, mode `fourni_application`) ; Non, un
+ * numéro à soi qu'on y installe (`ISSUE_INSTALLER`). Dans les deux cas, la fenêtre de Meta garde ensuite l'application.
+ */
+export const QUESTION_FOURNIR = {
+  texte: { fr: 'Souhaitez-vous qu’on vous fournisse un numéro ?', en: 'Would you like us to provide a number?' },
+  precision: { fr: 'Un numéro britannique dédié, que vous mettez dans votre application WhatsApp Business.', en: 'A dedicated UK number, which you put in your WhatsApp Business app.' },
+  oui: { fr: 'Oui', en: 'Yes' },
+  non: { fr: 'Non', en: 'No' },
+} as const satisfies Record<string, Texte>;
+
+/** La suite commune des deux issues qui gardent l'application après y avoir mis un numéro (la vitrine, `relierEnGardant`). */
+export const RELIER_EN_GARDANT: Texte = {
+  fr: 'Puis la fenêtre de Meta relie votre application à Messaging Me, et vous la gardez : vous répondez depuis votre téléphone, et vos confirmations, rappels et relances partent de Messaging Me.',
+  en: 'Then Meta’s window connects your app to Messaging Me, and you keep it: you reply from your phone, and your confirmations, reminders and follow-ups go out from Messaging Me.',
+};
+
+/** Le numéro de chez nous mis DANS l'application : le titre et les deux premières phrases de l'issue de la vitrine. */
+export const ISSUE_FOURNI_APPLICATION = {
+  titre: { fr: 'Un numéro de chez nous, dans votre application WhatsApp Business', en: 'A number from us, in your WhatsApp Business app' },
   texte: {
-    fr: `${ISSUE_FOURNI.texte.fr} Votre application WhatsApp Business garde le sien.`,
-    en: `${ISSUE_FOURNI.texte.en} Your WhatsApp Business app keeps its own.`,
+    fr: 'Nous vous fournissons un numéro, 3,50 € par mois en formule Free, inclus en formule Pro. Vous l’ajoutez dans votre application WhatsApp Business : le code de vérification s’affiche sur la page de connexion.',
+    en: 'We provide a number, €3.50 a month with the Free plan, included in Pro. You add it in your WhatsApp Business app: the verification code shows on the connection page.',
   },
+  suite: RELIER_EN_GARDANT,
+} as const satisfies Record<string, Texte>;
+
+/** Un numéro à soi installé dans l'application, puis gardée : le titre et les deux premières phrases de l'issue. */
+export const ISSUE_INSTALLER = {
+  titre: { fr: 'Mettez un numéro à vous dans l’application', en: 'Put a number of yours in the app' },
+  texte: {
+    fr: 'Installez un numéro à vous dans votre application WhatsApp Business : une ligne mobile, qui reçoit le code de WhatsApp par SMS ou par appel.',
+    en: 'Install a number of yours in your WhatsApp Business app: a mobile line that receives WhatsApp’s code by text or by call.',
+  },
+  suite: RELIER_EN_GARDANT,
 } as const satisfies Record<string, Texte>;
 
 /** WHATSAPP ORDINAIRE (lot 3a) : la phrase vit dans la source partagée, que lisent aussi la 3e condition chez Meta et Claude. */
@@ -233,10 +274,10 @@ export const ISSUE_API = {
 } as const satisfies Record<string, Texte>;
 
 /**
- * LA REPRISE D'UN NUMÉRO FOURNI MIS DANS L'APPLICATION (mode `fourni_application`, le « parcours C ») : l'arbre ne le
- * propose plus depuis le 2026-11-12, mais un numéro déjà attribué ainsi (le lien de Claude, ou la mémoire de l'onglet)
- * reprend là où il en était, avec ce qu'il permet et la suite. Plus aucun chiffre de jours : un numéro neuf passe en
- * coexistence sans attendre (testé, Julien, 2026-11-11).
+ * LE NUMÉRO FOURNI MIS DANS L'APPLICATION (mode `fourni_application`, le « parcours C ») : retiré de l'arbre le
+ * 2026-11-12, de nouveau proposé le 2026-11-17 (lot 3, `QUESTION_FOURNIR`) ; un numéro déjà attribué ainsi (le lien de
+ * Claude, ou la mémoire de l'onglet) reprend là où il en était, avec ce qu'il permet et la suite. Plus aucun chiffre de
+ * jours : un numéro neuf passe en coexistence sans attendre (testé, Julien, 2026-11-11).
  */
 export const SUITE_FOURNI_APPLICATION: Texte = {
   fr: 'Dès le premier jour, vous répondez à vos clients depuis l’application. Puis branchez le numéro en gardant l’application, pour que vos confirmations, rappels et relances partent aussi de Messaging Me.',

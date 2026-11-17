@@ -16,7 +16,7 @@ import { ETAPES_COMPTE_FOURNI } from '@/lib/partage/etapes-application';
 import { AIDE_NUMERO_FOURNI } from '@/lib/partage/aide-connexion';
 import { QrApplication } from '@/components/QrApplication';
 import {
-  ISSUE_API, ISSUE_AUTRE_NUMERO, ISSUE_FOURNI, MAGASINS_APPLICATION, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, QUESTION_APPLICATION,
+  ISSUE_API, ISSUE_FOURNI, ISSUE_FOURNI_APPLICATION, ISSUE_INSTALLER, MAGASINS_APPLICATION, META_BUSINESS_URL, NOTE_CARTE_APPLICATION, NUMERO_LIGNE_MIEN, PREREQUIS_LIGNE, QUESTION_APPLICATION, QUESTION_FOURNIR, QUESTION_NUMERO_APPLICATION,
   QUESTION_COMPTE, QUESTION_MEME_NUMERO, QUESTION_NUMERO, SUITE_FOURNI_APPLICATION, WHATSAPP_ORDINAIRE, type ReponseCompte,
 } from '@/lib/questions-numero';
 
@@ -44,13 +44,14 @@ export function EncadreChezMeta({ prerequis }: { prerequis: ReadonlyArray<{ read
  *
  * Sans choix déjà fait, il pose d'abord les questions du tunnel de la vitrine (2026-10-30, `@/lib/questions-numero`) :
  * « Avez-vous un compte Meta Business ? », Oui menant aux deux choix du numéro API ; Non ou « Je ne sais pas » à
- * « Avez-vous déjà l'application WhatsApp Business ? ». Oui demande « Voulez-vous utiliser ce numéro-là ? » (le cas 4,
- * lot 3a) : Oui la garde, Non mène à un numéro de chez nous, relié par la fenêtre de Meta. Non ne la fait plus télécharger
- * (Julien, 2026-11-12) : « Avez-vous déjà un numéro que vous pourriez utiliser ? », Oui menant au numéro API (comme avec
- * un compte), Non à un numéro de chez nous, relié par la fenêtre de Meta, qui crée le compte en chemin. Un numéro qui sert
- * dans WhatsApp, l'application ordinaire, passe dans WhatsApp Business et se garde, jamais vers un autre numéro. La carte
- * s'affiche sous la question. Plus aucune voie par QR code, ni de numéro fourni mis dans l'application, que seule une
- * reprise montre encore (`fourni_application`, un lien de Claude ou la mémoire de l'onglet). « Qui paie vos messages à Meta ? »
+ * « Avez-vous déjà l'application WhatsApp Business ? ». Oui demande si un numéro y fonctionne (lot 3 du 2026-11-17) :
+ * Oui, « Voulez-vous utiliser ce numéro-là ? » (le cas 4), dont Oui la garde ; Non, ou aucun numéro dedans, « Souhaitez-vous
+ * qu'on vous fournisse un numéro ? » : Oui, un numéro de chez nous mis DANS l'application (`fourni_application`), Non, un
+ * numéro à soi qu'on y installe ; les deux la gardent ensuite. Non ne la fait plus télécharger (Julien, 2026-11-12) :
+ * « Avez-vous déjà un numéro que vous pourriez utiliser ? », Oui menant au numéro API (comme avec un compte), Non à un
+ * numéro de chez nous, relié par la fenêtre de Meta, qui crée le compte en chemin. Un numéro qui sert dans WhatsApp,
+ * l'application ordinaire, passe dans WhatsApp Business et se garde, jamais vers un autre numéro. La carte s'affiche sous
+ * la question. Plus aucune voie par QR code. « Qui paie vos messages à Meta ? »
  * vient avant, posée par la page (`QuiRegleMeta`, lot B du Crédit WhatsApp) : ce guide est la voie de la carte chez Meta,
  * et chaque voie qui garde l'application le dit (`NOTE_CARTE_APPLICATION`).
  *
@@ -127,15 +128,41 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const [appli, setAppli] = useState<'oui' | 'non' | null>(null);
   /** La réponse à « Avez-vous déjà un numéro que vous pourriez utiliser ? » (après « Non » à l'application, 2026-10-31). */
   const [numeroPerso, setNumeroPerso] = useState<'oui' | 'non' | null>(null);
-  /** La réponse à « Voulez-vous utiliser ce numéro-là ? » (après « Oui » à l'application, le cas 4, lot 3a). */
+  /** La réponse à « Avez-vous déjà un numéro qui fonctionne sur cette application ? » (après « Oui », lot 3 du 2026-11-17). */
+  const [numeroAppli, setNumeroAppli] = useState<'oui' | 'non' | null>(null);
+  /** La réponse à « Voulez-vous utiliser ce numéro-là ? » (après « Oui » au numéro de l'application, le cas 4, lot 3a). */
   const [memeNumero, setMemeNumero] = useState<'oui' | 'non' | null>(null);
-  const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); setNumeroPerso(null); setMemeNumero(null); };
-  const repondreAppli = (r: 'oui' | 'non') => { setAppli(r); setNumeroPerso(null); setMemeNumero(null); };
+  /** La réponse à « Souhaitez-vous qu'on vous fournisse un numéro ? » (lot 3 du 2026-11-17). */
+  const [fournir, setFournir] = useState<'oui' | 'non' | null>(null);
+  const repondreCompte = (r: ReponseCompte) => { setCompte(r); setAppli(null); setNumeroPerso(null); setNumeroAppli(null); setMemeNumero(null); setFournir(null); };
+  const repondreAppli = (r: 'oui' | 'non') => { setAppli(r); setNumeroPerso(null); setNumeroAppli(null); setMemeNumero(null); setFournir(null); };
+  const repondreNumeroAppli = (r: 'oui' | 'non') => { setNumeroAppli(r); setMemeNumero(null); setFournir(null); };
+  const repondreMemeNumero = (r: 'oui' | 'non') => { setMemeNumero(r); setFournir(null); };
+  /**
+   * Retient la voie chez le serveur (lot 3 du 2026-11-17) : le code de l'application ne se montre que sur la voie de
+   * l'application (la garde du lot 1). La session de la console seule : le lien de Claude arrive avec sa voie retenue.
+   */
+  const retenir = (destination: 'api' | 'application'): Promise<unknown> => Promise.resolve(api.retenirDestination?.(destination));
   /**
    * Ouvre le numéro fourni par la fenêtre de Meta, et le garde pour le retour de Stripe et le rechargement
-   * (`varianteGardee`), à la place d'une variante `fourni_application` d'avant le 2026-11-12.
+   * (`varianteGardee`). Sans attendre la voie : sur la fenêtre de Meta, un échec ne cache aucun code.
    */
-  const choisirFourni = () => { garderVariante(tenantId, 'fourni'); setChoix('fourni'); };
+  const choisirFourni = () => { void retenir('api').catch(() => {}); garderVariante(tenantId, 'fourni'); setChoix('fourni'); };
+  /**
+   * Ouvre le numéro fourni mis DANS l'application WhatsApp Business, puis gardée (lot 3 du 2026-11-17). 🔴 La voie est
+   * retenue AVANT d'avancer (relecture du lot 3) : sans elle, la garde du lot 1 cacherait le code de l'application, et la
+   * page l'attendrait sans fin, numéro payé. Un refus (une API d'avant la route, le réseau) se dit, et rien n'avance.
+   */
+  const choisirFourniApplication = () => {
+    setErreur(null);
+    void retenir('application').then(
+      () => { garderVariante(tenantId, 'fourni_application'); setChoix('fourni_application'); },
+      () => setErreur(t(
+        'Ce choix n’a pas pu être enregistré. Réessayez dans quelques minutes.',
+        'This choice could not be saved. Try again in a few minutes.',
+      )),
+    );
+  };
   const application = filiere === 'application';
   /** Le numéro fourni, saisi dans la fenêtre de Meta (`fourni`) ou mis dans l'application WhatsApp Business (plan 2026-10-31). */
   const fourni = choix === 'fourni' || choix === 'fourni_application';
@@ -324,15 +351,18 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
     </div>
   );
   /**
-   * Un numéro de chez nous, relié par la fenêtre de Meta : le même parcours que « Fournissez-moi un numéro » du numéro
-   * API. Le cas 4 (Julien, 2026-11-08, lot 3a : l'application, mais pas pour ce numéro-là) et, depuis le 2026-11-12, sans
-   * compte, ni application, ni numéro (la fenêtre de Meta crée le compte en chemin).
+   * Un numéro de chez nous : relié par la fenêtre de Meta (`choisirFourni`, sans compte, ni application, ni numéro, depuis
+   * le 2026-11-12), ou mis DANS l'application puis gardée (`choisirFourniApplication`, lot 3 du 2026-11-17). Le même bouton,
+   * la même suite que « Fournissez-moi un numéro » du numéro API. `gardeLApplication` : comme chaque voie qui garde
+   * l'application, la carte dit qu'on y paie Meta avec sa carte (`NOTE_CARTE_APPLICATION`).
    */
-  const carteNumeroDeChezNous = (testid: string, issue: { titre: Texte; texte: Texte }, testidBouton: string) => (
+  const carteNumeroDeChezNous = (testid: string, issue: { titre: Texte; texte: Texte; suite?: Texte }, testidBouton: string, choisir: () => void, gardeLApplication = false) => (
     <div data-testid={testid} className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
       <div className="text-base font-semibold text-ink-900">{t(issue.titre.fr, issue.titre.en)}</div>
       <p className="mt-2 text-sm text-ink-700">{t(issue.texte.fr, issue.texte.en)}</p>
-      <Bouton type="button" className="mt-4" onClick={choisirFourni} data-testid={testidBouton}>
+      {issue.suite && <p className="mt-2 text-sm text-ink-700">{t(issue.suite.fr, issue.suite.en)}</p>}
+      {gardeLApplication && <p data-testid="note-carte-application" className="mt-2 text-sm text-ink-700">{t(NOTE_CARTE_APPLICATION.fr, NOTE_CARTE_APPLICATION.en)}</p>}
+      <Bouton type="button" className="mt-4" onClick={choisir} data-testid={testidBouton}>
         {t('Fournissez-moi un numéro', 'Provide me a number')}
       </Bouton>
     </div>
@@ -412,20 +442,51 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                 reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_APPLICATION[r], choisir: () => repondreAppli(r) }))}
               />
               {/* La suite s'affiche dessous, les questions restent : on change de réponse en en cliquant une autre. Avec
-                  l'application, ce numéro-là ? (le cas 4, lot 3a) Oui, on la garde ; Non, un numéro de chez nous. Sans
-                  elle, la question du numéro (Julien, 2026-10-31), sans plus rien à télécharger (2026-11-12) : Oui, le
-                  numéro API ; Non, un numéro de chez nous, relié par la fenêtre de Meta. */}
+                  l'application (Julien, 2026-11-17, lot 3) : un numéro y fonctionne-t-il ? Oui, est-ce celui-là (le cas 4) ?
+                  Oui, on la garde ; Non, ou aucun numéro dedans : faut-il en fournir un ? Oui, un numéro de chez nous mis DANS
+                  l'application ; Non, un numéro à soi qu'on y installe ; les deux gardent l'application. Sans elle, la
+                  question du numéro (Julien, 2026-10-31), sans plus rien à télécharger (2026-11-12) : Oui, le numéro API ;
+                  Non, un numéro de chez nous, relié par la fenêtre de Meta. */}
               {appli === 'oui' && (
                 <>
                   <Question
-                    testid="question-meme-numero"
-                    texte={QUESTION_MEME_NUMERO.texte}
-                    precision={QUESTION_MEME_NUMERO.precision}
-                    choisie={memeNumero}
-                    reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_MEME_NUMERO[r], choisir: () => setMemeNumero(r) }))}
+                    testid="question-numero-application"
+                    texte={QUESTION_NUMERO_APPLICATION.texte}
+                    precision={QUESTION_NUMERO_APPLICATION.precision}
+                    choisie={numeroAppli}
+                    reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_NUMERO_APPLICATION[r], choisir: () => repondreNumeroAppli(r) }))}
                   />
-                  {memeNumero === 'oui' && carteCoexistence(null, false)}
-                  {memeNumero === 'non' && carteNumeroDeChezNous('issue-autre-numero', ISSUE_AUTRE_NUMERO, 'choix-autre-numero')}
+                  {numeroAppli === 'oui' && (
+                    <Question
+                      testid="question-meme-numero"
+                      texte={QUESTION_MEME_NUMERO.texte}
+                      precision={QUESTION_MEME_NUMERO.precision}
+                      choisie={memeNumero}
+                      reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_MEME_NUMERO[r], choisir: () => repondreMemeNumero(r) }))}
+                    />
+                  )}
+                  {numeroAppli === 'oui' && memeNumero === 'oui' && carteCoexistence(null, false)}
+                  {(numeroAppli === 'non' || memeNumero === 'non') && (
+                    <Question
+                      testid="question-fournir"
+                      texte={QUESTION_FOURNIR.texte}
+                      precision={QUESTION_FOURNIR.precision}
+                      choisie={fournir}
+                      reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_FOURNIR[r], choisir: () => setFournir(r) }))}
+                    />
+                  )}
+                  {(numeroAppli === 'non' || memeNumero === 'non') && fournir === 'oui'
+                    && carteNumeroDeChezNous('issue-fourni-application', ISSUE_FOURNI_APPLICATION, 'choix-fourni-application', choisirFourniApplication, true)}
+                  {(numeroAppli === 'non' || memeNumero === 'non') && fournir === 'non' && (
+                    <div data-testid="issue-installer">
+                      <div className="mt-6 rounded-carte border border-ink-200 bg-white p-5">
+                        <div className="text-base font-semibold text-ink-900">{t(ISSUE_INSTALLER.titre.fr, ISSUE_INSTALLER.titre.en)}</div>
+                        <p className="mt-2 text-sm text-ink-700">{t(ISSUE_INSTALLER.texte.fr, ISSUE_INSTALLER.texte.en)}</p>
+                        <p className="mt-2 text-sm text-ink-700">{t(ISSUE_INSTALLER.suite.fr, ISSUE_INSTALLER.suite.en)}</p>
+                      </div>
+                      {carteCoexistence(null, false)}
+                    </div>
+                  )}
                 </>
               )}
               {appli === 'non' && (
@@ -438,7 +499,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
                     reponses={(['oui', 'non'] as const).map((r) => ({ cle: r, libelle: QUESTION_NUMERO[r], choisir: () => setNumeroPerso(r) }))}
                   />
                   {numeroPerso === 'oui' && issueApi}
-                  {numeroPerso === 'non' && carteNumeroDeChezNous('issue-fourni', ISSUE_FOURNI, 'choix-issue-fourni')}
+                  {numeroPerso === 'non' && carteNumeroDeChezNous('issue-fourni', ISSUE_FOURNI, 'choix-issue-fourni', choisirFourni)}
                 </>
               )}
             </>
@@ -562,6 +623,8 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
           {choix === 'fourni_application' && (
             <div data-testid="suite-fourni-application" className="rounded-carte border border-ink-200 bg-white p-5">
               {[SUITE_FOURNI_APPLICATION, ...COEXISTENCE_PHRASES].map((p) => <p key={p.fr} className="mt-2 text-sm text-ink-700 first:mt-0">{t(p.fr, p.en)}</p>)}
+              {/* L'application gardée, Meta se paie avec sa carte (lot 3 du 2026-11-17), comme sur chaque voie qui la garde. */}
+              <p data-testid="note-carte-application" className="mt-2 text-sm text-ink-700">{t(NOTE_CARTE_APPLICATION.fr, NOTE_CARTE_APPLICATION.en)}</p>
             </div>
           )}
           <div className="flex flex-wrap items-center gap-3 text-xs">

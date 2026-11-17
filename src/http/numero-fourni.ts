@@ -28,7 +28,7 @@ import { abonnementVivant, droitAuNumero as droitDansLaReserve, numerosDisponibl
  * d'office à l'abonné qui attend le sien (la réserve est à nous, comme dans /ops).
  */
 export interface NumeroFourniRouteDeps {
-  numeros: Pick<PgNumerosFournisStore, 'attribuer' | 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'destinationDeLEspace' | 'appelDeLApplicationRecent' | 'remplacerNumero' | 'rendre' | 'bloquer' | 'compterLibres'>;
+  numeros: Pick<PgNumerosFournisStore, 'attribuer' | 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'destinationDeLEspace' | 'retenirDestination' | 'appelDeLApplicationRecent' | 'remplacerNumero' | 'rendre' | 'bloquer' | 'compterLibres'>;
   /**
    * Le numéro WhatsApp connecté à l'espace, en chiffres (`''` si son affichage est inconnu), `null` s'il n'en a pas.
    * 🔴 Un espace qui a déjà un numéro n'en reçoit pas d'autre (un seul numéro par espace), et le numéro fourni ne
@@ -79,6 +79,8 @@ export interface NumeroFourniRouteDeps {
 }
 
 const saisieAbonnement = z.object({ retour: z.enum(['brancher', 'console']) });
+/** La voie choisie dans l'arbre de la console (lot 3 du 2026-11-17) : la fenêtre de Meta, ou l'application. */
+const saisieDestination = z.object({ destination: z.enum(['api', 'application']) });
 
 /** Le délai entre deux remplacements d'un même espace. Un numéro remplacé sort de la réserve pour de bon (`bloque`). */
 export const DELAI_ENTRE_REMPLACEMENTS_MS = 3_600_000;
@@ -184,6 +186,25 @@ export function registerNumeroFourni(
     await surveillerReserve();
     if (!n) return reply.code(409).send(RESERVE_VIDE);
     return reply.code(200).send({ numero: affiche(n.numero) });
+  });
+
+  /**
+   * OÙ VA LE NUMÉRO FOURNI, CHOISI DANS L'ARBRE DE LA CONSOLE (lot 3 du 2026-11-17) : la fenêtre de Meta (`api`) ou DANS
+   * l'application WhatsApp Business (`application`). Jusqu'ici, seul le lien de Claude la retenait
+   * (`start_whatsapp_connection`) : la console qui proposait de nouveau l'application aurait fait cacher le code de
+   * l'application (la garde du lot 1, `CODE_A_MONTRER_SQL`). 🔴 Retenue seulement quand elle CHANGE, comme pour Claude :
+   * son heure dit depuis quand un code prouve le compte de l'application, et la reposer à chaque clic ferait oublier un
+   * compte déjà créé. Avant le paiement : le webhook attribue le numéro, il ne sait pas la voie. La session d'admin SEULE :
+   * le lien de Claude arrive avec sa voie, déjà retenue par `start_whatsapp_connection`, et n'ouvre que les routes de sa
+   * page (`tests/scope-tenant.test.ts`). Sans la limite coûteuse : rien n'y engage la réserve partagée.
+   */
+  app.post('/tenants/:tenantId/numero-fourni/destination', { preHandler: gardeAdmin }, async (req, reply) => {
+    const tenant = espaceVerifie(req);
+    const lu = saisieDestination.safeParse(req.body);
+    if (!lu.success) return reply.code(400).send({ error: 'destination : « api » ou « application »' });
+    const actuelle = await deps.numeros.destinationDeLEspace(tenant);
+    if (actuelle?.destination !== lu.data.destination) await deps.numeros.retenirDestination(tenant, lu.data.destination);
+    return reply.code(200).send({ destination: lu.data.destination });
   });
 
   /**
