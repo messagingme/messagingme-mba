@@ -16,6 +16,11 @@ export interface TenantOverviewRow {
   phone: string | null;
   phoneStatus: string | null;
   quality: string | null;
+  /**
+   * Les adresses des membres ACTIFS (ni désactivés, ni invitation en attente), administrateurs d'abord : à qui
+   * l'exploitant écrit depuis le bouton « e-mail » de `/ops`. Vide quand l'espace n'a plus personne.
+   */
+  emails: string[];
 }
 
 /** Charge d'une file pg-boss : en attente (created+retry), actifs, échoués. */
@@ -127,6 +132,7 @@ export class PgOpsStore {
       id: string; name: string; created_at: Date; mba_enabled: boolean;
       users: number; contacts: number; messages: number; templates_used: number;
       last_send_at: Date | null; phone: string | null; phone_status: string | null; quality: string | null;
+      emails: string[];
     }>(
       `select
          t.id, t.name, t.created_at,
@@ -140,7 +146,10 @@ export class PgOpsStore {
          (select max(r.sent_at) from campaign_recipients r
             join campaigns ca on ca.id = r.campaign_id
           where ca.tenant_id = t.id) as last_send_at,
-         pn.display_phone_number as phone, pn.status as phone_status, pn.quality_rating as quality
+         pn.display_phone_number as phone, pn.status as phone_status, pn.quality_rating as quality,
+         coalesce((select array_agg(u.email order by (u.role = 'admin') desc, u.created_at, u.email)
+            from users u
+           where u.tenant_id = t.id and u.disabled_at is null and not u.invitation_en_attente), '{}') as emails
        from tenants t
        left join tenant_settings ts on ts.tenant_id = t.id
        left join lateral (
@@ -162,6 +171,7 @@ export class PgOpsStore {
       phone: r.phone,
       phoneStatus: r.phone_status,
       quality: r.quality,
+      emails: r.emails,
     }));
   }
 

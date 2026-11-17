@@ -183,6 +183,8 @@ export interface TenantOverviewRow {
   phone: string | null;
   phoneStatus: string | null;
   quality: string | null;
+  /** Les membres actifs, administrateurs d'abord (bouton « e-mail ») ; absent d'une API d'avant le 2026-11-17. */
+  emails?: string[];
 }
 /**
  * Le plus vieux job en attente d'UN GROUPE de file.

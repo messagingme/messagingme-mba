@@ -34,6 +34,7 @@ import { Nd } from '@/components/Nd';
 import { lireConservation, conservationPeutPurger, lireContactsEntreprise, lireCommissionEntreprise, lireCommissionMessages, lirePlafondIa } from '@/lib/ops-offre';
 import { lireFinEssaiBusiness, lireUtilisateursBusiness, retraitCoupeLeNumero } from '@/lib/ops-offre';
 import { OpsEmailsCard } from '@/components/OpsEmailsCard';
+import { lienGmail } from '@/lib/ops-email';
 import { MbaTabs } from '@/components/MbaTabs';
 import { OpsSante } from '@/components/OpsSante';
 import { OpsCapacite } from '@/components/OpsCapacite';
@@ -256,6 +257,7 @@ export default function OpsPage() {
                   onQuotas={(id, nom) => setQuotasDe({ id, nom })}
                   onOffre={(id, nom, membres) => setOffreDe({ id, nom, membres })}
                   tenants={data.tenants}
+                  expediteur={session.email}
                 />
               </>
             )}
@@ -1850,8 +1852,28 @@ function OffreEspace({ jeton, tenantId, nom, membres, onFermer }: { jeton: strin
   );
 }
 
-function TenantTable({ tenants, onObserver, onSupprimer, onQuotas, onOffre }: {
+/** Écrire aux membres d'un espace depuis la boîte Gmail de l'exploitant (`lib/ops-email.ts`) ; rien sans membre actif. */
+function LienEmail({ expediteur, emails }: { expediteur: string; emails: string[] | undefined }) {
+  const t = useT();
+  const lien = lienGmail(expediteur, emails);
+  if (!lien || !emails) return null;
+  return (
+    <a
+      href={lien}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={t(`Écrire à ${emails.join(', ')} depuis votre boîte`, `Write to ${emails.join(', ')} from your mailbox`)}
+      className="ml-3 mt-1 text-xs font-medium text-brand-600 underline decoration-dotted hover:text-brand-700"
+    >
+      {t('e-mail', 'email')}
+    </a>
+  );
+}
+
+function TenantTable({ tenants, expediteur, onObserver, onSupprimer, onQuotas, onOffre }: {
   tenants: TenantOverviewRow[];
+  /** L'adresse de la session d'exploitation : le compte Gmail sur lequel s'ouvre la rédaction. */
+  expediteur: string;
   onObserver: (id: string, nom: string) => void;
   onSupprimer: (id: string, nom: string) => void;
   onQuotas: (id: string, nom: string) => void;
@@ -1905,6 +1927,7 @@ function TenantTable({ tenants, onObserver, onSupprimer, onQuotas, onOffre }: {
                 >
                   {t('offre', 'plan')}
                 </button>
+                <LienEmail expediteur={expediteur} emails={tn.emails} />
                 {/* Ouvre le bilan : rien n'est supprimé avant la saisie du nom. */}
                 <button
                   onClick={() => onSupprimer(tn.id, tn.name)}

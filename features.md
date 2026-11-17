@@ -3923,6 +3923,8 @@ boîte par sous-menu.
 - ✅ **Console d'exploitation cross-tenant** `/ops` : vue de TOUS les clients. Par client : MBA on/off, numéro +
   qualité, nb d'utilisateurs / contacts / messages / templates, dernier envoi. **Signal de charge pg-boss**
   (files en attente / actifs / échoués) pour décider d'une bascule d'infra. Messages échangés/jour (global).
+  Le lien « e-mail » d'un espace ouvre la rédaction de Gmail sur le compte de l'exploitant, adressée à ses membres
+  actifs (administrateurs d'abord) : le message part de sa propre boîte, l'API n'y touche pas.
 - ✅ **Un accès nominatif, avec double authentification** (2026-09-28). N'entrent que les adresses inscrites
   côté serveur (`OPS_EMAILS`), avec leur compte habituel (mot de passe ou Google) PUIS leur code
   d'authentification ; une adresse inscrite sans code en pose un à sa première connexion, comme un

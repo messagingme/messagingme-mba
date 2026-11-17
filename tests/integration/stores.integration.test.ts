@@ -1528,6 +1528,32 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     }
   });
 
+  it('PgOpsStore : le bouton « e-mail » de /ops écrit aux membres ACTIFS, administrateurs d’abord', async () => {
+    const espace = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-ops-emails') returning id`)).rows[0]!.id;
+    try {
+      const membre = (email: string, role: string, enAttente = false) => pool.query(
+        `insert into users (tenant_id, email, role, password_hash, invitation_en_attente) values ($1, $2, $3, 'x', $4)`,
+        [espace, email, role, enAttente],
+      );
+      // L'agent entre AVANT l'administrateur : l'ordre attendu prouve que le rôle passe devant l'ancienneté.
+      await membre('agent@ops-emails.test', 'agent');
+      await membre('admin@ops-emails.test', 'admin');
+      await membre('invite@ops-emails.test', 'admin', true);
+      await membre('parti@ops-emails.test', 'agent');
+      await pool.query(`update users set disabled_at = now() where tenant_id = $1 and email = 'parti@ops-emails.test'`, [espace]);
+      const vide = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-ops-emails-vide') returning id`)).rows[0]!.id;
+      try {
+        const overview = await new PgOpsStore(pool, 'pgboss').getTenantOverview();
+        expect(overview.find((t) => t.id === espace)?.emails).toEqual(['admin@ops-emails.test', 'agent@ops-emails.test']);
+        expect(overview.find((t) => t.id === vide)?.emails).toEqual([]);
+      } finally {
+        await pool.query('delete from tenants where id = $1', [vide]);
+      }
+    } finally {
+      await pool.query('delete from tenants where id = $1', [espace]);
+    }
+  });
+
   it('claimSleepingById : le réveil court prend SON parcours dû, une seule fois, et le balayage reste le filet', async () => {
     const runStore = new PgWorkflowRunStore(pool);
     const wfStore = new PgWorkflowStore(pool);
