@@ -119,6 +119,13 @@ copiée qu'une fois (deux appels API sur la même source = une seule source copi
 
 ## Templates chez Meta
 
+> **Décision de Julien du 2026-11-17 (lot 3)** : un template absent de la destination a une CASE, décochée par
+> défaut, comme l'agent IA. Décochée, le bloc qui l'envoie arrive débranché : un template absent ne bloque plus la
+> duplication. Un template non regénérable n'a pas de case et arrive débranché. Templates et Flows partent dans le même
+> lot, et un template à bouton Flow coche son Flow avec lui. Ce qui suit dans cette spec et dit « bloque » pour un
+> template (§ « Ordre d'exécution » 1, § « Tranché » 1 et 8) est remplacé par cette note. Plan :
+> `docs/superpowers/plans/2026-11-17-duplication-scenario-lot-3.md`.
+
 - **Template déjà présent** sous le même nom et la même langue dans la WABA de destination : il est **réutilisé**.
   C'est la seule exception à la règle des homonymes, car en recréer un, c'est une nouvelle approbation pour un contenu
   identique.
