@@ -4,6 +4,41 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : l'enveloppe de nos appels de modèle se réserve avant l'appel, le bot d'aide y entre, et les actions de campagne passent sous l'espace (lot F de l'audit de sécurité)
+
+Demande de Julien (« Oui, corriger », 2026-11-17), après le second passage de l'audit : corriger ses trois constats bas.
+Décision du même jour : le bot d'aide entre dans la MÊME enveloppe mensuelle que les deux assistants de configuration
+(`ASSISTANT_PLAFOND_EUROS_MOIS`, 2 € par espace), plutôt qu'une enveloppe à part.
+
+- **Ce qui a changé** : chaque appel payé sur notre clé pour un espace RÉSERVE une borne haute (`reserverBudget`,
+  `RESERVATION_MICRO_EUR` = 0,05 €, upsert conditionnel `where micro_euros < plafond`) et la SOLDE au coût réel juste
+  après (`solderReservation`), à zéro quand l'appel lève, relance comprise : tour et synthèse de l'entretien, lecture
+  d'image, assistant du Meta Business Agent, question au bot d'aide. Lire le compteur avant et noter après laissait
+  partir tous les appels arrivés avant la première réponse. Le bot d'aide additionne le coût de sa vectorisation, de
+  ses reclassements et de son modèle (`CoutAide`), et dit la limite en 200 quand l'enveloppe est vide. Lancer, renvoyer
+  un destinataire et annuler la programmation d'une campagne vivent sous `/tenants/:tenantId/campaigns/:id/...` : les
+  étapes de montage (espace, puis offre) suivent le CHEMIN, et ces trois routes y échappaient. La console appelle la
+  nouvelle adresse et retombe sur l'ancienne sur le seul 404 de route inconnue, le temps du déploiement (repli à
+  retirer, `todo.md`).
+- **Les gardes** : `tests/offres-fonctions.test.ts` exige désormais que toute route d'un module `tenant` porte
+  `:tenantId`, sauf la liste déclarée (`GET /m/:fichier`) ; vingt tours simultanés à un micro-euro du plafond n'en
+  laissent partir qu'un ; le câblage de l'aide reprend le compteur, le plafond et le taux des assistants
+  (`tests/aide-cablage.test.ts`) ; `tests/integration/assistant-depense.integration.test.ts` joue la réservation en
+  concurrence réelle depuis deux pools, et le solde négatif.
+- **La relecture** : un rouge, corrigé avant la poussée. `PgDepenseStore.ajouter` additionnait `excluded.micro_euros`,
+  or `excluded` porte la valeur PROPOSÉE, déjà bornée par `greatest(0, $3)` : un solde négatif ne rendait rien, et
+  l'enveloppe se serait fermée vers le quarantième appel du mois. La mise à jour ajoute désormais le paramètre. Le faux
+  compteur en mémoire ne pouvait pas le voir ; le test d'intégration, si (vert en CI ; son sens rouge n'a pas été joué,
+  faute de Postgres sur le poste). Quatre jaunes au `todo.md`, dont le récap de la veille, encore hors de l'enveloppe.
+- **Vérifié avant de pousser** : suite racine (17 253 verts ; rouges, les deux tests qui lancent `git grep` hors d'un
+  dépôt), console (1 285), 169 e2e des campagnes sur une construction de production, auto-attaque (2 117 sondes), lint,
+  typecheck ; six défauts remis en place, chacun vu rouge par son test.
+- **En production** : `2a806f01`, la console publiée par Vercel à la poussée (son repli vérifié contre l'API d'avant :
+  le 404 de route inconnue y porte bien `"error":"Not Found"`), puis l'API et la machine des workers (run 44044205009,
+  `migration=aucune`, approuvé par Julien). Fumée sans session bonne : les trois nouvelles adresses gardées en 401, les
+  trois anciennes en 404 de route inconnue. Essai réel à faire par Julien : lancer (ou programmer puis annuler) une
+  campagne depuis la console, et poser une question au bot d'aide.
+
 ## 2026-11-16 : dupliquer un scénario d'un espace à l'autre depuis /ops (lot 1)
 
 **La demande** : Julien veut, depuis `/ops`, dupliquer un scénario d'un espace vers un autre. « Aller vers » et
