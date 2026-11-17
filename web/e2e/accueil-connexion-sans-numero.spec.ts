@@ -13,7 +13,7 @@ import { mockAccueil } from './support/accueil';
  */
 const FAUX_SDK = 'window.FB={init:function(){},login:function(cb){setTimeout(function(){cb({authResponse:{code:"code-e2e"}})},10)}};';
 
-test('🔴 compte relié SANS numéro : l’avertissement s’affiche, et la zone de connexion reste', async ({ page }) => {
+test('🔴 compte relié SANS numéro : l’avertissement s’affiche, et la connexion reste offerte', async ({ page }) => {
   await page.route('https://connect.facebook.net/**', (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: FAUX_SDK }));
   const posts: unknown[] = [];
   await mockAccueil(page, {
@@ -24,13 +24,17 @@ test('🔴 compte relié SANS numéro : l’avertissement s’affiche, et la zon
     },
   });
 
-  const bouton = page.getByRole('button', { name: 'Connecter mon compte WhatsApp' });
-  await bouton.click();
+  // La fenêtre de Meta ne s'ouvre plus de l'Accueil (2026-11-17) : par le tunnel de Connecter WhatsApp.
+  await page.goto('/connecter-whatsapp');
+  await page.getByTestId('carte-meta-choisir').click();
+  await page.getByTestId('question-compte-oui').click();
+  await page.getByTestId('choix-apporte').click();
+  await page.getByTestId('ouvrir-fenetre-meta').click();
 
   // L'écoute attend 6 s un message de la fenêtre avant d'envoyer le code seul.
   await expect(page.getByTestId('avertissements-connexion')).toContainText('sans numéro', { timeout: 15_000 });
   expect(posts).toEqual([{ code: 'code-e2e' }]);
-  await expect(page.getByRole('button', { name: 'Connecter mon compte WhatsApp' })).toBeVisible();
+  await expect(page.getByTestId('ouvrir-fenetre-meta')).toBeVisible();
   // Pas « Connecté » : l'espace n'a pas de numéro.
   await expect(page.getByTestId('avertissements-connexion')).not.toContainText('Connecté');
 });

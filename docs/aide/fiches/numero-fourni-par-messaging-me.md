@@ -1,7 +1,7 @@
 ---
 description: Prendre un numéro fourni par Messaging Me et le relier à WhatsApp par la fenêtre de Meta, depuis Claude Code : la vidéo, puis les six étapes.
 source_section: Accueil (1re entrée du menu)
-source_empreinte: cf3df1
+source_empreinte: 480a5d
 publique: oui
 rubrique: demarrer-claude, demarrer-console
 rang: 5, 5
@@ -21,8 +21,8 @@ Meta le crée en chemin.
 **1. [claude] Lancer la mise en service.** Dans Claude Code, tapez « /messagingme:demarrer » : Claude fait le point sur
 votre espace et commence par votre numéro WhatsApp.
 
-**1. [console] Ouvrir « Connecter WhatsApp ».** Sur l'Accueil, tant qu'aucun numéro n'est rattaché, cliquez sur « Pas
-de numéro ? Nous vous en fournissons un ».
+**1. [console] Ouvrir « Connecter WhatsApp ».** Sur l'Accueil, tant qu'aucun numéro n'est rattaché, cliquez sur
+« Continuer la mise en service ».
 
 **2. [claude] Répondre aux questions de Claude.** Pas de compte Meta Business, pas d'application WhatsApp Business, pas de
 numéro : Claude vous propose un numéro fourni.

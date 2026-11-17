@@ -2455,8 +2455,9 @@ scénario, comment importer des contacts.
 
 ## Ce qu'il faut chez Meta (avant de connecter un numéro)
 
-- ✅ **Les prérequis, dits avant toute fenêtre de Meta** (le guide « compte Meta », 2026-10-13) : sur la page
-  « Connecter WhatsApp », un encadré « Avant de commencer, chez Meta » donne les trois conditions : un compte Meta
+- ✅ **Les prérequis, dits avant toute fenêtre de Meta** (le guide « compte Meta », 2026-10-13) : sur la page du lien
+  de Claude Code et sur la voie de la ligne de crédit (le tunnel de la console ne l'a plus depuis le 2026-11-17 : ses
+  questions disent la même chose, une à la fois), un encadré « Avant de commencer, chez Meta » donne les trois conditions : un compte Meta
   Business (l'ancien Business Manager, « portefeuille business » dans les écrans de Meta, où l'on entre par un profil
   Facebook ou un compte Meta géré), rien à préparer
   pour le créer (la fenêtre de Meta le fait créer en chemin, mesuré à l'essai 161, ou on le crée avant, pas à pas, sur
@@ -2686,7 +2687,11 @@ scénario, comment importer des contacts.
   WhatsApp Business reste sur la carte chez Meta : la ligne de crédit n'est pas possible avec l'application. La carte
   suit l'état de l'espace (à prendre, payée et en attente de sa ligne, active, arrêtée) ; Claude lit le même état
   (`get_setup_state`).
-- ✅ **Onboarding « Connecter mon compte WhatsApp » (Embedded Signup)** : un espace **sans numéro rattaché** voit un
+- ✅ **Onboarding « Connecter mon compte WhatsApp » (Embedded Signup)** : un espace **sans numéro rattaché** voit sur
+  l'Accueil une seule carte, **« Continuer la mise en service »** (2026-11-17 ; l'interrupteur « Numéro WhatsApp » de
+  Canaux et services y mène aussi), vers le tunnel de « Connecter WhatsApp » : la formule (faite), la question du
+  paiement des messages Meta (rien de choisi d'avance ; la carte chez Meta choisie, la ligne de crédit passe en retrait
+  et la page dit que la carte peut se poser après la connexion), puis les questions du numéro, une à la fois, jusqu'au
   bouton qui ouvre la **popup Meta** (Facebook Login for Business + config_id) ; le business choisit son compte + son
   numéro et le backend rattache tout (échange de code, webhooks, register). ✅ **LIVE et éprouvé de bout en bout
   le 2026-08-17** : un vrai numéro d'un vrai business tiers est passé connecté et vérifié, avec l'enregistrement
@@ -2711,7 +2716,7 @@ scénario, comment importer des contacts.
   de la période payée, sans remboursement. Ensuite, la carte redevient la zone « Connecter ». « Délier » (Canaux et
   services) reste la coupure réversible, qui garde le numéro.
 - ✅ **Un numéro fourni pour qui n'en a pas** (lot 3b, LIVE et éprouvé le 2026-10-06) : sur l'Accueil d'un
-  espace sans numéro, « Pas de numéro ? Nous vous en fournissons un » mène à la page « Connecter WhatsApp ».
+  espace sans numéro, « Continuer la mise en service » mène à la page « Connecter WhatsApp ».
   « Fournissez-moi un numéro » se paie d'abord (3,50 € HT par mois, abonnement Stripe, lot 3c) : « Payer » mène à la
   page de paiement de Stripe (code promo accepté), et le numéro britannique dédié de notre réserve n'est attribué qu'une fois le paiement
   confirmé ; la page l'affiche alors, avec un bouton Copier ; le client le tape dans la fenêtre de Meta (« Enter a new phone number », le pays GB +44, puis les chiffres qui

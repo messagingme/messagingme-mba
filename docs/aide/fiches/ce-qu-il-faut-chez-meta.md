@@ -2,7 +2,7 @@
 description: Ce qu'il faut chez Meta pour WhatsApp : avant, un compte Meta Business (il se crée en chemin) et un numéro ; après, la carte, sauf avec la ligne de crédit.
 ecran: accueil
 source_section: Ce qu'il faut chez Meta (avant de connecter un numéro)
-source_empreinte: 950626
+source_empreinte: ded4d8
 publique: oui
 rubrique: demarrer-claude, demarrer-console
 rang: 3, 2

@@ -150,8 +150,8 @@ describe('le centre d’aide de la vitrine', () => {
     }
     // 114, puis 120 avec les trois étapes de la console (2026-11-16 : numéro fourni 1 et 2, garder 1), en deux langues ;
     // 124 avec les étapes 8 et 9 de la boutique Shopify (le même jour : la fiche ne suit plus que la console, Claude Code a
-    // sa page à part, brancher-sa-boutique-shopify).
-    expect(vues).toBe(124);
+    // sa page à part, brancher-sa-boutique-shopify) ; 126 avec l'étape de la formule de « Connecter mon numéro » (2026-11-17).
+    expect(vues).toBe(126);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {

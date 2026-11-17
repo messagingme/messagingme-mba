@@ -10,7 +10,7 @@ fenêtre à ouvrir : il suffit de la clé d'API du numéro.
 
 **Le relier :**
 
-1. Sur l'Accueil, tant que l'espace n'a pas de numéro, cliquez « Onboard with 360dialog », à côté de « Connecter mon compte WhatsApp ».
+1. Sur l'Accueil, tant que l'espace n'a pas de numéro, cliquez « Onboard with 360dialog », à côté de « Continuer la mise en service ».
 2. Collez la clé d'API du numéro, telle que 360dialog l'a donnée, et, si vous le voulez, le numéro affiché (par exemple +33 4 23 50 07 16).
 3. Cliquez « Connecter ». Messaging Me lit le numéro chez 360dialog, le relie à votre espace et branche la réception des messages. Les autres logiciels déjà branchés sur ce numéro continuent de recevoir.
 

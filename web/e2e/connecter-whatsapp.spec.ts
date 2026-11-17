@@ -388,8 +388,8 @@ test('🔴 sans compte, sans application, sans numéro : un numéro de chez nous
   await expect(page.getByTestId('issue-api')).toHaveCount(0);
   await page.getByTestId('choix-issue-fourni').click();
   await expect(page.getByTestId('choix-fourni-ouvert')).toContainText('que vous connecterez dans la fenêtre de Meta');
-  // Au numéro fourni, la condition d'un numéro à soi se tait, comme chez Claude (jaune 10 du lot 3a).
-  await expect(page.getByTestId('prerequis-meta').locator('li')).toHaveCount(2);
+  // 🔴 Le tunnel de la console n'a pas l'encadré « Avant de commencer » : les questions le disent une à une (2026-11-17).
+  await expect(page.getByTestId('prerequis-meta')).toHaveCount(0);
   await page.getByTestId('obtenir-numero').click();
   await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
   // Par la fenêtre de Meta, le code par l'appel (lot 2c), jamais dans l'application.
@@ -464,8 +464,8 @@ test('🔴 le cas 4 : l’application, pas ce numéro-là, donc un numéro de ch
   await expect(page.getByTestId('ouvrir-fenetre-coexistence')).toBeVisible();
   await page.getByTestId('question-meme-numero-non').click();
   await page.getByTestId('choix-autre-numero').click();
-  // Au numéro fourni, la condition d'un numéro à soi se tait, comme chez Claude (jaune 10 du lot 3a).
-  await expect(page.getByTestId('prerequis-meta').locator('li')).toHaveCount(2);
+  // 🔴 Le tunnel de la console n'a pas l'encadré « Avant de commencer » : les questions le disent une à une (2026-11-17).
+  await expect(page.getByTestId('prerequis-meta')).toHaveCount(0);
   await page.getByTestId('obtenir-numero').click();
   await expect(page.getByTestId('numero-fourni')).toHaveText('+441235619343');
   // Par la fenêtre de Meta, le code par l'appel (lot 2c), jamais dans l'application.

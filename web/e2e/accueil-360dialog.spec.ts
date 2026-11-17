@@ -4,7 +4,7 @@ import { mockAccueil } from './support/accueil';
 /**
  * LE BOUTON « ONBOARD WITH 360DIALOG » (lot 3) ET UN ESPACE RELIÉ PAR 360DIALOG (livraison D), sur l'Accueil.
  *
- * Sans numéro, le bouton est à côté de « Connecter mon compte WhatsApp » ; la clé collée part vers la route, et l'Accueil
+ * Sans numéro, le bouton est dans la carte « Continuer la mise en service » ; la clé collée part vers la route, et l'Accueil
  * relit le compte : la zone de connexion disparaît (les deux boutons à la fois), la carte du numéro arrive. Relié par
  * 360dialog, l'Accueil masque ce qui ne parle qu'à Meta : la carte de l'agent de Meta, « Renouveler la connexion Meta »,
  * la qualité ; il propose de recoller la clé.
@@ -19,7 +19,7 @@ test('sans numéro : la clé collée relie le numéro, et les deux boutons de co
   const posts: unknown[] = [];
   await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} }, connexion360: { posts, compteApres: RELIE_360 } });
 
-  await expect(page.getByRole('button', { name: 'Connecter mon compte WhatsApp' })).toBeVisible();
+  await expect(page.getByTestId('continuer-mise-en-service')).toBeVisible();
   await page.getByTestId('connecter-360dialog').click();
   await page.getByTestId('cle-360dialog').fill('cle-du-numero-360dialog');
   await page.getByTestId('numero-360dialog').fill('+33 4 23 50 07 16');
@@ -27,7 +27,7 @@ test('sans numéro : la clé collée relie le numéro, et les deux boutons de co
 
   await expect(page.getByTestId('numero-card')).toBeVisible();
   expect(posts).toEqual([{ cle: 'cle-du-numero-360dialog', numeroAffiche: '+33 4 23 50 07 16' }]);
-  await expect(page.getByRole('button', { name: 'Connecter mon compte WhatsApp' })).toHaveCount(0);
+  await expect(page.getByTestId('reprendre-mise-en-service')).toHaveCount(0);
   await expect(page.getByTestId('connecter-360dialog')).toHaveCount(0);
 });
 

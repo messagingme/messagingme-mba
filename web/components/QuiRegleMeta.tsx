@@ -66,6 +66,15 @@ export const NUMERO_AVEC_CARTE = {
   en: 'Your number is connected with your card at Meta: the credit line can’t take it over. To change this, write to ',
 } as const;
 
+/**
+ * La carte chez Meta choisie : elle peut se poser APRÈS la connexion (Julien, 2026-11-17), sur le compte Meta Business ;
+ * Meta l'exige pour ses modèles (fiche « Ce qu'il faut chez Meta », étape 4).
+ */
+export const CARTE_PLUS_TARD = {
+  fr: 'Pas encore de carte ? Pas besoin pour connecter votre numéro : vous l’ajouterez ensuite sur votre compte Meta Business, avant vos premiers modèles.',
+  en: 'No card yet? You don’t need one to connect your number: you’ll add it afterwards to your Meta Business account, before your first templates.',
+} as const;
+
 /** Avant qu'un espace qui a droit à la ligne ne connecte son numéro avec sa carte : il ne pourra plus y passer. */
 export const AVERTISSEMENT_CARTE = {
   fr: 'Connecté avec votre carte chez Meta, ce numéro ne pourra plus passer sur la ligne de crédit.',
@@ -292,7 +301,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
         action = nonAdmin(t('Demandez à un administrateur de votre espace de prendre l’option.', 'Ask an administrator of your workspace to take the option.'));
       } else {
         action = (
-          <Bouton data-testid="carte-credit-wa-prendre" onClick={() => { void prendre(); }} disabled={geste} enCours={geste}>
+          <Bouton data-testid="carte-credit-wa-prendre" variante={carteActive ? 'secondaire' : 'principal'} onClick={() => { void prendre(); }} disabled={geste} enCours={geste}>
             {t('Prendre l’option', 'Take the option')}
           </Bouton>
         );
@@ -302,7 +311,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     } else if (etat === 'arretee') {
       ligne = t('Vos envois par la ligne de crédit sont arrêtés, votre solde est conservé.', 'Your sends through the credit line are stopped, your balance is kept.');
       action = !vue.enVente ? <p className="text-sm text-ink-700">{surDemande}</p> : admin ? (
-        <Bouton data-testid="carte-credit-wa-reprendre" onClick={() => { void prendre(); }} disabled={geste} enCours={geste}>
+        <Bouton data-testid="carte-credit-wa-reprendre" variante={carteActive ? 'secondaire' : 'principal'} onClick={() => { void prendre(); }} disabled={geste} enCours={geste}>
           {t('Reprendre l’option', 'Take the option again')}
         </Bouton>
       ) : nonAdmin(t('Un administrateur de votre espace peut reprendre l’option.', 'An administrator of your workspace can take the option again.'));
@@ -319,7 +328,8 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
   const boutonCarte = lieu === 'accueil' ? (
     <Link href="/connecter-whatsapp" data-testid="carte-meta-choisir" className={classesBouton('secondaire')}>{t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}</Link>
   ) : !connecte ? (
-    <Bouton type="button" variante={carteActive ? 'principal' : 'secondaire'} aria-pressed={carteActive} disabled={fenetreOuverte} onClick={() => setCarte(true)} data-testid="carte-meta-choisir">
+    // Les deux réponses à égalité tant que rien n'est choisi ; la ligne de crédit passe en gris une fois la carte prise.
+    <Bouton type="button" variante={carteActive || carte === null ? 'principal' : 'secondaire'} aria-pressed={carteActive} disabled={fenetreOuverte} onClick={() => setCarte(true)} data-testid="carte-meta-choisir">
       {t(QUESTION_PAIEMENT.carte.titre.fr, QUESTION_PAIEMENT.carte.titre.en)}
     </Bouton>
   ) : etat === 'arretee' && admin ? (
@@ -349,6 +359,10 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
       {fenetrePartenaire && (
         <p className="mt-2 text-sm text-alerte-700" data-testid="carte-meta-avertissement-ligne">{t(AVERTISSEMENT_CARTE.fr, AVERTISSEMENT_CARTE.en)}</p>
       )}
+      {/* Choisie : la carte peut attendre la connexion (Julien, 2026-11-17). */}
+      {carteActive && !connecte && (
+        <p className="mt-2 text-sm font-semibold text-ink-900" data-testid="carte-meta-plus-tard">{t(CARTE_PLUS_TARD.fr, CARTE_PLUS_TARD.en)}</p>
+      )}
       {/* Ses deux liens (lot 3a) : pourquoi un moyen de paiement, et ce qu'est un compte Meta Business. */}
       <p data-testid="carte-meta-liens" className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
         {QUESTION_PAIEMENT.carte.liens.map((l) => (
@@ -360,7 +374,7 @@ export function QuiRegleMeta({ tenantId, admin, lieu, connecte = false, children
     </div>
   );
   const carteLigne = (
-    <div data-testid="carte-credit-wa" data-etat={etat ?? ''} aria-disabled={grisee || undefined} className={`rounded-carte border p-4 ${lignePayee ? 'border-ink-900' : 'border-ink-200'}`}>
+    <div data-testid="carte-credit-wa" data-etat={etat ?? ''} aria-disabled={grisee || undefined} className={`rounded-carte border p-4 ${lignePayee ? 'border-ink-900' : 'border-ink-200'} ${carteActive && !connecte ? 'opacity-60' : ''}`}>
       <div className={`text-sm font-semibold text-ink-900 ${grisee ? 'opacity-60' : ''}`}>{t(QUESTION_PAIEMENT.credit.titre.fr, QUESTION_PAIEMENT.credit.titre.en)}</div>
       <p className={`mt-1 text-sm text-ink-700 ${grisee ? 'opacity-60' : ''}`}>
         {/* Une Entreprise : son contrat, jamais le prix de l'option (jaune 9 du lot B, texte validé par Julien le 2026-11-06). */}

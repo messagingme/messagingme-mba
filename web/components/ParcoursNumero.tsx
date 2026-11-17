@@ -362,8 +362,9 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   return (
     <>
       {/* Ce qu'il faut chez Meta, avant toute fenêtre de Meta : la même source que Claude (guide « compte Meta »). La filière
-          application n'a pas de fenêtre de Meta. */}
-      {!application && !conditionsEnLecture && <EncadreChezMeta prerequis={prerequis} />}
+          application n'a pas de fenêtre de Meta. Le tunnel de la console (`choixInitial` nul) ne l'a pas : ses questions
+          disent la même chose une à une, et un pavé au-dessus brouillait le parcours (Julien, 2026-11-17). */}
+      {!application && !conditionsEnLecture && choixInitial !== null && <EncadreChezMeta prerequis={prerequis} />}
       {/* Le lien de Claude ouvre la connexion sans carte d'elle-même (lot 3v-2b) : la page le dit, la console le dit déjà. */}
       {ligne && parLaLigne === 'si-ouverte' && (
         <p data-testid="connexion-sans-carte" className="mt-3 text-sm text-ink-700">

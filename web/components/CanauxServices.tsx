@@ -162,8 +162,9 @@ export function CanauxServices(p: {
           p.onNumeroChange();
           break;
         }
-        // La fenêtre Meta : ses erreurs vivent dans `connexionNumero.error`, affichées sur la ligne.
-        case 'connecter_numero': await p.connexionNumero.connect(); break;
+        // Sans numéro, la mise en service de Connecter WhatsApp, ses questions une à une, jamais la fenêtre de Meta en
+        // direct qui sautait le choix du paiement (Julien, 2026-11-17).
+        case 'connecter_numero': router.push('/connecter-whatsapp'); break;
         case 'activer_rcs': p.rcs.ouvrirActivation(); break;
         case 'couper_rcs': await p.rcs.couper(); break;
         case 'ouvrir_chaine': router.push('/chaine'); break;

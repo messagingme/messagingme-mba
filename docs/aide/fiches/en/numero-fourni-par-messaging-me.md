@@ -1,7 +1,7 @@
 ---
 description: Get a number provided by Messaging Me and connect it to WhatsApp through Meta’s window, from Claude Code: the video, then the six steps.
 slug: get-a-number-provided-by-messaging-me
-traduit_de: 1be8b3
+traduit_de: 89b378
 bouton_claude: Get my number from Claude Code
 bouton_console: Get my number in the console
 ---
@@ -13,8 +13,8 @@ included in the Pro plan. No Meta Business account? Meta’s window creates it a
 **1. [claude] Start the setup.** In Claude Code, type “/messagingme:demarrer”: Claude checks your workspace and starts with your
 WhatsApp number.
 
-**1. [console] Open “Connect WhatsApp”.** On the Home screen, as long as no number is attached, click “No
-number? We provide one”.
+**1. [console] Open “Connect WhatsApp”.** On the Home screen, as long as no number is attached, click “Continue
+the setup”.
 
 **2. [claude] Answer Claude’s questions.** No Meta Business account, no WhatsApp Business app, no number: Claude offers you a
 provided number.

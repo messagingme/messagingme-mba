@@ -93,6 +93,9 @@ test.describe('Connecter WhatsApp : « Qui paie vos messages à Meta ? »', () =
     await page.getByTestId('carte-meta-choisir').click();
     await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('qui-regle-meta')).toHaveAttribute('data-statut', 'fait');
+    // La carte peut attendre la connexion, et la ligne de crédit passe en retrait (Julien, 2026-11-17).
+    await expect(page.getByTestId('carte-meta-plus-tard')).toContainText('vous l’ajouterez ensuite sur votre compte Meta Business');
+    await expect(page.getByTestId('carte-credit-wa')).toHaveClass(/opacity-60/);
     await expect(page.getByTestId('tunnel-numero-meta').getByTestId('question-compte')).toContainText('Avez-vous un compte Meta Business ?');
     await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Sur demande : écrivez-nous depuis le Support.');
     await expect(page.getByTestId('carte-credit-wa-ligne').getByRole('link', { name: 'Support' })).toHaveAttribute('href', '/support');
@@ -500,21 +503,16 @@ test('🔴 au retour de Stripe d’un numéro fourni payé, « J’ai besoin d�
 });
 
 test.describe('Accueil : « Qui paie vos messages à Meta ? »', () => {
-  test('sans numéro : la carte chez Meta mène au guide de Connecter WhatsApp, la ligne de crédit dit son état', async ({ page }) => {
+  test('🔴 sans numéro : une seule carte, « Continuer la mise en service », ni la question du paiement ni la fenêtre de Meta (2026-11-17)', async ({ page }) => {
     await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
-    await simuler(page, { etats: [{ etat: 'en_attente', enVente: true }] });
+    await simuler(page, { etats: [{ etat: 'a_prendre', enVente: true }] });
     await page.goto('/accueil');
-    await expect(page.getByTestId('qui-regle-meta')).toBeVisible();
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre ligne s’ouvre sous 24 h ouvrées.');
-    await expect(page.getByTestId('carte-meta-choisir')).toHaveAttribute('href', '/connecter-whatsapp');
-  });
-
-  test('sans numéro, la fenêtre du partenaire ouverte (lot E) : son texte, et « Connecter mon numéro » mène à Connecter WhatsApp', async ({ page }) => {
-    await mockAccueil(page, { account: SANS_NUMERO, inscription: { complete: {} } });
-    await simuler(page, { etats: [{ etat: 'en_attente', enVente: true, fenetrePartenaire: true }] });
-    await page.goto('/accueil');
-    await expect(page.getByTestId('carte-credit-wa-ligne')).toHaveText('Votre option est payée : connectez votre numéro, Meta ne vous facturera pas. Votre ligne s’ouvre ensuite sous 24 h ouvrées.');
-    await expect(page.getByTestId('carte-credit-wa-connecter-ligne')).toHaveAttribute('href', '/connecter-whatsapp');
+    await expect(page.getByTestId('continuer-mise-en-service')).toHaveAttribute('href', '/connecter-whatsapp');
+    await expect(page.getByTestId('qui-regle-meta')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Connecter mon compte WhatsApp' })).toHaveCount(0);
+    await expect(page.getByTestId('connecter-coexistence')).toHaveCount(0);
+    await page.getByTestId('continuer-mise-en-service').click();
+    await expect(page.getByTestId('qui-regle-meta')).toHaveAttribute('data-statut', 'en_cours');
   });
 
   test('un numéro connecté : pas de cartes sur l’Accueil', async ({ page }) => {

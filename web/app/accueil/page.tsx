@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { RcsChannelCard, useCanalRcs } from '@/components/RcsChannelCard';
 import { CanauxServices } from '@/components/CanauxServices';
-import { QuiRegleMeta } from '@/components/QuiRegleMeta';
 import { LogoHubSpot } from '@/components/LogosCanaux';
 import { Toggle } from '@/components/Toggle';
 import type { Session } from '@/lib/session';
@@ -29,11 +28,11 @@ import { useConfirmation } from '@/components/Confirmation';
 import { ChiffreMessagesTenus } from '@/components/EnteteAgent';
 import { agentMetaRepond, lireMessagesMba, type MessagesEcritsMba } from '@/lib/chiffres-canaux';
 import { useConnexionNumero, type ConnexionNumero } from '@/lib/connexion-numero';
-import { COEXISTENCE_BOUTON, COEXISTENCE_PHRASES, FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
+import { FENETRE_BLOQUEE } from '@/lib/fenetre-meta';
 import { apiDeLaSession } from '@/lib/api/connexion-numero';
 import { lireHubspotActif, affichageHubspotAccueil } from '@/lib/hubspot-actif';
 import { useInstallationHubspot } from '@/lib/hubspot-installation';
-import { Bouton } from '@/components/Bouton';
+import { Bouton, classesBouton } from '@/components/Bouton';
 import { ETAPES_CARTE_META } from '@/lib/partage/etapes-meta';
 import { creditPaieMeta, moyenDePaiementNumero, type MoyenDePaiementNumero } from '@/lib/partage/credit-whatsapp';
 import { getCreditWhatsapp, lireEtatLigne, type VueCreditWhatsapp } from '@/lib/api-credit-whatsapp';
@@ -709,10 +708,7 @@ function AccueilInner({ session }: { session: Session }) {
                   )}
                 </p>
               )}
-              {/* Qui paie vos messages à Meta ? (révision du Crédit WhatsApp, lot B) : la carte chez Meta mène au guide de
-                  Connecter WhatsApp, le Crédit WhatsApp dit ce que l'état de l'espace permet. */}
-              <QuiRegleMeta tenantId={session.tenantId} admin={isAdmin} lieu="accueil" />
-              <ConnectNumberZone isAdmin={isAdmin} connexion={connexionNumero} tenantId={session.tenantId} onConnecte360={recharger360} />
+              <ReprendreMiseEnService isAdmin={isAdmin} tenantId={session.tenantId} onConnecte360={recharger360} />
               {/* 🔴 Le compte peut revenir de la fenêtre Meta SANS numéro (lot 3b) : l'espace n'a toujours pas de
                   numéro, donc c'est cette branche qui s'affiche, et l'avertissement qui dit quoi faire doit y être.
                   Sans lui, la fenêtre se fermait sans un mot. Titre neutre : rien n'est « connecté ». */}
@@ -1097,88 +1093,40 @@ function BadgeField({ label, badge }: { label: string; badge: StatusBadge }) {
 // une fenêtre Meta, et `fbSdkLoading` est un singleton de module qu'on ne peut pas dupliquer.
 
 /**
- * Onboarding d'un espace SANS numéro : les deux boutons ouvrent la fenêtre Meta (Embedded Signup), pour un numéro qui
- * quitte l'application WhatsApp, ou en coexistence, le numéro restant dans l'application WhatsApp Business (plan
- * 2026-10-24, `@/lib/fenetre-meta`).
- *
- * ⚠️ LA MÉCANIQUE A QUITTÉ CE COMPOSANT (2026-09-25) pour `useConnexionNumero` (`@/lib/connexion-numero`),
- * créé une fois par l'Accueil : l'interrupteur « Numéro WhatsApp » du bloc « Canaux et services » lance la même
- * connexion, et deux copies auraient été deux fenêtres Meta à tenir alignées. Si META_ES_CONFIG_ID n'est pas posé
- * côté serveur, le bouton reste le placeholder « bientôt disponible ».
+ * UN ESPACE SANS NUMÉRO, SUR L'ACCUEIL : UNE SEULE CARTE, « CONTINUER LA MISE EN SERVICE » (Julien, 2026-11-17). Elle mène
+ * au tunnel de Connecter WhatsApp, qui pose ses questions une à une, le choix du paiement d'abord. L'Accueil ouvrait la
+ * fenêtre de Meta en direct, à côté de la question du paiement : le client pouvait connecter son numéro sans avoir fini
+ * la mise en service. La clé d'un numéro pris chez 360dialog reste ici, c'est un geste d'intégrateur sans question.
  */
-function ConnectNumberZone({ isAdmin, connexion, tenantId, onConnecte360 }: {
-  isAdmin: boolean; connexion: ConnexionNumero; tenantId: string; onConnecte360: () => void;
+function ReprendreMiseEnService({ isAdmin, tenantId, onConnecte360 }: {
+  isAdmin: boolean; tenantId: string; onConnecte360: () => void;
 }) {
   const t = useT();
-  const { cfg, busy, error, connect } = connexion;
-  const ready = cfg?.enabled === true && isAdmin;
-  // Le bouton qui a ouvert la fenêtre de Meta : c'est lui qui dit « Connexion en cours… », pas son voisin.
-  const [enCoexistence, setEnCoexistence] = useState(false);
-  const ouvrir = (coexistence: boolean) => { setEnCoexistence(coexistence); void connect({ coexistence }); };
   return (
-    <div className="rounded-carte border border-ink-200 bg-ink-50 p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-ink-500">{t('Numéro WhatsApp', 'WhatsApp number')}</h3>
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-500">
-          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: DOT_HEX.grey }} />
-          {t('Non connecté', 'Not connected')}
-        </span>
-      </div>
+    <div data-testid="reprendre-mise-en-service" className="rounded-carte border-2 border-brand-500 bg-white p-5">
       <div className="flex items-start gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-ink-100 text-ink-400" aria-hidden="true">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600" aria-hidden="true">
           <Icone nom="telephone" taille="grande" />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="text-lg font-semibold text-ink-900">{t('Connecter votre compte WhatsApp', 'Connect your WhatsApp account')}</div>
-          <p className="mt-0.5 text-xs text-ink-500">
-            {t('Vous choisissez l’entreprise et le numéro dans la fenêtre de Meta, nous faisons le reste.', 'You pick the business and the number in the Meta window, we handle the rest.')}
+          <div className="text-lg font-semibold text-ink-900">{t('Votre numéro WhatsApp n’est pas encore connecté', 'Your WhatsApp number is not connected yet')}</div>
+          <p className="mt-0.5 text-sm text-ink-700">
+            {t('Reprenez la mise en service où vous l’avez laissée : quelques questions, une à la fois, puis la connexion de votre numéro.', 'Pick up the setup where you left it: a few questions, one at a time, then connecting your number.')}
           </p>
-          {/* Le numéro fourni (lot 3b) : un numéro de notre réserve, pour qui n'en a pas. */}
-          <Link href="/connecter-whatsapp" data-testid="lien-numero-fourni" className="mt-1 inline-block text-xs font-semibold text-ink-900 underline">
-            {t('Pas de numéro ? Nous vous en fournissons un', 'No number? We provide one')}
-          </Link>
         </div>
       </div>
-      {error && <p className="mt-3 rounded-controle bg-danger-50 px-3 py-2 text-xs text-danger-700">{error}</p>}
-      <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-ink-200 pt-3">
-        {ready ? (
-          <>
-            <Bouton enCours={busy && !enCoexistence}
-              type="button"
-              onClick={() => ouvrir(false)}
-              disabled={busy}
-            >
-              {busy && !enCoexistence ? t('Connexion en cours…', 'Connecting…') : t('Connecter mon compte WhatsApp', 'Connect my WhatsApp account')}
-            </Bouton>
-            {/* La coexistence (plan 2026-10-24) : la même fenêtre de Meta, le numéro restant dans l'application WhatsApp
-                Business. Ses deux phrases suivent la rangée. */}
-            <Bouton data-testid="connecter-coexistence" variante="secondaire" type="button" enCours={busy && enCoexistence} disabled={busy} onClick={() => ouvrir(true)}>
-              {busy && enCoexistence ? t('Connexion en cours…', 'Connecting…') : t(COEXISTENCE_BOUTON.fr, COEXISTENCE_BOUTON.en)}
-            </Bouton>
-          </>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        {isAdmin ? (
+          <Link href="/connecter-whatsapp" data-testid="continuer-mise-en-service" className={classesBouton('principal')}>
+            {t('Continuer la mise en service', 'Continue the setup')}
+          </Link>
         ) : (
-          <>
-            <button
-              type="button"
-              disabled
-              title={isAdmin ? t('Bientôt disponible', 'Coming soon') : t('Réservé aux admins', 'Admins only')}
-              className="cursor-not-allowed rounded-controle bg-ink-200 px-3 py-2 text-sm font-semibold text-ink-500"
-            >
-              {t('Connecter mon compte WhatsApp', 'Connect my WhatsApp account')}
-            </button>
-            <span className="text-xs text-ink-500">{isAdmin ? t('Disponible prochainement', 'Available soon') : t('Réservé aux admins', 'Admins only')}</span>
-          </>
+          <span className="text-sm text-ink-500">{t('Réservé aux admins de l’espace.', 'Workspace admins only.')}</span>
         )}
-        {/* Le lot 3 : la clé d'un numéro pris chez 360dialog. Toute la zone disparaît dès qu'un numéro est connecté,
-            par l'une ou l'autre voie : la règle est celle de la branche qui la monte (`!account.hasNumber`). */}
+        {/* Le lot 3 : la clé d'un numéro pris chez 360dialog. Toute la carte disparaît dès qu'un numéro est connecté, par
+            l'une ou l'autre voie : la règle est celle de la branche qui la monte (`!account.hasNumber`). */}
         {isAdmin && <Connexion360dialog tenantId={tenantId} mode="connecter" onConnecte={onConnecte360} />}
       </div>
-      {connexion.peutEtreBloquee && <p data-testid="fenetre-bloquee" className="mt-2 text-xs text-ink-500">{t(FENETRE_BLOQUEE.fr, FENETRE_BLOQUEE.en)}</p>}
-      {ready && (
-        <div data-testid="coexistence-explication" className="mt-2 space-y-1">
-          {COEXISTENCE_PHRASES.map((p) => <p key={p.fr} className="text-xs text-ink-500">{t(p.fr, p.en)}</p>)}
-        </div>
-      )}
     </div>
   );
 }

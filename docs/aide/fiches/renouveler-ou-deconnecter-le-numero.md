@@ -1,7 +1,7 @@
 ---
 ecran: accueil
 source_section: Accueil (1re entrée du menu)
-source_empreinte: cf3df1
+source_empreinte: 480a5d
 ---
 # Renouveler la connexion Meta, ou déconnecter le numéro
 
@@ -20,4 +20,4 @@ qui tournaient s'arrêtent (une campagne RCS continue, sans son repli WhatsApp),
 Me se retire de votre compte chez Meta. Vos contacts, vos scénarios, vos agents et vos réglages restent ; vos modèles de
 message restent attachés à l'ancien compte WhatsApp. Le numéro, lui, reste à vous chez Meta ; s'il vous avait été
 fourni par Messaging Me, il est perdu et son abonnement s'arrête à la fin de la période payée. La carte redevient alors
-la zone « Connecter ». Pour couper les envois sans rien perdre, utilisez plutôt « Délier » dans Canaux et services.
+« Continuer la mise en service ». Pour couper les envois sans rien perdre, utilisez plutôt « Délier » dans Canaux et services.

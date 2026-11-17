@@ -23,8 +23,8 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await mockAccueil(page, { account: SANS_NUMERO, settings: REGLAGES_ACCUEIL });
       await communs(page);
       await page.reload();
-      // 1. « Pas de numéro ? Nous vous en fournissons un », sur la carte du numéro de l'Accueil.
-      const lien = page.getByTestId('lien-numero-fourni');
+      // 1. « Continuer la mise en service », la seule carte de l'Accueil sans numéro (2026-11-17).
+      const lien = page.getByTestId('continuer-mise-en-service');
       await expect(lien).toBeVisible();
       await capturer(page, FOURNI, '1-console', locale, lien, 'haut', lien);
     });
