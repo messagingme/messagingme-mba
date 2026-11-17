@@ -158,8 +158,5 @@ Laissez « Customer sends a message » sur **Meta Business Agent** : c'est lui q
 écrivent. Laissez aussi « Thread control » sur **Messaging Me**, pour que votre équipe puisse reprendre une
 conversation.
 
-**2. Passez la main à l'agent par un message, pas par une question.** Dans vos scénarios, faites dire « posez-nous
-votre question » par un **message rapide**, relié directement au bloc **Envoyer au MBA** : la question du client
-arrive alors à l'agent, qui y répond.
-
-Avec un bloc Question à la place, c'est le scénario qui reçoit la question, et l'agent ne peut pas y répondre.
+**2. Passez la main à l'agent par le bloc Envoyer au MBA.** Comment le poser, et quoi faire dire au scénario juste
+avant, est dans la fiche « Le bloc Envoyer au MBA ».

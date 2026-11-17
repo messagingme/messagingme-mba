@@ -22,17 +22,5 @@ acceptent des variables, insérées par le même bouton « Variable » que les m
 RCS, avec la même liste de champs de base et de champs à vous. Vous ne recopiez jamais un nom de variable à
 la main.
 
-**Dans le scénario**, le bloc « Envoi de mail » est présenté à part dans la palette et **grisé tant
-qu'aucune boîte n'est connectée**, avec l'infobulle qui vous renvoie à SMTP email. Même règle que le bloc
-RCS : un bloc qui ne peut rien envoyer ne doit pas être proposé comme s'il le pouvait.
-
-**Jusqu'à trois destinataires.** Vous choisissez le champ qui porte l'adresse, et vous pouvez en ajouter
-deux autres. Le premier part en « À », les suivants **en copie cachée** : les destinataires ne se voient pas
-entre eux.
-
-**Le sélecteur de destinataire dit combien de fiches ont ce champ rempli**, par exemple « Email (12/40
-fiches) ». C'est ce qui distingue deux champs voisins dont l'un est vide partout : brancher un bloc mail sur
-un champ vide, c'est n'envoyer aucun message.
-
-**Un échec n'interrompt jamais le parcours** : le scénario continue. Les envois comme les échecs se comptent
-dans le Performance Lab, sous Mes tableaux.
+**Dans le scénario**, le bloc « Envoi de mail » envoie depuis cette boîte, avec ces modèles : son mode d'emploi
+est dans sa fiche, « Le bloc Envoi de mail ».

@@ -54,18 +54,8 @@ directement. Les contacts sans numéro mobile sont comptés « ignorés » avec 
 un mobile, une ligne fixe ne peut pas le recevoir. Un carrousel choisi en campagne est **copié en entier**
 sur l'étage : pour le modifier, modifiez-le dans la bibliothèque puis choisissez-le à nouveau.
 
-**En scénario**, le bloc « Message RCS » a deux sorties de livraison, **Envoyé** et **Non joignable**, plus
-une sortie par bouton réponse. Relier « Non joignable » à un envoi de modèle WhatsApp donne la cascade : le
-RCS d'abord, le WhatsApp pour ceux qu'il n'atteint pas. Le fournisseur ne sait pas dire à l'avance si un
-numéro est joignable en RCS : cette sortie se déclenche donc sur le rapport de livraison, quelques instants
-à quelques minutes après l'envoi, et non au moment où le bloc est atteint.
-
-**Le canal suit la conversation, pas le bloc.** Un scénario qui commence en RCS continue en RCS. Pour
-basculer volontairement sur WhatsApp, branchez un envoi de modèle : le parcours y passe et y reste. Un
-scénario peut donc **commencer** par un message RCS même quand la fenêtre WhatsApp de 24 heures est fermée,
-puisque le RCS n'a pas de fenêtre. Une exception que l'éditeur signale : un **formulaire** WhatsApp placé
-juste derrière ne partira que si le contact a écrit sur WhatsApp dans les 24 heures, car répondre en RCS ne
-rouvre pas cette fenêtre.
+**En scénario**, le bloc « Message RCS » envoie ces messages, avec leur repli WhatsApp : son mode d'emploi est dans
+sa fiche, « Le bloc Message RCS ».
 
 **Depuis l'Inbox**, le bouton 📱 envoie un message RCS de votre bibliothèque au contact ouvert, ou, dans
 l'onglet « Réponse libre », votre propre phrase, qui part telle quelle sous l'agent de marque. Il vous est

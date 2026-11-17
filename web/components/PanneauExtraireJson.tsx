@@ -107,7 +107,7 @@ export function PanneauExtraireJson({ tenantId, data, fields, blocsDuScenario, r
         {sources.map((f) => <option key={f.key} value={f.key}>{f.label || f.key}</option>)}
       </select>
       {sources.length === 0 && (
-        <p className="text-xs text-ink-500">{t('Aucun champ JSON dans cet espace : créez-en un dans Contenu > Champs.', 'No JSON field in this workspace: create one in Content > Fields.')}</p>
+        <p className="text-xs text-ink-500">{t('Aucun champ JSON dans cet espace : créez-en un dans Contenu > Bibliothèque > Champs.', 'No JSON field in this workspace: create one in Content > Library > Fields.')}</p>
       )}
 
       {lignes.map((l, i) => {

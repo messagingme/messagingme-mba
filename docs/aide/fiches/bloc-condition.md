@@ -5,7 +5,7 @@ source_section: Automatisations (menu « Scénario », ex-« Flow »)
 source_empreinte: 02c6e1
 publique: oui
 rubrique: construire-un-scenario
-rang: 6
+rang: 7
 ---
 # Le bloc Condition
 

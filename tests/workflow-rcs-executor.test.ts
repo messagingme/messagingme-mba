@@ -173,6 +173,32 @@ describe('bloc RCS a l execution', () => {
     });
   });
 
+  it('🔴 envoie les boutons COMPOSES dans le bloc, que l editeur cree sans postback', async () => {
+    // `RcsButtonsEditor` cree un bouton avec `postbackData: ''`, et le schema exige une valeur : ces boutons
+    // etaient ecartes, le message partait sans eux, et leurs sorties ne se prenaient jamais (fiches par bloc, lot 3).
+    const g = parseGraph({
+      nodes: [{
+        id: 'r', type: 'rcs_message', position: pos,
+        data: {
+          text: 'Bonjour',
+          suggestions: [
+            { kind: 'reply', text: 'Oui', postbackData: '' },
+            { kind: 'openUrl', text: 'Site', url: 'https://exemple.fr', postbackData: '' },
+          ],
+        },
+      }],
+      edges: [],
+    })!;
+    const { provider, executor } = monter(g);
+    await executor.demarrer('campagne_scenario', 't1', 'w1', g, { waId: '+33600000002', contactId: 'c1' });
+
+    expect(provider.sent).toHaveLength(1);
+    const envoye = provider.sent[0]!.msg as { suggestions?: Array<{ kind: string; text: string; postbackData: string }> };
+    expect(envoye.suggestions?.map((s) => [s.kind, s.text])).toEqual([['reply', 'Oui'], ['openUrl', 'Site']]);
+    expect(envoye.suggestions?.[0]?.postbackData).toBe('btn:0');
+    expect(envoye.suggestions?.[1]?.postbackData).not.toBe('');
+  });
+
   it('envoie un texte NU quand le bloc n a aucun bouton', async () => {
     const g = parseGraph({
       nodes: [{ id: 'r', type: 'rcs_message', position: pos, data: { text: 'Bonjour' } }],

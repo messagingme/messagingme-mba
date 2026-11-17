@@ -5,7 +5,7 @@ source_section: Automatisations (menu « Scénario », ex-« Flow »)
 source_empreinte: 02c6e1
 publique: oui
 rubrique: construire-un-scenario
-rang: 5
+rang: 6
 ---
 # Le bloc Action
 

@@ -472,8 +472,14 @@ function rcsOutboundOf(node: WorkflowNode | undefined): RcsOutbound | null {
   if (!text) return null;
   // Les boutons passent par le même schéma que la bibliothèque et l'assistant de campagne. Un bouton malformé
   // est écarté plutôt qu'envoyé au provider, qui refuserait le message entier.
+  // 🔴 Un bouton COMPOSÉ dans le bloc naît sans `postbackData` (`RcsButtonsEditor`) : le schéma l'écartait, et le
+  // message partait sans lui. Une réponse voit son postback réécrit à l'envoi (`normaliserPostbacks`) ; les autres
+  // formes n'ont besoin que d'une valeur. Réparé ici, les blocs déjà enregistrés partent aussi avec leurs boutons.
   const boutons = Array.isArray(node.data.suggestions)
-    ? node.data.suggestions.map((b) => rcsSuggestionSchema.safeParse(b)).filter((r) => r.success).map((r) => r.data)
+    ? node.data.suggestions
+      .map((b, i) => (b !== null && typeof b === 'object' && !(b as { postbackData?: unknown }).postbackData
+        ? { ...(b as object), postbackData: `bouton_${i}` } : b))
+      .map((b) => rcsSuggestionSchema.safeParse(b)).filter((r) => r.success).map((r) => r.data)
     : [];
   // Visuel d'en-tête -> le message devient une carte, comme dans la bibliothèque (`web/lib/rcs.ts`, même
   // limite de 4 boutons). Dans la carte, les boutons s'affichent pleine largeur ; au-delà de quatre, le

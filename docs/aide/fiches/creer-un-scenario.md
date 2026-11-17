@@ -1,76 +1,78 @@
 ---
+description: Créer un scénario WhatsApp : poser et relier les blocs, l'essayer sur son téléphone, le mettre en ligne, le ranger, puis la fiche de chaque bloc.
 ecran: workflows
 source_section: Automatisations (menu « Scénario », ex-« Flow »)
 source_empreinte: 02c6e1
+publique: oui
+rubrique: construire-un-scenario
+rang: 1
+comment_faire: oui
 ---
 # Créer un scénario
 
-Un scénario se dessine sur une toile : vous posez des blocs et vous les reliez par des flèches. Le contact
-avance de bloc en bloc.
+Un scénario enchaîne des blocs sur une toile : le contact avance de bloc en bloc. Vous le construisez en brouillon,
+vous l'essayez sur votre téléphone, puis vous le mettez en ligne.
 
-Les blocs que vous utiliserez le plus :
+**1. Créer le scénario.** Dans le menu Scénario, donnez-lui un nom, puis « Créer un scénario ».
 
-- **Envoi template** : envoie un template approuvé. Son mode d'emploi : « Le bloc Envoi template ».
-- **Message rapide** : un texte, avec un fichier, des réponses rapides ou un bouton de lien. Son mode d'emploi :
-  « Le bloc Message rapide ».
-- **Question** : pose une question, avec ou sans menu, et attend la réponse ou un fichier. Son mode d'emploi :
-  « Le bloc Question ».
-- **Formulaire** : envoie un formulaire WhatsApp et attend. Il a deux sorties : « Formulaire rempli » quand le
-  contact le renvoie (ses réponses remplissent sa fiche), « Toute autre réponse » quand il écrit à la place. Tant
-  que « Formulaire rempli » n'est reliée à rien, le formulaire renvoyé passe par « Toute autre réponse ».
-- **Action** : pose ou retire des étiquettes, remplit ou vide des champs, change le consentement. Son mode
-  d'emploi : « Le bloc Action ».
-- **Condition** : aiguille le contact selon son état, ses étiquettes, ses champs, le jour ou l'heure. Son mode
-  d'emploi : « Le bloc Condition ».
-- **Appel API** : interroge un système que vous avez branché dans Tools > Connecteurs API (votre boutique, votre
-  CRM…). Sans champ choisi, il envoie une information sans rien attendre. Pour garder la réponse, choisissez où la
-  ranger : un champ ordinaire reçoit les champs de réponse déclarés dans Tools ; un champ de type **JSON** (« JSON
-  (réponse d'un appel API) », à créer dans Contenu > Champs) reçoit la réponse **entière**, 16 Ko au plus, sans rien
-  déclarer. Si l'appel échoue, le champ est vidé : une Condition « ce champ est vide » traite ce cas. Une Condition
-  placée juste après lit la réponse qui vient d'arriver ; dans une campagne, mettez une Attente entre les deux.
-- **Extraire du JSON** : lit un champ JSON (la réponse d'un Appel API) et range des valeurs dans d'autres champs, une
-  ligne par valeur. « Dans la réponse » dit où chercher : `commande.statut`, `articles[0].nom` (le premier article),
-  `articles[-1].nom` (le dernier). « Prendre » choisit la valeur, ou le nombre d'éléments d'une liste. « Ranger dans
-  le champ » dit où la mettre. « Voir un exemple » rejoue l'Appel API du scénario avec ses valeurs d'essai : cliquez
-  « Attacher… » sur une valeur, ou sur une liste pour la compter, et chaque ligne montre ce qu'elle rangera. Un chemin
-  absent, ou une valeur que le type du champ refuse (un texte dans un champ nombre), vide ce champ. Une Condition
-  placée après lit les valeurs extraites, campagne comprise.
-- **Attente** : met le parcours en pause, pour une durée, jusqu'à une date ou aux heures d'ouverture. Son mode
-  d'emploi : « Le bloc Attente ».
-- **Assigner à un agent** : passe la main à quelqu'un de votre équipe, qui reprend la conversation.
-- **Aller à** : envoie le contact sur un autre bloc, de ce scénario ou d'un autre, par exemple pour revenir au menu
-  après une réponse. Choisissez le scénario puis le bloc, ou collez le code du bloc. Ses réponses déjà données le
-  suivent, elles sont sur sa fiche. Vers un autre scénario, c'est sa version publiée qui joue : publiez-le d'abord.
-  Un scénario qui se renvoie sans fin vers un autre s'arrête au bout de vingt sauts, et la conversation passe à votre
-  équipe. La publication est refusée si le bloc visé n'existe pas, ou si un saut vers un autre scénario suit une
-  attente de 24 h ou plus et mène à autre chose qu'un modèle ; dans le même scénario, l'écran vous en avertit.
-- **Envoyer au MBA** : le parcours s'arrête et l'agent de Meta prend la conversation, quel que soit celui qui répond
-  d'habitude au client ; il répond tout de suite au dernier message du contact. Pour qu'il réponde à une question,
-  faites dire au scénario « posez-nous votre question » juste avant ce bloc, sans bloc Question : la question lui
-  arrive alors directement. Si l'agent de Meta est éteint, le
-  panneau du bloc vous prévient : la conversation passe alors à votre équipe, dans « À traiter ».
+**2. Poser un bloc.** « Créer un bloc : » propose chaque type de bloc : cliquez sur celui que vous voulez.
 
-Quand, en cours de parcours (sur une réponse du contact ou après une attente), un message ne peut pas partir (un
-champ vide dans l'adresse d'un bouton, la fenêtre de 24 h fermée au réveil d'une attente...), la raison et le bloc
-en cause s'écrivent dans **Sécurité > Journal des erreurs**, sous « échec de scénario », avec ce qui a suivi : le
-plus souvent, le parcours s'arrête et la conversation passe à votre équipe. Au lancement d'une campagne, rien ne
-part pour ce contact, et la campagne le compte en échec avec la raison.
+- Un bloc grisé attend un branchement : un agent RCS, une boîte d'envoi, un agent IA actif ou un appel déclaré.
+- Une flèche tirée depuis le point d'un bloc et lâchée dans le vide crée aussi un bloc.
+- La nature d'un bloc se choisit à sa création et ne se change plus. Le ✕ en coin d'un bloc le supprime.
+- Le bouton à droite du bouton lecture, en haut à gauche d'un bloc, copie son code, pour un « Aller à » ou pour l'API. Il reste grisé une seconde,
+  le temps de l'enregistrement.
 
-Le scénario s'enregistre tout seul, environ une seconde après chaque modification. Un indicateur vous dit
-quand la dernière sauvegarde a eu lieu.
+**3. Relier les blocs.** Tirez une flèche depuis le point d'un bloc et lâchez-la sur le suivant.
 
-Pour l'essayer avant de le mettre en service, utilisez le lien de test : il ouvre une conversation avec votre
-numéro et fait partir le scénario depuis le début. Si l'agent de Meta tenait la conversation, il répond
-d'abord « Je lance le test. », et le scénario part quelques secondes après.
+- Une sortie ne porte qu'une flèche : en tirer une nouvelle remplace l'ancienne.
+- « Auto-arranger » range la toile.
 
-Vous pouvez aussi l'essayer **à partir d'un bloc précis**, sans dérouler tout ce qui précède : le petit
-bouton lecture en haut à gauche d'un bloc ouvre le même lien, mais le scénario démarrera à ce bloc-là. Ce
-qui précède ce bloc n'est pas rejoué : les tags et les champs de ces étapes ne sont pas posés.
+**4. L'essayer.** Le bouton lecture en haut à gauche d'un bloc ouvre le lien de test à partir de ce bloc ; « Tester le
+scénario », dans le menu ⋯ de la liste, le lance depuis le début.
 
-Le petit bouton à côté, en haut à gauche de chaque bloc, **copie son code** : c'est lui qu'on colle dans un « Aller
-à », ou dans un appel à l'API. Il reste grisé tant que le bloc n'est pas enregistré, le temps d'une seconde.
+- Le lien ouvre une conversation avec votre numéro, sur votre téléphone : c'est votre brouillon qui joue, avant toute
+  publication.
+- À partir d'un bloc, ce qui précède n'est pas rejoué : ses étiquettes et ses champs ne sont pas posés.
+- Si l'agent de Meta tenait la conversation, il répond d'abord « Je lance le test. », et le scénario part quelques
+  secondes après.
 
-**Ranger vos scénarios dans des dossiers.** Au-dessus de la liste, les onglets « Tous », « Sans dossier » et vos
-dossiers filtrent ce que vous voyez. « + Dossier » en crée un ; « Déplacer vers… », dans le menu ⋯ d'un scénario ou
-après en avoir coché plusieurs, les y range. Supprimer un dossier ne supprime pas ses scénarios : ils repassent dans
-« Sans dossier ».
+**5. Le mettre en ligne.** « Publier » met votre brouillon en ligne.
+
+- Le brouillon s'enregistre tout seul, environ une seconde après chaque modification ; l'indicateur dit quand.
+- Un contact réel ne joue que la version en ligne. Les parcours en cours basculent sur la nouvelle, sans retour
+  arrière possible.
+- Une campagne programmée part avec la version en ligne au moment de l'envoi.
+- Un refus de publication dit quel bloc corriger.
+
+**6. Ranger dans des dossiers.** « Dossier » en crée un ; « Déplacer vers… », dans le menu ⋯ d'un scénario ou après
+en avoir coché plusieurs, les y range.
+
+- Les onglets « Tous », « Sans dossier » et vos dossiers filtrent la liste.
+- Supprimer un dossier ne supprime pas ses scénarios : ils repassent dans « Sans dossier ».
+
+## Les blocs
+
+Chacun a sa fiche, dans l'ordre de la palette.
+
+- **Envoi template** : un template approuvé, le seul message qui ouvre une conversation. « Le bloc Envoi template ».
+- **Message rapide** : un texte, avec un fichier, des réponses rapides ou un bouton de lien. « Le bloc Message
+  rapide ».
+- **Question** : une question, avec ou sans menu, qui attend la réponse ou un fichier. « Le bloc Question ».
+- **Formulaire** : un formulaire WhatsApp dont les réponses remplissent la fiche. « Le bloc Formulaire ».
+- **Action** : des étiquettes, des champs, le consentement. « Le bloc Action ».
+- **Condition** : aiguiller le contact selon son état. « Le bloc Condition ».
+- **Attente** : une pause, jusqu'à une date ou aux heures d'ouverture. « Le bloc Attente ».
+- **Assigner à un agent** : passer la conversation à votre équipe. « Le bloc Assigner à un agent ».
+- **Envoyer au MBA** : confier la conversation à l'agent de Meta. « Le bloc Envoyer au MBA ».
+- **Aller à** : continuer sur un autre bloc, d'ici ou d'ailleurs. « Le bloc Aller à ».
+- **Fonction JS** : transformer un champ par du JavaScript. « Le bloc Fonction JS ».
+- **Message RCS** : un message RCS, avec son repli. « Le bloc Message RCS ».
+- **Envoi de mail** : un e-mail depuis votre boîte. « Le bloc Envoi de mail ».
+- **Agent IA** : plusieurs échanges confiés à un agent. « Le bloc Agent IA ».
+- **Appel API** : interroger votre système. « Le bloc Appel API ».
+- **Extraire du JSON** : ranger des valeurs d'une réponse. « Le bloc Extraire du JSON ».
+
+**Bon à savoir.** Quand un message ne peut pas partir en cours de parcours (un champ vide, la fenêtre de 24 heures
+fermée au réveil d'une attente…), la raison et le bloc en cause s'écrivent dans Sécurité > Journal des erreurs, sous
+« échec de scénario ». Au lancement d'une campagne, la campagne compte le contact en échec, avec la raison.

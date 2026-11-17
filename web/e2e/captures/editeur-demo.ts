@@ -1,5 +1,5 @@
 import type { Locator, Page } from '@playwright/test';
-import { CHAMPS_DEMO, TAGS_DEMO, communs } from './donnees-demo';
+import { CHAMPS_DEMO, TAGS_DEMO, capturer, communs, type Locale } from './donnees-demo';
 
 /**
  * L'ÉDITEUR DE SCÉNARIO SIMULÉ, pour les captures des fiches par bloc (spec `2026-11-17-fiches-par-bloc-design.md`) :
@@ -18,18 +18,27 @@ export const fleche = (id: string, source: string, target: string, poignee?: str
 /**
  * Pose les faux de l'éditeur, AVANT `communs` (Playwright essaie la dernière route posée en premier). Rappelée pour un
  * second scénario, elle passe devant la précédente. `templates` et `indications` servent le bloc Envoi template.
+ *
+ * `autres` répond avant tout le reste, écritures comprises : une paire (le test de l'adresse, la réponse) par route
+ * qu'un bloc lit en plus (ses formulaires, les membres, les agents, les appels, les boîtes d'envoi…), essayées dans
+ * l'ordre. `scenarios` complète la liste des scénarios (la cible d'un « Aller à », la page de la liste).
  */
+export type Reponse = [(url: string, methode: string) => boolean, unknown];
 export async function simulerEditeur(
   page: Page, graphe: Graphe, nom: string,
   templates: unknown[] = [], indications: unknown[] = [],
+  autres: Reponse[] = [], scenarios: Array<Record<string, unknown>> = [],
 ): Promise<void> {
   const wf = { id: 'wf1', name: nom, graph: graphe, createdAt: '2026-11-17T09:00:00.000Z', updatedAt: '2026-11-17T09:00:00.000Z' };
   await page.route('**/api/backend/**', async (route) => {
     const url = route.request().url();
     const json = (b: unknown) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(b) });
-    if (route.request().method() !== 'GET') return json({ ok: true });
+    const methode = route.request().method();
+    const autre = autres.find(([test]) => test(url, methode));
+    if (autre) return json(autre[1]);
+    if (methode !== 'GET') return json({ ok: true });
     if (/\/workflows\/wf1$/.test(url)) return json({ workflow: wf });
-    if (url.endsWith('/workflows')) return json({ workflows: [{ id: 'wf1', name: nom, graph: graphe }] });
+    if (url.endsWith('/workflows')) return json({ workflows: [{ id: 'wf1', name: nom, graph: graphe }, ...scenarios] });
     if (url.includes('/email/accounts')) return json({ accounts: [] });
     if (url.includes('/email/templates')) return json({ templates: [] });
     if (url.includes('/param-hints')) return json({ hints: indications });
@@ -50,6 +59,9 @@ export async function ouvrir(page: Page, panneau = true): Promise<void> {
   if (panneau) await page.locator('.react-flow__node').first().click();
 }
 
+/** Une réponse simulée pour les GET dont l'adresse contient `morceau`. */
+export const sur = (morceau: string, reponse: unknown): Reponse => [(url, methode) => methode === 'GET' && url.includes(morceau), reponse];
+
 /** Ferme le panneau du bloc : un clic dans le vide de la toile. */
 export const fermerPanneau = (page: Page) => page.locator('.react-flow__pane').click({ position: { x: 20, y: 20 } });
 
@@ -62,3 +74,18 @@ export const poignee = (page: Page, id: string) =>
  * où le cadre de la photo ne montrait plus ce qui l'entoure.
  */
 export const centrer = (cible: Locator) => cible.evaluate((e) => e.scrollIntoView({ block: 'center' }));
+
+/** Une étape d'une fiche : l'élément centré, puis la photo fléchée et cadrée sur lui. */
+export async function etapeFlechee(page: Page, cle: string, n: number, locale: Locale, cible: Locator): Promise<void> {
+  await centrer(cible);
+  await capturer(page, cle, n, locale, undefined, 'haut', cible, true);
+}
+
+/** Les appels déclarés dans Tools > Connecteurs API, et le système qui les porte : de quoi dégriser le bloc. */
+export const appelsDemo = (appel: string, systeme: string): Reponse[] => [
+  sur('/agent-requetes', {
+    requetes: [{ id: 'req1', tenantId: 't-demo', sourceId: 'src1', label: appel, methode: 'GET', chemin: '/orders/{id}', parametres: [], entetes: [], corps: { mode: 'aucun' }, variables: [], outputPaths: ['statut'], valeursTest: {}, outils: 0, scenarios: [], updatedAt: '2026-11-01T09:00:00.000Z' }],
+    champs: [], catalogue: { systeme: [], entetesReserves: [] },
+  }),
+  sur('/agent-sources', { sources: [{ id: 'src1', kind: 'http', label: systeme }] }),
+];

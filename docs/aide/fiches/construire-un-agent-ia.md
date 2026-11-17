@@ -140,10 +140,8 @@ appeler un outil MCP, et deux outils propres à l'agent IA : déclencher une act
   « passe à un humain » : activer l'un quand l'autre est là est refusé, et le message dit quoi désactiver d'abord.
 
 **Les règles d'arrêt dessinent les sorties du bloc.** Une règle d'arrêt, c'est « quand l'agent a fini de
-faire ça, il sort par là » : vous lui donnez un code et un libellé, et chacune devient une sortie à relier
-dans le constructeur, douze au maximum. Cinq sorties sont toujours là en plus des vôtres : **Pas de
-réponse** (le contact s'est tu), **Aucune source**, **Transfert à un humain**, **Plafond atteint** et
-**Échec technique**. Une sortie qui ne mène nulle part est signalée en rouge.
+faire ça, il sort par là » : vous lui donnez un code et un libellé, douze au maximum. Ce que deviennent ces
+sorties dans un scénario, et les cinq qui s'y ajoutent toujours, est dans la fiche « Le bloc Agent IA ».
 
 **Essayez-le avant de l'activer.** L'onglet Tester vous fait parler au vrai agent, avec son objectif, son
 ton, ses outils et sa vraie base : ce qu'il répond là est ce qu'il répondra. Chaque appel d'outil est montré

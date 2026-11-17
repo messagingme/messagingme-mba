@@ -6,8 +6,8 @@ source_empreinte: 2473a2
 # Créer un formulaire WhatsApp
 
 Un formulaire WhatsApp s'ouvre dans la conversation et collecte des réponses sans faire sortir le contact de
-l'application. Vous le construisez dans Contenu > Formulaires WhatsApp, et vous l'attachez ensuite au bouton
-d'un modèle ou à un bloc de scénario.
+l'application. Vous le construisez dans Contenu > WhatsApp > Formulaires, et vous l'attachez ensuite au bouton
+d'un modèle ou à un bloc de scénario (voir « Le bloc Formulaire »).
 
 **Le constructeur** est une liste d'éléments que vous montez, descendez ou retirez : titres, paragraphe,
 légende, image, saisies (texte, e-mail, téléphone, nombre, code secret, zone de texte, date), choix (liste
@@ -45,7 +45,7 @@ encore rattaché à un modèle.
 jour. Il sert à deux choses : faire apparaître ici un formulaire construit ailleurs, et reprendre un
 renommage ou une publication faits là-bas. Un compte-rendu vous dit ce qui a été importé, mis à jour,
 ignoré, ou n'existe plus chez Meta. **Ce qu'un formulaire importé sait faire, et ce qu'il ne sait pas** :
-il s'attache à un modèle et s'envoie dans un scénario comme les autres, mais ses réponses **n'alimentent pas
-les fiches contact** et son aperçu reste indisponible, parce que Meta ne nous rend pas sa structure. Pour un
-formulaire qui remplit les fiches, construisez-le ici. Rien n'est supprimé automatiquement : un formulaire
+il s'attache à un modèle et s'envoie dans un scénario comme les autres, mais ses réponses **ne remplissent les
+fiches contact que s'il part d'un bloc Formulaire**, qui range ce que vous y choisissez, et son aperçu reste
+indisponible. Pour un formulaire qui remplit les fiches partout, construisez-le ici. Rien n'est supprimé automatiquement : un formulaire
 que Meta ne liste plus vous est signalé, la suppression reste votre décision.

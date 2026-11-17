@@ -991,7 +991,7 @@ export function ConfigPanel({
               <option value="">{t('Choisir…', 'Choose…')}</option>
               {flows.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
-            {flows.length === 0 && <p className="mt-1 text-xs text-ink-500">{t('Aucun formulaire publié : créez-en un dans Contenu > Formulaires.', 'No published form: create one in Content > Forms.')}</p>}
+            {flows.length === 0 && <p className="mt-1 text-xs text-ink-500">{t('Aucun formulaire publié : créez-en un dans Contenu > WhatsApp > Formulaires.', 'No published form: create one in Content > WhatsApp > Forms.')}</p>}
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-ink-500">{t('Texte d’accroche', 'Message text')}</label>
@@ -1785,8 +1785,8 @@ function FonctionJs({ tenantId, code, champSource, champCible, fields: champsDeL
               panne, et le client réessaierait le même nom. */}
           {refusChamp !== null && <p className="text-xs text-danger" data-testid="js-node-cible-refus">{refusChamp}</p>}
           <p className="text-xs text-ink-500">
-            {t('Il sera créé en texte et apparaîtra aussitôt dans le mini-CRM. Son type se change dans Contenu > Champs.',
-              'It will be created as text and will appear at once in the mini-CRM. Its type can be changed in Content > Fields.')}
+            {t('Il sera créé en texte et apparaîtra aussitôt dans le mini-CRM. Son type se change dans Contenu > Bibliothèque > Champs, sauf en JSON.',
+              'It will be created as text and will appear at once in the mini-CRM. Its type can be changed in Content > Library > Fields, except to JSON.')}
           </p>
         </div>
       )}

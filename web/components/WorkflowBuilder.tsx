@@ -14,7 +14,7 @@ import {
 import { useLocale, useT } from '@/lib/i18n';
 import { formatDate, hourMin } from '@/lib/day';
 import type { AgentResume } from '@/lib/api-agent';
-import { NODE_META, NODE_ORDER, RCS_NODE_ORDER, EMAIL_NODE_ORDER, AGENT_NODE_ORDER, HTTP_NODE_ORDER, RCS_GATE_TITRE, EMAIL_GATE_TITRE, AGENT_GATE_TITRE, HTTP_GATE_TITRE, nodeMetaOf } from '@/lib/nodeMeta';
+import { NODE_META, NODE_ORDER, RCS_NODE_ORDER, EMAIL_NODE_ORDER, AGENT_NODE_ORDER, HTTP_NODE_ORDER, RCS_GATE_TITRE, EMAIL_GATE_TITRE, AGENT_GATE_TITRE, HTTP_GATE_TITRE, aretesApresChangementDAgent, nodeMetaOf } from '@/lib/nodeMeta';
 import { isCampaignEligible, waitBeforeSessionMessage, sessionMessageAfterRcs, entryNodeOf, canalDOuvertureDuGraphe } from '@/lib/campaign-eligibility';
 import { autoLayoutHorizontal } from '@/lib/workflow-layout';
 import { EDGE_OPTS, toRF, fromRF, type RFNode, type RFEdge } from '@/lib/workflow-canevas';
@@ -307,17 +307,12 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
      * seulement), mais laisser des arêtes fantômes derrière soi reste la faute que la suppression d'une ligne
      * de menu ci-dessus corrige déjà, pour exactement la même raison.
      *
-     * Seules les sorties DÉCLARÉES sont concernées : les réservées ne bougent jamais d'un agent à l'autre.
+     * Seules les sorties DÉCLARÉES sont concernées : les réservées ne bougent jamais d'un agent à l'autre. Elles
+     * s'appellent pourtant aussi `sortie:…` : le filtre est dans `aretesApresChangementDAgent`, qui les garde.
      */
     const onAgentChange = (ev: Event) => {
       const { nodeId, codes } = (ev as CustomEvent).detail as { nodeId: string; codes: string[] };
-      const gardes = new Set(codes.map((c) => `sortie:${c}`));
-      setEdges((eds) => eds.filter((e) => {
-        if (e.source !== nodeId) return true;
-        const h = e.sourceHandle ?? '';
-        if (!h.startsWith('sortie:')) return true; // réservées et arêtes libres : intactes
-        return gardes.has(h);
-      }));
+      setEdges((eds) => aretesApresChangementDAgent(eds, nodeId, codes));
     };
     /**
      * 🔴 RETIRER UNE FAMILLE D'UN BLOC CONDITION EMPORTE SON ARÊTE, ET AUCUNE AUTRE (RC5). Même contrat que

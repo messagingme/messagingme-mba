@@ -1,6 +1,6 @@
 ---
 slug: build-an-ai-agent
-traduit_de: ba3ff7
+traduit_de: 336530
 description: Build an AI agent that answers on WhatsApp: the interview, the knowledge base, the tools, the stop rules, the test and the credit.
 ---
 # Build an AI agent
@@ -129,9 +129,8 @@ an action, and chain steps. Finally, the list of placed tools, each with its sta
   human”: activating one while the other is there is refused, and the message says what to deactivate first.
 
 **Stop rules draw the block’s exits.** A stop rule is “when the agent has finished doing this, it leaves through
-there”: you give it a code and a label, and each one becomes an exit to connect in the builder, twelve at most.
-Five exits are always there on top of yours: **No reply** (the contact went quiet), **No source**, **Handover to a
-human**, **Cap reached** and **Technical failure**. An exit that leads nowhere is flagged in red.
+there”: you give it a code and a label, twelve at most. What these exits become in a scenario, and the five that
+are always added, is in the guide “The AI agent block”.
 
 **Try it before activating it.** The Test tab lets you talk to the real agent, with its goal, its tone, its tools
 and its real base: what it answers there is what it will answer. Each tool call is shown with what it asked for and

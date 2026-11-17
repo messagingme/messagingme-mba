@@ -210,14 +210,27 @@ describe('les fiches publiques', () => {
     // rubriques de démarrage, la console d'abord.
     'changer-le-nom-et-la-photo-de-mon-numero': ['demarrer-console', 10],
     // Une fiche par bloc du constructeur de scénario (spec `2026-11-17-fiches-par-bloc-design.md`), dans l'ordre de la palette.
-    'bloc-envoi-template': ['construire-un-scenario', 1],
-    'bloc-message-rapide': ['construire-un-scenario', 2],
-    'bloc-question': ['construire-un-scenario', 3],
-    'bloc-action': ['construire-un-scenario', 5],
-    'bloc-condition': ['construire-un-scenario', 6],
-    'bloc-attente': ['construire-un-scenario', 7],
+    // Lot 3 : « Créer un scénario » publique en tête, puis les blocs dans l'ordre de la palette (`NODE_ORDER`), puis ceux
+    // qu'elle présente à part.
+    'creer-un-scenario': ['construire-un-scenario', 1],
+    'bloc-envoi-template': ['construire-un-scenario', 2],
+    'bloc-message-rapide': ['construire-un-scenario', 3],
+    'bloc-question': ['construire-un-scenario', 4],
+    'bloc-formulaire': ['construire-un-scenario', 5],
+    'bloc-action': ['construire-un-scenario', 6],
+    'bloc-condition': ['construire-un-scenario', 7],
+    'bloc-attente': ['construire-un-scenario', 8],
+    'bloc-assigner': ['construire-un-scenario', 9],
+    'bloc-envoyer-au-mba': ['construire-un-scenario', 10],
+    'bloc-aller-a': ['construire-un-scenario', 11],
+    'bloc-fonction-js': ['construire-un-scenario', 12],
+    'bloc-message-rcs': ['construire-un-scenario', 13],
+    'bloc-envoi-de-mail': ['construire-un-scenario', 14],
+    'bloc-agent-ia': ['construire-un-scenario', 15],
+    'bloc-appel-api': ['construire-un-scenario', 16],
+    'bloc-extraire-du-json': ['construire-un-scenario', 17],
   };
-  /** Les six écrans qui portent « Comment faire », et leur page. */
+  /** Les sept écrans qui portent « Comment faire », et leur page. */
   const COMMENT_FAIRE: Record<string, string> = {
     accueil: 'connecter-mon-numero-whatsapp',
     offre: 'choisir-mon-offre',
@@ -225,6 +238,7 @@ describe('les fiches publiques', () => {
     templates: 'faire-approuver-un-modele',
     contacts: 'importer-mes-contacts',
     campagnes: 'lancer-une-campagne',
+    workflows: 'creer-un-scenario',
   };
   const texteDe = (nom: string) => readFileSync(new URL(nom, DOSSIER), 'utf8');
   const publiques = fichiers

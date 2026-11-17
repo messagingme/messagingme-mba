@@ -1,6 +1,6 @@
 ---
 slug: meta-business-agent
-traduit_de: 234e6f
+traduit_de: 7f6a0f
 description: The Meta Business Agent, WhatsApp’s responder: when it answers, how to set it up, its cap, and how to take back control.
 ---
 # Meta’s responder: what it is for, and how to set it up
@@ -143,8 +143,5 @@ message” and “Customer replies to a utility message”, choose **Messaging M
 Leave “Customer sends a message” on **Meta Business Agent**: it answers the questions your customers write. Also
 leave “Thread control” on **Messaging Me**, so that your team can take a conversation back.
 
-**2. Hand over to the agent with a message, not a question.** In your scenarios, have a **quick message** say “ask us
-your question”, linked directly to the **Send to MBA** block: the customer’s question then reaches the agent, which
-answers it.
-
-With a Question block instead, the scenario receives the question, and the agent cannot answer it.
+**2. Hand over to the agent with the Send to MBA block.** How to place it, and what to have the scenario say just
+before, is in the guide “The Send to MBA block”.

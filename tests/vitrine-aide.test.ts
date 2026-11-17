@@ -26,8 +26,9 @@ const centre = pagesDuCentre();
 
 describe('le centre d’aide de la vitrine', () => {
   it('l’accueil et une page par fiche publique, dans les deux langues', () => {
-    // 22 avec « Le bloc Message rapide », première fiche par bloc du constructeur (2026-11-17) ; 27 avec les cinq du lot 2.
-    expect(centre.length).toBe(27);
+    // 22 avec « Le bloc Message rapide », première fiche par bloc du constructeur (2026-11-17) ; 27 avec les cinq du lot 2 ;
+    // 38 avec les dix du lot 3 et « Créer un scénario », devenue publique.
+    expect(centre.length).toBe(38);
     // L’accueil, le guide du numéro et le dépannage (lot 4a), les pages composées de sources (4a-2), une page par fiche,
     // une par page Claude Code : dans chaque langue.
     expect(generees.length).toBe(2 * (1 + 2 + PAGES_SOURCES.length + centre.length + PAGES_CLAUDE.length));
@@ -154,8 +155,10 @@ describe('le centre d’aide de la vitrine', () => {
     // sa page à part, brancher-sa-boutique-shopify) ; 126 avec l'étape de la formule de « Connecter mon numéro » (2026-11-17) ;
     // 132 avec les trois captures du Business Manager de « Changer le nom et la photo de mon numéro » (le même jour) ;
     // 146 avec les sept captures fléchées du « bloc Message rapide » (le même jour) ; 198 avec les 26 du lot 2 (Envoi
-    // template 5, Question 6, Action 5, Condition 5, Attente 5).
-    expect(vues).toBe(198);
+    // template 5, Question 6, Action 5, Condition 5, Attente 5) ; 282 avec les 42 du lot 3 (« Créer un scénario » 6,
+    // Formulaire 5, Assigner 2, Envoyer au MBA 2, Aller à 3, Fonction JS 5, RCS 5, mail 3, Agent IA 3, Appel API 3,
+    // Extraire du JSON 5).
+    expect(vues).toBe(282);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {

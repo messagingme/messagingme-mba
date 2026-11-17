@@ -89,7 +89,7 @@ export const RCS_GATE_TITRE: [string, string] = [
 ];
 export const EMAIL_GATE_TITRE: [string, string] = [
   'Disponible dès qu’une boîte email est connectée (menu Tools > SMTP email)',
-  'Available once an email mailbox is connected (Account menu > Email accounts)',
+  'Available once an email mailbox is connected (Tools menu > SMTP email)',
 ];
 export const AGENT_GATE_TITRE: [string, string] = [
   'Disponible dès qu’un agent IA est actif (menu AI Agent)',
@@ -146,6 +146,23 @@ export const AGENT_SORTIES_RESERVEES: Array<{ handle: string; icone: NomIcone; l
     aide: ['Le modèle ou un envoi a échoué : prévoir un repli', 'The model or a send failed: plan a fallback'],
   },
 ];
+
+/**
+ * 🔴 LES ARÊTES D'UN BLOC AGENT IA QUI SURVIVENT À UN CHANGEMENT D'AGENT (ou à « Mettre à jour les sorties ») : ses
+ * règles d'arrêt encore déclarées, ses arêtes libres, et TOUTES les sorties réservées, qui ne dépendent pas de
+ * l'agent. Les réservées s'appellent aussi `sortie:…` : le filtre qui ne gardait que les codes déclarés effaçait
+ * « Aucune source », « Transfert à un humain », « Plafond atteint » et « Échec technique » (fiches par bloc, lot 3).
+ */
+export function aretesApresChangementDAgent<E extends { source: string; sourceHandle?: string | null }>(
+  aretes: E[], nodeId: string, codes: string[],
+): E[] {
+  const gardes = new Set([...codes.map((c) => `sortie:${c}`), ...AGENT_SORTIES_RESERVEES.map((s) => s.handle)]);
+  return aretes.filter((e) => {
+    if (e.source !== nodeId) return true;
+    const h = e.sourceHandle ?? '';
+    return !h.startsWith('sortie:') || gardes.has(h);
+  });
+}
 
 
 /** Repli pour un type de node NON encore connu du front (ex. un type ajouté côté backend avant son UI, comme

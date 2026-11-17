@@ -4,6 +4,14 @@ import { join, resolve } from 'node:path';
 import { QUESTION_LIMITES, QUESTION_MAX_ROWS, WAIT_MAX_MS } from '../src/workflow/engine';
 import { MAX_FAMILLES_CONDITION } from '../src/workflow/conditions';
 import { LONGUEUR_MAX_ETIQUETTE } from '../src/crm/poser-etiquette';
+import { DELAI_JS_MS, MAX_CODE_JS, MEMOIRE_JS_OCTETS } from '../src/workflow/fonction-js';
+import { DELAI_APPEL_HTTP_MS } from '../src/workflow/appel-http';
+import { RCS_TEXTE_MAX } from '../web/lib/partage/rcs';
+import { MAX_BOUTONS_CARTE, MAX_BOUTONS_RCS, MAX_TEXTE_RCS_AVEC_IMAGE } from '../web/lib/rcs';
+import { MAX_DESTINATAIRES_EMAIL } from '../web/lib/partage/blocs';
+import { MAX_OCTETS_CHAMP_JSON } from '../web/lib/partage/champs';
+import { LONGUEUR_CHEMIN_MAX } from '../web/lib/partage/chemin-json';
+import { MAX_LIGNES_EXTRACTION } from '../web/lib/partage/extraire-json';
 
 /**
  * LES BORNES DES FICHES PAR BLOC SE DÉRIVENT DES CONSTANTES (spec `2026-11-17-fiches-par-bloc-design.md`, lot 2 ; le
@@ -41,5 +49,45 @@ describe('les fiches des blocs portent les bornes du code', () => {
   it('Attente', () => {
     expect(lire('bloc-attente.md')).toContain(`${JOURS_MAX} jours d'attente au plus`);
     expect(lire('en/bloc-attente.md')).toContain(`${JOURS_MAX} days of waiting at most`);
+  });
+
+  // Lot 3.
+  it('Fonction JS', () => {
+    const mo = MEMOIRE_JS_OCTETS / (1024 * 1024);
+    expect(lire('bloc-fonction-js.md')).toContain(`${milliers(MAX_CODE_JS, ' ')} caractères au plus. La fonction a ${DELAI_JS_MS} ms et ${mo} Mo pour tourner`);
+    expect(lire('en/bloc-fonction-js.md')).toContain(`${milliers(MAX_CODE_JS, ',')} characters at most. The function has ${DELAI_JS_MS} ms and ${mo} MB to run`);
+  });
+
+  it('Message RCS', () => {
+    const fr = lire('bloc-message-rcs.md');
+    expect(fr).toContain(`${milliers(RCS_TEXTE_MAX, ' ')} caractères, ou ${milliers(MAX_TEXTE_RCS_AVEC_IMAGE, ' ')} avec une image.`);
+    expect(fr).toContain(`${MAX_BOUTONS_RCS} boutons au plus, ou ${MAX_BOUTONS_CARTE} avec une image.`);
+    const en = lire('en/bloc-message-rcs.md');
+    expect(en).toContain(`${milliers(RCS_TEXTE_MAX, ',')} characters, or ${milliers(MAX_TEXTE_RCS_AVEC_IMAGE, ',')} with an image.`);
+    expect(en).toContain(`${MAX_BOUTONS_RCS} buttons at most, or ${MAX_BOUTONS_CARTE} with an image.`);
+  });
+
+  it('Envoi de mail', () => {
+    expect(lire('bloc-envoi-de-mail.md')).toContain(`${MAX_DESTINATAIRES_EMAIL} destinataires au plus`);
+    expect(lire('en/bloc-envoi-de-mail.md')).toContain(`${MAX_DESTINATAIRES_EMAIL} recipients at most`);
+  });
+
+  it('Appel API', () => {
+    const ko = MAX_OCTETS_CHAMP_JSON / 1024;
+    const fr = lire('bloc-appel-api.md');
+    expect(fr).toContain(`${DELAI_APPEL_HTTP_MS / 1000} secondes sans réponse`);
+    expect(fr).toContain(`${ko} Ko au plus`);
+    const en = lire('en/bloc-appel-api.md');
+    expect(en).toContain(`${DELAI_APPEL_HTTP_MS / 1000} seconds without an answer`);
+    expect(en).toContain(`${ko} KB at most`);
+  });
+
+  it('Extraire du JSON', () => {
+    const fr = lire('bloc-extraire-du-json.md');
+    expect(fr).toContain(`${LONGUEUR_CHEMIN_MAX} caractères au plus. Une clé`);
+    expect(fr).toContain(`${MAX_LIGNES_EXTRACTION} lignes au plus`);
+    const en = lire('en/bloc-extraire-du-json.md');
+    expect(en).toContain(`${LONGUEUR_CHEMIN_MAX} characters at most. A key`);
+    expect(en).toContain(`${MAX_LIGNES_EXTRACTION} lines at most`);
   });
 });

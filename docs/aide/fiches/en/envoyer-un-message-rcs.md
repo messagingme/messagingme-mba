@@ -1,6 +1,6 @@
 ---
 slug: send-an-rcs-message
-traduit_de: 7f9f0b
+traduit_de: fd7854
 description: Send an RCS message: turn on the channel, compose a message or a carousel and its buttons, then send it in a campaign, a scenario or from the Inbox.
 ---
 # Send an RCS message
@@ -44,16 +44,8 @@ with no mobile number are counted as “skipped” with their reason: RCS is for
 it. A carousel chosen in a campaign is **copied in full** onto the stage: to change it, change it in the library
 then choose it again.
 
-**In a scenario**, the “RCS message” block has two delivery exits, **Sent** and **Unreachable**, plus one exit per
-reply button. Connecting “Unreachable” to a WhatsApp template send gives the cascade: RCS first, WhatsApp for those
-it does not reach. The provider cannot tell in advance whether a number is reachable over RCS: this exit therefore
-fires on the delivery report, a few moments to a few minutes after sending, and not when the block is reached.
-
-**The channel follows the conversation, not the block.** A scenario that starts over RCS continues over RCS. To
-switch to WhatsApp on purpose, plug in a template send: the journey moves there and stays there. A scenario can
-therefore **start** with an RCS message even when the WhatsApp 24-hour window is closed, since RCS has no window.
-One exception the editor flags: a WhatsApp **form** placed right after will only go out if the contact wrote on
-WhatsApp within 24 hours, because replying over RCS does not reopen that window.
+**In a scenario**, the “RCS message” block sends these messages, with their WhatsApp fallback: how to use it is in
+its guide, “The RCS message block”.
 
 **From the Inbox**, the 📱 button sends an RCS message from your library to the open contact, or, in the “Free
 reply” tab, your own sentence, which goes out as is under the brand agent. It is offered even when the WhatsApp

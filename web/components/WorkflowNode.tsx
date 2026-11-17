@@ -127,6 +127,23 @@ function summaryOf(data: Record<string, unknown>, t: (fr: string, en?: string) =
     const cible = String(data.cible ?? '').trim();
     return libelle !== '' ? `→ ${libelle}` : cible !== '' ? `→ ${cible}` : t('choisir le bloc où aller…', 'choose the block to go to…');
   }
+  // Les trois blocs qui travaillent sur les champs tombaient sur le texte du bloc « Assigner » (« la conversation
+  // arrive en inbox »), faux sur la toile et sur chaque capture de l'aide (fiches par bloc, lot 3).
+  if (wfType === 'http') {
+    const label = String(data.requeteLabel ?? '').trim();
+    return label === '' ? t('choisir un appel…', 'choose a call…') : label;
+  }
+  if (wfType === 'js') {
+    const source = String(data.champSource ?? '').trim();
+    const cible = String(data.champCible ?? '').trim();
+    if (source === '' || cible === '') return t('transformer un champ…', 'transform a field…');
+    return `${source === 'now' ? t('maintenant', 'now') : source} → ${cible}`;
+  }
+  if (wfType === 'extraire') {
+    const n = Array.isArray(data.lignes) ? data.lignes.length : 0;
+    if (n === 0) return t('ranger des valeurs…', 'store values…');
+    return n === 1 ? t('1 valeur rangée', '1 value stored') : t(`${n} valeurs rangées`, `${n} values stored`);
+  }
   // RC6 : l'agent de Meta prend le contact et répond à son dernier message ; le parcours s'arrête là.
   if (wfType === 'vers_mba') return t('l’agent de Meta prend la conversation', 'Meta’s agent takes the conversation');
   // MBA : pré-câblage inerte, le sous-titre le rappelle (le bloc ne fait rien tant que MBA n'est pas actif).
