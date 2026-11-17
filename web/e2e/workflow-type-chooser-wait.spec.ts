@@ -57,11 +57,12 @@ test.describe('Builder : nature d’un bloc et bloc Attente', () => {
     await page.getByRole('button', { name: /Attente/i }).click();
 
     // Panneau de config : durée + unité. En mode délai, plus de paragraphe d'avertissement (retiré à la demande
-    // de Julien le 2026-10-06, RC1) : le refus reste à la publication, au moment où il sert.
+    // de Julien le 2026-10-06, RC1) : c'est le bandeau de l'éditeur qui avertit, au moment où il sert. On cherche
+    // l'avertissement des modes datés par la phrase qu'il garde (il disait aussi « seul un envoi de TEMPLATE… »).
     await expect(page.getByText('Reprendre le parcours…')).toBeVisible();
     await page.getByRole('spinbutton').fill('3');
     await page.getByRole('combobox').last().selectOption('days');
-    await expect(page.getByText(/seul un envoi de TEMPLATE peut encore partir/i)).toHaveCount(0);
+    await expect(page.getByText(/comptée pour une attente LONGUE/i)).toHaveCount(0);
 
     // Le bloc résume sa durée, et l'enregistrement persiste délai + unité.
     await expect(page.locator('.react-flow__node').getByText(/attendre 3 j/i)).toBeVisible();

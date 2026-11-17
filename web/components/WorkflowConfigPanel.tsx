@@ -629,7 +629,7 @@ export function ConfigPanel({
             <p className="mt-1 text-xs text-alerte-700">
               {/* Ce texte annonçait « refusé à la publication » : rien ne le refuse (la route `/publish` ignore ce montage),
                   l'éditeur n'en fait qu'un bandeau. Au réveil, c'est la fenêtre RÉELLE qui décide (`executor.resume`). */}
-              {t("La durée de cette attente n’est pas connue d’avance : l’éditeur la compte comme une attente longue. Au réveil, si le contact ne vous a pas écrit depuis 24 heures, seul un template part : un message rapide, une question ou un formulaire placé après ne part pas, et la conversation passe à votre équipe.", 'The length of this wait is not known in advance: the editor counts it as a long wait. On waking, if the contact has not written to you in the last 24 hours, only a template goes out: a quick message, a question or a form placed after it does not, and the conversation goes to your team.')}
+              {t("La durée de cette attente n’est pas connue d’avance : elle est donc comptée pour une attente longue. Au réveil, si le contact ne vous a pas écrit depuis 24 heures, seul un template part : un message rapide, une question ou un formulaire placé après ne part pas, et la conversation passe à votre équipe.", 'The length of this wait is not known in advance, so it counts as a long wait. On waking, if the contact has not written to you in the last 24 hours, only a template goes out: a quick message, a question or a form placed after it does not, and the conversation goes to your team.')}
             </p>
           )}
         </div>
