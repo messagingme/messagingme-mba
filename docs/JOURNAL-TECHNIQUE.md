@@ -4,6 +4,21 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : un lien « e-mail » par espace dans /ops > Clients
+
+**La demande** (Julien) : écrire aux membres d'un espace depuis sa boîte `julien@messagingme.fr`, sans quitter `/ops`.
+
+- **Le choix** : aucun envoi par l'API. La boîte `messagingme.fr` est chez Google, donc le lien ouvre la rédaction de
+  Gmail sur le compte de la session d'exploitation (`authuser`), destinataires remplis : le message part de la boîte de
+  l'exploitant, reste dans ses envoyés, et aucune adresse n'est écrite en dur dans le dépôt public.
+- **Le code** : `getTenantOverview` (`src/ops/store.pg.ts`) rend `emails`, les membres ni désactivés ni en invitation
+  en attente, administrateurs d'abord ; `web/lib/ops-email.ts` construit le lien par `URLSearchParams` ; le champ est
+  optionnel côté console, le lien restait masqué tant que l'API d'avant répondait.
+- **Les preuves** : le test d'intégration passé sur le banc PGlite, et vu rouge en retirant le filtre, puis l'ordre ;
+  la suite locale complète, sous une machine très chargée, a rendu 36 rouges par délai dépassés, tous verts rejoués seuls.
+- **En production** : `e872d85e`, run 44121063013 en `migration=aucune`, lancé et approuvé par Julien (le garde-fou du
+  mode auto a refusé que je le lance) ; CI entièrement verte, `/health` à 200. L'essai réel est le clic de Julien.
+
 ## 2026-11-17 : l'assistant de l'agent de Meta envoyait son outil sans nom, et le fournisseur le refusait (essai réel du lot F)
 
 Trouvé par Julien pendant l'essai réel n° 270 : l'onglet « Assistant » de l'agent de Meta répondait « le fournisseur du
