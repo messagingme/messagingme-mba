@@ -4,6 +4,49 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : le numéro fourni dans l'application WhatsApp Business, et le numéro payant pendant l'essai du Pro (lots 1 à 3)
+
+**Le déclencheur** : l'espace « Zigi Arjun's workspace » avait pris deux numéros de la réserve dans la nuit, sans en
+relier aucun. Il les avait tapés dans l'application WhatsApp Business, dont l'appel de vérification demande d'appuyer
+sur 5 avant de dicter son code : la touche de l'Asterisk, envoyée à 3 s, coupait la phrase (« To receive your WhatsApp
+verification code, press »), le code ne venait jamais, et les deux numéros portaient peut-être un compte. Julien en a
+tiré trois décisions, un plan en trois lots
+(`docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md`).
+
+- **Lot 1, le pont des codes et sa garde** : la première touche part à 8 s, après la phrase, puis deux autres. Le code d'un appel
+  de l'application (reconnu à son menu, « press » ou « appuyez ») ne se montre que sur la voie de l'application ; ailleurs
+  la page et Claude disent que le numéro a été tapé dans une application. « Remplacer » rend à la réserve un numéro que
+  seule l'application a appelé, au lieu de le bloquer. 🔴 La relecture a trouvé que la garde lisait la voie au moment de
+  la LECTURE : un espace passé ensuite sur la voie de l'application aurait vu un ancien appel compter comme preuve.
+  Elle la lit désormais au moment de l'appel, prouvé dans les deux sens.
+- **Lot 2, le numéro pendant l'essai** : l'essai de 14 jours du Pro donnait un numéro gratuit sans preuve de paiement.
+  Le numéro s'y paie 3,50 € HT, et un coupon « une fois » de 3,50 € HT (créé en live par Julien,
+  `STRIPE_COUPON_NUMERO_ESSAI`) le déduit de la première facture du Pro. Sa première version arrêtait l'abonnement du
+  numéro sans avoir sur une simple date : sur la relecture, cela devient la présence du coupon sur la FACTURE payée
+  (lot 3).
+- **Lot 3, le nouvel arbre** : après « Avez-vous déjà l'application WhatsApp Business ? » Oui, un numéro y
+  fonctionne-t-il, est-ce celui-là, faut-il en fournir un. Un numéro de chez nous peut de nouveau aller DANS
+  l'application, et la console retient la voie chez le serveur (`POST /numero-fourni/destination`). Console, vitrine et
+  skill de mise en service posent les mêmes questions, au mot près. La relecture n'a trouvé aucun rouge dans le code,
+  mais un selon l'ordre de mise en ligne : la console, publiée par Vercel dès le push, envoyait la voie sans l'attendre,
+  et un client aurait pu payer un numéro dont le code restait caché tant que l'API n'avait pas la route. La console
+  attend désormais la voie avant d'avancer.
+
+**Mesures** :
+- **Banc d'intégration local** : les tests d'intégration des lots ont tourné en local sur PGlite, avec le vrai `pg` et
+  toutes les migrations, avant chaque push. Ils ont attrapé une collision d'identifiant entre deux tests et l'index
+  « un abonnement vivant par espace ».
+- **E2e locaux sous Windows** : un appel non simulé vers l'API absente (`127.0.0.1:9`) coûte 1,3 à 2 s. 7 e2e d'écrans
+  que le lot ne touche pas y dépassent leurs 30 s, alors que la CI Linux les passe.
+- **Port 3000 pris par une autre session** : une première preuve inverse a tourné contre la console d'une autre
+  session, sans le lot. Le script vérifie désormais que le serveur qui répond est le sien.
+
+**En production** : lot 1 (API et Asterisk) et lot 2 (API, coupon et variable posés par Julien) le 2026-11-17 ; lot 3
+en `8766a707c`, run 44126102868 en `migration=aucune`, approuvé par Julien. Fumée bonne, et la route de la voie répond
+401 sans session. Les fiches d'aide se chargent en une fois avec celles du pair (`8166fbdbf`, monté sur cette image) :
+deux chargements dans le mauvais ordre se seraient retiré mutuellement leurs fiches. Le plugin 0.3.49 suit l'API.
+Reste l'essai réel : de la console, « Oui / Non / Oui » jusqu'au numéro relié en gardant l'application.
+
 ## 2026-11-17 : un lien « e-mail » par espace dans /ops > Clients
 
 **La demande** (Julien) : écrire aux membres d'un espace depuis sa boîte `julien@messagingme.fr`, sans quitter `/ops`.
