@@ -21,7 +21,7 @@ const NUMERO = (numero: string): NumeroFourni => ({
 
 function etatDe(o: {
   attribue?: string; code?: { code: string; recuLe: Date }; connecte?: string; aActiver?: boolean; abonnement?: 'actif' | 'resilie'; pro?: boolean;
-  deja?: boolean; destination?: 'api' | 'application'; appelApplication?: boolean;
+  deja?: boolean; destination?: 'api' | 'application'; appelApplication?: boolean; essaiPro?: boolean;
 }) {
   const lus: string[] = [];
   /** L'heure passée à la lecture du code « déjà capté » : celle de la destination retenue, ou null. */
@@ -48,7 +48,10 @@ function etatDe(o: {
         return o.abonnement ? { abonnementId: 'sub_1', tenantId: t, livemode: false, statut: o.abonnement, periodeFin: new Date('2026-11-06T09:00:00Z'), premierEchecLe: null, finPrevueLe: null, finiLe: null, libereLe: null } : null;
       },
     },
-    offre: { numeroInclus: async (t: string) => { lus.push(`pro:${t}`); return o.pro === true; } },
+    offre: {
+      numeroInclus: async (t: string) => { lus.push(`pro:${t}`); return o.pro === true; },
+      essaiPro: async (t: string) => { lus.push(`essai:${t}`); return o.essaiPro === true; },
+    },
     application: aucunCompteApplication,
   };
   return { deps, lus, depuisLus };
@@ -78,6 +81,16 @@ describe('lireEtatConnexion', () => {
 
   it('🔴 un Pro vivant (lot 6, B2b) : le numéro est inclus, la page l’obtient sans payer', async () => {
     expect((await lireEtatConnexion(etatDe({ pro: true }).deps, 't1')).inclusDansLePro).toBe(true);
+  });
+
+  it('🔴 lot 2 du 2026-11-17 : un Pro EN ESSAI le dit (le numéro se paie, déduit du premier mois), seulement quand il n’est pas inclus', async () => {
+    const enEssai = etatDe({ essaiPro: true });
+    const e = await lireEtatConnexion(enEssai.deps, 't1');
+    expect(e).toMatchObject({ inclusDansLePro: false, essaiPro: true });
+    expect(enEssai.lus).toContain('essai:t1');
+    // Un Business posé à côté inclut le numéro : rien à déduire, la page ne parle pas d'essai.
+    expect(await lireEtatConnexion(etatDe({ essaiPro: true, pro: true }).deps, 't1')).not.toHaveProperty('essaiPro');
+    expect(await lireEtatConnexion(etatDe({}).deps, 't1')).not.toHaveProperty('essaiPro');
   });
 
   it('🔴 un numéro relié en coexistence (plan 2026-10-24) : l’état le dit, pour la page du lien comme pour Claude', async () => {
@@ -216,7 +229,7 @@ describe('GET /tenants/:tenantId/connexion-numero', () => {
         portail: async () => ({ ok: true as const, valeur: { url: 'https://x' } }),
         programmerFin: async () => ({ ok: true as const, valeur: true as const }),
       },
-      offre: { numeroInclus: async () => false },
+      offre: { numeroInclus: async () => false, essaiPro: async () => false },
       application: aucunCompteApplication,
     };
     return buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET, getUserState: async (userId) => ({ role: userId === 'u2' ? 'agent' : 'admin', disabled: false, horsOffre: null, sessionsDepuis: null }) }, numeroFourni: deps });

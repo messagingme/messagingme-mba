@@ -341,6 +341,7 @@ const FAUSSES_AUTORITES: Readonly<Record<string, unknown>> = {
     numero: {
       enregistrer: async () => ({ etat: 'doublon' as const }), majStatut: async () => null, alerter: async () => undefined,
       noterFinPrevue: async () => false, reprendreCampagnes: async () => undefined, inclusDansLOffre: async () => false,
+      deduireDeLEssai: async () => undefined,
     },
     // Le Pro (lot 6, B1) : aucun abonnement ne se résout, et un enregistrement est un doublon (rien d'écrit).
     pro: {

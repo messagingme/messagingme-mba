@@ -42,7 +42,7 @@ const depsEtat = (c: CompteApplication | null) => ({
   },
   numeroConnecte: async () => null,
   abonnements: { deLEspace: async () => null },
-  offre: { numeroInclus: async () => false },
+  offre: { numeroInclus: async () => false, essaiPro: async () => false },
   application: { comptes: { parEspace: async () => c } },
 });
 

@@ -25,6 +25,8 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrement; livemode?: 
     credits: 0,
     finsPrevues: [] as Array<{ abonnementId: string; fin: Date | null }>,
     reprises: [] as string[],
+    /** Les numéros payés dont la déduction de l'essai du Pro a été demandée (lot 2 du 2026-11-17). */
+    deductions: [] as Array<{ tenantId: string; abonnementId: string }>,
     /** La fin de la période facturée que chaque échec transmet (lot 4, rouge 2 de la relecture). */
     finsEchouees: [] as Array<Date | null>,
     /** Les e-mails de paiement refusé demandés (lot 7). */
@@ -56,6 +58,7 @@ function monter(o: { connus?: string[]; issue?: IssueEnregistrement; livemode?: 
       noterFinPrevue: async (abonnementId, fin) => { cap.finsPrevues.push({ abonnementId, fin }); return connus.has(abonnementId); },
       reprendreCampagnes: async (tenantId) => { cap.reprises.push(tenantId); },
       inclusDansLOffre: async () => o.numeroInclus ?? o.proVivant ?? false,
+      deduireDeLEssai: async (tenantId, abonnementId) => { cap.deductions.push({ tenantId, abonnementId }); },
     },
     // Les événements du numéro ne touchent jamais le Pro (lot 6, B1) : ses dépendances lèvent si on les appelle. Seule
     // la lecture « un Pro couvre-t-il l'espace ? » répond (B2b).
@@ -96,6 +99,15 @@ describe('le webhook Stripe et l’abonnement du numéro', () => {
     expect(cap.enregistres).toEqual([{ tenantId: T1, abonnementId: 'sub_1', livemode: true, periodeFin: null }]);
     expect(cap.credits).toBe(0);
     expect(cap.alertes).toEqual([]);
+  });
+
+  it('🔴 lot 2 du 2026-11-17 : l’abonnement enregistré demande la déduction de l’essai du Pro ; un doublon, jamais', async () => {
+    const { srv, cap } = monter();
+    await envoyer(srv, evenement(sessionAbonnement(), 'checkout.session.completed'));
+    expect(cap.deductions).toEqual([{ tenantId: T1, abonnementId: 'sub_1' }]);
+    const doublon = monter({ issue: { etat: 'doublon' } });
+    await envoyer(doublon.srv, evenement(sessionAbonnement(), 'checkout.session.completed'));
+    expect(doublon.cap.deductions).toEqual([]);
   });
 
   it('🔴 la réserve s’est vidée entre-temps : enregistré sans numéro, et Julien est prévenu', async () => {

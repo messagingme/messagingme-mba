@@ -656,6 +656,13 @@ export const schema = z.object({
    */
   STRIPE_PRIX_NUMERO: z.string().default(''),
   /**
+   * La remise que Julien a créée chez Stripe pour le numéro payé pendant l'essai du Pro (lot 2 du 2026-11-17) : 3,50 €
+   * « une fois », réservée au produit du Pro, sous le MÊME identifiant en mode test et en mode live. Posée sur le Pro en
+   * essai quand son espace paie un numéro, elle déduit les 3,50 € de sa première facture (`poserRemiseUneFois`). Vide :
+   * Julien est prévenu de la poser à la main. Un identifiant de coupon Stripe : lettres, chiffres, `_` et `-`.
+   */
+  STRIPE_COUPON_NUMERO_ESSAI: z.string().regex(/^[A-Za-z0-9_-]{0,100}$/, 'un identifiant de coupon Stripe').default(''),
+  /**
    * Le prix mensuel de l'option du Crédit WhatsApp (lot 4a) : 30 € HT par numéro et par mois, taxe en sus, relu chez
    * Stripe avant chaque paiement (`PRIX_OPTION_WA_HT_CENTIMES`). Vide : l'option n'est pas en vente (503), et la console ne
    * la montre pas.

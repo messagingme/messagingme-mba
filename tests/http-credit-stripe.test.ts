@@ -419,6 +419,7 @@ function webhook(o: { paiements?: ReturnType<typeof fauxPaiements>; apresCredit?
       noterFinPrevue: async () => { throw new Error('une recharge a touché l’abonnement du numéro'); },
       reprendreCampagnes: async () => { throw new Error('une recharge a repris des campagnes'); },
       inclusDansLOffre: async () => { throw new Error('une recharge a lu la couverture du numéro'); },
+      deduireDeLEssai: async () => { throw new Error('une recharge a posé une remise sur le Pro'); },
       alerter: async (texte) => { alertes.push(texte); },
     },
     // Une recharge ne touche jamais le Pro non plus (lot 6, B1).

@@ -67,9 +67,10 @@ export interface NumeroFourniRouteDeps {
   /**
    * L'offre de l'espace inclut-elle le numéro fourni (la grille : le Pro, le Business, l'Entreprise) ? Il s'attribue alors
    * sans abonnement du numéro, et aucun paiement du numéro ne s'ouvre. Requis : un câblage qui l'oublierait ferait payer
-   * un numéro à un client qui l'a déjà dans son offre.
+   * un numéro à un client qui l'a déjà dans son offre. Un Pro EN ESSAI ne l'inclut pas (lot 2 du 2026-11-17) : il le
+   * paie 3,50 €, déduits de sa première facture, et `essaiPro` le dit à la page.
    */
-  offre: { numeroInclus(tenantId: string): Promise<boolean> };
+  offre: { numeroInclus(tenantId: string): Promise<boolean>; essaiPro(tenantId: string): Promise<boolean> };
   /**
    * La filière application WhatsApp Business (2026-10-22) : relier par QR code depuis la page du lien. Requise : l'état
    * de la connexion la lit aussi, sans quoi un compte relié n'y serait jamais dit connecté.

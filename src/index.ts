@@ -283,7 +283,7 @@ import type { Origine } from './reglages/historique';
 import { creerOffreDeBienvenue } from './account/offre-bienvenue';
 import { creerGelMembres, roleEffectif } from './offres/membres';
 import { commissionPour } from './offres/commission';
-import { surFinDeLOffreManuelle, surFinDuPro, surPassageEnPro, type DepsNumeroInclus } from './offres/numero-inclus';
+import { inclutLeNumero, surFinDeLOffreManuelle, surFinDuPro, surNumeroPayePendantLEssai, surPassageEnPro, type DepsNumeroInclus } from './offres/numero-inclus';
 import { contratOpenapi } from './api/openapi';
 
 /**
@@ -412,11 +412,15 @@ async function main(): Promise<void> {
   // garde le cache : un membre payé sur une autre copie peut y être refusé 30 s au plus.
   const offresSansCache = new PgOffresStore(pool);
   /**
-   * L'offre de l'espace inclut-elle le numéro fourni (`limites.numeroInclus` : le Pro, le Business, l'Entreprise) ? Lue
-   * sans cache : un Business que Julien vient de poser dans /ops couvre le numéro tout de suite (spec du 2026-10-27).
+   * L'offre de l'espace inclut-elle le numéro fourni (`inclutLeNumero` : la grille, sauf un Pro en essai, lot 2 du
+   * 2026-11-17) ? Lue sans cache : un Business que Julien vient de poser dans /ops couvre le numéro tout de suite (spec du
+   * 2026-10-27).
    */
   const offreQuiInclutLeNumero = {
-    numeroInclus: async (tenant: string): Promise<boolean> => (await offresSansCache.offreDe(tenant)).droits.limites.numeroInclus,
+    numeroInclus: async (tenant: string): Promise<boolean> =>
+      inclutLeNumero(await offresSansCache.offreDe(tenant), async () => (await abonnementsOffre.enEssai(tenant)) !== null),
+    /** Le Pro de l'espace est-il en essai ? La page et Claude disent alors que les 3,50 € se déduisent du premier mois. */
+    essaiPro: async (tenant: string): Promise<boolean> => (await abonnementsOffre.enEssai(tenant)) !== null,
   };
   // Chaque espace qui naît, quel que soit son chemin (Google, e-mail, lien, Claude Code), annoncé à Julien sur Telegram.
   const annoncerEspace = (e: EspaceNe): Promise<boolean> => sendTelegram(
@@ -1232,6 +1236,7 @@ async function main(): Promise<void> {
   const numeroInclus: DepsNumeroInclus = {
     stripe: paiementDeLaConsole.stripe,
     prixNumero: config.STRIPE_PRIX_NUMERO,
+    couponNumeroEssai: config.STRIPE_COUPON_NUMERO_ESSAI,
     numero: {
       deLEspace: (tenant) => abonnementsNumero.deLEspace(tenant),
       numeroAttribue: async (tenant) => (await numerosFournis.numeroDeLEspace(tenant)) !== null,
@@ -1240,9 +1245,11 @@ async function main(): Promise<void> {
       oublierAvisDeSuspension: (tenant) => abonnementsNumero.oublierAvisDeSuspension(tenant),
       porterLaFinParLePro: (a) => abonnementsNumero.porterLaFinParLePro(a),
       porterLaFinParLOps: (a) => abonnementsNumero.porterLaFinParLOps(a),
+      payePendantLEssai: (tenant, abonnementId) => abonnementsNumero.payePendantLEssai(tenant, abonnementId),
     },
     reprendreCampagnes: async (tenant) => { await numeroDelieStore.leverPausesSuspension(tenant); },
     proVivant: (tenant) => abonnementsOffre.vivant(tenant),
+    proEnEssai: (tenant) => abonnementsOffre.enEssai(tenant),
     offreManuelleCouvre: async (tenant) => {
       const o = await offresSansCache.offreDe(tenant);
       return (o.offre === 'business' || o.offre === 'entreprise') && o.droits.limites.numeroInclus;
@@ -2375,6 +2382,8 @@ async function main(): Promise<void> {
           noterFinPrevue: (abonnementId, fin) => abonnementsNumero.noterFinPrevue(abonnementId, fin),
           reprendreCampagnes: async (tenant) => { await numeroDelieStore.leverPausesSuspension(tenant); },
           inclusDansLOffre: (tenant) => offreQuiInclutLeNumero.numeroInclus(tenant),
+          // Lot 2 du 2026-11-17 : payé pendant l'essai du Pro, le numéro se déduit de sa première facture.
+          deduireDeLEssai: (tenant, abonnementId) => surNumeroPayePendantLEssai(numeroInclus, tenant, abonnementId),
           alerter: async (texte) => { await sendTelegram(`[mba-${NOM_API}] ${texte}`); },
         },
         // Le Pro (lot 6, livraison B1) : son magasin, le cache de l'offre de CETTE copie vidé à chaque écriture (les autres

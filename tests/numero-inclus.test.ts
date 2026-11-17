@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { surFinDeLOffreManuelle, surFinDuPro, surPassageEnPro, type DepsNumeroInclus, type FinDuPro } from '../src/offres/numero-inclus';
+import { inclutLeNumero, surFinDeLOffreManuelle, surFinDuPro, surNumeroPayePendantLEssai, surPassageEnPro, type DepsNumeroInclus, type FinDuPro } from '../src/offres/numero-inclus';
 import type { ReponseStripe, TransportStripe } from '../src/stripe/client';
 import type { AbonnementNumero, IssueEnregistrement } from '../src/stripe/abonnements.pg';
 
@@ -12,9 +12,9 @@ import type { AbonnementNumero, IssueEnregistrement } from '../src/stripe/abonne
 const T = '5f0c1e2a-8b7d-4c3e-9a1f-2d6b7e8c9f01';
 
 class FauxStripe implements TransportStripe {
-  readonly appels: Array<{ methode: 'POST' | 'DELETE'; url: string; corps: URLSearchParams; cle: string }> = [];
+  readonly appels: Array<{ methode: 'GET' | 'POST' | 'DELETE'; url: string; corps: URLSearchParams; cle: string }> = [];
   constructor(private readonly reponses: ReponseStripe[]) {}
-  private repondre(methode: 'POST' | 'DELETE', url: string, corps: string, entetes: Record<string, string>): ReponseStripe {
+  private repondre(methode: 'GET' | 'POST' | 'DELETE', url: string, corps: string, entetes: Record<string, string>): ReponseStripe {
     this.appels.push({ methode, url, corps: new URLSearchParams(corps), cle: entetes['idempotency-key'] ?? '' });
     const r = this.reponses.shift();
     if (!r) throw new Error('appel non prévu');
@@ -22,7 +22,8 @@ class FauxStripe implements TransportStripe {
   }
   async post(url: string, corps: string, entetes: Record<string, string>) { return this.repondre('POST', url, corps, entetes); }
   async delete(url: string, corps: string, entetes: Record<string, string>) { return this.repondre('DELETE', url, corps, entetes); }
-  async get(): Promise<ReponseStripe> { throw new Error('lecture non prévue'); }
+  // La pose de la remise de l'essai relit l'abonnement d'abord (lot 2 du 2026-11-17).
+  async get(url: string, entetes: Record<string, string>) { return this.repondre('GET', url, '', entetes); }
 }
 
 const numeroSeul = (o: Partial<AbonnementNumero> = {}): AbonnementNumero => ({
@@ -33,6 +34,8 @@ const numeroSeul = (o: Partial<AbonnementNumero> = {}): AbonnementNumero => ({
 function monter(o: {
   reponses?: ReponseStripe[]; numero?: AbonnementNumero | null; attribue?: boolean; stripe?: boolean; livemode?: boolean;
   apporte?: boolean; proVivant?: boolean; offreManuelle?: boolean; issueEnregistrement?: IssueEnregistrement;
+  /** Lot 2 du 2026-11-17 : la remise configurée (vide = non), le Pro en essai, et le numéro payé pendant l'essai. */
+  coupon?: string; proEnEssai?: { abonnementId: string; livemode: boolean } | null; payePendantLEssai?: boolean;
 } = {}) {
   const transport = new FauxStripe(o.reponses ?? []);
   const journal: string[] = [];
@@ -40,6 +43,7 @@ function monter(o: {
   const d: DepsNumeroInclus = {
     stripe: o.stripe === false ? null : { cle: 'rk_live_fausse', livemode: o.livemode ?? true, transport },
     prixNumero: 'price_numero',
+    couponNumeroEssai: o.coupon ?? '',
     numero: {
       deLEspace: async () => (o.numero === undefined ? null : o.numero),
       numeroAttribue: async () => o.attribue ?? true,
@@ -51,9 +55,11 @@ function monter(o: {
       oublierAvisDeSuspension: async (t) => { journal.push(`avis-oublies:${t}`); },
       porterLaFinParLePro: async (a) => { journal.push(`porte:${a.abonnementPro}:${a.finiLe.toISOString()}`); return true; },
       porterLaFinParLOps: async (a) => { journal.push(`porte-ops:${a.livemode}:${a.finiLe.toISOString()}`); return true; },
+      payePendantLEssai: async () => o.payePendantLEssai ?? false,
     },
     reprendreCampagnes: async (t) => { journal.push(`campagnes:${t}`); },
     proVivant: async () => o.proVivant ?? false,
+    proEnEssai: async () => o.proEnEssai ?? null,
     offreManuelleCouvre: async () => o.offreManuelle ?? false,
     alerter: async (texte) => { alertes.push(texte); },
   };
@@ -279,5 +285,84 @@ describe('à la fin d’une offre posée à la main (Business, Entreprise)', () 
     const m = monter({ stripe: false });
     expect(await surFinDeLOffreManuelle(m.d, { tenantId: T, finiLe: RETRAIT })).toBe('porte');
     expect(m.journal).toEqual([`porte-ops:false:${RETRAIT.toISOString()}`]);
+  });
+});
+
+describe('le numéro payé pendant l’essai du Pro (lot 2 du 2026-11-17)', () => {
+  const COUPON = 'numero-pendant-essai';
+  const PRO = { abonnementId: 'sub_PRO', livemode: true };
+  const LU = (discounts: unknown[] = []) => ({ status: 200, json: { id: 'sub_PRO', discounts } });
+
+  it('🔴 la grille, sauf un Pro EN ESSAI : il n’inclut pas le numéro ; un Business ou une Entreprise le couvrent toujours', async () => {
+    const offre = (o: string, numeroInclus: boolean) => ({ offre: o, droits: { limites: { numeroInclus } } });
+    expect(await inclutLeNumero(offre('pro', true), async () => false)).toBe(true);
+    expect(await inclutLeNumero(offre('pro', true), async () => true)).toBe(false);
+    // L'essai n'est même pas lu hors du Pro : une offre posée dans /ops couvre le numéro, Pro en essai ou non.
+    const jamais = async (): Promise<boolean> => { throw new Error('l’essai lu hors du Pro'); };
+    expect(await inclutLeNumero(offre('business', true), jamais)).toBe(true);
+    expect(await inclutLeNumero(offre('entreprise', true), jamais)).toBe(true);
+    expect(await inclutLeNumero(offre('base', false), jamais)).toBe(false);
+  });
+
+  it('hors essai : rien chez Stripe, aucune alerte', async () => {
+    const m = monter({ coupon: COUPON, proEnEssai: null });
+    expect(await surNumeroPayePendantLEssai(m.d, T, 'sub_NUM')).toBe('hors_essai');
+    expect(m.transport.appels).toEqual([]);
+    expect(m.alertes).toEqual([]);
+  });
+
+  it('🔴 en essai : la remise est posée sur le Pro, relu d’abord, sous une clé d’idempotence propre au numéro', async () => {
+    const m = monter({ coupon: COUPON, proEnEssai: PRO, reponses: [LU(), { status: 200, json: { id: 'sub_PRO' } }] });
+    expect(await surNumeroPayePendantLEssai(m.d, T, 'sub_NUM')).toBe('posee');
+    expect(m.transport.appels.map((a) => a.methode)).toEqual(['GET', 'POST']);
+    expect(m.transport.appels[1]).toMatchObject({ url: 'https://api.stripe.com/v1/subscriptions/sub_PRO', cle: 'remise-numero-essai-sub_NUM' });
+    expect(m.transport.appels[1]!.corps.get('discounts[0][coupon]')).toBe(COUPON);
+    expect(m.alertes).toEqual([]);
+  });
+
+  it('🔴 déjà posée (un rejeu du webhook) : une lecture, aucune écriture, aucune alerte', async () => {
+    const m = monter({ coupon: COUPON, proEnEssai: PRO, reponses: [LU([{ id: 'di_1', source: { coupon: COUPON } }])] });
+    expect(await surNumeroPayePendantLEssai(m.d, T, 'sub_NUM')).toBe('deja');
+    expect(m.transport.appels.map((a) => a.methode)).toEqual(['GET']);
+    expect(m.alertes).toEqual([]);
+  });
+
+  it('🔴 remise pas configurée, ou Stripe d’un autre mode : rien chez Stripe, Julien prévenu de la poser à la main', async () => {
+    const sansCoupon = monter({ coupon: '', proEnEssai: PRO });
+    expect(await surNumeroPayePendantLEssai(sansCoupon.d, T, 'sub_NUM')).toBe('a_poser_a_la_main');
+    expect(sansCoupon.alertes[0]).toMatch(/STRIPE_COUPON_NUMERO_ESSAI/);
+    expect(sansCoupon.alertes[0]).toMatch(/sub_PRO/);
+    const autreMode = monter({ coupon: COUPON, proEnEssai: { abonnementId: 'sub_PRO', livemode: false } });
+    expect(await surNumeroPayePendantLEssai(autreMode.d, T, 'sub_NUM')).toBe('a_poser_a_la_main');
+    expect([sansCoupon.transport.appels, autreMode.transport.appels]).toEqual([[], []]);
+  });
+
+  it('🔴 Stripe refuse la pose : rien ne lève, Julien est prévenu ; une pose déjà en cours (409) n’est pas un refus', async () => {
+    const refus = monter({ coupon: COUPON, proEnEssai: PRO, reponses: [LU(), { status: 400, json: { error: { type: 'invalid_request_error', code: 'resource_missing', message: 'No such coupon' } } }] });
+    await expect(surNumeroPayePendantLEssai(refus.d, T, 'sub_NUM')).resolves.toBe('a_poser_a_la_main');
+    expect(refus.alertes).toHaveLength(1);
+    expect(refus.alertes[0]).toMatch(/resource_missing/);
+    const enCours = monter({ coupon: COUPON, proEnEssai: PRO, reponses: [LU(), { status: 409, json: { error: { type: 'idempotency_error', code: 'idempotency_key_in_use', message: 'in use' } } }] });
+    expect(await surNumeroPayePendantLEssai(enCours.d, T, 'sub_NUM')).toBe('en_cours');
+    expect(enCours.alertes).toEqual([]);
+  });
+
+  it('🔴 au passage en Pro payant, le numéro payé pendant l’essai s’arrête SANS avoir : la remise l’a déjà remboursé', async () => {
+    const m = monter({ coupon: COUPON, payePendantLEssai: true, numero: numeroSeul(), reponses: [{ status: 200, json: { id: 'sub_NUM', status: 'canceled' } }] });
+    await surPassageEnPro(m.d, T, { arreterLeNumeroSeul: true });
+    expect(m.transport.appels).toMatchObject([{ methode: 'DELETE', url: 'https://api.stripe.com/v1/subscriptions/sub_NUM', cle: 'arret-sub_NUM' }]);
+    expect(Object.fromEntries(m.transport.appels[0]!.corps)).toEqual({});
+  });
+
+  it('🔴 sans remise configurée, le numéro payé pendant l’essai garde son avoir au prorata (rien ne l’a remboursé)', async () => {
+    const m = monter({ coupon: '', payePendantLEssai: true, numero: numeroSeul(), reponses: [{ status: 200, json: { id: 'sub_NUM', status: 'canceled' } }] });
+    await surPassageEnPro(m.d, T, { arreterLeNumeroSeul: true });
+    expect(Object.fromEntries(m.transport.appels[0]!.corps)).toEqual({ prorate: 'true', invoice_now: 'true' });
+  });
+
+  it('sans Stripe : Julien est prévenu d’arrêter à la main SANS avoir un numéro remboursé par la remise', async () => {
+    const m = monter({ coupon: COUPON, payePendantLEssai: true, numero: numeroSeul(), stripe: false });
+    await surPassageEnPro(m.d, T, { arreterLeNumeroSeul: true });
+    expect(m.alertes[0]).toMatch(/sans avoir/);
   });
 });

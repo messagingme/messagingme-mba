@@ -324,6 +324,24 @@ export class PgAbonnementsNumeroStore {
     return (await this.numerosDeLEspace(tenantId)).numeroApporte;
   }
 
+  /**
+   * L'abonnement du numéro est-il né PENDANT l'essai d'un Pro de son espace (2026-11-17, lot 2) ? C'est la même règle que
+   * la pose de la remise de 3,50 € sur ce Pro (`surNumeroPayePendantLEssai`, au premier enregistrement de l'abonnement) :
+   * un numéro payé pendant l'essai est remboursé par la remise, il s'arrête donc SANS avoir au passage en Pro payant.
+   * 🔴 La fenêtre est celle de l'essai, bornes comprises : un numéro payé AVANT l'essai (un Free devenu Pro) garde son
+   * avoir au prorata, comme avant ce lot. `cree_le` est l'heure du premier enregistrement (le webhook), jamais réécrite.
+   */
+  async payePendantLEssai(tenantId: string, abonnementId: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `select 1 from abonnements_numero n join abonnements_offre o on o.tenant_id = n.tenant_id
+        where n.tenant_id = $1 and n.stripe_subscription_id = $2
+          and o.essai_fin_le is not null and n.cree_le >= o.cree_le and n.cree_le <= o.essai_fin_le
+        limit 1`,
+      [tenantId, abonnementId],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
   /** L'abonnement de l'espace : le vivant s'il y en a un, sinon le dernier résilié ; `null` s'il n'en a jamais eu. */
   async deLEspace(tenantId: string): Promise<AbonnementNumero | null> {
     const res = await this.pool.query<Ligne>(

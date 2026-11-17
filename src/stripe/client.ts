@@ -80,7 +80,7 @@ export const LECTURE_AVANT_ENVOI = 'lecture_avant_envoi';
 /** Stripe a refusé, ou n'a pas répondu. `type` et `code` sont ceux de Stripe quand il les donne. */
 export class StripeError extends Error {
   constructor(
-    readonly operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege' | 'essai',
+    readonly operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege' | 'essai' | 'remise',
     readonly status: number | null,
     readonly type: string | null,
     readonly code: string | null,
@@ -113,7 +113,7 @@ const sessionSchema = z.object({ id: z.string().startsWith('cs_'), url: z.string
  */
 async function appeler<T>(
   transport: TransportStripe,
-  operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege' | 'essai',
+  operation: 'prix' | 'facture' | 'client' | 'session' | 'abonnement' | 'portail' | 'resiliation' | 'siege' | 'essai' | 'remise',
   chemin: string,
   champs: Record<string, string> | null,
   o: { cle: string; idempotence?: string; supprimer?: true },
@@ -623,6 +623,50 @@ export async function lireAbonnementStripe(transport: TransportStripe, o: { cle:
     statut: a.status, lignes: versLignes(a.items.data), derniereFacture: f ? (typeof f === 'string' ? f : f.id) : null,
     finPrevueLe: finPrevueDe(a), remise: (a.discounts?.length ?? 0) > 0,
   };
+}
+
+/**
+ * Une remise d'abonnement, étendue (`expand[]=discounts`). Son coupon se lit sur `source.coupon` depuis la version
+ * « basil » de l'API, et sur `coupon` avant : les deux sont lus, chacun en identifiant ou en objet.
+ */
+const couponDeRemise = z.union([z.string(), z.object({ id: z.string() })]).nullable().optional();
+const remiseSchema = z.object({
+  id: z.string().startsWith('di_'),
+  source: z.object({ coupon: couponDeRemise }).nullable().optional(),
+  coupon: couponDeRemise,
+});
+const remisesSchema = z.object({
+  id: z.string().startsWith('sub_'),
+  discounts: z.array(remiseSchema).nullable().optional(),
+});
+const idDuCoupon = (c: z.infer<typeof couponDeRemise>): string | null => (c ? (typeof c === 'string' ? c : c.id) : null);
+
+/**
+ * POSE UNE REMISE SUR UN ABONNEMENT, UNE SEULE FOIS (2026-11-17, lot 2 : le numéro payé 3,50 € pendant l'essai du Pro,
+ * déduit de sa première facture). La remise est un coupon que Julien a créé chez Stripe (`STRIPE_COUPON_NUMERO_ESSAI`,
+ * 3,50 € une fois, réservé au Pro) : la clé restreinte n'écrit que les abonnements, elle ne crée aucun coupon.
+ * - Relue d'abord, remises étendues : déjà posée (son coupon parmi celles de l'abonnement), rien ne part et `deja` rend
+ *   compte d'un rejeu du webhook.
+ * - 🔴 `discounts` REMPLACE toutes les remises de l'abonnement : celles qui y sont (un code promo du Checkout) sont
+ *   renvoyées par leur identifiant, sinon la pose du coupon effacerait le code promo du client.
+ * - `proration_behavior=none` : une remise ne se facture pas, elle s'applique à la prochaine facture de l'abonnement
+ *   (pendant l'essai, celle de la fin de l'essai). Elle disparaît avec l'abonnement : un essai abandonné ne laisse rien.
+ * La clé restreinte doit pouvoir LIRE et ÉCRIRE les abonnements.
+ */
+export async function poserRemiseUneFois(transport: TransportStripe, o: {
+  cle: string; abonnementId: string; coupon: string; idempotence: string;
+}): Promise<'posee' | 'deja'> {
+  const chemin = `/subscriptions/${encodeURIComponent(o.abonnementId)}`;
+  const avant = await appeler(transport, 'remise', `${chemin}?${formulaire({ 'expand[]': 'discounts' })}`, null, { cle: o.cle }, remisesSchema);
+  if (avant.id !== o.abonnementId) throw new StripeError('remise', 200, null, LECTURE_AVANT_ENVOI, 'reponse pour un autre abonnement');
+  const remises = avant.discounts ?? [];
+  if (remises.some((r) => (idDuCoupon(r.source?.coupon) ?? idDuCoupon(r.coupon)) === o.coupon)) return 'deja';
+  const champs: Record<string, string> = { proration_behavior: 'none' };
+  remises.forEach((r, i) => { champs[`discounts[${i}][discount]`] = r.id; });
+  champs[`discounts[${remises.length}][coupon]`] = o.coupon;
+  const apres = await appeler(transport, 'remise', chemin, champs, { cle: o.cle, idempotence: o.idempotence }, z.object({ id: z.string().startsWith('sub_') }));
+  if (apres.id !== o.abonnementId) throw new StripeError('remise', 200, null, null, 'reponse pour un autre abonnement');
+  return 'posee';
 }
 
 /**

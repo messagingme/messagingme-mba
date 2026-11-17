@@ -769,6 +769,7 @@ export const stripeNumeroInerte: StripeWebhookRouteDeps['numero'] = {
   alerter: async () => {},
   reprendreCampagnes: neDevraitPasEtreAppelee('stripe.numero.reprendreCampagnes'),
   inclusDansLOffre: neDevraitPasEtreAppelee('stripe.numero.inclusDansLOffre'),
+  deduireDeLEssai: neDevraitPasEtreAppelee('stripe.numero.deduireDeLEssai'),
 };
 
 /** Le Pro pour un webhook Stripe qui ne vend que le numéro et la recharge (lot 6, B1) : un événement du Pro y lèverait. */

@@ -245,20 +245,39 @@ const VIDEO_FOURNI = 'Avant le lien, donne-lui la page qui montre ce parcours en
   + `l’adresse de sa langue : en français ${AIDE_NUMERO_FOURNI.fr} ; dans une autre langue ${AIDE_NUMERO_FOURNI.en} . `;
 
 /**
+ * CE QUE LE NUMÉRO FOURNI COÛTE À L'ESPACE, une seule source pour les trois consignes et la lecture de l'abonnement (lot 2
+ * du 2026-11-17) : inclus dans l'offre (rien à payer), payant (3,50 € HT par mois), ou payant PENDANT L'ESSAI du Pro, dont
+ * les 3,50 € se déduisent du premier mois de Pro (`surNumeroPayePendantLEssai`). Claude n'annonce jamais un prix que la
+ * page ne demande pas, ni ne tait une déduction qu'elle fait.
+ */
+type PrixDuNumero = 'inclus' | 'essai' | 'payant';
+const prixDuNumero = (e: Pick<EtatConnexion, 'inclusDansLePro' | 'essaiPro'>): PrixDuNumero =>
+  (e.inclusDansLePro ? 'inclus' : e.essaiPro ? 'essai' : 'payant');
+const ETAPE_PRIX: Record<PrixDuNumero, string> = {
+  inclus: '« Obtenir mon numéro » : il est inclus dans son offre, rien à payer ; le numéro s’affiche sur la page.',
+  essai: '« Payer 3,50 € HT par mois » : pendant son essai de la formule Pro, ces 3,50 € sont déduits de son premier mois '
+    + 'de formule Pro ; une fois le paiement confirmé, le numéro s’affiche sur la page.',
+  payant: '« Payer 3,50 € HT par mois » ; une fois le paiement confirmé, le numéro s’affiche sur la page.',
+};
+const PRIX_DIT: Record<PrixDuNumero, string> = {
+  inclus: 'inclus en formule Pro',
+  essai: '3,50 € HT par mois, déduits du premier mois de formule Pro (essai en cours)',
+  payant: '3,50 € HT par mois',
+};
+
+/**
  * La consigne du numéro fourni : les étapes de la page (`ETAPES_NUMERO_FOURNI`, la même source), encadrées par le lien
  * et le paiement avant, et par le retour vers Claude après « Finish » (essai 99, ordre de Julien). En Pro (J4 de la
  * relecture de B2b), le numéro est inclus : la page l'obtient sans payer, et Claude n'annonce pas un prix qu'elle ne
  * demande pas.
  */
-const consigneFourni = (inclusDansLePro: boolean, url: string, ligne: boolean): string =>
+const consigneFourni = (prix: PrixDuNumero, url: string, ligne: boolean): string =>
   (ligne ? SANS_CARTE + PREREQUIS_LIGNE_FOURNI + CODE_EXPLIQUE + QUI_PAIE_LIGNE : PREREQUIS_FOURNI + CODE_EXPLIQUE + QUI_PAIE_API + VIDEO_FOURNI)
   + lienEnEntier(url) + 'Il ouvre la page de connexion de son numéro, sans se connecter, pendant une heure. Donne-lui ces '
   + 'étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
   + numerotees([
     'Cliquer sur le lien.',
-    inclusDansLePro
-      ? '« Obtenir mon numéro » : il est inclus dans son offre, rien à payer ; le numéro s’affiche sur la page.'
-      : '« Payer 3,50 € HT par mois » ; une fois le paiement confirmé, le numéro s’affiche sur la page.',
+    ETAPE_PRIX[prix],
     ...ETAPES_NUMERO_FOURNI.map((e) => e.fr),
     'Revenir te voir seulement une fois l’écran « Finish » passé.',
   ])
@@ -334,7 +353,7 @@ const GARDER_APRES_COMPTE = 'Une fois le compte créé dans l’application, « 
  * vérification de l'application, mesuré le 2026-10-21), puis la fenêtre de Meta en coexistence sur ce même numéro. Les
  * étapes sont celles de la page (`ETAPES_COMPTE_FOURNI`, puis le bouton de la coexistence).
  */
-const consigneFourniApplication = (inclusDansLePro: boolean, url: string, ligne: boolean): string =>
+const consigneFourniApplication = (prix: PrixDuNumero, url: string, ligne: boolean): string =>
   // Borné au code de CRÉATION du compte de l'application (jaune 5) : la vérification que la fenêtre de Meta demande
   // ensuite sur un numéro fourni n'a jamais été mesurée, elle est à l'essai réel du lot.
   CODE_EXPLIQUE + 'Le code de création du compte de l’application se tape dans l’application WhatsApp Business, pas dans '
@@ -345,9 +364,7 @@ const consigneFourniApplication = (inclusDansLePro: boolean, url: string, ligne:
   + 'étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
   + numerotees([
     'Cliquer sur le lien.',
-    inclusDansLePro
-      ? '« Obtenir mon numéro » : il est inclus dans son offre, rien à payer ; le numéro s’affiche sur la page.'
-      : '« Payer 3,50 € HT par mois » ; une fois le paiement confirmé, le numéro s’affiche sur la page.',
+    ETAPE_PRIX[prix],
     ...ETAPES_COMPTE_FOURNI.map((e) => e.fr),
     GARDER_APRES_COMPTE,
   ])
@@ -414,13 +431,11 @@ const CONSIGNES_APPLICATION = {
     + 'QR code. Donne-lui ces étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
     + numerotees(['Ouvrir le lien sur un ordinateur.', ...ETAPES_RELIER_APPLICATION.map((e) => e.fr)])
     + SUIVRE_APPLICATION + SI_ELLE_REVIENT,
-  fourni: (inclusDansLePro: boolean, url: string) => lienEnEntier(url) + 'Il ouvre, sur un ordinateur, la page de connexion de son numéro, sans se '
+  fourni: (prix: PrixDuNumero, url: string) => lienEnEntier(url) + 'Il ouvre, sur un ordinateur, la page de connexion de son numéro, sans se '
     + 'connecter, pendant une heure. Donne-lui ces étapes, numérotées, une par ligne, dans sa langue ; la page affiche les mêmes : '
     + numerotees([
       'Ouvrir le lien sur un ordinateur.',
-      inclusDansLePro
-        ? '« Obtenir mon numéro » : il est inclus dans son offre, rien à payer ; le numéro s’affiche sur la page.'
-        : '« Payer 3,50 € HT par mois » ; une fois le paiement confirmé, le numéro s’affiche sur la page.',
+      ETAPE_PRIX[prix],
       ...ETAPES_COMPTE_FOURNI.map((e) => e.fr),
       ...ETAPES_RELIER_APPLICATION.map((e) => e.fr),
     ])
@@ -671,7 +686,7 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         abonnement: e.abonnement?.statut ?? null,
         prochaine_echeance: e.abonnement?.periodeFin ?? null,
         numero_fourni: e.fourni,
-        prix: e.inclusDansLePro ? 'inclus en formule Pro' : '3,50 € HT par mois',
+        prix: PRIX_DIT[prixDuNumero(e)],
         inclus_dans_le_pro: e.inclusDansLePro,
         // Lot 4 : l'état calculé (actif, fin_prevue, en_retard, suspendu, libere) et ses dates.
         etat: a?.etat ?? null,
@@ -841,9 +856,9 @@ export const OUTILS_NUMERO: OutilMcp[] = [
         url,
         expire_le: new Date(deps.numero.maintenant() + DUREE_LIEN_NUMERO_MS).toISOString(),
         consigne: filiere === 'application'
-          ? (mode === 'fourni' ? CONSIGNES_APPLICATION.fourni(etat.inclusDansLePro, url) : CONSIGNES_APPLICATION.apporte(url))
-          : (mode === 'fourni' ? consigneFourni(etat.inclusDansLePro, url, ligne)
-            : mode === 'fourni_application' ? consigneFourniApplication(etat.inclusDansLePro, url, ligne) : CONSIGNES[mode](url, ligne))
+          ? (mode === 'fourni' ? CONSIGNES_APPLICATION.fourni(prixDuNumero(etat), url) : CONSIGNES_APPLICATION.apporte(url))
+          : (mode === 'fourni' ? consigneFourni(prixDuNumero(etat), url, ligne)
+            : mode === 'fourni_application' ? consigneFourniApplication(prixDuNumero(etat), url, ligne) : CONSIGNES[mode](url, ligne))
             + SI_ELLE_BLOQUE,
       };
     },

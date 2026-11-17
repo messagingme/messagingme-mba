@@ -67,6 +67,8 @@ function monter(o: {
   appelApplication?: boolean;
   /** Seule l'application avait appelé : « Remplacer » rend le numéro au lieu de le bloquer. */
   seulementLApplication?: boolean;
+  /** Le Pro de l'espace est en essai (lot 2 du 2026-11-17) : le numéro n'y est pas inclus. */
+  essaiPro?: boolean;
 } = {}) {
   const cap = {
     attribues: 0, rendus: 0, remplaces: 0, gardes: 0, alertesReserve: [] as number[], bloques: [] as string[],
@@ -136,7 +138,7 @@ function monter(o: {
       },
       programmerFin: async (abonnementId) => { cap.fins.push(abonnementId); return o.fin ?? { ok: true, valeur: true }; },
     },
-    offre: { numeroInclus: async () => o.pro ?? false },
+    offre: { numeroInclus: async () => o.pro ?? false, essaiPro: async () => o.essaiPro ?? false },
     application: o.compteApplication ? {
       ...aucunCompteApplication,
       offrirCredit: async (t: string) => { o.offres?.push(t); },

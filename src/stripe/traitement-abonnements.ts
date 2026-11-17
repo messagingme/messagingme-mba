@@ -36,6 +36,12 @@ export interface DepsTraitementAbonnements {
      * fin de l'abonnement du numéro seul le dit (jaune 10 de la relecture de A) : un Business le couvre sans Pro vivant.
      */
     inclusDansLOffre(tenantId: string): Promise<boolean>;
+    /**
+     * Le numéro payé pendant l'essai du Pro (lot 2 du 2026-11-17, `surNumeroPayePendantLEssai`) : la remise de 3,50 € posée
+     * sur le Pro en essai de l'espace, une seule fois. Appelé à chaque enregistrement de l'abonnement, rejeu compris ; ne
+     * lève que sur une panne de base (un refus de Stripe prévient Julien).
+     */
+    deduireDeLEssai(tenantId: string, abonnementId: string): Promise<unknown>;
   };
   /**
    * Le Pro : son abonnement, l'invalidation immédiate du cache de l'offre, les alertes et les effets rejouables du
@@ -343,6 +349,8 @@ export function creerTraitementAbonnements(deps: DepsTraitementAbonnements) {
     }
     // Un réabonnement payé rend le numéro : les campagnes en pause sur sa suspension repartent.
     if (issue.etat === 'enregistre') await deps.numero.reprendreCampagnes(a.tenantId);
+    // Payé pendant l'essai du Pro (lot 2 du 2026-11-17) : ses 3,50 € se déduisent de la première facture du Pro. Rejouable.
+    if (issue.etat === 'enregistre') await deps.numero.deduireDeLEssai(a.tenantId, a.abonnementId);
     if (issue.etat === 'doublon') {
       await deps.numero.alerter(`Abonnement en double : ${a.abonnementId} pour l'espace ${a.tenantId}, qui en a déjà un. À annuler et rembourser chez Stripe. Tant qu'il ne l'est pas, chacune de ses factures redonne cette alerte.`);
     } else if (issue.etat === 'enregistre' && issue.numero === null) {

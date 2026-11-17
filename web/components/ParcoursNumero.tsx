@@ -117,6 +117,8 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const [finProgrammee, setFinProgrammee] = useState(false);
   /** Un Pro vivant inclut le numéro (lot 6, B2b) : il s'obtient sans payer. Faux tant qu'il n'est pas lu. */
   const [inclus, setInclus] = useState(false);
+  /** Le Pro est en essai (lot 2 du 2026-11-17) : le numéro se paie, ses 3,50 € se déduisent du premier mois de Pro. */
+  const [essaiPro, setEssaiPro] = useState(false);
   /** Filière application, numéro fourni : le QR code s'affiche une fois le compte créé dans l'application. */
   const [qrDemande, setQrDemande] = useState(false);
   /** La réponse à « Avez-vous un compte Meta Business ? » : gardée quand « Retour » ramène aux questions. */
@@ -172,6 +174,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
         if (!vivant || !fraiche(depart)) return;
         setAbonnement(r.etat.abonnement);
         setInclus(r.etat.inclusDansLePro === true);
+        setEssaiPro(r.etat.essaiPro === true);
         if (r.etat.fourni) { setNumero(r.etat.fourni); setCode(r.etat.code?.code ?? null); }
       }).catch(() => {});
     };
@@ -196,7 +199,9 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
       }
     }).catch(() => {});
     // L'abonnement, même quand un numéro est déjà là : le portail et le texte après « Abandonner » en dépendent.
-    api.etat().then((r) => { if (fraiche(depart)) { setAbonnement(r.etat.abonnement); setInclus(r.etat.inclusDansLePro === true); } }).catch(() => {});
+    api.etat().then((r) => {
+      if (fraiche(depart)) { setAbonnement(r.etat.abonnement); setInclus(r.etat.inclusDansLePro === true); setEssaiPro(r.etat.essaiPro === true); }
+    }).catch(() => {});
     // `api` change d'identité à chaque rendu de la page : l'espace suffit à dire qu'il faut relire.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenantId]);
@@ -345,6 +350,8 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
           <p className="mt-1 text-xs text-ink-500">
             {inclus
               ? t('Un numéro dédié, prêt pour WhatsApp. Inclus dans votre offre.', 'A dedicated number, ready for WhatsApp. Included in your plan.')
+              : essaiPro
+              ? t(ESSAI_PRO_CARTE.fr, ESSAI_PRO_CARTE.en)
               : t('Un numéro dédié, prêt pour WhatsApp : 3,50 € HT par mois.', 'A dedicated number, ready for WhatsApp: €3.50 excl. VAT per month.')}
           </p>
         </button>
@@ -476,6 +483,11 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
             <p data-testid="numero-inclus" className="mt-3 text-sm text-ink-700">
               {t('Inclus dans votre offre : rien à payer.', 'Included in your plan: nothing to pay.')}
             </p>
+          ) : essaiPro && !(paiementRecu && abonnement === null) ? (
+            // Pendant l'essai du Pro (lot 2 du 2026-11-17) : le numéro se paie, ses 3,50 € se déduisent du premier mois.
+            <p data-testid="numero-essai-deduit" className="mt-3 text-sm text-ink-700">
+              {t(ESSAI_PRO_PAIEMENT.fr, ESSAI_PRO_PAIEMENT.en)}
+            </p>
           ) : paiementRecu && abonnement === null ? (
             <p data-testid="paiement-en-confirmation" className="mt-3 text-sm text-ink-700">
               {t('Paiement en cours de confirmation… votre numéro s’affichera ici dans quelques secondes.', 'Payment being confirmed… your number will show here in a few seconds.')}
@@ -578,6 +590,20 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
 }
 
 type Texte = { readonly fr: string; readonly en: string };
+
+/** La carte du numéro fourni pendant l'essai du Pro (lot 2 du 2026-11-17). */
+export const ESSAI_PRO_CARTE: Texte = {
+  fr: 'Un numéro dédié, prêt pour WhatsApp : 3,50 € HT, déduits de votre premier mois de formule Pro.',
+  en: 'A dedicated number, ready for WhatsApp: €3.50 excl. VAT, deducted from your first month of the Pro plan.',
+};
+
+/** Sous le paiement du numéro pendant l'essai du Pro (lot 2 du 2026-11-17). */
+export const ESSAI_PRO_PAIEMENT: Texte = {
+  fr: 'Pendant votre essai, le numéro se paie 3,50 € HT, déduits de votre premier mois de formule Pro. Sans formule Pro '
+    + 'ensuite, il reste à 3,50 € HT par mois.',
+  en: 'During your trial, the number costs €3.50 excl. VAT, deducted from your first month of the Pro plan. Without the Pro '
+    + 'plan afterwards, it stays at €3.50 excl. VAT per month.',
+};
 
 /** Dit à la place du code quand l'application WhatsApp a appelé un numéro destiné à la fenêtre de Meta (2026-11-17). */
 export const APPEL_APPLICATION: Texte = {

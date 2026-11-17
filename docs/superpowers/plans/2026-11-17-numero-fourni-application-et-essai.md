@@ -68,24 +68,59 @@ jaunes passent au lot 3 :
 
 ## Lot 2 : le numéro pendant l'essai du Pro
 
-1. **Droit au numéro** (`src/numero/reserve.ts`, `numeroInclus` dans `src/index.ts`) : un Pro en essai
-   (`essai_fin_le > now()`) n'inclut pas le numéro ; il le prend comme un Free, par l'abonnement du numéro à 3,50 €,
-   attribué au paiement confirmé. Inventorier chaque lecteur de `numeroInclus` (Business, fin d'offre, MCP) avant de
-   changer sa réponse.
-2. **Fin de l'essai payée** (`src/stripe/traitement-abonnements.ts`, `src/offres/numero-inclus.ts`) : à la première
-   facture du Pro PAYÉE, l'abonnement du numéro seul s'arrête SANS avoir au prorata, et 3,50 € sont crédités au solde du
-   client Stripe, imputés sur cette facture ou la suivante. `surPassageEnPro` n'arrête plus le numéro seul au DÉBUT de
-   l'essai. Vérifier que le Pro et le numéro partagent le même client Stripe, sinon le crédit tombe à côté.
-3. **Essai abandonné** : l'espace redevient Free, l'abonnement du numéro continue à 3,50 € par mois, rien à faire.
-4. **Écran** : la carte « Un numéro de chez nous » dit « 3,50 € aujourd'hui, déduits de votre premier mois de Pro »
-   pendant l'essai ; Claude dit la même chose (`src/mcp/outils-numero.ts`).
+Mécanisme tranché par Julien le 2026-11-17, après lecture du code : une **remise sur la première facture du Pro**. Un
+avoir posé à la conversion tomberait sur la facture SUIVANTE (la première est déjà payée quand on l'apprend ; un an plus
+tard pour un Pro annuel), et la clé restreinte n'écrit que les abonnements : ni coupon, ni solde de client.
 
-Tests : unitaires du droit (essai, Pro payé, Free), du traitement de la première facture (arrêt, crédit, idempotence
-sur un webhook rejoué), intégration du store ; e2e de la carte en essai.
+1. **Droit au numéro** (`inclutLeNumero`, `src/offres/numero-inclus.ts`, câblé dans `src/index.ts`) : un Pro en essai
+   (`PgAbonnementsOffreStore.enEssai` : vivant, `essai_fin_le` à venir) n'inclut pas le numéro ; il le prend comme un
+   Free, par l'abonnement du numéro à 3,50 €, attribué au paiement confirmé. Un Business ou une Entreprise posés dans
+   /ops le couvrent toujours. Lecteurs de `numeroInclus` relus : la route du numéro fourni (paiement ouvert au lieu de
+   « inclus »), l'état de la connexion (page et Claude), l'alerte de fin de l'abonnement du numéro.
+2. **La remise** (`surNumeroPayePendantLEssai`, appelée par le webhook à l'enregistrement de l'abonnement du numéro) :
+   si l'espace a un Pro en essai, le coupon `STRIPE_COUPON_NUMERO_ESSAI` (3,50 € « une fois », réservé au Pro, créé par
+   Julien) est rattaché à l'abonnement Pro par `poserRemiseUneFois` (relu d'abord, déjà posé = rien ; les remises en
+   place, un code promo, sont gardées). Refus de Stripe ou coupon pas configuré : Julien est prévenu de la poser à la main.
+3. **Au passage en Pro payant** (`surPassageEnPro`, première facture payée non nulle) : un numéro payé PENDANT l'essai
+   (`PgAbonnementsNumeroStore.payePendantLEssai`, la même fenêtre) s'arrête SANS avoir, la remise l'a remboursé ; un
+   numéro payé avant l'essai (un Free devenu Pro) garde son avoir au prorata, comme avant.
+4. **Essai abandonné** : la remise disparaît avec l'abonnement Pro, l'espace redevient Free, l'abonnement du numéro
+   continue à 3,50 € par mois (`surFinDuPro` le trouve vivant), rien à faire.
+5. **Écran** : la carte « Fournissez-moi un numéro » et le paiement disent « 3,50 € HT, déduits de votre premier mois
+   de formule Pro » pendant l'essai (`essaiPro` dans l'état de la connexion) ; Claude dit la même chose (une seule
+   source, `ETAPE_PRIX`, dans `src/mcp/outils-numero.ts`).
 
-Déploiement : API d'abord, puis console. **Essai réel** : un espace de test en essai prend un numéro (3,50 € débités en
-mode test Stripe), l'essai est avancé à sa fin (`trial_end=now`), la facture Pro vaut 45,50 €, l'abonnement du numéro
-est arrêté.
+Limite connue : un siège acheté PENDANT l'essai, après le numéro, produit une facture de prorata à 0 € qui pourrait
+consommer la remise « une fois » avant la fin de l'essai. Cas rare, à vérifier à l'essai réel si on le croise.
+
+Tests : unitaires de la règle (`inclutLeNumero`), de la pose (déjà posée, code promo gardé, refus, coupon absent), du
+webhook (déduction demandée à l'enregistrement, jamais pour un doublon), de l'arrêt sans avoir, de l'état et des
+consignes de Claude ; intégration des deux lectures en base (`enEssai`, `payePendantLEssai`).
+
+**Geste de Julien avant le déploiement** : créer chez Stripe, en mode test ET en mode live, un coupon de 3,50 € EUR,
+durée « une fois », réservé au produit du Pro, sous le même identifiant dans les deux modes (`numero-pendant-essai`) ;
+puis poser `STRIPE_COUPON_NUMERO_ESSAI` sur le conteneur de l'API. Sans lui, rien ne casse : chaque numéro payé pendant
+un essai le prévient de poser la remise à la main.
+
+Déploiement : API d'abord (`migration=aucune`), puis console. **Essai réel** : un espace de test en essai prend un numéro
+(3,50 € en mode test Stripe), la remise apparaît sur son Pro, l'essai est avancé à sa fin (`trial_end=now`), la facture
+Pro vaut 45,50 € HT, l'abonnement du numéro est arrêté sans avoir.
+
+**Relecture du lot 2** : aucun rouge, donc déployé tel quel ; ses jaunes partent avec le lot 3.
+
+- **L'arrêt sans avoir se décide sur une date, pas sur la remise appliquée** : remise refusée par Stripe (Julien
+  prévenu) et jamais posée à la main, siège pendant l'essai qui consomme la remise, ou variable retirée entre la pose et
+  la conversion. Lire les remises de la FACTURE payée (`expand[]=discounts`, la remise « une fois » a quitté
+  l'abonnement à ce moment-là) et ne retirer l'avoir que si le coupon y figure.
+- **La pose ne revérifie pas la fenêtre** : un rejeu tardif de l'événement d'un numéro payé AVANT l'essai, arrivé
+  pendant l'essai, poserait la remise en plus de l'avoir. Appeler `payePendantLEssai` avant de poser (une seule
+  définition) ; et borner sa jointure au Pro VIVANT (`o.fini_le is null`).
+- **Couverture SQL** : `OFFRES_NUMERO_INCLUS` (libération, suspension) couvre toujours un Pro en essai ; l'alerte de fin
+  d'un numéro payé pendant l'essai dit « envois coupés » à tort.
+- **Console** : `/offre` cache la carte de l'abonnement du numéro pour tout Pro vivant, essai compris.
+- **Textes du plugin** (`scripts/plugin/faq.ts`, `generer.ts`) : « inclus en formule Pro », sans l'essai.
+- Les espaces déjà en essai au déploiement, avec un numéro donné sous l'ancienne règle, le gardent sans payer (de fait,
+  un droit acquis) : à dire à Julien.
 
 ## Lot 3 : le nouvel arbre de questions
 

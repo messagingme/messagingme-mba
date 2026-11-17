@@ -67,6 +67,8 @@ export interface EtatConnexion {
   abonnement: { statut: 'actif' | 'en_retard' | 'resilie'; periodeFin: string | null } | null;
   /** Un Pro vivant inclut le numéro (lot 6, B2b) : il s'obtient sans payer. Absent sur une API plus ancienne. */
   inclusDansLePro?: boolean;
+  /** Le Pro de l'espace est en essai : le numéro se paie 3,50 €, déduits du premier mois de Pro (lot 2 du 2026-11-17). */
+  essaiPro?: boolean;
   /** Le compte de l'application WhatsApp Business (filière application) ; absent sans compte. */
   application?: { statut: QrApplication['statut']; numero: string };
 }

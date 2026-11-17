@@ -535,6 +535,48 @@ describe.skipIf(!url)('l’offre calculée (0218)', () => {
       }
     });
 
+    it('🔴 lot 2 du 2026-11-17 : le Pro EN ESSAI (fin à venir, vivant) ; un essai passé, écourté ou un Pro fini ne l’est plus', async () => {
+      const t = await espace('itest-offre-essai');
+      const pros = new PgAbonnementsOffreStore(pool);
+      expect(await pros.enEssai(t)).toBeNull();
+      await pro(t, 'sub_itestlot2essai', null);
+      // Payé dès le départ (aucune fin d'essai) : pas en essai.
+      expect(await pros.enEssai(t)).toBeNull();
+      await pool.query(`update abonnements_offre set essai_fin_le = now() + interval '10 days' where stripe_subscription_id = 'sub_itestlot2essai'`);
+      expect(await pros.enEssai(t)).toEqual({ abonnementId: 'sub_itestlot2essai', livemode: true });
+      // L'essai écourté (`noterFinEssai`, trial_end=now) : la fin ramenée à maintenant, il n'est plus en essai.
+      await pros.noterFinEssai('sub_itestlot2essai', new Date(Date.now() - 1000));
+      expect(await pros.enEssai(t)).toBeNull();
+      // Un Pro fini, même avec une fin d'essai à venir, ne compte pas.
+      await pool.query(`update abonnements_offre set essai_fin_le = now() + interval '10 days', fini_le = now() where stripe_subscription_id = 'sub_itestlot2essai'`);
+      expect(await pros.enEssai(t)).toBeNull();
+    });
+
+    it('🔴 lot 2 du 2026-11-17 : un numéro payé PENDANT l’essai (fenêtre comprise), pas avant, ni pour un autre espace', async () => {
+      const t = await espace('itest-offre-essai-numero');
+      const autre = await espace('itest-offre-essai-numero-autre');
+      const numeros = new PgAbonnementsNumeroStore(pool);
+      await pro(t, 'sub_itestessainum', null);
+      await pool.query(
+        `update abonnements_offre set cree_le = now() - interval '5 days', essai_fin_le = now() + interval '9 days' where stripe_subscription_id = 'sub_itestessainum'`,
+      );
+      // Avant l'essai (un Free devenu Pro), pendant, et le même identifiant vu depuis un autre espace.
+      await pool.query(
+        `insert into abonnements_numero (stripe_subscription_id, tenant_id, livemode, cree_le) values
+           ('sub_itestnumavant', $1, true, now() - interval '20 days'), ('sub_itestnumpendant', $2, true, now() - interval '2 days')`,
+        [autre, t],
+      );
+      expect(await numeros.payePendantLEssai(t, 'sub_itestnumpendant')).toBe(true);
+      expect(await numeros.payePendantLEssai(autre, 'sub_itestnumpendant')).toBe(false);
+      // Un seul abonnement vivant par espace (index) : celui d'avant l'essai ne rejoint l'espace qu'une fois l'autre résilié.
+      await pool.query(`update abonnements_numero set statut = 'resilie' where stripe_subscription_id = 'sub_itestnumpendant'`);
+      await pool.query(`update abonnements_numero set tenant_id = $1 where stripe_subscription_id = 'sub_itestnumavant'`, [t]);
+      expect(await numeros.payePendantLEssai(t, 'sub_itestnumavant')).toBe(false);
+      // Un Pro payé dès le départ (aucune fin d'essai) : aucun numéro n'a été payé « pendant son essai ».
+      await pool.query(`update abonnements_offre set essai_fin_le = null where stripe_subscription_id = 'sub_itestessainum'`);
+      expect(await numeros.payePendantLEssai(t, 'sub_itestnumpendant')).toBe(false);
+    });
+
     it('🔴 rendre le numéro à la fin du Pro : posé et retiré sur le Pro VIVANT seulement ; la suite du numéro le dit', async () => {
       const t = await espace('itest-offre-rendre');
       const pros = new PgAbonnementsOffreStore(pool);

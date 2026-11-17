@@ -46,11 +46,14 @@ describe('le traitement des événements Stripe d’abonnement', () => {
   it('enregistre directement une session payée du numéro fourni', async () => {
     const enregistres: unknown[] = [];
     const reprises: string[] = [];
+    const deductions: string[] = [];
     const numero: DepsTraitementAbonnements['numero'] = {
       ...stripeNumeroInerte,
       enregistrer: async (a) => { enregistres.push(a); return { etat: 'enregistre', numero: '33123456789' }; },
       reprendreCampagnes: async (tenantId) => { reprises.push(tenantId); },
       inclusDansLOffre: async () => false,
+      // Lot 2 du 2026-11-17 : un abonnement enregistré demande la déduction de l'essai du Pro (rien si hors essai).
+      deduireDeLEssai: async (tenantId, abonnementId) => { deductions.push(`${tenantId}:${abonnementId}`); },
     };
     const traitement = creer({ numero });
     const e = evenement('checkout.session.completed', {
@@ -63,6 +66,7 @@ describe('le traitement des événements Stripe d’abonnement', () => {
       tenantId: TENANT, abonnementId: 'sub_numero', livemode: true, periodeFin: null,
     }]);
     expect(reprises).toEqual([TENANT]);
+    expect(deductions).toEqual([`${TENANT}:sub_numero`]);
   });
 
   it('laisse remonter une panne inattendue pour que Stripe rejoue', async () => {

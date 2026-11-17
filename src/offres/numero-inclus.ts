@@ -1,4 +1,4 @@
-import { arreterAbonnementNumeroSeul, creerAbonnementNumeroSeul, StripeError, type TransportStripe } from '../stripe/client';
+import { arreterAbonnementNumeroSeul, creerAbonnementNumeroSeul, poserRemiseUneFois, StripeError, type TransportStripe } from '../stripe/client';
 import type { AbonnementNumero, IssueEnregistrement } from '../stripe/abonnements.pg';
 import type { RaisonFinOffre } from './abonnements-offre.pg';
 import { lienTableauStripe } from '../stripe/liens';
@@ -28,6 +28,12 @@ export interface DepsNumeroInclus {
   stripe: { cle: string; livemode: boolean; transport: TransportStripe } | null;
   /** Le prix du numéro seul (`STRIPE_PRIX_NUMERO`) ; vide = pas en vente. */
   prixNumero: string;
+  /**
+   * La remise de 3,50 € « une fois », réservée au Pro, que Julien a créée chez Stripe (`STRIPE_COUPON_NUMERO_ESSAI`, lot 2
+   * du 2026-11-17) : posée sur le Pro en essai quand son espace paie un numéro, elle le déduit de la première facture.
+   * Vide = pas configurée : Julien est prévenu de la poser à la main.
+   */
+  couponNumeroEssai: string;
   numero: {
     /** L'abonnement du numéro de l'espace : le vivant s'il y en a un (`PgAbonnementsNumeroStore.deLEspace`). */
     deLEspace(tenantId: string): Promise<AbonnementNumero | null>;
@@ -50,11 +56,18 @@ export interface DepsNumeroInclus {
      * `PgAbonnementsNumeroStore.porterLaFinParLOps`). `false` : l'espace a déjà une ligne non libérée.
      */
     porterLaFinParLOps(a: { tenantId: string; livemode: boolean; finiLe: Date }): Promise<boolean>;
+    /**
+     * L'abonnement du numéro est-il né pendant l'essai d'un Pro de l'espace (`PgAbonnementsNumeroStore.payePendantLEssai`,
+     * lot 2) ? La même règle que la pose de la remise : il est alors remboursé par elle, et s'arrête sans avoir.
+     */
+    payePendantLEssai(tenantId: string, abonnementId: string): Promise<boolean>;
   };
   /** J6 : les campagnes en pause `numero_suspendu` repartent. */
   reprendreCampagnes(tenantId: string): Promise<void>;
   /** L'espace a-t-il un Pro vivant (`PgAbonnementsOffreStore.vivant`) ? */
   proVivant(tenantId: string): Promise<boolean>;
+  /** Le Pro vivant de l'espace s'il est en essai (`PgAbonnementsOffreStore.enEssai`, lot 2), `null` sinon. */
+  proEnEssai(tenantId: string): Promise<{ abonnementId: string; livemode: boolean } | null>;
   /**
    * L'espace est-il dans une offre posée à la main qui inclut le numéro (le Business, l'Entreprise : spec du 2026-10-27) ?
    * Elle couvre le numéro comme un Pro vivant : la fin d'un Pro n'y recrée rien chez Stripe.
@@ -65,6 +78,21 @@ export interface DepsNumeroInclus {
 }
 
 const vivant = (a: AbonnementNumero | null): a is AbonnementNumero => a !== null && a.statut !== 'resilie';
+
+/**
+ * L'OFFRE INCLUT-ELLE LE NUMÉRO FOURNI ? La grille le dit (`limites.numeroInclus` : le Pro, le Business, l'Entreprise),
+ * 🔴 SAUF UN PRO EN ESSAI (lot 2 du 2026-11-17, décision de Julien) : pendant les 14 jours, le numéro se paie 3,50 € comme
+ * en Free, et ces 3,50 € se déduisent de la première facture du Pro (`surNumeroPayePendantLEssai`). Un numéro donné sans
+ * rien payer a été pris, puis perdu, par un essai la nuit du 17. Un Business ou une Entreprise posés dans /ops le couvrent
+ * toujours, même avec un Pro en essai à côté. `proEnEssai` n'est lu que pour un Pro.
+ */
+export async function inclutLeNumero(
+  o: { offre: string; droits: { limites: { numeroInclus: boolean } } },
+  proEnEssai: () => Promise<boolean>,
+): Promise<boolean> {
+  if (!o.droits.limites.numeroInclus) return false;
+  return o.offre !== 'pro' || !(await proEnEssai());
+}
 
 /**
  * J2 de la relecture : la MÊME écriture, sous la même clé d'idempotence, est déjà en cours chez Stripe (deux événements du
@@ -85,13 +113,19 @@ export async function surPassageEnPro(d: DepsNumeroInclus, tenantId: string, o: 
   const a = await d.numero.deLEspace(tenantId);
   if (!vivant(a)) return;
   const lien = lienTableauStripe('subscriptions', a.abonnementId, a.livemode);
+  // 🔴 Lot 2 du 2026-11-17 : un numéro payé PENDANT l'essai est remboursé par la remise de 3,50 € posée sur la première
+  // facture du Pro (`surNumeroPayePendantLEssai`) ; l'avoir au prorata le rembourserait une seconde fois. Un numéro payé
+  // avant l'essai (un Free devenu Pro) garde son avoir, comme avant.
+  const rembourseParLaRemise = d.couponNumeroEssai !== '' && await d.numero.payePendantLEssai(tenantId, a.abonnementId);
   if (d.stripe === null || d.stripe.livemode !== a.livemode) {
-    await d.alerter(`Espace ${tenantId} passé en Pro : son abonnement du numéro seul ${a.abonnementId} court encore, à arrêter à la main avec un avoir au prorata. ${lien}`);
+    await d.alerter(`Espace ${tenantId} passé en Pro : son abonnement du numéro seul ${a.abonnementId} court encore, à arrêter à la main ${rembourseParLaRemise ? 'sans avoir (la remise de l’essai l’a remboursé)' : 'avec un avoir au prorata'}. ${lien}`);
     return;
   }
   try {
     // J7 de la relecture : une période impayée n'a rien à rendre, l'avoir créditerait un temps jamais payé.
-    await arreterAbonnementNumeroSeul(d.stripe.transport, { cle: d.stripe.cle, abonnementId: a.abonnementId, avoir: a.statut !== 'en_retard' });
+    await arreterAbonnementNumeroSeul(d.stripe.transport, {
+      cle: d.stripe.cle, abonnementId: a.abonnementId, avoir: a.statut !== 'en_retard' && !rembourseParLaRemise,
+    });
   } catch (err) {
     if (!(err instanceof StripeError)) throw err;
     if (dejaEnCours(err)) {
@@ -100,6 +134,44 @@ export async function surPassageEnPro(d: DepsNumeroInclus, tenantId: string, o: 
     }
     journaliser('error', 'numero_inclus_arret_impossible', { tenantId, abonnement: a.abonnementId, status: err.status, code: err.code, err: err.message });
     await d.alerter(`Espace ${tenantId} passé en Pro : Stripe refuse d'arrêter son abonnement du numéro seul ${a.abonnementId} (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''}). À arrêter à la main avec un avoir au prorata. ${lien}`);
+  }
+}
+
+/** `hors_essai` : l'espace n'a pas de Pro en essai, rien à déduire. `a_poser_a_la_main` : Julien est prévenu. */
+export type IssueNumeroEssai = 'hors_essai' | 'posee' | 'deja' | 'en_cours' | 'a_poser_a_la_main';
+
+/**
+ * LE NUMÉRO PAYÉ PENDANT L'ESSAI DU PRO (2026-11-17, lot 2 du plan
+ * `docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md`). Pendant l'essai de 14 jours, le numéro
+ * fourni n'est plus inclus : il se paie 3,50 € comme en Free, et ces 3,50 € sont déduits de la PREMIÈRE facture du Pro
+ * (décision de Julien : « faire payer 3,5 € pour un numéro, et si le client continue, lui facturer 49 − 3,5 »). Appelé à
+ * l'enregistrement de l'abonnement du numéro (le webhook, rejoué compris) : si l'espace a un Pro en essai, la remise
+ * `STRIPE_COUPON_NUMERO_ESSAI` est posée sur lui, une seule fois (`poserRemiseUneFois`). Un essai abandonné emporte la
+ * remise avec son abonnement : le numéro continue alors à 3,50 € par mois, comme un Free. Au passage en Pro payant, ce
+ * numéro s'arrête sans avoir (`surPassageEnPro`).
+ * Ne lève que sur une panne de base : un refus de Stripe, ou une remise pas configurée, prévient Julien de la poser à la
+ * main avant la fin de l'essai.
+ */
+export async function surNumeroPayePendantLEssai(d: DepsNumeroInclus, tenantId: string, abonnementNumero: string): Promise<IssueNumeroEssai> {
+  const pro = await d.proEnEssai(tenantId);
+  if (pro === null) return 'hors_essai';
+  const aLaMain = async (pourquoi: string): Promise<'a_poser_a_la_main'> => {
+    await d.alerter(`Numéro payé pendant l'essai du Pro : espace ${tenantId} (${abonnementNumero}). ${pourquoi} Pose à la main une remise de 3,50 € « une fois » sur son Pro avant la fin de l'essai, sinon sa première facture sera entière. ${lienTableauStripe('subscriptions', pro.abonnementId, pro.livemode)}`);
+    return 'a_poser_a_la_main';
+  };
+  if (d.couponNumeroEssai === '') return aLaMain('La remise n’est pas configurée (STRIPE_COUPON_NUMERO_ESSAI).');
+  if (d.stripe === null || d.stripe.livemode !== pro.livemode) return aLaMain('Stripe n’est pas configuré dans le mode de ce Pro.');
+  try {
+    const r = await poserRemiseUneFois(d.stripe.transport, {
+      cle: d.stripe.cle, abonnementId: pro.abonnementId, coupon: d.couponNumeroEssai, idempotence: `remise-numero-essai-${abonnementNumero}`,
+    });
+    journaliser('info', 'numero_essai_remise', { tenantId, pro: pro.abonnementId, numero: abonnementNumero, issue: r });
+    return r;
+  } catch (err) {
+    if (!(err instanceof StripeError)) throw err;
+    if (dejaEnCours(err)) return 'en_cours';
+    journaliser('error', 'numero_essai_remise_impossible', { tenantId, pro: pro.abonnementId, numero: abonnementNumero, status: err.status, code: err.code, err: err.message });
+    return aLaMain(`Stripe refuse de poser la remise (${err.status ?? 'réseau'}${err.code ? `, ${err.code}` : ''}).`);
   }
 }
 

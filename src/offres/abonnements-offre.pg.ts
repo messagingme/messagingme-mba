@@ -289,6 +289,24 @@ export class PgAbonnementsOffreStore {
     return (res.rowCount ?? 0) > 0;
   }
 
+  /**
+   * Le Pro VIVANT de l'espace s'il est en essai (`essai_fin_le` à venir), `null` sinon (2026-11-17, lot 2 du plan
+   * `docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md`). Pendant l'essai, le numéro fourni n'est
+   * plus inclus : il se paie 3,50 €, déduits de la première facture du Pro. 🔴 `essai_fin_le` reste en base après l'essai
+   * (une date passée), et l'essai ÉCOURTÉ (`trial_end=now`) la ramène à maintenant (`noterFinEssai`) : seule une date à
+   * venir dit un essai en cours.
+   */
+  async enEssai(tenantId: string): Promise<{ abonnementId: string; livemode: boolean } | null> {
+    const res = await this.pool.query<{ stripe_subscription_id: string; livemode: boolean }>(
+      `select stripe_subscription_id, livemode from abonnements_offre
+        where tenant_id = $1 and fini_le is null and essai_fin_le is not null and essai_fin_le > now()
+        order by cree_le desc limit 1`,
+      [tenantId],
+    );
+    const l = res.rows[0];
+    return l ? { abonnementId: l.stripe_subscription_id, livemode: l.livemode } : null;
+  }
+
   /** Le Pro de l'espace : le vivant s'il y en a un, sinon le dernier fini ; `null` s'il n'en a jamais eu. */
   async deLEspace(tenantId: string): Promise<AbonnementOffre | null> {
     const res = await this.pool.query<Ligne>(

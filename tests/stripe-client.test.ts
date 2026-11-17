@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { randomBytes } from 'node:crypto';
 import {
-  arreterAbonnementNumeroSeul, creerAbonnementNumeroSeul, creerClientStripe, creerSessionAbonnement, creerSessionCheckout, creerSessionPortail, estCleLive, lireFactureStripe, lirePrixStripe, StripeError, VERSION_API_STRIPE, type ReponseStripe, type TransportStripe,
+  arreterAbonnementNumeroSeul, creerAbonnementNumeroSeul, creerClientStripe, creerSessionAbonnement, creerSessionCheckout, creerSessionPortail, estCleLive, lireFactureStripe, lirePrixStripe, poserRemiseUneFois, StripeError, VERSION_API_STRIPE, type ReponseStripe, type TransportStripe,
 } from '../src/stripe/client';
 import { creditDeLOffre, definitionOffre, OFFRES_RECHARGE } from '../src/stripe/offres';
 
@@ -315,5 +315,53 @@ describe('le numéro inclus dans le Pro (lot 6, B2b)', () => {
     const incomplet = new FauxTransport([{ status: 200, json: { id: 'sub_M', status: 'incomplete', items: { data: [] } } }]);
     await expect(creerAbonnementNumeroSeul(incomplet, { cle: CLE, tenantId: TENANT, customerId: 'cus_A', prix: 'p', carte: 'pm', idempotence: 'i' }))
       .rejects.toBeInstanceOf(StripeError);
+  });
+});
+
+describe('la remise du numéro payé pendant l’essai du Pro (lot 2 du 2026-11-17)', () => {
+  const COUPON = 'numero-pendant-essai';
+  const poser = (t: FauxTransport) =>
+    poserRemiseUneFois(t, { cle: CLE, abonnementId: 'sub_PRO', coupon: COUPON, idempotence: 'remise-numero-essai-sub_NUM' });
+
+  it('🔴 relit les remises étendues, GARDE le code promo du client et y ajoute le coupon, sans prorata', async () => {
+    const t = new FauxTransport([
+      { status: 200, json: { id: 'sub_PRO', discounts: [{ id: 'di_PROMO', source: { coupon: { id: 'BIENVENUE' } } }] } },
+      { status: 200, json: { id: 'sub_PRO' } },
+    ]);
+    expect(await poser(t)).toBe('posee');
+    expect(t.appels[0]!.url).toBe('https://api.stripe.com/v1/subscriptions/sub_PRO?expand%5B%5D=discounts');
+    const corps = Object.fromEntries(t.appels[1]!.corps);
+    expect(corps).toEqual({ proration_behavior: 'none', 'discounts[0][discount]': 'di_PROMO', 'discounts[1][coupon]': COUPON });
+    expect(t.appels[1]!.url).toBe('https://api.stripe.com/v1/subscriptions/sub_PRO');
+    expect(t.appels[1]!.entetes['idempotency-key']).toBe('remise-numero-essai-sub_NUM');
+  });
+
+  it('sans remise en place : le coupon seul', async () => {
+    const t = new FauxTransport([{ status: 200, json: { id: 'sub_PRO', discounts: [] } }, { status: 200, json: { id: 'sub_PRO' } }]);
+    expect(await poser(t)).toBe('posee');
+    expect(Object.fromEntries(t.appels[1]!.corps)).toEqual({ proration_behavior: 'none', 'discounts[0][coupon]': COUPON });
+  });
+
+  it('🔴 déjà posée (un rejeu du webhook) : rien ne part, quelle que soit la forme du coupon lu', async () => {
+    for (const remise of [
+      { id: 'di_1', source: { coupon: COUPON } },
+      { id: 'di_1', source: { coupon: { id: COUPON } } },
+      { id: 'di_1', coupon: { id: COUPON } },
+    ]) {
+      const t = new FauxTransport([{ status: 200, json: { id: 'sub_PRO', discounts: [remise] } }]);
+      expect(await poser(t)).toBe('deja');
+      expect(t.appels).toHaveLength(1);
+    }
+  });
+
+  it('un refus de Stripe lève un StripeError « remise » ; une réponse pour un autre abonnement aussi', async () => {
+    const refus = new FauxTransport([
+      { status: 200, json: { id: 'sub_PRO', discounts: null } },
+      { status: 400, json: { error: { type: 'invalid_request_error', code: 'resource_missing', message: 'No such coupon' } } },
+    ]);
+    await expect(poser(refus)).rejects.toMatchObject({ operation: 'remise', status: 400, code: 'resource_missing' });
+    const autre = new FauxTransport([{ status: 200, json: { id: 'sub_AUTRE', discounts: [] } }]);
+    await expect(poser(autre)).rejects.toBeInstanceOf(StripeError);
+    expect(autre.appels).toHaveLength(1);
   });
 });

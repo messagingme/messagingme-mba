@@ -411,6 +411,23 @@ describe('les outils de l’abonnement du numéro (livraison B)', () => {
     expect(r.etat).toMatchObject({ inclus_dans_le_pro: true });
   });
 
+  it('🔴 lot 2 du 2026-11-17 : en essai du Pro, Claude dit le prix ET la déduction du premier mois, dans les trois consignes', async () => {
+    const enEssai = monter(() => ({ ...VIDE, essaiPro: true }));
+    for (const mode of ['fourni', 'fourni_application'] as const) {
+      const r = await outil('start_whatsapp_connection').executer(enEssai.deps, 't1', { mode }, PERSONNE) as Record<string, string>;
+      expect(r.consigne, mode).toMatch(/Payer 3,50 € HT par mois/);
+      expect(r.consigne, mode).toMatch(/déduits de son premier mois/);
+    }
+    const app = await outil('start_whatsapp_connection').executer(enEssai.deps, 't1', { mode: 'fourni', filiere: 'application' }, PERSONNE) as Record<string, string>;
+    expect(app.consigne).toMatch(/déduits de son premier mois/);
+    expect(await outil('get_number_subscription').executer(enEssai.deps, 't1', {}, null))
+      .toMatchObject({ inclus_dans_le_pro: false, prix: '3,50 € HT par mois, déduits du premier mois de formule Pro (essai en cours)' });
+    // Hors essai, rien de plus qu'avant : le prix seul.
+    const horsEssai = monter(() => VIDE);
+    const r = await outil('start_whatsapp_connection').executer(horsEssai.deps, 't1', { mode: 'fourni' }, PERSONNE) as Record<string, string>;
+    expect(r.consigne).not.toMatch(/déduits/);
+  });
+
   it('🔴 manage_number_subscription : le portail de Stripe au nom de la personne, compté dans les opérations lourdes', async () => {
     const { deps, portails, couteux } = monter(() => VIDE);
     expect(await outil('manage_number_subscription').executer(deps, 't1', {}, PERSONNE)).toEqual({ url: 'https://billing.stripe.com/p/session/x' });
