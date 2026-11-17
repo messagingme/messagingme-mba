@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : l'application ou l'API, son numéro seul, les bulles et les étapes à venir (lot 4 du numéro fourni)
+
+**La demande** : les retours de Julien après son essai de la console, le soir du lot 3. Un « Oui » au numéro proposait
+encore un numéro fourni ; sans l'application, rien ne disait qu'on pouvait la choisir ; « Business » méritait une bulle
+avec l'icône ; après le paiement des 3,50 €, rien ne montrait la suite ; et il fallait défiler à la main. Décisions
+prises en une ronde de questions, plan `docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md`, lot 4.
+
+- **« Comment voulez-vous utiliser WhatsApp ? »**, posée à trois endroits (sans l'application, avec elle mais sans numéro
+  dedans, pour un 2e compte, deux au plus par application) : deux cartes d'une ligne et leur bulle « Ce que ça change ».
+  Les arguments ne disent que ce que nos fiches établissent : avec l'application, le nom et la photo s'y règlent ; avec
+  l'API, le nom affiché se personnalise chez Meta. « Le nom de l'entreprise n'apparaît pas avec l'application », l'idée
+  de départ, contredisait notre propre fiche « Changer le nom et la photo » ; Julien a retenu la synthèse vérifiée.
+- **Son numéro seul** après « Oui » au numéro (issue `api-mien` de la vitrine).
+- **L'icône de WhatsApp Business** : le site de marque de WhatsApp redirige vers celui de Meta, qui ne propose que le logo
+  de WhatsApp et interdit d'utiliser un logo trouvé ailleurs. La bulle reprend le logo que la vitrine affiche depuis le
+  plugin 0.3.12, copié dans `web/public/logos/`.
+- **Claude** : la skill de mise en service pose les mêmes questions (plugin 0.3.50), et les descriptions de
+  `start_whatsapp_connection` ne disent plus « sans application, rien à installer ».
+
+**Mesures** :
+- **Défilement** : le test qui exige chaque nouvelle question à l'écran échoue sans le défilement dès la première réponse,
+  mesuré sur une console reconstruite, servie par notre propre serveur (vérifié : sa ligne « Ready », aucun conflit de
+  port).
+- **Relecture** : aucun rouge, seize jaunes notés au plan (la bulle au toucher et au clavier, son débordement au
+  téléphone, « Inbox à plusieurs » promis aussi en Free, le 2e compte à éprouver sur iPhone et Android).
+- **CI console annulée sans verdict** : un pair a relancé un job de sa propre CI console pendant que la nôtre attendait ;
+  le workflow annule alors le run en attente. La nôtre relancée après la sienne, verte dans les deux topologies.
+
+**En production** : `5413f326c`, run 44154929752 en `migration=aucune`, approuvé par Julien.
+
 ## 2026-11-17 : les sources du bot d'aide s'ouvrent dans le panneau
 
 Demande de Julien : « D'après : » devait permettre de retrouver la fiche d'où sort la réponse. Sur 43 fiches, 25
