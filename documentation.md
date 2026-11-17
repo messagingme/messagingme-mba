@@ -5899,8 +5899,9 @@ tracé à jeton (`/r/<code>/{{1}}`) et ne voit jamais le champ.
 ### Dupliquer un scénario dans un autre espace
 
 L'onglet « Dupliquer » de `/ops` (`web/components/OpsDuplication.tsx`) : espace source, scénario, espace de destination,
-puis un récapitulatif dont les cases, décochées par défaut, choisissent les dépendances qui partent avec le scénario,
-puis la copie. Quatre routes `session-ops` (`src/http/ops-duplication.ts`, la garde de `/ops`) :
+puis un récapitulatif dont les cases, décochées par défaut, choisissent les dépendances qui partent avec le scénario
+(en base, et chez Meta les templates et Flows absents de la destination), puis la copie. Quatre routes `session-ops`
+(`src/http/ops-duplication.ts`, la garde de `/ops`) :
 `GET /ops/duplication/espaces` (avec la présence d'une WABA), `GET /ops/duplication/espaces/:tenantId/scenarios` (les
 scénarios publics, jamais celui du répondeur), `POST /ops/duplication/apercu` et `POST /ops/duplication`. Spec :
 `docs/superpowers/specs/2026-11-16-duplication-scenario-entre-espaces-design.md`.
@@ -5916,52 +5917,79 @@ scénarios publics, jamais celui du répondeur), `POST /ops/duplication/apercu` 
   lus dans l'espace SOURCE seulement, avec le nom de chaque copie : le même s'il est libre, sinon « X (copie) », « X
   (copie N) » (insensible à la casse, sauf pour un modèle d'e-mail) ; un outil de l'espace prend `nom_copie`,
   `nom_copie_N`, jamais le nom d'une action d'un agent qui le consomme (`atc_nom_par_consommateur_uidx`). Une case doit
-  désigner une dépendance référencée ET lue, sinon 400 et rien n'est écrit. Ce qui part :
+  désigner une dépendance référencée ET lue, sinon 400 et rien n'est écrit. Un identifiant de bloc qui n'est pas un
+  UUID (écrit par l'API REST) n'est pas lu : son bloc arrive débranché. Ce qui part :
   - **un agent**, en `draft` : sa fiche et ses réglages, sa connaissance avec ses vecteurs et leur modèle (aucune
     revectorisation, rien de débité), ses actions (`agent_id` = la copie) et ses outils de l'espace. Chaque liaison
     arrive DÉSACTIVÉE et non autonome : le consentement se donne dans la destination (`active_par`). Ne suivent pas :
     sa clé Gateway, ses sessions et son historique, un outil MCP (à reconnecter), une action qui vise un AUTRE
-    scénario. Une action qui vise le scénario copié vise sa copie et le nouveau code de son bloc (`rebrancherCible`).
+    scénario, une action qui vise un bloc que la version copiée n'a plus (`cible_illisible` : elle garderait le code de
+    la source). Une action qui vise le scénario copié vise sa copie et le nouveau code de son bloc (`rebrancherCible`).
     Cocher un agent emporte les requêtes et sources de ses outils d'appel. Un outil de l'espace consommé par deux agents
     cochés est copié une fois, puis lié aux deux.
   - **une requête**, avec sa source, en-têtes compris, sans ses `valeurs_test` (celles d'un vrai contact, peut-être).
-    La source garde son statut ; 🔴 son secret est recopié CHIFFRÉ tel quel (même `ENCRYPTION_KEY`), jamais déchiffré,
-    jamais rendu (l'aperçu dit seulement « secret copié »), jamais journalisé hors du label de sa source. Une requête
-    ou une source partagée n'est copiée qu'une fois.
+    La source garde son statut, sans `secret_publie_le` (la date d'acceptation par Meta pour CET espace, 0129) ; 🔴 son
+    secret est recopié CHIFFRÉ tel quel (même `ENCRYPTION_KEY`), jamais déchiffré, jamais rendu (l'aperçu dit
+    seulement « secret copié »), jamais journalisé hors du label de sa source. Une requête ou une source partagée n'est
+    copiée qu'une fois. Seule une requête qu'un bloc désigne a sa case (`parUnBloc`) ; celle que seul un outil appelle
+    se montre sous son agent, et une requête de bloc qu'emporte l'agent coché est cochée et verrouillée à l'écran.
   - **un modèle d'e-mail** : le bloc le reçoit, sa boîte d'envoi reste vide, donc listée à rebrancher.
   - Les champs que nomment les copies (variable `champ` d'une requête, `{{clé}}` d'un e-mail par `variablesDuTexte`,
-    cible d'une action) se créent comme ceux du graphe ; les tags que posent les actions se déclarent avec eux. Le
-    déclencheur « action d'agent » ne suit toujours pas, même quand l'agent est copié.
+    cible d'une action, geste « champ » d'un outil) se créent comme ceux du graphe ; les tags que posent les actions et
+    les gestes « tag » se déclarent avec eux. L'aperçu dit, pour chaque dépendance, les champs que sa copie créerait.
+    Le déclencheur « action d'agent » ne suit toujours pas, même quand l'agent est copié.
+- **Les templates et les Flows chez Meta** (`src/ops/duplication/meta.ts`, pur ; `meta-execution.ts`, les appels). Un
+  template que le scénario envoie est RÉUTILISÉ s'il existe dans la WABA de destination (même nom, même langue), À
+  RECRÉER s'il en est absent et se regénère à l'identique (une case), NON RECRÉABLE sinon, raison dite : source
+  illisible, introuvable, catégorie, en-tête ou boutons que la création ne sait pas soumettre, média sans adresse, lien
+  tracé de la source resté dans une adresse, Flow sans écrans. Décoché ou non recréable, son bloc arrive DÉBRANCHÉ
+  (`debrancherTemplates`) : un template absent ne bloque plus. Un Flow ouvert par un bloc ou par le bouton d'un template
+  a sa case, et un template coché emporte le Flow de son bouton. La source se lit par `listerModeles` (adresses
+  d'origine des boutons remises à la place de nos liens tracés) ; la création passe par `creerUnModele`, le chemin de la
+  console : ses gardes, ses liens tracés alloués dans la DESTINATION, ses médias redéposés, ses indications de variables
+  recopiées. Un Flow se recrée en brouillon (`creerFormulaire`, les champs que son mapping nomme créés s'ils manquent),
+  puis se publie s'il l'est dans la source ou si un bouton l'ouvre. 🔴 **Meta d'abord, tout ou rien** : les champs que
+  nomment les adresses des boutons, puis les Flows, puis les templates, AVANT la transaction de base. Un refus de Meta
+  arrête tout (422) et rien n'est écrit en base ; ce qui a déjà été créé chez Meta y reste, nommé dans la réponse et
+  dans le journal. Au plus 10 templates et Flows à recréer par duplication (`PLAFOND_META`, un blocage au-delà).
 - **Les déclencheurs** (`copierDeclencheurs`, `src/ops/duplication/declencheurs.ts`) : copiés ÉTEINTS, jamais avec
   l'attestation d'accord marketing (elle engage une personne de la source). Ne suivent pas : un déclencheur lié à un
   objet de la source (webhook entrant, étape HubSpot, publicité, action d'agent, automation possédée), un « nouveau
   contact » quand la destination en a déjà un, un mot-clé dont tous les mots y sont déjà pris (un mot pris est retiré,
   comparé par `normalizeText`).
 - **Le plan** (`planifierDuplication`, `src/ops/duplication/plan.ts`) : un champ absent se crée avec la définition de la
-  source ; un conflit de type garde celui de la destination et se signale. Bloquent : une destination sans WABA, un
-  template absent de sa WABA (même nom, même langue), la même source et destination. Se signalent : un template non
-  approuvé, un template homonyme dont les boutons diffèrent de ceux de la source (une réponse `btn:<i>` partirait vers
-  une autre branche), une image hébergée par l'espace source (`/m/`), une offre de destination qui n'ouvre pas les
-  scénarios, une clé définie nulle part.
+  source ; un conflit de type garde celui de la destination et se signale. Bloquent : une destination sans WABA, la
+  même source et destination, plus de 10 templates et Flows cochés. Se signalent : un template non approuvé, un
+  template homonyme dont les boutons diffèrent de ceux de la source (une réponse `btn:<i>` partirait vers une autre
+  branche), une image hébergée par l'espace source (un fichier `/m/` de la médiathèque), une offre de destination qui
+  n'ouvre pas les scénarios, une destination sans crédit IA quand un agent est proposé (`acces_credit_ia` : aucune
+  offre ne ferme l'agent IA, c'est son crédit qui le fait taire), une clé définie nulle part.
 - 🔴 **L'aperçu et l'exécution calculent le même plan**, et l'exécution refuse (409) si son empreinte n'est plus celle de
-  l'aperçu. L'empreinte se calcule sur l'ÉTAT LU (JSON aux clés triées, templates triés par nom et langue, déclencheurs
-  lus par `created_at, id`), jamais sur le plan : la copie tire des codes de blocs neufs à chaque calcul. Les cases
-  cochées n'y entrent pas.
+  l'aperçu, AVANT de juger les cases (un agent supprimé depuis l'aperçu se dit « relancez l'aperçu »). L'empreinte se
+  calcule sur l'ÉTAT LU (JSON aux clés triées, templates triés par nom et langue, déclencheurs lus par `created_at,
+  id`), jamais sur le plan : la copie tire des codes de blocs neufs à chaque calcul. N'y entrent que les templates que
+  le scénario envoie, et d'un template de la source sa signature (`signatureModele`) : l'adresse de ses médias, que
+  Meta signe à chaque lecture, changerait d'un appel à l'autre. Les cases cochées n'y entrent pas.
 - **L'écriture** (`PgDuplicationStore.ecrire`, `src/ops/duplication/store.pg.ts`) : UNE transaction sur son client. Le
   nom « X (copie N) » choisi sous le verrou de nom de la destination (`nomPrisSousVerrou`), les champs, puis les
   sources, requêtes, modèles d'e-mail et agents avec leurs outils, puis le scénario en BROUILLON (`insererBrouillon`,
-  avec l'identifiant tiré d'avance que les actions copiées visent déjà), son graphe posé sur les copies (`rebrancher`),
-  puis les déclencheurs par `PgAutomationStore` construit sur ce client. 🔴 Chaque copie est un `INSERT … SELECT` filtré
-  sur l'espace source, l'espace de destination en valeur écrite, et elle LÈVE si elle n'insère rien : la transaction
-  est annulée. Une duplication à la fois par destination (verrou court `duplication-scenario:<id>`, 2 min). Les tags se
-  déclarent après, au mieux (un échec est journalisé en `warn`).
+  avec l'identifiant tiré d'avance que les actions copiées visent déjà), son graphe posé sur les copies (`rebrancher`,
+  un bloc Flow sur le Flow recréé) et vidé des templates ni réutilisés ni cochés, puis les déclencheurs par
+  `PgAutomationStore` construit sur ce client. 🔴 Chaque copie est un `INSERT … SELECT` filtré sur l'espace source,
+  l'espace de destination en valeur écrite, et elle LÈVE si elle n'insère rien : la transaction est annulée (un test
+  d'intégration appelle chaque copie avec la ligne d'un troisième espace). Une duplication à la fois par destination
+  (verrou court `duplication-scenario:<id>`, 5 min : il couvre les appels à Meta). Les tags se déclarent après, au
+  mieux (un échec est journalisé en `warn`). Une écriture qui échoue APRÈS des créations chez Meta les nomme dans sa
+  réponse : une nouvelle duplication réutilisera les templates, désormais présents dans la destination.
 - **La trace** : `ops.scenario_duplique` au journal d'activité de la DESTINATION, l'exploitant pour auteur, le
-  scénario et les copies par leur nom ; la ligne de journal `ops_duplication_scenario` porte l'exploitant (`par`) et
-  les labels des sources dont le secret a été recopié.
-- 🔴 **Meta en lecture seule** : les templates de la destination se lisent sans le cache du catalogue, et une lecture qui
-  échoue rend un 422, jamais une liste vide prise pour « aucun template » ; un jeton WhatsApp invalide de la
-  destination se dit (« reconnectez son numéro »). Ceux de la source se lisent pour comparer les boutons, et une
-  lecture qui échoue y est seulement signalée. Jamais de 5xx.
+  scénario, les copies, les templates et les Flows recréés par leur nom ; la ligne de journal
+  `ops_duplication_scenario` porte l'exploitant (`par`), les labels des sources dont le secret a été recopié et ce qui
+  a été créé chez Meta.
+- 🔴 **Meta, lu sans cache** : les templates de la destination se lisent sans le cache du catalogue, et une lecture qui
+  échoue rend un 422, jamais une liste vide prise pour « aucun template » ; un jeton WhatsApp invalide de la destination
+  se dit (« reconnectez son numéro »), un refus durable aussi. Ceux de la source se lisent pour comparer les boutons et
+  pour recréer un absent, et une lecture qui échoue y est seulement signalée (ses templates absents deviennent non
+  recréables). Rien ne s'écrit chez Meta hors des cases cochées. Jamais de 5xx.
 
 ### Supprimer un espace
 

@@ -50,46 +50,6 @@
 - **Changement d'espace** : l'effet sur `tenantId` garde `moyen` et `credit` de l'espace précédent jusqu'à la nouvelle
   lecture ; les remettre à `null` en tête de l'effet.
 
-## 🟡 La duplication de scénarios entre espaces (relectures des lots 1 et 2) : à faire avec le lot 3
-
-- **Le lot 3 est validé et pas commencé** (spec `docs/superpowers/specs/2026-11-16-duplication-scenario-entre-espaces-design.md`,
-  section « Lots ») : recréer chez Meta les templates et les Flows absents de la destination, Meta d'abord et tout ou
-  rien. Un plan avec sa « Méthode de livraison » avant le code. Les jaunes ci-dessous partent avec lui.
-- **« Réessayez dans un instant »** (`src/http/ops-duplication.ts`) sort encore pour une WABA sans aucun jeton ou une
-  base en panne ; seul le jeton invalide a son message.
-- **Relecture du lot 2 (2026-11-17, aucun rouge), ses treize jaunes** :
-  - **une case pour une requête que seul un outil de l'agent appelle** (`src/ops/duplication/dependances.ts`,
-    `web/components/OpsDuplication.tsx`) : la route refuse de la cocher (400, rien n'est copié), alors qu'elle part de
-    toute façon avec l'agent ; et une requête de bloc décochée mais appelée par l'agent coché est copiée ET son bloc
-    rebranché, quand l'écran annonce « débranché ». Ne donner de case qu'aux requêtes que le graphe désigne, montrer les
-    autres sous leur agent (source et « secret copié » compris) ;
-  - **un identifiant de bloc qui n'est pas un UUID** (écrit par l'API REST) fait échouer `lireDependances`
-    (`$2::uuid[]`) : l'aperçu rend 422 « réessayez » au lieu de débrancher le bloc, comme au lot 1. Filtrer les
-    références par `estUuid` ;
-  - **l'empreinte hache tous les templates de la WABA source** : un template créé ou approuvé dans la source, ou une
-    lecture Meta qui échoue puis réussit, donne un faux 409 ; la lecture part même sans template ; et `null` veut aussi
-    dire « pas de WABA », que le signal appelle « illisible ». Ne lire la source que si le graphe a des templates, ne
-    hacher que les boutons des templates réutilisés ;
-  - **`secret_publie_le` est recopié** (`dependances.pg.ts`), alors qu'il date l'acceptation du secret par Meta pour
-    CET espace (0129). Sans lecteur aujourd'hui ; le remettre à `null`, comme `last_ok_at` ;
-  - **les champs que créeront les dépendances** ne sont pas au récapitulatif (la spec les demande) : les rendre par
-    dépendance, hors empreinte ;
-  - **des helpers recopiés** : `scenariosDeLaCible` existe en privé dans `src/agent/catalog.pg.ts`, et la liste des
-    handlers à cible recopie ce que `exigeUneCible` dérive du schéma ; un `switch` exhaustif comme `sortDuBloc` ;
-  - **le filtre source des `INSERT … SELECT` n'a pas de test** : appeler chaque `copierX` avec l'identifiant d'un
-    troisième espace, attendre une levée et zéro ligne dans la destination ;
-  - **les `gestes` des outils copiés ne sont pas lus** : leurs tags ne sont pas déclarés, leurs clés de champ pas créées ;
-  - **une action qui vise un bloc absent du brouillon copié** garde le code de la source : la traiter en
-    `cible_illisible` ;
-  - **l'ordre des refus** : un agent supprimé entre l'aperçu et l'exécution rend 400 au lieu du 409 « relancez
-    l'aperçu » ; comparer l'empreinte d'abord ;
-  - **la console ne tolère l'API du lot 1 qu'à moitié** : `copiees` lit `dependancesCopiees` sans repli ;
-  - **le tranché 7 de la spec** : une destination dont l'offre n'ouvre pas l'agent IA n'est pas signalée quand un agent
-    est proposé ;
-  - **textes** : le JSDoc de `listResume` coiffe `listNoms`, celui de `renderText` est séparé de sa fonction, l'en-tête
-    de `src/http/ops-duplication.ts` dit encore « lot 1 », et `estImageDeLEspace` retient tout chemin en `/m/`, quel que
-    soit l'hôte.
-
 ## 🟡 Les factures nommées (relecture du 2026-11-16, aucun rouge)
 
 - Seule la PREMIÈRE ligne d'une facture est lue (prix et libellé) : un achat ponctuel à plusieurs lignes dont le prix
