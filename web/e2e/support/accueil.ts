@@ -60,6 +60,8 @@ export async function mockAccueil(
      * un numéro connecté avec sa carte chez Meta (décision du 2026-11-13) ; absent, comme l'API d'avant.
      */
     etatLigne?: { etat: string; enVente: boolean; avecApplication: boolean; numeroAvecCarte?: boolean };
+    /** La vue de l'onglet de la ligne de crédit (`GET /credit-whatsapp`), dont la carte du numéro lit le solde. Absente : `{}`. */
+    creditWhatsapp?: { illimite: boolean; soldeMicroEur: number };
     /**
      * « Qui répond au client » (RC6), rendu par `GET /repondeur` et TENU par le mock : un `PUT` le change, comme le
      * serveur (le mode et sa cible, et l'agent de Meta allumé par le mode « mba »). Absent : `{}`, comme toute route que
@@ -284,6 +286,7 @@ export async function mockAccueil(
     }
     if (url.includes('/account-status')) return json(compteCourant);
     if (over.etatLigne && url.endsWith('/credit-whatsapp/etat')) return json(over.etatLigne);
+    if (over.creditWhatsapp && url.endsWith('/credit-whatsapp')) return json(over.creditWhatsapp);
     if (url.includes('/settings')) return json(settings); // GET + PUT + PATCH control-handback : même forme
     if (url.endsWith('/me')) return json({ email: 'admin@e2e.test', name: 'Jean Test', role: 'admin' });
     if (url.includes('/stats/templates')) return json({ breakdown: [], pricing: null });

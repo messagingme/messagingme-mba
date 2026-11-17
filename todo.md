@@ -1,5 +1,15 @@
 # todo.md : backlog
 
+## 🟡 Le moyen de paiement de la carte du numéro (relecture du 2026-11-17, aucun rouge) : avec le prochain lot de la ligne
+
+- **Crédit à zéro lu « active » en vert** (`MoyenDePaiement`, `web/app/accueil/page.tsx`) : un prépayé sous
+  `SOLDE_REPRISE_CREDIT_MICRO_EUR` (1 €) garde le badge « Ligne de crédit active » en ton `ok` à côté de « 0,00 € »,
+  alors que la garde refuse les envois. Passer le badge en `warn` (« Crédit épuisé ») sous ce seuil, hors illimité.
+- **Entreprise arrêtée** : « Illimité » côtoie « Vos messages ne partent plus, quel que soit le crédit restant ». Taire
+  le crédit quand la ligne est arrêtée.
+- **Changement d'espace** : l'effet sur `tenantId` garde `moyen` et `credit` de l'espace précédent jusqu'à la nouvelle
+  lecture ; les remettre à `null` en tête de l'effet.
+
 ## 🟡 La duplication de scénarios entre espaces, lot 1 (relecture du 2026-11-16, aucun rouge) : à faire avec le lot 2
 
 - **Les lots 2 et 3 sont validés et pas commencés** (spec

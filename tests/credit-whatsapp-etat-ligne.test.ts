@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { arretDesLignes, etatLigneCredit, lireEtatLigne, type DepsEtatLigne, type SourcesEtatLigne } from '../src/credit-whatsapp/etat-ligne';
-import { creditPaieMeta } from '../web/lib/partage/credit-whatsapp';
+import { creditPaieMeta, moyenDePaiementNumero } from '../web/lib/partage/credit-whatsapp';
 
 /**
  * L'ÉTAT DU CRÉDIT WHATSAPP D'UN ESPACE, VU DES CARTES « QUI RÈGLE META ? » (révision du 2026-11-04, lot B, B1) : la
@@ -35,6 +35,27 @@ describe('creditPaieMeta (jaunes 2 et 3 de la relecture du lot B)', () => {
     expect(creditPaieMeta('en_attente', false, true)).toBe(false);
     // Une ligne active paie, comme sur la carte de Connecter WhatsApp, qui ne dit le texte (1) qu'hors ligne active.
     expect(creditPaieMeta('active', false, true)).toBe(true);
+  });
+});
+
+describe('moyenDePaiementNumero (la carte du numéro de l’Accueil, 2026-11-17)', () => {
+  it('🔴 un numéro payé par la ligne la dit, active ou en cours d’ouverture, jamais « à vérifier chez Meta »', () => {
+    expect(moyenDePaiementNumero('active', false, false)).toBe('ligne_active');
+    expect(moyenDePaiementNumero('active', false, true)).toBe('ligne_active');
+    expect(moyenDePaiementNumero('en_attente', false, false)).toBe('ligne_en_attente');
+  });
+
+  it('🔴 toutes les lignes arrêtées : la carte le dit, plus rien ne part ; sauf au numéro qui paie avec sa carte chez Meta', () => {
+    expect(moyenDePaiementNumero('arretee', false, false)).toBe('ligne_arretee');
+    expect(moyenDePaiementNumero('arretee', true, false)).toBe('meta');
+    expect(moyenDePaiementNumero('arretee', false, true)).toBe('meta');
+  });
+
+  it('la carte chez Meta partout ailleurs : sans ligne, numéro qui garde l’application ou connecté avec sa carte, état illisible', () => {
+    for (const etat of ['free', 'essai', 'a_prendre', undefined, null]) expect(moyenDePaiementNumero(etat, false, false), String(etat)).toBe('meta');
+    expect(moyenDePaiementNumero('active', true, false)).toBe('meta');
+    expect(moyenDePaiementNumero('en_attente', true, false)).toBe('meta');
+    expect(moyenDePaiementNumero('en_attente', false, true)).toBe('meta');
   });
 });
 

@@ -5448,7 +5448,10 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   `primary_funding_id` est réservé aux BSP et refusé en erreur 10). `getWabaHealth` (`src/meta/phone-number.ts`) en
   tire `paiementBloque` (`CODES_PAIEMENT_META`), le pull le transporte, `saveStatus` l'écrit dans
   `phone_numbers.waba_paiement_bloque` (null = pas encore lu), au balayage des statuts et à chaque Accueil.
-  L'Accueil en fait un bandeau, `get_setup_state` l'avertissement `carte_meta_a_regler` avec `etapes_carte_meta`. Les
+  L'Accueil en fait un bandeau, `get_setup_state` l'avertissement `carte_meta_a_regler` avec `etapes_carte_meta`.
+  La carte du numéro de l'Accueil dit son moyen de paiement (`moyenDePaiementNumero`, `web/lib/partage/credit-whatsapp.ts`) :
+  un numéro payé par la ligne de crédit lit « Ligne de crédit active » (ou en cours d'ouverture, ou arrêtée) et le crédit
+  restant (« Illimité » pour une Entreprise), jamais le renvoi vers Business Manager Meta, gardé pour les autres. Les
   textes viennent de `web/lib/partage/etapes-meta.ts` (`PREREQUIS_META`, dits aussi par la page « Connecter WhatsApp »
   et la consigne de `start_whatsapp_connection`, lus PAR POSITION : la console
   montre [0] en gardant l'application, [0] et [1] au numéro fourni, tout au numéro apporté, Claude [0] et [1] au numéro

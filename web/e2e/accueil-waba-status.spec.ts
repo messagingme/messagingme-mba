@@ -60,6 +60,30 @@ test.describe('Accueil : panneau statut WhatsApp Business (F2)', () => {
     await expect(page.getByTestId('carte-meta-a-regler')).toHaveCount(0);
   });
 
+  test('🔴 un numéro payé par la ligne de crédit la dit, crédit restant à côté, et plus « à vérifier chez Meta » (2026-11-17)', async ({ page }) => {
+    const ligne = { etat: 'active', enVente: true, avecApplication: false };
+    await mockAccueil(page, { etatLigne: ligne, creditWhatsapp: { illimite: false, soldeMicroEur: 42_500_000 } });
+    const moyen = page.getByTestId('moyen-de-paiement');
+    await expect(moyen).toContainText('Ligne de crédit active');
+    await expect(moyen).toContainText(/Crédit restant\s*42,50\s*€/);
+    await expect(moyen).not.toContainText('Business Manager Meta');
+    await expect(moyen.getByTestId('moyen-de-paiement-onglet')).toHaveAttribute('href', '/offre?tab=whatsapp');
+    await page.goto('about:blank');
+    // Une Entreprise : illimitée, rien à afficher comme solde.
+    await mockAccueil(page, { etatLigne: ligne, creditWhatsapp: { illimite: true, soldeMicroEur: 0 } });
+    await expect(moyen).toContainText('Illimité');
+    await page.goto('about:blank');
+    // L'option payée dont la ligne s'ouvre : en cours d'ouverture, sans lien vers un onglet qui n'existe pas encore.
+    await mockAccueil(page, { etatLigne: { ...ligne, etat: 'en_attente' }, creditWhatsapp: { illimite: false, soldeMicroEur: 0 } });
+    await expect(moyen).toContainText('Ligne de crédit en cours d’ouverture');
+    await expect(moyen.getByTestId('moyen-de-paiement-onglet')).toHaveCount(0);
+    await page.goto('about:blank');
+    // Un solde illisible tait le montant, jamais un zéro inventé.
+    await mockAccueil(page, { etatLigne: ligne });
+    await expect(moyen).toContainText('Ligne de crédit active');
+    await expect(moyen).not.toContainText('Crédit restant');
+  });
+
   test('bloc paiement : renvoi honnête vers le Business Manager (lien billing_hub)', async ({ page }) => {
     await mockAccueil(page);
     const link = page.getByTestId('waba-status-panel').getByRole('link', { name: 'Business Manager Meta' });

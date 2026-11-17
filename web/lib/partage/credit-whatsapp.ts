@@ -28,3 +28,17 @@ export const SOLDE_REPRISE_CREDIT_MICRO_EUR = 1_000_000;
 export function creditPaieMeta(etat: string | null | undefined, avecApplication: boolean, numeroAvecCarte: boolean): boolean {
   return !avecApplication && (etat === 'active' || (etat === 'en_attente' && !numeroAvecCarte));
 }
+
+/**
+ * LE MOYEN DE PAIEMENT QUE DIT LA CARTE DU NUMÉRO DE L'ACCUEIL (Julien, 2026-11-17 : « il faudrait dire : ligne de crédit
+ * OK et le budget restant du crédit à côté »). Elle disait « à vérifier dans le Business Manager Meta » à un numéro payé
+ * par la ligne. `meta` : sa carte chez Meta, la phrase d'avant ; sinon l'état de la ligne, par la règle de
+ * `creditPaieMeta`, plus `ligne_arretee` (toutes les lignes arrêtées : plus rien ne part, le solde reste), qui n'y paie
+ * plus rien mais ne doit pas se lire « aucun blocage ».
+ */
+export type MoyenDePaiementNumero = 'meta' | 'ligne_active' | 'ligne_en_attente' | 'ligne_arretee';
+
+export function moyenDePaiementNumero(etat: string | null | undefined, avecApplication: boolean, numeroAvecCarte: boolean): MoyenDePaiementNumero {
+  if (creditPaieMeta(etat, avecApplication, numeroAvecCarte)) return etat === 'active' ? 'ligne_active' : 'ligne_en_attente';
+  return etat === 'arretee' && !avecApplication && !numeroAvecCarte ? 'ligne_arretee' : 'meta';
+}

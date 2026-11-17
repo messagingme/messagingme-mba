@@ -1,7 +1,7 @@
 ---
 description: Prendre un numéro fourni par Messaging Me et le relier à WhatsApp par la fenêtre de Meta, depuis Claude Code : la vidéo, puis les six étapes.
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 4495df
+source_empreinte: cf3df1
 publique: oui
 rubrique: demarrer-claude, demarrer-console
 rang: 5, 5

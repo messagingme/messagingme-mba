@@ -2554,7 +2554,9 @@ scénario, comment importer des contacts.
 - ✅ **Panneau « Compte WhatsApp Business »** (sous le numéro) : **API MM Lite**, **revue du compte** par Meta,
   **vérification d'entreprise** et **business propriétaire**, chacun avec sa pastille (vert quand c'est bon, ambre
   quand ça traîne, gris quand Meta ne dit rien). Le **moyen de paiement n'est pas lisible** par l'API WhatsApp : la
-  page renvoie honnêtement vers le Business Manager Meta au lieu d'afficher une valeur inventée.
+  page renvoie honnêtement vers le Business Manager Meta au lieu d'afficher une valeur inventée. Un numéro payé par la
+  **ligne de crédit** lit à la place « Ligne de crédit active » (ou en cours d'ouverture, ou arrêtée) et son **crédit
+  restant** (« Illimité » pour une Entreprise), avec un lien vers l'onglet de la ligne.
 - ✅ **État HubSpot par numéro** : si un portail HubSpot est relié -> « connecté au portail <nom ou id> », l'état de la
   synchronisation (**activée / en pause / coupée**, avec pastille) et un lien vers le guide de configuration HubSpot.
   Couper la synchro ouvre un choix explicite : **mettre en pause** (réversible ; les analyses produites pendant la

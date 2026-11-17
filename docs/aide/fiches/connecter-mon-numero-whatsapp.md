@@ -2,7 +2,7 @@
 description: Connecter son numéro WhatsApp étape par étape : payer vos messages Meta, votre numéro ou le nôtre, la fenêtre de Meta, puis l'état du numéro.
 ecran: accueil
 source_section: Accueil (1re entrée du menu)
-source_empreinte: 4495df
+source_empreinte: cf3df1
 publique: oui
 rubrique: demarrer-console
 rang: 3

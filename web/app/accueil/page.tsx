@@ -35,8 +35,9 @@ import { lireHubspotActif, affichageHubspotAccueil } from '@/lib/hubspot-actif';
 import { useInstallationHubspot } from '@/lib/hubspot-installation';
 import { Bouton } from '@/components/Bouton';
 import { ETAPES_CARTE_META } from '@/lib/partage/etapes-meta';
-import { creditPaieMeta } from '@/lib/partage/credit-whatsapp';
-import { lireEtatLigne } from '@/lib/api-credit-whatsapp';
+import { creditPaieMeta, moyenDePaiementNumero, type MoyenDePaiementNumero } from '@/lib/partage/credit-whatsapp';
+import { getCreditWhatsapp, lireEtatLigne, type VueCreditWhatsapp } from '@/lib/api-credit-whatsapp';
+import { eurosDepuisMicro } from '@/lib/agent-solde';
 import { TitrePage } from '@/components/TitrePage';
 import { Icone } from '@/components/Icone';
 import { Modale } from '@/components/Modale';
@@ -76,6 +77,86 @@ function CarteMetaARegler({ tenantId }: { tenantId: string }) {
       <ol className="mt-2 list-decimal space-y-1 pl-5">
         {ETAPES_CARTE_META.map((e) => <li key={e.fr}>{t(e.fr, e.en)}</li>)}
       </ol>
+    </div>
+  );
+}
+
+/** Le lien vers Business Manager Meta, où se lit la carte : Meta ne nous dit que s'il bloque le compte (erreur 141006). */
+function LienFacturationMeta() {
+  const t = useT();
+  return (
+    <a href="https://business.facebook.com/billing_hub/accounts" target="_blank" rel="noopener noreferrer" className="font-medium text-brand-700 underline">
+      {t('Business Manager Meta', 'Meta Business Manager')}
+    </a>
+  );
+}
+
+/**
+ * LE MOYEN DE PAIEMENT DU NUMÉRO (Julien, 2026-11-17 : « il faudrait dire : ligne de crédit OK et le budget restant du
+ * crédit à côté ») : un numéro payé par la ligne de crédit la dit, avec le crédit restant (« Illimité » pour une
+ * Entreprise), au lieu de renvoyer à la carte chez Meta (`moyenDePaiementNumero`). Rien tant que l'état se lit, pour ne
+ * pas montrer la carte chez Meta une seconde avant la ligne ; illisible, la phrase d'avant. Un crédit illisible tait le
+ * montant, jamais un zéro inventé.
+ */
+function MoyenDePaiement({ tenantId, paiementMetaBloque }: { tenantId: string; paiementMetaBloque: boolean | null | undefined }) {
+  const t = useT();
+  const { locale } = useLocale();
+  const [moyen, setMoyen] = useState<MoyenDePaiementNumero | null>(null);
+  const [credit, setCredit] = useState<VueCreditWhatsapp | null>(null);
+  useEffect(() => {
+    let vivant = true;
+    lireEtatLigne(tenantId)
+      .then((v) => {
+        const m = v === null ? 'meta' : moyenDePaiementNumero(v.etat, v.avecApplication, v.numeroAvecCarte);
+        if (!vivant) return;
+        setMoyen(m);
+        if (m !== 'meta') getCreditWhatsapp(tenantId).then((c) => { if (vivant) setCredit(c); }).catch(() => {});
+      })
+      .catch(() => { if (vivant) setMoyen('meta'); });
+    return () => { vivant = false; };
+  }, [tenantId]);
+
+  if (moyen === null) return null;
+  if (moyen === 'meta') {
+    return (
+      <p data-testid="moyen-de-paiement" className="mt-3 text-xs text-ink-500">
+        {t('Moyen de paiement : à vérifier dans le', 'Payment method: check it in the')}{' '}<LienFacturationMeta />
+        {paiementMetaBloque === true
+          ? t(' : Meta signale un problème de carte.', ': Meta reports a card problem.')
+          : paiementMetaBloque === false
+            ? t(' : aucun blocage signalé par Meta.', ': no block reported by Meta.')
+            : '.'}
+      </p>
+    );
+  }
+  const badge: StatusBadge = moyen === 'ligne_active'
+    ? { label: t('Ligne de crédit active', 'Credit line active'), tone: 'ok' }
+    : moyen === 'ligne_en_attente'
+      ? { label: t('Ligne de crédit en cours d’ouverture', 'Credit line being opened'), tone: 'warn' }
+      : { label: t('Ligne de crédit arrêtée', 'Credit line stopped'), tone: 'warn' };
+  const solde = credit === null ? null : credit.illimite
+    ? t('Illimité', 'Unlimited')
+    : new Intl.NumberFormat(locale === 'en' ? 'en-GB' : 'fr-FR', { style: 'currency', currency: 'EUR' }).format(eurosDepuisMicro(credit.soldeMicroEur));
+  return (
+    <div data-testid="moyen-de-paiement" className="mt-3 text-xs">
+      <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+        <BadgeField label={t('Moyen de paiement', 'Payment method')} badge={badge} />
+        {solde !== null && <Field label={t('Crédit restant', 'Credit left')} value={solde} />}
+        {/* L'onglet n'existe qu'avec une ligne posée : une ligne qui s'ouvre n'y mènerait qu'à la page Offre. */}
+        {moyen !== 'ligne_en_attente' && (
+          <Link href="/offre?tab=whatsapp" data-testid="moyen-de-paiement-onglet" className="font-medium text-brand-700 underline">
+            {t('Voir la ligne de crédit', 'See the credit line')}
+          </Link>
+        )}
+      </div>
+      {moyen === 'ligne_arretee' && (
+        <p className="mt-2 text-ink-500">{t('Vos messages ne partent plus, quel que soit le crédit restant.', 'Your messages are no longer sent, whatever the credit left.')}</p>
+      )}
+      {paiementMetaBloque === true && (
+        <p className="mt-2 text-alerte-700">
+          {t('Meta signale un blocage du paiement : à vérifier dans le', 'Meta reports a payment block: check it in the')}{' '}<LienFacturationMeta />.
+        </p>
+      )}
     </div>
   );
 }
@@ -732,22 +813,7 @@ function AccueilInner({ session }: { session: Session }) {
                     <BadgeField label={t("Vérification d’entreprise", 'Business verification')} badge={businessVerificationBadge(account.businessVerificationStatus, locale)} />
                     {account.ownerBusinessName && <Field label={t('Business', 'Business')} value={account.ownerBusinessName} />}
                   </div>
-                  <p className="mt-3 text-xs text-ink-500">
-                    {t('Moyen de paiement : à vérifier dans le', 'Payment method: check it in the')}{' '}
-                    <a
-                      href="https://business.facebook.com/billing_hub/accounts"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-brand-700 underline"
-                    >
-                      {t('Business Manager Meta', 'Meta Business Manager')}
-                    </a>
-                    {account.paiementMetaBloque === true
-                      ? t(' : Meta signale un problème de carte.', ': Meta reports a card problem.')
-                      : account.paiementMetaBloque === false
-                        ? t(' : aucun blocage signalé par Meta.', ': no block reported by Meta.')
-                        : '.'}
-                  </p>
+                  <MoyenDePaiement tenantId={session.tenantId} paiementMetaBloque={account.paiementMetaBloque} />
                 </div>
               )}
               {account?.hasNumber && isAdmin && (
