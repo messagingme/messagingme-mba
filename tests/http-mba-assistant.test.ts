@@ -8,6 +8,8 @@ import { monterAvecEtapeEspace } from '../src/http/scope';
 import { calculerCompletion, type EntreeCompletion } from '../src/mba/completion';
 import { ENTRETIEN_MBA_VIERGE, type EntretienMba } from '../src/mba/assistant/entretien-store';
 import { LlmApiError } from '../src/llm/errors';
+import { GatewayChatClient } from '../src/agent/llm/chat-client';
+import { SCHEMA_PROPOSITION_MBA } from '../src/mba/assistant/proposition';
 import { RESERVATION_MICRO_EUR } from '../src/assistant/budget';
 import { buildServer } from '../src/server';
 import { FakeQueue } from './fake-queue';
@@ -354,6 +356,62 @@ describe('quand le fournisseur de modèle lâche', () => {
     } as never);
     await post(m.app, '/tenants/t1/mba/assistant', { message: 'bonjour' });
     expect(vu).toBeInstanceOf(AbortSignal);
+  });
+});
+
+/**
+ * 🔴 CE QUI PART RÉELLEMENT CHEZ LE FOURNISSEUR (constaté en production le 2026-11-17).
+ *
+ * L'outil était passé déjà emballé (`{ type, function: { name, ... } }`) à un client qui l'emballe lui-même, et un
+ * `as` le cachait au compilateur : le fournisseur recevait un outil sans nom ni schéma et refusait chaque tour en
+ * 400. Les faux `completer` ci-dessus ne lisent pas leur entrée, donc aucun n'a pu le voir. Ici, le VRAI client,
+ * câblé comme dans `src/index.ts` (bloc `mbaAssistant`) ; seul `fetch` est simulé, par un fournisseur qui refuse,
+ * comme le vrai, un outil sans nom ou sans schéma.
+ */
+describe('ce qui part chez le fournisseur', () => {
+  interface CorpsEnvoye {
+    tools?: Array<{ type?: unknown; function?: { name?: unknown; description?: unknown; parameters?: unknown } }>;
+    tool_choice?: unknown;
+  }
+
+  it('🔴 l’outil `proposer` arrive nommé, avec son schéma, et imposé', async () => {
+    const envoyes: CorpsEnvoye[] = [];
+    vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+      const corps = JSON.parse(String(init.body)) as CorpsEnvoye;
+      envoyes.push(corps);
+      const outil = corps.tools?.[0]?.function;
+      if (typeof outil?.name !== 'string' || outil.name === '' || typeof outil.parameters !== 'object') {
+        return new Response(JSON.stringify({ error: { message: 'Invalid tool definition' } }), { status: 400 });
+      }
+      return new Response(JSON.stringify({
+        choices: [{
+          finish_reason: 'tool_calls',
+          message: {
+            content: null,
+            tool_calls: [{ id: 'c1', type: 'function', function: { name: 'proposer', arguments: JSON.stringify({ message: 'Très bien.', operations: [] }) } }],
+          },
+        }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, cost: 0 },
+      }), { status: 200 });
+    });
+    try {
+      const client = new GatewayChatClient('cle-de-test');
+      const m = monter({ completer: (i) => client.completer({ ...i, tenantId: '' }) });
+      const r = await post(m.app, '/tenants/t1/mba/assistant', { message: 'bonjour' });
+      // Lu en premier : sur le code fautif, c'est ici que s'affiche le message vu en production.
+      expect(r.json().error).toBeUndefined();
+      expect(r.statusCode).toBe(200);
+      expect(r.json().message).toBe('Très bien.');
+      expect(envoyes).toHaveLength(1);
+      expect(envoyes[0]!.tools).toEqual([{
+        type: 'function',
+        function: { name: 'proposer', description: expect.stringMatching(/\S/), parameters: SCHEMA_PROPOSITION_MBA },
+      }]);
+      // Un seul outil imposé part en `required` (voir `chat-client.ts`) : la preuve que `toolChoice` le nomme bien.
+      expect(envoyes[0]!.tool_choice).toBe('required');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

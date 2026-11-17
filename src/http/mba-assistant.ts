@@ -14,7 +14,7 @@ import { accueilMba } from '../mba/assistant/couverture';
 import {
   moisDe, resteDuBudget, MESSAGE_PLAFOND, reserverBudget, solderReservation, type DepenseStore,
 } from '../assistant/budget';
-import type { ChatMessage, GatewayChatClient, OutilExpose, ReponseChat } from '../agent/llm/chat-client';
+import type { ChatMessage, GatewayChatClient, ReponseChat } from '../agent/llm/chat-client';
 import { direPanneModele } from '../llm/errors';
 import { journaliser } from '../lib/journal';
 
@@ -53,6 +53,9 @@ export const MAX_MESSAGES_AFFICHES_MBA = 200;
  * avec celui de `agent-setup.ts` : deux routes bornées chacune, pas un invariant partagé.
  */
 const DELAI_MS = 45_000;
+
+/** L'outil par lequel le modèle rend sa réponse ; le prompt le nomme aussi (`src/mba/assistant/conversation.ts`). */
+const OUTIL_PROPOSER = 'proposer';
 
 const corpsTour = z.object({ message: z.string().trim().min(1).max(4000) });
 const corpsAppliquer = z.object({ operations: z.array(z.unknown()).max(20) });
@@ -145,7 +148,17 @@ export function registerMbaAssistant(app: FastifyInstance, deps: MbaAssistantDep
         modele: deps.modele,
         messages,
         tenantId: '',
-        outils: [outilProposer()] as OutilExpose[],
+        // Le modèle rend toujours sa réponse par cet outil, jamais en texte libre ; `toolChoice` le lui impose. Le
+        // client emballe lui-même l'outil au format du fournisseur : lui passer un outil déjà emballé fait partir un
+        // outil sans nom ni schéma, refusé en 400 (vu en production le 2026-11-17).
+        outils: [{
+          name: OUTIL_PROPOSER,
+          description: 'Répondre au client et, s’il y a lieu, proposer des modifications de son agent Meta.',
+          // Écrit à la main et tenu à la parité avec Zod (`tests/mba-assistant-bornes.test.ts`) : toute borne appliquée
+          // à la réponse est annoncée au modèle, qui ne peut sinon pas l'éviter.
+          parameters: SCHEMA_PROPOSITION_MBA,
+        }],
+        toolChoice: OUTIL_PROPOSER,
         signal: AbortSignal.timeout(DELAI_MS),
       });
     } catch (err) {
@@ -228,18 +241,4 @@ export function registerMbaAssistant(app: FastifyInstance, deps: MbaAssistantDep
       })),
     });
   });
-}
-
-/** La définition de l'outil exposée au modèle. Il rend toujours sa réponse par là, jamais en texte libre. */
-function outilProposer(): unknown {
-  return {
-    type: 'function',
-    function: {
-      name: 'proposer',
-      description: 'Répondre au client et, s’il y a lieu, proposer des modifications de son agent Meta.',
-      // Écrit à la main et tenu à la parité avec Zod (`tests/mba-assistant-bornes.test.ts`) : toute borne appliquée
-      // à la réponse est annoncée au modèle, qui ne peut sinon pas l'éviter.
-      parameters: SCHEMA_PROPOSITION_MBA,
-    },
-  };
 }
