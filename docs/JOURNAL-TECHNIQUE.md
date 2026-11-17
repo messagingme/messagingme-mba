@@ -152,8 +152,15 @@ commandes de test, attribution, paniers par le numéro), trois e2e (avec boutiqu
 80 e2e voisins de la fiche, auto-attaque sans trouvaille. Trois tests du serveur dépassaient 5 s quand la suite tournait
 en même temps que le build de la console : seuls, ils passent, et ils durent autant avec et sans le lot (1,1 s contre
 1,2 s pour le plus long). Déployé sans migration (run 43940738599) : la route rend 401 en production (404 avant), la
-fumée est verte. Relecture indépendante : aucun rouge, six jaunes en tête de `todo.md`. Reste l'essai réel sur
-« Messaging Me demo » (essai 265).
+fumée est verte. Relecture indépendante : aucun rouge, six jaunes en tête de `todo.md`.
+
+**L'essai réel** (essai 265, par Claude dans le Chrome de Julien) : sur « Messaging Me demo », la fiche de Julien montre
+l'onglet, 6 commandes dont 4 de test, 2 898,80 $US, et leurs sources (« Campagne « essai » (prouvé par le lien) »,
+« Relance de panier (prouvé par le panier) ») ; sur un espace sans boutique, pas d'onglet. Il a trouvé une phrase
+fausse : « Rapporté par WhatsApp » disait « Aucune commande attribuée à WhatsApp » face à des commandes qui portaient
+leur source. Le chiffre était juste (les commandes de test n'y comptent jamais), la phrase non : `675b7b6ee` dit
+« Aucune vente réelle attribuée à WhatsApp » et pourquoi, avec deux jaunes de la relecture dans les mêmes fichiers ; son
+e2e a été vu échouer sans le correctif, la phrase revue en production le 17. Reste un panier abandonné récent à voir.
 
 ## 2026-11-16 : un bloc qui n'a rien envoyé ne suit plus la flèche d'un bouton
 
