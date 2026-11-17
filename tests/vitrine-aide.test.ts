@@ -26,7 +26,7 @@ const centre = pagesDuCentre();
 
 describe('le centre d’aide de la vitrine', () => {
   it('l’accueil et une page par fiche publique, dans les deux langues', () => {
-    expect(centre.length).toBe(20);
+    expect(centre.length).toBe(21);
     // L’accueil, le guide du numéro et le dépannage (lot 4a), les pages composées de sources (4a-2), une page par fiche,
     // une par page Claude Code : dans chaque langue.
     expect(generees.length).toBe(2 * (1 + 2 + PAGES_SOURCES.length + centre.length + PAGES_CLAUDE.length));
@@ -150,8 +150,9 @@ describe('le centre d’aide de la vitrine', () => {
     }
     // 114, puis 120 avec les trois étapes de la console (2026-11-16 : numéro fourni 1 et 2, garder 1), en deux langues ;
     // 124 avec les étapes 8 et 9 de la boutique Shopify (le même jour : la fiche ne suit plus que la console, Claude Code a
-    // sa page à part, brancher-sa-boutique-shopify) ; 126 avec l'étape de la formule de « Connecter mon numéro » (2026-11-17).
-    expect(vues).toBe(126);
+    // sa page à part, brancher-sa-boutique-shopify) ; 126 avec l'étape de la formule de « Connecter mon numéro » (2026-11-17) ;
+    // 132 avec les trois captures du Business Manager de « Changer le nom et la photo de mon numéro » (le même jour).
+    expect(vues).toBe(132);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {
@@ -257,8 +258,9 @@ describe('le centre d’aide de la vitrine', () => {
       expect(html.includes('class="aide-offre"'), p.cle).toBe(p.publication.offre !== null);
     }
     expect(centre.filter((p) => !p.publication.offre).map((p) => p.cle).sort())
-      .toEqual(['ce-qu-il-faut-chez-meta', 'choisir-mon-offre', 'connecter-mon-numero-whatsapp',
-        'garder-mon-application-whatsapp-business', 'la-fenetre-de-24-heures', 'numero-fourni-par-messaging-me']);
+      .toEqual(['ce-qu-il-faut-chez-meta', 'changer-le-nom-et-la-photo-de-mon-numero', 'choisir-mon-offre',
+        'connecter-mon-numero-whatsapp', 'garder-mon-application-whatsapp-business', 'la-fenetre-de-24-heures',
+        'numero-fourni-par-messaging-me']);
   });
 
   it('le plan du site et llms.txt citent chaque page, et sont à jour', () => {

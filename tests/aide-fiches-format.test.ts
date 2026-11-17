@@ -206,6 +206,9 @@ describe('les fiches publiques', () => {
     'payer-ses-messages-sans-carte-chez-meta': ['demarrer-console', 4],
     // Le mode op D, un numéro fourni par la fenêtre de Meta, avec sa vidéo (lot 6, 2026-11-13) : à côté du mode op A.
     'numero-fourni-par-messaging-me': ['demarrer-claude', 5],
+    // Le nom et la photo du numéro, qui se changent chez Meta (Julien, 2026-11-17, avec ses captures) : en fin des deux
+    // rubriques de démarrage, la console d'abord.
+    'changer-le-nom-et-la-photo-de-mon-numero': ['demarrer-console', 10],
   };
   /** Les six écrans qui portent « Comment faire », et leur page. */
   const COMMENT_FAIRE: Record<string, string> = {
@@ -250,8 +253,9 @@ describe('les fiches publiques', () => {
     // Connecter son numéro et garder son application se font depuis Claude Code (Free) ou l'Accueil, ouvert à la
     // Free (`ECRANS_FREE`, `MODULES_OUVERTS_AU_FREE`) : aucune offre à dire.
     expect(publiques.filter((f) => !f.publication.offre).map((f) => f.cle).sort())
-      .toEqual(['ce-qu-il-faut-chez-meta', 'choisir-mon-offre', 'connecter-mon-numero-whatsapp',
-        'garder-mon-application-whatsapp-business', 'la-fenetre-de-24-heures', 'numero-fourni-par-messaging-me']);
+      .toEqual(['ce-qu-il-faut-chez-meta', 'changer-le-nom-et-la-photo-de-mon-numero', 'choisir-mon-offre',
+        'connecter-mon-numero-whatsapp', 'garder-mon-application-whatsapp-business', 'la-fenetre-de-24-heures',
+        'numero-fourni-par-messaging-me']);
   });
 
   it('🔴 spec Business : chaque fiche dit l’offre la moins chère qui ouvre sa fonction (publicités, RCS et chaînes : l’Entreprise)', () => {
@@ -309,5 +313,6 @@ describe('les fiches publiques', () => {
     expect(places('ce-qu-il-faut-chez-meta')).toEqual([{ rubrique: 'demarrer-claude', rang: 3 }, { rubrique: 'demarrer-console', rang: 2 }]);
     expect(places('garder-mon-application-whatsapp-business')).toEqual([{ rubrique: 'demarrer-claude', rang: 5 }, { rubrique: 'demarrer-console', rang: 5 }]);
     expect(places('brancher-ma-boutique-shopify')).toEqual([{ rubrique: 'parler-aux-clients', rang: 6 }, { rubrique: 'demarrer-console', rang: 8 }]);
+    expect(places('changer-le-nom-et-la-photo-de-mon-numero')).toEqual([{ rubrique: 'demarrer-console', rang: 10 }, { rubrique: 'demarrer-claude', rang: 8 }]);
   });
 });

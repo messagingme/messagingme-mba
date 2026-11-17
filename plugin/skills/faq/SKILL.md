@@ -69,31 +69,39 @@ Claude vous aide à choisir au moment de connecter le numéro.
 
 **Vous n’avez pas de numéro ? Nous vous en fournissons un !**
 
-## My business name shows up wrong on WhatsApp.
+## My name or photo does not show on WhatsApp.
 
-That is the WhatsApp display name, separate from your workspace name. To change it:
+That is your number’s display name at Meta, separate from your workspace name. Where to change it depends on your number.
 
-1) Open WhatsApp Manager: https://business.facebook.com/wa/manage/home/
+**Do you keep the WhatsApp Business app?** The name and photo can be changed neither in Business Manager nor in Messaging Me: Meta leaves them to the app. Change them in its business profile, on your phone.
 
-2) “Account tools”, then “Phone numbers”: select your number.
+**Is your number connected directly to the API, without the app?** The name and photo are changed in your Business Manager:
 
-3) “Profile” tab, “Display name” section: click “Edit”.
+1) Open WhatsApp Manager: https://business.facebook.com/wa/manage/home/ (or the ≡ menu at the bottom left, “All tools”, then “WhatsApp Manager”).
 
-Meta reviews every change (ten at most per 30-day period): during the review, or after a rejection, WhatsApp may show the number instead.
+2) Click your number, under your WhatsApp account (or “Account tools”, then “Phone numbers”).
+
+3) “Profile” tab: “Edit” under “Display name” for the name, the button under “Profile picture” for the photo.
+
+Meta reviews every new name (ten changes at most per 30-day period): during the review, or after a rejection, WhatsApp may show the number instead.
 
 **Name approved? Write to us**: Meta requires the number to be re-registered within 14 days for the new name to show.
 
-**FR · Mon nom d’entreprise s’affiche mal sur WhatsApp.**
+**FR · Mon nom ou ma photo ne s’affiche pas sur WhatsApp.**
 
-C’est le nom d’affichage WhatsApp, distinct du nom de votre espace. Pour le changer :
+C’est le nom d’affichage de votre numéro chez Meta, distinct du nom de votre espace. Où le changer dépend de votre numéro.
 
-1) Ouvrez le Gestionnaire WhatsApp : https://business.facebook.com/wa/manage/home/
+**Vous gardez l’application WhatsApp Business ?** Le nom et la photo ne se changent ni dans le Business Manager, ni dans Messaging Me : Meta les laisse à l’application. Changez-les dans son profil d’entreprise, sur votre téléphone.
 
-2) « Outils du compte », puis « Numéros de téléphone » : choisissez votre numéro.
+**Votre numéro est relié directement à l’API, sans l’application ?** Le nom et la photo se changent dans votre Business Manager :
 
-3) Onglet « Profil », section « Nom d’affichage » : cliquez sur « Modifier ».
+1) Ouvrez le Gestionnaire WhatsApp : https://business.facebook.com/wa/manage/home/ (ou le menu ≡ en bas à gauche, « Tous les outils », puis « Gestionnaire WhatsApp »).
 
-Meta relit chaque changement (dix au plus par période de 30 jours) : pendant la relecture, ou après un refus, WhatsApp peut afficher le numéro à la place.
+2) Cliquez sur votre numéro, sous votre compte WhatsApp (ou « Outils du compte », puis « Numéros de téléphone »).
+
+3) Onglet « Profil » : « Modifier » sous « Nom d’affichage » pour le nom, le bouton sous « Photo de profil » pour la photo.
+
+Meta relit chaque nouveau nom (dix changements au plus par période de 30 jours) : pendant la relecture, ou après un refus, WhatsApp peut afficher le numéro à la place.
 
 **Nom approuvé ? Écrivez-nous** : Meta demande de réenregistrer le numéro dans les 14 jours pour que le nouveau nom s’affiche.
 

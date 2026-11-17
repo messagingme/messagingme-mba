@@ -145,6 +145,8 @@ const SECTIONS_SANS_FICHE: ReadonlyMap<string, 'interne' | 'integrateurs' | 'auc
  */
 const FICHES_SANS_SECTION: ReadonlyMap<string, string> = new Map([
   ['la-fenetre-de-24-heures', 'explique une règle de WhatsApp, pas un écran du produit : aucune section ne la décrit'],
+  ['changer-le-nom-et-la-photo-de-mon-numero', 'explique un geste chez Meta (le Business Manager), pas un écran du produit : '
+    + 'aucune section ne le décrit'],
 ]);
 
 describe('🔴 dérive : une fiche dérivée reste à jour de ses sections', () => {

@@ -62,14 +62,24 @@ const AIDE_CONNECTER_NUMERO: AdresseAide = {
   fr: `${VITRINE_AIDE}/aide/connecter-mon-numero-whatsapp/`,
   en: `${VITRINE_AIDE}/en/help/connect-my-whatsapp-number/`,
 };
+/** La page d'aide « Changer le nom et la photo de mon numéro WhatsApp », qui porte les captures du Business Manager. */
+const AIDE_NOM_ET_PHOTO: AdresseAide = {
+  fr: `${VITRINE_AIDE}/aide/changer-le-nom-et-la-photo-de-mon-numero/`,
+  en: `${VITRINE_AIDE}/en/help/change-my-number-name-and-photo/`,
+};
 /**
- * Le lien d'une vidéo du centre d'aide, pour la FAQ de la vitrine. La skill du plugin l'ôte (`SANS_VIDEO`) : Claude reçoit
- * ces pages par les champs `aide` de `get_setup_state`, et aucune adresse du centre n'est tapée dans le plugin
- * (`tests/aide-connexion-adresses.test.ts`).
+ * Le lien d'une vidéo, ou d'un guide en captures, du centre d'aide, pour la FAQ de la vitrine. La skill du plugin l'ôte
+ * (`SANS_VIDEO`) : Claude reçoit ces pages par les champs `aide` de `get_setup_state`, et aucune adresse du centre n'est
+ * tapée dans le plugin (`tests/aide-connexion-adresses.test.ts`).
  */
 const video = (a: AdresseAide, langue: 'fr' | 'en', duree = ''): string =>
   langue === 'fr' ? ` Le parcours en vidéo${duree} : ${a.fr}` : ` The path in a video${duree}: ${a.en}`;
-export const SANS_VIDEO = new RegExp(` (?:Le parcours en vidéo|The path in a video)[^:]*: ${VITRINE_AIDE.replace(/\./g, '\\.')}\\S+`, 'g');
+const guide = (a: AdresseAide, langue: 'fr' | 'en'): string =>
+  langue === 'fr' ? ` Le guide avec les captures : ${a.fr}` : ` The guide with screenshots: ${a.en}`;
+export const SANS_VIDEO = new RegExp(
+  ` (?:Le parcours en vidéo|The path in a video|Le guide avec les captures|The guide with screenshots)[^:]*: ${VITRINE_AIDE.replace(/\./g, '\\.')}\\S+`,
+  'g',
+);
 
 export const texteBrut =(t: string): string => t.replace(/\*\*/g, '').replace(/\n+/g, ' ');
 
@@ -126,22 +136,26 @@ export const FAQ: readonly EntreeFaq[] = [
   },
   {
     id: 'nom-affiche',
-    question: { fr: 'Mon nom d’entreprise s’affiche mal sur WhatsApp.', en: 'My business name shows up wrong on WhatsApp.' },
+    question: { fr: 'Mon nom ou ma photo ne s’affiche pas sur WhatsApp.', en: 'My name or photo does not show on WhatsApp.' },
     reponse: {
-      fr: 'C’est le nom d’affichage WhatsApp, distinct du nom de votre espace. Pour le changer :\n'
-        + '1) Ouvrez le Gestionnaire WhatsApp : https://business.facebook.com/wa/manage/home/\n'
-        + '2) « Outils du compte », puis « Numéros de téléphone » : choisissez votre numéro.\n'
-        + '3) Onglet « Profil », section « Nom d’affichage » : cliquez sur « Modifier ».\n'
-        + 'Meta relit chaque changement (dix au plus par période de 30 jours) : pendant la relecture, ou après un refus, WhatsApp peut afficher le numéro à la place.\n'
-        + '**Nom approuvé ? Écrivez-nous** : Meta demande de réenregistrer le numéro dans les 14 jours pour que le nouveau nom s’affiche.',
-      en: 'That is the WhatsApp display name, separate from your workspace name. To change it:\n'
-        + '1) Open WhatsApp Manager: https://business.facebook.com/wa/manage/home/\n'
-        + '2) “Account tools”, then “Phone numbers”: select your number.\n'
-        + '3) “Profile” tab, “Display name” section: click “Edit”.\n'
-        + 'Meta reviews every change (ten at most per 30-day period): during the review, or after a rejection, WhatsApp may show the number instead.\n'
-        + '**Name approved? Write to us**: Meta requires the number to be re-registered within 14 days for the new name to show.',
+      fr: 'C’est le nom d’affichage de votre numéro chez Meta, distinct du nom de votre espace. Où le changer dépend de votre numéro.\n'
+        + '**Vous gardez l’application WhatsApp Business ?** Le nom et la photo ne se changent ni dans le Business Manager, ni dans Messaging Me : Meta les laisse à l’application. Changez-les dans son profil d’entreprise, sur votre téléphone.\n'
+        + '**Votre numéro est relié directement à l’API, sans l’application ?** Le nom et la photo se changent dans votre Business Manager :\n'
+        + '1) Ouvrez le Gestionnaire WhatsApp : https://business.facebook.com/wa/manage/home/ (ou le menu ≡ en bas à gauche, « Tous les outils », puis « Gestionnaire WhatsApp »).\n'
+        + '2) Cliquez sur votre numéro, sous votre compte WhatsApp (ou « Outils du compte », puis « Numéros de téléphone »).\n'
+        + '3) Onglet « Profil » : « Modifier » sous « Nom d’affichage » pour le nom, le bouton sous « Photo de profil » pour la photo.\n'
+        + 'Meta relit chaque nouveau nom (dix changements au plus par période de 30 jours) : pendant la relecture, ou après un refus, WhatsApp peut afficher le numéro à la place.\n'
+        + `**Nom approuvé ? Écrivez-nous** : Meta demande de réenregistrer le numéro dans les 14 jours pour que le nouveau nom s’affiche.${guide(AIDE_NOM_ET_PHOTO, 'fr')}`,
+      en: 'That is your number’s display name at Meta, separate from your workspace name. Where to change it depends on your number.\n'
+        + '**Do you keep the WhatsApp Business app?** The name and photo can be changed neither in Business Manager nor in Messaging Me: Meta leaves them to the app. Change them in its business profile, on your phone.\n'
+        + '**Is your number connected directly to the API, without the app?** The name and photo are changed in your Business Manager:\n'
+        + '1) Open WhatsApp Manager: https://business.facebook.com/wa/manage/home/ (or the ≡ menu at the bottom left, “All tools”, then “WhatsApp Manager”).\n'
+        + '2) Click your number, under your WhatsApp account (or “Account tools”, then “Phone numbers”).\n'
+        + '3) “Profile” tab: “Edit” under “Display name” for the name, the button under “Profile picture” for the photo.\n'
+        + 'Meta reviews every new name (ten changes at most per 30-day period): during the review, or after a rejection, WhatsApp may show the number instead.\n'
+        + `**Name approved? Write to us**: Meta requires the number to be re-registered within 14 days for the new name to show.${guide(AIDE_NOM_ET_PHOTO, 'en')}`,
     },
-    source: 'la page « Display names » de la documentation WhatsApp de Meta, relue le 2026-11-13 : chemin dans le Gestionnaire WhatsApp, dix changements par 30 jours, réenregistrement sous 14 jours après approbation ; docs/aide/fiches/connecter-mon-numero-whatsapp.md',
+    source: 'la page « Display names » de la documentation WhatsApp de Meta, relue le 2026-11-13 : chemin dans le Gestionnaire WhatsApp, dix changements par 30 jours, réenregistrement sous 14 jours après approbation ; la page « Onboard WhatsApp Business app users » de Meta, relue le 2026-11-17 : le profil d’entreprise (nom compris) reste à l’application, la Cloud API ne le prend pas en charge ; les captures du Business Manager de Julien du 2026-11-17 ; docs/aide/fiches/changer-le-nom-et-la-photo-de-mon-numero.md',
   },
   {
     id: 'fenetre-24-heures',
