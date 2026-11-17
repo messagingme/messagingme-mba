@@ -32,6 +32,7 @@ function banc() {
 /** Les méthodes publiques qui doivent ignorer la ligne système, et comment chacune s'appelle. */
 const FILTREES: Record<string, (s: PgWorkflowStore) => Promise<unknown>> = {
   listResume: (s) => s.listResume('t1'),
+  listNoms: (s) => s.listNoms('t1'),
   listPublies: (s) => s.listPublies('t1'),
   list: (s) => s.list('t1'),
   getById: (s) => s.getById('w1', 't1'),

@@ -106,6 +106,7 @@ const CATALOGUE_ACTIONS_AUDIT = {
   'agent.mention_modifiee': ['Phrase de mention d’IA d’un agent modifiée', 'AI agent disclosure sentence changed'],
   // Les gestes de Messaging Me dans l'espace : l'acteur est l'adresse de l'exploitant, jamais sa note libre.
   'ops.offre_posee': ['Offre posée par Messaging Me', 'Plan set by Messaging Me'],
+  'ops.scenario_duplique': ['Scénario dupliqué depuis un autre espace par Messaging Me', 'Scenario duplicated from another workspace by Messaging Me'],
   'ops.verrou': ['Espace verrouillé ou déverrouillé par Messaging Me', 'Workspace locked or unlocked by Messaging Me'],
   'ops.cle_modele_revoquee': ['Clé du modèle révoquée par Messaging Me', 'Model key revoked by Messaging Me'],
   'ops.credit_ajoute': ['Crédit IA ajouté par Messaging Me', 'AI credit added by Messaging Me'],

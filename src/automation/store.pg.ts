@@ -90,7 +90,8 @@ const COLS = 'id, tenant_id, name, enabled, trigger_kind, trigger_config, condit
 const EMAIL_DE = (par: string, tenant: string) => `(select email from users where id = ${par}::uuid and tenant_id = ${tenant})`;
 
 /**
- * Met hors de portée de ce store (donc de l'écran Automation) les automations possédées par autre chose :
+ * Met hors de portée de ce store (donc de l'écran Automation) les automations possédées par autre chose, sauf
+ * `toutesPourLaDuplication`, lecture seule réservée à la duplication entre espaces qui doit aussi les voir :
  * `trigger_kind = 'webhook'` (gérées par `PgWebhookStore`) et `possede_par is not null` (lien de chaîne,
  * publicité). Sans le second terme, un PATCH ou un DELETE ici ferait cesser en silence le bouton d'un post
  * déjà publié, qui circule pour toujours.
@@ -121,7 +122,9 @@ export class PgAutomationStore {
    * (pour les dire), et ceux de la destination avec lesquels une copie entrerait en conflit. Jamais pour un écran.
    */
   async toutesPourLaDuplication(tenantId: string): Promise<AutomationRow[]> {
-    const res = await this.pool.query<Raw>(`select ${COLS} from automations where tenant_id = $1 order by created_at`, [tenantId]);
+    // `created_at, id` : les automations écrites dans une même transaction partagent le même `now()`, et l'empreinte de
+    // la duplication hache cet ordre (relecture du lot 1).
+    const res = await this.pool.query<Raw>(`select ${COLS} from automations where tenant_id = $1 order by created_at, id`, [tenantId]);
     return res.rows.map(toRow).filter((a): a is AutomationRow => a !== null);
   }
 

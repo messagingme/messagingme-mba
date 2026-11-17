@@ -28,8 +28,11 @@ const etat = (over: Partial<EtatDuplication> = {}): EtatDuplication => ({
   champsSource: [{ key: 'ville', label: 'Ville', type: 'text' }, { key: 'score', label: 'Score', type: 'number' }],
   champsDestination: [],
   nomsPrisDestination: [],
-  templatesDestination: [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED' }],
+  templatesDestination: [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED', boutons: [] }],
+  templatesSource: [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED', boutons: [] }],
   offreOuvreScenarios: true,
+  dependances: { agents: [], requetes: [], sources: [], modelesEmail: [] },
+  nomsPris: { agents: [], requetes: [], sources: [], modelesEmail: [], outils: [] },
   ...over,
 });
 
@@ -61,7 +64,7 @@ describe('planifierDuplication : blocages et signaux', () => {
   });
 
   it('template absent de la destination : bloqué, en le nommant avec sa langue', () => {
-    const p = planifierDuplication(etat({ templatesDestination: [{ nom: 'bienvenue', langue: 'en_US', statut: 'APPROVED' }] }));
+    const p = planifierDuplication(etat({ templatesDestination: [{ nom: 'bienvenue', langue: 'en_US', statut: 'APPROVED', boutons: [] }] }));
     expect(p.templatesAbsents).toEqual([{ nom: 'bienvenue', langue: 'fr' }]);
     expect(p.blocages.join(' ')).toContain('bienvenue (fr)');
   });
@@ -71,9 +74,9 @@ describe('planifierDuplication : blocages et signaux', () => {
   });
 
   it('template présent mais pas approuvé, offre sans scénarios : signalés sans blocage', () => {
-    const p = planifierDuplication(etat({ templatesDestination: [{ nom: 'bienvenue', langue: 'fr', statut: 'PENDING' }], offreOuvreScenarios: false }));
+    const p = planifierDuplication(etat({ templatesDestination: [{ nom: 'bienvenue', langue: 'fr', statut: 'PENDING', boutons: [] }], offreOuvreScenarios: false }));
     expect(p.blocages).toEqual([]);
-    expect(p.templatesNonApprouves).toEqual([{ nom: 'bienvenue', langue: 'fr', statut: 'PENDING' }]);
+    expect(p.templatesNonApprouves).toEqual([{ nom: 'bienvenue', langue: 'fr', statut: 'PENDING', boutons: [] }]);
     expect(p.signaux).toHaveLength(2);
   });
 });
@@ -104,7 +107,7 @@ describe('l’empreinte', () => {
       { champsDestination: [{ key: 'ville', label: 'Ville', type: 'text' }] },
       { automationsDeLaDestination: [{ id: 'a', tenantId: 'dst', name: 'x', enabled: true, triggerKind: 'new_contact', triggerConfig: {}, conditionGroup: null, workflowId: 'w', startNodeId: null, possedePar: null, cooldownSeconds: null, maxFiresPerHour: null, accordMarketing: null }] },
       { nomsPrisDestination: ['Accueil (copie)'] },
-      { templatesDestination: [{ nom: 'bienvenue', langue: 'fr', statut: 'PENDING' }] },
+      { templatesDestination: [{ nom: 'bienvenue', langue: 'fr', statut: 'PENDING', boutons: [] }] },
     ];
     for (const v of variantes) expect(planifierDuplication(etat(v)).empreinte).not.toBe(base);
   });
@@ -113,5 +116,51 @@ describe('l’empreinte', () => {
     const a = etat();
     const b = etat({ champsSource: [{ type: 'text', label: 'Ville', key: 'ville' }, { type: 'number', key: 'score', label: 'Score' }] });
     expect(planifierDuplication(a).empreinte).toBe(planifierDuplication(b).empreinte);
+  });
+});
+
+describe('lot 2 : les jaunes du lot 1 et les dépendances dans le plan', () => {
+  it('l’empreinte ne dépend pas de l’ordre des templates rendu par Meta', () => {
+    const t1 = { nom: 'a', langue: 'fr', statut: 'APPROVED', boutons: [] };
+    const t2 = { nom: 'b', langue: 'fr', statut: 'APPROVED', boutons: [] };
+    expect(planifierDuplication(etat({ templatesDestination: [t1, t2], templatesSource: [t2, t1] })).empreinte)
+      .toBe(planifierDuplication(etat({ templatesDestination: [t2, t1], templatesSource: [t1, t2] })).empreinte);
+  });
+
+  it('un template réutilisé dont les boutons diffèrent de la source : signalé, sans blocage', () => {
+    const p = planifierDuplication(etat({
+      templatesDestination: [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED', boutons: [{ type: 'QUICK_REPLY', texte: 'Non' }] }],
+      templatesSource: [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED', boutons: [{ type: 'QUICK_REPLY', texte: 'Oui' }] }],
+    }));
+    expect(p.blocages).toEqual([]);
+    expect(p.signaux.some((s) => s.includes('pas les mêmes boutons'))).toBe(true);
+  });
+
+  it('les templates de la source illisibles : « boutons non comparés »', () => {
+    expect(planifierDuplication(etat({ templatesSource: null })).signaux.some((s) => s.includes('pas été comparés'))).toBe(true);
+  });
+
+  it('une image /m/ de la source est signalée', () => {
+    const g = etat().scenario;
+    const p = planifierDuplication(etat({
+      scenario: { ...g, graphe: { nodes: [...g.graphe.nodes, { id: 'q9', type: 'quick_message', position: { x: 0, y: 0 }, data: { imageUrl: 'https://api.messagingme.app/m/x.jpg' } }], edges: [] } },
+    }));
+    expect(p.signaux.some((s) => s.includes('hébergées par l’espace source'))).toBe(true);
+  });
+
+  it('les champs d’une dépendance cochée entrent dans champsACreer ; une clé système jamais', () => {
+    const g = etat().scenario;
+    const p = planifierDuplication(etat({
+      scenario: { ...g, graphe: { nodes: [...g.graphe.nodes, { id: 'm9', type: 'email', position: { x: 0, y: 0 }, data: { templateId: 'me-1' } }], edges: [] } },
+      champsSource: [{ key: 'ville', label: 'Ville', type: 'text' }, { key: 'score', label: 'Score', type: 'number' }, { key: 'code_promo', label: 'Code promo', type: 'text' }],
+      dependances: { agents: [], requetes: [], sources: [], modelesEmail: [{ id: 'me-1', nom: 'Bienvenue', sujet: 'Bonjour {{prenom}}', corps: '{{code_promo}}' }] },
+    }), { agents: [], requetes: [], modelesEmail: ['me-1'] });
+    expect(p.champsACreer.map((c) => c.key)).toContain('code_promo');
+    expect(p.champsACreer.map((c) => c.key)).not.toContain('prenom');
+    expect(p.copies.modelesEmail).toEqual([{ id: 'me-1', nom: 'Bienvenue' }]);
+  });
+
+  it('les cases cochées n’entrent pas dans l’empreinte', () => {
+    expect(planifierDuplication(etat(), { agents: [], requetes: [], modelesEmail: [] }).empreinte).toBe(planifierDuplication(etat()).empreinte);
   });
 });

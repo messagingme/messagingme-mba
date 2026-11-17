@@ -1477,11 +1477,14 @@ async function main(): Promise<void> {
       const waba = await repo.getTenantWabaId(tenant);
       if (!waba) return null;
       const modeles = await (await metaFactory.templateClientForTenant(tenant)).list(waba);
-      return modeles.map((t) => ({ nom: t.name, langue: t.language, statut: t.status }));
+      return modeles.map((t) => ({
+        nom: t.name, langue: t.language, statut: t.status, boutons: (t.buttons ?? []).map((b) => ({ type: b.type, texte: b.text })),
+      }));
     },
     offreOuvreScenarios: async (tenant) => (await offres.offreDe(tenant)).droits.fonctions.has('scenarios'),
     declareTags: async (tenant, tags) => { for (const t of tags) await tagStore.create(tenant, t); },
     verrous: verrousCourts,
+    audit: auditSink,
   };
 
   /**

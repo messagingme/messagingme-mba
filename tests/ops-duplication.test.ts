@@ -8,6 +8,7 @@ import { verrousEnMemoire } from './verrous';
 import type { OpsDuplicationDeps } from '../src/http/ops-duplication';
 import type { EtatEnBase } from '../src/ops/duplication/store.pg';
 import type { TemplateDeLaWaba } from '../src/ops/duplication/plan';
+import { TokenInvalidError } from '../src/meta/credentials';
 
 /**
  * LA DUPLICATION D'UN SCÉNARIO DEPUIS /ops, PAR LE VRAI CÂBLAGE (`buildServer`) : la garde d'exploitation, l'aperçu qui
@@ -40,9 +41,23 @@ const ETAT: EtatEnBase = {
   champsSource: [{ key: 'ville', label: 'Ville', type: 'text' }],
   champsDestination: [],
   nomsPrisDestination: [],
+  dependances: { agents: [], requetes: [], sources: [], modelesEmail: [] },
+  nomsPris: { agents: [], requetes: [], sources: [], modelesEmail: [], outils: [] },
+};
+
+/** Le même scénario, avec un bloc agent IA : de quoi cocher une dépendance (lot 2). */
+const AGENT = '5a6b7c8d-9e0f-4a1b-8c2d-3e4f5a6b7c8d';
+const ETAT_AVEC_AGENT: EtatEnBase = {
+  ...ETAT,
+  scenario: {
+    ...ETAT.scenario,
+    graphe: { ...ETAT.scenario.graphe, nodes: [...ETAT.scenario.graphe.nodes, { id: 'g5', type: 'agent', position: { x: 0, y: 0 }, data: { agentId: AGENT } }] },
+  },
+  dependances: { agents: [{ id: AGENT, label: 'Conseiller', fiches: 2, outils: [] }], requetes: [], sources: [], modelesEmail: [] },
 };
 
 interface Options {
+  etat?: EtatEnBase;
   templatesDe?: OpsDuplicationDeps['templatesDe'];
   ecrire?: OpsDuplicationDeps['store']['ecrire'];
   declareTags?: OpsDuplicationDeps['declareTags'];
@@ -50,27 +65,33 @@ interface Options {
 }
 
 function monter(o: Options = {}) {
-  const ecrits: Array<{ destination: string; nom: string }> = [];
+  const ecrits: Array<{ destination: string; nom: string; agentsCopies: string[] }> = [];
   const tagsDeclares: string[][] = [];
+  const traces: Array<{ tenantId: string; email: string | null; action: string }> = [];
   let lectures = 0;
   const verrous = o.verrous ?? verrousEnMemoire();
   const deps: OpsDuplicationDeps = {
     store: {
       espaces: async () => { lectures += 1; return [{ id: SRC, nom: 'Source', waba: true }, { id: DST, nom: 'Destination', waba: true }]; },
       scenarios: async (t) => { lectures += 1; return t === SRC ? [{ id: WF, nom: 'Accueil' }] : []; },
-      lireEtat: async (s, w, d) => { lectures += 1; return s === SRC && w === WF && d === DST ? ETAT : null; },
-      ecrire: o.ecrire ?? (async (destination, nom) => {
-        ecrits.push({ destination, nom });
-        return { scenarioId: 'wf-copie', nom: `${nom} (copie)`, champsCrees: ['ville'], declencheursCopies: 0 };
+      lireEtat: async (s, w, d) => { lectures += 1; return s === SRC && w === WF && d === DST ? (o.etat ?? ETAT) : null; },
+      ecrire: o.ecrire ?? (async (destination, _source, scenario, plan) => {
+        ecrits.push({ destination, nom: scenario.nom, agentsCopies: plan.copies.agents.map((a) => a.id) });
+        return {
+          scenarioId: 'wf-copie', nom: `${scenario.nom} (copie)`, champsCrees: ['ville'], declencheursCopies: 0,
+          dependancesCopiees: { agents: plan.copies.agents.map((a) => a.label), requetes: [], modelesEmail: [], sourcesAvecSecret: [] },
+          debranches: plan.graphe.debranches,
+        };
       }),
     },
-    templatesDe: o.templatesDe ?? (async (): Promise<TemplateDeLaWaba[]> => [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED' }]),
+    templatesDe: o.templatesDe ?? (async (): Promise<TemplateDeLaWaba[]> => [{ nom: 'bienvenue', langue: 'fr', statut: 'APPROVED', boutons: [] }]),
     offreOuvreScenarios: async () => true,
     declareTags: o.declareTags ?? (async (_t, tags) => { tagsDeclares.push(tags); }),
     verrous,
+    audit: async (tenantId, actor, action) => { traces.push({ tenantId, email: actor.email, action }); },
   };
   const server = buildServer({ queue: new FakeQueue(), auth: acces.auth, opsDuplication: deps });
-  return { server, ecrits, tagsDeclares, verrous, lus: () => lectures };
+  return { server, ecrits, tagsDeclares, traces, verrous, lus: () => lectures };
 }
 
 const acces = accesOps();
@@ -199,17 +220,64 @@ describe('la duplication d’un scénario depuis /ops', () => {
     }));
     expect(res.statusCode).toBe(201);
     expect(res.json()).toMatchObject({ scenarioId: 'wf-copie', nom: 'Accueil (copie)', champsCrees: ['ville'], debranches: [{ nodeId: 'a3' }] });
-    expect(ecrits).toEqual([{ destination: DST, nom: 'Accueil' }]);
+    expect(ecrits).toEqual([{ destination: DST, nom: 'Accueil', agentsCopies: [] }]);
     expect(tagsDeclares).toEqual([['vip']]);
     expect(lignes).toContainEqual(expect.objectContaining({ msg: 'ops_duplication_scenario', par: ADRESSE_OPS, source: SRC, destination: DST, copie: 'wf-copie' }));
     expect(verrous.tenues()).toEqual([]);
     await server.close();
   });
 
-  it('les tags qui ne se déclarent pas ne changent rien au 201', async () => {
+  it('les tags qui ne se déclarent pas ne changent rien au 201, et l’échec est journalisé', async () => {
     const { server } = monter({ declareTags: async () => { throw new Error('tags en panne'); } });
     const empreinte = await empreinteDe(server);
-    expect((await server.inject({ method: 'POST', url: '/ops/duplication', headers: ops, payload: { ...corps, empreinte } })).statusCode).toBe(201);
+    const { resultat: res, lignes } = await capturerJournal(() => server.inject({
+      method: 'POST', url: '/ops/duplication', headers: ops, payload: { ...corps, empreinte },
+    }));
+    expect(res.statusCode).toBe(201);
+    expect(lignes).toContainEqual(expect.objectContaining({ msg: 'ops_duplication_tags_non_declares', destination: DST }));
+    await server.close();
+  });
+});
+
+describe('lot 2 : les dépendances cochées, la trace, les messages', () => {
+  it('l’aperçu rend les dépendances du scénario, avec le nom qu’aurait leur copie', async () => {
+    const { server } = monter({ etat: ETAT_AVEC_AGENT });
+    const a = (await server.inject({ method: 'POST', url: '/ops/duplication/apercu', headers: ops, payload: corps })).json<{ apercu: { dependances: { agents: Array<{ nom: string; nomCopie: string }> } } }>().apercu;
+    expect(a.dependances.agents).toEqual([expect.objectContaining({ nom: 'Conseiller', nomCopie: 'Conseiller' })]);
+    await server.close();
+  });
+
+  it('🔴 une case qui désigne ce que le scénario ne désigne pas : 400, rien n’est écrit', async () => {
+    const { server, ecrits } = monter({ etat: ETAT_AVEC_AGENT });
+    const empreinte = await empreinteDe(server);
+    const res = await server.inject({
+      method: 'POST', url: '/ops/duplication', headers: ops,
+      payload: { ...corps, empreinte, dupliquer: { agents: [INCONNU], requetes: [], modelesEmail: [] } },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(ecrits).toEqual([]);
+    await server.close();
+  });
+
+  it('🔴 l’agent coché part avec le scénario ; la trace est écrite DANS la destination, au nom de l’exploitant', async () => {
+    const { server, ecrits, traces } = monter({ etat: ETAT_AVEC_AGENT });
+    const empreinte = await empreinteDe(server);
+    const res = await server.inject({
+      method: 'POST', url: '/ops/duplication', headers: ops,
+      payload: { ...corps, empreinte, dupliquer: { agents: [AGENT], requetes: [], modelesEmail: [] } },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(ecrits).toEqual([{ destination: DST, nom: 'Accueil', agentsCopies: [AGENT] }]);
+    expect(res.json()).toMatchObject({ dependancesCopiees: { agents: ['Conseiller'] } });
+    expect(traces).toEqual([{ tenantId: DST, email: ADRESSE_OPS, action: 'ops.scenario_duplique' }]);
+    await server.close();
+  });
+
+  it('un jeton WhatsApp invalide dans la destination : un message qui dit quoi faire, pas « réessayez »', async () => {
+    const { server } = monter({ templatesDe: async (t) => { if (t === DST) throw new TokenInvalidError('waba-1'); return []; } });
+    const res = await server.inject({ method: 'POST', url: '/ops/duplication/apercu', headers: ops, payload: corps });
+    expect(res.statusCode).toBe(422);
+    expect(res.json<{ error: string }>().error).toContain('reconnectez son numéro');
     await server.close();
   });
 });

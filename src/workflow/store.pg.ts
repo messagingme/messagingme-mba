@@ -209,13 +209,17 @@ export async function nomPrisSousVerrou(c: PoolClient, tenantId: string, nom: st
 /**
  * L'insertion d'un scénario, en BROUILLON seulement (`draft_graph`) : rien n'est en ligne tant que personne n'a cliqué
  * « Publier ». Le seul SQL d'insertion : `PgWorkflowStore.insert` l'appelle avec son pool, la duplication entre espaces
- * (`src/ops/duplication/store.pg.ts`) avec le client de sa transaction.
+ * (`src/ops/duplication/store.pg.ts`) avec le client de sa transaction, et un `id` tiré d'avance : les outils de l'agent
+ * copié visent la copie avant qu'elle soit écrite. Sans `id`, la base le tire.
  */
-export async function insererBrouillon(q: Pick<Pool, 'query'>, tenantId: string, name: string, graph: WorkflowGraph): Promise<{ id: string }> {
+export async function insererBrouillon(
+  q: Pick<Pool, 'query'>, tenantId: string, name: string, graph: WorkflowGraph, id?: string,
+): Promise<{ id: string }> {
   const code = makeCode('scn', await resolveTenantCode(q, tenantId));
   const res = await q.query<{ id: string }>(
-    `insert into workflows (tenant_id, name, draft_graph, code) values ($1, $2, $3::jsonb, $4) returning id`,
-    [tenantId, name, JSON.stringify(graph), code],
+    `insert into workflows (id, tenant_id, name, draft_graph, code) values (coalesce($5::uuid, gen_random_uuid()), $1, $2, $3::jsonb, $4)
+     returning id`,
+    [tenantId, name, JSON.stringify(graph), code, id ?? null],
   );
   return { id: res.rows[0]!.id };
 }
@@ -251,6 +255,15 @@ export class PgWorkflowStore {
    * base envoie donc toujours le graphe à l'application : seul le trajet vers le navigateur disparaît. `list()`
    * reste pour ce qui a réellement besoin des graphes (résolution par code de `/v1/sends`).
    */
+  /** Les noms des scénarios publics, sans leurs graphes : pour une liste qui n'affiche qu'un nom (duplication `/ops`). */
+  async listNoms(tenantId: string): Promise<Array<{ id: string; name: string }>> {
+    const res = await this.pool.query<{ id: string; name: string }>(
+      `select id, name from workflows where tenant_id = $1 and ${PUBLIC} order by lower(name), id`,
+      [tenantId],
+    );
+    return res.rows;
+  }
+
   async listResume(tenantId: string): Promise<WorkflowResumeRow[]> {
     const res = await this.pool.query<{
       id: string; tenant_id: string; name: string; code: string | null;

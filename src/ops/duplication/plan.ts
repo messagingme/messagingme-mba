@@ -2,8 +2,12 @@ import { createHash } from 'node:crypto';
 import type { WorkflowGraph } from '../../workflow/graph';
 import type { AutomationRow } from '../../automation/match';
 import type { UserFieldDef, UserFieldType } from '../../crm/types';
-import { copierGraphe, type GrapheCopie } from './graphe';
+import { isSystemFieldKey } from '../../crm/fields';
+import { copierGraphe, referencesDuGraphe, type GrapheCopie, type ReferenceDependance } from './graphe';
 import { copierDeclencheurs, type DeclencheursCopies } from './declencheurs';
+import {
+  planifierDependances, type ApercuDependances, type ChoixDependances, type CopiesPrevues, type DependancesSource, type NomsPris,
+} from './dependances';
 
 /**
  * LE PLAN D'UNE DUPLICATION DE SCÉNARIO ENTRE ESPACES (duplication depuis /ops, lot 1 ; spec
@@ -18,7 +22,7 @@ import { copierDeclencheurs, type DeclencheursCopies } from './declencheurs';
  * (`mintNodeCodes`), donc deux plans du même état diffèrent toujours par leurs codes.
  */
 
-export interface TemplateDeLaWaba { nom: string; langue: string; statut: string }
+export interface TemplateDeLaWaba { nom: string; langue: string; statut: string; boutons: Array<{ type: string; texte: string }> }
 
 export interface EtatDuplication {
   source: { id: string; nom: string };
@@ -33,8 +37,14 @@ export interface EtatDuplication {
   nomsPrisDestination: string[];
   /** Templates de la WABA de destination ; `null` = l'espace n'a pas de WABA. */
   templatesDestination: TemplateDeLaWaba[] | null;
+  /** Templates de la WABA source, pour comparer les boutons d'un template réutilisé ; `null` = illisibles (lot 2). */
+  templatesSource: TemplateDeLaWaba[] | null;
   /** L'offre de la destination ouvre-t-elle les scénarios ? Sinon la copie y restera inutilisable. */
   offreOuvreScenarios: boolean;
+  /** Ce que le scénario désigne dans la source et qui peut le suivre (lot 2). */
+  dependances: DependancesSource;
+  /** Les noms déjà pris dans la destination, pour les copies des dépendances (lot 2). */
+  nomsPris: NomsPris;
 }
 
 export interface PlanDuplication {
@@ -51,6 +61,16 @@ export interface PlanDuplication {
   signaux: string[];
   blocages: string[];
   empreinte: string;
+  /** Les dépendances que le scénario désigne, bloc par bloc (lot 2). */
+  references: ReferenceDependance[];
+  /** Pour l'aperçu : chaque dépendance, le nom qu'aurait sa copie, son secret, les outils qui suivraient ou non. */
+  dependances: ApercuDependances;
+  /** Ce que les cases cochées font créer ; vide sans choix, ou si un choix est invalide. */
+  copies: CopiesPrevues;
+  /** Les ids cochés que le scénario ne désigne pas : la route refuse (400). */
+  choixInvalides: string[];
+  /** Les tags que nomment les outils copiés, à déclarer avec ceux du graphe et des déclencheurs. */
+  tagsDependances: string[];
 }
 
 /** Comparaison d'un nom de scénario comme `nomPrisSousVerrou` : sans la casse ni les espaces aux bords. */
@@ -75,16 +95,29 @@ function jsonStable(v: unknown): string {
   return JSON.stringify(v) ?? 'null';
 }
 
-export function planifierDuplication(etat: EtatDuplication): PlanDuplication {
+/** Une liste de templates dans un ordre fixe : Meta peut rendre la même liste dans un autre ordre (relecture du lot 1). */
+const trierTemplates = (l: TemplateDeLaWaba[] | null): TemplateDeLaWaba[] | null => (
+  l === null ? null : [...l].sort((a, b) => (a.nom === b.nom ? a.langue.localeCompare(b.langue) : a.nom.localeCompare(b.nom)))
+);
+
+const memesBoutons = (a: TemplateDeLaWaba['boutons'], b: TemplateDeLaWaba['boutons']): boolean => (
+  a.length === b.length && a.every((x, i) => x.type === b[i]!.type && x.texte === b[i]!.texte)
+);
+
+/** `choix` : les cases cochées (lot 2). Il n'entre pas dans l'empreinte, qui ne dit que l'état des deux espaces. */
+export function planifierDuplication(etat: EtatDuplication, choix?: ChoixDependances): PlanDuplication {
   const graphe = copierGraphe(etat.scenario.graphe, etat.destination.codeClient);
   const declencheurs = copierDeclencheurs(etat.automationsDuScenario, etat.automationsDeLaDestination);
+  const references = referencesDuGraphe(etat.scenario.graphe);
+  const dependances = planifierDependances(etat.dependances, etat.nomsPris, etat.scenario.id, references, choix);
 
   const source = new Map(etat.champsSource.map((c) => [c.key, c]));
   const destination = new Map(etat.champsDestination.map((c) => [c.key, c]));
   const champsACreer: UserFieldDef[] = [];
   const champsEnConflit: PlanDuplication['champsEnConflit'] = [];
   const champsInconnus: string[] = [];
-  for (const cle of new Set([...graphe.clesDeChamp, ...declencheurs.clesDeChamp])) {
+  const clesDependances = dependances.clesDeChamp.filter((c) => c !== '' && !isSystemFieldKey(c));
+  for (const cle of new Set([...graphe.clesDeChamp, ...declencheurs.clesDeChamp, ...clesDependances])) {
     const s = source.get(cle);
     const d = destination.get(cle);
     if (d && s && d.type !== s.type) champsEnConflit.push({ cle, typeSource: s.type, typeDestination: d.type });
@@ -115,9 +148,36 @@ export function planifierDuplication(etat: EtatDuplication): PlanDuplication {
   if (!etat.offreOuvreScenarios) signaux.push('l’offre de la destination n’inclut pas les scénarios : la copie y restera inutilisable tant qu’elle n’en change pas');
   for (const cle of champsInconnus) signaux.push(`le champ ${cle} est utilisé par le scénario mais défini nulle part : il n’est pas créé`);
 
+  // Un template réutilisé dont les boutons diffèrent de la source : une fois publiée, la copie suivrait la branche d'un
+  // autre bouton (le bloc garde les `templateButtons` de la source). Signalé, sans blocage (relecture du lot 1).
+  const reutilises = etat.templatesDestination === null ? [] : graphe.templates.flatMap((t) => {
+    const d = etat.templatesDestination!.find((w) => w.nom === t.nom && w.langue === t.langue);
+    return d ? [d] : [];
+  });
+  if (reutilises.length > 0 && etat.templatesSource === null) {
+    signaux.push('les templates de la source n’ont pas pu être lus : les boutons des templates réutilisés n’ont pas été comparés');
+  }
+  for (const d of reutilises) {
+    const s = etat.templatesSource?.find((w) => w.nom === d.nom && w.langue === d.langue);
+    if (s && !memesBoutons(s.boutons, d.boutons)) {
+      signaux.push(`le template ${d.nom} (${d.langue}) de la destination n’a pas les mêmes boutons que celui de la source : vérifiez les branches du bloc`);
+    }
+  }
+  if (graphe.imagesSource.length > 0) {
+    signaux.push(`${graphe.imagesSource.length} image(s) des messages restent hébergées par l’espace source : elles disparaîtront s’il est supprimé`);
+  }
+
+  const etatTrie: EtatDuplication = {
+    ...etat, templatesDestination: trierTemplates(etat.templatesDestination), templatesSource: trierTemplates(etat.templatesSource),
+  };
   return {
     nomCopie: nomDeLaCopie(etat.scenario.nom, etat.nomsPrisDestination),
     graphe, declencheurs, champsACreer, champsEnConflit, champsInconnus, templatesAbsents, templatesNonApprouves, signaux, blocages,
-    empreinte: createHash('sha256').update(jsonStable(etat)).digest('hex'),
+    empreinte: createHash('sha256').update(jsonStable(etatTrie)).digest('hex'),
+    references,
+    dependances: dependances.apercu,
+    copies: dependances.copies,
+    choixInvalides: dependances.choixInvalides,
+    tagsDependances: dependances.tags,
   };
 }

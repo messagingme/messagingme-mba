@@ -14,12 +14,20 @@ export function escapeHtml(s: string): string {
  *  Seules les clés propres de `vars` sont lues : `toString`, `constructor` ou `__proto__` remonteraient sinon
  *  un membre d'Object.prototype (texte parasite, ou `TypeError` dans escapeHtml). En mode HTML, la valeur
  *  substituée est échappée ; le corps du modèle, rédigé par le tenant, ne l'est jamais. */
+/** Une variable d'un texte rendu : `{{prenom}}`, espaces tolérés. Le seul motif : `renderText` et `variablesDuTexte`. */
+const VARIABLE_DU_TEXTE = /\{\{\s*([\w.-]+)\s*\}\}/g;
+
+/** Les clés que réclame un texte (sujet ou corps d'un modèle d'e-mail), sans doublon : la duplication entre espaces s'en sert. */
+export function variablesDuTexte(text: string): string[] {
+  return [...new Set([...text.matchAll(VARIABLE_DU_TEXTE)].map((m) => m[1]!))];
+}
+
 export function renderText(
   text: string,
   vars: Record<string, string | null | undefined>,
   opts: { html: boolean },
 ): string {
-  return text.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_match, key: string) => {
+  return text.replace(VARIABLE_DU_TEXTE, (_match, key: string) => {
     const raw = Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : undefined;
     if (raw == null) return '';
     return opts.html ? escapeHtml(raw) : raw;
