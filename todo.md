@@ -1,5 +1,21 @@
 # todo.md : backlog
 
+## 🟡 Les textes du constructeur que le code contredit (relevé des fiches par bloc, lot 2, 2026-11-17)
+
+Le panneau Attente et l'aide de l'action « dernier message » sont corrigés dans le lot 2. Restent, tous de l'écran :
+
+- Le bandeau « Ce montage ne partira pas. » (`WorkflowBuilder.tsx`, vers 700) est trop absolu : une réponse du contact
+  pendant l'attente rouvre la fenêtre (`executor.ts`, le réveil lit le dernier entrant).
+- Le refus « Aller à » (`aller-a.ts`, vers 117) dit « qui attend 24 h ou plus » et conseille de raccourcir l'attente, même
+  pour une attente datée, comptée 24 h par convention ; le bandeau, lui, a été corrigé.
+- Condition : « Aucune condition : le contact part toujours sur « X » » est faux pour une famille restée en « au moins
+  une condition est vraie » après le retrait de ses clauses (`ConditionBuilder.tsx`, `some([])` vaut faux).
+- L'avertissement du bloc racine (`WorkflowConfigPanel.tsx`, vers 538) attribue à « le premier message doit être un
+  template » l'inéligibilité d'une racine Attente, dont la vraie cause est l'attente (`ouverture-scenario.ts`).
+- Le résumé sur la toile d'une action « dernier message » affiche « Champ = … » (`WorkflowNode.tsx`, vers 62).
+- Deux commentaires faux : le « repli sur les exemples du template » (`template-send.ts`, vers 21) n'existe pas, et
+  `campaign-eligibility.ts` (vers 193) dit que le serveur refuse « attente puis message », ce qu'il ne fait pas.
+
 ## 🟡 Anti-rejeu de l'agent IA, fichiers de la console et consentement armé (relecture du 2026-11-17, aucun rouge)
 
 - **Consentement ouvert sans le focus** (`useArme`, `web/lib/armement.ts`) : une page ouverte en arrière-plan, ou avec

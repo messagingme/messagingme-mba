@@ -1,6 +1,6 @@
 ---
 slug: the-24-hour-window
-traduit_de: 762a25
+traduit_de: cc2f58
 ---
 # Why my message does not go out: the 24-hour window
 
@@ -19,8 +19,8 @@ What it changes, in practice:
   other way.
 - **In an ongoing conversation**, anything goes: the customer has just written, the window is open, you reply
   whatever you want.
-- **A wait block of twenty-four hours or more** closes the window. The message that follows in the scenario will be
-  refused, and the console tells you so while you build it rather than when it sends.
+- **A Wait block** does not keep the window open: when it wakes up, the window decides what can go out. The guide
+  "The Wait block" explains it.
 
 **Good to know.** The reflex to adopt: as soon as the message goes to someone who has not just written to you, think
 approved template. As soon as it answers someone who has just spoken, write freely.

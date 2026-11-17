@@ -22,8 +22,8 @@ Ce que ça change, concrètement :
   le sélecteur d'une campagne s'il ouvre autrement.
 - **Dans une conversation en cours**, tout est permis : le client vient d'écrire, la fenêtre est ouverte,
   vous répondez ce que vous voulez.
-- **Un bloc d'attente de vingt-quatre heures ou plus** referme la fenêtre. Le message qui suit dans le
-  scénario sera refusé, et la console vous le signale au montage plutôt qu'à l'envoi.
+- **Un bloc Attente** ne garde pas la fenêtre ouverte : au réveil, c'est elle qui décide de ce qui peut partir. La
+  fiche « Le bloc Attente » le détaille.
 
 **Bon à savoir.** Le réflexe à prendre : dès que le message s'adresse à quelqu'un qui ne vient pas de vous
 écrire, pensez modèle approuvé. Dès qu'il répond à quelqu'un qui vient de parler, écrivez librement.

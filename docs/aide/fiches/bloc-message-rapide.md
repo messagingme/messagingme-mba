@@ -5,7 +5,7 @@ source_section: Automatisations (menu « Scénario », ex-« Flow »)
 source_empreinte: 02c6e1
 publique: oui
 rubrique: construire-un-scenario
-rang: 1
+rang: 2
 ---
 # Le bloc Message rapide
 

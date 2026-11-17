@@ -210,7 +210,12 @@ describe('les fiches publiques', () => {
     // rubriques de démarrage, la console d'abord.
     'changer-le-nom-et-la-photo-de-mon-numero': ['demarrer-console', 10],
     // Une fiche par bloc du constructeur de scénario (spec `2026-11-17-fiches-par-bloc-design.md`), dans l'ordre de la palette.
-    'bloc-message-rapide': ['construire-un-scenario', 1],
+    'bloc-envoi-template': ['construire-un-scenario', 1],
+    'bloc-message-rapide': ['construire-un-scenario', 2],
+    'bloc-question': ['construire-un-scenario', 3],
+    'bloc-action': ['construire-un-scenario', 5],
+    'bloc-condition': ['construire-un-scenario', 6],
+    'bloc-attente': ['construire-un-scenario', 7],
   };
   /** Les six écrans qui portent « Comment faire », et leur page. */
   const COMMENT_FAIRE: Record<string, string> = {

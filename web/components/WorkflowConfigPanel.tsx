@@ -310,7 +310,7 @@ function FieldValueEditor({ d, fields: champsDeLEspace, onPatch, avecValeur }: {
           {d.valueKind === 'now' ? (
             <p className="mt-1.5 text-xs text-ink-500">{t('Pose la date et l’heure du moment où le contact atteint ce bloc, dans votre fuseau, utile pour une condition « avant / après ».', 'Sets the date and time when the contact reaches this block, in your time zone, useful for a “before / after” condition.')}</p>
           ) : d.valueKind === 'derniere_saisie' ? (
-            <p className="mt-1.5 text-xs text-ink-500">{t('Recopie dans ce champ le dernier message écrit par le contact. Rien n’est écrit s’il n’a encore rien dit.', 'Copies the contact’s last written message into this field. Nothing is written if they haven’t said anything yet.')}</p>
+            <p className="mt-1.5 text-xs text-ink-500">{t('Recopie dans ce champ le dernier message écrit par le contact. S’il n’a encore rien écrit, le champ est vidé.', 'Copies the contact’s last written message into this field. If they haven’t written anything yet, the field is emptied.')}</p>
           ) : (
             <input value={(d.value as string) ?? ''} onChange={(e) => onPatch({ value: e.target.value })} className={`${cls} mt-1.5`} placeholder={t('valeur à poser', 'value to set')} />
           )}
@@ -627,7 +627,9 @@ export function ConfigPanel({
 
           {mode !== 'delai' && (
             <p className="mt-1 text-xs text-alerte-700">
-              {t("La durée de cette attente n’est pas connue d’avance : elle est donc comptée pour une attente longue. Seul un envoi de template peut encore partir derrière ; un message rapide ou un formulaire placé après sera refusé à la publication.", 'The length of this wait is not known in advance, so it counts as a long wait. Only a template can still be sent after it; a quick message or a form placed after will be refused at publication.')}
+              {/* Ce texte annonçait « refusé à la publication » : rien ne le refuse (la route `/publish` ignore ce montage),
+                  l'éditeur n'en fait qu'un bandeau. Au réveil, c'est la fenêtre RÉELLE qui décide (`executor.resume`). */}
+              {t("La durée de cette attente n’est pas connue d’avance : l’éditeur la compte comme une attente longue. Au réveil, si le contact ne vous a pas écrit depuis 24 heures, seul un template part : un message rapide, une question ou un formulaire placé après ne part pas, et la conversation passe à votre équipe.", 'The length of this wait is not known in advance: the editor counts it as a long wait. On waking, if the contact has not written to you in the last 24 hours, only a template goes out: a quick message, a question or a form placed after it does not, and the conversation goes to your team.')}
             </p>
           )}
         </div>

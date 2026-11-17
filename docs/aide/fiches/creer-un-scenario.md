@@ -10,32 +10,18 @@ avance de bloc en bloc.
 
 Les blocs que vous utiliserez le plus :
 
-- **Envoi de modèle** : envoie un message approuvé par WhatsApp. C'est ce qui ouvre une conversation avec
-  quelqu'un qui ne vous a pas écrit récemment. Sur la toile, le bloc montre une miniature du modèle choisi.
-  Dans le panneau du bloc, chaque variable (`{{1}}`, `{{2}}`…) a son sélecteur : un champ du contact, la date du
-  jour ou un texte fixe. Il part du champ choisi quand le modèle a été écrit, et vous pouvez le changer : ce choix ne
-  vaut que pour ce bloc, le modèle et sa validation chez Meta ne bougent pas. « Reprendre les champs du template »
-  annule vos choix. Une variable reliée à aucun champ apparaît en rouge, et le bloc ne partira pas. Pour le premier
-  modèle d'un scénario lancé en campagne, l'étape Contenu de la campagne reprend vos choix, et vous pouvez encore les
-  y changer.
-- **Message rapide** : un texte, avec un fichier, des réponses rapides ou un bouton de lien. Tout son mode
-  d'emploi est dans sa fiche, « Le bloc Message rapide ».
-- **Question** : une question avec un menu de réponses, ou une question ouverte. Le scénario attend la
-  réponse avant de continuer. Elle peut ranger la réponse dans un de vos champs, et attendre un fichier (une pièce
-  d'identité, par exemple) : cochez « Attendre un fichier » et ses types, et le fichier part par la sortie « Fichier
-  reçu », que vous devez relier pour publier. Le champ reçoit une mention, jamais le fichier ; un bloc Appel API
-  placé ensuite l'envoie à votre stockage par un lien valable 15 minutes.
+- **Envoi template** : envoie un template approuvé. Son mode d'emploi : « Le bloc Envoi template ».
+- **Message rapide** : un texte, avec un fichier, des réponses rapides ou un bouton de lien. Son mode d'emploi :
+  « Le bloc Message rapide ».
+- **Question** : pose une question, avec ou sans menu, et attend la réponse ou un fichier. Son mode d'emploi :
+  « Le bloc Question ».
 - **Formulaire** : envoie un formulaire WhatsApp et attend. Il a deux sorties : « Formulaire rempli » quand le
   contact le renvoie (ses réponses remplissent sa fiche), « Toute autre réponse » quand il écrit à la place. Tant
   que « Formulaire rempli » n'est reliée à rien, le formulaire renvoyé passe par « Toute autre réponse ».
-- **Action** : agit sur la fiche du contact, par exemple poser ou retirer des tags, remplir ou vider des champs.
-  « Ajouter une action » en enchaîne plusieurs dans le même bloc, jouées dans l'ordre affiché.
-- **Condition** : aiguille le contact selon son état (ses tags, ses champs, sa dernière analyse, l'heure…). Vous
-  pouvez y créer jusqu'à dix familles, chacune nommée et avec ses propres conditions : le contact suit la première
-  famille vraie, de haut en bas, et part sur « Sinon » si aucune ne l'est. Sous « Système », la liste des champs
-  propose aussi le dernier message reçu, la langue détectée et le pays de l'indicatif. Le dernier message reçu sert
-  surtout dans une campagne : quand c'est un message du contact qui lance le scénario, c'est ce message-là, donc
-  « maintenant ». Le pays suit l'indicatif : les départements d'outre-mer ont le leur, à cocher en plus de la France.
+- **Action** : pose ou retire des étiquettes, remplit ou vide des champs, change le consentement. Son mode
+  d'emploi : « Le bloc Action ».
+- **Condition** : aiguille le contact selon son état, ses étiquettes, ses champs, le jour ou l'heure. Son mode
+  d'emploi : « Le bloc Condition ».
 - **Appel API** : interroge un système que vous avez branché dans Tools > Connecteurs API (votre boutique, votre
   CRM…). Sans champ choisi, il envoie une information sans rien attendre. Pour garder la réponse, choisissez où la
   ranger : un champ ordinaire reçoit les champs de réponse déclarés dans Tools ; un champ de type **JSON** (« JSON
@@ -49,9 +35,8 @@ Les blocs que vous utiliserez le plus :
   « Attacher… » sur une valeur, ou sur une liste pour la compter, et chaque ligne montre ce qu'elle rangera. Un chemin
   absent, ou une valeur que le type du champ refuse (un texte dans un champ nombre), vide ce champ. Une Condition
   placée après lit les valeurs extraites, campagne comprise.
-- **Attente** : met le parcours en pause, pour une durée, jusqu'à une date, ou jusqu'aux prochaines heures
-  d'ouverture. En secondes (de 1 à 59), elle espace deux messages pour leur donner le rythme d'une personne qui
-  écrit : quand le scénario répond au contact, celui-ci voit « en train d'écrire… » et son message passe en lu.
+- **Attente** : met le parcours en pause, pour une durée, jusqu'à une date ou aux heures d'ouverture. Son mode
+  d'emploi : « Le bloc Attente ».
 - **Assigner à un agent** : passe la main à quelqu'un de votre équipe, qui reprend la conversation.
 - **Aller à** : envoie le contact sur un autre bloc, de ce scénario ou d'un autre, par exemple pour revenir au menu
   après une réponse. Choisissez le scénario puis le bloc, ou collez le code du bloc. Ses réponses déjà données le
@@ -64,10 +49,6 @@ Les blocs que vous utiliserez le plus :
   faites dire au scénario « posez-nous votre question » juste avant ce bloc, sans bloc Question : la question lui
   arrive alors directement. Si l'agent de Meta est éteint, le
   panneau du bloc vous prévient : la conversation passe alors à votre équipe, dans « À traiter ».
-
-Chaque bouton que vous proposez devient une **sortie à relier** : le petit point à droite du bloc. Un bouton
-que vous laissez débranché est un trou dans le parcours, le contact tape et ne reçoit rien. L'écran vous le
-signale sur la ligne du bouton concerné.
 
 Quand, en cours de parcours (sur une réponse du contact ou après une attente), un message ne peut pas partir (un
 champ vide dans l'adresse d'un bouton, la fenêtre de 24 h fermée au réveil d'une attente...), la raison et le bloc
