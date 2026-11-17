@@ -2677,7 +2677,8 @@ scénario, comment importer des contacts.
 - 🗑️ **« À la reprise, le fil… » : SUPPRIMÉ le 2026-08-18** (voir la section Inbox). Ce réglage d’espace
   n’existe plus, et le sélecteur par conversation non plus.
 - ✅ **« Qui paie vos messages à Meta ? »** (révision de la ligne de crédit, lot B, 2026-11-06) : tant qu'aucun numéro n'est
-  rattaché, l'Accueil pose la question, comme la page « Connecter WhatsApp » juste après l'offre. « Je mets un moyen de paiement
+  rattaché, la page « Connecter WhatsApp » pose la question juste après l'offre (l'Accueil y mène par « Continuer la
+  mise en service »). « Je mets un moyen de paiement
   (Visa / Mastercard) sur mon compte Meta Business » (2026-11-10) : le numéro se connecte, et Meta facture les modèles
   sur ce moyen de paiement (le bouton mène au guide du numéro ; deux liens : pourquoi un moyen de paiement, ce qu'est un
   compte Meta Business). « Ligne de crédit » : il prépaie ses messages chez Messaging Me, sans carte chez Meta, 30 € HT par numéro et

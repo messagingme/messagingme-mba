@@ -4902,13 +4902,19 @@ payées, une vivante par espace), et sur `tenants` la commission des messages d'
   `GET /tenants/:tenantId/credit-whatsapp/etat`, lisible par tout membre et fermé à la Free comme tout le module, le rend
   avec `enVente` (l'option se prend en ligne) et `avecApplication` (tous les numéros non déliés de l'espace gardent
   l'application, `tousGardentLApplication`, décision 8 ; la vue de l'onglet porte le même champ). La console en tire deux
-  cartes (`web/components/QuiRegleMeta.tsx`) : sur Connecter WhatsApp, la première question du guide du numéro, et sur
-  l'Accueil tant qu'aucun numéro n'est connecté. La carte du moyen de paiement chez Meta (« Je mets un moyen de
+  cartes (`web/components/QuiRegleMeta.tsx`), la première question du guide du numéro sur Connecter WhatsApp. 🔴 Sans
+  numéro, ce tunnel est la SEULE porte vers la fenêtre de Meta : l'Accueil n'a qu'une carte, « Continuer la mise en
+  service », en tête de page (`ReprendreMiseEnService`, `web/app/accueil/page.tsx`, avec la clé 360dialog), et
+  l'interrupteur « Numéro WhatsApp » de Canaux et services y mène aussi (`connecter_numero`) ; une entrée qui ouvrirait
+  la fenêtre en direct rendrait la question du paiement facultative. La carte du moyen de paiement chez Meta (« Je mets un moyen de
   paiement (Visa / Mastercard) sur mon compte Meta Business », avec ses deux liens, `QUESTION_PAIEMENT.carte`) ouvre le
   guide une fois CHOISIE : aucune voie n'est choisie d'avance, et sur Connecter WhatsApp la page est un tunnel d'étapes
   (`EtapeTunnel`, `web/components/FilLigne.tsx`) : la formule (faite), la question du paiement, puis la connexion du
   numéro, qui n'apparaît qu'après la réponse ; seul un numéro fourni déjà en route (payé ou attribué) reprend sans
-  reposer la question. Elle cède la place quand une ligne est payée ou posée. 🔴 « Crédit WhatsApp » reste grisée « sur demande » tant que l'option n'est
+  reposer la question. Les deux réponses sont à égalité avant le choix ; la carte choisie, la ligne de crédit passe en
+  retrait et la page dit que la carte se pose après la connexion (`CARTE_PLUS_TARD`). L'encadré « Avant de commencer,
+  chez Meta » (`EncadreChezMeta`) n'est pas dans ce tunnel (`choixInitial` nul) : ses questions le disent une à une ;
+  il reste sur `/brancher` et sur la voie de la ligne. Elle cède la place quand une ligne est payée ou posée. 🔴 « Crédit WhatsApp » reste grisée « sur demande » tant que l'option n'est
   pas en vente, dans TOUS les états, essai compris : jamais « Prendre l'option » pour une option qui ne se prend pas en
   ligne. En vente, un Pro la prend dès le début de son essai (`a_prendre`) ; un Business en essai et un Pro en retard
   lisent la raison du refus du serveur (`raisonAttenteOption`, `web/lib/offre.ts`), et l'onglet décide sur

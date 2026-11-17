@@ -4,6 +4,35 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : Connecter WhatsApp devient un tunnel d'étapes, et l'Accueil n'y mène plus que par une porte
+
+Retour de Julien (même jour), juste après avoir souscrit la formule Pro : sur « Quelle solution pour payer vos messages
+Meta ? », le bouton « Je mets un moyen de paiement » ne faisait rien. Puis : l'Accueil laissait connecter le numéro sans
+finir la mise en service, la ligne de crédit restait en bleu une fois la carte choisie, l'encadré « Avant de commencer,
+chez Meta » brouillait un parcours mené par des questions, et le pas-à-pas de l'aide oubliait la formule Pro.
+
+- **La cause du bouton inerte** : la voie de la carte chez Meta était choisie D'AVANCE (`carte ?? (!connecte && ...)`).
+  Le clic posait l'état qu'elle avait déjà, et la suite (« Avez-vous un compte Meta Business ? ») était montée sous les
+  cartes, hors de l'écran : rien ne bougeait là où la personne regardait. Aucune voie n'est plus choisie d'avance ;
+  seul un numéro fourni déjà en route (`?abonnement=recu`, ou un numéro attribué lu par `api.lire()`) reprend la voie
+  de la carte sans reposer la question, sinon il aurait perdu sa place.
+- **Le tunnel** (`07deb9de`) : `EtapeTunnel`, tirée du fil de la ligne de crédit (`FilLigne`), numérote la formule
+  (faite, « Formule Pro souscrite », à la place du bandeau vert), la question du paiement, puis la connexion du numéro,
+  montée seulement après la réponse.
+- **Une seule porte** (`d4348dee`, `c27c6bc0`) : l'Accueil sans numéro ouvrait la fenêtre de Meta en direct, à côté de
+  la question du paiement, et l'interrupteur « Numéro WhatsApp » aussi. Les deux mènent désormais au tunnel ; l'Accueil
+  n'a plus qu'une carte, « Continuer la mise en service », en tête de page, avec la clé 360dialog. Dans le tunnel, les
+  deux réponses sont à égalité avant le choix, la ligne de crédit passe en retrait une fois la carte prise, la page dit
+  que la carte se pose après la connexion, et l'encadré « Avant de commencer » n'y est plus (il reste sur `/brancher`).
+- **L'aide** : la fiche « Connecter mon numéro WhatsApp » passe à cinq étapes (la formule Pro à 49 € et son essai
+  d'abord), français et anglais, captures refaites ; les fiches qui citaient l'ancien Accueil suivent (numéro fourni,
+  360dialog, déconnexion), `features.md` aussi.
+- **Vérifié** : 137, puis 187, puis 181 e2e sur une construction de production selon le lot ; suite racine verte hors
+  `sdk-contrat` (les `node_modules` partagés en retard sur le verrou) ; CI verte sur les trois commits, le front du
+  second annulé par le troisième, qui le couvre. Aucune route neuve, donc rien à déployer côté API.
+- **Reste** : `aide:charger` en production (Julien), le film de la fiche (`todo.md`), la branche `lieu="accueil"` de
+  `QuiRegleMeta` sans appelant (`todo.md`), et l'essai réel 271.
+
 ## 2026-11-17 : l'enveloppe de nos appels de modèle se réserve avant l'appel, le bot d'aide y entre, et les actions de campagne passent sous l'espace (lot F de l'audit de sécurité)
 
 Demande de Julien (« Oui, corriger », 2026-11-17), après le second passage de l'audit : corriger ses trois constats bas.

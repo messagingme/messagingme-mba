@@ -1,5 +1,14 @@
 # todo.md : backlog
 
+## 🟡 Le tunnel de Connecter WhatsApp en étapes (2026-11-17) : avec le prochain lot de la ligne de crédit
+
+- **`QuiRegleMeta` garde une branche `lieu="accueil"` sans appelant** : l'Accueil ne monte plus la carte (« Continuer la
+  mise en service » la remplace). Retirer la branche, son lien `carte-meta-choisir` vers `/connecter-whatsapp` et le
+  type `'accueil'`, en vérifiant `web/e2e/qui-regle-meta.spec.ts`.
+- **Le film de la fiche « Connecter mon numéro WhatsApp »** montre l'ancien parcours (quatre étapes, sans la formule) :
+  le refaire dans l'atelier `~/engageme-motion/engageme-aide` depuis les nouvelles captures et leurs boîtes
+  (`web/e2e/captures/connecter-mon-numero-whatsapp.capture.ts`).
+
 ## 🟡 Le repli des actions de campagne vers leurs anciennes adresses (2026-11-17) : à retirer avec le prochain lot de campagne
 
 - `web/lib/api/campagnes.ts` (`avecRepli`, `routeInconnue`) : lancer, renvoyer et annuler la programmation vivent sous
