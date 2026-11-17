@@ -366,7 +366,8 @@ async function appelOps<T>(sessionOps: string, chemin: string, init: { method?: 
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new ApiError(res.status, body?.error ?? `Erreur ${res.status}`);
+    // Le corps suit l'erreur : un arrêt de la duplication chez Meta y nomme ce qui a déjà été créé (lot 3).
+    throw new ApiError(res.status, body?.error ?? `Erreur ${res.status}`, body ?? undefined);
   }
   return res.json() as Promise<T>;
 }
