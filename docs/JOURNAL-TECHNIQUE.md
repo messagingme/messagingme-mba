@@ -4,6 +4,25 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : les sources du bot d'aide s'ouvrent dans le panneau
+
+Demande de Julien : « D'après : » devait permettre de retrouver la fiche d'où sort la réponse. Sur 43 fiches, 25
+seulement ont une page sur la vitrine ; Julien a choisi de les ouvrir toutes DANS le panneau plutôt que de renvoyer
+vers la vitrine. Commit `1381c2f79`, déployé le jour même (sans migration, l'image ne portait que ce lot).
+
+- Les sources passent de titres à `{cle, titre}` ; la route `GET /tenants/:tenantId/aide/fiches/:cle` lit le fichier,
+  pas la table, qui n'en garde que des morceaux réécrits pour le rappel. La garde de la clé est prouvée dans les deux
+  sens : sans elle, `..%2F..%2F..%2FCLAUDE` servait le `CLAUDE.md` de la racine.
+- La console tolère l'ancienne forme (un fil gardé en `sessionStorage`, ou la console publiée avant l'API) ; le sens
+  inverse, un onglet sur l'ancien bundle après le déploiement, affiche « [object Object] » jusqu'au rechargement,
+  accepté.
+- Relecture indépendante sans rouge ; un jaune corrigé dans le lot (la fiche ouverte survivait à un changement
+  d'espace).
+- L'e2e local a d'abord rendu deux faux rouges : le port 3000 était tenu par le serveur d'une autre session, sur
+  l'ancien code. Rejoué sur un autre port, 18 sur 18.
+- `aide:charger` se monte depuis `fdec068aa` (origin), pas depuis `1381c2f79` : six fiches de blocs d'un pair, plus
+  récentes, auraient été retirées.
+
 ## 2026-11-17 : le numéro fourni dans l'application WhatsApp Business, et le numéro payant pendant l'essai du Pro (lots 1 à 3)
 
 **Le déclencheur** : l'espace « Zigi Arjun's workspace » avait pris deux numéros de la réserve dans la nuit, sans en

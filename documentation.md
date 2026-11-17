@@ -1038,6 +1038,11 @@ rangées, sous la même borne. Plus longue, une fiche serait retenue pour une ph
 façon : `db/charger-aide.ts` charge chaque fiche du mode d'emploi plus longue que `MORCEAU_MAX` en morceaux
 `<fiche>#<n>` (`decouperFiche`, `src/aide/fiches.ts`), une étape par morceau, chacun commençant par son marqueur
 `**N. Titre.**`, et `src/aide/repondre.ts` importe la même borne ; une fiche plus courte reste entière sous sa clé.
+Une réponse cite ses sources par la clé de leur FICHIER (le `#<n>` d'un morceau retiré) et leur titre ; la console
+les ouvre dans le panneau d'aide par `GET /tenants/:tenantId/aide/fiches/:cle`, qui lit le fichier sur le disque
+(`src/aide/fiche-disque.ts`, `docs/aide` étant dans l'image), en anglais quand `en/<cle>.md` existe. La clé est
+validée par une expression fermée avant tout accès au disque, et la console tolère encore l'ancienne forme (un
+titre seul, affiché sans lien).
 La structure d'une fiche (chapeau, étapes, encadrés « Bon à savoir ») se lit par `src/aide/structure.ts`. Une fiche
 modifiée n'atteint le bot qu'après `npm run aide:charger` en production (`DEPLOY.md`). Une fiche PUBLIQUE (`publique:
 oui`) est aussi une page du centre d'aide de la vitrine : retouchée, elle se régénère par `npm run vitrine:aide` dans le
