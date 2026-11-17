@@ -4,6 +4,40 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-17 : « Ouvrir la fenêtre de Meta », et le prix du numéro fourni selon la formule (lot 5 du numéro fourni)
+
+**La demande** : les retours de Julien après son essai réel du lot 4. La carte « Mettez un numéro à vous dans votre
+application » ne disait pas quand appuyer, ni sur quoi ; le bouton qui garde l'application s'appelait « Garder mon
+application WhatsApp Business » ; et en Pro, le numéro fourni parlait de la Free (« 3,50 € par mois en formule Free,
+inclus en Pro ») sans dire ce que coûte le numéro pendant l'essai. Plan
+`docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md`, lot 5.
+
+- **Le bouton s'appelle « Ouvrir la fenêtre de Meta »** (`COEXISTENCE_BOUTON`), partout : la console, la page du lien de
+  Claude, ce que dit Claude, la FAQ du plugin, quatre fiches d'aide en français et en anglais, et deux captures. La carte
+  dit la suite : « Puis, une fois cette opération faite, appuyez sur le bouton « Ouvrir la fenêtre de Meta » »
+  (`RELIER_EN_GARDANT`, partagé avec le numéro fourni mis dans l'application). Le guide « Garder mon application
+  WhatsApp Business » garde son titre. Les messages du serveur à un numéro relié par QR code renvoyaient à un bouton de
+  l'Accueil qui n'existe plus : ils renvoient au lien de Claude (`RELIER_EN_COEXISTENCE`).
+- **Le prix du numéro fourni suit la formule choisie** : la vitrine pose un paragraphe par formule sous chaque issue qui
+  fournit un numéro (`prix`, `data-pour`, que `site/site.css` cache hors de la formule choisie) ; la console choisit le
+  sien (`PRIX_NUMERO_FOURNI` : inclus, essai du Pro, Free). En Pro, pendant l'essai : 3,50 €, déduits de la première
+  facture de formule Pro, et non remboursés sans formule Pro au bout de l'essai ; Claude et la FAQ disent aussi le
+  non-remboursement. En Free, le texte d'avant reste, comme Julien l'a voulu.
+
+**Mesures** :
+- **Relecture** : un rouge, corrigé avant le push. « Déduits de votre première facture de 49 € » était faux pour un Pro
+  pris à l'année (490 €) : le texte dit les deux montants, et `tests/vitrine-tunnel.test.ts` le vérifie dans les deux
+  sens. Six jaunes au plan, dont deux boutons désormais du même nom (la fenêtre ordinaire et celle qui garde
+  l'application), que la 3e condition chez Meta, lue en `apporte`, ne distingue plus.
+- **En Pro, rien ne parle de la Free** : `tests/vitrine-tunnel.test.ts` le tient sur les pages générées ET sur la règle
+  de `site/site.css` qui cache l'autre prix, sans laquelle les deux s'afficheraient sans qu'aucune page ne change.
+
+**En production** : `6004bda38`, run 44180430619 en `migration=aucune`, approuvé par Julien, juste après `f18b59732`
+de la session des fiches par bloc (run 44174575322), que le lot contient. Checkout de l'image vérifié, fumée et fiches
+OAuth bonnes. Restent le chargement des fiches à `6004bda38`, au-dessus de celui du pair, la publication du plugin
+0.3.51, et l'essai réel : la vitrine en Pro puis en Free jusqu'au numéro fourni, et la carte « Mettez un numéro à
+vous » de la console.
+
 ## 2026-11-17 : l'application ou l'API, son numéro seul, les bulles et les étapes à venir (lot 4 du numéro fourni)
 
 **La demande** : les retours de Julien après son essai de la console, le soir du lot 3. Un « Oui » au numéro proposait
