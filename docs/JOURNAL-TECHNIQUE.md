@@ -38,6 +38,42 @@ OAuth bonnes. Restent le chargement des fiches à `6004bda38`, au-dessus de celu
 0.3.51, et l'essai réel : la vitrine en Pro puis en Free jusqu'au numéro fourni, et la carte « Mettez un numéro à
 vous » de la console.
 
+## 2026-11-17 : une fiche par bloc du constructeur de scénario (lots 1 à 3)
+
+**La demande** : des fiches qui expliquent chaque bloc, ce qu'on y met, ce qu'on n'y met pas, les règles même
+petites ; des captures avec une flèche, « pas de pavé » ; et « si l'info existe ailleurs, c'est qu'elle est à un
+endroit de trop ». Spec `docs/superpowers/specs/2026-11-17-fiches-par-bloc-design.md`, un plan par lot
+(`docs/superpowers/plans/2026-11-17-fiches-par-bloc-lot-{1,2,3}.md`).
+
+- **Lot 1** (`8166fbdbf`) : Message rapide, le gabarit. `capturer(..., fleche)` pose un cadre et une flèche dans la
+  page après le défilement, la photo cadrée en 16:10 autour d'eux.
+- **Lot 2** : Envoi template, Question, Action, Condition, Attente ; le constructeur simulé des captures
+  (`web/e2e/captures/editeur-demo.ts`) ; deux textes d'écran corrigés (le panneau Attente, l'action « dernier
+  message »), les autres au `todo.md`.
+- **Lot 3** (`f18b59732`) : les dix autres blocs ; « Créer un scénario » publique, avec `comment_faire: oui` (le lien
+  « Comment faire » de l'écran Scénario), qui finit par la liste des seize blocs ; les passages de bloc retirés des
+  fiches Mail, RCS, Formulaire WhatsApp, Agent IA et répondeur de Meta, qui renvoient à la fiche du bloc.
+
+**Trois bugs trouvés en écrivant les fiches depuis le code**, corrigés dans le lot 3 :
+- les boutons composés dans un bloc RCS partaient sans `postbackData`, que l'éditeur ne crée pas : le schéma les
+  écartait et le message partait sans eux. Le moteur pose `bouton_<i>` avant la validation (`rcsOutboundOf`), test vu
+  rouge puis vert ;
+- changer l'agent d'un bloc Agent IA retirait aussi les flèches de ses sorties réservées
+  (`aretesApresChangementDAgent`, `web/lib/nodeMeta.ts`) ;
+- les cartes Appel API, Fonction JS et Extraire du JSON n'affichaient aucun résumé sur la toile.
+
+**Mesures** :
+- **CI front rouge sur `e6b63112c`** (lot 2) : un e2e citait la phrase réécrite du panneau Attente dans une
+  vérification d'ABSENCE (`toHaveCount(0)`), que le texte neuf ne déclenchait plus. Corrigé en `fdec068aa`. Depuis,
+  chaque phrase d'un texte d'écran changé se cherche dans `web/e2e` avant le push.
+- **CI front Vercel rouge une fois** sur `agents-connaissance.spec.ts:127`, instable, verte à la relance ; la relance a
+  annulé le run d'un pair, prévenu.
+
+**En production** : lot 3 côté API `f18b59732`, run 44174575322 en `migration=aucune`, approuvé par Julien (le
+correctif RCS est dans le moteur) ; `aide:charger` sur l'image en service : 291 lignes, 2 retirées, attendues (la fiche
+« Envoyer un e-mail depuis un scénario », raccourcie, tient en un morceau, ses clés `#1` et `#2` sortent). Restent
+l'essai réel (`docs/prive/ESSAIS-REELS.md`, 276) et les jaunes du `todo.md`.
+
 ## 2026-11-17 : l'application ou l'API, son numéro seul, les bulles et les étapes à venir (lot 4 du numéro fourni)
 
 **La demande** : les retours de Julien après son essai de la console, le soir du lot 3. Un « Oui » au numéro proposait

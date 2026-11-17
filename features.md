@@ -2425,6 +2425,11 @@ scénario, comment importer des contacts.
     gauche et la page sur fond clair, le guide du numéro et le dépannage compris.
   - **Les mêmes textes que l'aide de la console** : une page est une fiche du mode d'emploi publiée, corriger l'une
     corrige l'autre.
+  - **Construire un scénario** (2026-11-17) : « Créer un scénario » (poser et relier les blocs, l'essayer sur son
+    téléphone, le publier, le ranger), puis une page par bloc, seize, dans l'ordre de la palette. Chaque geste est
+    montré par une capture où une flèche désigne ce qu'il faut toucher ; les règles du bloc (ses limites, ce qui part
+    ou non, ce qui arrête le parcours) se déplient sous l'étape qu'elles concernent. Une information n'y est qu'à un
+    endroit : les fiches Mail, RCS, Formulaire WhatsApp et Agent IA renvoient à la page du bloc au lieu de la redire.
 - ✅ **Le guide du numéro** (2026-11-10, `/aide/guide-du-numero-whatsapp/`) : les questions de « Démarrer », à partir de
   « Qui paie vos messages à Meta ? », une à la fois, puis le pas-à-pas de la situation, la console, et la phrase à
   copier pour Claude. En tête, les cinq points à vérifier.
@@ -2441,7 +2446,7 @@ scénario, comment importer des contacts.
   appelle et ce qu'il répond. La page des campagnes dit que l'offre Pro est demandée ; l'accueil du centre aussi.
 - ✅ **« Aide » dans le menu de la vitrine**, au bureau, dans le menu du téléphone et en pied de page.
 - ✅ **« Comment faire » dans la console** : dans la barre du haut des écrans qui ont leur page (Accueil, Inbox,
-  Modèles, mini-CRM, Campagnes, Offre), un lien ouvre la page du centre d'aide, dans la langue de la console, dans
+  Modèles, mini-CRM, Campagnes, Scénario, Offre), un lien ouvre la page du centre d'aide, dans la langue de la console, dans
   un nouvel onglet. Sous 1 024 px de large, l'icône seule.
 - ✅ **Un film court sur les six pages qui montrent un geste dans la console** (connecter son numéro, se repérer,
   répondre dans l'Inbox, faire approuver un modèle, importer ses contacts, lancer une campagne), en français et en

@@ -16,6 +16,18 @@ Le panneau Attente et l'aide de l'action « dernier message » sont corrigés da
 - Deux commentaires faux : le « repli sur les exemples du template » (`template-send.ts`, vers 21) n'existe pas, et
   `campaign-eligibility.ts` (vers 193) dit que le serveur refuse « attente puis message », ce qu'il ne fait pas.
 
+## 🟡 Restes des fiches par bloc, lot 3 (2026-11-17)
+
+Relevés en écrivant les fiches depuis le code, aucun prouvé : à mesurer avant de corriger.
+
+- **Agent IA désactivé** : le panneau dit que le bloc cesse alors de répondre (`WorkflowConfigPanel.tsx`, vers 1207),
+  mais le tour d'agent lit la fiche par `byId` sans regarder son statut (`agent-store.pg.ts`, `run-turn.ts` vers 254).
+- **Bloc RCS dégrisé sans l'offre Entreprise** : la palette le dégrise dès qu'une ligne `rcs_agents` existe
+  (`settings.ts`, vers 100), alors que l'envoi exige une offre qui ouvre le RCS, l'Entreprise seule (`rcs/store.pg.ts`,
+  vers 17) : sans elle, le bloc part aussitôt sur « Non joignable ».
+- **Campagne avec l'agent de Meta en répondeur** : un second template dans la même étape recevrait peut-être les
+  variables du premier (`firstTemplateParams`, `executor.ts`, vers 962).
+
 ## 🟡 Anti-rejeu de l'agent IA, fichiers de la console et consentement armé (relecture du 2026-11-17, aucun rouge)
 
 - **Consentement ouvert sans le focus** (`useArme`, `web/lib/armement.ts`) : une page ouverte en arrière-plan, ou avec

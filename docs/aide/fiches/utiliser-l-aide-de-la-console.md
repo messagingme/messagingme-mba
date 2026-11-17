@@ -1,6 +1,6 @@
 ---
 source_section: L'aide de la console (bouton flottant, sur tous les écrans) | Le centre d'aide public et « Comment faire » (vitrine et console)
-source_empreinte: c90bae | c06b06
+source_empreinte: c90bae | a67426
 ---
 # Poser une question à l'aide de la console
 
@@ -37,7 +37,7 @@ même jour de la semaine précédente. Trois choses à savoir :
 
 **Les modes opératoires pas à pas** sont aussi en ligne, dans le centre d'aide (app.messagingme.fr/aide/, en
 anglais app.messagingme.fr/en/help/) : une page par geste, avec les captures de la console. Sur les écrans qui en ont
-une (Accueil, Inbox, Modèles, mini-CRM, Campagnes, Offre), le lien « Comment faire » de la barre du haut l'ouvre
+une (Accueil, Inbox, Modèles, mini-CRM, Campagnes, Scénario, Offre), le lien « Comment faire » de la barre du haut l'ouvre
 dans un nouvel onglet. Pour connecter votre numéro, il a aussi un guide, qui vous mène à votre cas en quatre
 questions, et une page de dépannage, qui dit quoi faire quand ça bloque.
 
