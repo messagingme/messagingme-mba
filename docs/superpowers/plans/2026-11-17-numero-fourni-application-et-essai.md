@@ -52,6 +52,20 @@ Déploiement : API (`migration=aucune`), puis l'Asterisk sur le VPS (`/home/ubun
 transcription doit contenir la phrase ENTIÈRE avec sa touche. Si la touche n'est pas 5 ou varie, le lot 1 bis fait lire
 la touche au pont plutôt que de l'écrire en dur.
 
+**Relecture du lot 1** : un rouge, corrigé avant la publication. La garde jugeait « le code a-t-il pu servir ? » sur la
+voie COURANTE : un code montré sur la voie de l'application, puis la voie changée pour la fenêtre de Meta, aurait laissé
+« Abandonner » et « Remplacer » rendre un numéro qui porte un compte. Elle se juge désormais à l'heure de l'appel
+(`APPEL_APPLICATION_CACHE_SQL`), et « le montrer maintenant ? » reste sur la voie courante (`CODE_A_MONTRER_SQL`). Test
+prouvé dans les deux sens sur un Postgres en mémoire (PGlite), chaque moitié du défaut remise à part. Jaunes 2 (verrou
+de la ligne au remplacement), 4 (langues du menu) et 6 (commentaire de l'Asterisk) faits dans le même geste ; deux
+jaunes passent au lot 3 :
+
+- **La console n'écrit jamais la destination** : un espace resté sur la variante `fourni_application` gardée dans
+  l'onglet (d'avant le 2026-11-12) ne verrait pas le code de l'application. Le lot 3 retient la destination côté
+  console, ce qui le règle.
+- **« Remplacer » sur une réserve vide, quand seule l'application avait appelé** : l'espace garde son numéro et la route
+  répond 200 avec le même numéro, en consommant le délai d'une heure. Dire `remplace: false`, ou 409 « réserve vide ».
+
 ## Lot 2 : le numéro pendant l'essai du Pro
 
 1. **Droit au numéro** (`src/numero/reserve.ts`, `numeroInclus` dans `src/index.ts`) : un Pro en essai

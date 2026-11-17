@@ -230,6 +230,17 @@ describe('watch_whatsapp_connection', () => {
     expect(String(r.suite)).toMatch(/etat_connu/);
   });
 
+  it('🔴 2026-11-17 : l’application WhatsApp a appelé le numéro, la suite dit qu’il se saisit dans la fenêtre de Meta, pas dans l’application', async () => {
+    const etat: EtatConnexion = { ...ATTRIBUE, appelApplication: true };
+    const { deps } = monter(() => etat);
+    const r = await outil('watch_whatsapp_connection').executer(deps, 't1', {}, PERSONNE) as Record<string, unknown>;
+    expect(String(r.suite)).toMatch(/saisi dans une application WhatsApp/);
+    expect(String(r.suite)).toMatch(/fenêtre de Meta/);
+    expect(String(r.suite)).toMatch(/etat_connu/);
+    // L'empreinte change : Claude, qui attendait le numéro attribué, voit l'appel arriver.
+    expect(empreinteEtat(etat)).not.toBe(empreinteEtat(ATTRIBUE));
+  });
+
   it('🔴 essai 99 : le code arrivé, la suite dit de le lire à la personne pour la fenêtre de Meta', async () => {
     const { deps } = monter(() => AVEC_CODE);
     const r = await outil('watch_whatsapp_connection').executer(deps, 't1', {}, PERSONNE) as Record<string, unknown>;

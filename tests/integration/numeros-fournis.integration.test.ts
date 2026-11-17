@@ -236,6 +236,72 @@ describe.skipIf(!url)('la réserve de numéros fournis (0210)', () => {
       expect(await store.numeroDeLEspace(tenantId)).toBeNull();
     });
 
+    it('🔴 l’appel de l’application WhatsApp hors de sa voie (2026-11-17) : son code n’est ni montré ni « déjà capté », l’appel est signalé, et « Remplacer » rend le numéro', async () => {
+      await pool.query('update tenants set numero_fourni_destination = null, numero_fourni_destination_le = null where id = $1', [tenantId]);
+      const { numero: n1 } = await store.declarer(N1, 'did-itest-1');
+      expect(await store.attribuer(tenantId)).toMatchObject({ numero: N1 });
+      // Le suivant n'est déclaré qu'après : l'ordre de l'attribution ne dépend pas de deux heures de création trop proches.
+      await store.declarer(N2, 'did-itest-2');
+      await pool.query(`update numeros_fournis set attribue_le = now() - interval '5 minutes' where numero = $1`, [N1]);
+      // La transcription réelle de la nuit du 17 (sans code), puis le même menu suivi d'un code.
+      await store.ecrireCode(n1.id, { appelId: 'itest.60', code: null, transcription: 'To receive your WhatsApp verification code, press', cause: 'code_introuvable' });
+      await store.ecrireCode(n1.id, { appelId: 'itest.61', code: '416746', transcription: 'To receive your WhatsApp verification code, press 5. Your verification code is 416746.' });
+      expect(await store.codeDeLEspace(tenantId)).toBeNull();
+      expect(await store.codeCapteDepuisLAttribution(tenantId)).toBe(false);
+      expect(await store.appelDeLApplicationRecent(tenantId)).toBe(true);
+      // Sur la voie de l'application, le même code se montre, et l'appel n'est plus un signal.
+      await pool.query(`update tenants set numero_fourni_destination = 'application', numero_fourni_destination_le = now() - interval '10 minutes' where id = $1`, [tenantId]);
+      expect(await store.codeDeLEspace(tenantId)).toMatchObject({ code: '416746' });
+      expect(await store.appelDeLApplicationRecent(tenantId)).toBe(false);
+      // Hors de sa voie, « Remplacer » rend le numéro (aucun code n'a pu servir) et en attribue un autre.
+      await pool.query('update tenants set numero_fourni_destination = null, numero_fourni_destination_le = null where id = $1', [tenantId]);
+      const r = await store.remplacerNumero(tenantId);
+      expect(r).toMatchObject({ bloque: null, rendu: N1, nouveau: { numero: N2 } });
+      expect(await store.parNumero(N1)).toMatchObject({ statut: 'libre', tenantId: null, attribueLe: null });
+      // Un appel de Meta sur le nouveau : « Remplacer » le bloque, comme avant.
+      const n2 = (await store.parNumero(N2))!;
+      await store.ecrireCode(n2.id, { appelId: 'itest.62', code: '123456', transcription: 'Your verification code is 123456.' });
+      expect(await store.codeDeLEspace(tenantId)).toMatchObject({ code: '123456' });
+      const r2 = await store.remplacerNumero(tenantId);
+      expect(r2.bloque).toBe(N2);
+      expect(r2.rendu).toBeUndefined();
+      expect(await store.parNumero(N2)).toMatchObject({ statut: 'bloque' });
+    });
+
+    it('🔴 rouge de la relecture du lot : un code de l’application MONTRÉ sur sa voie, puis la voie changée pour la fenêtre de Meta, garde le numéro (un compte vit peut-être sur le téléphone)', async () => {
+      const { numero: n1 } = await store.declarer(N1, 'did-itest-1');
+      expect(await store.attribuer(tenantId)).toMatchObject({ numero: N1 });
+      await store.declarer(N2, 'did-itest-2');
+      await pool.query(`update numeros_fournis set attribue_le = now() - interval '30 minutes' where numero = $1`, [N1]);
+      // Sur la voie de l'application depuis vingt minutes ; l'appel de l'application, il y a dix minutes : son code s'est montré.
+      await pool.query(`update tenants set numero_fourni_destination = 'application', numero_fourni_destination_le = now() - interval '20 minutes' where id = $1`, [tenantId]);
+      await store.ecrireCode(n1.id, { appelId: 'itest.64', code: '416746', transcription: 'To receive your WhatsApp verification code, press 5. Your verification code is 416746.' });
+      await pool.query(`update codes_verification set recu_le = now() - interval '10 minutes' where appel_id = 'itest.64'`);
+      expect(await store.codeDeLEspace(tenantId)).toMatchObject({ code: '416746' });
+      // Puis la voie passe à la fenêtre de Meta, il y a cinq minutes (start_whatsapp_connection en mode fourni).
+      await pool.query(`update tenants set numero_fourni_destination = 'api', numero_fourni_destination_le = now() - interval '5 minutes' where id = $1`, [tenantId]);
+      // Plus montré (on ne recopie pas un code de l'application dans la fenêtre de Meta), et pas un « appel hors voie » …
+      expect(await store.codeDeLEspace(tenantId)).toBeNull();
+      expect(await store.appelDeLApplicationRecent(tenantId)).toBe(false);
+      // … mais il a PU servir : « Abandonner » le garde, et « Remplacer » le bloque au lieu de le rendre.
+      expect(await store.codeCapteDepuisLAttribution(tenantId)).toBe(true);
+      const r = await store.remplacerNumero(tenantId);
+      expect(r.bloque).toBe(N1);
+      expect(r.rendu).toBeUndefined();
+      expect(await store.parNumero(N1)).toMatchObject({ statut: 'bloque' });
+      await pool.query('update tenants set numero_fourni_destination = null, numero_fourni_destination_le = null where id = $1', [tenantId]);
+    });
+
+    it('🔴 seule l’application avait appelé et la réserve est vide : l’espace garde son numéro', async () => {
+      await pool.query('update tenants set numero_fourni_destination = null, numero_fourni_destination_le = null where id = $1', [tenantId]);
+      const { numero: n1 } = await store.declarer(N1, 'did-itest-1');
+      await store.attribuer(tenantId);
+      await store.ecrireCode(n1.id, { appelId: 'itest.63', code: null, transcription: 'To receive your WhatsApp verification code, press', cause: 'code_introuvable' });
+      const r = await store.remplacerNumero(tenantId);
+      expect(r).toMatchObject({ bloque: null, nouveau: { numero: N1, statut: 'attribue', tenantId } });
+      expect(await store.numeroDeLEspace(tenantId)).toMatchObject({ numero: N1 });
+    });
+
     it('🔴 l’index tient : un second numéro attribué au même espace est refusé par la base', async () => {
       await store.declarer(N1, 'did-itest-1');
       await store.declarer(N2, 'did-itest-2');

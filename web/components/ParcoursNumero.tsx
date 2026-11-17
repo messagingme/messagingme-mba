@@ -102,6 +102,8 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
   const [choix, setChoix] = useState<Choix | null>(choixInitial);
   const [numero, setNumero] = useState<string | null>(null);
   const [code, setCode] = useState<string | null>(null);
+  /** L'application WhatsApp a appelé le numéro fourni, hors de la voie de l'application (2026-11-17). */
+  const [appelApplication, setAppelApplication] = useState(false);
   const [copie, setCopie] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -221,6 +223,7 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
         if (!fraiche(depart)) return;
         dernierRecuLe.current = r.codeRecuLe;
         setCode(r.codeRecuLe !== null && r.codeRecuLe === codeAvantOuverture.current ? null : r.code);
+        setAppelApplication(r.appelApplication === true);
       }).catch(() => {});
     }, INTERVALLE_CODE_MS);
     return () => clearInterval(minuterie);
@@ -507,6 +510,11 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
               <div className="text-xs font-semibold uppercase tracking-wide text-brand-600">{t(CODE_ICI.fr, CODE_ICI.en)}</div>
               {code ? (
                 <div className="mt-1 font-mono text-4xl font-semibold tracking-widest text-ink-900">{code}</div>
+              ) : appelApplication && !dansApplication ? (
+                // Le numéro a été tapé dans une application WhatsApp (vécu le 2026-11-17) : son code n'est pas transmis.
+                <p data-testid="appel-application" className="mt-2 text-sm font-medium text-ink-900">
+                  {t(APPEL_APPLICATION.fr, APPEL_APPLICATION.en)}
+                </p>
               ) : (
                 <p className="mt-2 flex items-center gap-2 text-sm font-medium text-ink-900">
                   <span aria-hidden className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-brand-500 motion-reduce:animate-none" />
@@ -570,6 +578,14 @@ export function ParcoursNumero({ tenantId, api, choixInitial, connecte, retour, 
 }
 
 type Texte = { readonly fr: string; readonly en: string };
+
+/** Dit à la place du code quand l'application WhatsApp a appelé un numéro destiné à la fenêtre de Meta (2026-11-17). */
+export const APPEL_APPLICATION: Texte = {
+  fr: 'Ce numéro a été saisi dans une application WhatsApp : ce code-là n’est pas transmis. Ce numéro ne se met pas dans '
+    + 'l’application : saisissez-le dans la fenêtre de Meta (bouton ci-dessous), en suivant les étapes.',
+  en: 'This number was entered in a WhatsApp app: that code is not passed on. This number does not go in the app: enter '
+    + 'it in the Meta window (button below), following the steps.',
+};
 
 /** Le titre de l'encadré du code, que l'étape « le code s'affiche… » désigne (essai 263). */
 export const CODE_ICI: Texte = { fr: 'Le code s’affichera ici', en: 'The code will appear here' };

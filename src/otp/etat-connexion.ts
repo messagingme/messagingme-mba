@@ -21,6 +21,12 @@ export interface EtatConnexion {
    */
   codeDejaCapte?: true;
   /**
+   * L'application WhatsApp vient d'appeler le numéro fourni alors que l'espace ne l'a pas destiné à l'application
+   * (`appelDeLApplicationRecent`, lot 1 du 2026-11-17) : le numéro a été tapé dans une application WhatsApp au lieu de la
+   * fenêtre de Meta. Son code n'est jamais montré ; la page et Claude disent d'utiliser la fenêtre. Dit seulement quand c'est vrai.
+   */
+  appelApplication?: true;
+  /**
    * Où va le numéro fourni (migration 0280) : la fenêtre de Meta (`api`) ou l'application WhatsApp Business
    * (`application`), retenue par `start_whatsapp_connection`. Absente : inconnue.
    */
@@ -47,7 +53,7 @@ export interface EtatConnexion {
 }
 
 export interface DepsEtatConnexion {
-  numeros: Pick<PgNumerosFournisStore, 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'destinationDeLEspace'>;
+  numeros: Pick<PgNumerosFournisStore, 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'destinationDeLEspace' | 'appelDeLApplicationRecent'>;
   /** Le numéro de Meta de l'espace (`numeroConnecteDe`). */
   numeroConnecte(tenantId: string): Promise<{ chiffres: string; aActiver: boolean; paiementBloque?: boolean; coexistence?: true } | null>;
   abonnements: Pick<PgAbonnementsNumeroStore, 'deLEspace'>;
@@ -87,16 +93,18 @@ export async function lireEtatConnexion(deps: DepsEtatConnexion, tenantId: strin
   // Les codes ne se lisent que pour un numéro attribué : les deux lectures les bornent à l'attribution. 🔴 Le code « déjà
   // capté » l'est AUSSI à la destination retenue (relecture du lot) : un code reçu par la fenêtre de Meta avant que la
   // personne ne choisisse l'application ne prouve aucun compte dans l'application.
-  const [c, deja] = n
+  const [c, deja, appelApplication] = n
     ? await Promise.all([
       deps.numeros.codeDeLEspace(tenantId),
       deps.numeros.codeCapteDepuisLAttribution(tenantId, retenue?.depuis ?? null),
+      deps.numeros.appelDeLApplicationRecent(tenantId),
     ])
-    : [null, false];
+    : [null, false, false];
   return {
     fourni: n ? `+${n.numero}` : null,
     code: c ? { code: c.code, recuLe: c.recuLe.toISOString() } : null,
     ...(deja ? { codeDejaCapte: true as const } : {}),
+    ...(appelApplication ? { appelApplication: true as const } : {}),
     ...(retenue ? { destination: retenue.destination } : {}),
     connecte,
     abonnement: a ? { statut: a.statut, periodeFin: a.periodeFin ? a.periodeFin.toISOString() : null } : null,
@@ -131,6 +139,8 @@ export function empreinteEtat(e: EtatConnexion): string {
   const forme = JSON.stringify([
     e.fourni, e.code?.recuLe ?? null, e.code?.code ?? null, e.connecte?.chiffres ?? null, e.connecte?.aActiver ?? null,
     e.abonnement?.statut ?? null, e.application?.statut ?? null,
+    // L'appel de l'application hors de sa voie (lot 1 du 2026-11-17) : Claude, qui attend, doit le voir arriver.
+    ...(e.appelApplication === true ? ['appel_application'] : []),
     // La coexistence (migration 0253), ajoutée seulement quand elle est vraie : l'empreinte de tout autre état ne bouge pas.
     ...(e.connecte?.coexistence === true ? ['coexistence'] : []),
   ]);

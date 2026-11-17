@@ -95,6 +95,47 @@ function versNumero(l: LigneNumero): NumeroFourni {
 /** Un code d'un espace ne vaut que le temps de le recopier dans la fenêtre de Meta (lot 3b). */
 export const VALIDITE_CODE_ESPACE_MINUTES = 15;
 
+/**
+ * 🔴 L'APPEL DE L'APPLICATION WHATSAPP NE LIVRE SON CODE QU'À LA VOIE DE L'APPLICATION (2026-11-17, plan
+ * `docs/superpowers/plans/2026-11-17-numero-fourni-application-et-essai.md`, lot 1). Vécu : un espace de la console a
+ * tapé le numéro fourni dans son application WhatsApp au lieu de la fenêtre de Meta ; si le code lui était parvenu, notre
+ * numéro aurait fini dans un téléphone, jamais relié, puis bloqué. Meta dicte son code dès le décroché ; l'application
+ * demande d'abord une touche (« To receive your WhatsApp verification code, press… », « appuyez sur… », transcriptions
+ * du 2026-10-21 et du 2026-11-17) : c'est ce menu qui la reconnaît, sur la transcription gardée avec chaque appel.
+ * ⚠️ Le menu n'est reconnu qu'en anglais et en français (les numéros de la réserve sont britanniques) : dans une autre
+ * langue, l'appel passe pour celui de Meta, et son code se montre comme avant ce lot (l'échec reste ouvert, jamais une
+ * perte de numéro).
+ *
+ * DEUX QUESTIONS DISTINCTES, ET LA CONFONDRE A ÉTÉ LE ROUGE DE LA RELECTURE DU LOT :
+ *  - « Le montrer MAINTENANT ? » (`CODE_A_MONTRER_SQL` : la page, Claude) : seulement si l'espace est sur la voie de
+ *    l'application en ce moment. Un espace passé à la fenêtre de Meta ne doit pas y recopier un code de l'application.
+ *  - « A-t-il PU servir ? » (`APPEL_APPLICATION_CACHE_SQL` : garder le numéro ou le rendre, à l'abandon comme au
+ *    remplacement, et la reprise) : se juge à l'HEURE DE L'APPEL. Un code montré sur la voie de l'application, puis la
+ *    voie changée pour la fenêtre de Meta, a pu créer un compte sur le téléphone : la destination courante ne le dit plus,
+ *    et rendre ce numéro le donnerait à un autre client avec un compte vivant dessus. On ne connaît que la DERNIÈRE
+ *    destination et son heure (0280) : un appel n'est sûrement caché que si l'espace n'est pas sur la voie de
+ *    l'application ET ne l'a pas quittée depuis l'appel. Dans le doute, il compte (un numéro gardé à tort coûte un
+ *    abonnement, un numéro rendu à tort coupe le compte de quelqu'un).
+ */
+export const MOTIF_MENU_APPLICATION = 'press|appuy';
+const APPEL_APPLICATION_SQL = `c.transcription ~* '${MOTIF_MENU_APPLICATION}'`;
+// ⚠️ `coalesce` : une destination nulle (la console, les espaces d'avant 0280) donnerait NULL, et les négations ne
+// verraient plus jamais l'appel.
+const SUR_LA_VOIE_APPLICATION_SQL = `coalesce(t.numero_fourni_destination, '') = 'application'`;
+/** À montrer maintenant : un appel de Meta, ou celui de l'application tant que l'espace est sur sa voie. */
+const CODE_A_MONTRER_SQL = `(not ${APPEL_APPLICATION_SQL} or ${SUR_LA_VOIE_APPLICATION_SQL})`;
+/**
+ * Un appel de l'application dont le code n'a JAMAIS pu se montrer : l'espace n'est pas sur la voie de l'application, et
+ * sa destination n'a pas changé depuis l'appel (donc elle était déjà celle-ci à l'heure de l'appel).
+ */
+const APPEL_APPLICATION_CACHE_SQL = `(${APPEL_APPLICATION_SQL} and not ${SUR_LA_VOIE_APPLICATION_SQL}`
+  + ' and (t.numero_fourni_destination_le is null or t.numero_fourni_destination_le <= c.recu_le))';
+
+/** La même reconnaissance que `APPEL_APPLICATION_SQL`, côté serveur (tests, journal). */
+export function estAppelDeLApplication(transcription: string): boolean {
+  return new RegExp(MOTIF_MENU_APPLICATION, 'i').test(transcription);
+}
+
 /** Le numéro DIDWW est déjà déclaré sous un AUTRE numéro : une incohérence que la route rend en 409. */
 export class DidDejaDeclare extends Error {
   constructor(readonly didwwDidId: string) {
@@ -234,13 +275,14 @@ export class PgNumerosFournisStore {
 
   /**
    * Le dernier code CERTAIN capté sur le numéro de cet espace, reçu après l'attribution et dans les
-   * `VALIDITE_CODE_ESPACE_MINUTES` dernières minutes. Jamais la transcription, jamais le code d'un autre espace.
+   * `VALIDITE_CODE_ESPACE_MINUTES` dernières minutes. Jamais la transcription, jamais le code d'un autre espace, jamais
+   * celui de l'application WhatsApp hors de sa voie (`CODE_A_MONTRER_SQL` : la voie de MAINTENANT).
    */
   async codeDeLEspace(tenantId: string): Promise<{ code: string; recuLe: Date } | null> {
     const res = await this.pool.query<{ code: string; recu_le: Date }>(
       `select c.code, c.recu_le
-         from codes_verification c join numeros_fournis n on n.id = c.numero_id
-        where n.tenant_id = $1 and n.statut = 'attribue' and c.code is not null
+         from codes_verification c join numeros_fournis n on n.id = c.numero_id join tenants t on t.id = n.tenant_id
+        where n.tenant_id = $1 and n.statut = 'attribue' and c.code is not null and ${CODE_A_MONTRER_SQL}
           and c.recu_le >= n.attribue_le and c.recu_le > now() - make_interval(mins => $2::int)
         order by c.recu_le desc limit 1`,
       [tenantId, VALIDITE_CODE_ESPACE_MINUTES],
@@ -257,12 +299,33 @@ export class PgNumerosFournisStore {
    * migration 0280) : seulement un code arrivé depuis cette heure, celle où la destination a été retenue.
    */
   async codeCapteDepuisLAttribution(tenantId: string, depuis: Date | null = null): Promise<boolean> {
+    // Seul un code de l'application SÛREMENT jamais montré (`APPEL_APPLICATION_CACHE_SQL`, la voie à l'heure de l'appel)
+    // ne compte pas : il n'a pu créer aucun compte. Dans le doute, il compte, et le numéro est gardé.
     const res = await this.pool.query(
-      `select 1 from codes_verification c join numeros_fournis n on n.id = c.numero_id
+      `select 1 from codes_verification c join numeros_fournis n on n.id = c.numero_id join tenants t on t.id = n.tenant_id
         where n.tenant_id = $1 and n.statut = 'attribue' and c.code is not null and c.recu_le >= n.attribue_le
+          and not ${APPEL_APPLICATION_CACHE_SQL}
           and ($2::timestamptz is null or c.recu_le >= $2::timestamptz)
         limit 1`,
       [tenantId, depuis],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  /**
+   * L'application WhatsApp a appelé le numéro de cet espace dans les `VALIDITE_CODE_ESPACE_MINUTES` dernières minutes,
+   * alors que l'espace n'était pas sur la voie de l'application et ne l'est toujours pas (`APPEL_APPLICATION_CACHE_SQL`) :
+   * quelqu'un a tapé le numéro dans une application WhatsApp au lieu de la fenêtre de Meta. La page et Claude le lui
+   * disent, avec ou sans code lu.
+   */
+  async appelDeLApplicationRecent(tenantId: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `select 1 from codes_verification c join numeros_fournis n on n.id = c.numero_id join tenants t on t.id = n.tenant_id
+        where n.tenant_id = $1 and n.statut = 'attribue' and c.recu_le >= n.attribue_le
+          and c.recu_le > now() - make_interval(mins => $2::int)
+          and ${APPEL_APPLICATION_CACHE_SQL}
+        limit 1`,
+      [tenantId, VALIDITE_CODE_ESPACE_MINUTES],
     );
     return (res.rowCount ?? 0) > 0;
   }
@@ -296,9 +359,10 @@ export class PgNumerosFournisStore {
   /**
    * Meta refuse le numéro de cet espace (déjà actif sur WhatsApp ailleurs) : il passe en `bloque`, sans espace, et un
    * autre est attribué, dans la même transaction. `bloque` = le numéro sorti (`null` si l'espace n'en avait pas),
-   * `nouveau` = le suivant (`null` si la réserve est vide).
+   * `nouveau` = le suivant (`null` si la réserve est vide). `rendu` : le numéro sorti est retourné à la réserve, parce
+   * que seule l'application WhatsApp l'a appelé hors de sa voie (lot 1 du 2026-11-17) ; `bloque` vaut alors `null`.
    */
-  async remplacerNumero(tenantId: string): Promise<{ bloque: string | null; nouveau: NumeroFourni | null }> {
+  async remplacerNumero(tenantId: string): Promise<{ bloque: string | null; nouveau: NumeroFourni | null; rendu?: string }> {
     try {
       return await this.remplacerDansUneTransaction(tenantId);
     } catch (err) {
@@ -309,14 +373,46 @@ export class PgNumerosFournisStore {
     }
   }
 
-  private async remplacerDansUneTransaction(tenantId: string): Promise<{ bloque: string | null; nouveau: NumeroFourni | null }> {
+  private async remplacerDansUneTransaction(tenantId: string): Promise<{ bloque: string | null; nouveau: NumeroFourni | null; rendu?: string }> {
     return enTransaction(this.pool, async (client) => {
-      const b = await client.query<{ numero: string }>(
+      // 🔴 Seule l'application WhatsApp a appelé, et aucun de ses codes n'a pu se montrer (lot 1 du 2026-11-17) : aucun
+      // compte n'existe, et ce n'est pas Meta qui refuse ce numéro. Il retourne à la réserve au lieu d'être perdu. Lu AVANT
+      // de sortir le numéro (la sortie efface l'espace dont dépend `APPEL_APPLICATION_CACHE_SQL`), sous le VERROU de sa
+      // ligne : l'enregistrement d'un appel pose un FOR KEY SHARE sur elle (clé étrangère), donc un appel de Meta qui
+      // arrive pendant le remplacement attend sa fin au lieu de passer inaperçu (jaune 2 de la relecture du lot).
+      // ⚠️ Deux requêtes, pas une : le verrou d'abord, la lecture ensuite. Dans la même requête, les sous-requêtes liraient
+      // l'instantané d'AVANT l'attente du verrou, et un appel validé pendant cette attente resterait invisible.
+      await client.query(`select 1 from numeros_fournis where tenant_id = $1 and statut = 'attribue' for update`, [tenantId]);
+      const seulementLApplication = (await client.query<{ oui: boolean }>(
+        `select exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.attribue_le
+                           and ${APPEL_APPLICATION_CACHE_SQL})
+            and not exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.attribue_le
+                           and not ${APPEL_APPLICATION_CACHE_SQL}) as oui
+           from numeros_fournis n join tenants t on t.id = n.tenant_id
+          where n.tenant_id = $1 and n.statut = 'attribue'`,
+        [tenantId],
+      )).rows[0]?.oui === true;
+      const b = await client.query<{ id: string; numero: string }>(
         `update numeros_fournis set statut = 'bloque', tenant_id = null
-          where tenant_id = $1 and statut = 'attribue' returning numero`,
+          where tenant_id = $1 and statut = 'attribue' returning id, numero`,
         [tenantId],
       );
-      return { bloque: b.rows[0]?.numero ?? null, nouveau: await attribuerAvec(client, tenantId) };
+      const sorti = b.rows[0];
+      // Le nouveau numéro est pris PENDANT que l'ancien est encore bloqué : l'attribution ne peut pas le redonner.
+      const nouveau = await attribuerAvec(client, tenantId);
+      if (sorti && seulementLApplication && nouveau === null) {
+        // Réserve vide : l'espace garde son numéro, qui marche (la fenêtre de Meta l'attend), plutôt que de rester sans.
+        const garde = await client.query<LigneNumero>(
+          `update numeros_fournis n set statut = 'attribue', tenant_id = $2 where n.id = $1 returning ${COLONNES_NUMERO}`,
+          [sorti.id, tenantId],
+        );
+        return { bloque: null, nouveau: garde.rows[0] ? versNumero(garde.rows[0]) : null };
+      }
+      if (sorti && seulementLApplication) {
+        await client.query(`update numeros_fournis set statut = 'libre', attribue_le = null where id = $1`, [sorti.id]);
+        return { bloque: null, nouveau, rendu: sorti.numero };
+      }
+      return { bloque: sorti?.numero ?? null, nouveau };
     });
   }
 

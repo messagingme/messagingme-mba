@@ -21,7 +21,7 @@ const NUMERO = (numero: string): NumeroFourni => ({
 
 function etatDe(o: {
   attribue?: string; code?: { code: string; recuLe: Date }; connecte?: string; aActiver?: boolean; abonnement?: 'actif' | 'resilie'; pro?: boolean;
-  deja?: boolean; destination?: 'api' | 'application';
+  deja?: boolean; destination?: 'api' | 'application'; appelApplication?: boolean;
 }) {
   const lus: string[] = [];
   /** L'heure passée à la lecture du code « déjà capté » : celle de la destination retenue, ou null. */
@@ -39,6 +39,7 @@ function etatDe(o: {
         lus.push(`destination:${t}`);
         return o.destination ? { destination: o.destination, depuis: DESTINATION_LE } : null;
       },
+      appelDeLApplicationRecent: async (t: string) => { lus.push(`appel:${t}`); return o.appelApplication === true; },
     },
     numeroConnecte: async (t: string) => { lus.push(`connecte:${t}`); return o.connecte !== undefined ? { chiffres: o.connecte, aActiver: o.aActiver === true } : null; },
     abonnements: {
@@ -85,11 +86,20 @@ describe('lireEtatConnexion', () => {
     expect((await lireEtatConnexion(enCoexistence, 't1')).connecte).toEqual({ chiffres: '441555479304', aActiver: false, coexistence: true });
   });
 
+  it('🔴 l’application WhatsApp a appelé hors de sa voie (2026-11-17) : l’état le dit, et seulement alors', async () => {
+    expect(await lireEtatConnexion(etatDe({ attribue: '441301548023', appelApplication: true }).deps, 't1')).toEqual({
+      fourni: '+441301548023', code: null, appelApplication: true, connecte: null, abonnement: null, inclusDansLePro: false,
+    });
+    const sansNumero = etatDe({ appelApplication: true });
+    expect(await lireEtatConnexion(sansNumero.deps, 't1')).not.toHaveProperty('appelApplication');
+    expect(sansNumero.lus).not.toContain('appel:t1');
+  });
+
   it('chaque lecture est filtrée sur l’espace demandé', async () => {
     const { deps, lus } = etatDe({ attribue: '441235619343' });
     await lireEtatConnexion(deps, 't-42');
     expect(lus.every((l) => l.endsWith(':t-42'))).toBe(true);
-    expect(lus).toEqual(expect.arrayContaining(['deja:t-42', 'destination:t-42']));
+    expect(lus).toEqual(expect.arrayContaining(['deja:t-42', 'destination:t-42', 'appel:t-42']));
   });
 
   it('🔴 le code déjà capté (sans borne de temps) et la destination retenue (0280) : dits seulement quand ils sont là', async () => {
@@ -190,6 +200,7 @@ describe('GET /tenants/:tenantId/connexion-numero', () => {
         codeDeLEspace: async () => ({ code: '123456', recuLe: new Date('2026-10-06T08:53:01Z') }),
         codeCapteDepuisLAttribution: async () => true,
         destinationDeLEspace: async () => ({ destination: 'application' as const, depuis: new Date('2026-10-06T08:50:00Z') }),
+        appelDeLApplicationRecent: async () => false,
         remplacerNumero: async () => ({ bloque: null, nouveau: null }),
         rendre: async () => null,
         bloquer: async () => null,

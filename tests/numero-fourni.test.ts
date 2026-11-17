@@ -63,6 +63,10 @@ function monter(o: {
   compteApplication?: { numero: string; statut: 'en_attente' | 'relie' };
   /** Les offres de crédit servies (filière application). */
   offres?: string[];
+  /** L'application WhatsApp a appelé le numéro, hors de sa voie (lot 1 du 2026-11-17). */
+  appelApplication?: boolean;
+  /** Seule l'application avait appelé : « Remplacer » rend le numéro au lieu de le bloquer. */
+  seulementLApplication?: boolean;
 } = {}) {
   const cap = {
     attribues: 0, rendus: 0, remplaces: 0, gardes: 0, alertesReserve: [] as number[], bloques: [] as string[],
@@ -95,11 +99,14 @@ function monter(o: {
       codeDeLEspace: async () => o.code ?? null,
       codeCapteDepuisLAttribution: async () => o.codeCapte ?? false,
       destinationDeLEspace: async () => null,
+      appelDeLApplicationRecent: async () => o.appelApplication === true,
       remplacerNumero: async () => {
         cap.remplaces += 1;
-        const bloque = attribue;
+        const sorti = attribue;
         attribue = reserve.shift() ?? null;
-        return { bloque, nouveau: attribue ? NUMERO(attribue) : null };
+        // Seule l'application avait appelé (lot 1 du 2026-11-17) : le numéro sorti retourne à la réserve.
+        if (sorti && o.seulementLApplication) { reserve.push(sorti); return { bloque: null, nouveau: attribue ? NUMERO(attribue) : null, rendu: sorti }; }
+        return { bloque: sorti, nouveau: attribue ? NUMERO(attribue) : null };
       },
       rendre: async () => { cap.rendus += 1; const r = attribue; attribue = null; if (r) reserve.push(r); return r; },
       bloquer: async () => { cap.gardes += 1; const r = attribue; attribue = null; return r; },
@@ -323,14 +330,21 @@ describe('GET /numero-fourni : le numéro et le code capté', () => {
     const { server } = monter({ attribue: '441235619343', code: { code: '345679', recuLe } });
     const res = await server.inject({ method: 'GET', url: URL, ...h(adminTok) });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ numero: '+441235619343', code: '345679', codeRecuLe: recuLe.toISOString() });
+    expect(res.json()).toEqual({ numero: '+441235619343', code: '345679', codeRecuLe: recuLe.toISOString(), appelApplication: false });
     await server.close();
   });
 
   it('aucun numéro attribué : tout est nul', async () => {
     const { server } = monter();
     const res = await server.inject({ method: 'GET', url: URL, ...h(adminTok) });
-    expect(res.json()).toEqual({ numero: null, code: null, codeRecuLe: null });
+    expect(res.json()).toEqual({ numero: null, code: null, codeRecuLe: null, appelApplication: false });
+    await server.close();
+  });
+
+  it('🔴 l’application WhatsApp a appelé le numéro hors de sa voie (2026-11-17) : la lecture le dit, sans code', async () => {
+    const { server } = monter({ attribue: '441301548023', appelApplication: true });
+    const res = await server.inject({ method: 'GET', url: URL, ...h(adminTok) });
+    expect(res.json()).toEqual({ numero: '+441301548023', code: null, codeRecuLe: null, appelApplication: true });
     await server.close();
   });
 });
@@ -351,6 +365,16 @@ describe('remplacer et abandonner', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ numero: '+442071234567' });
     expect(cap.bloques).toEqual(['441235619343']);
+    await server.close();
+  });
+
+  it('🔴 seule l’application WhatsApp avait appelé (2026-11-17) : le numéro retourne à la réserve, sans alerte « bloqué », et sert d’abord l’abonné qui attend', async () => {
+    const { server, cap } = monter({ attribue: '441301548023', reserve: ['442071234567'], libresApres: 5, seulementLApplication: true, attente: ['t-attend'] });
+    const res = await server.inject({ method: 'POST', url: `${URL}/remplacer`, ...h(adminTok), payload: '{}' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ numero: '+442071234567' });
+    expect(cap.bloques).toEqual([]);
+    expect(cap.servis).toEqual(['t-attend']);
     await server.close();
   });
 

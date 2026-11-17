@@ -307,6 +307,15 @@ const RAPPEL_ATTENTE = 'Rappelle watch_whatsapp_connection avec etat_connu égal
   + 'quand elle reprend.';
 
 /**
+ * L'application WhatsApp a appelé le numéro fourni, hors de la voie de l'application (lot 1 du 2026-11-17, vécu cette
+ * nuit-là) : la personne l'a tapé dans une application WhatsApp sur son téléphone. Son code n'est jamais transmis.
+ */
+const APPEL_DE_L_APPLICATION = 'Le numéro a été saisi dans une application WhatsApp sur un téléphone : c’est elle qui vient '
+  + 'd’appeler, et son code n’est pas transmis. Dis-le à la personne simplement : ce numéro ne se met pas dans '
+  + 'l’application, il se saisit dans la fenêtre de Meta, ouverte depuis la page, où il faut choisir « Appel téléphonique » ; '
+  + `le code de Meta s’affichera alors sur la page et ici. ${RAPPEL_ATTENTE}`;
+
+/**
  * Ce que le numéro fourni mis dans l'application permet dès le premier jour. 🔴 Plus de « Meta refuse souvent un numéro
  * tout neuf, revenez dans quelques jours » (Julien, 2026-11-11 : « on a testé qu'un nouveau numéro peut être coex sans
  * problème, on ne dit pas de connerie sur ce sujet ») : la console, la vitrine et le plugin l'ont retiré aussi.
@@ -559,6 +568,7 @@ function suiteDe(e: EtatConnexion, filiere: 'api' | 'application', mode?: string
       + `aussi sur la page), puis va jusqu’au dernier écran, « Finish ». ${RAPPEL_ATTENTE}`;
   }
   if (e.fourni && e.codeDejaCapte && destination === undefined) return destinationInconnue(e.fourni);
+  if (e.fourni && e.appelApplication) return APPEL_DE_L_APPLICATION;
   if (e.fourni) {
     return `Le numéro ${e.fourni} est attribué. Redonne à la personne les étapes de la page si elle ne les a plus : `
       + `${numerotees(ETAPES_NUMERO_FOURNI.map((x) => x.fr))} ${INSISTE_APPEL_SI_REDONNEES}Le code arrivera aussi ici. ${RAPPEL_ATTENTE}`;

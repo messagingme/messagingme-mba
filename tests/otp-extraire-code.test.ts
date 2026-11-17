@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { extraireCodeOtp } from '../src/otp/extraire-code';
+import { estAppelDeLApplication } from '../src/otp/store.pg';
 
 /**
  * Le maillon dont dépend toute l'automatisation de l'OTP. On ne sait pas encore comment la reconnaissance
@@ -116,5 +117,30 @@ describe('extraireCodeOtp : le SMS lu à voix haute', () => {
     expect(extraireCodeOtp('from 123 to 456')).toBeNull();
     expect(extraireCodeOtp('your code is 8 6 3 to 8 0 1')).toBe('863801');
     expect(extraireCodeOtp('your code twenty seven to three hundred forty one')).toBeNull();
+  });
+});
+
+describe('🔴 l’appel de l’application WhatsApp, reconnu à son menu (2026-11-17)', () => {
+  // Les transcriptions réelles de la réserve : la nuit du 17 (l'application), les 6, 13 et 16 novembre (Meta).
+  const APPLICATION = [
+    'To receive your WhatsApp verification code, press',
+    'To receive your WhatsApp verification code, press...',
+    'Pour recevoir votre code de vérification WhatsApp, appuyez sur 5.',
+  ];
+  const META = [
+    'Votre code de vérification est 713563.',
+    'Your verification code is 1-4-9-0-3-3. Your verification code is 1-4-9-0-3-3.',
+    'Your verification code is 416746. Your verification code is 416746.',
+    '',
+  ];
+
+  it('le menu de l’application est reconnu, jamais un appel de Meta', () => {
+    for (const t of APPLICATION) expect(estAppelDeLApplication(t), t).toBe(true);
+    for (const t of META) expect(estAppelDeLApplication(t), t).toBe(false);
+  });
+
+  it('la touche demandée ne se mêle pas au code dicté après elle', () => {
+    expect(extraireCodeOtp('To receive your WhatsApp verification code, press 5. Your verification code is 416746. Your verification code is 416746.')).toBe('416746');
+    expect(extraireCodeOtp('To receive your WhatsApp verification code, press')).toBeNull();
   });
 });

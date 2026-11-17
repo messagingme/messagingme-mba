@@ -134,6 +134,11 @@ export interface NumeroFourniEtat {
   /** Le dernier code capté sur ce numéro, depuis l'attribution et dans les 15 dernières minutes. */
   code: string | null;
   codeRecuLe: string | null;
+  /**
+   * L'application WhatsApp vient d'appeler ce numéro hors de la voie de l'application (2026-11-17) : il a été tapé dans
+   * une application WhatsApp au lieu de la fenêtre de Meta, et son code n'est pas transmis. Absent d'une API plus ancienne.
+   */
+  appelApplication?: boolean;
 }
 /** Attribue un numéro de la réserve à l'espace (ou rend celui déjà attribué). 409 : déjà un numéro, ou réserve vide. */
 export function obtenirNumeroFourni(tenantId: string): Promise<{ numero: string }> {

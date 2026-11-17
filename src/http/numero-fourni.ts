@@ -28,7 +28,7 @@ import { abonnementVivant, droitAuNumero as droitDansLaReserve, numerosDisponibl
  * d'office à l'abonné qui attend le sien (la réserve est à nous, comme dans /ops).
  */
 export interface NumeroFourniRouteDeps {
-  numeros: Pick<PgNumerosFournisStore, 'attribuer' | 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'destinationDeLEspace' | 'remplacerNumero' | 'rendre' | 'bloquer' | 'compterLibres'>;
+  numeros: Pick<PgNumerosFournisStore, 'attribuer' | 'numeroDeLEspace' | 'codeDeLEspace' | 'codeCapteDepuisLAttribution' | 'destinationDeLEspace' | 'appelDeLApplicationRecent' | 'remplacerNumero' | 'rendre' | 'bloquer' | 'compterLibres'>;
   /**
    * Le numéro WhatsApp connecté à l'espace, en chiffres (`''` si son affichage est inconnu), `null` s'il n'en a pas.
    * 🔴 Un espace qui a déjà un numéro n'en reçoit pas d'autre (un seul numéro par espace), et le numéro fourni ne
@@ -235,9 +235,9 @@ export function registerNumeroFourni(
   app.get('/tenants/:tenantId/numero-fourni', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const n = await deps.numeros.numeroDeLEspace(tenant);
-    if (!n) return reply.code(200).send({ numero: null, code: null, codeRecuLe: null });
-    const c = await deps.numeros.codeDeLEspace(tenant);
-    return reply.code(200).send({ numero: affiche(n.numero), code: c?.code ?? null, codeRecuLe: c ? c.recuLe.toISOString() : null });
+    if (!n) return reply.code(200).send({ numero: null, code: null, codeRecuLe: null, appelApplication: false });
+    const [c, appelApplication] = await Promise.all([deps.numeros.codeDeLEspace(tenant), deps.numeros.appelDeLApplicationRecent(tenant)]);
+    return reply.code(200).send({ numero: affiche(n.numero), code: c?.code ?? null, codeRecuLe: c ? c.recuLe.toISOString() : null, appelApplication });
   });
 
   // Où en est la connexion du numéro (lot 3c) : la page `/brancher` la relit, et l'outil d'attente de Claude Code lit la
@@ -282,6 +282,8 @@ export function registerNumeroFourni(
       return reply.code(429).send({ error: 'Un seul remplacement de numéro par heure. Si Meta refuse encore ce numéro, contactez-nous.', cause: 'trop_de_remplacements' });
     }
     const r = await deps.numeros.remplacerNumero(tenant);
+    // Rendu à la réserve (seule l'application WhatsApp l'avait appelé) : il revient d'abord à l'abonné qui attend.
+    if (r.rendu) await servirLAttente(deps, tenant, 'remplacement');
     if (r.bloque) {
       try {
         await deps.alertes.numeroBloque(r.bloque, tenant);

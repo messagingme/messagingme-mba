@@ -71,6 +71,19 @@ describe('le plan de numérotation du pont', () => {
     // L'envoi part une fois, à la fin de l'enregistrement : jamais aussi depuis l'extension h, qui le doublerait.
     expect(conf.filter((l) => l.includes('envoyer-otp.sh')).length).toBe(1);
   });
+
+  it('🔴 aucune touche avant la fin du message de l’application : 8 s au moins après le décroché (2026-11-17)', () => {
+    // Une touche à 3 s coupait « To receive your WhatsApp verification code, press… » avant la touche demandée.
+    const decroche = conf.findIndex((l) => l.includes('Answer()'));
+    const premiere = conf.findIndex((l) => l.includes('SendDTMF('));
+    const attente = conf.slice(decroche, premiere)
+      .map((l) => /Wait\((\d+)\)/.exec(l)?.[1])
+      .reduce((s, v) => s + (v ? Number(v) : 0), 0);
+    expect(attente).toBeGreaterThanOrEqual(8);
+    // Et l'appel dure toujours 90 s au plus : le plafond qu'annonce l'en-tête du fichier.
+    const total = conf.slice(decroche).map((l) => /Wait\((\d+)\)/.exec(l)?.[1]).reduce((s, v) => s + (v ? Number(v) : 0), 0);
+    expect(total).toBeLessThanOrEqual(90);
+  });
 });
 
 describe('le point d’entrée SIP du pont', () => {
