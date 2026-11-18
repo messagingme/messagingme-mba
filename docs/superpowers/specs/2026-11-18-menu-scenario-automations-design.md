@@ -114,6 +114,50 @@ Appels du rédacteur pris après la relecture indépendante (2026-11-18), à rel
 15. **Pause de la boutique ou ligne éteinte** : les parcours en cours de cette ligne (ou de toute la boutique)
     s'arrêtent, et un panier abandonné pendant la pause n'est jamais relancé après coup.
 
+### 3.1 Décisions après la cartographie des lots 2 à 4 (Julien, 2026-11-18, après le déploiement du lot 1)
+
+Elles **remplacent** ce que les sections suivantes disent de contraire (notamment la préférence « bloquant » du § 5.2).
+
+16. **L'analyse de fenêtre PRÉVIENT, elle ne refuse jamais la publication.** Un message de session atteint fenêtre
+    fermée (rayons Shopify et HubSpot, automations qui ne naissent pas d'un message, sortie « Pas de réponse ») est
+    signalé dans le builder, sans refus serveur.
+17. **Une automation qui ne naît pas d'un message** (date, étiquette, webhook, risque...) et dont le scénario envoie un
+    message de session sans réponse du client : **avertissement dans l'écran Automation**, l'enregistrement passe.
+18. **Template modifié depuis le builder et en validation chez Meta : publication programmée.** « Publier » pendant la
+    validation programme la mise en ligne à l'approbation ; elle est refusée si une campagne active utilise le
+    scénario ; un e-mail dit « en ligne » ou « refusé ».
+19. **Le nom d'un template créé depuis un bloc est automatique** : le nom du scénario suivi d'un horodatage court,
+    généré par le serveur (ce qui marque aussi qu'il vient du builder).
+20. **Un opérateur tient le fil au moment de la suite d'un parcours d'événement : le parcours s'arrête** (la règle
+    d'aujourd'hui). Conséquence assumée : en mode « Équipe », un client qui écrit passe le fil à l'équipe, donc sa
+    relance s'arrête.
+21. **Le répondeur et un parcours d'événement endormi coexistent.** Le répondeur (agent IA ou scénario répondeur)
+    répond sans fermer le parcours Shopify ou HubSpot qui dort ; au réveil, celui-ci reprend la main et ferme le
+    parcours du répondeur. Un seul parcours d'événement actif par contact, garanti par la base. L'invariant « au plus un
+    parcours actif par contact » devient « au plus un parcours d'événement, et des parcours ordinaires ».
+22. **Une réponse écrite au premier template, sans flèche « Toute autre réponse », arrête le parcours** comme
+    aujourd'hui : le message va au répondeur, la relance ne part pas.
+
+Appels du rédacteur pris sur la cartographie (2026-11-18), à relire :
+
+23. **Le premier bloc verrouillé (décision 13) part au lot 5**, avec la création des scénarios Shopify : aucun scénario
+    de ces rayons n'existe avant.
+24. **Une relance « Pas de réponse » d'un parcours né d'un chemin de masse** (campagne, workflow HubSpot, envoi API à un
+    bloc) **n'émet rien tant que le contact n'a pas répondu** : le drapeau est figé à la naissance du parcours (colonne de
+    `workflow_runs`, migration « avant »), sinon un réveil simultané de N destinataires publierait N « étiquette ajoutée ».
+25. **Un template à délai attend aussi en mode agent de Meta** (aujourd'hui un template sans choix ne retient pas dans ce
+    mode) : un délai posé est une intention explicite.
+26. **La sortie « Pas de réponse » se règle dans la console seulement au lot 2** : la recette de l'API et de Claude Code
+    refuse de décrire un template à délai (« modifié dans la console »).
+27. **Lot 3** : tous les templates créés par le builder sont gardés ; pas d'édition sur place d'un carousel ni d'un
+    en-tête média (ils se créent dans Contenu > Templates) ; un template en validation est refusé proprement à l'envoi
+    (après relecture hors cache) au lieu d'une erreur de Meta inexpliquée.
+28. **Lot 4** : le parcours d'un événement naît quand Meta a ACCEPTÉ le premier template (dans le moteur de campagne,
+    qui porte alors le scénario et le bloc), jamais avant ; ses variables se lisent dans les templates et, préfixées
+    (`{{shopify.lien_panier}}`), dans le texte des messages, suivent un « Aller à », et s'effacent à la fin du parcours.
+    Devant un parcours d'événement, les automations « Autres » cèdent, les répondeurs, outils d'agent et sauts
+    coexistent, l'Inbox, le lien de test, les campagnes, la chaîne, la publicité et le widget le remplacent.
+
 ## 4. Objectifs, non-objectifs, anti-objectifs
 
 **Objectifs** : une séquence Shopify ou HubSpot se construit dans le builder classique ; le premier message reste aussi
@@ -127,7 +171,8 @@ un séquenceur propre à Shopify ; changer les automations « Autres ».
 **Anti-objectifs** (échec même si ça marche) :
 - une confirmation de commande perdue parce qu'un opérateur tenait la conversation ;
 - un client relancé pour un panier qu'il vient de commander ;
-- un message rapide posé après une attente, accepté par le builder, refusé par Meta (131047) en production ;
+- un message rapide posé après une attente, accepté par le builder SANS que le builder l'ait signalé, puis refusé par
+  Meta (131047) en production (le builder prévient sans refuser, décision 16) ;
 - une variable Shopify (lien de panier ou de commande, qui portent une clé d'accès) écrite sur la fiche du contact ;
 - un scénario d'un rayon visible ou lançable depuis un autre.
 
@@ -163,8 +208,7 @@ lance **(appel du rédacteur)**. Sur chaque chemin, la fenêtre s'ouvre au passa
 du client, reste fermée sur la sortie « Pas de réponse » d'un template ou d'une question (décision 12), et se referme
 après 24 h d'attente cumulée. Un message rapide, un formulaire ou un « Aller à » dont la cible commence par un message de session,
 atteint fenêtre fermée, est signalé dans le builder avec une phrase qui dit quoi faire (« ce message part sans que le
-client ait répondu : il doit être un template »). Bloquant à la publication ou simple avertissement : laissé au
-constructeur, avec une préférence pour bloquant (anti-objectif 3).
+client ait répondu : il doit être un template »). C'est un AVERTISSEMENT, jamais un refus de publication (décision 16).
 
 
 ### 5.3 Le rayon
