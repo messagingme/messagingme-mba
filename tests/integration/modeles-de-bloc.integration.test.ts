@@ -83,6 +83,21 @@ describe.skipIf(!url)('templates de bloc et publication programmée (Postgres)',
       expect((await store.getById(id, tenantId))!.graph.nodes[0]!.data.tag).toBe('v3');
     });
 
+    it('🔴 publier le graphe JUGÉ : un enregistrement tombé pendant le jugement reste un brouillon (relecture de 3a, jaune 3)', async () => {
+      const id = await scenarioAvecBrouillon('publier-juge');
+      // La route a jugé v2 ; l'enregistrement automatique écrit v3 pendant la relecture chez Meta.
+      await store.update(id, tenantId, { graph: grapheEn('v3') });
+      const publie = (await store.publish(id, tenantId, grapheEn('v2')))!;
+      expect(publie.graph.nodes[0]!.data.tag).toBe('v2');
+      expect(publie.draftGraph!.nodes[0]!.data.tag).toBe('v3');
+      // Seulement déplacé depuis le jugement : c'est le brouillon qui part, avec sa disposition, et il n'en reste rien.
+      const deplace = await scenarioAvecBrouillon('publier-juge-deplace');
+      await store.update(deplace, tenantId, { graph: grapheEn('v2', 200) });
+      const r = (await store.publish(deplace, tenantId, grapheEn('v2')))!;
+      expect(r.graph.nodes[0]!.position).toEqual({ x: 200, y: 0 });
+      expect(r.draftGraph).toBeNull();
+    });
+
     it('🔴 une écriture de l’API publique l’emporte aussi', async () => {
       const id = await scenarioAvecBrouillon('api-entre-temps');
       const p = (await store.programmer(id, tenantId, null, grapheEn('v2')))!;
@@ -172,14 +187,14 @@ describe.skipIf(!url)('templates de bloc et publication programmée (Postgres)',
       expect(premiere?.etat).toBe('refuse');
       expect(premiere?.raison).toHaveLength(300);
       expect(await modeles.trancher(tenantId, 'tranche_1', 'fr', 'approuve', null)).toBeNull();
-      expect((await modeles.duScenario(tenantId, id))[0]!.etat).toBe('refuse');
+      expect((await modeles.desModeles(tenantId, [{ modele: 'tranche_1', langue: 'fr' }]))[0]!.etat).toBe('refuse');
     });
 
-    it('les lignes d’un scénario, celles de quelques templates, et les attentes anciennes du filet', async () => {
+    it('les lignes de quelques templates, et les attentes anciennes du filet', async () => {
       const { id } = await store.insert(tenantId, 'lignes', grapheEn('v1'), 'general');
       await modeles.inserer(tenantId, { workflowId: id, modele: 'lignes_a', langue: 'fr', etat: 'en_validation', par: null });
       await modeles.inserer(tenantId, { workflowId: id, modele: 'lignes_b', langue: 'en_US', etat: 'approuve', par: null });
-      expect((await modeles.duScenario(tenantId, id)).map((l) => l.modele).sort()).toEqual(['lignes_a', 'lignes_b']);
+      expect((await modeles.desModeles(tenantId, [{ modele: 'lignes_a', langue: 'fr' }, { modele: 'lignes_b', langue: 'en_US' }])).map((l) => l.modele).sort()).toEqual(['lignes_a', 'lignes_b']);
       const choisies = await modeles.desModeles(tenantId, [{ modele: 'lignes_b', langue: 'en_US' }, { modele: 'lignes_a', langue: 'en_US' }]);
       expect(choisies.map((l) => `${l.modele}|${l.langue}`)).toEqual(['lignes_b|en_US']);
       expect(await modeles.desModeles(tenantId, [])).toEqual([]);
@@ -192,10 +207,21 @@ describe.skipIf(!url)('templates de bloc et publication programmée (Postgres)',
     it('🔴 un autre espace ne lit ni ne tranche les lignes', async () => {
       const { id } = await store.insert(tenantId, 'lignes-isolation', grapheEn('v1'), 'general');
       await modeles.inserer(tenantId, { workflowId: id, modele: 'iso_a', langue: 'fr', etat: 'en_validation', par: null });
-      expect(await modeles.duScenario(autre, id)).toEqual([]);
       expect(await modeles.desModeles(autre, [{ modele: 'iso_a', langue: 'fr' }])).toEqual([]);
       expect(await modeles.trancher(autre, 'iso_a', 'fr', 'approuve', null)).toBeNull();
-      expect((await modeles.duScenario(tenantId, id))[0]!.etat).toBe('en_validation');
+      expect((await modeles.desModeles(tenantId, [{ modele: 'iso_a', langue: 'fr' }]))[0]!.etat).toBe('en_validation');
+    });
+
+    it('🔴 réhabiliter ne change qu’une ligne REFUSÉE, de cet espace (relecture de 3a)', async () => {
+      const { id } = await store.insert(tenantId, 'rehab', grapheEn('v1'), 'general');
+      await modeles.inserer(tenantId, { workflowId: id, modele: 'rehab_a', langue: 'fr', etat: 'en_validation', par: null });
+      expect(await modeles.rehabiliter(tenantId, 'rehab_a', 'fr')).toBeNull();
+      await modeles.trancher(tenantId, 'rehab_a', 'fr', 'refuse', 'x');
+      expect(await modeles.rehabiliter(autre, 'rehab_a', 'fr')).toBeNull();
+      const r = await modeles.rehabiliter(tenantId, 'rehab_a', 'fr');
+      expect(r?.etat).toBe('approuve');
+      expect(r?.raison).toBeNull();
+      expect(await modeles.rehabiliter(tenantId, 'rehab_a', 'fr')).toBeNull();
     });
 
     it('supprimer le scénario efface ses lignes (cascade)', async () => {

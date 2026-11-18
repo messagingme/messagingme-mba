@@ -131,7 +131,7 @@ export type ProgrammationDeScenario = Programmation & { id: string; nom: string;
 
 /** Ce dont la mise en ligne et le tranchage d'un statut ont besoin (le worker, qui reçoit le statut, ne relit rien). */
 export interface DepsMiseEnLigne {
-  lignes: Pick<PgModelesDeBloc, 'desModeles' | 'trancher'>;
+  lignes: Pick<PgModelesDeBloc, 'desModeles' | 'trancher' | 'rehabiliter'>;
   scenarios: Pick<
     PgWorkflowStore,
     'lanceursDuScenario' | 'list' | 'programmeesDeLEspace' | 'mettreEnLigneLaVersionProgrammee' | 'annulerProgrammation'
@@ -144,7 +144,7 @@ export interface DepsMiseEnLigne {
 
 /** Ce dont le jugement de « Publier » et le filet ont besoin en plus : relire chez Meta, et les lectures transverses. */
 export interface DepsPublication extends DepsMiseEnLigne {
-  lignes: Pick<PgModelesDeBloc, 'desModeles' | 'trancher' | 'attentesAnciennes'>;
+  lignes: Pick<PgModelesDeBloc, 'desModeles' | 'trancher' | 'rehabiliter' | 'attentesAnciennes'>;
   scenarios: DepsMiseEnLigne['scenarios'] & Pick<PgWorkflowStore, 'programmeesAnciennes'>;
   /** Le statut d'un template relu chez Meta, hors de tout cache ; null quand il est illisible. */
   statutModele(tenantId: string, modele: string, langue: string): Promise<{ statut: string; raison: string | null } | null>;
@@ -184,16 +184,24 @@ const etatTranche = (statut: string): 'approuve' | 'refuse' | null => {
 
 const raisonDe = (l: LigneModeleDeBloc): string => `Meta a refusé le template « ${l.modele} » (raison : ${l.raison ?? 'non précisée'})`;
 
-/** Les lignes des templates de bloc qu'un graphe envoie, celles encore en validation relues chez Meta et tranchées. */
+/**
+ * Les lignes des templates de bloc qu'un graphe envoie : celles en validation relues chez Meta et tranchées, et celles
+ * REFUSÉES relues aussi (relecture de 3a) : Meta a pu les approuver depuis (un appel, une correction), et le refus ne doit
+ * pas rester gravé.
+ */
 async function lignesRelues(deps: DepsPublication, tenantId: string, g: WorkflowGraph): Promise<LigneModeleDeBloc[]> {
   const paires = modelesDuGraphe(g);
   if (paires.length === 0) return [];
   const lignes = await deps.lignes.desModeles(tenantId, paires);
   return Promise.all(lignes.map(async (l) => {
-    if (l.etat !== 'en_validation') return l;
+    if (l.etat === 'approuve') return l;
     const s = await deps.statutModele(tenantId, l.modele, l.langue).catch(() => null);
     const etat = s ? etatTranche(s.statut) : null;
     if (!s || !etat) return l;
+    if (l.etat === 'refuse') {
+      if (etat !== 'approuve') return l;
+      return (await deps.lignes.rehabiliter(tenantId, l.modele, l.langue)) ?? { ...l, etat, raison: null };
+    }
     // Un autre passage a pu trancher entre-temps (statut, filet) : l'état de Meta fait foi pour ce jugement.
     return (await deps.lignes.trancher(tenantId, l.modele, l.langue, etat, s.raison)) ?? { ...l, etat, raison: s.raison };
   }));
@@ -203,7 +211,8 @@ async function lignesRelues(deps: DepsPublication, tenantId: string, g: Workflow
  * Le jugement de « Publier » sur le brouillon : publier (rien n'attend Meta), programmer (un template de bloc est encore
  * en validation après relecture), ou refuser (un template refusé ; ou une campagne active, sous laquelle aucune mise en
  * ligne ne se programme). La relecture ne fait que trancher les lignes : elle n'envoie aucun e-mail et ne met rien en
- * ligne ailleurs (le statut de Meta et le filet s'en chargent).
+ * ligne ailleurs. Le statut de Meta qui arrive ensuite ne trouve plus rien à trancher : une AUTRE version programmée qui
+ * nomme ce template part au passage suivant du filet (dix minutes, vingt au plus), pas avant.
  */
 export async function jugerPublication(
   deps: DepsPublication, tenantId: string, workflowId: string, brouillon: WorkflowGraph,
@@ -277,7 +286,12 @@ export async function trancherModeleDeBloc(
   const etat = etatTranche(s.statut);
   if (!etat) return 'rien';
   const ligne = await deps.lignes.trancher(tenantId, s.modele, s.langue, etat, s.raison);
-  if (!ligne) return 'rien';
+  if (!ligne) {
+    // Approuvé après un refus (un appel gagné) : la ligne redevient approuvée. Aucune programmation ne l'attend (un refus
+    // les a annulées, et « Publier » ne programme pas sur un template refusé) : rien à mettre en ligne.
+    if (etat === 'approuve' && (await deps.lignes.rehabiliter(tenantId, s.modele, s.langue))) return 'approuve';
+    return 'rien';
+  }
   for (const p of await deps.scenarios.programmeesDeLEspace(tenantId)) {
     if (!modelesDuGraphe(p.graphe).some((m) => m.modele === s.modele && m.langue === s.langue)) continue;
     try {

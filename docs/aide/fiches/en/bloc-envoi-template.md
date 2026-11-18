@@ -1,7 +1,7 @@
 ---
 description: The Send template block of a WhatsApp scenario: choose the approved template, connect its variables, its buttons and what follows.
 slug: send-template-block
-traduit_de: 33c9b0
+traduit_de: 3bac3b
 ---
 # The Send template block
 
@@ -63,3 +63,20 @@ most): a "No reply" output appears on the block. Connect it to the follow-up.
 - Exception: if Meta's agent answers your customers, what follows goes out right away, unless a delay is set: the
   block then waits for the reply.
 - If your team or Meta's agent took over the conversation, the contact's reply no longer moves the journey forward.
+
+**7. Write or edit the template without leaving the scenario.** Under the list, "Write a new template" opens the
+Content > Templates form; "Edit this template" fills it with the block's template. "Submit to Meta" sends it for review
+(a few minutes to a few hours), and the block sends it right away.
+
+- Its name is created automatically from the scenario name. The block shows "Under review at Meta", then nothing once
+  approved, or "Rejected" with the reason.
+- "Edit" always creates a new template: the old one stays in Content > Templates and still goes out until the new
+  version of the scenario is live.
+- Until it is approved, it does not go out: during a journey (the test link plays the draft), the conversation goes to
+  your team and the Error log says "under review at Meta".
+- Publish the scenario: if the template is still under review, going live is scheduled and happens on its own at
+  approval, and an e-mail tells you. A campaign running on this scenario prevents scheduling it: publish once the
+  template is approved. "Cancel the scheduled publication" keeps the live version.
+- Arrows follow the button text: a removed button loses its arrow, the others keep their branch. This is also true when
+  you choose another template in the list.
+- A carousel or an image, video or document header is created in Content > Templates.

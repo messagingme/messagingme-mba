@@ -705,6 +705,20 @@ describe('🔴 templates de bloc et publication programmée (menu « Scénario �
     await server.close();
   });
 
+  it('🔴 « Publier » passe au magasin le brouillon JUGÉ, pas celui du moment (relecture de 3a)', async () => {
+    const recus: unknown[] = [];
+    const { server } = app({
+      scenarios: {
+        getById: async (id) => (id === W1 ? sampleRow({ draftGraph: brouillonA }) : null),
+        publish: async (_id, _t, graphe) => { recus.push(graphe); return sampleRow({ publishedAt: '2026-11-18T15:00:00.000Z' }); },
+      },
+    });
+    const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
+    expect(res.statusCode).toBe(200);
+    expect(recus).toEqual([brouillonA]);
+    await server.close();
+  });
+
   it('approuvé (relu chez Meta) : publication immédiate, comme avant', async () => {
     const { server, cap, programmes } = appAvec({ etat: 'en_validation', statutMeta: 'APPROVED' });
     const res = await server.inject({ method: 'POST', url: `/tenants/t1/workflows/${W1}/publish`, ...h(adminTok), payload: {} });
@@ -785,13 +799,19 @@ describe('🔴 templates de bloc et publication programmée (menu « Scénario �
     await server.close();
   });
 
-  it('GET …/modeles : les lignes du scénario, et la version programmée avec ce qu’elle attend', async () => {
+  it('🔴 GET …/modeles : l’état des templates que NOMME le brouillon (même créés depuis un autre scénario), et la version programmée', async () => {
+    const demandes: unknown[] = [];
     const { server } = app({
-      scenarios: { publicationProgrammee: async () => ({ graphe: brouillonA, le: '2026-11-18T15:00:00.000Z', par: 'u1' }) },
+      scenarios: {
+        getById: async (id) => (id === W1 ? sampleRow({ draftGraph: brouillonA }) : null),
+        publicationProgrammee: async () => ({ graphe: brouillonA, le: '2026-11-18T15:00:00.000Z', par: 'u1' }),
+      },
       modelesDeBloc: {
         ...modelesDeBlocInertes,
-        lignes: { duScenario: async () => [ligneA('en_validation')] },
-        publication: { ...modelesDeBlocInertes.publication, lignes: { ...modelesDeBlocInertes.publication.lignes, desModeles: async () => [ligneA('en_validation')] } },
+        publication: {
+          ...modelesDeBlocInertes.publication,
+          lignes: { ...modelesDeBlocInertes.publication.lignes, desModeles: async (_t, paires) => { demandes.push(paires); return [ligneA('en_validation')]; } },
+        },
       },
     });
     const res = await server.inject({ method: 'GET', url: `/tenants/t1/workflows/${W1}/modeles`, ...h(adminTok) });
@@ -802,6 +822,8 @@ describe('🔴 templates de bloc et publication programmée (menu « Scénario �
     });
     const inconnu = await server.inject({ method: 'GET', url: '/tenants/t1/workflows/22222222-2222-4222-8222-222222222222/modeles', ...h(adminTok) });
     expect(inconnu.statusCode).toBe(404);
+    // Par NOM : la paire du brouillon, d'abord, puis celle de la version programmée.
+    expect(demandes[0]).toEqual([{ modele: 'relance_a', langue: 'fr' }]);
     await server.close();
   });
 

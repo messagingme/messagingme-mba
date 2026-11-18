@@ -12,7 +12,7 @@ import {
 import { exempleUrl } from '@/lib/champs-url';
 import { analyserChampsUrl, type AnalyseChampsUrl } from '@/lib/partage/champs-url';
 import { customFieldsOnly } from '@/lib/fields';
-import { listFlows, createTemplate, updateTemplate, uploadMedia, uploadMediaDepuisMediatheque, getTemplateHints, type TemplateSummary, type TemplateButtonInput, type TemplateHeaderInput, type FlowSummary, type TemplateParamHint } from '@/lib/api';
+import { listFlows, createTemplate, updateTemplate, uploadMedia, uploadMediaDepuisMediatheque, getTemplateHints, type TemplateSummary, type TemplateButtonInput, type TemplateHeaderInput, type FlowSummary, type TemplateParamHint, type CreateTemplateInput } from '@/lib/api';
 import { resizeToDataUrl, fileToDataUrl } from '@/lib/image';
 import { isSendableButtonUrl } from '@/lib/partage/button-url';
 import { useLocale, useT } from '@/lib/i18n';
@@ -37,10 +37,23 @@ import { ChoixMediatheque } from '@/components/ChoixMediatheque';
 /** Ce qu'un template neuf renvoie a l'appelant. `status` vaut PENDING chez Meta : il n'est PAS envoyable. */
 export interface CreatedTemplate { name: string; language: string; status: string }
 
-export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEtroite = false }: {
+/**
+ * Le formulaire POUR UN BLOC DU CONSTRUCTEUR (menu « Scénario », lot 3) : il CRÉE toujours un nouveau template (jamais
+ * d'édition chez Meta, qui le renverrait en revue sous une modification par 24 h), sans nom (le serveur le génère), sans
+ * en-tête image, vidéo ni document (ils se créent dans Contenu > Templates). L'hôte soumet par la route du bloc.
+ */
+export interface FormulairePourUnBloc {
+  soumettre(input: Omit<CreateTemplateInput, 'name'>): Promise<void>;
+  /** Les sources choisies dans le bloc (`node.data.variables`), qui recouvrent celles du template, position par position. */
+  sourcesDuBloc?: TemplateParamHint[];
+}
+
+export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEtroite = false, pourUnBloc }: {
   tenantId: string;
   onCreated: (created?: CreatedTemplate) => void;
   initial?: TemplateSummary;
+  /** Monté dans un bloc du constructeur (`ModeleDuBloc`) : voir `FormulairePourUnBloc`. Absent, rien ne change. */
+  pourUnBloc?: FormulairePourUnBloc;
   /**
    * DUPLICATION : le formulaire part PRÉ-REMPLI d'un template existant, mais il CRÉE. C'est un troisième mode,
    * distinct de l'édition : nom et langue redeviennent modifiables (Meta ne permet pas deux templates de même
@@ -71,7 +84,8 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
 }) {
   const t = useT();
   const { locale } = useLocale();
-  const isEdit = !!initial && !duplique;
+  // Un bloc crée toujours : « Modifier ce template » part de l'existant, comme une duplication.
+  const isEdit = !!initial && !duplique && !pourUnBloc;
   const [name, setName] = useState(duplique && initial ? `${initial.name}_copie` : initial?.name ?? '');
   const [category, setCategory] = useState<'MARKETING' | 'UTILITY'>((initial?.category?.toUpperCase() as 'MARKETING' | 'UTILITY') ?? 'MARKETING');
   // Durée de validité (plan du 2026-10-14) : celle lue chez Meta, ou le défaut. Une copie la reprend aussi.
@@ -177,10 +191,13 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
     let alive = true;
     getTemplateHints(tenantId, initial.name, initial.language)
       .then(({ hints }) => {
-        if (!alive || hints.length === 0) return;
+        // Dans un bloc, les choix du bloc recouvrent ceux du template, position par position : le nouveau template part
+        // avec les variables que le bloc envoyait vraiment.
+        const sources = [...hints.filter((h) => !(pourUnBloc?.sourcesDuBloc ?? []).some((b) => b.position === h.position)), ...(pourUnBloc?.sourcesDuBloc ?? [])];
+        if (!alive || sources.length === 0) return;
         bodyState.setVarSources((prev) => {
           const next = [...prev];
-          for (const h of hints) next[h.position - 1] = { source: h.source, label: labelForSource(h.source, bodyState.userFields, t) };
+          for (const h of sources) next[h.position - 1] = { source: h.source, label: labelForSource(h.source, bodyState.userFields, t) };
           return next;
         });
       })
@@ -293,6 +310,21 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
         onCreated();
         return;
       }
+      if (pourUnBloc) {
+        // Le bloc : le serveur nomme le template, l'hôte soumet par la route du bloc puis ferme le formulaire.
+        await pourUnBloc.soumettre({
+          category,
+          language,
+          body: canonBody,
+          ...(header ? { header } : {}),
+          ...(foot ? { footer: foot } : {}),
+          ...(example ? { example } : {}),
+          ...(buttons.length > 0 ? { buttons } : {}),
+          ...(paramHints.length > 0 ? { paramHints } : {}),
+          ...(envoyerTtl ? { ttlSecondes: ttl } : {}),
+        });
+        return;
+      }
       // Nom normalisé une seule fois : c'est LUI que Meta connaît, donc lui qu'on remonte à l'appelant.
       // Le recalculer ailleurs ferait diverger le nom affiché du nom réel dès qu'un caractère est filtré.
       const metaName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
@@ -344,7 +376,7 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
    * des culs-de-sac identiques.
    */
   const manques: string[] = [
-    ...(name.trim() === '' ? [t('le nom du template', 'the template name')] : []),
+    ...(name.trim() === '' && !pourUnBloc ? [t('le nom du template', 'the template name')] : []),
     ...(body.trim() === '' ? [t('le corps du message', 'the message body')] : []),
     // Meta refuse un corps plus long, mais seulement après l'aller-retour de sa revue : on le dit avant l'envoi.
     ...(caracteresRestants(body, LIMITES_TEMPLATE.corps) < 0
@@ -403,25 +435,44 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
           )}
         </div>
       )}
-      {!isEdit && (
+      {!isEdit && !pourUnBloc && (
         <>
           <h2 className="text-base font-semibold text-ink-900">{t('Nouveau template', 'New template')}</h2>
           <p className="mt-1 text-xs text-ink-500">{t('Soumis à Meta pour validation (quelques minutes à quelques heures).', 'Submitted to Meta for review (a few minutes to a few hours).')}</p>
         </>
       )}
+      {pourUnBloc && (
+        <div className="rounded-controle border border-ink-200 bg-ink-50 px-3 py-2 text-xs text-ink-700" data-testid="template-bloc-bandeau">
+          <p>
+            {initial
+              ? t(`Partant de « ${initial.name} », vous écrivez un NOUVEAU template, soumis à Meta (quelques minutes à quelques heures). L’ancien reste dans Contenu > Templates et continue de partir tant que la nouvelle version du scénario n’est pas en ligne.`, `Starting from "${initial.name}", you write a NEW template, submitted to Meta (a few minutes to a few hours). The old one stays in Content > Templates and keeps going out until the new version of the scenario is live.`)
+              : t('Un nouveau template, soumis à Meta (quelques minutes à quelques heures). Son nom se crée tout seul, à partir de celui du scénario.', 'A new template, submitted to Meta (a few minutes to a few hours). Its name is created automatically from the scenario name.')}
+          </p>
+          <p className="mt-1">
+            {t('Publiez ensuite le scénario : s’il est encore en validation, la mise en ligne se fera à l’approbation, et un e-mail vous le dira. Un carousel ou un en-tête image, vidéo ou document se crée dans Contenu > Templates.', 'Then publish the scenario: if it is still under review, it goes live on approval, and an e-mail will tell you. A carousel or an image, video or document header is created in Content > Templates.')}
+          </p>
+        </div>
+      )}
 
       <div className={`mt-4 grid gap-6 ${colonneEtroite ? '' : 'lg:grid-cols-[minmax(0,1fr)_300px]'}`}>
         {/* Colonne formulaire */}
         <div>
-          <Field label={isEdit ? t('Nom (non modifiable)', 'Name (not editable)') : t('Nom (minuscules, sans espaces)', 'Name (lowercase, no spaces)')}>
-            <input value={name} onChange={(e) => setName(e.target.value)} disabled={isEdit} data-testid="template-nom" className={`${inputCls} disabled:bg-ink-50 disabled:text-ink-400`} placeholder="promo_ete" />
-          </Field>
+          {!pourUnBloc && (
+            <Field label={isEdit ? t('Nom (non modifiable)', 'Name (not editable)') : t('Nom (minuscules, sans espaces)', 'Name (lowercase, no spaces)')}>
+              <input value={name} onChange={(e) => setName(e.target.value)} disabled={isEdit} data-testid="template-nom" className={`${inputCls} disabled:bg-ink-50 disabled:text-ink-400`} placeholder="promo_ete" />
+            </Field>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label={t('Catégorie', 'Category')}>
-              <select value={category} onChange={(e) => changerCategorie(e.target.value as CategorieModele)} className={inputCls}>
+              <select value={category} onChange={(e) => changerCategorie(e.target.value as CategorieModele)} className={inputCls} data-testid="template-categorie">
                 <option value="MARKETING">{categorieTemplate('MARKETING', locale)}</option>
                 <option value="UTILITY">{categorieTemplate('UTILITY', locale)}</option>
               </select>
+              {pourUnBloc && (
+                <p className="mt-1 text-xs text-ink-500">
+                  {t('Meta peut reclasser la catégorie. Un template marketing ne part, depuis une automation, qu’aux contacts qui ont donné leur accord.', 'Meta may reclassify the category. A marketing template only goes out, from an automation, to contacts who gave their consent.')}
+                </p>
+              )}
             </Field>
             <Field label={isEdit ? t('Langue (non modifiable)', 'Language (not editable)') : t('Langue', 'Language')}>
               <select value={language} onChange={(e) => setLanguage(e.target.value)} disabled={isEdit} className={`${inputCls} disabled:bg-ink-50 disabled:text-ink-400`}>
@@ -466,10 +517,11 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
               >
                 <option value="none">{t('Aucun', 'None')}</option>
                 <option value="TEXT">{t('Texte', 'Text')}</option>
-                <option value="IMAGE">Image</option>
-                <option value="VIDEO">{t('Vidéo', 'Video')}</option>
+                {/* Dans un bloc, ni image, ni vidéo, ni document : ils se créent dans Contenu > Templates (décision 27). */}
+                {!pourUnBloc && <option value="IMAGE">Image</option>}
+                {!pourUnBloc && <option value="VIDEO">{t('Vidéo', 'Video')}</option>}
                 {/* Meta ne laisse pas modifier un modèle à en-tête Document : proposé à la création seulement. */}
-                {!isEdit && <option value="DOCUMENT">{t('Document (PDF)', 'Document (PDF)')}</option>}
+                {!isEdit && !pourUnBloc && <option value="DOCUMENT">{t('Document (PDF)', 'Document (PDF)')}</option>}
               </select>
               {headerType === 'TEXT' && (
                 <div className="min-w-[12rem] flex-1">
@@ -679,8 +731,9 @@ export function TemplateForm({ tenantId, onCreated, initial, duplique, colonneEt
             onClick={submit}
             disabled={!canSubmit}
             className="mt-4 w-full"
+            data-testid="template-soumettre"
           >
-            {busy ? t('Envoi…', 'Sending…') : isEdit ? t('Enregistrer les modifications', 'Save changes') : t('Créer le template', 'Create template')}
+            {busy ? t('Envoi…', 'Sending…') : isEdit ? t('Enregistrer les modifications', 'Save changes') : pourUnBloc ? t('Soumettre à Meta', 'Submit to Meta') : t('Créer le template', 'Create template')}
           </Bouton>
         </div>
 

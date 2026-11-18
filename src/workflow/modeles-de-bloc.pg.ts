@@ -51,15 +51,6 @@ export class PgModelesDeBloc {
     );
   }
 
-  /** Les templates écrits depuis les blocs de ce scénario, du plus récent au plus ancien. */
-  async duScenario(tenantId: string, workflowId: string): Promise<LigneModeleDeBloc[]> {
-    const r = await this.pool.query<Ligne>(
-      `select ${COLONNES} from modeles_de_bloc where tenant_id = $1 and workflow_id = $2 order by cree_le desc`,
-      [tenantId, workflowId],
-    );
-    return r.rows.map(versLigne);
-  }
-
   /** Ceux de ces templates (nom, langue) qui ont été écrits depuis un bloc ; les autres n'ont pas de ligne. */
   async desModeles(tenantId: string, paires: ReadonlyArray<{ modele: string; langue: string }>): Promise<LigneModeleDeBloc[]> {
     if (paires.length === 0) return [];
@@ -83,6 +74,21 @@ export class PgModelesDeBloc {
         where tenant_id = $1 and modele = $2 and langue = $3 and etat = 'en_validation'
         returning ${COLONNES}`,
       [tenantId, modele, langue, etat, raison === null ? null : raison.slice(0, RAISON_MAX)],
+    );
+    return r.rows[0] ? versLigne(r.rows[0]) : null;
+  }
+
+  /**
+   * Un template REFUSÉ que Meta approuve ensuite (un appel gagné, une correction dans Contenu > Templates) : la ligne
+   * redevient approuvée, sa raison s'efface. Seule une ligne refusée change (relecture de 3a) : sans ce chemin, la clé
+   * (espace, nom, langue) gardait le refus à jamais, et tout scénario qui nomme ce template restait impubliable.
+   */
+  async rehabiliter(tenantId: string, modele: string, langue: string): Promise<LigneModeleDeBloc | null> {
+    const r = await this.pool.query<Ligne>(
+      `update modeles_de_bloc set etat = 'approuve', raison = null, tranche_le = now()
+        where tenant_id = $1 and modele = $2 and langue = $3 and etat = 'refuse'
+        returning ${COLONNES}`,
+      [tenantId, modele, langue],
     );
     return r.rows[0] ? versLigne(r.rows[0]) : null;
   }

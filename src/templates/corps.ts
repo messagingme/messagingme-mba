@@ -4,7 +4,6 @@ import { countTemplateVariables, parseParamHints } from '../crm/template';
 import { isValidTemplateLanguage } from '../../web/lib/partage/langues-modeles';
 import { isSendableButtonUrl } from '../../web/lib/partage/button-url';
 import { dureeValide, type CategorieModele } from '../../web/lib/partage/duree-validite';
-import { nonEmpty } from '../http/scope';
 import type { ChampsModele, DepsGestionModeles, IndicesModele } from './gestion';
 
 /**
@@ -156,6 +155,11 @@ export async function sourcesAEnregistrer(
   if (indices === undefined && JSON.stringify(zero) === JSON.stringify(zeroExistant)) return undefined;
   const variables = indices ?? existantes.filter((h) => h.position !== POSITION_ENTETE);
   return [...variables, ...(zero ? [zero] : [])];
+}
+
+/** Une chaîne non vide (la même règle que `nonEmpty` des routes, recopiée ici : le domaine ne lit pas la couche HTTP). */
+function nonEmpty(v: unknown): v is string {
+  return typeof v === 'string' && v.trim() !== '';
 }
 
 /**

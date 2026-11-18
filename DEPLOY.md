@@ -378,6 +378,17 @@ jeton du défi est ignoré et le mot de passe oublié repasse à cinq par minute
 nouvelles clés (`connexion.adresse`, `connexion.oubli`, `connexion.forgot` du jour) s'effacent avec leur fenêtre. La
 console du lot reste compatible.
 
+## ⚠️ Les templates écrits depuis un bloc et la publication programmée (migration 0296, menu « Scénario », lot 3) : l'ordre, le retour
+
+**L'ordre** : la migration seule (`migration=avant`, faite le 2026-11-18), puis le serveur (3a, `migration=aucune`), puis la
+console (3b, Vercel au push) : sans le serveur, les boutons du bloc appelleraient des routes absentes.
+
+**Retour arrière d'une image d'avant le serveur (3a), une fois la console (3b) en service** : l'ancien `publish` n'efface
+pas les versions programmées, et l'image suivante les mettrait en ligne au filet, par-dessus une publication faite pendant le
+retour arrière. Avant de revenir en arrière, vider les programmations (commande pour Julien, depuis la machine des
+workers) : `update workflows set programmed_graph = null, programmed_at = null, programmed_by = null where programmed_graph
+is not null`. La table `modeles_de_bloc` et les colonnes restent : l'ancien code ne les lit pas.
+
 ## ⚠️ Le rechargement nginx n'est plus nécessaire depuis le 2026-10-03, mais s'il sert, il vient APRÈS le `healthy`
 
 Les routes de `mba.` et d'`api.` nomment `mba-api` par une variable, que nginx relit seul (résolveur de Docker,

@@ -83,6 +83,13 @@ for (const locale of ['fr', 'en'] as Locale[]) {
       await simulerEditeur(page, grapheRappel, l.nom[1], templates, INDICATIONS);
       await ouvrir(page, false);
       await capturer(page, CLE, 6, locale, undefined, 'haut', poignee(page, 'libre'), true);
+
+      // 7. Écrire ou modifier le template sans quitter le scénario (menu « Scénario », lot 3) : les deux boutons, sous la liste.
+      await simulerEditeur(page, grapheRdv, l.nom[0], templates, INDICATIONS);
+      await ouvrir(page);
+      const modifier = page.getByTestId('template-modifier');
+      await centrer(modifier);
+      await capturer(page, CLE, 7, locale, undefined, 'haut', modifier, true);
     });
   });
 }

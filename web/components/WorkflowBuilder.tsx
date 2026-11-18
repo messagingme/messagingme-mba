@@ -8,9 +8,12 @@ import {
 } from '@xyflow/react';
 import {
   listTemplates, listFlows, listTags, listUserFields, listUserFieldUsage, createTag, createUserField, listEmailAccounts, listEmailTemplates, listRcsMessages, publishWorkflow,
+  modelesDuScenario, annulerProgrammation,
   type WorkflowGraph, type WorkflowNodeType, type TemplateSummary, type FlowSummary, type TagCount, type UserFieldDef,
-  type EmailAccount, type EmailTemplate, type RcsMessage,
+  type EmailAccount, type EmailTemplate, type RcsMessage, type ModeleDeBloc, type ProgrammationVue, type ModeleCreeDepuisUnBloc,
+  type TemplateParamHint,
 } from '@/lib/api';
+import { ModeleDuBloc } from '@/components/ModeleDuBloc';
 import { useLocale, useT } from '@/lib/i18n';
 import { formatDate, hourMin } from '@/lib/day';
 import type { AgentResume } from '@/lib/api-agent';
@@ -18,10 +21,10 @@ import { NODE_META, NODE_ORDER, RCS_NODE_ORDER, EMAIL_NODE_ORDER, AGENT_NODE_ORD
 import { isCampaignEligible, waitBeforeSessionMessage, sessionMessageAfterRcs, entryNodeOf, canalDOuvertureDuGraphe } from '@/lib/campaign-eligibility';
 import { autoLayoutHorizontal } from '@/lib/workflow-layout';
 import { EDGE_OPTS, toRF, fromRF, type RFNode, type RFEdge } from '@/lib/workflow-canevas';
-import { sansSortieEnsuite, sansSortieFichier, sansSortiePasDeReponse } from '@/lib/workflow-sorties';
+import { flechesSuivantLesBoutons, sansSortieEnsuite, sansSortieFichier, sansSortiePasDeReponse, sortiesDeBoutons } from '@/lib/workflow-sorties';
 import { estPoigneeDeFamille } from '@/lib/condition-familles';
 import { useEnregistrementScenario } from '@/lib/use-enregistrement-scenario';
-import { TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
+import { ModelesDeBlocCtx, TemplatesCtx, TestDepuisBlocCtx, nodeTypes, edgeTypes } from '@/components/WorkflowNode';
 import { ConfigPanel } from '@/components/WorkflowConfigPanel';
 import { analyserFenetreConsole } from '@/lib/fenetre-console';
 import type { Constat, Depart } from '@/lib/partage/fenetre-scenario';
@@ -111,7 +114,13 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Données de config des blocs.
-  const [templates, setTemplates] = useState<TemplateSummary[]>([]);
+  // Menu « Scénario », lot 3 : la liste COMPLÈTE sert l'aperçu des blocs et la valeur d'un bloc dont le template est en
+  // validation ; seuls les approuvés se proposent au choix.
+  const [tousLesTemplates, setTousLesTemplates] = useState<TemplateSummary[]>([]);
+  const templates = useMemo(() => tousLesTemplates.filter((x) => x.status === 'APPROVED'), [tousLesTemplates]);
+  const rechargerTemplates = useCallback(() => {
+    listTemplates(tenantId).then((r) => setTousLesTemplates(r.templates)).catch(() => {});
+  }, [tenantId]);
   const [flows, setFlows] = useState<FlowSummary[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
   const [fields, setFields] = useState<UserFieldDef[]>([]);
@@ -121,7 +130,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
   const [rcsMessages, setRcsMessages] = useState<RcsMessage[]>([]);
   useEffect(() => {
-    listTemplates(tenantId).then((r) => setTemplates(r.templates.filter((t) => t.status === 'APPROVED'))).catch(() => {});
+    rechargerTemplates();
     listFlows(tenantId).then((r) => setFlows(r.flows.filter((f) => f.status === 'PUBLISHED'))).catch(() => {});
     listTags(tenantId).then((r) => setTags(r.tags)).catch(() => {});
     listUserFields(tenantId).then((r) => setFields(r.fields)).catch(() => {});
@@ -138,7 +147,43 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
     // `Array.isArray` : une réponse sans le champ `messages` (backend plus ancien que le front, route non
     // montée) poserait `undefined` dans l'état, et le premier `.filter` ferait tomber TOUT le builder.
     listRcsMessages(tenantId).then((r) => { if (Array.isArray(r.messages)) setRcsMessages(r.messages); }).catch(() => {});
-  }, [tenantId]);
+  }, [tenantId, rechargerTemplates]);
+
+  /**
+   * Les templates écrits depuis les blocs de ce scénario, et sa version programmée (menu « Scénario », lot 3). Sondés
+   * toutes les 15 s, onglet visible, tant qu'un template est en validation ou qu'une mise en ligne est programmée : c'est
+   * NOTRE base qu'on lit (le statut de Meta y arrive par le webhook et le filet), jamais Meta à chaque sondage. Une API
+   * d'avant ce lot (404) : aucun état, l'éditeur se comporte comme avant.
+   */
+  const [modelesDeBloc, setModelesDeBloc] = useState<{ modeles: ModeleDeBloc[]; programmee: ProgrammationVue | null } | null>(null);
+  const relireModeles = useCallback(() => {
+    if (!workflowId) return;
+    modelesDuScenario(tenantId, workflowId)
+      .then((r) => {
+        if (!r || !Array.isArray(r.modeles)) return;
+        setModelesDeBloc((avant) => {
+          // Un template vient d'être tranché : la liste de Meta change aussi (statut, aperçu).
+          if (avant && avant.modeles.some((m) => m.etat === 'en_validation' && r.modeles.some((n) => n.modele === m.modele && n.langue === m.langue && n.etat !== 'en_validation'))) rechargerTemplates();
+          return r;
+        });
+      })
+      .catch(() => {});
+  }, [tenantId, workflowId, rechargerTemplates]);
+  useEffect(() => { relireModeles(); }, [relireModeles]);
+  const aSonder = !!modelesDeBloc && (modelesDeBloc.programmee !== null || modelesDeBloc.modeles.some((m) => m.etat === 'en_validation'));
+  useEffect(() => {
+    if (!aSonder) return;
+    const minuterie = setInterval(() => { if (document.visibilityState === 'visible') relireModeles(); }, 15_000);
+    return () => clearInterval(minuterie);
+  }, [aSonder, relireModeles]);
+  const etatParModele = useMemo(
+    () => new Map((modelesDeBloc?.modeles ?? []).map((m) => [`${m.modele}|${m.langue}`, { etat: m.etat, raison: m.raison }])),
+    [modelesDeBloc],
+  );
+  /** Le formulaire du bloc ouvert : écrire un template neuf, ou modifier celui du bloc choisi. */
+  const [formulaireDuBloc, setFormulaireDuBloc] = useState<{ nodeId: string; mode: 'nouveau' | 'modifier' } | null>(null);
+  /** Une demande de relecture de l'état des templates, à servir APRÈS l'enregistrement du bloc patché (plus bas). */
+  const [relireApresEnregistrement, setRelireApresEnregistrement] = useState(0);
 
   // Persiste un tag saisi inline dans un nœud « ajout de tag » (au blur) -> il apparaît tout de suite dans Contenus >
   // Tags ET dans l'autocomplétion, sans attendre l'enregistrement du workflow (best-effort ; declareTags au save = filet).
@@ -382,12 +427,40 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
     };
   }, [setEdges, setNodes, setSelectedId]);
 
-  const patchSelected = useCallback((p: Record<string, unknown>) => {
-    setNodes((ns) => ns.map((n) => (n.id === selectedId ? { ...n, data: { ...n.data, ...p } } : n)));
+  /** Modifie les données d'un bloc, et les flèches que ce changement emporte. */
+  const patcherBloc = useCallback((nodeId: string, p: Record<string, unknown>) => {
+    // `nodesRef` (plus haut) : les flèches se calculent HORS de l'updater de `setNodes`, qui doit rester pur.
+    const avant = nodesRef.current.find((n) => n.id === nodeId);
+    setNodes((ns) => ns.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, ...p } } : n)));
+    // Menu « Scénario », lot 3 : un autre template (choisi dans la liste, ou écrit depuis le bloc) change ses boutons, et
+    // ses sorties sont POSITIONNELLES. Chaque flèche suit le bouton du même texte, sinon elle part
+    // (`flechesSuivantLesBoutons`) : jamais une branche décalée.
+    if (avant && avant.data.wfType === 'template' && ('templateButtons' in p || 'templateCards' in p)) {
+      const sortiesAvant = sortiesDeBoutons(avant.data);
+      const sortiesApres = sortiesDeBoutons({ ...avant.data, ...p });
+      setEdges((eds) => flechesSuivantLesBoutons(eds, nodeId, sortiesAvant, sortiesApres));
+    }
     // Plus aucun bouton (le dernier retiré, ou le bouton de lien coché, qui vide la liste) : « Puis, sans attendre »
     // disparaît du bloc, son arête avec (`sansSortieEnsuite`). `quickReplies` n'existe que sur un message rapide.
-    if (selectedId && Array.isArray(p.quickReplies) && p.quickReplies.length === 0) setEdges((eds) => sansSortieEnsuite(eds, selectedId));
-  }, [selectedId, setNodes, setEdges]);
+    if (Array.isArray(p.quickReplies) && p.quickReplies.length === 0) setEdges((eds) => sansSortieEnsuite(eds, nodeId));
+  }, [setNodes, setEdges]);
+  const patchSelected = useCallback((p: Record<string, unknown>) => {
+    if (selectedId) patcherBloc(selectedId, p);
+  }, [selectedId, patcherBloc]);
+
+  /**
+   * Un template vient d'être écrit depuis un bloc : le bloc l'envoie désormais, avec ses boutons, sans carte ni choix
+   * de variables propres (les sources du nouveau template ont été posées à sa création). Ses flèches suivent le texte
+   * des boutons. La liste de Meta et l'état des templates du scénario se relisent.
+   */
+  const surModeleCree = useCallback((nodeId: string, cree: ModeleCreeDepuisUnBloc) => {
+    patcherBloc(nodeId, { templateName: cree.modele, language: cree.langue, templateButtons: cree.boutons, templateCards: [], variables: [] });
+    setFormulaireDuBloc(null);
+    rechargerTemplates();
+    // Le serveur lit l'état des templates que NOMME le brouillon ENREGISTRÉ : relire tout de suite ne verrait pas encore le
+    // nouveau, et le sondage ne démarrerait pas. On relit après l'enregistrement du bloc patché (effet plus bas).
+    setRelireApresEnregistrement((n) => n + 1);
+  }, [patcherBloc, rechargerTemplates]);
 
   const deleteSelected = useCallback(() => {
     if (!selectedId) return;
@@ -414,6 +487,13 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
   // dont on a besoin, jamais de l'objet qui la porte. Une ref ferait le travail aussi, mais elle se lit
   // après la peinture, donc elle ajouterait une fenêtre de péremption pour rien.
   const { enregistrerMaintenant } = enregistrement;
+
+  // Après la création d'un template depuis un bloc : vider l'enregistrement (le bloc patché part au serveur), PUIS relire
+  // l'état des templates, que le serveur tire de ce brouillon.
+  useEffect(() => {
+    if (relireApresEnregistrement === 0) return;
+    void enregistrerMaintenant().then(() => relireModeles());
+  }, [relireApresEnregistrement, enregistrerMaintenant, relireModeles]);
 
   // Mise en ligne. Deux états seulement : en cours, et le message d'échec.
   const [publication, setPublication] = useState<{ enCours: boolean; erreur: string | null }>({ enCours: false, erreur: null });
@@ -454,14 +534,22 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
     }
     try {
       const rep = await publishWorkflow(tenantId, workflowId);
+      if (rep.programmee) {
+        // 202 (lot 3) : un template écrit depuis un bloc attend Meta ; la mise en ligne est PROGRAMMÉE. Rien n'est en ligne
+        // de neuf : le brouillon reste un brouillon, et le bandeau dit ce qui attend.
+        setPublication({ enCours: false, erreur: null });
+        relireModeles();
+        return;
+      }
       setPublieA(rep.publishedAt);
       enregistrement.marquerPublie();
       setPublication({ enCours: false, erreur: null });
+      relireModeles();
       onPublie?.();
     } catch (err) {
       setPublication({ enCours: false, erreur: err instanceof Error ? err.message : t('Publication impossible', 'Could not publish') });
     }
-  }, [tenantId, workflowId, enregistrement, t, canalExige, nodes, edges, onPublie]);
+  }, [tenantId, workflowId, enregistrement, t, canalExige, nodes, edges, onPublie, relireModeles]);
 
   /**
    * 🔴 ON VIDE LA FILE D'ENREGISTREMENT AVANT D'OUVRIR LE PANNEAU, et c'est la seule chose qui rend le
@@ -730,6 +818,26 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
         </div>
       )}
 
+      {modelesDeBloc?.programmee && (() => {
+        const p = modelesDeBloc.programmee;
+        return (
+          <div className="flex flex-wrap items-center gap-2 rounded-carte border border-brand-200 bg-brand-50 px-3 py-2 text-xs text-ink-900" data-testid="workflow-programmee">
+            <span className="min-w-0 flex-1">
+              <b>{t('Mise en ligne programmée.', 'Publication scheduled.')}</b>{' '}
+              {p.attend.length > 0
+                ? t(`La version publiée partira dès que Meta aura approuvé ${p.attend.map((a) => `« ${a.modele} »`).join(', ')}. Un e-mail vous le dira. D’ici là, la version précédente continue de tourner.`, `The published version goes live as soon as Meta approves ${p.attend.map((a) => `“${a.modele}”`).join(', ')}. An e-mail will tell you. Until then, the previous version keeps running.`)
+                : p.campagnes.length > 0
+                  ? t(`Meta a approuvé : la mise en ligne attend la fin de la campagne ${p.campagnes.map((c) => `« ${c} »`).join(', ')}. Vous pouvez aussi publier vous-même.`, `Meta approved: going live waits for the end of the campaign ${p.campagnes.map((c) => `“${c}”`).join(', ')}. You can also publish yourself.`)
+                  : t('Meta a approuvé : la mise en ligne se fait dans les minutes qui viennent.', 'Meta approved: it goes live within the next few minutes.')}
+            </span>
+            <Bouton variante="secondaire" taille="petite" type="button" data-testid="workflow-programmee-annuler"
+              onClick={() => { if (workflowId) void annulerProgrammation(tenantId, workflowId).then(relireModeles, () => relireModeles()); }}>
+              {t('Annuler la mise en ligne programmée', 'Cancel the scheduled publication')}
+            </Bouton>
+          </div>
+        );
+      })()}
+
       {publication.erreur && (
         <div className="rounded-carte border border-danger-300 bg-danger-50 px-3 py-2 text-xs text-danger-800" data-testid="workflow-publier-erreur">
           <b>{t('Publication impossible.', 'Could not publish.')}</b> {publication.erreur}
@@ -775,7 +883,8 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
         {/* `data-canevas-edition` : c'est ce qui donne aux points de liaison leur zone de prise (globals.css).
             Mesuré le 2026-08-28 : sans elle, la tolérance de visée est de ±2 px sur un point de 5,7 px. */}
         <div data-canevas-edition className="h-[70vh] overflow-hidden rounded-carte border border-ink-200 bg-ink-50 lg:h-auto lg:min-h-0 lg:flex-1">
-          <TemplatesCtx.Provider value={templates}>
+          <TemplatesCtx.Provider value={tousLesTemplates}>
+          <ModelesDeBlocCtx.Provider value={etatParModele}>
           <TestDepuisBlocCtx.Provider value={rappelTest}>
           <ReactFlow
             nodes={nodes}
@@ -800,6 +909,7 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
             <Controls showInteractive={false} />
           </ReactFlow>
           </TestDepuisBlocCtx.Provider>
+          </ModelesDeBlocCtx.Provider>
           </TemplatesCtx.Provider>
           {/* Choix de la NATURE du bloc qu'on vient de créer. Consomme les TROIS listes de la palette, avec les
               MÊMES grisages : n'en lire qu'une rendait `email` et `rcs_message` inatteignables dès qu'on créait
@@ -845,10 +955,39 @@ export function WorkflowBuilder({ tenantId, workflowId, initialGraph, brouillonI
           {!selected ? (
             <p className="text-sm text-ink-500">{t('Cliquez sur un bloc pour le configurer. Tirez une flèche depuis le point d’un bloc : lâchez-la sur un autre bloc pour les relier, ou dans le vide pour créer un bloc. Le ✕ en coin d’un bloc le supprime.', "Click a block to configure it. Drag an arrow from a block's dot: drop it on another block to connect, or in empty space to create a new block. The ✕ in a block's corner deletes it.")}</p>
           ) : (
-            <ConfigPanel node={selected} tenantId={tenantId} workflowId={workflowId} blocsDuScenario={nodes} isRoot={selected.id === rootNodeId} campaignEligible={campaignEligible} onPatch={patchSelected} onDelete={deleteSelected} templates={templates} flows={flows} tags={tags} fields={fields} usageChamps={usageChamps} emailAccounts={emailAccounts} emailTemplates={emailTemplates} rcsMessages={rcsMessages} agents={agents} membres={membres} requetes={requetes} onCommitTag={commitTag} onCreerChamp={creerChamp} mbaEnabled={mbaEnabled} alerteFenetre={alerteDuBlocChoisi ? phraseFenetre(alerteDuBlocChoisi) : null} />
+            <ConfigPanel node={selected} tenantId={tenantId} workflowId={workflowId} blocsDuScenario={nodes} isRoot={selected.id === rootNodeId} campaignEligible={campaignEligible} onPatch={patchSelected} onDelete={deleteSelected} templates={templates} flows={flows} tags={tags} fields={fields} usageChamps={usageChamps} emailAccounts={emailAccounts} emailTemplates={emailTemplates} rcsMessages={rcsMessages} agents={agents} membres={membres} requetes={requetes} onCommitTag={commitTag} onCreerChamp={creerChamp} mbaEnabled={mbaEnabled} alerteFenetre={alerteDuBlocChoisi ? phraseFenetre(alerteDuBlocChoisi) : null}
+              tousLesTemplates={tousLesTemplates} modelesDeBloc={etatParModele}
+              {...(workflowId ? { onEcrireModele: (mode: 'nouveau' | 'modifier') => setFormulaireDuBloc({ nodeId: selected.id, mode }) } : {})} />
           )}
         </div>
       </div>
+
+      {/* Écrire ou modifier le template d'un bloc (lot 3) : monté hors du canevas, au-dessus de tout. */}
+      {formulaireDuBloc && workflowId && (() => {
+        const bloc = nodes.find((n) => n.id === formulaireDuBloc.nodeId);
+        if (!bloc) return null;
+        const d = bloc.data as Record<string, unknown>;
+        const nom = typeof d.templateName === 'string' ? d.templateName : '';
+        const initial = formulaireDuBloc.mode === 'modifier'
+          ? tousLesTemplates.find((x) => x.name === nom && x.language === d.language) ?? tousLesTemplates.find((x) => x.name === nom)
+          : undefined;
+        // Les choix de variables du bloc (`node.data.variables`, lus défensivement : du JSON libre).
+        const sourcesDuBloc: TemplateParamHint[] = Array.isArray(d.variables)
+          ? (d.variables as Array<{ position?: unknown; source?: unknown }>).flatMap((v) => (typeof v?.position === 'number' && v.source && typeof v.source === 'object' ? [v as TemplateParamHint] : []))
+          : [];
+        return (
+          <ModeleDuBloc
+            tenantId={tenantId}
+            workflowId={workflowId}
+            nodeId={bloc.id}
+            {...(initial ? { initial } : {})}
+            {...(sourcesDuBloc.length > 0 ? { sourcesDuBloc } : {})}
+            enregistrerMaintenant={enregistrerMaintenant}
+            onCree={(cree) => surModeleCree(bloc.id, cree)}
+            onClose={() => setFormulaireDuBloc(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

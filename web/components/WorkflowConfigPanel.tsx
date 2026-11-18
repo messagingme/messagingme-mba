@@ -486,7 +486,16 @@ function AdresseDuLien({ valeur, fields, onChange }: {
 
 export function ConfigPanel({
   node, tenantId, workflowId, blocsDuScenario = [], isRoot, campaignEligible, onPatch, onDelete, templates, flows, tags, fields, usageChamps, emailAccounts, emailTemplates, rcsMessages, agents, membres, requetes, onCommitTag, onCreerChamp, mbaEnabled, alerteFenetre = null,
+  tousLesTemplates, modelesDeBloc, onEcrireModele,
 }: {
+  /**
+   * Menu « Scénario », lot 3. La liste COMPLÈTE des templates (la valeur d'un bloc peut être un template en validation,
+   * qui doit rester affiché), l'état chez Meta des templates écrits depuis un bloc, et l'ouverture du formulaire du bloc.
+   * Absents (un hôte d'avant le lot) : la liste des approuvés, aucun état, aucun bouton.
+   */
+  tousLesTemplates?: TemplateSummary[];
+  modelesDeBloc?: ReadonlyMap<string, { etat: string; raison: string | null }>;
+  onEcrireModele?: (mode: 'nouveau' | 'modifier') => void;
   node: RFNode;
   /** Workspace courant : le champ visuel du bloc RCS téléverse dans SA médiathèque. */
   tenantId: string;
@@ -757,13 +766,48 @@ export function ConfigPanel({
         );
       })()}
 
-      {wfType === 'template' && (
+      {wfType === 'template' && (() => {
+        // Menu « Scénario », lot 3 : le template du bloc tel que Meta le connaît (la liste COMPLÈTE : il peut être en
+        // validation), son état s'il a été écrit depuis un bloc, et ce que le formulaire du bloc peut en reprendre.
+        const nom = typeof d.templateName === 'string' ? d.templateName : '';
+        const liste = tousLesTemplates ?? templates;
+        const actuel = nom === '' ? undefined
+          : liste.find((x) => x.name === nom && x.language === d.language) ?? liste.find((x) => x.name === nom);
+        const etat = nom === '' ? undefined : modelesDeBloc?.get(`${nom}|${String(d.language ?? 'fr')}`);
+        const horsListe = nom !== '' && !templates.some((x) => x.name === nom);
+        const modifiable = !!actuel && !actuel.isCarousel && !(actuel.headerFormat === 'IMAGE' || actuel.headerFormat === 'VIDEO' || actuel.headerFormat === 'DOCUMENT');
+        return (
         <div>
           <label className="mb-1 block text-xs font-medium text-ink-500">{t('Template à envoyer', 'Template to send')}</label>
-          <select value={(d.templateName as string) ?? ''} onChange={(e) => { const tpl = templates.find((x) => x.name === e.target.value); onPatch({ templateName: e.target.value, language: tpl?.language ?? 'fr', templateButtons: tpl?.buttons ?? [], templateCards: carouselOutputs(tpl), variables: [] }); }} className={`${cls} bg-white`}>
+          <select value={nom} onChange={(e) => { const tpl = templates.find((x) => x.name === e.target.value); onPatch({ templateName: e.target.value, language: tpl?.language ?? 'fr', templateButtons: tpl?.buttons ?? [], templateCards: carouselOutputs(tpl), variables: [] }); }} className={`${cls} bg-white`} data-testid="template-du-bloc">
             <option value="">{t('Choisir…', 'Choose…')}</option>
+            {/* La valeur du bloc reste affichée même si elle n'est pas (encore) approuvée : sinon « Choisir… » ferait croire
+                que le bloc n'envoie rien. La liste, elle, ne propose que les approuvés. */}
+            {horsListe && <option value={nom}>{nom}</option>}
             {templates.map((tpl) => <option key={tpl.id || tpl.name} value={tpl.name}>{tpl.name}</option>)}
           </select>
+          {etat && etat.etat !== 'approuve' && (
+            <p className={`mt-1 text-xs ${etat.etat === 'refuse' ? 'text-danger' : 'text-alerte-700'}`} data-testid="template-du-bloc-etat" data-etat={etat.etat}>
+              {etat.etat === 'refuse'
+                ? t(`Refusé par Meta${etat.raison ? ` (raison : ${etat.raison})` : ''} : écrivez-en un autre, ou choisissez un template approuvé.`, `Rejected by Meta${etat.raison ? ` (reason: ${etat.raison})` : ''}: write another one, or choose an approved template.`)
+                : t('En validation chez Meta : publiez le scénario, il partira à l’approbation.', 'Under review at Meta: publish the scenario, it will go live on approval.')}
+            </p>
+          )}
+          {onEcrireModele && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Bouton variante="secondaire" taille="petite" type="button" onClick={() => onEcrireModele('nouveau')} data-testid="template-ecrire">
+                {t('Écrire un nouveau template', 'Write a new template')}
+              </Bouton>
+              {modifiable && (
+                <Bouton variante="secondaire" taille="petite" type="button" onClick={() => onEcrireModele('modifier')} data-testid="template-modifier">
+                  {t('Modifier ce template', 'Edit this template')}
+                </Bouton>
+              )}
+            </div>
+          )}
+          {onEcrireModele && actuel && !modifiable && (
+            <p className="mt-1 text-xs text-ink-500">{t('Un carousel ou un en-tête image, vidéo ou document se modifie dans Contenu > Templates.', 'A carousel or an image, video or document header is edited in Content > Templates.')}</p>
+          )}
           {Array.isArray(d.templateCards) && (d.templateCards as unknown[]).length > 0 ? (
             <p className="mt-1 text-xs text-ink-500">{t('Carousel : chaque réponse rapide de chaque carte devient une ', 'Carousel: each quick reply on each card becomes an ')}<b>{t('sortie', 'output')}</b>{t(' à relier (point à droite du bloc, « C1 » = carte 1). Les boutons lien ne se relient pas : ils ouvrent le navigateur et ne renvoient rien.', ' to connect (dot on the right of the block, “C1” = card 1). Link buttons cannot be connected: they open the browser and send nothing back.')}</p>
           ) : Array.isArray(d.templateButtons) && (d.templateButtons as unknown[]).length > 0 ? (
@@ -773,7 +817,7 @@ export function ConfigPanel({
             <VariablesDuTemplate
               key={`${node.id}:${d.templateName}:${String(d.language ?? '')}`}
               tenantId={tenantId}
-              template={templates.find((x) => x.name === d.templateName && x.language === d.language) ?? templates.find((x) => x.name === d.templateName)}
+              template={actuel}
               variables={d.variables}
               fields={fields}
               onPatch={onPatch}
@@ -784,7 +828,8 @@ export function ConfigPanel({
             <ReglageSansReponse nodeId={node.id} d={d} onPatch={onPatch} prefixe="template" />
           </div>
         </div>
-      )}
+        );
+      })()}
       {wfType === 'question' && (() => {
         // Lecture DÉFENSIVE : `data` est du JSON libre, un scénario enregistré par une version antérieure ne
         // doit jamais faire tomber le panneau. Une forme inattendue donne une ligne vide, pas un crash.

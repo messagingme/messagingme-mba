@@ -689,7 +689,11 @@ négation) se séparent, et c'est exactement celui qu'on n'écrit pas parce qu'i
 
 ⚠️ **L'index d'une réponse EST sa sortie** (`btn:<i>`, `row:<i>`). Les libellés vides sont filtrés APRÈS
 numérotation : filtrer avant renuméroterait, et le contact partirait dans la mauvaise branche. Supprimer une
-ligne depuis le panneau passe par un événement que le BUILDER traite, parce que lui seul voit les arêtes.
+ligne depuis le panneau passe par un événement que le BUILDER traite, parce que lui seul voit les arêtes. Changer le
+template d'un bloc (choisi dans la liste, ou écrit depuis le bloc, menu « Scénario », lot 3) fait SUIVRE à chaque flèche
+de bouton le bouton du nouveau template qui porte le même texte, dans l'ordre des boutons, sinon elle part
+(`flechesSuivantLesBoutons`, `web/lib/workflow-sorties.ts`) : jamais une branche décalée ; « Pas de réponse » et la sortie
+libre ne bougent pas.
 
 🔴 **Le bloc Formulaire a deux sorties** : `rempli` (`SORTIE_FORMULAIRE_REMPLI`, `web/lib/partage/sorties-formulaire.ts`)
 et l'arête libre, « Toute autre réponse ». La réception marque un `nfm_reply` (`InboundMessage.formulaire`), jamais
@@ -2162,7 +2166,8 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   La ligne est la marque « créé par le builder » : le nom naît côté serveur (`nomDuModeleDeBloc`, nom du scénario puis
   horodatage en base 36), jamais dans le corps reçu. `trancher` n'écrit que si la ligne est encore en validation : le
   statut rejoué par Meta et le filet ne trouvent ensuite plus rien. Un scénario dont le brouillon ne nomme aucun
-  template de bloc se publie exactement comme avant, sans aucune lecture de Meta. Le filet de l'API, au tour de celui de
+  template de bloc se publie exactement comme avant, sans aucune lecture chez Meta ni des campagnes (une seule lecture
+  de `modeles_de_bloc`). Le filet de l'API, au tour de celui de
   Shopify (toutes les dix minutes), relit chez Meta vingt templates encore en validation depuis plus de dix minutes,
   tirés au hasard, puis retente vingt programmations anciennes (`relireModelesDeBloc`) ; le worker tranche au statut
   reçu, après l'assistant Shopify et dans sa propre capture (`surStatutDesModeles`).
@@ -6769,8 +6774,8 @@ Ajouté par le lot 4 de l'API publique :
    et la première efface la seconde** (menu « Scénario », lot 3). La mise en ligne programmée est UNE instruction
    conditionnée à sa date : une publication à la main ou une écriture de l'API entre-temps l'emporte, et deux mises en
    ligne concurrentes n'en font qu'une. Elle ne se fait jamais sous une campagne active. Le nom d'un template écrit
-   depuis un bloc naît côté serveur, et un tel template n'est jamais modifié chez Meta : une modification en crée un
-   nouveau, et l'ancien est gardé (décision 27).
+   depuis un bloc naît côté serveur, et le constructeur ne le modifie jamais chez Meta : une modification en crée un
+   nouveau, et l'ancien est gardé (décision 27). L'écran Templates et l'outil `update_template` peuvent, eux, le modifier.
 
 ### Sur les contrats externes
 

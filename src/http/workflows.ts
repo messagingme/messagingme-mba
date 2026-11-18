@@ -16,7 +16,6 @@ import { controlesDePublication } from '../workflow/publication';
 import {
   creerModeleDuBloc, jugerPublication, modelesDuGraphe, type DepsCreationDeBloc, type DepsPublication,
 } from '../workflow/modeles-de-bloc';
-import type { PgModelesDeBloc } from '../workflow/modeles-de-bloc.pg';
 import { tagsInGraph } from '../workflow/tags-du-graphe';
 import type { Rayon } from '../workflow/rayon';
 import { departsDuScenario, type Lanceur } from '../../web/lib/partage/fenetre-scenario';
@@ -45,7 +44,7 @@ export interface ScenariosDep {
    * Met le brouillon en ligne, seul chemin de la console qui touche le graphe exécuté (et qui efface une version
    * programmée). Rend la ligne à jour, null si le scénario n'est pas au tenant.
    */
-  publish(id: string, tenantId: string): Promise<WorkflowRow | null>;
+  publish(id: string, tenantId: string, graphe?: WorkflowGraph): Promise<WorkflowRow | null>;
   /** Programme la mise en ligne du graphe jugé (lot 3, décision 18). null si le scénario n'est pas au tenant. */
   programmer(id: string, tenantId: string, par: string | null, graphe: WorkflowGraph): Promise<{ le: string } | null>;
   /** La version programmée de ce scénario, ou null. */
@@ -66,7 +65,6 @@ export interface ScenariosDep {
 export interface ModelesDeBlocDep {
   creation: DepsCreationDeBloc;
   publication: DepsPublication;
-  lignes: Pick<PgModelesDeBloc, 'duScenario'>;
 }
 
 export interface WorkflowRouteDeps {
@@ -244,7 +242,8 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
   });
 
   /**
-   * Met en ligne le brouillon : seul chemin qui touche le graphe publié, donc qui change quelque chose pour les
+   * Met en ligne le brouillon (ou PROGRAMME sa mise en ligne, lot 3) : avec l'API et la mise en ligne d'une version
+   * programmée, le seul chemin qui touche le graphe publié, donc qui change quelque chose pour les
    * contacts. Un parcours déjà en cours bascule sur la nouvelle version, une campagne programmée part avec la
    * version en ligne le jour de l'expédition. Sans retour arrière : la version précédente n'est conservée nulle part.
    */
@@ -277,7 +276,8 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
         return reply.code(202).send({ id, programmee: { le: programmee.le, attend: jugement.attend } });
       }
     }
-    const row = await deps.scenarios.publish(id, tenant);
+    // Le brouillon JUGÉ, pas celui du moment (relecture de 3a) : un enregistrement tombé pendant le jugement reste un brouillon.
+    const row = await deps.scenarios.publish(id, tenant, avant?.draftGraph ?? undefined);
     if (!row) return reply.code(404).send({ error: 'workflow inconnu' });
     // Le journal porte qui a publié : la table `workflows`, elle, ne garde que la date. Détail non identifiant
     // (un nombre de blocs), comme partout dans ce journal.
@@ -304,13 +304,17 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     return reply.code(201).send({ modele: issue.modele, langue: issue.langue, etat: issue.etat, categorie: issue.categorie, boutons: issue.boutons });
   });
 
-  /** Les templates écrits depuis les blocs de ce scénario, et sa version programmée : l'éditeur les sonde. */
+  /**
+   * L'état des templates de bloc que NOMME le brouillon (par nom : un scénario dupliqué voit ceux qu'un autre a créés,
+   * comme le jugement de « Publier »), et la version programmée : l'éditeur les sonde.
+   */
   app.get('/tenants/:tenantId/workflows/:id/modeles', opts, async (req, reply) => {
     const tenant = espaceVerifie(req);
     const { id } = req.params as { id: string };
     if (!estUuid(id)) return reply.code(404).send({ error: 'workflow inconnu' });
-    if (!(await deps.scenarios.getById(id, tenant))) return reply.code(404).send({ error: 'workflow inconnu' });
-    const lignes = await deps.modelesDeBloc.lignes.duScenario(tenant, id);
+    const scenario = await deps.scenarios.getById(id, tenant);
+    if (!scenario) return reply.code(404).send({ error: 'workflow inconnu' });
+    const lignes = await deps.modelesDeBloc.publication.lignes.desModeles(tenant, modelesDuGraphe(grapheEditable(scenario)));
     const p = await deps.scenarios.publicationProgrammee(id, tenant);
     return reply.code(200).send({
       modeles: lignes.map(({ modele, langue, etat, raison, creeLe }) => ({ modele, langue, etat, raison, creeLe })),

@@ -94,7 +94,7 @@ export interface WorkflowRow {
   code?: string | null;
   /**
    * Le graphe publié : celui que l'exécuteur, les campagnes, les automations et l'API publique lisent. Il ne
-   * change que par `publish`.
+   * change que par une publication explicite (`publish`, l'API) ou par la mise en ligne d'une version programmée.
    */
   graph: WorkflowGraph;
   /** Le brouillon en attente de publication. null = aucun, le publié fait foi. Seul l'éditeur le lit. */
@@ -448,8 +448,28 @@ export class PgWorkflowStore {
    *
    * Renvoie la ligne à jour (null si le scénario n'est pas au tenant), en un seul aller-retour qu'une autre
    * publication ne peut pas doubler.
+   *
+   * `graphe` : le brouillon que la route a JUGÉ (lot 3, relecture de 3a). Un enregistrement automatique tombé pendant le
+   * jugement (la relecture chez Meta) ne met pas en ligne un brouillon que personne n'a jugé : il reste un brouillon ;
+   * seulement déplacé depuis, c'est lui qui part, avec sa disposition (même règle que `update`).
    */
-  async publish(id: string, tenantId: string): Promise<WorkflowRow | null> {
+  async publish(id: string, tenantId: string, graphe?: WorkflowGraph): Promise<WorkflowRow | null> {
+    if (graphe !== undefined) {
+      const memeForme = `(w.draft_graph is not null and ${forme('w.draft_graph')} = ${forme('$3::jsonb')})`;
+      const juge = await this.pool.query<Row>(
+        `update workflows w set
+           graph = case when ${memeForme} then w.draft_graph else $3::jsonb end,
+           draft_graph = case when ${memeForme} then null else w.draft_graph end,
+           published_at = now(),
+           ${SANS_PROGRAMMATION},
+           updated_at = now()
+         where w.id = $1 and w.tenant_id = $2 and w.${PUBLIC}
+         returning ${COLS}`,
+        [id, tenantId, JSON.stringify(graphe)],
+      );
+      const j = juge.rows[0];
+      return j ? toRow(j) : null;
+    }
     const res = await this.pool.query<Row>(
       `update workflows set
          graph = coalesce(draft_graph, graph),

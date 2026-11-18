@@ -161,6 +161,13 @@ function summaryOf(data: Record<string, unknown>, t: (fr: string, en?: string) =
 export const TemplatesCtx = createContext<TemplateSummary[]>([]);
 
 /**
+ * L'état chez Meta des templates écrits depuis un bloc (menu « Scénario », lot 3), par `nom|langue` : la pastille « En
+ * validation chez Meta » ou « Refusé » sur le bloc. Un contexte pour la même raison que `TemplatesCtx` : un état qui
+ * change sans que le graphe change n'a rien à faire dans `data`.
+ */
+export const ModelesDeBlocCtx = createContext<ReadonlyMap<string, { etat: string; raison: string | null }>>(new Map());
+
+/**
  * « TESTER LE SCÉNARIO À PARTIR DE CE BLOC » : le rappel que le bouton lecture appelle. `null` quand l'hôte
  * ne propose pas de test (le constructeur monté depuis une campagne, par exemple), et le bouton disparaît
  * alors au lieu de mener nulle part.
@@ -242,6 +249,10 @@ function WFNode({ id, data, selected }: NodeProps) {
   type NodeButton = { type?: string; text?: string; handle?: string; cardIndex?: number };
   // Aperçu du message : lu sur le template VIVANT (les URL d'image expirent, cf. TemplatesCtx).
   const live = wfType === 'template' && data.templateName ? templates.find((x) => x.name === data.templateName) : undefined;
+  const modelesDeBloc = useContext(ModelesDeBlocCtx);
+  const etatDuModele = wfType === 'template' && data.templateName
+    ? modelesDeBloc.get(`${String(data.templateName)}|${String(data.language ?? 'fr')}`)
+    : undefined;
   const liveCards = live?.carousel?.cards ?? [];
   const showCarousel = liveCards.length > 0;
   // Sorties : celles enregistrées dans le bloc, sinon DÉDUITES du template vivant. Ce repli évite d'avoir à
@@ -449,6 +460,13 @@ function WFNode({ id, data, selected }: NodeProps) {
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             />
           </div>
+        </div>
+      )}
+      {/* L'état chez Meta d'un template écrit depuis un bloc (lot 3) : rien quand il est approuvé. */}
+      {etatDuModele && etatDuModele.etat !== 'approuve' && (
+        <div data-testid="node-etat-modele" data-etat={etatDuModele.etat} className={`flex items-center gap-1 border-t border-ink-200 px-2 py-1 text-[10px] font-medium ${etatDuModele.etat === 'refuse' ? 'text-danger' : 'text-alerte-700'}`}>
+          <Icone nom={etatDuModele.etat === 'refuse' ? 'attention' : 'chrono'} taille="mini" />
+          <span className="truncate">{etatDuModele.etat === 'refuse' ? t('Refusé par Meta', 'Rejected by Meta') : t('En validation chez Meta', 'Under review at Meta')}</span>
         </div>
       )}
       {/* Aperçu d'un template classique, format compact (choisi par Julien le 2026-09-29) : la bande de

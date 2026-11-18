@@ -85,6 +85,21 @@ textes faux sont corrigés avant le push) :
   les bandeaux n'ont pas de `role="status"`.
 - E2E : « un départ ouvert, ou une API qui ne rend pas les départs » ne joue que l'absence de départs.
 
+## 🟡 Les templates écrits depuis un bloc : ce qui reste après la relecture de 3a (2026-11-18, aucun rouge)
+
+Les jaunes 1 à 4, 7, 10 et 12 à 14 de cette relecture sont corrigés avec la console (3b). Restent :
+
+- **Lignes en validation à vie** : un template supprimé chez Meta (`statutsDuModele` rend « inconnu », donc null) est relu à
+  chaque passe du filet, et la version programmée qui l'attend ne part jamais, sans prévenir personne. Et un statut reçu
+  AVANT l'insertion de la ligne (approbation immédiate) la laisse en validation jusqu'au filet.
+- **Une programmation qui attend une campagne n'expire jamais** : une campagne en pause compte comme active, et la mise en
+  ligne peut partir des jours plus tard. La console le dit ; une expiration serait plus sûre.
+- **E-mails** : la raison est en français dans l'e-mail anglais ; une raison `NONE` venue du webhook s'imprime telle quelle
+  (le filet la ramène à null) ; un échec d'e-mail est avalé sans ligne de journal.
+- `lienScenario` est écrit deux fois (`src/index.ts`, `src/worker.ts`) : un helper éviterait la dérive.
+- `GET /workflows/:id/modeles`, sondé toutes les 15 s quand un template attend : `getById` relit les deux graphes, puis
+  `publicationProgrammee` un troisième.
+
 ## 🟡 Restes de la page « Avec votre IA » (lot 2, 2026-11-18)
 
 Relevés par la relecture du lot (`site/site.js`, bloc « Avec votre IA », et `site/site.css`, règles `.ia-*`) :

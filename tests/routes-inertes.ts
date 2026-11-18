@@ -566,7 +566,7 @@ export const modelesDeBlocInertes: WorkflowRouteDeps['modelesDeBloc'] = {
     maintenant: () => new Date(0),
   },
   publication: {
-    lignes: { desModeles: async () => [], trancher: async () => null, attentesAnciennes: async () => [] },
+    lignes: { desModeles: async () => [], trancher: async () => null, rehabiliter: async () => null, attentesAnciennes: async () => [] },
     scenarios: {
       lanceursDuScenario: async () => [],
       list: async () => [],
@@ -580,7 +580,6 @@ export const modelesDeBlocInertes: WorkflowRouteDeps['modelesDeBloc'] = {
     audit: journalMuet,
     lienScenario: (id: string) => `/workflows?open=${id}`,
   },
-  lignes: { duScenario: async () => [] },
 };
 
 export const scenariosInertes: Pick<WorkflowRouteDeps, 'audit' | 'declareTags' | 'getDisplayPhoneNumber' | 'modelesDeBloc'> = {

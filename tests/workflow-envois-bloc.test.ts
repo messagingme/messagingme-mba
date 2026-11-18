@@ -774,6 +774,9 @@ describe('sendFlow', () => {
   });
 });
 
+/** Combien de fois le câblage a lu la liste des templates chez Meta (la relecture fraîche de la garde, lot 3). */
+const compteurDeListes = { n: 0 };
+
 /** Un template tel que `tplClient.list` le rend, sans variable ni visuel. */
 function template(o: Partial<TemplateSummary>): TemplateSummary {
   return { id: 'tpl-1', name: NOM, status: 'APPROVED', category: 'UTILITY', language: LANGUE, body: 'Bonjour', headerFormat: null, isCarousel: false, editable: true, ...o };
@@ -800,7 +803,7 @@ function cablage(opts: { dryRun?: boolean; numero?: string | null; templates?: T
     settingsStore: inerte, workflowStore: inerte, metaCredentials: inerte,
     metaFactory: {
       clientForTenant: async (...a: unknown[]) => { clients.push(a); return fauxClient(appels); },
-      templateClientForTenant: async () => ({ list: async () => opts.templates ?? [template({})] }),
+      templateClientForTenant: async () => ({ list: async () => { compteurDeListes.n += 1; return opts.templates ?? [template({})]; } }),
       flowClientForTenant: async (tenant: string) => ({
         ecranDEntree: async (flowId: string) => { lecturesEcran.push([tenant, flowId]); return 'CIVILITE'; },
       }),
@@ -947,22 +950,54 @@ describe('🔴 la garde de statut à l’envoi d’un template (lot 3, décision
 });
 
 describe('🔴 la garde de statut, dans le VRAI câblage et sur un statut absent', () => {
-  it('le cache dit « en validation », Meta dit « approuvé » : la relecture saute le cache, et l’envoi part', async () => {
+  it('le cache (plus de trente secondes) dit « en validation », Meta dit « approuvé » : la relecture le voit, l’envoi part', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-18T15:00:00.000Z'));
     const liste = [template({ status: 'PENDING' })];
     const { deps, templateVarInfo, appels } = cablage({ templates: liste });
     expect(await templateVarInfo(T, NOM, LANGUE)).toMatchObject({ statut: 'PENDING' });
     liste[0] = template({ status: 'APPROVED' });
+    vi.setSystemTime(new Date('2026-11-18T15:00:31.000Z'));
     // Le cache de cinq minutes tient encore l’ancienne lecture : c’est lui que la garde ne doit pas croire.
     expect(await templateVarInfo(T, NOM, LANGUE)).toMatchObject({ statut: 'PENDING' });
     expect(await deps.sendTemplate(T, W, NOM, LANGUE, [])).toEqual({ messageId: MESSAGE_ID });
     expect(appels).toHaveLength(1);
     // Et la relecture a rafraîchi le cache.
     expect(await templateVarInfo(T, NOM, LANGUE)).toMatchObject({ statut: 'APPROVED' });
+    vi.useRealTimers();
+  });
+
+  it('une lecture de moins de trente secondes vaut relecture : le refus tient sans relire Meta', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-18T15:00:00.000Z'));
+    const liste = [template({ status: 'PENDING' })];
+    const { deps, templateVarInfo } = cablage({ templates: liste });
+    await templateVarInfo(T, NOM, LANGUE);
+    const avant = compteurDeListes.n;
+    vi.setSystemTime(new Date('2026-11-18T15:00:20.000Z'));
+    expect(await deps.sendTemplate(T, W, NOM, LANGUE, [])).toContain('en validation chez Meta');
+    expect(compteurDeListes.n - avant).toBe(0);
+    vi.useRealTimers();
   });
 
   it('un statut absent ne bloque pas : Meta tranche, comme avant la garde', async () => {
     const { envois, appels } = monter({ templateVarInfo: vi.fn(async () => ({ ...LECTURE, statut: '' })) });
     expect(await envois.sendTemplate(T, W, NOM, LANGUE, [])).toEqual({ messageId: MESSAGE_ID });
     expect(appels).toHaveLength(1);
+  });
+});
+
+describe('🔴 la relecture fraîche de la garde est bornée (relecture de 3a, jaune 1)', () => {
+  it('cinquante envois d’un template en validation ne relisent pas cinquante fois la liste de Meta', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-18T15:00:00.000Z'));
+    const { deps, templateVarInfo } = cablage({ templates: [template({ status: 'PENDING' })] });
+    expect(await templateVarInfo(T, NOM, LANGUE)).toMatchObject({ statut: 'PENDING' });
+    vi.setSystemTime(new Date('2026-11-18T15:00:31.000Z'));
+    const avant = compteurDeListes.n;
+    for (let i = 0; i < 50; i += 1) expect(await deps.sendTemplate(T, W, NOM, LANGUE, [])).toContain('en validation chez Meta');
+    // Une seule relecture fraîche pour la rafale : elle vaut trente secondes (avant la borne : cinquante).
+    expect(compteurDeListes.n - avant).toBe(1);
+    vi.useRealTimers();
   });
 });

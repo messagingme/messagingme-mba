@@ -1814,7 +1814,6 @@ async function main(): Promise<void> {
   const modelesDeBloc: ModelesDeBlocDep = {
     creation: { gestion: depsModeles, scenarios: workflowStore, lignes: modelesDeBlocStore, maintenant: () => new Date() },
     publication: publicationDesScenarios,
-    lignes: modelesDeBlocStore,
   };
   let filetModelesDeBlocEnCours = false;
 

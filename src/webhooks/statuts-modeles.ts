@@ -32,9 +32,10 @@ export interface StatutsModelesDeps {
   /** La distribution d'un événement d'espace (`distribuerEvenementEspace`), aux adresses qui ont coché son type. */
   distribuer(tenantId: string, ev: { id: string; type: typeof TYPE_STATUT_MODELE; le: string; data: Record<string, unknown> }): Promise<void>;
   /**
-   * Le même statut, pour les messages Shopify préparés depuis la console (conception 2026-10-22) : APPROVED active le
-   * message qui attend CE modèle, REJECTED le retire et prévient (`activerSelonStatut`, `src/shopify/preparation.ts`).
-   * Un échec ici ne retient pas la distribution : le filet de l'API relit les attentes anciennes.
+   * Le même statut, pour ses consommateurs du worker (`surStatutDesModeles`, chacun dans sa capture) : les messages
+   * Shopify préparés depuis la console (`activerSelonStatut`, `src/shopify/preparation.ts`) et les templates écrits
+   * depuis un bloc du constructeur (`trancherModeleDeBloc`, `src/workflow/modeles-de-bloc.ts`, lot 3). Un échec ici ne
+   * retient pas la distribution : le filet de l'API relit les attentes anciennes des deux.
    */
   surStatut(tenantId: string, s: { modele: string; langue: string; statut: string; raison: string | null }): Promise<unknown>;
 }
@@ -56,6 +57,6 @@ export async function processStatutsModeles(events: readonly WebhookEvent[], dep
     await deps.distribuer(tenantId, { id, type: TYPE_STATUT_MODELE, le, data: donneesStatutModele(lu.data) });
     await deps.surStatut(tenantId, {
       modele: lu.data.message_template_name, langue: lu.data.message_template_language, statut: lu.data.event, raison: lu.data.reason ?? null,
-    }).catch((err: unknown) => journaliser('warn', 'statut_modele_shopify_en_echec', { tenantId, erreur: String(err).slice(0, 200) }));
+    }).catch((err: unknown) => journaliser('warn', 'statut_modele_en_echec', { tenantId, erreur: String(err).slice(0, 200) }));
   }
 }

@@ -110,6 +110,24 @@ export function listTemplates(tenantId: string): Promise<{ templates: TemplateSu
 export function createTemplate(tenantId: string, input: CreateTemplateInput): Promise<{ id: string; status: string }> {
   return request(`/tenants/${tenantId}/templates`, { method: 'POST', body: JSON.stringify(input) });
 }
+/** Ce que rend la création d'un template depuis un bloc : son nom (donné par le serveur), son état, ses boutons. */
+export interface ModeleCreeDepuisUnBloc {
+  modele: string;
+  langue: string;
+  etat: 'en_validation' | 'approuve' | 'refuse';
+  /** La catégorie que Meta a retenue (il peut reclasser celle demandée). */
+  categorie: string | null;
+  boutons: TemplateButtonInput[];
+}
+/**
+ * Écrit un template depuis un bloc du constructeur (menu « Scénario », lot 3) : le corps de `createTemplate` sans le
+ * nom, qui naît côté serveur. Le bloc doit être ENREGISTRÉ : l'appelant vide d'abord l'enregistrement automatique.
+ */
+export function creerModeleDuBloc(
+  tenantId: string, workflowId: string, nodeId: string, input: Omit<CreateTemplateInput, 'name'>,
+): Promise<ModeleCreeDepuisUnBloc> {
+  return request(`/tenants/${tenantId}/workflows/${workflowId}/blocs/${encodeURIComponent(nodeId)}/modele`, { method: 'POST', body: JSON.stringify(input) });
+}
 /** Édite un template SIMPLE (body/boutons/category). L'id est résolu côté serveur depuis le nom+langue. */
 export interface UpdateTemplateInput {
   language: string;

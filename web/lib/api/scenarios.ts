@@ -281,8 +281,42 @@ export function deleteWorkflow(tenantId: string, id: string): Promise<unknown> {
  *
  * ⚠️ Sans retour arrière : la version précédente n'est conservée nulle part.
  */
-export function publishWorkflow(tenantId: string, id: string): Promise<{ id: string; graph: WorkflowGraph; publishedAt: string | null }> {
+export function publishWorkflow(tenantId: string, id: string): Promise<PublicationDuScenario> {
   return request(`/tenants/${tenantId}/workflows/${id}/publish`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+/**
+ * Ce que « Publier » rend (menu « Scénario », lot 3) : la version en ligne (200), ou une mise en ligne PROGRAMMÉE (202)
+ * quand un template écrit depuis un bloc attend encore l'approbation de Meta.
+ */
+export type PublicationDuScenario =
+  | { id: string; graph: WorkflowGraph; publishedAt: string | null; programmee?: undefined }
+  | { id: string; programmee: { le: string; attend: Array<{ modele: string; langue: string }> } };
+
+/** Un template écrit depuis un bloc, et son état chez Meta (`modeles_de_bloc`). */
+export interface ModeleDeBloc {
+  modele: string;
+  langue: string;
+  etat: 'en_validation' | 'approuve' | 'refuse';
+  raison: string | null;
+  creeLe: string;
+}
+
+/** La version programmée d'un scénario : ce qu'elle attend encore, ou les campagnes qui retiennent sa mise en ligne. */
+export interface ProgrammationVue {
+  le: string;
+  attend: Array<{ modele: string; langue: string; etat: string; raison: string | null }>;
+  campagnes: string[];
+}
+
+/** Les templates écrits depuis les blocs du scénario, et sa version programmée. L'éditeur les sonde. */
+export function modelesDuScenario(tenantId: string, id: string): Promise<{ modeles: ModeleDeBloc[]; programmee: ProgrammationVue | null }> {
+  return request(`/tenants/${tenantId}/workflows/${id}/modeles`);
+}
+
+/** Annule la mise en ligne programmée : la version en ligne et le brouillon ne changent pas. */
+export function annulerProgrammation(tenantId: string, id: string): Promise<unknown> {
+  return request(`/tenants/${tenantId}/workflows/${id}/programmation`, { method: 'DELETE' });
 }
 /** Duplique un scénario (nom « X (copie) », graphe cloné avec codes de node frais). Renvoie le nouveau scénario. */
 export function duplicateWorkflow(tenantId: string, id: string): Promise<{ id: string; name: string; graph: WorkflowGraph }> {

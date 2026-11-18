@@ -1372,6 +1372,24 @@ de scénario envoie un mail à l'adresse portée par la fiche du contact.
   humain** : la conversation est marquée comme prise en charge. Et tant qu'un opérateur (ou l'agent MBA) tient la
   conversation, le scénario ne lui écrit pas : le parcours est simplement gelé et repart quand la main revient.
 
+## Écrire un template depuis un scénario
+
+Dans le constructeur, le bloc « Envoyer un template » écrit un nouveau template ou modifie le sien, sans quitter le
+scénario : le formulaire est celui de Contenu > Templates, sans le nom, que le serveur crée à partir du nom du scénario.
+
+- **Modifier crée toujours un nouveau template**, soumis à la validation de Meta. L'ancien n'est pas touché et reste
+  dans Contenu > Templates : il peut servir à d'autres scénarios, à l'API ou à un workflow HubSpot qui le désigne par
+  son nom.
+- **Publier pendant la validation programme la mise en ligne.** Elle se fait seule à l'approbation de Meta, avec un
+  e-mail aux administrateurs (« en ligne » ou « refusé ») ; jamais sous une campagne active (refusée au moment de
+  publier, ou attendue si la campagne commence entre-temps) ; « Annuler la mise en ligne programmée » garde la version
+  en ligne. Une publication faite à la main entre-temps l'emporte.
+- **Un template non approuvé ne part pas** : au lieu d'une erreur de Meta, le Journal des erreurs dit « en validation
+  chez Meta » (ou « refusé par Meta »), dans le lien de test comme dans un parcours.
+- **Les flèches suivent le texte des boutons** quand le template d'un bloc change, écrit ici ou choisi dans la liste :
+  jamais une branche décalée.
+- Ni carousel ni en-tête image, vidéo ou document : ils se créent dans Contenu > Templates.
+
 ## Automation (menu « Automation »)
 
 - ✅ **Le déclencheur « étape de deal HubSpot » se grise quand aucun portail n'est relié** (2026-08-23), avec

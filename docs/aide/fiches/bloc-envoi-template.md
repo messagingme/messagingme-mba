@@ -1,8 +1,8 @@
 ---
 description: Le bloc Envoi template d'un scénario WhatsApp : choisir le template approuvé, relier ses variables, ses boutons et ce qui suit.
 ecran: workflows
-source_section: Automatisations (menu « Scénario », ex-« Flow »)
-source_empreinte: a3025d
+source_section: Automatisations (menu « Scénario », ex-« Flow ») | Écrire un template depuis un scénario
+source_empreinte: a3025d | 560aee
 publique: oui
 rubrique: construire-un-scenario
 rang: 2
@@ -68,3 +68,20 @@ jours (30 jours au plus) : une sortie « Pas de réponse » apparaît sur le blo
 - Exception : si l'agent de Meta répond à vos clients, la suite part tout de suite, sauf avec un délai : le bloc
   attend alors la réponse.
 - Si votre équipe ou l'agent de Meta a repris la conversation, la réponse du contact ne fait plus avancer le parcours.
+
+**7. Écrire ou modifier le template sans quitter le scénario.** Sous la liste, « Écrire un nouveau template » ouvre le
+formulaire de Contenu > Templates ; « Modifier ce template » le remplit avec celui du bloc. « Soumettre à Meta » l'envoie
+en validation (quelques minutes à quelques heures), et le bloc l'envoie aussitôt.
+
+- Son nom se crée tout seul, à partir de celui du scénario. Le bloc affiche « En validation chez Meta », puis rien une
+  fois approuvé, ou « Refusé » avec la raison.
+- « Modifier » crée toujours un nouveau template : l'ancien reste dans Contenu > Templates et part toujours, tant que la
+  nouvelle version du scénario n'est pas en ligne.
+- Tant qu'il n'est pas approuvé, il ne part pas : en cours de parcours (le lien de test joue le brouillon), la
+  conversation passe à votre équipe et le Journal des erreurs dit « en validation chez Meta ».
+- Publiez le scénario : si le template est encore en validation, la mise en ligne se programme et se fait seule à
+  l'approbation, un e-mail vous le dit. Une campagne en cours sur ce scénario empêche de la programmer : publiez une
+  fois le template approuvé. « Annuler la mise en ligne programmée » garde la version en ligne.
+- Les flèches suivent le texte des boutons : un bouton retiré perd la sienne, les autres gardent leur branche. C'est
+  vrai aussi quand vous choisissez un autre template dans la liste.
+- Un carousel ou un en-tête image, vidéo ou document se crée dans Contenu > Templates.

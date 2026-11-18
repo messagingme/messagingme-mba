@@ -32,7 +32,7 @@ function monter(o: {
 } = {}) {
   const lignes = new Map((o.lignes ?? []).map((l) => [`${l.modele}|${l.langue}`, { ...l }]));
   const appels = {
-    meta: [] as string[], tranches: [] as string[], lanceurs: 0, misEnLigne: [] as string[], annules: [] as Array<string | null>,
+    meta: [] as string[], tranches: [] as string[], rehabilites: [] as string[], lanceurs: 0, misEnLigne: [] as string[], annules: [] as Array<string | null>,
     emails: [] as Array<{ cle: string; occasion: string; valeurs: Record<string, string> }>, audit: [] as Array<{ action: string; detail: unknown }>,
   };
   const deps: DepsPublication = {
@@ -43,6 +43,13 @@ function monter(o: {
         const l = lignes.get(`${modele}|${langue}`);
         if (!l || l.etat !== 'en_validation') return null;
         l.etat = etat; l.raison = raison;
+        return { ...l };
+      },
+      rehabiliter: async (_t, modele, langue) => {
+        appels.rehabilites.push(modele);
+        const l = lignes.get(`${modele}|${langue}`);
+        if (!l || l.etat !== 'refuse') return null;
+        l.etat = 'approuve'; l.raison = null;
         return { ...l };
       },
       attentesAnciennes: async () => [...lignes.values()].filter((l) => l.etat === 'en_validation').map((l) => ({ tenantId: 't1', modele: l.modele, langue: l.langue })),
@@ -104,6 +111,16 @@ describe('jugerPublication', () => {
     expect((j as { erreur: string }).erreur).toContain('INVALID_FORMAT');
     const deja = monter({ lignes: [ligneDe('a', 'refuse', 'TAG_CONTENT_MISMATCH')] });
     expect(await jugerPublication(deja.deps, 't1', 'wf1', graphe(tpl('n1', 'a')))).toMatchObject({ type: 'refus', code: 'modele_refuse' });
+  });
+
+  it('🔴 refusé puis approuvé chez Meta (appel, correction) : la relecture le réhabilite, et l’on publie (relecture de 3a, jaune 2)', async () => {
+    const { deps, appels } = monter({ lignes: [ligneDe('a', 'refuse', 'INVALID_FORMAT')], meta: { a: { statut: 'APPROVED', raison: null } } });
+    expect(await jugerPublication(deps, 't1', 'wf1', graphe(tpl('n1', 'a')))).toEqual({ type: 'publier' });
+    expect(appels.rehabilites).toEqual(['a']);
+    // Toujours refusé chez Meta : le refus tient, sans réhabilitation.
+    const toujours = monter({ lignes: [ligneDe('a', 'refuse', 'INVALID_FORMAT')], meta: { a: { statut: 'REJECTED', raison: 'INVALID_FORMAT' } } });
+    expect(await jugerPublication(toujours.deps, 't1', 'wf1', graphe(tpl('n1', 'a')))).toMatchObject({ type: 'refus', code: 'modele_refuse' });
+    expect(toujours.appels.rehabilites).toEqual([]);
   });
 
   it('🔴 en validation sous une campagne active : refus qui nomme la campagne', async () => {
@@ -186,6 +203,13 @@ describe('trancherModeleDeBloc', () => {
     expect(await trancherModeleDeBloc(deps, 't1', { modele: 'a', langue: 'fr', statut: 'APPROVED', raison: null })).toBe('rien');
     expect(appels.misEnLigne).toEqual([]);
     expect(appels.emails).toEqual([]);
+  });
+
+  it('APPROVED sur un template refusé (appel gagné) : la ligne est réhabilitée', async () => {
+    const { deps, appels, lignes } = monter({ lignes: [ligneDe('a', 'refuse', 'x')] });
+    expect(await trancherModeleDeBloc(deps, 't1', { modele: 'a', langue: 'fr', statut: 'APPROVED', raison: null })).toBe('approuve');
+    expect(appels.rehabilites).toEqual(['a']);
+    expect(lignes.get('a|fr')?.etat).toBe('approuve');
   });
 
   it('un statut qui ne tranche pas (PENDING, PAUSED) : rien, aucune écriture', async () => {

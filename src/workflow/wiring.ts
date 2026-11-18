@@ -218,6 +218,12 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
   // `TplInfo` (`src/workflow/envois-bloc.ts`).
   const tplVarCache = new Map<string, { at: number } & TplInfo>();
   const TPL_CACHE_MS = 5 * 60_000;
+  /**
+   * Ce que vaut une lecture « fraîche » (la garde de statut à l'envoi, lot 3) : trente secondes. Sans borne, chaque envoi
+   * d'un template non approuvé relisait toute la liste chez Meta (cinquante envois, cinquante lectures, sur le budget de
+   * l'espace que partagent l'écran Templates et chaque lecture de template) ; avec elle, une rafale n'en coûte qu'une.
+   */
+  const FRAIS_MS = 30_000;
   // `count` = max des positions {{n}} (« {{1}} ... {{3}} » attend 3 params pour Meta, pas 2) ; null =
   // indéterminable -> l'appelant n'envoie pas. WABA du tenant mémoïsé au même TTL : `templateVarInfo` est
   // appelé par destinataire sur une campagne scénario.
@@ -274,8 +280,9 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     if (!waba) return null;
     const key = `${waba}|${name}|${language}`;
     const cached = tplVarCache.get(key);
-    // `frais` (la garde de statut, lot 3) saute le cache et le rafraîchit : la lecture ci-dessous le réécrit.
-    if (!opts?.frais && cached && Date.now() - cached.at < TPL_CACHE_MS) {
+    // `frais` (la garde de statut, lot 3) ne croit qu'une lecture de moins de trente secondes ; sinon il relit, et la
+    // lecture ci-dessous réécrit le cache.
+    if (cached && Date.now() - cached.at < (opts?.frais ? FRAIS_MS : TPL_CACHE_MS)) {
       const { at: _at, ...info } = cached;
       return info;
     }
