@@ -136,7 +136,14 @@ describe.skipIf(!url)('workflow_runs.evenement : la place unique, les lectures, 
     const wa = '33600009171';
     const evenement = await nait(tenantId, workflowId, wa, ev('deux'), { currentNode: 'tpl' });
     const ordinaire = await nait(tenantId, workflowId, wa, null, { currentNode: 'q' });
+    // « Le plus récent » se prouve par la date, jamais par la vitesse du banc : deux insertions dans la même milliseconde
+    // portent la même date, et l'ordre rendu était alors celui du hasard (un échec sur trois, mesuré sur le banc PGlite).
+    const dater = (id: string, decalage: string) =>
+      pool.query(`update workflow_runs set created_at = now() + $3::interval where id = $1 and tenant_id = $2`, [id, tenantId, decalage]);
+    await dater(evenement, '-1 minute');
     expect((await store.findWaitingByWaId(tenantId, wa))?.id).toBe(ordinaire);
+    await dater(evenement, '1 minute');
+    expect((await store.findWaitingByWaId(tenantId, wa))?.id).toBe(evenement);
     expect((await store.findWaitingSurBloc(tenantId, wa, workflowId, 'tpl'))?.id).toBe(evenement);
     expect(await store.findWaitingSurBloc(tenantId, wa, workflowId, 'absent')).toBeNull();
     expect(await store.findWaitingSurBloc(autreTenant, wa, workflowId, 'tpl')).toBeNull();
