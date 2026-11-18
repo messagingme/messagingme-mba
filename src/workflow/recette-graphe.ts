@@ -6,6 +6,7 @@ import { entreeDuGraphe } from '../../web/lib/partage/ouverture-scenario';
 import { SORTIE_HUMAIN, SORTIE_TIMEOUT } from '../../web/lib/partage/sorties-agent';
 import { sousActions } from '../../web/lib/partage/actions-bloc';
 import { ATTRIBUTS_RECETTE, type Branche, type Etape, type EtapeMessage, type EtapeTemplate, type Lu, type RefusRecette, type SourceRecette } from './recette';
+import { delaiSansReponseMs } from './engine';
 
 /**
  * COMPILER UNE RECETTE EN GRAPHE, ET L'INVERSE (spec `docs/superpowers/specs/2026-11-02-scenarios-api-design.md`).
@@ -274,6 +275,9 @@ function lireGraphe(g: WorkflowGraph, chemins: Map<string, WorkflowNode>): Lu<Et
       const boutons = Array.isArray(n.data.templateButtons) ? (n.data.templateButtons as Array<{ type?: unknown; text?: unknown }>) : [];
       const variables = parseParamHints(n.data.variables);
       if (nom === '' || variables === null) return indescriptible('un template incomplet');
+      // Un délai « pas de réponse » ne se règle que dans la console (menu « Scénario », lot 2, décision 26) : la recette
+      // ne sait pas le dire, et la recompiler l'effacerait en silence.
+      if (delaiSansReponseMs(n) > 0) return indescriptible('un template qui attend une réponse avec un délai');
       const etape: EtapeTemplate = { template: { nom, langue: String(n.data.language ?? 'fr') } };
       if (variables.length > 0) {
         const parPosition: Record<string, SourceRecette> = {};

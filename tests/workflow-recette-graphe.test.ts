@@ -266,3 +266,20 @@ describe('les identifiants au remplacement', () => {
     expect(new Set(g.nodes.map((n) => n.id)).size).toBe(g.nodes.length);
   });
 });
+
+describe('🔴 un template à délai « pas de réponse » ne se décrit pas (menu « Scénario », lot 2, décision 26)', () => {
+  const g = compile({ template: { nom: 'relance_devis', langue: 'fr' }, boutons: [{ texte: 'Oui', suite: humain }, { texte: 'Plus tard', suite: humain }] });
+  const avecDelai = (data: Record<string, unknown>): WorkflowGraph =>
+    ({ ...g, nodes: g.nodes.map((n) => (n.type === 'template' ? { ...n, data: { ...n.data, ...data } } : n)) });
+
+  it('un délai posé dans la console rend le scénario « modifié dans la console », même sans flèche « pas de réponse »', () => {
+    // Sinon un `PUT /v1/scenarios` ou `update_scenario` recompilerait la recette SANS le délai, et l'effacerait en
+    // silence ; l'empreinte de la recette ne verrait pas la retouche.
+    expect(decompilerGraphe(avecDelai({ timeoutValue: 30, timeoutUnit: 'minutes' }))).toMatchObject({ ok: false, code: 'scenario_not_describable' });
+  });
+
+  it('un délai nul ou d’unité inconnue ne change rien : le template se décrit comme avant', () => {
+    expect(decompilerGraphe(avecDelai({ timeoutValue: 0 })).ok).toBe(true);
+    expect(decompilerGraphe(avecDelai({ timeoutValue: 3, timeoutUnit: 'siecles' })).ok).toBe(true);
+  });
+});
