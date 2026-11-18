@@ -1120,23 +1120,75 @@ export class WorkflowExecutor {
     status?: RunStatus;
   }): Promise<boolean> {
     const { tenantId, waId } = run;
+    // 🔴 LA REPRISE D'UNE ÉCHÉANCE RÉSERVE LE TOUR, comme `advance` (relecture de 2a, point 1). La réclamation du balayage
+    // ne pose qu'un bail sur `resume_at` : le parcours reste `waiting`, et une réponse du contact pendant que le lot attend
+    // sa reprise passe par `advance`. Sans le tour, la reprise rejouerait l'instantané réclamé et enverrait la relance EN
+    // PLUS de la branche choisie, puis réécrirait le parcours sur « Pas de réponse ». Refusé (une réponse est traitée, ou
+    // le parcours a bougé) : on sort sans rien toucher, et le bail de la réclamation rend la ligne due si rien n'a bougé.
+    // Coût assumé : une réponse arrivée PENDANT la reprise n'avance pas le parcours (elle reste dans l'Inbox), au lieu d'un
+    // double envoi facturé. Le réveil d'une Attente ne réserve rien : `advance` n'atteint pas un parcours endormi.
+    const parEcheance = run.status === 'waiting';
+    const jeton = parEcheance ? await this.deps.runs.reserverAvance(tenantId, run.id, run.currentNode ?? null, BAIL_AVANCE_S) : null;
+    if (parEcheance && jeton === null) {
+      // eslint-disable-next-line no-console
+      console.warn(`workflow ${run.workflowId}: reprise d'échéance IGNOREE pour ${waId} (run ${run.id}), un autre traitement tient le tour sur le bloc ${run.currentNode ?? 'null'}`);
+      return false;
+    }
+    const battement = jeton === null ? null : renouvelerLeBail({
+      prolonger: () => this.deps.runs.prolongerAvance(run.id, jeton, BAIL_AVANCE_S),
+      perdu: () => {
+        // eslint-disable-next-line no-console
+        console.warn(`workflow ${run.workflowId}: bail de reprise PERDU pour ${waId} (run ${run.id}), un autre traitement a repris le tour`);
+      },
+      echec: (err) => {
+        // eslint-disable-next-line no-console
+        console.warn(`workflow ${run.workflowId}: renouvellement du bail de reprise en ECHEC pour le run ${run.id} (on continue de battre):`, err);
+      },
+    });
+    try {
+      return await this.reprendre(run, jeton);
+    } finally {
+      // Comme `advance` : le battement s'arrête avant la libération, et le tour se rend même si un envoi jette.
+      battement?.arreter();
+      if (jeton !== null) await this.deps.runs.libererAvance(run.id, jeton).catch(() => {});
+    }
+  }
+
+  /**
+   * Le corps de `resume`, une fois le tour obtenu (échéance) ou sans tour (réveil d'une Attente). `jeton` : celui du tour
+   * d'une échéance, `null` pour une Attente.
+   */
+  private async reprendre(run: Parameters<WorkflowExecutor['resume']>[0], jeton: string | null): Promise<boolean> {
+    const { tenantId, waId } = run;
+    const parEcheance = run.status === 'waiting';
+    /**
+     * L'écriture de l'état. Échéance : seulement si le parcours attend encore sur son bloc, avec le jeton du tour
+     * (`setStateSiEncoreSur`) ; `false` = il a été clos ou remplacé pendant la reprise, la suite s'arrête. Attente : comme
+     * avant, une clôture inconditionnelle (`clore`) ou une écriture qui garde la vie (`ecrireVivant`).
+     */
+    const surLeBloc = (state: RunState): Promise<boolean> => this.deps.runs.setStateSiEncoreSur(tenantId, run.id, run.currentNode ?? null, state, jeton);
+    const clore = async (state: RunState): Promise<boolean> => {
+      if (jeton !== null) return surLeBloc(state);
+      await this.deps.runs.setState(run.id, state);
+      return true;
+    };
+    const ecrireVivant = (state: RunState): Promise<boolean> => (jeton !== null ? surLeBloc(state) : this.ecrireSiVivant(tenantId, run.id, state));
     if (!(await this.deps.mayAct(tenantId, waId))) {
       // eslint-disable-next-line no-console
       console.log(`workflow ${run.workflowId}: fil repris par un humain ou par MBA pendant l'attente, reprise annulée pour ${waId}`);
       await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
-      await this.deps.runs.setState(run.id, { currentNode: null, status: 'done' });
+      await clore({ currentNode: null, status: 'done' });
       return false;
     }
     const graph = await grapheDuRun(run, () => this.deps.getGraph(run.workflowId, tenantId));
     if (!graph || !run.currentNode) {
       await this.cloreSessionDuRun(tenantId, run.id, 'erreur');
-      await this.deps.runs.setState(run.id, { currentNode: null, status: 'done' });
+      await clore({ currentNode: null, status: 'done' });
       return false;
     }
     // D'où repartir dépend de ce qui a expiré. Bloc Attente : le successeur (repasser sur l'attente la
     // rendormirait). Bloc Question, bloc template à délai ou agent : la sortie `timeout` et elle seule, car c'est la
     // réponse qui décide de la suite : `nextNode` enverrait un contact silencieux dans la branche du premier câblage venu.
-    const parEcheance = run.status === 'waiting';
     // Une échéance consommée sur un bloc agent est une inactivité. Les autres sorties de `resume` closent la
     // session en `erreur`, parce qu'elles tuent le parcours pour une autre raison que le silence du contact.
     if (parEcheance) await this.cloreSessionDuRun(tenantId, run.id, 'inactivite', SORTIE_TIMEOUT);
@@ -1150,7 +1202,7 @@ export class WorkflowExecutor {
         // eslint-disable-next-line no-console
         console.log(`workflow ${run.workflowId}: pas de réponse dans le délai sur le bloc ${run.currentNode}, sortie « pas de réponse » non câblée -> parcours clos pour ${waId}`);
       }
-      await this.deps.runs.setState(run.id, { currentNode: null, status: 'done' });
+      if (!(await clore({ currentNode: null, status: 'done' }))) return false;
       if (parEcheance) await this.rendreLaMainAMba(tenantId, waId);
       return false;
     }
@@ -1222,7 +1274,7 @@ export class WorkflowExecutor {
     // Un message du parcours n'a pas pu atteindre le contact : on clôt et on remonte à un humain. Ce qui
     // pouvait partir (template, tags) est déjà parti.
     if (fenetreFermee && !fenetreSansObjet) {
-      await this.deps.runs.setState(run.id, { currentNode: null, status: 'inbox' });
+      if (!(await clore({ currentNode: null, status: 'inbox' }))) return false;
       // Au journal des échecs : le premier bloc que la fenêtre a retenu (le bloc agent quand il est seul en cause), une
       // ligne par contact plutôt qu'une par bloc retenu, la raison étant la même ; puis les refus de la partie exécutée.
       const premier = actions.find((x) => aBesoinFenetre(x.action));
@@ -1251,14 +1303,14 @@ export class WorkflowExecutor {
         // 🔴 Sans accord marketing, rien de parti : le parcours se CLÔT, sans passer à l'équipe. Ce refus est une règle,
         // pas une panne, et un déclencheur de masse (un deal HubSpot sur une étape peuplée) remplirait « À traiter » de
         // contacts qui n'attendent rien. Fin de parcours ordinaire : la main revient à l'agent de Meta.
-        if (!(await this.ecrireSiVivant(tenantId, run.id, { currentNode: null, status: 'done' }))) return false;
+        if (!(await ecrireVivant({ currentNode: null, status: 'done' }))) return false;
         await this.rendreLaMainAMba(tenantId, waId);
         return false;
       }
       if (partis === 0) {
         // Garde de vivacité : remonter une conversation déjà remplacée mettrait un opérateur sur un parcours
         // abandonné.
-        if (!(await this.ecrireSiVivant(tenantId, run.id, { currentNode: null, status: 'inbox' }))) return false;
+        if (!(await ecrireVivant({ currentNode: null, status: 'inbox' }))) return false;
         await this.journaliserRefus(tenantId, waId, origine, refusDesBlocs, 'arret');
         // Sans bloc « passer à un humain » : pas d'affectataire (pot commun), et pas d'escalade au réveil
         // (voir `escalateToHuman`).
@@ -1269,7 +1321,7 @@ export class WorkflowExecutor {
     // Seulement si le parcours vit encore : un autre chemin a pu le clore pendant nos envois, et écrire sans
     // regarder le ressusciterait avec son échéance.
     const etat = { ...restToState(rest, this.now()), channel: canal };
-    if (!(await this.ecrireSiVivant(tenantId, run.id, etat))) return false;
+    if (!(await ecrireVivant(etat))) return false;
     // Un envoi refusé alors qu'un autre message de l'étape est parti : la raison va au journal.
     await this.journaliserRefus(tenantId, waId, origine, refusDesBlocs, 'partiel');
     await this.apresSommeil(tenantId, run.id, etat, canal, run.lastMessageId ?? null, graph);

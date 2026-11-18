@@ -284,3 +284,78 @@ describe('🔴 les longues attentes suivent la sortie « Pas de réponse » d’
     expect(sautsApresAttenteLongue(g)).toEqual([{ waitNodeId: 't', sautNodeId: 'saut', cible: 'nod_ab_AILLEURS000000000000000000' }]);
   });
 });
+
+/**
+ * 🔴 LA REPRISE D'UNE ÉCHÉANCE RÉSERVE LE TOUR (relecture de 2a, point 1, démontré par `course.mts`). La réclamation du
+ * balayage ne pose qu'un bail sur `resume_at` et le parcours reste `waiting` : une réponse du contact pendant que le lot
+ * attend sa reprise passait par `advance`, et la reprise rejouait ensuite l'instantané réclamé, envoyait la relance EN
+ * PLUS de la branche choisie, puis réécrivait le parcours sur la branche « Pas de réponse ». Elle réserve donc le tour
+ * comme `advance` : refusé, rien ne part ; obtenu, l'état s'écrit sur le bloc attendu avec le jeton, et le tour se rend.
+ */
+describe('🔴 la reprise d’une échéance réserve le tour, comme une réponse', () => {
+  interface Trace { reserves: string[]; ecritsGardes: Array<{ noeud: string | null; statut: string; jeton: string | null | undefined }>; vivants: number; rendus: string[] }
+  const tracer = (reserve: string | null, ecritureAcceptee = true) => {
+    const tr: Trace = { reserves: [], ecritsGardes: [], vivants: 0, rendus: [] };
+    const runs = avecGardesDEtatInertes({
+      start: async () => ({ id: 'r1' }),
+      findWaitingByWaId: async () => null,
+      setState: async () => {},
+      closeActiveByWaId: async () => [],
+      reserverAvance: async (_t: string, id: string) => { tr.reserves.push(id); return reserve; },
+      setStateSiEncoreSur: async (_t: string, _id: string, noeud: string | null, s: RunState, jeton?: string | null) => {
+        tr.ecritsGardes.push({ noeud, statut: s.status, jeton });
+        return ecritureAcceptee;
+      },
+      setStateSiVivant: async () => { tr.vivants += 1; return true; },
+      libererAvance: async (_id: string, jeton: string) => { tr.rendus.push(jeton); },
+    });
+    return { tr, runs };
+  };
+
+  it('🔴 le tour refusé (une réponse est en cours) : rien ne part, rien ne s’écrit', async () => {
+    const { tr, runs } = tracer(null);
+    const cap = capture();
+    const ex = monter(GRAPHE(), null, cap, { runs });
+    expect(await ex.resume(enAttente())).toBe(false);
+    expect(cap.tags).toEqual([]);
+    expect(tr.ecritsGardes).toEqual([]);
+    expect(tr.vivants).toBe(0);
+  });
+
+  it('🔴 le tour obtenu : l’état s’écrit sur le bloc attendu, avec le jeton, et le tour se rend', async () => {
+    const { tr, runs } = tracer('jeton-1');
+    const cap = capture();
+    const ex = monter(GRAPHE(), null, cap, { runs });
+    await ex.resume(enAttente());
+    expect(cap.tags).toEqual(['sans-reponse']);
+    expect(tr.ecritsGardes).toEqual([{ noeud: 't', statut: 'done', jeton: 'jeton-1' }]);
+    expect(tr.vivants).toBe(0);
+    expect(tr.rendus).toEqual(['jeton-1']);
+  });
+
+  it('le parcours a été remplacé pendant la reprise : l’écriture refusée arrête la suite', async () => {
+    const { runs } = tracer('jeton-2', false);
+    const cap = capture();
+    const ex = monter(GRAPHE(), null, cap, { runs });
+    expect(await ex.resume(enAttente())).toBe(false);
+    // La fin ordinaire rend la main à l'agent de Meta : jamais sur un parcours qui n'est plus le nôtre.
+    expect(cap.rendus).toEqual([]);
+  });
+
+  it('🔴 le tour se rend même quand un envoi jette', async () => {
+    const { tr, runs } = tracer('jeton-3');
+    const ex = monter(GRAPHE(), null, capture(), { runs, applyTag: async () => { throw new Error('base'); } });
+    await expect(ex.resume(enAttente())).rejects.toThrow('base');
+    expect(tr.rendus).toEqual(['jeton-3']);
+  });
+
+  it('le réveil d’une Attente ne réserve rien : une réponse n’atteint pas un parcours endormi', async () => {
+    const { tr, runs } = tracer('jeton-4');
+    const attente: WorkflowGraph = { nodes: [n('w', 'wait', { delay: 1, unit: 'days' }), n('j1', 'tag', { tag: 'relance_j1' })], edges: [e('e1', 'w', 'j1')] };
+    const ex = monter(attente, null, capture(), { runs });
+    await ex.resume({ ...enAttente(), status: 'sleeping', currentNode: 'w' });
+    expect(tr.reserves).toEqual([]);
+    expect(tr.ecritsGardes).toEqual([]);
+    expect(tr.vivants).toBe(1);
+  });
+});
