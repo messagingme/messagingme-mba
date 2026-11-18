@@ -8,7 +8,7 @@ function node(partial: Partial<WorkflowNode> & Pick<WorkflowNode, 'id' | 'type'>
 }
 
 function wf(id: string, name: string, nodes: WorkflowNode[]): WorkflowRow {
-  return { id, tenantId: 't1', name, code: `scn_ab_${'0'.repeat(26)}`, graph: { nodes, edges: [] }, createdAt: '2026-01-01', updatedAt: '2026-01-01' };
+  return { id, tenantId: 't1', name, code: `scn_ab_${'0'.repeat(26)}`, graph: { nodes, edges: [] }, createdAt: '2026-01-01', updatedAt: '2026-01-01', rayon: 'general' };
 }
 
 const CODE = 'nod_ab_0123456789ABCDEFGHJKMNPQRS'; // 26 chars ULID-like

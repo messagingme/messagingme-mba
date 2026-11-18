@@ -16,6 +16,7 @@ import {
 } from './mode';
 import type { SourceOffres } from '../offres/offre.pg';
 import { refusFonction } from '../offres/refus';
+import type { Rayon } from '../workflow/rayon';
 
 /**
  * LE RÉGLAGE « QUI RÉPOND AU CLIENT » (RC6, plan `docs/superpowers/plans/2026-10-06-rc6-qui-repond.md`, A2 ; le lot 5
@@ -56,7 +57,7 @@ export interface DepsReglageRepondeur {
    */
   scenarios: {
     getById(id: string, tenantId: string): Promise<Pick<WorkflowRow, 'id' | 'name' | 'graph'> | null>;
-    listResume(tenantId: string): Promise<Array<Pick<WorkflowResumeRow, 'id' | 'name' | 'nodeCount'>>>;
+    listResume(tenantId: string, rayon: Rayon): Promise<Array<Pick<WorkflowResumeRow, 'id' | 'name' | 'nodeCount'>>>;
   };
   reglages: {
     get(tenantId: string): Promise<ReglageDuRepondeur & { repondeurDelaiScenarioS: number }>;
@@ -162,7 +163,7 @@ export async function lireRepondeur(
     // Le choix lui-même, s'il est tenté, redemande et refuse lisiblement.
     agentDeMetaConfigurable(deps.activation, tenantId).catch(() => false),
     agentsActifs(tenantId),
-    deps.scenarios.listResume(tenantId),
+    deps.scenarios.listResume(tenantId, 'general'),
     deps.offres.offreDe(tenantId),
     deps.adresses.lister(tenantId),
   ]);

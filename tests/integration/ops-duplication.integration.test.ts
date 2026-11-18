@@ -66,7 +66,7 @@ describe.skipIf(!url)('duplication de scénario entre espaces (Postgres)', () =>
     await pool.query(`insert into waba (id, tenant_id) values ($1, $2)`, [`itest-dup-${destination}`, destination]);
     await new PgUserFieldStore(pool).create(source, { key: 'ville', label: 'Ville', type: 'text' });
     // Publié en v1, puis un brouillon v2 : la copie doit prendre le brouillon.
-    scenario = (await workflows.insert(source, 'Accueil', graphe('v1'))).id;
+    scenario = (await workflows.insert(source, 'Accueil', graphe('v1'), 'general')).id;
     await workflows.publish(scenario, source);
     await workflows.update(scenario, source, { graph: graphe('v2') });
     await new PgAutomationStore(pool).create(source, {
@@ -90,7 +90,7 @@ describe.skipIf(!url)('duplication de scénario entre espaces (Postgres)', () =>
   });
 
   it('🔴 un scénario d’un AUTRE espace, ou le scénario système, ne se lit pas', async () => {
-    const autre = (await workflows.insert(tiers, 'Chez le tiers', graphe('t'))).id;
+    const autre = (await workflows.insert(tiers, 'Chez le tiers', graphe('t'), 'general')).id;
     expect(await store.lireEtat(source, autre, destination)).toBeNull();
     const systeme = await workflows.assurerScenarioSysteme(source, 'repondeur');
     expect(await store.lireEtat(source, systeme, destination)).toBeNull();
@@ -175,7 +175,7 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
     tiers = await espace('itest-dup2-tiers');
     const workflows = new PgWorkflowStore(pool);
     // Le scénario d'abord, pour que l'action puisse viser un de ses blocs (la garde de `ajouter` exige un scénario de l'espace).
-    scenario = (await workflows.insert(source, 'Accueil', { nodes: [{ id: 'q1', type: 'question', position: { x: 0, y: 0 }, data: { body: 'Ville ?' } }], edges: [] })).id;
+    scenario = (await workflows.insert(source, 'Accueil', { nodes: [{ id: 'q1', type: 'question', position: { x: 0, y: 0 }, data: { body: 'Ville ?' } }], edges: [] }, 'general')).id;
     codeBloc = 'nod_src01_01J00000000000000000000001';
     agent = (await new PgAgentStore(pool).create(source, 'Conseiller', 'Je suis une IA.', 'openai/gpt-4.1-mini')).id;
     const fiches = new PgKnowledgeStore(pool, 0);
@@ -309,7 +309,7 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
     const espion = (await new PgAgentStore(pool).create(tiers, 'Espion forgé', 'Je suis une IA.', 'openai/gpt-4.1-mini')).id;
     const forge = (await new PgWorkflowStore(pool).insert(source, 'Forgé', { nodes: [
       { id: 'g1', type: 'agent', position: { x: 0, y: 0 }, data: { agentId: espion } },
-    ], edges: [] })).id;
+    ], edges: [] }, 'general')).id;
     const e = (await store.lireEtat(source, forge, destination))!;
     expect(e.dependances.agents).toEqual([]);
     expect(plan(e, { agents: [espion], requetes: [], modelesEmail: [] }).choixInvalides).toEqual([espion]);
@@ -348,7 +348,7 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
   it('deux déclencheurs écrits dans la même transaction se lisent dans l’ordre de leur identifiant', async () => {
     const t = await espace('itest-dup2-ordre');
     try {
-      const wf = (await new PgWorkflowStore(pool).insert(t, 'Ordre', { nodes: [], edges: [] })).id;
+      const wf = (await new PgWorkflowStore(pool).insert(t, 'Ordre', { nodes: [], edges: [] }, 'general')).id;
       const c = await pool.connect();
       try {
         // Même `now()` pour les deux : seul l'identifiant les départage, et le second écrit est le plus petit.
@@ -388,7 +388,7 @@ describe.skipIf(!url)('duplication des dépendances d’un scénario (Postgres)'
       const deuxAgents = (await new PgWorkflowStore(pool).insert(source, 'Deux agents', { nodes: [
         { id: 'g1', type: 'agent', position: { x: 0, y: 0 }, data: { agentId: agent } },
         { id: 'g2', type: 'agent', position: { x: 0, y: 0 }, data: { agentId: vendeur } },
-      ], edges: [] })).id;
+      ], edges: [] }, 'general')).id;
       // Dans la destination, un appel homonyme existe déjà : sa copie prendrait `creer_lead_copie`, le nom de l'action.
       const hote = (await agents.create(dest, 'Hôte', 'Je suis une IA.', 'openai/gpt-4.1-mini')).id;
       const erp = await new PgSourceStore(pool).creer(dest, { kind: 'http', label: 'ERP', baseUrl: 'https://erp.exemple.fr', authKind: 'none' });
@@ -441,7 +441,7 @@ describe.skipIf(!url)('duplication des templates et des Flows (Postgres)', () =>
     scenario = (await new PgWorkflowStore(pool).insert(source, 'Inscriptions', { nodes: [
       { id: 'f1', type: 'flow', position: { x: 0, y: 0 }, data: { flowId: '7001', flowName: 'Inscription' } },
       { id: 't2', type: 'template', position: { x: 0, y: 0 }, data: { templateName: 'absent_de_la_destination', language: 'fr' } },
-    ], edges: [] })).id;
+    ], edges: [] }, 'general')).id;
   });
 
   afterAll(async () => {

@@ -57,12 +57,12 @@ describe.skipIf(!url)('« Aller à » (Postgres)', () => {
   });
 
   it('🔴 la cible se résout sur le graphe PUBLIÉ, et jamais dans un autre espace', async () => {
-    const chezNous = await wfStore().insert(tenantId, 'Menu principal', graphe(code(1), 'Ici'));
+    const chezNous = await wfStore().insert(tenantId, 'Menu principal', graphe(code(1), 'Ici'), 'general');
     await wfStore().publish(chezNous.id, tenantId);
-    const chezLeVoisin = await wfStore().insert(autreTenant, 'Voisin', graphe(code(2), 'Chez le voisin'));
+    const chezLeVoisin = await wfStore().insert(autreTenant, 'Voisin', graphe(code(2), 'Chez le voisin'), 'general');
     await wfStore().publish(chezLeVoisin.id, autreTenant);
     // Un bloc du seul brouillon : il n'est pas encore en ligne, aucun contact ne peut l'atteindre.
-    const brouillon = await wfStore().insert(tenantId, 'Brouillon', graphe(code(3), 'Pas encore en ligne'));
+    const brouillon = await wfStore().insert(tenantId, 'Brouillon', graphe(code(3), 'Pas encore en ligne'), 'general');
 
     const ici = await deps.resoudreBloc(tenantId, code(1));
     expect(ici).toMatchObject({ workflowId: chezNous.id, nodeId: 'x' });
@@ -74,7 +74,7 @@ describe.skipIf(!url)('« Aller à » (Postgres)', () => {
   });
 
   it('🔴 un saut manqué s’écrit dans le journal des échecs de scénario, au nom du scénario', async () => {
-    const wf = await wfStore().insert(tenantId, 'Scénario qui saute', { nodes: [], edges: [] });
+    const wf = await wfStore().insert(tenantId, 'Scénario qui saute', { nodes: [], edges: [] }, 'general');
     await deps.journaliserEchec({
       tenantId, waId: '33600000901', workflowId: wf.id, runId: null, messageId: 'wamid.901',
       erreur: 'le bloc « Vers le menu » vise un bloc qui n’existe plus',
@@ -87,7 +87,7 @@ describe.skipIf(!url)('« Aller à » (Postgres)', () => {
 
   it('les deux lectures d’un parcours rendent sa fiche, que le saut transmet', async () => {
     const runs = new PgWorkflowRunStore(pool);
-    const wf = await wfStore().insert(tenantId, 'Parcours avec fiche', { nodes: [], edges: [] });
+    const wf = await wfStore().insert(tenantId, 'Parcours avec fiche', { nodes: [], edges: [] }, 'general');
     const contact = (await pool.query<{ id: string }>(
       `insert into contacts (tenant_id, phone_e164) values ($1, '+33600000902') returning id`, [tenantId],
     )).rows[0]!.id;

@@ -3,6 +3,7 @@ import type { WorkflowGraph } from './graph';
 import { makeCode } from '../ids/code';
 import { resolveTenantCode } from '../ids/tenant-code';
 import { scanOpening } from './engine';
+import { estRayon, type Rayon } from './rayon';
 
 /**
  * Par quoi ce scénario ouvre, quand il peut ouvrir une campagne. `null` = il ne le peut pas.
@@ -98,12 +99,24 @@ export interface WorkflowRow {
   publishedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Le rayon de la ligne (`src/workflow/rayon.ts`), lu en base. Une garde qui VALIDE un choix fait sur une lecture par
+   * identifiant (`getById`, qui n'en filtre aucun) le compare elle-même.
+   */
+  rayon: Rayon;
 }
 
 const EMPTY_GRAPH: WorkflowGraph = { nodes: [], edges: [] };
 
 /** Les colonnes lues partout : une seule liste, sinon un champ ajouté manque à l'une des requêtes. */
-const COLS = 'id, tenant_id, name, code, graph, draft_graph, published_at, created_at, updated_at';
+const COLS = 'id, tenant_id, name, code, graph, draft_graph, published_at, created_at, updated_at, rayon';
+
+/**
+ * 🔴 LE RAYON DES MÉTHODES DE L'API PUBLIQUE (`...ParApi`) : elles ne servent que l'API, Claude Code et le MCP, qui ne
+ * voient que le Builder (spec du menu « Scénario », décision 1). Écrit ici et pas en paramètre : un appelant ne peut
+ * pas en choisir un autre par erreur. Un scénario d'un autre rayon y est donc un inconnu.
+ */
+const DU_BUILDER = "rayon = 'general'";
 
 /**
  * Les scénarios SYSTÈME (`workflows.systeme`, migration 0209), liste fermée, miroir du CHECK
@@ -195,13 +208,17 @@ async function enTransaction<T>(pool: Pool, f: (c: PoolClient) => Promise<T>): P
 /**
  * Le nom unique d'un scénario dans l'espace, comparé comme `/v1/sends` le résout (`eqName`, `src/ids/resolve.ts`) : sans
  * la casse ni les espaces aux bords. Sous un verrou consultatif de l'espace, tenu jusqu'à la fin de la transaction.
+ * Unique PAR rayon : le Builder et le rayon Shopify peuvent avoir chacun leur « Panier abandonné », et `/v1` ne résout
+ * jamais que le Builder.
  */
-export async function nomPrisSousVerrou(c: PoolClient, tenantId: string, nom: string, sauf: string | null): Promise<string | null> {
+export async function nomPrisSousVerrou(
+  c: PoolClient, tenantId: string, nom: string, sauf: string | null, rayon: Rayon,
+): Promise<string | null> {
   await c.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [`scenario-nom:${tenantId}`]);
   const r = await c.query<{ id: string }>(
-    `select id from workflows where tenant_id = $1 and ${PUBLIC} and lower(btrim(name)) = lower(btrim($2))
+    `select id from workflows where tenant_id = $1 and ${PUBLIC} and rayon = $4 and lower(btrim(name)) = lower(btrim($2))
        and ($3::uuid is null or id <> $3::uuid) limit 1`,
-    [tenantId, nom, sauf],
+    [tenantId, nom, sauf, rayon],
   );
   return r.rows[0]?.id ?? null;
 }
@@ -210,16 +227,18 @@ export async function nomPrisSousVerrou(c: PoolClient, tenantId: string, nom: st
  * L'insertion d'un scénario, en BROUILLON seulement (`draft_graph`) : rien n'est en ligne tant que personne n'a cliqué
  * « Publier ». Le seul SQL d'insertion : `PgWorkflowStore.insert` l'appelle avec son pool, la duplication entre espaces
  * (`src/ops/duplication/store.pg.ts`) avec le client de sa transaction, et un `id` tiré d'avance : les outils de l'agent
- * copié visent la copie avant qu'elle soit écrite. Sans `id`, la base le tire.
+ * copié visent la copie avant qu'elle soit écrite. Sans `id`, la base le tire. Le rayon est REQUIS : il ne change plus
+ * après la création.
  */
 export async function insererBrouillon(
-  q: Pick<Pool, 'query'>, tenantId: string, name: string, graph: WorkflowGraph, id?: string,
+  q: Pick<Pool, 'query'>, tenantId: string, name: string, graph: WorkflowGraph, rayon: Rayon, id?: string,
 ): Promise<{ id: string }> {
   const code = makeCode('scn', await resolveTenantCode(q, tenantId));
   const res = await q.query<{ id: string }>(
-    `insert into workflows (id, tenant_id, name, draft_graph, code) values (coalesce($5::uuid, gen_random_uuid()), $1, $2, $3::jsonb, $4)
+    `insert into workflows (id, tenant_id, name, draft_graph, code, rayon)
+     values (coalesce($5::uuid, gen_random_uuid()), $1, $2, $3::jsonb, $4, $6)
      returning id`,
-    [tenantId, name, JSON.stringify(graph), code, id ?? null],
+    [tenantId, name, JSON.stringify(graph), code, id ?? null, rayon],
   );
   return { id: res.rows[0]!.id };
 }
@@ -242,15 +261,20 @@ export class PgWorkflowStore {
    * Crée un scénario. Le graphe fourni part en brouillon, jamais en publié : rien n'est en ligne tant que
    * personne n'a cliqué « Publier » (vaut aussi pour la duplication).
    */
-  async insert(tenantId: string, name: string, graph: WorkflowGraph): Promise<{ id: string }> {
-    return insererBrouillon(this.pool, tenantId, name, graph);
+  async insert(tenantId: string, name: string, graph: WorkflowGraph, rayon: Rayon): Promise<{ id: string }> {
+    return insererBrouillon(this.pool, tenantId, name, graph, rayon);
   }
 
+  /*
+   * 🔴 LES LISTES PRENNENT LE RAYON EN PARAMÈTRE REQUIS (menu « Scénario », lot 1) : le compilateur énumère chaque
+   * appelant, qui le nomme. Un scénario d'un autre rayon n'existe pour aucune d'elles.
+   */
+
   /** Les noms des scénarios publics, sans leurs graphes : pour une liste qui n'affiche qu'un nom (duplication `/ops`). */
-  async listNoms(tenantId: string): Promise<Array<{ id: string; name: string }>> {
+  async listNoms(tenantId: string, rayon: Rayon): Promise<Array<{ id: string; name: string }>> {
     const res = await this.pool.query<{ id: string; name: string }>(
-      `select id, name from workflows where tenant_id = $1 and ${PUBLIC} order by lower(name), id`,
-      [tenantId],
+      `select id, name from workflows where tenant_id = $1 and ${PUBLIC} and rayon = $2 order by lower(name), id`,
+      [tenantId, rayon],
     );
     return res.rows;
   }
@@ -264,7 +288,7 @@ export class PgWorkflowStore {
    * base envoie donc toujours le graphe à l'application : seul le trajet vers le navigateur disparaît. `list()`
    * reste pour ce qui a réellement besoin des graphes (résolution par code de `/v1/sends`).
    */
-  async listResume(tenantId: string): Promise<WorkflowResumeRow[]> {
+  async listResume(tenantId: string, rayon: Rayon): Promise<WorkflowResumeRow[]> {
     const res = await this.pool.query<{
       id: string; tenant_id: string; name: string; code: string | null;
       created_at: Date; updated_at: Date; published_at: Date | null;
@@ -276,8 +300,8 @@ export class PgWorkflowStore {
               jsonb_array_length(coalesce(graph->'nodes', '[]'::jsonb)) as node_count,
               (draft_graph is not null) as has_draft,
               graph
-         from workflows where tenant_id = $1 and ${PUBLIC} order by created_at desc`,
-      [tenantId],
+         from workflows where tenant_id = $1 and ${PUBLIC} and rayon = $2 order by created_at desc`,
+      [tenantId, rayon],
     );
     return res.rows.map((r) => ({
       id: r.id,
@@ -304,14 +328,14 @@ export class PgWorkflowStore {
    * pas : il vaut null sur des scénarios anciens qui tournent. Le graphe est transporté pour calculer
    * l'ouverture (`ouvertureApi`), il ne sort pas vers l'intégrateur.
    */
-  async listPublies(tenantId: string): Promise<ScenarioPublie[]> {
+  async listPublies(tenantId: string, rayon: Rayon): Promise<ScenarioPublie[]> {
     const res = await this.pool.query<{ code: string | null; name: string; published_at: Date | null; graph: WorkflowGraph }>(
       `select code, name, published_at, graph
          from workflows
-        where tenant_id = $1 and ${PUBLIC}
+        where tenant_id = $1 and ${PUBLIC} and rayon = $2
           and jsonb_array_length(coalesce(graph->'nodes', '[]'::jsonb)) > 0
         order by name, created_at`,
-      [tenantId],
+      [tenantId, rayon],
     );
     return res.rows.map((r) => ({
       code: r.code,
@@ -321,14 +345,18 @@ export class PgWorkflowStore {
     }));
   }
 
-  async list(tenantId: string): Promise<WorkflowRow[]> {
+  async list(tenantId: string, rayon: Rayon): Promise<WorkflowRow[]> {
     const res = await this.pool.query<Row>(
-      `select ${COLS} from workflows where tenant_id = $1 and ${PUBLIC} order by created_at desc`,
-      [tenantId],
+      `select ${COLS} from workflows where tenant_id = $1 and ${PUBLIC} and rayon = $2 order by created_at desc`,
+      [tenantId, rayon],
     );
     return res.rows.map(toRow);
   }
 
+  /**
+   * Par identifiant, SANS filtre de rayon : la relecture du graphe d'un parcours (tous rayons), l'éditeur, et les gardes
+   * qui comparent `rayon` elles-mêmes.
+   */
   async getById(id: string, tenantId: string): Promise<WorkflowRow | null> {
     const res = await this.pool.query<Row>(
       `select ${COLS} from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} limit 1`,
@@ -442,12 +470,12 @@ export class PgWorkflowStore {
    */
   async creerPublieParApi(tenantId: string, nom: string, graphe: WorkflowGraph): Promise<{ id: string; code: string } | { nomPris: string }> {
     return enTransaction(this.pool, async (c) => {
-      const pris = await nomPrisSousVerrou(c, tenantId, nom, null);
+      const pris = await nomPrisSousVerrou(c, tenantId, nom, null, 'general');
       if (pris) return { nomPris: pris };
       const code = makeCode('scn', await resolveTenantCode(c, tenantId));
       const r = await c.query<{ id: string; code: string }>(
-        `insert into workflows (tenant_id, name, graph, draft_graph, published_at, code, origine)
-         values ($1, $2, $3::jsonb, null, now(), $4, 'api') returning id, code`,
+        `insert into workflows (tenant_id, name, graph, draft_graph, published_at, code, origine, rayon)
+         values ($1, $2, $3::jsonb, null, now(), $4, 'api', 'general') returning id, code`,
         [tenantId, nom, JSON.stringify(graphe), code],
       );
       return r.rows[0]!;
@@ -457,7 +485,7 @@ export class PgWorkflowStore {
   /** Par uuid ou par code `scn_`. */
   async lireParApi(tenantId: string, ref: string): Promise<LigneApi | null> {
     const r = await this.pool.query<Row & { origine: 'console' | 'api' }>(
-      `select ${COLS}, origine from workflows where tenant_id = $1 and ${PUBLIC} and (id::text = $2 or code = $2) limit 1`,
+      `select ${COLS}, origine from workflows where tenant_id = $1 and ${PUBLIC} and ${DU_BUILDER} and (id::text = $2 or code = $2) limit 1`,
       [tenantId, ref],
     );
     const l = r.rows[0];
@@ -473,18 +501,18 @@ export class PgWorkflowStore {
   ): Promise<'ok' | 'inconnu' | { nomPris: string } | { refus: R }> {
     return enTransaction(this.pool, async (c) => {
       const r = await c.query<Row & { origine: 'console' | 'api' }>(
-        `select ${COLS}, origine from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} for update`,
+        `select ${COLS}, origine from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} and ${DU_BUILDER} for update`,
         [id, tenantId],
       );
       const l = r.rows[0];
       if (!l) return 'inconnu' as const;
       const refus = controle({ ...toRow(l), origine: l.origine });
       if (refus !== null) return { refus };
-      const pris = await nomPrisSousVerrou(c, tenantId, nom, id);
+      const pris = await nomPrisSousVerrou(c, tenantId, nom, id, 'general');
       if (pris) return { nomPris: pris };
       await c.query(
         `update workflows set name = $3, graph = $4::jsonb, draft_graph = null, published_at = now(), updated_at = now()
-          where id = $1 and tenant_id = $2 and ${PUBLIC}`,
+          where id = $1 and tenant_id = $2 and ${PUBLIC} and ${DU_BUILDER}`,
         [id, tenantId, nom, JSON.stringify(graphe)],
       );
       return 'ok' as const;
@@ -501,13 +529,13 @@ export class PgWorkflowStore {
   async supprimerParApi(id: string, tenantId: string): Promise<'ok' | 'inconnu' | 'console' | { utilise: string[] }> {
     return enTransaction(this.pool, async (c) => {
       const r = await c.query<{ origine: string }>(
-        `select origine from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} for update`, [id, tenantId]);
+        `select origine from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} and ${DU_BUILDER} for update`, [id, tenantId]);
       const l = r.rows[0];
       if (!l) return 'inconnu' as const;
       if (l.origine !== 'api') return 'console' as const;
       const utilise = await this.utilisationsDuScenario(tenantId, id, c);
       if (utilise.length > 0) return { utilise };
-      await c.query(`delete from workflows where id = $1 and tenant_id = $2 and ${PUBLIC}`, [id, tenantId]);
+      await c.query(`delete from workflows where id = $1 and tenant_id = $2 and ${PUBLIC} and ${DU_BUILDER}`, [id, tenantId]);
       return 'ok' as const;
     });
   }
@@ -608,11 +636,15 @@ export function grapheEditable(row: Pick<WorkflowRow, 'graph' | 'draftGraph'>): 
 interface Row {
   id: string; tenant_id: string; name: string; code: string | null;
   graph: WorkflowGraph | null; draft_graph: WorkflowGraph | null;
-  published_at: Date | null; created_at: Date; updated_at: Date;
+  published_at: Date | null; created_at: Date; updated_at: Date; rayon: string;
 }
 function toRow(r: Row): WorkflowRow {
+  // Le CHECK `workflows_rayon_chk` interdit tout autre valeur : en lire une est un état impossible, pas un défaut à
+  // deviner (un rayon deviné ferait passer la ligne d'un rayon dans un autre).
+  if (!estRayon(r.rayon)) throw new Error(`workflow ${r.id} : rayon illisible (${String(r.rayon)})`);
   return {
     id: r.id,
+    rayon: r.rayon,
     tenantId: r.tenant_id,
     name: r.name,
     code: r.code,

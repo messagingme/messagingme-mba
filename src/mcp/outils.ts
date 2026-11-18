@@ -47,6 +47,7 @@ import type { VueOffre } from '../offres/vue';
 import type { SourceOffres } from '../offres/offre.pg';
 import { DROITS, type Fonction } from '../offres/offres';
 import { OUTILS_DE_L_ETAPE, lireMiseEnService } from './mise-en-service';
+import type { Rayon } from '../workflow/rayon';
 
 export { RefusOutil } from './saisie';
 // Les bornes d'un fichier d'outils que `tests/mcp-serveur.test.ts` relit dans les schémas : exportées d'ici.
@@ -129,7 +130,7 @@ export interface DepsMcp extends DepsRepondre, DepsChampsMcp, DepsScenariosMcp {
    */
   widgets: DepsWidgets;
   /** Les scénarios de l'espace (`PgWorkflowStore.listResume`), pour qu'un assistant sache lequel un widget peut démarrer. */
-  scenarios: { listResume(tenantId: string): Promise<Array<Pick<WorkflowResumeRow, 'id' | 'name' | 'nodeCount'>>> };
+  scenarios: { listResume(tenantId: string, rayon: Rayon): Promise<Array<Pick<WorkflowResumeRow, 'id' | 'name' | 'nodeCount'>>> };
   /**
    * L'agent IA, sa connaissance, son bac à sable et le crédit (lot 8a) : les MÊMES objets que les routes de la
    * console (`src/index.ts`). Les outils n'y ajoutent aucun contrôle.
@@ -1032,7 +1033,7 @@ export const OUTILS: OutilMcp[] = [
     /** Borné comme `list_members`, et pour la même raison : `tronque` dit qu'il en reste. */
     async executer(deps, tenantId, args) {
       const limit = entierBorne(args, 'limit', 100, 1, 200);
-      const tous = await deps.scenarios.listResume(tenantId);
+      const tous = await deps.scenarios.listResume(tenantId, 'general');
       return {
         // `nodeCount` compte les blocs du graphe PUBLIÉ (en SQL) : la lecture d'`etatDuScenario`, qui décide du refus.
         scenarios: tous.slice(0, limit).map((s) => ({ id: s.id, nom: s.name, publie: s.nodeCount > 0 })),

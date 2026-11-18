@@ -13,6 +13,7 @@ import { variablesDe } from '../rcs/variables';
 import { refuser } from '../api/erreurs';
 import { modeleLuDe, verdictModele } from '../api/modele-envoi';
 import { compterOuRefuser, type ApiUsageGuard } from '../api/usage-guard';
+import type { Rayon } from '../workflow/rayon';
 
 /**
  * Les catalogues de l'API publique : ce qu'un intégrateur peut envoyer, lu sans ouvrir la console.
@@ -165,7 +166,7 @@ export interface V1CataloguesRouteDeps {
   /** Tous les indices « variable vers champ » de l'espace, en une requête. */
   indices: { listerParEspace(tenantId: string): Promise<IndiceDuTemplate[]> };
   /** Les scénarios dont le graphe publié porte au moins un bloc. */
-  scenarios: { listPublies(tenantId: string): Promise<ScenarioPublie[]> };
+  scenarios: { listPublies(tenantId: string, rayon: Rayon): Promise<ScenarioPublie[]> };
   /** La bibliothèque RCS, suppressions douces exclues. */
   messagesRcs: { list(tenantId: string): Promise<ReadonlyArray<{ name: string; content: RcsOutbound | null }>> };
 }
@@ -196,7 +197,7 @@ export function registerV1Catalogues(app: FastifyInstance, deps: V1CataloguesRou
     if (!req.auth) return refuser(reply, 401, 'unauthorized', 'clé d’API requise');
     const tenantId = req.auth.tenantId;
     if (!await compterOuRefuser(deps.usage, req, reply, 'catalogues.read')) return reply;
-    return reply.code(200).send({ scenarios: catalogueScenarios(await deps.scenarios.listPublies(tenantId)) } satisfies CatalogueScenariosV1);
+    return reply.code(200).send({ scenarios: catalogueScenarios(await deps.scenarios.listPublies(tenantId, 'general')) } satisfies CatalogueScenariosV1);
   });
 
   app.get('/v1/rcs-messages', opts, async (req, reply) => {

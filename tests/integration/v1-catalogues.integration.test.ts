@@ -41,13 +41,13 @@ describe.skipIf(!url)('les lectures des catalogues de l’API publique (Postgres
   it('🔴 listPublies : seuls les scénarios EN LIGNE de CET espace, triés par nom', async () => {
     const store = new PgWorkflowStore(pool);
     // Jamais publié : le graphe part en brouillon, le publié reste vide. Un envoi n'aurait rien à jouer.
-    await store.insert(espaceA, 'b-brouillon-seul', graphe);
-    const enLigne = await store.insert(espaceA, 'a-en-ligne', graphe);
+    await store.insert(espaceA, 'b-brouillon-seul', graphe, 'general');
+    const enLigne = await store.insert(espaceA, 'a-en-ligne', graphe, 'general');
     await store.publish(enLigne.id, espaceA);
-    const ailleurs = await store.insert(espaceB, 'c-autre-espace', graphe);
+    const ailleurs = await store.insert(espaceB, 'c-autre-espace', graphe, 'general');
     await store.publish(ailleurs.id, espaceB);
 
-    const lignes = await store.listPublies(espaceA);
+    const lignes = await store.listPublies(espaceA, 'general');
     expect(lignes.map((l) => l.name)).toEqual(['a-en-ligne']);
     expect(lignes[0]!.graph.nodes).toHaveLength(1);
     expect(lignes[0]!.publishedAt).not.toBeNull();
@@ -56,11 +56,11 @@ describe.skipIf(!url)('les lectures des catalogues de l’API publique (Postgres
 
   it('🔴 listPublies lit le PUBLIÉ : un brouillon posé par-dessus ne change rien', async () => {
     const store = new PgWorkflowStore(pool);
-    const s = await store.insert(espaceA, 'd-en-ligne-avec-brouillon', graphe);
+    const s = await store.insert(espaceA, 'd-en-ligne-avec-brouillon', graphe, 'general');
     await store.publish(s.id, espaceA);
     // Un brouillon VIDE : si la lecture prenait le brouillon, le scénario disparaîtrait du catalogue.
     await store.update(s.id, espaceA, { graph: { nodes: [], edges: [] } });
-    const ligne = (await store.listPublies(espaceA)).find((l) => l.name === 'd-en-ligne-avec-brouillon');
+    const ligne = (await store.listPublies(espaceA, 'general')).find((l) => l.name === 'd-en-ligne-avec-brouillon');
     expect(ligne?.graph.nodes).toHaveLength(1);
   });
 

@@ -47,7 +47,7 @@ describe.skipIf(!url)('scénarios écrits par l’API (Postgres)', () => {
     expect(r.code).toMatch(/^scn_/);
     expect((await store.lireParApi(tenantId, r.code))?.id).toBe(r.id);
     // Un scénario de la console garde l'origine par défaut.
-    const { id } = await store.insert(tenantId, 'console', graphe('c'));
+    const { id } = await store.insert(tenantId, 'console', graphe('c'), 'general');
     expect((await store.lireParApi(tenantId, id))?.origine).toBe('console');
   });
 
@@ -90,7 +90,7 @@ describe.skipIf(!url)('scénarios écrits par l’API (Postgres)', () => {
       `insert into tenant_settings (tenant_id, repondeur_mode, repondeur_workflow_id) values ($1, 'scenario', $2)
        on conflict (tenant_id) do update set repondeur_mode = 'scenario', repondeur_workflow_id = $2`, [tenantId, r.id]);
     const saut: WorkflowGraph = { nodes: [{ id: 's', type: 'aller_a', position: { x: 0, y: 0 }, data: { cible: 'nod_itest_01HZZZZZZZZZZZZZZZZZZZZZZZ' } }], edges: [] };
-    await store.insert(tenantId, 'Sauteur', saut);
+    await store.insert(tenantId, 'Sauteur', saut, 'general');
     const u = await store.utilisationsDuScenario(tenantId, r.id);
     expect(u.join(' | ')).toMatch(/Bienvenue/);
     expect(u.join(' | ')).toMatch(/Bulle/);
@@ -107,7 +107,7 @@ describe.skipIf(!url)('scénarios écrits par l’API (Postgres)', () => {
     const r = await store.creerPublieParApi(tenantId, 'Jetable', graphe('j')) as { id: string };
     expect(await store.supprimerParApi(r.id, tenantId)).toBe('ok');
     expect(await store.lireParApi(tenantId, r.id)).toBeNull();
-    const { id } = await store.insert(tenantId, 'console à garder', graphe('c'));
+    const { id } = await store.insert(tenantId, 'console à garder', graphe('c'), 'general');
     expect(await store.supprimerParApi(id, tenantId)).toBe('console');
     expect(await store.supprimerParApi(id, autreTenantId)).toBe('inconnu');
   });

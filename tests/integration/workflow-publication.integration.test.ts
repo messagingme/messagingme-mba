@@ -39,7 +39,7 @@ describe.skipIf(!url)('publication des scénarios (Postgres)', () => {
   });
 
   it('un scénario NEUF n’est pas en ligne : son graphe part en brouillon, le publié reste vide', async () => {
-    const { id } = await store.insert(tenantId, 'neuf', graphe('v1'));
+    const { id } = await store.insert(tenantId, 'neuf', graphe('v1'), 'general');
     const row = (await store.getById(id, tenantId))!;
     expect(row.graph.nodes).toHaveLength(0);
     expect(row.draftGraph?.nodes).toHaveLength(1);
@@ -48,7 +48,7 @@ describe.skipIf(!url)('publication des scénarios (Postgres)', () => {
   });
 
   it('🔴 enregistrer NE TOUCHE PAS la version en ligne, et publier la remplace', async () => {
-    const { id } = await store.insert(tenantId, 'cycle', graphe('v1'));
+    const { id } = await store.insert(tenantId, 'cycle', graphe('v1'), 'general');
     await store.publish(id, tenantId);
     const enLigne = (await store.getById(id, tenantId))!;
     expect(enLigne.graph.nodes[0]!.data.tag).toBe('v1');
@@ -69,7 +69,7 @@ describe.skipIf(!url)('publication des scénarios (Postgres)', () => {
   });
 
   it('🔴 republier sans brouillon n’efface pas la version en ligne, et ne redate pas la publication', async () => {
-    const { id } = await store.insert(tenantId, 'republier', graphe('v1'));
+    const { id } = await store.insert(tenantId, 'republier', graphe('v1'), 'general');
     const premiere = (await store.publish(id, tenantId))!;
     // Sans le `coalesce`, ce second appel écraserait `graph` par NULL : le scénario disparaîtrait de la
     // production sur un double-clic, sans le moindre message.
@@ -79,7 +79,7 @@ describe.skipIf(!url)('publication des scénarios (Postgres)', () => {
   });
 
   it('un enregistrement IDENTIQUE au publié ne laisse aucun brouillon (l’ouverture d’un scénario en produit un)', async () => {
-    const { id } = await store.insert(tenantId, 'identique', graphe('v1'));
+    const { id } = await store.insert(tenantId, 'identique', graphe('v1'), 'general');
     await store.publish(id, tenantId);
     const publie = (await store.getById(id, tenantId))!;
 
@@ -103,7 +103,7 @@ describe.skipIf(!url)('publication des scénarios (Postgres)', () => {
   });
 
   it('🔴 DÉPLACER un bloc ne pose aucun brouillon, et la disposition n’est pas perdue', async () => {
-    const { id } = await store.insert(tenantId, 'deplacement', grapheEn('v1', 0, 0));
+    const { id } = await store.insert(tenantId, 'deplacement', grapheEn('v1', 0, 0), 'general');
     await store.publish(id, tenantId);
 
     const maj = await store.update(id, tenantId, { graph: grapheEn('v1', -25, -89) });
@@ -118,7 +118,7 @@ describe.skipIf(!url)('publication des scénarios (Postgres)', () => {
 
   it('🔴 mais changer le CONTENU en déplaçant reste un brouillon', async () => {
     // La garde symétrique. Sans elle, le cas précédent publierait en continu tout ce que l'éditeur écrit.
-    const { id } = await store.insert(tenantId, 'deplacement-et-contenu', grapheEn('v1', 0, 0));
+    const { id } = await store.insert(tenantId, 'deplacement-et-contenu', grapheEn('v1', 0, 0), 'general');
     await store.publish(id, tenantId);
 
     expect(await store.update(id, tenantId, { graph: grapheEn('v2', 400, 400) }))
@@ -130,7 +130,7 @@ describe.skipIf(!url)('publication des scénarios (Postgres)', () => {
   });
 
   it('un scénario d’un AUTRE espace ne se met à jour ni ne se publie', async () => {
-    const { id } = await store.insert(tenantId, 'isolation', graphe('v1'));
+    const { id } = await store.insert(tenantId, 'isolation', graphe('v1'), 'general');
     const autre = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-publication-autre') returning id`)).rows[0]!.id;
     try {
       expect(await store.update(id, autre, { graph: graphe('vole') })).toEqual({ trouve: false, brouillon: false });

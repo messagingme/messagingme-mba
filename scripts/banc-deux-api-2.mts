@@ -111,7 +111,7 @@ async function preparer(): Promise<Banc> {
     const { id } = await scenarios.insert(espace, NOM_SCENARIO, {
       nodes: [{ id: 'n1', type: 'quick_message', position: { x: 0, y: 0 }, data: { code: CODE_BLOC, body: 'Message du banc' } }],
       edges: [],
-    });
+    }, 'general');
     await scenarios.publish(id, espace);
   }
 

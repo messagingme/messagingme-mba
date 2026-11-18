@@ -43,13 +43,13 @@ describe.skipIf(!url)('PgDossierStore (Postgres réel)', () => {
     const chezLeVoisin = await dossiers.creer(autreTenantId, 'scenario', 'Voisin');
     const deTemplates = await dossiers.creer(tenantId, 'template', 'Promos');
     if (typeof chezLeVoisin === 'string' || typeof deTemplates === 'string') throw new Error('création refusée');
-    const { id: wf } = await scenarios.insert(tenantId, 'itest isolation', graphe);
+    const { id: wf } = await scenarios.insert(tenantId, 'itest isolation', graphe, 'general');
     expect(await dossiers.ranger(tenantId, 'scenario', [wf], chezLeVoisin.id)).toBe('dossier_inconnu');
     expect(await dossiers.ranger(tenantId, 'scenario', [wf], deTemplates.id)).toBe('dossier_inconnu');
     expect(await dossiers.rangement(tenantId, 'scenario')).toEqual({});
     expect((await dossiers.lister(tenantId, 'scenario')).map((d) => d.nom)).not.toContain('Voisin');
     // Et un scénario d'un autre espace n'est pas rangé par une clé forgée : rien n'est écrit.
-    const { id: wfVoisin } = await scenarios.insert(autreTenantId, 'itest voisin', graphe);
+    const { id: wfVoisin } = await scenarios.insert(autreTenantId, 'itest voisin', graphe, 'general');
     const sav = await dossiers.creer(tenantId, 'scenario', 'SAV isolation');
     if (typeof sav === 'string') throw new Error('création refusée');
     expect(await dossiers.ranger(tenantId, 'scenario', [wfVoisin], sav.id)).toBe(0);
@@ -63,7 +63,7 @@ describe.skipIf(!url)('PgDossierStore (Postgres réel)', () => {
     const sienS = await dossiers.creer(autreTenantId, 'scenario', 'Sien');
     const sienT = await dossiers.creer(autreTenantId, 'template', 'Sien');
     if (typeof sienS === 'string' || typeof sienT === 'string') throw new Error('création refusée');
-    const { id: wfSien } = await scenarios.insert(autreTenantId, 'itest sien', graphe);
+    const { id: wfSien } = await scenarios.insert(autreTenantId, 'itest sien', graphe, 'general');
     expect(await dossiers.ranger(autreTenantId, 'scenario', [wfSien], sienS.id)).toBe(1);
     expect(await dossiers.ranger(autreTenantId, 'template', ['hello_world'], sienT.id)).toBe(1);
     // D'ici : rien de lui dans notre rangement, et vider « hello_world » chez nous ne touche pas sa ligne.
@@ -88,7 +88,7 @@ describe.skipIf(!url)('PgDossierStore (Postgres réel)', () => {
     const d = await dossiers.creer(tenantId, 'scenario', 'À vider');
     const t = await dossiers.creer(tenantId, 'template', 'À vider');
     if (typeof d === 'string' || typeof t === 'string') throw new Error('création refusée');
-    const { id: wf } = await scenarios.insert(tenantId, 'itest à vider', graphe);
+    const { id: wf } = await scenarios.insert(tenantId, 'itest à vider', graphe, 'general');
     expect(await dossiers.ranger(tenantId, 'scenario', [wf], d.id)).toBe(1);
     expect(await dossiers.ranger(tenantId, 'template', ['promo_ete', 'promo_ete'], t.id)).toBe(1);
     expect((await dossiers.rangement(tenantId, 'scenario'))[wf]).toBe(d.id);

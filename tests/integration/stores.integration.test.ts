@@ -1557,7 +1557,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
   it('claimSleepingById : le réveil court prend SON parcours dû, une seule fois, et le balayage reste le filet', async () => {
     const runStore = new PgWorkflowRunStore(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF attente courte', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF attente courte', { nodes: [], edges: [] }, 'general');
     const dormant = async (waId: string, echeanceSql: string): Promise<string> => {
       const { id } = await runStore.start(tenantId, wfId, waId, null, { currentNode: 'w', status: 'sleeping', resumeAt: new Date() }, null, false);
       // L'échéance posée par l'horloge de Postgres : la tolérance se juge contre `now()`, pas contre celle du test.
@@ -1604,7 +1604,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     // parcours et le client recevrait deux fois le message. Le test exerce le vrai SQL, en concurrence réelle.
     const runStore = new PgWorkflowRunStore(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF attente', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF attente', { nodes: [], edges: [] }, 'general');
 
     const echeance = new Date(Date.now() - 60_000); // due depuis une minute
     const ids: string[] = [];
@@ -1651,7 +1651,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     // donc il se reveille tout seul et parlerait par-dessus le nouveau.
     const runStore = new PgWorkflowRunStore(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF occupe', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF occupe', { nodes: [], edges: [] }, 'general');
     const wa = '33688888888';
     const { id: dormant } = await runStore.start(tenantId, wfId, wa, null, { currentNode: 'w', status: 'sleeping', resumeAt: new Date(Date.now() + 3_600_000) }, null, false);
 
@@ -1674,8 +1674,8 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     // un seul tenant, et une assertion sur le vide y depend de tout ce qui s execute avant elle.
     const runStore = new PgWorkflowRunStore(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfA } = await wfStore.insert(tenantId, 'WF premier', { nodes: [], edges: [] });
-    const { id: wfB } = await wfStore.insert(tenantId, 'WF second', { nodes: [], edges: [] });
+    const { id: wfA } = await wfStore.insert(tenantId, 'WF premier', { nodes: [], edges: [] }, 'general');
+    const { id: wfB } = await wfStore.insert(tenantId, 'WF second', { nodes: [], edges: [] }, 'general');
     const wa = '33688888899';
     // `count(*)::int` est un int4 : node-pg rend un NOMBRE. Le typer `string` obligeait a un double
     // transtypage, c est-a-dire a mentir deux fois pour retomber sur la verite.
@@ -1704,7 +1704,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     // oubliée dans un `select`, qui ferait retomber toute reprise sur le publié SANS aucune erreur.
     const runStore = new PgWorkflowRunStore(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF graphe figé', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF graphe figé', { nodes: [], edges: [] }, 'general');
     const wa = '33688888877';
     const fige = {
       nodes: [{ id: 'n1', type: 'quick_message' as const, position: { x: 1, y: 2 }, data: { body: 'version brouillon' } }],
@@ -1734,7 +1734,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     // sans jamais nettoyer, en silence.
     const runStore = new PgWorkflowRunStore(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF vieux', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF vieux', { nodes: [], edges: [] }, 'general');
     const echeance = new Date(Date.now() + 3_600_000);
     const { id: vieux } = await runStore.start(tenantId, wfId, '33677777771', null, { currentNode: 'w', status: 'sleeping', resumeAt: echeance }, null, false);
     const { id: recent } = await runStore.start(tenantId, wfId, '33677777772', null, { currentNode: 'w', status: 'sleeping', resumeAt: echeance }, null, false);
@@ -1754,7 +1754,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
   it('claimDueSleeping : un parcours PAS ENCORE dû n’est pas réveillé', async () => {
     const runStore = new PgWorkflowRunStore(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF attente future', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF attente future', { nodes: [], edges: [] }, 'general');
     const { id } = await runStore.start(tenantId, wfId, '33699999999', null, {
       currentNode: 'w', status: 'sleeping', resumeAt: new Date(Date.now() + 3_600_000),
     }, null, false);
@@ -1774,11 +1774,11 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     // ⚠️ Depuis le lot 7, une création part en BROUILLON : rien n'est en ligne tant qu'on n'a pas publié.
     // On publie donc tout de suite, puisque ce test-ci vérifie le round-trip jsonb, pas la publication
     // (elle a son propre fichier, `workflow-publication.integration.test.ts`).
-    const { id } = await store.insert(tenantId, 'Onboarding', graph);
+    const { id } = await store.insert(tenantId, 'Onboarding', graph, 'general');
     expect(id).toBeTruthy();
     await store.publish(id, tenantId);
 
-    const list = await store.list(tenantId);
+    const list = await store.list(tenantId, 'general');
     const mine = list.find((w) => w.id === id);
     expect(mine).toBeDefined();
     expect(mine!.name).toBe('Onboarding');
@@ -1811,7 +1811,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
   it('PgCampaignRepo : campagne WORKFLOW (workflow_id + template null) round-trip', async () => {
     const repo = new PgCampaignRepo(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF campagne', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF campagne', { nodes: [], edges: [] }, 'general');
     // Chemin RÉEL de création (via createWithRecipients, pas insertCampaign) : il DOIT persister workflow_id.
     const { campaignId: campId } = await repo.createWithRecipients({
       tenantId, phoneNumberId: 'pn-wf', name: 'Camp WF', category: 'marketing',
@@ -1829,7 +1829,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     // le `group by c.id` des compteurs (une JOINTURE échouerait ici en « must appear in the GROUP BY clause »).
     const repo = new PgCampaignRepo(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'Relance promo', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'Relance promo', { nodes: [], edges: [] }, 'general');
     const { campaignId } = await repo.createWithRecipients({
       tenantId, phoneNumberId: 'pn-wf2', name: 'Camp libellé', category: 'marketing',
       templateName: '', templateLanguage: '', paramMapping: [], workflowId: wfId,
@@ -1867,7 +1867,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     // 🔴 PUBLIÉ, sinon rien ne tourne : `getGraph` lit la version EN LIGNE (lot 7), et une création part en
     // brouillon. C'est la garantie du lot vue depuis le moteur : ce qui n'a pas été publié n'existe pas pour
     // les contacts. Ce test a échoué exactement là au premier passage, et c'est le bon comportement.
-    const { id: wfId } = await wfStore.insert(tenantId, 'Atelier', graph);
+    const { id: wfId } = await wfStore.insert(tenantId, 'Atelier', graph, 'general');
     await wfStore.publish(wfId, tenantId);
 
     const sends: string[] = [];
@@ -2700,9 +2700,9 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     const wf = new PgWorkflowStore(pool);
     const t = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-resolve') returning id`)).rows[0]!.id;
     try {
-      const a = await wf.insert(t, 'Parcours Unique', { nodes: [], edges: [] });
-      await wf.insert(t, 'Doublon', { nodes: [], edges: [] });
-      await wf.insert(t, 'doublon', { nodes: [], edges: [] }); // même nom (insensible casse) -> ambigu
+      const a = await wf.insert(t, 'Parcours Unique', { nodes: [], edges: [] }, 'general');
+      await wf.insert(t, 'Doublon', { nodes: [], edges: [] }, 'general');
+      await wf.insert(t, 'doublon', { nodes: [], edges: [] }, 'general'); // même nom (insensible casse) -> ambigu
       const code = (await wf.getById(a.id, t))!.code!;
       expect(await resolveScenario(t, code, wf)).toMatchObject({ ok: true, value: { id: a.id } });
       expect(await resolveScenario(t, 'Parcours Unique', wf)).toMatchObject({ ok: true, value: { id: a.id } });
@@ -2786,7 +2786,7 @@ describe.skipIf(!url)('adaptateurs Postgres (Supabase)', () => {
     const wf = new PgWorkflowStore(pool);
     const repo = new PgCampaignRepo(pool);
     const graphe = { nodes: [{ id: 'q', type: 'quick_message' as const, position: { x: 0, y: 0 }, data: { body: 'Bonjour', code: 'nod_itest_q' } }], edges: [] };
-    const { id } = await wf.insert(tenantId, 'Suivi API', graphe);
+    const { id } = await wf.insert(tenantId, 'Suivi API', graphe, 'general');
     await wf.publish(id, tenantId);
     // Un BROUILLON différent, posé après la publication : c'est le PUBLIÉ que l'envoi doit lire, pas lui.
     await wf.update(id, tenantId, { graph: { nodes: [{ id: 'r', type: 'rcs_message' as const, position: { x: 0, y: 0 }, data: { text: 'Brouillon' } }], edges: [] } });

@@ -26,7 +26,7 @@ function fakePool() {
 describe('génération de code public à l\'INSERT (schéma A)', () => {
   it('scénario -> scn_<client>_<ulid>', async () => {
     const { pool, queries } = fakePool();
-    await new PgWorkflowStore(pool).insert('t1', 'Onboarding', { nodes: [], edges: [] });
+    await new PgWorkflowStore(pool).insert('t1', 'Onboarding', { nodes: [], edges: [] }, 'general');
     const ins = queries.find((q) => /insert into workflows/i.test(q.sql))!;
     expect(ins.params[3]).toMatch(CODE_RE('scn')); // (tenant_id, name, graph, code)
   });

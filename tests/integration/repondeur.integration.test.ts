@@ -86,7 +86,7 @@ describe.skipIf(!url)('le répondeur par défaut (Postgres)', () => {
       await reglages().setRepondeur(tenantId, { mode: 'equipe' });
       await expect(pool.query(`update tenant_settings set repondeur_agent_id = $2 where tenant_id = $1`, [tenantId, agentId]))
         .rejects.toMatchObject({ code: '23514', constraint: 'tenant_settings_repondeur_agent_chk' });
-      const wf = (await new PgWorkflowStore(pool).insert(tenantId, 'itest-repondeur-chk', { nodes: [], edges: [] })).id;
+      const wf = (await new PgWorkflowStore(pool).insert(tenantId, 'itest-repondeur-chk', { nodes: [], edges: [] }, 'general')).id;
       await reglages().setRepondeur(tenantId, { mode: 'agent', agentId });
       await expect(pool.query(`update tenant_settings set repondeur_workflow_id = $2 where tenant_id = $1`, [tenantId, wf]))
         .rejects.toMatchObject({ code: '23514', constraint: 'tenant_settings_repondeur_scenario_chk' });
@@ -106,7 +106,7 @@ describe.skipIf(!url)('le répondeur par défaut (Postgres)', () => {
       await reglages().setRepondeur(tenantId, { mode: 'agent', agentId: autreAgentId });
       await pool.query('delete from agents where id = $1 and tenant_id = $2', [autreAgentId, tenantId]);
       expect(await reglages().get(tenantId)).toMatchObject({ repondeurMode: 'agent', repondeurAgentId: null });
-      const wf = (await new PgWorkflowStore(pool).insert(tenantId, 'itest-repondeur-sc', { nodes: [], edges: [] })).id;
+      const wf = (await new PgWorkflowStore(pool).insert(tenantId, 'itest-repondeur-sc', { nodes: [], edges: [] }, 'general')).id;
       await reglages().setRepondeur(tenantId, { mode: 'scenario', workflowId: wf, delaiS: 7200 });
       expect(await reglages().get(tenantId)).toMatchObject({ repondeurMode: 'scenario', repondeurWorkflowId: wf, repondeurDelaiScenarioS: 7200 });
       await pool.query('delete from workflows where id = $1 and tenant_id = $2', [wf, tenantId]);
@@ -174,7 +174,7 @@ describe.skipIf(!url)('le répondeur par défaut (Postgres)', () => {
       await reglages().setMbaEnabled(tenantId, true);
       await reglages().setRepondeur(tenantId, { mode: 'mba' });
       expect((await reglages().modesParTenant([tenantId])).get(tenantId)).toBe('equipe');
-      const wf = (await new PgWorkflowStore(pool).insert(tenantId, 'itest-repondeur-gel', { nodes: [], edges: [] })).id;
+      const wf = (await new PgWorkflowStore(pool).insert(tenantId, 'itest-repondeur-gel', { nodes: [], edges: [] }, 'general')).id;
       await reglages().setRepondeur(tenantId, { mode: 'scenario', workflowId: wf, delaiS: 7200 });
       expect((await reglages().modesParTenant([tenantId])).get(tenantId)).toBe('equipe');
       await pool.query('delete from workflows where id = $1 and tenant_id = $2', [wf, tenantId]);
@@ -224,10 +224,10 @@ describe.skipIf(!url)('le répondeur par défaut (Postgres)', () => {
       const store = new PgWorkflowStore(pool);
       const sys = await store.assurerScenarioSysteme(tenantId, 'repondeur');
       await pool.query(`update workflows set graph = '{"nodes":[{"id":"a","type":"tag","position":{"x":0,"y":0},"data":{"tag":"x"}}],"edges":[]}'::jsonb, test_token = 'itest-jeton-sys' where id = $1`, [sys]);
-      const client = (await store.insert(tenantId, 'Répondeur automatique', { nodes: [], edges: [] })).id;
-      expect((await store.listResume(tenantId)).map((w) => w.id)).toEqual([client]);
-      expect((await store.list(tenantId)).map((w) => w.id)).toEqual([client]);
-      expect(await store.listPublies(tenantId)).toEqual([]);
+      const client = (await store.insert(tenantId, 'Répondeur automatique', { nodes: [], edges: [] }, 'general')).id;
+      expect((await store.listResume(tenantId, 'general')).map((w) => w.id)).toEqual([client]);
+      expect((await store.list(tenantId, 'general')).map((w) => w.id)).toEqual([client]);
+      expect(await store.listPublies(tenantId, 'general')).toEqual([]);
       expect(await store.getById(sys, tenantId)).toBeNull();
       expect(await store.findByTestToken('itest-jeton-sys')).toBeNull();
       expect(await store.update(sys, tenantId, { name: 'pirate' })).toEqual({ trouve: false, brouillon: false });

@@ -15,6 +15,7 @@ import { refusDePublication, sautsDeLaCopie } from '../workflow/aller-a';
 import { refusFichierSansSuite } from '../workflow/question-piece';
 import { refusSuiteQuiAttend } from '../workflow/engine';
 import { tagsInGraph } from '../workflow/tags-du-graphe';
+import type { Rayon } from '../workflow/rayon';
 
 /**
  * La sauvegarde n'exige pas qu'un scénario commence par un template : un scénario qui ouvre sur un message de
@@ -25,13 +26,13 @@ import { tagsInGraph } from '../workflow/tags-du-graphe';
 
 /** Ce que les routes lisent et écrivent des scénarios. */
 export interface ScenariosDep {
-  insert(tenantId: string, name: string, graph: WorkflowGraph): Promise<{ id: string }>;
-  list(tenantId: string): Promise<WorkflowRow[]>;
+  insert(tenantId: string, name: string, graph: WorkflowGraph, rayon: Rayon): Promise<{ id: string }>;
+  list(tenantId: string, rayon: Rayon): Promise<WorkflowRow[]>;
   /**
    * La liste résumée servie au navigateur : jamais les graphes, mais le nombre de blocs, l'existence d'un
    * brouillon et l'éligibilité en campagne, qui sont les trois seules choses que les écrans en tiraient.
    */
-  listResume(tenantId: string): Promise<WorkflowResumeRow[]>;
+  listResume(tenantId: string, rayon: Rayon): Promise<WorkflowResumeRow[]>;
   getById(id: string, tenantId: string): Promise<WorkflowRow | null>;
   update(id: string, tenantId: string, patch: { name?: string; graph?: WorkflowGraph }): Promise<MajScenario>;
   /**
@@ -104,7 +105,8 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     if (parsed === null) return reply.code(400).send({ error: 'graphe invalide (nodes/edges, types, arêtes orphelines)' });
     // Mint serveur des codes publics de node (nod_<client>_<ulid>) : rempli/re-minté ici, jamais imposé par le client.
     const graph = mintNodeCodes(parsed, await deps.tenantCode(tenant));
-    const { id } = await deps.scenarios.insert(tenant, b.name.trim(), graph);
+    // Créé depuis le Builder : rayon général. Les rayons Shopify et HubSpot naissent de leur automation.
+    const { id } = await deps.scenarios.insert(tenant, b.name.trim(), graph, 'general');
     // Rend les tags des blocs « ajout de tag » visibles tout de suite dans Contenus > Tags (best-effort : ne
     // fait jamais échouer la sauvegarde du workflow).
     try { await deps.declareTags(tenant, tagsInGraph(graph)); } catch { /* best-effort */ }
@@ -121,7 +123,8 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     const source = await deps.scenarios.getById(id, tenant);
     if (!source) return reply.code(404).send({ error: 'workflow inconnu' });
 
-    const taken = new Set((await deps.scenarios.list(tenant)).map((w) => w.name));
+    // La copie reste dans le rayon de l'original, où son nom doit être libre.
+    const taken = new Set((await deps.scenarios.list(tenant, source.rayon)).map((w) => w.name));
     let name = `${source.name} (copie)`;
     for (let n = 2; taken.has(name); n += 1) name = `${source.name} (copie ${n})`;
 
@@ -134,7 +137,7 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     };
     // Les « Aller à » internes suivent la copie (RC5) : sans ça, ils viseraient les blocs de l'original.
     const graph = sautsDeLaCopie(modele, mintNodeCodes(stripped, await deps.tenantCode(tenant)));
-    const { id: newId } = await deps.scenarios.insert(tenant, name, graph);
+    const { id: newId } = await deps.scenarios.insert(tenant, name, graph, source.rayon);
     try { await deps.declareTags(tenant, tagsInGraph(graph)); } catch { /* best-effort */ }
     return reply.code(201).send({ id: newId, name, graph });
   });
@@ -143,7 +146,7 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     const tenant = espaceVerifie(req);
     // Le résumé, pas les graphes : les écrans de liste n'affichent qu'un nom, et le graphe complet reste sur
     // `GET /workflows/:id`.
-    return reply.code(200).send({ workflows: await deps.scenarios.listResume(tenant) });
+    return reply.code(200).send({ workflows: await deps.scenarios.listResume(tenant, 'general') });
   });
 
   // Contenu > Blocs : liste à plat de tous les nodes des scénarios de l'espace, requêtable par ?type=. Chaque
@@ -152,7 +155,8 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     const tenant = espaceVerifie(req);
     const q = (req.query ?? {}) as { type?: unknown };
     const type = isWorkflowNodeType(q.type) ? q.type : undefined;
-    const workflows = await deps.scenarios.list(tenant);
+    // Les blocs du Builder : un code `nod_` ne se résout que là (`/v1`, décision 1 du menu « Scénario »).
+    const workflows = await deps.scenarios.list(tenant, 'general');
     return reply.code(200).send({ nodes: collectNodes(workflows, type) });
   });
 
@@ -219,7 +223,8 @@ export function registerWorkflows(app: FastifyInstance, deps: WorkflowRouteDeps,
     const suiteQuiAttend = avant?.draftGraph ? refusSuiteQuiAttend(avant.draftGraph) : null;
     if (suiteQuiAttend !== null) return reply.code(422).send({ error: `Publication refusée : ${suiteQuiAttend}.`, code: 'suite_qui_attend' });
     if (avant?.draftGraph && avant.draftGraph.nodes.some((n) => n.type === 'aller_a')) {
-      const refus = refusDePublication(avant.draftGraph, id, await deps.scenarios.list(tenant));
+      // Un « Aller à » ne vise qu'un scénario du même rayon : les autres n'existent pas pour lui.
+      const refus = refusDePublication(avant.draftGraph, id, await deps.scenarios.list(tenant, avant.rayon));
       if (refus !== null) return reply.code(422).send({ error: `Publication refusée : ${refus}.`, code: 'aller_a_invalide' });
     }
     const row = await deps.scenarios.publish(id, tenant);

@@ -45,7 +45,7 @@ describe('le câblage de l’action de workflow HubSpot', () => {
 
   it('🔴 l’action scénario : les scénarios en ligne de l’espace, et la conversation tenue par un opérateur, relue', () => {
     // `conseillerEnMain: async () => false` compilerait : l'historique du workflow mentirait (relecture du 2026-10-29).
-    expect(bloc).toContain('scenariosPublies: (t: string) => workflowStore.listPublies(t),');
+    expect(bloc).toContain("scenariosPublies: (t: string) => workflowStore.listPublies(t, 'general'),");
     expect(bloc).toContain("conseillerEnMain: async (t: string, waId: string) => (await inboxStore.getControlOwner(t, waId)) === 'app_human',");
   });
 

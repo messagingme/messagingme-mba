@@ -68,7 +68,7 @@ export class PgDuplicationStore {
 
   /** Les scénarios publics d'un espace (jamais celui du répondeur), par nom, sans leurs graphes. */
   async scenarios(tenantId: string): Promise<Array<{ id: string; nom: string }>> {
-    return (await new PgWorkflowStore(this.pool).listNoms(tenantId)).map((w) => ({ id: w.id, nom: w.name }));
+    return (await new PgWorkflowStore(this.pool).listNoms(tenantId, 'general')).map((w) => ({ id: w.id, nom: w.name }));
   }
 
   /** `null` = un des deux espaces est inconnu, ou le scénario n'est pas un scénario public de la source. */
@@ -91,7 +91,7 @@ export class PgDuplicationStore {
       automations.toutesPourLaDuplication(destination),
       champs.list(source),
       champs.list(destination),
-      workflows.listNoms(destination),
+      workflows.listNoms(destination, 'general'),
       resolveTenantCode(this.pool, destination),
       lireDependances(this.pool, source, referencesDuGraphe(graphe)),
       nomsPris(this.pool, destination),
@@ -131,7 +131,7 @@ export class PgDuplicationStore {
       await c.query('begin');
       const scenarioCopie = randomUUID();
       let nom = `${scenario.nom} (copie)`;
-      for (let n = 2; (await nomPrisSousVerrou(c, destination, nom, null)) !== null; n += 1) nom = `${scenario.nom} (copie ${n})`;
+      for (let n = 2; (await nomPrisSousVerrou(c, destination, nom, null, 'general')) !== null; n += 1) nom = `${scenario.nom} (copie ${n})`;
       const champs = new PgUserFieldStore(c);
       const champsCrees: string[] = [];
       for (const def of plan.champsACreer) {
@@ -176,7 +176,7 @@ export class PgDuplicationStore {
         rebrancher(plan.graphe, plan.references, { agents, requetes, modelesEmail, flows }),
         new Set(plan.templatesADebrancher),
       );
-      const { id } = await insererBrouillon(c, destination, nom, rebranche.graphe, scenarioCopie);
+      const { id } = await insererBrouillon(c, destination, nom, rebranche.graphe, 'general', scenarioCopie);
       const automations = new PgAutomationStore(c);
       for (const d of plan.declencheurs.copies) await automations.create(destination, { ...d, workflowId: id });
       await c.query('commit');

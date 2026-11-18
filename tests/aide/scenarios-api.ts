@@ -28,7 +28,7 @@ export function magasin() {
       if (pris) return { nomPris: pris.id };
       n += 1;
       const id = `00000000-0000-4000-8000-00000000000${n}`;
-      lignes.set(id, { id, tenantId, name: nom, code: `scn_t1_${n}`, graph: graphe, draftGraph: null, publishedAt: 'x', createdAt: 'x', updatedAt: 'x', origine: 'api' });
+      lignes.set(id, { id, tenantId, name: nom, code: `scn_t1_${n}`, graph: graphe, draftGraph: null, publishedAt: 'x', createdAt: 'x', updatedAt: 'x', origine: 'api', rayon: 'general' });
       return { id, code: `scn_t1_${n}` };
     }),
     lireParApi: vi.fn(async (tenantId: string, ref: string) => [...lignes.values()].find((l) => l.tenantId === tenantId && (l.id === ref || l.code === ref)) ?? null),

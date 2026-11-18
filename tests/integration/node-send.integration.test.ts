@@ -82,7 +82,7 @@ describe.skipIf(!url)('Cible node (Supabase)', () => {
   it('campaigns.start_node_id : round-trip via createWithRecipients (aucune migration neuve)', async () => {
     const repo = new PgCampaignRepo(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF node', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF node', { nodes: [], edges: [] }, 'general');
     const { campaignId } = await repo.createWithRecipients({
       tenantId, phoneNumberId: 'pn-node', name: 'Camp node', category: 'utility',
       templateName: '', templateLanguage: '', paramMapping: [], workflowId: wfId, startNodeId: 'n5',
@@ -93,7 +93,7 @@ describe.skipIf(!url)('Cible node (Supabase)', () => {
   it('campaigns.start_node_id : round-trip via insertCampaign', async () => {
     const repo = new PgCampaignRepo(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF node 2', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF node 2', { nodes: [], edges: [] }, 'general');
     const campaignId = await repo.insertCampaign({
       tenantId, phoneNumberId: 'pn-node2', name: 'Camp node 2', category: 'utility',
       templateName: '', templateLanguage: '', paramMapping: [], workflowId: wfId, startNodeId: 'n9',
@@ -113,7 +113,7 @@ describe.skipIf(!url)('Cible node (Supabase)', () => {
   it('campagne workflow SANS startNodeId : start_node_id null (non-régression)', async () => {
     const repo = new PgCampaignRepo(pool);
     const wfStore = new PgWorkflowStore(pool);
-    const { id: wfId } = await wfStore.insert(tenantId, 'WF sans node', { nodes: [], edges: [] });
+    const { id: wfId } = await wfStore.insert(tenantId, 'WF sans node', { nodes: [], edges: [] }, 'general');
     const { campaignId } = await repo.createWithRecipients({
       tenantId, phoneNumberId: 'pn-node4', name: 'Camp WF', category: 'utility',
       templateName: '', templateLanguage: '', paramMapping: [], workflowId: wfId,

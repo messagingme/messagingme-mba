@@ -2339,7 +2339,7 @@ async function main(): Promise<void> {
         nomEspace: (t: string) => opsStore.getTenantName(t),
         // L'action « Lancer un scénario » (cadrage du 2026-10-29) : les scénarios en ligne, et la conversation tenue par
         // un opérateur (décision 3), relue comme le fait la reprise `saufOperateur` (`src/inbox/fil.ts`).
-        scenariosPublies: (t: string) => workflowStore.listPublies(t),
+        scenariosPublies: (t: string) => workflowStore.listPublies(t, 'general'),
         conseillerEnMain: async (t: string, waId: string) => (await inboxStore.getControlOwner(t, waId)) === 'app_human',
         // L'action « Lancer un scénario (transaction) » (cadrage du 2026-10-29, décision 8) : le modèle d'ouverture rempli
         // dans la route, par les sources posées sur le modèle, sur la fiche lue comme le fait le scénario (`varsDuContact`).
@@ -2775,7 +2775,7 @@ async function main(): Promise<void> {
       // Les scénarios que l'entretien liste et que l'outil « Lancer un scénario » qu'il propose peut viser : ceux EN
       // LIGNE, la règle du sélecteur de l'onglet Outils (`estEnLigne`, un graphe publié non vide). Lus au seul tour POST.
       scenariosEnLigne: async (tenant) =>
-        (await workflowStore.listResume(tenant)).filter((w) => w.nodeCount > 0).map((w) => ({ id: w.id, nom: w.name })),
+        (await workflowStore.listResume(tenant, 'general')).filter((w) => w.nodeCount > 0).map((w) => ({ id: w.id, nom: w.name })),
       ecrireFichesDocument: (tenant, agentId, nom, fiches) =>
         knowledgeStore.remplacerSource(tenant, agentId, { type: 'document', nom }, fiches),
       // L'entretien est tenu par le serveur : conversation persistante entre deux visites, et séquence des
@@ -2841,7 +2841,7 @@ async function main(): Promise<void> {
         });
         const [requetes, champs, bibliotheque, workflows, sources] = await Promise.all([
           agentRequetes.lister(tenant), fieldStore.list(tenant), toolCatalog.listCatalogue(tenant),
-          veutScenarios ? workflowStore.list(tenant) : Promise.resolve([]),
+          veutScenarios ? workflowStore.list(tenant, 'general') : Promise.resolve([]),
           outils.some((o) => o.origin === 'mcp') ? agentSources.lister(tenant) : Promise.resolve([]),
         ]);
         return {

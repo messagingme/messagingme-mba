@@ -21,7 +21,7 @@ function banc() {
   const ligne = {
     id: 'w1', tenant_id: 't1', name: 'n', code: null, graph: { nodes: [], edges: [] }, draft_graph: null,
     published_at: null, created_at: new Date(), updated_at: new Date(), node_count: 0, has_draft: false,
-    brouillon: false, test_token: 'jeton', systeme: null, origine: 'api',
+    brouillon: false, test_token: 'jeton', systeme: null, origine: 'api', rayon: 'general',
   };
   const query = async (sql: string) => { requetes.push(sql.replace(/\s+/g, ' ')); return { rows: [ligne], rowCount: 1 }; };
   // Les écritures de l'API passent par un client du pool (transaction et verrou) : il note pareil.
@@ -31,10 +31,10 @@ function banc() {
 
 /** Les méthodes publiques qui doivent ignorer la ligne système, et comment chacune s'appelle. */
 const FILTREES: Record<string, (s: PgWorkflowStore) => Promise<unknown>> = {
-  listResume: (s) => s.listResume('t1'),
-  listNoms: (s) => s.listNoms('t1'),
-  listPublies: (s) => s.listPublies('t1'),
-  list: (s) => s.list('t1'),
+  listResume: (s) => s.listResume('t1', 'general'),
+  listNoms: (s) => s.listNoms('t1', 'general'),
+  listPublies: (s) => s.listPublies('t1', 'general'),
+  list: (s) => s.list('t1', 'general'),
   getById: (s) => s.getById('w1', 't1'),
   update: (s) => s.update('w1', 't1', { name: 'x' }),
   publish: (s) => s.publish('w1', 't1'),

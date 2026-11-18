@@ -26,7 +26,7 @@ const noUsers: UserAuthStore = { findIdentity: async (): Promise<EmailIdentity |
 const h = (t: string) => ({ headers: { 'content-type': 'application/json', authorization: `Bearer ${t}` } });
 
 const sampleRow = (over: Partial<WorkflowRow> = {}): WorkflowRow => ({
-  id: W1, tenantId: 't1', name: 'Onboarding',
+  id: W1, tenantId: 't1', name: 'Onboarding', rayon: 'general',
   graph: { nodes: [{ id: 'n1', type: 'template', position: { x: 0, y: 0 }, data: {} }], edges: [] },
   createdAt: '2026-07-13T00:00:00.000Z', updatedAt: '2026-07-13T00:00:00.000Z', ...over,
 });
@@ -597,7 +597,7 @@ describe('GET /workflows : le RÉSUMÉ, jamais les graphes', () => {
     const { server } = app({
       scenarios: {
         listResume: async () => [{
-          id: W1, tenantId: 't1', name: 'Onboarding', code: 'scn_k7m2p3_x',
+          id: W1, tenantId: 't1', name: 'Onboarding', rayon: 'general', code: 'scn_k7m2p3_x',
           createdAt: '2026-09-01T00:00:00.000Z', updatedAt: '2026-09-01T00:00:00.000Z', publishedAt: null,
           nodeCount: 4, hasDraft: true, campaignEligible: true, canalOuverture: 'whatsapp' as const,
         }],

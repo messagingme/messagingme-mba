@@ -1,4 +1,5 @@
 import type { WorkflowGraph } from '../workflow/graph';
+import type { Rayon } from '../workflow/rayon';
 import type { UserFieldType, UserFieldDef } from '../crm/types';
 import { slugify, SYSTEM_FIELD_KEYS } from '../crm/fields';
 
@@ -13,7 +14,7 @@ export type ResolveResult<T> =
   | { ok: false; reason: 'ambiguous'; matches: T[] };
 
 export interface WorkflowLister {
-  list(tenantId: string): Promise<Array<{ id: string; name: string; code?: string | null; graph: WorkflowGraph }>>;
+  list(tenantId: string, rayon: Rayon): Promise<Array<{ id: string; name: string; code?: string | null; graph: WorkflowGraph }>>;
 }
 export interface FieldLister {
   list(tenantId: string): Promise<UserFieldDef[]>;
@@ -27,7 +28,8 @@ export async function resolveScenario(
   ref: string,
   workflows: WorkflowLister,
 ): Promise<ResolveResult<{ id: string; name: string; graph: WorkflowGraph }>> {
-  const all = await workflows.list(tenantId);
+  // L'API publique ne résout que le Builder (spec du menu « Scénario », décision 1).
+  const all = await workflows.list(tenantId, 'general');
   const pick = (w: (typeof all)[number]) => ({ id: w.id, name: w.name, graph: w.graph });
   if (ref.startsWith('scn_')) {
     const hit = all.find((w) => w.code === ref);
@@ -46,7 +48,8 @@ export async function resolveNode(
   workflows: WorkflowLister,
 ): Promise<ResolveResult<{ workflowId: string; nodeId: string; graph: WorkflowGraph }>> {
   if (!code.startsWith('nod_')) return { ok: false, reason: 'not_found' };
-  const all = await workflows.list(tenantId);
+  // L'API publique ne résout que le Builder (spec du menu « Scénario », décision 1).
+  const all = await workflows.list(tenantId, 'general');
   for (const w of all) {
     const node = w.graph.nodes.find((n) => n.data.code === code);
     if (node) return { ok: true, value: { workflowId: w.id, nodeId: node.id, graph: w.graph } };
