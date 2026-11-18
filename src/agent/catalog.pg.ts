@@ -16,6 +16,11 @@ import { sortiesDeLaFiche } from './fiche';
 import { lireVariables, paramsDuConnecteur } from './requetes';
 import { enTransaction } from '../db/transaction';
 
+/** Les scénarios que vise la cible d'un outil de l'agent de Meta : un pour un bloc ou un lancement, aucun sinon. */
+function scenariosDeLaCibleMaison(cible: CibleMaison): string[] {
+  return cible.handler === 'bloc_fixe' || cible.handler === 'scenario_fixe' ? [cible.workflowId] : [];
+}
+
 /**
  * La garde d'isolation, en SQL : aucun des scénarios donnés n'est hors de l'espace `$1`, ni hors du Builder (menu
  * « Scénario », décision 1 : un outil d'agent ne lance pas un scénario Shopify ou HubSpot). Un tableau vide passe.
@@ -406,13 +411,16 @@ export class PgToolCatalog implements ToolCatalog {
   }, parUtilisateur: string): Promise<OutilComplet | null> {
     const consommateur = consommateurMba(phoneNumberId);
     return enTransaction(this.pool, async (client) => {
+      // La garde d'isolation des agents IA vaut aussi ici : le scénario d'une cible bloc ou scénario est de l'espace ET du
+      // Builder, sinon rien n'est écrit (`null`, refus de la route).
       const res = await client.query<{ id: string }>(
         `insert into agent_tools
            (tenant_id, origin, name, title, description, ne_pas_utiliser, params, binding, risk, pour_agent_meta)
-         values ($1, 'mba', $2, $3, $4, $5, '[]'::jsonb, $6::jsonb, $7, true)
+         select $1, 'mba', $2, $3, $4, $5, '[]'::jsonb, $6::jsonb, $7, true
+          where ${SCENARIOS_DE_L_ESPACE('$8')}
          returning id`,
         [tenantId, outil.name, outil.title, outil.description, outil.nePasUtiliser,
-          JSON.stringify(outil.cible), RISQUE_MAISON[outil.cible.handler]],
+          JSON.stringify(outil.cible), RISQUE_MAISON[outil.cible.handler], scenariosDeLaCibleMaison(outil.cible)],
       ).catch(surNomDejaPris);
       const id = res.rows[0]?.id;
       if (!id) return null;
@@ -441,10 +449,11 @@ export class PgToolCatalog implements ToolCatalog {
           and exists (select 1 from agent_tool_consommateurs c
                        where c.tool_id = agent_tools.id and c.tenant_id = agent_tools.tenant_id
                          and c.consommateur = $2)
+          and ${SCENARIOS_DE_L_ESPACE('$10')}
         returning id`,
       [tenantId, consommateur, outilId, patch.name ?? null, patch.title ?? null, patch.description ?? null,
         patch.nePasUtiliser ?? null, patch.cible ? JSON.stringify(patch.cible) : null,
-        patch.cible ? RISQUE_MAISON[patch.cible.handler] : null],
+        patch.cible ? RISQUE_MAISON[patch.cible.handler] : null, patch.cible ? scenariosDeLaCibleMaison(patch.cible) : []],
     ).catch(surNomDejaPris);
     if (!res.rows[0]) return null;
     return this.complet(tenantId, consommateur, outilId);

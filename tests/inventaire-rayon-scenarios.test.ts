@@ -39,7 +39,6 @@ const SQL_TOUS_RAYONS: Record<string, string> = {
 /** Les lectures par identifiant qui voient tous les rayons, et pourquoi (fichier → raison). */
 const GETBYID_TOUS_RAYONS: Record<string, string> = {
   'src/http/workflows.ts': 'l’éditeur, par identifiant dans l’espace ; la duplication et la publication relisent `rayon`',
-  'src/worker.ts': 'la relecture du graphe d’un parcours en cours, et la cible fixée d’un outil d’agent (gardée à l’écriture par le catalogue)',
   'src/socle.ts': 'l’estimation du coût d’une campagne déjà créée, affichée',
   'src/stats/chiffrage.ts': 'le chiffrage d’une campagne déjà créée, affiché',
   'src/workflow/branche-humain.ts': 'la relecture du graphe d’un parcours en cours',
@@ -47,15 +46,18 @@ const GETBYID_TOUS_RAYONS: Record<string, string> = {
   'src/workflow/wiring.ts': 'la relecture du graphe d’un parcours, et l’origine d’un saut dont on lit le rayon',
 };
 
-/** Dans `src/index.ts`, les lectures par identifiant qui voient tous les rayons, reconnues par leur ligne. */
-const INDEX_TOUS_RAYONS: Record<string, string> = {
-  'graphePublie: async (t, id) => (await workflowStore.getById(id, t))?.graph ?? null,':
-    'la cible fixée d’un outil de l’agent de Meta, gardée à l’écriture par le catalogue des outils',
-  'const w = await workflowStore.getById(id, tenant);':
-    'le contexte d’un outil de l’agent de Meta : sa cible, gardée à l’écriture par le catalogue des outils',
+/**
+ * Dans les fichiers de câblage, les lectures par identifiant qui voient tous les rayons, reconnues par leur LIGNE, jamais
+ * par le fichier entier : une validation neuve écrite à côté serait sinon exemptée sans que personne l'ait décidé.
+ */
+const LIGNES_TOUS_RAYONS: Record<string, Record<string, string>> = {
+  'src/worker.ts': {
+    'graphe: async (t, id) => (await workflowStore.getById(id, t))?.graph ?? null,':
+      'la relecture du graphe d’un parcours en cours (le rangement d’un formulaire)',
+  },
 };
 
-const RE_SQL = /\b(from|join) workflows\b/;
+const RE_SQL = /\b(from|join) workflows\b/i;
 const RE_GETBYID = /\b(workflowStore|scenarios|workflows|wfStore)\.getById\(/;
 
 describe('🔴 aucun choix de scénario ne traverse un rayon', () => {
@@ -88,7 +90,7 @@ describe('🔴 aucun choix de scénario ne traverse un rayon', () => {
       const lignes = texte.split('\n');
       lignes.forEach((ligne, i) => {
         if (!RE_GETBYID.test(ligne)) return;
-        if (chemin === 'src/index.ts' && Object.keys(INDEX_TOUS_RAYONS).some((l) => ligne.trim() === l)) return;
+        if (Object.keys(LIGNES_TOUS_RAYONS[chemin] ?? {}).some((l) => ligne.trim() === l)) return;
         // La comparaison suit la lecture : même ligne ou les trois suivantes (`etatDuScenario` la fait elle-même). Une
         // COMPARAISON (`.rayon`), pas un commentaire qui parle du rayon.
         const voisinage = lignes.slice(i, i + 4).join('\n');
@@ -103,7 +105,9 @@ describe('🔴 aucun choix de scénario ne traverse un rayon', () => {
       const f = SOURCES.find((s) => s.chemin === chemin);
       expect(f && RE_GETBYID.test(f.texte), chemin).toBe(true);
     }
-    const index = SOURCES.find((s) => s.chemin === 'src/index.ts')!.texte.split('\n').map((l) => l.trim());
-    for (const ligne of Object.keys(INDEX_TOUS_RAYONS)) expect(index.filter((l) => l === ligne).length, ligne).toBeGreaterThan(0);
+    for (const [chemin, lignes] of Object.entries(LIGNES_TOUS_RAYONS)) {
+      const texte = SOURCES.find((s) => s.chemin === chemin)!.texte.split('\n').map((l) => l.trim());
+      for (const ligne of Object.keys(lignes)) expect(texte.filter((l) => l === ligne).length, `${chemin} : ${ligne}`).toBeGreaterThan(0);
+    }
   });
 });

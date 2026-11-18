@@ -22,6 +22,7 @@ import {
 import type { Entonnoir } from '../pubs/entonnoir';
 import { makeJournal, type AuditSink } from '../audit/journal';
 import { journaliser } from '../lib/journal';
+import type { EtatScenario } from '../workflow/store.pg';
 
 /**
  * Les publicités d'un espace : sa connexion (lire l'état, échanger le code de la fenêtre Meta, choisir le compte
@@ -107,8 +108,18 @@ export interface PubsRouteDeps {
   };
   /** Les audiences personnalisées du compte publicitaire connecté, lues chez Meta à chaque demande. */
   audiences(tenantId: string): Promise<ListeAudiencesPub>;
+  /**
+   * Le scénario choisi peut-il DÉMARRER (`etatDuScenario`) : de l'espace, du Builder (menu « Scénario », décision 1) et
+   * publié. REQUIS : sans lui, une publicité vers le scénario d'un autre espace ou d'un autre rayon serait créée chez
+   * Meta et dépenserait, chaque prospect tombant ensuite sur un démarrage refusé.
+   */
+  scenarioEtat(tenantId: string, workflowId: string): Promise<EtatScenario>;
   audit: AuditSink;
 }
+
+const SCENARIO_PUB_INCONNU = 'Ce scénario n’existe pas dans cet espace.';
+const SCENARIO_PUB_NON_PUBLIE =
+  'Ce scénario n’a aucune version publiée : publiez-le d’abord, sinon les prospects de cette publicité ne recevraient rien.';
 
 /** `.strict()` : une clé en trop est refusée, le navigateur ne choisit pas ce qu'il envoie. */
 const corpsEchange = z.object({ code: z.string().min(1).max(4096) }).strict();
@@ -640,6 +651,12 @@ export function registerPubs(app: FastifyInstance, deps: PubsRouteDeps, garde: G
     }
     if (f.destination === 'scenario' && f.workflowId === null) {
       return reply.code(400).send({ error: 'choisissez le scénario qui répondra aux prospects de cette publicité' });
+    }
+    // Avant tout appel à Meta : une publicité créée dépense. Même règle que le widget (`src/widgets/gestion.ts`).
+    if (f.destination === 'scenario' && f.workflowId !== null) {
+      const etat = await deps.scenarioEtat(tenantId, f.workflowId);
+      if (etat === 'inconnu') return reply.code(400).send({ error: SCENARIO_PUB_INCONNU });
+      if (etat === 'vide') return reply.code(409).send({ error: SCENARIO_PUB_NON_PUBLIE });
     }
     const double = audienceEnDouble(f.audiencesIncluses, f.audiencesExclues);
     if (double !== null) {

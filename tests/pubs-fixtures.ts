@@ -18,8 +18,11 @@ export const aucunePubliciteUtilise = async (): Promise<string[]> => [];
  * changé de sujet sans le savoir, et mieux vaut qu'il le dise bruyamment.
  */
 export const aucunePubDeRoute: Pick<PubsRouteDeps,
-  'publicites' | 'creerPub' | 'publierPub' | 'lirePub' | 'basculerPub' | 'brouillons' | 'videos' | 'audiences'> = {
+  'publicites' | 'creerPub' | 'publierPub' | 'lirePub' | 'basculerPub' | 'brouillons' | 'videos' | 'audiences' | 'scenarioEtat'> = {
   publicites: { lister: async () => [], archiver: async () => 'introuvable' },
+  // Une lecture : elle rend « inconnu » (le vide), comme les autres lectures de ce faux. Un test de création qui veut un
+  // scénario démarrable le dit (`scenarioEtat: async () => 'ok'`).
+  scenarioEtat: async () => 'inconnu',
   lirePub: async () => null,
   creerPub: () => { throw new Error('aucunePubDeRoute : creerPub ne devrait pas être appelée'); },
   publierPub: () => { throw new Error('aucunePubDeRoute : publierPub ne devrait pas être appelée'); },

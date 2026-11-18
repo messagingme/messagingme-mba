@@ -93,6 +93,25 @@ describe.skipIf(!url)('le magasin des outils de l’agent de Meta', () => {
   const duMba = async (name: string) =>
     (await cat.listToutesConsommateur(tenantId, consommateurMba(PN))).find((x) => x.name === name);
 
+  it('🔴 une cible bloc ou scénario hors du Builder est refusée, à la création comme à la correction (menu « Scénario », lot 2)', async () => {
+    // Un scénario d'un autre rayon que le Builder n'existe pas pour l'agent de Meta : sinon il enverrait le template d'un
+    // scénario Shopify hors de son circuit. La route le refuse déjà (`cibleInvalide`), le magasin le garde aussi.
+    const graphe = '{"nodes":[],"edges":[]}';
+    const scenario = async (rayon: string) => (await pool.query<{ id: string }>(
+      `insert into workflows (tenant_id, name, draft_graph, rayon) values ($1, $2, $3::jsonb, $4) returning id`,
+      [tenantId, 'itest-' + rayon + '-' + randomUUID(), graphe, rayon],
+    )).rows[0]!.id;
+    const shopify = await scenario('shopify');
+    const general = await scenario('general');
+    const avecCible = (name: string, workflowId: string) => ({ ...nouvel(name), cible: { handler: 'scenario_fixe' as const, workflowId } });
+    expect(await cat.ajouterMaisonPourMba(tenantId, PN, avecCible('lancer_panier', shopify), userId)).toBeNull();
+    expect(await duMba('lancer_panier')).toBeUndefined();
+    const o = await cat.ajouterMaisonPourMba(tenantId, PN, avecCible('lancer_builder', general), userId);
+    expect(o).not.toBeNull();
+    expect(await cat.patchMaisonPourMba(tenantId, PN, o!.id, { cible: { handler: 'scenario_fixe', workflowId: shopify } })).toBeNull();
+    expect((await duMba('lancer_builder'))?.binding).toMatchObject({ workflowId: general });
+  });
+
   it('🔴 crée l’outil ET l’expose, actif, au nom de l’administrateur', async () => {
     const o = await cat.ajouterMaisonPourMba(tenantId, PN, nouvel('marquer_vip'), userId);
     expect(o).toMatchObject({ origin: 'mba', name: 'marquer_vip', actif: true, binding: { handler: 'tag_fixe', tag: 'vip' } });

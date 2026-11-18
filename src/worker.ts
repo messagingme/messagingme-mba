@@ -2288,7 +2288,9 @@ export async function demarrerWorker(): Promise<void> {
      * session et le parcours de l'agent clos sans qu'aucune sortie du bloc ne reparte derrière.
      */
     const gestesEnvoiAgent = creerGestesEnvoiAgent({
-      graphePublie: async (t, workflowId) => (await workflowStore.getById(workflowId, t))?.graph ?? null,
+      // Le Builder seul (menu « Scénario », décision 1) : l'outil « Envoyer un bloc » d'un agent IA passe par
+      // `envoyerBlocDepuisAgent`, jamais par `lancer`, donc sans autre garde de rayon que celle-ci.
+      graphePublie: async (t, workflowId) => { const w = await workflowStore.getById(workflowId, t); return w?.rayon === 'general' ? w.graph : null; },
       envoyerDepuisAgent: (t, waId, input) => workflowExecutor.envoyerBlocDepuisAgent(t, waId, input),
       lancer: (demande) => lancements.lancer(demande),
       fenetreOuverte: async (t, waId) => (await inboxStore.getWindowOpenByWaIds(t, [waId])).get(waId) === true,

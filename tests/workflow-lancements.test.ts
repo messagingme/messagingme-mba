@@ -7,7 +7,7 @@ import { WorkflowExecutor } from '../src/workflow/executor';
 import type { StartOutcome, WorkflowExecutorDeps } from '../src/workflow/executor';
 import { buildWorkflowRuntime } from '../src/workflow/wiring';
 import {
-  POLITIQUE_DE_LANCEMENT, REFUS_SCENARIOS_HORS_OFFRE, TYPES_DE_LANCEMENT, creerLancements, rayonAdmis,
+  POLITIQUE_DE_LANCEMENT, REFUS_SCENARIOS_HORS_OFFRE, TYPES_DE_LANCEMENT, creerLancements, rayonAdmis, REFUS_SCENARIO_INCONNU,
   type DemandeDeLancement, type PolitiqueDeLancement, type TypeDeLancement,
 } from '../src/workflow/lancements';
 import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
@@ -343,8 +343,10 @@ describe('le graphe joué : seul le lien de test joue le brouillon, et lui seul 
       expect(m.crees.map((c) => c.fige)).toEqual([fige]);
       // Le graphe fourni ne demande aucune lecture : le bloc vient d'être relu par l'appelant, sur le publié ; celui du
       // répondeur vient d'être construit depuis le réglage, sa ligne de scénario n'en porte aucun. Un saut joue le
-      // publié que `resoudreBloc` vient de lire avec le bloc visé : l'entrée de lancement ne relit rien.
-      expect(m.lectures).toEqual(fourni || estUnSaut(type) ? [] : [`${ESPACE}/wf-modele`]);
+      // publié que `resoudreBloc` vient de lire avec le bloc visé : l'entrée de lancement ne relit rien. L'envoi d'un bloc par
+      // l'agent de Meta relit la ligne pour son RAYON seulement (menu « Scénario », lot 2) : le graphe joué reste le fourni.
+      const relue = type === 'agent_meta_bloc' || !(fourni || estUnSaut(type));
+      expect(m.lectures).toEqual(relue ? [`${ESPACE}/wf-modele`] : []);
     });
   }
 });
@@ -442,10 +444,25 @@ describe('ce que l’entrée lit, et ce qu’elle transmet', () => {
     }
   });
 
-  it('🔴 les rayons de chaque type : le Builder seul, sauf le lien de test qui teste tous les rayons', () => {
+  it('🔴 les rayons de chaque type : le Builder seul, le lien de test tous, « sans objet » pour qui ne lit aucune ligne', () => {
+    const sansObjet = new Set(['repondeur', 'aller_a', 'aller_a_masse']);
     for (const type of TYPES_DE_LANCEMENT) {
-      expect([...POLITIQUE_DE_LANCEMENT[type].rayons].sort(), type).toEqual(type === 'lien_de_test' ? [...RAYONS].sort() : ['general']);
+      const r = POLITIQUE_DE_LANCEMENT[type].rayons;
+      if (sansObjet.has(type)) expect(r, type).toBe('sans_objet');
+      else expect([...r].sort(), type).toEqual(type === 'lien_de_test' ? [...RAYONS].sort() : ['general']);
     }
+    // Un type « sans objet » consulté quand même refuse (échouer fermé).
+    expect(rayonAdmis('repondeur', 'general')).toBe(false);
+  });
+
+  it('🔴 l’envoi d’un bloc par l’agent de Meta relit la ligne : un bloc d’un scénario Shopify ne part pas', async () => {
+    const m = banc();
+    const issue = await m.lancements.lancer(demandeDe('agent_meta_bloc', { workflowId: 'wf-shopify' }));
+    expect(issue).toBe(REFUS_SCENARIO_INCONNU);
+    expect(m.envois).toEqual([]);
+    expect(m.crees).toEqual([]);
+    // Et un bloc du Builder part comme avant.
+    expect(await banc().lancements.lancer(demandeDe('agent_meta_bloc', { workflowId: 'wf-modele' }))).not.toBe(REFUS_SCENARIO_INCONNU);
   });
 
   it('la campagne transmet les variables du premier modèle, déjà résolues', async () => {

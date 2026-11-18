@@ -2857,14 +2857,15 @@ async function main(): Promise<void> {
           serveurs: new Map(sources.map((s) => [s.id, { label: s.label }])),
         };
       },
-      // Le graphe publié, celui que le relais joue : jamais le brouillon.
+      // Le graphe publié, celui que le relais joue : jamais le brouillon. L'agent de Meta ne vise que le Builder (menu
+      // « Scénario », décision 1) : un scénario d'un autre rayon est un inconnu, sa cible est refusée et sans bloc.
       workflow: async (tenant, id) => {
         const w = await workflowStore.getById(id, tenant);
-        return w ? { name: w.name, graph: w.graph } : null;
+        return w?.rayon === 'general' ? { name: w.name, graph: w.graph } : null;
       },
       blocs: async (tenant, id) => {
         const w = await workflowStore.getById(id, tenant);
-        return w ? blocsProposables([{ id: w.id, name: w.name, graph: w.graph }]) : [];
+        return w?.rayon === 'general' ? blocsProposables([{ id: w.id, name: w.name, graph: w.graph }]) : [];
       },
       requetes: agentRequetes,
       champs: async (tenant) => (await fieldStore.list(tenant)).map((f) => f.key),
@@ -3179,6 +3180,8 @@ async function main(): Promise<void> {
 
       publicites,
       brouillons: brouillonsPub,
+      // Le scénario d'une publicité : l'espace, le Builder et une version publiée, lus comme ceux d'une chaîne et d'un widget.
+      scenarioEtat: async (tenant, wfId) => etatDuScenario(await workflowStore.getById(wfId, tenant)),
       // Ces cas d'usage et l'accès au compte Meta sont possédés par `src/pubs/acces-publicitaire.ts`.
       ...accesPublicitaire,
     },
@@ -3770,7 +3773,8 @@ async function main(): Promise<void> {
           // Les deux gestes qui envoient : ils rendent le fil sur toute issue ratée, exception comprise
           // (`src/mba/gestes-envoi.ts`, testé).
           ...creerGestesEnvoi({
-            graphePublie: async (t, id) => (await workflowStore.getById(id, t))?.graph ?? null,
+            // Le Builder seul : la cible d'un outil de l'agent de Meta hors du Builder n'envoie rien (relu à chaque appel).
+            graphePublie: async (t, id) => { const w = await workflowStore.getById(id, t); return w?.rayon === 'general' ? w.graph : null; },
             fenetreOuverte: async (t, waId) => (await inboxStore.getWindowOpenByWaIds(t, [waId])).get(waId) === true,
             contacts: contactStore,
             // Les deux types de l'agent de Meta (`src/workflow/lancements.ts`) : le bloc part du graphe réduit, sans

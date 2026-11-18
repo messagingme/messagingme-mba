@@ -87,3 +87,10 @@ describe('copierDeclencheurs', () => {
     expect(r.tags).toHaveLength(1);
   });
 });
+
+describe('🔴 le rayon des automations copiées (menu « Scénario », lot 2)', () => {
+  it('une copie est toujours du Builder, même si l’original portait un autre rayon', () => {
+    const r = copierDeclencheurs([auto('a', { rayon: 'shopify' })], []);
+    expect(r.copies.map((c) => c.rayon)).toEqual(['general']);
+  });
+});

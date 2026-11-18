@@ -91,8 +91,9 @@ export function copierDeclencheurs(duScenario: readonly AutomationRow[], deLaDes
       name: a.name, triggerKind: a.triggerKind, triggerConfig: config, conditionGroup: a.conditionGroup,
       startNodeId: a.startNodeId, cooldownSeconds: a.cooldownSeconds, maxFiresPerHour: a.maxFiresPerHour,
       enabled: false, possedePar: null, accordMarketing: null,
-      // Le rayon de l'automation copiée : celui de l'original (son scénario est copié dans le même rayon).
-      rayon: a.rayon,
+      // Toujours le Builder : la duplication ne copie que des scénarios du Builder (`lireEtat`), et une automation d'un
+      // autre rayon qui les viserait serait une paire incohérente, qu'aucune contrainte de la base n'attrape.
+      rayon: 'general',
     });
   }
   out.clesDeChamp = [...cles].filter((c) => c !== '' && !isSystemFieldKey(c));

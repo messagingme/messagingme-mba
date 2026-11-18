@@ -47,6 +47,8 @@ function app(over: Partial<PubsRouteDeps> = {}, role = 'admin'): { srv: FastifyI
     actifsAccordes: async () => accordes,
     choisir: async () => etatChoisi,
     deconnecter: async () => ({ revoqueChezMeta: true }),
+    // Le scénario choisi démarre (espace, Builder, publié) : les cas qui le refusent le disent.
+    scenarioEtat: async () => 'ok',
     audit: async (_tenantId, _acteur, action) => { traces.audit.push(action); },
     ...over,
   };
@@ -76,6 +78,32 @@ const corpsValide = (over: Record<string, unknown> = {}): Record<string, unknown
 });
 
 const creee = { sorte: 'creee' as const, publiciteId: 'pub-1', campagneId: 'c-1' };
+
+describe('🔴 POST /pubs : le scénario choisi est de l’espace, du Builder et publié (menu « Scénario », lot 2)', () => {
+    it('un scénario inconnu, d’un autre espace ou d’un autre rayon : 400, et rien n’est créé chez Meta', async () => {
+      let appele = false;
+      const { srv } = app({ scenarioEtat: async () => 'inconnu', creerPub: async () => { appele = true; return creee; } });
+      const r = await srv.inject({ method: 'POST', url: urlPubs(), payload: corpsValide() });
+      expect(r.statusCode).toBe(400);
+      expect(r.json<{ error: string }>().error).toBe('Ce scénario n’existe pas dans cet espace.');
+      expect(appele).toBe(false);
+    });
+
+    it('un scénario sans version publiée : 409, et rien n’est créé chez Meta', async () => {
+      let appele = false;
+      const { srv } = app({ scenarioEtat: async () => 'vide', creerPub: async () => { appele = true; return creee; } });
+      const r = await srv.inject({ method: 'POST', url: urlPubs(), payload: corpsValide() });
+      expect(r.statusCode).toBe(409);
+      expect(appele).toBe(false);
+    });
+
+    it('une publicité confiée à l’agent de Meta ne lit aucun scénario', async () => {
+      const lus: string[] = [];
+      const { srv } = app({ scenarioEtat: async (_t, id) => { lus.push(id); return 'inconnu'; }, creerPub: async () => creee });
+      await srv.inject({ method: 'POST', url: urlPubs(), payload: corpsValide({ destination: 'agent_meta', workflowId: null }) });
+      expect(lus).toEqual([]);
+    });
+  });
 
 describe('POST /pubs : créer une publicité', () => {
   it('crée, et rend l’identifiant de la campagne', async () => {

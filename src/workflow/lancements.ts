@@ -87,9 +87,16 @@ export type TypeDeLancementAutomatisme = Extract<TypeDeLancement, `automatisme_$
 
 /** Ce type de lancement peut-il démarrer un scénario de ce rayon ? */
 export function rayonAdmis(type: TypeDeLancement, rayon: Rayon): boolean {
-  const admis: readonly Rayon[] = POLITIQUE_DE_LANCEMENT[type].rayons;
-  return admis.includes(rayon);
+  const admis = POLITIQUE_DE_LANCEMENT[type].rayons;
+  // « Sans objet » : ce type ne lit aucune ligne de scénario (graphe fourni, ou cible résolue dans le rayon d'origine).
+  // Un appel qui le consulterait quand même refuse : échouer fermé plutôt que laisser passer.
+  if (admis === 'sans_objet') return false;
+  const liste: readonly Rayon[] = admis;
+  return liste.includes(rayon);
 }
+
+/** Le refus d'un scénario inconnu, ou d'un autre rayon, quand le type de lancement rend une phrase plutôt que `null`. */
+export const REFUS_SCENARIO_INCONNU = 'ce scénario n’existe pas';
 
 /** Ce que décide le type d'un lancement, et rien d'autre. */
 export interface PolitiqueDeLancement {
@@ -181,7 +188,7 @@ export interface PolitiqueDeLancement {
    * que le Builder (le workflow HubSpot passera au rayon HubSpot au lot 6). Sans effet sur les types qui reçoivent leur
    * graphe (`agent_meta_bloc`, `repondeur`) ni sur le saut, dont la cible se résout dans le rayon d'origine.
    */
-  rayons: readonly Rayon[];
+  rayons: readonly Rayon[] | 'sans_objet';
 }
 
 /**
@@ -234,7 +241,7 @@ export const POLITIQUE_DE_LANCEMENT = {
    * opérateur qui tient le fil (c'est le client qui écrit, comme un clic sur une publicité) ; ses étiquettes publient
    * (un contact, ici et maintenant) ; la fenêtre est prouvée par l'entrant qui le démarre.
    */
-  repondeur: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'fourni_fige', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre', rayons: ['general'] },
+  repondeur: { reprise: 'sauf_operateur', publieLesEtiquettes: true, graphe: 'fourni_fige', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre', rayons: 'sans_objet' },
   /**
    * Le scénario répondeur (RC6, plan `docs/superpowers/plans/2026-10-06-rc6-qui-repond.md`) : la politique de l'agent IA
    * répondeur, sur le graphe PUBLIÉ du scénario choisi (un contact réel ne tombe jamais dans un brouillon, et rien n'est
@@ -255,8 +262,8 @@ export const POLITIQUE_DE_LANCEMENT = {
    *   démarrage a déjà remplacé le parcours en cours), donc le saut ne remplace jamais une session d'agent vivante qui
    *   serait la sienne. Ce qu'il remplacerait encore viendrait d'ailleurs : une interruption, comme pour tout démarrage.
    */
-  aller_a: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre', rayons: ['general'] },
-  aller_a_masse: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre', rayons: ['general'] },
+  aller_a: { reprise: 'oui', publieLesEtiquettes: true, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre', rayons: 'sans_objet' },
+  aller_a_masse: { reprise: 'oui', publieLesEtiquettes: false, graphe: 'publie', fenetre: 'selon_preuve', sessionRemplacee: 'interrompue', horsOffre: 'continue', marketing: 'libre', rayons: 'sans_objet' },
 } as const satisfies Record<TypeDeLancement, PolitiqueDeLancement>;
 
 /**
@@ -464,6 +471,10 @@ export function creerLancements(deps: DepsLancements): Lancements {
       return REFUS_SCENARIOS_HORS_OFFRE;
     }
     if (demande.type === 'agent_meta_bloc') {
+      // Le graphe est fourni (le bloc seul), mais la ligne se relit pour son rayon : l'agent de Meta n'envoie qu'un bloc du
+      // Builder (menu « Scénario », décision 1), même si une cible plus ancienne visait autre chose.
+      const wf = await deps.scenarios.getById(demande.workflowId, demande.tenantId);
+      if (!wf || !rayonAdmis(demande.type, wf.rayon)) return REFUS_SCENARIO_INCONNU;
       return deps.executor.demarrer(demande.type, demande.tenantId, demande.workflowId, demande.graphe, demande.contact,
         { depuis: 'bloc', noeudId: demande.noeudId });
     }

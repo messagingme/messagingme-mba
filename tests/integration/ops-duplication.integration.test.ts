@@ -95,6 +95,10 @@ describe.skipIf(!url)('duplication de scénario entre espaces (Postgres)', () =>
     const systeme = await workflows.assurerScenarioSysteme(source, 'repondeur');
     expect(await store.lireEtat(source, systeme, destination)).toBeNull();
     expect((await store.scenarios(source)).map((s) => s.id)).not.toContain(systeme);
+    // Le Builder seul (menu « Scénario », lot 2) : un scénario Shopify de l'espace ne se lit ni ne se liste.
+    const panier = (await workflows.insert(source, 'Panier abandonné', graphe('s'), 'shopify')).id;
+    expect(await store.lireEtat(source, panier, destination)).toBeNull();
+    expect((await store.scenarios(source)).map((s) => s.id)).not.toContain(panier);
   });
 
   it('écrit dans la destination seulement : brouillon, champ, déclencheur éteint ; la source ne bouge pas', async () => {

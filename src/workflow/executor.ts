@@ -451,11 +451,9 @@ export interface WorkflowExecutorDeps {
   /**
    * Le bloc d'un AUTRE scénario qu'un « Aller à » vise (RC5) : son scénario, son identifiant et le graphe PUBLIÉ qui le
    * porte, ou `null` (bloc disparu, scénario dépublié, code inconnu). 🔴 Scopée à l'espace : un code d'un autre espace
-   * rend `null`, c'est le seul contrôle. Requise ; fixtures : `aucunBlocAilleurs`.
-   */
-  /**
-   * `depuisWorkflowId` : le scénario d'origine du saut. La cible ne se cherche que dans SON rayon (menu « Scénario »,
-   * décision 1) : un scénario d'un autre rayon n'existe pas pour un « Aller à ».
+   * rend `null`, c'est le seul contrôle. `depuisWorkflowId` : le scénario d'origine du saut ; la cible ne se cherche que
+   * dans SON rayon (menu « Scénario », décision 1), un scénario d'un autre rayon n'existe pas pour un « Aller à ».
+   * Requise ; fixtures : `aucunBlocAilleurs`.
    */
   resoudreBloc(tenantId: string, code: string, depuisWorkflowId: string): Promise<{ workflowId: string; nodeId: string; graph: WorkflowGraph } | null>;
   /**
