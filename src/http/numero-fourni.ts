@@ -36,14 +36,23 @@ export interface NumeroFourniRouteDeps {
    * `coexistence` : relié en coexistence (migration 0253), que l'état de la connexion transmet à la page du lien.
    */
   numeroConnecte(tenantId: string): Promise<{ chiffres: string; aActiver: boolean; coexistence?: true } | null>;
-  /** Un remplacement par heure et par espace : « En obtenir un autre » ne vide pas la réserve partagée. */
-  verrous: Pick<VerrousCourts, 'prendre'>;
+  /**
+   * Un remplacement par heure et par espace : « En obtenir un autre » ne vide pas la réserve partagée. Relâché quand rien
+   * n'a été remplacé (réserve vide).
+   */
+  verrous: Pick<VerrousCourts, 'prendre' | 'relacher'>;
   /** Prévenir Julien. Ne lèvent jamais (le câblage borne leur fréquence). */
   alertes: {
     /** La réserve est passée sous le seuil, ou vide (`libres` = 0). */
     reserveBasse(libres: number): Promise<void>;
-    /** Meta a refusé ce numéro (déjà actif ailleurs) : il est sorti de la réserve, à résilier ou à garder. */
-    numeroBloque(numero: string, tenantId: string): Promise<void>;
+    /**
+     * Ce numéro est sorti de la réserve sans y revenir, à résilier ou à garder : un code a pu le vérifier (un compte
+     * WhatsApp existe peut-être dessus), ou, `cause: 'sans_appel'`, il a été remplacé par deux clients de suite sans qu'aucun
+     * appel n'arrive (Meta le refuse sans doute, déjà actif sur WhatsApp ailleurs, plan du 2026-11-18).
+     */
+    numeroBloque(numero: string, tenantId: string, cause?: 'sans_appel'): Promise<void>;
+    /** « En obtenir un autre » a rendu ce numéro au stock : aucun code n'avait pu être lu (plan du 2026-11-18). */
+    numeroRendu(numero: string, tenantId: string): Promise<void>;
     /** « Abandonner » n'a pas pu programmer la fin de l'abonnement chez Stripe : à résilier à la main (lot 4, B). */
     finNonProgrammee(abonnementId: string, tenantId: string): Promise<void>;
   };
@@ -82,7 +91,10 @@ const saisieAbonnement = z.object({ retour: z.enum(['brancher', 'console']) });
 /** La voie choisie dans l'arbre de la console (lot 3 du 2026-11-17) : la fenêtre de Meta, ou l'application. */
 const saisieDestination = z.object({ destination: z.enum(['api', 'application']) });
 
-/** Le délai entre deux remplacements d'un même espace. Un numéro remplacé sort de la réserve pour de bon (`bloque`). */
+/**
+ * Le délai entre deux remplacements d'un même espace. Un numéro remplacé revient au stock si aucun code n'a pu être lu,
+ * sinon il en sort pour de bon (`bloque`, `remplacerNumero`).
+ */
 export const DELAI_ENTRE_REMPLACEMENTS_MS = 3_600_000;
 
 /**
@@ -105,8 +117,13 @@ export function creerAlertesReserve(o: {
         : `Réserve de numéros fournis basse : ${libres} libre(s). Achète des numéros chez DIDWW, puis déclare-les dans /ops.`;
       if (!(await o.envoyer(texte))) await o.verrous.relacher(prise);
     },
-    numeroBloque: async (numero, tenant) => {
-      await o.envoyer(`Numéro fourni bloqué (refusé par Meta, ou porteur d'un compte WhatsApp Business) : +${numero} (espace ${tenant}). À résilier chez DIDWW, ou à garder.`);
+    numeroBloque: async (numero, tenant, cause) => {
+      await o.envoyer(cause === 'sans_appel'
+        ? `Numéro fourni bloqué : +${numero} (espace ${tenant}), remplacé par deux clients de suite sans aucun appel. Meta le refuse sans doute (déjà actif sur WhatsApp ailleurs). À résilier chez DIDWW, ou à garder.`
+        : `Numéro fourni bloqué (refusé par Meta, ou porteur d'un compte WhatsApp Business) : +${numero} (espace ${tenant}). À résilier chez DIDWW, ou à garder.`);
+    },
+    numeroRendu: async (numero, tenant) => {
+      await o.envoyer(`Numéro fourni rendu au stock : +${numero} (espace ${tenant}), remplacé par le client sans qu'aucun code n'ait pu être lu.`);
     },
     finNonProgrammee: async (abonnementId, tenant) => {
       await o.envoyer(`« Abandonner » sans résiliation chez Stripe : abonnement ${abonnementId} (espace ${tenant}). Le numéro est rendu, mais l'abonnement continue : à résilier à la main en fin de période.`);
@@ -149,6 +166,16 @@ export function registerNumeroFourni(
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error(`numero-fourni : la réserve n'a pas pu être comptée : ${texteDe(err)}`);
+    }
+  };
+
+  /** Une alerte à Julien ne fait jamais échouer le geste du client : il est fait, l'échec de l'alerte se journalise. */
+  const alerterSansLever = async (alerte: () => Promise<void>): Promise<void> => {
+    try {
+      await alerte();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`numero-fourni : alerte à Julien non partie : ${texteDe(err)}`);
     }
   };
 
@@ -299,20 +326,25 @@ export function registerNumeroFourni(
     }
     // Avant le verrou : un refus ne consomme pas le remplacement de l'heure.
     if (await reserveDueAuxAbonnes(droit)) return reply.code(409).send(RESERVE_VIDE);
-    // Le verrou n'est jamais relâché : son échéance EST le délai, commun à toutes les copies de l'API.
-    if (!(await deps.verrous.prendre([[`numeros.remplacer:${tenant}`, DELAI_ENTRE_REMPLACEMENTS_MS]]))) {
+    // Le verrou n'est relâché que si rien n'a été remplacé : son échéance EST le délai, commun à toutes les copies de l'API.
+    const prise = await deps.verrous.prendre([[`numeros.remplacer:${tenant}`, DELAI_ENTRE_REMPLACEMENTS_MS]]);
+    if (!prise) {
       return reply.code(429).send({ error: 'Un seul remplacement de numéro par heure. Si Meta refuse encore ce numéro, contactez-nous.', cause: 'trop_de_remplacements' });
     }
     const r = await deps.numeros.remplacerNumero(tenant);
-    // Rendu à la réserve (seule l'application WhatsApp l'avait appelé) : il revient d'abord à l'abonné qui attend.
-    if (r.rendu) await servirLAttente(deps, tenant, 'remplacement');
+    // Rien n'a été remplacé (réserve vide, l'espace garde son numéro) : le remplacement de l'heure n'est pas consommé, un
+    // essai après le réapprovisionnement passe (jaune du lot 3 du 2026-11-17).
+    if (r.bloque === null && r.nouveau === null && r.rendu === undefined) await deps.verrous.relacher(prise);
+    // Rendu au stock (aucun code n'a pu être lu, plan du 2026-11-18) : il revient d'abord à l'abonné qui attend, et
+    // Julien le sait.
+    const rendu = r.rendu;
+    if (rendu) {
+      await servirLAttente(deps, tenant, 'remplacement');
+      await alerterSansLever(() => deps.alertes.numeroRendu(rendu, tenant));
+    }
     if (r.bloque) {
-      try {
-        await deps.alertes.numeroBloque(r.bloque, tenant);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(`numero-fourni : alerte du numéro bloqué non partie : ${texteDe(err)}`);
-      }
+      const bloque = r.bloque;
+      await alerterSansLever(() => deps.alertes.numeroBloque(bloque, tenant, r.cause));
     }
     await surveillerReserve();
     if (!r.nouveau) return reply.code(409).send(RESERVE_VIDE);
@@ -336,14 +368,7 @@ export function registerNumeroFourni(
     });
     if (garder) {
       const garde = await deps.numeros.bloquer(tenant);
-      if (garde) {
-        try {
-          await deps.alertes.numeroBloque(garde, tenant);
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.error(`numero-fourni : alerte du numéro gardé non partie : ${texteDe(err)}`);
-        }
-      }
+      if (garde) await alerterSansLever(() => deps.alertes.numeroBloque(garde, tenant));
       return reply.code(200).send({ rendu: garde !== null, finProgrammee: await programmerLaFin(tenant) });
     }
     const rendu = await deps.numeros.rendre(tenant);

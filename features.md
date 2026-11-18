@@ -4043,6 +4043,12 @@ boîte par sous-menu.
   « hors réserve (à résilier ou à garder) ». Un numéro libre que quelqu'un utilise déjà (une application
   WhatsApp Business reliée, ou le numéro API d'un espace) est signalé en rouge, ne compte pas parmi les libres et n'est
   jamais attribué ; « Sortir de la réserve », avec une note, sort un numéro libre dont on se sert ailleurs (2026-10-28).
+  **Un numéro qui n'a jamais servi revient seul au stock** (2026-11-18) : un numéro attribué depuis 24 h, sans appel
+  depuis 24 h, sur lequel aucun code n'a pu être lu et que rien ne relie, est repris, sauf à un espace qui paie le
+  numéro à part (3,50 €). Le client qui revient en obtient un autre. « Le code n'arrive pas ? En obtenir un autre » rend
+  aussi l'ancien numéro au stock quand aucun code n'a pu y être lu ; s'il n'a reçu aucun appel, il passe après les
+  autres numéros, et quand le client suivant le rend aussi sans appel, il est mis hors réserve (Meta le refuse sans
+  doute). Chaque retour, et ce blocage, arrive en une ligne Telegram.
 - ✅ **Supprimer un espace, définitivement** (2026-10-07) : un lien « supprimer » sur la ligne de l'espace ouvre
   d'abord un bilan (ce qui part avec lui, son crédit restant, les liens Stripe de son client et de ses abonnements
   encore actifs, les adresses qui seront effacées et celles qui seront gardées parce qu'elles ont d'autres espaces, et

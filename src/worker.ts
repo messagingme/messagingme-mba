@@ -138,6 +138,7 @@ import { ecouteLesFiles, fileDuRole, minuterieDuRole, nomDuProcessus, superviseL
 import { tenter } from './lib/tenter';
 import { messageDe, texteDe } from './lib/erreur';
 import { balayerAbonnements } from './numero/balayage-abonnements';
+import { reprendreLesNumerosInutilises } from './numero/reprise-inutilises';
 import { servirLAttente } from './numero/reserve';
 import { PgAbonnementsNumeroStore } from './stripe/abonnements.pg';
 import { PgLiberationStore } from './numero/liberation.pg';
@@ -1588,6 +1589,17 @@ export async function demarrerWorker(): Promise<void> {
     prosAAnnoncer: () => abonnementsPro.aAnnoncer(),
     noterAnnonce: (abonnementId) => abonnementsPro.noterAnnonce(abonnementId),
   }), { immediat: true, enEchec: echecDeBalayage('abonnements-numero', 'sweeper:abonnements-numero', 'balayage des abonnements du numéro') });
+
+  /**
+   * La reprise des numéros fournis qui n'ont jamais servi (plan du 2026-11-18, `src/numero/reprise-inutilises.ts`) : toutes
+   * les heures, un numéro attribué depuis 24 h sans avoir servi revient au stock, va d'abord à l'abonné qui attend le
+   * sien, et Julien le lit sur Telegram. Le magasin entier, jamais une méthode détachée (elles lisent `this.pool`).
+   */
+  taches.programmer('numeros-inutilises', 60 * 60_000, () => reprendreLesNumerosInutilises({
+    numeros: numerosFournisStore,
+    servirLAttente: (sauf) => servirLAttente({ numeros: numerosFournisStore, abonnements: abonnementsDuNumero }, sauf, 'inutilise'),
+    alerter: (texte) => sendTelegram(`[mba-${nomDuProcessus(config.WORKER_ROLE)}] ${texte}`),
+  }), { immediat: true, enEchec: echecDeBalayage('numeros-inutilises', 'sweeper:numeros-inutilises', 'reprise des numéros inutilisés') });
 
   // Balayage de réveil des parcours endormis sur un bloc Attente arrivé à échéance. La granularité du délai
   // vaut cet intervalle (une attente de 5 min repart entre 5 et 6 min, ce que l'UI annonce comme « environ »).

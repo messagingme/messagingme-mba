@@ -93,6 +93,8 @@ export const TACHES_PAR_ROLE: Record<string, Appartenance> = {
   'hubspot-rattrapage': 'analyse',
   // Tout le reste : le produit, ses reprises, ses purges, son exploitation.
   'abonnements-numero': 'principal',
+  // La reprise des numéros fournis qui n'ont jamais servi (plan du 2026-11-18), à côté des abonnements du numéro.
+  'numeros-inutilises': 'principal',
   // La clôture des tâches HubSpot et la relance (lot 2b de la reprise humaine, 2026-10-26).
   'hubspot-clotures': 'principal',
   // L'Inbox HubSpot : les messages des espaces branchés partent au connecteur (2026-11-06).

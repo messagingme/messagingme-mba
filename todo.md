@@ -59,6 +59,22 @@ Relevés par la relecture du lot, aucun ne bloque le menu :
 - Deux tests coupent les menus par l'indentation du gabarit (`tests/vitrine-aide.test.ts`, `tests/vitrine-entete.test.ts`) :
   un gabarit reformaté les rougit sans rien casser.
 
+## 🟡 Le numéro fourni qui revient au stock (relecture du 2026-11-18, aucun rouge)
+
+Plan `docs/superpowers/plans/2026-11-18-numeros-fournis-retour-au-stock.md`. Restes de la relecture :
+
+- **La libération compte des appels d'avant l'attribution** (`vuDeMeta`, `src/numero/liberation.pg.ts`) : un numéro
+  revenu au stock avec des appels sans code (`code_introuvable`), redonné dans les 7 jours (la purge épargne alors ses
+  appels), sera résilié chez DIDWW à la fin de l'abonnement de son nouvel espace, ou à sa suppression, au lieu de revenir
+  au stock. Borner à `recu_le >= attribue_le` et à `APPEL_A_PU_LIVRER_SQL`, avec un test dans les deux sens.
+- **Une course rare entre la reprise et le remplacement** : la reprise gagne le verrou, le remplacement ne trouve plus
+  de numéro et l'attribution redonne le même, le plus ancien libre, avec un 200. Exclure le numéro qu'on vient de perdre,
+  ou répondre 409.
+- **Rien ne dit au client que son numéro n'est gardé que 24 h sans servir** : un client qui revient après, ou qui a noté
+  l'ancien numéro, en voit un autre sans explication. Décision produit (une phrase sur la page et chez Claude ?).
+- Les tests : « relue sous le verrou » est séquentiel (il prouve la relecture, pas l'ordre des verrous face à un appel
+  concurrent) ; aucun cas « réserve vide, numéro marqué avec des appels » (gardé, marque intacte).
+
 ## 🟡 Les textes du constructeur que le code contredit (relevé des fiches par bloc, lot 2, 2026-11-17)
 
 Le panneau Attente et l'aide de l'action « dernier message » sont corrigés dans le lot 2. Restent, tous de l'écran :

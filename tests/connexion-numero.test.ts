@@ -221,8 +221,8 @@ describe('GET /tenants/:tenantId/connexion-numero', () => {
         compterLibres: async () => 0,
       },
       numeroConnecte: async () => null,
-      verrous: { prendre: async () => null },
-      alertes: { reserveBasse: async () => {}, numeroBloque: async () => {}, finNonProgrammee: async () => {} },
+      verrous: { prendre: async () => null, relacher: async () => {} },
+      alertes: { reserveBasse: async () => {}, numeroBloque: async () => {}, numeroRendu: async () => {}, finNonProgrammee: async () => {} },
       seuilReserve: 3,
       abonnements: { deLEspace: async () => null, enAttenteDeNumero: async () => [], noterFinPrevue: async () => false },
       abonnement: {

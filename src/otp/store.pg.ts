@@ -6,8 +6,8 @@ import { enTransaction } from '../db/transaction';
  * `docs/superpowers/specs/2026-10-05-pont-du-code-design.md`).
  *
  * ⚠️ LA RÉSERVE EST À NOUS, PAS À UN CLIENT : `declarer`, `lister`, `ecrireCode` et la suite ne filtrent sur aucun
- * espace, délibérément (la session d'exploitation de /ops et la route du pont, que l'Asterisk appelle pour un numéro
- * et non pour un espace). Ce qu'un CLIENT lit ou écrit (lot 3b : `attribuer`, `numeroDeLEspace`, `codeDeLEspace`,
+ * espace, délibérément (la session d'exploitation de /ops, la route du pont, que l'Asterisk appelle pour un numéro
+ * et non pour un espace, et la reprise des numéros inutilisés du worker, `numerosInutilises`). Ce qu'un CLIENT lit ou écrit (lot 3b : `attribuer`, `numeroDeLEspace`, `codeDeLEspace`,
  * `remplacerNumero`, `rendre` ; 0280 : `destinationDeLEspace`, `retenirDestination`) est filtré sur l'espace, sans exception.
  */
 
@@ -130,6 +130,70 @@ const CODE_A_MONTRER_SQL = `(not ${APPEL_APPLICATION_SQL} or ${SUR_LA_VOIE_APPLI
  */
 const APPEL_APPLICATION_CACHE_SQL = `(${APPEL_APPLICATION_SQL} and not ${SUR_LA_VOIE_APPLICATION_SQL}`
   + ' and (t.numero_fourni_destination_le is null or t.numero_fourni_destination_le <= c.recu_le))';
+
+/**
+ * 🔴 UN APPEL QUI A PU LIVRER UN CODE (plan `docs/superpowers/plans/2026-11-18-numeros-fournis-retour-au-stock.md`) :
+ * lui seul retient un numéro hors du stock, au remplacement comme à la reprise d'un numéro inutilisé. Notre central
+ * décroche chaque appel et personne d'autre ne l'entend : un code que nous n'avons pas lu, personne ne l'a eu, et aucun
+ * compte WhatsApp n'a pu naître sur le numéro. Comptent : un code lu, sauf un appel de l'application sûrement caché
+ * (`APPEL_APPLICATION_CACHE_SQL`), et une transcription en PANNE, que le rejeu de l'enregistrement peut encore changer
+ * en code (`ecrireCode`). Ne compte pas : `code_introuvable`, lu sans code certain. Sur l'alias `c` de l'appel et `t`
+ * de l'espace qui tient le numéro.
+ * ⚠️ Un appel en cours de transcription n'est pas encore écrit : un remplacement ou une reprise pendant ces secondes le
+ * manque (une marque de trop, au pire). Aucun compte n'en naît, le code n'a été montré à personne ; écrit ensuite, il
+ * peut s'afficher un quart d'heure chez l'espace qui vient de recevoir le numéro, pour une vérification qu'il n'a pas
+ * demandée, où il ne vaut rien.
+ */
+const APPEL_A_PU_LIVRER_SQL = `((c.code is not null or c.cause = 'transcription_indisponible') and not ${APPEL_APPLICATION_CACHE_SQL})`;
+
+/**
+ * 🔴 LA MARQUE QUI FAIT BLOQUER AU SECOND REMPLACEMENT SANS APPEL (même plan, migration 0294) : un AUTRE espace a remplacé
+ * ce numéro sans qu'aucun appel n'arrive, et aucun appel n'est arrivé depuis. « Un autre » : le même client qui retombe
+ * sur le numéro qu'il a rendu (le stock n'avait que lui) ne prouve rien de plus, la décision vise le client suivant.
+ * « Aucun appel depuis » : un appel reçu par celui qui l'a eu ensuite (puis rendu par « Abandonner », qui ne touche pas
+ * la marque) prouve que Meta veut bien l'appeler. Sur l'alias `n`, `$1` étant l'espace qui remplace.
+ */
+const MARQUE_D_UN_AUTRE_SQL = `(n.remplace_sans_appel_le is not null and n.remplace_sans_appel_par is distinct from $1::uuid
+  and not exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.remplace_sans_appel_le))`;
+
+/**
+ * 🔴 UN NUMÉRO ATTRIBUÉ QUI N'A JAMAIS SERVI (même plan) : attribué depuis `p` heures, aucun appel depuis `p` heures
+ * (quelqu'un qui essaie en ce moment garde son numéro), aucun appel qui a pu livrer un code depuis l'attribution, aucun
+ * abonnement du numéro vivant dans l'espace, et rien ne le porte. L'abonné garde le sien : il le paie, et le lui reprendre
+ * ne libère rien (il passerait en file d'attente, et `numerosDisponibles` lui garderait un numéro). « Rien ne le porte » :
+ * ni un compte de l'application, sur ce numéro ou sur cette ligne de la réserve, quel que soit son statut ; ni un numéro
+ * de Meta aux mêmes chiffres (`UTILISE_AILLEURS_SQL`) ; ni un numéro de Meta de l'espace aux chiffres inconnus, que
+ * `vuDeMeta` compte comme le numéro fourni. Sur les alias `n` et `t` ; `p` est le paramètre du délai, en heures.
+ */
+function inutiliseSql(p: string): string {
+  return `n.attribue_le <= now() - make_interval(hours => ${p}::int)
+    and not exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.attribue_le
+                     and (c.recu_le > now() - make_interval(hours => ${p}::int) or ${APPEL_A_PU_LIVRER_SQL}))
+    and not exists (select 1 from abonnements_numero a where a.tenant_id = n.tenant_id and a.statut <> 'resilie')
+    and not exists (select 1 from comptes_application ca where ca.fourni_id = n.id)
+    and not ${UTILISE_AILLEURS_SQL}
+    and not exists (select 1 from phone_numbers p where p.tenant_id = n.tenant_id
+                     and regexp_replace(coalesce(p.display_phone_number, ''), '[^0-9]', '', 'g') = '')`;
+}
+
+/**
+ * Ce que devient le numéro d'un espace qui le remplace. `bloque` : le numéro sorti et gardé hors du stock (`null` s'il
+ * n'y en avait pas, ou s'il est rendu) ; `cause: 'sans_appel'` quand un autre espace l'avait déjà remplacé sans aucun
+ * appel, et qu'aucun n'est arrivé depuis (`MARQUE_D_UN_AUTRE_SQL`). `rendu` : le numéro sorti est retourné au stock. `nouveau` : le suivant (`null` si le stock est vide).
+ */
+export interface IssueRemplacement {
+  bloque: string | null;
+  nouveau: NumeroFourni | null;
+  rendu?: string;
+  cause?: 'sans_appel';
+}
+
+/** Un numéro repris à un espace qui ne s'en est jamais servi, et l'heure de son attribution. */
+export interface NumeroRepris {
+  numero: string;
+  tenantId: string;
+  attribueLe: Date;
+}
 
 /** La même reconnaissance que `APPEL_APPLICATION_SQL`, côté serveur (tests, journal). */
 export function estAppelDeLApplication(transcription: string): boolean {
@@ -357,12 +421,13 @@ export class PgNumerosFournisStore {
   }
 
   /**
-   * Meta refuse le numéro de cet espace (déjà actif sur WhatsApp ailleurs) : il passe en `bloque`, sans espace, et un
-   * autre est attribué, dans la même transaction. `bloque` = le numéro sorti (`null` si l'espace n'en avait pas),
-   * `nouveau` = le suivant (`null` si la réserve est vide). `rendu` : le numéro sorti est retourné à la réserve, parce
-   * que seule l'application WhatsApp l'a appelé hors de sa voie (lot 1 du 2026-11-17) ; `bloque` vaut alors `null`.
+   * « Le code n'arrive pas ? En obtenir un autre » : le numéro de cet espace sort, et un autre est attribué, dans la même
+   * transaction (`IssueRemplacement`). Le numéro sorti revient au stock quand aucun appel n'a pu livrer de code depuis son
+   * attribution (`APPEL_A_PU_LIVRER_SQL`, plan du 2026-11-18), sauf quand, sans AUCUN appel, il suit le remplacement
+   * d'un autre espace, lui aussi sans appel (`MARQUE_D_UN_AUTRE_SQL`) : Meta le refuse sans doute (déjà actif sur
+   * WhatsApp ailleurs), il est bloqué. Un appel qui a pu livrer un code le bloque aussi : un compte existe peut-être dessus.
    */
-  async remplacerNumero(tenantId: string): Promise<{ bloque: string | null; nouveau: NumeroFourni | null; rendu?: string }> {
+  async remplacerNumero(tenantId: string): Promise<IssueRemplacement> {
     try {
       return await this.remplacerDansUneTransaction(tenantId);
     } catch (err) {
@@ -373,25 +438,29 @@ export class PgNumerosFournisStore {
     }
   }
 
-  private async remplacerDansUneTransaction(tenantId: string): Promise<{ bloque: string | null; nouveau: NumeroFourni | null; rendu?: string }> {
+  private async remplacerDansUneTransaction(tenantId: string): Promise<IssueRemplacement> {
     return enTransaction(this.pool, async (client) => {
-      // 🔴 Seule l'application WhatsApp a appelé, et aucun de ses codes n'a pu se montrer (lot 1 du 2026-11-17) : aucun
-      // compte n'existe, et ce n'est pas Meta qui refuse ce numéro. Il retourne à la réserve au lieu d'être perdu. Lu AVANT
-      // de sortir le numéro (la sortie efface l'espace dont dépend `APPEL_APPLICATION_CACHE_SQL`), sous le VERROU de sa
-      // ligne : l'enregistrement d'un appel pose un FOR KEY SHARE sur elle (clé étrangère), donc un appel de Meta qui
-      // arrive pendant le remplacement attend sa fin au lieu de passer inaperçu (jaune 2 de la relecture du lot).
+      // 🔴 Lu AVANT de sortir le numéro (la sortie efface l'espace dont dépend `APPEL_APPLICATION_CACHE_SQL`), sous le
+      // VERROU de sa ligne : l'enregistrement d'un appel pose un FOR KEY SHARE sur elle (clé étrangère), donc un appel de
+      // Meta qui arrive pendant le remplacement attend sa fin au lieu de passer inaperçu (jaune 2 de la relecture du lot 1
+      // du 2026-11-17).
       // ⚠️ Deux requêtes, pas une : le verrou d'abord, la lecture ensuite. Dans la même requête, les sous-requêtes liraient
       // l'instantané d'AVANT l'attente du verrou, et un appel validé pendant cette attente resterait invisible.
       await client.query(`select 1 from numeros_fournis where tenant_id = $1 and statut = 'attribue' for update`, [tenantId]);
-      const seulementLApplication = (await client.query<{ oui: boolean }>(
-        `select exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.attribue_le
-                           and ${APPEL_APPLICATION_CACHE_SQL})
-            and not exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.attribue_le
-                           and not ${APPEL_APPLICATION_CACHE_SQL}) as oui
+      const lu = (await client.query<{ appels: boolean; code_possible: boolean; deja_sans_appel: boolean }>(
+        `select exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.attribue_le) as appels,
+                exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.attribue_le
+                         and ${APPEL_A_PU_LIVRER_SQL}) as code_possible,
+                ${MARQUE_D_UN_AUTRE_SQL} as deja_sans_appel
            from numeros_fournis n join tenants t on t.id = n.tenant_id
           where n.tenant_id = $1 and n.statut = 'attribue'`,
         [tenantId],
-      )).rows[0]?.oui === true;
+      )).rows[0];
+      // Les quatre issues (plan du 2026-11-18) : un appel a pu livrer un code, bloqué ; des appels sans code, rendu (Meta,
+      // ou l'application, l'a bien appelé : la marque s'efface) ; aucun appel la première fois, rendu et marqué ; aucun
+      // appel, après un AUTRE espace qui n'en avait pas eu non plus, bloqué.
+      const sansAppelDeuxFois = lu !== undefined && !lu.appels && lu.deja_sans_appel;
+      const aRendre = lu !== undefined && !lu.code_possible && !sansAppelDeuxFois;
       const b = await client.query<{ id: string; numero: string }>(
         `update numeros_fournis set statut = 'bloque', tenant_id = null
           where tenant_id = $1 and statut = 'attribue' returning id, numero`,
@@ -400,18 +469,71 @@ export class PgNumerosFournisStore {
       const sorti = b.rows[0];
       // Le nouveau numéro est pris PENDANT que l'ancien est encore bloqué : l'attribution ne peut pas le redonner.
       const nouveau = await attribuerAvec(client, tenantId);
-      if (sorti && seulementLApplication && nouveau === null) {
-        // Réserve vide : l'espace garde son numéro, qui marche (la fenêtre de Meta l'attend), plutôt que de rester sans.
-        // `nouveau: null` : la route répond « réserve vide » au lieu d'un 200 qui rendrait le même numéro sans le dire
-        // (lot 3, jaune de la relecture du lot 1).
+      if (sorti && aRendre && nouveau === null) {
+        // Réserve vide : l'espace garde son numéro, qui marche (la fenêtre de Meta l'attend), plutôt que de rester sans,
+        // et sa marque ne bouge pas (rien n'a été remplacé). `nouveau: null` : la route répond « réserve vide » au lieu
+        // d'un 200 qui rendrait le même numéro sans le dire (lot 3 du 2026-11-17, jaune de la relecture du lot 1).
         await client.query(`update numeros_fournis set statut = 'attribue', tenant_id = $2 where id = $1`, [sorti.id, tenantId]);
         return { bloque: null, nouveau: null };
       }
-      if (sorti && seulementLApplication) {
-        await client.query(`update numeros_fournis set statut = 'libre', attribue_le = null where id = $1`, [sorti.id]);
+      if (sorti && aRendre) {
+        await client.query(
+          `update numeros_fournis set statut = 'libre', attribue_le = null,
+                  remplace_sans_appel_le = case when $2::boolean then null else now() end,
+                  remplace_sans_appel_par = case when $2::boolean then null else $3::uuid end
+            where id = $1`,
+          [sorti.id, lu.appels, tenantId],
+        );
         return { bloque: null, nouveau, rendu: sorti.numero };
       }
-      return { bloque: sorti?.numero ?? null, nouveau };
+      return { bloque: sorti?.numero ?? null, nouveau, ...(sorti && sansAppelDeuxFois ? { cause: 'sans_appel' as const } : {}) };
+    });
+  }
+
+  /**
+   * Les numéros attribués qui n'ont jamais servi depuis `delaiHeures` heures (`inutiliseSql`), des plus anciens aux plus
+   * récents, au plus 50 par tour. Une lecture : `reprendreSiInutilise` relit chacun sous son verrou avant de le reprendre.
+   * ⚠️ LA RÉSERVE EST À NOUS : cette lecture couvre tous les espaces, délibérément (le balayage du worker).
+   */
+  async numerosInutilises(delaiHeures: number): Promise<Array<{ id: string; tenantId: string }>> {
+    const res = await this.pool.query<{ id: string; tenant_id: string }>(
+      `select n.id, n.tenant_id from numeros_fournis n join tenants t on t.id = n.tenant_id
+        where n.statut = 'attribue' and ${inutiliseSql('$1')}
+        order by n.attribue_le, n.id limit 50`,
+      [Math.max(1, Math.floor(delaiHeures))],
+    );
+    return res.rows.map((r) => ({ id: r.id, tenantId: r.tenant_id }));
+  }
+
+  /**
+   * Rend au stock le numéro `id` de l'espace s'il n'a toujours jamais servi, dans sa transaction : le verrou de la ligne
+   * d'abord (un appel qui arrive attend, comme au remplacement), puis la même condition relue dans une seconde requête,
+   * qui voit un appel validé pendant l'attente du verrou. La marque d'un remplacement sans appel s'efface si le numéro
+   * avait reçu un appel. `null` : il a servi entre-temps, ou il n'est plus à cet espace ; rien n'est écrit.
+   */
+  async reprendreSiInutilise(id: string, tenantId: string, delaiHeures: number): Promise<NumeroRepris | null> {
+    return enTransaction(this.pool, async (client) => {
+      const verrou = await client.query(
+        `select 1 from numeros_fournis where id = $1 and tenant_id = $2 and statut = 'attribue' for update`, [id, tenantId],
+      );
+      if ((verrou.rowCount ?? 0) === 0) return null;
+      const res = await client.query<{ numero: string; attribue_le: Date; appels: boolean }>(
+        `select n.numero, n.attribue_le,
+                exists (select 1 from codes_verification c where c.numero_id = n.id and c.recu_le >= n.attribue_le) as appels
+           from numeros_fournis n join tenants t on t.id = n.tenant_id
+          where n.id = $1 and n.tenant_id = $2 and n.statut = 'attribue' and ${inutiliseSql('$3')}`,
+        [id, tenantId, Math.max(1, Math.floor(delaiHeures))],
+      );
+      const l = res.rows[0];
+      if (!l) return null;
+      await client.query(
+        `update numeros_fournis set statut = 'libre', tenant_id = null, attribue_le = null,
+                remplace_sans_appel_le = case when $2::boolean then null else remplace_sans_appel_le end,
+                remplace_sans_appel_par = case when $2::boolean then null else remplace_sans_appel_par end
+          where id = $1`,
+        [id, l.appels],
+      );
+      return { numero: l.numero, tenantId, attribueLe: l.attribue_le };
     });
   }
 
@@ -471,11 +593,13 @@ async function lireAttribue(db: Pool | PoolClient, tenantId: string): Promise<Nu
   return res.rows[0] ? versNumero(res.rows[0]) : null;
 }
 
-/** L'attribution en une instruction : l'existant de l'espace, sinon le plus ancien numéro libre, pris sans attendre. */
 /**
- * L'attribution, sur une connexion donnée : `attribuer` la prend sur le pool, l'abonnement du numéro (lot 3c,
- * `src/stripe/abonnements.pg.ts`) DANS la transaction qui enregistre le paiement, pour qu'un abonnement payé ait
- * son numéro ou qu'aucun des deux ne soit écrit. Un numéro utilisé ailleurs (`UTILISE_AILLEURS_SQL`) n'est jamais pris.
+ * L'attribution en une instruction : l'existant de l'espace, sinon le plus ancien numéro libre, pris sans attendre, sur
+ * une connexion donnée : `attribuer` la prend sur le pool, l'abonnement du numéro (lot 3c, `src/stripe/abonnements.pg.ts`)
+ * DANS la transaction qui enregistre le paiement, pour qu'un abonnement payé ait son numéro ou qu'aucun des deux ne soit
+ * écrit. Un numéro utilisé ailleurs (`UTILISE_AILLEURS_SQL`) n'est jamais pris. Un numéro marqué par un remplacement sans
+ * appel (0294) passe après les autres : Meta le refuse peut-être, et le client qui vient de le rendre ne doit pas le
+ * récupérer tant qu'il en reste un sain.
  */
 export async function attribuerAvec(db: Pool | PoolClient, tenantId: string): Promise<NumeroFourni | null> {
   const existant = await lireAttribue(db, tenantId);
@@ -483,7 +607,7 @@ export async function attribuerAvec(db: Pool | PoolClient, tenantId: string): Pr
   const res = await db.query<LigneNumero>(
     `update numeros_fournis n set statut = 'attribue', tenant_id = $1, attribue_le = now()
       where n.id = (select n.id from numeros_fournis n where n.statut = 'libre' and not ${UTILISE_AILLEURS_SQL}
-                     order by n.cree_le, n.id limit 1 for update skip locked)
+                     order by (n.remplace_sans_appel_le is not null), n.cree_le, n.id limit 1 for update skip locked)
      returning ${COLONNES_NUMERO}`,
     [tenantId],
   );

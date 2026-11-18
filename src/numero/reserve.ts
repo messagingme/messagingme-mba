@@ -61,7 +61,7 @@ export async function droitAuNumero(
 }
 
 /** D'où vient le numéro qui revient à la réserve : le journal le dit. */
-export type OrigineRetour = 'abandon' | 'suppression_espace' | 'liberation' | 'declaration_ops' | 'remplacement';
+export type OrigineRetour = 'abandon' | 'suppression_espace' | 'liberation' | 'declaration_ops' | 'remplacement' | 'inutilise';
 
 /**
  * Un numéro vient de revenir à la réserve (rendu, libéré, ou déclaré dans /ops) : il va à l'abonné qui attend le sien

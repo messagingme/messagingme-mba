@@ -4,6 +4,36 @@
 > Il décrit l'état **au moment de chaque livraison**. Le manuel courant est
 > [documentation.md](../documentation.md) ; en cas de contradiction, c'est lui, le code, ou la base qui
 > tranchent, jamais ce fichier.
+## 2026-11-18 : le numéro fourni qui n'a jamais servi revient au stock
+
+**La demande** : « si un numéro n'a pas pu être rattaché à un espace, parce que le code n'a pas pu être obtenu, ou qu'il
+n'a pas été mis par le client, il faut qu'il revienne dans le stock automatiquement au bout d'un moment » (Julien, après
+l'espace « Zigi Arjun’s workspace » du 2026-11-17 : deux numéros sortis du stock sans servir, remis à la main). Plan
+`docs/superpowers/plans/2026-11-18-numeros-fournis-retour-au-stock.md`, décisions prises en une ronde de questions.
+
+- **« Le code n'arrive pas ? En obtenir un autre »** ne bloque plus que le numéro sur lequel un appel a pu livrer un code
+  (`APPEL_A_PU_LIVRER_SQL` : un code lu, sauf l'appel de l'application sûrement caché, ou une transcription en panne).
+  Meta a appelé sans qu'on lise de code : retour au stock. Personne n'a appelé : retour au stock, avec une marque et
+  l'espace qui l'a posée (migration 0294), puis bloqué quand le client SUIVANT le rend aussi sans appel (Meta le refuse
+  sans doute) ; un numéro marqué s'attribue après les autres. Le jaune du lot 3 du 2026-11-17 (« bloque le numéro même
+  sans aucun appel ») est fermé avec, et celui du verrou d'une heure pris sans rien remplacer aussi.
+- **La reprise des numéros inutilisés** (tâche `numeros-inutilises` du worker, toutes les heures) : attribué depuis
+  24 h, aucun appel depuis 24 h, aucun appel qui a pu livrer un code, pas d'abonnement du numéro vivant, rien qui le
+  porte. L'abonné à 3,50 € garde le sien, décision de construction : le lui reprendre ne libère rien (`numerosDisponibles`
+  lui garderait un numéro).
+- **Une ligne Telegram** à chaque retour au stock et à chaque blocage au second échec. Les numéros déjà bloqués restent
+  bloqués (décision de Julien).
+
+**Mesures** :
+- Intégration jouée sur le banc PGlite (toutes les migrations, le vrai `pg`) : 28 tests, verts à chaque passage.
+- Relecture indépendante : aucun rouge. Deux jaunes visaient la décision même (le même client qui retombait sur le
+  numéro qu'il venait de rendre et le bloquait lui-même ; la marque qui survivait à un appel quand le numéro revenait
+  par « Abandonner ») : corrigés avant le push, la 0294 n'étant pas partie. Les autres sont au `todo.md`.
+- Dans les deux sens : 23 mutations nommées (chaque condition de la reprise, chaque issue du remplacement, la marque et
+  son espace, l'ordre d'attribution, la relecture sous le verrou, le verrou relâché, les alertes, un échec qui n'arrête
+  pas le tour), chacune vue rouge par
+  au moins un test, puis le fichier restauré et son empreinte md5 comparée.
+
 ## 2026-11-17 : « Ouvrir la fenêtre de Meta », et le prix du numéro fourni selon la formule (lot 5 du numéro fourni)
 
 **La demande** : les retours de Julien après son essai réel du lot 4. La carte « Mettez un numéro à vous dans votre

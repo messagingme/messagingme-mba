@@ -219,21 +219,82 @@ describe.skipIf(!url)('la réserve de numéros fournis (0210)', () => {
       expect(await store.codeCapteDepuisLAttribution(autre, depuis)).toBe(false);
     });
 
-    it('remplacer : l’actuel passe en bloque, sans espace, et un autre est attribué ; rendre le remet en réserve', async () => {
+    it('🔴 remplacer sans aucun appel (plan du 2026-11-18) : rendu et marqué ; le même client qui retombe dessus ne le bloque pas, le client suivant si, même sans rien de libre ; un numéro neuf seul : gardé ; rendre le remet en réserve', async () => {
+      const marque = async (numero: string): Promise<{ le: Date | null; par: string | null }> =>
+        (await pool.query<{ le: Date | null; par: string | null }>(
+          'select remplace_sans_appel_le as le, remplace_sans_appel_par as par from numeros_fournis where numero = $1', [numero],
+        )).rows[0]!;
       await store.declarer(N1, 'did-itest-1');
+      expect(await store.attribuer(tenantId)).toMatchObject({ numero: N1 });
+      // Déclaré après : l'ordre de l'attribution ne dépend pas de deux heures de création trop proches.
       await store.declarer(N2, 'did-itest-2');
-      const premier = await store.attribuer(tenantId);
-      const r = await store.remplacerNumero(tenantId);
-      expect(r.bloque).toBe(premier?.numero);
-      expect(r.nouveau?.numero).not.toBe(premier?.numero);
-      expect(await store.parNumero(premier!.numero)).toMatchObject({ statut: 'bloque', tenantId: null });
-      // Plus rien de libre : remplacer encore bloque l'actuel et rend null.
-      expect(await store.remplacerNumero(tenantId)).toEqual({ bloque: r.nouveau?.numero, nouveau: null });
+      // 1re fois sans appel : N1 revient au stock, marqué par cet espace ; l'espace reçoit N2.
+      expect(await store.remplacerNumero(tenantId)).toMatchObject({ bloque: null, rendu: N1, nouveau: { numero: N2 } });
+      expect(await store.parNumero(N1)).toMatchObject({ statut: 'libre', tenantId: null, attribueLe: null });
+      expect(await marque(N1)).toMatchObject({ le: expect.any(Date), par: tenantId });
+      // N2 non plus : rendu et marqué ; l'espace retombe sur N1, le seul libre. Son propre échec ne compte pas deux fois.
+      expect(await store.remplacerNumero(tenantId)).toMatchObject({ bloque: null, rendu: N2, nouveau: { numero: N1 } });
+      expect(await store.remplacerNumero(tenantId)).toMatchObject({ bloque: null, rendu: N1, nouveau: { numero: N2 } });
+      expect(await store.rendre(tenantId)).toBe(N2);
+      // Le client suivant reçoit N1 (marqué, comme N2 : le plus ancien), sans appel non plus : bloqué, cause `sans_appel`.
+      expect(await store.attribuer(autre)).toMatchObject({ numero: N1 });
+      const r = await store.remplacerNumero(autre);
+      expect(r).toMatchObject({ bloque: N1, cause: 'sans_appel', nouveau: { numero: N2 } });
+      expect(r.rendu).toBeUndefined();
+      expect(await store.parNumero(N1)).toMatchObject({ statut: 'bloque', tenantId: null });
+      // Plus rien de libre : N2, marqué par le premier client, est bloqué de même, et l'espace reste sans numéro.
+      expect(await store.remplacerNumero(autre)).toEqual({ bloque: N2, nouveau: null, cause: 'sans_appel' });
+      expect(await store.numeroDeLEspace(autre)).toBeNull();
+      // Un numéro neuf, rien de libre derrière lui : rien n'est remplacé, l'espace le garde, et il n'est pas marqué.
       await store.declarer('449990000003', 'did-itest-3');
       const t = await store.attribuer(tenantId);
+      expect(await store.remplacerNumero(tenantId)).toEqual({ bloque: null, nouveau: null });
+      expect(await store.numeroDeLEspace(tenantId)).toMatchObject({ numero: t?.numero, statut: 'attribue' });
+      expect(await marque(t!.numero)).toEqual({ le: null, par: null });
       expect(await store.rendre(tenantId)).toBe(t?.numero);
       expect(await store.parNumero(t!.numero)).toMatchObject({ statut: 'libre', tenantId: null, attribueLe: null });
       expect(await store.numeroDeLEspace(tenantId)).toBeNull();
+    });
+
+    it('🔴 la marque (0294) : un numéro marqué s’attribue après les autres ; un appel reçu depuis la marque l’annule, même rendu par « Abandonner »', async () => {
+      const { numero: n1 } = await store.declarer(N1, 'did-itest-1');
+      expect(await store.attribuer(tenantId)).toMatchObject({ numero: N1 });
+      await store.declarer(N2, 'did-itest-2');
+      expect(await store.remplacerNumero(tenantId)).toMatchObject({ rendu: N1, nouveau: { numero: N2 } });
+      expect(await store.rendre(tenantId)).toBe(N2);
+      // N1 est le plus ancien, mais marqué : le client suivant reçoit N2, qui ne l'est pas.
+      expect(await store.attribuer(autre)).toMatchObject({ numero: N2 });
+      expect(await store.rendre(autre)).toBe(N2);
+      await pool.query('delete from numeros_fournis where numero = $1', [N2]);
+      // Seul N1 reste : le client suivant le reçoit, Meta l'appelle (sans code lu), et il l'abandonne.
+      expect(await store.attribuer(autre)).toMatchObject({ numero: N1 });
+      await store.ecrireCode(n1.id, { appelId: 'itest.72', code: null, transcription: 'Your verification code is', cause: 'code_introuvable' });
+      expect(await store.rendre(autre)).toBe(N1);
+      // Repris par ce client et remplacé sans appel : l'appel reçu depuis la marque prouve que Meta veut bien l'appeler.
+      // Rendu, pas bloqué.
+      expect(await store.attribuer(autre)).toMatchObject({ numero: N1 });
+      await store.declarer(N2, 'did-itest-2');
+      expect(await store.remplacerNumero(autre)).toMatchObject({ bloque: null, rendu: N1, nouveau: { numero: N2 } });
+    });
+
+    it('🔴 remplacer après des appels sans code lu (plan du 2026-11-18) : rendu, sa marque effacée ; une transcription en PANNE le bloque', async () => {
+      await pool.query('update tenants set numero_fourni_destination = null, numero_fourni_destination_le = null where id = $1', [tenantId]);
+      const { numero: n1 } = await store.declarer(N1, 'did-itest-1');
+      // N1 porte la marque d'un remplacement sans appel chez un client précédent.
+      await pool.query(`update numeros_fournis set remplace_sans_appel_le = now() - interval '1 day' where numero = $1`, [N1]);
+      expect(await store.attribuer(tenantId)).toMatchObject({ numero: N1 });
+      const { numero: n2 } = await store.declarer(N2, 'did-itest-2');
+      // Meta appelle, la transcription ne contient aucun code certain : personne n'a eu le code.
+      await store.ecrireCode(n1.id, { appelId: 'itest.70', code: null, transcription: 'Your verification code is', cause: 'code_introuvable' });
+      expect(await store.remplacerNumero(tenantId)).toMatchObject({ bloque: null, rendu: N1, nouveau: { numero: N2 } });
+      const m = await pool.query('select remplace_sans_appel_le as le, remplace_sans_appel_par as par from numeros_fournis where numero = $1', [N1]);
+      expect(m.rows[0]).toEqual({ le: null, par: null });
+      // Sur N2, la transcription est en panne : le rejeu de l'enregistrement peut encore rendre un code. Bloqué, sans cause.
+      await store.ecrireCode(n2.id, { appelId: 'itest.71', code: null, transcription: '', cause: 'transcription_indisponible' });
+      const r = await store.remplacerNumero(tenantId);
+      expect(r).toMatchObject({ bloque: N2, nouveau: { numero: N1 } });
+      expect(r.cause).toBeUndefined();
+      expect(r.rendu).toBeUndefined();
     });
 
     it('🔴 l’appel de l’application WhatsApp hors de sa voie (2026-11-17) : son code n’est ni montré ni « déjà capté », l’appel est signalé, et « Remplacer » rend le numéro', async () => {
@@ -369,6 +430,132 @@ describe.skipIf(!url)('la réserve de numéros fournis (0210)', () => {
       expect(await store.sortirDeLaReserve(n2.id), 'attribué').toBeNull();
       expect((await store.parNumero(N2))?.statut).toBe('attribue');
       expect(await store.sortirDeLaReserve('00000000-0000-4000-8000-000000000000'), 'inconnu').toBeNull();
+    });
+  });
+
+  /**
+   * 🔴 UN NUMÉRO QUI N'A JAMAIS SERVI REVIENT AU STOCK (plan du 2026-11-18). Vécu le 2026-11-17 : un numéro attribué,
+   * jamais relié, gardé par l'espace, et le stock vide. La condition entière (`inutiliseSql`), éprouvée une pièce à la fois.
+   */
+  describe('🔴 un numéro qui n’a jamais servi revient au stock (2026-11-18)', () => {
+    let espace = '';
+    const menage = async (): Promise<void> => {
+      await pool.query(`delete from numeros_fournis where numero like '44999%'`);
+      await pool.query('delete from abonnements_numero where tenant_id = $1', [espace]);
+      await pool.query('delete from comptes_application where tenant_id = $1', [espace]);
+      await pool.query(`delete from phone_numbers where id = 'itest-nf-inutilise'`);
+    };
+    beforeAll(async () => {
+      espace = (await pool.query<{ id: string }>(`insert into tenants (name) values ('itest-numeros-fournis-d') returning id`)).rows[0]!.id;
+      await pool.query(`insert into waba (id, tenant_id, name) values ('itest-nf-waba-d', $1, 'itest') on conflict (id) do nothing`, [espace]);
+    });
+    afterAll(async () => {
+      await menage();
+      await pool.query(`delete from waba where id = 'itest-nf-waba-d'`);
+      if (espace) await pool.query('delete from tenants where id = $1', [espace]);
+    });
+    beforeEach(menage);
+
+    /** N1, attribué à l'espace il y a `heures` heures. */
+    const attribueDepuis = async (heures: number): Promise<{ id: string }> => {
+      const { numero } = await store.declarer(N1, 'did-itest-1');
+      expect(await store.attribuer(espace)).toMatchObject({ numero: N1 });
+      await pool.query(`update numeros_fournis set attribue_le = now() - make_interval(hours => $2::int) where numero = $1`, [N1, heures]);
+      return numero;
+    };
+    /** Un appel reçu il y a `heures` heures. */
+    const appel = async (numeroId: string, appelId: string, heures: number, r: { code: string | null; transcription: string; cause?: 'code_introuvable' | 'transcription_indisponible' }) => {
+      await store.ecrireCode(numeroId, r.code === null
+        ? { appelId, code: null, transcription: r.transcription, cause: r.cause ?? 'code_introuvable' }
+        : { appelId, code: r.code, transcription: r.transcription });
+      await pool.query(`update codes_verification set recu_le = now() - make_interval(hours => $2::int) where appel_id = $1`, [appelId, heures]);
+    };
+    const lus = async (): Promise<string[]> => (await store.numerosInutilises(24)).filter((c) => c.tenantId === espace).map((c) => c.id);
+
+    it('🔴 attribué depuis 25 h sans aucun appel : lu, puis repris ; la marque d’un remplacement sans appel reste', async () => {
+      const n = await attribueDepuis(25);
+      await pool.query('update numeros_fournis set remplace_sans_appel_le = now() where numero = $1', [N1]);
+      expect(await lus()).toEqual([n.id]);
+      const r = await store.reprendreSiInutilise(n.id, espace, 24);
+      expect(r).toMatchObject({ numero: N1, tenantId: espace, attribueLe: expect.any(Date) });
+      const l = await pool.query('select statut, tenant_id, attribue_le, remplace_sans_appel_le as m from numeros_fournis where numero = $1', [N1]);
+      expect(l.rows[0]).toMatchObject({ statut: 'libre', tenant_id: null, attribue_le: null });
+      expect(l.rows[0].m).toBeInstanceOf(Date);
+      // Déjà repris : rien, et plus rien à lire.
+      expect(await store.reprendreSiInutilise(n.id, espace, 24)).toBeNull();
+      expect(await lus()).toEqual([]);
+    });
+
+    it('🔴 le temps : attribué depuis moins de 24 h, ou un appel depuis moins de 24 h, le garde', async () => {
+      const n = await attribueDepuis(23);
+      expect(await lus()).toEqual([]);
+      expect(await store.reprendreSiInutilise(n.id, espace, 24)).toBeNull();
+      await pool.query(`update numeros_fournis set attribue_le = now() - interval '30 hours' where numero = $1`, [N1]);
+      await appel(n.id, 'itest.80', 2, { code: null, transcription: 'rien' });
+      expect(await lus()).toEqual([]);
+      await pool.query(`update codes_verification set recu_le = now() - interval '26 hours' where appel_id = 'itest.80'`);
+      expect(await lus()).toEqual([n.id]);
+    });
+
+    it('🔴 un appel qui a pu livrer un code le garde : un code lu, une transcription en panne ; un appel de l’application caché, non', async () => {
+      await pool.query('update tenants set numero_fourni_destination = null, numero_fourni_destination_le = null where id = $1', [espace]);
+      const n = await attribueDepuis(30);
+      await pool.query('update numeros_fournis set remplace_sans_appel_le = now() where numero = $1', [N1]);
+      await appel(n.id, 'itest.81', 27, { code: '416746', transcription: 'Your verification code is 416746.' });
+      expect(await lus()).toEqual([]);
+      expect(await store.reprendreSiInutilise(n.id, espace, 24)).toBeNull();
+      await pool.query(`delete from codes_verification where appel_id = 'itest.81'`);
+      await appel(n.id, 'itest.82', 27, { code: null, transcription: '', cause: 'transcription_indisponible' });
+      expect(await lus()).toEqual([]);
+      await pool.query(`delete from codes_verification where appel_id = 'itest.82'`);
+      // L'application WhatsApp a appelé hors de sa voie : son code n'a jamais pu se montrer, il ne retient rien.
+      await appel(n.id, 'itest.83', 27, { code: '416746', transcription: 'To receive your WhatsApp verification code, press 5. Your verification code is 416746.' });
+      expect(await lus()).toEqual([n.id]);
+      // Repris ; un appel avait eu lieu : la marque d'un remplacement sans appel s'efface.
+      expect(await store.reprendreSiInutilise(n.id, espace, 24)).toMatchObject({ numero: N1 });
+      const m = await pool.query('select remplace_sans_appel_le as m from numeros_fournis where numero = $1', [N1]);
+      expect(m.rows[0].m).toBeNull();
+    });
+
+    it('🔴 ce qui le porte le garde : un abonnement du numéro vivant, un compte de l’application, un numéro de Meta (ses chiffres, ou inconnus)', async () => {
+      const n = await attribueDepuis(30);
+      expect(await lus()).toEqual([n.id]);
+      // L'abonné le paie : il le garde ; résilié, il ne le retient plus.
+      await pool.query(`insert into abonnements_numero (stripe_subscription_id, tenant_id, livemode, statut) values ('sub_itestinutilise', $1, false, 'actif')`, [espace]);
+      expect(await lus()).toEqual([]);
+      expect(await store.reprendreSiInutilise(n.id, espace, 24)).toBeNull();
+      await pool.query(`update abonnements_numero set statut = 'resilie' where stripe_subscription_id = 'sub_itestinutilise'`);
+      expect(await lus()).toEqual([n.id]);
+      // Un compte de l'application sur cette ligne de la réserve, même retiré et sous d'autres chiffres.
+      await pool.query(`insert into comptes_application (tenant_id, numero, statut, fourni_id) values ($1, '33612345678', 'retire', $2)`, [espace, n.id]);
+      expect(await lus()).toEqual([]);
+      await pool.query('delete from comptes_application where tenant_id = $1', [espace]);
+      // Un numéro de Meta de l'espace aux chiffres inconnus : peut-être celui-ci (`vuDeMeta`).
+      await pool.query(
+        `insert into phone_numbers (id, tenant_id, waba_id, display_phone_number, status) values ('itest-nf-inutilise', $1, 'itest-nf-waba-d', null, 'CONNECTED')`,
+        [espace],
+      );
+      expect(await lus()).toEqual([]);
+      // Ses chiffres connus, et ce sont les siens : l'espace a relié son propre numéro, le fourni ne sert à rien.
+      await pool.query(`update phone_numbers set display_phone_number = '+33 6 12 34 56 78' where id = 'itest-nf-inutilise'`);
+      expect(await lus()).toEqual([n.id]);
+      // Les chiffres du numéro fourni, sous une autre écriture : relié, il le garde.
+      await pool.query(`update phone_numbers set display_phone_number = '+44 999 0000001' where id = 'itest-nf-inutilise'`);
+      expect(await lus()).toEqual([]);
+      expect(await store.reprendreSiInutilise(n.id, espace, 24)).toBeNull();
+      expect(await store.parNumero(N1)).toMatchObject({ statut: 'attribue', tenantId: espace });
+    });
+
+    it('🔴 la condition est relue sous le verrou : un code arrivé après la lecture garde le numéro', async () => {
+      const n = await attribueDepuis(30);
+      expect(await lus()).toEqual([n.id]);
+      await store.ecrireCode(n.id, { appelId: 'itest.84', code: '123456', transcription: 'Your verification code is 123456.' });
+      expect(await store.reprendreSiInutilise(n.id, espace, 24)).toBeNull();
+      expect(await store.parNumero(N1)).toMatchObject({ statut: 'attribue', tenantId: espace });
+      // Un autre espace ne reprend pas ce numéro par son identifiant.
+      await pool.query(`delete from codes_verification where appel_id = 'itest.84'`);
+      expect(await store.reprendreSiInutilise(n.id, tenantId, 24)).toBeNull();
+      expect(await store.parNumero(N1)).toMatchObject({ statut: 'attribue', tenantId: espace });
     });
   });
 });

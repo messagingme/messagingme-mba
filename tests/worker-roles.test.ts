@@ -162,9 +162,10 @@ describe('ce qui tourne HORS du registre suit le même partage (relecture du 202
     // Un nom en dur fait fusionner les deux workers dans la même courbe de `/ops` et dans les mêmes alertes.
     expect(SOURCE).not.toContain('[mba-worker]');
     expect(SOURCE).toContain('viderVersLaBase(poolAttentesStore, mesureAttentePool, nomDuProcessus(config.WORKER_ROLE)');
-    // Quatre envois : l'alerte limitée (`alert`), celle du statut des numéros, le balayage des abonnements du numéro
+    // Cinq envois : l'alerte limitée (`alert`), celle du statut des numéros, le balayage des abonnements du numéro
     // (lot 4), qui dédoublonne par la table des avis et ne peut pas passer par la limite par clé, et pour la même raison
-    // celui du plafond de l'IA des Entreprises (`alertes_plafond_ia`, Entreprise illimitée).
-    expect(SOURCE.split('sendTelegram(`[mba-${nomDuProcessus(config.WORKER_ROLE)}]').length - 1).toBe(4);
+    // celui du plafond de l'IA des Entreprises (`alertes_plafond_ia`, Entreprise illimitée). Puis la reprise des numéros
+    // inutilisés (2026-11-18) : une ligne par numéro repris, que la limite par clé ferait taire au deuxième du même tour.
+    expect(SOURCE.split('sendTelegram(`[mba-${nomDuProcessus(config.WORKER_ROLE)}]').length - 1).toBe(5);
   });
 });

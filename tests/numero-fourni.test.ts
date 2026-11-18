@@ -65,8 +65,10 @@ function monter(o: {
   offres?: string[];
   /** L'application WhatsApp a appelé le numéro, hors de sa voie (lot 1 du 2026-11-17). */
   appelApplication?: boolean;
-  /** Seule l'application avait appelé : « Remplacer » rend le numéro au lieu de le bloquer. */
+  /** Aucun code n'a pu être lu (plan du 2026-11-18) : « Remplacer » rend le numéro au lieu de le bloquer. */
   seulementLApplication?: boolean;
+  /** Remplacé sans aucun appel après un autre client, lui aussi sans appel (plan du 2026-11-18) : bloqué, cause `sans_appel`. */
+  sansAppelDeuxFois?: boolean;
   /** Le Pro de l'espace est en essai (lot 2 du 2026-11-17) : le numéro n'y est pas inclus. */
   essaiPro?: boolean;
   /** La voie déjà retenue pour le numéro fourni (lot 3 du 2026-11-17) ; aucune si absente. */
@@ -84,7 +86,11 @@ function monter(o: {
     alertesFin: [] as string[],
     /** Les voies retenues (`retenirDestination`), dans l'ordre. */
     destinations: [] as string[],
+    /** Les alertes « rendu au stock » d'un remplacement, et les causes d'un blocage (plan du 2026-11-18). */
+    rendusAuStock: [] as string[],
+    causesBlocage: [] as string[],
   };
+  const verrous = fauxVerrous();
   const statut = o.abonnement === undefined ? 'actif' : o.abonnement;
   const reserve = [...(o.reserve ?? ['441235619343'])];
   let attribue: string | null = o.attribue ?? null;
@@ -111,8 +117,10 @@ function monter(o: {
         cap.remplaces += 1;
         const sorti = attribue;
         attribue = reserve.shift() ?? null;
-        // Seule l'application avait appelé (lot 1 du 2026-11-17) : le numéro sorti retourne à la réserve.
+        // Aucun code n'a pu être lu : le numéro sorti retourne à la réserve ; la réserve vide, l'espace le garde.
+        if (sorti && o.seulementLApplication && attribue === null) { attribue = sorti; return { bloque: null, nouveau: null }; }
         if (sorti && o.seulementLApplication) { reserve.push(sorti); return { bloque: null, nouveau: attribue ? NUMERO(attribue) : null, rendu: sorti }; }
+        if (sorti && o.sansAppelDeuxFois) return { bloque: sorti, nouveau: attribue ? NUMERO(attribue) : null, cause: 'sans_appel' as const };
         return { bloque: sorti, nouveau: attribue ? NUMERO(attribue) : null };
       },
       rendre: async () => { cap.rendus += 1; const r = attribue; attribue = null; if (r) reserve.push(r); return r; },
@@ -120,10 +128,11 @@ function monter(o: {
       compterLibres: async () => o.libresApres ?? reserve.length,
     },
     numeroConnecte: async () => (o.connecte !== undefined ? { chiffres: o.connecte, aActiver: false } : null),
-    verrous: fauxVerrous(),
+    verrous,
     alertes: {
       reserveBasse: async (libres) => { cap.alertesReserve.push(libres); },
-      numeroBloque: async (numero) => { cap.bloques.push(numero); },
+      numeroBloque: async (numero, _tenantId, cause) => { cap.bloques.push(numero); if (cause) cap.causesBlocage.push(cause); },
+      numeroRendu: async (numero) => { cap.rendusAuStock.push(numero); },
       finNonProgrammee: async (abonnementId) => { cap.alertesFin.push(abonnementId); },
     },
     seuilReserve: 3,
@@ -156,7 +165,7 @@ function monter(o: {
       },
     } : aucunCompteApplication,
   };
-  return { server: buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET }, numeroFourni: deps }), cap };
+  return { server: buildServer({ queue: new FakeQueue(), auth: { users: noUsers, secret: SECRET }, numeroFourni: deps }), cap, verrous };
 }
 
 const URL = '/tenants/t1/numero-fourni';
@@ -429,16 +438,44 @@ describe('remplacer et abandonner', () => {
     expect(res.json()).toEqual({ numero: '+442071234567' });
     expect(cap.bloques).toEqual([]);
     expect(cap.servis).toEqual(['t-attend']);
+    // Julien le sait (plan du 2026-11-18) : une ligne, sans rien à faire.
+    expect(cap.rendusAuStock).toEqual(['441301548023']);
+    await server.close();
+  });
+
+  it('🔴 remplacé sans aucun appel après un autre client, lui aussi sans appel (plan du 2026-11-18) : bloqué, et l’alerte en dit la cause', async () => {
+    const { server, cap } = monter({ attribue: '441235619343', reserve: ['442071234567'], libresApres: 5, sansAppelDeuxFois: true });
+    const res = await server.inject({ method: 'POST', url: `${URL}/remplacer`, ...h(adminTok), payload: '{}' });
+    expect(res.statusCode).toBe(200);
+    expect(cap.bloques).toEqual(['441235619343']);
+    expect(cap.causesBlocage).toEqual(['sans_appel']);
+    expect(cap.rendusAuStock).toEqual([]);
+    await server.close();
+  });
+
+  it('🟡 rien n’a été remplacé (aucun code lu, réserve vide) : l’espace garde son numéro et l’heure n’est pas consommée (jaune du lot 3 du 2026-11-17)', async () => {
+    const { server, cap, verrous } = monter({ attribue: '441301548023', reserve: [], libresApres: 0, seulementLApplication: true });
+    const r1 = await server.inject({ method: 'POST', url: `${URL}/remplacer`, ...h(adminTok), payload: '{}' });
+    expect(r1.statusCode).toBe(409);
+    expect(r1.json()).toMatchObject({ cause: 'reserve_vide' });
+    expect(verrous.relaches).toEqual(['numeros.remplacer:t1']);
+    expect([cap.bloques, cap.rendusAuStock]).toEqual([[], []]);
+    // Un second essai dans l'heure atteint de nouveau le magasin, au lieu d'un 429.
+    const r2 = await server.inject({ method: 'POST', url: `${URL}/remplacer`, ...h(adminTok), payload: '{}' });
+    expect(r2.statusCode).toBe(409);
+    expect(cap.remplaces).toBe(2);
     await server.close();
   });
 
   it('remplacer sans autre numéro libre : 409 réserve vide, l’ancien est quand même bloqué', async () => {
-    const { server, cap } = monter({ attribue: '441235619343', reserve: [], libresApres: 0 });
+    const { server, cap, verrous } = monter({ attribue: '441235619343', reserve: [], libresApres: 0 });
     const res = await server.inject({ method: 'POST', url: `${URL}/remplacer`, ...h(adminTok), payload: '{}' });
     expect(res.statusCode).toBe(409);
     expect(res.json()).toMatchObject({ cause: 'reserve_vide' });
     expect(cap.bloques).toEqual(['441235619343']);
     expect(cap.alertesReserve).toEqual([0]);
+    // Un numéro est sorti : le remplacement de l'heure est consommé.
+    expect(verrous.relaches).toEqual([]);
     await server.close();
   });
 
@@ -538,6 +575,18 @@ describe('creerAlertesReserve : prévenir Julien sans le noyer, et sans se taire
     expect(envois[1]).toContain('vide');
     await a.reserveBasse(0);
     expect(envois).toHaveLength(2);
+  });
+
+  it('les numéros sortis ou rendus par un remplacement : chaque ligne dit le numéro, l’espace et la cause (plan du 2026-11-18)', async () => {
+    const envois: string[] = [];
+    const a = creerAlertesReserve({ verrous: fauxVerrous(), envoyer: async (t) => { envois.push(t); return true; } });
+    await a.numeroBloque('441235619343', 't1', 'sans_appel');
+    await a.numeroBloque('441235619344', 't1');
+    await a.numeroRendu('441301548023', 't2');
+    expect(envois[0]).toMatch(/\+441235619343.*t1.*deux clients de suite sans aucun appel/);
+    expect(envois[1]).toMatch(/\+441235619344.*t1/);
+    expect(envois[1]).not.toContain('sans aucun appel');
+    expect(envois[2]).toMatch(/rendu au stock.*\+441301548023.*t2/);
   });
 });
 

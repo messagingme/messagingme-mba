@@ -5528,9 +5528,30 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   ne parle à Meta : la fenêtre vérifie, `/embedded-signup/complete` relie et active comme pour un numéro apporté.
   L'attribution (`attribuer`) prend un `libre` en `for update skip locked` et pose ensemble statut, espace et heure ;
   l'index `numeros_fournis_un_par_espace` tient deux demandes du même espace. Le code d'un espace (`codeDeLEspace`) ne
-  se lit que sur SON numéro, reçu après l'attribution et dans les 15 minutes, jamais avec sa transcription. Un numéro
-  refusé par Meta passe en `bloque` (sorti de la réserve, pas résilié). Sous `ALERTE_RESERVE_SEUIL` numéros libres,
-  Telegram, au plus une fois par jour (verrou court `numeros.reserve-basse`).
+  se lit que sur SON numéro, reçu après l'attribution et dans les 15 minutes, jamais avec sa transcription. Sous
+  `ALERTE_RESERVE_SEUIL` numéros libres, Telegram, au plus une fois par jour (verrou court `numeros.reserve-basse`).
+  🔴 **Un numéro remplacé ne sort de la réserve que si un appel a pu livrer un code** (« Le code n'arrive pas ? En
+  obtenir un autre », `remplacerNumero`, plan du 2026-11-18). `APPEL_A_PU_LIVRER_SQL` : un appel reçu depuis
+  l'attribution avec un code lu (sauf un appel de l'application sûrement caché, plus bas) ou une transcription en panne,
+  que le rejeu de l'enregistrement peut encore changer en code. Notre central décroche seul : un code que nous n'avons
+  pas lu, personne ne l'a eu. Sinon le numéro revient au stock (`rendu`). Sans AUCUN appel, il revient et porte une
+  marque (`remplace_sans_appel_le` et `remplace_sans_appel_par`, l'espace, 0294) ; quand un AUTRE espace le remplace à
+  son tour sans appel, et qu'aucun appel n'est arrivé depuis la marque (`MARQUE_D_UN_AUTRE_SQL`), il passe en `bloque`
+  (pas résilié, `cause: 'sans_appel'` : Meta le refuse sans doute, déjà actif ailleurs). Le même client qui retombe sur
+  le numéro qu'il a rendu ne le bloque pas. Un numéro rendu après un appel perd sa marque, et un numéro marqué
+  s'attribue après les autres (`attribuerAvec`). Rien de libre derrière : l'espace garde son numéro, sa marque intacte,
+  et le verrou d'une heure du remplacement se relâche. Chaque retour et chaque blocage partent sur Telegram
+  (`numeroRendu`, `numeroBloque`).
+  🔴 **Un numéro attribué qui n'a jamais servi revient au stock** (même plan, `src/numero/reprise-inutilises.ts`, tâche
+  `numeros-inutilises` du worker, toutes les heures, rôle principal) : attribué depuis 24 h
+  (`DELAI_NUMERO_INUTILISE_HEURES`), aucun appel depuis 24 h, aucun appel qui a pu livrer un code, aucun abonnement du
+  numéro vivant dans l'espace (l'abonné le paie, et le lui reprendre ne libère rien : il passerait en file d'attente, et
+  `numerosDisponibles` lui garderait un numéro), et rien qui le porte (un compte d'application sur ce numéro ou sur
+  cette ligne de la réserve, un numéro de Meta aux mêmes chiffres, ou un numéro de Meta de l'espace aux chiffres
+  inconnus, comme `vuDeMeta`). La condition (`inutiliseSql`) est relue sous le verrou de la ligne avant l'écriture ; le
+  numéro va d'abord à l'abonné qui attend (`servirLAttente`, origine `inutilise`), et Julien reçoit une ligne Telegram
+  directe par numéro (la limite par clé de `alert` ferait taire le second d'un même tour). Un client qui revient en
+  obtient un autre.
   🔴 **Un numéro de la réserve que quelqu'un utilise déjà ne part jamais** (`UTILISE_AILLEURS_SQL`,
   `src/otp/store.pg.ts`) : un compte d'application qui porte ce numéro, quel que soit son statut (retiré chez nous,
   l'application reste en service sur le téléphone), ou un numéro API d'un espace aux mêmes chiffres. Le prédicat se
@@ -5687,9 +5708,9 @@ touche sert à l'appel de l'application WhatsApp, qui dit « appuyez sur 5 » av
   `APPEL_APPLICATION_CACHE_SQL` le juge sûrement caché si l'espace n'était pas sur cette voie AU MOMENT de l'appel
   (destination inchangée depuis), et il ne compte alors ni comme code capté ni comme preuve. L'état de la connexion le
   dit (`appelApplication`, `appelDeLApplicationRecent`), la console et Claude le disent (`APPEL_APPLICATION`,
-  `APPEL_DE_L_APPLICATION`), et « Remplacer » REND à la réserve un numéro que seule l'application a appelé (`rendu`,
-  `seulementLApplication`) au lieu de le bloquer, sous un `for update` posé avant la lecture (READ COMMITTED : la
-  lecture faite dans la même instruction verrait l'instantané d'avant le verrou). Réserve vide, il reste à l'espace.
+  `APPEL_DE_L_APPLICATION`), et cet appel ne retient pas le numéro au remplacement ni à la reprise d'un numéro inutilisé
+  (`APPEL_A_PU_LIVRER_SQL`, plus haut), lu sous un `for update` posé avant la lecture (READ COMMITTED : la lecture faite
+  dans la même instruction verrait l'instantané d'avant le verrou).
   ⚠️ Ces attentes de 25 s entrent dans `http_latences` sous la route `/mcp`, avec les autres outils : un p95 de `/mcp`
   qui grimpe sur /ops ne dit pas une régression tant qu'on ne l'a pas lu par outil.
   **La connexion sans carte par le lien (lot 3v-2b).** La configuration du lien (`GET /embedded-signup/config`, garde
@@ -6917,7 +6938,7 @@ avec elle) garde son test de parité.
 | `src/templates/gestion.ts` | 🔴 le cycle de vie d'un modèle WhatsApp, commun à la console, l'API et MCP : vérifications préalables, création, liste et reconstruction des liens suivis, modification, suppression, statuts, gardes des campagnes actives, compensations des liens. `src/http/templates.ts` n'est qu'un adaptateur |
 | `src/api/envoi-public.ts` -> `lancerEnvoiPublic` | 🔴 le cycle d'un envoi public, commun à `/v1`, MCP, Shopify et l'action de workflow HubSpot : schéma du corps, cible, destinataires et données, consentement et quotas, plafond de destinataires, idempotence et reprise d'un rapport existant, création du lot, enfilement à reprise bornée, rapport et erreurs publiques |
 | `src/account/connexion-numero.ts` -> `connecterNumero`, `demanderCodeNumero`, `activerNumero` | 🔴 le protocole de connexion d'un numéro : échange du code Meta, découverte du WABA et du numéro, preuve d'appartenance, rattachement à l'espace, abonnement aux webhooks, enregistrement, identifiants et PIN, crédit offert, demande de code (délai partagé entre copies, `cleDemandeCode`), vérification et activation. `src/http/embedded-signup.ts` traduit les issues |
-| `src/numero/reserve.ts` -> `servirLAttente`, `droitAuNumero`, `numerosDisponibles` | la réserve de numéros fournis : un numéro qui y revient (rendu, libéré, sorti d'un espace supprimé ou déconnecté, déclaré dans `/ops`) va à l'abonné qui attend le sien depuis le plus longtemps, jamais à celui qui vient de le rendre. `servirLAttente` ne lève jamais : le geste d'avant a réussi. Pas de numéro avant le paiement, et un Pro ne prend pas celui d'un abonné qui attend |
+| `src/numero/reserve.ts` -> `servirLAttente`, `droitAuNumero`, `numerosDisponibles` | la réserve de numéros fournis : un numéro qui y revient (rendu, remplacé sans code lu, repris inutilisé, libéré, sorti d'un espace supprimé ou déconnecté, déclaré dans `/ops`) va à l'abonné qui attend le sien depuis le plus longtemps, jamais à celui qui vient de le rendre. `servirLAttente` ne lève jamais : le geste d'avant a réussi. Pas de numéro avant le paiement, et un Pro ne prend pas celui d'un abonné qui attend |
 | `src/mba/client.ts` -> `ecrireRolloutPuisDrapeau` | « Meta d'abord, nous ensuite » pour l'allumage de l'agent de Meta (route `PUT .../rollout`, assistant) : un refus de Meta ne laisse pas notre drapeau dire le contraire. `appliquerActivation` reçoit les deux écritures en dépendances séparées |
 | `src/mba/connaissance.ts` -> `appliquerMutationConnaissance` | les écritures de connaissance de l'agent de Meta, communes à la console et à l'assistant : véritable `agent_id` des consignes, lecture-fusion-écriture de la fiche d'activité, URL, identifiants opaques et politique d'historique après succès Meta |
 | `src/mba/handoff.ts` -> `reglerModeHandoff`, `reconcilierHandoffSurHoraires` | le passage de main à l'agent de Meta : le choix en base, son application chez Meta et sa réconciliation (`mba_handoff_mode`, § 5) |
