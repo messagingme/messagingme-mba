@@ -157,8 +157,9 @@ describe('le centre d’aide de la vitrine', () => {
     // 146 avec les sept captures fléchées du « bloc Message rapide » (le même jour) ; 198 avec les 26 du lot 2 (Envoi
     // template 5, Question 6, Action 5, Condition 5, Attente 5) ; 282 avec les 42 du lot 3 (« Créer un scénario » 6,
     // Formulaire 5, Assigner 2, Envoyer au MBA 2, Aller à 3, Fonction JS 5, RCS 5, mail 3, Agent IA 3, Appel API 3,
-    // Extraire du JSON 5).
-    expect(vues).toBe(282);
+    // Extraire du JSON 5) ; 284 avec l'étape « Prévoir l'absence de réponse » de l'Envoi template (2026-11-18, menu
+    // « Scénario », lot 2).
+    expect(vues).toBe(284);
   });
 
   it('chaque page de la vitrine mène au centre d’aide et au blog par « Ressources », au bureau et dans le burger, et à l’aide en pied de page', () => {
