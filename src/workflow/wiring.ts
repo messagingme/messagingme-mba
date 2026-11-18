@@ -641,6 +641,8 @@ export function buildWorkflowRuntime(deps: WorkflowRuntimeDeps) {
     },
     // Mesure par bloc. L'exécuteur l'appelle en best-effort : une panne ici n'arrête jamais un parcours.
     recordNodeEvent: (e) => nodeEvents.record(e),
+    // Le bloc qui a envoyé un message cité par un clic : un clic sur un ancien message se lit comme une réponse écrite.
+    blocDuMessage: (tenant, wamid) => nodeEvents.blocDuMessage(tenant, wamid),
     // Modèle, message rapide, question et formulaire : `src/workflow/envois-bloc.ts`, étalés tels quels. Leur
     // contrat est tenu par le type de retour de `creerEnvoisDeBloc` ; une clé réécrite APRÈS cet étalement le
     // remplacerait sans erreur de compilation, seuls les tests du vrai câblage le voient.

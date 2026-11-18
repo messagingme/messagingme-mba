@@ -55,6 +55,21 @@ export class PgWorkflowNodeEventStore {
    * scénario ne crée rien, puisque la méthode est appelée sur tous les statuts. Renvoie le nombre de lignes
    * créées (0 ou 1).
    */
+  /**
+   * Le bloc qui a envoyé ce message dans cet espace (sa mesure `sent`), ou `null`. Index partiel de la 0063 sur
+   * `meta_message_id`. Sert à reconnaître un clic sur un ancien message (`WorkflowExecutor.advance`).
+   */
+  async blocDuMessage(tenantId: string, metaMessageId: string): Promise<{ workflowId: string; nodeId: string } | null> {
+    const res = await this.pool.query<{ workflow_id: string; node_id: string }>(
+      `select workflow_id, node_id from workflow_node_events
+        where tenant_id = $1 and meta_message_id = $2 and kind = 'sent'
+        limit 1`,
+      [tenantId, metaMessageId],
+    );
+    const l = res.rows[0];
+    return l ? { workflowId: l.workflow_id, nodeId: l.node_id } : null;
+  }
+
   async recordStatusForMessage(metaMessageId: string, kind: 'delivered' | 'read' | 'failed'): Promise<number> {
     const res = await this.pool.query(
       `insert into workflow_node_events (tenant_id, workflow_id, node_id, wa_id, kind, meta_message_id)

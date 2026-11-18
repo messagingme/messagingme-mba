@@ -359,3 +359,49 @@ describe('🔴 la reprise d’une échéance réserve le tour, comme une répons
     expect(tr.vivants).toBe(1);
   });
 });
+
+/**
+ * 🔴 UN CLIC SUR UN ANCIEN MESSAGE N'EST PAS UN BOUTON DU BLOC COURANT (relecture de 2a, point 2, démontré par
+ * `clic-tardif.mts`). Les sorties sont positionnelles : taper « Je finalise » sur le PREMIER template, une fois la relance
+ * partie, arrivait comme `btn:0` et prenait la branche « Oui, mon code -10 % » de la relance. Le message cité par le clic
+ * est retrouvé dans les mesures des blocs : envoyé par un AUTRE bloc, le clic se lit comme une réponse écrite.
+ */
+describe('🔴 un clic sur un ancien message n’est pas un bouton du bloc courant', () => {
+  const relance = (): WorkflowGraph => ({
+    nodes: [
+      n('t1', 'template', { templateName: 'panier', language: 'fr', templateButtons: [{ type: 'QUICK_REPLY', text: 'Je finalise' }], timeoutValue: 30, timeoutUnit: 'minutes' }),
+      n('paiement', 'tag', { tag: 'lien_paiement' }),
+      n('t2', 'template', { templateName: 'relance_moins_dix', language: 'fr', templateButtons: [{ type: 'QUICK_REPLY', text: 'Oui, mon code -10 %' }, { type: 'QUICK_REPLY', text: 'Non merci' }] }),
+      n('code', 'tag', { tag: 'code_promo' }),
+      n('non', 'tag', { tag: 'non_merci' }),
+    ],
+    edges: [e('e1', 't1', 'paiement', 'btn:0'), e('e2', 't1', 't2', 'timeout'), e('e3', 't2', 'code', 'btn:0'), e('e4', 't2', 'non', 'btn:1')],
+  });
+  const surLaRelance = (): WorkflowRunRow => ({ ...enAttente(), currentNode: 't2' });
+  const blocs: Record<string, { workflowId: string; nodeId: string }> = {
+    'wamid.premier': { workflowId: 'wf1', nodeId: 't1' },
+    'wamid.relance': { workflowId: 'wf1', nodeId: 't2' },
+  };
+  const cliquer = async (messageCite: string | undefined): Promise<string[]> => {
+    const cap = capture();
+    const ex = monter(relance(), surLaRelance(), cap, { blocDuMessage: async (_t: string, wamid: string) => blocs[wamid] ?? null });
+    await ex.advance('t1', '33600', 'wamid.clic', 'btn:0', 'whatsapp', { reaction: false, type: 'button', ...(messageCite ? { messageCite } : {}) });
+    return cap.tags;
+  };
+
+  it('🔴 « Je finalise » tapé sur le PREMIER template ne part jamais vers « Oui, mon code -10 % »', async () => {
+    expect(await cliquer('wamid.premier')).not.toContain('code_promo');
+  });
+
+  it('le clic sur la relance prend sa branche', async () => {
+    expect(await cliquer('wamid.relance')).toEqual(['code_promo']);
+  });
+
+  it('un message inconnu (envoyé avant la mesure, ou ailleurs) garde le comportement d’avant', async () => {
+    expect(await cliquer('wamid.inconnu')).toEqual(['code_promo']);
+  });
+
+  it('un clic sans message cité garde le comportement d’avant', async () => {
+    expect(await cliquer(undefined)).toEqual(['code_promo']);
+  });
+});

@@ -37,6 +37,8 @@ export const agentDeMetaEteint = async (): Promise<boolean> => false;
 export const numeroJamaisDelie = async (): Promise<void> => {};
 /** `recordNodeEvent` absent : aucune mesure par bloc. */
 export const aucuneMesure = async (): Promise<void> => {};
+/** `blocDuMessage` : aucun message connu, donc tout clic garde sa lecture positionnelle d'avant. */
+export const aucunBlocConnu = async (): Promise<null> => null;
 /** `setOptIn` absent : le bloc « consentement » était un no-op. */
 export const consentementNonEcrit = async (): Promise<void> => {};
 /** `escalateToHuman` absent : aucune remontée à un humain. */
@@ -165,6 +167,7 @@ export const depsInertes = {
   mbaActifPour: agentDeMetaEteint,
   verifierNumeroWhatsApp: numeroJamaisDelie,
   recordNodeEvent: aucuneMesure,
+  blocDuMessage: aucunBlocConnu,
   setOptIn: consentementNonEcrit,
   escalateToHuman: personneNeReprend,
   enqueueAgentTurn: aucunTourEnfile,

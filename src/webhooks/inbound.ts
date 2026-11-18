@@ -46,6 +46,13 @@ export interface InboundMessage {
   /** Publicité Click-to-WhatsApp à l'origine du message. Absent sur un message ordinaire. */
   referral?: InboundReferral;
   /**
+   * Le message que cite un CLIC (bouton de template, bouton ou ligne d'un message interactif) : `context.id`, le wamid du
+   * message qui portait le bouton. Sert à reconnaître un clic sur un ANCIEN message (`WorkflowExecutor.advance`,
+   * relecture de 2a, point 2). Absent sur une réponse écrite, même quand elle cite un message : seul un clic désigne un
+   * bouton.
+   */
+  messageCite?: string;
+  /**
    * De quoi retrouver le fichier d'un message média. 🔴 Meta ne transmet pas le fichier, seulement un identifiant
    * pour aller chercher une URL : ne pas le capter ici, c'est perdre le média pour toujours. Il ne vit que sept
    * jours chez Meta (`DUREE_MEDIA_RECU_JOURS`, `src/inbox/media-entrant.ts`). `mime` vient du même corps et est
@@ -216,11 +223,14 @@ export function extractInbound(payload: unknown): InboundMessage[] {
         // `timestamp` est une chaîne de secondes chez Meta. Illisible ou absent : on n'invente pas de date.
         const secondes = Number(str(msg['timestamp']) ?? '');
         const envoyeLe = Number.isFinite(secondes) && secondes > 0 ? new Date(secondes * 1000) : undefined;
+        const type = str(msg['type']) ?? 'unknown';
+        const messageCite = buttonPayload !== null && (type === 'button' || type === 'interactive')
+          ? str(asRecord(msg['context'])['id']) : undefined;
         out.push({
           phoneNumberId,
           waId,
           messageId,
-          type: str(msg['type']) ?? 'unknown',
+          type,
           body,
           buttonPayload,
           ...(formulaire ? { formulaire } : {}),
@@ -230,6 +240,7 @@ export function extractInbound(payload: unknown): InboundMessage[] {
           ...(referralOf(msg) ? { referral: referralOf(msg)! } : {}),
           ...(media ? { media } : {}),
           ...(envoyeLe ? { envoyeLe } : {}),
+          ...(messageCite ? { messageCite } : {}),
         });
       }
     }

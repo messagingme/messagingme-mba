@@ -205,3 +205,26 @@ describe('processInbound', () => {
     expect(store.recorded).toHaveLength(0);
   });
 });
+
+describe('le message cité par un clic (relecture de 2a, point 2)', () => {
+  it('🔴 un clic sur un bouton de template porte le message qu’il cite (context.id)', () => {
+    const r = extractInbound(payload([{
+      id: 'wamid.clic', from: '33611', type: 'button', context: { from: '33700', id: 'wamid.premier' },
+      button: { text: 'Je finalise', payload: 'btn:0' },
+    }]));
+    expect(r[0]).toMatchObject({ buttonPayload: 'btn:0', messageCite: 'wamid.premier' });
+  });
+
+  it('un clic sur un bouton ou une ligne d’un message interactif aussi', () => {
+    const r = extractInbound(payload([
+      { id: 'wamid.b', from: '33611', type: 'interactive', context: { id: 'wamid.rapide' }, interactive: { type: 'button_reply', button_reply: { id: 'btn:1', title: 'Non' } } },
+      { id: 'wamid.l', from: '33611', type: 'interactive', context: { id: 'wamid.menu' }, interactive: { type: 'list_reply', list_reply: { id: 'row:2', title: 'Peut-être' } } },
+    ]));
+    expect(r.map((m) => m.messageCite)).toEqual(['wamid.rapide', 'wamid.menu']);
+  });
+
+  it('une réponse écrite qui cite un message n’en porte pas : seul un clic désigne un bouton', () => {
+    const r = extractInbound(payload([{ id: 'wamid.t', from: '33611', type: 'text', context: { id: 'wamid.premier' }, text: { body: 'ok' } }]));
+    expect(r[0]?.messageCite).toBeUndefined();
+  });
+});

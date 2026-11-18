@@ -102,6 +102,7 @@ export async function processWorkflowAdvance(entrants: readonly EntrantRattache[
         type: m.type,
         ...(m.type === 'text' && m.body !== null ? { texte: m.body } : {}),
         ...(m.media ? { media: { mime: m.media.mime } } : {}),
+        ...(m.messageCite ? { messageCite: m.messageCite } : {}),
       };
       if ((await deps.advance(tenantId, m.waId, m.messageId, m.buttonPayload, entrant)) === true) {
         parParcours.add(m.messageId);

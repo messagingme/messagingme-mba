@@ -194,6 +194,12 @@ export interface WorkflowExecutorDeps {
     kind: 'sent' | 'failed' | 'reply_button' | 'reply_text'; handle?: string; metaMessageId?: string;
   }): Promise<void>;
   /**
+   * Le bloc qui a envoyé ce message (sa mesure `sent`, `workflow_node_events.meta_message_id`), dans cet espace ; `null`
+   * s'il est inconnu. Sert à reconnaître un clic sur un ANCIEN message (relecture de 2a, point 2). Requise ; les fixtures
+   * passent `aucunBlocConnu`, qui garde le comportement d'avant.
+   */
+  blocDuMessage(tenantId: string, metaMessageId: string): Promise<{ workflowId: string; nodeId: string } | null>;
+  /**
    * `buttons` = boutons du template (payload contrôlé sur les quick-reply). `explicitParams` = variables du
    * corps déjà résolues (campagne workflow, 1er template), sinon résolution via les hints. `sources` = les
    * choix du bloc, qui priment sur les hints à leur position (ignorés quand `explicitParams` est fourni). Rend
@@ -534,6 +540,9 @@ const MAX_RCS_ENCHAINES = 20;
  */
 export interface EntrantAvance {
   reaction: boolean;
+  /** Le message que cite un clic (`context.id`) : un clic sur un message envoyé par un AUTRE bloc se lit comme une réponse
+   *  écrite (`boutonDuBlocCourant`). Absent : le comportement d'avant. */
+  messageCite?: string;
   formulaire?: boolean;
   type?: string;
   texte?: string | null;
@@ -1612,6 +1621,26 @@ export class WorkflowExecutor {
    * Écrit l'état d'un parcours en reprise, seulement s'il vit encore. Point de passage unique des écritures
    * de `resume`, pour ne pas oublier la garde à l'une d'elles.
    */
+  /**
+   * 🔴 UN CLIC SUR UN ANCIEN MESSAGE N'EST PAS UN BOUTON DU BLOC COURANT (relecture de 2a, point 2, démontré). Les sorties
+   * d'un bloc sont positionnelles (`btn:<i>`, `card:<c>:btn:<b>`, `row:<i>`) : taper « Je finalise » sur le PREMIER
+   * template, une fois la relance partie, arrivait comme `btn:0` et prenait la branche du premier bouton de la relance
+   * (pire cas : une branche qui désabonne, écrite sur un clic mal attribué). Le message cité par le clic est retrouvé
+   * dans les mesures des blocs : envoyé par un AUTRE bloc que celui où le parcours attend, le clic se lit comme une
+   * réponse écrite (la sortie libre, comme sur un bloc Formulaire). Message inconnu (envoyé avant que la mesure ne porte
+   * l'identifiant, par un autre chemin, ou lecture en panne) : le comportement d'avant.
+   */
+  private async boutonDuBlocCourant(
+    tenantId: string, run: { workflowId: string; currentNode: string | null }, bouton: string | null, messageCite: string | undefined,
+  ): Promise<string | null> {
+    if (bouton === null || messageCite === undefined || !/^(btn:|card:|row:)/.test(bouton)) return bouton;
+    const origine = await this.deps.blocDuMessage(tenantId, messageCite).catch(() => null);
+    if (origine === null || (origine.workflowId === run.workflowId && origine.nodeId === run.currentNode)) return bouton;
+    // eslint-disable-next-line no-console
+    console.log(`workflow ${run.workflowId}: clic « ${bouton} » sur un message du bloc ${origine.nodeId}, le parcours attend sur ${run.currentNode ?? 'null'} : lu comme une réponse écrite`);
+    return null;
+  }
+
   private async ecrireSiVivant(tenantId: string, runId: string, state: RunState): Promise<boolean> {
     const vivant = await this.deps.runs.setStateSiVivant(tenantId, runId, state);
     if (!vivant) {
@@ -2085,7 +2114,7 @@ export class WorkflowExecutor {
    * formulaire de WhatsApp Manager, qui n'a pas notre `_ref` (décision de Julien du 2026-10-15).
    */
   async advance(
-    tenantId: string, waId: string, messageId: string, buttonPayload: string | null = null, canalRetour: RunChannel = 'whatsapp',
+    tenantId: string, waId: string, messageId: string, boutonRecu: string | null = null, canalRetour: RunChannel = 'whatsapp',
     entrant: EntrantAvance = { reaction: false },
   ): Promise<void> {
     const run = await this.deps.runs.findWaitingByWaId(tenantId, waId);
@@ -2120,6 +2149,8 @@ export class WorkflowExecutor {
       },
     });
     try {
+    // Le bouton tel que ce bloc le lit : un clic sur un message envoyé par un AUTRE bloc devient une réponse écrite.
+    const buttonPayload = await this.boutonDuBlocCourant(tenantId, run, boutonRecu, entrant.messageCite);
 
     /**
      * Écriture de l'état, conditionnée au fait que le run n'a pas bougé pendant qu'on travaillait (et au jeton
