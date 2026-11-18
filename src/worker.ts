@@ -954,6 +954,17 @@ export async function demarrerWorker(): Promise<void> {
       // message de session (`ouvertureApi`).
       startWorkflowFromNode: async (tenant, workflowId, startNodeId, waId, contactId) =>
         (await lancements.lancer({ type: 'campagne_bloc', tenantId: tenant, workflowId, waId, contactId, noeudId: startNodeId })) ?? false,
+      // Le pont du parcours d'événement (menu « Scénario », lot 4, décision 28), éteint tant que rien ne pose
+      // `campaigns.parcours_evenement` (lot 5). La mesure « envoyé » du premier bloc porte l'identifiant de Meta : c'est elle
+      // que lit la protection du clic tardif. Le parcours naît sur ce bloc déjà envoyé (`deja_envoye`) ; un scénario
+      // introuvable ou d'un autre rayon rend une raison, jamais un échec de campagne.
+      mesurerEnvoiDuBloc: (tenant, e) =>
+        nodeEventStore.record({ tenantId: tenant, workflowId: e.workflowId, nodeId: e.nodeId, waId: e.waId, kind: 'sent', metaMessageId: e.messageId }),
+      naitreParcoursEvenement: async (tenant, d) =>
+        (await lancements.lancer({
+          type: 'evenement_shopify', tenantId: tenant, workflowId: d.workflowId, waId: d.waId, contactId: d.contactId,
+          noeudId: d.noeudId, modele: d.modele, evenement: d.evenement,
+        })) ?? 'ce scénario n’existe pas, ou n’est pas un scénario Shopify',
       // Cartes du carousel du template, relues une fois par run via le même cache court que les variables. null =
       // pas de carousel. Absente en DRY_RUN : ce mode ne doit déclencher aucun appel Meta.
       ...(dryRun ? {} : ({

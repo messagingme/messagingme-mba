@@ -100,6 +100,44 @@ Les jaunes 1 à 4, 7, 10 et 12 à 14 de cette relecture sont corrigés avec la c
 - `GET /workflows/:id/modeles`, sondé toutes les 15 s quand un template attend : `getById` relit les deux graphes, puis
   `publicationProgrammee` un troisième.
 
+## 🟡 Le moteur des parcours d'événement : ce qui reste après la relecture de 4a (2026-11-18, aucun rouge)
+
+Rien ne fait naître de parcours d'événement avant le lot 5 : ces points sont à régler AVANT lui, avec lui. Le point 2 de
+la relecture (le nom et la langue du modèle lus comme les lit `actionOf`) est corrigé avec 4b.
+
+- **Un parcours né déjà terminé garde ses variables** : `start` insère l'événement entier même quand l'état vaut `inbox`
+  (la suite du template mène tout de suite à « Passer à un humain ») ; les liens à clé d'accès restent jusqu'à la purge.
+  Les retirer à l'insertion d'un statut terminal, et étendre l'inventaire à l'insertion. Au même endroit, l'escalade
+  n'est pas collante (`partis > 0` faux) alors que le premier template est parti.
+- **L'événement s'écrit sans être validé** : `start` n'applique pas `schemaEvenement` ; une origine trop longue ou une
+  variable hors `schemaVariables` se relirait « ordinaire » (plus de plafond) tout en tenant la place unique en base.
+- **Au réveil par le plafond, la reprise du fil passe avant la garde** : le parcours retire le contact de la liste de
+  l'agent de Meta pour rien, puis se clôt. Placer la garde du plafond (et celle du graphe absent) avant `reclaimControl`.
+- **« À nous » relu après l'avance n'est qu'un indice** (`avanceDuParcours`) : faux quand un parcours d'événement pris sur un
+  fil `mba` se termine pendant l'avance ; la remise traite alors aussi le message. Faire rendre « message pris » par
+  `advance`.
+- **Un clic redélivré, deux parcours en attente** : la déduplication lit le parcours routé ; si l'événement a quitté le
+  bloc cité, la redélivrance retombe sur l'ordinaire, qui la lit comme un texte.
+- **Un saut change le scénario du parcours** : `cloreParScenarios` et un `parcoursEncoreVoulu` qui lirait `workflowId`
+  le manqueraient ; au lot 5, raisonner sur l'origine.
+- **La mémoire d'un agent** voit un `{{shopify.checkout_url}}` rendu dans un message (le fil) : à écrire ou à décider.
+- **Textes** : le refus d'une naissance devant un opérateur dit « déclenché par le contact … le message l'attend dans
+  l'Inbox » (faux pour un événement, et il ira dans `campaign_recipients.error`) ; le journal dit « tenu par un
+  opérateur » quand c'est Meta qui refuse le retrait ; un clic sur un parcours plus voulu ne reçoit aucune réponse
+  (choix à confirmer). `documentation.md` (« un run endormi est CLOS par le démarrage suivant ») et l'invariant 34 à
+  nuancer ; `src/automation/runner.ts` (« tranche au lieu de bloquer ») et `lancements.ts` (l'agent IA « remplacé ici »)
+  faux devant un parcours d'événement ; `cloreAutresActifs` décrit comme servant la naissance (il sert le réveil et la
+  réponse) ; la JSDoc de `cloreSessionDuRun` déplacée par `arreterParcours`.
+- **Tests manquants** : la colonne `devantUnEvenement` type par type (sept mutations restent vertes : une table attendue
+  sur le modèle de `MARKETING_ATTENDU`, et un faux qui distingue les deux clôtures) ; le plafond à la réponse et au réveil ;
+  `aUneEcheancePropre` pour un bloc agent ; l'événement porté par un saut au réveil ; les variables d'un bloc envoyé par
+  l'outil d'un agent ; « plus voulu » lu avant la reprise au réveil.
+- **Écarts du parcours ordinaire, sans changement de comportement** : une lecture de plus par automation « Autres » qui
+  se déclenche ; `blocDuMessage` lu deux fois pour un clic qui cite un message, et avant la déduplication, avec un
+  `findWaitingSurBloc` non protégé (sa panne fait échouer l'avance, la remise prend le message) ; un message gelé relit
+  le détenteur (une course où personne ne le traite) ; une source `variable` posée à la main dans un scénario ordinaire
+  est désormais refusée à l'envoi au lieu d'être ignorée (aucun écrivain n'en produit).
+
 ## 🟡 Les templates écrits depuis un bloc : ce qui reste après la relecture de 3b (2026-11-18, aucun rouge)
 
 À prendre avec le prochain lot de fonctionnalité qui touche le Builder. Les trois premiers touchent le client :

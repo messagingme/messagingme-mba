@@ -1912,3 +1912,30 @@ describe('POST /v1/sends : les params d’un scénario qui ouvre par un template
     await server.close();
   });
 });
+
+/**
+ * LE PONT DU PARCOURS D'ÉVÉNEMENT (menu « Scénario », lot 4, décision 28) : une option INTERNE de l'envoi public, que seul un
+ * adaptateur pose (Shopify, au lot 5). Le corps HTTP de `/v1/sends` ne peut pas la poser : un intégrateur ne fait pas
+ * naître de parcours d'événement.
+ */
+describe('l’option interne « parcoursEvenement » de l’envoi public (lot 4)', () => {
+  const PONT = {
+    workflowId: 'wf-panier', noeudId: 'tpl', type: 'evenement_shopify' as const, origine: 'shopify:b:checkouts/create:1',
+    boutons: [{ type: 'QUICK_REPLY', text: 'Reprendre' }],
+  };
+  const compter = async () => true;
+  const corps = (o: Record<string, unknown> = {}) => ({ ...TPL, recipients: [{ contactId: C1 }], ...o });
+
+  it('🔴 posée par l’option, elle arrive à la création de la campagne template', async () => {
+    const { sends, cap } = app({}, { modele: { statut: 'approuve', categorie: 'marketing', variables: 0 } });
+    await lancerEnvoiPublic(sends, 't1', corps(), 'i-pont-1', compter, { parcoursEvenement: PONT });
+    expect(cap.sends[0]!.input.parcoursEvenement).toEqual(PONT);
+  });
+
+  it('🔴 le corps HTTP ne peut pas la poser : refusé en 400 (champ inconnu), rien n’est créé', async () => {
+    const { sends, cap } = app({}, { modele: { statut: 'approuve', categorie: 'marketing', variables: 0 } });
+    const issue = await lancerEnvoiPublic(sends, 't1', corps({ parcoursEvenement: PONT }), 'i-pont-2', compter);
+    expect(issue).toEqual({ statut: 400, corps: { error: 'corps : champ inconnu (parcoursEvenement)', code: 'invalid_body' } });
+    expect(cap.sends).toEqual([]);
+  });
+});

@@ -1552,3 +1552,103 @@ describe('runCampaign : retrait de la liste de l’agent refusé avant le modèl
     expect(r1?.error).not.toContain('33611');
   });
 });
+
+/**
+ * LE PONT DU PARCOURS D'ÉVÉNEMENT DANS LE MOTEUR DE CAMPAGNE (menu « Scénario », lot 4, décision 28). Sans
+ * `parcoursEvenement`, une campagne template envoie EXACTEMENT ce qu'elle envoyait. Avec : chaque réponse rapide part avec
+ * son payload `btn:<i>` ; Meta a accepté -> la mesure « envoyé » du bloc D'ABORD, puis UNE demande de parcours ; un refus
+ * ou une panne du pont laisse le destinataire `sent` avec la raison, et le run continue ; un échec d'envoi n'appelle rien.
+ */
+describe('runCampaign : le pont du parcours d’événement (lot 4)', () => {
+  const PONT = {
+    workflowId: 'wf-panier', noeudId: 'tpl', type: 'evenement_shopify' as const, origine: 'shopify:b:checkouts/create:42',
+    boutons: [{ type: 'QUICK_REPLY', text: 'Reprendre' }, { type: 'URL', text: 'Voir' }, { type: 'QUICK_REPLY', text: 'Plus tard' }],
+  };
+  const avecPont = { ...campaign, parcoursEvenement: PONT };
+  const destinataire = (id: string, to: string) => ({ ...rec(id, to), variables: { checkout_url: `https://x/${id}` } });
+
+  function pont(issue: () => Promise<true | string>) {
+    const appels: string[] = [];
+    return {
+      appels,
+      capacites: {
+        mesurerEnvoiDuBloc: async (_t: string, e: { workflowId: string; nodeId: string; waId: string; messageId: string }) => {
+          appels.push(`mesure:${e.workflowId}/${e.nodeId}/${e.waId}/${e.messageId}`);
+        },
+        naitreParcoursEvenement: async (_t: string, d: { workflowId: string; noeudId: string; waId: string; contactId: string | null; modele: { nom: string; langue: string }; evenement: { origine: string; variables: Record<string, string> } }) => {
+          appels.push(`parcours:${d.workflowId}/${d.noeudId}/${d.waId}/${d.contactId}/${d.modele.nom}/${d.modele.langue}/${d.evenement.origine}/${JSON.stringify(d.evenement.variables)}`);
+          return issue();
+        },
+      },
+    };
+  }
+
+  it('🔴 sans parcours d’événement, les composants sont EXACTEMENT ceux d’avant, sans aucune réponse rapide', async () => {
+    const avant = new CapturingSender();
+    await lancerCampagne(campaign, deps({ recipients: new FakeRecipients([rec('r1', '+33611')]), sender: avant }));
+    const nul = new CapturingSender();
+    await lancerCampagne({ ...campaign, parcoursEvenement: null }, deps({ recipients: new FakeRecipients([rec('r1', '+33611')]), sender: nul }));
+    expect(nul.specs).toEqual(avant.specs);
+    expect(JSON.stringify(avant.specs)).not.toContain('quick_reply');
+  });
+
+  it('🔴 avec, chaque réponse rapide part avec son payload btn:<i>, à son index dans le template', async () => {
+    const sender = new CapturingSender();
+    const p = pont(async () => true);
+    await lancerCampagne(avecPont, deps({ recipients: new FakeRecipients([destinataire('r1', '+33611')]), sender, ...p.capacites }));
+    const boutons = (sender.specs[0]!.components ?? []).filter((c) => (c as { type?: unknown }).type === 'button');
+    expect(boutons).toEqual([
+      { type: 'button', sub_type: 'quick_reply', index: '0', parameters: [{ type: 'payload', payload: 'btn:0' }] },
+      { type: 'button', sub_type: 'quick_reply', index: '2', parameters: [{ type: 'payload', payload: 'btn:2' }] },
+    ]);
+  });
+
+  it('🔴 Meta a accepté : la mesure du bloc D’ABORD, puis UNE demande de parcours (scénario, bloc, modèle, origine, variables du destinataire)', async () => {
+    const p = pont(async () => true);
+    const recipients = new FakeRecipients([destinataire('r1', '+33611')]);
+    const report = await lancerCampagne(avecPont, deps({ recipients, sender: new CapturingSender(), ...p.capacites }));
+    expect(p.appels).toEqual([
+      'mesure:wf-panier/tpl/33611/m1',
+      'parcours:wf-panier/tpl/33611/ct-r1/promo/fr/shopify:b:checkouts/create:42/{"checkout_url":"https://x/r1"}',
+    ]);
+    expect(report).toMatchObject({ sent: 1, failed: 0 });
+    expect(recipients.results.get('r1')).toMatchObject({ status: 'sent', messageId: 'm1' });
+    expect(recipients.results.get('r1')?.error).toBeUndefined();
+  });
+
+  it('🔴 parcours refusé : la mesure est posée quand même, le destinataire reste sent avec la raison', async () => {
+    const p = pont(async () => 'un parcours d’événement est en cours pour ce contact');
+    const recipients = new FakeRecipients([destinataire('r1', '+33611')]);
+    const report = await lancerCampagne(avecPont, deps({ recipients, sender: new CapturingSender(), ...p.capacites }));
+    expect(p.appels[0]).toBe('mesure:wf-panier/tpl/33611/m1');
+    expect(report).toMatchObject({ sent: 1, failed: 0 });
+    expect(recipients.results.get('r1')).toMatchObject({ status: 'sent', error: 'Parcours non né : un parcours d’événement est en cours pour ce contact' });
+  });
+
+  it('🔴 une panne du pont : sent avec la raison, et le run continue au destinataire suivant', async () => {
+    const p = pont(async () => { throw new Error('base indisponible'); });
+    const recipients = new FakeRecipients([destinataire('r1', '+33611'), destinataire('r2', '+33622')]);
+    const report = await lancerCampagne(avecPont, deps({ recipients, sender: new CapturingSender(), ...p.capacites }));
+    expect(report).toMatchObject({ sent: 2, failed: 0 });
+    expect(recipients.results.get('r1')).toMatchObject({ status: 'sent', error: 'Parcours non né : base indisponible' });
+    expect(recipients.results.get('r2')).toMatchObject({ status: 'sent' });
+  });
+
+  it('🔴 un envoi refusé par Meta n’appelle ni la mesure ni le parcours', async () => {
+    const p = pont(async () => true);
+    class SenderEnEchec extends CapturingSender {
+      async sendTemplate(): Promise<SendResult> { throw new Error('refus de Meta'); }
+      async sendMarketing(): Promise<SendResult> { throw new Error('refus de Meta'); }
+    }
+    const recipients = new FakeRecipients([destinataire('r1', '+33611')]);
+    await lancerCampagne(avecPont, deps({ recipients, sender: new SenderEnEchec(), ...p.capacites }));
+    expect(p.appels).toEqual([]);
+    expect(recipients.results.get('r1')?.status).toBe('failed');
+  });
+
+  it('pont non câblé : sent, avec la raison qui le dit', async () => {
+    const recipients = new FakeRecipients([destinataire('r1', '+33611')]);
+    await lancerCampagne(avecPont, deps({ recipients, sender: new CapturingSender() }));
+    expect(recipients.results.get('r1')).toMatchObject({ status: 'sent', error: 'Parcours non né : pont non câblé.' });
+  });
+});

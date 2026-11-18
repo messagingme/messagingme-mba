@@ -79,6 +79,12 @@ describe('câblage des capacités du moteur de campagne', () => {
     );
   });
 
+  it('🔴 le pont du parcours d’événement (lot 4) : la mesure « envoyé » du bloc et la naissance en evenement_shopify', () => {
+    // Sans elles, le moteur dit « pont non câblé » à chaque destinataire d’une campagne porteuse d’un parcours (lot 5).
+    expect(workerSansCommentaires).toMatch(/mesurerEnvoiDuBloc: \(tenant, e\) =>\s*nodeEventStore\.record\(\{[^}]*kind: 'sent', metaMessageId: e\.messageId \}\)/);
+    expect(workerSansCommentaires).toMatch(/naitreParcoursEvenement: async \(tenant, d\) =>\s*\(await lancements\.lancer\(\{\s*type: 'evenement_shopify',/);
+  });
+
   it('les deux capacités de la panne du 2026-09-02 sont bien DANS le bloc ainsi gardé', () => {
     // Le `satisfies` ne vaut que pour l'objet qu'il conclut : le poser sur un autre bloc laisserait
     // celles-ci sans garde tout en donnant l'apparence d'une.

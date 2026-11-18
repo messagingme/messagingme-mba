@@ -1,4 +1,5 @@
 import { setTimeout as dormir } from 'node:timers/promises';
+import type { ParcoursEvenementDeCampagne } from '../campaign/parcours-evenement';
 import { z } from 'zod';
 import type { PoolClient } from 'pg';
 import { waIdOf } from '../crm/identity';
@@ -43,6 +44,8 @@ export interface CreationEnvoiPublic {
   channel?: 'rcs';
   rcsAgentId?: string;
   rcsMessage?: RcsOutbound;
+  /** Le parcours d'événement que la campagne fera naître (lot 4) ; seulement par `OptionsEnvoiPublic.parcoursEvenement`. */
+  parcoursEvenement?: ParcoursEvenementDeCampagne;
 }
 export interface DepsEnvoiPublic {
   /** Scénario par code `scn_` ou par nom, avec son graphe publié : c'est lui que `ouvertureApi` juge. */
@@ -400,6 +403,12 @@ export interface OptionsEnvoiPublic {
    * Plus d'un destinataire avec cette option : refusé en 400.
    */
   champsFiche?: ChampsFiche;
+  /**
+   * 🔴 INTERNE (menu « Scénario », lot 4, décision 28) : le parcours d'événement que la campagne fera naître quand Meta aura
+   * accepté son template. Posé par un adaptateur (Shopify, au lot 5), JAMAIS lu du corps HTTP de `/v1/sends`. Une cible
+   * `template` seulement : un scénario, un bloc ou un message RCS l'ignorent.
+   */
+  parcoursEvenement?: ParcoursEvenementDeCampagne;
 }
 
 /** La même enveloppe que `refuser` (`{ error, code }`), rendue au lieu d'être envoyée. */
@@ -631,6 +640,7 @@ export async function lancerEnvoiPublic(
         ...(cible.workflowId ? { workflowId: cible.workflowId } : {}),
         ...(cible.startNodeId ? { startNodeId: cible.startNodeId } : {}),
         ...(cible.rcs ? { channel: 'rcs' as const, rcsAgentId: cible.rcs.agentId, rcsMessage: cible.rcs.contenu } : {}),
+        ...(options.parcoursEvenement && !cible.workflowId && !cible.rcs ? { parcoursEvenement: options.parcoursEvenement } : {}),
       },
       recipients,
       async (tx, campaignId) => {

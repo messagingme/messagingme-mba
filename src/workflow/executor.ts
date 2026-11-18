@@ -1892,7 +1892,9 @@ export class WorkflowExecutor {
     if ((await this.deps.runs.parcoursDEvenementActif(tenantId, waId)) !== null) return REFUS_EVENEMENT_EN_COURS;
     const bloc = graph.nodes.find((n) => n.id === noeudId);
     if (!bloc || bloc.type !== 'template') return 'le bloc envoyé n’est plus un bloc template du scénario : aucun parcours';
-    if (String(bloc.data.templateName ?? '') !== modele.nom || String(bloc.data.language ?? '') !== modele.langue) {
+    // Le bloc se lit comme `actionOf` l'envoie (nom sans ses espaces, langue absente lue « fr ») : sinon un bloc sans langue
+    // ne ferait jamais naître de parcours, sans rien dire (relecture de 4a, point 2).
+    if (String(bloc.data.templateName ?? '').trim() !== modele.nom || String(bloc.data.language ?? 'fr') !== modele.langue) {
       return 'le bloc n’envoie plus le template parti : aucun parcours, ses boutons ne mèneraient plus aux bonnes branches';
     }
     if (!graph.edges.some((e) => e.source === noeudId)) return 'le bloc envoyé n’a pas de suite : aucun parcours';

@@ -18,6 +18,7 @@ import {
 import type { EntreeDeDecision } from './bascule';
 import type { DeliveryStore, DeliveryStatus } from '../webhooks/delivery';
 import { lancementDeCampagne } from '../hubspot-workflow/ligne';
+import { lireParcoursEvenement, type ParcoursEvenementDeCampagne } from './parcours-evenement';
 
 export interface CreateCampaignInput {
   tenantId: string;
@@ -49,6 +50,8 @@ export interface CreateCampaignInput {
   workflowId?: string;
   /** Cible node (/v1/sends) : démarre le workflow à ce bloc au lieu de son entrée. Requiert `workflowId`. */
   startNodeId?: string;
+  /** Le parcours d'événement que la campagne fera naître (lot 4) : une campagne template seulement, jamais un scénario. */
+  parcoursEvenement?: ParcoursEvenementDeCampagne;
   /** Débit max en messages/minute (1..80). Absent/null = aucun throttle. */
   ratePerMinute?: number | null;
   /** N'envoyer que pendant les heures d'ouverture de l'espace. Absent = aucune contrainte. */
@@ -352,13 +355,14 @@ export class PgCampaignRepo {
       webhook_id: string | null;
       business_hours_only: boolean | null;
       name: string | null;
+      parcours_evenement: unknown;
     }>(
       // `channel`, `rcs_agent_id`, `rcs_message` et `webhook_id` sont relus : cette lecture alimente le job de
       // run. Sans eux, une campagne RCS repartirait sur le chemin WhatsApp avec un phone_number_id nul, et une
       // campagne au fil de l'eau se terminerait à la première file vide.
       `select id, tenant_id, phone_number_id, category, template_name, template_language,
               param_mapping, status, workflow_id, rate_per_minute, start_node_id,
-              channel, rcs_agent_id, rcs_message, webhook_id, business_hours_only, name
+              channel, rcs_agent_id, rcs_message, webhook_id, business_hours_only, name, parcours_evenement
        from campaigns where id = $1`,
       [id],
     );
@@ -384,6 +388,7 @@ export class PgCampaignRepo {
       webhookId: r.webhook_id,
       // `null` ne vient que d'une ligne antérieure à la colonne (défaut false) : aucune contrainte d'horaire.
       businessHoursOnly: r.business_hours_only === true,
+      parcoursEvenement: lireParcoursEvenement(r.parcours_evenement, r.id),
       chaine: await this.lireChaine(id),
     };
   }
@@ -1592,8 +1597,8 @@ async function insertCampaignRow(q: Pool | PoolClient, input: CreateCampaignInpu
   const rcsMessage = input.rcsMessage === undefined ? null : JSON.stringify(input.rcsMessage);
   const res = await q.query<{ id: string }>(
     `insert into campaigns
-       (tenant_id, phone_number_id, name, category, template_name, template_language, param_mapping, workflow_id, rate_per_minute, start_node_id, channel, rcs_agent_id, rcs_message, webhook_id, business_hours_only, reessayer, rattrapage_hors_horaires, assignation, assignation_user_id, reessai_par_campagne, prevue_le)
-     values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18, $19, $20, $21)
+       (tenant_id, phone_number_id, name, category, template_name, template_language, param_mapping, workflow_id, rate_per_minute, start_node_id, channel, rcs_agent_id, rcs_message, webhook_id, business_hours_only, reessayer, rattrapage_hors_horaires, assignation, assignation_user_id, reessai_par_campagne, prevue_le, parcours_evenement)
+     values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13::jsonb, $14, $15, $16, $17, $18, $19, $20, $21, $22::jsonb)
      returning id`,
     [
       input.tenantId,
@@ -1632,6 +1637,8 @@ async function insertCampaignRow(q: Pool | PoolClient, input: CreateCampaignInpu
       input.reessayer !== undefined,
       // La date choisie dans l'assistant (migration 0245) : rangée sur le brouillon, programmée au lancement.
       input.prevueLe ?? null,
+      // Le parcours d'événement (0297, lot 4) : une campagne template seulement ; une campagne scénario n'en porte jamais.
+      !isWorkflow && input.parcoursEvenement ? JSON.stringify(input.parcoursEvenement) : null,
     ],
   );
   const id = res.rows[0]?.id;

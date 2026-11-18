@@ -1,4 +1,6 @@
 import type { Campaign, CampaignStatus, Recipient, RunReport, GuardrailThresholds, QualityRating } from './types';
+import { payloadsDesReponsesRapides } from './parcours-evenement';
+import type { EvenementDuParcours } from '../workflow/evenement';
 import { qualityGate, MOTIF_DESABONNE } from './guardrails';
 import { buildTemplateComponents, carouselSendBlocker, headerMediaSendBlocker } from '../meta/template-components';
 import type { OutboundCarouselCard } from '../meta/template-components';
@@ -174,6 +176,17 @@ export interface EngineDeps {
    * destinataire à la création de l'envoi.
    */
   startWorkflowFromNode?: (tenantId: string, workflowId: string, startNodeId: string, waId: string, contactId: string) => Promise<void | boolean | string>;
+  /**
+   * 🔴 LE PONT DU PARCOURS D'ÉVÉNEMENT (lot 4, décision 28), éteint tant que rien ne pose `campaign.parcoursEvenement`
+   * (lot 5). Pour un destinataire dont Meta a ACCEPTÉ le template : d'abord la mesure « envoyé » du bloc avec l'identifiant
+   * de Meta (toujours, parcours refusé ou non : la protection du clic tardif la lit), puis UNE demande de parcours.
+   * `true` = né ; une chaîne = aucun parcours, le destinataire reste `sent` avec la raison à côté.
+   */
+  mesurerEnvoiDuBloc?: (tenantId: string, e: { workflowId: string; nodeId: string; waId: string; messageId: string }) => Promise<void>;
+  naitreParcoursEvenement?: (tenantId: string, d: {
+    workflowId: string; noeudId: string; waId: string; contactId: string | null;
+    modele: { nom: string; langue: string }; evenement: EvenementDuParcours;
+  }) => Promise<true | string>;
   /**
    * Cartes du carousel du template, relues chez Meta une seule fois par run (identiques pour tous les
    * destinataires). null ou absente = envoi inchangé.
@@ -843,6 +856,11 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
             ...suffixesPourDestinataire(boutonsAJeton, r.contactId ? jetons.get(r.contactId) : undefined),
           }),
         };
+        // Lot 4 : une campagne porteuse d'un parcours d'événement pose le payload `btn:<i>` de chaque réponse rapide (sans lui,
+        // un clic ne choisit aucune branche). Sans `parcoursEvenement`, les composants sont exactement ceux d'avant.
+        if (campaign.parcoursEvenement) {
+          tpl.components = [...(tpl.components ?? []), ...payloadsDesReponsesRapides(campaign.parcoursEvenement.boutons)];
+        }
         // Numéro E.164 -> `to`, BSUID -> `recipient` (source unique messagingTarget). sendTemplate route
         // de la même façon en interne, donc l'utility passe l'identité brute. La catégorie de MÉTA choisit, pas
         // celle de la campagne (`categorieDuModele`).
@@ -850,6 +868,33 @@ export async function runCampaign(campaign: Campaign, deps: EngineDeps): Promise
           categorieMeta === 'marketing'
             ? await deps.sender.sendMarketing({ ...messagingTarget(r.toE164), template: tpl })
             : await deps.sender.sendTemplate(r.toE164, tpl);
+        // Meta a accepté le template : la mesure du bloc, puis le parcours d'événement, dans leur propre `try` (une panne du
+        // pont ne marque jamais `failed` un message parti, ni ne le renvoie).
+        const pe = campaign.parcoursEvenement;
+        if (pe && res.messageId) {
+          const waId = waIdOfTarget(r.toE164);
+          try {
+            await deps.mesurerEnvoiDuBloc?.(campaign.tenantId, { workflowId: pe.workflowId, nodeId: pe.noeudId, waId, messageId: res.messageId });
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error(`campagne ${campaign.id}: mesure du premier bloc non écrite pour ${waId}:`, messageDe(e));
+          }
+          try {
+            if (!deps.naitreParcoursEvenement) scenarioNonDemarre = 'Parcours non né : pont non câblé.';
+            else {
+              const issue = await deps.naitreParcoursEvenement(campaign.tenantId, {
+                workflowId: pe.workflowId, noeudId: pe.noeudId, waId, contactId: r.contactId,
+                modele: { nom: contenu.templateName, langue: contenu.templateLanguage },
+                evenement: { origine: pe.origine, variables: { ...(r.variables ?? {}) } },
+              });
+              if (issue !== true) scenarioNonDemarre = `Parcours non né : ${issue}`;
+            }
+          } catch (e) {
+            scenarioNonDemarre = `Parcours non né : ${texteDe(e)}`;
+            if (e instanceof NumeroBloqueError) scenarioSurNumeroDelie = e;
+            if (e instanceof CreditWhatsappRefus) scenarioSurCredit = e;
+          }
+        }
       }
     } catch (err) {
       // La limite des modèles du mois (lot 6) : la fabrique a refusé AVANT tout appel à Meta. Écarté, jamais en échec

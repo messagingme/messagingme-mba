@@ -187,6 +187,14 @@ describe('la naissance d’un parcours d’événement, sur le bloc déjà envoy
     expect([m.crees, m.clotures, m.b.appels]).toEqual([[], [], []]);
   });
 
+  it('🔴 le bloc se lit comme le moteur l’envoie : nom sans ses espaces, langue absente lue « fr » (relecture de 4a, point 2)', async () => {
+    silence();
+    const bloc = { ...PANIER.nodes[0]!, data: { templateName: '  panier_relance ', templateButtons: [{ type: 'QUICK_REPLY', text: 'Reprendre' }] } };
+    const m = banc({ scenario: { graph: { nodes: [bloc, ...PANIER.nodes.slice(1)], edges: PANIER.edges }, draftGraph: null, rayon: 'shopify' } });
+    expect(await m.lancements.lancer(naissance())).toBe(true);
+    expect(m.crees).toHaveLength(1);
+  });
+
   it('un scénario du Builder n’est pas un scénario d’événement : inconnu pour ce type', async () => {
     const m = banc();
     expect(await m.lancements.lancer(naissance({ workflowId: 'wf-builder', noeudId: 'b', nom: 'bienvenue' }))).toBeNull();

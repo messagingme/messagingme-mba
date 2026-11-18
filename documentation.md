@@ -2160,6 +2160,10 @@ Les colonnes citées sont celles dont le comportement dépend. La forme complèt
   dans la source `variable` d'un template et, préfixées (`{{shopify.checkout_url}}`), dans le texte ; elles ne vont
   jamais sur la fiche et s'effacent à sa fin (son origine reste). Deux parcours peuvent alors attendre un contact : un
   clic va à celui qui attend sur le bloc du message cité (`findWaitingSurBloc`).
+  Le pont (lot 4b) : une campagne template porteuse de `campaigns.parcours_evenement` (option INTERNE de l'envoi public,
+  un corps HTTP qui la porte est refusé en 400) envoie ses réponses rapides avec leur payload `btn:<i>` ; quand Meta a
+  accepté, le moteur pose D'ABORD la mesure « envoyé » du bloc, puis demande le parcours une fois ; un refus ou une panne
+  laisse le destinataire `sent` avec la raison. Sans la colonne, la campagne envoie exactement ce qu'elle envoyait.
 - 🔴 **UN PARCOURS JOUE LE MÊME GRAPHE DU DÉBUT À LA FIN**, et un seul point de passage le décide :
   `grapheDuRun(run, lirePublie)` (`src/workflow/executor.ts`), lu par les TROIS reprises (`resume`,
   `runEnAttenteSur`, `advance`). Il rend `workflow_runs.graphe_fige` s'il y en a un, le publié sinon.

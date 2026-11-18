@@ -1,6 +1,7 @@
 import type { TemplateParam } from '../crm/template';
 import type { Etage } from './etages';
 import type { LancementDeCampagne } from '../hubspot-workflow/ligne';
+import type { ParcoursEvenementDeCampagne } from './parcours-evenement';
 
 export type CampaignCategory = 'marketing' | 'utility';
 export type CampaignStatus = 'draft' | 'running' | 'paused' | 'completed' | 'failed' | 'scheduled';
@@ -30,6 +31,12 @@ export interface Campaign {
    * fenêtre 24 h a été vérifiée par destinataire à la création de l'envoi. null = comportement classique.
    */
   startNodeId: string | null;
+  /**
+   * Le parcours d'événement que cette campagne fait naître (menu « Scénario », lot 4, décision 28), posé par l'option
+   * INTERNE de l'envoi public, jamais par le corps HTTP. null ou absent = une campagne template ordinaire, qui envoie
+   * exactement ce qu'elle envoyait.
+   */
+  parcoursEvenement?: ParcoursEvenementDeCampagne | null;
   /** Débit max en messages/minute (1..80). null = aucun throttle (le run part au rythme boucle + latence Meta). */
   ratePerMinute: number | null;
   /** Canal d'envoi. Absent = 'whatsapp'. */
