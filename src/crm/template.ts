@@ -93,7 +93,14 @@ export function validateParamMapping(raw: unknown, options: { accepterVariables?
  * `{{n}}` tapé à la main n'en a pas) : pas de suite 1..N exigée, seulement des positions entières >= 1 uniques
  * et des sources bien formées. Rend les indices typés, ou null si malformé.
  */
-export function parseParamHints(raw: unknown): Array<{ position: number; source: ParamSource }> | null {
+export function parseParamHints(
+  raw: unknown,
+  /**
+   * `accepterVariables` : la source `variable` est admise. Seul le bloc template d'un scénario la lit (lot 4 : les variables
+   * d'un parcours d'événement) ; ailleurs (un mapping de la console, la recette de l'API) elle reste refusée.
+   */
+  opts: { accepterVariables?: boolean } = {},
+): Array<{ position: number; source: ParamSource }> | null {
   if (raw === undefined) return [];
   if (!Array.isArray(raw)) return null;
   const out: Array<{ position: number; source: ParamSource }> = [];
@@ -102,7 +109,7 @@ export function parseParamHints(raw: unknown): Array<{ position: number; source:
     if (typeof item !== 'object' || item === null) return null;
     const h = item as { position?: unknown; source?: unknown };
     if (typeof h.position !== 'number' || !Number.isInteger(h.position) || h.position < 1) return null;
-    if (!isValidSource(h.source)) return null;
+    if (!isValidSource(h.source, opts.accepterVariables === true)) return null;
     if (seen.has(h.position)) return null; // une position ne peut pas avoir deux sources
     seen.add(h.position);
     out.push({ position: h.position, source: h.source });

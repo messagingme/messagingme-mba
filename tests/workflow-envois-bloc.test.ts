@@ -1001,3 +1001,25 @@ describe('🔴 la relecture fraîche de la garde est bornée (relecture de 3a, j
     vi.useRealTimers();
   });
 });
+
+/**
+ * LES VARIABLES D'UN PARCOURS D'ÉVÉNEMENT (lot 4, décision 28), sur le vrai envoi d'un bloc : la source `variable` choisie
+ * dans le bloc lit les données de l'événement (le lien du panier), jamais la fiche ; absente, l'envoi est refusé en la
+ * nommant, et rien ne part chez Meta.
+ */
+describe('sendTemplate : la source « variable » d’un bloc lit le parcours d’événement (lot 4)', () => {
+  const variable = [{ position: 1, source: { type: 'variable' as const, key: 'checkout_url' } }];
+
+  it('🔴 la variable du parcours arrive chez Meta', async () => {
+    const { envois, appels } = monter({ templateVarInfo: vi.fn(async () => ({ ...LECTURE, count: 1 })) });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [], undefined, variable, { checkout_url: 'https://x/c/42' })).toEqual({ messageId: MESSAGE_ID });
+    expect(appels).toEqual([['sendTemplate', W, { name: NOM, language: LANGUE, components: [{ type: 'body', parameters: [{ type: 'text', text: 'https://x/c/42' }] }] }]]);
+  });
+
+  it('🔴 absente (un parcours ordinaire, ou l’événement sans elle) : refusé en la nommant, rien ne part', async () => {
+    const { envois, appels } = monter({ templateVarInfo: vi.fn(async () => ({ ...LECTURE, count: 1 })) });
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [], undefined, variable)).toBe(`template « ${NOM} » : la variable du parcours « checkout_url » manque`);
+    expect(await envois.sendTemplate(T, W, NOM, LANGUE, [], undefined, variable, { order_url: 'https://x/o' })).toBe(`template « ${NOM} » : la variable du parcours « checkout_url » manque`);
+    expect(appels).toEqual([]);
+  });
+});

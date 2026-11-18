@@ -31,6 +31,18 @@ const schemaEvenement = z.object({
 });
 
 /**
+ * Les variables d'un parcours d'événement telles que le TEXTE d'un message les lit (lot 4, décision 28) : sous le préfixe de
+ * leur origine, `{{shopify.checkout_url}}`, pour ne jamais se confondre avec un champ de la fiche du même nom (la console
+ * nomme les champs sans point). Rien pour un parcours ordinaire.
+ */
+export function variablesDuTexte(evenement: EvenementDuParcours | null): Record<string, string> {
+  if (evenement === null) return {};
+  const prefixe = evenement.origine.split(':')[0] ?? '';
+  if (prefixe === '') return {};
+  return Object.fromEntries(Object.entries(evenement.variables).map(([k, v]) => [`${prefixe}.${k}`, v]));
+}
+
+/**
  * Relit le jsonb `workflow_runs.evenement`, une entrée non fiable : `safeParse`, jamais `as`. Une valeur illisible fait
  * lire le parcours comme ordinaire, et se journalise SANS la valeur (elle peut porter des liens à clé d'accès).
  */

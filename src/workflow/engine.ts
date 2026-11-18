@@ -850,7 +850,9 @@ export function actionOf(node: WorkflowNode, ctx?: EvalContext): WorkflowAction 
     // Les choix du bloc (`variables`), jugés un par un : un choix malformé est ignoré, sa position garde la source
     // du template, et il n'emporte pas les autres.
     const brut: unknown[] = Array.isArray(node.data.variables) ? node.data.variables : [];
-    const sources = brut.flatMap((v) => parseParamHints([v]) ?? []);
+    // La source `variable` est admise ici seulement : elle lit les variables d'un parcours d'événement (lot 4) ; un parcours
+    // ordinaire n'en a pas, et la position manque alors, refusée à l'envoi en nommant la variable.
+    const sources = brut.flatMap((v) => parseParamHints([v], { accepterVariables: true }) ?? []);
     return {
       kind: 'sendTemplate', templateName, language: String(node.data.language ?? 'fr'), buttons,
       ...(sources.length > 0 ? { sources } : {}),

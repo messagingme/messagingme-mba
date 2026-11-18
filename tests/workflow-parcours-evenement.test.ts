@@ -11,7 +11,7 @@ import type { WorkflowGraph, WorkflowNodeType } from '../src/workflow/graph';
 import type { WorkflowRow } from '../src/workflow/store.pg';
 import type { ControlOwner } from '../src/inbox/store.pg';
 import type { RunState, WorkflowRunRow } from '../src/workflow/run-store.pg';
-import { PLAFOND_ATTENTE_EVENEMENT_MS, type EvenementDuParcours } from '../src/workflow/evenement';
+import { PLAFOND_ATTENTE_EVENEMENT_MS, variablesDuTexte, type EvenementDuParcours } from '../src/workflow/evenement';
 import { walk } from '../src/workflow/engine';
 import { DROITS, type Offre } from '../src/offres/offres';
 
@@ -281,10 +281,14 @@ interface OptionsReprise {
   dernier?: WorkflowRunRow;
   /** Le graphe du panier lu au réveil (le défaut : le panier à délai). */
   graphe?: WorkflowGraph;
+  /** Les champs de la fiche que lit le texte d'un message (`varsFor`). */
+  varsFiche?: Record<string, string>;
 }
 
 function bancReprise(o: OptionsReprise = {}) {
   const b = bancDuFil({ surLaListe: [WA], conversations: { [WA]: { owner: o.detenteur ?? 'app_workflow' } } });
+  const modeles: Array<{ nom: string; sources: unknown; variables: unknown }> = [];
+  const champs: string[] = [];
   const envois: string[] = [];
   const ecritures: string[] = [];
   const priseDeMain: string[] = [];
@@ -312,14 +316,19 @@ function bancReprise(o: OptionsReprise = {}) {
     setField: async () => {},
     removeTag: async () => {},
     clearField: async () => {},
-    sendTemplate: async (_t, _w, nom) => { envois.push(`tpl:${nom}`); },
+    sendTemplate: async (_t, _w, nom, _l, _b, _p, sources, variables) => {
+      envois.push(`tpl:${nom}`);
+      modeles.push({ nom, sources, variables });
+    },
     sendQuickMessage: async (_t, _w, texte) => { envois.push(`qm:${texte}`); },
     sendFlow: async () => {},
     sendQuestion: async () => {},
     mayAct: b.fil.peutAgir,
     reclaimControl: b.fil.reprendrePourLApp,
+    varsFor: async () => o.varsFiche ?? {},
   };
-  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur };
+  deps.setField = async (_t, _w, cle, valeur) => { champs.push(`${cle}=${String(valeur)}`); };
+  return { b, executor: new WorkflowExecutor(deps), envois, ecritures, priseDeMain, auRepondeur, modeles, champs };
 }
 
 const clic = (bouton: string) => ({ reaction: false, messageCite: 'wamid.tpl', type: 'button' as const, bouton });
@@ -498,5 +507,56 @@ describe('l’attente bornée d’un parcours d’événement (décision 29)', (
     expect(await m.executor.resume({ ...runEvenement(), status: 'waiting' })).toBe(false);
     expect(m.envois).toEqual([]);
     expect(m.ecritures).toEqual(['r-evt:done']);
+  });
+});
+
+/**
+ * LES VARIABLES DU PARCOURS DANS LES ENVOIS DE L'EXÉCUTEUR (lot 4, décision 28) : un template de la suite reçoit les
+ * variables de l'événement (sa source `variable`), le texte d'un message lit `{{shopify.checkout_url}}` dans le parcours et
+ * un nom nu sur la fiche. Les liens à clé d'accès ne vont jamais sur la fiche.
+ */
+describe('les variables d’un parcours d’événement dans ses envois (décision 28)', () => {
+  it('🔴 le texte d’un message lit {{shopify.checkout_url}} dans le parcours, et un nom nu sur la fiche', async () => {
+    silence();
+    const texte: WorkflowGraph = {
+      nodes: [
+        PANIER_DELAI.nodes[0]!,
+        n('qm', 'quick_message', { body: 'Bonjour {{prenom}}, votre panier : {{shopify.checkout_url}}' }),
+      ],
+      edges: [{ id: 'e1', source: 'tpl', target: 'qm', sourceHandle: 'btn:0' }],
+    };
+    const m = bancReprise({ graphe: texte, varsFiche: { prenom: 'Camille' } });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(m.envois).toEqual(['qm:Bonjour Camille, votre panier : https://x/c/42']);
+  });
+
+  it('🔴 un template de la suite reçoit les variables de l’événement pour sa source « variable »', async () => {
+    silence();
+    const suite: WorkflowGraph = {
+      nodes: [
+        PANIER_DELAI.nodes[0]!,
+        n('t3', 'template', { templateName: 'panier_lien', language: 'fr', variables: [{ position: 1, source: { type: 'variable', key: 'checkout_url' } }] }),
+      ],
+      edges: [{ id: 'e1', source: 'tpl', target: 't3', sourceHandle: 'btn:0' }],
+    };
+    const m = bancReprise({ graphe: suite });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(m.modeles).toEqual([{ nom: 'panier_lien', sources: [{ position: 1, source: { type: 'variable', key: 'checkout_url' } }], variables: EVENEMENT.variables }]);
+  });
+
+  it('🔴 une variable du parcours n’atteint jamais la fiche : le champ posé garde le texte tel quel', async () => {
+    silence();
+    const action: WorkflowGraph = {
+      nodes: [PANIER_DELAI.nodes[0]!, n('a', 'action', { actionKind: 'set_field', fieldKey: 'lien', value: '{{shopify.checkout_url}}' })],
+      edges: [{ id: 'e1', source: 'tpl', target: 'a', sourceHandle: 'btn:0' }],
+    };
+    const m = bancReprise({ graphe: action });
+    await m.executor.advance(ESPACE, WA, 'm1', 'btn:0', 'whatsapp', clic('btn:0'));
+    expect(m.champs.join(' ')).not.toContain('https://x/c/42');
+  });
+
+  it('variablesDuTexte : rien pour un parcours ordinaire, le préfixe de l’origine sinon', () => {
+    expect(variablesDuTexte(null)).toEqual({});
+    expect(variablesDuTexte(EVENEMENT)).toEqual({ 'shopify.checkout_url': 'https://x/c/42' });
   });
 });

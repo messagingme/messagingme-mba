@@ -8,7 +8,7 @@ import { renderText } from '../crm/render';
 import type { ParamSource } from '../crm/template';
 import { besoinsDesClauses, clausesDuBloc, type BesoinsContexte, type EvalContext } from './conditions';
 import type { RunState, WorkflowRunRow, RunChannel, RunStatus } from './run-store.pg';
-import { PLAFOND_ATTENTE_EVENEMENT_MS, type EvenementDuParcours } from './evenement';
+import { PLAFOND_ATTENTE_EVENEMENT_MS, variablesDuTexte, type EvenementDuParcours } from './evenement';
 import type { RcsSender } from '../rcs/sender';
 import type { RcsOutbound, RcsSuggestion } from '../rcs/types';
 import { rcsSuggestionSchema, apercuRcsSortant } from '../rcs/schema';
@@ -241,7 +241,12 @@ export interface WorkflowExecutorDeps {
    * choix du bloc, qui priment sur les hints à leur position (ignorés quand `explicitParams` est fourni). Rend
    * `void` si parti, une chaîne portant la raison si rien n'est parti (voir `SendRefusal`).
    */
-  sendTemplate(tenantId: string, waId: string, templateName: string, language: string, buttons: WorkflowButton[], explicitParams?: string[], sources?: Array<{ position: number; source: ParamSource }>): Promise<SendRefusal>;
+  sendTemplate(
+    tenantId: string, waId: string, templateName: string, language: string, buttons: WorkflowButton[], explicitParams?: string[],
+    sources?: Array<{ position: number; source: ParamSource }>,
+    /** Les variables du parcours d'événement (lot 4), lues par la source `variable` ; jamais par `explicitParams`. */
+    variables?: Readonly<Record<string, string>>,
+  ): Promise<SendRefusal>;
   /**
    * Ce contact a-t-il demandé à ne plus être contacté ?
    *
@@ -765,10 +770,13 @@ export class WorkflowExecutor {
     tenantId: string,
     waId: string,
     a: { body: string; buttons: WorkflowButton[]; mediaUrl?: string; lien?: LienBouton },
+    /** Les variables du parcours d'événement, sous leur préfixe (`variablesDuTexte`, lot 4). */
+    varsEvenement: Record<string, string> = {},
   ): Promise<SendRefusal> {
     const corpsAVariable = VARIABLE_DU_CORPS.test(a.body);
-    const vars = this.deps.varsFor && (corpsAVariable || a.lien?.url.includes('{{'))
-      ? await this.deps.varsFor(tenantId, waId)
+    const veutDesVariables = corpsAVariable || a.lien?.url.includes('{{') === true;
+    const vars = veutDesVariables && (this.deps.varsFor || Object.keys(varsEvenement).length > 0)
+      ? { ...(this.deps.varsFor ? await this.deps.varsFor(tenantId, waId) : {}), ...varsEvenement }
       : undefined;
     let lien = a.lien;
     if (lien) {
@@ -824,7 +832,10 @@ export class WorkflowExecutor {
      * peut durer plusieurs minutes. Absente pour les chemins qui ne réservent pas de tour (`demarrer`, `runFrom`).
      */
     garde?: GardeDuTour,
+    /** L'événement du parcours (lot 4) : ses variables pour la source `variable` d'un template et le texte préfixé. */
+    evenement: EvenementDuParcours | null = null,
   ): Promise<{ refus: string | null; partis: number; canal: RunChannel; refusCredit: CreditWhatsappRefus | null; refusDesBlocs: RefusDeBloc[] }> {
+    const varsEvenement = variablesDuTexte(evenement);
     let canal: RunChannel = canalEntrant;
     const posedTags: string[] = [];
     // Un walk peut produire plusieurs envois (un message rapide sans bouton ne bloque pas). On retient la
@@ -1011,8 +1022,8 @@ export class WorkflowExecutor {
          * refuser le message entier (même règle que le RCS).
          */
         const corpsAvecVariables = async (texte: string): Promise<string> => {
-          if (!this.deps.varsFor || !VARIABLE_DU_CORPS.test(texte)) return texte;
-          return renderText(texte, await this.deps.varsFor(tenantId, waId), { html: false });
+          if (!VARIABLE_DU_CORPS.test(texte) || (!this.deps.varsFor && Object.keys(varsEvenement).length === 0)) return texte;
+          return renderText(texte, { ...(this.deps.varsFor ? await this.deps.varsFor(tenantId, waId) : {}), ...varsEvenement }, { html: false });
         };
         // Jamais `refus ??= await …` : `??=` n'évalue pas sa droite quand la gauche est remplie, et l'envoi
         // serait sauté. On envoie toujours, on ne garde que la 1re raison.
@@ -1022,14 +1033,14 @@ export class WorkflowExecutor {
             // Le canal du parcours décide, pas le type du bloc. Voir `envoyerQuickEnRcs`.
             ? (canal === 'rcs'
               ? await this.envoyerQuickEnRcs(tenantId, waId, a)
-              : await this.envoyerQuickEnWhatsapp(tenantId, waId, a))
+              : await this.envoyerQuickEnWhatsapp(tenantId, waId, a, varsEvenement))
             // Une question part toujours en WhatsApp : la liste interactive n'a aucun équivalent RCS. Pas de
             // branche `canal === 'rcs'`, qui promettrait un repli inexistant.
             : a.kind === 'sendQuestion'
               ? await this.deps.sendQuestion(tenantId, waId, await corpsAvecVariables(a.body), a.buttonLabel, a.rows)
               : a.kind === 'sendFlow'
                 ? await this.deps.sendFlow(tenantId, waId, a.flowId, a.body, a.cta)
-                : await this.deps.sendTemplate(tenantId, waId, a.templateName, a.language, a.buttons, firstTemplateParams, a.sources);
+                : await this.deps.sendTemplate(tenantId, waId, a.templateName, a.language, a.buttons, firstTemplateParams, a.sources, evenement?.variables);
         } catch (err) {
           /**
            * 🔴 Le Crédit WhatsApp à sec APRÈS un effet de cette liste : l'exception laisserait le parcours sur son bloc, et la
@@ -1349,7 +1360,7 @@ export class WorkflowExecutor {
     // réveil d'une Attente n'est pas visé : le couper changerait en silence un montage « Attente puis étiquette » qui
     // nourrit aujourd'hui une automation (relecture de 2a, point 3).
     const masseMuette = parEcheance && run.neEnMasse && (run.lastMessageId ?? null) === null;
-    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, !masseMuette, run.workflowId, apresWalk, garde);
+    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, aExecuter, run.exigeAccordMarketing, undefined, !masseMuette, run.workflowId, apresWalk, garde, run.evenement);
     // Un réveil n'a pas de message reçu : la ligne du journal n'en nomme aucun.
     const origine = { workflowId: run.workflowId, runId: run.id, messageId: null, graph };
     /**
@@ -1989,7 +2000,7 @@ export class WorkflowExecutor {
     if (envoieParWhatsApp(actions, apresWalk)) {
       await this.deps.verifierNumeroWhatsApp(tenantId);
     }
-    const { refus, partis, canal, refusCredit } = await this.apply(tenantId, contact.waId, actions, opts.exigeAccordMarketing && opts.exempterOuverture === true ? 'sauf_ouverture' : opts.exigeAccordMarketing, opts.firstTemplateParams, politique.publieLesEtiquettes, workflowId, apresWalk);
+    const { refus, partis, canal, refusCredit } = await this.apply(tenantId, contact.waId, actions, opts.exigeAccordMarketing && opts.exempterOuverture === true ? 'sauf_ouverture' : opts.exigeAccordMarketing, opts.firstTemplateParams, politique.publieLesEtiquettes, workflowId, apresWalk, undefined, opts.evenement ?? null);
     // Refus alors que rien n'est parti : on ne persiste pas de run en attente (il attendrait une réponse à un
     // message jamais reçu, et le message suivant du contact le ferait avancer au bloc suivant). La raison
     // remonte telle quelle vers la campagne. Si un message est parti, le parcours vit et le refus reste au log.
@@ -2246,7 +2257,7 @@ export class WorkflowExecutor {
     }
     if (envoieParWhatsApp(actions, canal)) await this.deps.verifierNumeroWhatsApp(tenantId);
     // La garde marketing du parcours de l'agent : un agent ouvert par un scénario d'automation reste sous sa règle.
-    const { refus, partis } = await this.apply(tenantId, waId, actions, attente.run.exigeAccordMarketing, undefined, false, input.workflowId, canal);
+    const { refus, partis } = await this.apply(tenantId, waId, actions, attente.run.exigeAccordMarketing, undefined, false, input.workflowId, canal, undefined, attente.run.evenement);
     if (partis === 0 && refus !== null) return { ok: false, raison: refus };
     return { ok: true };
   }
@@ -2548,7 +2559,7 @@ export class WorkflowExecutor {
     if (envoieParWhatsApp(actions, apresWalk)) await this.deps.verifierNumeroWhatsApp(tenantId);
     // Un contact qui répond est unitaire par nature : ses tags publient.
     // La réponse du contact ne lève pas la garde marketing : un parcours né d'une automation la garde jusqu'au bout.
-    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, actions, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk, battement);
+    const { refus, partis, canal, refusDesBlocs } = await this.apply(tenantId, waId, actions, run.exigeAccordMarketing, undefined, true, run.workflowId, apresWalk, battement, run.evenement);
     // La ligne du journal d'un envoi refusé nomme le message du contact qui l'a déclenché.
     const origine = { workflowId: run.workflowId, runId: run.id, messageId, graph };
     // Même règle qu'au réveil : un envoi refusé n'attend aucune réponse. On clôt le run (en gardant

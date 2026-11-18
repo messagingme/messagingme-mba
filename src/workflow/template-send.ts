@@ -37,6 +37,8 @@ export function buildWorkflowTemplateComponents(opts: {
   /** Horodatage courant + fuseau, pour la source de variable NOW (date du jour). Absent -> pas de NOW résolu. */
   now?: Date;
   tz?: string;
+  /** Les variables d'un parcours d'événement (lot 4), lues par la source `variable` ; absentes, cette source manque. */
+  variables?: Readonly<Record<string, string>>;
   /**
    * Jeton de session d'un bouton FLOW. Meta l'exige non vide à l'envoi d'un template NAVIGATE (sinon #131009).
    * La corrélation de la réponse passe par `_ref` baké dans le flow_json, pas par ce jeton : toute valeur non
@@ -66,7 +68,9 @@ export function buildWorkflowTemplateComponents(opts: {
 }): { components: unknown[]; missing: number[] } {
   const resolved = opts.explicitParams !== undefined
     ? { values: opts.explicitParams, missing: opts.explicitParams.flatMap((v, i) => (v === '' ? [i + 1] : [])) }
-    : opts.varCount > 0 ? resolveHintParams(opts.hints, opts.varCount, opts.contact, { now: opts.now, tz: opts.tz }) : { values: [], missing: [] };
+    : opts.varCount > 0
+      ? resolveHintParams(opts.hints, opts.varCount, opts.contact, { now: opts.now, tz: opts.tz, ...(opts.variables ? { variables: opts.variables } : {}) })
+      : { values: [], missing: [] };
   const bodyComponents = buildTemplateComponents({
     bodyParams: resolved.values,
     ...(opts.carousel ? { carousel: opts.carousel } : {}),

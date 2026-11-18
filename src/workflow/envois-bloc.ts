@@ -202,7 +202,7 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
   };
 
   return {
-    sendTemplate: async (tenant, waId, name, language, buttons, explicitParams, sources) => {
+    sendTemplate: async (tenant, waId, name, language, buttons, explicitParams, sources, variables) => {
       if (dryRun) return; // DRY_RUN : aucun appel Meta
       const client = await clientWhatsApp(tenant, 'workflow sendTemplate', `template « ${name} » non envoyé`);
       if (typeof client === 'string') return client;
@@ -309,12 +309,16 @@ export function creerEnvoisDeBloc(deps: DepsEnvoisDeBloc): EnvoisDeBloc {
       }
       const { components, missing } = buildWorkflowTemplateComponents({
         hints, varCount: info.count, contact: contact ?? {}, buttons, flowToken: `${waId}-${Date.now()}`, now: new Date(),
+        ...(variables ? { variables } : {}),
         ...visuels,
         ...suffixes,
       });
       if (missing.length > 0) {
         // eslint-disable-next-line no-console
         console.error(`workflow sendTemplate: « ${name} » non envoyé à ${waId} : variable(s) manquante(s) position(s) ${missing.join(',')}`);
+        // Une source `variable` qui manque se nomme (lot 4) : c'est une donnée de l'événement, pas un champ de la fiche.
+        const duParcours = missing.flatMap((p) => { const h = hints.find((x) => x.position === p); return h?.source.type === 'variable' ? [h.source.key] : []; });
+        if (duParcours.length > 0) return `template « ${name} » : la variable du parcours ${duParcours.map((k) => `« ${k} »`).join(', ')} manque`;
         return `template « ${name} » : ce contact n'a pas de valeur pour la ou les variables ${missing.map((p) => `{{${p}}}`).join(', ')}`;
       }
       const res = await modeleOuLimite(name, waId, () => envoyerModele(client, waId, { name, language, ...(components.length > 0 ? { components } : {}) }, info.category));
